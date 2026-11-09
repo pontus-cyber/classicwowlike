@@ -110,7 +110,9 @@ function engineBackend(seedOpt) {
     nodeHours: Object.fromEntries(Object.values(C.NODE_TYPE).map((t) => [t.id, t.hours])),
     boss: { name: C.BOSS_TEXT.name, intro: (CONTENT.camp && CONTENT.camp.bossText) || '' },
   };
-  const spellName = (id) => (C.SPELL[id] ? C.SPELL[id].name : id === 'pet' ? 'Pet' : TXT.humanize(id));
+  const consName = (id) => (C.CONSUMABLE[id] ? C.CONSUMABLE[id].name : null);
+  // a damage or heal source: a spell, the pet, or a consumable (potions, Spark Flask)
+  const spellName = (id) => (C.SPELL[id] ? C.SPELL[id].name : id === 'pet' ? 'Pet' : consName(id) || TXT.humanize(id));
 
   // ---------------------------------------------------------------- conversions
   const gearKind = (slot, cls) => (slot === 'weapon' ? { rogue: 'dagger', mage: 'staff', hunter: 'bow' }[cls] : slot === 'offhand' ? { rogue: 'dagger', mage: 'tome', hunter: 'quiver' }[cls] : slot);
@@ -388,6 +390,17 @@ function engineBackend(seedOpt) {
     const ref = (u) => (u === 'player' ? { side: 'player', idx: 0 } : u === 'pet' ? { side: 'pet', idx: 0 } : typeof u === 'number' ? { side: 'enemy', idx: u } : { side: 'env', idx: 0 });
     const enemyName = (u) => { const e = (nf && nf.enemies[u]) || (prevView && prevView.combat && prevView.combat.enemies.find((x) => x.idx === u)); return e ? e.name : 'Enemy'; };
     const prevIntent = (u) => { const e = prevView && prevView.combat && prevView.combat.enemies.find((x) => x.idx === u); return e ? e.intent : null; };
+    // Item events carry a consumable id or an item uid: find the name after the step (bags, equipment,
+    // loot window) or before it (an item just sold).
+    const itemName = (idOrUid) => {
+      if (consName(idOrUid)) return consName(idOrUid);
+      const p = s.player;
+      const now = p ? [...(p.bag || []), ...Object.values(p.equipped || {}), ...(s.loot || [])].find((x) => x && x.uid === idOrUid) : null;
+      if (now) return now.name || consName(now.id) || 'an item';
+      const before = prevView && prevView.player ? prevView.player.bag.find((x) => x && x.uid === idOrUid) : null;
+      return before ? before.name : 'an item';
+    };
+    let lastUsed = null; // name of the last item used in this step (out-of-combat heals carry no source)
     let res = prevView && prevView.player ? prevView.player.res.cur : 0;
     for (const e of events) {
       switch (e.t) {
@@ -417,7 +430,7 @@ function engineBackend(seedOpt) {
           break;
         }
         case 'miss': out.push({ t: 'damage', src: ref(e.src), dst: ref(e.dst), amount: 0, miss: true, dodge: !!e.dodge, name: e.spell === 'pet' ? 'Pet' : spellName(e.spell), school: 'phys', hpAfter: hp.get(key(e.dst)), maxHp: max.get(key(e.dst)) }); break;
-        case 'heal': { const k = key(e.dst); const m = max.get(k) ?? Infinity; const after = Math.min(m, (hp.get(k) ?? 0) + (e.amount || 0)); hp.set(k, after); out.push({ t: 'heal', dst: ref(e.dst), amount: e.amount || 0, name: spellName(e.spell), hpAfter: after, maxHp: max.get(k) }); break; }
+        case 'heal': { const k = key(e.dst); const m = max.get(k) ?? Infinity; const after = Math.min(m, (hp.get(k) ?? 0) + (e.amount || 0)); hp.set(k, after); out.push({ t: 'heal', dst: ref(e.dst), amount: e.amount || 0, name: e.spell ? spellName(e.spell) : lastUsed || 'Healing', hpAfter: after, maxHp: max.get(k) }); break; }
         case 'petRevive': hp.set('pet', e.hp); out.push({ t: 'heal', dst: ref('pet'), amount: e.hp, name: 'Revive', hpAfter: e.hp, maxHp: max.get('pet') }); break;
         case 'mana': res = Math.max(0, res + (e.amount || 0)); out.push({ t: 'resource', amount: e.amount, after: res }); break;
         case 'status': out.push({ t: 'status', dst: ref(e.u), id: e.id, op: e.on ? 'add' : 'remove', stacks: e.stacks }); break;
@@ -438,7 +451,7 @@ function engineBackend(seedOpt) {
         case 'resurrect': hp.set('player', s.player.hp); out.push({ t: 'resurrect', source: { boon: 'Boon of Return', second_breath: 'Second Breath', ember: 'Ember of Return' }[e.source] || 'A resurrection', hpAfter: s.player.hp, maxHp: s.player.d.maxHp }); break;
         case 'xp': if (e.amount > 0) out.push({ t: 'xp', amount: e.amount, rested: e.rested || 0, why: e.why }); break;
         case 'levelUp': out.push({ t: 'levelUp', level: e.level, talentPoint: !!e.talentPoint, newSpells: Object.values(C.SPELL).filter((sp) => sp.cls === s.player.classId && sp.source === 'class' && sp.lvl === e.level).map((sp) => sp.name), hp: s.player.hp, maxHp: s.player.d.maxHp }); break;
-        case 'gold': if (e.amount > 0) out.push({ t: 'gold', amount: e.amount, why: e.why }); break;
+        case 'gold': if (e.amount > 0 && e.why !== 'sell') out.push({ t: 'gold', amount: e.amount, why: e.why }); break; // a sale says its price itself
         case 'loot': out.push({ t: 'gotItem', name: e.item.name || (C.CONSUMABLE[e.item.id] || {}).name || 'item', rarity: e.item.rarity || 'common', to: e.to }); break;
         case 'victory': out.push({ t: 'victory' }); break;
         case 'fled': out.push({ t: 'flee', ok: true }); break;
@@ -450,11 +463,11 @@ function engineBackend(seedOpt) {
         case 'rest': out.push({ t: 'rest', rested: e.rested }); break;
         case 'learn': out.push({ t: 'learn', id: e.spellId || e.spell, name: spellName(e.spellId || e.spell) }); break;
         case 'train': out.push({ t: 'train', id: e.spellId || e.spell, name: spellName(e.spellId || e.spell), rank: e.rank || '' }); break;
-        case 'buy': out.push({ t: 'buy', name: e.name || (e.item && e.item.name) || (C.CONSUMABLE[e.id] || {}).name || 'item' }); break;
-        case 'sell': out.push({ t: 'sell', name: e.name || 'item', gold: e.gold || e.amount || 0 }); break;
-        case 'equip': out.push({ t: 'equip', name: e.name || (e.item && e.item.name) || 'item' }); break;
+        case 'buy': out.push({ t: 'buy', name: itemName(e.item), price: e.price || 0 }); break;
+        case 'sell': out.push({ t: 'sell', name: itemName(e.item), gold: e.value || 0 }); break;
+        case 'equip': out.push({ t: 'equip', name: itemName(e.item) }); break;
         case 'talent': out.push({ t: 'talent', name: (C.TALENT[e.talentId || e.id] || {}).name || 'talent', rank: e.rank || '' }); break;
-        case 'useItem': out.push({ t: 'used', name: (C.CONSUMABLE[e.id || e.itemId] || {}).name || 'item' }); break;
+        case 'useItem': lastUsed = consName(e.item) || 'An item'; out.push({ t: 'used', name: lastUsed }); break;
         case 'zone': out.push({ t: 'zone' }); break;
         default: break;
       }
