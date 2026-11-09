@@ -63,7 +63,7 @@ Boss:
 | Pillars of the Field | Wardkeeper Ilsa | gather | The boundary stones are cracking. Gather shards from the stone sentinels to be reset. | These shards will mend the old wards. | 2/4/4 |
 | A Hermit's Debt | Brother Alden | rescue | An old herbalist in the briars owes me a favour and will not answer. See that she is well. | She lives, though changed. I am in your debt. | 4/4/2 |
 | The Ogre of the Threshing Floor | Reeve Hollis | slay | An ogre has seized the village threshing floor and the grain with it. Drive him out. | The floor is ours again. Well fought. | 1/4/5 |
-| Ashes on the Wind | Captain Brae | scout | Smoke rises from the old Harrow manor. Learn who lights fires among the ruins. | Cultists in the cellars. We must act at once. | 3/4/3 |
+| Ashes on the Wind | Captain Brae | scout | Smoke rises from the old Harrow manor, where thieves and straw figures shelter in the ruins. Learn who lit the fires. | Cultists in the cellars, and thieves above. We must act at once. | 3/4/3 |
 
 ### Shrine lines
 
@@ -149,7 +149,7 @@ Boss:
 | Salt for the Smokehouse | Ketil Reedman | deliver | Bring this salt crate across the fen to the smokehouse. The lurkers hunt the shallows. | Not a grain wet. You have my thanks. | 5/4/1 |
 | A Witch's Bargain | Old Sedge | slay | The bog witches poison the wells to sell the cure. End their trade for good. | The wells run clear. At last. | 1/4/5 |
 | Fenmother's Request | Priestess Lorn | rescue | Two of our acolytes are missing past the black pool. Bring them home, if they live. | They are safe. The waters bless you. | 3/4/3 |
-| Gloam Eel Tales | Fisher Dagny | slay | A giant eel has taken three boats this season. Hunt it down in the dark channel. | A thing like that should not be swimming. Well done. | 3/4/3 |
+| Gloam Eel Tales | Fisher Dagny | slay | Gape-jawed lurkers have taken three boats this season. Hunt them down in the dark channel. | Things like that should not be swimming. Well done. | 3/4/3 |
 | Rot Beneath the Planks | Harbourwarden Pell | slay | Peat guardians wake near the stilt walkways and crack our footings. Break them apart. | The footings hold. We owe you. | 4/4/2 |
 | The Weir Keeps Rising | Surveyor Ansel | scout | Something works the floodgates of the old weir at night. Look into the dam-keep and report. | So the weir is held. Then we must act. | 2/4/4 |
 
@@ -240,7 +240,7 @@ Boss:
 | Reiver's Toll | Thane Brannoch | slay | Heath reivers take tolls at the ford where none are owed. Show them the Hold's answer. | The ford is free again. | 2/4/4 |
 | Ram-Horn Signal | Huntress Ketra | gather | We need ridge-ram horns for the warning pipes. Gather six and bring them down. | These will carry across three valleys. | 3/4/3 |
 | A Healer Taken | Hearth-Mother Orla | rescue | Our hearth-priest was seized on the high road. Free him from the warband that holds him. | He lives! Blessings on you. | 4/4/2 |
-| The Silent Cairns | Lorekeeper Ysolt | scout | No bell has rung from the Barrow road in a week. Go and see what has silenced it. | The dead walk. We must warn the clans. | 3/4/3 |
+| The Silent Cairns | Lorekeeper Ysolt | scout | No bell has rung from the Barrow road in a week. Go and see what has silenced it. | A giant has torn up the cairns. We must warn the clans. | 3/4/3 |
 | Hrothgar's Oath | Thane Brannoch | slay | Hrothgar Stonefist blocks the pass and will not yield. Break his oath if you must. | He kept his word to the end. May he rest. | 1/4/5 |
 
 ### Shrine lines

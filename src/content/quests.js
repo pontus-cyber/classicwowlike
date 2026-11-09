@@ -11,6 +11,9 @@ export const QUESTS = {
    40,
    40,
    20
+  ],
+  "enemies": [
+   "z1_furrow_boar"
   ]
  },
  "q_z1_lost_lambs": {
@@ -24,6 +27,9 @@ export const QUESTS = {
    30,
    40,
    30
+  ],
+  "enemies": [
+   "z1_barn_wolf"
   ]
  },
  "q_z1_hedge_and_thorn": {
@@ -37,6 +43,9 @@ export const QUESTS = {
    20,
    40,
    40
+  ],
+  "enemies": [
+   "z1_hedgerow_cutpurse"
   ]
  },
  "q_z1_flour_for_the_crossing": {
@@ -50,6 +59,9 @@ export const QUESTS = {
    50,
    40,
    10
+  ],
+  "enemies": [
+   "z1_barn_wolf"
   ]
  },
  "q_z1_what_the_scarecrow_saw": {
@@ -63,6 +75,9 @@ export const QUESTS = {
    30,
    40,
    30
+  ],
+  "enemies": [
+   "z1_scarecrow_hexer"
   ]
  },
  "q_z1_pillars_of_the_field": {
@@ -76,6 +91,9 @@ export const QUESTS = {
    20,
    40,
    40
+  ],
+  "enemies": [
+   "z1_stonewall_sentinel"
   ]
  },
  "q_z1_a_hermit_s_debt": {
@@ -89,6 +107,10 @@ export const QUESTS = {
    40,
    40,
    20
+  ],
+  "enemies": [
+   "z1_bramble_herbalist",
+   "z1_hedgerow_cutpurse"
   ]
  },
  "q_z1_the_ogre_of_the_threshing_floor": {
@@ -102,6 +124,9 @@ export const QUESTS = {
    10,
    40,
    50
+  ],
+  "enemies": [
+   "z1_hedge_ogre"
   ]
  },
  "q_z1_ashes_on_the_wind": {
@@ -109,12 +134,16 @@ export const QUESTS = {
   "title": "Ashes on the Wind",
   "giver": "Captain Brae",
   "objective": "scout",
-  "text": "Smoke rises from the old Harrow manor. Learn who lights fires among the ruins.",
-  "turnIn": "Cultists in the cellars. We must act at once.",
+  "text": "Smoke rises from the old Harrow manor, where thieves and straw figures shelter in the ruins. Learn who lit the fires.",
+  "turnIn": "Cultists in the cellars, and thieves above. We must act at once.",
   "sizeWeights": [
    30,
    40,
    30
+  ],
+  "enemies": [
+   "z1_hedgerow_cutpurse",
+   "z1_scarecrow_hexer"
   ]
  },
  "q_z2_fever_on_the_water": {
@@ -128,6 +157,9 @@ export const QUESTS = {
    30,
    40,
    30
+  ],
+  "enemies": [
+   "z2_bog_witch"
   ]
  },
  "q_z2_stilts_and_snares": {
@@ -141,6 +173,9 @@ export const QUESTS = {
    20,
    40,
    40
+  ],
+  "enemies": [
+   "z2_mist_hound"
   ]
  },
  "q_z2_the_lost_causeway": {
@@ -154,6 +189,10 @@ export const QUESTS = {
    40,
    40,
    20
+  ],
+  "enemies": [
+   "z2_marsh_lurker",
+   "z2_reed_stalker"
   ]
  },
  "q_z2_salt_for_the_smokehouse": {
@@ -167,6 +206,9 @@ export const QUESTS = {
    50,
    40,
    10
+  ],
+  "enemies": [
+   "z2_marsh_lurker"
   ]
  },
  "q_z2_a_witch_s_bargain": {
@@ -180,6 +222,9 @@ export const QUESTS = {
    10,
    40,
    50
+  ],
+  "enemies": [
+   "z2_bog_witch"
   ]
  },
  "q_z2_fenmother_s_request": {
@@ -193,6 +238,10 @@ export const QUESTS = {
    30,
    40,
    30
+  ],
+  "enemies": [
+   "z2_fen_healer",
+   "z2_marsh_lurker"
   ]
  },
  "q_z2_gloam_eel_tales": {
@@ -200,12 +249,15 @@ export const QUESTS = {
   "title": "Gloam Eel Tales",
   "giver": "Fisher Dagny",
   "objective": "slay",
-  "text": "A giant eel has taken three boats this season. Hunt it down in the dark channel.",
-  "turnIn": "A thing like that should not be swimming. Well done.",
+  "text": "Gape-jawed lurkers have taken three boats this season. Hunt them down in the dark channel.",
+  "turnIn": "Things like that should not be swimming. Well done.",
   "sizeWeights": [
    30,
    40,
    30
+  ],
+  "enemies": [
+   "z2_marsh_lurker"
   ]
  },
  "q_z2_rot_beneath_the_planks": {
@@ -219,6 +271,9 @@ export const QUESTS = {
    40,
    40,
    20
+  ],
+  "enemies": [
+   "z2_peat_sentinel"
   ]
  },
  "q_z2_the_weir_keeps_rising": {
@@ -232,6 +287,10 @@ export const QUESTS = {
    20,
    40,
    40
+  ],
+  "enemies": [
+   "z2_mire_brute",
+   "z2_reed_stalker"
   ]
  },
  "q_z3_wolves_at_the_wall": {
@@ -245,6 +304,9 @@ export const QUESTS = {
    40,
    40,
    20
+  ],
+  "enemies": [
+   "z3_crag_prowler"
   ]
  },
  "q_z3_stones_that_walk": {
@@ -258,6 +320,9 @@ export const QUESTS = {
    30,
    40,
    30
+  ],
+  "enemies": [
+   "z3_standing_stone_guard"
   ]
  },
  "q_z3_lightning_on_the_ridge": {
@@ -271,6 +336,9 @@ export const QUESTS = {
    20,
    40,
    40
+  ],
+  "enemies": [
+   "z3_wind_shaman"
   ]
  },
  "q_z3_mead_for_the_steading": {
@@ -284,6 +352,9 @@ export const QUESTS = {
    50,
    40,
    10
+  ],
+  "enemies": [
+   "z3_reiver_scout"
   ]
  },
  "q_z3_reiver_s_toll": {
@@ -297,6 +368,9 @@ export const QUESTS = {
    20,
    40,
    40
+  ],
+  "enemies": [
+   "z3_reiver_scout"
   ]
  },
  "q_z3_ram_horn_signal": {
@@ -310,6 +384,9 @@ export const QUESTS = {
    30,
    40,
    30
+  ],
+  "enemies": [
+   "z3_ridge_ram"
   ]
  },
  "q_z3_a_healer_taken": {
@@ -323,6 +400,10 @@ export const QUESTS = {
    40,
    40,
    20
+  ],
+  "enemies": [
+   "z3_reiver_scout",
+   "z3_hearth_priest"
   ]
  },
  "q_z3_the_silent_cairns": {
@@ -331,11 +412,14 @@ export const QUESTS = {
   "giver": "Lorekeeper Ysolt",
   "objective": "scout",
   "text": "No bell has rung from the Barrow road in a week. Go and see what has silenced it.",
-  "turnIn": "The dead walk. We must warn the clans.",
+  "turnIn": "A giant has torn up the cairns. We must warn the clans.",
   "sizeWeights": [
    30,
    40,
    30
+  ],
+  "enemies": [
+   "z3_cairn_brute"
   ]
  },
  "q_z3_hrothgar_s_oath": {
@@ -349,6 +433,10 @@ export const QUESTS = {
    10,
    40,
    50
+  ],
+  "enemies": [
+   "z3_reiver_scout",
+   "z3_cairn_brute"
   ]
  },
  "q_z4_the_thirsty_caravan": {
@@ -362,6 +450,9 @@ export const QUESTS = {
    50,
    40,
    10
+  ],
+  "enemies": [
+   "z4_dust_jackal"
   ]
  },
  "q_z4_scarab_plague": {
@@ -375,6 +466,9 @@ export const QUESTS = {
    20,
    40,
    40
+  ],
+  "enemies": [
+   "z4_scarab_swarm"
   ]
  },
  "q_z4_whispers_in_the_glyphs": {
@@ -388,6 +482,10 @@ export const QUESTS = {
    30,
    40,
    30
+  ],
+  "enemies": [
+   "z4_sun_cultist",
+   "z4_sepulchre_guard"
   ]
  },
  "q_z4_cistern_keeper_s_plea": {
@@ -401,6 +499,10 @@ export const QUESTS = {
    40,
    40,
    20
+  ],
+  "enemies": [
+   "z4_sand_stalker",
+   "z4_canal_healer"
   ]
  },
  "q_z4_relics_of_the_empire": {
@@ -414,6 +516,9 @@ export const QUESTS = {
    30,
    40,
    30
+  ],
+  "enemies": [
+   "z4_dune_juggernaut"
   ]
  },
  "q_z4_sandstorm_hunters": {
@@ -427,6 +532,9 @@ export const QUESTS = {
    20,
    40,
    40
+  ],
+  "enemies": [
+   "z4_sand_stalker"
   ]
  },
  "q_z4_the_unburied_champion": {
@@ -440,6 +548,9 @@ export const QUESTS = {
    10,
    40,
    50
+  ],
+  "enemies": [
+   "z4_sepulchre_guard"
   ]
  },
  "q_z4_light_the_beacon": {
@@ -453,6 +564,10 @@ export const QUESTS = {
    30,
    40,
    30
+  ],
+  "enemies": [
+   "z4_dust_jackal",
+   "z4_sun_cultist"
   ]
  },
  "q_z4_sun_priest_s_silence": {
@@ -466,6 +581,10 @@ export const QUESTS = {
    40,
    40,
    20
+  ],
+  "enemies": [
+   "z4_sun_cultist",
+   "z4_canal_healer"
   ]
  },
  "q_z5_lanterns_for_the_lost": {
@@ -479,6 +598,10 @@ export const QUESTS = {
    30,
    40,
    30
+  ],
+  "enemies": [
+   "z5_thorn_wisp",
+   "z5_lantern_keeper"
   ]
  },
  "q_z5_the_weeping_statues": {
@@ -492,6 +615,9 @@ export const QUESTS = {
    30,
    40,
    30
+  ],
+  "enemies": [
+   "z5_stone_penitent"
   ]
  },
  "q_z5_hollow_heart": {
@@ -505,6 +631,9 @@ export const QUESTS = {
    20,
    40,
    40
+  ],
+  "enemies": [
+   "z5_hollow_oak"
   ]
  },
  "q_z5_bell_in_the_mist": {
@@ -518,6 +647,10 @@ export const QUESTS = {
    40,
    40,
    20
+  ],
+  "enemies": [
+   "z5_wraith_stalker",
+   "z5_lantern_keeper"
   ]
  },
  "q_z5_hounds_of_the_graveyard": {
@@ -531,6 +664,9 @@ export const QUESTS = {
    20,
    40,
    40
+  ],
+  "enemies": [
+   "z5_ghoul_hound"
   ]
  },
  "q_z5_letters_to_the_grave": {
@@ -544,6 +680,10 @@ export const QUESTS = {
    50,
    40,
    10
+  ],
+  "enemies": [
+   "z5_ghoul_hound",
+   "z5_wraith_stalker"
   ]
  },
  "q_z5_veil_cursed": {
@@ -557,6 +697,9 @@ export const QUESTS = {
    40,
    40,
    20
+  ],
+  "enemies": [
+   "z5_hex_widow"
   ]
  },
  "q_z5_the_pale_hunter": {
@@ -570,6 +713,9 @@ export const QUESTS = {
    10,
    40,
    50
+  ],
+  "enemies": [
+   "z5_wraith_stalker"
   ]
  },
  "q_z5_lord_varis_s_penance": {
@@ -583,6 +729,10 @@ export const QUESTS = {
    30,
    40,
    30
+  ],
+  "enemies": [
+   "z5_wraith_stalker",
+   "z5_hex_widow"
   ]
  },
  "q_z6_the_ash_road": {
@@ -596,6 +746,10 @@ export const QUESTS = {
    30,
    40,
    30
+  ],
+  "enemies": [
+   "z6_slag_brute",
+   "z6_ash_stalker"
   ]
  },
  "q_z6_hounds_of_fire": {
@@ -609,6 +763,9 @@ export const QUESTS = {
    20,
    40,
    40
+  ],
+  "enemies": [
+   "z6_magma_hound"
   ]
  },
  "q_z6_embers_of_the_old_forge": {
@@ -622,6 +779,9 @@ export const QUESTS = {
    30,
    40,
    30
+  ],
+  "enemies": [
+   "z6_slag_brute"
   ]
  },
  "q_z6_the_last_supply_wagon": {
@@ -635,6 +795,9 @@ export const QUESTS = {
    50,
    40,
    10
+  ],
+  "enemies": [
+   "z6_cinder_wyrmling"
   ]
  },
  "q_z6_the_obsidian_wardens": {
@@ -648,6 +811,9 @@ export const QUESTS = {
    40,
    40,
    20
+  ],
+  "enemies": [
+   "z6_obsidian_warden"
   ]
  },
  "q_z6_cult_of_the_furnace": {
@@ -661,6 +827,10 @@ export const QUESTS = {
    30,
    40,
    30
+  ],
+  "enemies": [
+   "z6_forge_priest",
+   "z6_pyre_magus"
   ]
  },
  "q_z6_pyre_magus": {
@@ -674,6 +844,9 @@ export const QUESTS = {
    10,
    40,
    50
+  ],
+  "enemies": [
+   "z6_pyre_magus"
   ]
  },
  "q_z6_rescue_at_emberwatch": {
@@ -687,6 +860,10 @@ export const QUESTS = {
    40,
    40,
    20
+  ],
+  "enemies": [
+   "z6_forge_priest",
+   "z6_ash_stalker"
   ]
  },
  "q_z6_the_drake_s_roost": {
@@ -700,6 +877,9 @@ export const QUESTS = {
    20,
    40,
    40
+  ],
+  "enemies": [
+   "z6_cinder_wyrmling"
   ]
  }
 };
