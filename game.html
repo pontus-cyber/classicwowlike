@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="22faebe 2026-11-09T15:54:32Z">
+<meta name="build" content="a11e647 2026-11-09T18:21:58Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -357,12 +357,17 @@ button { font-family: inherit; }
 .vendor-cols .list { padding: .2rem .2rem; }
 .vendor-cols h3 { margin: 0 0 .6rem; font: 600 1.4rem var(--font-title); color: var(--gold); }
 
-/* hub / camp */
-.side { position: absolute; right: 2rem; top: 21rem; width: 44rem; max-height: calc(100vh - 36rem); overflow-y: auto; scrollbar-width: thin; }
-.svc-card { display: flex; align-items: center; gap: 1.1rem; padding: .9rem; border-radius: .5rem; background: rgba(0, 0, 0, .32); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); cursor: pointer; transition: background .15s, box-shadow .15s; }
+/* hub / camp: the body scrolls if it must; the footer with the main button always stays in view */
+.side { position: absolute; right: 2rem; top: 21rem; width: 44rem; max-height: calc(100vh - 36rem); display: flex; flex-direction: column; }
+.side > .wtitle { flex: none; }
+.side > .body { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #5a4628 transparent; }
+.side > .sfoot { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 1.2rem; padding: .8rem 1.6rem 1.1rem; border-top: 1px solid rgba(208, 170, 96, .25); }
+.side > .sfoot .kv { flex: 1 1 auto; min-width: 0; gap: .2rem 1rem; font-size: 1.2rem; }
+.side > .sfoot .btn { flex: none; white-space: nowrap; }
+.svc-card { display: flex; align-items: center; gap: 1rem; padding: .6rem .8rem; border-radius: .5rem; background: rgba(0, 0, 0, .32); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); cursor: pointer; transition: background .15s, box-shadow .15s; }
 .svc-card:hover { background: rgba(60, 46, 26, .55); box-shadow: inset 0 0 0 1px rgba(236, 198, 110, .7); }
 .svc-card.used { opacity: .45; cursor: default; }
-.svc-card img { width: 5rem; height: 5rem; border-radius: .5rem; border: 1px solid #000; }
+.svc-card img { width: 4rem; height: 4rem; border-radius: .5rem; border: 1px solid #000; }
 .svc-card .nm { font: 700 1.45rem var(--font-ui); }
 .svc-card .meta { font-size: 1.15rem; color: var(--ink-dim); }
 .svc-card .hrs { margin-left: auto; font: 700 1.2rem var(--font-num); color: var(--gold); white-space: nowrap; }
@@ -502,8 +507,8 @@ button { font-family: inherit; }
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (22faebe 2026-11-09T15:54:32Z) from 45 modules.
-const __BUILD__ = "22faebe 2026-11-09T15:54:32Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (a11e647 2026-11-09T18:21:58Z) from 45 modules.
+const __BUILD__ = "a11e647 2026-11-09T18:21:58Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -11428,6 +11433,7 @@ yield;
 //              cooldowns: { spellId: roundsLeft }, potionCd, kind, isBoss, boss: { phase, asc, telegraph }, over, title, fightNo, fights }
 //   loot:    { kind: 'loot'|'reward'|'story', title, text?, gold, xp, items?, choices? }
 //   summary: run summary (rules.md 9)
+//   camp:    { par, asc } at the camp (asc: the engine's Ascendancy if the boss were faced now), else null
 //   legal:   { lanes, travelOn, mustTravel, outOfCombat, spells: { id: { ok, reason, cd } }, items: [{ ok, reason, count, cd }],
 //              attack, flee, fleeChance?, services, talents, trainer }
 // Events: { t: 'damage'|'heal'|'action'|'status'|'death'|'interrupt'|'skip'|'xp'|'levelUp'|'victory'|'flee'|'resurrect'|'bossPhase'|'summon'|... }
@@ -11446,7 +11452,10 @@ function mockBackend(seed) {
   let state = mock.createState({ seed });
   return {
     mode: 'mock', data: mock.data, canDebug: true,
-    view() { return { ...state, legal: state.player ? mock.legalInfo(state) : { lanes: [], services: {}, items: [], spells: {} }, mode: 'mock' }; },
+    view() {
+      const camp = state.phase === 'CAMP' ? { par: 130, asc: Math.min(0.4, 0.04 * Math.floor(Math.max(0, state.hours - 130) / 10)) } : null; // mock numbers
+      return { ...state, camp, legal: state.player ? mock.legalInfo(state) : { lanes: [], services: {}, items: [], spells: {} }, mode: 'mock' };
+    },
     step(action) {
       const r = mock.step(state, action);
       if (r.ok) state = r.state;
@@ -11501,14 +11510,16 @@ function engineBackend(seedOpt) {
     }])),
     talents: Object.fromEntries(Object.values(C.TALENT).map((t) => [t.id, { id: t.id, tree: treeId(t.cls, t.tree), tier: t.tier, name: t.name, ranks: t.ranks, spell: t.spell || null, text: TXT.talentText(t.id, CONTENT) }])),
     pets: Object.fromEntries(Object.values(C.PET).map((p) => [p.id, { id: p.id, name: p.name, text: TXT.petText(p.id, CONTENT), locked: !!p.meta && !(profile && profile.unlocks && profile.unlocks[p.meta]) }])),
-    consumables: Object.fromEntries(Object.values(C.CONSUMABLE).map((c) => [c.id, { id: c.id, name: c.name, use: USE_MAP[c.use] || 'both', stack: c.stack, text: TXT.consumableText(c.id, CONTENT) }])),
+    consumables: Object.fromEntries(Object.values(C.CONSUMABLE).map((c) => [c.id, { id: c.id, name: c.name, use: USE_MAP[c.use] || 'both', stack: c.stack, mana: !!c.mana, text: TXT.consumableText(c.id, CONTENT) }])),
     statuses: TXT.STATUS_INFO,
     boons: Object.fromEntries(Object.values(C.BOON).map((b) => [b.id, { id: b.id, name: b.name, text: TXT.boonText(b.id, CONTENT) }])),
     slots: C.SLOT_IDS, zones: CONTENT.zones, camp: CONTENT.camp,
     nodeHours: Object.fromEntries(Object.values(C.NODE_TYPE).map((t) => [t.id, t.hours])),
     boss: { name: C.BOSS_TEXT.name, intro: (CONTENT.camp && CONTENT.camp.bossText) || '' },
   };
-  const spellName = (id) => (C.SPELL[id] ? C.SPELL[id].name : id === 'pet' ? 'Pet' : TXT.humanize(id));
+  const consName = (id) => (C.CONSUMABLE[id] ? C.CONSUMABLE[id].name : null);
+  // a damage or heal source: a spell, the pet, or a consumable (potions, Spark Flask)
+  const spellName = (id) => (C.SPELL[id] ? C.SPELL[id].name : id === 'pet' ? 'Pet' : consName(id) || TXT.humanize(id));
 
   // ---------------------------------------------------------------- conversions
   const gearKind = (slot, cls) => (slot === 'weapon' ? { rogue: 'dagger', mage: 'staff', hunter: 'bow' }[cls] : slot === 'offhand' ? { rogue: 'dagger', mage: 'tome', hunter: 'quiver' }[cls] : slot);
@@ -11568,7 +11579,7 @@ function engineBackend(seedOpt) {
     const mv = R.mapView(s);
     const rows = mv ? mv.rows.map((row) => row.map((n) => {
       const out = { row: n.r, lane: n.l, type: n.type, cl: n.cl, visited: !!n.done, title: n.title, level: n.level };
-      if (n.archetypes) out.enemyNames = [...new Set(n.archetypes.map(TXT.humanize))];
+      if (n.archetypes) out.enemyNames = n.archetypes.map(TXT.humanize); // one entry per enemy (grind: the first wave)
       if (n.type === 'elite') { out.eliteName = n.name || null; out.rare = n.rare; }
       if (n.type === 'dungeon') { out.dungeon = n.name; out.bossName = zc && CONTENT.enemies[zc.dungeon.boss] ? CONTENT.enemies[zc.dungeon.boss].name : ''; }
       if (n.type === 'quest' && n.title) { const q = Object.values(CONTENT.quests).find((x) => x.title === n.title); if (q) out.giver = q.giver; }
@@ -11695,6 +11706,10 @@ function engineBackend(seedOpt) {
   function dryCost(s, action) {
     try { const r = R.step(s, action); return s.player.gold - r.state.player.gold; } catch { return null; }
   }
+  /** The boss's Ascendancy if the player faced it now: read from a dry FIGHT_BOSS step, not recomputed here. */
+  function dryBossAsc(s) {
+    try { const f = R.step(s, { type: 'FIGHT_BOSS' }).state.fight; return f && f.boss ? f.boss.asc : null; } catch { return null; }
+  }
   function trainerList(s, has) {
     const p = s.player;
     const list = Object.values(C.SPELL).filter((sp) => sp.cls === p.classId && (sp.source === 'class' || has('LEARN', (a) => a.spellId === sp.id)) && sp.source !== 'talent').sort((a, b) => a.lvl - b.lvl);
@@ -11744,6 +11759,7 @@ function engineBackend(seedOpt) {
     v.combat = convFight(s);
     v.loot = null;
     v.summary = v.phase === 'SUMMARY' ? convSummary(s) : null;
+    v.camp = s.phase === 'CAMP' && !s.fight && !s.service ? { par: C.BOSS_TIME_PAR, asc: dryBossAsc(s) } : null;
     if (v.phase === 'CAMP' && s.fight) v.phase = 'NODE';
     if (v.node && v.node.step === 'intro' && s.fight) v.combat = null; // the intro dialog is read before the fight is shown
     const win = (s.loot || []).map((it) => item(it, s.player.classId, { pending: true }));
@@ -11781,6 +11797,17 @@ function engineBackend(seedOpt) {
     const ref = (u) => (u === 'player' ? { side: 'player', idx: 0 } : u === 'pet' ? { side: 'pet', idx: 0 } : typeof u === 'number' ? { side: 'enemy', idx: u } : { side: 'env', idx: 0 });
     const enemyName = (u) => { const e = (nf && nf.enemies[u]) || (prevView && prevView.combat && prevView.combat.enemies.find((x) => x.idx === u)); return e ? e.name : 'Enemy'; };
     const prevIntent = (u) => { const e = prevView && prevView.combat && prevView.combat.enemies.find((x) => x.idx === u); return e ? e.intent : null; };
+    // Item events carry a consumable id or an item uid: find the name after the step (bags, equipment,
+    // loot window) or before it (an item just sold).
+    const itemName = (idOrUid) => {
+      if (consName(idOrUid)) return consName(idOrUid);
+      const p = s.player;
+      const now = p ? [...(p.bag || []), ...Object.values(p.equipped || {}), ...(s.loot || [])].find((x) => x && x.uid === idOrUid) : null;
+      if (now) return now.name || consName(now.id) || 'an item';
+      const before = prevView && prevView.player ? prevView.player.bag.find((x) => x && x.uid === idOrUid) : null;
+      return before ? before.name : 'an item';
+    };
+    let lastUsed = null; // name of the last item used in this step (out-of-combat heals carry no source)
     let res = prevView && prevView.player ? prevView.player.res.cur : 0;
     for (const e of events) {
       switch (e.t) {
@@ -11810,7 +11837,7 @@ function engineBackend(seedOpt) {
           break;
         }
         case 'miss': out.push({ t: 'damage', src: ref(e.src), dst: ref(e.dst), amount: 0, miss: true, dodge: !!e.dodge, name: e.spell === 'pet' ? 'Pet' : spellName(e.spell), school: 'phys', hpAfter: hp.get(key(e.dst)), maxHp: max.get(key(e.dst)) }); break;
-        case 'heal': { const k = key(e.dst); const m = max.get(k) ?? Infinity; const after = Math.min(m, (hp.get(k) ?? 0) + (e.amount || 0)); hp.set(k, after); out.push({ t: 'heal', dst: ref(e.dst), amount: e.amount || 0, name: spellName(e.spell), hpAfter: after, maxHp: max.get(k) }); break; }
+        case 'heal': { const k = key(e.dst); const m = max.get(k) ?? Infinity; const after = Math.min(m, (hp.get(k) ?? 0) + (e.amount || 0)); hp.set(k, after); out.push({ t: 'heal', dst: ref(e.dst), amount: e.amount || 0, name: e.spell ? spellName(e.spell) : lastUsed || 'Healing', hpAfter: after, maxHp: max.get(k) }); break; }
         case 'petRevive': hp.set('pet', e.hp); out.push({ t: 'heal', dst: ref('pet'), amount: e.hp, name: 'Revive', hpAfter: e.hp, maxHp: max.get('pet') }); break;
         case 'mana': res = Math.max(0, res + (e.amount || 0)); out.push({ t: 'resource', amount: e.amount, after: res }); break;
         case 'status': out.push({ t: 'status', dst: ref(e.u), id: e.id, op: e.on ? 'add' : 'remove', stacks: e.stacks }); break;
@@ -11831,7 +11858,7 @@ function engineBackend(seedOpt) {
         case 'resurrect': hp.set('player', s.player.hp); out.push({ t: 'resurrect', source: { boon: 'Boon of Return', second_breath: 'Second Breath', ember: 'Ember of Return' }[e.source] || 'A resurrection', hpAfter: s.player.hp, maxHp: s.player.d.maxHp }); break;
         case 'xp': if (e.amount > 0) out.push({ t: 'xp', amount: e.amount, rested: e.rested || 0, why: e.why }); break;
         case 'levelUp': out.push({ t: 'levelUp', level: e.level, talentPoint: !!e.talentPoint, newSpells: Object.values(C.SPELL).filter((sp) => sp.cls === s.player.classId && sp.source === 'class' && sp.lvl === e.level).map((sp) => sp.name), hp: s.player.hp, maxHp: s.player.d.maxHp }); break;
-        case 'gold': if (e.amount > 0) out.push({ t: 'gold', amount: e.amount, why: e.why }); break;
+        case 'gold': if (e.amount > 0 && e.why !== 'sell') out.push({ t: 'gold', amount: e.amount, why: e.why }); break; // a sale says its price itself
         case 'loot': out.push({ t: 'gotItem', name: e.item.name || (C.CONSUMABLE[e.item.id] || {}).name || 'item', rarity: e.item.rarity || 'common', to: e.to }); break;
         case 'victory': out.push({ t: 'victory' }); break;
         case 'fled': out.push({ t: 'flee', ok: true }); break;
@@ -11843,11 +11870,11 @@ function engineBackend(seedOpt) {
         case 'rest': out.push({ t: 'rest', rested: e.rested }); break;
         case 'learn': out.push({ t: 'learn', id: e.spellId || e.spell, name: spellName(e.spellId || e.spell) }); break;
         case 'train': out.push({ t: 'train', id: e.spellId || e.spell, name: spellName(e.spellId || e.spell), rank: e.rank || '' }); break;
-        case 'buy': out.push({ t: 'buy', name: e.name || (e.item && e.item.name) || (C.CONSUMABLE[e.id] || {}).name || 'item' }); break;
-        case 'sell': out.push({ t: 'sell', name: e.name || 'item', gold: e.gold || e.amount || 0 }); break;
-        case 'equip': out.push({ t: 'equip', name: e.name || (e.item && e.item.name) || 'item' }); break;
+        case 'buy': out.push({ t: 'buy', name: itemName(e.item), price: e.price || 0 }); break;
+        case 'sell': out.push({ t: 'sell', name: itemName(e.item), gold: e.value || 0 }); break;
+        case 'equip': out.push({ t: 'equip', name: itemName(e.item) }); break;
         case 'talent': out.push({ t: 'talent', name: (C.TALENT[e.talentId || e.id] || {}).name || 'talent', rank: e.rank || '' }); break;
-        case 'useItem': out.push({ t: 'used', name: (C.CONSUMABLE[e.id || e.itemId] || {}).name || 'item' }); break;
+        case 'useItem': lastUsed = consName(e.item) || 'An item'; out.push({ t: 'used', name: lastUsed }); break;
         case 'zone': out.push({ t: 'zone' }); break;
         default: break;
       }
@@ -12170,9 +12197,11 @@ function moneyText(copper) {
   return [g ? `${g} g` : '', g || s ? `${s} s` : '', `${c} c`].filter(Boolean).join(' ');
 }
 const pct = (v, digits = 0) => `${(v * 100).toFixed(digits)} %`;
+/** In-game clock: the run starts on day 1 at 06:00; a new day starts at midnight. */
 function hoursText(h) {
-  const day = Math.floor(h / 24) + 1; const hr = h % 24;
-  return { day, hour: hr, label: `Day ${day}, ${String((hr + 6) % 24).padStart(2, '0')}:00` };
+  const t = Math.max(0, Math.floor(h || 0)) + 6;
+  const day = Math.floor(t / 24) + 1; const hr = t % 24;
+  return { day, hour: hr, label: `Day ${day}, ${String(hr).padStart(2, '0')}:00` };
 }
 
 /** Promise that resolves after ms; a skip token resolves it early. */
@@ -14522,7 +14551,7 @@ function createHud(root, ctx) {
   els.basic = h('button.ab.basic', { title: '' }, h('img'), h('span.key', 'A'), h('span.ab-label', 'Attack'));
   els.spells = Array.from({ length: 7 }, (_, i) => h('button.ab', { dataset: { slot: i } }, h('img'), h('span.key', String(i + 1)), h('span.cost'), h('div.cd')));
   els.items = Array.from({ length: 3 }, (_, i) => h('button.ab', { dataset: { islot: i } }, h('img'), h('span.key', ['8', '9', '0'][i]), h('span.cnt'), h('div.cd')));
-  els.auto = h('div.toggle', h('div.sw'), h('span', 'Autoplay'), h('span.kbd', 'Z'));
+  els.auto = h('button.toggle', { type: 'button', role: 'switch', 'aria-checked': 'false', 'aria-label': 'Autoplay' }, h('span.sw'), h('span', 'Autoplay'), h('span.kbd', 'Z'));
   els.pass = h('button.btn.small', 'Pass', h('span.k', 'X'));
   els.flee = h('button.btn.small', 'Flee', h('span.k', 'F'));
   els.actionbar.append(
@@ -14775,9 +14804,10 @@ function createHud(root, ctx) {
     p.bar.forEach((id, i) => {
       const b = els.spells[i];
       const img = b.querySelector('img'); const cost = b.querySelector('.cost'); const cd = b.querySelector('.cd');
-      if (!id) { b.classList.add('empty'); img.removeAttribute('src'); img.style.visibility = 'hidden'; cost.textContent = ''; cd.textContent = ''; cd.style.background = ''; b.classList.remove('off', 'nores', 'hint'); return; }
+      if (!id) { b.classList.add('empty'); b.setAttribute('aria-label', `Empty slot ${i + 1}`); img.removeAttribute('src'); img.style.visibility = 'hidden'; cost.textContent = ''; cd.textContent = ''; cd.style.background = ''; b.classList.remove('off', 'nores', 'hint'); return; }
       b.classList.remove('empty'); img.style.visibility = '';
       const sp = ctx.data.spells[id];
+      b.setAttribute('aria-label', `Slot ${i + 1}: ${sp.name}`);
       const src = spellIcon(id, sp); if (img.getAttribute('src') !== src) img.src = src;
       const s = L.spells && L.spells[id];
       const cdLeft = c && c.cooldowns ? c.cooldowns[id] || 0 : 0;
@@ -14794,8 +14824,10 @@ function createHud(root, ctx) {
     });
     p.itemBar.forEach((id, i) => {
       const b = els.items[i]; const img = b.querySelector('img'); const cnt = b.querySelector('.cnt'); const cd = b.querySelector('.cd');
-      if (!id) { b.classList.add('empty'); img.style.visibility = 'hidden'; cnt.textContent = ''; cd.textContent = ''; cd.style.background = ''; b.classList.remove('off'); return; }
+      const key = ['8', '9', '0'][i];
+      if (!id) { b.classList.add('empty'); b.setAttribute('aria-label', `Empty item slot ${key}`); img.style.visibility = 'hidden'; cnt.textContent = ''; cd.textContent = ''; cd.style.background = ''; b.classList.remove('off'); return; }
       b.classList.remove('empty'); img.style.visibility = '';
+      b.setAttribute('aria-label', `Item slot ${key}: ${(ctx.data.consumables[id] || { name: id }).name}`);
       const src = consumableIcon(id); if (img.getAttribute('src') !== src) img.src = src;
       const s = L.items && L.items[i];
       const count = p.bag.reduce((a, it) => a + (it && it.id === id ? it.count : 0), 0);
@@ -14804,6 +14836,7 @@ function createHud(root, ctx) {
       if (s && s.cd) { cd.style.background = `conic-gradient(rgba(0,0,0,.74) ${clamp(s.cd / 4, 0, 1) * 360}deg, rgba(0,0,0,.18) 0)`; cd.textContent = s.cd; } else { cd.style.background = ''; cd.textContent = ''; }
     });
     els.auto.classList.toggle('on', !!v.autoplay);
+    els.auto.setAttribute('aria-checked', v.autoplay ? 'true' : 'false');
     els.pass.disabled = !fight; els.flee.disabled = !fight || !L.flee;
     els.flee.firstChild.textContent = ctx.ui.fleeArmed ? 'Confirm?' : 'Flee';
   }
@@ -14948,6 +14981,14 @@ yield;
 
 
 const NODE_NAME = { quest: 'Quest', grind: 'Grind', elite: 'Elite', dungeon: 'Dungeon', rest: 'Rest', vendor: 'Vendor', trainer: 'Trainer', treasure: 'Treasure', shrine: 'Shrine' };
+const NO_FIGHT = new Set(['rest', 'vendor', 'trainer', 'shrine']); // nodes that hold no fight: labels in a neutral colour
+const NEUTRAL = '#f0e0c0';
+/** "Skulker, 2 × Caster" from one name per enemy. */
+function nameGroups(names) {
+  const counts = new Map();
+  for (const nm of names) counts.set(nm, (counts.get(nm) || 0) + 1);
+  return [...counts.entries()].map(([nm, k]) => (k > 1 ? `${k} × ${nm}` : nm)).join(', ');
+}
 const NODE_DESC = {
   quest: 'A quest giver needs help. One fight, then experience, gold and a choice of two rewards. Three quests in a zone complete its story.',
   grind: 'Fight 1 to 3 waves of two enemies. Steady experience, gold and more drops.',
@@ -15080,30 +15121,30 @@ function buildHub(v, ctx) {
     svcCard('vendor', 'earth', 'Vendor', 'Potions, rations and gear', '1 h', used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' })),
     svcCard('rest', 'fire', 'Inn', 'Full rest and rested experience', '4 h', used.inn, () => ctx.act({ type: 'HUB_SERVICE', service: 'inn' })));
   if (p.talentPoints) body.appendChild(h('div.warn', { style: { fontSize: '1.25rem' } }, `You have ${p.talentPoints} unspent talent point${p.talentPoints > 1 ? 's' : ''}. Press N.`));
-  const go = h('button.btn.primary.big', { style: { marginTop: '.6rem' } }, 'Set out');
+  const go = h('button.btn.primary.big', 'Set out');
   go.addEventListener('click', () => ctx.act({ type: 'LEAVE_HUB' }));
-  body.append(h('div.row', { style: { justifyContent: 'space-between' } }, h('span.muted', `Day clock: ${v.hours} h`), go));
-  el.appendChild(body);
+  el.append(body, h('div.sfoot', h('span.muted', `Day clock: ${v.hours} h`), go));
   return el;
 }
 
 function buildCamp(v, ctx) {
-  const z = v.zone; const p = v.player; const used = (v.hub && v.hub.used) || {};
-  const asc = Math.min(0.4, 0.04 * Math.floor(Math.max(0, v.hours - 130) / 10));
+  const z = v.zone; const used = (v.hub && v.hub.used) || {};
+  const asc = v.camp ? v.camp.asc : null; // the engine's Ascendancy if the boss were faced now
   const el = h('div.side.panel');
   el.append(h('div.wtitle', h('div', h('div.title', { style: { fontSize: '2.4rem' } }, z.hubName), h('div.subtitle', `${z.name} · the final camp`))));
-  const body = h('div.body.col', { style: { padding: '1.2rem 1.6rem 1.6rem', gap: '.8rem' } });
+  const body = h('div.body.col', { style: { padding: '1rem 1.6rem 1.2rem', gap: '.6rem' } });
   body.appendChild(h('div', { style: { font: 'italic 1.4rem var(--font-title)', color: 'var(--ink-dim)' } }, z.blurb || ''));
   body.append(
     svcCard('tome', 'arcane', 'Trainer', 'Last chance to train', '1 h', used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' })),
     svcCard('vendor', 'earth', 'Quartermaster', 'Level 60 stock', '1 h', used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' })),
     svcCard('rest', 'fire', 'Campfire', 'Full rest before the fight', '4 h', used.inn, () => ctx.act({ type: 'HUB_SERVICE', service: 'inn' })),
     svcCard('grind', 'steel', 'Camp wave', 'Fight a wave of level 58 enemies', '1 h', false, () => ctx.act({ type: 'CAMP_GRIND' })));
-  body.appendChild(h('dl.kv', h('dt', 'Time'), h('dd', `${v.hours} h (par 130 h)`), h('dt', 'Boss Ascendancy'), h('dd', { class: asc > 0 ? 'bad' : 'good' }, asc > 0 ? `+${Math.round(asc * 100)} % health and damage` : 'None: you are on time'), h('dt', 'Your level'), h('dd', `${p.level}`)));
+  const par = v.camp && v.camp.par ? ` (par ${v.camp.par} h)` : '';
+  const kv = h('dl.kv', h('dt', 'Time'), h('dd', `${v.hours} h${par}`), h('dt', 'Ascendancy'),
+    asc == null ? h('dd.muted', 'Unknown') : h('dd', { class: asc > 0 ? 'bad' : 'good' }, asc > 0 ? `+${Math.round(asc * 100)} % health and damage` : 'None: you are on time'));
   const go = h('button.btn.primary.big', 'Face Oruvath');
   go.addEventListener('click', () => ctx.act({ type: 'FIGHT_BOSS' }));
-  body.appendChild(h('div.row', { style: { justifyContent: 'flex-end' } }, go));
-  el.appendChild(body);
+  el.append(body, h('div.sfoot', kv, go));
   return el;
 }
 
@@ -15151,7 +15192,7 @@ function buildMap(v, ctx, readOnly) {
     const here = z.pos.row === r && z.pos.lane === l;
     const closed = !n.visited && !reach && r <= z.pos.row;
     const el = h('button.mnode' + (reach ? '.reach' : '') + (n.visited ? '.visited' : '') + (here ? '.here' : '') + (closed ? '.closed' : ''), { style: { left: `${PX(r) / 10}%`, top: `${PY(l) / 10}%` }, 'aria-label': `${NODE_NAME[n.type]} level ${n.cl}`, dataset: { row: r, lane: l } },
-      h('div.ring', h('img', { src: nodeIcon(n.type), alt: '' })), h('div.cl', { style: { color: conColor(n.cl, p.level) } }, n.type === 'rest' || n.type === 'vendor' || n.type === 'trainer' || n.type === 'shrine' ? NODE_NAME[n.type] : `${NODE_NAME[n.type]} ${n.cl}`));
+      h('div.ring', h('img', { src: nodeIcon(n.type), alt: '' })), h('div.cl', { style: { color: NO_FIGHT.has(n.type) ? NEUTRAL : conColor(n.cl, p.level) } }, NO_FIGHT.has(n.type) ? NODE_NAME[n.type] : `${NODE_NAME[n.type]} ${n.cl}`));
     if (here) el.appendChild(flagSvg());
     if (reach) el.addEventListener('click', () => ctx.act({ type: 'CHOOSE_NODE', lane: l }));
     tip(el, () => nodeTip(n, v, ctx, reach));
@@ -15175,11 +15216,14 @@ function closeBtn(ctx, win) { const b = h('button.xbtn', '×'); b.addEventListen
 function nodeTip(n, v, ctx, reach) {
   const p = v.player;
   const box = h('div.tt-node');
-  box.appendChild(h('div.tt-row', h('div.tt-name', NODE_NAME[n.type] + (n.type === 'elite' && n.rare && n.rareVisible ? ' (rare)' : '')), h('div', { style: { color: conColor(n.cl, p.level), fontWeight: 800 } }, `Level ${n.cl}`)));
+  box.appendChild(h('div.tt-row', h('div.tt-name', NODE_NAME[n.type] + (n.type === 'elite' && n.rare && n.rareVisible ? ' (rare)' : '')), h('div', { style: { color: NO_FIGHT.has(n.type) ? NEUTRAL : conColor(n.cl, p.level), fontWeight: 800 } }, `Level ${n.cl}`)));
   if (n.type === 'quest') add(box, h('div.tt-line', { style: { color: '#ffd88a', fontWeight: 700 } }, n.title), h('div.tt-sub', `From ${n.giver}`));
   if (n.type === 'elite') add(box, h('div.tt-line', { style: { color: '#ffb08a', fontWeight: 700 } }, n.eliteName || 'An elite'), n.level ? h('div.tt-sub', `Elite level ${n.level}`) : null);
   if (n.type === 'dungeon') add(box, h('div.tt-line', { style: { color: '#c8a8ff', fontWeight: 700 } }, n.dungeon), h('div.tt-sub', `Boss: ${n.bossName}`));
-  if (n.enemyNames && n.enemyNames.length) box.appendChild(h('div.tt-sub', `Foes: ${n.enemyNames.join(', ')}`));
+  if (n.enemyNames && n.enemyNames.length) {
+    const k = n.enemyNames.length;
+    box.appendChild(h('div.tt-line.foes', `${n.type === 'grind' ? 'Wave 1: ' : 'Foes: '}${k} ${k === 1 ? 'enemy' : 'enemies'} (${nameGroups(n.enemyNames)})`));
+  }
   box.appendChild(h('div.tt-line.desc', NODE_DESC[n.type]));
   const hrs = ctx.data.nodeHours ? ctx.data.nodeHours[n.type] : null;
   if (hrs != null) box.appendChild(h('div.tt-sub', n.type === 'grind' ? `Takes ${hrs} h per wave` : `Takes ${hrs} h`));
@@ -15568,8 +15612,12 @@ function createWindows(root, ctx) {
     }
     items.push(['Discard', ooc, () => ctx.act({ type: 'DISCARD', uid: it.uid })]);
     ctxMenu = h('div.ctxmenu.panel', items.map(([label, ok, fn]) => { const b = h('button', label); b.disabled = !ok; b.addEventListener('click', () => { closeMenu(); fn(); }); return b; }));
-    ctxMenu.style.left = `${Math.min(e.clientX, window.innerWidth - 200)}px`; ctxMenu.style.top = `${Math.min(e.clientY, window.innerHeight - 220)}px`;
+    ctxMenu.style.left = `${e.clientX}px`; ctxMenu.style.top = `${e.clientY}px`;
     document.body.appendChild(ctxMenu);
+    // keep the whole menu inside the window: its size grows with the UI scale and the number of entries
+    const r = ctxMenu.getBoundingClientRect(); const pad = 6;
+    ctxMenu.style.left = `${Math.max(pad, Math.min(e.clientX, window.innerWidth - r.width - pad))}px`;
+    ctxMenu.style.top = `${Math.max(pad, Math.min(e.clientY, window.innerHeight - r.height - pad))}px`;
     setTimeout(() => window.addEventListener('pointerdown', onAway), 0);
   }
   function onAway(e) { if (ctxMenu && !ctxMenu.contains(e.target)) closeMenu(); }
@@ -15826,6 +15874,8 @@ class Director {
     } finally {
       ctx.ui.overlay = false;
       this.token = null;
+      // the run summary must be readable as soon as it appears: no banner over it
+      if (next.phase === 'SUMMARY' && prev.phase !== 'SUMMARY') ctx.ui.hideBanner();
       ctx.setShown(next);
     }
   }
@@ -15949,12 +15999,13 @@ class App {
       get playing() { return app.director.playing; },
       setTarget: (idx) => { ui.target = idx; app.scene.target = idx == null ? null : `enemy:${idx}`; app.queueRender(); },
       retarget: (v) => app.retarget(v),
-      toast: (t, k) => app.toast(t, k), banner: (a, b, k, ms) => app.banner(a, b, k, ms),
+      toast: (t, k) => app.toast(t, k), banner: (a, b, k, ms) => app.banner(a, b, k, ms), hideBanner: () => app.hideBanner(),
       toggleWin: (n) => app.windows.toggle(n), closeWin: (n) => app.windows.close(n), openWin: (n) => app.windows.open(n),
       attack: () => app.combatAct((t) => ({ type: 'ATTACK', target: t })),
       castSlot: (i) => { const id = app.shown.player && app.shown.player.bar[i]; if (id) { app.hud.flashSlot(i); app.combatAct((t) => ({ type: 'CAST', spellId: id, target: t })); } },
       useItemSlot: (i) => { const v = app.shown; if (!v.player || !v.player.itemBar[i]) return; app.hud.flashSlot(7 + i); if (v.combat && !v.combat.over) app.combatAct((t) => ({ type: 'USE_ITEM', slot: i, target: t })); else { const it = v.player.bag.find((s) => s && s.id === v.player.itemBar[i]); if (it) app.act({ type: 'USE_ITEM', uid: it.uid }); } },
-      toggleAuto: () => app.act({ type: 'SET_AUTOPLAY', on: !app.bridge.view.autoplay }),
+      // read the state when the action runs, so two quick presses (Z Z) turn it on and off again
+      toggleAuto: () => app.act(() => ({ type: 'SET_AUTOPLAY', on: !app.bridge.view.autoplay })),
       pass: () => app.combatAct(() => ({ type: 'PASS' })),
       flee: () => {
         if (!app.shown.legal || !app.shown.legal.flee) return;
@@ -15999,11 +16050,14 @@ class App {
   }
 
   // ------------------------------------------------------------------ actions
-  act(action) {
+  /** Queue an action (or a function that returns one when its turn comes) and play its events. */
+  act(actionOrFn) {
     this.pending++;
     if (this.director.playing) this.director.skip();
     const run = async () => {
       try {
+        const action = typeof actionOrFn === 'function' ? actionOrFn() : actionOrFn;
+        if (!action) return { ok: false, error: null };
         const prev = this.bridge.view;
         const res = this.bridge.dispatch(action);
         if (!res.ok) { if (res.error) { this.toast(res.error, 'err'); console.info(`[ui] action ${action.type} refused: ${res.error}`); } return res; }
@@ -16011,8 +16065,13 @@ class App {
         this.playStart = performance.now();
         await this.director.play(prev, res.view, res.events, action);
         this.afterPlay();
+        this.placeNewItems(prev, res.view);
         return res;
-      } catch (err) { console.error(err); this.shown = this.bridge.view; this.queueRender(); return { ok: false, error: String(err) }; } finally { this.pending--; }
+      } catch (err) { console.error(err); this.shown = this.bridge.view; this.queueRender(); return { ok: false, error: String(err) }; } finally {
+        this.pending--;
+        // Autoplay's next round is planned only when nothing else is queued or playing.
+        if (this.pending === 0) this.scheduleAuto();
+      }
     };
     const p = this.queue.then(run, run);
     this.queue = p;
@@ -16044,9 +16103,34 @@ class App {
     this.ui.chestOpen = v.node && v.node.type === 'treasure' && v.node.step === 'opened' ? true : v.node && v.node.type === 'treasure' ? this.ui.chestOpen : false;
     if (v.combat && !v.combat.over) this.retarget(v); else if (!v.combat) this.ui.setTarget(null);
     this.windows.update();
-    this.scheduleAuto();
   }
 
+  /**
+   * A combat consumable that has just come into the bags (bought, looted) goes to a free item-bar slot,
+   * as the engine puts a newly learned spell on a free spell slot. The UI sends SET_ITEM_BAR for it.
+   * Items already in the bags are left alone, so a slot the player cleared stays clear.
+   */
+  placeNewItems(prev, next) {
+    const p = next.player;
+    if (!p || !['ZONE_HUB', 'MAP', 'NODE', 'CAMP'].includes(next.phase) || !next.legal || !next.legal.outOfCombat) return;
+    const had = new Set(((prev && prev.player && prev.player.bag) || []).filter((it) => it && it.kind === 'consumable').map((it) => it.id));
+    const fresh = [];
+    for (const it of p.bag) {
+      if (!it || it.kind !== 'consumable' || had.has(it.id) || fresh.includes(it.id) || p.itemBar.includes(it.id)) continue;
+      const c = this.data.consumables[it.id];
+      if (!c || !(c.use === 'combat' || c.use === 'both') || (c.mana && p.res.kind !== 'mana')) continue;
+      fresh.push(it.id);
+    }
+    const free = p.itemBar.map((id, i) => (id ? -1 : i)).filter((i) => i >= 0);
+    fresh.slice(0, free.length).forEach((id, k) => {
+      const slot = free[k]; const key = ['8', '9', '0'][slot]; const nm = this.data.consumables[id].name;
+      this.act({ type: 'SET_ITEM_BAR', slot, itemId: id }).then((r) => {
+        if (r && r.ok) { this.toast(`${nm} is on item slot ${key}`, 'good'); this.hud.log(`${nm} goes on item slot ${key} (key ${key}).`, 'lg-sys'); }
+      });
+    });
+  }
+
+  /** While autoplay is on in a fight, play the engine's autoplay choice after the autoplay pause. */
   scheduleAuto() {
     clearTimeout(this.autoTimer);
     const v = this.bridge.view;
@@ -16055,7 +16139,10 @@ class App {
     this.autoTimer = setTimeout(() => {
       const vv = this.bridge.view;
       if (!vv.autoplay || !vv.combat || vv.combat.over || this.pending > 0) return;
-      this.act(this.bridge.autoAction());
+      this.act(() => this.bridge.autoAction()).then((res) => {
+        // never retry a refused choice in a loop: switch autoplay off and say why
+        if (res && !res.ok && this.bridge.view.autoplay) { this.toast('Autoplay stopped', 'err'); this.act({ type: 'SET_AUTOPLAY', on: false }); }
+      });
     }, delay);
   }
 
@@ -16143,6 +16230,7 @@ class App {
     clearTimeout(this.bannerT);
     this.bannerT = setTimeout(() => { b.className = kind; }, settings.instant ? Math.min(ms, 1200) : ms / Math.max(1, Math.min(2, settings.get('speed'))));
   }
+  hideBanner() { clearTimeout(this.bannerT); this.bannerEl.classList.remove('on'); }
   toast(text, kind = '') {
     const t = h('div.toast' + (kind ? '.' + kind : ''), text);
     this.toasts.appendChild(t);
