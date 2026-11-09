@@ -6,7 +6,7 @@ Updated by the Lead at the end of every session. One page; older detail goes in 
 M2, doing. M1 done 2026-11-09: first playable build (2cb7bf2) with autoplay fixed; first balance report 38/71 checks pass.
 
 ## Next tasks
-1. M2 2.3 round 2: balance-2026-11-09b.md shows 41/69 checks pass; planner P0 33/32/27 % (R/M/H). In progress since 22:02 (resumed 22:48 after a server restart): Lead Game Designer design pass v3 on the five misses in that report (zone 3-6 danger, meta power budget, Echo income, boss HP vs Ascendancy, tactician Shard rule) plus the P2 levers (enrage 55, pet power, Thornback); then Engineer implements, Sim re-measures, QA playtest pass (2.4).
+1. M2 2.3 round 2: balance-2026-11-09b.md shows 41/69 checks pass; planner P0 33/32/27 % (R/M/H). Done (e1d6fa0, docs/specs/changes-m2-v3.md, 23 rows): Lead Game Designer design pass v3 on the five misses in that report (zone 3-6 danger, meta power budget, Echo income, boss HP vs Ascendancy, tactician Shard rule) plus the P2 levers (enrage 55, pet power, Thornback); Next (2026-11-10 08:47): Core Gameplay Engineer implements changes-m2-v3.md; Sim Engineer updates bots (hour weight x2, Rogue Shard rule) and re-measures, and finds why removing Satchel lifts Rogue PALL to 85 %; then QA playtest pass (2.4).
 2. Later: Echoes spending screen (M3).
 
 ## Waiting on the owner
