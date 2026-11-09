@@ -168,7 +168,7 @@ export class App {
     s.setHero(v.player.classId, v.player.petId);
     if (v.player.pet && !v.player.pet.alive) { const a = s.actors.get('pet'); if (a && !a.deadT0) a.dead = 1; } else { const a = s.actors.get('pet'); if (a && v.player.pet && v.player.pet.alive) { a.dead = 0; a.deadT0 = 0; } }
     const theme = v.phase === 'CAMP' || v.phase === 'BOSS' ? 'observatory' : (v.zone && v.zone.theme) || 'farmland';
-    s.setTheme(theme, v.phase === 'ZONE_HUB' || v.phase === 'CAMP', opts.instant);
+    s.setTheme(theme, v.phase === 'ZONE_HUB', opts.instant);
     const c = v.combat;
     const W = s.W;
     const arrive = (props) => props.map((p) => (opts.arrive ? { ...p, x: W * (p.at || 0.6) + W * 0.75, tx: W * (p.at || 0.6) } : { ...p, x: W * (p.at || 0.6) }));
@@ -184,7 +184,7 @@ export class App {
     if (v.phase === 'ZONE_HUB') { s.setMode('hub', { props: arrive([{ kind: 'banner', at: 0.4 }, { kind: 'campfire', at: 0.5 }]) }); return; }
     if (v.phase === 'CAMP') { s.setMode('camp', { props: arrive([{ kind: 'banner', at: 0.34, color: '#6a7ad8' }, { kind: 'campfire', at: 0.42 }, { kind: 'tent', at: 0.53 }]) }); return; }
     if (v.phase === 'MAP') { if (!opts.keepMode) s.setMode('map', { props: [] }); return; }
-    if (v.phase === 'SUMMARY') { s.setMode('summary', { props: [] }); return; }
+    if (v.phase === 'SUMMARY') { if (s.mode !== 'summary') s.clearFx(); s.setMode('summary', { props: [] }); return; }
     if (v.phase === 'NODE' && v.node) {
       const n = v.node; const props = [];
       const th = theme;

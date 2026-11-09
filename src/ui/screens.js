@@ -7,7 +7,6 @@ import { tip, itemTip, spellTip } from './tooltip.js';
 import { conColor, heroPortrait } from './hud.js';
 
 const NODE_NAME = { quest: 'Quest', grind: 'Grind', elite: 'Elite', dungeon: 'Dungeon', rest: 'Rest', vendor: 'Vendor', trainer: 'Trainer', treasure: 'Treasure', shrine: 'Shrine' };
-const NODE_HOURS = { quest: 2, grind: '1 per wave', elite: 2, dungeon: 5, rest: 4, vendor: 1, trainer: 1, treasure: 1, shrine: 1 };
 const NODE_DESC = {
   quest: 'A quest giver needs help. One fight, then experience, gold and a choice of two rewards. Three quests in a zone complete its story.',
   grind: 'Fight 1 to 3 waves of two enemies. Steady experience, gold and more drops.',
@@ -241,7 +240,8 @@ function nodeTip(n, v, ctx, reach) {
   if (n.type === 'dungeon') add(box, h('div.tt-line', { style: { color: '#c8a8ff', fontWeight: 700 } }, n.dungeon), h('div.tt-sub', `Boss: ${n.bossName}`));
   if (n.enemyNames && n.enemyNames.length) box.appendChild(h('div.tt-sub', `Foes: ${n.enemyNames.join(', ')}`));
   box.appendChild(h('div.tt-line.desc', NODE_DESC[n.type]));
-  box.appendChild(h('div.tt-sub', `Takes ${NODE_HOURS[n.type]} h`));
+  const hrs = ctx.data.nodeHours ? ctx.data.nodeHours[n.type] : null;
+  if (hrs != null) box.appendChild(h('div.tt-sub', n.type === 'grind' ? `Takes ${hrs} h per wave` : `Takes ${hrs} h`));
   if (n.visited) box.appendChild(h('div.tt-hint', 'Visited'));
   else if (reach) box.appendChild(h('div.tt-hint', 'Click to travel here'));
   else box.appendChild(h('div.tt-warn', 'Not reachable from your position'));

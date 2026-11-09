@@ -137,6 +137,11 @@ button { font-family: inherit; }
 .np.sel .bar { box-shadow: 0 0 0 1px #ff6a5a, 0 0 .8rem rgba(255, 80, 60, .7); }
 .np .sts { display: flex; gap: .2rem; min-height: 1.7rem; }
 .np .sts .st { width: 1.7rem; height: 1.7rem; }
+/* The raid frame already shows the star's name and health; its plate keeps only intent and statuses. */
+.np.boss .nm, .np.boss .bar { display: none; }
+.np.shard { width: 11.5rem; }
+.np.shard .nm { font-size: 1rem; }
+.np.shard .bubble .bn { display: none; }
 .bubble { position: relative; display: flex; align-items: center; gap: .45rem; padding: .3rem .7rem .3rem .3rem; border-radius: 2rem; background: linear-gradient(180deg, rgba(30, 24, 18, .95), rgba(12, 10, 8, .95)); border: 1px solid #000; box-shadow: inset 0 0 0 1px rgba(208, 170, 96, .45), 0 .3rem .8rem rgba(0, 0, 0, .6); white-space: nowrap; margin-bottom: .2rem; }
 .bubble::after { content: ''; position: absolute; bottom: -.55rem; left: 50%; margin-left: -.5rem; border: .5rem solid transparent; border-top-color: rgba(12, 10, 8, .95); border-bottom: 0; }
 .bubble img { width: 2.4rem; height: 2.4rem; border-radius: 50%; border: 1px solid #000; }
@@ -280,7 +285,7 @@ button { font-family: inherit; }
 /* windows */
 .win { position: absolute; z-index: 30; }
 #win-character { left: 2rem; top: 17rem; width: 52rem; }
-#win-bags { right: 2rem; bottom: 9.5rem; width: 27.4rem; }
+#win-bags { right: 2rem; bottom: 9.5rem; width: 22.4rem; }
 #win-spellbook { left: 2rem; top: 17rem; width: 44rem; }
 #win-talents { left: 50%; top: 50%; transform: translate(-50%, -50%); width: 88rem; max-width: calc(100vw - 2rem); }
 #win-questlog { left: 2rem; top: 17rem; width: 40rem; }
@@ -294,7 +299,7 @@ button { font-family: inherit; }
 .statgrid div { display: flex; justify-content: space-between; border-bottom: 1px dotted rgba(208, 170, 96, .15); padding: .15rem 0; }
 .statgrid span:first-child { color: var(--ink-mute); }
 .statgrid b { font-family: var(--font-num); }
-.baggrid { display: grid; grid-template-columns: repeat(5, 4.6rem); gap: .45rem; padding: 1rem 1.2rem; }
+.baggrid { display: grid; grid-template-columns: repeat(4, 4.6rem); gap: .45rem; padding: 1rem 1.2rem; }
 .bagfoot { display: flex; justify-content: space-between; align-items: center; padding: 0 1.2rem 1rem; }
 .ctxmenu { position: fixed; z-index: 60; min-width: 16rem; padding: .4rem; display: flex; flex-direction: column; }
 .ctxmenu button { text-align: left; background: none; border: 0; color: var(--ink); font: 600 1.25rem var(--font-ui); padding: .55rem .9rem; border-radius: .3rem; cursor: pointer; }
@@ -427,7 +432,7 @@ button { font-family: inherit; }
 .toast { font: 700 1.45rem var(--font-ui); color: #ffd36a; text-shadow: 0 1px 2px #000, 0 0 6px #000; animation: toast 2.6s forwards; }
 .toast.err { color: #ff7a6a; } .toast.good { color: #9fe09a; } .toast.info { color: #cfe0ff; }
 @keyframes toast { 0% { opacity: 0; transform: translateY(.6rem); } 10% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-.6rem); } }
-#skiphint { position: absolute; left: 50%; bottom: 11.5rem; transform: translateX(-50%); font: 700 1.1rem var(--font-ui); color: var(--ink-mute); letter-spacing: .08em; text-transform: uppercase; text-shadow: 0 1px 2px #000; pointer-events: none; opacity: 0; transition: opacity .3s; }
+#skiphint { position: absolute; left: 50%; bottom: 15.2rem; transform: translateX(-50%); font: 700 1.1rem var(--font-ui); color: var(--ink-mute); letter-spacing: .08em; text-transform: uppercase; text-shadow: 0 1px 2px #000; pointer-events: none; opacity: 0; transition: opacity .3s; }
 #skiphint.on { opacity: .85; }
 .overlay-dark { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, rgba(30, 0, 0, .3), rgba(0, 0, 0, .78)); }
 .deathmsg { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); text-align: center; }

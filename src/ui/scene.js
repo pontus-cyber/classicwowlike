@@ -124,9 +124,16 @@ export class Scene {
     const boss = enemies.find((a) => a.kind === 'boss');
     const others = enemies.filter((a) => a.kind !== 'boss');
     if (boss) { boss.tx = W * 0.72; if (instant || boss.x == null) boss.x = boss.tx; }
+    if (boss) {
+      // Shards float between the hunter's side and the star; dead ones stay where they fell.
+      const live = others.filter((a) => a.alive !== false && a.visible !== false);
+      const slots = live.length <= 2 ? [0.43, 0.55] : [0.37, 0.45, 0.53, 0.61];
+      live.forEach((a, i) => { a.tx = W * (slots[i] ?? (0.4 + i * 0.07)); a.dy = (i % 2 ? -56 : 6) * this.u; if (instant || a.x == null) a.x = a.tx; });
+      return;
+    }
     const n = others.length;
-    const slots = boss ? [0.47, 0.56, 0.42, 0.52] : n === 1 ? [0.7] : n === 2 ? [0.62, 0.79] : n === 3 ? [0.57, 0.7, 0.84] : [0.52, 0.63, 0.74, 0.85, 0.94];
-    others.forEach((a, i) => { a.tx = W * (slots[i] ?? (0.55 + i * 0.1)); a.dy = boss ? (i % 2 ? -18 : 8) * this.u : (n === 3 && i === 1 ? -10 * this.u : (i % 2) * 6 * this.u); if (instant || a.x == null) a.x = a.tx; });
+    const slots = n === 1 ? [0.7] : n === 2 ? [0.62, 0.79] : n === 3 ? [0.57, 0.7, 0.84] : [0.52, 0.63, 0.74, 0.85, 0.94];
+    others.forEach((a, i) => { a.tx = W * (slots[i] ?? (0.55 + i * 0.1)); a.dy = n === 3 && i === 1 ? -10 * this.u : (i % 2) * 6 * this.u; if (instant || a.x == null) a.x = a.tx; });
   }
 
   act(id, kind, dur) {
@@ -225,6 +232,8 @@ export class Scene {
     this.projectiles = [];
     for (const a of this.actors.values()) { a.act = null; if (a.deadT0) a.dead = 1; }
   }
+  /** Drop floating text, rings, beams and sparks left from a fight (e.g. behind the run summary). */
+  clearFx() { this.finishAll(); this.texts = []; this.rings = []; this.beams = []; this.particles = []; this.pillar = null; }
 
   seedAmbient() {
     const kind = (THEMES[this.theme] || {}).particles;
@@ -493,11 +502,20 @@ function campfire(ctx, x, y, u, t) {
   }
 }
 function tent(ctx, x, y, u, th) {
-  ctx.fillStyle = shade(th.ui.tint, -0.35);
+  // Weathered canvas, toned toward the zone's own near colour so it sits in any light.
+  const cloth = mix('#b09a72', th.near || '#3a3020', 0.38);
+  const dark = shade(cloth, -0.34); const lit = shade(cloth, -0.06);
+  ctx.strokeStyle = shade(cloth, -0.55); ctx.lineWidth = 1.2 * u;
+  ctx.beginPath(); ctx.moveTo(x - 4 * u, y - 92 * u); ctx.lineTo(x - 96 * u, y + 2 * u); ctx.moveTo(x + 4 * u, y - 92 * u); ctx.lineTo(x + 96 * u, y + 2 * u); ctx.stroke();
+  ctx.fillStyle = dark;
   ctx.beginPath(); ctx.moveTo(x - 70 * u, y); ctx.lineTo(x, y - 90 * u); ctx.lineTo(x + 70 * u, y); ctx.fill();
-  ctx.fillStyle = shade(th.ui.tint, -0.1);
+  ctx.fillStyle = lit;
   ctx.beginPath(); ctx.moveTo(x, y - 90 * u); ctx.lineTo(x + 70 * u, y); ctx.lineTo(x + 10 * u, y); ctx.fill();
-  ctx.fillStyle = '#1a120c'; ctx.beginPath(); ctx.moveTo(x - 14 * u, y); ctx.lineTo(x, y - 50 * u); ctx.lineTo(x + 12 * u, y); ctx.fill();
+  ctx.strokeStyle = shade(cloth, -0.45); ctx.lineWidth = 1.4 * u;
+  for (const f of [0.35, 0.7]) { ctx.beginPath(); ctx.moveTo(x - 70 * u * f, y - 90 * u * (1 - f)); ctx.lineTo(x + 70 * u * f, y - 90 * u * (1 - f)); ctx.stroke(); }
+  ctx.fillStyle = '#140e0a'; ctx.beginPath(); ctx.moveTo(x - 14 * u, y); ctx.lineTo(x, y - 50 * u); ctx.lineTo(x + 12 * u, y); ctx.fill();
+  ctx.fillStyle = shade(cloth, -0.2); ctx.beginPath(); ctx.moveTo(x, y - 50 * u); ctx.lineTo(x + 12 * u, y); ctx.lineTo(x + 22 * u, y); ctx.fill();
+  ctx.fillStyle = '#3a2614'; ctx.fillRect(x - 1.6 * u, y - 100 * u, 3.2 * u, 12 * u);
 }
 function cart(ctx, x, y, u, th) {
   ctx.fillStyle = '#6a4528'; ctx.fillRect(x - 70 * u, y - 52 * u, 140 * u, 30 * u);

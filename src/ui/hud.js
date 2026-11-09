@@ -191,7 +191,7 @@ export function createHud(root, ctx) {
     [...cp.children].forEach((c, i) => c.classList.toggle('on', i < (p.cp || 0)));
     statusRow(pf.querySelector('.statuses'), p.statuses, ctx);
     // pet
-    if (p.pet) {
+    if (p.pet && v.phase !== 'SUMMARY') {
       els.pet.classList.remove('hidden');
       if (els.pet.dataset.pet !== p.pet.id) { els.pet.dataset.pet = p.pet.id; clear(els.pet.querySelector('.portrait')).appendChild(petPortrait(p.pet.id)); }
       els.pet.querySelector('.pn').textContent = p.pet.name;
@@ -228,13 +228,13 @@ export function createHud(root, ctx) {
       const b = c.boss || {};
       const tg = b.telegraph || {};
       const brand = (p.statuses || []).find((s) => s.id === 'BRAND');
-      const nextBrand = tg.brandInRounds != null ? tg.brandInRounds : 4 - ((c.round - 1) % 4);
-      const enrage = tg.enrageInRounds != null ? `Final Dark in ${tg.enrageInRounds}` : `Final Dark at ${b.enrageRound || 50}`;
-      const extra = [tg.litanyInRounds != null ? `Litany in ${tg.litanyInRounds}` : null, tg.shardsInRounds != null ? `Shards in ${tg.shardsInRounds}` : null, tg.pulseInRounds != null ? `Pulse in ${tg.pulseInRounds}` : null, tg.crushNextRound ? 'Crush next round!' : null].filter(Boolean).join(' · ');
+      const when = (n) => (n <= 0 ? 'this round' : n === 1 ? 'next round' : `in ${n}`);
+      const enrage = tg.enrageInRounds != null ? `Final Dark ${when(tg.enrageInRounds)}` : b.enrageRound ? `Final Dark at round ${b.enrageRound}` : '';
+      const extra = [tg.litanyInRounds != null ? `Litany ${when(tg.litanyInRounds)}` : null, tg.shardsInRounds != null ? `Shards ${when(tg.shardsInRounds)}` : null, tg.pulseInRounds != null ? `Pulse ${when(tg.pulseInRounds)}` : null, tg.crushNextRound ? 'Crush next round!' : null].filter(Boolean).join(' · ');
       clear(els.boss.querySelector('.binfo')).append(
         h('span', 'Phase ', h('b', String(b.phase || 1)), b.phase === 2 ? ' · Linked' : b.phase === 3 ? ' · Eclipse' : ''),
-        h('span', 'Brand ', h('b', String(brand ? brand.stacks : 0)), ` · next in ${nextBrand}`),
-        h('span', 'Round ', h('b', String(c.round)), ` · ${enrage}`),
+        h('span', 'Brand ', h('b', String(brand ? brand.stacks : 0)), tg.brandInRounds != null ? (tg.brandInRounds <= 0 ? ' · lands this round' : ` · next ${when(tg.brandInRounds)}`) : ''),
+        h('span', 'Round ', h('b', String(c.round)), enrage ? ` · ${enrage}` : ''),
         h('span', 'Ascendancy ', h('b', `+${Math.round((b.asc || 0) * 100)} %`)));
       els.bossWarn.textContent = extra; els.bossWarn.classList.toggle('hidden', !extra);
     } else els.boss.classList.add('hidden');
@@ -296,6 +296,7 @@ export function createHud(root, ctx) {
         el.classList.toggle('dead', !e.alive);
         el.classList.toggle('sel', ctx.ui.target === e.idx);
         el.classList.toggle('boss', e.rank === 'boss');
+        el.classList.toggle('shard', e.rank === 'shard' || e.arch === 'shard');
         const lv = el.querySelector('.lv'); lv.textContent = e.rank === 'boss' ? '??' : e.level; lv.style.color = conColor(e.level, v.player.level);
         el.querySelector('.n').textContent = e.name + (e.rank === 'elite' ? ' (Elite)' : e.rank === 'rare' ? ' (Rare)' : '');
         setBar(el.querySelector('.bar'), e.hp, e.maxHp, `${Math.ceil((e.hp / e.maxHp) * 100)} %`, ((e.statuses || []).find((s) => s.id === 'WARD') || {}).value || 0);

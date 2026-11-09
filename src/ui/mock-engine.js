@@ -1559,6 +1559,7 @@ const schoolName = (s) => ({ phys: 'physical', fire: 'fire', frost: 'frost', arc
 export const data = {
   classes: D.CLASSES, spells: D.SPELLS, talents: D.TALENTS, pets: D.PETS, consumables: D.CONSUMABLES,
   statuses: D.STATUS_INFO, boons: D.BOONS, slots: D.SLOTS, slotNames: D.SLOT_NAME, zones: D.ZONES, camp: D.CAMP, boss: D.BOSS,
+  nodeHours: { ...C.HOURS },
   constants: { ...C, xpToNext },
 };
 export { itemScore };

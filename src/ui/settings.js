@@ -24,7 +24,8 @@ const ev = emitter();
 const state = load();
 try {
   const sp = new URLSearchParams(location.search).get('speed');
-  if (sp !== null) state.speed = sp === 'instant' ? 0 : Number(sp) || 1;
+  const n = sp === 'instant' ? 0 : Number(sp);
+  if (sp !== null && [0, 1, 2, 4].includes(n)) state.speed = n;
 } catch { /* no location */ }
 
 export const settings = {

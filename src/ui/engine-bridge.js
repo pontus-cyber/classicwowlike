@@ -103,6 +103,7 @@ function engineBackend(seedOpt) {
     statuses: TXT.STATUS_INFO,
     boons: Object.fromEntries(Object.values(C.BOON).map((b) => [b.id, { id: b.id, name: b.name, text: TXT.boonText(b.id, CONTENT) }])),
     slots: C.SLOT_IDS, zones: CONTENT.zones, camp: CONTENT.camp,
+    nodeHours: Object.fromEntries(Object.values(C.NODE_TYPE).map((t) => [t.id, t.hours])),
     boss: { name: C.BOSS_TEXT.name, intro: (CONTENT.camp && CONTENT.camp.bossText) || '' },
   };
   const spellName = (id) => (C.SPELL[id] ? C.SPELL[id].name : id === 'pet' ? 'Pet' : TXT.humanize(id));
@@ -125,7 +126,8 @@ function engineBackend(seedOpt) {
     if (shield > 0 && !out.some((x) => x.id === 'WARD')) out.push({ id: 'WARD', rounds: 99, stacks: 1, value: shield });
     return out;
   };
-  const capacity = () => 16 + 4 * ((profile && profile.unlocks && profile.unlocks.pockets) || 0);
+  // Same sum as the engine's bagCapacity(): base slots plus the run's meta bag slots.
+  const capacity = (s) => C.BAG_SLOTS + ((s.meta && s.meta.bagSlots) || 0);
 
   function convPlayer(s) {
     const p = s.player; const d = p.d; const f = s.fight; const cls = C.CLASS[p.classId];
@@ -134,7 +136,7 @@ function engineBackend(seedOpt) {
     const spent = {};
     for (const [id, r] of Object.entries(p.talents || {})) { const t = C.TALENT[id]; if (t) { const k = treeId(t.cls, t.tree); spent[k] = (spent[k] || 0) + r; } }
     const bag = (p.bag || []).map((it) => item(it, p.classId));
-    while (bag.length < capacity()) bag.push(null);
+    while (bag.length < capacity(s)) bag.push(null);
     const boons = Object.entries(p.buffs || {}).filter(([, b]) => b && b.left > 0).map(([id, b]) => ({ id, name: id === 'elixir' ? 'Elixir of Ferocity' : (C.BOON[id] || {}).name || id, nodesLeft: b.left }));
     const resurrect = [];
     for (let i = 0; i < ((p.res && p.res.boon) || 0); i++) resurrect.push('boon');
