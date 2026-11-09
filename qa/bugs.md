@@ -25,7 +25,7 @@ Status: open unless marked.
 - Build: f973648, 5b3e929.
 - Steps: at a vendor buy a Healing Draught, sell Trail Rations; equip an item from the bags; use a consumable from the bags. Read the combat log.
 - Expected: the item's name and the copper received, e.g. "You buy Healing Draught.", "You sell Trail Rations for N copper.", "Equipped <item name>.", "You use Trail Rations."
-- Actual: "You buy item.", "You sell item for 0 copper.", "Equipped item.", "You use item."
+- Actual: "You buy item.", "You sell item for 0 copper.", "Equipped item.", "You use item.", and the heal that follows an item used out of combat logs " heals you for 110." with no source (src/engine/nodes.js healUnitOoc sends no `spell`).
 - Cause: engine-bridge.js convEvents reads `e.name`, `e.gold`, `e.id`, `e.item.name`; the engine's events carry `{ item: id or uid, price }`, `{ item: uid, value }`, `{ item: uid, slot, old }`, `{ item: id }`.
 
 ## BUG-QA-04 · minor · Bought potions stay off the item bar, and nothing says so
