@@ -134,9 +134,9 @@ async function run(W, H, tag) {
   // a dungeon / elite fight with several enemies
   await clickText('button', 'Set out'); await idle();
   await page.evaluate(() => window.__ui.settings.set('speed', 0));
-  for (let r = 0; r < 8; r++) {
+  for (;;) { // node by node until an elite or dungeon, or until the map offers no lane (the zone's last row is done)
     const st = await page.evaluate(() => { const v = window.__ui.view(); return { phase: v.phase, lanes: v.legal.lanes, row: v.zone.pos.row, rows: v.zone.rows.map((x) => x.map((n) => n.type)) }; });
-    if (st.phase !== 'MAP') break;
+    if (st.phase !== 'MAP' || !st.lanes.length) break;
     const nextRow = st.rows[st.row];
     const want = st.lanes.find((l) => nextRow[l] === 'dungeon') ?? st.lanes.find((l) => nextRow[l] === 'elite') ?? st.lanes[0];
     await page.evaluate((l) => window.__ui.act({ type: 'CHOOSE_NODE', lane: l }), want); await idle();
