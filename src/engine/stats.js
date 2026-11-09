@@ -62,7 +62,8 @@ export function refreshDerived(s) {
   const crit = Math.min(CRIT_CAP, CRIT_BASE + (CRIT_FROM_PRIMARY * primary) / R + itemCrit + talentCrit + m.crit);
   const critMult = CRIT_MULT + tr(s, 'r_a5') * TALENT.r_a5.critMult + tr(s, 'h_b4') * TALENT.h_b4.critMult;
   const talentDodge = tr(s, 'r_b2') * TALENT.r_b2.dodge + tr(s, 'h_c5') * TALENT.h_c5.dodge;
-  const dodge = Math.min(DODGE_CAP, cls.dodgeBase + (cls.dodgeFromAgi * st.AGI) / R + talentDodge);
+  const dodgeRaw = cls.dodgeBase + (cls.dodgeFromAgi * st.AGI) / R + talentDodge;
+  const dodge = Math.min(DODGE_CAP, dodgeRaw);
   const armor = cls.armorBase + cls.armorPerLevel * (L - 1) + cls.armorMult * itemArmor + affixArmor;
   let maxMana = 0;
   if (cls.resource === 'mana') {
@@ -71,7 +72,7 @@ export function refreshDerived(s) {
   }
   const regenPct = POST_FIGHT_REGEN_BASE + (POST_FIGHT_REGEN_SPI * st.SPI) / (st.SPI + REGEN_SPI_K * L + REGEN_SPI_C);
   const d = {
-    STA: st.STA, AGI: st.AGI, INT: st.INT, SPI: st.SPI, primary, maxHp, power, crit, critMult, dodge, armor,
+    STA: st.STA, AGI: st.AGI, INT: st.INT, SPI: st.SPI, primary, maxHp, power, crit, critMult, dodge, dodgeRaw, armor,
     maxMana, baseMana: cls.resource === 'mana' ? baseMana(p.classId, L) : 0, wd, regenPct, effects,
   };
   if (p.pet) {

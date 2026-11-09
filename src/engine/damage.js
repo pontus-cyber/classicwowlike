@@ -6,7 +6,7 @@ import {
   TALENT, BOON_DMG_PCT, ELIXIR_DMG_PCT, UNIQUE_ELITE_DMG, LINK_DR, FIGHT_SOFT_ENRAGE_ROUND,
   FIGHT_SOFT_ENRAGE_STEP, ECLIPSE_STEP, BRAND_MAX, DEBUFFS, RES_HP_PCT, RES_MANA_PCT, MOB_XP_FRAC,
   ELITE_XP_MULT, RARE_XP_MULT, DUNGEON_BOSS_XP_MULT, DUNGEON_MOB_XP_MULT, MOB_COIN_V, ELITE_GOLD_V,
-  EMBER_ELITE_DROP_CHANCE, DUNGEON_BOSS_DROPS, UNIQUE_HEAL_ON_KILL, ABILITY_TEMPLATE,
+  EMBER_ELITE_DROP_CHANCE, DUNGEON_BOSS_DROPS, UNIQUE_HEAL_ON_KILL, ABILITY_TEMPLATE, DODGE_CAP,
 } from '../constants.js';
 import { nextFloat } from '../rng.js';
 import { rnd, clamp } from './util.js';
@@ -236,7 +236,7 @@ function critMult(s, src) {
 function dodgeOf(s, u) {
   if (u === 'player') {
     const ev = findSt(s.fight.p.st, 'EVASION');
-    return s.player.d.dodge + (ev ? ev.value : 0);
+    return Math.min(DODGE_CAP, s.player.d.dodgeRaw + (ev ? ev.value : 0));
   }
   if (u === 'pet') return 0;
   return s.fight.enemies[u].dodge;

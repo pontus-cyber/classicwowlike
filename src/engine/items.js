@@ -235,8 +235,9 @@ export function countConsumable(s, id) {
   return n;
 }
 
-/** Can one unit of item be added to the bag? */
+/** Can the item (its whole qty) be added to the bag? Gear always takes one slot. */
 export function canAdd(s, item) {
+  if (item.kind === 'gear') return s.player.bag.length < bagCapacity(s);
   if (item.kind === 'cons') {
     const c = CONSUMABLE[item.id];
     if (c.max !== undefined && countConsumable(s, item.id) + item.qty > c.max) return false;
@@ -252,6 +253,10 @@ export function canAdd(s, item) {
 /** Add an item (any qty) to the bag; returns false and changes nothing when it does not fit. */
 export function addToBag(s, item) {
   if (!canAdd(s, item)) return false;
+  if (item.kind === 'gear') {
+    s.player.bag.push(item);
+    return true;
+  }
   const lim = stackLimit(item);
   let left = item.qty;
   for (const it of s.player.bag) {
