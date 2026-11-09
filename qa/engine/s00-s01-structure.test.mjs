@@ -3,7 +3,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { R, C, CONTENT, started, play, atLevel, tweak, autoUntil, ev, STREAM, nextFloat } from './helpers.mjs';
 import { rnd } from '../../src/engine/util.js';
-import { hash32, makeRng, weightedIndex, streamSeed } from '../../src/rng.js';
+import { hash32, makeRng, weightedIndex, streamSeed, nextInt } from '../../src/rng.js';
 import { generateLayout, contentLevel, dungeonLevels, nextLanes } from '../../src/engine/map.js';
 import { ascendancy } from '../../src/engine/nodes.js';
 
@@ -148,6 +148,7 @@ describe('rules 1 run structure', () => {
         const dRow = g.findIndex((row) => row.includes('dungeon')) + 1;
         assert.ok(dRow >= C.DUNGEON_ROW_MIN && dRow <= C.DUNGEON_ROW_MAX);
         assert.ok(g.slice(C.REST_ROW_MIN - 1, C.REST_ROW_MAX).some((row) => row.includes('rest')), 'rest guarantee');
+        assert.ok(g.slice(C.TRAINER_ROW_MIN - 1, C.TRAINER_ROW_MAX).some((row) => row.includes('trainer')), 'trainer guarantee (M2 v2)');
         for (const t of g[0]) assert.ok(!forbidden.has(t), `row 1 has ${t}`);
         g.forEach((row) => {
           for (const t of new Set(row)) if (t !== 'quest') assert.ok(row.filter((x) => x === t).length <= C.MAX_SAME_TYPE_PER_ROW);
@@ -157,7 +158,33 @@ describe('rules 1 run structure', () => {
     }
   });
 
-  test('1.4 node setup: quest offsets, elite +2, rare at RARE_CHANCE, encounter sizes 1-3', () => {
+  test('1.4 step 2b: the Trainer guarantee is drawn after the dungeon and the rest, before the weighted fill (M2 v2)', () => {
+    let n = 0;
+    for (let seed = 0; seed < 200; seed++) {
+      for (let z = 1; z <= C.ZONE_COUNT; z++) {
+        const rng = STREAM.map(seed, z);
+        const filled = Array.from({ length: C.ZONE_CHOICE_ROWS }, () => [false, false, false]);
+        const dRow = C.DUNGEON_ROW_MIN + nextInt(rng, C.DUNGEON_ROW_MAX - C.DUNGEON_ROW_MIN + 1);
+        filled[dRow - 1][nextInt(rng, C.LANES)] = true;
+        const cell = (min, max) => {
+          const row = min + nextInt(rng, max - min + 1);
+          const free = [0, 1, 2].filter((l) => !filled[row - 1][l]);
+          const lane = free[nextInt(rng, free.length)];
+          filled[row - 1][lane] = true;
+          return [row, lane];
+        };
+        const [rr, rl] = cell(C.REST_ROW_MIN, C.REST_ROW_MAX);
+        const [tr, tl] = cell(C.TRAINER_ROW_MIN, C.TRAINER_ROW_MAX);
+        const g = generateLayout(seed, z);
+        assert.equal(g[rr - 1][rl], 'rest', `seed ${seed} zone ${z} rest`);
+        assert.equal(g[tr - 1][tl], 'trainer', `seed ${seed} zone ${z} trainer at row ${tr} lane ${tl}`);
+        n++;
+      }
+    }
+    assert.equal(n, 200 * C.ZONE_COUNT);
+  });
+
+  test('1.4 node setup: quest offsets, elite +ELITE_LEVEL_OFFSET, rare at RARE_CHANCE, encounter sizes 1-3', () => {
     let rare = 0;
     let elites = 0;
     for (let seed = 1; seed <= 60; seed++) {

@@ -1,6 +1,6 @@
 // Zone map generation and node setup (rules 1.3, 1.4, 2). Streams map(z) and node(z,r,l).
 import {
-  ZONE_LEVELS, ZONE_CHOICE_ROWS, LANES, DUNGEON_ROW_MIN, DUNGEON_ROW_MAX, REST_ROW_MIN, REST_ROW_MAX,
+  ZONE_LEVELS, ZONE_CHOICE_ROWS, LANES, DUNGEON_ROW_MIN, DUNGEON_ROW_MAX, REST_ROW_MIN, REST_ROW_MAX, TRAINER_ROW_MIN, TRAINER_ROW_MAX,
   MAX_SAME_TYPE_PER_ROW, NODE_TYPE, NODE_DRAW_ORDER, ROW1_FORBIDDEN, MAP_REDRAW_TRIES, QUEST_LEVEL_OFFSETS,
   ELITE_LEVEL_OFFSET, DUNGEON_LEVEL_OFFSET, DUNGEON_BOSS_LEVEL_OFFSET, RARE_CHANCE, QUEST_SIZE_W1, QUEST_SIZE_W2,
   QUEST_SIZE_W3, GRIND_MAX_WAVES, GRIND_WAVE_SIZE, ELITE_ADD_CHANCE, DUNGEON_TRASH_FIGHTS, DUNGEON_SIZE_W2,
@@ -26,7 +26,7 @@ export function dungeonLevels(z) {
   return { trash, boss: clampCl(trash + DUNGEON_BOSS_LEVEL_OFFSET) };
 }
 
-/** Map step 1-3: node types of the 8 × 3 grid (stream map(z)). Returns rows[r-1][l] = type. */
+/** Map steps 1-3: node types of the ZONE_CHOICE_ROWS × LANES grid (stream map(z)). Returns rows[r-1][l] = type. */
 export function generateLayout(seed, z) {
   const rng = STREAM.map(seed, z);
   const grid = [];
@@ -35,11 +35,16 @@ export function generateLayout(seed, z) {
   const dRow = DUNGEON_ROW_MIN + nextInt(rng, DUNGEON_ROW_MAX - DUNGEON_ROW_MIN + 1);
   const dLane = nextInt(rng, LANES);
   grid[dRow - 1][dLane] = 'dungeon';
-  // 2. Rest guarantee: row uniform, then lane uniform over the free cells of that row
-  const rRow = REST_ROW_MIN + nextInt(rng, REST_ROW_MAX - REST_ROW_MIN + 1);
-  const free = [];
-  for (let l = 0; l < LANES; l++) if (!grid[rRow - 1][l]) free.push(l);
-  grid[rRow - 1][free[nextInt(rng, free.length)]] = 'rest';
+  // 2. Rest guarantee and 2b. Trainer guarantee (M2 v2): row uniform, then lane uniform over the free cells of
+  // that row (a row of rows 3-5 always has one: at most the dungeon and the rest are placed before).
+  const guarantee = (type, rowMin, rowMax) => {
+    const row = rowMin + nextInt(rng, rowMax - rowMin + 1);
+    const free = [];
+    for (let l = 0; l < LANES; l++) if (!grid[row - 1][l]) free.push(l);
+    grid[row - 1][free[nextInt(rng, free.length)]] = type;
+  };
+  guarantee('rest', REST_ROW_MIN, REST_ROW_MAX);
+  guarantee('trainer', TRAINER_ROW_MIN, TRAINER_ROW_MAX);
   // 3. Every other cell, row by row, lane 0..2
   const weights = NODE_DRAW_ORDER.map((t) => NODE_TYPE[t].weight);
   for (let r = 1; r <= ZONE_CHOICE_ROWS; r++) {
@@ -161,7 +166,7 @@ export function generateZone(s, z) {
   return { z, rows, pos: { r: 0, l: null }, questsDone: 0, storyDone: false, path: [] };
 }
 
-/** Legal lanes for the next node (rules 1.4 movement). Empty after row 8. */
+/** Legal lanes for the next node (rules 1.4 movement). Empty after the last row (ZONE_CHOICE_ROWS). */
 export function nextLanes(zone) {
   const { r, l } = zone.pos;
   if (r >= ZONE_CHOICE_ROWS) return [];
