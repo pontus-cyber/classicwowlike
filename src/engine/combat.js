@@ -5,7 +5,7 @@ import {
   MANA_REGEN_ROUND_PCT, PET_REVIVE_PCT, TALENT, UNIQUE_WARD_PCT, BRAND_DMG, BOSS_LEVEL, MIN_HIT_DAMAGE,
 } from '../constants.js';
 import { nextFloat, weightedIndex, nextInt } from '../rng.js';
-import { rnd } from './util.js';
+import { rnd, deepClone } from './util.js';
 import { tr, hasEffect } from './stats.js';
 import {
   damage, snapshot, mitigation, addStatus, findSt, hasSt, petAlive, healUnit, applyDamage, levelMod, gainStealth,
@@ -109,7 +109,7 @@ export function rollIntents(s, ev) {
   for (const e of s.fight.enemies) {
     if (!e.alive) { e.intent = null; continue; }
     e.intent = e.kind === 'boss' ? bossIntent(s, e) : rollIntent(s, e);
-    ev.push({ t: 'intent', u: e.idx, intent: e.intent });
+    ev.push({ t: 'intent', u: e.idx, intent: deepClone(e.intent) });
   }
 }
 

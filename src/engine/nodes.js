@@ -11,7 +11,7 @@ import {
   RESPEC_V, CONSUMABLE, ELIXIR_NODES, RES_META_CHARGES, BOSS_LEVEL, UNIQUE_POTION_PCT,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt } from '../rng.js';
-import { rnd, frac6 } from './util.js';
+import { rnd, frac6, deepClone } from './util.js';
 import { refreshDerived, hasEffect } from './stats.js';
 import { eventXp, gainXp, gainGold, addRested, spendGold, addGoldRaw } from './progress.js';
 import {
@@ -269,7 +269,7 @@ export function chooseNode(s, ev, lane) {
     case 'vendor':
       addHours(s, ev, HOURS_VENDOR, 'vendor');
       n.stage = 'service';
-      s.service = { kind: 'vendor', where: 'node', cl: def.cl, stock: def.stock };
+      s.service = { kind: 'vendor', where: 'node', cl: def.cl, stock: deepClone(def.stock) };
       s.stats.vendorVisits += 1;
       ev.push({ t: 'service', service: 'vendor', where: 'node' });
       break;
@@ -357,8 +357,8 @@ function openChest(s, ev) {
 export function receiveItems(s, ev, items) {
   for (const it of items) {
     if (it.kind === 'gear') s.stats.equipDrops += 1;
-    if (addToBag(s, it)) ev.push({ t: 'loot', item: it, to: 'bag' });
-    else { s.loot.push(it); ev.push({ t: 'loot', item: it, to: 'window' }); }
+    if (addToBag(s, it)) ev.push({ t: 'loot', item: deepClone(it), to: 'bag' });
+    else { s.loot.push(it); ev.push({ t: 'loot', item: deepClone(it), to: 'window' }); }
   }
 }
 
@@ -429,8 +429,8 @@ export function chooseReward(s, ev, index) {
   if (set.kind === 'items') {
     const it = set.items[index];
     s.stats.equipDrops += 1;
-    if (addToBag(s, it)) ev.push({ t: 'loot', item: it, to: 'bag' });
-    else { s.loot.push(it); ev.push({ t: 'loot', item: it, to: 'window' }); }
+    if (addToBag(s, it)) ev.push({ t: 'loot', item: deepClone(it), to: 'bag' });
+    else { s.loot.push(it); ev.push({ t: 'loot', item: deepClone(it), to: 'window' }); }
   } else {
     applyBoon(s, ev, set.boons[index]);
   }
@@ -499,6 +499,7 @@ export function fightBoss(s, ev) {
 // ---------------- Run end (rules 9) ----------------
 export function endRun(s, ev, outcome) {
   s.outcome = outcome;
+  s.loot = [];
   s.node = null;
   s.service = null;
   s.fight = null;
@@ -612,7 +613,7 @@ export function buy(s, ev, i) {
     ev.push({ t: 'buy', item: e.id, price: e.price });
   } else {
     e.sold = true;
-    addToBag(s, e.item);
+    addToBag(s, deepClone(e.item));
     ev.push({ t: 'buy', item: e.item.uid, price: e.price });
   }
 }

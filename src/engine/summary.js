@@ -6,6 +6,7 @@ import {
   SLOT_IDS, TALENT, CLASS,
 } from '../constants.js';
 import { echoes, profileHash } from './meta.js';
+import { deepClone } from './util.js';
 
 /** estSeconds (rules 3): sum of pace terms; rounds at the manual or autoplay rate. */
 export function estSeconds(st, profile = 'manual') {
@@ -38,7 +39,7 @@ export function summary(s) {
     quests: st.quests, reachedBoss: st.reachedBoss, bossPhase: st.bossPhase, outcome: s.outcome,
     hoursAtBoss: st.hoursAtBoss, oaths: s.oaths,
   };
-  return {
+  return deepClone({
     name: p.name, classId: p.classId, className: CLASS[p.classId].name, petId: p.pet ? p.pet.id : null,
     talents: { perTree: trees, trees: CLASS[p.classId].trees, ranks: { ...p.talents } },
     seed: s.seed, profileHash: profileHash(s.profile), contentVersion: s.contentVersion, oaths: s.oaths.slice(),
@@ -53,5 +54,5 @@ export function summary(s) {
     equipped: SLOT_IDS.filter((k) => p.equipped[k]).map((k) => ({ slot: k, name: p.equipped[k].name, ilvl: p.equipped[k].ilvl, rarity: p.equipped[k].rarity })),
     reachedBoss: st.reachedBoss, bossPhase: st.bossPhase, bossHpPct: st.bossHpPct,
     echoes: echoes(facts, s.profile),
-  };
+  });
 }

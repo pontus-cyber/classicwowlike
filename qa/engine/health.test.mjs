@@ -135,6 +135,28 @@ describe('engine health', () => {
     assert.throws(() => R.deserialize(R.serialize(s), { ...CONTENT, version: 'other' }), /saved with content/);
   });
 
+  test('every state is a tree of plain JSON: no object is shared between two places (content excluded)', () => {
+    const shared = (root) => {
+      const seen = new Set();
+      const walk = (v, path) => {
+        if (v === null || typeof v !== 'object') return null;
+        if (seen.has(v)) return path;
+        seen.add(v);
+        for (const k of Object.keys(v)) { const r = walk(v[k], `${path}.${k}`); if (r) return r; }
+        return null;
+      };
+      for (const k of Object.keys(root)) if (k !== 'content') { const r = walk(root[k], k); if (r) return r; }
+      return null;
+    };
+    for (const c of C.CLASS_IDS) {
+      let s = newRun(c, 606);
+      for (let i = 0; i < MAX_ACTIONS_PER_RUN && s.phase !== 'ENDED'; i++) {
+        s = R.step(s, R.autoAction(s)).state;
+        assert.equal(shared(s), null, `${c} step ${i}`);
+      }
+    }
+  });
+
   test('B37 throughput: autoplay runs per minute (reported, not asserted)', () => {
     const t0 = Date.now();
     let runs = 0;

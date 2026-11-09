@@ -198,7 +198,7 @@ const A = {
       const i = s.loot.findIndex((x) => x.uid === a.itemId);
       const it = s.loot.splice(i, 1)[0];
       addToBag(s, it);
-      ev.push({ t: 'loot', item: it, to: 'bag' });
+      ev.push({ t: 'loot', item: { ...it }, to: 'bag' });
     },
   },
   LOOT_DROP: {
