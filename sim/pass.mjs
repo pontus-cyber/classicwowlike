@@ -5,19 +5,19 @@
 //
 //   node sim/pass.mjs --out sim/out/pass-2026-11-09 [--runs 2000] [--style-runs 1000] [--workers N]
 //                     [--stages A,B,C,D] [--resume] [--warmup 1000] [--campaigns 50] [--replay 1000] [--half-runs 1000]
-//                     [--variant-runs 2000]
+//                     [--variant-runs 2000] [--pall-runs 2000]
 //
 // Order and risk-table chain (balance.md 1.1; each cell keeps refreshing its own table every SIM_RISK_REFRESH runs):
 //   A  P0:   planner warm-up (default trees) -> B7 planner with each tree -> best tree per class (win rate, then
 //            reach-boss rate) -> random, greedy, speedrunner, tactician; all start from the best-tree planner's
 //            final observations.
 //   B  P10:  planner warm-up from the P0 observations -> planner, random.
-//   C  PALL: planner warm-up from the P0 observations -> planner -> random, greedy, speedrunner, tactician
-//            (--half-runs), B26-B28 variants (--variant-runs, paired with the planner's first seeds); all start
-//            from the PALL planner's observations.
+//   C  PALL: planner warm-up from the P0 observations -> planner -> random, greedy, speedrunner (--pall-runs),
+//            tactician (--half-runs), B26-B28 variants (--variant-runs, paired with the planner's first seeds); all
+//            start from the PALL planner's observations.
 //   D  campaigns (frozen P0 planner table), B35 replay of 1 000 random runs, B37 autoplay throughput.
 //   E  P2 and diagnostic cells: B9 pets and B8 styles (P0 from the P0 planner's observations, PALL from the PALL
-//            planner's), the boss-autoplay tactician (--half-runs).
+//            planner's), the rules-only tactician (telegraph rules, no search; --half-runs).
 import { cpus } from 'node:os';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
@@ -52,13 +52,15 @@ const CAMPAIGNS = Number(args.campaigns ?? BAL.N_CAMPAIGNS);
 const REPLAY = Number(args.replay ?? BAL.QA_REPLAY_RUNS);
 // The PALL tactician (B3 is an upper bound) and the diagnostic tactician variant run at half size (compute budget).
 const HALF = Number(args['half-runs'] || Math.round(RUNS / 2));
-// B26-B28 variants run on the first VARIANT_RUNS seeds of the PALL planner cell (paired seeds).
-const VARIANT_RUNS = Number(args['variant-runs'] || RUNS);
+// PALL planner, random, greedy and speedrunner cells (the first to cut when compute is short).
+const PALL_RUNS = Number(args['pall-runs'] || RUNS);
+// B26-B28 variants run on the first VARIANT_RUNS seeds of the PALL planner cell (paired seeds, so at most PALL_RUNS).
+const VARIANT_RUNS = Math.min(PALL_RUNS, Number(args['variant-runs'] || RUNS));
 const SEED = BAL.SEED_BASE;
 const pool = new Pool(WORKERS);
 const manifestFile = join(OUT, 'pass.json');
 const manifest = existsSync(manifestFile) ? readJson(manifestFile) : { cells: {}, warmups: {} };
-manifest.meta = { commit: commitInfo(), started: manifest.meta ? manifest.meta.started : new Date().toISOString(), runs: RUNS, styleRuns: STYLE_RUNS, seedBase: SEED, workers: WORKERS, node: process.version };
+manifest.meta = { commit: commitInfo(), started: manifest.meta ? manifest.meta.started : new Date().toISOString(), runs: RUNS, styleRuns: STYLE_RUNS, halfRuns: HALF, variantRuns: VARIANT_RUNS, pallRuns: PALL_RUNS, campaigns: CAMPAIGNS, seedBase: SEED, workers: WORKERS, node: process.version };
 const save = () => writeJson(manifestFile, manifest);
 const log = (m) => process.stderr.write(`[${new Date().toISOString().slice(11, 19)}] ${m}\n`);
 
@@ -137,11 +139,11 @@ try {
   }
   if (STAGES.has('C')) {
     const wall = await warmup('PALL', 'all', trees, obsP0, WARM);
-    const pall = await cell('planner-PALL', { bot: 'planner', classes: CLASSES, prof: 'all', trees, obsIn: wall });
+    const pall = await cell('planner-PALL', { bot: 'planner', classes: CLASSES, prof: 'all', trees, obsIn: wall, runs: PALL_RUNS });
     const obsAll = obsOf(pall);
     writeJson(join(OUT, 'obs-PALL.json'), obsAll);
-    await cell('random-PALL', { bot: 'random', classes: CLASSES, prof: 'all', trees });
-    for (const bot of ['greedy', 'speedrunner']) await cell(`${bot}-PALL`, { bot, classes: CLASSES, prof: 'all', trees, obsIn: obsAll });
+    await cell('random-PALL', { bot: 'random', classes: CLASSES, prof: 'all', trees, runs: PALL_RUNS });
+    for (const bot of ['greedy', 'speedrunner']) await cell(`${bot}-PALL`, { bot, classes: CLASSES, prof: 'all', trees, obsIn: obsAll, runs: PALL_RUNS });
     await cell('tactician-PALL', { bot: 'tactician', classes: CLASSES, prof: 'all', trees, obsIn: obsAll, runs: HALF });
     for (const variant of ['noInterrupt', 'noCleanse', 'noAoe']) await cell(`planner-PALL-${variant}`, { bot: 'planner', classes: CLASSES, prof: 'all', trees, obsIn: obsAll, variant, runs: VARIANT_RUNS });
   }
@@ -198,12 +200,12 @@ try {
     }
   }
   if (STAGES.has('E')) {
-    // P2 and diagnostic cells: B9 pets, B8 route styles, the boss-autoplay tactician.
+    // P2 and diagnostic cells: B9 pets, B8 route styles, the rules-only tactician.
     const obsAll = readJson(join(OUT, 'obs-PALL.json'));
     for (const pet of ['thornback', 'duskcat']) await cell(`planner-P0-${pet}`, { bot: 'planner', classes: ['hunter'], prof: 'fresh', trees, obsIn: obsP0, pet });
     for (const style of ['quest', 'grind', 'elite', 'speed']) await cell(`planner-P0-${style}`, { bot: 'planner', classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0, style, runs: STYLE_RUNS });
     for (const style of ['quest', 'grind', 'elite', 'speed']) await cell(`planner-PALL-${style}`, { bot: 'planner', classes: CLASSES, prof: 'all', trees, obsIn: obsAll, style, runs: STYLE_RUNS });
-    await cell('tactician-P0-bossAuto', { bot: 'tactician', classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0, variant: 'bossAuto', runs: HALF });
+    await cell('tactician-P0-rulesOnly', { bot: 'tactician', classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0, variant: 'rulesOnly', runs: HALF });
   }
   manifest.meta.finished = new Date().toISOString();
   manifest.meta.wallMin = Math.round((performance.now() - t0) / 60000);

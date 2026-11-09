@@ -5,6 +5,10 @@
 // markers survives a regeneration.
 //
 //   node sim/report.mjs --in sim/out/pass-2026-11-09 --out docs/reports/balance-2026-11-09.md
+//                       [--before docs/reports/balance-<earlier>.md]
+// --before: an earlier report made by this script; its generated tables give a "Before" column (checks matched by
+// ID and order within the ID, diagnostic rows excluded; cells by name). Results there are against the targets of
+// that report's date.
 import { join } from 'node:path';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { BAL } from './lib/params.mjs';
@@ -24,6 +28,31 @@ function parse(argv) {
 const args = parse(process.argv.slice(2));
 const IN = args.in;
 const OUT = args.out;
+const BEFORE = args.before ? parseBefore(readFileSync(args.before, 'utf8')) : null;
+
+/** Generated tables of an earlier report: checks by `${ID}#${k}` (k-th non-diagnostic row of that ID), cells by name. */
+function parseBefore(md) {
+  const a = md.indexOf('<!-- generated:start');
+  const b = md.indexOf('<!-- generated:end -->');
+  const lines = (a >= 0 && b > a ? md.slice(a, b) : md).split('\n');
+  const checks = new Map();
+  const cells = new Map();
+  const count = {};
+  let head = null;
+  let summary = null;
+  for (const line of lines) {
+    if (line.startsWith('Pass/fail:')) summary = line.slice('Pass/fail:'.length).trim();
+    if (!line.startsWith('|')) { head = null; continue; }
+    const c = line.split('|').slice(1, -1).map((x) => x.trim());
+    if (!head) { head = c; continue; }
+    if (c.every((x) => /^-+$/.test(x))) continue;
+    if (head[0] === 'ID' && head[1] === 'Pri' && c[1] !== 'diag') {
+      count[c[0]] = (count[c[0]] || 0) + 1;
+      checks.set(`${c[0]}#${count[c[0]]}`, { value: c[3], result: c[5] });
+    } else if (head[0] === 'Cell' && head[1] === 'Runs') cells.set(c[0], c);
+  }
+  return { checks, cells, summary, file: args.before };
+}
 const pass = readJson(join(IN, 'pass.json'));
 const trees = pass.trees;
 
@@ -94,8 +123,14 @@ function miss(v, lo, hi) {
   if (hi !== null && v > hi) return (v - hi) / w;
   return 0;
 }
+const ordinal = {};
 function add(id, pri, metric, value, target, ok, missSize = 0, note = '') {
-  rows.push({ id, pri, metric, value, target, ok, miss: ok === false ? missSize : 0, note });
+  let before = null;
+  if (pri !== 'diag') {
+    ordinal[id] = (ordinal[id] || 0) + 1;
+    if (BEFORE) before = BEFORE.checks.get(`${id}#${ordinal[id]}`) || null;
+  }
+  rows.push({ id, pri, metric, value, target, ok, miss: ok === false ? missSize : 0, note, before });
 }
 const rcell = (r) => (r && r.n ? `${pct(r.p)} (${ci(r.ci)})` : 'n/a');
 const P = (name, cls) => m(name, cls);
@@ -128,14 +163,14 @@ for (const prof of ['P0', 'PALL']) {
 {
   const d = diffRate(P('tactician-P0').win, P('planner-P0').win);
   add('B5', 'P1', 'Tactician - planner, P0', `${pct(d.v)} (${ci(d.ci)})`, band(BAL.MANUAL_GAP), inBand(d.v, BAL.MANUAL_GAP), miss(d.v, ...BAL.MANUAL_GAP));
-  const t = P('tactician-P0-bossAuto');
+  const t = P('tactician-P0-rulesOnly');
   if (t) {
-    // Diagnostic: half-size cell on the first seeds; compare with the planner on the same seeds.
-    const pl = P('planner-P0@tactician-P0-bossAuto');
-    const tp = P('tactician-P0@tactician-P0-bossAuto');
+    // Diagnostic: half-size cell on the first seeds; compare with the planner and the tactician on the same seeds.
+    const pl = P('planner-P0@tactician-P0-rulesOnly');
+    const tp = P('tactician-P0@tactician-P0-rulesOnly');
     const dd = diffRate(t.win, pl.win);
     add('B5', 'diag', 'Tactician (as specified) - planner, P0, same seeds as the diagnostic', `${pct(diffRate(tp.win, pl.win).v)}`, band(BAL.MANUAL_GAP), null, 0, 'paired subset');
-    add('B5', 'diag', 'Tactician (autoplay in the end-boss fight) - planner, P0, same seeds', `${pct(dd.v)} (${ci(dd.ci)})`, band(BAL.MANUAL_GAP), null, 0, 'diagnostic, not a balance.md bot');
+    add('B5', 'diag', 'Tactician telegraph rules only, autoplay otherwise (no search) - planner, P0, same seeds', `${pct(dd.v)} (${ci(dd.ci)})`, band(BAL.MANUAL_GAP), null, 0, 'diagnostic, not a balance.md bot');
   }
 }
 {
@@ -284,7 +319,13 @@ const metricIds = [...new Set(rows.map((r) => r.id))];
 const failed = rows.filter((r) => r.ok === false);
 const p1 = rows.filter((r) => r.pri === 'P1');
 L.push(`Pass/fail: ${rows.filter((r) => r.ok === true).length} checks pass, ${failed.length} fail, ${rows.filter((r) => r.ok === null).length} not measurable or diagnostic, over ${metricIds.length} targets. P1: ${p1.filter((r) => r.ok === true).length} pass, ${p1.filter((r) => r.ok === false).length} fail.`, '');
-L.push(table(['ID', 'Pri', 'Metric', 'Value (95 % interval)', 'Target', 'Result'], rows.map((r) => [r.id, r.pri, r.metric + (r.note ? ` (${r.note})` : ''), r.value, r.target, res(r.ok)])));
+if (BEFORE) {
+  const changed = rows.filter((r) => r.before && r.ok !== null && ['pass', '**FAIL**'].includes(r.before.result) && (r.before.result === 'pass') !== (r.ok === true));
+  L.push(`Before (${BEFORE.file}): ${BEFORE.summary} Changed result: ${changed.filter((r) => r.ok).length} now pass, ${changed.filter((r) => !r.ok).length} now fail.`, '');
+  L.push(table(['ID', 'Pri', 'Metric', 'Before: value', 'Before', 'Now: value (95 % interval)', 'Target', 'Now'], rows.map((r) => [r.id, r.pri, r.metric + (r.note ? ` (${r.note})` : ''), r.before ? r.before.value : 'n/a', r.before ? r.before.result : 'n/a', r.value, r.target, res(r.ok)])));
+} else {
+  L.push(table(['ID', 'Pri', 'Metric', 'Value (95 % interval)', 'Target', 'Result'], rows.map((r) => [r.id, r.pri, r.metric + (r.note ? ` (${r.note})` : ''), r.value, r.target, res(r.ok)])));
+}
 L.push('');
 L.push('### Misses ranked by size (distance outside the band in band widths; P1 first)', '');
 const ranked = failed.slice().sort((a, b) => (a.pri === b.pri ? 0 : a.pri === 'P1' ? -1 : b.pri === 'P1' ? 1 : a.pri < b.pri ? -1 : 1) || b.miss - a.miss);
@@ -294,12 +335,13 @@ L.push('');
 // Supporting tables
 L.push('### Win rate and reach-the-boss rate by bot, profile and class', '');
 const cellRows = [];
-for (const name of ['random-P0', 'greedy-P0', 'planner-P0', 'speedrunner-P0', 'tactician-P0', 'tactician-P0-bossAuto', 'random-P10', 'planner-P10', 'random-PALL', 'greedy-PALL', 'planner-PALL', 'speedrunner-PALL', 'tactician-PALL', 'planner-PALL-noInterrupt', 'planner-PALL-noCleanse', 'planner-PALL-noAoe']) {
+for (const name of ['random-P0', 'greedy-P0', 'planner-P0', 'speedrunner-P0', 'tactician-P0', 'tactician-P0-rulesOnly', 'random-P10', 'planner-P10', 'random-PALL', 'greedy-PALL', 'planner-PALL', 'speedrunner-PALL', 'tactician-PALL', 'planner-PALL-noInterrupt', 'planner-PALL-noCleanse', 'planner-PALL-noAoe']) {
   const pooled = m(name);
   if (!pooled) continue;
-  cellRows.push([name, pooled.n, ...CLASSES.map((c) => { const x = m(name, c); return `${pct(x.win.p)} / ${pct(x.boss.p, 0)}`; }), `${pct(pooled.win.p)} / ${pct(pooled.boss.p, 0)}`, num(pooled.msPerRun.v, 0)]);
+  const b = BEFORE ? BEFORE.cells.get(name) : null;
+  cellRows.push([name, pooled.n, ...CLASSES.map((c) => { const x = m(name, c); return `${pct(x.win.p)} / ${pct(x.boss.p, 0)}`; }), `${pct(pooled.win.p)} / ${pct(pooled.boss.p, 0)}`, ...(BEFORE ? [b ? b.slice(2, 6).join('; ') : 'n/a'] : []), num(pooled.msPerRun.v, 0)]);
 }
-L.push(table(['Cell', 'Runs', ...CLASSES.map((c) => `${c}: win / boss`), 'All: win / boss', 'ms/run'], cellRows));
+L.push(table(['Cell', 'Runs', ...CLASSES.map((c) => `${c}: win / boss`), 'All: win / boss', ...(BEFORE ? ['Before: rogue; mage; hunter; all (win / boss)'] : []), 'ms/run'], cellRows));
 L.push('');
 L.push(`Default trees (B7 best planner win rate, ties by reach-boss rate): ${Object.entries(trees).map(([c, t]) => `${c} tree ${t}`).join(', ')}. Hunter pet: ridgewolf for every bot except random (random picks one at random).`, '');
 
