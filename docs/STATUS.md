@@ -9,6 +9,9 @@ M1, doing. M0 done: brief approved, rules spec (docs/specs/rules.md) and balance
 1. In progress: 1.2 simulator and first balance report (resumed after a server restart), 1.5 QA hand-off (resumed), UI bug fixes from qa/bugs.md (BUG-QA-01 critical: autoplay toggle does not advance fights in the visual build).
 2. Next: review the balance report and tune (M2 2.3); engine bugs QA-06, QA-07; Echoes spending screen.
 
+## Schedule note
+A 20:47 session (trig_017Yieg7XP2x7X6KoSvmKhfq) was booked early by mistake. The 19:47 session must NOT book another; from 20:47 on the chain is single again.
+
 ## Waiting on the owner
 Nothing blocking. See docs/OWNER.md.
 
