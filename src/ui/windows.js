@@ -126,7 +126,7 @@ export function createWindows(root, ctx) {
       };
       const tog = (key) => { const b = h('div.toggle' + (s[key] ? '.on' : ''), h('div.sw')); b.addEventListener('click', () => { settings.set(key, !settings.get(key)); refresh('settings'); }); return b; };
       const body = h('div.col', { style: { padding: '1rem 1.6rem 1.6rem', gap: 0 } },
-        h('div.setrow', h('div', h('div', 'Animation speed'), h('div.muted', 'Every animation can also be skipped with Space or a click.')), seg('speed', [[1, '1×'], [2, '2×'], [4, '4×'], [0, 'Instant']])),
+        h('div.setrow', h('div', h('div', 'Animation speed'), h('div.muted', 'Every animation can also be skipped with Space, a click or an action key.')), seg('speed', [[1, '1×'], [2, '2×'], [4, '4×'], [0, 'Instant']])),
         h('div.setrow', h('div', h('div', 'Speedrun mode'), h('div.muted', 'Instant animations, no travel scenes, fast autoplay.')), tog('speedrun')),
         h('div.setrow', h('div', 'Skip travel scenes'), tog('skipTravel')),
         h('div.setrow', h('div', h('div', 'Autoplay pace'), h('div.muted', 'Pause between autoplay rounds.')), seg('autoDelay', [[700, 'Calm'], [350, 'Normal'], [120, 'Quick'], [40, 'Rush']])),

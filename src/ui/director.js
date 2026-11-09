@@ -106,12 +106,13 @@ export class Director {
     const plan = budget ? planMs(events, prev.player && prev.player.classId) : 0;
     const tempo = budget ? Math.max(1, plan / (budget * PLAN_SHARE)) : 1;
     const t0 = opts.t0 ?? performance.now(); let momentMs = 0;
-    const spent = () => !!budget && !!speed && performance.now() - t0 - momentMs >= (budget * DEADLINE_SHARE) / speed;
+    // ms left of the round's budget (Infinity without one); no wait or flight runs past it
+    const left = () => (budget && speed ? (budget * DEADLINE_SHARE) / speed - (performance.now() - t0 - momentMs) : Infinity);
     const D = (ms) => settings.dur(ms) / tempo; // a wait or an animation of this step, at this step's tempo
-    const W = (ms) => (spent() ? Promise.resolve() : wait(D(ms), token));
+    const W = (ms) => { const l = left(); return l <= 0 ? Promise.resolve() : wait(Math.min(D(ms), l), token); };
     // a moment (level-up, victory, death, resurrect, boss phase) keeps its own length and does not use up the budget
     const WM = async (ms) => { const a = performance.now(); await wait(settings.dur(ms), token); momentMs += performance.now() - a; };
-    const bolt = (from, to, kind, ms) => (spent() ? Promise.resolve() : scene.projectile(from, to, kind, D(ms)));
+    const bolt = (from, to, kind, ms) => { const l = left(); return l <= 0 ? Promise.resolve() : scene.projectile(from, to, kind, Math.min(D(ms), l)); };
     this.round = budget ? { budget, speed, plan, tempo, t0 } : null;
     const fast = () => token.skipped || settings.instant;
     const shown = makeInterim(prev, next);
@@ -151,6 +152,7 @@ export class Director {
       // ------------------------------------------------ events
       let lastDamageTarget = null;
       for (const e of events) {
+        this.cursor = e; // test hook: the event on screen
         switch (e.t) {
           case 'fightStart': hud.log(`Combat: ${e.enemies.join(', ')}.`, 'lg-sys'); break;
           case 'action': {
@@ -296,7 +298,7 @@ export class Director {
       if (next.phase === 'SUMMARY' && next.summary && next.summary.outcome === 'victory' && prev.phase !== 'SUMMARY') { ctx.ui.banner('Victory', 'Oruvath, the Unlit Star, is no more.', 'boss', 3000); await WM(2200); }
     } finally {
       ctx.ui.overlay = false;
-      this.token = null;
+      this.token = null; this.cursor = null;
       // the run summary must be readable as soon as it appears: no banner over it
       if (next.phase === 'SUMMARY' && prev.phase !== 'SUMMARY') ctx.ui.hideBanner();
       ctx.setShown(next);

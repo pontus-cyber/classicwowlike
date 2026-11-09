@@ -342,6 +342,10 @@ export class App {
       idle: async () => { for (let i = 0; i < 400 && (app.pending > 0 || app.director.playing); i++) await new Promise((r) => setTimeout(r, 25)); await app.queue; },
       /** Timing of the last played steps: { type, input, t0, end, skippedAt, events, round: { budget, plan, tempo, speed } }. */
       plays: () => app.plays.map((p) => ({ ...p })),
+      /** The action the engine's autoplay policy would choose now (not sent). */
+      autoChoice: () => app.bridge.autoAction(),
+      /** The event the director is playing now ({ t, side }), or null. */
+      playingEvent: () => { const e = app.director.playing && app.director.cursor; return e ? { t: e.t, side: e.src ? e.src.side : null } : null; },
       skip: () => app.director.skip(),
       settings,
       openWin: (n) => app.windows.open(n), closeWins: () => app.windows.closeAll(),
