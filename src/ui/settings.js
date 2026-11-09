@@ -1,0 +1,46 @@
+// Player-facing presentation settings (animation speed, fast mode). Persisted in localStorage when
+// available. Nothing here changes game rules.
+import { emitter } from './util.js';
+
+const KEY = 'tbwcr.ui.settings.v1';
+const DEFAULTS = {
+  speed: 1,            // animation speed multiplier: 1, 2, 4, or 0 = instant
+  skipTravel: false,   // jump straight to the node
+  autoDelay: 350,      // ms between autoplay rounds at speed 1
+  showLog: true,       // combat log panel
+  shake: true,         // screen shake on heavy hits
+  speedrun: false,     // preset: instant animations, no travel, short autoplay delay
+};
+
+function load() {
+  try {
+    const raw = globalThis.localStorage && localStorage.getItem(KEY);
+    if (raw) return { ...DEFAULTS, ...JSON.parse(raw) };
+  } catch { /* storage blocked (sandbox / file://): use defaults */ }
+  return { ...DEFAULTS };
+}
+
+const ev = emitter();
+const state = load();
+try {
+  const sp = new URLSearchParams(location.search).get('speed');
+  if (sp !== null) state.speed = sp === 'instant' ? 0 : Number(sp) || 1;
+} catch { /* no location */ }
+
+export const settings = {
+  get(k) { return state[k]; },
+  all() { return { ...state }; },
+  set(k, v) {
+    state[k] = v;
+    if (k === 'speedrun') {
+      if (v) Object.assign(state, { speed: 0, skipTravel: true, autoDelay: 60 });
+      else Object.assign(state, { speed: 1, skipTravel: false, autoDelay: DEFAULTS.autoDelay });
+    }
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* ignore */ }
+    ev.emit('change', k, v);
+  },
+  on: ev.on,
+  /** Scale a duration in ms by the animation speed (0 = instant). */
+  dur(ms) { return state.speed === 0 ? 0 : ms / state.speed; },
+  get instant() { return state.speed === 0; },
+};

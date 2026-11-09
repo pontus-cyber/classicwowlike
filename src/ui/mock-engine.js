@@ -7,6 +7,15 @@
 // API: createState(opts) -> state; step(state, action) -> { ok, error, state, events };
 //      legalInfo(state) -> legal; autoAction(state) -> action; data -> static tables.
 import * as D from './mock-data.js';
+import { CONTENT } from '../content/index.js';
+
+// Content (src/content, schema in src/content/SCHEMA.md) supplies names and text; the mock falls back
+// to its own placeholders where a table is missing.
+const CT = CONTENT || {};
+const zoneCt = (z) => (CT.zones && CT.zones[z - 1]) || null;
+const enemyCt = (id) => (CT.enemies && CT.enemies[id]) || null;
+const abilityCt = (id) => (CT.abilities && CT.abilities[id]) || null;
+const questCt = (id) => (CT.quests && CT.quests[id]) || null;
 
 const C = {
   MAX_LEVEL: 60, ZONE_LEVELS: 10, ROWS: 8, LANES: 3, BAG_SLOTS: 16, BAR: 7, ITEM_BAR: 3,
@@ -16,6 +25,8 @@ const C = {
   ENERGY_REGEN: 30, FOCUS_REGEN: 25, MANA_REGEN: 0.02, POTION_CD: 4,
   MOB_XP_FRAC: 0.2, QUEST_XP: 0.8, STORY_XP: 0.8, GRIND_WAVE_XP: 0.1, DUNGEON_CLEAR_XP: 0.6,
   ELITE_XP: 6, RARE_XP: 8, DBOSS_XP: 8, REST_RESTED: 0.6, RESTED_CAP: 1.5,
+  // mock-only softening so demo runs progress; the real balance lives in src/constants.js
+  MOCK_ENEMY_DMG: 0.75, MOCK_REGEN_BASE: 0.30,
 };
 
 // ------------------------------------------------------------------ helpers
@@ -74,8 +85,9 @@ function makePlayer(st) {
     talents: {}, talentPoints: 0, statuses: [], boons: [], resurrect: [], elixirNodes: 0, pet: null,
   };
   p.itemBar = [null, null, null];
-  p.equip.weapon = gear(st, 'weapon', 1, 'common', c.classId, cls.startWeapon);
-  p.equip.chest = gear(st, 'chest', 1, 'common', c.classId, { rogue: 'Patched Leather Vest', mage: 'Novice Robe', hunter: 'Trapper Jerkin' }[c.classId]);
+  const ctc = (CT.classes && CT.classes[c.classId]) || {};
+  p.equip.weapon = gear(st, 'weapon', 1, 'common', c.classId, ctc.startWeapon || cls.startWeapon);
+  p.equip.chest = gear(st, 'chest', 1, 'common', c.classId, ctc.startChest || { rogue: 'Patched Leather Vest', mage: 'Novice Robe', hunter: 'Trapper Jerkin' }[c.classId]);
   if (p.petId) {
     const pd = D.PETS[p.petId];
     p.pet = { id: pd.id, name: pd.name, hp: 1, maxHp: 1, alive: true, statuses: [] };
@@ -137,8 +149,8 @@ function gear(st, slot, cl, rarity, classId, fixedName) {
   const stats = {};
   const pts = B - A;
   if (rr.stats === 1) stats[rnd(st) < 0.5 ? prim : 'sta'] = pts;
-  else if (rr.stats === 2) { stats[prim] = Math.round(pts * 0.6); stats[rnd(st) < 0.7 ? 'sta' : 'spi'] = pts - Math.round(pts * 0.6); }
-  else { stats[prim] = Math.round(pts * 0.45); stats.sta = Math.round(pts * 0.35); stats.spi = pts - stats[prim] - stats.sta; }
+  else if (rr.stats === 2) { stats[prim] = Math.max(1, Math.round(pts * 0.6)); stats[rnd(st) < 0.7 ? 'sta' : 'spi'] = Math.max(1, pts - Math.round(pts * 0.6)); }
+  else { stats[prim] = Math.max(1, Math.round(pts * 0.45)); stats.sta = Math.max(1, Math.round(pts * 0.35)); stats.spi = Math.max(1, pts - stats[prim] - stats.sta); }
   if (A) { const a = pick(st, ['crit', 'power', 'armor']); if (a === 'crit') stats.crit = Math.round(0.015 * D.SLOT_W[slot] * (rarity === 'epic' ? 1.4 : 1) * 1000) / 1000; else if (a === 'power') stats.power = A; else stats.armor = (stats.armor || 0) + A * 10; }
   if (['head', 'chest', 'legs', 'hands', 'feet'].includes(slot)) stats.armor = (stats.armor || 0) + Math.round(5 * ilvl * D.SLOT_W[slot] * rr.mult);
   if (slot === 'weapon') stats.wd = Math.round((4 + 1.8 * ilvl) * rr.mult);
@@ -147,24 +159,36 @@ function gear(st, slot, cl, rarity, classId, fixedName) {
   if (slot === 'weapon') kind = cls.weaponKind;
   if (slot === 'offhand') kind = cls.offhandKind;
   let name = fixedName;
-  if (!name) {
-    const baseKey = slot === 'weapon' ? `weapon_${cls.weaponKind}` : slot === 'offhand' ? `offhand_${cls.offhandKind}` : slot;
-    const base = pick(st, D.ITEM_BASES[baseKey]);
-    const keys = Object.keys(stats).filter((k) => ['agi', 'int', 'sta', 'spi'].includes(k)).sort((a, b) => (stats[b] || 0) - (stats[a] || 0));
-    const sk = keys.length > 1 ? `${keys[0]}_${keys[1]}` : keys[0];
-    const suffix = D.ITEM_SUFFIX[sk] || D.ITEM_SUFFIX[keys[0]] || '';
-    name = rarity === 'common' ? `${pick(st, D.ITEM_ADJ)} ${base}` : `${pick(st, D.ITEM_ADJ)} ${base}${suffix ? ' ' + suffix : ''}`;
-  }
+  if (!name) name = gearName(st, slot, ilvl, stats, rarity, prim, cls);
   const sell = Math.max(1, Math.round(V(ilvl) * D.SLOT_W[slot] * ({ common: 0.5, uncommon: 1, rare: 2.5, epic: 6 }[rarity])));
   const it = { uid: uid(st), kind: 'gear', slot, gearKind: kind, name, rarity, ilvl, stats, sell };
   return it;
+}
+function gearName(st, slot, ilvl, stats, rarity, prim, cls) {
+  const band = CT.itemNames && CT.itemNames[Math.min(5, Math.floor((ilvl - 1) / 10))];
+  let base;
+  if (band && band[slot]) { const b = band[slot]; base = pick(st, Array.isArray(b) ? b : (b[prim.toUpperCase()] || b.AGI || Object.values(b)[0])); }
+  else base = pick(st, D.ITEM_BASES[slot === 'weapon' ? `weapon_${cls.weaponKind}` : slot === 'offhand' ? `offhand_${cls.offhandKind}` : slot]);
+  const sig = ['agi', 'int', 'sta', 'spi'].filter((k) => (stats[k] || 0) > 0).map((k) => k.toUpperCase()).join('_');
+  const aw = CT.affixWords;
+  let suffix = '';
+  if (aw && aw.suffix) {
+    const list = aw.suffix[sig] || aw.suffix[sig.split('_').slice(0, 2).join('_')] || aw.suffix[sig.split('_')[0]];
+    if (list) suffix = pick(st, list);
+  } else suffix = D.ITEM_SUFFIX[sig.toLowerCase()] || '';
+  let prefix = '';
+  const affix = stats.crit ? 'crit' : stats.power ? 'power' : null;
+  if ((rarity === 'rare' || rarity === 'epic') && aw && aw.prefix) { const l = aw.prefix[affix || 'armor']; if (l) prefix = pick(st, l) + ' '; }
+  if (rarity === 'common') return base;
+  return `${prefix}${base}${suffix ? ' ' + suffix : ''}`;
 }
 function consumable(st, id, count = 1) {
   const c = D.CONSUMABLES[id];
   return { uid: uid(st), kind: 'consumable', id, name: c.name, rarity: id === 'ember_of_return' ? 'rare' : 'common', count, stack: c.stack, sell: 1, use: c.use };
 }
 function junk(st, L) {
-  return { uid: uid(st), kind: 'junk', id: 'junk', name: pick(st, D.JUNK), rarity: 'junk', count: 1, stack: 10, sell: Math.max(1, Math.round(0.6 * V(L))) };
+  const zc = st.zone && zoneCt(st.zone.idx);
+  return { uid: uid(st), kind: 'junk', id: 'junk', name: pick(st, (zc && zc.junkNames) || D.JUNK), rarity: 'junk', count: 1, stack: 10, sell: Math.max(1, Math.round(0.6 * V(L))) };
 }
 function bagAdd(st, p, item) { // returns true if fully stored
   if (item.kind !== 'gear') {
@@ -193,8 +217,12 @@ function rollRarity(st, w) { return weighted(st, [['common', w[0]], ['uncommon',
 // ------------------------------------------------------------------ map
 function genZone(st, z) {
   const zd = z <= 6 ? D.ZONES[z - 1] : D.CAMP;
-  const zone = { idx: z, id: zd.id, name: zd.name, hubName: zd.hub, theme: zd.theme, band: zd.band, blurb: zd.blurb,
-    exitLevel: C.ZONE_LEVELS * z, rows: [], pos: { row: 0, lane: null }, path: [], questsDone: 0, storyDone: false };
+  const zc = z <= 6 ? zoneCt(z) : null;
+  const camp = z > 6 ? CT.camp : null;
+  const zone = { idx: z, id: zd.id, name: zc ? zc.name : camp ? D.CAMP.name : zd.name, hubName: zc ? zc.hubName : camp ? camp.name : zd.hub,
+    theme: zd.theme, band: zd.band, blurb: zc ? zc.theme : camp ? camp.text : zd.blurb, hubText: zc ? zc.hubText : camp ? camp.text : '',
+    exitLevel: C.ZONE_LEVELS * z, rows: [], pos: { row: 0, lane: null }, path: [], questsDone: 0, storyDone: false,
+    dungeonName: zc ? zc.dungeon.name : zd.dungeon ? zd.dungeon.name : null };
   if (z > 6) return zone;
   const grid = Array.from({ length: C.ROWS }, () => [null, null, null]);
   const dr = 4 + Math.floor(rnd(st) * 3); const dl = Math.floor(rnd(st) * 3);
@@ -213,25 +241,44 @@ function genZone(st, z) {
     grid[r - 1][l] = t;
   }
   const arche = Object.keys(D.ARCHETYPES);
+  // enemy templates: content when present, otherwise placeholder names per archetype
+  const tplFromArch = (a, kind = 'normal') => ({ id: `${zd.id}_${a}`, name: zd.enemies[a], archetype: a, hpMult: 1, dmgMult: 1, abilities: [], kind });
+  const normals = zc ? zc.normals.map(enemyCt).filter(Boolean) : arche.map((a) => tplFromArch(a));
+  const elites = zc ? zc.elites.map(enemyCt).filter(Boolean) : zd.elites.map(([nm, a]) => ({ ...tplFromArch(a, 'elite'), name: nm, abilities: [] }));
+  const rares = zc ? zc.rares.map(enemyCt).filter(Boolean) : [{ ...tplFromArch(zd.rare[1], 'rare'), name: zd.rare[0] }];
+  const quests = zc ? zc.quests.map(questCt).filter(Boolean) : D.QUESTS.map(([title, giver, text, turnIn], i) => ({ id: `q${i}`, title, giver, text, turnIn }));
+  zone.normals = normals;
   for (let r = 1; r <= C.ROWS; r++) {
     const row = [];
     for (let l = 0; l < 3; l++) {
       const type = grid[r - 1][l]; const base = CL(z, r);
       const n = { row: r, lane: l, type, cl: base, visited: false };
       if (type === 'quest') {
-        const q = pick(st, D.QUESTS); n.cl = clamp(base + pick(st, [-1, 0, 0, 1]), 1, 60);
-        n.title = q[0]; n.giver = q[1]; n.text = q[2]; n.turnIn = q[3];
-        const size = weighted(st, [[1, 25], [2, 50], [3, 25]]);
-        n.mobs = Array.from({ length: size }, () => pick(st, arche));
-      } else if (type === 'grind') { n.mobs = [pick(st, arche), pick(st, arche)]; }
+        const q = pick(st, quests); n.cl = clamp(base + pick(st, [-1, 0, 0, 1]), 1, 60);
+        n.questId = q.id; n.title = q.title; n.giver = q.giver; n.text = q.text; n.turnIn = q.turnIn; n.objective = q.objective || 'slay';
+        const w = q.sizeWeights || [25, 50, 25];
+        const size = weighted(st, [[1, w[0]], [2, w[1]], [3, w[2]]]);
+        const pool = q.enemies ? q.enemies.map(enemyCt).filter(Boolean) : normals;
+        n.mobs = Array.from({ length: size }, () => pick(st, pool.length ? pool : normals));
+      } else if (type === 'grind') { n.mobs = [pick(st, normals), pick(st, normals)]; }
       else if (type === 'elite') {
         n.cl = Math.min(60, base + 2);
         n.rare = rnd(st) < 0.2;
-        const e = n.rare ? zd.rare : pick(st, zd.elites);
-        n.eliteName = e[0]; n.eliteArch = e[1]; n.add = rnd(st) < 0.3 ? pick(st, arche) : null;
+        n.elite = n.rare ? pick(st, rares) : pick(st, elites);
+        n.eliteName = n.elite.name;
+        n.add = rnd(st) < 0.3 ? pick(st, normals) : null;
       } else if (type === 'dungeon') {
-        n.cl = Math.min(60, zd.band[0] + 6); n.dungeon = zd.dungeon.name; n.bossName = zd.dungeon.boss;
-      } else if (type === 'treasure') { n.guard = rnd(st) < 0.5 ? pick(st, arche) : null; n.trap = rnd(st) < 0.1; }
+        n.cl = Math.min(60, zd.band[0] + 6);
+        n.dungeon = zc ? zc.dungeon.name : zd.dungeon.name;
+        n.dungeonText = zc ? zc.dungeon.text : '';
+        n.trash = zc ? zc.dungeon.trash.map(enemyCt).filter(Boolean) : normals;
+        n.boss = zc ? enemyCt(zc.dungeon.boss) : { ...tplFromArch('brute', 'dboss'), name: zd.dungeon.boss };
+        n.bossName = n.boss.name;
+      } else if (type === 'treasure') {
+        n.guard = rnd(st) < 0.5 ? pick(st, normals) : null; n.trap = rnd(st) < 0.1;
+        n.text = zc ? pick(st, zc.treasureLines) : 'A chest lies half hidden by the road.';
+      } else if (type === 'shrine') n.text = zc ? pick(st, zc.shrineLines) : 'An old shrine hums softly.';
+      if (n.mobs) n.enemyNames = [...new Set(n.mobs.map((m) => m.name))];
       row.push(n);
     }
     zone.rows.push(row);
@@ -239,16 +286,17 @@ function genZone(st, z) {
   return zone;
 }
 
-function enemyNames(zone, arch) { const zd = D.ZONES[zone.idx - 1]; return zd ? zd.enemies[arch] : 'Starbound Husk'; }
-
 // ------------------------------------------------------------------ combat
-function makeEnemy(st, idx, name, arch, level, rank) {
+const FALLBACK_ABILITIES = { elite: ['heavy_blow'], rare: ['heavy_blow', 'curse'], dboss: ['heavy_blow', 'dark_cast'] };
+function makeEnemy(st, idx, tpl, level, rank) {
+  const arch = tpl.archetype;
   const A = D.ARCHETYPES[arch] || D.ARCHETYPES.brute;
   const mult = { normal: [1, 1], trash: [1.2, 1.1], elite: [3.5, 1.5], rare: [4.5, 1.6], dboss: [7, 1.7] }[rank] || [1, 1];
-  const hp = Math.round((20 + 12 * level) * A.hp * mult[0]);
-  return { idx, uid: uid(st), name, arch, level, rank, hp, maxHp: hp, armor: Math.round(15 * level * A.armor),
-    dmg: (4 + 2.6 * level) * A.dmg * mult[1], dodge: 0.05 + A.dodge, statuses: [], cds: {}, intent: null, alive: true,
-    abilities: rank === 'normal' || rank === 'trash' ? [] : rank === 'dboss' ? ['heavy_blow', 'dark_cast'] : rank === 'rare' ? ['heavy_blow', 'curse'] : [pick(st, ['heavy_blow', 'dark_cast', 'rend', 'self_heal'])] };
+  const hp = Math.round((20 + 12 * level) * A.hp * mult[0] * (tpl.hpMult || 1));
+  let abilities = (tpl.abilities || []).map(abilityCt).filter(Boolean);
+  if (!abilities.length && FALLBACK_ABILITIES[rank]) abilities = FALLBACK_ABILITIES[rank].map((t) => ({ id: t, template: t, name: { heavy_blow: 'Crushing Blow', dark_cast: 'Dark Torrent', curse: 'Curse of Frailty' }[t], pct: 2, cd: 4 }));
+  return { idx, uid: uid(st), tplId: tpl.id, name: tpl.name, text: tpl.text || '', arch, level, rank, hp, maxHp: hp, armor: Math.round(15 * level * A.armor),
+    dmg: (4 + 2.6 * level) * A.dmg * mult[1] * (tpl.dmgMult || 1) * C.MOCK_ENEMY_DMG, dodge: 0.05 + A.dodge, statuses: [], cds: {}, intent: null, alive: true, abilities };
 }
 
 function startFight(st, enemies, opts = {}) {
@@ -309,19 +357,21 @@ function rollIntents(st) {
       opts.push([{ id, name, mult, school, ...extra }, w]);
     }
     for (const ab of e.abilities) {
-      if ((e.cds[ab] || 0) > 0) continue;
-      const T = { heavy_blow: { id: 'heavy_blow', name: 'Crushing Blow', mult: 1.9, school: 'phys', heavy: true, cd: 3 },
-        dark_cast: { id: 'dark_cast', name: 'Dark Torrent', mult: 2.2, school: 'shadow', cast: true, cd: 4 },
-        rend: { id: 'rend', name: 'Savage Rend', mult: 0.65, school: 'phys', cd: 3, bleed: 0.2 },
-        curse: { id: 'curse', name: 'Curse of Frailty', mult: 0, school: 'shadow', cast: true, cd: 4, curse: true },
-        self_heal: { id: 'self_heal', name: 'Dark Mending', mult: 0, school: 'shadow', cast: true, cd: 5, selfHeal: 0.18 } }[ab];
+      if ((e.cds[ab.id] || 0) > 0 || e.used?.[ab.id]) continue;
+      const pct = ab.pct || 1;
+      const T = { heavy_blow: { mult: pct, school: 'phys', heavy: true }, dark_cast: { mult: pct, school: 'shadow', cast: true },
+        cleave_all: { mult: pct, school: 'phys', cleave: true }, rend: { mult: pct, school: 'phys', bleed: ab.tickPct || 0.2 },
+        curse: { mult: 0, school: 'shadow', cast: true, curse: true }, self_heal: { mult: 0, school: 'shadow', cast: true, selfHeal: pct },
+        self_shield: { mult: 0, school: 'arcane', shield: pct } }[ab.template];
+      if (!T) continue;
       if (T.cast && hasStatus(e, 'SILENCED')) continue;
       if (T.selfHeal && e.hp / e.maxHp > 0.6) continue;
-      opts.push([T, 35]);
+      if (T.shield && hasStatus(e, 'WARD')) continue;
+      opts.push([{ id: ab.id, name: ab.name, cd: ab.cd || 3, ...T }, 35]);
     }
     const a = weighted(st, opts);
     let target = 'player';
-    if (p.pet && p.pet.alive && !a.mend && !a.brace && !a.shieldAlly && !a.selfHeal) {
+    if (p.pet && p.pet.alive && !a.mend && !a.brace && !a.shieldAlly && !a.selfHeal && !a.shield && !a.cleave) {
       if (hasStatus(p.pet, 'TAUNT') || c.feign > 0) target = 'pet';
       else if (rnd(st) < D.PETS[p.pet.id].aggro) target = 'pet';
     }
@@ -333,8 +383,11 @@ function rollIntents(st) {
     if (a.brace) { label = 'Braces (-50 % damage)'; target = 'self'; }
     if (a.shieldAlly) { label = 'Shields an ally'; target = 'ally'; }
     if (a.curse) label = 'Curse: -15 % damage';
+    if (a.shield) { label = 'Shields itself'; est = Math.round(e.maxHp * a.shield); target = 'self'; }
+    if (a.cleave) { target = p.pet && p.pet.alive ? 'both' : 'player'; label = p.pet && p.pet.alive ? 'Hits you and your pet' : null; }
     e.intent = { id: a.id, name: a.name, target, est, cast: !!a.cast, heavy: !!a.heavy, school: a.school, mult: a.mult, hits, label,
-      bleed: a.bleed || 0, curse: !!a.curse, mend: a.mend || 0, selfHeal: a.selfHeal || 0, brace: !!a.brace, shieldAlly: !!a.shieldAlly, cd: a.cd || 0 };
+      bleed: a.bleed || 0, curse: !!a.curse, mend: a.mend || 0, selfHeal: a.selfHeal || 0, brace: !!a.brace, shieldAlly: !!a.shieldAlly,
+      shield: a.shield || 0, cleave: !!a.cleave, cd: a.cd || 0 };
   }
 }
 
@@ -724,6 +777,8 @@ function enemiesAct(st) {
     if (it.brace) { addStatus(e, 'SHIELDED', 2); ev(st, { t: 'status', dst: unitRef('enemy', e.idx), id: 'SHIELDED', op: 'add' }); continue; }
     if (it.shieldAlly) { const a = lowestAlly(st); addStatus(a, 'SHIELDED', 2); ev(st, { t: 'status', dst: unitRef('enemy', a.idx), id: 'SHIELDED', op: 'add' }); continue; }
     if (it.curse) { addStatus(p, 'CURSED', 3); ev(st, { t: 'status', dst: unitRef('player', 0), id: 'CURSED', op: 'add' }); continue; }
+    if (it.shield) { addStatus(e, 'WARD', 3, { value: Math.round(e.maxHp * it.shield) }); ev(st, { t: 'status', dst: unitRef('enemy', e.idx), id: 'WARD', op: 'add' }); continue; }
+    if (it.cleave && p.pet?.alive) damagePet(st, e, e.dmg * it.mult, 'phys', it.name);
     const soft = c.round >= 20 && !c.isBoss ? 1 + 0.25 * (c.round - 19) : 1;
     for (let h = 0; h < (it.hits || 1); h++) {
       const raw = e.dmg * it.mult * soft * clamp(1 + 0.04 * (e.level - p.level), 0.7, 1.3) * (hasStatus(e, 'CHILLED') ? 0.8 : 1) * (hasStatus(e, 'ENRAGED') ? 1.4 : 1);
@@ -844,7 +899,7 @@ function victory(st) {
     return;
   }
   // post-fight regen
-  const pct = 0.1 + 0.12 * p.stats.spi / (p.stats.spi + 2 * p.level + 10);
+  const pct = C.MOCK_REGEN_BASE + 0.12 * p.stats.spi / (p.stats.spi + 2 * p.level + 10);
   p.hp = Math.min(p.maxHp, p.hp + Math.round(p.maxHp * pct));
   if (p.res.kind === 'mana') p.res.cur = Math.min(p.res.max, p.res.cur + Math.round(p.res.max * pct));
   if (p.pet) { if (!p.pet.alive) { p.pet.alive = true; p.pet.hp = Math.round(p.pet.maxHp * 0.25); } else p.pet.hp = Math.min(p.pet.maxHp, p.pet.hp + Math.round(p.pet.maxHp * pct)); p.pet.statuses = []; }
@@ -905,22 +960,24 @@ function shrineBoons(st) {
 
 function startNodeFight(st) {
   const n = st.node; const z = st.zone;
-  const names = (arch) => enemyNames(z, arch);
   n.fightNo++;
-  if (n.type === 'quest') startFight(st, n.mobs.map((a, i) => makeEnemy(st, i, names(a), a, n.cl, 'normal')), { kind: 'quest', title: n.title });
-  else if (n.type === 'grind') { n.waves++; st.hours += n.waves > 1 ? C.HOURS.grind : 0; startFight(st, n.mobs.map((a, i) => makeEnemy(st, i, names(a), a, n.cl, 'normal')), { kind: 'grind', title: `Wave ${n.waves} of ${n.wavesChosen}`, fightNo: n.waves, fights: n.wavesChosen }); }
+  if (n.type === 'quest') startFight(st, n.mobs.map((t, i) => makeEnemy(st, i, t, n.cl, 'normal')), { kind: 'quest', title: n.title });
+  else if (n.type === 'grind') { n.waves++; st.hours += n.waves > 1 ? C.HOURS.grind : 0; startFight(st, n.mobs.map((t, i) => makeEnemy(st, i, t, n.cl, 'normal')), { kind: 'grind', title: `Wave ${n.waves} of ${n.wavesChosen}`, fightNo: n.waves, fights: n.wavesChosen }); }
   else if (n.type === 'elite') {
-    const es = [makeEnemy(st, 0, n.eliteName, n.eliteArch, n.cl, n.rare ? 'rare' : 'elite')];
-    if (n.add) es.push(makeEnemy(st, 1, names(n.add), n.add, n.cl - 2, 'normal'));
+    const es = [makeEnemy(st, 0, n.elite, n.cl, n.rare ? 'rare' : 'elite')];
+    if (n.add) es.push(makeEnemy(st, 1, n.add, n.cl - 2, 'normal'));
     startFight(st, es, { kind: n.rare ? 'rare' : 'elite', title: n.eliteName });
   } else if (n.type === 'dungeon') {
     const lvl = n.cl;
     if (n.fightNo <= 3) {
       const size = rnd(st) < 0.5 ? 2 : 3;
-      startFight(st, Array.from({ length: size }, (_, i) => { const a = pick(st, Object.keys(D.ARCHETYPES)); return makeEnemy(st, i, names(a), a, lvl, 'trash'); }), { kind: 'dungeon', title: `${n.dungeon}: ${n.fightNo} of 4`, fightNo: n.fightNo, fights: 4 });
-    } else startFight(st, [makeEnemy(st, 0, n.bossName, 'brute', Math.min(62, lvl + 2), 'dboss')], { kind: 'dboss', title: n.bossName, canFlee: false, noStealth: true, fightNo: 4, fights: 4 });
-  } else if (n.type === 'treasure') startFight(st, [makeEnemy(st, 0, names(n.guard), n.guard, n.cl, 'normal')], { kind: 'treasure', title: 'Treasure guardian' });
-  else if (n.type === 'camp_grind') startFight(st, [makeEnemy(st, 0, 'Starbound Husk', 'brute', 58, 'normal'), makeEnemy(st, 1, 'Void-touched Seer', 'caster', 58, 'normal')], { kind: 'grind', title: 'Camp wave' });
+      startFight(st, Array.from({ length: size }, (_, i) => makeEnemy(st, i, pick(st, n.trash), lvl, 'trash')), { kind: 'dungeon', title: `${n.dungeon}: ${n.fightNo} of 4`, fightNo: n.fightNo, fights: 4 });
+    } else startFight(st, [makeEnemy(st, 0, n.boss, Math.min(62, lvl + 2), 'dboss')], { kind: 'dboss', title: n.bossName, canFlee: false, noStealth: true, fightNo: 4, fights: 4 });
+  } else if (n.type === 'treasure') startFight(st, [makeEnemy(st, 0, n.guard, n.cl, 'normal')], { kind: 'treasure', title: 'Treasure guardian' });
+  else if (n.type === 'camp_grind') {
+    const pool = (CT.camp && CT.camp.enemies ? CT.camp.enemies.map(enemyCt).filter(Boolean) : null) || (zoneCt(6) ? zoneCt(6).normals.map(enemyCt).filter(Boolean) : [{ name: 'Starbound Husk', archetype: 'brute' }, { name: 'Void-touched Seer', archetype: 'caster' }]);
+    startFight(st, [makeEnemy(st, 0, pick(st, pool), 58, 'normal'), makeEnemy(st, 1, pick(st, pool), 58, 'normal')], { kind: 'grind', title: 'Camp wave' });
+  }
   n.step = 'combat';
 }
 
@@ -1204,6 +1261,8 @@ H.LEAVE = (st) => {
 // combat
 H.CAST = (st, a) => {
   if (!st.combat || st.combat.over) return 'Not in combat';
+  const tgt = st.combat.enemies[a.target];
+  if (tgt && tgt.alive) st.combat.target = tgt.idx;
   const err = useSpell(st, a.spellId, a.target ?? st.combat.target);
   if (err) return err;
   finishTurn(st);
@@ -1212,6 +1271,7 @@ H.ATTACK = (st, a) => {
   const c = st.combat; const p = st.player;
   if (!c || c.over) return 'Not in combat';
   let t = c.enemies[a.target ?? c.target]; if (!t || !t.alive) t = defaultTarget(st);
+  c.target = t.idx;
   const cls = D.CLASSES[p.classId];
   ev(st, { t: 'action', src: unitRef('player', 0), kind: 'attack', name: cls.basic.name, school: cls.basic.school, dst: unitRef('enemy', t.idx) });
   removeStatus(p, 'STEALTH');
