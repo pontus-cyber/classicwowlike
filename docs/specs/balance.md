@@ -19,7 +19,13 @@ All bots use the same engine and the autoplay combat policy (rules 7.9) unless s
 | speedrunner | Path search minimising hours to reach the zone exit level; TRAVEL_ON as soon as legal; Camp grind only to reach 60 | As planner | Trains at hubs only; buys Healing Draughts to HEAL_STOCK_TARGET; no vendor nodes | autoplay |
 | tactician | As planner | As planner | As planner | manual |
 
-The tactician replaces the autoplay policy in combat with a search: for each legal action, simulate TACTICIAN_DEPTH rounds ahead on cloned state with autoplay continuation over TACTICIAN_SAMPLES sampled seeds (cloned streams, not the live stream) and pick the action with the best mean of `(enemy HP removed) - TACTICIAN_HP_WEIGHT × (own HP lost) - TACTICIAN_DEATH_PENALTY × deaths`. It stands in for a skilled manual player.
+The tactician stands in for a skilled manual player who reads the intents (rules 7.1, 10.3). Each player turn it applies, in order (M2 v2):
+1. **Telegraph rules** (first match wins; all in every fight, including the end boss):
+   - T1 Big hit: if the damage the intents announce for this round (heavy abilities, casts it cannot interrupt this turn, Litany 2/2, Gravity Crush, Starless Pulse) would leave the player below TACTICIAN_SAFE_HP of max HP, use the first that stops or absorbs it: an interrupt or stun-tagged spell on its source (if the source's hit is interruptible), a defensive-tagged spell that is not active, a healing item on the item bar.
+   - T2 Shards: in boss phase 2 with >= 2 living Shards, cast a usable aoe-tagged spell; with 1 living Shard whose HP is below the player's expected damage of one action, attack that Shard.
+2. **Otherwise**, in non-boss fights the search below; in the end-boss fight the autoplay policy (rules 7.9), which the search played worse [source: docs/reports/balance-2026-11-09.md, diagnostic cell tactician-P0-bossAuto].
+
+Search: for each legal action, simulate TACTICIAN_DEPTH rounds ahead on cloned state with autoplay continuation over TACTICIAN_SAMPLES sampled seeds (cloned streams, not the live stream) and pick the action with the best mean of `(enemy HP removed, summoned adds weighted TACTICIAN_ADD_WEIGHT) - TACTICIAN_HP_WEIGHT × (own HP lost) - TACTICIAN_DEATH_PENALTY × deaths`. (M2 v2)
 
 ### 1.1 Value function (greedy, planner)
 `value(node) = XP_in_levels × VAL_XP + expected item-score gain × VAL_GEAR + gold / V(L) × VAL_GOLD - hours × VAL_HOUR - P(death) × VAL_DEATH`. P(death) is estimated from the simulator's own running table of death rate by (node type, CL - L, HP fraction at entry), refreshed every SIM_RISK_REFRESH runs; before data exists use RISK_PRIOR by node type.
@@ -139,7 +145,7 @@ Priority: P1 = must pass for M1 sign-off; P2 = should pass; P3 = report only.
 ---
 
 ## 5. Open measurement notes
-- PACE_MANUAL_ROUND_S (rules) is an [assumption]; QA measures real seconds per manual round in the first playable build and the Lead updates it.
+- PACE_MANUAL_ROUND_S (rules 3) = PACE_ROUND_ANIM_S + PACE_ROUND_DECIDE_S. PACE_ROUND_ANIM_S is a UI budget that QA checks with qa/browser/pace.mjs at the default animation speed (2.3-2.7 s measured at 1x on 5b3e929, above the budget); PACE_ROUND_DECIDE_S is an [assumption]. (M2 v2)
 - Death-risk table (1.1) starts from RISK_PRIOR; report its final values with each balance pass.
 
 ---
@@ -160,6 +166,8 @@ Priority: P1 = must pass for M1 sign-off; P2 = should pass; P3 = report only.
 | TACTICIAN_SAMPLES | 8 | seeds |
 | TACTICIAN_HP_WEIGHT | 1.5 | × |
 | TACTICIAN_DEATH_PENALTY | 100000 | points |
+| TACTICIAN_ADD_WEIGHT | 0.3 | × (summoned adds' HP in the search score) | (M2 v2)
+| TACTICIAN_SAFE_HP | 0.25 | of max HP | (M2 v2)
 | VAL_XP | 100 | points per level |
 | VAL_GEAR | 1 | points per item score |
 | VAL_GOLD | 5 | points per V |
@@ -195,15 +203,15 @@ Priority: P1 = must pass for M1 sign-off; P2 = should pass; P3 = report only.
 | MIN_SPEED_MAX | 30 | min |
 | MIN_SPEED_P10_MAX | 25 | min |
 | SPEED_MANUAL_RATIO_MAX | 0.85 | ratio |
-| NODES_NORMAL | 44-54 | nodes |
-| NODES_SPEED | 32-42 | nodes |
-| FIGHTS_NORMAL | 55-75 | fights |
+| NODES_NORMAL | 38-47 | nodes | (M2 v2: 7 rows per zone)
+| NODES_SPEED | 28-37 | nodes | (M2 v2: 7 rows per zone)
+| FIGHTS_NORMAL | 48-66 | fights | (M2 v2: 7 rows per zone)
 | ROUNDS_NORMAL | 4-6 | rounds |
 | ROUNDS_ELITE | 6-10 | rounds |
 | ROUNDS_DBOSS | 8-13 | rounds |
 | ROUNDS_BOSS | 30-45 | rounds |
-| HOURS_NORMAL | 135-165 | h |
-| HOURS_SPEED | 100-125 | h |
+| HOURS_NORMAL | 125-155 | h | (M2 v2: 7 rows per zone)
+| HOURS_SPEED | 70-100 | h | (M2 v2: 7 rows per zone)
 | ASC_MEDIAN_MAX | 0.12 | fraction |
 | LVL60_SHARE_MIN | 0.90 | share |
 | LVL_SPEED_MEDIAN_MIN | 60 | level |

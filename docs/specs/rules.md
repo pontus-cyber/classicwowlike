@@ -63,13 +63,14 @@ ZONE_COUNT zones in fixed order, each a level band of ZONE_LEVELS levels. Names 
 | Camp + Boss | 60 (boss 62) | - | the Sunken Observatory |
 
 ### 1.4 Zone map generation (stream `map(z)`)
-Each zone has a hub (row 0) and ZONE_CHOICE_ROWS rows (r = 1..8) of LANES lanes (l = 0..2). The whole map of the current zone is visible on entry (types, content level, quest titles, enemy archetypes; rare elites hidden unless meta "Scout's Eye").
+Each zone has a hub (row 0) and ZONE_CHOICE_ROWS rows (r = 1..7) of LANES lanes (l = 0..2). The whole map of the current zone is visible on entry (types, content level, quest titles, enemy archetypes, quest enemy count; rare elites hidden unless meta "Scout's Eye"). (M2 v2)
 
-Movement: from the hub the player may enter any lane of row 1. From (r, l) the player may enter (r+1, l-1), (r+1, l), (r+1, l+1) within 0..2. Each node is entered once. After row 8 the zone ends (forced `TRAVEL_ON`).
+Movement: from the hub the player may enter any lane of row 1. From (r, l) the player may enter (r+1, l-1), (r+1, l), (r+1, l+1) within 0..2. Each node is entered once. After the last row (row ZONE_CHOICE_ROWS) the zone ends (forced `TRAVEL_ON`). (M2 v2)
 
 Generation order (draws in this order):
 1. Dungeon: row `DUNGEON_ROW_MIN + floor(rng × (DUNGEON_ROW_MAX - DUNGEON_ROW_MIN + 1))`, lane `floor(rng × 3)`. Exactly one dungeon per zone.
 2. Rest guarantee: one Rest in a random cell of rows REST_ROW_MIN..REST_ROW_MAX not already filled (row first, then lane, each uniform).
+2b. Trainer guarantee: one Trainer in a random cell of rows TRAINER_ROW_MIN..TRAINER_ROW_MAX not already filled (row uniform, then lane uniform over the free cells of that row; a row always has a free cell). Drawn after step 2, before step 3. Spells of level 4-6 are therefore learnable inside zone 1. (M2 v2)
 3. Every other cell, row by row, lane 0..2: weighted draw from the node weights below. Re-draw (max 10 tries, then Quest) if the result breaks a constraint:
    - no more than MAX_SAME_TYPE_PER_ROW of one type in a row;
    - no Elite, Rest, Vendor or Trainer in row 1;
@@ -87,7 +88,7 @@ Generation order (draws in this order):
 | Treasure | W_TREASURE | 6 |
 | Shrine | W_SHRINE | 6 |
 
-Content level of row r in zone z: `CL(z,r) = ZONE_LEVELS×(z-1) + 1 + floor((r-1) × (ZONE_LEVELS-1) / (ZONE_CHOICE_ROWS-1))` (Z1: rows 1..8 -> 1,2,3,4,6,7,8,10). Node offsets: Quest + one of QUEST_LEVEL_OFFSETS (uniform); Elite + ELITE_LEVEL_OFFSET; Dungeon trash at `ZONE_LEVELS×(z-1)+1+DUNGEON_LEVEL_OFFSET`, dungeon boss + DUNGEON_BOSS_LEVEL_OFFSET more; other nodes CL(z,r). Content level never exceeds 60 except the end boss.
+Content level of row r in zone z: `CL(z,r) = ZONE_LEVELS×(z-1) + 1 + floor((r-1) × (ZONE_LEVELS-1) / (ZONE_CHOICE_ROWS-1))` (Z1: rows 1..7 -> 1,2,4,5,7,8,10) (M2 v2). Node offsets: Quest + one of QUEST_LEVEL_OFFSETS (uniform); Elite + ELITE_LEVEL_OFFSET; Dungeon trash at `ZONE_LEVELS×(z-1)+1+DUNGEON_LEVEL_OFFSET`, dungeon boss + DUNGEON_BOSS_LEVEL_OFFSET more; other nodes CL(z,r). Content level never exceeds 60 except the end boss.
 
 Hub (row 0) services; each may be used once per hub visit, in any order, and costs hours:
 
@@ -98,7 +99,7 @@ Hub (row 0) services; each may be used once per hub visit, in any order, and cos
 | Inn | HOURS_REST | as Rest node (2.5) |
 
 ### 1.5 Leaving a zone
-`TRAVEL_ON` is legal in MAP when `L >= exit level` of the zone, or after row 8 (then forced). It costs HOURS_TRAVEL and moves to the next zone's hub (Z6 -> Camp). Leaving early skips the remaining rows: this is the speedrun lever. A player under the exit level after row 8 still travels on and faces higher content (and more XP via the level-difference bonus).
+`TRAVEL_ON` is legal in MAP when `L >= exit level - TRAVEL_EARLY_LEVELS` (meta Swift Boots: one level lower again), or after the last row (then forced). It costs HOURS_TRAVEL and moves to the next zone's hub (Z6 -> Camp). Leaving early skips the remaining rows: this is the speedrun lever. A player who leaves under the exit level, or is under it after the last row, faces higher content in the next zone (more risk, and more XP via the level-difference bonus). (M2 v2)
 
 ### 1.6 Camp (before the boss)
 Services as a hub (Trainer, Vendor at CL 60 with ilvl 60 stock, Inn) plus repeatable `CAMP_GRIND` waves: one wave = one Grind wave (2.2) at CAMP_GRIND_LEVEL, HOURS_GRIND_WAVE each, no limit. `FIGHT_BOSS` starts the single boss attempt (section 10). Hours keep counting, so every camp wave raises boss Ascendancy (1.7).
@@ -144,7 +145,8 @@ XP values are fractions of `xpToNext(contentLevel)` before the level-difference 
 Mob kill XP = `MOB_XP_FRAC × mult × xpToNext(enemyLevel) × diffMod`, with mult 1 (normal), DUNGEON_MOB_XP_MULT (dungeon trash), ELITE_XP_MULT, RARE_XP_MULT, DUNGEON_BOSS_XP_MULT.
 
 ### 2.1 Quest
-- On enter: shows quest title and text (Content), then one encounter. Encounter size weights: 1 mob QUEST_SIZE_W1, 2 mobs QUEST_SIZE_W2, 3 mobs QUEST_SIZE_W3. Mob archetypes from the zone's normal templates.
+- On enter: shows quest title and text (Content), then one encounter. Encounter size weights: the quest template's own weights (12.3), else 1 mob QUEST_SIZE_W1, 2 mobs QUEST_SIZE_W2, 3 mobs QUEST_SIZE_W3. Mob archetypes from the zone's normal templates. (M2 v2)
+- Zone 1 cap: in zone 1 the encounter has at most QUEST_MAX_SIZE_Z1 mobs; a drawn size above the cap becomes the cap. The size draw itself is unchanged (same stream draws), so only zone 1 encounters change. (M2 v2)
 - On victory: turn-in XP `QUEST_TURNIN_XP_FRAC × xpToNext(CL) × diffMod`, gold `QUEST_GOLD_V × V(CL)`, and `CHOOSE_REWARD(i)` among QUEST_REWARD_CHOICES generated items (rarity table 8.4 "Quest reward").
 - Story chain: the STORY_QUESTS-th quest completed in a zone also grants `STORY_XP_FRAC × xpToNext(CL)` and a choice of STORY_REWARD_CHOICES rare items at CL + RARITY_ILVL_BONUS.rare.
 - Flee: allowed; no turn-in, quest not counted.
@@ -199,11 +201,11 @@ Combat is manual by default; autoplay is an option [stated: owner correction 202
 |---|---|---|
 | Character creation | PACE_CREATE_S | 40 |
 | Read map and choose node | PACE_DECIDE_S | 5 per node |
-| Walk to node (scroll animation) | PACE_TRAVEL_NODE_S | 4 per node |
+| Walk to node (scroll animation) | PACE_TRAVEL_NODE_S | 3.5 per node (M2 v2) |
 | Zone travel | PACE_ZONE_TRAVEL_S | 8 per zone |
 | Quest text (accept + turn-in) | PACE_QUEST_TEXT_S | 5 per quest |
 | Fight overhead (intro, loot window) | PACE_FIGHT_OVERHEAD_S | 3 per fight |
-| Round, manual | PACE_MANUAL_ROUND_S | 2.5 per round [assumption: verify in playtest] |
+| Round, manual | PACE_MANUAL_ROUND_S = PACE_ROUND_ANIM_S + PACE_ROUND_DECIDE_S | 1.5 + 1.0 = 2.5 per round (M2 v2) |
 | Round, autoplay | PACE_AUTO_ROUND_S | 0.8 per round |
 | Equipment drop decision | PACE_LOOT_S | 3 per equipment item |
 | Level-up | PACE_LEVELUP_S | 2 per level |
@@ -214,6 +216,8 @@ Combat is manual by default; autoplay is an option [stated: owner correction 202
 | Boss intro | PACE_BOSS_INTRO_S | 20 |
 
 `estSeconds(run) = sum of the terms`, counting rounds with PACE_MANUAL_ROUND_S for the manual profile and PACE_AUTO_ROUND_S for the autoplay profile (balance.md says which bot uses which).
+
+Round time budget for the UI (M2 v2): at the default animation speed, a manual round (player action, pet action, enemy actions, end-of-round ticks) is on screen for at most PACE_ROUND_ANIM_S before the action bar accepts the next input; an input given while enemy animations still play finishes them at once. PACE_ROUND_DECIDE_S is the player's reading and choosing time. QA measured 2.3-2.7 s on screen per round at 1x on build 5b3e929 (1.65 s at 2x) [source: docs/handoffs/qa-2026-11-09.md, finding 5], so the default speed must be faster than today's 1x. QA checks the budget with qa/browser/pace.mjs.
 
 Worked estimate (design intent, to be verified by the simulator):
 
@@ -227,6 +231,8 @@ Worked estimate (design intent, to be verified by the simulator):
 | XP (levels, before diff mod) | about 11.8 | about 10.9 incl. story bonus and under-level bonus |
 
 Run totals: normal = 6 × 375 + create 40 + level-ups 118 + talents 156 + boss (20 + 40 rounds manual) about 2690 s = 45 min, 150 h (Ascendancy +8 %). Speed = 6 × 190 + 40 + 118 + 156 + 120 (boss manual) about 1575 s = 26 min, 108 h (no Ascendancy). A speedrunner playing every fight manually lands near 37 min.
+
+Measured with the M2 v2 values (7 rows; designer scratch run of the simulator, planner P0, 600 runs per class, runs that reach the boss): 42 nodes, 300-345 rounds, 142 h, 44-46 min manual, 35-36 min autoplay. Speedrunner PALL: 31 nodes, 78-80 h, 28-29 min autoplay. Speedrunner P0: 36-37 nodes, 104-112 h, 31-32 min autoplay [source: docs/handoffs/designer-2026-11-09b.md]. (M2 v2)
 
 ---
 
@@ -274,7 +280,7 @@ Let `R(L) = RATING_K × L + RATING_C` (level normaliser).
 | XP_GREY_DIFF < d < XP_DIFF_SOFT_FLOOR | `1 + XP_DIFF_STEP × XP_DIFF_SOFT_FLOOR - XP_DIFF_FALL × (XP_DIFF_SOFT_FLOOR - d)` (-3: 0.7, -4: 0.5, -5: 0.3) |
 | d <= XP_GREY_DIFF (-6) | XP_GREY_MOD |
 
-Expected XP per node at d = 0, in levels: Quest (2 mobs) 1.2; Grind wave 0.5; Elite 1.2 (x1.1 for +2 level); Rare 1.6; Dungeon about 3.7; Story bonus 0.8.
+Expected XP per node at d = 0, in levels: Quest (2 mobs) 1.7; Grind wave 0.7; Elite 1.7 (x1.05 for +1 level); Rare 2.3; Dungeon about 5; Story bonus 0.9. (M2 v2)
 
 ---
 
@@ -283,8 +289,8 @@ Expected XP per node at d = 0, in levels: Quest (2 mobs) 1.2; Grind wave 0.5; El
 ### 5.1 Base stats and growth
 | Field | Rogue | Mage | Hunter |
 |---|---|---|---|
-| hpBase / hpPerLevel | 70 / 20 | 50 / 14 | 60 / 17 |
-| STA base / growth | 10 / 1.4 | 8 / 1.0 | 9 / 1.2 |
+| hpBase / hpPerLevel | 70 / 20 | 50 / 17.5 | 60 / 17 | (M2 v2: mage 14 -> 17.5)
+| STA base / growth | 10 / 1.4 | 8 / 1.25 | 9 / 1.2 | (M2 v2: mage 1.0 -> 1.25)
 | AGI base / growth | 20 / 2.0 | 8 / 0.5 | 18 / 1.8 |
 | INT base / growth | 6 / 0.3 | 22 / 2.2 | 10 / 0.8 |
 | SPI base / growth | 8 / 0.6 | 12 / 1.0 | 9 / 0.8 |
@@ -309,8 +315,8 @@ Formula columns: phys = physical (dodge and armor apply), fire/frost/arcane = ma
 | gutting_jab | Gutting Jab | 1 | 40E | 0 | phys 6 + 1.3tl + 0.55P + 1.0WD; +1 CP | builder | always |
 | severing_flourish | Severing Flourish | 1 | 35E | 0 | phys (4 + 1.0tl + 0.30P) × CP + 0.5WD | finisher | CP >= 4, or CP >= 2 and target HP < 25 % |
 | shadowstep_strike | Shadowstep Strike | 4 | 50E | 0 | phys 10 + 2.0tl + 0.9P + 1.5WD; +2 CP; requires STEALTH | opener | in STEALTH |
-| throat_jab | Throat Jab | 8 | 20E | 4 | phys 2 + 0.4tl + 0.2P; interrupt; SILENCED 1 | interrupt | target intent is a cast |
-| open_vein | Open Vein | 10 | 30E | 0 | BLEED 4 rounds, tick (2 + 0.45tl + 0.13P) × CP | finisher, dot | CP >= 4, target elite/boss, no Open Vein on target |
+| throat_jab | Throat Jab | 6 | 20E | 4 | phys 2 + 0.4tl + 0.2P; interrupt (always hits, 7.7); SILENCED 1 | interrupt | target intent is a cast | (M2 v2: lvl 8 -> 6)
+| open_vein | Open Vein | 10 | 30E | 0 | BLEED 4 rounds, tick (2 + 0.45tl + 0.10P) × CP | finisher, dot | CP >= 4, target elite/boss, no Open Vein on target | (M2 v2: 0.13P -> 0.10P)
 | temple_blow | Temple Blow | 12 | 25E | 5 | STUN 1 + floor(CP/2) rounds (max 3) | finisher, stun | CP >= 1 and target intent is a cast or a heavy ability |
 | smoke_veil | Smoke Veil | 16 | 25E | 8 | EVASION +0.45 dodge, 3 rounds | defensive | HP < 50 % and (>= 2 enemies or elite/boss) |
 | whirling_edges | Whirling Edges | 20 | 50E | 0 | phys to all enemies 3 + 0.6tl + 0.3P + 0.6WD; +1 CP | aoe, builder | >= 2 enemies |
@@ -324,27 +330,27 @@ Finishers need CP >= 1 and consume all CP. Rogue starts every fight in STEALTH e
 ### 5.4 Mage spells
 | id | Name | Lvl | Cost | CD | Effect | Tags | Autoplay condition |
 |---|---|---|---|---|---|---|---|
-| ember_bolt | Ember Bolt | 1 | 9%M | 0 | fire 6 + 1.5tl + 0.8P | nuke | always |
-| frost_lance | Frost Lance | 1 | 8%M | 0 | frost 4 + 1.1tl + 0.6P; CHILLED 2 | control | target not CHILLED |
-| arcane_ward | Arcane Ward | 6 | 12%M | 5 | WARD absorbs 10 + 3.0tl + 1.0P, 4 rounds | defensive | no WARD active |
+| ember_bolt | Ember Bolt | 1 | 9%M | 0 | fire 6 + 2.1tl + 1.12P | nuke | always | (M2 v2: 1.5tl + 0.8P -> 2.1tl + 1.12P)
+| frost_lance | Frost Lance | 1 | 8%M | 0 | frost 4 + 1.54tl + 0.84P; CHILLED 2 | control | target not CHILLED | (M2 v2: 1.1tl + 0.6P -> 1.54tl + 0.84P)
+| arcane_ward | Arcane Ward | 4 | 12%M | 5 | WARD absorbs 10 + 3.0tl + 1.0P, 4 rounds | defensive | no WARD active | (M2 v2: lvl 6 -> 4)
 | rime_burst | Rime Burst | 10 | 12%M | 6 | frost to all 2 + 0.5tl + 0.25P; FROZEN 1 (non-boss) | aoe, stun | >= 2 enemies or HP < 50 % |
 | living_flame | Living Flame | 12 | 10%M | 0 | BURN 5 rounds, tick 2 + 0.5tl + 0.22P | dot | target HP >= 60 %, no Living Flame on target |
-| spellsnap | Spellsnap | 14 | 6%M | 5 | arcane 2 + 0.3tl + 0.2P; interrupt; SILENCED 2 | interrupt | target intent is a cast |
+| spellsnap | Spellsnap | 14 | 6%M | 5 | arcane 2 + 0.3tl + 0.2P; interrupt (always hits, 7.7); SILENCED 2 | interrupt | target intent is a cast | (M2 v2)
 | hexbind | Hexbind | 18 | 10%M | 6 | HEXED 3 (non-boss) | control | >= 2 enemies; target = highest-HP non-focus enemy |
-| cinder_storm | Cinder Storm | 22 | 22%M | 0 | fire to all 5 + 1.0tl + 0.45P | aoe | >= 3 enemies |
+| cinder_storm | Cinder Storm | 22 | 22%M | 0 | fire to all 5 + 1.4tl + 0.63P | aoe | >= 3 enemies | (M2 v2: 1.0tl + 0.45P -> 1.4tl + 0.63P)
 | mana_siphon | Mana Siphon | 26 | 0 | 12 | restore 30 % max mana | resource | mana < 30 % |
 | glacial_tomb | Glacial Tomb | 30 | 0 | 15 | IMMUNE until end of next round (you skip your next action); dispersal; heal 10 % max HP | defensive, cleanse | HP < 25 % or own debuff stacks >= 3 |
-| pyre_comet | Pyre Comet | 38 | 20%M | 3 | fire 12 + 3.0tl + 1.5P; +0.25 crit chance if target has BURN | nuke | always |
-| starlance_barrage | Starlance Barrage | 46 | 25%M | 4 | arcane 3 hits of 4 + 1.0tl + 0.5P (each rolls hit/crit) | nuke | always |
+| pyre_comet | Pyre Comet | 38 | 20%M | 3 | fire 12 + 4.2tl + 2.1P; +0.25 crit chance if target has BURN | nuke | always | (M2 v2: 3.0tl + 1.5P -> 4.2tl + 2.1P)
+| starlance_barrage | Starlance Barrage | 46 | 25%M | 4 | arcane 3 hits of 4 + 1.2tl + 0.6P (each rolls hit/crit) | nuke | always | (M2 v2: 1.0tl + 0.5P -> 1.2tl + 0.6P)
 
 ### 5.5 Hunter spells and pets
 | id | Name | Lvl | Cost | CD | Effect | Tags | Autoplay condition |
 |---|---|---|---|---|---|---|---|
 | keen_shot | Keen Shot | 1 | 30F | 0 | phys 5 + 1.1tl + 0.5P + 0.9WD | nuke | always |
 | barbed_arrow | Barbed Arrow | 1 | 20F | 0 | BLEED 4 rounds, tick 2 + 0.45tl + 0.18P | dot | target HP >= 60 %, no Barbed Arrow on target |
-| mark_prey | Mark Prey | 6 | 10F | 0 | MARKED: target takes +0.08 damage, 6 rounds | debuff | target elite/boss, not MARKED |
-| mend_companion | Mend Companion | 8 | 25F | 3 | heal pet 15 + 4.0tl + 0.8P; if pet dead, revive at 0.30 | pet | pet HP < 45 % or pet dead |
-| muzzle_shot | Muzzle Shot | 12 | 20F | 5 | phys 2 + 0.4tl + 0.25P + 0.3WD; interrupt; SILENCED 2 | interrupt | target intent is a cast |
+| mark_prey | Mark Prey | 4 | 10F | 0 | MARKED: target takes +0.08 damage, 6 rounds | debuff | target elite/boss, not MARKED | (M2 v2: lvl 6 -> 4)
+| mend_companion | Mend Companion | 6 | 25F | 3 | heal pet 15 + 4.0tl + 0.8P; if pet dead, revive at 0.30 | pet | pet HP < 45 % or pet dead | (M2 v2: lvl 8 -> 6)
+| muzzle_shot | Muzzle Shot | 12 | 20F | 5 | phys 2 + 0.4tl + 0.25P + 0.3WD; interrupt (always hits, 7.7); SILENCED 2 | interrupt | target intent is a cast | (M2 v2)
 | snare_trap | Snare Trap | 14 | 20F | 6 | STUN 2 (non-boss) | stun | >= 2 enemies (target = highest-HP non-focus) or HP < 40 % |
 | field_dressing | Field Dressing | 18 | 25F | 6 | heal 12 % max HP now; HOT 4 % max HP per round, 3 rounds | heal | HP < 50 % |
 | volley_rain | Volley Rain | 22 | 45F | 0 | phys to all 3 + 0.7tl + 0.3P + 0.4WD | aoe | >= 3 enemies |
@@ -353,12 +359,12 @@ Finishers need CP >= 1 and consume all CP. Rogue starts every fight in STEALTH e
 | rapid_volley | Rapid Volley | 40 | 0 | 10 | 3 rounds: your damage +40 %, focus regen +50 % | burst | target elite/boss |
 | heartseeker_shot | Heartseeker Shot | 46 | 40F | 3 | phys 14 + 3.0tl + 1.3P + 1.5WD; +0.5 crit chance if target HP < 30 % | nuke | always |
 
-Pets: chosen at creation, level = hunter level. Pet acts after the hunter each round with its basic attack (phys) on the hunter's current target. Pet damage `= (PET_DMG_BASE + PET_DMG_PER_LEVEL × L + PET_DMG_POWER × P) × PET.dmgMult`; pet crit = hunter crit + PET.critBonus; pet HP = PET.hpPct × hunter max HP; pet armor = hunter armor × PET.armorMult. A dead pet revives after the fight at PET_REVIVE_PCT, at Rest, or by Mend Companion.
+Pets: chosen at creation, level = hunter level. Pet acts after the hunter each round with its basic attack (phys) on the hunter's current target. Pet damage `= (PET_DMG_BASE + PET_DMG_PER_LEVEL × L + PET_DMG_POWER × P) × PET.dmgMult`; pet crit = hunter crit + PET.critBonus; pet HP = PET.hpPct × hunter max HP; pet armor = hunter armor × PET.armorMult. A dead pet revives after the fight at PET_REVIVE_PCT, at Rest, or by Mend Companion. (M2 v2: PET_DMG_PER_LEVEL, PET_DMG_POWER raised)
 
 | id | Name | hpPct | armorMult | dmgMult | critBonus | aggro | Special |
 |---|---|---|---|---|---|---|---|
 | ridgewolf | Ridgewolf | 0.50 | 1.0 | 1.0 | 0 | 0.30 | every 3rd pet action hits twice |
-| thornback | Thornback Boar | 0.80 | 1.4 | 0.7 | 0 | 0.60 | TAUNT all enemies in round 1 and every 4 rounds after (1 round) |
+| thornback | Thornback Boar | 0.80 | 1.4 | 0.9 | 0 | 0.60 | TAUNT all enemies in round 1 and every 4 rounds after (1 round) | (M2 v2: dmgMult 0.7 -> 0.9)
 | duskcat | Duskcat | 0.40 | 0.8 | 1.3 | 0.10 | 0.20 | none |
 | stormhawk | Stormhawk (meta unlock) | 0.35 | 0.7 | 0.8 | 0 | 0.15 | attack also hits a second enemy |
 
@@ -387,7 +393,7 @@ Pets: chosen at creation, level = hunter level. Pet acts after the hunter each r
 |---|---|---|---|---|
 | r_a1 | Bladework 1 | Honed Edges | 3 | +0.03 crit chance /rank |
 | r_a2 | Bladework 1 | Swift Hands | 3 | Gutting Jab costs -3 energy /rank |
-| r_a3 | Bladework 2 | Serrated Finish | 3 | finishers +6 % damage /rank |
+| r_a3 | Bladework 2 | Serrated Finish | 3 | finishers +8 % damage /rank | (M2 v2: 6 -> 8 %)
 | r_a4 | Bladework 2 | Riposte Stance | 2 | after you dodge an attack, your next Gutting Jab +25 % /rank |
 | r_a5 | Bladework 3 | Keen Calculus | 2 | crit multiplier +0.20 /rank |
 | r_a6 | Bladework 3 | Ruthless Momentum | 2 | finishers restore 5 energy per CP spent /rank |
@@ -404,7 +410,7 @@ Pets: chosen at creation, level = hunter level. Pet acts after the hunter each r
 | r_b8 | Shadowcraft 4 | Night Instinct | 3 | +5 % damage /rank while in STEALTH and on the action right after leaving it |
 | r_b9 | Shadowcraft 5 | Death's Sidestep | 1 | passive, once per fight: when a hit would drop you below 20 % HP, take no damage from it, dispersal, gain STEALTH, heal 20 % max HP |
 | r_c1 | Venomcraft 1 | Toxic Coating | 3 | Strike, Gutting Jab, Shadowstep Strike and Whirling Edges apply 1 POISON stack (4 rounds, max 5 stacks); tick per stack (0.5 + 0.15L + 0.04P) × rank |
-| r_c2 | Venomcraft 1 | Deep Wounds | 3 | Open Vein +12 % /rank |
+| r_c2 | Venomcraft 1 | Deep Wounds | 3 | Open Vein +9 % /rank | (M2 v2: 12 -> 9 %)
 | r_c3 | Venomcraft 2 | Lethal Mixture | 2 | POISON max stacks +2 /rank |
 | r_c4 | Venomcraft 2 | Crippling Toxin | 2 | enemies with your POISON deal -5 % damage /rank |
 | r_c5 | Venomcraft 3 | Hemorrhage Mastery | 2 | rank 1: your DOT ticks can crit; rank 2: also DOT damage +10 % |
@@ -425,7 +431,7 @@ Pets: chosen at creation, level = hunter level. Pet acts after the hunter each r
 | m_a7 | Pyromancy 4 | Wildfire | 2 | Cinder Storm applies Living Flame at 50 % strength /rank |
 | m_a8 | Pyromancy 4 | Heat Haze | 3 | each crit grants WARD of 3 % max HP /rank (does not stack; refreshes, keeps the larger) |
 | m_a9 | Pyromancy 5 | Conflagrant Core | 1 | new spell `conflagrant_core`: 0 cost, CD 12; 3 rounds: fire spells cost 0 and have +0.50 crit |
-| m_b1 | Rimecraft 1 | Biting Cold | 3 | Frost Lance +8 % /rank |
+| m_b1 | Rimecraft 1 | Biting Cold | 3 | Frost Lance +12 % /rank | (M2 v2: 8 -> 12 %)
 | m_b2 | Rimecraft 1 | Hoarfrost Skin | 3 | max HP +3 % /rank |
 | m_b3 | Rimecraft 2 | Deep Chill | 2 | CHILLED reduces damage by a further 0.05 /rank |
 | m_b4 | Rimecraft 2 | Brittle | 2 | CHILLED or FROZEN targets take +6 % from your spells /rank |
@@ -433,46 +439,46 @@ Pets: chosen at creation, level = hunter level. Pet acts after the hunter each r
 | m_b6 | Rimecraft 3 | Shatter | 2 | +0.25 crit /rank against FROZEN targets |
 | m_b7 | Rimecraft 4 | Lattice Ward | 2 | Arcane Ward absorbs +15 % /rank; when it breaks, attacker becomes CHILLED 2 |
 | m_b8 | Rimecraft 4 | Deep Tomb | 1 | Glacial Tomb CD -5, heals 25 % instead of 10 % |
-| m_b9 | Rimecraft 5 | Winter's Crown | 1 | new spell `glacier_spike`: 15 %M, CD 3, frost 10 + 2.6L + 1.4P; x1.5 vs CHILLED or FROZEN |
+| m_b9 | Rimecraft 5 | Winter's Crown | 1 | new spell `glacier_spike`: 15 %M, CD 3, frost 10 + 3.9L + 2.1P; x1.5 vs CHILLED or FROZEN | (M2 v2: 2.6L + 1.4P -> 3.9L + 2.1P)
 | m_c1 | Arcanism 1 | Deep Reserves | 3 | max mana +5 % /rank |
 | m_c2 | Arcanism 1 | Arcane Acuity | 3 | Power +3 % /rank |
 | m_c3 | Arcanism 2 | Lucid Flow | 2 | each spell cast: 0.05 /rank chance the next spell costs 0 |
-| m_c4 | Arcanism 2 | Ward Weaving | 2 | Arcane Ward absorbs +20 % /rank |
+| m_c4 | Arcanism 2 | Ward Weaving | 2 | Arcane Ward absorbs +10 % /rank | (M2 v2: 20 -> 10 %)
 | m_c5 | Arcanism 3 | Spell Rebound | 2 | Spellsnap CD -1 /rank; a successful interrupt restores 3 % max mana /rank |
 | m_c6 | Arcanism 3 | Barrage Mastery | 2 | Starlance Barrage +15 % /rank |
-| m_c7 | Arcanism 4 | Mindguard | 1 | 30 % of damage taken is paid from mana instead, at 2 mana per 1 damage, while mana allows |
-| m_c8 | Arcanism 4 | Arcane Momentum | 3 | each consecutive round you cast a damaging spell: +2 % damage /rank, max 5 stacks; reset on any other action |
+| m_c7 | Arcanism 4 | Mindguard | 1 | 20 % of damage taken is paid from mana instead, at 2 mana per 1 damage, while mana allows | (M2 v2: 30 -> 20 %)
+| m_c8 | Arcanism 4 | Arcane Momentum | 3 | each consecutive round you cast a damaging spell: +1 % damage /rank, max 5 stacks; reset on any other action | (M2 v2: 2 -> 1 %)
 | m_c9 | Arcanism 5 | Hourglass Reversal | 1 | new spell `hourglass_reversal`: 0 cost, CD 15; reset all other cooldowns; restore 20 % max mana |
 
 ### 6.3 Hunter
 | id | Tree / tier | Name | Ranks | Effect |
 |---|---|---|---|---|
 | h_a1 | Beastbond 1 | Thick Hide | 3 | pet max HP +8 % /rank |
-| h_a2 | Beastbond 1 | Ferocity | 3 | pet damage +6 % /rank |
+| h_a2 | Beastbond 1 | Ferocity | 3 | pet damage +10 % /rank | (M2 v2: 6 -> 10 %)
 | h_a3 | Beastbond 2 | Bonded Spirit | 2 | Mend Companion also heals you for 30 % /rank of the amount |
 | h_a4 | Beastbond 2 | Frenzy Link | 2 | pet crit +0.05 /rank; each pet crit gives you 5 focus /rank |
 | h_a5 | Beastbond 3 | Unbreakable Bond | 2 | pet revives after fights at +0.25 /rank; pet takes -5 % damage /rank |
-| h_a6 | Beastbond 3 | Pack Leader | 2 | you and pet deal +3 % damage /rank while pet is alive |
+| h_a6 | Beastbond 3 | Pack Leader | 2 | you and pet deal +5 % damage /rank while pet is alive | (M2 v2: 3 -> 5 %)
 | h_a7 | Beastbond 4 | Savage Mastery | 2 | Savage Order CD -1 and +10 % /rank |
 | h_a8 | Beastbond 4 | Shared Wounds | 1 | 20 % of damage you take is moved to the live pet |
 | h_a9 | Beastbond 5 | Primal Unity | 1 | new spell `wild_communion`: 30F, CD 10; 4 rounds: pet damage +50 % and pet TAUNT |
-| h_b1 | Marksmanship 1 | Steady Aim | 3 | Keen Shot +6 % /rank |
+| h_b1 | Marksmanship 1 | Steady Aim | 3 | Keen Shot +4 % /rank | (M2 v2: 6 -> 4 %)
 | h_b2 | Marksmanship 1 | Lethal Shots | 3 | +0.02 crit /rank |
 | h_b3 | Marksmanship 2 | Efficiency | 2 | Keen Shot and Heartseeker Shot cost -5 focus /rank |
-| h_b4 | Marksmanship 2 | Mortal Shots | 2 | crit multiplier +0.20 /rank (your shots, not pet) |
+| h_b4 | Marksmanship 2 | Mortal Shots | 2 | crit multiplier +0.15 /rank (your shots, not pet) | (M2 v2: 0.20 -> 0.15)
 | h_b5 | Marksmanship 3 | Deep Mark | 2 | MARKED +0.04 /rank |
 | h_b6 | Marksmanship 3 | Piercing Volley | 2 | Volley Rain +20 % /rank |
 | h_b7 | Marksmanship 4 | Trueshot Focus | 2 | Rapid Volley CD -2 and its bonus +10 % /rank |
 | h_b8 | Marksmanship 4 | Concussive Precision | 1 | Muzzle Shot also STUN 1 (non-boss) |
 | h_b9 | Marksmanship 5 | Starfall Arrow | 1 | new spell `starfall_arrow`: 50F, CD 5, phys 20 + 4.0L + 1.8P + 2.0WD; refund 50F if it kills |
 | h_c1 | Wildcraft 1 | Hardy | 3 | max HP +4 % /rank |
-| h_c2 | Wildcraft 1 | Barbed Mastery | 3 | Barbed Arrow +10 % /rank |
+| h_c2 | Wildcraft 1 | Barbed Mastery | 3 | Barbed Arrow +20 % /rank | (M2 v2: 10 -> 20 %)
 | h_c3 | Wildcraft 2 | Trapper | 2 | Snare Trap CD -1 /rank and deals phys (4 + 1.0tl + 0.4P) × rank |
 | h_c4 | Wildcraft 2 | Field Medic | 2 | Field Dressing +20 % /rank |
 | h_c5 | Wildcraft 3 | Survivalist | 2 | +0.03 dodge /rank |
 | h_c6 | Wildcraft 3 | Venom Barbs | 2 | Barbed Arrow stacks to 1 + rank (each stack a full tick) |
 | h_c7 | Wildcraft 4 | Fire Snare | 1 | Snare Trap also applies BURN 3 rounds to all enemies, tick 3 + 0.6tl + 0.25P |
-| h_c8 | Wildcraft 4 | Cornered Beast | 3 | +4 % damage /rank while HP < 50 % |
+| h_c8 | Wildcraft 4 | Cornered Beast | 3 | +8 % damage /rank while HP < 50 % | (M2 v2: 4 -> 8 %)
 | h_c9 | Wildcraft 5 | Deadfall Mastery | 1 | new spell `deadfall_trap`: 30F, CD 8, phys to all 10 + 2.4L + 1.0P; STUN 1 non-boss; interrupts boss casts |
 
 ---
@@ -496,10 +502,10 @@ Fight start: energy/focus full, CP 0, all cooldowns 0. Fight end: statuses (exce
 ### 7.2 Damage pipeline (exact order)
 1. `base` from the formula (spell, basic attack, enemy ability).
 2. × attacker modifiers (sum of % mods: talents, buffs, boons, elixir, meta), × level modifier `clamp(1 + LVL_DMG_STEP × (attackerLevel - targetLevel), LVL_DMG_MIN, LVL_DMG_MAX)`, × CHILLED/CURSED on attacker.
-3. Draw r1: miss if `r1 < missChance`. `missChance = min(MISS_CAP, MISS_BASE + MISS_PER_LEVEL × max(0, targetLevel - attackerLevel)) + (physical ? target dodge : 0) + STEALTH bonus`.
+3. Draw r1: miss if `r1 < missChance`. `missChance = min(MISS_CAP, MISS_BASE + MISS_PER_LEVEL × max(0, targetLevel - attackerLevel)) + (physical ? target dodge : 0) + STEALTH bonus`. Interrupt-tagged spells (Throat Jab, Spellsnap, Muzzle Shot) never miss and cannot be dodged; r1 is still drawn. (M2 v2)
 4. Draw r2: crit if `r2 < critChance` -> × crit multiplier.
 5. Draw r3: × `(1 - DMG_VARIANCE + 2 × DMG_VARIANCE × r3)`.
-6. × target modifiers (EXPOSED, MARKED, Brittle, Fester, Linked, shield-wall effects), summed as % and applied once.
+6. × target modifiers (EXPOSED, MARKED, Brittle, Fester, Linked, Shard brittleness, shield-wall effects), summed as % and applied once. Linked on the end boss: `-min(LINK_DR, LINK_DR_PER_SHARD × living Shards)`. Shard brittleness: a Shard takes `+SHARD_AOE_TAKEN` from direct hits of the player's aoe-tagged spells (not from DOT ticks or the pet). (M2 v2)
 7. Physical: × `(1 - mitigation(target armor, attacker level))`. Magic: unchanged.
 8. Round; a hit deals at least MIN_HIT_DAMAGE.
 9. WARD absorbs first, then HP. IMMUNE: 0 damage (still draws r1-r3).
@@ -553,7 +559,7 @@ Normal enemy at level M: `HP = (ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL × M) × arch
 Soft enrage (non-boss fights): from round FIGHT_SOFT_ENRAGE_ROUND, enemies deal +FIGHT_SOFT_ENRAGE_STEP more damage per round (additive). Prevents endless fights.
 
 ### 7.7 Interrupts
-An enemy whose intent has `cast` loses that action if, before it acts in that round, it is hit by an interrupt (Throat Jab, Spellsnap, Muzzle Shot), or becomes STUN/FROZEN/HEXED, or (bosses) is hit by any stun-tagged spell. Cooldown of the cast ability still starts. 2-round boss channels (10.3) can be interrupted in either round.
+An enemy whose intent has `cast` loses that action if, before it acts in that round, it is hit by an interrupt (Throat Jab, Spellsnap, Muzzle Shot; these always hit, 7.2 step 3), or becomes STUN/FROZEN/HEXED, or (bosses) is hit by any stun-tagged spell. (M2 v2) Cooldown of the cast ability still starts. 2-round boss channels (10.3) can be interrupted in either round.
 
 ### 7.8 Flee
 `FLEE` succeeds if a draw < `FLEE_BASE - FLEE_PER_EXTRA_ENEMY × (living enemies - 1)` (1.0 in STEALTH). Success: leave the node; hours already spent; no further rewards from the node; quest not counted; dungeon not cleared. Not allowed vs dungeon boss or end boss.
@@ -671,7 +677,7 @@ Fought once at the end of the Camp in the Sunken Observatory. Level BOSS_LEVEL. 
 | Phase | HP band | Mechanics | What it tests |
 |---|---|---|---|
 | 1 | 100 % - P2_AT | Umbral Strike every round it is not channelling: BOSS_MELEE phys. Gravity Crush every BOSS_CRUSH_EVERY rounds: BOSS_CRUSH phys, heavy (telegraphed, not interruptible). Collapse Litany: 2-round channel starting round LITANY_FIRST, then every LITANY_EVERY rounds; on completion BOSS_LITANY_DMG magic to player and pet. Brand of the Hollow: at end of every BRAND_EVERY-th round, +1 BRAND stack. | interrupt on bar; defensive timing |
-| 2 | P2_AT - P3_AT | On entry and every SHARD_EVERY rounds: summon SHARD_COUNT Dimming Shards (HP SHARD_HP, phys hit SHARD_DMG, max SHARD_MAX alive, level 60, can be stunned/hexed). While any Shard lives, boss takes -LINK_DR damage (Linked). Litany, Crush and Brand continue. | AoE, control, target choice |
+| 2 | P2_AT - P3_AT | On entry and every SHARD_EVERY rounds: summon SHARD_COUNT Dimming Shards (HP SHARD_HP, phys hit SHARD_DMG, max SHARD_MAX alive, level 60, can be stunned/hexed). Linked: the boss takes -LINK_DR_PER_SHARD damage per living Shard, at most -LINK_DR (2 Shards -30 %, 4 Shards -60 %), so every Shard killed speeds up the boss kill. Shards take +SHARD_AOE_TAKEN damage from the player's AoE spells (aoe tag: Whirling Edges, Rime Burst, Cinder Storm, Volley Rain, Deadfall Trap, Ricochet Bolt). Litany, Crush and Brand continue. | AoE, control, target choice | (M2 v2)
 | 3 | < P3_AT | Shards despawn. Eclipse: boss damage +ECLIPSE_STEP per round in phase 3 (additive). Starless Pulse every PULSE_EVERY rounds: PULSE_DMG magic to player and pet (not interruptible). Litany and Brand continue. | burst, potions, sustain, cleanse |
 | Enrage | round >= BOSS_ENRAGE_ROUND | Final Dark each round: FINAL_DARK_DMG magic; ignores WARD and IMMUNE. | overall damage check |
 
@@ -799,12 +805,14 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | MAX_LEVEL | 60 | level |
 | ZONE_COUNT | 6 | zones |
 | ZONE_LEVELS | 10 | levels per zone |
-| ZONE_CHOICE_ROWS | 8 | rows |
+| ZONE_CHOICE_ROWS | 7 | rows | (M2 v2)
 | LANES | 3 | lanes |
 | DUNGEON_ROW_MIN | 4 | row |
 | DUNGEON_ROW_MAX | 6 | row |
 | REST_ROW_MIN | 3 | row |
 | REST_ROW_MAX | 5 | row |
+| TRAINER_ROW_MIN | 3 | row | (M2 v2)
+| TRAINER_ROW_MAX | 5 | row | (M2 v2)
 | MAX_SAME_TYPE_PER_ROW | 2 | nodes |
 | W_QUEST | 38 | weight |
 | W_GRIND | 14 | weight |
@@ -815,8 +823,8 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | W_TREASURE | 6 | weight |
 | W_SHRINE | 6 | weight |
 | QUEST_LEVEL_OFFSETS | [-1, 0, 0, 1] | levels |
-| ELITE_LEVEL_OFFSET | 2 | levels |
-| DUNGEON_LEVEL_OFFSET | 6 | levels above band minimum |
+| ELITE_LEVEL_OFFSET | 1 | levels | (M2 v2)
+| DUNGEON_LEVEL_OFFSET | 4 | levels above band minimum | (M2 v2)
 | DUNGEON_BOSS_LEVEL_OFFSET | 2 | levels above trash |
 | RARE_CHANCE | 0.20 | probability |
 | CAMP_GRIND_LEVEL | 58 | level |
@@ -830,29 +838,31 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | HOURS_TREASURE | 1 | h |
 | HOURS_SHRINE | 1 | h |
 | HOURS_TRAVEL | 2 | h |
-| BOSS_TIME_PAR | 130 | h |
+| TRAVEL_EARLY_LEVELS | 1 | levels below exit level | (M2 v2)
+| BOSS_TIME_PAR | 120 | h | (M2 v2)
 | ASC_STEP_HOURS | 10 | h |
 | ASC_PER_STEP | 0.04 | fraction |
 | ASC_CAP | 0.40 | fraction |
 | QUEST_SIZE_W1 | 25 | weight |
 | QUEST_SIZE_W2 | 50 | weight |
 | QUEST_SIZE_W3 | 25 | weight |
-| QUEST_TURNIN_XP_FRAC | 0.80 | of xpToNext |
+| QUEST_MAX_SIZE_Z1 | 2 | mobs | (M2 v2)
+| QUEST_TURNIN_XP_FRAC | 1.15 | of xpToNext | (M2 v2)
 | QUEST_GOLD_V | 2 | × V |
 | QUEST_REWARD_CHOICES | 2 | items |
 | STORY_QUESTS | 3 | quests |
-| STORY_XP_FRAC | 0.80 | of xpToNext |
+| STORY_XP_FRAC | 0.90 | of xpToNext | (M2 v2)
 | STORY_REWARD_CHOICES | 3 | items |
 | GRIND_MAX_WAVES | 3 | waves |
 | GRIND_WAVE_SIZE | 2 | mobs |
-| GRIND_WAVE_XP_FRAC | 0.10 | of xpToNext |
+| GRIND_WAVE_XP_FRAC | 0.115 | of xpToNext | (M2 v2)
 | GRIND_DROP_MULT | 1.5 | × |
 | ELITE_ADD_CHANCE | 0.30 | probability |
 | ELITE_GOLD_V | 2 | × V |
 | DUNGEON_TRASH_FIGHTS | 3 | fights |
 | DUNGEON_SIZE_W2 | 50 | weight |
 | DUNGEON_SIZE_W3 | 50 | weight |
-| DUNGEON_CLEAR_XP_FRAC | 0.60 | of xpToNext |
+| DUNGEON_CLEAR_XP_FRAC | 0.70 | of xpToNext | (M2 v2)
 | DUNGEON_GOLD_V | 6 | × V |
 | DUNGEON_BOSS_DROPS | 2 | rolls |
 | TREASURE_GUARD_CHANCE | 0.50 | probability |
@@ -869,7 +879,7 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | BOON_DMG_PCT | 0.15 | fraction |
 | BOON_NODES | 3 | nodes |
 | BOON_GOLD_V | 4 | × V |
-| MOB_XP_FRAC | 0.20 | of xpToNext |
+| MOB_XP_FRAC | 0.285 | of xpToNext | (M2 v2)
 | DUNGEON_MOB_XP_MULT | 1.0 | × |
 | ELITE_XP_MULT | 6 | × |
 | RARE_XP_MULT | 8 | × |
@@ -906,9 +916,9 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | MANA_BASE | 50 | mana |
 | MANA_PER_LEVEL | 12 | mana |
 | MANA_PER_INT | 6 | mana |
-| MANA_REGEN_ROUND_PCT | 0.02 | of max mana |
+| MANA_REGEN_ROUND_PCT | 0.025 | of max mana | (M2 v2)
 | ENERGY_MAX | 100 | energy |
-| ENERGY_REGEN | 30 | per round |
+| ENERGY_REGEN | 25 | per round | (M2 v2)
 | FOCUS_MAX | 100 | focus |
 | FOCUS_REGEN | 25 | per round |
 | CP_MAX | 5 | points |
@@ -919,8 +929,8 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | SPELL_BAR_SLOTS | 7 | slots |
 | ITEM_BAR_SLOTS | 3 | slots |
 | PET_DMG_BASE | 2 | damage |
-| PET_DMG_PER_LEVEL | 0.55 | damage |
-| PET_DMG_POWER | 0.30 | × P |
+| PET_DMG_PER_LEVEL | 0.65 | damage | (M2 v2)
+| PET_DMG_POWER | 0.375 | × P | (M2 v2)
 | PET_REVIVE_PCT | 0.25 | of pet max HP |
 | MISS_BASE | 0.05 | fraction |
 | MISS_PER_LEVEL | 0.02 | per level |
@@ -946,11 +956,11 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | ENEMY_ARMOR_PER_LEVEL | 15 | armor |
 | DUNGEON_TRASH_HP_MULT | 1.2 | × |
 | DUNGEON_TRASH_DMG_MULT | 1.1 | × |
-| ELITE_HP_MULT | 3.5 | × |
+| ELITE_HP_MULT | 2.8 | × | (M2 v2)
 | ELITE_DMG_MULT | 1.5 | × |
 | RARE_HP_MULT | 4.5 | × |
 | RARE_DMG_MULT | 1.6 | × |
-| DUNGEON_BOSS_HP_MULT | 7 | × |
+| DUNGEON_BOSS_HP_MULT | 5.6 | × | (M2 v2)
 | DUNGEON_BOSS_DMG_MULT | 1.7 | × |
 | AUTO_POTION_HP | 0.35 | fraction |
 | AUTO_MANA_POTION | 0.20 | fraction |
@@ -1015,9 +1025,9 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | RES_MANA_PCT | 0.40 | of max mana |
 | RES_META_CHARGES | 1 | charges |
 | BOSS_LEVEL | 62 | level |
-| BOSS_HP | 11000 | HP |
+| BOSS_HP | 13000 | HP | (M2 v2)
 | BOSS_ARMOR | 1200 | armor |
-| BOSS_MELEE | 200 | damage |
+| BOSS_MELEE | 260 | damage | (M2 v2)
 | BOSS_CRUSH | 380 | damage |
 | BOSS_CRUSH_EVERY | 6 | rounds |
 | BOSS_LITANY_DMG | 850 | damage |
@@ -1028,12 +1038,14 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | BRAND_MAX | 10 | stacks |
 | P2_AT | 0.70 | boss HP fraction |
 | P3_AT | 0.40 | boss HP fraction |
-| SHARD_HP | 1300 | HP |
+| SHARD_HP | 1000 | HP | (M2 v2)
 | SHARD_DMG | 110 | damage |
 | SHARD_COUNT | 2 | adds |
 | SHARD_EVERY | 8 | rounds |
 | SHARD_MAX | 4 | adds |
 | LINK_DR | 0.60 | fraction |
+| LINK_DR_PER_SHARD | 0.15 | fraction per living Shard | (M2 v2)
+| SHARD_AOE_TAKEN | 1.00 | fraction (+100 % from aoe spells) | (M2 v2)
 | ECLIPSE_STEP | 0.05 | per round |
 | PULSE_DMG | 280 | damage |
 | PULSE_EVERY | 3 | rounds |
@@ -1062,11 +1074,13 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | UNIQUE_WARD_PCT | 0.08 | of max HP |
 | PACE_CREATE_S | 40 | s |
 | PACE_DECIDE_S | 5 | s per node |
-| PACE_TRAVEL_NODE_S | 4 | s per node |
+| PACE_TRAVEL_NODE_S | 3.5 | s per node | (M2 v2)
 | PACE_ZONE_TRAVEL_S | 8 | s per zone |
 | PACE_QUEST_TEXT_S | 5 | s per quest |
 | PACE_FIGHT_OVERHEAD_S | 3 | s per fight |
 | PACE_MANUAL_ROUND_S | 2.5 | s per round |
+| PACE_ROUND_ANIM_S | 1.5 | s per round (UI budget at default speed) | (M2 v2)
+| PACE_ROUND_DECIDE_S | 1.0 | s per round | (M2 v2)
 | PACE_AUTO_ROUND_S | 0.8 | s per round |
 | PACE_LOOT_S | 3 | s per equipment drop |
 | PACE_LEVELUP_S | 2 | s per level |
