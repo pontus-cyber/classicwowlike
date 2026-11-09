@@ -11,7 +11,7 @@ Status: final, owner review (built on, easy to change), team (delegated to the L
 | D5 | Rules engine is pure and seeded, separate from the UI | Enables tests, replays, the simulator and the balance bot | Setup | final |
 | D6 | Platform: desktop browser first, one HTML file, plain JavaScript, canvas 2D | Owner confirmed browser first | Owner 2026-11-09 | final |
 | D7 | Classes: Rogue, Mage, Hunter from the first playable build | Picking a class is part of the intended feel | Owner 2026-11-09 | final |
-| D8 | Combat: auto-resolve by default; the player can take manual control of any fight. Action bar holds at most 7 spells plus usable items | Keeps the pace up while leaving room for skill | Owner 2026-11-09 | final |
+| D8 | Combat is played manually by default; the player can turn on autoplay. Action bar holds at most 7 spells plus usable items. The 45-minute target assumes manual play | Owner correction 14:46: fights are the core of the play experience; autoplay is a convenience | Owner 2026-11-09 | final |
 | D9 | Run length target: about 45 minutes to the boss kill; a speedrun route must exist | Owner target | Owner 2026-11-09 | final |
 | D10 | Death with no resurrect ends the run; summary screen and meta points scaled by progress | Owner rule | Owner 2026-11-09 | final |
 | D11 | Art: stylised 2D painted look drawn in code, parallax world scrolling past a centred character; no pixel art | Owner choice | Owner 2026-11-09 | final |

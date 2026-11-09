@@ -18,7 +18,7 @@ Each step you choose the next node on the path: quest, grind, dungeon, elite, re
 ## Core loop
 1. Choose a class: Rogue, Mage or Hunter [stated].
 2. Choose the next node on the path. Resolve it: XP, gold, items, damage, time.
-3. Fights run on auto, or the player takes control. At most 7 spells on the action bar, plus usable items such as potions [stated].
+3. Fights are played manually by default; the player can turn on autoplay. At most 7 spells on the action bar, plus usable items such as potions [stated: owner correction 2026-11-09 14:46].
 4. Spend talent points as you level; equip gear; plan for the boss.
 5. At level 60, fight the end boss.
 6. If you die with no way to resurrect, the run ends. You get a run summary and meta-progression points based on how far you got [stated].
