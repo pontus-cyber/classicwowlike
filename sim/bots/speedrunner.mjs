@@ -1,8 +1,9 @@
 // speedrunner bot (balance.md 1): path search minimising hours to reach the zone exit level; TRAVEL_ON as soon
 // as legal; Camp grind only to reach 60; build and bar as the planner (boss bar at the Camp); trains at hubs only;
 // buys Healing Draughts to HEAL_STOCK_TARGET; no vendor nodes; autoplay combat; autoplay time profile.
-// The search cost is in hours: node hours + P(death) × VAL_DEATH / VAL_HOUR, and a zone left under the exit level
-// after row 8 adds the missing levels × VAL_XP / VAL_HOUR (the value function's own exchange rates).
+// The search cost is in hours: node hours + P(death) × VAL_DEATH / VAL_HOUR, and a zone left under the travel level
+// (exitLevelOf: exit level - TRAVEL_EARLY_LEVELS) after the last row adds the missing levels × VAL_XP / VAL_HOUR (the
+// value function's own exchange rates).
 import { C, R, legal, hpFrac } from '../lib/engine.mjs';
 import { BAL, SIM } from '../lib/params.mjs';
 import { makeCtx, evalNode, copyM, levelPos } from '../lib/model.mjs';

@@ -21,7 +21,7 @@ export function greedyMap(s, risk) {
   }
   if (legal(s, { type: 'TRAVEL_ON' })) {
     if (!best) return { type: 'TRAVEL_ON' };
-    // Every node still reachable from here (rows r..8, lanes widening by one per row), valued from now.
+    // Every node still reachable from here (rows r..ZONE_CHOICE_ROWS, lanes widening by one per row), valued from now.
     let lo = view.pos.r === 0 ? 0 : Math.max(0, view.pos.l - 1);
     let hi = view.pos.r === 0 ? C.LANES - 1 : Math.min(C.LANES - 1, view.pos.l + 1);
     let stay = false;

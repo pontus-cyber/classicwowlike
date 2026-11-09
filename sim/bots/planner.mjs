@@ -1,4 +1,4 @@
-// planner bot (balance.md 1): full path search over the visible zone map (at most 3^8 paths) maximising the
+// planner bot (balance.md 1): full path search over the visible zone map (at most 3^ZONE_CHOICE_ROWS paths) maximising the
 // value function 1.1 over the remaining zone, including rest timing and the travel-on point; standard build of
 // its tree (1.3); bar template 1.2 with the boss bar at the Camp; trains everything at each hub, keeps
 // HEAL_STOCK_TARGET Healing Draughts, buys an Ember of Return when affordable and gold after it >=
@@ -24,8 +24,12 @@ function bestFrom(ctx, rows, r, l, m, exit) {
   return best;
 }
 
+/**
+ * Level from which TRAVEL_ON is legal (rules 1.5, M2 v2 M6; the engine's canTravel): exit level
+ * ZONE_LEVELS × z, minus TRAVEL_EARLY_LEVELS, minus META.swift_boots.levels with Swift Boots.
+ */
 export function exitLevelOf(s, ctx) {
-  return C.ZONE_LEVELS * s.zone.z - (ctx.swift ? 1 : 0);
+  return C.ZONE_LEVELS * s.zone.z - (C.TRAVEL_EARLY_LEVELS ?? 0) - (ctx.swift ? C.META.swift_boots.levels : 0);
 }
 
 /** Path search from the current map position. Returns { action, value, options }. */

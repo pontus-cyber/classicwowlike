@@ -1,15 +1,12 @@
 // The simulator's only gateway to the rules engine (src/rules.js). sim/ never copies a rule: every outcome
-// comes from the engine. The few read-only helpers below come from engine modules because the public API
-// does not export them yet (listed in docs/handoffs/sim-2026-11-09.md as a request to the Engineer):
-//   V(L)            value scale (rules 8.5)            src/engine/items.js
-//   xpCurve, diffMod XP curve and level-difference mod src/engine/progress.js
-// Bots use them only to estimate node values; the engine decides what actually happens.
+// comes from the engine. The read-only rule helpers V(L) (value scale, rules 8.5), xpCurve(L) and diffMod(d)
+// (XP curve and level-difference modifier, rules 4.3-4.4) come from the public API (src/rules.js); bots use them
+// only to estimate node values, the engine decides what actually happens.
 import * as R from '../../src/rules.js';
 import { CONTENT } from '../../src/content/index.js';
 import { STREAM, makeRng, nextFloat, nextU32, hash32 } from '../../src/rng.js';
-import { V } from '../../src/engine/items.js';
-import { xpCurve, diffMod } from '../../src/engine/progress.js';
 
+const { V, xpCurve, diffMod } = R;
 export const C = R.C;
 export { R, CONTENT, STREAM, makeRng, nextFloat, nextU32, hash32, V, xpCurve, diffMod };
 
