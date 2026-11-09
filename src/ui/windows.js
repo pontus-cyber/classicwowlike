@@ -164,8 +164,12 @@ export function createWindows(root, ctx) {
     }
     items.push(['Discard', ooc, () => ctx.act({ type: 'DISCARD', uid: it.uid })]);
     ctxMenu = h('div.ctxmenu.panel', items.map(([label, ok, fn]) => { const b = h('button', label); b.disabled = !ok; b.addEventListener('click', () => { closeMenu(); fn(); }); return b; }));
-    ctxMenu.style.left = `${Math.min(e.clientX, window.innerWidth - 200)}px`; ctxMenu.style.top = `${Math.min(e.clientY, window.innerHeight - 220)}px`;
+    ctxMenu.style.left = `${e.clientX}px`; ctxMenu.style.top = `${e.clientY}px`;
     document.body.appendChild(ctxMenu);
+    // keep the whole menu inside the window: its size grows with the UI scale and the number of entries
+    const r = ctxMenu.getBoundingClientRect(); const pad = 6;
+    ctxMenu.style.left = `${Math.max(pad, Math.min(e.clientX, window.innerWidth - r.width - pad))}px`;
+    ctxMenu.style.top = `${Math.max(pad, Math.min(e.clientY, window.innerHeight - r.height - pad))}px`;
     setTimeout(() => window.addEventListener('pointerdown', onAway), 0);
   }
   function onAway(e) { if (ctxMenu && !ctxMenu.contains(e.target)) closeMenu(); }
