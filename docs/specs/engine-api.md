@@ -35,6 +35,7 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 | `newProfile()`, `metaOffers(profile)`, `buyMeta(profile, id)` | profile / offers / profile | Meta catalogue between runs (rules 11.2). `buyMeta` throws `IllegalActionError` when not allowed. |
 | `xpToNext(L)`, `talentPointsFree(state)`, `itemScore(item, classId)`, `spellCost(state, id)`, `spellCooldown(state, id)`, `fleeChance(state)` | number | Display helpers so the UI never re-implements a rule. |
 | `bagCapacity(state)` | number | Bag slots: `BAG_SLOTS` + meta Deeper Pockets (rules 8.7, 11.2). In CREATE it reads the profile. |
+| `travelLevel(state)` | number or null | Level from which `TRAVEL_ON` is legal in the current zone (rules 1.5): exit level - TRAVEL_EARLY_LEVELS, one lower with Swift Boots ("Travel on at level N"). After the last row TRAVEL_ON is legal at any level. null outside a zone (CREATE, Camp, run over). |
 | `V(L)`, `xpCurve(L)`, `diffMod(d)` | number | Rule helpers for estimates (read-only): value scale V (rules 8.5; prices and gold are multiples of it), the levelling polynomial (rules 4.3, defined for every L: `xpCurve(60)` is the event-XP base at CL 60 while `xpToNext(60)` is 0), the XP level-difference modifier for `d = CL - L` (rules 4.4). |
 | `spellInfo(state, id, target)` | object or null | Tooltip data: name, level, tags, resource, cost, cd, cdLeft, tl, rank, `amount` (`{kind: damage|dot|ward|heal, amount or perTick, hits, school}`, base value before level/target/crit/variance), `usable` and `reason` in a fight, content flavour `text`. |
 | `C` | module | All constants and data tables (CLASS, SPELL, TALENT, PET, CONSUMABLE, BOON, META, BOSS_TEXT, ...). |
@@ -84,7 +85,7 @@ Every action is `{ type, ...fields }`. Indices are 0-based. Enemy targets are in
 | `SELL` | `itemId` (bag uid) | vendor |
 | `SELL_JUNK` | | vendor; junk in bag |
 | `CHOOSE_NODE` | `lane` 0-2 | MAP; `mapView(state).next` lists reachable lanes |
-| `TRAVEL_ON` | | MAP; level >= exit level (Swift Boots: -1) or row 8 done (then it is the only move) |
+| `TRAVEL_ON` | | MAP; level >= `travelLevel(state)` (exit level - TRAVEL_EARLY_LEVELS, Swift Boots one lower) or the last row (ZONE_CHOICE_ROWS) done (then it is the only move) |
 | `GRIND_SET_WAVES` | `n` 1-3 | Grind node, on entry (starts wave 1) |
 | `NEXT_FIGHT` | | between Grind waves or Dungeon fights |
 | `GRIND_STOP` | | between Grind waves |

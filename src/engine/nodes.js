@@ -7,7 +7,7 @@ import {
   QUEST_REWARD_CHOICES, STORY_QUESTS, STORY_XP_FRAC, STORY_REWARD_CHOICES, GRIND_WAVE_XP_FRAC, GRIND_DROP_MULT,
   GRIND_WAVE_SIZE, DUNGEON_TRASH_FIGHTS, DUNGEON_CLEAR_XP_FRAC, DUNGEON_GOLD_V, TREASURE_GOLD_V,
   TREASURE_TRAP_CHANCE, TREASURE_TRAP_PCT, REST_RESTED_FRAC, BOON, BOON_GOLD_V, BOON_NODES, CAMP_GRIND_LEVEL,
-  MAX_LEVEL, BOSS_TIME_PAR, OATH_HASTE_HOURS, ASC_CAP, ASC_PER_STEP, ASC_STEP_HOURS, TRAIN_NEW_V, TRAIN_RANK_V,
+  MAX_LEVEL, BOSS_TIME_PAR, OATH_HASTE_HOURS, ASC_CAP, ASC_PER_STEP, ASC_STEP_HOURS, TRAIN_NEW_V, TRAIN_RANK_V, TRAVEL_EARLY_LEVELS,
   RESPEC_V, CONSUMABLE, ELIXIR_NODES, RES_META_CHARGES, BOSS_LEVEL, UNIQUE_POTION_PCT,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt } from '../rng.js';
@@ -143,11 +143,15 @@ function enterCamp(s, ev) {
 
 export const exitLevel = (z) => ZONE_LEVELS * z;
 
-/** TRAVEL_ON allowed (rules 1.5): at exit level (Swift Boots: one lower) or after row 8. */
+/** Level from which TRAVEL_ON is legal in zone z (rules 1.5, M2 v2): exit level - TRAVEL_EARLY_LEVELS, Swift Boots one lower. */
+export function travelLevel(s, z = s.zone.z) {
+  return exitLevel(z) - TRAVEL_EARLY_LEVELS - (s.meta.swiftBoots ? META.swift_boots.levels : 0);
+}
+
+/** TRAVEL_ON allowed (rules 1.5): at travelLevel or after the last row (then forced). */
 export function canTravel(s) {
   if (s.phase !== 'MAP' || s.node || !s.zone || s.zone.camp) return false;
-  const need = exitLevel(s.zone.z) - (s.meta.swiftBoots ? META.swift_boots.levels : 0);
-  return s.player.level >= need || s.zone.pos.r >= ZONE_CHOICE_ROWS;
+  return s.player.level >= travelLevel(s) || s.zone.pos.r >= ZONE_CHOICE_ROWS;
 }
 
 export function travelOn(s, ev) {

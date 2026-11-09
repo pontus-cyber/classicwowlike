@@ -12,7 +12,7 @@ import { castError, itemUsableInCombat } from './spells.js';
 import { resolveRound } from './combat.js';
 import {
   availablePets, startRun, canTravel, travelOn, openService, leaveService, chooseNode, startGrind, nextFight,
-  completeNode, chooseReward, campGrind, fightBoss, finishFight, trainerSpells, learnCost, trainCost,
+  completeNode, chooseReward, campGrind, fightBoss, finishFight, trainerSpells, learnCost, trainCost, travelLevel,
   respecCost, learnSpell, trainSpell, trainAll, trainable, respec, buy, sell, sellJunk, useItemOutOfCombat,
   clampAfterStatChange,
 } from './nodes.js';
@@ -159,7 +159,7 @@ const A = {
     apply: (s, ev, a) => chooseNode(s, ev, a.lane),
   },
   TRAVEL_ON: {
-    check: (s) => (s.phase !== 'MAP' ? 'only on the map' : !canTravel(s) ? 'reach the exit level or finish row 8 first' : null),
+    check: (s) => (s.phase !== 'MAP' ? 'only on the map' : !canTravel(s) ? `reach level ${travelLevel(s)} or finish the last row first` : null),
     apply: (s, ev) => travelOn(s, ev),
   },
   // ---------------- Node ----------------

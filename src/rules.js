@@ -13,7 +13,7 @@
 //
 // Also exported: validateContent, newProfile, metaOffers, buyMeta, mapView, isLegal, whyIllegal, stepInPlace,
 // IllegalActionError, display helpers (xpToNext, talentPointsFree, itemScore, spellCost, spellCooldown,
-// spellInfo, fleeChance, bagCapacity), rule helpers (V, xpCurve, diffMod) and every constant via `C`.
+// spellInfo, fleeChance, bagCapacity, travelLevel), rule helpers (V, xpCurve, diffMod) and every constant via `C`.
 import * as C from './constants.js';
 import { normaliseSeed } from './rng.js';
 import { cloneState, deepClone, deepFreeze, IllegalActionError } from './engine/util.js';
@@ -22,7 +22,7 @@ import { checkAction, applyAction, legalActions as legal } from './engine/action
 import { autoAction as auto } from './engine/autoplay.js';
 import { summary as sum } from './engine/summary.js';
 import { newProfile, metaOffers, buyMeta, applyRunToProfile } from './engine/meta.js';
-import { availablePets, metaFromProfile } from './engine/nodes.js';
+import { availablePets, metaFromProfile, travelLevel as travelAt } from './engine/nodes.js';
 import { nextLanes } from './engine/map.js';
 import { xpToNext, xpCurve, diffMod, talentPointsFree as freePoints } from './engine/progress.js';
 import { itemScore, V, bagCapacity as bagCap } from './engine/items.js';
@@ -42,6 +42,14 @@ export { V, xpCurve, diffMod };
 export function bagCapacity(state) {
   if (state.meta) return bagCap(state);
   return C.BAG_SLOTS + metaFromProfile(state.profile, state.create ? state.create.classId : null).bagSlots;
+}
+
+/**
+ * Level from which TRAVEL_ON is legal in the current zone (rules 1.5): exit level - TRAVEL_EARLY_LEVELS, one lower
+ * with Swift Boots. After the last row TRAVEL_ON is legal at any level. null outside a zone (CREATE, Camp, run over).
+ */
+export function travelLevel(state) {
+  return state.player && state.zone && !state.zone.camp && state.phase !== 'SUMMARY' && state.phase !== 'ENDED' ? travelAt(state) : null;
 }
 
 /** Unspent talent points (rules 6). */

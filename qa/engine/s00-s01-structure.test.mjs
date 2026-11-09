@@ -264,22 +264,30 @@ describe('rules 1 run structure', () => {
     assert.ok(!R.isLegal(s, { type: 'SERVICE', service: 'inn' }));
   });
 
-  test('1.5 TRAVEL_ON: legal at exit level or after row 8, costs HOURS_TRAVEL; Wayfinder 0 h; Swift Boots one level early', () => {
+  test('1.5 TRAVEL_ON: legal from exit level - TRAVEL_EARLY_LEVELS (Swift Boots: one lower) or after the last row, costs HOURS_TRAVEL; Wayfinder 0 h (M2 v2)', () => {
     const m = R.step(started('rogue'), { type: 'LEAVE_HUB' }).state;
     assert.ok(!R.isLegal(m, { type: 'TRAVEL_ON' }));
-    const at10 = atLevel(m, 10);
-    assert.ok(R.isLegal(at10, { type: 'TRAVEL_ON' }));
-    const r = R.step(at10, { type: 'TRAVEL_ON' });
+    assert.equal(C.TRAVEL_EARLY_LEVELS, 1);
+    assert.equal(R.travelLevel(m), 10 - C.TRAVEL_EARLY_LEVELS);
+    assert.ok(!R.isLegal(atLevel(m, 8), { type: 'TRAVEL_ON' }), 'level 8 in zone 1: too early');
+    assert.match(R.whyIllegal(atLevel(m, 8), { type: 'TRAVEL_ON' }), /reach level 9 or finish the last row/);
+    const at9 = atLevel(m, 9);
+    assert.ok(R.isLegal(at9, { type: 'TRAVEL_ON' }), 'one level under the exit level');
+    const r = R.step(at9, { type: 'TRAVEL_ON' });
     assert.equal(r.state.hours, C.HOURS_TRAVEL);
     assert.equal(r.state.zone.z, 2);
     assert.equal(r.state.phase, 'ZONE_HUB');
     assert.equal(r.state.stats.zonesLeft, 1);
-    const row8 = tweak(m, (x) => { x.zone.pos = { r: 8, l: 1 }; });
-    assert.deepEqual(R.legalActions(row8).filter((a) => a.type === 'CHOOSE_NODE' || a.type === 'TRAVEL_ON'), [{ type: 'TRAVEL_ON' }]);
+    assert.equal(R.travelLevel(R.step(r.state, { type: 'LEAVE_HUB' }).state), 20 - C.TRAVEL_EARLY_LEVELS, 'zone 2');
+    const last = tweak(m, (x) => { x.zone.pos = { r: C.ZONE_CHOICE_ROWS, l: 1 }; });
+    assert.deepEqual(R.legalActions(last).filter((a) => a.type === 'CHOOSE_NODE' || a.type === 'TRAVEL_ON'), [{ type: 'TRAVEL_ON' }], 'after the last row TRAVEL_ON is the only move');
     const way = R.step(started('rogue', { profile: { ...R.newProfile(), unlocks: { wayfinder: 1, swift_boots: 1 } } }), { type: 'LEAVE_HUB' }).state;
-    const at9 = atLevel(way, 9);
-    assert.ok(R.isLegal(at9, { type: 'TRAVEL_ON' }), 'Swift Boots: exit level - 1');
-    assert.equal(R.step(at9, { type: 'TRAVEL_ON' }).state.hours, 0, 'Wayfinder: 0 hours');
+    assert.equal(R.travelLevel(way), 10 - C.TRAVEL_EARLY_LEVELS - C.META.swift_boots.levels);
+    assert.ok(!R.isLegal(atLevel(way, 7), { type: 'TRAVEL_ON' }));
+    const at8 = atLevel(way, 8);
+    assert.ok(R.isLegal(at8, { type: 'TRAVEL_ON' }), 'Swift Boots: exit level - 2');
+    assert.equal(R.step(at8, { type: 'TRAVEL_ON' }).state.hours, 0, 'Wayfinder: 0 hours');
+    assert.equal(R.travelLevel(R.newRun({ classId: 'rogue', content: CONTENT })), null, 'no zone in CREATE');
   });
 
   test('1.5 / 1.6 Z6 travels to the Camp; camp grind waves at level 58 cost 1 h and can repeat', () => {
@@ -287,6 +295,7 @@ describe('rules 1 run structure', () => {
     s = tweak(atLevel(s, 60), (x) => { x.zone.z = 6; });
     s = R.step(s, { type: 'TRAVEL_ON' }).state;
     assert.equal(s.phase, 'CAMP');
+    assert.equal(R.travelLevel(s), null, 'no travel level at the Camp');
     const h = s.hours;
     s = R.step(s, { type: 'CAMP_GRIND' }).state;
     assert.equal(s.hours, h + C.HOURS_GRIND_WAVE);
