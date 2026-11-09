@@ -88,27 +88,47 @@ describe('rules 10 end boss', () => {
     assert.deepEqual(names(tweak(p.state, immortal)), ['litany1'], 'paused: still 1/2');
   });
 
-  test('10.2 phase 2 at P2_AT: Shards on entry and every SHARD_EVERY rounds, max SHARD_MAX alive, Linked -60 %', () => {
+  test('10.2 phase 2 at P2_AT: Shards on entry and every SHARD_EVERY rounds, max SHARD_MAX alive; Linked -LINK_DR_PER_SHARD per living Shard, at most -LINK_DR (M2 v2)', () => {
     let s = boss('mage', { spells: ['ember_bolt'], prep: (x) => { immortal(x); x.fight.enemies[0].hp = Math.floor(x.fight.enemies[0].maxHp * 0.705); } });
     const c = cloneState(s);
     forceDraws(c, 3, (d) => d[0] > 0.9 && d[1] > 0.6);
     const r = R.step(c, { type: 'CAST', spellId: 'ember_bolt', target: 0 });
     assert.equal(ev(r.events, 'phaseChange')[0].phase, 2);
+    assert.deepEqual(ev(r.events, 'linked').map((e) => [e.on, e.n]), [[true, C.SHARD_COUNT]], 'linked carries the number of living Shards');
     const shards = r.state.fight.enemies.filter((e) => e.kind === 'shard');
     assert.equal(shards.length, C.SHARD_COUNT);
     for (const sh of shards) { assert.equal(sh.level, 60); assert.equal(sh.maxHp, C.SHARD_HP); assert.equal(sh.armor, C.ENEMY_ARMOR_PER_LEVEL * 60); }
-    // Linked: boss takes LINK_DR less while a Shard lives
+    // Linked: the boss takes LINK_DR_PER_SHARD less per living Shard, at most LINK_DR (1 Shard -15 %, 2 -30 %, 4 -60 %).
     let t = tweak(r.state, immortal);
-    const a = cloneState(t);
-    const d = forceDraws(a, 3, (x) => x[0] > 0.9 && x[1] > 0.6);
-    const hitLinked = R.step(a, { type: 'CAST', spellId: 'ember_bolt', target: 0 }).events.find((e) => e.t === 'damage' && e.dst === 0).amount;
-    const b = tweak(t, (x) => { for (const e of x.fight.enemies) if (e.kind === 'shard') e.alive = false; });
-    forceDraws(b, 3, (x) => x.join() === d.join());
-    const hitFree = R.step(b, { type: 'CAST', spellId: 'ember_bolt', target: 0 }).events.find((e) => e.t === 'damage' && e.dst === 0).amount;
-    assert.ok(Math.abs(hitLinked / hitFree - (1 - C.LINK_DR)) < 0.02, `${hitLinked}/${hitFree}`);
+    const d = forceDraws(cloneState(t), 3, (x) => x[0] > 0.9 && x[1] > 0.6);
+    const hitWith = (n) => {
+      const b = tweak(t, (x) => {
+        const sh = x.fight.enemies.filter((e) => e.kind === 'shard');
+        while (sh.length < n) { const c2 = { ...sh[0], idx: x.fight.enemies.length, st: [] }; x.fight.enemies.push(c2); sh.push(c2); }
+        sh.forEach((e, i) => { e.alive = i < n; });
+      });
+      forceDraws(b, 3, (x) => x.join() === d.join());
+      return R.step(b, { type: 'CAST', spellId: 'ember_bolt', target: 0 }).events.find((e) => e.t === 'damage' && e.dst === 0).amount;
+    };
+    const free = hitWith(0);
+    for (const n of [1, 2, 3, 4, 5]) {
+      const want = 1 - Math.min(C.LINK_DR, C.LINK_DR_PER_SHARD * n);
+      assert.ok(Math.abs(hitWith(n) / free - want) < 0.01, `${n} Shards: ${hitWith(n)}/${free} vs ${want}`);
+    }
+    assert.ok(Math.abs(hitWith(4) / free - (1 - C.LINK_DR)) < 0.01 && hitWith(5) === hitWith(4), 'capped at LINK_DR');
     // More Shards every SHARD_EVERY rounds, capped at SHARD_MAX alive
     for (let i = 0; i < 2 * C.SHARD_EVERY + 1; i++) t = tweak(R.step(t, { type: 'PASS' }).state, (x) => { immortal(x); for (const e of x.fight.enemies) if (e.kind === 'shard') e.hp = e.maxHp; });
     assert.equal(t.fight.enemies.filter((e) => e.kind === 'shard' && e.alive).length, C.SHARD_MAX);
+    // The last Shard dying, and phase 3, send linked off with n 0.
+    const k = tweak(t, (x) => { for (const e of x.fight.enemies) if (e.kind === 'shard') { e.hp = 1; e.dodge = 0; } });
+    let ke = [];
+    for (const e of k.fight.enemies.filter((x) => x.kind === 'shard' && x.alive)) {
+      const c3 = tweak(ke.length ? ke.at(-1).state : k, immortal);
+      forceDraws(c3, 3, (x) => x[0] > 0.9);
+      ke.push(R.step(c3, { type: 'CAST', spellId: 'ember_bolt', target: e.idx }));
+    }
+    const offs = ke.flatMap((x) => ev(x.events, 'linked'));
+    assert.deepEqual(offs.map((e) => [e.on, e.n]), [[false, 0]], 'linked off once, when the last Shard dies');
   });
 
   test('10.3 Shards counter: null while SHARD_MAX Shards live, back to the next scheduled wave after a Shard dies (BUG-QA-07)', () => {
@@ -140,6 +160,7 @@ describe('rules 10 end boss', () => {
     applyDamage(c, events, 'player', 0, Math.floor(c.fight.enemies[0].maxHp * 0.5));
     assert.deepEqual(ev(events, 'phaseChange').map((e) => e.phase), [2, 3]);
     assert.ok(ev(events, 'summon').length === C.SHARD_COUNT && ev(events, 'despawn').length === C.SHARD_COUNT, 'Shards summoned, then despawned');
+    assert.deepEqual(ev(events, 'linked').map((e) => [e.on, e.n]), [[true, C.SHARD_COUNT], [false, 0]]);
     assert.equal(c.fight.enemies.filter((e) => e.kind === 'shard' && e.alive).length, 0);
     let t = tweak(c, immortal);
     const pulses = [];

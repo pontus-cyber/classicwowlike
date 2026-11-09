@@ -158,7 +158,7 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `status` | `u, id, on, dur, stacks, src` | status applied (`on: true`) or removed |
 | `interrupt`, `skip` | `u, by` | cast interrupted / Chrono Sigil |
 | `channel` | `u, name, step` | boss Litany channel step |
-| `summon`, `despawn`, `linked` | `u, name, hp, by` / `u` / `on` | adds, Shards, Linked on/off |
+| `summon`, `despawn`, `linked` | `u, name, hp, by` / `u` / `on, n` | adds, Shards, Linked on/off. `linked` is sent when a Shards wave comes (`on: true`) and when the last Shard dies or Shards despawn (`on: false`); `n` = living Shards then. The boss takes `-min(LINK_DR, LINK_DR_PER_SHARD × n)` (rules 10.2); between events, count the living Shards in `state.fight.enemies` |
 | `shield`, `enrage`, `image` | | enemy shield, enemy enrage, Mirrorshade image |
 | `phaseChange` | `phase` | boss phase 2 or 3 |
 | `death` | `u, name` | enemy, pet or player died |
@@ -211,6 +211,7 @@ action is `{ id, name, kind, est, target, cast?, heavy?, step? }` (`umbral_strik
 brandInRounds, litanyInRounds, shardsInRounds, pulseInRounds, enrageInRounds, phase }` (rules 10.3).
 
 Telegraph counters are rounds from the current round; 0 = this round:
+
 | Field | Meaning |
 |---|---|
 | `crushNextRound` | Gravity Crush is in next round's intent (phases 1-2) |

@@ -8,7 +8,7 @@ import {
 import { nextFloat } from '../rng.js';
 import { rnd } from './util.js';
 import {
-  damage, snapshot, mitigation, addStatus, findSt, hasSt, petAlive, unitAlive,
+  damage, snapshot, mitigation, addStatus, findSt, hasSt, petAlive, unitAlive, livingShards,
 } from './damage.js';
 
 
@@ -37,14 +37,15 @@ const isLitanyRound = (r) => r >= LITANY_FIRST && (r - LITANY_FIRST) % LITANY_EV
 
 function summonShards(s, ev) {
   const f = s.fight;
-  const alive = f.enemies.filter((e) => e.alive && e.kind === 'shard').length;
+  const alive = livingShards(s);
   const n = Math.min(SHARD_COUNT, SHARD_MAX - alive);
   for (let i = 0; i < n; i++) {
     const sh = makeShard(f.enemies.length, f.boss.asc);
     f.enemies.push(sh);
     ev.push({ t: 'summon', u: sh.idx, name: sh.name, hp: sh.hp, by: 0 });
   }
-  if (n > 0) ev.push({ t: 'linked', on: true });
+  // n: living Shards after the wave (Linked strength: LINK_DR_PER_SHARD each, at most LINK_DR).
+  if (n > 0) ev.push({ t: 'linked', on: true, n: alive + n });
 }
 
 /** Phase changes at once when HP crosses a threshold; both in order if one hit crosses two (rules 10.2). */
@@ -71,7 +72,7 @@ export function onBossDamaged(s, ev) {
         ev.push({ t: 'despawn', u: e.idx });
       }
     }
-    ev.push({ t: 'linked', on: false });
+    ev.push({ t: 'linked', on: false, n: 0 });
     f.boss.nextPulse = f.round + PULSE_EVERY;
     f.boss.eclipse = 0;
   }
@@ -119,7 +120,7 @@ export function bossIntent(s, e) {
   const brandIn = (BRAND_EVERY - (r % BRAND_EVERY)) % BRAND_EVERY;
   // A Shards wave comes at the start of round nextShard only if fewer than SHARD_MAX are alive (summonShards);
   // with SHARD_MAX alive there is no countdown (BUG-QA-07). Killing a Shard brings the countdown back.
-  const shardsAlive = f.enemies.filter((x) => x.alive && x.kind === 'shard').length;
+  const shardsAlive = livingShards(s);
   return {
     id: 'boss', name: BOSS_TEXT.name, kind: 'boss', actions,
     cast: actions.some((a) => a.cast), heavy: actions.some((a) => a.heavy),

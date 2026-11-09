@@ -3,7 +3,7 @@
 import {
   LVL_DMG_STEP, LVL_DMG_MIN, LVL_DMG_MAX, MISS_BASE, MISS_PER_LEVEL, MISS_CAP, DMG_VARIANCE, ENEMY_CRIT,
   CRIT_MULT, ARMOR_K, ARMOR_C, ARMOR_MIT_CAP, MIN_HIT_DAMAGE, CHILL_PCT, CURSE_PCT, STEALTH_MISS_BONUS,
-  TALENT, BOON_DMG_PCT, ELIXIR_DMG_PCT, UNIQUE_ELITE_DMG, LINK_DR, FIGHT_SOFT_ENRAGE_ROUND,
+  TALENT, BOON_DMG_PCT, ELIXIR_DMG_PCT, UNIQUE_ELITE_DMG, LINK_DR, LINK_DR_PER_SHARD, FIGHT_SOFT_ENRAGE_ROUND,
   FIGHT_SOFT_ENRAGE_STEP, ECLIPSE_STEP, BRAND_MAX, DEBUFFS, RES_HP_PCT, RES_MANA_PCT, MOB_XP_FRAC,
   ELITE_XP_MULT, RARE_XP_MULT, DUNGEON_BOSS_XP_MULT, DUNGEON_MOB_XP_MULT, MOB_COIN_V, ELITE_GOLD_V,
   EMBER_ELITE_DROP_CHANCE, DUNGEON_BOSS_DROPS, UNIQUE_HEAL_ON_KILL, ABILITY_TEMPLATE, DODGE_CAP,
@@ -145,8 +145,17 @@ function targetPct(s, u, src, o) {
     if (findSt(st, 'BLEED', 'open_vein')) pct += tr(s, 'r_c8') * TALENT.r_c8.pct;
   }
   const e = s.fight.enemies[u];
-  if (e.kind === 'boss' && s.fight.enemies.some((x) => x.alive && x.kind === 'shard')) pct -= LINK_DR;
+  // Linked (rules 7.2 step 6, 10.2; M2 v2): -LINK_DR_PER_SHARD per living Shard, at most -LINK_DR.
+  if (e.kind === 'boss') pct -= linkedDr(s);
   return pct;
+}
+
+/** Living (not despawned) Shards of the end-boss fight. */
+export const livingShards = (s) => s.fight.enemies.filter((x) => x.alive && x.kind === 'shard').length;
+
+/** Linked damage reduction of the end boss now (rules 10.2): min(LINK_DR, LINK_DR_PER_SHARD × living Shards). */
+export function linkedDr(s) {
+  return Math.min(LINK_DR, LINK_DR_PER_SHARD * livingShards(s));
 }
 
 /** Player outgoing % modifiers that do not depend on the spell (boons, elixir, uniques, talents, buffs). */
@@ -470,7 +479,7 @@ function enemyDeath(s, ev, idx) {
     return;
   }
   if (e.kind === 'shard') {
-    if (!f.enemies.some((x) => x.alive && x.kind === 'shard')) ev.push({ t: 'linked', on: false });
+    if (!livingShards(s)) ev.push({ t: 'linked', on: false, n: 0 });
     return;
   }
   // Kill rewards (rules 2.0, 4.4, 8.4, 8.5): XP, coin, drops.
