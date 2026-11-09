@@ -216,11 +216,11 @@ export class Scene {
     for (let i = 0; i < 60; i++) this.particles.push({ x: an.x + (Math.random() - 0.5) * 90 * this.u, y: an.feet - Math.random() * 30 * this.u, vx: (Math.random() - 0.5) * 40 * this.u, vy: -(120 + Math.random() * 220) * this.u, life: 1 + Math.random() * 1.2, t0: this.time, size: 3 * this.u, color: Math.random() < 0.5 ? '#ffe08a' : '#fff6d6', g: 30, glow: true });
   }
 
-  /** Fire a projectile between two actors; resolves at impact. */
+  /** Fire a projectile between two actors; resolves at impact. dur: flight time in ms, already scaled by the caller (speed, tempo). */
   projectile(fromId, toId, kind = 'arcane', dur = 380) {
     const fa = this.anchor(fromId); const ta = this.anchor(toId);
     if (!fa || !ta) return Promise.resolve();
-    const d = settings.dur(dur);
+    const d = dur;
     if (!d) return Promise.resolve();
     return new Promise((resolve) => {
       const from = { x: fa.x + (fromId === 'player' ? 34 : -34) * this.u, y: fa.cy - 18 * this.u };

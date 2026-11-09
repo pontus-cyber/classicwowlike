@@ -20,6 +20,7 @@ export class App {
     this.shown = this.bridge.view;
     this.queue = Promise.resolve();
     this.pending = 0;
+    this.plays = []; // test hook: timing of the last played steps (testApi().plays)
     this.renderQueued = false;
     this.autoTimer = null;
     const app = this;
@@ -38,7 +39,7 @@ export class App {
       pass: () => app.combatAct(() => ({ type: 'PASS' })),
       flee: () => {
         if (!app.shown.legal || !app.shown.legal.flee) return;
-        if (!ui.fleeArmed) { ui.fleeArmed = true; app.queueRender(); app.toast('Press Flee again to run', 'info'); clearTimeout(app.fleeT); app.fleeT = setTimeout(() => { ui.fleeArmed = false; app.queueRender(); }, 2200); return; }
+        if (!ui.fleeArmed) { ui.fleeArmed = true; app.skipPlay(); app.queueRender(); app.toast('Press Flee again to run', 'info'); clearTimeout(app.fleeT); app.fleeT = setTimeout(() => { ui.fleeArmed = false; app.queueRender(); }, 2200); return; }
         ui.fleeArmed = false; app.combatAct(() => ({ type: 'FLEE' }));
       },
       showDeath: (on) => app.showDeath(on),
@@ -79,20 +80,30 @@ export class App {
   }
 
   // ------------------------------------------------------------------ actions
-  /** Queue an action (or a function that returns one when its turn comes) and play its events. */
+  /**
+   * Queue an action (or a function that returns one when its turn comes) and play its events. Any input while a step
+   * still plays finishes that step's animations at once (rules 3: input during enemy animations finishes them).
+   */
   act(actionOrFn) {
+    const tIn = performance.now();
     this.pending++;
-    if (this.director.playing) this.director.skip();
+    this.skipPlay();
     const run = async () => {
       try {
         const action = typeof actionOrFn === 'function' ? actionOrFn() : actionOrFn;
         if (!action) return { ok: false, error: null };
         const prev = this.bridge.view;
+        const t0 = performance.now(); // the round's time budget starts before the engine step
         const res = this.bridge.dispatch(action);
         if (!res.ok) { if (res.error) { this.toast(res.error, 'err'); console.info(`[ui] action ${action.type} refused: ${res.error}`); } return res; }
         if (action.type === 'START_RUN' || action.type === 'END_RUN') this.ui.target = null;
         this.playStart = performance.now();
-        await this.director.play(prev, res.view, res.events, action);
+        const rec = { type: action.type === 'ENGINE' ? action.action.type : action.type, input: tIn, t0, events: res.events.map((e) => e.t), round: null, end: null, skippedAt: null };
+        this.plays.push(rec); if (this.plays.length > 200) this.plays.shift();
+        const playing = this.director.play(prev, res.view, res.events, action, { t0 });
+        rec.round = this.director.round ? { budget: this.director.round.budget, plan: this.director.round.plan, tempo: this.director.round.tempo, speed: this.director.round.speed } : null;
+        await playing;
+        rec.end = performance.now();
         this.afterPlay();
         this.placeNewItems(prev, res.view);
         return res;
@@ -106,6 +117,11 @@ export class App {
     this.queue = p;
     return p;
   }
+
+  /** Test hook: the step that was playing when an input skipped it. */
+  notePlaySkip(t) { const r = this.plays[this.plays.length - 1]; if (r && r.end == null && r.skippedAt == null) r.skippedAt = t; }
+  /** Finish the step that is playing (click, Space, an action key). */
+  skipPlay() { if (this.director.playing) { this.director.skip(); this.notePlaySkip(performance.now()); } }
 
   combatAct(make) {
     const v = this.bridge.view;
@@ -272,12 +288,12 @@ export class App {
   bindInput() {
     const cv = this.scene.cv;
     cv.addEventListener('pointerdown', (e) => {
-      if (this.director.playing) { this.director.skip(); return; }
+      if (this.director.playing) { this.skipPlay(); return; }
       const idx = this.scene.pick(e.clientX, e.clientY);
       if (idx != null) this.ui.setTarget(idx);
     });
     cv.addEventListener('pointermove', (e) => { const idx = this.scene.pick(e.clientX, e.clientY); this.scene.hover = idx == null ? null : `enemy:${idx}`; cv.style.cursor = idx == null ? '' : 'pointer'; });
-    this.root.addEventListener('pointerdown', (e) => { if (this.director.playing && !e.target.closest('button, .win, input')) this.director.skip(); }, true);
+    this.root.addEventListener('pointerdown', (e) => { if (this.director.playing && !e.target.closest('button, .win, input')) this.skipPlay(); }, true);
     window.addEventListener('contextmenu', (e) => { if (!e.target.closest('input')) e.preventDefault(); });
     window.addEventListener('keydown', (e) => this.onKey(e));
   }
@@ -288,7 +304,7 @@ export class App {
     const inFight = v.combat && !v.combat.over;
     if (code === 'Space') {
       e.preventDefault();
-      if (this.director.playing) { this.director.skip(); return; }
+      if (this.director.playing) { this.skipPlay(); return; }
       if (v.loot && v.loot.kind === 'loot') { this.act({ type: 'LOOT_TAKE_ALL' }); return; }
       const prim = this.root.querySelector('#screens .dialog .btn.primary, #screens .side .btn.primary');
       if (prim && !prim.disabled) prim.click();
@@ -324,6 +340,8 @@ export class App {
       shown: () => app.shown,
       act: (a) => app.act(a),
       idle: async () => { for (let i = 0; i < 400 && (app.pending > 0 || app.director.playing); i++) await new Promise((r) => setTimeout(r, 25)); await app.queue; },
+      /** Timing of the last played steps: { type, input, t0, end, skippedAt, events, round: { budget, plan, tempo, speed } }. */
+      plays: () => app.plays.map((p) => ({ ...p })),
       skip: () => app.director.skip(),
       settings,
       openWin: (n) => app.windows.open(n), closeWins: () => app.windows.closeAll(),
