@@ -159,8 +159,9 @@ export const SIM = {
   /** Campaign run seeds: CAMPAIGN_SEED_BASE + campaign × CAMPAIGN_MAX_RUNS + run. */
   CAMPAIGN_SEED_BASE: 5000000,
   /** Default talent tree per class (balance.md 1: the tree with the best planner win rate, re-chosen once per
-   *  balance pass; set from the B7 result of docs/reports/balance-2026-11-09.md). */
-  DEFAULT_TREE: { rogue: 2, mage: 1, hunter: 1 },
+   *  balance pass; set from the B7 result of docs/reports/balance-2026-11-09b.md: Venomcraft, Arcanism,
+   *  Marksmanship). */
+  DEFAULT_TREE: { rogue: 2, mage: 2, hunter: 1 },
   /** Batch: runs per worker task (a block of SIM_RISK_REFRESH runs is split into tasks of this size). */
   TASK_RUNS: 25,
   /** Bootstrap resamples for median intervals and its seed. */
