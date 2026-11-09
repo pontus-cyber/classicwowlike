@@ -5,7 +5,7 @@
 //
 //   node sim/pass.mjs --out sim/out/pass-2026-11-09 [--runs 2000] [--style-runs 1000] [--workers N]
 //                     [--stages A,B,C,D] [--resume] [--warmup 1000] [--campaigns 50] [--replay 1000] [--half-runs 1000]
-//                     [--variant-runs 2000] [--pall-runs 2000]
+//                     [--variant-runs 2000] [--pall-runs 2000] [--diag-runs 1000]
 //
 // Order and risk-table chain (balance.md 1.1; each cell keeps refreshing its own table every SIM_RISK_REFRESH runs):
 //   A  P0:   planner warm-up (default trees) -> B7 planner with each tree -> best tree per class (win rate, then
@@ -51,8 +51,10 @@ const STAGES = new Set(String(args.stages || 'A,B,C,D,E').split(','));
 const WARM = Number(args.warmup ?? SIM.WARMUP_RUNS);
 const CAMPAIGNS = Number(args.campaigns ?? BAL.N_CAMPAIGNS);
 const REPLAY = Number(args.replay ?? BAL.QA_REPLAY_RUNS);
-// The PALL tactician (B3 is an upper bound) and the diagnostic tactician variant run at half size (compute budget).
+// The PALL tactician (B3 is an upper bound) runs at half size (compute budget); the diagnostic rules-only tactician
+// (no search, cheap) at --diag-runs (default: the same).
 const HALF = Number(args['half-runs'] || Math.round(RUNS / 2));
+const DIAG_RUNS = Number(args['diag-runs'] || HALF);
 // PALL planner, random, greedy and speedrunner cells (the first to cut when compute is short).
 const PALL_RUNS = Number(args['pall-runs'] || RUNS);
 // B26-B28 variants run on the first VARIANT_RUNS seeds of the PALL planner cell (paired seeds, so at most PALL_RUNS).
@@ -61,7 +63,7 @@ const SEED = BAL.SEED_BASE;
 const pool = new Pool(WORKERS);
 const manifestFile = join(OUT, 'pass.json');
 const manifest = existsSync(manifestFile) ? readJson(manifestFile) : { cells: {}, warmups: {} };
-manifest.meta = { commit: commitInfo(), started: manifest.meta ? manifest.meta.started : new Date().toISOString(), runs: RUNS, styleRuns: STYLE_RUNS, halfRuns: HALF, variantRuns: VARIANT_RUNS, pallRuns: PALL_RUNS, campaigns: CAMPAIGNS, seedBase: SEED, workers: WORKERS, node: process.version };
+manifest.meta = { commit: commitInfo(), started: manifest.meta ? manifest.meta.started : new Date().toISOString(), runs: RUNS, styleRuns: STYLE_RUNS, halfRuns: HALF, diagRuns: DIAG_RUNS, variantRuns: VARIANT_RUNS, pallRuns: PALL_RUNS, campaigns: CAMPAIGNS, seedBase: SEED, workers: WORKERS, node: process.version };
 const save = () => writeJson(manifestFile, manifest);
 const log = (m) => process.stderr.write(`[${new Date().toISOString().slice(11, 19)}] ${m}\n`);
 
@@ -206,7 +208,7 @@ try {
     for (const pet of ['thornback', 'duskcat']) await cell(`planner-P0-${pet}`, { bot: 'planner', classes: ['hunter'], prof: 'fresh', trees, obsIn: obsP0, pet });
     for (const style of ['quest', 'grind', 'elite', 'speed']) await cell(`planner-P0-${style}`, { bot: 'planner', classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0, style, runs: STYLE_RUNS });
     for (const style of ['quest', 'grind', 'elite', 'speed']) await cell(`planner-PALL-${style}`, { bot: 'planner', classes: CLASSES, prof: 'all', trees, obsIn: obsAll, style, runs: Math.min(STYLE_RUNS, PALL_RUNS) });
-    await cell('tactician-P0-rulesOnly', { bot: 'tactician', classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0, variant: 'rulesOnly', runs: HALF });
+    await cell('tactician-P0-rulesOnly', { bot: 'tactician', classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0, variant: 'rulesOnly', runs: DIAG_RUNS });
   }
   manifest.meta.finished = new Date().toISOString();
   manifest.meta.wallMin = Math.round((performance.now() - t0) / 60000);
