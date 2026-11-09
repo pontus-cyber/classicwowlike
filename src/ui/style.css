@@ -432,7 +432,7 @@ button { font-family: inherit; }
 .toast { font: 700 1.45rem var(--font-ui); color: #ffd36a; text-shadow: 0 1px 2px #000, 0 0 6px #000; animation: toast 2.6s forwards; }
 .toast.err { color: #ff7a6a; } .toast.good { color: #9fe09a; } .toast.info { color: #cfe0ff; }
 @keyframes toast { 0% { opacity: 0; transform: translateY(.6rem); } 10% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-.6rem); } }
-#skiphint { position: absolute; left: 50%; bottom: 15.2rem; transform: translateX(-50%); font: 700 1.1rem var(--font-ui); color: var(--ink-mute); letter-spacing: .08em; text-transform: uppercase; text-shadow: 0 1px 2px #000; pointer-events: none; opacity: 0; transition: opacity .3s; }
+#skiphint { position: absolute; left: calc(50% - 17rem); bottom: 11.9rem; transform: translateX(-50%); font: 700 1.1rem var(--font-ui); color: var(--ink-mute); letter-spacing: .08em; text-transform: uppercase; text-shadow: 0 1px 2px #000; pointer-events: none; opacity: 0; transition: opacity .3s; }
 #skiphint.on { opacity: .85; }
 .overlay-dark { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, rgba(30, 0, 0, .3), rgba(0, 0, 0, .78)); }
 .deathmsg { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); text-align: center; }
