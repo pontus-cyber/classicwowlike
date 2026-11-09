@@ -117,6 +117,18 @@ describe('heal, regen, level-up and resurrect events (engine-api.md 5)', () => {
     assert.equal(ev(oocLow.events, 'heal')[0].amount, Math.round(C.RATION_PCT * s.player.d.maxHp));
   });
 
+  test('no mana event when nothing is restored: Mana Siphon and a Mana Draught at full mana', () => {
+    let s = withSpells(atLevel(started('mage', { seed: 9 }), 30), ['mana_siphon']);
+    s = tweak(s, (x) => { x.player.bag.push({ uid: 'm1', kind: 'cons', id: 'mana_draught', qty: 2 }); x.player.itemBar = ['mana_draught', null, null]; });
+    const f = tweak(inFight(s, [mob(30)]).state, stunAll);
+    const siphon = R.step(f, { type: 'CAST', spellId: 'mana_siphon', target: null });
+    assert.equal(ev(siphon.events, 'mana').length, 0);
+    const draught = R.step(f, { type: 'USE_ITEM', slot: 0, target: null });
+    assert.equal(ev(draught.events, 'mana').length, 0);
+    const low = R.step(tweak(f, (x) => { x.player.mana = 0; }), { type: 'USE_ITEM', slot: 0, target: null });
+    assert.deepEqual(ev(low.events, 'mana').map((e) => e.amount), [Math.round(C.MANA_DRAUGHT_PCT * f.player.d.maxMana)]);
+  });
+
   test('post-fight regen: a regen event right after victory with the HP, mana and pet HP restored', () => {
     for (const cls of ['hunter', 'mage']) {
       let s = withSpells(atLevel(started(cls, { seed: 7 }), 30), []);

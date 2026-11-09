@@ -377,7 +377,7 @@ function cast(s, ev, id, tgt) {
       }
       const gain = Math.min(d.maxMana - p.mana, rnd(sp.manaPct * d.maxMana));
       p.mana += gain;
-      ev.push({ t: 'mana', amount: gain, spell: id });
+      if (gain > 0) ev.push({ t: 'mana', amount: gain, spell: id }); // like heal: no event of 0
       break;
     }
     case 'glacial_tomb':
@@ -570,7 +570,7 @@ function useItem(s, ev, id) {
   if (c.mana && p.d.maxMana) {
     const gain = Math.min(p.d.maxMana - p.mana, rnd(c.mana * p.d.maxMana));
     p.mana += gain;
-    ev.push({ t: 'mana', amount: gain, spell: id });
+    if (gain > 0) ev.push({ t: 'mana', amount: gain, spell: id });
   }
   if (c.dispersal) dispersal(s, ev, 'player');
   if (c.sparkBase !== undefined) {

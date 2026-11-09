@@ -154,7 +154,7 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `enemyAction` | `u, id, name` | an enemy performs its intent |
 | `damage` | `src, dst, amount, hpLost, absorbed, spell, crit, school, tick, immune, sidestep` | see "Damage amounts" below |
 | `miss` | `src, dst, spell, dodge` | miss or dodge |
-| `heal`, `mana` | `dst, amount, spell` / `amount, spell` | `amount` = HP (mana) restored. A heal event is sent only when HP is restored (`amount > 0`): a potion, HOT tick or ration at full health sends none. |
+| `heal`, `mana` | `dst, amount, spell` / `amount, spell` | `amount` = HP (mana) restored. Sent only when something is restored (`amount > 0`): a potion, HOT tick or ration at full health, or Mana Siphon at full mana, sends none. |
 | `status` | `u, id, on, dur, stacks, src` | status applied (`on: true`) or removed |
 | `interrupt`, `skip` | `u, by` | cast interrupted / Chrono Sigil |
 | `channel` | `u, name, step` | boss Litany channel step |
