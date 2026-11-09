@@ -5,16 +5,19 @@
 //
 //   node sim/pass.mjs --out sim/out/pass-2026-11-09 [--runs 2000] [--style-runs 1000] [--workers N]
 //                     [--stages A,B,C,D] [--resume] [--warmup 1000] [--campaigns 50] [--replay 1000] [--half-runs 1000]
+//                     [--variant-runs 2000]
 //
 // Order and risk-table chain (balance.md 1.1; each cell keeps refreshing its own table every SIM_RISK_REFRESH runs):
 //   A  P0:   planner warm-up (default trees) -> B7 planner with each tree -> best tree per class (win rate, then
-//            reach-boss rate) -> random, greedy, speedrunner, tactician, tactician-bossAuto (diagnostic),
-//            B9 pets, B8 styles; all start from the best-tree planner's final observations.
+//            reach-boss rate) -> random, greedy, speedrunner, tactician; all start from the best-tree planner's
+//            final observations.
 //   B  P10:  planner warm-up from the P0 observations -> planner, random.
 //   C  PALL: planner warm-up from the P0 observations -> planner -> random, greedy, speedrunner, tactician
-//            (half size), B26-B28 variants, B8 styles; all start from the PALL planner's observations.
-//   The diagnostic tactician-P0-bossAuto also runs at half size.
+//            (--half-runs), B26-B28 variants (--variant-runs, paired with the planner's first seeds); all start
+//            from the PALL planner's observations.
 //   D  campaigns (frozen P0 planner table), B35 replay of 1 000 random runs, B37 autoplay throughput.
+//   E  P2 and diagnostic cells: B9 pets and B8 styles (P0 from the P0 planner's observations, PALL from the PALL
+//            planner's), the boss-autoplay tactician (--half-runs).
 import { cpus } from 'node:os';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
@@ -43,12 +46,14 @@ const OUT = ensureDir(args.out || join('sim', 'out', `pass-${new Date().toISOStr
 const RUNS = Number(args.runs || BAL.N_RUNS_PER_CELL);
 const STYLE_RUNS = Number(args['style-runs'] || Math.round(RUNS / 2));
 const WORKERS = Number(args.workers || cpus().length);
-const STAGES = new Set(String(args.stages || 'A,B,C,D').split(','));
+const STAGES = new Set(String(args.stages || 'A,B,C,D,E').split(','));
 const WARM = Number(args.warmup ?? SIM.WARMUP_RUNS);
 const CAMPAIGNS = Number(args.campaigns ?? BAL.N_CAMPAIGNS);
 const REPLAY = Number(args.replay ?? BAL.QA_REPLAY_RUNS);
 // The PALL tactician (B3 is an upper bound) and the diagnostic tactician variant run at half size (compute budget).
 const HALF = Number(args['half-runs'] || Math.round(RUNS / 2));
+// B26-B28 variants run on the first VARIANT_RUNS seeds of the PALL planner cell (paired seeds).
+const VARIANT_RUNS = Number(args['variant-runs'] || RUNS);
 const SEED = BAL.SEED_BASE;
 const pool = new Pool(WORKERS);
 const manifestFile = join(OUT, 'pass.json');
@@ -123,9 +128,6 @@ try {
     writeJson(join(OUT, 'obs-P0.json'), obsP0);
     await cell('random-P0', { bot: 'random', classes: CLASSES, prof: 'fresh', trees });
     for (const bot of ['greedy', 'speedrunner', 'tactician']) await cell(`${bot}-P0`, { bot, classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0 });
-    await cell('tactician-P0-bossAuto', { bot: 'tactician', classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0, variant: 'bossAuto', runs: HALF });
-    for (const pet of ['thornback', 'duskcat']) await cell(`planner-P0-${pet}`, { bot: 'planner', classes: ['hunter'], prof: 'fresh', trees, obsIn: obsP0, pet });
-    for (const style of ['quest', 'grind', 'elite', 'speed']) await cell(`planner-P0-${style}`, { bot: 'planner', classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0, style, runs: STYLE_RUNS });
   }
   if (!trees || !obsP0) throw new Error('stage A results missing (run stage A first)');
   if (STAGES.has('B')) {
@@ -141,8 +143,7 @@ try {
     await cell('random-PALL', { bot: 'random', classes: CLASSES, prof: 'all', trees });
     for (const bot of ['greedy', 'speedrunner']) await cell(`${bot}-PALL`, { bot, classes: CLASSES, prof: 'all', trees, obsIn: obsAll });
     await cell('tactician-PALL', { bot: 'tactician', classes: CLASSES, prof: 'all', trees, obsIn: obsAll, runs: HALF });
-    for (const variant of ['noInterrupt', 'noCleanse', 'noAoe']) await cell(`planner-PALL-${variant}`, { bot: 'planner', classes: CLASSES, prof: 'all', trees, obsIn: obsAll, variant });
-    for (const style of ['quest', 'grind', 'elite', 'speed']) await cell(`planner-PALL-${style}`, { bot: 'planner', classes: CLASSES, prof: 'all', trees, obsIn: obsAll, style, runs: STYLE_RUNS });
+    for (const variant of ['noInterrupt', 'noCleanse', 'noAoe']) await cell(`planner-PALL-${variant}`, { bot: 'planner', classes: CLASSES, prof: 'all', trees, obsIn: obsAll, variant, runs: VARIANT_RUNS });
   }
   if (STAGES.has('D')) {
     // Campaigns (B31, B32): frozen table from the P0 planner of each class.
@@ -195,6 +196,14 @@ try {
       writeJson(join(OUT, 'health.json'), { replay: { runs: total, identical: same, mismatches: mismatches.slice(0, 20), seeds: `${SIM.REPLAY_SEED_BASE}-${SIM.REPLAY_SEED_BASE + per - 1} per class` }, autoplayRunsPerMinPerCore: tp });
       log(`B35: ${same}/${total} identical; B37 autoplay runs/min/core ${JSON.stringify(tp)}`);
     }
+  }
+  if (STAGES.has('E')) {
+    // P2 and diagnostic cells: B9 pets, B8 route styles, the boss-autoplay tactician.
+    const obsAll = readJson(join(OUT, 'obs-PALL.json'));
+    for (const pet of ['thornback', 'duskcat']) await cell(`planner-P0-${pet}`, { bot: 'planner', classes: ['hunter'], prof: 'fresh', trees, obsIn: obsP0, pet });
+    for (const style of ['quest', 'grind', 'elite', 'speed']) await cell(`planner-P0-${style}`, { bot: 'planner', classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0, style, runs: STYLE_RUNS });
+    for (const style of ['quest', 'grind', 'elite', 'speed']) await cell(`planner-PALL-${style}`, { bot: 'planner', classes: CLASSES, prof: 'all', trees, obsIn: obsAll, style, runs: STYLE_RUNS });
+    await cell('tactician-P0-bossAuto', { bot: 'tactician', classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0, variant: 'bossAuto', runs: HALF });
   }
   manifest.meta.finished = new Date().toISOString();
   manifest.meta.wallMin = Math.round((performance.now() - t0) / 60000);
