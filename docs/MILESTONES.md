@@ -19,7 +19,7 @@ Done when the owner can play one class from level 1 to the boss in the visual bu
 | 1.2 | Text simulator: play one run interactively in the terminal, and run N seeded runs headless (sim/) | Simulation & Balance Engineer | doing |
 | 1.3 | Visual client: HUD, scrolling world, path choice, manual fights with autoplay toggle, talents, bags | UI/UX & Visual Engineer | done |
 | 1.4 | Content tables for all three classes and zones 1–60 within the designer's ranges | Content Designer | done |
-| 1.5 | Tests for every rule, headless full run of game.html | Playtest & QA Lead | doing |
+| 1.5 | Tests for every rule, headless full run of game.html | Playtest & QA Lead | done (07c679d; open bugs in qa/bugs.md) |
 | 1.6 | Build game.html, send it to the owner | Lead | doing |
 | 1.7 | Owner plays and writes what to change first | Owner | done (18:26: on the right path, no polish yet) |
 
