@@ -114,12 +114,17 @@ const poisonStacks = (e) => {
   return p ? p.stacks : 0;
 };
 
+/** Interrupt-tagged spells (Throat Jab, Spellsnap, Muzzle Shot) never miss and cannot be dodged (rules 7.2 step 3, M2 v2). */
+const alwaysHits = (id) => !!(SPELL[id] && SPELL[id].tags.includes('interrupt'));
+
 /** One direct player hit plus on-hit effects (Toxic Coating, unique procs). */
 function pHit(s, ev, tgt, b, o) {
   const f = s.fight;
   if (tgt === null || !f.enemies[tgt] || !f.enemies[tgt].alive) return null;
   const pct = (o.pct || 0) + f.p.niBonus + (o.isSpell ? f.p.momBonus : 0);
-  const res = damage(s, ev, 'player', tgt, { ...o, base: b, pct });
+  // The miss draw r1 is still made (damage() always draws r1-r3), so stream positions do not change.
+  const noMiss = o.noMiss || alwaysHits(o.spell);
+  const res = damage(s, ev, 'player', tgt, { ...o, base: b, pct, noMiss });
   if (res.hit && TALENT.r_c1.spells.includes(o.spell) && tr(s, 'r_c1') && f.enemies[tgt].alive) applyPoison(s, ev, tgt);
   const procs = hasEffect(s, 'proc');
   for (let i = 0; i < procs; i++) {

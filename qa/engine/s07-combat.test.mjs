@@ -1,7 +1,7 @@
 // rules.md section 7: combat.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { R, C, started, atLevel, withSpells, inFight, tweak, forceDraws, HIT, MISS, pipeline, ev, st, cloneState } from './helpers.mjs';
+import { R, C, started, atLevel, withSpells, inFight, tweak, forceDraws, HIT, MISS, pipeline, ev, st, cloneState, nextFloat } from './helpers.mjs';
 
 const mob = (tid = 'z1_brute', level = 20, variant = 'normal') => ({ tid, level, variant });
 function setup(classId, L, spells, enemies, prep, opts = {}) {
@@ -296,6 +296,32 @@ describe('rules 7.7 interrupts', () => {
     const rd = act(d, { type: 'CAST', spellId: 'temple_blow', target: 0 }, () => true, 1);
     assert.equal(ev(rd.events, 'interrupt').length, 1);
     assert.ok(!st(rd.state.fight.enemies[0].st, 'STUN'), 'bosses are immune to STUN');
+  });
+
+  test('7.2 step 3 / 7.7 interrupt-tagged spells never miss and cannot be dodged; r1-r3 are still drawn (M2 v2)', () => {
+    const casting = (x) => { x.player.pet = null; x.fight.enemies[0].intent = HITI('hit', { id: 'hex_bolt', cast: true, school: 'magic', cd: 3, pct: 2 }); };
+    // vs a skulker at the same level: r1 < MISS_BASE misses, MISS_BASE <= r1 < MISS_BASE + dodge (0.15) is a dodge for phys hits.
+    const draws = { miss: (d) => d[0] < 0.01, dodge: (d) => d[0] > 0.08 && d[0] < 0.15, hit: (d) => d[0] > 0.9 };
+    const advanced = (g, n) => { const x = g.slice(); for (let i = 0; i < n; i++) nextFloat(x); return x; };
+    for (const [cls, id] of [['rogue', 'throat_jab'], ['mage', 'spellsnap'], ['hunter', 'muzzle_shot']]) {
+      assert.ok(C.SPELL[id].tags.includes('interrupt'));
+      const s = setup(cls, 20, [id], [mob('z1_skulker', 20)], casting);
+      for (const [name, pred] of Object.entries(draws)) {
+        const c = cloneState(s);
+        forceDraws(c, 3, pred);
+        const g = c.fight.rng.slice();
+        const r = R.step(c, { type: 'CAST', spellId: id, target: 0 });
+        assert.equal(ev(r.events, 'miss').length, 0, `${id}: ${name} draw`);
+        assert.ok(r.events.some((e) => e.t === 'damage' && e.dst === 0 && e.spell === id), `${id}: ${name} draw hits`);
+        assert.equal(ev(r.events, 'interrupt').length, 1, `${id}: ${name} draw interrupts`);
+        assert.ok(r.events.some((e) => e.t === 'status' && e.u === 0 && e.id === 'SILENCED' && e.on), `${id}: SILENCED applied`);
+        // 3 draws for the hit, then 1 intent draw for the (silenced, petless) skulker's next round.
+        assert.deepEqual(r.state.fight.rng, advanced(g, 4), `${id}: ${name} draw uses the same stream positions`);
+      }
+      const ctl = cloneState(s);
+      forceDraws(ctl, 3, draws.miss);
+      assert.equal(ev(R.step(ctl, { type: 'ATTACK', target: 0 }).events, 'miss').filter((e) => e.src === 'player').length, 1, 'the same draw makes a basic attack miss');
+    }
   });
 });
 
