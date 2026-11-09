@@ -21,7 +21,7 @@ Done when the owner can play one class from level 1 to the boss in the visual bu
 | 1.4 | Content tables for all three classes and zones 1–60 within the designer's ranges | Content Designer | done |
 | 1.5 | Tests for every rule, headless full run of game.html | Playtest & QA Lead | doing |
 | 1.6 | Build game.html, send it to the owner | Lead | doing |
-| 1.7 | Owner plays and writes what to change first | Owner | todo |
+| 1.7 | Owner plays and writes what to change first | Owner | done (18:26: on the right path, no polish yet) |
 
 ## M2. Balanced by simulation
 Done when the bots play at least 10,000 runs per class and the results meet docs/specs/balance.md: good plans beat bad plans, no single strategy dominates, run length lands near target, and the three classes are within the class win-rate band.
