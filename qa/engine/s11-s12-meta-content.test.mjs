@@ -83,7 +83,7 @@ describe('rules 11 meta progression', () => {
     t = R.step(t, { type: 'LEARN', spellId: 'chrono_sigil' }).state;
     assert.equal(t.player.gold, g, 'first LEARN at a hub is free with the Ledger');
     t = R.step(t, { type: 'LEARN', spellId: 'arcane_ward' }).state;
-    assert.equal(t.player.gold, g - C.TRAIN_NEW_V * V(6));
+    assert.equal(t.player.gold, g - C.TRAIN_NEW_V * V(C.SPELL.arcane_ward.lvl));
     const s = cloneState(meta);
     import('../../src/engine/progress.js').then(({ gainGold }) => {
       const e = [];

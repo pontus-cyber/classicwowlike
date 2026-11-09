@@ -81,9 +81,9 @@ describe('rules 6 talents: damage modifiers (same draws, with / without)', () =>
   test('Hunter: Piercing Volley, Pack Leader, Cornered Beast, Savage Mastery', () => {
     const noPet = (x) => { x.player.pet = null; };
     near(ratio('hunter', 30, ['volley_rain'], { h_b6: 2 }, cast('volley_rain', null), { prep: noPet }), 1.4, 'Piercing Volley 2 (+20 %/rank)');
-    near(ratio('hunter', 30, ['keen_shot'], { h_a6: 2 }, cast('keen_shot'), { n: 6, pred: (d) => d[0] > 0.9 && d[1] > 0.97 && Math.abs(d[2] - 0.5) < 0.05 && d[3] > 0.9 }), 1.06, 'Pack Leader 2 (+3 %/rank, pet alive)');
+    near(ratio('hunter', 30, ['keen_shot'], { h_a6: 2 }, cast('keen_shot'), { n: 6, pred: (d) => d[0] > 0.9 && d[1] > 0.97 && Math.abs(d[2] - 0.5) < 0.05 && d[3] > 0.9 }), 1.10, 'Pack Leader 2 (+5 %/rank, pet alive; M2 v2)');
     const low = (x) => { x.player.pet = null; x.player.hp = Math.floor(x.player.d.maxHp * 0.4); };
-    near(ratio('hunter', 30, ['keen_shot'], { h_c8: 3 }, cast('keen_shot'), { prep: low }), 1.12, 'Cornered Beast 3 (+4 %/rank below 50 % HP)');
+    near(ratio('hunter', 30, ['keen_shot'], { h_c8: 3 }, cast('keen_shot'), { prep: low }), 1.24, 'Cornered Beast 3 (+8 %/rank below 50 % HP; M2 v2)');
     const pick = (r) => r.events.find((e) => e.t === 'damage' && e.spell === 'savage_order').amount;
     near(ratio('hunter', 40, ['savage_order'], { h_a7: 2 }, cast('savage_order'), { pick }), 1.2, 'Savage Mastery 2 (+10 %/rank)');
     assert.equal(R.spellCooldown(withTalents(atLevel(started('hunter'), 40), { h_a7: 2 }), 'savage_order'), 4 - 2, 'Savage Mastery: CD -1/rank');
@@ -99,7 +99,7 @@ describe('rules 6 talents: DOTs, heals, wards and statuses', () => {
   test('Deep Wounds, Hemorrhage Mastery (Open Vein); Smoldering (Living Flame); Barbed Mastery, Venom Barbs (Barbed Arrow)', () => {
     const cp5 = (x) => { x.fight.p.cp = 5; };
     const ov = tickOf('rogue', 30, 'open_vein', {}, 'BLEED', cp5).tick;
-    near(tickOf('rogue', 30, 'open_vein', { r_c2: 3 }, 'BLEED', cp5).tick / ov, 1.36, 'Deep Wounds 3 (+12 %/rank)');
+    near(tickOf('rogue', 30, 'open_vein', { r_c2: 3 }, 'BLEED', cp5).tick / ov, 1.27, 'Deep Wounds 3 (+9 %/rank; M2 v2)');
     near(tickOf('rogue', 30, 'open_vein', { r_c5: 2 }, 'BLEED', cp5).tick / ov, 1.1, 'Hemorrhage Mastery 2 (DOT +10 %)');
     const lf = tickOf('mage', 30, 'living_flame', {}, 'BURN');
     const lf2 = tickOf('mage', 30, 'living_flame', { m_a3: 2 }, 'BURN');
@@ -107,7 +107,7 @@ describe('rules 6 talents: DOTs, heals, wards and statuses', () => {
     assert.equal(lf2.dur, lf.dur + 2, 'Smoldering: +1 round per rank');
     const noPet = (x) => { x.player.pet = null; };
     const ba = tickOf('hunter', 30, 'barbed_arrow', {}, 'BLEED', noPet).tick;
-    near(tickOf('hunter', 30, 'barbed_arrow', { h_c2: 3 }, 'BLEED', noPet).tick / ba, 1.3, 'Barbed Mastery 3 (+10 %/rank)', 0.035);
+    near(tickOf('hunter', 30, 'barbed_arrow', { h_c2: 3 }, 'BLEED', noPet).tick / ba, 1.6, 'Barbed Mastery 3 (+20 %/rank; M2 v2)', 0.035);
     let s = fightWith('hunter', 30, ['barbed_arrow'], { h_c6: 2 }, { prep: noPet });
     for (let i = 0; i < 5; i++) s = act(tweak(s, (x) => { x.fight.p.focus = 100; }), cast('barbed_arrow'), () => true, 1).state;
     const stacks = s.fight.enemies[0].st.filter((x) => x.id === 'BLEED' && x.src === 'barbed_arrow');
@@ -124,7 +124,7 @@ describe('rules 6 talents: DOTs, heals, wards and statuses', () => {
     const ward = (talents) => st(act(fightWith('mage', 30, ['arcane_ward'], talents), cast('arcane_ward', null), () => true, 1).state.fight.p.st, 'WARD').amount;
     const w0 = ward({});
     near(ward({ m_b7: 2 }) / w0, 1.3, 'Lattice Ward 2 (+15 %/rank)', 0.03);
-    near(ward({ m_c4: 2 }) / w0, 1.4, 'Ward Weaving 2 (+20 %/rank)', 0.03);
+    near(ward({ m_c4: 2 }) / w0, 1.2, 'Ward Weaving 2 (+10 %/rank; M2 v2)', 0.03);
     const mk = act(fightWith('hunter', 30, ['mark_prey'], { h_b5: 2 }, { prep: (x) => { x.player.pet = null; } }), cast('mark_prey'), () => true, 1);
     near(dotOn(mk, 'MARKED').value, 0.08 + 0.08, 'Deep Mark 2 (MARKED +0.04/rank)', 1e-9);
     const fl = act(fightWith('mage', 30, ['frost_lance'], { m_b3: 2 }), cast('frost_lance'));
@@ -158,7 +158,7 @@ describe('rules 6 talents: stats, resources and mechanics', () => {
       const r = act(fightWith('hunter', 40, [], talents), { type: 'PASS' }, (x) => x[0] > 0.9 && x[1] > 0.97 && Math.abs(x[2] - 0.5) < 0.05);
       return r.events.find((e) => e.t === 'damage' && e.src === 'pet').amount;
     };
-    near(petHit({ h_a2: 3 }) / petHit({}), 1.18, 'Ferocity 3 (pet damage +6 %/rank)');
+    near(petHit({ h_a2: 3 }) / petHit({}), 1.30, 'Ferocity 3 (pet damage +10 %/rank; M2 v2)');
     // Frenzy Link: a pet crit on a draw between the base pet crit and +0.10 (2 ranks)
     const s = fightWith('hunter', 40, [], { h_a4: 2 });
     const petCrit = s.player.d.crit + C.PET[s.player.pet.id].critBonus;
@@ -293,7 +293,7 @@ describe('rules 6 talents: stats, resources and mechanics', () => {
     assert.ok(wf.state.fight.enemies.every((e) => e.st.some((x) => x.id === 'BURN' && x.src === 'living_flame')), 'Wildfire: Living Flame on every enemy hit');
     const lf = act(fightWith('mage', 40, ['living_flame'], {}), cast('living_flame'), () => true, 1).state.fight.enemies[0].st.find((x) => x.id === 'BURN').tick;
     near(wf.state.fight.enemies[0].st.find((x) => x.id === 'BURN' && x.src === 'living_flame').tick / lf, 1.0, 'Wildfire 2: 50 %/rank strength', 0.06);
-    // Arcane Momentum 3: the second damaging spell in a row +2 %/rank
+    // Arcane Momentum 3: the second damaging spell in a row +1 %/rank (M2 v2)
     const am = (talents) => {
       const s1 = act(fightWith('mage', 40, ['ember_bolt'], talents), cast('ember_bolt')).state;
       return act(s1, cast('ember_bolt'));
@@ -302,7 +302,7 @@ describe('rules 6 talents: stats, resources and mechanics', () => {
     const m3 = cloneState(act(fightWith('mage', 40, ['ember_bolt'], { m_c8: 3 }), cast('ember_bolt')).state);
     forceDraws(m3, 3, (d) => d.join() === m0.draws.join());
     const eb = (r) => r.events.find((e) => e.t === 'damage' && e.spell === 'ember_bolt').amount;
-    near(eb(R.step(m3, cast('ember_bolt'))) / eb(m0), 1.06, 'Arcane Momentum 3 (1 stack)', 0.025);
+    near(eb(R.step(m3, cast('ember_bolt'))) / eb(m0), 1.03, 'Arcane Momentum 3 (1 stack)', 0.025);
     // Primal Unity: Wild Communion gives the pet +50 % damage
     const pet = (spells, prep) => {
       const s = fightWith('hunter', 50, spells, {}, { prep: (x) => { x.player.spells.wild_communion = { tl: 50, rank: 1 }; if (prep) prep(x); } });

@@ -25,7 +25,7 @@ describe('rules 10 end boss (QA additions)', () => {
       return R.step(c, { type: 'PASS' }).events.find((e) => e.t === 'damage' && e.spell === 'collapse_litany').amount;
     };
     const a = run(100);
-    const b = run(130 + 50); // 50 h over par: 5 steps of 0.04
+    const b = run(C.BOSS_TIME_PAR + 50); // 50 h over par (+ HOURS_TRAVEL): 5 steps of 0.04
     assert.ok(Math.abs(b / a - 1.2) < 0.005, `${a} -> ${b}`);
   });
 

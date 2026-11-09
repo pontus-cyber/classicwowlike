@@ -15,12 +15,14 @@
 export const MAX_LEVEL = 60;
 export const ZONE_COUNT = 6;
 export const ZONE_LEVELS = 10;
-export const ZONE_CHOICE_ROWS = 8;
+export const ZONE_CHOICE_ROWS = 7;
 export const LANES = 3;
 export const DUNGEON_ROW_MIN = 4;
 export const DUNGEON_ROW_MAX = 6;
 export const REST_ROW_MIN = 3;
 export const REST_ROW_MAX = 5;
+export const TRAINER_ROW_MIN = 3;
+export const TRAINER_ROW_MAX = 5;
 export const MAX_SAME_TYPE_PER_ROW = 2;
 export const W_QUEST = 38;
 export const W_GRIND = 14;
@@ -31,8 +33,8 @@ export const W_TRAINER = 4;
 export const W_TREASURE = 6;
 export const W_SHRINE = 6;
 export const QUEST_LEVEL_OFFSETS = [-1, 0, 0, 1];
-export const ELITE_LEVEL_OFFSET = 2;
-export const DUNGEON_LEVEL_OFFSET = 6;
+export const ELITE_LEVEL_OFFSET = 1;
+export const DUNGEON_LEVEL_OFFSET = 4;
 export const DUNGEON_BOSS_LEVEL_OFFSET = 2;
 export const RARE_CHANCE = 0.20;
 export const CAMP_GRIND_LEVEL = 58;
@@ -46,29 +48,31 @@ export const HOURS_TRAINER = 1;
 export const HOURS_TREASURE = 1;
 export const HOURS_SHRINE = 1;
 export const HOURS_TRAVEL = 2;
-export const BOSS_TIME_PAR = 130;
+export const TRAVEL_EARLY_LEVELS = 1;
+export const BOSS_TIME_PAR = 120;
 export const ASC_STEP_HOURS = 10;
 export const ASC_PER_STEP = 0.04;
 export const ASC_CAP = 0.40;
 export const QUEST_SIZE_W1 = 25;
 export const QUEST_SIZE_W2 = 50;
 export const QUEST_SIZE_W3 = 25;
-export const QUEST_TURNIN_XP_FRAC = 0.80;
+export const QUEST_MAX_SIZE_Z1 = 2;
+export const QUEST_TURNIN_XP_FRAC = 1.15;
 export const QUEST_GOLD_V = 2;
 export const QUEST_REWARD_CHOICES = 2;
 export const STORY_QUESTS = 3;
-export const STORY_XP_FRAC = 0.80;
+export const STORY_XP_FRAC = 0.90;
 export const STORY_REWARD_CHOICES = 3;
 export const GRIND_MAX_WAVES = 3;
 export const GRIND_WAVE_SIZE = 2;
-export const GRIND_WAVE_XP_FRAC = 0.10;
+export const GRIND_WAVE_XP_FRAC = 0.115;
 export const GRIND_DROP_MULT = 1.5;
 export const ELITE_ADD_CHANCE = 0.30;
 export const ELITE_GOLD_V = 2;
 export const DUNGEON_TRASH_FIGHTS = 3;
 export const DUNGEON_SIZE_W2 = 50;
 export const DUNGEON_SIZE_W3 = 50;
-export const DUNGEON_CLEAR_XP_FRAC = 0.60;
+export const DUNGEON_CLEAR_XP_FRAC = 0.70;
 export const DUNGEON_GOLD_V = 6;
 export const DUNGEON_BOSS_DROPS = 2;
 export const TREASURE_GUARD_CHANCE = 0.50;
@@ -85,7 +89,7 @@ export const BOON_XP_PCT = 0.20;
 export const BOON_DMG_PCT = 0.15;
 export const BOON_NODES = 3;
 export const BOON_GOLD_V = 4;
-export const MOB_XP_FRAC = 0.20;
+export const MOB_XP_FRAC = 0.285;
 export const DUNGEON_MOB_XP_MULT = 1.0;
 export const ELITE_XP_MULT = 6;
 export const RARE_XP_MULT = 8;
@@ -122,9 +126,9 @@ export const ARMOR_MIT_CAP = 0.75;
 export const MANA_BASE = 50;
 export const MANA_PER_LEVEL = 12;
 export const MANA_PER_INT = 6;
-export const MANA_REGEN_ROUND_PCT = 0.02;
+export const MANA_REGEN_ROUND_PCT = 0.025;
 export const ENERGY_MAX = 100;
-export const ENERGY_REGEN = 30;
+export const ENERGY_REGEN = 25;
 export const FOCUS_MAX = 100;
 export const FOCUS_REGEN = 25;
 export const CP_MAX = 5;
@@ -135,8 +139,8 @@ export const REGEN_SPI_C = 10;
 export const SPELL_BAR_SLOTS = 7;
 export const ITEM_BAR_SLOTS = 3;
 export const PET_DMG_BASE = 2;
-export const PET_DMG_PER_LEVEL = 0.55;
-export const PET_DMG_POWER = 0.30;
+export const PET_DMG_PER_LEVEL = 0.65;
+export const PET_DMG_POWER = 0.375;
 export const PET_REVIVE_PCT = 0.25;
 export const MISS_BASE = 0.05;
 export const MISS_PER_LEVEL = 0.02;
@@ -162,11 +166,11 @@ export const ENEMY_DMG_PER_LEVEL = 2.6;
 export const ENEMY_ARMOR_PER_LEVEL = 15;
 export const DUNGEON_TRASH_HP_MULT = 1.2;
 export const DUNGEON_TRASH_DMG_MULT = 1.1;
-export const ELITE_HP_MULT = 3.5;
+export const ELITE_HP_MULT = 2.8;
 export const ELITE_DMG_MULT = 1.5;
 export const RARE_HP_MULT = 4.5;
 export const RARE_DMG_MULT = 1.6;
-export const DUNGEON_BOSS_HP_MULT = 7;
+export const DUNGEON_BOSS_HP_MULT = 5.6;
 export const DUNGEON_BOSS_DMG_MULT = 1.7;
 export const AUTO_POTION_HP = 0.35;
 export const AUTO_MANA_POTION = 0.20;
@@ -231,9 +235,9 @@ export const RES_HP_PCT = 0.40;
 export const RES_MANA_PCT = 0.40;
 export const RES_META_CHARGES = 1;
 export const BOSS_LEVEL = 62;
-export const BOSS_HP = 11000;
+export const BOSS_HP = 13000;
 export const BOSS_ARMOR = 1200;
-export const BOSS_MELEE = 200;
+export const BOSS_MELEE = 260;
 export const BOSS_CRUSH = 380;
 export const BOSS_CRUSH_EVERY = 6;
 export const BOSS_LITANY_DMG = 850;
@@ -244,12 +248,14 @@ export const BRAND_DMG = 35;
 export const BRAND_MAX = 10;
 export const P2_AT = 0.70;
 export const P3_AT = 0.40;
-export const SHARD_HP = 1300;
+export const SHARD_HP = 1000;
 export const SHARD_DMG = 110;
 export const SHARD_COUNT = 2;
 export const SHARD_EVERY = 8;
 export const SHARD_MAX = 4;
 export const LINK_DR = 0.60;
+export const LINK_DR_PER_SHARD = 0.15;
+export const SHARD_AOE_TAKEN = 1.00;
 export const ECLIPSE_STEP = 0.05;
 export const PULSE_DMG = 280;
 export const PULSE_EVERY = 3;
@@ -278,11 +284,14 @@ export const UNIQUE_POTION_PCT = 0.25;
 export const UNIQUE_WARD_PCT = 0.08;
 export const PACE_CREATE_S = 40;
 export const PACE_DECIDE_S = 5;
-export const PACE_TRAVEL_NODE_S = 4;
+export const PACE_TRAVEL_NODE_S = 3.5;
 export const PACE_ZONE_TRAVEL_S = 8;
 export const PACE_QUEST_TEXT_S = 5;
 export const PACE_FIGHT_OVERHEAD_S = 3;
-export const PACE_MANUAL_ROUND_S = 2.5;
+export const PACE_ROUND_ANIM_S = 1.5;
+export const PACE_ROUND_DECIDE_S = 1.0;
+/** rules 3: manual round = UI animation budget + decision time. */
+export const PACE_MANUAL_ROUND_S = PACE_ROUND_ANIM_S + PACE_ROUND_DECIDE_S;
 export const PACE_AUTO_ROUND_S = 0.8;
 export const PACE_LOOT_S = 3;
 export const PACE_LEVELUP_S = 2;
@@ -330,8 +339,8 @@ export const CLASS = {
   },
   mage: {
     id: 'mage', name: 'Mage', primary: 'INT', resource: 'mana',
-    hpBase: 50, hpPerLevel: 14,
-    stats: { STA: [8, 1.0], AGI: [8, 0.5], INT: [22, 2.2], SPI: [12, 1.0] },
+    hpBase: 50, hpPerLevel: 17.5,
+    stats: { STA: [8, 1.25], AGI: [8, 0.5], INT: [22, 2.2], SPI: [12, 1.0] },
     armorBase: 10, armorPerLevel: 3, armorMult: 0.5, dodgeBase: 0.03, dodgeFromAgi: 0,
     basic: { id: 'spark', name: 'Spark', school: 'arcane', b: 2, l: 0.6, p: 0.35, w: 0 },
     startSpells: ['ember_bolt', 'frost_lance'],
@@ -361,8 +370,8 @@ export const SPELL = {
   gutting_jab: { id: 'gutting_jab', cls: 'rogue', name: 'Gutting Jab', lvl: 1, cost: 40, cd: 0, school: 'phys', b: 6, l: 1.3, p: 0.55, w: 1.0, cp: 1, tags: ['builder'], target: 'enemy', source: 'class' },
   severing_flourish: { id: 'severing_flourish', cls: 'rogue', name: 'Severing Flourish', lvl: 1, cost: 35, cd: 0, school: 'phys', b: 4, l: 1.0, p: 0.30, perCp: true, wFlat: 0.5, tags: ['finisher'], target: 'enemy', source: 'class', autoCp: 4, autoCpLow: 2, autoLowHp: 0.25 },
   shadowstep_strike: { id: 'shadowstep_strike', cls: 'rogue', name: 'Shadowstep Strike', lvl: 4, cost: 50, cd: 0, school: 'phys', b: 10, l: 2.0, p: 0.9, w: 1.5, cp: 2, tags: ['opener'], target: 'enemy', source: 'class' },
-  throat_jab: { id: 'throat_jab', cls: 'rogue', name: 'Throat Jab', lvl: 8, cost: 20, cd: 4, school: 'phys', b: 2, l: 0.4, p: 0.2, w: 0, silence: 1, tags: ['interrupt'], target: 'enemy', source: 'class' },
-  open_vein: { id: 'open_vein', cls: 'rogue', name: 'Open Vein', lvl: 10, cost: 30, cd: 0, dot: { status: 'BLEED', rounds: 4, b: 2, l: 0.45, p: 0.13, perCp: true }, tags: ['finisher', 'dot'], target: 'enemy', source: 'class', autoCp: 4 },
+  throat_jab: { id: 'throat_jab', cls: 'rogue', name: 'Throat Jab', lvl: 6, cost: 20, cd: 4, school: 'phys', b: 2, l: 0.4, p: 0.2, w: 0, silence: 1, tags: ['interrupt'], target: 'enemy', source: 'class' },
+  open_vein: { id: 'open_vein', cls: 'rogue', name: 'Open Vein', lvl: 10, cost: 30, cd: 0, dot: { status: 'BLEED', rounds: 4, b: 2, l: 0.45, p: 0.10, perCp: true }, tags: ['finisher', 'dot'], target: 'enemy', source: 'class', autoCp: 4 },
   temple_blow: { id: 'temple_blow', cls: 'rogue', name: 'Temple Blow', lvl: 12, cost: 25, cd: 5, stunBase: 1, stunMax: 3, tags: ['finisher', 'stun'], target: 'enemy', source: 'class', autoCp: 1 },
   smoke_veil: { id: 'smoke_veil', cls: 'rogue', name: 'Smoke Veil', lvl: 16, cost: 25, cd: 8, dodge: 0.45, rounds: 3, tags: ['defensive'], target: 'self', source: 'class', autoHp: 0.50, autoEnemies: 2 },
   whirling_edges: { id: 'whirling_edges', cls: 'rogue', name: 'Whirling Edges', lvl: 20, cost: 50, cd: 0, school: 'phys', b: 3, l: 0.6, p: 0.3, w: 0.6, cp: 1, tags: ['aoe', 'builder'], target: 'all', source: 'class', autoEnemies: 2 },
@@ -375,28 +384,28 @@ export const SPELL = {
   ghostblade_rush: { id: 'ghostblade_rush', cls: 'rogue', name: 'Ghostblade Rush', lvl: 20, cost: 45, cd: 5, school: 'phys', hits: 2, gjFrac: 0.8, cp: 2, tags: ['builder'], target: 'enemy', source: 'meta', meta: 'sp_r1', autoCpMax: 3 },
   bloodprice_gambit: { id: 'bloodprice_gambit', cls: 'rogue', name: 'Bloodprice Gambit', lvl: 40, cost: 0, cd: 12, hpCost: 0.10, cpGain: 5, energy: 50, tags: ['resource'], target: 'self', source: 'meta', meta: 'sp_r2', autoHp: 0.60 },
   // Mage (5.4)
-  ember_bolt: { id: 'ember_bolt', cls: 'mage', name: 'Ember Bolt', lvl: 1, cost: 0.09, cd: 0, school: 'fire', b: 6, l: 1.5, p: 0.8, tags: ['nuke'], target: 'enemy', source: 'class' },
-  frost_lance: { id: 'frost_lance', cls: 'mage', name: 'Frost Lance', lvl: 1, cost: 0.08, cd: 0, school: 'frost', b: 4, l: 1.1, p: 0.6, chill: 2, tags: ['control'], target: 'enemy', source: 'class' },
-  arcane_ward: { id: 'arcane_ward', cls: 'mage', name: 'Arcane Ward', lvl: 6, cost: 0.12, cd: 5, ward: { b: 10, l: 3.0, p: 1.0 }, rounds: 4, tags: ['defensive'], target: 'self', source: 'class' },
+  ember_bolt: { id: 'ember_bolt', cls: 'mage', name: 'Ember Bolt', lvl: 1, cost: 0.09, cd: 0, school: 'fire', b: 6, l: 2.1, p: 1.12, tags: ['nuke'], target: 'enemy', source: 'class' },
+  frost_lance: { id: 'frost_lance', cls: 'mage', name: 'Frost Lance', lvl: 1, cost: 0.08, cd: 0, school: 'frost', b: 4, l: 1.54, p: 0.84, chill: 2, tags: ['control'], target: 'enemy', source: 'class' },
+  arcane_ward: { id: 'arcane_ward', cls: 'mage', name: 'Arcane Ward', lvl: 4, cost: 0.12, cd: 5, ward: { b: 10, l: 3.0, p: 1.0 }, rounds: 4, tags: ['defensive'], target: 'self', source: 'class' },
   rime_burst: { id: 'rime_burst', cls: 'mage', name: 'Rime Burst', lvl: 10, cost: 0.12, cd: 6, school: 'frost', b: 2, l: 0.5, p: 0.25, freeze: 1, tags: ['aoe', 'stun'], target: 'all', source: 'class', autoEnemies: 2, autoHp: 0.50 },
   living_flame: { id: 'living_flame', cls: 'mage', name: 'Living Flame', lvl: 12, cost: 0.10, cd: 0, school: 'fire', dot: { status: 'BURN', rounds: 5, b: 2, l: 0.5, p: 0.22 }, tags: ['dot'], target: 'enemy', source: 'class', autoTargetHp: 0.60 },
   spellsnap: { id: 'spellsnap', cls: 'mage', name: 'Spellsnap', lvl: 14, cost: 0.06, cd: 5, school: 'arcane', b: 2, l: 0.3, p: 0.2, silence: 2, tags: ['interrupt'], target: 'enemy', source: 'class' },
   hexbind: { id: 'hexbind', cls: 'mage', name: 'Hexbind', lvl: 18, cost: 0.10, cd: 6, hex: 3, tags: ['control'], target: 'enemy', source: 'class', autoEnemies: 2 },
-  cinder_storm: { id: 'cinder_storm', cls: 'mage', name: 'Cinder Storm', lvl: 22, cost: 0.22, cd: 0, school: 'fire', b: 5, l: 1.0, p: 0.45, tags: ['aoe'], target: 'all', source: 'class', autoEnemies: 3 },
+  cinder_storm: { id: 'cinder_storm', cls: 'mage', name: 'Cinder Storm', lvl: 22, cost: 0.22, cd: 0, school: 'fire', b: 5, l: 1.4, p: 0.63, tags: ['aoe'], target: 'all', source: 'class', autoEnemies: 3 },
   mana_siphon: { id: 'mana_siphon', cls: 'mage', name: 'Mana Siphon', lvl: 26, cost: 0, cd: 12, manaPct: 0.30, tags: ['resource'], target: 'self', source: 'class', autoMana: 0.30 },
   glacial_tomb: { id: 'glacial_tomb', cls: 'mage', name: 'Glacial Tomb', lvl: 30, cost: 0, cd: 15, healPct: 0.10, rounds: 2, tags: ['defensive', 'cleanse'], target: 'self', source: 'class', autoHp: 0.25, autoStacks: 3 },
-  pyre_comet: { id: 'pyre_comet', cls: 'mage', name: 'Pyre Comet', lvl: 38, cost: 0.20, cd: 3, school: 'fire', b: 12, l: 3.0, p: 1.5, critVsBurn: 0.25, tags: ['nuke'], target: 'enemy', source: 'class' },
-  starlance_barrage: { id: 'starlance_barrage', cls: 'mage', name: 'Starlance Barrage', lvl: 46, cost: 0.25, cd: 4, school: 'arcane', hits: 3, b: 4, l: 1.0, p: 0.5, tags: ['nuke'], target: 'enemy', source: 'class' },
+  pyre_comet: { id: 'pyre_comet', cls: 'mage', name: 'Pyre Comet', lvl: 38, cost: 0.20, cd: 3, school: 'fire', b: 12, l: 4.2, p: 2.1, critVsBurn: 0.25, tags: ['nuke'], target: 'enemy', source: 'class' },
+  starlance_barrage: { id: 'starlance_barrage', cls: 'mage', name: 'Starlance Barrage', lvl: 46, cost: 0.25, cd: 4, school: 'arcane', hits: 3, b: 4, l: 1.2, p: 0.6, tags: ['nuke'], target: 'enemy', source: 'class' },
   conflagrant_core: { id: 'conflagrant_core', cls: 'mage', name: 'Conflagrant Core', lvl: 1, cost: 0, cd: 12, rounds: 3, critBonus: 0.50, tags: ['burst'], target: 'self', source: 'talent' },
-  glacier_spike: { id: 'glacier_spike', cls: 'mage', name: 'Glacier Spike', lvl: 1, cost: 0.15, cd: 3, school: 'frost', b: 10, l: 2.6, p: 1.4, vsChillMult: 1.5, tags: ['nuke'], target: 'enemy', source: 'talent' },
+  glacier_spike: { id: 'glacier_spike', cls: 'mage', name: 'Glacier Spike', lvl: 1, cost: 0.15, cd: 3, school: 'frost', b: 10, l: 3.9, p: 2.1, vsChillMult: 1.5, tags: ['nuke'], target: 'enemy', source: 'talent' },
   hourglass_reversal: { id: 'hourglass_reversal', cls: 'mage', name: 'Hourglass Reversal', lvl: 1, cost: 0, cd: 15, manaPct: 0.20, tags: ['resource'], target: 'self', source: 'talent' },
   chrono_sigil: { id: 'chrono_sigil', cls: 'mage', name: 'Chrono Sigil', lvl: 20, cost: 0.10, cd: 8, tags: ['control'], target: 'enemy', source: 'meta', meta: 'sp_m1' },
   mirrorshade: { id: 'mirrorshade', cls: 'mage', name: 'Mirrorshade', lvl: 40, cost: 0.15, cd: 10, rounds: 3, chance: 0.5, tags: ['defensive'], target: 'self', source: 'meta', meta: 'sp_m2', autoHp: 0.60 },
   // Hunter (5.5)
   keen_shot: { id: 'keen_shot', cls: 'hunter', name: 'Keen Shot', lvl: 1, cost: 30, cd: 0, school: 'phys', b: 5, l: 1.1, p: 0.5, w: 0.9, tags: ['nuke'], target: 'enemy', source: 'class' },
   barbed_arrow: { id: 'barbed_arrow', cls: 'hunter', name: 'Barbed Arrow', lvl: 1, cost: 20, cd: 0, school: 'phys', dot: { status: 'BLEED', rounds: 4, b: 2, l: 0.45, p: 0.18 }, tags: ['dot'], target: 'enemy', source: 'class', autoTargetHp: 0.60 },
-  mark_prey: { id: 'mark_prey', cls: 'hunter', name: 'Mark Prey', lvl: 6, cost: 10, cd: 0, marked: 0.08, rounds: 6, tags: ['debuff'], target: 'enemy', source: 'class' },
-  mend_companion: { id: 'mend_companion', cls: 'hunter', name: 'Mend Companion', lvl: 8, cost: 25, cd: 3, heal: { b: 15, l: 4.0, p: 0.8 }, revivePct: 0.30, tags: ['pet'], target: 'pet', source: 'class', autoPetHp: 0.45 },
+  mark_prey: { id: 'mark_prey', cls: 'hunter', name: 'Mark Prey', lvl: 4, cost: 10, cd: 0, marked: 0.08, rounds: 6, tags: ['debuff'], target: 'enemy', source: 'class' },
+  mend_companion: { id: 'mend_companion', cls: 'hunter', name: 'Mend Companion', lvl: 6, cost: 25, cd: 3, heal: { b: 15, l: 4.0, p: 0.8 }, revivePct: 0.30, tags: ['pet'], target: 'pet', source: 'class', autoPetHp: 0.45 },
   muzzle_shot: { id: 'muzzle_shot', cls: 'hunter', name: 'Muzzle Shot', lvl: 12, cost: 20, cd: 5, school: 'phys', b: 2, l: 0.4, p: 0.25, w: 0.3, silence: 2, tags: ['interrupt'], target: 'enemy', source: 'class' },
   snare_trap: { id: 'snare_trap', cls: 'hunter', name: 'Snare Trap', lvl: 14, cost: 20, cd: 6, stun: 2, tags: ['stun'], target: 'enemy', source: 'class', autoEnemies: 2, autoHp: 0.40 },
   field_dressing: { id: 'field_dressing', cls: 'hunter', name: 'Field Dressing', lvl: 18, cost: 25, cd: 6, healPct: 0.12, hotPct: 0.04, rounds: 3, tags: ['heal'], target: 'self', source: 'class', autoHp: 0.50 },
@@ -415,7 +424,7 @@ export const SPELL = {
 /** Pets (rules 5.5). Specials: doubleEvery (every Nth pet action hits twice), tauntEvery (TAUNT in round 1 and every N rounds after, tauntRounds long), cleave (attack also hits a second enemy). */
 export const PET = {
   ridgewolf: { id: 'ridgewolf', name: 'Ridgewolf', hpPct: 0.50, armorMult: 1.0, dmgMult: 1.0, critBonus: 0, aggro: 0.30, doubleEvery: 3 },
-  thornback: { id: 'thornback', name: 'Thornback Boar', hpPct: 0.80, armorMult: 1.4, dmgMult: 0.7, critBonus: 0, aggro: 0.60, tauntEvery: 4, tauntRounds: 1 },
+  thornback: { id: 'thornback', name: 'Thornback Boar', hpPct: 0.80, armorMult: 1.4, dmgMult: 0.9, critBonus: 0, aggro: 0.60, tauntEvery: 4, tauntRounds: 1 },
   duskcat: { id: 'duskcat', name: 'Duskcat', hpPct: 0.40, armorMult: 0.8, dmgMult: 1.3, critBonus: 0.10, aggro: 0.20 },
   stormhawk: { id: 'stormhawk', name: 'Stormhawk', hpPct: 0.35, armorMult: 0.7, dmgMult: 0.8, critBonus: 0, aggro: 0.15, cleave: true, meta: 'stormhawk' },
 };
@@ -428,7 +437,7 @@ export const TALENT = {
   // Rogue: Bladework
   r_a1: { id: 'r_a1', cls: 'rogue', tree: 0, tier: 1, name: 'Honed Edges', ranks: 3, crit: 0.03 },
   r_a2: { id: 'r_a2', cls: 'rogue', tree: 0, tier: 1, name: 'Swift Hands', ranks: 3, cost: 3 },
-  r_a3: { id: 'r_a3', cls: 'rogue', tree: 0, tier: 2, name: 'Serrated Finish', ranks: 3, pct: 0.06 },
+  r_a3: { id: 'r_a3', cls: 'rogue', tree: 0, tier: 2, name: 'Serrated Finish', ranks: 3, pct: 0.08 },
   r_a4: { id: 'r_a4', cls: 'rogue', tree: 0, tier: 2, name: 'Riposte Stance', ranks: 2, pct: 0.25 },
   r_a5: { id: 'r_a5', cls: 'rogue', tree: 0, tier: 3, name: 'Keen Calculus', ranks: 2, critMult: 0.20 },
   r_a6: { id: 'r_a6', cls: 'rogue', tree: 0, tier: 3, name: 'Ruthless Momentum', ranks: 2, energyPerCp: 5 },
@@ -447,7 +456,7 @@ export const TALENT = {
   r_b9: { id: 'r_b9', cls: 'rogue', tree: 1, tier: 5, name: "Death's Sidestep", ranks: 1, below: 0.20, healPct: 0.20 },
   // Rogue: Venomcraft
   r_c1: { id: 'r_c1', cls: 'rogue', tree: 2, tier: 1, name: 'Toxic Coating', ranks: 3, rounds: 4, maxStacks: 5, b: 0.5, l: 0.15, p: 0.04, spells: ['strike', 'gutting_jab', 'shadowstep_strike', 'whirling_edges'] },
-  r_c2: { id: 'r_c2', cls: 'rogue', tree: 2, tier: 1, name: 'Deep Wounds', ranks: 3, pct: 0.12 },
+  r_c2: { id: 'r_c2', cls: 'rogue', tree: 2, tier: 1, name: 'Deep Wounds', ranks: 3, pct: 0.09 },
   r_c3: { id: 'r_c3', cls: 'rogue', tree: 2, tier: 2, name: 'Lethal Mixture', ranks: 2, stacks: 2 },
   r_c4: { id: 'r_c4', cls: 'rogue', tree: 2, tier: 2, name: 'Crippling Toxin', ranks: 2, pct: 0.05 },
   r_c5: { id: 'r_c5', cls: 'rogue', tree: 2, tier: 3, name: 'Hemorrhage Mastery', ranks: 2, rank2DotPct: 0.10 },
@@ -466,7 +475,7 @@ export const TALENT = {
   m_a8: { id: 'm_a8', cls: 'mage', tree: 0, tier: 4, name: 'Heat Haze', ranks: 3, wardPct: 0.03 },
   m_a9: { id: 'm_a9', cls: 'mage', tree: 0, tier: 5, name: 'Conflagrant Core', ranks: 1, spell: 'conflagrant_core' },
   // Mage: Rimecraft
-  m_b1: { id: 'm_b1', cls: 'mage', tree: 1, tier: 1, name: 'Biting Cold', ranks: 3, pct: 0.08 },
+  m_b1: { id: 'm_b1', cls: 'mage', tree: 1, tier: 1, name: 'Biting Cold', ranks: 3, pct: 0.12 },
   m_b2: { id: 'm_b2', cls: 'mage', tree: 1, tier: 1, name: 'Hoarfrost Skin', ranks: 3, hpPct: 0.03 },
   m_b3: { id: 'm_b3', cls: 'mage', tree: 1, tier: 2, name: 'Deep Chill', ranks: 2, chill: 0.05 },
   m_b4: { id: 'm_b4', cls: 'mage', tree: 1, tier: 2, name: 'Brittle', ranks: 2, pct: 0.06 },
@@ -479,27 +488,27 @@ export const TALENT = {
   m_c1: { id: 'm_c1', cls: 'mage', tree: 2, tier: 1, name: 'Deep Reserves', ranks: 3, manaPct: 0.05 },
   m_c2: { id: 'm_c2', cls: 'mage', tree: 2, tier: 1, name: 'Arcane Acuity', ranks: 3, powerPct: 0.03 },
   m_c3: { id: 'm_c3', cls: 'mage', tree: 2, tier: 2, name: 'Lucid Flow', ranks: 2, chance: 0.05 },
-  m_c4: { id: 'm_c4', cls: 'mage', tree: 2, tier: 2, name: 'Ward Weaving', ranks: 2, pct: 0.20 },
+  m_c4: { id: 'm_c4', cls: 'mage', tree: 2, tier: 2, name: 'Ward Weaving', ranks: 2, pct: 0.10 },
   m_c5: { id: 'm_c5', cls: 'mage', tree: 2, tier: 3, name: 'Spell Rebound', ranks: 2, cd: 1, manaPct: 0.03 },
   m_c6: { id: 'm_c6', cls: 'mage', tree: 2, tier: 3, name: 'Barrage Mastery', ranks: 2, pct: 0.15 },
-  m_c7: { id: 'm_c7', cls: 'mage', tree: 2, tier: 4, name: 'Mindguard', ranks: 1, share: 0.30, manaPerDmg: 2 },
-  m_c8: { id: 'm_c8', cls: 'mage', tree: 2, tier: 4, name: 'Arcane Momentum', ranks: 3, pct: 0.02, maxStacks: 5 },
+  m_c7: { id: 'm_c7', cls: 'mage', tree: 2, tier: 4, name: 'Mindguard', ranks: 1, share: 0.20, manaPerDmg: 2 },
+  m_c8: { id: 'm_c8', cls: 'mage', tree: 2, tier: 4, name: 'Arcane Momentum', ranks: 3, pct: 0.01, maxStacks: 5 },
   m_c9: { id: 'm_c9', cls: 'mage', tree: 2, tier: 5, name: 'Hourglass Reversal', ranks: 1, spell: 'hourglass_reversal' },
   // Hunter: Beastbond
   h_a1: { id: 'h_a1', cls: 'hunter', tree: 0, tier: 1, name: 'Thick Hide', ranks: 3, petHpPct: 0.08 },
-  h_a2: { id: 'h_a2', cls: 'hunter', tree: 0, tier: 1, name: 'Ferocity', ranks: 3, petDmgPct: 0.06 },
+  h_a2: { id: 'h_a2', cls: 'hunter', tree: 0, tier: 1, name: 'Ferocity', ranks: 3, petDmgPct: 0.10 },
   h_a3: { id: 'h_a3', cls: 'hunter', tree: 0, tier: 2, name: 'Bonded Spirit', ranks: 2, share: 0.30 },
   h_a4: { id: 'h_a4', cls: 'hunter', tree: 0, tier: 2, name: 'Frenzy Link', ranks: 2, petCrit: 0.05, focus: 5 },
   h_a5: { id: 'h_a5', cls: 'hunter', tree: 0, tier: 3, name: 'Unbreakable Bond', ranks: 2, revive: 0.25, petDr: 0.05 },
-  h_a6: { id: 'h_a6', cls: 'hunter', tree: 0, tier: 3, name: 'Pack Leader', ranks: 2, pct: 0.03 },
+  h_a6: { id: 'h_a6', cls: 'hunter', tree: 0, tier: 3, name: 'Pack Leader', ranks: 2, pct: 0.05 },
   h_a7: { id: 'h_a7', cls: 'hunter', tree: 0, tier: 4, name: 'Savage Mastery', ranks: 2, cd: 1, pct: 0.10 },
   h_a8: { id: 'h_a8', cls: 'hunter', tree: 0, tier: 4, name: 'Shared Wounds', ranks: 1, share: 0.20 },
   h_a9: { id: 'h_a9', cls: 'hunter', tree: 0, tier: 5, name: 'Primal Unity', ranks: 1, spell: 'wild_communion' },
   // Hunter: Marksmanship
-  h_b1: { id: 'h_b1', cls: 'hunter', tree: 1, tier: 1, name: 'Steady Aim', ranks: 3, pct: 0.06 },
+  h_b1: { id: 'h_b1', cls: 'hunter', tree: 1, tier: 1, name: 'Steady Aim', ranks: 3, pct: 0.04 },
   h_b2: { id: 'h_b2', cls: 'hunter', tree: 1, tier: 1, name: 'Lethal Shots', ranks: 3, crit: 0.02 },
   h_b3: { id: 'h_b3', cls: 'hunter', tree: 1, tier: 2, name: 'Efficiency', ranks: 2, cost: 5 },
-  h_b4: { id: 'h_b4', cls: 'hunter', tree: 1, tier: 2, name: 'Mortal Shots', ranks: 2, critMult: 0.20 },
+  h_b4: { id: 'h_b4', cls: 'hunter', tree: 1, tier: 2, name: 'Mortal Shots', ranks: 2, critMult: 0.15 },
   h_b5: { id: 'h_b5', cls: 'hunter', tree: 1, tier: 3, name: 'Deep Mark', ranks: 2, marked: 0.04 },
   h_b6: { id: 'h_b6', cls: 'hunter', tree: 1, tier: 3, name: 'Piercing Volley', ranks: 2, pct: 0.20 },
   h_b7: { id: 'h_b7', cls: 'hunter', tree: 1, tier: 4, name: 'Trueshot Focus', ranks: 2, cd: 2, pct: 0.10 },
@@ -507,13 +516,13 @@ export const TALENT = {
   h_b9: { id: 'h_b9', cls: 'hunter', tree: 1, tier: 5, name: 'Starfall Arrow', ranks: 1, spell: 'starfall_arrow' },
   // Hunter: Wildcraft
   h_c1: { id: 'h_c1', cls: 'hunter', tree: 2, tier: 1, name: 'Hardy', ranks: 3, hpPct: 0.04 },
-  h_c2: { id: 'h_c2', cls: 'hunter', tree: 2, tier: 1, name: 'Barbed Mastery', ranks: 3, pct: 0.10 },
+  h_c2: { id: 'h_c2', cls: 'hunter', tree: 2, tier: 1, name: 'Barbed Mastery', ranks: 3, pct: 0.20 },
   h_c3: { id: 'h_c3', cls: 'hunter', tree: 2, tier: 2, name: 'Trapper', ranks: 2, cd: 1, b: 4, l: 1.0, p: 0.4 },
   h_c4: { id: 'h_c4', cls: 'hunter', tree: 2, tier: 2, name: 'Field Medic', ranks: 2, pct: 0.20 },
   h_c5: { id: 'h_c5', cls: 'hunter', tree: 2, tier: 3, name: 'Survivalist', ranks: 2, dodge: 0.03 },
   h_c6: { id: 'h_c6', cls: 'hunter', tree: 2, tier: 3, name: 'Venom Barbs', ranks: 2, stacks: 1 },
   h_c7: { id: 'h_c7', cls: 'hunter', tree: 2, tier: 4, name: 'Fire Snare', ranks: 1, rounds: 3, b: 3, l: 0.6, p: 0.25 },
-  h_c8: { id: 'h_c8', cls: 'hunter', tree: 2, tier: 4, name: 'Cornered Beast', ranks: 3, pct: 0.04, below: 0.50 },
+  h_c8: { id: 'h_c8', cls: 'hunter', tree: 2, tier: 4, name: 'Cornered Beast', ranks: 3, pct: 0.08, below: 0.50 },
   h_c9: { id: 'h_c9', cls: 'hunter', tree: 2, tier: 5, name: 'Deadfall Mastery', ranks: 1, spell: 'deadfall_trap' },
 };
 

@@ -17,7 +17,7 @@ const names = (s) => s.fight.enemies[0].intent.actions.map((a) => (a.id === 'col
 
 describe('rules 10 end boss', () => {
   test('10.1 setup: level 62, HP BOSS_HP × (1 + asc), armor BOSS_ARMOR, no flee, no Rogue stealth', () => {
-    const s = boss('rogue', { hours: 175 });
+    const s = boss('rogue', { hours: C.BOSS_TIME_PAR + 43 }); // + HOURS_TRAVEL = par + 45 h: Ascendancy 0.16
     const b = s.fight.enemies[0];
     assert.equal(s.phase, 'BOSS');
     assert.equal(b.level, C.BOSS_LEVEL);

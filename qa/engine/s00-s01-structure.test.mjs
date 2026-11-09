@@ -125,14 +125,16 @@ describe('rules 1 run structure', () => {
   test('1.3 zones: six bands of ten levels, exit level 10 × z', () => {
     for (let z = 1; z <= C.ZONE_COUNT; z++) {
       assert.equal(contentLevel(z, 1), C.ZONE_LEVELS * (z - 1) + 1);
-      assert.equal(contentLevel(z, 8), C.ZONE_LEVELS * z);
+      assert.equal(contentLevel(z, C.ZONE_CHOICE_ROWS), C.ZONE_LEVELS * z, 'the last row is at the exit level');
     }
   });
 
-  test('1.4 content level of row r: Z1 rows 1..8 are 1,2,3,4,6,7,8,10; dungeon levels', () => {
-    assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8].map((r) => contentLevel(1, r)), [1, 2, 3, 4, 6, 7, 8, 10]);
-    assert.deepEqual(dungeonLevels(1), { trash: 7, boss: 9 });
-    assert.deepEqual(dungeonLevels(6), { trash: 57, boss: 59 });
+  test('1.4 content level of row r: Z1 rows 1..7 are 1,2,4,5,7,8,10 (M2 v2); dungeon levels', () => {
+    assert.equal(C.ZONE_CHOICE_ROWS, 7);
+    assert.deepEqual([1, 2, 3, 4, 5, 6, 7].map((r) => contentLevel(1, r)), [1, 2, 4, 5, 7, 8, 10]);
+    assert.deepEqual(dungeonLevels(1), { trash: 1 + C.DUNGEON_LEVEL_OFFSET, boss: 1 + C.DUNGEON_LEVEL_OFFSET + C.DUNGEON_BOSS_LEVEL_OFFSET });
+    assert.deepEqual(dungeonLevels(1), { trash: 5, boss: 7 });
+    assert.deepEqual(dungeonLevels(6), { trash: 55, boss: 57 });
   });
 
   test('1.4 map generation constraints hold over 300 seeds × 6 zones', () => {
@@ -239,15 +241,16 @@ describe('rules 1 run structure', () => {
     if (s.phase === 'CAMP') assert.ok(R.isLegal(s, { type: 'CAMP_GRIND' }) && R.isLegal(s, { type: 'FIGHT_BOSS' }));
   });
 
-  test('1.7 Ascendancy: 0.04 per full 10 h over par 130, capped at 0.40; Oath of Haste lowers par by 20', () => {
-    const cases = [[100, 0], [130, 0], [139, 0], [140, 0.04], [150, 0.08], [229, 0.36], [500, 0.4]];
+  test('1.7 Ascendancy: 0.04 per full 10 h over par BOSS_TIME_PAR, capped at 0.40; Oath of Haste lowers par by 20', () => {
+    const par = C.BOSS_TIME_PAR;
+    const cases = [[par - 30, 0], [par, 0], [par + 9, 0], [par + 10, 0.04], [par + 20, 0.08], [par + 99, 0.36], [500, 0.4]];
     for (const [hours, asc] of cases) assert.equal(ascendancy({ hours, oaths: [] }), asc, `${hours} h`);
-    assert.equal(ascendancy({ hours: 120, oaths: ['haste'] }), 0.04);
+    assert.equal(ascendancy({ hours: par - C.OATH_HASTE_HOURS + 10, oaths: ['haste'] }), 0.04);
   });
 
   test('1.7 boss HP and damage scale with (1 + asc)', () => {
     let s = R.step(started('rogue'), { type: 'LEAVE_HUB' }).state;
-    s = tweak(atLevel(s, 60), (x) => { x.zone.z = 6; x.hours = 160; });
+    s = tweak(atLevel(s, 60), (x) => { x.zone.z = 6; x.hours = C.BOSS_TIME_PAR + 30 - C.HOURS_TRAVEL; });
     s = play(s, [{ type: 'TRAVEL_ON' }, { type: 'FIGHT_BOSS' }]).state;
     const asc = 0.12;
     assert.equal(s.stats.asc, asc);

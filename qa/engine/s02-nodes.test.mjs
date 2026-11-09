@@ -2,7 +2,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { R, C, CONTENT, started, play, atLevel, tweak, autoUntil, ev } from './helpers.mjs';
-import { setupNode } from '../../src/engine/map.js';
+import { setupNode, dungeonLevels } from '../../src/engine/map.js';
 import { xpToNext } from '../../src/engine/progress.js';
 import { V } from '../../src/engine/items.js';
 
@@ -144,7 +144,9 @@ describe('rules 2 node types', () => {
     assert.equal(hoursOf(events), C.HOURS_DUNGEON);
     assert.equal(s.fight.kind, 'trash');
     assert.ok(s.fight.enemies.length >= 2 && s.fight.enemies.length <= 3);
-    assert.ok(s.fight.enemies.every((e) => e.level === 7 && e.kind === 'trash'));
+    const lv = dungeonLevels(1);
+    assert.deepEqual(lv, { trash: 1 + C.DUNGEON_LEVEL_OFFSET, boss: 1 + C.DUNGEON_LEVEL_OFFSET + C.DUNGEON_BOSS_LEVEL_OFFSET });
+    assert.ok(s.fight.enemies.every((e) => e.level === lv.trash && e.kind === 'trash'));
     s = win(s);
     assert.equal(s.node.stage, 'between');
     assert.ok(R.isLegal(s, { type: 'DUNGEON_LEAVE' }));
@@ -155,7 +157,7 @@ describe('rules 2 node types', () => {
     s = R.step(s, { type: 'NEXT_FIGHT' }).state;
     assert.equal(s.fight.kind, 'dboss');
     const boss = s.fight.enemies[0];
-    assert.equal(boss.level, 9);
+    assert.equal(boss.level, lv.boss);
     assert.ok(boss.ccImmune);
     assert.equal(boss.abilities.length, 2);
     assert.ok(!R.isLegal(s, { type: 'FLEE' }));
@@ -163,8 +165,9 @@ describe('rules 2 node types', () => {
     const all = [];
     while (s.fight) { const x = R.step(s, R.autoAction(s)); all.push(...x.events); s = x.state; }
     assert.equal(ev(all, 'dungeonClear').length, 1);
-    assert.equal(ev(all, 'gold').find((g) => g.why === 'dungeon').amount, C.DUNGEON_GOLD_V * V(9));
-    const drops = ev(all, 'loot').filter((x) => x.item.kind === 'gear' && x.item.ilvl >= 10);
+    assert.equal(ev(all, 'gold').find((g) => g.why === 'dungeon').amount, C.DUNGEON_GOLD_V * V(lv.boss));
+    // Boss drops are rare or epic at the boss level (+1 / +3); an add's drop is at most a rare at the trash level.
+    const drops = ev(all, 'loot').filter((x) => x.item.kind === 'gear' && x.item.ilvl >= lv.boss + C.RARITY_ILVL_BONUS.rare);
     assert.equal(drops.length, C.DUNGEON_BOSS_DROPS, 'boss drops 2 rare/epic items');
     assert.equal(s.stats.dungeons, 1);
   });
@@ -301,7 +304,7 @@ describe('rules 2 node types', () => {
     assert.equal(clar.player.spells.ember_bolt.tl, 10);
     assert.ok(clar.player.freeRespec);
     // Fury is active in the next BOON_NODES nodes entered, then ends.
-    let s = tweak(fury, (x) => { x.zone.pos = { r: 1, l: 0 }; for (let r = 1; r < 8; r++) x.zone.rows[r][0] = setupNode(x, 1, r + 1, 0, 'rest'); });
+    let s = tweak(fury, (x) => { x.zone.pos = { r: 1, l: 0 }; for (let r = 1; r < C.ZONE_CHOICE_ROWS; r++) x.zone.rows[r][0] = setupNode(x, 1, r + 1, 0, 'rest'); });
     for (let i = 1; i <= C.BOON_NODES; i++) {
       s = R.step(s, { type: 'CHOOSE_NODE', lane: 0 }).state;
       assert.ok(s.player.buffs.fury.active, `node ${i}`);

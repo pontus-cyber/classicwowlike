@@ -76,7 +76,7 @@ describe('rules 6 talents', () => {
     assert.equal(withTalents(base('hunter'), { h_c1: 3 }).player.d.maxHp, Math.round(h.maxHp * 1.12));
     assert.equal(withTalents(base('hunter'), { h_a1: 3 }).player.d.petMaxHp, Math.round(C.PET.ridgewolf.hpPct * h.maxHp * 1.24));
     assert.ok(Math.abs(delta('rogue', 'r_a5', 2, (d) => d.critMult) - 0.4) < 1e-9);
-    assert.ok(Math.abs(delta('hunter', 'h_b4', 2, (d) => d.critMult) - 0.4) < 1e-9);
+    assert.ok(Math.abs(delta('hunter', 'h_b4', 2, (d) => d.critMult) - 0.3) < 1e-9, 'Mortal Shots 0.15 per rank (M2 v2)');
   });
 
   test('6 cost and cooldown talents: Swift Hands, Cheap Trick, Fire Economy, Efficiency, Permafrost, Flashpoint, Shroudwalk', () => {
@@ -108,10 +108,10 @@ describe('rules 6 talents', () => {
       return d2 / d1;
     };
     const near = (x, want) => assert.ok(Math.abs(x - want) < 0.03, `${x} vs ${want}`);
-    near(ratio('rogue', 30, ['severing_flourish'], { r_a3: 3 }, { type: 'CAST', spellId: 'severing_flourish', target: 0 }, (x) => { x.fight.p.cp = 5; }), 1.18);
+    near(ratio('rogue', 30, ['severing_flourish'], { r_a3: 3 }, { type: 'CAST', spellId: 'severing_flourish', target: 0 }, (x) => { x.fight.p.cp = 5; }), 1.24); // Serrated Finish 8 % /rank (M2 v2)
     near(ratio('mage', 30, ['ember_bolt'], { m_a1: 3 }, { type: 'CAST', spellId: 'ember_bolt', target: 0 }), 1.12);
-    near(ratio('mage', 30, ['frost_lance'], { m_b1: 3 }, { type: 'CAST', spellId: 'frost_lance', target: 0 }), 1.24);
-    near(ratio('hunter', 30, ['keen_shot'], { h_b1: 3 }, { type: 'CAST', spellId: 'keen_shot', target: 0 }, (x) => { x.player.pet = null; }), 1.18);
+    near(ratio('mage', 30, ['frost_lance'], { m_b1: 3 }, { type: 'CAST', spellId: 'frost_lance', target: 0 }), 1.36); // Biting Cold 12 % /rank (M2 v2)
+    near(ratio('hunter', 30, ['keen_shot'], { h_b1: 3 }, { type: 'CAST', spellId: 'keen_shot', target: 0 }, (x) => { x.player.pet = null; }), 1.12); // Steady Aim 4 % /rank (M2 v2)
   });
 
   test('6 Toxic Coating applies POISON stacks up to 5 (+2 per Lethal Mixture rank); Crippling Toxin lowers enemy damage', () => {
@@ -126,13 +126,15 @@ describe('rules 6 talents', () => {
     assert.equal(p.dur, 3);
   });
 
-  test("6 Mindguard pays 30 % of damage from mana at 2:1; Shared Wounds moves 20 % to the pet; Death's Sidestep negates a lethal hit once", () => {
+  test("6 Mindguard pays 20 % of damage from mana at 2:1 (M2 v2); Shared Wounds moves 20 % to the pet; Death's Sidestep negates a lethal hit once", () => {
     let s = fightWith('mage', 40, [], { m_c7: 1 }, [mob('z1_brute', 40)]);
     s = tweak(s, (x) => { x.fight.enemies[0].intent = { id: 'strike', name: 'Strike', kind: 'hit', cast: false, school: 'phys', cd: 0, pct: 1, hits: 1, target: 'player', est: 1 }; });
     let r = act(s, { type: 'PASS' }, (d) => d[0] > 0.9 && d[1] > 0.95, 3);
     const hit = r.events.find((e) => e.t === 'damage' && e.dst === 'player');
     assert.ok(hit.absorbed > 0);
-    assert.ok(Math.abs(s.player.mana - r.state.player.mana - 2 * hit.absorbed) <= 2 * 1 + Math.round(0.02 * s.player.d.maxMana));
+    assert.ok(Math.abs(hit.absorbed - Math.round(C.TALENT.m_c7.share * (hit.amount + hit.absorbed))) <= 1, `${hit.absorbed} of ${hit.amount + hit.absorbed}`);
+    assert.equal(C.TALENT.m_c7.share, 0.20);
+    assert.ok(Math.abs(s.player.mana - r.state.player.mana - 2 * hit.absorbed) <= 2 * 1 + Math.round(C.MANA_REGEN_ROUND_PCT * s.player.d.maxMana));
     let h = fightWith('hunter', 40, [], { h_a8: 1 }, [mob('z1_brute', 40)]);
     h = tweak(h, (x) => { x.fight.enemies[0].intent = { id: 'strike', name: 'Strike', kind: 'hit', cast: false, school: 'phys', cd: 0, pct: 1, hits: 1, target: 'player', est: 1 }; x.fight.pet.st = []; });
     r = act(h, { type: 'PASS' }, (d) => d[0] > 0.9 && d[1] > 0.95 && d[3] > 0.9, 6);

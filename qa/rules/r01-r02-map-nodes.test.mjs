@@ -18,12 +18,12 @@ const near = (got, want, tol, what) => assert.ok(Math.abs(got - want) <= tol, `$
 
 describe('rules 1.4 map generation and visibility', () => {
   test('1.4 step 3: node types in rows without forced cells follow the weights W_*', () => {
-    // Rows 2, 7 and 8 never hold the dungeon (rows 4-6) or the rest guarantee (rows 3-5), and row 1 rules do not apply.
+    // Rows 2 and 7 never hold the dungeon (rows 4-6) or the rest and trainer guarantees (rows 3-5), and row 1 rules do not apply (M2 v2: 7 rows).
     const counts = {};
     let cells = 0;
     for (let seed = 0; seed < 400; seed++) for (let z = 1; z <= C.ZONE_COUNT; z++) {
       const g = generateLayout(seed, z);
-      for (const r of [2, 7, 8]) for (const t of g[r - 1]) { counts[t] = (counts[t] || 0) + 1; cells++; }
+      for (const r of [2, C.ZONE_CHOICE_ROWS]) for (const t of g[r - 1]) { counts[t] = (counts[t] || 0) + 1; cells++; }
     }
     const total = Object.values(C.NODE_TYPE).filter((t) => t.id !== 'dungeon').reduce((n, t) => n + t.weight, 0);
     assert.equal(counts.dungeon || 0, 0, 'no dungeon outside step 1');
@@ -34,7 +34,7 @@ describe('rules 1.4 map generation and visibility', () => {
     }
   });
 
-  test('1.4 node offsets: quest CL + one of -1, 0, 0, +1 (uniform), elite CL + 2; never above 60 (zone 6 rows 7-8)', () => {
+  test('1.4 node offsets: quest CL + one of -1, 0, 0, +1 (uniform), elite CL + ELITE_LEVEL_OFFSET; never above 60 (zone 6, last two rows)', () => {
     const offs = { '-1': 0, 0: 0, 1: 0 };
     let n = 0;
     const at = seeded();
@@ -46,7 +46,7 @@ describe('rules 1.4 map generation and visibility', () => {
         n++;
         assert.equal(setupNode(s, 2, r, 1, 'elite').eliteLevel, contentLevel(2, r) + C.ELITE_LEVEL_OFFSET);
       }
-      for (const r of [7, 8]) {
+      for (const r of [C.ZONE_CHOICE_ROWS - 1, C.ZONE_CHOICE_ROWS]) {
         assert.ok(setupNode(s, 6, r, 0, 'quest').cl <= C.MAX_LEVEL);
         assert.ok(setupNode(s, 6, r, 0, 'elite').eliteLevel <= C.MAX_LEVEL);
       }

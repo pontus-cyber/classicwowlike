@@ -107,13 +107,13 @@ describe('rules 5.3 Rogue', () => {
     assert.equal(r.state.fight.p.cds.throat_jab, s.fight.round + 4);
   });
 
-  test('open_vein: BLEED 4 rounds, tick (2 + 0.45tl + 0.13P) × CP, ticks at end of round', () => {
+  test('open_vein: BLEED 4 rounds, tick (2 + 0.45tl + 0.10P) × CP, ticks at end of round (M2 v2: 0.10P)', () => {
     let s = R10(['open_vein'], [mob('z1_guardian', 10)]);
     s = tweak(s, (x) => { x.fight.p.cp = 4; x.fight.enemies[0].maxHp = x.fight.enemies[0].hp = 100000; });
     const d = s.player.d;
     const r = act(s, { type: 'CAST', spellId: 'open_vein', target: 0 }, () => true, 1);
     const bleed = st(r.state.fight.enemies[0].st, 'BLEED');
-    assert.equal(bleed.tick, Math.round((2 + 0.45 * tlOf(s, 'open_vein') + 0.13 * d.power) * 4));
+    assert.equal(bleed.tick, Math.round((2 + 0.45 * tlOf(s, 'open_vein') + 0.10 * d.power) * 4));
     assert.equal(bleed.dur, 3, 'one tick already happened this round');
     assert.equal(dmgTo(r.events, 0, 'open_vein').filter((e) => e.tick).length, 1);
     assert.equal(r.state.fight.p.cp, 0);
@@ -172,11 +172,11 @@ describe('rules 5.3 Rogue', () => {
 describe('rules 5.4 Mage', () => {
   const M = (L, spells, enemies = [mob('z1_brute', L)], opts) => setup('mage', L, spells, enemies, opts);
 
-  test('ember_bolt: fire 6 + 1.5tl + 0.8P, cost round(9 % × base mana)', () => {
+  test('ember_bolt: fire 6 + 2.1tl + 1.12P, cost round(9 % × base mana) (M2 v2: 2.1tl + 1.12P)', () => {
     const s = M(20, ['ember_bolt']);
     const d = s.player.d;
     const r = act(s, { type: 'CAST', spellId: 'ember_bolt', target: 0 });
-    const want = pipeline({ base: 6 + 1.5 * 20 + 0.8 * d.power, attL: 20, tgtL: 20, phys: false, crit: d.crit, draws: r.draws });
+    const want = pipeline({ base: 6 + 2.1 * 20 + 1.12 * d.power, attL: 20, tgtL: 20, phys: false, crit: d.crit, draws: r.draws });
     assert.equal(dmgTo(r.events, 0)[0].amount, want.amount);
     assert.equal(ev(r.events, 'action')[0].cost, Math.round(0.09 * d.baseMana));
   });

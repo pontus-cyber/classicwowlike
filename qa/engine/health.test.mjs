@@ -68,18 +68,21 @@ describe('engine health', () => {
     }
   });
 
-  test('legalActions never offers an illegal action (every listed action steps without error, every 2nd state of one run per class)', () => {
+  test('legalActions never offers an illegal action (every listed action steps without error, every 2nd state of runs per class)', () => {
     for (const c of C.CLASS_IDS) {
       let checked = 0;
-      autoRun(c, 31337, CONTENT, (s, a, n) => {
-        const list = R.legalActions(s);
-        if (!NO_LIST.has(a.type)) assert.ok(list.some((x) => JSON.stringify(x) === JSON.stringify(a)), `autoAction ${JSON.stringify(a)} not listed in ${s.phase}`);
-        if (n % 2) return;
-        for (const x of list) {
-          assert.doesNotThrow(() => R.step(s, x), `${c} ${s.phase} ${JSON.stringify(x)}`);
-          checked++;
-        }
-      });
+      // Runs from seed 31337 on until more than 1000 listed actions were stepped (a short run may end early).
+      for (let seed = 31337; seed < 31342 && checked <= 1000; seed++) {
+        autoRun(c, seed, CONTENT, (s, a, n) => {
+          const list = R.legalActions(s);
+          if (!NO_LIST.has(a.type)) assert.ok(list.some((x) => JSON.stringify(x) === JSON.stringify(a)), `autoAction ${JSON.stringify(a)} not listed in ${s.phase}`);
+          if (n % 2) return;
+          for (const x of list) {
+            assert.doesNotThrow(() => R.step(s, x), `${c} ${s.phase} ${JSON.stringify(x)}`);
+            checked++;
+          }
+        });
+      }
       assert.ok(checked > 1000, `${c}: ${checked} actions checked`);
     }
   });
