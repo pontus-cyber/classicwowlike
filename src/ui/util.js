@@ -67,6 +67,8 @@ export function h(tag, props, ...children) {
   append(el, children);
   return el;
 }
+/** Append children, skipping null / undefined / false (Element.append would print "null"). */
+export function add(el, ...children) { append(el, children); return el; }
 function append(el, children) {
   for (const c of children) {
     if (c === null || c === undefined || c === false) continue;

@@ -1,6 +1,6 @@
 // Centre screens by phase: class select, hub/camp, zone map, node dialogs, loot, quest rewards,
 // vendor, trainer, shrine, rest, treasure and the run summary. Every button sends an action.
-import { h, clear, fmtNum, moneyEl, moneyText, hoursText, clamp } from './util.js';
+import { h, add, clear, fmtNum, moneyEl, moneyText, hoursText, clamp } from './util.js';
 import { spellIcon, itemIcon, nodeIcon, icon, consumableIcon } from './art-icons.js';
 import { drawPortrait, HERO_LOOKS, PET_LOOKS } from './art-actors.js';
 import { tip, itemTip, spellTip } from './tooltip.js';
@@ -236,10 +236,10 @@ function nodeTip(n, v, ctx, reach) {
   const p = v.player;
   const box = h('div.tt-node');
   box.appendChild(h('div.tt-row', h('div.tt-name', NODE_NAME[n.type] + (n.type === 'elite' && n.rare && n.rareVisible ? ' (rare)' : '')), h('div', { style: { color: conColor(n.cl, p.level), fontWeight: 800 } }, `Level ${n.cl}`)));
-  if (n.type === 'quest') box.append(h('div.tt-line', { style: { color: '#ffd88a', fontWeight: 700 } }, n.title), h('div.tt-sub', `From ${n.giver}`));
-  if (n.type === 'elite') box.append(h('div.tt-line', { style: { color: '#ffb08a', fontWeight: 700 } }, n.eliteName || 'An elite'));
-  if (n.type === 'dungeon') box.append(h('div.tt-line', { style: { color: '#c8a8ff', fontWeight: 700 } }, n.dungeon), h('div.tt-sub', `Boss: ${n.bossName}`));
-  if (n.enemyNames && n.enemyNames.length) box.appendChild(h('div.tt-sub', `Enemies: ${n.enemyNames.join(', ')}`));
+  if (n.type === 'quest') add(box, h('div.tt-line', { style: { color: '#ffd88a', fontWeight: 700 } }, n.title), h('div.tt-sub', `From ${n.giver}`));
+  if (n.type === 'elite') add(box, h('div.tt-line', { style: { color: '#ffb08a', fontWeight: 700 } }, n.eliteName || 'An elite'), n.level ? h('div.tt-sub', `Elite level ${n.level}`) : null);
+  if (n.type === 'dungeon') add(box, h('div.tt-line', { style: { color: '#c8a8ff', fontWeight: 700 } }, n.dungeon), h('div.tt-sub', `Boss: ${n.bossName}`));
+  if (n.enemyNames && n.enemyNames.length) box.appendChild(h('div.tt-sub', `Foes: ${n.enemyNames.join(', ')}`));
   box.appendChild(h('div.tt-line.desc', NODE_DESC[n.type]));
   box.appendChild(h('div.tt-sub', `Takes ${NODE_HOURS[n.type]} h`));
   if (n.visited) box.appendChild(h('div.tt-hint', 'Visited'));
@@ -333,19 +333,31 @@ function buildLoot(v, ctx) {
   if (L.trap) rows.appendChild(h('div.lrow', { style: { cursor: 'default' } }, h('img', { src: icon('trap', 'blood'), alt: '' }), h('div', h('div.nm.bad', 'A needle trap!'), h('div.meta', 'You lost some health opening it.'))));
   (L.items || []).forEach((it, i) => {
     const up = it.kind === 'gear' && ctx.bridge.itemScore(it) > ctx.bridge.itemScore(p.equip[it.slot]);
-    const r = h('div.lrow.' + (it.rarity || 'common'), h('img', { src: itemIcon(it), alt: '' }), h('div.grow', h('div.nm.r-' + it.rarity, it.name + (it.count > 1 ? ` ×${it.count}` : '')), h('div.meta', it.kind === 'gear' ? `${cap(it.slot)} · ilvl ${it.ilvl}${up ? ' · ' : ''}` : it.kind === 'junk' ? 'Junk' : 'Consumable', up ? h('span.good', '▲ upgrade') : null)));
-    r.addEventListener('click', () => ctx.act({ type: 'LOOT_TAKE', i }));
-    tip(r, () => itemTip(it, ctx, { hint: 'Click to take' }));
+    const meta = it.kind === 'gear' ? `${cap(it.slot)} · ilvl ${it.ilvl}` : it.kind === 'junk' ? 'Junk' : 'Consumable';
+    const tag = it.inBag ? h('span.good', ' · in your bags') : up ? h('span.good', ' · ▲ upgrade') : null;
+    const r = h('div.lrow.' + (it.rarity || 'common'), h('img', { src: itemIcon(it), alt: '' }), h('div.grow', h('div.nm.r-' + it.rarity, it.name + (it.count > 1 ? ` ×${it.count}` : '')), h('div.meta', meta, tag)));
+    if (it.pending) {
+      const acts = h('div.row', { style: { gap: '.35rem' } });
+      if (it.kind === 'gear') acts.appendChild(miniBtn('Equip', () => ctx.act({ type: 'LOOT_EQUIP', i })));
+      acts.appendChild(miniBtn('Take', () => ctx.act({ type: 'LOOT_TAKE', i })));
+      acts.appendChild(miniBtn('Drop', () => ctx.act({ type: 'LOOT_DROP', i })));
+      r.appendChild(acts);
+      r.style.cursor = 'default';
+    } else if (!it.inBag) r.addEventListener('click', () => ctx.act({ type: 'LOOT_TAKE', i }));
+    else r.style.cursor = 'default';
+    tip(r, () => itemTip(it, ctx, { hint: it.pending ? 'Waiting in the loot window: equip, take or drop it' : it.inBag ? 'Already in your bags' : 'Click to take' }));
     rows.appendChild(r);
   });
   if (!(L.items || []).length && !L.gold && !L.xp) rows.appendChild(h('div.muted', { style: { padding: '1rem' } }, 'Nothing of value.'));
   win.appendChild(rows);
-  const full = p.bag.every(Boolean) && (L.items || []).some((it) => it.kind === 'gear');
-  const take = btn('Take all', () => ctx.act({ type: 'LOOT_TAKE_ALL' }), '.primary');
+  const pending = (L.items || []).filter((it) => it.pending || (!it.inBag && L.items && !('inBag' in it))).length;
+  const full = p.bag.every(Boolean) && (L.items || []).some((it) => it.kind === 'gear' && !it.inBag);
+  const take = btn(pending ? 'Take all' : 'Continue', () => ctx.act({ type: 'LOOT_TAKE_ALL' }), '.primary');
   take.appendChild(h('span.k', 'Space'));
-  win.appendChild(h('div.foot', full ? h('span.warn', 'Bags full: discard (B)') : h('span.muted.nowrap', `Bags ${p.bag.filter(Boolean).length}/${p.bag.length}`), h('div.row', { style: { gap: '.6rem' } }, (L.items || []).length ? btn('Leave', () => ctx.act({ type: 'LOOT_CLOSE' })) : null, take)));
+  win.appendChild(h('div.foot', full ? h('span.warn', 'Bags full: discard (B)') : h('span.muted.nowrap', `Bags ${p.bag.filter(Boolean).length}/${p.bag.length}`), h('div.row', { style: { gap: '.6rem' } }, pending ? btn('Leave', () => ctx.act({ type: 'LOOT_CLOSE' })) : null, take)));
   return win;
 }
+function miniBtn(label, fn) { const b = h('button.btn.small', label); b.addEventListener('click', (e) => { e.stopPropagation(); fn(); }); return b; }
 function closeLootBtn(ctx) { const b = h('button.xbtn', '×'); b.addEventListener('click', () => ctx.act({ type: 'LOOT_CLOSE' })); return b; }
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
@@ -372,14 +384,14 @@ function buildReward(v, ctx) {
 function buildVendor(v, ctx) {
   const n = v.node; const p = v.player;
   const stock = h('div.list', (n.stock || []).map((it, i) => {
-    const r = h('div.trow', h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name), h('div.meta', it.kind === 'gear' ? `${cap(it.slot)} · ilvl ${it.ilvl}` : 'Consumable')),
-      h('div.right', moneyEl(it.price), h('button.btn.small' + (p.gold < it.price ? '.disabled' : ''), 'Buy')));
-    r.querySelector('button').addEventListener('click', () => ctx.act({ type: 'BUY', i }));
+    const r = h('div.trow' + (it.sold ? '.locked' : ''), h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name), h('div.meta', it.kind === 'gear' ? `${cap(it.slot)} · ilvl ${it.ilvl}` : 'Consumable')),
+      h('div.right', it.sold ? h('span.muted', 'Sold') : moneyEl(it.price), it.sold ? null : h('button.btn.small' + (p.gold < it.price ? '.disabled' : ''), 'Buy')));
+    if (!it.sold) r.querySelector('button').addEventListener('click', () => ctx.act({ type: 'BUY', i }));
     tip(r, () => itemTip(it, ctx, { price: it.price }));
     return r;
   }));
   const bag = h('div.list', p.bag.filter(Boolean).map((it) => {
-    const r = h('div.trow', h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name + (it.count > 1 ? ` ×${it.count}` : '')), h('div.meta', moneyText(it.sell * (it.count || 1)))), h('div.right', h('button.btn.small', 'Sell')));
+    const r = h('div.trow', h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name + (it.count > 1 ? ` ×${it.count}` : '')), h('div.meta', it.sell ? moneyText(it.sell * (it.count || 1)) : it.kind === 'gear' ? `${cap(it.slot)} · ilvl ${it.ilvl}` : it.kind === 'junk' ? 'Junk' : 'Consumable')), h('div.right', h('button.btn.small', 'Sell')));
     r.querySelector('button').addEventListener('click', () => ctx.act({ type: 'SELL', uid: it.uid }));
     tip(r, () => itemTip(it, ctx, {}));
     return r;
@@ -397,8 +409,10 @@ function buildTrainer(v, ctx) {
   const rows = h('div.list', list.map((e) => {
     const sp = ctx.data.spells[e.id];
     let right;
-    if (e.state === 'learnable') right = h('div.right', moneyEl(e.cost), btnSmall('Learn', p.gold >= e.cost, () => ctx.act({ type: 'LEARN', spellId: e.id })));
-    else if (e.state === 'trainable') right = h('div.right', moneyEl(e.cost), btnSmall(`Train to ${p.level}`, p.gold >= e.cost, () => ctx.act({ type: 'TRAIN', spellId: e.id })));
+    const afford = e.affordable !== undefined ? e.affordable : p.gold >= e.cost;
+    const price = e.cost != null ? moneyEl(e.cost) : h('span.bad', 'Need more gold');
+    if (e.state === 'learnable') right = h('div.right', price, btnSmall('Learn', afford, () => ctx.act({ type: 'LEARN', spellId: e.id })));
+    else if (e.state === 'trainable') right = h('div.right', price, btnSmall(`Train to ${p.level}`, afford, () => ctx.act({ type: 'TRAIN', spellId: e.id })));
     else if (e.state === 'current') right = h('div.right', h('span.good', `Rank ${e.rank} · level ${e.tl}`));
     else right = h('div.right', h('span.muted', `Requires level ${e.lvl}`));
     const r = h('div.trow' + (e.state === 'locked' ? '.locked' : ''), h('img', { src: spellIcon(e.id, sp), alt: '' }), h('div', h('div.nm', sp.name), h('div.meta', `Level ${e.lvl} · ${sp.text}`)), right);

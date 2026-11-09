@@ -93,7 +93,7 @@ export class Director {
               if (e.kind === 'item') { scene.act('player', 'item', settings.dur(420)); hud.log(`You use ${e.name}.`, 'lg-you'); await W(260); break; }
               const cls = p().classId;
               const selfOnly = !e.dst || (e.tags && (e.tags.includes('defensive') || e.tags.includes('resource') || e.tags.includes('heal')) && !(e.tags.includes('aoe')));
-              if (cls === 'rogue' && !selfOnly) { scene.actors.get('player').lungeDist = Math.max(60, (scene.anchor(dst) ? scene.anchor(dst).x - scene.anchor('player').x - 70 * scene.u : 120)); scene.act('player', 'melee', settings.dur(460)); await W(210); }
+              if (cls === 'rogue' && !selfOnly) { { const hero = scene.actors.get('player'); const ta = scene.anchor(dst); const pa = scene.anchor('player'); if (hero) hero.lungeDist = Math.max(60, ta && pa ? ta.x - pa.x - 70 * scene.u : 120); } scene.act('player', 'melee', settings.dur(460)); await W(210); }
               else if (cls === 'mage') { scene.act('player', 'cast', settings.dur(520)); await W(200); if (!selfOnly && dst) await this.projectiles(e, src, token); }
               else if (cls === 'hunter') { scene.act('player', 'shoot', settings.dur(480)); await W(230); if (!selfOnly && dst) await this.projectiles(e, src, token, 'arrow'); }
               else { scene.act('player', 'cast', settings.dur(400)); await W(200); }
@@ -164,7 +164,7 @@ export class Director {
             if (u) { u.alive = false; u.hp = 0; }
             push();
             scene.kill(dst);
-            if (e.dst.side === 'enemy') { hud.log(`${e.name} dies.`, 'lg-death'); if (!e.despawn) scene.burst(scene.anchor(dst).x, scene.anchor(dst).cy, '#ffe8c0', 10, 90); if (ctx.ui.target === e.dst.idx) ctx.ui.retarget(shown); }
+            if (e.dst.side === 'enemy') { hud.log(`${e.name} dies.`, 'lg-death'); const an = scene.anchor(dst); if (!e.despawn && an) scene.burst(an.x, an.cy, '#ffe8c0', 10, 90); if (ctx.ui.target === e.dst.idx) ctx.ui.retarget(shown); }
             else if (e.dst.side === 'pet') hud.log(`${e.name} has fallen.`, 'lg-death');
             else hud.log('You die.', 'lg-death');
             await W(e.dst.side === 'player' ? 900 : 420);
@@ -172,6 +172,7 @@ export class Director {
           }
           case 'resurrect': scene.revive('player'); scene.aura('player', '#ffd36a', 1.4); scene.levelUp('player'); p().hp = e.hpAfter; push(); ctx.ui.banner('Resurrected', `${e.source} returns you to the fight`, 'phase', 1800); hud.log(`${e.source} flares: you return to the fight!`, 'lg-loot'); await W(1200); break;
           case 'round': {
+            if (!shown.combat) break;
             shown.combat.round = e.round;
             const nc = next.combat;
             if (nc) for (const en of shown.combat.enemies) { const ne = nc.enemies.find((x) => x.idx === en.idx && x.uid === en.uid); if (ne) { en.intent = deepClone(ne.intent); en.statuses = deepClone(ne.statuses); } }
@@ -196,8 +197,10 @@ export class Director {
           case 'defeat': break;
           case 'flee': if (e.ok) { scene.float('player', 'Escaped!', { color: '#ffe08a', size: 22 }); hud.log('You flee from the fight.', 'lg-warn'); scene.setMode('map'); scene.clearEnemies(); await W(600); } else { scene.float('player', 'Flee failed', { color: '#ff9a8a', size: 20 }); hud.log('You fail to escape!', 'lg-warn'); await W(300); } break;
           case 'bossPhase': scene.bossPhase = e.phase; scene.screenFlash(e.phase === 3 ? '#ff5a2a' : '#8a6aff', 0.35, 0.8); scene.shake(14); ctx.ui.banner(`Phase ${e.phase}: ${e.name}`, e.text, 'phase', 2400); hud.log(`${e.name}: ${e.text}`, 'lg-warn'); await W(1400); break;
-          case 'summon': for (const idx of e.idxs) { const en = shown.combat.enemies.find((x) => x.idx === idx); if (en) en.hidden = false; } ctx.syncScene(shown, { enter: true }); push(); hud.log(`${e.names.length} ${e.names[0]}s appear!`, 'lg-warn'); await W(600); break;
-          case 'gotItem': hud.log(`You receive loot: ${e.name}.`, 'lg-loot'); break;
+          case 'summon': if (!shown.combat) break; for (const idx of e.idxs) { const en = shown.combat.enemies.find((x) => x.idx === idx); if (en) en.hidden = false; } ctx.syncScene(shown, { enter: true }); push(); hud.log(`${e.names.length} ${e.names[0]}s appear!`, 'lg-warn'); await W(600); break;
+          case 'gotItem': hud.log(`You receive loot: ${e.name}${e.to === 'window' ? ' (waiting in the loot window)' : ''}.`, 'lg-loot'); break;
+          case 'channel': scene.float(ref(e.src), `${e.name} ${e.step}/2`, { color: '#d0b0ff', size: 22, crit: e.step === 2 }); if (e.step === 2) scene.screenFlash('#6a4aff', 0.3, 0.6); hud.log(`${e.name}: ${e.step === 1 ? 'the channel begins' : 'the channel resolves'}.`, 'lg-warn'); await W(450); break;
+          case 'linked': { const b = shown.combat && shown.combat.enemies.find((x) => x.rank === 'boss'); if (b) scene.float(`enemy:${b.idx}`, e.on ? 'Linked' : 'Link broken', { color: e.on ? '#c8a8ff' : '#ffe08a', size: 20 }); hud.log(e.on ? 'The Shards link to Oruvath: it takes far less damage.' : 'The link is broken.', 'lg-warn'); await W(250); break; }
           case 'gold': hud.log(`You receive ${fmtNum(e.amount)} copper.`, 'lg-loot'); break;
           case 'msg': ctx.ui.toast(e.text, e.kind === 'warn' ? 'err' : e.kind || 'info'); hud.log(e.text, e.kind === 'warn' ? 'lg-warn' : 'lg-sys'); break;
           case 'rest': scene.aura('player', '#ffd8a0', 1.4); scene.float('player', 'Rested', { color: '#9fb8ff', size: 22 }); hud.log('You rest. Health and mana restored; you feel rested.', 'lg-sys'); await W(500); break;

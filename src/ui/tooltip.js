@@ -94,7 +94,8 @@ export function spellTip(id, ctx, opts = {}) {
   box.appendChild(h('div.tt-row', h('div.tt-name', sp.name), info.rank ? h('div.tt-rank', info.rank) : null));
   box.appendChild(h('div.tt-row', h('div.tt-sub', info.cost || ''), h('div.tt-sub', info.cd || (sp.cd ? `${sp.cd} round cooldown` : 'No cooldown'))));
   box.appendChild(h('div.tt-line.desc', sp.text));
-  for (const l of info.lines || []) box.appendChild(h('div.tt-line.num', l));
+  for (const l of info.lines || []) box.appendChild(h(/^Before/.test(l) ? 'div.tt-sub' : 'div.tt-line.num', l));
+  if (info.flavour) box.appendChild(h('div.tt-sub', { style: { fontStyle: 'italic' } }, info.flavour));
   if (sp.tags && sp.tags.length) box.appendChild(h('div.tt-tags', sp.tags.map((t) => h('span.tag', t))));
   if (info.trained) box.appendChild(h('div.tt-hint', info.trained));
   if (opts.reason) box.appendChild(h('div.tt-warn', opts.reason));

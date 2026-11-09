@@ -157,6 +157,7 @@ button { font-family: inherit; }
 #boss-frame .mark { position: absolute; top: -.3rem; bottom: -.3rem; width: 2px; background: #ffe7a0; box-shadow: 0 0 .5rem #ffd36a; }
 #boss-frame .binfo { display: flex; justify-content: space-between; margin-top: .5rem; font-size: 1.15rem; color: var(--ink-dim); }
 #boss-frame .binfo b { color: var(--ink); }
+#boss-frame .bwarn { margin-top: .4rem; text-align: center; font: 700 1.2rem var(--font-ui); color: #ffb08a; text-shadow: 0 1px 1px #000; }
 
 /* ---------------------------------------------------------------- action bar */
 #actionbar { position: absolute; left: 50%; bottom: 3.1rem; transform: translateX(-50%); display: flex; align-items: flex-end; gap: .9rem; padding: .7rem 1rem .8rem; }
@@ -270,6 +271,7 @@ button { font-family: inherit; }
 .lrow img { width: 4.2rem; height: 4.2rem; border-radius: .35rem; border: 1px solid #000; }
 .lrow .nm { font: 700 1.3rem var(--font-ui); }
 .lrow .meta { font-size: 1.1rem; color: var(--ink-mute); }
+.lrow .btn.small { padding: .3rem .6rem; font-size: 1.05rem; }
 .lrow.rare img { box-shadow: 0 0 1rem rgba(90, 160, 255, .8); } .lrow.epic img { box-shadow: 0 0 1.2rem rgba(190, 120, 255, .9); animation: epicglow 1.6s ease-in-out infinite; }
 @keyframes epicglow { 50% { box-shadow: 0 0 2rem rgba(210, 150, 255, 1); } }
 

@@ -80,7 +80,7 @@ const G = {
   grind(c) { c.save(); c.translate(32, 32); for (const a of [-0.78, 0.78]) { c.save(); c.rotate(a); c.fillRect(-3, -26, 6, 36); c.fillRect(-9, 8, 18, 4); c.fillRect(-2, 12, 4, 10); c.restore(); } c.restore(); },
   elite(c) { G.skull(c); c.beginPath(); c.moveTo(14, 22); c.lineTo(6, 4); c.lineTo(22, 14); c.fill(); c.beginPath(); c.moveTo(50, 22); c.lineTo(58, 4); c.lineTo(42, 14); c.fill(); },
   dungeon(c) { c.beginPath(); c.moveTo(10, 58); c.lineTo(10, 28); c.quadraticCurveTo(32, 2, 54, 28); c.lineTo(54, 58); c.closePath(); c.fill(); c.save(); c.globalCompositeOperation = 'destination-out'; c.beginPath(); c.moveTo(20, 58); c.lineTo(20, 32); c.quadraticCurveTo(32, 14, 44, 32); c.lineTo(44, 58); c.closePath(); c.fill(); c.restore(); c.fillRect(20, 34, 24, 3); for (const x of [24, 31, 38]) c.fillRect(x, 36, 3, 22); },
-  rest(c) { for (const [x, y, r] of [[22, 52, 0.5], [42, 52, -0.5]]) { c.save(); c.translate(32, y); c.rotate(r); c.fillRect(-20, -3, 40, 6); c.restore(); } c.save(); c.translate(0, -8); c.scale(1, 0.9); G.flame(c); c.restore(); },
+  rest(c) { c.beginPath(); c.moveTo(6, 54); c.lineTo(32, 12); c.lineTo(58, 54); c.closePath(); c.fill(); c.save(); c.globalCompositeOperation = 'destination-out'; c.beginPath(); c.moveTo(24, 54); c.lineTo(32, 32); c.lineTo(40, 54); c.closePath(); c.fill(); c.restore(); c.fillRect(30, 6, 4, 10); },
   vendor(c) { c.beginPath(); c.moveTo(22, 18); c.lineTo(42, 18); c.quadraticCurveTo(56, 34, 50, 50); c.quadraticCurveTo(32, 60, 14, 50); c.quadraticCurveTo(8, 34, 22, 18); c.fill(); c.fillRect(24, 10, 16, 6); c.save(); c.globalCompositeOperation = 'destination-out'; c.font = 'bold 22px sans-serif'; c.textAlign = 'center'; c.fillText('$', 32, 46); c.restore(); },
   trainer(c) { G.tome(c); },
   treasure(c) { c.beginPath(); c.moveTo(8, 30); c.quadraticCurveTo(32, 10, 56, 30); c.lineTo(56, 54); c.lineTo(8, 54); c.closePath(); c.fill(); c.save(); c.globalCompositeOperation = 'destination-out'; c.fillRect(8, 30, 48, 3); c.fillRect(28, 32, 8, 10); c.restore(); },
@@ -202,7 +202,8 @@ const STATUS_ICON = {
   BURN: ['flame', 'fire'], POISON: ['venom', 'poison'], CHILLED: ['snowflake', 'frost'], CURSED: ['skull', 'shadow'], EXPOSED: ['eye', 'blood'],
   MARKED: ['target', 'blood'], BRAND: ['eye', 'shadow'], WARD: ['shield', 'arcane'], EVASION: ['smoke', 'shadow'], STEALTH: ['mask', 'shadow'],
   IMMUNE: ['tomb', 'frost'], HOT: ['cross', 'heal'], TAUNT: ['horn', 'gold'], RAPID: ['bolt', 'gold'], SHIELDED: ['shield', 'steel'],
-  ENRAGED: ['flame', 'blood'], LINKED: ['chain', 'shadow'],
+  ENRAGED: ['flame', 'blood'], LINKED: ['chain', 'shadow'], BRACE: ['shield', 'steel'], ADRENAL: ['bolt', 'gold'], CONFLAGRANT: ['sun', 'fire'],
+  MIRROR: ['mirror', 'arcane'], FEIGN: ['leaf', 'nature'], COMMUNION: ['paw', 'nature'],
 };
 export function statusIcon(id) { const m = STATUS_ICON[id] || ['spark', 'steel']; return icon(m[0], m[1]); }
 export const schoolBg = (school) => ({ fire: 'fire', frost: 'frost', arcane: 'arcane', shadow: 'shadow', nature: 'nature', phys: 'steel' }[school] || 'steel');

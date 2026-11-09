@@ -1,7 +1,7 @@
 // Persistent classic-MMO HUD: unit frames, enemy nameplates with intents, action bar, XP bar,
 // minimap, micro menu, objective tracker, combat log and the raid-boss frame. It renders the view
 // it is given and turns clicks into actions through ctx.act; it decides no rules.
-import { h, clear, fmtNum, moneyEl, hoursText, clamp, rgba } from './util.js';
+import { h, add, clear, fmtNum, moneyEl, hoursText, clamp, rgba } from './util.js';
 import { spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS } from './art-icons.js';
 import { drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook } from './art-actors.js';
 import { THEMES } from './art-world.js';
@@ -80,7 +80,8 @@ export function createHud(root, ctx) {
   els.pet = h('div#pet-frame.uf.hidden', h('div.portrait'), h('div.plate', h('div.name', h('span.pn'), h('span.cls', 'Pet')), bar('hp'), h('div.statuses')));
   els.target = h('div#target-frame.uf.hidden', h('div.portrait'), h('div.lvl', { style: { left: '5.4rem', top: '5.4rem' } }),
     h('div.plate', h('div.name', h('span.pn'), h('span.tag')), bar('hp enemy'), h('div.statuses'), h('div.intent')));
-  els.boss = h('div#boss-frame.panel.hidden', h('div.bname'), h('div', { style: { position: 'relative' } }, bar('hp boss'), h('div.mark', { style: { left: '70%' } }), h('div.mark', { style: { left: '40%' } })), h('div.binfo'));
+  els.bossWarn = h('div.bwarn.hidden');
+  els.boss = h('div#boss-frame.panel.hidden', h('div.bname'), h('div', { style: { position: 'relative' } }, bar('hp boss'), h('div.mark', { style: { left: '70%' } }), h('div.mark', { style: { left: '40%' } })), h('div.binfo'), els.bossWarn);
   els.nameplates = h('div#nameplates');
   // ------------------------------------------------------------ action bar
   els.actionbar = h('div#actionbar.panel');
@@ -224,13 +225,17 @@ export function createHud(root, ctx) {
       els.boss.querySelector('.bname').textContent = boss.name;
       setBar(els.boss.querySelector('.bar.hp'), boss.hp, boss.maxHp, `${fmtNum(boss.hp)} / ${fmtNum(boss.maxHp)}  ·  ${Math.ceil((boss.hp / boss.maxHp) * 100)} %`);
       const b = c.boss || {};
+      const tg = b.telegraph || {};
       const brand = (p.statuses || []).find((s) => s.id === 'BRAND');
-      const nextBrand = 4 - ((c.round - 1) % 4);
+      const nextBrand = tg.brandInRounds != null ? tg.brandInRounds : 4 - ((c.round - 1) % 4);
+      const enrage = tg.enrageInRounds != null ? `Final Dark in ${tg.enrageInRounds}` : `Final Dark at ${b.enrageRound || 50}`;
+      const extra = [tg.litanyInRounds != null ? `Litany in ${tg.litanyInRounds}` : null, tg.shardsInRounds != null ? `Shards in ${tg.shardsInRounds}` : null, tg.pulseInRounds != null ? `Pulse in ${tg.pulseInRounds}` : null, tg.crushNextRound ? 'Crush next round!' : null].filter(Boolean).join(' · ');
       clear(els.boss.querySelector('.binfo')).append(
-        h('span', 'Phase ', h('b', String(b.phase || 1)), b.phase === 2 ? ' · Shards link the star' : b.phase === 3 ? ' · Eclipse' : ''),
-        h('span', 'Brand ', h('b', String(brand ? brand.stacks : 0)), ` · next in ${nextBrand} round${nextBrand > 1 ? 's' : ''}`),
-        h('span', 'Round ', h('b', String(c.round)), ` · Final Dark at ${b.enrageRound || 50}`),
+        h('span', 'Phase ', h('b', String(b.phase || 1)), b.phase === 2 ? ' · Linked' : b.phase === 3 ? ' · Eclipse' : ''),
+        h('span', 'Brand ', h('b', String(brand ? brand.stacks : 0)), ` · next in ${nextBrand}`),
+        h('span', 'Round ', h('b', String(c.round)), ` · ${enrage}`),
         h('span', 'Ascendancy ', h('b', `+${Math.round((b.asc || 0) * 100)} %`)));
+      els.bossWarn.textContent = extra; els.bossWarn.classList.toggle('hidden', !extra);
     } else els.boss.classList.add('hidden');
     syncNameplates(v);
     // action bar
@@ -263,7 +268,7 @@ export function createHud(root, ctx) {
     if (!it) { box.classList.add('hidden'); return; }
     box.classList.remove('hidden');
     const who = it.target === 'pet' ? 'your pet' : it.target === 'both' ? 'you and your pet' : it.target === 'player' ? 'you' : it.target === 'self' ? 'itself' : it.target === 'ally' ? 'an ally' : '';
-    box.append(h('img', { src: abilityIcon(it), alt: '' }),
+    add(box, h('img', { src: abilityIcon(it), alt: '' }),
       h('div', h('div.what', it.name, it.channel ? ` ${it.channel[0]}/${it.channel[1]}` : ''), h('div.who', it.label || (who ? `Targets ${who}` : it.id === 'unaware' ? 'Has not noticed you' : '')),
         h('div.row', { style: { gap: '.4rem', marginTop: '.2rem' } }, it.cast && !it.interrupted ? h('span.flag.cast', 'Cast · interruptible') : null, it.heavy ? h('span.flag.heavy', 'Heavy') : null, it.interrupted ? h('span.flag.int', 'Interrupted') : null)),
       it.est ? h('div.dmg', it.selfHeal || it.mend ? `+${fmtNum(it.est)}` : `≈ ${fmtNum(it.est)}`) : null);
@@ -302,7 +307,7 @@ export function createHud(root, ctx) {
           if (bub.dataset.key !== k) {
             bub.dataset.key = k; clear(bub);
             const tgtTxt = it.target === 'pet' ? '▸ pet' : it.target === 'both' ? '▸ all' : it.target === 'player' ? '▸ you' : '';
-            bub.append(h('img', { src: abilityIcon(it), alt: '' }), h('span.bn', it.name + (it.channel ? ` ${it.channel[0]}/${it.channel[1]}` : '')),
+            add(bub, h('img', { src: abilityIcon(it), alt: '' }), h('span.bn', it.name + (it.channel ? ` ${it.channel[0]}/${it.channel[1]}` : '')),
               it.est && !(it.selfHeal || it.mend || it.shield) ? h('span.bd', fmtNum(it.est)) : null, tgtTxt ? h('span.bt', tgtTxt) : null);
           }
           bub.className = 'bubble' + (it.cast && !it.interrupted ? ' cast' : '') + (it.heavy && !it.cast ? ' heavy' : '') + (it.id === 'unaware' || it.id === 'none' ? ' quiet' : '') + (it.interrupted ? ' interrupted' : '');

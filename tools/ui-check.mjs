@@ -8,11 +8,12 @@
  *   node tools/build.mjs
  *   UI_TOOLS=/tmp/ui-tools CHROME=/usr/bin/google-chrome node tools/ui-check.mjs [--out docs/handoffs/screens] [--sizes 1366x768,1920x1080] [--quick]
  *
- * It loads dist/game.html from disk, clicks class select -> hub -> map -> a quest fight -> loot ->
- * reward at each size, then (mock engine only) jumps to later screens: trainer, vendor, talents,
- * character and bags, a dungeon, the boss and the run summary. It saves PNG screenshots, prints
- * every console message, page error and network request that is not the file itself, and exits 1
- * when there is any console error or page error.
+ * It loads dist/game.html from disk (real engine; --mock adds ?mock=1), clicks class select -> hub ->
+ * map -> a quest fight -> loot -> reward at each size, then starts a fixed-seed run that autoplay
+ * drives to later screens: trainer, vendor, talents, character and bags, an elite or dungeon fight,
+ * the camp, the boss and the run summary. It saves PNG screenshots, prints every console message,
+ * page error and network request that is not the file itself, and exits 1 on any console error
+ * or page error.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -25,6 +26,8 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const OUT = path.resolve(ROOT, arg('--out', 'docs/handoffs/screens'));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const QUICK = args.includes('--quick');
+const MOCK = args.includes('--mock');
+const QUERY = `?seed=4242${MOCK ? '&mock=1' : ''}`;
 const FILE = path.resolve(ROOT, arg('--file', 'dist/game.html'));
 const req = createRequire(path.join(process.env.UI_TOOLS || '/home/claude/tools-ui', 'index.js'));
 const puppeteer = req('puppeteer-core');
@@ -37,10 +40,14 @@ async function run(W, H, tag) {
   const browser = await puppeteer.launch({ executablePath: process.env.CHROME || '/usr/bin/google-chrome', headless: true, args: ['--no-sandbox', '--disable-gpu'] });
   const page = await browser.newPage();
   await page.setViewport({ width: W, height: H, deviceScaleFactor: 1 });
-  page.on('console', (m) => { const line = `[${tag}] ${m.type()}: ${m.text()}`; logs.push(line); if (m.type() === 'error') errors.push(line); });
+  page.on('console', async (m) => {
+    let text = m.text();
+    if (/JSHandle@/.test(text)) { try { text = (await Promise.all(m.args().map((a) => a.evaluate((x) => (x instanceof Error ? x.stack || x.message : String(x)))))).join(' '); } catch { /* keep */ } }
+    const line = `[${tag}] ${m.type()}: ${text}`; logs.push(line); if (m.type() === 'error') errors.push(line);
+  });
   page.on('pageerror', (e) => errors.push(`[${tag}] pageerror: ${e.message}`));
-  page.on('request', (r) => { const u = r.url(); if (!u.startsWith('data:') && !u.startsWith('blob:') && u !== pathToFileURL(FILE).href + '?seed=4242') requests.push(`[${tag}] ${u}`); });
-  await page.goto(pathToFileURL(FILE).href + '?seed=4242', { waitUntil: 'load' });
+  page.on('request', (r) => { const u = r.url(); if (!u.startsWith('data:') && !u.startsWith('blob:') && u !== pathToFileURL(FILE).href + QUERY) requests.push(`[${tag}] ${u}`); });
+  await page.goto(pathToFileURL(FILE).href + QUERY, { waitUntil: 'load' });
   await sleep(900);
   const shot = async (name) => { const f = path.join(OUT, `${tag}-${name}.png`); await page.screenshot({ path: f }); console.log(`  saved ${path.relative(ROOT, f)}`); };
   const idle = () => page.evaluate(() => window.__ui.idle());
@@ -72,7 +79,7 @@ async function run(W, H, tag) {
   let v = await view();
   // 4. node intro -> fight
   await shot('06-node-intro');
-  if (v.type === 'grind') await clickText('.dialog button', '2 waves');
+  if (v.type === 'grind') await clickText('.dialog button', '1 wave');
   else await page.evaluate(() => document.querySelector('#screens .dialog .btn.primary').click());
   await idle(); await sleep(300);
   await shot('07-combat-start');
@@ -89,10 +96,19 @@ async function run(W, H, tag) {
   if (v.loot === 'loot') { await sleep(250); await shot('09-loot'); await page.keyboard.press('Space'); await idle(); await sleep(300); }
   v = await view();
   if (v.loot === 'reward' || v.loot === 'story') { await shot('10-quest-reward'); await page.evaluate(() => document.querySelector('.icard').click()); await idle(); await sleep(300); }
+  // items that wait in the loot window (bag full): equip or drop them
+  for (let k = 0; k < 6; k++) {
+    v = await view(); if (v.loot !== 'loot') break;
+    if (k === 0) await shot('10b-loot-window');
+    const b = await page.$('.loot .lrow .btn.small');
+    if (b) { await b.click(); await idle(); } else { await page.keyboard.press('Space'); await idle(); }
+  }
   v = await view();
   if (v.step === 'between') { await page.evaluate(() => [...document.querySelectorAll('.dialog button')].find((b) => /Stop|Leave/.test(b.textContent)).click()); await idle(); }
+  await sleep(300);
   await shot('11-back-to-map');
   if (QUICK) { await browser.close(); return; }
+  if (!MOCK) { await deepEngineRun(page, shot, idle, clickText); await browser.close(); return; }
 
   // 5. later screens through mock debug jumps
   const canDebug = await page.evaluate(() => window.__ui.canDebug);
@@ -165,6 +181,59 @@ async function run(W, H, tag) {
   await sleep(600);
   await shot('20-run-summary');
   await browser.close();
+}
+
+/** Real engine: a fixed-seed Hunter run driven by autoplay, pausing for screenshots. */
+async function deepEngineRun(page, shot, idle, clickText) {
+  const auto = (n = 1) => page.evaluate(async (k) => { for (let i = 0; i < k; i++) { const r = await window.__ui.act({ type: 'AUTO' }); if (!r || !r.ok) return false; } return true; }, n);
+  const v = () => page.evaluate(() => { const x = window.__ui.view(); return { phase: x.phase, zone: x.zone && x.zone.idx, node: x.node && x.node.type, step: x.node && x.node.step, origin: x.node && x.node.origin, combat: !!(x.combat && !x.combat.over), kind: x.combat && x.combat.kind, loot: x.loot && x.loot.kind, level: x.player && x.player.level, hub: x.hub && x.hub.used }; });
+  await page.evaluate(() => window.__ui.settings.set('speed', 0));
+  // new run, fixed seed
+  await page.evaluate(async () => { const ui = window.__ui; let x = ui.view(); for (let i = 0; i < 4000 && x.phase !== 'SUMMARY'; i++) { await ui.act({ type: 'AUTO' }); x = ui.view(); } await ui.act({ type: 'END_RUN' }); });
+  await idle();
+  await page.evaluate(async () => { const ui = window.__ui; await ui.act({ type: 'SELECT_CLASS', classId: 'hunter' }); await ui.act({ type: 'SET_SEED', seed: 4 }); await ui.act({ type: 'START_RUN' }); });
+  await idle();
+  let s = await v(); let guard = 0;
+  // to the zone 2 hub
+  while (!(s.phase === 'ZONE_HUB' && s.zone >= 2 && !s.node) && s.phase !== 'SUMMARY' && guard++ < 1500) { await auto(); s = await v(); }
+  await page.evaluate(() => window.__ui.settings.set('speed', 2));
+  if (s.phase === 'ZONE_HUB') {
+    await sleep(600);
+    if (!s.hub.trainer) { await clickText('.svc-card', 'Trainer'); await idle(); await sleep(250); await shot('12-trainer'); await clickText('button', 'Done'); await idle(); }
+    if (!s.hub.vendor) { await clickText('.svc-card', 'Vendor'); await idle(); await sleep(250); await shot('13-vendor'); await clickText('button', 'Done'); await idle(); }
+  }
+  await page.evaluate(() => window.__ui.settings.set('speed', 0));
+  while ((s.level < 12 || s.phase !== 'MAP') && s.phase !== 'SUMMARY' && guard++ < 3000) { await auto(); s = await v(); }
+  await page.keyboard.press('KeyN'); await sleep(300); await shot('14-talents'); await page.keyboard.press('Escape'); await sleep(100);
+  await page.keyboard.press('KeyC'); await page.keyboard.press('KeyB'); await sleep(300); await shot('15-character-bags'); await page.keyboard.press('Escape'); await sleep(100);
+  // a fight with several enemies (grind, dungeon or a 3-mob quest), shown mid-round
+  while (!(s.combat && s.step === 'combat') && s.phase !== 'SUMMARY' && guard++ < 3000) { await auto(); s = await v(); const n = await page.evaluate(() => { const c = window.__ui.view().combat; return c && !c.over ? c.enemies.filter((e) => e.alive).length : 0; }); if (s.combat && n < 2) { s.combat = false; } }
+  if (s.combat) {
+    await page.evaluate(() => window.__ui.settings.set('speed', 1));
+    await auto(); await idle(); await sleep(200);
+    await page.click('#actionbar .ab.basic'); await sleep(650);
+    await shot('16-group-fight');
+    await idle();
+  }
+  // camp and boss
+  await page.evaluate(() => window.__ui.settings.set('speed', 0));
+  while (s.phase !== 'CAMP' && s.phase !== 'SUMMARY' && guard++ < 6000) { await auto(); s = await v(); }
+  if (s.phase === 'CAMP') {
+    await page.evaluate(() => window.__ui.settings.set('speed', 2));
+    await sleep(700); await shot('17-camp');
+    await clickText('button', 'Face Oruvath'); await sleep(1700); await shot('18-boss-intro');
+    await idle();
+    await page.evaluate(() => window.__ui.settings.set('speed', 0));
+    for (let i = 0; i < 14; i++) { await auto(); await idle(); }
+    await page.evaluate(() => window.__ui.settings.set('speed', 1));
+    await auto(); await sleep(900);
+    await shot('19-boss-fight');
+    await idle();
+    await page.evaluate(() => window.__ui.settings.set('speed', 0));
+  }
+  while (s.phase !== 'SUMMARY' && guard++ < 6000) { await auto(); s = await v(); }
+  await sleep(800);
+  await shot('20-run-summary');
 }
 
 for (const [W, H] of SIZES) {
