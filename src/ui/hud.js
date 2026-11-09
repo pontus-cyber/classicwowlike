@@ -341,9 +341,10 @@ export function createHud(root, ctx) {
     p.bar.forEach((id, i) => {
       const b = els.spells[i];
       const img = b.querySelector('img'); const cost = b.querySelector('.cost'); const cd = b.querySelector('.cd');
-      if (!id) { b.classList.add('empty'); img.removeAttribute('src'); img.style.visibility = 'hidden'; cost.textContent = ''; cd.textContent = ''; cd.style.background = ''; b.classList.remove('off', 'nores', 'hint'); return; }
+      if (!id) { b.classList.add('empty'); b.setAttribute('aria-label', `Empty slot ${i + 1}`); img.removeAttribute('src'); img.style.visibility = 'hidden'; cost.textContent = ''; cd.textContent = ''; cd.style.background = ''; b.classList.remove('off', 'nores', 'hint'); return; }
       b.classList.remove('empty'); img.style.visibility = '';
       const sp = ctx.data.spells[id];
+      b.setAttribute('aria-label', `Slot ${i + 1}: ${sp.name}`);
       const src = spellIcon(id, sp); if (img.getAttribute('src') !== src) img.src = src;
       const s = L.spells && L.spells[id];
       const cdLeft = c && c.cooldowns ? c.cooldowns[id] || 0 : 0;
@@ -360,8 +361,10 @@ export function createHud(root, ctx) {
     });
     p.itemBar.forEach((id, i) => {
       const b = els.items[i]; const img = b.querySelector('img'); const cnt = b.querySelector('.cnt'); const cd = b.querySelector('.cd');
-      if (!id) { b.classList.add('empty'); img.style.visibility = 'hidden'; cnt.textContent = ''; cd.textContent = ''; cd.style.background = ''; b.classList.remove('off'); return; }
+      const key = ['8', '9', '0'][i];
+      if (!id) { b.classList.add('empty'); b.setAttribute('aria-label', `Empty item slot ${key}`); img.style.visibility = 'hidden'; cnt.textContent = ''; cd.textContent = ''; cd.style.background = ''; b.classList.remove('off'); return; }
       b.classList.remove('empty'); img.style.visibility = '';
+      b.setAttribute('aria-label', `Item slot ${key}: ${(ctx.data.consumables[id] || { name: id }).name}`);
       const src = consumableIcon(id); if (img.getAttribute('src') !== src) img.src = src;
       const s = L.items && L.items[i];
       const count = p.bag.reduce((a, it) => a + (it && it.id === id ? it.count : 0), 0);

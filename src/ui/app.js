@@ -94,6 +94,7 @@ export class App {
         this.playStart = performance.now();
         await this.director.play(prev, res.view, res.events, action);
         this.afterPlay();
+        this.placeNewItems(prev, res.view);
         return res;
       } catch (err) { console.error(err); this.shown = this.bridge.view; this.queueRender(); return { ok: false, error: String(err) }; } finally {
         this.pending--;
@@ -133,6 +134,32 @@ export class App {
     this.windows.update();
   }
 
+  /**
+   * A combat consumable that has just come into the bags (bought, looted) goes to a free item-bar slot,
+   * as the engine puts a newly learned spell on a free spell slot. The UI sends SET_ITEM_BAR for it.
+   * Items already in the bags are left alone, so a slot the player cleared stays clear.
+   */
+  placeNewItems(prev, next) {
+    const p = next.player;
+    if (!p || !['ZONE_HUB', 'MAP', 'NODE', 'CAMP'].includes(next.phase) || !next.legal || !next.legal.outOfCombat) return;
+    const had = new Set(((prev && prev.player && prev.player.bag) || []).filter((it) => it && it.kind === 'consumable').map((it) => it.id));
+    const fresh = [];
+    for (const it of p.bag) {
+      if (!it || it.kind !== 'consumable' || had.has(it.id) || fresh.includes(it.id) || p.itemBar.includes(it.id)) continue;
+      const c = this.data.consumables[it.id];
+      if (!c || !(c.use === 'combat' || c.use === 'both') || (c.mana && p.res.kind !== 'mana')) continue;
+      fresh.push(it.id);
+    }
+    const free = p.itemBar.map((id, i) => (id ? -1 : i)).filter((i) => i >= 0);
+    fresh.slice(0, free.length).forEach((id, k) => {
+      const slot = free[k]; const key = ['8', '9', '0'][slot]; const nm = this.data.consumables[id].name;
+      this.act({ type: 'SET_ITEM_BAR', slot, itemId: id }).then((r) => {
+        if (r && r.ok) { this.toast(`${nm} is on item slot ${key}`, 'good'); this.hud.log(`${nm} goes on item slot ${key} (key ${key}).`, 'lg-sys'); }
+      });
+    });
+  }
+
+  /** While autoplay is on in a fight, play the engine's autoplay choice after the autoplay pause. */
   scheduleAuto() {
     clearTimeout(this.autoTimer);
     const v = this.bridge.view;

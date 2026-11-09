@@ -103,7 +103,7 @@ function engineBackend(seedOpt) {
     }])),
     talents: Object.fromEntries(Object.values(C.TALENT).map((t) => [t.id, { id: t.id, tree: treeId(t.cls, t.tree), tier: t.tier, name: t.name, ranks: t.ranks, spell: t.spell || null, text: TXT.talentText(t.id, CONTENT) }])),
     pets: Object.fromEntries(Object.values(C.PET).map((p) => [p.id, { id: p.id, name: p.name, text: TXT.petText(p.id, CONTENT), locked: !!p.meta && !(profile && profile.unlocks && profile.unlocks[p.meta]) }])),
-    consumables: Object.fromEntries(Object.values(C.CONSUMABLE).map((c) => [c.id, { id: c.id, name: c.name, use: USE_MAP[c.use] || 'both', stack: c.stack, text: TXT.consumableText(c.id, CONTENT) }])),
+    consumables: Object.fromEntries(Object.values(C.CONSUMABLE).map((c) => [c.id, { id: c.id, name: c.name, use: USE_MAP[c.use] || 'both', stack: c.stack, mana: !!c.mana, text: TXT.consumableText(c.id, CONTENT) }])),
     statuses: TXT.STATUS_INFO,
     boons: Object.fromEntries(Object.values(C.BOON).map((b) => [b.id, { id: b.id, name: b.name, text: TXT.boonText(b.id, CONTENT) }])),
     slots: C.SLOT_IDS, zones: CONTENT.zones, camp: CONTENT.camp,
