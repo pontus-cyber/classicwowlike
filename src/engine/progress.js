@@ -65,6 +65,9 @@ export function gainXp(s, ev, amount, why, kill = false) {
   while (p.level < MAX_LEVEL && p.xp >= xpToNext(p.level)) {
     p.xp -= xpToNext(p.level);
     const before = p.d;
+    const hp0 = p.hp;
+    const mana0 = p.mana;
+    const pet0 = p.pet ? p.pet.hp : 0;
     p.level += 1;
     const d = refreshDerived(s);
     p.hp += d.maxHp - before.maxHp;
@@ -72,7 +75,12 @@ export function gainXp(s, ev, amount, why, kill = false) {
     if (p.pet && p.pet.alive) p.pet.hp = Math.max(1, p.pet.hp + (d.petMaxHp - before.petMaxHp));
     s.stats.levelUps += 1;
     const gotPoint = talentPointsEarned(s, p.level) > talentPointsEarned(s, p.level - 1);
-    ev.push({ t: 'levelUp', level: p.level, talentPoint: gotPoint });
+    // Current HP, mana and pet HP rise by the max gains (rules 4.3); the event carries the gains and new maxima.
+    ev.push({
+      t: 'levelUp', level: p.level, talentPoint: gotPoint,
+      hpGain: p.hp - hp0, manaGain: p.mana - mana0, petHpGain: p.pet ? p.pet.hp - pet0 : 0,
+      maxHp: d.maxHp, maxMana: d.maxMana, petMaxHp: p.pet ? d.petMaxHp : 0,
+    });
   }
   if (p.level >= MAX_LEVEL) p.xp = 0;
   return total;

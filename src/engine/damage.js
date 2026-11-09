@@ -312,7 +312,9 @@ export function gainResource(s, ev, n) {
 
 /**
  * Apply HP damage after rolls: WARD/shield, IMMUNE, Mindguard, Shared Wounds, Death's Sidestep, then HP and
- * death checks. Used by damage events and DOT ticks. Returns { amount, absorbed, killed }.
+ * death checks. Used by damage events and DOT ticks. Returns { amount, hpLost, absorbed, killed }.
+ * Event fields: amount = damage after absorbs, not capped at the HP left (a killing blow can exceed it);
+ * hpLost = HP the target actually lost (min(amount, HP before)); absorbed = taken by WARD, shield or Mindguard.
  */
 export function applyDamage(s, ev, src, dst, raw, o = {}) {
   const f = s.fight;
@@ -320,8 +322,8 @@ export function applyDamage(s, ev, src, dst, raw, o = {}) {
   let absorbed = 0;
   if (dst === 'player') {
     if (!o.ignoreImmune && hasSt(f.p.st, 'IMMUNE')) {
-      ev.push({ t: 'damage', src, dst, amount: 0, absorbed: 0, immune: true, spell: o.spell, crit: !!o.crit, school: o.school, tick: !!o.tick });
-      return { amount: 0, absorbed: 0, killed: false };
+      ev.push({ t: 'damage', src, dst, amount: 0, hpLost: 0, absorbed: 0, immune: true, spell: o.spell, crit: !!o.crit, school: o.school, tick: !!o.tick });
+      return { amount: 0, hpLost: 0, absorbed: 0, killed: false };
     }
     const ward = o.ignoreWard ? null : findSt(f.p.st, 'WARD');
     if (ward) {
@@ -350,37 +352,39 @@ export function applyDamage(s, ev, src, dst, raw, o = {}) {
     }
     if (dmg > 0 && tr(s, 'r_b9') && !f.p.sidestepUsed && s.player.hp - dmg < TALENT.r_b9.below * s.player.d.maxHp) {
       f.p.sidestepUsed = true;
-      ev.push({ t: 'damage', src, dst, amount: 0, absorbed: dmg, sidestep: true, spell: o.spell, school: o.school });
+      ev.push({ t: 'damage', src, dst, amount: 0, hpLost: 0, absorbed: dmg, sidestep: true, spell: o.spell, school: o.school });
       dispersal(s, ev, 'player');
       gainStealth(s, ev, true);
       healUnit(s, ev, 'player', rnd(TALENT.r_b9.healPct * s.player.d.maxHp), 'deaths_sidestep');
-      return { amount: 0, absorbed: dmg, killed: false };
+      return { amount: 0, hpLost: 0, absorbed: dmg, killed: false };
     }
+    const hpLost = Math.min(dmg, s.player.hp);
     s.player.hp -= dmg;
     s.stats.dmgTaken += dmg;
-    ev.push({ t: 'damage', src, dst, amount: dmg, absorbed, spell: o.spell, crit: !!o.crit, school: o.school, tick: !!o.tick });
+    ev.push({ t: 'damage', src, dst, amount: dmg, hpLost, absorbed, spell: o.spell, crit: !!o.crit, school: o.school, tick: !!o.tick });
     if (s.player.hp <= 0) {
       s.player.hp = 0;
       playerDeath(s, ev, src, o.spell);
     }
-    return { amount: dmg, absorbed, killed: s.player.hp <= 0 };
+    return { amount: dmg, hpLost, absorbed, killed: s.player.hp <= 0 };
   }
   if (dst === 'pet') {
     const pet = s.player.pet;
-    if (!pet.alive) return { amount: 0, absorbed: 0, killed: false };
+    if (!pet.alive) return { amount: 0, hpLost: 0, absorbed: 0, killed: false };
+    const hpLost = Math.min(dmg, pet.hp);
     pet.hp -= dmg;
-    ev.push({ t: 'damage', src, dst, amount: dmg, absorbed: 0, spell: o.spell, crit: !!o.crit, school: o.school, tick: !!o.tick });
+    ev.push({ t: 'damage', src, dst, amount: dmg, hpLost, absorbed: 0, spell: o.spell, crit: !!o.crit, school: o.school, tick: !!o.tick });
     if (pet.hp <= 0) {
       pet.hp = 0;
       pet.alive = false;
       f.pet.st = [];
       ev.push({ t: 'death', u: 'pet' });
     }
-    return { amount: dmg, absorbed: 0, killed: !pet.alive };
+    return { amount: dmg, hpLost, absorbed: 0, killed: !pet.alive };
   }
   // Enemy
   const e = f.enemies[dst];
-  if (!e.alive) return { amount: 0, absorbed: 0, killed: false };
+  if (!e.alive) return { amount: 0, hpLost: 0, absorbed: 0, killed: false };
   if (raw > 0) removeStatus(s, ev, dst, 'HEXED');
   if (e.shield > 0) {
     absorbed = Math.min(e.shield, dmg);
@@ -394,15 +398,15 @@ export function applyDamage(s, ev, src, dst, raw, o = {}) {
     const key = src === 'pet' ? 'pet' : o.spell || 'other';
     s.stats.spellDmg[key] = (s.stats.spellDmg[key] || 0) + dealt;
   }
-  ev.push({ t: 'damage', src, dst, amount: dmg, absorbed, spell: o.spell, crit: !!o.crit, school: o.school, tick: !!o.tick });
+  ev.push({ t: 'damage', src, dst, amount: dmg, hpLost: dealt, absorbed, spell: o.spell, crit: !!o.crit, school: o.school, tick: !!o.tick });
   if (e.hp < 0) e.hp = 0;
   if (e.kind === 'boss') onBossDamaged(s, ev);
   if (e.hp <= 0) {
     enemyDeath(s, ev, dst);
-    return { amount: dmg, absorbed, killed: true };
+    return { amount: dmg, hpLost: dealt, absorbed, killed: true };
   }
   checkEnrage(s, ev, e);
-  return { amount: dmg, absorbed, killed: false };
+  return { amount: dmg, hpLost: dealt, absorbed, killed: false };
 }
 
 /** Template ability "enrage" (rules 12.4): once, passive, below 30 % HP the enemy deals +pct damage. */
@@ -417,13 +421,16 @@ function checkEnrage(s, ev, e) {
   }
 }
 
-/** Heal a unit (no rolls, no crit). Returns the amount restored. */
+/**
+ * Heal a unit (no rolls, no crit). Returns the amount restored. The heal event is sent only when HP is
+ * restored (amount > 0): a heal at full health sends none.
+ */
 export function healUnit(s, ev, u, amount, spell) {
-  if (amount <= 0) return 0;
+  if (!(amount > 0)) return 0;
   if (u === 'player') {
     const n = Math.min(amount, s.player.d.maxHp - s.player.hp);
     s.player.hp += n;
-    ev.push({ t: 'heal', dst: 'player', amount: n, spell });
+    if (n > 0) ev.push({ t: 'heal', dst: 'player', amount: n, spell });
     return n;
   }
   if (u === 'pet') {
@@ -431,14 +438,14 @@ export function healUnit(s, ev, u, amount, spell) {
     if (!pet || !pet.alive) return 0;
     const n = Math.min(amount, s.player.d.petMaxHp - pet.hp);
     pet.hp += n;
-    ev.push({ t: 'heal', dst: 'pet', amount: n, spell });
+    if (n > 0) ev.push({ t: 'heal', dst: 'pet', amount: n, spell });
     return n;
   }
   const e = s.fight.enemies[u];
   if (!e.alive) return 0;
   const n = Math.min(amount, e.maxHp - e.hp);
   e.hp += n;
-  ev.push({ t: 'heal', dst: u, amount: n, spell });
+  if (n > 0) ev.push({ t: 'heal', dst: u, amount: n, spell });
   return n;
 }
 
@@ -523,7 +530,7 @@ function playerDeath(s, ev, killer, spell) {
     if (p.d.maxMana) p.mana = rnd(RES_MANA_PCT * p.d.maxMana);
     dispersal(s, ev, 'player');
     s.stats.resUsed += 1;
-    ev.push({ t: 'resurrect', source });
+    ev.push({ t: 'resurrect', source, hp: p.hp, mana: p.mana });
     return;
   }
   f.over = 'death';

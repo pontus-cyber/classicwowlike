@@ -313,7 +313,7 @@ function cast(s, ev, id, tgt) {
     }
     case 'bloodprice_gambit': {
       const loss = Math.min(p.hp - 1, rnd(sp.hpCost * p.hp));
-      if (loss > 0) { p.hp -= loss; ev.push({ t: 'damage', src: 'player', dst: 'player', amount: loss, absorbed: 0, spell: id }); }
+      if (loss > 0) { p.hp -= loss; ev.push({ t: 'damage', src: 'player', dst: 'player', amount: loss, hpLost: loss, absorbed: 0, spell: id }); }
       addCp(s, sp.cpGain);
       gainResource(s, ev, sp.energy);
       break;

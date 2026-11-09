@@ -69,11 +69,13 @@ describe('rules 7 combat details', () => {
     s = tweak(s, (x) => {
       x.player.pet = null; tough(x); stunAll(x, 5); x.player.hp = 100;
       for (const e of x.fight.enemies) e.st.push({ id: 'BURN', src: 'living_flame', dur: 3, tick: 7 });
-      x.fight.p.st.push({ id: 'BLEED', src: 'rend', dur: 3, tick: 5 }, { id: 'HOT', src: 'field_dressing', dur: 3, tick: 4 });
+      // A HOT heals `amount` per tick (as Field Dressing sets it); DOTs use `tick`.
+      x.fight.p.st.push({ id: 'BLEED', src: 'rend', dur: 3, tick: 5 }, { id: 'HOT', src: 'field_dressing', dur: 3, amount: 4 });
     });
     const r = R.step(s, { type: 'PASS' });
     const order = r.events.filter((e) => (e.t === 'damage' && e.tick) || e.t === 'heal').map((e) => `${e.dst}`);
     assert.deepEqual(order, ['player', 'player', '0', '1']);
+    assert.equal(r.state.player.hp, 100 - 5 + 4);
   });
 
   test('7.2 heals use no random draws and never crit (Field Dressing: 12 % now, HOT 4 % for 3 rounds)', () => {

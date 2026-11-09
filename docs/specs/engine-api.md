@@ -1,7 +1,8 @@
 # Engine API (src/rules.js)
 
 Owner: Core Gameplay Engineer. Audience: UI/UX Engineer, Simulation & Balance Engineer, QA.
-Status: M1 1.1, 2026-11-09. Rules authority: docs/specs/rules.md (section numbers below refer to it).
+Status: M1 1.1, 2026-11-09; updated 2026-11-09b (rule helpers on the API, `hpLost`, `regen`, level-up gains,
+no heal events of 0, boss counters). Rules authority: docs/specs/rules.md (section numbers below refer to it).
 
 The engine is pure and seeded (D5): no DOM, no clock, no `Math.random`, no globals. ES modules (D13); Node
 runs `src/rules.js` directly and the browser loads the same files. Every number lives in `src/constants.js`
@@ -151,9 +152,9 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `action` | `kind` (`cast` `attack` `item` `pass` `flee` `skip`), `spell, target, cost, item, success` | player action |
 | `petAction` | `target` | |
 | `enemyAction` | `u, id, name` | an enemy performs its intent |
-| `damage` | `src, dst, amount, absorbed, spell, crit, school, tick, immune, sidestep` | `amount` = HP lost |
+| `damage` | `src, dst, amount, hpLost, absorbed, spell, crit, school, tick, immune, sidestep` | see "Damage amounts" below |
 | `miss` | `src, dst, spell, dodge` | miss or dodge |
-| `heal`, `mana` | `dst, amount, spell` / `amount, spell` | |
+| `heal`, `mana` | `dst, amount, spell` / `amount, spell` | `amount` = HP (mana) restored. A heal event is sent only when HP is restored (`amount > 0`): a potion, HOT tick or ration at full health sends none. |
 | `status` | `u, id, on, dur, stacks, src` | status applied (`on: true`) or removed |
 | `interrupt`, `skip` | `u, by` | cast interrupted / Chrono Sigil |
 | `channel` | `u, name, step` | boss Litany channel step |
@@ -161,12 +162,13 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `shield`, `enrage`, `image` | | enemy shield, enemy enrage, Mirrorshade image |
 | `phaseChange` | `phase` | boss phase 2 or 3 |
 | `death` | `u, name` | enemy, pet or player died |
-| `resurrect` | `source` (`boon` `second_breath` `ember`) | |
+| `resurrect` | `source` (`boon` `second_breath` `ember`), `hp, mana` | `hp`, `mana`: the player's values after the resurrect (RES_HP_PCT, RES_MANA_PCT) |
 | `xp` | `amount, rested, why` | |
-| `levelUp` | `level, talentPoint` | |
+| `levelUp` | `level, talentPoint, hpGain, manaGain, petHpGain, maxHp, maxMana, petMaxHp` | one per level gained. Current HP, mana and pet HP (live pet) rise by the max gains (rules 4.3); `*Gain` = what was added, `max*` = the new maxima (`maxMana` 0 without mana, `petMaxHp` 0 without a pet) |
 | `gold` | `amount, why` | negative when spent |
 | `loot` | `item, to` (`bag` or `window`) | |
 | `victory`, `fled` | `kind, rounds` | fight over |
+| `regen` | `pct, hpGain, manaGain, petHpGain` | post-fight regen (rules 4.2) after a won fight, right after `victory`: `pct` of each maximum, capped at the maximum; `*Gain` = what was restored. Not sent when nothing was restored (or after `fled`) |
 | `petRevive` | `hp, spell` | |
 | `questComplete`, `story`, `dungeonClear`, `dungeonLeft` | | |
 | `boon`, `trap`, `buffEnd` | `id, name` / `amount` / `id` | |
@@ -174,13 +176,29 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `bossStart` | `asc, hours, level` | |
 | `runEnd`, `echoes` | `outcome` / `total` | |
 
+**Damage amounts.** The pipeline rolls a hit (rules 7.2); absorbs come off it, in this order: IMMUNE (all),
+WARD or an enemy's shield, Mindguard, the Shared Wounds share (sent as its own `damage` event on the pet,
+`spell: 'shared_wounds'`).
+- `amount`: damage after absorbs, **not** capped at the HP the target had: the number to float. On a killing
+  blow it can exceed the HP left (overkill = `amount - hpLost`).
+- `hpLost`: HP the target actually lost, `min(amount, HP before)`. Use it to track HP; run stats
+  (`dmgDealt`, `spellDmg`) count it.
+- `absorbed`: taken by WARD, a shield or Mindguard (not part of `amount`). IMMUNE: `amount` 0, `hpLost` 0,
+  `immune: true`. Death's Sidestep: `amount` 0, `hpLost` 0, `absorbed` = the hit, `sidestep: true`.
+
+**Tracking the player's HP from events.** Within a step, from the HP before it: `- hpLost` (`damage` on
+`'player'`), `+ amount` (`heal` on `'player'`), `+ hpGain` (`levelUp`, `regen`), `= hp` (`resurrect`, `rest`),
+`- amount` (`trap`). A test checks this for every combat step of full runs (qa/engine/api-events.test.mjs).
+Out of combat, equipping, talents and Boon of Mending change HP without an HP field: read the state there.
+
 ## 6. Fight state and intents
 `state.fight = { kind, round, enemies[], canFlee, boss, p, pet }`.
 - `fight.p = { st[], cds{spellId: readyRound}, cp, energy, focus, potionReady, skip, ... }`: the player's
   statuses, cooldowns (usable when `round >= cds[id]`), combo points, energy/focus. Mana is `player.mana`.
 - `fight.pet.st[]`: pet statuses (TAUNT).
 - Enemy: `{ idx, tid, name, kind, arch, level, hp, maxHp, armor, dodge, st[], intent, alive, elite, boss, shield }`.
-- Status object: `{ id, dur (rounds left, null = no expiry), stacks, value, tick, src }`.
+- Status object: `{ id, dur (rounds left, null = no expiry), stacks, value, tick, amount, src }`: `tick` is the
+  damage per tick of BLEED, BURN and POISON; `amount` is the heal per tick of HOT and what is left of a WARD.
 
 Normal intent: `{ id, name, kind, target ('player'|'pet'|'all'|'self'|ally index), est (estimated damage or
 heal), cast (interruptible), heavy (telegraphed big hit), school, hits }`. Kinds: `hit`, `rend`, `cleave`,
@@ -191,6 +209,16 @@ Boss intent: `{ id: 'boss', kind: 'boss', actions: [...], cast, heavy, est, targ
 action is `{ id, name, kind, est, target, cast?, heavy?, step? }` (`umbral_strike`, `gravity_crush`,
 `collapse_litany` with `step` 1 or 2, `starless_pulse`, `final_dark`), and `telegraph = { crushNextRound,
 brandInRounds, litanyInRounds, shardsInRounds, pulseInRounds, enrageInRounds, phase }` (rules 10.3).
+
+Telegraph counters are rounds from the current round; 0 = this round:
+| Field | Meaning |
+|---|---|
+| `crushNextRound` | Gravity Crush is in next round's intent (phases 1-2) |
+| `brandInRounds` | rounds until the round whose end adds a BRAND stack (0: this round's end) |
+| `litanyInRounds` | rounds until a Collapse Litany channel starts (0: this round's intent has step 1) |
+| `shardsInRounds` | phase 2 only: rounds until the round that starts with a Shards wave (1: next round). `null` outside phase 2 and while SHARD_MAX Shards are alive (that wave would summon none); killing a Shard brings the countdown back |
+| `pulseInRounds` | phase 3 only: 0 when this round's intent has Starless Pulse, else rounds until the next Pulse |
+| `enrageInRounds` | rounds until Final Dark (BOSS_ENRAGE_ROUND) |
 
 ## 7. Randomness and replays
 Streams (rules 0): `map(z)`, `node(z,r,l)`, `fight(z,r,l,k)`, `loot(z,r,l)`, `boss` (`src/rng.js`, sfc32 seeded

@@ -653,10 +653,11 @@ function potionBonus(s) {
   return UNIQUE_POTION_PCT * hasEffect(s, 'potion');
 }
 
+/** Out-of-combat heal; like healUnit, no heal event when nothing is restored. */
 function healUnitOoc(s, ev, amount) {
   const p = s.player;
-  const n = Math.min(amount, p.d.maxHp - p.hp);
+  const n = Math.max(0, Math.min(amount, p.d.maxHp - p.hp));
   p.hp += n;
-  ev.push({ t: 'heal', dst: 'player', amount: n });
+  if (n > 0) ev.push({ t: 'heal', dst: 'player', amount: n });
 }
 

@@ -337,10 +337,16 @@ export function endFight(s, ev) {
   }
   if (outcome === 'victory') {
     const pct = p.d.regenPct;
+    const hp0 = p.hp;
+    const mana0 = p.mana;
+    const pet0 = p.pet ? p.pet.hp : 0;
     p.hp = Math.min(p.d.maxHp, p.hp + rnd(pct * p.d.maxHp));
     if (p.d.maxMana) p.mana = Math.min(p.d.maxMana, p.mana + rnd(pct * p.d.maxMana));
     if (p.pet) p.pet.hp = Math.min(p.d.petMaxHp, p.pet.hp + rnd(pct * p.d.petMaxHp));
     ev.push({ t: 'victory', kind: f.kind, rounds: f.round });
+    // Post-fight regen (rules 4.2), after the victory event; sent only when something was restored.
+    const gain = { hpGain: p.hp - hp0, manaGain: p.mana - mana0, petHpGain: p.pet ? p.pet.hp - pet0 : 0 };
+    if (gain.hpGain > 0 || gain.manaGain > 0 || gain.petHpGain > 0) ev.push({ t: 'regen', pct, ...gain });
   } else {
     ev.push({ t: 'fled', kind: f.kind });
   }
