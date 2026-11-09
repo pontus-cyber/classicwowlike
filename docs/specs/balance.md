@@ -22,13 +22,15 @@ All bots use the same engine and the autoplay combat policy (rules 7.9) unless s
 The tactician stands in for a skilled manual player who reads the intents (rules 7.1, 10.3). Each player turn it applies, in order (M2 v2):
 1. **Telegraph rules** (first match wins; all in every fight, including the end boss):
    - T1 Big hit: if the damage the intents announce for this round (heavy abilities, casts it cannot interrupt this turn, Litany 2/2, Gravity Crush, Starless Pulse) would leave the player below TACTICIAN_SAFE_HP of max HP, use the first that stops or absorbs it: an interrupt or stun-tagged spell on its source (if the source's hit is interruptible), a defensive-tagged spell that is not active, a healing item on the item bar.
-   - T2 Shards: in boss phase 2 with >= 2 living Shards, cast a usable aoe-tagged spell; with 1 living Shard whose HP is below the player's expected damage of one action, attack that Shard.
+   - T2 Shards: in boss phase 2 with >= 2 living Shards, cast a usable aoe-tagged spell (not for the Rogue: Whirling Edges breaks its builder/finisher cycle and measured -6 pp boss wins; the Rogue skips this clause) (M2 v3); with 1 living Shard whose HP is below the player's expected damage of one action, attack that Shard.
 2. **Otherwise**, in non-boss fights the search below; in the end-boss fight the autoplay policy (rules 7.9), which the search played worse [source: docs/reports/balance-2026-11-09.md, diagnostic cell tactician-P0-bossAuto].
 
 Search: for each legal action, simulate TACTICIAN_DEPTH rounds ahead on cloned state with autoplay continuation over TACTICIAN_SAMPLES sampled seeds (cloned streams, not the live stream) and pick the action with the best mean of `(enemy HP removed, summoned adds weighted TACTICIAN_ADD_WEIGHT) - TACTICIAN_HP_WEIGHT × (own HP lost) - TACTICIAN_DEATH_PENALTY × deaths`. (M2 v2)
 
 ### 1.1 Value function (greedy, planner)
-`value(node) = XP_in_levels × VAL_XP + expected item-score gain × VAL_GEAR + gold / V(L) × VAL_GOLD - hours × VAL_HOUR - P(death) × VAL_DEATH`. P(death) is estimated from the simulator's own running table of death rate by (node type, CL - L, HP fraction at entry), refreshed every SIM_RISK_REFRESH runs; before data exists use RISK_PRIOR by node type.
+`value(node) = XP_in_levels × VAL_XP + expected item-score gain × VAL_GEAR + gold / V(L) × VAL_GOLD - hours × VAL_HOUR × hourMult - P(death) × VAL_DEATH`. hourMult = 1 for the greedy; PLANNER_HOUR_MULT for the bots with lookahead (planner, tactician, and the speedrunner's tie-breaks), which see that hours past BOSS_TIME_PAR raise boss Ascendancy (rules 1.7); the speed route style multiplies on top (STYLE_SPEED_HOUR_MULT). (M2 v3)
+
+Resurrect awareness (M2 v3): when a bot ranks a Shrine boon or decides whether it already holds a resurrect, it counts only charges usable at the end boss (Boon of Return, Ember of Return); Second Breath does not work there (rules 9). P(death) is estimated from the simulator's own running table of death rate by (node type, CL - L, HP fraction at entry), refreshed every SIM_RISK_REFRESH runs; before data exists use RISK_PRIOR by node type.
 
 ### 1.2 Bar template
 Fill slots in this order with known spells: interrupt, main nuke/builder, finisher or second nuke, defensive, cleanse, AoE, then highest-damage remaining. At Camp the planner, speedrunner and tactician put interrupt and cleanse first.
@@ -104,10 +106,11 @@ Priority: P1 = must pass for M1 sign-off; P2 = should pass; P3 = report only.
 ### 3.5 Deaths and risk
 | ID | Metric | Target | How computed | Pri |
 |---|---|---|---|---|
-| B21 | Death location by stage (planner, P0, deaths only) | Z1-Z2 <= DEATH_EARLY_MAX; Z3-Z4 DEATH_MID band; Z5-Z6 DEATH_LATE band; boss DEATH_BOSS band | share of deaths | P1 |
+| B21 | Death location by stage (planner, P0) (M2 v3) | runs dying in Z1-Z2 <= DEATH_EARLY_MAX; in Z3-Z4 DEATH_MID band; in Z5-Z6 and Camp DEATH_LATE band; end boss DEATH_BOSS band | stage bands: share of all runs; boss: share of deaths | P1 |
 | B22 | Death by node type (planner, P0, non-boss deaths) | no type > DEATH_TYPE_MAX; dungeon share DEATH_DUNGEON band | share | P2 |
 | B23 | Boss phase reached on boss losses | phase 1 <= BOSS_P1_LOSS_MAX; phase 3 + enrage >= BOSS_LATE_LOSS_MIN | share of boss deaths | P2 |
-| B24 | Close fights | share of won non-boss fights ending below 20 % HP: CLOSE_FIGHT band | planner, P0 | P2 |
+| B24 | Close fights (M2 v3) | share of won non-boss fights whose lowest HP during the fight fell below CLOSE_FIGHT_HP: CLOSE_FIGHT band | planner, P0; lowest HP tracked over the fight (end HP hid the dips, since autoplay drinks at 35 %) | P2 |
+| B38 | Tension per zone (M2 v3) | mean lowest HP in won non-boss fights, per zone: max - min over Z2-Z5 <= TENSION_SPREAD_MAX; Z6 <= TENSION_Z6_MAX | planner, P0 | P1 |
 | B25 | Rests and potions | planner per run: rests (nodes + inn) REST_COUNT band; potions used POTION_COUNT band | counts | P3 |
 
 ### 3.6 Boss mechanics bite
@@ -141,6 +144,8 @@ Priority: P1 = must pass for M1 sign-off; P2 = should pass; P3 = report only.
 - If B4 fails, choices are too flat: widen elite/dungeon reward and risk before touching class power.
 - If B5 fails low, combat decisions do not matter: strengthen intents (heavy/cast frequency, mender heals) before raising damage. If it fails high, autoplay is too weak: improve 7.9 conditions.
 - If B10 fails high, cut stat-rank values in the catalogue before item unlocks.
+- Meta power budget (rules 11.2, M2 v3): a catalogue change that adds combat power must stay inside the budget; check B2, B3, B10 and B6 PALL after it. (M2 v3)
+- B21 and B38 (M2 v3): the planner avoids nodes its risk table rates deadly, so mid- and late-zone deaths stay a few % of runs by design; tension in zones 3-6 is measured by B38 (HP dips) and B24, deaths by share of runs. Tune B38 with ZONE_DANGER_STEP first. (M2 v3)
 
 ---
 
@@ -173,6 +178,7 @@ Priority: P1 = must pass for M1 sign-off; P2 = should pass; P3 = report only.
 | VAL_GOLD | 5 | points per V |
 | VAL_HOUR | 6 | points per hour |
 | VAL_DEATH | 2000 | points |
+| PLANNER_HOUR_MULT | 2 | × VAL_HOUR (planner, tactician, speedrunner) | (M2 v3)
 | SIM_RISK_REFRESH | 500 | runs |
 | RISK_PRIOR | quest 0.005, grind 0.004 per wave, elite 0.03, dungeon 0.05, treasure 0.002 | probability |
 | WR_P0_RANDOM_MAX | 0.03 | rate |
@@ -218,15 +224,18 @@ Priority: P1 = must pass for M1 sign-off; P2 = should pass; P3 = report only.
 | ILVL_BOSS | 55-62 | item level |
 | RARE_SHARE_MIN | 0.50 | share |
 | ZONE_LVL_SLACK | 1 | levels |
-| DEATH_EARLY_MAX | 0.15 | share |
-| DEATH_MID | 0.20-0.35 | share |
-| DEATH_LATE | 0.20-0.35 | share |
-| DEATH_BOSS | 0.25-0.45 | share |
+| DEATH_EARLY_MAX | 0.12 | share of runs | (M2 v3: was 0.15 of deaths)
+| DEATH_MID | 0.03-0.10 | share of runs | (M2 v3: was 0.20-0.35 of deaths)
+| DEATH_LATE | 0.02-0.08 | share of runs | (M2 v3: was 0.20-0.35 of deaths)
+| DEATH_BOSS | 0.55-0.80 | share of deaths | (M2 v3: was 0.25-0.45)
 | DEATH_TYPE_MAX | 0.45 | share |
 | DEATH_DUNGEON | 0.15-0.35 | share |
 | BOSS_P1_LOSS_MAX | 0.25 | share |
 | BOSS_LATE_LOSS_MIN | 0.40 | share |
-| CLOSE_FIGHT | 0.05-0.15 | share |
+| CLOSE_FIGHT | 0.04-0.12 | share | (M2 v3: was 0.05-0.15 at end HP < 20 %)
+| CLOSE_FIGHT_HP | 0.35 | of max HP | (M2 v3)
+| TENSION_SPREAD_MAX | 0.10 | HP fraction | (M2 v3)
+| TENSION_Z6_MAX | 0.85 | HP fraction | (M2 v3)
 | REST_COUNT | 6-12 | rests |
 | POTION_COUNT | 8-20 | potions |
 | MECH_RATIO_MAX | 0.60 | ratio |
