@@ -1,0 +1,3 @@
+# build output (tools/build.mjs); the Lead builds game.html at the repo root
+dist/
+node_modules/
