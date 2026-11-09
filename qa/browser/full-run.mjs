@@ -169,6 +169,21 @@ async function playOne(browser, W, H, cls) {
     for (let attempt = 0; ; attempt++) {
       try {
         await first.waitFor({ state: 'visible', timeout: CLICK_TIMEOUT });
+        // A control clipped by a scrolling panel is invisible until the player scrolls: a layout finding for a
+        // primary button (the one a screen is about), a note for anything else (long lists scroll by design).
+        const clip = await first.evaluate((el) => {
+          const r = el.getBoundingClientRect();
+          for (let p = el.parentElement; p; p = p.parentElement) {
+            if (!/(auto|scroll|hidden)/.test(getComputedStyle(p).overflowY)) continue;
+            const pr = p.getBoundingClientRect();
+            if (r.top < pr.top - 1 || r.bottom > pr.bottom + 1) return { panel: p.className.split(' ').slice(0, 3).join('.'), primary: el.matches('.btn.primary') };
+          }
+          return null;
+        }).catch(() => null);
+        if (clip) {
+          const msg = `${label}: hidden in a scrolling panel (${clip.panel}); visible only after scrolling`;
+          if (clip.primary) { if (!res.layout.includes(msg)) res.layout.push(msg); } else if (!res.notes.includes(msg)) res.notes.push(msg);
+        }
         await first.scrollIntoViewIfNeeded({ timeout: CLICK_TIMEOUT });
         const box = await first.boundingBox();
         if (!box || box.x < -1 || box.y < -1 || box.x + box.width > W + 1 || box.y + box.height > H + 1) {
@@ -388,7 +403,9 @@ async function playOne(browser, W, H, cls) {
       v = await view();
       if (v.phase === 'SUMMARY' || s.phase === 'SUMMARY') break;
       await checkLayout(screenKind(v));
-      const d0 = compare(v, s);
+      // While the game plays a fight on autoplay the twin lags behind until the fight ends; compare after it.
+      const autoFight = s.fight && autoplay && !autoplayBroken && !(v.node && v.node.step === 'intro');
+      const d0 = autoFight ? [] : compare(v, s);
       if (d0.length) { res.divergences.push({ step, before: 'next action', diffs: d0.slice(0, 12), phase: s.phase }); break; }
       // Presentation windows that do not change the engine state.
       if (v.loot && v.loot.kind === 'loot' && !(s.loot && s.loot.length)) {

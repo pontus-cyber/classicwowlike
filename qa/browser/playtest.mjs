@@ -30,7 +30,9 @@ export function playRun({ classId, petId = 'ridgewolf', seed, name = 'Qa', manua
   const rec = {
     classId, seed, zones: [], deaths: null, rewardChoices: 0, emptyRewardChoices: 0, shrines: 0, grindWaves: [], potionsBought: 0,
     fleeTries: 0, interrupts: 0, manualRounds: 0, autoRounds: 0, nodeTypes: {}, hpAtNodeEntry: [], closeCalls: 0, actions: 0,
+    firstNewSpellLevel: null, barAtZ1End: null, hubTrainer: { visits: 0, short: 0 }, fatalFight: null,
   };
+  let fightStart = null;
   let zoneStart = { z: 1, hours: 0, level: 1 };
   let autoplayOn = false;
   let n = 0;
@@ -43,6 +45,16 @@ export function playRun({ classId, petId = 'ridgewolf', seed, name = 'Qa', manua
     const a = playerAction(s, { manual: inManualZone || !s.fight ? true : false });
     if (!a) break;
     const before = s;
+    if (s.fight && s.fight.round === 1) fightStart = { enemies: s.fight.enemies.length, levelDiff: Math.max(...s.fight.enemies.map((e) => e.level)) - s.player.level, hp: s.player.hp / s.player.d.maxHp, kind: s.fight.kind };
+    if (a.type === 'SERVICE' && a.service === 'trainer') {
+      // Can the gold pay for learning and training everything (rules 1.8 "spells vs gold")?
+      const p = s.player;
+      const V = (L) => Math.round(C.VALUE_BASE + C.VALUE_COEF * L ** C.VALUE_EXP);
+      let cost = 0;
+      for (const sp of Object.values(C.SPELL)) if (sp.cls === p.classId && sp.source === 'class' && !p.spells[sp.id] && sp.lvl <= p.level) cost += Math.round(C.TRAIN_NEW_V * V(sp.lvl));
+      cost += Object.entries(p.spells).filter(([id, k]) => C.SPELL[id].source !== 'talent' && k.tl < p.level).length * Math.round(C.TRAIN_RANK_V * V(p.level));
+      if (cost > 0) { rec.hubTrainer.visits++; if (p.gold < cost) rec.hubTrainer.short++; }
+    }
     if (s.fight) { if (inManualZone) rec.manualRounds++; else rec.autoRounds++; }
     if (a.type === 'FLEE') rec.fleeTries++;
     if (a.type === 'CHOOSE_NODE') {
@@ -63,6 +75,8 @@ export function playRun({ classId, petId = 'ridgewolf', seed, name = 'Qa', manua
     s = r.state;
     rec.actions++;
     for (const e of r.events) {
+      if (e.t === 'learn' && rec.firstNewSpellLevel === null && C.SPELL[e.spell].lvl > 1) rec.firstNewSpellLevel = before.player.level;
+      if ((e.t === 'travel' || e.t === 'camp') && zoneStart.z === 1) rec.barAtZ1End = before.player.bar.filter(Boolean).length;
       if (e.t === 'interrupt') rec.interrupts++;
       if (e.t === 'victory' && s.player.hp < 0.2 * s.player.d.maxHp) rec.closeCalls++;
       if (e.t === 'travel' || e.t === 'camp') {
@@ -79,7 +93,10 @@ export function playRun({ classId, petId = 'ridgewolf', seed, name = 'Qa', manua
   rec.minutes = sm.minutes;
   rec.reached = sm.reached;
   rec.summary = sm;
-  if (s.death) rec.deaths = { zone: s.death.zone, camp: !!s.death.camp, row: s.death.row, node: s.death.nodeType, fight: s.death.fightIndex, round: s.death.round, killer: s.death.killer };
+  if (s.death) {
+    rec.deaths = { zone: s.death.zone, camp: !!s.death.camp, row: s.death.row, node: s.death.nodeType, fight: s.death.fightIndex, round: s.death.round, killer: s.death.killer };
+    rec.fatalFight = fightStart;
+  }
   rec.finalState = s;
   return rec;
 }
@@ -117,5 +134,22 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const rc = all.reduce((n, r) => n + r.rewardChoices, 0);
   const er = all.reduce((n, r) => n + r.emptyRewardChoices, 0);
   console.log(`quest reward choices ${rc}, with no upgrade among the options ${er} (${Math.round((100 * er) / Math.max(1, rc))} %)`);
+  const med = (a) => { const b = a.filter((x) => x != null).sort((x, y) => x - y); return b.length ? b[b.length >> 1] : null; };
+  for (const c of CLASSES) {
+    const rs = all.filter((r) => r.classId === c);
+    const boss = rs.filter((r) => r.reached && r.reached.camp);
+    const lv = [1, 2, 3, 4, 5, 6].map((z) => med(rs.map((r) => (r.zones.find((q) => q.z === z) || {}).levelOut)));
+    const tv = rs.reduce((n, r) => n + r.hubTrainer.visits, 0);
+    const ts = rs.reduce((n, r) => n + r.hubTrainer.short, 0);
+    const nodes = rs.reduce((m, r) => { for (const [k, v] of Object.entries(r.nodeTypes)) m[k] = (m[k] || 0) + v; return m; }, {});
+    console.log(`${c}: boss ${boss.length}/${rs.length}; boss runs: median ${med(boss.map((r) => r.summary.rounds))} rounds, ${med(boss.map((r) => r.hours))} h, ~${Math.round(med(boss.map((r) => r.minutes.manual)) || 0)} min manual, ~${Math.round(med(boss.map((r) => r.minutes.autoplay)) || 0)} min autoplay`);
+    console.log(`   level when leaving zones 1-6: ${lv.join(', ')}; first spell above level 1 learned at level ${med(rs.map((r) => r.firstNewSpellLevel))}; spells on the bar leaving zone 1: ${med(rs.map((r) => r.barAtZ1End))}`);
+    console.log(`   trainer visits where gold could not pay for everything: ${ts}/${tv}; elites entered ${nodes.elite || 0}, dungeons ${nodes.dungeon || 0}, trainer nodes ${nodes.trainer || 0}`);
+  }
+  const z1q = all.filter((r) => r.deaths && r.deaths.zone === 1 && !r.deaths.camp && r.deaths.node === 'quest' && r.fatalFight);
+  if (z1q.length) {
+    const cnt = (f) => z1q.reduce((m, r) => { const k = f(r.fatalFight); m[k] = (m[k] || 0) + 1; return m; }, {});
+    console.log(`zone 1 quest deaths ${z1q.length}: enemies ${JSON.stringify(cnt((x) => x.enemies))}, levels above the player ${JSON.stringify(cnt((x) => x.levelDiff))}, HP at the start ${JSON.stringify(cnt((x) => (x.hp >= 0.6 ? '>=60%' : '<60%')))}`);
+  }
   if (JSON_OUT) writeFileSync(JSON_OUT, JSON.stringify(all.map((r) => ({ ...r, summary: undefined })), null, 1));
 }

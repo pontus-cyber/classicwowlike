@@ -59,3 +59,21 @@ Status: open unless marked.
 - Steps: zone 1 map at level 1.
 - Expected: Rest, Vendor, Trainer and Shrine labels in a neutral colour (they hold no fight).
 - Actual: their labels use the content-level colour, so a Shrine or Trainer in row 5 shows red like a hard fight.
+
+## BUG-QA-09 · trivial · The minimap clock keeps the same day past midnight
+- Build: f973648, 5b3e929.
+- Steps: play past 18 in-game hours and watch the clock under the minimap.
+- Expected: Day 2 starts at midnight ("Day 1, 23:00" is followed by "Day 2, 00:00").
+- Actual: "Day 1, 23:00" (17 h) is followed by "Day 1, 00:00" and "Day 1, 02:00" (20 h); the day number changes at 06:00. Cause: src/ui/util.js hoursText counts days from hour 0 but shows the time from 06:00.
+
+## BUG-QA-10 · major · The camp hides "Face Oruvath" below the fold
+- Build: f973648, 5b3e929; 1366x768 and 1920x1080.
+- Steps: reach the camp (Observatory Steps) and look at the camp panel.
+- Expected: the button that starts the boss fight, the time and the Boss Ascendancy line are visible.
+- Actual: the panel shows the four service cards; the time, Ascendancy, level lines and "Face Oruvath" sit below the panel's visible area (button at y 690-730 inside a panel that ends at 618 at 1366x768; 969-1025 inside 869 at 1920x1080). The panel scrolls (`.side`, max-height calc(100vh - 36rem)), but no scrollbar shows in Chromium's screenshots, so nothing tells the player how to start the fight or what the hours cost. Screenshot: docs/handoffs/qa-screens/1920-camp-no-boss-button.jpg. The browser run found it only by scrolling to click; full-run.mjs now flags a primary button that is hidden in a scrolling panel.
+
+## BUG-QA-11 · minor · The bag item menu runs off the right edge at 1920x1080
+- Build: 5b3e929; 1920x1080 (fine at 1366x768).
+- Steps: open the bags (B), click an item in one of the right-hand columns.
+- Expected: the menu (Equip, Use, Put on item slot, Discard) lies inside the window.
+- Actual: the menu is 212 px wide at this size and starts at x = 1727, so its right 19 px are cut off (seen 8 times in the 1920x1080 Rogue run). Cause: src/ui/windows.js clamps the left edge to `innerWidth - 200` px, but the menu's width grows with the UI scale (rem).
