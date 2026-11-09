@@ -223,6 +223,8 @@ export class Director {
     } finally {
       ctx.ui.overlay = false;
       this.token = null;
+      // the run summary must be readable as soon as it appears: no banner over it
+      if (next.phase === 'SUMMARY' && prev.phase !== 'SUMMARY') ctx.ui.hideBanner();
       ctx.setShown(next);
     }
   }

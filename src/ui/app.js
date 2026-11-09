@@ -28,7 +28,7 @@ export class App {
       get playing() { return app.director.playing; },
       setTarget: (idx) => { ui.target = idx; app.scene.target = idx == null ? null : `enemy:${idx}`; app.queueRender(); },
       retarget: (v) => app.retarget(v),
-      toast: (t, k) => app.toast(t, k), banner: (a, b, k, ms) => app.banner(a, b, k, ms),
+      toast: (t, k) => app.toast(t, k), banner: (a, b, k, ms) => app.banner(a, b, k, ms), hideBanner: () => app.hideBanner(),
       toggleWin: (n) => app.windows.toggle(n), closeWin: (n) => app.windows.close(n), openWin: (n) => app.windows.open(n),
       attack: () => app.combatAct((t) => ({ type: 'ATTACK', target: t })),
       castSlot: (i) => { const id = app.shown.player && app.shown.player.bar[i]; if (id) { app.hud.flashSlot(i); app.combatAct((t) => ({ type: 'CAST', spellId: id, target: t })); } },
@@ -259,6 +259,7 @@ export class App {
     clearTimeout(this.bannerT);
     this.bannerT = setTimeout(() => { b.className = kind; }, settings.instant ? Math.min(ms, 1200) : ms / Math.max(1, Math.min(2, settings.get('speed'))));
   }
+  hideBanner() { clearTimeout(this.bannerT); this.bannerEl.classList.remove('on'); }
   toast(text, kind = '') {
     const t = h('div.toast' + (kind ? '.' + kind : ''), text);
     this.toasts.appendChild(t);
