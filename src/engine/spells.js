@@ -533,6 +533,28 @@ function twinFangs(s, ev, tgt, res, b, o) {
   if (nextFloat(f.rng) < rank * TALENT.r_a7.chance && f.enemies[tgt].alive) pHit(s, ev, tgt, b * TALENT.r_a7.frac, o);
 }
 
+/** Base amount of a spell for tooltips (before level, target, crit and variance modifiers). */
+export function spellAmount(s, id) {
+  const sp = SPELL[id];
+  const tl = s.player.spells[id] ? spellTl(s, id) : s.player.level;
+  const cp = s.fight ? Math.max(1, s.fight.p.cp) : 1;
+  if (sp.dot) return { kind: 'dot', perTick: rnd(base(s, sp.dot, tl, cp)), rounds: sp.dot.rounds, school: sp.dot.status === 'BURN' ? 'fire' : 'phys' };
+  if (sp.ward) return { kind: 'ward', amount: rnd(base(s, sp.ward, tl)), rounds: sp.rounds };
+  if (sp.heal) return { kind: 'heal', amount: rnd(base(s, sp.heal, tl)) };
+  if (sp.healPct) return { kind: 'heal', amount: rnd(sp.healPct * s.player.d.maxHp) };
+  if (sp.gjFrac) return { kind: 'damage', amount: rnd(sp.gjFrac * gjAmount(s)), hits: sp.hits, school: 'phys' };
+  if (sp.school && (sp.b || sp.p || sp.w)) return { kind: 'damage', amount: rnd(base(s, sp, tl, cp)), hits: sp.hits || 1, school: sp.school, perCp: !!sp.perCp };
+  return null;
+}
+
+/** FLEE success chance now (rules 7.8). */
+export function fleeChance(s) {
+  const f = s.fight;
+  if (!f || !f.canFlee) return 0;
+  if (hasSt(f.p.st, 'STEALTH')) return 1;
+  return Math.max(0, FLEE_BASE - FLEE_PER_EXTRA_ENEMY * (livingEnemies(s).length - 1));
+}
+
 // ---------------- Items ----------------
 function useItem(s, ev, id) {
   const f = s.fight;

@@ -12,8 +12,8 @@
 // and serialize() leaves out. ES modules; runs in Node and in the browser (D13).
 //
 // Also exported: validateContent, newProfile, metaOffers, buyMeta, mapView, isLegal, whyIllegal, stepInPlace,
-// IllegalActionError, display helpers (xpToNext, talentPointsFree, itemScore, spellCost, spellCooldown) and
-// every constant via `C`.
+// IllegalActionError, display helpers (xpToNext, talentPointsFree, itemScore, spellCost, spellCooldown,
+// spellInfo, fleeChance) and every constant via `C`.
 import * as C from './constants.js';
 import { normaliseSeed } from './rng.js';
 import { cloneState, deepClone, deepFreeze, IllegalActionError } from './engine/util.js';
@@ -26,7 +26,7 @@ import { availablePets } from './engine/nodes.js';
 import { nextLanes } from './engine/map.js';
 import { xpToNext, talentPointsFree as freePoints } from './engine/progress.js';
 import { itemScore } from './engine/items.js';
-import { spellCost as cost, spellCd } from './engine/spells.js';
+import { spellCost as cost, spellCd, spellAmount, fleeChance as flee, castError } from './engine/spells.js';
 
 export const STATE_VERSION = 1;
 export { C, validateContent, newProfile, metaOffers, buyMeta, applyRunToProfile, IllegalActionError, xpToNext, itemScore };
@@ -44,6 +44,31 @@ export function spellCost(state, spellId) {
 /** Cooldown in rounds after talents. Rounds left in a fight: max(0, state.fight.p.cds[id] - state.fight.round). */
 export function spellCooldown(state, spellId) {
   return spellCd(state, spellId);
+}
+
+/**
+ * Tooltip data for a class spell: names, numbers and, in a fight, whether it can be cast on `target`.
+ * amount = base amount (before level, target, crit and variance modifiers); null for pure utility spells.
+ */
+export function spellInfo(state, spellId, target = null) {
+  const sp = C.SPELL[spellId];
+  if (!sp || !state.player || sp.cls !== state.player.classId) return null;
+  const known = state.player.spells[spellId] || null;
+  const f = state.fight;
+  return {
+    id: sp.id, name: sp.name, lvl: sp.lvl, tags: sp.tags.slice(), target: sp.target, source: sp.source,
+    resource: C.CLASS[sp.cls].resource, cost: cost(state, spellId), cd: spellCd(state, spellId),
+    cdLeft: f ? Math.max(0, (f.p.cds[spellId] || 0) - f.round) : 0,
+    tl: known ? known.tl : null, rank: known ? known.rank : 0, amount: spellAmount(state, spellId),
+    usable: f && known ? !castError(state, spellId, sp.target === 'enemy' ? target : null) : false,
+    reason: f && known ? castError(state, spellId, sp.target === 'enemy' ? target : null) : null,
+    text: (state.content.texts && state.content.texts.spells && state.content.texts.spells[spellId]) || null,
+  };
+}
+
+/** FLEE success chance in the current fight (rules 7.8); 0 when fleeing is not allowed. */
+export function fleeChance(state) {
+  return flee(state);
 }
 
 /**

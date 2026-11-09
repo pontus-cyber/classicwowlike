@@ -62,6 +62,10 @@ describe('rules 5.3 Rogue', () => {
     assert.equal(dmgTo(r.events, 0)[0].amount, want.amount);
     assert.equal(r.state.fight.p.cp, 1);
     assert.equal(r.state.fight.p.energy, C.ENERGY_MAX - 40 + C.ENERGY_REGEN);
+    const info = R.spellInfo(s, 'gutting_jab', 0);
+    assert.equal(info.amount.amount, Math.round(6 + 1.3 * tlOf(s, 'gutting_jab') + 0.55 * d.power + d.wd));
+    assert.equal(info.cost, 40);
+    assert.equal(info.usable, true);
     const m = act(s, { type: 'CAST', spellId: 'gutting_jab', target: 0 }, (x) => x[0] < 0.01);
     assert.equal(m.state.fight.p.cp, 0, 'no CP on a miss');
     assert.equal(m.state.fight.p.energy, C.ENERGY_MAX - 40 + C.ENERGY_REGEN, 'energy paid on a miss');

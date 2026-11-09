@@ -308,7 +308,9 @@ describe('rules 7.8 flee', () => {
       if (R.step(s, { type: 'FLEE' }).events.some((e) => e.t === 'action' && e.success)) ok++;
     }
     assert.ok(Math.abs(ok / N - (C.FLEE_BASE - 2 * C.FLEE_PER_EXTRA_ENEMY)) < 0.07, `rate ${ok / N}`);
+    assert.equal(R.fleeChance(setup('mage', 20, [], [mob(), mob('z1_beast'), mob('z1_skulker')])), C.FLEE_BASE - 2 * C.FLEE_PER_EXTRA_ENEMY);
     const stealth = setup('rogue', 20, [], [mob(), mob()], null, { stealth: true });
+    assert.equal(R.fleeChance(stealth), 1);
     const r = R.step(stealth, { type: 'FLEE' });
     assert.equal(r.state.phase, 'MAP');
     const boss = setup('mage', 20, [], [mob('z1_dboss', 9, 'dboss')], null, { kind: 'dboss' });

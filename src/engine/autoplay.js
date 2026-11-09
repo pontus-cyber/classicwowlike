@@ -179,7 +179,13 @@ function nextTalent(s) {
 
 function desiredBar(s) {
   const p = s.player;
-  const known = EA.AUTO_PICK[p.classId].filter((id) => p.spells[id]).slice(0, SPELL_BAR_SLOTS);
+  let pick = EA.AUTO_PICK[p.classId];
+  // At the Camp the boss bar puts interrupt and cleanse first (balance.md 1.2).
+  if (s.phase === 'CAMP') {
+    const key = pick.filter((id) => SPELL[id].tags.includes('interrupt') || SPELL[id].tags.includes('cleanse'));
+    pick = [...key, ...pick.filter((id) => !key.includes(id))];
+  }
+  const known = pick.filter((id) => p.spells[id]).slice(0, SPELL_BAR_SLOTS);
   const ordered = EA.AUTO_BAR_ORDER[p.classId].filter((id) => known.includes(id));
   while (ordered.length < SPELL_BAR_SLOTS) ordered.push(null);
   return ordered;
@@ -258,6 +264,7 @@ function vendorPolicy(s) {
   const want = [
     ['healing_draught', EA.AUTO_POTION_STOCK],
     ...(p.classId === 'mage' ? [['mana_draught', EA.AUTO_MANA_STOCK]] : []),
+    ...(s.phase === 'CAMP' ? [['purifying_tonic', EA.AUTO_TONIC_STOCK]] : []),
     ['trail_rations', EA.AUTO_RATION_STOCK],
     ['ember_of_return', 1],
   ];
