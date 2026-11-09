@@ -51,6 +51,7 @@ Status: open unless marked.
 - Expected: `tl` = 44 (rules 5.2: talent spells always use tl = L; the engine does use 44 for damage).
 - Actual: `tl` = 42 (the level the talent was taken). The amount is right; only the reported tl is stale. No UI text shows it today.
 - Test: qa/rules/r04-r07-character-combat.test.mjs (todo).
+- Status: fixed in 5ee0d83.
 
 ## BUG-QA-07 · minor · Boss telegraph counters: Pulse and Shards
 - Build: source a4ed861.
@@ -58,6 +59,7 @@ Status: open unless marked.
 - Expected: like Litany and Brand ("this round" on the round it happens), and a Shards countdown only for a wave that will come.
 - Actual: (a) on a round whose intent includes Starless Pulse, `pulseInRounds` already counts to the next Pulse, so the boss frame reads "Pulse in 3" while the Pulse lands this round. (b) with SHARD_MAX Shards alive, the Shards counter still counts down to "next round" and then resets with no Shards.
 - Tests: qa/rules/r10-boss.test.mjs (two todo tests).
+- Status: fixed in a6f2564.
 
 ## BUG-QA-08 · trivial · Map labels of non-combat nodes are coloured as if dangerous
 - Build: f973648, 5b3e929.
