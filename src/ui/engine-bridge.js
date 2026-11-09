@@ -26,6 +26,7 @@
 //              cooldowns: { spellId: roundsLeft }, potionCd, kind, isBoss, boss: { phase, asc, telegraph }, over, title, fightNo, fights }
 //   loot:    { kind: 'loot'|'reward'|'story', title, text?, gold, xp, items?, choices? }
 //   summary: run summary (rules.md 9)
+//   camp:    { par, asc } at the camp (asc: the engine's Ascendancy if the boss were faced now), else null
 //   legal:   { lanes, travelOn, mustTravel, outOfCombat, spells: { id: { ok, reason, cd } }, items: [{ ok, reason, count, cd }],
 //              attack, flee, fleeChance?, services, talents, trainer }
 // Events: { t: 'damage'|'heal'|'action'|'status'|'death'|'interrupt'|'skip'|'xp'|'levelUp'|'victory'|'flee'|'resurrect'|'bossPhase'|'summon'|... }
@@ -44,7 +45,10 @@ function mockBackend(seed) {
   let state = mock.createState({ seed });
   return {
     mode: 'mock', data: mock.data, canDebug: true,
-    view() { return { ...state, legal: state.player ? mock.legalInfo(state) : { lanes: [], services: {}, items: [], spells: {} }, mode: 'mock' }; },
+    view() {
+      const camp = state.phase === 'CAMP' ? { par: 130, asc: Math.min(0.4, 0.04 * Math.floor(Math.max(0, state.hours - 130) / 10)) } : null; // mock numbers
+      return { ...state, camp, legal: state.player ? mock.legalInfo(state) : { lanes: [], services: {}, items: [], spells: {} }, mode: 'mock' };
+    },
     step(action) {
       const r = mock.step(state, action);
       if (r.ok) state = r.state;
@@ -293,6 +297,10 @@ function engineBackend(seedOpt) {
   function dryCost(s, action) {
     try { const r = R.step(s, action); return s.player.gold - r.state.player.gold; } catch { return null; }
   }
+  /** The boss's Ascendancy if the player faced it now: read from a dry FIGHT_BOSS step, not recomputed here. */
+  function dryBossAsc(s) {
+    try { const f = R.step(s, { type: 'FIGHT_BOSS' }).state.fight; return f && f.boss ? f.boss.asc : null; } catch { return null; }
+  }
   function trainerList(s, has) {
     const p = s.player;
     const list = Object.values(C.SPELL).filter((sp) => sp.cls === p.classId && (sp.source === 'class' || has('LEARN', (a) => a.spellId === sp.id)) && sp.source !== 'talent').sort((a, b) => a.lvl - b.lvl);
@@ -342,6 +350,7 @@ function engineBackend(seedOpt) {
     v.combat = convFight(s);
     v.loot = null;
     v.summary = v.phase === 'SUMMARY' ? convSummary(s) : null;
+    v.camp = s.phase === 'CAMP' && !s.fight && !s.service ? { par: C.BOSS_TIME_PAR, asc: dryBossAsc(s) } : null;
     if (v.phase === 'CAMP' && s.fight) v.phase = 'NODE';
     if (v.node && v.node.step === 'intro' && s.fight) v.combat = null; // the intro dialog is read before the fight is shown
     const win = (s.loot || []).map((it) => item(it, s.player.classId, { pending: true }));

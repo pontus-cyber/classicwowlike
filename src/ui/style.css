@@ -349,12 +349,17 @@ button { font-family: inherit; }
 .vendor-cols .list { padding: .2rem .2rem; }
 .vendor-cols h3 { margin: 0 0 .6rem; font: 600 1.4rem var(--font-title); color: var(--gold); }
 
-/* hub / camp */
-.side { position: absolute; right: 2rem; top: 21rem; width: 44rem; max-height: calc(100vh - 36rem); overflow-y: auto; scrollbar-width: thin; }
-.svc-card { display: flex; align-items: center; gap: 1.1rem; padding: .9rem; border-radius: .5rem; background: rgba(0, 0, 0, .32); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); cursor: pointer; transition: background .15s, box-shadow .15s; }
+/* hub / camp: the body scrolls if it must; the footer with the main button always stays in view */
+.side { position: absolute; right: 2rem; top: 21rem; width: 44rem; max-height: calc(100vh - 36rem); display: flex; flex-direction: column; }
+.side > .wtitle { flex: none; }
+.side > .body { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #5a4628 transparent; }
+.side > .sfoot { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 1.2rem; padding: .8rem 1.6rem 1.1rem; border-top: 1px solid rgba(208, 170, 96, .25); }
+.side > .sfoot .kv { flex: 1 1 auto; min-width: 0; gap: .2rem 1rem; font-size: 1.2rem; }
+.side > .sfoot .btn { flex: none; white-space: nowrap; }
+.svc-card { display: flex; align-items: center; gap: 1rem; padding: .6rem .8rem; border-radius: .5rem; background: rgba(0, 0, 0, .32); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); cursor: pointer; transition: background .15s, box-shadow .15s; }
 .svc-card:hover { background: rgba(60, 46, 26, .55); box-shadow: inset 0 0 0 1px rgba(236, 198, 110, .7); }
 .svc-card.used { opacity: .45; cursor: default; }
-.svc-card img { width: 5rem; height: 5rem; border-radius: .5rem; border: 1px solid #000; }
+.svc-card img { width: 4rem; height: 4rem; border-radius: .5rem; border: 1px solid #000; }
 .svc-card .nm { font: 700 1.45rem var(--font-ui); }
 .svc-card .meta { font-size: 1.15rem; color: var(--ink-dim); }
 .svc-card .hrs { margin-left: auto; font: 700 1.2rem var(--font-num); color: var(--gold); white-space: nowrap; }

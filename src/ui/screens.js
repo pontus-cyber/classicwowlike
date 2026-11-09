@@ -139,30 +139,30 @@ function buildHub(v, ctx) {
     svcCard('vendor', 'earth', 'Vendor', 'Potions, rations and gear', '1 h', used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' })),
     svcCard('rest', 'fire', 'Inn', 'Full rest and rested experience', '4 h', used.inn, () => ctx.act({ type: 'HUB_SERVICE', service: 'inn' })));
   if (p.talentPoints) body.appendChild(h('div.warn', { style: { fontSize: '1.25rem' } }, `You have ${p.talentPoints} unspent talent point${p.talentPoints > 1 ? 's' : ''}. Press N.`));
-  const go = h('button.btn.primary.big', { style: { marginTop: '.6rem' } }, 'Set out');
+  const go = h('button.btn.primary.big', 'Set out');
   go.addEventListener('click', () => ctx.act({ type: 'LEAVE_HUB' }));
-  body.append(h('div.row', { style: { justifyContent: 'space-between' } }, h('span.muted', `Day clock: ${v.hours} h`), go));
-  el.appendChild(body);
+  el.append(body, h('div.sfoot', h('span.muted', `Day clock: ${v.hours} h`), go));
   return el;
 }
 
 function buildCamp(v, ctx) {
-  const z = v.zone; const p = v.player; const used = (v.hub && v.hub.used) || {};
-  const asc = Math.min(0.4, 0.04 * Math.floor(Math.max(0, v.hours - 130) / 10));
+  const z = v.zone; const used = (v.hub && v.hub.used) || {};
+  const asc = v.camp ? v.camp.asc : null; // the engine's Ascendancy if the boss were faced now
   const el = h('div.side.panel');
   el.append(h('div.wtitle', h('div', h('div.title', { style: { fontSize: '2.4rem' } }, z.hubName), h('div.subtitle', `${z.name} · the final camp`))));
-  const body = h('div.body.col', { style: { padding: '1.2rem 1.6rem 1.6rem', gap: '.8rem' } });
+  const body = h('div.body.col', { style: { padding: '1rem 1.6rem 1.2rem', gap: '.6rem' } });
   body.appendChild(h('div', { style: { font: 'italic 1.4rem var(--font-title)', color: 'var(--ink-dim)' } }, z.blurb || ''));
   body.append(
     svcCard('tome', 'arcane', 'Trainer', 'Last chance to train', '1 h', used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' })),
     svcCard('vendor', 'earth', 'Quartermaster', 'Level 60 stock', '1 h', used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' })),
     svcCard('rest', 'fire', 'Campfire', 'Full rest before the fight', '4 h', used.inn, () => ctx.act({ type: 'HUB_SERVICE', service: 'inn' })),
     svcCard('grind', 'steel', 'Camp wave', 'Fight a wave of level 58 enemies', '1 h', false, () => ctx.act({ type: 'CAMP_GRIND' })));
-  body.appendChild(h('dl.kv', h('dt', 'Time'), h('dd', `${v.hours} h (par 130 h)`), h('dt', 'Boss Ascendancy'), h('dd', { class: asc > 0 ? 'bad' : 'good' }, asc > 0 ? `+${Math.round(asc * 100)} % health and damage` : 'None: you are on time'), h('dt', 'Your level'), h('dd', `${p.level}`)));
+  const par = v.camp && v.camp.par ? ` (par ${v.camp.par} h)` : '';
+  const kv = h('dl.kv', h('dt', 'Time'), h('dd', `${v.hours} h${par}`), h('dt', 'Ascendancy'),
+    asc == null ? h('dd.muted', 'Unknown') : h('dd', { class: asc > 0 ? 'bad' : 'good' }, asc > 0 ? `+${Math.round(asc * 100)} % health and damage` : 'None: you are on time'));
   const go = h('button.btn.primary.big', 'Face Oruvath');
   go.addEventListener('click', () => ctx.act({ type: 'FIGHT_BOSS' }));
-  body.appendChild(h('div.row', { style: { justifyContent: 'flex-end' } }, go));
-  el.appendChild(body);
+  el.append(body, h('div.sfoot', kv, go));
   return el;
 }
 
