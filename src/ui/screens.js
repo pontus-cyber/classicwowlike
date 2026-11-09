@@ -7,6 +7,14 @@ import { tip, itemTip, spellTip } from './tooltip.js';
 import { conColor, heroPortrait } from './hud.js';
 
 const NODE_NAME = { quest: 'Quest', grind: 'Grind', elite: 'Elite', dungeon: 'Dungeon', rest: 'Rest', vendor: 'Vendor', trainer: 'Trainer', treasure: 'Treasure', shrine: 'Shrine' };
+const NO_FIGHT = new Set(['rest', 'vendor', 'trainer', 'shrine']); // nodes that hold no fight: labels in a neutral colour
+const NEUTRAL = '#f0e0c0';
+/** "Skulker, 2 × Caster" from one name per enemy. */
+function nameGroups(names) {
+  const counts = new Map();
+  for (const nm of names) counts.set(nm, (counts.get(nm) || 0) + 1);
+  return [...counts.entries()].map(([nm, k]) => (k > 1 ? `${k} × ${nm}` : nm)).join(', ');
+}
 const NODE_DESC = {
   quest: 'A quest giver needs help. One fight, then experience, gold and a choice of two rewards. Three quests in a zone complete its story.',
   grind: 'Fight 1 to 3 waves of two enemies. Steady experience, gold and more drops.',
@@ -210,7 +218,7 @@ export function buildMap(v, ctx, readOnly) {
     const here = z.pos.row === r && z.pos.lane === l;
     const closed = !n.visited && !reach && r <= z.pos.row;
     const el = h('button.mnode' + (reach ? '.reach' : '') + (n.visited ? '.visited' : '') + (here ? '.here' : '') + (closed ? '.closed' : ''), { style: { left: `${PX(r) / 10}%`, top: `${PY(l) / 10}%` }, 'aria-label': `${NODE_NAME[n.type]} level ${n.cl}`, dataset: { row: r, lane: l } },
-      h('div.ring', h('img', { src: nodeIcon(n.type), alt: '' })), h('div.cl', { style: { color: conColor(n.cl, p.level) } }, n.type === 'rest' || n.type === 'vendor' || n.type === 'trainer' || n.type === 'shrine' ? NODE_NAME[n.type] : `${NODE_NAME[n.type]} ${n.cl}`));
+      h('div.ring', h('img', { src: nodeIcon(n.type), alt: '' })), h('div.cl', { style: { color: NO_FIGHT.has(n.type) ? NEUTRAL : conColor(n.cl, p.level) } }, NO_FIGHT.has(n.type) ? NODE_NAME[n.type] : `${NODE_NAME[n.type]} ${n.cl}`));
     if (here) el.appendChild(flagSvg());
     if (reach) el.addEventListener('click', () => ctx.act({ type: 'CHOOSE_NODE', lane: l }));
     tip(el, () => nodeTip(n, v, ctx, reach));
@@ -234,11 +242,14 @@ function closeBtn(ctx, win) { const b = h('button.xbtn', '×'); b.addEventListen
 function nodeTip(n, v, ctx, reach) {
   const p = v.player;
   const box = h('div.tt-node');
-  box.appendChild(h('div.tt-row', h('div.tt-name', NODE_NAME[n.type] + (n.type === 'elite' && n.rare && n.rareVisible ? ' (rare)' : '')), h('div', { style: { color: conColor(n.cl, p.level), fontWeight: 800 } }, `Level ${n.cl}`)));
+  box.appendChild(h('div.tt-row', h('div.tt-name', NODE_NAME[n.type] + (n.type === 'elite' && n.rare && n.rareVisible ? ' (rare)' : '')), h('div', { style: { color: NO_FIGHT.has(n.type) ? NEUTRAL : conColor(n.cl, p.level), fontWeight: 800 } }, `Level ${n.cl}`)));
   if (n.type === 'quest') add(box, h('div.tt-line', { style: { color: '#ffd88a', fontWeight: 700 } }, n.title), h('div.tt-sub', `From ${n.giver}`));
   if (n.type === 'elite') add(box, h('div.tt-line', { style: { color: '#ffb08a', fontWeight: 700 } }, n.eliteName || 'An elite'), n.level ? h('div.tt-sub', `Elite level ${n.level}`) : null);
   if (n.type === 'dungeon') add(box, h('div.tt-line', { style: { color: '#c8a8ff', fontWeight: 700 } }, n.dungeon), h('div.tt-sub', `Boss: ${n.bossName}`));
-  if (n.enemyNames && n.enemyNames.length) box.appendChild(h('div.tt-sub', `Foes: ${n.enemyNames.join(', ')}`));
+  if (n.enemyNames && n.enemyNames.length) {
+    const k = n.enemyNames.length;
+    box.appendChild(h('div.tt-line.foes', `${n.type === 'grind' ? 'Wave 1: ' : 'Foes: '}${k} ${k === 1 ? 'enemy' : 'enemies'} (${nameGroups(n.enemyNames)})`));
+  }
   box.appendChild(h('div.tt-line.desc', NODE_DESC[n.type]));
   const hrs = ctx.data.nodeHours ? ctx.data.nodeHours[n.type] : null;
   if (hrs != null) box.appendChild(h('div.tt-sub', n.type === 'grind' ? `Takes ${hrs} h per wave` : `Takes ${hrs} h`));

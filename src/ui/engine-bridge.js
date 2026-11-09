@@ -170,7 +170,7 @@ function engineBackend(seedOpt) {
     const mv = R.mapView(s);
     const rows = mv ? mv.rows.map((row) => row.map((n) => {
       const out = { row: n.r, lane: n.l, type: n.type, cl: n.cl, visited: !!n.done, title: n.title, level: n.level };
-      if (n.archetypes) out.enemyNames = [...new Set(n.archetypes.map(TXT.humanize))];
+      if (n.archetypes) out.enemyNames = n.archetypes.map(TXT.humanize); // one entry per enemy (grind: the first wave)
       if (n.type === 'elite') { out.eliteName = n.name || null; out.rare = n.rare; }
       if (n.type === 'dungeon') { out.dungeon = n.name; out.bossName = zc && CONTENT.enemies[zc.dungeon.boss] ? CONTENT.enemies[zc.dungeon.boss].name : ''; }
       if (n.type === 'quest' && n.title) { const q = Object.values(CONTENT.quests).find((x) => x.title === n.title); if (q) out.giver = q.giver; }
