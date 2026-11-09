@@ -117,7 +117,7 @@ Boss HP (incl. adds) and all boss damage are multiplied by `(1 + asc)`. Runs at 
 | Gold vs time | Rations (gold) replace Rest (4 h). Grind waves give gold and drops per hour. Vendors sell rares and the Ember of Return. |
 | Spells vs gold | Spells only improve at a trainer (rank = trained level). Skipping trainers saves hours and gold but weakens every spell. |
 | Rested XP | Rest gives a rested pool that doubles kill XP; resting before a grind or dungeon is efficient. |
-| Resurrects | Ember of Return (30 V gold), Shrine boon, meta Second Breath. Spending gold on an Ember competes with gear and potions. |
+| Resurrects | Ember of Return (30 V gold), Shrine boon, meta Second Breath (journey only, not in the end-boss fight). Spending gold on an Ember competes with gear and potions. | (M2 v3)
 | Consumables vs bag | 16 bag slots shared by gear, potions and junk; potion stacks are 5. |
 | Bar slots | 7 spell slots for 12+ spells: choosing interrupt, cleanse, AoE or defensive matters at the boss. |
 | Talents | 26 points; one capstone per run; the boss tests interrupt, cleanse, AoE, burst and sustain. |
@@ -289,7 +289,7 @@ Expected XP per node at d = 0, in levels: Quest (2 mobs) 1.7; Grind wave 0.7; El
 ### 5.1 Base stats and growth
 | Field | Rogue | Mage | Hunter |
 |---|---|---|---|
-| hpBase / hpPerLevel | 70 / 20 | 50 / 17.5 | 60 / 17 | (M2 v2: mage 14 -> 17.5)
+| hpBase / hpPerLevel | 70 / 20 | 50 / 19.5 | 60 / 15.5 | (M2 v3: mage 17.5 -> 19.5, hunter 17 -> 15.5)
 | STA base / growth | 10 / 1.4 | 8 / 1.25 | 9 / 1.2 | (M2 v2: mage 1.0 -> 1.25)
 | AGI base / growth | 20 / 2.0 | 8 / 0.5 | 18 / 1.8 |
 | INT base / growth | 6 / 0.3 | 22 / 2.2 | 10 / 0.8 |
@@ -364,7 +364,7 @@ Pets: chosen at creation, level = hunter level. Pet acts after the hunter each r
 | id | Name | hpPct | armorMult | dmgMult | critBonus | aggro | Special |
 |---|---|---|---|---|---|---|---|
 | ridgewolf | Ridgewolf | 0.50 | 1.0 | 1.0 | 0 | 0.30 | every 3rd pet action hits twice |
-| thornback | Thornback Boar | 0.80 | 1.4 | 0.9 | 0 | 0.60 | TAUNT all enemies in round 1 and every 4 rounds after (1 round) | (M2 v2: dmgMult 0.7 -> 0.9)
+| thornback | Thornback Boar | 0.80 | 1.4 | 1.1 | 0 | 0.60 | TAUNT all enemies in round 1 and every 4 rounds after (1 round) | (M2 v3: dmgMult 0.9 -> 1.1)
 | duskcat | Duskcat | 0.40 | 0.8 | 1.3 | 0.10 | 0.20 | none |
 | stormhawk | Stormhawk (meta unlock) | 0.35 | 0.7 | 0.8 | 0 | 0.15 | attack also hits a second enemy |
 
@@ -377,7 +377,7 @@ Pets: chosen at creation, level = hunter level. Pet acts after the hunter each r
 | bloodprice_gambit | Rogue | Bloodprice Gambit | 40 | 0 | 12 | lose 10 % current HP; +5 CP; +50 energy | HP > 60 % and target elite/boss |
 | chrono_sigil | Mage | Chrono Sigil | 20 | 10%M | 8 | target skips its action this round (bosses too; a channel is paused, not cancelled) | target intent is a heavy ability or cast and no interrupt ready |
 | mirrorshade | Mage | Mirrorshade | 40 | 15%M | 10 | 3 rounds: each enemy attack on you has 0.5 chance to hit an image (no damage) | HP < 60 % |
-| ricochet_bolt | Hunter | Ricochet Bolt | 20 | 35F | 0 | phys 5 + 1.1tl + 0.5P + 0.9WD on target, then 2 other enemies at 70 % | >= 2 enemies |
+| ricochet_bolt | Hunter | Ricochet Bolt | 20 | 35F | 0 | phys 5 + 1.1tl + 0.5P + 0.9WD on target, then 2 other enemies at 40 % | >= 2 enemies | (M2 v3: bounce 70 % -> 40 %)
 | beastcall_horn | Hunter | Beastcall Horn | 40 | 0 | 12 | pet healed to full (revived if dead); pet TAUNT 2 rounds | HP < 40 % |
 
 ---
@@ -556,6 +556,8 @@ Each enemy has an archetype (table) plus up to 2 template abilities (12.4). Inte
 
 Normal enemy at level M: `HP = (ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL × M) × archetype × variant`, `dmg (100 %) = (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL × M) × archetype × variant`, `armor = ENEMY_ARMOR_PER_LEVEL × M × archetype`. Variants: normal 1/1, dungeon trash DUNGEON_TRASH_HP_MULT/DUNGEON_TRASH_DMG_MULT, elite ELITE_HP_MULT/ELITE_DMG_MULT, rare RARE_HP_MULT/RARE_DMG_MULT, dungeon boss DUNGEON_BOSS_HP_MULT/DUNGEON_BOSS_DMG_MULT.
 
+Zone danger (M2 v3): every enemy made from an enemy template (normal, quest, grind, elite, rare, dungeon trash and boss, Camp waves, summoned adds) has its damage multiplied by `1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10` (level 30 ×1.25, 40 ×1.5, 50 ×1.75, 60 ×2.0). HP, armor and XP are unchanged. The end boss and the Dimming Shards use their own constants (section 10) and are not affected. Purpose: same-level content stays about as threatening in zones 3-6 as in zone 2; the player's power growth (talents, ranks, rarity) otherwise outpaces the linear damage curve. (M2 v3)
+
 Soft enrage (non-boss fights): from round FIGHT_SOFT_ENRAGE_ROUND, enemies deal +FIGHT_SOFT_ENRAGE_STEP more damage per round (additive). Prevents endless fights.
 
 ### 7.7 Interrupts
@@ -660,7 +662,7 @@ BAG_SLOTS slots (+meta). One equipment item per slot; consumables stack per tabl
 
 ## 9. Death and resurrection
 - Death: player HP <= 0 (pet death never ends a fight).
-- Resurrect charges, used in this order: Boon of Return, Second Breath (meta, RES_META_CHARGES per run), Ember of Return. One charge is consumed automatically at death: the player returns at once at RES_HP_PCT HP and RES_MANA_PCT mana, debuffs removed, in the same fight and round; enemies keep their state.
+- Resurrect charges, used in this order: Boon of Return, Second Breath (meta, RES_META_CHARGES per run; not usable in the end-boss fight, where the next charge in the order is used instead), Ember of Return. (M2 v3) One charge is consumed automatically at death: the player returns at once at RES_HP_PCT HP and RES_MANA_PCT mana, debuffs removed, in the same fight and round; enemies keep their state.
 - No charge left: the run ends. Death location is recorded: zone, row, lane, node type, fight index, enemy ids, round, killing ability.
 - The run also ends on boss victory.
 
@@ -693,8 +695,8 @@ The channel shows "Collapse Litany 1/2" then "2/2 - resolves". Gravity Crush sho
 ### 11.1 Echoes (meta currency) per run
 | Line | Echoes |
 |---|---|
-| Per level gained (L - 1) | ECHO_PER_LEVEL each |
-| Per zone left by TRAVEL_ON | ECHO_PER_ZONE |
+| Per level gained (L - 1) | round(ECHO_PER_LEVEL × (L - 1)) | (M2 v3)
+| Per zone left by TRAVEL_ON | round(ECHO_PER_ZONE × zones left) | (M2 v3)
 | Per dungeon cleared | ECHO_PER_DUNGEON |
 | Per elite / rare killed | ECHO_PER_ELITE / ECHO_PER_RARE |
 | Per quest completed | ECHO_PER_QUEST |
@@ -705,37 +707,39 @@ The channel shows "Collapse Litany 1/2" then "2/2 - resolves". Gravity Crush sho
 | First kill with this class (once per profile per class) | ECHO_FIRST_KILL_CLASS |
 | Oath multiplier | × (1 + OATH_ECHO_BONUS × oaths taken) on the total |
 
-All lines scale with progress [stated: scaled by progress]. Typical: death at level 30 in Z3 about 120; full kill run about 430-480.
+All lines scale with progress [stated: scaled by progress]. Each line is rounded (half away from zero) before the total. Typical (M2 v3): planner run about 235, a win about 430. (M2 v3)
 
 ### 11.2 Catalogue
 Bought between runs on the profile screen. Ranked entries: cost listed per rank. "Req" = prerequisite.
 
 | id | Name | Kind | Ranks | Cost per rank | Effect | Req |
 |---|---|---|---|---|---|---|
-| vigor | Vigor of the Line | stat | 5 | 60/90/130/180/240 | max HP +0.02 /rank | - |
-| edge | Edge of the Line | stat | 5 | 60/90/130/180/240 | Power +0.02 /rank | - |
-| keen | Keen Lineage | stat | 3 | 100/160/240 | crit +0.01 /rank | - |
-| quick_study | Quick Study | stat | 3 | 80/140/220 | XP +0.05 /rank | - |
-| prospector | Prospector | stat | 3 | 50/90/140 | gold +0.08 /rank | - |
+| vigor | Vigor of the Line | stat | 5 | 80/120/170/230/300 | max HP +0.01 /rank | - | (M2 v3)
+| edge | Edge of the Line | stat | 5 | 80/120/170/230/300 | Power +0.01 /rank | - | (M2 v3)
+| keen | Keen Lineage | stat | 2 | 150/250 | crit +0.01 /rank | - | (M2 v3)
+| quick_study | Quick Study | stat | 3 | 100/180/280 | XP +0.05 /rank | - | (M2 v3)
+| prospector | Prospector | stat | 3 | 60/110/170 | gold +0.08 /rank | - | (M2 v3)
 | satchel | Packed Satchel | start kit | 1 | 60 | start with 3 Healing Draughts | - |
 | heirloom_blade | Heirloom Blade | start kit | 1 | 80 | starting weapon is uncommon ilvl 3 | - |
 | pockets | Deeper Pockets | start kit | 2 | 50/100 | +4 bag slots /rank | - |
 | ledger | Trainer's Ledger | economy | 1 | 120 | first LEARN or TRAIN at each hub is free | - |
 | scout | Scout's Eye | map | 1 | 100 | rare elites, treasure traps and vendor Embers visible on the map | - |
 | wayfinder | Wayfinder | map | 1 | 80 | TRAVEL_ON costs 0 hours | - |
-| swift_boots | Swift Boots | map | 1 | 150 | TRAVEL_ON legal at exit level - 1 | wayfinder |
-| alchemist | Alchemist's Notes | items | 1 | 120 | Greater Healing Draught in all vendors | satchel |
-| cache | Cache of the Wanderer | items | 1 | 150 | 6 unique rares (one per zone band) in elite and treasure pools | - |
-| relics | Relics of the Deep | items | 1 | 300 | 6 unique epics (one per dungeon) in dungeon boss pools | cache |
-| starforged | Starforged Arms | items | 1 | 350 | each class's unique epic weapon (ilvl 62) sold at the Camp vendor | relics, first boss kill |
+| swift_boots | Swift Boots | map | 1 | 200 | TRAVEL_ON legal at exit level - 1 | wayfinder | (M2 v3: cost)
+| alchemist | Alchemist's Notes | items | 1 | 150 | Greater Healing Draught in all vendors | satchel | (M2 v3: cost)
+| cache | Cache of the Wanderer | items | 1 | 200 | 6 unique rares (one per zone band) in elite and treasure pools | - | (M2 v3: cost)
+| relics | Relics of the Deep | items | 1 | 400 | 6 unique epics (one per dungeon) in dungeon boss pools | cache | (M2 v3: cost)
+| starforged | Starforged Arms | items | 1 | 450 | each class's unique epic weapon (ilvl 62) sold at the Camp vendor | relics, first boss kill | (M2 v3: cost)
 | sp_r1 / sp_m1 / sp_h1 | Lost Technique I (per class) | skill | 1 | 150 | Ghostblade Rush / Chrono Sigil / Ricochet Bolt learnable | - |
-| sp_r2 / sp_m2 / sp_h2 | Lost Technique II (per class) | skill | 1 | 250 | Bloodprice Gambit / Mirrorshade / Beastcall Horn learnable | same-class I |
-| stormhawk | Stormhawk Companion | skill | 1 | 200 | Stormhawk pet selectable | - |
-| talent_pt | Ancestral Insight | stat | 2 | 250/400 | +1 talent point at level 60 /rank | - |
-| second_breath | Second Breath | resurrect | 1 | 400 | 1 resurrect charge per run | reached the boss once |
+| sp_r2 / sp_m2 / sp_h2 | Lost Technique II (per class) | skill | 1 | 300 | Bloodprice Gambit / Mirrorshade / Beastcall Horn learnable | same-class I | (M2 v3: cost)
+| stormhawk | Stormhawk Companion | skill | 1 | 250 | Stormhawk pet selectable | - | (M2 v3: cost)
+| talent_pt | Ancestral Insight | stat | 1 | 500 | +1 talent point at level 60 | - | (M2 v3)
+| second_breath | Second Breath | resurrect | 1 | 500 | 1 resurrect charge per run, not usable in the end-boss fight | reached the boss once | (M2 v3)
 | oaths | Oaths | challenge | 1 | 0 | unlocks Oaths at creation (11.5) | first boss kill |
 
-Catalogue total: about 6 700 Echoes.
+Catalogue total: 7 690 Echoes (M2 v3; was 6 730).
+
+**Meta power budget (M2 v3).** The full catalogue may add at most: max HP +0.05, Power +0.05, crit +0.02, +1 talent point, the unique items (normal rarity budget plus one 11.3 effect) and the Starforged weapon, and no resurrect in the end-boss fight. Every other entry gives time (XP, travel), economy (gold, training), information (map), bag space, starting consumables, or a new choice (spells and pet that are side-grades, not strict upgrades). A new entry that adds combat power must take it from this budget. Measured check: balance.md B2, B3, B10. (M2 v3)
 
 ### 11.3 Unique items (Content fills names)
 Unique items use the normal budget at their rarity and one effect from: on-hit proc (chance UNIQUE_PROC_CHANCE, magic `UNIQUE_PROC_BASE + UNIQUE_PROC_PER_LEVEL × L`); heal UNIQUE_HEAL_ON_KILL of max HP on kill; +UNIQUE_ELITE_DMG damage vs elites and bosses; +UNIQUE_POTION_PCT potion healing; WARD of UNIQUE_WARD_PCT max HP at fight start.
@@ -953,6 +957,8 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | ENEMY_HP_PER_LEVEL | 12 | HP |
 | ENEMY_DMG_BASE | 4 | damage |
 | ENEMY_DMG_PER_LEVEL | 2.6 | damage |
+| ZONE_DANGER_FROM | 20 | level | (M2 v3)
+| ZONE_DANGER_STEP | 0.25 | × per 10 levels above ZONE_DANGER_FROM | (M2 v3)
 | ENEMY_ARMOR_PER_LEVEL | 15 | armor |
 | DUNGEON_TRASH_HP_MULT | 1.2 | × |
 | DUNGEON_TRASH_DMG_MULT | 1.1 | × |
@@ -1025,7 +1031,7 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | RES_MANA_PCT | 0.40 | of max mana |
 | RES_META_CHARGES | 1 | charges |
 | BOSS_LEVEL | 62 | level |
-| BOSS_HP | 13000 | HP | (M2 v2)
+| BOSS_HP | 13500 | HP | (M2 v3)
 | BOSS_ARMOR | 1200 | armor |
 | BOSS_MELEE | 260 | damage | (M2 v2)
 | BOSS_CRUSH | 380 | damage |
@@ -1049,16 +1055,16 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | ECLIPSE_STEP | 0.05 | per round |
 | PULSE_DMG | 280 | damage |
 | PULSE_EVERY | 3 | rounds |
-| BOSS_ENRAGE_ROUND | 50 | round |
+| BOSS_ENRAGE_ROUND | 55 | round | (M2 v3)
 | FINAL_DARK_DMG | 99999 | damage |
-| ECHO_PER_LEVEL | 2 | Echoes |
-| ECHO_PER_ZONE | 10 | Echoes |
+| ECHO_PER_LEVEL | 1.5 | Echoes | (M2 v3)
+| ECHO_PER_ZONE | 7.5 | Echoes | (M2 v3)
 | ECHO_PER_DUNGEON | 8 | Echoes |
 | ECHO_PER_ELITE | 3 | Echoes |
 | ECHO_PER_RARE | 6 | Echoes |
 | ECHO_PER_QUEST | 1 | Echoes |
 | ECHO_BOSS_REACHED | 20 | Echoes |
-| ECHO_BOSS_PHASE | 15 | Echoes |
+| ECHO_BOSS_PHASE | 12 | Echoes | (M2 v3)
 | ECHO_BOSS_KILL | 120 | Echoes |
 | ECHO_SPEED_BONUS | 40 | Echoes |
 | ECHO_FIRST_KILL_CLASS | 100 | Echoes |
