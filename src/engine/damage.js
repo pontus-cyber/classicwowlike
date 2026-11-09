@@ -6,7 +6,8 @@ import {
   TALENT, BOON_DMG_PCT, ELIXIR_DMG_PCT, UNIQUE_ELITE_DMG, LINK_DR, LINK_DR_PER_SHARD, FIGHT_SOFT_ENRAGE_ROUND,
   FIGHT_SOFT_ENRAGE_STEP, ECLIPSE_STEP, BRAND_MAX, DEBUFFS, RES_HP_PCT, RES_MANA_PCT, MOB_XP_FRAC,
   ELITE_XP_MULT, RARE_XP_MULT, DUNGEON_BOSS_XP_MULT, DUNGEON_MOB_XP_MULT, MOB_COIN_V, ELITE_GOLD_V,
-  EMBER_ELITE_DROP_CHANCE, DUNGEON_BOSS_DROPS, UNIQUE_HEAL_ON_KILL, ABILITY_TEMPLATE, DODGE_CAP,
+  EMBER_ELITE_DROP_CHANCE, DUNGEON_BOSS_DROPS, UNIQUE_HEAL_ON_KILL, ABILITY_TEMPLATE, DODGE_CAP, SPELL,
+  SHARD_AOE_TAKEN,
 } from '../constants.js';
 import { nextFloat } from '../rng.js';
 import { rnd, clamp } from './util.js';
@@ -147,6 +148,9 @@ function targetPct(s, u, src, o) {
   const e = s.fight.enemies[u];
   // Linked (rules 7.2 step 6, 10.2; M2 v2): -LINK_DR_PER_SHARD per living Shard, at most -LINK_DR.
   if (e.kind === 'boss') pct -= linkedDr(s);
+  // Shard brittleness (M2 v2): direct hits of the player's aoe-tagged spells. DOT snapshots carry no spell id,
+  // and the pet, basic attacks and items are not aoe-tagged spells, so none of them get it.
+  if (e.kind === 'shard' && src === 'player' && o.spell && SPELL[o.spell] && SPELL[o.spell].tags.includes('aoe')) pct += SHARD_AOE_TAKEN;
   return pct;
 }
 

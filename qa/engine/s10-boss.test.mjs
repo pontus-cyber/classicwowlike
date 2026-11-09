@@ -131,6 +131,44 @@ describe('rules 10 end boss', () => {
     assert.deepEqual(offs.map((e) => [e.on, e.n]), [[false, 0]], 'linked off once, when the last Shard dies');
   });
 
+  test('10.2 Shards take +SHARD_AOE_TAKEN from direct hits of aoe-tagged player spells; not from other spells, basic attacks, DOT ticks or the pet (M2 v2)', () => {
+    /** Phase 2 with SHARD_COUNT Shards; returns the state and the index of the first Shard. */
+    const phase2 = (cls, spells) => {
+      let s = boss(cls, { spells: [...spells, 'ember_bolt'].filter((x) => C.SPELL[x].cls === cls), prep: (x) => { immortal(x); x.fight.enemies[0].hp = Math.floor(x.fight.enemies[0].maxHp * 0.705); } });
+      forceDraws(s, 3, (d) => d[0] > 0.9 && d[1] > 0.6);
+      s = R.step(s, cls === 'mage' ? { type: 'CAST', spellId: 'ember_bolt', target: 0 } : { type: 'ATTACK', target: 0 }).state;
+      s = tweak(s, (x) => { immortal(x); for (const e of x.fight.enemies) { e.st = []; e.dodge = 0; } x.fight.p.energy = x.fight.p.focus = 100; x.player.mana = x.player.d.maxMana; });
+      return { s, sh: s.fight.enemies.findIndex((e) => e.kind === 'shard') };
+    };
+    /** Damage to the Shard from `action` (same draws), as a Shard and as the same unit with kind 'normal'. */
+    const pair = (s, sh, action, pick = (e) => e.t === 'damage' && e.dst === sh && !e.tick, n = 9, prep = null) => {
+      const draws = forceDraws(cloneState(s), n, (d) => d.every((x, i) => (i % 3 === 0 ? x > 0.9 : i % 3 === 1 ? x > 0.6 : true)));
+      const run = (kind) => {
+        // As 'normal' the unit needs an archetype for the next round's intent roll (after the hit we read).
+        const c = tweak(s, (x) => { x.fight.enemies[sh].kind = kind; if (kind !== 'shard') x.fight.enemies[sh].arch = 'brute'; if (prep) prep(x); });
+        forceDraws(c, n, (d) => d.join() === draws.join());
+        return R.step(c, action).events.find(pick).amount;
+      };
+      return [run('shard'), run('normal')];
+    };
+    const ratio = ([a, b]) => a / b;
+    const m = phase2('mage', ['cinder_storm', 'rime_burst', 'living_flame']);
+    assert.ok(Math.abs(ratio(pair(m.s, m.sh, { type: 'CAST', spellId: 'cinder_storm', target: null })) - (1 + C.SHARD_AOE_TAKEN)) < 0.02, 'Cinder Storm (aoe)');
+    assert.ok(Math.abs(ratio(pair(m.s, m.sh, { type: 'CAST', spellId: 'rime_burst', target: null })) - (1 + C.SHARD_AOE_TAKEN)) < 0.05, 'Rime Burst (aoe)');
+    assert.deepEqual(new Set(pair(m.s, m.sh, { type: 'CAST', spellId: 'ember_bolt', target: m.sh })).size, 1, 'Ember Bolt (not aoe): no bonus');
+    assert.deepEqual(new Set(pair(m.s, m.sh, { type: 'ATTACK', target: m.sh })).size, 1, 'basic attack: no bonus');
+    const burn = (kind) => {
+      const c = tweak(m.s, (x) => { x.fight.enemies[m.sh].kind = kind; if (kind !== 'shard') x.fight.enemies[m.sh].arch = 'brute'; });
+      forceDraws(c, 3, (d) => d[0] > 0.9);
+      return R.step(c, { type: 'CAST', spellId: 'living_flame', target: m.sh }).state.fight.enemies[m.sh].st.find((x) => x.id === 'BURN').tick;
+    };
+    assert.equal(burn('shard'), burn('normal'), 'DOT snapshot: no bonus');
+    const h = phase2('hunter', ['volley_rain']);
+    assert.ok(Math.abs(ratio(pair(h.s, h.sh, { type: 'CAST', spellId: 'volley_rain', target: null })) - (1 + C.SHARD_AOE_TAKEN)) < 0.05, 'Volley Rain (aoe, physical)');
+    const petHit = pair(h.s, h.sh, { type: 'PASS' }, (e) => e.t === 'damage' && e.src === 'pet' && e.dst === h.sh, 3, (x) => { x.fight.p.target = h.sh; });
+    assert.equal(new Set(petHit).size, 1, 'the pet: no bonus');
+  });
+
   test('10.3 Shards counter: null while SHARD_MAX Shards live, back to the next scheduled wave after a Shard dies (BUG-QA-07)', () => {
     let s = boss('mage', { spells: ['ember_bolt'], prep: (x) => { immortal(x); x.fight.enemies[0].hp = Math.floor(x.fight.enemies[0].maxHp * 0.705); } });
     forceDraws(s, 3, (d) => d[0] > 0.9 && d[1] > 0.6);
