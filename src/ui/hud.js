@@ -88,7 +88,7 @@ export function createHud(root, ctx) {
   els.basic = h('button.ab.basic', { title: '' }, h('img'), h('span.key', 'A'), h('span.ab-label', 'Attack'));
   els.spells = Array.from({ length: 7 }, (_, i) => h('button.ab', { dataset: { slot: i } }, h('img'), h('span.key', String(i + 1)), h('span.cost'), h('div.cd')));
   els.items = Array.from({ length: 3 }, (_, i) => h('button.ab', { dataset: { islot: i } }, h('img'), h('span.key', ['8', '9', '0'][i]), h('span.cnt'), h('div.cd')));
-  els.auto = h('div.toggle', h('div.sw'), h('span', 'Autoplay'), h('span.kbd', 'Z'));
+  els.auto = h('button.toggle', { type: 'button', role: 'switch', 'aria-checked': 'false', 'aria-label': 'Autoplay' }, h('span.sw'), h('span', 'Autoplay'), h('span.kbd', 'Z'));
   els.pass = h('button.btn.small', 'Pass', h('span.k', 'X'));
   els.flee = h('button.btn.small', 'Flee', h('span.k', 'F'));
   els.actionbar.append(
@@ -370,6 +370,7 @@ export function createHud(root, ctx) {
       if (s && s.cd) { cd.style.background = `conic-gradient(rgba(0,0,0,.74) ${clamp(s.cd / 4, 0, 1) * 360}deg, rgba(0,0,0,.18) 0)`; cd.textContent = s.cd; } else { cd.style.background = ''; cd.textContent = ''; }
     });
     els.auto.classList.toggle('on', !!v.autoplay);
+    els.auto.setAttribute('aria-checked', v.autoplay ? 'true' : 'false');
     els.pass.disabled = !fight; els.flee.disabled = !fight || !L.flee;
     els.flee.firstChild.textContent = ctx.ui.fleeArmed ? 'Confirm?' : 'Flee';
   }

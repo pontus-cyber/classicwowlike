@@ -33,7 +33,8 @@ export class App {
       attack: () => app.combatAct((t) => ({ type: 'ATTACK', target: t })),
       castSlot: (i) => { const id = app.shown.player && app.shown.player.bar[i]; if (id) { app.hud.flashSlot(i); app.combatAct((t) => ({ type: 'CAST', spellId: id, target: t })); } },
       useItemSlot: (i) => { const v = app.shown; if (!v.player || !v.player.itemBar[i]) return; app.hud.flashSlot(7 + i); if (v.combat && !v.combat.over) app.combatAct((t) => ({ type: 'USE_ITEM', slot: i, target: t })); else { const it = v.player.bag.find((s) => s && s.id === v.player.itemBar[i]); if (it) app.act({ type: 'USE_ITEM', uid: it.uid }); } },
-      toggleAuto: () => app.act({ type: 'SET_AUTOPLAY', on: !app.bridge.view.autoplay }),
+      // read the state when the action runs, so two quick presses (Z Z) turn it on and off again
+      toggleAuto: () => app.act(() => ({ type: 'SET_AUTOPLAY', on: !app.bridge.view.autoplay })),
       pass: () => app.combatAct(() => ({ type: 'PASS' })),
       flee: () => {
         if (!app.shown.legal || !app.shown.legal.flee) return;
@@ -78,11 +79,14 @@ export class App {
   }
 
   // ------------------------------------------------------------------ actions
-  act(action) {
+  /** Queue an action (or a function that returns one when its turn comes) and play its events. */
+  act(actionOrFn) {
     this.pending++;
     if (this.director.playing) this.director.skip();
     const run = async () => {
       try {
+        const action = typeof actionOrFn === 'function' ? actionOrFn() : actionOrFn;
+        if (!action) return { ok: false, error: null };
         const prev = this.bridge.view;
         const res = this.bridge.dispatch(action);
         if (!res.ok) { if (res.error) { this.toast(res.error, 'err'); console.info(`[ui] action ${action.type} refused: ${res.error}`); } return res; }
@@ -91,7 +95,11 @@ export class App {
         await this.director.play(prev, res.view, res.events, action);
         this.afterPlay();
         return res;
-      } catch (err) { console.error(err); this.shown = this.bridge.view; this.queueRender(); return { ok: false, error: String(err) }; } finally { this.pending--; }
+      } catch (err) { console.error(err); this.shown = this.bridge.view; this.queueRender(); return { ok: false, error: String(err) }; } finally {
+        this.pending--;
+        // Autoplay's next round is planned only when nothing else is queued or playing.
+        if (this.pending === 0) this.scheduleAuto();
+      }
     };
     const p = this.queue.then(run, run);
     this.queue = p;
@@ -123,7 +131,6 @@ export class App {
     this.ui.chestOpen = v.node && v.node.type === 'treasure' && v.node.step === 'opened' ? true : v.node && v.node.type === 'treasure' ? this.ui.chestOpen : false;
     if (v.combat && !v.combat.over) this.retarget(v); else if (!v.combat) this.ui.setTarget(null);
     this.windows.update();
-    this.scheduleAuto();
   }
 
   scheduleAuto() {
@@ -134,7 +141,10 @@ export class App {
     this.autoTimer = setTimeout(() => {
       const vv = this.bridge.view;
       if (!vv.autoplay || !vv.combat || vv.combat.over || this.pending > 0) return;
-      this.act(this.bridge.autoAction());
+      this.act(() => this.bridge.autoAction()).then((res) => {
+        // never retry a refused choice in a loop: switch autoplay off and say why
+        if (res && !res.ok && this.bridge.view.autoplay) { this.toast('Autoplay stopped', 'err'); this.act({ type: 'SET_AUTOPLAY', on: false }); }
+      });
     }, delay);
   }
 
