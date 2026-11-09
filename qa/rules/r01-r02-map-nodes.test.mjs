@@ -106,20 +106,29 @@ describe('rules 2 node rewards and rules', () => {
     }
   });
 
-  test('2.1 quest encounters use the zone\'s normal templates; sizes follow the quest\'s weights (fixture: QUEST_SIZE_W*)', () => {
-    const sizes = [0, 0, 0];
+  test('2.1 quest encounters use the zone\'s normal templates; sizes follow the quest\'s weights (fixture: QUEST_SIZE_W*); zone 1 capped at QUEST_MAX_SIZE_Z1 (M2 v2)', () => {
     const at = seeded();
-    for (let seed = 0; seed < 2000; seed++) {
-      const n = setupNode(at(seed), 1, 1 + (seed % 8), seed % 3, 'quest');
-      if (CONTENT.quests[n.quest].sizeWeights) continue;
-      sizes[n.mobs.length - 1] += 1;
-      for (const m of n.mobs) assert.ok(CONTENT.zones[0].normals.includes(m));
-    }
-    const tot = sizes.reduce((a, b) => a + b, 0);
     const w = C.QUEST_SIZE_W1 + C.QUEST_SIZE_W2 + C.QUEST_SIZE_W3;
-    near(sizes[0] / tot, C.QUEST_SIZE_W1 / w, 0.05, '1 mob');
-    near(sizes[1] / tot, C.QUEST_SIZE_W2 / w, 0.05, '2 mobs');
-    near(sizes[2] / tot, C.QUEST_SIZE_W3 / w, 0.05, '3 mobs');
+    for (const z of [2, 1]) {
+      const sizes = [0, 0, 0];
+      for (let seed = 0; seed < 2000; seed++) {
+        const n = setupNode(at(seed), z, 1 + (seed % C.ZONE_CHOICE_ROWS), seed % 3, 'quest');
+        if (CONTENT.quests[n.quest].sizeWeights) continue;
+        sizes[n.mobs.length - 1] += 1;
+        for (const m of n.mobs) assert.ok(CONTENT.zones[z - 1].normals.includes(m));
+      }
+      const tot = sizes.reduce((a, b) => a + b, 0);
+      near(sizes[0] / tot, C.QUEST_SIZE_W1 / w, 0.05, `zone ${z}: 1 mob`);
+      if (z === 1) {
+        // The size draw is unchanged; a drawn 3 becomes QUEST_MAX_SIZE_Z1 (2).
+        assert.equal(C.QUEST_MAX_SIZE_Z1, 2);
+        near(sizes[1] / tot, (C.QUEST_SIZE_W2 + C.QUEST_SIZE_W3) / w, 0.05, 'zone 1: 2 mobs');
+        assert.equal(sizes[2], 0, 'zone 1: no 3-mob quest');
+      } else {
+        near(sizes[1] / tot, C.QUEST_SIZE_W2 / w, 0.05, `zone ${z}: 2 mobs`);
+        near(sizes[2] / tot, C.QUEST_SIZE_W3 / w, 0.05, `zone ${z}: 3 mobs`);
+      }
+    }
   });
 
   test('2.2 grind: wave bonus XP is exact; a grind stopped after wave 1 of 3 costs one hour and completes the node', () => {

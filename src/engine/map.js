@@ -3,7 +3,7 @@ import {
   ZONE_LEVELS, ZONE_CHOICE_ROWS, LANES, DUNGEON_ROW_MIN, DUNGEON_ROW_MAX, REST_ROW_MIN, REST_ROW_MAX, TRAINER_ROW_MIN, TRAINER_ROW_MAX,
   MAX_SAME_TYPE_PER_ROW, NODE_TYPE, NODE_DRAW_ORDER, ROW1_FORBIDDEN, MAP_REDRAW_TRIES, QUEST_LEVEL_OFFSETS,
   ELITE_LEVEL_OFFSET, DUNGEON_LEVEL_OFFSET, DUNGEON_BOSS_LEVEL_OFFSET, RARE_CHANCE, QUEST_SIZE_W1, QUEST_SIZE_W2,
-  QUEST_SIZE_W3, GRIND_MAX_WAVES, GRIND_WAVE_SIZE, ELITE_ADD_CHANCE, DUNGEON_TRASH_FIGHTS, DUNGEON_SIZE_W2,
+  QUEST_SIZE_W3, QUEST_MAX_SIZE_Z1, GRIND_MAX_WAVES, GRIND_WAVE_SIZE, ELITE_ADD_CHANCE, DUNGEON_TRASH_FIGHTS, DUNGEON_SIZE_W2,
   DUNGEON_SIZE_W3, TREASURE_GUARD_CHANCE, TREASURE_TRAP_CHANCE, VENDOR_GEAR_STOCK, EMBER_STOCK_CHANCE,
   BOON, BOON_IDS, SHRINE_BOON_COUNT, MAX_LEVEL, VENDOR_STOCK_CONSUMABLES, EMBER_V, META,
 } from '../constants.js';
@@ -83,7 +83,9 @@ export function setupNode(s, z, r, l, type) {
     const qid = pickFrom(rng, zn.quests);
     const q = c.quests[qid];
     const w = q.sizeWeights || [QUEST_SIZE_W1, QUEST_SIZE_W2, QUEST_SIZE_W3];
-    const size = 1 + weightedIndex(rng, w);
+    // Zone 1 cap (rules 2.1, M2 v2): the size draw is unchanged, its result is capped; mobs follow for that size.
+    const drawn = 1 + weightedIndex(rng, w);
+    const size = z === 1 ? Math.min(QUEST_MAX_SIZE_Z1, drawn) : drawn;
     const pool = q.enemies && q.enemies.length ? q.enemies : zn.normals;
     const mobs = [];
     for (let i = 0; i < size; i++) mobs.push(pickFrom(rng, pool));

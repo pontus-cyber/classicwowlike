@@ -231,7 +231,8 @@ Item names use a separate hash and never touch a stream. The sim's bots must use
 Draw orders the engine guarantees (beyond rules 7.2 and 8.4):
 - Map layout (`map` stream, rules 1.4): dungeon row and lane; rest guarantee row, then lane among the free cells;
   trainer guarantee row, then lane among the free cells (M2 v2); then the weighted fill row by row, lane 0..2.
-- Node setup (`node` stream): Quest: template, size, mobs, level offset. Elite: rare flag, template, add flag,
+- Node setup (`node` stream): Quest: template, size (in zone 1 the drawn size is capped at QUEST_MAX_SIZE_Z1, M2 v2),
+  one mob per enemy of that size, level offset. Elite: rare flag, template, add flag,
   add template. Dungeon: per trash fight size then mobs. Grind: 3 waves × 2 mobs. Treasure: guard flag, guard.
   Vendor: 3 gear items (rarity, slot, stats), then Ember. Shrine: 2 boons by weight without replacement.
 - Treasure: the trap is the first draw of `loot(z,r,l)` (so Scout's Eye can show it).

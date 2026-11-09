@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import { R, C, CONTENT, started, play, atLevel, tweak, autoUntil, ev, STREAM, nextFloat } from './helpers.mjs';
 import { rnd } from '../../src/engine/util.js';
 import { hash32, makeRng, weightedIndex, streamSeed, nextInt } from '../../src/rng.js';
-import { generateLayout, contentLevel, dungeonLevels, nextLanes } from '../../src/engine/map.js';
+import { generateLayout, contentLevel, dungeonLevels, nextLanes, setupNode } from '../../src/engine/map.js';
+import { cloneState } from '../../src/engine/util.js';
 import { ascendancy } from '../../src/engine/nodes.js';
 
 describe('rules 0 conventions', () => {
@@ -194,7 +195,7 @@ describe('rules 1 run structure', () => {
           const base = contentLevel(1, n.r);
           if (n.type === 'quest') {
             assert.ok(n.cl - base >= -1 && n.cl - base <= 1);
-            assert.ok(n.mobs.length >= 1 && n.mobs.length <= 3);
+            assert.ok(n.mobs.length >= 1 && n.mobs.length <= C.QUEST_MAX_SIZE_Z1, 'zone 1 cap (M2 v2)');
             for (const m of n.mobs) assert.ok(CONTENT.zones[0].normals.includes(m));
           }
           if (n.type === 'elite') {
@@ -210,12 +211,41 @@ describe('rules 1 run structure', () => {
     assert.ok(rare / elites > 0.08 && rare / elites < 0.35, `rare share ${rare / elites}`);
   });
 
-  test('1.4 movement: hub -> any lane of row 1; then (r+1, l-1..l+1); nothing after row 8', () => {
+  test('2.1 zone 1 quest cap: the size draw is unchanged, its result capped at QUEST_MAX_SIZE_Z1, then mobs and the level offset are drawn (M2 v2)', () => {
+    const at = cloneState(started('rogue', { seed: 1 }));
+    const counts = { 1: [0, 0, 0, 0], 2: [0, 0, 0, 0] };
+    let capped = 0;
+    for (let seed = 0; seed < 300; seed++) {
+      at.seed = seed;
+      for (const z of [1, 2]) {
+        const zn = CONTENT.zones[z - 1];
+        const node = setupNode(at, z, 3, 1, 'quest');
+        // Replay the node(z,r,l) stream: template, size, mobs (capped size), level offset.
+        const rng = STREAM.node(seed, z, 3, 1);
+        const q = CONTENT.quests[zn.quests[nextInt(rng, zn.quests.length)]];
+        const drawn = 1 + weightedIndex(rng, q.sizeWeights || [C.QUEST_SIZE_W1, C.QUEST_SIZE_W2, C.QUEST_SIZE_W3]);
+        const size = z === 1 ? Math.min(C.QUEST_MAX_SIZE_Z1, drawn) : drawn;
+        const pool = q.enemies && q.enemies.length ? q.enemies : zn.normals;
+        const mobs = Array.from({ length: size }, () => pool[nextInt(rng, pool.length)]);
+        const off = C.QUEST_LEVEL_OFFSETS[nextInt(rng, C.QUEST_LEVEL_OFFSETS.length)];
+        assert.equal(node.quest, q.id);
+        assert.deepEqual(node.mobs, mobs, `seed ${seed} zone ${z}`);
+        assert.equal(node.cl, contentLevel(z, 3) + off);
+        counts[z][node.mobs.length]++;
+        if (z === 1 && drawn > size) capped++;
+      }
+    }
+    assert.equal(counts[1][3], 0, 'no 3-mob quest in zone 1');
+    assert.ok(capped > 0 && counts[2][3] > 0, `${capped} capped zone-1 draws; ${counts[2][3]} 3-mob quests in zone 2`);
+  });
+
+  test('1.4 movement: hub -> any lane of row 1; then (r+1, l-1..l+1); nothing after the last row', () => {
     assert.deepEqual(nextLanes({ pos: { r: 0, l: null } }), [0, 1, 2]);
     assert.deepEqual(nextLanes({ pos: { r: 3, l: 0 } }), [0, 1]);
     assert.deepEqual(nextLanes({ pos: { r: 3, l: 1 } }), [0, 1, 2]);
     assert.deepEqual(nextLanes({ pos: { r: 3, l: 2 } }), [1, 2]);
-    assert.deepEqual(nextLanes({ pos: { r: 8, l: 1 } }), []);
+    assert.deepEqual(nextLanes({ pos: { r: C.ZONE_CHOICE_ROWS, l: 1 } }), []);
+    assert.deepEqual(nextLanes({ pos: { r: C.ZONE_CHOICE_ROWS - 1, l: 1 } }), [0, 1, 2]);
     const s = R.step(started('mage'), { type: 'LEAVE_HUB' }).state;
     assert.ok(!R.isLegal(tweak(s, (x) => { x.zone.pos = { r: 2, l: 0 }; }), { type: 'CHOOSE_NODE', lane: 2 }));
   });
