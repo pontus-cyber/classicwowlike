@@ -12,7 +12,8 @@
 //            reach-boss rate) -> random, greedy, speedrunner, tactician; all start from the best-tree planner's
 //            final observations.
 //   B  P10:  planner warm-up from the P0 observations -> planner, random.
-//   C  PALL: planner warm-up from the P0 observations -> planner -> random, greedy, speedrunner (--pall-runs),
+//   C  PALL: planner warm-up from the P0 observations -> planner -> random, greedy, speedrunner (--pall-runs; also
+//            caps the PALL route-style cells of stage E),
 //            tactician (--half-runs), B26-B28 variants (--variant-runs, paired with the planner's first seeds); all
 //            start from the PALL planner's observations.
 //   D  campaigns (frozen P0 planner table), B35 replay of 1 000 random runs, B37 autoplay throughput.
@@ -204,7 +205,7 @@ try {
     const obsAll = readJson(join(OUT, 'obs-PALL.json'));
     for (const pet of ['thornback', 'duskcat']) await cell(`planner-P0-${pet}`, { bot: 'planner', classes: ['hunter'], prof: 'fresh', trees, obsIn: obsP0, pet });
     for (const style of ['quest', 'grind', 'elite', 'speed']) await cell(`planner-P0-${style}`, { bot: 'planner', classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0, style, runs: STYLE_RUNS });
-    for (const style of ['quest', 'grind', 'elite', 'speed']) await cell(`planner-PALL-${style}`, { bot: 'planner', classes: CLASSES, prof: 'all', trees, obsIn: obsAll, style, runs: STYLE_RUNS });
+    for (const style of ['quest', 'grind', 'elite', 'speed']) await cell(`planner-PALL-${style}`, { bot: 'planner', classes: CLASSES, prof: 'all', trees, obsIn: obsAll, style, runs: Math.min(STYLE_RUNS, PALL_RUNS) });
     await cell('tactician-P0-rulesOnly', { bot: 'tactician', classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0, variant: 'rulesOnly', runs: HALF });
   }
   manifest.meta.finished = new Date().toISOString();

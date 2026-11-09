@@ -46,7 +46,7 @@ export function speedMap(s, risk) {
   if (legal(s, { type: 'TRAVEL_ON' })) return { type: 'TRAVEL_ON' };
   const view = R.mapView(s);
   const ctx = makeCtx(s, risk);
-  const exit = exitLevelOf(s, ctx);
+  const exit = exitLevelOf(s);
   const r = view.pos.r + 1;
   let best = null;
   for (const lane of view.next) {
@@ -63,7 +63,7 @@ export function speedMap(s, risk) {
 export function speedGrindWaves(s, risk) {
   const view = R.mapView(s);
   const ctx = makeCtx(s, risk);
-  const exit = exitLevelOf(s, ctx);
+  const exit = exitLevelOf(s);
   const node = view.rows[s.node.r - 1][s.node.l];
   let best = null;
   for (const w of nodeOptions(node)) {

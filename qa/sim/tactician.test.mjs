@@ -7,8 +7,6 @@ import { BAL } from '../../sim/lib/params.mjs';
 import { buildProfile } from '../../sim/lib/profiles.mjs';
 import { createBot } from '../../sim/bots/index.mjs';
 import { exitLevelOf } from '../../sim/bots/planner.mjs';
-import { makeCtx } from '../../sim/lib/model.mjs';
-import { priorTable } from '../../sim/lib/risk.mjs';
 import { bigHits, bigHitAction, telegraphAction, tacticianChoice, evaluateAction } from '../../sim/bots/tactician.mjs';
 
 const key = (a) => JSON.stringify(a, Object.keys(a).sort());
@@ -152,8 +150,8 @@ describe('travel level (rules 1.5, M2 v2)', () => {
       R.stepInPlace(s, { type: 'START_RUN' });
       R.stepInPlace(s, { type: 'LEAVE_HUB' });
       assert.equal(s.phase, 'MAP');
-      const need = exitLevelOf(s, makeCtx(s, priorTable()));
-      assert.equal(need, C.ZONE_LEVELS - (C.TRAVEL_EARLY_LEVELS ?? 0) - (swift ? C.META.swift_boots.levels : 0));
+      const need = exitLevelOf(s);
+      assert.equal(need, C.ZONE_LEVELS - C.TRAVEL_EARLY_LEVELS - (swift ? C.META.swift_boots.levels : 0));
       s.player.level = need;
       assert.ok(R.isLegal(s, { type: 'TRAVEL_ON' }), `swift=${swift}: legal at ${need}`);
       s.player.level = need - 1;

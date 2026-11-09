@@ -25,18 +25,18 @@ function bestFrom(ctx, rows, r, l, m, exit) {
 }
 
 /**
- * Level from which TRAVEL_ON is legal (rules 1.5, M2 v2 M6; the engine's canTravel): exit level
- * ZONE_LEVELS × z, minus TRAVEL_EARLY_LEVELS, minus META.swift_boots.levels with Swift Boots.
+ * Level from which TRAVEL_ON is legal in the current zone (rules 1.5, M2 v2 M6): the engine's travelLevel, i.e. exit
+ * level ZONE_LEVELS × z - TRAVEL_EARLY_LEVELS, one lower with Swift Boots. The planners' "exit" is this level.
  */
-export function exitLevelOf(s, ctx) {
-  return C.ZONE_LEVELS * s.zone.z - (C.TRAVEL_EARLY_LEVELS ?? 0) - (ctx.swift ? C.META.swift_boots.levels : 0);
+export function exitLevelOf(s) {
+  return R.travelLevel(s);
 }
 
 /** Path search from the current map position. Returns { action, value, options }. */
 export function planMap(s, risk, style) {
   const view = R.mapView(s);
   const ctx = makeCtx(s, risk, { style });
-  const exit = exitLevelOf(s, ctx);
+  const exit = exitLevelOf(s);
   const options = [];
   if (legal(s, { type: 'TRAVEL_ON' })) options.push({ action: { type: 'TRAVEL_ON' }, value: 0 });
   const r = view.pos.r + 1;
