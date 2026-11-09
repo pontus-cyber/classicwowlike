@@ -203,6 +203,7 @@ export function createHud(root, ctx) {
     const c = v.combat;
     const inFight = c && !c.over;
     const tgt = c ? c.enemies.find((e) => e.idx === ctx.ui.target && e.alive && !e.hidden) : null;
+    els.target.classList.toggle('under-boss', !!(c && c.isBoss));
     if (tgt && !(c.isBoss && tgt.rank === 'boss')) {
       els.target.classList.remove('hidden');
       els.target.classList.toggle('elite', tgt.rank === 'elite' || tgt.rank === 'dboss');

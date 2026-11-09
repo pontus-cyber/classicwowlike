@@ -60,11 +60,11 @@ export class Director {
       const t = action.type;
       if (t === 'SELECT_CLASS' || t === 'SELECT_PET') { ctx.syncScene(next); scene.act('player', 'cheer', settings.dur(900)); }
       if (t === 'START_RUN') {
-        ctx.ui.overlay = true; push();
+        // the hub panel shows at once; the world fades in behind it
         scene.screenFlash('#000000', 1, 1.1);
         ctx.syncScene(next, { instant: true });
+        Object.assign(shown, next); push();
         hud.clearLog();
-        await W(450);
         ctx.ui.banner(next.zone.name, `Levels ${next.zone.band[0]}–${next.zone.band[1]}`, 'zone', 2400);
         hud.log(`Welcome to ${next.zone.name}. Visit the trainer, then set out.`, 'lg-sys');
       }

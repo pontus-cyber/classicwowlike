@@ -65,8 +65,12 @@ async function run(W, H, tag) {
   await page.type('#create input[type=text]', 'Kaelen');
   await shot('02-class-select-hunter');
   await clickText('button', 'Enter the world'); await idle(); await sleep(400);
-  // 2. hub
+  // 2. hub, with its trainer and vendor
   await shot('03-hub');
+  await clickText('.svc-card', 'Trainer'); await idle(); await sleep(300); await shot('03b-trainer');
+  await clickText('button', 'Done'); await idle();
+  await clickText('.svc-card', 'Vendor'); await idle(); await sleep(300); await shot('03c-vendor');
+  await clickText('button', 'Done'); await idle(); await sleep(200);
   await clickText('button', 'Set out'); await idle(); await sleep(300);
   // 3. map
   await page.hover('.mnode.reach'); await sleep(200);
@@ -194,26 +198,20 @@ async function deepEngineRun(page, shot, idle, clickText) {
   await page.evaluate(async () => { const ui = window.__ui; await ui.act({ type: 'SELECT_CLASS', classId: 'hunter' }); await ui.act({ type: 'SET_SEED', seed: 4 }); await ui.act({ type: 'START_RUN' }); });
   await idle();
   let s = await v(); let guard = 0;
-  // to the zone 2 hub
-  while (!(s.phase === 'ZONE_HUB' && s.zone >= 2 && !s.node) && s.phase !== 'SUMMARY' && guard++ < 1500) { await auto(); s = await v(); }
-  await page.evaluate(() => window.__ui.settings.set('speed', 2));
-  if (s.phase === 'ZONE_HUB') {
-    await sleep(600);
-    if (!s.hub.trainer) { await clickText('.svc-card', 'Trainer'); await idle(); await sleep(250); await shot('12-trainer'); await clickText('button', 'Done'); await idle(); }
-    if (!s.hub.vendor) { await clickText('.svc-card', 'Vendor'); await idle(); await sleep(250); await shot('13-vendor'); await clickText('button', 'Done'); await idle(); }
-  }
-  await page.evaluate(() => window.__ui.settings.set('speed', 0));
+  // pure autoplay from here; screenshots never change the run
   while ((s.level < 12 || s.phase !== 'MAP') && s.phase !== 'SUMMARY' && guard++ < 3000) { await auto(); s = await v(); }
   await page.keyboard.press('KeyN'); await sleep(300); await shot('14-talents'); await page.keyboard.press('Escape'); await sleep(100);
   await page.keyboard.press('KeyC'); await page.keyboard.press('KeyB'); await sleep(300); await shot('15-character-bags'); await page.keyboard.press('Escape'); await sleep(100);
-  // a fight with several enemies (grind, dungeon or a 3-mob quest), shown mid-round
-  while (!(s.combat && s.step === 'combat') && s.phase !== 'SUMMARY' && guard++ < 3000) { await auto(); s = await v(); const n = await page.evaluate(() => { const c = window.__ui.view().combat; return c && !c.over ? c.enemies.filter((e) => e.alive).length : 0; }); if (s.combat && n < 2) { s.combat = false; } }
-  if (s.combat) {
+  // a fight with two or more enemies, shown mid-round
+  const groupFight = () => page.evaluate(() => { const x = window.__ui.view(); const c = x.combat; return !!(c && !c.over && x.node && x.node.step === 'combat' && c.enemies.filter((e) => e.alive).length >= 2); });
+  while (!(await groupFight()) && s.phase !== 'SUMMARY' && guard++ < 4000) { await auto(); s = await v(); }
+  if (await groupFight()) {
     await page.evaluate(() => window.__ui.settings.set('speed', 1));
-    await auto(); await idle(); await sleep(200);
-    await page.click('#actionbar .ab.basic'); await sleep(650);
+    page.evaluate(() => window.__ui.act({ type: 'AUTO' }));
+    await sleep(900);
     await shot('16-group-fight');
     await idle();
+    await page.evaluate(() => window.__ui.settings.set('speed', 0));
   }
   // camp and boss
   await page.evaluate(() => window.__ui.settings.set('speed', 0));
@@ -226,7 +224,7 @@ async function deepEngineRun(page, shot, idle, clickText) {
     await page.evaluate(() => window.__ui.settings.set('speed', 0));
     for (let i = 0; i < 14; i++) { await auto(); await idle(); }
     await page.evaluate(() => window.__ui.settings.set('speed', 1));
-    await auto(); await sleep(900);
+    page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await sleep(1100);
     await shot('19-boss-fight');
     await idle();
     await page.evaluate(() => window.__ui.settings.set('speed', 0));
