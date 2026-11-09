@@ -7,6 +7,7 @@ import { drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook } from './art
 import { THEMES } from './art-world.js';
 import { tip, spellTip, basicTip, itemTip, statusTip } from './tooltip.js';
 import { settings } from './settings.js';
+import { linkedText } from './ui-text.js';
 
 const RES_NAME = { energy: 'Energy', mana: 'Mana', focus: 'Focus' };
 export function conColor(cl, level) {
@@ -16,6 +17,19 @@ export function conColor(cl, level) {
   if (d <= 2) return '#ffe04a';
   if (d <= 4) return '#ff9a3a';
   return '#ff4a3a';
+}
+
+/**
+ * Travel-on button state (rules 1.5) from the view: the engine's legality (legal.travelOn, legal.mustTravel) and
+ * the zone's exit and travel-on levels. kind: 'done' (last row finished), 'open' (at or over the exit level),
+ * 'early' (legal under the exit level), 'locked'.
+ */
+export function travelState(v) {
+  const z = v.zone; const L = v.legal || {}; const lvl = v.player ? v.player.level : 0;
+  const rows = z && z.rows ? z.rows.length : 0;
+  const need = z ? z.travelLevel ?? z.exitLevel : 0;
+  const kind = L.mustTravel ? 'done' : L.travelOn ? (lvl >= z.exitLevel ? 'open' : 'early') : 'locked';
+  return { kind, need, exit: z ? z.exitLevel : 0, rows, level: lvl, under: z ? z.exitLevel - need : 0 };
 }
 
 function bar(cls) {
@@ -76,7 +90,7 @@ export function createHud(root, ctx) {
   // ------------------------------------------------------------ player frame
   els.player = h('div#player-frame.uf',
     h('div.portrait'), h('div.lvl', { style: { left: '5.4rem', top: '5.4rem' } }),
-    h('div.plate', h('div.name', h('span.pn'), h('span.cls')), bar('hp'), bar('res mana'), h('div.cp.hidden', [0, 1, 2, 3, 4].map(() => h('i'))), h('div.statuses')));
+    h('div.plate', h('div.name', h('span.pn'), h('span.cls')), bar('hp'), bar('res mana'), h('div.cp.hidden', Array.from({ length: ctx.data.rules.cpMax }, () => h('i'))), h('div.statuses')));
   els.pet = h('div#pet-frame.uf.hidden', h('div.portrait'), h('div.plate', h('div.name', h('span.pn'), h('span.cls', 'Pet')), bar('hp'), h('div.statuses')));
   els.target = h('div#target-frame.uf.hidden', h('div.portrait'), h('div.lvl', { style: { left: '5.4rem', top: '5.4rem' } }),
     h('div.plate', h('div.name', h('span.pn'), h('span.tag')), bar('hp enemy'), h('div.statuses'), h('div.intent')));
@@ -155,8 +169,8 @@ export function createHud(root, ctx) {
   tip(els.pass, () => h('div', h('div.tt-name', 'Pass'), h('div.tt-line.desc', 'Do nothing this round. Resources still regenerate.'), h('div.tt-sub', 'Key: X')));
   els.minimap.querySelector('.disc').addEventListener('click', () => ctx.ui.toggleWin('map'));
   tip(els.minimap.querySelector('.disc'), () => {
-    const v = ctx.view; if (!v.zone) return null;
-    return h('div', h('div.tt-name', v.zone.name), h('div.tt-sub', `Levels ${v.zone.band[0]}–${v.zone.band[1]}`), h('div.tt-line', `In-game time: ${v.hours} h`), h('div.tt-line.desc', 'The boss grows stronger for every 10 h past 130 h (Ascendancy).'), h('div.tt-hint', 'Click or press M for the zone map'));
+    const v = ctx.view; if (!v.zone) return null; const R = ctx.data.rules;
+    return h('div', h('div.tt-name', v.zone.name), h('div.tt-sub', `Levels ${v.zone.band[0]}–${v.zone.band[1]}`), h('div.tt-line', `In-game time: ${v.hours} h`), h('div.tt-line.desc', `The boss grows stronger for every ${R.ascStepHours} h past ${R.par} h (Ascendancy).`), h('div.tt-hint', 'Click or press M for the zone map'));
   });
   tip(els.xp, () => {
     const p = ctx.view.player; if (!p) return null;
@@ -231,8 +245,20 @@ export function createHud(root, ctx) {
       const when = (n) => (n <= 0 ? 'this round' : n === 1 ? 'next round' : `in ${n}`);
       const enrage = tg.enrageInRounds != null ? `Final Dark ${when(tg.enrageInRounds)}` : b.enrageRound ? `Final Dark at round ${b.enrageRound}` : '';
       const extra = [tg.litanyInRounds != null ? `Litany ${when(tg.litanyInRounds)}` : null, tg.shardsInRounds != null ? `Shards ${when(tg.shardsInRounds)}` : null, tg.pulseInRounds != null ? `Pulse ${when(tg.pulseInRounds)}` : null, tg.crushNextRound ? 'Crush next round!' : null].filter(Boolean).join(' · ');
+      // Linked strength from the Shards alive on screen (the view shown while a round plays) and the rules table
+      const lk = b.linked; const R = ctx.data.rules;
+      const shards = c.enemies.filter((e) => e.rank === 'shard' && e.alive && !e.hidden).length;
+      const dr = lk ? R.linkDr[Math.min(shards, R.linkDr.length - 1)] : 0;
+      const phase = h('span.bphase', 'Phase ', h('b', String(b.phase || 1)));
+      if (b.phase === 2 && lk) {
+        // no-break spaces keep "−45 %" and "(3 Shards)" whole when the line wraps
+        if (shards > 0) phase.append(' · Linked ', h('b.linked', `−${Math.round(dr * 100)}\u00a0%`), ` (${shards}\u00a0${shards === 1 ? 'Shard' : 'Shards'})`);
+        else phase.append(' · Link broken');
+        tip(phase, () => h('div', h('div.tt-name', 'Linked'), h('div.tt-line.desc', linkedText(R, 'tip'))));
+      } else if (b.phase === 2) phase.append(' · Linked');
+      else if (b.phase === 3) phase.append(' · Eclipse');
       clear(els.boss.querySelector('.binfo')).append(
-        h('span', 'Phase ', h('b', String(b.phase || 1)), b.phase === 2 ? ' · Linked' : b.phase === 3 ? ' · Eclipse' : ''),
+        phase,
         h('span', 'Brand ', h('b', String(brand ? brand.stacks : 0)), tg.brandInRounds != null ? (tg.brandInRounds <= 0 ? ' · lands this round' : ` · next ${when(tg.brandInRounds)}`) : ''),
         h('span', 'Round ', h('b', String(c.round)), enrage ? ` · ${enrage}` : ''),
         h('span', 'Ascendancy ', h('b', `+${Math.round((b.asc || 0) * 100)} %`)));
@@ -247,10 +273,10 @@ export function createHud(root, ctx) {
     els.xp.querySelector('.fill').style.width = `${xf * 100}%`;
     els.xp.querySelector('.fill').classList.toggle('rest', (p.rested || 0) > 0);
     const rs = els.xp.querySelector('.rested'); rs.style.left = `${xf * 100}%`; rs.style.width = `${Math.max(0, rf - xf) * 100}%`;
-    els.xp.querySelector('.txt').textContent = p.level >= 60 ? `Level 60 · maximum level` : `Level ${p.level}  ·  ${fmtNum(p.xp)} / ${fmtNum(p.xpToNext)} XP (${Math.floor(xf * 100)} %)${p.rested ? `  ·  Rested ${fmtNum(p.rested)}` : ''}`;
+    els.xp.querySelector('.txt').textContent = !p.xpToNext ? `Level ${p.level} · maximum level` : `Level ${p.level}  ·  ${fmtNum(p.xp)} / ${fmtNum(p.xpToNext)} XP (${Math.floor(xf * 100)} %)${p.rested ? `  ·  Rested ${fmtNum(p.rested)}` : ''}`;
     // minimap & clock
     if (v.zone) {
-      els.minimap.querySelector('.zname').textContent = v.zone.idx > 6 ? v.zone.name : v.zone.name;
+      els.minimap.querySelector('.zname').textContent = v.zone.name;
       const ht = hoursText(v.hours || 0);
       els.minimap.querySelector('.clock').textContent = `${ht.label} · ${v.hours} h`;
       drawMinimap(els.mmCanvas, v, th);
@@ -370,7 +396,7 @@ export function createHud(root, ctx) {
       const count = p.bag.reduce((a, it) => a + (it && it.id === id ? it.count : 0), 0);
       cnt.textContent = count;
       b.classList.toggle('off', !(s && s.ok) || ctx.ui.playing);
-      if (s && s.cd) { cd.style.background = `conic-gradient(rgba(0,0,0,.74) ${clamp(s.cd / 4, 0, 1) * 360}deg, rgba(0,0,0,.18) 0)`; cd.textContent = s.cd; } else { cd.style.background = ''; cd.textContent = ''; }
+      if (s && s.cd) { cd.style.background = `conic-gradient(rgba(0,0,0,.74) ${clamp(s.cd / ctx.data.rules.potionCd, 0, 1) * 360}deg, rgba(0,0,0,.18) 0)`; cd.textContent = s.cd; } else { cd.style.background = ''; cd.textContent = ''; }
     });
     els.auto.classList.toggle('on', !!v.autoplay);
     els.auto.setAttribute('aria-checked', v.autoplay ? 'true' : 'false');
@@ -380,19 +406,24 @@ export function createHud(root, ctx) {
 
   function updateTracker(v) {
     const lines = [];
-    const z = v.zone; const p = v.player; const n = v.node;
+    const z = v.zone; const p = v.player; const n = v.node; const R = ctx.data.rules;
     if (n && v.phase === 'NODE') {
       if (n.type === 'quest') { const k = n.mobs ? n.mobs.length : 1; lines.push(['h', n.title || 'Quest']); lines.push(['l', n.step === 'reward' || n.step === 'story' ? 'Return to ' + (n.giver || 'the quest giver') : `Defeat ${k} ${k === 1 ? 'enemy' : 'enemies'}`]); }
-      else if (n.type === 'dungeon') { lines.push(['h', n.dungeon]); lines.push(['l', `Fight ${Math.max(1, n.fightNo)} of 4${n.fightNo >= 4 ? ': ' + n.bossName : ''}`]); }
+      else if (n.type === 'dungeon') { const all = R.dungeonTrashFights + 1; lines.push(['h', n.dungeon]); lines.push(['l', `Fight ${Math.max(1, n.fightNo)} of ${all}${n.fightNo >= all ? ': ' + n.bossName : ''}`]); }
       else if (n.type === 'grind') { lines.push(['h', 'Grind']); lines.push(['l', n.wavesChosen ? `Wave ${n.waves} of ${n.wavesChosen}` : 'Choose how many waves']); }
       else if (n.type === 'elite') { lines.push(['h', n.rare ? 'Rare elite' : 'Elite']); lines.push(['l', `Defeat ${n.eliteName}`]); }
     }
-    if (z && z.idx <= 6) {
+    if (z && !z.camp && z.rows && z.rows.length) {
+      const sq = R.storyQuests; const t = travelState(v);
       lines.push(['h', z.name]);
-      lines.push([z.storyDone ? 'd' : 'l', `Story: ${Math.min(3, z.questsDone)} / 3 quests${z.storyDone ? ' (done)' : ''}`]);
-      lines.push([p.level >= z.exitLevel ? 'd' : 'l', p.level >= z.exitLevel ? `Level ${z.exitLevel} reached: you may travel on` : `Travel on at level ${z.exitLevel} (or after row 8)`]);
-      lines.push(['l', `Row ${z.pos.row} of 8`]);
-    } else if (z) { lines.push(['h', z.name]); lines.push(['l', `Boss par: 130 h · now ${v.hours} h`]); }
+      lines.push([z.storyDone ? 'd' : 'l', `Story: ${Math.min(sq, z.questsDone)} / ${sq} quests${z.storyDone ? ' (done)' : ''}`]);
+      // travel on (rules 1.5): legal from travelLevel, under the exit level when the engine allows it
+      if (t.kind === 'done' || (t.rows && z.pos.row >= t.rows)) lines.push(['d', `Row ${t.rows} done: travel on`]);
+      else if (p.level >= t.exit) lines.push(['d', `Level ${t.exit} reached: you may travel on`]);
+      else if (p.level >= t.need) lines.push(['d', `Level ${t.need}: you may travel on early (exit level ${t.exit})`]);
+      else lines.push(['l', `Travel on at level ${t.need} (or after row ${t.rows})`]);
+      lines.push(['l', `Row ${z.pos.row} of ${t.rows}`]);
+    } else if (z) { lines.push(['h', z.name]); lines.push(['l', `Boss par: ${R.par} h · now ${v.hours} h`]); }
     const key = JSON.stringify(lines);
     if (els.tracker.dataset.key === key) return;
     els.tracker.dataset.key = key; clear(els.tracker);
@@ -434,22 +465,23 @@ function drawMinimap(cv, v, th) {
     c.fillStyle = rgba(th.accent, 0.8); c.beginPath(); c.arc(S / 2, S / 2, 14, 0, Math.PI * 2); c.fill();
     return;
   }
-  const row = z.pos.row; const lane = z.pos.lane == null ? 1 : z.pos.lane;
+  const ROWS = z.rows.length; const LANES = z.rows[0].length; // as the engine's map has them
+  const row = z.pos.row; const lane = z.pos.lane == null ? (LANES - 1) / 2 : z.pos.lane;
   const cy = S * 0.62; const dy = 54; const dx = 64;
   const pos = (r, l) => [S / 2 + (l - lane) * dx, cy - (r - row) * dy];
   c.lineWidth = 6; c.lineCap = 'round';
-  for (let r = Math.max(0, row - 1); r < Math.min(8, row + 3); r++) {
-    for (let l = 0; l < 3; l++) {
+  for (let r = Math.max(0, row - 1); r < Math.min(ROWS, row + 3); r++) {
+    for (let l = 0; l < LANES; l++) {
       if (r === 0 && l !== lane && row !== 0) continue;
       for (const nl of [l - 1, l, l + 1]) {
-        if (nl < 0 || nl > 2) continue;
+        if (nl < 0 || nl >= LANES) continue;
         const a = r === 0 ? [S / 2, cy + row * dy] : pos(r, l); const b = pos(r + 1, nl);
         c.strokeStyle = rgba(th.path, 0.85); c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke();
       }
     }
   }
-  for (let r = Math.max(1, row - 1); r <= Math.min(8, row + 3); r++) {
-    for (let l = 0; l < 3; l++) {
+  for (let r = Math.max(1, row - 1); r <= Math.min(ROWS, row + 3); r++) {
+    for (let l = 0; l < LANES; l++) {
       const n = z.rows[r - 1][l]; const [x, y] = pos(r, l);
       const col = { quest: '#ffd84a', grind: '#c8c8c8', elite: '#ff5a4a', dungeon: '#b07aff', rest: '#ff9a3a', vendor: '#e0b070', trainer: '#9a8aff', treasure: '#ffe08a', shrine: '#7fe0a0' }[n.type] || '#fff';
       c.fillStyle = n.visited ? 'rgba(40,30,20,0.85)' : col; c.strokeStyle = '#1a120a'; c.lineWidth = 3;

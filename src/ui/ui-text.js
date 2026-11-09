@@ -48,3 +48,26 @@ export const ECHO_LINE = {
   speed: 'Swift victory', firstKill: 'First kill with this class',
 };
 export const humanize = (id) => String(id || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
+/** A small count in words ("three"), larger ones as digits. */
+export const numWord = (n) => WORDS[n] || String(n);
+export const plural = (n, one, many = `${one}s`) => (n === 1 ? one : many);
+const pct = (x) => `${Math.round(x * 100)} %`;
+
+/**
+ * Linked (rules 10.2) in words, from the rules table (engine constants): 'banner' when phase 2 begins, 'log' when
+ * the Shards link, 'tip' for the boss frame. An engine without LINK_DR_PER_SHARD has the older all-or-nothing rule.
+ */
+export function linkedText(r, form) {
+  const per = r.linkPerShard;
+  const aoe = r.shardAoeTaken ? ` Your AoE spells deal +${pct(r.shardAoeTaken)} damage to Shards.` : '';
+  if (per == null) {
+    if (form === 'banner') return `Shards of dead light tear free. While any Shard lives, Oruvath takes ${pct(r.linkCap)} less damage.`;
+    if (form === 'log') return `The Shards link to Oruvath: it takes ${pct(r.linkCap)} less damage.`;
+    return `While any Dimming Shard lives, Oruvath takes ${pct(r.linkCap)} less damage.`;
+  }
+  if (form === 'banner') return `Shards of dead light tear free. Each living Shard shields Oruvath: −${pct(per)} damage taken.${aoe}`;
+  if (form === 'log') return `The Shards link to Oruvath: −${pct(per)} damage taken per living Shard, at most −${pct(r.linkCap)}.`;
+  return `Each living Dimming Shard shields Oruvath: −${pct(per)} damage taken per Shard, at most −${pct(r.linkCap)}. Every Shard killed weakens the link.${aoe}`;
+}

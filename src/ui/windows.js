@@ -114,7 +114,8 @@ export function createWindows(root, ctx) {
       const body = h('div.col', { style: { padding: '1.2rem 1.6rem 1.6rem' } });
       if (n && n.type === 'quest') body.appendChild(h('div', h('div.title', { style: { fontSize: '1.6rem' } }, n.title), h('div.dim', n.text)));
       else body.appendChild(h('div.muted', 'No active quest. Quests are taken at quest nodes on the zone map.'));
-      if (z) body.appendChild(h('div', h('div.title', { style: { fontSize: '1.5rem', marginTop: '.6rem' } }, `${z.name}: story`), h('div.dim', `Complete 3 quests in this zone for a rare reward and bonus experience. Done: ${Math.min(3, z.questsDone)} / 3${z.storyDone ? ' (finished)' : ''}.`)));
+      const sq = ctx.data.rules.storyQuests;
+      if (z) body.appendChild(h('div', h('div.title', { style: { fontSize: '1.5rem', marginTop: '.6rem' } }, `${z.name}: story`), h('div.dim', `Complete ${sq} quests in this zone for a rare reward and bonus experience. Done: ${Math.min(sq, z.questsDone)} / ${sq}${z.storyDone ? ' (finished)' : ''}.`)));
       return frame('questlog', 'Quest log', null, body);
     },
     settings() {

@@ -19,11 +19,14 @@
 //              bar: (spellId|null)[7], itemBar: (consumableId|null)[3], talents: { id: rank },
 //              talentPoints, talentSpent: { tree: n }, statuses: [{ id, rounds, stacks, value }],
 //              boons: [{ id, name, nodesLeft }], resurrect: [source], pet: { id, name, hp, maxHp, alive, statuses } | null }
-//   zone:    { idx, id, name, hubName, hubText, theme, band, exitLevel, blurb, rows: node[8][3], pos: { row, lane }, path, questsDone, storyDone }
+//   zone:    { idx, id, camp, name, hubName, hubText, theme, band, exitLevel, travelLevel, blurb, rows: node[rows][lanes], pos: { row, lane }, path,
+//              questsDone, storyDone }   rows and lanes: as many as the engine's map has (mapView); travelLevel: the level
+//              from which TRAVEL_ON is legal before the last row (rules 1.5, R.travelLevel)
 //   hub:     { used: { trainer, vendor, inn } }
 //   node:    { type, step, cl, row, lane, ... }  step: intro|combat|reward|story|between|chest|rest|vendor|trainer|shrine
 //   combat:  { round, enemies: [{ idx, uid, name, level, rank, arch, hp, maxHp, statuses, alive, intent }], target,
 //              cooldowns: { spellId: roundsLeft }, potionCd, kind, isBoss, boss: { phase, asc, telegraph }, over, title, fightNo, fights }
+//   data.rules: rule numbers that screens show in text, read from the engine's constants (rulesTable below)
 //   loot:    { kind: 'loot'|'reward'|'story', title, text?, gold, xp, items?, choices? }
 //   summary: run summary (rules.md 9)
 //   camp:    { par, asc } at the camp (asc: the engine's Ascendancy if the boss were faced now), else null
@@ -40,13 +43,36 @@ const params = (() => {
   try { return new URLSearchParams(globalThis.location ? globalThis.location.search : ''); } catch { return new URLSearchParams(''); }
 })();
 
+/**
+ * Rule numbers the screens put into text, read from the engine's constants (`C` of src/rules.js) so that UI
+ * code never copies a number from the rules. Rows and lanes are not here: the screens count them on the map.
+ */
+function rulesTable(K) {
+  // Linked (rules 10.2, M2 v2): -LINK_DR_PER_SHARD per living Shard, at most -LINK_DR. An engine without the
+  // per-Shard constant has the older rule: -LINK_DR while any Shard lives.
+  const per = K.LINK_DR_PER_SHARD;
+  const linkDr = Array.from({ length: (K.SHARD_MAX || 4) + 1 }, (_, n) => (n === 0 ? 0 : per != null ? Math.min(K.LINK_DR, per * n) : K.LINK_DR));
+  return {
+    zoneCount: K.ZONE_COUNT, maxLevel: K.MAX_LEVEL, storyQuests: K.STORY_QUESTS, dungeonTrashFights: K.DUNGEON_TRASH_FIGHTS,
+    grindMaxWaves: K.GRIND_MAX_WAVES, grindWaveSize: K.GRIND_WAVE_SIZE, eliteLevelOffset: K.ELITE_LEVEL_OFFSET,
+    campGrindLevel: K.CAMP_GRIND_LEVEL, par: K.BOSS_TIME_PAR, ascStepHours: K.ASC_STEP_HOURS, cpMax: K.CP_MAX, potionCd: K.POTION_CD,
+    hours: { trainer: K.HOURS_TRAINER, vendor: K.HOURS_VENDOR, inn: K.HOURS_REST, travel: K.HOURS_TRAVEL, grindWave: K.HOURS_GRIND_WAVE },
+    linkPerShard: per ?? null, linkCap: K.LINK_DR, linkDr, shardAoeTaken: K.SHARD_AOE_TAKEN ?? null,
+    // Round time budget at the default animation speed (rules 3, M2 v2); null on an engine without it.
+    roundAnimMs: K.PACE_ROUND_ANIM_S != null ? K.PACE_ROUND_ANIM_S * 1000 : null,
+  };
+}
+
 // ====================================================================================== mock
 function mockBackend(seed) {
   let state = mock.createState({ seed });
+  const MC = mock.data.constants; // the mock's own simplified numbers
+  // Screen texts use the rules table; the mock's own par replaces the engine's (the mock computes Ascendancy itself).
+  const data = { ...mock.data, rules: { ...rulesTable(R.C), par: MC.BOSS_TIME_PAR, ascStepHours: MC.ASC_STEP } };
   return {
-    mode: 'mock', data: mock.data, canDebug: true,
+    mode: 'mock', data, canDebug: true,
     view() {
-      const camp = state.phase === 'CAMP' ? { par: 130, asc: Math.min(0.4, 0.04 * Math.floor(Math.max(0, state.hours - 130) / 10)) } : null; // mock numbers
+      const camp = state.phase === 'CAMP' ? { par: MC.BOSS_TIME_PAR, asc: Math.min(MC.ASC_CAP, MC.ASC_PER * Math.floor(Math.max(0, state.hours - MC.BOSS_TIME_PAR) / MC.ASC_STEP)) } : null; // mock rule
       return { ...state, camp, legal: state.player ? mock.legalInfo(state) : { lanes: [], services: {}, items: [], spells: {} }, mode: 'mock' };
     },
     step(action) {
@@ -109,6 +135,7 @@ function engineBackend(seedOpt) {
     slots: C.SLOT_IDS, zones: CONTENT.zones, camp: CONTENT.camp,
     nodeHours: Object.fromEntries(Object.values(C.NODE_TYPE).map((t) => [t.id, t.hours])),
     boss: { name: C.BOSS_TEXT.name, intro: (CONTENT.camp && CONTENT.camp.bossText) || '' },
+    rules: rulesTable(C),
   };
   const consName = (id) => (C.CONSUMABLE[id] ? C.CONSUMABLE[id].name : null);
   // a damage or heal source: a spell, the pet, or a consumable (potions, Spark Flask)
@@ -132,8 +159,6 @@ function engineBackend(seedOpt) {
     if (shield > 0 && !out.some((x) => x.id === 'WARD')) out.push({ id: 'WARD', rounds: 99, stacks: 1, value: shield });
     return out;
   };
-  // Same sum as the engine's bagCapacity(): base slots plus the run's meta bag slots.
-  const capacity = (s) => C.BAG_SLOTS + ((s.meta && s.meta.bagSlots) || 0);
 
   function convPlayer(s) {
     const p = s.player; const d = p.d; const f = s.fight; const cls = C.CLASS[p.classId];
@@ -142,7 +167,7 @@ function engineBackend(seedOpt) {
     const spent = {};
     for (const [id, r] of Object.entries(p.talents || {})) { const t = C.TALENT[id]; if (t) { const k = treeId(t.cls, t.tree); spent[k] = (spent[k] || 0) + r; } }
     const bag = (p.bag || []).map((it) => item(it, p.classId));
-    while (bag.length < capacity(s)) bag.push(null);
+    while (bag.length < R.bagCapacity(s)) bag.push(null);
     const boons = Object.entries(p.buffs || {}).filter(([, b]) => b && b.left > 0).map(([id, b]) => ({ id, name: id === 'elixir' ? 'Elixir of Ferocity' : (C.BOON[id] || {}).name || id, nodesLeft: b.left }));
     const resurrect = [];
     for (let i = 0; i < ((p.res && p.res.boon) || 0); i++) resurrect.push('boon');
@@ -151,7 +176,7 @@ function engineBackend(seedOpt) {
     return {
       name: p.name, classId: p.classId, className: cls.name, petId: p.pet ? p.pet.id : null,
       level: p.level, xp: p.xp, xpToNext: R.xpToNext(p.level), rested: p.rested || 0, hp: p.hp, maxHp: d.maxHp,
-      res, cp: f ? f.p.cp || 0 : 0, cpMax: 5,
+      res, cp: f ? f.p.cp || 0 : 0, cpMax: C.CP_MAX,
       stats: { sta: d.STA, agi: d.AGI, int: d.INT, spi: d.SPI, power: Math.round(d.power), crit: d.crit, critMult: d.critMult, dodge: d.dodge, armor: Math.round(d.armor), wd: d.wd },
       gold: p.gold, equip: Object.fromEntries(Object.entries(p.equipped).map(([k, it]) => [k, item(it, p.classId)])), bag,
       spells: (p.spellOrder || Object.keys(p.spells)).map((id) => ({ id, tl: p.spells[id].tl, rank: p.spells[id].rank })),
@@ -161,12 +186,13 @@ function engineBackend(seedOpt) {
     };
   }
 
-  function zoneContent(z) { return z >= 1 && z <= 6 ? CONTENT.zones[z - 1] : null; }
+  function zoneContent(z) { return z >= 1 && z <= C.ZONE_COUNT ? CONTENT.zones[z - 1] : null; }
   function convZone(s) {
     const z = s.zone ? s.zone.z : 1;
-    if (z > 6 || (s.zone && s.zone.camp)) {
+    if (z > C.ZONE_COUNT || (s.zone && s.zone.camp)) {
       const camp = CONTENT.camp || {};
-      return { idx: 7, id: 'camp', name: camp.name || 'Observatory Steps', hubName: camp.name || 'Observatory Steps', hubText: camp.text, blurb: camp.text, theme: 'observatory', band: [60, 60], exitLevel: 60, rows: [], pos: { row: 0, lane: null }, path: [], questsDone: 0, storyDone: false };
+      return { idx: C.ZONE_COUNT + 1, id: 'camp', camp: true, name: camp.name || 'Observatory Steps', hubName: camp.name || 'Observatory Steps', hubText: camp.text, blurb: camp.text, theme: 'observatory',
+        band: [C.MAX_LEVEL, C.MAX_LEVEL], exitLevel: C.MAX_LEVEL, travelLevel: null, rows: [], pos: { row: 0, lane: null }, path: [], questsDone: 0, storyDone: false };
     }
     const zc = zoneContent(z);
     const mv = R.mapView(s);
@@ -179,8 +205,9 @@ function engineBackend(seedOpt) {
       return out;
     })) : [];
     const path = (s.zone.path || []).map((lane, i) => ({ row: i + 1, lane }));
-    return { idx: z, id: `z${z}`, name: zc ? zc.name : `Zone ${z}`, hubName: zc ? zc.hubName : 'Hub', hubText: zc ? zc.hubText : '', blurb: zc ? zc.theme : '',
-      theme: THEMES[z - 1] || 'farmland', band: [10 * (z - 1) + 1, 10 * z], exitLevel: 10 * z, rows,
+    const exitLevel = C.ZONE_LEVELS * z; // rules 1.3: a zone's band ends at its exit level
+    return { idx: z, id: `z${z}`, camp: false, name: zc ? zc.name : `Zone ${z}`, hubName: zc ? zc.hubName : 'Hub', hubText: zc ? zc.hubText : '', blurb: zc ? zc.theme : '',
+      theme: THEMES[z - 1] || 'farmland', band: [exitLevel - C.ZONE_LEVELS + 1, exitLevel], exitLevel, travelLevel: R.travelLevel(s) ?? exitLevel, rows,
       pos: { row: s.zone.pos.r, lane: s.zone.pos.l }, path, questsDone: s.zone.questsDone || 0, storyDone: !!s.zone.storyDone, next: mv ? mv.next : [] };
   }
 
@@ -203,6 +230,12 @@ function engineBackend(seedOpt) {
       school: it.school || 'phys', hits: it.hits || 1, label, interrupted: !!(it.interrupted || it.skipped),
       selfHeal: it.kind === 'selfHeal', mend: it.kind === 'heal', shield: it.kind === 'selfShield', brace: it.kind === 'brace', curse: it.kind === 'curse' };
   }
+  /** Living Dimming Shards and the Linked damage reduction they give the boss now (rules 10.2), or null. */
+  function linkedOf(f) {
+    if (!f.boss) return null;
+    const n = f.enemies.filter((e) => e.alive && e.kind === 'shard').length;
+    return { shards: n, dr: data.rules.linkDr[Math.min(n, data.rules.linkDr.length - 1)] };
+  }
   function convFight(s) {
     const f = s.fight; if (!f) return null;
     const key = fightKey(s);
@@ -214,11 +247,11 @@ function engineBackend(seedOpt) {
     const bossE = f.enemies.find((e) => e.boss);
     const n = s.node;
     let title = ''; let fights = 1;
-    if (n && n.type === 'dungeon') { fights = 4; title = (zoneContent(s.zone.z) || { dungeon: { name: 'Dungeon' } }).dungeon.name; }
+    if (n && n.type === 'dungeon') { fights = C.DUNGEON_TRASH_FIGHTS + 1; title = (zoneContent(s.zone.z) || { dungeon: { name: 'Dungeon' } }).dungeon.name; }
     if (n && n.type === 'grind') { fights = n.planned || 1; title = `Wave ${(n.wavesDone || 0) + 1} of ${n.planned}`; }
     return { round: f.round, enemies, target: f.p.target != null && enemies[f.p.target] && enemies[f.p.target].alive ? f.p.target : firstAlive ? firstAlive.idx : 0,
       cooldowns: cds, potionCd: Math.max(0, (f.p.potionReady || 0) - f.round), kind: f.kind === 'trash' ? 'dungeon' : f.kind, isBoss: f.kind === 'boss',
-      boss: f.boss ? { phase: f.boss.phase, asc: f.boss.asc || 0, telegraph: bossE && bossE.intent ? bossE.intent.telegraph : null } : null,
+      boss: f.boss ? { phase: f.boss.phase, asc: f.boss.asc || 0, telegraph: bossE && bossE.intent ? bossE.intent.telegraph : null, linked: linkedOf(f) } : null,
       over: f.over, canFlee: f.canFlee, title, fightNo: (f.k || 0) + 1, fights };
   }
 
@@ -234,7 +267,7 @@ function engineBackend(seedOpt) {
   function lineFor(list, s) { return list && list.length ? list[hash(nodeKey(s)) % list.length] : ''; }
   function convNode(s) {
     if (s.service && (s.phase === 'ZONE_HUB' || s.phase === 'CAMP')) return { type: s.service.kind, origin: 'hub', step: s.service.kind, cl: s.service.cl, stock: s.service.kind === 'vendor' ? convStock(s) : null };
-    if (s.phase === 'CAMP' && s.fight) return { type: 'camp_grind', step: 'combat', cl: 58, origin: 'camp', fightNo: 1 };
+    if (s.phase === 'CAMP' && s.fight) return { type: 'camp_grind', step: 'combat', cl: C.CAMP_GRIND_LEVEL, origin: 'camp', fightNo: 1 };
     const n = s.node; if (!n) return null;
     const zc = zoneContent(s.zone.z);
     const v = { type: n.type, row: n.r, lane: n.l, cl: n.cl, fightNo: (n.k || 0) + 1, waves: n.wavesDone || 0, wavesChosen: n.planned || 0 };
@@ -439,11 +472,11 @@ function engineBackend(seedOpt) {
         case 'channel': out.push({ t: 'channel', src: ref(e.u), name: e.name, step: e.step }); break;
         case 'summon': hp.set(`e${e.u}`, e.hp); max.set(`e${e.u}`, e.hp); out.push({ t: 'summon', idxs: [e.u], names: [e.name] }); break;
         case 'despawn': out.push({ t: 'death', dst: ref(e.u), name: enemyName(e.u), despawn: true }); break;
-        case 'linked': out.push({ t: 'linked', on: !!e.on }); break;
+        case 'linked': out.push({ t: 'linked', on: !!e.on, n: e.n ?? null }); break;
         case 'shield': out.push({ t: 'status', dst: ref(e.u), id: 'WARD', op: 'add' }); break;
         case 'enrage': out.push({ t: 'status', dst: ref(e.u), id: 'ENRAGED', op: 'add' }); break;
         case 'image': out.push({ t: 'damage', src: ref(e.src), dst: ref('player'), amount: 0, miss: true, name: 'Mirror image', school: 'arcane', hpAfter: hp.get('player'), maxHp: max.get('player') }); break;
-        case 'phaseChange': out.push({ t: 'bossPhase', phase: e.phase, name: e.phase === 2 ? 'The Dimming' : 'Eclipse', text: e.phase === 2 ? 'Shards of dead light tear free. While they live, Oruvath is Linked.' : 'The light dies. Oruvath grows stronger every round.' }); break;
+        case 'phaseChange': out.push({ t: 'bossPhase', phase: e.phase, name: e.phase === 2 ? 'The Dimming' : 'Eclipse', text: e.phase === 2 ? TXT.linkedText(data.rules, 'banner') : 'The light dies. Oruvath grows stronger every round.' }); break;
         case 'death':
           if (e.u === 'player') { out.push({ t: 'death', dst: ref('player'), name: s.player.name }); if (s.phase === 'SUMMARY' || s.phase === 'ENDED') out.push({ t: 'defeat' }); }
           else { hp.set(key(e.u), 0); out.push({ t: 'death', dst: ref(e.u), name: e.name || enemyName(e.u) }); }
@@ -600,7 +633,7 @@ function engineBackend(seedOpt) {
       const kind = prev.combat ? prev.combat.kind : '';
       local.spoils = {
         title: kind === 'dboss' ? `${(prev.node && prev.node.dungeon) || 'Dungeon'} cleared` : prev.node && prev.node.type === 'treasure' ? 'Treasure chest' : 'Loot',
-        phase: 'NODE', node: prev.node ? { ...prev.node, step: 'combat' } : { type: 'camp_grind', step: 'combat', cl: 58 },
+        phase: 'NODE', node: prev.node ? { ...prev.node, step: 'combat' } : { type: 'camp_grind', step: 'combat', cl: C.CAMP_GRIND_LEVEL },
         combat: pc, gold: sum('gold', (e) => e.amount > 0 && e.why !== 'quest'), xp: sum('xp', (e) => e.why !== 'quest' && e.why !== 'story'), trap: sum('trap') > 0, items,
       };
     }

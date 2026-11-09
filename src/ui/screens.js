@@ -4,7 +4,8 @@ import { h, add, clear, fmtNum, moneyEl, moneyText, hoursText, clamp } from './u
 import { spellIcon, itemIcon, nodeIcon, icon, consumableIcon } from './art-icons.js';
 import { drawPortrait, HERO_LOOKS, PET_LOOKS } from './art-actors.js';
 import { tip, itemTip, spellTip } from './tooltip.js';
-import { conColor, heroPortrait } from './hud.js';
+import { conColor, heroPortrait, travelState } from './hud.js';
+import { numWord, plural } from './ui-text.js';
 
 const NODE_NAME = { quest: 'Quest', grind: 'Grind', elite: 'Elite', dungeon: 'Dungeon', rest: 'Rest', vendor: 'Vendor', trainer: 'Trainer', treasure: 'Treasure', shrine: 'Shrine' };
 const NO_FIGHT = new Set(['rest', 'vendor', 'trainer', 'shrine']); // nodes that hold no fight: labels in a neutral colour
@@ -15,17 +16,22 @@ function nameGroups(names) {
   for (const nm of names) counts.set(nm, (counts.get(nm) || 0) + 1);
   return [...counts.entries()].map(([nm, k]) => (k > 1 ? `${k} × ${nm}` : nm)).join(', ');
 }
-const NODE_DESC = {
-  quest: 'A quest giver needs help. One fight, then experience, gold and a choice of two rewards. Three quests in a zone complete its story.',
-  grind: 'Fight 1 to 3 waves of two enemies. Steady experience, gold and more drops.',
-  elite: 'One powerful enemy, two levels higher. High experience and a guaranteed good item.',
-  dungeon: 'Three fights and a dungeon boss. The best loot in the zone, and the most dangerous node.',
-  rest: 'Full health and mana, and rested experience: kills give double XP until it runs out.',
-  vendor: 'Buy potions, rations and gear; sell junk and old equipment.',
-  trainer: 'Learn new spells and train known ones to your level.',
-  treasure: 'A chest with gold and an item. It may be guarded or trapped.',
-  shrine: 'Choose one of two blessings.',
-};
+/** What a node holds, in words; counts and offsets from the rules table (ctx.data.rules, the engine's constants). */
+function nodeDesc(type, r) {
+  const cap = (s) => s[0].toUpperCase() + s.slice(1);
+  switch (type) {
+    case 'quest': return `A quest giver needs help. One fight, then experience, gold and a choice of two rewards. ${cap(numWord(r.storyQuests))} quests in a zone complete its story.`;
+    case 'grind': return `Fight 1 to ${r.grindMaxWaves} waves of ${numWord(r.grindWaveSize)} enemies. Steady experience, gold and more drops.`;
+    case 'elite': return `One powerful enemy, ${numWord(r.eliteLevelOffset)} ${plural(r.eliteLevelOffset, 'level')} higher. High experience and a guaranteed good item.`;
+    case 'dungeon': return `${cap(numWord(r.dungeonTrashFights))} fights and a dungeon boss. The best loot in the zone, and the most dangerous node.`;
+    case 'rest': return 'Full health and mana, and rested experience: kills give double XP until it runs out.';
+    case 'vendor': return 'Buy potions, rations and gear; sell junk and old equipment.';
+    case 'trainer': return 'Learn new spells and train known ones to your level.';
+    case 'treasure': return 'A chest with gold and an item. It may be guarded or trapped.';
+    case 'shrine': return 'Choose one of two blessings.';
+    default: return '';
+  }
+}
 
 export function createScreens(root, ctx) {
   const layer = h('div#screens');
@@ -73,7 +79,7 @@ const mapKey = (v) => `${v.zone.idx}|${v.zone.pos.row}|${v.zone.pos.lane}|${v.pl
 function buildCreate(ctx) {
   const d = ctx.data;
   const root = h('div#create');
-  root.appendChild(h('div.ctitle', h('div.t1', 'A classic fantasy roguelike'), h('div.t2', 'Choose your hero'), h('div.t3', 'Level from 1 to 60 across six zones, then face Oruvath, the Unlit Star.')));
+  root.appendChild(h('div.ctitle', h('div.t1', 'A classic fantasy roguelike'), h('div.t2', 'Choose your hero'), h('div.t3', `Level from 1 to ${d.rules.maxLevel} across ${numWord(d.rules.zoneCount)} zones, then face Oruvath, the Unlit Star.`)));
   const classes = h('div.classes');
   for (const id of ['rogue', 'mage', 'hunter']) {
     const c = d.classes[id];
@@ -137,15 +143,15 @@ function svcCard(glyph, bg, name, meta, hours, used, onClick) {
 }
 
 function buildHub(v, ctx) {
-  const z = v.zone; const p = v.player; const used = (v.hub && v.hub.used) || {};
+  const z = v.zone; const p = v.player; const used = (v.hub && v.hub.used) || {}; const hr = ctx.data.rules.hours;
   const el = h('div.side.panel');
   el.append(h('div.wtitle', h('div', h('div.title', { style: { fontSize: '2.4rem' } }, z.hubName), h('div.subtitle', `${z.name} · levels ${z.band[0]}–${z.band[1]}`))));
   const body = h('div.body.col', { style: { padding: '1.2rem 1.6rem 1.6rem', gap: '.8rem' } });
   if (z.hubText || z.blurb) body.appendChild(h('div', { style: { font: 'italic 1.4rem var(--font-title)', color: 'var(--ink-dim)', marginBottom: '.4rem' } }, z.hubText || z.blurb));
   body.append(
-    svcCard('tome', 'arcane', 'Trainer', 'Learn and rank up spells', '1 h', used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' })),
-    svcCard('vendor', 'earth', 'Vendor', 'Potions, rations and gear', '1 h', used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' })),
-    svcCard('rest', 'fire', 'Inn', 'Full rest and rested experience', '4 h', used.inn, () => ctx.act({ type: 'HUB_SERVICE', service: 'inn' })));
+    svcCard('tome', 'arcane', 'Trainer', 'Learn and rank up spells', `${hr.trainer} h`, used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' })),
+    svcCard('vendor', 'earth', 'Vendor', 'Potions, rations and gear', `${hr.vendor} h`, used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' })),
+    svcCard('rest', 'fire', 'Inn', 'Full rest and rested experience', `${hr.inn} h`, used.inn, () => ctx.act({ type: 'HUB_SERVICE', service: 'inn' })));
   if (p.talentPoints) body.appendChild(h('div.warn', { style: { fontSize: '1.25rem' } }, `You have ${p.talentPoints} unspent talent point${p.talentPoints > 1 ? 's' : ''}. Press N.`));
   const go = h('button.btn.primary.big', 'Set out');
   go.addEventListener('click', () => ctx.act({ type: 'LEAVE_HUB' }));
@@ -154,17 +160,17 @@ function buildHub(v, ctx) {
 }
 
 function buildCamp(v, ctx) {
-  const z = v.zone; const used = (v.hub && v.hub.used) || {};
+  const z = v.zone; const used = (v.hub && v.hub.used) || {}; const R = ctx.data.rules; const hr = R.hours;
   const asc = v.camp ? v.camp.asc : null; // the engine's Ascendancy if the boss were faced now
   const el = h('div.side.panel');
   el.append(h('div.wtitle', h('div', h('div.title', { style: { fontSize: '2.4rem' } }, z.hubName), h('div.subtitle', `${z.name} · the final camp`))));
   const body = h('div.body.col', { style: { padding: '1rem 1.6rem 1.2rem', gap: '.6rem' } });
   body.appendChild(h('div', { style: { font: 'italic 1.4rem var(--font-title)', color: 'var(--ink-dim)' } }, z.blurb || ''));
   body.append(
-    svcCard('tome', 'arcane', 'Trainer', 'Last chance to train', '1 h', used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' })),
-    svcCard('vendor', 'earth', 'Quartermaster', 'Level 60 stock', '1 h', used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' })),
-    svcCard('rest', 'fire', 'Campfire', 'Full rest before the fight', '4 h', used.inn, () => ctx.act({ type: 'HUB_SERVICE', service: 'inn' })),
-    svcCard('grind', 'steel', 'Camp wave', 'Fight a wave of level 58 enemies', '1 h', false, () => ctx.act({ type: 'CAMP_GRIND' })));
+    svcCard('tome', 'arcane', 'Trainer', 'Last chance to train', `${hr.trainer} h`, used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' })),
+    svcCard('vendor', 'earth', 'Quartermaster', `Level ${R.maxLevel} stock`, `${hr.vendor} h`, used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' })),
+    svcCard('rest', 'fire', 'Campfire', 'Full rest before the fight', `${hr.inn} h`, used.inn, () => ctx.act({ type: 'HUB_SERVICE', service: 'inn' })),
+    svcCard('grind', 'steel', 'Camp wave', `Fight a wave of level ${R.campGrindLevel} enemies`, `${hr.grindWave} h`, false, () => ctx.act({ type: 'CAMP_GRIND' })));
   const par = v.camp && v.camp.par ? ` (par ${v.camp.par} h)` : '';
   const kv = h('dl.kv', h('dt', 'Time'), h('dd', `${v.hours} h${par}`), h('dt', 'Ascendancy'),
     asc == null ? h('dd.muted', 'Unknown') : h('dd', { class: asc > 0 ? 'bad' : 'good' }, asc > 0 ? `+${Math.round(asc * 100)} % health and damage` : 'None: you are on time'));
@@ -178,19 +184,28 @@ function buildCamp(v, ctx) {
 export function buildMap(v, ctx, readOnly) {
   const z = v.zone; const p = v.player; const L = v.legal || {};
   const win = h('div.mapwin.panel');
-  const nextName = z.idx < 6 ? (ctx.data.zones[z.idx] ? 'the next zone' : 'the next zone') : 'the camp';
-  const travel = h('button.btn' + (L.travelOn ? '.primary' : ''), L.mustTravel ? 'Travel on (zone done)' : 'Travel on');
+  const nextName = z.idx < ctx.data.rules.zoneCount ? 'the next zone' : 'the camp';
+  const ts = travelState(v);
+  const label = { done: 'Travel on (zone done)', open: 'Travel on', early: 'Travel on early', locked: `Travel on at level ${ts.need}` }[ts.kind];
+  const travel = h('button.btn' + (L.travelOn ? '.primary' : ''), { dataset: { travel: ts.kind } }, label);
   travel.disabled = !L.travelOn || readOnly;
   travel.addEventListener('click', () => ctx.act({ type: 'TRAVEL_ON' }));
-  tip(travel, () => h('div', h('div.tt-name', 'Travel on'), h('div.tt-line.desc', `Leave ${z.name} for ${nextName}. Costs 2 h. Leaving early skips the remaining rows: fewer hours, but less loot and gold.`), L.travelOn ? null : h('div.tt-warn', `Reach level ${z.exitLevel} or finish row 8 first (you are level ${p.level}).`)));
+  tip(travel, () => h('div', h('div.tt-name', 'Travel on'),
+    h('div.tt-line.desc', `Leave ${z.name} for ${nextName}. Costs ${ctx.data.rules.hours.travel} h. Leaving early skips the remaining rows: fewer hours, but less loot and gold.`),
+    h('div.tt-line', ts.under > 0 ? `Open from level ${ts.need}, ${numWord(ts.under)} ${plural(ts.under, 'level')} below the exit level ${ts.exit}, or after row ${ts.rows}.` : `Open from level ${ts.exit}, or after row ${ts.rows}.`),
+    ts.kind === 'locked' ? h('div.tt-warn', `Reach level ${ts.need} or finish row ${ts.rows} first (you are level ${p.level}).`) : null,
+    ts.kind === 'early' ? h('div.tt-warn', `You are under the exit level (${ts.exit}): the next zone starts above your level. More risk, more experience.`) : null,
+    ts.kind === 'done' ? h('div.tt-hint', `Row ${ts.rows} is done: the road leads on.`) : null));
   const head = h('div.mhead', h('div', h('div.title', z.name), h('div.subtitle', `Levels ${z.band[0]}–${z.band[1]} · ${z.blurb || ''}`)), h('div.row', readOnly ? closeBtn(ctx, 'map') : null, readOnly ? null : travel));
   const body = h('div.mbody.parchment');
   const svgNS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(svgNS, 'svg');
   svg.setAttribute('viewBox', '0 0 1000 1000'); svg.setAttribute('preserveAspectRatio', 'none');
   body.appendChild(svg);
-  // horizontal: hub on the left, row 8 on the right; lanes top to bottom
-  const PX = (r) => 60 + r * 110; const PY = (l) => 200 + l * 300;
+  // horizontal: hub on the left, the last row on the right; lanes top to bottom. Rows and lanes as the engine's map has them.
+  const ROWS = z.rows.length; const LANES = ROWS ? z.rows[0].length : 0;
+  const PX = (r) => 60 + (r * 880) / Math.max(1, ROWS); const PY = (l) => (LANES > 1 ? 200 + (l * 600) / (LANES - 1) : 500);
+  const mid = (LANES - 1) / 2; // the hub sits level with the middle lane
   const line = (x1, y1, x2, y2, cls) => {
     const ln = document.createElementNS(svgNS, 'line');
     ln.setAttribute('x1', x1); ln.setAttribute('y1', y1); ln.setAttribute('x2', x2); ln.setAttribute('y2', y2);
@@ -202,17 +217,17 @@ export function buildMap(v, ctx, readOnly) {
   const path = z.path || [];
   const onPath = (r1, l1, r2, l2) => path.some((pp, i) => pp.row === r2 && pp.lane === l2 && (r1 === 0 ? i === 0 : path[i - 1] && path[i - 1].row === r1 && path[i - 1].lane === l1));
   const reachable = new Set(readOnly ? [] : (L.lanes || []).map((l) => `${z.pos.row + 1}:${l}`));
-  for (let l = 0; l < 3; l++) line(PX(0), PY(1), PX(1), PY(l), onPath(0, null, 1, l) ? 'path' : z.pos.row === 0 && reachable.has(`1:${l}`) ? 'reach' : 'base');
-  for (let r = 1; r < 8; r++) for (let l = 0; l < 3; l++) for (const nl of [l - 1, l, l + 1]) {
-    if (nl < 0 || nl > 2) continue;
+  for (let l = 0; l < LANES; l++) line(PX(0), PY(mid), PX(1), PY(l), onPath(0, null, 1, l) ? 'path' : z.pos.row === 0 && reachable.has(`1:${l}`) ? 'reach' : 'base');
+  for (let r = 1; r < ROWS; r++) for (let l = 0; l < LANES; l++) for (const nl of [l - 1, l, l + 1]) {
+    if (nl < 0 || nl >= LANES) continue;
     const cls = onPath(r, l, r + 1, nl) ? 'path' : (z.pos.row === r && z.pos.lane === l && reachable.has(`${r + 1}:${nl}`)) ? 'reach' : 'base';
     line(PX(r), PY(l), PX(r + 1), PY(nl), cls);
   }
   // hub node
-  const hub = h('div.mnode.hubnode' + (z.pos.row === 0 ? '.here' : '.visited'), { style: { left: `${PX(0) / 10}%`, top: `${PY(1) / 10}%` } }, h('div.ring', h('img', { src: nodeIcon('hub'), alt: '' })), h('div.cl', { style: { color: '#f0e0c0' } }, 'Hub'));
+  const hub = h('div.mnode.hubnode' + (z.pos.row === 0 ? '.here' : '.visited'), { style: { left: `${PX(0) / 10}%`, top: `${PY(mid) / 10}%` } }, h('div.ring', h('img', { src: nodeIcon('hub'), alt: '' })), h('div.cl', { style: { color: '#f0e0c0' } }, 'Hub'));
   tip(hub, () => h('div.tt-node', h('div.tt-name', z.hubName), h('div.tt-sub', 'Zone hub: trainer, vendor and inn')));
   body.appendChild(hub);
-  for (let r = 1; r <= 8; r++) for (let l = 0; l < 3; l++) {
+  for (let r = 1; r <= ROWS; r++) for (let l = 0; l < LANES; l++) {
     const n = z.rows[r - 1][l];
     const reach = reachable.has(`${r}:${l}`);
     const here = z.pos.row === r && z.pos.lane === l;
@@ -226,8 +241,9 @@ export function buildMap(v, ctx, readOnly) {
   }
   const legend = h('div.mlegend', Object.keys(NODE_NAME).map((t) => h('span', h('img', { src: nodeIcon(t), alt: '' }), NODE_NAME[t])));
   // row ruler
-  for (let r = 1; r <= 8; r++) body.appendChild(h('div.mrow', { style: { left: `${PX(r) / 10}%` } }, `${r}`));
-  const story = h('div.dim', { style: { fontSize: '1.2rem', whiteSpace: 'nowrap' } }, `Story ${Math.min(3, z.questsDone)}/3 · ${v.hours} h`);
+  for (let r = 1; r <= ROWS; r++) body.appendChild(h('div.mrow', { style: { left: `${PX(r) / 10}%` } }, `${r}`));
+  const sq = ctx.data.rules.storyQuests;
+  const story = h('div.dim', { style: { fontSize: '1.2rem', whiteSpace: 'nowrap' } }, `Story ${Math.min(sq, z.questsDone)}/${sq} · ${v.hours} h`);
   win.append(head, body, h('div.mfoot', legend, story));
   if (readOnly) win.id = 'win-map';
   return win;
@@ -250,7 +266,7 @@ function nodeTip(n, v, ctx, reach) {
     const k = n.enemyNames.length;
     box.appendChild(h('div.tt-line.foes', `${n.type === 'grind' ? 'Wave 1: ' : 'Foes: '}${k} ${k === 1 ? 'enemy' : 'enemies'} (${nameGroups(n.enemyNames)})`));
   }
-  box.appendChild(h('div.tt-line.desc', NODE_DESC[n.type]));
+  box.appendChild(h('div.tt-line.desc', nodeDesc(n.type, ctx.data.rules)));
   const hrs = ctx.data.nodeHours ? ctx.data.nodeHours[n.type] : null;
   if (hrs != null) box.appendChild(h('div.tt-sub', n.type === 'grind' ? `Takes ${hrs} h per wave` : `Takes ${hrs} h`));
   if (n.visited) box.appendChild(h('div.tt-hint', 'Visited'));
@@ -286,8 +302,10 @@ function buildNode(v, ctx) {
     ], [btn('Accept', () => ctx.act({ type: 'ACCEPT' }), '.primary')], { left });
   }
   if (n.type === 'grind' && n.step === 'intro') {
-    const w = (k) => btn(`${k} wave${k > 1 ? 's' : ''} · ${k} h`, () => ctx.act({ type: 'GRIND_SET_WAVES', n: k }), k === 2 ? '.primary' : '');
-    return dialog('Grind', `Level ${n.cl}`, [h('div.dim', { style: { fontSize: '1.35rem' } }, NODE_DESC.grind), h('div.subtitle', 'Enemies'), foeList(v, n.mobs, ctx), h('div.muted', 'You can stop after any wave.')], [w(1), w(2), w(3)], { left });
+    const R = ctx.data.rules;
+    const w = (k) => btn(`${k} wave${k > 1 ? 's' : ''} · ${k * R.hours.grindWave} h`, () => ctx.act({ type: 'GRIND_SET_WAVES', n: k }), k === 2 ? '.primary' : '');
+    const waves = Array.from({ length: R.grindMaxWaves }, (_, i) => w(i + 1));
+    return dialog('Grind', `Level ${n.cl}`, [h('div.dim', { style: { fontSize: '1.35rem' } }, nodeDesc('grind', R)), h('div.subtitle', 'Enemies'), foeList(v, n.mobs, ctx), h('div.muted', 'You can stop after any wave.')], waves, { left });
   }
   if (n.type === 'elite' && n.step === 'intro') {
     const e = n.elite || {};
@@ -299,7 +317,7 @@ function buildNode(v, ctx) {
   if (n.type === 'dungeon' && n.step === 'intro') {
     return dialog(n.dungeon, `Dungeon · level ${n.cl}`, [
       n.dungeonText ? h('div', { style: { font: 'italic 1.45rem var(--font-title)', color: 'var(--ink-dim)' } }, n.dungeonText) : null,
-      h('dl.kv', h('dt', 'Fights'), h('dd', `3 groups, then ${n.bossName}`), h('dt', 'Between fights'), h('dd', 'You may eat, change gear, or leave with what you have'), h('dt', 'Warning'), h('dd.bad', 'No fleeing from the dungeon boss')),
+      h('dl.kv', h('dt', 'Fights'), h('dd', `${ctx.data.rules.dungeonTrashFights} groups, then ${n.bossName}`), h('dt', 'Between fights'), h('dd', 'You may eat, change gear, or leave with what you have'), h('dt', 'Warning'), h('dd.bad', 'No fleeing from the dungeon boss')),
     ], [btn('Enter the dungeon', () => ctx.act({ type: 'ACCEPT' }), '.primary')], { left });
   }
   if (n.type === 'treasure' && n.step === 'intro') {
@@ -313,8 +331,9 @@ function buildNode(v, ctx) {
     const rations = p.bag.find((s) => s && s.id === 'trail_rations');
     const eat = rations ? btn(`Eat Trail Rations (${rations.count})`, () => ctx.act({ type: 'USE_ITEM', uid: rations.uid })) : null;
     if (n.type === 'grind') return dialog('Grind', `Wave ${n.waves} of ${n.wavesChosen} done`, [h('div.dim', hpTxt)], [eat, btn('Stop here', () => ctx.act({ type: 'GRIND_STOP' })), btn('Next wave', () => ctx.act({ type: 'CONTINUE' }), '.primary')].filter(Boolean), { left });
-    return dialog(n.dungeon, `Fight ${n.fightNo} of 4 cleared`, [h('div.dim', hpTxt), n.fightNo === 3 ? h('div.warn', `Next: ${n.bossName}. There is no fleeing from the boss.`) : null],
-      [eat, btn('Leave the dungeon', () => ctx.act({ type: 'DUNGEON_LEAVE' })), btn(n.fightNo === 3 ? 'Face the boss' : 'Press on', () => ctx.act({ type: 'CONTINUE' }), '.primary')].filter(Boolean), { left });
+    const trash = ctx.data.rules.dungeonTrashFights; // the boss is fight trash + 1
+    return dialog(n.dungeon, `Fight ${n.fightNo} of ${trash + 1} cleared`, [h('div.dim', hpTxt), n.fightNo === trash ? h('div.warn', `Next: ${n.bossName}. There is no fleeing from the boss.`) : null],
+      [eat, btn('Leave the dungeon', () => ctx.act({ type: 'DUNGEON_LEAVE' })), btn(n.fightNo === trash ? 'Face the boss' : 'Press on', () => ctx.act({ type: 'CONTINUE' }), '.primary')].filter(Boolean), { left });
   }
   if (n.type === 'rest') {
     return dialog('Rest', 'Campfire', [h('div', { style: { font: 'italic 1.5rem var(--font-title)', color: 'var(--ink-dim)' } }, 'You rest by the fire until the ache leaves your bones.'),
