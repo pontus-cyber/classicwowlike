@@ -102,9 +102,11 @@ export function moneyText(copper) {
   return [g ? `${g} g` : '', g || s ? `${s} s` : '', `${c} c`].filter(Boolean).join(' ');
 }
 export const pct = (v, digits = 0) => `${(v * 100).toFixed(digits)} %`;
+/** In-game clock: the run starts on day 1 at 06:00; a new day starts at midnight. */
 export function hoursText(h) {
-  const day = Math.floor(h / 24) + 1; const hr = h % 24;
-  return { day, hour: hr, label: `Day ${day}, ${String((hr + 6) % 24).padStart(2, '0')}:00` };
+  const t = Math.max(0, Math.floor(h || 0)) + 6;
+  const day = Math.floor(t / 24) + 1; const hr = t % 24;
+  return { day, hour: hr, label: `Day ${day}, ${String(hr).padStart(2, '0')}:00` };
 }
 
 /** Promise that resolves after ms; a skip token resolves it early. */
