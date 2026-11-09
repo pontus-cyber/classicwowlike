@@ -13,7 +13,7 @@
 //
 // Also exported: validateContent, newProfile, metaOffers, buyMeta, mapView, isLegal, whyIllegal, stepInPlace,
 // IllegalActionError, display helpers (xpToNext, talentPointsFree, itemScore, spellCost, spellCooldown,
-// spellInfo, fleeChance) and every constant via `C`.
+// spellInfo, fleeChance, bagCapacity), rule helpers (V, xpCurve, diffMod) and every constant via `C`.
 import * as C from './constants.js';
 import { normaliseSeed } from './rng.js';
 import { cloneState, deepClone, deepFreeze, IllegalActionError } from './engine/util.js';
@@ -22,14 +22,27 @@ import { checkAction, applyAction, legalActions as legal } from './engine/action
 import { autoAction as auto } from './engine/autoplay.js';
 import { summary as sum } from './engine/summary.js';
 import { newProfile, metaOffers, buyMeta, applyRunToProfile } from './engine/meta.js';
-import { availablePets } from './engine/nodes.js';
+import { availablePets, metaFromProfile } from './engine/nodes.js';
 import { nextLanes } from './engine/map.js';
-import { xpToNext, talentPointsFree as freePoints } from './engine/progress.js';
-import { itemScore } from './engine/items.js';
+import { xpToNext, xpCurve, diffMod, talentPointsFree as freePoints } from './engine/progress.js';
+import { itemScore, V, bagCapacity as bagCap } from './engine/items.js';
 import { spellCost as cost, spellCd, spellAmount, spellTl, fleeChance as flee, castError } from './engine/spells.js';
 
 export const STATE_VERSION = 1;
 export { C, validateContent, newProfile, metaOffers, buyMeta, applyRunToProfile, IllegalActionError, xpToNext, itemScore };
+/**
+ * Read-only rule helpers for front ends and the simulator (never re-implement them):
+ *   V(L)        value scale (rules 8.5): prices, gold, sell values are multiples of V
+ *   xpCurve(L)  the levelling polynomial (rules 4.3), defined for every L (xpToNext(60) is 0, xpCurve(60) is not)
+ *   diffMod(d)  XP level-difference modifier for d = content level - character level (rules 4.4)
+ */
+export { V, xpCurve, diffMod };
+
+/** Bag slots of the run: BAG_SLOTS plus meta Deeper Pockets (rules 8.7, 11.2). In CREATE: from the profile. */
+export function bagCapacity(state) {
+  if (state.meta) return bagCap(state);
+  return C.BAG_SLOTS + metaFromProfile(state.profile, state.create ? state.create.classId : null).bagSlots;
+}
 
 /** Unspent talent points (rules 6). */
 export function talentPointsFree(state) {
