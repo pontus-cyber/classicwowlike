@@ -1,0 +1,380 @@
+// autoAction: the autoplay combat policy (rules 7.9, exact) and a deterministic default policy for every
+// other decision so a headless run can go from CREATE to SUMMARY. The simulator's bots (balance.md 1) replace
+// the out-of-combat part with their own policies; the combat part is the spec's.
+import {
+  SPELL, TALENT, CONSUMABLE, AUTO_POTION_HP, AUTO_TONIC_STACKS, AUTO_MANA_POTION, AUTO_FOOD_HP,
+  ENGINE_ASSUMPTION as EA, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, MAX_LEVEL, PET,
+} from '../constants.js';
+import { hasSt, findSt, debuffStacks, isEliteOrBoss, petAlive } from './damage.js';
+import { defaultTarget } from './combat.js';
+import { castError, itemUsableInCombat } from './spells.js';
+import { itemScore, countConsumable, sellValue, canAdd, V, bagCapacity } from './items.js';
+import { talentPointsFree } from './progress.js';
+import { nextLanes, dungeonLevels } from './map.js';
+import { checkAction } from './actions.js';
+import { canTravel, exitLevel, trainerSpells, learnCost, trainCost, trainable, availablePets } from './nodes.js';
+
+const legal = (s, a) => !checkAction(s, a);
+
+// ---------------- Combat policy (rules 7.9) ----------------
+function livingCount(s) {
+  return s.fight.enemies.filter((e) => e.alive && !hasSt(e.st, 'HEXED')).length;
+}
+
+function intentIsCast(e) {
+  return !!(e && e.alive && e.intent && e.intent.cast && !e.intent.interrupted);
+}
+
+function highestHpNonFocus(s, focus) {
+  let best = null;
+  for (const e of s.fight.enemies) {
+    if (!e.alive || e.idx === focus || hasSt(e.st, 'HEXED')) continue;
+    if (!best || e.hp > best.hp) best = e;
+  }
+  return best ? best.idx : null;
+}
+
+/**
+ * Autoplay condition of a bar spell (rules 5.3-5.6; talent spells: ENGINE_ASSUMPTION). Returns the target
+ * (enemy index, or null for self/AoE spells) when the condition holds, undefined when it does not.
+ */
+function autoTarget(s, id, foc) {
+  const f = s.fight;
+  const p = s.player;
+  const sp = SPELL[id];
+  const e = foc === null ? null : f.enemies[foc];
+  const hpF = p.hp / p.d.maxHp;
+  const cp = f.p.cp;
+  const n = livingCount(s);
+  const elite = isEliteOrBoss(e);
+  const tgtHp = e ? e.hp / e.maxHp : 1;
+  const stacks = debuffStacks(f.p.st);
+  const self = sp.target === 'enemy' ? foc : null;
+  const ok = (c, t = self) => (c ? t : undefined);
+  switch (id) {
+    case 'gutting_jab': case 'ember_bolt': case 'keen_shot': case 'pyre_comet': case 'starlance_barrage':
+    case 'heartseeker_shot': case 'glacier_spike': case 'starfall_arrow':
+      return ok(true);
+    case 'severing_flourish': return ok(cp >= sp.autoCp || (cp >= sp.autoCpLow && tgtHp < sp.autoLowHp));
+    case 'shadowstep_strike': return ok(hasSt(f.p.st, 'STEALTH'));
+    case 'throat_jab': case 'spellsnap': case 'muzzle_shot': return ok(intentIsCast(e));
+    case 'open_vein': return ok(cp >= sp.autoCp && elite && !findSt(e.st, 'BLEED', 'open_vein'));
+    case 'temple_blow': return ok(cp >= sp.autoCp && !!e && !!e.intent && (intentIsCast(e) || e.intent.heavy));
+    case 'smoke_veil': return ok(hpF < sp.autoHp && (n >= sp.autoEnemies || elite));
+    case 'whirling_edges': case 'rime_burst': case 'ricochet_bolt':
+      if (id === 'rime_burst') return ok(n >= sp.autoEnemies || hpF < sp.autoHp);
+      return ok(n >= sp.autoEnemies);
+    case 'expose_weakness': return ok(cp >= sp.autoCp && elite && !hasSt(e.st, 'EXPOSED'));
+    case 'adrenal_surge': return ok(f.p.energy < sp.autoEnergy);
+    case 'vanishing_step': case 'glacial_tomb': case 'feign_stillness': return ok(hpF < sp.autoHp || stacks >= sp.autoStacks);
+    case 'final_reckoning': return ok(tgtHp < sp.executeBelow && cp >= sp.autoCp);
+    case 'thousand_cuts': return ok(cp <= EA.AUTO_THOUSAND_CUTS_CP_MAX);
+    case 'ghostblade_rush': return ok(cp <= sp.autoCpMax);
+    case 'rupture_venom': return ok(cp >= EA.AUTO_RUPTURE_CP);
+    case 'bloodprice_gambit': return ok(hpF > sp.autoHp && elite);
+    case 'frost_lance': return ok(!hasSt(e.st, 'CHILLED'));
+    case 'arcane_ward': return ok(!hasSt(f.p.st, 'WARD'));
+    case 'living_flame': return ok(tgtHp >= sp.autoTargetHp && !findSt(e.st, 'BURN', 'living_flame'));
+    case 'barbed_arrow': return ok(tgtHp >= sp.autoTargetHp && !findSt(e.st, 'BLEED', 'barbed_arrow'));
+    case 'hexbind': return n >= sp.autoEnemies ? ok(true, highestHpNonFocus(s, foc)) : undefined;
+    case 'cinder_storm': case 'volley_rain': return ok(n >= sp.autoEnemies);
+    case 'mana_siphon': return ok(p.mana < sp.autoMana * p.d.maxMana);
+    case 'hourglass_reversal': return ok(p.mana < EA.AUTO_HOURGLASS_MANA * p.d.maxMana);
+    case 'conflagrant_core': case 'rapid_volley': return ok(elite);
+    case 'chrono_sigil': {
+      const interruptReady = p.bar.some((x) => x && SPELL[x].tags.includes('interrupt') && !castError(s, x, foc));
+      return ok(!!e && !!e.intent && (e.intent.heavy || intentIsCast(e)) && !interruptReady);
+    }
+    case 'mirrorshade': return ok(hpF < sp.autoHp);
+    case 'mark_prey': return ok(elite && !hasSt(e.st, 'MARKED'));
+    case 'mend_companion': return ok(!!p.pet && (!p.pet.alive || p.pet.hp < sp.autoPetHp * p.d.petMaxHp));
+    case 'snare_trap':
+      if (n >= sp.autoEnemies) return ok(true, highestHpNonFocus(s, foc));
+      return ok(hpF < sp.autoHp);
+    case 'field_dressing': return ok(hpF < sp.autoHp);
+    case 'savage_order': return ok(petAlive(s));
+    case 'wild_communion': return ok(petAlive(s) && elite);
+    case 'deadfall_trap': return ok(n >= EA.AUTO_DEADFALL_ENEMIES || intentIsCast(e));
+    case 'beastcall_horn': return ok(hpF < sp.autoHp);
+    default: return undefined;
+  }
+}
+
+function combatPolicy(s) {
+  const f = s.fight;
+  const p = s.player;
+  if (f.p.skip) return { type: 'PASS' };
+  const hpF = p.hp / p.d.maxHp;
+  // 1. Healing item
+  if (hpF < AUTO_POTION_HP) {
+    for (let i = 0; i < ITEM_BAR_SLOTS; i++) {
+      const id = p.itemBar[i];
+      if (id && CONSUMABLE[id].heal && itemUsableInCombat(s, id)) return { type: 'USE_ITEM', slot: i, target: null };
+    }
+  }
+  // 2. Cleanse (spell first, then Purifying Tonic)
+  if (debuffStacks(f.p.st) >= AUTO_TONIC_STACKS) {
+    for (const id of p.bar) if (id && SPELL[id].tags.includes('cleanse') && !castError(s, id, null)) return { type: 'CAST', spellId: id, target: null };
+    for (let i = 0; i < ITEM_BAR_SLOTS; i++) {
+      const id = p.itemBar[i];
+      if (id && CONSUMABLE[id].dispersal && itemUsableInCombat(s, id)) return { type: 'USE_ITEM', slot: i, target: null };
+    }
+  }
+  // 3. Interrupt the cast with the highest estimated damage (ties: lowest index)
+  const casts = f.enemies.filter(intentIsCast).sort((a, b) => b.intent.est - a.intent.est || a.idx - b.idx);
+  for (const e of casts) {
+    for (const id of p.bar) {
+      if (!id) continue;
+      const tags = SPELL[id].tags;
+      if (!tags.includes('interrupt') && !tags.includes('stun')) continue;
+      const t = SPELL[id].target === 'enemy' ? e.idx : null;
+      if (!castError(s, id, t)) return { type: 'CAST', spellId: id, target: t };
+    }
+  }
+  // 4. Mana Draught
+  if (p.d.maxMana && p.mana < AUTO_MANA_POTION * p.d.maxMana) {
+    for (let i = 0; i < ITEM_BAR_SLOTS; i++) {
+      const id = p.itemBar[i];
+      if (id && CONSUMABLE[id].mana && itemUsableInCombat(s, id)) return { type: 'USE_ITEM', slot: i, target: null };
+    }
+  }
+  // 5. Bar slots in order
+  const foc = defaultTarget(s);
+  for (const id of p.bar) {
+    if (!id) continue;
+    const t = autoTarget(s, id, foc);
+    if (t === undefined) continue;
+    if (SPELL[id].target === 'enemy' && t === null) continue;
+    if (!castError(s, id, t)) return { type: 'CAST', spellId: id, target: t };
+  }
+  // 6. Basic attack
+  return { type: 'ATTACK', target: foc };
+}
+
+// ---------------- Default out-of-combat policy ----------------
+function talentOrder(cls, tree) {
+  return Object.values(TALENT).filter((t) => t.cls === cls && t.tree === tree)
+    .sort((a, b) => a.tier - b.tier || b.ranks - a.ranks || (a.id < b.id ? -1 : 1)).map((t) => t.id);
+}
+
+/** Standard build (balance.md 1.3): capstone of the main tree first, then the other two trees alternately. */
+function nextTalent(s) {
+  const p = s.player;
+  const main = EA.AUTO_TREE[p.classId];
+  const others = [0, 1, 2].filter((t) => t !== main);
+  const mainOrder = talentOrder(p.classId, main);
+  const cap = mainOrder.find((id) => TALENT[id].tier === 5);
+  const try1 = (id) => legal(s, { type: 'SPEND_TALENT', talentId: id });
+  if (!p.talents[cap]) {
+    if (try1(cap)) return cap;
+    for (const id of mainOrder) if (try1(id)) return id;
+  }
+  let outside = 0;
+  for (const [id, r] of Object.entries(p.talents)) if (TALENT[id].tree !== main) outside += r;
+  const seq = outside % 2 === 0 ? [others[0], others[1]] : [others[1], others[0]];
+  for (const tree of seq) for (const id of talentOrder(p.classId, tree)) if (try1(id)) return id;
+  for (const id of mainOrder) if (try1(id)) return id;
+  return null;
+}
+
+function desiredBar(s) {
+  const p = s.player;
+  const known = EA.AUTO_PICK[p.classId].filter((id) => p.spells[id]).slice(0, SPELL_BAR_SLOTS);
+  const ordered = EA.AUTO_BAR_ORDER[p.classId].filter((id) => known.includes(id));
+  while (ordered.length < SPELL_BAR_SLOTS) ordered.push(null);
+  return ordered;
+}
+
+function desiredItemBar(s) {
+  const heal = countConsumable(s, 'greater_healing_draught') > 0 ? 'greater_healing_draught' : 'healing_draught';
+  return s.player.classId === 'mage' ? [heal, 'mana_draught', 'purifying_tonic'] : [heal, 'purifying_tonic', 'spark_flask'];
+}
+
+function bestUpgrade(s, pool) {
+  const p = s.player;
+  let best = null;
+  let gain = 0;
+  for (const it of pool) {
+    if (it.kind !== 'gear') continue;
+    const g = itemScore(it, p.classId) - itemScore(p.equipped[it.slot], p.classId);
+    if (g > gain) { gain = g; best = it; }
+  }
+  return best;
+}
+
+function oocPolicy(s) {
+  const p = s.player;
+  if (talentPointsFree(s) > 0) {
+    const t = nextTalent(s);
+    if (t) return { type: 'SPEND_TALENT', talentId: t };
+  }
+  const up = bestUpgrade(s, p.bag);
+  if (up) return { type: 'EQUIP', itemId: up.uid };
+  const bar = desiredBar(s);
+  for (let i = 0; i < SPELL_BAR_SLOTS; i++) if (p.bar[i] !== bar[i]) return { type: 'SET_BAR', slot: i, spellId: bar[i] };
+  const ib = desiredItemBar(s);
+  for (let i = 0; i < ITEM_BAR_SLOTS; i++) if (p.itemBar[i] !== ib[i]) return { type: 'SET_ITEM_BAR', slot: i, itemId: ib[i] };
+  const low = p.hp < AUTO_FOOD_HP * p.d.maxHp || (p.d.maxMana > 0 && p.mana < AUTO_FOOD_HP * p.d.maxMana);
+  if (low && countConsumable(s, 'trail_rations') > 0) return { type: 'USE_ITEM', itemId: 'trail_rations' };
+  if (p.hp < AUTO_POTION_HP * p.d.maxHp) {
+    for (const id of ['greater_healing_draught', 'healing_draught']) if (countConsumable(s, id) > 0) return { type: 'USE_ITEM', itemId: id };
+  }
+  return null;
+}
+
+function lootPolicy(s) {
+  const p = s.player;
+  const up = bestUpgrade(s, s.loot);
+  if (up) return { type: 'EQUIP', itemId: up.uid };
+  for (const it of s.loot) if (canAdd(s, it)) return { type: 'LOOT_TAKE', itemId: it.uid };
+  // Discard the lowest sell-value non-consumable, junk first (rules 8.7).
+  const cands = [...s.loot.map((it) => ({ it, where: 'loot' })), ...p.bag.map((it) => ({ it, where: 'bag' }))]
+    .filter((x) => x.it.kind !== 'cons' || x.where === 'loot');
+  cands.sort((a, b) => (a.it.kind === 'junk' ? 0 : 1) - (b.it.kind === 'junk' ? 0 : 1) || sellValue(s, a.it) - sellValue(s, b.it) || (a.where === 'loot' ? -1 : 1));
+  const x = cands[0];
+  return x.where === 'loot' ? { type: 'LOOT_DROP', itemId: x.it.uid } : { type: 'DISCARD', itemId: x.it.uid };
+}
+
+function reserve(s) {
+  return EA.AUTO_GOLD_RESERVE_V * V(s.player.level);
+}
+
+function trainerPolicy(s) {
+  const learn = trainerSpells(s).filter((id) => legal(s, { type: 'LEARN', spellId: id }))
+    .sort((a, b) => learnCost(s, a) - learnCost(s, b) || (a < b ? -1 : 1));
+  if (learn.length) return { type: 'LEARN', spellId: learn[0] };
+  if (legal(s, { type: 'TRAIN_ALL' })) return { type: 'TRAIN_ALL' };
+  return { type: 'LEAVE' };
+}
+
+function vendorPolicy(s) {
+  const p = s.player;
+  if (p.bag.some((x) => x.kind === 'junk')) return { type: 'SELL_JUNK' };
+  for (const it of p.bag) {
+    if (it.kind === 'gear' && itemScore(it, p.classId) <= itemScore(p.equipped[it.slot], p.classId)) return { type: 'SELL', itemId: it.uid };
+  }
+  const stock = s.service.stock;
+  const canBuy = (i) => legal(s, { type: 'BUY', index: i }) && p.gold - stock[i].price >= reserve(s);
+  const want = [
+    ['healing_draught', EA.AUTO_POTION_STOCK],
+    ...(p.classId === 'mage' ? [['mana_draught', EA.AUTO_MANA_STOCK]] : []),
+    ['trail_rations', EA.AUTO_RATION_STOCK],
+    ['ember_of_return', 1],
+  ];
+  for (const [id, n] of want) {
+    const i = stock.findIndex((e) => e.kind === 'cons' && e.id === id);
+    if (i >= 0 && countConsumable(s, id) < n && canBuy(i)) return { type: 'BUY', index: i };
+  }
+  for (let i = 0; i < stock.length; i++) {
+    const e = stock[i];
+    if (e.kind === 'gear' && !e.sold && itemScore(e.item, p.classId) > itemScore(p.equipped[e.item.slot], p.classId) && canBuy(i)) return { type: 'BUY', index: i };
+  }
+  return { type: 'LEAVE' };
+}
+
+function trainerUseful(s) {
+  const p = s.player;
+  const learnable = trainerSpells(s).some((id) => !p.spells[id] && SPELL[id].lvl <= p.level && p.gold >= learnCost(s, id));
+  return learnable || (trainable(s).length > 0 && p.gold >= trainCost(s));
+}
+
+function hubPolicy(s, leave) {
+  const p = s.player;
+  const u = s.hub.used;
+  if (!u.trainer && trainerUseful(s)) return { type: 'SERVICE', service: 'trainer' };
+  if (!u.vendor && (p.bag.some((x) => x.kind !== 'cons') || countConsumable(s, 'healing_draught') < EA.AUTO_POTION_STOCK)) return { type: 'SERVICE', service: 'vendor' };
+  if (!u.inn && p.hp < EA.AUTO_INN_HP * p.d.maxHp) return { type: 'SERVICE', service: 'inn' };
+  return leave;
+}
+
+function nodeScore(s, node) {
+  const p = s.player;
+  const S = EA.AUTO_NODE_SCORE;
+  const hpF = p.hp / p.d.maxHp;
+  switch (node.type) {
+    case 'rest': return hpF < EA.AUTO_REST_HP ? S.restLow : S.rest;
+    case 'quest': return S.quest;
+    case 'dungeon': return hpF >= EA.AUTO_DUNGEON_HP && p.level >= dungeonLevels(s.zone.z).trash - EA.AUTO_DUNGEON_LEVEL_SLACK ? S.dungeon : S.risky;
+    case 'elite': return hpF >= EA.AUTO_ELITE_HP && p.level >= node.eliteLevel - EA.AUTO_ELITE_LEVEL_SLACK ? S.elite : S.risky;
+    case 'grind': return S.grind;
+    case 'shrine': return S.shrine;
+    case 'treasure': return S.treasure;
+    case 'vendor': return countConsumable(s, 'healing_draught') < EA.AUTO_POTION_STOCK || bagCapacity(s) - p.bag.length <= EA.AUTO_BAG_FREE_MIN ? S.vendorNeed : S.vendor;
+    case 'trainer': return trainerUseful(s) ? S.trainerNeed : S.trainer;
+    default: return 0;
+  }
+}
+
+function mapPolicy(s) {
+  const z = s.zone;
+  const p = s.player;
+  if (p.hp < EA.AUTO_TOPUP_HP * p.d.maxHp && countConsumable(s, 'trail_rations') > 0) return { type: 'USE_ITEM', itemId: 'trail_rations' };
+  if (canTravel(s) && (s.player.level >= exitLevel(z.z) || z.pos.r >= z.rows.length)) return { type: 'TRAVEL_ON' };
+  let best = null;
+  let bs = -Infinity;
+  for (const l of nextLanes(z)) {
+    const sc = nodeScore(s, z.rows[z.pos.r][l]);
+    if (sc > bs) { bs = sc; best = l; }
+  }
+  if (best === null) return { type: 'TRAVEL_ON' };
+  return { type: 'CHOOSE_NODE', lane: best };
+}
+
+function rewardPolicy(s) {
+  const set = s.node.rewards[0];
+  if (set.kind === 'items') {
+    let bi = 0;
+    for (let i = 1; i < set.items.length; i++) if (itemScore(set.items[i], s.player.classId) > itemScore(set.items[bi], s.player.classId)) bi = i;
+    return { type: 'CHOOSE_REWARD', index: bi };
+  }
+  const p = s.player;
+  const order = p.hp < AUTO_FOOD_HP * p.d.maxHp ? ['mending', ...EA.AUTO_BOON_ORDER] : EA.AUTO_BOON_ORDER;
+  for (const b of order) { const i = set.boons.indexOf(b); if (i >= 0) return { type: 'CHOOSE_REWARD', index: i }; }
+  return { type: 'CHOOSE_REWARD', index: 0 };
+}
+
+function nodePolicy(s) {
+  const n = s.node;
+  const p = s.player;
+  if (n.stage === 'grindSetup') return { type: 'GRIND_SET_WAVES', n: EA.AUTO_GRIND_WAVES };
+  if (n.stage === 'reward') return rewardPolicy(s);
+  if (n.stage === 'between') {
+    const hpF = p.hp / p.d.maxHp;
+    if (n.type === 'grind') return hpF < EA.AUTO_GRIND_STOP_HP ? { type: 'GRIND_STOP' } : { type: 'NEXT_FIGHT' };
+    return hpF < EA.AUTO_LEAVE_DUNGEON_HP ? { type: 'DUNGEON_LEAVE' } : { type: 'NEXT_FIGHT' };
+  }
+  return null;
+}
+
+function campPolicy(s) {
+  const p = s.player;
+  const hub = hubPolicy(s, null);
+  if (hub && hub.service !== 'inn') return hub;
+  if (p.level < MAX_LEVEL) return { type: 'CAMP_GRIND' };
+  if (!s.hub.used.inn && p.hp < p.d.maxHp) return { type: 'SERVICE', service: 'inn' };
+  if (countConsumable(s, 'elixir_ferocity') > 0 && !p.buffs.elixir) return { type: 'USE_ITEM', itemId: 'elixir_ferocity' };
+  return { type: 'FIGHT_BOSS' };
+}
+
+/** The action the autoplay policy takes in this state (deterministic). null only when the run has ended. */
+export function autoAction(s) {
+  if (s.phase === 'ENDED') return null;
+  if (s.phase === 'SUMMARY') return { type: 'END_RUN' };
+  if (s.phase === 'CREATE') {
+    if (!s.create.classId) return { type: 'SELECT_CLASS', classId: 'rogue' };
+    if (s.create.classId === 'hunter' && !s.create.petId) return { type: 'SELECT_PET', petId: availablePets(s.profile)[0] || Object.keys(PET)[0] };
+    return { type: 'START_RUN' };
+  }
+  if (s.fight) return combatPolicy(s);
+  if (s.loot.length) return lootPolicy(s);
+  const ooc = oocPolicy(s);
+  if (ooc) return ooc;
+  if (s.service) return s.service.kind === 'trainer' ? trainerPolicy(s) : vendorPolicy(s);
+  if (s.phase === 'ZONE_HUB') return hubPolicy(s, { type: 'LEAVE_HUB' });
+  if (s.phase === 'MAP') return mapPolicy(s);
+  if (s.phase === 'NODE') return nodePolicy(s);
+  if (s.phase === 'CAMP') return campPolicy(s);
+  return null;
+}
+
+export { autoTarget };

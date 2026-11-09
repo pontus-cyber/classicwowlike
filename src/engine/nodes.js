@@ -1,0 +1,661 @@
+// Run flow outside combat (rules 1, 2, 9): run start, zones and hubs, map moves, node types, rewards,
+// loot window, vendor and trainer services, camp, boss start, fight outcomes and run end.
+import {
+  CLASS, PET, SPELL, META, SLOT_IDS, START_GOLD, START_RATIONS, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, ZONE_COUNT,
+  ZONE_LEVELS, ZONE_CHOICE_ROWS, HOURS_QUEST, HOURS_GRIND_WAVE, HOURS_ELITE, HOURS_DUNGEON, HOURS_REST,
+  HOURS_VENDOR, HOURS_TRAINER, HOURS_TREASURE, HOURS_SHRINE, HOURS_TRAVEL, QUEST_TURNIN_XP_FRAC, QUEST_GOLD_V,
+  QUEST_REWARD_CHOICES, STORY_QUESTS, STORY_XP_FRAC, STORY_REWARD_CHOICES, GRIND_WAVE_XP_FRAC, GRIND_DROP_MULT,
+  GRIND_WAVE_SIZE, DUNGEON_TRASH_FIGHTS, DUNGEON_CLEAR_XP_FRAC, DUNGEON_GOLD_V, TREASURE_GOLD_V,
+  TREASURE_TRAP_CHANCE, TREASURE_TRAP_PCT, REST_RESTED_FRAC, BOON, BOON_GOLD_V, BOON_NODES, CAMP_GRIND_LEVEL,
+  MAX_LEVEL, BOSS_TIME_PAR, OATH_HASTE_HOURS, ASC_CAP, ASC_PER_STEP, ASC_STEP_HOURS, TRAIN_NEW_V, TRAIN_RANK_V,
+  RESPEC_V, CONSUMABLE, ELIXIR_NODES, RES_META_CHARGES, BOSS_LEVEL, UNIQUE_POTION_PCT,
+} from '../constants.js';
+import { STREAM, nextFloat, nextInt } from '../rng.js';
+import { rnd, frac6 } from './util.js';
+import { refreshDerived, hasEffect } from './stats.js';
+import { eventXp, gainXp, gainGold, addRested, spendGold, addGoldRaw } from './progress.js';
+import {
+  V, rollDrop, makeFixedGear, makeConsumable, addToBag, bagIndex, sellValue, takeConsumable,
+} from './items.js';
+import { generateZone, contentLevel, vendorStock } from './map.js';
+import { zoneContent, campEnemies, CAMP_Z } from './content.js';
+import { startFight, endFight } from './combat.js';
+import { makeBoss } from './boss.js';
+
+// ---------------- Meta at run start (rules 11.4) ----------------
+export function metaFromProfile(profile, classId) {
+  const u = (profile && profile.unlocks) || {};
+  const r = (id) => u[id] || 0;
+  return {
+    hpPct: r('vigor') * META.vigor.hpPct,
+    powerPct: r('edge') * META.edge.powerPct,
+    crit: r('keen') * META.keen.crit,
+    xpPct: r('quick_study') * META.quick_study.xpPct,
+    goldPct: r('prospector') * META.prospector.goldPct,
+    bagSlots: r('pockets') * META.pockets.slots,
+    satchel: r('satchel') > 0,
+    heirloom: r('heirloom_blade') > 0,
+    ledger: r('ledger') > 0,
+    scout: r('scout') > 0,
+    wayfinder: r('wayfinder') > 0,
+    swiftBoots: r('swift_boots') > 0,
+    alchemist: r('alchemist') > 0,
+    cache: r('cache') > 0,
+    relics: r('relics') > 0,
+    starforged: r('starforged') > 0,
+    spells: Object.values(META).filter((m) => m.spell && r(m.id) > 0 && SPELL[m.spell].cls === classId).map((m) => m.spell),
+    stormhawk: r('stormhawk') > 0,
+    talentPoints: r('talent_pt') * META.talent_pt.points,
+    resCharges: r('second_breath') > 0 ? RES_META_CHARGES : 0,
+    oaths: r('oaths') > 0,
+  };
+}
+
+export function newStats() {
+  return {
+    nodes: { quest: 0, grind: 0, elite: 0, dungeon: 0, rest: 0, vendor: 0, trainer: 0, treasure: 0, shrine: 0 },
+    nodesTotal: 0, fights: 0, rounds: 0, bossRounds: 0, kills: { normal: 0, elite: 0, rare: 0, boss: 0 },
+    quests: 0, stories: 0, dungeons: 0, goldEarned: 0, goldSpent: 0, potionsUsed: 0, resUsed: 0, dmgDealt: 0,
+    dmgTaken: 0, spellDmg: {}, zonesLeft: 0, levelUps: 0, talentPoints: 0, equipDrops: 0, rests: 0, shrines: 0,
+    treasures: 0, vendorVisits: 0, vendorTx: 0, trainerVisits: 0, trainerTx: 0, xpGained: 0, campWaves: 0,
+    reachedBoss: false, bossPhase: 0, bossHpPct: null, hoursAtBoss: null, asc: null, maxZone: 1, maxRow: 0,
+  };
+}
+
+/** Pets the profile can pick (rules 5.5; Stormhawk is a meta unlock). */
+export function availablePets(profile) {
+  const u = (profile && profile.unlocks) || {};
+  return Object.values(PET).filter((p) => !p.meta || (u[p.meta] || 0) > 0).map((p) => p.id);
+}
+
+// ---------------- Run start (rules 1.2) ----------------
+export function startRun(s, ev) {
+  const c = s.create;
+  const cls = CLASS[c.classId];
+  s.seed = c.seed;
+  s.meta = metaFromProfile(s.profile, c.classId);
+  s.oaths = c.oaths.slice();
+  s.nextUid = 1;
+  s.hours = 0;
+  s.player = {
+    name: c.name || cls.name, classId: c.classId, level: 1, xp: 0, rested: 0, hp: 0, mana: 0, gold: START_GOLD,
+    spells: {}, spellOrder: [], bar: new Array(SPELL_BAR_SLOTS).fill(null), itemBar: new Array(ITEM_BAR_SLOTS).fill(null),
+    talents: {}, talentSpent: 0, equipped: {}, bag: [], buffs: {}, res: { boon: 0, meta: s.meta.resCharges },
+    pet: c.classId === 'hunter' ? { id: c.petId, hp: 0, alive: true } : null, uniquesFound: [], freeRespec: false, d: null,
+  };
+  const p = s.player;
+  for (const slot of SLOT_IDS) p.equipped[slot] = null;
+  cls.startSpells.forEach((id, i) => { p.spells[id] = { tl: 1, rank: 1 }; p.spellOrder.push(id); p.bar[i] = id; });
+  const txt = s.content.classes[c.classId];
+  p.equipped.weapon = s.meta.heirloom
+    ? makeFixedGear(s, 'weapon', META.heirloom_blade.rarity, META.heirloom_blade.ilvl, txt.heirloomWeapon)
+    : makeFixedGear(s, 'weapon', 'common', 1, txt.startWeapon);
+  p.equipped.chest = makeFixedGear(s, 'chest', 'common', 1, txt.startChest);
+  s.stats = newStats();
+  refreshDerived(s);
+  addToBag(s, makeConsumable(s, 'trail_rations', START_RATIONS));
+  if (s.meta.satchel) addToBag(s, makeConsumable(s, 'healing_draught', META.satchel.potions));
+  p.hp = p.d.maxHp;
+  p.mana = p.d.maxMana;
+  if (p.pet) p.pet.hp = p.d.petMaxHp;
+  s.loot = [];
+  s.node = null;
+  s.fight = null;
+  s.service = null;
+  s.lootRng = null;
+  s.death = null;
+  s.outcome = null;
+  s.result = null;
+  ev.push({ t: 'runStart', classId: c.classId, petId: c.petId, seed: s.seed, oaths: s.oaths });
+  enterZone(s, ev, 1);
+}
+
+// ---------------- Zones, hub, camp ----------------
+export function addHours(s, ev, h, why) {
+  if (h <= 0) return;
+  s.hours += h;
+  ev.push({ t: 'hours', add: h, total: s.hours, why });
+}
+
+function setPhase(s, ev, phase) {
+  if (s.phase !== phase) ev.push({ t: 'phase', phase });
+  s.phase = phase;
+}
+
+export function enterZone(s, ev, z) {
+  if (z > ZONE_COUNT) { enterCamp(s, ev); return; }
+  s.zone = generateZone(s, z);
+  s.hub = { used: { trainer: false, vendor: false, inn: false }, ledgerFree: s.meta.ledger };
+  s.service = null;
+  s.stats.maxZone = Math.max(s.stats.maxZone, z);
+  ev.push({ t: 'zone', z, name: zoneContent(s.content, z).name });
+  setPhase(s, ev, 'ZONE_HUB');
+}
+
+function enterCamp(s, ev) {
+  s.zone = { z: CAMP_Z, camp: true };
+  s.hub = { used: { trainer: false, vendor: false, inn: false }, ledgerFree: s.meta.ledger };
+  s.camp = { waves: 0 };
+  s.service = null;
+  ev.push({ t: 'camp', name: s.content.camp.name });
+  setPhase(s, ev, 'CAMP');
+}
+
+export const exitLevel = (z) => ZONE_LEVELS * z;
+
+/** TRAVEL_ON allowed (rules 1.5): at exit level (Swift Boots: one lower) or after row 8. */
+export function canTravel(s) {
+  if (s.phase !== 'MAP' || s.node || !s.zone || s.zone.camp) return false;
+  const need = exitLevel(s.zone.z) - (s.meta.swiftBoots ? META.swift_boots.levels : 0);
+  return s.player.level >= need || s.zone.pos.r >= ZONE_CHOICE_ROWS;
+}
+
+export function travelOn(s, ev) {
+  addHours(s, ev, s.meta.wayfinder ? 0 : HOURS_TRAVEL, 'travel');
+  s.stats.zonesLeft += 1;
+  ev.push({ t: 'travel', from: s.zone.z });
+  enterZone(s, ev, s.zone.z + 1);
+}
+
+/** Rest effect (rules 2.5): full HP, mana and pet HP, dead pet revived, rested pool. */
+export function restEffect(s, ev) {
+  const p = s.player;
+  p.hp = p.d.maxHp;
+  p.mana = p.d.maxMana;
+  if (p.pet) { p.pet.alive = true; p.pet.hp = p.d.petMaxHp; }
+  addRested(s, REST_RESTED_FRAC);
+  s.stats.rests += 1;
+  ev.push({ t: 'rest', hp: p.hp, mana: p.mana, rested: p.rested });
+}
+
+export function openService(s, ev, kind) {
+  const camp = s.phase === 'CAMP';
+  s.hub.used[kind] = true;
+  if (kind === 'inn') {
+    addHours(s, ev, HOURS_REST, 'inn');
+    restEffect(s, ev);
+    return;
+  }
+  if (kind === 'trainer') {
+    addHours(s, ev, HOURS_TRAINER, 'trainer');
+    s.service = { kind: 'trainer', where: camp ? 'camp' : 'hub' };
+    s.stats.trainerVisits += 1;
+  } else {
+    addHours(s, ev, HOURS_VENDOR, 'vendor');
+    const z = camp ? CAMP_Z : s.zone.z;
+    const cl = camp ? MAX_LEVEL : contentLevel(z, 0);
+    s.service = { kind: 'vendor', where: camp ? 'camp' : 'hub', cl, stock: vendorStock(s, STREAM.node(s.seed, z, 0, 0), cl, camp) };
+    s.stats.vendorVisits += 1;
+  }
+  ev.push({ t: 'service', service: kind, where: s.service.where });
+}
+
+export function leaveService(s, ev) {
+  const where = s.service.where;
+  s.service = null;
+  ev.push({ t: 'serviceClosed' });
+  if (where === 'node') completeNode(s, ev);
+}
+
+// ---------------- Timed buffs (boons, elixir) ----------------
+/** Called when a node is entered (map node, camp wave, boss): BOON_NODES / ELIXIR_NODES count entered nodes. */
+function advanceBuffs(s, ev) {
+  const b = s.player.buffs;
+  for (const k of Object.keys(b)) {
+    if (b[k].left > 0) { b[k].active = true; b[k].left -= 1; }
+    else { delete b[k]; ev.push({ t: 'buffEnd', id: k }); }
+  }
+}
+
+// ---------------- Map and nodes ----------------
+function fightRng(s, k) {
+  const n = s.node;
+  return STREAM.fight(s.seed, s.zone.z, n.r, n.l, k);
+}
+
+function nodeFight(s, ev, kind, k, enemies, extra = {}) {
+  const n = s.node;
+  const zn = zoneContent(s.content, s.zone.z);
+  startFight(s, ev, {
+    kind, k, z: s.zone.z, rng: fightRng(s, k), enemies, addLevel: extra.addLevel || n.cl, addPool: zn.normals,
+    dropMult: extra.dropMult || 1, canFlee: kind !== 'dboss', noStealth: kind === 'dboss',
+  });
+}
+
+export function chooseNode(s, ev, lane) {
+  const zone = s.zone;
+  const r = zone.pos.r + 1;
+  const def = zone.rows[r - 1][lane];
+  zone.pos = { r, l: lane };
+  zone.path.push(lane);
+  s.stats.maxRow = Math.max(s.stats.maxRow, r);
+  advanceBuffs(s, ev);
+  s.stats.nodes[def.type] += 1;
+  s.stats.nodesTotal += 1;
+  s.lootRng = STREAM.loot(s.seed, zone.z, r, lane);
+  s.node = { type: def.type, r, l: lane, cl: def.cl, stage: 'fight', k: 0 };
+  const n = s.node;
+  setPhase(s, ev, 'NODE');
+  ev.push({ t: 'node', type: def.type, r, l: lane, cl: def.cl });
+  switch (def.type) {
+    case 'quest':
+      addHours(s, ev, HOURS_QUEST, 'quest');
+      n.quest = def.quest;
+      ev.push({ t: 'quest', quest: def.quest });
+      nodeFight(s, ev, 'quest', 0, def.mobs.map((tid) => ({ tid, level: def.cl, variant: 'normal' })));
+      break;
+    case 'grind':
+      n.stage = 'grindSetup';
+      n.planned = 0;
+      n.wavesDone = 0;
+      break;
+    case 'elite': {
+      addHours(s, ev, HOURS_ELITE, 'elite');
+      const en = [{ tid: def.elite, level: def.eliteLevel, variant: def.rare ? 'rare' : 'elite' }];
+      if (def.add) en.push({ tid: def.add, level: def.cl, variant: 'normal' });
+      nodeFight(s, ev, 'elite', 0, en);
+      break;
+    }
+    case 'dungeon':
+      addHours(s, ev, HOURS_DUNGEON, 'dungeon');
+      n.bossLevel = def.bossLevel;
+      startDungeonFight(s, ev, 0);
+      break;
+    case 'rest':
+      addHours(s, ev, HOURS_REST, 'rest');
+      restEffect(s, ev);
+      completeNode(s, ev);
+      break;
+    case 'vendor':
+      addHours(s, ev, HOURS_VENDOR, 'vendor');
+      n.stage = 'service';
+      s.service = { kind: 'vendor', where: 'node', cl: def.cl, stock: def.stock };
+      s.stats.vendorVisits += 1;
+      ev.push({ t: 'service', service: 'vendor', where: 'node' });
+      break;
+    case 'trainer':
+      addHours(s, ev, HOURS_TRAINER, 'trainer');
+      n.stage = 'service';
+      s.service = { kind: 'trainer', where: 'node' };
+      s.stats.trainerVisits += 1;
+      ev.push({ t: 'service', service: 'trainer', where: 'node' });
+      break;
+    case 'treasure':
+      addHours(s, ev, HOURS_TREASURE, 'treasure');
+      s.stats.treasures += 1;
+      n.trap = nextFloat(s.lootRng) < TREASURE_TRAP_CHANCE; // first draw of loot(z,r,l)
+      if (def.guard) nodeFight(s, ev, 'treasure', 0, [{ tid: def.guard, level: def.cl, variant: 'normal' }]);
+      else { openChest(s, ev); completeNode(s, ev); }
+      break;
+    case 'shrine':
+      addHours(s, ev, HOURS_SHRINE, 'shrine');
+      s.stats.shrines += 1;
+      n.stage = 'reward';
+      n.rewards = [{ kind: 'boons', boons: def.boons.slice() }];
+      break;
+    default:
+      throw new Error(`unknown node type ${def.type}`);
+  }
+}
+
+function startDungeonFight(s, ev, k) {
+  const n = s.node;
+  const def = s.zone.rows[n.r - 1][n.l];
+  n.k = k;
+  n.stage = 'fight';
+  if (k < DUNGEON_TRASH_FIGHTS) nodeFight(s, ev, 'trash', k, def.trash[k].map((tid) => ({ tid, level: def.trashLevel, variant: 'trash' })), { addLevel: def.trashLevel });
+  else nodeFight(s, ev, 'dboss', k, [{ tid: def.boss, level: def.bossLevel, variant: 'dboss' }], { addLevel: def.trashLevel });
+}
+
+export function startGrind(s, ev, waves) {
+  const n = s.node;
+  n.planned = waves;
+  startGrindWave(s, ev);
+}
+
+function startGrindWave(s, ev) {
+  const n = s.node;
+  const def = s.zone.rows[n.r - 1][n.l];
+  addHours(s, ev, HOURS_GRIND_WAVE, 'grind');
+  n.k = n.wavesDone;
+  n.stage = 'fight';
+  nodeFight(s, ev, 'grind', n.k, def.waves[n.k].map((tid) => ({ tid, level: def.cl, variant: 'normal' })), { dropMult: GRIND_DROP_MULT });
+}
+
+export function nextFight(s, ev) {
+  const n = s.node;
+  if (n.type === 'grind') startGrindWave(s, ev);
+  else startDungeonFight(s, ev, n.k + 1);
+}
+
+export function completeNode(s, ev) {
+  const n = s.node;
+  if (n) {
+    s.zone.rows[n.r - 1][n.l].done = true;
+    ev.push({ t: 'nodeDone', type: n.type, r: n.r, l: n.l });
+  }
+  s.node = null;
+  s.lootRng = null;
+  s.service = null;
+  setPhase(s, ev, 'MAP');
+}
+
+function openChest(s, ev) {
+  const n = s.node;
+  const p = s.player;
+  gainGold(s, ev, TREASURE_GOLD_V * V(n.cl), 'treasure');
+  if (n.trap) {
+    const loss = Math.min(p.hp - 1, rnd(TREASURE_TRAP_PCT * p.d.maxHp));
+    p.hp -= Math.max(0, loss);
+    ev.push({ t: 'trap', amount: Math.max(0, loss) });
+  }
+  receiveItems(s, ev, rollDrop(s, s.lootRng, 'treasure', n.cl, s.zone.z));
+}
+
+// ---------------- Items received ----------------
+/** Items into the bag; what does not fit goes to the loot window (rules 8.7). */
+export function receiveItems(s, ev, items) {
+  for (const it of items) {
+    if (it.kind === 'gear') s.stats.equipDrops += 1;
+    if (addToBag(s, it)) ev.push({ t: 'loot', item: it, to: 'bag' });
+    else { s.loot.push(it); ev.push({ t: 'loot', item: it, to: 'window' }); }
+  }
+}
+
+// ---------------- Fight outcomes ----------------
+/** Called after the fight's round resolution when s.fight.over is set. */
+export function finishFight(s, ev) {
+  const f = s.fight;
+  const kind = f.kind;
+  if (kind === 'boss') {
+    s.stats.bossHpPct = frac6(f.enemies[0].hp / f.enemies[0].maxHp);
+  }
+  const { outcome, drops } = endFight(s, ev);
+  if (outcome === 'death') { endRun(s, ev, 'death'); return; }
+  receiveItems(s, ev, drops);
+  if (kind === 'boss') { endRun(s, ev, 'victory'); return; }
+  if (kind === 'camp') {
+    if (outcome === 'victory') gainXp(s, ev, eventXp(s, GRIND_WAVE_XP_FRAC, CAMP_GRIND_LEVEL), 'wave');
+    s.lootRng = null;
+    return;
+  }
+  const n = s.node;
+  if (outcome === 'fled') { completeNode(s, ev); return; }
+  if (kind === 'quest') {
+    s.stats.quests += 1;
+    s.zone.questsDone += 1;
+    ev.push({ t: 'questComplete', quest: n.quest });
+    gainXp(s, ev, eventXp(s, QUEST_TURNIN_XP_FRAC, n.cl), 'quest');
+    gainGold(s, ev, QUEST_GOLD_V * V(n.cl), 'quest');
+    n.rewards = [{ kind: 'items', items: genChoices(s, 'quest', QUEST_REWARD_CHOICES, n.cl) }];
+    if (s.zone.questsDone === STORY_QUESTS) {
+      s.stats.stories += 1;
+      ev.push({ t: 'story', z: s.zone.z });
+      gainXp(s, ev, eventXp(s, STORY_XP_FRAC, n.cl), 'story');
+      n.rewards.push({ kind: 'items', items: genChoices(s, 'story', STORY_REWARD_CHOICES, n.cl), story: true });
+    }
+    n.stage = 'reward';
+  } else if (kind === 'grind') {
+    gainXp(s, ev, eventXp(s, GRIND_WAVE_XP_FRAC, n.cl), 'wave');
+    n.wavesDone += 1;
+    if (n.wavesDone < n.planned) n.stage = 'between';
+    else completeNode(s, ev);
+  } else if (kind === 'elite') {
+    completeNode(s, ev);
+  } else if (kind === 'trash') {
+    n.stage = 'between';
+  } else if (kind === 'dboss') {
+    s.stats.dungeons += 1;
+    ev.push({ t: 'dungeonClear', z: s.zone.z });
+    gainXp(s, ev, eventXp(s, DUNGEON_CLEAR_XP_FRAC, n.bossLevel), 'dungeon');
+    gainGold(s, ev, DUNGEON_GOLD_V * V(n.bossLevel), 'dungeon');
+    completeNode(s, ev);
+  } else if (kind === 'treasure') {
+    openChest(s, ev);
+    completeNode(s, ev);
+  }
+}
+
+function genChoices(s, table, count, cl) {
+  const out = [];
+  for (let i = 0; i < count; i++) out.push(...rollDrop(s, s.lootRng, table, cl, s.zone.z));
+  return out;
+}
+
+/** CHOOSE_REWARD (quest items, story items, shrine boons). */
+export function chooseReward(s, ev, index) {
+  const n = s.node;
+  const set = n.rewards.shift();
+  if (set.kind === 'items') {
+    const it = set.items[index];
+    s.stats.equipDrops += 1;
+    if (addToBag(s, it)) ev.push({ t: 'loot', item: it, to: 'bag' });
+    else { s.loot.push(it); ev.push({ t: 'loot', item: it, to: 'window' }); }
+  } else {
+    applyBoon(s, ev, set.boons[index]);
+  }
+  if (!n.rewards.length) completeNode(s, ev);
+}
+
+function applyBoon(s, ev, id) {
+  const p = s.player;
+  ev.push({ t: 'boon', id, name: BOON[id].name });
+  if (id === 'return') p.res.boon += 1;
+  else if (id === 'insight' || id === 'fury') p.buffs[id] = { left: BOON_NODES, active: false };
+  else if (id === 'plenty') gainGold(s, ev, BOON_GOLD_V * V(s.node.cl), 'boon');
+  else if (id === 'mending') {
+    p.hp = p.d.maxHp;
+    p.mana = p.d.maxMana;
+    addRested(s, BOON.mending.restedFrac);
+  } else if (id === 'clarity') {
+    p.freeRespec = true;
+    for (const sid of Object.keys(p.spells)) {
+      if (SPELL[sid].source !== 'talent' && p.spells[sid].tl < p.level) { p.spells[sid].tl = p.level; p.spells[sid].rank += 1; }
+    }
+  }
+}
+
+// ---------------- Camp and boss (rules 1.6, 1.7, 10) ----------------
+export function campGrind(s, ev) {
+  s.camp.waves += 1;
+  s.stats.campWaves += 1;
+  const w = s.camp.waves;
+  advanceBuffs(s, ev);
+  addHours(s, ev, HOURS_GRIND_WAVE, 'camp');
+  s.lootRng = STREAM.loot(s.seed, CAMP_Z, w, 0);
+  const pool = campEnemies(s.content);
+  const setup = STREAM.node(s.seed, CAMP_Z, w, 0);
+  const en = [];
+  for (let i = 0; i < GRIND_WAVE_SIZE; i++) en.push({ tid: pool[nextInt(setup, pool.length)], level: CAMP_GRIND_LEVEL, variant: 'normal' });
+  startFight(s, ev, {
+    kind: 'camp', k: 0, z: CAMP_Z, rng: STREAM.fight(s.seed, CAMP_Z, w, 0, 0), enemies: en,
+    addLevel: CAMP_GRIND_LEVEL, addPool: pool, dropMult: GRIND_DROP_MULT, canFlee: true,
+  });
+}
+
+/** Boss Ascendancy from hours (rules 1.7). */
+export function ascendancy(s) {
+  const par = BOSS_TIME_PAR - (s.oaths.includes('haste') ? OATH_HASTE_HOURS : 0);
+  return frac6(Math.min(ASC_CAP, ASC_PER_STEP * Math.floor(Math.max(0, s.hours - par) / ASC_STEP_HOURS)));
+}
+
+export function fightBoss(s, ev) {
+  advanceBuffs(s, ev);
+  const asc = ascendancy(s);
+  s.stats.reachedBoss = true;
+  s.stats.bossPhase = 1;
+  s.stats.hoursAtBoss = s.hours;
+  s.stats.asc = asc;
+  s.lootRng = null;
+  setPhase(s, ev, 'BOSS');
+  ev.push({ t: 'bossStart', asc, hours: s.hours, level: BOSS_LEVEL });
+  startFight(s, ev, {
+    kind: 'boss', k: 0, z: CAMP_Z, rng: STREAM.boss(s.seed), enemies: [], bossEnemy: makeBoss(asc),
+    addLevel: BOSS_LEVEL, addPool: [], canFlee: false, noStealth: true,
+    boss: { asc, phase: 1, resume: null, nextShard: null, nextPulse: null, eclipse: 0 },
+  });
+}
+
+// ---------------- Run end (rules 9) ----------------
+export function endRun(s, ev, outcome) {
+  s.outcome = outcome;
+  s.node = null;
+  s.service = null;
+  s.fight = null;
+  ev.push({ t: 'runEnd', outcome });
+  setPhase(s, ev, 'SUMMARY');
+}
+
+// ---------------- Trainer (rules 2.7) ----------------
+/** Spells the trainer offers this class: class spells plus unlocked meta spells (rules 11.4). */
+export function trainerSpells(s) {
+  const cls = s.player.classId;
+  return Object.values(SPELL).filter((sp) => sp.cls === cls && (sp.source === 'class' || (sp.source === 'meta' && s.meta.spells.includes(sp.id)))).map((sp) => sp.id);
+}
+
+const ledgerActive = (s) => s.service && s.service.where !== 'node' && s.hub && s.hub.ledgerFree;
+
+export function learnCost(s, id) {
+  return ledgerActive(s) ? 0 : rnd(TRAIN_NEW_V * V(SPELL[id].lvl));
+}
+
+export function trainCost(s) {
+  return ledgerActive(s) ? 0 : rnd(TRAIN_RANK_V * V(s.player.level));
+}
+
+export function respecCost(s) {
+  return s.player.freeRespec ? 0 : rnd(RESPEC_V * V(s.player.level));
+}
+
+function useLedger(s) {
+  if (ledgerActive(s)) s.hub.ledgerFree = false;
+}
+
+function placeOnBar(s, id) {
+  const bar = s.player.bar;
+  if (bar.includes(id)) return;
+  const i = bar.indexOf(null);
+  if (i >= 0) bar[i] = id;
+}
+
+export function learnSpell(s, ev, id) {
+  const p = s.player;
+  const cost = learnCost(s, id);
+  useLedger(s);
+  if (cost) spendGold(s, ev, cost, 'learn');
+  p.spells[id] = { tl: p.level, rank: 1 };
+  p.spellOrder.push(id);
+  placeOnBar(s, id);
+  s.stats.trainerTx += 1;
+  ev.push({ t: 'learn', spell: id, tl: p.level });
+}
+
+export function trainSpell(s, ev, id) {
+  const p = s.player;
+  const cost = trainCost(s);
+  useLedger(s);
+  if (cost) spendGold(s, ev, cost, 'train');
+  p.spells[id].tl = p.level;
+  p.spells[id].rank += 1;
+  s.stats.trainerTx += 1;
+  ev.push({ t: 'train', spell: id, tl: p.level, rank: p.spells[id].rank });
+}
+
+/** Known trainable spells in bar order, then learn order (rules 2.7 TRAIN_ALL). */
+export function trainable(s) {
+  const p = s.player;
+  const order = [...p.bar.filter((x) => x), ...p.spellOrder.filter((x) => !p.bar.includes(x))];
+  return order.filter((id) => SPELL[id].source !== 'talent' && p.spells[id] && p.spells[id].tl < p.level);
+}
+
+export function trainAll(s, ev) {
+  for (const id of trainable(s)) {
+    if (s.player.gold >= trainCost(s)) trainSpell(s, ev, id);
+  }
+}
+
+export function respec(s, ev) {
+  const p = s.player;
+  const cost = respecCost(s);
+  if (cost) spendGold(s, ev, cost, 'respec');
+  p.freeRespec = false;
+  for (const id of Object.keys(p.spells)) {
+    if (SPELL[id].source === 'talent') {
+      delete p.spells[id];
+      p.spellOrder = p.spellOrder.filter((x) => x !== id);
+      p.bar = p.bar.map((x) => (x === id ? null : x));
+    }
+  }
+  p.talents = {};
+  p.talentSpent = 0;
+  refreshDerived(s);
+  clampAfterStatChange(s);
+  ev.push({ t: 'respec' });
+}
+
+/** After gear/talent changes: current HP, mana and pet HP stay, clamped to the new maxima. */
+export function clampAfterStatChange(s) {
+  const p = s.player;
+  p.hp = Math.min(p.hp, p.d.maxHp);
+  p.mana = Math.min(p.mana, p.d.maxMana);
+  if (p.pet) p.pet.hp = Math.min(p.pet.hp, p.d.petMaxHp);
+}
+
+// ---------------- Vendor (rules 2.6) ----------------
+export function buy(s, ev, i) {
+  const e = s.service.stock[i];
+  spendGold(s, ev, e.price, 'buy');
+  s.stats.vendorTx += 1;
+  if (e.kind === 'cons') {
+    if (!e.unlimited) e.sold = true;
+    addToBag(s, makeConsumable(s, e.id));
+    ev.push({ t: 'buy', item: e.id, price: e.price });
+  } else {
+    e.sold = true;
+    addToBag(s, e.item);
+    ev.push({ t: 'buy', item: e.item.uid, price: e.price });
+  }
+}
+
+export function sell(s, ev, uid) {
+  const i = bagIndex(s, uid);
+  const it = s.player.bag[i];
+  const v = sellValue(s, it);
+  s.player.bag.splice(i, 1);
+  addGoldRaw(s, ev, v, 'sell');
+  s.stats.vendorTx += 1;
+  ev.push({ t: 'sell', item: uid, value: v });
+}
+
+export function sellJunk(s, ev) {
+  for (const it of s.player.bag.filter((x) => x.kind === 'junk')) sell(s, ev, it.uid);
+}
+
+// ---------------- Out-of-combat item use (rules 8.6) ----------------
+export function useItemOutOfCombat(s, ev, id) {
+  const p = s.player;
+  const c = CONSUMABLE[id];
+  takeConsumable(s, id, 1);
+  ev.push({ t: 'useItem', item: id });
+  if (c.potion) s.stats.potionsUsed += 1;
+  if (c.heal) healUnitOoc(s, ev, rnd(c.heal * p.d.maxHp * (1 + potionBonus(s))));
+  if (c.mana) p.mana = Math.min(p.d.maxMana, p.mana + rnd(c.mana * p.d.maxMana));
+  if (c.restore) {
+    healUnitOoc(s, ev, rnd(c.restore * p.d.maxHp));
+    p.mana = Math.min(p.d.maxMana, p.mana + rnd(c.restore * p.d.maxMana));
+    if (p.pet && p.pet.alive) p.pet.hp = Math.min(p.d.petMaxHp, p.pet.hp + rnd(c.restore * p.d.petMaxHp));
+  }
+  if (c.dmgPct) p.buffs.elixir = { left: ELIXIR_NODES, active: false };
+}
+
+function potionBonus(s) {
+  return UNIQUE_POTION_PCT * hasEffect(s, 'potion');
+}
+
+function healUnitOoc(s, ev, amount) {
+  const p = s.player;
+  const n = Math.min(amount, p.d.maxHp - p.hp);
+  p.hp += n;
+  ev.push({ t: 'heal', dst: 'player', amount: n });
+}
+
