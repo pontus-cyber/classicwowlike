@@ -43,10 +43,12 @@ describe('rules 4-5 character and spells', () => {
     assert.equal(R.spellInfo(c, 'ember_bolt', null).amount.amount, amount(c, 'ember_bolt', 42), 'ember_bolt keeps tl = 42 until trained');
   });
 
-  test('5.2 spellInfo reports the trained level a talent spell uses (tl = L)', { todo: 'BUG-QA-06: spellInfo(...).tl of a talent spell stays at the level it was taken' }, () => {
+  test('5.2 spellInfo reports the trained level a talent spell uses (tl = L) (BUG-QA-06)', () => {
     const c = cloneState(capstoneMage());
+    c.player.spells.ember_bolt.tl = 42;
     gainXp(c, [], xpToNext(42) + xpToNext(43) + 1, 'test');
     assert.equal(R.spellInfo(c, 'glacier_spike', null).tl, 44);
+    assert.equal(R.spellInfo(c, 'ember_bolt', null).tl, 42, 'a class spell reports its trained level');
   });
 
   test('5.2 bar edits are out of combat only; only bar spells and item-bar items are usable in a fight', () => {

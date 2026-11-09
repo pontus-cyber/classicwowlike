@@ -26,7 +26,7 @@ import { availablePets } from './engine/nodes.js';
 import { nextLanes } from './engine/map.js';
 import { xpToNext, talentPointsFree as freePoints } from './engine/progress.js';
 import { itemScore } from './engine/items.js';
-import { spellCost as cost, spellCd, spellAmount, fleeChance as flee, castError } from './engine/spells.js';
+import { spellCost as cost, spellCd, spellAmount, spellTl, fleeChance as flee, castError } from './engine/spells.js';
 
 export const STATE_VERSION = 1;
 export { C, validateContent, newProfile, metaOffers, buyMeta, applyRunToProfile, IllegalActionError, xpToNext, itemScore };
@@ -59,7 +59,7 @@ export function spellInfo(state, spellId, target = null) {
     id: sp.id, name: sp.name, lvl: sp.lvl, tags: sp.tags.slice(), target: sp.target, source: sp.source,
     resource: C.CLASS[sp.cls].resource, cost: cost(state, spellId), cd: spellCd(state, spellId),
     cdLeft: f ? Math.max(0, (f.p.cds[spellId] || 0) - f.round) : 0,
-    tl: known ? known.tl : null, rank: known ? known.rank : 0, amount: spellAmount(state, spellId),
+    tl: known ? spellTl(state, spellId) : null, rank: known ? known.rank : 0, amount: spellAmount(state, spellId),
     usable: f && known ? !castError(state, spellId, sp.target === 'enemy' ? target : null) : false,
     reason: f && known ? castError(state, spellId, sp.target === 'enemy' ? target : null) : null,
     text: (state.content.texts && state.content.texts.spells && state.content.texts.spells[spellId]) || null,
