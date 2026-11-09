@@ -16,3 +16,6 @@ Status: final, owner review (built on, easy to change), team (delegated to the L
 | D10 | Death with no resurrect ends the run; summary screen and meta points scaled by progress | Owner rule | Owner 2026-11-09 | final |
 | D11 | Art: stylised 2D painted look drawn in code, parallax world scrolling past a centred character; no pixel art | Owner choice | Owner 2026-11-09 | final |
 | D12 | Repository: github.com/pontus-cyber/classicwowlike, branch main | Owner created it | Owner 2026-11-09 | final |
+| D13 | Source files are ES modules (import/export). tools/build.mjs inlines them into one game.html with no external dependencies. Node runs src/ directly | Same code in Node (tests, simulator) and the browser without a framework or bundler | Lead | team |
+| D14 | Content tables live in src/content/*.js, in the schema the Core Gameplay Engineer publishes in src/content/SCHEMA.md; the engine never hard-codes content | Content and engine can be built in parallel | Lead | team |
+| D15 | Designer's owner-review items 1-14 (docs/handoffs/designer-2026-11-09.md) are adopted as defaults | Team builds on them until the owner answers | Lead | owner review |
