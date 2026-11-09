@@ -111,6 +111,27 @@ describe('rules 10 end boss', () => {
     assert.equal(t.fight.enemies.filter((e) => e.kind === 'shard' && e.alive).length, C.SHARD_MAX);
   });
 
+  test('10.3 Shards counter: null while SHARD_MAX Shards live, back to the next scheduled wave after a Shard dies (BUG-QA-07)', () => {
+    let s = boss('mage', { spells: ['ember_bolt'], prep: (x) => { immortal(x); x.fight.enemies[0].hp = Math.floor(x.fight.enemies[0].maxHp * 0.705); } });
+    forceDraws(s, 3, (d) => d[0] > 0.9 && d[1] > 0.6);
+    s = R.step(s, { type: 'CAST', spellId: 'ember_bolt', target: 0 }).state; // phase 2, first wave
+    const tg = (x) => x.fight.enemies[0].intent.telegraph;
+    const keep = (x) => { immortal(x); for (const e of x.fight.enemies) if (e.kind === 'shard') { e.hp = e.maxHp; e.st = [{ id: 'STUN', dur: 2 }]; } };
+    s = tweak(s, keep);
+    assert.equal(tg(s).shardsInRounds, s.fight.boss.nextShard - s.fight.round);
+    while (s.fight.enemies.filter((e) => e.kind === 'shard' && e.alive).length < C.SHARD_MAX) s = tweak(R.step(s, { type: 'PASS' }).state, keep);
+    assert.equal(tg(s).shardsInRounds, null, 'SHARD_MAX alive: no wave will come');
+    s = tweak(R.step(s, { type: 'PASS' }).state, keep);
+    assert.equal(tg(s).shardsInRounds, null);
+    const shard = s.fight.enemies.find((e) => e.kind === 'shard' && e.alive).idx;
+    const c = tweak(s, (x) => { x.fight.enemies[shard].hp = 1; x.fight.enemies[shard].dodge = 0; });
+    forceDraws(c, 3, (d) => d[0] > 0.9);
+    const r = R.step(c, { type: 'CAST', spellId: 'ember_bolt', target: shard });
+    assert.ok(r.events.some((e) => e.t === 'death' && e.u === shard));
+    assert.equal(tg(r.state).shardsInRounds, r.state.fight.boss.nextShard - r.state.fight.round, 'countdown back');
+    assert.ok(tg(r.state).shardsInRounds > 0);
+  });
+
   test('10.2 phase 3 below P3_AT: Shards despawn, Eclipse grows, Starless Pulse every PULSE_EVERY rounds; two thresholds in one hit fire in order', async () => {
     const { applyDamage } = await import('../../src/engine/damage.js');
     const s = boss('hunter', { prep: (x) => { immortal(x); x.fight.enemies[0].hp = Math.floor(x.fight.enemies[0].maxHp * 0.75); } });

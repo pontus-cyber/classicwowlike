@@ -110,12 +110,16 @@ export function bossIntent(s, e) {
   if (step === null) actions.push({ id: 'umbral_strike', name: BOSS_TEXT.strike, kind: 'hit', school: 'phys', base: BOSS_MELEE, target: tgt, est: est(s, BOSS_MELEE, 'phys', tgt) });
   if (b.phase <= 2 && r % BOSS_CRUSH_EVERY === 0) actions.push({ id: 'gravity_crush', name: BOSS_TEXT.crush, kind: 'hit', school: 'phys', base: BOSS_CRUSH, heavy: true, target: tgt, est: est(s, BOSS_CRUSH, 'phys', tgt) });
   if (step !== null) actions.push({ id: 'collapse_litany', name: `${BOSS_TEXT.litany} ${step}/2${step === 2 ? ' - resolves' : ''}`, kind: 'litany', step, cast: true, school: 'magic', base: BOSS_LITANY_DMG, target: 'all', est: step === 2 ? est(s, BOSS_LITANY_DMG, 'magic', 'player') : 0 });
-  if (b.phase === 3 && r === b.nextPulse) {
+  const pulseNow = b.phase === 3 && r === b.nextPulse;
+  if (pulseNow) {
     actions.push({ id: 'starless_pulse', name: BOSS_TEXT.pulse, kind: 'pulse', school: 'magic', base: PULSE_DMG, target: 'all', est: est(s, PULSE_DMG, 'magic', 'player') });
     b.nextPulse += PULSE_EVERY;
   }
   if (r >= BOSS_ENRAGE_ROUND) actions.push({ id: 'final_dark', name: BOSS_TEXT.finalDark, kind: 'final', school: 'magic', base: FINAL_DARK_DMG, target: 'player', est: FINAL_DARK_DMG });
   const brandIn = (BRAND_EVERY - (r % BRAND_EVERY)) % BRAND_EVERY;
+  // A Shards wave comes at the start of round nextShard only if fewer than SHARD_MAX are alive (summonShards);
+  // with SHARD_MAX alive there is no countdown (BUG-QA-07). Killing a Shard brings the countdown back.
+  const shardsAlive = f.enemies.filter((x) => x.alive && x.kind === 'shard').length;
   return {
     id: 'boss', name: BOSS_TEXT.name, kind: 'boss', actions,
     cast: actions.some((a) => a.cast), heavy: actions.some((a) => a.heavy),
@@ -124,8 +128,9 @@ export function bossIntent(s, e) {
       crushNextRound: b.phase <= 2 && (r + 1) % BOSS_CRUSH_EVERY === 0,
       brandInRounds: brandIn,
       litanyInRounds: nextLitanyIn(r),
-      shardsInRounds: b.phase === 2 ? b.nextShard - r : null,
-      pulseInRounds: b.phase === 3 ? b.nextPulse - r : null,
+      shardsInRounds: b.phase === 2 && shardsAlive < SHARD_MAX ? b.nextShard - r : null,
+      // 0 on the Pulse round itself ("this round", like Litany and Brand), else rounds to the next Pulse.
+      pulseInRounds: b.phase === 3 ? (pulseNow ? 0 : b.nextPulse - r) : null,
       enrageInRounds: Math.max(0, BOSS_ENRAGE_ROUND - r),
       phase: b.phase,
     },

@@ -61,22 +61,30 @@ describe('rules 10 end boss (QA additions)', () => {
       if (at(x.round + 1)) assert.equal(at(x.round + 1).ids.includes('gravity_crush'), !!tg.crushNextRound, `Crush in round ${x.round + 1} telegraphed in round ${x.round}`);
       // Shards summoned at the end of round w take part from round w + 1; first wave interval only (SHARD_MAX caps later waves).
       if (tg.shardsInRounds != null && x.round <= 19) { const w = firstFrom(x.round, (y) => y.summons > 0); assert.equal(w + 1, x.round + tg.shardsInRounds, `Shards counter at round ${x.round}`); checked++; }
-      // A Pulse round shows the gap to the following Pulse; otherwise the gap to the next one.
-      if (tg.pulseInRounds != null) { const w = firstFrom(x.round + (x.ids.includes('starless_pulse') ? 1 : 0), (y) => y.ids.includes('starless_pulse')); if (w !== null) { assert.equal(w, x.round + tg.pulseInRounds, `Pulse counter at round ${x.round}`); checked++; } }
+      // A Pulse round reads 0 ("this round", BUG-QA-07); otherwise the gap to the next Pulse.
+      if (tg.pulseInRounds != null) { const w = firstFrom(x.round, (y) => y.ids.includes('starless_pulse')); if (w !== null) { assert.equal(w, x.round + tg.pulseInRounds, `Pulse counter at round ${x.round}`); checked++; } }
       assert.equal(tg.enrageInRounds, C.BOSS_ENRAGE_ROUND - x.round, `enrage counter at round ${x.round}`);
     }
     assert.ok(rows.some((x) => x.tg.phase === 2) && rows.some((x) => x.tg.phase === 3), 'all three phases seen');
     assert.ok(checked > 60, `${checked} predictions checked`);
   });
 
-  test('10.3 on a round with Starless Pulse in the intent, the Pulse counter reads "this round" (as Litany and Brand do)', { todo: 'BUG-QA-07: pulseInRounds shows the next Pulse during a Pulse round; the HUD reads "Pulse in 3"' }, () => {
+  test('10.3 on a round with Starless Pulse in the intent, the Pulse counter reads "this round" (as Litany and Brand do) (BUG-QA-07)', () => {
     const { rows } = schedule();
-    for (const x of rows) if (x.ids.includes('starless_pulse')) assert.equal(x.tg.pulseInRounds, 0, `round ${x.round}`);
+    const pulses = rows.filter((x) => x.ids.includes('starless_pulse'));
+    assert.ok(pulses.length >= 3, `${pulses.length} Pulse rounds seen`);
+    for (const x of pulses) assert.equal(x.tg.pulseInRounds, 0, `round ${x.round}`);
   });
 
-  test('10.3 the Shards counter only counts down to a wave that will come (SHARD_MAX alive stops a wave)', { todo: 'BUG-QA-07: the counter reaches "next round" and resets with no Shards when SHARD_MAX are alive' }, () => {
+  test('10.3 the Shards counter only counts down to a wave that will come (SHARD_MAX alive stops a wave) (BUG-QA-07)', () => {
     const { rows, firstFrom } = schedule();
-    for (const x of rows) if (x.tg.shardsInRounds === 1) assert.equal(firstFrom(x.round, (y) => y.summons > 0), x.round, `round ${x.round}`);
+    const ones = rows.filter((x) => x.tg.shardsInRounds === 1);
+    assert.ok(ones.length >= 1, 'a "next round" Shards counter was seen');
+    for (const x of ones) assert.equal(firstFrom(x.round, (y) => y.summons > 0), x.round, `round ${x.round}`);
+    // Rounds 20-29 of the schedule: SHARD_MAX Shards alive (stunned, never killed), so no countdown is shown.
+    const full = rows.filter((x) => x.tg.phase === 2 && x.round >= 20);
+    assert.ok(full.length >= 5);
+    for (const x of full) assert.equal(x.tg.shardsInRounds, null, `round ${x.round}: ${C.SHARD_MAX} Shards alive`);
   });
 
   test('10.2 Gravity Crush is heavy and cannot be interrupted; the Litany is a cast', () => {
