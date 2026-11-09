@@ -336,7 +336,7 @@ Boss:
 ### Shrine lines
 
 - A cracked altar to the sun still radiates a faint warmth, though it has stood cold for centuries.
-- A basin of clear water sits impossibly full in the heart of the ruin, ringed with offerings of bronze.
+- A basin of clear water sits impossibly full amid the ruins, ringed with bronze offerings.
 
 ### Treasure lines
 
