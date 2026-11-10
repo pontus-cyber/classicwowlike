@@ -22,10 +22,16 @@
 // Search budget [assumption, SIM.TACT_*]: candidates are the legal actions minus clearly wasteful ones (see
 // candidateActions); the search runs only in rounds with a real decision (needsSearch), autoplay rules 1-2 stand
 // unless an enemy cast is pending (safetyRule), and samples are raced (successive halving).
+// Combat v2 (combat-v2.md 11, "unchanged definition plus the engage search"): in an engage round that offers engage
+// options, the opener's plan of the opening (sim/bots/opener.mjs planOpening, on a player-visible view) chooses the
+// round's action, its first action; autoplay's (rule E) when the plan does not beat autoplay. From round 2 on: as
+// above.
 import { C, R, makeRng, hpFrac, manaFrac } from '../lib/engine.mjs';
 import { BAL, SIM } from '../lib/params.mjs';
 import { fightClone } from '../lib/clone.mjs';
+import { engageActions } from '../lib/view.mjs';
 import { createPlannerBot } from './planner.mjs';
+import { planOpening } from './opener.mjs';
 
 const CONTROL = new Set(['interrupt', 'stun', 'control']);
 const same = (a, b) => a.type === b.type && a.spellId === b.spellId && a.target === b.target && a.slot === b.slot;
@@ -377,6 +383,10 @@ export function tacticianChoice(s, rng, st = { fights: -1, n0: 0 }, opts = {}) {
   const f = s.fight;
   if (f.p.skip) return { type: 'PASS' };
   if (st.fights !== s.stats.fights) { st.fights = s.stats.fights; st.n0 = f.enemies.length; }
+  if (!opts.rulesOnly && f.kind !== 'boss' && engageActions(s).length) {
+    const r = planOpening(s, rng, { n0: st.n0 });
+    return !r.auto && r.seq.length ? r.seq[0] : R.autoAction(s);
+  }
   const t = telegraphAction(s, rng);
   if (t) return t.action;
   if (f.kind === 'boss' || opts.rulesOnly) return R.autoAction(s);
