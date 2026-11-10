@@ -6,8 +6,8 @@ Updated by the Lead at the end of every session. One page; older detail goes in 
 M2, doing. M1 done 2026-11-09: first playable build (2cb7bf2) with autoplay fixed; first balance report 38/71 checks pass.
 
 ## Next tasks
-1. M2 2.3 round 4: third measure (docs/reports/balance-2026-11-10.md) 53/72 pass, P0 planner 28/29/29 %. Lead Game Designer v4 pass (meta power with full catalogue, dungeons after zone danger, speedrun target) in progress; then Engineer implements, Sim measures. Goal: close M2.
-2. In progress in parallel: M3 meta-progression screen (UI/UX Engineer).
+1. M2 2.3 round 4: third measure (docs/reports/balance-2026-11-10.md) 53/72 pass, P0 planner 28/29/29 %. v4 design pass done (0ea4fb3, 17 changes). In progress: Engineer implements v4, Sim updates targets then runs the deciding measure, UI drops Wayfinder and reads bossPar/zoneDanger. M2 closes if all P1 pass (D40).
+2. M3 meta screen (Hall of Echoes) built early: 4cda070, build c117da2 sent 06:50.
 3. After M2 closes: QA playtest pass (2.4).
 
 ## Waiting on the owner
@@ -30,3 +30,4 @@ game.html at bdd64de (M2 v3). Sent to the owner 2026-11-10 06:24. 55/55 UI regre
 | 9 | 2026-11-09 22:47 | Resume v3 design pass after server restart; last session of the day | Designer (Opus/high) | pending |
 | 10 | 2026-11-10 04:56 | Owner restart; engine M2 v3 done; sim re-measure and UI text fixes running | Core Gameplay Eng (Opus/max, 369k), Sim Eng (Opus/max), UI/UX Eng (Opus/max) | pending |
 | 11 | 2026-11-10 06:24 | M2 v3 measured 53/72; build sent; start v4 design pass and M3 meta screen | Sim Eng (508k), UI/UX Eng (409k + running), Designer (Opus/high) | pending |
+| 12 | 2026-11-10 07:10 | v4 design pass reviewed; D40 stop rule; engine, sim, UI started | Designer (312k), UI/UX (542k), Engineer/Sim/UI (Opus/max) | pending |
