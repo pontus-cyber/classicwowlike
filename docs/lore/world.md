@@ -1,6 +1,6 @@
 # World
 
-Status: draft (not yet approved by the owner)
+Status: inherited (agent-written strawman, 2026-11-10). Replaced by the owner's story as the interview progresses (docs/lore/process.md).
 
 The frame that ties the existing canon together: the land, the sky, the deep past, the present crisis and why the player keeps coming back. Everything here marked "proposal" is new and waits for the owner. Everything marked "canon" already exists in the game and is only explained here.
 
