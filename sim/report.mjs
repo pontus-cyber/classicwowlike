@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Balance report from a pass directory (sim/pass.mjs): every target B1-B37 of docs/specs/balance.md with value,
+// Balance report from a pass directory (sim/pass.mjs): every target B1-B38 of docs/specs/balance.md (and B48-B54 of
+// docs/specs/combat-v2.md 12 when the pass has the stage G cells) with value,
 // 95 % interval, target and pass/fail, plus supporting tables. Writes the generated part between the markers
 // <!-- generated:start --> and <!-- generated:end --> of the report file, so hand-written analysis outside the
 // markers survives a regeneration.
@@ -31,6 +32,7 @@ import { readJson, readJsonl, pct, num, ci, table } from './lib/output.mjs';
 import { TIME_PROFILE } from './bots/index.mjs';
 import { tableSummary, buildTable } from './lib/risk.mjs';
 import { CLASSES } from './lib/session.mjs';
+import { combatChecks } from './lib/combatchecks.mjs';
 
 function parse(argv) {
   const o = {};
@@ -242,6 +244,17 @@ for (const prof of ['P0', 'PALL']) {
     const dd = diffRate(t.win, pl.win);
     add('B5', 'diag', 'Tactician (as specified) - planner, P0, same seeds as the diagnostic', `${pct(diffRate(tp.win, pl.win).v)}`, band(BAL.MANUAL_GAP), null, 0, 'paired subset');
     add('B5', 'diag', 'Tactician telegraph rules only, autoplay otherwise (no search) - planner, P0, same seeds', `${pct(dd.v)} (${ci(dd.ci)})`, band(BAL.MANUAL_GAP), null, 0, 'diagnostic, not a balance.md bot');
+  }
+}
+// B48-B54 and the B5 opener diagnostic (combat-v2.md 12; stage G cells masher-P0 and opener-P0). B5, B15 and B16 keep
+// balance.md's bands here; sim/combatreport.mjs also shows the combat-v2.md 12 bands.
+if (recs('masher-P0') || recs('opener-P0')) {
+  const cells = { planner: pooledRecs('planner-P0'), tactician: pooledRecs('tactician-P0') };
+  if (recs('masher-P0')) cells.masher = pooledRecs('masher-P0');
+  if (recs('opener-P0')) cells.opener = pooledRecs('opener-P0');
+  for (const r of combatChecks(cells)) {
+    if (!['B48', 'B49', 'B50', 'B51', 'B52', 'B53', 'B54'].includes(r.id) && !(r.id === 'B5' && r.pri === 'diag')) continue;
+    add(r.id, r.pri, r.metric + (r.note ? ` (${r.note})` : ''), r.value, r.target, r.ok, r.ok === false ? 1 : 0);
   }
 }
 {
@@ -462,7 +475,7 @@ L.push('');
 // Supporting tables
 L.push('### Win rate and reach-the-boss rate by bot, profile and class', '');
 const cellRows = [];
-const cellList = ['random-P0', 'greedy-P0', 'planner-P0', 'speedrunner-P0', 'tactician-P0', ...(b5Fallback ? ['tactician-P0-groupTrees'] : []), 'tactician-P0-rulesOnly', 'random-P10', 'planner-P10', 'random-PALL', 'greedy-PALL', 'planner-PALL', 'speedrunner-PALL', 'tactician-PALL', 'planner-PALL-noInterrupt', 'planner-PALL-noCleanse', 'planner-PALL-noAoe'];
+const cellList = ['random-P0', 'greedy-P0', 'planner-P0', 'speedrunner-P0', 'tactician-P0', 'masher-P0', 'opener-P0', ...(b5Fallback ? ['tactician-P0-groupTrees'] : []), 'tactician-P0-rulesOnly', 'random-P10', 'planner-P10', 'random-PALL', 'greedy-PALL', 'planner-PALL', 'speedrunner-PALL', 'tactician-PALL', 'planner-PALL-noInterrupt', 'planner-PALL-noCleanse', 'planner-PALL-noAoe'];
 for (const name of cellList) {
   const pooled = m(name);
   if (!pooled) continue;

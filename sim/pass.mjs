@@ -5,7 +5,7 @@
 //
 //   node sim/pass.mjs --out sim/out/pass-2026-11-09 [--runs 2000] [--style-runs 1000] [--workers N]
 //                     [--stages A,B,C,D,E,F] [--resume] [--warmup 1000] [--campaigns 50] [--replay 1000] [--half-runs 1000]
-//                     [--variant-runs 2000] [--pall-runs 2000] [--diag-runs 1000]
+//                     [--variant-runs 2000] [--pall-runs 2000] [--diag-runs 1000] [--opener-runs 1000]
 //
 // Order and risk-table chain (balance.md 1.1; each cell keeps refreshing its own table every SIM_RISK_REFRESH runs).
 // Default trees (balance.md 1.3, M2 v5, D43): one per class and profile group, chosen by the switch rule
@@ -28,6 +28,8 @@
 //   E  P2 and diagnostic cells: B9 pets and B8 styles (P0 from the P0 planner's observations, PALL from the PALL
 //            planner's, each on its group's trees), the rules-only tactician (telegraph rules, no search;
 //            --diag-runs; P0-group trees).
+//   G  combat v2 cells (combat-v2.md 11-12; B48-B54): masher P0 with the B50 fight replays and opener P0
+//            (--opener-runs, default --half-runs), P0-group trees, from the P0 planner's observations.
 import { cpus } from 'node:os';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
@@ -57,7 +59,7 @@ const OUT = ensureDir(args.out || join('sim', 'out', `pass-${new Date().toISOStr
 const RUNS = Number(args.runs || BAL.N_RUNS_PER_CELL);
 const STYLE_RUNS = Number(args['style-runs'] || Math.round(RUNS / 2));
 const WORKERS = Number(args.workers || cpus().length);
-const STAGES = new Set(String(args.stages || 'A,B,C,D,E,F').split(','));
+const STAGES = new Set(String(args.stages || 'A,G,B,C,D,E,F').split(','));
 const WARM = Number(args.warmup ?? SIM.WARMUP_RUNS);
 const CAMPAIGNS = Number(args.campaigns ?? BAL.N_CAMPAIGNS);
 const REPLAY = Number(args.replay ?? BAL.QA_REPLAY_RUNS);
@@ -65,6 +67,8 @@ const REPLAY = Number(args.replay ?? BAL.QA_REPLAY_RUNS);
 // (no search, cheap) at --diag-runs (default: the same).
 const HALF = Number(args['half-runs'] || Math.round(RUNS / 2));
 const DIAG_RUNS = Number(args['diag-runs'] || HALF);
+// Combat v2 opener cell (stage G; the second most expensive bot).
+const OPENER_RUNS = Number(args['opener-runs'] || HALF);
 // PALL planner, random, greedy and speedrunner cells (the first to cut when compute is short).
 const PALL_RUNS = Number(args['pall-runs'] || RUNS);
 // B26-B28 variants run on the first VARIANT_RUNS seeds of the PALL planner cell (paired seeds, so at most PALL_RUNS).
@@ -73,7 +77,7 @@ const SEED = BAL.SEED_BASE;
 const pool = new Pool(WORKERS);
 const manifestFile = join(OUT, 'pass.json');
 const manifest = existsSync(manifestFile) ? readJson(manifestFile) : { cells: {}, warmups: {} };
-manifest.meta = { commit: commitInfo(), started: manifest.meta ? manifest.meta.started : new Date().toISOString(), runs: RUNS, styleRuns: STYLE_RUNS, halfRuns: HALF, diagRuns: DIAG_RUNS, variantRuns: VARIANT_RUNS, pallRuns: PALL_RUNS, campaigns: CAMPAIGNS, seedBase: SEED, workers: WORKERS, node: process.version };
+manifest.meta = { commit: commitInfo(), started: manifest.meta ? manifest.meta.started : new Date().toISOString(), runs: RUNS, styleRuns: STYLE_RUNS, halfRuns: HALF, diagRuns: DIAG_RUNS, openerRuns: OPENER_RUNS, variantRuns: VARIANT_RUNS, pallRuns: PALL_RUNS, campaigns: CAMPAIGNS, seedBase: SEED, workers: WORKERS, node: process.version };
 const save = () => writeJson(manifestFile, manifest);
 const log = (m) => process.stderr.write(`[${new Date().toISOString().slice(11, 19)}] ${m}\n`);
 
@@ -90,7 +94,7 @@ async function cell(name, o) {
   }
   log(`${name}: start`);
   const r = await runBatch({ pool, out: OUT, name, workers: WORKERS, quiet: true, warmup: 0, runs: RUNS, seedStart: SEED, ...o });
-  manifest.cells[name] = { dir: name, bot: o.bot, prof: o.prof, trees: o.trees, style: o.style || null, variant: o.variant || null, pet: o.pet || null, runs: o.runs || RUNS, classes: o.classes, wallS: Math.round(r.meta.wallMs / 1000) };
+  manifest.cells[name] = { dir: name, bot: o.bot, prof: o.prof, trees: o.trees, style: o.style || null, variant: o.variant || null, pet: o.pet || null, runs: o.runs || RUNS, classes: o.classes, replay: !!o.replay, wallS: Math.round(r.meta.wallMs / 1000) };
   save();
   const brief = Object.entries(r.perClass).map(([c, x]) => `${c} ${(x.metrics.win.p * 100).toFixed(1)} %/${(x.metrics.boss.p * 100).toFixed(0)} %`).join(', ');
   log(`${name}: done in ${(r.meta.wallMs / 1000).toFixed(0)} s (win/boss: ${brief})`);
@@ -186,6 +190,10 @@ try {
     save();
   }
   if (!trees || !obsP0) throw new Error('stage A results missing (run stage A first)');
+  if (STAGES.has('G')) {
+    await cell('masher-P0', { bot: 'masher', classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0, replay: true });
+    await cell('opener-P0', { bot: 'opener', classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0, runs: OPENER_RUNS });
+  }
   if (STAGES.has('B')) {
     const w10 = await warmup('P10', 'meta10', trees, obsP0, Math.round(WARM / 2));
     await cell('planner-P10', { bot: 'planner', classes: CLASSES, prof: 'meta10', trees, obsIn: w10 });
