@@ -1,7 +1,7 @@
 // Content access and validation (src/content/SCHEMA.md, rules 12).
 import {
   ZONE_COUNT, CONTENT_RANGE as CR, ARCHETYPE, ABILITY_TEMPLATE, SLOT_IDS, CLASS_IDS, SPELL, TALENT, PET,
-  BOON, CONSUMABLE, ENGINE_ASSUMPTION as EA,
+  BOON, CONSUMABLE, ENGINE_ASSUMPTION as EA, REGION_COUNT, REGION_W,
 } from '../constants.js';
 
 export const SUFFIX_KEYS = ['AGI', 'INT', 'STA', 'AGI_STA', 'AGI_SPI', 'INT_STA', 'INT_SPI', 'AGI_STA_SPI', 'INT_STA_SPI'];
@@ -75,6 +75,8 @@ export function validateContent(content, { strict = false } = {}) {
     inRange(en.hpMult, CR.hpMult, `${w}.hpMult`);
     inRange(en.dmgMult, CR.dmgMult, `${w}.dmgMult`);
     if (typeof en.hpMult === 'number' && typeof en.dmgMult === 'number') inRange(en.hpMult * en.dmgMult, CR.hpDmgProduct, `${w}: hpMult × dmgMult`);
+    // Optional family tag (rules 1.9.3, expedition): regions draw part of their encounters from their families.
+    if (en.family !== undefined) str(en.family, CR.len.enemyName, `${w}.family`);
     if (!Array.isArray(en.abilities)) e(`${w}.abilities: not a list`);
     else {
       const range = CR.abilities[en.kind];
@@ -128,6 +130,20 @@ export function validateContent(content, { strict = false } = {}) {
     }
     listOf(zn.elites, 'elite', `${w}.elites`);
     listOf(zn.rares, 'rare', `${w}.rares`);
+    // Optional regions (rules 1.9.2, expedition): exactly REGION_COUNT of { id, name, kind, families }.
+    if (zn.regions !== undefined) {
+      if (!Array.isArray(zn.regions) || zn.regions.length !== REGION_COUNT) e(`${w}.regions: expected ${REGION_COUNT} regions`);
+      else {
+        zn.regions.forEach((r, j) => {
+          const rw = `${w}.regions[${j}]`;
+          if (!r || typeof r !== 'object') { e(`${rw}: not an object`); return; }
+          optStr(r.id, CR.len.zoneName, `${rw}.id`);
+          str(r.name, CR.len.zoneName, `${rw}.name`);
+          if (!REGION_W[r.kind]) e(`${rw}.kind: unknown region kind "${r.kind}"`);
+          if (r.families !== undefined && (!Array.isArray(r.families) || r.families.some((f) => typeof f !== 'string' || !f))) e(`${rw}.families: expected a list of family tags`);
+        });
+      }
+    }
     const d = zn.dungeon;
     if (!d || typeof d !== 'object') e(`${w}.dungeon: missing`);
     else {

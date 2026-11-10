@@ -12,6 +12,9 @@
 //   fight(z,r,l,k)   combat of fight k in a node      loot(z,r,l)  all drops and rewards of a node
 //   boss             end boss fight                   bot          reserved for simulator bots (balance.md 1)
 // Hub and camp use row 0; the camp is zone ZONE_COUNT + 1 (see docs/specs/engine-api.md).
+// Expedition map (rules 1.9): node ids replace (row, lane): nodeId(z,id), fightId(z,id,k), lootId(z,id) hash the keys
+// "node", "fight", "loot" with the node id, and dim(z,id,n) is the n-th Dimmed encounter at node id (make-up, then
+// its fight). The hub is id 0.
 
 /** 32-bit hash of a string. Returns an unsigned 32-bit integer. */
 export function hash32(str) {
@@ -95,6 +98,11 @@ export const STREAM = {
   loot: (seed, z, r, l) => makeRng(streamSeed(seed, 'loot', z, r, l)),
   boss: (seed) => makeRng(streamSeed(seed, 'boss')),
   bot: (seed) => makeRng(streamSeed(seed, 'bot')),
+  // Expedition map (rules 1.9): keyed by node id.
+  nodeId: (seed, z, id) => makeRng(streamSeed(seed, 'node', z, id)),
+  fightId: (seed, z, id, k) => makeRng(streamSeed(seed, 'fight', z, id, k)),
+  lootId: (seed, z, id) => makeRng(streamSeed(seed, 'loot', z, id)),
+  dim: (seed, z, id, n) => makeRng(streamSeed(seed, 'dim', z, id, n)),
 };
 
 /** Normalise a run seed to an unsigned 32-bit integer. Throws on non-integers. */

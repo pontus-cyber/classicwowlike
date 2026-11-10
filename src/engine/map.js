@@ -66,7 +66,8 @@ export function generateLayout(seed, z) {
   return grid;
 }
 
-function pickFrom(rng, list) {
+/** One uniform pick from a list (1 draw). */
+export function pickFrom(rng, list) {
   return list[nextInt(rng, list.length)];
 }
 
