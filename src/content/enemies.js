@@ -417,16 +417,16 @@ export const ENEMIES = {
   "abilities": [],
   "text": "A horned wild ram, rock-hard and fond of charging downhill."
  },
- "z3_hrothgar": {
-  "id": "z3_hrothgar",
-  "name": "Hrothgar Stonefist",
+ "z3_tavrik": {
+  "id": "z3_tavrik",
+  "name": "Tavrik Cairnfist",
   "kind": "elite",
   "archetype": "brute",
   "family": "reiver",
   "hpMult": 1.15,
   "dmgMult": 0.9,
   "abilities": [
-   "ab_z3_hrothgar_heavy_blow"
+   "ab_z3_tavrik_heavy_blow"
   ],
   "text": "A clan champion who swore never to retreat from the Reach."
  },
@@ -470,9 +470,9 @@ export const ENEMIES = {
   ],
   "text": "A great antlered stag worshipped by the old clans."
  },
- "z3_barrow_wight": {
-  "id": "z3_barrow_wight",
-  "name": "Barrow Wight",
+ "z3_barrow_sleeper": {
+  "id": "z3_barrow_sleeper",
+  "name": "Barrow Sleeper",
   "kind": "trash",
   "archetype": "skulker",
   "hpMult": 0.95,
@@ -820,16 +820,16 @@ export const ENEMIES = {
   ],
   "text": "A ghost knight bound to guard a manor that burned down centuries ago."
  },
- "z5_morrigan": {
-  "id": "z5_morrigan",
-  "name": "Morrigan of the Veil",
+ "z5_wenlith": {
+  "id": "z5_wenlith",
+  "name": "Wenlith of the Veil",
   "kind": "elite",
   "archetype": "caster",
   "family": "veil",
   "hpMult": 0.95,
   "dmgMult": 1.1,
   "abilities": [
-   "ab_z5_morrigan_dark_cast"
+   "ab_z5_wenlith_dark_cast"
   ],
   "text": "A banshee whose wail strips colour from the forest."
  },

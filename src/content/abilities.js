@@ -86,8 +86,8 @@ export const ABILITIES = {
   "pct": 0.18,
   "cd": 5
  },
- "ab_z3_hrothgar_heavy_blow": {
-  "id": "ab_z3_hrothgar_heavy_blow",
+ "ab_z3_tavrik_heavy_blow": {
+  "id": "ab_z3_tavrik_heavy_blow",
   "template": "heavy_blow",
   "name": "Cairn-Splitter",
   "pct": 2,
@@ -205,8 +205,8 @@ export const ABILITIES = {
   "pct": 2.1,
   "cd": 4
  },
- "ab_z5_morrigan_dark_cast": {
-  "id": "ab_z5_morrigan_dark_cast",
+ "ab_z5_wenlith_dark_cast": {
+  "id": "ab_z5_wenlith_dark_cast",
   "template": "dark_cast",
   "name": "Keening Wail",
   "pct": 2.4,

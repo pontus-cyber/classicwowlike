@@ -228,7 +228,7 @@ export const ZONES = [
    "z3_crag_prowler"
   ],
   "elites": [
-   "z3_hrothgar",
+   "z3_tavrik",
    "z3_urseth",
    "z3_mawra"
   ],
@@ -239,7 +239,7 @@ export const ZONES = [
    "name": "Barrowdeep",
    "text": "A burial complex carved into the mountain, where the clan kings still hold court.",
    "trash": [
-    "z3_barrow_wight",
+    "z3_barrow_sleeper",
     "z3_bone_thane",
     "z3_grave_skald",
     "z3_cairn_hound",
@@ -256,7 +256,7 @@ export const ZONES = [
    "q_z3_ram_horn_signal",
    "q_z3_a_healer_taken",
    "q_z3_the_silent_cairns",
-   "q_z3_hrothgar_s_oath"
+   "q_z3_tavrik_s_oath"
   ],
   "shrineLines": [
    "A ring of standing stones hums with old power, the heather around them strangely still.",
@@ -413,7 +413,7 @@ export const ZONES = [
   ],
   "elites": [
    "z5_varis",
-   "z5_morrigan",
+   "z5_wenlith",
    "z5_grimmel"
   ],
   "rares": [

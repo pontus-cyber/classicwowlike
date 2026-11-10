@@ -442,12 +442,12 @@ export const QUESTS = {
    "z3_wind_shaman"
   ]
  },
- "q_z3_hrothgar_s_oath": {
-  "id": "q_z3_hrothgar_s_oath",
-  "title": "Hrothgar's Oath",
+ "q_z3_tavrik_s_oath": {
+  "id": "q_z3_tavrik_s_oath",
+  "title": "Tavrik's Oath",
   "giver": "Thane Brannoch",
   "objective": "slay",
-  "text": "Hrothgar Stonefist blocks the pass and will not yield. Break his oath if you must.",
+  "text": "Tavrik Cairnfist blocks the pass and will not yield. Break his oath if you must.",
   "turnIn": "He kept his word to the end. May he rest.",
   "sizeWeights": [
    10,
