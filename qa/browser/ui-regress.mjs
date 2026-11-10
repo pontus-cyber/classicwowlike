@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
  * qa/browser/ui-regress.mjs - regression checks for the UI bugs fixed on 2026-11-09
- * (qa/bugs.md BUG-QA-01, 02, 03, 04, 05, 08, 09, 10, 11) and for the M2 v2 UI changes (docs/specs/changes-m2-v2.md:
- * map rows from the engine, travel on early, Linked per Shard, the round time budget).
+ * (qa/bugs.md BUG-QA-01, 02, 03, 04, 05, 08, 09, 10, 11), for the M2 v2 UI changes (docs/specs/changes-m2-v2.md:
+ * map rows from the engine, travel on early, Linked per Shard, the round time budget) and for the M2 v3 UI changes
+ * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D]
+ *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -17,7 +18,7 @@
  *   A  real engine, seed 30 Hunter at 1x speed: vendor, item bar, the map (the engine's rows and lanes, the
  *      travel button before the travel level), map tooltip and labels, a fight played with keys A and 8, the
  *      Autoplay switch and key Z, quest reward, equip from the bags, the clock.
- *   B  real engine, seed 1 Hunter at Instant speed, the engine's autoplay choices up to the camp: the clock
+ *   B  real engine, seed 51 Hunter at Instant speed, the engine's autoplay choices up to the camp: the clock
  *      across midnight, the travel button at every map step (and its tooltip when leaving early is legal), the
  *      camp panel, the bag menu at the right edge, an item used out of combat, Face Oruvath, and the boss fight
  *      played on the Autoplay switch with the Linked strength on the boss frame.
@@ -25,10 +26,18 @@
  *   D  real engine, seed 9 Hunter at the default speed: manual rounds (the keys of the autoplay policy's choices) within
  *      PACE_ROUND_ANIM_S, an action key and a click during enemy animations finish them, and 2x, 4x and Instant from
  *      the settings window (setup outside fights: the engine's autoplay choices).
+ *   E  real engine, seed 63 Hunter with a stored profile that holds Second Breath and Lost Technique I (Ricochet Bolt),
+ *      at Instant speed, the engine's autoplay choices up to the camp: the resurrect badge and the character sheet in
+ *      zone 1, at the camp and in the boss fight (only the charges that work there, Second Breath named as not working),
+ *      the death screen when the hero dies at the boss with Second Breath unused, the Ricochet Bolt tooltip (spellbook),
+ *      and zone danger in the zone banners, the minimap tooltip and the map tooltips of zone 3. Expected numbers come
+ *      from the engine: a Node run of the same seed and profile (resurrectCharges, spellInfo, summary) and zoneDanger.
  *
  * Seeds were picked with the engine of 3559e0e (M2 v2): seed 30's first quest has two Guardians that last long
- * enough for the potion and Autoplay checks; seed 1's engine autoplay run reaches the camp hurt, with Trail Rations,
- * and its boss fight reaches phase 2 with up to 4 Shards.
+ * enough for the potion and Autoplay checks. M2 v3 (77c0ca5): seed 1's autoplay run no longer reaches the camp, so part B
+ * moved to seed 51, whose engine autoplay run reaches the camp hurt, with Trail Rations, may leave zone 1 early at level 9,
+ * and whose boss fight reaches phase 2 with 1 to 3 Shards. Seed 63 with the part E profile reaches the camp holding a Boon
+ * of Return and Second Breath; in the boss fight the Boon returns the hero once, then the hero dies with Second Breath unused.
  *
  * Prints PASS or FAIL per check with what it saw; exit 1 if any check fails or a page logs an error.
  * Playwright comes from /home/claude/tools-ui (or a local install).
@@ -39,13 +48,14 @@ import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import * as R from '../../src/rules.js';
 import { CONTENT } from '../../src/content/index.js';
+import { zoneDanger } from '../../src/engine/combat.js'; // zone danger multiplier (rules 7.6, M2 v3); not in the rules.js API
 
 const args = process.argv.slice(2);
 const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
 const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -54,6 +64,7 @@ const R_LINK = { per: R.C.LINK_DR_PER_SHARD, cap: R.C.LINK_DR }; // Linked (rule
 const BUDGET = R.C.PACE_ROUND_ANIM_S * 1000; // round time budget at the default speed (rules 3, M2 v2)
 // Steps with these events hold a moment that has its own place in the pacing model (level-up, fight end, boss phase).
 const MOMENTS = ['victory', 'levelUp', 'defeat', 'resurrect', 'bossPhase'];
+const PROFILE_KEY = 'tbwcr.profile.v1'; // where the game keeps the meta profile (src/ui/engine-bridge.js)
 
 function loadPlaywright() {
   for (const base of ['/home/claude/tools-ui/package.json', import.meta.url]) {
@@ -73,8 +84,10 @@ const check = (bug, name, ok, saw) => {
 };
 
 // ------------------------------------------------------------------ page helpers
-async function open(browser, W, H, query) {
+/** A page of the build. profile: a meta profile stored where the game reads it (localStorage) before it loads. */
+async function open(browser, W, H, query, profile = null) {
   const context = await browser.newContext({ viewport: { width: W, height: H } });
+  if (profile) await context.addInitScript(([key, json]) => { try { localStorage.setItem(key, json); } catch { /* storage blocked */ } }, [PROFILE_KEY, JSON.stringify(profile)]);
   const page = await context.newPage();
   const errors = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
@@ -279,12 +292,16 @@ async function partA(browser, W, H) {
 
 // ------------------------------------------------------------------ part B: the camp, real engine, Instant
 /**
- * Setup steps in the page: the engine's autoplay choices (AUTO) until the camp or the run's end. The clock is read
- * after every hour change and the travel button at every map step. stopAtEarly: stop at the first map step where
- * travelling on is legal under the exit level (the button's data-travel is "early").
+ * Setup steps in the page: the engine's autoplay choices (AUTO) until the camp or the run's end. A TRAVEL_ON choice on
+ * the map is sent as the UI's TRAVEL_ON action (what the Travel on button sends), so the zone travel and its banner play
+ * as for a player. The clock is read after every hour change, the travel button at every map step and the zone banner
+ * after every change of zone.
+ * stop.early: stop at the first map step where travelling on is legal under the exit level (the button's data-travel
+ * is "early"); stop.zone: stop at the first map step in that zone or later.
  */
-const autoRun = (page, stopAtEarly) => page.evaluate(async (stop) => {
-  const ui = window.__ui; const out = { clock: [], travel: [], early: null }; let last = -1;
+const autoRun = (page, stop = {}) => page.evaluate(async (opt) => {
+  const ui = window.__ui; const out = { clock: [], travel: [], early: null, at: null, banners: [] }; let last = -1;
+  let zone = ui.view().zone ? ui.view().zone.idx : null;
   const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   for (let n = 0; n < 4000; n++) {
     const v = ui.view();
@@ -295,27 +312,31 @@ const autoRun = (page, stopAtEarly) => page.evaluate(async (stop) => {
       const rec = { z: v.zone.idx, level: v.player.level, need: v.zone.travelLevel, exit: v.zone.exitLevel, travelOn: !!v.legal.travelOn, must: !!v.legal.mustTravel,
         row: v.zone.pos.row, kind: b ? b.dataset.travel : null, disabled: b ? b.disabled : null, label: b ? b.textContent : null };
       out.travel.push(rec);
-      if (stop && rec.kind === 'early') { out.early = rec; return out; }
+      if (opt.early && rec.kind === 'early') { out.early = rec; return out; }
+      if (opt.zone && v.zone.idx >= opt.zone) { out.at = rec; return out; }
     }
-    await ui.act({ type: 'AUTO' });
+    const c = v.phase === 'MAP' ? ui.autoChoice() : null;
+    await ui.act(c && c.type === 'ENGINE' && c.action.type === 'TRAVEL_ON' ? { type: 'TRAVEL_ON' } : { type: 'AUTO' });
     await ui.idle();
-    const h = ui.view().hours;
-    if (h !== last && ui.view().phase !== 'SUMMARY') { last = h; await frame(); out.clock.push([ui.view().hours, document.querySelector('#minimap .clock').textContent]); }
+    const nv = ui.view();
+    if (nv.zone && nv.zone.idx !== zone) { zone = nv.zone.idx; out.banners.push({ z: zone, b1: document.querySelector('#banner .b1').textContent, b2: document.querySelector('#banner .b2').textContent }); }
+    const h = nv.hours;
+    if (h !== last && nv.phase !== 'SUMMARY') { last = h; await frame(); out.clock.push([nv.hours, document.querySelector('#minimap .clock').textContent]); }
   }
   await ui.idle();
   return out;
-}, stopAtEarly);
+}, stop);
 /** The travel button state the engine's legality and levels call for (rules 1.5). */
 const travelKind = (r) => (r.must ? 'done' : r.travelOn ? (r.level >= r.exit ? 'open' : 'early') : 'locked');
 
 async function partB(browser, W, H) {
-  const SEED = 1;
+  const SEED = 51; // M2 v3: seed 1's autoplay run dies before the camp (zone danger)
   const { context, page, errors } = await open(browser, W, H, `seed=${SEED}&speed=instant`);
   try {
     await page.locator('#create .ccard[data-cls="hunter"]').click();
     await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
     // Setup: the engine's autoplay choices up to the first map step where leaving early is legal, then to the camp.
-    const first = await autoRun(page, true);
+    const first = await autoRun(page, { early: true });
     let earlyTip = null;
     if (first.early) {
       await page.locator('#screens .mhead button[data-travel]').hover();
@@ -323,7 +344,7 @@ async function partB(browser, W, H) {
       await shot(page, 'B-travel-early');
       await page.mouse.move(2, 2);
     }
-    const rest = await autoRun(page, false);
+    const rest = await autoRun(page);
     const samples = [...first.clock, ...rest.clock];
     const steps = [...first.travel, ...rest.travel];
     const e = first.early;
@@ -549,6 +570,192 @@ async function partD(browser, W, H) {
   await context.close();
 }
 
+// ------------------------------------------------------------------ part E: M2 v3, real engine with a profile, Instant
+const E_SEED = 63;
+/** The part E profile: Second Breath and Lost Technique I (Hunter: Ricochet Bolt), bought by the engine's own rules. */
+function eProfile() {
+  let p = R.newProfile(); p.echoes = 100000; p.reachedBoss = true; // Second Breath requires "reached the boss once"
+  for (const id of ['second_breath', 'sp_h1']) p = R.buyMeta(p, id);
+  return p;
+}
+let E_TWIN = null;
+/** The same run in Node (the engine's autoplay choices, as the AUTO helper): facts at the start, in zone 3, at the camp, at the boss, at the end. */
+function eTwin(profile) {
+  if (E_TWIN) return E_TWIN;
+  let s = R.newRun({ classId: 'rogue', seed: E_SEED, content: CONTENT, profile });
+  for (const a of [{ type: 'SELECT_CLASS', classId: 'hunter' }, { type: 'SELECT_PET', petId: 'ridgewolf' }, { type: 'START_RUN' }]) s = R.step(s, a).state;
+  const start = R.resurrectCharges(s);
+  let map3 = null;
+  for (let n = 0; n < 20000 && s.phase !== 'CAMP' && s.phase !== 'ENDED'; n++) {
+    if (!map3 && s.phase === 'MAP' && s.zone.z >= 3) map3 = R.mapView(s);
+    s = R.step(s, R.autoAction(s)).state;
+  }
+  if (s.phase !== 'CAMP') throw new Error(`the Node run of seed ${E_SEED} does not reach the camp (${s.phase})`);
+  const camp = R.resurrectCharges(s); const bolt = R.spellInfo(s, 'ricochet_bolt', null).amount; const known = !!s.player.spells.ricochet_bolt;
+  s = R.step(s, { type: 'FIGHT_BOSS' }).state;
+  const boss = R.resurrectCharges(s);
+  s = R.step(s, { type: 'SET_AUTOPLAY', on: true }).state;
+  const sources = [];
+  for (let n = 0; n < 5000 && s.phase !== 'ENDED' && s.phase !== 'SUMMARY'; n++) { const r = R.step(s, R.autoAction(s)); s = r.state; for (const e of r.events) if (e.t === 'resurrect') sources.push(e.source); }
+  const sm = R.summary(s);
+  E_TWIN = { start, map3, camp, bolt, known, boss, sources, outcome: sm.outcome, deathAt: sm.death ? sm.death.nodeType : null, metaLeft: s.player.res.meta };
+  return E_TWIN;
+}
+const RES_NAMES = { boon: R.C.BOON.return.name, second_breath: R.C.META.second_breath.name, ember: R.C.CONSUMABLE.ember_of_return.name };
+const NOT_FINAL = `${RES_NAMES.second_breath} does not work in the final fight.`;
+/** The resurrect list for resurrectCharges().now: names in the engine's order, ×n for more than one, Second Breath marked. */
+function resList(now, bossFight) {
+  const counts = new Map(); for (const k of now) counts.set(k, (counts.get(k) || 0) + 1);
+  const items = [...counts].map(([k, n]) => `${RES_NAMES[k]}${n > 1 ? ` ×${n}` : ''}${k === 'second_breath' ? ' (not in the final fight)' : ''}`);
+  return items.length ? items.join(', ') : bossFight ? 'None in this fight' : 'None';
+}
+const pct1 = (x) => `${Math.round(x * 1000) / 10} %`;
+/** Hover an element and read its tooltip (one line, " / " between lines); shotName: a screenshot while it shows. */
+const tipOf = async (page, locator, shotName) => {
+  await locator.hover();
+  const t = (await page.getByRole('tooltip').innerText()).replace(NBSP, ' ').replace(/\n/g, ' / ');
+  if (shotName) await shot(page, shotName);
+  await page.mouse.move(2, 2);
+  return t;
+};
+/** The player frame's resurrect badge: shown, dimmed, its number, where it lies and its tooltip. */
+async function badge(page, shotName) {
+  const b = page.locator('#player-frame .resc');
+  const st = await b.evaluate((el) => ({ hidden: el.classList.contains('hidden'), none: el.classList.contains('none'), n: el.querySelector('.n').textContent }));
+  const pl = st.hidden ? null : await placement(b);
+  return { ...st, pl, tip: st.hidden ? null : await tipOf(page, b, shotName) };
+}
+const badgeText = (b) => `badge ${b.hidden ? 'hidden' : `"${b.n}"${b.none ? ' dimmed' : ''}, ${placeText(b.pl)}, tooltip "${b.tip}"`}`;
+/** The character sheet's resurrect row and note: key C opens the sheet, key C closes it. */
+async function sheetRes(page, shotName) {
+  await page.keyboard.press('KeyC'); await idle(page);
+  const w = page.locator('#win-character');
+  const line = (await w.locator('.resline b').innerText()).trim();
+  const note = (await w.locator('.resnote').count()) ? (await w.locator('.resnote').innerText()).trim() : null;
+  const pl = await placement(w.locator('.resline'));
+  if (shotName) await shot(page, shotName);
+  await page.keyboard.press('KeyC'); await idle(page);
+  return { line, note, pl };
+}
+const sheetText = (s) => `sheet "${s.line}"${s.note ? ` note "${s.note}"` : ''} ${placeText(s.pl)}`;
+
+async function partE(browser, W, H) {
+  const profile = eProfile();
+  const { context, page, errors } = await open(browser, W, H, `seed=${E_SEED}&speed=instant`, profile);
+  try {
+    const twin = eTwin(profile);
+    const FROM = R.C.ZONE_DANGER_FROM;
+    await page.locator('#create .ccard[data-cls="hunter"]').click();
+    await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+    const banners = [{ z: 1, b1: await page.locator('#banner .b1').innerText(), b2: await page.locator('#banner .b2').innerText() }];
+
+    // ---- zone 1 (Second Breath works on the journey): the badge and the character sheet
+    let bd = await badge(page); let sh = await sheetRes(page, 'E-sheet-zone1');
+    let want = resList(twin.start.now, false);
+    check('M2v3-2', `zone 1 hub: the resurrect badge shows ${twin.start.now.length} and, like the character sheet, lists "${want}" (resurrectCharges.now)`,
+      twin.start.now.includes('second_breath') && !bd.hidden && !bd.none && bd.n === String(twin.start.now.length) && fullyShown(bd.pl) && bd.tip.includes(want) && !bd.tip.includes(NOT_FINAL)
+        && sh.line === want && !sh.note && fullyShown(sh.pl), `${badgeText(bd)} | ${sheetText(sh)}`);
+    const mm1 = await tipOf(page, page.locator('#minimap .disc'));
+    check('M2v3-1', `zone 1 (levels 1-${R.C.ZONE_LEVELS}): the minimap tooltip has no zone danger line`, !/hit harder/.test(mm1), mm1);
+
+    // ---- setup: the engine's autoplay choices to the first map of zone 3, then the map and minimap tooltips there
+    const r1 = await autoRun(page, { zone: 3 });
+    if (!r1.at) throw new Error('setup did not reach a map of zone 3');
+    await page.waitForTimeout(300);
+    const rows = twin.map3.rows; const tips = [];
+    // a node of the engine's zone 3 map: { n, r (row, from 1), l (lane) }
+    const pickNode = (pred) => { for (const [ri, row] of rows.entries()) for (const [l, n] of row.entries()) if (pred(n)) return { n, r: ri + 1, l }; return null; };
+    const plain = pickNode((n) => n.type === 'quest' || n.type === 'grind');
+    const multi = pickNode((n) => n.type === 'dungeon' || (n.type === 'elite' && n.archetypes.length > 1)) || pickNode((n) => n.type === 'elite');
+    for (const { n, r, l } of [plain, multi].filter(Boolean)) {
+      // enemy levels as the engine builds the fights (src/engine/nodes.js): quest and grind at cl; elite at its level,
+      // its escort at cl; dungeon trash at its level, the dungeon boss at bossLevel
+      const levels = n.type === 'dungeon' ? [n.level, n.bossLevel] : n.type === 'elite' ? [n.level, ...(n.archetypes.length > 1 ? [n.cl] : [])] : [n.cl];
+      const lo = zoneDanger(Math.min(...levels)) - 1; const hi = zoneDanger(Math.max(...levels)) - 1;
+      const line = `Zone danger: enemies here deal ${hi > lo ? 'up to ' : ''}+${pct1(hi)} damage (above level ${FROM}).`;
+      const t = await tipOf(page, page.locator(`#screens button.mnode[data-row="${r}"][data-lane="${l}"]`), `E-map-zone3-${n.type}`);
+      tips.push({ n, r, levels, line, t, ok: t.includes(line) });
+    }
+    check('M2v3-1', `zone 3 map tooltips: the zone danger line with the engine's zoneDanger at the enemies' levels (${tips.map((x) => `${x.n.type} r${x.r}: levels ${x.levels.join('/')}`).join('; ')})`,
+      tips.length === 2 && tips.every((x) => x.ok), tips.map((x) => `${x.ok ? 'ok' : 'WRONG'} "${x.t}" (wanted "${x.line}")`).join(' | '));
+    const mm3 = await tipOf(page, page.locator('#minimap .disc'));
+    const rule = `Enemies above level ${FROM} hit harder: +${Math.round(R.C.ZONE_DANGER_STEP * 100)} % damage per 10 levels.`;
+    check('M2v3-1', `zone 3: the minimap tooltip states the rule from ZONE_DANGER_FROM ${FROM} and ZONE_DANGER_STEP ${R.C.ZONE_DANGER_STEP}`, mm3.includes(rule), `${mm3} (wanted "${rule}")`);
+
+    // ---- setup: on to the camp; then the zone banners of the whole run
+    const r2 = await autoRun(page);
+    let v = await view(page);
+    if (v.phase !== 'CAMP') throw new Error(`setup did not reach the camp (phase ${v.phase})`);
+    banners.push(...r1.banners, ...r2.banners);
+    const zb = banners.filter((b) => b.z <= R.C.ZONE_COUNT);
+    const bandOf = (z) => [R.C.ZONE_LEVELS * (z - 1) + 1, R.C.ZONE_LEVELS * z];
+    const wantBanner = (z) => { const [a, b] = bandOf(z); return `Levels ${a}–${b}${b > FROM ? ` · Enemies above level ${FROM} hit harder` : ''}`; };
+    const badB = zb.filter((b) => b.b2 !== wantBanner(b.z));
+    check('M2v3-1', `zone banners: "Enemies above level ${FROM} hit harder" in the zones whose levels pass ${FROM}, not before (${zb.length} zones)`,
+      zb.length === R.C.ZONE_COUNT && !badB.length, badB.length ? badB.map((b) => `zone ${b.z}: "${b.b2}" (wanted "${wantBanner(b.z)}")`).join(' | ') : zb.map((b) => `${b.z}: "${b.b2}"`).join(' | '));
+
+    // ---- the camp: Second Breath held, not for the final fight
+    await page.waitForTimeout(1300); // the zone banner fades
+    bd = await badge(page); sh = await sheetRes(page, 'E-sheet-camp');
+    want = resList(twin.camp.now, false);
+    check('M2v3-2', `camp: the badge shows ${twin.camp.now.length} and, like the character sheet, lists "${want}"`,
+      twin.camp.now.includes('second_breath') && !bd.hidden && bd.n === String(twin.camp.now.length) && bd.tip.includes(want) && sh.line === want && !sh.note && fullyShown(sh.pl),
+      `${badgeText(bd)} | ${sheetText(sh)}`);
+
+    // ---- Ricochet Bolt (row 7): the spellbook tooltip, from the spell's constants and spellInfo
+    const sp = R.C.SPELL.ricochet_bolt; const b = twin.bolt;
+    await page.keyboard.press('KeyP'); await idle(page);
+    const row = page.locator('#win-spellbook .sprow').filter({ has: page.locator('.nm', { hasText: /^Ricochet Bolt$/ }) });
+    const boltTip = (await row.count()) ? await tipOf(page, row, 'E-ricochet') : '';
+    await page.keyboard.press('KeyP'); await idle(page);
+    const desc = `then up to ${['no', 'one', 'two', 'three', 'four'][sp.bounces] || sp.bounces} other ${sp.bounces === 1 ? 'enemy' : 'enemies'} for ${Math.round(sp.bounceFrac * 100)} % of the damage`;
+    const amt = `Deals about ${b.amount} physical damage to the target, then about ${b.bounceAmount} to up to`;
+    check('M2v3-7', `Ricochet Bolt tooltip: "${desc}" (bounces ${sp.bounces}, bounceFrac ${sp.bounceFrac}), the spellInfo amounts ${b.amount} and ${b.bounceAmount}, no "70 %", no "Hits every enemy"`,
+      twin.known && boltTip.includes(desc) && boltTip.includes(amt) && !/70 %/.test(boltTip) && !/Hits every enemy/.test(boltTip), boltTip || 'no Ricochet Bolt row in the spellbook');
+
+    // ---- the boss fight: only the charges that work there; Second Breath named as not working
+    await page.getByRole('button', { name: 'Face Oruvath' }).click(); await idle(page);
+    v = await view(page);
+    if (v.phase !== 'BOSS') throw new Error(`Face Oruvath did not start the boss fight (phase ${v.phase})`);
+    bd = await badge(page, 'E-badge-boss'); sh = await sheetRes(page, 'E-sheet-boss');
+    want = resList(twin.boss.now, true);
+    check('M2v3-2', `boss fight, round ${v.round}: the badge shows ${twin.boss.now.length} (resurrectCharges.now: ${twin.boss.now.join(', ') || 'none'}); badge and sheet list "${want}" and say "${NOT_FINAL}"`,
+      !twin.boss.now.includes('second_breath') && twin.boss.secondBreath > 0 && !bd.hidden && bd.n === String(twin.boss.now.length) && bd.tip.includes(want) && bd.tip.includes(NOT_FINAL)
+        && !bd.tip.includes('Second Breath (not') && sh.line === want && sh.note === NOT_FINAL, `${badgeText(bd)} | ${sheetText(sh)}`);
+
+    // ---- the fight on autoplay (key Z): badge numbers, the resurrect banner and the death screen
+    await page.evaluate(() => {
+      const rec = window.__e = { counts: [], banners: [], death: [] };
+      const bdg = document.querySelector('#player-frame .resc');
+      const note = () => { const x = { n: bdg.querySelector('.n').textContent, none: bdg.classList.contains('none'), hidden: bdg.classList.contains('hidden') }; const l = rec.counts[rec.counts.length - 1]; if (!l || l.n !== x.n || l.none !== x.none || l.hidden !== x.hidden) rec.counts.push(x); };
+      note(); new MutationObserver(note).observe(bdg, { attributes: true, childList: true, subtree: true, characterData: true });
+      const bn = document.querySelector('#banner');
+      new MutationObserver(() => { const t = `${bn.querySelector('.b1').textContent} | ${bn.querySelector('.b2').textContent}`; if (rec.banners[rec.banners.length - 1] !== t) rec.banners.push(t); }).observe(bn, { childList: true, subtree: true, characterData: true });
+      const dm = document.querySelector('.deathmsg').parentElement;
+      new MutationObserver(() => { if (!dm.classList.contains('hidden')) rec.death.push(dm.querySelector('.d2').textContent); }).observe(dm, { attributes: true });
+    });
+    await page.keyboard.press('KeyZ');
+    const done = await page.waitForFunction(() => window.__ui.view().phase === 'SUMMARY', null, { timeout: 120000, polling: 200 }).then(() => true, () => false);
+    await idle(page);
+    const rec = await page.evaluate(() => window.__e);
+    v = await view(page);
+    const resBanners = rec.banners.filter((t) => /^Resurrected/.test(t));
+    const wantBanners = twin.sources.map((x) => `Resurrected | ${RES_NAMES[x]} returns you to the fight`);
+    check('M2v3-2', `boss fight: the resurrects played are the engine's (${twin.sources.join(', ') || 'none'}), and Second Breath is not one of them`,
+      done && JSON.stringify(resBanners) === JSON.stringify(wantBanners) && !twin.sources.includes('second_breath'), `${resBanners.join(' / ') || 'no resurrect banner'} (wanted ${wantBanners.join(' / ') || 'none'})`);
+    const counts = rec.counts.map((c) => `${c.hidden ? 'hidden' : c.n}${c.none ? ' dimmed' : ''}`);
+    check('M2v3-2', 'boss fight: after the last charge that works there, the badge shows 0, dimmed (Second Breath held)',
+      done && twin.metaLeft > 0 && rec.counts.length >= 2 && rec.counts[0].n === String(twin.boss.now.length) && rec.counts.some((c) => c.n === '0' && c.none && !c.hidden), counts.join(' -> '));
+    const deathText = `${NOT_FINAL} Your journey ends here.`;
+    check('M2v3-2', `death in the boss fight with Second Breath unused (${twin.outcome}, at the ${twin.deathAt}): the death screen says "${deathText}"`,
+      done && v.outcome === 'death' && twin.deathAt === 'boss' && twin.metaLeft > 0 && rec.death.length >= 1 && rec.death.every((t) => t === deathText), rec.death.join(' | ') || 'no death screen');
+  } catch (e) {
+    check('-', 'part E ran to the end', false, e.message.split('\n')[0]);
+  }
+  check('-', 'part E: no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+  await context.close();
+}
+
 // ------------------------------------------------------------------ run
 const browser = await chromium.launch({ headless: true });
 for (const [W, H] of SIZES) {
@@ -557,6 +764,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('B')) await partB(browser, W, H);
   if (PARTS.includes('C')) await partC(browser, W, H);
   if (PARTS.includes('D')) await partD(browser, W, H);
+  if (PARTS.includes('E')) await partE(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);
