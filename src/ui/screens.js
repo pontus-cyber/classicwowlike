@@ -6,6 +6,7 @@ import { drawPortrait, HERO_LOOKS, PET_LOOKS } from './art-actors.js';
 import { tip, itemTip, spellTip } from './tooltip.js';
 import { conColor, heroPortrait, travelState } from './hud.js';
 import { numWord, plural, dangerAt, pct1 } from './ui-text.js';
+import { createMeta, buildOaths, echoAmt } from './meta.js';
 
 const NODE_NAME = { quest: 'Quest', grind: 'Grind', elite: 'Elite', dungeon: 'Dungeon', rest: 'Rest', vendor: 'Vendor', trainer: 'Trainer', treasure: 'Treasure', shrine: 'Shrine' };
 const NO_FIGHT = new Set(['rest', 'vendor', 'trainer', 'shrine']); // nodes that hold no fight: labels in a neutral colour
@@ -38,6 +39,9 @@ export function createScreens(root, ctx) {
   root.appendChild(layer);
   let cur = { key: null, el: null };
   let createEl = null;
+  // the Hall of Echoes lies over class select while it is open (meta.js); it is not one of the mounted screens
+  const meta = createMeta(ctx);
+  layer.appendChild(meta.el);
 
   function mount(key, build) {
     if (cur.key === key && cur.el) return cur.el;
@@ -49,6 +53,7 @@ export function createScreens(root, ctx) {
   }
 
   function update(v) {
+    meta.sync(v);
     if (ctx.ui.overlay) { mount('overlay', () => null); return; }
     const p = v.player;
     if (v.phase === 'CREATE') { mount('create', () => (createEl = buildCreate(ctx))); updateCreate(createEl, v, ctx); return; }
@@ -68,7 +73,7 @@ export function createScreens(root, ctx) {
     }
     mount('none', () => null);
   }
-  return { update, layer, refresh() { cur.key = null; } };
+  return { update, layer, meta, refresh() { cur.key = null; } };
 }
 
 const lootKey = (v) => `${v.loot.kind}|${v.loot.title}|${(v.loot.items || v.loot.choices || []).map((i) => i.uid).join(',')}|${v.player.bag.filter(Boolean).length}`;
@@ -88,6 +93,7 @@ function buildCreate(ctx) {
     card.addEventListener('click', () => ctx.act({ type: 'SELECT_CLASS', classId: id }));
     classes.appendChild(card);
   }
+  classes.appendChild(h('div.oathslot')); // Oaths (rules 11.5) once the profile owns them; filled by updateCreate
   const details = h('div.details.panel', h('div.wtitle', h('div.title.dname'), h('div.subtitle.drole')), h('div.body'));
   const name = h('input', { type: 'text', maxLength: 16, placeholder: 'Your name', spellcheck: false, 'aria-label': 'Character name' });
   name.addEventListener('change', () => { if (ctx.view.phase === 'CREATE') ctx.act({ type: 'SET_NAME', name: name.value }); });
@@ -102,15 +108,40 @@ function buildCreate(ctx) {
     if (seed.value.trim()) await ctx.act({ type: 'SET_SEED', seed: seed.value.replace(/\D/g, '') });
     ctx.act({ type: 'START_RUN' });
   });
-  root.append(classes, details, h('div.bottom.panel', h('div.field', h('label', 'Name'), name), h('div.field', h('label', 'Seed'), seed), go));
+  // Hall of Echoes (meta progression, rules 11): engine mode only (the mock has no profile)
+  let echoes = null;
+  if (d.meta) {
+    echoes = h('button.btn.echoes', { type: 'button', 'aria-label': 'Echoes' }, h('i.eg'), h('b.n', '0'), h('span.l', 'Echoes'), h('span.badge.hidden'));
+    echoes.addEventListener('click', () => { name.blur(); seed.blur(); ctx.ui.openMeta(); });
+    tip(echoes, () => {
+      const m = ctx.view.meta; if (!m) return null;
+      const reach = m.offers.filter((o) => o.affordable).length;
+      return h('div', h('div.tt-name', 'Hall of Echoes'), h('div.tt-line.desc', 'Spend Echoes on lasting unlocks: stats, items in the drop pools, skills and more.'),
+        h('div.tt-line.num', `${fmtNum(m.echoes)} Echoes · ${numWord(reach)} ${plural(reach, 'unlock')} within reach`), h('div.tt-hint', 'Click to open'));
+    });
+  }
+  root.append(classes, details, h('div.bottom.panel', h('div.field', h('label', 'Name'), name), h('div.field', h('label', 'Seed'), seed), echoes, go));
   return root;
 }
 
 function updateCreate(root, v, ctx) {
   const d = ctx.data; const c = v.create; const cls = d.classes[c.classId];
   root.querySelectorAll('.ccard').forEach((el) => el.classList.toggle('sel', el.dataset.cls === c.classId));
+  const m = v.meta;
+  // Echoes button: the balance and how many unlocks it can buy (the engine's offers)
+  const eb = root.querySelector('.bottom .echoes');
+  if (eb && m) {
+    eb.querySelector('.n').textContent = fmtNum(m.echoes);
+    const reach = m.offers.filter((o) => o.affordable).length; const badge = eb.querySelector('.badge');
+    badge.textContent = String(reach); badge.classList.toggle('hidden', !reach);
+  }
+  // Oaths (rules 11.5): only when the profile owns them (SET_OATH is legal)
+  const slot = root.querySelector('.oathslot');
+  const okey = m && m.oathsOwned ? JSON.stringify([c.oaths, m.next && m.next.oathMult]) : '';
+  if (slot && slot.dataset.key !== okey) { slot.dataset.key = okey; clear(slot); if (okey) slot.appendChild(buildOaths(v, ctx)); }
   const det = root.querySelector('.details');
-  const key = `${c.classId}|${c.petId}`;
+  // pets that need an unlock (Stormhawk) open after a purchase: part of the key
+  const key = `${c.classId}|${c.petId}|${Object.values(d.pets).map((pd) => (pd.locked ? 1 : 0)).join('')}`;
   if (det.dataset.key === key) return;
   det.dataset.key = key;
   det.querySelector('.dname').textContent = cls.name;
@@ -127,7 +158,8 @@ function updateCreate(root, v, ctx) {
       const cv = document.createElement('canvas'); cv.width = 120; cv.height = 120;
       drawPortrait(cv.getContext('2d'), 120, PET_LOOKS[id], 'beast', { bg1: '#2e3a26' });
       const el = h('div.pet' + (c.petId === id ? '.sel' : '') + (pd.locked ? '.locked' : ''), cv, h('div.pn', pd.name));
-      tip(el, () => h('div', h('div.tt-name', pd.name), h('div.tt-line.desc', pd.text), pd.locked ? h('div.tt-warn', 'Unlocked with meta progression') : null));
+      const unlockName = pd.meta && d.meta && d.meta.entries[pd.meta] ? d.meta.entries[pd.meta].name : null;
+      tip(el, () => h('div', h('div.tt-name', pd.name), h('div.tt-line.desc', pd.text), pd.locked ? h('div.tt-warn', unlockName ? `Unlock it with ${unlockName} in the Hall of Echoes.` : 'Unlocked with meta progression') : null));
       if (!pd.locked) el.addEventListener('click', () => ctx.act({ type: 'SELECT_PET', petId: id }));
       pets.appendChild(el);
     }
@@ -497,10 +529,22 @@ function buildSummary(v, ctx) {
     ['Gold', `earned ${moneyText(s.goldEarned)} · spent ${moneyText(s.goldSpent)}`], ['Potions used', String(s.potions)], ['Resurrections', String(s.resurrects)],
     ['Damage', `dealt ${fmtNum(s.dealt)} · taken ${fmtNum(s.taken)}`], ['Top spells', s.topSpells.map(([n, d]) => `${n} ${fmtNum(d)}`).join(', ') || '—'],
   ]), h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '.4rem', marginTop: '.8rem' } }, s.equipped.map((it) => tip(h('div.slot.q-' + it.rarity, h('img', { src: itemIcon(it), alt: '' })), () => itemTip(it, ctx, { compare: false })))));
-  const card3 = h('div.card', h('h3', 'Echoes earned'), s.echoes.map(([k, n]) => h('div.echo', h('span.dim', k), h('b', `+${n}`))), h('div.echo.total', h('span', 'Total'), h('span', `${s.echoTotal} Echoes`)),
-    h('div.muted', { style: { marginTop: '.8rem', fontSize: '1.1rem' } }, 'Echoes buy permanent unlocks between runs (coming in a later milestone).'));
+  // Echoes (rules 11.1): the engine's lines; the balance after the run from the bridge's dry END_RUN (view.meta.after)
+  const after = v.meta && v.meta.after;
+  const oathLine = s.echoMult && s.echoMult !== 1 ? h('div.echo', h('span.dim', `${s.oaths.join(', ')}`), h('b', `×${Math.round(s.echoMult * 100) / 100}`)) : null;
+  const card3 = h('div.card', h('h3', 'Echoes earned'), s.echoes.map(([k, n]) => h('div.echo', h('span.dim', k), h('b', `+${n}`))), oathLine, h('div.echo.total', h('span', 'Total'), h('span', `${s.echoTotal} Echoes`)),
+    after ? h('div.echo.after', h('span.dim', 'Your Echoes after this run'), echoAmt(after.echoes)) : null,
+    h('div.muted', { style: { marginTop: '.8rem', fontSize: '1.1rem' } }, after
+      ? (after.affordable ? `Echoes buy lasting unlocks between runs. ${cap(numWord(after.affordable))} ${plural(after.affordable, 'unlock')} within reach.` : 'Echoes buy lasting unlocks between runs. Keep them for the next one.')
+      : 'Echoes buy lasting unlocks between runs.'));
   win.appendChild(h('div.sbody', card1, card2, card3));
-  const again = btn('Begin a new run', () => ctx.act({ type: 'END_RUN' }), '.primary.big');
-  win.appendChild(h('div.sfoot', again));
+  const again = btn('Begin a new run', () => ctx.act({ type: 'END_RUN' }), v.meta ? '.big' : '.primary.big');
+  // Spend Echoes: END_RUN stores the profile, then the Hall of Echoes opens over class select
+  const spend = v.meta ? btn('Spend Echoes', () => { ctx.ui.openMeta(); ctx.act({ type: 'END_RUN' }); }, '.primary.big') : null;
+  if (spend && after && after.affordable) spend.appendChild(h('span.badge', String(after.affordable)));
+  if (spend) tip(spend, () => h('div', h('div.tt-name', 'Hall of Echoes'), h('div.tt-line.desc', 'Spend the Echoes of this run and the runs before on lasting unlocks.'),
+    after ? h('div.tt-line.num', `${fmtNum(after.echoes)} Echoes · ${numWord(after.affordable)} ${plural(after.affordable, 'unlock')} within reach`) : null, h('div.tt-hint', 'Then choose your next hero.')));
+  if (v.meta) tip(again, () => h('div', h('div.tt-name', 'Begin a new run'), h('div.tt-line.desc', 'Back to class select. Your Echoes are kept: the Hall of Echoes is there too.')));
+  win.appendChild(h('div.sfoot', spend, again));
   return win;
 }

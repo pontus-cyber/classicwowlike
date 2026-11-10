@@ -43,6 +43,10 @@ export class App {
         ui.fleeArmed = false; app.combatAct(() => ({ type: 'FLEE' }));
       },
       showDeath: (on, text) => app.showDeath(on, text),
+      // Hall of Echoes (meta progression between runs): over class select; from the summary it opens after END_RUN
+      openMeta: () => { hideTip(); app.windows.closeAll(); app.screens.meta.open(); app.queueRender(); },
+      closeMeta: () => { app.screens.meta.close(); hideTip(); app.queueRender(); },
+      get metaOpen() { return !!(app.screens && app.screens.meta.isOpen()); },
     };
     this.ui = ui;
     this.ctx = {
@@ -313,8 +317,13 @@ export class App {
       if (prim && !prim.disabled) prim.click();
       return;
     }
-    if (code === 'Escape') { if (this.windows.anyOpen()) this.windows.closeAll(); else this.windows.toggle('settings'); hideTip(); return; }
-    if (v.phase === 'CREATE') { if (code === 'Enter') this.act({ type: 'START_RUN' }); return; }
+    if (code === 'Escape') {
+      if (this.windows.anyOpen()) this.windows.closeAll();
+      else if (this.ui.metaOpen) this.ui.closeMeta();
+      else this.windows.toggle('settings');
+      hideTip(); return;
+    }
+    if (v.phase === 'CREATE') { if (code === 'Enter' && !this.ui.metaOpen) this.act({ type: 'START_RUN' }); return; }
     if (/^Digit[1-7]$/.test(code)) { this.ui.castSlot(Number(code[5]) - 1); return; }
     if (code === 'Digit8') { this.ui.useItemSlot(0); return; }
     if (code === 'Digit9') { this.ui.useItemSlot(1); return; }
@@ -352,6 +361,8 @@ export class App {
       skip: () => app.director.skip(),
       settings,
       openWin: (n) => app.windows.open(n), closeWins: () => app.windows.closeAll(),
+      /** Whether the Hall of Echoes is open (it shows over class select). */
+      metaOpen: () => app.ui.metaOpen,
       canDebug: app.bridge.canDebug,
     };
   }
