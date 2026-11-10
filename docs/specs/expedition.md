@@ -1,6 +1,6 @@
 # Expedition spec: start-camp preparation, contracts, roaming zone maps, the Dimming
 
-Owner: Lead Game Designer. Status: draft for Lead and owner review, 2026-11-10 (milestone M2b). Part 1 of 2: rules (sections 1-8). Part 2 (UI, bots, balance targets, prototype evidence, constant table) follows in the next commit; until then the constants named here are defined in section 12 of the prototype notes and the hand-off.
+Owner: Lead Game Designer. Status: draft for Lead and owner review, 2026-11-10 (milestone M2b). Rules in sections 1-8; UI 9; bots 10; balance targets 11; prototype evidence 12; constants 13.
 Audience: Core Gameplay Engineer, UI/UX Engineer, Simulation & Balance Engineer, Content Designer, QA.
 
 Sources: owner feedback [stated: docs/feedback/2026-11-10-1006-owner.md, including the 10:09 follow-up]; current rules [source: docs/specs/rules.md sections 1, 2, 3, 11]; playtest [source: docs/handoffs/qa-2026-11-09.md]; balance state [source: docs/reports/balance-2026-11-10b.md]. Every number is a named constant in the table at the end (section 13); all are starting values for the Simulation & Balance Engineer to tune.
@@ -122,7 +122,7 @@ Taken before `LEAVE_HUB`, its sites are placed with the zone (3.3).
 Each zone is a graph of 1 + RING_NODES[1] + RING_NODES[2] + RING_NODES[3] nodes: the **hub** in the centre (ring 0), and rings 1, 2 and 3 (the rim) around it. The player starts at the hub and may walk to any adjacent node, in any direction, including back to visited nodes and the hub [stated].
 
 ### 4.2 Content level by ring
-`CL(z, ring) = ZONE_LEVELS × (z - 1) + RING_CL_BASE[ring] + u`, u uniform in 0..RING_CL_SPREAD-1, drawn per node (Z1: ring 1 levels 2-4, ring 2 levels 5-7, ring 3 levels 8-10). The hub is the band minimum. Offsets as today: Quest + QUEST_LEVEL_OFFSETS, Elite + ELITE_LEVEL_OFFSET, dungeon levels as rules 1.4. So walking outward is walking up the zone's level band, as in a classic MMO zone with its town in the middle.
+`CL(z, ring) = ZONE_LEVELS × (z - 1) + 1 + RING_CL_BASE[ring] + u`, u uniform in 0..RING_CL_SPREAD-1, drawn per node (Z1: ring 1 levels 2-4, ring 2 levels 5-7, ring 3 levels 8-10). The hub is the band minimum. Offsets as today: Quest + QUEST_LEVEL_OFFSETS, Elite + ELITE_LEVEL_OFFSET, dungeon levels as rules 1.4. So walking outward is walking up the zone's level band, as in a classic MMO zone with its town in the middle.
 
 ### 4.3 Generation (stream `map(z)`, draws in this order)
 1. Angles: ring 1 node i at `a1 + 360/RING_NODES[1] × i`; ring 2 node j at `a2 + 360/RING_NODES[2] × j`; ring 3 node j at ring 2 node j's angle + half a step. a1, a2 uniform.
@@ -273,3 +273,190 @@ Visibility ladder (owner decision 1), as the planner experiences it (prototype, 
 | radius 3 | whole zone from the hub | 81 % | 1.00 |
 
 The Tracker buys contract steering without making the whole route computable; the Guide buys calculability. That is the intended split: a learned profile steers better, but the zone stays partly unknown, which is why Pathfinder shows types only and the radius is capped at 2.
+
+## 9. UI the player needs
+
+### 9.1 Prep screen (start camp)
+One screen, landscape, three columns: **Contract board** (8 cards: zone and band, kind icon, target region and family, sites needed, reward line with rarity colours, price; Take / Drop; Reroll button with its price and uses left), **Supplies and Vision** (cards with price, owned state from meta greyed as "Owned"), **Your expedition** (points left in large type, held contracts in slot order with their zones, purchases, Reserve preview "Unspent: N points = N × PREP_ECHO_PER_POINT Echoes, usable at hubs"). `Set out` is always visible bottom-right (QA finding BUG-QA-10: never below the fold). Hover on a contract shows "Sites: Quest or Grind nodes in the Barley Reach; with your vision you will see them when adjacent / within 2 hops".
+
+### 9.2 Fog map
+- The zone disc fills the map panel: hub in the centre, rings as faint circles, edges as paths, nodes as markers. Unseen nodes: dim marker with "?" and the ring's level range on hover. Seen nodes: type icon, level coloured against the player (as today), enemy count (BUG-QA-02), contract-site badge in the contract's colour.
+- Regions (when known): soft tint per wedge with the region name on the rim.
+- Landmarks: Roads as signposts on the rim with the next zone's name; the Shardfall as a cracked star; the Dimming as a dark wash over Dimmed nodes, and on every node within 2 hops of the front a small clock "dims in N h". The player's node shows its own clock prominently when N <= 2 h.
+- Legal moves highlight on hover with their hours; a resolved node shows "walk 1 h". Taking a Road and ringing the Bell are buttons on the map panel with their hours and, for the Bell, charges left.
+
+### 9.3 Contract tracker
+The quest log (BRIEF HUD) becomes the contract tracker: one line per held contract: zone, kind, target, progress "1/2 sites", and state (active in this zone / later zone / complete / expired). Contracts of the current zone are pinned at the top-right under the minimap. Completing one shows the reward choice (as today's story reward).
+
+### 9.4 Pacing terms (rules 3)
+| Term | Constant | Seconds |
+|---|---|---|
+| Prep screen | PACE_PREP_S | 60 |
+| Walk through a resolved node | PACE_DECIDE_S + PACE_TRAVEL_NODE_S | 8.5 per step |
+| Hub contract decision | PACE_HUB_CONTRACT_S | 6 per hub |
+| Bell channel animation | PACE_BELL_S | 6 |
+| Dimmed encounter | as a normal fight | |
+
+## 10. Bots (balance.md 1)
+
+### 10.1 Shared rule: bots read `mapView` only
+No bot may read the zone state. The Sim Engineer adds a QA check that the planner's choices are identical when the hidden part of the zone is replaced by another draw (a leak test).
+
+### 10.2 Map policies
+| Bot | Prep | Map |
+|---|---|---|
+| random | random affordable purchases until no point can be spent | uniform over legal moves; Road when on one at 50 %; Bell at 10 % per decision when held |
+| greedy | contracts by `reward value / price` (no completion estimate), then Field Draughts | best adjacent move by value per hour (balance 1.1, site value added, 10.3); **threat rule**: never step into a node that dims within 2 h of arrival unless leaving; when the front is within one hop: leave if `L >= 10z - 2` (Bell if held, else Road, else walk to the Road farthest from the Shardfall), otherwise retreat to the best neighbour farther from the Shardfall that does not dim within 2 h |
+| planner | contracts by `estimated completion × reward value / price` from a running table of completion rate by (kind, vision profile, zone), refreshed every SIM_RISK_REFRESH runs; prior EST_COMPLETE; buys Tracker when its estimated gain in completion × reward beats its price in contract value; keeps Bell charges | **belief search**: depth PLANNER_FOG_DEPTH over moves; known nodes valued exactly; unknown nodes valued as the expectation over the region kind's weights (zone average if the region is unknown) with site chance CULL_SITE_IN / CULL_SITE_OUT (by region if known); the Dimming exactly (it is visible); leaf term = expected cost of reaching the cheapest Road (Dimmed encounters on the way) or the Bell channel; leaving valued with an under-level penalty |
+| speedrunner | Delve contracts, Second Clapper, Field Draughts | belief search minimising hours to `L >= 10z - 1`, then the nearest Road or the Bell |
+| tactician | as planner | as planner (combat as today) |
+| oracle (diagnostic only) | n/a | the planner's search with full information of the current zone; never acts in a measured run; used for B41 |
+
+### 10.3 Site value in the value function
+`siteValue = P(site) × (progress + 1 >= need ? contractValue : contractValue / need × SITE_PARTIAL_MULT)`, `contractValue = (XP levels of the reward × VAL_XP + rarity-weighted item score gain × VAL_GEAR + gold / V × VAL_GOLD)`. Holding a Bell charge is worth BELL_KEEP_VALUE value units until zone 6.
+
+## 11. Balance targets (new, balance.md section 3; numbers in section 13)
+
+### 11.1 Calculability (owner: "the best path is easy to compute")
+Definitions, measured on planner runs with the oracle (10.2) evaluated at every map decision from the same state:
+- **Step calculability** `C_step = (map decisions where the planner's choice equals the oracle's) / (map decisions)`.
+- **Route predictability** `C_route` = share of zones where the planner's realised route (node sequence and exit) equals the route the oracle realises when played from the same zone-entry state on a copy.
+- Diagnostic: information regret = oracle minus planner, in levels-equivalent, per zone.
+Today both are 1.00 by construction (full map in view).
+
+| ID | Pri | Metric | Target |
+|---|---|---|---|
+| B39 | P1 | Contract completion rate, planner P0 / planner PALL / greedy P0 | 45-65 % / 65-85 % / at least 8 pp under planner P0 |
+| B40 | P1 | Plan matters: planner P0 win rate, planned prep minus prep "none" (all points to Reserve), paired seeds; and planned minus random prep | >= PLAN_GAIN_MIN pp; >= PLAN_VS_RANDOM_MIN pp |
+| B41 | P1 | C_step planner P0 / PALL; C_route planner P0 / PALL | 0.60-0.80 / 0.80-0.92; <= 0.15 / <= 0.50 |
+| B42 | P2 | Vision value: planner PALL minus planner PALL without the vision entries (scout, cartographer, old_hand): contract completion; win rate | >= 10 pp; inside B10 |
+| B43 | P1 | Tension: zones with at least one Dimmed encounter, planner P0; Dimmed encounters' share of non-boss deaths, planner P0; zones where the front came within one hop, greedy P0 | 8-18 %; 5-20 %; 40-75 % |
+| B44 | P2 | Threat bounds the zone: planner P0 zone hours with the Dimming off, divided by with it on (diagnostic cell) | >= 1.5 |
+| B45 | P2 | Walk-throughs (resolved nodes passed) per zone, planner P0 | <= 2.5 |
+| B46 | P2 | Contract reward share of total XP, planner P0 | 8-20 % |
+| B47 | P2 | Bell charges used per run, planner P0 (variant C) | 0.4-0.9 |
+
+Existing targets that move: B11 (40-50 min) stays; B14 nodes per run 38-47 becomes 44-56 resolved nodes plus walk-throughs; B17 hours band and BOSS_TIME_PAR are re-set from the first measure (zone hours change); B20 zone exit levels stay (10z ± 1) and are now also a check that the Dimming leaves enough time.
+
+## 12. Prototype estimate (scratch, not a measurement of the game)
+
+### 12.1 What was built
+A crude model in the git-ignored folder sim/out/expedition/ (model.mjs, run.mjs, sum.mjs): the disc graph of section 4, regions, sites, vision, the Dimming, the three exit variants, contracts and prep, and three map bots (the fog planner with depth-4 belief search, the greedy with the threat rule, and the full-information oracle), plus today's 7 × 3 map for the baseline.
+
+Real engine numbers (imported from src/rules.js): xpToNext, diffMod, MOB_XP_FRAC, QUEST_TURNIN_XP_FRAC, GRIND_WAVE_XP_FRAC, ELITE_XP_MULT, DUNGEON_* XP, HOURS_*, the W_* weights for the baseline map, the bots' VAL_* weights and RISK_PRIOR.
+
+Stand-ins (SI, stated in the code): no combat simulation; per-node HP loss (quest 0.30, grind 0.40, elite 0.45, dungeon 0.60 of max HP, +8 % per level above the player), post-node regen 0.20, three rations per zone; death chance per node = RISK_PRIOR × e^(0.35 × levels above) × 3 if under 40 % HP, counted as expected deaths, not sampled (runs never end early); Dimmed encounter death chance 0.08 × (1 + depth); gear as abstract points; XP scaled by 0.82 so the baseline planner leaves zones near the measured levels; real minutes from the rules 3 pacing terms with B16 round counts; contract XP of 1.0-2.5 levels and gear 0.6-1.3 points. Calibration: the baseline planner gives 42 nodes (measured 42), 42.5 model minutes (measured 46.2) and 125 h (measured 141); estimated real minutes below add the 3.7-minute difference.
+
+### 12.2 Results (300 runs per row; planner unless marked)
+| Variant (P0 = fresh profile) | Est. min | Hours | Resolved nodes + walks | Contract completion | Caught zones | Threat share of exp. deaths | C_step | C_route |
+|---|---|---|---|---|---|---|---|---|
+| Today's map, full view | 46 | 125 | 42 + 0 | 80 % | - | - | 1.00 | 1.00 |
+| A Roads (3) | 49 | 144 | 51 + 10 | 56 % | 17 % | 20 % | 0.72 | 0.04 |
+| A2 Roads (2) | 46 | 133 | 46 + 11 | 50 % | 35 % | 48 % | 0.72 | 0.06 |
+| B Bell only | 46 | 132 | 49 + 6 | 55 % | 18 % | 22 % | 0.69 | 0.04 |
+| **C Roads + Bell** | **48** | **142** | **50 + 9** | **56 %** | **15 %** | **17 %** | **0.72** | **0.04** |
+| C, Dimming off | 84 | 329 | 91 + 123 | 90 % | - | - | 0.77 | 0.00 |
+| C, full-catalogue vision (PALL) | 48 | 141 | 46 + 11 | 70 % | 14 % | 12 % | 0.93 | 0.47 |
+| C greedy P0 | 44 | 127 | 42 + 11 | 42 % | 19 % | 35 % | | |
+| B greedy P0 | 38 | 101 | 35 + 4 | 38 % | 16 % | 18 % | | |
+
+Threat sweep (variant C, planner P0, 200 runs): grace 6 h / 3 h per hop gives 44.3 model minutes and 15 % caught; 6 / 2.5 gives 41.7 and 23 %; 8 / 3 gives 46.4 and 12 %. With a Dimmed death chance of 0.05 instead of 0.08 the planner accepts more Dimmed encounters (20-28 % caught) because they are cheap; the encounter must hurt for the front to shape routes.
+
+Prep (variant C, planner P0): contracts planned vs random vs none: gear 15.8 / 16.5 / 13.9 points, zone exit levels about +0.4 with contracts. Tracker (2 points) raises completion from 56 % to 77 %; Region Charts (1 point) to 61 %.
+
+### 12.3 What the prototype shows
+1. The roaming map needs the Dimming: without it the planner wanders (123 walk-throughs, 84 minutes). With it, a zone takes about 23-24 hours and the run lands near 48 minutes; the threat speed is the main time lever.
+2. The map stops being calculable at a fresh profile: the planner's move matches the full-information move 72 % of the time and its zone route only 4 % of the time (today: 100 %), so the owner's "partly chance" holds. Contract completion falls from 80 % to 56 %.
+3. Vision buys it back in two different ways: the Tracker buys steering (completion 56 % -> 77 %, calculability unchanged), the radius buys calculability (0.72 -> 0.92). Radius 3 restores today's problem (1.00), hence the cap at 2 and Pathfinder as type-only.
+4. Variant C is the best Roads variant on safety and keeps the tension that B loses (section 7.3).
+5. Honest gap: in the model, choosing contracts well beats choosing them at random by nothing (16.5 vs 15.8 gear points), because the model's contracts differ only in price and reward. Whether the plan "heavily shapes the run" [stated] depends on what the real engine adds: class fit (families and archetypes), risk of Bounties, and the vision/safety purchases competing for the same points. B40 measures it; if planned prep beats "none" by less than PLAN_GAIN_MIN, raise contract rewards first (CULL_XP_FRAC, epic weight), then make kinds differ more.
+6. The greedy bot suffers from the Dimming (a third of its expected non-boss deaths). The UI clocks (9.2) and the threat rule (10.2) are required, not optional.
+
+### 12.4 Reproduce
+`cd sim/out/expedition && node run.mjs 300 rows_today rim_P0 recall_P0 both_P0 both_PALL | node sum.mjs`; threat sweeps with `OVR='{"dimGraceH":6,"dimHoursPerHop":3,"dimP":0.08}' node run.mjs 200 both_P0`. The folder is git-ignored; the Sim Engineer rebuilds the measurement on the real engine (handoff designer-2026-11-10c).
+
+## 13. Constant table (starting values)
+
+| Constant | Value | Unit |
+|---|---|---|
+| PREP_POINTS | 10 | points |
+| PREP_POINTS_PER_QM | 2 | points per Quartermaster rank |
+| PREP_ECHO_PER_POINT | 2 | Echoes per Reserve point at SUMMARY |
+| CONTRACT_BOARD_SIZE | 8 | contracts |
+| CONTRACT_BOARD_EXTRA | 2 | contracts beyond one per zone |
+| CONTRACT_SLOTS | 4 | contracts held |
+| REROLL_PRICE | 1 | points |
+| REROLL_MAX | 2 | rerolls |
+| CW_CULL / CW_BOUNTY / CW_DELVE | 55 / 25 / 20 | weight |
+| CONTRACT.cull.price / bounty / delve | 2 / 3 / 1 | points |
+| CULL_SITES | 2 | sites |
+| CULL_SITE_SPARE | 1 | extra sites guaranteed |
+| CULL_SITE_IN | 0.50 | probability per eligible node in the target region |
+| CULL_SITE_OUT | 0.08 | probability per eligible node elsewhere |
+| BOUNTY_PLACED | 2 | nodes |
+| CONTRACT_CL_OFFSET | 5 | levels above the band start (CL_c = 10(z-1) + 5) |
+| CULL_XP_FRAC / BOUNTY_XP_FRAC / DELVE_XP_FRAC | 2.0 / 2.5 / 1.0 | of xpToNext(CL_c) |
+| CULL_GOLD_V / BOUNTY_GOLD_V / DELVE_GOLD_V | 4 / 6 / 2 | × V(CL_c) |
+| CONTRACT_REWARD_CHOICES | 3 | items |
+| DELVE_REWARD_CHOICES | 2 | items |
+| CONTRACT_RARE_W / CONTRACT_EPIC_W | 80 / 20 | weight |
+| BOUNTY_RARE_W / BOUNTY_EPIC_W | 60 / 40 | weight |
+| ECHO_CONTRACT_MULT | 3 | × ECHO_PER_QUEST per contract completed |
+| PRICE_PREP_DRAUGHTS / PREP_DRAUGHT_COUNT | 1 / 2 | points / items |
+| PRICE_PREP_RATIONS / PREP_RATION_COUNT | 1 / 3 | points / items |
+| PRICE_PREP_EMBER | 4 | points |
+| PRICE_PREP_BELL | 2 | points |
+| PRICE_PREP_MULE / PREP_MULE_SLOTS | 1 / 4 | points / slots |
+| PRICE_CHARTS | 1 | points |
+| PRICE_TRACKER | 2 | points |
+| PRICE_GUIDE | 3 | points |
+| PRICE_SPYGLASS / SPYGLASS_CHARGES | 1 / 3 | points / uses |
+| VISION_RADIUS | 1 | hops (full vision, P0) |
+| VISION_RADIUS_MAX | 2 | hops |
+| GUIDE_RADIUS_BONUS | 1 | hops |
+| TRACKER_RADIUS | 2 | hops |
+| PATHFINDER_RADIUS | 2 | hops (type only) |
+| HOURS_ASK_LOCALS | 1 | h |
+| RING_NODES | [1, 6, 12, 12] | nodes per ring (0 = hub) |
+| RING_CL_BASE | [0, 1, 4, 7] | levels above the band minimum |
+| RING_CL_SPREAD | 3 | levels |
+| EDGE_KEEP_R1 / EDGE_KEEP_R2 / EDGE_KEEP_R3 | 0.80 / 0.70 / 0.65 | probability |
+| EDGE_DIAG_R23 | 0.35 | probability |
+| REGION_COUNT | 4 | regions per zone |
+| REGION_W.kind.type | table 4.4 | weight |
+| REGION_FAMILY_SHARE | 0.70 | share of encounter mobs from the region's families |
+| HOURS_WALK | 1 | h |
+| ROAD_COUNT | 3 | Roads per zone |
+| DIM_GRACE_H | 6 | zone hours |
+| DIM_HOURS_PER_HOP | 3 | h |
+| DIM_PACK_SIZE | 2 | mobs |
+| DIM_LEVEL_PER_DEPTH | 2 | levels per hop of depth |
+| DIM_HP_MULT / DIM_DMG_MULT | 1.2 / 1.3 | × (tuned to about 8 % death chance at depth 0 for the planner P0, prototype SI) |
+| DIM_XP_MULT | 0.25 | × normal kill XP |
+| HOURS_DIM_FIGHT | 1 | h |
+| BELL_START_CHARGES | 1 | charges per run |
+| BELL_MAX_CHARGES | 2 | charges |
+| BELL_CHANNEL_H | 2 | h |
+| META_COST_CARTOGRAPHER | 100 | Echoes |
+| META_COST_OLD_HAND | 150 | Echoes |
+| META_COST_QM_1 / META_COST_QM_2 | 120 / 200 | Echoes |
+| PACE_PREP_S | 60 | s |
+| PACE_HUB_CONTRACT_S | 6 | s per hub |
+| PACE_BELL_S | 6 | s |
+| PLANNER_FOG_DEPTH | 4 | moves (bots) |
+| SITE_PARTIAL_MULT | 0.8 | × (bots) |
+| BELL_KEEP_VALUE | 80 | value units (bots) |
+| EST_COMPLETE cull / bounty / delve | 0.55 / 0.50 / 0.90 | prior completion (bots) |
+| PLAN_GAIN_MIN | 3 | pp win rate (B40) |
+| PLAN_VS_RANDOM_MIN | 2 | pp win rate (B40) |
+| C_STEP_P0 / C_STEP_PALL | 0.60-0.80 / 0.80-0.92 | share (B41) |
+| C_ROUTE_P0_MAX / C_ROUTE_PALL_MAX | 0.15 / 0.50 | share (B41) |
+| CAUGHT_ZONES | 0.08-0.18 | share (B43) |
+| DIM_DEATH_SHARE | 0.05-0.20 | share (B43) |
+| CLOSE_CALL_GREEDY | 0.40-0.75 | share (B43) |
+| THREAT_BOUND_MIN | 1.5 | × (B44) |
+| WALKS_PER_ZONE_MAX | 2.5 | steps (B45) |
+| CONTRACT_XP_SHARE | 0.08-0.20 | share (B46) |
+| BELL_USE | 0.4-0.9 | charges per run (B47) |
+
+Retired from rules.md 13: ZONE_CHOICE_ROWS, LANES, DUNGEON_ROW_MIN/MAX, REST_ROW_MIN/MAX, TRAINER_ROW_MIN/MAX, MAX_SAME_TYPE_PER_ROW, W_* (kept only as the zone-average fallback), TRAVEL_EARLY_LEVELS, STORY_QUESTS, STORY_XP_FRAC, STORY_REWARD_CHOICES.
