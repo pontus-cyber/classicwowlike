@@ -6,15 +6,15 @@ Updated by the Lead at the end of every session. One page; older detail goes in 
 M2 done 2026-11-10 (P1 45/45). Active: M2b, expedition map and combat v2 (docs/specs/expedition.md, docs/specs/combat-v2.md). M3 Hall of Echoes built early.
 
 ## Next tasks
-1. M2b 2b.1 engine combat v2 and 2b.2 sim opener/masher bots (in progress).
-2. UI combat presentation done (1ddfb06, D47); build 88c58ee sent 11:50.
-3. Then 2b.3-2b.4 map, vision, Dimming, exits, fog bots; 2b.5 prep economy; 2b.6 UI.
+1. In progress: combat v2.1 1,000-run measure and tuning of EMPOWER/STAGGER (Sim); combat v2.1 display (UI).
+2. Next: 2b.4 fog-only bots and B39-B47; 2b.5 prep points, contracts, hub contract (engine + content); prep screen and fog map UI; switch the default map to expedition.
+3. Then: fold specs (2b.7), QA pass (2b.8), owner playtest (2b.9).
 
 ## Waiting on the owner
 Nothing blocking. See docs/OWNER.md.
 
 ## Build
-game.html at 88c58ee (M2 v5 + new combat feel). Sent to the owner 2026-11-10 11:50. 75/75 UI regression checks at 1366x768, 0 console errors.
+game.html at f247570 (combat v2.1 + heat meter). Sent to the owner 2026-11-10 17:50. 117/117 UI regression checks at 1366x768, 0 console errors; suites 305/56/3/65 pass.
 
 ## Session log
 | Session | Date | Tasks | Agents (model/effort) | Tokens |
@@ -33,3 +33,4 @@ game.html at 88c58ee (M2 v5 + new combat feel). Sent to the owner 2026-11-10 11:
 | 12 | 2026-11-10 07:10 | v4 design pass reviewed; D40 stop rule; engine, sim, UI started | Designer (312k), UI/UX (542k), Engineer/Sim/UI (Opus/max) | pending |
 | 13 | 2026-11-10 07:40-08:46 | Restart recovery; M2 v4 engine/UI/sim done; D41 code map; v5 design pass started | Engineer (338k), UI (318k), Sim (358k), Docs (Sonnet, 132k), Designer (Opus/high) | about 1.1M |
 | 14 | 2026-11-10 09:56-11:50 | M2 v5 built and measured, M2 closed (P1 45/45); expedition and combat-v2 specs; M2b started; combat feel UI done, build sent | Designer x3 (Opus/high), Engineer, Sim, UI (Opus/max) | about 2.6M |
+| 15 | 2026-11-10 11:50-17:50 | Combat v2 engine, Rogue fixes D48-D49, content, combat v2 UI, heat design+engine+UI, combat v2.1 design+engine, expedition map engine, regions; daily report | Engineer, Sim, UI (Opus/max); designers (Opus/high); content (Sonnet/medium) | about 6.3M |
