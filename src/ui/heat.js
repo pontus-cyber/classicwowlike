@@ -298,7 +298,7 @@ export function previewBlock(p, ctx, opts = {}) {
     box.appendChild(h('div.th-p' + (pt ? '.paid' : ''), { dataset: { hs: p.pays } }, `Pays ${HEAT_NAME[p.pays]}: ${pt || 'no heat reward'}`));
   }
   if (opts.leaves) box.appendChild(h('div.th-s', 'The next zone moves the Star\'s line ahead.'));
-  box.appendChild(h('div.th-s', `Then ${standText(p)} · ${bossText(p.ascIfPar)}${p.dimIn !== null && p.dimIn !== undefined && !p.dimFight ? ` · Dimming ${p.dimIn <= 0 ? 'here' : `${fmtH(p.dimIn)} h`}` : ''}`));
+  box.appendChild(h('div.th-s', `Then ${standText(p).replace(/^On the line$/, 'on the line')} · ${bossText(p.ascIfPar)}${p.dimIn !== null && p.dimIn !== undefined && !p.dimFight ? ` · Dimming ${p.dimIn <= 0 ? 'here' : `${fmtH(p.dimIn)} h`}` : ''}`));
   return box;
 }
 

@@ -1441,7 +1441,7 @@ function previewDiff(r, p, opts = {}) {
   const wantPays = p.pays ? `Pays ${HNAME[p.pays]}: ${payTxt(p.pays, false) || 'no heat reward'}` : null;
   if ((pays || null) !== wantPays) out.push(`pays "${pays}" (want "${wantPays}")`);
   const then = r.tip.find((x) => x.startsWith('Then '));
-  const wantThen = `Then ${stand(p)} · ${bossTxt(p.ascIfPar)}${p.dimIn !== null && p.dimIn !== undefined && !p.dimFight ? ` · Dimming ${p.dimIn <= 0 ? 'here' : `${fh(p.dimIn)} h`}` : ''}`;
+  const wantThen = `Then ${stand(p).replace(/^On the line$/, 'on the line')} · ${bossTxt(p.ascIfPar)}${p.dimIn !== null && p.dimIn !== undefined && !p.dimFight ? ` · Dimming ${p.dimIn <= 0 ? 'here' : `${fh(p.dimIn)} h`}` : ''}`;
   if (then !== wantThen) out.push(`"${then}" (want "${wantThen}")`);
   if (r.ghost == null || Math.abs(r.ghost - barPct(p.heat)) > 0.05) out.push(`ghost ${r.ghost} (want ${barPct(p.heat).toFixed(2)})`);
   const wantGhost = `→ ${hrs}${p.dimFight ? ' + Dimmed fight' : ''} · ends ${HNAME[p.state]}`;
