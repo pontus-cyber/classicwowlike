@@ -23,21 +23,21 @@ Done when the owner can play one class from level 1 to the boss in the visual bu
 | 1.6 | Build game.html, send it to the owner | Lead | done (2cb7bf2) |
 | 1.7 | Owner plays and writes what to change first | Owner | done (18:26: on the right path, no polish yet) |
 
-## M2. Balanced by simulation
+## M2. Balanced by simulation (done 2026-11-10: P1 45/45, docs/reports/balance-2026-11-10c.md)
 Done when the bots play at least 10,000 runs per class and the results meet docs/specs/balance.md: good plans beat bad plans, no single strategy dominates, run length lands near target, and the three classes are within the class win-rate band.
 | # | Task | Owner | Status |
 |---|---|---|---|
 | 2.1 | Bots: random, greedy, planner, speedrunner, tactician (sim/) | Simulation & Balance Engineer | done |
 | 2.2 | Balance report: win rates per class and strategy, level and gear at the boss, time used, death causes | Simulation & Balance Engineer | done (docs/reports/balance-2026-11-09.md, 38/71 checks pass) |
-| 2.3 | Tune numbers until targets are met; log each change in DECISIONS.md | Lead Game Designer + Simulation & Balance Engineer | doing |
-| 2.4 | Playtest pass on the balanced build | Playtest & QA Lead | todo |
+| 2.3 | Tune numbers until targets are met; log each change in DECISIONS.md | Lead Game Designer + Simulation & Balance Engineer | done (v2-v5, D16-D46) |
+| 2.4 | Playtest pass on the balanced build | Playtest & QA Lead | moved to M2b 2b.8 (the design changes there) |
 
 ## M2b. Expedition and combat v2 (owner feedback 2026-11-10)
 Done when a run plays on the roamable fog map with contracts, the Dimming, Roads and the Homeward Bell (docs/specs/expedition.md) and with combat v2 (docs/specs/combat-v2.md: intent track, off-balance windows, engage round); the bots read only what the player sees; B39-B54 and the M2 P1 targets are measured and met or re-banded with the owner's agreement; the owner has played it.
 | # | Task | Owner | Status |
 |---|---|---|---|
-| 2b.1 | Engine: combat v2 (intent track, archetype openings, off-balance, engage round, autoplay rule) | Core Gameplay Engineer | todo |
-| 2b.2 | Sim: masher and sequence-planning opener bots; tune enemy damage compensation and window size (B48-B54) | Simulation & Balance Engineer | todo |
+| 2b.1 | Engine: combat v2 (intent track, archetype openings, off-balance, engage round, autoplay rule) | Core Gameplay Engineer | doing |
+| 2b.2 | Sim: masher and sequence-planning opener bots; tune enemy damage compensation and window size (B48-B54) | Simulation & Balance Engineer | doing |
 | 2b.3 | Engine: circular zone map, vision, the Dimming, Roads and Bell | Core Gameplay Engineer | todo |
 | 2b.4 | Sim: fog-only bots with a leak test, oracle for measuring; B39-B47 | Simulation & Balance Engineer | todo |
 | 2b.5 | Engine + content: prep points, contracts, hub contract, regions and enemy families | Core Gameplay Engineer + Content Designer | todo |

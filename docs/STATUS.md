@@ -3,12 +3,12 @@
 Updated by the Lead at the end of every session. One page; older detail goes in docs/reports/.
 
 ## Where we are
-M2, doing. M1 done 2026-11-09: first playable build (2cb7bf2) with autoplay fixed; first balance report 38/71 checks pass.
+M2 done 2026-11-10 (P1 45/45). Active: M2b, expedition map and combat v2 (docs/specs/expedition.md, docs/specs/combat-v2.md). M3 Hall of Echoes built early.
 
 ## Next tasks
-1. M2 2.3 round 5: fourth measure (docs/reports/balance-2026-11-10b.md) P1 40/45, 61/73 overall. Lead Game Designer v5 pass in progress (bot default-tree tie rule, Hunter Beastbond, Prospector/Hunter PALL spread). Then Engineer and Sim implement, Sim confirms; M2 closes when all P1 pass (D40).
-2. M3 Hall of Echoes built early (4cda070). D41 code map in place (docs/ARCHITECTURE.md, qa/docs/).
-3. After M2 closes: QA playtest pass (2.4).
+1. M2b 2b.1 engine combat v2 and 2b.2 sim opener/masher bots (in progress).
+2. UI combat presentation (slower, weightier, per-class timing, larger statuses) in progress.
+3. Then 2b.3-2b.4 map, vision, Dimming, exits, fog bots; 2b.5 prep economy; 2b.6 UI.
 
 ## Waiting on the owner
 Nothing blocking. See docs/OWNER.md.
