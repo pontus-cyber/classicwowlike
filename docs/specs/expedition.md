@@ -1,6 +1,6 @@
 # Expedition spec: start-camp preparation, contracts, roaming zone maps, the Dimming
 
-Owner: Lead Game Designer. Status: draft for Lead and owner review, 2026-11-10 (milestone M2b). Rules in sections 1-8; UI 9; bots 10; balance targets 11; prototype evidence 12; constants 13.
+Owner: Lead Game Designer. Status: draft for Lead and owner review, 2026-11-10 (milestone M2b). Rules in sections 1-8; UI 9; bots 10; balance targets 11; prototype evidence 12; Heat addendum H (2026-11-10, rows mode and expedition); constants 13.
 Audience: Core Gameplay Engineer, UI/UX Engineer, Simulation & Balance Engineer, Content Designer, QA.
 
 Sources: owner feedback [stated: docs/feedback/2026-11-10-1006-owner.md, including the 10:09 follow-up]; current rules [source: docs/specs/rules.md sections 1, 2, 3, 11]; playtest [source: docs/handoffs/qa-2026-11-09.md]; balance state [source: docs/reports/balance-2026-11-10b.md]. Every number is a named constant in the table at the end (section 13); all are starting values for the Simulation & Balance Engineer to tune.
@@ -419,6 +419,95 @@ Reproduce: `PACEV2=1 SHAPEV2=1 XPS=1.3 OVR='{"dimGraceH":6,"dimHoursPerHop":2.5,
 ### 12.4 Reproduce
 `cd sim/out/expedition && node run.mjs 300 rows_today rim_P0 recall_P0 both_P0 both_PALL | node sum.mjs`; threat sweeps with `OVR='{"dimGraceH":6,"dimHoursPerHop":3,"dimP":0.08}' node run.mjs 200 both_P0`. The folder is git-ignored; the Sim Engineer rebuilds the measurement on the real engine (handoff designer-2026-11-10c).
 
+## H. Heat: time pressure on one meter (addendum 2026-11-10)
+
+Source: owner feedback [stated: docs/feedback/2026-11-10-1405-owner.md]: he did not know about in-game hours and Ascendancy until his run summary (148 h, par 120, boss +8 % [source: docs/feedback/2026-11-10-1353-owner.md]); he wants an always-visible heat meter like FTL's chasing line, and a real choice: go into heat deliberately to gain extra, or stay ahead because a hard stretch comes later. Section H works in today's rows mode (H.1-H.4) so the UI can ship the meter before the expedition switch; H.5 adds the Dimming for expedition runs. Constants: section 13, block "Heat".
+
+### H.1 The line and the player's heat
+The **line** is the par schedule: each zone's share of the boss par.
+`line(z) = parHours(oaths) × min(z, ZONE_COUNT) / ZONE_COUNT`, z = the current zone (the Camp counts as ZONE_COUNT). With BOSS_TIME_PAR 120 and six zones the line is 20 h per zone: 20, 40, ... 120 h. `parHours` is rules 1.7's par (Oath of Haste lowers it).
+`heat = hours - line(z)` (run hours, rules 1.7). Negative heat is time in hand; positive heat is hours past the line.
+- On entering a zone the line jumps 20 h ahead, so a player who left the last zone on time starts each zone with 20 h in hand, and the line closes in as the zone is played. Time saved in one zone carries into the next; time lost carries too. This is the chasing line.
+- At the Camp the line is the par itself, so `heat` at FIGHT_BOSS is exactly the over-par hours that rules 1.7 turns into Ascendancy. Ascendancy's formula is unchanged.
+- **Projected Ascendancy** (what the meter promises): `ascIfPar = min(ASC_CAP, ASC_PER_STEP × floor(max(0, heat) / ASC_STEP_HOURS))`, the boss Ascendancy if the player leaves this zone now and plays every later zone in exactly its line share. It is an honest floor: staying longer only raises it.
+
+### H.2 States
+| State | Run heat (hours past the line) | Meaning at the boss if par is kept from here | Reward (H.3) |
+|---|---|---|---|
+| Clear | heat < HEAT_WARM_AT (0) | under par: no Ascendancy, ECHO_SPEED_BONUS in reach | none |
+| Warm | HEAT_WARM_AT <= heat < HEAT_HOT_AT (0-10 h) | speed bonus lost, no Ascendancy yet | none (a warning) |
+| Hot | HEAT_HOT_AT <= heat < HEAT_SCORCH_AT (10-30 h) | Ascendancy +4 % to +8 % | HEAT_GAIN.hot, HEAT_RARITY_UP.hot |
+| Scorched | heat >= HEAT_SCORCH_AT (30 h or more) | Ascendancy +12 % or more (cap ASC_CAP) | HEAT_GAIN.scorched, HEAT_RARITY_UP.scorched |
+
+HEAT_HOT_AT equals ASC_STEP_HOURS on purpose: Hot starts where Ascendancy starts to cost, so heat pays only where it is paid for. Warm pays nothing because it costs nothing at the boss except the speed bonus; the prototype showed that paying in Warm is free power (H.7). The owner's run (148 h) ends Hot at +28 h; the planner P0 median (141 h) ends Hot at +21 h [source: docs/reports/balance-2026-11-10c.md B17].
+
+### H.3 What heat gives
+The node's **heat state is fixed when the player enters the node** (rows: CHOOSE_NODE; expedition: MOVE into an unresolved node) and applies to everything the node pays, so the hover preview and the result agree. Hub services, walks and travel pay nothing.
+- **XP and gold**: every XP and gold gain of the node (kills, quest turn-in, grind wave, dungeon clear, treasure gold, contract reward when completed in it) × (1 + HEAT_GAIN[state]), after every other modifier (rested, meta).
+- **Better drops**: every item rolled on a drop table in the node (kill drops, elite and dungeon boss drops, treasure, quest and contract reward choices; not vendor stock) draws once more on its loot stream after the rarity draw: below HEAT_RARITY_UP[state] the rarity is one step higher (common -> uncommon -> rare -> epic; epic stays). The draw is always made, also in Clear, so the stream does not depend on heat (QA goldens move once, when this lands).
+- **Echoes**: new rules 11.1 line "Fights won in heat": ECHO_PER_HEAT_FIGHT per fight won in a Hot or Scorched node [assumption: not prototyped; about 10-20 Echoes on a 235-Echo planner run, the Sim Engineer checks B31].
+- **Not paid**: the Camp (its waves are repeatable; heat there would be a farm), the boss, Dimmed encounters (H.5), and nodes in the Dimming.
+
+What it costs: the hours themselves, which become Ascendancy at the boss (unchanged rules 1.7), and the lost ECHO_SPEED_BONUS. No new penalty is added: the meter makes the existing cost visible and prices a reward against it.
+
+The choice this creates: run Hot through the middle zones for more levels-worth, gold and rare/epic gear, and meet a stronger boss; or stay Clear and bank hours for a dungeon or a bad zone later, and meet a weaker boss with less gear.
+
+### H.4 UI (always visible, rows mode and expedition)
+The meter is a fixed HUD element on every screen of the run except PREP and SUMMARY (map, node, fight, hub, Camp, boss intro):
+- A horizontal bar of the four states (Clear, Warm, Hot, Scorched), the line drawn as a red vertical mark at heat 0, the player's marker at `heat`, the bar spanning HEAT_BAR_MIN to HEAT_BAR_MAX hours (clamped, marker shows an arrow when beyond).
+- Text next to it: "12 h in hand" or "8 h past the line"; "Boss +4 %" (ascIfPar); in Hot and Scorched the live reward "+35 % XP and gold, 1 in 4 drops a rarity up".
+- On hover over a node (map) or a service, the hours it costs and the state the player will be in after it ("2 h, ends Warm"). A node that would move the player into a new state shows the new state's colour on its hour label.
+- A state change shows a short toast once ("Hot: the Unlit Star gains on you; spoils grow").
+- SUMMARY: the hours-vs-line track of the whole run as a small chart, with the time spent in each state and the Echo line of H.3; the existing "In-game time / Ascendancy" lines stay.
+- Wording rule: the in-game term is "Heat"; the line is "the Star's line" in tooltip fiction (Oruvath grows stronger with time, rules 10). The words Ascendancy and par stay in tooltips only.
+
+### H.5 Expedition runs: the Dimming on the same meter
+In an expedition zone a second clock runs: the hours until the player's node dims, `dimIn = dimHour(node) - hz` (rules 1.9.6; a node without a front yet uses DIM_GRACE_H + hops × DIM_HOURS_PER_HOP).
+| Dimming state | Condition |
+|---|---|
+| Clear | dimIn > HEAT_DIM_WARM_H (4 h) |
+| Warm | HEAT_DIM_HOT_H < dimIn <= HEAT_DIM_WARM_H (2-4 h) |
+| Hot | 0 < dimIn <= HEAT_DIM_HOT_H (2 h or less) |
+| Scorched | the node is Dimmed |
+
+The meter's state is the **hotter** of the run state (H.2) and the Dimming state; the meter shows the Dimming as a second marker ("Dimming: 3 h") and names which clock sets the state. Rewards (H.3) use the combined state at node entry, so a node at the Dimming's edge pays as Hot: the reward for working near the dark. A Dimmed node pays nothing (its content is lost; Dimmed encounters keep DIM_XP_MULT and no loot). Contracts completed in a Hot node pay their reward × (1 + HEAT_GAIN.hot), which is the contract bonus for running hot.
+
+### H.6 Engine, bots and balance targets
+Engine (Core Gameplay Engineer): `heatView(s)` = { hours, line, heat, stateRun, dimIn (expedition, else null), stateDim, state, ascIfPar, gain, rarityUp }, pure and cheap, usable by the UI at any phase; the node's entry state stored on the node and in the fight record; summary adds `heat` = { trackPerZone: [hours at entry and exit, line], fightsByState: [4], echoHeat }. The UI's meter (H.4) may ship before the rewards: `heatView` without H.3 is display-only and changes no balance.
+
+Bots (Simulation & Balance Engineer): the value function adds the heat multiplier to the XP, gold and gear terms of a node from the state it would be entered in. Two policies for B55: **heat-seek** = planner with hour weight × HEAT_SEEK_HOUR_MULT; **heat-avoid** = planner with hour weight × HEAT_AVOID_HOUR_MULT (both instead of PLANNER_HOUR_MULT). Greedy and autoplay keep their rules; the greedy's threat rule (10.2) treats Dimming-Hot nodes as today.
+
+| ID | Pri | Metric | Target |
+|---|---|---|---|
+| B55 | P1 | Heat is a real option: win rate heat-seek minus heat-avoid, planner P0, all classes pooled, paired seeds | within ±HEAT_POLICY_GAP_MAX pp |
+| B56 | P2 | Heat is used, not forced: share of winning planner P0 runs with at least one Hot or Scorched node | HEAT_WIN_SHARE |
+| B57 | P2 | Heat rewards do not inflate power: planner P0 win rate with H.3 minus without | <= HEAT_POWER_MAX pp |
+
+If B55 fails with avoid ahead, raise HEAT_RARITY_UP first (gear is what wins the boss; XP is capped at level 60), then HEAT_GAIN; with seek ahead, lower them. If B57 fails, lower HEAT_GAIN before the rarity step. Expedition: re-measure B43 with H.5, since a reward at the Dimming's edge pulls the planner toward it; lever HEAT_DIM_HOT_H.
+
+### H.7 Prototype (scratch, rows mode; not a measurement of the game)
+A scratch copy of src/ and sim/ at commit 5f67d5e in the git-ignored sim/out/heat/ with H.1-H.3 patched into the engine (XP and gold multiplier and the rarity draw, state taken at each gain rather than at node entry; no Echo line) and PLANNER_HOUR_MULT set per cell; the planner does not yet value the heat reward (so heat-seek is approximated by a low hour weight). Planner P0, 300 runs per class, warm-up 300, same seeds per cell.
+
+| Cell | Win | Reach boss | Hours at boss (median) | Asc | Gear score | Rarity steps per run |
+|---|---|---|---|---|---|---|
+| No heat, hour weight 2 (today's planner) | 40.7 % | 76.0 % | 140 | 0.08 | 583 | 0 |
+| No heat, weight 0.5 (slow) | 32.0 % | 77.0 % | 145 | 0.08 | 588 | 0 |
+| No heat, weight 4 (fast) | 46.9 % | 66.1 % | 115 | 0 | 579 | 0 |
+| **Heat (defaults: Hot/Scorched only), weight 2** | **44.0 %** | 76.0 % | 139 | 0.04 | 588 | 2.5 |
+| **Heat defaults, seek (0.5)** | **42.9 %** | 76.4 % | 144 | 0.08 | 599 | 4.4 |
+| **Heat defaults, avoid (4)** | **46.9 %** | 66.1 % | 115 | 0 | 579 | 0 |
+| Heat paid from Warm (+15/35/50 %, 10/25/40 %), weight 2 | 49.7 % | 79.6 % | 138 | 0.04 | 592 | 5.2 |
+| same, seek / avoid | 46.3 % / 47.6 % | 78.0 / 66.3 % | 144 / 116 | | 603 / 579 | 7.1 / 0.1 |
+| Weaker (+10/25/40 %, 5/15/25 % from Warm), seek / avoid | 39.7 % / 47.0 % | 78.4 / 66.1 % | 144 / 116 | | 598 / 579 | 4.1 / 0 |
+
+Findings:
+1. With the defaults the choice is real: heat-seek 42.9 % against heat-avoid 46.9 % (B55: 4.0 pp, inside 5; the standard error of the difference is about 2.3 pp), and the two win differently: seek reaches the boss more often (76 % against 66 %) with better gear (599 against 579) and a +8 % boss; avoid dies more on the journey and meets a +0 % boss. Without heat the slow style is 15 pp behind the fast one; heat closes 11 pp of that.
+2. B56: 81 % of the default planner's wins had a Hot node (band 30-85 %); 47 / 41 / 12 / 0 % of its XP events were Clear / Warm / Hot / Scorched. Scorched is not reached by any planner in rows mode; it is the meter's danger zone, not a target.
+3. B57: the defaults raise today's planner by 3.3 pp (40.7 -> 44.0 %). Paying from Warm raised it by 9 pp and is rejected: Warm costs nothing at the boss.
+4. Side finding for the Sim Engineer [inference: from the no-heat cells]: the planner with hour weight 4 wins 6 pp more than with today's PLANNER_HOUR_MULT 2 (46.9 against 40.7 %) while reaching the boss 10 pp less often, so today's planner undervalues time against Ascendancy. Worth a check before B55 is measured on the real policy.
+
+Reproduce: `cd sim/out/heat && HEATP='{"gain":[0,0,0.35,0.5],"up":[0,0,0.25,0.4]}' HM=0.5 node sim/run.mjs --bot planner --class all --runs 300 --profile fresh --warmup 300 --out o/seek3 && node sum.mjs o/seek3/planner-P0` (HEAT=0 turns the patch off; HM sets the hour weight).
+
 ## 13. Constant table (starting values)
 
 | Constant | Value | Unit |
@@ -507,5 +596,19 @@ Reproduce: `PACEV2=1 SHAPEV2=1 XPS=1.3 OVR='{"dimGraceH":6,"dimHoursPerHop":2.5,
 | WALKS_PER_ZONE_MAX | 2.5 | steps (B45) |
 | CONTRACT_XP_SHARE | 0.08-0.20 | share (B46) |
 | BELL_USE | 0.4-0.9 | charges per run (B47) |
+| **Heat (section H)** | | |
+| HEAT_LINE_PER_ZONE | parHours / ZONE_COUNT (20 at par 120) | h of line per zone (derived, H.1) |
+| HEAT_WARM_AT | 0 | h past the line (H.2) |
+| HEAT_HOT_AT | 10 | h past the line (= ASC_STEP_HOURS) |
+| HEAT_SCORCH_AT | 30 | h past the line |
+| HEAT_DIM_WARM_H / HEAT_DIM_HOT_H | 4 / 2 | h until the player's node dims (H.5) |
+| HEAT_GAIN clear / warm / hot / scorched | 0 / 0 / 0.35 / 0.50 | × extra XP and gold (H.3) |
+| HEAT_RARITY_UP clear / warm / hot / scorched | 0 / 0 / 0.25 / 0.40 | chance per rolled item of one rarity step (H.3) |
+| ECHO_PER_HEAT_FIGHT | 1 | Echoes per fight won in a Hot or Scorched node [assumption] |
+| HEAT_BAR_MIN / HEAT_BAR_MAX | -20 / 40 | h shown on the meter (H.4) |
+| HEAT_SEEK_HOUR_MULT / HEAT_AVOID_HOUR_MULT | 0.5 / 4 | × VAL_HOUR (bots, B55) |
+| HEAT_POLICY_GAP_MAX | 5 | pp (B55) |
+| HEAT_WIN_SHARE | 0.30-0.85 | share of planner P0 wins (B56) |
+| HEAT_POWER_MAX | 4 | pp (B57) |
 
 Retired from rules.md 13: ZONE_CHOICE_ROWS, LANES, DUNGEON_ROW_MIN/MAX, REST_ROW_MIN/MAX, TRAINER_ROW_MIN/MAX, MAX_SAME_TYPE_PER_ROW, W_* (kept only as the zone-average fallback), TRAVEL_EARLY_LEVELS, STORY_QUESTS, STORY_XP_FRAC, STORY_REWARD_CHOICES.
