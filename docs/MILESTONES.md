@@ -38,7 +38,7 @@ Done when a run plays on the roamable fog map with contracts, the Dimming, Roads
 |---|---|---|---|
 | 2b.1 | Engine: combat v2 (intent track, archetype openings, off-balance, engage round, autoplay rule) | Core Gameplay Engineer | done (e362fd0, D48-D49) |
 | 2b.2 | Sim: masher and sequence-planning opener bots; tune enemy damage compensation and window size (B48-B54) | Simulation & Balance Engineer | doing |
-| 2b.3 | Engine: circular zone map, vision, the Dimming, Roads and Bell | Core Gameplay Engineer | doing |
+| 2b.3 | Engine: circular zone map, vision, the Dimming, Roads and Bell | Core Gameplay Engineer | done (6d27a78, behind mapMode 'expedition') |
 | 2b.4 | Sim: fog-only bots with a leak test, oracle for measuring; B39-B47 | Simulation & Balance Engineer | todo |
 | 2b.5 | Engine + content: prep points, contracts, hub contract, regions and enemy families | Core Gameplay Engineer + Content Designer | todo |
 | 2b.6 | UI: combat v2 display; prep screen; fog map with regions, landmarks and Dimming clocks; contract tracker | UI/UX & Visual Engineer | doing (combat v2 display first) |
