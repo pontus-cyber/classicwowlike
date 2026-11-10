@@ -1,6 +1,6 @@
 # Rules spec (M0 task 0.2)
 
-Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)"); M2 v5 changes 2026-11-10 (marked "(M2 v5)"); combat v2 (docs/specs/combat-v2.md, on its defaults) folded into sections 3, 7 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(combat v2)").
+Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)"); M2 v5 changes 2026-11-10 (marked "(M2 v5)"); combat v2 (docs/specs/combat-v2.md, on its defaults) folded into sections 3, 7 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(combat v2)"); the expedition map (docs/specs/expedition.md 1, 4-7, 9.5; a run option until the switch-over) folded into 1.9 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(expedition)").
 Audience: Core Gameplay Engineer (src/rules.js), Simulation & Balance Engineer, UI/UX Engineer, Content Designer.
 
 Every global number is a named constant (UPPER_SNAKE_CASE) in section 13. The data tables (classes, spells, pets, talents, archetypes, boss, meta catalogue) are named constant groups: each cell is addressed as `TABLE.id.field` (e.g. `SPELL.ember_bolt.cost`) and is exported as data from src/. Values are starting values; the Simulation & Balance Engineer tunes them within the limits in balance.md.
@@ -122,6 +122,85 @@ Boss HP (incl. adds) and all boss damage are multiplied by `(1 + asc)`. Runs at 
 | Bar slots | 7 spell slots for 12+ spells: choosing interrupt, cleanse, AoE or defensive matters at the boss. |
 | Talents | 26 points; one capstone per run; the boss tests interrupt, cleanse, AoE, burst and sustain. |
 | Story chain | 3 quests in a zone grant the story reward; planning the path through quest nodes pays off. |
+
+### 1.9 Expedition map (expedition)
+Source: docs/specs/expedition.md sections 1, 4-7 and 9.5 (task M2b 2b.3), folded in by the Core Gameplay Engineer. A run plays this map when it is created with `newRun({ mapMode: 'expedition' })`; the default `mapMode: 'rows'` is today's map (1.4, 1.5) until the switch-over. In an expedition run this section replaces 1.4's layout and movement and all of 1.5; every other rule applies. Not here yet (task 2b.5): the start camp (PREP), contracts and their sites, the hub contract, Ask the Locals, the Spyglass, the meta changes of expedition.md 8.2 (Pathfinder, Cartographer, Old Hand, Quartermaster, Swift Boots as a Bell charge) and the story chain's retirement. Constants are in section 13, marked "(expedition)".
+
+#### 1.9.1 Phases and actions
+`CREATE -> ZONE_HUB -> MAP <-> NODE -> ... -> CAMP -> BOSS -> SUMMARY`
+
+| Phase | Player actions |
+|---|---|
+| ZONE_HUB | hub services (1.4), `LEAVE_HUB` (to MAP, standing on the hub) |
+| MAP | `MOVE(nodeId)` (a node next to the player's), `PASS_THROUGH(nodeId)` (a neighbour that MOVE would enter), `TAKE_ROAD` (on a Road), `RING_BELL` (Homeward Bell), out-of-combat actions. `CHOOSE_NODE` and `TRAVEL_ON` are not legal. |
+| NODE | node actions (2); a Dimmed encounter (1.9.6) is a fight in phase NODE whose node type is `dim` |
+
+expedition.md's PASS is `PASS_THROUGH`, chosen on the map before the step: adjacent nodes are always fully in view (1.9.5), `PASS` is already the combat action, and Rest and unguarded Treasure nodes have no choice point inside.
+
+#### 1.9.2 Zone graph (stream map(z))
+Each zone is a graph of RING_NODES[0] hub (ring 0, id 0) and rings 1-3 of RING_NODES[1..3] nodes. Ids go ring by ring, in angle order within a ring: ring 1 ids 1-6, ring 2 ids 7-18, ring 3 ids 19-30. Draws on map(z), in this order:
+1. Angles: a1 = uniform × 360 / RING_NODES[1], a2 = uniform × 360 / RING_NODES[2]. Ring 1 node i at a1 + i × 360 / RING_NODES[1]; ring 2 node j at a2 + j × 360 / RING_NODES[2]; ring 3 node j at a2 + (j + 0.5) × 360 / RING_NODES[3] (with equal counts: ring 2 node j's angle plus half a step). Degrees in [0, 360), kept at 6 decimals.
+2. Edges: the hub to every ring 1 node; ring 1 node i to i + 1 (mod RING_NODES[1]) when a draw < EDGE_KEEP_R1 (i = 0, 1, ...); every ring 2 node to the ring 1 node nearest in angle (ties: the lower id); ring 2 node j to j + 1 when a draw < EDGE_KEEP_R2; ring 3 node j to its parent, the nearer of the two ring 2 nodes around its angle (ties: the earlier one, so ring 2 node j with equal counts), and to the other one when a draw < EDGE_DIAG_R23 (j = 0, 1, ...; expedition.md's "ring 2 node j to ring 3 node j - 1"); ring 3 node j to j + 1 when a draw < EDGE_KEEP_R3. The spokes connect every node.
+3. Regions: offset = uniform × 360 / REGION_COUNT; wedge w covers the angles [offset + w × 360 / REGION_COUNT, offset + (w + 1) × 360 / REGION_COUNT). The zone's REGION_COUNT regions are shuffled onto the wedges (Fisher-Yates from the last wedge down: REGION_COUNT - 1 draws). A node's region is the one of its wedge; the hub has none. Regions come from content (`zones[i].regions`: id, name, kind, families); a zone without them has one region of each kind in REGION_KINDS order, without a name or families.
+4. Landmarks: start = uniform ring 3 index; Road k (k = 0..ROAD_COUNT-1) on ring 3 index start + round(k × RING_NODES[3] / ROAD_COUNT); then a uniform Road p: the Shardfall is the ring 3 node halfway to the next Road, index road_p + round(gap / 2).
+5. Node types: the Dungeon on a uniform node of rings 2-3 that is not a Road or the Shardfall; a Rest on a uniform free node of rings 1-2; a Trainer on a uniform free node of ring 2 (one draw each, candidates in id order); the Shardfall is a Treasure; every other node, in id order, one weighted draw over the node types (order of NODE_DRAW_ORDER) with the weights of its region's kind (table below), Elite, Vendor and Trainer weighing 0 in ring 1 (RING1_FORBIDDEN).
+6. Node setup on stream node(z, id) (1.9.3).
+
+| Region kind | Quest | Grind | Elite | Rest | Vendor | Trainer | Treasure | Shrine | Feel |
+|---|---|---|---|---|---|---|---|---|---|
+| wilds | 36 | 24 | 10 | 10 | 2 | 2 | 10 | 6 | beasts, open country |
+| road | 34 | 10 | 18 | 8 | 12 | 6 | 8 | 4 | bandits, waystations |
+| haunt | 34 | 12 | 16 | 8 | 2 | 4 | 10 | 14 | ruins, casters, shrines |
+| steads | 42 | 8 | 8 | 20 | 10 | 6 | 2 | 4 | farms, villages, rest |
+
+The weights are `REGION_W.kind.type` (constants: `REGION_W`). Streams by node id: node(z, id) = hash(runSeed, "node", z, id), fight(z, id, k), loot(z, id); the n-th Dimmed encounter at node id uses dim(z, id, n) = hash(runSeed, "dim", z, id, n) for its make-up and then its fight. The hub is id 0: its vendor's stock is drawn on node(z, 0) at the first visit and keeps what was sold for the rest of the zone.
+
+#### 1.9.3 Content level and node setup (stream node(z, id))
+The first draw is u, uniform in 0..RING_CL_SPREAD-1: CL = ZONE_LEVELS × (z - 1) + 1 + RING_CL_BASE[ring] + u (zone 1: ring 1 levels 2-4, ring 2 5-7, ring 3 8-10). The hub is the band minimum. Then as 1.4 step 4 (quest offsets, Elite + ELITE_LEVEL_OFFSET, dungeon levels as 1.4, rare flag, vendor stock, shrine boons, treasure guard) with EXPED_GRIND_MAX_WAVES grind wave(s) and EXPED_DUNGEON_TRASH_FIGHTS dungeon trash fights. Every enemy template pick of a quest, a grind wave, an elite (its elite or rare template and its add) and a treasure guard takes two draws: the first decides the family share (below REGION_FAMILY_SHARE the pick comes from the list's templates whose `family` is one of the region's families, when the list has any), the second picks. Dungeons, the Camp and Dimmed encounters do not use regions. The treasure trap is the first draw of loot(z, id).
+
+#### 1.9.4 Moving and hours
+- `MOVE(id)`, id next to the player's node: when id is unresolved, not the hub and not Dimmed, the player enters it: its content starts and costs its node hours (1.9.8). Otherwise the step is a walk of HOURS_WALK. A walk onto the hub, when it is not Dimmed, starts a new hub visit (phase ZONE_HUB; each service once per visit again).
+- `PASS_THROUGH(id)`, a neighbour MOVE would enter: a walk of HOURS_WALK through it; it stays unresolved and can be entered later.
+- Each node is resolved at most once; a fled fight resolves its node, as on today's map.
+- Zone hours hz = the run's hours since arrival at the zone's hub, hub services included. Run hours keep counting for Ascendancy (1.7).
+
+#### 1.9.5 Vision
+- Always visible: every node (id, ring, angle, neighbours), every edge, the hub, the Roads, the Shardfall, which nodes are Dimmed and the zone hour each one dims at (1.9.6), the ring's level band, the zone's region names and kinds.
+- Fully visible: the nodes within the vision radius of the player's node (hops on the graph): type, content level, resolved or not, region, and the details of 1.4's map view (quest title and archetypes, grind archetypes, elite level, archetypes and name (not a rare's), dungeon name, levels and fights, treasure guard). Nodes seen once stay seen for the rest of the zone. Vision is refreshed on arrival at the hub and after every step.
+- Radius: VISION_RADIUS, + GUIDE_RADIUS_BONUS with Local Guide; the full radius is capped at VISION_RADIUS_MAX. Region Charts: every node's region and the dungeon's type. Pathfinder: node types (only) within PATHFINDER_RADIUS hops. Until the start camp and meta buy them (2b.5), newRun's `vision` option ({ guide, charts, pathfinder }) gives them; a run without it has the fresh-profile vision.
+- Never shown: rare elite flags, treasure traps, vendor Embers (meta Scout's Eye has no effect in an expedition run).
+- `mapView` returns only this; no front end or bot reads the zone state.
+
+#### 1.9.6 The Dimming
+- front(hz) = floor((hz - DIM_GRACE_H) / DIM_HOURS_PER_HOP) from DIM_GRACE_H on (before: none). A node is Dimmed when front >= 0 and its hops from the Shardfall (on the zone graph) are <= front, i.e. from zone hour ceil(DIM_GRACE_H + hops × DIM_HOURS_PER_HOP) on. With the starting values the Shardfall dims at 6 h and a node 3 hops away at 14 h. The front only moves with hours.
+- Dimmed encounter: at the end of an action that cost hours (a step, a node's content, a hub service, the Bell's channel), when the player stands in a Dimmed node with nothing open (no node, fight, service or loot window), once per such action: DIM_PACK_SIZE enemies from the zone's normal templates (uniform picks on dim(z, id, n), then the composition repair of 7.14), variant shardspawn: HP × DIM_HP_MULT and damage × DIM_DMG_MULT on top of the archetype, zone danger as a normal enemy (7.6), ENGAGE_DMG_COMP as every template enemy (7.10); level min(MAX_LEVEL, max(CL, L) + DIM_LEVEL_PER_DEPTH × depth), CL the node's content level, depth = front - hops from the Shardfall. It costs HOURS_DIM_FIGHT, which does not start another one. Kill XP × DIM_XP_MULT; no coin, no loot. Flee is allowed (7.8) and counts as passing through: the player stays on the node. The node is not resolved by it.
+- Content lost: MOVE into an unresolved Dimmed node does not enter it (it is a walk, and the Dimmed encounter follows); PASS_THROUGH refuses it. The hub's services stop while it is Dimmed (SERVICE is refused; a walk onto it starts no visit).
+- Death in a Dimmed encounter ends the run as any death (9); the death location has the node id, its ring, node type `dim` and the depth.
+
+#### 1.9.7 Leaving a zone
+- `TAKE_ROAD`, standing on a Road in phase MAP: HOURS_TRAVEL, then the next zone's hub (zone 6: the Camp). There is no level gate (TRAVEL_EARLY_LEVELS and Swift Boots do not apply). A Dimmed Road is taken after its Dimmed encounter.
+- Homeward Bell: a run starts with BELL_START_CHARGES charges (never more than BELL_MAX_CHARGES). `RING_BELL` on the map (not in a node, the hub screen, the Camp or at the boss): one charge, a channel of BELL_CHANNEL_H hours; when the player's node is Dimmed at its end the Dimmed encounter comes first; then the next zone's hub (zone 6: the Camp), with no HOURS_TRAVEL.
+- Either way the zone counts as left (zonesLeft, Echoes 11.1).
+
+#### 1.9.8 Pacing values of an expedition run (expedition.md 9.5)
+| Rule | Today's map | Expedition run |
+|---|---|---|
+| Grind waves (2.2) | 1-GRIND_MAX_WAVES | 1-EXPED_GRIND_MAX_WAVES; a Grind of one wave starts it on entry |
+| Dungeon trash fights (2.4) | DUNGEON_TRASH_FIGHTS | EXPED_DUNGEON_TRASH_FIGHTS |
+| Hours of a Quest / Elite / grind wave / Dungeon (2.0) | HOURS_QUEST / HOURS_ELITE / HOURS_GRIND_WAVE / HOURS_DUNGEON | EXPED_HOURS_QUEST / EXPED_HOURS_ELITE / EXPED_HOURS_GRIND_WAVE / EXPED_HOURS_DUNGEON (Camp waves too) |
+| XP of kills, quest turn-ins, grind waves, dungeon clears (Camp included) | × 1 | × XP_WEIGHT_MULT |
+
+The story chain (2.1) stays until contracts replace it (2b.5); its XP is not weighted. Pacing terms (3): every walk and pass costs PACE_DECIDE_S + PACE_TRAVEL_NODE_S; a Bell costs PACE_BELL_S, and a zone left by the Bell no PACE_ZONE_TRAVEL_S.
+
+Run summary (9) of an expedition run: `mapMode` and `expedition` = walks, passes, Dimmed encounters, zones with at least one, Bell charges rung and left, Roads taken, the furthest ring, and per zone: zone hours, resolved nodes, walks, passes, Dimmed encounters, the exit (`road`, `bell` or none yet).
+
+#### 1.9.9 Default autoplay map policy (engine, not a bot)
+`autoAction` must take an expedition run from CREATE to SUMMARY. On the map it reads only what the player sees (the seen nodes, the skeleton, the Dimming):
+1. Trail Rations below AUTO_TOPUP_HP, as on today's map.
+2. Escape route: the cheapest way from the player's node to a Road, by (Dimmed steps, hours, Road id): every step HOURS_WALK, a step onto a node that is Dimmed on arrival also HOURS_DIM_FIGHT.
+3. Explore while the level is under the zone's exit level (10 × z) and the escape route has no Dimmed step: enter the adjacent seen node with the best default node score (AUTO_NODE_SCORE, not risky) that is not Dimmed, will not be Dimmed when its content ends, and leaves a Road reachable without a Dimmed step afterwards; else take one step (PASS_THROUGH an unresolved node, MOVE otherwise) towards the nearest node worth exploring (seen: by the same test; unseen: a clean way out after EXPED_HOURS_QUEST hours), on nodes out of the Dimming on arrival.
+4. Otherwise leave: TAKE_ROAD on the Road; RING_BELL when the escape route has a Dimmed step and a charge is left; else the next step of the escape route.
+5. Hub services (1.4 policy) are used only when the hub stays out of the Dimming and the escape route stays clean after their hours.
 
 ---
 
@@ -881,7 +960,7 @@ Names <= 30 chars; flavour text <= 100 chars; no stats set by hand except unique
 
 ## 13. Constant table
 
-Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `DROP_TABLE`, `ITEM_SCORE`, `CONSUMABLE`, `BOON`, `META`, `ABILITY_TEMPLATE`, `CONTENT_RANGE`) are defined in sections 2.9, 5, 6, 7.6, 8, 11 and 12; each cell is a constant named `TABLE.id.field`.
+Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `DROP_TABLE`, `ITEM_SCORE`, `CONSUMABLE`, `BOON`, `META`, `ABILITY_TEMPLATE`, `CONTENT_RANGE`, `REGION_W`) are defined in sections 1.9.2, 2.9, 5, 6, 7.6, 8, 11 and 12; each cell is a constant named `TABLE.id.field`.
 
 | Constant | Value | Unit |
 |---|---|---|
@@ -1210,3 +1289,37 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | PET_LEAD_TURNS | 2 | enemy turns | (combat v2)
 | PET_LEAD_DR | 0.30 | damage taken by the pet | (combat v2)
 | ENGAGE_AUTO_LOOK | 2 | enemy turns (autoplay rule E) | (combat v2)
+| RING_NODES | [1, 6, 12, 12] | nodes per ring (ring 0 = the hub) | (expedition)
+| RING_CL_BASE | [0, 1, 4, 7] | levels above the zone's band minimum, per ring | (expedition)
+| RING_CL_SPREAD | 3 | levels (u in 0..RING_CL_SPREAD-1) | (expedition)
+| EDGE_KEEP_R1 | 0.80 | probability (ring 1 neighbours linked) | (expedition)
+| EDGE_KEEP_R2 | 0.70 | probability (ring 2 neighbours linked) | (expedition)
+| EDGE_KEEP_R3 | 0.65 | probability (ring 3 neighbours linked) | (expedition)
+| EDGE_DIAG_R23 | 0.35 | probability (a ring 3 node's second ring 2 link) | (expedition)
+| REGION_COUNT | 4 | regions (wedges) per zone | (expedition)
+| REGION_FAMILY_SHARE | 0.70 | share of a region's template picks from its families | (expedition)
+| HOURS_WALK | 1 | h (a walk or a pass) | (expedition)
+| ROAD_COUNT | 3 | Roads on the rim | (expedition)
+| VISION_RADIUS | 1 | hops (full vision, fresh profile) | (expedition)
+| VISION_RADIUS_MAX | 2 | hops (full vision cap) | (expedition)
+| GUIDE_RADIUS_BONUS | 1 | hops (Local Guide) | (expedition)
+| PATHFINDER_RADIUS | 2 | hops (Pathfinder, node types only) | (expedition)
+| DIM_GRACE_H | 6 | zone hours before the front starts | (expedition)
+| DIM_HOURS_PER_HOP | 2.5 | zone hours per hop of the front (expedition.md 9.5) | (expedition)
+| DIM_PACK_SIZE | 2 | enemies in a Dimmed encounter | (expedition)
+| DIM_LEVEL_PER_DEPTH | 2 | levels per hop of depth | (expedition)
+| DIM_HP_MULT | 1.2 | × Shardspawn HP | (expedition)
+| DIM_DMG_MULT | 1.3 | × Shardspawn damage | (expedition)
+| DIM_XP_MULT | 0.25 | × Shardspawn kill XP | (expedition)
+| HOURS_DIM_FIGHT | 1 | h (a Dimmed encounter) | (expedition)
+| BELL_START_CHARGES | 1 | Homeward Bell charges per run | (expedition)
+| BELL_MAX_CHARGES | 2 | charges | (expedition)
+| BELL_CHANNEL_H | 2 | h (the Bell's channel) | (expedition)
+| PACE_BELL_S | 6 | s per Bell (instead of PACE_ZONE_TRAVEL_S) | (expedition)
+| XP_WEIGHT_MULT | 1.6 | × XP of kills, quest turn-ins, grind waves, dungeon clears (expedition.md 9.5) | (expedition)
+| EXPED_GRIND_MAX_WAVES | 1 | waves (expedition.md 9.5) | (expedition)
+| EXPED_DUNGEON_TRASH_FIGHTS | 2 | fights (expedition.md 9.5) | (expedition)
+| EXPED_HOURS_QUEST | 3 | h (expedition.md 9.5) | (expedition)
+| EXPED_HOURS_ELITE | 3 | h (expedition.md 9.5) | (expedition)
+| EXPED_HOURS_GRIND_WAVE | 2 | h per wave, Camp waves too (expedition.md 9.5) | (expedition)
+| EXPED_HOURS_DUNGEON | 6 | h (expedition.md 9.5) | (expedition)

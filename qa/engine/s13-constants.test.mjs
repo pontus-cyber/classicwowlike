@@ -44,6 +44,18 @@ describe('rules data tables', () => {
     }
   });
 
+  test('1.9.2 region kinds (expedition): REGION_W equals the region table, cell by cell; REGION_KINDS in table order', () => {
+    const t = rows(section('#### 1.9.2 Zone graph')).filter((r) => K.REGION_W[r[0]]);
+    const head = rows(section('#### 1.9.2 Zone graph')).find((r) => r[0] === 'Region kind').slice(1, 9).map((x) => x.toLowerCase());
+    assert.deepEqual(head, K.NODE_DRAW_ORDER, 'columns in NODE_DRAW_ORDER');
+    assert.deepEqual(t.map((r) => r[0]), K.REGION_KINDS);
+    for (const r of t) assert.deepEqual(K.NODE_DRAW_ORDER.map((ty) => K.REGION_W[r[0]][ty]), r.slice(1, 9).map(Number), r[0]);
+    assert.deepEqual(Object.keys(K.REGION_W), K.REGION_KINDS);
+    assert.match(section('#### 1.9.2 Zone graph'), /Elite, Vendor and Trainer weighing 0 in ring 1 \(RING1_FORBIDDEN\)/);
+    assert.deepEqual(K.RING1_FORBIDDEN, ['elite', 'vendor', 'trainer']);
+    assert.deepEqual(K.VARIANT.shardspawn, { hp: K.DIM_HP_MULT, dmg: K.DIM_DMG_MULT });
+  });
+
   test('5.1 class base stats and growth', () => {
     const t = rows(section('### 5.1 Base stats and growth'));
     const get = (label) => t.find((r) => r[0] === label).slice(1);

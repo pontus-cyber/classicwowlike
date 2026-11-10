@@ -372,6 +372,67 @@ export const PET_LEAD_TURNS = 2;
 export const PET_LEAD_DR = 0.30;
 /** rules 7.9 rule E: enemy turns autoplay reads when it picks the control target. */
 export const ENGAGE_AUTO_LOOK = 2;
+// Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
+// with mapMode 'expedition'; a run on today's map (mapMode 'rows', the default) never reads them.
+/** rules 1.9.2: nodes per ring (ring 0 = the hub). */
+export const RING_NODES = [1, 6, 12, 12];
+/** rules 1.9.3: content level of a ring above the zone's band minimum. */
+export const RING_CL_BASE = [0, 1, 4, 7];
+/** rules 1.9.3: a node adds u, uniform in 0..RING_CL_SPREAD-1. */
+export const RING_CL_SPREAD = 3;
+/** rules 1.9.2: chance that two ring 1 / ring 2 / ring 3 neighbours are linked. */
+export const EDGE_KEEP_R1 = 0.80;
+export const EDGE_KEEP_R2 = 0.70;
+export const EDGE_KEEP_R3 = 0.65;
+/** rules 1.9.2: chance of a ring 3 node's second (diagonal) link to ring 2. */
+export const EDGE_DIAG_R23 = 0.35;
+/** rules 1.9.2: regions (wedges) per zone. */
+export const REGION_COUNT = 4;
+/** rules 1.9.3: share of encounter templates drawn from the region's families. */
+export const REGION_FAMILY_SHARE = 0.70;
+/** rules 1.9.4: hours of a step to a resolved node, the hub, a Dimmed node, or through an unresolved node. */
+export const HOURS_WALK = 1;
+/** rules 1.9.2, 1.9.7: Roads on the rim. */
+export const ROAD_COUNT = 3;
+/** rules 1.9.5: full vision radius in hops (fresh profile). */
+export const VISION_RADIUS = 1;
+/** rules 1.9.5: full vision radius cap. */
+export const VISION_RADIUS_MAX = 2;
+/** rules 1.9.5: Local Guide, full vision radius bonus. */
+export const GUIDE_RADIUS_BONUS = 1;
+/** rules 1.9.5: Pathfinder, node types (only) within this many hops. */
+export const PATHFINDER_RADIUS = 2;
+/** rules 1.9.6: zone hours before the Dimming starts. */
+export const DIM_GRACE_H = 6;
+/** rules 1.9.6: zone hours per hop of the Dimming's front. */
+export const DIM_HOURS_PER_HOP = 2.5;
+/** rules 1.9.6: enemies in a Dimmed encounter. */
+export const DIM_PACK_SIZE = 2;
+/** rules 1.9.6: levels per hop of depth in the Dimming. */
+export const DIM_LEVEL_PER_DEPTH = 2;
+/** rules 1.9.6: Shardspawn HP and damage multipliers. */
+export const DIM_HP_MULT = 1.2;
+export const DIM_DMG_MULT = 1.3;
+/** rules 1.9.6: Shardspawn kill XP × this. */
+export const DIM_XP_MULT = 0.25;
+/** rules 1.9.6: hours of a Dimmed encounter. */
+export const HOURS_DIM_FIGHT = 1;
+/** rules 1.9.7: Homeward Bell charges at the start of a run, and the most a run can hold. */
+export const BELL_START_CHARGES = 1;
+export const BELL_MAX_CHARGES = 2;
+/** rules 1.9.7: hours of the Bell's channel. */
+export const BELL_CHANNEL_H = 2;
+/** rules 1.9.8, 3: seconds of the Bell's channel on screen (instead of PACE_ZONE_TRAVEL_S). */
+export const PACE_BELL_S = 6;
+/** rules 1.9.8 (expedition.md 9.5): XP of kills, quest turn-ins, grind waves and dungeon clears × this. */
+export const XP_WEIGHT_MULT = 1.6;
+/** rules 1.9.8 (expedition.md 9.5): grind waves, dungeon trash fights and node hours in an expedition run. */
+export const EXPED_GRIND_MAX_WAVES = 1;
+export const EXPED_DUNGEON_TRASH_FIGHTS = 2;
+export const EXPED_HOURS_QUEST = 3;
+export const EXPED_HOURS_ELITE = 3;
+export const EXPED_HOURS_GRIND_WAVE = 2;
+export const EXPED_HOURS_DUNGEON = 6;
 
 // ---------------------------------------------------------------------------------------------
 // Part 2. Data tables
@@ -393,6 +454,21 @@ export const NODE_TYPE = {
 export const NODE_DRAW_ORDER = ['quest', 'grind', 'elite', 'rest', 'vendor', 'trainer', 'treasure', 'shrine'];
 export const ROW1_FORBIDDEN = ['elite', 'rest', 'vendor', 'trainer'];
 export const MAP_REDRAW_TRIES = 10;
+
+/**
+ * Region kinds (rules 1.9.2, expedition): node-type weights of the weighted fill, REGION_W.kind.type. The draw goes
+ * over NODE_DRAW_ORDER; in ring 1 the RING1_FORBIDDEN types weigh 0.
+ */
+export const REGION_W = {
+  wilds: { quest: 36, grind: 24, elite: 10, rest: 10, vendor: 2, trainer: 2, treasure: 10, shrine: 6 },
+  road: { quest: 34, grind: 10, elite: 18, rest: 8, vendor: 12, trainer: 6, treasure: 8, shrine: 4 },
+  haunt: { quest: 34, grind: 12, elite: 16, rest: 8, vendor: 2, trainer: 4, treasure: 10, shrine: 14 },
+  steads: { quest: 42, grind: 8, elite: 8, rest: 20, vendor: 10, trainer: 6, treasure: 2, shrine: 4 },
+};
+/** Region kinds in order: a zone without content regions has one region of each kind, in this order (rules 1.9.2). */
+export const REGION_KINDS = ['wilds', 'road', 'haunt', 'steads'];
+/** rules 1.9.2: no Elite, Vendor or Trainer in ring 1. */
+export const RING1_FORBIDDEN = ['elite', 'vendor', 'trainer'];
 
 /** Classes (rules 5.1). stats: [base, growth per level]. basic: free basic attack, b + l×L + p×P + w×WD. */
 export const CLASS = {
@@ -683,6 +759,8 @@ export const VARIANT = {
   elite: { hp: ELITE_HP_MULT, dmg: ELITE_DMG_MULT },
   rare: { hp: RARE_HP_MULT, dmg: RARE_DMG_MULT },
   dboss: { hp: DUNGEON_BOSS_HP_MULT, dmg: DUNGEON_BOSS_DMG_MULT },
+  /** Shardspawn (rules 1.9.6, expedition): the Dimmed encounter's enemies, zone danger as normal. */
+  shardspawn: { hp: DIM_HP_MULT, dmg: DIM_DMG_MULT },
 };
 
 /** Equipment slots (rules 8.1). */
