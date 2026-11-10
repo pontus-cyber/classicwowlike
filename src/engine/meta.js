@@ -32,7 +32,8 @@ function reqMet(profile, req) {
 /**
  * Catalogue view: every entry with rank, next cost and whether it can be bought now (rules 11.2). A stored rank
  * above the entry's ranks (older catalogue) shows as the maximum rank, as it counts in a run. Only catalogue entries
- * are listed: an owned id that is not in META (Wayfinder, removed in M2 v4) is ignored, and buyMeta throws for it.
+ * are listed: an owned id that is not in META (Wayfinder, removed in M2 v4; Starforged Arms, removed in M2 v5) is
+ * ignored, and buyMeta throws for it.
  */
 export function metaOffers(profile) {
   return Object.values(META).map((m) => {

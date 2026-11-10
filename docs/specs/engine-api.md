@@ -4,7 +4,8 @@ Owner: Core Gameplay Engineer. Audience: UI/UX Engineer, Simulation & Balance En
 Status: M1 1.1, 2026-11-09; updated 2026-11-09b (rule helpers on the API, `hpLost`, `regen`, level-up gains,
 no heal events of 0, boss counters); 2026-11-10 (M2 v3: `resurrectCharges`, rounded Echo lines, Ricochet Bolt
 bounce data in `spellInfo`, older meta ranks); 2026-11-10b (M2 v4: `bossPar`, `zoneDanger`, Wayfinder removed, owned ids
-not in the catalogue ignored). Rules authority: docs/specs/rules.md (section numbers below refer to it).
+not in the catalogue ignored); 2026-11-10c (M2 v5: Starforged Arms removed, `state.meta` without `starforged`). Rules
+authority: docs/specs/rules.md (section numbers below refer to it).
 
 The engine is pure and seeded (D5): no DOM, no clock, no `Math.random`, no globals. ES modules (D13); Node
 runs `src/rules.js` directly and the browser loads the same files. Every number lives in `src/constants.js`
@@ -270,3 +271,8 @@ XP, Prospector +0.06 gold per rank, Swift Boots without requirement, catalogue t
 (D34). An owned id that is not in `C.META` (a profile that bought Wayfinder) is ignored, as D32 handles ranks: no
 effect in a run (`state.meta` has no `wayfinder` flag), not listed by `metaOffers`, `buyMeta` throws "unknown meta
 unlock", no Echoes refunded; the id stays in `profile.unlocks` and in the profile END_RUN returns.
+
+M2 v5: Starforged Arms is removed (D45), catalogue total 6 560. A stored `starforged` id is handled as Wayfinder
+(D42): `state.meta` has no `starforged` flag, the Camp vendor's stock follows the same rule as every vendor (no class
+weapon), it is not listed by `metaOffers`, `buyMeta` throws "unknown meta unlock", no Echoes are refunded, and the id
+stays stored. The class weapons stay in `CONTENT.uniques` (kind `weapon`); no rule puts them in a run.

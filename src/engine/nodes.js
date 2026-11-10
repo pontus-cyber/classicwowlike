@@ -28,7 +28,8 @@ import { makeBoss } from './boss.js';
  * Run modifiers from the profile's unlocks. A rank above the catalogue's ranks (a profile saved under an older
  * catalogue, e.g. Keen 3 or Ancestral Insight 2 before M2 v3, Vigor 5 before M2 v4) counts as the maximum rank, so a
  * profile never exceeds the meta power budget (rules 11.2, D32). An owned id that is not in the catalogue (Wayfinder,
- * removed in M2 v4) is ignored: no effect and no refund; the profile keeps it stored.
+ * removed in M2 v4; Starforged Arms, removed in M2 v5) is ignored: no effect and no refund; the profile keeps it
+ * stored (D42, D45).
  */
 export function metaFromProfile(profile, classId) {
   const u = (profile && profile.unlocks) || {};
@@ -48,7 +49,6 @@ export function metaFromProfile(profile, classId) {
     alchemist: r('alchemist') > 0,
     cache: r('cache') > 0,
     relics: r('relics') > 0,
-    starforged: r('starforged') > 0,
     spells: Object.values(META).filter((m) => m.spell && r(m.id) > 0 && SPELL[m.spell].cls === classId).map((m) => m.spell),
     stormhawk: r('stormhawk') > 0,
     talentPoints: r('talent_pt') * META.talent_pt.points,
@@ -194,7 +194,7 @@ export function openService(s, ev, kind) {
     addHours(s, ev, HOURS_VENDOR, 'vendor');
     const z = camp ? CAMP_Z : s.zone.z;
     const cl = camp ? MAX_LEVEL : contentLevel(z, 0);
-    s.service = { kind: 'vendor', where: camp ? 'camp' : 'hub', cl, stock: vendorStock(s, STREAM.node(s.seed, z, 0, 0), cl, camp) };
+    s.service = { kind: 'vendor', where: camp ? 'camp' : 'hub', cl, stock: vendorStock(s, STREAM.node(s.seed, z, 0, 0), cl) };
     s.stats.vendorVisits += 1;
   }
   ev.push({ t: 'service', service: kind, where: s.service.where });

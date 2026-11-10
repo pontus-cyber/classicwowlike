@@ -5,11 +5,11 @@ import {
   ELITE_LEVEL_OFFSET, DUNGEON_LEVEL_OFFSET, DUNGEON_BOSS_LEVEL_OFFSET, RARE_CHANCE, QUEST_SIZE_W1, QUEST_SIZE_W2,
   QUEST_SIZE_W3, QUEST_MAX_SIZE_Z1, GRIND_MAX_WAVES, GRIND_WAVE_SIZE, ELITE_ADD_CHANCE, DUNGEON_TRASH_FIGHTS, DUNGEON_SIZE_W2,
   DUNGEON_SIZE_W3, TREASURE_GUARD_CHANCE, TREASURE_TRAP_CHANCE, VENDOR_GEAR_STOCK, EMBER_STOCK_CHANCE,
-  BOON, BOON_IDS, SHRINE_BOON_COUNT, MAX_LEVEL, VENDOR_STOCK_CONSUMABLES, EMBER_V, META,
+  BOON, BOON_IDS, SHRINE_BOON_COUNT, MAX_LEVEL, VENDOR_STOCK_CONSUMABLES, EMBER_V,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt, weightedIndex } from '../rng.js';
 import { zoneContent } from './content.js';
-import { rollGear, consumablePrice, gearPrice, V, priceMult, makeUnique } from './items.js';
+import { rollGear, consumablePrice, gearPrice, V, priceMult } from './items.js';
 import { rnd } from './util.js';
 
 /** Content level of row r in zone z (rules 1.4). Row 0 (hub) = band minimum. */
@@ -120,7 +120,7 @@ export function setupNode(s, z, r, l, type) {
     }
     node.boss = zn.dungeon.boss;
   } else if (type === 'vendor') {
-    node.stock = vendorStock(s, rng, cl, false);
+    node.stock = vendorStock(s, rng, cl);
   } else if (type === 'shrine') {
     const ids = BOON_IDS.slice();
     const boons = [];
@@ -138,8 +138,11 @@ export function setupNode(s, z, r, l, type) {
   return node;
 }
 
-/** Vendor stock (rules 2.6): consumables (unlimited), VENDOR_GEAR_STOCK gear items, Ember at EMBER_STOCK_CHANCE. */
-export function vendorStock(s, rng, cl, camp) {
+/**
+ * Vendor stock (rules 2.6): consumables (unlimited), VENDOR_GEAR_STOCK gear items, Ember at EMBER_STOCK_CHANCE.
+ * Hub, map and Camp vendors use the same rule (M2 v5: the Camp no longer sells the Starforged weapon, D45).
+ */
+export function vendorStock(s, rng, cl) {
   const stock = [];
   const cons = VENDOR_STOCK_CONSUMABLES.slice();
   if (s.meta.alchemist) cons.push('greater_healing_draught');
@@ -150,13 +153,6 @@ export function vendorStock(s, rng, cl, camp) {
   }
   if (nextFloat(rng) < EMBER_STOCK_CHANCE) {
     stock.push({ kind: 'cons', id: 'ember_of_return', price: rnd(EMBER_V * V(cl) * priceMult(s)), sold: false });
-  }
-  if (camp && s.meta.starforged) {
-    const u = Object.values(s.content.uniques).find((x) => x.kind === 'weapon' && x.classId === s.player.classId);
-    if (u) {
-      const item = makeUnique(s, u.id, META.starforged.ilvl);
-      stock.push({ kind: 'gear', item, price: gearPrice(s, item), sold: false });
-    }
   }
   return stock;
 }

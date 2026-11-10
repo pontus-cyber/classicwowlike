@@ -10,6 +10,13 @@ import * as STATS from '../../src/engine/stats.js';
 
 const prof = (unlocks, extra = {}) => ({ ...R.newProfile(), unlocks, ...extra });
 const mob = (tid = 'z1_brute', level = 20, variant = 'normal') => ({ tid, level, variant });
+/** The Camp vendor of a started run (rules 1.6): level 60 in zone 6, TRAVEL_ON, SERVICE vendor. */
+function campVendor(s) {
+  s = tweak(atLevel(R.step(s, { type: 'LEAVE_HUB' }).state, 60), (x) => { x.zone.z = 6; });
+  s = play(s, [{ type: 'TRAVEL_ON' }, { type: 'SERVICE', service: 'vendor' }]).state;
+  assert.deepEqual([s.phase, s.service.where], ['CAMP', 'camp']);
+  return s.service.stock;
+}
 
 describe('rules 11 meta progression', () => {
   test('11.1 Echoes: one line per source, Oath multiplier on the total', () => {
@@ -72,7 +79,7 @@ describe('rules 11 meta progression', () => {
     assert.equal(full.unlocks.edge, 4, 'Edge of the Line: 4 ranks (M2 v4)');
     assert.throws(() => R.buyMeta(full, 'edge'), /not available/);
     const total = Object.values(C.META).reduce((n, m) => n + m.costs.reduce((a, b) => a + b, 0), 0);
-    assert.equal(total, 7010, 'catalogue total 7 010 Echoes (rules 11.2, M2 v4)');
+    assert.equal(total, 6560, 'catalogue total 6 560 Echoes (rules 11.2, M2 v5: Starforged Arms removed)');
     const offers = R.metaOffers(prof({}, { echoes: 100 }));
     assert.equal(offers.find((o) => o.id === 'scout').affordable, true);
     assert.equal(offers.find((o) => o.id === 'relics').available, false);
@@ -94,7 +101,7 @@ describe('rules 11 meta progression', () => {
     };
     const want = {
       vigor: [80, 120, 170, 230], edge: [80, 120, 170, 230], keen: [150, 250], quick_study: [100, 180, 280],
-      prospector: [60, 110, 170], swift_boots: [200], alchemist: [150], cache: [200], relics: [400], starforged: [450],
+      prospector: [60, 110, 170], swift_boots: [200], alchemist: [150], cache: [200], relics: [400],
       sp_r2: [300], sp_m2: [300], sp_h2: [300], stormhawk: [250], talent_pt: [500], second_breath: [500],
     };
     for (const [id, costs] of Object.entries(want)) assert.deepEqual(buyAll(id), costs, id);
@@ -108,8 +115,10 @@ describe('rules 11 meta progression', () => {
     assert.ok(Math.abs(s.meta.crit - 0.015) < 1e-12 && Math.abs(s.meta.xpPct - 0.1125) < 1e-12 && Math.abs(s.meta.goldPct - 0.18) < 1e-12, JSON.stringify(s.meta));
   });
 
-  test('11.2 meta power budget (M2 v4): the full catalogue adds at most max HP +0.04, Power +0.04, crit +0.015, +1 talent point', () => {
+  test('11.2 meta power budget (M2 v4, M2 v5): the full catalogue adds at most max HP +0.04, Power +0.04, crit +0.015, +1 talent point, and no class weapon', () => {
     const all = prof(Object.fromEntries(Object.values(C.META).map((m) => [m.id, m.ranks])), { reachedBoss: true, bossKills: 1 });
+    // M2 v5 (D45): the item entries are the Greater draught (Alchemist) and the unique rares and epics (Cache, Relics)
+    assert.deepEqual(Object.values(C.META).filter((m) => m.kind === 'items').map((m) => m.id), ['alchemist', 'cache', 'relics']);
     for (const c of C.CLASS_IDS) {
       const s = started(c, { profile: all });
       assert.ok(Math.abs(s.meta.hpPct - 0.04) < 1e-12, `${c} hpPct ${s.meta.hpPct}`);
@@ -123,6 +132,10 @@ describe('rules 11 meta progression', () => {
       const d = s.player.d;
       const raw = C.CLASS[c].hpBase + C.HP_PER_STA * d.STA;
       assert.equal(d.maxHp, Math.round(raw * 1.04));
+      // M2 v5 (D45): the Camp vendor sells VENDOR_GEAR_STOCK generated items and no unique (no class weapon)
+      const gear = campVendor(s).filter((e) => e.kind === 'gear');
+      assert.equal(gear.length, C.VENDOR_GEAR_STOCK, `${c}: Camp gear`);
+      assert.ok(gear.every((e) => !e.item.unique), `${c}: unique at the Camp: ${gear.map((e) => e.item.unique).join(',')}`);
     }
     // A profile saved under an older catalogue (Keen 3, Ancestral Insight 2, Vigor 7) counts at the new maximum ranks.
     const old = prof({ keen: 3, talent_pt: 2, vigor: 7, edge: 5 });
@@ -207,6 +220,46 @@ describe('rules 11 meta progression', () => {
     assert.equal(end.result.profile.unlocks.wayfinder, 1);
   });
 
+  test('11.2 Starforged Arms removed (M2 v5, D45): not offered, cannot be bought; a saved profile that owns it gets no effect and no refund; the Camp sells no class weapon', () => {
+    assert.equal(C.META.starforged, undefined);
+    assert.deepEqual(Object.values(CONTENT.uniques).filter((u) => u.kind === 'weapon').map((u) => u.classId).sort(), ['hunter', 'mage', 'rogue'], 'the class weapons stay in content (rules 12.1)');
+    assert.throws(() => R.buyMeta(prof({ cache: 1, relics: 1 }, { echoes: 1e4, reachedBoss: true, bossKills: 1 }), 'starforged'), /unknown meta unlock starforged/);
+    // A profile saved before M2 v5: Starforged 450 + Relics 400 + Cache 200 + Vigor 80 spent
+    const saved = prof({ starforged: 1, relics: 1, cache: 1, vigor: 1 }, { echoes: 600, spent: 1130, reachedBoss: true, bossKills: 1 });
+    const offers = R.metaOffers(saved);
+    assert.equal(offers.length, Object.keys(C.META).length);
+    assert.ok(!offers.some((o) => o.id === 'starforged'));
+    assert.throws(() => R.buyMeta(saved, 'starforged'), /unknown meta unlock starforged/);
+    const bought = R.buyMeta(saved, 'scout');
+    assert.deepEqual(bought.unlocks, { starforged: 1, relics: 1, cache: 1, vigor: 1, scout: 1 }, 'the removed id stays stored');
+    assert.deepEqual([bought.echoes, bought.spent], [500, 1230], 'no refund');
+    const without = { ...bought, unlocks: { relics: 1, cache: 1, vigor: 1, scout: 1 } };
+    // START_RUN: no flag, the same run modifiers; the Camp vendor stock is the one of the profile without the id
+    for (const c of C.CLASS_IDS) {
+      const a = started(c, { seed: 5, profile: bought });
+      const b = started(c, { seed: 5, profile: without });
+      assert.ok(!('starforged' in a.meta), c);
+      assert.deepEqual(a.meta, b.meta, c);
+      const stock = campVendor(a);
+      assert.deepEqual(stock, campVendor(b), `${c}: Camp stock`);
+      assert.ok(!stock.some((e) => e.kind === 'gear' && e.item.unique), `${c}: no unique at the Camp`);
+    }
+    // A whole autoplay run is the same run, event for event (hunter seed 1 opens the Camp vendor on the way)
+    let a = started('hunter', { seed: 1, profile: bought });
+    let b = started('hunter', { seed: 1, profile: without });
+    for (let i = 0; i < 5000 && a.phase !== 'ENDED'; i++) {
+      const act = R.autoAction(a);
+      const ra = R.step(a, act); const rb = R.step(b, act);
+      assert.deepEqual(ra.events, rb.events, `step ${i}`);
+      a = ra.state; b = rb.state;
+    }
+    assert.equal(a.phase, 'ENDED');
+    // Only the stored profile differs (and the run summary's profile hash, which hashes every stored id)
+    assert.equal(a.result.profile.unlocks.starforged, 1, 'END_RUN keeps the stored id');
+    const strip = (s) => { const o = JSON.parse(R.serialize(s)); delete o.profile; delete o.result.profile; delete o.result.summary.profileHash; return o; };
+    assert.deepEqual(strip(a), strip(b));
+  });
+
   test('11.3 unique effects: on-hit proc, heal on kill, +damage vs elites, potion healing, WARD at fight start', () => {
     const uniq = (effect) => ({ uid: `u_${effect}`, kind: 'gear', slot: 'trinket', rarity: 'rare', ilvl: 20, name: 'U', stats: { AGI: 0, INT: 0, STA: 0, SPI: 0 }, power: 0, crit: 0, armor: 0, bonusArmor: 0, wd: 0, affix: 'power', unique: 'x', effect });
     const { refreshDerived } = STATS;
@@ -230,7 +283,7 @@ describe('rules 11 meta progression', () => {
     assert.equal(h.amount, Math.round(C.HEAL_DRAUGHT_PCT * pot.player.d.maxHp * (1 + C.UNIQUE_POTION_PCT)));
   });
 
-  test('11.4 unlocks enter a run: meta spells at the trainer, Trainer\'s Ledger, Prospector gold, Scout\'s Eye map, Starforged at the camp', () => {
+  test('11.4 unlocks enter a run: meta spells at the trainer, Trainer\'s Ledger, Prospector gold, Scout\'s Eye map', async () => {
     const plain = tweak(atLevel(started('mage'), 20, { learnAll: false }), (x) => { x.player.gold = 1e5; });
     let t = R.step(plain, { type: 'SERVICE', service: 'trainer' }).state;
     assert.ok(!R.isLegal(t, { type: 'LEARN', spellId: 'chrono_sigil' }));
@@ -242,23 +295,15 @@ describe('rules 11 meta progression', () => {
     t = R.step(t, { type: 'LEARN', spellId: 'arcane_ward' }).state;
     assert.equal(t.player.gold, g - C.TRAIN_NEW_V * V(C.SPELL.arcane_ward.lvl));
     const s = cloneState(meta);
-    import('../../src/engine/progress.js').then(({ gainGold }) => {
-      const e = [];
-      gainGold(s, e, 100, 'x');
-      assert.equal(e[0].amount, Math.round(100 * (1 + 2 * C.META.prospector.goldPct)));
-    });
+    const { gainGold } = await import('../../src/engine/progress.js');
+    const e = [];
+    gainGold(s, e, 100, 'x');
+    assert.equal(e[0].amount, Math.round(100 * (1 + 2 * C.META.prospector.goldPct)));
     const hidden = R.mapView(R.step(started('mage', { seed: 8 }), { type: 'LEAVE_HUB' }).state);
     const shown = R.mapView(R.step(started('mage', { seed: 8, profile: prof({ scout: 1 }) }), { type: 'LEAVE_HUB' }).state);
     const cells = (m) => m.rows.flat();
     assert.ok(cells(hidden).filter((n) => n.type === 'treasure').every((n) => n.trap === null));
     assert.ok(cells(shown).filter((n) => n.type === 'treasure').every((n) => typeof n.trap === 'boolean'));
-    let camp = R.step(started('rogue', { profile: prof({ starforged: 1, relics: 1, cache: 1 }, { bossKills: 1 }) }), { type: 'LEAVE_HUB' }).state;
-    camp = tweak(atLevel(camp, 60), (x) => { x.zone.z = 6; });
-    camp = play(camp, [{ type: 'TRAVEL_ON' }, { type: 'SERVICE', service: 'vendor' }]).state;
-    const sw = camp.service.stock.find((e) => e.kind === 'gear' && e.item.unique === 'u_weapon_rogue');
-    assert.ok(sw);
-    assert.equal(sw.item.ilvl, 62);
-    assert.equal(sw.item.rarity, 'epic');
   });
 
   test('11.5 Oaths: only with the unlock; Thrift raises vendor prices × 1.5; Haste lowers the par', () => {

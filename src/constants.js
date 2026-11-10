@@ -653,7 +653,9 @@ export const SHRINE_BOON_COUNT = 2;
  * healing +0.025 of max HP per potion (Greater Healing Draught against the Healing Draught) and +1 talent point; its
  * time entries (Quick Study, Swift Boots) save at most META_TIME_BUDGET_H on the planner's route (qa/engine s11 checks
  * the engine side, balance.md B17 the hours). Second Breath does not work in the end-boss fight.
- * Removed (M2 v4): wayfinder (TRAVEL_ON 0 h). A saved profile that owns a removed id keeps it stored; it has no effect.
+ * Removed (M2 v4): wayfinder (TRAVEL_ON 0 h). Removed (M2 v5, D45): starforged (the class's unique epic weapon,
+ * ilvl 62, at the Camp vendor; the three class weapons stay in content). A saved profile that owns a removed id
+ * keeps it stored; it has no effect and no refund (D42).
  */
 export const META = {
   vigor: { id: 'vigor', name: 'Vigor of the Line', kind: 'stat', ranks: 4, costs: [80, 120, 170, 230], hpPct: 0.01, req: [] },
@@ -670,7 +672,6 @@ export const META = {
   alchemist: { id: 'alchemist', name: "Alchemist's Notes", kind: 'items', ranks: 1, costs: [150], req: ['satchel'] },
   cache: { id: 'cache', name: 'Cache of the Wanderer', kind: 'items', ranks: 1, costs: [200], req: [] },
   relics: { id: 'relics', name: 'Relics of the Deep', kind: 'items', ranks: 1, costs: [400], req: ['cache'] },
-  starforged: { id: 'starforged', name: 'Starforged Arms', kind: 'items', ranks: 1, costs: [450], ilvl: 62, req: ['relics', 'flag:bossKill'] },
   sp_r1: { id: 'sp_r1', name: 'Lost Technique I (Rogue)', kind: 'skill', ranks: 1, costs: [150], spell: 'ghostblade_rush', req: [] },
   sp_m1: { id: 'sp_m1', name: 'Lost Technique I (Mage)', kind: 'skill', ranks: 1, costs: [150], spell: 'chrono_sigil', req: [] },
   sp_h1: { id: 'sp_h1', name: 'Lost Technique I (Hunter)', kind: 'skill', ranks: 1, costs: [150], spell: 'ricochet_bolt', req: [] },
