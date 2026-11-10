@@ -1,6 +1,6 @@
 # Rules spec (M0 task 0.2)
 
-Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)"); M2 v5 changes 2026-11-10 (marked "(M2 v5)"); combat v2 (docs/specs/combat-v2.md, on its defaults) folded into sections 3, 7 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(combat v2)"); the expedition map (docs/specs/expedition.md 1, 4-7, 9.5; a run option until the switch-over) folded into 1.9 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(expedition)").
+Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)"); M2 v5 changes 2026-11-10 (marked "(M2 v5)"); combat v2 (docs/specs/combat-v2.md, on its defaults) folded into sections 3, 7 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(combat v2)"); the expedition map (docs/specs/expedition.md 1, 4-7, 9.5; a run option until the switch-over) folded into 1.9 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(expedition)"); heat (docs/specs/expedition.md section H, on its defaults, both map modes) folded into 1.7.1-1.7.2, 1.9.10 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(heat)").
 Audience: Core Gameplay Engineer (src/rules.js), Simulation & Balance Engineer, UI/UX Engineer, Content Designer.
 
 Every global number is a named constant (UPPER_SNAKE_CASE) in section 13. The data tables (classes, spells, pets, talents, archetypes, boss, meta catalogue) are named constant groups: each cell is addressed as `TABLE.id.field` (e.g. `SPELL.ember_bolt.cost`) and is exported as data from src/. Values are starting values; the Simulation & Balance Engineer tunes them within the limits in balance.md.
@@ -109,6 +109,23 @@ Every node and service costs hours (table 2.0). The total `hours` at `FIGHT_BOSS
 `asc = min(ASC_CAP, ASC_PER_STEP × floor(max(0, hours - BOSS_TIME_PAR) / ASC_STEP_HOURS))`.
 Boss HP (incl. adds) and all boss damage are multiplied by `(1 + asc)`. Runs at or under BOSS_TIME_PAR also earn ECHO_SPEED_BONUS on a kill.
 
+#### 1.7.1 Heat: the line and the player's heat (heat)
+Source: docs/specs/expedition.md section H (H.1, H.2), folded in by the Core Gameplay Engineer; it applies to both map modes. Constants: section 13, marked "(heat)".
+- The **line** is the par schedule: `line(z) = parHours × min(z, ZONE_COUNT) / ZONE_COUNT`, z = the current zone (the Camp counts as ZONE_COUNT), kept at 6 decimals. `parHours` is the par above: BOSS_TIME_PAR, OATH_HASTE_HOURS less under the Oath of Haste (11.5). With par 120 the line is 20 h per zone: 20, 40, ... 120 h. The line per zone is derived (parHours / ZONE_COUNT), not a constant.
+- `heat = hours - line(z)` (run hours, 6 decimals). Negative heat is hours in hand, positive heat hours past the line. Entering the next zone moves the line one share ahead; the hours of TRAVEL_ON (and of TAKE_ROAD and the Bell's channel, 1.9.7) count against the zone being left. Time saved or lost in one zone carries into the next.
+- At the Camp the line is the par, so `heat` at FIGHT_BOSS is the over-par hours of the Ascendancy formula above, which is unchanged.
+- **Projected Ascendancy**: `ascIfPar = min(ASC_CAP, ASC_PER_STEP × floor(max(0, heat) / ASC_STEP_HOURS))`, the boss Ascendancy if the player leaves the zone now and plays every later zone in exactly its line share (an honest floor: staying longer only raises it).
+
+#### 1.7.2 Heat states (heat)
+| State | Run heat (hours past the line) | Meaning at the boss if the line is kept from here |
+|---|---|---|
+| Clear | heat < HEAT_WARM_AT | under par: no Ascendancy, ECHO_SPEED_BONUS in reach |
+| Warm | HEAT_WARM_AT <= heat < HEAT_HOT_AT | speed bonus lost, no Ascendancy yet |
+| Hot | HEAT_HOT_AT <= heat < HEAT_SCORCH_AT | Ascendancy +4 % to +8 % |
+| Scorched | heat >= HEAT_SCORCH_AT | Ascendancy +12 % or more (cap ASC_CAP) |
+
+HEAT_HOT_AT equals ASC_STEP_HOURS: Hot starts where Ascendancy starts to cost. In an expedition zone the Dimming adds a second clock and the meter's state is the hotter of the two (1.9.10); elsewhere the state is the run state. The meter is `heatView` and the hover preview of a choice ("2 h, ends Warm") is `heatPreview` (engine-api.md 11); the UI rules for the meter are expedition.md H.4.
+
 ### 1.8 Where long-term trade-offs come from
 | Trade-off | Mechanism |
 |---|---|
@@ -201,6 +218,18 @@ Run summary (9) of an expedition run: `mapMode` and `expedition` = walks, passes
 3. Explore while the level is under the zone's exit level (10 × z) and the escape route has no Dimmed step: enter the adjacent seen node with the best default node score (AUTO_NODE_SCORE, not risky) that is not Dimmed, will not be Dimmed when its content ends, and leaves a Road reachable without a Dimmed step afterwards; else take one step (PASS_THROUGH an unresolved node, MOVE otherwise) towards the nearest node worth exploring (seen: by the same test; unseen: a clean way out after EXPED_HOURS_QUEST hours), on nodes out of the Dimming on arrival.
 4. Otherwise leave: TAKE_ROAD on the Road; RING_BELL when the escape route has a Dimmed step and a charge is left; else the next step of the escape route.
 5. Hub services (1.4 policy) are used only when the hub stays out of the Dimming and the escape route stays clean after their hours.
+
+#### 1.9.10 Heat in an expedition zone (heat)
+Source: expedition.md H.5. In an expedition zone a second clock runs: `dimIn = dimAt(node) - hz`, the hours until the player's node dims (1.9.6; a node without a front yet dims at zone hour ceil(DIM_GRACE_H + hops × DIM_HOURS_PER_HOP), which is what `dimAt` gives).
+
+| Dimming state | Condition |
+|---|---|
+| Clear | dimIn > HEAT_DIM_WARM_H |
+| Warm | HEAT_DIM_HOT_H < dimIn <= HEAT_DIM_WARM_H |
+| Hot | 0 < dimIn <= HEAT_DIM_HOT_H |
+| Scorched | the node is Dimmed (dimIn <= 0) |
+
+The meter's state is the **hotter** of the run state (1.7.2) and the Dimming state; `heatView.by` names the clock that sets it (`dim` only when the Dimming state is hotter). The Camp, a rows run and a run without the Dimming have no Dimming clock (`dimIn` null).
 
 ---
 
@@ -1323,3 +1352,13 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | EXPED_HOURS_ELITE | 3 | h (expedition.md 9.5) | (expedition)
 | EXPED_HOURS_GRIND_WAVE | 2 | h per wave, Camp waves too (expedition.md 9.5) | (expedition)
 | EXPED_HOURS_DUNGEON | 6 | h (expedition.md 9.5) | (expedition)
+| HEAT_WARM_AT | 0 | h past the line: Warm from here (1.7.2) | (heat)
+| HEAT_HOT_AT | 10 | h past the line: Hot from here (= ASC_STEP_HOURS) | (heat)
+| HEAT_SCORCH_AT | 30 | h past the line: Scorched from here | (heat)
+| HEAT_DIM_WARM_H | 4 | h until the player's node dims: Warm at or below (1.9.10) | (heat)
+| HEAT_DIM_HOT_H | 2 | h until the player's node dims: Hot at or below (1.9.10) | (heat)
+| HEAT_GAIN | clear 0, warm 0, hot 0.35, scorched 0.50 | × extra XP and gold of a node, by the state it was entered in (1.7.3) | (heat)
+| HEAT_RARITY_UP | clear 0, warm 0, hot 0.25, scorched 0.40 | chance per item rolled in a node of one rarity step, by its entry state (8.4) | (heat)
+| ECHO_PER_HEAT_FIGHT | 1 | Echoes per fight won in a node entered Hot or Scorched (11.1) [assumption: not prototyped] | (heat)
+| HEAT_BAR_MIN | -20 | h of heat at the meter's left end (expedition.md H.4) | (heat)
+| HEAT_BAR_MAX | 40 | h of heat at the meter's right end (expedition.md H.4) | (heat)

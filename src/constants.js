@@ -434,6 +434,27 @@ export const EXPED_HOURS_ELITE = 3;
 export const EXPED_HOURS_GRIND_WAVE = 2;
 export const EXPED_HOURS_DUNGEON = 6;
 
+// Heat (rules 1.7.1-1.7.4, 1.9.10, marked "(heat)"; docs/specs/expedition.md section H, constants block "Heat"): time
+// pressure on one meter in both map modes. The line per zone is derived (parHours / ZONE_COUNT), not a constant.
+/** rules 1.7.2: heat states in order, coolest first. */
+export const HEAT_STATES = ['clear', 'warm', 'hot', 'scorched'];
+/** rules 1.7.2: hours past the line from which the run is Warm, Hot (= ASC_STEP_HOURS) and Scorched. */
+export const HEAT_WARM_AT = 0;
+export const HEAT_HOT_AT = 10;
+export const HEAT_SCORCH_AT = 30;
+/** rules 1.9.10: hours until the player's node dims at or below which the Dimming is Warm, Hot. */
+export const HEAT_DIM_WARM_H = 4;
+export const HEAT_DIM_HOT_H = 2;
+/** rules 1.7.3: extra XP and gold of a node by the state it was entered in (× (1 + this)). */
+export const HEAT_GAIN = { clear: 0, warm: 0, hot: 0.35, scorched: 0.50 };
+/** rules 8.4: chance per item rolled in a node that its rarity is one step higher, by the node's entry state. */
+export const HEAT_RARITY_UP = { clear: 0, warm: 0, hot: 0.25, scorched: 0.40 };
+/** rules 11.1: Echoes per fight won in a node entered Hot or Scorched. */
+export const ECHO_PER_HEAT_FIGHT = 1;
+/** expedition.md H.4: hours of heat shown on the meter, left and right end. */
+export const HEAT_BAR_MIN = -20;
+export const HEAT_BAR_MAX = 40;
+
 // ---------------------------------------------------------------------------------------------
 // Part 2. Data tables
 // ---------------------------------------------------------------------------------------------

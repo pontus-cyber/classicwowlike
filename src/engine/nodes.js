@@ -25,7 +25,7 @@ import { parHours } from './meta.js';
 import { makeBoss } from './boss.js';
 import {
   isExpedition, grindMaxWaves, xpWeight, nodeHours, generateExpZone, refreshVision, zoneHours, frontAt, dimmedNow,
-  visionKit,
+  visionKit, canEnter,
 } from './expedition.js';
 
 // ---------------- Meta at run start (rules 11.4) ----------------
@@ -429,11 +429,8 @@ export function completeNode(s, ev) {
 /** The per-zone counters of the current expedition zone (summary `expedition.zones`). */
 const zoneRecord = (s) => s.stats.exp.zones[s.stats.exp.zones.length - 1];
 
-/** Can MOVE enter node id's content (rules 1.9.4): unresolved, not the hub, not Dimmed now? */
-export const canEnter = (s, id) => {
-  const n = s.zone.nodes[id];
-  return !n.done && n.ring > 0 && !dimmedNow(s, id);
-};
+/** Can MOVE enter node id's content (rules 1.9.4)? Defined in expedition.js (heat.js previews use it too). */
+export { canEnter };
 
 function stepTo(s, ev, id, via) {
   const zone = s.zone;

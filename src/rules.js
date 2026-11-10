@@ -17,8 +17,8 @@
 // Also exported: validateContent, newProfile, metaOffers, buyMeta, mapView, isLegal, whyIllegal, stepInPlace,
 // IllegalActionError, display helpers (xpToNext, talentPointsFree, itemScore, spellCost, spellCooldown,
 // spellInfo, fleeChance, bagCapacity, travelLevel, resurrectCharges, bossPar, defaultTarget), combat v2 helpers
-// (engageOptions, engagePreview, isEngageRound, offBalance; rules 7.10-7.13), rule helpers (V, xpCurve, diffMod,
-// zoneDanger) and every constant via `C`.
+// (engageOptions, engagePreview, isEngageRound, offBalance; rules 7.10-7.13), the heat meter (heatView, heatPreview;
+// rules 1.7.1-1.7.2, 1.9.10), rule helpers (V, xpCurve, diffMod, zoneDanger) and every constant via `C`.
 import * as C from './constants.js';
 import { normaliseSeed } from './rng.js';
 import { cloneState, deepClone, deepFreeze, IllegalActionError } from './engine/util.js';
@@ -37,6 +37,7 @@ import { resurrectOrder, offBalanceOpen, findSt } from './engine/damage.js';
 import { engageOptions as engageList, engagePreview as previewEngage } from './engine/engage.js';
 import { isEngageRound as engageRound } from './engine/track.js';
 import { MAP_MODES, isExpedition, expMapView } from './engine/expedition.js';
+import { heatView as heatMeter, heatPreview as previewHeat } from './engine/heat.js';
 
 /** 2 (combat v2): enemies carry intent tracks; a state saved by an older engine is refused. */
 export const STATE_VERSION = 2;
@@ -178,6 +179,27 @@ export function offBalance(state, enemyIdx) {
   const fr = findSt(e.st, 'FROZEN');
   const x = ob || fr;
   return { status: ob ? 'OFF_BALANCE' : 'FROZEN', taken: ob ? ob.value : C.OFFBAL_TAKEN, crit: C.OFFBAL_CRIT, rounds: x.dur };
+}
+
+/**
+ * The heat meter (rules 1.7.1-1.7.2, 1.9.10; expedition.md H.4, H.6), or null before START_RUN: hours, par, line, heat
+ * (hours past the line; negative = hours in hand), inHand, past, stateRun, dimIn and stateDim (expedition zones: the
+ * Dimming's clock on the player's node, else null), state (the hotter one) and by ('run' | 'dim'), ascIfPar (boss
+ * Ascendancy if every later zone keeps its line share), gain and rarityUp (the state's rewards, rules 1.7.3), bar
+ * (HEAT_BAR_MIN..HEAT_BAR_MAX, marker, beyond), and next: heatPreview of every legal hour-costing choice now ("2 h,
+ * ends Warm"). Cheap and pure; usable in any phase.
+ */
+export function heatView(state) {
+  return heatMeter(state, (a) => !checkAction(state, a));
+}
+
+/**
+ * Heat after one hour-costing action (rules 1.7.1, 1.9.10): { hours, line, heat, stateRun, dimIn, stateDim, state, by,
+ * ascIfPar, change, dimFight, perWave, pays }, `pays` being the state a node entered by this action pays at (rules
+ * 1.7.3); null when the action costs no hours or is not legal now.
+ */
+export function heatPreview(state, action) {
+  return checkAction(state, action) ? null : previewHeat(state, action);
 }
 
 /** FLEE success chance in the current fight (rules 7.8); 0 when fleeing is not allowed. */

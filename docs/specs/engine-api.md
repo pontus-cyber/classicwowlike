@@ -7,7 +7,8 @@ bounce data in `spellInfo`, older meta ranks); 2026-11-10b (M2 v4: `bossPar`, `z
 not in the catalogue ignored); 2026-11-10c (M2 v5: Starforged Arms removed, `state.meta` without `starforged`);
 2026-11-10d (combat v2, rules 7.10-7.13: intent tracks, the engage round and `ENGAGE`, OFF_BALANCE, pack roles,
 `STATE_VERSION` 2; marked "(combat v2)"); 2026-11-10e (expedition map, rules 1.9: `mapMode`, `MOVE`, `PASS_THROUGH`,
-`TAKE_ROAD`, `RING_BELL`, the expedition `mapView`; section 10; marked "(expedition)"). Rules authority:
+`TAKE_ROAD`, `RING_BELL`, the expedition `mapView`; section 10; marked "(expedition)"); 2026-11-10f (heat, rules
+1.7.1-1.7.2 and 1.9.10: `heatView`, `heatPreview`; section 11; marked "(heat)"). Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
 
 The engine is pure and seeded (D5): no DOM, no clock, no `Math.random`, no globals. ES modules (D13); Node
@@ -52,6 +53,8 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 | `engageOptions(state)` | array or null | (combat v2) The engage panel (rules 7.10), null outside the engage round: one entry per class option in the order strike, control, setup: `{ id, kind ('strike'|'control'|'setup'), name, targets, spells, reason }`. `targets`: the enemy indices it may be used on (`[null]` for no target); Pre-cast has `spells: [{ spellId, targets }]` instead (bar spells castable at 0 mana). `reason`: why it cannot be used at all (e.g. every enemy is immune to control: grey it out with this text). Option data (name, turns, multipliers): `C.ENGAGE_OPTION[id]`. |
 | `engagePreview(state, action)` | object or null | (combat v2) What an ENGAGE action does to the tracks, for the engage panel's hover preview (rules 7.10). No draw, so it shows nothing the player cannot see. null when the action is not legal, else `{ enemies: [{ u, cancelled, offBalance, window, pet }] }` with turn numbers: entries it cancels (Sap, Binding Glyph, Lay Trap, a Pre-cast Hexbind or Rime Burst; Sap and Hexbind only while no damage breaks them, Rime Burst only if it hits), those among them that leave the enemy OFF_BALANCE (heavy or cast: "OFF_BALANCE on turn 2"), turns FROZEN (a window), turns whose single-target hits go to the pet (Send the Pet). Damage options change no entry. |
 | `offBalance(state, enemyIdx)` | object or null | (combat v2) The OFF_BALANCE window on an enemy (rules 7.13): `{ status ('OFF_BALANCE', or 'FROZEN', which counts as OFF_BALANCE while it lasts), taken, crit, rounds }`; null when there is none. Highlight bar spells with `spellInfo(...).window`. |
+| `heatView(state)` | object or null | (heat) The heat meter (rules 1.7.1-1.7.2, 1.9.10), in any phase after START_RUN (null before): the line, the player's heat, the state, the Dimming's clock in an expedition zone, the projected boss Ascendancy and the previews of the legal hour-costing choices. Fields in section 11. Pure and cheap. |
+| `heatPreview(state, action)` | object or null | (heat) The hours an action costs and the heat after it ("2 h, ends Warm", rules 1.7.1, 1.9.10), and for an action that enters a node the state it pays at (`pays`); null when the action is not legal or costs no hours. Fields in section 11. |
 | `C` | module | All constants and data tables (CLASS, SPELL, TALENT, PET, CONSUMABLE, BOON, META, BOSS_TEXT, OPENING_SCRIPT, SCRIPT_ACTION, ENGAGE_OPTION, ENGAGE_OPTIONS, ...). |
 
 State is plain JSON except `state.content`, a shared reference to the frozen content tables (never copied by
@@ -404,3 +407,46 @@ Nothing else of a hidden node is read: qa/engine/s01b checks that a hidden node 
 bellCharges (left), roads, maxRing, zones: [{ z, hours, nodes, walks, passes, dimFights, exit ('road' | 'bell' |
 null) }] }` (the current zone's `hours` are its hours so far). `minutes` adds the walk and pass terms and the Bell
 (rules 1.9.8). `death` as 10.2.
+
+## 11. Heat (heat; rules 1.7.1-1.7.2, 1.9.10)
+One meter for time pressure in both map modes (docs/specs/expedition.md section H; the UI rules are H.4). The engine
+computes everything the meter shows, so the UI never re-implements the line, the states or the Dimming's clock.
+
+### 11.1 `heatView(state)`
+```
+{ hours, par (bossPar), z (state.zone.z; the Camp ZONE_COUNT + 1), line, heat (hours - line; negative = in hand),
+  inHand (max(0, -heat)), past (max(0, heat)), stateRun, dimIn, stateDim, state, by ('run' | 'dim'),
+  ascIfPar, gain, rarityUp, bar: { min, max, marker, beyond }, next: [{ action, ...heatPreview(action) }] }
+```
+- `state`, `stateRun`, `stateDim`: one of `C.HEAT_STATES` (`'clear'`, `'warm'`, `'hot'`, `'scorched'`). `stateRun` from
+  the heat (rules 1.7.2); `stateDim` from `dimIn` (rules 1.9.10), null without a Dimming clock (a rows run, the Camp,
+  or `dimming: false`); `state` is the hotter of the two, and `by` names the clock that sets it (`'dim'` only when the
+  Dimming state is hotter).
+- `dimIn`: hours until the player's node dims (0 or less: it is Dimmed), or null. Text: "Dimming: 3 h".
+- `ascIfPar`: the boss Ascendancy if the player leaves the zone now and keeps the line from here ("Boss +4 %"). At the
+  Camp it is the Ascendancy FIGHT_BOSS would give.
+- `gain`, `rarityUp`: `C.HEAT_GAIN[state]` and `C.HEAT_RARITY_UP[state]`, the rewards of the state (rules 1.7.3):
+  "+35 % XP and gold, 1 in 4 drops a rarity up".
+- `bar`: `min` = HEAT_BAR_MIN, `max` = HEAT_BAR_MAX, `marker` = heat clamped to the bar, `beyond` = -1 / 1 when the
+  heat is off the bar (draw the arrow), else 0. The line is the mark at heat 0.
+- `next`: the legal choices of the current phase that cost hours, each with its preview: map moves (rows:
+  `CHOOSE_NODE` per reachable lane and `TRAVEL_ON`; expedition: `MOVE` and `PASS_THROUGH` per neighbour, `TAKE_ROAD`,
+  `RING_BELL`), hub and Camp services (`SERVICE`), `CAMP_GRIND`, and in a Grind `GRIND_SET_WAVES` and `NEXT_FIGHT`.
+  Empty during a fight. Match an entry to a map node by `action.lane` or `action.nodeId`.
+
+### 11.2 `heatPreview(state, action)`
+```
+{ hours, hoursAfter, line, heat, stateRun, dimIn, stateDim, state, by, ascIfPar,   (as heatView, after the action)
+  change (state differs from now), dimFight, perWave, pays }
+```
+- `hours`: what the action costs (`hoursAfter` = run hours then), as the engine spends it: node hours (rules 2.0, 1.9.8), a walk or a pass
+  (HOURS_WALK), TRAVEL_ON and TAKE_ROAD (HOURS_TRAVEL), the Bell's channel (BELL_CHANNEL_H), a service, a Camp wave,
+  n Grind waves. `dimFight`: the step, node, service or channel ends on a node that is Dimmed by then, so a Dimmed
+  encounter follows (rules 1.9.6); its HOURS_DIM_FIGHT is included and the state after is Scorched. `perWave`: a Grind
+  whose waves are chosen inside (today's map): `hours` is one wave.
+- Leaving the zone (TRAVEL_ON, TAKE_ROAD, RING_BELL): the state after uses the next zone's line (the Camp: the par);
+  `dimIn` is null there (the next zone's map is not drawn yet; its hub is at least 3 hops from the Shardfall, so it
+  starts Clear).
+- `pays`: for an action that enters a node (CHOOSE_NODE, MOVE into an unresolved node), the state the node is entered
+  in: the state now, with the Dimming clock of the node entered (rules 1.7.3 fixes the node's rewards by it). null
+  for every other action.

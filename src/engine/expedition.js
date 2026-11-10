@@ -271,6 +271,11 @@ export function frontNextIn(hz) {
 export function dimmedIds(zone, hz) {
   return zone.nodes.filter((n) => dimmedAt(zone, n.id, hz)).map((n) => n.id);
 }
+/** Can MOVE enter node id's content (rules 1.9.4): unresolved, not the hub, not Dimmed now? */
+export const canEnter = (s, id) => {
+  const n = s.zone.nodes[id];
+  return !n.done && n.ring > 0 && !dimmedNow(s, id);
+};
 
 // ---------------- Vision (rules 1.9.5) ----------------
 /**
