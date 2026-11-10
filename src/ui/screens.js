@@ -280,11 +280,10 @@ export function buildMap(v, ctx, readOnly) {
   if (readOnly) win.id = 'win-map';
   return win;
 }
-/** The hours Travel on costs now, from the engine (a dry TRAVEL_ON; meta Wayfinder makes it 0); the mock's own number in mock mode. */
+/** The hours Travel on costs now, from the engine (a dry TRAVEL_ON); the mock's own number in mock mode. */
 function travelCost(z, ctx) {
   const hrs = z.travelHours !== undefined ? z.travelHours : ctx.data.rules.hours.travel;
-  const why = ctx.data.meta && ctx.data.meta.entries.wayfinder ? ` (${ctx.data.meta.entries.wayfinder.name})` : '';
-  return hrs == null ? '' : hrs > 0 ? ` Costs ${hrs} h.` : ` Costs no time${why}.`;
+  return hrs == null ? '' : hrs > 0 ? ` Costs ${hrs} h.` : ' Costs no time.';
 }
 function flagSvg() {
   const d = h('div.flagm');

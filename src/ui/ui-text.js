@@ -33,10 +33,19 @@ export function talentText(id, content) {
   const t = content && content.texts && content.texts.talents && content.texts.talents[id];
   return t || (TALENTS[id] && TALENTS[id].text) || '';
 }
-export function consumableText(id, content) {
+/**
+ * A consumable's text. c: the engine's entry (R.C.CONSUMABLE[id]) in engine mode. A draught that heals (`heal`) states
+ * the engine's share of maximum health (M2 v4: Greater Healing Draught 37.5 %); the other sentences of the text stay.
+ */
+export function consumableText(id, content, c = null) {
   const t = content && content.texts && content.texts.consumables && content.texts.consumables[id];
-  return t || (CONSUMABLES[id] && CONSUMABLES[id].text) || '';
+  if (t) return t;
+  const base = (CONSUMABLES[id] && CONSUMABLES[id].text) || '';
+  if (!c || c.heal == null) return base;
+  const rest = base.replace(HEAL_SENTENCE, '').trim();
+  return `Restores ${pct1(c.heal)} of your maximum health.${rest ? ` ${rest}` : ''}`;
 }
+const HEAL_SENTENCE = /^Restores [\d.]+ % of your maximum health\./;
 export function boonText(id, content) {
   const t = content && content.texts && content.texts.boons && content.texts.boons[id];
   return t || (BOONS[id] && BOONS[id].text) || '';
@@ -136,9 +145,8 @@ export function metaEffect(m, D, d) {
     case 'pockets': return { short: `+${m.slots} bag slots per rank`, long: `Your bags hold ${m.slots} more items for each rank.` };
     case 'ledger': return { short: 'First lesson at each trainer visit is free', long: 'At the trainer of every zone hub and of the camp, the first spell you learn or train costs no gold.' };
     case 'scout': return { short: 'The map shows rare elites, traps and Embers', long: `The zone map tells you which elites are rare, which chests are trapped, and which vendors sell an ${NM.ember}.` };
-    case 'wayfinder': return { short: `Travel on costs no time (was ${N.travelHours} h)`, long: `Travelling on to the next zone no longer costs ${N.travelHours} hours.` };
     case 'swift_boots': return { short: `Travel on opens ${numWord(m.levels)} ${plural(m.levels, 'level')} earlier`, long: `You may travel on to the next zone ${numWord(m.levels)} ${plural(m.levels, 'level')} sooner than before.` };
-    case 'alchemist': return { short: `Vendors sell ${plurName(2, NM.greater)}`, long: `Every vendor also sells ${plurName(2, NM.greater)}: each restores ${pct(D.greaterHeal)} of your maximum health.` };
+    case 'alchemist': return { short: `Vendors sell ${plurName(2, NM.greater)}`, long: `Every vendor also sells ${plurName(2, NM.greater)}: each restores ${pct1(D.greaterHeal)} of your maximum health.` };
     case 'cache': {
       const u = D.uniques.rare;
       return { short: `${u.length} unique rares join elite and treasure loot`, long: 'One unique rare item for each zone can drop from elites, rares and treasure chests there.', more: u.map((x) => `${x.name} (${x.zoneName})`) };
@@ -195,7 +203,6 @@ export function nextRunLines(n, D, d) {
   if (m.bagSlots) add('pockets', `+${m.bagSlots} bag slots (${n.bagSlots} in all)`);
   if (m.ledger) add('ledger', 'First lesson at each trainer visit free');
   if (m.scout) add('scout', 'Rare elites, traps and Embers on the map');
-  if (m.wayfinder) add('wayfinder', 'Travel on costs no time');
   if (m.swiftBoots) add('swift_boots', `Travel on ${numWord(D.entries.swift_boots.levels)} ${plural(D.entries.swift_boots.levels, 'level')} earlier`);
   if (m.alchemist) add('alchemist', `${plurName(2, D.names.greater)} at vendors`);
   if (m.cache) add('cache', 'Unique rares in elite and treasure loot');

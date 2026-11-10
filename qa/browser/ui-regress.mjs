@@ -32,7 +32,7 @@
  *      the death screen when the hero dies at the boss with Second Breath unused, the Ricochet Bolt tooltip (spellbook),
  *      and zone danger in the zone banners, the minimap tooltip and the map tooltips of zone 3. Expected numbers come
  *      from the engine: a Node run of the same seed and profile (resurrectCharges, spellInfo, summary) and zoneDanger.
- *   F  M3 meta progression, real engine at Instant speed. A stored profile (Vigor of the Line and Wayfinder, 70 Echoes,
+ *   F  M3 meta progression, real engine at Instant speed. A stored profile (Vigor of the Line, Wayfinder from the older catalogue, 70 Echoes,
  *      two earlier runs) and a Hunter run on the engine's autoplay choices to its death (the shortest such run of seeds
  *      1-80): the summary's balance after the run, "Spend Echoes" opens the Hall of Echoes, the balance and the run log,
  *      every offer of R.metaOffers in its kind's group with rank, cost and state, tooltips, buying Packed Satchel (UI,
@@ -765,7 +765,10 @@ async function partE(browser, W, H) {
 }
 
 // ------------------------------------------------------------------ part F: M3 meta progression, real engine, Instant
-const F_OWNED = ['vigor', 'wayfinder']; // unlocks the stored profile holds before the run
+const F_OWNED = ['vigor']; // unlocks the stored profile holds before the run, bought by the engine's rules
+// M2 v4 removed Wayfinder (80 Echoes) from the catalogue: the stored profile also holds it, as a profile saved under the
+// older catalogue does. The engine ignores the unknown id (no effect, no refund); the Hall and class select must not break.
+const F_OLD = { id: 'wayfinder', cost: 80 };
 const F_ECHOES = 70; // its balance: with the run's Echoes, Packed Satchel is affordable
 const F_BUY = 'satchel'; // the unlock bought in the check (60): it shows at run start (Healing Draughts in the bags)
 const F_NEXT_SEED = 7; // typed into the Seed field for the run after the purchase
@@ -774,6 +777,7 @@ const fmt = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); 
 function fProfile() {
   let p = R.newProfile(); p.echoes = 100000;
   for (const id of F_OWNED) p = R.buyMeta(p, id);
+  p.unlocks[F_OLD.id] = 1; p.spent += F_OLD.cost;
   p.echoes = F_ECHOES; p.earned = p.spent + F_ECHOES; p.runs = 2;
   return p;
 }
@@ -867,13 +871,21 @@ async function partF(browser, W, H) {
     const reqOf = (id) => (cards.find((c) => c.id === id) || {}).req || '';
     const want = [
       ['vigor', `+${Math.round(M.vigor.hpPct * 100)} % max health per rank`], ['pockets', `+${M.pockets.slots} bag slots per rank`],
-      ['satchel', `Start with ${M.satchel.potions} ${R.C.CONSUMABLE.healing_draught.name}s`], ['wayfinder', `(was ${R.C.HOURS_TRAVEL} h)`],
+      ['satchel', `Start with ${M.satchel.potions} ${R.C.CONSUMABLE.healing_draught.name}s`],
       ['heirloom_blade', `item level ${M.heirloom_blade.ilvl}`], ['starforged', `ilvl ${M.starforged.ilvl}`], ['sp_h1', R.C.SPELL[M.sp_h1.spell].name],
     ];
     const badFx = want.filter(([id, t]) => !fxOf(id).includes(t));
     check('M3-1', `effect texts carry the catalogue's numbers (${want.map(([id]) => id).join(', ')}); locked cards name what they need (Alchemist's Notes: ${M[M.alchemist.req[0]].name})`,
       !badFx.length && reqOf('alchemist').includes(M[M.alchemist.req[0]].name) && reqOf('second_breath').includes('reached once'),
       badFx.length ? badFx.map(([id, t]) => `${id}: "${fxOf(id)}" (wanted "${t}")`).join(' | ') : `alchemist "${reqOf('alchemist')}", second_breath "${reqOf('second_breath')}"`);
+
+    // ---- M2 v4: the stored profile holds Wayfinder (older catalogue): no card for it, no text for it, Swift Boots not locked by it
+    const hallText = await hall.innerText();
+    const sb = cards.find((c) => c.id === 'swift_boots');
+    if (M[F_OLD.id]) check('M2v4-7', `the engine still lists ${F_OLD.id} (before M2 v4): no check of the removed entry`, true, '');
+    else check('M2v4-7', `a profile holding ${F_OLD.id} (removed in M2 v4): the Hall shows no card or text for it, ${M.swift_boots.name} is ${sb && sb.state} (req ${JSON.stringify(M.swift_boots.req)}), the saved unlock stays`,
+      !cards.some((c) => c.id === F_OLD.id) && !/Wayfinder|costs no time/i.test(hallText) && sb && sb.state !== 'locked' && !sb.req && (saved.unlocks || {})[F_OLD.id] === 1,
+      `cards ${cards.map((c) => c.id).join(',')} | swift_boots ${JSON.stringify(sb)} | saved unlocks ${JSON.stringify(saved.unlocks)}`);
 
     // ---- tooltips: an affordable card and a locked one
     const tSat = await tipOf(page, hall.locator(`.mcard[data-id="${F_BUY}"] .mc-fx`));

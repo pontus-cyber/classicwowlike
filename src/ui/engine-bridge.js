@@ -88,7 +88,7 @@ function metaData(K) {
     entries: Object.fromEntries(Object.values(K.META).map((m) => [m.id, { ...m, costs: [...m.costs], req: [...m.req] }])),
     oathIds: [...(K.OATH_IDS || [])],
     oaths: Object.fromEntries(Object.values(K.OATH || {}).map((o) => [o.id, { ...o }])),
-    num: { maxLevel: K.MAX_LEVEL, travelHours: K.HOURS_TRAVEL, zoneCount: K.ZONE_COUNT, firstKill: K.ECHO_FIRST_KILL_CLASS, oathEcho: K.OATH_ECHO_BONUS, oathHaste: K.OATH_HASTE_HOURS, oathThrift: K.OATH_THRIFT_MULT },
+    num: { maxLevel: K.MAX_LEVEL, zoneCount: K.ZONE_COUNT, firstKill: K.ECHO_FIRST_KILL_CLASS, oathEcho: K.OATH_ECHO_BONUS, oathHaste: K.OATH_HASTE_HOURS, oathThrift: K.OATH_THRIFT_MULT },
     names: { boon: K.BOON.return.name, ember: K.CONSUMABLE.ember_of_return.name, potion: K.CONSUMABLE.healing_draught.name, greater: K.CONSUMABLE.greater_healing_draught.name, boss: K.BOSS_TEXT.name.split(',')[0], camp: (CONTENT.camp && CONTENT.camp.name) || 'the camp' },
     greaterHeal: K.CONSUMABLE.greater_healing_draught.heal,
     uniques: { rare: byZone('rare'), epic: byZone('epic'), weapon: Object.fromEntries(uniq.filter((u) => u.kind === 'weapon').map((u) => [u.classId, { name: u.name, text: u.text }])) },
@@ -193,7 +193,7 @@ function engineBackend(seedOpt) {
     }])),
     talents: Object.fromEntries(Object.values(C.TALENT).map((t) => [t.id, { id: t.id, tree: treeId(t.cls, t.tree), tier: t.tier, name: t.name, ranks: t.ranks, spell: t.spell || null, text: TXT.talentText(t.id, CONTENT) }])),
     pets: Object.fromEntries(Object.values(C.PET).map((p) => [p.id, { id: p.id, name: p.name, text: TXT.petText(p.id, CONTENT), meta: p.meta || null, locked: !!p.meta && !(profile && profile.unlocks && profile.unlocks[p.meta]) }])),
-    consumables: Object.fromEntries(Object.values(C.CONSUMABLE).map((c) => [c.id, { id: c.id, name: c.name, use: USE_MAP[c.use] || 'both', stack: c.stack, mana: !!c.mana, text: TXT.consumableText(c.id, CONTENT) }])),
+    consumables: Object.fromEntries(Object.values(C.CONSUMABLE).map((c) => [c.id, { id: c.id, name: c.name, use: USE_MAP[c.use] || 'both', stack: c.stack, mana: !!c.mana, text: TXT.consumableText(c.id, CONTENT, c) }])),
     statuses: TXT.STATUS_INFO,
     boons: Object.fromEntries(Object.values(C.BOON).map((b) => [b.id, { id: b.id, name: b.name, text: TXT.boonText(b.id, CONTENT) }])),
     slots: C.SLOT_IDS, zones: CONTENT.zones, camp: CONTENT.camp,
@@ -280,7 +280,7 @@ function engineBackend(seedOpt) {
       pos: { row: s.zone.pos.r, lane: s.zone.pos.l }, path, questsDone: s.zone.questsDone || 0, storyDone: !!s.zone.storyDone, next: mv ? mv.next : [],
       travelHours: travelHours(s) };
   }
-  /** Hours TRAVEL_ON spends now (meta Wayfinder: none), from a dry step; null while it is not legal. */
+  /** Hours TRAVEL_ON spends now, from a dry step; null while it is not legal. */
   function travelHours(s) {
     if (s.phase !== 'MAP' || !R.isLegal(s, { type: 'TRAVEL_ON' })) return null;
     try { return R.step(s, { type: 'TRAVEL_ON' }).state.hours - s.hours; } catch { return null; }
