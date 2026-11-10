@@ -19,9 +19,15 @@
 //    never read; every sample re-draws what the track does not show yet.
 // Search budget [assumption, SIM.OPENER_*]: sequences are expanded on OPENER_RACE_SAMPLES of the samples, the best
 // OPENER_FINAL_KEEP complete sequences are scored on the other (held-out) samples, which also decide the choice and
-// the anchor (no selection bias); candidates are pruned (openerCandidates);
+// the anchor; candidates are pruned (openerCandidates);
 // a routine fight (one enemy, no heavy or cast move in sight, normal kind, HP >= OPENER_GATE_HP) is played by
 // autoplay. Manual time profile.
+// Combat v2.1 (combat-v2.md 11 "opener, combat v2.1"; D59): the beam is root-diverse. At every depth it keeps the
+// best sequence of every first action besides the OPENER_BEAM best (a setup or a Disrupt earns nothing in round 1
+// and fell out of a beam expanded on one sample), and the held-out scoring takes the best sequence of up to
+// C2.OPENER_ROOT_KEEP first actions. Stun and control spells are candidates on a CC-immune enemy whose now-entry is a
+// cast (a wind-up: a stun-tagged spell interrupts it, rules 7.7). SIM.OPENER_ROOT_DIVERSE 0 restores the combat v2
+// opener (beam and candidates), a diagnostic switch.
 import { C, R } from '../lib/engine.mjs';
 import { BAL, SIM, C2 } from '../lib/params.mjs';
 import { fightClone } from '../lib/clone.mjs';
@@ -33,6 +39,8 @@ import { directDamage } from './masher.mjs';
 import { createPlannerBot } from './planner.mjs';
 
 const key = (a) => `${a.type}|${a.spellId ?? ''}|${a.target ?? ''}|${a.slot ?? ''}|${a.option ?? a.optionId ?? ''}`;
+/** First action of a beam node's sequence (D59 root-diverse beam); '' for the empty sequence. */
+const rootKey = (x) => (x.seq.length ? key(x.seq[0]) : '');
 const inFight = (c) => !!(c && c.fight);
 
 /** Autoplay rules 1-2 (rules 7.9): the healing item below AUTO_POTION_HP, the cleanse at AUTO_TONIC_STACKS. */
@@ -110,8 +118,9 @@ const uniq = (xs) => [...new Set(xs.filter((x) => x !== null && x !== undefined)
  * next 2 visible entries), the lowest-HP enemy when no enemy is dangerous, and every enemy in a window (OFF_BALANCE, or
  * FROZEN in combat v2); interrupts
  * on enemies whose current entry is a cast; stun and control spells on enemies with a heavy or cast move in their
- * next 2 entries (and on the most dangerous enemy when 2 or more live); self and AoE spells; healing items below
- * OPENER_POTION_HP, Mana Draughts below TACT_MANA, Purifying Tonic with a debuff on.
+ * next 2 entries, on a CC-immune enemy whose current entry is a cast (combat v2.1, D59: a wind-up, which a
+ * stun-tagged spell interrupts), and on the most dangerous enemy when 2 or more live; self and AoE spells; healing
+ * items below OPENER_POTION_HP, Mana Draughts below TACT_MANA, Purifying Tonic with a debuff on.
  */
 export function openerCandidates(s) {
   const f = s.fight;
@@ -142,7 +151,7 @@ export function openerCandidates(s) {
   for (const e of alive) if (!low || e.hp < low.hp) low = e;
   const dmgT = uniq([dt, danger !== null ? danger : (low ? low.idx : null), ...alive.filter((e) => inWindow(s, e)).map((e) => e.idx)]);
   const nowCast = alive.filter((e) => { const t = e.intent; return t && t.cast && !t.interrupted && !t.cancelled; }).map((e) => e.idx);
-  const threatT = alive.filter((e) => !e.ccImmune && nextEntries(s, e, 2).some(isThreat)).map((e) => e.idx);
+  const threatT = alive.filter((e) => (!e.ccImmune && nextEntries(s, e, 2).some(isThreat)) || (SIM.OPENER_ROOT_DIVERSE && e.ccImmune && nowCast.includes(e.idx))).map((e) => e.idx);
   const ctlT = uniq([...threatT, ...(alive.length >= 2 ? [danger] : [])]);
   for (const id of p.bar) {
     if (!id) continue;
@@ -185,6 +194,39 @@ function sampleAction(c, a) {
 
 function tail(c, acc, rounds) {
   for (let r = 0; r < rounds && inFight(c); r++) acc.apply(R.stepInPlace(c, R.autoAction(c)));
+}
+
+/**
+ * The beam after one depth (nodes { seq, score }): the `width` best by score; with `diverse` (D59) also the best
+ * node of every other first action, so a sequence whose payoff comes later (a setup, a Disrupt) stays in the search.
+ * Sorts `next` in place (stable). Returns the new beam, best first, then one node per further first action.
+ */
+export function beamSelect(next, width, diverse) {
+  next.sort((x, y) => y.score - x.score);
+  const beam = next.slice(0, width);
+  if (!diverse) return beam;
+  const roots = new Set(beam.map(rootKey));
+  for (const x of next) {
+    const k = rootKey(x);
+    if (!roots.has(k)) { roots.add(k); beam.push(x); }
+  }
+  return beam;
+}
+
+/**
+ * The complete sequences scored on the held-out samples (nodes { seq, race }): the `finalKeep` best by race; with
+ * `diverse` (D59) then the best of each other first action until `rootKeep` sequences are kept. Sorts `beam` in place.
+ */
+export function finalSelect(beam, finalKeep, rootKeep, diverse) {
+  beam.sort((x, y) => y.race - x.race);
+  const keep = beam.slice(0, Math.max(1, finalKeep));
+  if (!diverse) return keep;
+  const seen = new Set(keep.map(rootKey));
+  for (const x of beam) {
+    const k = rootKey(x);
+    if (!seen.has(k) && keep.length < rootKeep) { seen.add(k); keep.push(x); }
+  }
+  return keep;
 }
 
 /**
@@ -231,11 +273,11 @@ export function planOpening(s, rng, { n0 = s.fight.enemies.length, depth = Math.
       }
     }
     if (!grew) break;
-    next.sort((x, y) => y.score - x.score);
-    beam = next.slice(0, C2.OPENER_BEAM);
+    beam = beamSelect(next, C2.OPENER_BEAM, SIM.OPENER_ROOT_DIVERSE);
   }
-  // Final score: OPENER_TAIL autoplay rounds on the expansion samples; the best OPENER_FINAL_KEEP are then scored on
-  // the held-out samples (those the beam did not select on), and the choice and the anchor use only those.
+  // Final score: OPENER_TAIL autoplay rounds on the expansion samples; the best OPENER_FINAL_KEEP (D59: and the best
+  // sequence of other first actions, up to OPENER_ROOT_KEEP in all) are then scored on the held-out samples (those the
+  // beam did not select on), and the choice and the anchor use only those.
   for (const node of beam) {
     let sum = 0;
     for (let i = 0; i < RS; i++) {
@@ -245,8 +287,7 @@ export function planOpening(s, rng, { n0 = s.fight.enemies.length, depth = Math.
     }
     node.race = sum / RS;
   }
-  beam.sort((x, y) => y.race - x.race);
-  const keep = beam.slice(0, Math.max(1, SIM.OPENER_FINAL_KEEP));
+  const keep = finalSelect(beam, SIM.OPENER_FINAL_KEEP, C2.OPENER_ROOT_KEEP, SIM.OPENER_ROOT_DIVERSE);
   const held = [];
   for (let i = RS; i < S; i++) held.push(i);
   if (!held.length) held.push(...Array.from({ length: RS }, (_, i) => i));

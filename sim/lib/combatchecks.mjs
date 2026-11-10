@@ -1,6 +1,9 @@
-// Combat v2 metrics and target checks (combat-v2.md 12: B48-B54, the changed B5, B15, B16; B53 with the pacing of
-// section 9) from run records. Pure functions of the records (the recorder's fx, f2 and rep fields), used by
+// Combat v2 metrics and target checks (combat-v2.md 12: B48-B55, the changed B5, B15, B16; B53 with the pacing of
+// section 9) from run records. Pure functions of the records (the recorder's fx, f2, wy and rep fields), used by
 // sim/combatreport.mjs; every check returns { id, pri, metric, value, target, ok, note }.
+// Combat v2.1 (D58): B50 adds the gap to autoplay's opening (paired on the same replayed deaths), B52 counts windows
+// used per 100 non-boss fights, B55 the share of wind-ups answered in elite and dungeon-boss fights (answered /
+// (answered + landed + killing): a wind-up whose hit kills the player sends no event, D60, and counts as landed).
 import { C } from './engine.mjs';
 import { C2 } from './params.mjs';
 import { FIGHT_KINDS } from './recorder.mjs';
@@ -70,13 +73,26 @@ function fightPairs(records, filter = () => true) {
   return out;
 }
 
-/** B50 replays of masher records: { n, opener, auto, control } (rates of replays that survive). */
+/** Mean of values (0/1 differences or counts) with a 95 % normal interval: { v, ci, n, se }. */
+function meanDiff(d) {
+  if (!d.length) return { v: null, ci: [null, null], n: 0, se: null };
+  const m = d.reduce((x, y) => x + y, 0) / d.length;
+  const sd = Math.sqrt(d.reduce((x, y) => x + (y - m) ** 2, 0) / Math.max(1, d.length - 1));
+  const se = sd / Math.sqrt(d.length);
+  return { v: m, ci: [m - 1.96 * se, m + 1.96 * se], n: d.length, se };
+}
+
+/**
+ * B50 replays of masher records: { n, opener, auto, control } (rates of replays that survive) and gap (combat v2.1,
+ * D58): opener-opening minus autoplay-opening survival, paired on the same replayed deaths ({ v, ci, n }).
+ */
 export function replayStats(records) {
   const reps = [];
   for (const r of records) if (ok(r) && r.rep) reps.push(...r.rep);
   const n = reps.length;
   const k = (i) => reps.filter((x) => x[i] !== 0).length;
-  return { n, opener: rate(k(2), n), auto: rate(k(3), n), control: rate(k(4), n) };
+  const gap = meanDiff(reps.map((x) => (x[2] !== 0 ? 1 : 0) - (x[3] !== 0 ? 1 : 0)));
+  return { n, opener: rate(k(2), n), auto: rate(k(3), n), control: rate(k(4), n), gap };
 }
 
 /** Engage-round choices of multi-enemy fights per class: { cls: { n, counts: { option: k } } }. */
@@ -92,12 +108,59 @@ export function engageShares(records) {
   return out;
 }
 
-/** OFF_BALANCE windows in non-boss fights: { opened, used, share }. */
+/**
+ * OFF_BALANCE windows in non-boss fights: { opened, used, share, fights, per100 } with per100 (combat v2.1, B52) =
+ * windows used per 100 non-boss fights { v, ci, n, se } (95 % normal interval over the fights' counts).
+ */
 export function windowStats(records) {
   let opened = 0;
   let used = 0;
-  for (const { f2 } of fightPairs(records)) { opened += f2[4]; used += f2[5]; }
-  return { opened, used, share: rate(used, opened) };
+  const per = [];
+  for (const { f2 } of fightPairs(records)) { opened += f2[4]; used += f2[5]; per.push(100 * f2[5]); }
+  return { opened, used, share: rate(used, opened), fights: per.length, per100: meanDiff(per) };
+}
+
+/** Elite and dungeon-boss fight kinds (B55). */
+export const WINDUP_KINDS = new Set([FK.elite, FK.dboss]);
+
+/**
+ * Wind-ups (combat v2.1; recorder f2 fields 10-13) in fights of `kinds`: { fights, answered, landed, kill, disrupts,
+ * share (answered of answered + landed + kill, Wilson interval over wind-ups) }. Records without the fields
+ * (before combat v2.1) give zero counts and share n 0.
+ */
+export function windupStats(records, kinds = WINDUP_KINDS) {
+  let fights = 0;
+  let answered = 0;
+  let landed = 0;
+  let kill = 0;
+  let disrupts = 0;
+  for (const r of records) {
+    if (!ok(r) || !r.f2) continue;
+    r.fx.forEach((fx, i) => {
+      const f = r.f2[i];
+      if (!f || !kinds.has(fx[0])) return;
+      fights++;
+      if (f.length < 14) return;
+      answered += f[10];
+      landed += f[11];
+      kill += f[12];
+      disrupts += f[13];
+    });
+  }
+  return { fights, answered, landed, kill, disrupts, share: rate(answered, answered + landed + kill) };
+}
+
+/** Answered wind-ups by how (the `stagger` event's why) in fights of `kinds` (names): { why: n } (recorder wy). */
+export function windupWhy(records, kinds = ['elite', 'dboss']) {
+  const out = {};
+  for (const r of records) {
+    if (!ok(r) || !r.wy) continue;
+    for (const [k, n] of Object.entries(r.wy)) {
+      const [kind, why] = k.split('|');
+      if (kinds.includes(kind)) out[why] = (out[why] || 0) + n;
+    }
+  }
+  return out;
 }
 
 /** B54: multi-enemy fights whose first target differs from the default target. */
@@ -164,11 +227,13 @@ export function combatChecks(cells) {
     const okv = m.p >= C2.MASH_REACH_MIN && g.v >= pp(C2.MASH_GAP_MIN);
     add('B49', 'P1', `Mashing works, to an extent: masher reach the boss (planner - masher, paired: ${dc(g)})`, rc(m), `>= ${pct(C2.MASH_REACH_MIN, 0)} and <= planner - ${C2.MASH_GAP_MIN} pp`, okv);
   }
-  // B50
+  // B50 (combat v2.1, D58: and the gap to autoplay's opening on the same replayed deaths)
   if (masher) {
     const x = replayStats(masher);
     add('B50', 'P1', `The opening decides: masher non-boss deaths that survive with the opener's first ${C2.OPEN_ROUNDS} rounds, masher after (autoplay's first ${C2.OPEN_ROUNDS} rounds instead: ${pct(x.auto.p)}; masher replayed: ${pct(x.control.p)}, must be 0 %)`,
       rc(x.opener), `>= ${pct(C2.OPEN_DECIDES_MIN, 0)}`, x.n ? x.opener.p >= C2.OPEN_DECIDES_MIN : null, x.control.k ? 'replay control failed' : '');
+    add('B50', 'P1', `The opening decides, gap: opener-opening minus autoplay-opening survival of the same replayed masher deaths (${pct(x.opener.p)} - ${pct(x.auto.p)}; n=${x.n})`,
+      dc(x.gap), `>= +${C2.OPEN_DECIDES_GAP_MIN} pp`, x.n ? x.gap.v >= pp(C2.OPEN_DECIDES_GAP_MIN) : null);
   }
   // B51
   if (opener) {
@@ -182,13 +247,15 @@ export function combatChecks(cells) {
       add('B51', 'P2', `Engage diversity, ${cls}: opener's engage-round choices in multi-enemy fights (n=${o.n})`, `${parts.map((x) => `${x.id} ${pct(x.p, 0)}`).join(', ')}; bar spell or other ${pct(other, 0)}`, `each >= ${pct(C2.ENGAGE_SHARE_MIN, 0)}, none > ${pct(C2.ENGAGE_SHARE_MAX, 0)}`, okv);
     }
   }
-  // B52
+  // B52 (combat v2.1, D58): windows used per 100 non-boss fights, opener and opener - masher
   if (opener && masher) {
     const o = windowStats(opener);
     const m = windowStats(masher);
-    const gap = o.share.n && m.share.n ? o.share.p - m.share.p : null;
-    add('B52', 'P2', `Windows used by planning: OFF_BALANCE windows hit with a spell, non-boss fights (opener ${o.used}/${o.opened}, masher ${m.used}/${m.opened}; gap ${gap === null ? 'n/a' : `${num(gap * 100, 1)} pp`})`,
-      `opener ${rc(o.share)}`, `opener >= ${pct(C2.WINDOW_USE_MIN, 0)}; opener - masher >= ${C2.WINDOW_GAP_MIN} pp`, o.share.n ? o.share.p >= C2.WINDOW_USE_MIN && gap >= pp(C2.WINDOW_GAP_MIN) : null);
+    const okv = o.per100.n && m.per100.n ? o.per100.v >= C2.WINDOW_PER100_MIN && o.per100.v - m.per100.v >= C2.WINDOW_GAP100_MIN : null;
+    const gap = okv === null ? null : o.per100.v - m.per100.v;
+    const gse = okv === null ? null : Math.sqrt(o.per100.se ** 2 + m.per100.se ** 2);
+    add('B52', 'P2', `Windows used by planning: OFF_BALANCE windows the player hit with a spell, per 100 non-boss fights (opener ${o.used}/${o.fights} fights, masher ${m.used}/${m.fights}; opener - masher ${gap === null ? 'n/a' : `${num(gap, 1)} (${num(gap - 1.96 * gse, 1)} - ${num(gap + 1.96 * gse, 1)})`})`,
+      `opener ${num(o.per100.v, 1)} (${num(o.per100.ci[0], 1)} - ${num(o.per100.ci[1], 1)}), masher ${num(m.per100.v, 1)}`, `opener >= ${C2.WINDOW_PER100_MIN}; opener - masher >= ${C2.WINDOW_GAP100_MIN}`, okv);
   }
   // B53
   if (planner) {
@@ -201,6 +268,15 @@ export function combatChecks(cells) {
   if (opener) {
     const x = firstTargetStats(opener);
     add('B54', 'P2', 'First target differs from the default target, opener, multi-enemy fights', rc(x), `>= ${pct(C2.FIRST_TARGET_DIFF_MIN, 0)}`, x.n ? x.p >= C2.FIRST_TARGET_DIFF_MIN : null);
+  }
+  // B55 (combat v2.1, D58): wind-ups answered in elite and dungeon-boss fights, opener and masher
+  if (opener && masher) {
+    const o = windupStats(opener);
+    const m = windupStats(masher);
+    const a = planner ? windupStats(planner) : null;
+    const okv = o.share.n && m.share.n ? o.share.p >= C2.WINDUP_ANSWER_MIN && m.share.p <= C2.WINDUP_ANSWER_MASH_MAX : null;
+    add('B55', 'P1', `Wind-ups answered in elite and dungeon-boss fights, of answered + landed + killing (opener ${o.answered}/${o.answered + o.landed + o.kill}, ${o.kill} killing; masher ${m.answered}/${m.answered + m.landed + m.kill}, ${m.kill} killing${a ? `; autoplay ${pct(a.share.p)}` : ''})`,
+      `opener ${rc(o.share)}; masher ${rc(m.share)}`, `opener >= ${pct(C2.WINDUP_ANSWER_MIN, 0)}; masher <= ${pct(C2.WINDUP_ANSWER_MASH_MAX, 0)}`, okv, 'interval over wind-ups, not clustered by run');
   }
   // B5 (changed)
   if (tactician && planner) {

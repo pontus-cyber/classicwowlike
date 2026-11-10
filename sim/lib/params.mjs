@@ -6,10 +6,11 @@
 //      constant (rules.md 13), so the report reads it from the engine (C.META_TIME_BUDGET_H), not from BAL.
 // SIM: numbers the balance spec leaves open, used by the bots and the batch runner. Each is an [assumption]
 //      of the Simulation & Balance Engineer, listed in docs/handoffs/sim-2026-11-09.md.
-// C2:  the simulator's constants of docs/specs/combat-v2.md section 15 (bots and balance targets B48-B54, the
-//      changed B5/B15/B16), same names and values as written there (pp as pp). qa/sim/combat2.test.mjs parses the
-//      spec and compares every C2 key that is in its table. Rules constants of that table (OFFBAL_TAKEN,
-//      ENGAGE_DMG_COMP, ...) are read from the engine (C), never copied here.
+// C2:  the simulator's constants of docs/specs/combat-v2.md section 15 (bots and balance targets B48-B55, the
+//      changed B5/B15/B16; combat v2.1: OPENER_ROOT_KEEP and the B50/B52/B55 targets of D58), same names and values
+//      as written there (pp as pp). qa/sim/combat2.test.mjs parses the spec and compares every C2 key that is in its
+//      table. Rules constants of that table (OFFBAL_TAKEN, ENGAGE_DMG_COMP, EMPOWER_DMG, ...) are read from the engine
+//      (C), never copied here.
 
 export const BAL = {
   N_RUNS_PER_CELL: 2000,
@@ -189,16 +190,25 @@ export const C2 = {
   OPENER_BEAM: 12,
   OPENER_SAMPLES: 8,
   OPENER_TAIL: 3,
+  /** combat v2.1 (D59): first actions whose best sequence is scored on the held-out samples (opener bot). */
+  OPENER_ROOT_KEEP: 6,
   OPEN_DEATH_RATIO_MAX: 0.70,
   OPEN_REACH_GAIN_MIN: 5,
   MASH_REACH_MIN: 0.50,
   MASH_GAP_MIN: 8,
   OPEN_DECIDES_MIN: 0.50,
+  /** combat v2.1 (D58): B50 gap, opener opening minus autoplay opening, pp. */
+  OPEN_DECIDES_GAP_MIN: 8,
   ENGAGE_SHARE_MIN: 0.15,
   ENGAGE_SHARE_MAX: 0.60,
-  WINDOW_USE_MIN: 0.60,
-  WINDOW_GAP_MIN: 20,
+  /** combat v2.1 (D58): B52 windows used per 100 non-boss fights, opener, and opener - masher (replace WINDOW_USE_MIN
+   *  0.60 and WINDOW_GAP_MIN 20 pp). */
+  WINDOW_PER100_MIN: 20,
+  WINDOW_GAP100_MIN: 15,
   FIRST_TARGET_DIFF_MIN: 0.25,
+  /** combat v2.1 (D58): B55 share of wind-ups answered in elite and dungeon-boss fights, opener min and masher max. */
+  WINDUP_ANSWER_MIN: 0.70,
+  WINDUP_ANSWER_MASH_MAX: 0.20,
   MANUAL_GAP_V2: [15, 30],
   OPEN_SHARE_MIN: 0.60,
   COMBAT_MIN_MAX: 21,
@@ -233,6 +243,11 @@ Object.assign(SIM, {
   OPENER_MARGIN: 0.06,
   /** Opener: 1 = re-plan every round of the opening while following a plan (closed loop); 0 = only on surprises. */
   OPENER_REPLAN_EVERY: 0,
+  /** Opener (combat-v2.md 11, combat v2.1, D59): 1 = root-diverse beam (the best sequence of every first action stays
+   *  in the beam, and up to C2.OPENER_ROOT_KEEP first actions are scored on the held-out samples) and stun/control
+   *  candidates on a CC-immune enemy's cast; 0 = the opener of combat v2 (top OPENER_BEAM only, OPENER_FINAL_KEEP
+   *  held-out, no such candidates). A diagnostic switch: reports use 1. */
+  OPENER_ROOT_DIVERSE: 1,
 });
 
 // Tuning hook for scratch experiments only: SIM_OVERRIDE='{"KEY":value}' changes SIM numbers in every thread. The

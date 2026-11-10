@@ -12,7 +12,13 @@
 //        that enemy with a spell, CAST or ENGAGE, while it was OFF_BALANCE), Signal resolved (0/1: a `summon` with
 //        `signal`, the reinforcement joined), HP at the end of
 //        round OPEN_ROUNDS in per mille (at the fight's end if earlier; 0 on a death), first target differs from the
-//        default target (1 / 0; -1 with one enemy or no targeted action), archetype of the first target ('' none)]
+//        default target (1 / 0; -1 with one enemy or no targeted action), archetype of the first target ('' none),
+//        combat v2.1 (combat-v2.md 11 "Recorder", 16.2; B55): wind-ups answered (engine `stagger` events), wind-ups
+//        landed (`empower` events), 1 if a wind-up's hit killed the player (no event: a killing wind-up adds no
+//        stack, D60; counted from s.death.killer against the enemy's wind-up intent of that round), Disrupts (ENGAGE
+//        `action` events with `disrupt`)]
+//   wy: combat v2.1, answered wind-ups per run by fight kind and how: { '<kind>|<why>': n } (why of the `stagger`
+//       event: interrupt, control, trap, disrupt, silenced, avoided)
 import { C, R } from './engine.mjs';
 import { TYPE_CODE } from './risk.mjs';
 import { C2 } from './params.mjs';
@@ -49,6 +55,7 @@ export class Recorder {
     this.entry = null;
     this.trainCheck = trainCheck;
     this.f2 = [];
+    this.wy = {};
   }
 
   /** State facts before a step; with the action `a`, the combat v2 fields that need the state before it. */
@@ -70,7 +77,23 @@ export class Recorder {
       }
       fz.spell = a.type === 'CAST' || a.type === 'ENGAGE';
     }
+    if (fz && s.fight) {
+      // Combat v2.1: the wind-ups to be played this round (now-entries not stopped yet), to tell a killing wind-up.
+      fz.wuNow = null;
+      for (const e of s.fight.enemies) {
+        const it = e.alive ? e.intent : null;
+        if (it && it.windup && !it.cancelled && !it.interrupted && !it.skipped) (fz.wuNow = fz.wuNow || new Map()).set(e.idx, it.id);
+      }
+    }
     return { hp: p.hp, maxHp: p.d.maxHp, level: p.level, rounds: s.stats.rounds };
+  }
+
+  /** Combat v2.1: did a wind-up's hit end the run in this step (the enemy played its wind-up and is the killer)? */
+  killedByWindup(s, events) {
+    const fz = this.fight;
+    const k = s.death && s.death.killer;
+    if (!fz || !fz.wuNow || !k || typeof k.idx !== 'number' || fz.wuNow.get(k.idx) !== k.ability) return 0;
+    return events.some((e) => e.t === 'enemyAction' && e.u === k.idx && e.id === k.ability) ? 1 : 0;
   }
 
   /** Close the fight's combat v2 fields (windows still open count as opened; used if hit). */
@@ -79,7 +102,8 @@ export class Recorder {
     for (const w of fz.win.values()) if (w.used) fz.used++;
     fz.win.clear();
     if (fz.hpOpen === null) fz.hpOpen = died ? 0 : permille(hpFrac);
-    this.f2.push([fz.n0, fz.engage, fz.engageArch, fz.firstOb, fz.opened, fz.used, fz.signal, fz.hpOpen, fz.firstDiff === null ? -1 : fz.firstDiff, fz.firstArch]);
+    this.f2.push([fz.n0, fz.engage, fz.engageArch, fz.firstOb, fz.opened, fz.used, fz.signal, fz.hpOpen, fz.firstDiff === null ? -1 : fz.firstDiff, fz.firstArch,
+      fz.wuA, fz.wuL, fz.wuK, fz.dis]);
   }
 
   openEntry(type, dl, hpFrac) {
@@ -139,6 +163,19 @@ export class Recorder {
         case 'summon':
           if (this.fight && e.signal) this.fight.signal = 1;
           break;
+        case 'stagger':
+          if (this.fight) {
+            this.fight.wuA++;
+            const k = `${this.fight.kind}|${e.why}`;
+            this.wy[k] = (this.wy[k] || 0) + 1;
+          }
+          break;
+        case 'empower':
+          if (this.fight) this.fight.wuL++;
+          break;
+        case 'action':
+          if (this.fight && e.kind === 'engage' && e.disrupt) this.fight.dis++;
+          break;
         case 'heal': if (e.dst === 'player') hp += e.amount; break;
         case 'levelUp': if (!lvlApplied) { hp += p.d.maxHp - b.maxHp; lvlApplied = true; } break;
         case 'resurrect': hp = Math.max(1, Math.round(C.RES_HP_PCT * p.d.maxHp)); break;
@@ -150,6 +187,7 @@ export class Recorder {
             kind: e.kind, r0: b.rounds, min: hp / b.maxHp, z: zoneOf(s), pot: s.stats.potionsUsed,
             n0: e.enemies.length, engage: '', engageArch: '', acted: false, firstDiff: null, firstArch: '', spell: false,
             round: 1, firstOb: 0, opened: 0, used: 0, win: new Map(), signal: 0, hpOpen: null,
+            wuA: 0, wuL: 0, wuK: 0, dis: 0, wuNow: null,
           };
           const lvl = e.enemies.length ? e.enemies[0].level : b.level;
           if (e.kind === 'grind' || e.kind === 'camp') this.openEntry(e.kind, lvl - b.level, hp / b.maxHp);
@@ -182,6 +220,7 @@ export class Recorder {
             if (this.fight) {
               const rounds = this.fight.kind === 'boss' ? s.stats.bossRounds : s.stats.rounds - this.fight.r0;
               this.fx.push([FK[this.fight.kind], rounds, 0, 0, this.fight.z, 0, s.stats.potionsUsed - this.fight.pot]);
+              this.fight.wuK = this.killedByWindup(s, events);
               this.closeF2(true, 0);
               this.fight = null;
             }
@@ -233,7 +272,7 @@ export class Recorder {
       ech: sum ? sum.echoes.total : 0, echFirst: line('firstKill'), echSpeed: line('speed'),
       rests: st.rests || 0, potions: sum ? sum.potionsUsed : 0, res: sum ? sum.resurrectsUsed : 0,
       gold: sum ? sum.gold : null, travelLv: this.travelLv, train: this.train, ember: this.ember, boss: this.boss,
-      fx: this.fx, f2: this.f2, ne: this.ne, steps: meta.steps, ms: meta.ms,
+      fx: this.fx, f2: this.f2, wy: this.wy, ne: this.ne, steps: meta.steps, ms: meta.ms,
       ...(meta.rep ? { rep: meta.rep } : {}),
       ...(meta.pr ? { pr: meta.pr } : {}),
       ...(meta.bm ? { bm: meta.bm } : {}),
