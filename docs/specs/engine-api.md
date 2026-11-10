@@ -303,7 +303,8 @@ Draw orders the engine guarantees (beyond rules 7.2 and 8.4):
 ## 8. Autoplay
 Combat v2: in the engage round `autoAction` follows rule E (rules 7.9): the class's control option on the enemy
 whose track shows the most damage on the player over turns 1..ENGAGE_AUTO_LOOK (with at least 2 enemies), else the
-strike option (Mage: Pre-cast of the first bar spell whose autoplay condition holds). Afterwards it reads only the
+strike option (Mage: Pre-cast of the first bar spell whose autoplay condition holds). The Rogue never gets Sap from
+`autoAction` (D49): its rule E is Ambush on the default target. Afterwards it reads only the
 now-intents. `state.autoplay` only records the toggle. When it is on and `state.fight` is set, the front end calls
 `step(state, autoAction(state))` at its own pace (PACE_AUTO_ROUND_S). The simulator calls `autoAction` for
 every decision or replaces the out-of-combat part with its bots.

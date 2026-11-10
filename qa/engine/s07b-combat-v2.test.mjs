@@ -622,14 +622,17 @@ describe('rules 7.10 engage round (combat v2)', () => {
 
 describe('rules 7.9 rule E and pacing (combat v2)', () => {
   test('rule E: control on the enemy with the most track damage on the player over turns 1..ENGAGE_AUTO_LOOK; else the strike option on the default target', () => {
-    const s = fight('rogue', 20, [], [mob('z1_mender'), mob('z1_brute'), mob('z1_caster')], { stealth: true, prep: tough });
+    const s = fight('mage', 20, [], [mob('z1_mender'), mob('z1_brute'), mob('z1_caster')], { prep: tough });
     const dmg = (e) => e.track.filter((x) => x.turn <= C.ENGAGE_AUTO_LOOK && (x.target === 'player' || x.target === 'all')).reduce((n, x) => n + x.est, 0);
     const most = [...s.fight.enemies].sort((a, b) => dmg(b) - dmg(a) || a.idx - b.idx)[0].idx;
-    assert.deepEqual(R.autoAction(s), engage('sap', most));
+    assert.deepEqual(R.autoAction(s), engage('binding_glyph', most));
+    const h = fight('hunter', 20, [], [mob('z1_mender'), mob('z1_brute'), mob('z1_caster')], { petId: 'ridgewolf', prep: tough });
+    const hmost = [...h.fight.enemies].sort((a, b) => dmg(b) - dmg(a) || a.idx - b.idx)[0].idx;
+    assert.deepEqual(R.autoAction(h), engage('lay_trap', hmost));
     const one = fight('rogue', 20, [], [mob('z1_brute')], { stealth: true });
     assert.deepEqual(R.autoAction(one), engage('ambush', 0));
-    const h = fight('hunter', 20, [], [mob('z1_beast')], { petId: 'ridgewolf' });
-    assert.deepEqual(R.autoAction(h), engage('opening_shot', 0));
+    const h1 = fight('hunter', 20, [], [mob('z1_beast')], { petId: 'ridgewolf' });
+    assert.deepEqual(R.autoAction(h1), engage('opening_shot', 0));
     const m = fight('mage', 20, ['arcane_ward', 'ember_bolt'], [mob('z1_brute')]);
     assert.deepEqual(R.autoAction(m), engage('precast', null, 'arcane_ward'), 'Mage: Pre-cast of the first bar spell whose condition holds');
     // Ties: the default-target order.
@@ -639,14 +642,16 @@ describe('rules 7.9 rule E and pacing (combat v2)', () => {
     assert.notEqual(R.autoAction(pass(s)).type, 'ENGAGE');
   });
 
-  test('D48 (rules 7.9): rule E never saps a beast; the default target never switches back to a sapped enemy while another enemy lives', () => {
-    // A beast with the most track damage is not sapped: the next enemy is; two beasts: Ambush on the default target.
+  test('D49 / D48 (rules 7.9): the Rogue\'s rule E never uses Sap (Ambush on the default target); after a manual Sap the default target never switches back to the sapped enemy while another enemy lives', () => {
+    // Whatever the tracks show, the Rogue's rule E is Ambush on the default target; Sap stays legal (manual).
     const big = (i) => (x) => { tough(x); for (const y of x.fight.enemies[i].track) y.est = 999; };
-    assert.deepEqual(R.autoAction(fight('rogue', 20, [], [mob('z1_beast'), mob('z1_brute')], { stealth: true, prep: big(0) })), engage('sap', 1));
-    const beasts = fight('rogue', 20, [], [mob('z1_beast'), mob('z1_beast')], { stealth: true, prep: (x) => { big(1)(x); x.fight.enemies[0].hp -= 5; } });
-    assert.deepEqual(R.autoAction(beasts), engage('ambush', R.defaultTarget(beasts)));
-    assert.deepEqual(R.autoAction(fight('mage', 20, [], [mob('z1_beast'), mob('z1_brute')], { prep: big(0) })), engage('binding_glyph', 0), 'only Sap avoids beasts');
-    // Sap the caster: the Rogue fights the brute and stays on it after the caster wakes, although casters rank first.
+    for (const [mobs, i] of [[[mob('z1_beast'), mob('z1_brute')], 0], [[mob('z1_mender'), mob('z1_brute'), mob('z1_caster')], 1], [[mob('z1_caster'), mob('z1_skulker')], 1]]) {
+      const r = fight('rogue', 20, [], mobs, { stealth: true, prep: big(i) });
+      assert.deepEqual(R.autoAction(r), engage('ambush', R.defaultTarget(r)), mobs.map((m) => m.tid).join('+'));
+      assert.ok(R.isLegal(r, engage('sap', i)), 'Sap stays a manual option');
+    }
+    assert.deepEqual(R.autoAction(fight('mage', 20, [], [mob('z1_beast'), mob('z1_brute')], { prep: big(0) })), engage('binding_glyph', 0), 'other classes keep their control option');
+    // Manual Sap on the caster: the Rogue fights the brute and stays on it after the caster wakes, although casters rank first.
     let s = fight('rogue', 20, [], [mob('z1_caster'), mob('z1_brute')], { stealth: true, prep: tough });
     assert.equal(R.defaultTarget(s), 0, 'caster first without a Sap');
     s = R.step(s, engage('sap', 0)).state;

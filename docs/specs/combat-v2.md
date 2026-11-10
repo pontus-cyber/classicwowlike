@@ -187,11 +187,11 @@ Each line costs something the others do not: tempo (damage now), a control charg
 
 ## 8. Autoplay v2 (F; changes rules 7.9)
 Before rule 1, in the engage round only:
-- **E. Engage.** If at least 2 enemies are alive and the class's control option is usable on some enemy: the control option on the enemy whose track shows the largest estimated damage on the player over its turns 1..ENGAGE_AUTO_LOOK (ties: rules 7.9 default-target order). Otherwise the strike option on the default target (Mage: precast of the first bar spell whose autoplay condition holds).
+- **E. Engage.** If at least 2 enemies are alive and the class's control option is usable on some enemy: the control option on the enemy whose track shows the largest estimated damage on the player over its turns 1..ENGAGE_AUTO_LOOK (ties: rules 7.9 default-target order). Otherwise the strike option on the default target (Mage: precast of the first bar spell whose autoplay condition holds). The Rogue never uses Sap here; Sap stays a manual option (D49).
 
 Then rules 1-6 as today. Autoplay reads **only the now-entry** (as today) and never holds a spell for an OFF_BALANCE window. This is deliberate: the track and the window are the manual player's edge; autoplay remains a sound, safe default (it still interrupts, drinks and cleanses).
 
-Default target unchanged (mender > caster > others, lowest HP).
+Default target: priority unchanged (mender > caster > others, lowest HP); SAPPED enemies are skipped like HEXED ones, and an enemy that was sapped is taken only when no other is left (D48).
 
 ---
 

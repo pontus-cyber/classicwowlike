@@ -117,7 +117,8 @@ function before(a, b) {
  * Rule E (rules 7.9, combat v2), engage round only: with at least 2 enemies and the class's control option usable,
  * control the enemy whose track shows the largest estimated damage on the player over its turns
  * 1..ENGAGE_AUTO_LOOK (ties: default-target order); otherwise the strike option on the default target (Mage:
- * Pre-cast of the first bar spell whose autoplay condition holds). null: no rule E action (rules 1-6 decide).
+ * Pre-cast of the first bar spell whose autoplay condition holds). The Rogue never uses Sap here: Sap stays a manual
+ * option (D49), so its rule E is Ambush. null: no rule E action (rules 1-6 decide).
  */
 function engagePolicy(s) {
   const f = s.fight;
@@ -125,13 +126,11 @@ function engagePolicy(s) {
   const ids = ENGAGE_OPTIONS[p.classId];
   const control = ids.find((id) => ENGAGE_OPTION[id].kind === 'control');
   const strike = ids.find((id) => ENGAGE_OPTION[id].kind === 'strike');
-  if (livingCount(s) >= 2) {
+  if (livingCount(s) >= 2 && control !== 'sap') {
     let best = null;
     let most = -1;
     for (const e of f.enemies) {
       if (!e.alive || !legal(s, engageAct(control, e.idx))) continue;
-      // D48: the Rogue never saps a beast (its Bloodlust ramps once it wakes, rules 7.12).
-      if (control === 'sap' && e.arch === 'beast') continue;
       let dmg = 0;
       for (const x of e.track) if (x.turn >= 1 && x.turn <= ENGAGE_AUTO_LOOK && (x.target === 'player' || x.target === 'all')) dmg += x.est;
       if (dmg > most || (dmg === most && before(e, best))) { best = e; most = dmg; }
