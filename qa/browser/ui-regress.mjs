@@ -78,7 +78,8 @@
  *      exactly as R.engageOptions says, key W logs the wind-up it stops, STAGGERED after it; then the same engage round
  *      loaded with no wind-up in view (window.__ui.loadState; the real content never shows a dungeon boss without one):
  *      greyed out with the engine's reason. After every combat key the bar marks exactly the usable spells that can answer
- *      a wind-up playing now (none without). Stacked toasts in a fight: merged, clear of the frames, ruler and nameplates.
+ *      a wind-up playing now (none without). Stacked toasts in a fight, and in the end-boss fight (jBossState: phase 2 with
+ *      two Shards, a Shard targeted, loaded): merged, clear of the boss frame, the target frame, the ruler and nameplates.
  *      (D) a Rogue (jPickRogue: a seed whose autoplay run meets a wind-up playing while a bar spell can stop it): the bar
  *      marks that spell "Answer" as the engine's state says, hovering the wind-up marks every spell that can answer it,
  *      the spell's tooltip names the wind-up, and its key stops it ("is stopped by your ...", STAGGERED = the engine's).
@@ -1839,6 +1840,24 @@ function jStopNow(s) {
   }
   return null;
 }
+let J_BOSS = null;
+/**
+ * An end-boss state in phase 2 with at least two Shards alive (a Node run of the engine's autoplay choices, the first Hunter
+ * seed of 1-60 that gets there), serialized for window.__ui.loadState: { seed, ser, shard (a living Shard's index) }.
+ */
+function jBossState() {
+  if (J_BOSS) return J_BOSS;
+  for (let seed = 1; seed <= 60; seed++) {
+    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT });
+    for (const a of [{ type: 'SELECT_CLASS', classId: 'hunter' }, { type: 'SELECT_PET', petId: 'ridgewolf' }, { type: 'START_RUN' }]) s = R.step(s, a).state;
+    for (let n = 0; n < 6000 && s.phase !== 'SUMMARY' && s.phase !== 'ENDED'; n++) {
+      const f = s.fight; const shards = f && !f.over && f.kind === 'boss' ? f.enemies.filter((e) => e.alive && e.kind === 'shard') : [];
+      if (shards.length >= 2) { J_BOSS = { seed, ser: R.serialize(s), shard: shards[0].idx }; return J_BOSS; }
+      s = R.step(s, R.autoAction(s)).state;
+    }
+  }
+  throw new Error('no Hunter seed of 1-60 reaches the end boss with two Shards alive');
+}
 let J_ROGUE = null;
 /**
  * The Rogue seed for part J's bar check, chosen at run time: the first Rogue seed of 1-40 whose run on the engine's
@@ -2001,7 +2020,8 @@ function jCardsMatch(d, s, target) {
 const jToasts = (page) => page.evaluate(() => {
   const box = (el) => { if (!el || el.classList.contains('hidden') || getComputedStyle(el).display === 'none') return null; const r = el.getBoundingClientRect(); return r.width ? [r.left, r.top, r.right, r.bottom] : null; };
   return { toasts: [...document.querySelectorAll('#toasts .toast')].map((t) => ({ text: t.textContent, box: box(t) })),
-    panels: [['map', '#screens .mapwin'], ['target frame', '#target-frame'], ['ruler', '#ruler'], ['engage panel', '#engage'], ['boss frame', '#boss-frame'], ...[...document.querySelectorAll('#nameplates .np:not(.dead)')].map((el, i) => [`nameplate ${i}`, el])]
+    panels: [['map', '#screens .mapwin'], ['player frame', '#player-frame'], ['pet frame', '#pet-frame'], ['target frame', '#target-frame'], ['ruler', '#ruler'], ['engage panel', '#engage'], ['boss frame', '#boss-frame'],
+      ['combat log', '#combatlog'], ['heat meter', '#heat'], ...[...document.querySelectorAll('#nameplates .np:not(.dead)')].map((el, i) => [`nameplate ${i}`, el])]
       .map(([n, sel]) => [n, box(typeof sel === 'string' ? document.querySelector(sel) : sel)]).filter(([, b]) => b) };
 });
 const jOverlaps = (t) => t.toasts.flatMap((x) => t.panels.filter(([, b]) => x.box && x.box[0] < b[2] && x.box[2] > b[0] && x.box[1] < b[3] && x.box[3] > b[1]).map(([n]) => `"${x.text}" over the ${n}`));
@@ -2050,7 +2070,7 @@ async function partJ(browser, W, H) {
     const tm = await jToasts(page);
     await shot(page, 'J-toasts-map');
     const merged = tm.toasts.find((t) => /NOPE" ×3$/.test(t.text));
-    check('M2b-2b.6', `stacked toasts on the map merge and queue: the same message three times is one toast "×3", at most 2 show at once, none over the zone map`,
+    check('M2b-2b.6', `stacked toasts on the map merge and queue: the same message three times is one toast "×3", at most 2 show at once, none over the zone map, a unit frame, the log or the heat meter`,
       tm.toasts.length <= 2 && !!merged && !jOverlaps(tm).length && tm.panels.some(([n]) => n === 'map'), `${JSON.stringify(tm.toasts.map((t) => t.text))}; ${jOverlaps(tm).join(', ')}`);
     await page.waitForTimeout(2900);
     const tq = await jToasts(page);
@@ -2171,8 +2191,21 @@ async function partJ(browser, W, H) {
     await jBurst(page); await page.waitForTimeout(250);
     const tf = await jToasts(page);
     await shot(page, 'J-toasts-fight');
-    check('M2b-2b.6', 'stacked toasts in a fight merge, at most 2 show at once, and none covers the target frame, the ruler, the engage panel or a nameplate',
+    check('M2b-2b.6', 'stacked toasts in a fight merge, at most 2 show at once, and none covers a unit frame, the ruler, the engage panel, a nameplate, the log or the heat meter',
       tf.toasts.length <= 2 && tf.toasts.some((t) => /NOPE" ×3$/.test(t.text)) && !jOverlaps(tf).length, `${JSON.stringify(tf.toasts.map((t) => t.text))}; ${jOverlaps(tf).join(', ')}`);
+    // ---- the end-boss fight (phase 2, two Shards, a Shard targeted: its frame sits under the boss frame), loaded: the
+    // toasts go between the target frame and the boss's nameplate, under the boss frame
+    const bs = jBossState();
+    await page.waitForFunction(() => !document.querySelector('#toasts .toast'), null, { timeout: 12000 });
+    const bLoaded = await page.evaluate((str) => window.__ui.loadState(str), bs.ser);
+    await idle(page); await frame();
+    await page.locator(`#nameplates .np[data-idx="${bs.shard}"]`).click(); await idle(page); await page.mouse.move(2, 2); await frame();
+    await jBurst(page); await page.waitForTimeout(250);
+    const tb = await jToasts(page);
+    await shot(page, 'J-toasts-boss');
+    check('M2b-2b.6', `stacked toasts in the end-boss fight (seed ${bs.seed}, phase 2 with Shards, a Shard targeted) merge, at most 2 show, and none covers the boss frame, a unit frame, a nameplate, the log or the heat meter`,
+      bLoaded && tb.toasts.length <= 2 && tb.toasts.some((t) => /NOPE" ×3$/.test(t.text)) && tb.panels.some(([n]) => n === 'boss frame') && tb.panels.some(([n]) => n === 'target frame') && !jOverlaps(tb).length,
+      `${JSON.stringify(tb.toasts.map((t) => t.text))}; ${jOverlaps(tb).join(', ')}`);
   } catch (e) {
     check('-', 'part J ran to the end', false, e.message.split('\n')[0]);
   }
