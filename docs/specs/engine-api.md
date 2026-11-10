@@ -2,7 +2,8 @@
 
 Owner: Core Gameplay Engineer. Audience: UI/UX Engineer, Simulation & Balance Engineer, QA.
 Status: M1 1.1, 2026-11-09; updated 2026-11-09b (rule helpers on the API, `hpLost`, `regen`, level-up gains,
-no heal events of 0, boss counters). Rules authority: docs/specs/rules.md (section numbers below refer to it).
+no heal events of 0, boss counters); 2026-11-10 (M2 v3: `resurrectCharges`, rounded Echo lines, Ricochet Bolt
+bounce data in `spellInfo`, older meta ranks). Rules authority: docs/specs/rules.md (section numbers below refer to it).
 
 The engine is pure and seeded (D5): no DOM, no clock, no `Math.random`, no globals. ES modules (D13); Node
 runs `src/rules.js` directly and the browser loads the same files. Every number lives in `src/constants.js`
