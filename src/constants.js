@@ -322,9 +322,9 @@ export const OPENING_TURNS = 3;
 export const SIGNATURE_TURN = 2;
 /** rules 7.12: enemy turn of a dungeon boss's second template ability (combat v2.1: was 5). */
 export const SIGNATURE_TURN_2 = 4;
-/** rules 7.12: × the pct of a heavy action on a scripted turn (tuning lever; combat v2.1, D55: was 1.0). */
+/** rules 7.12: × the pct of a heavy damaging action on a scripted turn (tuning lever; combat v2.1, D55: was 1.0; D60: damage only). */
 export const HEAVY_SCRIPT_MULT = 1.5;
-/** rules 7.12: × the pct of a cast action on a scripted turn (tuning lever; combat v2.1, D55: was 1.0). */
+/** rules 7.12: × the pct of a cast damaging action on a scripted turn (tuning lever; combat v2.1, D55: was 1.0; D60: damage only). */
 export const CAST_SCRIPT_MULT = 1.5;
 /** rules 7.6, 7.11: Mend needs an ally below this fraction of max HP (ARCHETYPE.mender Mend `below`). */
 export const MEND_BELOW = 0.70;

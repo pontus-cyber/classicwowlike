@@ -309,12 +309,17 @@ describe('rules 7.12 opening scripts and pack roles (combat v2)', () => {
     assert.deepEqual([C.SIGNATURE_TURN, C.SIGNATURE_TURN_2], [2, 4], 'combat v2.1: SIGNATURE_TURN_2 4 (was 5)');
   });
 
-  test('scripted heavy and cast actions take HEAVY_SCRIPT_MULT and CAST_SCRIPT_MULT on their pct', () => {
+  test('scripted heavy and cast actions take HEAVY_SCRIPT_MULT and CAST_SCRIPT_MULT on their pct, damage only: scripted heals and shields keep theirs (D60)', () => {
     const brute = fight('mage', 20, [], [mob('z1_brute')]).fight.enemies[0];
     assert.equal(brute.track[1].pct, C.ARCHETYPE.brute.actions[1].pct * C.HEAVY_SCRIPT_MULT);
     const caster = fight('mage', 20, [], [mob('z1_caster')]).fight.enemies[0];
     assert.equal(caster.track[1].pct, C.ARCHETYPE.caster.actions[1].pct * C.CAST_SCRIPT_MULT);
     assert.equal(caster.track[0].pct, C.ARCHETYPE.caster.actions[0].pct, 'not heavy or cast: unchanged');
+    // D60: the mender's Bolster (turn 1) and Mend (turn 3, a cast heal) keep their pct, and so does the shown heal.
+    let m = fight('mage', 20, [], [mob('z1_mender'), mob('z1_brute')], { prep: tough });
+    assert.deepEqual(m.fight.enemies[0].track.map((x) => [x.id, x.cast, x.pct]), [['bolster', false, C.BOLSTER_PCT], ['strike', false, 1], ['mend', true, C.ARCHETYPE.mender.actions[1].pct]]);
+    m = pass(m, 3, (x) => { x.fight.enemies[1].hp = 0.5e6; }); // round 4: turn 3, Mend on the wounded brute
+    assert.deepEqual([m.fight.enemies[0].intent.id, m.fight.enemies[0].intent.est], ['mend', Math.round(C.ARCHETYPE.mender.actions[1].pct * 1e6)]);
   });
 
   test('Signal: at the end of the round SIGNAL_ADDS normal enemy joins from the add pool at the skulker\'s level, without XP, coin or loot; once per fight; an interrupted Signal brings nobody', () => {

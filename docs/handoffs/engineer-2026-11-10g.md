@@ -89,9 +89,11 @@ restored. Every one of the 26 mutations made at least one test fail.
    the same. This is now explicit in rules.md 7.12 ("(combat v2.1, engine)").
 4. **Disrupt's STUN covers exactly one turn, whatever TRAP_STUN is.** The spec says "STUN for that one turn, which cancels
    only that entry". Today TRAP_STUN is 1 too, so the two are equal.
-5. **CAST_SCRIPT_MULT also scales scripted heals:** Mend on turn 3 heals 0.25 × 1.5 = 37.5 %, and a Self Heal wind-up
-   0.18 × 1.5 = 27 % of max HP. Rules 7.12 says this ("a cast action's pct"), and the prototype measured it. It shows only
-   now that the multiplier is no longer 1.0. Flagged in case the designer meant damage only.
+5. **CAST_SCRIPT_MULT also scaled scripted heals:** Mend on turn 3 healed 0.25 × 1.5 = 37.5 %, and a Self Heal wind-up
+   0.18 × 1.5 = 27 % of max HP. Rules 7.12 said this ("a cast action's pct"), and the prototype measured it.
+   **Changed by D60** (Lead): the script multipliers now apply to scripted damage only (hit, rend, cleave). Mend,
+   Bolster, Self Heal and Self Shield keep their pct. Decisions 1-4 and 6 stand as implemented. See the D60 addendum
+   below.
 6. **The "later scripted entry" cooldown rule (rules 7.11) can no longer bind at the defaults.** A dungeon boss's turns 1-4
    are all scripted (SIGNATURE_TURN_2 4 = OPENING_TURNS + 1). The s07b test now checks turn 5 and states this.
 7. **Autoplay never Disrupts with the real content.** Every dungeon-boss fight starts with the boss alone (nodes.js), no
@@ -161,3 +163,26 @@ NODE_PATH=/opt/npm-tools/node_modules node qa/browser/ui-regress.mjs --file /tmp
   level 20 for the Rogue, Mage and Hunter. It is not a balance measure; the simulator's bots are. It does mean that
   autoplay-only health runs see few dungeon bosses, so the full-run test adds a Disrupt policy.
 - **B48 and B51 still fail on the designer's evidence**; that is open choices 4 and 5 (designer and sim).
+
+## Addendum: D60 (commit "Engine: combat v2.1 D60 ...")
+- **What changed**: HEAVY_SCRIPT_MULT and CAST_SCRIPT_MULT now multiply the pct of scripted damaging actions only (hit,
+  rend, cleave) (src/engine/track.js `entryOf`). A scripted heal or shield keeps its pct: Mend on a mender's turn 3
+  heals 25 %, and a Self Heal wind-up heals 18 %. Bolster and Self Shield had no multiplier before either.
+- **Docs**: rules.md 7.12 (the script paragraph and the wind-up paragraph) and the 13 table descriptions say so. The
+  values stay 1.5. combat-v2.md 15 (the designer's file) still describes them as "× the action's pct"; the designer may
+  want to align it.
+- **Tests**: s07b "scripted heavy and cast actions ... damage only" checks the mender's Bolster and Mend pct and the
+  shown Mend estimate. s07c "landed ..." checks that the Self Heal wind-up has pct 0.18 and heals exactly 18 %; s07c
+  flags shows a Shield wind-up at × 1. Both tests fail with the old rule.
+- **Suites**: qa/engine 305, qa/rules 56, qa/docs 3 and qa/sim 65 pass.
+- **Measured effect**, same seeds, bots and risk table as above (scratch /tmp/v21sim/out-d60):
+
+| | Planner reach R / M / H (all) | Masher reach R / M / H (all) | Planner − masher | Deaths per 1 000 fights, planner (elite / dungeon boss) | Masher (elite / dungeon boss) |
+|---|---|---|---|---|---|
+| before D60 | 80.3 / 87.0 / 77.0 (81.4) | 61.7 / 84.3 / 48.7 (64.9) | +16.6 pp | 4.32 (24.9 / 47.1) | 8.99 (73.0 / 128.3) |
+| D60 | 80.3 / 87.3 / 79.7 (82.4) | 62.7 / 85.0 / 55.0 (67.6) | +14.9 pp (11.7 - 18.1) | 4.05 (25.4 / 40.2) | 8.15 (73.0 / 104.6) |
+
+  The dungeon bosses whose second wind-up is a Self Heal heal less, and so do menders. The masher gains more than the
+  planner: its Hunter rises +6.3 pp, against +2.7 pp for the planner's. B49 still passes (gap at least 8 pp).
+  [inference: from the dungeon-boss deaths, which fall most] The gain is mostly in the fights against the two
+  real-content dungeon bosses whose second wind-up is a Self Heal (zones 2 and 4). It is not broken down by fight here.

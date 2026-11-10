@@ -753,9 +753,9 @@ Turns 1..OPENING_TURNS of every enemy present at fight start (not summons, Signa
 | guardian | shield_ally | strike | brace |
 | mender | bolster | strike | mend |
 
-A skulker plays `signal` only if the fight started with at least 2 enemies, else `strike`. Elite, rare and dungeon boss: the entry for turn SIGNATURE_TURN is the template ability with the highest pct (ties: first listed); a dungeon boss also plays its other template ability on turn SIGNATURE_TURN_2; abilities with `once` (enrage, summon) are never scripted and keep their HP triggers. A scripted action's pct is × HEAVY_SCRIPT_MULT if it is heavy, × CAST_SCRIPT_MULT if it is a cast. Scripted entries are checked when they become now like every entry (7.11). (combat v2)
+A skulker plays `signal` only if the fight started with at least 2 enemies, else `strike`. Elite, rare and dungeon boss: the entry for turn SIGNATURE_TURN is the template ability with the highest pct (ties: first listed); a dungeon boss also plays its other template ability on turn SIGNATURE_TURN_2; abilities with `once` (enrage, summon) are never scripted and keep their HP triggers. A scripted action's pct is × HEAVY_SCRIPT_MULT if it is heavy, × CAST_SCRIPT_MULT if it is a cast. Scripted entries are checked when they become now like every entry (7.11). (combat v2) The multipliers raise scripted damage only (hit, rend, cleave): a scripted heal or shield (Mend, Bolster, Self Heal, Self Shield) keeps its pct, cast or not (combat v2.1, D60).
 
-Wind-ups (combat v2.1): a signature entry (an elite's, rare's or dungeon boss's entry on SIGNATURE_TURN, a dungeon boss's on SIGNATURE_TURN_2) is a **wind-up**: the entry has the flag `windup` and also `cast`, whatever its kind, so every interrupt, stun or control stops it (7.7), on CC-immune enemies too; its pct takes only the script multiplier of its own flag (a heavy one × HEAVY_SCRIPT_MULT, a cast one × CAST_SCRIPT_MULT; the added `cast` adds nothing). Its result lasts the whole fight:
+Wind-ups (combat v2.1): a signature entry (an elite's, rare's or dungeon boss's entry on SIGNATURE_TURN, a dungeon boss's on SIGNATURE_TURN_2) is a **wind-up**: the entry has the flag `windup` and also `cast`, whatever its kind, so every interrupt, stun or control stops it (7.7), on CC-immune enemies too; its pct takes only the script multiplier of its own flag (a heavy one × HEAVY_SCRIPT_MULT, a cast one × CAST_SCRIPT_MULT; the added `cast` adds nothing), and only if it deals damage (a Self Heal or Self Shield wind-up keeps its pct, D60). Its result lasts the whole fight:
 - **Answered** (it is interrupted; it is cancelled by STUN, FROZEN, HEXED, SAPPED, a trap or Disrupt; it is replaced because the enemy is SILENCED; or it is a heavy one from which the player lost 0 HP, 7.13 (3)): the enemy gains a STAGGERED stack (-STAGGER_DMG damage dealt for the rest of the fight), besides OFF_BALANCE where 7.13 gives it.
 - **Landed** (it is played, and for a hit or rend the player or the pet lost HP to it; cleave, curse, self_heal and self_shield count as landed whenever they are played): the enemy gains an EMPOWERED stack (+EMPOWER_DMG damage dealt for the rest of the fight).
 - An entry replaced for any other reason (cooldown, a condition) is neither. The track, the intent and the frame show the wind-up flag; the frame shows the stacks; the log says "Wind-up answered: staggered" or "Wind-up landed: empowered".
@@ -1324,8 +1324,8 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | OPENING_TURNS | 3 | enemy turns with a scripted action | (combat v2)
 | SIGNATURE_TURN | 2 | enemy turn (elite, rare, dungeon boss) | (combat v2)
 | SIGNATURE_TURN_2 | 4 | enemy turn (dungeon boss, second template ability; was 5) | (combat v2.1)
-| HEAVY_SCRIPT_MULT | 1.5 | × a heavy action's pct on a scripted turn (tuning lever; was 1.0) | (combat v2.1)
-| CAST_SCRIPT_MULT | 1.5 | × a cast action's pct on a scripted turn (tuning lever; was 1.0) | (combat v2.1)
+| HEAVY_SCRIPT_MULT | 1.5 | × a heavy damaging action's pct on a scripted turn (tuning lever; was 1.0; damage only, D60) | (combat v2.1)
+| CAST_SCRIPT_MULT | 1.5 | × a cast damaging action's pct on a scripted turn (tuning lever; was 1.0; damage only, not Mend or Self Heal, D60) | (combat v2.1)
 | MEND_BELOW | 0.70 | fraction of max HP (ARCHETYPE.mender Mend `below`) | (combat v2)
 | SIGNAL_ADDS | 1 | enemies | (combat v2)
 | BOLSTER_PCT | 0.20 | fraction of the ally's max HP | (combat v2)

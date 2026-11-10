@@ -57,6 +57,7 @@ describe('rules 7.12 wind-ups (combat v2.1)', () => {
     assert.deepEqual(flags(at(fight('mage', 20, [], [elite(1)]), C.SIGNATURE_TURN)), ['ab_heavy', true, true, true, 1.9 * C.HEAVY_SCRIPT_MULT], 'heavy: × HEAVY_SCRIPT_MULT');
     assert.deepEqual(flags(at(fight('mage', 20, [], [elite(2)]), C.SIGNATURE_TURN)), ['ab_dark', true, true, false, 2.1 * C.CAST_SCRIPT_MULT], 'cast: × CAST_SCRIPT_MULT once');
     assert.deepEqual(flags(at(fight('mage', 20, [], [elite(3)]), C.SIGNATURE_TURN)), ['ab_cleave', true, true, false, 0.85], 'neither: the added cast adds nothing');
+    assert.deepEqual(flags(at(fight('mage', 20, [], [elite(6)]), C.SIGNATURE_TURN)), ['ab_shield', true, true, false, 0.2], 'a shield: no multiplier (D60)');
     assert.deepEqual(flags(at(fight('mage', 20, [], [rare(1)]), C.SIGNATURE_TURN)).slice(0, 3), ['ab_heavy', true, true], 'rare');
     let b = fight('mage', 20, [], [dboss(1)], { prep: tough });
     assert.deepEqual(flags(at(b, C.SIGNATURE_TURN)).slice(0, 3), ['ab_dark', true, true], 'dungeon boss, first');
@@ -179,12 +180,13 @@ describe('rules 7.12 wind-ups (combat v2.1)', () => {
       assert.ok(ev(r.events, 'enemyAction').some((x) => x.u === 0 && x.id === id), id);
       assert.deepEqual(brief(r.events), [['empower', id]], id);
     }
-    // Self Heal (dungeon boss z5, turn SIGNATURE_TURN_2) played below 70 % HP.
+    // Self Heal (dungeon boss z5, turn SIGNATURE_TURN_2) played below 70 % HP. A heal keeps its pct (0.18, no
+    // CAST_SCRIPT_MULT: D60), so it heals 18 % of its max HP.
     let b = toTurn(fight('mage', 20, [], [dboss(5)], { prep: tough }), C.SIGNATURE_TURN_2 - 1);
     b = R.step(tweak(b, (x) => { x.fight.enemies[0].hp = 0.5e6; }), { type: 'PASS' }).state;
-    assert.deepEqual([b.fight.enemies[0].intent.id, b.fight.enemies[0].intent.windup], ['ab_heal', true]);
+    assert.deepEqual([b.fight.enemies[0].intent.id, b.fight.enemies[0].intent.windup, b.fight.enemies[0].intent.pct], ['ab_heal', true, 0.18]);
     r = R.step(b, { type: 'PASS' });
-    assert.ok(ev(r.events, 'heal').some((x) => x.dst === 0 && x.spell === 'ab_heal'));
+    assert.ok(ev(r.events, 'heal').some((x) => x.dst === 0 && x.spell === 'ab_heal' && x.amount === Math.round(0.18 * 1e6)), 'D60: no script multiplier on a heal');
     assert.deepEqual(brief(r.events), [['empower', 'ab_heal']]);
     // A dungeon boss stacks: both wind-ups land (z1: Dark Cast on turn 2, Heavy Blow on turn 4).
     b = fight('mage', 20, [], [dboss(1)], { prep: tough });

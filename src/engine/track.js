@@ -20,6 +20,8 @@ import {
 import { SHARD_ACTION, bossEntry } from './boss.js';
 
 const SINGLE = ['hit', 'rend'];
+/** Kinds that deal damage (rules 7.12, D60: only their pct takes the script multipliers; heals and shields keep theirs). */
+const DAMAGING = ['hit', 'rend', 'cleave'];
 
 /** The engage round (rules 7.10): round 1 of a fight that has one (every fight but the end boss). */
 export const isEngageRound = (f) => !!(f && f.engage && f.round === 1);
@@ -126,14 +128,18 @@ function actionById(s, e, id) {
   return SCRIPT_ACTION[id] || enemyActions(s, e).find((a) => a.id === id) || basicAction(e);
 }
 
-/** A track entry (or an intent) for action a on turn t. Scripted heavy/cast actions take the script multipliers. */
+/**
+ * A track entry (or an intent) for action a on turn t. A scripted damaging action (hit, rend, cleave) takes the script
+ * multiplier of its flag: heavy × HEAVY_SCRIPT_MULT, cast × CAST_SCRIPT_MULT; a scripted heal or shield (Mend, Bolster,
+ * Self Heal, Self Shield) keeps its pct (rules 7.12, D60).
+ */
 function entryOf(a, t, scripted) {
   const x = {
     turn: t, id: a.id, name: a.name, kind: a.kind, cast: !!a.cast, heavy: !!a.heavy, school: a.school || null,
     cd: a.cd || 0, pct: a.pct, hits: a.hits || 1, tickPct: a.tickPct, rounds: a.rounds, reduce: a.reduce, below: a.below,
     scripted: !!scripted, aggro: 'player', target: 'player', est: 0,
   };
-  if (scripted && typeof x.pct === 'number') x.pct *= x.heavy ? HEAVY_SCRIPT_MULT : x.cast ? CAST_SCRIPT_MULT : 1;
+  if (scripted && typeof x.pct === 'number' && DAMAGING.includes(x.kind)) x.pct *= x.heavy ? HEAVY_SCRIPT_MULT : x.cast ? CAST_SCRIPT_MULT : 1;
   if (a.adds) x.adds = a.adds;
   return x;
 }
