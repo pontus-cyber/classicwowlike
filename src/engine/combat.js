@@ -3,7 +3,7 @@ import {
   ARCHETYPE, VARIANT, ABILITY_TEMPLATE, ENEMY_HP_BASE, ENEMY_HP_PER_LEVEL, ENEMY_DMG_BASE, ENEMY_DMG_PER_LEVEL,
   ENEMY_ARMOR_PER_LEVEL, ENEMY_DODGE, PET, ENERGY_MAX, ENERGY_REGEN, FOCUS_MAX, FOCUS_REGEN,
   MANA_REGEN_ROUND_PCT, PET_REVIVE_PCT, TALENT, UNIQUE_WARD_PCT, BRAND_DMG, BOSS_LEVEL, MIN_HIT_DAMAGE,
-  ZONE_DANGER_FROM, ZONE_DANGER_STEP,
+  ZONE_DANGER_FROM, ZONE_DANGER_STEP, DUNGEON_DANGER_FRAC,
 } from '../constants.js';
 import { nextFloat, weightedIndex, nextInt } from '../rng.js';
 import { rnd, deepClone } from './util.js';
@@ -16,12 +16,15 @@ import { playerAction, petAction } from './spells.js';
 
 // ---------------- Enemies ----------------
 /**
- * Zone danger (rules 7.6, M2 v3): damage multiplier of an enemy made from an enemy template, by its level M:
- * 1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10 (level 30 ×1.25, 60 ×2.0). The end boss and the
- * Dimming Shards (boss.js) are not made here and keep their own constants.
+ * Zone danger (rules 7.6): damage multiplier of an enemy made from an enemy template, by its level M and variant.
+ * zd(M) = 1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10 (M2 v3: level 30 ×1.25, 60 ×2.0). Dungeon trash
+ * and dungeon bosses ('trash', 'dboss') take DUNGEON_DANGER_FRAC of the bonus, 1 + DUNGEON_DANGER_FRAC × (zd(M) - 1)
+ * (M2 v4: level 60 ×1.5). Every other variant (normal, elite, rare; Camp waves and summoned adds are built as
+ * normal) takes zd(M). The end boss and the Dimming Shards (boss.js) are not made here and keep their own constants.
  */
-export function zoneDanger(level) {
-  return 1 + (ZONE_DANGER_STEP * Math.max(0, level - ZONE_DANGER_FROM)) / 10;
+export function zoneDanger(level, variant = 'normal') {
+  const bonus = (ZONE_DANGER_STEP * Math.max(0, level - ZONE_DANGER_FROM)) / 10;
+  return 1 + (variant === 'trash' || variant === 'dboss' ? DUNGEON_DANGER_FRAC * bonus : bonus);
 }
 
 /** Enemy from a template (rules 7.6): every quest, grind, elite, rare, dungeon, Camp and summoned enemy. No draws. */
@@ -32,7 +35,7 @@ export function makeEnemy(s, idx, tid, level, variant) {
   const hp = Math.max(1, rnd((ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL * level) * a.hp * v.hp * t.hpMult));
   return {
     idx, tid, name: t.name, kind: variant, arch: t.archetype, level, hp, maxHp: hp,
-    dmg: (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL * level) * a.dmg * v.dmg * t.dmgMult * zoneDanger(level),
+    dmg: (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL * level) * a.dmg * v.dmg * t.dmgMult * zoneDanger(level, variant),
     armor: ENEMY_ARMOR_PER_LEVEL * level * a.armor, dodge: ENEMY_DODGE + a.dodge,
     abilities: t.abilities.slice(), cds: {}, st: [], intent: null, alive: true,
     elite: variant === 'elite' || variant === 'rare', boss: variant === 'dboss', ccImmune: variant === 'dboss',

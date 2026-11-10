@@ -1,6 +1,7 @@
 // rules.md section 7: combat.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { setupNode } from '../../src/engine/map.js';
 import { R, C, started, atLevel, withSpells, inFight, tweak, forceDraws, HIT, MISS, pipeline, ev, st, cloneState, nextFloat } from './helpers.mjs';
 
 const mob = (tid = 'z1_brute', level = 20, variant = 'normal') => ({ tid, level, variant });
@@ -238,13 +239,16 @@ describe('rules 7.6 enemy AI and intents', () => {
     }
   });
 
-  test('zone danger (M2 v3): enemy damage × (1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10) for every variant; HP, armor, XP unchanged', () => {
-    // M -> multiplier (rules 7.6: level 30 ×1.25, 40 ×1.5, 50 ×1.75, 60 ×2.0; nothing at or below 20)
+  test('zone danger (M2 v3, dungeons M2 v4): damage × zd(M) = 1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10; dungeon trash and bosses 1 + DUNGEON_DANGER_FRAC × (zd - 1); HP, armor, XP unchanged', () => {
+    // M -> zd (rules 7.6: level 30 ×1.25, 40 ×1.5, 50 ×1.75, 60 ×2.0; nothing at or below 20)
     const want = [[1, 1], [10, 1], [20, 1], [21, 1.025], [25, 1.125], [30, 1.25], [40, 1.5], [50, 1.75], [58, 1.95], [60, 2.0]];
     assert.equal(C.ZONE_DANGER_FROM, 20);
     assert.equal(C.ZONE_DANGER_STEP, 0.25);
-    for (const [M, mult] of want) {
+    assert.equal(C.DUNGEON_DANGER_FRAC, 0.5);
+    for (const [M, zd] of want) {
       for (const [tid, variant] of [['z1_brute', 'normal'], ['z1_caster', 'trash'], ['z1_elite', 'elite'], ['z1_rare', 'rare'], ['z1_dboss', 'dboss']]) {
+        const dungeon = variant === 'trash' || variant === 'dboss';
+        const mult = dungeon ? 1 + C.DUNGEON_DANGER_FRAC * (zd - 1) : zd;
         const s = setup('mage', 20, [], [mob(tid, M, variant)]);
         const e = s.fight.enemies[0];
         const A = C.ARCHETYPE[e.arch];
@@ -253,7 +257,7 @@ describe('rules 7.6 enemy AI and intents', () => {
         assert.ok(Math.abs(e.dmg - old * mult) < 1e-9, `${tid} ${variant} level ${M}: ${e.dmg} vs ${old} × ${mult}`);
         assert.equal(e.maxHp, Math.round((C.ENEMY_HP_BASE + C.ENEMY_HP_PER_LEVEL * M) * A.hp * V.hp));
         assert.equal(e.armor, C.ENEMY_ARMOR_PER_LEVEL * M * A.armor);
-        if (M === 60) assert.equal(e.dmg / old, 2, 'level 60: exactly 2.0 × the old formula');
+        if (M === 60) assert.ok(Math.abs(e.dmg / old - (dungeon ? 1.5 : 2)) < 1e-12, `level 60 ${variant}: ${e.dmg / old}`);
       }
     }
     // Hits use the scaled damage: same draws, level 50 (×1.75) vs a copy holding the old value.
@@ -272,6 +276,48 @@ describe('rules 7.6 enemy AI and intents', () => {
     };
     assert.ok(kill(s)[0].length === 1 && kill(s)[1].length === 1);
     assert.deepEqual(kill(s), kill(oldCopy));
+  });
+
+  test('zone danger in dungeons (M2 v4): a level-60 dungeon trash hit is 1.5 × the zone-danger-free formula, a quest hit 2.0 ×', () => {
+    for (const [kind, variant, ratio] of [['trash', 'trash', 1.5], ['quest', 'normal', 2.0], ['dboss', 'dboss', 1.5], ['elite', 'elite', 2.0]]) {
+      const s = setup('mage', 60, [], [mob(variant === 'dboss' ? 'z1_dboss' : variant === 'elite' ? 'z1_elite' : 'z1_brute', 60, variant)], (x) => { x.player.d.maxHp = x.player.hp = 1e6; x.fight.enemies[0].intent = HITI('hit', { pct: 1 }); }, { kind });
+      const e = s.fight.enemies[0];
+      const free = (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * 60) * C.ARCHETYPE[e.arch].dmg * C.VARIANT[variant].dmg; // fixture dmgMult 1
+      assert.ok(Math.abs(e.dmg / free - ratio) < 1e-12, `${variant}: ${e.dmg / free}`);
+      const plain = tweak(s, (x) => { x.fight.enemies[0].dmg = free; });
+      const hit = (t) => { const c = cloneState(t); forceDraws(c, 3, (d) => d[0] > 0.9 && d[1] > 0.1); return R.step(c, { type: 'PASS' }).events.find((x) => x.t === 'damage' && x.dst === 'player').amount; };
+      assert.ok(Math.abs(hit(s) / hit(plain) - ratio) < 0.01, `${variant}: ${hit(s)} vs ${hit(plain)}`);
+    }
+  });
+
+  test('zone danger in dungeons (M2 v4): a zone-6 dungeon node builds trash and boss at half the bonus; adds summoned there are normal (full)', () => {
+    let s = R.step(started('rogue', { seed: 5 }), { type: 'LEAVE_HUB' }).state;
+    s = tweak(atLevel(s, 56), (x) => {
+      x.zone = { ...x.zone, z: 6 };
+      const n = setupNode(x, 6, 4, 0, 'dungeon');
+      x.zone.rows[3][0] = n;
+      x.zone.pos = { r: 3, l: 0 };
+    });
+    s = R.step(s, { type: 'CHOOSE_NODE', lane: 0 }).state;
+    const zd = (M) => 1 + (C.ZONE_DANGER_STEP * Math.max(0, M - C.ZONE_DANGER_FROM)) / 10;
+    const base = (e) => (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * e.level) * C.ARCHETYPE[e.arch].dmg * C.VARIANT[e.kind].dmg * s.content.enemies[e.tid].dmgMult;
+    assert.equal(s.fight.kind, 'trash');
+    for (const e of s.fight.enemies) {
+      assert.equal(e.kind, 'trash');
+      assert.ok(Math.abs(e.dmg - base(e) * (1 + C.DUNGEON_DANGER_FRAC * (zd(e.level) - 1))) < 1e-9, `trash level ${e.level}`);
+    }
+    // the dungeon boss, built as dboss at its own level
+    const b = tweak(s, (x) => { x.fight = null; x.node.stage = 'between'; x.node.k = C.DUNGEON_TRASH_FIGHTS - 1; });
+    const boss = R.step(b, { type: 'NEXT_FIGHT' }).state.fight;
+    assert.equal(boss.kind, 'dboss');
+    const e = boss.enemies[0];
+    assert.ok(Math.abs(e.dmg - base(e) * (1 + C.DUNGEON_DANGER_FRAC * (zd(e.level) - 1))) < 1e-9, `boss level ${e.level}`);
+    // an add summoned in a dungeon fight is a normal enemy at the add level: full zone danger
+    const sm = tweak(s, (x) => { x.player.d.maxHp = x.player.hp = 1e6; x.fight.enemies[0].intent = { id: 'ab_summon', name: 'Summon', kind: 'summon', count: 1, target: 'self', est: 0 }; for (const o of x.fight.enemies.slice(1)) o.st.push({ id: 'STUN', dur: 3 }); });
+    const r = R.step(sm, { type: 'PASS' }).state;
+    const add = r.fight.enemies[r.fight.enemies.length - 1];
+    assert.equal(add.kind, 'normal');
+    assert.ok(Math.abs(add.dmg - base(add) * zd(add.level)) < 1e-9, `add level ${add.level}`);
   });
 
   test('zone danger (M2 v3): summoned adds are scaled at their own level', () => {
