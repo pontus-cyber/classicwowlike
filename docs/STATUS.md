@@ -7,14 +7,14 @@ M2 done 2026-11-10 (P1 45/45). Active: M2b, expedition map and combat v2 (docs/s
 
 ## Next tasks
 1. M2b 2b.1 engine combat v2 and 2b.2 sim opener/masher bots (in progress).
-2. UI combat presentation (slower, weightier, per-class timing, larger statuses) in progress.
+2. UI combat presentation done (1ddfb06, D47); build 88c58ee sent 11:50.
 3. Then 2b.3-2b.4 map, vision, Dimming, exits, fog bots; 2b.5 prep economy; 2b.6 UI.
 
 ## Waiting on the owner
 Nothing blocking. See docs/OWNER.md.
 
 ## Build
-game.html at e65837f (M2 v4). Sent to the owner 2026-11-10 08:46. 75/75 UI regression checks at 1366x768, 0 console errors.
+game.html at 88c58ee (M2 v5 + new combat feel). Sent to the owner 2026-11-10 11:50. 75/75 UI regression checks at 1366x768, 0 console errors.
 
 ## Session log
 | Session | Date | Tasks | Agents (model/effort) | Tokens |
@@ -32,3 +32,4 @@ game.html at e65837f (M2 v4). Sent to the owner 2026-11-10 08:46. 75/75 UI regre
 | 11 | 2026-11-10 06:24 | M2 v3 measured 53/72; build sent; start v4 design pass and M3 meta screen | Sim Eng (508k), UI/UX Eng (409k + running), Designer (Opus/high) | pending |
 | 12 | 2026-11-10 07:10 | v4 design pass reviewed; D40 stop rule; engine, sim, UI started | Designer (312k), UI/UX (542k), Engineer/Sim/UI (Opus/max) | pending |
 | 13 | 2026-11-10 07:40-08:46 | Restart recovery; M2 v4 engine/UI/sim done; D41 code map; v5 design pass started | Engineer (338k), UI (318k), Sim (358k), Docs (Sonnet, 132k), Designer (Opus/high) | about 1.1M |
+| 14 | 2026-11-10 09:56-11:50 | M2 v5 built and measured, M2 closed (P1 45/45); expedition and combat-v2 specs; M2b started; combat feel UI done, build sent | Designer x3 (Opus/high), Engineer, Sim, UI (Opus/max) | about 2.6M |
