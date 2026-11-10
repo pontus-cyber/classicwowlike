@@ -275,9 +275,15 @@ export function bestRewardIndex(s, set) {
 }
 
 const BOON_ORDER = ['return', 'fury', 'insight', 'mending', 'clarity', 'plenty'];
+/**
+ * Resurrect charges usable at the end boss (balance.md 1.1, M2 v3): Boon of Return and Embers of Return. Second
+ * Breath (p.res.meta) does not work in the end-boss fight (rules 9), so it does not count.
+ */
+export function bossResurrects(s) {
+  return s.player.res.boon + countCons(s, 'ember_of_return');
+}
 export function bestBoonIndex(s, boons) {
-  const p = s.player;
-  const res = p.res.boon + p.res.meta + countCons(s, 'ember_of_return');
+  const res = bossResurrects(s);
   let order = BOON_ORDER;
   if (res > 0) order = order.filter((b) => b !== 'return').concat(['return']);
   if (hpFrac(s) < SIM.STOP_HP) order = ['mending', ...order.filter((b) => b !== 'mending')];

@@ -8,8 +8,9 @@
 //        CC-immune), (b) a defensive-tagged spell that is not active and covers the hit (DEFENSIVE below),
 //        (c) a healing item on the item bar.
 //     T2 Shards: in end-boss phase 2 with >= 2 living Shards, the usable aoe-tagged spell with the highest base
-//        damage; with 1 living Shard whose HP is below the player's expected damage of one action, the action with
-//        the highest expected damage on that Shard (mean over TACTICIAN_SAMPLES cloned fight streams).
+//        damage (not for the Rogue, M2 v3: the clause is skipped); with 1 living Shard whose HP is below the player's
+//        expected damage of one action, the action with the highest expected damage on that Shard (mean over
+//        TACTICIAN_SAMPLES cloned fight streams).
 //  2. Otherwise: in the end-boss fight the autoplay policy (rules 7.9); in other fights the search: for each
 //     candidate action, simulate TACTICIAN_DEPTH rounds on a cloned state (the action, then autoplay) over
 //     TACTICIAN_SAMPLES sampled fight streams drawn from the bot stream (the same samples for every candidate) and
@@ -163,6 +164,8 @@ export function shardAction(s, rng) {
   if (f.kind !== 'boss' || !f.boss || f.boss.phase !== 2) return null;
   const shards = f.enemies.filter((e) => e.alive && e.kind === 'shard').sort((a, b) => a.hp - b.hp || a.idx - b.idx);
   if (shards.length >= 2) {
+    // M2 v3 (balance.md 1, D23 update): the Rogue skips the AoE clause (Whirling Edges breaks its builder/finisher cycle).
+    if (s.player.classId === 'rogue') return null;
     let best = null;
     for (const id of s.player.bar) {
       if (!id || !hasTag(id, 'aoe')) continue;

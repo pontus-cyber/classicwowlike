@@ -3,7 +3,9 @@
 // buys Healing Draughts to HEAL_STOCK_TARGET; no vendor nodes; autoplay combat; autoplay time profile.
 // The search cost is in hours: node hours + P(death) × VAL_DEATH / VAL_HOUR, and a zone left under the travel level
 // (exitLevelOf: exit level - TRAVEL_EARLY_LEVELS) after the last row adds the missing levels × VAL_XP / VAL_HOUR (the
-// value function's own exchange rates).
+// value function's own exchange rates). Its value calls carry hourMult = PLANNER_HOUR_MULT (balance.md 1.1, M2 v3);
+// the search uses only their hours and P(death), so the weight does not change its choices (spec reading, see the
+// sim hand-off of 2026-11-10).
 import { C, R, legal, hpFrac } from '../lib/engine.mjs';
 import { BAL, SIM } from '../lib/params.mjs';
 import { makeCtx, evalNode, copyM, levelPos } from '../lib/model.mjs';
@@ -42,10 +44,12 @@ function costFrom(ctx, rows, r, l, m, exit) {
   return best;
 }
 
+const speedCtx = (s, risk) => makeCtx(s, risk, { hourMult: BAL.PLANNER_HOUR_MULT });
+
 export function speedMap(s, risk) {
   if (legal(s, { type: 'TRAVEL_ON' })) return { type: 'TRAVEL_ON' };
   const view = R.mapView(s);
-  const ctx = makeCtx(s, risk);
+  const ctx = speedCtx(s, risk);
   const exit = exitLevelOf(s);
   const r = view.pos.r + 1;
   let best = null;
@@ -62,7 +66,7 @@ export function speedMap(s, risk) {
 
 export function speedGrindWaves(s, risk) {
   const view = R.mapView(s);
-  const ctx = makeCtx(s, risk);
+  const ctx = speedCtx(s, risk);
   const exit = exitLevelOf(s);
   const node = view.rows[s.node.r - 1][s.node.l];
   let best = null;

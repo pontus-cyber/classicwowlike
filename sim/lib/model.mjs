@@ -1,6 +1,8 @@
 // Node value model of the greedy, planner, speedrunner and tactician bots (balance.md 1.1):
 //   value(node) = XP_in_levels × VAL_XP + expected item-score gain × VAL_GEAR + gold / V(L) × VAL_GOLD
-//                 - hours × VAL_HOUR - P(death) × VAL_DEATH
+//                 - hours × VAL_HOUR × hourMult - P(death) × VAL_DEATH
+// hourMult (M2 v3): 1 for the greedy, PLANNER_HOUR_MULT for the bots with lookahead, × STYLE_SPEED_HOUR_MULT for the
+// speed route style (makeCtx opts.hourMult).
 // The model only estimates; the engine decides. It reads what the player may see (mapView) plus the
 // character, and it predicts the character after the node (level, XP, rested pool, HP, rations) so the
 // planners can chain nodes along a path. P(death) and the HP change come from the risk table (risk.mjs).
@@ -51,7 +53,10 @@ export function expItemScore(cls, slot, ilvl, rarity) {
   return score;
 }
 
-/** Context of one decision: the character as the model sees it. */
+/**
+ * Context of one decision: the character as the model sees it. opts: { style (route style, default 'balanced'),
+ * hourMult (bot hour weight, balance.md 1.1: 1 greedy, PLANNER_HOUR_MULT planner/tactician/speedrunner; default 1) }.
+ */
 export function makeCtx(s, risk, opts = {}) {
   const p = s.player;
   const eq = {};
@@ -63,7 +68,10 @@ export function makeCtx(s, risk, opts = {}) {
     if (it.id === 'trail_rations') rations += it.qty;
     if (it.id === 'healing_draught' || it.id === 'greater_healing_draught') potions += it.qty;
   }
-  const res = p.res.boon + p.res.meta + p.bag.filter((x) => x.kind === 'cons' && x.id === 'ember_of_return').length;
+  // Resurrects usable at the end boss (balance.md 1.1, M2 v3): Boon of Return and Embers; Second Breath does not count.
+  let embers = 0;
+  for (const it of p.bag) if (it.kind === 'cons' && it.id === 'ember_of_return') embers += it.qty;
+  const res = p.res.boon + embers;
   // Training (no term in balance.md 1.1; SIM.TRAIN_*): a damage spell's gain per trained level, l, is valued like
   // the Power that gives the same gain (l / p Power, ITEM_SCORE.power each), averaged over the bar's damage spells.
   const train = [];
@@ -82,7 +90,7 @@ export function makeCtx(s, risk, opts = {}) {
   return {
     cls: p.classId, risk, eq, gainCache: new Map(), xpPct: s.meta.xpPct, goldPct: s.meta.goldPct,
     swift: !!s.meta.swiftBoots, res, potions, train, unknown,
-    style: opts.style || 'balanced', hourMult: opts.style === 'speed' ? SIM.STYLE_SPEED_HOUR_MULT : 1,
+    style: opts.style || 'balanced', hourMult: (opts.hourMult ?? 1) * (opts.style === 'speed' ? SIM.STYLE_SPEED_HOUR_MULT : 1),
     m: { L: p.level, xp: p.xp, rested: p.rested, hp: p.hp / p.d.maxHp, q: s.zone && !s.zone.camp ? s.zone.questsDone : 0, rations, tAt: 0 },
   };
 }

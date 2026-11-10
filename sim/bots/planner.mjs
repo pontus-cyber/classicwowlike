@@ -2,8 +2,9 @@
 // value function 1.1 over the remaining zone, including rest timing and the travel-on point; standard build of
 // its tree (1.3); bar template 1.2 with the boss bar at the Camp; trains everything at each hub, keeps
 // HEAL_STOCK_TARGET Healing Draughts, buys an Ember of Return when affordable and gold after it >=
-// EMBER_RESERVE_V × V; autoplay combat; manual time profile.
+// EMBER_RESERVE_V × V; autoplay combat; manual time profile. Hours weigh VAL_HOUR × PLANNER_HOUR_MULT (M2 v3).
 import { C, R, legal, hpFrac } from '../lib/engine.mjs';
+import { BAL } from '../lib/params.mjs';
 import { makeCtx, evalNode, copyM } from '../lib/model.mjs';
 import { createValueBot, hubFull, FULL_KIT } from './shared.mjs';
 
@@ -32,10 +33,10 @@ export function exitLevelOf(s) {
   return R.travelLevel(s);
 }
 
-/** Path search from the current map position. Returns { action, value, options }. */
-export function planMap(s, risk, style) {
+/** Path search from the current map position (hourMult: balance.md 1.1). Returns { action, value, options }. */
+export function planMap(s, risk, style, hourMult = 1) {
   const view = R.mapView(s);
-  const ctx = makeCtx(s, risk, { style });
+  const ctx = makeCtx(s, risk, { style, hourMult });
   const exit = exitLevelOf(s);
   const options = [];
   if (legal(s, { type: 'TRAVEL_ON' })) options.push({ action: { type: 'TRAVEL_ON' }, value: 0 });
@@ -51,8 +52,8 @@ export function planMap(s, risk, style) {
 }
 
 /** Grind waves for the current grind node: as many as have positive marginal value (at least 1). */
-export function valueGrindWaves(s, risk, style) {
-  const ctx = makeCtx(s, risk, { style });
+export function valueGrindWaves(s, risk, style, hourMult = 1) {
+  const ctx = makeCtx(s, risk, { style, hourMult });
   const view = R.mapView(s);
   const v = view.rows[s.node.r - 1][s.node.l];
   const ev = evalNode(ctx, copyM(ctx.m), v);
@@ -60,19 +61,20 @@ export function valueGrindWaves(s, risk, style) {
 }
 
 /** Inn when its value (banked rested XP, minus hours) is positive or HP is low. */
-export function innByValue(s, risk, style) {
+export function innByValue(s, risk, style, hourMult = 1) {
   if (hpFrac(s) < 0.7 || (s.player.d.maxMana && s.player.mana < 0.5 * s.player.d.maxMana)) return true;
-  const ctx = makeCtx(s, risk, { style });
+  const ctx = makeCtx(s, risk, { style, hourMult });
   return evalNode(ctx, copyM(ctx.m), { type: 'rest' }).value > 0;
 }
 
 export function createPlannerBot({ classId, risk, tree, style = 'balanced', variant = null, combat = null, name = 'planner' }) {
+  const hm = BAL.PLANNER_HOUR_MULT;
   return createValueBot(name, {
     classId, tree, variant, style, campBar: true,
     kit: { ...FULL_KIT, ember: true },
     combat,
-    hub: (s) => hubFull(s, (x) => innByValue(x, risk, style)),
-    map: (s) => planMap(s, risk, style).action,
-    grindWaves: (s) => valueGrindWaves(s, risk, style),
+    hub: (s) => hubFull(s, (x) => innByValue(x, risk, style, hm)),
+    map: (s) => planMap(s, risk, style, hm).action,
+    grindWaves: (s) => valueGrindWaves(s, risk, style, hm),
   });
 }

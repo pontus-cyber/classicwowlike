@@ -8,6 +8,7 @@ import { buildProfile } from '../../sim/lib/profiles.mjs';
 import { createBot } from '../../sim/bots/index.mjs';
 import { exitLevelOf } from '../../sim/bots/planner.mjs';
 import { bigHits, bigHitAction, telegraphAction, tacticianChoice, evaluateAction } from '../../sim/bots/tactician.mjs';
+import { templateBar, barAction } from '../../sim/lib/policy.mjs';
 
 const key = (a) => JSON.stringify(a, Object.keys(a).sort());
 
@@ -92,13 +93,21 @@ describe('T1 big hit (synthetic first-fight states)', () => {
 });
 
 describe('end-boss fight (PALL autoplay runs to the boss, then the tactician)', () => {
-  test('telegraph rules first, autoplay otherwise; AoE on 2+ Shards in phase 2; every action legal', () => {
-    const seen = { auto: 0, t1: 0, aoe: 0, shard: 0 };
+  test('telegraph rules first, autoplay otherwise; AoE on 2+ Shards in phase 2 (not the Rogue, M2 v3); every action legal', () => {
+    const seen = { auto: 0, t1: 0, aoe: 0, shard: 0, rogueSkip: 0 };
     for (const cls of ['rogue', 'mage', 'hunter']) {
       let fights = 0;
       for (let seed = 1; seed <= 60 && fights < 2; seed++) {
         const s = newRunFor({ classId: cls, petId: cls === 'hunter' ? 'ridgewolf' : null, seed, profile: buildProfile('all', cls) });
-        while (s.phase !== 'ENDED' && !(s.fight && s.fight.kind === 'boss')) R.stepInPlace(s, R.autoAction(s));
+        // Autoplay to the Camp; before FIGHT_BOSS the bots' boss bar (template 1.2 at the Camp, AoE included).
+        while (s.phase !== 'ENDED' && !(s.fight && s.fight.kind === 'boss')) {
+          const a = R.autoAction(s);
+          if (a.type === 'FIGHT_BOSS') {
+            const bar = templateBar(s, { camp: true });
+            for (let b = barAction(s, bar, null); b; b = barAction(s, bar, null)) R.stepInPlace(s, b);
+          }
+          R.stepInPlace(s, a);
+        }
         if (s.phase === 'ENDED') continue;
         fights++;
         const st = { fights: -1, n0: 0 };
@@ -113,21 +122,28 @@ describe('end-boss fight (PALL autoplay runs to the boss, then the tactician)', 
             assert.equal(key(a), key(t.action));
             if (t.rule.startsWith('T1')) seen.t1++;
             if (t.rule === 'T2-shard') seen.shard++;
+            assert.ok(!(cls === 'rogue' && t.rule === 'T2-aoe'), 'the Rogue skips the T2 AoE clause (M2 v3)');
           }
           const f = s.fight;
           const shards = f.enemies.filter((e) => e.alive && e.kind === 'shard').length;
-          const aoeReady = s.player.bar.some((id) => id && C.SPELL[id].tags.includes('aoe')
-            && R.isLegal(s, { type: 'CAST', spellId: id, target: C.SPELL[id].target === 'enemy' ? f.enemies.find((e) => e.alive && e.kind === 'shard').idx : null }));
+          const sh = f.enemies.find((e) => e.alive && e.kind === 'shard');
+          const aoeReady = !!sh && s.player.bar.some((id) => id && C.SPELL[id].tags.includes('aoe')
+            && R.isLegal(s, { type: 'CAST', spellId: id, target: C.SPELL[id].target === 'enemy' ? sh.idx : null }));
           if (f.boss.phase === 2 && shards >= 2 && aoeReady && !bigHitAction(s)) {
-            assert.ok(a.type === 'CAST' && C.SPELL[a.spellId].tags.includes('aoe'), `${cls}: AoE on ${shards} Shards, got ${JSON.stringify(a)}`);
-            seen.aoe++;
+            if (cls === 'rogue') {
+              assert.equal(key(a), key(R.autoAction(s)), `rogue: ${shards} Shards and AoE ready: autoplay, got ${JSON.stringify(a)}`);
+              seen.rogueSkip++;
+            } else {
+              assert.ok(a.type === 'CAST' && C.SPELL[a.spellId].tags.includes('aoe'), `${cls}: AoE on ${shards} Shards, got ${JSON.stringify(a)}`);
+              seen.aoe++;
+            }
           }
           R.stepInPlace(s, a);
         }
       }
       assert.ok(fights > 0, `${cls}: no PALL autoplay run reached the boss in 60 seeds`);
     }
-    assert.ok(seen.auto > 50 && seen.aoe > 0 && seen.t1 > 0, JSON.stringify(seen));
+    assert.ok(seen.auto > 50 && seen.aoe > 0 && seen.t1 > 0 && seen.rogueSkip > 0, JSON.stringify(seen));
   });
 
   test('the search weights summoned adds by TACTICIAN_ADD_WEIGHT', () => {

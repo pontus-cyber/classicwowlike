@@ -1,7 +1,8 @@
 // greedy bot (balance.md 1): the reachable node with the highest immediate value per hour (value function 1.1),
 // no lookahead; travels on at exit level only if no remaining reachable node beats GREEDY_STAY_THRESHOLD; fixed
 // default build per class (1.3); bar template 1.2 (no boss bar swap); trains everything at each hub; keeps
-// HEAL_STOCK_TARGET Healing Draughts; autoplay combat; manual time profile.
+// HEAL_STOCK_TARGET Healing Draughts; autoplay combat; manual time profile. Hour weight 1 (balance.md 1.1, M2 v3: no
+// lookahead, so no PLANNER_HOUR_MULT).
 import { C, R, legal } from '../lib/engine.mjs';
 import { BAL } from '../lib/params.mjs';
 import { makeCtx, evalNode, copyM } from '../lib/model.mjs';
@@ -12,7 +13,7 @@ const perHour = (ev) => ev.value / Math.max(1, ev.hours);
 
 export function greedyMap(s, risk) {
   const view = R.mapView(s);
-  const ctx = makeCtx(s, risk);
+  const ctx = makeCtx(s, risk, { hourMult: 1 });
   const r = view.pos.r + 1;
   let best = null;
   for (const lane of view.next) {
@@ -41,8 +42,8 @@ export function createGreedyBot({ classId, risk, tree }) {
   return createValueBot('greedy', {
     classId, tree, campBar: false,
     kit: { ...FULL_KIT },
-    hub: (s) => hubFull(s, (x) => innByValue(x, risk)),
+    hub: (s) => hubFull(s, (x) => innByValue(x, risk, 'balanced', 1)),
     map: (s) => greedyMap(s, risk),
-    grindWaves: (s) => valueGrindWaves(s, risk),
+    grindWaves: (s) => valueGrindWaves(s, risk, 'balanced', 1),
   });
 }
