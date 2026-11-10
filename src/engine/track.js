@@ -206,7 +206,11 @@ function invalidReason(s, e, x) {
     case 'shieldAlly': return wardOf(s, e) === null ? 'no ally to shield' : null;
     case 'selfHeal': return e.hp < x.below * e.maxHp ? null : 'not wounded';
     case 'selfShield': return e.shield > 0 ? 'already shielded' : null;
-    case 'signal': return f.signalled ? 'help already called' : f.addPool.length ? null : 'no help nearby';
+    case 'signal': {
+      // Once per fight: given before, or by an enemy whose turn starts first this round (lower index).
+      const calling = f.enemies.some((o) => o.idx < e.idx && o.alive && o.intent && o.intent.kind === 'signal' && o.intent.turn === turnOf(f, o));
+      return f.signalled || calling ? 'help already called' : f.addPool.length ? null : 'no help nearby';
+    }
     default: return null;
   }
 }

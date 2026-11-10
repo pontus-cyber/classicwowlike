@@ -144,9 +144,11 @@ function enemyAct(s, ev, e) {
     }
   } else if (it.kind === 'signal') {
     // Signal (rules 7.12, combat v2): the reinforcement joins at the end of the round; once per fight.
-    f.signalled = true;
-    f.signalPending = { by: e.idx, level: e.level, adds: it.adds };
-    ev.push({ t: 'signal', u: e.idx, adds: it.adds });
+    if (!f.signalled) {
+      f.signalled = true;
+      f.signalPending = { by: e.idx, level: e.level, adds: it.adds };
+      ev.push({ t: 'signal', u: e.idx, adds: it.adds });
+    }
   } else if (it.kind === 'selfHeal') {
     healUnit(s, ev, e.idx, rnd(it.pct * e.maxHp), it.id);
   } else if (it.kind === 'selfShield') {

@@ -154,6 +154,29 @@ describe('rules data tables', () => {
     }
   });
 
+  test('7.12 opening scripts (combat v2): OPENING_SCRIPT equals the script table; every id is an archetype action or a SCRIPT_ACTION', () => {
+    const t = rows(section('### 7.12 Opening scripts and pack roles')).filter((r) => K.ARCHETYPE[r[0]] && r.length === 4);
+    assert.equal(t.length, Object.keys(K.ARCHETYPE).length);
+    for (const [arch, ...turns] of t) {
+      assert.deepEqual(K.OPENING_SCRIPT[arch], turns, arch);
+      for (const id of turns) assert.ok(K.SCRIPT_ACTION[id] || K.ARCHETYPE[arch].actions.some((a) => a.id === id), `${arch}: ${id}`);
+    }
+    assert.equal(K.OPENING_SCRIPT.brute.length, K.OPENING_TURNS);
+    assert.equal(K.SCRIPT_ACTION.bolster.pct, K.BOLSTER_PCT);
+    assert.equal(K.SCRIPT_ACTION.signal.adds, K.SIGNAL_ADDS);
+    assert.equal(K.ARCHETYPE.mender.actions.find((a) => a.id === 'mend').below, K.MEND_BELOW);
+  });
+
+  test('7.10 engage options (combat v2): ENGAGE_OPTION equals the option table (id, class, kind, name); three per class in ENGAGE_OPTIONS', () => {
+    const t = rows(section('### 7.10 Engage round')).filter((r) => K.ENGAGE_OPTION[r[0]]);
+    assert.equal(t.length, 9);
+    for (const [id, cls, kind, name] of t) assert.deepEqual([K.ENGAGE_OPTION[id].cls, K.ENGAGE_OPTION[id].kind, K.ENGAGE_OPTION[id].name], [cls, kind, name], id);
+    for (const c of K.CLASS_IDS) {
+      assert.deepEqual(K.ENGAGE_OPTIONS[c].map((id) => K.ENGAGE_OPTION[id].kind), ['strike', 'control', 'setup'], c);
+      assert.ok(K.ENGAGE_OPTIONS[c].every((id) => K.ENGAGE_OPTION[id].cls === c));
+    }
+  });
+
   test('8.1 slots, 8.2 rarity, 8.4 drop tables', () => {
     for (const r of rows(section('### 8.1 Slots'))) {
       const s = Object.values(K.SLOT).find((x) => x.name === r[0]);

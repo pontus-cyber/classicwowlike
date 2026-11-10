@@ -2,7 +2,7 @@
 
 Every section of docs/specs/rules.md and the tests that cover it. Engine suite: `node --test qa/engine/` (154 tests, Core Gameplay Engineer). QA suite: `node --test qa/rules/` (this folder). Browser: qa/browser/full-run.mjs and ui-checks.mjs.
 
-File keys. Engine: E00 s00-s01-structure, E02 s02-nodes, E03 s03-s04-character, E05 s05-classes, E06 s06-talents, E07 s07-combat, E08 s08-s09-items-death, E10 s10-boss, E11 s11-s12-meta-content, E13 s13-constants, EH health. QA: Q01 r01-r02-map-nodes, Q04 r04-r07-character-combat, Q06 r06-talents, Q08 r08-items, Q09 r09-r11-summary-meta, Q10 r10-boss, QA api-legal. B browser scripts.
+File keys. Engine: E00 s00-s01-structure, E02 s02-nodes, E03 s03-s04-character, E05 s05-classes, E06 s06-talents, E07 s07-combat, E07b s07b-combat-v2, E08 s08-s09-items-death, E10 s10-boss, E11 s11-s12-meta-content, E13 s13-constants, EH health. QA: Q01 r01-r02-map-nodes, Q04 r04-r07-character-combat, Q06 r06-talents, Q08 r08-items, Q09 r09-r11-summary-meta, Q10 r10-boss, QA api-legal. B browser scripts.
 
 | Section | Covered by | QA additions and notes |
 |---|---|---|
@@ -25,7 +25,7 @@ File keys. Engine: E00 s00-s01-structure, E02 s02-nodes, E03 s03-s04-character, 
 | 2.7 Trainer | E02 learn, train, train all, respec; E11 Ledger | - |
 | 2.8 Treasure | E02 guard, chest, trap never kills | Q01 guard and trap frequencies, trap damage 15 % (the E02 assertion never runs on its seed) |
 | 2.9 Shrine | E02 boon effects and durations | Q01 boon weights without replacement, Insight +20 % XP |
-| 3 Pacing model | E03 estSeconds | measured: about 2.3 s of animation per manual round at 1× (playtest notes) |
+| 3 Pacing model | E03 estSeconds; E07b PACE_ENGAGE_S (manual only), 3.1 s and 1.1 s rounds (combat v2) | measured: about 2.3 s of animation per manual round at 1× (playtest notes) |
 | 4.1-4.2 Stats and derived values | E03 formulas and caps; E06 stat talents | - |
 | 4.3 Levelling | E03 curve, carry-over, HP rise, talent points | Q04 mana rises with max mana |
 | 4.4 XP per event | E03 diffMod table, eventXp with Insight and Quick Study; E02 rested | - |
@@ -36,15 +36,19 @@ File keys. Engine: E00 s00-s01-structure, E02 s02-nodes, E03 s03-s04-character, 
 | 5.5 Hunter spells and pets | E05 every spell, pet values, specials, aggro, death and revive | - |
 | 5.6 Meta spells | E05 | - |
 | 6 Talents (points, tiers, capstone, 81 talents) | E06 points, tiers, one capstone, new-spell talents, about 30 talents; E13 table | Q06 the other 50 talents (damage, DOT, ward, crit, pet, resource and mechanic talents). All 81 now have an assertion. E06 names Crippling Toxin, Glacier Spike ×1.5 and Barrage Mastery without asserting them; Q06 does |
-| 7.1 Fight flow | E07 round order, autoplay toggle legal, fight start/end, Unaware | Q04 end-of-round order (player-side ticks first). B: the UI Autoplay toggle never plays (BUG-QA-01) |
+| 7.1 Fight flow | E07 round order, autoplay toggle legal, fight start/end, engage round Unaware for every class (combat v2) | Q04 end-of-round order (player-side ticks first). B: the UI Autoplay toggle never plays (BUG-QA-01) |
 | 7.2 Damage pipeline | E07 independent re-implementation, 3 draws per event, MIN_HIT, WARD, IMMUNE, level clamp, CHILLED/CURSED, DOT snapshot | Q04 heals draw nothing and never crit |
 | 7.3 Resources | E07 costs, mana rounding, focus regen | Q04 energy regen and cap, cost on a miss |
 | 7.4 Status effects | E07 durations, refresh, per-source BLEED, dispersal, BRAND, POISON, WARD, EXPOSED/MARKED, EVASION cap, TAUNT; E05 STUN, FROZEN, HEXED, SILENCED, STEALTH, IMMUNE, HOT | Q04 STEALTH gained mid-fight lasts one round |
 | 7.5 Items in combat | E07 item bar, shared POTION_CD, Tonic, Spark | Q04 Spark and Tonic have no cooldown, Spark formula |
-| 7.6 Enemy AI and intents | E07 stats, weights, SILENCED, Mend, cooldowns, soft enrage, templates; E13 archetypes | - |
-| 7.7 Interrupts | E07; E05; E10 boss channel in either round | - |
-| 7.8 Flee | E07 chance, stealth, bosses; E02 quest flee | Q04 flee from a dungeon fight |
-| 7.9 Autoplay policy | E07 rules 1-6, default target | Q04 ">= N enemies" ignores HEXED; rations between fights |
+| 7.6 Enemy AI and intents | E07 stats (× ENGAGE_DMG_COMP), weights (turn-5 picks), SILENCED, Mend, cooldowns, soft enrage, templates; E13 archetypes; E07b ENGAGE_DMG_COMP not on the end boss | - |
+| 7.7 Interrupts | E07; E05; E10 boss channel in either round; E07b OFF_BALANCE after an interrupt (also the end boss's Litany) | - |
+| 7.8 Flee | E07 chance, stealth, bosses; E02 quest flee; E07b legal in the engage round | Q04 flee from a dungeon fight |
+| 7.9 Autoplay policy | E07 rules 1-6, default target; E07b rule E (control on the most damaging track, strike, Mage Pre-cast, ties), SAPPED skipped by the default target | Q04 ">= N enemies" ignores HEXED and SAPPED; rations between fights |
+| 7.10 Engage round (combat v2) | E07b ENGAGE only in the engage round (not round 2, not the end boss), every listed ENGAGE steps, control options vs immune enemies (engageOptions reason), each of the 9 options; E13 option table; EH ENGAGE in full runs | - |
+| 7.11 Intent track (combat v2) | E07b turns 1..3 at start, draw counts (scripted 0, aggro per entry, turn by turn), no draw at round 1 -> 2, one entry per round, entries fixed once shown, re-seeded look-ahead re-draws only new entries, pick cooldowns (track, e.cds, later scripted entry), control cancels without delay, replacement with reason, TAUNT at now and in the shown targets, adds draw at once; E05 pet-aggro share; E07 interrupt draw count | - |
+| 7.12 Opening scripts and pack roles (combat v2) | E07b scripts per archetype, lone skulker, signatures (elite, rare, dungeon boss turn 5), script multipliers, Signal (add pool, level, no rewards, once, interrupted), Bolster, Bloodlust (step, cap), guardian ward; E13 script table | - |
+| 7.13 Off-balance (combat v2) | E07b interrupt, control on a heavy (mid-round and at turn start), avoided heavies (miss, WARD, IMMUNE, TAUNT; not hit, not pet aggro), +OFFBAL_TAKEN, +OFFBAL_CRIT, dodge 0, FROZEN counts once, durations, end boss (Litany, Crush) | Q06 Brittle vs FROZEN (FROZEN counts as OFF_BALANCE) |
 | 8.1-8.3 Slots, rarity, budget | E08 formulas, rarity stats, class bias, item score | - |
 | 8.4 Drops | E08 mob chances, rare share, guaranteed elite drops, draw order, Ember, uniques | Q08 rarity weights of all 9 sources, trash item chance, grind × 1.5, slots uniform; Q01 rare elite loot |
 | 8.5 Gold | E08 V(L), sell, junk; E02 coins; E11 Prospector | - |
