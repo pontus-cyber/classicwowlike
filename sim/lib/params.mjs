@@ -6,6 +6,10 @@
 //      constant (rules.md 13), so the report reads it from the engine (C.META_TIME_BUDGET_H), not from BAL.
 // SIM: numbers the balance spec leaves open, used by the bots and the batch runner. Each is an [assumption]
 //      of the Simulation & Balance Engineer, listed in docs/handoffs/sim-2026-11-09.md.
+// C2:  the simulator's constants of docs/specs/combat-v2.md section 15 (bots and balance targets B48-B54, the
+//      changed B5/B15/B16), same names and values as written there (pp as pp). qa/sim/combat2.test.mjs parses the
+//      spec and compares every C2 key that is in its table. Rules constants of that table (OFFBAL_TAKEN,
+//      ENGAGE_DMG_COMP, ...) are read from the engine (C), never copied here.
 
 export const BAL = {
   N_RUNS_PER_CELL: 2000,
@@ -179,3 +183,44 @@ export const SIM = {
   BOOT_N: 1000,
   BOOT_SEED: 7,
 };
+
+export const C2 = {
+  OPEN_ROUNDS: 5,
+  OPENER_BEAM: 12,
+  OPENER_SAMPLES: 8,
+  OPENER_TAIL: 3,
+  OPEN_DEATH_RATIO_MAX: 0.70,
+  OPEN_REACH_GAIN_MIN: 5,
+  MASH_REACH_MIN: 0.50,
+  MASH_GAP_MIN: 8,
+  OPEN_DECIDES_MIN: 0.50,
+  ENGAGE_SHARE_MIN: 0.15,
+  ENGAGE_SHARE_MAX: 0.60,
+  WINDOW_USE_MIN: 0.60,
+  WINDOW_GAP_MIN: 20,
+  FIRST_TARGET_DIFF_MIN: 0.25,
+  MANUAL_GAP_V2: [15, 30],
+  OPEN_SHARE_MIN: 0.60,
+  COMBAT_MIN_MAX: 21,
+  FIGHTS_V2: [34, 42],
+  ROUNDS_BOSS_V2: [30, 40],
+  /** v2 pacing (section 9), used for B53 only when the engine does not define the term yet. */
+  PACE_ROUND_ANIM_S: 2.1,
+  PACE_ROUND_DECIDE_S: 1.0,
+  PACE_ENGAGE_S: 6,
+  /** B16 bands of the changed B16 row (section 12 text, not the constant table): rounds incl. the engage round. */
+  ROUNDS_V2: { normal: [4, 6], elite: [6, 9], dboss: [8, 12] },
+};
+
+/** Opener and replay harness numbers the combat v2 spec leaves open [assumption: compute budget]. */
+Object.assign(SIM, {
+  /** Opener (sim/bots/opener.mjs): samples a sequence is expanded on (the beam's score), and the best complete
+   *  sequences re-scored on all OPENER_SAMPLES. */
+  OPENER_RACE_SAMPLES: 1,
+  OPENER_FINAL_KEEP: 3,
+  /** Opener: healing items are search candidates below this HP fraction (rules 1-2 of autoplay always stand). */
+  OPENER_POTION_HP: 0.5,
+  /** Opener: a fight is played by autoplay while it is routine (one normal enemy, no heavy or cast in sight) and HP
+   *  is at least this fraction. */
+  OPENER_GATE_HP: 0.7,
+});

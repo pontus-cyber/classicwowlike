@@ -13,13 +13,13 @@ export const CLASSES = ['rogue', 'mage', 'hunter'];
 
 /**
  * opts: { pool, bot, classes, runs, seedStart, prof, trees: {cls: tree}, style, variant, pet, out,
- *         warmup (runs, 0 = none), obsIn: {cls: obs}, log, quiet, workers, name }
+ *         warmup (runs, 0 = none), obsIn: {cls: obs}, log, quiet, workers, name, replay (B50 replays, combat-v2.md 11) }
  * Returns { name, dir, perClass: { cls: { records, metrics, obs, table } } }.
  */
 export async function runBatch(opts) {
   const commit = commitInfo();
   const date = new Date().toISOString().slice(0, 10);
-  const cellBase = { bot: opts.bot, prof: opts.prof, style: opts.style || null, variant: opts.variant || null, pet: opts.pet || null };
+  const cellBase = { bot: opts.bot, prof: opts.prof, style: opts.style || null, variant: opts.variant || null, pet: opts.pet || null, ...(opts.replay ? { replay: true } : {}) };
   const name = opts.name || cellName({ ...cellBase, tree: null });
   const dir = opts.out ? ensureDir(join(opts.out, name)) : null;
   const perClass = {};
@@ -51,6 +51,7 @@ export async function runBatch(opts) {
   const meta = {
     name, commit, date, runs: opts.runs, seedStart: opts.seedStart, workers: opts.workers || 1, wallMs, totalRuns: total,
     warmupNote: notes.join('; '), bot: opts.bot, prof: opts.prof, trees: opts.trees, style: opts.style || 'balanced', variant: opts.variant || null, pet: opts.pet || null,
+    replay: !!opts.replay,
   };
   if (dir) {
     writeJson(join(dir, 'summary.json'), { meta, classes: Object.fromEntries(Object.entries(perClass).map(([c, x]) => [c, { tree: x.tree, metrics: x.metrics }])) });

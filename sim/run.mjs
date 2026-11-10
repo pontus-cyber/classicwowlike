@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 // Batch mode (M2 2.1-2.2): N seeded runs per class with one bot, across worker threads.
 //
-//   node sim/run.mjs --bot <random|greedy|planner|speedrunner|tactician> --class <rogue|mage|hunter|all>
+//   node sim/run.mjs --bot <random|greedy|planner|speedrunner|tactician|masher|opener> --class <rogue|mage|hunter|all>
 //                    --runs N --seed-start S --profile <fresh|metaN|all> --out <dir>
 //   options: --tree <0|1|2> (default: the recorded default tree of the class and profile group, balance.md 1.3:
 //            SIM.DEFAULT_TREE, with --profile all SIM.DEFAULT_TREE_PALL)   --style <balanced|quest|grind|elite|speed>
 //            --variant <noInterrupt|noCleanse|noAoe>   --pet <id>   --workers N (default: all cores)
 //            --warmup N (planner warm-up runs for the risk table, default SIM.WARMUP_RUNS; 0 = start at RISK_PRIOR)
 //            --risk-in <risk.json of an earlier batch>   --log (keep action logs in runs-*.jsonl)
+//            --replay (B50, combat-v2.md 11: replay every non-boss fight that ends a run in death; used with the masher)
 //   campaigns: node sim/run.mjs --campaign N --class <c|all> --out <dir> [--risk-in <risk.json>]
 //
 // Writes <out>/<bot>-<profile>[-style][-variant][-pet]/{runs-<class>.jsonl, summary.json, summary.md, risk.json}.
@@ -31,7 +32,7 @@ function parse(argv) {
     const a = argv[i];
     if (!a.startsWith('--')) throw new Error(`unexpected argument ${a}`);
     const k = a.slice(2);
-    if (k === 'log') { o.log = true; continue; }
+    if (k === 'log' || k === 'replay') { o[k] = true; continue; }
     o[k] = argv[++i];
   }
   return o;
@@ -66,7 +67,7 @@ try {
     const r = await runBatch({
       pool, bot: args.bot, classes, runs: Number(args.runs || BAL.N_RUNS_PER_CELL), seedStart: Number(args['seed-start'] || BAL.SEED_BASE),
       prof: args.profile || 'fresh', trees, style: args.style || null, variant: args.variant || null, pet: args.pet || null,
-      out, warmup: args.warmup !== undefined ? Number(args.warmup) : SIM.WARMUP_RUNS, obsIn, log: !!args.log, workers,
+      out, warmup: args.warmup !== undefined ? Number(args.warmup) : SIM.WARMUP_RUNS, obsIn, log: !!args.log, workers, replay: !!args.replay,
     });
     for (const [cls, x] of Object.entries(r.perClass)) {
       const m = x.metrics;

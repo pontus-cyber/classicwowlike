@@ -6,8 +6,16 @@
 //                 (M2 v3: zone, lowest HP and potions for B21, B24 and B38)
 //   ne: entries  [riskTypeCode, CL - L, HP % at entry, died (0/1), HP % at exit] for the risk table
 //       (a quest whose fight never starts keeps type 'quest' and is skipped by the table)
+//   f2: combat v2 fields per fight, aligned with fx (combat-v2.md 11 "Recorder"; B50-B54):
+//       [enemies at start, engage (actionLabel of the engage-round action, '' without an engage round), archetype of
+//        its target ('' if none), round of the first OFF_BALANCE (0 none), windows opened, windows used (the player hit
+//        that enemy with a spell, CAST or ENGAGE, while it was OFF_BALANCE), Signal resolved (0/1), HP at the end of
+//        round OPEN_ROUNDS in per mille (at the fight's end if earlier; 0 on a death), first target differs from the
+//        default target (1 / 0; -1 with one enemy or no targeted action), archetype of the first target ('' none)]
 import { C, R } from './engine.mjs';
 import { TYPE_CODE } from './risk.mjs';
+import { C2 } from './params.mjs';
+import { isEngageRound, isOffBalanceId, actionTarget, actionLabel, defaultTarget } from './view.mjs';
 
 export const FIGHT_KINDS = ['quest', 'grind', 'elite', 'trash', 'dboss', 'treasure', 'camp', 'boss'];
 export const FK = Object.fromEntries(FIGHT_KINDS.map((k, i) => [k, i]));
@@ -39,11 +47,38 @@ export class Recorder {
     this.fight = null;
     this.entry = null;
     this.trainCheck = trainCheck;
+    this.f2 = [];
   }
 
-  before(s) {
+  /** State facts before a step; with the action `a`, the combat v2 fields that need the state before it. */
+  before(s, a = null) {
     const p = s.player;
-    return p ? { hp: p.hp, maxHp: p.d.maxHp, level: p.level, rounds: s.stats.rounds } : null;
+    if (!p) return null;
+    const fz = this.fight;
+    if (fz && s.fight && a) {
+      const tgt = actionTarget(a);
+      if (s.fight.round === 1 && !fz.acted && isEngageRound(s)) {
+        fz.engage = actionLabel(a);
+        fz.engageArch = tgt !== null && s.fight.enemies[tgt] ? s.fight.enemies[tgt].arch : '';
+      }
+      fz.acted = true;
+      if (fz.firstDiff === null && tgt !== null) {
+        const n = s.fight.enemies.filter((e) => e.alive).length;
+        fz.firstDiff = n >= 2 ? (tgt === defaultTarget(s) ? 0 : 1) : -1;
+        fz.firstArch = s.fight.enemies[tgt] ? s.fight.enemies[tgt].arch : '';
+      }
+      fz.spell = a.type === 'CAST' || a.type === 'ENGAGE';
+    }
+    return { hp: p.hp, maxHp: p.d.maxHp, level: p.level, rounds: s.stats.rounds };
+  }
+
+  /** Close the fight's combat v2 fields (windows still open count as opened; used if hit). */
+  closeF2(died, hpFrac) {
+    const fz = this.fight;
+    for (const w of fz.win.values()) if (w.used) fz.used++;
+    fz.win.clear();
+    if (fz.hpOpen === null) fz.hpOpen = died ? 0 : permille(hpFrac);
+    this.f2.push([fz.n0, fz.engage, fz.engageArch, fz.firstOb, fz.opened, fz.used, fz.signal, fz.hpOpen, fz.firstDiff === null ? -1 : fz.firstDiff, fz.firstArch]);
   }
 
   openEntry(type, dl, hpFrac) {
@@ -70,7 +105,41 @@ export class Recorder {
           if (e.dst === 'player') {
             hp -= e.amount;
             if (this.fight) this.fight.min = Math.min(this.fight.min, hp / p.d.maxHp);
+          } else if (this.fight && e.src === 'player' && !e.tick && this.fight.spell && typeof e.dst === 'number') {
+            const w = this.fight.win.get(e.dst);
+            if (w) w.used = true;
           }
+          break;
+        case 'status':
+          if (this.fight && typeof e.u === 'number' && isOffBalanceId(e.id)) {
+            const fz = this.fight;
+            if (e.on && !fz.win.has(e.u)) {
+              fz.win.set(e.u, { used: false });
+              fz.opened++;
+              if (!fz.firstOb) fz.firstOb = fz.round;
+            } else if (!e.on && fz.win.has(e.u)) {
+              if (fz.win.get(e.u).used) fz.used++;
+              fz.win.delete(e.u);
+            }
+          }
+          break;
+        case 'death':
+          if (this.fight && typeof e.u === 'number' && this.fight.win.has(e.u)) {
+            if (this.fight.win.get(e.u).used) this.fight.used++;
+            this.fight.win.delete(e.u);
+          }
+          break;
+        case 'round':
+          if (this.fight) {
+            this.fight.round = e.n;
+            if (e.n === C2.OPEN_ROUNDS + 1 && this.fight.hpOpen === null) this.fight.hpOpen = permille(hp / p.d.maxHp);
+          }
+          break;
+        case 'enemyAction':
+          if (this.fight && e.id === 'signal') this.fight.signal = 1;
+          break;
+        case 'summon':
+          if (this.fight && e.signal) this.fight.signal = 1;
           break;
         case 'heal': if (e.dst === 'player') hp += e.amount; break;
         case 'levelUp': if (!lvlApplied) { hp += p.d.maxHp - b.maxHp; lvlApplied = true; } break;
@@ -79,7 +148,11 @@ export class Recorder {
           if (ENTRY_NODE.has(e.type)) this.openEntry(e.type, e.cl - b.level, b.hp / b.maxHp);
           break;
         case 'fight': {
-          this.fight = { kind: e.kind, r0: b.rounds, min: hp / b.maxHp, z: zoneOf(s), pot: s.stats.potionsUsed };
+          this.fight = {
+            kind: e.kind, r0: b.rounds, min: hp / b.maxHp, z: zoneOf(s), pot: s.stats.potionsUsed,
+            n0: e.enemies.length, engage: '', engageArch: '', acted: false, firstDiff: null, firstArch: '', spell: false,
+            round: 1, firstOb: 0, opened: 0, used: 0, win: new Map(), signal: 0, hpOpen: null,
+          };
           const lvl = e.enemies.length ? e.enemies[0].level : b.level;
           if (e.kind === 'grind' || e.kind === 'camp') this.openEntry(e.kind, lvl - b.level, hp / b.maxHp);
           else if (this.entry && this.entry.type === 'quest' && e.kind === 'quest') this.entry.type = `quest${Math.min(3, e.enemies.length)}`;
@@ -95,6 +168,7 @@ export class Recorder {
             const rounds = e.t === 'victory' ? e.rounds : s.stats.rounds - this.fight.r0;
             const fz = this.fight;
             this.fx.push([FK[fz.kind], rounds, e.t === 'victory' ? 1 : 2, pct(hp / p.d.maxHp), fz.z, permille(fz.min), s.stats.potionsUsed - fz.pot]);
+            this.closeF2(false, hp / p.d.maxHp);
             const k = this.fight.kind;
             this.fight = null;
             if (this.entry) this.entry.hp1 = pct(hpAfter());
@@ -110,6 +184,7 @@ export class Recorder {
             if (this.fight) {
               const rounds = this.fight.kind === 'boss' ? s.stats.bossRounds : s.stats.rounds - this.fight.r0;
               this.fx.push([FK[this.fight.kind], rounds, 0, 0, this.fight.z, 0, s.stats.potionsUsed - this.fight.pot]);
+              this.closeF2(true, 0);
               this.fight = null;
             }
             this.closeEntry(1, 0);
@@ -160,7 +235,9 @@ export class Recorder {
       ech: sum ? sum.echoes.total : 0, echFirst: line('firstKill'), echSpeed: line('speed'),
       rests: st.rests || 0, potions: sum ? sum.potionsUsed : 0, res: sum ? sum.resurrectsUsed : 0,
       gold: sum ? sum.gold : null, travelLv: this.travelLv, train: this.train, ember: this.ember, boss: this.boss,
-      fx: this.fx, ne: this.ne, steps: meta.steps, ms: meta.ms,
+      fx: this.fx, f2: this.f2, ne: this.ne, steps: meta.steps, ms: meta.ms,
+      ...(meta.rep ? { rep: meta.rep } : {}),
+      ...(meta.bm ? { bm: meta.bm } : {}),
       ...(meta.log ? { log: meta.log } : {}),
       ...(meta.hash !== undefined ? { hash: meta.hash } : {}),
     };
