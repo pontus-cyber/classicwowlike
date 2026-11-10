@@ -14,8 +14,8 @@
 // Also exported: validateContent, newProfile, metaOffers, buyMeta, mapView, isLegal, whyIllegal, stepInPlace,
 // IllegalActionError, display helpers (xpToNext, talentPointsFree, itemScore, spellCost, spellCooldown,
 // spellInfo, fleeChance, bagCapacity, travelLevel, resurrectCharges, bossPar, defaultTarget), combat v2 helpers
-// (engageOptions, isEngageRound, offBalance; rules 7.10-7.13), rule helpers (V, xpCurve, diffMod, zoneDanger) and every
-// constant via `C`.
+// (engageOptions, engagePreview, isEngageRound, offBalance; rules 7.10-7.13), rule helpers (V, xpCurve, diffMod,
+// zoneDanger) and every constant via `C`.
 import * as C from './constants.js';
 import { normaliseSeed } from './rng.js';
 import { cloneState, deepClone, deepFreeze, IllegalActionError } from './engine/util.js';
@@ -31,7 +31,7 @@ import { xpToNext, xpCurve, diffMod, talentPointsFree as freePoints } from './en
 import { itemScore, V, bagCapacity as bagCap, countConsumable } from './engine/items.js';
 import { spellCost as cost, spellCd, spellAmount, spellTl, fleeChance as flee, castError } from './engine/spells.js';
 import { resurrectOrder, offBalanceOpen, findSt } from './engine/damage.js';
-import { engageOptions as engageList } from './engine/engage.js';
+import { engageOptions as engageList, engagePreview as previewEngage } from './engine/engage.js';
 import { isEngageRound as engageRound } from './engine/track.js';
 
 /** 2 (combat v2): enemies carry intent tracks; a state saved by an older engine is refused. */
@@ -148,6 +148,16 @@ export function isEngageRound(state) {
  */
 export function engageOptions(state) {
   return engageList(state);
+}
+
+/**
+ * What an ENGAGE action would do to the tracks (rules 7.10, combat v2), for the engage panel's hover preview; no
+ * draw, so it shows nothing the player cannot see. null when the action is not legal, else { enemies: [{ u,
+ * cancelled, offBalance, window, pet }] } (turn numbers): entries it cancels, those that leave the enemy
+ * OFF_BALANCE, turns FROZEN (a window), turns whose single-target hits go to the pet.
+ */
+export function engagePreview(state, action) {
+  return previewEngage(state, action);
 }
 
 /**

@@ -561,6 +561,47 @@ describe('rules 7.10 engage round (combat v2)', () => {
     const ratio = hitPet(() => {}) / hitPet((x) => { x.fight.pet.st = x.fight.pet.st.filter((y) => y.id !== 'PET_LEAD'); });
     assert.ok(Math.abs(ratio - (1 - C.PET_LEAD_DR)) < 0.03, `${ratio}`);
   });
+
+  test('engagePreview (engage panel hover): the turns it shows cancelled, OFF_BALANCE, FROZEN and sent to the pet are the ones play shows; no draw; null when not legal; damage options change no entry', () => {
+    const noPet = (x) => { tough(x); x.player.pet.alive = false; };
+    const petUp = (x) => { tough(x); x.player.d.petMaxHp = x.player.pet.hp = 1e6; };
+    const cases = [
+      ['mage', ['hexbind'], [mob('z1_brute', 30), mob('z1_caster', 30)], engage('precast', 0, 'hexbind'), {}],
+      ['mage', ['rime_burst'], [mob('z1_brute', 30), mob('z1_caster', 30)], engage('precast', null, 'rime_burst'), {}],
+      ['mage', [], [mob('z1_brute', 30), mob('z1_caster', 30)], engage('binding_glyph', 1), {}],
+      ['rogue', [], [mob('z1_caster', 30), mob('z1_brute', 30)], engage('sap', 0), { stealth: true }],
+      ['hunter', [], [mob('z1_brute', 30), mob('z1_mender', 30)], engage('lay_trap', 0), { petId: 'ridgewolf', prep: noPet }],
+      ['hunter', [], [mob('z1_beast', 30), mob('z1_brute', 30)], engage('lay_trap', 0), { petId: 'ridgewolf', prep: noPet }],
+      ['hunter', [], [mob('z1_brute', 30), mob('z1_skulker', 30)], engage('send_pet', 0), { petId: 'ridgewolf', prep: petUp }],
+    ];
+    for (const [cls, spells, mobs, a, o] of cases) {
+      const s = fight(cls, 30, spells, mobs, { prep: tough, ...o });
+      const before = R.serialize(s);
+      const p = R.engagePreview(s, a);
+      assert.equal(R.serialize(s), before, 'no draw, no change');
+      // Play it out with PASS (no damage on the enemies) and read what the tracks did on turns 1..INTENT_TRACK_LEN.
+      const seen = new Map();
+      const at = (u) => { if (!seen.has(u)) seen.set(u, { u, cancelled: [], offBalance: [], window: [], pet: [] }); return seen.get(u); };
+      let r = R.step(s, a);
+      for (let k = 0; k < C.INTENT_TRACK_LEN; k++) {
+        for (const x of ev(r.events, 'cancel')) {
+          at(x.u).cancelled.push(x.turn);
+          if (x.offBalance) at(x.u).offBalance.push(x.turn);
+          if (x.by === 'FROZEN') at(x.u).window.push(x.turn);
+        }
+        for (const e of r.state.fight.enemies) if (e.alive && e.intent.target === 'pet' && e.turn <= C.PET_LEAD_TURNS) at(e.idx).pet.push(e.turn);
+        r = R.step(r.state, { type: 'PASS' });
+      }
+      const want = [...seen.values()].filter((x) => x.cancelled.length || x.pet.length).sort((x, y) => x.u - y.u);
+      assert.deepEqual(p.enemies.slice().sort((x, y) => x.u - y.u), want, `${a.option} ${a.spellId || ''}`);
+    }
+    const m = fight('mage', 30, ['ember_bolt'], [mob('z1_brute', 30), mob('z1_caster', 30)], { prep: tough });
+    assert.deepEqual(R.engagePreview(m, engage('precast', 0, 'ember_bolt')), { enemies: [] });
+    assert.deepEqual(R.engagePreview(m, engage('gather_power')), { enemies: [] });
+    assert.equal(R.engagePreview(m, engage('sap', 0)), null, 'not a Mage option');
+    assert.equal(R.engagePreview(pass(m), engage('binding_glyph', 1)), null, 'not in round 2');
+    assert.equal(R.engagePreview(m, { type: 'PASS' }), null);
+  });
 });
 
 describe('rules 7.9 rule E and pacing (combat v2)', () => {

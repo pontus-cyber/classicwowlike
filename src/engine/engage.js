@@ -7,7 +7,7 @@ import {
 } from '../constants.js';
 import { tr } from './stats.js';
 import { addStatus, petAlive } from './damage.js';
-import { isEngageRound } from './track.js';
+import { isEngageRound, isSingle } from './track.js';
 import { base, pHit, addCp, control, cast, castError, twinFangs, knowsSpell } from './spells.js';
 
 /** Sap and Premeditate keep the Rogue in STEALTH (rules 7.10); every other option is a non-opener action. */
@@ -122,6 +122,41 @@ export function engageAction(s, ev, a) {
     default:
       throw new Error(`no handler for engage option ${o.id}`);
   }
+}
+
+/** Control statuses a Mage Pre-cast spell applies (for the preview): status and its duration field in SPELL. */
+const PRECAST_CONTROL = { hexbind: ['HEXED', 'hex'], rime_burst: ['FROZEN', 'freeze'] };
+
+/**
+ * What an ENGAGE action does to the tracks (rules 7.10, for the engage panel's hover preview), without any draw:
+ * null if it is not legal, else { enemies: [{ u, cancelled: [turns], offBalance: [turns], window: [turns], pet:
+ * [turns] }] } for the enemies it changes: `cancelled` = turns whose entries it cancels (Sap, Binding Glyph,
+ * Lay Trap, a Pre-cast Hexbind or Rime Burst; Sap and Hexbind only while no damage breaks them; Rime Burst only
+ * if it hits), `offBalance` = those among them whose entry is a heavy or a cast (the enemy will be OFF_BALANCE),
+ * `window` = turns it is FROZEN (counts as OFF_BALANCE), `pet` = turns whose single-target entries go to the pet
+ * (Send the Pet). Damage options change no entry.
+ */
+export function engagePreview(s, a) {
+  if (!a || a.type !== 'ENGAGE' || engageError(s, a)) return null;
+  const f = s.fight;
+  const out = [];
+  const big = (e, t) => { const x = e.track.find((y) => y.turn === t); return !!(x && (x.heavy || x.cast)); };
+  const turns = (n) => Array.from({ length: Math.max(0, n) }, (_, i) => i + 1);
+  const cancel = (e, ts, frozen) => out.push({ u: e.idx, cancelled: ts, offBalance: ts.filter((t) => big(e, t)), window: frozen ? ts : [], pet: [] });
+  const o = ENGAGE_OPTION[a.option];
+  if (o.id === 'sap') cancel(f.enemies[a.target], turns(SAP_TURNS), false);
+  else if (o.id === 'binding_glyph') cancel(f.enemies[a.target], turns(GLYPH_TURNS), true);
+  else if (o.id === 'lay_trap') cancel(f.enemies[a.target], [trapTurn(f.enemies[a.target])], false);
+  else if (o.id === 'send_pet') {
+    for (const e of f.enemies) if (e.alive) out.push({ u: e.idx, cancelled: [], offBalance: [], window: [], pet: turns(PET_LEAD_TURNS).filter((t) => { const x = e.track.find((y) => y.turn === t); return x && isSingle(x.kind); }) });
+  } else if (o.id === 'precast' && PRECAST_CONTROL[a.spellId]) {
+    // A status applied in the engage round covers turns 1..dur-1 (rules 7.4); immune enemies are only interrupted.
+    const [id, field] = PRECAST_CONTROL[a.spellId];
+    const dur = SPELL[a.spellId][field];
+    const hit = SPELL[a.spellId].target === 'all' ? f.enemies.filter((e) => e.alive) : [f.enemies[a.target]];
+    for (const e of hit) if (!e.ccImmune) cancel(e, turns(dur - 1), id === 'FROZEN');
+  }
+  return { enemies: out.filter((x) => x.cancelled.length || x.pet.length) };
 }
 
 /**
