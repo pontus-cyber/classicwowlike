@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="ecc2acf 2026-11-10T09:11:05Z">
+<meta name="build" content="1ddfb06 2026-11-10T10:47:17Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -104,18 +104,24 @@ button { font-family: inherit; }
 .uf .bar { height: 1.65rem; }
 .uf .bar.res { height: 1.25rem; }
 .uf .bar.res .txt { font-size: 1rem; }
-.statuses { display: flex; gap: .3rem; flex-wrap: wrap; min-height: 2.2rem; }
-.st { position: relative; width: 2.2rem; height: 2.2rem; border-radius: .25rem; border: 1px solid #000; box-shadow: 0 0 0 1px rgba(120, 220, 120, .6); }
-.st.bad { box-shadow: 0 0 0 1px rgba(255, 90, 70, .8); }
-.st img { width: 100%; height: 100%; border-radius: .2rem; display: block; }
-.st .n { position: absolute; right: -.1rem; bottom: -.2rem; font: 800 1rem var(--font-num); color: #fff; text-shadow: 0 0 2px #000, 0 1px 1px #000; }
-.st .s { position: absolute; left: -.1rem; top: -.35rem; font: 800 1rem var(--font-num); color: #ffe58a; text-shadow: 0 0 2px #000, 0 1px 1px #000; }
+/* Status icons (DoTs, buffs, debuffs): buffs first, a divider, then debuffs. Buff: round green frame. Debuff: square red
+   frame with a notch in the upper right corner. Rounds left: lower right; stacks: upper left. */
+.statuses { display: flex; gap: .45rem; flex-wrap: wrap; align-items: center; min-height: 3.4rem; padding: .25rem .25rem 0 .25rem; }
+.st { position: relative; flex: none; width: 3.4rem; height: 3.4rem; border-radius: .9rem; border: .2rem solid #49c25c; background: #0a0806; box-shadow: 0 0 0 1px #000, 0 .2rem .5rem rgba(0, 0, 0, .65); }
+.st img { width: 100%; height: 100%; border-radius: .65rem; display: block; }
+.st.bad { border-radius: .2rem; border-color: #ff4a36; box-shadow: 0 0 0 1px #000, 0 0 .8rem rgba(255, 60, 40, .55), 0 .2rem .5rem rgba(0, 0, 0, .65); }
+.st.bad img { border-radius: 0; }
+.st.bad::after { content: ''; position: absolute; right: -.2rem; top: -.2rem; width: 0; height: 0; border-style: solid; border-width: 0 1.1rem 1.1rem 0; border-color: transparent #ff4a36 transparent transparent; filter: drop-shadow(0 0 1px #000); }
+.st .n { position: absolute; right: -.45rem; bottom: -.45rem; min-width: 1.8rem; height: 1.8rem; padding: 0 .3rem; border-radius: .9rem; background: rgba(8, 6, 4, .94); border: 1px solid rgba(255, 255, 255, .5); font: 800 1.3rem/1.6rem var(--font-num); color: #fff; text-align: center; text-shadow: 0 1px 1px #000; }
+.st.ending .n { color: #ffd36a; border-color: #ffd36a; box-shadow: 0 0 .5rem rgba(255, 200, 80, .7); }
+.st .s { position: absolute; left: -.45rem; top: -.45rem; min-width: 1.7rem; height: 1.7rem; padding: 0 .25rem; border-radius: .85rem; background: #4a3008; border: 1px solid #ffd36a; font: 800 1.2rem/1.5rem var(--font-num); color: #ffe58a; text-align: center; text-shadow: 0 1px 1px #000; }
+.st-sep { flex: none; width: .2rem; height: 2.6rem; margin: 0 .15rem; border-radius: .1rem; background: rgba(255, 240, 210, .28); }
 /* player frame: status icons, then the resurrect badge (charges that work now) at the right end */
-.strow { display: flex; align-items: flex-start; gap: .3rem; }
+.strow { display: flex; align-items: center; gap: .3rem; }
 .strow .statuses { flex: 1; min-width: 0; }
-.resc { position: relative; flex: none; width: 2.2rem; height: 2.2rem; border-radius: .25rem; border: 1px solid #000; box-shadow: 0 0 0 1px var(--gold); }
+.resc { position: relative; flex: none; width: 3rem; height: 3rem; border-radius: .25rem; border: 1px solid #000; box-shadow: 0 0 0 1px var(--gold); }
 .resc img { width: 100%; height: 100%; border-radius: .2rem; display: block; }
-.resc .n { position: absolute; right: -.1rem; bottom: -.2rem; font: 800 1.05rem var(--font-num); color: #ffe58a; text-shadow: 0 0 2px #000, 0 1px 1px #000; }
+.resc .n { position: absolute; right: -.3rem; bottom: -.35rem; font: 800 1.3rem var(--font-num); color: #ffe58a; text-shadow: 0 0 2px #000, 0 1px 1px #000; }
 .resc.none { box-shadow: 0 0 0 1px var(--gold-dim); filter: grayscale(1) brightness(.6); }
 .cp { display: flex; gap: .35rem; margin-top: .1rem; }
 .cp i { width: 1.15rem; height: 1.15rem; border-radius: 50%; background: #1a1410; border: 1px solid #000; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
@@ -150,8 +156,12 @@ button { font-family: inherit; }
 .np .bar { width: 100%; height: 1.15rem; }
 .np .bar .txt { font-size: .95rem; }
 .np.sel .bar { box-shadow: 0 0 0 1px #ff6a5a, 0 0 .8rem rgba(255, 80, 60, .7); }
-.np .sts { display: flex; gap: .2rem; min-height: 1.7rem; }
-.np .sts .st { width: 1.7rem; height: 1.7rem; }
+.np .sts { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: .4rem; min-height: 2.9rem; padding-top: .3rem; }
+.np .sts:empty { min-height: 0; padding: 0; }
+.np .sts .st { width: 2.9rem; height: 2.9rem; }
+.np .sts .st .n { min-width: 1.6rem; height: 1.6rem; font-size: 1.15rem; line-height: 1.4rem; right: -.4rem; bottom: -.4rem; }
+.np .sts .st .s { min-width: 1.5rem; height: 1.5rem; font-size: 1.05rem; line-height: 1.3rem; }
+.np .sts .st-sep { height: 2.2rem; }
 /* The raid frame already shows the star's name and health; its plate keeps only intent and statuses. */
 .np.boss .nm, .np.boss .bar { display: none; }
 .np.shard { width: 11.5rem; }
@@ -201,6 +211,13 @@ button { font-family: inherit; }
 .ab.hint::before { content: ''; position: absolute; inset: -.3rem; border-radius: .7rem; box-shadow: 0 0 0 2px rgba(170, 130, 255, .9), 0 0 1.2rem rgba(160, 120, 255, .8); animation: pulseop 1.2s ease-in-out infinite; will-change: opacity; pointer-events: none; }
 .ab.drop { box-shadow: inset 0 0 0 2px #7fe07a, 0 0 1rem rgba(120, 220, 120, .6); }
 .ab.basic { width: 4.6rem; height: 4.6rem; }
+/* the queued next action while a round plays (one slot): a gold ring and a NEXT tag; shown even while the bar is dimmed */
+.ab.queued img { filter: none; }
+.ab.queued::after, .btn.queued::after { content: 'Next'; position: absolute; left: 50%; top: -1.1rem; transform: translateX(-50%); padding: .05rem .45rem; border-radius: .3rem; background: #ffd36a; color: #2a1a04; font: 800 .9rem var(--font-ui); letter-spacing: .06em; text-transform: uppercase; box-shadow: 0 0 .6rem rgba(255, 210, 100, .8); pointer-events: none; }
+.ab.queued { box-shadow: inset 0 0 0 2px #ffd36a, 0 0 0 2px rgba(255, 211, 106, .55), 0 0 1.4rem rgba(255, 200, 90, .85); animation: qpulse 1s ease-in-out infinite; }
+.btn.queued { position: relative; filter: none !important; box-shadow: inset 0 0 0 2px #ffd36a, 0 0 1.2rem rgba(255, 200, 90, .8); }
+@keyframes qpulse { 50% { box-shadow: inset 0 0 0 2px #fff0b8, 0 0 0 3px rgba(255, 211, 106, .9), 0 0 2rem rgba(255, 210, 100, 1); } }
+.qtag { position: absolute; left: 50%; bottom: calc(100% + 1rem); transform: translateX(-50%); padding: .3rem 1rem; border-radius: 1.2rem; background: rgba(20, 15, 8, .92); border: 1px solid #ffd36a; color: #ffe9a8; font: 700 1.15rem var(--font-ui); white-space: nowrap; box-shadow: 0 0 .9rem rgba(255, 200, 90, .45); pointer-events: none; }
 .ab-label { position: absolute; bottom: -1.7rem; left: 0; right: 0; text-align: center; font: 700 .95rem var(--font-ui); color: var(--ink-mute); white-space: nowrap; letter-spacing: .04em; text-transform: uppercase; }
 .ctrl { display: flex; flex-direction: column; gap: .4rem; }
 .ctrl .btn { padding: .35rem .8rem; font-size: 1.12rem; }
@@ -483,6 +500,9 @@ button { font-family: inherit; }
 .tt-sub { color: var(--ink-mute); font-size: 1.15rem; }
 .tt-row { display: flex; justify-content: space-between; gap: 1.6rem; align-items: baseline; }
 .tt-rank { color: var(--ink-mute); font-size: 1.15rem; }
+.tt-kind { font: 800 1rem var(--font-ui); letter-spacing: .08em; text-transform: uppercase; padding: .1rem .5rem; border-radius: .3rem; }
+.tt-kind.good { background: #1d3f22; color: #a8f0a0; } .tt-kind.bad { background: #4a1510; color: #ffb0a0; }
+.tt-status { max-width: 30rem; }
 .tt-line { color: var(--ink); }
 .tt-line.stat { color: #fff; }
 .tt-line.affix, .tt-line.use { color: #6aff6a; }
@@ -634,8 +654,8 @@ button { font-family: inherit; }
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (ecc2acf 2026-11-10T09:11:05Z) from 46 modules.
-const __BUILD__ = "ecc2acf 2026-11-10T09:11:05Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (1ddfb06 2026-11-10T10:47:17Z) from 47 modules.
+const __BUILD__ = "1ddfb06 2026-11-10T10:47:17Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -11657,7 +11677,7 @@ const data = {
 
 });
 __bundle.def("src/ui/ui-text.js", function* (__ns, __link) {
-let SPELLS, TALENTS, BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS; __link.imp("src/ui/mock-data.js", [["SPELLS", (v) => { SPELLS = v; }], ["TALENTS", (v) => { TALENTS = v; }], ["STATUS_INFO", (v) => { BASE_STATUS = v; }], ["CONSUMABLES", (v) => { CONSUMABLES = v; }], ["BOONS", (v) => { BOONS = v; }], ["CLASSES", (v) => { CLASSES = v; }], ["PETS", (v) => { PETS = v; }]]); __link.exp({ "STATUS_INFO": () => STATUS_INFO, "CLASS_UI": () => CLASS_UI, "spellText": () => spellText, "bounceText": () => bounceText, "talentText": () => talentText, "consumableText": () => consumableText, "boonText": () => boonText, "petText": () => petText, "UNIQUE_EFFECT_TEXT": () => UNIQUE_EFFECT_TEXT, "ECHO_LINE": () => ECHO_LINE, "humanize": () => humanize, "numWord": () => numWord, "plural": () => plural, "pct1": () => pct1, "RES_NAME": () => RES_NAME, "resurrectText": () => resurrectText, "DANGER_LEVELS": () => DANGER_LEVELS, "dangerRule": () => dangerRule, "dangerBanner": () => dangerBanner, "META_KIND": () => META_KIND, "metaEffect": () => metaEffect, "metaReqText": () => metaReqText, "oathEffect": () => oathEffect, "nextRunLines": () => nextRunLines, "linkedText": () => linkedText });
+let SPELLS, TALENTS, BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS; __link.imp("src/ui/mock-data.js", [["SPELLS", (v) => { SPELLS = v; }], ["TALENTS", (v) => { TALENTS = v; }], ["STATUS_INFO", (v) => { BASE_STATUS = v; }], ["CONSUMABLES", (v) => { CONSUMABLES = v; }], ["BOONS", (v) => { BOONS = v; }], ["CLASSES", (v) => { CLASSES = v; }], ["PETS", (v) => { PETS = v; }]]); __link.exp({ "STATUS_INFO": () => STATUS_INFO, "CLASS_UI": () => CLASS_UI, "spellText": () => spellText, "bounceText": () => bounceText, "talentText": () => talentText, "consumableText": () => consumableText, "boonText": () => boonText, "petText": () => petText, "UNIQUE_EFFECT_TEXT": () => UNIQUE_EFFECT_TEXT, "ECHO_LINE": () => ECHO_LINE, "humanize": () => humanize, "numWord": () => numWord, "plural": () => plural, "pct1": () => pct1, "statusEffect": () => statusEffect, "RES_NAME": () => RES_NAME, "resurrectText": () => resurrectText, "DANGER_LEVELS": () => DANGER_LEVELS, "dangerRule": () => dangerRule, "dangerBanner": () => dangerBanner, "META_KIND": () => META_KIND, "metaEffect": () => metaEffect, "metaReqText": () => metaReqText, "oathEffect": () => oathEffect, "nextRunLines": () => nextRunLines, "linkedText": () => linkedText });
 yield;
 // Display text for tooltips and screens (descriptions of spells, talents, statuses, consumables,
 // boons and classes). Wording follows docs/specs/rules.md; numbers that matter come from the
@@ -11736,6 +11756,53 @@ const plural = (n, one, many = `${one}s`) => (n === 1 ? one : many);
 const pct = (x) => `${Math.round(x * 100)} %`;
 /** A share in per cent with up to one decimal ("12.5 %", "25 %"). */
 const pct1 = (x) => `${Math.round(x * 1000) / 10} %`;
+
+/**
+ * What a status does, in exact numbers (rules 7.4). s: a view status (engine-bridge.js `statuses`: the engine's status
+ * object with tick, amount, value, stacks, rounds, full, srcName); r: the rules table (r.status: CURSE_PCT, BRAND_DMG,
+ * BRAND_MAX, STEALTH_MISS_BONUS, DODGE_CAP). Returns { effect, lines, duration, source }. No number is written here.
+ */
+function statusEffect(s, r, info = {}) {
+  const R = (r && r.status) || {};
+  const left = s.rounds && s.rounds < 90 ? s.rounds : null;
+  const lines = [];
+  let effect = info.text || '';
+  const roundsLeft = (n) => `${n} ${plural(n, 'round')}`;
+  switch (s.id) {
+    case 'BLEED': case 'BURN': case 'POISON': {
+      if (!s.tick) break;
+      const per = s.tick * (s.stacks || 1);
+      effect = `Takes ${per} ${s.id === 'BURN' ? 'fire ' : ''}damage at the end of each round.`;
+      if (s.id === 'POISON' || s.stacks > 1) lines.push(`${s.tick} per stack × ${s.stacks} ${plural(s.stacks, 'stack')}${s.max ? ` (at most ${s.max})` : ''}.`);
+      if (left) lines.push(`${per * left} more over the ${roundsLeft(left)} left.`);
+      if (s.canCrit) lines.push('Its ticks can strike critically.');
+      break;
+    }
+    case 'CHILLED': if (s.value) effect = `Deals ${pct(s.value)} less damage.`; break;
+    case 'CURSED': if (R.cursePct != null) effect = `Deals ${pct(R.cursePct)} less damage.`; break;
+    case 'EXPOSED': case 'MARKED': if (s.value) effect = `Takes ${pct1(s.value)} more damage.`; break;
+    case 'BRACE': case 'SHIELDED': if (s.value) effect = `Takes ${pct(s.value)} less damage.`; break;
+    case 'ENRAGED': if (s.value) effect = `Deals ${pct(s.value)} more damage.`; break;
+    case 'WARD': if (s.value) effect = `Absorbs the next ${s.value} damage.`; break;
+    case 'HOT': if (s.amount) effect = `Heals ${s.amount} at the end of each round.`; if (s.amount && left) lines.push(`${s.amount * left} more over the ${roundsLeft(left)} left.`); break;
+    case 'EVASION': if (s.value) effect = `+${pct(s.value)} chance to dodge attacks${R.dodgeCap != null ? ` (dodge at most ${pct(R.dodgeCap)})` : ''}.`; break;
+    case 'STEALTH': if (R.stealthMiss != null) effect = `Unseen: openers can be used, and enemy attacks miss ${pct(R.stealthMiss)} more often. Any other action ends it.`; break;
+    case 'RAPID': if (s.value) effect = `Your attacks deal ${pct(s.value)} more damage${s.focus ? ` and focus returns ${pct(s.focus)} faster` : ''}.`; break;
+    case 'ADRENAL': if (s.value) effect = `Energy returns ${s.value} times as fast.`; break;
+    case 'CONFLAGRANT': if (s.value) effect = `Fire spells cost no mana and have +${pct(s.value)} critical strike chance.`; break;
+    case 'MIRROR': if (s.value) effect = `Each enemy attack has a ${pct(s.value)} chance to strike an image instead of you.`; break;
+    case 'COMMUNION': if (s.value) effect = `Your pet deals ${pct(s.value)} more damage.`; break;
+    case 'BRAND':
+      if (R.brandDmg != null) {
+        effect = `Takes ${R.brandDmg} shadow damage per stack at the end of each round: ${R.brandDmg * (s.stacks || 1)} at ${s.stacks || 1} ${plural(s.stacks || 1, 'stack')}, before level difference and Ascendancy.`;
+        lines.push(`${R.brandMax != null ? `Up to ${R.brandMax} stacks. ` : ''}Only dispersal removes it.`);
+      }
+      break;
+    default: break;
+  }
+  const duration = left ? `${roundsLeft(left)} left${s.full && s.full > left ? ` (of ${s.full})` : ''}` : s.id === 'WARD' ? 'Until it breaks or the fight ends' : s.id === 'BRAND' ? 'Does not expire' : 'Until the fight ends';
+  return { effect, lines, duration, source: s.srcName ? `From ${s.srcName}` : null };
+}
 
 /** Resurrect sources of the view (player.resurrect): Second Breath is 'meta' (rules 9). */
 const RES_NAME = { boon: 'Boon of Return', meta: 'Second Breath', ember: 'Ember of Return' };
@@ -11970,6 +12037,8 @@ function rulesTable(K) {
     linkPerShard: per ?? null, linkCap: K.LINK_DR, linkDr, shardAoeTaken: K.SHARD_AOE_TAKEN ?? null,
     // Round time budget at the default animation speed (rules 3, M2 v2); null on an engine without it.
     roundAnimMs: K.PACE_ROUND_ANIM_S != null ? K.PACE_ROUND_ANIM_S * 1000 : null,
+    // Status numbers that live in the rules, not on the status object (rules 7.4): status tooltips state them.
+    status: { cursePct: K.CURSE_PCT ?? null, brandDmg: K.BRAND_DMG ?? null, brandMax: K.BRAND_MAX ?? null, stealthMiss: K.STEALTH_MISS_BONUS ?? null, dodgeCap: K.DODGE_CAP ?? null },
     // Zone danger (rules 7.6, M2 v3; dungeons M2 v4): enemies above dangerFrom hit harder. dangerStep and
     // dangerStepDungeon: the extra damage TXT.DANGER_LEVELS levels above dangerFrom, in the open world and in a dungeon
     // (trash), from the engine's zoneDanger; null without zone danger.
@@ -12100,7 +12169,8 @@ function engineBackend(seedOpt) {
     talents: Object.fromEntries(Object.values(C.TALENT).map((t) => [t.id, { id: t.id, tree: treeId(t.cls, t.tree), tier: t.tier, name: t.name, ranks: t.ranks, spell: t.spell || null, text: TXT.talentText(t.id, CONTENT) }])),
     pets: Object.fromEntries(Object.values(C.PET).map((p) => [p.id, { id: p.id, name: p.name, text: TXT.petText(p.id, CONTENT), meta: p.meta || null, locked: !!p.meta && !(profile && profile.unlocks && profile.unlocks[p.meta]) }])),
     consumables: Object.fromEntries(Object.values(C.CONSUMABLE).map((c) => [c.id, { id: c.id, name: c.name, use: USE_MAP[c.use] || 'both', stack: c.stack, mana: !!c.mana, text: TXT.consumableText(c.id, CONTENT, c) }])),
-    statuses: TXT.STATUS_INFO,
+    // names and texts from the UI table; buff or debuff from the engine's DEBUFFS list (rules 7.4)
+    statuses: Object.fromEntries(Object.entries(TXT.STATUS_INFO).map(([id, x]) => [id, { ...x, debuff: C.DEBUFFS ? C.DEBUFFS.includes(id) : x.debuff }])),
     boons: Object.fromEntries(Object.values(C.BOON).map((b) => [b.id, { id: b.id, name: b.name, text: TXT.boonText(b.id, CONTENT) }])),
     slots: C.SLOT_IDS, zones: CONTENT.zones, camp: CONTENT.camp,
     nodeHours: Object.fromEntries(Object.values(C.NODE_TYPE).map((t) => [t.id, t.hours])),
@@ -12112,7 +12182,9 @@ function engineBackend(seedOpt) {
   const refreshPets = () => { for (const pd of Object.values(data.pets)) pd.locked = !!pd.meta && !(profile && (profile.unlocks[pd.meta] || 0) > 0); };
   const consName = (id) => (C.CONSUMABLE[id] ? C.CONSUMABLE[id].name : null);
   // a damage or heal source: a spell, the pet, or a consumable (potions, Spark Flask)
-  const spellName = (id) => (C.SPELL[id] ? C.SPELL[id].name : id === 'pet' ? 'Pet' : consName(id) || TXT.humanize(id));
+  // (an enemy's DoT carries 'ability@enemyIdx'; talent procs their engine id; both read as names)
+  const spellName = (id) => (C.SPELL[id] ? C.SPELL[id].name : id === 'pet' ? 'Pet' : consName(id)
+    || (typeof id === 'string' && id.includes('@') ? abilityName(id.split('@')[0]) : SRC_TALENT[id] && C.TALENT[SRC_TALENT[id]] ? C.TALENT[SRC_TALENT[id]].name : TXT.humanize(id)));
 
   // ---------------------------------------------------------------- conversions
   const gearKind = (slot, cls) => (slot === 'weapon' ? { rogue: 'dagger', mage: 'staff', hunter: 'bow' }[cls] : slot === 'offhand' ? { rogue: 'dagger', mage: 'tome', hunter: 'quiver' }[cls] : slot);
@@ -12127,11 +12199,35 @@ function engineBackend(seedOpt) {
     if (it.kind === 'cons') { const c = C.CONSUMABLE[it.id] || { name: it.id, stack: 5 }; return { uid: it.uid, kind: 'consumable', id: it.id, name: c.name, rarity: it.id === 'ember_of_return' ? 'rare' : 'common', count: it.qty, stack: c.stack, use: USE_MAP[c.use] || 'both', _raw: it, ...extra }; }
     return { uid: it.uid, kind: 'junk', id: 'junk', name: it.name, rarity: 'junk', count: it.qty || 1, stack: 10, _raw: it, ...extra };
   }
-  const statuses = (list, shield) => {
-    const out = (list || []).map((x) => ({ id: x.id, rounds: x.dur == null ? 99 : x.dur, stacks: x.stacks || 1, value: x.value || 0 }));
-    if (shield > 0 && !out.some((x) => x.id === 'WARD')) out.push({ id: 'WARD', rounds: 99, stacks: 1, value: shield });
+  /**
+   * Statuses for the view, from the engine's status objects (engine-api.md 6: { id, dur, stacks, value, tick, amount, src }).
+   * value: the status's number (a WARD's absorb left: its `amount`); tick: damage per tick (per stack for POISON);
+   * amount: heal per tick of HOT; full: the duration it was applied with (DoTs); max: stack cap; srcName: what applied it.
+   * An enemy's shield is a WARD; an enraged enemy (template ability, rules 12.4) gets ENRAGED with its damage bonus.
+   */
+  const statuses = (list, f, shield = 0, enraged = 0) => {
+    const out = (list || []).map((x) => ({ id: x.id, rounds: x.dur == null ? 99 : x.dur, full: x.full || null, stacks: x.stacks || 1,
+      value: x.id === 'WARD' ? x.amount || 0 : x.value || 0, tick: x.tick || 0, amount: x.amount || 0, max: x.max || x.maxStacks || null,
+      canCrit: !!x.canCrit, focus: x.focus || 0, srcName: statusSource(x, f) }));
+    if (shield > 0 && !out.some((x) => x.id === 'WARD')) out.push({ id: 'WARD', rounds: 99, stacks: 1, value: shield, amount: shield, srcName: null });
+    if (enraged > 0) out.push({ id: 'ENRAGED', rounds: 99, stacks: 1, value: enraged, srcName: null });
     return out;
   };
+  // Engine status sources that are not spell ids: talents (rules 8) and equipment.
+  const SRC_TALENT = { ignite: 'm_a5', heat_haze: 'm_a8' };
+  /** Name of an enemy action (archetype action or template ability) from its id. */
+  const abilityName = (id) => (CONTENT.abilities && CONTENT.abilities[id] ? CONTENT.abilities[id].name
+    : (Object.values(C.ARCHETYPE || {}).flatMap((a) => a.actions || []).find((a) => a.id === id) || {}).name || TXT.humanize(id));
+  /** What applied a status: a spell, a talent, equipment, or an enemy's action ('ability@enemyIdx'); null when unknown. */
+  function statusSource(x, f) {
+    const src = x.src; const foe = (i) => (f && f.enemies[i]) || null;
+    if (typeof src === 'string' && src.includes('@')) { const [id, idx] = src.split('@'); const e = foe(Number(idx)); return `${abilityName(id)}${e ? ` (${e.name})` : ''}`; }
+    if (src && C.SPELL[src]) return C.SPELL[src].name;
+    if (src && SRC_TALENT[src] && C.TALENT[SRC_TALENT[src]]) return C.TALENT[SRC_TALENT[src]].name;
+    if (src === 'unique') return 'your equipment';
+    if (typeof x.by === 'number' && foe(x.by)) return foe(x.by).name;
+    return null;
+  }
 
   function convPlayer(s) {
     const p = s.player; const d = p.d; const f = s.fight; const cls = C.CLASS[p.classId];
@@ -12156,8 +12252,8 @@ function engineBackend(seedOpt) {
       gold: p.gold, equip: Object.fromEntries(Object.entries(p.equipped).map(([k, it]) => [k, item(it, p.classId)])), bag,
       spells: (p.spellOrder || Object.keys(p.spells)).map((id) => ({ id, tl: p.spells[id].tl, rank: p.spells[id].rank })),
       bar: [...p.bar], itemBar: [...p.itemBar], talents: { ...p.talents }, talentPoints: R.talentPointsFree(s), talentSpent: spent,
-      statuses: f ? statuses(f.p.st) : [], boons, resurrect, resurrectHeld, resurrectBoss,
-      pet: p.pet ? { id: p.pet.id, name: C.PET[p.pet.id].name, hp: p.pet.hp, maxHp: d.petMaxHp, alive: p.pet.alive, statuses: f && f.pet ? statuses(f.pet.st) : [] } : null,
+      statuses: f ? statuses(f.p.st, f) : [], boons, resurrect, resurrectHeld, resurrectBoss,
+      pet: p.pet ? { id: p.pet.id, name: C.PET[p.pet.id].name, hp: p.pet.hp, maxHp: d.petMaxHp, alive: p.pet.alive, statuses: f && f.pet ? statuses(f.pet.st, f) : [] } : null,
     };
   }
 
@@ -12225,7 +12321,8 @@ function engineBackend(seedOpt) {
     const none = it.kind === 'none';
     return { id: none ? (it.name === 'Unaware' ? 'unaware' : 'none') : it.id, name: it.name, target: none ? 'none' : tgt, est: none ? 0 : it.est || 0, cast: !!it.cast, heavy: !!it.heavy,
       school: it.school || 'phys', hits: it.hits || 1, label, interrupted: !!(it.interrupted || it.skipped),
-      selfHeal: it.kind === 'selfHeal', mend: it.kind === 'heal', shield: it.kind === 'selfShield', brace: it.kind === 'brace', curse: it.kind === 'curse' };
+      selfHeal: it.kind === 'selfHeal', mend: it.kind === 'heal', shield: it.kind === 'selfShield', brace: it.kind === 'brace', curse: it.kind === 'curse',
+      support: ['selfHeal', 'heal', 'selfShield', 'shieldAlly', 'brace', 'summon'].includes(it.kind) };
   }
   /** Living Dimming Shards and the Linked damage reduction they give the boss now (rules 10.2), or null. */
   function linkedOf(f) {
@@ -12237,7 +12334,7 @@ function engineBackend(seedOpt) {
     const f = s.fight; if (!f) return null;
     const key = fightKey(s);
     const enemies = f.enemies.map((e) => ({ idx: e.idx, uid: `${key}:${e.idx}`, tplId: e.tid, name: e.name, level: e.level, rank: rankOf(e), arch: e.arch || (e.boss ? 'boss' : 'shard'),
-      hp: e.hp, maxHp: e.maxHp, alive: e.alive, statuses: statuses(e.st, e.shield), intent: e.alive ? convIntent(e.intent, e) : null }));
+      hp: e.hp, maxHp: e.maxHp, alive: e.alive, statuses: statuses(e.st, f, e.shield, e.enraged), intent: e.alive ? convIntent(e.intent, e) : null }));
     const cds = {};
     for (const [id, ready] of Object.entries(f.p.cds || {})) { const left = ready - f.round; if (left > 0) cds[id] = left; }
     const firstAlive = enemies.find((e) => e.alive);
@@ -12534,7 +12631,9 @@ function engineBackend(seedOpt) {
         case 'petAction': out.push({ t: 'action', src: ref('pet'), kind: 'attack', name: 'Pet attack', dst: ref(e.target) }); break;
         case 'enemyAction': {
           const it = prevIntent(e.u) || {};
-          out.push({ t: 'action', src: ref(e.u), kind: it.cast ? 'cast' : 'attack', id: e.id, name: e.name, dst: it.target === 'pet' ? ref('pet') : ref('player'), heavy: !!it.heavy, school: it.school || 'phys', boss: it.id === 'boss' });
+          // support: an action that heals, shields or braces an enemy (no projectile toward the player's side)
+          out.push({ t: 'action', src: ref(e.u), kind: it.cast ? 'cast' : 'attack', id: e.id, name: e.name, dst: it.target === 'pet' ? ref('pet') : ref('player'), heavy: !!it.heavy, school: it.school || 'phys', boss: it.id === 'boss',
+            support: !!it.support });
           break;
         }
         case 'damage': {
@@ -13722,6 +13821,14 @@ function pose(look, a) {
       ns = -1.2 * Math.max(0, wind) + 1.9 * Math.max(0, -wind) / 0.6 * 0.8 + 0.2; ne = 0.6 - 0.4 * Math.max(0, -wind);
       fs = 0.9 * Math.max(0, -wind) + 0.1; fe = 0.6;
       nh = 0.5 * Math.max(0, -wind); fh = -0.4 * Math.max(0, -wind); nk = 0.3; fk = 0.1;
+    } else if (act.kind === 'smash') {
+      // a heavy blow: the weapon goes up overhead with both hands, then comes down forward (contact at p 0.5)
+      const wind = p < 0.35 ? ease.out(p / 0.35) : p < 0.55 ? 1 - ease.out((p - 0.35) / 0.2) * 1.6 : -0.6 * (1 - (p - 0.55) / 0.45);
+      const up = Math.max(0, wind); const down = Math.max(0, -wind) / 0.6; const rest = (1 - up) * (1 - down);
+      P.lean += -0.2 * up + 0.32 * down;
+      ns = -2.5 * up + 1.1 * down + 0.35 * rest; ne = 0.9 * rest - 0.5 * up + 0.15 * down;
+      fs = -2.2 * up + 0.9 * down + 0.1 * rest; fe = 0.45 * rest - 0.3 * up + 0.2 * down;
+      nh = 0.45 * down - 0.1 * up; fh = -0.35 * down - 0.12 * up; nk = 0.15 + 0.3 * down; fk = 0.1;
     } else if (act.kind === 'cast') {
       const raise = p < 0.6 ? ease.out(p / 0.6) : 1 - ease.out((p - 0.6) / 0.4) * 0.6;
       ns = 0.4 + 1.1 * raise; ne = 0.9 - 0.7 * raise; fs = 0.2 + 1.2 * raise; fe = 0.6 - 0.4 * raise; P.lean += -0.05 * raise;
@@ -14210,8 +14317,8 @@ function drawPortrait(ctx, size, look, kind = 'humanoid', extra = {}) {
 __bundle.def("src/ui/settings.js", function* (__ns, __link) {
 let emitter; __link.imp("src/ui/util.js", [["emitter", (v) => { emitter = v; }]]); __link.exp({ "settings": () => settings });
 yield;
-// Player-facing presentation settings (animation speed, fast mode). Persisted in localStorage when
-// available. Nothing here changes game rules.
+// Player-facing presentation settings (animation speed, fast mode, screen shake, reduce motion). Persisted in
+// localStorage when available. Nothing here changes game rules.
 
 
 const KEY = 'tbwcr.ui.settings.v1';
@@ -14222,6 +14329,7 @@ const DEFAULTS = {
   showLog: true,       // combat log panel
   shake: true,         // screen shake on heavy hits
   speedrun: false,     // preset: instant animations, no travel, short autoplay delay
+  reduceMotion: null,  // no screen shake, small recoil, no number slam; null follows the system's reduced-motion setting
 };
 
 function load() {
@@ -14256,6 +14364,11 @@ const settings = {
   /** Scale a duration in ms by the animation speed (0 = instant). */
   dur(ms) { return state.speed === 0 ? 0 : ms / state.speed; },
   get instant() { return state.speed === 0; },
+  /** Reduce motion: the player's choice, or the system's prefers-reduced-motion until the player chooses. */
+  get reduceMotion() {
+    if (state.reduceMotion != null) return !!state.reduceMotion;
+    try { return !!(globalThis.matchMedia && globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch { return false; }
+  },
 };
 
 });
@@ -14264,6 +14377,10 @@ let buildBackdrop, drawBackdrop, drawForeground, THEMES, GROUND_Y, oak, pine; __
 yield;
 // The world canvas: painted parallax backdrop, the hero in the centre, enemies, set pieces and
 // combat effects. Pure presentation: it is told what happened and animates it.
+// Combat feel (owner feedback 2026-11-10, src/ui/combat-feel.js): actors run on their own clock (atime) that a hit-stop
+// freezes for a moment at contact; hits knock the target back, flash, throw sparks and pop a damage number that slams in
+// (crits larger and slower); screen shake scales with the share of health a hit took and is off under Reduce motion;
+// heavy and cast intents hold a visible wind-up (telegraph) until the enemy acts; spells charge up and projectiles leave trails.
 
 
 
@@ -14285,6 +14402,8 @@ class Scene {
     this.props = [];
     this.particles = []; this.texts = []; this.projectiles = []; this.rings = []; this.beams = [];
     this.ambient = []; this.shakeAmt = 0; this.flash = null; this.pillar = null; this.dim = 0; this.targetDim = 0;
+    this.atime = 0; this.freeze = 0; // actor clock and hit-stop (s left)
+    this.charges = []; this.cores = []; this.rays = []; this.fstack = new Map();
     this.mode = 'create';
     this.target = null; this.hover = null;
     this.desat = 0;
@@ -14400,12 +14519,26 @@ class Scene {
     others.forEach((a, i) => { a.tx = W * (slots[i] ?? (0.55 + i * 0.1)); a.dy = n === 3 && i === 1 ? -10 * this.u : (i % 2) * 6 * this.u; if (instant || a.x == null) a.x = a.tx; });
   }
 
-  act(id, kind, dur) {
+  /**
+   * Start an action pose. dur in ms (already scaled). opts.contact: the share of dur at which the pose reaches its contact
+   * key (melee strike, cast or bow release), so the wind-up stretches to the director's anticipation time; opts.from:
+   * the pose to start from (an enemy holding its telegraph wind-up).
+   */
+  act(id, kind, dur, opts = {}) {
     const a = this.actors.get(id); if (!a) return;
-    a.act = { kind, t0: this.time, dur: Math.max(0.05, dur / 1000) };
+    a.act = { kind, t0: this.atime, dur: Math.max(0.05, dur / 1000), contact: opts.contact ?? null, from: opts.from || 0, heavy: !!opts.heavy };
   }
-  hitFlash(id) { const a = this.actors.get(id); if (a) a.flashT = this.time; }
+  /** White flash on an actor; hold: seconds it stays full (the hit-stop). */
+  hitFlash(id, hold = 0, strength = 1) { const a = this.actors.get(id); if (a) { a.flashT = this.time + hold; a.flashK = strength; } }
   kill(id) { const a = this.actors.get(id); if (a) { a.deadT0 = this.time; a.alive = false; } }
+  /** Hit-stop: actors freeze for ms (contact frame); effects keep moving. */
+  hitStop(ms) { if (ms > 0) this.freeze = Math.max(this.freeze, ms / 1000); }
+  /** Recoil: push an actor away from the attacker (dir -1 left, +1 right) by a distance that grows with power, then back over ms. */
+  knock(id, dir, power, ms) {
+    const a = this.actors.get(id); if (!a || !dir) return;
+    const far = (8 + 24 * clamp(power, 0, 1)) * this.u * (settings.reduceMotion ? 0.3 : 1) * (a.kind === 'boss' ? 0.35 : 1);
+    a.kb = { t0: this.atime, dur: Math.max(0.15, ms / 1000), dist: far, dir };
+  }
   revive(id) { const a = this.actors.get(id); if (a) { a.deadT0 = 0; a.dead = 0; a.alive = true; } }
 
   /** Screen anchor of an actor (CSS px): feet, head top, centre. */
@@ -14436,14 +14569,30 @@ class Scene {
   }
 
   // ------------------------------------------------------------------ effects
+  /**
+   * Floating text over an actor. Damage numbers (style.weight 0..1 = the hit's power) slam in from a larger size and rise
+   * a little; heavier hits are larger and rise less; crits are larger still, shake and linger. Numbers sit on the body,
+   * below the nameplate; a second one on the same actor within 0.6 s goes beside the first, alternating sides.
+   */
   float(id, text, style = {}) {
     const an = this.anchor(id); if (!an) return;
-    const jitter = (Math.random() - 0.5) * 40 * this.u;
-    this.texts.push({ x: an.x + jitter + (style.dx || 0), y: an.top - 6 * this.u + (style.dy || 0), text, color: style.color || '#ffffff', size: (style.size || 22) * this.u,
-      t0: this.time, life: (style.life || 1.3), crit: !!style.crit, vy: style.vy || -46 * this.u, outline: style.outline || 'rgba(0,0,0,0.85)', small: style.small });
+    if (style.under) { // a note under the number just shown on this actor (absorbed damage)
+      const last = [...this.texts].reverse().find((f) => f.id === id && !f.small);
+      if (last) { this.texts.push({ ...last, text, color: style.color || '#ffffff', size: (style.size || 14) * this.u, small: true, crit: false, slam: false, weight: 0, y: last.y + (style.dy || 20 * this.u) }); return; }
+    }
+    const now = this.time; const st = this.fstack.get(id);
+    const n = st && now - st.t < 0.6 ? Math.min(4, st.n + 1) : 0; this.fstack.set(id, { t: now, n });
+    // numbers sit on the body (the nameplate is over the head); a second one beside the first, alternating sides
+    const side = n ? (n % 2 ? 1 : -1) * Math.ceil(n / 2) * 50 * this.u : 0;
+    const jitter = (Math.random() - 0.5) * 16 * this.u;
+    const w = clamp(style.weight || 0, 0, 1);
+    const crit = !!style.crit; const small = !!style.small;
+    this.texts.push({ id, x: an.x + jitter + side + (style.dx || 0), y: an.cy - (an.cy - an.top) * 0.15 + (style.dy || 0) - n * 6 * this.u, text, color: style.color || '#ffffff',
+      size: (style.size || 22) * this.u * (small ? 1 : 1 + 0.4 * w), t0: now, life: style.life || (crit ? 2.0 : small ? 1.3 : 1.55), crit, small,
+      weight: w, slam: !small && style.slam !== false && !settings.reduceMotion, rise: (crit ? 18 : small ? 34 : 28 - 10 * w) * this.u, outline: style.outline || 'rgba(0,0,0,0.85)' });
   }
   floatAt(x, y, text, style = {}) {
-    this.texts.push({ x, y, text, color: style.color || '#fff', size: (style.size || 22) * this.u, t0: this.time, life: style.life || 1.4, crit: !!style.crit, vy: style.vy || -40 * this.u, outline: 'rgba(0,0,0,0.85)' });
+    this.texts.push({ x, y, text, color: style.color || '#fff', size: (style.size || 22) * this.u, t0: this.time, life: style.life || 1.4, crit: !!style.crit, weight: 0, slam: false, rise: 40 * this.u, outline: 'rgba(0,0,0,0.85)' });
   }
 
   burst(x, y, color, n = 14, spread = 160, opts = {}) {
@@ -14453,16 +14602,46 @@ class Scene {
         size: (opts.size || 3) * this.u * (0.5 + Math.random()), color, g: opts.g ?? 260, glow: opts.glow ?? true });
     }
   }
-  impact(id, school = 'phys', crit = false) {
+  /**
+   * The contact of a hit: a white-hot core at the side facing the attacker, sparks thrown away from it, a ring, a slash for
+   * physical hits and a starburst for crits. o: { crit, power 0..1, dir (-1 hit from the right, +1 from the left), hold
+   * (s of hit-stop: the target stays white) }; a boolean o is the crit flag (older callers).
+   */
+  impact(id, school = 'phys', o = false) {
+    const opts = typeof o === 'object' && o ? o : { crit: !!o };
     const an = this.anchor(id); if (!an) return;
+    const crit = !!opts.crit; const power = clamp(opts.power ?? (crit ? 0.7 : 0.35), 0, 1); const dir = opts.dir || 0; const u = this.u;
     const col = SCHOOL_COL[school] || '#fff';
-    this.burst(an.x, an.cy, col, crit ? 26 : 14, crit ? 240 : 150);
-    this.rings.push({ x: an.x, y: an.cy, t0: this.time, life: 0.35, r0: 6 * this.u, r1: (crit ? 70 : 44) * this.u, color: col, width: (crit ? 4 : 2.5) * this.u });
-    if (school === 'phys') this.beams.push({ kind: 'slash', x: an.x, y: an.cy, t0: this.time, life: 0.22, color: '#ffffff', crit });
-    this.hitFlash(id);
-    if (crit && settings.get('shake')) this.shake(7);
+    const x = an.x - dir * an.w * 0.3; const y = an.cy;
+    this.cores.push({ x, y, t0: this.time, life: 0.14 + 0.12 * power + (crit ? 0.06 : 0), r: (22 + 34 * power + (crit ? 22 : 0)) * u, color: col });
+    const n = Math.round(8 + 16 * power + (crit ? 12 : 0));
+    for (let i = 0; i < n; i++) {
+      const ang = (dir ? (dir > 0 ? 0 : Math.PI) : Math.random() * Math.PI * 2) + (Math.random() - 0.5) * 2.3;
+      const sp = (110 + Math.random() * 250 * (0.6 + power)) * u;
+      this.particles.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 50 * u, life: 0.22 + Math.random() * 0.3, t0: this.time,
+        size: (1.4 + Math.random() * 1.8) * u, color: Math.random() < 0.3 ? '#ffffff' : col, g: 520, glow: true, streak: true });
+    }
+    this.rings.push({ x, y, t0: this.time, life: 0.28 + 0.12 * power, r0: 6 * u, r1: (32 + 46 * power + (crit ? 24 : 0)) * u, color: col, width: (2 + 2.6 * power) * u });
+    if (school === 'phys') this.beams.push({ kind: 'slash', x, y, t0: this.time, life: 0.2 + 0.08 * power, color: '#ffffff', crit, size: 1 + 0.45 * power + (crit ? 0.25 : 0), dir });
+    if (crit) this.rays.push({ x, y, t0: this.time, life: 0.34, r: (64 + 46 * power) * u, color: col, rot: Math.random() * Math.PI });
+    this.hitFlash(id, opts.hold || 0);
   }
-  shake(amt) { if (settings.get('shake')) this.shakeAmt = Math.max(this.shakeAmt, amt * this.u); }
+  /** Screen shake (px at 768 high); none when shake is off or under Reduce motion. */
+  shake(amt) { if (settings.get('shake') && !settings.reduceMotion) this.shakeAmt = Math.max(this.shakeAmt, amt * this.u); }
+  /** Screen shake for a hit that took `share` of the target's maximum health: none under 3 %, up to 11 px on the hero's side (6 on enemies). */
+  shakeHit(share, onPlayerSide, crit = false) {
+    if (share < 0.03) return;
+    const k = Math.pow(clamp((share - 0.03) / 0.3, 0, 1), 0.7);
+    this.shake(k * (onPlayerSide ? 11 : 6) * (crit ? 1.25 : 1) + 0.6);
+  }
+  /**
+   * A spell or a heavy shot charging up for ms: an orb at the hands grows and draws sparks in; a heavy one (weight > 0.55)
+   * adds a rune circle under the caster.
+   */
+  charge(id, color, ms, weight = 0.5) {
+    if (!(ms > 0) || !this.actors.get(id)) return;
+    this.charges.push({ id, t0: this.time, dur: ms / 1000, color, w: clamp(weight, 0, 1) });
+  }
   screenFlash(color, alpha = 0.35, life = 0.35) { this.flash = { color, alpha, t0: this.time, life }; }
   heal(id) {
     const an = this.anchor(id); if (!an) return;
@@ -14480,24 +14659,32 @@ class Scene {
     for (let i = 0; i < 60; i++) this.particles.push({ x: an.x + (Math.random() - 0.5) * 90 * this.u, y: an.feet - Math.random() * 30 * this.u, vx: (Math.random() - 0.5) * 40 * this.u, vy: -(120 + Math.random() * 220) * this.u, life: 1 + Math.random() * 1.2, t0: this.time, size: 3 * this.u, color: Math.random() < 0.5 ? '#ffe08a' : '#fff6d6', g: 30, glow: true });
   }
 
-  /** Fire a projectile between two actors; resolves at impact. dur: flight time in ms, already scaled by the caller (speed, tempo). */
-  projectile(fromId, toId, kind = 'arcane', dur = 380) {
+  /**
+   * Fire a projectile between two actors; resolves at impact. dur: flight time in ms, already scaled by the caller (speed,
+   * tempo). opts.weight 0..1: a heavier shot is larger and leaves a brighter, longer trail.
+   */
+  projectile(fromId, toId, kind = 'arcane', dur = 380, opts = {}) {
     const fa = this.anchor(fromId); const ta = this.anchor(toId);
     if (!fa || !ta) return Promise.resolve();
     const d = dur;
     if (!d) return Promise.resolve();
     return new Promise((resolve) => {
-      const from = { x: fa.x + (fromId === 'player' ? 34 : -34) * this.u, y: fa.cy - 18 * this.u };
-      this.projectiles.push({ from, toId, to: { x: ta.x, y: ta.cy }, t0: this.time, dur: d / 1000, kind, resolve, arc: kind === 'arrow' ? 26 * this.u : kind === 'comet' ? -120 * this.u : 0 });
+      const from = { x: fa.x + (fa.x < ta.x ? 34 : -34) * this.u, y: fa.cy - 18 * this.u };
+      this.projectiles.push({ from, toId, to: { x: ta.x, y: ta.cy }, t0: this.time, dur: d / 1000, kind, resolve, w: clamp(opts.weight || 0, 0, 1),
+        arc: kind === 'arrow' ? 26 * this.u : kind === 'comet' ? 150 * this.u : 0 });
     });
   }
-  finishAll() { // skip: land projectiles at once
+  /** Skip one hit: land the projectiles in flight and drop charge-ups at once. */
+  landFlights() {
     for (const p of this.projectiles) p.resolve();
-    this.projectiles = [];
-    for (const a of this.actors.values()) { a.act = null; if (a.deadT0) a.dead = 1; }
+    this.projectiles = []; this.charges = []; this.freeze = 0;
+  }
+  finishAll() { // skip the step: land projectiles at once, end every pose
+    this.landFlights();
+    for (const a of this.actors.values()) { a.act = null; a.kb = null; if (a.deadT0) a.dead = 1; }
   }
   /** Drop floating text, rings, beams and sparks left from a fight (e.g. behind the run summary). */
-  clearFx() { this.finishAll(); this.texts = []; this.rings = []; this.beams = []; this.particles = []; this.pillar = null; }
+  clearFx() { this.finishAll(); this.texts = []; this.rings = []; this.beams = []; this.particles = []; this.cores = []; this.rays = []; this.pillar = null; }
 
   seedAmbient() {
     const kind = (THEMES[this.theme] || {}).particles;
@@ -14512,6 +14699,9 @@ class Scene {
     const t = now / 1000;
     const dt = this.last ? Math.min(0.05, t - this.last) : 0.016;
     this.last = t; this.time += dt;
+    // the actor clock stops during a hit-stop
+    const adt = this.freeze > 0 ? Math.max(0, dt - this.freeze) : dt;
+    this.freeze = Math.max(0, this.freeze - dt); this.atime += adt;
     const ctx = this.ctx; const W = this.W; const H = this.H; const u = this.u;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
 
@@ -14565,14 +14755,29 @@ class Scene {
 
   drawActor(ctx, a, moving) {
     const gy = this.groundY + (a.dy || 0);
-    const t = this.time;
+    const t = this.time; const at = this.atime; const u = this.u;
     let act = null;
-    if (a.act) { const p = (t - a.act.t0) / a.act.dur; if (p >= 1) a.act = null; else act = { kind: a.act.kind, p }; }
+    let windup = false;
+    if (a.act) { const raw = (at - a.act.t0) / a.act.dur; if (raw >= 1) a.act = null; else { act = { kind: a.act.kind, p: poseP(a.act, raw) }; windup = a.act.heavy && a.act.contact != null && raw < a.act.contact; } }
+    // telegraph: an enemy whose next action is heavy or a cast holds its wind-up until it acts
+    const tele = a.tele && !a.teleSpent && a.alive !== false && !a.deadT0 && a.visible !== false ? a.tele : null;
+    let tremble = 0;
+    if (tele && !act && a.kind !== 'boss' && a.kind !== 'shard') {
+      act = a.kind === 'humanoid' ? { kind: tele.kind === 'cast' ? 'cast' : 'smash', p: tele.kind === 'cast' ? TELE_POSE.cast : TELE_POSE.smash } : { kind: 'hit', p: 0.5 };
+      if (!settings.reduceMotion) tremble = Math.sin(t * 38) * (tele.kind === 'heavy' ? 1.6 : 0.7) * u;
+    }
+    if (windup && !settings.reduceMotion) tremble = Math.sin(t * 44) * 2 * u;
+    if (tele) this.drawTelegraph(ctx, a, tele, gy);
     let lunge = 0;
-    if (act && act.kind === 'melee' && (a.kind === 'humanoid') && a.id === 'player') lunge = Math.sin(clamp(act.p, 0, 1) * Math.PI) * (a.lungeDist || 120) * this.u;
-    if (act && act.kind === 'melee' && a.id.startsWith('enemy') && a.kind !== 'boss') lunge = -Math.sin(clamp(act.p, 0, 1) * Math.PI) * 60 * this.u;
+    if (act && act.kind === 'melee' && (a.kind === 'humanoid') && a.id === 'player') lunge = Math.sin(clamp(act.p, 0, 1) * Math.PI) * (a.lungeDist || 120) * u;
+    if (act && act.kind === 'melee' && a.id === 'pet') lunge = Math.sin(clamp(act.p, 0, 1) * Math.PI) * 70 * u;
+    if (act && (act.kind === 'melee' || act.kind === 'smash') && a.id.startsWith('enemy') && a.kind !== 'boss' && !(tele && !a.act)) lunge = -Math.sin(clamp(act.p, 0, 1) * Math.PI) * 60 * u;
+    // recoil from a hit
+    let kbx = 0;
+    if (a.kb) { const k = (at - a.kb.t0) / a.kb.dur; if (k >= 1) a.kb = null; else kbx = a.kb.dir * a.kb.dist * (k < 0.18 ? ease.out(k / 0.18) : 1 - ease.inOut((k - 0.18) / 0.82)); }
+    lunge += kbx + tremble;
     a.lunge = lunge;
-    const flash = a.flashT ? clamp(1 - (t - a.flashT) / 0.18, 0, 1) : 0;
+    const flash = a.flashT ? clamp(1 - (t - a.flashT) / 0.2, 0, 1) * (a.flashK ?? 1) : 0;
     let dead = a.dead || 0;
     if (a.deadT0) { dead = clamp((t - a.deadT0) / 0.7, 0, 1); if (dead >= 1) a.dead = 1; }
     const alpha = (a.alpha ?? 1) * (a.kind === 'humanoid' && a.id === 'player' && this.stealth ? 0.55 : 1) * (dead > 0 && a.id !== 'player' ? 1 - clamp((dead - 0.6) / 0.4, 0, 0.75) : 1);
@@ -14601,11 +14806,16 @@ class Scene {
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, gy - 50 * a.scale, 90 * a.scale, 0, Math.PI * 2); ctx.fill();
     }
     ctx.save(); ctx.globalAlpha *= alpha;
-    const anim = { t: t + (a.born || 0) * 0.37 + (a.id.length * 0.9), walk: moving ? 1 : 0, phase: a.phase, act, flash, dead, flip: a.flip, bossPhase: this.bossPhase };
-    if (a.kind === 'humanoid') drawHumanoid(ctx, x, gy, a.scale, a.look, anim);
-    else if (a.kind === 'beast' || a.kind === 'hawk') drawBeast(ctx, x, gy, a.scale, a.look, anim);
-    else if (a.kind === 'boss') drawBoss(ctx, x, gy, a.scale, anim);
-    else if (a.kind === 'shard') drawShard(ctx, x, gy, a.scale, anim);
+    const anim = { t: at + (a.born || 0) * 0.37 + (a.id.length * 0.9), walk: moving ? 1 : 0, phase: a.phase, act, flash: 0, dead, flip: a.flip, bossPhase: this.bossPhase };
+    const draw = (c) => {
+      if (a.kind === 'humanoid') drawHumanoid(c, x, gy, a.scale, a.look, anim);
+      else if (a.kind === 'beast' || a.kind === 'hawk') drawBeast(c, x, gy, a.scale, a.look, anim);
+      else if (a.kind === 'boss') drawBoss(c, x, gy, a.scale, { ...anim, flash });
+      else if (a.kind === 'shard') drawShard(c, x, gy, a.scale, anim);
+    };
+    // the hit flash tints only the actor's own pixels (drawn on a scratch canvas), not the scene behind it
+    if (flash > 0.02 && a.kind !== 'boss') this.drawFlashed(ctx, a, x, gy, flash, draw);
+    else draw(ctx);
     ctx.restore();
     // ward bubble / status visuals
     if (a.fxWard) { const an = this.anchor(a.id); ctx.save(); ctx.strokeStyle = 'rgba(160,200,255,0.75)'; ctx.lineWidth = 2 * this.u; ctx.fillStyle = 'rgba(140,180,255,0.10)'; ctx.beginPath(); ctx.ellipse(an.x, an.cy - 8 * this.u, an.w * 1.1, (an.feet - an.top) * 0.62, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.restore(); }
@@ -14613,6 +14823,49 @@ class Scene {
     if (a.fxBurn && a.alive !== false) { const an = this.anchor(a.id); if (Math.random() < 0.4) this.particles.push({ x: an.x + (Math.random() - 0.5) * an.w, y: an.cy, vx: 0, vy: -60 * this.u, life: 0.5, t0: t, size: 2.5 * this.u, color: '#ff9a4a', g: 0, glow: true }); }
     if (a.fxFrozen && a.alive !== false) { const an = this.anchor(a.id); ctx.fillStyle = 'rgba(170,220,255,0.28)'; ctx.fillRect(an.x - an.w * 0.7, an.top, an.w * 1.4, an.feet - an.top); }
     if (a.fxHex && a.alive !== false) { const an = this.anchor(a.id); ctx.save(); ctx.strokeStyle = 'rgba(200,150,255,0.8)'; ctx.lineWidth = 2 * this.u; ctx.beginPath(); ctx.ellipse(an.x, an.feet, an.w, 10 * this.u, 0, t * 2, t * 2 + 4.5); ctx.stroke(); ctx.restore(); }
+  }
+
+  /** Draw an actor through a scratch canvas and tint its pixels white by `flash` (the contact frame of a hit). */
+  drawFlashed(ctx, a, x, gy, flash, draw) {
+    const u = this.u; const k = (a.look && a.look.size) || 1;
+    const bw = 340 * u * k; const bh = 360 * u * k; const left = x - bw / 2; const top = gy - bh + 30 * u;
+    const dpr = this.dpr; const pw = Math.ceil(bw * dpr); const ph = Math.ceil(bh * dpr);
+    const oc = this.flashCanvas || (this.flashCanvas = document.createElement('canvas'));
+    if (oc.width < pw || oc.height < ph) { oc.width = Math.max(oc.width, pw); oc.height = Math.max(oc.height, ph); }
+    const o = oc.getContext('2d');
+    o.setTransform(1, 0, 0, 1, 0, 0); o.globalCompositeOperation = 'source-over'; o.globalAlpha = 1; o.clearRect(0, 0, pw, ph);
+    o.setTransform(dpr, 0, 0, dpr, -left * dpr, -top * dpr);
+    draw(o);
+    o.setTransform(1, 0, 0, 1, 0, 0); o.globalCompositeOperation = 'source-atop';
+    o.fillStyle = rgba('#ffffff', 0.85 * clamp(flash, 0, 1)); o.fillRect(0, 0, pw, ph);
+    o.globalCompositeOperation = 'source-over';
+    ctx.drawImage(oc, 0, 0, pw, ph, left, top, bw, bh);
+  }
+
+  /** The telegraph under and around an enemy: a pulsing red ring for a heavy blow, a turning rune circle for a cast. */
+  drawTelegraph(ctx, a, tele, gy) {
+    const an = this.anchor(a.id); if (!an) return;
+    const t = this.time; const u = this.u; const col = tele.color || '#ff4a2a';
+    const w = (a.kind === 'boss' ? 150 : a.kind === 'beast' ? 60 : 44) * a.scale / (a.kind === 'boss' ? 1 : 1.4);
+    const pulse = 0.5 + 0.5 * Math.sin(t * 6.5);
+    ctx.save();
+    const g = ctx.createRadialGradient(an.x, an.cy, 4 * u, an.x, an.cy, (an.feet - an.top) * 0.75);
+    g.addColorStop(0, rgba(col, 0.16 + 0.12 * pulse)); g.addColorStop(1, rgba(col, 0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(an.x, an.cy, (an.feet - an.top) * 0.75, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowColor = col; ctx.shadowBlur = 12 * u;
+    if (tele.kind === 'heavy') {
+      ctx.strokeStyle = rgba(col, 0.55 + 0.4 * pulse); ctx.lineWidth = (2.5 + 1.5 * pulse) * u;
+      ctx.beginPath(); ctx.ellipse(an.x, gy + 2 * u, w * (1.05 + 0.12 * pulse), 12 * u, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.lineWidth = 1.5 * u; ctx.strokeStyle = rgba(col, 0.35 * pulse);
+      ctx.beginPath(); ctx.ellipse(an.x, gy + 2 * u, w * 1.45, 17 * u, 0, 0, Math.PI * 2); ctx.stroke();
+      if (Math.random() < 0.35) this.particles.push({ x: an.x + (Math.random() - 0.5) * w * 1.6, y: gy, vx: 0, vy: -(70 + Math.random() * 60) * u, life: 0.6, t0: t, size: 2 * u, color: col, g: 0, glow: true });
+    } else {
+      ctx.strokeStyle = rgba(col, 0.6 + 0.3 * pulse); ctx.lineWidth = 2 * u; ctx.setLineDash([7 * u, 5 * u]); ctx.lineDashOffset = -t * 40 * u;
+      ctx.beginPath(); ctx.ellipse(an.x, gy + 2 * u, w * 1.15, 13 * u, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+      if (Math.random() < 0.5) { const ang = Math.random() * Math.PI * 2; const r = (34 + Math.random() * 20) * u; this.particles.push({ x: an.x + Math.cos(ang) * r, y: an.cy - 10 * u + Math.sin(ang) * r, vx: -Math.cos(ang) * r * 1.8, vy: -Math.sin(ang) * r * 1.8, life: 0.5, t0: t, size: 2 * u, color: col, g: 0, glow: true }); }
+    }
+    ctx.restore();
   }
 
   drawProp(ctx, pr) {
@@ -14647,23 +14900,75 @@ class Scene {
 
   drawFx(ctx, dt) {
     const t = this.time; const u = this.u;
-    // projectiles
+    // charge-ups: an orb at the caster's hands grows and pulls sparks in; heavy ones draw a rune circle on the ground
+    for (const c of [...this.charges]) {
+      const k = (t - c.t0) / c.dur; const an = this.anchor(c.id);
+      if (k >= 1 || !an) { this.charges.splice(this.charges.indexOf(c), 1); continue; }
+      const toward = an.x < this.W * 0.5 ? 1 : -1;
+      const hx = an.x + toward * 26 * u; const hy = an.cy - 24 * u;
+      const r = (2 + (5 + 9 * c.w) * ease.in(k)) * u;
+      glowBall(ctx, hx, hy, r, c.color);
+      if (Math.random() < 0.6 + c.w * 0.4) { const ang = Math.random() * Math.PI * 2; const d = (30 + 40 * c.w) * u; this.particles.push({ x: hx + Math.cos(ang) * d, y: hy + Math.sin(ang) * d, vx: -Math.cos(ang) * d * 2.6, vy: -Math.sin(ang) * d * 2.6, life: 0.36, t0: t, size: (1.5 + c.w) * u, color: c.color, g: 0, glow: true }); }
+      if (c.w > 0.55) {
+        ctx.save(); ctx.strokeStyle = rgba(c.color, 0.25 + 0.55 * ease.out(k)); ctx.lineWidth = 2 * u; ctx.shadowColor = c.color; ctx.shadowBlur = 10 * u;
+        ctx.setLineDash([9 * u, 5 * u]); ctx.lineDashOffset = -t * 60 * u;
+        ctx.beginPath(); ctx.ellipse(an.x, an.feet + 2 * u, (40 + 30 * ease.out(k)) * u, (10 + 6 * ease.out(k)) * u, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+      }
+    }
+    // projectiles, with trails
     for (const p of [...this.projectiles]) {
       const k = (t - p.t0) / p.dur;
       const ta = this.anchor(p.toId); if (ta) { p.to.x = ta.x; p.to.y = ta.cy; }
       if (k >= 1) { this.projectiles.splice(this.projectiles.indexOf(p), 1); p.resolve(); continue; }
-      const e = p.kind === 'arrow' ? k : ease.in(k * 0.6 + 0.4 * k);
-      const x = lerp(p.from.x, p.to.x, e); const y = lerp(p.from.y, p.to.y, e) - Math.sin(e * Math.PI) * p.arc;
-      const col = { fire: '#ff8a3a', frost: '#9fdcff', arcane: '#c79bff', shadow: '#9a6aff', nature: '#9be07a', comet: '#ffb05a', phys: '#ffffff' }[p.kind] || '#ffffff';
-      if (p.kind === 'arrow') {
-        const ang = Math.atan2(lerp(p.from.y, p.to.y, e + 0.02) - Math.sin((e + 0.02) * Math.PI) * p.arc - y, (p.to.x - p.from.x) * 0.02 || 1);
-        ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.strokeStyle = '#e8dcc0'; ctx.lineWidth = 2 * u; ctx.beginPath(); ctx.moveTo(-26 * u, 0); ctx.lineTo(0, 0); ctx.stroke();
-        ctx.fillStyle = '#d8dde3'; ctx.beginPath(); ctx.moveTo(0, -3 * u); ctx.lineTo(8 * u, 0); ctx.lineTo(0, 3 * u); ctx.fill();
-        ctx.fillStyle = '#c84a3a'; ctx.fillRect(-28 * u, -3 * u, 6 * u, 6 * u); ctx.restore();
-      } else {
-        glowBall(ctx, x, y, (p.kind === 'comet' ? 9 : 6) * u, col);
-        for (let i = 0; i < 2; i++) this.particles.push({ x, y, vx: (Math.random() - 0.5) * 30 * u, vy: (Math.random() - 0.5) * 30 * u, life: 0.35, t0: t, size: 2.5 * u, color: col, g: 0, glow: true });
+      const ease1 = (q) => (p.kind === 'arrow' ? q : ease.in(q));
+      const at = (q) => { const e = ease1(clamp(q, 0, 1)); return [lerp(p.from.x, p.to.x, e), lerp(p.from.y, p.to.y, e) - Math.sin(e * Math.PI) * p.arc]; };
+      const [x, y] = at(k);
+      const col = { fire: '#ff8a3a', frost: '#9fdcff', arcane: '#c79bff', shadow: '#9a6aff', nature: '#9be07a', comet: '#ffb05a', phys: '#ffffff', arrow: p.w > 0.5 ? '#ffd27a' : '#fff1d0' }[p.kind] || '#ffffff';
+      // trail: a tapering streak along the flight path behind the shot (sampled from the path, so smooth at any frame rate)
+      const len = (p.kind === 'arrow' ? 0.16 : 0.2) + 0.16 * p.w; const N = 10;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+      let prevPt = at(k - len);
+      for (let i = 1; i <= N; i++) {
+        const f = i / N; const pt = at(k - len * (1 - f));
+        ctx.strokeStyle = rgba(col, (p.kind === 'arrow' ? 0.45 : 0.6) * f * (0.6 + 0.6 * p.w));
+        ctx.lineWidth = (p.kind === 'arrow' ? 1.4 + 2.6 * p.w : 3 + 7 * p.w + (p.kind === 'comet' ? 5 : 0)) * u * (0.25 + 0.75 * f);
+        ctx.beginPath(); ctx.moveTo(prevPt[0], prevPt[1]); ctx.lineTo(pt[0], pt[1]); ctx.stroke();
+        prevPt = pt;
       }
+      ctx.restore();
+      if (p.kind === 'arrow') {
+        const ahead = at(k + 0.02); const ang = Math.atan2(ahead[1] - y, ahead[0] - x || 0.001);
+        const sz = 1 + 0.35 * p.w;
+        ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.scale(sz, sz);
+        if (p.w > 0.5) { ctx.shadowColor = '#ffd27a'; ctx.shadowBlur = 12 * u; }
+        ctx.strokeStyle = '#e8dcc0'; ctx.lineWidth = 2 * u; ctx.beginPath(); ctx.moveTo(-26 * u, 0); ctx.lineTo(0, 0); ctx.stroke();
+        ctx.fillStyle = p.w > 0.5 ? '#ffe9a8' : '#d8dde3'; ctx.beginPath(); ctx.moveTo(0, -3 * u); ctx.lineTo(9 * u, 0); ctx.lineTo(0, 3 * u); ctx.fill();
+        ctx.fillStyle = '#c84a3a'; ctx.fillRect(-28 * u, -3 * u, 6 * u, 6 * u); ctx.restore();
+        if (p.w > 0.5 && Math.random() < 0.6) this.particles.push({ x, y, vx: (Math.random() - 0.5) * 20 * u, vy: (Math.random() - 0.5) * 20 * u, life: 0.3, t0: t, size: 1.8 * u, color: '#ffd27a', g: 0, glow: true });
+      } else {
+        glowBall(ctx, x, y, ((p.kind === 'comet' ? 9 : 5) + 5 * p.w) * u, col);
+        for (let i = 0; i < 2 + Math.round(p.w * 3); i++) this.particles.push({ x, y, vx: (Math.random() - 0.5) * 30 * u, vy: (Math.random() - 0.5) * 30 * u, life: 0.35, t0: t, size: (2 + 1.5 * p.w) * u, color: col, g: 0, glow: true });
+      }
+    }
+    // impact cores: a white-hot flash at the contact point
+    for (const c of [...this.cores]) {
+      const k = (t - c.t0) / c.life; if (k >= 1) { this.cores.splice(this.cores.indexOf(c), 1); continue; }
+      const r = c.r * (0.45 + 0.75 * ease.out(Math.min(1, k * 2.2)));
+      const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, r);
+      g.addColorStop(0, `rgba(255,255,255,${0.95 * (1 - k)})`); g.addColorStop(0.35, rgba(c.color, 0.75 * (1 - k))); g.addColorStop(1, rgba(c.color, 0));
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    }
+    // crit starbursts
+    for (const b of [...this.rays]) {
+      const k = (t - b.t0) / b.life; if (k >= 1) { this.rays.splice(this.rays.indexOf(b), 1); continue; }
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(b.x, b.y); ctx.rotate(b.rot);
+      for (let i = 0; i < 8; i++) {
+        ctx.rotate(Math.PI / 4);
+        const len = b.r * (0.4 + 0.6 * ease.out(k)) * (i % 2 ? 0.6 : 1);
+        ctx.fillStyle = rgba(i % 2 ? b.color : '#ffffff', 0.85 * (1 - k));
+        ctx.beginPath(); ctx.moveTo(0, -2.5 * u); ctx.lineTo(len, 0); ctx.lineTo(0, 2.5 * u); ctx.fill();
+      }
+      ctx.restore();
     }
     // rings
     for (const r of [...this.rings]) {
@@ -14674,9 +14979,10 @@ class Scene {
     // slashes
     for (const b of [...this.beams]) {
       const k = (t - b.t0) / b.life; if (k >= 1) { this.beams.splice(this.beams.indexOf(b), 1); continue; }
-      ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(-0.6);
-      ctx.strokeStyle = rgba('#ffffff', 1 - k); ctx.lineWidth = (b.crit ? 6 : 4) * u * (1 - k); ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.arc(0, 0, 34 * u, -1.1 + k * 0.6, 0.6 + k * 0.6); ctx.stroke(); ctx.restore();
+      const sz = b.size || 1;
+      ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(-0.6); if (b.dir < 0) ctx.scale(-1, 1);
+      ctx.strokeStyle = rgba('#ffffff', 1 - k); ctx.lineWidth = (b.crit ? 6 : 4) * u * sz * (1 - k); ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(0, 0, 34 * u * sz, -1.1 + k * 0.6, 0.6 + k * 0.6); ctx.stroke(); ctx.restore();
     }
     // level-up pillar
     if (this.pillar) {
@@ -14700,21 +15006,28 @@ class Scene {
       if (q.glow) { ctx.globalCompositeOperation = 'lighter'; }
       ctx.fillStyle = rgba(q.color, a);
       if (q.plus) { ctx.fillRect(q.x - q.size * 1.5, q.y - q.size * 0.4, q.size * 3, q.size * 0.8); ctx.fillRect(q.x - q.size * 0.4, q.y - q.size * 1.5, q.size * 0.8, q.size * 3); }
+      else if (q.streak) { ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = q.size; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(q.x, q.y); ctx.lineTo(q.x - q.vx * 0.035, q.y - q.vy * 0.035); ctx.stroke(); }
       else { ctx.beginPath(); ctx.arc(q.x, q.y, q.size * (0.5 + a * 0.5), 0, Math.PI * 2); ctx.fill(); }
       ctx.globalCompositeOperation = 'source-over';
     }
     ctx.restore();
     if (this.particles.length > 900) this.particles.splice(0, this.particles.length - 900);
-    // floating text
+    // floating text: damage numbers slam in (crits larger, slower, shaking), then rise a little and fade
     for (const f of [...this.texts]) {
-      const k = (t - f.t0) / f.life; if (k >= 1) { this.texts.splice(this.texts.indexOf(f), 1); continue; }
-      const pop = f.crit ? (k < 0.12 ? 0.6 + ease.back(k / 0.12) * 0.75 : 1.35 - Math.min(0.2, (k - 0.12))) : (k < 0.1 ? 0.7 + 3 * k : 1);
-      const y = f.y + f.vy * Math.min(k * f.life, 1.0) * (f.crit ? 0.6 : 1);
-      const a = k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3;
-      ctx.save(); ctx.globalAlpha = a; ctx.translate(f.x, y); ctx.scale(pop, pop);
+      const age = t - f.t0; const k = age / f.life; if (k >= 1) { this.texts.splice(this.texts.indexOf(f), 1); continue; }
+      let sc = 1;
+      if (f.slam) {
+        const s0 = f.crit ? 2.1 : 1.5 + 0.35 * f.weight; const sd = f.crit ? 0.17 : 0.11; const rest = f.crit ? 1.1 : 1;
+        sc = age < sd ? lerp(s0, rest * 0.92, ease.out(age / sd)) : age < sd + 0.08 ? lerp(rest * 0.92, rest, (age - sd) / 0.08) : rest;
+      } else if (!f.small && age < 0.1) sc = 0.75 + 2.5 * age;
+      const y = f.y - f.rise * ease.out(clamp(age / (f.crit ? 1.25 : 0.9), 0, 1));
+      const jx = f.crit && f.slam && age < 0.32 ? Math.sin(age * 95) * 3.2 * u * (1 - age / 0.32) : 0;
+      const a = k < 0.72 ? 1 : 1 - (k - 0.72) / 0.28;
+      ctx.save(); ctx.globalAlpha = a; ctx.translate(f.x + jx, y); ctx.scale(sc, sc);
       ctx.font = `${f.small ? 700 : 800} ${f.size}px ${FCT_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.lineWidth = Math.max(2, f.size * 0.16); ctx.strokeStyle = f.outline; ctx.lineJoin = 'round';
-      ctx.strokeText(f.text, 0, 0); ctx.fillStyle = f.color; ctx.fillText(f.text, 0, 0);
+      ctx.lineWidth = Math.max(2, f.size * (f.crit ? 0.2 : 0.16)); ctx.strokeStyle = f.outline; ctx.lineJoin = 'round';
+      if (f.crit) { ctx.shadowColor = f.color; ctx.shadowBlur = 16 * u; }
+      ctx.strokeText(f.text, 0, 0); ctx.shadowBlur = 0; ctx.fillStyle = f.color; ctx.fillText(f.text, 0, 0);
       ctx.restore();
     }
   }
@@ -14747,6 +15060,28 @@ class Scene {
     }
     ctx.restore();
   }
+}
+
+/** Held pose of a telegraph wind-up (pose progress): the weapon raised, or the hands up for a cast. */
+const TELE_POSE = { melee: 0.26, smash: 0.26, cast: 0.42 };
+/** Pose keys (pose progress) at contact: the melee strike lands, a cast or a bow is released. */
+const POSE_KEY = { melee: 0.5, smash: 0.5, cast: 0.6, shoot: 0.6 };
+/**
+ * Pose progress of an action at real progress raw: the wind-up up to the contact key fills act.contact of the time. A melee
+ * wind-up raises the weapon and holds it, then strikes in the last 30 % (anticipation); a cast or a bow draw eases into
+ * full draw and holds there until the release.
+ */
+function poseP(act, raw) {
+  const key = POSE_KEY[act.kind];
+  if (act.contact == null || key == null) return raw;
+  const c = clamp(act.contact, 0.05, 0.95); const from = Math.min(act.from || 0, key);
+  if (raw >= c) return key + (1 - key) * ((raw - c) / (1 - c));
+  const k = raw / c;
+  if (act.kind === 'melee' || act.kind === 'smash') {
+    const top = Math.max(0.33, from); const split = 0.7;
+    return k < split ? from + (top - from) * ease.out(k / split) : top + (key - top) * ease.in((k - split) / (1 - split));
+  }
+  return from + (key - from) * ease.out(k);
 }
 
 const FCT_FONT = '"Trebuchet MS", "Segoe UI", system-ui, -apple-system, "Liberation Sans", sans-serif';
@@ -15059,10 +15394,11 @@ const abilityIcon = (intent) => {
 
 });
 __bundle.def("src/ui/tooltip.js", function* (__ns, __link) {
-let h, clear, moneyEl, pct, fmtNum; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["pct", (v) => { pct = v; }], ["fmtNum", (v) => { fmtNum = v; }]]); let itemIcon; __link.imp("src/ui/art-icons.js", [["itemIcon", (v) => { itemIcon = v; }]]); __link.exp({ "initTooltip": () => initTooltip, "tip": () => tip, "show": () => show, "hide": () => hide, "statLine": () => statLine, "itemTip": () => itemTip, "spellTip": () => spellTip, "basicTip": () => basicTip, "talentTip": () => talentTip, "statusTip": () => statusTip, "SLOT_NAMES": () => SLOT_NAMES, "STAT_NAMES": () => STAT_NAMES, "pct": () => pct });
+let h, clear, moneyEl, pct, fmtNum; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["pct", (v) => { pct = v; }], ["fmtNum", (v) => { fmtNum = v; }]]); let itemIcon; __link.imp("src/ui/art-icons.js", [["itemIcon", (v) => { itemIcon = v; }]]); let statusEffect; __link.imp("src/ui/ui-text.js", [["statusEffect", (v) => { statusEffect = v; }]]); __link.exp({ "initTooltip": () => initTooltip, "tip": () => tip, "show": () => show, "hide": () => hide, "statLine": () => statLine, "itemTip": () => itemTip, "spellTip": () => spellTip, "basicTip": () => basicTip, "talentTip": () => talentTip, "statusTip": () => statusTip, "SLOT_NAMES": () => SLOT_NAMES, "STAT_NAMES": () => STAT_NAMES, "pct": () => pct });
 yield;
 // Hover tooltips for spells, items, talents, statuses and map nodes. Content is built from the
 // view and the bridge's data tables; nothing here decides game rules.
+
 
 
 
@@ -15181,11 +15517,15 @@ function talentTip(t, st, ctx) {
   return box;
 }
 
+/** A status: buff or debuff, its exact effect from the engine's status object and rules table, time left and source. */
 function statusTip(s, ctx) {
   const info = (ctx.data.statuses || {})[s.id] || { name: s.id, text: '' };
-  return h('div.tt-spell', h('div.tt-name' + (info.debuff ? '.bad' : '.good'), info.name + (s.stacks > 1 ? ` ×${s.stacks}` : '')), h('div.tt-line.desc', info.text),
-    s.value && s.id === 'WARD' ? h('div.tt-line.num', `${fmtNum(s.value)} damage left to absorb`) : null,
-    s.rounds && s.rounds < 90 ? h('div.tt-sub', `${s.rounds} round${s.rounds > 1 ? 's' : ''} left`) : null);
+  const fx = statusEffect(s, ctx.data.rules, info);
+  return h('div.tt-spell.tt-status',
+    h('div.tt-row', h('div.tt-name' + (info.debuff ? '.bad' : '.good'), info.name + (s.stacks > 1 ? ` ×${s.stacks}` : '')), h('div.tt-kind' + (info.debuff ? '.bad' : '.good'), info.debuff ? 'Debuff' : 'Buff')),
+    fx.effect ? h('div.tt-line.desc', fx.effect) : null,
+    fx.lines.map((l) => h('div.tt-line.num', l)),
+    h('div.tt-sub', fx.duration), fx.source ? h('div.tt-sub', fx.source) : null);
 }
 
 
@@ -15245,18 +15585,31 @@ function setBar(el, cur, max, text, wardVal = 0) {
   el.querySelector('.txt').textContent = text;
   el.classList.toggle('low', el.classList.contains('hp') && f < 0.3);
 }
+/**
+ * Status icons of a unit: buffs first, then debuffs after a divider. A buff has a round green frame, a debuff a square
+ * red frame with a corner notch (shape and place tell them apart without colour). Rounds left sit in the lower right
+ * corner (gold on the last round), stacks in the upper left; the tooltip states the exact effect (statusTip).
+ */
 function statusRow(container, statuses, ctx) {
-  const key = (statuses || []).map((s) => `${s.id}:${s.rounds}:${s.stacks}`).join('|');
+  const list = statuses || [];
+  const key = list.map((s) => `${s.id}:${s.rounds}:${s.stacks}:${s.value}:${s.tick}:${s.amount}`).join('|');
   if (container.dataset.key === key) return;
   container.dataset.key = key;
   clear(container);
-  for (const s of statuses || []) {
-    const info = (ctx.data.statuses || {})[s.id] || {};
-    const el = h('div.st' + (info.debuff ? '.bad' : ''), h('img', { src: statusIcon(s.id), alt: '' }),
-      s.rounds && s.rounds < 90 ? h('span.n', String(s.rounds)) : null, s.stacks > 1 ? h('span.s', String(s.stacks)) : null);
+  const bad = (s) => !!((ctx.data.statuses || {})[s.id] || {}).debuff;
+  const cell = (s) => {
+    const info = (ctx.data.statuses || {})[s.id] || { name: s.id };
+    const left = s.rounds && s.rounds < 90 ? s.rounds : null;
+    const el = h('div.st' + (bad(s) ? '.bad' : '.buff') + (left === 1 ? '.ending' : ''),
+      { dataset: { id: s.id }, 'aria-label': `${info.name}${s.stacks > 1 ? ` ×${s.stacks}` : ''}${left ? `, ${left} ${left === 1 ? 'round' : 'rounds'} left` : ''}` },
+      h('img', { src: statusIcon(s.id), alt: '' }), s.stacks > 1 ? h('span.s', String(s.stacks)) : null, left ? h('span.n', String(left)) : null);
     tip(el, () => statusTip(s, ctx));
-    container.appendChild(el);
-  }
+    return el;
+  };
+  const buffs = list.filter((s) => !bad(s)); const debuffs = list.filter(bad);
+  for (const s of buffs) container.appendChild(cell(s));
+  if (buffs.length && debuffs.length) container.appendChild(h('i.st-sep'));
+  for (const s of debuffs) container.appendChild(cell(s));
 }
 const portraitCache = new Map();
 function portrait(key, draw) {
@@ -15303,9 +15656,11 @@ function createHud(root, ctx) {
   els.auto = h('button.toggle', { type: 'button', role: 'switch', 'aria-checked': 'false', 'aria-label': 'Autoplay' }, h('span.sw'), h('span', 'Autoplay'), h('span.kbd', 'Z'));
   els.pass = h('button.btn.small', 'Pass', h('span.k', 'X'));
   els.flee = h('button.btn.small', 'Flee', h('span.k', 'F'));
+  // the queued next action during a combat round (app.combatAct): a tag over the bar, the button ringed
+  els.qtag = h('div.qtag.hidden', { 'aria-live': 'polite' });
   els.actionbar.append(
     h('div.grp', els.basic), h('div.sep'), h('div.grp', els.spells), h('div.sep'), h('div.grp', els.items),
-    h('div.ctrl.panel', els.auto, els.pass, els.flee));
+    h('div.ctrl.panel', els.auto, els.pass, els.flee), els.qtag);
   // ------------------------------------------------------------ xp bar
   els.xp = h('div#xpbar', h('div.rested'), h('div.fill'), h('div.ticks'), h('div.txt'));
   // ------------------------------------------------------------ minimap
@@ -15411,9 +15766,11 @@ function createHud(root, ctx) {
     els.resc.classList.toggle('hidden', !rt.count && !rt.note);
     els.resc.classList.toggle('none', !rt.count);
     els.resc.querySelector('.n').textContent = String(rt.count);
-    // pet
+    // pet: its frame sits under the player frame, which grows with the player's status icons
     if (p.pet && v.phase !== 'SUMMARY') {
       els.pet.classList.remove('hidden');
+      const below = pf.offsetTop + pf.offsetHeight;
+      if (below > 0) els.pet.style.top = `${Math.round(below + parseFloat(getComputedStyle(document.documentElement).fontSize) * 0.5)}px`;
       if (els.pet.dataset.pet !== p.pet.id) { els.pet.dataset.pet = p.pet.id; clear(els.pet.querySelector('.portrait')).appendChild(petPortrait(p.pet.id)); }
       els.pet.querySelector('.pn').textContent = p.pet.name;
       setBar(els.pet.querySelector('.bar.hp'), p.pet.alive ? p.pet.hp : 0, p.pet.maxHp, p.pet.alive ? `${fmtNum(p.pet.hp)} / ${fmtNum(p.pet.maxHp)}` : 'Dead');
@@ -15647,7 +16004,17 @@ function createHud(root, ctx) {
   settings.on('change', (k) => { if (k === 'showLog') els.log.style.display = settings.get('showLog') ? '' : 'none'; });
   if (!settings.get('showLog')) els.log.style.display = 'none';
 
-  return { update, placeNameplates, log, clearLog, els, flashSlot(i) { const b = els.spells[i] || els.items[i - 7]; if (b) { b.classList.add('pressed'); setTimeout(() => b.classList.remove('pressed'), 120); } } };
+  /** Show the queued next action (key: 'attack', 'spellN', 'itemN', 'pass', 'flee'; null clears it). */
+  function setQueued(key, label = '') {
+    const btn = (k) => (k === 'attack' ? els.basic : k === 'pass' ? els.pass : k === 'flee' ? els.flee : /^spell\d$/.test(k) ? els.spells[Number(k.slice(5))] : /^item\d$/.test(k) ? els.items[Number(k.slice(4))] : null);
+    for (const b of [els.basic, els.pass, els.flee, ...els.spells, ...els.items]) b.classList.remove('queued');
+    els.qtag.classList.toggle('hidden', !key);
+    if (!key) return;
+    const b = btn(key); if (b) b.classList.add('queued');
+    els.qtag.textContent = `Next: ${label}`;
+  }
+
+  return { update, placeNameplates, log, clearLog, els, setQueued, flashSlot(i) { const b = els.spells[i] || els.items[i - 7]; if (b) { b.classList.add('pressed'); setTimeout(() => b.classList.remove('pressed'), 120); } } };
 }
 
 /** Tooltip of the resurrect badge (rules 9, M2 v3). */
@@ -16748,17 +17115,21 @@ function createWindows(root, ctx) {
         const el = h('div.seg', opts.map(([val, label]) => { const b = h('button' + (s[key] === val ? '.on' : ''), label); b.addEventListener('click', () => { settings.set(key, val); refresh('settings'); }); return b; }));
         return el;
       };
-      const tog = (key) => { const b = h('div.toggle' + (s[key] ? '.on' : ''), h('div.sw')); b.addEventListener('click', () => { settings.set(key, !settings.get(key)); refresh('settings'); }); return b; };
+      // reduceMotion shows what is in force (the system's setting until the player chooses)
+      const on = (key) => (key === 'reduceMotion' ? settings.reduceMotion : !!s[key]);
+      const LABEL = { speedrun: 'Speedrun mode', skipTravel: 'Skip travel scenes', shake: 'Screen shake', reduceMotion: 'Reduce motion', showLog: 'Combat log' };
+      const tog = (key) => { const b = h('div.toggle' + (on(key) ? '.on' : ''), { role: 'switch', 'aria-checked': on(key) ? 'true' : 'false', 'aria-label': LABEL[key] || key }, h('div.sw')); b.addEventListener('click', () => { settings.set(key, !on(key)); refresh('settings'); }); return b; };
       const body = h('div.col', { style: { padding: '1rem 1.6rem 1.6rem', gap: 0 } },
-        h('div.setrow', h('div', h('div', 'Animation speed'), h('div.muted', 'Every animation can also be skipped with Space, a click or an action key.')), seg('speed', [[1, '1×'], [2, '2×'], [4, '4×'], [0, 'Instant']])),
+        h('div.setrow', h('div', h('div', 'Animation speed'), h('div.muted', 'Space or a click skips to the end of the hit on screen. A key pressed while a round plays is queued as your next action.')), seg('speed', [[1, '1×'], [2, '2×'], [4, '4×'], [0, 'Instant']])),
         h('div.setrow', h('div', h('div', 'Speedrun mode'), h('div.muted', 'Instant animations, no travel scenes, fast autoplay.')), tog('speedrun')),
         h('div.setrow', h('div', 'Skip travel scenes'), tog('skipTravel')),
         h('div.setrow', h('div', h('div', 'Autoplay pace'), h('div.muted', 'Pause between autoplay rounds.')), seg('autoDelay', [[700, 'Calm'], [350, 'Normal'], [120, 'Quick'], [40, 'Rush']])),
         h('div.setrow', h('div', 'Screen shake'), tog('shake')),
+        h('div.setrow', h('div', h('div', 'Reduce motion'), h('div.muted', 'No screen shake, smaller recoil, numbers without the slam.')), tog('reduceMotion')),
         h('div.setrow', h('div', 'Combat log'), tog('showLog')),
         h('div', { style: { marginTop: '1.2rem' } }, h('div.title', { style: { fontSize: '1.5rem', marginBottom: '.6rem' } }, 'Keys'),
           h('div.keys', h('span.kbd', '1–7'), 'Spells', h('span.kbd', '8 9 0'), 'Items', h('span.kbd', 'A'), 'Basic attack', h('span.kbd', 'Tab'), 'Next target',
-            h('span.kbd', 'Z'), 'Autoplay', h('span.kbd', 'F F'), 'Flee', h('span.kbd', 'X'), 'Pass', h('span.kbd', 'Space'), 'Skip / take loot',
+            h('span.kbd', 'Z'), 'Autoplay', h('span.kbd', 'F F'), 'Flee', h('span.kbd', 'X'), 'Pass', h('span.kbd', 'Space'), 'Skip a hit / take loot',
             h('span.kbd', 'C B P'), 'Character, bags, spells', h('span.kbd', 'N L M'), 'Talents, quests, map')),
         h('div.muted', { style: { marginTop: '1.2rem', fontSize: '1.1rem' } }, `Engine: ${ctx.bridge.mode}${globalThis.__BUILD__ ? ` · build ${globalThis.__BUILD__}` : ''}`));
       return frame('settings', 'Menu and settings', null, body);
@@ -16823,65 +17194,206 @@ function createWindows(root, ctx) {
 }
 
 });
+__bundle.def("src/ui/combat-feel.js", function* (__ns, __link) {
+let clamp, lerp; __link.imp("src/ui/util.js", [["clamp", (v) => { clamp = v; }], ["lerp", (v) => { lerp = v; }]]); __link.exp({ "OLD_ROUND_MS": () => OLD_ROUND_MS, "SLOWER": () => SLOWER, "roundPace": () => roundPace, "BEAT": () => BEAT, "spellWeight": () => spellWeight, "hitPower": () => hitPower, "hitShare": () => hitShare, "STATUS_LABEL": () => STATUS_LABEL, "timeline": () => timeline });
+yield;
+// combat-feel.js - presentation timing of combat: how long each beat of a step plays at 1x speed and how heavy each
+// action feels. Owner feedback 2026-11-10 (docs/feedback/2026-11-10-1043-owner.md): rounds at the default speed at least
+// 40 % slower than the round budget of M2 v2 (rules 3: PACE_ROUND_ANIM_S, 1.5 s), every hit readable, and time that
+// shows each ability's weight: the Rogue strikes at once, the Hunter draws the bow and the arrow flies, the Mage's light
+// spells land at once while heavy spells build up and travel slower.
+// Pure (no DOM) and no rules: an ability's weight is read from the engine's spell entry (power and weapon coefficients,
+// hits, cooldown, tags); a hit's weight from the damage it did against the target's maximum health.
+
+
+/** The M2 v2 round budget the owner's "40 % slower" refers to (rules 3: PACE_ROUND_ANIM_S = 1.5 s). */
+const OLD_ROUND_MS = 1500;
+/** Owner 2026-11-10: rounds at the default speed at least 40 % longer than OLD_ROUND_MS. */
+const SLOWER = 1.4;
+/** The round cap: a round with many actors is compressed to this multiple of the average round. */
+const CAP_OVER_AVG = 1.4;
+/** Beats are tuned for this average round (ms at 1x, with about 150 ms of rendering and engine time on top). */
+const TUNED_AVG_MS = OLD_ROUND_MS * SLOWER;
+
+/**
+ * Round pace at the default speed (1x): avgMs, the average round time the beats are tuned for: the engine's
+ * PACE_ROUND_ANIM_S (rules.roundAnimMs) when it asks for more than the owner's floor, else 1.4 × 1.5 s = 2.1 s; capMs, the
+ * most a round may take (a round with many actors is compressed to it); scale, how much every beat is stretched.
+ */
+function roundPace(rules) {
+  const avgMs = Math.max((rules && rules.roundAnimMs) || 0, TUNED_AVG_MS);
+  return { avgMs, capMs: Math.round(avgMs * CAP_OVER_AVG), scale: avgMs / TUNED_AVG_MS };
+}
+
+// Beat lengths in ms at 1x. [light, heavy] pairs are interpolated by weight (0..1).
+const BEAT = {
+  rogue: { windup: [80, 130] },                     // time from the key to the blade landing (contact)
+  hunter: { draw: [180, 380], flight: [210, 320] }, // bow draw, then the arrow's flight
+  mage: { cast: [70, 520], flight: [110, 400] },    // cast build-up, then the bolt's flight
+  self: { cast: 240, aura: 220 },                   // buffs, heals, defensives on the player
+  pass: 320, item: 340,
+  pet: { windup: 100 },
+  enemy: { melee: 380, heavy: 700, cast: 340, castFlight: 280, heavyCast: 560, boss: 600, support: 360 },
+  nextEnemy: 0.55,                                  // wind-up of a later enemy in the same round (not a heavy one)
+  hit: { stop: [45, 100], settle: [200, 280] },     // the player's hits on an enemy: hit-stop, then recoil and number
+  rogueHit: { stop: [40, 85], settle: [300, 370] },
+  petHit: { stop: [24, 38], settle: [80, 110] },
+  taken: { stop: [60, 115], settle: [230, 310] },   // enemy hits on the player or the pet
+  nextTaken: 0.6,                                   // settle of a later enemy's hit in the same round
+  heavyPause: 380,                                  // after a telegraphed heavy hit lands: time to read it
+  follow: 0.45,                                     // later hits of one action (multi-hit, AoE): settle × this
+  ticks: 220, nextTick: 45,                         // the round's DoT and HoT ticks pop together: one beat, a small stagger
+  miss: 240, immune: 240, heal: 240, status: 120, interrupt: 360, skip: 160, cleanse: 220, death: 440,
+  round: 300, flee: 600, fleeFail: 320, summon: 600, channel: 480, linked: 280,
+};
+
+/**
+ * Weight of a player spell, 0 (light: lands almost at once) .. 1 (heavy: build-up and a slower flight), from the engine's
+ * spell entry `raw` (R.C.SPELL[id]): the larger of its power (p) and weapon (w) coefficients times its hits (0.75 and less
+ * is light, 2.0 and more heavy), a gjFrac
+ * strike series as that share of a jab per hit; +0.15 for a damaging spell with a cooldown of 3 rounds or more, +0.3
+ * for area damage; interrupts and control spells without damage are light. A finisher that scales per combo point
+ * weighs by the points spent (cp, 0..5).
+ */
+function spellWeight(raw, cp = 0) {
+  if (!raw) return 0.15;
+  const tags = raw.tags || [];
+  if (tags.includes('interrupt')) return 0;
+  if (raw.perCp) return clamp((cp || 0) / 5, 0, 1) * 0.8;
+  const hits = raw.hits || 1;
+  let coef = Math.max(raw.p || 0, raw.w || 0) * hits;
+  if (raw.gjFrac) coef = raw.gjFrac * hits * 0.9;
+  if (!coef) return 0.1;
+  let w = clamp((coef - 0.75) / 1.25, 0, 1);
+  if ((raw.cd || 0) >= 3 && coef >= 1) w += 0.15;
+  if (tags.includes('aoe')) w += 0.3;
+  return clamp(w, 0, 1);
+}
+
+/** Weight of one hit, 0..1: the share of the target's maximum health it took (a quarter or more = 1), crits, and the action's weight. */
+function hitPower(e, actionWeight = 0) {
+  const share = e.maxHp ? (e.amount || 0) / e.maxHp : 0;
+  return clamp(Math.max(share * 4, actionWeight * 0.7, e.crit ? 0.55 : 0), 0, 1);
+}
+/** Share of the target's maximum health a hit took (screen shake scales with it). */
+const hitShare = (e) => (e.maxHp ? clamp((e.amount || 0) / e.maxHp, 0, 1) : 0);
+
+/** Floating labels of statuses when they are applied (each takes a short beat). */
+const STATUS_LABEL = { STUN: 'Stunned!', FROZEN: 'Frozen!', HEXED: 'Hexed!', SILENCED: 'Silenced', CHILLED: 'Chilled', EXPOSED: 'Exposed', MARKED: 'Marked', CURSED: 'Cursed', BRAND: 'Brand', ENRAGED: 'Enraged!', TAUNT: 'Taunt!', SHIELDED: 'Braced' };
+
+const selfOnly = (e) => !e.dst || (e.tags && (e.tags.includes('defensive') || e.tags.includes('resource') || e.tags.includes('heal')) && !e.tags.includes('aoe'));
+
+/**
+ * The timeline of one step at 1x: one timing per event (beats[i] for events[i]) and the total of the waits play() makes.
+ * prev: the view before the step (class, combo points); spells: data.spells (raw = the engine's entry).
+ * Timings: player/pet/enemy action { side, style, windup, travel, act, w, aoe, heavy } (wait = windup + travel, + aura
+ * for a buff); damage { stop, settle, pause, power } (wait = stop + settle + pause); others { wait }.
+ */
+function timeline(events, prev, spells, scale = 1) {
+  const cls = prev && prev.player ? prev.player.classId : null;
+  let cp = prev && prev.player ? prev.player.cp || 0 : 0;
+  const beats = []; let total = 0;
+  let act = null; // the action whose hits follow: { side, w, heavy, hits }
+  let foes = 0; // enemy actions so far in this round
+  let ticks = 0; // DoT ticks so far in the run of ticks
+  const S = (ms) => ms * scale;
+  for (const e of events) {
+    let b = { wait: 0 };
+    if (e.t === 'action' || e.t === 'round' || (e.t === 'damage' && !e.tick)) ticks = 0;
+    switch (e.t) {
+      case 'action': {
+        if (e.src.side === 'player') {
+          if (e.kind === 'pass') { b = { side: 'player', style: 'pass', wait: S(BEAT.pass) }; act = null; break; }
+          if (e.kind === 'item') { b = { side: 'player', style: 'item', wait: S(BEAT.item), act: S(420) }; act = null; break; }
+          const sp = spells && e.id ? spells[e.id] : null;
+          const w = e.kind === 'attack' ? 0.12 : spellWeight(sp && sp.raw, cp);
+          const self = selfOnly(e);
+          if (self) b = { side: 'player', style: 'self', windup: S(BEAT.self.cast), travel: 0, aura: S(BEAT.self.aura), act: S(BEAT.self.cast * 1.6), w };
+          else if (cls === 'rogue') { const wu = S(lerp(BEAT.rogue.windup[0], BEAT.rogue.windup[1], w)); b = { side: 'player', style: 'melee', windup: wu, travel: 0, act: wu / 0.42, w }; }
+          else if (cls === 'hunter') { const wu = S(lerp(BEAT.hunter.draw[0], BEAT.hunter.draw[1], w)); b = { side: 'player', style: 'shoot', windup: wu, travel: e.dst ? S(lerp(BEAT.hunter.flight[0], BEAT.hunter.flight[1], w)) : 0, act: wu / 0.6, w }; }
+          else { const wu = S(lerp(BEAT.mage.cast[0], BEAT.mage.cast[1], w)); b = { side: 'player', style: 'cast', windup: wu, travel: e.dst ? S(lerp(BEAT.mage.flight[0], BEAT.mage.flight[1], w)) : 0, act: wu / 0.6, w }; }
+          b.aoe = !!e.aoe;
+          b.wait = b.windup + b.travel + (b.aura || 0);
+          act = { side: 'player', w, heavy: false, hits: 0, rogue: cls === 'rogue' };
+          if (sp && sp.raw && sp.raw.perCp) cp = 0;
+        } else if (e.src.side === 'pet') {
+          b = { side: 'pet', style: 'melee', windup: S(BEAT.pet.windup), travel: 0, act: S(BEAT.pet.windup) / 0.45, w: 0.1 };
+          b.wait = b.windup; act = { side: 'pet', w: 0.1, heavy: false, hits: 0 };
+        } else {
+          const E = BEAT.enemy;
+          const style = e.support ? 'support' : e.boss ? 'boss' : e.kind === 'cast' ? 'cast' : 'melee';
+          const later = foes > 0 && !e.heavy ? BEAT.nextEnemy : 1;
+          const windup = S((style === 'support' ? E.support : style === 'boss' ? E.boss : style === 'cast' ? (e.heavy ? E.heavyCast : E.cast) : e.heavy ? E.heavy : E.melee) * later);
+          const travel = style === 'cast' && e.dst ? S(E.castFlight * (e.heavy ? 1.25 : 1)) : 0;
+          b = { side: 'enemy', style, windup, travel, act: windup / (style === 'melee' ? 0.5 : 0.6), heavy: !!e.heavy };
+          b.wait = windup + travel; act = { side: 'enemy', w: e.heavy ? 0.8 : 0.3, heavy: !!e.heavy, hits: 0, later: foes > 0 };
+          foes += 1;
+        }
+        break;
+      }
+      case 'damage': {
+        if (e.miss) { b = { wait: S(BEAT.miss) }; break; }
+        if (e.immune) { b = { wait: S(BEAT.immune) }; break; }
+        if (e.tick) { b = { wait: S(ticks ? BEAT.nextTick : BEAT.ticks), tick: true }; ticks += 1; break; }
+        const taken = e.dst.side === 'player' || e.dst.side === 'pet';
+        const src = act || { side: e.src.side === 'enemy' ? 'enemy' : 'player', w: 0.3, heavy: false, hits: 0 };
+        const power = hitPower(e, src.w);
+        const T = taken ? BEAT.taken : src.side === 'pet' ? BEAT.petHit : src.rogue ? BEAT.rogueHit : BEAT.hit;
+        const k = e.crit ? Math.min(1, power + 0.2) : power;
+        const follow = src.hits > 0 ? BEAT.follow : taken && src.later && !src.heavy ? BEAT.nextTaken : 1;
+        b = { stop: S(lerp(T.stop[0], T.stop[1], k)), settle: S(lerp(T.settle[0], T.settle[1], k) * follow), pause: 0, power, taken };
+        if (taken && src.heavy && !src.paused) { b.pause = S(BEAT.heavyPause); src.paused = true; }
+        b.wait = b.stop + b.settle + b.pause;
+        src.hits += 1; act = src;
+        break;
+      }
+      case 'heal': b = { wait: S(BEAT.heal) }; break;
+      case 'status': b = { wait: e.op === 'add' && STATUS_LABEL[e.id] ? S(BEAT.status) : 0 }; break;
+      case 'interrupt': b = { wait: S(BEAT.interrupt) }; break;
+      case 'immune': b = { wait: S(BEAT.immune) }; break;
+      case 'skip': b = { wait: S(BEAT.skip) }; break;
+      case 'cleanse': b = { wait: S(BEAT.cleanse) }; break;
+      case 'cp': cp = e.after; break;
+      case 'death': b = { wait: e.dst.side !== 'player' ? S(BEAT.death) : 0 }; break;
+      case 'round': b = { wait: S(BEAT.round) }; act = null; foes = 0; break;
+      case 'flee': b = { wait: S(e.ok ? BEAT.flee : BEAT.fleeFail) }; break;
+      case 'summon': b = { wait: S(BEAT.summon) }; break;
+      case 'channel': b = { wait: S(BEAT.channel) }; break;
+      case 'linked': b = { wait: S(BEAT.linked) }; break;
+      default: break;
+    }
+    beats.push(b); total += b.wait || 0;
+  }
+  return { beats, total };
+}
+
+});
 __bundle.def("src/ui/director.js", function* (__ns, __link) {
-let wait, SkipToken, fmtNum, deepClone; __link.imp("src/ui/util.js", [["wait", (v) => { wait = v; }], ["SkipToken", (v) => { SkipToken = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["deepClone", (v) => { deepClone = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let linkedText, dangerBanner; __link.imp("src/ui/ui-text.js", [["linkedText", (v) => { linkedText = v; }], ["dangerBanner", (v) => { dangerBanner = v; }]]); __link.exp({ "planMs": () => planMs, "makeInterim": () => makeInterim, "Director": () => Director });
+let wait, SkipToken, fmtNum, deepClone; __link.imp("src/ui/util.js", [["wait", (v) => { wait = v; }], ["SkipToken", (v) => { SkipToken = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["deepClone", (v) => { deepClone = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let linkedText, dangerBanner; __link.imp("src/ui/ui-text.js", [["linkedText", (v) => { linkedText = v; }], ["dangerBanner", (v) => { dangerBanner = v; }]]); let timeline, roundPace, hitShare, STATUS_LABEL; __link.imp("src/ui/combat-feel.js", [["timeline", (v) => { timeline = v; }], ["roundPace", (v) => { roundPace = v; }], ["hitShare", (v) => { hitShare = v; }], ["STATUS_LABEL", (v) => { STATUS_LABEL = v; }]]); __link.exp({ "planMs": () => planMs, "makeInterim": () => makeInterim, "Director": () => Director });
 yield;
 // Plays the events of one engine step as animation, then hands the new view to the HUD.
-// Every wait goes through a skip token: Space / click / any action key / instant speed finishes at once.
+// Combat rounds play as beats from src/ui/combat-feel.js (owner feedback 2026-11-10): each action winds up, its hits land
+// with a hit-stop, recoil, a weighted number and screen shake, and enemies' telegraphed blows get a readable pause.
+// Skipping: Space or a click in a round skips to the end of the hit on screen (the next hit plays normally); any other
+// step, or Instant speed, finishes at once. Waits go through skip tokens.
+
 
 
 
 
 const SCHOOL_PROJ = { fire: 'fire', frost: 'frost', arcane: 'arcane', shadow: 'shadow', nature: 'nature' };
+const SCHOOL_GLOW = { fire: '#ff9a4a', frost: '#9fdcff', arcane: '#c79bff', shadow: '#a07aff', nature: '#9be07a', magic: '#c79bff', phys: '#ffe9a8' };
 const ref = (r) => (r.side === 'player' ? 'player' : r.side === 'pet' ? 'pet' : r.side === 'enemy' ? `enemy:${r.idx}` : null);
-const STATUS_LABEL = { STUN: 'Stunned!', FROZEN: 'Frozen!', HEXED: 'Hexed!', SILENCED: 'Silenced', CHILLED: 'Chilled', EXPOSED: 'Exposed', MARKED: 'Marked', CURSED: 'Cursed', BRAND: 'Brand', ENRAGED: 'Enraged!', TAUNT: 'Taunt!', SHIELDED: 'Braced' };
 
-// Waits of a combat round in ms at 1x (play() waits these; planMs() adds them up).
-const T = { pass: 250, item: 260, melee: 210, cast: 200, shoot: 230, bolt: 320, aura: 200, pet: 170, enemyCast: 160, enemyBolt: 300, bossCast: 260, enemyMelee: 200,
-  hit: 150, tick: 110, heal: 200, status: 110, interrupt: 320, immune: 150, skip: 120, cleanse: 200, death: 420, round: 180, flee: 600, fleeFail: 300, summon: 600, channel: 450, linked: 250 };
 // Moments with their own place in the pacing model (rules 3: level-up, fight overhead, boss): outside the round budget.
 const M = { levelUp: 1200, victory: 500, playerDeath: 900, resurrect: 1200, bossPhase: 1400 };
-// Round time budget (rules 3, M2 v2): the planned waits are fitted into PLAN_SHARE of PACE_ROUND_ANIM_S, leaving room for
-// rendering; once DEADLINE_SHARE of it has passed since the input, the rest of the round plays at once.
-const PLAN_SHARE = 0.72;
-const DEADLINE_SHARE = 0.85;
+// Round budget: the planned beats are fitted into PLAN_SHARE of the round cap (combat-feel.js roundPace); once
+// DEADLINE_SHARE of it has passed since the input, the rest of the round plays at once.
+const PLAN_SHARE = 0.9;
+const DEADLINE_SHARE = 0.96;
 
-const selfOnlyOf = (e) => !e.dst || (e.tags && (e.tags.includes('defensive') || e.tags.includes('resource') || e.tags.includes('heal')) && !(e.tags.includes('aoe')));
 /** Sum of the round's waits in ms at 1x, as play() spends them (moments excluded). */
-function planMs(events, cls) {
-  let ms = 0;
-  for (const e of events) {
-    switch (e.t) {
-      case 'action':
-        if (e.src.side === 'player') {
-          if (e.kind === 'pass') ms += T.pass;
-          else if (e.kind === 'item') ms += T.item;
-          else {
-            const self = selfOnlyOf(e);
-            ms += cls === 'rogue' && !self ? T.melee : cls === 'mage' ? T.cast + (!self && e.dst ? T.bolt : 0) : cls === 'hunter' ? T.shoot + (!self && e.dst ? T.bolt : 0) : T.cast;
-            if (self) ms += T.aura;
-          }
-        } else if (e.src.side === 'pet') ms += T.pet;
-        else ms += e.boss ? T.bossCast : e.kind === 'cast' ? T.enemyCast + T.enemyBolt : T.enemyMelee;
-        break;
-      case 'damage': ms += e.tick ? T.tick : T.hit; break;
-      case 'heal': ms += T.heal; break;
-      case 'status': if (e.op === 'add' && STATUS_LABEL[e.id]) ms += T.status; break;
-      case 'interrupt': ms += T.interrupt; break;
-      case 'immune': ms += T.immune; break;
-      case 'skip': ms += T.skip; break;
-      case 'cleanse': ms += T.cleanse; break;
-      case 'death': if (e.dst.side !== 'player') ms += T.death; break;
-      case 'round': ms += T.round; break;
-      case 'flee': ms += e.ok ? T.flee : T.fleeFail; break;
-      case 'summon': ms += T.summon; break;
-      case 'channel': ms += T.channel; break;
-      case 'linked': ms += T.linked; break;
-      default: break;
-    }
-  }
-  return ms;
-}
+function planMs(events, prev, spells, scale = 1) { return timeline(events, prev, spells, scale).total; }
 /** A step that plays a combat round: a fight was on before it and the engine resolved a round or an action. */
 const isRound = (prev, events) => !!(prev && prev.combat && !prev.combat.over && events.some((e) => e.t === 'round' || e.t === 'action'));
 
@@ -16930,9 +17442,19 @@ function makeInterim(prev, next) {
 }
 
 class Director {
-  constructor(ctx) { this.ctx = ctx; this.token = null; }
+  constructor(ctx) { this.ctx = ctx; this.token = null; this.beat = null; this.beatNo = 0; this.round = null; }
   get playing() { return !!this.token; }
-  skip() { if (this.token && !this.token.skipped) { this.token.skip(); this.ctx.scene.finishAll(); } }
+  /** A combat round is playing: a click skips one hit at a time. */
+  get inRound() { return !!(this.token && this.round); }
+  /** Finish the whole step at once. */
+  skip() { if (this.token && !this.token.skipped) { this.token.skip(); if (this.beat) this.beat.skip(); this.ctx.scene.finishAll(); } }
+  /** Skip to the end of the hit on screen (in a round); any other step finishes at once. Returns the beat skipped, or null. */
+  skipHit() {
+    if (!this.inRound) { this.skip(); return null; }
+    if (!this.beat || this.beat.skipped) return null;
+    this.beat.skip(); this.ctx.scene.landFlights();
+    return this.beatNo;
+  }
 
   /**
    * Play one step. opts.t0: when the input was taken (before the engine step), the start of the round's time budget.
@@ -16943,20 +17465,36 @@ class Director {
   async play(prev, next, events, action, opts = {}) {
     const ctx = this.ctx; const scene = ctx.scene; const hud = ctx.hud;
     const token = (this.token = new SkipToken());
-    const budget = isRound(prev, events) ? (ctx.data.rules && ctx.data.rules.roundAnimMs) || 0 : 0; // ms at 1x
+    const round = isRound(prev, events);
+    const pace = roundPace(ctx.data.rules);
+    const budget = round ? pace.capMs : 0; // ms at 1x
     const speed = settings.instant ? 0 : settings.get('speed') || 1;
-    const plan = budget ? planMs(events, prev.player && prev.player.classId) : 0;
+    const tl = timeline(events, prev, ctx.data.spells, pace.scale);
+    const plan = budget ? tl.total : 0;
     const tempo = budget ? Math.max(1, plan / (budget * PLAN_SHARE)) : 1;
     const t0 = opts.t0 ?? performance.now(); let momentMs = 0;
+    // beats: a click skips the current one (see skipHit); a new one starts with each action, the round's ticks and its end
+    const newBeat = () => { this.beat = new SkipToken(); this.beatNo += 1; if (token.skipped) this.beat.skip(); return this.beat; };
+    newBeat();
     // ms left of the round's budget (Infinity without one); no wait or flight runs past it
     const left = () => (budget && speed ? (budget * DEADLINE_SHARE) / speed - (performance.now() - t0 - momentMs) : Infinity);
     const D = (ms) => settings.dur(ms) / tempo; // a wait or an animation of this step, at this step's tempo
-    const W = (ms) => { const l = left(); return l <= 0 ? Promise.resolve() : wait(Math.min(D(ms), l), token); };
+    // Waits run on the step's own clock: each ends at its planned time (due), so a late timer or a slow frame does not
+    // push the rest of the step back. After a skipped hit or a moment the clock restarts from now.
+    let due = performance.now(); let reanchor = false;
+    const until = (ms) => { const now = performance.now(); if (reanchor || due < now - 250) { due = now; reanchor = false; } due += D(ms); return Math.min(due - now, left()); };
+    const W = (ms) => { if (this.beat.skipped) { reanchor = true; return Promise.resolve(); } const d = until(ms); return d <= 0 ? Promise.resolve() : wait(d, this.beat); };
     // a moment (level-up, victory, death, resurrect, boss phase) keeps its own length and does not use up the budget
-    const WM = async (ms) => { const a = performance.now(); await wait(settings.dur(ms), token); momentMs += performance.now() - a; };
-    const bolt = (from, to, kind, ms) => { const l = left(); return l <= 0 ? Promise.resolve() : scene.projectile(from, to, kind, Math.min(D(ms), l)); };
-    this.round = budget ? { budget, speed, plan, tempo, t0 } : null;
-    const fast = () => token.skipped || settings.instant;
+    const WM = async (ms) => { const a = performance.now(); await wait(settings.dur(ms), this.beat); momentMs += performance.now() - a; reanchor = true; };
+    // bolt: one projectile; several targets (AoE) fly together, the last landing after ms (each list entry: [to, share of ms])
+    const bolt = (from, to, kind, ms, o) => {
+      if (this.beat.skipped) { reanchor = true; return Promise.resolve(); }
+      const d = until(ms); if (d <= 0) return Promise.resolve();
+      return Array.isArray(to) ? Promise.all(to.map(([id, k]) => scene.projectile(from, id, kind, d * k, o))) : scene.projectile(from, to, kind, d, o);
+    };
+    const live = () => !this.beat.skipped && !settings.instant && left() > 0; // effects that only make sense while the beat plays
+    this.round = budget ? { budget, avg: pace.avgMs, speed, plan, tempo, t0 } : null;
+    const fast = () => token.skipped || this.beat.skipped || settings.instant;
     const shown = makeInterim(prev, next);
     ctx.setShown(shown);
     const p = () => shown.player;
@@ -16992,57 +17530,103 @@ class Director {
       }
 
       // ------------------------------------------------ events
-      let lastDamageTarget = null;
-      for (const e of events) {
+      let lastDamageTarget = null; let hitCtx = null; let inTicks = false;
+      for (let i = 0; i < events.length; i++) {
+        const e = events[i]; const tm = tl.beats[i] || { wait: 0 };
         this.cursor = e; // test hook: the event on screen
+        // a new beat (what a click skips) starts with each action, with the first of the round's ticks and with its end
+        const tick = e.t === 'damage' && e.tick;
+        if (round && i > 0 && (e.t === 'action' || e.t === 'round' || (tick && !inTicks))) newBeat();
+        inTicks = tick || (inTicks && e.t !== 'action' && e.t !== 'round');
         switch (e.t) {
           case 'fightStart': hud.log(`Combat: ${e.enemies.join(', ')}.`, 'lg-sys'); break;
           case 'action': {
+            if (this.striker) { this.striker.teleSpent = true; this.striker = null; }
             const src = ref(e.src); const dst = e.dst ? ref(e.dst) : null;
             if (e.resAfter != null && e.src.side === 'player') { p().res.cur = e.resAfter; push(); }
             if (e.src.side === 'player') {
-              if (e.kind === 'pass') { scene.float('player', 'Pass', { color: '#cfc6b0', size: 16 }); await W(T.pass); break; }
-              if (e.kind === 'item') { scene.act('player', 'item', D(420)); hud.log(`You use ${e.name}.`, 'lg-you'); await W(T.item); break; }
-              const cls = p().classId;
-              const selfOnly = selfOnlyOf(e);
-              if (cls === 'rogue' && !selfOnly) { { const hero = scene.actors.get('player'); const ta = scene.anchor(dst); const pa = scene.anchor('player'); if (hero) hero.lungeDist = Math.max(60, ta && pa ? ta.x - pa.x - 70 * scene.u : 120); } scene.act('player', 'melee', D(460)); await W(T.melee); }
-              else if (cls === 'mage') { scene.act('player', 'cast', D(520)); await W(T.cast); if (!selfOnly && dst) await this.projectiles(e, src, bolt); }
-              else if (cls === 'hunter') { scene.act('player', 'shoot', D(480)); await W(T.shoot); if (!selfOnly && dst) await this.projectiles(e, src, bolt, 'arrow'); }
-              else { scene.act('player', 'cast', D(400)); await W(T.cast); }
-              if (selfOnly) { scene.aura('player', e.tags && e.tags.includes('defensive') ? '#9fc4ff' : '#ffe08a'); await W(T.aura); }
+              hitCtx = { side: 'player', school: e.school };
+              if (e.kind === 'pass') { scene.float('player', 'Pass', { color: '#cfc6b0', size: 16, small: true }); await W(tm.wait); break; }
+              if (e.kind === 'item') { scene.act('player', 'item', D(tm.act || 420)); hud.log(`You use ${e.name}.`, 'lg-you'); await W(tm.wait); break; }
+              const glow = SCHOOL_GLOW[e.school] || '#ffe9a8';
+              if (tm.style === 'self') {
+                scene.act('player', 'cast', D(tm.act), { contact: tm.windup / tm.act });
+                await W(tm.windup);
+                const onPet = e.dst && e.dst.side === 'pet';
+                scene.aura(onPet ? 'pet' : 'player', e.tags && e.tags.includes('defensive') ? '#9fc4ff' : '#ffe08a');
+                await W(tm.aura);
+              } else if (tm.style === 'melee') {
+                { const hero = scene.actors.get('player'); const ta = dst ? scene.anchor(dst) : null; const pa = scene.anchor('player'); if (hero) hero.lungeDist = Math.max(60, ta && pa ? ta.x - pa.x - 70 * scene.u : 120); }
+                scene.act('player', 'melee', D(tm.act), { contact: tm.windup / tm.act });
+                await W(tm.windup);
+              } else if (tm.style === 'shoot') {
+                scene.act('player', 'shoot', D(tm.act), { contact: tm.windup / tm.act });
+                if (tm.w > 0.45 && live()) scene.charge('player', '#ffd27a', D(tm.windup), tm.w * 0.6);
+                await W(tm.windup);
+                if (dst) await this.projectiles(e, src, bolt, tm, 'arrow');
+              } else {
+                scene.act('player', 'cast', D(tm.act), { contact: tm.windup / tm.act });
+                if (live()) scene.charge('player', glow, D(tm.windup), tm.w);
+                await W(tm.windup);
+                if (dst) await this.projectiles(e, src, bolt, tm);
+              }
             } else if (e.src.side === 'pet') {
-              scene.act('pet', 'melee', D(360)); await W(T.pet);
+              hitCtx = { side: 'pet' };
+              scene.act('pet', 'melee', D(tm.act), { contact: tm.windup / tm.act }); await W(tm.windup);
             } else if (e.src.side === 'enemy') {
               const en = enemy(e.src.idx); const actor = scene.actors.get(src);
-              if (e.kind === 'cast' || (actor && actor.kind === 'boss')) {
-                scene.act(src, 'cast', D(480)); hud.log(`${en ? en.name : 'Enemy'} uses ${e.name}.`, 'lg-warn');
-                if (dst && dst !== src && !(actor && actor.kind === 'boss')) { await W(T.enemyCast); await bolt(src, dst, SCHOOL_PROJ[e.school] || 'shadow', T.enemyBolt); }
-                else await W(T.bossCast);
-              } else { scene.act(src, 'melee', D(420)); await W(T.enemyMelee); }
+              hitCtx = { side: 'enemy', heavy: !!e.heavy };
+              this.striker = actor || null; // its telegraph stays up through the wind-up and goes at contact
+              const glow = e.heavy && tm.style !== 'cast' ? '#ff4a2a' : SCHOOL_GLOW[e.school] || '#c79bff';
+              if (tm.style === 'melee') {
+                const kind = e.heavy && actor && actor.kind === 'humanoid' ? 'smash' : 'melee';
+                scene.act(src, kind, D(tm.act), { contact: tm.windup / tm.act, from: actor && actor.tele ? 0.26 : 0, heavy: !!e.heavy });
+                if (e.heavy) hud.log(`${en ? en.name : 'Enemy'} winds up ${e.name}!`, 'lg-warn');
+                await W(tm.windup);
+              } else {
+                scene.act(src, 'cast', D(tm.act), { contact: tm.windup / tm.act, from: actor && actor.tele ? 0.42 : 0, heavy: !!e.heavy });
+                hud.log(`${en ? en.name : 'Enemy'} uses ${e.name}.`, 'lg-warn');
+                if (live()) scene.charge(src, tm.style === 'support' ? '#9fe0b0' : glow, D(tm.windup), e.heavy || tm.style === 'boss' ? 0.8 : 0.4);
+                await W(tm.windup);
+                if (tm.style === 'cast' && dst && dst !== src) await bolt(src, dst, SCHOOL_PROJ[e.school] || 'shadow', tm.travel, { weight: e.heavy ? 0.8 : 0.35 });
+                if (tm.style === 'support') scene.aura(src, '#9fe0b0');
+              }
             }
             break;
           }
           case 'damage': {
             const dst = ref(e.dst); const u = unit(e.dst);
+            if (this.striker && e.src.side === 'enemy') { this.striker.teleSpent = true; this.striker = null; }
             if (u && e.hpAfter != null) { u.hp = e.hpAfter; if (e.dst.side === 'pet' && e.hpAfter <= 0) u.alive = false; }
             push();
             const toPlayerSide = e.dst.side === 'player' || e.dst.side === 'pet';
             if (dst) {
-              if (e.immune) scene.float(dst, 'Immune', { color: '#cfe4ff', size: 18 });
-              else if (e.miss) { scene.float(dst, e.dodge ? 'Dodge' : 'Miss', { color: '#c8c0b0', size: 18 }); }
+              if (e.immune) scene.float(dst, 'Immune', { color: '#cfe4ff', size: 18, small: true });
+              else if (e.miss) { scene.float(dst, e.dodge ? 'Dodge' : 'Miss', { color: '#c8c0b0', size: 20, small: true }); scene.act(dst, 'hit', D(200)); }
               else {
                 const col = toPlayerSide ? '#ff5a4a' : e.tick ? { fire: '#ffb05a', nature: '#a8f070', phys: '#ff9a8a', shadow: '#c8a0ff' }[e.school] || '#ffe0c0' : e.src.side === 'pet' ? '#f0e0c0' : { fire: '#ffb05a', frost: '#a8e4ff', arcane: '#e0b8ff', shadow: '#c8a0ff', nature: '#b0f080' }[e.school] || '#ffffff';
                 const txt = (toPlayerSide ? '-' : '') + fmtNum(e.amount) + (e.crit ? '!' : '');
-                scene.float(dst, txt, { color: col, size: e.crit ? 34 : e.tick ? 18 : 24, crit: e.crit, small: e.tick });
-                if (e.absorbed) scene.float(dst, `(${fmtNum(e.absorbed)} absorbed)`, { color: '#9fc4ff', size: 14, dy: 22 * scene.u, small: true });
-                if (!e.tick) scene.impact(dst, e.school, e.crit);
-                else scene.hitFlash(dst);
-                if (e.dst.side === 'player' && e.amount > p().maxHp * 0.18) { scene.shake(10); scene.screenFlash('#ff2a1a', 0.18, 0.4); }
+                if (e.tick) {
+                  scene.float(dst, txt, { color: col, size: 18, small: true });
+                  scene.hitFlash(dst, 0, 0.45);
+                } else {
+                  // contact: hit-stop, flash and sparks at the side facing the attacker, recoil, the number, shake by share of health
+                  const power = tm.power ?? 0.3; const dir = toPlayerSide ? -1 : 1; const share = hitShare(e);
+                  const stop = live() ? D(tm.stop || 0) : 0;
+                  scene.hitStop(stop);
+                  scene.impact(dst, e.school, { crit: e.crit, power, dir, hold: stop / 1000 });
+                  scene.knock(dst, dir, power, D((tm.stop || 0) + (tm.settle || 200)));
+                  const actor = scene.actors.get(dst); if (actor && !actor.act) scene.act(dst, 'hit', D(260));
+                  scene.float(dst, txt, { color: col, size: e.crit ? 33 : 25, crit: e.crit, weight: power });
+                  scene.shakeHit(share, toPlayerSide, e.crit);
+                  if (e.dst.side === 'player' && share > 0.18) scene.screenFlash('#ff2a1a', Math.min(0.32, 0.12 + share * 0.5), 0.45);
+                }
+                if (e.absorbed) scene.float(dst, `(${fmtNum(e.absorbed)} absorbed)`, { color: '#9fc4ff', size: 14, dy: 24 * scene.u, small: true, under: true });
               }
             }
             hud.log(logDamage(e, name), e.miss ? 'lg-miss' : e.dst.side === 'player' ? 'lg-taken' : e.crit ? 'lg-crit' : 'lg-hit');
             lastDamageTarget = dst;
-            await W(e.tick ? T.tick : T.hit);
+            await W(tm.wait);
             break;
           }
           case 'heal': {
@@ -17051,7 +17635,7 @@ class Director {
             if (e.dst.side === 'pet' && e.name === 'Revive') scene.revive('pet');
             scene.heal(dst); scene.float(dst, `+${fmtNum(e.amount)}`, { color: '#7dff8a', size: 22 });
             hud.log(e.dst.side === 'enemy' ? `${name(e.dst)} is healed for ${fmtNum(e.amount)} (${e.name}).` : `${e.name} heals ${e.dst.side === 'player' ? 'you' : name(e.dst)} for ${fmtNum(e.amount)}.`, e.dst.side === 'enemy' ? 'lg-warn' : 'lg-heal');
-            await W(T.heal);
+            await W(tm.wait);
             break;
           }
           case 'status': {
@@ -17062,13 +17646,13 @@ class Director {
             if (e.op === 'add' && label) scene.float(dst, label, { color: ['BRAND', 'CURSED', 'ENRAGED'].includes(e.id) ? '#ff9a8a' : '#ffe08a', size: 17, dy: -16 * scene.u, small: true });
             if (e.op === 'add' && e.id === 'WARD') scene.aura(dst, '#9fc4ff');
             if (e.op === 'add' && e.id === 'STEALTH') scene.aura(dst, '#7a6aa0');
-            if (e.op === 'add' && label) await W(T.status);
+            if (e.op === 'add' && label) await W(tm.wait);
             break;
           }
-          case 'interrupt': scene.float(ref(e.dst), 'Interrupted!', { color: '#d0b0ff', size: 24, crit: true }); scene.impact(ref(e.dst), 'arcane', true); { const en = enemy(e.dst.idx); if (en && en.intent) en.intent.interrupted = true; } push(); hud.log(`You interrupt ${name(e.dst)}: ${e.name} is cancelled.`, 'lg-you'); await W(T.interrupt); break;
-          case 'immune': scene.float(ref(e.dst), 'Immune', { color: '#cfe4ff', size: 18 }); await W(T.immune); break;
-          case 'skip': if (e.reason && e.reason !== 'Unaware') scene.float(ref(e.src), e.reason, { color: '#c8c0b0', size: 16, small: true }); await W(T.skip); break;
-          case 'cleanse': scene.aura(ref(e.dst), '#ffffff'); scene.float(ref(e.dst), 'Cleansed', { color: '#ffffff', size: 18 }); { const u = unit(e.dst); const nu = statusSource(next, e.dst); if (u && nu) u.statuses = deepClone(nu.statuses); push(); } await W(T.cleanse); break;
+          case 'interrupt': scene.float(ref(e.dst), 'Interrupted!', { color: '#d0b0ff', size: 24, crit: true }); scene.impact(ref(e.dst), 'arcane', true); { const en = enemy(e.dst.idx); if (en && en.intent) en.intent.interrupted = true; } push(); hud.log(`You interrupt ${name(e.dst)}: ${e.name} is cancelled.`, 'lg-you'); await W(tm.wait); break;
+          case 'immune': scene.float(ref(e.dst), 'Immune', { color: '#cfe4ff', size: 18, small: true }); await W(tm.wait); break;
+          case 'skip': if (e.reason && e.reason !== 'Unaware') scene.float(ref(e.src), e.reason, { color: '#c8c0b0', size: 16, small: true }); await W(tm.wait); break;
+          case 'cleanse': scene.aura(ref(e.dst), '#ffffff'); scene.float(ref(e.dst), 'Cleansed', { color: '#ffffff', size: 18 }); { const u = unit(e.dst); const nu = statusSource(next, e.dst); if (u && nu) u.statuses = deepClone(nu.statuses); push(); } await W(tm.wait); break;
           case 'resource': p().res.cur = e.after; push(); scene.float('player', `+${fmtNum(e.amount)} ${p().res.kind}`, { color: '#8fc4ff', size: 16, small: true }); break;
           case 'cp': p().cp = e.after; push(); break;
           case 'death': {
@@ -17079,7 +17663,7 @@ class Director {
             if (e.dst.side === 'enemy') { hud.log(`${e.name} dies.`, 'lg-death'); const an = scene.anchor(dst); if (!e.despawn && an) scene.burst(an.x, an.cy, '#ffe8c0', 10, 90); if (ctx.ui.target === e.dst.idx) ctx.ui.retarget(shown); }
             else if (e.dst.side === 'pet') hud.log(`${e.name} has fallen.`, 'lg-death');
             else hud.log('You die.', 'lg-death');
-            if (e.dst.side === 'player') await WM(M.playerDeath); else await W(T.death);
+            if (e.dst.side === 'player') await WM(M.playerDeath); else await W(tm.wait);
             break;
           }
           case 'resurrect': scene.revive('player'); scene.aura('player', '#ffd36a', 1.4); scene.levelUp('player'); p().hp = e.hpAfter;
@@ -17092,8 +17676,10 @@ class Director {
             if (nc) for (const en of shown.combat.enemies) { const ne = nc.enemies.find((x) => x.idx === en.idx && x.uid === en.uid); if (ne) { en.intent = deepClone(ne.intent); en.statuses = deepClone(ne.statuses); } }
             if (nc) shown.combat.cooldowns = { ...nc.cooldowns };
             if (next.player) { p().statuses = deepClone(next.player.statuses); p().res.cur = next.player.res.cur; }
+            this.striker = null;
+            for (const a of scene.actors.values()) a.teleSpent = false; // new intents: wind-ups show again
             push();
-            await W(T.round);
+            await W(tm.wait);
             break;
           }
           case 'xp': if (e.amount > 0) { scene.float('player', `+${fmtNum(e.amount)} XP`, { color: '#d0a8ff', size: 17, dy: -30 * scene.u, small: true }); p().xp = Math.min(p().xpToNext, p().xp + e.amount); p().rested = Math.max(0, (p().rested || 0) - (e.rested || 0)); push(); hud.log(`You gain ${fmtNum(e.amount)} experience${e.rested ? ` (${fmtNum(e.rested)} rested bonus)` : ''}.`, 'lg-xp'); } break;
@@ -17109,17 +17695,17 @@ class Director {
           }
           case 'victory': hud.log('Victory!', 'lg-sys'); scene.act('player', 'cheer', settings.dur(900)); await WM(M.victory); break;
           case 'defeat': break;
-          case 'flee': if (e.ok) { scene.float('player', 'Escaped!', { color: '#ffe08a', size: 22 }); hud.log('You flee from the fight.', 'lg-warn'); scene.setMode('map'); scene.clearEnemies(); await W(T.flee); } else { scene.float('player', 'Flee failed', { color: '#ff9a8a', size: 20 }); hud.log('You fail to escape!', 'lg-warn'); await W(T.fleeFail); } break;
+          case 'flee': if (e.ok) { scene.float('player', 'Escaped!', { color: '#ffe08a', size: 22 }); hud.log('You flee from the fight.', 'lg-warn'); scene.setMode('map'); scene.clearEnemies(); await W(tm.wait); } else { scene.float('player', 'Flee failed', { color: '#ff9a8a', size: 20 }); hud.log('You fail to escape!', 'lg-warn'); await W(tm.wait); } break;
           case 'bossPhase': scene.bossPhase = e.phase; scene.screenFlash(e.phase === 3 ? '#ff5a2a' : '#8a6aff', 0.35, 0.8); scene.shake(14); ctx.ui.banner(`Phase ${e.phase}: ${e.name}`, e.text, 'phase', 2400); hud.log(`${e.name}: ${e.text}`, 'lg-warn'); await WM(M.bossPhase); break;
-          case 'summon': if (!shown.combat) break; for (const idx of e.idxs) { const en = shown.combat.enemies.find((x) => x.idx === idx); if (en) en.hidden = false; } ctx.syncScene(shown, { enter: true }); push(); hud.log(`${e.names.length} ${e.names[0]}s appear!`, 'lg-warn'); await W(T.summon); break;
+          case 'summon': if (!shown.combat) break; for (const idx of e.idxs) { const en = shown.combat.enemies.find((x) => x.idx === idx); if (en) en.hidden = false; } ctx.syncScene(shown, { enter: true }); push(); hud.log(`${e.names.length} ${e.names[0]}s appear!`, 'lg-warn'); await W(tm.wait); break;
           case 'gotItem': hud.log(`You receive loot: ${e.name}${e.to === 'window' ? ' (waiting in the loot window)' : ''}.`, 'lg-loot'); break;
-          case 'channel': scene.float(ref(e.src), `${e.name} ${e.step}/2`, { color: '#d0b0ff', size: 22, crit: e.step === 2 }); if (e.step === 2) scene.screenFlash('#6a4aff', 0.3, 0.6); hud.log(`${e.name}: ${e.step === 1 ? 'the channel begins' : 'the channel resolves'}.`, 'lg-warn'); await W(T.channel); break;
+          case 'channel': scene.float(ref(e.src), `${e.name} ${e.step}/2`, { color: '#d0b0ff', size: 22, crit: e.step === 2 }); if (e.step === 2) scene.screenFlash('#6a4aff', 0.3, 0.6); hud.log(`${e.name}: ${e.step === 1 ? 'the channel begins' : 'the channel resolves'}.`, 'lg-warn'); await W(tm.wait); break;
           case 'linked': {
             // n: living Shards when the wave came (engine event); the strength from the rules table
             const R = ctx.data.rules; const dr = e.on && e.n ? R.linkDr[Math.min(e.n, R.linkDr.length - 1)] : 0;
             const b = shown.combat && shown.combat.enemies.find((x) => x.rank === 'boss');
             if (b) scene.float(`enemy:${b.idx}`, e.on ? (dr ? `Linked −${Math.round(dr * 100)} %` : 'Linked') : 'Link broken', { color: e.on ? '#c8a8ff' : '#ffe08a', size: 20 });
-            hud.log(e.on ? linkedText(R, 'log') : 'The link is broken.', 'lg-warn'); await W(T.linked); break;
+            hud.log(e.on ? linkedText(R, 'log') : 'The link is broken.', 'lg-warn'); await W(tm.wait); break;
           }
           case 'gold': hud.log(`You receive ${fmtNum(e.amount)} copper.`, 'lg-loot'); break;
           case 'msg': ctx.ui.toast(e.text, e.kind === 'warn' ? 'err' : e.kind || 'info'); hud.log(e.text, e.kind === 'warn' ? 'lg-warn' : 'lg-sys'); break;
@@ -17149,14 +17735,16 @@ class Director {
     }
   }
 
-  /** The player's projectiles; bolt(from, to, kind, ms at 1x) fires one at the step's tempo. */
-  async projectiles(e, src, bolt, forceKind) {
+  /** The player's projectiles; bolt(from, to, kind, ms at 1x, opts) fires one at the step's tempo; tm: the action's timing (travel, weight). */
+  async projectiles(e, src, bolt, tm, forceKind) {
     const scene = this.ctx.scene;
     const kind = forceKind || SCHOOL_PROJ[e.school] || (e.school === 'phys' ? 'arrow' : 'arcane');
+    const o = { weight: tm.w || 0 };
     if (e.aoe) {
-      const ids = [...scene.actors.keys()].filter((k) => k.startsWith('enemy:') && scene.actors.get(k).alive !== false && !scene.actors.get(k).deadT0);
-      await Promise.all(ids.map((id, i) => bolt(src, id, kind, T.bolt - 20 + i * 40)));
-    } else await bolt(src, ref(e.dst), e.name === 'Pyre Comet' ? 'comet' : kind, T.bolt);
+      const ids = [...scene.actors.keys()].filter((k) => k.startsWith('enemy:') && scene.actors.get(k).alive !== false && !scene.actors.get(k).deadT0 && scene.actors.get(k).visible !== false);
+      const last = 0.88 + Math.max(0, ids.length - 1) * 0.1;
+      await bolt(src, ids.map((id, i) => [id, (0.88 + i * 0.1) / last]), kind, tm.travel, o);
+    } else await bolt(src, ref(e.dst), e.name === 'Pyre Comet' ? 'comet' : kind, tm.travel, o);
   }
 
   async travel(prev, next, token) {
@@ -17241,6 +17829,9 @@ let createBridge, flags; __link.imp("src/ui/engine-bridge.js", [["createBridge",
 yield;
 // App orchestrator: owns the bridge, scene, HUD, screens and windows; turns input into actions and
 // plays each step through the director. Presentation only.
+// Input during a combat round (owner feedback 2026-11-10): an action key or button queues one next action, shown on the
+// action bar, and pressing the same one again changes nothing, so mashing cannot run rounds together; Space or a click
+// skips to the end of the hit on screen. Outside rounds any input finishes the step at once.
 
 
 
@@ -17272,17 +17863,19 @@ class App {
       retarget: (v) => app.retarget(v),
       toast: (t, k) => app.toast(t, k), banner: (a, b, k, ms) => app.banner(a, b, k, ms), hideBanner: () => app.hideBanner(),
       toggleWin: (n) => app.windows.toggle(n), closeWin: (n) => app.windows.close(n), openWin: (n) => app.windows.open(n),
-      attack: () => app.combatAct((t) => ({ type: 'ATTACK', target: t })),
-      castSlot: (i) => { const id = app.shown.player && app.shown.player.bar[i]; if (id) { app.hud.flashSlot(i); app.combatAct((t) => ({ type: 'CAST', spellId: id, target: t })); } },
-      useItemSlot: (i) => { const v = app.shown; if (!v.player || !v.player.itemBar[i]) return; app.hud.flashSlot(7 + i); if (v.combat && !v.combat.over) app.combatAct((t) => ({ type: 'USE_ITEM', slot: i, target: t })); else { const it = v.player.bag.find((s) => s && s.id === v.player.itemBar[i]); if (it) app.act({ type: 'USE_ITEM', uid: it.uid }); } },
+      attack: () => app.combatAct((t) => ({ type: 'ATTACK', target: t }), 'attack', 'Attack'),
+      castSlot: (i) => { const id = app.shown.player && app.shown.player.bar[i]; if (id) app.combatAct((t) => ({ type: 'CAST', spellId: id, target: t }), `spell${i}`, (app.data.spells[id] || {}).name || id, () => app.hud.flashSlot(i)); },
+      useItemSlot: (i) => { const v = app.shown; if (!v.player || !v.player.itemBar[i]) return; if (v.combat && !v.combat.over) app.combatAct((t) => ({ type: 'USE_ITEM', slot: i, target: t }), `item${i}`, (app.data.consumables[v.player.itemBar[i]] || {}).name || 'Item', () => app.hud.flashSlot(7 + i)); else { app.hud.flashSlot(7 + i); const it = v.player.bag.find((s) => s && s.id === v.player.itemBar[i]); if (it) app.act({ type: 'USE_ITEM', uid: it.uid }); } },
       // read the state when the action runs, so two quick presses (Z Z) turn it on and off again
       toggleAuto: () => app.act(() => ({ type: 'SET_AUTOPLAY', on: !app.bridge.view.autoplay })),
-      pass: () => app.combatAct(() => ({ type: 'PASS' })),
+      pass: () => app.combatAct(() => ({ type: 'PASS' }), 'pass', 'Pass'),
       flee: () => {
-        if (!app.shown.legal || !app.shown.legal.flee) return;
-        if (!ui.fleeArmed) { ui.fleeArmed = true; app.skipPlay(); app.queueRender(); app.toast('Press Flee again to run', 'info'); clearTimeout(app.fleeT); app.fleeT = setTimeout(() => { ui.fleeArmed = false; app.queueRender(); }, 2200); return; }
-        ui.fleeArmed = false; app.combatAct(() => ({ type: 'FLEE' }));
+        if (!app.bridge.view.legal || !app.bridge.view.legal.flee) return;
+        if (!ui.fleeArmed) { ui.fleeArmed = true; app.queueRender(); app.toast('Press Flee again to run', 'info'); clearTimeout(app.fleeT); app.fleeT = setTimeout(() => { ui.fleeArmed = false; app.queueRender(); }, 2200); return; }
+        ui.fleeArmed = false; app.combatAct(() => ({ type: 'FLEE' }), 'flee', 'Flee');
       },
+      /** The queued next action ({ key, label }) or null. */
+      get queued() { return app.next ? { key: app.next.key, label: app.next.label } : null; },
       showDeath: (on, text) => app.showDeath(on, text),
       // Hall of Echoes (meta progression between runs): over class select; from the summary it opens after END_RUN
       openMeta: () => { hideTip(); app.windows.closeAll(); app.screens.meta.open(); app.queueRender(); },
@@ -17306,6 +17899,7 @@ class App {
     this.bannerEl = h('div#banner', h('div.b0'), h('div.b1'), h('div.b2'));
     this.toasts = h('div#toasts');
     this.skipHint = h('div#skiphint', 'Space or click to skip');
+    this.next = null; // the one queued next action during a combat round: { make, key, label }
     this.deathEl = h('div.hidden', h('div.overlay-dark'), h('div.deathmsg', h('div.d1', 'You have died'), h('div.d2', 'No resurrection remains. Your journey ends here.')));
     this.root.append(this.bannerEl, this.toasts, this.skipHint, this.deathEl);
     this.bindInput();
@@ -17313,7 +17907,13 @@ class App {
     this.applyScale();
     this.syncScene(this.shown, { instant: true });
     this.render();
-    const loop = (now) => { this.scene.frame(now); this.hud.placeNameplates(); this.skipHint.classList.toggle('on', this.director.playing && (performance.now() - (this.playStart || 0)) > 700 && !settings.instant); requestAnimationFrame(loop); };
+    const loop = (now) => {
+      this.scene.frame(now); this.hud.placeNameplates();
+      const hint = this.director.playing && (performance.now() - (this.playStart || 0)) > 700 && !settings.instant;
+      this.skipHint.classList.toggle('on', hint);
+      if (hint) { const txt = this.director.inRound ? 'Space or click: skip this hit' : 'Space or click to skip'; if (this.skipHint.textContent !== txt) this.skipHint.textContent = txt; }
+      requestAnimationFrame(loop);
+    };
     requestAnimationFrame(loop);
     globalThis.__ui = this.testApi();
     const boot = document.getElementById('boot'); if (boot) { boot.classList.add('gone'); setTimeout(() => boot.remove(), 700); }
@@ -17326,13 +17926,14 @@ class App {
 
   // ------------------------------------------------------------------ actions
   /**
-   * Queue an action (or a function that returns one when its turn comes) and play its events. Any input while a step
-   * still plays finishes that step's animations at once (rules 3: input during enemy animations finishes them).
+   * Queue an action (or a function that returns one when its turn comes) and play its events. Input while a step other
+   * than a combat round plays finishes that step's animations at once; a combat round plays on (combat actions wait in
+   * the one-slot queue of combatAct, other actions after the round).
    */
   act(actionOrFn) {
     const tIn = performance.now();
     this.pending++;
-    this.skipPlay();
+    if (!this.director.inRound) this.skipPlay();
     const run = async () => {
       try {
         const action = typeof actionOrFn === 'function' ? actionOrFn() : actionOrFn;
@@ -17343,10 +17944,10 @@ class App {
         if (!res.ok) { if (res.error) { this.toast(res.error, 'err'); console.info(`[ui] action ${action.type} refused: ${res.error}`); } return res; }
         if (action.type === 'START_RUN' || action.type === 'END_RUN') this.ui.target = null;
         this.playStart = performance.now();
-        const rec = { type: action.type === 'ENGINE' ? action.action.type : action.type, input: tIn, t0, events: res.events.map((e) => e.t), round: null, end: null, skippedAt: null };
+        const rec = { type: action.type === 'ENGINE' ? action.action.type : action.type, input: tIn, t0, events: res.events.map((e) => e.t), round: null, end: null, skippedAt: null, hitSkips: [], queued: null };
         this.plays.push(rec); if (this.plays.length > 200) this.plays.shift();
         const playing = this.director.play(prev, res.view, res.events, action, { t0 });
-        rec.round = this.director.round ? { budget: this.director.round.budget, plan: this.director.round.plan, tempo: this.director.round.tempo, speed: this.director.round.speed } : null;
+        rec.round = this.director.round ? { budget: this.director.round.budget, avg: this.director.round.avg, plan: this.director.round.plan, tempo: this.director.round.tempo, speed: this.director.round.speed } : null;
         await playing;
         rec.end = performance.now();
         this.afterPlay();
@@ -17354,8 +17955,8 @@ class App {
         return res;
       } catch (err) { console.error(err); this.shown = this.bridge.view; this.queueRender(); return { ok: false, error: String(err) }; } finally {
         this.pending--;
-        // Autoplay's next round is planned only when nothing else is queued or playing.
-        if (this.pending === 0) this.scheduleAuto();
+        // The queued next action plays when nothing else is queued or playing; else autoplay's next round is planned.
+        if (this.pending === 0 && !this.flushNext()) this.scheduleAuto();
       }
     };
     const p = this.queue.then(run, run);
@@ -17365,14 +17966,48 @@ class App {
 
   /** Test hook: the step that was playing when an input skipped it. */
   notePlaySkip(t) { const r = this.plays[this.plays.length - 1]; if (r && r.end == null && r.skippedAt == null) r.skippedAt = t; }
-  /** Finish the step that is playing (click, Space, an action key). */
-  skipPlay() { if (this.director.playing) { this.director.skip(); this.notePlaySkip(performance.now()); } }
+  /** Space or a click: in a combat round skip to the end of the hit on screen; any other step finishes at once. */
+  skipPlay() {
+    if (!this.director.playing) return;
+    const now = performance.now();
+    if (this.director.inRound) {
+      const beat = this.director.skipHit();
+      const r = this.plays[this.plays.length - 1];
+      if (beat != null && r && r.end == null) r.hitSkips.push({ at: now, beat, event: this.director.cursor ? this.director.cursor.t : null });
+      return;
+    }
+    this.director.skip(); this.notePlaySkip(now);
+  }
+  /** Is a step queued or playing (a combat action now waits in the one-slot queue)? */
+  busy() { return this.pending > 0 || this.director.playing; }
 
-  combatAct(make) {
+  /**
+   * A combat action. While a step resolves it becomes the one queued next action, shown on the action bar: the same key
+   * again changes nothing, another action replaces it. onTake runs when the input is taken (the slot's press flash).
+   */
+  combatAct(make, key = null, label = '', onTake = null) {
     const v = this.bridge.view;
     if (!v.combat || v.combat.over) return;
+    if (this.busy() && key) {
+      if (this.next && this.next.key === key) return; // a repeated press while the round resolves: ignored
+      this.next = { make, key, label };
+      const r = this.plays[this.plays.length - 1]; if (r && r.end == null) r.queued = key;
+      if (onTake) onTake();
+      this.hud.setQueued(key, label); this.queueRender();
+      return;
+    }
+    if (onTake) onTake();
     const t = this.validTarget(v);
     this.act(make(t));
+  }
+  /** Play the queued next action once nothing else is queued or playing; true when one was sent. */
+  flushNext() {
+    const n = this.next; if (!n) return false;
+    this.next = null; this.hud.setQueued(null);
+    const v = this.bridge.view;
+    if (!v.combat || v.combat.over || v.phase === 'SUMMARY') return false; // the fight ended: the queued action lapses
+    this.act(n.make(this.validTarget(v)));
+    return true;
   }
   validTarget(v) {
     const c = v.combat; if (!c) return 0;
@@ -17507,6 +18142,10 @@ class App {
     if (v.combat) for (const e of v.combat.enemies) {
       const a = s.actors.get(`enemy:${e.idx}`); if (!a) continue;
       a.fxStun = has(e, 'STUN'); a.fxFrozen = has(e, 'FROZEN'); a.fxHex = has(e, 'HEXED'); a.fxBurn = has(e, 'BURN'); a.fxWard = has(e, 'WARD');
+      // telegraph: a heavy blow or a cast in the intent shows as a held wind-up until the enemy acts
+      const it = e.intent;
+      const tele = e.alive && !v.combat.over && it && !it.interrupted && !it.support && (it.heavy || it.cast) && it.id !== 'none' && it.id !== 'unaware';
+      a.tele = tele ? { kind: it.heavy && !it.cast ? 'heavy' : 'cast', color: it.heavy && !it.cast ? HEAVY_COL : TELE_COL[it.school] || '#b48aff' } : null;
     }
   }
 
@@ -17598,8 +18237,10 @@ class App {
       /** The action the engine's autoplay policy would choose now (not sent). */
       autoChoice: () => app.bridge.autoAction(),
       /** The event the director is playing now ({ t, side }), or null. */
-      playingEvent: () => { const e = app.director.playing && app.director.cursor; return e ? { t: e.t, side: e.src ? e.src.side : null } : null; },
+      playingEvent: () => { const e = app.director.playing && app.director.cursor; return e ? { t: e.t, side: e.src ? e.src.side : null, dst: e.dst ? e.dst.side : null, beat: app.director.beatNo, inRound: app.director.inRound } : null; },
       skip: () => app.director.skip(),
+      /** The queued next action during a combat round ({ key, label }) or null. */
+      queued: () => (app.next ? { key: app.next.key, label: app.next.label } : null),
       settings,
       openWin: (n) => app.windows.open(n), closeWins: () => app.windows.closeAll(),
       /** Whether the Hall of Echoes is open (it shows over class select). */
@@ -17608,6 +18249,10 @@ class App {
     };
   }
 }
+
+// telegraph colours: a heavy blow in orange (the target ring is red), a cast in its school's colour
+const HEAVY_COL = '#ff9a1f';
+const TELE_COL = { fire: '#ff8a3a', frost: '#8fd6ff', arcane: '#c79bff', shadow: '#a07aff', nature: '#8fe07a', magic: '#b48aff', phys: '#ffb08a' };
 
 function npcLook(theme, kind) {
   const base = enemyLook(kind === 'merchant' ? 'mender' : kind === 'trainer' ? 'caster' : 'mender', theme, 'normal');
