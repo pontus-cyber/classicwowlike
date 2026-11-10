@@ -2,7 +2,7 @@
 
 Every section of docs/specs/rules.md and the tests that cover it. Engine suite: `node --test qa/engine/` (154 tests, Core Gameplay Engineer). QA suite: `node --test qa/rules/` (this folder). Browser: qa/browser/full-run.mjs and ui-checks.mjs.
 
-File keys. Engine: E00 s00-s01-structure, E02 s02-nodes, E03 s03-s04-character, E05 s05-classes, E06 s06-talents, E07 s07-combat, E07b s07b-combat-v2, E08 s08-s09-items-death, E10 s10-boss, E11 s11-s12-meta-content, E13 s13-constants, EH health. QA: Q01 r01-r02-map-nodes, Q04 r04-r07-character-combat, Q06 r06-talents, Q08 r08-items, Q09 r09-r11-summary-meta, Q10 r10-boss, QA api-legal. B browser scripts.
+File keys. Engine: E00 s00-s01-structure, E01b s01b-expedition, E02 s02-nodes, E03 s03-s04-character, E05 s05-classes, E06 s06-talents, E07 s07-combat, E07b s07b-combat-v2, E08 s08-s09-items-death, E10 s10-boss, E11 s11-s12-meta-content, E13 s13-constants, EH health. QA: Q01 r01-r02-map-nodes, Q04 r04-r07-character-combat, Q06 r06-talents, Q08 r08-items, Q09 r09-r11-summary-meta, Q10 r10-boss, QA api-legal. B browser scripts.
 
 | Section | Covered by | QA additions and notes |
 |---|---|---|
@@ -15,6 +15,15 @@ File keys. Engine: E00 s00-s01-structure, E02 s02-nodes, E03 s03-s04-character, 
 | 1.6 Camp | E00 camp waves at 58 | Q01 camp vendor at content level 60 |
 | 1.7 In-game time and Ascendancy | E00 formula and boss HP | Q10 all boss damage × (1 + asc); Q09 speed bonus at or under the par |
 | 1.8 Trade-offs | emergent: sections 2, 8, 10 | playtest notes in docs/handoffs/qa-2026-11-09.md |
+| 1.9.1 Expedition phases and actions (expedition) | E01b mapMode option, rows vs expedition actions, legalActions on the map (every listed action legal), full runs: every action autoplay takes is listed | - |
+| 1.9.2 Zone graph (expedition) | E01b ring sizes and angles over 30 seeds × 6 zones; the whole map(z) draw order replayed exactly (angles, edges, regions, Roads, Shardfall, types; 40 seeds × 3 zones); spokes connect, edge and diagonal frequencies; regions are wedges; Roads and Shardfall; type constraints over 200 zones; determinism and independence from earlier zones; hub vendor keeps what was sold; E13 REGION_W table | - |
+| 1.9.3 Content level and node setup (expedition) | E01b CL by ring (first draw of node(z, id)), quest and elite offsets, dungeon levels; one grind wave, two trash fights, valid encounters, trap = first draw of loot(z, id); content regions and the family share | - |
+| 1.9.4 Moving and hours (expedition) | E01b MOVE enters or walks, the way back, resolved at most once, PASS_THROUGH, a fled fight resolves its node, fight(z, id, k) and loot(z, id), hub revisits | - |
+| 1.9.5 Vision and mapView (expedition) | E01b radius 1 at entry and after steps, remembered nodes, Local Guide and the VISION_RADIUS_MAX cap, Region Charts and Pathfinder, the leak test (hidden nodes have only skeleton keys; mapView and autoAction unchanged when hidden contents are replaced) | - |
+| 1.9.6 The Dimming (expedition) | E01b front formula and dimAt, dimming events, the Dimmed encounter (make-up from dim(z, id, n), level with depth and the cap, HP and damage multipliers, hours), rewards (XP × DIM_XP_MULT, no coin or loot), flee, the front reaching the player during a node, content lost, the hub's services, death in the Dimming | - |
+| 1.9.7 Leaving a zone (expedition) | E01b TAKE_ROAD through all six zones to the Camp and the boss with no level gate, a Dimmed Road after its encounter, the Homeward Bell (charges, hours, no travel hours, legality) and the Bell with a Dimmed encounter first | - |
+| 1.9.8 Pacing values (expedition) | E01b node hours, a one-wave Grind starting on entry, trash, trash, boss; XP × XP_WEIGHT_MULT on kills, turn-ins, waves and clears; estSeconds walks, passes and the Bell; E13 constants | - |
+| 1.9.9 Default map policy (expedition) | E01b full autoplay runs per class (fixture and real content) end; determinism and a save mid-run | - |
 | 2.0 Node summary, mob kill XP | E02 hours per type, kill XP per kind | - |
 | 2.1 Quest | E02 rewards, story chain, flee | Q01 exact turn-in XP with diffMod above and below, encounter size weights, zone normals |
 | 2.2 Grind | E02 waves, hours, stop | Q01 exact wave XP; stopped after wave 1 of 3 costs 1 h |

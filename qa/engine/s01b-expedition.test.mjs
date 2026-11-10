@@ -1,21 +1,67 @@
 // rules.md 1.9 (expedition): the roamable zone map behind newRun({ mapMode: 'expedition' }): graph generation and node
-// setup by region (this commit); moves, vision, the Dimming, Roads and the Homeward Bell follow with the run flow. The
-// rows map (rules 1.4) is tested in s00-s01.
+// setup by region, moves, vision and the player-visible map view (with leak tests), the Dimming, Roads and the Homeward
+// Bell, the expedition pacing values, determinism and full autoplay runs. The rows map (rules 1.4) is tested in s00-s01.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { R, C, CONTENT, STREAM, nextFloat } from './helpers.mjs';
+import { R, C, CONTENT, tweak, atLevel, autoUntil, ev, STREAM, nextFloat, forceDraws } from './helpers.mjs';
 import { CONTENT as REAL } from '../../src/content/index.js';
 import { nextInt, weightedIndex } from '../../src/rng.js';
-import { dungeonLevels, validEncounter } from '../../src/engine/map.js';
-import { generateExpZone, zoneRegions, hops, RING_START, NODE_COUNT } from '../../src/engine/expedition.js';
+import { dungeonLevels, validEncounter, composeEncounter } from '../../src/engine/map.js';
+import {
+  generateExpZone, setupExpNode, zoneRegions, hops, frontAt, dimAt, zoneHours, RING_START, NODE_COUNT, xpWeight,
+  nodeHours, grindMaxWaves,
+} from '../../src/engine/expedition.js';
 
 const [, N1, N2, N3] = C.RING_NODES;
 const band = (z) => C.ZONE_LEVELS * (z - 1) + 1;
 const norm = (a) => ((a % 360) + 360) % 360;
 const angDist = (a, b) => Math.min(norm(a - b), 360 - norm(a - b));
+
+/** A started expedition run (phase ZONE_HUB of zone 1). */
+function expRun(classId = 'mage', opts = {}) {
+  const s = R.newRun({
+    classId, petId: classId === 'hunter' ? 'ridgewolf' : null, seed: opts.seed ?? 1, content: opts.content || CONTENT,
+    profile: opts.profile || null, mapMode: 'expedition', vision: opts.vision || null,
+  });
+  return R.step(s, { type: 'START_RUN' }).state;
+}
+const onMap = (s) => R.step(s, { type: 'LEAVE_HUB' }).state;
+const hoursOf = (events) => ev(events, 'hours').reduce((n, e) => n + e.add, 0);
 const ringOf = (id) => (id === 0 ? 0 : id < RING_START[2] ? 1 : id < RING_START[3] ? 2 : 3);
-/** Zone z of a seed as the engine generates it (from a started run's seed, content and profile). */
-const zoneOf = (seed, z, content = CONTENT) => generateExpZone(R.step(R.newRun({ classId: 'mage', seed, content }), { type: 'START_RUN' }).state, z);
+/** Zone z of a seed as the engine generates it on entry. */
+const zoneOf = (seed, z, content = CONTENT) => generateExpZone(expRun('mage', { seed, content }), z);
+
+/** Shortest path (node ids, both ends included) on the zone graph. */
+function pathTo(zone, from, to) {
+  const prev = new Array(zone.nodes.length).fill(-2);
+  prev[from] = -1;
+  const q = [from];
+  for (let i = 0; i < q.length; i++) for (const v of zone.nodes[q[i]].nb) if (prev[v] === -2) { prev[v] = q[i]; q.push(v); }
+  const p = [];
+  for (let x = to; x !== -1; x = prev[x]) p.unshift(x);
+  return p;
+}
+/** Step along a path: through unresolved nodes with PASS_THROUGH, else MOVE. Returns { state, events }. */
+function walk(s, path) {
+  const events = [];
+  for (const id of path.slice(1)) {
+    const a = R.isLegal(s, { type: 'PASS_THROUGH', nodeId: id }) ? { type: 'PASS_THROUGH', nodeId: id } : { type: 'MOVE', nodeId: id };
+    const r = R.step(s, a);
+    s = r.state;
+    events.push(...r.events);
+  }
+  return { state: s, events };
+}
+/** Put node id's content to `type` (fresh setup on its own stream), adjacent to where the player stands. */
+function makeType(x, id, type, patch = null) {
+  const n = x.zone.nodes[id];
+  for (const k of ['quest', 'mobs', 'waves', 'rare', 'elite', 'add', 'eliteLevel', 'trashLevel', 'bossLevel', 'trash', 'boss', 'stock', 'boons', 'guard', 'trap']) delete n[k];
+  n.type = type;
+  setupExpNode(x, x.zone.z, n, zoneRegions(x.content, x.zone.z));
+  if (patch) patch(n);
+}
+/** Zone hours set to hz (the front follows), without spending an action. */
+const atZoneHour = (x, hz) => { x.hours = x.zone.start + hz; };
 
 // Independent replay of rules 1.9.2's draw order on stream map(z) (fixture content: default regions).
 function replay(seed, z) {
@@ -254,9 +300,649 @@ describe('rules 1.9 expedition map: generation (1.9.2, 1.9.3)', () => {
     assert.ok(R.validateContent(bad).some((e) => /regions\[0\]\.kind/.test(e)));
   });
 
-  test('1.9.2 determinism: the same seed gives the same zone; different seeds give different zones', () => {
+  test('1.9.2 determinism: the same seed gives the same zone; a zone does not depend on how earlier zones were played', () => {
     const strip = (zone) => JSON.stringify(zone.nodes.map((n) => ({ ...n, done: false, stock: n.stock ? n.stock.map((x) => x.kind + (x.id || x.item.slot + x.item.rarity + x.item.ilvl)) : null })));
     for (let seed = 1; seed <= 10; seed++) assert.equal(strip(zoneOf(seed, 3)), strip(zoneOf(seed, 3)));
     assert.notEqual(strip(zoneOf(1, 3)), strip(zoneOf(2, 3)));
+    // Two different ways through zone 1 (pass straight to a Road; resolve nodes on autoplay) give the same zone 2.
+    const base = expRun('hunter', { seed: 11 });
+    const quick = (() => {
+      let s = onMap(base);
+      s = walk(s, pathTo(s.zone, 0, s.zone.roads[0])).state;
+      return R.step(s, { type: 'TAKE_ROAD' }).state;
+    })();
+    const slow = autoUntil(base, (s) => s.zone && s.zone.z === 2);
+    assert.equal(quick.zone.z, 2);
+    assert.equal(slow.zone.z, 2);
+    assert.ok(slow.stats.nodesTotal > quick.stats.nodesTotal, 'a different way through zone 1');
+    assert.equal(strip(quick.zone), strip(slow.zone));
+  });
+});
+
+describe('rules 1.9 expedition map: moving, the hub and the actions (1.9.1, 1.9.4)', () => {
+  test('1.9.1 a run is created on the rows map unless mapMode is expedition; bad options throw', () => {
+    const rows = R.step(R.newRun({ classId: 'mage', seed: 1, content: CONTENT }), { type: 'START_RUN' }).state;
+    assert.equal(rows.mapMode, 'rows');
+    assert.ok(rows.zone.rows && !rows.exp);
+    const s = expRun();
+    assert.equal(s.mapMode, 'expedition');
+    assert.equal(s.zone.mode, 'expedition');
+    assert.equal(s.phase, 'ZONE_HUB');
+    assert.equal(s.zone.pos, 0);
+    assert.throws(() => R.newRun({ classId: 'mage', content: CONTENT, mapMode: 'hex' }), /mapMode/);
+    assert.throws(() => R.newRun({ classId: 'mage', content: CONTENT, vision: { guide: true } }), /expedition option/);
+    assert.throws(() => R.newRun({ classId: 'mage', content: CONTENT, mapMode: 'expedition', vision: { eagle: true } }), /expedition option/);
+  });
+
+  test('1.9.1 CHOOSE_NODE and TRAVEL_ON are not legal; legalActions lists MOVE and PASS_THROUGH per neighbour, RING_BELL, TAKE_ROAD on a Road; every listed action is legal', () => {
+    const s = onMap(expRun('rogue', { seed: 5 }));
+    assert.match(R.whyIllegal(s, { type: 'CHOOSE_NODE', lane: 0 }), /expedition map/);
+    assert.match(R.whyIllegal(s, { type: 'TRAVEL_ON' }), /TAKE_ROAD/);
+    assert.equal(R.travelLevel(s), null, 'no level gate');
+    const legal = R.legalActions(s);
+    for (const a of legal) assert.ok(R.isLegal(s, a), JSON.stringify(a));
+    const nb = s.zone.nodes[0].nb;
+    assert.deepEqual(legal.filter((a) => a.type === 'MOVE').map((a) => a.nodeId), nb);
+    assert.deepEqual(legal.filter((a) => a.type === 'PASS_THROUGH').map((a) => a.nodeId), nb);
+    assert.ok(legal.some((a) => a.type === 'RING_BELL'));
+    assert.ok(!legal.some((a) => a.type === 'TAKE_ROAD'), 'the hub is not a Road');
+    const far = s.zone.nodes.find((n) => n.ring === 3).id;
+    assert.match(R.whyIllegal(s, { type: 'MOVE', nodeId: far }), /not next to/);
+    assert.match(R.whyIllegal(s, { type: 'MOVE', nodeId: 99 }), /no node/);
+    assert.match(R.whyIllegal(s, { type: 'TAKE_ROAD' }), /Road/);
+    // Rows-map actions of an expedition run, and expedition actions of a rows run.
+    const rows = R.step(R.step(R.newRun({ classId: 'mage', seed: 1, content: CONTENT }), { type: 'START_RUN' }).state, { type: 'LEAVE_HUB' }).state;
+    assert.match(R.whyIllegal(rows, { type: 'MOVE', nodeId: 1 }), /expedition-map action/);
+    assert.ok(!R.legalActions(rows).some((a) => ['MOVE', 'PASS_THROUGH', 'TAKE_ROAD', 'RING_BELL'].includes(a.type)));
+  });
+
+  test('1.9.4 MOVE enters an unresolved node (its content and hours); a resolved node or the hub is a walk of HOURS_WALK; the way back is legal', () => {
+    let s = onMap(expRun('mage', { seed: 3 }));
+    const id = s.zone.nodes[0].nb[0];
+    s = tweak(s, (x) => makeType(x, id, 'rest'));
+    s = tweak(s, (x) => { x.player.hp = 5; });
+    let r = R.step(s, { type: 'MOVE', nodeId: id });
+    assert.deepEqual(ev(r.events, 'move')[0], { t: 'move', from: 0, to: id, via: 'enter', seen: ev(r.events, 'move')[0].seen });
+    assert.equal(hoursOf(r.events), C.HOURS_REST);
+    assert.equal(ev(r.events, 'node')[0].id, id);
+    assert.equal(r.state.player.hp, r.state.player.d.maxHp);
+    assert.equal(r.state.zone.nodes[id].done, true);
+    assert.equal(r.state.zone.pos, id);
+    assert.equal(r.state.phase, 'MAP');
+    // Back to the hub (a walk, and a new hub visit), then into the resolved node again (a walk, no rest).
+    r = R.step(r.state, { type: 'MOVE', nodeId: 0 });
+    assert.equal(hoursOf(r.events), C.HOURS_WALK);
+    assert.equal(ev(r.events, 'move')[0].via, 'walk');
+    assert.equal(r.state.phase, 'ZONE_HUB');
+    r = R.step(R.step(r.state, { type: 'LEAVE_HUB' }).state, { type: 'MOVE', nodeId: id });
+    assert.equal(hoursOf(r.events), C.HOURS_WALK);
+    assert.equal(ev(r.events, 'rest').length, 0, 'a node is resolved at most once');
+    assert.equal(r.state.stats.exp.walks, 2);
+    assert.equal(r.state.stats.nodesTotal, 1);
+  });
+
+  test('1.9.4 PASS_THROUGH: HOURS_WALK, the node stays unresolved and can be entered later; not for a resolved node or the hub', () => {
+    let s = onMap(expRun('hunter', { seed: 4 }));
+    const id = s.zone.nodes[0].nb[1];
+    s = tweak(s, (x) => makeType(x, id, 'shrine'));
+    let r = R.step(s, { type: 'PASS_THROUGH', nodeId: id });
+    assert.equal(hoursOf(r.events), C.HOURS_WALK);
+    assert.equal(ev(r.events, 'move')[0].via, 'pass');
+    assert.equal(r.state.zone.nodes[id].done, false);
+    assert.equal(r.state.phase, 'MAP');
+    assert.equal(r.state.stats.exp.passes, 1);
+    assert.equal(r.state.stats.nodesTotal, 0);
+    assert.match(R.whyIllegal(r.state, { type: 'PASS_THROUGH', nodeId: 0 }), /MOVE walks there/);
+    // Come back later: hub, then enter it.
+    r = R.step(R.step(R.step(r.state, { type: 'MOVE', nodeId: 0 }).state, { type: 'LEAVE_HUB' }).state, { type: 'MOVE', nodeId: id });
+    assert.equal(r.state.phase, 'NODE');
+    assert.equal(r.state.node.type, 'shrine');
+    r = R.step(r.state, { type: 'CHOOSE_REWARD', index: 0 });
+    assert.equal(r.state.zone.nodes[id].done, true);
+    assert.match(R.whyIllegal(r.state, { type: 'PASS_THROUGH', nodeId: id === 0 ? 1 : 0 }), /MOVE walks there|not next to/);
+  });
+
+  test('1.9.4 a fled fight resolves its node; fights use fight(z, id, k) and loot(z, id)', () => {
+    let s = onMap(atLevel(expRun('mage', { seed: 6 }), 20));
+    const id = s.zone.nodes[0].nb[0];
+    s = tweak(s, (x) => makeType(x, id, 'quest'));
+    s = R.step(s, { type: 'MOVE', nodeId: id }).state;
+    assert.ok(s.fight);
+    // The fight's generator is fight(z, id, 0) advanced by the draws of the fight start; loot(z, id) is untouched yet.
+    const g = STREAM.fightId(s.seed, 1, id, 0);
+    let same = false;
+    for (let i = 0; i < 200 && !same; i++) { same = JSON.stringify(g) === JSON.stringify(s.fight.rng); nextFloat(g); }
+    assert.ok(same, 'fight(z, id, 0) drives the first fight');
+    assert.deepEqual(s.lootRng, STREAM.lootId(s.seed, 1, id));
+    // FLEE succeeds on a forced low draw (rules 7.8): the node is resolved, the player back on the map on it.
+    s = tweak(s, (x) => forceDraws(x, 1, (d) => d[0] < 0.01));
+    const r = R.step(s, { type: 'FLEE' });
+    assert.equal(ev(r.events, 'fled').length, 1);
+    assert.equal(r.state.phase, 'MAP');
+    assert.equal(r.state.zone.nodes[id].done, true);
+    assert.equal(r.state.zone.pos, id);
+    assert.equal(ev(R.step(r.state, { type: 'MOVE', nodeId: 0 }).events, 'move')[0].via, 'walk');
+  });
+
+  test('1.9.4 the hub: services on every visit, once per visit; the hub vendor keeps what was sold', () => {
+    let s = tweak(expRun('rogue', { seed: 8 }), (x) => { x.player.gold = 1e7; });
+    s = R.step(s, { type: 'SERVICE', service: 'vendor' }).state;
+    const gear = s.service.stock.findIndex((e) => e.kind === 'gear');
+    const uid = s.service.stock[gear].item.uid;
+    s = R.step(s, { type: 'BUY', index: gear }).state;
+    s = R.step(s, { type: 'LEAVE' }).state;
+    assert.ok(!R.isLegal(s, { type: 'SERVICE', service: 'vendor' }), 'once per visit');
+    const out = s.zone.nodes[0].nb[0];
+    s = R.step(R.step(onMap(s), { type: 'PASS_THROUGH', nodeId: out }).state, { type: 'MOVE', nodeId: 0 }).state;
+    assert.equal(s.phase, 'ZONE_HUB');
+    assert.deepEqual(s.hub.used, { trainer: false, vendor: false, inn: false });
+    s = R.step(s, { type: 'SERVICE', service: 'vendor' }).state;
+    assert.equal(s.service.stock[gear].item.uid, uid, 'same stock');
+    assert.equal(s.service.stock[gear].sold, true, 'what was sold stays sold');
+    assert.equal(s.stats.vendorVisits, 2);
+  });
+});
+
+describe('rules 1.9 expedition map: vision and the map view (1.9.5)', () => {
+  test('1.9.5 vision: the hub and its neighbours at entry; new neighbours after a step; seen nodes stay seen', () => {
+    let s = onMap(expRun('mage', { seed: 12 }));
+    const z = s.zone;
+    const seen = (x) => x.zone.seen.map((b, i) => (b ? i : -1)).filter((i) => i >= 0);
+    assert.deepEqual(seen(s), [0, ...z.nodes[0].nb].sort((a, b) => a - b));
+    const a = z.nodes[0].nb[0];
+    const r = R.step(s, { type: 'PASS_THROUGH', nodeId: a });
+    const now = seen(r.state);
+    for (const id of [0, ...z.nodes[0].nb, ...z.nodes[a].nb]) assert.ok(now.includes(id), `node ${id}`);
+    assert.equal(now.length, new Set([0, ...z.nodes[0].nb, ...z.nodes[a].nb]).size);
+    assert.deepEqual(ev(r.events, 'move')[0].seen, z.nodes[a].nb.filter((id) => !s.zone.seen[id]));
+    // Walk further out: the hub's ring stays seen.
+    const b = r.state.zone.nodes[a].nb.find((x) => ringOf(x) === 2);
+    const r2 = R.step(r.state, { type: 'PASS_THROUGH', nodeId: b });
+    for (const id of now) assert.ok(r2.state.zone.seen[id], 'remembered');
+    assert.equal(R.mapView(r2.state).vision.radius, C.VISION_RADIUS);
+  });
+
+  test('1.9.5 radius: Local Guide adds GUIDE_RADIUS_BONUS; the radius is capped at VISION_RADIUS_MAX', () => {
+    const g = expRun('mage', { seed: 12, vision: { guide: true } });
+    assert.equal(g.exp.vision.radius, C.VISION_RADIUS + C.GUIDE_RADIUS_BONUS);
+    const d = hops(g.zone.nodes, 0);
+    assert.deepEqual(g.zone.seen.map((b, i) => b), d.map((x) => x <= Math.min(C.VISION_RADIUS_MAX, C.VISION_RADIUS + C.GUIDE_RADIUS_BONUS)));
+    // A kit wider than the cap sees VISION_RADIUS_MAX hops.
+    let w = tweak(onMap(expRun('mage', { seed: 12 })), (x) => { x.exp.vision.radius = 5; });
+    const a = w.zone.nodes[0].nb[0];
+    w = R.step(w, { type: 'PASS_THROUGH', nodeId: a }).state;
+    const da = hops(w.zone.nodes, a);
+    for (const n of w.zone.nodes) if (da[n.id] <= C.VISION_RADIUS_MAX) assert.ok(w.zone.seen[n.id]);
+    assert.ok(w.zone.nodes.some((n) => da[n.id] === C.VISION_RADIUS_MAX + 1 && !w.zone.seen[n.id] && hops(w.zone.nodes, 0)[n.id] > 1), 'nothing past the cap');
+    assert.equal(R.mapView(w).vision.radius, C.VISION_RADIUS_MAX);
+  });
+
+  test('1.9.5 the map view: skeleton, landmarks, regions list and the Dimming for every node; contents only of seen nodes; charts and Pathfinder', () => {
+    const s = onMap(expRun('hunter', { seed: 21 }));
+    const v = R.mapView(s);
+    assert.equal(v.mode, 'expedition');
+    assert.equal(v.nodes.length, NODE_COUNT);
+    assert.deepEqual(v.roads, s.zone.roads);
+    assert.equal(v.shardfall, s.zone.shardfall);
+    assert.equal(v.edges.length, s.zone.nodes.reduce((n, x) => n + x.nb.length, 0) / 2);
+    assert.deepEqual(v.regions.map((r) => r.kind), C.REGION_KINDS);
+    assert.equal(v.bell.charges, C.BELL_START_CHARGES);
+    for (const n of v.nodes) {
+      assert.ok('dimmed' in n && 'dimsIn' in n && 'road' in n && 'shardfall' in n && 'nb' in n && 'angle' in n && 'hops' in n);
+      if (s.zone.seen[n.id]) {
+        assert.equal(n.know, 'full');
+        assert.equal(n.type, s.zone.nodes[n.id].type);
+        assert.equal(n.cl, s.zone.nodes[n.id].cl);
+        if (n.id > 0) assert.equal(n.region, s.zone.nodes[n.id].region);
+      } else {
+        assert.equal(n.know, 'none');
+        assert.equal(n.type, undefined);
+        assert.equal(n.region, null);
+      }
+    }
+    assert.deepEqual(v.moves.map((m) => m.nodeId), s.zone.nodes[0].nb);
+    const H = { quest: C.EXPED_HOURS_QUEST, elite: C.EXPED_HOURS_ELITE, grind: C.EXPED_HOURS_GRIND_WAVE, dungeon: C.EXPED_HOURS_DUNGEON, rest: C.HOURS_REST, vendor: C.HOURS_VENDOR, trainer: C.HOURS_TRAINER, treasure: C.HOURS_TREASURE, shrine: C.HOURS_SHRINE };
+    for (const m of v.moves) {
+      assert.equal(m.via, 'enter');
+      assert.equal(m.hours, H[s.zone.nodes[m.nodeId].type]);
+      assert.equal(m.passHours, C.HOURS_WALK);
+    }
+    // Region Charts: every node's region and the dungeon's type (no other content).
+    const ch = R.mapView(onMap(expRun('hunter', { seed: 21, vision: { charts: true } })));
+    const dId = s.zone.nodes.find((n) => n.type === 'dungeon').id;
+    for (const n of ch.nodes) if (n.id > 0) assert.equal(n.region, s.zone.nodes[n.id].region);
+    if (!s.zone.seen[dId]) { assert.equal(ch.nodes[dId].know, 'type'); assert.equal(ch.nodes[dId].type, 'dungeon'); assert.equal(ch.nodes[dId].cl, undefined); }
+    // Pathfinder: types (only) within PATHFINDER_RADIUS.
+    const pf = R.mapView(onMap(expRun('hunter', { seed: 21, vision: { pathfinder: true } })));
+    const d0 = hops(s.zone.nodes, 0);
+    for (const n of pf.nodes) {
+      if (d0[n.id] <= C.VISION_RADIUS) assert.equal(n.know, 'full');
+      else if (d0[n.id] <= C.PATHFINDER_RADIUS) { assert.equal(n.know, 'type'); assert.equal(n.type, s.zone.nodes[n.id].type); assert.equal(n.cl, undefined); assert.equal(n.archetypes, undefined); }
+      else assert.equal(n.know, 'none');
+    }
+  });
+
+  test('1.9.5 leak test: hidden node contents are absent from mapView, and mapView is the same when they are replaced', () => {
+    const SKELETON = ['id', 'ring', 'angle', 'nb', 'hops', 'hub', 'road', 'shardfall', 'dimmed', 'dimsIn', 'dimAt', 'know', 'region'];
+    const CONTENT_KEYS = ['type', 'cl', 'done', 'lost', 'quest', 'mobs', 'title', 'archetypes', 'level', 'name', 'rare', 'fights', 'bossArchetype', 'bossLevel', 'guarded', 'trap', 'ember', 'stock', 'waves', 'boons', 'elite', 'add', 'trash', 'boss', 'guard'];
+    const strangers = [];
+    for (let seed = 1; seed <= 12; seed++) {
+      let s = onMap(expRun(['rogue', 'mage', 'hunter'][seed % 3], { seed, content: seed % 2 ? CONTENT : REAL }));
+      // A few steps out, so some nodes are seen and some are not.
+      s = walk(s, pathTo(s.zone, 0, s.zone.roads[seed % C.ROAD_COUNT]).slice(0, 3)).state;
+      const v = R.mapView(s);
+      for (const n of v.nodes) {
+        if (n.know !== 'none') continue;
+        assert.deepEqual(Object.keys(n).sort(), [...SKELETON].sort(), `node ${n.id} has only skeleton keys`);
+        for (const k of CONTENT_KEYS) assert.ok(!(k in n), k);
+        assert.equal(n.region, null);
+        strangers.push(n.id);
+      }
+      assert.ok(!JSON.stringify(v.moves).includes('quest'));
+      // Replace every hidden node's content with another seed's zone (same zone number): the view does not change.
+      const other = zoneOf(seed + 1000, s.zone.z, s.content);
+      const swapped = tweak(s, (x) => {
+        for (const n of x.zone.nodes) {
+          if (x.zone.seen[n.id] || n.ring === 0) continue;
+          const o = other.nodes[n.id];
+          for (const k of [...CONTENT_KEYS, 'region']) delete n[k];
+          for (const k of [...CONTENT_KEYS, 'region']) if (k in o) n[k] = JSON.parse(JSON.stringify(o[k]));
+          n.done = false;
+        }
+      });
+      assert.deepEqual(R.mapView(swapped), v, `seed ${seed}`);
+      assert.deepEqual(R.autoAction(swapped), R.autoAction(s), 'the default policy reads what the player sees');
+    }
+    assert.ok(strangers.length > 100);
+  });
+});
+
+describe('rules 1.9 expedition map: the Dimming (1.9.6)', () => {
+  test('1.9.6 front: -1 before DIM_GRACE_H, then one hop per DIM_HOURS_PER_HOP; Dimmed = hops from the Shardfall <= front', () => {
+    assert.equal(frontAt(0), -1);
+    assert.equal(frontAt(C.DIM_GRACE_H - 1), -1);
+    assert.equal(frontAt(C.DIM_GRACE_H), 0);
+    for (let hz = C.DIM_GRACE_H; hz < 40; hz++) assert.equal(frontAt(hz), Math.floor((hz - C.DIM_GRACE_H) / C.DIM_HOURS_PER_HOP + 1e-9));
+    const s0 = onMap(expRun('mage', { seed: 2 }));
+    for (const hz of [0, 5, 6, 8, 9, 13, 14, 20, 30]) {
+      const s = tweak(s0, (x) => atZoneHour(x, hz));
+      const v = R.mapView(s);
+      const f = frontAt(hz);
+      assert.equal(v.dim.front, f);
+      for (const n of v.nodes) {
+        const d = s.zone.shardDist[n.id];
+        assert.equal(n.dimmed, f >= 0 && d <= f, `hz ${hz} node ${n.id}`);
+        assert.equal(n.dimAt, dimAt(s.zone, n.id));
+        assert.equal(n.dimsIn, Math.max(0, n.dimAt - hz));
+        assert.equal(frontAt(n.dimAt) >= d && frontAt(n.dimAt - 1) < d, true, 'dimAt is the first hour it is Dimmed');
+      }
+    }
+    // With the starting values: the Shardfall at 6 h, the hub (3 hops) at 14 h (expedition.md 6.2).
+    const hub = s0.zone.shardDist[0];
+    assert.equal(dimAt(s0.zone, s0.zone.shardfall), C.DIM_GRACE_H);
+    assert.equal(dimAt(s0.zone, 0), Math.ceil(C.DIM_GRACE_H + hub * C.DIM_HOURS_PER_HOP));
+  });
+
+  test('1.9.6 the front moves with hours: a dimming event lists the nodes it newly covers', () => {
+    let s = onMap(expRun('mage', { seed: 2 }));
+    s = tweak(s, (x) => atZoneHour(x, C.DIM_GRACE_H - 1));
+    const id = s.zone.nodes[0].nb.find((x) => R.isLegal(s, { type: 'PASS_THROUGH', nodeId: x }));
+    const r = R.step(s, { type: 'PASS_THROUGH', nodeId: id });
+    const d = ev(r.events, 'dimming');
+    assert.equal(d.length, 1);
+    assert.equal(d[0].front, 0);
+    assert.deepEqual(d[0].dimmed, [s.zone.shardfall]);
+  });
+
+  /** A mage at level L standing next to node `target` (Dimmed at zone hour hz) on zone 1's map. */
+  function nextToDimmed(seed, L, depth) {
+    let s = onMap(atLevel(expRun('mage', { seed }), L));
+    const zone = s.zone;
+    const target = zone.nodes[0].nb[0];
+    // Dimmed before the step (so MOVE walks in) and `depth` hops deep or more on arrival.
+    const hz = dimAt(zone, target) + Math.ceil(depth * C.DIM_HOURS_PER_HOP);
+    s = tweak(s, (x) => atZoneHour(x, hz));
+    return { s, target };
+  }
+
+  test('1.9.6 Dimmed encounter: entering a Dimmed node, DIM_PACK_SIZE Shardspawn of the zone\'s normals, level max(CL, L) + DIM_LEVEL_PER_DEPTH × depth, HP × DIM_HP_MULT, damage × DIM_DMG_MULT, HOURS_DIM_FIGHT', () => {
+    for (const [L, depth] of [[3, 0], [5, 2], [59, 2]]) {
+      const { s, target } = nextToDimmed(9, L, depth);
+      const node = s.zone.nodes[target];
+      const r = R.step(s, { type: 'MOVE', nodeId: target });
+      const st = r.state;
+      assert.equal(ev(r.events, 'move')[0].via, 'walk', 'a Dimmed node is not entered');
+      assert.deepEqual(ev(r.events, 'hours').map((e) => [e.add, e.why]), [[C.HOURS_WALK, 'walk'], [C.HOURS_DIM_FIGHT, 'dim']]);
+      assert.equal(st.phase, 'NODE');
+      assert.equal(st.node.type, 'dim');
+      assert.equal(st.fight.kind, 'dim');
+      assert.ok(st.fight.engage, 'an engage round, as every fight but the end boss');
+      const hz = zoneHours(s) + C.HOURS_WALK;
+      const dep = frontAt(hz) - s.zone.shardDist[target];
+      assert.equal(st.node.depth, dep);
+      const level = Math.min(C.MAX_LEVEL, Math.max(node.cl, L) + C.DIM_LEVEL_PER_DEPTH * dep);
+      assert.equal(ev(r.events, 'dim')[0].level, level);
+      assert.equal(st.fight.enemies.length, C.DIM_PACK_SIZE);
+      // Make-up: stream dim(z, id, 0), DIM_PACK_SIZE picks from the zone's normals, then the composition repair.
+      const g = STREAM.dim(s.seed, 1, target, 0);
+      const zn = s.content.zones[0];
+      const tids = Array.from({ length: C.DIM_PACK_SIZE }, () => zn.normals[nextInt(g, zn.normals.length)]);
+      assert.deepEqual(st.fight.enemies.map((e) => e.tid), composeEncounter(s.content, g, tids, zn.normals));
+      assert.ok(validEncounter(s.content, st.fight.enemies.map((e) => e.tid)));
+      for (const e of st.fight.enemies) {
+        const t = s.content.enemies[e.tid];
+        const A = C.ARCHETYPE[t.archetype];
+        assert.equal(e.kind, 'shardspawn');
+        assert.equal(e.level, level);
+        assert.equal(e.maxHp, Math.max(1, Math.round((C.ENEMY_HP_BASE + C.ENEMY_HP_PER_LEVEL * level) * A.hp * C.DIM_HP_MULT * t.hpMult + 1e-9)));
+        const dmg = (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * level) * A.dmg * C.DIM_DMG_MULT * t.dmgMult * R.zoneDanger(level, 'normal') * C.ENGAGE_DMG_COMP;
+        assert.ok(Math.abs(e.dmg - dmg) < 1e-9, 'zone danger as a normal enemy, ENGAGE_DMG_COMP');
+      }
+      assert.equal(st.stats.exp.dimFights, 1);
+      assert.equal(st.zone.dimN[target], 1, 'the next encounter here uses dim(z, id, 1)');
+    }
+  });
+
+  test('1.9.6 Dimmed encounter rewards: kill XP × DIM_XP_MULT (× XP_WEIGHT_MULT), no coin, no loot; the node stays unresolved; flee is passing through', () => {
+    const { s, target } = nextToDimmed(9, 12, 1);
+    let st = R.step(s, { type: 'MOVE', nodeId: target }).state;
+    st = tweak(st, (x) => { for (const e of x.fight.enemies) e.hp = 1; x.player.rested = 0; });
+    const L = st.player.level;
+    const lvl = st.fight.enemies[0].level;
+    const all = [];
+    let guard = 0;
+    while (st.fight && guard++ < 60) { const r = R.step(st, R.autoAction(st)); all.push(...r.events); st = r.state; }
+    assert.equal(st.phase, 'MAP');
+    const kill = ev(all, 'xp').find((e) => e.why === 'kill');
+    assert.equal(kill.amount, Math.round(C.MOB_XP_FRAC * C.DIM_XP_MULT * C.XP_WEIGHT_MULT * R.xpCurve(lvl) * R.diffMod(lvl - L) + 1e-9));
+    assert.equal(ev(all, 'gold').filter((e) => e.why === 'kill').length, 0, 'no coin');
+    assert.equal(ev(all, 'loot').length, 0, 'no loot');
+    assert.equal(st.zone.nodes[target].done, false, 'the node is not resolved');
+    assert.equal(st.zone.pos, target);
+    assert.equal(st.stats.kills.normal, C.DIM_PACK_SIZE);
+    // Flee: allowed and counts as passing through: back on the map on the node, which stays unresolved.
+    const f = R.step(s, { type: 'MOVE', nodeId: target }).state;
+    assert.ok(f.fight.canFlee);
+    const fled = R.step(tweak(f, (x) => forceDraws(x, 1, (d) => d[0] < 0.01)), { type: 'FLEE' });
+    assert.equal(ev(fled.events, 'fled').length, 1);
+    assert.equal(fled.state.phase, 'MAP');
+    assert.equal(fled.state.zone.pos, target);
+    assert.equal(fled.state.zone.nodes[target].done, false);
+  });
+
+  test('1.9.6 ending an action in a Dimmed node: the front reaching the player during a node starts the encounter after it, once', () => {
+    let s = onMap(atLevel(expRun('mage', { seed: 14 }), 15));
+    const id = s.zone.nodes[0].nb[0];
+    s = tweak(s, (x) => { makeType(x, id, 'rest'); atZoneHour(x, dimAt(x.zone, id) - 1); });
+    assert.ok(!R.mapView(s).nodes[id].dimmed && R.mapView(s).nodes[id].dimsIn === 1);
+    const r = R.step(s, { type: 'MOVE', nodeId: id });
+    assert.equal(ev(r.events, 'rest').length, 1, 'the rest happens: the node was entered before the dark came');
+    assert.equal(r.state.zone.nodes[id].done, true);
+    assert.equal(r.state.phase, 'NODE');
+    assert.equal(r.state.node.type, 'dim', 'then the Dimmed encounter');
+    assert.equal(ev(r.events, 'dim').length, 1);
+    // After it the player stands in the dark: actions without hours start nothing; the next step out is fine.
+    let t = autoUntil(tweak(r.state, (x) => { for (const e of x.fight.enemies) e.hp = 1; }), (x) => !x.fight);
+    assert.equal(t.phase, 'MAP');
+    const t2 = R.step(t, { type: 'SET_AUTOPLAY', on: true });
+    assert.equal(ev(t2.events, 'dim').length, 0);
+  });
+
+  test('1.9.6 content lost: an unresolved Dimmed node is walked into; PASS_THROUGH refuses it; the hub\'s services stop when it is Dimmed', () => {
+    let s = onMap(atLevel(expRun('rogue', { seed: 15 }), 20));
+    const id = s.zone.nodes[0].nb[2];
+    s = tweak(s, (x) => { makeType(x, id, 'shrine'); atZoneHour(x, dimAt(x.zone, id)); });
+    assert.match(R.whyIllegal(s, { type: 'PASS_THROUGH', nodeId: id }), /Dimmed/);
+    const v = R.mapView(s);
+    assert.equal(v.nodes[id].lost, true);
+    assert.deepEqual(v.moves.find((m) => m.nodeId === id), { nodeId: id, via: 'walk', hours: C.HOURS_WALK, passHours: null, dimmed: true });
+    const r = R.step(s, { type: 'MOVE', nodeId: id });
+    assert.equal(ev(r.events, 'node').length, 0, 'no shrine');
+    assert.equal(r.state.node.type, 'dim');
+    // The hub: SERVICE is refused while it is Dimmed; walking onto a Dimmed hub is no new visit.
+    const h = tweak(expRun('rogue', { seed: 15 }), (x) => atZoneHour(x, dimAt(x.zone, 0)));
+    assert.match(R.whyIllegal(h, { type: 'SERVICE', service: 'inn' }), /Dimming covers the hub/);
+    let w = onMap(atLevel(expRun('rogue', { seed: 15 }), 20));
+    w = R.step(w, { type: 'PASS_THROUGH', nodeId: id }).state;
+    w = tweak(w, (x) => atZoneHour(x, dimAt(x.zone, 0) - C.HOURS_WALK));
+    const back = R.step(w, { type: 'MOVE', nodeId: 0 });
+    assert.ok(!ev(back.events, 'phase').some((e) => e.phase === 'ZONE_HUB'), 'no hub visit in the dark');
+    assert.equal(back.state.node && back.state.node.type, 'dim');
+  });
+
+  test('1.9.6 death in the Dimming ends the run: the death location has the node, its ring, type dim and the depth', () => {
+    const { s, target } = nextToDimmed(9, 1, 3);
+    let st = tweak(R.step(s, { type: 'MOVE', nodeId: target }).state, (x) => { x.player.hp = 1; });
+    st = autoUntil(st, (x) => x.phase === 'SUMMARY' || !x.fight);
+    assert.equal(st.phase, 'SUMMARY');
+    assert.equal(st.outcome, 'death');
+    assert.equal(st.death.nodeType, 'dim');
+    assert.equal(st.death.node, target);
+    assert.equal(st.death.ring, s.zone.nodes[target].ring);
+    assert.equal(st.death.depth, frontAt(zoneHours(s) + C.HOURS_WALK) - s.zone.shardDist[target]);
+    assert.equal(st.death.row, null);
+    const sum = R.summary(st);
+    assert.equal(sum.expedition.dimFights, 1);
+    assert.equal(sum.expedition.dimZones, 1);
+  });
+});
+
+describe('rules 1.9 expedition map: leaving a zone (1.9.7)', () => {
+  test('1.9.7 TAKE_ROAD: only on a Road, HOURS_TRAVEL, the next zone\'s hub; no level gate; zone 6 leads to the Camp and the boss', () => {
+    let s = onMap(expRun('hunter', { seed: 17 }));
+    for (let z = 1; z <= C.ZONE_COUNT; z++) {
+      if (z > 1) s = onMap(s);
+      const road = s.zone.roads[0];
+      s = walk(s, pathTo(s.zone, s.zone.pos, road)).state;
+      assert.equal(R.mapView(s).onRoad, true);
+      assert.equal(s.player.level, 1, 'no level gate');
+      const h = s.hours;
+      const r = R.step(s, { type: 'TAKE_ROAD' });
+      assert.deepEqual(ev(r.events, 'hours').map((e) => [e.add, e.why]), [[C.HOURS_TRAVEL, 'travel']]);
+      assert.deepEqual(ev(r.events, 'travel')[0], { t: 'travel', from: z, by: 'road', node: road });
+      s = r.state;
+      assert.equal(s.hours, h + C.HOURS_TRAVEL);
+      assert.equal(s.stats.zonesLeft, z);
+      if (z < C.ZONE_COUNT) {
+        assert.equal(s.phase, 'ZONE_HUB');
+        assert.equal(s.zone.z, z + 1);
+        assert.equal(s.zone.pos, 0);
+        assert.equal(zoneHours(s), 0, 'zone hours start at the hub');
+      }
+    }
+    assert.equal(s.phase, 'CAMP');
+    assert.equal(R.mapView(s), null);
+    assert.ok(R.isLegal(s, { type: 'FIGHT_BOSS' }));
+    assert.ok(!R.isLegal(s, { type: 'RING_BELL' }), 'not in the Camp');
+    s = R.step(s, { type: 'FIGHT_BOSS' }).state;
+    assert.equal(s.phase, 'BOSS');
+    assert.ok(!R.isLegal(s, { type: 'RING_BELL' }) && !R.isLegal(s, { type: 'TAKE_ROAD' }), 'not at the boss');
+    const sum = R.summary(s);
+    assert.equal(sum.expedition.roads, C.ZONE_COUNT);
+    assert.equal(sum.expedition.zones.length, C.ZONE_COUNT);
+    assert.ok(sum.expedition.zones.every((x) => x.exit === 'road' && x.hours > 0));
+  });
+
+  test('1.9.7 a Dimmed Road is taken after its Dimmed encounter', () => {
+    let s = onMap(atLevel(expRun('mage', { seed: 19 }), 30));
+    const road = s.zone.roads[0];
+    const path = pathTo(s.zone, 0, road);
+    s = walk(s, path.slice(0, -1)).state;
+    s = tweak(s, (x) => atZoneHour(x, dimAt(x.zone, road)));
+    const r = R.step(s, { type: 'MOVE', nodeId: road });
+    assert.equal(r.state.node.type, 'dim');
+    assert.ok(!R.isLegal(r.state, { type: 'TAKE_ROAD' }), 'not during the fight');
+    let t = autoUntil(tweak(r.state, (x) => { for (const e of x.fight.enemies) e.hp = 1; }), (x) => !x.fight);
+    assert.equal(t.phase, 'MAP');
+    assert.ok(R.isLegal(t, { type: 'TAKE_ROAD' }));
+    assert.equal(R.step(t, { type: 'TAKE_ROAD' }).state.zone.z, 2);
+  });
+
+  test('1.9.7 Homeward Bell: BELL_START_CHARGES; RING_BELL costs BELL_CHANNEL_H, no HOURS_TRAVEL, the next zone; not with no charge or in a node', () => {
+    let s = onMap(expRun('rogue', { seed: 23 }));
+    assert.equal(s.exp.bell, C.BELL_START_CHARGES);
+    assert.ok(C.BELL_START_CHARGES <= C.BELL_MAX_CHARGES);
+    const r = R.step(s, { type: 'RING_BELL' });
+    assert.deepEqual(ev(r.events, 'hours').map((e) => [e.add, e.why]), [[C.BELL_CHANNEL_H, 'bell']]);
+    assert.deepEqual(ev(r.events, 'bell')[0], { t: 'bell', charges: C.BELL_START_CHARGES - 1, node: 0 });
+    assert.deepEqual(ev(r.events, 'travel')[0], { t: 'travel', from: 1, by: 'bell', node: 0 });
+    assert.equal(r.state.zone.z, 2);
+    assert.equal(r.state.phase, 'ZONE_HUB');
+    assert.equal(r.state.stats.zonesLeft, 1);
+    assert.equal(r.state.exp.bell, 0);
+    assert.match(R.whyIllegal(onMap(r.state), { type: 'RING_BELL' }), /no Homeward Bell charge/);
+    const sum = R.summary(r.state);
+    assert.equal(sum.expedition.bellsRung, 1);
+    assert.equal(sum.expedition.bellCharges, 0);
+    assert.equal(sum.expedition.zones[0].exit, 'bell');
+    // Not in a node, not in the hub screen.
+    const n = R.step(atLevel(onMap(expRun('rogue', { seed: 23 })), 20), { type: 'MOVE', nodeId: s.zone.nodes[0].nb[0] }).state;
+    assert.equal(n.phase, 'NODE');
+    assert.ok(!R.isLegal(n, { type: 'RING_BELL' }));
+    assert.ok(!R.isLegal(expRun('rogue', { seed: 23 }), { type: 'RING_BELL' }), 'LEAVE_HUB first');
+  });
+
+  test('1.9.7 the Bell when the player\'s node dims during the channel: the Dimmed encounter first, then the Bell', () => {
+    let s = onMap(atLevel(expRun('hunter', { seed: 24 }), 30));
+    const id = s.zone.nodes[0].nb[0];
+    s = R.step(s, { type: 'PASS_THROUGH', nodeId: id }).state;
+    s = tweak(s, (x) => atZoneHour(x, dimAt(x.zone, id) - 1));
+    const r = R.step(s, { type: 'RING_BELL' });
+    assert.equal(r.state.phase, 'NODE');
+    assert.equal(r.state.node.type, 'dim');
+    assert.equal(r.state.zone.z, 1, 'not yet');
+    assert.ok(!ev(r.events, 'travel').length);
+    const t = autoUntil(tweak(r.state, (x) => { for (const e of x.fight.enemies) e.hp = 1; }), (x) => !x.fight || x.zone.z === 2);
+    assert.equal(t.zone.z, 2, 'the Bell completes after the encounter');
+    assert.equal(t.phase, 'ZONE_HUB');
+    assert.equal(t.stats.exp.bellExits, 1);
+  });
+});
+
+describe('rules 1.9 expedition map: pacing, determinism and full runs (1.9.8, 1.9.9)', () => {
+  test('1.9.8 node hours 3 / 3 / 2 per wave / 6 (quest, elite, grind, dungeon); a Grind of one wave starts on entry; two dungeon trash fights', () => {
+    const base = onMap(atLevel(expRun('mage', { seed: 31 }), 30));
+    const id = base.zone.nodes[0].nb[0];
+    const want = { quest: C.EXPED_HOURS_QUEST, elite: C.EXPED_HOURS_ELITE, grind: C.EXPED_HOURS_GRIND_WAVE, dungeon: C.EXPED_HOURS_DUNGEON, rest: C.HOURS_REST, vendor: C.HOURS_VENDOR, trainer: C.HOURS_TRAINER, treasure: C.HOURS_TREASURE, shrine: C.HOURS_SHRINE };
+    for (const [type, h] of Object.entries(want)) {
+      const s = tweak(base, (x) => makeType(x, id, type));
+      const r = R.step(s, { type: 'MOVE', nodeId: id });
+      assert.equal(hoursOf(r.events), h, type);
+      assert.equal(R.mapView(s).moves.find((m) => m.nodeId === id).hours, h, `${type}: hours in the map view`);
+      if (type === 'grind') { assert.equal(r.state.node.planned, 1); assert.ok(r.state.fight, 'the wave starts on entry'); }
+    }
+    assert.deepEqual([C.EXPED_HOURS_QUEST, C.EXPED_HOURS_ELITE, C.EXPED_HOURS_GRIND_WAVE, C.EXPED_HOURS_DUNGEON], [3, 3, 2, 6]);
+    // Dungeon: trash, trash, boss.
+    let d = R.step(tweak(base, (x) => makeType(x, id, 'dungeon')), { type: 'MOVE', nodeId: id }).state;
+    const kinds = [];
+    for (let guard = 0; guard < 2000 && d.phase === 'NODE'; guard++) {
+      if (d.fight && d.fight.round === 1 && kinds.length < 3 && kinds[kinds.length - 1] !== `${d.fight.kind}${d.node.k}`) kinds.push(`${d.fight.kind}${d.node.k}`);
+      if (d.fight) d = tweak(d, (x) => { for (const e of x.fight.enemies) e.hp = Math.min(e.hp, 1); });
+      d = R.step(d, R.autoAction(d)).state;
+    }
+    assert.deepEqual(kinds, ['trash0', 'trash1', `dboss${C.EXPED_DUNGEON_TRASH_FIGHTS}`]);
+    assert.ok(!R.isLegal(tweak(base, (x) => makeType(x, id, 'grind')), { type: 'GRIND_SET_WAVES', n: 2 }));
+  });
+
+  test('1.9.8 XP × XP_WEIGHT_MULT: kills, quest turn-in, grind wave, dungeon clear; the rows map keeps rules 2.0', () => {
+    const base = onMap(atLevel(expRun('mage', { seed: 33 }), 3));
+    const id = base.zone.nodes[0].nb[0];
+    /** Enter node `id` as `type` with every enemy at 1 HP and autoplay to the end of its fights; all events. */
+    const clear = (type, L0) => {
+      const first = R.step(tweak(atLevel(base, L0), (x) => { makeType(x, id, type); x.player.rested = 0; }), { type: 'MOVE', nodeId: id });
+      let s = first.state;
+      const all = [...first.events];
+      for (let i = 0; i < 400 && s.phase === 'NODE'; i++) {
+        if (s.fight) s = tweak(s, (x) => { for (const e of x.fight.enemies) e.hp = Math.min(e.hp, 1); });
+        const r = R.step(s, R.autoAction(s));
+        all.push(...r.events);
+        s = r.state;
+      }
+      return { s, all, node: base.zone.nodes[id] };
+    };
+    /** Character level when event e happened. */
+    const levelAt = (all, e, L0) => L0 + all.slice(0, all.indexOf(e)).filter((x) => x.t === 'levelUp').length;
+    const want = (frac, cl, L) => Math.round(frac * C.XP_WEIGHT_MULT * R.xpCurve(cl) * R.diffMod(cl - L) + 1e-9);
+    const q = clear('quest', 3);
+    const qcl = tweak(base, (x) => makeType(x, id, 'quest')).zone.nodes[id].cl;
+    const turnIn = ev(q.all, 'xp').find((e) => e.why === 'quest');
+    assert.equal(turnIn.amount, want(C.QUEST_TURNIN_XP_FRAC, qcl, levelAt(q.all, turnIn, 3)), 'quest turn-in');
+    const kill = ev(q.all, 'xp').find((e) => e.why === 'kill');
+    const lvl = ev(q.all, 'fight')[0].enemies[0].level;
+    assert.equal(kill.amount, want(C.MOB_XP_FRAC, lvl, levelAt(q.all, kill, 3)), 'kill');
+    const g = clear('grind', 3);
+    const gcl = tweak(base, (x) => makeType(x, id, 'grind')).zone.nodes[id].cl;
+    const wave = ev(g.all, 'xp').find((e) => e.why === 'wave');
+    assert.equal(wave.amount, want(C.GRIND_WAVE_XP_FRAC, gcl, levelAt(g.all, wave, 3)), 'grind wave');
+    const d = clear('dungeon', 20);
+    const clearXp = ev(d.all, 'xp').find((e) => e.why === 'dungeon');
+    assert.equal(clearXp.amount, want(C.DUNGEON_CLEAR_XP_FRAC, dungeonLevels(1).boss, levelAt(d.all, clearXp, 20)), 'dungeon clear');
+    // The rows map keeps rules 2.0 (weight 1; its XP values are tested in s02).
+    const rows = R.step(R.newRun({ classId: 'mage', seed: 33, content: CONTENT }), { type: 'START_RUN' }).state;
+    assert.equal(xpWeight(rows), 1);
+    assert.equal(xpWeight(base), C.XP_WEIGHT_MULT);
+    assert.equal(nodeHours(rows, 'quest'), C.HOURS_QUEST);
+    assert.equal(grindMaxWaves(rows), C.GRIND_MAX_WAVES);
+  });
+
+  test('1.9.8 the summary and estSeconds: walks and passes cost PACE_DECIDE_S + PACE_TRAVEL_NODE_S, a Bell PACE_BELL_S', () => {
+    let s = onMap(expRun('rogue', { seed: 41 }));
+    const before = R.summary(s).minutes.manual;
+    const a = s.zone.nodes[0].nb[0];
+    s = R.step(R.step(s, { type: 'PASS_THROUGH', nodeId: a }).state, { type: 'MOVE', nodeId: 0 }).state;
+    const after = R.summary(s);
+    assert.ok(Math.abs((after.minutes.manual - before) * 60 - 2 * (C.PACE_DECIDE_S + C.PACE_TRAVEL_NODE_S)) < 1e-6);
+    assert.equal(after.mapMode, 'expedition');
+    assert.equal(after.expedition.walks, 1);
+    assert.equal(after.expedition.passes, 1);
+    const rung = R.step(onMap(s), { type: 'RING_BELL' }).state;
+    assert.ok(Math.abs((R.summary(rung).minutes.manual - after.minutes.manual) * 60 - C.PACE_BELL_S) < 1e-6, 'a Bell: PACE_BELL_S, no PACE_ZONE_TRAVEL_S');
+  });
+
+  test('1.9.2 / 0 determinism: the same seed and actions give the same state; a save mid-zone resumes exactly', () => {
+    for (const cls of ['rogue', 'mage', 'hunter']) {
+      let a = expRun(cls, { seed: 51 });
+      let b = expRun(cls, { seed: 51 });
+      let n = 0;
+      let saved = null;
+      while (a.phase !== 'ENDED' && n < 4000) {
+        const act = R.autoAction(a);
+        a = R.step(a, act).state;
+        b = R.step(b, act).state;
+        if (n === 150) saved = R.serialize(a);
+        n++;
+      }
+      assert.equal(R.serialize(a), R.serialize(b), cls);
+      if (saved) {
+        let c = R.deserialize(saved, CONTENT);
+        for (let i = 0; i < 300 && c.phase !== 'ENDED'; i++) c = R.step(c, R.autoAction(c)).state;
+        let d = R.deserialize(saved, CONTENT);
+        for (let i = 0; i < 300 && d.phase !== 'ENDED'; i++) d = R.step(d, R.autoAction(d)).state;
+        assert.equal(R.serialize(c), R.serialize(d));
+      }
+    }
+  });
+
+  test('1.9.9 full autoplay runs per class complete in an expedition run (fixture and real content); every action taken is listed', () => {
+    let toCamp = 0;
+    for (const content of [CONTENT, REAL]) for (const cls of ['rogue', 'mage', 'hunter']) for (let seed = 1; seed <= 4; seed++) {
+      let s = expRun(cls, { seed, content });
+      let n = 0;
+      while (s.phase !== 'ENDED' && n < 20000) {
+        const a = R.autoAction(s);
+        if (s.phase === 'MAP' || s.phase === 'ZONE_HUB') {
+          const canon = JSON.stringify(a);
+          assert.ok(R.legalActions(s).some((x) => JSON.stringify(x) === canon), `${cls} seed ${seed}: ${canon} not listed`);
+        }
+        s = R.step(s, a).state;
+        n++;
+      }
+      assert.equal(s.phase, 'ENDED', `${cls} seed ${seed} ended in ${n} actions`);
+      const sum = s.result.summary;
+      assert.equal(sum.mapMode, 'expedition');
+      assert.ok(sum.expedition.zones.length >= 1);
+      if (sum.reached.camp) toCamp += 1;
+    }
+    assert.ok(toCamp > 0, 'some runs reach the Camp');
   });
 });

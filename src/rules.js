@@ -11,6 +11,9 @@
 // `state.content`, a shared reference to the immutable content tables, which step() never copies or changes
 // and serialize() leaves out. ES modules; runs in Node and in the browser (D13).
 //
+// Expedition map (rules 1.9): newRun({ mapMode: 'expedition' }) plays the roamable zone graph with vision, the Dimming,
+// Roads and the Homeward Bell; mapView then returns the player-visible zone graph (engine-api.md 10).
+//
 // Also exported: validateContent, newProfile, metaOffers, buyMeta, mapView, isLegal, whyIllegal, stepInPlace,
 // IllegalActionError, display helpers (xpToNext, talentPointsFree, itemScore, spellCost, spellCooldown,
 // spellInfo, fleeChance, bagCapacity, travelLevel, resurrectCharges, bossPar, defaultTarget), combat v2 helpers
@@ -33,6 +36,7 @@ import { spellCost as cost, spellCd, spellAmount, spellTl, fleeChance as flee, c
 import { resurrectOrder, offBalanceOpen, findSt } from './engine/damage.js';
 import { engageOptions as engageList, engagePreview as previewEngage } from './engine/engage.js';
 import { isEngageRound as engageRound } from './engine/track.js';
+import { MAP_MODES, isExpedition, expMapView } from './engine/expedition.js';
 
 /** 2 (combat v2): enemies carry intent tracks; a state saved by an older engine is refused. */
 export const STATE_VERSION = 2;
@@ -64,9 +68,11 @@ export function bagCapacity(state) {
 
 /**
  * Level from which TRAVEL_ON is legal in the current zone (rules 1.5): exit level - TRAVEL_EARLY_LEVELS, one lower
- * with Swift Boots. After the last row TRAVEL_ON is legal at any level. null outside a zone (CREATE, Camp, run over).
+ * with Swift Boots. After the last row TRAVEL_ON is legal at any level. null outside a zone (CREATE, Camp, run over)
+ * and in an expedition run, which has no level gate (rules 1.9.7).
  */
 export function travelLevel(state) {
+  if (isExpedition(state)) return null; // expedition map: no level gate (rules 1.9.7)
   return state.player && state.zone && !state.zone.camp && state.phase !== 'SUMMARY' && state.phase !== 'ENDED' ? travelAt(state) : null;
 }
 
@@ -183,10 +189,16 @@ export function fleeChance(state) {
  * Create a run in phase CREATE. Any of classId, petId, name and seed may be preset; the player confirms with
  * START_RUN. seed: integer (the front end draws a random one; the engine never does). profile: meta profile
  * (newProfile() when omitted). content: the CONTENT object (src/content/index.js); it is validated
- * (structural check) and frozen.
+ * (structural check) and frozen. mapMode: 'rows' (today's map, rules 1.4; the default) or 'expedition' (rules 1.9).
+ * vision (expedition only, until the start camp and meta buy it, task 2b.5): { guide, charts, pathfinder } booleans
+ * for Local Guide, Region Charts and Pathfinder (rules 1.9.5).
  */
-export function newRun({ classId = null, petId = null, name = '', seed = 0, profile = null, content, validate = true } = {}) {
+export function newRun({ classId = null, petId = null, name = '', seed = 0, profile = null, content, validate = true, mapMode = 'rows', vision = null } = {}) {
   if (!content) throw new Error('newRun: content is required (import { CONTENT } from src/content/index.js)');
+  if (!MAP_MODES.includes(mapMode)) throw new Error(`newRun: mapMode must be one of ${MAP_MODES.join(', ')}`);
+  if (vision !== null && (mapMode !== 'expedition' || typeof vision !== 'object' || Object.keys(vision).some((k) => !['guide', 'charts', 'pathfinder'].includes(k)))) {
+    throw new Error('newRun: vision is an expedition option: { guide, charts, pathfinder }');
+  }
   if (validate) {
     const errors = validateContent(content);
     if (errors.length) throw new Error(`newRun: content is invalid:\n  ${errors.slice(0, 20).join('\n  ')}`);
@@ -199,8 +211,12 @@ export function newRun({ classId = null, petId = null, name = '', seed = 0, prof
     v: STATE_VERSION,
     content,
     contentVersion: content.version || null,
+    mapMode,
     phase: 'CREATE',
-    create: { classId, petId, name: typeof name === 'string' ? name.trim().slice(0, 24) : '', seed: normaliseSeed(seed), oaths: [] },
+    create: {
+      classId, petId, name: typeof name === 'string' ? name.trim().slice(0, 24) : '', seed: normaliseSeed(seed), oaths: [],
+      ...(mapMode === 'expedition' ? { vision: { guide: !!(vision && vision.guide), charts: !!(vision && vision.charts), pathfinder: !!(vision && vision.pathfinder) } } : {}),
+    },
     profile: prof,
     autoplay: false,
   };
@@ -276,11 +292,14 @@ export function deserialize(str, content) {
 
 /**
  * What the player may see of the current zone map (rules 1.4): types, content level, quest titles, enemy
- * archetypes. Rare elites, treasure traps and vendor Embers only with meta Scout's Eye.
+ * archetypes. Rare elites, treasure traps and vendor Embers only with meta Scout's Eye. In an expedition run (rules
+ * 1.9.5) the zone graph as the player sees it: skeleton, landmarks and the Dimming everywhere, contents only of nodes
+ * in view or seen (engine-api.md 10). null outside a zone.
  */
 export function mapView(state) {
   const s = state;
   if (!s.zone || s.zone.camp) return null;
+  if (isExpedition(s)) return expMapView(s);
   const c = s.content;
   const scout = !!(s.meta && s.meta.scout);
   const arch = (tid) => c.enemies[tid].archetype;

@@ -1,8 +1,9 @@
 // Action table: legality checks, enumeration (legalActions) and application (step). docs/specs/engine-api.md.
-// Combat v2: ENGAGE (rules 7.10) is legal and listed only in the engage round.
+// Combat v2: ENGAGE (rules 7.10) is legal and listed only in the engage round. Expedition map (rules 1.9): MOVE,
+// PASS_THROUGH, TAKE_ROAD and RING_BELL replace CHOOSE_NODE and TRAVEL_ON, and every action ends with the settle step.
 import {
   CLASS, CLASS_IDS, PET, SPELL, TALENT, TALENT_TIER_GATE, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, CONSUMABLE, OATH_IDS,
-  GRIND_MAX_WAVES, SLOT_IDS, ENGAGE_OPTION, ENGAGE_OPTIONS,
+  SLOT_IDS, ENGAGE_OPTION, ENGAGE_OPTIONS,
 } from '../constants.js';
 import { normaliseSeed } from '../rng.js';
 import { refreshDerived } from './stats.js';
@@ -17,8 +18,9 @@ import {
   availablePets, startRun, canTravel, travelOn, openService, leaveService, chooseNode, startGrind, nextFight,
   completeNode, chooseReward, campGrind, fightBoss, finishFight, trainerSpells, learnCost, trainCost, travelLevel,
   respecCost, learnSpell, trainSpell, trainAll, trainable, respec, buy, sell, sellJunk, useItemOutOfCombat,
-  clampAfterStatChange,
+  clampAfterStatChange, moveTo, passThrough, takeRoad, ringBell, settleExpedition, canEnter,
 } from './nodes.js';
+import { isExpedition, grindMaxWaves, dimmedNow } from './expedition.js';
 import { summary } from './summary.js';
 import { applyRunToProfile } from './meta.js';
 
@@ -90,7 +92,8 @@ const A = {
   // ---------------- Hub, camp, services ----------------
   SERVICE: {
     check: (s, a) => (!['ZONE_HUB', 'CAMP'].includes(s.phase) || s.fight ? 'services are in the hub or camp' : s.service ? 'a service is already open'
-      : !['trainer', 'vendor', 'inn'].includes(a.service) ? `unknown service ${a.service}` : s.hub.used[a.service] ? `${a.service} already used this visit` : null),
+      : !['trainer', 'vendor', 'inn'].includes(a.service) ? `unknown service ${a.service}` : s.hub.used[a.service] ? `${a.service} already used this visit`
+        : s.phase === 'ZONE_HUB' && isExpedition(s) && dimmedNow(s) ? 'the Dimming covers the hub: its services have stopped' : null),
     apply: (s, ev, a) => openService(s, ev, a.service),
   },
   LEAVE: {
@@ -158,17 +161,37 @@ const A = {
   },
   // ---------------- Map ----------------
   CHOOSE_NODE: {
-    check: (s, a) => (s.phase !== 'MAP' || s.node ? 'only on the map' : !nextLanes(s.zone).includes(a.lane) ? `lane ${a.lane} is not reachable` : null),
+    check: (s, a) => (isExpedition(s) ? 'expedition map: MOVE to an adjacent node' : s.phase !== 'MAP' || s.node ? 'only on the map'
+      : !nextLanes(s.zone).includes(a.lane) ? `lane ${a.lane} is not reachable` : null),
     apply: (s, ev, a) => chooseNode(s, ev, a.lane),
   },
   TRAVEL_ON: {
-    check: (s) => (s.phase !== 'MAP' ? 'only on the map' : !canTravel(s) ? `reach level ${travelLevel(s)} or finish the last row first` : null),
+    check: (s) => (isExpedition(s) ? 'expedition map: leave by TAKE_ROAD on a Road or RING_BELL' : s.phase !== 'MAP' ? 'only on the map'
+      : !canTravel(s) ? `reach level ${travelLevel(s)} or finish the last row first` : null),
     apply: (s, ev) => travelOn(s, ev),
+  },
+  // ---------------- Expedition map (rules 1.9) ----------------
+  MOVE: {
+    check: (s, a) => expMapGate(s) || stepGate(s, a.nodeId),
+    apply: (s, ev, a) => moveTo(s, ev, a.nodeId),
+  },
+  PASS_THROUGH: {
+    check: (s, a) => expMapGate(s) || stepGate(s, a.nodeId)
+      || (!canEnter(s, a.nodeId) ? `node ${a.nodeId} is resolved, the hub or Dimmed: MOVE walks there` : null),
+    apply: (s, ev, a) => passThrough(s, ev, a.nodeId),
+  },
+  TAKE_ROAD: {
+    check: (s) => expMapGate(s) || (!s.zone.nodes[s.zone.pos].road ? 'stand on a Road to take it' : null),
+    apply: (s, ev) => takeRoad(s, ev),
+  },
+  RING_BELL: {
+    check: (s) => expMapGate(s) || (s.exp.bell < 1 ? 'no Homeward Bell charge left' : null),
+    apply: (s, ev) => ringBell(s, ev),
   },
   // ---------------- Node ----------------
   GRIND_SET_WAVES: {
     check: (s, a) => (!s.node || s.node.type !== 'grind' || s.node.stage !== 'grindSetup' ? 'only when entering a Grind'
-      : !isInt(a.n) || a.n < 1 || a.n > GRIND_MAX_WAVES ? `waves must be 1-${GRIND_MAX_WAVES}` : null),
+      : !isInt(a.n) || a.n < 1 || a.n > grindMaxWaves(s) ? `waves must be 1-${grindMaxWaves(s)}` : null),
     apply: (s, ev, a) => startGrind(s, ev, a.n),
   },
   NEXT_FIGHT: {
@@ -368,6 +391,19 @@ const A = {
   },
 };
 
+/** MOVE, PASS_THROUGH, TAKE_ROAD and RING_BELL (rules 1.9): an expedition run, on the map, in a zone, nothing open. */
+function expMapGate(s) {
+  if (!isExpedition(s)) return 'an expedition-map action (this run uses CHOOSE_NODE and TRAVEL_ON)';
+  if (s.phase !== 'MAP' || s.node || s.service || !s.zone || s.zone.camp) return 'only on the map of a zone';
+  return s.exp.bellPending ? 'the Homeward Bell is ringing' : null;
+}
+
+/** The target of a step: a node next to the player's. */
+function stepGate(s, id) {
+  if (!isInt(id) || !s.zone.nodes[id]) return `no node ${id}`;
+  return s.zone.nodes[s.zone.pos].nb.includes(id) ? null : `node ${id} is not next to node ${s.zone.pos}`;
+}
+
 function combatGate(s, a) {
   if (!s.fight) return 'not in a fight';
   if (s.fight.p.skip && a.type !== 'PASS') return 'your action is skipped this round (PASS)';
@@ -393,6 +429,8 @@ export function checkAction(s, a) {
 
 export function applyAction(s, ev, a) {
   A[a.type].apply(s, ev, a);
+  // Expedition (rules 1.9.6, 1.9.7): the Dimming check and the Bell's arrival once the player is free again.
+  if (isExpedition(s)) settleExpedition(s, ev);
 }
 
 /** Every concrete legal action. SET_NAME and SET_SEED take free values and are not listed. */
@@ -454,12 +492,18 @@ export function legalActions(s) {
       push({ type: 'CAMP_GRIND' });
       push({ type: 'FIGHT_BOSS' });
     }
-    if (s.phase === 'MAP') {
+    if (s.phase === 'MAP' && isExpedition(s)) {
+      if (s.zone && !s.zone.camp) {
+        for (const id of s.zone.nodes[s.zone.pos].nb) { push({ type: 'MOVE', nodeId: id }); push({ type: 'PASS_THROUGH', nodeId: id }); }
+      }
+      push({ type: 'TAKE_ROAD' });
+      push({ type: 'RING_BELL' });
+    } else if (s.phase === 'MAP') {
       for (const l of nextLanes(s.zone)) push({ type: 'CHOOSE_NODE', lane: l });
       push({ type: 'TRAVEL_ON' });
     }
     if (s.phase === 'NODE' && s.node) {
-      for (let n = 1; n <= GRIND_MAX_WAVES; n++) push({ type: 'GRIND_SET_WAVES', n });
+      for (let n = 1; n <= grindMaxWaves(s); n++) push({ type: 'GRIND_SET_WAVES', n });
       push({ type: 'NEXT_FIGHT' });
       push({ type: 'GRIND_STOP' });
       push({ type: 'DUNGEON_LEAVE' });

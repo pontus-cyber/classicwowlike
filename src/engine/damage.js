@@ -1,4 +1,5 @@
 // Damage pipeline (rules 7.2), statuses (7.4), OFF_BALANCE (7.13, combat v2), kills, death and resurrection (9).
+// Expedition (rules 1.9.6, 1.9.8): Shardspawn kill rewards, the XP weight, the death location by node id.
 // Units: 'player', 'pet', or an enemy index (number) into s.fight.enemies.
 import {
   LVL_DMG_STEP, LVL_DMG_MIN, LVL_DMG_MAX, MISS_BASE, MISS_PER_LEVEL, MISS_CAP, DMG_VARIANCE, ENEMY_CRIT,
@@ -7,7 +8,7 @@ import {
   FIGHT_SOFT_ENRAGE_STEP, ECLIPSE_STEP, BRAND_MAX, DEBUFFS, RES_HP_PCT, RES_MANA_PCT, MOB_XP_FRAC,
   ELITE_XP_MULT, RARE_XP_MULT, DUNGEON_BOSS_XP_MULT, DUNGEON_MOB_XP_MULT, MOB_COIN_V, ELITE_GOLD_V,
   EMBER_ELITE_DROP_CHANCE, DUNGEON_BOSS_DROPS, UNIQUE_HEAL_ON_KILL, ABILITY_TEMPLATE, DODGE_CAP, SPELL,
-  SHARD_AOE_TAKEN, OFFBAL_TAKEN, OFFBAL_BOSS_TAKEN, OFFBAL_CRIT, BLOODLUST_STEP, BLOODLUST_MAX,
+  SHARD_AOE_TAKEN, OFFBAL_TAKEN, OFFBAL_BOSS_TAKEN, OFFBAL_CRIT, BLOODLUST_STEP, BLOODLUST_MAX, DIM_XP_MULT,
 } from '../constants.js';
 import { nextFloat } from '../rng.js';
 import { rnd, clamp } from './util.js';
@@ -15,6 +16,7 @@ import { tr, hasEffect } from './stats.js';
 import { eventXp, gainXp, gainGold } from './progress.js';
 import { rollDrop, V, makeConsumable, countConsumable, takeConsumable } from './items.js';
 import { onBossDamaged } from './boss.js';
+import { xpWeight, isExpedition } from './expedition.js';
 
 // ---------------- Units ----------------
 export function unitSt(s, u) {
@@ -510,6 +512,7 @@ function killXpMult(e) {
   if (e.kind === 'rare') return RARE_XP_MULT;
   if (e.kind === 'dboss') return DUNGEON_BOSS_XP_MULT;
   if (e.kind === 'trash') return DUNGEON_MOB_XP_MULT;
+  if (e.kind === 'shardspawn') return DIM_XP_MULT; // rules 1.9.6 (expedition)
   return 1;
 }
 
@@ -535,14 +538,17 @@ function enemyDeath(s, ev, idx) {
     if (!f.enemies.some((x) => x.alive)) f.over = 'victory';
     return;
   }
-  // Kill rewards (rules 2.0, 4.4, 8.4, 8.5): XP, coin, drops.
-  const xp = eventXp(s, MOB_XP_FRAC * killXpMult(e), e.level);
+  // Kill rewards (rules 2.0, 4.4, 8.4, 8.5): XP, coin, drops. Expedition (1.9.8): XP × XP_WEIGHT_MULT; a Shardspawn
+  // (1.9.6) gives XP × DIM_XP_MULT and no coin or loot.
+  const xp = eventXp(s, MOB_XP_FRAC * killXpMult(e) * xpWeight(s), e.level);
   gainXp(s, ev, xp, 'kill', true);
   if (e.kind === 'elite' || e.kind === 'rare') gainGold(s, ev, ELITE_GOLD_V * V(e.level), 'kill');
-  else gainGold(s, ev, MOB_COIN_V * V(e.level), 'kill');
+  else if (e.kind !== 'shardspawn') gainGold(s, ev, MOB_COIN_V * V(e.level), 'kill');
   const lr = s.lootRng;
   const z = f.z;
-  if (e.kind === 'elite' || e.kind === 'rare') {
+  if (e.kind === 'shardspawn') {
+    s.stats.kills.normal += 1;
+  } else if (e.kind === 'elite' || e.kind === 'rare') {
     f.drops.push(...rollDrop(s, lr, e.kind, e.level, z));
     if (nextFloat(lr) < EMBER_ELITE_DROP_CHANCE) f.drops.push(makeConsumable(s, 'ember_of_return'));
     s.stats.kills[e.kind] += 1;
@@ -613,13 +619,18 @@ function playerDeath(s, ev, killer, spell) {
   const node = s.node;
   s.death = {
     zone: s.zone ? s.zone.z : null,
-    row: node ? node.r : null,
-    lane: node ? node.l : null,
+    row: node && node.r !== undefined ? node.r : null,
+    lane: node && node.l !== undefined ? node.l : null,
     nodeType: f.kind === 'boss' ? 'boss' : f.kind === 'camp' ? 'camp' : node ? node.type : null,
     fightIdx: f.k,
     enemies: f.enemies.map((x) => x.tid),
     round: f.round,
     killer: typeof killer === 'number' ? { idx: killer, name: f.enemies[killer].name, ability: spell || null } : { idx: null, name: String(killer), ability: spell || null },
   };
+  // Expedition (rules 1.9.6, 9): the node id and ring; a Dimmed encounter has nodeType 'dim' and its depth.
+  if (isExpedition(s) && s.zone && !s.zone.camp) {
+    const id = node ? node.id : s.zone.pos;
+    Object.assign(s.death, { node: id, ring: s.zone.nodes[id].ring, depth: node && node.type === 'dim' ? node.depth : null });
+  }
   ev.push({ t: 'death', u: 'player' });
 }

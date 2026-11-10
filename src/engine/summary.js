@@ -1,16 +1,19 @@
-// Run summary (rules 9) and the real-time estimate (rules 3; combat v2: PACE_ENGAGE_S per fight with an engage round).
+// Run summary (rules 9) and the real-time estimate (rules 3; combat v2: PACE_ENGAGE_S per fight with an engage round;
+// expedition, rules 1.9.8: walks and passes, the Homeward Bell, and the `expedition` block of the summary).
 import {
   PACE_CREATE_S, PACE_DECIDE_S, PACE_TRAVEL_NODE_S, PACE_ZONE_TRAVEL_S, PACE_QUEST_TEXT_S, PACE_FIGHT_OVERHEAD_S,
   PACE_MANUAL_ROUND_S, PACE_AUTO_ROUND_S, PACE_LOOT_S, PACE_LEVELUP_S, PACE_TALENT_S, PACE_REST_S, PACE_SHRINE_S,
   PACE_TREASURE_S, PACE_VENDOR_S, PACE_VENDOR_TX_S, PACE_TRAINER_S, PACE_TRAINER_TX_S, PACE_BOSS_INTRO_S,
-  PACE_ENGAGE_S, SLOT_IDS, TALENT, CLASS,
+  PACE_ENGAGE_S, PACE_BELL_S, SLOT_IDS, TALENT, CLASS,
 } from '../constants.js';
 import { echoes, profileHash } from './meta.js';
 import { deepClone } from './util.js';
 
 /**
  * estSeconds (rules 3): sum of pace terms; rounds at the manual or autoplay rate. The manual profile also reads the
- * tracks and picks the engage: PACE_ENGAGE_S per fight with an engage round (combat v2).
+ * tracks and picks the engage: PACE_ENGAGE_S per fight with an engage round (combat v2). Expedition (rules 1.9.8): a
+ * walk or a pass costs PACE_DECIDE_S + PACE_TRAVEL_NODE_S; a Bell costs PACE_BELL_S, and a zone it leaves no
+ * PACE_ZONE_TRAVEL_S.
  */
 export function estSeconds(st, profile = 'manual') {
   const round = profile === 'auto' ? PACE_AUTO_ROUND_S : PACE_MANUAL_ROUND_S;
@@ -27,7 +30,8 @@ export function estSeconds(st, profile = 'manual') {
     + st.rests * PACE_REST_S + st.shrines * PACE_SHRINE_S + st.treasures * PACE_TREASURE_S
     + st.vendorVisits * PACE_VENDOR_S + st.vendorTx * PACE_VENDOR_TX_S
     + st.trainerVisits * PACE_TRAINER_S + st.trainerTx * PACE_TRAINER_TX_S
-    + (st.reachedBoss ? PACE_BOSS_INTRO_S : 0);
+    + (st.reachedBoss ? PACE_BOSS_INTRO_S : 0)
+    + (st.exp ? (st.exp.walks + st.exp.passes) * (PACE_DECIDE_S + PACE_TRAVEL_NODE_S) + st.exp.bells * PACE_BELL_S - st.exp.bellExits * PACE_ZONE_TRAVEL_S : 0);
 }
 
 /** Run summary (rules 9). Works in any phase after START_RUN; final in SUMMARY. */
@@ -58,5 +62,20 @@ export function summary(s) {
     equipped: SLOT_IDS.filter((k) => p.equipped[k]).map((k) => ({ slot: k, name: p.equipped[k].name, ilvl: p.equipped[k].ilvl, rarity: p.equipped[k].rarity })),
     reachedBoss: st.reachedBoss, bossPhase: st.bossPhase, bossHpPct: st.bossHpPct,
     echoes: echoes(facts, s.profile),
+    ...(st.exp ? { mapMode: 'expedition', expedition: expeditionSummary(s) } : {}),
   });
+}
+
+/**
+ * Expedition lines of the summary (rules 1.9, 9): walks (steps to resolved nodes, the hub or Dimmed nodes), passes
+ * (PASS_THROUGH), Dimmed encounters and the zones that had one, Bell charges rung and left, Roads taken, the furthest
+ * ring, and per zone { z, hours (zone hours; the current zone so far), nodes, walks, passes, dimFights, exit }.
+ */
+function expeditionSummary(s) {
+  const x = s.stats.exp;
+  const zones = x.zones.map((r, i) => ({ ...r, hours: r.exit === null && i === x.zones.length - 1 && s.zone && !s.zone.camp ? s.hours - s.zone.start : r.hours }));
+  return {
+    walks: x.walks, passes: x.passes, dimFights: x.dimFights, dimZones: zones.filter((r) => r.dimFights > 0).length,
+    bellsRung: x.bells, bellCharges: s.exp.bell, roads: x.roads, maxRing: x.maxRing, zones,
+  };
 }

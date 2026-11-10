@@ -1,14 +1,15 @@
 // Run flow outside combat (rules 1, 2, 9): run start, zones and hubs, map moves, node types, rewards,
-// loot window, vendor and trainer services, camp, boss start, fight outcomes and run end.
+// loot window, vendor and trainer services, camp, boss start, fight outcomes and run end. Expedition map (rules 1.9):
+// MOVE, PASS_THROUGH, hub revisits, Dimmed encounters, Roads, the Homeward Bell and the settle step after an action.
 import {
   CLASS, PET, SPELL, META, SLOT_IDS, START_GOLD, START_RATIONS, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, ZONE_COUNT,
-  ZONE_LEVELS, ZONE_CHOICE_ROWS, HOURS_QUEST, HOURS_GRIND_WAVE, HOURS_ELITE, HOURS_DUNGEON, HOURS_REST,
-  HOURS_VENDOR, HOURS_TRAINER, HOURS_TREASURE, HOURS_SHRINE, HOURS_TRAVEL, QUEST_TURNIN_XP_FRAC, QUEST_GOLD_V,
+  ZONE_LEVELS, ZONE_CHOICE_ROWS, HOURS_REST, HOURS_VENDOR, HOURS_TRAINER, HOURS_TRAVEL, QUEST_TURNIN_XP_FRAC, QUEST_GOLD_V,
   QUEST_REWARD_CHOICES, STORY_QUESTS, STORY_XP_FRAC, STORY_REWARD_CHOICES, GRIND_WAVE_XP_FRAC, GRIND_DROP_MULT,
-  GRIND_WAVE_SIZE, DUNGEON_TRASH_FIGHTS, DUNGEON_CLEAR_XP_FRAC, DUNGEON_GOLD_V, TREASURE_GOLD_V,
+  GRIND_WAVE_SIZE, DUNGEON_CLEAR_XP_FRAC, DUNGEON_GOLD_V, TREASURE_GOLD_V,
   TREASURE_TRAP_CHANCE, TREASURE_TRAP_PCT, REST_RESTED_FRAC, BOON, BOON_GOLD_V, BOON_NODES, CAMP_GRIND_LEVEL,
   MAX_LEVEL, ASC_CAP, ASC_PER_STEP, ASC_STEP_HOURS, TRAIN_NEW_V, TRAIN_RANK_V, TRAVEL_EARLY_LEVELS,
-  RESPEC_V, CONSUMABLE, ELIXIR_NODES, RES_META_CHARGES, BOSS_LEVEL, UNIQUE_POTION_PCT,
+  RESPEC_V, CONSUMABLE, ELIXIR_NODES, RES_META_CHARGES, BOSS_LEVEL, UNIQUE_POTION_PCT, HOURS_WALK, DIM_PACK_SIZE,
+  DIM_LEVEL_PER_DEPTH, HOURS_DIM_FIGHT, BELL_START_CHARGES, BELL_MAX_CHARGES, BELL_CHANNEL_H,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt } from '../rng.js';
 import { rnd, frac6, deepClone } from './util.js';
@@ -17,11 +18,15 @@ import { eventXp, gainXp, gainGold, addRested, spendGold, addGoldRaw } from './p
 import {
   V, rollDrop, makeFixedGear, makeConsumable, addToBag, bagIndex, sellValue, takeConsumable,
 } from './items.js';
-import { generateZone, contentLevel, vendorStock, composeEncounter } from './map.js';
+import { generateZone, contentLevel, vendorStock, composeEncounter, pickFrom } from './map.js';
 import { zoneContent, campEnemies, CAMP_Z } from './content.js';
 import { startFight, endFight } from './combat.js';
 import { parHours } from './meta.js';
 import { makeBoss } from './boss.js';
+import {
+  isExpedition, grindMaxWaves, xpWeight, nodeHours, generateExpZone, refreshVision, zoneHours, frontAt, dimmedNow,
+  visionKit,
+} from './expedition.js';
 
 // ---------------- Meta at run start (rules 11.4) ----------------
 /**
@@ -112,6 +117,12 @@ export function startRun(s, ev) {
   s.death = null;
   s.outcome = null;
   s.result = null;
+  if (isExpedition(s)) {
+    // Expedition map (rules 1.9): vision kit, Homeward Bell charges, the settle flags (pending: hours were spent
+    // since the last Dimming check; bell: the Bell is ringing), and the per-run and per-zone counters.
+    s.exp = { vision: visionKit(c.vision), bell: Math.min(BELL_MAX_CHARGES, BELL_START_CHARGES), pending: false, bellPending: false };
+    s.stats.exp = { walks: 0, passes: 0, dimFights: 0, bells: 0, bellExits: 0, roads: 0, maxRing: 0, zones: [] };
+  }
   ev.push({ t: 'runStart', classId: c.classId, petId: c.petId, seed: s.seed, oaths: s.oaths });
   enterZone(s, ev, 1);
 }
@@ -121,6 +132,24 @@ export function addHours(s, ev, h, why) {
   if (h <= 0) return;
   s.hours += h;
   ev.push({ t: 'hours', add: h, total: s.hours, why });
+  if (s.exp && s.zone && !s.zone.camp) dimmingAfterHours(s, ev, h, why);
+}
+
+/**
+ * Expedition (rules 1.9.6): hours in a zone move the Dimming. A `dimming` event lists the nodes the front newly covers.
+ * Hours other than a Dimmed encounter's own mark the step for the settle check (settleExpedition).
+ */
+function dimmingAfterHours(s, ev, h, why) {
+  if (why === 'travel') return; // on the Road: the zone is left
+  const zone = s.zone;
+  const hz = zoneHours(s);
+  if (why !== 'dim') s.exp.pending = true;
+  const before = frontAt(hz - h);
+  const now = frontAt(hz);
+  if (now > before) {
+    const dimmed = zone.nodes.filter((n) => zone.shardDist[n.id] > before && zone.shardDist[n.id] <= now).map((n) => n.id);
+    ev.push({ t: 'dimming', front: now, dimmed });
+  }
 }
 
 function setPhase(s, ev, phase) {
@@ -130,7 +159,16 @@ function setPhase(s, ev, phase) {
 
 export function enterZone(s, ev, z) {
   if (z > ZONE_COUNT) { enterCamp(s, ev); return; }
-  s.zone = generateZone(s, z);
+  if (isExpedition(s)) {
+    // Expedition map (rules 1.9): the zone graph; the player starts on the hub, its neighbours in view.
+    s.zone = generateExpZone(s, z);
+    s.exp.pending = false;
+    s.exp.bellPending = false;
+    refreshVision(s);
+    s.stats.exp.zones.push({ z, hours: 0, nodes: 0, walks: 0, passes: 0, dimFights: 0, exit: null });
+  } else {
+    s.zone = generateZone(s, z);
+  }
   s.hub = { used: { trainer: false, vendor: false, inn: false }, ledgerFree: s.meta.ledger };
   s.service = null;
   s.stats.maxZone = Math.max(s.stats.maxZone, z);
@@ -194,7 +232,13 @@ export function openService(s, ev, kind) {
     addHours(s, ev, HOURS_VENDOR, 'vendor');
     const z = camp ? CAMP_Z : s.zone.z;
     const cl = camp ? MAX_LEVEL : contentLevel(z, 0);
-    s.service = { kind: 'vendor', where: camp ? 'camp' : 'hub', cl, stock: vendorStock(s, STREAM.node(s.seed, z, 0, 0), cl) };
+    let stock;
+    if (!camp && isExpedition(s)) {
+      // Expedition (rules 1.9.2): the hub vendor's stock is drawn once per zone (nodeId(z, 0)) and keeps what was sold.
+      if (!s.zone.hubStock) s.zone.hubStock = vendorStock(s, STREAM.nodeId(s.seed, z, 0), cl);
+      stock = deepClone(s.zone.hubStock);
+    } else stock = vendorStock(s, STREAM.node(s.seed, z, 0, 0), cl);
+    s.service = { kind: 'vendor', where: camp ? 'camp' : 'hub', cl, stock };
     s.stats.vendorVisits += 1;
   }
   ev.push({ t: 'service', service: kind, where: s.service.where });
@@ -202,6 +246,7 @@ export function openService(s, ev, kind) {
 
 export function leaveService(s, ev) {
   const where = s.service.where;
+  if (where === 'hub' && s.service.kind === 'vendor' && s.zone && s.zone.hubStock) s.zone.hubStock = s.service.stock;
   s.service = null;
   ev.push({ t: 'serviceClosed' });
   if (where === 'node') completeNode(s, ev);
@@ -218,9 +263,16 @@ function advanceBuffs(s, ev) {
 }
 
 // ---------------- Map and nodes ----------------
+/** Fight stream of the current node: fight(z,r,l,k), or fightId(z,id,k) on the expedition map (rules 1.9.2). */
 function fightRng(s, k) {
   const n = s.node;
-  return STREAM.fight(s.seed, s.zone.z, n.r, n.l, k);
+  return n.id !== undefined ? STREAM.fightId(s.seed, s.zone.z, n.id, k) : STREAM.fight(s.seed, s.zone.z, n.r, n.l, k);
+}
+
+/** The map definition of the current node. */
+function nodeDef(s) {
+  const n = s.node;
+  return n.id !== undefined ? s.zone.nodes[n.id] : s.zone.rows[n.r - 1][n.l];
 }
 
 /** Add pool of a zone's fights (rules 7.12, combat v2): summons and Signal reinforcements; zone `addPool` or normals. */
@@ -235,6 +287,7 @@ function nodeFight(s, ev, kind, k, enemies, extra = {}) {
   });
 }
 
+/** CHOOSE_NODE (rules 1.4): enter lane `lane` of the next row. */
 export function chooseNode(s, ev, lane) {
   const zone = s.zone;
   const r = zone.pos.r + 1;
@@ -242,17 +295,28 @@ export function chooseNode(s, ev, lane) {
   zone.pos = { r, l: lane };
   zone.path.push(lane);
   s.stats.maxRow = Math.max(s.stats.maxRow, r);
+  beginNode(s, ev, def, r, lane);
+}
+
+/**
+ * Enter a node and start its content (rules 2): on today's map at (r, l), on the expedition map at node id def.id
+ * (r undefined). Hours by type (nodeHours: rules 2.0, 1.9.8).
+ */
+function beginNode(s, ev, def, r, lane) {
+  const zone = s.zone;
+  const exp = r === undefined;
   advanceBuffs(s, ev);
   s.stats.nodes[def.type] += 1;
   s.stats.nodesTotal += 1;
-  s.lootRng = STREAM.loot(s.seed, zone.z, r, lane);
-  s.node = { type: def.type, r, l: lane, cl: def.cl, stage: 'fight', k: 0 };
+  if (exp) zoneRecord(s).nodes += 1;
+  s.lootRng = exp ? STREAM.lootId(s.seed, zone.z, def.id) : STREAM.loot(s.seed, zone.z, r, lane);
+  s.node = exp ? { type: def.type, id: def.id, cl: def.cl, stage: 'fight', k: 0 } : { type: def.type, r, l: lane, cl: def.cl, stage: 'fight', k: 0 };
   const n = s.node;
   setPhase(s, ev, 'NODE');
-  ev.push({ t: 'node', type: def.type, r, l: lane, cl: def.cl });
+  ev.push(exp ? { t: 'node', type: def.type, id: def.id, ring: def.ring, cl: def.cl } : { t: 'node', type: def.type, r, l: lane, cl: def.cl });
   switch (def.type) {
     case 'quest':
-      addHours(s, ev, HOURS_QUEST, 'quest');
+      addHours(s, ev, nodeHours(s, 'quest'), 'quest');
       n.quest = def.quest;
       ev.push({ t: 'quest', quest: def.quest });
       nodeFight(s, ev, 'quest', 0, def.mobs.map((tid) => ({ tid, level: def.cl, variant: 'normal' })));
@@ -261,47 +325,49 @@ export function chooseNode(s, ev, lane) {
       n.stage = 'grindSetup';
       n.planned = 0;
       n.wavesDone = 0;
+      // A Grind that allows one wave starts it on entry (rules 1.9.8: no choice to make).
+      if (grindMaxWaves(s) === 1) startGrind(s, ev, 1);
       break;
     case 'elite': {
-      addHours(s, ev, HOURS_ELITE, 'elite');
+      addHours(s, ev, nodeHours(s, 'elite'), 'elite');
       const en = [{ tid: def.elite, level: def.eliteLevel, variant: def.rare ? 'rare' : 'elite' }];
       if (def.add) en.push({ tid: def.add, level: def.cl, variant: 'normal' });
       nodeFight(s, ev, 'elite', 0, en);
       break;
     }
     case 'dungeon':
-      addHours(s, ev, HOURS_DUNGEON, 'dungeon');
+      addHours(s, ev, nodeHours(s, 'dungeon'), 'dungeon');
       n.bossLevel = def.bossLevel;
       startDungeonFight(s, ev, 0);
       break;
     case 'rest':
-      addHours(s, ev, HOURS_REST, 'rest');
+      addHours(s, ev, nodeHours(s, 'rest'), 'rest');
       restEffect(s, ev);
       completeNode(s, ev);
       break;
     case 'vendor':
-      addHours(s, ev, HOURS_VENDOR, 'vendor');
+      addHours(s, ev, nodeHours(s, 'vendor'), 'vendor');
       n.stage = 'service';
       s.service = { kind: 'vendor', where: 'node', cl: def.cl, stock: deepClone(def.stock) };
       s.stats.vendorVisits += 1;
       ev.push({ t: 'service', service: 'vendor', where: 'node' });
       break;
     case 'trainer':
-      addHours(s, ev, HOURS_TRAINER, 'trainer');
+      addHours(s, ev, nodeHours(s, 'trainer'), 'trainer');
       n.stage = 'service';
       s.service = { kind: 'trainer', where: 'node' };
       s.stats.trainerVisits += 1;
       ev.push({ t: 'service', service: 'trainer', where: 'node' });
       break;
     case 'treasure':
-      addHours(s, ev, HOURS_TREASURE, 'treasure');
+      addHours(s, ev, nodeHours(s, 'treasure'), 'treasure');
       s.stats.treasures += 1;
-      n.trap = nextFloat(s.lootRng) < TREASURE_TRAP_CHANCE; // first draw of loot(z,r,l)
+      n.trap = nextFloat(s.lootRng) < TREASURE_TRAP_CHANCE; // first draw of loot(z,r,l) / loot(z,id)
       if (def.guard) nodeFight(s, ev, 'treasure', 0, [{ tid: def.guard, level: def.cl, variant: 'normal' }]);
       else { openChest(s, ev); completeNode(s, ev); }
       break;
     case 'shrine':
-      addHours(s, ev, HOURS_SHRINE, 'shrine');
+      addHours(s, ev, nodeHours(s, 'shrine'), 'shrine');
       s.stats.shrines += 1;
       n.stage = 'reward';
       n.rewards = [{ kind: 'boons', boons: def.boons.slice() }];
@@ -313,10 +379,11 @@ export function chooseNode(s, ev, lane) {
 
 function startDungeonFight(s, ev, k) {
   const n = s.node;
-  const def = s.zone.rows[n.r - 1][n.l];
+  const def = nodeDef(s);
   n.k = k;
   n.stage = 'fight';
-  if (k < DUNGEON_TRASH_FIGHTS) nodeFight(s, ev, 'trash', k, def.trash[k].map((tid) => ({ tid, level: def.trashLevel, variant: 'trash' })), { addLevel: def.trashLevel });
+  // def.trash.length = DUNGEON_TRASH_FIGHTS (rules 2.4), EXPED_DUNGEON_TRASH_FIGHTS on the expedition map (1.9.8).
+  if (k < def.trash.length) nodeFight(s, ev, 'trash', k, def.trash[k].map((tid) => ({ tid, level: def.trashLevel, variant: 'trash' })), { addLevel: def.trashLevel });
   else nodeFight(s, ev, 'dboss', k, [{ tid: def.boss, level: def.bossLevel, variant: 'dboss' }], { addLevel: def.trashLevel });
 }
 
@@ -328,8 +395,8 @@ export function startGrind(s, ev, waves) {
 
 function startGrindWave(s, ev) {
   const n = s.node;
-  const def = s.zone.rows[n.r - 1][n.l];
-  addHours(s, ev, HOURS_GRIND_WAVE, 'grind');
+  const def = nodeDef(s);
+  addHours(s, ev, nodeHours(s, 'grind'), 'grind');
   n.k = n.wavesDone;
   n.stage = 'fight';
   nodeFight(s, ev, 'grind', n.k, def.waves[n.k].map((tid) => ({ tid, level: def.cl, variant: 'normal' })), { dropMult: GRIND_DROP_MULT });
@@ -344,14 +411,167 @@ export function nextFight(s, ev) {
 export function completeNode(s, ev) {
   const n = s.node;
   if (n) {
-    s.zone.rows[n.r - 1][n.l].done = true;
-    ev.push({ t: 'nodeDone', type: n.type, r: n.r, l: n.l });
+    if (n.id !== undefined) {
+      s.zone.nodes[n.id].done = true;
+      ev.push({ t: 'nodeDone', type: n.type, id: n.id });
+    } else {
+      s.zone.rows[n.r - 1][n.l].done = true;
+      ev.push({ t: 'nodeDone', type: n.type, r: n.r, l: n.l });
+    }
   }
   s.node = null;
   s.lootRng = null;
   s.service = null;
   setPhase(s, ev, 'MAP');
 }
+
+// ---------------- Expedition map (rules 1.9) ----------------
+/** The per-zone counters of the current expedition zone (summary `expedition.zones`). */
+const zoneRecord = (s) => s.stats.exp.zones[s.stats.exp.zones.length - 1];
+
+/** Can MOVE enter node id's content (rules 1.9.4): unresolved, not the hub, not Dimmed now? */
+export const canEnter = (s, id) => {
+  const n = s.zone.nodes[id];
+  return !n.done && n.ring > 0 && !dimmedNow(s, id);
+};
+
+function stepTo(s, ev, id, via) {
+  const zone = s.zone;
+  const from = zone.pos;
+  zone.pos = id;
+  zone.path.push(id);
+  s.stats.exp.maxRing = Math.max(s.stats.exp.maxRing, zone.nodes[id].ring);
+  ev.push({ t: 'move', from, to: id, via, seen: refreshVision(s) });
+}
+
+/**
+ * MOVE (rules 1.9.4): to an adjacent node. Unresolved, not the hub and not Dimmed: enter it (its content and hours).
+ * Otherwise a walk of HOURS_WALK; walking onto the hub when it is not Dimmed starts a new hub visit (services again).
+ */
+export function moveTo(s, ev, id) {
+  if (canEnter(s, id)) {
+    stepTo(s, ev, id, 'enter');
+    beginNode(s, ev, s.zone.nodes[id]);
+    return;
+  }
+  stepTo(s, ev, id, 'walk');
+  s.stats.exp.walks += 1;
+  zoneRecord(s).walks += 1;
+  addHours(s, ev, HOURS_WALK, 'walk');
+  if (s.zone.nodes[id].ring === 0 && !dimmedNow(s, id)) {
+    s.hub.used = { trainer: false, vendor: false, inn: false };
+    setPhase(s, ev, 'ZONE_HUB');
+  }
+}
+
+/** PASS_THROUGH (rules 1.9.4): walk through an adjacent unresolved node for HOURS_WALK; it stays unresolved. */
+export function passThrough(s, ev, id) {
+  stepTo(s, ev, id, 'pass');
+  s.stats.exp.passes += 1;
+  zoneRecord(s).passes += 1;
+  addHours(s, ev, HOURS_WALK, 'pass');
+}
+
+/**
+ * Dimmed encounter (rules 1.9.6) at node id: DIM_PACK_SIZE of the zone's normal templates (stream dim(z, id, n), n =
+ * Dimmed encounters at this node so far; composition repair 7.14), variant shardspawn, level min(MAX_LEVEL, max(CL, L)
+ * + DIM_LEVEL_PER_DEPTH × depth), depth = front - hops from the Shardfall. HOURS_DIM_FIGHT; fought in phase NODE as
+ * node type `dim`; the node is not resolved by it.
+ */
+export function startDimEncounter(s, ev, id) {
+  const zone = s.zone;
+  const z = zone.z;
+  const def = zone.nodes[id];
+  const depth = frontAt(zoneHours(s)) - zone.shardDist[id];
+  const level = Math.min(MAX_LEVEL, Math.max(def.cl, s.player.level) + DIM_LEVEL_PER_DEPTH * depth);
+  const k = zone.dimN[id];
+  zone.dimN[id] = k + 1;
+  const zn = zoneContent(s.content, z);
+  const rng = STREAM.dim(s.seed, z, id, k);
+  let tids = [];
+  for (let i = 0; i < DIM_PACK_SIZE; i++) tids.push(pickFrom(rng, zn.normals));
+  tids = composeEncounter(s.content, rng, tids, zn.normals);
+  s.stats.exp.dimFights += 1;
+  zoneRecord(s).dimFights += 1;
+  s.lootRng = null;
+  s.node = { type: 'dim', id, cl: level, stage: 'fight', k, depth };
+  setPhase(s, ev, 'NODE');
+  ev.push({ t: 'dim', id, depth, level, k });
+  addHours(s, ev, HOURS_DIM_FIGHT, 'dim');
+  startFight(s, ev, {
+    kind: 'dim', k, z, rng, enemies: tids.map((tid) => ({ tid, level, variant: 'shardspawn' })), addLevel: level,
+    addPool: zoneAddPool(zn), canFlee: true,
+  });
+}
+
+/** After a Dimmed encounter won or fled ("passing through"): back on the map, on the same node. */
+function endDimEncounter(s, ev) {
+  s.node = null;
+  s.lootRng = null;
+  s.service = null;
+  setPhase(s, ev, 'MAP');
+}
+
+/** Leave the zone (Road or Bell, rules 1.9.7): record its hours, count it, enter the next zone (zone 6: the Camp). */
+function leaveZone(s, ev, by) {
+  const from = s.zone.z;
+  const node = s.zone.pos;
+  s.stats.zonesLeft += 1;
+  ev.push({ t: 'travel', from, by, node });
+  enterZone(s, ev, from + 1);
+}
+
+/** TAKE_ROAD (rules 1.9.7): on a Road node, HOURS_TRAVEL, then the next zone's hub. */
+export function takeRoad(s, ev) {
+  const rec = zoneRecord(s);
+  rec.hours = zoneHours(s);
+  rec.exit = 'road';
+  s.stats.exp.roads += 1;
+  addHours(s, ev, HOURS_TRAVEL, 'travel');
+  leaveZone(s, ev, 'road');
+}
+
+/**
+ * RING_BELL (rules 1.9.7): one charge, BELL_CHANNEL_H hours. The settle step then runs a Dimmed encounter first if the
+ * player's node is Dimmed, and completes the Bell (completeBell): the next zone's hub, no HOURS_TRAVEL.
+ */
+export function ringBell(s, ev) {
+  s.exp.bell -= 1;
+  s.exp.bellPending = true;
+  s.stats.exp.bells += 1;
+  ev.push({ t: 'bell', charges: s.exp.bell, node: s.zone.pos });
+  addHours(s, ev, BELL_CHANNEL_H, 'bell');
+}
+
+function completeBell(s, ev) {
+  s.exp.bellPending = false;
+  const rec = zoneRecord(s);
+  rec.hours = zoneHours(s);
+  rec.exit = 'bell';
+  s.stats.exp.bellExits += 1;
+  leaveZone(s, ev, 'bell');
+}
+
+/**
+ * Settle step of an expedition run (rules 1.9.6, 1.9.7), after every action: when the player is back on the map or in
+ * the hub with nothing open (no node, fight, service or loot window) and hours were spent since the last check, a
+ * Dimmed encounter starts if the player's node is Dimmed (once per such action; its own hours do not count). Then a
+ * ringing Bell completes.
+ */
+export function settleExpedition(s, ev) {
+  const x = s.exp;
+  if (!x || !s.zone || s.zone.camp || (s.phase !== 'MAP' && s.phase !== 'ZONE_HUB')) return;
+  if (s.node || s.fight || s.service || (s.loot && s.loot.length)) return;
+  if (x.pending) {
+    x.pending = false;
+    if (dimmedNow(s)) {
+      startDimEncounter(s, ev, s.zone.pos);
+      return;
+    }
+  }
+  if (x.bellPending) completeBell(s, ev);
+}
+
 
 function openChest(s, ev) {
   const n = s.node;
@@ -388,17 +608,19 @@ export function finishFight(s, ev) {
   receiveItems(s, ev, drops);
   if (kind === 'boss') { endRun(s, ev, 'victory'); return; }
   if (kind === 'camp') {
-    if (outcome === 'victory') gainXp(s, ev, eventXp(s, GRIND_WAVE_XP_FRAC, CAMP_GRIND_LEVEL), 'wave');
+    if (outcome === 'victory') gainXp(s, ev, eventXp(s, GRIND_WAVE_XP_FRAC * xpWeight(s), CAMP_GRIND_LEVEL), 'wave');
     s.lootRng = null;
     return;
   }
+  // A Dimmed encounter (rules 1.9.6), won or fled: back on the map; the node is not resolved by it.
+  if (kind === 'dim') { endDimEncounter(s, ev); return; }
   const n = s.node;
   if (outcome === 'fled') { completeNode(s, ev); return; }
   if (kind === 'quest') {
     s.stats.quests += 1;
     s.zone.questsDone += 1;
     ev.push({ t: 'questComplete', quest: n.quest });
-    gainXp(s, ev, eventXp(s, QUEST_TURNIN_XP_FRAC, n.cl), 'quest');
+    gainXp(s, ev, eventXp(s, QUEST_TURNIN_XP_FRAC * xpWeight(s), n.cl), 'quest');
     gainGold(s, ev, QUEST_GOLD_V * V(n.cl), 'quest');
     n.rewards = [{ kind: 'items', items: genChoices(s, 'quest', QUEST_REWARD_CHOICES, n.cl) }];
     if (s.zone.questsDone === STORY_QUESTS) {
@@ -409,7 +631,7 @@ export function finishFight(s, ev) {
     }
     n.stage = 'reward';
   } else if (kind === 'grind') {
-    gainXp(s, ev, eventXp(s, GRIND_WAVE_XP_FRAC, n.cl), 'wave');
+    gainXp(s, ev, eventXp(s, GRIND_WAVE_XP_FRAC * xpWeight(s), n.cl), 'wave');
     n.wavesDone += 1;
     if (n.wavesDone < n.planned) n.stage = 'between';
     else completeNode(s, ev);
@@ -420,7 +642,7 @@ export function finishFight(s, ev) {
   } else if (kind === 'dboss') {
     s.stats.dungeons += 1;
     ev.push({ t: 'dungeonClear', z: s.zone.z });
-    gainXp(s, ev, eventXp(s, DUNGEON_CLEAR_XP_FRAC, n.bossLevel), 'dungeon');
+    gainXp(s, ev, eventXp(s, DUNGEON_CLEAR_XP_FRAC * xpWeight(s), n.bossLevel), 'dungeon');
     gainGold(s, ev, DUNGEON_GOLD_V * V(n.bossLevel), 'dungeon');
     completeNode(s, ev);
   } else if (kind === 'treasure') {
@@ -474,7 +696,7 @@ export function campGrind(s, ev) {
   s.stats.campWaves += 1;
   const w = s.camp.waves;
   advanceBuffs(s, ev);
-  addHours(s, ev, HOURS_GRIND_WAVE, 'camp');
+  addHours(s, ev, nodeHours(s, 'grind'), 'camp');
   s.lootRng = STREAM.loot(s.seed, CAMP_Z, w, 0);
   const pool = campEnemies(s.content);
   const setup = STREAM.node(s.seed, CAMP_Z, w, 0);

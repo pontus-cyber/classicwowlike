@@ -6,7 +6,9 @@ no heal events of 0, boss counters); 2026-11-10 (M2 v3: `resurrectCharges`, roun
 bounce data in `spellInfo`, older meta ranks); 2026-11-10b (M2 v4: `bossPar`, `zoneDanger`, Wayfinder removed, owned ids
 not in the catalogue ignored); 2026-11-10c (M2 v5: Starforged Arms removed, `state.meta` without `starforged`);
 2026-11-10d (combat v2, rules 7.10-7.13: intent tracks, the engage round and `ENGAGE`, OFF_BALANCE, pack roles,
-`STATE_VERSION` 2; marked "(combat v2)"). Rules authority: docs/specs/rules.md (section numbers below refer to it).
+`STATE_VERSION` 2; marked "(combat v2)"); 2026-11-10e (expedition map, rules 1.9: `mapMode`, `MOVE`, `PASS_THROUGH`,
+`TAKE_ROAD`, `RING_BELL`, the expedition `mapView`; section 10; marked "(expedition)"). Rules authority:
+docs/specs/rules.md (section numbers below refer to it).
 
 The engine is pure and seeded (D5): no DOM, no clock, no `Math.random`, no globals. ES modules (D13); Node
 runs `src/rules.js` directly and the browser loads the same files. Every number lives in `src/constants.js`
@@ -26,7 +28,7 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 
 | Function | Returns | Notes |
 |---|---|---|
-| `newRun({classId, petId, name, seed, profile, content})` | state (phase CREATE) | All fields but `content` optional. `seed`: integer, normalised to uint32; the front end draws a random seed (the engine never does). `profile`: meta profile (`newProfile()` if omitted). `content` is validated (structural) and deep-frozen. Throws on invalid content/class/pet. |
+| `newRun({classId, petId, name, seed, profile, content, mapMode, vision})` | state (phase CREATE) | All fields but `content` optional. `seed`: integer, normalised to uint32; the front end draws a random seed (the engine never does). `profile`: meta profile (`newProfile()` if omitted). `content` is validated (structural) and deep-frozen. (expedition) `mapMode`: `'rows'` (today's map, rules 1.4; the default) or `'expedition'` (rules 1.9, section 10); `state.mapMode` keeps it. `vision`: expedition only, `{ guide, charts, pathfinder }` booleans (Local Guide, Region Charts, Pathfinder, rules 1.9.5) until the start camp and meta buy them (2b.5). Throws on invalid content/class/pet/mapMode/vision. |
 | `legalActions(state)` | action[] | Every concrete legal action. `SET_NAME` and `SET_SEED` take free values and are not listed (they are legal in CREATE). |
 | `step(state, action)` | `{ state, events }` | Pure: the input is never changed. Throws `IllegalActionError` (`err.code === 'ILLEGAL_ACTION'`, message names the reason) on an illegal action. |
 | `stepInPlace(state, action)` | events | Same, but changes `state` in place (no copy). For simulators that own their state. |
@@ -34,12 +36,12 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 | `autoAction(state)` | action or null | Deterministic. In combat: the autoplay policy of rules 7.9. Elsewhere: a simple default policy (talents, gear, bar, hub, map, rewards, camp) so a headless run goes from CREATE to SUMMARY. `null` only in ENDED. |
 | `summary(state)` | object or null | Run summary (rules 9) incl. Echoes breakdown (11.1): `echoes = { lines: [{ id, count, each, echoes }], base, oathMult, total }`; a line's `echoes` is `round(count × each)` (half away from zero, M2 v3; `each` can be fractional), `base` the sum of the lines, `total = round(base × oathMult)`. Show `echoes` per line. Available any time after START_RUN. |
 | `serialize(state)` / `deserialize(str, content)` | string / state | The content tables are not saved; pass the same `CONTENT` (version is checked). |
-| `mapView(state)` | object or null | What the player may see of the zone map (rules 1.4). Rare elites, traps and vendor Embers are `null` unless the profile owns Scout's Eye. Use this, not `state.zone.rows`, to draw the map. Fight nodes list one archetype per enemy: quest and elite `archetypes`, grind `archetypes` (first wave), treasure `archetypes` (the guard; `[]` unguarded, combat v2), dungeon `fights` (one archetype list per trash fight) and `bossArchetype` (combat v2). |
+| `mapView(state)` | object or null | What the player may see of the zone map (rules 1.4). Rare elites, traps and vendor Embers are `null` unless the profile owns Scout's Eye. Use this, not `state.zone.rows`, to draw the map. Fight nodes list one archetype per enemy: quest and elite `archetypes`, grind `archetypes` (first wave), treasure `archetypes` (the guard; `[]` unguarded, combat v2), dungeon `fights` (one archetype list per trash fight) and `bossArchetype` (combat v2). (expedition) In an expedition run: the zone graph as the player sees it (section 10.3). null outside a zone. |
 | `validateContent(content, {strict})` | string[] | Content checks (src/content/SCHEMA.md). |
 | `newProfile()`, `metaOffers(profile)`, `buyMeta(profile, id)` | profile / offers / profile | Meta catalogue between runs (rules 11.2). `buyMeta` throws `IllegalActionError` when not allowed. |
 | `xpToNext(L)`, `talentPointsFree(state)`, `itemScore(item, classId)`, `spellCost(state, id)`, `spellCooldown(state, id)`, `fleeChance(state)` | number | Display helpers so the UI never re-implements a rule. |
 | `bagCapacity(state)` | number | Bag slots: `BAG_SLOTS` + meta Deeper Pockets (rules 8.7, 11.2). In CREATE it reads the profile. |
-| `travelLevel(state)` | number or null | Level from which `TRAVEL_ON` is legal in the current zone (rules 1.5): exit level - TRAVEL_EARLY_LEVELS, one lower with Swift Boots ("Travel on at level N"). After the last row TRAVEL_ON is legal at any level. null outside a zone (CREATE, Camp, run over). |
+| `travelLevel(state)` | number or null | Level from which `TRAVEL_ON` is legal in the current zone (rules 1.5): exit level - TRAVEL_EARLY_LEVELS, one lower with Swift Boots ("Travel on at level N"). After the last row TRAVEL_ON is legal at any level. null outside a zone (CREATE, Camp, run over) and in an expedition run (no level gate, rules 1.9.7). |
 | `resurrectCharges(state)` | object or null | Resurrect charges (rules 9, M2 v3): `{ boon, secondBreath, ember, now, boss }`. `boon`, `secondBreath`, `ember` = charges held. `now` = the sources a death would use, in order (`'boon'`, `'second_breath'`, `'ember'`), in the current fight (out of combat: on the journey); `boss` = the same in the end-boss fight, where Second Breath is not used ("not in the final fight"). Both `[]` under the Oath of Frailty. null before START_RUN. |
 | `bossPar(state)` | number | Boss time par in hours (rules 1.7, 11.5): BOSS_TIME_PAR, OATH_HASTE_HOURS less under the Oath of Haste. Ascendancy counts full ASC_STEP_HOURS past it; the Echoes speed bonus needs a kill at or under it. After START_RUN from `state.oaths`, in CREATE from the Oaths chosen so far (M2 v4). |
 | `zoneDanger(level, variant = 'normal')` | number | Zone danger (rules 7.6): the damage multiplier the engine gives an enemy built from a template at `level`. `zd = 1 + ZONE_DANGER_STEP × max(0, level - ZONE_DANGER_FROM) / 10` for `'normal'` (quest, grind, Camp waves, summoned adds), `'elite'`, `'rare'`; `1 + DUNGEON_DANGER_FRAC × (zd - 1)` for dungeon `'trash'` and `'dboss'` (M2 v4: level 60 ×1.5 against ×2.0). Show `zoneDanger(...) - 1` as the extra damage; for a dungeon node use the trash level with `'trash'` and `bossLevel` with `'dboss'`. Not the end boss or the Shards. |
@@ -63,7 +65,7 @@ intent tracks): `deserialize` refuses a state saved by an older engine.
 |---|---|---|
 | CREATE | class, pet, name, seed, oaths | `SELECT_CLASS`, `SELECT_PET`, `SET_NAME`, `SET_SEED`, `SET_OATH`, `START_RUN` |
 | ZONE_HUB | zone hub; `state.service` may be open | `SERVICE`, service actions, `LEAVE_HUB`, out-of-combat |
-| MAP | choose the next node | `CHOOSE_NODE`, `TRAVEL_ON`, out-of-combat |
+| MAP | choose the next node | `CHOOSE_NODE`, `TRAVEL_ON`, out-of-combat; (expedition) `MOVE`, `PASS_THROUGH`, `TAKE_ROAD`, `RING_BELL` (section 10) |
 | NODE | inside a node; `state.node.stage` = `fight`, `between`, `grindSetup`, `reward` or `service` | per stage |
 | CAMP | before the boss; `state.fight` set during a camp wave | `SERVICE`, `CAMP_GRIND`, `FIGHT_BOSS` |
 | BOSS | the end boss fight | combat actions |
@@ -97,9 +99,9 @@ Every action is `{ type, ...fields }`. Indices are 0-based. Enemy targets are in
 | `BUY` | `index` into `state.service.stock` | vendor; gold, bag space, Ember limit |
 | `SELL` | `itemId` (bag uid) | vendor |
 | `SELL_JUNK` | | vendor; junk in bag |
-| `CHOOSE_NODE` | `lane` 0-2 | MAP; `mapView(state).next` lists reachable lanes |
-| `TRAVEL_ON` | | MAP; level >= `travelLevel(state)` (exit level - TRAVEL_EARLY_LEVELS, Swift Boots one lower) or the last row (ZONE_CHOICE_ROWS) done (then it is the only move). Costs HOURS_TRAVEL with every profile (M2 v4: Wayfinder removed) |
-| `GRIND_SET_WAVES` | `n` 1-3 | Grind node, on entry (starts wave 1) |
+| `CHOOSE_NODE` | `lane` 0-2 | MAP; `mapView(state).next` lists reachable lanes. Not in an expedition run |
+| `TRAVEL_ON` | | MAP; level >= `travelLevel(state)` (exit level - TRAVEL_EARLY_LEVELS, Swift Boots one lower) or the last row (ZONE_CHOICE_ROWS) done (then it is the only move). Costs HOURS_TRAVEL with every profile (M2 v4: Wayfinder removed). Not in an expedition run |
+| `GRIND_SET_WAVES` | `n` 1-3 | Grind node, on entry (starts wave 1). (expedition) 1-EXPED_GRIND_MAX_WAVES; with one wave the Grind starts it on entry and this stage is skipped |
 | `NEXT_FIGHT` | | between Grind waves or Dungeon fights |
 | `GRIND_STOP` | | between Grind waves |
 | `DUNGEON_LEAVE` | | between Dungeon fights |
@@ -120,6 +122,10 @@ Every action is `{ type, ...fields }`. Indices are 0-based. Enemy targets are in
 | `USE_ITEM` (in combat) | `slot` 0-2, `target` null | fight; item on the item bar, in the bag, potion cooldown |
 | `FLEE` | | fight, not vs dungeon boss or end boss |
 | `PASS` | | fight (the only legal combat action while Glacial Tomb skips your turn, `state.fight.p.skip`) |
+| `MOVE` | `nodeId` | (expedition) MAP; a node next to the player's (`mapView(state).moves`). Enters an unresolved, non-hub, non-Dimmed node (its content and hours); else a walk of HOURS_WALK; a walk onto the hub out of the Dimming starts a hub visit (rules 1.9.4) |
+| `PASS_THROUGH` | `nodeId` | (expedition) MAP; a neighbour that MOVE would enter: walk through it for HOURS_WALK, it stays unresolved |
+| `TAKE_ROAD` | | (expedition) MAP, standing on a Road (`mapView(state).onRoad`): HOURS_TRAVEL, next zone's hub (zone 6: the Camp); no level gate |
+| `RING_BELL` | | (expedition) MAP (not in a node, the hub screen, the Camp or at the boss), a Bell charge left: BELL_CHANNEL_H, then (after a Dimmed encounter if the node is Dimmed then) the next zone's hub; no HOURS_TRAVEL |
 | `ENGAGE` | `option`, `target` (enemy index or null), `spellId` (Pre-cast only) | (combat v2) the engage round only (rules 7.10), so once per fight; `option` one of the class's `C.ENGAGE_OPTIONS[classId]`; target rules in `engageOptions(state)` (control options: not an enemy immune to control; Send the Pet: a live pet). Key order as listed: `{ type, option, target }`, Pre-cast `{ type, option, spellId, target }` |
 
 One combat action resolves one full round (rules 7.1): player action, pet, enemies in index order, end of
@@ -142,7 +148,7 @@ Unaware and do not act; `CAST`, `ATTACK`, `USE_ITEM`, `PASS`, `FLEE` and `ENGAGE
 | `zone` | current zone; draw it with `mapView(state)` |
 | `hub.used.{trainer, vendor, inn}` | hub/camp services used this visit |
 | `service = {kind, where, cl, stock}` | open trainer or vendor; vendor `stock[i] = {kind: 'cons'|'gear', id or item, price, sold, unlimited}` |
-| `node = {type, r, l, cl, stage, k, rewards, quest, planned, wavesDone}` | current node |
+| `node = {type, r, l, cl, stage, k, rewards, quest, planned, wavesDone}` | current node ((expedition) `id` instead of `r`, `l`; section 10.2) |
 | `fight` | see section 6 |
 | `loot[]` | loot window |
 | `stats`, `death` | counters for the summary (combat v2: `stats.engages` = fights with an engage round); death location (rules 9) |
@@ -158,12 +164,16 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 |---|---|---|
 | `phase` | `phase` | phase changed |
 | `runStart` | `classId, petId, seed, oaths` | |
-| `zone`, `camp`, `travel` | `z, name` / `name` / `from` | zone hub entered / camp / TRAVEL_ON |
+| `zone`, `camp`, `travel` | `z, name` / `name` / `from` | zone hub entered / camp / TRAVEL_ON. (expedition) `travel` adds `by` (`road` or `bell`) and `node` |
 | `hours` | `add, total, why` | in-game hours spent |
-| `node`, `nodeDone`, `quest` | `type, r, l, cl` / ... / `quest` | node entered / completed / quest template id |
+| `node`, `nodeDone`, `quest` | `type, r, l, cl` / ... / `quest` | node entered / completed / quest template id. (expedition) `node`: `type, id, ring, cl`; `nodeDone`: `type, id` |
+| `move` | `from, to, via, seen` | (expedition) a step: `via` `enter`, `walk` or `pass`; `seen` = node ids newly in view |
+| `dimming` | `front, dimmed` | (expedition) the Dimming's front advanced; `dimmed` = node ids it newly covers |
+| `dim` | `id, depth, level, k` | (expedition) a Dimmed encounter starts at node `id` (its `fight` event follows, `kind: 'dim'`) |
+| `bell` | `charges, node` | (expedition) RING_BELL: the channel starts (`charges` left) |
 | `service`, `serviceClosed` | `service, where` | |
 | `rest` | `hp, mana, rested` | Rest node or Inn |
-| `fight` | `kind, k, engage, enemies[{u, name, level, hp, kind, arch}]` | fight started (`kind`: quest grind elite trash dboss treasure camp boss; `engage`: it has an engage round, combat v2) |
+| `fight` | `kind, k, engage, enemies[{u, name, level, hp, kind, arch}]` | fight started (`kind`: quest grind elite trash dboss treasure camp boss, (expedition) dim; `engage`: it has an engage round, combat v2). A Dimmed encounter's enemies have `kind: 'shardspawn'` |
 | `round` | `n`, `engage` (true in the engage round, combat v2) | a new round starts (intents follow) |
 | `intent` | `u, intent` | enemy intent for this round (section 6); the tracks are in the state |
 | `action` | `kind` (`cast` `attack` `item` `pass` `flee` `skip` `engage`), `spell, target, cost, item, success, option, engage` | player action. Combat v2: `kind: 'engage'` with `option` and `target` for an ENGAGE; a Pre-cast is `kind: 'cast'` with `engage: 'precast'` and `cost` 0 |
@@ -276,6 +286,9 @@ Telegraph counters are rounds from the current round; 0 = this round:
 Streams (rules 0): `map(z)`, `node(z,r,l)`, `fight(z,r,l,k)`, `loot(z,r,l)`, `boss` (`src/rng.js`, sfc32 seeded
 by a 32-bit hash of the keys). Hub and camp use row 0; the camp is zone 7; camp wave `w` uses `node(7,w,0)`,
 `fight(7,w,0,0)`, `loot(7,w,0)`; hub vendors `node(z,0,0)`. Same seed + same actions = same state (tested).
+(expedition) Node ids replace (row, lane): `node(z,id)`, `fight(z,id,k)`, `loot(z,id)` (`STREAM.nodeId`, `fightId`,
+`lootId`); the hub is id 0 (its vendor: `node(z,0)`); Dimmed encounter n at node id: `dim(z,id,n)` (make-up, then
+its fight). Map draw order: rules 1.9.2; node setup: rules 1.9.3.
 Item names use a separate hash and never touch a stream. The sim's bots must use their own stream
 (`STREAM.bot` in `src/rng.js`), never the game's.
 
@@ -302,6 +315,10 @@ Draw orders the engine guarantees (beyond rules 7.2 and 8.4):
   Round 1 -> 2 of a fight with an engage round draws no entry (the tracks already hold turns 1..3).
 
 ## 8. Autoplay
+(expedition) On the expedition map `autoAction`'s map and hub decisions follow the default map policy of rules
+1.9.9 (explore what leaves a clean way to a Road, then the cheapest way out; the Bell when that way crosses the
+Dimming). It reads only what `mapView` shows.
+
 Combat v2: in the engage round `autoAction` follows rule E (rules 7.9): the class's control option on the enemy
 whose track shows the most damage on the player over turns 1..ENGAGE_AUTO_LOOK (with at least 2 enemies), else the
 strike option (Mage: Pre-cast of the first bar spell whose autoplay condition holds). The Rogue never gets Sap from
@@ -331,3 +348,59 @@ M2 v5: Starforged Arms is removed (D45), catalogue total 6 560. A stored `starfo
 (D42): `state.meta` has no `starforged` flag, the Camp vendor's stock follows the same rule as every vendor (no class
 weapon), it is not listed by `metaOffers`, `buyMeta` throws "unknown meta unlock", no Echoes are refunded, and the id
 stays stored. The class weapons stay in `CONTENT.uniques` (kind `weapon`); no rule puts them in a run.
+
+## 10. Expedition map (expedition; rules 1.9)
+A run created with `newRun({ mapMode: 'expedition' })` plays the roamable zone graph (rules 1.9). Until the
+switch-over the default stays `'rows'`; nothing of a rows run changes. Not yet in the engine (2b.5): PREP, contracts,
+the hub contract, Ask the Locals, the Spyglass, the meta changes of expedition.md 8.2.
+
+### 10.1 Flow
+- START_RUN: phase ZONE_HUB on the hub (node 0) of zone 1. `LEAVE_HUB` puts the player on the map, standing on the
+  hub. `MOVE` back onto the hub (out of the Dimming) is a new hub visit: phase ZONE_HUB, services once each again; the
+  hub vendor's stock is drawn once per zone and keeps what was sold.
+- MAP: `MOVE(nodeId)`, `PASS_THROUGH(nodeId)`, `TAKE_ROAD`, `RING_BELL`, out-of-combat actions. `mapView(state).moves`
+  lists the neighbours with `via` (`enter` or `walk`), `hours` and `passHours` (PASS_THROUGH, null when not legal).
+- A node entered by MOVE plays as on today's map (phase NODE, `state.node = { type, id, cl, stage, k, ... }`). When it
+  is done the player stands on it (phase MAP).
+- Settle step: after every action, once the player is on the map or in the hub with nothing open (no node, fight,
+  service or loot window), hours spent since the last check make the engine check the Dimming: if the player's node is
+  Dimmed, a Dimmed encounter starts (phase NODE, `state.node.type === 'dim'`, `state.fight.kind === 'dim'`). After it
+  (won or fled) the player is back on the map on the same node. Then a ringing Bell completes (next zone).
+- Leaving: `TAKE_ROAD` (on a Road) or the Bell; either goes to the next zone's hub, zone 6's to the Camp.
+
+### 10.2 State fields (expedition)
+| Path | Meaning |
+|---|---|
+| `mapMode` | `'rows'` or `'expedition'` (every state; saves without it are rows) |
+| `exp` | `{ vision: { radius, regions, typeRadius }, bell (charges), pending, bellPending }` (engine bookkeeping; read the Bell from `mapView`) |
+| `zone` | `{ z, mode: 'expedition', nodes[], hub: 0, roads[], shardfall, shardDist[], pos, start (run hours at arrival), seen[], typed[], dimN[], hubStock, path[], questsDone, storyDone }`: the full zone (hidden contents included). Draw the map with `mapView`, never from here |
+| `node` | `{ type, id, cl, stage, k, ... }`; a Dimmed encounter: `{ type: 'dim', id, cl (its level), stage, k, depth }` |
+| `stats.exp` | `{ walks, passes, dimFights, bells, bellExits, roads, maxRing, zones[] }` (the summary's `expedition` block) |
+| `death` | adds `node`, `ring` and `depth` (Dimmed encounters); `row` and `lane` are null |
+
+### 10.3 `mapView(state)` in an expedition run
+```
+{ mode: 'expedition', z, name, hz (zone hours), pos (player's node), hub: 0, roads: [ids], shardfall: id,
+  onRoad (TAKE_ROAD legal here), walkH, travelH, bell: { charges, channelH },
+  vision: { radius (full, capped), regions (Region Charts), typeRadius (Pathfinder) },
+  dim: { graceH, hoursPerHop, front (-1 before the grace ends), nextIn (hours until the front moves) },
+  regions: [{ id, name, kind }]  (the zone's regions in content order; name null without content regions),
+  bands: [[min, max] per ring], edges: [[a, b]], moves: [{ nodeId, via, hours, passHours, dimmed }],
+  nodes: [node] }
+node (every node): { id, ring, angle (degrees), nb (neighbour ids), hops (from the player), hub, road, shardfall,
+  dimmed, dimsIn (hours from now; 0 = Dimmed), dimAt (zone hour it dims), know ('full' | 'type' | 'none'),
+  region (content region index, or null when unknown) }
+know 'full' (the hub, or seen) adds: type, cl, done, lost (Dimmed and unresolved), and the details of the rows view:
+  quest { title, archetypes }, grind { archetypes }, elite { level, archetypes, rare: null, name (null for a rare) },
+  dungeon { name, level, bossLevel, fights, bossArchetype }, treasure { guarded, trap: null, archetypes },
+  vendor { ember: null }
+know 'type' (Pathfinder within its radius; the dungeon with Region Charts) adds: type
+```
+Nothing else of a hidden node is read: qa/engine/s01b checks that a hidden node has only the skeleton keys and that
+`mapView` (and `autoAction`) do not change when hidden contents are replaced.
+
+### 10.4 Summary (expedition)
+`summary(state)` adds `mapMode: 'expedition'` and `expedition = { walks, passes, dimFights, dimZones, bellsRung,
+bellCharges (left), roads, maxRing, zones: [{ z, hours, nodes, walks, passes, dimFights, exit ('road' | 'bell' |
+null) }] }` (the current zone's `hours` are its hours so far). `minutes` adds the walk and pass terms and the Bell
+(rules 1.9.8). `death` as 10.2.

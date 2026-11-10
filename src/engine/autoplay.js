@@ -2,10 +2,12 @@
 // deterministic default policy for every other decision so a headless run can go from CREATE to SUMMARY. The
 // simulator's bots (balance.md 1) replace the out-of-combat part with their own policies; the combat part is the
 // spec's. Autoplay reads only the now-intent, except rule E, which reads turns 1..ENGAGE_AUTO_LOOK of the tracks.
+// Expedition map (rules 1.9.9): the default map policy explores what it can leave cleanly and walks to the cheapest
+// Road around the Dimming; it reads only what the player sees (seen nodes, the skeleton, the Dimming).
 import {
   SPELL, TALENT, CONSUMABLE, AUTO_POTION_HP, AUTO_TONIC_STACKS, AUTO_MANA_POTION, AUTO_FOOD_HP,
   ENGINE_ASSUMPTION as EA, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, MAX_LEVEL, PET, ENGAGE_OPTION, ENGAGE_OPTIONS,
-  ENGAGE_AUTO_LOOK,
+  ENGAGE_AUTO_LOOK, HOURS_WALK, HOURS_DIM_FIGHT, HOURS_REST, HOURS_VENDOR, HOURS_TRAINER, EXPED_HOURS_QUEST,
 } from '../constants.js';
 import { hasSt, findSt, debuffStacks, isEliteOrBoss, petAlive } from './damage.js';
 import { defaultTarget, breaksOnHit } from './combat.js';
@@ -16,7 +18,8 @@ import { itemScore, countConsumable, sellValue, canAdd, V, bagCapacity } from '.
 import { talentPointsFree } from './progress.js';
 import { nextLanes, dungeonLevels } from './map.js';
 import { checkAction } from './actions.js';
-import { canTravel, exitLevel, trainerSpells, learnCost, trainCost, trainable, availablePets } from './nodes.js';
+import { canTravel, exitLevel, trainerSpells, learnCost, trainCost, trainable, availablePets, canEnter } from './nodes.js';
+import { isExpedition, grindMaxWaves, nodeHours, zoneHours, dimmedAt } from './expedition.js';
 
 const legal = (s, a) => !checkAction(s, a);
 
@@ -345,9 +348,11 @@ function trainerUseful(s) {
 function hubPolicy(s, leave) {
   const p = s.player;
   const u = s.hub.used;
-  if (!u.trainer && trainerUseful(s)) return { type: 'SERVICE', service: 'trainer' };
-  if (!u.vendor && (p.bag.some((x) => x.kind !== 'cons') || countConsumable(s, 'healing_draught') < EA.AUTO_POTION_STOCK)) return { type: 'SERVICE', service: 'vendor' };
-  if (!u.inn && p.hp < EA.AUTO_INN_HP * p.d.maxHp) return { type: 'SERVICE', service: 'inn' };
+  // Expedition (rules 1.9.9): a service only when the hub stays out of the Dimming and a clean way to a Road remains.
+  const ok = (h) => s.phase !== 'ZONE_HUB' || !isExpedition(s) || expSafe(s, s.zone.pos, zoneHours(s) + h);
+  if (!u.trainer && trainerUseful(s) && ok(HOURS_TRAINER)) return { type: 'SERVICE', service: 'trainer' };
+  if (!u.vendor && (p.bag.some((x) => x.kind !== 'cons') || countConsumable(s, 'healing_draught') < EA.AUTO_POTION_STOCK) && ok(HOURS_VENDOR)) return { type: 'SERVICE', service: 'vendor' };
+  if (!u.inn && p.hp < EA.AUTO_INN_HP * p.d.maxHp && ok(HOURS_REST)) return { type: 'SERVICE', service: 'inn' };
   return leave;
 }
 
@@ -369,7 +374,124 @@ function nodeScore(s, node) {
   }
 }
 
+// ---------------- Expedition map policy (rules 1.9.9) ----------------
+/**
+ * Cheapest way from node `from` at zone hour hz to a Road: Dijkstra over steps of HOURS_WALK; a step onto a node that
+ * is Dimmed on arrival also costs HOURS_DIM_FIGHT and counts as a Dimmed step. Order: Dimmed steps, hours, lower id.
+ * Returns { road, path (from `from` to the Road), dims, hours }.
+ */
+function escapeRoute(zone, from, hz) {
+  const N = zone.nodes.length;
+  const lab = new Array(N).fill(null);
+  const prev = new Array(N).fill(-1);
+  const done = new Array(N).fill(false);
+  const better = (a, b) => !b || a.dims < b.dims || (a.dims === b.dims && a.h < b.h);
+  lab[from] = { dims: 0, h: 0 };
+  for (;;) {
+    let u = -1;
+    for (let i = 0; i < N; i++) if (!done[i] && lab[i] && (u < 0 || better(lab[i], lab[u]))) u = i;
+    if (u < 0) break;
+    done[u] = true;
+    for (const v of zone.nodes[u].nb) {
+      if (done[v]) continue;
+      let h = lab[u].h + HOURS_WALK;
+      const dim = dimmedAt(zone, v, hz + h);
+      if (dim) h += HOURS_DIM_FIGHT;
+      const c = { dims: lab[u].dims + (dim ? 1 : 0), h };
+      if (better(c, lab[v])) { lab[v] = c; prev[v] = u; }
+    }
+  }
+  let road = null;
+  for (const r of zone.roads) if (road === null || better(lab[r], lab[road]) || (!better(lab[road], lab[r]) && r < road)) road = r;
+  const path = [];
+  for (let x = road; x !== -1; x = prev[x]) path.unshift(x);
+  return { road, path, dims: lab[road].dims, hours: lab[road].h };
+}
+
+/** Node id is out of the Dimming at zone hour hz and a Road can be reached from it without a Dimmed step. */
+function expSafe(s, id, hz) {
+  return !dimmedAt(s.zone, id, hz) && escapeRoute(s.zone, id, hz).dims === 0;
+}
+
+/**
+ * Score of entering seen node id at zone hour hz (the default node score), or null when the policy would not: resolved,
+ * the hub, Dimmed, Dimmed before its content ends, risky, or no clean way to a Road afterwards.
+ */
+function expScore(s, id, hz) {
+  const zone = s.zone;
+  const n = zone.nodes[id];
+  if (!zone.seen[id] || n.done || n.ring === 0 || dimmedAt(zone, id, hz)) return null;
+  const sc = nodeScore(s, n);
+  if (sc <= EA.AUTO_NODE_SCORE.risky) return null;
+  return expSafe(s, id, hz + nodeHours(s, n.type)) ? sc : null;
+}
+
+/** Walk (MOVE) or pass through (PASS_THROUGH) to adjacent node id: an unresolved node in transit is passed. */
+const stepAction = (s, id) => (canEnter(s, id) ? { type: 'PASS_THROUGH', nodeId: id } : { type: 'MOVE', nodeId: id });
+
+/**
+ * First step towards the nearest node worth exploring: BFS over nodes out of the Dimming on arrival; a seen target
+ * must score (expScore), an unseen one must leave a clean way out after a quest's hours. null: nothing left.
+ */
+function exploreStep(s, hz) {
+  const zone = s.zone;
+  const N = zone.nodes.length;
+  const dist = new Array(N).fill(-1);
+  const prev = new Array(N).fill(-1);
+  dist[zone.pos] = 0;
+  const q = [zone.pos];
+  for (let i = 0; i < q.length; i++) {
+    const u = q[i];
+    for (const v of zone.nodes[u].nb) {
+      if (dist[v] >= 0 || dimmedAt(zone, v, hz + (dist[u] + 1) * HOURS_WALK)) continue;
+      dist[v] = dist[u] + 1;
+      prev[v] = u;
+      q.push(v);
+    }
+  }
+  for (const t of q) {
+    if (t === zone.pos) continue;
+    const n = zone.nodes[t];
+    const at = hz + dist[t] * HOURS_WALK;
+    const ok = zone.seen[t] ? expScore(s, t, at) !== null : expSafe(s, t, at + EXPED_HOURS_QUEST);
+    if (!ok || n.done || n.ring === 0) continue;
+    let x = t;
+    while (prev[x] !== zone.pos) x = prev[x];
+    return x;
+  }
+  return null;
+}
+
+/**
+ * Default map policy of an expedition run (rules 1.9.9). Leave when the level reaches the zone's exit level or the
+ * cheapest way to a Road already crosses the Dimming; otherwise enter the best adjacent node that scores, else step
+ * towards the nearest node worth exploring, else leave. Leaving: TAKE_ROAD on the Road; the Bell when the way out
+ * crosses the Dimming and a charge is left; else the next step of the cheapest way.
+ */
+function expMapPolicy(s) {
+  const zone = s.zone;
+  const p = s.player;
+  if (p.hp < EA.AUTO_TOPUP_HP * p.d.maxHp && countConsumable(s, 'trail_rations') > 0) return { type: 'USE_ITEM', itemId: 'trail_rations' };
+  const hz = zoneHours(s);
+  const esc = escapeRoute(zone, zone.pos, hz);
+  if (p.level < exitLevel(zone.z) && esc.dims === 0) {
+    let best = null;
+    let bs = -Infinity;
+    for (const id of zone.nodes[zone.pos].nb) {
+      const sc = expScore(s, id, hz);
+      if (sc !== null && sc > bs) { bs = sc; best = id; }
+    }
+    if (best !== null) return { type: 'MOVE', nodeId: best };
+    const next = exploreStep(s, hz);
+    if (next !== null) return stepAction(s, next);
+  }
+  if (esc.path.length === 1) return { type: 'TAKE_ROAD' };
+  if (esc.dims > 0 && s.exp.bell > 0) return { type: 'RING_BELL' };
+  return stepAction(s, esc.path[1]);
+}
+
 function mapPolicy(s) {
+  if (isExpedition(s)) return expMapPolicy(s);
   const z = s.zone;
   const p = s.player;
   if (p.hp < EA.AUTO_TOPUP_HP * p.d.maxHp && countConsumable(s, 'trail_rations') > 0) return { type: 'USE_ITEM', itemId: 'trail_rations' };
@@ -400,7 +522,7 @@ function rewardPolicy(s) {
 function nodePolicy(s) {
   const n = s.node;
   const p = s.player;
-  if (n.stage === 'grindSetup') return { type: 'GRIND_SET_WAVES', n: EA.AUTO_GRIND_WAVES };
+  if (n.stage === 'grindSetup') return { type: 'GRIND_SET_WAVES', n: Math.min(EA.AUTO_GRIND_WAVES, grindMaxWaves(s)) };
   if (n.stage === 'reward') return rewardPolicy(s);
   if (n.stage === 'between') {
     const hpF = p.hp / p.d.maxHp;
