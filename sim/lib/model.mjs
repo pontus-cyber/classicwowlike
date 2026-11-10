@@ -68,10 +68,8 @@ export function makeCtx(s, risk, opts = {}) {
     if (it.id === 'trail_rations') rations += it.qty;
     if (it.id === 'healing_draught' || it.id === 'greater_healing_draught') potions += it.qty;
   }
-  // Resurrects usable at the end boss (balance.md 1.1, M2 v3): Boon of Return and Embers; Second Breath does not count.
-  let embers = 0;
-  for (const it of p.bag) if (it.kind === 'cons' && it.id === 'ember_of_return') embers += it.qty;
-  const res = p.res.boon + embers;
+  // Resurrects usable at the end boss (balance.md 1.1, M2 v3; engine resurrectCharges): Second Breath does not count.
+  const res = R.resurrectCharges(s).boss.length;
   // Training (no term in balance.md 1.1; SIM.TRAIN_*): a damage spell's gain per trained level, l, is valued like
   // the Power that gives the same gain (l / p Power, ITEM_SCORE.power each), averaged over the bar's damage spells.
   const train = [];

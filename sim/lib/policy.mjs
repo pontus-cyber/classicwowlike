@@ -281,11 +281,11 @@ export function bestRewardIndex(s, set) {
 
 const BOON_ORDER = ['return', 'fury', 'insight', 'mending', 'clarity', 'plenty'];
 /**
- * Resurrect charges usable at the end boss (balance.md 1.1, M2 v3): Boon of Return and Embers of Return. Second
- * Breath (p.res.meta) does not work in the end-boss fight (rules 9), so it does not count.
+ * Resurrect charges usable at the end boss (balance.md 1.1, M2 v3), from the engine: Boon of Return and Embers of
+ * Return; Second Breath does not work in the end-boss fight (rules 9), and the Oath of Frailty allows none.
  */
 export function bossResurrects(s) {
-  return s.player.res.boon + countCons(s, 'ember_of_return');
+  return R.resurrectCharges(s).boss.length;
 }
 export function bestBoonIndex(s, boons) {
   const res = bossResurrects(s);
