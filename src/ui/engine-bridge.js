@@ -18,7 +18,10 @@
 //              equip: { [slot]: item|null }, bag: (item|null)[], spells: [{ id, tl, rank }],
 //              bar: (spellId|null)[7], itemBar: (consumableId|null)[3], talents: { id: rank },
 //              talentPoints, talentSpent: { tree: n }, statuses: [{ id, rounds, stacks, value }],
-//              boons: [{ id, name, nodesLeft }], resurrect: [source], pet: { id, name, hp, maxHp, alive, statuses } | null }
+//              boons: [{ id, name, nodesLeft }], resurrect: [source], resurrectHeld: { boon, meta, ember }, resurrectBoss: [source],
+//              pet: { id, name, hp, maxHp, alive, statuses } | null }
+//              resurrect: what a death would use now, in order ('boon' | 'meta' (Second Breath) | 'ember'; R.resurrectCharges);
+//              resurrectBoss: the same in the end-boss fight; resurrectHeld (engine only): the charges held
 //   zone:    { idx, id, camp, name, hubName, hubText, theme, band, exitLevel, travelLevel, blurb, rows: node[rows][lanes], pos: { row, lane }, path,
 //              questsDone, storyDone }   rows and lanes: as many as the engine's map has (mapView); travelLevel: the level
 //              from which TRAVEL_ON is legal before the last row (rules 1.5, R.travelLevel)
@@ -60,6 +63,8 @@ function rulesTable(K) {
     linkPerShard: per ?? null, linkCap: K.LINK_DR, linkDr, shardAoeTaken: K.SHARD_AOE_TAKEN ?? null,
     // Round time budget at the default animation speed (rules 3, M2 v2); null on an engine without it.
     roundAnimMs: K.PACE_ROUND_ANIM_S != null ? K.PACE_ROUND_ANIM_S * 1000 : null,
+    // Zone danger (rules 7.6, M2 v3): enemies above dangerFrom deal +dangerStep damage per 10 levels; null without it.
+    dangerFrom: K.ZONE_DANGER_FROM ?? null, dangerStep: K.ZONE_DANGER_STEP ?? null,
   };
 }
 
@@ -67,8 +72,9 @@ function rulesTable(K) {
 function mockBackend(seed) {
   let state = mock.createState({ seed });
   const MC = mock.data.constants; // the mock's own simplified numbers
-  // Screen texts use the rules table; the mock's own par replaces the engine's (the mock computes Ascendancy itself).
-  const data = { ...mock.data, rules: { ...rulesTable(R.C), par: MC.BOSS_TIME_PAR, ascStepHours: MC.ASC_STEP } };
+  // Screen texts use the rules table; the mock's own par replaces the engine's (the mock computes Ascendancy itself),
+  // and the mock has no zone danger.
+  const data = { ...mock.data, rules: { ...rulesTable(R.C), par: MC.BOSS_TIME_PAR, ascStepHours: MC.ASC_STEP, dangerFrom: null, dangerStep: null } };
   return {
     mode: 'mock', data, canDebug: true,
     view() {
@@ -90,6 +96,7 @@ function mockBackend(seed) {
 const THEMES = ['farmland', 'wetlands', 'highlands', 'ruins', 'haunted', 'scorched'];
 const PROFILE_KEY = 'tbwcr.profile.v1';
 const RES_LETTER = { energy: 'E', mana: 'M', focus: 'F' };
+const RES_KEY = { boon: 'boon', second_breath: 'meta', ember: 'ember' }; // engine resurrect source -> view source
 const USE_MAP = { any: 'both', both: 'both', out: 'out', combat: 'combat', passive: 'passive' };
 const hash = (str) => { let h = 2166136261 >>> 0; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
@@ -124,7 +131,7 @@ function engineBackend(seedOpt) {
     })),
     spells: Object.fromEntries(Object.values(C.SPELL).map((s) => [s.id, {
       id: s.id, cls: s.cls, name: s.name, lvl: s.lvl, cd: s.cd || 0, tags: s.tags || [], school: s.school, target: s.target, raw: s,
-      cost: s.cost ? [RES_LETTER[C.CLASS[s.cls].resource], s.cost] : null, text: TXT.spellText(s.id, CONTENT),
+      cost: s.cost ? [RES_LETTER[C.CLASS[s.cls].resource], s.cost] : null, text: TXT.spellText(s.id, CONTENT, s),
       fx: { meta: s.source === 'meta', talent: s.source === 'talent' },
     }])),
     talents: Object.fromEntries(Object.values(C.TALENT).map((t) => [t.id, { id: t.id, tree: treeId(t.cls, t.tree), tier: t.tier, name: t.name, ranks: t.ranks, spell: t.spell || null, text: TXT.talentText(t.id, CONTENT) }])),
@@ -169,10 +176,12 @@ function engineBackend(seedOpt) {
     const bag = (p.bag || []).map((it) => item(it, p.classId));
     while (bag.length < R.bagCapacity(s)) bag.push(null);
     const boons = Object.entries(p.buffs || {}).filter(([, b]) => b && b.left > 0).map(([id, b]) => ({ id, name: id === 'elixir' ? 'Elixir of Ferocity' : (C.BOON[id] || {}).name || id, nodesLeft: b.left }));
-    const resurrect = [];
-    for (let i = 0; i < ((p.res && p.res.boon) || 0); i++) resurrect.push('boon');
-    for (let i = 0; i < ((p.res && p.res.meta) || 0); i++) resurrect.push('meta');
-    for (const it of p.bag || []) if (it.kind === 'cons' && it.id === 'ember_of_return') resurrect.push('ember');
+    // Resurrect charges (rules 9, M2 v3) from the engine: `resurrect` = what a death would use now, in order (in the
+    // end-boss fight without Second Breath); `resurrectHeld` = the charges held; `resurrectBoss` = what works at the boss.
+    const rc = R.resurrectCharges(s);
+    const resurrect = rc.now.map((x) => RES_KEY[x] || x);
+    const resurrectHeld = { boon: rc.boon, meta: rc.secondBreath, ember: rc.ember };
+    const resurrectBoss = rc.boss.map((x) => RES_KEY[x] || x);
     return {
       name: p.name, classId: p.classId, className: cls.name, petId: p.pet ? p.pet.id : null,
       level: p.level, xp: p.xp, xpToNext: R.xpToNext(p.level), rested: p.rested || 0, hp: p.hp, maxHp: d.maxHp,
@@ -181,7 +190,7 @@ function engineBackend(seedOpt) {
       gold: p.gold, equip: Object.fromEntries(Object.entries(p.equipped).map(([k, it]) => [k, item(it, p.classId)])), bag,
       spells: (p.spellOrder || Object.keys(p.spells)).map((id) => ({ id, tl: p.spells[id].tl, rank: p.spells[id].rank })),
       bar: [...p.bar], itemBar: [...p.itemBar], talents: { ...p.talents }, talentPoints: R.talentPointsFree(s), talentSpent: spent,
-      statuses: f ? statuses(f.p.st) : [], boons, resurrect,
+      statuses: f ? statuses(f.p.st) : [], boons, resurrect, resurrectHeld, resurrectBoss,
       pet: p.pet ? { id: p.pet.id, name: C.PET[p.pet.id].name, hp: p.pet.hp, maxHp: d.petMaxHp, alive: p.pet.alive, statuses: f && f.pet ? statuses(f.pet.st) : [] } : null,
     };
   }
@@ -200,7 +209,7 @@ function engineBackend(seedOpt) {
       const out = { row: n.r, lane: n.l, type: n.type, cl: n.cl, visited: !!n.done, title: n.title, level: n.level };
       if (n.archetypes) out.enemyNames = n.archetypes.map(TXT.humanize); // one entry per enemy (grind: the first wave)
       if (n.type === 'elite') { out.eliteName = n.name || null; out.rare = n.rare; }
-      if (n.type === 'dungeon') { out.dungeon = n.name; out.bossName = zc && CONTENT.enemies[zc.dungeon.boss] ? CONTENT.enemies[zc.dungeon.boss].name : ''; }
+      if (n.type === 'dungeon') { out.dungeon = n.name; out.bossLevel = n.bossLevel; out.bossName = zc && CONTENT.enemies[zc.dungeon.boss] ? CONTENT.enemies[zc.dungeon.boss].name : ''; }
       if (n.type === 'quest' && n.title) { const q = Object.values(CONTENT.quests).find((x) => x.title === n.title); if (q) out.giver = q.giver; }
       return out;
     })) : [];
@@ -654,7 +663,9 @@ function engineBackend(seedOpt) {
       const lines = [];
       const school = (x) => ({ phys: 'physical' }[x] || x || '');
       const a = info && info.amount;
-      if (a && a.kind === 'damage') lines.push(`${sp.tags && sp.tags.includes('aoe') ? 'Hits every enemy for' : 'Deals'} about ${a.amount} ${school(a.school)} damage${a.perCp ? ' per combo point' : ''}${a.hits > 1 ? `, ${a.hits} times` : ''}.`);
+      // Ricochet Bolt (M2 v3): the target takes `amount`, up to `bounces` other enemies `bounceAmount` (spellInfo)
+      if (a && a.kind === 'damage' && a.bounces) lines.push(`Deals about ${a.amount} ${school(a.school)} damage to the target, then about ${a.bounceAmount} to up to ${TXT.numWord(a.bounces)} other ${TXT.plural(a.bounces, 'enemy', 'enemies')}.`);
+      else if (a && a.kind === 'damage') lines.push(`${sp.target === 'all' ? 'Hits every enemy for' : 'Deals'} about ${a.amount} ${school(a.school)} damage${a.perCp ? ' per combo point' : ''}${a.hits > 1 ? `, ${a.hits} times` : ''}.`);
       if (a && a.kind === 'dot') lines.push(`About ${a.perTick} ${school(a.school)} damage per round for ${a.rounds} rounds.`);
       if (a && a.kind === 'ward') lines.push(`Absorbs about ${a.amount} damage for ${a.rounds} rounds.`);
       if (a && a.kind === 'heal') lines.push(`Heals about ${a.amount}.`);

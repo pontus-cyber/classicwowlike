@@ -5,7 +5,7 @@ import { spellIcon, itemIcon, nodeIcon, icon, consumableIcon } from './art-icons
 import { drawPortrait, HERO_LOOKS, PET_LOOKS } from './art-actors.js';
 import { tip, itemTip, spellTip } from './tooltip.js';
 import { conColor, heroPortrait, travelState } from './hud.js';
-import { numWord, plural } from './ui-text.js';
+import { numWord, plural, dangerAt, pct1 } from './ui-text.js';
 
 const NODE_NAME = { quest: 'Quest', grind: 'Grind', elite: 'Elite', dungeon: 'Dungeon', rest: 'Rest', vendor: 'Vendor', trainer: 'Trainer', treasure: 'Treasure', shrine: 'Shrine' };
 const NO_FIGHT = new Set(['rest', 'vendor', 'trainer', 'shrine']); // nodes that hold no fight: labels in a neutral colour
@@ -255,6 +255,22 @@ function flagSvg() {
 }
 function closeBtn(ctx, win) { const b = h('button.xbtn', '×'); b.addEventListener('click', () => ctx.ui.closeWin(win)); return b; }
 
+/**
+ * Zone danger of a fight node (rules 7.6, M2 v3), or null: the extra damage of its enemies, from the rules table.
+ * Enemy levels as the engine builds the fights: quest and grind enemies at the node's level; an elite at its own
+ * level and its escort (a second enemy) at the node's; dungeon trash at its level and the dungeon boss at its own.
+ * With more than one level the line says "up to" the highest.
+ */
+function nodeDanger(n, r) {
+  const levels = n.type === 'quest' || n.type === 'grind' ? [n.cl]
+    : n.type === 'elite' ? [n.level ?? n.cl, ...(n.enemyNames && n.enemyNames.length > 1 ? [n.cl] : [])]
+      : n.type === 'dungeon' ? [n.level ?? n.cl, n.bossLevel ?? n.cl] : null;
+  if (!levels) return null;
+  const lo = dangerAt(r, Math.min(...levels)); const hi = dangerAt(r, Math.max(...levels));
+  if (!(hi > 0)) return null;
+  return `Zone danger: enemies here deal ${hi > lo ? 'up to ' : ''}+${pct1(hi)} damage (above level ${r.dangerFrom}).`;
+}
+
 function nodeTip(n, v, ctx, reach) {
   const p = v.player;
   const box = h('div.tt-node');
@@ -267,6 +283,8 @@ function nodeTip(n, v, ctx, reach) {
     box.appendChild(h('div.tt-line.foes', `${n.type === 'grind' ? 'Wave 1: ' : 'Foes: '}${k} ${k === 1 ? 'enemy' : 'enemies'} (${nameGroups(n.enemyNames)})`));
   }
   box.appendChild(h('div.tt-line.desc', nodeDesc(n.type, ctx.data.rules)));
+  const danger = nodeDanger(n, ctx.data.rules);
+  if (danger) box.appendChild(h('div.tt-warn.danger', danger));
   const hrs = ctx.data.nodeHours ? ctx.data.nodeHours[n.type] : null;
   if (hrs != null) box.appendChild(h('div.tt-sub', n.type === 'grind' ? `Takes ${hrs} h per wave` : `Takes ${hrs} h`));
   if (n.visited) box.appendChild(h('div.tt-hint', 'Visited'));

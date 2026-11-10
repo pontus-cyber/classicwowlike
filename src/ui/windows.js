@@ -6,6 +6,7 @@ import { tip, itemTip, spellTip, talentTip, SLOT_NAMES } from './tooltip.js';
 import { dragSource, dropTarget } from './hud.js';
 import { buildMap } from './screens.js';
 import { settings } from './settings.js';
+import { resurrectText } from './ui-text.js';
 
 const TREE_BG = {
   bladework: ['#3a3f4a', '#14161c'], shadowcraft: ['#2e2440', '#0e0a16'], venomcraft: ['#24361a', '#0a1208'],
@@ -46,11 +47,14 @@ export function createWindows(root, ctx) {
       const s = p.stats;
       const stat = (k, val) => h('div', h('span', k), h('b', val));
       const resName = { energy: 'Energy', mana: 'Mana', focus: 'Focus' }[p.res.kind];
+      // resurrect charges (rules 9, M2 v3): what a death would use now; Second Breath not in the final fight
+      const rt = resurrectText(p, !!(v.combat && v.combat.isBoss && !v.combat.over));
       const body = h('div', h('div.paperdoll', h('div.colslots', ['head', 'neck', 'chest', 'hands', 'legs'].map(slotEl)), model, h('div.colslots', ['feet', 'ring', 'trinket', 'weapon', 'offhand'].map(slotEl))),
         h('div.statgrid', stat('Health', `${fmtNum(p.hp)} / ${fmtNum(p.maxHp)}`), stat(resName, `${fmtNum(p.res.cur)} / ${fmtNum(p.res.max)}`),
           stat('Stamina', fmtNum(s.sta)), stat('Agility', fmtNum(s.agi)), stat('Intellect', fmtNum(s.int)), stat('Spirit', fmtNum(s.spi)),
           stat('Power', fmtNum(s.power)), stat('Critical strike', pct(s.crit, 1)), stat('Dodge', pct(s.dodge, 1)), stat('Armor', fmtNum(s.armor)),
-          stat('Weapon damage', fmtNum(s.wd || 0)), stat('Crit damage', `× ${(s.critMult || 1.5).toFixed(2)}`)));
+          stat('Weapon damage', fmtNum(s.wd || 0)), stat('Crit damage', `× ${(s.critMult || 1.5).toFixed(2)}`),
+          h('div.wide.resline', h('span', 'Resurrections'), h('b', rt.list)), rt.note ? h('div.wide.resnote', rt.note) : null));
       return frame('character', `${p.name}`, `Level ${p.level} ${p.className}`, body);
     },
     bags(v) {

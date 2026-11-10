@@ -42,7 +42,7 @@ export class App {
         if (!ui.fleeArmed) { ui.fleeArmed = true; app.skipPlay(); app.queueRender(); app.toast('Press Flee again to run', 'info'); clearTimeout(app.fleeT); app.fleeT = setTimeout(() => { ui.fleeArmed = false; app.queueRender(); }, 2200); return; }
         ui.fleeArmed = false; app.combatAct(() => ({ type: 'FLEE' }));
       },
-      showDeath: (on) => app.showDeath(on),
+      showDeath: (on, text) => app.showDeath(on, text),
     };
     this.ui = ui;
     this.ctx = {
@@ -282,7 +282,10 @@ export class App {
     while (this.toasts.children.length > 4) this.toasts.firstChild.remove();
     setTimeout(() => t.remove(), 2700);
   }
-  showDeath(on) { this.deathEl.classList.toggle('hidden', !on); }
+  showDeath(on, text) {
+    if (on) this.deathEl.querySelector('.d2').textContent = text || 'No resurrection remains. Your journey ends here.';
+    this.deathEl.classList.toggle('hidden', !on);
+  }
 
   // ------------------------------------------------------------------ input
   bindInput() {

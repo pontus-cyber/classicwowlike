@@ -7,7 +7,7 @@ import { drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook } from './art
 import { THEMES } from './art-world.js';
 import { tip, spellTip, basicTip, itemTip, statusTip } from './tooltip.js';
 import { settings } from './settings.js';
-import { linkedText } from './ui-text.js';
+import { linkedText, resurrectText, dangerAt, dangerRule } from './ui-text.js';
 
 const RES_NAME = { energy: 'Energy', mana: 'Mana', focus: 'Focus' };
 export function conColor(cl, level) {
@@ -88,9 +88,11 @@ function enemyPortrait(e, theme) {
 export function createHud(root, ctx) {
   const els = {};
   // ------------------------------------------------------------ player frame
+  // resurrect charges (rules 9, M2 v3): what a death would use now; in the end-boss fight without Second Breath
+  els.resc = h('div.resc.hidden', { 'aria-label': 'Resurrect charges' }, h('img', { src: icon('ember', 'heal'), alt: '' }), h('span.n'));
   els.player = h('div#player-frame.uf',
     h('div.portrait'), h('div.lvl', { style: { left: '5.4rem', top: '5.4rem' } }),
-    h('div.plate', h('div.name', h('span.pn'), h('span.cls')), bar('hp'), bar('res mana'), h('div.cp.hidden', Array.from({ length: ctx.data.rules.cpMax }, () => h('i'))), h('div.statuses')));
+    h('div.plate', h('div.name', h('span.pn'), h('span.cls')), bar('hp'), bar('res mana'), h('div.cp.hidden', Array.from({ length: ctx.data.rules.cpMax }, () => h('i'))), h('div.strow', h('div.statuses'), els.resc)));
   els.pet = h('div#pet-frame.uf.hidden', h('div.portrait'), h('div.plate', h('div.name', h('span.pn'), h('span.cls', 'Pet')), bar('hp'), h('div.statuses')));
   els.target = h('div#target-frame.uf.hidden', h('div.portrait'), h('div.lvl', { style: { left: '5.4rem', top: '5.4rem' } }),
     h('div.plate', h('div.name', h('span.pn'), h('span.tag')), bar('hp enemy'), h('div.statuses'), h('div.intent')));
@@ -170,8 +172,11 @@ export function createHud(root, ctx) {
   els.minimap.querySelector('.disc').addEventListener('click', () => ctx.ui.toggleWin('map'));
   tip(els.minimap.querySelector('.disc'), () => {
     const v = ctx.view; if (!v.zone) return null; const R = ctx.data.rules;
-    return h('div', h('div.tt-name', v.zone.name), h('div.tt-sub', `Levels ${v.zone.band[0]}–${v.zone.band[1]}`), h('div.tt-line', `In-game time: ${v.hours} h`), h('div.tt-line.desc', `The boss grows stronger for every ${R.ascStepHours} h past ${R.par} h (Ascendancy).`), h('div.tt-hint', 'Click or press M for the zone map'));
+    const danger = dangerAt(R, v.zone.band[1]) > 0 ? dangerRule(R) : null; // zone danger (rules 7.6, M2 v3)
+    return h('div', h('div.tt-name', v.zone.name), h('div.tt-sub', `Levels ${v.zone.band[0]}–${v.zone.band[1]}`), h('div.tt-line', `In-game time: ${v.hours} h`), h('div.tt-line.desc', `The boss grows stronger for every ${R.ascStepHours} h past ${R.par} h (Ascendancy).`),
+      danger ? h('div.tt-warn.danger', danger) : null, h('div.tt-hint', 'Click or press M for the zone map'));
   });
+  tip(els.resc, () => { const v = ctx.view; return v.player ? resurrectTip(v) : null; });
   tip(els.xp, () => {
     const p = ctx.view.player; if (!p) return null;
     return h('div', h('div.tt-name', `Level ${p.level}`), h('div.tt-line', `${fmtNum(p.xp)} / ${fmtNum(p.xpToNext)} experience`), p.rested ? h('div.tt-line', { style: { color: '#9fb8ff' } }, `Rested: ${fmtNum(p.rested)} (kills give double XP)`) : h('div.tt-sub', 'Not rested. Rest at an inn or campfire.'));
@@ -204,6 +209,11 @@ export function createHud(root, ctx) {
     cp.classList.toggle('hidden', p.classId !== 'rogue');
     [...cp.children].forEach((c, i) => c.classList.toggle('on', i < (p.cp || 0)));
     statusRow(pf.querySelector('.statuses'), p.statuses, ctx);
+    // resurrect badge: the charges that work now; dimmed at 0 when a Second Breath is held in the final fight
+    const rt = resurrectText(p, !!(v.combat && v.combat.isBoss && !v.combat.over));
+    els.resc.classList.toggle('hidden', !rt.count && !rt.note);
+    els.resc.classList.toggle('none', !rt.count);
+    els.resc.querySelector('.n').textContent = String(rt.count);
     // pet
     if (p.pet && v.phase !== 'SUMMARY') {
       els.pet.classList.remove('hidden');
@@ -441,6 +451,13 @@ export function createHud(root, ctx) {
   if (!settings.get('showLog')) els.log.style.display = 'none';
 
   return { update, placeNameplates, log, clearLog, els, flashSlot(i) { const b = els.spells[i] || els.items[i - 7]; if (b) { b.classList.add('pressed'); setTimeout(() => b.classList.remove('pressed'), 120); } } };
+}
+
+/** Tooltip of the resurrect badge (rules 9, M2 v3). */
+export function resurrectTip(v) {
+  const rt = resurrectText(v.player, !!(v.combat && v.combat.isBoss && !v.combat.over));
+  return h('div', h('div.tt-name', 'Resurrect charges'), h('div.tt-line', rt.list), rt.note ? h('div.tt-warn', rt.note) : null,
+    h('div.tt-sub', 'When you die, the first charge returns you to the fight at once.'));
 }
 
 function intentTip(e, ctx) {

@@ -2,7 +2,7 @@
 // Every wait goes through a skip token: Space / click / any action key / instant speed finishes at once.
 import { wait, SkipToken, fmtNum, deepClone } from './util.js';
 import { settings } from './settings.js';
-import { linkedText } from './ui-text.js';
+import { linkedText, dangerBanner } from './ui-text.js';
 
 const SCHOOL_PROJ = { fire: 'fire', frost: 'frost', arcane: 'arcane', shadow: 'shadow', nature: 'nature' };
 const ref = (r) => (r.side === 'player' ? 'player' : r.side === 'pet' ? 'pet' : r.side === 'enemy' ? `enemy:${r.idx}` : null);
@@ -57,6 +57,18 @@ export function planMs(events, cls) {
 /** A step that plays a combat round: a fight was on before it and the engine resolved a round or an action. */
 const isRound = (prev, events) => !!(prev && prev.combat && !prev.combat.over && events.some((e) => e.t === 'round' || e.t === 'action'));
 
+/** Zone banner sub-line: the level band, and the zone danger line where enemies above ZONE_DANGER_FROM live (M2 v3). */
+function zoneLine(z, rules) {
+  const d = dangerBanner(rules, z.band);
+  return `Levels ${z.band[0]}–${z.band[1]}${d ? ` · ${d}` : ''}`;
+}
+/** The death screen's second line: a Second Breath held at a death in the end-boss fight stays unused (rules 9, M2 v3). */
+function deathLine(next) {
+  const held = next.player && next.player.resurrectHeld ? next.player.resurrectHeld.meta : 0;
+  const atBoss = next.summary && next.summary.death && next.summary.death.node === 'boss';
+  return atBoss && held > 0 ? 'Second Breath does not work in the final fight. Your journey ends here.' : 'No resurrection remains. Your journey ends here.';
+}
+
 /** View shown while events play: next view, with unit values rolled back to the previous view. */
 export function makeInterim(prev, next) {
   if (!prev || !next) return next;
@@ -68,6 +80,8 @@ export function makeInterim(prev, next) {
   if (prev.player && v.player) {
     const pp = prev.player;
     Object.assign(v.player, { hp: pp.hp, maxHp: pp.maxHp, cp: pp.cp, statuses: deepClone(pp.statuses), level: pp.level, xp: pp.xp, xpToNext: pp.xpToNext, rested: pp.rested, gold: pp.gold });
+    // resurrect charges change when the 'resurrect' event plays
+    if (pp.resurrect) Object.assign(v.player, { resurrect: deepClone(pp.resurrect), resurrectHeld: deepClone(pp.resurrectHeld), resurrectBoss: deepClone(pp.resurrectBoss) });
     v.player.res = { ...v.player.res, cur: pp.res.cur, max: pp.res.max };
     if (pp.pet && v.player.pet) Object.assign(v.player.pet, { hp: pp.pet.hp, maxHp: pp.pet.maxHp, alive: pp.pet.alive, statuses: deepClone(pp.pet.statuses) });
   }
@@ -134,7 +148,7 @@ export class Director {
         ctx.syncScene(next, { instant: true });
         Object.assign(shown, next); push();
         hud.clearLog();
-        ctx.ui.banner(next.zone.name, `Levels ${next.zone.band[0]}–${next.zone.band[1]}`, 'zone', 2400);
+        ctx.ui.banner(next.zone.name, zoneLine(next.zone, ctx.data.rules), 'zone', 2400);
         hud.log(`Welcome to ${next.zone.name}. Visit the trainer, then set out.`, 'lg-sys');
       }
       if (t === 'CHOOSE_NODE' && next.phase === 'NODE') await this.travel(prev, next, token);
@@ -240,7 +254,9 @@ export class Director {
             if (e.dst.side === 'player') await WM(M.playerDeath); else await W(T.death);
             break;
           }
-          case 'resurrect': scene.revive('player'); scene.aura('player', '#ffd36a', 1.4); scene.levelUp('player'); p().hp = e.hpAfter; push(); ctx.ui.banner('Resurrected', `${e.source} returns you to the fight`, 'phase', 1800); hud.log(`${e.source} flares: you return to the fight!`, 'lg-loot'); await WM(M.resurrect); break;
+          case 'resurrect': scene.revive('player'); scene.aura('player', '#ffd36a', 1.4); scene.levelUp('player'); p().hp = e.hpAfter;
+            if (next.player) Object.assign(p(), { resurrect: deepClone(next.player.resurrect), resurrectHeld: deepClone(next.player.resurrectHeld), resurrectBoss: deepClone(next.player.resurrectBoss) });
+            push(); ctx.ui.banner('Resurrected', `${e.source} returns you to the fight`, 'phase', 1800); hud.log(`${e.source} flares: you return to the fight!`, 'lg-loot'); await WM(M.resurrect); break;
           case 'round': {
             if (!shown.combat) break;
             shown.combat.round = e.round;
@@ -294,7 +310,7 @@ export class Director {
           default: break;
         }
       }
-      if (next.phase === 'SUMMARY' && prev.phase !== 'SUMMARY' && next.summary && next.summary.outcome === 'death') await this.deathScreen(token);
+      if (next.phase === 'SUMMARY' && prev.phase !== 'SUMMARY' && next.summary && next.summary.outcome === 'death') await this.deathScreen(token, deathLine(next));
       if (next.phase === 'SUMMARY' && next.summary && next.summary.outcome === 'victory' && prev.phase !== 'SUMMARY') { ctx.ui.banner('Victory', 'Oruvath, the Unlit Star, is no more.', 'boss', 3000); await WM(2200); }
     } finally {
       ctx.ui.overlay = false;
@@ -342,7 +358,7 @@ export class Director {
       scene.targetSpeed = 0;
     } else ctx.syncScene(next, { instant: true });
     const z = next.zone;
-    ctx.ui.banner(z.name, z.camp || z.idx > ctx.data.rules.zoneCount ? 'The last camp before the Sunken Observatory' : `Levels ${z.band[0]}–${z.band[1]}`, 'zone', 2600);
+    ctx.ui.banner(z.name, z.camp || z.idx > ctx.data.rules.zoneCount ? 'The last camp before the Sunken Observatory' : zoneLine(z, ctx.data.rules), 'zone', 2600);
     ctx.hud.log(`You arrive in ${z.name}.`, 'lg-sys');
     await wait(settings.dur(900), token);
   }
@@ -358,10 +374,10 @@ export class Director {
     scene.targetDim = 0;
   }
 
-  async deathScreen(token) {
+  async deathScreen(token, text) {
     const ctx = this.ctx;
     ctx.scene.desat = 1;
-    ctx.ui.showDeath(true);
+    ctx.ui.showDeath(true, text);
     await wait(settings.dur(2600) || 400, token);
     ctx.ui.showDeath(false);
     ctx.scene.desat = 0;
