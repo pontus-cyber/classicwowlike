@@ -6,7 +6,7 @@ Updated by the Lead at the end of every session. One page; older detail goes in 
 M2, doing. M1 done 2026-11-09: first playable build (2cb7bf2) with autoplay fixed; first balance report 38/71 checks pass.
 
 ## Next tasks
-1. M2 2.3 round 2: balance-2026-11-09b.md shows 41/69 checks pass; planner P0 33/32/27 % (R/M/H). Done (e1d6fa0, docs/specs/changes-m2-v3.md, 23 rows): Lead Game Designer design pass v3 on the five misses in that report (zone 3-6 danger, meta power budget, Echo income, boss HP vs Ascendancy, tactician Shard rule) plus the P2 levers (enrage 55, pet power, Thornback); Next (2026-11-10 08:47): Core Gameplay Engineer implements changes-m2-v3.md; Sim Engineer updates bots (hour weight x2, Rogue Shard rule) and re-measures, and finds why removing Satchel lifts Rogue PALL to 85 %; then QA playtest pass (2.4).
+1. M2 2.3 round 2: balance-2026-11-09b.md shows 41/69 checks pass; planner P0 33/32/27 % (R/M/H). Done (e1d6fa0, docs/specs/changes-m2-v3.md, 23 rows): Lead Game Designer design pass v3 on the five misses in that report (zone 3-6 danger, meta power budget, Echo income, boss HP vs Ascendancy, tactician Shard rule) plus the P2 levers (enrage 55, pet power, Thornback); Engine M2 v3 done (0d663d1, 178/56 tests pass). In progress 2026-11-10 from 04:56: Sim Engineer updates bots (hour weight x2, Rogue Shard rule) and re-measures, and finds why removing Satchel lifts Rogue PALL to 85 %; then QA playtest pass (2.4).
 2. Later: Echoes spending screen (M3).
 
 ## Waiting on the owner
@@ -27,3 +27,4 @@ game.html at 48ce9c0 (M2 v2). Sent to the owner 2026-11-09 21:33. 43/43 UI regre
 | 7 | 2026-11-09 21:00-21:47 | Engine and UI M2 v2 reviewed, tests 169/56/31 pass, build sent | none new | engine 602k, UI 476k |
 | 8 | 2026-11-09 22:3x | Balance re-measure reviewed (41/69); v3 design pass queued for 2026-11-10 | none new | sim total about 1.4M |
 | 9 | 2026-11-09 22:47 | Resume v3 design pass after server restart; last session of the day | Designer (Opus/high) | pending |
+| 10 | 2026-11-10 04:56 | Owner restart; engine M2 v3 done; sim re-measure and UI text fixes running | Core Gameplay Eng (Opus/max, 369k), Sim Eng (Opus/max), UI/UX Eng (Opus/max) | pending |
