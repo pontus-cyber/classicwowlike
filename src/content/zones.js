@@ -2,6 +2,32 @@
 export const ZONES = [
  {
   "id": "z1",
+  "regions": [
+   {
+    "id": "z1_wilds",
+    "name": "Barleyreach Verge",
+    "kind": "wilds",
+    "families": ["wild"]
+   },
+   {
+    "id": "z1_road",
+    "name": "Carter's Furrow Road",
+    "kind": "road",
+    "families": ["outlaw"]
+   },
+   {
+    "id": "z1_haunt",
+    "name": "Boundary Stone Hollow",
+    "kind": "haunt",
+    "families": ["blight"]
+   },
+   {
+    "id": "z1_steads",
+    "name": "Millbrook Steadings",
+    "kind": "steads",
+    "families": ["wild","outlaw"]
+   }
+  ],
   "name": "Amberfold Downs",
   "theme": "Farmland giving way to the forest edge, where old boundary stones keep failing.",
   "hubName": "Millbrook Rest",
@@ -65,6 +91,32 @@ export const ZONES = [
  },
  {
   "id": "z2",
+  "regions": [
+   {
+    "id": "z2_wilds",
+    "name": "Sedge Flats",
+    "kind": "wilds",
+    "families": ["fenbeast"]
+   },
+   {
+    "id": "z2_road",
+    "name": "Rotplank Causeway",
+    "kind": "road",
+    "families": ["reedfolk"]
+   },
+   {
+    "id": "z2_haunt",
+    "name": "Gloamwater Hollow",
+    "kind": "haunt",
+    "families": ["witchkin"]
+   },
+   {
+    "id": "z2_steads",
+    "name": "Stiltrow Hamlets",
+    "kind": "steads",
+    "families": ["reedfolk","fenbeast"]
+   }
+  ],
   "name": "Greywater Fens",
   "theme": "Drowned wetlands of reed, mist and rotting causeways.",
   "hubName": "Stilt Haven",
@@ -128,6 +180,32 @@ export const ZONES = [
  },
  {
   "id": "z3",
+  "regions": [
+   {
+    "id": "z3_wilds",
+    "name": "Ramsback Heath",
+    "kind": "wilds",
+    "families": ["crag"]
+   },
+   {
+    "id": "z3_road",
+    "name": "Reivers' Drovepath",
+    "kind": "road",
+    "families": ["reiver"]
+   },
+   {
+    "id": "z3_haunt",
+    "name": "Standing Stone Hollow",
+    "kind": "haunt",
+    "families": ["stormward"]
+   },
+   {
+    "id": "z3_steads",
+    "name": "Windbarrow Steadings",
+    "kind": "steads",
+    "families": ["reiver","crag"]
+   }
+  ],
   "name": "Highcairn Reach",
   "theme": "Windswept highlands of stone cairns, heather and fortified steadings.",
   "hubName": "Windbarrow Hold",
@@ -193,6 +271,32 @@ export const ZONES = [
  },
  {
   "id": "z4",
+  "regions": [
+   {
+    "id": "z4_wilds",
+    "name": "Jackal Dunes",
+    "kind": "wilds",
+    "families": ["dune"]
+   },
+   {
+    "id": "z4_road",
+    "name": "Saltglass Caravan Way",
+    "kind": "road",
+    "families": ["dune","tomb"]
+   },
+   {
+    "id": "z4_haunt",
+    "name": "Sepulchre Terraces",
+    "kind": "haunt",
+    "families": ["tomb","sunbound"]
+   },
+   {
+    "id": "z4_steads",
+    "name": "Cistern Gardens",
+    "kind": "steads",
+    "families": ["sunbound"]
+   }
+  ],
   "name": "Sunscoured Wastes",
   "theme": "Dry ruins of a fallen empire half-buried in wind-cut sand.",
   "hubName": "Cisternhold",
@@ -258,6 +362,32 @@ export const ZONES = [
  },
  {
   "id": "z5",
+  "regions": [
+   {
+    "id": "z5_wilds",
+    "name": "Rootwood Thicket",
+    "kind": "wilds",
+    "families": ["rootkin"]
+   },
+   {
+    "id": "z5_road",
+    "name": "Pilgrim's Gravelane",
+    "kind": "road",
+    "families": ["grave"]
+   },
+   {
+    "id": "z5_haunt",
+    "name": "Veilfall Glade",
+    "kind": "haunt",
+    "families": ["veil","grave"]
+   },
+   {
+    "id": "z5_steads",
+    "name": "Lanternfall Cottages",
+    "kind": "steads",
+    "families": ["veil","rootkin"]
+   }
+  ],
   "name": "Mournwood",
   "theme": "A haunted forest of pale trees, drifting fog and restless spirits.",
   "hubName": "Lanternfall",
@@ -323,6 +453,32 @@ export const ZONES = [
  },
  {
   "id": "z6",
+  "regions": [
+   {
+    "id": "z6_wilds",
+    "name": "Cinderscree Slopes",
+    "kind": "wilds",
+    "families": ["cinder"]
+   },
+   {
+    "id": "z6_road",
+    "name": "Ashmarch Switchback",
+    "kind": "road",
+    "families": ["cinder","forgeborn"]
+   },
+   {
+    "id": "z6_haunt",
+    "name": "Pyrecult Terraces",
+    "kind": "haunt",
+    "families": ["pyrecult"]
+   },
+   {
+    "id": "z6_steads",
+    "name": "Emberwatch Foundries",
+    "kind": "steads",
+    "families": ["forgeborn","pyrecult"]
+   }
+  ],
   "name": "Cindercrown Peaks",
   "theme": "Scorched volcanic mountains of ash, lava seams and ruined forts.",
   "hubName": "Emberwatch",

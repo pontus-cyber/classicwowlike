@@ -48,6 +48,7 @@ export const CONTENT = {
 | `rares` | id[] | 1-2 ids with `kind: 'rare'` |
 | `dungeon` | object | `{ name, text, trash: id[] (3-5, kind 'trash'), boss: id (kind 'dboss') }`; name <= 28, text <= 140 |
 | `addPool` | id[] | optional, non-empty subset of `normals`: the templates a Signal reinforcement or a template summon draws from (combat-v2 4.2). Default: all `normals`. Prefer brute, skulker and beast templates (fighters, not support) |
+| `regions` | object[] | optional, exactly 4 (REGION_COUNT): `{ id, name (<= 28), kind ('wilds' \| 'road' \| 'haunt' \| 'steads'), families: string[] }`. Kind sets the node mix (rules 1.9.2); `families` are the family tags (2.3) the region draws REGION_FAMILY_SHARE of its encounter mobs from. Expedition maps only. Use one region of each kind per zone |
 | `quests` | id[] | 8-12 QuestTemplate ids |
 | `shrineLines` | string[] | >= 2, each <= 100 chars (shown on Shrine nodes) |
 | `treasureLines` | string[] | >= 2, each <= 100 chars (shown on Treasure nodes) |
@@ -98,6 +99,7 @@ the two template multipliers below.
 | `hpMult` | number | 0.85-1.20 |
 | `dmgMult` | number | 0.85-1.20, and `hpMult × dmgMult` in 0.90-1.15 |
 | `abilities` | id[] | Ability ids. normal and trash: `[]`; elite: exactly 1; rare: exactly 2; dboss: exactly 2 |
+| `family` | string | optional tag (<= 28 chars, lowercase word) on normal, elite and rare templates (expedition regions and contracts). Every family used in a zone needs 2+ normal templates of different archetypes there, and not only guardian plus mender (rules 7.14) |
 | `text` | string | <= 140 chars |
 
 ```js
