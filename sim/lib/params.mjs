@@ -223,4 +223,15 @@ Object.assign(SIM, {
   /** Opener: a fight is played by autoplay while it is routine (one normal enemy, no heavy or cast in sight) and HP
    *  is at least this fraction. */
   OPENER_GATE_HP: 0.7,
+  /** Opener: 1 = potion heals credit their amount (combat-v2.md 11); 0 = as the tactician (no credit). */
+  OPENER_POTION_CREDIT: 1,
+  /** Opener: the plan is followed only when its mean score beats autoplay's (played on the same OPENER_SAMPLES
+   *  samples to the same horizon) by more than OPENER_MARGIN × max HP; else autoplay plays until the next surprise.
+   *  OPENER_ANCHOR 0 switches the comparison off. */
+  OPENER_ANCHOR: 1,
+  OPENER_MARGIN: 0.06,
 });
+
+// Tuning hook for scratch experiments only: SIM_OVERRIDE='{"KEY":value}' changes SIM numbers in every thread. The
+// batch summaries record it (sim/lib/session.mjs); a report must be made without it.
+if (typeof process !== 'undefined' && process.env && process.env.SIM_OVERRIDE) Object.assign(SIM, JSON.parse(process.env.SIM_OVERRIDE));

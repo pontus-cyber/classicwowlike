@@ -51,7 +51,7 @@ export async function runBatch(opts) {
   const meta = {
     name, commit, date, runs: opts.runs, seedStart: opts.seedStart, workers: opts.workers || 1, wallMs, totalRuns: total,
     warmupNote: notes.join('; '), bot: opts.bot, prof: opts.prof, trees: opts.trees, style: opts.style || 'balanced', variant: opts.variant || null, pet: opts.pet || null,
-    replay: !!opts.replay,
+    replay: !!opts.replay, simOverride: process.env.SIM_OVERRIDE || null,
   };
   if (dir) {
     writeJson(join(dir, 'summary.json'), { meta, classes: Object.fromEntries(Object.entries(perClass).map(([c, x]) => [c, { tree: x.tree, metrics: x.metrics }])) });

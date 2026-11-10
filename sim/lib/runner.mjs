@@ -49,7 +49,7 @@ export function runWithBot(cell, seed, risk, opts = {}) {
     n++;
   }
   const ms = performance.now() - t0;
-  const bm = bot.memory ? { plans: bot.memory.plans || 0, replans: bot.memory.replans || 0, evals: bot.memory.evals || 0 } : null;
+  const bm = bot.memory ? { plans: bot.memory.plans || 0, replans: bot.memory.replans || 0, auto: bot.memory.autoPlans || 0, evals: bot.memory.evals || 0 } : null;
   const record = rec.finish(s, {
     ...cell, seed, steps: n, err, ms: Math.round(ms * 10) / 10, log, rep, bm,
     hash: opts.hash ? hash32(R.serialize(s)) : undefined,

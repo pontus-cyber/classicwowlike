@@ -10,12 +10,16 @@
 //    window is a sequence like any other.
 //  - It follows the best sequence and re-plans when the plan meets something it did not expect: an action that is
 //    no longer legal or a dead target, a new enemy (reinforcement, summon), a visible entry that changed, or a new
-//    track entry with a heavy or cast move.
+//    track entry with a heavy or cast move. Anchor [assumption, SIM.OPENER_ANCHOR]: autoplay is scored on the same
+//    samples to the same horizon; when the best sequence does not beat it by OPENER_MARGIN × max HP, autoplay plays
+//    until the next surprise (a deviation from autoplay must pay for itself inside the horizon).
+//  - Potion heals credit their amount (combat-v2.md 11) when SIM.OPENER_POTION_CREDIT is 1.
 //  - Autoplay's potion and cleanse rules (rules 7.9, 1-2) always stand. Later rounds and the end boss: autoplay.
 //  - It plans only on a player-visible view (sim/lib/view.mjs): the fight and loot streams of the live state are
 //    never read; every sample re-draws what the track does not show yet.
 // Search budget [assumption, SIM.OPENER_*]: sequences are expanded on OPENER_RACE_SAMPLES of the samples, the best
-// OPENER_FINAL_KEEP complete sequences are scored on all OPENER_SAMPLES; candidates are pruned (openerCandidates);
+// OPENER_FINAL_KEEP complete sequences are scored on the other (held-out) samples, which also decide the choice and
+// the anchor (no selection bias); candidates are pruned (openerCandidates);
 // a routine fight (one enemy, no heavy or cast move in sight, normal kind, HP >= OPENER_GATE_HP) is played by
 // autoplay. Manual time profile.
 import { C, R } from '../lib/engine.mjs';
@@ -83,7 +87,7 @@ export class Acc {
           this.ehp[e.dst] -= d;
         }
       } else if (e.t === 'heal') {
-        if (e.dst === 'player') this.lost -= e.amount;
+        if (e.dst === 'player') { if (SIM.OPENER_POTION_CREDIT || !C.CONSUMABLE[e.spell]) this.lost -= e.amount; }
         else if (typeof e.dst === 'number') { this.ehp[e.dst] = (this.ehp[e.dst] || 0) + e.amount; this.removed -= e.amount * (this.w[e.dst] ?? 1); }
       } else if (e.t === 'summon') { this.ehp[e.u] = e.hp; this.w[e.u] = BAL.TACTICIAN_ADD_WEIGHT; }
       else if (e.t === 'despawn') { this.removed += (this.ehp[e.u] || 0) * (this.w[e.u] ?? 1); this.ehp[e.u] = 0; }
@@ -229,7 +233,8 @@ export function planOpening(s, rng, { n0 = s.fight.enemies.length, depth = Math.
     next.sort((x, y) => y.score - x.score);
     beam = next.slice(0, C2.OPENER_BEAM);
   }
-  // Final score: OPENER_TAIL autoplay rounds on the expansion samples, then the best OPENER_FINAL_KEEP on all samples.
+  // Final score: OPENER_TAIL autoplay rounds on the expansion samples; the best OPENER_FINAL_KEEP are then scored on
+  // the held-out samples (those the beam did not select on), and the choice and the anchor use only those.
   for (const node of beam) {
     let sum = 0;
     for (let i = 0; i < RS; i++) {
@@ -237,30 +242,45 @@ export function planOpening(s, rng, { n0 = s.fight.enemies.length, depth = Math.
       if (inFight(node.st[i])) { const c = fightClone(node.st[i]); tail(c, acc, C2.OPENER_TAIL); evals += C2.OPENER_TAIL; }
       sum += acc.value();
     }
-    node.sum = sum;
-    node.n = RS;
+    node.race = sum / RS;
   }
-  beam.sort((x, y) => y.sum - x.sum);
+  beam.sort((x, y) => y.race - x.race);
   const keep = beam.slice(0, Math.max(1, SIM.OPENER_FINAL_KEEP));
-  if (S > RS) {
-    for (const node of keep) {
-      for (let i = RS; i < S; i++) {
-        const c = resample(view, seeds[i], fightClone);
-        const acc = new Acc(c, n0);
-        for (const a of node.seq) {
-          if (!inFight(c)) break;
-          acc.apply(R.stepInPlace(c, sampleAction(c, a)));
-          evals++;
-        }
-        if (inFight(c)) { tail(c, acc, C2.OPENER_TAIL); evals += C2.OPENER_TAIL; }
-        node.sum += acc.value();
-        node.n += 1;
-      }
+  const held = [];
+  for (let i = RS; i < S; i++) held.push(i);
+  if (!held.length) held.push(...Array.from({ length: RS }, (_, i) => i));
+  const playSeq = (seq, i) => {
+    const c = resample(view, seeds[i], fightClone);
+    const acc = new Acc(c, n0);
+    for (const a of seq) {
+      if (!inFight(c)) break;
+      acc.apply(R.stepInPlace(c, sampleAction(c, a)));
+      evals++;
     }
+    if (inFight(c)) { tail(c, acc, C2.OPENER_TAIL); evals += C2.OPENER_TAIL; }
+    return acc.value();
+  };
+  for (const node of keep) {
+    let sum = 0;
+    for (const i of held) sum += playSeq(node.seq, i);
+    node.final = sum / held.length;
   }
   let best = keep[0];
-  for (const node of keep) if (node.sum / node.n > best.sum / best.n) best = node;
-  return { seq: best.seq, score: best.sum / best.n, evals };
+  for (const node of keep) if (node.final > best.final) best = node;
+  const score = best.final;
+  if (!SIM.OPENER_ANCHOR) return { seq: best.seq, score, anchor: null, auto: false, evals };
+  // Anchor: autoplay on the same held-out samples to the same horizon; the plan must beat it by OPENER_MARGIN × max HP.
+  let asum = 0;
+  for (const i of held) {
+    const c = resample(view, seeds[i], fightClone);
+    const acc = new Acc(c, n0);
+    tail(c, acc, best.seq.length + C2.OPENER_TAIL);
+    evals += best.seq.length + C2.OPENER_TAIL;
+    asum += acc.value();
+  }
+  const anchor = asum / held.length;
+  const auto = !(score > anchor + SIM.OPENER_MARGIN * s.player.d.maxHp);
+  return { seq: best.seq, score, anchor, auto, evals };
 }
 
 // ---------------- Following the plan ----------------
@@ -321,18 +341,23 @@ export function openerChoice(s, rng, st) {
   const forced = forcedAction(s);
   if (forced) { st.plan = null; return forced; }
   let pl = st.plan;
-  const next = pl ? pl.seq[pl.i] : null;
-  const tgt = actionTarget(next);
-  const stale = !pl || !next || !R.isLegal(s, next) || (tgt !== null && !f.enemies[tgt].alive) || surprised(s, pl.sig);
+  let stale = !pl || surprised(s, pl.sig);
+  if (!stale && !pl.auto) {
+    const next = pl.seq[pl.i];
+    const tgt = actionTarget(next);
+    stale = !next || !R.isLegal(s, next) || (tgt !== null && !f.enemies[tgt].alive);
+  }
   if (stale) {
     if (!pl && routine(s)) return R.autoAction(s);
     const r = planOpening(s, rng, { n0: st.n0 });
     st.plans = (st.plans || 0) + 1;
     if (pl) st.replans = (st.replans || 0) + 1;
+    if (r.auto) st.autoPlans = (st.autoPlans || 0) + 1;
     st.evals = (st.evals || 0) + r.evals;
-    pl = { seq: r.seq, i: 0, sig: visibleSig(s) };
+    pl = { seq: r.seq, auto: r.auto, i: 0, sig: visibleSig(s) };
     st.plan = pl;
   }
+  if (pl.auto) { pl.sig = visibleSig(s); return R.autoAction(s); }
   const a = pl.seq[pl.i] || R.autoAction(s);
   pl.i += 1;
   pl.sig = visibleSig(s);
