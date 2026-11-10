@@ -48,7 +48,9 @@ describe('hour weight (balance.md 1.1, M2 v3)', () => {
     const [pl, ta, gr] = [mk('planner'), mk('tactician'), mk('greedy')];
     let differ = 0;
     let n = 0;
-    for (const s of mapStates([42, 43, 44])) {
+    // Seeds whose autopilot runs hold map choices the weight changes (content of a379e3c: 25 of 232; seeds 42-44
+    // had 0 of 92 after it). Re-pick with a probe over seeds when content changes the sampled maps again.
+    for (const s of mapStates([41, 45, 49])) {
       n++;
       const want = planMap(s, risk, 'balanced', BAL.PLANNER_HOUR_MULT).action;
       assert.equal(key(pl.spec.map(s)), key(want));

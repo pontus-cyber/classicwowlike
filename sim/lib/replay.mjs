@@ -24,10 +24,12 @@ export function snapshot(s) {
 
 /**
  * Replay a fight: x, y are combat policies (state) -> action; x plays rounds 1..openRounds, y the rest. Returns
- * { outcome (OUTCOME code), rounds, res (resurrects used), hp (HP fraction at the end, 0 on a death) }.
+ * { outcome (OUTCOME code), rounds, res (resurrects used), hp (HP fraction at the end, 0 on a death), pot (potions
+ * used) }.
  */
 export function replayFight(snap, x, y, openRounds = C2.OPEN_ROUNDS, maxSteps = 400) {
   const c = fightClone(snap);
+  const pot0 = c.stats.potionsUsed;
   let res = 0;
   let outcome = null;
   let rounds = 0;
@@ -42,7 +44,7 @@ export function replayFight(snap, x, y, openRounds = C2.OPEN_ROUNDS, maxSteps = 
     }
   }
   if (outcome === null) throw new Error(`replay: fight did not end in ${maxSteps} steps`);
-  return { outcome, rounds, res, hp: outcome === OUTCOME.death ? 0 : c.player.hp / c.player.d.maxHp };
+  return { outcome, rounds, res, hp: outcome === OUTCOME.death ? 0 : c.player.hp / c.player.d.maxHp, pot: c.stats.potionsUsed - pot0 };
 }
 
 /** The opener as a fresh combat policy for one replayed fight; its bot stream is hash(seed, 'replay', fight). */
