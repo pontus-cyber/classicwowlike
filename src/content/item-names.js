@@ -1,4 +1,4 @@
-// Generated content table (Content Designer). Plain data only.
+// Content table: item base names per slot and level band (rules.md 8, 12). Plain data only (Content Designer).
 export const ITEM_NAMES = [
  {
   "head": [

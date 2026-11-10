@@ -1,4 +1,4 @@
-// Generated content table (Content Designer). Plain data only.
+// Content table: quest templates per zone with enemy subsets (rules.md 2.1, 12). Plain data only (Content Designer).
 export const QUESTS = {
  "q_z1_blight_in_the_barley": {
   "id": "q_z1_blight_in_the_barley",

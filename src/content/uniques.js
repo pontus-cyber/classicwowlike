@@ -1,4 +1,4 @@
-// Generated content table (Content Designer). Plain data only.
+// Content table: unique rare, epic and class weapon items (rules.md 11.3, 12). Plain data only (Content Designer).
 export const UNIQUES = {
  "u_weapon_hunter": {
   "id": "u_weapon_hunter",

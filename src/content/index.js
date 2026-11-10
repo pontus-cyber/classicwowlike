@@ -1,3 +1,4 @@
+// Content index: imports every content table and exports CONTENT, the object newRun() validates and freezes (rules.md 12, engine-api.md newRun).
 import { ZONES } from './zones.js';
 import { CAMP } from './camp.js';
 import { ENEMIES } from './enemies.js';

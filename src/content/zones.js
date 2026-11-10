@@ -1,4 +1,4 @@
-// Generated content table (Content Designer). Plain data only.
+// Content table: the six zones: names, hubs, themes, level bands (rules.md 1.3, 12). Plain data only (Content Designer).
 export const ZONES = [
  {
   "id": "z1",

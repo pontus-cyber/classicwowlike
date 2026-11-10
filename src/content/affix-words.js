@@ -1,4 +1,4 @@
-// Generated content table (Content Designer). Plain data only.
+// Content table: item name words per stat-pair affix (rules.md 8.3, 12). Plain data only (Content Designer).
 export const AFFIX_WORDS = {
  "suffix": {
   "AGI": [

@@ -1,4 +1,4 @@
-// Generated content table (Content Designer). Plain data only.
+// Content table: enemy templates per zone: normals, elites, rares, dungeon trash and bosses (rules.md 2, 12). Plain data only (Content Designer).
 export const ENEMIES = {
  "z1_hedge_ogre": {
   "id": "z1_hedge_ogre",

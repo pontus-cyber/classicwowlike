@@ -1,4 +1,4 @@
-// Generated content table (Content Designer). Plain data only.
+// Content table: enemy ability templates (rules.md 12, 7.6). Plain data only (Content Designer).
 export const ABILITIES = {
  "ab_z1_gorrak_heavy_blow": {
   "id": "ab_z1_gorrak_heavy_blow",

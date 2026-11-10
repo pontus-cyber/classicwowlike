@@ -1,4 +1,4 @@
-// Generated content table (Content Designer). Plain data only.
+// Content table: class texts, starting gear names and spell flavour (rules.md 5, 12). Plain data only (Content Designer).
 export const CLASSES = {
  "rogue": {
   "text": "Strikes from the shadows, builds combo points and spends them on finishers. Fast, fragile and lethal to the unwary.",
