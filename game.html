@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="308a98b 2026-11-10T04:55:37Z">
+<meta name="build" content="4cda070 2026-11-10T05:41:56Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -434,7 +434,7 @@ button { font-family: inherit; }
 .pet .pn { font: 700 1.15rem var(--font-ui); margin-top: .3rem; }
 .pet.sel { box-shadow: inset 0 0 0 2px #8fd16a, 0 0 1.2rem rgba(140, 210, 100, .35); }
 .pet.locked { opacity: .4; cursor: default; }
-#create .bottom { position: absolute; left: 50%; bottom: 3rem; transform: translateX(-50%); display: flex; gap: 1.2rem; align-items: center; padding: 1.1rem 1.6rem; }
+#create .bottom { position: absolute; left: 50%; bottom: 3rem; transform: translateX(-50%); width: max-content; display: flex; gap: 1.2rem; align-items: center; padding: 1.1rem 1.6rem; }
 .field { display: flex; flex-direction: column; gap: .3rem; }
 .field label { font: 700 1rem var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-mute); }
 .field input { font: 600 1.45rem var(--font-ui); color: var(--ink); background: #0b0907; border: 1px solid #000; box-shadow: inset 0 0 0 1px rgba(208, 170, 96, .35); border-radius: .35rem; padding: .6rem .8rem; width: 20rem; outline: none; user-select: text; -webkit-user-select: text; }
@@ -451,7 +451,7 @@ button { font-family: inherit; }
 #banner.zone .b1 { font-size: 4.6rem; color: var(--gold); }
 #banner.boss .b1 { color: #e2d0ff; text-shadow: 0 .3rem 0 #120830, 0 0 3rem rgba(160, 110, 255, .9); }
 #banner.phase .b1 { font-size: 3.8rem; color: #ffb08a; text-shadow: 0 .3rem 0 #300800, 0 0 3rem rgba(255, 110, 60, .8); }
-#toasts { position: absolute; left: 50%; top: 13rem; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: .5rem; pointer-events: none; }
+#toasts { position: absolute; left: 50%; top: 13rem; transform: translateX(-50%); z-index: 45; display: flex; flex-direction: column; align-items: center; gap: .5rem; pointer-events: none; }
 .toast { font: 700 1.45rem var(--font-ui); color: #ffd36a; text-shadow: 0 1px 2px #000, 0 0 6px #000; animation: toast 2.6s forwards; }
 .toast.err { color: #ff7a6a; } .toast.good { color: #9fe09a; } .toast.info { color: #cfe0ff; }
 @keyframes toast { 0% { opacity: 0; transform: translateY(.6rem); } 10% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-.6rem); } }
@@ -506,6 +506,123 @@ button { font-family: inherit; }
 .kbd { display: inline-block; min-width: 2rem; text-align: center; padding: .05rem .45rem; border-radius: .3rem; background: #1a1510; box-shadow: inset 0 0 0 1px rgba(208, 170, 96, .4); font: 700 1.05rem var(--font-num); color: var(--ink); }
 .keys { display: grid; grid-template-columns: auto 1fr auto 1fr; gap: .4rem 1rem; font-size: 1.15rem; color: var(--ink-dim); align-items: center; }
 
+/* ---------------------------------------------------------------- Echoes (meta progression, rules 11) */
+.eg { display: inline-block; flex: none; width: 1rem; height: 1.3rem; background: linear-gradient(135deg, #fbf2ff 0%, #d2b0ff 38%, #8a4ae0 72%, #43167a); clip-path: polygon(50% 0, 100% 38%, 50% 100%, 0 38%); vertical-align: -.15rem; }
+.eg.big { width: 2.1rem; height: 2.7rem; }
+.eamt { display: inline-flex; align-items: center; gap: .35rem; font: 700 1.15rem var(--font-num); color: #e8d4ff; white-space: nowrap; }
+.btn.echoes { position: relative; display: inline-flex; align-items: center; gap: .6rem; padding: .75rem 1.3rem; }
+.btn.echoes .n { font: 800 1.45rem var(--font-num); color: #ecdcff; }
+.btn.echoes .l { color: var(--ink-dim); font-weight: 600; }
+.btn .badge { position: absolute; top: -.8rem; right: -.8rem; min-width: 2rem; height: 2rem; padding: 0 .45rem; border-radius: 1rem; background: radial-gradient(circle at 35% 30%, #efe0ff, #8a4ad0); color: #1a0830; font: 800 1.1rem var(--font-num); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 .8rem rgba(190, 140, 255, .9); text-shadow: none; animation: bob 1.4s ease-in-out infinite; }
+.summary .sfoot .btn { position: relative; }
+.summary .echo.after { align-items: center; margin-top: .6rem; font-size: 1.2rem; }
+
+/* class select: Oaths (rules 11.5) under the class cards */
+.oathslot:empty { display: none; }
+.oaths { padding: .8rem 1rem 1rem; display: flex; flex-direction: column; gap: .45rem; }
+.oaths .oh { display: flex; justify-content: space-between; align-items: baseline; padding: 0 .2rem .2rem; }
+.oaths .oh .title { font-size: 1.6rem; }
+.oaths .oh .dim { font-size: 1.05rem; }
+.oath { display: flex; align-items: center; gap: .8rem; padding: .45rem .7rem; border-radius: .4rem; border: 1px solid #000; background: linear-gradient(180deg, #2c2318, #17120c); box-shadow: inset 0 0 0 1px rgba(208, 170, 96, .3); cursor: pointer; text-align: left; color: var(--ink); font: inherit; }
+.oath:hover { box-shadow: inset 0 0 0 1px rgba(236, 198, 110, .8); }
+.oath .sw { position: relative; flex: none; width: 3.2rem; height: 1.7rem; border-radius: 1rem; background: #0b0907; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1); transition: background .2s; }
+.oath .sw::after { content: ''; position: absolute; top: .2rem; left: .2rem; width: 1.3rem; height: 1.3rem; border-radius: 50%; background: #8a7a60; transition: transform .2s, background .2s; }
+.oath .ot { display: flex; flex-direction: column; min-width: 0; }
+.oath .ot b { font: 700 1.25rem var(--font-ui); }
+.oath .os { font-size: 1.08rem; color: var(--ink-dim); }
+.oath.on { background: linear-gradient(180deg, #3a1e14, #1c0e08); box-shadow: inset 0 0 0 1px rgba(255, 140, 100, .85), 0 0 1rem rgba(255, 110, 70, .3); }
+.oath.on b { color: #ffbc9e; }
+.oath.on .sw { background: #6a2414; }
+.oath.on .sw::after { transform: translateX(1.5rem); background: #ffbc9e; box-shadow: 0 0 .6rem #ff7a4a; }
+.oaths .of { font-size: 1.12rem; color: var(--ink-mute); text-align: right; padding: .1rem .2rem 0; }
+.oaths .of.on { color: #e4ccff; font-weight: 700; }
+
+/* the Hall of Echoes over class select */
+#meta { position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at 50% 38%, rgba(24, 14, 36, .74), rgba(4, 3, 8, .92)); }
+#meta .mwin { width: min(134rem, calc(100vw - 2rem)); height: min(74rem, calc(100vh - 2rem)); display: flex; flex-direction: column; }
+.mhead { flex: none; display: flex; align-items: center; gap: 1.4rem; padding: .9rem 1.2rem .8rem 1.8rem; border-bottom: 1px solid rgba(208, 170, 96, .25); }
+.mh-l { flex: none; }
+.mh-l .title { font-size: 2.7rem; }
+.mh-l .subtitle { font-size: 1.15rem; margin-top: .1rem; }
+.mtick { flex: 1; min-width: 0; text-align: center; font: 600 1.3rem var(--font-ui); color: var(--ink-mute); padding: 0 .6rem; }
+.mtick.on { animation: mtick .45s ease-out; }
+.mtick.on.k-buy { color: #ffe08a; text-shadow: 0 0 .9rem rgba(255, 200, 90, .45), 0 1px 1px #000; }
+.mtick.on.k-gain { color: #e4ccff; text-shadow: 0 0 .9rem rgba(180, 130, 255, .6), 0 1px 1px #000; }
+@keyframes mtick { 0% { opacity: 0; transform: translateY(.5rem); } 100% { opacity: 1; transform: none; } }
+.mh-r { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: .1rem; }
+.mbal { position: relative; display: flex; align-items: center; gap: .7rem; cursor: default; }
+.mbal .n { font: 800 3.1rem var(--font-num); color: #e4ccff; text-shadow: 0 0 1.4rem rgba(180, 130, 255, .55), 0 1px 0 #000; line-height: 1; }
+.mbal.counting .n { color: #ffffff; }
+.mbal .u { font: 600 1.3rem var(--font-title); color: var(--ink-dim); }
+.mbal .delta { position: absolute; right: .2rem; top: -1.7rem; font: 800 1.7rem var(--font-num); opacity: 0; pointer-events: none; text-shadow: 0 1px 2px #000; }
+.mbal .delta.up { color: #c8ffb8; } .mbal .delta.down { color: #ffbc9e; }
+.mbal .delta.on { animation: mdelta 1.8s ease-out forwards; }
+@keyframes mdelta { 0% { opacity: 0; transform: translateY(.8rem); } 15% { opacity: 1; transform: none; } 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(-1rem); } }
+.mh-sub { font-size: 1.05rem; color: var(--ink-mute); }
+.mhead .xbtn { flex: none; align-self: flex-start; }
+
+.mhist { flex: none; display: flex; align-items: center; gap: 1.4rem; padding: .55rem 1.6rem; border-bottom: 1px solid rgba(208, 170, 96, .18); background: rgba(0, 0, 0, .2); }
+.mh-tot { flex: none; display: flex; flex-direction: column; gap: .05rem; font-size: 1.15rem; color: var(--ink-dim); white-space: nowrap; }
+.mh-tot b { color: var(--ink); font: 800 1.25rem var(--font-num); }
+.mh-tot .muted { font-size: 1rem; }
+.mh-chips { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
+.mh-cls { display: grid; grid-template-columns: 1fr auto; align-items: baseline; column-gap: .6rem; padding: .3rem .7rem .35rem .8rem; border-radius: .4rem; background: rgba(0, 0, 0, .3); box-shadow: inset 3px 0 0 var(--cc); min-width: 0; cursor: default; }
+.mh-cls .cn { font: 600 1.35rem var(--font-title); color: var(--cc); }
+.mh-cls .fk { font: 700 1.05rem var(--font-ui); white-space: nowrap; display: inline-flex; align-items: center; gap: .3rem; }
+.mh-cls .fk.wait { color: #e4ccff; }
+.mh-cls .cb { grid-column: 1 / -1; font-size: 1.08rem; color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.mbody { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.2rem; padding: .8rem 1.4rem .9rem; align-items: start; scrollbar-width: thin; scrollbar-color: #5a4628 transparent; }
+.mcol { display: flex; flex-direction: column; gap: .9rem; min-width: 0; }
+.mgroup { display: flex; flex-direction: column; gap: .4rem; }
+.mg-h { display: flex; justify-content: space-between; align-items: baseline; font: 600 1.38rem var(--font-title); color: var(--gold); border-bottom: 1px solid rgba(208, 170, 96, .28); padding: 0 .1rem .15rem; cursor: default; }
+.mg-h .c { font: 700 1.05rem var(--font-num); color: var(--ink-mute); }
+.mcard { position: relative; display: grid; grid-template-columns: 3.6rem minmax(0, 1fr) auto; column-gap: .8rem; row-gap: .1rem; align-items: center; padding: .45rem .5rem .5rem .45rem; border-radius: .45rem; background: rgba(0, 0, 0, .34); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07); cursor: default; }
+.mcard .ic { grid-row: 1 / span 3; align-self: start; width: 3.6rem; height: 3.6rem; border-radius: .35rem; border: 1px solid #000; }
+.mcard .mc-t { grid-column: 2; grid-row: 1; display: flex; align-items: center; gap: .55rem; min-width: 0; }
+.mcard .nm { font: 700 1.24rem var(--font-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.mcard .rk { flex: none; font: 700 1rem var(--font-num); color: var(--ink-mute); }
+.mcard .buy, .mcard .mtag { grid-column: 3; grid-row: 1; }
+.mcard .mc-fx { grid-column: 2 / 4; grid-row: 2; font-size: 1.1rem; line-height: 1.3; color: #f0d494; }
+.mcard .mc-req { grid-column: 2 / 4; grid-row: 3; font-size: 1.03rem; line-height: 1.3; color: #ff9a8a; }
+.pips { flex: none; display: inline-flex; gap: .3rem; padding-left: .1rem; }
+.pips i { width: .75rem; height: .75rem; transform: rotate(45deg); background: #1a1410; box-shadow: inset 0 0 0 1px rgba(208, 170, 96, .5); }
+.pips i.on { background: linear-gradient(135deg, #fff2b8, #e0a020); box-shadow: 0 0 .4rem rgba(255, 200, 80, .7); }
+.pips i.new { animation: pippop .8s ease-out; }
+@keyframes pippop { 0% { transform: rotate(45deg) scale(2.2); box-shadow: 0 0 1.2rem #fff0b0; } 100% { transform: rotate(45deg) scale(1); } }
+.buy { display: inline-flex; align-items: center; gap: .45rem; padding: .28rem .55rem .28rem .65rem; border-radius: .35rem; border: 1px solid #0a0704; font: 700 1.08rem var(--font-ui); color: #eaffe0; background: linear-gradient(180deg, #3e6e2c, #1e3a14); box-shadow: inset 0 1px 0 rgba(200, 255, 170, .25), inset 0 0 0 1px rgba(127, 224, 122, .5); cursor: pointer; text-shadow: 0 1px 1px #000; white-space: nowrap; }
+.buy:hover:not(:disabled) { filter: brightness(1.22); box-shadow: inset 0 1px 0 rgba(200, 255, 170, .3), inset 0 0 0 1px rgba(180, 255, 170, .9), 0 0 .9rem rgba(127, 224, 122, .45); }
+.buy:active:not(:disabled) { transform: translateY(1px); }
+.buy:disabled { background: linear-gradient(180deg, #2a241c, #16120d); color: var(--ink-mute); box-shadow: inset 0 0 0 1px rgba(208, 170, 96, .2); cursor: default; }
+.mcard.unaffordable .buy .eamt { color: #ffa898; }
+.mcard.locked .buy .eamt { color: var(--ink-mute); }
+.buy .free { font: 800 1.05rem var(--font-ui); letter-spacing: .04em; text-transform: uppercase; }
+.mtag { font: 800 1rem var(--font-ui); letter-spacing: .06em; text-transform: uppercase; padding: .2rem .55rem; border-radius: .3rem; white-space: nowrap; }
+.mtag.owned { color: #2a1c04; background: linear-gradient(180deg, #ffe08a, #c8901e); box-shadow: 0 0 .6rem rgba(255, 200, 80, .4); }
+.mcard.owned { background: linear-gradient(180deg, rgba(64, 48, 20, .55), rgba(28, 20, 8, .55)); box-shadow: inset 0 0 0 1px rgba(236, 198, 110, .6); }
+.mcard.owned .nm { color: var(--gold); }
+.mcard.affordable { box-shadow: inset 0 0 0 1px rgba(127, 224, 122, .55), 0 0 .9rem rgba(127, 224, 122, .14); }
+.mcard.locked .ic { filter: grayscale(1) brightness(.5); }
+.mcard.locked .nm { color: var(--ink-mute); }
+.mcard.locked .mc-fx { color: #9a8c70; }
+.mcard.fx-bought { animation: mbought 1.2s ease-out; }
+.mcard.fx-bought::after { content: ''; position: absolute; inset: -.35rem; border-radius: .75rem; border: 2px solid rgba(255, 222, 140, .95); animation: mring 1s ease-out forwards; pointer-events: none; }
+@keyframes mbought { 0% { transform: scale(1.04); background: rgba(120, 92, 36, .85); box-shadow: inset 0 0 0 2px #fff4c0, 0 0 2.6rem rgba(255, 210, 110, .95); } }
+@keyframes mring { 0% { opacity: 1; transform: scale(.97); } 100% { opacity: 0; transform: scale(1.09); } }
+.mcard.fx-opened { animation: mopened 1.5s ease-out; }
+@keyframes mopened { 0% { box-shadow: inset 0 0 0 2px #c8ffb8, 0 0 2.2rem rgba(140, 255, 140, .75); } }
+
+.mnext { flex: none; padding: .55rem 1.6rem .6rem; border-top: 1px solid rgba(208, 170, 96, .2); background: rgba(0, 0, 0, .22); }
+.mn-h { display: flex; gap: .8rem; align-items: baseline; margin-bottom: .35rem; }
+.mn-h .t { font: 600 1.4rem var(--font-title); color: var(--gold); }
+.mn-list { display: flex; flex-wrap: wrap; gap: .35rem .45rem; max-height: 5.4rem; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #5a4628 transparent; font-size: 1.1rem; }
+.mn-chip { padding: .15rem .7rem; border-radius: 1rem; background: rgba(50, 110, 50, .22); box-shadow: inset 0 0 0 1px rgba(127, 224, 122, .38); color: #cdf5c4; font-size: 1.08rem; white-space: nowrap; }
+.mn-chip.fx-fresh { animation: mfresh 2s ease-out; }
+@keyframes mfresh { 0% { background: rgba(255, 220, 120, .55); color: #fff; box-shadow: inset 0 0 0 1px #fff0b0, 0 0 1.2rem rgba(255, 210, 110, .8); } }
+.mn-other { font-size: 1.05rem; margin-top: .3rem; }
+.mfoot { flex: none; display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .7rem 1.6rem .9rem; border-top: 1px solid rgba(208, 170, 96, .2); }
+.mfoot .muted { font-size: 1.1rem; }
+
 </style>
 </head>
 <body>
@@ -517,8 +634,8 @@ button { font-family: inherit; }
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (308a98b 2026-11-10T04:55:37Z) from 45 modules.
-const __BUILD__ = "308a98b 2026-11-10T04:55:37Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (4cda070 2026-11-10T05:41:56Z) from 46 modules.
+const __BUILD__ = "4cda070 2026-11-10T05:41:56Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -11511,7 +11628,7 @@ const data = {
 
 });
 __bundle.def("src/ui/ui-text.js", function* (__ns, __link) {
-let SPELLS, TALENTS, BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS; __link.imp("src/ui/mock-data.js", [["SPELLS", (v) => { SPELLS = v; }], ["TALENTS", (v) => { TALENTS = v; }], ["STATUS_INFO", (v) => { BASE_STATUS = v; }], ["CONSUMABLES", (v) => { CONSUMABLES = v; }], ["BOONS", (v) => { BOONS = v; }], ["CLASSES", (v) => { CLASSES = v; }], ["PETS", (v) => { PETS = v; }]]); __link.exp({ "STATUS_INFO": () => STATUS_INFO, "CLASS_UI": () => CLASS_UI, "spellText": () => spellText, "bounceText": () => bounceText, "talentText": () => talentText, "consumableText": () => consumableText, "boonText": () => boonText, "petText": () => petText, "UNIQUE_EFFECT_TEXT": () => UNIQUE_EFFECT_TEXT, "ECHO_LINE": () => ECHO_LINE, "humanize": () => humanize, "numWord": () => numWord, "plural": () => plural, "pct1": () => pct1, "RES_NAME": () => RES_NAME, "resurrectText": () => resurrectText, "dangerAt": () => dangerAt, "dangerRule": () => dangerRule, "dangerBanner": () => dangerBanner, "linkedText": () => linkedText });
+let SPELLS, TALENTS, BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS; __link.imp("src/ui/mock-data.js", [["SPELLS", (v) => { SPELLS = v; }], ["TALENTS", (v) => { TALENTS = v; }], ["STATUS_INFO", (v) => { BASE_STATUS = v; }], ["CONSUMABLES", (v) => { CONSUMABLES = v; }], ["BOONS", (v) => { BOONS = v; }], ["CLASSES", (v) => { CLASSES = v; }], ["PETS", (v) => { PETS = v; }]]); __link.exp({ "STATUS_INFO": () => STATUS_INFO, "CLASS_UI": () => CLASS_UI, "spellText": () => spellText, "bounceText": () => bounceText, "talentText": () => talentText, "consumableText": () => consumableText, "boonText": () => boonText, "petText": () => petText, "UNIQUE_EFFECT_TEXT": () => UNIQUE_EFFECT_TEXT, "ECHO_LINE": () => ECHO_LINE, "humanize": () => humanize, "numWord": () => numWord, "plural": () => plural, "pct1": () => pct1, "RES_NAME": () => RES_NAME, "resurrectText": () => resurrectText, "dangerAt": () => dangerAt, "dangerRule": () => dangerRule, "dangerBanner": () => dangerBanner, "META_KIND": () => META_KIND, "metaEffect": () => metaEffect, "metaReqText": () => metaReqText, "oathEffect": () => oathEffect, "nextRunLines": () => nextRunLines, "linkedText": () => linkedText });
 yield;
 // Display text for tooltips and screens (descriptions of spells, talents, statuses, consumables,
 // boons and classes). Wording follows docs/specs/rules.md; numbers that matter come from the
@@ -11616,6 +11733,116 @@ function dangerBanner(r, band) {
   return dangerAt(r, band[1]) > 0 ? `Enemies above level ${r.dangerFrom} hit harder` : null;
 }
 
+// ------------------------------------------------------------------ meta progression (rules 11)
+/** Catalogue groups: the kinds of rules 11.2, in catalogue order (data.meta.kinds); title and a line for the group. */
+const META_KIND = {
+  stat: ['Stats', 'Lasting bonuses for every hero.'],
+  'start kit': ['Starting kit', 'What every hero carries from the first step.'],
+  economy: ['Economy', 'Gold and training.'],
+  map: ['Map and travel', 'See more of the road, and cover it faster.'],
+  items: ['Items in the drop pools', 'New items that can drop or be bought.'],
+  skill: ['Skills and companions', 'New spells at the trainer and a new companion.'],
+  resurrect: ['Resurrection', 'A second chance on the journey.'],
+  challenge: ['Challenge', 'Harder runs for more Echoes.'],
+};
+const cls = (id) => ({ rogue: 'Rogue', mage: 'Mage', hunter: 'Hunter' }[id] || humanize(id));
+const plurName = (n, name) => (n === 1 ? name : `${name}s`);
+
+/**
+ * What an unlock does, from its catalogue entry m (R.C.META[id]: the effect per rank) and data.meta (D), with the
+ * spells and pets tables (d): { short } for the card, { long } for the tooltip, { more } extra tooltip lines.
+ * No number is written here: each comes from m or from D.
+ */
+function metaEffect(m, D, d) {
+  const N = D.num; const NM = D.names;
+  const sp = m.spell && d.spells[m.spell];
+  switch (m.id) {
+    case 'vigor': return { short: `+${pct1(m.hpPct)} max health per rank`, long: `Every hero starts with ${pct1(m.hpPct)} more maximum health for each rank.` };
+    case 'edge': return { short: `+${pct1(m.powerPct)} Power per rank`, long: `Every hero has ${pct1(m.powerPct)} more Power for each rank: more damage from every attack and spell.` };
+    case 'keen': return { short: `+${pct1(m.crit)} critical strike per rank`, long: `Every hero has +${pct1(m.crit)} chance to strike critically for each rank.` };
+    case 'quick_study': return { short: `+${pct1(m.xpPct)} experience per rank`, long: `Every hero earns ${pct1(m.xpPct)} more experience for each rank: levels come sooner.` };
+    case 'prospector': return { short: `+${pct1(m.goldPct)} gold per rank`, long: `Every hero finds ${pct1(m.goldPct)} more gold for each rank.` };
+    case 'talent_pt': return { short: `+${m.points} talent ${plural(m.points, 'point')} at level ${N.maxLevel}`, long: `At level ${N.maxLevel} you get ${numWord(m.points)} more talent ${plural(m.points, 'point')} to spend.` };
+    case 'satchel': return { short: `Start with ${m.potions} ${plurName(m.potions, NM.potion)}`, long: `Every run begins with ${numWord(m.potions)} ${plurName(m.potions, NM.potion)} in your bags.` };
+    case 'heirloom_blade': return { short: `${humanize(m.rarity)} starting weapon, item level ${m.ilvl}`, long: `Your starting weapon is ${m.rarity} quality, item level ${m.ilvl}, instead of a common one.` };
+    case 'pockets': return { short: `+${m.slots} bag slots per rank`, long: `Your bags hold ${m.slots} more items for each rank.` };
+    case 'ledger': return { short: 'First lesson at each trainer visit is free', long: 'At the trainer of every zone hub and of the camp, the first spell you learn or train costs no gold.' };
+    case 'scout': return { short: 'The map shows rare elites, traps and Embers', long: `The zone map tells you which elites are rare, which chests are trapped, and which vendors sell an ${NM.ember}.` };
+    case 'wayfinder': return { short: `Travel on costs no time (was ${N.travelHours} h)`, long: `Travelling on to the next zone no longer costs ${N.travelHours} hours.` };
+    case 'swift_boots': return { short: `Travel on opens ${numWord(m.levels)} ${plural(m.levels, 'level')} earlier`, long: `You may travel on to the next zone ${numWord(m.levels)} ${plural(m.levels, 'level')} sooner than before.` };
+    case 'alchemist': return { short: `Vendors sell ${plurName(2, NM.greater)}`, long: `Every vendor also sells ${plurName(2, NM.greater)}: each restores ${pct(D.greaterHeal)} of your maximum health.` };
+    case 'cache': {
+      const u = D.uniques.rare;
+      return { short: `${u.length} unique rares join elite and treasure loot`, long: 'One unique rare item for each zone can drop from elites, rares and treasure chests there.', more: u.map((x) => `${x.name} (${x.zoneName})`) };
+    }
+    case 'relics': {
+      const u = D.uniques.epic;
+      return { short: `${u.length} unique epics join dungeon boss loot`, long: 'One unique epic item for each dungeon can drop from its boss.', more: u.map((x) => `${x.name} (${x.dungeon || x.zoneName})`) };
+    }
+    case 'starforged': return { short: `Your class's unique weapon at the camp, ilvl ${m.ilvl}`, long: `The quartermaster at ${NM.camp} sells your class's unique epic weapon, item level ${m.ilvl}.`, more: Object.entries(D.uniques.weapon).map(([c, w]) => `${cls(c)}: ${w.name}`) };
+    case 'stormhawk': { const pet = d.pets[m.pet]; return { short: `Hunters may take the ${pet ? pet.name : humanize(m.pet)}`, long: `${pet ? pet.name : humanize(m.pet)} can be chosen as the Hunter's companion.${pet && pet.text ? ` ${pet.text}` : ''}` }; }
+    case 'second_breath': return { short: `${cap1(numWord(m.charges))} resurrection each run, not in the final fight`, long: `Each run you hold ${numWord(m.charges)} more ${plural(m.charges, 'resurrection')}: a death on the journey returns you to the fight. It does not work against ${NM.boss}.` };
+    case 'oaths': return { short: 'Swear Oaths at creation for more Echoes', long: `At character creation you may swear Oaths: each makes the run harder and adds ${pct1(N.oathEcho)} to the Echoes it earns.`, more: D.oathIds.map((o) => `${D.oaths[o].name}: ${oathEffect(D.oaths[o], D).short}`) };
+    default:
+      if (sp) return { short: `The ${cls(sp.cls)} trainer teaches ${sp.name}`, long: `${sp.name} can be learned from the ${cls(sp.cls)} trainer from level ${sp.lvl}.${sp.text ? ` ${sp.text}` : ''}` };
+      return { short: humanize(m.kind), long: '' };
+  }
+}
+const cap1 = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+
+/** A requirement of an unlock in words (R.C.META req: an unlock id or a profile flag); short: for the card. */
+function metaReqText(req, D, short = false) {
+  if (req === 'flag:reachedBoss') return short ? `${D.names.boss} reached once` : `Reach ${D.names.boss} once`;
+  if (req === 'flag:bossKill') return short ? `a victory over ${D.names.boss}` : `Defeat ${D.names.boss} once`;
+  const e = D.entries[req];
+  return e ? (short ? e.name : `Own ${e.name}`) : humanize(req);
+}
+
+/** An Oath (rules 11.5, R.C.OATH) in words: { short, long }. Numbers from D.num. */
+function oathEffect(o, D) {
+  switch (o.id) {
+    case 'haste': return { short: `Par time ${D.num.oathHaste} h shorter`, long: `${D.names.boss}'s par time is ${D.num.oathHaste} hours shorter: Ascendancy begins sooner, and the swift-victory bonus asks for a faster run.` };
+    case 'frailty': return { short: 'No resurrections', long: `Nothing brings you back: no ${D.names.boon}, no Second Breath, no ${D.names.ember}. One death ends the run.` };
+    case 'thrift': return { short: `Vendor prices ×${D.num.oathThrift}`, long: `Everything vendors sell costs ×${D.num.oathThrift}: potions, gear and Embers.` };
+    default: return { short: '', long: '' };
+  }
+}
+
+/**
+ * The next run in lines, from the engine's run modifiers (n: the bridge's dry START_RUN, state.meta) and data.meta.
+ * Each line: { id: the unlock it comes from, text }. Empty when no unlock applies.
+ */
+function nextRunLines(n, D, d) {
+  if (!n || !n.meta) return [];
+  const m = n.meta; const out = [];
+  const add = (id, text) => out.push({ id, text });
+  if (m.hpPct) add('vigor', `+${pct1(m.hpPct)} max health`);
+  if (m.powerPct) add('edge', `+${pct1(m.powerPct)} Power`);
+  if (m.crit) add('keen', `+${pct1(m.crit)} critical strike`);
+  if (m.xpPct) add('quick_study', `+${pct1(m.xpPct)} experience`);
+  if (m.goldPct) add('prospector', `+${pct1(m.goldPct)} gold`);
+  if (m.talentPoints) add('talent_pt', `+${m.talentPoints} talent ${plural(m.talentPoints, 'point')} at level ${D.num.maxLevel}`);
+  if (m.satchel) add('satchel', `${n.potions} ${plurName(n.potions, D.names.potion)} in your bags`);
+  if (m.heirloom && n.weapon) add('heirloom_blade', `${n.weapon.name}: ${n.weapon.rarity} weapon, item level ${n.weapon.ilvl}`);
+  if (m.bagSlots) add('pockets', `+${m.bagSlots} bag slots (${n.bagSlots} in all)`);
+  if (m.ledger) add('ledger', 'First lesson at each trainer visit free');
+  if (m.scout) add('scout', 'Rare elites, traps and Embers on the map');
+  if (m.wayfinder) add('wayfinder', 'Travel on costs no time');
+  if (m.swiftBoots) add('swift_boots', `Travel on ${numWord(D.entries.swift_boots.levels)} ${plural(D.entries.swift_boots.levels, 'level')} earlier`);
+  if (m.alchemist) add('alchemist', `${plurName(2, D.names.greater)} at vendors`);
+  if (m.cache) add('cache', 'Unique rares in elite and treasure loot');
+  if (m.relics) add('relics', 'Unique epics in dungeon boss loot');
+  if (m.starforged) add('starforged', `${(D.uniques.weapon[n.classId] || {}).name || 'Your unique weapon'} at the camp`);
+  for (const id of m.spells || []) {
+    const e = Object.values(D.entries).find((x) => x.spell === id); const sp = d.spells[id];
+    add(e ? e.id : id, `${sp ? sp.name : humanize(id)} at the trainer${sp ? ` (level ${sp.lvl})` : ''}`);
+  }
+  if (m.stormhawk && n.classId === 'hunter') add('stormhawk', `${(d.pets.stormhawk || {}).name || 'Stormhawk'} can join you`);
+  if (m.resCharges) add('second_breath', n.oaths.includes('frailty') ? 'Second Breath held, but your Oath of Frailty forbids it' : `Second Breath: ${numWord(m.resCharges)} ${plural(m.resCharges, 'resurrection')} (not in the final fight)`);
+  if (n.oaths.length) add('oaths', `${n.oaths.map((o) => (D.oaths[o] ? D.oaths[o].name.replace(/^Oath of /, '') : humanize(o))).join(', ')} sworn: Echoes ×${Math.round(n.oathMult * 100) / 100}`);
+  return out;
+}
+
 /**
  * Linked (rules 10.2) in words, from the rules table (engine constants): 'banner' when phase 2 begins, 'log' when
  * the Shards link, 'tip' for the boss frame. An engine without LINK_DR_PER_SHARD has the older all-or-nothing rule.
@@ -11662,8 +11889,9 @@ yield;
 //              resurrect: what a death would use now, in order ('boon' | 'meta' (Second Breath) | 'ember'; R.resurrectCharges);
 //              resurrectBoss: the same in the end-boss fight; resurrectHeld (engine only): the charges held
 //   zone:    { idx, id, camp, name, hubName, hubText, theme, band, exitLevel, travelLevel, blurb, rows: node[rows][lanes], pos: { row, lane }, path,
-//              questsDone, storyDone }   rows and lanes: as many as the engine's map has (mapView); travelLevel: the level
-//              from which TRAVEL_ON is legal before the last row (rules 1.5, R.travelLevel)
+//              questsDone, storyDone, travelHours }   rows and lanes: as many as the engine's map has (mapView); travelLevel: the level
+//              from which TRAVEL_ON is legal before the last row (rules 1.5, R.travelLevel); travelHours: what TRAVEL_ON
+//              costs now (a dry step; null while it is not legal)
 //   hub:     { used: { trainer, vendor, inn } }
 //   node:    { type, step, cl, row, lane, ... }  step: intro|combat|reward|story|between|chest|rest|vendor|trainer|shrine
 //   combat:  { round, enemies: [{ idx, uid, name, level, rank, arch, hp, maxHp, statuses, alive, intent }], target,
@@ -11674,6 +11902,10 @@ yield;
 //   camp:    { par, asc } at the camp (asc: the engine's Ascendancy if the boss were faced now), else null
 //   legal:   { lanes, travelOn, mustTravel, outOfCombat, spells: { id: { ok, reason, cd } }, items: [{ ok, reason, count, cd }],
 //              attack, flee, fleeChance?, services, talents, trainer }
+//   oaths:   Oaths of the run (rules 11.5); create.oaths in CREATE
+//   meta:    engine mode, CREATE and SUMMARY only (rules 11): the profile between runs, see metaView() below.
+//   data.meta: the catalogue (R.C.META), Oaths (R.C.OATH) and the names and numbers its texts use.
+// UI action META_BUY { id } (CREATE only): R.buyMeta on the stored profile; the run being created picks up the new profile.
 // Events: { t: 'damage'|'heal'|'action'|'status'|'death'|'interrupt'|'skip'|'xp'|'levelUp'|'victory'|'flee'|'resurrect'|'bossPhase'|'summon'|... }
 
 
@@ -11704,6 +11936,29 @@ function rulesTable(K) {
     roundAnimMs: K.PACE_ROUND_ANIM_S != null ? K.PACE_ROUND_ANIM_S * 1000 : null,
     // Zone danger (rules 7.6, M2 v3): enemies above dangerFrom deal +dangerStep damage per 10 levels; null without it.
     dangerFrom: K.ZONE_DANGER_FROM ?? null, dangerStep: K.ZONE_DANGER_STEP ?? null,
+  };
+}
+
+/**
+ * Meta progression data for the Echoes screen and the Oaths (rules 11): the catalogue as the engine has it (R.C.META:
+ * kind, ranks, costs and the effect per rank), the Oaths (R.C.OATH), and the names and numbers their texts use. Rank,
+ * next cost and state of an unlock always come from R.metaOffers, never from these tables.
+ */
+function metaData(K) {
+  const uniq = Object.values(CONTENT.uniques || {});
+  const zones = CONTENT.zones || [];
+  const byZone = (kind) => uniq.filter((u) => u.kind === kind).sort((a, b) => (a.zone || 0) - (b.zone || 0))
+    .map((u) => ({ name: u.name, zone: u.zone, slot: u.slot, text: u.text, zoneName: zones[u.zone - 1] ? zones[u.zone - 1].name : '', dungeon: zones[u.zone - 1] && zones[u.zone - 1].dungeon ? zones[u.zone - 1].dungeon.name : '' }));
+  return {
+    kinds: [...new Set(Object.values(K.META).map((m) => m.kind))], // catalogue order (rules 11.2)
+    entries: Object.fromEntries(Object.values(K.META).map((m) => [m.id, { ...m, costs: [...m.costs], req: [...m.req] }])),
+    oathIds: [...(K.OATH_IDS || [])],
+    oaths: Object.fromEntries(Object.values(K.OATH || {}).map((o) => [o.id, { ...o }])),
+    num: { maxLevel: K.MAX_LEVEL, travelHours: K.HOURS_TRAVEL, zoneCount: K.ZONE_COUNT, firstKill: K.ECHO_FIRST_KILL_CLASS, oathEcho: K.OATH_ECHO_BONUS, oathHaste: K.OATH_HASTE_HOURS, oathThrift: K.OATH_THRIFT_MULT },
+    names: { boon: K.BOON.return.name, ember: K.CONSUMABLE.ember_of_return.name, potion: K.CONSUMABLE.healing_draught.name, greater: K.CONSUMABLE.greater_healing_draught.name, boss: K.BOSS_TEXT.name.split(',')[0], camp: (CONTENT.camp && CONTENT.camp.name) || 'the camp' },
+    greaterHeal: K.CONSUMABLE.greater_healing_draught.heal,
+    uniques: { rare: byZone('rare'), epic: byZone('epic'), weapon: Object.fromEntries(uniq.filter((u) => u.kind === 'weapon').map((u) => [u.classId, { name: u.name, text: u.text }])) },
+    zones: zones.map((z) => z.name),
   };
 }
 
@@ -11741,23 +11996,52 @@ const hash = (str) => { let h = 2166136261 >>> 0; for (let i = 0; i < str.length
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 const reasonOf = (err) => { const m = String((err && err.message) || err || ''); const i = m.lastIndexOf(': '); return cap(i >= 0 ? m.slice(i + 2) : m); };
 
+/** The stored meta profile, completed with the fields of R.newProfile() a stored copy may lack; null without one. */
 function loadProfile() {
-  try { const raw = globalThis.localStorage && localStorage.getItem(PROFILE_KEY); if (raw) return JSON.parse(raw); } catch { /* storage blocked */ }
+  try {
+    const raw = globalThis.localStorage && localStorage.getItem(PROFILE_KEY);
+    if (raw) {
+      const p = JSON.parse(raw); const base = R.newProfile();
+      if (p && typeof p === 'object') return { ...base, ...p, unlocks: { ...(p.unlocks || {}) }, firstKill: { ...base.firstKill, ...(p.firstKill || {}) } };
+    }
+  } catch { /* storage blocked or bad JSON */ }
   return null;
 }
-function saveProfile(p) { try { localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); } catch { /* ignore */ } }
+function saveProfile(p) { try { localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); } catch { /* storage blocked: the profile lives until the page closes */ } }
+
+/**
+ * Run log (presentation only; the engine's profile keeps counts, not records): per class the runs, Oruvath kills, best
+ * level and the furthest point reached, in localStorage next to the profile. Written at END_RUN from the engine's summary.
+ * stage: 1..ZONE_COUNT a zone, then the camp, the boss reached, the boss defeated.
+ */
+const HISTORY_KEY = 'tbwcr.history.v1';
+const newHistory = () => ({ v: 1, logged: 0, classes: {} });
+function loadHistory() {
+  try {
+    const raw = globalThis.localStorage && localStorage.getItem(HISTORY_KEY);
+    const h = raw ? JSON.parse(raw) : null;
+    if (h && typeof h === 'object' && h.classes && typeof h.classes === 'object') return { ...newHistory(), ...h };
+  } catch { /* storage blocked or bad JSON */ }
+  return newHistory();
+}
+function saveHistory(h) { try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); } catch { /* storage blocked */ } }
 const randomSeed = () => Math.floor(Math.random() * 0xffffffff) >>> 0;
 
 function engineBackend(seedOpt) {
   const C = R.C;
   let profile = loadProfile();
-  const mkRun = (seed) => {
-    try { return R.newRun({ classId: 'rogue', seed, content: CONTENT, profile: profile || undefined }); } catch (e) {
-      profile = null; return R.newRun({ classId: 'rogue', seed, content: CONTENT });
+  let history = loadHistory();
+  /** A run in CREATE. keep: { classId, petId } of the run before (the next run starts on the same class). */
+  const mkRun = (seed, keep = {}) => {
+    const classId = keep.classId || 'rogue'; const petId = classId === 'hunter' ? keep.petId || 'ridgewolf' : null;
+    try { return R.newRun({ classId, petId, seed, content: CONTENT, profile: profile || undefined }); } catch (e) {
+      try { return R.newRun({ classId, petId: classId === 'hunter' ? 'ridgewolf' : null, seed, content: CONTENT, profile: profile || undefined }); } catch (e2) {
+        profile = null; return R.newRun({ classId: 'rogue', seed, content: CONTENT });
+      }
     }
   };
   let st = mkRun(seedOpt ?? randomSeed());
-  const local = { introSeen: new Set(), spoils: null, hold: null, reward: null, fightNo: 0 };
+  const local = { introSeen: new Set(), spoils: null, hold: null, reward: null, fightNo: 0, lastRun: null, runNo: 0 };
 
   // ---------------------------------------------------------------- static data for the UI
   const treeId = (cls, i) => C.CLASS[cls].trees[i].toLowerCase().replace(/\W+/g, '');
@@ -11774,7 +12058,7 @@ function engineBackend(seedOpt) {
       fx: { meta: s.source === 'meta', talent: s.source === 'talent' },
     }])),
     talents: Object.fromEntries(Object.values(C.TALENT).map((t) => [t.id, { id: t.id, tree: treeId(t.cls, t.tree), tier: t.tier, name: t.name, ranks: t.ranks, spell: t.spell || null, text: TXT.talentText(t.id, CONTENT) }])),
-    pets: Object.fromEntries(Object.values(C.PET).map((p) => [p.id, { id: p.id, name: p.name, text: TXT.petText(p.id, CONTENT), locked: !!p.meta && !(profile && profile.unlocks && profile.unlocks[p.meta]) }])),
+    pets: Object.fromEntries(Object.values(C.PET).map((p) => [p.id, { id: p.id, name: p.name, text: TXT.petText(p.id, CONTENT), meta: p.meta || null, locked: !!p.meta && !(profile && profile.unlocks && profile.unlocks[p.meta]) }])),
     consumables: Object.fromEntries(Object.values(C.CONSUMABLE).map((c) => [c.id, { id: c.id, name: c.name, use: USE_MAP[c.use] || 'both', stack: c.stack, mana: !!c.mana, text: TXT.consumableText(c.id, CONTENT) }])),
     statuses: TXT.STATUS_INFO,
     boons: Object.fromEntries(Object.values(C.BOON).map((b) => [b.id, { id: b.id, name: b.name, text: TXT.boonText(b.id, CONTENT) }])),
@@ -11782,7 +12066,10 @@ function engineBackend(seedOpt) {
     nodeHours: Object.fromEntries(Object.values(C.NODE_TYPE).map((t) => [t.id, t.hours])),
     boss: { name: C.BOSS_TEXT.name, intro: (CONTENT.camp && CONTENT.camp.bossText) || '' },
     rules: rulesTable(C),
+    meta: metaData(C),
   };
+  /** A pet that needs a meta unlock (Stormhawk) is locked until the profile owns it; refreshed after every purchase. */
+  const refreshPets = () => { for (const pd of Object.values(data.pets)) pd.locked = !!pd.meta && !(profile && (profile.unlocks[pd.meta] || 0) > 0); };
   const consName = (id) => (C.CONSUMABLE[id] ? C.CONSUMABLE[id].name : null);
   // a damage or heal source: a spell, the pet, or a consumable (potions, Spark Flask)
   const spellName = (id) => (C.SPELL[id] ? C.SPELL[id].name : id === 'pet' ? 'Pet' : consName(id) || TXT.humanize(id));
@@ -11856,7 +12143,13 @@ function engineBackend(seedOpt) {
     const exitLevel = C.ZONE_LEVELS * z; // rules 1.3: a zone's band ends at its exit level
     return { idx: z, id: `z${z}`, camp: false, name: zc ? zc.name : `Zone ${z}`, hubName: zc ? zc.hubName : 'Hub', hubText: zc ? zc.hubText : '', blurb: zc ? zc.theme : '',
       theme: THEMES[z - 1] || 'farmland', band: [exitLevel - C.ZONE_LEVELS + 1, exitLevel], exitLevel, travelLevel: R.travelLevel(s) ?? exitLevel, rows,
-      pos: { row: s.zone.pos.r, lane: s.zone.pos.l }, path, questsDone: s.zone.questsDone || 0, storyDone: !!s.zone.storyDone, next: mv ? mv.next : [] };
+      pos: { row: s.zone.pos.r, lane: s.zone.pos.l }, path, questsDone: s.zone.questsDone || 0, storyDone: !!s.zone.storyDone, next: mv ? mv.next : [],
+      travelHours: travelHours(s) };
+  }
+  /** Hours TRAVEL_ON spends now (meta Wayfinder: none), from a dry step; null while it is not legal. */
+  function travelHours(s) {
+    if (s.phase !== 'MAP' || !R.isLegal(s, { type: 'TRAVEL_ON' })) return null;
+    try { return R.step(s, { type: 'TRAVEL_ON' }).state.hours - s.hours; } catch { return null; }
   }
 
   const rankOf = (e) => (e.boss ? 'boss' : e.kind === 'shard' ? 'shard' : e.kind || 'normal');
@@ -12016,6 +12309,88 @@ function engineBackend(seedOpt) {
       estMinutes: { manual: Math.round(sm.minutes.manual), auto: Math.round(sm.minutes.autoplay) }, bossPhase: sm.bossPhase,
       echoes: ((sm.echoes && sm.echoes.lines) || []).map((l) => [`${TXT.ECHO_LINE[l.id] || TXT.humanize(l.id)}${l.count > 1 ? ` (${l.count})` : ''}`, l.echoes]),
       echoTotal: sm.echoes ? sm.echoes.total : 0,
+      // Oaths (rules 11.5): the engine's multiplier on the sum of the lines
+      echoMult: sm.echoes ? sm.echoes.oathMult : 1, oaths: (sm.oaths || []).map((o) => (C.OATH[o] ? C.OATH[o].name : TXT.humanize(o))),
+    };
+  }
+
+  // ---------------------------------------------------------------- meta progression (rules 11)
+  // Dry steps answer "what would the engine do": START_RUN for the run about to start, END_RUN for the profile a run
+  // will leave. Each result is kept for the state it was computed from (step() returns a new state every time).
+  const dry = { nextOf: null, next: null, afterOf: null, after: null };
+  /** The next run, from a dry START_RUN of the CREATE state: the engine's run modifiers (state.meta) for this class. */
+  function nextRun(s) {
+    if (dry.nextOf === s) return dry.next;
+    let out = null;
+    try {
+      const r = R.step(s, { type: 'START_RUN' }).state;
+      const sm = R.summary(r);
+      const count = (id) => (r.player.bag || []).reduce((a, it) => a + (it.kind === 'cons' && it.id === id ? it.qty : 0), 0);
+      out = {
+        classId: r.player.classId, className: C.CLASS[r.player.classId].name, meta: JSON.parse(JSON.stringify(r.meta)), oaths: r.oaths.slice(),
+        oathMult: sm && sm.echoes ? sm.echoes.oathMult : 1, bagSlots: R.bagCapacity(r), potions: count('healing_draught'),
+        weapon: item(r.player.equipped.weapon, r.player.classId), resurrect: ((R.resurrectCharges(r) || {}).now || []).map((x) => RES_KEY[x] || x),
+      };
+    } catch { out = null; }
+    dry.nextOf = s; dry.next = out;
+    return out;
+  }
+  /** The profile END_RUN will store (SUMMARY), from a dry END_RUN: its balance and how many unlocks it can buy. */
+  function afterRun(s) {
+    if (dry.afterOf === s) return dry.after;
+    let out = null;
+    try {
+      const r = R.step(s, { type: 'END_RUN' }).state;
+      const p = r.result.profile;
+      out = { echoes: p.echoes, gained: r.result.echoes, affordable: R.metaOffers(p).filter((o) => o.affordable).length };
+    } catch { out = null; }
+    dry.afterOf = s; dry.after = out;
+    return out;
+  }
+  /** Furthest point of a run as the run log stores it: 1..ZONE_COUNT a zone, then the camp, the boss, the boss defeated. */
+  const stageOf = (sum) => (sum.outcome === 'victory' ? C.ZONE_COUNT + 3 : sum.reachedBoss ? C.ZONE_COUNT + 2 : sum.reached && sum.reached.camp ? C.ZONE_COUNT + 1 : (sum.reached && sum.reached.zone) || 1);
+  function stageText(stage, phase) {
+    const Z = C.ZONE_COUNT; const boss = data.meta.names.boss;
+    if (!stage) return null;
+    if (stage <= Z) return (zoneContent(stage) || {}).name || `Zone ${stage}`;
+    if (stage === Z + 1) return data.meta.names.camp;
+    if (stage === Z + 2) return `${boss}, phase ${Math.max(1, phase || 1)}`;
+    return `${boss} defeated`;
+  }
+  /** END_RUN: one more run in the log of its class (presentation; see loadHistory). */
+  function recordRun(sum) {
+    const c = history.classes[sum.classId] || (history.classes[sum.classId] = { runs: 0, kills: 0, bestLevel: 0, bestStage: 0, bestPhase: 0 });
+    const stage = stageOf(sum); const phase = sum.bossPhase || 0;
+    c.runs = (c.runs || 0) + 1;
+    if (sum.outcome === 'victory') c.kills = (c.kills || 0) + 1;
+    c.bestLevel = Math.max(c.bestLevel || 0, sum.level || 0);
+    if (stage > (c.bestStage || 0) || (stage === c.bestStage && phase > (c.bestPhase || 0))) { c.bestStage = stage; c.bestPhase = phase; }
+    history.logged = (history.logged || 0) + 1;
+    saveHistory(history);
+  }
+  /** After a purchase: the run being created takes the new profile; class, pet, name, seed and Oaths stay. */
+  function rebuildCreate() {
+    const c = st.create;
+    let s = R.newRun({ classId: c.classId, petId: c.classId === 'hunter' ? c.petId : null, name: c.name || '', seed: c.seed, profile, content: CONTENT });
+    for (const o of c.oaths || []) { const a = { type: 'SET_OATH', oath: o, on: true }; if (R.isLegal(s, a)) s = R.step(s, a).state; }
+    st = s;
+  }
+  /**
+   * The profile between runs (CREATE and SUMMARY): balance and counts, the engine's offers (R.metaOffers: rank, ranks,
+   * nextCost, req, available, affordable), the run log per class, the last run's Echoes (after END_RUN), the next run
+   * (CREATE: dry START_RUN) and what this run leaves (SUMMARY: dry END_RUN).
+   */
+  function metaView(s) {
+    const p = profile || R.newProfile();
+    const create = s.phase === 'CREATE';
+    return {
+      echoes: p.echoes, earned: p.earned, spent: p.spent, runs: p.runs, bossKills: p.bossKills, reachedBoss: !!p.reachedBoss,
+      firstKill: { ...p.firstKill }, unlocks: { ...p.unlocks }, offers: R.metaOffers(p),
+      oathsOwned: create ? R.isLegal(s, { type: 'SET_OATH', oath: C.OATH_IDS[0], on: true }) : (p.unlocks.oaths || 0) > 0,
+      history: { logged: history.logged || 0, classes: Object.fromEntries(C.CLASS_IDS.map((id) => { const c = history.classes[id] || {}; return [id, { runs: c.runs || 0, kills: c.kills || 0, bestLevel: c.bestLevel || 0, best: stageText(c.bestStage, c.bestPhase), firstKill: !!p.firstKill[id] }]; })) },
+      lastRun: local.lastRun,
+      next: create ? nextRun(s) : null,
+      after: s.phase === 'SUMMARY' ? afterRun(s) : null,
     };
   }
 
@@ -12023,8 +12398,9 @@ function engineBackend(seedOpt) {
     const s = st;
     const v = { hours: s.hours || 0, autoplay: !!s.autoplay, seed: s.create ? s.create.seed : s.seed, mode: 'engine' };
     if (s.phase === 'CREATE') {
-      return { ...v, phase: 'CREATE', create: { classId: s.create.classId || 'rogue', petId: s.create.petId || 'ridgewolf', name: s.create.name || '', seed: s.create.seed }, player: null, zone: null, node: null, combat: null, loot: null, summary: null, legal: { lanes: [], services: {}, items: [], spells: {} } };
+      return { ...v, phase: 'CREATE', create: { classId: s.create.classId || 'rogue', petId: s.create.petId || 'ridgewolf', name: s.create.name || '', seed: s.create.seed, oaths: (s.create.oaths || []).slice() }, oaths: (s.create.oaths || []).slice(), meta: metaView(s), player: null, zone: null, node: null, combat: null, loot: null, summary: null, legal: { lanes: [], services: {}, items: [], spells: {} } };
     }
+    v.oaths = (s.oaths || []).slice();
     v.phase = s.phase === 'ENDED' ? 'SUMMARY' : s.phase;
     v.player = convPlayer(s);
     v.zone = convZone(s);
@@ -12033,6 +12409,7 @@ function engineBackend(seedOpt) {
     v.combat = convFight(s);
     v.loot = null;
     v.summary = v.phase === 'SUMMARY' ? convSummary(s) : null;
+    v.meta = v.phase === 'SUMMARY' ? metaView(s) : null;
     v.camp = s.phase === 'CAMP' && !s.fight && !s.service ? { par: C.BOSS_TIME_PAR, asc: dryBossAsc(s) } : null;
     if (v.phase === 'CAMP' && s.fight) v.phase = 'NODE';
     if (v.node && v.node.step === 'intro' && s.fight) v.combat = null; // the intro dialog is read before the fight is shown
@@ -12233,11 +12610,34 @@ function engineBackend(seedOpt) {
           local.spoils = null;
           break;
         case 'END_RUN': {
+          const before = st.profile ? st.profile.echoes : 0;
           if (st.phase === 'SUMMARY') apply({ type: 'END_RUN' }, events);
-          if (st.result && st.result.profile) { profile = st.result.profile; saveProfile(profile); }
-          st = mkRun(randomSeed());
+          const keep = st.create ? { classId: st.create.classId, petId: st.create.petId } : {};
+          if (st.result && st.result.profile) {
+            const sum = st.result.summary;
+            profile = st.result.profile; saveProfile(profile); refreshPets();
+            recordRun(sum);
+            local.lastRun = { n: ++local.runNo, name: sum.name, classId: sum.classId, className: sum.className, outcome: sum.outcome, level: sum.level,
+              gained: st.result.echoes, before, after: profile.echoes, firstKill: ((sum.echoes && sum.echoes.lines) || []).some((l) => l.id === 'firstKill') };
+          }
+          st = mkRun(randomSeed(), keep); // the next run starts on the same class
           local.introSeen.clear(); local.spoils = null; local.hold = null; local.reward = null;
           return { ok: true, events: [] };
+        }
+        case 'META_BUY': {
+          // a meta unlock (rules 11.2), between runs only; the engine's offers say what can be bought
+          if (st.phase !== 'CREATE') return { ok: false, error: 'Unlocks are bought between runs' };
+          const p0 = profile || R.newProfile();
+          const was = R.metaOffers(p0);
+          const o0 = was.find((o) => o.id === action.id);
+          if (!o0) return { ok: false, error: 'No such unlock' };
+          if (!o0.available) return { ok: false, error: o0.rank >= o0.ranks ? `${o0.name} is at its highest rank` : `${o0.name} is still locked` };
+          if (!o0.affordable) return { ok: false, error: 'Not enough Echoes' };
+          profile = R.buyMeta(p0, action.id);
+          saveProfile(profile); refreshPets(); rebuildCreate();
+          const now = R.metaOffers(profile); const o1 = now.find((o) => o.id === action.id);
+          const opened = now.filter((o) => o.available && o.rank === 0 && !was.find((x) => x.id === o.id).available).map((o) => o.id);
+          return { ok: true, events: [{ t: 'metaBuy', id: o1.id, name: o1.name, rank: o1.rank, ranks: o1.ranks, cost: o0.nextCost, echoes: profile.echoes, opened }] };
         }
         case 'SELECT_CLASS': {
           apply({ type: 'SELECT_CLASS', classId: action.classId }, events);
@@ -15294,11 +15694,321 @@ function dropTarget(el, ctx, onDrop) {
 
 
 });
+__bundle.def("src/ui/meta.js", function* (__ns, __link) {
+let h, clear, fmtNum; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }]]); let icon, spellIcon; __link.imp("src/ui/art-icons.js", [["icon", (v) => { icon = v; }], ["spellIcon", (v) => { spellIcon = v; }]]); let tip, hideTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["hide", (v) => { hideTip = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let META_KIND, metaEffect, metaReqText, nextRunLines, oathEffect, numWord, plural, pct1; __link.imp("src/ui/ui-text.js", [["META_KIND", (v) => { META_KIND = v; }], ["metaEffect", (v) => { metaEffect = v; }], ["metaReqText", (v) => { metaReqText = v; }], ["nextRunLines", (v) => { nextRunLines = v; }], ["oathEffect", (v) => { oathEffect = v; }], ["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["pct1", (v) => { pct1 = v; }]]); __link.exp({ "metaIcon": () => metaIcon, "echoAmt": () => echoAmt, "offerState": () => offerState, "createMeta": () => createMeta, "buildOaths": () => buildOaths });
+yield;
+// Hall of Echoes: the meta progression screen between runs (rules 11). Shown over class select, opened from class
+// select or from the run summary ("Spend Echoes"). It reads the profile view of the bridge (view.meta: balance, the
+// engine's offers from R.metaOffers, the run log, the next run from a dry START_RUN) and sends META_BUY. Costs, ranks,
+// states and effects come from the engine; this file only lays them out and animates the changes.
+
+
+
+
+
+
+/** Icon of an unlock: its spell for the Lost Techniques, else a glyph for its effect. */
+const META_ICON = {
+  vigor: ['heart', 'blood'], edge: ['slash', 'steel'], keen: ['target', 'gold'], quick_study: ['tome', 'arcane'], prospector: ['coin', 'gold'],
+  talent_pt: ['stars3', 'epic'], satchel: ['potion', 'blood'], heirloom_blade: ['dagger', 'uncommon'], pockets: ['junk', 'earth'],
+  ledger: ['tome', 'parchment'], scout: ['eye', 'nature'], wayfinder: ['step', 'earth'], swift_boots: ['boot', 'frost'],
+  alchemist: ['potion', 'epic'], cache: ['gem', 'rare'], relics: ['gem', 'epic'], starforged: ['comet', 'gold'],
+  stormhawk: ['bolt', 'frost'], second_breath: ['ember', 'heal'], oaths: ['rune', 'blood'],
+};
+function metaIcon(m) {
+  if (m && m.spell) return spellIcon(m.spell);
+  const g = META_ICON[m && m.id] || ['spark', 'arcane'];
+  return icon(g[0], g[1]);
+}
+/** Catalogue columns: the kinds of rules 11.2 in catalogue order, laid out in four columns of about equal height. */
+const COLUMN_OF = { stat: 0, 'start kit': 1, economy: 1, map: 1, items: 2, resurrect: 2, challenge: 2, skill: 3 };
+const COLUMNS = 4;
+const BUY_GAP_MS = 350; // a double click buys one rank, not two
+
+/** The Echo gem and an amount: "◆ 1 240". */
+function echoAmt(n, cls = '') { return h('span.eamt' + cls, h('i.eg'), fmtNum(n)); }
+
+/** State of an offer for the card: owned (every rank), affordable, unaffordable (available, too few Echoes) or locked. */
+function offerState(o) { return o.rank >= o.ranks ? 'owned' : !o.available ? 'locked' : o.affordable ? 'affordable' : 'unaffordable'; }
+
+function createMeta(ctx) {
+  const el = h('div#meta.hidden', { role: 'dialog', 'aria-label': 'Hall of Echoes' });
+  let open = false; let lastKey = null; let prev = null; let shownRun = 0; let ticker = null; let tickerT = null; let balT = null; let lastBuy = 0;
+
+  function setOpen(on) {
+    open = !!on;
+    if (!on) { el.classList.add('hidden'); hideTip(); }
+    lastKey = null; prev = null; // the first render after opening counts the last run's Echoes in
+  }
+
+  /** Called on every render: shows the screen in CREATE while it is open; it stays pending through SUMMARY (Spend Echoes). */
+  function sync(v) {
+    if (!open || !v.meta) { el.classList.add('hidden'); if (open && v.phase !== 'SUMMARY') setOpen(false); return; }
+    if (v.phase !== 'CREATE') { el.classList.add('hidden'); if (v.phase !== 'SUMMARY') setOpen(false); return; }
+    el.classList.remove('hidden');
+    const m = v.meta;
+    const key = JSON.stringify([m.echoes, m.unlocks, m.runs, v.create.classId, v.create.petId, v.create.oaths, m.lastRun && m.lastRun.n]);
+    if (key === lastKey) return;
+    lastKey = key;
+    const scroll = el.querySelector('.mbody') ? el.querySelector('.mbody').scrollTop : 0;
+    render(v);
+    const body = el.querySelector('.mbody'); if (body) body.scrollTop = scroll;
+    effects(prev, m);
+    prev = m;
+  }
+
+  // ------------------------------------------------------------------ layout
+  function render(v) {
+    const m = v.meta; const D = ctx.data.meta; const d = ctx.data;
+    const lines = nextRunLines(m.next, D, d);
+    const nowOf = new Map(lines.map((l) => [l.id, l.text]));
+    const reach = m.offers.filter((o) => o.affordable).length;
+    const win = h('div.mwin.panel');
+    // header: title, feedback line, balance, close
+    const bal = h('div.mbal', h('i.eg.big'), h('b.n', fmtNum(m.echoes)), h('span.u', 'Echoes'), h('span.delta'));
+    tip(bal, () => h('div', h('div.tt-name', 'Echoes'), h('div.tt-line.desc', `Every run earns Echoes: for levels, zones, dungeons, elites and quests, and for facing ${D.names.boss}. They buy lasting unlocks here.`),
+      h('div.tt-line.num', `Earned ${fmtNum(m.earned)} · spent ${fmtNum(m.spent)}`), h('div.tt-sub', `${numWord(reach)} ${plural(reach, 'unlock')} within reach`)));
+    const close = h('button.xbtn', { 'aria-label': 'Close' }, '×');
+    close.addEventListener('click', () => ctx.ui.closeMeta());
+    ticker = h('div.mtick', { 'aria-live': 'polite' });
+    win.appendChild(h('div.mhead',
+      h('div.mh-l', h('div.title', 'Hall of Echoes'), h('div.subtitle', 'Echoes from every run buy lasting unlocks. Each applies from the start of your next run.')),
+      ticker, h('div.mh-r', bal, h('div.mh-sub', `earned ${fmtNum(m.earned)} · spent ${fmtNum(m.spent)}`)), close));
+    win.appendChild(history(m));
+    // catalogue: groups of the engine's kinds, in catalogue order
+    const cols = Array.from({ length: COLUMNS }, () => h('div.mcol'));
+    for (const kind of D.kinds) {
+      const offers = m.offers.filter((o) => o.kind === kind);
+      if (!offers.length) continue;
+      const [title, line] = META_KIND[kind] || [kind, ''];
+      const owned = offers.reduce((a, o) => a + o.rank, 0); const total = offers.reduce((a, o) => a + o.ranks, 0);
+      const head = h('div.mg-h', h('span.t', title), h('span.c', `${owned}/${total}`));
+      tip(head, () => h('div', h('div.tt-name', title), h('div.tt-line.desc', line), h('div.tt-sub', `${owned} of ${total} ${plural(total, 'rank')} owned`)));
+      const grp = h('div.mgroup', { dataset: { kind } }, head, offers.map((o) => card(o, m, nowOf)));
+      const col = COLUMN_OF[kind] ?? cols.reduce((best, c, i) => (c.childElementCount < cols[best].childElementCount ? i : best), 0);
+      cols[Math.min(COLUMNS - 1, col)].appendChild(grp);
+    }
+    win.appendChild(h('div.mbody', cols));
+    // the next run, from the engine's dry START_RUN
+    const n = m.next;
+    const chip = (l) => {
+      const e = D.entries[l.id]; const c = h('span.mn-chip', { dataset: { id: l.id } }, l.text);
+      tip(c, () => h('div', h('div.tt-name', e ? e.name : l.text), e ? h('div.tt-line.desc', metaEffect(e, D, d).long) : null, h('div.tt-line.use', `Your next run: ${l.text}`)));
+      return c;
+    };
+    const list = h('div.mn-list', lines.length ? lines.map(chip) : h('span.muted', 'Nothing yet. Every unlock you buy shows here, and applies from the first step of the run.'));
+    const other = otherClassLines(m, n, D, d);
+    win.appendChild(h('div.mnext', h('div.mn-h', h('span.t', 'Your next run'), n ? h('span.dim', `as ${n.className}`) : null), list, other ? h('div.mn-other.muted', other) : null));
+    const back = h('button.btn.primary', 'Choose your hero');
+    back.addEventListener('click', () => ctx.ui.closeMeta());
+    win.appendChild(h('div.mfoot', h('span.muted', 'Hover an unlock for details. Esc returns to class select.'), back));
+    clear(el).appendChild(win);
+    idleTicker(m);
+  }
+
+  /** One unlock: icon, name, rank, effect, requirement, and the Buy button with its cost (or Owned / Locked). */
+  function card(o, m, nowOf) {
+    const D = ctx.data.meta; const e = D.entries[o.id] || { id: o.id, kind: o.kind };
+    const fx = metaEffect(e, D, ctx.data);
+    const state = offerState(o);
+    const pips = o.ranks > 1 ? h('span.pips', Array.from({ length: o.ranks }, (_, i) => h('i' + (i < o.rank ? '.on' : '')))) : null;
+    let right;
+    if (state === 'owned') right = h('span.mtag.owned', o.ranks > 1 ? 'Max rank' : 'Owned');
+    else {
+      const b = h('button.buy', { type: 'button', 'aria-label': `Buy ${o.name}`, dataset: { id: o.id } }, state === 'locked' ? null : h('span.bl', 'Buy'), o.nextCost > 0 ? echoAmt(o.nextCost) : h('span.free', 'Free'));
+      b.disabled = state !== 'affordable';
+      b.addEventListener('click', (ev) => { ev.stopPropagation(); buy(o.id); });
+      right = b;
+    }
+    const req = state === 'locked' ? h('div.mc-req', `Needs ${o.req.map((r) => metaReqText(r, D, true)).join(' and ')}`) : null;
+    const el2 = h('div.mcard', { dataset: { id: o.id, state } }, h('img.ic', { src: metaIcon(e), alt: '' }),
+      h('div.mc-t', h('span.nm', o.name), h('span.rk', `${o.rank}/${o.ranks}`), pips), right,
+      h('div.mc-fx', fx.short), req);
+    el2.classList.add(state);
+    if (o.rank > 0 && state !== 'owned') el2.classList.add('some');
+    tip(el2, () => cardTip(o, e, fx, state, m, nowOf));
+    return el2;
+  }
+
+  function cardTip(o, e, fx, state, m, nowOf) {
+    const D = ctx.data.meta;
+    const [kindName] = META_KIND[o.kind] || [o.kind];
+    const box = h('div.tt-spell.tt-meta');
+    box.appendChild(h('div.tt-row', h('div.tt-name', o.name), h('div.tt-rank', `Rank ${o.rank}/${o.ranks}`)));
+    box.appendChild(h('div.tt-sub', o.ranks > 1 ? `${kindName} · ${o.ranks} ranks` : kindName));
+    box.appendChild(h('div.tt-line.desc', fx.long || fx.short));
+    for (const line of fx.more || []) box.appendChild(h('div.tt-line.stat', line));
+    if (nowOf.has(o.id)) box.appendChild(h('div.tt-line.use', `Your next run: ${nowOf.get(o.id)}`));
+    else if (o.rank > 0) box.appendChild(h('div.tt-line.num', ownedNote(o, e, m)));
+    if (state === 'owned') box.appendChild(h('div.tt-hint', o.ranks > 1 ? 'Every rank is yours.' : 'Yours for every run to come.'));
+    else {
+      box.appendChild(h('div.tt-price', o.rank > 0 ? 'Next rank: ' : 'Cost: ', o.nextCost > 0 ? echoAmt(o.nextCost) : 'free'));
+      if (state === 'locked') {
+        const met = (r) => (r === 'flag:reachedBoss' ? m.reachedBoss : r === 'flag:bossKill' ? m.bossKills > 0 : (m.offers.find((x) => x.id === r) || { rank: 0 }).rank > 0);
+        for (const r of o.req) box.appendChild(h(met(r) ? 'div.tt-hint' : 'div.tt-warn', `${met(r) ? '✓' : '✗'} Requires: ${metaReqText(r, D)}`));
+      } else if (state === 'unaffordable') box.appendChild(h('div.tt-warn', `You need ${fmtNum(o.nextCost - m.echoes)} more Echoes.`));
+      else box.appendChild(h('div.tt-hint', 'Click Buy to learn it. It applies from your next run.'));
+    }
+    return box;
+  }
+
+  /** An owned unlock that does not show in the next run: Oaths wait on class select; a class's skill waits for that class. */
+  function ownedNote(o, e, m) {
+    const d = ctx.data; const cls = (id) => (d.classes[id] || { name: id }).name;
+    if (o.id === 'oaths') return 'Owned. Swear them on class select, under the class cards.';
+    if (e.spell && d.spells[e.spell]) return `Owned. It works on ${cls(d.spells[e.spell].cls)} runs.`;
+    if (e.pet) return `Owned. It works on ${cls('hunter')} runs.`;
+    return `Owned${o.ranks > 1 ? `: rank ${o.rank}` : ''}.`;
+  }
+
+  /** Run log: totals from the profile, and per class the runs, best level, furthest point, kills and first-kill bonus. */
+  function history(m) {
+    const D = ctx.data.meta; const d = ctx.data; const H = m.history;
+    const tot = h('div.mh-tot', h('span', 'Runs ', h('b', fmtNum(m.runs))), h('span', `${D.names.boss} defeated `, h('b', fmtNum(m.bossKills))));
+    if (H.logged < m.runs) tot.appendChild(h('span.muted', `${m.runs - H.logged} earlier ${plural(m.runs - H.logged, 'run')} before the log`));
+    tip(tot, () => h('div', h('div.tt-name', 'Your runs'), h('div.tt-line', `${fmtNum(m.runs)} ${plural(m.runs, 'run')} ended, ${fmtNum(m.bossKills)} with ${D.names.boss} defeated.`),
+      h('div.tt-line.desc', `Every run earns Echoes. The first victory with each class adds +${fmtNum(D.num.firstKill)} Echoes.`),
+      H.logged < m.runs ? h('div.tt-sub', 'Best levels and places are logged from the runs this game has seen.') : null));
+    const chips = Object.entries(H.classes).map(([id, c]) => {
+      const cd = d.classes[id] || { name: id, color: '#ccc' };
+      const fk = c.firstKill ? h('span.fk.good', 'First-kill bonus ✓') : h('span.fk.wait', 'First-kill bonus ', echoAmt(D.num.firstKill, '.plus'));
+      const body = c.runs ? `${c.runs} ${plural(c.runs, 'run')} · best level ${c.bestLevel}${c.best ? ` · ${c.best}` : ''} · slain ${c.kills}×` : 'No runs yet';
+      const chip = h('div.mh-cls', { dataset: { cls: id }, style: { '--cc': cd.color } }, h('span.cn', cd.name), fk, h('span.cb', body));
+      tip(chip, () => h('div', h('div.tt-name', { style: { color: cd.color } }, cd.name),
+        h('div.tt-line', c.runs ? `${c.runs} ${plural(c.runs, 'run')} logged. Best level ${c.bestLevel}${c.best ? `; furthest: ${c.best}` : ''}.` : 'No run logged yet.'),
+        h('div.tt-line', `${D.names.boss} defeated ${c.kills} ${plural(c.kills, 'time')}.`),
+        h(c.firstKill ? 'div.tt-hint' : 'div.tt-line.use', c.firstKill ? `First-kill bonus claimed (+${fmtNum(D.num.firstKill)} Echoes).` : `The first ${cd.name} to defeat ${D.names.boss} earns +${fmtNum(D.num.firstKill)} Echoes.`)));
+      return chip;
+    });
+    return h('div.mhist', tot, h('div.mh-chips', chips));
+  }
+
+  /** Owned skills that apply to another class only (the dry START_RUN is for the class chosen). */
+  function otherClassLines(m, n, D, d) {
+    if (!n) return null;
+    const names = Object.values(D.entries).filter((e) => e.spell && (m.unlocks[e.id] || 0) > 0 && d.spells[e.spell] && d.spells[e.spell].cls !== n.classId).map((e) => d.spells[e.spell].name);
+    if ((m.unlocks.stormhawk || 0) > 0 && n.classId !== 'hunter') names.push(`${(d.pets.stormhawk || {}).name || 'Stormhawk'} (Hunter)`);
+    return names.length ? `Owned for other classes: ${names.join(', ')}.` : null;
+  }
+
+  // ------------------------------------------------------------------ actions and feedback
+  /** One rank per click; a second click within BUY_GAP_MS (a double click) buys nothing more. */
+  function buy(id) {
+    hideTip();
+    const t = performance.now();
+    if (t - lastBuy < BUY_GAP_MS) return;
+    lastBuy = t;
+    ctx.act({ type: 'META_BUY', id });
+  }
+
+  /** What changed since the last render: Echoes (count to the new balance), ranks bought, unlocks newly available. */
+  function effects(before, m) {
+    const D = ctx.data.meta;
+    const lr = m.lastRun;
+    if (!before) {
+      // just opened: the Echoes of the run that has just ended count up once
+      if (lr && lr.n !== shownRun && lr.gained > 0) {
+        shownRun = lr.n;
+        countBalance(lr.before, lr.after);
+        say(`+${fmtNum(lr.gained)} Echoes from ${lr.name}'s run${lr.firstKill ? `, with the first-kill bonus of the ${lr.className}` : ''}.`, 'gain');
+      } else if (lr) shownRun = lr.n;
+      return;
+    }
+    if (before.echoes !== m.echoes) countBalance(before.echoes, m.echoes);
+    const bought = m.offers.filter((o) => o.rank > ((before.offers.find((x) => x.id === o.id) || { rank: 0 }).rank));
+    const opened = m.offers.filter((o) => o.available && o.rank === 0 && !(before.offers.find((x) => x.id === o.id) || {}).available);
+    const lines = nextRunLines(m.next, D, ctx.data);
+    for (const o of bought) {
+      flash(`.mcard[data-id="${o.id}"]`, 'fx-bought', 1300);
+      flash(`.mn-chip[data-id="${o.id}"]`, 'fx-fresh', 2200);
+      const card = el.querySelector(`.mcard[data-id="${o.id}"] .pips i:nth-child(${o.rank})`); if (card) card.classList.add('new');
+    }
+    for (const o of opened) flash(`.mcard[data-id="${o.id}"]`, 'fx-opened', 1600);
+    if (bought.length) {
+      const o = bought[0]; const line = lines.find((l) => l.id === o.id);
+      const extra = opened.length ? ` Now open: ${opened.map((x) => x.name).join(', ')}.` : '';
+      const where = line ? ` Next run: ${line.text}.` : o.id === 'oaths' ? ' Swear them on class select.' : '';
+      say(`${o.name}${o.ranks > 1 ? `, rank ${o.rank} of ${o.ranks}` : ''}: learned.${where}${extra}`, 'buy');
+    }
+  }
+
+  function flash(sel, cls, ms) {
+    const t = el.querySelector(sel); if (!t) return;
+    if (settings.instant) ms = Math.min(ms, 600);
+    t.classList.remove(cls); void t.offsetWidth; t.classList.add(cls);
+    setTimeout(() => t.classList.remove(cls), ms);
+  }
+
+  /** The balance counts from one value to the next, and the difference floats up beside it. */
+  function countBalance(a, b) {
+    const n = el.querySelector('.mbal .n'); const dl = el.querySelector('.mbal .delta');
+    if (!n) return;
+    clearInterval(balT);
+    const diff = b - a;
+    if (dl && diff) { dl.textContent = `${diff > 0 ? '+' : '−'}${fmtNum(Math.abs(diff))}`; dl.className = 'delta ' + (diff > 0 ? 'up' : 'down'); void dl.offsetWidth; dl.classList.add('on'); }
+    const ms = settings.instant ? 0 : Math.min(1100, 350 + Math.abs(diff) * 2);
+    if (!ms) { n.textContent = fmtNum(b); return; }
+    const t0 = performance.now();
+    n.textContent = fmtNum(a);
+    el.querySelector('.mbal').classList.add('counting');
+    balT = setInterval(() => {
+      const k = Math.min(1, (performance.now() - t0) / ms); const e = 1 - Math.pow(1 - k, 3);
+      n.textContent = fmtNum(Math.round(a + (b - a) * e));
+      if (k >= 1) { clearInterval(balT); n.textContent = fmtNum(b); const mb = el.querySelector('.mbal'); if (mb) mb.classList.remove('counting'); }
+    }, 30);
+  }
+
+  function say(text, kind) {
+    if (!ticker) return;
+    clearTimeout(tickerT);
+    ticker.className = 'mtick on k-' + kind;
+    ticker.textContent = text;
+    tickerT = setTimeout(() => { if (ticker) ticker.classList.remove('on'); }, kind === 'buy' ? 6000 : 8000);
+  }
+  function idleTicker(m) {
+    if (!ticker) return;
+    const reach = m.offers.filter((o) => o.affordable);
+    ticker.className = 'mtick idle';
+    ticker.textContent = reach.length ? `${cap(numWord(reach.length))} ${plural(reach.length, 'unlock')} within reach.` : m.offers.every((o) => o.rank >= o.ranks) ? 'Every unlock is yours.' : 'Every run earns Echoes, even a short one.';
+  }
+
+  return {
+    el, sync,
+    isOpen: () => open,
+    open: () => setOpen(true),
+    close: () => setOpen(false),
+  };
+}
+const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+
+/**
+ * Oaths on class select (rules 11.5) when the profile owns them: a switch per Oath with its effect, sending SET_OATH,
+ * and the Echo multiplier of the Oaths sworn, from the engine (dry START_RUN summary).
+ */
+function buildOaths(v, ctx) {
+  const D = ctx.data.meta; const m = v.meta; const sworn = new Set(v.create.oaths || []);
+  const box = h('div.oaths.panel');
+  box.appendChild(h('div.oh', h('span.title', 'Oaths'), h('span.dim', `+${pct1(D.num.oathEcho)} Echoes each`)));
+  for (const id of D.oathIds) {
+    const o = D.oaths[id]; const on = sworn.has(id); const fx = oathEffect(o, D);
+    const b = h('button.oath' + (on ? '.on' : ''), { type: 'button', role: 'switch', 'aria-checked': on ? 'true' : 'false', 'aria-label': o.name, dataset: { oath: id } },
+      h('span.sw'), h('span.ot', h('b', o.name), h('span.os', fx.short)));
+    b.addEventListener('click', () => ctx.act({ type: 'SET_OATH', oath: id, on: !on }));
+    tip(b, () => h('div', h('div.tt-name', o.name), h('div.tt-line.desc', fx.long), h('div.tt-line.use', `+${pct1(D.num.oathEcho)} Echoes from the run for each Oath sworn.`), h('div.tt-hint', on ? 'Sworn. Click to take it back.' : 'Click to swear it for the next run.')));
+    box.appendChild(b);
+  }
+  const mult = m.next ? m.next.oathMult : 1;
+  box.appendChild(h('div.of' + (sworn.size ? '.on' : ''), sworn.size ? `Echoes from this run ×${Math.round(mult * 100) / 100}` : 'No Oath sworn: a normal run.'));
+  return box;
+}
+
+});
 __bundle.def("src/ui/screens.js", function* (__ns, __link) {
-let h, add, clear, fmtNum, moneyEl, moneyText, hoursText, clamp; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["moneyText", (v) => { moneyText = v; }], ["hoursText", (v) => { hoursText = v; }], ["clamp", (v) => { clamp = v; }]]); let spellIcon, itemIcon, nodeIcon, icon, consumableIcon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }]]); let tip, itemTip, spellTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }]]); let conColor, heroPortrait, travelState; __link.imp("src/ui/hud.js", [["conColor", (v) => { conColor = v; }], ["heroPortrait", (v) => { heroPortrait = v; }], ["travelState", (v) => { travelState = v; }]]); let numWord, plural, dangerAt, pct1; __link.imp("src/ui/ui-text.js", [["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["dangerAt", (v) => { dangerAt = v; }], ["pct1", (v) => { pct1 = v; }]]); __link.exp({ "createScreens": () => createScreens, "buildMap": () => buildMap });
+let h, add, clear, fmtNum, moneyEl, moneyText, hoursText, clamp; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["moneyText", (v) => { moneyText = v; }], ["hoursText", (v) => { hoursText = v; }], ["clamp", (v) => { clamp = v; }]]); let spellIcon, itemIcon, nodeIcon, icon, consumableIcon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }]]); let tip, itemTip, spellTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }]]); let conColor, heroPortrait, travelState; __link.imp("src/ui/hud.js", [["conColor", (v) => { conColor = v; }], ["heroPortrait", (v) => { heroPortrait = v; }], ["travelState", (v) => { travelState = v; }]]); let numWord, plural, dangerAt, pct1; __link.imp("src/ui/ui-text.js", [["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["dangerAt", (v) => { dangerAt = v; }], ["pct1", (v) => { pct1 = v; }]]); let createMeta, buildOaths, echoAmt; __link.imp("src/ui/meta.js", [["createMeta", (v) => { createMeta = v; }], ["buildOaths", (v) => { buildOaths = v; }], ["echoAmt", (v) => { echoAmt = v; }]]); __link.exp({ "createScreens": () => createScreens, "buildMap": () => buildMap });
 yield;
 // Centre screens by phase: class select, hub/camp, zone map, node dialogs, loot, quest rewards,
 // vendor, trainer, shrine, rest, treasure and the run summary. Every button sends an action.
+
 
 
 
@@ -15337,6 +16047,9 @@ function createScreens(root, ctx) {
   root.appendChild(layer);
   let cur = { key: null, el: null };
   let createEl = null;
+  // the Hall of Echoes lies over class select while it is open (meta.js); it is not one of the mounted screens
+  const meta = createMeta(ctx);
+  layer.appendChild(meta.el);
 
   function mount(key, build) {
     if (cur.key === key && cur.el) return cur.el;
@@ -15348,6 +16061,7 @@ function createScreens(root, ctx) {
   }
 
   function update(v) {
+    meta.sync(v);
     if (ctx.ui.overlay) { mount('overlay', () => null); return; }
     const p = v.player;
     if (v.phase === 'CREATE') { mount('create', () => (createEl = buildCreate(ctx))); updateCreate(createEl, v, ctx); return; }
@@ -15367,7 +16081,7 @@ function createScreens(root, ctx) {
     }
     mount('none', () => null);
   }
-  return { update, layer, refresh() { cur.key = null; } };
+  return { update, layer, meta, refresh() { cur.key = null; } };
 }
 
 const lootKey = (v) => `${v.loot.kind}|${v.loot.title}|${(v.loot.items || v.loot.choices || []).map((i) => i.uid).join(',')}|${v.player.bag.filter(Boolean).length}`;
@@ -15387,6 +16101,7 @@ function buildCreate(ctx) {
     card.addEventListener('click', () => ctx.act({ type: 'SELECT_CLASS', classId: id }));
     classes.appendChild(card);
   }
+  classes.appendChild(h('div.oathslot')); // Oaths (rules 11.5) once the profile owns them; filled by updateCreate
   const details = h('div.details.panel', h('div.wtitle', h('div.title.dname'), h('div.subtitle.drole')), h('div.body'));
   const name = h('input', { type: 'text', maxLength: 16, placeholder: 'Your name', spellcheck: false, 'aria-label': 'Character name' });
   name.addEventListener('change', () => { if (ctx.view.phase === 'CREATE') ctx.act({ type: 'SET_NAME', name: name.value }); });
@@ -15401,15 +16116,40 @@ function buildCreate(ctx) {
     if (seed.value.trim()) await ctx.act({ type: 'SET_SEED', seed: seed.value.replace(/\D/g, '') });
     ctx.act({ type: 'START_RUN' });
   });
-  root.append(classes, details, h('div.bottom.panel', h('div.field', h('label', 'Name'), name), h('div.field', h('label', 'Seed'), seed), go));
+  // Hall of Echoes (meta progression, rules 11): engine mode only (the mock has no profile)
+  let echoes = null;
+  if (d.meta) {
+    echoes = h('button.btn.echoes', { type: 'button', 'aria-label': 'Echoes' }, h('i.eg'), h('b.n', '0'), h('span.l', 'Echoes'), h('span.badge.hidden'));
+    echoes.addEventListener('click', () => { name.blur(); seed.blur(); ctx.ui.openMeta(); });
+    tip(echoes, () => {
+      const m = ctx.view.meta; if (!m) return null;
+      const reach = m.offers.filter((o) => o.affordable).length;
+      return h('div', h('div.tt-name', 'Hall of Echoes'), h('div.tt-line.desc', 'Spend Echoes on lasting unlocks: stats, items in the drop pools, skills and more.'),
+        h('div.tt-line.num', `${fmtNum(m.echoes)} Echoes · ${numWord(reach)} ${plural(reach, 'unlock')} within reach`), h('div.tt-hint', 'Click to open'));
+    });
+  }
+  root.append(classes, details, h('div.bottom.panel', h('div.field', h('label', 'Name'), name), h('div.field', h('label', 'Seed'), seed), echoes, go));
   return root;
 }
 
 function updateCreate(root, v, ctx) {
   const d = ctx.data; const c = v.create; const cls = d.classes[c.classId];
   root.querySelectorAll('.ccard').forEach((el) => el.classList.toggle('sel', el.dataset.cls === c.classId));
+  const m = v.meta;
+  // Echoes button: the balance and how many unlocks it can buy (the engine's offers)
+  const eb = root.querySelector('.bottom .echoes');
+  if (eb && m) {
+    eb.querySelector('.n').textContent = fmtNum(m.echoes);
+    const reach = m.offers.filter((o) => o.affordable).length; const badge = eb.querySelector('.badge');
+    badge.textContent = String(reach); badge.classList.toggle('hidden', !reach);
+  }
+  // Oaths (rules 11.5): only when the profile owns them (SET_OATH is legal)
+  const slot = root.querySelector('.oathslot');
+  const okey = m && m.oathsOwned ? JSON.stringify([c.oaths, m.next && m.next.oathMult]) : '';
+  if (slot && slot.dataset.key !== okey) { slot.dataset.key = okey; clear(slot); if (okey) slot.appendChild(buildOaths(v, ctx)); }
   const det = root.querySelector('.details');
-  const key = `${c.classId}|${c.petId}`;
+  // pets that need an unlock (Stormhawk) open after a purchase: part of the key
+  const key = `${c.classId}|${c.petId}|${Object.values(d.pets).map((pd) => (pd.locked ? 1 : 0)).join('')}`;
   if (det.dataset.key === key) return;
   det.dataset.key = key;
   det.querySelector('.dname').textContent = cls.name;
@@ -15426,7 +16166,8 @@ function updateCreate(root, v, ctx) {
       const cv = document.createElement('canvas'); cv.width = 120; cv.height = 120;
       drawPortrait(cv.getContext('2d'), 120, PET_LOOKS[id], 'beast', { bg1: '#2e3a26' });
       const el = h('div.pet' + (c.petId === id ? '.sel' : '') + (pd.locked ? '.locked' : ''), cv, h('div.pn', pd.name));
-      tip(el, () => h('div', h('div.tt-name', pd.name), h('div.tt-line.desc', pd.text), pd.locked ? h('div.tt-warn', 'Unlocked with meta progression') : null));
+      const unlockName = pd.meta && d.meta && d.meta.entries[pd.meta] ? d.meta.entries[pd.meta].name : null;
+      tip(el, () => h('div', h('div.tt-name', pd.name), h('div.tt-line.desc', pd.text), pd.locked ? h('div.tt-warn', unlockName ? `Unlock it with ${unlockName} in the Hall of Echoes.` : 'Unlocked with meta progression') : null));
       if (!pd.locked) el.addEventListener('click', () => ctx.act({ type: 'SELECT_PET', petId: id }));
       pets.appendChild(el);
     }
@@ -15490,7 +16231,7 @@ function buildMap(v, ctx, readOnly) {
   travel.disabled = !L.travelOn || readOnly;
   travel.addEventListener('click', () => ctx.act({ type: 'TRAVEL_ON' }));
   tip(travel, () => h('div', h('div.tt-name', 'Travel on'),
-    h('div.tt-line.desc', `Leave ${z.name} for ${nextName}. Costs ${ctx.data.rules.hours.travel} h. Leaving early skips the remaining rows: fewer hours, but less loot and gold.`),
+    h('div.tt-line.desc', `Leave ${z.name} for ${nextName}.${travelCost(z, ctx)} Leaving early skips the remaining rows: fewer hours, but less loot and gold.`),
     h('div.tt-line', ts.under > 0 ? `Open from level ${ts.need}, ${numWord(ts.under)} ${plural(ts.under, 'level')} below the exit level ${ts.exit}, or after row ${ts.rows}.` : `Open from level ${ts.exit}, or after row ${ts.rows}.`),
     ts.kind === 'locked' ? h('div.tt-warn', `Reach level ${ts.need} or finish row ${ts.rows} first (you are level ${p.level}).`) : null,
     ts.kind === 'early' ? h('div.tt-warn', `You are under the exit level (${ts.exit}): the next zone starts above your level. More risk, more experience.`) : null,
@@ -15546,6 +16287,12 @@ function buildMap(v, ctx, readOnly) {
   win.append(head, body, h('div.mfoot', legend, story));
   if (readOnly) win.id = 'win-map';
   return win;
+}
+/** The hours Travel on costs now, from the engine (a dry TRAVEL_ON; meta Wayfinder makes it 0); the mock's own number in mock mode. */
+function travelCost(z, ctx) {
+  const hrs = z.travelHours !== undefined ? z.travelHours : ctx.data.rules.hours.travel;
+  const why = ctx.data.meta && ctx.data.meta.entries.wayfinder ? ` (${ctx.data.meta.entries.wayfinder.name})` : '';
+  return hrs == null ? '' : hrs > 0 ? ` Costs ${hrs} h.` : ` Costs no time${why}.`;
 }
 function flagSvg() {
   const d = h('div.flagm');
@@ -15796,11 +16543,23 @@ function buildSummary(v, ctx) {
     ['Gold', `earned ${moneyText(s.goldEarned)} · spent ${moneyText(s.goldSpent)}`], ['Potions used', String(s.potions)], ['Resurrections', String(s.resurrects)],
     ['Damage', `dealt ${fmtNum(s.dealt)} · taken ${fmtNum(s.taken)}`], ['Top spells', s.topSpells.map(([n, d]) => `${n} ${fmtNum(d)}`).join(', ') || '—'],
   ]), h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '.4rem', marginTop: '.8rem' } }, s.equipped.map((it) => tip(h('div.slot.q-' + it.rarity, h('img', { src: itemIcon(it), alt: '' })), () => itemTip(it, ctx, { compare: false })))));
-  const card3 = h('div.card', h('h3', 'Echoes earned'), s.echoes.map(([k, n]) => h('div.echo', h('span.dim', k), h('b', `+${n}`))), h('div.echo.total', h('span', 'Total'), h('span', `${s.echoTotal} Echoes`)),
-    h('div.muted', { style: { marginTop: '.8rem', fontSize: '1.1rem' } }, 'Echoes buy permanent unlocks between runs (coming in a later milestone).'));
+  // Echoes (rules 11.1): the engine's lines; the balance after the run from the bridge's dry END_RUN (view.meta.after)
+  const after = v.meta && v.meta.after;
+  const oathLine = s.echoMult && s.echoMult !== 1 ? h('div.echo', h('span.dim', `${s.oaths.join(', ')}`), h('b', `×${Math.round(s.echoMult * 100) / 100}`)) : null;
+  const card3 = h('div.card', h('h3', 'Echoes earned'), s.echoes.map(([k, n]) => h('div.echo', h('span.dim', k), h('b', `+${n}`))), oathLine, h('div.echo.total', h('span', 'Total'), h('span', `${s.echoTotal} Echoes`)),
+    after ? h('div.echo.after', h('span.dim', 'Your Echoes after this run'), echoAmt(after.echoes)) : null,
+    h('div.muted', { style: { marginTop: '.8rem', fontSize: '1.1rem' } }, after
+      ? (after.affordable ? `Echoes buy lasting unlocks between runs. ${cap(numWord(after.affordable))} ${plural(after.affordable, 'unlock')} within reach.` : 'Echoes buy lasting unlocks between runs. Keep them for the next one.')
+      : 'Echoes buy lasting unlocks between runs.'));
   win.appendChild(h('div.sbody', card1, card2, card3));
-  const again = btn('Begin a new run', () => ctx.act({ type: 'END_RUN' }), '.primary.big');
-  win.appendChild(h('div.sfoot', again));
+  const again = btn('Begin a new run', () => ctx.act({ type: 'END_RUN' }), v.meta ? '.big' : '.primary.big');
+  // Spend Echoes: END_RUN stores the profile, then the Hall of Echoes opens over class select
+  const spend = v.meta ? btn('Spend Echoes', () => { ctx.ui.openMeta(); ctx.act({ type: 'END_RUN' }); }, '.primary.big') : null;
+  if (spend && after && after.affordable) spend.appendChild(h('span.badge', String(after.affordable)));
+  if (spend) tip(spend, () => h('div', h('div.tt-name', 'Hall of Echoes'), h('div.tt-line.desc', 'Spend the Echoes of this run and the runs before on lasting unlocks.'),
+    after ? h('div.tt-line.num', `${fmtNum(after.echoes)} Echoes · ${numWord(after.affordable)} ${plural(after.affordable, 'unlock')} within reach`) : null, h('div.tt-hint', 'Then choose your next hero.')));
+  if (v.meta) tip(again, () => h('div', h('div.tt-name', 'Begin a new run'), h('div.tt-line.desc', 'Back to class select. Your Echoes are kept: the Hall of Echoes is there too.')));
+  win.appendChild(h('div.sfoot', spend, again));
   return win;
 }
 
@@ -16474,6 +17233,10 @@ class App {
         ui.fleeArmed = false; app.combatAct(() => ({ type: 'FLEE' }));
       },
       showDeath: (on, text) => app.showDeath(on, text),
+      // Hall of Echoes (meta progression between runs): over class select; from the summary it opens after END_RUN
+      openMeta: () => { hideTip(); app.windows.closeAll(); app.screens.meta.open(); app.queueRender(); },
+      closeMeta: () => { app.screens.meta.close(); hideTip(); app.queueRender(); },
+      get metaOpen() { return !!(app.screens && app.screens.meta.isOpen()); },
     };
     this.ui = ui;
     this.ctx = {
@@ -16744,8 +17507,13 @@ class App {
       if (prim && !prim.disabled) prim.click();
       return;
     }
-    if (code === 'Escape') { if (this.windows.anyOpen()) this.windows.closeAll(); else this.windows.toggle('settings'); hideTip(); return; }
-    if (v.phase === 'CREATE') { if (code === 'Enter') this.act({ type: 'START_RUN' }); return; }
+    if (code === 'Escape') {
+      if (this.windows.anyOpen()) this.windows.closeAll();
+      else if (this.ui.metaOpen) this.ui.closeMeta();
+      else this.windows.toggle('settings');
+      hideTip(); return;
+    }
+    if (v.phase === 'CREATE') { if (code === 'Enter' && !this.ui.metaOpen) this.act({ type: 'START_RUN' }); return; }
     if (/^Digit[1-7]$/.test(code)) { this.ui.castSlot(Number(code[5]) - 1); return; }
     if (code === 'Digit8') { this.ui.useItemSlot(0); return; }
     if (code === 'Digit9') { this.ui.useItemSlot(1); return; }
@@ -16783,6 +17551,8 @@ class App {
       skip: () => app.director.skip(),
       settings,
       openWin: (n) => app.windows.open(n), closeWins: () => app.windows.closeAll(),
+      /** Whether the Hall of Echoes is open (it shows over class select). */
+      metaOpen: () => app.ui.metaOpen,
       canDebug: app.bridge.canDebug,
     };
   }
