@@ -1,15 +1,15 @@
-// M2 v3 bot changes (balance.md 1, 1.1; docs/specs/changes-m2-v3.md rows 15-16): hour weight per bot, resurrects
-// usable at the end boss.
+// M2 v3 bot changes (balance.md 1, 1.1; docs/specs/changes-m2-v3.md rows 15-16) and the healing-stock fix
+// (docs/handoffs/sim-2026-11-10.md): hour weight per bot, resurrects usable at the end boss, Healing Draught stock.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { R, C, newRunFor } from '../../sim/lib/engine.mjs';
+import { R, C, newRunFor, countCons } from '../../sim/lib/engine.mjs';
 import { BAL, SIM } from '../../sim/lib/params.mjs';
 import { buildProfile } from '../../sim/lib/profiles.mjs';
 import { createBot } from '../../sim/bots/index.mjs';
 import { planMap, valueGrindWaves } from '../../sim/bots/planner.mjs';
 import { greedyMap } from '../../sim/bots/greedy.mjs';
-import { makeCtx, evalNode, copyM } from '../../sim/lib/model.mjs';
-import { bestBoonIndex, bossResurrects } from '../../sim/lib/policy.mjs';
+import { makeCtx, evalNode, copyM, vAt } from '../../sim/lib/model.mjs';
+import { bestBoonIndex, bossResurrects, vendorAction, desiredItemBar } from '../../sim/lib/policy.mjs';
 import { priorTable } from '../../sim/lib/risk.mjs';
 
 const key = (a) => JSON.stringify(a, Object.keys(a).sort());
@@ -72,5 +72,32 @@ describe('resurrects usable at the end boss (balance.md 1.1, M2 v3)', () => {
     assert.equal(boons[bestBoonIndex(s, boons)], 'return', 'only Second Breath held: take Boon of Return');
     s.player.res.boon = 1;
     assert.equal(boons[bestBoonIndex(s, boons)], 'fury', 'a Boon of Return held: Return goes last');
+  });
+});
+
+describe('Healing Draught stock (sim hand-off 2026-11-10: the Packed Satchel bug)', () => {
+  test('where Greater Healing Draughts are sold, the 3 Satchel Healing Draughts do not count toward HEAL_STOCK_TARGET', () => {
+    const s = newRunFor({ classId: 'rogue', seed: 1022, profile: buildProfile('all', 'rogue') });
+    R.stepInPlace(s, { type: 'START_RUN' });
+    assert.equal(countCons(s, 'healing_draught'), C.META.satchel.potions);
+    s.player.gold = 1e7; // test state: enough gold for the whole kit
+    R.stepInPlace(s, { type: 'SERVICE', service: 'vendor' });
+    assert.ok(s.service.stock.some((e) => e.kind === 'cons' && e.id === 'greater_healing_draught'), 'Alchemist: Greater draughts sold');
+    const kit = { potions: BAL.HEAL_STOCK_TARGET, rations: SIM.RATION_STOCK, mana: 0, tonics: 0, elixir: 0, ember: false, gear: false };
+    for (let k = 0; k < 60 && s.service; k++) R.stepInPlace(s, vendorAction(s, kit, vAt));
+    assert.equal(countCons(s, 'greater_healing_draught'), BAL.HEAL_STOCK_TARGET);
+    assert.equal(countCons(s, 'healing_draught'), C.META.satchel.potions);
+    assert.equal(desiredItemBar(s)[0], 'greater_healing_draught');
+  });
+
+  test('without Greater draughts in stock, Healing Draughts count as before', () => {
+    const s = newRunFor({ classId: 'rogue', seed: 1022, profile: buildProfile('meta10', 'rogue') });
+    R.stepInPlace(s, { type: 'START_RUN' });
+    s.player.gold = 1e7;
+    R.stepInPlace(s, { type: 'SERVICE', service: 'vendor' });
+    assert.ok(!s.service.stock.some((e) => e.kind === 'cons' && e.id === 'greater_healing_draught'));
+    const kit = { potions: BAL.HEAL_STOCK_TARGET, rations: SIM.RATION_STOCK, mana: 0, tonics: 0, elixir: 0, ember: false, gear: false };
+    for (let k = 0; k < 60 && s.service; k++) R.stepInPlace(s, vendorAction(s, kit, vAt));
+    assert.equal(countCons(s, 'healing_draught'), BAL.HEAL_STOCK_TARGET);
   });
 });

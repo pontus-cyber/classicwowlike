@@ -233,7 +233,12 @@ export function vendorAction(s, kit, vOf) {
     return i >= 0 && legal(s, { type: 'BUY', index: i }) ? { type: 'BUY', index: i } : null;
   };
   const heal = s.service.stock.some((e) => e.kind === 'cons' && e.id === 'greater_healing_draught') ? 'greater_healing_draught' : 'healing_draught';
-  const healHave = countCons(s, 'healing_draught') + countCons(s, 'greater_healing_draught');
+  // HEAL_STOCK_TARGET counts the draughts the item bar holds in combat (desiredItemBar: Greater while any are held).
+  // Where Greater Healing Draughts are sold, plain Healing Draughts (Packed Satchel) do not count: they are not on the
+  // item bar while Greater ones are held, so counting them left the bot with fewer usable potions (2026-11-10: the
+  // PALL rogue reached the boss with 2-3 usable potions instead of 5).
+  const healHave = heal === 'greater_healing_draught' ? countCons(s, 'greater_healing_draught')
+    : countCons(s, 'healing_draught') + countCons(s, 'greater_healing_draught');
   const mana = p.classId === 'mage' ? kit.mana : 0;
   // Two passes: a minimum of each consumable first (SIM.KIT_MIN), then up to the targets.
   for (const pass of [SIM.KIT_MIN, null]) {
