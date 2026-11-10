@@ -4,7 +4,8 @@ Owner ideas and team proposals not yet scheduled. The Lead places each item into
 
 | Date | Item | Source | Placed in | Status |
 |---|---|---|---|---|
-| 2026-11-10 | Combat v2.1 display: wind-up badge, STAGGERED/EMPOWERED stacks, Disrupt labels; engine heatUp flag on loot and pays:false at camp; stacked "Quest complete!" toasts overlap on the map | UI hand-off 2026-11-10f, Lead review | M2b 2b.6 | todo |
+| 2026-11-10 | Combat v2.1 display | UI hand-off 2026-11-10g | M2b 2b.6 | done (a105328) |
+| 2026-11-10 | Answer moment: Off-balance!, Interrupted!, Staggered! and the damage number float on top of each other; stagger them. Engine: per-spell "answers current wind-up" field, Send the Pet in engage preview answers, heatUp on loot, pays:false at camp | Lead review + UI hand-offs | M2b 2b.5/2b.6 | todo |
 | 2026-11-10 | Always-visible Heat meter: hours vs boss par and Ascendancy, plus Dimming distance in expedition zones; going into heat should pay something, not only cost | Owner 14:05 | M2b UI + expedition.md addendum | done (engine 8507303, UI 78c18c6) |
 | 2026-11-10 | Run summary: a short "what decided this run" line (cause of death, potions held vs used, hours over par) so a loss teaches the next run | Owner playtest 13:53 (inference) | M2b UI | todo |
 | 2026-11-10 | Animation weight per class and spell: Rogue near-instant; Hunter bow draw and visible projectiles; Mage light spells instant, heavy spells slower to land | Owner 10:46 | UI combat presentation task (running) | doing |
