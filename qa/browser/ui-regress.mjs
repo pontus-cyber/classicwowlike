@@ -73,11 +73,15 @@
  *      (stagger; Send the Pet on a heavy one), the wind-up's tooltip (round, stakes from EMPOWER_DMG and STAGGER_DMG, what
  *      answers it) and the bar spells marked on hover; key W (Lay Trap): ANSWERED where the engine predicts cancel.stagger,
  *      then the STAGGERED badges (nameplate, target frame) = the engine's status and the log line. (B) a later fight where
- *      the Hunter passes: the wind-up lands, EMPOWERED badges = the engine's status, the log line. (C) a dungeon boss: Lay
- *      Trap shows as Disrupt exactly as R.engageOptions says, key W logs the wind-up it stops, STAGGERED after it; then the
- *      same engage round loaded with no wind-up in view (window.__ui.loadState; the real content never shows a dungeon boss
- *      without one): greyed out with the engine's reason. In every round met with a wind-up playing, the bar marks exactly
- *      the usable spells that can answer it. Stacked toasts in a fight: merged, clear of the frames, ruler and nameplates.
+ *      the Hunter passes: the wind-up lands, EMPOWERED badges = the engine's status, the log line. (C) a dungeon boss: its
+ *      wind-up's tooltip (immune to control: an interrupt, a stun or control spell, or Disrupt), Lay Trap shows as Disrupt
+ *      exactly as R.engageOptions says, key W logs the wind-up it stops, STAGGERED after it; then the same engage round
+ *      loaded with no wind-up in view (window.__ui.loadState; the real content never shows a dungeon boss without one):
+ *      greyed out with the engine's reason. After every combat key the bar marks exactly the usable spells that can answer
+ *      a wind-up playing now (none without). Stacked toasts in a fight: merged, clear of the frames, ruler and nameplates.
+ *      (D) a Rogue (jPickRogue: a seed whose autoplay run meets a wind-up playing while a bar spell can stop it): the bar
+ *      marks that spell "Answer" as the engine's state says, hovering the wind-up marks every spell that can answer it,
+ *      the spell's tooltip names the wind-up, and its key stops it ("is stopped by your ...", STAGGERED = the engine's).
  *
  * Seeds were picked with the engine of 3559e0e (M2 v2): seed 30's first quest has two Guardians that last long
  * enough for the potion and Autoplay checks. M2 v3 (77c0ca5): seed 1's autoplay run no longer reaches the camp, so part B
@@ -1812,6 +1816,49 @@ function jAnswerKind(id, x) {
   return null;
 }
 const J_WINDUP_FIGHTS = new Set(['elite', 'rare', 'dboss']);
+/** What a wind-up's tooltip says answers it (src/ui/ui-text.js windupAnswers): an enemy that can be controlled, one immune to control. */
+const J_ANSWERS = {
+  control: 'Answer it with an interrupt, a stun or control on its turn, or with an engage option that covers that turn',
+  immune: 'Answer it with an interrupt, a stun or a control spell on its turn (it cannot be controlled: each interrupts it), or with Disrupt in the engage round',
+};
+/**
+ * An elite, rare or dungeon-boss round (not the engage round) whose wind-up plays now while a bar spell that stops it (an
+ * interrupt or a stun, jAnswerKind 'stop') is legal on it: { idx, name, ability, heavy, spellId, slot } or null.
+ */
+function jStopNow(s) {
+  if (!(s.fight && !s.fight.over && J_WINDUP_FIGHTS.has(s.fight.kind) && !R.isEngageRound(s))) return null;
+  const legal = R.legalActions(s);
+  for (const e of s.fight.enemies) {
+    if (!(e.alive && e.intent && e.intent.windup && !e.intent.interrupted && !e.intent.cancelled)) continue;
+    const x = e.track.find((y) => y.turn === e.turn && y.windup); if (!x) continue;
+    for (const [slot, id] of s.player.bar.entries()) {
+      if (id && jAnswerKind(id, x) === 'stop' && legal.some((a) => a.type === 'CAST' && a.spellId === id && (a.target === e.idx || a.target == null))) {
+        return { idx: e.idx, name: e.name, ability: x.name, turn: x.turn, heavy: !!x.heavy, spellId: id, slot };
+      }
+    }
+  }
+  return null;
+}
+let J_ROGUE = null;
+/**
+ * The Rogue seed for part J's bar check, chosen at run time: the first Rogue seed of 1-40 whose run on the engine's
+ * autoplay choices (a Node run with the UI's own item-bar actions) meets jStopNow, a wind-up playing with a bar spell that
+ * stops it (Throat Jab, Temple Blow).
+ */
+function jPickRogue() {
+  if (J_ROGUE) return J_ROGUE;
+  for (let seed = 1; seed <= 40; seed++) {
+    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT });
+    for (const a of [{ type: 'SELECT_CLASS', classId: 'rogue' }, { type: 'START_RUN' }]) s = R.step(s, a).state;
+    for (let n = 0; n < 4000 && s.phase !== 'SUMMARY' && s.phase !== 'ENDED'; n++) {
+      const w = jStopNow(s);
+      if (w) { J_ROGUE = { seed, kind: s.fight.kind, ...w }; return J_ROGUE; }
+      const prev = s; s = R.step(s, R.autoAction(s)).state;
+      for (const o of iUiOwn(prev, s)) s = R.step(s, o).state;
+    }
+  }
+  throw new Error('no Rogue seed of 1-40 meets a wind-up with a bar spell that stops it');
+}
 /** The first living enemy (immune to control or not) whose track shows a wind-up in turns 1..INTENT_TRACK_LEN, or null. */
 const jFoe = (s, immune = false) => s.fight.enemies.find((e) => e.alive && !!e.ccImmune === immune && e.track.some((x) => x.windup && x.turn >= 1 && x.turn <= R.C.INTENT_TRACK_LEN)) || null;
 const jRound = (e, x) => (e.turn0 || 1) + x.turn - 1;
@@ -1872,7 +1919,8 @@ const j21dom = (page) => page.evaluate(() => {
     rows: vis(tf) ? [...tf.querySelectorAll('.ttrack .tr')].map((r) => ({ turn: Number(r.dataset.turn), windup: r.dataset.windup || '' })) : [],
     twst: vis(tf) ? wst(tf) : [],
     ruler: vis(document.querySelector('#ruler')) ? [...document.querySelectorAll('#ruler .rl-c')].map((c) => ({ round: Number(c.dataset.round), wu: (c.querySelector('.rl-wu') || {}).textContent || '' })) : [],
-    bar: [...document.querySelectorAll('#actionbar .ab[data-slot]')].map((b) => ({ slot: Number(b.dataset.slot), ans: b.classList.contains('wu-ans'), else: b.classList.contains('wu-else'), avoid: b.classList.contains('wu-avoid'), hl: b.classList.contains('wu-hl') })),
+    bar: [...document.querySelectorAll('#actionbar .ab[data-slot]')].map((b) => ({ slot: Number(b.dataset.slot), ans: b.classList.contains('wu-ans'), else: b.classList.contains('wu-else'), avoid: b.classList.contains('wu-avoid'), hl: b.classList.contains('wu-hl'),
+      tag: (b.querySelector('.atag') || {}).textContent || '', wtag: !!b.querySelector('.wtag') })),
     cards: [...document.querySelectorAll('#engage .eg-opt[data-opt]')].map((c) => ({ opt: c.dataset.opt, disrupt: c.dataset.disrupt === '1', answers: c.dataset.answers || '', off: c.classList.contains('off'),
       name: (c.querySelector('.eg-name') || {}).textContent || '', was: (c.querySelector('.eg-was') || {}).textContent || '', tg: (c.querySelector('.eg-tg') || {}).textContent || '' })),
     engage: vis(document.querySelector('#engage')),
@@ -1966,8 +2014,8 @@ async function partJ(browser, W, H) {
   const { context, page, errors } = await open(browser, W, H, `seed=${SEED}&speed=instant`);
   check('-', `part J seed ${SEED} (chosen on Node runs: Lay Trap answers the ${pick.a}'s wind-up, a wind-up lands in a ${pick.b} fight, Disrupt on ${pick.c})`, true, '');
   const frame = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
-  const nowBad = []; let nowSeen = 0;
-  /** AUTO until pred(twin state) holds with the fight on screen; every combat step on the way checks the bar against a wind-up now. */
+  const nowBad = []; let nowSeen = 0; let barSeen = 0;
+  /** AUTO until pred(twin state) holds with the fight on screen. */
   const until = async (pred, label) => {
     for (let n = 0; n < 2500; n++) {
       const s = await twin.sync(page); const v = await view(page);
@@ -1977,14 +2025,18 @@ async function partJ(browser, W, H) {
     }
     throw new Error(`no ${label} within 2500 steps`);
   };
-  /** One combat action: a key, or 'AUTO' (the engine's autoplay choice, as the Node pick); returns { s } (the twin after it). */
+  /**
+   * One combat action: a key, or 'AUTO' (the engine's autoplay choice, as the Node pick); returns { s } (the twin after it).
+   * After it the bar's wind-up marks are checked against the engine's state (none in a round without a wind-up playing).
+   */
   const press = async (key) => {
     if (key === 'AUTO') await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); else await page.keyboard.press(key);
     await idle(page); await page.mouse.move(2, 2); await frame();
     const s = await twin.sync(page);
     if (s.fight && !s.fight.over) {
       const d = await j21dom(page); const tgt = await page.evaluate(() => window.__ui.target());
-      if (s.fight.enemies.some((e) => e.alive && e.intent && e.intent.windup)) { nowSeen++; nowBad.push(...jBarMatch(d, s, tgt)); }
+      barSeen++; if (s.fight.enemies.some((e) => e.alive && e.intent && e.intent.windup)) nowSeen++;
+      nowBad.push(...jBarMatch(d, s, tgt));
     }
     return { s };
   };
@@ -2028,7 +2080,7 @@ async function partJ(browser, W, H) {
     const sawHl = d.bar.filter((b) => b.hl).map((b) => b.slot);
     await shot(page, 'J-windup-tooltip');
     check('M2b-2b.6', `hovering the wind-up: its tooltip gives the round, the stakes (−${jPct(R.C.STAGGER_DMG)} / +${jPct(R.C.EMPOWER_DMG)}) and what answers it${wx.heavy ? ' (heavy: a full dodge, a ward or the pet too)' : ''}; the bar marks the spells that can (slots ${wantHl.join(',') || 'none'})`,
-      tip.includes(`Wind-up, round ${wRound}`) && tip.includes(`−${jPct(R.C.STAGGER_DMG)}`) && tip.includes(`+${jPct(R.C.EMPOWER_DMG)}`) && tip.includes('Answer it with an interrupt, a stun or control, a trap, or Disrupt') && tip.includes('full dodge') === !!wx.heavy
+      tip.includes(`Wind-up, round ${wRound}`) && tip.includes(`−${jPct(R.C.STAGGER_DMG)}`) && tip.includes(`+${jPct(R.C.EMPOWER_DMG)}`) && tip.includes(J_ANSWERS.control) && !tip.includes('Disrupt') && tip.includes('full dodge') === !!wx.heavy
         && hv && hv.idx === a.idx && hv.turn === wx.turn && sawHl.join(',') === wantHl.join(','), `hover ${JSON.stringify(hv)}; bar ${sawHl.join(',')}; tooltip: ${tip.replace(/\n/g, ' / ')}`);
     await page.mouse.move(2, 2);
     // W: Lay Trap on it; then the engine's autoplay choices: the trap answers it, STAGGERED as the engine has it
@@ -2079,6 +2131,12 @@ async function partJ(browser, W, H) {
     const ctlOpt = R.engageOptions(s).find((o) => o.id === 'lay_trap');
     check('M2b-2b.6', `dungeon boss ${boss.name}: Lay Trap shows as "Disrupt" exactly where R.engageOptions lists it (disrupt ${JSON.stringify(ctlOpt.disrupt)}), enabled, with the wind-up it answers`,
       !bad.length && d.cards.some((c) => c.opt === 'lay_trap' && c.disrupt && !c.off), bad.join(' | ') || JSON.stringify(d.cards));
+    // the boss's wind-up tooltip: an enemy immune to control is answered by an interrupt, a stun or control spell, or Disrupt
+    const bx = boss.track.find((x) => x.windup);
+    await page.locator(`#nameplates .np[data-idx="${boss.idx}"] .trk .tk[data-turn="${bx.turn}"]`).hover(); await page.waitForTimeout(200);
+    const btip = (await page.getByRole('tooltip').innerText()).replace(NBSP, ' ');
+    check('M2b-2b.6', `the dungeon boss's wind-up tooltip says what answers it on an enemy immune to control ("${J_ANSWERS.immune.slice(0, 60)}...")`, btip.includes(J_ANSWERS.immune), btip.replace(/\n/g, ' / '));
+    await page.mouse.move(2, 2); await frame();
     const bossTrack = JSON.parse(R.serialize(s)); // the state of this engage round, for the greyed-out check below
     r = await press('KeyW');
     const dx = boss.track.find((x) => x.windup);
@@ -2096,7 +2154,7 @@ async function partJ(browser, W, H) {
       check('M2b-2b.6', 'Disrupt answers the boss\'s wind-up: its STAGGERED badge equals the engine\'s status and the log says "cancelled by your Disrupt"',
         !bad.length && answered.log.some((l) => l.startsWith(`Wind-up answered: ${boss.name}'s ${dx.name} is cancelled by your Disrupt`)), `${bad.join(' | ')}; ${answered.log.slice(-3).join(' / ')}`);
     } else check('M2b-2b.6', 'Disrupt answers the boss\'s wind-up', false, 'no STAGGERED status');
-    check('M2b-2b.6', `in every round met with a wind-up playing (${nowSeen}), the bar marked exactly the usable spells that can answer it`, !nowBad.length, nowBad.slice(0, 4).join(' | '));
+    check('M2b-2b.6', `in every round met (${barSeen}, ${nowSeen} with a wind-up playing), the bar marked exactly the usable spells that can answer one now (none without)`, barSeen > 0 && !nowBad.length, nowBad.slice(0, 4).join(' | '));
 
     // ---- Disrupt greyed out with the engine's reason: the same engage round with no wind-up in view (a state the real
     // content never reaches: every dungeon boss shows its turn-2 wind-up; loaded through the test hook)
@@ -2119,6 +2177,85 @@ async function partJ(browser, W, H) {
     check('-', 'part J ran to the end', false, e.message.split('\n')[0]);
   }
   check('-', 'part J: no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+  await context.close();
+  await partJRogue(browser, W, H);
+}
+
+/**
+ * Part J, Rogue (jPickRogue): a wind-up plays this round and a bar spell can stop it. The bar marks exactly the spells the
+ * engine's state allows ("Answer"), hovering the wind-up marks every bar spell that can answer it, the spell's tooltip names
+ * the wind-up, and its key stops it: the log's "is stopped by your ..." and STAGGERED = the engine's status.
+ */
+async function partJRogue(browser, W, H) {
+  const pick = jPickRogue(); const SEED = pick.seed;
+  const twin = makeTwin(SEED);
+  const { context, page, errors } = await open(browser, W, H, `seed=${SEED}&speed=instant`);
+  const spName = R.C.SPELL[pick.spellId].name;
+  check('-', `part J (Rogue) seed ${SEED} (chosen on Node runs: ${pick.name}'s ${pick.ability} in a ${pick.kind} fight, ${spName} on the bar can stop it)`, true, '');
+  const frame = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  try {
+    await page.locator('#create .ccard[data-cls="rogue"]').click();
+    await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page); await page.mouse.move(2, 2);
+    let s = null;
+    for (let n = 0; n < 2500 && !s; n++) {
+      const t = await twin.sync(page); const v = await view(page);
+      if (v.phase === 'SUMMARY') throw new Error('the run ended before the wind-up');
+      if (jStopNow(t) && v.step === 'combat' && v.round) { s = t; break; }
+      await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page);
+    }
+    if (!s) throw new Error('no wind-up with an answer on the bar within 2500 steps');
+    const w = jStopNow(s);
+    await page.locator(`#nameplates .np[data-idx="${w.idx}"]`).click(); await idle(page); await page.mouse.move(2, 2); await frame();
+    let d = await j21dom(page); const tgt = await page.evaluate(() => window.__ui.target());
+    let bad = jBarMatch(d, s, tgt);
+    const b = d.bar.find((x) => x.slot === w.slot);
+    await shot(page, 'J-rogue-answer');
+    check('M2b-2b.6', `a wind-up plays this round (${w.name}'s ${w.ability}): the bar marks exactly the usable spells that can stop it, ${spName} (key ${w.slot + 1}) tagged "Answer"`,
+      tgt === w.idx && !bad.length && !!b && b.ans && b.tag.startsWith('Answer') && !b.wtag, `${bad.join(' | ')}; target ${tgt}; slot ${JSON.stringify(b)}`);
+    // hovering the wind-up's chip marks every bar spell that can answer it (stop or, for a heavy one, avoid)
+    await page.locator(`#nameplates .np[data-idx="${w.idx}"] .trk .tk[data-turn="${w.turn}"]`).hover(); await page.waitForTimeout(200); await frame();
+    d = await j21dom(page);
+    const x = s.fight.enemies[w.idx].track.find((y) => y.turn === w.turn);
+    const wantHl = s.player.bar.map((id, slot) => (id && jAnswerKind(id, x) ? slot : null)).filter((q) => q !== null);
+    const sawHl = d.bar.filter((q) => q.hl).map((q) => q.slot);
+    check('M2b-2b.6', `hovering the wind-up marks every bar spell that can answer it (keys ${wantHl.map((q) => q + 1).join(', ')})`, wantHl.includes(w.slot) && sawHl.join(',') === wantHl.join(','), `saw ${sawHl.map((q) => q + 1).join(', ') || 'none'}`);
+    await page.mouse.move(2, 2); await frame();
+    // the spell's tooltip names the wind-up it can stop
+    await page.locator(`#actionbar .ab[data-slot="${w.slot}"]`).hover(); await page.waitForTimeout(200);
+    const tip = (await page.getByRole('tooltip').innerText()).replace(NBSP, ' ');
+    check('M2b-2b.6', `${spName}'s tooltip names the wind-up it can stop this round`, tip.includes(`Wind-up this round: ${w.name}'s ${w.ability}. This can stop it`), tip.replace(/\n/g, ' / '));
+    await page.mouse.move(2, 2); await frame();
+    // its key stops it, played at the default speed (D47): the moment on screen, the round within its cap; then answered by
+    // the interrupt, STAGGERED = the engine's status, the log line
+    await setSpeed(page, '1×'); await page.mouse.move(2, 2); await frame();
+    const k0 = await page.evaluate(() => window.__ui.plays().length);
+    await page.keyboard.press(`Digit${w.slot + 1}`);
+    const atMoment = await page.waitForFunction(() => { const e = window.__ui.playingEvent(); return !!(e && e.t === 'windup'); }, null, { timeout: 6000, polling: 'raf' }).then(() => true, () => false);
+    if (atMoment) { await page.waitForTimeout(150); await shot(page, 'J-rogue-moment'); }
+    await idle(page);
+    const rec = (await page.evaluate(() => window.__ui.plays()))[k0];
+    const ms = rec ? roundMs(rec) : null; const cap = rec && rec.round ? rec.round.budget : null;
+    // D52: headless rendering at 1920x1080 runs at about 10 fps, so there a single round is reported and not held to the cap
+    const capHeld = !(W >= 1920 && H >= 1080);
+    check('M2v2-52', `at the default speed the round with the wind-up's moment ("Staggered!", its beat) plays within the round cap (D47)${capHeld ? '' : ' (1920x1080: reported only, D52)'}`,
+      atMoment && !!rec && rec.events.includes('windup') && cap != null && (!capHeld || ms <= cap), `round ${ms} ms, cap ${cap} ms, tempo ${rec && rec.round ? rec.round.tempo.toFixed(2) : '-'}, moment seen ${atMoment}; events ${rec ? rec.events.join(' ') : '-'}`);
+    await setSpeed(page, 'Instant');
+    await page.mouse.move(2, 2); await frame();
+    s = await twin.sync(page);
+    const sent = (await page.evaluate(() => window.__ui.engineLog())).slice(-1)[0];
+    d = await j21dom(page); const log = await logLines(page);
+    const e = s.fight && s.fight.enemies[w.idx];
+    const st = e && jStack(e, 'STAGGERED');
+    bad = s.fight && !s.fight.over ? jStacksMatch(d, s, await page.evaluate(() => window.__ui.target())) : [];
+    await shot(page, 'J-rogue-stopped');
+    check('M2b-2b.6', `key ${w.slot + 1} casts ${spName} on ${w.name}: the wind-up is stopped ("Wind-up answered: ${w.name}'s ${w.ability} is stopped by your ${spName}") and the STAGGERED badge equals the engine's status`,
+      !!sent && sent.type === 'CAST' && sent.spellId === w.spellId && !!st && !bad.length && log.some((l) => l.startsWith(`Wind-up answered: ${w.name}'s ${w.ability} is stopped by your ${spName}.`)),
+      `${JSON.stringify(sent)}; stack ${JSON.stringify(st)}; ${bad.join(' | ')}; log ${log.slice(-3).join(' / ')}`);
+  } catch (e) {
+    await shot(page, 'J-rogue-error');
+    check('-', 'part J (Rogue) ran to the end', false, e.message.split('\n').slice(0, 4).join(' / '));
+  }
+  check('-', 'part J (Rogue): no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
   await context.close();
 }
 
