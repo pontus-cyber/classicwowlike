@@ -475,15 +475,15 @@ The meter's state is the **hotter** of the run state (H.2) and the Dimming state
 ### H.6 Engine, bots and balance targets
 Engine (Core Gameplay Engineer): `heatView(s)` = { hours, line, heat, stateRun, dimIn (expedition, else null), stateDim, state, ascIfPar, gain, rarityUp }, pure and cheap, usable by the UI at any phase; the node's entry state stored on the node and in the fight record; summary adds `heat` = { trackPerZone: [hours at entry and exit, line], fightsByState: [4], echoHeat }. The UI's meter (H.4) may ship before the rewards: `heatView` without H.3 is display-only and changes no balance.
 
-Bots (Simulation & Balance Engineer): the value function adds the heat multiplier to the XP, gold and gear terms of a node from the state it would be entered in. Two policies for B55: **heat-seek** = planner with hour weight × HEAT_SEEK_HOUR_MULT; **heat-avoid** = planner with hour weight × HEAT_AVOID_HOUR_MULT (both instead of PLANNER_HOUR_MULT). Greedy and autoplay keep their rules; the greedy's threat rule (10.2) treats Dimming-Hot nodes as today.
+Bots (Simulation & Balance Engineer): the value function adds the heat multiplier to the XP, gold and gear terms of a node from the state it would be entered in. Two policies for B58: **heat-seek** = planner with hour weight × HEAT_SEEK_HOUR_MULT; **heat-avoid** = planner with hour weight × HEAT_AVOID_HOUR_MULT (both instead of PLANNER_HOUR_MULT). Greedy and autoplay keep their rules; the greedy's threat rule (10.2) treats Dimming-Hot nodes as today.
 
 | ID | Pri | Metric | Target |
 |---|---|---|---|
-| B55 | P1 | Heat is a real option: win rate heat-seek minus heat-avoid, planner P0, all classes pooled, paired seeds | within ±HEAT_POLICY_GAP_MAX pp |
+| B58 | P1 | Heat is a real option: win rate heat-seek minus heat-avoid, planner P0, all classes pooled, paired seeds | within ±HEAT_POLICY_GAP_MAX pp |
 | B56 | P2 | Heat is used, not forced: share of winning planner P0 runs with at least one Hot or Scorched node | HEAT_WIN_SHARE |
 | B57 | P2 | Heat rewards do not inflate power: planner P0 win rate with H.3 minus without | <= HEAT_POWER_MAX pp |
 
-If B55 fails with avoid ahead, raise HEAT_RARITY_UP first (gear is what wins the boss; XP is capped at level 60), then HEAT_GAIN; with seek ahead, lower them. If B57 fails, lower HEAT_GAIN before the rarity step. Expedition: re-measure B43 with H.5, since a reward at the Dimming's edge pulls the planner toward it; lever HEAT_DIM_HOT_H.
+If B58 fails with avoid ahead, raise HEAT_RARITY_UP first (gear is what wins the boss; XP is capped at level 60), then HEAT_GAIN; with seek ahead, lower them. If B57 fails, lower HEAT_GAIN before the rarity step. Expedition: re-measure B43 with H.5, since a reward at the Dimming's edge pulls the planner toward it; lever HEAT_DIM_HOT_H.
 
 ### H.7 Prototype (scratch, rows mode; not a measurement of the game)
 A scratch copy of src/ and sim/ at commit 5f67d5e in the git-ignored sim/out/heat/ with H.1-H.3 patched into the engine (XP and gold multiplier and the rarity draw, state taken at each gain rather than at node entry; no Echo line) and PLANNER_HOUR_MULT set per cell; the planner does not yet value the heat reward (so heat-seek is approximated by a low hour weight). Planner P0, 300 runs per class, warm-up 300, same seeds per cell.
@@ -501,10 +501,10 @@ A scratch copy of src/ and sim/ at commit 5f67d5e in the git-ignored sim/out/hea
 | Weaker (+10/25/40 %, 5/15/25 % from Warm), seek / avoid | 39.7 % / 47.0 % | 78.4 / 66.1 % | 144 / 116 | | 598 / 579 | 4.1 / 0 |
 
 Findings:
-1. With the defaults the choice is real: heat-seek 42.9 % against heat-avoid 46.9 % (B55: 4.0 pp, inside 5; the standard error of the difference is about 2.3 pp), and the two win differently: seek reaches the boss more often (76 % against 66 %) with better gear (599 against 579) and a +8 % boss; avoid dies more on the journey and meets a +0 % boss. Without heat the slow style is 15 pp behind the fast one; heat closes 11 pp of that.
+1. With the defaults the choice is real: heat-seek 42.9 % against heat-avoid 46.9 % (B58: 4.0 pp, inside 5; the standard error of the difference is about 2.3 pp), and the two win differently: seek reaches the boss more often (76 % against 66 %) with better gear (599 against 579) and a +8 % boss; avoid dies more on the journey and meets a +0 % boss. Without heat the slow style is 15 pp behind the fast one; heat closes 11 pp of that.
 2. B56: 81 % of the default planner's wins had a Hot node (band 30-85 %); 47 / 41 / 12 / 0 % of its XP events were Clear / Warm / Hot / Scorched. Scorched is not reached by any planner in rows mode; it is the meter's danger zone, not a target.
 3. B57: the defaults raise today's planner by 3.3 pp (40.7 -> 44.0 %). Paying from Warm raised it by 9 pp and is rejected: Warm costs nothing at the boss.
-4. Side finding for the Sim Engineer [inference: from the no-heat cells]: the planner with hour weight 4 wins 6 pp more than with today's PLANNER_HOUR_MULT 2 (46.9 against 40.7 %) while reaching the boss 10 pp less often, so today's planner undervalues time against Ascendancy. Worth a check before B55 is measured on the real policy.
+4. Side finding for the Sim Engineer [inference: from the no-heat cells]: the planner with hour weight 4 wins 6 pp more than with today's PLANNER_HOUR_MULT 2 (46.9 against 40.7 %) while reaching the boss 10 pp less often, so today's planner undervalues time against Ascendancy. Worth a check before B58 is measured on the real policy.
 
 Reproduce: `cd sim/out/heat && HEATP='{"gain":[0,0,0.35,0.5],"up":[0,0,0.25,0.4]}' HM=0.5 node sim/run.mjs --bot planner --class all --runs 300 --profile fresh --warmup 300 --out o/seek3 && node sum.mjs o/seek3/planner-P0` (HEAT=0 turns the patch off; HM sets the hour weight).
 
@@ -606,8 +606,8 @@ Reproduce: `cd sim/out/heat && HEATP='{"gain":[0,0,0.35,0.5],"up":[0,0,0.25,0.4]
 | HEAT_RARITY_UP clear / warm / hot / scorched | 0 / 0 / 0.25 / 0.40 | chance per rolled item of one rarity step (H.3) |
 | ECHO_PER_HEAT_FIGHT | 1 | Echoes per fight won in a Hot or Scorched node [assumption] |
 | HEAT_BAR_MIN / HEAT_BAR_MAX | -20 / 40 | h shown on the meter (H.4) |
-| HEAT_SEEK_HOUR_MULT / HEAT_AVOID_HOUR_MULT | 0.5 / 4 | × VAL_HOUR (bots, B55) |
-| HEAT_POLICY_GAP_MAX | 5 | pp (B55) |
+| HEAT_SEEK_HOUR_MULT / HEAT_AVOID_HOUR_MULT | 0.5 / 4 | × VAL_HOUR (bots, B58) |
+| HEAT_POLICY_GAP_MAX | 5 | pp (B58) |
 | HEAT_WIN_SHARE | 0.30-0.85 | share of planner P0 wins (B56) |
 | HEAT_POWER_MAX | 4 | pp (B57) |
 
