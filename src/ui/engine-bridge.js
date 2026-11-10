@@ -35,6 +35,10 @@
 //   camp:    { par, asc } at the camp (asc: the engine's Ascendancy if the boss were faced now), else null
 //   legal:   { lanes, travelOn, mustTravel, outOfCombat, spells: { id: { ok, reason, cd } }, items: [{ ok, reason, count, cd }],
 //              attack, flee, fleeChance?, services, talents, trainer }
+//   oaths:   Oaths of the run (rules 11.5); create.oaths in CREATE
+//   meta:    engine mode, CREATE and SUMMARY only (rules 11): the profile between runs, see metaView() below.
+//   data.meta: the catalogue (R.C.META), Oaths (R.C.OATH) and the names and numbers its texts use.
+// UI action META_BUY { id } (CREATE only): R.buyMeta on the stored profile; the run being created picks up the new profile.
 // Events: { t: 'damage'|'heal'|'action'|'status'|'death'|'interrupt'|'skip'|'xp'|'levelUp'|'victory'|'flee'|'resurrect'|'bossPhase'|'summon'|... }
 
 import * as R from '../rules.js';
@@ -65,6 +69,29 @@ function rulesTable(K) {
     roundAnimMs: K.PACE_ROUND_ANIM_S != null ? K.PACE_ROUND_ANIM_S * 1000 : null,
     // Zone danger (rules 7.6, M2 v3): enemies above dangerFrom deal +dangerStep damage per 10 levels; null without it.
     dangerFrom: K.ZONE_DANGER_FROM ?? null, dangerStep: K.ZONE_DANGER_STEP ?? null,
+  };
+}
+
+/**
+ * Meta progression data for the Echoes screen and the Oaths (rules 11): the catalogue as the engine has it (R.C.META:
+ * kind, ranks, costs and the effect per rank), the Oaths (R.C.OATH), and the names and numbers their texts use. Rank,
+ * next cost and state of an unlock always come from R.metaOffers, never from these tables.
+ */
+function metaData(K) {
+  const uniq = Object.values(CONTENT.uniques || {});
+  const zones = CONTENT.zones || [];
+  const byZone = (kind) => uniq.filter((u) => u.kind === kind).sort((a, b) => (a.zone || 0) - (b.zone || 0))
+    .map((u) => ({ name: u.name, zone: u.zone, slot: u.slot, text: u.text, zoneName: zones[u.zone - 1] ? zones[u.zone - 1].name : '', dungeon: zones[u.zone - 1] && zones[u.zone - 1].dungeon ? zones[u.zone - 1].dungeon.name : '' }));
+  return {
+    kinds: [...new Set(Object.values(K.META).map((m) => m.kind))], // catalogue order (rules 11.2)
+    entries: Object.fromEntries(Object.values(K.META).map((m) => [m.id, { ...m, costs: [...m.costs], req: [...m.req] }])),
+    oathIds: [...(K.OATH_IDS || [])],
+    oaths: Object.fromEntries(Object.values(K.OATH || {}).map((o) => [o.id, { ...o }])),
+    num: { maxLevel: K.MAX_LEVEL, travelHours: K.HOURS_TRAVEL, zoneCount: K.ZONE_COUNT, firstKill: K.ECHO_FIRST_KILL_CLASS, oathEcho: K.OATH_ECHO_BONUS, oathHaste: K.OATH_HASTE_HOURS, oathThrift: K.OATH_THRIFT_MULT },
+    names: { boon: K.BOON.return.name, ember: K.CONSUMABLE.ember_of_return.name, potion: K.CONSUMABLE.healing_draught.name, greater: K.CONSUMABLE.greater_healing_draught.name, boss: K.BOSS_TEXT.name.split(',')[0], camp: (CONTENT.camp && CONTENT.camp.name) || 'the camp' },
+    greaterHeal: K.CONSUMABLE.greater_healing_draught.heal,
+    uniques: { rare: byZone('rare'), epic: byZone('epic'), weapon: Object.fromEntries(uniq.filter((u) => u.kind === 'weapon').map((u) => [u.classId, { name: u.name, text: u.text }])) },
+    zones: zones.map((z) => z.name),
   };
 }
 
@@ -102,23 +129,52 @@ const hash = (str) => { let h = 2166136261 >>> 0; for (let i = 0; i < str.length
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 const reasonOf = (err) => { const m = String((err && err.message) || err || ''); const i = m.lastIndexOf(': '); return cap(i >= 0 ? m.slice(i + 2) : m); };
 
+/** The stored meta profile, completed with the fields of R.newProfile() a stored copy may lack; null without one. */
 function loadProfile() {
-  try { const raw = globalThis.localStorage && localStorage.getItem(PROFILE_KEY); if (raw) return JSON.parse(raw); } catch { /* storage blocked */ }
+  try {
+    const raw = globalThis.localStorage && localStorage.getItem(PROFILE_KEY);
+    if (raw) {
+      const p = JSON.parse(raw); const base = R.newProfile();
+      if (p && typeof p === 'object') return { ...base, ...p, unlocks: { ...(p.unlocks || {}) }, firstKill: { ...base.firstKill, ...(p.firstKill || {}) } };
+    }
+  } catch { /* storage blocked or bad JSON */ }
   return null;
 }
-function saveProfile(p) { try { localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); } catch { /* ignore */ } }
+function saveProfile(p) { try { localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); } catch { /* storage blocked: the profile lives until the page closes */ } }
+
+/**
+ * Run log (presentation only; the engine's profile keeps counts, not records): per class the runs, Oruvath kills, best
+ * level and the furthest point reached, in localStorage next to the profile. Written at END_RUN from the engine's summary.
+ * stage: 1..ZONE_COUNT a zone, then the camp, the boss reached, the boss defeated.
+ */
+const HISTORY_KEY = 'tbwcr.history.v1';
+const newHistory = () => ({ v: 1, logged: 0, classes: {} });
+function loadHistory() {
+  try {
+    const raw = globalThis.localStorage && localStorage.getItem(HISTORY_KEY);
+    const h = raw ? JSON.parse(raw) : null;
+    if (h && typeof h === 'object' && h.classes && typeof h.classes === 'object') return { ...newHistory(), ...h };
+  } catch { /* storage blocked or bad JSON */ }
+  return newHistory();
+}
+function saveHistory(h) { try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); } catch { /* storage blocked */ } }
 const randomSeed = () => Math.floor(Math.random() * 0xffffffff) >>> 0;
 
 function engineBackend(seedOpt) {
   const C = R.C;
   let profile = loadProfile();
-  const mkRun = (seed) => {
-    try { return R.newRun({ classId: 'rogue', seed, content: CONTENT, profile: profile || undefined }); } catch (e) {
-      profile = null; return R.newRun({ classId: 'rogue', seed, content: CONTENT });
+  let history = loadHistory();
+  /** A run in CREATE. keep: { classId, petId } of the run before (the next run starts on the same class). */
+  const mkRun = (seed, keep = {}) => {
+    const classId = keep.classId || 'rogue'; const petId = classId === 'hunter' ? keep.petId || 'ridgewolf' : null;
+    try { return R.newRun({ classId, petId, seed, content: CONTENT, profile: profile || undefined }); } catch (e) {
+      try { return R.newRun({ classId, petId: classId === 'hunter' ? 'ridgewolf' : null, seed, content: CONTENT, profile: profile || undefined }); } catch (e2) {
+        profile = null; return R.newRun({ classId: 'rogue', seed, content: CONTENT });
+      }
     }
   };
   let st = mkRun(seedOpt ?? randomSeed());
-  const local = { introSeen: new Set(), spoils: null, hold: null, reward: null, fightNo: 0 };
+  const local = { introSeen: new Set(), spoils: null, hold: null, reward: null, fightNo: 0, lastRun: null, runNo: 0 };
 
   // ---------------------------------------------------------------- static data for the UI
   const treeId = (cls, i) => C.CLASS[cls].trees[i].toLowerCase().replace(/\W+/g, '');
@@ -135,7 +191,7 @@ function engineBackend(seedOpt) {
       fx: { meta: s.source === 'meta', talent: s.source === 'talent' },
     }])),
     talents: Object.fromEntries(Object.values(C.TALENT).map((t) => [t.id, { id: t.id, tree: treeId(t.cls, t.tree), tier: t.tier, name: t.name, ranks: t.ranks, spell: t.spell || null, text: TXT.talentText(t.id, CONTENT) }])),
-    pets: Object.fromEntries(Object.values(C.PET).map((p) => [p.id, { id: p.id, name: p.name, text: TXT.petText(p.id, CONTENT), locked: !!p.meta && !(profile && profile.unlocks && profile.unlocks[p.meta]) }])),
+    pets: Object.fromEntries(Object.values(C.PET).map((p) => [p.id, { id: p.id, name: p.name, text: TXT.petText(p.id, CONTENT), meta: p.meta || null, locked: !!p.meta && !(profile && profile.unlocks && profile.unlocks[p.meta]) }])),
     consumables: Object.fromEntries(Object.values(C.CONSUMABLE).map((c) => [c.id, { id: c.id, name: c.name, use: USE_MAP[c.use] || 'both', stack: c.stack, mana: !!c.mana, text: TXT.consumableText(c.id, CONTENT) }])),
     statuses: TXT.STATUS_INFO,
     boons: Object.fromEntries(Object.values(C.BOON).map((b) => [b.id, { id: b.id, name: b.name, text: TXT.boonText(b.id, CONTENT) }])),
@@ -143,7 +199,10 @@ function engineBackend(seedOpt) {
     nodeHours: Object.fromEntries(Object.values(C.NODE_TYPE).map((t) => [t.id, t.hours])),
     boss: { name: C.BOSS_TEXT.name, intro: (CONTENT.camp && CONTENT.camp.bossText) || '' },
     rules: rulesTable(C),
+    meta: metaData(C),
   };
+  /** A pet that needs a meta unlock (Stormhawk) is locked until the profile owns it; refreshed after every purchase. */
+  const refreshPets = () => { for (const pd of Object.values(data.pets)) pd.locked = !!pd.meta && !(profile && (profile.unlocks[pd.meta] || 0) > 0); };
   const consName = (id) => (C.CONSUMABLE[id] ? C.CONSUMABLE[id].name : null);
   // a damage or heal source: a spell, the pet, or a consumable (potions, Spark Flask)
   const spellName = (id) => (C.SPELL[id] ? C.SPELL[id].name : id === 'pet' ? 'Pet' : consName(id) || TXT.humanize(id));
@@ -377,6 +436,88 @@ function engineBackend(seedOpt) {
       estMinutes: { manual: Math.round(sm.minutes.manual), auto: Math.round(sm.minutes.autoplay) }, bossPhase: sm.bossPhase,
       echoes: ((sm.echoes && sm.echoes.lines) || []).map((l) => [`${TXT.ECHO_LINE[l.id] || TXT.humanize(l.id)}${l.count > 1 ? ` (${l.count})` : ''}`, l.echoes]),
       echoTotal: sm.echoes ? sm.echoes.total : 0,
+      // Oaths (rules 11.5): the engine's multiplier on the sum of the lines
+      echoMult: sm.echoes ? sm.echoes.oathMult : 1, oaths: (sm.oaths || []).map((o) => (C.OATH[o] ? C.OATH[o].name : TXT.humanize(o))),
+    };
+  }
+
+  // ---------------------------------------------------------------- meta progression (rules 11)
+  // Dry steps answer "what would the engine do": START_RUN for the run about to start, END_RUN for the profile a run
+  // will leave. Each result is kept for the state it was computed from (step() returns a new state every time).
+  const dry = { nextOf: null, next: null, afterOf: null, after: null };
+  /** The next run, from a dry START_RUN of the CREATE state: the engine's run modifiers (state.meta) for this class. */
+  function nextRun(s) {
+    if (dry.nextOf === s) return dry.next;
+    let out = null;
+    try {
+      const r = R.step(s, { type: 'START_RUN' }).state;
+      const sm = R.summary(r);
+      const count = (id) => (r.player.bag || []).reduce((a, it) => a + (it.kind === 'cons' && it.id === id ? it.qty : 0), 0);
+      out = {
+        classId: r.player.classId, className: C.CLASS[r.player.classId].name, meta: JSON.parse(JSON.stringify(r.meta)), oaths: r.oaths.slice(),
+        oathMult: sm && sm.echoes ? sm.echoes.oathMult : 1, bagSlots: R.bagCapacity(r), potions: count('healing_draught'),
+        weapon: item(r.player.equipped.weapon, r.player.classId), resurrect: ((R.resurrectCharges(r) || {}).now || []).map((x) => RES_KEY[x] || x),
+      };
+    } catch { out = null; }
+    dry.nextOf = s; dry.next = out;
+    return out;
+  }
+  /** The profile END_RUN will store (SUMMARY), from a dry END_RUN: its balance and how many unlocks it can buy. */
+  function afterRun(s) {
+    if (dry.afterOf === s) return dry.after;
+    let out = null;
+    try {
+      const r = R.step(s, { type: 'END_RUN' }).state;
+      const p = r.result.profile;
+      out = { echoes: p.echoes, gained: r.result.echoes, affordable: R.metaOffers(p).filter((o) => o.affordable).length };
+    } catch { out = null; }
+    dry.afterOf = s; dry.after = out;
+    return out;
+  }
+  /** Furthest point of a run as the run log stores it: 1..ZONE_COUNT a zone, then the camp, the boss, the boss defeated. */
+  const stageOf = (sum) => (sum.outcome === 'victory' ? C.ZONE_COUNT + 3 : sum.reachedBoss ? C.ZONE_COUNT + 2 : sum.reached && sum.reached.camp ? C.ZONE_COUNT + 1 : (sum.reached && sum.reached.zone) || 1);
+  function stageText(stage, phase) {
+    const Z = C.ZONE_COUNT; const boss = data.meta.names.boss;
+    if (!stage) return null;
+    if (stage <= Z) return (zoneContent(stage) || {}).name || `Zone ${stage}`;
+    if (stage === Z + 1) return data.meta.names.camp;
+    if (stage === Z + 2) return `${boss}, phase ${Math.max(1, phase || 1)}`;
+    return `${boss} defeated`;
+  }
+  /** END_RUN: one more run in the log of its class (presentation; see loadHistory). */
+  function recordRun(sum) {
+    const c = history.classes[sum.classId] || (history.classes[sum.classId] = { runs: 0, kills: 0, bestLevel: 0, bestStage: 0, bestPhase: 0 });
+    const stage = stageOf(sum); const phase = sum.bossPhase || 0;
+    c.runs = (c.runs || 0) + 1;
+    if (sum.outcome === 'victory') c.kills = (c.kills || 0) + 1;
+    c.bestLevel = Math.max(c.bestLevel || 0, sum.level || 0);
+    if (stage > (c.bestStage || 0) || (stage === c.bestStage && phase > (c.bestPhase || 0))) { c.bestStage = stage; c.bestPhase = phase; }
+    history.logged = (history.logged || 0) + 1;
+    saveHistory(history);
+  }
+  /** After a purchase: the run being created takes the new profile; class, pet, name, seed and Oaths stay. */
+  function rebuildCreate() {
+    const c = st.create;
+    let s = R.newRun({ classId: c.classId, petId: c.classId === 'hunter' ? c.petId : null, name: c.name || '', seed: c.seed, profile, content: CONTENT });
+    for (const o of c.oaths || []) { const a = { type: 'SET_OATH', oath: o, on: true }; if (R.isLegal(s, a)) s = R.step(s, a).state; }
+    st = s;
+  }
+  /**
+   * The profile between runs (CREATE and SUMMARY): balance and counts, the engine's offers (R.metaOffers: rank, ranks,
+   * nextCost, req, available, affordable), the run log per class, the last run's Echoes (after END_RUN), the next run
+   * (CREATE: dry START_RUN) and what this run leaves (SUMMARY: dry END_RUN).
+   */
+  function metaView(s) {
+    const p = profile || R.newProfile();
+    const create = s.phase === 'CREATE';
+    return {
+      echoes: p.echoes, earned: p.earned, spent: p.spent, runs: p.runs, bossKills: p.bossKills, reachedBoss: !!p.reachedBoss,
+      firstKill: { ...p.firstKill }, unlocks: { ...p.unlocks }, offers: R.metaOffers(p),
+      oathsOwned: create ? R.isLegal(s, { type: 'SET_OATH', oath: C.OATH_IDS[0], on: true }) : (p.unlocks.oaths || 0) > 0,
+      history: { logged: history.logged || 0, classes: Object.fromEntries(C.CLASS_IDS.map((id) => { const c = history.classes[id] || {}; return [id, { runs: c.runs || 0, kills: c.kills || 0, bestLevel: c.bestLevel || 0, best: stageText(c.bestStage, c.bestPhase), firstKill: !!p.firstKill[id] }]; })) },
+      lastRun: local.lastRun,
+      next: create ? nextRun(s) : null,
+      after: s.phase === 'SUMMARY' ? afterRun(s) : null,
     };
   }
 
@@ -384,8 +525,9 @@ function engineBackend(seedOpt) {
     const s = st;
     const v = { hours: s.hours || 0, autoplay: !!s.autoplay, seed: s.create ? s.create.seed : s.seed, mode: 'engine' };
     if (s.phase === 'CREATE') {
-      return { ...v, phase: 'CREATE', create: { classId: s.create.classId || 'rogue', petId: s.create.petId || 'ridgewolf', name: s.create.name || '', seed: s.create.seed }, player: null, zone: null, node: null, combat: null, loot: null, summary: null, legal: { lanes: [], services: {}, items: [], spells: {} } };
+      return { ...v, phase: 'CREATE', create: { classId: s.create.classId || 'rogue', petId: s.create.petId || 'ridgewolf', name: s.create.name || '', seed: s.create.seed, oaths: (s.create.oaths || []).slice() }, oaths: (s.create.oaths || []).slice(), meta: metaView(s), player: null, zone: null, node: null, combat: null, loot: null, summary: null, legal: { lanes: [], services: {}, items: [], spells: {} } };
     }
+    v.oaths = (s.oaths || []).slice();
     v.phase = s.phase === 'ENDED' ? 'SUMMARY' : s.phase;
     v.player = convPlayer(s);
     v.zone = convZone(s);
@@ -394,6 +536,7 @@ function engineBackend(seedOpt) {
     v.combat = convFight(s);
     v.loot = null;
     v.summary = v.phase === 'SUMMARY' ? convSummary(s) : null;
+    v.meta = v.phase === 'SUMMARY' ? metaView(s) : null;
     v.camp = s.phase === 'CAMP' && !s.fight && !s.service ? { par: C.BOSS_TIME_PAR, asc: dryBossAsc(s) } : null;
     if (v.phase === 'CAMP' && s.fight) v.phase = 'NODE';
     if (v.node && v.node.step === 'intro' && s.fight) v.combat = null; // the intro dialog is read before the fight is shown
@@ -594,11 +737,34 @@ function engineBackend(seedOpt) {
           local.spoils = null;
           break;
         case 'END_RUN': {
+          const before = st.profile ? st.profile.echoes : 0;
           if (st.phase === 'SUMMARY') apply({ type: 'END_RUN' }, events);
-          if (st.result && st.result.profile) { profile = st.result.profile; saveProfile(profile); }
-          st = mkRun(randomSeed());
+          const keep = st.create ? { classId: st.create.classId, petId: st.create.petId } : {};
+          if (st.result && st.result.profile) {
+            const sum = st.result.summary;
+            profile = st.result.profile; saveProfile(profile); refreshPets();
+            recordRun(sum);
+            local.lastRun = { n: ++local.runNo, name: sum.name, classId: sum.classId, className: sum.className, outcome: sum.outcome, level: sum.level,
+              gained: st.result.echoes, before, after: profile.echoes, firstKill: ((sum.echoes && sum.echoes.lines) || []).some((l) => l.id === 'firstKill') };
+          }
+          st = mkRun(randomSeed(), keep); // the next run starts on the same class
           local.introSeen.clear(); local.spoils = null; local.hold = null; local.reward = null;
           return { ok: true, events: [] };
+        }
+        case 'META_BUY': {
+          // a meta unlock (rules 11.2), between runs only; the engine's offers say what can be bought
+          if (st.phase !== 'CREATE') return { ok: false, error: 'Unlocks are bought between runs' };
+          const p0 = profile || R.newProfile();
+          const was = R.metaOffers(p0);
+          const o0 = was.find((o) => o.id === action.id);
+          if (!o0) return { ok: false, error: 'No such unlock' };
+          if (!o0.available) return { ok: false, error: o0.rank >= o0.ranks ? `${o0.name} is at its highest rank` : `${o0.name} is still locked` };
+          if (!o0.affordable) return { ok: false, error: 'Not enough Echoes' };
+          profile = R.buyMeta(p0, action.id);
+          saveProfile(profile); refreshPets(); rebuildCreate();
+          const now = R.metaOffers(profile); const o1 = now.find((o) => o.id === action.id);
+          const opened = now.filter((o) => o.available && o.rank === 0 && !was.find((x) => x.id === o.id).available).map((o) => o.id);
+          return { ok: true, events: [{ t: 'metaBuy', id: o1.id, name: o1.name, rank: o1.rank, ranks: o1.ranks, cost: o0.nextCost, echoes: profile.echoes, opened }] };
         }
         case 'SELECT_CLASS': {
           apply({ type: 'SELECT_CLASS', classId: action.classId }, events);
