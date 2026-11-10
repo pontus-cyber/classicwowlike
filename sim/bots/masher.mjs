@@ -30,10 +30,11 @@ export function healItem(s) {
 /** The masher's engage: the strike option on the default target (the highest-damage spell when it names one). */
 function mashEngage(s, tgt) {
   let best = null;
+  const living = s.fight.enemies.filter((e) => e.alive).length;
   for (const a of engageActions(s)) {
     if (engageKind(engageId(a)) !== 'strike') continue;
     if (typeof a.target === 'number' && a.target !== tgt) continue;
-    const d = a.spellId ? directDamage(s, a.spellId) : 0;
+    const d = a.spellId ? directDamage(s, a.spellId) * (C.SPELL[a.spellId].target === 'all' ? living : 1) : 0;
     if (!best || d > best.d) best = { a, d };
   }
   return best ? best.a : null;

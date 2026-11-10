@@ -9,7 +9,8 @@
 //   f2: combat v2 fields per fight, aligned with fx (combat-v2.md 11 "Recorder"; B50-B54):
 //       [enemies at start, engage (actionLabel of the engage-round action, '' without an engage round), archetype of
 //        its target ('' if none), round of the first OFF_BALANCE (0 none), windows opened, windows used (the player hit
-//        that enemy with a spell, CAST or ENGAGE, while it was OFF_BALANCE), Signal resolved (0/1), HP at the end of
+//        that enemy with a spell, CAST or ENGAGE, while it was OFF_BALANCE), Signal resolved (0/1: a `summon` with
+//        `signal`, the reinforcement joined), HP at the end of
 //        round OPEN_ROUNDS in per mille (at the fight's end if earlier; 0 on a death), first target differs from the
 //        default target (1 / 0; -1 with one enemy or no targeted action), archetype of the first target ('' none)]
 import { C, R } from './engine.mjs';
@@ -134,9 +135,6 @@ export class Recorder {
             this.fight.round = e.n;
             if (e.n === C2.OPEN_ROUNDS + 1 && this.fight.hpOpen === null) this.fight.hpOpen = permille(hp / p.d.maxHp);
           }
-          break;
-        case 'enemyAction':
-          if (this.fight && e.id === 'signal') this.fight.signal = 1;
           break;
         case 'summon':
           if (this.fight && e.signal) this.fight.signal = 1;

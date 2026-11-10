@@ -66,7 +66,9 @@ export const offBalance = (e) => !!(e && e.alive && e.st.some((x) => OFFBAL_IDS.
  *  stealth round before). */
 export function isEngageRound(s) {
   const f = s.fight;
-  if (!f || f.round !== 1 || f.kind === 'boss') return false;
+  if (!f) return false;
+  if (typeof R.isEngageRound === 'function') return !!R.isEngageRound(s);
+  if (f.round !== 1 || f.kind === 'boss') return false;
   if (f.engage !== undefined) return !!f.engage;
   return !!f.unaware;
 }
@@ -87,12 +89,12 @@ const ENGAGE_KIND = {
   opening_shot: 'strike', lay_trap: 'control', send_pet: 'setup',
 };
 export function engageKind(id) {
-  const t = C.ENGAGE_OPTION || C.ENGAGE_OPTIONS || C.ENGAGE || null;
+  const t = C.ENGAGE_OPTION || null;
   if (t && t[id] && t[id].kind) return t[id].kind;
   return ENGAGE_KIND[id] || 'other';
 }
-/** Engage options per class (combat-v2.md 6.2), in the spec's order (strike, control, setup). */
-export const CLASS_ENGAGE = { rogue: ['ambush', 'sap', 'premeditate'], mage: ['precast', 'binding_glyph', 'gather_power'], hunter: ['opening_shot', 'lay_trap', 'send_pet'] };
+/** Engage options per class (combat-v2.md 6.2) in the order strike, control, setup: the engine's table when it has one. */
+export const CLASS_ENGAGE = C.ENGAGE_OPTIONS || { rogue: ['ambush', 'sap', 'premeditate'], mage: ['precast', 'binding_glyph', 'gather_power'], hunter: ['opening_shot', 'lay_trap', 'send_pet'] };
 
 /**
  * Visible track of an enemy (combat-v2.md 3.1): [{ turn, id, heavy, cast, est, target, ... }], "now" first. The
@@ -107,10 +109,23 @@ export function trackOf(e) {
 /** An entry announces a big move (heavy hit or cast) that is not already stopped. */
 export const isThreat = (it) => !!(it && (it.heavy || it.cast) && !it.interrupted && !it.skipped && !it.cancelled);
 
-/** Estimated damage on the player of an enemy's next `n` visible entries (the track's est values). */
-export function trackDamage(e, n = 2) {
+/**
+ * The enemy's next `n` actions as the player sees them: in the engage round the track's first entries (turns 1..n;
+ * nobody acts this round); later the now-entry as it will be played (enemy.intent: cancelled, replaced, interrupted
+ * show there) and the track entries after it. M2 v5 engine: the current intent only.
+ */
+export function nextEntries(s, e, n = 2) {
+  if (!e || !e.alive) return [];
+  const tr = trackOf(e);
+  if (!Array.isArray(e.track)) return tr.slice(0, n);
+  if (isEngageRound(s)) return tr.slice(0, n);
+  return [e.intent, ...tr.slice(1, n)].filter(Boolean);
+}
+
+/** Estimated damage on the player of an enemy's next `n` actions (nextEntries; the est values the UI shows). */
+export function trackDamage(s, e, n = 2) {
   let d = 0;
-  for (const it of trackOf(e).slice(0, n)) if (it && (it.target === 'player' || it.target === 'all') && !it.interrupted && !it.cancelled) d += it.est || 0;
+  for (const it of nextEntries(s, e, n)) if (it && (it.target === 'player' || it.target === 'all') && !it.interrupted && !it.cancelled) d += it.est || 0;
   return d;
 }
 

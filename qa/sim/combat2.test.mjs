@@ -202,7 +202,7 @@ describe('recorder combat v2 fields (synthetic events)', () => {
     rec.before(s, atk);
     rec.after(s, atk, [{ t: 'damage', src: 'player', dst: 0, amount: 10, hpLost: 10 }, { t: 'status', u: 0, id: 'OFF_BALANCE', on: false }, { t: 'round', n: 3 }], b);
     rec.before(s, { type: 'ATTACK', target: 0 });
-    rec.after(s, { type: 'ATTACK', target: 0 }, [{ t: 'status', u: 0, id: 'OFF_BALANCE', on: true, dur: 2 }, { t: 'damage', src: 'player', dst: 0, amount: 5, hpLost: 5 }, { t: 'enemyAction', u: 1, id: 'signal', name: 'Signal' }, { t: 'round', n: 4 }, { t: 'round', n: 5 }, { t: 'round', n: C2.OPEN_ROUNDS + 1 }], b);
+    rec.after(s, { type: 'ATTACK', target: 0 }, [{ t: 'status', u: 0, id: 'OFF_BALANCE', on: true, dur: 2 }, { t: 'damage', src: 'player', dst: 0, amount: 5, hpLost: 5 }, { t: 'summon', u: 2, name: 'Add', hp: 50, by: 1, signal: true }, { t: 'round', n: 4 }, { t: 'round', n: 5 }, { t: 'round', n: C2.OPEN_ROUNDS + 1 }], b);
     rec.after(s, null, [{ t: 'victory', kind: 'quest', rounds: 6 }], b);
     const [n0, engage, , firstOb, opened, used, signal, hpOpen, diff] = rec.f2[0];
     assert.equal(n0, s.fight.enemies.length);

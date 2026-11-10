@@ -26,7 +26,7 @@ import { C, R } from '../lib/engine.mjs';
 import { BAL, SIM, C2 } from '../lib/params.mjs';
 import { fightClone } from '../lib/clone.mjs';
 import {
-  playerView, resample, isEngageRound, engageActions, trackOf, isThreat, trackDamage, defaultTarget, offBalance,
+  playerView, resample, engageActions, trackOf, nextEntries, isThreat, trackDamage, defaultTarget, offBalance,
   actionTarget,
 } from '../lib/view.mjs';
 import { directDamage } from './masher.mjs';
@@ -134,14 +134,14 @@ export function openerCandidates(s) {
   let danger = null;
   let dmax = 0;
   for (const e of alive) {
-    const d = trackDamage(e, 2);
+    const d = trackDamage(s, e, 2);
     if (d > dmax) { dmax = d; danger = e.idx; }
   }
   let low = null;
   for (const e of alive) if (!low || e.hp < low.hp) low = e;
   const dmgT = uniq([dt, danger !== null ? danger : (low ? low.idx : null), ...alive.filter(offBalance).map((e) => e.idx)]);
-  const nowCast = alive.filter((e) => { const t = trackOf(e)[0]; return t && t.cast && !t.interrupted && !t.cancelled; }).map((e) => e.idx);
-  const threatT = alive.filter((e) => !e.ccImmune && trackOf(e).slice(0, 2).some(isThreat)).map((e) => e.idx);
+  const nowCast = alive.filter((e) => { const t = e.intent; return t && t.cast && !t.interrupted && !t.cancelled; }).map((e) => e.idx);
+  const threatT = alive.filter((e) => !e.ccImmune && nextEntries(s, e, 2).some(isThreat)).map((e) => e.idx);
   const ctlT = uniq([...threatT, ...(alive.length >= 2 ? [danger] : [])]);
   for (const id of p.bar) {
     if (!id) continue;
@@ -299,12 +299,16 @@ function visibleSig(s) {
   };
 }
 
-/** Something the plan did not expect: a new enemy, a visible entry that changed, or a new heavy or cast entry. */
+/**
+ * Something the plan did not expect: a new enemy, a visible entry that changed or was replaced by the basic attack
+ * (combat v2 `intent.replaced`), or a new heavy or cast entry.
+ */
 export function surprised(s, sig) {
   const f = s.fight;
   if (f.enemies.length !== sig.n) return true;
   for (const e of f.enemies) {
     if (!e.alive) continue;
+    if (e.intent && e.intent.replaced) return true;
     const old = sig.entries[e.idx];
     const tr = trackOf(e);
     for (let j = 0; j < tr.length; j++) {
