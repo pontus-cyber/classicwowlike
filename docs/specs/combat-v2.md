@@ -310,8 +310,8 @@ Expected effect of the parts not built [inference: from the mechanism, not measu
 | OPENING_TURNS | 3 | enemy turns with a scripted action |
 | SIGNATURE_TURN | 2 | enemy turn (elite, rare, dungeon boss) |
 | SIGNATURE_TURN_2 | 4 | enemy turn (dungeon boss, second template ability; was 5) (combat v2.1) |
-| HEAVY_SCRIPT_MULT | 1.5 | × the action's pct on a scripted turn (tuning lever, 7; was 1.0) (combat v2.1) |
-| CAST_SCRIPT_MULT | 1.5 | × the action's pct on a scripted turn (tuning lever, 7; was 1.0) (combat v2.1) |
+| HEAVY_SCRIPT_MULT | 1.5 | × the action's damage pct on a scripted turn; heals and shields keep their own value (D60) (tuning lever, 7; was 1.0) (combat v2.1) |
+| CAST_SCRIPT_MULT | 1.5 | × the action's damage pct on a scripted turn; heals and shields keep their own value (D60) (tuning lever, 7; was 1.0) (combat v2.1) |
 | MEND_BELOW | 0.70 | fraction of max HP (= ARCHETYPE.mender Mend `below`, unchanged) |
 | SIGNAL_ADDS | 1 | enemies |
 | BOLSTER_PCT | 0.20 | fraction of the ally's max HP |
