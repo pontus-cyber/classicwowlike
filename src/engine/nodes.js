@@ -7,7 +7,7 @@ import {
   QUEST_REWARD_CHOICES, STORY_QUESTS, STORY_XP_FRAC, STORY_REWARD_CHOICES, GRIND_WAVE_XP_FRAC, GRIND_DROP_MULT,
   GRIND_WAVE_SIZE, DUNGEON_TRASH_FIGHTS, DUNGEON_CLEAR_XP_FRAC, DUNGEON_GOLD_V, TREASURE_GOLD_V,
   TREASURE_TRAP_CHANCE, TREASURE_TRAP_PCT, REST_RESTED_FRAC, BOON, BOON_GOLD_V, BOON_NODES, CAMP_GRIND_LEVEL,
-  MAX_LEVEL, BOSS_TIME_PAR, OATH_HASTE_HOURS, ASC_CAP, ASC_PER_STEP, ASC_STEP_HOURS, TRAIN_NEW_V, TRAIN_RANK_V, TRAVEL_EARLY_LEVELS,
+  MAX_LEVEL, ASC_CAP, ASC_PER_STEP, ASC_STEP_HOURS, TRAIN_NEW_V, TRAIN_RANK_V, TRAVEL_EARLY_LEVELS,
   RESPEC_V, CONSUMABLE, ELIXIR_NODES, RES_META_CHARGES, BOSS_LEVEL, UNIQUE_POTION_PCT,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt } from '../rng.js';
@@ -20,6 +20,7 @@ import {
 import { generateZone, contentLevel, vendorStock } from './map.js';
 import { zoneContent, campEnemies, CAMP_Z } from './content.js';
 import { startFight, endFight } from './combat.js';
+import { parHours } from './meta.js';
 import { makeBoss } from './boss.js';
 
 // ---------------- Meta at run start (rules 11.4) ----------------
@@ -484,8 +485,7 @@ export function campGrind(s, ev) {
 
 /** Boss Ascendancy from hours (rules 1.7). */
 export function ascendancy(s) {
-  const par = BOSS_TIME_PAR - (s.oaths.includes('haste') ? OATH_HASTE_HOURS : 0);
-  return frac6(Math.min(ASC_CAP, ASC_PER_STEP * Math.floor(Math.max(0, s.hours - par) / ASC_STEP_HOURS)));
+  return frac6(Math.min(ASC_CAP, ASC_PER_STEP * Math.floor(Math.max(0, s.hours - parHours(s.oaths)) / ASC_STEP_HOURS)));
 }
 
 export function fightBoss(s, ev) {

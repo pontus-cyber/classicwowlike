@@ -50,6 +50,49 @@ describe('public rule helpers (engine-api.md 1)', () => {
   });
 });
 
+describe('bossPar and zoneDanger on the API (engine-api.md 1, M2 v4)', () => {
+  test('bossPar: BOSS_TIME_PAR, OATH_HASTE_HOURS less under Haste, in CREATE and in a run; Ascendancy and the speed bonus use it', () => {
+    const prof = { ...R.newProfile(), unlocks: { oaths: 1 }, bossKills: 1 };
+    let c = R.newRun({ classId: 'rogue', seed: 3, content: CONTENT, profile: prof });
+    assert.equal(R.bossPar(c), C.BOSS_TIME_PAR);
+    c = R.step(c, { type: 'SET_OATH', oath: 'haste', on: true }).state;
+    assert.equal(R.bossPar(c), C.BOSS_TIME_PAR - C.OATH_HASTE_HOURS, 'CREATE: Oaths chosen so far');
+    for (const haste of [false, true]) {
+      let s = R.newRun({ classId: 'rogue', seed: 3, content: CONTENT, profile: prof });
+      if (haste) s = R.step(s, { type: 'SET_OATH', oath: 'haste', on: true }).state;
+      s = R.step(R.step(s, { type: 'START_RUN' }).state, { type: 'LEAVE_HUB' }).state;
+      const par = R.bossPar(s);
+      assert.equal(par, C.BOSS_TIME_PAR - (haste ? C.OATH_HASTE_HOURS : 0));
+      for (const [over, asc] of [[0, 0], [C.ASC_STEP_HOURS - 1, 0], [C.ASC_STEP_HOURS, C.ASC_PER_STEP]]) {
+        // arrive at the camp at par + over hours, then FIGHT_BOSS
+        const t = tweak(atLevel(s, 60), (x) => { x.zone.z = C.ZONE_COUNT; x.hours = par + over - C.HOURS_TRAVEL; });
+        const b = R.step(R.step(t, { type: 'TRAVEL_ON' }).state, { type: 'FIGHT_BOSS' }).state;
+        assert.equal(R.bossPar(b), par);
+        assert.equal(b.fight.boss.asc, asc, `haste ${haste}, par + ${over} h`);
+        const won = tweak(b, (x) => { x.fight = null; x.phase = 'SUMMARY'; x.outcome = 'victory'; });
+        assert.equal(R.summary(won).echoes.lines.some((l) => l.id === 'speed'), over === 0, `speed bonus at par + ${over} h`);
+      }
+    }
+  });
+
+  test('zoneDanger(level, variant) is the multiplier makeEnemy applies, for every variant and level', () => {
+    assert.equal(R.zoneDanger(20), 1);
+    assert.equal(R.zoneDanger(60), 2);
+    assert.equal(R.zoneDanger(60, 'normal'), 2);
+    assert.equal(R.zoneDanger(60, 'elite'), 2);
+    assert.equal(R.zoneDanger(60, 'trash'), 1.5);
+    assert.equal(R.zoneDanger(60, 'dboss'), 1.5);
+    for (const [tid, variant] of [['z1_brute', 'normal'], ['z1_caster', 'trash'], ['z1_elite', 'elite'], ['z1_rare', 'rare'], ['z1_dboss', 'dboss']]) {
+      for (const L of [1, 20, 21, 33, 47, 55, 57, 60]) {
+        const s = inFight(atLevel(started('mage'), 20), [{ tid, level: L, variant }], { noStealth: true }).state;
+        const e = s.fight.enemies[0];
+        const free = (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * L) * C.ARCHETYPE[e.arch].dmg * C.VARIANT[variant].dmg;
+        assert.ok(Math.abs(e.dmg - free * R.zoneDanger(L, variant)) < 1e-9, `${variant} level ${L}`);
+      }
+    }
+  });
+});
+
 describe('damage events: amount and hpLost (engine-api.md 5)', () => {
   test('killing blow on an enemy: amount is the full hit, hpLost the HP it had; run stats count hpLost', () => {
     let s = withSpells(atLevel(started('rogue', { seed: 3 }), 20), []);

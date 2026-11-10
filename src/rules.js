@@ -13,7 +13,8 @@
 //
 // Also exported: validateContent, newProfile, metaOffers, buyMeta, mapView, isLegal, whyIllegal, stepInPlace,
 // IllegalActionError, display helpers (xpToNext, talentPointsFree, itemScore, spellCost, spellCooldown,
-// spellInfo, fleeChance, bagCapacity, travelLevel, resurrectCharges), rule helpers (V, xpCurve, diffMod) and every
+// spellInfo, fleeChance, bagCapacity, travelLevel, resurrectCharges, bossPar), rule helpers (V, xpCurve, diffMod,
+// zoneDanger) and every
 // constant via `C`.
 import * as C from './constants.js';
 import { normaliseSeed } from './rng.js';
@@ -22,7 +23,8 @@ import { validateContent, zoneContent } from './engine/content.js';
 import { checkAction, applyAction, legalActions as legal } from './engine/actions.js';
 import { autoAction as auto } from './engine/autoplay.js';
 import { summary as sum } from './engine/summary.js';
-import { newProfile, metaOffers, buyMeta, applyRunToProfile } from './engine/meta.js';
+import { newProfile, metaOffers, buyMeta, applyRunToProfile, parHours } from './engine/meta.js';
+import { zoneDanger } from './engine/combat.js';
 import { availablePets, metaFromProfile, travelLevel as travelAt } from './engine/nodes.js';
 import { nextLanes } from './engine/map.js';
 import { xpToNext, xpCurve, diffMod, talentPointsFree as freePoints } from './engine/progress.js';
@@ -37,8 +39,19 @@ export { C, validateContent, newProfile, metaOffers, buyMeta, applyRunToProfile,
  *   V(L)        value scale (rules 8.5): prices, gold, sell values are multiples of V
  *   xpCurve(L)  the levelling polynomial (rules 4.3), defined for every L (xpToNext(60) is 0, xpCurve(60) is not)
  *   diffMod(d)  XP level-difference modifier for d = content level - character level (rules 4.4)
+ *   zoneDanger(level, variant = 'normal')  damage multiplier of an enemy built from a template (rules 7.6): 1 at or
+ *               below ZONE_DANGER_FROM; 'trash' and 'dboss' (dungeon) take DUNGEON_DANGER_FRAC of the bonus (M2 v4);
+ *               'normal' (quest, grind, Camp waves, summoned adds), 'elite', 'rare' the full bonus. Not the end boss.
  */
-export { V, xpCurve, diffMod };
+export { V, xpCurve, diffMod, zoneDanger };
+
+/**
+ * Boss time par in hours (rules 1.7, 11.5): BOSS_TIME_PAR, OATH_HASTE_HOURS less under the Oath of Haste. Ascendancy
+ * counts the hours past it; the speed bonus needs a kill at or under it. In CREATE: from the Oaths chosen so far.
+ */
+export function bossPar(state) {
+  return parHours(state.player ? state.oaths : (state.create && state.create.oaths) || []);
+}
 
 /** Bag slots of the run: BAG_SLOTS plus meta Deeper Pockets (rules 8.7, 11.2). In CREATE: from the profile. */
 export function bagCapacity(state) {

@@ -7,6 +7,14 @@ import {
 import { IllegalActionError, deepClone, rnd } from './util.js';
 import { hash32 } from '../rng.js';
 
+/**
+ * Boss time par in hours (rules 1.7, 11.5): BOSS_TIME_PAR, OATH_HASTE_HOURS less under the Oath of Haste. Ascendancy
+ * counts the hours past it; the Echoes speed bonus needs a kill at or under it.
+ */
+export function parHours(oaths) {
+  return BOSS_TIME_PAR - (oaths && oaths.includes('haste') ? OATH_HASTE_HOURS : 0);
+}
+
 /** A fresh profile (no unlocks). Plain JSON; the front end stores it. */
 export function newProfile() {
   return {
@@ -79,7 +87,7 @@ export function echoes(facts, profile) {
   }
   if (facts.outcome === 'victory') {
     add('bossKill', 1, ECHO_BOSS_KILL);
-    const par = BOSS_TIME_PAR - (facts.oaths.includes('haste') ? OATH_HASTE_HOURS : 0);
+    const par = parHours(facts.oaths);
     if (facts.hoursAtBoss !== null && facts.hoursAtBoss <= par) add('speed', 1, ECHO_SPEED_BONUS);
     if (profile && profile.firstKill && !profile.firstKill[facts.classId]) add('firstKill', 1, ECHO_FIRST_KILL_CLASS);
   }
