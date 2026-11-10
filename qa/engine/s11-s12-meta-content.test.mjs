@@ -139,6 +139,43 @@ describe('rules 11 meta progression', () => {
     assert.deepEqual([v3s.profile.echoes, v3s.profile.spent, v3s.profile.unlocks.vigor], [40, 1800, 5], 'stored as saved');
   });
 
+  test('11.2 meta power budget (M2 v4): potion line +0.025 of max HP per healing potion; time line: no entry makes an action cost fewer hours', () => {
+    const all = prof(Object.fromEntries(Object.values(C.META).map((m) => [m.id, m.ranks])), { reachedBoss: true, bossKills: 1 });
+    // Potion line: Alchemist's Greater Healing Draught is the only healing potion the catalogue adds.
+    const metaPotions = Object.values(C.CONSUMABLE).filter((c) => c.meta);
+    assert.deepEqual(metaPotions.map((c) => c.id), ['greater_healing_draught']);
+    assert.equal(C.GREATER_HEAL_PCT, 0.375);
+    assert.ok(C.CONSUMABLE.greater_healing_draught.heal - C.HEAL_DRAUGHT_PCT <= 0.025 + 1e-12, 'Greater draught at most +0.025 over the Healing Draught');
+    for (const c of C.CLASS_IDS) {
+      const base = tweak(inFight(withSpells(atLevel(started(c, { profile: all }), 60), []), [mob('z1_brute', 60)], { noStealth: true }).state, (x) => {
+        x.player.hp = 1;
+        x.player.bag.push({ uid: 'g', kind: 'cons', id: 'greater_healing_draught', qty: 1 }, { uid: 'h', kind: 'cons', id: 'healing_draught', qty: 1 });
+        x.player.itemBar = ['greater_healing_draught', 'healing_draught', null];
+        for (const e of x.fight.enemies) e.st.push({ id: 'STUN', dur: 3 });
+      });
+      const heal = (slot) => R.step(base, { type: 'USE_ITEM', slot, target: null }).events.find((e) => e.t === 'heal' && e.dst === 'player').amount;
+      const max = base.player.d.maxHp;
+      assert.equal(heal(0), Math.round(C.GREATER_HEAL_PCT * max), `${c} Greater draught`);
+      assert.equal(heal(1), Math.round(C.HEAL_DRAUGHT_PCT * max), `${c} Healing Draught`);
+      assert.ok(heal(0) - heal(1) <= 0.025 * max + 1, `${c}: +${heal(0) - heal(1)} of ${max}`);
+    }
+    // Time line: META_TIME_BUDGET_H is half an Ascendancy step; the catalogue saves time only through the route
+    // (Quick Study XP, Swift Boots one level earlier), which balance.md B17 measures. Every hours event of a full-catalogue
+    // run costs what the rules table says for its reason.
+    assert.equal(C.META_TIME_BUDGET_H, C.ASC_STEP_HOURS / 2);
+    const want = { quest: C.HOURS_QUEST, grind: C.HOURS_GRIND_WAVE, elite: C.HOURS_ELITE, dungeon: C.HOURS_DUNGEON, rest: C.HOURS_REST, vendor: C.HOURS_VENDOR, trainer: C.HOURS_TRAINER, treasure: C.HOURS_TREASURE, shrine: C.HOURS_SHRINE, travel: C.HOURS_TRAVEL, inn: C.HOURS_REST, camp: C.HOURS_GRIND_WAVE };
+    const seen = new Set();
+    for (const seed of [1, 2, 3]) {
+      let s = started('hunter', { seed, profile: all });
+      for (let i = 0; i < 6000 && s.phase !== 'ENDED'; i++) {
+        const r = R.step(s, R.autoAction(s));
+        for (const e of r.events) if (e.t === 'hours') { assert.equal(e.add, want[e.why], `${e.why}: ${e.add} h`); seen.add(e.why); }
+        s = r.state;
+      }
+    }
+    assert.ok(seen.has('quest') && seen.size >= 4, [...seen].join(','));
+  });
+
   test('11.2 Wayfinder removed (M2 v4): a saved profile that owns it gets no effect and no refund; metaOffers, START_RUN, buyMeta and END_RUN work', () => {
     assert.equal(C.META.wayfinder, undefined);
     for (const m of Object.values(C.META)) for (const r of m.req) assert.ok(r.startsWith('flag:') ? ['flag:bossKill', 'flag:reachedBoss'].includes(r) : !!C.META[r], `${m.id} requires unknown ${r}`);
