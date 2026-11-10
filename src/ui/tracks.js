@@ -2,12 +2,16 @@
 // nameplate (chips, the next action largest) and in the target frame (rows), role badges with their pack role, the
 // off-balance marker, the opening ruler (rounds 1..OPENING_ROUNDS with the threats the tracks show) and the engage panel
 // (the class's three engage options plus "any bar spell", each previewed on the tracks from R.engagePreview on hover).
+// Combat v2.1 (docs/specs/combat-v2.md 16, 10.9): wind-ups get a strong badge on their track entry, on the ruler and over
+// the enemy (the nameplate's wind-up line, from the first round the track shows it), a tooltip with what answers it and the
+// bar spells that can, the EMPOWERED and STAGGERED stacks as lasting badges with their damage, and Disrupt as the control
+// option's label on a dungeon boss (greyed out with the engine's reason when no wind-up is visible).
 // Presentation only: every entry, target, estimate, option, preview and window comes from the engine through the bridge
 // view (engine-bridge.js convTrack, convRole, engageView, legal.spells[].window, bridge.engagePreview).
 import { h, add, clear, fmtNum } from './util.js';
-import { abilityIcon, roleIcon, engageIcon, controlIcon, statusIcon, spellIcon } from './art-icons.js';
+import { abilityIcon, roleIcon, engageIcon, controlIcon, statusIcon, spellIcon, windupIcon } from './art-icons.js';
 import { tip, spellTip } from './tooltip.js';
-import { ROLE_INFO, CONTROL_WORD, ENGAGE_KIND, engageText, numWord, plural } from './ui-text.js';
+import { ROLE_INFO, CONTROL_WORD, ENGAGE_KIND, engageText, numWord, plural, windupAnswers, windupStakes } from './ui-text.js';
 
 /** Rounds the opening ruler numbers (combat-v2.md 10.4: rounds 1-5, the first 4-5 moves of the owner's feedback). */
 export const OPENING_ROUNDS = 5;
@@ -32,25 +36,183 @@ export function targetWord(x, v) {
   return { player: 'you', pet: 'your pet', both: 'you and your pet', self: 'itself' }[x.target] || '';
 }
 
-/** The engage hover preview (R.engagePreview) for one enemy's entry: { cancel, ob, window, pet } or null. */
+/**
+ * The engage hover preview (R.engagePreview) for one enemy's entry: { cancel, ob, window, pet, stagger, disrupt } or null.
+ * stagger (combat v2.1): the cancel answers this wind-up; disrupt: the option is a Disrupt on this enemy.
+ */
 function previewOf(pv, e, x) {
   const p = pv && pv.enemies ? pv.enemies.find((q) => q.u === e.idx) : null;
   if (!p) return null;
   const has = (list) => !!(list && list.includes(x.turn));
-  const out = { cancel: has(p.cancelled), ob: has(p.offBalance), window: has(p.window), pet: has(p.pet) };
+  const out = { cancel: has(p.cancelled), ob: has(p.offBalance), window: has(p.window), pet: has(p.pet), stagger: has(p.stagger), disrupt: !!p.disrupt };
   return out.cancel || out.ob || out.window || out.pet ? out : null;
 }
 
 /**
  * What cancels an entry: the engine's (x.cancel: control now or still covering that turn, a trap), an interrupt that just
- * landed on the now-entry while the round plays, or the engage option previewed on hover.
+ * landed on the now-entry while the round plays, or the engage option previewed on hover. stagger (combat v2.1): that
+ * cancel answers the wind-up (the engine's cancel.stagger; an interrupted wind-up; the preview's stagger turns).
  */
 function cancelOf(e, x, p, ctx) {
   if (x.cancel) return x.cancel;
-  if (x.now && e.intent && e.intent.interrupted) return { by: 'INTERRUPT', offBalance: !!x.cast, breaks: false };
+  if (x.now && e.intent && e.intent.interrupted) return { by: 'INTERRUPT', offBalance: !!x.cast, breaks: false, stagger: !!x.windup };
   if (!(p && p.cancel)) return null;
-  const by = ctx.ui.preview.ctl || 'PREVIEW';
-  return { by, offBalance: p.ob, preview: true, breaks: by === 'SAPPED' || by === 'HEXED', option: ctx.ui.preview.name || null };
+  const by = p.disrupt ? 'TRAP' : ctx.ui.preview.ctl || 'PREVIEW';
+  return { by, offBalance: p.ob, preview: true, breaks: by === 'SAPPED' || by === 'HEXED', option: ctx.ui.preview.name || null, stagger: !!p.stagger, disrupt: !!p.disrupt };
+}
+
+// ------------------------------------------------------------------ combat v2.1: wind-ups (combat-v2.md 16.2, rules 7.12)
+/**
+ * The wind-up state of an entry, or null when it is no wind-up: kind 'open' (it will play: answer it or it empowers),
+ * 'answered' (the engine's predicted cancel answers it, or an interrupt stopped it; soft: Sap or Hex, which damage
+ * breaks), 'preview' (the engage option hovered answers it: its cancel, or for a heavy one the pet taking it, which
+ * engine-api.md 1 says Send the Pet answers while the pet lives), or 'void' (replaced for another reason than SILENCED:
+ * neither answered nor landed). A now-entry replaced because SILENCED was answered.
+ */
+export function windupState(e, x, cancel, p) {
+  if (!x.windup) return null;
+  if (x.replaced && !cancel) return x.replaced.reason === 'silenced' ? { kind: 'answered', by: 'SILENCED' } : { kind: 'void', why: x.replaced.reason };
+  if (cancel && cancel.stagger) return cancel.preview ? { kind: 'preview', by: cancel.by, disrupt: !!cancel.disrupt } : { kind: 'answered', by: cancel.by, soft: !!cancel.breaks };
+  if (p && p.pet && x.heavy) return { kind: 'preview', by: 'PET' };
+  return { kind: 'open' };
+}
+/** The first wind-up of an enemy's track that still needs an answer, else the first one at all: { x, cancel, p, state } or null. */
+export function firstWindup(e, ctx) {
+  const pv = ctx.ui.preview && ctx.ui.preview.data;
+  const list = entriesOf(e).filter((x) => x.windup).map((x) => { const p = previewOf(pv, e, x); const cancel = cancelOf(e, x, p, ctx); return { x, p, cancel, state: windupState(e, x, cancel, p) }; })
+    .filter((w) => w.state && w.state.kind !== 'void');
+  return list.find((w) => w.state.kind === 'open') || list[0] || null;
+}
+/** When a wind-up plays, in words: "now" or "R3". */
+const whenText = (x) => (x.now ? 'now' : x.round != null ? `R${x.round}` : '');
+/** What answers it, in the badge's words: "your trap", "Sapped", "your pet". */
+function answeredBy(st) {
+  if (!st) return '';
+  if (st.by === 'PET') return 'your pet takes it';
+  if (st.by === 'TRAP') return st.disrupt ? 'Disrupt' : 'your trap';
+  if (st.by === 'INTERRUPT') return 'interrupted';
+  if (st.by === 'SILENCED') return 'silenced';
+  return CONTROL_WORD[st.by] || 'controlled';
+}
+
+/**
+ * Can a bar spell answer a wind-up (rules 7.7, 7.12, 7.13 (3))? 'stop' for an interrupt, a stun-tagged spell or one
+ * that controls (HEXED, FROZEN): these stop it on any enemy, a dungeon boss too; 'avoid' for a defensive spell against a
+ * heavy one (a full dodge, a ward that takes it all, Mirrorshade, a taunt: the player loses 0 HP); else null. It reads
+ * the engine's spell entry (tags as the engine's autoplay rule 3 does, and its hex or freeze), a stopgap until the engine
+ * says per spell whether it answers (hand-off ui-2026-11-10g).
+ */
+export function answerKind(raw, x) {
+  if (!raw || !x || !x.windup) return null;
+  const tags = raw.tags || [];
+  if (tags.includes('interrupt') || tags.includes('stun') || raw.hex || raw.freeze) return 'stop';
+  if (x.heavy && (tags.includes('defensive') || raw.taunt)) return 'avoid';
+  return null;
+}
+/**
+ * The bar spells that can answer wind-up x of enemy e: [{ id, name, kind, cd, ok, late }] (cd: rounds of cooldown left
+ * now, from the engine; late: still on cooldown in the wind-up's round).
+ */
+export function answersOnBar(v, ctx, x) {
+  const p = v.player; if (!p || !x || !x.windup) return [];
+  const c = v.combat; const L = (v.legal && v.legal.spells) || {};
+  const out = [];
+  for (const id of p.bar) {
+    if (!id) continue;
+    const sd = ctx.data.spells[id]; const kind = answerKind(sd && sd.raw, x);
+    if (!kind) continue;
+    const cd = c && c.cooldowns ? c.cooldowns[id] || 0 : 0;
+    const wait = x.round != null && c ? x.round - c.round : 0;
+    out.push({ id, name: sd.name, kind, cd, ok: !!(L[id] && L[id].ok), late: cd > wait });
+  }
+  return out;
+}
+
+/** The wind-up's lines for a tooltip: when, the stakes, what answers it, the bar spells that can, and its state. */
+export function windupLines(e, x, ctx, st) {
+  const v = ctx.view; const n = (ctx.data.v2 && ctx.data.v2.num) || {};
+  const lines = [h('div.tt-line.wu', h('img', { src: windupIcon(), alt: '' }), h('b', `Wind-up${x.round != null ? `, round ${x.round}` : ''}`), `: ${e.name}'s signature, telegraphed from the round it shows.`),
+    h('div.tt-line.num', windupStakes(n)), h('div.tt-hint', windupAnswers(x.heavy))];
+  const bar = answersOnBar(v, ctx, x);
+  if (bar.length) {
+    const word = (b) => `${b.name}${b.kind === 'avoid' ? ' (avoid)' : ''}${b.cd ? ` (${b.late ? `cooldown ${b.cd}: not ready by then` : `ready in ${b.cd}`})` : ''}`;
+    lines.push(h('div.tt-line', { style: { color: '#ffd36a' } }, `On your bar: ${bar.map(word).join(', ')}.`));
+  } else if (!x.now) lines.push(h('div.tt-sub', 'Nothing on your bar answers it: plan your engage round, or kill it first.'));
+  if (st && st.kind === 'answered') lines.push(h('div.tt-hint.ans', st.by === 'SILENCED' ? 'Silenced: it cannot cast it. Answered: staggered.' : `${answeredBy(st)[0].toUpperCase()}${answeredBy(st).slice(1)}: answered${st.soft ? ' while it takes no damage' : ''}; it will be staggered.`));
+  if (st && st.kind === 'preview') lines.push(h('div.tt-hint.ans', st.by === 'PET' ? 'With this opening your pet takes it: answered while the pet lives.' : 'With this opening it is answered: staggered.'));
+  if (st && st.kind === 'void') lines.push(h('div.tt-sub', `Replaced (${st.why}): neither answered nor landed.`));
+  return lines;
+}
+
+/** Hovering a wind-up (chip, row, banner, ruler) marks the bar spells that can answer it (ctx.ui.setWindupHover). */
+function windupHover(el, e, x, ctx) {
+  if (!x.windup) return;
+  el.addEventListener('pointerenter', () => ctx.ui.setWindupHover({ idx: e.idx, turn: x.turn }));
+  el.addEventListener('pointerleave', () => ctx.ui.setWindupHover(null));
+}
+
+/**
+ * The wind-up line over an enemy (its nameplate, combat-v2.md 10.9), from the first round its track shows the wind-up:
+ * "Wind-up R3: answer it or it empowers"; once answered (a trap, control, an interrupt) or previewed, what answers it.
+ * box: the nameplate's .wub element; hidden when no wind-up is in view.
+ */
+export function windupBanner(box, e, ctx) {
+  const w = e.alive ? firstWindup(e, ctx) : null;
+  const key = w ? JSON.stringify([e.idx, w.x.turn, w.x.round, w.x.now, w.state, w.x.name, !!(w.cancel && w.cancel.done), w.cancel && w.cancel.by]) : '';
+  if (box.dataset.key === key) return;
+  box.dataset.key = key; clear(box);
+  box.classList.toggle('hidden', !w);
+  if (!w) return;
+  const { x, state } = w;
+  const ans = state.kind === 'answered' || state.kind === 'preview';
+  // stopped this round (its cancel is done, or an interrupt landed): the line says so until the round ends
+  const stopped = state.kind === 'answered' && x.now && (!w.cancel || w.cancel.done || w.cancel.by === 'INTERRUPT');
+  box.className = `wub${ans ? ' ans' : ''}${state.kind === 'preview' ? ' pv' : ''}${x.now && !stopped ? ' now' : ''}`;
+  box.dataset.turn = x.turn; box.dataset.state = stopped ? 'stopped' : state.kind;
+  const n = (ctx.data.v2 && ctx.data.v2.num) || {};
+  const msg = stopped ? `staggered${n.staggerDmg != null ? `: −${Math.round(n.staggerDmg * 100)} % dmg` : ''}` : state.kind === 'open' ? 'answer it or it empowers'
+    : state.kind === 'preview' ? (state.by === 'PET' ? 'your pet takes it: answered' : 'this opening answers it') : `${answeredBy(state)}: answered${state.soft ? ' if not hit' : ''}`;
+  box.append(h('span.wu-b', h('img', { src: windupIcon(), alt: '' }), stopped ? 'Wind-up stopped' : `Wind-up ${whenText(x)}`), h('span.wu-t', msg));
+  tip(box, () => h('div.tt-spell', h('div.tt-row', h('div.tt-name', `${e.name}: ${x.windupOf ? x.windupOf.name : x.name}`), h('div.tt-rank', x.now ? 'This round' : `Round ${x.round}`)), windupLines(e, x, ctx, state)));
+  windupHover(box, e, x, ctx);
+}
+
+/**
+ * The lasting result of an enemy's wind-ups (combat v2.1): its EMPOWERED and STAGGERED statuses (engine-api.md 6:
+ * { stacks, value }, value = the damage it deals more or less) as large badges, "+15 % dmg" / "−30 % dmg", into box.
+ */
+export function stackBadges(box, e, ctx) {
+  const st = (id) => (e.statuses || []).find((s) => s.id === id) || null;
+  const em = e.alive ? st('EMPOWERED') : null; const sg = e.alive ? st('STAGGERED') : null;
+  const key = JSON.stringify([em && [em.stacks, em.value], sg && [sg.stacks, sg.value]]);
+  if (box.dataset.key === key) return;
+  const before = box.dataset.key ? JSON.parse(box.dataset.key) : [null, null];
+  box.dataset.key = key; clear(box);
+  box.classList.toggle('hidden', !em && !sg);
+  const pctOf = (x) => `${Math.round((x || 0) * 100)} %`;
+  const badge = (s, kind, prev) => {
+    const el = h(`div.wst.${kind}`, { dataset: { id: s.id, stacks: s.stacks, value: s.value } },
+      h('img', { src: statusIcon(s.id), alt: '' }), h('span.wn', kind === 'emp' ? 'Empowered' : 'Staggered'), s.stacks > 1 ? h('span.wx', `×${s.stacks}`) : null,
+      h('b', `${kind === 'emp' ? '+' : '−'}${pctOf(s.value)} dmg`));
+    if (!prev || prev[0] !== s.stacks) el.classList.add('fresh'); // a new stack: the badge pops (style.css)
+    tip(el, () => stackTip(e, ctx));
+    return el;
+  };
+  if (em) box.appendChild(badge(em, 'emp', before[0]));
+  if (sg) box.appendChild(badge(sg, 'stg', before[1]));
+}
+/** Tooltip of the stack badges: each stack, the damage it deals now in sum, and why. */
+export function stackTip(e, ctx) {
+  const n = (ctx.data.v2 && ctx.data.v2.num) || {};
+  const st = (id) => (e.statuses || []).find((s) => s.id === id) || null;
+  const em = st('EMPOWERED'); const sg = st('STAGGERED');
+  const pctOf = (x) => `${Math.round((x || 0) * 100)} %`;
+  const net = (em ? em.value : 0) - (sg ? sg.value : 0);
+  return h('div.tt-spell', h('div.tt-name', `${e.name}: its wind-ups`),
+    em ? h('div.tt-line', { style: { color: '#ff9a8a' } }, `Empowered ×${em.stacks}: +${pctOf(em.value)} damage (${em.stacks} ${plural(em.stacks, 'wind-up')} landed${n.empowerDmg != null ? `, +${pctOf(n.empowerDmg)} each` : ''}).`) : null,
+    sg ? h('div.tt-line', { style: { color: '#9fdcff' } }, `Staggered ×${sg.stacks}: −${pctOf(sg.value)} damage (${sg.stacks} ${plural(sg.stacks, 'wind-up')} answered${n.staggerDmg != null ? `, −${pctOf(n.staggerDmg)} each` : ''}).`) : null,
+    em && sg ? h('div.tt-line.num', `Together: ${net >= 0 ? '+' : '−'}${pctOf(Math.abs(net))} damage.`) : null,
+    h('div.tt-sub', 'For the rest of the fight. Its estimates on the track include it.'));
 }
 
 /** The entries of an enemy to show: its track, or (mock, older engine) its single intent as a one-entry track. */
@@ -79,7 +241,7 @@ function amountText(x) {
 export function trackChips(box, e, ctx, opts = {}) {
   const v = ctx.view; const list = entriesOf(e);
   const pv = ctx.ui.preview && ctx.ui.preview.data;
-  const key = `${JSON.stringify(list.map((x) => [x.turn, x.id, x.est, x.target, x.allyIdx, x.cancel && x.cancel.by, x.replaced && x.replaced.reason, x.now]))}|${pv ? JSON.stringify(pv.enemies.find((q) => q.u === e.idx) || null) : ''}|${opts.allSmall ? 1 : 0}|${e.intent && e.intent.interrupted ? 'I' : ''}`;
+  const key = `${JSON.stringify(list.map((x) => [x.turn, x.id, x.est, x.target, x.allyIdx, x.cancel && x.cancel.by, x.cancel && x.cancel.stagger, x.replaced && x.replaced.reason, x.now, x.windup]))}|${pv ? JSON.stringify(pv.enemies.find((q) => q.u === e.idx) || null) : ''}|${opts.allSmall ? 1 : 0}|${e.intent && e.intent.interrupted ? 'I' : ''}`;
   if (box.dataset.key === key) return;
   box.dataset.key = key; clear(box);
   list.forEach((x, i) => {
@@ -89,20 +251,26 @@ export function trackChips(box, e, ctx, opts = {}) {
     const ob = !!(cancel && cancel.offBalance);
     const petHit = !!(p && p.pet);
     const tgt = petHit ? 'pet' : x.target;
-    const cls = ['tk', big ? 'big' : 'sm', x.now ? 'now' : '', x.heavy ? 'heavy' : '', x.cast ? 'cast' : '', x.signature ? 'sig' : '', cancel ? 'cancel' : '',
-      cancel && (cancel.breaks || cancel.preview) ? 'soft' : '', ob ? 'ob' : '', p ? 'pv' : '', p && p.window ? 'pvwin' : '', isHeal(x) || x.support ? 'sup' : ''].filter(Boolean);
+    // combat v2.1: a wind-up's ribbon says WIND-UP, ANSWERED (a cancel answers it) or ANSWERS IT (the opening previewed)
+    const wu = windupState(e, x, cancel, p);
+    const wuRib = wu && wu.kind === 'open' ? 'WIND-UP' : wu && wu.kind === 'answered' ? 'ANSWERED' : wu && wu.kind === 'preview' ? 'ANSWERS IT' : null;
+    const cls = ['tk', big ? 'big' : 'sm', x.now ? 'now' : '', x.heavy ? 'heavy' : '', x.cast ? 'cast' : '', x.signature && !x.windup ? 'sig' : '', cancel ? 'cancel' : '',
+      cancel && (cancel.breaks || cancel.preview) ? 'soft' : '', ob ? 'ob' : '', p ? 'pv' : '', p && p.window ? 'pvwin' : '', isHeal(x) || x.support ? 'sup' : '',
+      wu && wu.kind !== 'void' ? 'wu' : '', wu ? `wu-${wu.kind}` : ''].filter(Boolean);
     const amt = amountText(x);
-    const el = h(`div.${cls.join('.')}`, { dataset: { turn: x.turn, round: x.round ?? '', id: x.id, est: x.est || 0 } },
+    const el = h(`div.${cls.join('.')}`, { dataset: { turn: x.turn, round: x.round ?? '', id: x.id, est: x.est || 0, windup: wu ? wu.kind : '' } },
       x.round != null ? h('span.r', String(x.round)) : null,
       h('img', { src: abilityIcon(x), alt: '' }),
       big ? h('span.tx', h('span.tn', x.name), h('span.tv', amt ? h('b', amt) : null, tgt && tgt !== 'self' && (amt || tgt !== 'player') ? h('i', `▸ ${TGT_SHORT[tgt] || tgt}`) : null))
         : h('span.tv', amt ? h('b', amt) : null, tgt && tgt !== 'player' && tgt !== 'self' ? h('i', TGT_SHORT[tgt] || tgt) : null),
-      x.signature ? h('i.b-sig', '★') : null,
+      x.signature && !x.windup ? h('i.b-sig', '★') : null,
       x.replaced && !cancel ? h('i.b-rep', '↺') : null,
       cancel ? h('img.b-ctl', { src: cancel.by === 'PREVIEW' ? statusIcon('STUN') : controlIcon(cancel.by), alt: '' }) : null,
-      ob ? h('i.b-ob', 'OFF-BAL') : null,
-      p && p.window && !ob ? h('i.b-ob.frost', 'WINDOW') : null);
-    tip(el, () => entryTip(e, x, ctx, { cancel, ob, petHit, preview: p }));
+      wuRib ? h(`i.b-wu${wu.kind !== 'open' ? '.ans' : ''}`, wuRib) : null,
+      ob && !wuRib ? h('i.b-ob', 'OFF-BAL') : null,
+      p && p.window && !ob && !wuRib ? h('i.b-ob.frost', 'WINDOW') : null);
+    tip(el, () => entryTip(e, x, ctx, { cancel, ob, petHit, preview: p, wu }));
+    windupHover(el, e, x, ctx);
     box.appendChild(el);
   });
 }
@@ -115,7 +283,7 @@ export function trackRows(box, e, ctx) {
   const v = ctx.view; const list = entriesOf(e);
   const pv = ctx.ui.preview && ctx.ui.preview.data;
   const unaware = e.intent && e.intent.id === 'unaware';
-  const key = `${JSON.stringify(list.map((x) => [x.turn, x.id, x.est, x.target, x.allyIdx, x.cancel && x.cancel.by, x.replaced && x.replaced.reason, x.now]))}|${unaware}|${e.intent && e.intent.interrupted ? 'I' : ''}|${pv ? JSON.stringify(pv.enemies.find((q) => q.u === e.idx) || null) : ''}|${(e.role && JSON.stringify(e.role)) || ''}`;
+  const key = `${JSON.stringify(list.map((x) => [x.turn, x.id, x.est, x.target, x.allyIdx, x.cancel && x.cancel.by, x.cancel && x.cancel.stagger, x.replaced && x.replaced.reason, x.now, x.windup]))}|${unaware}|${e.intent && e.intent.interrupted ? 'I' : ''}|${pv ? JSON.stringify(pv.enemies.find((q) => q.u === e.idx) || null) : ''}|${(e.role && JSON.stringify(e.role)) || ''}`;
   if (box.dataset.key === key) return;
   box.dataset.key = key; clear(box);
   if (!list.length && !unaware) { box.classList.add('hidden'); return; }
@@ -127,20 +295,27 @@ export function trackRows(box, e, ctx) {
     const ob = !!(cancel && cancel.offBalance);
     const petHit = !!(p && p.pet);
     const tgt = petHit ? 'pet' : x.target;
-    const flags = [x.heavy ? h('span.flag.heavy', 'Heavy') : null, x.cast ? h('span.flag.cast', 'Cast') : null, x.signature ? h('span.flag.sig', '★ Signature') : null];
+    const wu = windupState(e, x, cancel, p);
+    // combat v2.1: a wind-up shows one flag (it is always a cast; "heavy" goes to the line below), so its name keeps its room
+    const flags = wu ? [h(`span.flag.wu${wu.kind !== 'open' ? '.ans' : ''}`, wu.kind === 'open' ? 'Wind-up' : wu.kind === 'void' ? 'Wind-up ↺' : 'Answered')]
+      : [x.heavy ? h('span.flag.heavy', 'Heavy') : null, x.cast ? h('span.flag.cast', 'Cast') : null, x.signature ? h('span.flag.sig', '★ Signature') : null];
     let sub = '';
-    if (cancel) sub = `${cap(CONTROL_WORD[cancel.by] || 'controlled')}${cancel.offBalance ? '' : ': skipped'}`;
+    if (cancel) sub = `${cap(CONTROL_WORD[cancel.by] || 'controlled')}${cancel.offBalance || (wu && wu.kind !== 'open') ? '' : ': skipped'}`;
     else if (x.replaced) sub = `${x.replaced.from} → ${x.name}: ${x.replaced.reason}`;
     else if (petHit) sub = 'Your pet takes it (Send the Pet)';
     else { const w = targetWord({ ...x, target: tgt }, v); sub = isDamage(x) ? `Hits ${w}` : w && w !== 'itself' && x.kind !== 'curse' ? `On ${w}` : supportWord(x); }
+    if (wu && x.heavy && !cancel && !x.replaced) sub = `Heavy · ${sub ? sub[0].toLowerCase() + sub.slice(1) : ''}`;
     const amt = amountText(x);
-    const row = h(`div.tr${x.now ? '.now' : ''}${x.heavy ? '.heavy' : ''}${x.cast ? '.cast' : ''}${cancel ? '.cancel' : ''}${cancel && (cancel.breaks || cancel.preview) ? '.soft' : ''}${ob ? '.ob' : ''}${p ? '.pv' : ''}`,
-      { dataset: { turn: x.turn, round: x.round ?? '', id: x.id } },
+    const row = h(`div.tr${x.now ? '.now' : ''}${x.heavy ? '.heavy' : ''}${x.cast ? '.cast' : ''}${cancel ? '.cancel' : ''}${cancel && (cancel.breaks || cancel.preview) ? '.soft' : ''}${ob ? '.ob' : ''}${p ? '.pv' : ''}${wu ? `${wu.kind !== 'void' ? '.wu' : ''}.wu-${wu.kind}` : ''}`,
+      { dataset: { turn: x.turn, round: x.round ?? '', id: x.id, windup: wu ? wu.kind : '' } },
       h('span.rt', x.now ? 'Now' : x.round != null ? `R${x.round}` : ''),
       h('img', { src: abilityIcon(x), alt: '' }),
-      h('div.tm', h('div.tn', h('span.nm', x.name), flags), h('div.ts', sub, ob ? h('b.obt', ' → off-balance') : null, p && p.window && !ob ? h('b.obt.frost', ' → frozen window') : null)),
+      h('div.tm', h('div.tn', h('span.nm', x.name), flags), h('div.ts', sub,
+        wu && (wu.kind === 'answered' || wu.kind === 'preview') ? h('b.wut', ' → staggered') : wu && wu.kind === 'open' && !x.replaced ? h('b.wuo', ' · answer it') : null,
+        ob ? h('b.obt', ' → off-balance') : null, p && p.window && !ob ? h('b.obt.frost', ' → frozen window') : null)),
       amt ? h(`div.td${isHeal(x) ? '.heal' : ''}`, amt) : null);
-    tip(row, () => entryTip(e, x, ctx, { cancel, ob, petHit, preview: p }));
+    tip(row, () => entryTip(e, x, ctx, { cancel, ob, petHit, preview: p, wu }));
+    windupHover(row, e, x, ctx);
     box.appendChild(row);
   }
 }
@@ -163,10 +338,15 @@ export function entryTip(e, x, ctx, o = {}) {
   else if (isHeal(x) && x.est) lines.push(h('div.tt-line.num', `${x.kind === 'bolster' ? 'Shield' : 'Heal'} on ${w || 'an ally'}: about ${fmtNum(x.est)}`));
   else { const sw = supportWord(x) || (w ? `On ${w}` : ''); if (sw) lines.push(h('div.tt-line', sw)); }
   if (x.kind === 'signal') lines.push(h('div.tt-warn', `Signal: at the end of that round ${numWord(n.signalAdds || 1)} more ${plural(n.signalAdds || 1, 'enemy joins', 'enemies join')}. Kill, interrupt or control it first.`));
-  if (x.heavy) lines.push(h('div.tt-warn', 'Heavy: a telegraphed big hit. Stun or control it on that turn to cancel it (it is then off-balance), or let a shield, a dodge or your pet take it.'));
-  if (x.cast) lines.push(h('div.tt-hint', 'Cast: interrupt it or control the caster on that turn to cancel it; a cancelled cast leaves it off-balance.'));
-  if (x.signature) lines.push(h('div.tt-line', { style: { color: '#ffd36a' } }, '★ Signature: its strongest ability, on a scripted turn.'));
-  else if (x.scripted && !x.boss) lines.push(h('div.tt-sub', 'Opening move: the same for every enemy of its role.'));
+  // combat v2.1: a wind-up (always a cast) says what answers it instead of the Heavy and Cast hints
+  const wu = o.wu !== undefined ? o.wu : windupState(e, x, o.cancel, o.preview);
+  if (wu) lines.push(...windupLines(e, x, ctx, wu));
+  else {
+    if (x.heavy) lines.push(h('div.tt-warn', 'Heavy: a telegraphed big hit. Stun or control it on that turn to cancel it (it is then off-balance), or let a shield, a dodge or your pet take it.'));
+    if (x.cast) lines.push(h('div.tt-hint', 'Cast: interrupt it or control the caster on that turn to cancel it; a cancelled cast leaves it off-balance.'));
+  }
+  if (x.signature && !x.windup) lines.push(h('div.tt-line', { style: { color: '#ffd36a' } }, '★ Signature: its strongest ability, on a scripted turn.'));
+  else if (x.scripted && !x.boss && !x.windup) lines.push(h('div.tt-sub', 'Opening move: the same for every enemy of its role.'));
   if (x.replaced) lines.push(h('div.tt-warn', `${x.replaced.from} → ${x.name}: ${x.replaced.reason}.`));
   if (o.cancel) {
     const word = CONTROL_WORD[o.cancel.by] || 'controlled';
@@ -259,10 +439,13 @@ export function createRuler(root, ctx) {
         const p = previewOf(pv, e, x);
         const cancelled = !!(x.cancel || (p && p.cancel));
         if (!cancelled && isDamage(x) && (x.target === 'player' || x.target === 'both') && !(p && p.pet)) col.dmg += x.est || 0;
-        if (notable(x)) col.threats.push({ e, x, cancelled, ob: !!((x.cancel && x.cancel.offBalance) || (p && p.ob)) });
+        // combat v2.1: a wind-up is marked on its round, answered when a cancel (or the previewed opening) answers it
+        const wu = windupState(e, x, cancelOf(e, x, p, ctx), p);
+        if (notable(x)) col.threats.push({ e, x, cancelled, ob: !!((x.cancel && x.cancel.offBalance) || (p && p.ob)), wu: wu ? wu.kind : null, wuState: wu });
       }
     }
-    const key = JSON.stringify([c.round, cols.map((k) => [k.known, k.dmg, k.threats.map((t) => [t.e.idx, t.x.turn, t.x.id, t.cancelled, t.ob])])]);
+    for (const k of cols) k.threats.sort((a, b) => (b.wu ? 1 : 0) - (a.wu ? 1 : 0)); // wind-ups first: they are what the opening is about
+    const key = JSON.stringify([c.round, cols.map((k) => [k.known, k.dmg, k.threats.map((t) => [t.e.idx, t.x.turn, t.x.id, t.cancelled, t.ob, t.wu])])]);
     if (key === lastKey) return;
     lastKey = key; clear(el);
     el.appendChild(h('div.rl-h', h('span.rl-t', 'Opening'), h('span.rl-s', c.round === 1 ? 'Plan your first moves' : `Round ${c.round} of ${OPENING_ROUNDS}`)));
@@ -270,17 +453,22 @@ export function createRuler(root, ctx) {
     for (const k of cols) {
       const state = k.r < c.round ? 'past' : k.r === c.round ? 'cur' : 'next';
       const engage = k.r === 1;
-      const head = h('div.rl-n', engage ? h('span', '1 · Engage') : h('span', `Round ${k.r}`), state === 'cur' ? h('b.rl-now', 'Now') : null);
+      const wuOpen = k.threats.some((t) => t.wu === 'open'); const wuAns = !wuOpen && k.threats.some((t) => t.wu === 'answered' || t.wu === 'preview');
+      const head = h('div.rl-n', engage ? h('span', '1 · Engage') : h('span', `Round ${k.r}`),
+        wuOpen || wuAns ? h(`b.rl-wu${wuAns ? '.ans' : ''}`, wuAns ? 'Answered' : 'Wind-up') : state === 'cur' ? h('b.rl-now', 'Now') : null);
       const body = h('div.rl-b');
       if (engage) body.appendChild(h('div.rl-q', 'They do not act'));
       else if (!k.known) body.appendChild(h('div.rl-q', '?'));
       else {
         const icons = h('div.rl-ic');
         for (const t of k.threats.slice(0, 4)) {
-          const ic = h(`div.rl-x${t.x.heavy ? '.heavy' : ''}${t.x.cast ? '.cast' : ''}${t.cancelled ? '.cancel' : ''}${t.ob ? '.ob' : ''}`,
-            h('img', { src: abilityIcon(t.x), alt: '' }), t.e.role ? h('img.rl-role', { src: roleIcon(t.e.role.id), alt: '' }) : null);
+          const ic = h(`div.rl-x${t.x.heavy ? '.heavy' : ''}${t.x.cast ? '.cast' : ''}${t.cancelled ? '.cancel' : ''}${t.ob ? '.ob' : ''}${t.wu ? `${t.wu !== 'void' ? '.wu' : ''}.wu-${t.wu}` : ''}`,
+            { dataset: { idx: t.e.idx, turn: t.x.turn, windup: t.wu || '' } },
+            h('img', { src: abilityIcon(t.x), alt: '' }), t.e.role ? h('img.rl-role', { src: roleIcon(t.e.role.id), alt: '' }) : null,
+            t.wu && t.wu !== 'void' ? h('img.rl-wui', { src: windupIcon(), alt: '' }) : null);
           ic.addEventListener('click', () => ctx.ui.setTarget(t.e.idx));
-          tip(ic, () => entryTip(t.e, t.x, ctx, { cancel: t.x.cancel || (t.cancelled ? { by: 'PREVIEW', preview: true, offBalance: t.ob } : null), ob: t.ob }));
+          tip(ic, () => entryTip(t.e, t.x, ctx, { cancel: t.x.cancel || (t.cancelled ? { by: 'PREVIEW', preview: true, offBalance: t.ob } : null), ob: t.ob, wu: t.wuState }));
+          windupHover(ic, t.e, t.x, ctx);
           icons.appendChild(ic);
         }
         if (k.threats.length > 4) icons.appendChild(h('span.rl-more', `+${k.threats.length - 4}`));
@@ -303,6 +491,9 @@ export function createRuler(root, ctx) {
  * and setup options as large buttons (keys Q, W, E) with their effect in one line and the target they would hit, plus
  * "any bar spell". Hovering an option previews it on the tracks (R.engagePreview through ctx.ui.setPreview) and marks the
  * enemies it may target. Pre-cast lists the bar spells it can cast for free.
+ * Combat v2.1: on a dungeon boss the control option is labelled Disrupt (R.engageOptions `disrupt`) with the wind-up its
+ * trap stops; on a target it may not take, the engine's reason (R.whyIllegal); every option and Pre-cast spell whose
+ * preview answers a wind-up (R.engagePreview `stagger`, or Send the Pet's pet turns on a heavy one) says so.
  */
 export function createEngagePanel(root, ctx) {
   const el = h('div#engage.panel.hidden', { 'aria-label': 'Engage' });
@@ -314,6 +505,45 @@ export function createEngagePanel(root, ctx) {
     if (!targets || !targets.length) return { ok: false, t: null };
     if (targets.length === 1 && targets[0] === null) return { ok: true, t: null, none: true };
     return targets.includes(ctx.ui.target) ? { ok: true, t: ctx.ui.target } : { ok: false, t: null, first: targets[0] };
+  };
+  /**
+   * The wind-ups an option answers on target t (combat v2.1): from R.engagePreview, the cancelled turns whose entry is a
+   * wind-up (`stagger`), and for Send the Pet a heavy wind-up among its pet turns (engine-api.md 1). [{ e, x }] in round order.
+   */
+  const answersOf = (v, id, t, spellId) => {
+    const pv = ctx.bridge.engagePreview(id, t, spellId);
+    if (!pv || !pv.enemies) return [];
+    const out = [];
+    for (const q of pv.enemies) {
+      const e = v.combat.enemies.find((x) => x.idx === q.u); if (!e) continue;
+      for (const x of entriesOf(e)) if (x.windup && ((q.stagger || []).includes(x.turn) || (x.heavy && (q.pet || []).includes(x.turn)))) out.push({ e, x });
+    }
+    return out.sort((a, b) => (a.x.round || 0) - (b.x.round || 0));
+  };
+  const answerTag = (list) => (list.length ? h('div.eg-ans', h('img', { src: windupIcon(), alt: '' }),
+    `Answers ${list.length > 1 ? `${list.length} wind-ups` : `the wind-up`} (${list.map((w) => `R${w.x.round}`).join(', ')}): staggered`) : null);
+  const pctOf = (x) => `${Math.round((x || 0) * 100)} %`;
+  /** Disrupt's line on the card (rules 7.10): the wind-up its trap stops, from R.engagePreview (ans), and the result. */
+  const disruptText = (v, t, ans) => {
+    const n = (ctx.data.v2 && ctx.data.v2.num) || {};
+    const w = ans[0];
+    const what = w ? `${w.x.name} in round ${w.x.round}` : 'its first visible wind-up';
+    return `A trap stops its first wind-up, ${what}: staggered${n.staggerDmg != null ? ` (−${pctOf(n.staggerDmg)} damage for the fight)` : ''} and off-balance.`;
+  };
+  /** Tooltip of a Disrupt card, or of a control option the current target may not take (the engine's reason). */
+  const disruptTip = (v, o, t, disrupt, notHere) => {
+    const n = (ctx.data.v2 && ctx.data.v2.num) || {};
+    const e = v.combat.enemies.find((x) => x.idx === t);
+    const nm = e ? e.name : 'This enemy';
+    const lines = [];
+    if (disrupt) {
+      lines.push(h('div.tt-line.desc', `${nm} cannot be controlled, so ${o.name} becomes Disrupt: a trap that springs on its first wind-up in its next ${numWord(n.trackLen || 3)} turns. That wind-up is cancelled: answered, so it is staggered, and it is off-balance for your next action.`));
+      if (n.signatureTurn2) lines.push(h('div.tt-hint', `A dungeon boss winds up a second time on its turn ${n.signatureTurn2}: answer that one with an interrupt or a stun (a heavy one: a full dodge, a ward or your pet).`));
+    } else if (notHere) {
+      lines.push(h('div.tt-warn', notHere));
+      lines.push(h('div.tt-line.desc', 'On an enemy immune to control, a control option works only as Disrupt, while its track shows a wind-up.'));
+    }
+    return h('div.tt-spell', h('div.tt-row', h('div.tt-name', disrupt ? `Disrupt (${o.name})` : o.name), h('div.tt-kind', 'Control')), lines);
   };
   function update(v) {
     const c = v.combat; const eg = c && !c.over ? c.engage : null;
@@ -327,33 +557,51 @@ export function createEngagePanel(root, ctx) {
     const d = ctx.data.v2 || { options: {}, num: {} };
     el.appendChild(h('div.eg-h', h('div.title', 'Engage'), h('div.eg-sub', h('b', 'They have not noticed you: enemies do not act this round.'), ' Read their tracks, pick a target, then open.')));
     const opts = h('div.eg-opts');
+    const cur = ctx.ui.target;
     for (const o of eg.options) {
       const data = d.options[o.id] || { id: o.id };
       const sel = o.spells ? null : pick(v, o.targets);
       const off = !!o.reason;
+      // combat v2.1: on an enemy immune to control the control option is Disrupt (R.engageOptions `disrupt`); on one it
+      // may not take (a dungeon boss without a visible wind-up) the card says the engine's reason (R.whyIllegal)
+      const here = sel && sel.ok && sel.t != null ? sel.t : null;
+      const disrupt = !off && here != null && (o.disrupt || []).includes(here);
+      const notHere = !off && !o.spells && cur != null && o.why && o.why[cur] ? o.why[cur] : null;
+      const at = o.spells ? null : sel.none ? null : here != null ? here : sel.first ?? null;
+      const ans = off || o.spells || (at == null && !sel.none) ? [] : answersOf(v, o.id, at, undefined);
       let tline;
       if (off) tline = h('div.eg-tg.bad', o.reason);
       else if (o.spells) tline = h('div.eg-tg', ctx.ui.precastArmed ? 'Now press a spell key (1–7) or click a spell:' : 'Choose a spell:');
       else if (sel.none) tline = h('div.eg-tg.ok', 'No target needed');
       else if (sel.ok) tline = h('div.eg-tg.ok', `On ${nameOf(v, sel.t)}`);
+      else if (notHere) tline = h('div.eg-tg.bad', notHere, h('span.eg-alt', ` Choose: ${o.targets.map((i) => nameOf(v, i)).join(', ')}`));
       else tline = h('div.eg-tg.warn', `Choose a target: ${o.targets.map((i) => nameOf(v, i)).join(', ')}`);
-      const card = h(`div.eg-opt.k-${o.kind}${off ? '.off' : ''}${o.spells && ctx.ui.precastArmed ? '.armed' : ''}`, { role: o.spells ? null : 'button', tabindex: '-1', dataset: { opt: o.id }, 'aria-label': `${o.name} (${ENGAGE_KIND[o.kind] || o.kind})` },
+      const name = disrupt ? 'Disrupt' : o.name;
+      const card = h(`div.eg-opt.k-${o.kind}${off ? '.off' : ''}${notHere ? '.off-here' : ''}${disrupt ? '.disrupt' : ''}${ans.length ? '.answers' : ''}${o.spells && ctx.ui.precastArmed ? '.armed' : ''}`,
+        { role: o.spells ? null : 'button', tabindex: '-1', dataset: { opt: o.id, disrupt: disrupt ? '1' : '', answers: ans.map((w) => `${w.e.idx}:${w.x.turn}`).join(' ') }, 'aria-label': `${name}${disrupt ? ` (${o.name})` : ''} (${ENGAGE_KIND[o.kind] || o.kind})` },
         h('img.eg-ic', { src: engageIcon(o.id), alt: '' }),
-        h('div.eg-main', h('div.eg-nm', h('span.eg-name', o.name), h('span.eg-kind', ENGAGE_KIND[o.kind] || o.kind), o.key ? h('span.kbd', o.key) : null),
-          h('div.eg-txt', engageText(data, d.num)), tline));
+        h('div.eg-main', h('div.eg-nm', h('span.eg-name', name), disrupt ? h('span.eg-was', o.name) : null, h('span.eg-kind', ENGAGE_KIND[o.kind] || o.kind), o.key ? h('span.kbd', o.key) : null),
+          h('div.eg-txt', disrupt ? disruptText(v, here, ans) : engageText(data, d.num)), tline, answerTag(ans)));
+      if (disrupt || notHere) tip(card, () => disruptTip(v, o, here ?? cur, disrupt, notHere));
       if (o.spells && !off) {
         const row = h('div.eg-spells');
+        let any = [];
         for (const sp of o.spells) {
           const sd = ctx.data.spells[sp.spellId] || { name: sp.spellId };
           const slot = v.player.bar.indexOf(sp.spellId);
-          const b = h('button.eg-sp', { type: 'button', 'aria-label': `Pre-cast ${sd.name}`, dataset: { spell: sp.spellId } }, h('img', { src: spellIcon(sp.spellId, sd), alt: '' }), slot >= 0 ? h('span.k', String(slot + 1)) : null);
+          const t = sp.targets.length === 1 && sp.targets[0] === null ? null : sp.targets.includes(cur) ? cur : sp.targets[0];
+          const sa = answersOf(v, o.id, t, sp.spellId);
+          if (sa.length && !any.length) any = sa.map((w) => ({ ...w, spell: sd.name }));
+          const b = h(`button.eg-sp${sa.length ? '.ans' : ''}`, { type: 'button', 'aria-label': `Pre-cast ${sd.name}`, dataset: { spell: sp.spellId } }, h('img', { src: spellIcon(sp.spellId, sd), alt: '' }), slot >= 0 ? h('span.k', String(slot + 1)) : null,
+            sa.length ? h('img.eg-spw', { src: windupIcon(), alt: '' }) : null);
           b.addEventListener('click', (ev) => { ev.stopPropagation(); ctx.ui.engage(o.id, sp.spellId); });
           b.addEventListener('pointerenter', () => hover(v, o, sp));
           b.addEventListener('pointerleave', () => ctx.ui.setPreview(null));
-          tip(b, () => spellTip(sp.spellId, ctx, { hint: 'Pre-cast: no mana; its cooldown starts. Click to open with it.' }));
+          tip(b, () => spellTip(sp.spellId, ctx, { hint: `Pre-cast: no mana; its cooldown starts.${sa.length ? ` It answers the wind-up (${sa.map((w) => `R${w.x.round}`).join(', ')}).` : ''} Click to open with it.` }));
           row.appendChild(b);
         }
         card.querySelector('.eg-main').appendChild(row);
+        if (any.length) card.querySelector('.eg-main').appendChild(h('div.eg-ans', h('img', { src: windupIcon(), alt: '' }), `${any[0].spell} answers the wind-up (${any.map((w) => `R${w.x.round}`).join(', ')}): staggered`));
       }
       if (!o.spells) {
         card.addEventListener('click', () => ctx.ui.engage(o.id));

@@ -4,6 +4,8 @@
 // freezes for a moment at contact; hits knock the target back, flash, throw sparks and pop a damage number that slams in
 // (crits larger and slower); screen shake scales with the share of health a hit took and is off under Reduce motion;
 // heavy and cast intents hold a visible wind-up (telegraph) until the enemy acts; spells charge up and projectiles leave trails.
+// Combat v2.1 (docs/specs/combat-v2.md 16): a wind-up intent has its own, hotter telegraph, and the moment one is answered
+// (a frost shatter) or lands (an ember flare) has its effect (windupResult).
 import { buildBackdrop, drawBackdrop, drawForeground, THEMES, GROUND_Y, oak, pine } from './art-world.js';
 import { drawHumanoid, drawBeast, drawBoss, drawShard, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook, glowBall } from './art-actors.js';
 import { clamp, lerp, ease, rgba, shade, mix, prng } from './util.js';
@@ -270,6 +272,26 @@ export class Scene {
     const an = this.anchor(id); if (!an) return;
     for (let i = 0; i < 16; i++) this.particles.push({ x: an.x + (Math.random() - 0.5) * an.w * 1.4, y: an.feet - Math.random() * 40 * this.u, vx: 0, vy: -(40 + Math.random() * 70) * this.u, life: 0.9 + Math.random() * 0.5, t0: this.time, size: 2.5 * this.u, color: '#9dffb8', g: 0, glow: true, plus: true });
   }
+  /**
+   * Combat v2.1: the moment a wind-up is answered (a frost-white shatter: core, starburst, a wide ring and shards thrown
+   * out) or lands (an ember flare: a red core, a ring at the feet and sparks rising through the body).
+   */
+  windupResult(id, answered) {
+    const an = this.anchor(id); if (!an) return;
+    const u = this.u; const col = answered ? '#9fdcff' : '#ff5a2a'; const x = an.x; const y = an.cy;
+    this.cores.push({ x, y, t0: this.time, life: 0.3, r: 64 * u, color: answered ? '#e8f8ff' : '#ffb07a' });
+    this.rings.push({ x, y, t0: this.time, life: 0.55, r0: 12 * u, r1: 120 * u, color: col, width: 4 * u });
+    if (answered) {
+      this.rays.push({ x, y, t0: this.time, life: 0.45, r: 110 * u, color: col, rot: Math.random() * Math.PI });
+      for (let i = 0; i < 26; i++) { const a = Math.random() * Math.PI * 2; const sp = (160 + Math.random() * 260) * u; this.particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40 * u, life: 0.35 + Math.random() * 0.35, t0: this.time, size: (1.6 + Math.random() * 2) * u, color: Math.random() < 0.35 ? '#ffffff' : col, g: 420, glow: true, streak: true }); }
+      this.shake(5);
+    } else {
+      this.rings.push({ x, y: an.feet, t0: this.time, life: 0.8, r0: 10 * u, r1: 80 * u, color: col, width: 3.5 * u, flat: true });
+      for (let i = 0; i < 24; i++) this.particles.push({ x: x + (Math.random() - 0.5) * an.w * 1.2, y: an.feet - Math.random() * 30 * u, vx: (Math.random() - 0.5) * 30 * u, vy: -(120 + Math.random() * 140) * u, life: 0.6 + Math.random() * 0.4, t0: this.time, size: (2 + Math.random() * 1.6) * u, color: Math.random() < 0.4 ? '#ffd36a' : col, g: 0, glow: true });
+      this.shake(4);
+    }
+    this.hitFlash(id, 0, answered ? 0.7 : 0.5);
+  }
   aura(id, color, life = 0.9) {
     const an = this.anchor(id); if (!an) return;
     this.rings.push({ x: an.x, y: an.feet, t0: this.time, life, r0: 10 * this.u, r1: 70 * this.u, color, width: 3 * this.u, flat: true });
@@ -517,7 +539,16 @@ export class Scene {
     g.addColorStop(0, rgba(col, 0.16 + 0.12 * pulse)); g.addColorStop(1, rgba(col, 0));
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(an.x, an.cy, (an.feet - an.top) * 0.75, 0, Math.PI * 2); ctx.fill();
     ctx.shadowColor = col; ctx.shadowBlur = 12 * u;
-    if (tele.kind === 'heavy') {
+    if (tele.kind === 'windup') {
+      // combat v2.1: a wind-up (rules 7.12) burns hotter: a thick ember ring, a turning rune ring outside it, rising embers
+      const fast = 0.5 + 0.5 * Math.sin(t * 9);
+      ctx.strokeStyle = rgba(col, 0.65 + 0.35 * fast); ctx.lineWidth = (3.5 + 2 * fast) * u;
+      ctx.beginPath(); ctx.ellipse(an.x, gy + 2 * u, w * (1.1 + 0.14 * fast), 13 * u, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = rgba('#ffd36a', 0.55 + 0.3 * pulse); ctx.lineWidth = 2 * u; ctx.setLineDash([9 * u, 6 * u]); ctx.lineDashOffset = -t * 60 * u;
+      ctx.beginPath(); ctx.ellipse(an.x, gy + 2 * u, w * 1.6, 19 * u, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+      if (Math.random() < 0.6) this.particles.push({ x: an.x + (Math.random() - 0.5) * w * 2, y: gy, vx: (Math.random() - 0.5) * 16 * u, vy: -(90 + Math.random() * 90) * u, life: 0.7, t0: t, size: 2.4 * u, color: Math.random() < 0.4 ? '#ffd36a' : col, g: 0, glow: true });
+    } else if (tele.kind === 'heavy') {
       ctx.strokeStyle = rgba(col, 0.55 + 0.4 * pulse); ctx.lineWidth = (2.5 + 1.5 * pulse) * u;
       ctx.beginPath(); ctx.ellipse(an.x, gy + 2 * u, w * (1.05 + 0.12 * pulse), 12 * u, 0, 0, Math.PI * 2); ctx.stroke();
       ctx.lineWidth = 1.5 * u; ctx.strokeStyle = rgba(col, 0.35 * pulse);

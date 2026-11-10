@@ -3,6 +3,8 @@
 // raised one rarity says so; expedition moves (MOVE, TAKE_ROAD, RING_BELL) travel like map choices and Travel on.
 // Combat v2 (docs/specs/combat-v2.md 10.6): cancelled and replaced track entries, off-balance windows, traps, Signals and
 // Bolster shields are logged; tracks, roles and windows on screen change at the round's start like the intents.
+// Combat v2.1 (combat-v2.md 10.9): a wind-up answered or landed gets its moment (a float, a burst and a log line in a beat
+// of the round's timeline); its stack badge appears with its own status event; a Disrupt names the wind-up it stops.
 // Combat rounds play as beats from src/ui/combat-feel.js (owner feedback 2026-11-10): each action winds up, its hits land
 // with a hit-stop, recoil, a weighted number and screen shake, and enemies' telegraphed blows get a readable pause.
 // Skipping: Space or a click in a round skips to the end of the hit on screen (the next hit plays normally); any other
@@ -16,6 +18,8 @@ const SCHOOL_PROJ = { fire: 'fire', frost: 'frost', arcane: 'arcane', shadow: 's
 const SCHOOL_GLOW = { fire: '#ff9a4a', frost: '#9fdcff', arcane: '#c79bff', shadow: '#a07aff', nature: '#9be07a', magic: '#c79bff', phys: '#ffe9a8' };
 const ref = (r) => (r.side === 'player' ? 'player' : r.side === 'pet' ? 'pet' : r.side === 'enemy' ? `enemy:${r.idx}` : null);
 
+/** Combat v2.1: an enemy's wind-up stacks (rules 7.12), shown when their own status event plays. */
+const WINDUP_STACK_IDS = new Set(['EMPOWERED', 'STAGGERED']);
 // Moments with their own place in the pacing model (rules 3: level-up, fight overhead, boss): outside the round budget.
 const M = { levelUp: 1200, victory: 500, playerDeath: 900, resurrect: 1200, bossPhase: 1400 };
 // Round budget: the planned beats are fitted into PLAN_SHARE of the round cap (combat-feel.js roundPace); once
@@ -181,8 +185,10 @@ export class Director {
               hitCtx = { side: 'player', school: e.school };
               if (e.kind === 'pass') { scene.float('player', 'Pass', { color: '#cfc6b0', size: 16, small: true }); await W(tm.wait); break; }
               if (e.kind === 'item') { scene.act('player', 'item', D(tm.act || 420)); hud.log(`You use ${e.name}.`, 'lg-you'); await W(tm.wait); break; }
-              // combat v2: the engage round's opening (an engage option, or a bar spell cast free by Pre-cast)
-              if (e.kind === 'engage') hud.log(`You open with ${e.name}${e.target ? ` on ${name(e.target)}` : ''}.`, 'lg-you');
+              // combat v2: the engage round's opening (an engage option, or a bar spell cast free by Pre-cast); combat v2.1: a
+              // Disrupt on a dungeon boss says the wind-up its trap will stop (engine-api.md 5: "Disrupt: <boss> will miss <wind-up>")
+              if (e.kind === 'engage' && e.disrupt) hud.log(`Disrupt (${e.name}): ${cap(name(e.target))} will miss ${e.disrupt.name || 'its wind-up'}${e.disrupt.round ? ` in round ${e.disrupt.round}` : ''}.`, 'lg-you');
+              else if (e.kind === 'engage') hud.log(`You open with ${e.name}${e.target ? ` on ${name(e.target)}` : ''}.`, 'lg-you');
               if (e.engage === 'precast') hud.log(`Pre-cast: ${e.name}, no mana.`, 'lg-you');
               const glow = SCHOOL_GLOW[e.school] || '#ffe9a8';
               if (tm.style === 'self') {
@@ -276,8 +282,9 @@ export class Director {
           }
           case 'status': {
             const u = unit(e.dst); const nu = statusSource(next, e.dst);
-            // combat v2: the off-balance marker follows the statuses (OFF_BALANCE, or FROZEN which counts as it)
-            if (u && nu) { u.statuses = deepClone(nu.statuses || []); if (e.dst.side === 'enemy') u.offBalance = deepClone(nu.offBalance); push(); }
+            // combat v2: the off-balance marker follows the statuses (OFF_BALANCE, or FROZEN which counts as it); combat v2.1:
+            // a wind-up stack changes only at its own status event, so another status earlier in the round does not show it
+            if (u && nu) { u.statuses = withStacks(u.statuses, nu.statuses, e.id); if (e.dst.side === 'enemy') u.offBalance = deepClone(nu.offBalance); push(); }
             const dst = ref(e.dst);
             const label = e.id === 'BRAND' ? `Brand ×${e.stacks || 1}` : STATUS_LABEL[e.id];
             if (e.op === 'add' && label) scene.float(dst, label, { color: ['BRAND', 'CURSED', 'ENRAGED'].includes(e.id) ? '#ff9a8a' : '#ffe08a', size: 17, dy: -16 * scene.u, small: true });
@@ -345,7 +352,23 @@ export class Director {
             hud.log(`${cap(e.who)} is off-balance (${why}): ${ob ? `+${Math.round(ob.taken * 100)} % damage taken, +${Math.round(ob.crit * 100)} % crit` : 'hit it now'} for your next action.`, 'lg-loot');
             break;
           }
-          case 'trapSprung': scene.float(ref(e.dst), 'Trap!', { color: '#ffe08a', size: 22, crit: true }); hud.log(`Your trap springs on ${e.who}!`, 'lg-you'); break;
+          case 'trapSprung': scene.float(ref(e.dst), e.disrupt ? 'Disrupted!' : 'Trap!', { color: '#ffe08a', size: 22, crit: true }); hud.log(e.disrupt ? `Your Disrupt springs on ${e.who}!` : `Your trap springs on ${e.who}!`, 'lg-you'); break;
+          // combat v2.1 (rules 7.12): the moment a wind-up is answered (STAGGERED) or lands (EMPOWERED). The stack's status
+          // event came first, so the frame's badge is already up; the float, the burst and the log line say what happened,
+          // in a beat of the round's own timeline (combat-feel.js BEAT.windup, inside the D47 round budget)
+          case 'windup': {
+            const dst = ref(e.dst); const nu = statusSource(next, e.dst); const u = unit(e.dst);
+            const answered = e.result === 'answered';
+            if (u && nu) { u.statuses = withStacks(u.statuses, nu.statuses, answered ? 'STAGGERED' : 'EMPOWERED'); push(); }
+            const pct = Math.round((e.value || 0) * 100);
+            if (live()) scene.windupResult(dst, answered);
+            scene.float(dst, answered ? 'Staggered!' : 'Empowered!', { color: answered ? '#9fdcff' : '#ff7a5a', size: 26, crit: true, dy: -34 * scene.u });
+            const how = answered ? windupHow(e) : null;
+            hud.log(answered ? `Wind-up answered: ${cap(e.who)}'s ${e.name} ${how}. Staggered${e.stacks > 1 ? ` ×${e.stacks}` : ''}: −${pct} % damage for the rest of the fight.`
+              : `Wind-up landed: ${cap(e.who)}'s ${e.name}. Empowered${e.stacks > 1 ? ` ×${e.stacks}` : ''}: +${pct} % damage for the rest of the fight.`, answered ? 'lg-loot' : 'lg-warn');
+            await W(tm.wait);
+            break;
+          }
           case 'signal': scene.float(ref(e.src), 'Signal!', { color: '#ffb05a', size: 22, crit: true }); hud.log(`${cap(e.who)} signals for help: ${e.adds === 1 ? 'one more enemy joins' : `${e.adds} more enemies join`} at the end of the round!`, 'lg-warn'); break;
           case 'bolster': hud.log(`${cap(e.by)} bolsters ${e.name === e.by ? 'itself' : e.name}: a ${fmtNum(e.amount)} shield.`, 'lg-warn'); break;
           case 'gotItem': hud.log(`You receive loot: ${e.name}${e.heatUp ? ' (heat raised it one rarity)' : ''}${e.to === 'window' ? ' (waiting in the loot window)' : ''}.`, 'lg-loot'); break;
@@ -447,6 +470,28 @@ export class Director {
     await wait(settings.dur(2600) || 400, token);
     ctx.ui.showDeath(false);
     ctx.scene.desat = 0;
+  }
+}
+
+/**
+ * The statuses to show after a status event: the next view's, except the wind-up stacks (combat v2.1), which keep what is
+ * on screen unless the event is that stack's own (id); so a stack never shows before its moment in the round.
+ */
+function withStacks(shown, next, id) {
+  const keep = (shown || []).filter((s) => WINDUP_STACK_IDS.has(s.id) && s.id !== id);
+  return deepClone(next || []).filter((s) => !WINDUP_STACK_IDS.has(s.id) || s.id === id).concat(deepClone(keep));
+}
+
+/** How a wind-up was answered, for the log (the `stagger` event's why and by, engine-api.md 5). */
+function windupHow(e) {
+  switch (e.why) {
+    case 'interrupt': return e.byName ? `is stopped by your ${e.byName}` : 'is stopped';
+    case 'control': return `is cancelled (${CONTROL_LOG[e.by] || 'controlled'})`;
+    case 'trap': return 'is cancelled by your trap';
+    case 'disrupt': return 'is cancelled by your Disrupt';
+    case 'silenced': return 'cannot be cast (silenced)';
+    case 'avoided': return 'costs you no health';
+    default: return 'is answered';
   }
 }
 

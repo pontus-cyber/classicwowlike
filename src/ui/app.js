@@ -5,6 +5,9 @@
 // skips to the end of the hit on screen. Outside rounds any input finishes the step at once.
 // Combat v2 (docs/specs/combat-v2.md 10.3): in the engage round the engage panel's options act on the current target (keys
 // Q, W, E; the Mage's Pre-cast: Q, then a spell key), and hovering an option previews it on the tracks (R.engagePreview).
+// Combat v2.1 (combat-v2.md 10.9): the wind-up hovered on a track, the ruler or a nameplate (the bar marks what answers it),
+// and a wind-up's own telegraph. Toasts: the same message merges ("×2") and at most two show at once (a queue holds the
+// rest), placed where no panel is: under the ruler in a fight, left of the zone map on the map.
 import { createBridge, flags } from './engine-bridge.js';
 import { Scene } from './scene.js';
 import { createHud } from './hud.js';
@@ -58,6 +61,9 @@ export class App {
       // ({ option, spellId, target, valid, ctl, data: R.engagePreview }), an engage option, Pre-cast armed (Mage, key Q)
       preview: null, precastArmed: false,
       setPreview: (p) => { ui.preview = p; app.queueRender(); },
+      // combat v2.1: the wind-up hovered on a track, the ruler or a nameplate ({ idx, turn }): the bar marks what answers it
+      wuHover: null,
+      setWindupHover: (w) => { if (JSON.stringify(ui.wuHover) === JSON.stringify(w)) return; ui.wuHover = w; app.queueRender(); },
       engage: (id, spellId) => app.engageAct(id, spellId),
       armPrecast: () => { ui.precastArmed = !ui.precastArmed; app.queueRender(); },
       showDeath: (on, text) => app.showDeath(on, text),
@@ -81,7 +87,8 @@ export class App {
     this.windows = createWindows(this.root, this.ctx);
     this.director = new Director(this.ctx);
     this.bannerEl = h('div#banner', h('div.b0'), h('div.b1'), h('div.b2'));
-    this.toasts = h('div#toasts');
+    this.toasts = h('div#toasts', { 'aria-live': 'polite' });
+    this.toastQueue = []; // toasts waiting for room (toast below)
     this.skipHint = h('div#skiphint', 'Space or click to skip');
     this.next = null; // the one queued next action during a combat round: { make, key, label }
     this.deathEl = h('div.hidden', h('div.overlay-dark'), h('div.deathmsg', h('div.d1', 'You have died'), h('div.d2', 'No resurrection remains. Your journey ends here.')));
@@ -239,6 +246,7 @@ export class App {
     const v = this.bridge.view;
     // the engage round is over: no preview, Pre-cast no longer armed
     if (!(v.combat && v.combat.engage)) { this.ui.precastArmed = false; this.ui.preview = null; document.body.classList.remove('eg-bar-hint'); }
+    if (!(v.combat && !v.combat.over)) this.ui.wuHover = null; // the hovered wind-up's fight is over
     this.ui.chestOpen = v.node && v.node.type === 'treasure' && v.node.step === 'opened' ? true : v.node && v.node.type === 'treasure' ? this.ui.chestOpen : false;
     if (v.combat && !v.combat.over) this.retarget(v); else if (!v.combat) this.ui.setTarget(null);
     this.windows.update();
@@ -300,6 +308,8 @@ export class App {
     this.screens.update(v);
     if (!this.director.playing) this.windows.update();
     document.body.dataset.phase = v.phase;
+    // a fight on screen (the toasts move below the opening ruler, clear of the target frame; style.css)
+    document.body.classList.toggle('in-fight', !!(v.combat && !v.combat.over && !v.loot));
   }
 
   syncScene(v, opts = {}) {
@@ -360,10 +370,11 @@ export class App {
       a.fxStun = has(e, 'STUN'); a.fxFrozen = has(e, 'FROZEN'); a.fxHex = has(e, 'HEXED'); a.fxBurn = has(e, 'BURN'); a.fxWard = has(e, 'WARD');
       a.fxSap = has(e, 'SAPPED');
       a.fxOffBal = !!(e.offBalance && e.alive && !v.combat.over); // combat v2: the off-balance marker under the enemy
-      // telegraph: a heavy blow or a cast in the intent shows as a held wind-up until the enemy acts
+      // telegraph: a heavy blow or a cast in the intent shows as a held wind-up until the enemy acts; combat v2.1: a wind-up
+      // (rules 7.12) of any kind gets its own, hotter telegraph
       const it = e.intent;
-      const tele = e.alive && !v.combat.over && it && !it.interrupted && !it.support && (it.heavy || it.cast) && it.id !== 'none' && it.id !== 'unaware';
-      a.tele = tele ? { kind: it.heavy && !it.cast ? 'heavy' : 'cast', color: it.heavy && !it.cast ? HEAVY_COL : TELE_COL[it.school] || '#b48aff' } : null;
+      const tele = e.alive && !v.combat.over && it && !it.interrupted && !(it.support && !it.windup) && (it.heavy || it.cast) && it.id !== 'none' && it.id !== 'unaware';
+      a.tele = tele ? (it.windup ? { kind: 'windup', color: WINDUP_COL } : { kind: it.heavy && !it.cast ? 'heavy' : 'cast', color: it.heavy && !it.cast ? HEAVY_COL : TELE_COL[it.school] || '#b48aff' }) : null;
     }
   }
 
@@ -378,11 +389,50 @@ export class App {
     this.bannerT = setTimeout(() => { b.className = kind; }, settings.instant ? Math.min(ms, 1200) : ms / Math.max(1, Math.min(2, settings.get('speed'))));
   }
   hideBanner() { clearTimeout(this.bannerT); this.bannerEl.classList.remove('on'); }
+  /**
+   * A short message in the toast stack. The same message while it is on screen merges into it ("Quest complete! ×2") and
+   * its time starts again; at most TOAST_MAX show at once and the rest wait in a queue (the same message queued merges
+   * too), so a burst (quests turned in at speed, a level, a heat change) never stacks over the map or the frames.
+   */
   toast(text, kind = '') {
-    const t = h('div.toast' + (kind ? '.' + kind : ''), text);
+    // a change of the heat state (heat.js, expedition.md H.4) shows at once and never merges: one toast per change
+    const first = /^heat-/.test(kind);
+    const key = `${kind}|${text}`;
+    if (!first) {
+      const live = [...this.toasts.children].find((t) => t.dataset.key === key);
+      if (live) {
+        live.dataset.n = String(Number(live.dataset.n || 1) + 1);
+        live.textContent = `${text} ×${live.dataset.n}`;
+        live.style.animation = 'none'; void live.offsetWidth; live.style.animation = ''; // the fade starts again
+        this.armToast(live);
+        return;
+      }
+      const q = this.toastQueue.find((x) => x.key === key);
+      if (q) { q.n += 1; return; }
+    }
+    if (this.toasts.children.length >= TOAST_MAX) {
+      if (!first) {
+        this.toastQueue.push({ key, text, kind, n: 1 });
+        if (this.toastQueue.length > TOAST_QUEUE) this.toastQueue.shift(); // a long burst: the oldest waiting message lapses
+        return;
+      }
+      const old = [...this.toasts.children].find((t) => !/\bheat-/.test(t.className)); // the heat change takes its place
+      if (old) { clearTimeout(old._toastT); old.remove(); }
+    }
+    this.showToast({ key, text, kind, n: 1 });
+  }
+  showToast(x) {
+    const t = h('div.toast' + (x.kind ? '.' + x.kind : ''), { dataset: { key: x.key, n: String(x.n) } }, x.n > 1 ? `${x.text} ×${x.n}` : x.text);
     this.toasts.appendChild(t);
-    while (this.toasts.children.length > 4) this.toasts.firstChild.remove();
-    setTimeout(() => t.remove(), 2700);
+    this.armToast(t);
+  }
+  /** A toast leaves after TOAST_MS; the next queued one takes its place while there is room. */
+  armToast(t) {
+    clearTimeout(t._toastT);
+    t._toastT = setTimeout(() => {
+      t.remove();
+      while (this.toastQueue.length && this.toasts.children.length < TOAST_MAX) this.showToast(this.toastQueue.shift());
+    }, TOAST_MS);
   }
   showDeath(on, text) {
     if (on) this.deathEl.querySelector('.d2').textContent = text || 'No resurrection remains. Your journey ends here.';
@@ -400,6 +450,8 @@ export class App {
     cv.addEventListener('pointermove', (e) => { const idx = this.scene.pick(e.clientX, e.clientY); this.scene.hover = idx == null ? null : `enemy:${idx}`; cv.style.cursor = idx == null ? '' : 'pointer'; });
     this.root.addEventListener('pointerdown', (e) => { if (this.director.playing && !e.target.closest('button, .win, input')) this.skipPlay(); }, true);
     window.addEventListener('contextmenu', (e) => { if (!e.target.closest('input')) e.preventDefault(); });
+    // combat v2.1: a hovered wind-up whose element was redrawn (the round moved on) gives no pointerleave; drop it here
+    window.addEventListener('pointerover', (e) => { if (this.ui.wuHover && !(e.target.closest && e.target.closest('.tk.wu, .tr.wu, .wub, .rl-x.wu'))) this.ui.setWindupHover(null); });
     window.addEventListener('keydown', (e) => this.onKey(e));
   }
 
@@ -480,13 +532,31 @@ export class App {
       preview: () => (app.ui.preview ? { option: app.ui.preview.option, target: app.ui.preview.target, data: app.ui.preview.data } : null),
       /** The current target (enemy index) or null. */
       target: () => app.ui.target,
+      /** The wind-up hovered on a track, the ruler or a nameplate ({ idx, turn }) or null (combat v2.1). */
+      windupHover: () => (app.ui.wuHover ? { ...app.ui.wuHover } : null),
+      /**
+       * Replace the run with a state saved by R.serialize (engine mode; qa/browser/ui-regress.mjs part J shows a state the
+       * real content never reaches). The view, the scene and the target follow; returns false in mock mode.
+       */
+      loadState: (serialized) => {
+        if (app.busy() || !app.bridge.testLoad(serialized)) return false;
+        app.ui.target = null; app.ui.preview = null; app.ui.precastArmed = false; app.ui.wuHover = null;
+        app.scene.clearFx(); app.hud.clearLog();
+        app.shown = app.bridge.view; app.syncScene(app.shown, { instant: true, enter: true }); app.retarget(app.shown); app.queueRender();
+        return true;
+      },
       canDebug: app.bridge.canDebug,
     };
   }
 }
 
-// telegraph colours: a heavy blow in orange (the target ring is red), a cast in its school's colour
+// toasts: on screen at most TOAST_MAX at once for TOAST_MS each (the CSS fade is 2.6 s); at most TOAST_QUEUE wait
+const TOAST_MAX = 2;
+const TOAST_MS = 2700;
+const TOAST_QUEUE = 6;
+// telegraph colours: a heavy blow in orange (the target ring is red), a cast in its school's colour, a wind-up in ember red
 const HEAVY_COL = '#ff9a1f';
+const WINDUP_COL = '#ff5a2a';
 const TELE_COL = { fire: '#ff8a3a', frost: '#8fd6ff', arcane: '#c79bff', shadow: '#a07aff', nature: '#8fe07a', magic: '#b48aff', phys: '#ffb08a' };
 
 function npcLook(theme, kind) {

@@ -94,6 +94,10 @@ const G = {
   hammer(c) { c.save(); c.translate(32, 32); c.rotate(-0.6); c.fillRect(-3, -6, 6, 34); c.fillRect(-15, -22, 30, 16); c.restore(); },
   broken(c) { G.shield(c); c.save(); c.globalCompositeOperation = 'destination-out'; c.lineWidth = 5; c.beginPath(); c.moveTo(30, 4); c.lineTo(36, 20); c.lineTo(26, 30); c.lineTo(38, 42); c.lineTo(30, 60); c.stroke(); c.restore(); },
   zzz(c) { c.font = '900 26px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('Z', 22, 40); c.font = '900 19px sans-serif'; c.fillText('Z', 38, 26); c.font = '900 13px sans-serif'; c.fillText('Z', 50, 14); },
+  // combat v2.1: a wind-up (a coiled spring with a spark at its tip), EMPOWERED (chevrons up), STAGGERED (chevrons down)
+  coil(c) { c.lineWidth = 5; c.lineCap = 'round'; c.beginPath(); for (let a = 0; a <= 4.6 * Math.PI; a += 0.12) { const r = 3 + a * 1.55; const x = 30 + Math.cos(a) * r; const y = 34 + Math.sin(a) * r; if (a === 0) c.moveTo(x, y); else c.lineTo(x, y); } c.stroke(); star(c, 50, 13, 8, 4); },
+  up(c) { c.lineWidth = 7; c.lineCap = 'round'; c.lineJoin = 'round'; for (const y of [30, 50]) { c.beginPath(); c.moveTo(13, y); c.lineTo(32, y - 17); c.lineTo(51, y); c.stroke(); } },
+  down(c) { c.lineWidth = 7; c.lineCap = 'round'; c.lineJoin = 'round'; for (const y of [14, 34]) { c.beginPath(); c.moveTo(13, y); c.lineTo(32, y + 17); c.lineTo(51, y); c.stroke(); } },
 };
 
 function star(c, x, y, r, n, inner = 0.45) {
@@ -210,7 +214,11 @@ const STATUS_ICON = {
   MIRROR: ['mirror', 'arcane'], FEIGN: ['leaf', 'nature'], COMMUNION: ['paw', 'nature'],
   // combat v2
   OFF_BALANCE: ['broken', 'gold'], SAPPED: ['zzz', 'shadow'], TRAP: ['trap', 'steel'], GATHER: ['swirl', 'arcane'], PET_LEAD: ['paw', 'gold'],
+  // combat v2.1: the lasting result of a wind-up
+  EMPOWERED: ['up', 'blood'], STAGGERED: ['down', 'frost'],
 };
+/** The wind-up mark (combat v2.1, rules 7.12) on track entries, the ruler and the engage panel. */
+export function windupIcon() { return icon('coil', 'fire'); }
 export function statusIcon(id) { const m = STATUS_ICON[id] || ['spark', 'steel']; return icon(m[0], m[1]); }
 export const schoolBg = (school) => ({ fire: 'fire', frost: 'frost', arcane: 'arcane', shadow: 'shadow', nature: 'nature', phys: 'steel' }[school] || 'steel');
 /** Icon of an enemy action (an intent or a track entry; kind and flags as the bridge gives them). */

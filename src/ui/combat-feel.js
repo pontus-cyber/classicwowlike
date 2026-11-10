@@ -46,6 +46,7 @@ export const BEAT = {
   ticks: 220, nextTick: 45,                         // the round's DoT and HoT ticks pop together: one beat, a small stagger
   miss: 240, immune: 240, heal: 240, status: 120, interrupt: 360, skip: 160, cleanse: 220, death: 440,
   round: 300, flee: 600, fleeFail: 320, summon: 600, channel: 480, linked: 280,
+  windup: 360,                                      // combat v2.1: a wind-up answered (staggered) or landed (empowered)
 };
 
 /**
@@ -168,6 +169,7 @@ export function timeline(events, prev, spells, scale = 1) {
       case 'summon': b = { wait: S(BEAT.summon) }; break;
       case 'channel': b = { wait: S(BEAT.channel) }; break;
       case 'linked': b = { wait: S(BEAT.linked) }; break;
+      case 'windup': b = { wait: S(BEAT.windup) }; break;
       default: break;
     }
     beats.push(b); total += b.wait || 0;

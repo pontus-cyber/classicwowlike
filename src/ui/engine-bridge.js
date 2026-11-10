@@ -34,6 +34,10 @@
 //              combat v2 (docs/specs/combat-v2.md 10, engine-api.md 6): track = the enemy's intent track (convTrack), role =
 //              its archetype and pack role (convRole), offBalance = R.offBalance, engage = the engage round's options
 //              (R.isEngageRound, R.engageOptions) or null; bridge.engagePreview(option, target, spellId) = R.engagePreview
+//              combat v2.1 (combat-v2.md 16, engine-api.md 5, 6): track entries and intents carry `windup` (cancel.stagger:
+//              the predicted cancel answers it), statuses hold EMPOWERED and STAGGERED ({ stacks, value }), engage options
+//              `disrupt` (targets where the control option is Disrupt) and `why` (the engine's reason per target it may not
+//              take); events `windup` { result: 'answered' | 'landed', why, by, stacks, value } from `stagger` and `empower`
 //   data.rules: rule numbers that screens show in text, read from the engine's constants (rulesTable below)
 //   loot:    { kind: 'loot'|'reward'|'story', title, text?, gold, xp, items?, choices? }
 //   summary: run summary (rules.md 9)
@@ -147,6 +151,9 @@ function v2Data(K) {
       bloodlustMax: K.BLOODLUST_MAX, signalAdds: K.SIGNAL_ADDS, markValue: K.SPELL.mark_prey ? K.SPELL.mark_prey.marked : null,
       shadowstep: K.SPELL.shadowstep_strike ? K.SPELL.shadowstep_strike.name : 'Shadowstep Strike',
       jab: K.SPELL.gutting_jab ? K.SPELL.gutting_jab.name : 'Gutting Jab', keen: K.SPELL.keen_shot ? K.SPELL.keen_shot.name : 'Keen Shot',
+      // combat v2.1 (rules 7.12): a wind-up answered gives a STAGGERED stack (-STAGGER_DMG damage dealt), landed an
+      // EMPOWERED stack (+EMPOWER_DMG); null on an engine before combat v2.1
+      empowerDmg: K.EMPOWER_DMG ?? null, staggerDmg: K.STAGGER_DMG ?? null, signatureTurn2: K.SIGNATURE_TURN_2 ?? null,
     },
   };
 }
@@ -279,8 +286,10 @@ function engineBackend(seedOpt, runOpts = {}) {
   const consName = (id) => (C.CONSUMABLE[id] ? C.CONSUMABLE[id].name : null);
   // a damage or heal source: a spell, the pet, or a consumable (potions, Spark Flask)
   // (an enemy's DoT carries 'ability@enemyIdx'; talent procs their engine id; both read as names)
+  // an enemy's template ability (a wind-up's hit carries its content id) reads as its content name
   const spellName = (id) => (C.SPELL[id] ? C.SPELL[id].name : id === 'pet' ? 'Pet' : consName(id)
-    || (typeof id === 'string' && id.includes('@') ? abilityName(id.split('@')[0]) : SRC_TALENT[id] && C.TALENT[SRC_TALENT[id]] ? C.TALENT[SRC_TALENT[id]].name : TXT.humanize(id)));
+    || (typeof id === 'string' && id.includes('@') ? abilityName(id.split('@')[0]) : SRC_TALENT[id] && C.TALENT[SRC_TALENT[id]] ? C.TALENT[SRC_TALENT[id]].name
+      : CONTENT.abilities && CONTENT.abilities[id] ? CONTENT.abilities[id].name : TXT.humanize(id)));
 
   // ---------------------------------------------------------------- conversions
   const gearKind = (slot, cls) => (slot === 'weapon' ? { rogue: 'dagger', mage: 'staff', hunter: 'bow' }[cls] : slot === 'offhand' ? { rogue: 'dagger', mage: 'tome', hunter: 'quiver' }[cls] : slot);
@@ -447,9 +456,12 @@ function engineBackend(seedOpt, runOpts = {}) {
       selfHeal: it.kind === 'selfHeal', mend: it.kind === 'heal', shield: it.kind === 'selfShield', brace: it.kind === 'brace', curse: it.kind === 'curse',
       bolster: it.kind === 'bolster', signal: it.kind === 'signal', summon: it.kind === 'summon', shieldAlly: it.kind === 'shieldAlly',
       support: SUPPORT.includes(it.kind),
-      // combat v2 (engine-api.md 6): control cancelled this turn's action, or the entry could not be played
-      cancelled: it.cancelled ? { by: it.cancelled.by, id: it.cancelled.id, name: it.cancelled.name, cast: !!it.cancelled.cast, heavy: !!it.cancelled.heavy } : null,
-      replaced: it.replaced ? { id: it.replaced.id, name: it.replaced.name, reason: it.replaced.reason } : null };
+      // combat v2.1 (rules 7.12): this round's action is a wind-up
+      windup: !!it.windup,
+      // combat v2 (engine-api.md 6): control cancelled this turn's action, or the entry could not be played; combat v2.1:
+      // `windup` on either when the action that did not happen was a wind-up
+      cancelled: it.cancelled ? { by: it.cancelled.by, id: it.cancelled.id, name: it.cancelled.name, cast: !!it.cancelled.cast, heavy: !!it.cancelled.heavy, windup: !!it.cancelled.windup } : null,
+      replaced: it.replaced ? { id: it.replaced.id, name: it.replaced.name, reason: it.replaced.reason, windup: !!it.replaced.windup } : null };
   }
 
   // ---------------------------------------------------------------- combat v2: intent track, roles (docs/specs/combat-v2.md 3, 4, 10)
@@ -468,6 +480,9 @@ function engineBackend(seedOpt, runOpts = {}) {
    * left (rules 7.4: a status with n rounds left is on at the start of the next n - 1 rounds), the trap from TRAP.turn.
    * breaks: SAPPED and HEXED end on any damage. offBalance: the cancelled entry is a heavy or a cast (rules 7.13).
    * The end boss's entries (rules 10.3) carry boss { actions, brand, shards, ifPhase, alt }.
+   * Combat v2.1 (rules 7.12): windup = the entry is a wind-up (the engine's flag, set from the round it enters the track;
+   * a replaced now-entry keeps it: the wind-up that did not happen); heavy and cast are the ability's own flags (a wind-up
+   * always has cast). cancel.stagger: the predicted cancel answers the wind-up (D52: the engine's `stagger`).
    */
   function convTrack(e, f) {
     if (!e.alive || !Array.isArray(e.track) || !e.track.length) return null;
@@ -490,11 +505,12 @@ function engineBackend(seedOpt, runOpts = {}) {
       let replaced = null;
       if (now && it.replaced && !it.cancelled) { src = it; replaced = { from: it.replaced.name, reason: it.replaced.reason }; }
       let cancel = null;
+      const wu = !!x.windup;
       if ('cancel' in x) { // D52: the engine predicts it
-        if (x.cancel) cancel = { by: x.cancel.by, offBalance: !!x.cancel.offBalance, breaks: !!x.cancel.breaks, ...(x.cancel.done ? { done: true } : {}) };
-      } else if (now && it.cancelled) cancel = { by: it.cancelled.by, offBalance: !!(it.cancelled.cast || it.cancelled.heavy), breaks: false, done: true };
-      else if (trap && trap.turn === x.turn && x.turn >= T) cancel = { by: 'TRAP', offBalance: !!(x.cast || x.heavy), breaks: false };
-      else if (ctl && ctl.dur != null && x.turn >= Math.max(1, T) && x.turn - Math.max(1, T) < ctl.dur - (T >= 1 ? 0 : 1)) cancel = { by: ctl.id, offBalance: !!(x.cast || x.heavy), breaks: BREAKS.has(ctl.id) };
+        if (x.cancel) cancel = { by: x.cancel.by, offBalance: !!x.cancel.offBalance, breaks: !!x.cancel.breaks, stagger: !!x.cancel.stagger, ...(x.cancel.done ? { done: true } : {}) };
+      } else if (now && it.cancelled) cancel = { by: it.cancelled.by, offBalance: !!(it.cancelled.cast || it.cancelled.heavy), breaks: false, stagger: wu, done: true };
+      else if (trap && trap.turn === x.turn && x.turn >= T) cancel = { by: 'TRAP', offBalance: !!(x.cast || x.heavy), breaks: false, stagger: wu };
+      else if (ctl && ctl.dur != null && x.turn >= Math.max(1, T) && x.turn - Math.max(1, T) < ctl.dur - (T >= 1 ? 0 : 1)) cancel = { by: ctl.id, offBalance: !!(x.cast || x.heavy), breaks: BREAKS.has(ctl.id), stagger: wu };
       const sig = !!(x.scripted && CONTENT.abilities && CONTENT.abilities[x.id]);
       // what it shows: the intent as it will be played for the now-entry (target and estimate of this round), the entry
       // itself otherwise and for a cancelled now-entry (the action that will not happen, struck through)
@@ -503,7 +519,9 @@ function engineBackend(seedOpt, runOpts = {}) {
       if (tg === e.idx) tg = 'self'; // Mend or Bolster on the weakest ally when that is itself
       return { turn: x.turn, round, id: src.id, name: src.name, kind: src.kind, cast: !!src.cast, heavy: !!src.heavy, scripted: !!x.scripted, signature: sig,
         school: src.school || 'phys', hits: src.hits || 1, target: viewTarget(tg), allyIdx: typeof tg === 'number' ? tg : null,
-        est: (live ? it.est : x.est) || 0, support: SUPPORT.includes(src.kind), now, cancel, replaced, boss: null };
+        est: (live ? it.est : x.est) || 0, support: SUPPORT.includes(src.kind), now, cancel, replaced, boss: null,
+        // combat v2.1: the wind-up flag, and the wind-up's own name and heavy flag when the shown action replaced it
+        windup: wu, ...(wu && src !== x ? { windupOf: { id: x.id, name: x.name, heavy: !!x.heavy } } : {}) };
     });
   }
   /**
@@ -556,14 +574,31 @@ function engineBackend(seedOpt, runOpts = {}) {
   /**
    * The engage round (rules 7.10, combat v2) for the engage panel, or null outside it: R.engageOptions in the class order
    * strike, control, setup, each with its key (Q, W, E). Hover previews come from bridge.engagePreview (R.engagePreview).
+   * Combat v2.1: disrupt = the targets on which a control option is Disrupt (R.engageOptions `disrupt`); why = for each
+   * living enemy the option may not take, the engine's reason (R.whyIllegal of that ENGAGE: e.g. a dungeon boss that
+   * shows no wind-up), so the panel greys the option out with it while that enemy is the target.
    */
   function engageView(s) {
     if (!R.isEngageRound || !R.isEngageRound(s)) return null;
     let opts = null;
     try { opts = R.engageOptions(s); } catch { opts = null; }
     if (!opts) return null;
+    const live = s.fight.enemies.filter((e) => e.alive).map((e) => e.idx);
+    const whyNot = (o) => {
+      const eo = C.ENGAGE_OPTION[o.id] || {};
+      if (o.spells || !(eo.target === 'enemy' || eo.target === 'control')) return {};
+      const out = {};
+      for (const t of live) {
+        if ((o.targets || []).includes(t)) continue;
+        let r = null;
+        try { r = R.whyIllegal(s, { type: 'ENGAGE', option: o.id, target: t }); } catch { r = null; }
+        if (r) out[t] = cap(r);
+      }
+      return out;
+    };
     return { options: opts.map((o, i) => ({ id: o.id, kind: o.kind, name: o.name, key: ENGAGE_KEYS[i] || null, targets: [...(o.targets || [])],
-      spells: o.spells ? o.spells.map((x) => ({ spellId: x.spellId, targets: [...x.targets] })) : null, reason: o.reason ? cap(o.reason) : null })) };
+      spells: o.spells ? o.spells.map((x) => ({ spellId: x.spellId, targets: [...x.targets] })) : null, reason: o.reason ? cap(o.reason) : null,
+      disrupt: [...(o.disrupt || [])], why: whyNot(o) })) };
   }
 
   // a node of today's map by row and lane; an expedition node (rules 1.9) by its id
@@ -874,11 +909,18 @@ function engineBackend(seedOpt, runOpts = {}) {
           if (e.kind === 'skip') { out.push({ t: 'skip', src: ref('player'), reason: 'Frozen in time' }); break; }
           if (e.kind === 'engage') {
             // an engage option (rules 7.10): strike and control options play at the target, setup options on the hero (the pet
-            // for Send the Pet), Lay Trap without a projectile; ENGAGE_FX holds the presentation
+            // for Send the Pet), Lay Trap without a projectile; ENGAGE_FX holds the presentation. Combat v2.1: a Disrupt
+            // (`disrupt`) names the wind-up its trap will stop: the entry on the TRAP's turn (the first visible wind-up)
             const o = (C.ENGAGE_OPTION || {})[e.option] || {}; const fx = ENGAGE_FX[e.option] || {};
+            let disrupt = null;
+            if (e.disrupt && nf && nf.enemies[e.target]) {
+              const en = nf.enemies[e.target]; const trap = (en.st || []).find((x) => x.id === 'TRAP');
+              const x = trap ? en.track.find((y) => y.turn === trap.turn) : null;
+              disrupt = { name: x ? x.name : null, round: x ? (en.turn0 || 1) + x.turn - 1 : null };
+            }
             out.push({ t: 'action', src: ref('player'), kind: 'engage', option: e.option, id: e.option, name: o.name || TXT.humanize(e.option), school: fx.school || 'phys',
               dst: fx.at === 'target' && e.target != null ? ref(e.target) : fx.at === 'pet' ? ref('pet') : null, target: e.target != null ? ref(e.target) : null,
-              aoe: false, tags: fx.tags || [] });
+              aoe: false, tags: fx.tags || [], disrupt });
             break;
           }
           if (e.cost) res = Math.max(0, res - e.cost);
@@ -923,7 +965,14 @@ function engineBackend(seedOpt, runOpts = {}) {
         case 'cancel': out.push({ t: 'cancel', dst: ref(e.u), who: enemyName(e.u), name: e.name, by: e.by, offBalance: !!e.offBalance, turn: e.turn }); break;
         case 'replace': out.push({ t: 'replace', dst: ref(e.u), who: enemyName(e.u), fromName: e.fromName, toName: e.toName, reason: e.reason }); break;
         case 'offBalance': out.push({ t: 'offBalance', dst: ref(e.u), who: enemyName(e.u), why: e.why, name: e.name || null }); break;
-        case 'trapSprung': out.push({ t: 'trapSprung', dst: ref(e.u), who: enemyName(e.u) }); break;
+        case 'trapSprung': out.push({ t: 'trapSprung', dst: ref(e.u), who: enemyName(e.u), disrupt: !!e.disrupt }); break;
+        // combat v2.1 (rules 7.12, engine-api.md 5): a wind-up answered (a STAGGERED stack) or landed (an EMPOWERED stack);
+        // the stack's status event comes first. why/by: what answered it (interrupt, control, trap, disrupt, silenced, avoided)
+        case 'stagger': case 'empower':
+          out.push({ t: 'windup', result: e.t === 'stagger' ? 'answered' : 'landed', dst: ref(e.u), who: enemyName(e.u), id: e.id, name: e.name, turn: e.turn,
+            why: e.why || null, by: e.by ?? null, byName: e.by && (C.SPELL[e.by] || (C.ENGAGE_OPTION || {})[e.by]) ? (C.SPELL[e.by] || C.ENGAGE_OPTION[e.by]).name : null,
+            stacks: e.stacks || 1, value: e.value || 0 });
+          break;
         case 'signal': out.push({ t: 'signal', src: ref(e.u), who: enemyName(e.u), adds: e.adds || 1 }); break;
         case 'enrage': out.push({ t: 'status', dst: ref(e.u), id: 'ENRAGED', op: 'add' }); break;
         case 'image': out.push({ t: 'damage', src: ref(e.src), dst: ref('player'), amount: 0, miss: true, name: 'Mirror image', school: 'arcane', hpAfter: hp.get('player'), maxHp: max.get('player') }); break;
@@ -1193,6 +1242,17 @@ function engineBackend(seedOpt, runOpts = {}) {
      */
     /** Test hook: the engine actions applied to this run so far (copies), for a Node twin to replay. */
     engineLog() { return local.engineLog.map((a) => ({ ...a })); },
+    /**
+     * Test hook (qa/browser/ui-regress.mjs part J): replace the run with a state saved by R.serialize, so a check can show a
+     * state the real content never reaches (a dungeon boss without a visible wind-up: Disrupt greyed out with the engine's
+     * reason). The presentation state starts afresh and the engine log is cleared (a twin cannot replay a loaded run).
+     */
+    testLoad(serialized) {
+      st = R.deserialize(serialized, CONTENT);
+      local.introSeen.clear(); local.spoils = null; local.hold = null; local.reward = null; local.engineLog = []; local.heatUp.clear(); local.nodeHeat.clear();
+      if (st.node && st.fight) local.introSeen.add(nodeKey(st));
+      return true;
+    },
     /** Heat after a UI action (R.heatPreview, engine-api.md 11.2; no step), or null when it costs no hours or is not legal. */
     heatPreview(action) {
       if (!R.heatPreview || !st.player) return null;
@@ -1238,6 +1298,14 @@ export class Bridge {
   itemScore(item) { return this.backend.itemScore(item); }
   /** Test hook: the engine actions applied to the run (engine mode), or [] (mock). */
   engineLog() { return this.backend.engineLog ? this.backend.engineLog() : []; }
+  /** Test hook: replace the run with a serialized engine state (engine mode; false in mock mode). Listeners see the new view. */
+  testLoad(serialized) {
+    if (!this.backend.testLoad) return false;
+    this.backend.testLoad(serialized);
+    this._view = this.backend.view();
+    for (const fn of this.listeners) fn(this._view, [], { type: 'TEST_LOAD' });
+    return true;
+  }
   /** Engage panel hover preview (combat v2, R.engagePreview); null in mock mode or when the option is not legal. */
   engagePreview(option, target, spellId) { return this.backend.engagePreview ? this.backend.engagePreview(option, target, spellId) : null; }
   /** Heat after a UI action (R.heatPreview); null in mock mode, for an action without hours or an illegal one. */

@@ -3,6 +3,8 @@
 // it is given and turns clicks into actions through ctx.act; it decides no rules.
 // Combat v2 (docs/specs/combat-v2.md 10, drawn by tracks.js): the intent track on every nameplate and in the target frame,
 // role badges, the off-balance marker, the opening ruler, the engage panel, and the window highlight on the action bar.
+// Combat v2.1 (combat-v2.md 10.9): the wind-up line over each enemy (its nameplate), EMPOWERED and STAGGERED badges on the
+// nameplate and the target frame, and the bar spells that can answer a wind-up marked (now: "Answer"; on hover: all).
 // Heat (docs/specs/expedition.md H.4, drawn by heat.js): the Heat meter above the action bar, beside the Autoplay controls;
 // the minimap tooltip and the camp tracker line read the same R.heatView (view.heat).
 import { h, add, clear, fmtNum, moneyEl, hoursText, clamp, rgba } from './util.js';
@@ -12,10 +14,12 @@ import { THEMES } from './art-world.js';
 import { tip, spellTip, basicTip, itemTip, statusTip } from './tooltip.js';
 import { settings } from './settings.js';
 import { linkedText, resurrectText, dangerRule } from './ui-text.js';
-import { trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createRuler, createEngagePanel } from './tracks.js';
+import { trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createRuler, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind } from './tracks.js';
 import { createHeatMeter, standText, bossText, fmtH } from './heat.js';
 
 const RES_NAME = { energy: 'Energy', mana: 'Mana', focus: 'Focus' };
+/** Combat v2.1: the wind-up stacks, drawn as large badges (stackBadges) instead of small status icons. */
+const WINDUP_STACKS = new Set(['EMPOWERED', 'STAGGERED']);
 export function conColor(cl, level) {
   const d = cl - level;
   if (d <= -6) return '#9d9d9d';
@@ -114,7 +118,7 @@ export function createHud(root, ctx) {
     h('div.plate', h('div.name', h('span.pn'), h('span.cls')), bar('hp'), bar('res mana'), h('div.cp.hidden', Array.from({ length: ctx.data.rules.cpMax }, () => h('i'))), h('div.strow', h('div.statuses'), els.resc)));
   els.pet = h('div#pet-frame.uf.hidden', h('div.portrait'), h('div.plate', h('div.name', h('span.pn'), h('span.cls', 'Pet')), bar('hp'), h('div.statuses')));
   els.target = h('div#target-frame.uf.hidden', h('div.portrait'), h('div.lvl', { style: { left: '5.4rem', top: '5.4rem' } }),
-    h('div.plate', h('div.name', h('span.rb'), h('span.pn'), h('span.tag')), h('div.obal.hidden'), bar('hp enemy'), h('div.statuses'), h('div.ttrack')));
+    h('div.plate', h('div.name', h('span.rb'), h('span.pn'), h('span.tag')), h('div.obal.hidden'), bar('hp enemy'), h('div.wstk.hidden'), h('div.statuses'), h('div.ttrack')));
   tip(els.target.querySelector('.obal'), () => { const c = ctx.view.combat; const e = c && c.enemies.find((x) => x.idx === ctx.ui.target); return e ? offBalanceTip(e) : null; });
   els.bossWarn = h('div.bwarn.hidden');
   els.boss = h('div#boss-frame.panel.hidden', h('div.bname'), h('div', { style: { position: 'relative' } }, bar('hp boss'), h('div.mark', { style: { left: '70%' } }), h('div.mark', { style: { left: '40%' } })), h('div.binfo'), els.bossWarn);
@@ -185,6 +189,15 @@ export function createHud(root, ctx) {
       }
       const tipEl = spellTip(id, ctx, { reason: L && !L.ok && c && !c.over ? L.reason : null, hint: ctx.view.legal.outOfCombat ? 'Right-click to clear · drag to reorder' : `Key: ${i + 1}` });
       if (win && tipEl) tipEl.insertBefore(h('div.tt-line', { style: { color: '#ffc25a', fontWeight: 700 } }, win), tipEl.children[2] || null);
+      // combat v2.1: the wind-ups this round that the spell can answer (rules 7.7, 7.12)
+      const sd = ctx.data.spells[id];
+      const wus = c && !c.over ? c.enemies.filter((e) => e.alive && e.intent && e.intent.windup && !e.intent.interrupted && !e.intent.cancelled)
+        .map((e) => ({ e, x: entriesOf(e).find((x) => x.now && x.windup) })).filter((w) => w.x && answerKind(sd && sd.raw, w.x)) : [];
+      if (wus.length && tipEl) {
+        const w = wus[0]; const k = answerKind(sd.raw, w.x);
+        tipEl.insertBefore(h('div.tt-line', { style: { color: '#9fdcff', fontWeight: 700 } }, k === 'avoid' ? `Wind-up this round: ${w.e.name}'s ${w.x.name} is heavy; avoid it entirely (no health lost) and it is answered.`
+          : `Wind-up this round: ${w.e.name}'s ${w.x.name}. This can stop it: answered, staggered for the rest of the fight.${sd.target === 'enemy' && w.e.idx !== ctx.ui.target ? ' Target it first.' : ''}`), tipEl.children[2] || null);
+      }
       return tipEl;
     });
     dropTarget(b, ctx, (d) => { if (d.kind === 'spell') ctx.act({ type: 'SET_BAR', slot: i, spellId: d.id }); });
@@ -300,7 +313,8 @@ export function createHud(root, ctx) {
       const lv = els.target.querySelector('.lvl'); lv.textContent = tgt.level; lv.style.color = conColor(tgt.level, p.level);
       const tw = (tgt.statuses || []).find((s) => s.id === 'WARD');
       setBar(els.target.querySelector('.bar.hp'), tgt.hp, tgt.maxHp, `${fmtNum(tgt.hp)} / ${fmtNum(tgt.maxHp)}  ·  ${Math.ceil((tgt.hp / tgt.maxHp) * 100)} %`, tw ? tw.value : 0);
-      statusRow(els.target.querySelector('.statuses'), tgt.statuses, ctx);
+      stackBadges(els.target.querySelector('.wstk'), tgt, ctx); // combat v2.1: EMPOWERED / STAGGERED, large (their small icons stay out of the row)
+      statusRow(els.target.querySelector('.statuses'), (tgt.statuses || []).filter((s) => !WINDUP_STACKS.has(s.id)), ctx);
       // the off-balance marker (combat v2, rules 7.13) and the intent track (rules 7.11)
       const ob = els.target.querySelector('.obal'); const obOn = !!(tgt.offBalance && inFight);
       ob.classList.toggle('hidden', !obOn); ob.classList.toggle('frost', !!(obOn && tgt.offBalance.status === 'FROZEN')); if (obOn) ob.textContent = offBalanceText(tgt.offBalance);
@@ -375,8 +389,8 @@ export function createHud(root, ctx) {
         const id = e.uid || e.idx; live.add(String(id));
         let el = npEls.get(String(id));
         if (!el) {
-          el = h('div.np', h('div.trk'), h('div.obal.hidden'), h('div.castbar.hidden', h('i')), h('div.nm', h('span.rb'), h('span.lv'), h('span.n')),
-            h('div.ntag.hidden', h('span.zz.hidden', 'Unaware'), h('span.rtags')), bar('hp enemy'), h('div.sts'));
+          el = h('div.np', h('div.wub.hidden'), h('div.trk'), h('div.obal.hidden'), h('div.castbar.hidden', h('i')), h('div.nm', h('span.rb'), h('span.lv'), h('span.n')),
+            h('div.ntag.hidden', h('span.zz.hidden', 'Unaware'), h('span.rtags')), h('div.wstk.hidden'), bar('hp enemy'), h('div.sts'));
           el.addEventListener('click', (ev) => { ev.stopPropagation(); ctx.ui.setTarget(e.idx); });
           el.addEventListener('pointerenter', () => { ctx.scene.hover = `enemy:${e.idx}`; });
           el.addEventListener('pointerleave', () => { ctx.scene.hover = null; });
@@ -391,7 +405,9 @@ export function createHud(root, ctx) {
         const lv = el.querySelector('.lv'); lv.textContent = e.rank === 'boss' ? '??' : e.level; lv.style.color = conColor(e.level, v.player.level);
         el.querySelector('.n').textContent = e.name + (e.rank === 'elite' ? ' (Elite)' : e.rank === 'rare' ? ' (Rare)' : e.rank === 'dboss' ? ' (Boss)' : '');
         setBar(el.querySelector('.bar'), e.hp, e.maxHp, `${Math.ceil((e.hp / e.maxHp) * 100)} %`, ((e.statuses || []).find((s) => s.id === 'WARD') || {}).value || 0);
-        statusRow(el.querySelector('.sts'), e.statuses, ctx);
+        statusRow(el.querySelector('.sts'), (e.statuses || []).filter((s) => !WINDUP_STACKS.has(s.id)), ctx);
+        // combat v2.1: the lasting stacks of its wind-ups, and the wind-up line over it (from the round its track shows one)
+        stackBadges(el.querySelector('.wstk'), e, ctx);
         // role badge and pack-role tags (combat v2, rules 7.12)
         const roleKey = JSON.stringify([e.role, e.ccImmune]);
         if (el.dataset.role !== roleKey) {
@@ -408,6 +424,8 @@ export function createHud(root, ctx) {
         const trk = el.querySelector('.trk');
         trk.classList.toggle('hidden', !showIntent);
         if (showIntent) trackChips(trk, e, ctx, { allSmall: e.rank === 'shard' || e.arch === 'shard' });
+        const wub = el.querySelector('.wub');
+        if (showIntent) windupBanner(wub, e, ctx); else { wub.classList.add('hidden'); wub.dataset.key = ''; }
         // the off-balance marker (rules 7.13)
         const obOn = !!(e.offBalance && e.alive && !c.over);
         el.classList.toggle('offbal', obOn);
@@ -443,6 +461,12 @@ export function createHud(root, ctx) {
     const c = v.combat; const fight = c && !c.over && !ctx.ui.playing;
     els.basic.querySelector('img').src = basicIcon(p.classId);
     els.basic.classList.toggle('off', !fight);
+    // combat v2.1 (combat-v2.md 10.9): the wind-ups that play this round (an intent still to come: not interrupted or
+    // cancelled) and the one hovered on a track, the ruler or a nameplate; answerKind reads each spell's engine entry
+    const wuNow = fight ? c.enemies.filter((e) => e.alive && !e.hidden && e.intent && e.intent.windup && !e.intent.interrupted && !e.intent.cancelled)
+      .map((e) => ({ e, x: entriesOf(e).find((x) => x.now && x.windup) || { windup: true, heavy: !!e.intent.heavy, now: true } })) : [];
+    const hv = ctx.ui.wuHover; const hvE = hv && c ? c.enemies.find((e) => e.idx === hv.idx) : null;
+    const hvX = hvE ? entriesOf(hvE).find((x) => x.turn === hv.turn && x.windup) || null : null;
     p.bar.forEach((id, i) => {
       const b = els.spells[i];
       const img = b.querySelector('img'); const cost = b.querySelector('.cost'); const cd = b.querySelector('.cd');
@@ -478,6 +502,19 @@ export function createHud(root, ctx) {
       // Pre-cast armed in the engage round (combat v2): the spells it can cast for free
       const eg = fight && c.engage && ctx.ui.precastArmed ? c.engage.options.find((o) => o.spells) : null;
       b.classList.toggle('precast', !!(eg && eg.spells.some((x) => x.spellId === id)));
+      // combat v2.1: answer the wind-up now ("Answer": stops it; "Avoid": a defensive spell against a heavy one; "⇄ target"
+      // when the wind-up is on another enemy than the target), and every spell that can answer a hovered wind-up
+      const kinds = wuNow.map((w) => ({ w, k: answerKind(sp.raw, w.x) })).filter((z) => z.k);
+      const usable = !!(ok && kinds.length);
+      const onTgt = kinds.some((z) => z.k === 'avoid' || sp.target !== 'enemy' || z.w.e.idx === ctx.ui.target);
+      const stop = usable && kinds.some((z) => z.k === 'stop'); const avoid = usable && !stop;
+      b.classList.toggle('wu-ans', stop && onTgt); b.classList.toggle('wu-else', stop && !onTgt); b.classList.toggle('wu-avoid', avoid);
+      b.classList.toggle('wu-hl', !!(hvX && answerKind(sp.raw, hvX)));
+      let at = b.querySelector('.atag');
+      if (stop || avoid) {
+        if (!at) { at = h('span.atag'); b.appendChild(at); }
+        at.textContent = avoid ? 'Avoid' : onTgt ? 'Answer' : '⇄ target';
+      } else if (at) at.remove();
     });
     p.itemBar.forEach((id, i) => {
       const b = els.items[i]; const img = b.querySelector('img'); const cnt = b.querySelector('.cnt'); const cd = b.querySelector('.cd');

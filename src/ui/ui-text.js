@@ -18,7 +18,24 @@ export const STATUS_INFO = {
   TRAP: { name: 'Trap', debuff: true, v2Debuff: true, text: 'A trap waits under it and springs on its first heavy blow or cast, else on its first turn.' },
   GATHER: { name: 'Gathered Power', debuff: false, text: 'Your next damaging spells cost no mana and crit more often.' },
   PET_LEAD: { name: 'Leading the Charge', debuff: false, text: 'Your pet engaged first: it taunts and takes less damage.' },
+  // combat v2.1 (combat-v2.md 16.2, rules 7.12): the lasting result of an enemy's wind-ups, one stack per wind-up
+  EMPOWERED: { name: 'Empowered', debuff: false, text: 'A wind-up landed: it deals more damage for the rest of the fight.' },
+  STAGGERED: { name: 'Staggered', debuff: true, v2Debuff: true, text: 'A wind-up was answered: it deals less damage for the rest of the fight.' },
 };
+
+// ------------------------------------------------------------------ combat v2.1 (docs/specs/combat-v2.md 16.2)
+/**
+ * What answers a wind-up (rules 7.7, 7.12, 7.13 (3)) in one sentence: every interrupt, stun or control, a trap or
+ * Disrupt; a heavy one also by a full dodge, a WARD that takes it all, Mirrorshade or the pet taking it (taunt).
+ */
+export function windupAnswers(heavy) {
+  return `Answer it with an interrupt, a stun or control, a trap, or Disrupt in the engage round${heavy ? '; a heavy one also by a full dodge, a ward that takes it all, Mirrorshade or your pet taking it' : ''}.`;
+}
+/** The lasting result in words, from the engine's EMPOWER_DMG and STAGGER_DMG (data.v2.num); no number written here. */
+export function windupStakes(n) {
+  if (!n || n.empowerDmg == null) return 'Answered, it is staggered for the fight; landed, it is empowered.';
+  return `Answered: staggered, −${pct(n.staggerDmg)} damage for the rest of the fight. Landed: empowered, +${pct(n.empowerDmg)}.`;
+}
 
 // ------------------------------------------------------------------ combat v2 (docs/specs/combat-v2.md 4, 6, 10)
 /**
@@ -166,6 +183,9 @@ export function statusEffect(s, r, info = {}) {
     case 'TRAP': if (s.turn != null) effect = `A trap springs on its turn ${s.turn}: that action is cancelled and it is stunned${s.stun ? ` for ${roundsLeft(s.stun)}` : ''}; a cancelled heavy blow or cast leaves it off-balance.`; break;
     case 'GATHER': if (s.value) effect = `Your next ${s.stacks > 1 ? `${numWord(s.stacks)} damaging spells` : 'damaging spell'} ${s.stacks > 1 ? 'cost' : 'costs'} no mana and ${s.stacks > 1 ? 'have' : 'has'} +${pct(s.value)} critical strike chance.`; break;
     case 'PET_LEAD': if (s.value) effect = `Your pet taunts and takes ${pct(s.value)} less damage.`; break;
+    // combat v2.1 (rules 7.12): value = stacks × EMPOWER_DMG or × STAGGER_DMG (engine-api.md 6)
+    case 'EMPOWERED': if (s.value) effect = `Deals ${pct(s.value)} more damage: ${s.stacks || 1} ${plural(s.stacks || 1, 'wind-up')} landed.`; break;
+    case 'STAGGERED': if (s.value) effect = `Deals ${pct(s.value)} less damage: ${s.stacks || 1} ${plural(s.stacks || 1, 'wind-up')} answered.`; break;
     case 'BRAND':
       if (R.brandDmg != null) {
         effect = `Takes ${R.brandDmg} shadow damage per stack at the end of each round: ${R.brandDmg * (s.stacks || 1)} at ${s.stacks || 1} ${plural(s.stacks || 1, 'stack')}, before level difference and Ascendancy.`;

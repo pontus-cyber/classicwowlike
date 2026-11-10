@@ -285,6 +285,86 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 @keyframes winpulse { 50% { box-shadow: inset 0 0 0 2px #ffe08a, 0 0 0 3px rgba(255, 200, 80, .95), 0 0 2.6rem rgba(255, 190, 60, 1); } }
 .ab.precast { box-shadow: inset 0 0 0 2px #c8a8ff, 0 0 1.3rem rgba(170, 130, 255, .95); }
 
+/* ---------------------------------------------------------------- combat v2.1: wind-ups (combat-v2.md 16, 10.9; tracks.js) */
+/* ember = a wind-up still to answer; frost = answered (staggered); red = EMPOWERED, blue = STAGGERED. Each also says it in words. */
+.np .wub { display: flex; align-items: center; justify-content: center; gap: .35rem; flex-wrap: wrap; max-width: 100%; padding: .18rem .5rem .2rem .25rem; border-radius: .5rem;
+  background: linear-gradient(180deg, rgba(92, 26, 8, .95), rgba(40, 10, 4, .95)); box-shadow: 0 0 0 1px #000, inset 0 0 0 1px #ff7a3a, 0 0 1.2rem rgba(255, 90, 40, .75); cursor: help; animation: wupulse 1.1s ease-in-out infinite; }
+.np .wub.hidden { display: none; }
+.np .wub .wu-b { display: inline-flex; align-items: center; gap: .3rem; padding: .02rem .4rem .02rem .1rem; border-radius: .3rem; background: linear-gradient(180deg, #ffb070, #e0461a); color: #2a0800;
+  font: 900 .92rem/1.4rem var(--font-ui); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; box-shadow: 0 0 0 1px #000; }
+.np .wub .wu-b img { width: 1.5rem; height: 1.5rem; border-radius: .25rem; border: 1px solid #000; }
+.np .wub .wu-t { font: 800 .98rem var(--font-ui); color: #ffe2c8; text-shadow: 0 1px 1px #000; white-space: nowrap; }
+.np .wub.now { animation-duration: .6s; box-shadow: 0 0 0 1px #000, inset 0 0 0 2px #ffb070, 0 0 1.8rem rgba(255, 110, 40, 1); }
+.np .wub.ans { background: linear-gradient(180deg, rgba(10, 52, 72, .95), rgba(4, 22, 34, .95)); box-shadow: 0 0 0 1px #000, inset 0 0 0 1px #7fd8ff, 0 0 1rem rgba(110, 200, 255, .6); animation: none; }
+.np .wub.ans .wu-b { background: linear-gradient(180deg, #dff6ff, #5ab4e8); color: #04202e; }
+.np .wub.ans .wu-t { color: #cfeeff; }
+.np .wub.pv { outline: 1px dashed rgba(207, 238, 255, .9); outline-offset: 1px; }
+@keyframes wupulse { 50% { box-shadow: 0 0 0 1px #000, inset 0 0 0 1px #ffb070, 0 0 2rem rgba(255, 110, 40, 1); } }
+#nameplates.tight .np .wub .wu-t { font-size: .88rem; white-space: normal; text-align: center; }
+.np .wub:not(.hidden) + .trk { padding-top: .85rem; }
+/* the track: a wind-up chip burns ember; its ribbon says WIND-UP, ANSWERED or ANSWERS IT */
+.tk.wu { box-shadow: inset 0 0 0 2px #ff7a3a, 0 0 1.2rem rgba(255, 90, 40, .85); background: linear-gradient(180deg, rgba(96, 28, 8, .97), rgba(30, 8, 4, .97)); }
+.tk.wu.wu-answered, .tk.wu.wu-preview { box-shadow: inset 0 0 0 2px #7fd8ff, 0 0 1rem rgba(110, 200, 255, .7); }
+.tk .b-wu { position: absolute; left: 50%; top: -.85rem; transform: translateX(-50%); padding: 0 .35rem; border-radius: .25rem; background: linear-gradient(180deg, #ffb070, #e0461a); color: #2a0800;
+  font: 900 .74rem/1.3rem var(--font-ui); font-style: normal; letter-spacing: .05em; white-space: nowrap; box-shadow: 0 0 0 1px #000, 0 0 .7rem rgba(255, 110, 40, .95); z-index: 1; }
+.tk .b-wu.ans { background: linear-gradient(180deg, #dff6ff, #5ab4e8); color: #04202e; box-shadow: 0 0 0 1px #000, 0 0 .7rem rgba(110, 200, 255, .9); }
+.tr.wu { box-shadow: inset .3rem 0 0 #ff6a2a; background: rgba(110, 30, 8, .34); }
+.tr.wu.wu-answered, .tr.wu.wu-preview { box-shadow: inset .3rem 0 0 #7fd8ff; background: rgba(10, 60, 90, .32); }
+.tr .tn .nm { flex: 0 1 auto; min-width: 3.2rem; }
+.tr .tn .flag { flex: none; }
+.flag.wu { background: linear-gradient(180deg, #ffb070, #e0461a); color: #2a0800; box-shadow: 0 0 .6rem rgba(255, 110, 40, .7); }
+.flag.wu.ans { background: linear-gradient(180deg, #dff6ff, #5ab4e8); color: #04202e; box-shadow: 0 0 .6rem rgba(110, 200, 255, .6); }
+.tr .wuo { color: #ffb48a; font-weight: 800; }
+.tr .wut { color: #8fdcff; font-weight: 800; }
+/* EMPOWERED and STAGGERED: lasting badges with their damage on the nameplate and the target frame */
+.wstk { display: flex; justify-content: center; gap: .35rem; flex-wrap: wrap; }
+.wstk.hidden { display: none; }
+.wst { display: inline-flex; align-items: center; gap: .3rem; padding: .08rem .45rem .08rem .12rem; border-radius: .4rem; font: 800 .95rem var(--font-ui); white-space: nowrap; cursor: help; box-shadow: 0 0 0 1px #000; }
+.wst img { width: 1.6rem; height: 1.6rem; border-radius: .28rem; border: 1px solid #000; }
+.wst b { font: 900 1.05rem var(--font-num); }
+.wst .wx { font: 900 .95rem var(--font-num); }
+.wst.emp { background: linear-gradient(180deg, #6a1a12, #3a0a06); color: #ffd0c0; box-shadow: 0 0 0 1px #000, inset 0 0 0 1px #ff6a4a, 0 0 .9rem rgba(255, 80, 50, .55); }
+.wst.emp b { color: #ff9a80; }
+.wst.stg { background: linear-gradient(180deg, #12385a, #061a2c); color: #cfeeff; box-shadow: 0 0 0 1px #000, inset 0 0 0 1px #6ac8ff, 0 0 .9rem rgba(100, 190, 255, .5); }
+.wst.stg b { color: #8fdcff; }
+.wst.fresh { animation: wstpop .9s ease-out 1; }
+@keyframes wstpop { 0% { transform: scale(1.6); filter: brightness(1.8); } 60% { transform: scale(.95); } 100% { transform: none; filter: none; } }
+#target-frame .wstk { justify-content: flex-start; margin: .15rem 0 .05rem; }
+#target-frame .wst { font-size: 1.05rem; }
+/* the bar: what answers the wind-up now (stops it: ember ring and "Answer"; a defensive spell against a heavy one: "Avoid") */
+.ab.wu-ans { box-shadow: inset 0 0 0 2px #ff9a5a, 0 0 0 2px rgba(255, 110, 40, .75), 0 0 1.8rem rgba(255, 90, 40, .95); animation: wuabpulse .8s ease-in-out infinite; }
+.ab.wu-else { box-shadow: inset 0 0 0 2px rgba(255, 140, 80, .6), 0 0 .9rem rgba(255, 90, 40, .5); }
+.ab.wu-avoid { box-shadow: inset 0 0 0 2px #9fdcff, 0 0 1.2rem rgba(120, 200, 255, .8); }
+.ab.wu-hl::after { content: ''; position: absolute; inset: -.35rem; border-radius: .75rem; border: 2px dashed #ffb070; box-shadow: 0 0 1rem rgba(255, 120, 50, .8); pointer-events: none; }
+.ab .atag { position: absolute; left: -.45rem; top: -1rem; padding: 0 .3rem; border-radius: .3rem; background: linear-gradient(180deg, #ffb070, #e0461a); color: #2a0800; font: 900 .85rem/1.35rem var(--font-ui); white-space: nowrap; box-shadow: 0 0 0 1px #000, 0 0 .7rem rgba(255, 110, 40, .9); pointer-events: none; z-index: 2; }
+.ab.wu-avoid .atag { background: linear-gradient(180deg, #dff6ff, #5ab4e8); color: #04202e; }
+.ab.wu-else .atag { background: rgba(40, 14, 6, .95); color: #ffb48a; box-shadow: 0 0 0 1px #ff7a3a; }
+.ab.wu-ans.hint::before { box-shadow: 0 0 0 2px rgba(255, 140, 70, .95), 0 0 1.2rem rgba(255, 100, 40, .85); }
+@keyframes wuabpulse { 50% { box-shadow: inset 0 0 0 2px #ffd0a0, 0 0 0 3px rgba(255, 130, 60, .95), 0 0 2.6rem rgba(255, 100, 40, 1); } }
+/* the ruler: a wind-up's round says so; its icon carries the coil */
+.rl-x.wu { box-shadow: 0 0 0 2px #ff7a3a, 0 0 1rem rgba(255, 90, 40, .9); }
+.rl-x.wu.wu-answered, .rl-x.wu.wu-preview { box-shadow: 0 0 0 2px #7fd8ff, 0 0 .9rem rgba(110, 200, 255, .8); }
+.rl-x .rl-wui { position: absolute; left: -.45rem; top: -.45rem; width: 1.4rem; height: 1.4rem; border-radius: .25rem; border: 1px solid #000; }
+.rl-wu { font: 900 .72rem var(--font-ui); padding: .05rem .28rem; border-radius: .25rem; background: linear-gradient(180deg, #ffb070, #e0461a); color: #2a0800; letter-spacing: .03em; text-transform: uppercase; }
+.rl-n:has(.rl-wu) { flex-wrap: wrap; row-gap: .15rem; } /* a long tag goes under the round's name rather than into the next column */
+.rl-wu.ans { background: linear-gradient(180deg, #dff6ff, #5ab4e8); color: #04202e; }
+.rl-c.cur .rl-wu { box-shadow: 0 0 0 1px #ffd36a; }
+/* the engage panel: Disrupt, and the options whose preview answers a wind-up */
+.eg-opt.disrupt { --kc: #ff8a4a; }
+.eg-was { font: 700 1rem var(--font-ui); color: var(--ink-dim); white-space: nowrap; }
+.eg-was::before { content: '('; } .eg-was::after { content: ')'; }
+.eg-opt.off-here { opacity: .78; }
+.eg-opt.off-here .eg-txt { opacity: .7; }
+.eg-alt { color: var(--ink-dim); font-weight: 600; }
+.eg-ans { display: inline-flex; align-items: center; gap: .35rem; align-self: flex-start; padding: .08rem .45rem .08rem .12rem; border-radius: .35rem; background: rgba(10, 52, 72, .9); color: #cfeeff; font: 800 .98rem var(--font-ui); box-shadow: inset 0 0 0 1px #7fd8ff; }
+.eg-ans img { width: 1.45rem; height: 1.45rem; border-radius: .25rem; border: 1px solid #000; }
+.eg-sp.ans { box-shadow: inset 0 0 0 2px #7fd8ff, 0 0 .8rem rgba(110, 200, 255, .7); }
+.eg-sp .eg-spw { position: absolute; right: -.35rem; top: -.35rem; width: 1.3rem; height: 1.3rem; border-radius: .25rem; border: 1px solid #000; }
+.tt-line.wu { color: #ffb48a; }
+.tt-line.wu img { width: 1.5rem; height: 1.5rem; border-radius: .25rem; border: 1px solid #000; vertical-align: -.35rem; margin-right: .35rem; }
+.tt-line.wu b { color: #ffd0a0; }
+.tt-hint.ans { color: #9fdcff; }
+
 /* ---------------------------------------------------------------- nameplates & intents over enemies */
 #nameplates { position: absolute; inset: 0; pointer-events: none; }
 .np { position: absolute; transform: translate(-50%, -100%); width: 16.5rem; pointer-events: auto; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: .25rem; transition: opacity .25s; }
@@ -595,7 +675,13 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 #banner.boss .b1 { color: #e2d0ff; text-shadow: 0 .3rem 0 #120830, 0 0 3rem rgba(160, 110, 255, .9); }
 #banner.phase .b1 { font-size: 3.8rem; color: #ffb08a; text-shadow: 0 .3rem 0 #300800, 0 0 3rem rgba(255, 110, 60, .8); }
 #toasts { position: absolute; left: 50%; top: 13rem; transform: translateX(-50%); z-index: 45; display: flex; flex-direction: column; align-items: center; gap: .5rem; pointer-events: none; }
-.toast { font: 700 1.45rem var(--font-ui); color: #ffd36a; text-shadow: 0 1px 2px #000, 0 0 6px #000; animation: toast 2.6s forwards; }
+/* where no panel is: in a fight under the opening ruler (clear of the target frame and the nameplates), on the map in the
+   free column left of the zone map (under the player and pet frames); at most two show at once (app.js toast) */
+body.in-fight #toasts { left: 91.5rem; top: 12.6rem; }
+body[data-phase="MAP"]:not(.in-fight) #toasts { left: 16.5rem; top: 21.5rem; width: 30rem; }
+body[data-phase="MAP"]:not(.in-fight) #toasts .toast { white-space: normal; text-align: center; max-width: 30rem; }
+.toast { font: 700 1.45rem var(--font-ui); color: #ffd36a; text-shadow: 0 1px 2px #000, 0 0 6px #000; animation: toast 2.6s forwards;
+  padding: .2rem 1rem; border-radius: 1.2rem; background: rgba(12, 9, 6, .78); box-shadow: inset 0 0 0 1px rgba(208, 170, 96, .35); white-space: nowrap; }
 .toast.err { color: #ff7a6a; } .toast.good { color: #9fe09a; } .toast.info { color: #cfe0ff; }
 @keyframes toast { 0% { opacity: 0; transform: translateY(.6rem); } 10% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-.6rem); } }
 #skiphint { position: absolute; left: calc(50% - 17rem); bottom: 15.6rem; transform: translateX(-50%); font: 700 1.1rem var(--font-ui); color: var(--ink-mute); letter-spacing: .08em; text-transform: uppercase; text-shadow: 0 1px 2px #000; pointer-events: none; opacity: 0; transition: opacity .3s; }
