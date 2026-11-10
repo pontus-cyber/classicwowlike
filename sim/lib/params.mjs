@@ -222,6 +222,19 @@ export const C2 = {
   ROUNDS_V2: { normal: [4, 6], elite: [6, 9], dboss: [8, 12] },
 };
 
+/**
+ * HEAT: the simulator's constants of docs/specs/expedition.md section 13, block "Heat" (bots and targets of H.6:
+ * heat-seek / heat-avoid hour weights, B55-B57 of section H), same names and values (pp as pp). Rules constants of
+ * that block (HEAT_GAIN, HEAT_RARITY_UP, ...) are read from the engine (C). qa/sim/heat.test.mjs compares them.
+ */
+export const HEAT = {
+  HEAT_SEEK_HOUR_MULT: 0.5,
+  HEAT_AVOID_HOUR_MULT: 4,
+  HEAT_POLICY_GAP_MAX: 5,
+  HEAT_WIN_SHARE: [0.30, 0.85],
+  HEAT_POWER_MAX: 4,
+};
+
 /** Opener and replay harness numbers the combat v2 spec leaves open [assumption: compute budget]. */
 Object.assign(SIM, {
   /** Opener (sim/bots/opener.mjs): samples a sequence is expanded on (the beam's score), and the best complete

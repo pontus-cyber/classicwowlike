@@ -4,7 +4,7 @@
 // <out>/combat.json; build the report with sim/combatreport.mjs.
 //
 //   node sim/combatpass.mjs --out sim/out/m2b-2026-11-10d [--runs 1000] [--tact-runs 1000] [--opener-runs 1000]
-//                           [--workers N] [--stages W,P,M,O,T,X,R] [--resume] [--warmup 1000] [--pair-runs 200]
+//                           [--workers N] [--stages W,P,M,O,T,X,R,H] [--resume] [--warmup 1000] [--pair-runs 200]
 //
 // Stages (P0-group trees, SIM.DEFAULT_TREE; seeds SEED_BASE..):
 //   W  planner warm-up (WARMUP_RUNS from RISK_PRIOR, seeds WARMUP_SEED_BASE..), as pass stage A
@@ -15,6 +15,9 @@
 //   X  random, greedy, speedrunner P0 (B1, B4); planner PALL (PALL-group trees, warm-up from obs-P0; B3, B6)
 //   R  diagnostic: planner P0 with opening pairs (cell.pairs: every non-boss fight replayed with autoplay's, the
 //      opener's and the masher's first OPEN_ROUNDS rounds), the first --pair-runs seeds
+//   H  heat (expedition.md H.6; B55-B57 of section H): planner P0 again (planner-P0-heat: same runs as planner-P0,
+//      for the heat fields of the records) and the heat-seek and heat-avoid variants, all from the warm-up
+//      observations, so the three are paired with planner-P0 (the B57 arm without heat rewards runs in a scratch copy)
 import { cpus } from 'node:os';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
@@ -65,7 +68,7 @@ async function cell(name, o) {
   }
   log(`${name}: start`);
   const r = await runBatch({ pool, out: OUT, name, workers: WORKERS, quiet: true, warmup: 0, runs: RUNS, seedStart: SEED, classes: CLASSES, ...o });
-  manifest.cells[name] = { dir: name, bot: o.bot, prof: o.prof, trees: o.trees, runs: o.runs || RUNS, replay: !!o.replay, pairs: !!o.pairs, wallS: Math.round(r.meta.wallMs / 1000) };
+  manifest.cells[name] = { dir: name, bot: o.bot, prof: o.prof, trees: o.trees, runs: o.runs || RUNS, variant: o.variant || null, replay: !!o.replay, pairs: !!o.pairs, wallS: Math.round(r.meta.wallMs / 1000) };
   save();
   const brief = Object.entries(r.perClass).map(([c, x]) => `${c} ${(x.metrics.win.p * 100).toFixed(1)} %/${(x.metrics.boss.p * 100).toFixed(0)} %`).join(', ');
   log(`${name}: done in ${(r.meta.wallMs / 1000).toFixed(0)} s (win/boss: ${brief})`);
@@ -108,6 +111,10 @@ try {
     await cell('planner-PALL', { bot: 'planner', prof: 'all', trees: TREES_PALL, obsIn: wp });
   }
   if (STAGES.has('R')) await cell('planner-P0-pairs', { bot: 'planner', prof: 'fresh', trees: TREES, obsIn: obsP0, pairs: true, runs: PAIR_RUNS });
+  if (STAGES.has('H')) {
+    const wh = w || readJson(join(OUT, 'warmup-P0.json'));
+    for (const variant of [null, 'heatSeek', 'heatAvoid']) await cell(variant ? `planner-P0-${variant}` : 'planner-P0-heat', { bot: 'planner', prof: 'fresh', trees: TREES, obsIn: wh, variant });
+  }
   manifest.meta.finished = new Date().toISOString();
   manifest.meta.wallMin = Math.round((Date.now() - t0) / 60000);
   save();

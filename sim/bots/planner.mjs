@@ -3,8 +3,12 @@
 // its tree (1.3); bar template 1.2 with the boss bar at the Camp; trains everything at each hub, keeps
 // HEAL_STOCK_TARGET Healing Draughts, buys an Ember of Return when affordable and gold after it >=
 // EMBER_RESERVE_V × V; autoplay combat; manual time profile. Hours weigh VAL_HOUR × PLANNER_HOUR_MULT (M2 v3).
+// Heat policies (expedition.md H.6, B55-B57 of section H): variant 'heatSeek' weighs hours × HEAT_SEEK_HOUR_MULT,
+// 'heatAvoid' × HEAT_AVOID_HOUR_MULT, instead of PLANNER_HOUR_MULT. [assumption: approximation] The value function does
+// not yet price the heat rewards (H.6's added XP, gold and gear terms), so heat-seek is a planner that values time
+// less, as in the designer's prototype (H.7).
 import { C, R, legal, hpFrac } from '../lib/engine.mjs';
-import { BAL } from '../lib/params.mjs';
+import { BAL, HEAT } from '../lib/params.mjs';
 import { makeCtx, evalNode, copyM } from '../lib/model.mjs';
 import { createValueBot, hubFull, FULL_KIT } from './shared.mjs';
 
@@ -67,8 +71,15 @@ export function innByValue(s, risk, style, hourMult = 1) {
   return evalNode(ctx, copyM(ctx.m), { type: 'rest' }).value > 0;
 }
 
+/** Hour weight of a planner variant (× VAL_HOUR): heat-seek, heat-avoid (expedition.md H.6), else PLANNER_HOUR_MULT. */
+export function plannerHourMult(variant) {
+  if (variant === 'heatSeek') return HEAT.HEAT_SEEK_HOUR_MULT;
+  if (variant === 'heatAvoid') return HEAT.HEAT_AVOID_HOUR_MULT;
+  return BAL.PLANNER_HOUR_MULT;
+}
+
 export function createPlannerBot({ classId, risk, tree, style = 'balanced', variant = null, combat = null, name = 'planner' }) {
-  const hm = BAL.PLANNER_HOUR_MULT;
+  const hm = plannerHourMult(variant);
   return createValueBot(name, {
     classId, tree, variant, style, campBar: true,
     kit: { ...FULL_KIT, ember: true },

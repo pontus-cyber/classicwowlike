@@ -5,7 +5,7 @@
 //                    --runs N --seed-start S --profile <fresh|metaN|all> --out <dir>
 //   options: --tree <0|1|2> (default: the recorded default tree of the class and profile group, balance.md 1.3:
 //            SIM.DEFAULT_TREE, with --profile all SIM.DEFAULT_TREE_PALL)   --style <balanced|quest|grind|elite|speed>
-//            --variant <noInterrupt|noCleanse|noAoe>   --pet <id>   --workers N (default: all cores)
+//            --variant <noInterrupt|noCleanse|noAoe|heatSeek|heatAvoid>   --pet <id>   --workers N (default: all cores)
 //            --warmup N (planner warm-up runs for the risk table, default SIM.WARMUP_RUNS; 0 = start at RISK_PRIOR)
 //            --risk-in <risk.json of an earlier batch>   --log (keep action logs in runs-*.jsonl)
 //            --replay (B50, combat-v2.md 11: replay every non-boss fight that ends a run in death; used with the masher)

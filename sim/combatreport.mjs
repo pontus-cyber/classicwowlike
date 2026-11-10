@@ -1,19 +1,29 @@
 #!/usr/bin/env node
-// Combat v2 balance report (M2b 2b.2; combat-v2.md 12): the combat checks B48-B54, the changed B5, B15, B16, B53 at
+// Combat v2 balance report (M2b 2b.2; combat-v2.md 12): the combat checks B48-B55, the changed B5, B15, B16, B53 at
 // v2 pacing, and the M2 P1 checks combat touches (B1, B3 planner, B4, B6, B21), now (a sim/combatpass.mjs directory)
-// against before (the 11-10c pass directory, re-measured with today's definitions, plus optional masher and opener
-// cells on the same engine). Writes the generated part between <!-- generated:start --> and <!-- generated:end -->
-// of the report file, so hand-written analysis outside the markers survives a regeneration.
+// against before: either the 11-10c pass directory (--before-pass, re-measured with today's definitions, plus
+// optional masher and opener cells on the same engine, --before-cells) or an earlier combatpass directory
+// (--before-combat). With combatpass stage H (and --heat-off: a planner-P0 cell on an engine without the heat
+// rewards) also the heat targets of expedition.md H.6 (B55h, B56, B57). Combat v2.1 tables: wind-ups answered,
+// landed and killing per bot and fight kind, how they were answered, Disrupts. Writes the generated part between
+// <!-- generated:start --> and <!-- generated:end --> of the report file, so hand-written analysis outside the markers
+// survives a regeneration.
 //
 //   node sim/combatreport.mjs --in sim/out/m2b-2026-11-10d --before-pass sim/out/pass-2026-11-10c
 //                             [--before-cells sim/out/m2b/pre-v1] --out docs/reports/balance-2026-11-10d.md
+//   node sim/combatreport.mjs --in sim/out/m2b-2026-11-10e --before-combat sim/out/m2b-2026-11-10d
+//                             [--heat-off sim/out/m2b-2026-11-10e/noheat] --out docs/reports/balance-2026-11-10e.md
 import { join } from 'node:path';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { BAL, C2 } from './lib/params.mjs';
 import { C } from './lib/engine.mjs';
 import { cellMetrics } from './lib/metrics.mjs';
 import { FIGHT_KINDS } from './lib/recorder.mjs';
-import { combatChecks, deathRate, replayStats, windowStats, firstTargetStats, engageTable, reachRate, winRate, openingPairs, NON_BOSS } from './lib/combatchecks.mjs';
+import {
+  combatChecks, deathRate, replayStats, windowStats, firstTargetStats, engageTable, reachRate, winRate, openingPairs, NON_BOSS,
+  windupStats, windupWhy,
+} from './lib/combatchecks.mjs';
+import { heatChecks, heatCell } from './lib/heatchecks.mjs';
 import { rate, diffRate, median } from './lib/stats.mjs';
 import { readJson, readJsonl, pct, num, ci, table } from './lib/output.mjs';
 import { TIME_PROFILE } from './bots/index.mjs';
@@ -28,6 +38,8 @@ const args = parse(process.argv.slice(2));
 const IN = args.in;
 const BP = args['before-pass'] || null;
 const BC = args['before-cells'] || null;
+const BCOMB = args['before-combat'] || null;
+const HOFF = args['heat-off'] || null;
 
 /** Records per class of cell `name` in `dir` (null if missing). */
 function cellRecs(dir, name) {
@@ -48,17 +60,26 @@ function passPlanner(dir, prof) {
 }
 const flat = (byCls) => (byCls ? Object.values(byCls).flat() : null);
 
-const NOW = {
-  planner: cellRecs(IN, 'planner-P0'), masher: cellRecs(IN, 'masher-P0'), opener: cellRecs(IN, 'opener-P0'), tactician: cellRecs(IN, 'tactician-P0'),
-  random: cellRecs(IN, 'random-P0'), greedy: cellRecs(IN, 'greedy-P0'), speedrunner: cellRecs(IN, 'speedrunner-P0'), plannerPALL: cellRecs(IN, 'planner-PALL'),
+const combatCells = (dir) => ({
+  planner: cellRecs(dir, 'planner-P0'), masher: cellRecs(dir, 'masher-P0'), opener: cellRecs(dir, 'opener-P0'), tactician: cellRecs(dir, 'tactician-P0'),
+  random: cellRecs(dir, 'random-P0'), greedy: cellRecs(dir, 'greedy-P0'), speedrunner: cellRecs(dir, 'speedrunner-P0'), plannerPALL: cellRecs(dir, 'planner-PALL'),
+});
+const NOW = combatCells(IN);
+let BEFORE = null;
+if (BCOMB) BEFORE = combatCells(BCOMB);
+else if (BP) {
+  BEFORE = {
+    planner: passPlanner(BP, 'P0'), tactician: cellRecs(BP, 'tactician-P0'), random: cellRecs(BP, 'random-P0'), greedy: cellRecs(BP, 'greedy-P0'),
+    speedrunner: cellRecs(BP, 'speedrunner-P0'), plannerPALL: passPlanner(BP, 'PALL'),
+    masher: cellRecs(BC, 'masher-P0'), opener: cellRecs(BC, 'opener-P0'),
+  };
+}
+const HEATC = {
+  planner: cellRecs(IN, 'planner-P0-heat'), seek: cellRecs(IN, 'planner-P0-heatSeek'), avoid: cellRecs(IN, 'planner-P0-heatAvoid'), noHeat: cellRecs(HOFF, 'planner-P0'),
 };
-const BEFORE = BP ? {
-  planner: passPlanner(BP, 'P0'), tactician: cellRecs(BP, 'tactician-P0'), random: cellRecs(BP, 'random-P0'), greedy: cellRecs(BP, 'greedy-P0'),
-  speedrunner: cellRecs(BP, 'speedrunner-P0'), plannerPALL: passPlanner(BP, 'PALL'),
-  masher: cellRecs(BC, 'masher-P0'), opener: cellRecs(BC, 'opener-P0'),
-} : null;
 const meta = readJson(join(IN, 'combat.json')).meta;
-const bmeta = BP ? readJson(join(BP, 'pass.json')).meta : null;
+const bmeta = BCOMB ? readJson(join(BCOMB, 'combat.json')).meta : BP ? readJson(join(BP, 'pass.json')).meta : null;
+const BDIR = BCOMB || BP;
 
 // ---------------- Checks ----------------
 const res = (ok) => (ok === null || ok === undefined ? 'n/a' : ok ? 'pass' : '**FAIL**');
@@ -107,7 +128,8 @@ function m2Checks(S) {
 }
 
 const pooled = (S) => Object.fromEntries(Object.entries(S).map(([k, v]) => [k, v ? flat(v) : null]));
-const nowRows = [...combatChecks(pooled(NOW)), ...m2Checks(NOW)];
+const heatRows = heatChecks(pooled(HEATC));
+const nowRows = [...combatChecks(pooled(NOW)), ...m2Checks(NOW), ...heatRows];
 const beforeRows = BEFORE ? [...combatChecks(pooled(BEFORE)), ...m2Checks(BEFORE)] : [];
 // Before rows matched by ID and order within the ID.
 const bmap = new Map();
@@ -115,14 +137,14 @@ const bcount = {};
 for (const r of beforeRows) { bcount[r.id] = (bcount[r.id] || 0) + 1; bmap.set(`${r.id}#${bcount[r.id]}#${r.pri}`, r); }
 const ncount = {};
 const rows = nowRows.map((r) => { ncount[r.id] = (ncount[r.id] || 0) + 1; return { ...r, before: bmap.get(`${r.id}#${ncount[r.id]}#${r.pri}`) || null }; });
-const order = ['B48', 'B49', 'B50', 'B51', 'B52', 'B53', 'B54', 'B5', 'B15', 'B16', 'B1', 'B3', 'B4', 'B6', 'B21'];
+const order = ['B48', 'B49', 'B50', 'B51', 'B52', 'B53', 'B54', 'B55', 'B5', 'B15', 'B16', 'B1', 'B3', 'B4', 'B6', 'B21', 'B55h', 'B56', 'B57'];
 rows.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
 
 // ---------------- Rendering ----------------
 const L = [];
 const scored = rows.filter((r) => r.pri !== 'diag' && r.ok !== null);
 const p1 = scored.filter((r) => r.pri === 'P1');
-L.push(`Setup: now = ${IN} (commit ${meta.commit}; P0 ${meta.runs} runs per class per bot, opener ${meta.openerRuns}, tactician ${meta.tactRuns}; seeds ${meta.seedBase}-${meta.seedBase + meta.runs - 1}; P0-group trees ${CLASSES.map((c) => `${c} ${meta.trees[c]}`).join(', ')}; planner warm-up ${SIM_WARM(meta)}; every P0 cell starts from the planner's final observations${meta.simOverride ? `; SIM_OVERRIDE ${meta.simOverride}` : ''}). Before = ${BP || 'n/a'} (commit ${bmeta ? bmeta.commit : 'n/a'}, ${bmeta ? bmeta.runs : 'n/a'} runs per class)${BC ? ` plus masher and opener cells on the same engine in ${BC}` : ''}, re-measured with today's definitions and judged against today's targets.`, '');
+L.push(`Setup: now = ${IN} (commit ${meta.commit}; P0 ${meta.runs} runs per class per bot, opener ${meta.openerRuns}, tactician ${meta.tactRuns}; seeds ${meta.seedBase}-${meta.seedBase + meta.runs - 1}; P0-group trees ${CLASSES.map((c) => `${c} ${meta.trees[c]}`).join(', ')}; planner warm-up ${SIM_WARM(meta)}; every P0 cell starts from the planner's final observations${HEATC.seek ? ', the heat cells from the warm-up observations' : ''}${meta.simOverride ? `; SIM_OVERRIDE ${meta.simOverride}` : ''}). Before = ${BDIR || 'n/a'} (commit ${bmeta ? bmeta.commit : 'n/a'}, ${bmeta ? bmeta.runs : 'n/a'} runs per class)${BC && !BCOMB ? ` plus masher and opener cells on the same engine in ${BC}` : ''}, re-measured with today's definitions and judged against today's targets.${HOFF ? ` B57's arm without heat rewards: ${HOFF}.` : ''}`, '');
 L.push(`Pass/fail (now): ${scored.filter((r) => r.ok).length} checks pass, ${scored.filter((r) => !r.ok).length} fail, ${rows.filter((r) => r.ok === null).length} diagnostic or not measurable. P1: ${p1.filter((r) => r.ok).length} pass, ${p1.filter((r) => !r.ok).length} fail.`, '');
 L.push(table(['ID', 'Pri', 'Metric', 'Before: value', 'Before', 'Now: value (95 % interval)', 'Target', 'Now'],
   rows.map((r) => [r.id, r.pri, r.metric + (r.note ? ` (${r.note})` : ''), r.before ? r.before.value : 'n/a', r.before ? res(r.before.ok) : 'n/a', r.value, r.target, res(r.ok)])));
@@ -162,6 +184,40 @@ for (const bot of ['planner', 'masher', 'opener', 'tactician']) {
 }
 L.push(table(['Bot', ...KINDS.map((k) => `${k}: deaths / fights / rounds`), 'All non-boss: deaths per 1 000'], kindRows));
 L.push('');
+
+// Wind-ups (combat v2.1, B55 detail).
+const wuBots = ['planner', 'masher', 'opener', 'tactician'].filter((b) => NOW[b] && windupStats(flat(NOW[b])).share.n);
+if (wuBots.length) {
+  L.push('### Wind-ups (combat v2.1) by bot and class: answered / landed / killing (share answered), Disrupts, how answered (P0, now)', '');
+  const wu = (w) => (w.share.n ? `${w.answered} / ${w.landed} / ${w.kill} (${pct(w.share.p)})` : 'n/a');
+  const wRows2 = [];
+  for (const bot of wuBots) {
+    for (const cls of [...CLASSES, null]) {
+      const recs = cls ? NOW[bot][cls] || [] : flat(NOW[bot]);
+      const el = windupStats(recs, new Set([FIGHT_KINDS.indexOf('elite')]));
+      const db = windupStats(recs, new Set([FIGHT_KINDS.indexOf('dboss')]));
+      const why = windupWhy(recs);
+      const tot = Object.values(why).reduce((a, b) => a + b, 0);
+      wRows2.push([bot, cls || 'all', wu(el), wu(db), db.fights ? num(db.disrupts / db.fights, 2) : 'n/a',
+        tot ? Object.entries(why).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${pct(n / tot, 0)}`).join(', ') : 'n/a']);
+    }
+  }
+  L.push(table(['Bot', 'Class', 'Elite fights', 'Dungeon-boss fights', 'Disrupts per dungeon-boss fight', 'Answered by (elite and dungeon boss)'], wRows2));
+  L.push('');
+}
+
+// Heat cells (expedition.md H.6).
+if (HEATC.seek || HEATC.avoid || HEATC.planner) {
+  L.push('### Heat policies, planner P0 (expedition.md H.6; heat-seek / heat-avoid = hour weight × 0.5 / × 4, the value function does not price heat rewards yet)', '');
+  const hRows = [];
+  for (const [label, byCls] of [['planner (default, re-run)', HEATC.planner], ['heat-seek', HEATC.seek], ['heat-avoid', HEATC.avoid], ['planner, engine without heat rewards', HEATC.noHeat]]) {
+    if (!byCls) continue;
+    const x = heatCell(flat(byCls));
+    hRows.push([label, x.n, ...CLASSES.map((c) => { const y = heatCell(byCls[c] || []); return `${pct(y.win.p)} / ${pct(y.reach.p)}`; }), `${pct(x.win.p)} / ${pct(x.reach.p)}`, num(x.hours, 0), num(x.asc, 2), pct(x.hotRuns.p)]);
+  }
+  L.push(table(['Cell', 'Runs', ...CLASSES.map((c) => `${c}: win / boss`), 'All: win / boss', 'Median hours at the boss', 'Median Ascendancy', 'Runs with a Hot or Scorched node'], hRows));
+  L.push('');
+}
 
 // Resources and HP.
 L.push('### Potions, lowest HP, fights and rounds (P0, now)', '');

@@ -19,6 +19,8 @@
 //        `action` events with `disrupt`)]
 //   wy: combat v2.1, answered wind-ups per run by fight kind and how: { '<kind>|<why>': n } (why of the `stagger`
 //       event: interrupt, control, trap, disrupt, silenced, avoided)
+//   ht: heat (expedition.md H.6, rules 9): nodes entered per heat state [clear, warm, hot, scorched] (summary
+//       heat.nodesByState; B56)
 import { C, R } from './engine.mjs';
 import { TYPE_CODE } from './risk.mjs';
 import { C2 } from './params.mjs';
@@ -273,6 +275,7 @@ export class Recorder {
       rests: st.rests || 0, potions: sum ? sum.potionsUsed : 0, res: sum ? sum.resurrectsUsed : 0,
       gold: sum ? sum.gold : null, travelLv: this.travelLv, train: this.train, ember: this.ember, boss: this.boss,
       fx: this.fx, f2: this.f2, wy: this.wy, ne: this.ne, steps: meta.steps, ms: meta.ms,
+      ht: sum && sum.heat ? sum.heat.nodesByState : null,
       ...(meta.rep ? { rep: meta.rep } : {}),
       ...(meta.pr ? { pr: meta.pr } : {}),
       ...(meta.bm ? { bm: meta.bm } : {}),
