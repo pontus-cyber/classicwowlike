@@ -33,8 +33,14 @@ export function zoneDanger(level, variant = 'normal') {
 }
 
 /**
+ * The price of the engage round on template enemies (rules 7.10, combat v2): ENGAGE_DMG_COMP, except in the Rogue's
+ * fights, whose enemies were already Unaware in round 1 before combat v2 (D48).
+ */
+const engageComp = (s) => (s.player.classId === 'rogue' ? 1 : ENGAGE_DMG_COMP);
+
+/**
  * Enemy from a template (rules 7.6): every quest, grind, elite, rare, dungeon, Camp, summoned and Signal enemy. No
- * draws. Damage includes zone danger and ENGAGE_DMG_COMP (combat v2: the price of the engage round). Combat v2
+ * draws. Damage includes zone danger and the engage-round price (engageComp; combat v2, D48). Combat v2
  * fields: turn0 (round of its turn 1; set by the caller), turn (current turn), track, acted (turns it has acted;
  * Bloodlust), ward (guardian), unscripted (summons and Signal adds play no opening script), noReward (Signal adds),
  * wasSapped (Sap landed on it this fight; autoplay's default target, D48).
@@ -46,7 +52,7 @@ export function makeEnemy(s, idx, tid, level, variant) {
   const hp = Math.max(1, rnd((ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL * level) * a.hp * v.hp * t.hpMult));
   return {
     idx, tid, name: t.name, kind: variant, arch: t.archetype, level, hp, maxHp: hp,
-    dmg: (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL * level) * a.dmg * v.dmg * t.dmgMult * zoneDanger(level, variant) * ENGAGE_DMG_COMP,
+    dmg: (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL * level) * a.dmg * v.dmg * t.dmgMult * zoneDanger(level, variant) * engageComp(s),
     armor: ENEMY_ARMOR_PER_LEVEL * level * a.armor, dodge: ENEMY_DODGE + a.dodge,
     abilities: t.abilities.slice(), cds: {}, st: [], intent: null, alive: true,
     elite: variant === 'elite' || variant === 'rare', boss: variant === 'dboss', ccImmune: variant === 'dboss',

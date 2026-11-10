@@ -307,7 +307,8 @@ describe('rules 7.6 enemy AI and intents', () => {
     });
     s = R.step(s, { type: 'CHOOSE_NODE', lane: 0 }).state;
     const zd = (M) => 1 + (C.ZONE_DANGER_STEP * Math.max(0, M - C.ZONE_DANGER_FROM)) / 10;
-    const base = (e) => (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * e.level) * C.ARCHETYPE[e.arch].dmg * C.VARIANT[e.kind].dmg * s.content.enemies[e.tid].dmgMult * C.ENGAGE_DMG_COMP;
+    // A Rogue's fight: no ENGAGE_DMG_COMP (D48).
+    const base = (e) => (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * e.level) * C.ARCHETYPE[e.arch].dmg * C.VARIANT[e.kind].dmg * s.content.enemies[e.tid].dmgMult;
     assert.equal(s.fight.kind, 'trash');
     for (const e of s.fight.enemies) {
       assert.equal(e.kind, 'trash');

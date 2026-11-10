@@ -294,9 +294,18 @@ describe('rules 7.12 opening scripts and pack roles (combat v2)', () => {
     assert.equal(fight('mage', 20, [], [mob('z1_guardian'), mob('z1_guardian')]).fight.enemies[0].ward, null);
   });
 
-  test('ENGAGE_DMG_COMP: every template enemy deals × ENGAGE_DMG_COMP; the end boss and the Shards do not', () => {
-    const e = fight('mage', 20, [], [mob('z1_brute', 15)]).fight.enemies[0];
-    assert.ok(Math.abs(e.dmg - (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * 15) * C.ARCHETYPE.brute.dmg * C.ENGAGE_DMG_COMP) < 1e-9);
+  test('ENGAGE_DMG_COMP: every template enemy deals × ENGAGE_DMG_COMP, except in the Rogue\'s fights (D48); the end boss and the Shards do not', () => {
+    const free = (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * 15) * C.ARCHETYPE.brute.dmg;
+    for (const [cls, petId] of [['mage'], ['hunter', 'ridgewolf']]) {
+      const e = fight(cls, 20, [], [mob('z1_brute', 15)], { petId }).fight.enemies[0];
+      assert.ok(Math.abs(e.dmg - free * C.ENGAGE_DMG_COMP) < 1e-9, cls);
+    }
+    // The Rogue: none, for the fight's enemies and for adds that join later (summon, Signal).
+    const r = fight('rogue', 20, [], [mob('z1_brute', 15), mob('z1_skulker', 15)], { stealth: true });
+    assert.ok(Math.abs(r.fight.enemies[0].dmg - free) < 1e-9, 'rogue');
+    const sig = tweak(r, (x) => { x.fight.signalPending = { by: 1, level: 15, adds: 1 }; x.fight.signalled = true; });
+    const add = R.step(sig, { type: 'PASS' }).state.fight.enemies[2];
+    assert.ok(Math.abs(add.dmg - (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * 15) * C.ARCHETYPE[add.arch].dmg * sig.content.enemies[add.tid].dmgMult) < 1e-9, 'rogue: Signal add');
     let b = R.step(started('mage', { seed: 51 }), { type: 'LEAVE_HUB' }).state;
     b = play(tweak(atLevel(b, 60), (x) => { x.zone.z = 6; x.hours = 100; }), [{ type: 'TRAVEL_ON' }, { type: 'FIGHT_BOSS' }]).state;
     assert.equal(b.fight.enemies[0].dmg, C.BOSS_MELEE);
