@@ -445,14 +445,17 @@ export function createHud(root, ctx) {
     for (const [id, el] of npEls) if (!live.has(id)) { el.remove(); npEls.delete(id); }
   }
 
-  /** Called every frame: keep nameplates over their actors. */
+  /**
+   * Called every frame: keep nameplates over their actors, on whole pixels and without the tremble of a held telegraph
+   * (combat v2.1: the wind-up line and the track must stay readable while the enemy winds up).
+   */
   function placeNameplates() {
     for (const el of npEls.values()) {
       const an = ctx.scene.anchor(`enemy:${el.dataset.idx}`);
       if (!an || !an.visible) { el.style.opacity = 0; continue; }
       el.style.opacity = '';
-      el.style.left = `${an.x}px`;
-      el.style.top = `${an.top - 4}px`;
+      el.style.left = `${Math.round(an.steadyX ?? an.x)}px`;
+      el.style.top = `${Math.round(an.top - 4)}px`;
     }
   }
 
@@ -493,11 +496,12 @@ export function createHud(root, ctx) {
       const here = !!(w && (w === 'all' || w.includes(ctx.ui.target)));
       const there = !!(w && !here && w.length);
       b.classList.toggle('window', here); b.classList.toggle('window-else', there);
-      let wt = b.querySelector('.wtag');
+      let wt = b.querySelector('.wtag'); let wText = null;
       if (here || there) {
         const src = here ? (w === 'all' ? c.enemies.find((x) => x.alive && x.offBalance) : c.enemies.find((x) => x.idx === ctx.ui.target)) : null;
+        wText = here ? (src && src.offBalance ? `+${Math.round(src.offBalance.taken * 100)}%` : 'Window') : '⇄ target';
         if (!wt) { wt = h('span.wtag'); b.appendChild(wt); }
-        wt.textContent = here ? (src && src.offBalance ? `+${Math.round(src.offBalance.taken * 100)}%` : 'Window') : '⇄ target';
+        wt.textContent = wText;
       } else if (wt) wt.remove();
       // Pre-cast armed in the engage round (combat v2): the spells it can cast for free
       const eg = fight && c.engage && ctx.ui.precastArmed ? c.engage.options.find((o) => o.spells) : null;
@@ -513,7 +517,11 @@ export function createHud(root, ctx) {
       let at = b.querySelector('.atag');
       if (stop || avoid) {
         if (!at) { at = h('span.atag'); b.appendChild(at); }
-        at.textContent = avoid ? 'Avoid' : onTgt ? 'Answer' : '⇄ target';
+        // one tag: side by side the two would overlap on the button. A window on the target joins it ("Answer · +50%");
+        // one on another enemy gives way to the wind-up, which plays this round (the button keeps its window class)
+        const aText = avoid ? 'Avoid' : onTgt ? 'Answer' : '⇄ target';
+        at.textContent = wText && here ? `${aText} · ${wText}` : aText;
+        if (wt) wt.remove();
       } else if (at) at.remove();
     });
     p.itemBar.forEach((id, i) => {

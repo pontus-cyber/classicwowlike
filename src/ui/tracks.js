@@ -132,7 +132,7 @@ export function answersOnBar(v, ctx, x) {
 export function windupLines(e, x, ctx, st) {
   const v = ctx.view; const n = (ctx.data.v2 && ctx.data.v2.num) || {};
   const lines = [h('div.tt-line.wu', h('img', { src: windupIcon(), alt: '' }), h('b', `Wind-up${x.round != null ? `, round ${x.round}` : ''}`), `: ${e.name}'s signature, telegraphed from the round it shows.`),
-    h('div.tt-line.num', windupStakes(n)), h('div.tt-hint', windupAnswers(x.heavy))];
+    h('div.tt-line.num', windupStakes(n)), h('div.tt-hint', windupAnswers(x.heavy, !!e.ccImmune))];
   const bar = answersOnBar(v, ctx, x);
   if (bar.length) {
     const word = (b) => `${b.name}${b.kind === 'avoid' ? ' (avoid)' : ''}${b.cd ? ` (${b.late ? `cooldown ${b.cd}: not ready by then` : `ready in ${b.cd}`})` : ''}`;
@@ -391,7 +391,10 @@ export function roleTip(e, ctx) {
   if (r.guardedBy && r.guardedBy.length) lines.push(h('div.tt-line', `Ward of ${r.guardedBy.map((i) => (v.combat.enemies.find((x) => x.idx === i) || {}).name).filter(Boolean).join(', ')}: its guardian shields it.`));
   if (r.id === 'beast') lines.push(h('div.tt-line.num', `Bloodlust: +${pct(r.bloodlust || 0)} damage now; +${pct(n.bloodlustStep)} per turn it acts, at most +${pct(n.bloodlustMax)}.`));
   if (r.id === 'mender' && n.bolsterPct) lines.push(h('div.tt-line.num', `Bolster: shields its weakest ally for ${pct(n.bolsterPct)} of that ally's health.`));
-  if (e.ccImmune) lines.push(h('div.tt-warn', 'Immune to control: stuns, Sap, freezes and traps do not work on it.'));
+  // combat v2.1 (rules 7.7, 7.10): a stun or control spell still interrupts its casts and wind-ups, and the engage round's
+  // control option is Disrupt on it while its track shows a wind-up
+  if (e.ccImmune) lines.push(h('div.tt-warn', 'Immune to control: stuns, Sap, freezes and traps do not hold it.'),
+    h('div.tt-hint', 'A stun or control spell still interrupts its casts and wind-ups; in the engage round your control option is Disrupt.'));
   return h('div.tt-spell', h('div.tt-row', h('div.tt-name', `${info.name}`), h('div.tt-kind.bad', 'Role')), lines);
 }
 

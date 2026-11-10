@@ -177,7 +177,8 @@ export class Scene {
     if (a.kind === 'shard') { top = gy - 125 * a.scale; cy = gy - 72 * a.scale; w = 30 * a.scale; }
     if (a.kind === 'boss') { top = gy - 380 * a.scale; cy = gy - 210 * a.scale; w = 150 * a.scale; }
     if (a.kind === 'humanoid' && a.look && a.look.build) top = gy - 112 * a.scale * Math.sqrt(a.look.build);
-    return { x: a.x + (a.lunge || 0), feet: gy, top, cy, w, alive: a.alive !== false && !a.deadT0, visible: a.visible !== false };
+    // steadyX: x without the tremble of a held telegraph, for what must stay readable over the actor (its nameplate)
+    return { x: a.x + (a.lunge || 0), steadyX: a.x + (a.lunge || 0) - (a.tremble || 0), feet: gy, top, cy, w, alive: a.alive !== false && !a.deadT0, visible: a.visible !== false };
   }
 
   pick(x, y) {
@@ -421,7 +422,7 @@ export class Scene {
     let kbx = 0;
     if (a.kb) { const k = (at - a.kb.t0) / a.kb.dur; if (k >= 1) a.kb = null; else kbx = a.kb.dir * a.kb.dist * (k < 0.18 ? ease.out(k / 0.18) : 1 - ease.inOut((k - 0.18) / 0.82)); }
     lunge += kbx + tremble;
-    a.lunge = lunge;
+    a.lunge = lunge; a.tremble = tremble; // anchor(): nameplates follow the lunge and recoil, not the telegraph's tremble
     const flash = a.flashT ? clamp(1 - (t - a.flashT) / 0.2, 0, 1) * (a.flashK ?? 1) : 0;
     let dead = a.dead || 0;
     if (a.deadT0) { dead = clamp((t - a.deadT0) / 0.7, 0, 1); if (dead >= 1) a.dead = 1; }

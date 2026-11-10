@@ -312,6 +312,9 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 .tr.wu.wu-answered, .tr.wu.wu-preview { box-shadow: inset .3rem 0 0 #7fd8ff; background: rgba(10, 60, 90, .32); }
 .tr .tn .nm { flex: 0 1 auto; min-width: 3.2rem; }
 .tr .tn .flag { flex: none; }
+/* a wind-up row says the most ("Stunned → staggered → off-balance"): its second line wraps rather than being cut */
+.tr.wu .ts { white-space: normal; line-height: 1.2; }
+.tr .tn .flag.wu { letter-spacing: .02em; padding: .1rem .35rem; }
 .flag.wu { background: linear-gradient(180deg, #ffb070, #e0461a); color: #2a0800; box-shadow: 0 0 .6rem rgba(255, 110, 40, .7); }
 .flag.wu.ans { background: linear-gradient(180deg, #dff6ff, #5ab4e8); color: #04202e; box-shadow: 0 0 .6rem rgba(110, 200, 255, .6); }
 .tr .wuo { color: #ffb48a; font-weight: 800; }

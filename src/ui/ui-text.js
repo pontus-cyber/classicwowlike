@@ -25,11 +25,16 @@ export const STATUS_INFO = {
 
 // ------------------------------------------------------------------ combat v2.1 (docs/specs/combat-v2.md 16.2)
 /**
- * What answers a wind-up (rules 7.7, 7.12, 7.13 (3)) in one sentence: every interrupt, stun or control, a trap or
- * Disrupt; a heavy one also by a full dodge, a WARD that takes it all, Mirrorshade or the pet taking it (taunt).
+ * What answers a wind-up (rules 7.7, 7.10, 7.12, 7.13 (3)) in one sentence: every interrupt, stun or control on its turn,
+ * or an engage option that covers that turn; on an enemy immune to control (a dungeon boss) a stun or control spell acts
+ * as an interrupt and the engage round's control option is Disrupt; a heavy one also by a full dodge, a WARD that takes
+ * it all, Mirrorshade or the pet taking it (taunt).
  */
-export function windupAnswers(heavy) {
-  return `Answer it with an interrupt, a stun or control, a trap, or Disrupt in the engage round${heavy ? '; a heavy one also by a full dodge, a ward that takes it all, Mirrorshade or your pet taking it' : ''}.`;
+export function windupAnswers(heavy, immune = false) {
+  const how = immune
+    ? 'Answer it with an interrupt, a stun or a control spell on its turn (it cannot be controlled: each interrupts it), or with Disrupt in the engage round'
+    : 'Answer it with an interrupt, a stun or control on its turn, or with an engage option that covers that turn';
+  return `${how}${heavy ? '; a heavy one also by a full dodge, a ward that takes it all, Mirrorshade or your pet taking it' : ''}.`;
 }
 /** The lasting result in words, from the engine's EMPOWER_DMG and STAGGER_DMG (data.v2.num); no number written here. */
 export function windupStakes(n) {
