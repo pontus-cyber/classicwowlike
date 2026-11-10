@@ -215,9 +215,10 @@ export const C2 = {
 /** Opener and replay harness numbers the combat v2 spec leaves open [assumption: compute budget]. */
 Object.assign(SIM, {
   /** Opener (sim/bots/opener.mjs): samples a sequence is expanded on (the beam's score), and the best complete
-   *  sequences re-scored on all OPENER_SAMPLES. */
+   *  sequences (OPENER_FINAL_KEEP, picked on those samples plus the tail) re-scored on the other samples. With 1 the
+   *  anchor comparison on the held-out samples is unbiased (a best-of-3 pick on them inflates the plan's score). */
   OPENER_RACE_SAMPLES: 1,
-  OPENER_FINAL_KEEP: 3,
+  OPENER_FINAL_KEEP: 1,
   /** Opener: healing items are search candidates below this HP fraction (rules 1-2 of autoplay always stand). */
   OPENER_POTION_HP: 0.5,
   /** Opener: a fight is played by autoplay while it is routine (one normal enemy, no heavy or cast in sight) and HP
