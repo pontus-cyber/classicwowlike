@@ -146,7 +146,7 @@ Each class has a **strike**, a **control** and a **setup** option. Damage option
 Rogue (starts the fight in STEALTH as today; the engage round replaces its Unaware round)
 | id | Kind | Effect |
 |---|---|---|
-| ambush | strike | Shadowstep Strike on the target if learned, else Gutting Jab × AMBUSH_MULT; +2 CP; leaves STEALTH (today's opening, kept as the default) |
+| ambush | strike | Shadowstep Strike on the target if learned, else Gutting Jab × AMBUSH_MULT; +2 CP; keeps STEALTH like today's stealth opener (D48), so round 2 can open again |
 | sap | control | target non-boss enemy is SAPPED for SAP_TURNS turns (cancels those now-entries, 3.4); breaks on any damage to it, DOT ticks and AoE included; the Rogue **stays in STEALTH**, so round 2 can still open with Shadowstep Strike on another enemy |
 | premeditate | setup | +PREMED_CP CP; stays in STEALTH. Typical use: round 2 Temple Blow with 3 CP (STUN 2) on the brute's turn-2 Heavy Smash -> cancelled -> OFF_BALANCE -> finisher into the window |
 

@@ -21,6 +21,38 @@
 - **Update: the Lead decided D48** (all three Rogue fixes). They are on main in 88643a7, 177e625 and 7f9b4f0; see
   "D48 Rogue fixes" below. Reach the boss after the fixes, planner P0, 200 seeds per class: Rogue 70.5 %, Mage
   81.0 %, Hunter 88.0 % [measured].
+- **Update: D49** (no autoplay Sap for the Rogue; ENGAGE_DMG_COMP back in its dungeon-boss fights) is on main in
+  ed22ab6 and 201fb78; combat-v2.md 6.1, 6.2 and 8 now match D48 and D49. Reach the boss, same batch: Rogue 79.0 %,
+  Mage 81.0 %, Hunter 88.0 % [measured]; see "D49" below.
+
+## D49 (after the Lead's second decision)
+| Commit | Change | Code | Rules / spec / API | Test (fails without the change) |
+|---|---|---|---|---|
+| ed22ab6 | Autoplay's rule E never uses Sap for the Rogue: its engage round on autoplay is Ambush on the default target. Sap stays a manual option. D48's beast clause goes with it; D48's default-target rule for a sapped enemy stays (manual Sap) | autoplay.js | rules.md 7.9 E; engine-api.md 8; combat-v2.md 8 (also the D48 default-target line) | s07b "D49 / D48 (rules 7.9): the Rogue's rule E never uses Sap ..."; the rule E test now checks the control choice with the Mage and the Hunter |
+| 201fb78 | ENGAGE_DMG_COMP applies in the Rogue's dungeon-boss fights (the boss and any add it summons), which it starts without STEALTH (rules 5.3); its other fights, dungeon trash included, stay exempt | combat.js (`engageComp` reads the fight kind) | rules.md 7.6, 7.10 and the constant table row; engine-api.md (enemy `dmg`); combat-v2.md 6.1 | s07b ENGAGE_DMG_COMP test (Rogue boss, summoned add, trash); s07 dungeon zone-danger test (Rogue's dungeon boss with the comp) |
+| (final) | combat-v2.md 6.2: Ambush keeps STEALTH like today's stealth opener (D48); this hand-off | - | combat-v2.md 6.2 | - |
+
+Tests at 201fb78: qa/engine 228/228, qa/rules 56/56, qa/docs 3/3, qa/sim 64/64 (the Sim Engineer's 82728ab fixed
+m2v3). Build: 49 modules.
+
+Measurements: planner, P0, seeds 1000-1199, 2 workers, current content, the same as the D48 table below
+[measured]:
+
+| Engine | Risk table | Rogue reach / win / early deaths | Mage reach / win | Hunter reach / win |
+|---|---|---|---|---|
+| 7f9b4f0 (D48) | fixed (pass-2026-11-10c obs-P0) | 70.5 % / 26.0 % / 27.0 % | 81.0 % / 37.5 % | 88.0 % / 41.0 % |
+| 201fb78 (D49) | fixed | 79.0 % / 30.0 % / 20.0 % | 81.0 % / 37.5 % | 88.0 % / 41.0 % |
+| 201fb78 (D49) | fresh v2 warm-up, 1 000 runs per class | 77.0 % / 27.5 % / 22.5 % | 86.5 % / 42.0 % | 84.0 % / 36.0 % |
+
+- Mage and Hunter runs are identical to D48's (every recorded field but run time).
+- The Rogue's rates equal those of the scratch variant (D48 + no autoplay Sap) in the D48 section. The dungeon-boss
+  compensation changed no run's outcome and no boss arrival. 4 runs die at a different point and 5 reach the boss
+  with different gear.
+- For the Sim Engineer:
+  - Pooled planner win rate: 36.2 % with the fixed table and 35.2 % warmed, at or just above the WR_P0_PLANNER top
+    of 0.35.
+  - Class win spread: 11.0 pp with the fixed table and 14.5 pp warmed, against B6's 8 pp.
+  - Median manual minutes of wins (fixed table): 51.5 / 56.6 / 55.7.
 
 ## D48 Rogue fixes (after the Lead's decision)
 | Commit | Fix | Code | Rules / API | Test (fails without the change) |
@@ -62,10 +94,10 @@ comparable with each other but not with the old-content tables in the next secti
   never sapping recovers 22.5 pp (to 79.0 %). [inference: from the last two fixed-table rows] Autoplay's Sap still
   costs the Rogue about 8.5 pp of reach. If the Lead wants the Rogue at the other classes' level, the next step is
   rule E without Sap for the Rogue (Sap stays a manual choice).
-- Fix (3) applies in every Rogue fight, as D48 says, dungeon bosses included. Before combat v2 the Rogue did not
-  start dungeon-boss fights in STEALTH (rules 5.3), so there it had no free round. Say so if the comp should stay in
-  those fights.
-- combat-v2.md 6.2 still says Ambush "leaves STEALTH". D48 supersedes it. The file is the Designer's, so I left it.
+- Fix (3) applied in every Rogue fight, as D48 says, dungeon bosses included. Before combat v2 the Rogue did not
+  start dungeon-boss fights in STEALTH (rules 5.3), so there it had no free round. D49 puts the compensation back in
+  those fights (201fb78).
+- combat-v2.md 6.2 said Ambush "leaves STEALTH". The Lead asked with D49 for it to match the code; it does now.
 - Median manual minutes of wins at 7f9b4f0 (fixed table): 54.6 / 56.6 / 55.7 (Rogue / Mage / Hunter).
 
 ## Commits (all on main)
@@ -77,7 +109,9 @@ comparable with each other but not with the old-content tables in the next secti
 | 7ef2ec8 | `engagePreview` for the engage panel's hover preview (combat-v2.md 10.3) | src/engine/engage.js, src/rules.js, docs/specs/engine-api.md, docs/ARCHITECTURE.md, qa/engine/s07b-combat-v2.test.mjs |
 | 57cc3ae | "Engine: combat v2 implemented" (this note, first version) | docs/handoffs/engineer-2026-11-10d.md |
 | 88643a7, 177e625, 7f9b4f0 | D48 Rogue fixes, one commit each (section "D48 Rogue fixes") | see that section |
-| (this update) | "Engine: combat v2 Rogue fixes" | docs/handoffs/engineer-2026-11-10d.md |
+| f7b0562 | "Engine: combat v2 Rogue fixes" (D48 measurements in this note) | docs/handoffs/engineer-2026-11-10d.md |
+| ed22ab6, 201fb78 | D49, one commit each (section "D49") | see that section |
+| (this update) | "Engine: combat v2 Rogue fixes 2" (combat-v2.md 6.2, D49 measurements in this note) | docs/specs/combat-v2.md, docs/handoffs/engineer-2026-11-10d.md |
 
 The Sim Engineer's 07ba544 and 9d49d75 sit between my commits. They touch sim/ only.
 
@@ -238,8 +272,8 @@ node sim/run.mjs --bot planner --class all --runs 200 --seed-start 1000 --profil
 ```
 
 ## Known issues
-- qa/sim/m2v3.test.mjs "planner and tactician map choices use PLANNER_HOUR_MULT" fails since the content commit
-  a379e3c (see "D48 Rogue fixes"). This is for the Sim Engineer; the engine is not involved.
+- qa/sim/m2v3.test.mjs "planner and tactician map choices use PLANNER_HOUR_MULT" failed from the content commit
+  a379e3c until the Sim Engineer's 82728ab; it passes now.
 - BOLSTER_CD has no effect while Bolster is script only (decision 3).
 - Pure `step` throughput is lower (see above). If a pure-step consumer needs more speed, the tracks could keep only
   the fields that are set.
