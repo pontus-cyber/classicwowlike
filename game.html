@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="2f808ff 2026-11-09T20:30:50Z">
+<meta name="build" content="308a98b 2026-11-10T04:55:37Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -110,6 +110,13 @@ button { font-family: inherit; }
 .st img { width: 100%; height: 100%; border-radius: .2rem; display: block; }
 .st .n { position: absolute; right: -.1rem; bottom: -.2rem; font: 800 1rem var(--font-num); color: #fff; text-shadow: 0 0 2px #000, 0 1px 1px #000; }
 .st .s { position: absolute; left: -.1rem; top: -.35rem; font: 800 1rem var(--font-num); color: #ffe58a; text-shadow: 0 0 2px #000, 0 1px 1px #000; }
+/* player frame: status icons, then the resurrect badge (charges that work now) at the right end */
+.strow { display: flex; align-items: flex-start; gap: .3rem; }
+.strow .statuses { flex: 1; min-width: 0; }
+.resc { position: relative; flex: none; width: 2.2rem; height: 2.2rem; border-radius: .25rem; border: 1px solid #000; box-shadow: 0 0 0 1px var(--gold); }
+.resc img { width: 100%; height: 100%; border-radius: .2rem; display: block; }
+.resc .n { position: absolute; right: -.1rem; bottom: -.2rem; font: 800 1.05rem var(--font-num); color: #ffe58a; text-shadow: 0 0 2px #000, 0 1px 1px #000; }
+.resc.none { box-shadow: 0 0 0 1px var(--gold-dim); filter: grayscale(1) brightness(.6); }
 .cp { display: flex; gap: .35rem; margin-top: .1rem; }
 .cp i { width: 1.15rem; height: 1.15rem; border-radius: 50%; background: #1a1410; border: 1px solid #000; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
 .cp i.on { background: radial-gradient(circle at 35% 35%, #ffd0a0, #e0402a 60%, #7a1408); box-shadow: 0 0 .6rem rgba(255, 90, 50, .8); }
@@ -307,6 +314,9 @@ button { font-family: inherit; }
 .statgrid div { display: flex; justify-content: space-between; border-bottom: 1px dotted rgba(208, 170, 96, .15); padding: .15rem 0; }
 .statgrid span:first-child { color: var(--ink-mute); }
 .statgrid b { font-family: var(--font-num); }
+.statgrid .wide { grid-column: 1 / -1; gap: 1rem; }
+.statgrid .wide b { font-family: var(--font-ui); text-align: right; }
+.statgrid .resnote { color: #ff7a6a; border-bottom: 0; }
 .baggrid { display: grid; grid-template-columns: repeat(4, 4.6rem); gap: .45rem; padding: 1rem 1.2rem; }
 .bagfoot { display: flex; justify-content: space-between; align-items: center; padding: 0 1.2rem 1rem; }
 .ctxmenu { position: fixed; z-index: 60; min-width: 16rem; padding: .4rem; display: flex; flex-direction: column; }
@@ -507,8 +517,8 @@ button { font-family: inherit; }
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (2f808ff 2026-11-09T20:30:50Z) from 45 modules.
-const __BUILD__ = "2f808ff 2026-11-09T20:30:50Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (308a98b 2026-11-10T04:55:37Z) from 45 modules.
+const __BUILD__ = "308a98b 2026-11-10T04:55:37Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -567,7 +577,7 @@ const __bundle = (() => {
   };
 })();
 __bundle.def("src/constants.js", function* (__ns, __link) {
-__link.exp({ "MAX_LEVEL": () => MAX_LEVEL, "ZONE_COUNT": () => ZONE_COUNT, "ZONE_LEVELS": () => ZONE_LEVELS, "ZONE_CHOICE_ROWS": () => ZONE_CHOICE_ROWS, "LANES": () => LANES, "DUNGEON_ROW_MIN": () => DUNGEON_ROW_MIN, "DUNGEON_ROW_MAX": () => DUNGEON_ROW_MAX, "REST_ROW_MIN": () => REST_ROW_MIN, "REST_ROW_MAX": () => REST_ROW_MAX, "TRAINER_ROW_MIN": () => TRAINER_ROW_MIN, "TRAINER_ROW_MAX": () => TRAINER_ROW_MAX, "MAX_SAME_TYPE_PER_ROW": () => MAX_SAME_TYPE_PER_ROW, "W_QUEST": () => W_QUEST, "W_GRIND": () => W_GRIND, "W_ELITE": () => W_ELITE, "W_REST": () => W_REST, "W_VENDOR": () => W_VENDOR, "W_TRAINER": () => W_TRAINER, "W_TREASURE": () => W_TREASURE, "W_SHRINE": () => W_SHRINE, "QUEST_LEVEL_OFFSETS": () => QUEST_LEVEL_OFFSETS, "ELITE_LEVEL_OFFSET": () => ELITE_LEVEL_OFFSET, "DUNGEON_LEVEL_OFFSET": () => DUNGEON_LEVEL_OFFSET, "DUNGEON_BOSS_LEVEL_OFFSET": () => DUNGEON_BOSS_LEVEL_OFFSET, "RARE_CHANCE": () => RARE_CHANCE, "CAMP_GRIND_LEVEL": () => CAMP_GRIND_LEVEL, "HOURS_QUEST": () => HOURS_QUEST, "HOURS_GRIND_WAVE": () => HOURS_GRIND_WAVE, "HOURS_ELITE": () => HOURS_ELITE, "HOURS_DUNGEON": () => HOURS_DUNGEON, "HOURS_REST": () => HOURS_REST, "HOURS_VENDOR": () => HOURS_VENDOR, "HOURS_TRAINER": () => HOURS_TRAINER, "HOURS_TREASURE": () => HOURS_TREASURE, "HOURS_SHRINE": () => HOURS_SHRINE, "HOURS_TRAVEL": () => HOURS_TRAVEL, "TRAVEL_EARLY_LEVELS": () => TRAVEL_EARLY_LEVELS, "BOSS_TIME_PAR": () => BOSS_TIME_PAR, "ASC_STEP_HOURS": () => ASC_STEP_HOURS, "ASC_PER_STEP": () => ASC_PER_STEP, "ASC_CAP": () => ASC_CAP, "QUEST_SIZE_W1": () => QUEST_SIZE_W1, "QUEST_SIZE_W2": () => QUEST_SIZE_W2, "QUEST_SIZE_W3": () => QUEST_SIZE_W3, "QUEST_MAX_SIZE_Z1": () => QUEST_MAX_SIZE_Z1, "QUEST_TURNIN_XP_FRAC": () => QUEST_TURNIN_XP_FRAC, "QUEST_GOLD_V": () => QUEST_GOLD_V, "QUEST_REWARD_CHOICES": () => QUEST_REWARD_CHOICES, "STORY_QUESTS": () => STORY_QUESTS, "STORY_XP_FRAC": () => STORY_XP_FRAC, "STORY_REWARD_CHOICES": () => STORY_REWARD_CHOICES, "GRIND_MAX_WAVES": () => GRIND_MAX_WAVES, "GRIND_WAVE_SIZE": () => GRIND_WAVE_SIZE, "GRIND_WAVE_XP_FRAC": () => GRIND_WAVE_XP_FRAC, "GRIND_DROP_MULT": () => GRIND_DROP_MULT, "ELITE_ADD_CHANCE": () => ELITE_ADD_CHANCE, "ELITE_GOLD_V": () => ELITE_GOLD_V, "DUNGEON_TRASH_FIGHTS": () => DUNGEON_TRASH_FIGHTS, "DUNGEON_SIZE_W2": () => DUNGEON_SIZE_W2, "DUNGEON_SIZE_W3": () => DUNGEON_SIZE_W3, "DUNGEON_CLEAR_XP_FRAC": () => DUNGEON_CLEAR_XP_FRAC, "DUNGEON_GOLD_V": () => DUNGEON_GOLD_V, "DUNGEON_BOSS_DROPS": () => DUNGEON_BOSS_DROPS, "TREASURE_GUARD_CHANCE": () => TREASURE_GUARD_CHANCE, "TREASURE_GOLD_V": () => TREASURE_GOLD_V, "TREASURE_TRAP_CHANCE": () => TREASURE_TRAP_CHANCE, "TREASURE_TRAP_PCT": () => TREASURE_TRAP_PCT, "BOON_W_RETURN": () => BOON_W_RETURN, "BOON_W_INSIGHT": () => BOON_W_INSIGHT, "BOON_W_FURY": () => BOON_W_FURY, "BOON_W_PLENTY": () => BOON_W_PLENTY, "BOON_W_MENDING": () => BOON_W_MENDING, "BOON_W_CLARITY": () => BOON_W_CLARITY, "BOON_XP_PCT": () => BOON_XP_PCT, "BOON_DMG_PCT": () => BOON_DMG_PCT, "BOON_NODES": () => BOON_NODES, "BOON_GOLD_V": () => BOON_GOLD_V, "MOB_XP_FRAC": () => MOB_XP_FRAC, "DUNGEON_MOB_XP_MULT": () => DUNGEON_MOB_XP_MULT, "ELITE_XP_MULT": () => ELITE_XP_MULT, "RARE_XP_MULT": () => RARE_XP_MULT, "DUNGEON_BOSS_XP_MULT": () => DUNGEON_BOSS_XP_MULT, "XP_A": () => XP_A, "XP_B": () => XP_B, "XP_C": () => XP_C, "XP_DIFF_STEP": () => XP_DIFF_STEP, "XP_DIFF_MAX": () => XP_DIFF_MAX, "XP_DIFF_SOFT_FLOOR": () => XP_DIFF_SOFT_FLOOR, "XP_DIFF_FALL": () => XP_DIFF_FALL, "XP_GREY_DIFF": () => XP_GREY_DIFF, "XP_GREY_MOD": () => XP_GREY_MOD, "REST_RESTED_FRAC": () => REST_RESTED_FRAC, "RESTED_CAP_FRAC": () => RESTED_CAP_FRAC, "RESTED_MULT": () => RESTED_MULT, "TALENT_FIRST_LEVEL": () => TALENT_FIRST_LEVEL, "TALENT_LEVEL_STEP": () => TALENT_LEVEL_STEP, "TALENT_TIER_GATE": () => TALENT_TIER_GATE, "START_GOLD": () => START_GOLD, "START_RATIONS": () => START_RATIONS, "HP_PER_STA": () => HP_PER_STA, "POWER_PER_PRIMARY": () => POWER_PER_PRIMARY, "RATING_K": () => RATING_K, "RATING_C": () => RATING_C, "CRIT_BASE": () => CRIT_BASE, "CRIT_FROM_PRIMARY": () => CRIT_FROM_PRIMARY, "CRIT_CAP": () => CRIT_CAP, "CRIT_MULT": () => CRIT_MULT, "DODGE_CAP": () => DODGE_CAP, "ARMOR_K": () => ARMOR_K, "ARMOR_C": () => ARMOR_C, "ARMOR_MIT_CAP": () => ARMOR_MIT_CAP, "MANA_BASE": () => MANA_BASE, "MANA_PER_LEVEL": () => MANA_PER_LEVEL, "MANA_PER_INT": () => MANA_PER_INT, "MANA_REGEN_ROUND_PCT": () => MANA_REGEN_ROUND_PCT, "ENERGY_MAX": () => ENERGY_MAX, "ENERGY_REGEN": () => ENERGY_REGEN, "FOCUS_MAX": () => FOCUS_MAX, "FOCUS_REGEN": () => FOCUS_REGEN, "CP_MAX": () => CP_MAX, "POST_FIGHT_REGEN_BASE": () => POST_FIGHT_REGEN_BASE, "POST_FIGHT_REGEN_SPI": () => POST_FIGHT_REGEN_SPI, "REGEN_SPI_K": () => REGEN_SPI_K, "REGEN_SPI_C": () => REGEN_SPI_C, "SPELL_BAR_SLOTS": () => SPELL_BAR_SLOTS, "ITEM_BAR_SLOTS": () => ITEM_BAR_SLOTS, "PET_DMG_BASE": () => PET_DMG_BASE, "PET_DMG_PER_LEVEL": () => PET_DMG_PER_LEVEL, "PET_DMG_POWER": () => PET_DMG_POWER, "PET_REVIVE_PCT": () => PET_REVIVE_PCT, "MISS_BASE": () => MISS_BASE, "MISS_PER_LEVEL": () => MISS_PER_LEVEL, "MISS_CAP": () => MISS_CAP, "LVL_DMG_STEP": () => LVL_DMG_STEP, "LVL_DMG_MIN": () => LVL_DMG_MIN, "LVL_DMG_MAX": () => LVL_DMG_MAX, "DMG_VARIANCE": () => DMG_VARIANCE, "ENEMY_CRIT": () => ENEMY_CRIT, "ENEMY_DODGE": () => ENEMY_DODGE, "CHILL_PCT": () => CHILL_PCT, "CURSE_PCT": () => CURSE_PCT, "STEALTH_MISS_BONUS": () => STEALTH_MISS_BONUS, "POTION_CD": () => POTION_CD, "FLEE_BASE": () => FLEE_BASE, "FLEE_PER_EXTRA_ENEMY": () => FLEE_PER_EXTRA_ENEMY, "FIGHT_SOFT_ENRAGE_ROUND": () => FIGHT_SOFT_ENRAGE_ROUND, "FIGHT_SOFT_ENRAGE_STEP": () => FIGHT_SOFT_ENRAGE_STEP, "ENEMY_HP_BASE": () => ENEMY_HP_BASE, "ENEMY_HP_PER_LEVEL": () => ENEMY_HP_PER_LEVEL, "ENEMY_DMG_BASE": () => ENEMY_DMG_BASE, "ENEMY_DMG_PER_LEVEL": () => ENEMY_DMG_PER_LEVEL, "ENEMY_ARMOR_PER_LEVEL": () => ENEMY_ARMOR_PER_LEVEL, "DUNGEON_TRASH_HP_MULT": () => DUNGEON_TRASH_HP_MULT, "DUNGEON_TRASH_DMG_MULT": () => DUNGEON_TRASH_DMG_MULT, "ELITE_HP_MULT": () => ELITE_HP_MULT, "ELITE_DMG_MULT": () => ELITE_DMG_MULT, "RARE_HP_MULT": () => RARE_HP_MULT, "RARE_DMG_MULT": () => RARE_DMG_MULT, "DUNGEON_BOSS_HP_MULT": () => DUNGEON_BOSS_HP_MULT, "DUNGEON_BOSS_DMG_MULT": () => DUNGEON_BOSS_DMG_MULT, "AUTO_POTION_HP": () => AUTO_POTION_HP, "AUTO_MANA_POTION": () => AUTO_MANA_POTION, "AUTO_TONIC_STACKS": () => AUTO_TONIC_STACKS, "AUTO_FOOD_HP": () => AUTO_FOOD_HP, "BUDGET_PER_ILVL": () => BUDGET_PER_ILVL, "ILVL_MAX": () => ILVL_MAX, "MIN_HIT_DAMAGE": () => MIN_HIT_DAMAGE, "RARITY_ILVL_BONUS": () => RARITY_ILVL_BONUS, "AFFIX_SHARE": () => AFFIX_SHARE, "AFFIX_CRIT_PCT": () => AFFIX_CRIT_PCT, "AFFIX_EPIC_MULT": () => AFFIX_EPIC_MULT, "AFFIX_POWER_PER_PT": () => AFFIX_POWER_PER_PT, "AFFIX_ARMOR_PER_PT": () => AFFIX_ARMOR_PER_PT, "SPLIT2_MAIN": () => SPLIT2_MAIN, "SPLIT3_MAIN": () => SPLIT3_MAIN, "SPLIT3_SECOND": () => SPLIT3_SECOND, "DROP_CLASS_BIAS": () => DROP_CLASS_BIAS, "WEAPON_DMG_BASE": () => WEAPON_DMG_BASE, "WEAPON_DMG_PER_ILVL": () => WEAPON_DMG_PER_ILVL, "ARMOR_PER_ILVL": () => ARMOR_PER_ILVL, "MOB_ITEM_CHANCE": () => MOB_ITEM_CHANCE, "DUNGEON_ITEM_CHANCE": () => DUNGEON_ITEM_CHANCE, "MOB_JUNK_CHANCE": () => MOB_JUNK_CHANCE, "EMBER_ELITE_DROP_CHANCE": () => EMBER_ELITE_DROP_CHANCE, "UNIQUE_DROP_CHANCE": () => UNIQUE_DROP_CHANCE, "VALUE_BASE": () => VALUE_BASE, "VALUE_COEF": () => VALUE_COEF, "VALUE_EXP": () => VALUE_EXP, "MOB_COIN_V": () => MOB_COIN_V, "JUNK_V": () => JUNK_V, "BUY_MULT": () => BUY_MULT, "TRAIN_NEW_V": () => TRAIN_NEW_V, "TRAIN_RANK_V": () => TRAIN_RANK_V, "RESPEC_V": () => RESPEC_V, "VENDOR_CONSUMABLES": () => VENDOR_CONSUMABLES, "VENDOR_GEAR_STOCK": () => VENDOR_GEAR_STOCK, "EMBER_STOCK_CHANCE": () => EMBER_STOCK_CHANCE, "EMBER_V": () => EMBER_V, "EMBER_MAX_CARRIED": () => EMBER_MAX_CARRIED, "HEAL_DRAUGHT_PCT": () => HEAL_DRAUGHT_PCT, "MANA_DRAUGHT_PCT": () => MANA_DRAUGHT_PCT, "RATION_PCT": () => RATION_PCT, "GREATER_HEAL_PCT": () => GREATER_HEAL_PCT, "SPARK_BASE": () => SPARK_BASE, "SPARK_PER_LEVEL": () => SPARK_PER_LEVEL, "ELIXIR_DMG_PCT": () => ELIXIR_DMG_PCT, "ELIXIR_NODES": () => ELIXIR_NODES, "PRICE_HEAL_V": () => PRICE_HEAL_V, "PRICE_MANA_V": () => PRICE_MANA_V, "PRICE_RATION_V": () => PRICE_RATION_V, "PRICE_TONIC_V": () => PRICE_TONIC_V, "PRICE_SPARK_V": () => PRICE_SPARK_V, "PRICE_ELIXIR_V": () => PRICE_ELIXIR_V, "PRICE_GHEAL_V": () => PRICE_GHEAL_V, "STACK_POTION": () => STACK_POTION, "STACK_FOOD": () => STACK_FOOD, "STACK_ELIXIR": () => STACK_ELIXIR, "STACK_JUNK": () => STACK_JUNK, "BAG_SLOTS": () => BAG_SLOTS, "RES_HP_PCT": () => RES_HP_PCT, "RES_MANA_PCT": () => RES_MANA_PCT, "RES_META_CHARGES": () => RES_META_CHARGES, "BOSS_LEVEL": () => BOSS_LEVEL, "BOSS_HP": () => BOSS_HP, "BOSS_ARMOR": () => BOSS_ARMOR, "BOSS_MELEE": () => BOSS_MELEE, "BOSS_CRUSH": () => BOSS_CRUSH, "BOSS_CRUSH_EVERY": () => BOSS_CRUSH_EVERY, "BOSS_LITANY_DMG": () => BOSS_LITANY_DMG, "LITANY_FIRST": () => LITANY_FIRST, "LITANY_EVERY": () => LITANY_EVERY, "BRAND_EVERY": () => BRAND_EVERY, "BRAND_DMG": () => BRAND_DMG, "BRAND_MAX": () => BRAND_MAX, "P2_AT": () => P2_AT, "P3_AT": () => P3_AT, "SHARD_HP": () => SHARD_HP, "SHARD_DMG": () => SHARD_DMG, "SHARD_COUNT": () => SHARD_COUNT, "SHARD_EVERY": () => SHARD_EVERY, "SHARD_MAX": () => SHARD_MAX, "LINK_DR": () => LINK_DR, "LINK_DR_PER_SHARD": () => LINK_DR_PER_SHARD, "SHARD_AOE_TAKEN": () => SHARD_AOE_TAKEN, "ECLIPSE_STEP": () => ECLIPSE_STEP, "PULSE_DMG": () => PULSE_DMG, "PULSE_EVERY": () => PULSE_EVERY, "BOSS_ENRAGE_ROUND": () => BOSS_ENRAGE_ROUND, "FINAL_DARK_DMG": () => FINAL_DARK_DMG, "ECHO_PER_LEVEL": () => ECHO_PER_LEVEL, "ECHO_PER_ZONE": () => ECHO_PER_ZONE, "ECHO_PER_DUNGEON": () => ECHO_PER_DUNGEON, "ECHO_PER_ELITE": () => ECHO_PER_ELITE, "ECHO_PER_RARE": () => ECHO_PER_RARE, "ECHO_PER_QUEST": () => ECHO_PER_QUEST, "ECHO_BOSS_REACHED": () => ECHO_BOSS_REACHED, "ECHO_BOSS_PHASE": () => ECHO_BOSS_PHASE, "ECHO_BOSS_KILL": () => ECHO_BOSS_KILL, "ECHO_SPEED_BONUS": () => ECHO_SPEED_BONUS, "ECHO_FIRST_KILL_CLASS": () => ECHO_FIRST_KILL_CLASS, "OATH_ECHO_BONUS": () => OATH_ECHO_BONUS, "OATH_HASTE_HOURS": () => OATH_HASTE_HOURS, "OATH_THRIFT_MULT": () => OATH_THRIFT_MULT, "UNIQUE_PROC_CHANCE": () => UNIQUE_PROC_CHANCE, "UNIQUE_PROC_BASE": () => UNIQUE_PROC_BASE, "UNIQUE_PROC_PER_LEVEL": () => UNIQUE_PROC_PER_LEVEL, "UNIQUE_HEAL_ON_KILL": () => UNIQUE_HEAL_ON_KILL, "UNIQUE_ELITE_DMG": () => UNIQUE_ELITE_DMG, "UNIQUE_POTION_PCT": () => UNIQUE_POTION_PCT, "UNIQUE_WARD_PCT": () => UNIQUE_WARD_PCT, "PACE_CREATE_S": () => PACE_CREATE_S, "PACE_DECIDE_S": () => PACE_DECIDE_S, "PACE_TRAVEL_NODE_S": () => PACE_TRAVEL_NODE_S, "PACE_ZONE_TRAVEL_S": () => PACE_ZONE_TRAVEL_S, "PACE_QUEST_TEXT_S": () => PACE_QUEST_TEXT_S, "PACE_FIGHT_OVERHEAD_S": () => PACE_FIGHT_OVERHEAD_S, "PACE_ROUND_ANIM_S": () => PACE_ROUND_ANIM_S, "PACE_ROUND_DECIDE_S": () => PACE_ROUND_DECIDE_S, "PACE_MANUAL_ROUND_S": () => PACE_MANUAL_ROUND_S, "PACE_AUTO_ROUND_S": () => PACE_AUTO_ROUND_S, "PACE_LOOT_S": () => PACE_LOOT_S, "PACE_LEVELUP_S": () => PACE_LEVELUP_S, "PACE_TALENT_S": () => PACE_TALENT_S, "PACE_REST_S": () => PACE_REST_S, "PACE_SHRINE_S": () => PACE_SHRINE_S, "PACE_TREASURE_S": () => PACE_TREASURE_S, "PACE_VENDOR_S": () => PACE_VENDOR_S, "PACE_VENDOR_TX_S": () => PACE_VENDOR_TX_S, "PACE_TRAINER_S": () => PACE_TRAINER_S, "PACE_TRAINER_TX_S": () => PACE_TRAINER_TX_S, "PACE_BOSS_INTRO_S": () => PACE_BOSS_INTRO_S, "NODE_TYPE": () => NODE_TYPE, "NODE_DRAW_ORDER": () => NODE_DRAW_ORDER, "ROW1_FORBIDDEN": () => ROW1_FORBIDDEN, "MAP_REDRAW_TRIES": () => MAP_REDRAW_TRIES, "CLASS": () => CLASS, "CLASS_IDS": () => CLASS_IDS, "SPELL": () => SPELL, "PET": () => PET, "TALENT": () => TALENT, "ARCHETYPE": () => ARCHETYPE, "VARIANT": () => VARIANT, "SLOT": () => SLOT, "SLOT_IDS": () => SLOT_IDS, "RARITY": () => RARITY, "RARITY_ORDER": () => RARITY_ORDER, "STAT1_PRIMARY_CHANCE": () => STAT1_PRIMARY_CHANCE, "STAT2_STA_CHANCE": () => STAT2_STA_CHANCE, "AFFIX_KINDS": () => AFFIX_KINDS, "DROP_TABLE": () => DROP_TABLE, "ITEM_SCORE": () => ITEM_SCORE, "ITEM_SCORE_CRIT_UNIT": () => ITEM_SCORE_CRIT_UNIT, "CONSUMABLE": () => CONSUMABLE, "VENDOR_STOCK_CONSUMABLES": () => VENDOR_STOCK_CONSUMABLES, "BOON": () => BOON, "BOON_IDS": () => BOON_IDS, "SHRINE_BOON_COUNT": () => SHRINE_BOON_COUNT, "META": () => META, "OATH": () => OATH, "OATH_IDS": () => OATH_IDS, "ABILITY_TEMPLATE": () => ABILITY_TEMPLATE, "CONTENT_RANGE": () => CONTENT_RANGE, "BOSS_TEXT": () => BOSS_TEXT, "DEBUFFS": () => DEBUFFS, "ENGINE_ASSUMPTION": () => ENGINE_ASSUMPTION });
+__link.exp({ "MAX_LEVEL": () => MAX_LEVEL, "ZONE_COUNT": () => ZONE_COUNT, "ZONE_LEVELS": () => ZONE_LEVELS, "ZONE_CHOICE_ROWS": () => ZONE_CHOICE_ROWS, "LANES": () => LANES, "DUNGEON_ROW_MIN": () => DUNGEON_ROW_MIN, "DUNGEON_ROW_MAX": () => DUNGEON_ROW_MAX, "REST_ROW_MIN": () => REST_ROW_MIN, "REST_ROW_MAX": () => REST_ROW_MAX, "TRAINER_ROW_MIN": () => TRAINER_ROW_MIN, "TRAINER_ROW_MAX": () => TRAINER_ROW_MAX, "MAX_SAME_TYPE_PER_ROW": () => MAX_SAME_TYPE_PER_ROW, "W_QUEST": () => W_QUEST, "W_GRIND": () => W_GRIND, "W_ELITE": () => W_ELITE, "W_REST": () => W_REST, "W_VENDOR": () => W_VENDOR, "W_TRAINER": () => W_TRAINER, "W_TREASURE": () => W_TREASURE, "W_SHRINE": () => W_SHRINE, "QUEST_LEVEL_OFFSETS": () => QUEST_LEVEL_OFFSETS, "ELITE_LEVEL_OFFSET": () => ELITE_LEVEL_OFFSET, "DUNGEON_LEVEL_OFFSET": () => DUNGEON_LEVEL_OFFSET, "DUNGEON_BOSS_LEVEL_OFFSET": () => DUNGEON_BOSS_LEVEL_OFFSET, "RARE_CHANCE": () => RARE_CHANCE, "CAMP_GRIND_LEVEL": () => CAMP_GRIND_LEVEL, "HOURS_QUEST": () => HOURS_QUEST, "HOURS_GRIND_WAVE": () => HOURS_GRIND_WAVE, "HOURS_ELITE": () => HOURS_ELITE, "HOURS_DUNGEON": () => HOURS_DUNGEON, "HOURS_REST": () => HOURS_REST, "HOURS_VENDOR": () => HOURS_VENDOR, "HOURS_TRAINER": () => HOURS_TRAINER, "HOURS_TREASURE": () => HOURS_TREASURE, "HOURS_SHRINE": () => HOURS_SHRINE, "HOURS_TRAVEL": () => HOURS_TRAVEL, "TRAVEL_EARLY_LEVELS": () => TRAVEL_EARLY_LEVELS, "BOSS_TIME_PAR": () => BOSS_TIME_PAR, "ASC_STEP_HOURS": () => ASC_STEP_HOURS, "ASC_PER_STEP": () => ASC_PER_STEP, "ASC_CAP": () => ASC_CAP, "QUEST_SIZE_W1": () => QUEST_SIZE_W1, "QUEST_SIZE_W2": () => QUEST_SIZE_W2, "QUEST_SIZE_W3": () => QUEST_SIZE_W3, "QUEST_MAX_SIZE_Z1": () => QUEST_MAX_SIZE_Z1, "QUEST_TURNIN_XP_FRAC": () => QUEST_TURNIN_XP_FRAC, "QUEST_GOLD_V": () => QUEST_GOLD_V, "QUEST_REWARD_CHOICES": () => QUEST_REWARD_CHOICES, "STORY_QUESTS": () => STORY_QUESTS, "STORY_XP_FRAC": () => STORY_XP_FRAC, "STORY_REWARD_CHOICES": () => STORY_REWARD_CHOICES, "GRIND_MAX_WAVES": () => GRIND_MAX_WAVES, "GRIND_WAVE_SIZE": () => GRIND_WAVE_SIZE, "GRIND_WAVE_XP_FRAC": () => GRIND_WAVE_XP_FRAC, "GRIND_DROP_MULT": () => GRIND_DROP_MULT, "ELITE_ADD_CHANCE": () => ELITE_ADD_CHANCE, "ELITE_GOLD_V": () => ELITE_GOLD_V, "DUNGEON_TRASH_FIGHTS": () => DUNGEON_TRASH_FIGHTS, "DUNGEON_SIZE_W2": () => DUNGEON_SIZE_W2, "DUNGEON_SIZE_W3": () => DUNGEON_SIZE_W3, "DUNGEON_CLEAR_XP_FRAC": () => DUNGEON_CLEAR_XP_FRAC, "DUNGEON_GOLD_V": () => DUNGEON_GOLD_V, "DUNGEON_BOSS_DROPS": () => DUNGEON_BOSS_DROPS, "TREASURE_GUARD_CHANCE": () => TREASURE_GUARD_CHANCE, "TREASURE_GOLD_V": () => TREASURE_GOLD_V, "TREASURE_TRAP_CHANCE": () => TREASURE_TRAP_CHANCE, "TREASURE_TRAP_PCT": () => TREASURE_TRAP_PCT, "BOON_W_RETURN": () => BOON_W_RETURN, "BOON_W_INSIGHT": () => BOON_W_INSIGHT, "BOON_W_FURY": () => BOON_W_FURY, "BOON_W_PLENTY": () => BOON_W_PLENTY, "BOON_W_MENDING": () => BOON_W_MENDING, "BOON_W_CLARITY": () => BOON_W_CLARITY, "BOON_XP_PCT": () => BOON_XP_PCT, "BOON_DMG_PCT": () => BOON_DMG_PCT, "BOON_NODES": () => BOON_NODES, "BOON_GOLD_V": () => BOON_GOLD_V, "MOB_XP_FRAC": () => MOB_XP_FRAC, "DUNGEON_MOB_XP_MULT": () => DUNGEON_MOB_XP_MULT, "ELITE_XP_MULT": () => ELITE_XP_MULT, "RARE_XP_MULT": () => RARE_XP_MULT, "DUNGEON_BOSS_XP_MULT": () => DUNGEON_BOSS_XP_MULT, "XP_A": () => XP_A, "XP_B": () => XP_B, "XP_C": () => XP_C, "XP_DIFF_STEP": () => XP_DIFF_STEP, "XP_DIFF_MAX": () => XP_DIFF_MAX, "XP_DIFF_SOFT_FLOOR": () => XP_DIFF_SOFT_FLOOR, "XP_DIFF_FALL": () => XP_DIFF_FALL, "XP_GREY_DIFF": () => XP_GREY_DIFF, "XP_GREY_MOD": () => XP_GREY_MOD, "REST_RESTED_FRAC": () => REST_RESTED_FRAC, "RESTED_CAP_FRAC": () => RESTED_CAP_FRAC, "RESTED_MULT": () => RESTED_MULT, "TALENT_FIRST_LEVEL": () => TALENT_FIRST_LEVEL, "TALENT_LEVEL_STEP": () => TALENT_LEVEL_STEP, "TALENT_TIER_GATE": () => TALENT_TIER_GATE, "START_GOLD": () => START_GOLD, "START_RATIONS": () => START_RATIONS, "HP_PER_STA": () => HP_PER_STA, "POWER_PER_PRIMARY": () => POWER_PER_PRIMARY, "RATING_K": () => RATING_K, "RATING_C": () => RATING_C, "CRIT_BASE": () => CRIT_BASE, "CRIT_FROM_PRIMARY": () => CRIT_FROM_PRIMARY, "CRIT_CAP": () => CRIT_CAP, "CRIT_MULT": () => CRIT_MULT, "DODGE_CAP": () => DODGE_CAP, "ARMOR_K": () => ARMOR_K, "ARMOR_C": () => ARMOR_C, "ARMOR_MIT_CAP": () => ARMOR_MIT_CAP, "MANA_BASE": () => MANA_BASE, "MANA_PER_LEVEL": () => MANA_PER_LEVEL, "MANA_PER_INT": () => MANA_PER_INT, "MANA_REGEN_ROUND_PCT": () => MANA_REGEN_ROUND_PCT, "ENERGY_MAX": () => ENERGY_MAX, "ENERGY_REGEN": () => ENERGY_REGEN, "FOCUS_MAX": () => FOCUS_MAX, "FOCUS_REGEN": () => FOCUS_REGEN, "CP_MAX": () => CP_MAX, "POST_FIGHT_REGEN_BASE": () => POST_FIGHT_REGEN_BASE, "POST_FIGHT_REGEN_SPI": () => POST_FIGHT_REGEN_SPI, "REGEN_SPI_K": () => REGEN_SPI_K, "REGEN_SPI_C": () => REGEN_SPI_C, "SPELL_BAR_SLOTS": () => SPELL_BAR_SLOTS, "ITEM_BAR_SLOTS": () => ITEM_BAR_SLOTS, "PET_DMG_BASE": () => PET_DMG_BASE, "PET_DMG_PER_LEVEL": () => PET_DMG_PER_LEVEL, "PET_DMG_POWER": () => PET_DMG_POWER, "PET_REVIVE_PCT": () => PET_REVIVE_PCT, "MISS_BASE": () => MISS_BASE, "MISS_PER_LEVEL": () => MISS_PER_LEVEL, "MISS_CAP": () => MISS_CAP, "LVL_DMG_STEP": () => LVL_DMG_STEP, "LVL_DMG_MIN": () => LVL_DMG_MIN, "LVL_DMG_MAX": () => LVL_DMG_MAX, "DMG_VARIANCE": () => DMG_VARIANCE, "ENEMY_CRIT": () => ENEMY_CRIT, "ENEMY_DODGE": () => ENEMY_DODGE, "CHILL_PCT": () => CHILL_PCT, "CURSE_PCT": () => CURSE_PCT, "STEALTH_MISS_BONUS": () => STEALTH_MISS_BONUS, "POTION_CD": () => POTION_CD, "FLEE_BASE": () => FLEE_BASE, "FLEE_PER_EXTRA_ENEMY": () => FLEE_PER_EXTRA_ENEMY, "FIGHT_SOFT_ENRAGE_ROUND": () => FIGHT_SOFT_ENRAGE_ROUND, "FIGHT_SOFT_ENRAGE_STEP": () => FIGHT_SOFT_ENRAGE_STEP, "ENEMY_HP_BASE": () => ENEMY_HP_BASE, "ENEMY_HP_PER_LEVEL": () => ENEMY_HP_PER_LEVEL, "ENEMY_DMG_BASE": () => ENEMY_DMG_BASE, "ENEMY_DMG_PER_LEVEL": () => ENEMY_DMG_PER_LEVEL, "ZONE_DANGER_FROM": () => ZONE_DANGER_FROM, "ZONE_DANGER_STEP": () => ZONE_DANGER_STEP, "ENEMY_ARMOR_PER_LEVEL": () => ENEMY_ARMOR_PER_LEVEL, "DUNGEON_TRASH_HP_MULT": () => DUNGEON_TRASH_HP_MULT, "DUNGEON_TRASH_DMG_MULT": () => DUNGEON_TRASH_DMG_MULT, "ELITE_HP_MULT": () => ELITE_HP_MULT, "ELITE_DMG_MULT": () => ELITE_DMG_MULT, "RARE_HP_MULT": () => RARE_HP_MULT, "RARE_DMG_MULT": () => RARE_DMG_MULT, "DUNGEON_BOSS_HP_MULT": () => DUNGEON_BOSS_HP_MULT, "DUNGEON_BOSS_DMG_MULT": () => DUNGEON_BOSS_DMG_MULT, "AUTO_POTION_HP": () => AUTO_POTION_HP, "AUTO_MANA_POTION": () => AUTO_MANA_POTION, "AUTO_TONIC_STACKS": () => AUTO_TONIC_STACKS, "AUTO_FOOD_HP": () => AUTO_FOOD_HP, "BUDGET_PER_ILVL": () => BUDGET_PER_ILVL, "ILVL_MAX": () => ILVL_MAX, "MIN_HIT_DAMAGE": () => MIN_HIT_DAMAGE, "RARITY_ILVL_BONUS": () => RARITY_ILVL_BONUS, "AFFIX_SHARE": () => AFFIX_SHARE, "AFFIX_CRIT_PCT": () => AFFIX_CRIT_PCT, "AFFIX_EPIC_MULT": () => AFFIX_EPIC_MULT, "AFFIX_POWER_PER_PT": () => AFFIX_POWER_PER_PT, "AFFIX_ARMOR_PER_PT": () => AFFIX_ARMOR_PER_PT, "SPLIT2_MAIN": () => SPLIT2_MAIN, "SPLIT3_MAIN": () => SPLIT3_MAIN, "SPLIT3_SECOND": () => SPLIT3_SECOND, "DROP_CLASS_BIAS": () => DROP_CLASS_BIAS, "WEAPON_DMG_BASE": () => WEAPON_DMG_BASE, "WEAPON_DMG_PER_ILVL": () => WEAPON_DMG_PER_ILVL, "ARMOR_PER_ILVL": () => ARMOR_PER_ILVL, "MOB_ITEM_CHANCE": () => MOB_ITEM_CHANCE, "DUNGEON_ITEM_CHANCE": () => DUNGEON_ITEM_CHANCE, "MOB_JUNK_CHANCE": () => MOB_JUNK_CHANCE, "EMBER_ELITE_DROP_CHANCE": () => EMBER_ELITE_DROP_CHANCE, "UNIQUE_DROP_CHANCE": () => UNIQUE_DROP_CHANCE, "VALUE_BASE": () => VALUE_BASE, "VALUE_COEF": () => VALUE_COEF, "VALUE_EXP": () => VALUE_EXP, "MOB_COIN_V": () => MOB_COIN_V, "JUNK_V": () => JUNK_V, "BUY_MULT": () => BUY_MULT, "TRAIN_NEW_V": () => TRAIN_NEW_V, "TRAIN_RANK_V": () => TRAIN_RANK_V, "RESPEC_V": () => RESPEC_V, "VENDOR_CONSUMABLES": () => VENDOR_CONSUMABLES, "VENDOR_GEAR_STOCK": () => VENDOR_GEAR_STOCK, "EMBER_STOCK_CHANCE": () => EMBER_STOCK_CHANCE, "EMBER_V": () => EMBER_V, "EMBER_MAX_CARRIED": () => EMBER_MAX_CARRIED, "HEAL_DRAUGHT_PCT": () => HEAL_DRAUGHT_PCT, "MANA_DRAUGHT_PCT": () => MANA_DRAUGHT_PCT, "RATION_PCT": () => RATION_PCT, "GREATER_HEAL_PCT": () => GREATER_HEAL_PCT, "SPARK_BASE": () => SPARK_BASE, "SPARK_PER_LEVEL": () => SPARK_PER_LEVEL, "ELIXIR_DMG_PCT": () => ELIXIR_DMG_PCT, "ELIXIR_NODES": () => ELIXIR_NODES, "PRICE_HEAL_V": () => PRICE_HEAL_V, "PRICE_MANA_V": () => PRICE_MANA_V, "PRICE_RATION_V": () => PRICE_RATION_V, "PRICE_TONIC_V": () => PRICE_TONIC_V, "PRICE_SPARK_V": () => PRICE_SPARK_V, "PRICE_ELIXIR_V": () => PRICE_ELIXIR_V, "PRICE_GHEAL_V": () => PRICE_GHEAL_V, "STACK_POTION": () => STACK_POTION, "STACK_FOOD": () => STACK_FOOD, "STACK_ELIXIR": () => STACK_ELIXIR, "STACK_JUNK": () => STACK_JUNK, "BAG_SLOTS": () => BAG_SLOTS, "RES_HP_PCT": () => RES_HP_PCT, "RES_MANA_PCT": () => RES_MANA_PCT, "RES_META_CHARGES": () => RES_META_CHARGES, "BOSS_LEVEL": () => BOSS_LEVEL, "BOSS_HP": () => BOSS_HP, "BOSS_ARMOR": () => BOSS_ARMOR, "BOSS_MELEE": () => BOSS_MELEE, "BOSS_CRUSH": () => BOSS_CRUSH, "BOSS_CRUSH_EVERY": () => BOSS_CRUSH_EVERY, "BOSS_LITANY_DMG": () => BOSS_LITANY_DMG, "LITANY_FIRST": () => LITANY_FIRST, "LITANY_EVERY": () => LITANY_EVERY, "BRAND_EVERY": () => BRAND_EVERY, "BRAND_DMG": () => BRAND_DMG, "BRAND_MAX": () => BRAND_MAX, "P2_AT": () => P2_AT, "P3_AT": () => P3_AT, "SHARD_HP": () => SHARD_HP, "SHARD_DMG": () => SHARD_DMG, "SHARD_COUNT": () => SHARD_COUNT, "SHARD_EVERY": () => SHARD_EVERY, "SHARD_MAX": () => SHARD_MAX, "LINK_DR": () => LINK_DR, "LINK_DR_PER_SHARD": () => LINK_DR_PER_SHARD, "SHARD_AOE_TAKEN": () => SHARD_AOE_TAKEN, "ECLIPSE_STEP": () => ECLIPSE_STEP, "PULSE_DMG": () => PULSE_DMG, "PULSE_EVERY": () => PULSE_EVERY, "BOSS_ENRAGE_ROUND": () => BOSS_ENRAGE_ROUND, "FINAL_DARK_DMG": () => FINAL_DARK_DMG, "ECHO_PER_LEVEL": () => ECHO_PER_LEVEL, "ECHO_PER_ZONE": () => ECHO_PER_ZONE, "ECHO_PER_DUNGEON": () => ECHO_PER_DUNGEON, "ECHO_PER_ELITE": () => ECHO_PER_ELITE, "ECHO_PER_RARE": () => ECHO_PER_RARE, "ECHO_PER_QUEST": () => ECHO_PER_QUEST, "ECHO_BOSS_REACHED": () => ECHO_BOSS_REACHED, "ECHO_BOSS_PHASE": () => ECHO_BOSS_PHASE, "ECHO_BOSS_KILL": () => ECHO_BOSS_KILL, "ECHO_SPEED_BONUS": () => ECHO_SPEED_BONUS, "ECHO_FIRST_KILL_CLASS": () => ECHO_FIRST_KILL_CLASS, "OATH_ECHO_BONUS": () => OATH_ECHO_BONUS, "OATH_HASTE_HOURS": () => OATH_HASTE_HOURS, "OATH_THRIFT_MULT": () => OATH_THRIFT_MULT, "UNIQUE_PROC_CHANCE": () => UNIQUE_PROC_CHANCE, "UNIQUE_PROC_BASE": () => UNIQUE_PROC_BASE, "UNIQUE_PROC_PER_LEVEL": () => UNIQUE_PROC_PER_LEVEL, "UNIQUE_HEAL_ON_KILL": () => UNIQUE_HEAL_ON_KILL, "UNIQUE_ELITE_DMG": () => UNIQUE_ELITE_DMG, "UNIQUE_POTION_PCT": () => UNIQUE_POTION_PCT, "UNIQUE_WARD_PCT": () => UNIQUE_WARD_PCT, "PACE_CREATE_S": () => PACE_CREATE_S, "PACE_DECIDE_S": () => PACE_DECIDE_S, "PACE_TRAVEL_NODE_S": () => PACE_TRAVEL_NODE_S, "PACE_ZONE_TRAVEL_S": () => PACE_ZONE_TRAVEL_S, "PACE_QUEST_TEXT_S": () => PACE_QUEST_TEXT_S, "PACE_FIGHT_OVERHEAD_S": () => PACE_FIGHT_OVERHEAD_S, "PACE_ROUND_ANIM_S": () => PACE_ROUND_ANIM_S, "PACE_ROUND_DECIDE_S": () => PACE_ROUND_DECIDE_S, "PACE_MANUAL_ROUND_S": () => PACE_MANUAL_ROUND_S, "PACE_AUTO_ROUND_S": () => PACE_AUTO_ROUND_S, "PACE_LOOT_S": () => PACE_LOOT_S, "PACE_LEVELUP_S": () => PACE_LEVELUP_S, "PACE_TALENT_S": () => PACE_TALENT_S, "PACE_REST_S": () => PACE_REST_S, "PACE_SHRINE_S": () => PACE_SHRINE_S, "PACE_TREASURE_S": () => PACE_TREASURE_S, "PACE_VENDOR_S": () => PACE_VENDOR_S, "PACE_VENDOR_TX_S": () => PACE_VENDOR_TX_S, "PACE_TRAINER_S": () => PACE_TRAINER_S, "PACE_TRAINER_TX_S": () => PACE_TRAINER_TX_S, "PACE_BOSS_INTRO_S": () => PACE_BOSS_INTRO_S, "NODE_TYPE": () => NODE_TYPE, "NODE_DRAW_ORDER": () => NODE_DRAW_ORDER, "ROW1_FORBIDDEN": () => ROW1_FORBIDDEN, "MAP_REDRAW_TRIES": () => MAP_REDRAW_TRIES, "CLASS": () => CLASS, "CLASS_IDS": () => CLASS_IDS, "SPELL": () => SPELL, "PET": () => PET, "TALENT": () => TALENT, "ARCHETYPE": () => ARCHETYPE, "VARIANT": () => VARIANT, "SLOT": () => SLOT, "SLOT_IDS": () => SLOT_IDS, "RARITY": () => RARITY, "RARITY_ORDER": () => RARITY_ORDER, "STAT1_PRIMARY_CHANCE": () => STAT1_PRIMARY_CHANCE, "STAT2_STA_CHANCE": () => STAT2_STA_CHANCE, "AFFIX_KINDS": () => AFFIX_KINDS, "DROP_TABLE": () => DROP_TABLE, "ITEM_SCORE": () => ITEM_SCORE, "ITEM_SCORE_CRIT_UNIT": () => ITEM_SCORE_CRIT_UNIT, "CONSUMABLE": () => CONSUMABLE, "VENDOR_STOCK_CONSUMABLES": () => VENDOR_STOCK_CONSUMABLES, "BOON": () => BOON, "BOON_IDS": () => BOON_IDS, "SHRINE_BOON_COUNT": () => SHRINE_BOON_COUNT, "META": () => META, "OATH": () => OATH, "OATH_IDS": () => OATH_IDS, "ABILITY_TEMPLATE": () => ABILITY_TEMPLATE, "CONTENT_RANGE": () => CONTENT_RANGE, "BOSS_TEXT": () => BOSS_TEXT, "DEBUFFS": () => DEBUFFS, "ENGINE_ASSUMPTION": () => ENGINE_ASSUMPTION });
 yield;
 // Rules constants (docs/specs/rules.md). Single source of every number the engine uses.
 //
@@ -734,6 +744,8 @@ const ENEMY_HP_BASE = 20;
 const ENEMY_HP_PER_LEVEL = 12;
 const ENEMY_DMG_BASE = 4;
 const ENEMY_DMG_PER_LEVEL = 2.6;
+const ZONE_DANGER_FROM = 20;
+const ZONE_DANGER_STEP = 0.25;
 const ENEMY_ARMOR_PER_LEVEL = 15;
 const DUNGEON_TRASH_HP_MULT = 1.2;
 const DUNGEON_TRASH_DMG_MULT = 1.1;
@@ -806,7 +818,7 @@ const RES_HP_PCT = 0.40;
 const RES_MANA_PCT = 0.40;
 const RES_META_CHARGES = 1;
 const BOSS_LEVEL = 62;
-const BOSS_HP = 13000;
+const BOSS_HP = 13500;
 const BOSS_ARMOR = 1200;
 const BOSS_MELEE = 260;
 const BOSS_CRUSH = 380;
@@ -830,16 +842,16 @@ const SHARD_AOE_TAKEN = 1.00;
 const ECLIPSE_STEP = 0.05;
 const PULSE_DMG = 280;
 const PULSE_EVERY = 3;
-const BOSS_ENRAGE_ROUND = 50;
+const BOSS_ENRAGE_ROUND = 55;
 const FINAL_DARK_DMG = 99999;
-const ECHO_PER_LEVEL = 2;
-const ECHO_PER_ZONE = 10;
+const ECHO_PER_LEVEL = 1.5;
+const ECHO_PER_ZONE = 7.5;
 const ECHO_PER_DUNGEON = 8;
 const ECHO_PER_ELITE = 3;
 const ECHO_PER_RARE = 6;
 const ECHO_PER_QUEST = 1;
 const ECHO_BOSS_REACHED = 20;
-const ECHO_BOSS_PHASE = 15;
+const ECHO_BOSS_PHASE = 12;
 const ECHO_BOSS_KILL = 120;
 const ECHO_SPEED_BONUS = 40;
 const ECHO_FIRST_KILL_CLASS = 100;
@@ -910,7 +922,7 @@ const CLASS = {
   },
   mage: {
     id: 'mage', name: 'Mage', primary: 'INT', resource: 'mana',
-    hpBase: 50, hpPerLevel: 17.5,
+    hpBase: 50, hpPerLevel: 19.5,
     stats: { STA: [8, 1.25], AGI: [8, 0.5], INT: [22, 2.2], SPI: [12, 1.0] },
     armorBase: 10, armorPerLevel: 3, armorMult: 0.5, dodgeBase: 0.03, dodgeFromAgi: 0,
     basic: { id: 'spark', name: 'Spark', school: 'arcane', b: 2, l: 0.6, p: 0.35, w: 0 },
@@ -919,7 +931,7 @@ const CLASS = {
   },
   hunter: {
     id: 'hunter', name: 'Hunter', primary: 'AGI', resource: 'focus',
-    hpBase: 60, hpPerLevel: 17,
+    hpBase: 60, hpPerLevel: 15.5,
     stats: { STA: [9, 1.2], AGI: [18, 1.8], INT: [10, 0.8], SPI: [9, 0.8] },
     armorBase: 25, armorPerLevel: 7, armorMult: 1.3, dodgeBase: 0.04, dodgeFromAgi: 0.06,
     basic: { id: 'auto_shot', name: 'Auto Shot', school: 'phys', b: 0, l: 0, p: 0.35, w: 1.0 },
@@ -988,14 +1000,14 @@ const SPELL = {
   wild_communion: { id: 'wild_communion', cls: 'hunter', name: 'Wild Communion', lvl: 1, cost: 30, cd: 10, rounds: 4, petDmgPct: 0.50, tags: ['pet'], target: 'self', source: 'talent' },
   starfall_arrow: { id: 'starfall_arrow', cls: 'hunter', name: 'Starfall Arrow', lvl: 1, cost: 50, cd: 5, school: 'phys', b: 20, l: 4.0, p: 1.8, w: 2.0, refundOnKill: 50, tags: ['nuke'], target: 'enemy', source: 'talent' },
   deadfall_trap: { id: 'deadfall_trap', cls: 'hunter', name: 'Deadfall Trap', lvl: 1, cost: 30, cd: 8, school: 'phys', b: 10, l: 2.4, p: 1.0, stun: 1, tags: ['aoe', 'stun'], target: 'all', source: 'talent' },
-  ricochet_bolt: { id: 'ricochet_bolt', cls: 'hunter', name: 'Ricochet Bolt', lvl: 20, cost: 35, cd: 0, school: 'phys', b: 5, l: 1.1, p: 0.5, w: 0.9, bounces: 2, bounceFrac: 0.7, tags: ['aoe'], target: 'enemy', source: 'meta', meta: 'sp_h1', autoEnemies: 2 },
+  ricochet_bolt: { id: 'ricochet_bolt', cls: 'hunter', name: 'Ricochet Bolt', lvl: 20, cost: 35, cd: 0, school: 'phys', b: 5, l: 1.1, p: 0.5, w: 0.9, bounces: 2, bounceFrac: 0.4, tags: ['aoe'], target: 'enemy', source: 'meta', meta: 'sp_h1', autoEnemies: 2 },
   beastcall_horn: { id: 'beastcall_horn', cls: 'hunter', name: 'Beastcall Horn', lvl: 40, cost: 0, cd: 12, taunt: 2, tags: ['pet', 'defensive'], target: 'self', source: 'meta', meta: 'sp_h2', autoHp: 0.40 },
 };
 
 /** Pets (rules 5.5). Specials: doubleEvery (every Nth pet action hits twice), tauntEvery (TAUNT in round 1 and every N rounds after, tauntRounds long), cleave (attack also hits a second enemy). */
 const PET = {
   ridgewolf: { id: 'ridgewolf', name: 'Ridgewolf', hpPct: 0.50, armorMult: 1.0, dmgMult: 1.0, critBonus: 0, aggro: 0.30, doubleEvery: 3 },
-  thornback: { id: 'thornback', name: 'Thornback Boar', hpPct: 0.80, armorMult: 1.4, dmgMult: 0.9, critBonus: 0, aggro: 0.60, tauntEvery: 4, tauntRounds: 1 },
+  thornback: { id: 'thornback', name: 'Thornback Boar', hpPct: 0.80, armorMult: 1.4, dmgMult: 1.1, critBonus: 0, aggro: 0.60, tauntEvery: 4, tauntRounds: 1 },
   duskcat: { id: 'duskcat', name: 'Duskcat', hpPct: 0.40, armorMult: 0.8, dmgMult: 1.3, critBonus: 0.10, aggro: 0.20 },
   stormhawk: { id: 'stormhawk', name: 'Stormhawk', hpPct: 0.35, armorMult: 0.7, dmgMult: 0.8, critBonus: 0, aggro: 0.15, cleave: true, meta: 'stormhawk' },
 };
@@ -1213,33 +1225,37 @@ const BOON = {
 const BOON_IDS = ['return', 'insight', 'fury', 'plenty', 'mending', 'clarity'];
 const SHRINE_BOON_COUNT = 2;
 
-/** Meta catalogue (rules 11.2). costs: per rank. req: list of requirement ids (unlock ids or profile flags). */
+/**
+ * Meta catalogue (rules 11.2). costs: per rank. req: list of requirement ids (unlock ids or profile flags).
+ * Meta power budget (M2 v3): at all ranks the catalogue adds at most max HP +0.05, Power +0.05, crit +0.02 and
+ * +1 talent point (qa/engine s11 checks it). Second Breath does not work in the end-boss fight.
+ */
 const META = {
-  vigor: { id: 'vigor', name: 'Vigor of the Line', kind: 'stat', ranks: 5, costs: [60, 90, 130, 180, 240], hpPct: 0.02, req: [] },
-  edge: { id: 'edge', name: 'Edge of the Line', kind: 'stat', ranks: 5, costs: [60, 90, 130, 180, 240], powerPct: 0.02, req: [] },
-  keen: { id: 'keen', name: 'Keen Lineage', kind: 'stat', ranks: 3, costs: [100, 160, 240], crit: 0.01, req: [] },
-  quick_study: { id: 'quick_study', name: 'Quick Study', kind: 'stat', ranks: 3, costs: [80, 140, 220], xpPct: 0.05, req: [] },
-  prospector: { id: 'prospector', name: 'Prospector', kind: 'stat', ranks: 3, costs: [50, 90, 140], goldPct: 0.08, req: [] },
+  vigor: { id: 'vigor', name: 'Vigor of the Line', kind: 'stat', ranks: 5, costs: [80, 120, 170, 230, 300], hpPct: 0.01, req: [] },
+  edge: { id: 'edge', name: 'Edge of the Line', kind: 'stat', ranks: 5, costs: [80, 120, 170, 230, 300], powerPct: 0.01, req: [] },
+  keen: { id: 'keen', name: 'Keen Lineage', kind: 'stat', ranks: 2, costs: [150, 250], crit: 0.01, req: [] },
+  quick_study: { id: 'quick_study', name: 'Quick Study', kind: 'stat', ranks: 3, costs: [100, 180, 280], xpPct: 0.05, req: [] },
+  prospector: { id: 'prospector', name: 'Prospector', kind: 'stat', ranks: 3, costs: [60, 110, 170], goldPct: 0.08, req: [] },
   satchel: { id: 'satchel', name: 'Packed Satchel', kind: 'start kit', ranks: 1, costs: [60], potions: 3, req: [] },
   heirloom_blade: { id: 'heirloom_blade', name: 'Heirloom Blade', kind: 'start kit', ranks: 1, costs: [80], rarity: 'uncommon', ilvl: 3, req: [] },
   pockets: { id: 'pockets', name: 'Deeper Pockets', kind: 'start kit', ranks: 2, costs: [50, 100], slots: 4, req: [] },
   ledger: { id: 'ledger', name: "Trainer's Ledger", kind: 'economy', ranks: 1, costs: [120], req: [] },
   scout: { id: 'scout', name: "Scout's Eye", kind: 'map', ranks: 1, costs: [100], req: [] },
   wayfinder: { id: 'wayfinder', name: 'Wayfinder', kind: 'map', ranks: 1, costs: [80], req: [] },
-  swift_boots: { id: 'swift_boots', name: 'Swift Boots', kind: 'map', ranks: 1, costs: [150], levels: 1, req: ['wayfinder'] },
-  alchemist: { id: 'alchemist', name: "Alchemist's Notes", kind: 'items', ranks: 1, costs: [120], req: ['satchel'] },
-  cache: { id: 'cache', name: 'Cache of the Wanderer', kind: 'items', ranks: 1, costs: [150], req: [] },
-  relics: { id: 'relics', name: 'Relics of the Deep', kind: 'items', ranks: 1, costs: [300], req: ['cache'] },
-  starforged: { id: 'starforged', name: 'Starforged Arms', kind: 'items', ranks: 1, costs: [350], ilvl: 62, req: ['relics', 'flag:bossKill'] },
+  swift_boots: { id: 'swift_boots', name: 'Swift Boots', kind: 'map', ranks: 1, costs: [200], levels: 1, req: ['wayfinder'] },
+  alchemist: { id: 'alchemist', name: "Alchemist's Notes", kind: 'items', ranks: 1, costs: [150], req: ['satchel'] },
+  cache: { id: 'cache', name: 'Cache of the Wanderer', kind: 'items', ranks: 1, costs: [200], req: [] },
+  relics: { id: 'relics', name: 'Relics of the Deep', kind: 'items', ranks: 1, costs: [400], req: ['cache'] },
+  starforged: { id: 'starforged', name: 'Starforged Arms', kind: 'items', ranks: 1, costs: [450], ilvl: 62, req: ['relics', 'flag:bossKill'] },
   sp_r1: { id: 'sp_r1', name: 'Lost Technique I (Rogue)', kind: 'skill', ranks: 1, costs: [150], spell: 'ghostblade_rush', req: [] },
   sp_m1: { id: 'sp_m1', name: 'Lost Technique I (Mage)', kind: 'skill', ranks: 1, costs: [150], spell: 'chrono_sigil', req: [] },
   sp_h1: { id: 'sp_h1', name: 'Lost Technique I (Hunter)', kind: 'skill', ranks: 1, costs: [150], spell: 'ricochet_bolt', req: [] },
-  sp_r2: { id: 'sp_r2', name: 'Lost Technique II (Rogue)', kind: 'skill', ranks: 1, costs: [250], spell: 'bloodprice_gambit', req: ['sp_r1'] },
-  sp_m2: { id: 'sp_m2', name: 'Lost Technique II (Mage)', kind: 'skill', ranks: 1, costs: [250], spell: 'mirrorshade', req: ['sp_m1'] },
-  sp_h2: { id: 'sp_h2', name: 'Lost Technique II (Hunter)', kind: 'skill', ranks: 1, costs: [250], spell: 'beastcall_horn', req: ['sp_h1'] },
-  stormhawk: { id: 'stormhawk', name: 'Stormhawk Companion', kind: 'skill', ranks: 1, costs: [200], pet: 'stormhawk', req: [] },
-  talent_pt: { id: 'talent_pt', name: 'Ancestral Insight', kind: 'stat', ranks: 2, costs: [250, 400], points: 1, req: [] },
-  second_breath: { id: 'second_breath', name: 'Second Breath', kind: 'resurrect', ranks: 1, costs: [400], charges: RES_META_CHARGES, req: ['flag:reachedBoss'] },
+  sp_r2: { id: 'sp_r2', name: 'Lost Technique II (Rogue)', kind: 'skill', ranks: 1, costs: [300], spell: 'bloodprice_gambit', req: ['sp_r1'] },
+  sp_m2: { id: 'sp_m2', name: 'Lost Technique II (Mage)', kind: 'skill', ranks: 1, costs: [300], spell: 'mirrorshade', req: ['sp_m1'] },
+  sp_h2: { id: 'sp_h2', name: 'Lost Technique II (Hunter)', kind: 'skill', ranks: 1, costs: [300], spell: 'beastcall_horn', req: ['sp_h1'] },
+  stormhawk: { id: 'stormhawk', name: 'Stormhawk Companion', kind: 'skill', ranks: 1, costs: [250], pet: 'stormhawk', req: [] },
+  talent_pt: { id: 'talent_pt', name: 'Ancestral Insight', kind: 'stat', ranks: 1, costs: [500], points: 1, req: [] },
+  second_breath: { id: 'second_breath', name: 'Second Breath', kind: 'resurrect', ranks: 1, costs: [500], charges: RES_META_CHARGES, req: ['flag:reachedBoss'] },
   oaths: { id: 'oaths', name: 'Oaths', kind: 'challenge', ranks: 1, costs: [0], req: ['flag:bossKill'] },
 };
 
@@ -2704,7 +2720,7 @@ function bossEndOfRound(s, ev) {
 
 });
 __bundle.def("src/engine/damage.js", function* (__ns, __link) {
-let LVL_DMG_STEP, LVL_DMG_MIN, LVL_DMG_MAX, MISS_BASE, MISS_PER_LEVEL, MISS_CAP, DMG_VARIANCE, ENEMY_CRIT, CRIT_MULT, ARMOR_K, ARMOR_C, ARMOR_MIT_CAP, MIN_HIT_DAMAGE, CHILL_PCT, CURSE_PCT, STEALTH_MISS_BONUS, TALENT, BOON_DMG_PCT, ELIXIR_DMG_PCT, UNIQUE_ELITE_DMG, LINK_DR, LINK_DR_PER_SHARD, FIGHT_SOFT_ENRAGE_ROUND, FIGHT_SOFT_ENRAGE_STEP, ECLIPSE_STEP, BRAND_MAX, DEBUFFS, RES_HP_PCT, RES_MANA_PCT, MOB_XP_FRAC, ELITE_XP_MULT, RARE_XP_MULT, DUNGEON_BOSS_XP_MULT, DUNGEON_MOB_XP_MULT, MOB_COIN_V, ELITE_GOLD_V, EMBER_ELITE_DROP_CHANCE, DUNGEON_BOSS_DROPS, UNIQUE_HEAL_ON_KILL, ABILITY_TEMPLATE, DODGE_CAP, SPELL, SHARD_AOE_TAKEN; __link.imp("src/constants.js", [["LVL_DMG_STEP", (v) => { LVL_DMG_STEP = v; }], ["LVL_DMG_MIN", (v) => { LVL_DMG_MIN = v; }], ["LVL_DMG_MAX", (v) => { LVL_DMG_MAX = v; }], ["MISS_BASE", (v) => { MISS_BASE = v; }], ["MISS_PER_LEVEL", (v) => { MISS_PER_LEVEL = v; }], ["MISS_CAP", (v) => { MISS_CAP = v; }], ["DMG_VARIANCE", (v) => { DMG_VARIANCE = v; }], ["ENEMY_CRIT", (v) => { ENEMY_CRIT = v; }], ["CRIT_MULT", (v) => { CRIT_MULT = v; }], ["ARMOR_K", (v) => { ARMOR_K = v; }], ["ARMOR_C", (v) => { ARMOR_C = v; }], ["ARMOR_MIT_CAP", (v) => { ARMOR_MIT_CAP = v; }], ["MIN_HIT_DAMAGE", (v) => { MIN_HIT_DAMAGE = v; }], ["CHILL_PCT", (v) => { CHILL_PCT = v; }], ["CURSE_PCT", (v) => { CURSE_PCT = v; }], ["STEALTH_MISS_BONUS", (v) => { STEALTH_MISS_BONUS = v; }], ["TALENT", (v) => { TALENT = v; }], ["BOON_DMG_PCT", (v) => { BOON_DMG_PCT = v; }], ["ELIXIR_DMG_PCT", (v) => { ELIXIR_DMG_PCT = v; }], ["UNIQUE_ELITE_DMG", (v) => { UNIQUE_ELITE_DMG = v; }], ["LINK_DR", (v) => { LINK_DR = v; }], ["LINK_DR_PER_SHARD", (v) => { LINK_DR_PER_SHARD = v; }], ["FIGHT_SOFT_ENRAGE_ROUND", (v) => { FIGHT_SOFT_ENRAGE_ROUND = v; }], ["FIGHT_SOFT_ENRAGE_STEP", (v) => { FIGHT_SOFT_ENRAGE_STEP = v; }], ["ECLIPSE_STEP", (v) => { ECLIPSE_STEP = v; }], ["BRAND_MAX", (v) => { BRAND_MAX = v; }], ["DEBUFFS", (v) => { DEBUFFS = v; }], ["RES_HP_PCT", (v) => { RES_HP_PCT = v; }], ["RES_MANA_PCT", (v) => { RES_MANA_PCT = v; }], ["MOB_XP_FRAC", (v) => { MOB_XP_FRAC = v; }], ["ELITE_XP_MULT", (v) => { ELITE_XP_MULT = v; }], ["RARE_XP_MULT", (v) => { RARE_XP_MULT = v; }], ["DUNGEON_BOSS_XP_MULT", (v) => { DUNGEON_BOSS_XP_MULT = v; }], ["DUNGEON_MOB_XP_MULT", (v) => { DUNGEON_MOB_XP_MULT = v; }], ["MOB_COIN_V", (v) => { MOB_COIN_V = v; }], ["ELITE_GOLD_V", (v) => { ELITE_GOLD_V = v; }], ["EMBER_ELITE_DROP_CHANCE", (v) => { EMBER_ELITE_DROP_CHANCE = v; }], ["DUNGEON_BOSS_DROPS", (v) => { DUNGEON_BOSS_DROPS = v; }], ["UNIQUE_HEAL_ON_KILL", (v) => { UNIQUE_HEAL_ON_KILL = v; }], ["ABILITY_TEMPLATE", (v) => { ABILITY_TEMPLATE = v; }], ["DODGE_CAP", (v) => { DODGE_CAP = v; }], ["SPELL", (v) => { SPELL = v; }], ["SHARD_AOE_TAKEN", (v) => { SHARD_AOE_TAKEN = v; }]]); let nextFloat; __link.imp("src/rng.js", [["nextFloat", (v) => { nextFloat = v; }]]); let rnd, clamp; __link.imp("src/engine/util.js", [["rnd", (v) => { rnd = v; }], ["clamp", (v) => { clamp = v; }]]); let tr, hasEffect; __link.imp("src/engine/stats.js", [["tr", (v) => { tr = v; }], ["hasEffect", (v) => { hasEffect = v; }]]); let eventXp, gainXp, gainGold; __link.imp("src/engine/progress.js", [["eventXp", (v) => { eventXp = v; }], ["gainXp", (v) => { gainXp = v; }], ["gainGold", (v) => { gainGold = v; }]]); let rollDrop, V, makeConsumable, countConsumable, takeConsumable; __link.imp("src/engine/items.js", [["rollDrop", (v) => { rollDrop = v; }], ["V", (v) => { V = v; }], ["makeConsumable", (v) => { makeConsumable = v; }], ["countConsumable", (v) => { countConsumable = v; }], ["takeConsumable", (v) => { takeConsumable = v; }]]); let onBossDamaged; __link.imp("src/engine/boss.js", [["onBossDamaged", (v) => { onBossDamaged = v; }]]); __link.exp({ "unitSt": () => unitSt, "unitLevel": () => unitLevel, "unitAlive": () => unitAlive, "unitHpFrac": () => unitHpFrac, "petAlive": () => petAlive, "isEliteOrBoss": () => isEliteOrBoss, "livingEnemies": () => livingEnemies, "findSt": () => findSt, "hasSt": () => hasSt, "addStatus": () => addStatus, "removeStatus": () => removeStatus, "dispersal": () => dispersal, "debuffStacks": () => debuffStacks, "gainStealth": () => gainStealth, "levelMod": () => levelMod, "mitigation": () => mitigation, "livingShards": () => livingShards, "linkedDr": () => linkedDr, "playerPct": () => playerPct, "petPct": () => petPct, "snapshot": () => snapshot, "damage": () => damage, "gainResource": () => gainResource, "applyDamage": () => applyDamage, "healUnit": () => healUnit });
+let LVL_DMG_STEP, LVL_DMG_MIN, LVL_DMG_MAX, MISS_BASE, MISS_PER_LEVEL, MISS_CAP, DMG_VARIANCE, ENEMY_CRIT, CRIT_MULT, ARMOR_K, ARMOR_C, ARMOR_MIT_CAP, MIN_HIT_DAMAGE, CHILL_PCT, CURSE_PCT, STEALTH_MISS_BONUS, TALENT, BOON_DMG_PCT, ELIXIR_DMG_PCT, UNIQUE_ELITE_DMG, LINK_DR, LINK_DR_PER_SHARD, FIGHT_SOFT_ENRAGE_ROUND, FIGHT_SOFT_ENRAGE_STEP, ECLIPSE_STEP, BRAND_MAX, DEBUFFS, RES_HP_PCT, RES_MANA_PCT, MOB_XP_FRAC, ELITE_XP_MULT, RARE_XP_MULT, DUNGEON_BOSS_XP_MULT, DUNGEON_MOB_XP_MULT, MOB_COIN_V, ELITE_GOLD_V, EMBER_ELITE_DROP_CHANCE, DUNGEON_BOSS_DROPS, UNIQUE_HEAL_ON_KILL, ABILITY_TEMPLATE, DODGE_CAP, SPELL, SHARD_AOE_TAKEN; __link.imp("src/constants.js", [["LVL_DMG_STEP", (v) => { LVL_DMG_STEP = v; }], ["LVL_DMG_MIN", (v) => { LVL_DMG_MIN = v; }], ["LVL_DMG_MAX", (v) => { LVL_DMG_MAX = v; }], ["MISS_BASE", (v) => { MISS_BASE = v; }], ["MISS_PER_LEVEL", (v) => { MISS_PER_LEVEL = v; }], ["MISS_CAP", (v) => { MISS_CAP = v; }], ["DMG_VARIANCE", (v) => { DMG_VARIANCE = v; }], ["ENEMY_CRIT", (v) => { ENEMY_CRIT = v; }], ["CRIT_MULT", (v) => { CRIT_MULT = v; }], ["ARMOR_K", (v) => { ARMOR_K = v; }], ["ARMOR_C", (v) => { ARMOR_C = v; }], ["ARMOR_MIT_CAP", (v) => { ARMOR_MIT_CAP = v; }], ["MIN_HIT_DAMAGE", (v) => { MIN_HIT_DAMAGE = v; }], ["CHILL_PCT", (v) => { CHILL_PCT = v; }], ["CURSE_PCT", (v) => { CURSE_PCT = v; }], ["STEALTH_MISS_BONUS", (v) => { STEALTH_MISS_BONUS = v; }], ["TALENT", (v) => { TALENT = v; }], ["BOON_DMG_PCT", (v) => { BOON_DMG_PCT = v; }], ["ELIXIR_DMG_PCT", (v) => { ELIXIR_DMG_PCT = v; }], ["UNIQUE_ELITE_DMG", (v) => { UNIQUE_ELITE_DMG = v; }], ["LINK_DR", (v) => { LINK_DR = v; }], ["LINK_DR_PER_SHARD", (v) => { LINK_DR_PER_SHARD = v; }], ["FIGHT_SOFT_ENRAGE_ROUND", (v) => { FIGHT_SOFT_ENRAGE_ROUND = v; }], ["FIGHT_SOFT_ENRAGE_STEP", (v) => { FIGHT_SOFT_ENRAGE_STEP = v; }], ["ECLIPSE_STEP", (v) => { ECLIPSE_STEP = v; }], ["BRAND_MAX", (v) => { BRAND_MAX = v; }], ["DEBUFFS", (v) => { DEBUFFS = v; }], ["RES_HP_PCT", (v) => { RES_HP_PCT = v; }], ["RES_MANA_PCT", (v) => { RES_MANA_PCT = v; }], ["MOB_XP_FRAC", (v) => { MOB_XP_FRAC = v; }], ["ELITE_XP_MULT", (v) => { ELITE_XP_MULT = v; }], ["RARE_XP_MULT", (v) => { RARE_XP_MULT = v; }], ["DUNGEON_BOSS_XP_MULT", (v) => { DUNGEON_BOSS_XP_MULT = v; }], ["DUNGEON_MOB_XP_MULT", (v) => { DUNGEON_MOB_XP_MULT = v; }], ["MOB_COIN_V", (v) => { MOB_COIN_V = v; }], ["ELITE_GOLD_V", (v) => { ELITE_GOLD_V = v; }], ["EMBER_ELITE_DROP_CHANCE", (v) => { EMBER_ELITE_DROP_CHANCE = v; }], ["DUNGEON_BOSS_DROPS", (v) => { DUNGEON_BOSS_DROPS = v; }], ["UNIQUE_HEAL_ON_KILL", (v) => { UNIQUE_HEAL_ON_KILL = v; }], ["ABILITY_TEMPLATE", (v) => { ABILITY_TEMPLATE = v; }], ["DODGE_CAP", (v) => { DODGE_CAP = v; }], ["SPELL", (v) => { SPELL = v; }], ["SHARD_AOE_TAKEN", (v) => { SHARD_AOE_TAKEN = v; }]]); let nextFloat; __link.imp("src/rng.js", [["nextFloat", (v) => { nextFloat = v; }]]); let rnd, clamp; __link.imp("src/engine/util.js", [["rnd", (v) => { rnd = v; }], ["clamp", (v) => { clamp = v; }]]); let tr, hasEffect; __link.imp("src/engine/stats.js", [["tr", (v) => { tr = v; }], ["hasEffect", (v) => { hasEffect = v; }]]); let eventXp, gainXp, gainGold; __link.imp("src/engine/progress.js", [["eventXp", (v) => { eventXp = v; }], ["gainXp", (v) => { gainXp = v; }], ["gainGold", (v) => { gainGold = v; }]]); let rollDrop, V, makeConsumable, countConsumable, takeConsumable; __link.imp("src/engine/items.js", [["rollDrop", (v) => { rollDrop = v; }], ["V", (v) => { V = v; }], ["makeConsumable", (v) => { makeConsumable = v; }], ["countConsumable", (v) => { countConsumable = v; }], ["takeConsumable", (v) => { takeConsumable = v; }]]); let onBossDamaged; __link.imp("src/engine/boss.js", [["onBossDamaged", (v) => { onBossDamaged = v; }]]); __link.exp({ "unitSt": () => unitSt, "unitLevel": () => unitLevel, "unitAlive": () => unitAlive, "unitHpFrac": () => unitHpFrac, "petAlive": () => petAlive, "isEliteOrBoss": () => isEliteOrBoss, "livingEnemies": () => livingEnemies, "findSt": () => findSt, "hasSt": () => hasSt, "addStatus": () => addStatus, "removeStatus": () => removeStatus, "dispersal": () => dispersal, "debuffStacks": () => debuffStacks, "gainStealth": () => gainStealth, "levelMod": () => levelMod, "mitigation": () => mitigation, "livingShards": () => livingShards, "linkedDr": () => linkedDr, "playerPct": () => playerPct, "petPct": () => petPct, "snapshot": () => snapshot, "damage": () => damage, "gainResource": () => gainResource, "applyDamage": () => applyDamage, "healUnit": () => healUnit, "resurrectOrder": () => resurrectOrder });
 yield;
 // Damage pipeline (rules 7.2), statuses (7.4), kills, death and resurrection (9).
 // Units: 'player', 'pet', or an enemy index (number) into s.fight.enemies.
@@ -3237,15 +3253,29 @@ function enemyDeath(s, ev, idx) {
 }
 
 // ---------------- Death and resurrection ----------------
+/**
+ * Resurrect charges a death would use, in the order they are used (rules 9): Boon of Return, Second Breath
+ * (meta; not in the end-boss fight, M2 v3), Ember of Return. None under the Oath of Frailty (rules 11.5).
+ * endBoss: the death happens in the end-boss fight.
+ */
+function resurrectOrder(s, endBoss) {
+  if (s.oaths.includes('frailty')) return [];
+  const p = s.player;
+  const out = [];
+  for (let i = 0; i < p.res.boon; i++) out.push('boon');
+  if (!endBoss) for (let i = 0; i < p.res.meta; i++) out.push('second_breath');
+  for (let i = countConsumable(s, 'ember_of_return'); i > 0; i--) out.push('ember');
+  return out;
+}
+
 function playerDeath(s, ev, killer, spell) {
   const f = s.fight;
   const p = s.player;
-  let source = null;
-  if (!s.oaths.includes('frailty')) {
-    if (p.res.boon > 0) { p.res.boon -= 1; source = 'boon'; }
-    else if (p.res.meta > 0) { p.res.meta -= 1; source = 'second_breath'; }
-    else if (countConsumable(s, 'ember_of_return') > 0) { takeConsumable(s, 'ember_of_return', 1); source = 'ember'; }
-  }
+  // In the end-boss fight Second Breath is skipped; it stays unused (M2 v3).
+  const source = resurrectOrder(s, f.kind === 'boss')[0] || null;
+  if (source === 'boon') p.res.boon -= 1;
+  else if (source === 'second_breath') p.res.meta -= 1;
+  else if (source === 'ember') takeConsumable(s, 'ember_of_return', 1);
   if (source) {
     p.hp = Math.max(1, rnd(RES_HP_PCT * p.d.maxHp));
     if (p.d.maxMana) p.mana = rnd(RES_MANA_PCT * p.d.maxMana);
@@ -3271,7 +3301,7 @@ function playerDeath(s, ev, killer, spell) {
 
 });
 __bundle.def("src/engine/combat.js", function* (__ns, __link) {
-let ARCHETYPE, VARIANT, ABILITY_TEMPLATE, ENEMY_HP_BASE, ENEMY_HP_PER_LEVEL, ENEMY_DMG_BASE, ENEMY_DMG_PER_LEVEL, ENEMY_ARMOR_PER_LEVEL, ENEMY_DODGE, PET, ENERGY_MAX, ENERGY_REGEN, FOCUS_MAX, FOCUS_REGEN, MANA_REGEN_ROUND_PCT, PET_REVIVE_PCT, TALENT, UNIQUE_WARD_PCT, BRAND_DMG, BOSS_LEVEL, MIN_HIT_DAMAGE; __link.imp("src/constants.js", [["ARCHETYPE", (v) => { ARCHETYPE = v; }], ["VARIANT", (v) => { VARIANT = v; }], ["ABILITY_TEMPLATE", (v) => { ABILITY_TEMPLATE = v; }], ["ENEMY_HP_BASE", (v) => { ENEMY_HP_BASE = v; }], ["ENEMY_HP_PER_LEVEL", (v) => { ENEMY_HP_PER_LEVEL = v; }], ["ENEMY_DMG_BASE", (v) => { ENEMY_DMG_BASE = v; }], ["ENEMY_DMG_PER_LEVEL", (v) => { ENEMY_DMG_PER_LEVEL = v; }], ["ENEMY_ARMOR_PER_LEVEL", (v) => { ENEMY_ARMOR_PER_LEVEL = v; }], ["ENEMY_DODGE", (v) => { ENEMY_DODGE = v; }], ["PET", (v) => { PET = v; }], ["ENERGY_MAX", (v) => { ENERGY_MAX = v; }], ["ENERGY_REGEN", (v) => { ENERGY_REGEN = v; }], ["FOCUS_MAX", (v) => { FOCUS_MAX = v; }], ["FOCUS_REGEN", (v) => { FOCUS_REGEN = v; }], ["MANA_REGEN_ROUND_PCT", (v) => { MANA_REGEN_ROUND_PCT = v; }], ["PET_REVIVE_PCT", (v) => { PET_REVIVE_PCT = v; }], ["TALENT", (v) => { TALENT = v; }], ["UNIQUE_WARD_PCT", (v) => { UNIQUE_WARD_PCT = v; }], ["BRAND_DMG", (v) => { BRAND_DMG = v; }], ["BOSS_LEVEL", (v) => { BOSS_LEVEL = v; }], ["MIN_HIT_DAMAGE", (v) => { MIN_HIT_DAMAGE = v; }]]); let nextFloat, weightedIndex, nextInt; __link.imp("src/rng.js", [["nextFloat", (v) => { nextFloat = v; }], ["weightedIndex", (v) => { weightedIndex = v; }], ["nextInt", (v) => { nextInt = v; }]]); let rnd, deepClone; __link.imp("src/engine/util.js", [["rnd", (v) => { rnd = v; }], ["deepClone", (v) => { deepClone = v; }]]); let tr, hasEffect; __link.imp("src/engine/stats.js", [["tr", (v) => { tr = v; }], ["hasEffect", (v) => { hasEffect = v; }]]); let damage, snapshot, mitigation, addStatus, findSt, hasSt, petAlive, healUnit, applyDamage, levelMod, gainStealth; __link.imp("src/engine/damage.js", [["damage", (v) => { damage = v; }], ["snapshot", (v) => { snapshot = v; }], ["mitigation", (v) => { mitigation = v; }], ["addStatus", (v) => { addStatus = v; }], ["findSt", (v) => { findSt = v; }], ["hasSt", (v) => { hasSt = v; }], ["petAlive", (v) => { petAlive = v; }], ["healUnit", (v) => { healUnit = v; }], ["applyDamage", (v) => { applyDamage = v; }], ["levelMod", (v) => { levelMod = v; }], ["gainStealth", (v) => { gainStealth = v; }]]); let bossIntent, bossAct, bossStartRound, bossEndOfRound, mirrorImage, SHARD_ACTION; __link.imp("src/engine/boss.js", [["bossIntent", (v) => { bossIntent = v; }], ["bossAct", (v) => { bossAct = v; }], ["bossStartRound", (v) => { bossStartRound = v; }], ["bossEndOfRound", (v) => { bossEndOfRound = v; }], ["mirrorImage", (v) => { mirrorImage = v; }], ["SHARD_ACTION", (v) => { SHARD_ACTION = v; }]]); let playerAction, petAction; __link.imp("src/engine/spells.js", [["playerAction", (v) => { playerAction = v; }], ["petAction", (v) => { petAction = v; }]]); __link.exp({ "makeEnemy": () => makeEnemy, "rollIntents": () => rollIntents, "defaultTarget": () => defaultTarget, "beginRound": () => beginRound, "resolveRound": () => resolveRound, "startFight": () => startFight, "endFight": () => endFight });
+let ARCHETYPE, VARIANT, ABILITY_TEMPLATE, ENEMY_HP_BASE, ENEMY_HP_PER_LEVEL, ENEMY_DMG_BASE, ENEMY_DMG_PER_LEVEL, ENEMY_ARMOR_PER_LEVEL, ENEMY_DODGE, PET, ENERGY_MAX, ENERGY_REGEN, FOCUS_MAX, FOCUS_REGEN, MANA_REGEN_ROUND_PCT, PET_REVIVE_PCT, TALENT, UNIQUE_WARD_PCT, BRAND_DMG, BOSS_LEVEL, MIN_HIT_DAMAGE, ZONE_DANGER_FROM, ZONE_DANGER_STEP; __link.imp("src/constants.js", [["ARCHETYPE", (v) => { ARCHETYPE = v; }], ["VARIANT", (v) => { VARIANT = v; }], ["ABILITY_TEMPLATE", (v) => { ABILITY_TEMPLATE = v; }], ["ENEMY_HP_BASE", (v) => { ENEMY_HP_BASE = v; }], ["ENEMY_HP_PER_LEVEL", (v) => { ENEMY_HP_PER_LEVEL = v; }], ["ENEMY_DMG_BASE", (v) => { ENEMY_DMG_BASE = v; }], ["ENEMY_DMG_PER_LEVEL", (v) => { ENEMY_DMG_PER_LEVEL = v; }], ["ENEMY_ARMOR_PER_LEVEL", (v) => { ENEMY_ARMOR_PER_LEVEL = v; }], ["ENEMY_DODGE", (v) => { ENEMY_DODGE = v; }], ["PET", (v) => { PET = v; }], ["ENERGY_MAX", (v) => { ENERGY_MAX = v; }], ["ENERGY_REGEN", (v) => { ENERGY_REGEN = v; }], ["FOCUS_MAX", (v) => { FOCUS_MAX = v; }], ["FOCUS_REGEN", (v) => { FOCUS_REGEN = v; }], ["MANA_REGEN_ROUND_PCT", (v) => { MANA_REGEN_ROUND_PCT = v; }], ["PET_REVIVE_PCT", (v) => { PET_REVIVE_PCT = v; }], ["TALENT", (v) => { TALENT = v; }], ["UNIQUE_WARD_PCT", (v) => { UNIQUE_WARD_PCT = v; }], ["BRAND_DMG", (v) => { BRAND_DMG = v; }], ["BOSS_LEVEL", (v) => { BOSS_LEVEL = v; }], ["MIN_HIT_DAMAGE", (v) => { MIN_HIT_DAMAGE = v; }], ["ZONE_DANGER_FROM", (v) => { ZONE_DANGER_FROM = v; }], ["ZONE_DANGER_STEP", (v) => { ZONE_DANGER_STEP = v; }]]); let nextFloat, weightedIndex, nextInt; __link.imp("src/rng.js", [["nextFloat", (v) => { nextFloat = v; }], ["weightedIndex", (v) => { weightedIndex = v; }], ["nextInt", (v) => { nextInt = v; }]]); let rnd, deepClone; __link.imp("src/engine/util.js", [["rnd", (v) => { rnd = v; }], ["deepClone", (v) => { deepClone = v; }]]); let tr, hasEffect; __link.imp("src/engine/stats.js", [["tr", (v) => { tr = v; }], ["hasEffect", (v) => { hasEffect = v; }]]); let damage, snapshot, mitigation, addStatus, findSt, hasSt, petAlive, healUnit, applyDamage, levelMod, gainStealth; __link.imp("src/engine/damage.js", [["damage", (v) => { damage = v; }], ["snapshot", (v) => { snapshot = v; }], ["mitigation", (v) => { mitigation = v; }], ["addStatus", (v) => { addStatus = v; }], ["findSt", (v) => { findSt = v; }], ["hasSt", (v) => { hasSt = v; }], ["petAlive", (v) => { petAlive = v; }], ["healUnit", (v) => { healUnit = v; }], ["applyDamage", (v) => { applyDamage = v; }], ["levelMod", (v) => { levelMod = v; }], ["gainStealth", (v) => { gainStealth = v; }]]); let bossIntent, bossAct, bossStartRound, bossEndOfRound, mirrorImage, SHARD_ACTION; __link.imp("src/engine/boss.js", [["bossIntent", (v) => { bossIntent = v; }], ["bossAct", (v) => { bossAct = v; }], ["bossStartRound", (v) => { bossStartRound = v; }], ["bossEndOfRound", (v) => { bossEndOfRound = v; }], ["mirrorImage", (v) => { mirrorImage = v; }], ["SHARD_ACTION", (v) => { SHARD_ACTION = v; }]]); let playerAction, petAction; __link.imp("src/engine/spells.js", [["playerAction", (v) => { playerAction = v; }], ["petAction", (v) => { petAction = v; }]]); __link.exp({ "zoneDanger": () => zoneDanger, "makeEnemy": () => makeEnemy, "rollIntents": () => rollIntents, "defaultTarget": () => defaultTarget, "beginRound": () => beginRound, "resolveRound": () => resolveRound, "startFight": () => startFight, "endFight": () => endFight });
 yield;
 // Fight lifecycle and enemy AI (rules 7.1, 7.4, 7.6). Player actions are in spells.js; the end boss in boss.js.
 
@@ -3288,7 +3318,18 @@ yield;
 
 
 
+
 // ---------------- Enemies ----------------
+/**
+ * Zone danger (rules 7.6, M2 v3): damage multiplier of an enemy made from an enemy template, by its level M:
+ * 1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10 (level 30 ×1.25, 60 ×2.0). The end boss and the
+ * Dimming Shards (boss.js) are not made here and keep their own constants.
+ */
+function zoneDanger(level) {
+  return 1 + (ZONE_DANGER_STEP * Math.max(0, level - ZONE_DANGER_FROM)) / 10;
+}
+
+/** Enemy from a template (rules 7.6): every quest, grind, elite, rare, dungeon, Camp and summoned enemy. No draws. */
 function makeEnemy(s, idx, tid, level, variant) {
   const t = s.content.enemies[tid];
   const a = ARCHETYPE[t.archetype];
@@ -3296,7 +3337,7 @@ function makeEnemy(s, idx, tid, level, variant) {
   const hp = Math.max(1, rnd((ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL * level) * a.hp * v.hp * t.hpMult));
   return {
     idx, tid, name: t.name, kind: variant, arch: t.archetype, level, hp, maxHp: hp,
-    dmg: (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL * level) * a.dmg * v.dmg * t.dmgMult,
+    dmg: (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL * level) * a.dmg * v.dmg * t.dmgMult * zoneDanger(level),
     armor: ENEMY_ARMOR_PER_LEVEL * level * a.armor, dodge: ENEMY_DODGE + a.dodge,
     abilities: t.abilities.slice(), cds: {}, st: [], intent: null, alive: true,
     elite: variant === 'elite' || variant === 'rare', boss: variant === 'dboss', ccImmune: variant === 'dboss',
@@ -4183,7 +4224,12 @@ function spellAmount(s, id) {
   if (sp.heal) return { kind: 'heal', amount: rnd(base(s, sp.heal, tl)) };
   if (sp.healPct) return { kind: 'heal', amount: rnd(sp.healPct * s.player.d.maxHp) };
   if (sp.gjFrac) return { kind: 'damage', amount: rnd(sp.gjFrac * gjAmount(s)), hits: sp.hits, school: 'phys' };
-  if (sp.school && (sp.b || sp.p || sp.w)) return { kind: 'damage', amount: rnd(base(s, sp, tl, cp)), hits: sp.hits || 1, school: sp.school, perCp: !!sp.perCp };
+  if (sp.school && (sp.b || sp.p || sp.w)) {
+    const a = { kind: 'damage', amount: rnd(base(s, sp, tl, cp)), hits: sp.hits || 1, school: sp.school, perCp: !!sp.perCp };
+    // Ricochet Bolt: the target takes `amount`, then up to `bounces` other enemies take bounceFrac of it.
+    if (sp.bounces) Object.assign(a, { bounces: sp.bounces, bounceFrac: sp.bounceFrac, bounceAmount: rnd(base(s, sp, tl, cp) * sp.bounceFrac) });
+    return a;
+  }
   return null;
 }
 
@@ -4324,9 +4370,14 @@ yield;
 
 
 // ---------------- Meta at run start (rules 11.4) ----------------
+/**
+ * Run modifiers from the profile's unlocks. A rank above the catalogue's ranks (a profile saved under an older
+ * catalogue, e.g. Keen 3 or Ancestral Insight 2 before M2 v3) counts as the maximum rank, so a profile never
+ * exceeds the meta power budget (rules 11.2).
+ */
 function metaFromProfile(profile, classId) {
   const u = (profile && profile.unlocks) || {};
-  const r = (id) => u[id] || 0;
+  const r = (id) => Math.min(u[id] || 0, META[id].ranks);
   return {
     hpPct: r('vigor') * META.vigor.hpPct,
     powerPct: r('edge') * META.edge.powerPct,
@@ -4994,10 +5045,13 @@ function reqMet(profile, req) {
   return (profile.unlocks[req] || 0) > 0;
 }
 
-/** Catalogue view: every entry with rank, next cost and whether it can be bought now (rules 11.2). */
+/**
+ * Catalogue view: every entry with rank, next cost and whether it can be bought now (rules 11.2). A stored rank
+ * above the entry's ranks (older catalogue) shows as the maximum rank, as it counts in a run.
+ */
 function metaOffers(profile) {
   return Object.values(META).map((m) => {
-    const rank = profile.unlocks[m.id] || 0;
+    const rank = Math.min(profile.unlocks[m.id] || 0, m.ranks);
     const maxed = rank >= m.ranks;
     const nextCost = maxed ? null : m.costs[rank];
     const reqOk = m.req.every((r) => reqMet(profile, r));
@@ -5028,10 +5082,14 @@ function profileHash(profile) {
   return hash32(keys.map((k) => `${k}:${profile.unlocks[k]}`).join(','));
 }
 
-/** Echoes earned by a run, line by line (rules 11.1). facts: see summary(). */
+/**
+ * Echoes earned by a run, line by line (rules 11.1). facts: see summary(). Each line is rounded half away from
+ * zero, round(count × each) (M2 v3: ECHO_PER_LEVEL and ECHO_PER_ZONE are fractional); the total is the sum of the
+ * rounded lines × the Oath multiplier, rounded.
+ */
 function echoes(facts, profile) {
   const lines = [];
-  const add = (id, count, each) => { if (count > 0) lines.push({ id, count, each, echoes: count * each }); };
+  const add = (id, count, each) => { if (count > 0) lines.push({ id, count, each, echoes: rnd(count * each) }); };
   add('levels', facts.level - 1, ECHO_PER_LEVEL);
   add('zones', facts.zonesLeft, ECHO_PER_ZONE);
   add('dungeons', facts.dungeons, ECHO_PER_DUNGEON);
@@ -6002,7 +6060,7 @@ function autoAction(s) {
 
 });
 __bundle.def("src/rules.js", function* (__ns, __link) {
-const C = __link.ns("src/constants.js"); let normaliseSeed; __link.imp("src/rng.js", [["normaliseSeed", (v) => { normaliseSeed = v; }]]); let cloneState, deepClone, deepFreeze, IllegalActionError; __link.imp("src/engine/util.js", [["cloneState", (v) => { cloneState = v; }], ["deepClone", (v) => { deepClone = v; }], ["deepFreeze", (v) => { deepFreeze = v; }], ["IllegalActionError", (v) => { IllegalActionError = v; }]]); let validateContent, zoneContent; __link.imp("src/engine/content.js", [["validateContent", (v) => { validateContent = v; }], ["zoneContent", (v) => { zoneContent = v; }]]); let checkAction, applyAction, legal; __link.imp("src/engine/actions.js", [["checkAction", (v) => { checkAction = v; }], ["applyAction", (v) => { applyAction = v; }], ["legalActions", (v) => { legal = v; }]]); let auto; __link.imp("src/engine/autoplay.js", [["autoAction", (v) => { auto = v; }]]); let sum; __link.imp("src/engine/summary.js", [["summary", (v) => { sum = v; }]]); let newProfile, metaOffers, buyMeta, applyRunToProfile; __link.imp("src/engine/meta.js", [["newProfile", (v) => { newProfile = v; }], ["metaOffers", (v) => { metaOffers = v; }], ["buyMeta", (v) => { buyMeta = v; }], ["applyRunToProfile", (v) => { applyRunToProfile = v; }]]); let availablePets, metaFromProfile, travelAt; __link.imp("src/engine/nodes.js", [["availablePets", (v) => { availablePets = v; }], ["metaFromProfile", (v) => { metaFromProfile = v; }], ["travelLevel", (v) => { travelAt = v; }]]); let nextLanes; __link.imp("src/engine/map.js", [["nextLanes", (v) => { nextLanes = v; }]]); let xpToNext, xpCurve, diffMod, freePoints; __link.imp("src/engine/progress.js", [["xpToNext", (v) => { xpToNext = v; }], ["xpCurve", (v) => { xpCurve = v; }], ["diffMod", (v) => { diffMod = v; }], ["talentPointsFree", (v) => { freePoints = v; }]]); let itemScore, V, bagCap; __link.imp("src/engine/items.js", [["itemScore", (v) => { itemScore = v; }], ["V", (v) => { V = v; }], ["bagCapacity", (v) => { bagCap = v; }]]); let cost, spellCd, spellAmount, spellTl, flee, castError; __link.imp("src/engine/spells.js", [["spellCost", (v) => { cost = v; }], ["spellCd", (v) => { spellCd = v; }], ["spellAmount", (v) => { spellAmount = v; }], ["spellTl", (v) => { spellTl = v; }], ["fleeChance", (v) => { flee = v; }], ["castError", (v) => { castError = v; }]]); __link.exp({ "STATE_VERSION": () => STATE_VERSION, "C": () => C, "validateContent": () => validateContent, "newProfile": () => newProfile, "metaOffers": () => metaOffers, "buyMeta": () => buyMeta, "applyRunToProfile": () => applyRunToProfile, "IllegalActionError": () => IllegalActionError, "xpToNext": () => xpToNext, "itemScore": () => itemScore, "V": () => V, "xpCurve": () => xpCurve, "diffMod": () => diffMod, "bagCapacity": () => bagCapacity, "travelLevel": () => travelLevel, "talentPointsFree": () => talentPointsFree, "spellCost": () => spellCost, "spellCooldown": () => spellCooldown, "spellInfo": () => spellInfo, "fleeChance": () => fleeChance, "newRun": () => newRun, "legalActions": () => legalActions, "whyIllegal": () => whyIllegal, "isLegal": () => isLegal, "step": () => step, "stepInPlace": () => stepInPlace, "autoAction": () => autoAction, "summary": () => summary, "serialize": () => serialize, "deserialize": () => deserialize, "mapView": () => mapView });
+const C = __link.ns("src/constants.js"); let normaliseSeed; __link.imp("src/rng.js", [["normaliseSeed", (v) => { normaliseSeed = v; }]]); let cloneState, deepClone, deepFreeze, IllegalActionError; __link.imp("src/engine/util.js", [["cloneState", (v) => { cloneState = v; }], ["deepClone", (v) => { deepClone = v; }], ["deepFreeze", (v) => { deepFreeze = v; }], ["IllegalActionError", (v) => { IllegalActionError = v; }]]); let validateContent, zoneContent; __link.imp("src/engine/content.js", [["validateContent", (v) => { validateContent = v; }], ["zoneContent", (v) => { zoneContent = v; }]]); let checkAction, applyAction, legal; __link.imp("src/engine/actions.js", [["checkAction", (v) => { checkAction = v; }], ["applyAction", (v) => { applyAction = v; }], ["legalActions", (v) => { legal = v; }]]); let auto; __link.imp("src/engine/autoplay.js", [["autoAction", (v) => { auto = v; }]]); let sum; __link.imp("src/engine/summary.js", [["summary", (v) => { sum = v; }]]); let newProfile, metaOffers, buyMeta, applyRunToProfile; __link.imp("src/engine/meta.js", [["newProfile", (v) => { newProfile = v; }], ["metaOffers", (v) => { metaOffers = v; }], ["buyMeta", (v) => { buyMeta = v; }], ["applyRunToProfile", (v) => { applyRunToProfile = v; }]]); let availablePets, metaFromProfile, travelAt; __link.imp("src/engine/nodes.js", [["availablePets", (v) => { availablePets = v; }], ["metaFromProfile", (v) => { metaFromProfile = v; }], ["travelLevel", (v) => { travelAt = v; }]]); let nextLanes; __link.imp("src/engine/map.js", [["nextLanes", (v) => { nextLanes = v; }]]); let xpToNext, xpCurve, diffMod, freePoints; __link.imp("src/engine/progress.js", [["xpToNext", (v) => { xpToNext = v; }], ["xpCurve", (v) => { xpCurve = v; }], ["diffMod", (v) => { diffMod = v; }], ["talentPointsFree", (v) => { freePoints = v; }]]); let itemScore, V, bagCap, countConsumable; __link.imp("src/engine/items.js", [["itemScore", (v) => { itemScore = v; }], ["V", (v) => { V = v; }], ["bagCapacity", (v) => { bagCap = v; }], ["countConsumable", (v) => { countConsumable = v; }]]); let cost, spellCd, spellAmount, spellTl, flee, castError; __link.imp("src/engine/spells.js", [["spellCost", (v) => { cost = v; }], ["spellCd", (v) => { spellCd = v; }], ["spellAmount", (v) => { spellAmount = v; }], ["spellTl", (v) => { spellTl = v; }], ["fleeChance", (v) => { flee = v; }], ["castError", (v) => { castError = v; }]]); let resurrectOrder; __link.imp("src/engine/damage.js", [["resurrectOrder", (v) => { resurrectOrder = v; }]]); __link.exp({ "STATE_VERSION": () => STATE_VERSION, "C": () => C, "validateContent": () => validateContent, "newProfile": () => newProfile, "metaOffers": () => metaOffers, "buyMeta": () => buyMeta, "applyRunToProfile": () => applyRunToProfile, "IllegalActionError": () => IllegalActionError, "xpToNext": () => xpToNext, "itemScore": () => itemScore, "V": () => V, "xpCurve": () => xpCurve, "diffMod": () => diffMod, "bagCapacity": () => bagCapacity, "travelLevel": () => travelLevel, "resurrectCharges": () => resurrectCharges, "talentPointsFree": () => talentPointsFree, "spellCost": () => spellCost, "spellCooldown": () => spellCooldown, "spellInfo": () => spellInfo, "fleeChance": () => fleeChance, "newRun": () => newRun, "legalActions": () => legalActions, "whyIllegal": () => whyIllegal, "isLegal": () => isLegal, "step": () => step, "stepInPlace": () => stepInPlace, "autoAction": () => autoAction, "summary": () => summary, "serialize": () => serialize, "deserialize": () => deserialize, "mapView": () => mapView });
 yield;
 // Rules engine: public API (docs/specs/engine-api.md has the full contract and the event list).
 //
@@ -6019,7 +6077,9 @@ yield;
 //
 // Also exported: validateContent, newProfile, metaOffers, buyMeta, mapView, isLegal, whyIllegal, stepInPlace,
 // IllegalActionError, display helpers (xpToNext, talentPointsFree, itemScore, spellCost, spellCooldown,
-// spellInfo, fleeChance, bagCapacity, travelLevel), rule helpers (V, xpCurve, diffMod) and every constant via `C`.
+// spellInfo, fleeChance, bagCapacity, travelLevel, resurrectCharges), rule helpers (V, xpCurve, diffMod) and every
+// constant via `C`.
+
 
 
 
@@ -6056,6 +6116,22 @@ function bagCapacity(state) {
  */
 function travelLevel(state) {
   return state.player && state.zone && !state.zone.camp && state.phase !== 'SUMMARY' && state.phase !== 'ENDED' ? travelAt(state) : null;
+}
+
+/**
+ * Resurrect charges (rules 9): `{ boon, secondBreath, ember, now, boss }`. The counts are what the player holds;
+ * `now` and `boss` list the sources a death would use, in order ('boon', 'second_breath', 'ember'): `now` in the
+ * current fight (out of combat: on the journey), `boss` in the end-boss fight, where Second Breath is not used
+ * (M2 v3). Both are empty under the Oath of Frailty. null before START_RUN.
+ */
+function resurrectCharges(state) {
+  if (!state.player) return null;
+  const p = state.player;
+  return {
+    boon: p.res.boon, secondBreath: p.res.meta, ember: countConsumable(state, 'ember_of_return'),
+    now: resurrectOrder(state, !!(state.fight && state.fight.kind === 'boss')),
+    boss: resurrectOrder(state, true),
+  };
 }
 
 /** Unspent talent points (rules 6). */
@@ -11435,7 +11511,7 @@ const data = {
 
 });
 __bundle.def("src/ui/ui-text.js", function* (__ns, __link) {
-let SPELLS, TALENTS, BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS; __link.imp("src/ui/mock-data.js", [["SPELLS", (v) => { SPELLS = v; }], ["TALENTS", (v) => { TALENTS = v; }], ["STATUS_INFO", (v) => { BASE_STATUS = v; }], ["CONSUMABLES", (v) => { CONSUMABLES = v; }], ["BOONS", (v) => { BOONS = v; }], ["CLASSES", (v) => { CLASSES = v; }], ["PETS", (v) => { PETS = v; }]]); __link.exp({ "STATUS_INFO": () => STATUS_INFO, "CLASS_UI": () => CLASS_UI, "spellText": () => spellText, "talentText": () => talentText, "consumableText": () => consumableText, "boonText": () => boonText, "petText": () => petText, "UNIQUE_EFFECT_TEXT": () => UNIQUE_EFFECT_TEXT, "ECHO_LINE": () => ECHO_LINE, "humanize": () => humanize, "numWord": () => numWord, "plural": () => plural, "linkedText": () => linkedText });
+let SPELLS, TALENTS, BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS; __link.imp("src/ui/mock-data.js", [["SPELLS", (v) => { SPELLS = v; }], ["TALENTS", (v) => { TALENTS = v; }], ["STATUS_INFO", (v) => { BASE_STATUS = v; }], ["CONSUMABLES", (v) => { CONSUMABLES = v; }], ["BOONS", (v) => { BOONS = v; }], ["CLASSES", (v) => { CLASSES = v; }], ["PETS", (v) => { PETS = v; }]]); __link.exp({ "STATUS_INFO": () => STATUS_INFO, "CLASS_UI": () => CLASS_UI, "spellText": () => spellText, "bounceText": () => bounceText, "talentText": () => talentText, "consumableText": () => consumableText, "boonText": () => boonText, "petText": () => petText, "UNIQUE_EFFECT_TEXT": () => UNIQUE_EFFECT_TEXT, "ECHO_LINE": () => ECHO_LINE, "humanize": () => humanize, "numWord": () => numWord, "plural": () => plural, "pct1": () => pct1, "RES_NAME": () => RES_NAME, "resurrectText": () => resurrectText, "dangerAt": () => dangerAt, "dangerRule": () => dangerRule, "dangerBanner": () => dangerBanner, "linkedText": () => linkedText });
 yield;
 // Display text for tooltips and screens (descriptions of spells, talents, statuses, consumables,
 // boons and classes). Wording follows docs/specs/rules.md; numbers that matter come from the
@@ -11454,9 +11530,19 @@ const STATUS_INFO = {
 
 const CLASS_UI = Object.fromEntries(Object.values(CLASSES).map((c) => [c.id, { color: c.color, role: c.role, blurb: c.blurb }]));
 
-function spellText(id, content) {
+/**
+ * Description of a spell. `sp` is the engine's spell entry (R.C.SPELL[id]); a spell with a bounce rule (Ricochet Bolt,
+ * M2 v3) is described from its own numbers, never from the mock's text.
+ */
+function spellText(id, content, sp = null) {
   const t = content && content.texts && content.texts.spells && content.texts.spells[id];
-  return t || (SPELLS[id] && SPELLS[id].text) || '';
+  if (t) return t;
+  if (sp && sp.bounces) return bounceText(sp);
+  return (SPELLS[id] && SPELLS[id].text) || '';
+}
+/** Ricochet Bolt (M2 v3): the target, then up to `bounces` other enemies for `bounceFrac` of the damage. */
+function bounceText(sp) {
+  return `Hits the target, then up to ${numWord(sp.bounces)} other ${plural(sp.bounces, 'enemy', 'enemies')} for ${pct(sp.bounceFrac)} of the damage.`;
 }
 function talentText(id, content) {
   const t = content && content.texts && content.texts.talents && content.texts.talents[id];
@@ -11493,6 +11579,42 @@ const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eig
 const numWord = (n) => WORDS[n] || String(n);
 const plural = (n, one, many = `${one}s`) => (n === 1 ? one : many);
 const pct = (x) => `${Math.round(x * 100)} %`;
+/** A share in per cent with up to one decimal ("12.5 %", "25 %"). */
+const pct1 = (x) => `${Math.round(x * 1000) / 10} %`;
+
+/** Resurrect sources of the view (player.resurrect): Second Breath is 'meta' (rules 9). */
+const RES_NAME = { boon: 'Boon of Return', meta: 'Second Breath', ember: 'Ember of Return' };
+/**
+ * Resurrect charges in words (rules 9, M2 v3). `p.resurrect` lists what a death would use now, in order (the engine's
+ * resurrectCharges().now); `p.resurrectHeld` counts the charges held. In the end-boss fight Second Breath does not work:
+ * it is not in the list there, and `note` says so when one is held. Returns { list, note, count }.
+ */
+function resurrectText(p, bossFight) {
+  const counts = new Map();
+  for (const k of p.resurrect || []) counts.set(k, (counts.get(k) || 0) + 1);
+  const items = [...counts].map(([k, n]) => `${RES_NAME[k] || humanize(k)}${n > 1 ? ` ×${n}` : ''}${k === 'meta' ? ' (not in the final fight)' : ''}`);
+  const held = (p.resurrectHeld && p.resurrectHeld.meta) || 0;
+  const note = bossFight && held > 0 && !counts.has('meta') ? 'Second Breath does not work in the final fight.' : null;
+  return { list: items.length ? items.join(', ') : bossFight ? 'None in this fight' : 'None', note, count: (p.resurrect || []).length };
+}
+
+/**
+ * Zone danger (rules 7.6, M2 v3) from the rules table: an enemy of level M deals
+ * dangerStep × max(0, M - dangerFrom) / DANGER_LEVELS more damage. DANGER_LEVELS is the unit of ZONE_DANGER_STEP
+ * ("× per 10 levels above ZONE_DANGER_FROM", rules.md constants table). 0 when the engine has no zone danger.
+ */
+const DANGER_LEVELS = 10;
+function dangerAt(r, level) {
+  return r.dangerStep == null || r.dangerFrom == null ? 0 : (r.dangerStep * Math.max(0, level - r.dangerFrom)) / DANGER_LEVELS;
+}
+/** The rule in one sentence, or null without zone danger. */
+function dangerRule(r) {
+  return r.dangerStep == null || r.dangerFrom == null ? null : `Enemies above level ${r.dangerFrom} hit harder: +${pct(r.dangerStep)} damage per ${DANGER_LEVELS} levels.`;
+}
+/** Short line for the zone banner when the zone's levels reach past ZONE_DANGER_FROM, else null. */
+function dangerBanner(r, band) {
+  return dangerAt(r, band[1]) > 0 ? `Enemies above level ${r.dangerFrom} hit harder` : null;
+}
 
 /**
  * Linked (rules 10.2) in words, from the rules table (engine constants): 'banner' when phase 2 begins, 'log' when
@@ -11535,7 +11657,10 @@ yield;
 //              equip: { [slot]: item|null }, bag: (item|null)[], spells: [{ id, tl, rank }],
 //              bar: (spellId|null)[7], itemBar: (consumableId|null)[3], talents: { id: rank },
 //              talentPoints, talentSpent: { tree: n }, statuses: [{ id, rounds, stacks, value }],
-//              boons: [{ id, name, nodesLeft }], resurrect: [source], pet: { id, name, hp, maxHp, alive, statuses } | null }
+//              boons: [{ id, name, nodesLeft }], resurrect: [source], resurrectHeld: { boon, meta, ember }, resurrectBoss: [source],
+//              pet: { id, name, hp, maxHp, alive, statuses } | null }
+//              resurrect: what a death would use now, in order ('boon' | 'meta' (Second Breath) | 'ember'; R.resurrectCharges);
+//              resurrectBoss: the same in the end-boss fight; resurrectHeld (engine only): the charges held
 //   zone:    { idx, id, camp, name, hubName, hubText, theme, band, exitLevel, travelLevel, blurb, rows: node[rows][lanes], pos: { row, lane }, path,
 //              questsDone, storyDone }   rows and lanes: as many as the engine's map has (mapView); travelLevel: the level
 //              from which TRAVEL_ON is legal before the last row (rules 1.5, R.travelLevel)
@@ -11577,6 +11702,8 @@ function rulesTable(K) {
     linkPerShard: per ?? null, linkCap: K.LINK_DR, linkDr, shardAoeTaken: K.SHARD_AOE_TAKEN ?? null,
     // Round time budget at the default animation speed (rules 3, M2 v2); null on an engine without it.
     roundAnimMs: K.PACE_ROUND_ANIM_S != null ? K.PACE_ROUND_ANIM_S * 1000 : null,
+    // Zone danger (rules 7.6, M2 v3): enemies above dangerFrom deal +dangerStep damage per 10 levels; null without it.
+    dangerFrom: K.ZONE_DANGER_FROM ?? null, dangerStep: K.ZONE_DANGER_STEP ?? null,
   };
 }
 
@@ -11584,8 +11711,9 @@ function rulesTable(K) {
 function mockBackend(seed) {
   let state = mock.createState({ seed });
   const MC = mock.data.constants; // the mock's own simplified numbers
-  // Screen texts use the rules table; the mock's own par replaces the engine's (the mock computes Ascendancy itself).
-  const data = { ...mock.data, rules: { ...rulesTable(R.C), par: MC.BOSS_TIME_PAR, ascStepHours: MC.ASC_STEP } };
+  // Screen texts use the rules table; the mock's own par replaces the engine's (the mock computes Ascendancy itself),
+  // and the mock has no zone danger.
+  const data = { ...mock.data, rules: { ...rulesTable(R.C), par: MC.BOSS_TIME_PAR, ascStepHours: MC.ASC_STEP, dangerFrom: null, dangerStep: null } };
   return {
     mode: 'mock', data, canDebug: true,
     view() {
@@ -11607,6 +11735,7 @@ function mockBackend(seed) {
 const THEMES = ['farmland', 'wetlands', 'highlands', 'ruins', 'haunted', 'scorched'];
 const PROFILE_KEY = 'tbwcr.profile.v1';
 const RES_LETTER = { energy: 'E', mana: 'M', focus: 'F' };
+const RES_KEY = { boon: 'boon', second_breath: 'meta', ember: 'ember' }; // engine resurrect source -> view source
 const USE_MAP = { any: 'both', both: 'both', out: 'out', combat: 'combat', passive: 'passive' };
 const hash = (str) => { let h = 2166136261 >>> 0; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
@@ -11641,7 +11770,7 @@ function engineBackend(seedOpt) {
     })),
     spells: Object.fromEntries(Object.values(C.SPELL).map((s) => [s.id, {
       id: s.id, cls: s.cls, name: s.name, lvl: s.lvl, cd: s.cd || 0, tags: s.tags || [], school: s.school, target: s.target, raw: s,
-      cost: s.cost ? [RES_LETTER[C.CLASS[s.cls].resource], s.cost] : null, text: TXT.spellText(s.id, CONTENT),
+      cost: s.cost ? [RES_LETTER[C.CLASS[s.cls].resource], s.cost] : null, text: TXT.spellText(s.id, CONTENT, s),
       fx: { meta: s.source === 'meta', talent: s.source === 'talent' },
     }])),
     talents: Object.fromEntries(Object.values(C.TALENT).map((t) => [t.id, { id: t.id, tree: treeId(t.cls, t.tree), tier: t.tier, name: t.name, ranks: t.ranks, spell: t.spell || null, text: TXT.talentText(t.id, CONTENT) }])),
@@ -11686,10 +11815,12 @@ function engineBackend(seedOpt) {
     const bag = (p.bag || []).map((it) => item(it, p.classId));
     while (bag.length < R.bagCapacity(s)) bag.push(null);
     const boons = Object.entries(p.buffs || {}).filter(([, b]) => b && b.left > 0).map(([id, b]) => ({ id, name: id === 'elixir' ? 'Elixir of Ferocity' : (C.BOON[id] || {}).name || id, nodesLeft: b.left }));
-    const resurrect = [];
-    for (let i = 0; i < ((p.res && p.res.boon) || 0); i++) resurrect.push('boon');
-    for (let i = 0; i < ((p.res && p.res.meta) || 0); i++) resurrect.push('meta');
-    for (const it of p.bag || []) if (it.kind === 'cons' && it.id === 'ember_of_return') resurrect.push('ember');
+    // Resurrect charges (rules 9, M2 v3) from the engine: `resurrect` = what a death would use now, in order (in the
+    // end-boss fight without Second Breath); `resurrectHeld` = the charges held; `resurrectBoss` = what works at the boss.
+    const rc = R.resurrectCharges(s);
+    const resurrect = rc.now.map((x) => RES_KEY[x] || x);
+    const resurrectHeld = { boon: rc.boon, meta: rc.secondBreath, ember: rc.ember };
+    const resurrectBoss = rc.boss.map((x) => RES_KEY[x] || x);
     return {
       name: p.name, classId: p.classId, className: cls.name, petId: p.pet ? p.pet.id : null,
       level: p.level, xp: p.xp, xpToNext: R.xpToNext(p.level), rested: p.rested || 0, hp: p.hp, maxHp: d.maxHp,
@@ -11698,7 +11829,7 @@ function engineBackend(seedOpt) {
       gold: p.gold, equip: Object.fromEntries(Object.entries(p.equipped).map(([k, it]) => [k, item(it, p.classId)])), bag,
       spells: (p.spellOrder || Object.keys(p.spells)).map((id) => ({ id, tl: p.spells[id].tl, rank: p.spells[id].rank })),
       bar: [...p.bar], itemBar: [...p.itemBar], talents: { ...p.talents }, talentPoints: R.talentPointsFree(s), talentSpent: spent,
-      statuses: f ? statuses(f.p.st) : [], boons, resurrect,
+      statuses: f ? statuses(f.p.st) : [], boons, resurrect, resurrectHeld, resurrectBoss,
       pet: p.pet ? { id: p.pet.id, name: C.PET[p.pet.id].name, hp: p.pet.hp, maxHp: d.petMaxHp, alive: p.pet.alive, statuses: f && f.pet ? statuses(f.pet.st) : [] } : null,
     };
   }
@@ -11717,7 +11848,7 @@ function engineBackend(seedOpt) {
       const out = { row: n.r, lane: n.l, type: n.type, cl: n.cl, visited: !!n.done, title: n.title, level: n.level };
       if (n.archetypes) out.enemyNames = n.archetypes.map(TXT.humanize); // one entry per enemy (grind: the first wave)
       if (n.type === 'elite') { out.eliteName = n.name || null; out.rare = n.rare; }
-      if (n.type === 'dungeon') { out.dungeon = n.name; out.bossName = zc && CONTENT.enemies[zc.dungeon.boss] ? CONTENT.enemies[zc.dungeon.boss].name : ''; }
+      if (n.type === 'dungeon') { out.dungeon = n.name; out.bossLevel = n.bossLevel; out.bossName = zc && CONTENT.enemies[zc.dungeon.boss] ? CONTENT.enemies[zc.dungeon.boss].name : ''; }
       if (n.type === 'quest' && n.title) { const q = Object.values(CONTENT.quests).find((x) => x.title === n.title); if (q) out.giver = q.giver; }
       return out;
     })) : [];
@@ -12171,7 +12302,9 @@ function engineBackend(seedOpt) {
       const lines = [];
       const school = (x) => ({ phys: 'physical' }[x] || x || '');
       const a = info && info.amount;
-      if (a && a.kind === 'damage') lines.push(`${sp.tags && sp.tags.includes('aoe') ? 'Hits every enemy for' : 'Deals'} about ${a.amount} ${school(a.school)} damage${a.perCp ? ' per combo point' : ''}${a.hits > 1 ? `, ${a.hits} times` : ''}.`);
+      // Ricochet Bolt (M2 v3): the target takes `amount`, up to `bounces` other enemies `bounceAmount` (spellInfo)
+      if (a && a.kind === 'damage' && a.bounces) lines.push(`Deals about ${a.amount} ${school(a.school)} damage to the target, then about ${a.bounceAmount} to up to ${TXT.numWord(a.bounces)} other ${TXT.plural(a.bounces, 'enemy', 'enemies')}.`);
+      else if (a && a.kind === 'damage') lines.push(`${sp.target === 'all' ? 'Hits every enemy for' : 'Deals'} about ${a.amount} ${school(a.school)} damage${a.perCp ? ' per combo point' : ''}${a.hits > 1 ? `, ${a.hits} times` : ''}.`);
       if (a && a.kind === 'dot') lines.push(`About ${a.perTick} ${school(a.school)} damage per round for ${a.rounds} rounds.`);
       if (a && a.kind === 'ward') lines.push(`Absorbs about ${a.amount} damage for ${a.rounds} rounds.`);
       if (a && a.kind === 'heal') lines.push(`Heals about ${a.amount}.`);
@@ -14602,7 +14735,7 @@ function statusTip(s, ctx) {
 
 });
 __bundle.def("src/ui/hud.js", function* (__ns, __link) {
-let h, add, clear, fmtNum, moneyEl, hoursText, clamp, rgba; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["hoursText", (v) => { hoursText = v; }], ["clamp", (v) => { clamp = v; }], ["rgba", (v) => { rgba = v; }]]); let spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["basicIcon", (v) => { basicIcon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["statusIcon", (v) => { statusIcon = v; }], ["abilityIcon", (v) => { abilityIcon = v; }], ["icon", (v) => { icon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["NODE_COLORS", (v) => { NODE_COLORS = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }], ["enemyLook", (v) => { enemyLook = v; }], ["beastLook", (v) => { beastLook = v; }]]); let THEMES; __link.imp("src/ui/art-world.js", [["THEMES", (v) => { THEMES = v; }]]); let tip, spellTip, basicTip, itemTip, statusTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["spellTip", (v) => { spellTip = v; }], ["basicTip", (v) => { basicTip = v; }], ["itemTip", (v) => { itemTip = v; }], ["statusTip", (v) => { statusTip = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let linkedText; __link.imp("src/ui/ui-text.js", [["linkedText", (v) => { linkedText = v; }]]); __link.exp({ "conColor": () => conColor, "travelState": () => travelState, "heroPortrait": () => heroPortrait, "petPortrait": () => petPortrait, "createHud": () => createHud, "dragSource": () => dragSource, "dropTarget": () => dropTarget, "NODE_COLORS": () => NODE_COLORS, "nodeIcon": () => nodeIcon });
+let h, add, clear, fmtNum, moneyEl, hoursText, clamp, rgba; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["hoursText", (v) => { hoursText = v; }], ["clamp", (v) => { clamp = v; }], ["rgba", (v) => { rgba = v; }]]); let spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["basicIcon", (v) => { basicIcon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["statusIcon", (v) => { statusIcon = v; }], ["abilityIcon", (v) => { abilityIcon = v; }], ["icon", (v) => { icon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["NODE_COLORS", (v) => { NODE_COLORS = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }], ["enemyLook", (v) => { enemyLook = v; }], ["beastLook", (v) => { beastLook = v; }]]); let THEMES; __link.imp("src/ui/art-world.js", [["THEMES", (v) => { THEMES = v; }]]); let tip, spellTip, basicTip, itemTip, statusTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["spellTip", (v) => { spellTip = v; }], ["basicTip", (v) => { basicTip = v; }], ["itemTip", (v) => { itemTip = v; }], ["statusTip", (v) => { statusTip = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let linkedText, resurrectText, dangerAt, dangerRule; __link.imp("src/ui/ui-text.js", [["linkedText", (v) => { linkedText = v; }], ["resurrectText", (v) => { resurrectText = v; }], ["dangerAt", (v) => { dangerAt = v; }], ["dangerRule", (v) => { dangerRule = v; }]]); __link.exp({ "conColor": () => conColor, "travelState": () => travelState, "heroPortrait": () => heroPortrait, "petPortrait": () => petPortrait, "createHud": () => createHud, "resurrectTip": () => resurrectTip, "dragSource": () => dragSource, "dropTarget": () => dropTarget, "NODE_COLORS": () => NODE_COLORS, "nodeIcon": () => nodeIcon });
 yield;
 // Persistent classic-MMO HUD: unit frames, enemy nameplates with intents, action bar, XP bar,
 // minimap, micro menu, objective tracker, combat log and the raid-boss frame. It renders the view
@@ -14694,9 +14827,11 @@ function enemyPortrait(e, theme) {
 function createHud(root, ctx) {
   const els = {};
   // ------------------------------------------------------------ player frame
+  // resurrect charges (rules 9, M2 v3): what a death would use now; in the end-boss fight without Second Breath
+  els.resc = h('div.resc.hidden', { 'aria-label': 'Resurrect charges' }, h('img', { src: icon('ember', 'heal'), alt: '' }), h('span.n'));
   els.player = h('div#player-frame.uf',
     h('div.portrait'), h('div.lvl', { style: { left: '5.4rem', top: '5.4rem' } }),
-    h('div.plate', h('div.name', h('span.pn'), h('span.cls')), bar('hp'), bar('res mana'), h('div.cp.hidden', Array.from({ length: ctx.data.rules.cpMax }, () => h('i'))), h('div.statuses')));
+    h('div.plate', h('div.name', h('span.pn'), h('span.cls')), bar('hp'), bar('res mana'), h('div.cp.hidden', Array.from({ length: ctx.data.rules.cpMax }, () => h('i'))), h('div.strow', h('div.statuses'), els.resc)));
   els.pet = h('div#pet-frame.uf.hidden', h('div.portrait'), h('div.plate', h('div.name', h('span.pn'), h('span.cls', 'Pet')), bar('hp'), h('div.statuses')));
   els.target = h('div#target-frame.uf.hidden', h('div.portrait'), h('div.lvl', { style: { left: '5.4rem', top: '5.4rem' } }),
     h('div.plate', h('div.name', h('span.pn'), h('span.tag')), bar('hp enemy'), h('div.statuses'), h('div.intent')));
@@ -14776,8 +14911,11 @@ function createHud(root, ctx) {
   els.minimap.querySelector('.disc').addEventListener('click', () => ctx.ui.toggleWin('map'));
   tip(els.minimap.querySelector('.disc'), () => {
     const v = ctx.view; if (!v.zone) return null; const R = ctx.data.rules;
-    return h('div', h('div.tt-name', v.zone.name), h('div.tt-sub', `Levels ${v.zone.band[0]}–${v.zone.band[1]}`), h('div.tt-line', `In-game time: ${v.hours} h`), h('div.tt-line.desc', `The boss grows stronger for every ${R.ascStepHours} h past ${R.par} h (Ascendancy).`), h('div.tt-hint', 'Click or press M for the zone map'));
+    const danger = dangerAt(R, v.zone.band[1]) > 0 ? dangerRule(R) : null; // zone danger (rules 7.6, M2 v3)
+    return h('div', h('div.tt-name', v.zone.name), h('div.tt-sub', `Levels ${v.zone.band[0]}–${v.zone.band[1]}`), h('div.tt-line', `In-game time: ${v.hours} h`), h('div.tt-line.desc', `The boss grows stronger for every ${R.ascStepHours} h past ${R.par} h (Ascendancy).`),
+      danger ? h('div.tt-warn.danger', danger) : null, h('div.tt-hint', 'Click or press M for the zone map'));
   });
+  tip(els.resc, () => { const v = ctx.view; return v.player ? resurrectTip(v) : null; });
   tip(els.xp, () => {
     const p = ctx.view.player; if (!p) return null;
     return h('div', h('div.tt-name', `Level ${p.level}`), h('div.tt-line', `${fmtNum(p.xp)} / ${fmtNum(p.xpToNext)} experience`), p.rested ? h('div.tt-line', { style: { color: '#9fb8ff' } }, `Rested: ${fmtNum(p.rested)} (kills give double XP)`) : h('div.tt-sub', 'Not rested. Rest at an inn or campfire.'));
@@ -14810,6 +14948,11 @@ function createHud(root, ctx) {
     cp.classList.toggle('hidden', p.classId !== 'rogue');
     [...cp.children].forEach((c, i) => c.classList.toggle('on', i < (p.cp || 0)));
     statusRow(pf.querySelector('.statuses'), p.statuses, ctx);
+    // resurrect badge: the charges that work now; dimmed at 0 when a Second Breath is held in the final fight
+    const rt = resurrectText(p, !!(v.combat && v.combat.isBoss && !v.combat.over));
+    els.resc.classList.toggle('hidden', !rt.count && !rt.note);
+    els.resc.classList.toggle('none', !rt.count);
+    els.resc.querySelector('.n').textContent = String(rt.count);
     // pet
     if (p.pet && v.phase !== 'SUMMARY') {
       els.pet.classList.remove('hidden');
@@ -15049,6 +15192,13 @@ function createHud(root, ctx) {
   return { update, placeNameplates, log, clearLog, els, flashSlot(i) { const b = els.spells[i] || els.items[i - 7]; if (b) { b.classList.add('pressed'); setTimeout(() => b.classList.remove('pressed'), 120); } } };
 }
 
+/** Tooltip of the resurrect badge (rules 9, M2 v3). */
+function resurrectTip(v) {
+  const rt = resurrectText(v.player, !!(v.combat && v.combat.isBoss && !v.combat.over));
+  return h('div', h('div.tt-name', 'Resurrect charges'), h('div.tt-line', rt.list), rt.note ? h('div.tt-warn', rt.note) : null,
+    h('div.tt-sub', 'When you die, the first charge returns you to the fight at once.'));
+}
+
 function intentTip(e, ctx) {
   const it = e.intent; if (!it) return null;
   const who = it.target === 'pet' ? 'your pet' : it.target === 'both' ? 'you and your pet' : it.target === 'player' ? 'you' : it.target;
@@ -15145,7 +15295,7 @@ function dropTarget(el, ctx, onDrop) {
 
 });
 __bundle.def("src/ui/screens.js", function* (__ns, __link) {
-let h, add, clear, fmtNum, moneyEl, moneyText, hoursText, clamp; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["moneyText", (v) => { moneyText = v; }], ["hoursText", (v) => { hoursText = v; }], ["clamp", (v) => { clamp = v; }]]); let spellIcon, itemIcon, nodeIcon, icon, consumableIcon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }]]); let tip, itemTip, spellTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }]]); let conColor, heroPortrait, travelState; __link.imp("src/ui/hud.js", [["conColor", (v) => { conColor = v; }], ["heroPortrait", (v) => { heroPortrait = v; }], ["travelState", (v) => { travelState = v; }]]); let numWord, plural; __link.imp("src/ui/ui-text.js", [["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }]]); __link.exp({ "createScreens": () => createScreens, "buildMap": () => buildMap });
+let h, add, clear, fmtNum, moneyEl, moneyText, hoursText, clamp; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["moneyText", (v) => { moneyText = v; }], ["hoursText", (v) => { hoursText = v; }], ["clamp", (v) => { clamp = v; }]]); let spellIcon, itemIcon, nodeIcon, icon, consumableIcon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }]]); let tip, itemTip, spellTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }]]); let conColor, heroPortrait, travelState; __link.imp("src/ui/hud.js", [["conColor", (v) => { conColor = v; }], ["heroPortrait", (v) => { heroPortrait = v; }], ["travelState", (v) => { travelState = v; }]]); let numWord, plural, dangerAt, pct1; __link.imp("src/ui/ui-text.js", [["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["dangerAt", (v) => { dangerAt = v; }], ["pct1", (v) => { pct1 = v; }]]); __link.exp({ "createScreens": () => createScreens, "buildMap": () => buildMap });
 yield;
 // Centre screens by phase: class select, hub/camp, zone map, node dialogs, loot, quest rewards,
 // vendor, trainer, shrine, rest, treasure and the run summary. Every button sends an action.
@@ -15404,6 +15554,22 @@ function flagSvg() {
 }
 function closeBtn(ctx, win) { const b = h('button.xbtn', '×'); b.addEventListener('click', () => ctx.ui.closeWin(win)); return b; }
 
+/**
+ * Zone danger of a fight node (rules 7.6, M2 v3), or null: the extra damage of its enemies, from the rules table.
+ * Enemy levels as the engine builds the fights: quest and grind enemies at the node's level; an elite at its own
+ * level and its escort (a second enemy) at the node's; dungeon trash at its level and the dungeon boss at its own.
+ * With more than one level the line says "up to" the highest.
+ */
+function nodeDanger(n, r) {
+  const levels = n.type === 'quest' || n.type === 'grind' ? [n.cl]
+    : n.type === 'elite' ? [n.level ?? n.cl, ...(n.enemyNames && n.enemyNames.length > 1 ? [n.cl] : [])]
+      : n.type === 'dungeon' ? [n.level ?? n.cl, n.bossLevel ?? n.cl] : null;
+  if (!levels) return null;
+  const lo = dangerAt(r, Math.min(...levels)); const hi = dangerAt(r, Math.max(...levels));
+  if (!(hi > 0)) return null;
+  return `Zone danger: enemies here deal ${hi > lo ? 'up to ' : ''}+${pct1(hi)} damage (above level ${r.dangerFrom}).`;
+}
+
 function nodeTip(n, v, ctx, reach) {
   const p = v.player;
   const box = h('div.tt-node');
@@ -15416,6 +15582,8 @@ function nodeTip(n, v, ctx, reach) {
     box.appendChild(h('div.tt-line.foes', `${n.type === 'grind' ? 'Wave 1: ' : 'Foes: '}${k} ${k === 1 ? 'enemy' : 'enemies'} (${nameGroups(n.enemyNames)})`));
   }
   box.appendChild(h('div.tt-line.desc', nodeDesc(n.type, ctx.data.rules)));
+  const danger = nodeDanger(n, ctx.data.rules);
+  if (danger) box.appendChild(h('div.tt-warn.danger', danger));
   const hrs = ctx.data.nodeHours ? ctx.data.nodeHours[n.type] : null;
   if (hrs != null) box.appendChild(h('div.tt-sub', n.type === 'grind' ? `Takes ${hrs} h per wave` : `Takes ${hrs} h`));
   if (n.visited) box.appendChild(h('div.tt-hint', 'Visited'));
@@ -15638,9 +15806,10 @@ function buildSummary(v, ctx) {
 
 });
 __bundle.def("src/ui/windows.js", function* (__ns, __link) {
-let h, clear, fmtNum, moneyEl, pct; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["pct", (v) => { pct = v; }]]); let spellIcon, itemIcon, slotIcon, talentIcon, icon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["slotIcon", (v) => { slotIcon = v; }], ["talentIcon", (v) => { talentIcon = v; }], ["icon", (v) => { icon = v; }]]); let drawHumanoid, HERO_LOOKS; __link.imp("src/ui/art-actors.js", [["drawHumanoid", (v) => { drawHumanoid = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }]]); let tip, itemTip, spellTip, talentTip, SLOT_NAMES; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }], ["talentTip", (v) => { talentTip = v; }], ["SLOT_NAMES", (v) => { SLOT_NAMES = v; }]]); let dragSource, dropTarget; __link.imp("src/ui/hud.js", [["dragSource", (v) => { dragSource = v; }], ["dropTarget", (v) => { dropTarget = v; }]]); let buildMap; __link.imp("src/ui/screens.js", [["buildMap", (v) => { buildMap = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); __link.exp({ "createWindows": () => createWindows });
+let h, clear, fmtNum, moneyEl, pct; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["pct", (v) => { pct = v; }]]); let spellIcon, itemIcon, slotIcon, talentIcon, icon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["slotIcon", (v) => { slotIcon = v; }], ["talentIcon", (v) => { talentIcon = v; }], ["icon", (v) => { icon = v; }]]); let drawHumanoid, HERO_LOOKS; __link.imp("src/ui/art-actors.js", [["drawHumanoid", (v) => { drawHumanoid = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }]]); let tip, itemTip, spellTip, talentTip, SLOT_NAMES; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }], ["talentTip", (v) => { talentTip = v; }], ["SLOT_NAMES", (v) => { SLOT_NAMES = v; }]]); let dragSource, dropTarget; __link.imp("src/ui/hud.js", [["dragSource", (v) => { dragSource = v; }], ["dropTarget", (v) => { dropTarget = v; }]]); let buildMap; __link.imp("src/ui/screens.js", [["buildMap", (v) => { buildMap = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let resurrectText; __link.imp("src/ui/ui-text.js", [["resurrectText", (v) => { resurrectText = v; }]]); __link.exp({ "createWindows": () => createWindows });
 yield;
 // Toggleable windows: character sheet, bags, spellbook, talents, quest log, settings, zone map.
+
 
 
 
@@ -15688,11 +15857,14 @@ function createWindows(root, ctx) {
       const s = p.stats;
       const stat = (k, val) => h('div', h('span', k), h('b', val));
       const resName = { energy: 'Energy', mana: 'Mana', focus: 'Focus' }[p.res.kind];
+      // resurrect charges (rules 9, M2 v3): what a death would use now; Second Breath not in the final fight
+      const rt = resurrectText(p, !!(v.combat && v.combat.isBoss && !v.combat.over));
       const body = h('div', h('div.paperdoll', h('div.colslots', ['head', 'neck', 'chest', 'hands', 'legs'].map(slotEl)), model, h('div.colslots', ['feet', 'ring', 'trinket', 'weapon', 'offhand'].map(slotEl))),
         h('div.statgrid', stat('Health', `${fmtNum(p.hp)} / ${fmtNum(p.maxHp)}`), stat(resName, `${fmtNum(p.res.cur)} / ${fmtNum(p.res.max)}`),
           stat('Stamina', fmtNum(s.sta)), stat('Agility', fmtNum(s.agi)), stat('Intellect', fmtNum(s.int)), stat('Spirit', fmtNum(s.spi)),
           stat('Power', fmtNum(s.power)), stat('Critical strike', pct(s.crit, 1)), stat('Dodge', pct(s.dodge, 1)), stat('Armor', fmtNum(s.armor)),
-          stat('Weapon damage', fmtNum(s.wd || 0)), stat('Crit damage', `× ${(s.critMult || 1.5).toFixed(2)}`)));
+          stat('Weapon damage', fmtNum(s.wd || 0)), stat('Crit damage', `× ${(s.critMult || 1.5).toFixed(2)}`),
+          h('div.wide.resline', h('span', 'Resurrections'), h('b', rt.list)), rt.note ? h('div.wide.resnote', rt.note) : null));
       return frame('character', `${p.name}`, `Level ${p.level} ${p.className}`, body);
     },
     bags(v) {
@@ -15842,7 +16014,7 @@ function createWindows(root, ctx) {
 
 });
 __bundle.def("src/ui/director.js", function* (__ns, __link) {
-let wait, SkipToken, fmtNum, deepClone; __link.imp("src/ui/util.js", [["wait", (v) => { wait = v; }], ["SkipToken", (v) => { SkipToken = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["deepClone", (v) => { deepClone = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let linkedText; __link.imp("src/ui/ui-text.js", [["linkedText", (v) => { linkedText = v; }]]); __link.exp({ "planMs": () => planMs, "makeInterim": () => makeInterim, "Director": () => Director });
+let wait, SkipToken, fmtNum, deepClone; __link.imp("src/ui/util.js", [["wait", (v) => { wait = v; }], ["SkipToken", (v) => { SkipToken = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["deepClone", (v) => { deepClone = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let linkedText, dangerBanner; __link.imp("src/ui/ui-text.js", [["linkedText", (v) => { linkedText = v; }], ["dangerBanner", (v) => { dangerBanner = v; }]]); __link.exp({ "planMs": () => planMs, "makeInterim": () => makeInterim, "Director": () => Director });
 yield;
 // Plays the events of one engine step as animation, then hands the new view to the HUD.
 // Every wait goes through a skip token: Space / click / any action key / instant speed finishes at once.
@@ -15903,6 +16075,18 @@ function planMs(events, cls) {
 /** A step that plays a combat round: a fight was on before it and the engine resolved a round or an action. */
 const isRound = (prev, events) => !!(prev && prev.combat && !prev.combat.over && events.some((e) => e.t === 'round' || e.t === 'action'));
 
+/** Zone banner sub-line: the level band, and the zone danger line where enemies above ZONE_DANGER_FROM live (M2 v3). */
+function zoneLine(z, rules) {
+  const d = dangerBanner(rules, z.band);
+  return `Levels ${z.band[0]}–${z.band[1]}${d ? ` · ${d}` : ''}`;
+}
+/** The death screen's second line: a Second Breath held at a death in the end-boss fight stays unused (rules 9, M2 v3). */
+function deathLine(next) {
+  const held = next.player && next.player.resurrectHeld ? next.player.resurrectHeld.meta : 0;
+  const atBoss = next.summary && next.summary.death && next.summary.death.node === 'boss';
+  return atBoss && held > 0 ? 'Second Breath does not work in the final fight. Your journey ends here.' : 'No resurrection remains. Your journey ends here.';
+}
+
 /** View shown while events play: next view, with unit values rolled back to the previous view. */
 function makeInterim(prev, next) {
   if (!prev || !next) return next;
@@ -15914,6 +16098,8 @@ function makeInterim(prev, next) {
   if (prev.player && v.player) {
     const pp = prev.player;
     Object.assign(v.player, { hp: pp.hp, maxHp: pp.maxHp, cp: pp.cp, statuses: deepClone(pp.statuses), level: pp.level, xp: pp.xp, xpToNext: pp.xpToNext, rested: pp.rested, gold: pp.gold });
+    // resurrect charges change when the 'resurrect' event plays
+    if (pp.resurrect) Object.assign(v.player, { resurrect: deepClone(pp.resurrect), resurrectHeld: deepClone(pp.resurrectHeld), resurrectBoss: deepClone(pp.resurrectBoss) });
     v.player.res = { ...v.player.res, cur: pp.res.cur, max: pp.res.max };
     if (pp.pet && v.player.pet) Object.assign(v.player.pet, { hp: pp.pet.hp, maxHp: pp.pet.maxHp, alive: pp.pet.alive, statuses: deepClone(pp.pet.statuses) });
   }
@@ -15980,7 +16166,7 @@ class Director {
         ctx.syncScene(next, { instant: true });
         Object.assign(shown, next); push();
         hud.clearLog();
-        ctx.ui.banner(next.zone.name, `Levels ${next.zone.band[0]}–${next.zone.band[1]}`, 'zone', 2400);
+        ctx.ui.banner(next.zone.name, zoneLine(next.zone, ctx.data.rules), 'zone', 2400);
         hud.log(`Welcome to ${next.zone.name}. Visit the trainer, then set out.`, 'lg-sys');
       }
       if (t === 'CHOOSE_NODE' && next.phase === 'NODE') await this.travel(prev, next, token);
@@ -16086,7 +16272,9 @@ class Director {
             if (e.dst.side === 'player') await WM(M.playerDeath); else await W(T.death);
             break;
           }
-          case 'resurrect': scene.revive('player'); scene.aura('player', '#ffd36a', 1.4); scene.levelUp('player'); p().hp = e.hpAfter; push(); ctx.ui.banner('Resurrected', `${e.source} returns you to the fight`, 'phase', 1800); hud.log(`${e.source} flares: you return to the fight!`, 'lg-loot'); await WM(M.resurrect); break;
+          case 'resurrect': scene.revive('player'); scene.aura('player', '#ffd36a', 1.4); scene.levelUp('player'); p().hp = e.hpAfter;
+            if (next.player) Object.assign(p(), { resurrect: deepClone(next.player.resurrect), resurrectHeld: deepClone(next.player.resurrectHeld), resurrectBoss: deepClone(next.player.resurrectBoss) });
+            push(); ctx.ui.banner('Resurrected', `${e.source} returns you to the fight`, 'phase', 1800); hud.log(`${e.source} flares: you return to the fight!`, 'lg-loot'); await WM(M.resurrect); break;
           case 'round': {
             if (!shown.combat) break;
             shown.combat.round = e.round;
@@ -16140,7 +16328,7 @@ class Director {
           default: break;
         }
       }
-      if (next.phase === 'SUMMARY' && prev.phase !== 'SUMMARY' && next.summary && next.summary.outcome === 'death') await this.deathScreen(token);
+      if (next.phase === 'SUMMARY' && prev.phase !== 'SUMMARY' && next.summary && next.summary.outcome === 'death') await this.deathScreen(token, deathLine(next));
       if (next.phase === 'SUMMARY' && next.summary && next.summary.outcome === 'victory' && prev.phase !== 'SUMMARY') { ctx.ui.banner('Victory', 'Oruvath, the Unlit Star, is no more.', 'boss', 3000); await WM(2200); }
     } finally {
       ctx.ui.overlay = false;
@@ -16188,7 +16376,7 @@ class Director {
       scene.targetSpeed = 0;
     } else ctx.syncScene(next, { instant: true });
     const z = next.zone;
-    ctx.ui.banner(z.name, z.camp || z.idx > ctx.data.rules.zoneCount ? 'The last camp before the Sunken Observatory' : `Levels ${z.band[0]}–${z.band[1]}`, 'zone', 2600);
+    ctx.ui.banner(z.name, z.camp || z.idx > ctx.data.rules.zoneCount ? 'The last camp before the Sunken Observatory' : zoneLine(z, ctx.data.rules), 'zone', 2600);
     ctx.hud.log(`You arrive in ${z.name}.`, 'lg-sys');
     await wait(settings.dur(900), token);
   }
@@ -16204,10 +16392,10 @@ class Director {
     scene.targetDim = 0;
   }
 
-  async deathScreen(token) {
+  async deathScreen(token, text) {
     const ctx = this.ctx;
     ctx.scene.desat = 1;
-    ctx.ui.showDeath(true);
+    ctx.ui.showDeath(true, text);
     await wait(settings.dur(2600) || 400, token);
     ctx.ui.showDeath(false);
     ctx.scene.desat = 0;
@@ -16285,7 +16473,7 @@ class App {
         if (!ui.fleeArmed) { ui.fleeArmed = true; app.skipPlay(); app.queueRender(); app.toast('Press Flee again to run', 'info'); clearTimeout(app.fleeT); app.fleeT = setTimeout(() => { ui.fleeArmed = false; app.queueRender(); }, 2200); return; }
         ui.fleeArmed = false; app.combatAct(() => ({ type: 'FLEE' }));
       },
-      showDeath: (on) => app.showDeath(on),
+      showDeath: (on, text) => app.showDeath(on, text),
     };
     this.ui = ui;
     this.ctx = {
@@ -16525,7 +16713,10 @@ class App {
     while (this.toasts.children.length > 4) this.toasts.firstChild.remove();
     setTimeout(() => t.remove(), 2700);
   }
-  showDeath(on) { this.deathEl.classList.toggle('hidden', !on); }
+  showDeath(on, text) {
+    if (on) this.deathEl.querySelector('.d2').textContent = text || 'No resurrection remains. Your journey ends here.';
+    this.deathEl.classList.toggle('hidden', !on);
+  }
 
   // ------------------------------------------------------------------ input
   bindInput() {
