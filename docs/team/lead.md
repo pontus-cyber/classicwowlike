@@ -22,7 +22,7 @@ You are accountable to the owner for the milestones in docs/MILESTONES.md.
 | Lead Game Designer | opus | high |
 | Content Designer | sonnet | medium |
 
-Run agents whose tasks do not depend on each other in parallel. Two agents never write the same file in one session.
+Run agents whose tasks do not depend on each other in parallel, but at most 2 max-effort agents and 1 lighter agent at a time (D53). Two agents never write the same file in one session. When the usage limit stops agents, resume them with SendMessage after the reset.
 
 ## Scheduled sessions (D2)
 Sessions start on the schedule in DECISIONS.md D2 or when the owner writes. If nothing can move, update the session log and end. The 17:47 session sends the daily report with the latest build attached, even if little changed; if nothing changed, the report says so in one line.
