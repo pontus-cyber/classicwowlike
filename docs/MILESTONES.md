@@ -32,6 +32,20 @@ Done when the bots play at least 10,000 runs per class and the results meet docs
 | 2.3 | Tune numbers until targets are met; log each change in DECISIONS.md | Lead Game Designer + Simulation & Balance Engineer | doing |
 | 2.4 | Playtest pass on the balanced build | Playtest & QA Lead | todo |
 
+## M2b. Expedition and combat v2 (owner feedback 2026-11-10)
+Done when a run plays on the roamable fog map with contracts, the Dimming, Roads and the Homeward Bell (docs/specs/expedition.md) and with combat v2 (docs/specs/combat-v2.md: intent track, off-balance windows, engage round); the bots read only what the player sees; B39-B54 and the M2 P1 targets are measured and met or re-banded with the owner's agreement; the owner has played it.
+| # | Task | Owner | Status |
+|---|---|---|---|
+| 2b.1 | Engine: combat v2 (intent track, archetype openings, off-balance, engage round, autoplay rule) | Core Gameplay Engineer | todo |
+| 2b.2 | Sim: masher and sequence-planning opener bots; tune enemy damage compensation and window size (B48-B54) | Simulation & Balance Engineer | todo |
+| 2b.3 | Engine: circular zone map, vision, the Dimming, Roads and Bell | Core Gameplay Engineer | todo |
+| 2b.4 | Sim: fog-only bots with a leak test, oracle for measuring; B39-B47 | Simulation & Balance Engineer | todo |
+| 2b.5 | Engine + content: prep points, contracts, hub contract, regions and enemy families | Core Gameplay Engineer + Content Designer | todo |
+| 2b.6 | UI: combat v2 display; prep screen; fog map with regions, landmarks and Dimming clocks; contract tracker | UI/UX & Visual Engineer | todo |
+| 2b.7 | Fold expedition 9.5 and combat-v2 into rules.md and balance.md; tune after first measure | Lead Game Designer | todo |
+| 2b.8 | QA: rule tests, leak test, browser checks; playtest | Playtest & QA Lead | todo |
+| 2b.9 | Owner plays the build | Owner | todo |
+
 ## M3. Meta progression
 Done when meta points, the unlock screen and permanent unlocks (items in drop pools, skills, stat boosts) work, ten consecutive simulated runs show rising strength, and the owner has played five runs in a row.
 
