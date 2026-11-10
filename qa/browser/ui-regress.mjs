@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E]
+ *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -32,6 +32,13 @@
  *      the death screen when the hero dies at the boss with Second Breath unused, the Ricochet Bolt tooltip (spellbook),
  *      and zone danger in the zone banners, the minimap tooltip and the map tooltips of zone 3. Expected numbers come
  *      from the engine: a Node run of the same seed and profile (resurrectCharges, spellInfo, summary) and zoneDanger.
+ *   F  M3 meta progression, real engine at Instant speed. A stored profile (Vigor of the Line and Wayfinder, 70 Echoes,
+ *      two earlier runs) and a Hunter run on the engine's autoplay choices to its death (the shortest such run of seeds
+ *      1-80): the summary's balance after the run, "Spend Echoes" opens the Hall of Echoes, the balance and the run log,
+ *      every offer of R.metaOffers in its kind's group with rank, cost and state, tooltips, buying Packed Satchel (UI,
+ *      saved profile, Alchemist's Notes opens), Esc and the Echoes button, and a new run (seed typed in) that starts
+ *      with the unlock (bridge view = a Node START_RUN with the bought profile). Then a profile after a first victory:
+ *      Oaths bought for 0, the Oath switches on class select (SET_OATH), the Echo multiplier and the run's Oaths.
  *
  * Seeds were picked with the engine of 3559e0e (M2 v2): seed 30's first quest has two Guardians that last long
  * enough for the potion and Autoplay checks. M2 v3 (77c0ca5): seed 1's autoplay run no longer reaches the camp, so part B
@@ -55,7 +62,7 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -65,6 +72,7 @@ const BUDGET = R.C.PACE_ROUND_ANIM_S * 1000; // round time budget at the default
 // Steps with these events hold a moment that has its own place in the pacing model (level-up, fight end, boss phase).
 const MOMENTS = ['victory', 'levelUp', 'defeat', 'resurrect', 'bossPhase'];
 const PROFILE_KEY = 'tbwcr.profile.v1'; // where the game keeps the meta profile (src/ui/engine-bridge.js)
+const HISTORY_KEY = 'tbwcr.history.v1'; // the game's run log (src/ui/engine-bridge.js)
 
 function loadPlaywright() {
   for (const base of ['/home/claude/tools-ui/package.json', import.meta.url]) {
@@ -756,6 +764,219 @@ async function partE(browser, W, H) {
   await context.close();
 }
 
+// ------------------------------------------------------------------ part F: M3 meta progression, real engine, Instant
+const F_OWNED = ['vigor', 'wayfinder']; // unlocks the stored profile holds before the run
+const F_ECHOES = 70; // its balance: with the run's Echoes, Packed Satchel is affordable
+const F_BUY = 'satchel'; // the unlock bought in the check (60): it shows at run start (Healing Draughts in the bags)
+const F_NEXT_SEED = 7; // typed into the Seed field for the run after the purchase
+const fmt = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); // the game's number format (util.js fmtNum)
+/** The part F profile, bought by the engine's own rules. */
+function fProfile() {
+  let p = R.newProfile(); p.echoes = 100000;
+  for (const id of F_OWNED) p = R.buyMeta(p, id);
+  p.echoes = F_ECHOES; p.earned = p.spent + F_ECHOES; p.runs = 2;
+  return p;
+}
+/** A Hunter (Ridgewolf) run on the engine's autoplay choices with this profile, to SUMMARY; null if it reaches the camp. */
+function fRun(seed, profile) {
+  let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, profile });
+  for (const a of [{ type: 'SELECT_CLASS', classId: 'hunter' }, { type: 'SELECT_PET', petId: 'ridgewolf' }, { type: 'START_RUN' }]) s = R.step(s, a).state;
+  let n = 0;
+  for (; n < 5000 && s.phase !== 'SUMMARY' && s.phase !== 'CAMP'; n++) s = R.step(s, R.autoAction(s)).state;
+  return s.phase === 'SUMMARY' ? { s, n } : null;
+}
+let F_TWIN = null;
+/** The seed of the part F run (the shortest of seeds 1-80 that ends before the camp at level 3 or more) and its facts. */
+function fTwin() {
+  if (F_TWIN) return F_TWIN;
+  const profile = fProfile();
+  let best = null;
+  for (let seed = 1; seed <= 80; seed++) { const r = fRun(seed, profile); if (r && R.summary(r.s).level >= 3 && (!best || r.n < best.n)) best = { seed, ...r }; }
+  if (!best) throw new Error('no seed of 1-80 ends before the camp at level 3 or more');
+  const sum = R.summary(best.s);
+  const ended = R.step(best.s, { type: 'END_RUN' }).state.result; // what END_RUN stores
+  const bought = R.buyMeta(ended.profile, F_BUY);
+  let next = R.newRun({ classId: 'hunter', petId: 'ridgewolf', seed: F_NEXT_SEED, content: CONTENT, profile: bought });
+  next = R.step(next, { type: 'START_RUN' }).state;
+  F_TWIN = { seed: best.seed, steps: best.n, profile, sum, ended, bought, next };
+  return F_TWIN;
+}
+/** Cards of the Hall of Echoes as drawn: id, group kind, state, rank text, the Buy button's text, effect and requirement lines. */
+const metaCards = (page) => page.locator('#meta .mcard').evaluateAll((els) => els.map((el) => ({
+  id: el.dataset.id, kind: el.closest('.mgroup').dataset.kind, state: el.dataset.state, rk: el.querySelector('.rk').textContent,
+  buy: el.querySelector('.buy') ? el.querySelector('.buy').textContent.replace(/ /g, ' ').trim() : null, disabled: el.querySelector('.buy') ? el.querySelector('.buy').disabled : null,
+  tag: el.querySelector('.mtag') ? el.querySelector('.mtag').textContent : null, fx: el.querySelector('.mc-fx').textContent, req: el.querySelector('.mc-req') ? el.querySelector('.mc-req').textContent : null,
+})));
+const stateOf = (o) => (o.rank >= o.ranks ? 'owned' : !o.available ? 'locked' : o.affordable ? 'affordable' : 'unaffordable'); // as the card shows R.metaOffers
+const savedProfile = (page) => page.evaluate((k) => JSON.parse(localStorage.getItem(k) || 'null'), PROFILE_KEY);
+const sameProfile = (a, b) => !!a && !!b && ['echoes', 'earned', 'spent', 'runs', 'bossKills', 'reachedBoss'].every((k) => a[k] === b[k]) && JSON.stringify(a.unlocks) === JSON.stringify(b.unlocks) && JSON.stringify(a.firstKill) === JSON.stringify(b.firstKill);
+const profText = (p) => (p ? `echoes ${p.echoes}, earned ${p.earned}, spent ${p.spent}, runs ${p.runs}, unlocks ${JSON.stringify(p.unlocks)}` : 'none');
+
+async function partF(browser, W, H) {
+  const twin = fTwin();
+  const { context, page, errors } = await open(browser, W, H, `seed=${twin.seed}&speed=instant`, twin.profile);
+  try {
+    const M = R.C.META; const after = twin.ended.profile;
+    // ---- setup: a Hunter run on the engine's autoplay choices to its end
+    await page.locator('#create .ccard[data-cls="hunter"]').click();
+    await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+    await autoRun(page);
+    let v = await view(page);
+    if (v.phase !== 'SUMMARY') throw new Error(`setup: seed ${twin.seed} did not end the run (phase ${v.phase})`);
+    await page.locator('#screens .summary').waitFor({ timeout: 10000 });
+    await page.waitForTimeout(300);
+    const sumAfter = (await page.locator('#screens .summary .echo.after').innerText()).replace(NBSP, ' ').replace(/\n/g, ' ');
+    const spend = page.locator('#screens .summary .sfoot').getByRole('button', { name: /^Spend Echoes/ });
+    check('M3-1', `summary (seed ${twin.seed}, ${twin.sum.outcome} at level ${twin.sum.level}, +${twin.sum.echoes.total} Echoes): the balance after the run is the engine's END_RUN profile (${after.echoes}), "Spend Echoes" is there`,
+      sumAfter.includes(fmt(after.echoes)) && (await spend.count()) === 1, `"${sumAfter}", Spend Echoes buttons: ${await spend.count()}`);
+
+    // ---- Spend Echoes: END_RUN, then the Hall of Echoes over class select
+    await spend.click(); await idle(page);
+    v = await view(page);
+    const hall = page.locator('#meta');
+    const bal = (await hall.locator('.mbal .n').innerText()).trim();
+    const tick = (await hall.locator('.mtick').innerText()).trim();
+    const saved = await savedProfile(page);
+    await shot(page, 'F-hall-after-run');
+    check('M3-1', `"Spend Echoes" opens the Hall of Echoes at class select: balance ${after.echoes}, "+${twin.ended.echoes} Echoes from Hunter's run", and the saved profile is END_RUN's`,
+      v.phase === 'CREATE' && (await hall.isVisible()) && bal === fmt(after.echoes) && tick.includes(`+${fmt(twin.ended.echoes)} Echoes from ${twin.sum.name}'s run`) && sameProfile(saved, after),
+      `phase ${v.phase}, Hall shown ${await hall.isVisible()}, balance "${bal}", ticker "${tick}" | saved: ${profText(saved)} | END_RUN: ${profText(after)}`);
+    const hist = (await hall.locator('.mhist').innerText()).replace(/\n/g, ' / ');
+    const hunter = (await hall.locator('.mh-cls[data-cls="hunter"]').innerText()).replace(/\n/g, ' / ');
+    const zoneName = CONTENT.zones[twin.sum.reached.zone - 1].name;
+    const log = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || 'null'), HISTORY_KEY);
+    check('M3-2', `run log: runs ${after.runs} (profile), Hunter "1 run · best level ${twin.sum.level} · ${zoneName} · slain 0×" and the first-kill bonus of ${R.C.ECHO_FIRST_KILL_CLASS} Echoes waiting; log in localStorage`,
+      hist.includes(`Runs ${after.runs}`) && hunter.includes(`1 run · best level ${twin.sum.level} · ${zoneName} · slain 0×`) && hunter.includes(`First-kill bonus`) && hunter.includes(fmt(R.C.ECHO_FIRST_KILL_CLASS))
+        && !!log && log.classes.hunter && log.classes.hunter.runs === 1 && log.classes.hunter.bestLevel === twin.sum.level,
+      `${hist} | log ${JSON.stringify(log)}`);
+
+    // ---- the catalogue: every offer of R.metaOffers in its kind's group, with rank, cost and state
+    const offers = R.metaOffers(after);
+    const cards = await metaCards(page);
+    const wrong = offers.filter((o) => {
+      const c = cards.find((x) => x.id === o.id);
+      if (!c) return true;
+      const cost = o.nextCost == null ? null : o.nextCost > 0 ? fmt(o.nextCost) : 'Free';
+      return c.kind !== o.kind || c.state !== stateOf(o) || c.rk !== `${o.rank}/${o.ranks}` || (stateOf(o) === 'owned' ? !c.tag : !(c.buy && c.buy.endsWith(cost)) || c.disabled !== !o.affordable);
+    });
+    const states = cards.reduce((m, c) => ({ ...m, [c.state]: (m[c.state] || 0) + 1 }), {});
+    check('M3-1', `catalogue: all ${offers.length} offers of R.metaOffers, each in its kind's group (${[...new Set(offers.map((o) => o.kind))].join(', ')}), with rank/ranks, next cost and state`,
+      cards.length === offers.length && !wrong.length && states.owned && states.affordable && states.unaffordable && states.locked,
+      wrong.length ? wrong.slice(0, 4).map((o) => `${o.id}: ${JSON.stringify(cards.find((x) => x.id === o.id) || 'missing')} (engine ${stateOf(o)} ${o.rank}/${o.ranks} cost ${o.nextCost})`).join(' | ') : `${cards.length} cards: ${JSON.stringify(states)}`);
+    const fxOf = (id) => (cards.find((c) => c.id === id) || {}).fx || '';
+    const reqOf = (id) => (cards.find((c) => c.id === id) || {}).req || '';
+    const want = [
+      ['vigor', `+${Math.round(M.vigor.hpPct * 100)} % max health per rank`], ['pockets', `+${M.pockets.slots} bag slots per rank`],
+      ['satchel', `Start with ${M.satchel.potions} ${R.C.CONSUMABLE.healing_draught.name}s`], ['wayfinder', `(was ${R.C.HOURS_TRAVEL} h)`],
+      ['heirloom_blade', `item level ${M.heirloom_blade.ilvl}`], ['starforged', `ilvl ${M.starforged.ilvl}`], ['sp_h1', R.C.SPELL[M.sp_h1.spell].name],
+    ];
+    const badFx = want.filter(([id, t]) => !fxOf(id).includes(t));
+    check('M3-1', `effect texts carry the catalogue's numbers (${want.map(([id]) => id).join(', ')}); locked cards name what they need (Alchemist's Notes: ${M[M.alchemist.req[0]].name})`,
+      !badFx.length && reqOf('alchemist').includes(M[M.alchemist.req[0]].name) && reqOf('second_breath').includes('reached once'),
+      badFx.length ? badFx.map(([id, t]) => `${id}: "${fxOf(id)}" (wanted "${t}")`).join(' | ') : `alchemist "${reqOf('alchemist')}", second_breath "${reqOf('second_breath')}"`);
+
+    // ---- tooltips: an affordable card and a locked one
+    const tSat = await tipOf(page, hall.locator(`.mcard[data-id="${F_BUY}"] .mc-fx`));
+    const tAlc = await tipOf(page, hall.locator('.mcard[data-id="alchemist"] .mc-fx'));
+    const costRe = new RegExp(`Cost:[\\s/]*${fmt(M[F_BUY].costs[0])}\\b`);
+    check('M3-4', `tooltips: name, rank, cost (${M[F_BUY].costs[0]}) and "Click Buy" on ${M[F_BUY].name}; the requirement not met on ${M.alchemist.name}`,
+      tSat.includes(M[F_BUY].name) && tSat.includes('Rank 0/1') && costRe.test(tSat) && tSat.includes('Click Buy') && tAlc.includes(`✗ Requires: Own ${M[M.alchemist.req[0]].name}`),
+      `${tSat} || ${tAlc}`);
+
+    // ---- buy Packed Satchel
+    const cost = offers.find((o) => o.id === F_BUY).nextCost;
+    await hall.locator(`.mcard[data-id="${F_BUY}"]`).getByRole('button', { name: `Buy ${M[F_BUY].name}` }).click(); await idle(page);
+    await page.waitForTimeout(150);
+    const bal2 = (await hall.locator('.mbal .n').innerText()).trim();
+    const cards2 = await metaCards(page);
+    const sat = cards2.find((c) => c.id === F_BUY); const alc = cards2.find((c) => c.id === 'alchemist');
+    const tick2 = (await hall.locator('.mtick').innerText()).trim();
+    const chip = (await hall.locator(`.mn-chip[data-id="${F_BUY}"]`).count()) ? (await hall.locator(`.mn-chip[data-id="${F_BUY}"]`).innerText()).trim() : null;
+    const saved2 = await savedProfile(page);
+    const offers2 = R.metaOffers(twin.bought);
+    await shot(page, 'F-hall-bought');
+    check('M3-1', `Buy ${M[F_BUY].name} (${cost}): balance ${after.echoes} -> ${twin.bought.echoes}, the card is owned 1/1, the saved profile is R.buyMeta's`,
+      bal2 === fmt(twin.bought.echoes) && sat && sat.state === 'owned' && sat.rk === '1/1' && sameProfile(saved2, twin.bought),
+      `balance "${bal2}", card ${JSON.stringify(sat)} | saved: ${profText(saved2)} | buyMeta: ${profText(twin.bought)}`);
+    check('M3-2', `purchase feedback: "${M[F_BUY].name}: learned. Next run: ${M[F_BUY].potions} ${R.C.CONSUMABLE.healing_draught.name}s in your bags", the next-run line, and ${M.alchemist.name} opens (${stateOf(offers2.find((o) => o.id === 'alchemist'))})`,
+      tick2.includes(`${M[F_BUY].name}: learned.`) && tick2.includes(`${M[F_BUY].potions} ${R.C.CONSUMABLE.healing_draught.name}s in your bags`) && tick2.includes(`Now open: ${M.alchemist.name}`)
+        && chip === `${M[F_BUY].potions} ${R.C.CONSUMABLE.healing_draught.name}s in your bags` && alc && alc.state === stateOf(offers2.find((o) => o.id === 'alchemist')) && alc.state !== 'locked',
+      `ticker "${tick2}" | chip "${chip}" | alchemist ${JSON.stringify(alc)}`);
+
+    // ---- Esc closes the Hall; the Echoes button opens it again; "Choose your hero" closes it
+    await page.keyboard.press('Escape'); await idle(page);
+    const closed = !(await hall.isVisible()) && (await page.locator('#create .ccard').first().isVisible());
+    const eb = page.getByRole('button', { name: 'Echoes', exact: true });
+    const ebText = (await eb.innerText()).replace(/\n/g, ' ');
+    await eb.click(); await idle(page);
+    const reopened = await hall.isVisible();
+    await hall.getByRole('button', { name: 'Choose your hero' }).click(); await idle(page);
+    check('M3-4', `Esc closes the Hall (class select shows), the Echoes button ("${ebText}") opens it again, "Choose your hero" closes it`,
+      closed && ebText.includes(fmt(twin.bought.echoes)) && reopened && !(await hall.isVisible()), `closed by Esc ${closed}, reopened ${reopened}, open now ${await hall.isVisible()}`);
+
+    // ---- the next run starts with the unlock: the bridge's view against a Node START_RUN with the bought profile
+    await page.locator('#create .ccard[data-cls="hunter"]').click();
+    await page.getByRole('textbox', { name: 'Run seed' }).fill(String(F_NEXT_SEED));
+    await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+    v = await view(page);
+    const got = await page.evaluate(() => { const p = window.__ui.view().player; return { maxHp: p.maxHp, slots: p.bag.length, potions: p.bag.filter((b) => b && b.id === 'healing_draught').reduce((a, b) => a + b.count, 0), items: p.bag.filter(Boolean).map((b) => `${b.id || b.name}x${b.count || 1}`).join(',') }; });
+    const nt = twin.next; const ntPot = nt.player.bag.filter((b) => b.kind === 'cons' && b.id === 'healing_draught').reduce((a, b) => a + b.qty, 0);
+    const ntItems = nt.player.bag.map((b) => `${b.kind === 'cons' ? b.id : b.name}x${b.qty || 1}`).join(',');
+    check('M3-1', `new run (seed ${F_NEXT_SEED}): the bridge's view starts with ${M[F_BUY].potions} Healing Draughts (${M[F_BUY].name}), ${R.bagCapacity(nt)} bag slots and ${nt.player.d.maxHp} max health (Vigor 1), as the engine's START_RUN with the bought profile`,
+      v.phase === 'ZONE_HUB' && got.potions === M[F_BUY].potions && got.potions === ntPot && got.slots === R.bagCapacity(nt) && got.maxHp === nt.player.d.maxHp && got.items === ntItems,
+      `phase ${v.phase}, view ${JSON.stringify(got)} | engine: potions ${ntPot}, slots ${R.bagCapacity(nt)}, maxHp ${nt.player.d.maxHp}, items ${ntItems}`);
+  } catch (e) {
+    check('-', 'part F ran to the end', false, e.message.split('\n')[0]);
+  }
+  check('-', 'part F: no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+  await context.close();
+  await partFOaths(browser, W, H);
+}
+
+/** Part F, Oaths: a profile after the first victory (Hunter); Oaths cost 0 and need a victory (rules 11.2, 11.5). */
+async function partFOaths(browser, W, H) {
+  let p = R.newProfile(); p.reachedBoss = true; p.bossKills = 1; p.firstKill.hunter = true; p.runs = 4; p.echoes = 40; p.earned = 40;
+  const { context, page, errors } = await open(browser, W, H, 'seed=11&speed=instant', p);
+  try {
+    const O = R.C.OATH; const hall = page.locator('#meta');
+    await page.locator('#create .ccard[data-cls="hunter"]').click(); await idle(page);
+    const before = await page.locator('#create .oaths').count();
+    await page.getByRole('button', { name: 'Echoes', exact: true }).click(); await idle(page);
+    const card = (await metaCards(page)).find((c) => c.id === 'oaths');
+    await hall.locator('.mcard[data-id="oaths"]').getByRole('button', { name: `Buy ${R.C.META.oaths.name}` }).click(); await idle(page);
+    const owned = (await metaCards(page)).find((c) => c.id === 'oaths');
+    await page.keyboard.press('Escape'); await idle(page);
+    const sw = (id) => page.getByRole('switch', { name: O[id].name });
+    const texts = {};
+    for (const id of R.C.OATH_IDS) texts[id] = (await sw(id).innerText()).replace(/\n/g, ' ');
+    check('M3-3', `Oaths (cost ${R.C.META.oaths.costs[0]}, needs a victory): no switches before; bought in the Hall (${card && card.state} -> ${owned && owned.state}); then a switch per Oath on class select with its effect`,
+      before === 0 && card && card.state === 'affordable' && /^Buy\s*Free$/.test(card.buy) && owned && owned.state === 'owned'
+        && texts.haste.includes(`${R.C.OATH_HASTE_HOURS} h shorter`) && texts.thrift.includes(`×${R.C.OATH_THRIFT_MULT}`) && texts.frailty.includes('No resurrections'),
+      `before ${before}, card ${JSON.stringify(card)} -> ${JSON.stringify(owned)} | ${JSON.stringify(texts)}`);
+    const tHaste = await tipOf(page, sw('haste'));
+    await sw('haste').click(); await idle(page);
+    await sw('thrift').click(); await idle(page);
+    const v = await page.evaluate(() => window.__ui.view().create.oaths);
+    // the engine's multiplier for these Oaths: a Node START_RUN with them sworn
+    let tw = R.newRun({ classId: 'hunter', petId: 'ridgewolf', seed: 11, content: CONTENT, profile: R.buyMeta(p, 'oaths') });
+    for (const o of ['haste', 'thrift']) tw = R.step(tw, { type: 'SET_OATH', oath: o, on: true }).state;
+    const mult = R.summary(R.step(tw, { type: 'START_RUN' }).state).echoes.oathMult;
+    const foot = (await page.locator('#create .oaths .of').innerText()).trim();
+    const checked = await Promise.all(R.C.OATH_IDS.map((id) => sw(id).getAttribute('aria-checked')));
+    await shot(page, 'F-create-oaths');
+    check('M3-3', `switches send SET_OATH: create.oaths ${JSON.stringify(v)}, aria-checked ${checked.join('/')}, "Echoes from this run ×${mult}" (the engine's oathMult); tooltip "+${Math.round(R.C.OATH_ECHO_BONUS * 100)} % Echoes"`,
+      JSON.stringify(v) === '["haste","thrift"]' && checked.join(',') === 'true,false,true' && foot === `Echoes from this run ×${mult}` && tHaste.includes(`+${Math.round(R.C.OATH_ECHO_BONUS * 100)} % Echoes`),
+      `foot "${foot}" | tooltip "${tHaste}"`);
+    await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+    const run = await page.evaluate(() => ({ phase: window.__ui.view().phase, oaths: window.__ui.view().oaths }));
+    check('M3-3', 'the run starts with the Oaths sworn (the bridge view of the run)', run.phase === 'ZONE_HUB' && JSON.stringify(run.oaths) === '["haste","thrift"]', JSON.stringify(run));
+  } catch (e) {
+    check('-', 'part F (Oaths) ran to the end', false, e.message.split('\n')[0]);
+  }
+  check('-', 'part F (Oaths): no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+  await context.close();
+}
+
 // ------------------------------------------------------------------ run
 const browser = await chromium.launch({ headless: true });
 for (const [W, H] of SIZES) {
@@ -765,6 +986,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('C')) await partC(browser, W, H);
   if (PARTS.includes('D')) await partD(browser, W, H);
   if (PARTS.includes('E')) await partE(browser, W, H);
+  if (PARTS.includes('F')) await partF(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);
