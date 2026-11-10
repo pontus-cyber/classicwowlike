@@ -145,7 +145,7 @@ Priority: P1 = must pass for M1 sign-off; P2 = should pass; P3 = report only.
 - If B5 fails low, combat decisions do not matter: strengthen intents (heavy/cast frequency, mender heals) before raising damage. If it fails high, autoplay is too weak: improve 7.9 conditions.
 - If B10 fails high, cut stat-rank values in the catalogue before item unlocks. Check the time budget too (B17, rules 11.2): time saved before the boss lowers Ascendancy, and on the 11-10 pass Wayfinder alone kept the PALL planner 12 h under the P0 planner and was worth about 12 pp at PALL in the M2 v4 package (removed in M2 v4). (M2 v4)
 - Meta power budget (rules 11.2, M2 v3): a catalogue change that adds combat power must stay inside the budget; check B2, B3, B10 and B6 PALL after it. (M2 v3)
-- B3 greedy and speedrunner bands on PALL (M2 v4): the greedy wins 0.65-0.75 × the planner on P0 and PALL alike (its mage and hunter come within 1-6 pp of the planner at PALL; its rogue wins 8-12 % of its boss fights, likely because it has no Camp bar swap (1.2) [inference: planner rogue 69-77 % on the same seeds]), and the speedrunner loses more than the planner when meta power is cut, because it reaches the boss under BOSS_TIME_PAR anyway and gains nothing from lower Ascendancy. The bands follow those measured ratios around the planner's band. (M2 v4)
+- B3 greedy and speedrunner bands on PALL (M2 v4): the greedy wins 0.65-0.78 × the planner on P0 and PALL alike (its mage and hunter come within 1-6 pp of the planner at PALL; its rogue wins 8-12 % of its boss fights, likely because it has no Camp bar swap (1.2) [inference: planner rogue 69-77 % on the same seeds]), and the speedrunner loses more than the planner when meta power is cut, because it reaches the boss under BOSS_TIME_PAR anyway and gains nothing from lower Ascendancy. The bands follow those measured ratios around the planner's band. (M2 v4)
 - B21 and B38 (M2 v3): the planner avoids nodes its risk table rates deadly, so mid- and late-zone deaths stay a few % of runs by design; tension in zones 3-6 is measured by B38 (HP dips) and B24, deaths by share of runs. Tune B38 with ZONE_DANGER_STEP first. (M2 v3)
 
 ---
@@ -218,7 +218,7 @@ Priority: P1 = must pass for M1 sign-off; P2 = should pass; P3 = report only.
 | ROUNDS_DBOSS | 8-13 | rounds |
 | ROUNDS_BOSS | 30-45 | rounds |
 | HOURS_NORMAL | 125-155 | h | (M2 v2: 7 rows per zone)
-| HOURS_SPEED | 70-100 | h | (M2 v2: 7 rows per zone)
+| HOURS_SPEED | 80-110 | h | (M2 v2: 7 rows per zone; M2 v4: was 70-100, +12 h because Wayfinder is removed and every TRAVEL_ON costs HOURS_TRAVEL)
 | ASC_MEDIAN_MAX | 0.12 | fraction |
 | LVL60_SHARE_MIN | 0.90 | share |
 | LVL_SPEED_MEDIAN_MIN | 60 | level |
