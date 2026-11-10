@@ -51,9 +51,9 @@
  *      page's engine actions, window.__ui.engineLog), the Lay Trap hover preview (= R.engagePreview), key W, and the trap's
  *      off-balance window: the marker and the bar's window highlight exactly where R.offBalance and R.spellInfo(...).window
  *      say. Mage seed 30: Pre-cast's spells, and Binding Glyph's FROZEN window (frost marker, bar highlight).
- *   I  the Heat meter (docs/specs/expedition.md H.4, H.5; engine-api.md 11; M2b 2b.6), real engine at Instant speed. Hunter
- *      seed 22 on a slow policy (every hub service, the longest reachable node that is no elite or dungeon, the most Grind
- *      waves; the engine's autoplay otherwise) to the summary. At the first hub and at the first map step in Warm, Hot and
+ *   I  the Heat meter (docs/specs/expedition.md H.4, H.5; engine-api.md 11; M2b 2b.6), real engine at Instant speed. A
+ *      Hunter on a slow policy (every hub service, the reachable node that is no elite or dungeon with the most hours, the
+ *      most Grind waves; the engine's autoplay otherwise) to the summary. At the first hub and at the first map step in Warm, Hot and
  *      Scorched the meter (state, "N h in hand" / "N h past the line", "Boss +N %", the marker and the Star's line, the pay
  *      line) equals R.heatView of a Node twin (window.__ui.engineLog), and every service card and reachable node (and Travel
  *      on) shows R.heatPreview in its hour label, its tooltip and the meter's ghost; a node entered Hot has its badge and
@@ -62,8 +62,9 @@
  *      top; the camp panel, tracker and minimap name heatView's par and Ascendancy; the boss frame's Ascendancy is the
  *      meter's "Boss +N %"; the summary's heat card (track points per zone record, hours by state, over par) and the Echo
  *      line "Fights won in heat" match the engine's summary; loot marked "raised by heat" came from Hot or Scorched nodes.
- *      Then an expedition run (?expedition=1, seed 3): the Dimming's marker and "Dimming N h" at the hub, a move's
- *      preview, and a map step where the Dimming sets the state (marker, "· Dimming", the meter's tooltip) = heatView.
+ *      Then an expedition run (?expedition=1): the Dimming's marker and "Dimming N h" at the hub, a move's preview, and
+ *      a map step where the Dimming sets the state (marker, "· Dimming", the meter's tooltip) = heatView. Both seeds are
+ *      chosen at run time on Node runs of the same choices (the UI's own item-bar actions included).
  *
  * Seeds were picked with the engine of 3559e0e (M2 v2): seed 30's first quest has two Guardians that last long
  * enough for the potion and Autoplay checks. M2 v3 (77c0ca5): seed 1's autoplay run no longer reaches the camp, so part B
@@ -359,7 +360,7 @@ const autoRun = (page, stop = {}) => page.evaluate(async (opt) => {
   for (let n = 0; n < 4000; n++) {
     const v = ui.view();
     if (v.phase === 'CAMP' || v.phase === 'SUMMARY') break;
-    if (v.phase === 'MAP') {
+    if (v.phase === 'MAP' && !v.loot) { // with items waiting in the loot window the map is not on screen
       await frame();
       const b = document.querySelector('#screens .mhead button[data-travel]');
       const rec = { z: v.zone.idx, level: v.player.level, need: v.zone.travelLevel, exit: v.zone.exitLevel, travelOn: !!v.legal.travelOn, must: !!v.legal.mustTravel,
@@ -1313,12 +1314,8 @@ async function partH(browser, W, H) {
 }
 
 // ------------------------------------------------------------------ part I: the heat meter, real engine
-// Seeds chosen with the engine of 085b0ae (heat on its defaults, D54). Hunter seed 22 on the slow policy below goes Clear ->
-// Warm (zone 1) -> Hot (zone 2) -> Scorched (zone 5), enters Hot and Scorched nodes, finds items heat raised, reaches the
-// camp at about 158 h and dies at the boss. Seed 3's expedition run (?expedition=1) on the engine's autoplay choices meets a
-// map step where the Dimming sets the state (Hot by the Dimming while the line says Clear).
-const I_SEED = 22;
-const I_EXP_SEED = 3;
+// Both seeds are chosen at run time on Node runs (the engine still changes under combat v2.1): iPick for the rows run on
+// the slow policy, iExpPick for the expedition run (?expedition=1) on the engine's autoplay choices.
 const HNAME = { clear: 'Clear', warm: 'Warm', hot: 'Hot', scorched: 'Scorched' };
 const fh = (x) => String(Math.round(Math.abs(x) * 10) / 10);
 const stand = (x) => (x.heat > 0 ? `${fh(x.heat)} h past the line` : x.heat < 0 ? `${fh(x.heat)} h in hand` : 'On the line');
@@ -1420,12 +1417,89 @@ function previewDiff(r, p, opts = {}) {
   return out;
 }
 /**
- * The slow policy in the page (setup, as autoRun): every hub service, the longest reachable node that is no elite or
- * dungeon (on today's map), the most Grind waves, the engine's autoplay otherwise. Runs until stop(view) holds or the run
- * ends. On the way it records every change of the meter's state, the heat toasts and log lines, the coverage of the meter
- * in each new kind of screen, and the items the loot window marks as raised by heat.
+ * The slow policy, one pure function for the page (slowRun) and the Node seed pick (iPick): every hub service, the
+ * reachable node that is no elite or dungeon with the most hours (a Grind counts its most waves), the most Grind waves;
+ * null: the engine's autoplay choice. x: { phase, svcOpen, services, mapChoices: [{ lane, hours, perWave, type }], waves,
+ * maxWaves }. Returns a UI action (HUB_SERVICE, CHOOSE_NODE, GRIND_SET_WAVES) or null.
  */
-const slowRun = (page, stopSrc) => page.evaluate(async (src) => {
+function iSlowChoice(x) {
+  if (x.phase === 'ZONE_HUB' && !x.svcOpen) { for (const s of ['trainer', 'vendor', 'inn']) if (x.services[s]) return { type: 'HUB_SERVICE', service: s }; }
+  const safe = x.mapChoices.filter((c) => c.type !== 'elite' && c.type !== 'dungeon'); const pool = safe.length ? safe : x.mapChoices;
+  if (pool.length) { const val = (c) => c.hours * (c.perWave ? x.maxWaves : 1); return { type: 'CHOOSE_NODE', lane: [...pool].sort((a, b) => val(b) - val(a) || a.lane - b.lane)[0].lane }; }
+  if (x.waves.length) return { type: 'GRIND_SET_WAVES', n: Math.max(...x.waves) };
+  return null;
+}
+const I_USE = { any: 'both', both: 'both', out: 'out', combat: 'combat', passive: 'passive' };
+/** What the UI sends on its own after a step (app.js placeNewItems): a new combat consumable onto a free item-bar slot. */
+function iUiOwn(prev, next) {
+  const p = next.player; if (!p || next.fight || !['ZONE_HUB', 'MAP', 'NODE', 'CAMP'].includes(next.phase)) return [];
+  const had = new Set(((prev.player && prev.player.bag) || []).filter((it) => it.kind === 'cons').map((it) => it.id));
+  const fresh = [];
+  for (const it of p.bag) {
+    if (it.kind !== 'cons' || had.has(it.id) || fresh.includes(it.id) || p.itemBar.includes(it.id)) continue;
+    const c = R.C.CONSUMABLE[it.id]; const use = I_USE[c.use] || 'both';
+    if (!(use === 'combat' || use === 'both') || (c.mana && R.C.CLASS[p.classId].resource !== 'mana')) continue;
+    fresh.push(it.id);
+  }
+  const free = p.itemBar.map((id, i) => (id ? -1 : i)).filter((i) => i >= 0);
+  return fresh.slice(0, free.length).map((id, k) => ({ type: 'SET_ITEM_BAR', slot: free[k], itemId: id }));
+}
+let I_PICK = null;
+/**
+ * The seed for part I, chosen at run time (the engine changes): the first Hunter seed of 1-80 whose run on the slow policy
+ * (a Node run of the same choices, with the UI's own item-bar actions) meets a map step in Warm and in Hot, a node entered
+ * Hot, a Grind's wave choice, the camp and the boss fight.
+ */
+function iPick() {
+  if (I_PICK) return I_PICK;
+  const INTRO = new Set(['quest', 'elite', 'dungeon', 'treasure']);
+  for (let seed = 1; seed <= 80; seed++) {
+    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT });
+    for (const a of [{ type: 'SELECT_CLASS', classId: 'hunter' }, { type: 'SELECT_PET', petId: 'ridgewolf' }, { type: 'START_RUN' }]) s = R.step(s, a).state;
+    const met = {};
+    for (let n = 0; n < 6000 && s.phase !== 'ENDED'; n++) {
+      const hv = R.heatView(s);
+      const onMap = s.phase === 'MAP' && hv && !s.zone.camp && !(s.loot && s.loot.length);
+      if (onMap && hv.next.some((c) => c.action.type === 'CHOOSE_NODE')) met[hv.state] = met[hv.state] ?? s.hours;
+      if (s.node && s.node.heat === 'hot' && ((INTRO.has(s.node.type) && s.fight && !(s.node.k || 0) && s.fight.round <= 1) || s.node.stage === 'grindSetup')) met.hotNode = met.hotNode ?? s.hours;
+      if (s.node && s.node.type === 'grind' && s.node.stage === 'grindSetup') met.grind = met.grind ?? s.hours;
+      if (s.phase === 'CAMP') met.camp = met.camp ?? s.hours;
+      if (s.fight && s.fight.boss) met.boss = met.boss ?? s.hours;
+      const x = { phase: s.phase, svcOpen: !!s.service, services: {}, mapChoices: [], waves: [], maxWaves: R.C.GRIND_MAX_WAVES };
+      for (const sv of ['trainer', 'vendor', 'inn']) x.services[sv] = R.isLegal(s, { type: 'SERVICE', service: sv });
+      if (onMap && s.zone.rows) { const row = R.mapView(s).rows[s.zone.pos.r]; x.mapChoices = hv.next.filter((c) => c.action.type === 'CHOOSE_NODE').map((c) => ({ lane: c.action.lane, hours: c.hours, perWave: c.perWave, type: row[c.action.lane].type })); }
+      if (s.node && s.node.type === 'grind' && s.node.stage === 'grindSetup' && hv) x.waves = hv.next.filter((c) => c.action.type === 'GRIND_SET_WAVES').map((c) => c.action.n);
+      const c = iSlowChoice(x);
+      const prev = s; s = R.step(s, !c ? R.autoAction(s) : c.type === 'HUB_SERVICE' ? { type: 'SERVICE', service: c.service } : c).state;
+      for (const o of iUiOwn(prev, s)) s = R.step(s, o).state;
+    }
+    if (['warm', 'hot', 'hotNode', 'grind', 'camp', 'boss'].every((k) => met[k] !== undefined)) { I_PICK = { seed, met }; return I_PICK; }
+  }
+  throw new Error('no Hunter seed of 1-80 meets part I\'s conditions on the slow policy');
+}
+let I_EXP_PICK = null;
+/** The expedition seed: the first Hunter seed of 1-40 whose autoplay run meets a map step where the Dimming sets the state. */
+function iExpPick() {
+  if (I_EXP_PICK) return I_EXP_PICK;
+  for (let seed = 1; seed <= 40; seed++) {
+    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: 'expedition' });
+    for (const a of [{ type: 'SELECT_CLASS', classId: 'hunter' }, { type: 'SELECT_PET', petId: 'ridgewolf' }, { type: 'START_RUN' }]) s = R.step(s, a).state;
+    for (let n = 0; n < 3000 && s.phase !== 'ENDED'; n++) {
+      const hv = R.heatView(s);
+      if (s.phase === 'MAP' && hv && hv.by === 'dim' && !(s.loot && s.loot.length)) { I_EXP_PICK = { seed, hours: s.hours, z: s.zone.z }; return I_EXP_PICK; }
+      const prev = s; s = R.step(s, R.autoAction(s)).state;
+      for (const o of iUiOwn(prev, s)) s = R.step(s, o).state;
+    }
+  }
+  throw new Error('no Hunter seed of 1-40 meets a map step where the Dimming sets the state');
+}
+/**
+ * The slow policy in the page (setup, as autoRun; iSlowChoice on the view). Runs until a stop condition holds (a string,
+ * or { key: source } to learn which) or the run ends. On the way it records every change of the meter's state, the heat
+ * toasts and log lines, the coverage of the meter in each new kind of screen, and the items the loot window marks as
+ * raised by heat.
+ */
+const slowRun = (page, stopSrc) => page.evaluate(async ([src, choiceSrc, maxWaves]) => {
   const ui = window.__ui;
   const conds = Object.entries(typeof src === 'string' ? { stop: src } : src).map(([k, c]) => [k, new Function('v', `return (${c})(v)`)]);
   const stop = (v) => { const hit = conds.find(([, f]) => f(v)); return hit ? hit[0] : null; };
@@ -1445,19 +1519,13 @@ const slowRun = (page, stopSrc) => page.evaluate(async (src) => {
     const inside = r.width > 0 && r.left >= 0 && r.top >= 0 && r.right <= innerWidth + 0.5 && r.bottom <= innerHeight + 0.5;
     return { ok: inside && !bad.length && !m.classList.contains('hidden'), bad, rect: [r.left, r.top, r.right, r.bottom].map(Math.round) };
   };
+  const choose = new Function('x', `return (${choiceSrc})(x)`);
   const slow = (v) => {
-    if (v.phase === 'ZONE_HUB' && !(v.node && v.node.origin === 'hub')) { for (const s of ['trainer', 'vendor', 'inn']) if (v.legal.services[s]) return { type: 'HUB_SERVICE', service: s }; }
-    if (v.phase === 'MAP' && v.heat && v.zone.rows.length) {
-      const row = v.zone.rows[v.zone.pos.row];
-      const c = v.heat.list.filter((x) => x.action.type === 'CHOOSE_NODE').map((x) => ({ ...x, type: row[x.action.lane].type }));
-      const safe = c.filter((x) => x.type !== 'elite' && x.type !== 'dungeon'); const pool = safe.length ? safe : c;
-      if (pool.length) { pool.sort((a, b) => b.hours - a.hours || a.action.lane - b.action.lane); return { type: 'CHOOSE_NODE', lane: pool[0].action.lane }; }
-    }
-    if (v.phase === 'NODE' && v.node && v.node.type === 'grind' && v.node.step === 'intro' && v.heat) {
-      const w = v.heat.list.filter((x) => x.action.type === 'GRIND_SET_WAVES').sort((a, b) => b.action.n - a.action.n);
-      if (w.length) return { type: 'GRIND_SET_WAVES', n: w[0].action.n };
-    }
-    return { type: 'AUTO' };
+    const onMap = v.phase === 'MAP' && v.heat && v.zone.rows.length && !v.loot;
+    const x = { phase: v.phase, svcOpen: !!(v.node && v.node.origin === 'hub'), services: v.legal.services || {}, mapChoices: [], waves: [], maxWaves };
+    if (onMap) { const row = v.zone.rows[v.zone.pos.row]; x.mapChoices = v.heat.list.filter((c) => c.action.type === 'CHOOSE_NODE').map((c) => ({ lane: c.action.lane, hours: c.hours, perWave: c.perWave, type: row[c.action.lane].type })); }
+    if (v.phase === 'NODE' && v.node && v.node.type === 'grind' && v.node.step === 'intro' && v.heat) x.waves = v.heat.list.filter((c) => c.action.type === 'GRIND_SET_WAVES').map((c) => c.action.n);
+    return choose(x) || { type: 'AUTO' };
   };
   for (let n = 0; n < 5000; n++) {
     const v = ui.view();
@@ -1471,11 +1539,13 @@ const slowRun = (page, stopSrc) => page.evaluate(async (src) => {
     await ui.act(slow(v)); await ui.idle();
   }
   return { stopped: false, phase: ui.view().phase };
-}, stopSrc);
+}, [stopSrc, iSlowChoice.toString(), R.C.GRIND_MAX_WAVES]);
 
 async function partI(browser, W, H) {
+  const pick = iPick(); const I_SEED = pick.seed;
   const twin = makeTwin(I_SEED);
   const { context, page, errors } = await open(browser, W, H, `seed=${I_SEED}&speed=instant`);
+  check('-', `part I seed ${I_SEED} (chosen on Node runs of the slow policy: ${JSON.stringify(pick.met)})`, true, '');
   try {
     await page.locator('#create .ccard[data-cls="hunter"]').click();
     await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
@@ -1637,6 +1707,7 @@ const R_UP_OK = (st) => (R.C.HEAT_RARITY_UP[st] || 0) > 0;
 
 /** Part I, expedition runs (?expedition=1): the Dimming's marker and the clock that sets the state. */
 async function partIExp(browser, W, H) {
+  const I_EXP_SEED = iExpPick().seed;
   const twin = makeTwinOpts(I_EXP_SEED, { mapMode: 'expedition' });
   const { context, page, errors } = await open(browser, W, H, `seed=${I_EXP_SEED}&speed=instant&expedition=1`);
   try {
