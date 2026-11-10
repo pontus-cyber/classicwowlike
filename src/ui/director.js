@@ -1,59 +1,26 @@
 // Plays the events of one engine step as animation, then hands the new view to the HUD.
-// Every wait goes through a skip token: Space / click / any action key / instant speed finishes at once.
+// Combat rounds play as beats from src/ui/combat-feel.js (owner feedback 2026-11-10): each action winds up, its hits land
+// with a hit-stop, recoil, a weighted number and screen shake, and enemies' telegraphed blows get a readable pause.
+// Skipping: Space or a click in a round skips to the end of the hit on screen (the next hit plays normally); any other
+// step, or Instant speed, finishes at once. Waits go through skip tokens.
 import { wait, SkipToken, fmtNum, deepClone } from './util.js';
 import { settings } from './settings.js';
 import { linkedText, dangerBanner } from './ui-text.js';
+import { timeline, roundPace, hitShare, STATUS_LABEL } from './combat-feel.js';
 
 const SCHOOL_PROJ = { fire: 'fire', frost: 'frost', arcane: 'arcane', shadow: 'shadow', nature: 'nature' };
+const SCHOOL_GLOW = { fire: '#ff9a4a', frost: '#9fdcff', arcane: '#c79bff', shadow: '#a07aff', nature: '#9be07a', magic: '#c79bff', phys: '#ffe9a8' };
 const ref = (r) => (r.side === 'player' ? 'player' : r.side === 'pet' ? 'pet' : r.side === 'enemy' ? `enemy:${r.idx}` : null);
-const STATUS_LABEL = { STUN: 'Stunned!', FROZEN: 'Frozen!', HEXED: 'Hexed!', SILENCED: 'Silenced', CHILLED: 'Chilled', EXPOSED: 'Exposed', MARKED: 'Marked', CURSED: 'Cursed', BRAND: 'Brand', ENRAGED: 'Enraged!', TAUNT: 'Taunt!', SHIELDED: 'Braced' };
 
-// Waits of a combat round in ms at 1x (play() waits these; planMs() adds them up).
-const T = { pass: 250, item: 260, melee: 210, cast: 200, shoot: 230, bolt: 320, aura: 200, pet: 170, enemyCast: 160, enemyBolt: 300, bossCast: 260, enemyMelee: 200,
-  hit: 150, tick: 110, heal: 200, status: 110, interrupt: 320, immune: 150, skip: 120, cleanse: 200, death: 420, round: 180, flee: 600, fleeFail: 300, summon: 600, channel: 450, linked: 250 };
 // Moments with their own place in the pacing model (rules 3: level-up, fight overhead, boss): outside the round budget.
 const M = { levelUp: 1200, victory: 500, playerDeath: 900, resurrect: 1200, bossPhase: 1400 };
-// Round time budget (rules 3, M2 v2): the planned waits are fitted into PLAN_SHARE of PACE_ROUND_ANIM_S, leaving room for
-// rendering; once DEADLINE_SHARE of it has passed since the input, the rest of the round plays at once.
-const PLAN_SHARE = 0.72;
-const DEADLINE_SHARE = 0.85;
+// Round budget: the planned beats are fitted into PLAN_SHARE of the round cap (combat-feel.js roundPace); once
+// DEADLINE_SHARE of it has passed since the input, the rest of the round plays at once.
+const PLAN_SHARE = 0.9;
+const DEADLINE_SHARE = 0.96;
 
-const selfOnlyOf = (e) => !e.dst || (e.tags && (e.tags.includes('defensive') || e.tags.includes('resource') || e.tags.includes('heal')) && !(e.tags.includes('aoe')));
 /** Sum of the round's waits in ms at 1x, as play() spends them (moments excluded). */
-export function planMs(events, cls) {
-  let ms = 0;
-  for (const e of events) {
-    switch (e.t) {
-      case 'action':
-        if (e.src.side === 'player') {
-          if (e.kind === 'pass') ms += T.pass;
-          else if (e.kind === 'item') ms += T.item;
-          else {
-            const self = selfOnlyOf(e);
-            ms += cls === 'rogue' && !self ? T.melee : cls === 'mage' ? T.cast + (!self && e.dst ? T.bolt : 0) : cls === 'hunter' ? T.shoot + (!self && e.dst ? T.bolt : 0) : T.cast;
-            if (self) ms += T.aura;
-          }
-        } else if (e.src.side === 'pet') ms += T.pet;
-        else ms += e.boss ? T.bossCast : e.kind === 'cast' ? T.enemyCast + T.enemyBolt : T.enemyMelee;
-        break;
-      case 'damage': ms += e.tick ? T.tick : T.hit; break;
-      case 'heal': ms += T.heal; break;
-      case 'status': if (e.op === 'add' && STATUS_LABEL[e.id]) ms += T.status; break;
-      case 'interrupt': ms += T.interrupt; break;
-      case 'immune': ms += T.immune; break;
-      case 'skip': ms += T.skip; break;
-      case 'cleanse': ms += T.cleanse; break;
-      case 'death': if (e.dst.side !== 'player') ms += T.death; break;
-      case 'round': ms += T.round; break;
-      case 'flee': ms += e.ok ? T.flee : T.fleeFail; break;
-      case 'summon': ms += T.summon; break;
-      case 'channel': ms += T.channel; break;
-      case 'linked': ms += T.linked; break;
-      default: break;
-    }
-  }
-  return ms;
-}
+export function planMs(events, prev, spells, scale = 1) { return timeline(events, prev, spells, scale).total; }
 /** A step that plays a combat round: a fight was on before it and the engine resolved a round or an action. */
 const isRound = (prev, events) => !!(prev && prev.combat && !prev.combat.over && events.some((e) => e.t === 'round' || e.t === 'action'));
 
@@ -102,9 +69,19 @@ export function makeInterim(prev, next) {
 }
 
 export class Director {
-  constructor(ctx) { this.ctx = ctx; this.token = null; }
+  constructor(ctx) { this.ctx = ctx; this.token = null; this.beat = null; this.beatNo = 0; this.round = null; }
   get playing() { return !!this.token; }
-  skip() { if (this.token && !this.token.skipped) { this.token.skip(); this.ctx.scene.finishAll(); } }
+  /** A combat round is playing: a click skips one hit at a time. */
+  get inRound() { return !!(this.token && this.round); }
+  /** Finish the whole step at once. */
+  skip() { if (this.token && !this.token.skipped) { this.token.skip(); if (this.beat) this.beat.skip(); this.ctx.scene.finishAll(); } }
+  /** Skip to the end of the hit on screen (in a round); any other step finishes at once. Returns the beat skipped, or null. */
+  skipHit() {
+    if (!this.inRound) { this.skip(); return null; }
+    if (!this.beat || this.beat.skipped) return null;
+    this.beat.skip(); this.ctx.scene.landFlights();
+    return this.beatNo;
+  }
 
   /**
    * Play one step. opts.t0: when the input was taken (before the engine step), the start of the round's time budget.
@@ -115,20 +92,36 @@ export class Director {
   async play(prev, next, events, action, opts = {}) {
     const ctx = this.ctx; const scene = ctx.scene; const hud = ctx.hud;
     const token = (this.token = new SkipToken());
-    const budget = isRound(prev, events) ? (ctx.data.rules && ctx.data.rules.roundAnimMs) || 0 : 0; // ms at 1x
+    const round = isRound(prev, events);
+    const pace = roundPace(ctx.data.rules);
+    const budget = round ? pace.capMs : 0; // ms at 1x
     const speed = settings.instant ? 0 : settings.get('speed') || 1;
-    const plan = budget ? planMs(events, prev.player && prev.player.classId) : 0;
+    const tl = timeline(events, prev, ctx.data.spells, pace.scale);
+    const plan = budget ? tl.total : 0;
     const tempo = budget ? Math.max(1, plan / (budget * PLAN_SHARE)) : 1;
     const t0 = opts.t0 ?? performance.now(); let momentMs = 0;
+    // beats: a click skips the current one (see skipHit); a new one starts with each action, the round's ticks and its end
+    const newBeat = () => { this.beat = new SkipToken(); this.beatNo += 1; if (token.skipped) this.beat.skip(); return this.beat; };
+    newBeat();
     // ms left of the round's budget (Infinity without one); no wait or flight runs past it
     const left = () => (budget && speed ? (budget * DEADLINE_SHARE) / speed - (performance.now() - t0 - momentMs) : Infinity);
     const D = (ms) => settings.dur(ms) / tempo; // a wait or an animation of this step, at this step's tempo
-    const W = (ms) => { const l = left(); return l <= 0 ? Promise.resolve() : wait(Math.min(D(ms), l), token); };
+    // Waits run on the step's own clock: each ends at its planned time (due), so a late timer or a slow frame does not
+    // push the rest of the step back. After a skipped hit or a moment the clock restarts from now.
+    let due = performance.now(); let reanchor = false;
+    const until = (ms) => { const now = performance.now(); if (reanchor || due < now - 250) { due = now; reanchor = false; } due += D(ms); return Math.min(due - now, left()); };
+    const W = (ms) => { if (this.beat.skipped) { reanchor = true; return Promise.resolve(); } const d = until(ms); return d <= 0 ? Promise.resolve() : wait(d, this.beat); };
     // a moment (level-up, victory, death, resurrect, boss phase) keeps its own length and does not use up the budget
-    const WM = async (ms) => { const a = performance.now(); await wait(settings.dur(ms), token); momentMs += performance.now() - a; };
-    const bolt = (from, to, kind, ms) => { const l = left(); return l <= 0 ? Promise.resolve() : scene.projectile(from, to, kind, Math.min(D(ms), l)); };
-    this.round = budget ? { budget, speed, plan, tempo, t0 } : null;
-    const fast = () => token.skipped || settings.instant;
+    const WM = async (ms) => { const a = performance.now(); await wait(settings.dur(ms), this.beat); momentMs += performance.now() - a; reanchor = true; };
+    // bolt: one projectile; several targets (AoE) fly together, the last landing after ms (each list entry: [to, share of ms])
+    const bolt = (from, to, kind, ms, o) => {
+      if (this.beat.skipped) { reanchor = true; return Promise.resolve(); }
+      const d = until(ms); if (d <= 0) return Promise.resolve();
+      return Array.isArray(to) ? Promise.all(to.map(([id, k]) => scene.projectile(from, id, kind, d * k, o))) : scene.projectile(from, to, kind, d, o);
+    };
+    const live = () => !this.beat.skipped && !settings.instant && left() > 0; // effects that only make sense while the beat plays
+    this.round = budget ? { budget, avg: pace.avgMs, speed, plan, tempo, t0 } : null;
+    const fast = () => token.skipped || this.beat.skipped || settings.instant;
     const shown = makeInterim(prev, next);
     ctx.setShown(shown);
     const p = () => shown.player;
@@ -164,57 +157,103 @@ export class Director {
       }
 
       // ------------------------------------------------ events
-      let lastDamageTarget = null;
-      for (const e of events) {
+      let lastDamageTarget = null; let hitCtx = null; let inTicks = false;
+      for (let i = 0; i < events.length; i++) {
+        const e = events[i]; const tm = tl.beats[i] || { wait: 0 };
         this.cursor = e; // test hook: the event on screen
+        // a new beat (what a click skips) starts with each action, with the first of the round's ticks and with its end
+        const tick = e.t === 'damage' && e.tick;
+        if (round && i > 0 && (e.t === 'action' || e.t === 'round' || (tick && !inTicks))) newBeat();
+        inTicks = tick || (inTicks && e.t !== 'action' && e.t !== 'round');
         switch (e.t) {
           case 'fightStart': hud.log(`Combat: ${e.enemies.join(', ')}.`, 'lg-sys'); break;
           case 'action': {
+            if (this.striker) { this.striker.teleSpent = true; this.striker = null; }
             const src = ref(e.src); const dst = e.dst ? ref(e.dst) : null;
             if (e.resAfter != null && e.src.side === 'player') { p().res.cur = e.resAfter; push(); }
             if (e.src.side === 'player') {
-              if (e.kind === 'pass') { scene.float('player', 'Pass', { color: '#cfc6b0', size: 16 }); await W(T.pass); break; }
-              if (e.kind === 'item') { scene.act('player', 'item', D(420)); hud.log(`You use ${e.name}.`, 'lg-you'); await W(T.item); break; }
-              const cls = p().classId;
-              const selfOnly = selfOnlyOf(e);
-              if (cls === 'rogue' && !selfOnly) { { const hero = scene.actors.get('player'); const ta = scene.anchor(dst); const pa = scene.anchor('player'); if (hero) hero.lungeDist = Math.max(60, ta && pa ? ta.x - pa.x - 70 * scene.u : 120); } scene.act('player', 'melee', D(460)); await W(T.melee); }
-              else if (cls === 'mage') { scene.act('player', 'cast', D(520)); await W(T.cast); if (!selfOnly && dst) await this.projectiles(e, src, bolt); }
-              else if (cls === 'hunter') { scene.act('player', 'shoot', D(480)); await W(T.shoot); if (!selfOnly && dst) await this.projectiles(e, src, bolt, 'arrow'); }
-              else { scene.act('player', 'cast', D(400)); await W(T.cast); }
-              if (selfOnly) { scene.aura('player', e.tags && e.tags.includes('defensive') ? '#9fc4ff' : '#ffe08a'); await W(T.aura); }
+              hitCtx = { side: 'player', school: e.school };
+              if (e.kind === 'pass') { scene.float('player', 'Pass', { color: '#cfc6b0', size: 16, small: true }); await W(tm.wait); break; }
+              if (e.kind === 'item') { scene.act('player', 'item', D(tm.act || 420)); hud.log(`You use ${e.name}.`, 'lg-you'); await W(tm.wait); break; }
+              const glow = SCHOOL_GLOW[e.school] || '#ffe9a8';
+              if (tm.style === 'self') {
+                scene.act('player', 'cast', D(tm.act), { contact: tm.windup / tm.act });
+                await W(tm.windup);
+                const onPet = e.dst && e.dst.side === 'pet';
+                scene.aura(onPet ? 'pet' : 'player', e.tags && e.tags.includes('defensive') ? '#9fc4ff' : '#ffe08a');
+                await W(tm.aura);
+              } else if (tm.style === 'melee') {
+                { const hero = scene.actors.get('player'); const ta = dst ? scene.anchor(dst) : null; const pa = scene.anchor('player'); if (hero) hero.lungeDist = Math.max(60, ta && pa ? ta.x - pa.x - 70 * scene.u : 120); }
+                scene.act('player', 'melee', D(tm.act), { contact: tm.windup / tm.act });
+                await W(tm.windup);
+              } else if (tm.style === 'shoot') {
+                scene.act('player', 'shoot', D(tm.act), { contact: tm.windup / tm.act });
+                if (tm.w > 0.45 && live()) scene.charge('player', '#ffd27a', D(tm.windup), tm.w * 0.6);
+                await W(tm.windup);
+                if (dst) await this.projectiles(e, src, bolt, tm, 'arrow');
+              } else {
+                scene.act('player', 'cast', D(tm.act), { contact: tm.windup / tm.act });
+                if (live()) scene.charge('player', glow, D(tm.windup), tm.w);
+                await W(tm.windup);
+                if (dst) await this.projectiles(e, src, bolt, tm);
+              }
             } else if (e.src.side === 'pet') {
-              scene.act('pet', 'melee', D(360)); await W(T.pet);
+              hitCtx = { side: 'pet' };
+              scene.act('pet', 'melee', D(tm.act), { contact: tm.windup / tm.act }); await W(tm.windup);
             } else if (e.src.side === 'enemy') {
               const en = enemy(e.src.idx); const actor = scene.actors.get(src);
-              if (e.kind === 'cast' || (actor && actor.kind === 'boss')) {
-                scene.act(src, 'cast', D(480)); hud.log(`${en ? en.name : 'Enemy'} uses ${e.name}.`, 'lg-warn');
-                if (dst && dst !== src && !(actor && actor.kind === 'boss')) { await W(T.enemyCast); await bolt(src, dst, SCHOOL_PROJ[e.school] || 'shadow', T.enemyBolt); }
-                else await W(T.bossCast);
-              } else { scene.act(src, 'melee', D(420)); await W(T.enemyMelee); }
+              hitCtx = { side: 'enemy', heavy: !!e.heavy };
+              this.striker = actor || null; // its telegraph stays up through the wind-up and goes at contact
+              const glow = e.heavy && tm.style !== 'cast' ? '#ff4a2a' : SCHOOL_GLOW[e.school] || '#c79bff';
+              if (tm.style === 'melee') {
+                const kind = e.heavy && actor && actor.kind === 'humanoid' ? 'smash' : 'melee';
+                scene.act(src, kind, D(tm.act), { contact: tm.windup / tm.act, from: actor && actor.tele ? 0.26 : 0, heavy: !!e.heavy });
+                if (e.heavy) hud.log(`${en ? en.name : 'Enemy'} winds up ${e.name}!`, 'lg-warn');
+                await W(tm.windup);
+              } else {
+                scene.act(src, 'cast', D(tm.act), { contact: tm.windup / tm.act, from: actor && actor.tele ? 0.42 : 0, heavy: !!e.heavy });
+                hud.log(`${en ? en.name : 'Enemy'} uses ${e.name}.`, 'lg-warn');
+                if (live()) scene.charge(src, tm.style === 'support' ? '#9fe0b0' : glow, D(tm.windup), e.heavy || tm.style === 'boss' ? 0.8 : 0.4);
+                await W(tm.windup);
+                if (tm.style === 'cast' && dst && dst !== src) await bolt(src, dst, SCHOOL_PROJ[e.school] || 'shadow', tm.travel, { weight: e.heavy ? 0.8 : 0.35 });
+                if (tm.style === 'support') scene.aura(src, '#9fe0b0');
+              }
             }
             break;
           }
           case 'damage': {
             const dst = ref(e.dst); const u = unit(e.dst);
+            if (this.striker && e.src.side === 'enemy') { this.striker.teleSpent = true; this.striker = null; }
             if (u && e.hpAfter != null) { u.hp = e.hpAfter; if (e.dst.side === 'pet' && e.hpAfter <= 0) u.alive = false; }
             push();
             const toPlayerSide = e.dst.side === 'player' || e.dst.side === 'pet';
             if (dst) {
-              if (e.immune) scene.float(dst, 'Immune', { color: '#cfe4ff', size: 18 });
-              else if (e.miss) { scene.float(dst, e.dodge ? 'Dodge' : 'Miss', { color: '#c8c0b0', size: 18 }); }
+              if (e.immune) scene.float(dst, 'Immune', { color: '#cfe4ff', size: 18, small: true });
+              else if (e.miss) { scene.float(dst, e.dodge ? 'Dodge' : 'Miss', { color: '#c8c0b0', size: 20, small: true }); scene.act(dst, 'hit', D(200)); }
               else {
                 const col = toPlayerSide ? '#ff5a4a' : e.tick ? { fire: '#ffb05a', nature: '#a8f070', phys: '#ff9a8a', shadow: '#c8a0ff' }[e.school] || '#ffe0c0' : e.src.side === 'pet' ? '#f0e0c0' : { fire: '#ffb05a', frost: '#a8e4ff', arcane: '#e0b8ff', shadow: '#c8a0ff', nature: '#b0f080' }[e.school] || '#ffffff';
                 const txt = (toPlayerSide ? '-' : '') + fmtNum(e.amount) + (e.crit ? '!' : '');
-                scene.float(dst, txt, { color: col, size: e.crit ? 34 : e.tick ? 18 : 24, crit: e.crit, small: e.tick });
-                if (e.absorbed) scene.float(dst, `(${fmtNum(e.absorbed)} absorbed)`, { color: '#9fc4ff', size: 14, dy: 22 * scene.u, small: true });
-                if (!e.tick) scene.impact(dst, e.school, e.crit);
-                else scene.hitFlash(dst);
-                if (e.dst.side === 'player' && e.amount > p().maxHp * 0.18) { scene.shake(10); scene.screenFlash('#ff2a1a', 0.18, 0.4); }
+                if (e.tick) {
+                  scene.float(dst, txt, { color: col, size: 18, small: true });
+                  scene.hitFlash(dst, 0, 0.45);
+                } else {
+                  // contact: hit-stop, flash and sparks at the side facing the attacker, recoil, the number, shake by share of health
+                  const power = tm.power ?? 0.3; const dir = toPlayerSide ? -1 : 1; const share = hitShare(e);
+                  const stop = live() ? D(tm.stop || 0) : 0;
+                  scene.hitStop(stop);
+                  scene.impact(dst, e.school, { crit: e.crit, power, dir, hold: stop / 1000 });
+                  scene.knock(dst, dir, power, D((tm.stop || 0) + (tm.settle || 200)));
+                  const actor = scene.actors.get(dst); if (actor && !actor.act) scene.act(dst, 'hit', D(260));
+                  scene.float(dst, txt, { color: col, size: e.crit ? 33 : 25, crit: e.crit, weight: power });
+                  scene.shakeHit(share, toPlayerSide, e.crit);
+                  if (e.dst.side === 'player' && share > 0.18) scene.screenFlash('#ff2a1a', Math.min(0.32, 0.12 + share * 0.5), 0.45);
+                }
+                if (e.absorbed) scene.float(dst, `(${fmtNum(e.absorbed)} absorbed)`, { color: '#9fc4ff', size: 14, dy: 24 * scene.u, small: true, under: true });
               }
             }
             hud.log(logDamage(e, name), e.miss ? 'lg-miss' : e.dst.side === 'player' ? 'lg-taken' : e.crit ? 'lg-crit' : 'lg-hit');
             lastDamageTarget = dst;
-            await W(e.tick ? T.tick : T.hit);
+            await W(tm.wait);
             break;
           }
           case 'heal': {
@@ -223,7 +262,7 @@ export class Director {
             if (e.dst.side === 'pet' && e.name === 'Revive') scene.revive('pet');
             scene.heal(dst); scene.float(dst, `+${fmtNum(e.amount)}`, { color: '#7dff8a', size: 22 });
             hud.log(e.dst.side === 'enemy' ? `${name(e.dst)} is healed for ${fmtNum(e.amount)} (${e.name}).` : `${e.name} heals ${e.dst.side === 'player' ? 'you' : name(e.dst)} for ${fmtNum(e.amount)}.`, e.dst.side === 'enemy' ? 'lg-warn' : 'lg-heal');
-            await W(T.heal);
+            await W(tm.wait);
             break;
           }
           case 'status': {
@@ -234,13 +273,13 @@ export class Director {
             if (e.op === 'add' && label) scene.float(dst, label, { color: ['BRAND', 'CURSED', 'ENRAGED'].includes(e.id) ? '#ff9a8a' : '#ffe08a', size: 17, dy: -16 * scene.u, small: true });
             if (e.op === 'add' && e.id === 'WARD') scene.aura(dst, '#9fc4ff');
             if (e.op === 'add' && e.id === 'STEALTH') scene.aura(dst, '#7a6aa0');
-            if (e.op === 'add' && label) await W(T.status);
+            if (e.op === 'add' && label) await W(tm.wait);
             break;
           }
-          case 'interrupt': scene.float(ref(e.dst), 'Interrupted!', { color: '#d0b0ff', size: 24, crit: true }); scene.impact(ref(e.dst), 'arcane', true); { const en = enemy(e.dst.idx); if (en && en.intent) en.intent.interrupted = true; } push(); hud.log(`You interrupt ${name(e.dst)}: ${e.name} is cancelled.`, 'lg-you'); await W(T.interrupt); break;
-          case 'immune': scene.float(ref(e.dst), 'Immune', { color: '#cfe4ff', size: 18 }); await W(T.immune); break;
-          case 'skip': if (e.reason && e.reason !== 'Unaware') scene.float(ref(e.src), e.reason, { color: '#c8c0b0', size: 16, small: true }); await W(T.skip); break;
-          case 'cleanse': scene.aura(ref(e.dst), '#ffffff'); scene.float(ref(e.dst), 'Cleansed', { color: '#ffffff', size: 18 }); { const u = unit(e.dst); const nu = statusSource(next, e.dst); if (u && nu) u.statuses = deepClone(nu.statuses); push(); } await W(T.cleanse); break;
+          case 'interrupt': scene.float(ref(e.dst), 'Interrupted!', { color: '#d0b0ff', size: 24, crit: true }); scene.impact(ref(e.dst), 'arcane', true); { const en = enemy(e.dst.idx); if (en && en.intent) en.intent.interrupted = true; } push(); hud.log(`You interrupt ${name(e.dst)}: ${e.name} is cancelled.`, 'lg-you'); await W(tm.wait); break;
+          case 'immune': scene.float(ref(e.dst), 'Immune', { color: '#cfe4ff', size: 18, small: true }); await W(tm.wait); break;
+          case 'skip': if (e.reason && e.reason !== 'Unaware') scene.float(ref(e.src), e.reason, { color: '#c8c0b0', size: 16, small: true }); await W(tm.wait); break;
+          case 'cleanse': scene.aura(ref(e.dst), '#ffffff'); scene.float(ref(e.dst), 'Cleansed', { color: '#ffffff', size: 18 }); { const u = unit(e.dst); const nu = statusSource(next, e.dst); if (u && nu) u.statuses = deepClone(nu.statuses); push(); } await W(tm.wait); break;
           case 'resource': p().res.cur = e.after; push(); scene.float('player', `+${fmtNum(e.amount)} ${p().res.kind}`, { color: '#8fc4ff', size: 16, small: true }); break;
           case 'cp': p().cp = e.after; push(); break;
           case 'death': {
@@ -251,7 +290,7 @@ export class Director {
             if (e.dst.side === 'enemy') { hud.log(`${e.name} dies.`, 'lg-death'); const an = scene.anchor(dst); if (!e.despawn && an) scene.burst(an.x, an.cy, '#ffe8c0', 10, 90); if (ctx.ui.target === e.dst.idx) ctx.ui.retarget(shown); }
             else if (e.dst.side === 'pet') hud.log(`${e.name} has fallen.`, 'lg-death');
             else hud.log('You die.', 'lg-death');
-            if (e.dst.side === 'player') await WM(M.playerDeath); else await W(T.death);
+            if (e.dst.side === 'player') await WM(M.playerDeath); else await W(tm.wait);
             break;
           }
           case 'resurrect': scene.revive('player'); scene.aura('player', '#ffd36a', 1.4); scene.levelUp('player'); p().hp = e.hpAfter;
@@ -264,8 +303,10 @@ export class Director {
             if (nc) for (const en of shown.combat.enemies) { const ne = nc.enemies.find((x) => x.idx === en.idx && x.uid === en.uid); if (ne) { en.intent = deepClone(ne.intent); en.statuses = deepClone(ne.statuses); } }
             if (nc) shown.combat.cooldowns = { ...nc.cooldowns };
             if (next.player) { p().statuses = deepClone(next.player.statuses); p().res.cur = next.player.res.cur; }
+            this.striker = null;
+            for (const a of scene.actors.values()) a.teleSpent = false; // new intents: wind-ups show again
             push();
-            await W(T.round);
+            await W(tm.wait);
             break;
           }
           case 'xp': if (e.amount > 0) { scene.float('player', `+${fmtNum(e.amount)} XP`, { color: '#d0a8ff', size: 17, dy: -30 * scene.u, small: true }); p().xp = Math.min(p().xpToNext, p().xp + e.amount); p().rested = Math.max(0, (p().rested || 0) - (e.rested || 0)); push(); hud.log(`You gain ${fmtNum(e.amount)} experience${e.rested ? ` (${fmtNum(e.rested)} rested bonus)` : ''}.`, 'lg-xp'); } break;
@@ -281,17 +322,17 @@ export class Director {
           }
           case 'victory': hud.log('Victory!', 'lg-sys'); scene.act('player', 'cheer', settings.dur(900)); await WM(M.victory); break;
           case 'defeat': break;
-          case 'flee': if (e.ok) { scene.float('player', 'Escaped!', { color: '#ffe08a', size: 22 }); hud.log('You flee from the fight.', 'lg-warn'); scene.setMode('map'); scene.clearEnemies(); await W(T.flee); } else { scene.float('player', 'Flee failed', { color: '#ff9a8a', size: 20 }); hud.log('You fail to escape!', 'lg-warn'); await W(T.fleeFail); } break;
+          case 'flee': if (e.ok) { scene.float('player', 'Escaped!', { color: '#ffe08a', size: 22 }); hud.log('You flee from the fight.', 'lg-warn'); scene.setMode('map'); scene.clearEnemies(); await W(tm.wait); } else { scene.float('player', 'Flee failed', { color: '#ff9a8a', size: 20 }); hud.log('You fail to escape!', 'lg-warn'); await W(tm.wait); } break;
           case 'bossPhase': scene.bossPhase = e.phase; scene.screenFlash(e.phase === 3 ? '#ff5a2a' : '#8a6aff', 0.35, 0.8); scene.shake(14); ctx.ui.banner(`Phase ${e.phase}: ${e.name}`, e.text, 'phase', 2400); hud.log(`${e.name}: ${e.text}`, 'lg-warn'); await WM(M.bossPhase); break;
-          case 'summon': if (!shown.combat) break; for (const idx of e.idxs) { const en = shown.combat.enemies.find((x) => x.idx === idx); if (en) en.hidden = false; } ctx.syncScene(shown, { enter: true }); push(); hud.log(`${e.names.length} ${e.names[0]}s appear!`, 'lg-warn'); await W(T.summon); break;
+          case 'summon': if (!shown.combat) break; for (const idx of e.idxs) { const en = shown.combat.enemies.find((x) => x.idx === idx); if (en) en.hidden = false; } ctx.syncScene(shown, { enter: true }); push(); hud.log(`${e.names.length} ${e.names[0]}s appear!`, 'lg-warn'); await W(tm.wait); break;
           case 'gotItem': hud.log(`You receive loot: ${e.name}${e.to === 'window' ? ' (waiting in the loot window)' : ''}.`, 'lg-loot'); break;
-          case 'channel': scene.float(ref(e.src), `${e.name} ${e.step}/2`, { color: '#d0b0ff', size: 22, crit: e.step === 2 }); if (e.step === 2) scene.screenFlash('#6a4aff', 0.3, 0.6); hud.log(`${e.name}: ${e.step === 1 ? 'the channel begins' : 'the channel resolves'}.`, 'lg-warn'); await W(T.channel); break;
+          case 'channel': scene.float(ref(e.src), `${e.name} ${e.step}/2`, { color: '#d0b0ff', size: 22, crit: e.step === 2 }); if (e.step === 2) scene.screenFlash('#6a4aff', 0.3, 0.6); hud.log(`${e.name}: ${e.step === 1 ? 'the channel begins' : 'the channel resolves'}.`, 'lg-warn'); await W(tm.wait); break;
           case 'linked': {
             // n: living Shards when the wave came (engine event); the strength from the rules table
             const R = ctx.data.rules; const dr = e.on && e.n ? R.linkDr[Math.min(e.n, R.linkDr.length - 1)] : 0;
             const b = shown.combat && shown.combat.enemies.find((x) => x.rank === 'boss');
             if (b) scene.float(`enemy:${b.idx}`, e.on ? (dr ? `Linked −${Math.round(dr * 100)} %` : 'Linked') : 'Link broken', { color: e.on ? '#c8a8ff' : '#ffe08a', size: 20 });
-            hud.log(e.on ? linkedText(R, 'log') : 'The link is broken.', 'lg-warn'); await W(T.linked); break;
+            hud.log(e.on ? linkedText(R, 'log') : 'The link is broken.', 'lg-warn'); await W(tm.wait); break;
           }
           case 'gold': hud.log(`You receive ${fmtNum(e.amount)} copper.`, 'lg-loot'); break;
           case 'msg': ctx.ui.toast(e.text, e.kind === 'warn' ? 'err' : e.kind || 'info'); hud.log(e.text, e.kind === 'warn' ? 'lg-warn' : 'lg-sys'); break;
@@ -321,14 +362,16 @@ export class Director {
     }
   }
 
-  /** The player's projectiles; bolt(from, to, kind, ms at 1x) fires one at the step's tempo. */
-  async projectiles(e, src, bolt, forceKind) {
+  /** The player's projectiles; bolt(from, to, kind, ms at 1x, opts) fires one at the step's tempo; tm: the action's timing (travel, weight). */
+  async projectiles(e, src, bolt, tm, forceKind) {
     const scene = this.ctx.scene;
     const kind = forceKind || SCHOOL_PROJ[e.school] || (e.school === 'phys' ? 'arrow' : 'arcane');
+    const o = { weight: tm.w || 0 };
     if (e.aoe) {
-      const ids = [...scene.actors.keys()].filter((k) => k.startsWith('enemy:') && scene.actors.get(k).alive !== false && !scene.actors.get(k).deadT0);
-      await Promise.all(ids.map((id, i) => bolt(src, id, kind, T.bolt - 20 + i * 40)));
-    } else await bolt(src, ref(e.dst), e.name === 'Pyre Comet' ? 'comet' : kind, T.bolt);
+      const ids = [...scene.actors.keys()].filter((k) => k.startsWith('enemy:') && scene.actors.get(k).alive !== false && !scene.actors.get(k).deadT0 && scene.actors.get(k).visible !== false);
+      const last = 0.88 + Math.max(0, ids.length - 1) * 0.1;
+      await bolt(src, ids.map((id, i) => [id, (0.88 + i * 0.1) / last]), kind, tm.travel, o);
+    } else await bolt(src, ref(e.dst), e.name === 'Pyre Comet' ? 'comet' : kind, tm.travel, o);
   }
 
   async travel(prev, next, token) {

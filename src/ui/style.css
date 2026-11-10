@@ -96,18 +96,24 @@ button { font-family: inherit; }
 .uf .bar { height: 1.65rem; }
 .uf .bar.res { height: 1.25rem; }
 .uf .bar.res .txt { font-size: 1rem; }
-.statuses { display: flex; gap: .3rem; flex-wrap: wrap; min-height: 2.2rem; }
-.st { position: relative; width: 2.2rem; height: 2.2rem; border-radius: .25rem; border: 1px solid #000; box-shadow: 0 0 0 1px rgba(120, 220, 120, .6); }
-.st.bad { box-shadow: 0 0 0 1px rgba(255, 90, 70, .8); }
-.st img { width: 100%; height: 100%; border-radius: .2rem; display: block; }
-.st .n { position: absolute; right: -.1rem; bottom: -.2rem; font: 800 1rem var(--font-num); color: #fff; text-shadow: 0 0 2px #000, 0 1px 1px #000; }
-.st .s { position: absolute; left: -.1rem; top: -.35rem; font: 800 1rem var(--font-num); color: #ffe58a; text-shadow: 0 0 2px #000, 0 1px 1px #000; }
+/* Status icons (DoTs, buffs, debuffs): buffs first, a divider, then debuffs. Buff: round green frame. Debuff: square red
+   frame with a notch in the upper right corner. Rounds left: lower right; stacks: upper left. */
+.statuses { display: flex; gap: .45rem; flex-wrap: wrap; align-items: center; min-height: 3.4rem; padding: .25rem .25rem 0 .25rem; }
+.st { position: relative; flex: none; width: 3.4rem; height: 3.4rem; border-radius: .9rem; border: .2rem solid #49c25c; background: #0a0806; box-shadow: 0 0 0 1px #000, 0 .2rem .5rem rgba(0, 0, 0, .65); }
+.st img { width: 100%; height: 100%; border-radius: .65rem; display: block; }
+.st.bad { border-radius: .2rem; border-color: #ff4a36; box-shadow: 0 0 0 1px #000, 0 0 .8rem rgba(255, 60, 40, .55), 0 .2rem .5rem rgba(0, 0, 0, .65); }
+.st.bad img { border-radius: 0; }
+.st.bad::after { content: ''; position: absolute; right: -.2rem; top: -.2rem; width: 0; height: 0; border-style: solid; border-width: 0 1.1rem 1.1rem 0; border-color: transparent #ff4a36 transparent transparent; filter: drop-shadow(0 0 1px #000); }
+.st .n { position: absolute; right: -.45rem; bottom: -.45rem; min-width: 1.8rem; height: 1.8rem; padding: 0 .3rem; border-radius: .9rem; background: rgba(8, 6, 4, .94); border: 1px solid rgba(255, 255, 255, .5); font: 800 1.3rem/1.6rem var(--font-num); color: #fff; text-align: center; text-shadow: 0 1px 1px #000; }
+.st.ending .n { color: #ffd36a; border-color: #ffd36a; box-shadow: 0 0 .5rem rgba(255, 200, 80, .7); }
+.st .s { position: absolute; left: -.45rem; top: -.45rem; min-width: 1.7rem; height: 1.7rem; padding: 0 .25rem; border-radius: .85rem; background: #4a3008; border: 1px solid #ffd36a; font: 800 1.2rem/1.5rem var(--font-num); color: #ffe58a; text-align: center; text-shadow: 0 1px 1px #000; }
+.st-sep { flex: none; width: .2rem; height: 2.6rem; margin: 0 .15rem; border-radius: .1rem; background: rgba(255, 240, 210, .28); }
 /* player frame: status icons, then the resurrect badge (charges that work now) at the right end */
-.strow { display: flex; align-items: flex-start; gap: .3rem; }
+.strow { display: flex; align-items: center; gap: .3rem; }
 .strow .statuses { flex: 1; min-width: 0; }
-.resc { position: relative; flex: none; width: 2.2rem; height: 2.2rem; border-radius: .25rem; border: 1px solid #000; box-shadow: 0 0 0 1px var(--gold); }
+.resc { position: relative; flex: none; width: 3rem; height: 3rem; border-radius: .25rem; border: 1px solid #000; box-shadow: 0 0 0 1px var(--gold); }
 .resc img { width: 100%; height: 100%; border-radius: .2rem; display: block; }
-.resc .n { position: absolute; right: -.1rem; bottom: -.2rem; font: 800 1.05rem var(--font-num); color: #ffe58a; text-shadow: 0 0 2px #000, 0 1px 1px #000; }
+.resc .n { position: absolute; right: -.3rem; bottom: -.35rem; font: 800 1.3rem var(--font-num); color: #ffe58a; text-shadow: 0 0 2px #000, 0 1px 1px #000; }
 .resc.none { box-shadow: 0 0 0 1px var(--gold-dim); filter: grayscale(1) brightness(.6); }
 .cp { display: flex; gap: .35rem; margin-top: .1rem; }
 .cp i { width: 1.15rem; height: 1.15rem; border-radius: 50%; background: #1a1410; border: 1px solid #000; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
@@ -142,8 +148,12 @@ button { font-family: inherit; }
 .np .bar { width: 100%; height: 1.15rem; }
 .np .bar .txt { font-size: .95rem; }
 .np.sel .bar { box-shadow: 0 0 0 1px #ff6a5a, 0 0 .8rem rgba(255, 80, 60, .7); }
-.np .sts { display: flex; gap: .2rem; min-height: 1.7rem; }
-.np .sts .st { width: 1.7rem; height: 1.7rem; }
+.np .sts { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: .4rem; min-height: 2.9rem; padding-top: .3rem; }
+.np .sts:empty { min-height: 0; padding: 0; }
+.np .sts .st { width: 2.9rem; height: 2.9rem; }
+.np .sts .st .n { min-width: 1.6rem; height: 1.6rem; font-size: 1.15rem; line-height: 1.4rem; right: -.4rem; bottom: -.4rem; }
+.np .sts .st .s { min-width: 1.5rem; height: 1.5rem; font-size: 1.05rem; line-height: 1.3rem; }
+.np .sts .st-sep { height: 2.2rem; }
 /* The raid frame already shows the star's name and health; its plate keeps only intent and statuses. */
 .np.boss .nm, .np.boss .bar { display: none; }
 .np.shard { width: 11.5rem; }
@@ -193,6 +203,13 @@ button { font-family: inherit; }
 .ab.hint::before { content: ''; position: absolute; inset: -.3rem; border-radius: .7rem; box-shadow: 0 0 0 2px rgba(170, 130, 255, .9), 0 0 1.2rem rgba(160, 120, 255, .8); animation: pulseop 1.2s ease-in-out infinite; will-change: opacity; pointer-events: none; }
 .ab.drop { box-shadow: inset 0 0 0 2px #7fe07a, 0 0 1rem rgba(120, 220, 120, .6); }
 .ab.basic { width: 4.6rem; height: 4.6rem; }
+/* the queued next action while a round plays (one slot): a gold ring and a NEXT tag; shown even while the bar is dimmed */
+.ab.queued img { filter: none; }
+.ab.queued::after, .btn.queued::after { content: 'Next'; position: absolute; left: 50%; top: -1.1rem; transform: translateX(-50%); padding: .05rem .45rem; border-radius: .3rem; background: #ffd36a; color: #2a1a04; font: 800 .9rem var(--font-ui); letter-spacing: .06em; text-transform: uppercase; box-shadow: 0 0 .6rem rgba(255, 210, 100, .8); pointer-events: none; }
+.ab.queued { box-shadow: inset 0 0 0 2px #ffd36a, 0 0 0 2px rgba(255, 211, 106, .55), 0 0 1.4rem rgba(255, 200, 90, .85); animation: qpulse 1s ease-in-out infinite; }
+.btn.queued { position: relative; filter: none !important; box-shadow: inset 0 0 0 2px #ffd36a, 0 0 1.2rem rgba(255, 200, 90, .8); }
+@keyframes qpulse { 50% { box-shadow: inset 0 0 0 2px #fff0b8, 0 0 0 3px rgba(255, 211, 106, .9), 0 0 2rem rgba(255, 210, 100, 1); } }
+.qtag { position: absolute; left: 50%; bottom: calc(100% + 1rem); transform: translateX(-50%); padding: .3rem 1rem; border-radius: 1.2rem; background: rgba(20, 15, 8, .92); border: 1px solid #ffd36a; color: #ffe9a8; font: 700 1.15rem var(--font-ui); white-space: nowrap; box-shadow: 0 0 .9rem rgba(255, 200, 90, .45); pointer-events: none; }
 .ab-label { position: absolute; bottom: -1.7rem; left: 0; right: 0; text-align: center; font: 700 .95rem var(--font-ui); color: var(--ink-mute); white-space: nowrap; letter-spacing: .04em; text-transform: uppercase; }
 .ctrl { display: flex; flex-direction: column; gap: .4rem; }
 .ctrl .btn { padding: .35rem .8rem; font-size: 1.12rem; }
@@ -475,6 +492,9 @@ button { font-family: inherit; }
 .tt-sub { color: var(--ink-mute); font-size: 1.15rem; }
 .tt-row { display: flex; justify-content: space-between; gap: 1.6rem; align-items: baseline; }
 .tt-rank { color: var(--ink-mute); font-size: 1.15rem; }
+.tt-kind { font: 800 1rem var(--font-ui); letter-spacing: .08em; text-transform: uppercase; padding: .1rem .5rem; border-radius: .3rem; }
+.tt-kind.good { background: #1d3f22; color: #a8f0a0; } .tt-kind.bad { background: #4a1510; color: #ffb0a0; }
+.tt-status { max-width: 30rem; }
 .tt-line { color: var(--ink); }
 .tt-line.stat { color: #fff; }
 .tt-line.affix, .tt-line.use { color: #6aff6a; }

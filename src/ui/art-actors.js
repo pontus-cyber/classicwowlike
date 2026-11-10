@@ -95,6 +95,14 @@ function pose(look, a) {
       ns = -1.2 * Math.max(0, wind) + 1.9 * Math.max(0, -wind) / 0.6 * 0.8 + 0.2; ne = 0.6 - 0.4 * Math.max(0, -wind);
       fs = 0.9 * Math.max(0, -wind) + 0.1; fe = 0.6;
       nh = 0.5 * Math.max(0, -wind); fh = -0.4 * Math.max(0, -wind); nk = 0.3; fk = 0.1;
+    } else if (act.kind === 'smash') {
+      // a heavy blow: the weapon goes up overhead with both hands, then comes down forward (contact at p 0.5)
+      const wind = p < 0.35 ? ease.out(p / 0.35) : p < 0.55 ? 1 - ease.out((p - 0.35) / 0.2) * 1.6 : -0.6 * (1 - (p - 0.55) / 0.45);
+      const up = Math.max(0, wind); const down = Math.max(0, -wind) / 0.6; const rest = (1 - up) * (1 - down);
+      P.lean += -0.2 * up + 0.32 * down;
+      ns = -2.5 * up + 1.1 * down + 0.35 * rest; ne = 0.9 * rest - 0.5 * up + 0.15 * down;
+      fs = -2.2 * up + 0.9 * down + 0.1 * rest; fe = 0.45 * rest - 0.3 * up + 0.2 * down;
+      nh = 0.45 * down - 0.1 * up; fh = -0.35 * down - 0.12 * up; nk = 0.15 + 0.3 * down; fk = 0.1;
     } else if (act.kind === 'cast') {
       const raise = p < 0.6 ? ease.out(p / 0.6) : 1 - ease.out((p - 0.6) / 0.4) * 0.6;
       ns = 0.4 + 1.1 * raise; ne = 0.9 - 0.7 * raise; fs = 0.2 + 1.2 * raise; fe = 0.6 - 0.4 * raise; P.lean += -0.05 * raise;

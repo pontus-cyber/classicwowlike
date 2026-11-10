@@ -1,5 +1,5 @@
-// Player-facing presentation settings (animation speed, fast mode). Persisted in localStorage when
-// available. Nothing here changes game rules.
+// Player-facing presentation settings (animation speed, fast mode, screen shake, reduce motion). Persisted in
+// localStorage when available. Nothing here changes game rules.
 import { emitter } from './util.js';
 
 const KEY = 'tbwcr.ui.settings.v1';
@@ -10,6 +10,7 @@ const DEFAULTS = {
   showLog: true,       // combat log panel
   shake: true,         // screen shake on heavy hits
   speedrun: false,     // preset: instant animations, no travel, short autoplay delay
+  reduceMotion: null,  // no screen shake, small recoil, no number slam; null follows the system's reduced-motion setting
 };
 
 function load() {
@@ -44,4 +45,9 @@ export const settings = {
   /** Scale a duration in ms by the animation speed (0 = instant). */
   dur(ms) { return state.speed === 0 ? 0 : ms / state.speed; },
   get instant() { return state.speed === 0; },
+  /** Reduce motion: the player's choice, or the system's prefers-reduced-motion until the player chooses. */
+  get reduceMotion() {
+    if (state.reduceMotion != null) return !!state.reduceMotion;
+    try { return !!(globalThis.matchMedia && globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch { return false; }
+  },
 };

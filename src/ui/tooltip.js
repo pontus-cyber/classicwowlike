@@ -2,6 +2,7 @@
 // view and the bridge's data tables; nothing here decides game rules.
 import { h, clear, moneyEl, pct, fmtNum } from './util.js';
 import { itemIcon } from './art-icons.js';
+import { statusEffect } from './ui-text.js';
 
 let el = null;
 let current = null;
@@ -118,11 +119,15 @@ export function talentTip(t, st, ctx) {
   return box;
 }
 
+/** A status: buff or debuff, its exact effect from the engine's status object and rules table, time left and source. */
 export function statusTip(s, ctx) {
   const info = (ctx.data.statuses || {})[s.id] || { name: s.id, text: '' };
-  return h('div.tt-spell', h('div.tt-name' + (info.debuff ? '.bad' : '.good'), info.name + (s.stacks > 1 ? ` ×${s.stacks}` : '')), h('div.tt-line.desc', info.text),
-    s.value && s.id === 'WARD' ? h('div.tt-line.num', `${fmtNum(s.value)} damage left to absorb`) : null,
-    s.rounds && s.rounds < 90 ? h('div.tt-sub', `${s.rounds} round${s.rounds > 1 ? 's' : ''} left`) : null);
+  const fx = statusEffect(s, ctx.data.rules, info);
+  return h('div.tt-spell.tt-status',
+    h('div.tt-row', h('div.tt-name' + (info.debuff ? '.bad' : '.good'), info.name + (s.stacks > 1 ? ` ×${s.stacks}` : '')), h('div.tt-kind' + (info.debuff ? '.bad' : '.good'), info.debuff ? 'Debuff' : 'Buff')),
+    fx.effect ? h('div.tt-line.desc', fx.effect) : null,
+    fx.lines.map((l) => h('div.tt-line.num', l)),
+    h('div.tt-sub', fx.duration), fx.source ? h('div.tt-sub', fx.source) : null);
 }
 
 export { SLOT_NAMES, STAT_NAMES, pct };

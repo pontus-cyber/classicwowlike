@@ -70,6 +70,8 @@ function rulesTable(K) {
     linkPerShard: per ?? null, linkCap: K.LINK_DR, linkDr, shardAoeTaken: K.SHARD_AOE_TAKEN ?? null,
     // Round time budget at the default animation speed (rules 3, M2 v2); null on an engine without it.
     roundAnimMs: K.PACE_ROUND_ANIM_S != null ? K.PACE_ROUND_ANIM_S * 1000 : null,
+    // Status numbers that live in the rules, not on the status object (rules 7.4): status tooltips state them.
+    status: { cursePct: K.CURSE_PCT ?? null, brandDmg: K.BRAND_DMG ?? null, brandMax: K.BRAND_MAX ?? null, stealthMiss: K.STEALTH_MISS_BONUS ?? null, dodgeCap: K.DODGE_CAP ?? null },
     // Zone danger (rules 7.6, M2 v3; dungeons M2 v4): enemies above dangerFrom hit harder. dangerStep and
     // dangerStepDungeon: the extra damage TXT.DANGER_LEVELS levels above dangerFrom, in the open world and in a dungeon
     // (trash), from the engine's zoneDanger; null without zone danger.
@@ -200,7 +202,8 @@ function engineBackend(seedOpt) {
     talents: Object.fromEntries(Object.values(C.TALENT).map((t) => [t.id, { id: t.id, tree: treeId(t.cls, t.tree), tier: t.tier, name: t.name, ranks: t.ranks, spell: t.spell || null, text: TXT.talentText(t.id, CONTENT) }])),
     pets: Object.fromEntries(Object.values(C.PET).map((p) => [p.id, { id: p.id, name: p.name, text: TXT.petText(p.id, CONTENT), meta: p.meta || null, locked: !!p.meta && !(profile && profile.unlocks && profile.unlocks[p.meta]) }])),
     consumables: Object.fromEntries(Object.values(C.CONSUMABLE).map((c) => [c.id, { id: c.id, name: c.name, use: USE_MAP[c.use] || 'both', stack: c.stack, mana: !!c.mana, text: TXT.consumableText(c.id, CONTENT, c) }])),
-    statuses: TXT.STATUS_INFO,
+    // names and texts from the UI table; buff or debuff from the engine's DEBUFFS list (rules 7.4)
+    statuses: Object.fromEntries(Object.entries(TXT.STATUS_INFO).map(([id, x]) => [id, { ...x, debuff: C.DEBUFFS ? C.DEBUFFS.includes(id) : x.debuff }])),
     boons: Object.fromEntries(Object.values(C.BOON).map((b) => [b.id, { id: b.id, name: b.name, text: TXT.boonText(b.id, CONTENT) }])),
     slots: C.SLOT_IDS, zones: CONTENT.zones, camp: CONTENT.camp,
     nodeHours: Object.fromEntries(Object.values(C.NODE_TYPE).map((t) => [t.id, t.hours])),
@@ -212,7 +215,9 @@ function engineBackend(seedOpt) {
   const refreshPets = () => { for (const pd of Object.values(data.pets)) pd.locked = !!pd.meta && !(profile && (profile.unlocks[pd.meta] || 0) > 0); };
   const consName = (id) => (C.CONSUMABLE[id] ? C.CONSUMABLE[id].name : null);
   // a damage or heal source: a spell, the pet, or a consumable (potions, Spark Flask)
-  const spellName = (id) => (C.SPELL[id] ? C.SPELL[id].name : id === 'pet' ? 'Pet' : consName(id) || TXT.humanize(id));
+  // (an enemy's DoT carries 'ability@enemyIdx'; talent procs their engine id; both read as names)
+  const spellName = (id) => (C.SPELL[id] ? C.SPELL[id].name : id === 'pet' ? 'Pet' : consName(id)
+    || (typeof id === 'string' && id.includes('@') ? abilityName(id.split('@')[0]) : SRC_TALENT[id] && C.TALENT[SRC_TALENT[id]] ? C.TALENT[SRC_TALENT[id]].name : TXT.humanize(id)));
 
   // ---------------------------------------------------------------- conversions
   const gearKind = (slot, cls) => (slot === 'weapon' ? { rogue: 'dagger', mage: 'staff', hunter: 'bow' }[cls] : slot === 'offhand' ? { rogue: 'dagger', mage: 'tome', hunter: 'quiver' }[cls] : slot);
@@ -227,11 +232,35 @@ function engineBackend(seedOpt) {
     if (it.kind === 'cons') { const c = C.CONSUMABLE[it.id] || { name: it.id, stack: 5 }; return { uid: it.uid, kind: 'consumable', id: it.id, name: c.name, rarity: it.id === 'ember_of_return' ? 'rare' : 'common', count: it.qty, stack: c.stack, use: USE_MAP[c.use] || 'both', _raw: it, ...extra }; }
     return { uid: it.uid, kind: 'junk', id: 'junk', name: it.name, rarity: 'junk', count: it.qty || 1, stack: 10, _raw: it, ...extra };
   }
-  const statuses = (list, shield) => {
-    const out = (list || []).map((x) => ({ id: x.id, rounds: x.dur == null ? 99 : x.dur, stacks: x.stacks || 1, value: x.value || 0 }));
-    if (shield > 0 && !out.some((x) => x.id === 'WARD')) out.push({ id: 'WARD', rounds: 99, stacks: 1, value: shield });
+  /**
+   * Statuses for the view, from the engine's status objects (engine-api.md 6: { id, dur, stacks, value, tick, amount, src }).
+   * value: the status's number (a WARD's absorb left: its `amount`); tick: damage per tick (per stack for POISON);
+   * amount: heal per tick of HOT; full: the duration it was applied with (DoTs); max: stack cap; srcName: what applied it.
+   * An enemy's shield is a WARD; an enraged enemy (template ability, rules 12.4) gets ENRAGED with its damage bonus.
+   */
+  const statuses = (list, f, shield = 0, enraged = 0) => {
+    const out = (list || []).map((x) => ({ id: x.id, rounds: x.dur == null ? 99 : x.dur, full: x.full || null, stacks: x.stacks || 1,
+      value: x.id === 'WARD' ? x.amount || 0 : x.value || 0, tick: x.tick || 0, amount: x.amount || 0, max: x.max || x.maxStacks || null,
+      canCrit: !!x.canCrit, focus: x.focus || 0, srcName: statusSource(x, f) }));
+    if (shield > 0 && !out.some((x) => x.id === 'WARD')) out.push({ id: 'WARD', rounds: 99, stacks: 1, value: shield, amount: shield, srcName: null });
+    if (enraged > 0) out.push({ id: 'ENRAGED', rounds: 99, stacks: 1, value: enraged, srcName: null });
     return out;
   };
+  // Engine status sources that are not spell ids: talents (rules 8) and equipment.
+  const SRC_TALENT = { ignite: 'm_a5', heat_haze: 'm_a8' };
+  /** Name of an enemy action (archetype action or template ability) from its id. */
+  const abilityName = (id) => (CONTENT.abilities && CONTENT.abilities[id] ? CONTENT.abilities[id].name
+    : (Object.values(C.ARCHETYPE || {}).flatMap((a) => a.actions || []).find((a) => a.id === id) || {}).name || TXT.humanize(id));
+  /** What applied a status: a spell, a talent, equipment, or an enemy's action ('ability@enemyIdx'); null when unknown. */
+  function statusSource(x, f) {
+    const src = x.src; const foe = (i) => (f && f.enemies[i]) || null;
+    if (typeof src === 'string' && src.includes('@')) { const [id, idx] = src.split('@'); const e = foe(Number(idx)); return `${abilityName(id)}${e ? ` (${e.name})` : ''}`; }
+    if (src && C.SPELL[src]) return C.SPELL[src].name;
+    if (src && SRC_TALENT[src] && C.TALENT[SRC_TALENT[src]]) return C.TALENT[SRC_TALENT[src]].name;
+    if (src === 'unique') return 'your equipment';
+    if (typeof x.by === 'number' && foe(x.by)) return foe(x.by).name;
+    return null;
+  }
 
   function convPlayer(s) {
     const p = s.player; const d = p.d; const f = s.fight; const cls = C.CLASS[p.classId];
@@ -256,8 +285,8 @@ function engineBackend(seedOpt) {
       gold: p.gold, equip: Object.fromEntries(Object.entries(p.equipped).map(([k, it]) => [k, item(it, p.classId)])), bag,
       spells: (p.spellOrder || Object.keys(p.spells)).map((id) => ({ id, tl: p.spells[id].tl, rank: p.spells[id].rank })),
       bar: [...p.bar], itemBar: [...p.itemBar], talents: { ...p.talents }, talentPoints: R.talentPointsFree(s), talentSpent: spent,
-      statuses: f ? statuses(f.p.st) : [], boons, resurrect, resurrectHeld, resurrectBoss,
-      pet: p.pet ? { id: p.pet.id, name: C.PET[p.pet.id].name, hp: p.pet.hp, maxHp: d.petMaxHp, alive: p.pet.alive, statuses: f && f.pet ? statuses(f.pet.st) : [] } : null,
+      statuses: f ? statuses(f.p.st, f) : [], boons, resurrect, resurrectHeld, resurrectBoss,
+      pet: p.pet ? { id: p.pet.id, name: C.PET[p.pet.id].name, hp: p.pet.hp, maxHp: d.petMaxHp, alive: p.pet.alive, statuses: f && f.pet ? statuses(f.pet.st, f) : [] } : null,
     };
   }
 
@@ -325,7 +354,8 @@ function engineBackend(seedOpt) {
     const none = it.kind === 'none';
     return { id: none ? (it.name === 'Unaware' ? 'unaware' : 'none') : it.id, name: it.name, target: none ? 'none' : tgt, est: none ? 0 : it.est || 0, cast: !!it.cast, heavy: !!it.heavy,
       school: it.school || 'phys', hits: it.hits || 1, label, interrupted: !!(it.interrupted || it.skipped),
-      selfHeal: it.kind === 'selfHeal', mend: it.kind === 'heal', shield: it.kind === 'selfShield', brace: it.kind === 'brace', curse: it.kind === 'curse' };
+      selfHeal: it.kind === 'selfHeal', mend: it.kind === 'heal', shield: it.kind === 'selfShield', brace: it.kind === 'brace', curse: it.kind === 'curse',
+      support: ['selfHeal', 'heal', 'selfShield', 'shieldAlly', 'brace', 'summon'].includes(it.kind) };
   }
   /** Living Dimming Shards and the Linked damage reduction they give the boss now (rules 10.2), or null. */
   function linkedOf(f) {
@@ -337,7 +367,7 @@ function engineBackend(seedOpt) {
     const f = s.fight; if (!f) return null;
     const key = fightKey(s);
     const enemies = f.enemies.map((e) => ({ idx: e.idx, uid: `${key}:${e.idx}`, tplId: e.tid, name: e.name, level: e.level, rank: rankOf(e), arch: e.arch || (e.boss ? 'boss' : 'shard'),
-      hp: e.hp, maxHp: e.maxHp, alive: e.alive, statuses: statuses(e.st, e.shield), intent: e.alive ? convIntent(e.intent, e) : null }));
+      hp: e.hp, maxHp: e.maxHp, alive: e.alive, statuses: statuses(e.st, f, e.shield, e.enraged), intent: e.alive ? convIntent(e.intent, e) : null }));
     const cds = {};
     for (const [id, ready] of Object.entries(f.p.cds || {})) { const left = ready - f.round; if (left > 0) cds[id] = left; }
     const firstAlive = enemies.find((e) => e.alive);
@@ -634,7 +664,9 @@ function engineBackend(seedOpt) {
         case 'petAction': out.push({ t: 'action', src: ref('pet'), kind: 'attack', name: 'Pet attack', dst: ref(e.target) }); break;
         case 'enemyAction': {
           const it = prevIntent(e.u) || {};
-          out.push({ t: 'action', src: ref(e.u), kind: it.cast ? 'cast' : 'attack', id: e.id, name: e.name, dst: it.target === 'pet' ? ref('pet') : ref('player'), heavy: !!it.heavy, school: it.school || 'phys', boss: it.id === 'boss' });
+          // support: an action that heals, shields or braces an enemy (no projectile toward the player's side)
+          out.push({ t: 'action', src: ref(e.u), kind: it.cast ? 'cast' : 'attack', id: e.id, name: e.name, dst: it.target === 'pet' ? ref('pet') : ref('player'), heavy: !!it.heavy, school: it.school || 'phys', boss: it.id === 'boss',
+            support: !!it.support });
           break;
         }
         case 'damage': {

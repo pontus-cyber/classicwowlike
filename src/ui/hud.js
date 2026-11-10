@@ -49,18 +49,31 @@ function setBar(el, cur, max, text, wardVal = 0) {
   el.querySelector('.txt').textContent = text;
   el.classList.toggle('low', el.classList.contains('hp') && f < 0.3);
 }
+/**
+ * Status icons of a unit: buffs first, then debuffs after a divider. A buff has a round green frame, a debuff a square
+ * red frame with a corner notch (shape and place tell them apart without colour). Rounds left sit in the lower right
+ * corner (gold on the last round), stacks in the upper left; the tooltip states the exact effect (statusTip).
+ */
 function statusRow(container, statuses, ctx) {
-  const key = (statuses || []).map((s) => `${s.id}:${s.rounds}:${s.stacks}`).join('|');
+  const list = statuses || [];
+  const key = list.map((s) => `${s.id}:${s.rounds}:${s.stacks}:${s.value}:${s.tick}:${s.amount}`).join('|');
   if (container.dataset.key === key) return;
   container.dataset.key = key;
   clear(container);
-  for (const s of statuses || []) {
-    const info = (ctx.data.statuses || {})[s.id] || {};
-    const el = h('div.st' + (info.debuff ? '.bad' : ''), h('img', { src: statusIcon(s.id), alt: '' }),
-      s.rounds && s.rounds < 90 ? h('span.n', String(s.rounds)) : null, s.stacks > 1 ? h('span.s', String(s.stacks)) : null);
+  const bad = (s) => !!((ctx.data.statuses || {})[s.id] || {}).debuff;
+  const cell = (s) => {
+    const info = (ctx.data.statuses || {})[s.id] || { name: s.id };
+    const left = s.rounds && s.rounds < 90 ? s.rounds : null;
+    const el = h('div.st' + (bad(s) ? '.bad' : '.buff') + (left === 1 ? '.ending' : ''),
+      { dataset: { id: s.id }, 'aria-label': `${info.name}${s.stacks > 1 ? ` ×${s.stacks}` : ''}${left ? `, ${left} ${left === 1 ? 'round' : 'rounds'} left` : ''}` },
+      h('img', { src: statusIcon(s.id), alt: '' }), s.stacks > 1 ? h('span.s', String(s.stacks)) : null, left ? h('span.n', String(left)) : null);
     tip(el, () => statusTip(s, ctx));
-    container.appendChild(el);
-  }
+    return el;
+  };
+  const buffs = list.filter((s) => !bad(s)); const debuffs = list.filter(bad);
+  for (const s of buffs) container.appendChild(cell(s));
+  if (buffs.length && debuffs.length) container.appendChild(h('i.st-sep'));
+  for (const s of debuffs) container.appendChild(cell(s));
 }
 const portraitCache = new Map();
 function portrait(key, draw) {
@@ -107,9 +120,11 @@ export function createHud(root, ctx) {
   els.auto = h('button.toggle', { type: 'button', role: 'switch', 'aria-checked': 'false', 'aria-label': 'Autoplay' }, h('span.sw'), h('span', 'Autoplay'), h('span.kbd', 'Z'));
   els.pass = h('button.btn.small', 'Pass', h('span.k', 'X'));
   els.flee = h('button.btn.small', 'Flee', h('span.k', 'F'));
+  // the queued next action during a combat round (app.combatAct): a tag over the bar, the button ringed
+  els.qtag = h('div.qtag.hidden', { 'aria-live': 'polite' });
   els.actionbar.append(
     h('div.grp', els.basic), h('div.sep'), h('div.grp', els.spells), h('div.sep'), h('div.grp', els.items),
-    h('div.ctrl.panel', els.auto, els.pass, els.flee));
+    h('div.ctrl.panel', els.auto, els.pass, els.flee), els.qtag);
   // ------------------------------------------------------------ xp bar
   els.xp = h('div#xpbar', h('div.rested'), h('div.fill'), h('div.ticks'), h('div.txt'));
   // ------------------------------------------------------------ minimap
@@ -215,9 +230,11 @@ export function createHud(root, ctx) {
     els.resc.classList.toggle('hidden', !rt.count && !rt.note);
     els.resc.classList.toggle('none', !rt.count);
     els.resc.querySelector('.n').textContent = String(rt.count);
-    // pet
+    // pet: its frame sits under the player frame, which grows with the player's status icons
     if (p.pet && v.phase !== 'SUMMARY') {
       els.pet.classList.remove('hidden');
+      const below = pf.offsetTop + pf.offsetHeight;
+      if (below > 0) els.pet.style.top = `${Math.round(below + parseFloat(getComputedStyle(document.documentElement).fontSize) * 0.5)}px`;
       if (els.pet.dataset.pet !== p.pet.id) { els.pet.dataset.pet = p.pet.id; clear(els.pet.querySelector('.portrait')).appendChild(petPortrait(p.pet.id)); }
       els.pet.querySelector('.pn').textContent = p.pet.name;
       setBar(els.pet.querySelector('.bar.hp'), p.pet.alive ? p.pet.hp : 0, p.pet.maxHp, p.pet.alive ? `${fmtNum(p.pet.hp)} / ${fmtNum(p.pet.maxHp)}` : 'Dead');
@@ -451,7 +468,17 @@ export function createHud(root, ctx) {
   settings.on('change', (k) => { if (k === 'showLog') els.log.style.display = settings.get('showLog') ? '' : 'none'; });
   if (!settings.get('showLog')) els.log.style.display = 'none';
 
-  return { update, placeNameplates, log, clearLog, els, flashSlot(i) { const b = els.spells[i] || els.items[i - 7]; if (b) { b.classList.add('pressed'); setTimeout(() => b.classList.remove('pressed'), 120); } } };
+  /** Show the queued next action (key: 'attack', 'spellN', 'itemN', 'pass', 'flee'; null clears it). */
+  function setQueued(key, label = '') {
+    const btn = (k) => (k === 'attack' ? els.basic : k === 'pass' ? els.pass : k === 'flee' ? els.flee : /^spell\d$/.test(k) ? els.spells[Number(k.slice(5))] : /^item\d$/.test(k) ? els.items[Number(k.slice(4))] : null);
+    for (const b of [els.basic, els.pass, els.flee, ...els.spells, ...els.items]) b.classList.remove('queued');
+    els.qtag.classList.toggle('hidden', !key);
+    if (!key) return;
+    const b = btn(key); if (b) b.classList.add('queued');
+    els.qtag.textContent = `Next: ${label}`;
+  }
+
+  return { update, placeNameplates, log, clearLog, els, setQueued, flashSlot(i) { const b = els.spells[i] || els.items[i - 7]; if (b) { b.classList.add('pressed'); setTimeout(() => b.classList.remove('pressed'), 120); } } };
 }
 
 /** Tooltip of the resurrect badge (rules 9, M2 v3). */

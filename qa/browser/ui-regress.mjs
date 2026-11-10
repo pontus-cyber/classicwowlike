@@ -74,6 +74,7 @@ const NBSP = /\u00a0/g;
 const median = (a) => { const b = [...a].sort((x, y) => x - y); return b.length ? b[b.length >> 1] : null; };
 const R_LINK = { per: R.C.LINK_DR_PER_SHARD, cap: R.C.LINK_DR }; // Linked (rules 10.2, M2 v2)
 const BUDGET = R.C.PACE_ROUND_ANIM_S * 1000; // round time budget at the default speed (rules 3, M2 v2)
+const SLOWER = 1.4; // owner 2026-11-10: combat at the default speed at least 40 % slower than BUDGET
 // Steps with these events hold a moment that has its own place in the pacing model (level-up, fight end, boss phase).
 const MOMENTS = ['victory', 'levelUp', 'defeat', 'resurrect', 'bossPhase'];
 const PROFILE_KEY = 'tbwcr.profile.v1'; // where the game keeps the meta profile (src/ui/engine-bridge.js)
@@ -537,35 +538,45 @@ async function partD(browser, W, H) {
     await page.locator('#create .ccard[data-cls="hunter"]').click(); await idle(page);
     await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
 
-    // ---- manual rounds at the default speed: input to the end of the step (the action bar is live again)
+    // ---- manual rounds at the default speed: input to the end of the step (the action bar is live again).
+    // Owner 2026-11-10: rounds at least 40 % slower than the M2 v2 budget (PACE_ROUND_ANIM_S); the UI's round cap is
+    // the budget each round reports (src/ui/combat-feel.js roundPace).
     const rounds = [];
     for (let i = 0; i < 40 && rounds.filter((r) => !isMoment(r)).length < 12; i++) { const r = await fightStep(page); if (r) rounds.push(r); }
     const plain = rounds.filter((r) => !isMoment(r)); const ms = plain.map(roundMs);
     const budgets = [...new Set(plain.map((r) => r.round && r.round.budget))];
-    check('M2v2-52', `default speed (${speed0}x): every manual round without a level-up or fight end is on screen for at most PACE_ROUND_ANIM_S (${BUDGET} ms)`,
-      speed0 === 1 && plain.length >= 8 && budgets.length === 1 && budgets[0] === BUDGET && Math.max(...ms) <= BUDGET,
-      `${plain.length} rounds: median ${median(ms)} ms, max ${Math.max(...ms)} ms, tempo ${plain.map((r) => r.round ? r.round.tempo.toFixed(2) : '-').join(' ')}; with moments: ${rounds.filter(isMoment).map(roundMs).join(', ') || 'none'} ms`);
+    const SLOW = SLOWER * BUDGET;
+    check('M2v2-52', `default speed (${speed0}x): rounds without a level-up or fight end take at least ${SLOW} ms at the median (1.4 × PACE_ROUND_ANIM_S) and at most the round cap`,
+      speed0 === 1 && plain.length >= 8 && budgets.length === 1 && budgets[0] >= SLOW && median(ms) >= SLOW && Math.max(...ms) <= budgets[0],
+      `${plain.length} rounds: median ${median(ms)} ms, max ${Math.max(...ms)} ms, cap ${budgets.join('/')} ms, tempo ${plain.map((r) => r.round ? r.round.tempo.toFixed(2) : '-').join(' ')}; with moments: ${rounds.filter(isMoment).map(roundMs).join(', ') || 'none'} ms`);
 
-    // ---- an action key during enemy animations finishes them at once, then plays the new action
-    let keyTest = null;
+    // ---- key A pressed twice during enemy animations: the round plays on, A is queued once (visible), one attack follows
+    let keyTest = null; let shown = false;
     for (let i = 0; i < 8 && !keyTest; i++) {
       let pressed = false;
-      const r = await fightStep(page, async (pg) => { if (await enemyOnScreen(pg)) { await pg.keyboard.press('KeyA'); pressed = true; } });
-      if (r && pressed && r.skippedAt) keyTest = r;
+      const r = await fightStep(page, async (pg) => {
+        if (await enemyOnScreen(pg)) {
+          await pg.keyboard.press('KeyA'); await pg.keyboard.press('KeyA'); pressed = true;
+          shown = (await pg.locator('#actionbar .ab.basic.queued').count()) === 1 && /Next: Attack/.test(await pg.locator('#actionbar .qtag').innerText());
+        }
+      });
+      if (r && pressed) keyTest = r;
     }
-    const keyNext = keyTest && keyTest.next.find((x) => x.type === 'ATTACK');
-    check('M2v2-52', 'key A during enemy animations finishes them at once and the attack follows', !!keyTest && keyTest.end - keyTest.skippedAt <= 100 && !!keyNext && (isMoment(keyNext) || roundMs(keyNext) <= BUDGET),
-      keyTest ? `first step ended ${Math.round(keyTest.end - keyTest.skippedAt)} ms after the key (${Math.round(keyTest.skippedAt - keyTest.input)} ms into it); attack ${keyNext ? `${roundMs(keyNext)} ms` : 'not played'}` : 'no round with an enemy action on screen');
+    const attacks = keyTest ? keyTest.next.filter((x) => x.type === 'ATTACK').length : 0;
+    check('M2v2-52', 'key A twice during enemy animations: the round is not cut short, the attack is queued once and shown on the bar, then plays',
+      !!keyTest && keyTest.skippedAt == null && keyTest.queued === 'attack' && shown && attacks === 1 && roundMs(keyTest) <= keyTest.round.budget,
+      keyTest ? `round ${roundMs(keyTest)} ms, queued ${keyTest.queued}, bar shows it: ${shown}, attacks after it: ${attacks}` : 'no round with an enemy action on screen');
 
-    // ---- a click on the scene during enemy animations finishes them (and is no action)
+    // ---- a click on the scene during an enemy's action skips that hit only; the round goes on and no action follows
     let clickTest = null;
     for (let i = 0; i < 8 && !clickTest; i++) {
       let clicked = false;
       const r = await fightStep(page, async (pg) => { if (await enemyOnScreen(pg)) { await pg.mouse.click(Math.round(W * 0.5), Math.round(H * 0.16)); clicked = true; } });
-      if (r && clicked && r.skippedAt) clickTest = r;
+      if (r && clicked && r.hitSkips.length) clickTest = r;
     }
-    check('M2v2-52', 'a click on the scene during enemy animations finishes them at once', !!clickTest && clickTest.end - clickTest.skippedAt <= 100 && !clickTest.next.length,
-      clickTest ? `step ended ${Math.round(clickTest.end - clickTest.skippedAt)} ms after the click (${Math.round(clickTest.skippedAt - clickTest.input)} ms into it); steps after it: ${clickTest.next.length}` : 'no round with an enemy action on screen');
+    check('M2v2-52', 'a click during an enemy action skips to the end of that hit only (the round is not finished at once, no action follows)',
+      !!clickTest && clickTest.hitSkips.length === 1 && clickTest.skippedAt == null && !clickTest.next.length,
+      clickTest ? `hit skipped ${Math.round(clickTest.hitSkips[0].at - clickTest.input)} ms into the round (event ${clickTest.hitSkips[0].event}); round ended ${Math.round(clickTest.end - clickTest.hitSkips[0].at)} ms later; steps after it: ${clickTest.next.length}` : 'no round with an enemy action on screen');
     await shot(page, 'D-fight');
 
     // ---- 2x, 4x and Instant from the settings window: each faster than the one before

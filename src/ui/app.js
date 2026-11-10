@@ -1,5 +1,8 @@
 // App orchestrator: owns the bridge, scene, HUD, screens and windows; turns input into actions and
 // plays each step through the director. Presentation only.
+// Input during a combat round (owner feedback 2026-11-10): an action key or button queues one next action, shown on the
+// action bar, and pressing the same one again changes nothing, so mashing cannot run rounds together; Space or a click
+// skips to the end of the hit on screen. Outside rounds any input finishes the step at once.
 import { createBridge, flags } from './engine-bridge.js';
 import { Scene } from './scene.js';
 import { createHud } from './hud.js';
@@ -31,17 +34,19 @@ export class App {
       retarget: (v) => app.retarget(v),
       toast: (t, k) => app.toast(t, k), banner: (a, b, k, ms) => app.banner(a, b, k, ms), hideBanner: () => app.hideBanner(),
       toggleWin: (n) => app.windows.toggle(n), closeWin: (n) => app.windows.close(n), openWin: (n) => app.windows.open(n),
-      attack: () => app.combatAct((t) => ({ type: 'ATTACK', target: t })),
-      castSlot: (i) => { const id = app.shown.player && app.shown.player.bar[i]; if (id) { app.hud.flashSlot(i); app.combatAct((t) => ({ type: 'CAST', spellId: id, target: t })); } },
-      useItemSlot: (i) => { const v = app.shown; if (!v.player || !v.player.itemBar[i]) return; app.hud.flashSlot(7 + i); if (v.combat && !v.combat.over) app.combatAct((t) => ({ type: 'USE_ITEM', slot: i, target: t })); else { const it = v.player.bag.find((s) => s && s.id === v.player.itemBar[i]); if (it) app.act({ type: 'USE_ITEM', uid: it.uid }); } },
+      attack: () => app.combatAct((t) => ({ type: 'ATTACK', target: t }), 'attack', 'Attack'),
+      castSlot: (i) => { const id = app.shown.player && app.shown.player.bar[i]; if (id) app.combatAct((t) => ({ type: 'CAST', spellId: id, target: t }), `spell${i}`, (app.data.spells[id] || {}).name || id, () => app.hud.flashSlot(i)); },
+      useItemSlot: (i) => { const v = app.shown; if (!v.player || !v.player.itemBar[i]) return; if (v.combat && !v.combat.over) app.combatAct((t) => ({ type: 'USE_ITEM', slot: i, target: t }), `item${i}`, (app.data.consumables[v.player.itemBar[i]] || {}).name || 'Item', () => app.hud.flashSlot(7 + i)); else { app.hud.flashSlot(7 + i); const it = v.player.bag.find((s) => s && s.id === v.player.itemBar[i]); if (it) app.act({ type: 'USE_ITEM', uid: it.uid }); } },
       // read the state when the action runs, so two quick presses (Z Z) turn it on and off again
       toggleAuto: () => app.act(() => ({ type: 'SET_AUTOPLAY', on: !app.bridge.view.autoplay })),
-      pass: () => app.combatAct(() => ({ type: 'PASS' })),
+      pass: () => app.combatAct(() => ({ type: 'PASS' }), 'pass', 'Pass'),
       flee: () => {
-        if (!app.shown.legal || !app.shown.legal.flee) return;
-        if (!ui.fleeArmed) { ui.fleeArmed = true; app.skipPlay(); app.queueRender(); app.toast('Press Flee again to run', 'info'); clearTimeout(app.fleeT); app.fleeT = setTimeout(() => { ui.fleeArmed = false; app.queueRender(); }, 2200); return; }
-        ui.fleeArmed = false; app.combatAct(() => ({ type: 'FLEE' }));
+        if (!app.bridge.view.legal || !app.bridge.view.legal.flee) return;
+        if (!ui.fleeArmed) { ui.fleeArmed = true; app.queueRender(); app.toast('Press Flee again to run', 'info'); clearTimeout(app.fleeT); app.fleeT = setTimeout(() => { ui.fleeArmed = false; app.queueRender(); }, 2200); return; }
+        ui.fleeArmed = false; app.combatAct(() => ({ type: 'FLEE' }), 'flee', 'Flee');
       },
+      /** The queued next action ({ key, label }) or null. */
+      get queued() { return app.next ? { key: app.next.key, label: app.next.label } : null; },
       showDeath: (on, text) => app.showDeath(on, text),
       // Hall of Echoes (meta progression between runs): over class select; from the summary it opens after END_RUN
       openMeta: () => { hideTip(); app.windows.closeAll(); app.screens.meta.open(); app.queueRender(); },
@@ -65,6 +70,7 @@ export class App {
     this.bannerEl = h('div#banner', h('div.b0'), h('div.b1'), h('div.b2'));
     this.toasts = h('div#toasts');
     this.skipHint = h('div#skiphint', 'Space or click to skip');
+    this.next = null; // the one queued next action during a combat round: { make, key, label }
     this.deathEl = h('div.hidden', h('div.overlay-dark'), h('div.deathmsg', h('div.d1', 'You have died'), h('div.d2', 'No resurrection remains. Your journey ends here.')));
     this.root.append(this.bannerEl, this.toasts, this.skipHint, this.deathEl);
     this.bindInput();
@@ -72,7 +78,13 @@ export class App {
     this.applyScale();
     this.syncScene(this.shown, { instant: true });
     this.render();
-    const loop = (now) => { this.scene.frame(now); this.hud.placeNameplates(); this.skipHint.classList.toggle('on', this.director.playing && (performance.now() - (this.playStart || 0)) > 700 && !settings.instant); requestAnimationFrame(loop); };
+    const loop = (now) => {
+      this.scene.frame(now); this.hud.placeNameplates();
+      const hint = this.director.playing && (performance.now() - (this.playStart || 0)) > 700 && !settings.instant;
+      this.skipHint.classList.toggle('on', hint);
+      if (hint) { const txt = this.director.inRound ? 'Space or click: skip this hit' : 'Space or click to skip'; if (this.skipHint.textContent !== txt) this.skipHint.textContent = txt; }
+      requestAnimationFrame(loop);
+    };
     requestAnimationFrame(loop);
     globalThis.__ui = this.testApi();
     const boot = document.getElementById('boot'); if (boot) { boot.classList.add('gone'); setTimeout(() => boot.remove(), 700); }
@@ -85,13 +97,14 @@ export class App {
 
   // ------------------------------------------------------------------ actions
   /**
-   * Queue an action (or a function that returns one when its turn comes) and play its events. Any input while a step
-   * still plays finishes that step's animations at once (rules 3: input during enemy animations finishes them).
+   * Queue an action (or a function that returns one when its turn comes) and play its events. Input while a step other
+   * than a combat round plays finishes that step's animations at once; a combat round plays on (combat actions wait in
+   * the one-slot queue of combatAct, other actions after the round).
    */
   act(actionOrFn) {
     const tIn = performance.now();
     this.pending++;
-    this.skipPlay();
+    if (!this.director.inRound) this.skipPlay();
     const run = async () => {
       try {
         const action = typeof actionOrFn === 'function' ? actionOrFn() : actionOrFn;
@@ -102,10 +115,10 @@ export class App {
         if (!res.ok) { if (res.error) { this.toast(res.error, 'err'); console.info(`[ui] action ${action.type} refused: ${res.error}`); } return res; }
         if (action.type === 'START_RUN' || action.type === 'END_RUN') this.ui.target = null;
         this.playStart = performance.now();
-        const rec = { type: action.type === 'ENGINE' ? action.action.type : action.type, input: tIn, t0, events: res.events.map((e) => e.t), round: null, end: null, skippedAt: null };
+        const rec = { type: action.type === 'ENGINE' ? action.action.type : action.type, input: tIn, t0, events: res.events.map((e) => e.t), round: null, end: null, skippedAt: null, hitSkips: [], queued: null };
         this.plays.push(rec); if (this.plays.length > 200) this.plays.shift();
         const playing = this.director.play(prev, res.view, res.events, action, { t0 });
-        rec.round = this.director.round ? { budget: this.director.round.budget, plan: this.director.round.plan, tempo: this.director.round.tempo, speed: this.director.round.speed } : null;
+        rec.round = this.director.round ? { budget: this.director.round.budget, avg: this.director.round.avg, plan: this.director.round.plan, tempo: this.director.round.tempo, speed: this.director.round.speed } : null;
         await playing;
         rec.end = performance.now();
         this.afterPlay();
@@ -113,8 +126,8 @@ export class App {
         return res;
       } catch (err) { console.error(err); this.shown = this.bridge.view; this.queueRender(); return { ok: false, error: String(err) }; } finally {
         this.pending--;
-        // Autoplay's next round is planned only when nothing else is queued or playing.
-        if (this.pending === 0) this.scheduleAuto();
+        // The queued next action plays when nothing else is queued or playing; else autoplay's next round is planned.
+        if (this.pending === 0 && !this.flushNext()) this.scheduleAuto();
       }
     };
     const p = this.queue.then(run, run);
@@ -124,14 +137,48 @@ export class App {
 
   /** Test hook: the step that was playing when an input skipped it. */
   notePlaySkip(t) { const r = this.plays[this.plays.length - 1]; if (r && r.end == null && r.skippedAt == null) r.skippedAt = t; }
-  /** Finish the step that is playing (click, Space, an action key). */
-  skipPlay() { if (this.director.playing) { this.director.skip(); this.notePlaySkip(performance.now()); } }
+  /** Space or a click: in a combat round skip to the end of the hit on screen; any other step finishes at once. */
+  skipPlay() {
+    if (!this.director.playing) return;
+    const now = performance.now();
+    if (this.director.inRound) {
+      const beat = this.director.skipHit();
+      const r = this.plays[this.plays.length - 1];
+      if (beat != null && r && r.end == null) r.hitSkips.push({ at: now, beat, event: this.director.cursor ? this.director.cursor.t : null });
+      return;
+    }
+    this.director.skip(); this.notePlaySkip(now);
+  }
+  /** Is a step queued or playing (a combat action now waits in the one-slot queue)? */
+  busy() { return this.pending > 0 || this.director.playing; }
 
-  combatAct(make) {
+  /**
+   * A combat action. While a step resolves it becomes the one queued next action, shown on the action bar: the same key
+   * again changes nothing, another action replaces it. onTake runs when the input is taken (the slot's press flash).
+   */
+  combatAct(make, key = null, label = '', onTake = null) {
     const v = this.bridge.view;
     if (!v.combat || v.combat.over) return;
+    if (this.busy() && key) {
+      if (this.next && this.next.key === key) return; // a repeated press while the round resolves: ignored
+      this.next = { make, key, label };
+      const r = this.plays[this.plays.length - 1]; if (r && r.end == null) r.queued = key;
+      if (onTake) onTake();
+      this.hud.setQueued(key, label); this.queueRender();
+      return;
+    }
+    if (onTake) onTake();
     const t = this.validTarget(v);
     this.act(make(t));
+  }
+  /** Play the queued next action once nothing else is queued or playing; true when one was sent. */
+  flushNext() {
+    const n = this.next; if (!n) return false;
+    this.next = null; this.hud.setQueued(null);
+    const v = this.bridge.view;
+    if (!v.combat || v.combat.over || v.phase === 'SUMMARY') return false; // the fight ended: the queued action lapses
+    this.act(n.make(this.validTarget(v)));
+    return true;
   }
   validTarget(v) {
     const c = v.combat; if (!c) return 0;
@@ -266,6 +313,10 @@ export class App {
     if (v.combat) for (const e of v.combat.enemies) {
       const a = s.actors.get(`enemy:${e.idx}`); if (!a) continue;
       a.fxStun = has(e, 'STUN'); a.fxFrozen = has(e, 'FROZEN'); a.fxHex = has(e, 'HEXED'); a.fxBurn = has(e, 'BURN'); a.fxWard = has(e, 'WARD');
+      // telegraph: a heavy blow or a cast in the intent shows as a held wind-up until the enemy acts
+      const it = e.intent;
+      const tele = e.alive && !v.combat.over && it && !it.interrupted && !it.support && (it.heavy || it.cast) && it.id !== 'none' && it.id !== 'unaware';
+      a.tele = tele ? { kind: it.heavy && !it.cast ? 'heavy' : 'cast', color: it.heavy && !it.cast ? HEAVY_COL : TELE_COL[it.school] || '#b48aff' } : null;
     }
   }
 
@@ -357,8 +408,10 @@ export class App {
       /** The action the engine's autoplay policy would choose now (not sent). */
       autoChoice: () => app.bridge.autoAction(),
       /** The event the director is playing now ({ t, side }), or null. */
-      playingEvent: () => { const e = app.director.playing && app.director.cursor; return e ? { t: e.t, side: e.src ? e.src.side : null } : null; },
+      playingEvent: () => { const e = app.director.playing && app.director.cursor; return e ? { t: e.t, side: e.src ? e.src.side : null, dst: e.dst ? e.dst.side : null, beat: app.director.beatNo, inRound: app.director.inRound } : null; },
       skip: () => app.director.skip(),
+      /** The queued next action during a combat round ({ key, label }) or null. */
+      queued: () => (app.next ? { key: app.next.key, label: app.next.label } : null),
       settings,
       openWin: (n) => app.windows.open(n), closeWins: () => app.windows.closeAll(),
       /** Whether the Hall of Echoes is open (it shows over class select). */
@@ -367,6 +420,10 @@ export class App {
     };
   }
 }
+
+// telegraph colours: a heavy blow in orange (the target ring is red), a cast in its school's colour
+const HEAVY_COL = '#ff9a1f';
+const TELE_COL = { fire: '#ff8a3a', frost: '#8fd6ff', arcane: '#c79bff', shadow: '#a07aff', nature: '#8fe07a', magic: '#b48aff', phys: '#ffb08a' };
 
 function npcLook(theme, kind) {
   const base = enemyLook(kind === 'merchant' ? 'mender' : kind === 'trainer' ? 'caster' : 'mender', theme, 'normal');

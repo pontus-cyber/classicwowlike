@@ -76,6 +76,53 @@ const pct = (x) => `${Math.round(x * 100)} %`;
 /** A share in per cent with up to one decimal ("12.5 %", "25 %"). */
 export const pct1 = (x) => `${Math.round(x * 1000) / 10} %`;
 
+/**
+ * What a status does, in exact numbers (rules 7.4). s: a view status (engine-bridge.js `statuses`: the engine's status
+ * object with tick, amount, value, stacks, rounds, full, srcName); r: the rules table (r.status: CURSE_PCT, BRAND_DMG,
+ * BRAND_MAX, STEALTH_MISS_BONUS, DODGE_CAP). Returns { effect, lines, duration, source }. No number is written here.
+ */
+export function statusEffect(s, r, info = {}) {
+  const R = (r && r.status) || {};
+  const left = s.rounds && s.rounds < 90 ? s.rounds : null;
+  const lines = [];
+  let effect = info.text || '';
+  const roundsLeft = (n) => `${n} ${plural(n, 'round')}`;
+  switch (s.id) {
+    case 'BLEED': case 'BURN': case 'POISON': {
+      if (!s.tick) break;
+      const per = s.tick * (s.stacks || 1);
+      effect = `Takes ${per} ${s.id === 'BURN' ? 'fire ' : ''}damage at the end of each round.`;
+      if (s.id === 'POISON' || s.stacks > 1) lines.push(`${s.tick} per stack × ${s.stacks} ${plural(s.stacks, 'stack')}${s.max ? ` (at most ${s.max})` : ''}.`);
+      if (left) lines.push(`${per * left} more over the ${roundsLeft(left)} left.`);
+      if (s.canCrit) lines.push('Its ticks can strike critically.');
+      break;
+    }
+    case 'CHILLED': if (s.value) effect = `Deals ${pct(s.value)} less damage.`; break;
+    case 'CURSED': if (R.cursePct != null) effect = `Deals ${pct(R.cursePct)} less damage.`; break;
+    case 'EXPOSED': case 'MARKED': if (s.value) effect = `Takes ${pct1(s.value)} more damage.`; break;
+    case 'BRACE': case 'SHIELDED': if (s.value) effect = `Takes ${pct(s.value)} less damage.`; break;
+    case 'ENRAGED': if (s.value) effect = `Deals ${pct(s.value)} more damage.`; break;
+    case 'WARD': if (s.value) effect = `Absorbs the next ${s.value} damage.`; break;
+    case 'HOT': if (s.amount) effect = `Heals ${s.amount} at the end of each round.`; if (s.amount && left) lines.push(`${s.amount * left} more over the ${roundsLeft(left)} left.`); break;
+    case 'EVASION': if (s.value) effect = `+${pct(s.value)} chance to dodge attacks${R.dodgeCap != null ? ` (dodge at most ${pct(R.dodgeCap)})` : ''}.`; break;
+    case 'STEALTH': if (R.stealthMiss != null) effect = `Unseen: openers can be used, and enemy attacks miss ${pct(R.stealthMiss)} more often. Any other action ends it.`; break;
+    case 'RAPID': if (s.value) effect = `Your attacks deal ${pct(s.value)} more damage${s.focus ? ` and focus returns ${pct(s.focus)} faster` : ''}.`; break;
+    case 'ADRENAL': if (s.value) effect = `Energy returns ${s.value} times as fast.`; break;
+    case 'CONFLAGRANT': if (s.value) effect = `Fire spells cost no mana and have +${pct(s.value)} critical strike chance.`; break;
+    case 'MIRROR': if (s.value) effect = `Each enemy attack has a ${pct(s.value)} chance to strike an image instead of you.`; break;
+    case 'COMMUNION': if (s.value) effect = `Your pet deals ${pct(s.value)} more damage.`; break;
+    case 'BRAND':
+      if (R.brandDmg != null) {
+        effect = `Takes ${R.brandDmg} shadow damage per stack at the end of each round: ${R.brandDmg * (s.stacks || 1)} at ${s.stacks || 1} ${plural(s.stacks || 1, 'stack')}, before level difference and Ascendancy.`;
+        lines.push(`${R.brandMax != null ? `Up to ${R.brandMax} stacks. ` : ''}Only dispersal removes it.`);
+      }
+      break;
+    default: break;
+  }
+  const duration = left ? `${roundsLeft(left)} left${s.full && s.full > left ? ` (of ${s.full})` : ''}` : s.id === 'WARD' ? 'Until it breaks or the fight ends' : s.id === 'BRAND' ? 'Does not expire' : 'Until the fight ends';
+  return { effect, lines, duration, source: s.srcName ? `From ${s.srcName}` : null };
+}
+
 /** Resurrect sources of the view (player.resurrect): Second Breath is 'meta' (rules 9). */
 export const RES_NAME = { boon: 'Boon of Return', meta: 'Second Breath', ember: 'Ember of Return' };
 /**
