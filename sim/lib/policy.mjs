@@ -51,13 +51,31 @@ export const ALWAYS_CAST = new Set(['gutting_jab', 'ember_bolt', 'keen_shot', 'p
 const tags = (id) => SPELL[id].tags;
 const hasTag = (id, t) => SPELL[id].tags.includes(t);
 
-/** Damage of one cast (engine spellInfo base amount; finishers at 4 combo points, DOTs over their duration). */
+/** Combo points at which the bar template values finishers (rules 5.3: autoplay spends them at 4). */
+const FINISHER_CP = 4;
+
+/**
+ * Damage of one cast (engine spellInfo base amount; finishers at FINISHER_CP combo points, DOTs over their duration).
+ * Out of a fight spellInfo gives a finisher's amount at 1 combo point. Only the per-point part scales with the
+ * points: the weapon term (w, wFlat × weapon damage) is added once per cast, as in the engine (rules 5.3: Severing
+ * Flourish "(4 + tl + 0.30P) × CP + 0.5WD"). Scaling the weapon term too (before 2026-11-10c) overvalued Severing
+ * Flourish by 1.5 × weapon damage, so with a high-damage weapon it took the boss bar's finisher step from Open Vein
+ * and spent the combo points before Open Vein could fire (changes-m2-v5.md Notes).
+ */
 function rawDamage(s, id) {
   const info = R.spellInfo(s, id);
   const a = info && info.amount;
   if (!a) return 0;
-  if (a.kind === 'damage') return a.amount * (a.hits || 1) * (a.perCp ? 4 : 1) * (SPELL[id].bounces ? 1 + SPELL[id].bounces * SPELL[id].bounceFrac : 1);
-  if (a.kind === 'dot') return a.perTick * a.rounds * (SPELL[id].dot.perCp ? 4 : 1);
+  const sp = SPELL[id];
+  if (a.kind === 'damage') {
+    let one = a.amount;
+    if (a.perCp) {
+      const weapon = ((sp.w || 0) + (sp.wFlat || 0)) * s.player.d.wd;
+      one = (a.amount - weapon) * FINISHER_CP + weapon;
+    }
+    return one * (a.hits || 1) * (sp.bounces ? 1 + sp.bounces * sp.bounceFrac : 1);
+  }
+  if (a.kind === 'dot') return a.perTick * a.rounds * (sp.dot.perCp ? FINISHER_CP : 1);
   return 0;
 }
 

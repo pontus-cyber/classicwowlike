@@ -7,19 +7,27 @@
 //                     [--stages A,B,C,D,E,F] [--resume] [--warmup 1000] [--campaigns 50] [--replay 1000] [--half-runs 1000]
 //                     [--variant-runs 2000] [--pall-runs 2000] [--diag-runs 1000]
 //
-// Order and risk-table chain (balance.md 1.1; each cell keeps refreshing its own table every SIM_RISK_REFRESH runs):
-//   A  P0:   planner warm-up (default trees) -> B7 planner with each tree -> best tree per class (win rate, then
-//            reach-boss rate) -> random, greedy, speedrunner, tactician; all start from the best-tree planner's
-//            final observations.
-//   B  P10:  planner warm-up from the P0 observations -> planner, random.
-//   C  PALL: planner warm-up from the P0 observations -> planner -> random, greedy, speedrunner (--pall-runs; also
-//            caps the PALL route-style cells of stage E),
-//            B26-B28 variants (--variant-runs, paired with the planner's first seeds); all
-//            start from the PALL planner's observations.
-//   D  campaigns (frozen P0 planner table), B35 replay of 1 000 random runs, B37 autoplay throughput.
-//   F  the PALL tactician (--half-runs; last, so its size can follow the compute left).
+// Order and risk-table chain (balance.md 1.1; each cell keeps refreshing its own table every SIM_RISK_REFRESH runs).
+// Default trees (balance.md 1.3, M2 v5, D43): one per class and profile group, chosen by the switch rule
+// (sim/lib/trees.mjs) from that group's planner cells with each tree, the incumbents being SIM.DEFAULT_TREE (P0 group)
+// and SIM.DEFAULT_TREE_PALL (PALL group); pass.json records the incumbents, the choice and both tree sets.
+//   A  P0:   planner warm-up (P0 incumbents) -> B7 planner with each tree -> P0-group trees by the switch rule ->
+//            random, greedy, speedrunner, tactician; all start from the chosen-tree planner's final observations.
+//            B5 fallback (balance.md 1.3): if tactician - planner on P0 is under MANUAL_GAP, the tactician cell is
+//            re-run with each class's best B7 point-estimate tree (tactician-P0-b5, only the classes whose tree
+//            differs; the others keep their tactician-P0 runs, which the same tree and seeds would repeat) and that
+//            cell counts for B1 tactician and B5.
+//   B  P10:  planner warm-up from the P0 observations -> planner, random (P0-group trees).
+//   C  PALL: planner warm-up (PALL incumbents) from the P0 observations -> planner with each tree (--pall-runs) ->
+//            PALL-group trees by the switch rule; the chosen-tree cell of each class is the planner PALL cell, whose
+//            observations become obs-PALL.json -> random, greedy, speedrunner (--pall-runs; also caps the PALL
+//            route-style cells of stage E), B26-B28 variants (--variant-runs, paired with the planner's first seeds);
+//            all on the PALL-group trees and from the PALL planner's observations.
+//   D  campaigns (P0-group trees, frozen P0 planner table), B35 replay of 1 000 random runs, B37 autoplay throughput.
+//   F  the PALL tactician (PALL-group trees; --half-runs; last, so its size can follow the compute left).
 //   E  P2 and diagnostic cells: B9 pets and B8 styles (P0 from the P0 planner's observations, PALL from the PALL
-//            planner's), the rules-only tactician (telegraph rules, no search; --half-runs).
+//            planner's, each on its group's trees), the rules-only tactician (telegraph rules, no search;
+//            --diag-runs; P0-group trees).
 import { cpus } from 'node:os';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
@@ -32,6 +40,7 @@ import { campaignMarkdown } from './lib/campaignreport.mjs';
 import { replayHash } from './lib/runner.mjs';
 import { R, newRunFor } from './lib/engine.mjs';
 import { readJson, writeJson, readJsonl, commitInfo, ensureDir } from './lib/output.mjs';
+import { treeSwitch, bestPointTree, defaultTrees } from './lib/trees.mjs';
 import { writeFileSync } from 'node:fs';
 
 function parse(argv) {
@@ -104,36 +113,77 @@ async function warmup(key, prof, trees, obsIn, runs) {
   return obs;
 }
 
-const obsOf = (r) => Object.fromEntries(Object.entries(r.perClass).map(([c, x]) => [c, x.obs]));
+/**
+ * Default trees of a profile group by the switch rule (balance.md 1.3, M2 v5): byTree[t] = the planner cell with
+ * tree t for every class; incumbents = the recorded defaults. Records the choice in the manifest; returns the trees.
+ */
+function chooseTrees(group, byTree, incumbents) {
+  const choice = {};
+  for (const cls of CLASSES) choice[cls] = treeSwitch(byTree.map((r) => r.perClass[cls].metrics), incumbents[cls]);
+  manifest.incumbents = { ...(manifest.incumbents || {}), [group]: incumbents };
+  manifest.treeChoice = { ...(manifest.treeChoice || {}), [group]: choice };
+  const trees = Object.fromEntries(CLASSES.map((c) => [c, choice[c].tree]));
+  const note = CLASSES.map((c) => {
+    const x = choice[c];
+    const b = x.best;
+    return `${c} ${x.switched ? 'switch' : 'keep'} ${x.tree} (incumbent ${x.incumbent} ${(x.incP * 100).toFixed(1)} %; best challenger ${b.tree} ${(b.p * 100).toFixed(1)} %, gap ${(b.gap * 100).toFixed(1)} pp, threshold ${(b.threshold * 100).toFixed(1)} pp)`;
+  }).join('; ');
+  log(`${group}-group trees: ${note}`);
+  return trees;
+}
+
+/** Pooled win rate { k, n, p } of per-class metrics (all classes of the cell). */
+function pooledWin(perClass) {
+  let k = 0;
+  let n = 0;
+  for (const x of Object.values(perClass)) { k += x.metrics.win.k; n += x.metrics.win.n; }
+  return { k, n, p: n ? k / n : null };
+}
+
 const t0 = performance.now();
 try {
   let trees = manifest.trees || null;
+  let treesPALL = manifest.treesPALL || null;
   let obsP0 = existsSync(join(OUT, 'obs-P0.json')) ? readJson(join(OUT, 'obs-P0.json')) : null;
   if (STAGES.has('A')) {
-    const w0 = await warmup('P0', 'fresh', SIM.DEFAULT_TREE, null, WARM);
+    const incP0 = manifest.incumbents && manifest.incumbents.P0 ? manifest.incumbents.P0 : defaultTrees('P0');
+    const w0 = await warmup('P0', 'fresh', incP0, null, WARM);
     const byTree = [];
     for (let t = 0; t < 3; t++) {
       const tr = Object.fromEntries(CLASSES.map((c) => [c, t]));
       byTree.push(await cell(`planner-P0-tree${t}`, { bot: 'planner', classes: CLASSES, prof: 'fresh', trees: tr, obsIn: w0 }));
     }
-    trees = {};
-    for (const cls of CLASSES) {
-      let best = 0;
-      for (let t = 1; t < 3; t++) {
-        const a = byTree[t].perClass[cls].metrics;
-        const b = byTree[best].perClass[cls].metrics;
-        if (a.win.p > b.win.p || (a.win.p === b.win.p && a.boss.p > b.boss.p)) best = t;
-      }
-      trees[cls] = best;
-    }
+    trees = chooseTrees('P0', byTree, incP0);
     manifest.trees = trees;
     manifest.plannerP0 = Object.fromEntries(CLASSES.map((c) => [c, `planner-P0-tree${trees[c]}`]));
     save();
-    log(`B7 best trees: ${JSON.stringify(trees)}`);
     obsP0 = Object.fromEntries(CLASSES.map((c) => [c, byTree[trees[c]].perClass[c].obs]));
     writeJson(join(OUT, 'obs-P0.json'), obsP0);
     await cell('random-P0', { bot: 'random', classes: CLASSES, prof: 'fresh', trees });
-    for (const bot of ['greedy', 'speedrunner', 'tactician']) await cell(`${bot}-P0`, { bot, classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0 });
+    let tac = null;
+    for (const bot of ['greedy', 'speedrunner', 'tactician']) {
+      const r = await cell(`${bot}-P0`, { bot, classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0 });
+      if (bot === 'tactician') tac = r;
+    }
+    // B5 fallback (balance.md 1.3, M2 v5): tactician - planner on P0 under the MANUAL_GAP floor -> re-run the
+    // tactician with each class's best B7 point-estimate tree; that cell counts for B1 tactician and B5.
+    const plannerWin = { k: 0, n: 0 };
+    for (const cls of CLASSES) { plannerWin.k += byTree[trees[cls]].perClass[cls].metrics.win.k; plannerWin.n += byTree[trees[cls]].perClass[cls].metrics.win.n; }
+    const tacWin = pooledWin(tac.perClass);
+    const b5 = tacWin.p - plannerWin.k / plannerWin.n;
+    const fbTrees = Object.fromEntries(CLASSES.map((c) => [c, bestPointTree(byTree.map((r) => r.perClass[c].metrics))]));
+    const rerun = CLASSES.filter((c) => fbTrees[c] !== trees[c]);
+    manifest.b5 = { onGroupTrees: b5, floor: BAL.MANUAL_GAP[0], applied: b5 < BAL.MANUAL_GAP[0], trees: fbTrees, rerun };
+    manifest.tacticianP0 = Object.fromEntries(CLASSES.map((c) => [c, 'tactician-P0']));
+    if (manifest.b5.applied) {
+      log(`B5 on the P0-group trees ${(b5 * 100).toFixed(1)} pp < ${(BAL.MANUAL_GAP[0] * 100).toFixed(0)} pp: fallback trees ${JSON.stringify(fbTrees)} (re-run: ${rerun.join(', ') || 'none, same trees'})`);
+      if (rerun.length) {
+        const obsFb = Object.fromEntries(rerun.map((c) => [c, byTree[fbTrees[c]].perClass[c].obs]));
+        await cell('tactician-P0-b5', { bot: 'tactician', classes: rerun, prof: 'fresh', trees: fbTrees, obsIn: obsFb });
+        for (const c of rerun) manifest.tacticianP0[c] = 'tactician-P0-b5';
+      }
+    } else log(`B5 on the P0-group trees ${(b5 * 100).toFixed(1)} pp: no fallback`);
+    save();
   }
   if (!trees || !obsP0) throw new Error('stage A results missing (run stage A first)');
   if (STAGES.has('B')) {
@@ -142,14 +192,27 @@ try {
     await cell('random-P10', { bot: 'random', classes: CLASSES, prof: 'meta10', trees });
   }
   if (STAGES.has('C')) {
-    const wall = await warmup('PALL', 'all', trees, obsP0, WARM);
-    const pall = await cell('planner-PALL', { bot: 'planner', classes: CLASSES, prof: 'all', trees, obsIn: wall, runs: PALL_RUNS });
-    const obsAll = obsOf(pall);
+    const incPALL = manifest.incumbents && manifest.incumbents.PALL ? manifest.incumbents.PALL : defaultTrees('PALL');
+    const wall = await warmup('PALL', 'all', incPALL, obsP0, WARM);
+    const byTree = [];
+    for (let t = 0; t < 3; t++) {
+      const tr = Object.fromEntries(CLASSES.map((c) => [c, t]));
+      byTree.push(await cell(`planner-PALL-tree${t}`, { bot: 'planner', classes: CLASSES, prof: 'all', trees: tr, obsIn: wall, runs: PALL_RUNS }));
+    }
+    treesPALL = chooseTrees('PALL', byTree, incPALL);
+    manifest.treesPALL = treesPALL;
+    manifest.plannerPALL = Object.fromEntries(CLASSES.map((c) => [c, `planner-PALL-tree${treesPALL[c]}`]));
+    save();
+    const obsAll = Object.fromEntries(CLASSES.map((c) => [c, byTree[treesPALL[c]].perClass[c].obs]));
     writeJson(join(OUT, 'obs-PALL.json'), obsAll);
-    await cell('random-PALL', { bot: 'random', classes: CLASSES, prof: 'all', trees, runs: PALL_RUNS });
-    for (const bot of ['greedy', 'speedrunner']) await cell(`${bot}-PALL`, { bot, classes: CLASSES, prof: 'all', trees, obsIn: obsAll, runs: PALL_RUNS });
-    for (const variant of ['noInterrupt', 'noCleanse', 'noAoe']) await cell(`planner-PALL-${variant}`, { bot: 'planner', classes: CLASSES, prof: 'all', trees, obsIn: obsAll, variant, runs: VARIANT_RUNS });
+    await cell('random-PALL', { bot: 'random', classes: CLASSES, prof: 'all', trees: treesPALL, runs: PALL_RUNS });
+    for (const bot of ['greedy', 'speedrunner']) await cell(`${bot}-PALL`, { bot, classes: CLASSES, prof: 'all', trees: treesPALL, obsIn: obsAll, runs: PALL_RUNS });
+    for (const variant of ['noInterrupt', 'noCleanse', 'noAoe']) await cell(`planner-PALL-${variant}`, { bot: 'planner', classes: CLASSES, prof: 'all', trees: treesPALL, obsIn: obsAll, variant, runs: VARIANT_RUNS });
   }
+  const needPALL = () => {
+    if (!treesPALL) throw new Error('stage C results missing (run stage C first: the PALL-group trees)');
+    return treesPALL;
+  };
   if (STAGES.has('D')) {
     // Campaigns (B31, B32): frozen table from the P0 planner of each class.
     if (!(args.resume && existsSync(join(OUT, 'campaigns', 'campaigns.json')))) {
@@ -207,13 +270,13 @@ try {
     const obsAll = readJson(join(OUT, 'obs-PALL.json'));
     for (const pet of ['thornback', 'duskcat']) await cell(`planner-P0-${pet}`, { bot: 'planner', classes: ['hunter'], prof: 'fresh', trees, obsIn: obsP0, pet });
     for (const style of ['quest', 'grind', 'elite', 'speed']) await cell(`planner-P0-${style}`, { bot: 'planner', classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0, style, runs: STYLE_RUNS });
-    for (const style of ['quest', 'grind', 'elite', 'speed']) await cell(`planner-PALL-${style}`, { bot: 'planner', classes: CLASSES, prof: 'all', trees, obsIn: obsAll, style, runs: Math.min(STYLE_RUNS, PALL_RUNS) });
+    for (const style of ['quest', 'grind', 'elite', 'speed']) await cell(`planner-PALL-${style}`, { bot: 'planner', classes: CLASSES, prof: 'all', trees: needPALL(), obsIn: obsAll, style, runs: Math.min(STYLE_RUNS, PALL_RUNS) });
     await cell('tactician-P0-rulesOnly', { bot: 'tactician', classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0, variant: 'rulesOnly', runs: DIAG_RUNS });
   }
   if (STAGES.has('F')) {
     // The PALL tactician (B3 upper bound; the most expensive cell) runs last, sized to the compute that is left.
     const obsAll = readJson(join(OUT, 'obs-PALL.json'));
-    await cell('tactician-PALL', { bot: 'tactician', classes: CLASSES, prof: 'all', trees, obsIn: obsAll, runs: HALF });
+    await cell('tactician-PALL', { bot: 'tactician', classes: CLASSES, prof: 'all', trees: needPALL(), obsIn: obsAll, runs: HALF });
   }
   manifest.meta.finished = new Date().toISOString();
   manifest.meta.wallMin = Math.round((performance.now() - t0) / 60000);

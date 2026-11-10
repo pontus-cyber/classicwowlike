@@ -13,10 +13,17 @@
 // report-only, the new B17 time budget, the B32 dip over blocks of at least CURVE_BLOCK_MIN_RUNS runs) then take
 // their Before value from it, measured with the current definition and judged against the current targets, instead
 // of the old report's row. (In M2 v3 the same option re-measured B21, B24 and B38; their definition is unchanged.)
+//
+// Default trees (balance.md 1.3, M2 v5, D43): the planner P0 cell of each class is its P0-group tree's B7 cell, the
+// planner PALL cell its PALL-group tree's planner-PALL-tree<t> cell (a pass made before M2 v5 has one planner-PALL
+// cell); the report prints both tree sets and, per class and group, the incumbent, the best challenger, the gap and
+// the switch threshold. B5 fallback (balance.md 1.3): when pass.json records it, B1 tactician and B5 use the
+// fallback tactician cell (tactician-P0-b5 for the re-run classes) and say so.
 import { join } from 'node:path';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { BAL } from './lib/params.mjs';
 import { C } from './lib/engine.mjs';
+import { treeSwitch } from './lib/trees.mjs';
 import { cellMetrics, timeBudget } from './lib/metrics.mjs';
 import { campaignMetricsByClass, blockList } from './lib/campaignreport.mjs';
 import { rate, diffRate, median, quantile } from './lib/stats.mjs';
@@ -63,7 +70,11 @@ function parseBefore(md) {
 }
 const pass = readJson(join(IN, 'pass.json'));
 const trees = pass.trees;
+const treesPALL = pass.treesPALL || null;
+const b5Fallback = pass.b5 && pass.b5.applied ? pass.b5 : null;
 const BEFORE_PASS = args['before-pass'] || null;
+const treeName = (cls, t) => `${t} ${C.CLASS[cls].trees[t]}`;
+const treeSet = (tr) => CLASSES.map((c) => `${c} ${treeName(c, tr[c])}`).join(', ');
 
 // ---------------- Loading ----------------
 const cache = new Map();
@@ -80,19 +91,49 @@ function recs(name, root = IN) {
   }
   return cache.get(key);
 }
-/** The P0 planner cell of each class is its best-tree B7 cell (trees of pass directory `root`). */
-function plannerP0(root = IN) {
-  const tr = root === IN ? trees : readJson(join(root, 'pass.json')).trees;
+/**
+ * Records per class of a cell made of one cell per class: `cells` = { cls: cell name } (pass directory `root`).
+ */
+function perClassCells(cells, root = IN) {
   const out = {};
   for (const cls of CLASSES) {
-    const r = recs(`planner-P0-tree${tr[cls]}`, root);
+    const r = recs(cells[cls], root);
     if (r && r[cls]) out[cls] = r[cls];
   }
   return out;
 }
-/** Records of a cell in pass directory `root`, all classes pooled ('planner-P0': the best-tree cells). */
+/** The P0 planner cell of each class is its default-tree B7 cell (P0-group trees of pass directory `root`). */
+function plannerP0(root = IN) {
+  const tr = root === IN ? trees : readJson(join(root, 'pass.json')).trees;
+  return perClassCells(Object.fromEntries(CLASSES.map((c) => [c, `planner-P0-tree${tr[c]}`])), root);
+}
+/**
+ * The PALL planner cell of each class (M2 v5): its PALL-group tree's planner-PALL-tree<t> cell; a pass without
+ * PALL-group trees (before M2 v5) has the single cell planner-PALL.
+ */
+function plannerPALL(root = IN) {
+  const tr = root === IN ? treesPALL : readJson(join(root, 'pass.json')).treesPALL || null;
+  if (!tr) return recs('planner-PALL', root);
+  return perClassCells(Object.fromEntries(CLASSES.map((c) => [c, `planner-PALL-tree${tr[c]}`])), root);
+}
+/** The P0 tactician cell that counts for B1 and B5: the B5 fallback cell per class when it applied (pass.json). */
+function tacticianP0(root = IN) {
+  const p = root === IN ? pass : readJson(join(root, 'pass.json'));
+  return p.b5 && p.b5.applied && p.tacticianP0 ? perClassCells(p.tacticianP0, root) : recs('tactician-P0', root);
+}
+/** Virtual cells: planner-P0 / planner-PALL (default-tree cells), tactician-P0 (B1 and B5 cell),
+ *  tactician-P0-groupTrees (the tactician on the P0-group trees, the directory tactician-P0). */
+function virtualCell(name, root = IN) {
+  if (name === 'planner-P0') return plannerP0(root);
+  if (name === 'planner-PALL') return plannerPALL(root);
+  if (name === 'tactician-P0') return tacticianP0(root);
+  if (name === 'tactician-P0-groupTrees') return recs('tactician-P0', root);
+  return undefined;
+}
+/** Records of a cell in pass directory `root`, all classes pooled (virtual cells resolved). */
 function pooledRecs(name, root = IN) {
-  const r = name === 'planner-P0' ? plannerP0(root) : recs(name, root);
+  const v = virtualCell(name, root);
+  const r = v !== undefined ? v : recs(name, root);
   return r ? Object.values(r).flat() : [];
 }
 const botOf = (name) => name.split('-')[0];
@@ -103,7 +144,8 @@ function metricsOf(byClass, bot, classes = Object.keys(byClass)) {
   return cellMetrics(all, { timeProfile: TIME_PROFILE[bot] });
 }
 function cellsFor(name) {
-  if (name === 'planner-P0') return plannerP0();
+  const v = virtualCell(name);
+  if (v !== undefined) return v;
   const at = name.indexOf('@');
   if (at > 0) {
     // "<base>@<other>": the base cell restricted to the seeds of the other cell (paired comparison).
@@ -163,11 +205,13 @@ const P = (name, cls) => m(name, cls);
 
 // B1-B3: win rates
 const B1 = { random: [null, BAL.WR_P0_RANDOM_MAX], greedy: BAL.WR_P0_GREEDY, planner: BAL.WR_P0_PLANNER, speedrunner: BAL.WR_P0_SPEED, tactician: BAL.WR_P0_TACTICIAN };
+/** Note on the B1 tactician and B5 rows when the B5 fallback applied (balance.md 1.3, M2 v5). */
+const b5Note = b5Fallback ? `B5 fallback: tactician on trees ${treeSet(b5Fallback.trees)}; on the P0-group trees ${pct(P('tactician-P0-groupTrees').win.p)}, B5 ${pct(b5Fallback.onGroupTrees)}` : '';
 for (const [bot, b] of Object.entries(B1)) {
   const x = P(`${bot}-P0`).win;
   const lo = Array.isArray(b) && b[0] !== null ? b[0] : null;
   const hi = Array.isArray(b) ? b[1] : b;
-  add('B1', 'P1', `Win rate P0, ${bot}`, rcell(x), lo === null ? `<= ${pct(hi)}` : band([lo, hi]), (lo === null || x.p >= lo) && x.p <= hi, miss(x.p, lo, hi));
+  add('B1', 'P1', `Win rate P0, ${bot}`, rcell(x), lo === null ? `<= ${pct(hi)}` : band([lo, hi]), (lo === null || x.p >= lo) && x.p <= hi, miss(x.p, lo, hi), bot === 'tactician' ? b5Note : '');
 }
 {
   const x = P('planner-P10').win;
@@ -188,12 +232,13 @@ for (const prof of ['P0', 'PALL']) {
 }
 {
   const d = diffRate(P('tactician-P0').win, P('planner-P0').win);
-  add('B5', 'P1', 'Tactician - planner, P0', `${pct(d.v)} (${ci(d.ci)})`, band(BAL.MANUAL_GAP), inBand(d.v, BAL.MANUAL_GAP), miss(d.v, ...BAL.MANUAL_GAP));
+  add('B5', 'P1', 'Tactician - planner, P0', `${pct(d.v)} (${ci(d.ci)})`, band(BAL.MANUAL_GAP), inBand(d.v, BAL.MANUAL_GAP), miss(d.v, ...BAL.MANUAL_GAP), b5Note);
   const t = P('tactician-P0-rulesOnly');
   if (t) {
-    // Diagnostic: half-size cell on the first seeds; compare with the planner and the tactician on the same seeds.
+    // Diagnostic: cell on the first seeds and the P0-group trees; compare with the planner and the tactician (on the
+    // P0-group trees) on the same seeds.
     const pl = P('planner-P0@tactician-P0-rulesOnly');
-    const tp = P('tactician-P0@tactician-P0-rulesOnly');
+    const tp = P('tactician-P0-groupTrees@tactician-P0-rulesOnly');
     const dd = diffRate(t.win, pl.win);
     add('B5', 'diag', 'Tactician (as specified) - planner, P0, same seeds as the diagnostic', `${pct(diffRate(tp.win, pl.win).v)}`, band(BAL.MANUAL_GAP), null, 0, 'paired subset');
     add('B5', 'diag', 'Tactician telegraph rules only, autoplay otherwise (no search) - planner, P0, same seeds', `${pct(dd.v)} (${ci(dd.ci)})`, band(BAL.MANUAL_GAP), null, 0, 'diagnostic, not a balance.md bot');
@@ -417,7 +462,8 @@ L.push('');
 // Supporting tables
 L.push('### Win rate and reach-the-boss rate by bot, profile and class', '');
 const cellRows = [];
-for (const name of ['random-P0', 'greedy-P0', 'planner-P0', 'speedrunner-P0', 'tactician-P0', 'tactician-P0-rulesOnly', 'random-P10', 'planner-P10', 'random-PALL', 'greedy-PALL', 'planner-PALL', 'speedrunner-PALL', 'tactician-PALL', 'planner-PALL-noInterrupt', 'planner-PALL-noCleanse', 'planner-PALL-noAoe']) {
+const cellList = ['random-P0', 'greedy-P0', 'planner-P0', 'speedrunner-P0', 'tactician-P0', ...(b5Fallback ? ['tactician-P0-groupTrees'] : []), 'tactician-P0-rulesOnly', 'random-P10', 'planner-P10', 'random-PALL', 'greedy-PALL', 'planner-PALL', 'speedrunner-PALL', 'tactician-PALL', 'planner-PALL-noInterrupt', 'planner-PALL-noCleanse', 'planner-PALL-noAoe'];
+for (const name of cellList) {
   const pooled = m(name);
   if (!pooled) continue;
   const b = BEFORE ? BEFORE.cells.get(name) : null;
@@ -425,7 +471,32 @@ for (const name of ['random-P0', 'greedy-P0', 'planner-P0', 'speedrunner-P0', 't
 }
 L.push(table(['Cell', 'Runs', ...CLASSES.map((c) => `${c}: win / boss`), 'All: win / boss', ...(BEFORE ? ['Before: rogue; mage; hunter; all (win / boss)'] : []), 'ms/run'], cellRows));
 L.push('');
-L.push(`Default trees (B7 best planner win rate, ties by reach-boss rate): ${Object.entries(trees).map(([c, t]) => `${c} tree ${t}`).join(', ')}. Hunter pet: ridgewolf for every bot except random (random picks one at random).`, '');
+if (treesPALL) L.push('planner-P0 and planner-PALL are the default-tree cells of each class (planner-P0-tree<t>, planner-PALL-tree<t>; table below); every other P0 and P10 cell plays the P0-group trees, every other PALL cell the PALL-group trees.', '');
+if (b5Fallback) L.push(`tactician-P0 is the B5 fallback cell (counts for B1 tactician and B5): ${b5Fallback.rerun.join(', ')} from tactician-P0-b5, the other classes from the tactician on the P0-group trees (tactician-P0-groupTrees, the directory tactician-P0).`, '');
+if (pass.treeChoice) {
+  // Default trees per profile group (balance.md 1.3, M2 v5): recomputed from the cells with the pass's incumbents.
+  L.push(`Default trees (balance.md 1.3, M2 v5; switch rule: a challenger replaces the incumbent when its planner win rate is higher by more than TREE_SWITCH_Z = ${BAL.TREE_SWITCH_Z} standard errors of the difference). P0-group trees: ${treeSet(trees)}. PALL-group trees: ${treesPALL ? treeSet(treesPALL) : 'n/a (stage C not run)'}. Hunter pet: ridgewolf for every bot except random (random picks one at random).`, '');
+  const treeRows = [];
+  for (const [group, prefix, chosen] of [['P0', 'planner-P0-tree', trees], ['PALL', 'planner-PALL-tree', treesPALL]]) {
+    if (!chosen || !pass.incumbents || !pass.incumbents[group]) continue;
+    for (const cls of CLASSES) {
+      const byTree = [0, 1, 2].map((t) => m(`${prefix}${t}`, cls));
+      if (byTree.some((x) => !x)) continue;
+      const sw = treeSwitch(byTree, pass.incumbents[group][cls]);
+      const b = sw.best;
+      treeRows.push([group, cls, ...byTree.map((x) => `${pct(x.win.p)} (n=${x.win.n})`), treeName(cls, sw.incumbent), `${treeName(cls, b.tree)} (${pct(b.p)})`, `${b.gap >= 0 ? '+' : ''}${num(b.gap * 100, 1)} pp`, `${num(b.threshold * 100, 1)} pp`, `${treeName(cls, sw.tree)} (${sw.switched ? 'switch' : 'kept'})`]);
+    }
+  }
+  L.push(table(['Group', 'Class', 'Tree 0', 'Tree 1', 'Tree 2', 'Incumbent', 'Best challenger', 'Gap', 'Threshold', 'Default'], treeRows));
+  L.push('');
+  if (pass.b5) {
+    L.push(b5Fallback
+      ? `B5 fallback (balance.md 1.3, M2 v5) applied: on the P0-group trees B5 was ${pct(pass.b5.onGroupTrees)} (floor ${pct(pass.b5.floor)}); the P0 tactician was re-run with each class's best B7 point-estimate tree (${treeSet(pass.b5.trees)}; re-run: ${pass.b5.rerun.join(', ') || 'none'}, the other classes keep their runs on the same tree and seeds) and that cell counts for B1 tactician and B5.`
+      : `B5 fallback (balance.md 1.3, M2 v5) not needed: B5 on the P0-group trees ${pct(pass.b5.onGroupTrees)} (floor ${pct(pass.b5.floor)}).`, '');
+  }
+} else {
+  L.push(`Default trees (B7 best planner win rate, ties by reach-boss rate): ${Object.entries(trees).map(([c, t]) => `${c} tree ${t}`).join(', ')}. Hunter pet: ridgewolf for every bot except random (random picks one at random).`, '');
+}
 
 L.push('### Planner P0 by class', '');
 const pc = CLASSES.map((c) => m('planner-P0', c));

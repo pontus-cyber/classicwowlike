@@ -3,7 +3,8 @@
 //
 //   node sim/run.mjs --bot <random|greedy|planner|speedrunner|tactician> --class <rogue|mage|hunter|all>
 //                    --runs N --seed-start S --profile <fresh|metaN|all> --out <dir>
-//   options: --tree <0|1|2> (default: SIM.DEFAULT_TREE per class)   --style <balanced|quest|grind|elite|speed>
+//   options: --tree <0|1|2> (default: the recorded default tree of the class and profile group, balance.md 1.3:
+//            SIM.DEFAULT_TREE, with --profile all SIM.DEFAULT_TREE_PALL)   --style <balanced|quest|grind|elite|speed>
 //            --variant <noInterrupt|noCleanse|noAoe>   --pet <id>   --workers N (default: all cores)
 //            --warmup N (planner warm-up runs for the risk table, default SIM.WARMUP_RUNS; 0 = start at RISK_PRIOR)
 //            --risk-in <risk.json of an earlier batch>   --log (keep action logs in runs-*.jsonl)
@@ -22,6 +23,7 @@ import { buildTable } from './lib/risk.mjs';
 import { BOT_NAMES } from './bots/index.mjs';
 import { readJson, writeJson, commitInfo, ensureDir } from './lib/output.mjs';
 import { campaignMarkdown } from './lib/campaignreport.mjs';
+import { defaultTrees, profileGroup } from './lib/trees.mjs';
 
 function parse(argv) {
   const o = {};
@@ -40,7 +42,9 @@ const classes = !args.class || args.class === 'all' ? CLASSES : args.class.split
 for (const c of classes) if (!CLASSES.includes(c)) throw new Error(`unknown class ${c}`);
 const workers = Number(args.workers || cpus().length);
 const out = args.out || join('sim', 'out', new Date().toISOString().slice(0, 10));
-const trees = Object.fromEntries(classes.map((c) => [c, args.tree !== undefined ? Number(args.tree) : SIM.DEFAULT_TREE[c]]));
+// Campaigns start from P0, so they play the P0-group trees.
+const groupTrees = defaultTrees(args.campaign ? 'P0' : profileGroup(args.profile || 'fresh'));
+const trees = Object.fromEntries(classes.map((c) => [c, args.tree !== undefined ? Number(args.tree) : groupTrees[c]]));
 const obsIn = args['risk-in'] ? readJson(args['risk-in']) : null;
 const pool = new Pool(workers);
 try {

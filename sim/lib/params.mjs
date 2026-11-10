@@ -47,6 +47,7 @@ export const BAL = {
   CLASS_BAND_PP: 0.05,
   CLASS_SPREAD_MAX_PP: 0.08,
   TREE_FLOOR_RATIO: 0.60,
+  TREE_SWITCH_Z: 1.96,
   PET_FLOOR_RATIO: 0.70,
   META_GAP_MIN_PP: 0.20,
   META_GAP_MAX_PP: 0.45,
@@ -165,10 +166,13 @@ export const SIM = {
   REPLAY_SEED_BASE: 7000000,
   /** Campaign run seeds: CAMPAIGN_SEED_BASE + campaign × CAMPAIGN_MAX_RUNS + run. */
   CAMPAIGN_SEED_BASE: 5000000,
-  /** Default talent tree per class (balance.md 1: the tree with the best planner win rate, re-chosen once per
-   *  balance pass; set from the B7 result of docs/reports/balance-2026-11-09b.md: Venomcraft, Arcanism,
-   *  Marksmanship). */
+  /** Default talent tree per class and profile group (balance.md 1.3, M2 v5, D43): the incumbents of the switch rule
+   *  (sim/lib/trees.mjs). A pass keeps the incumbent unless another tree's planner win rate beats it by more than
+   *  TREE_SWITCH_Z standard errors of the difference; a switch is recorded here in the same commit as the report.
+   *  P0 group (P0 and P10 cells, campaigns, P0 route styles and pets, the B5 tactician): Venomcraft, Arcanism,
+   *  Marksmanship. PALL group (every PALL cell): Shadowcraft, Arcanism, Beastbond [source: changes-m2-v5.md row 1]. */
   DEFAULT_TREE: { rogue: 2, mage: 2, hunter: 1 },
+  DEFAULT_TREE_PALL: { rogue: 1, mage: 2, hunter: 0 },
   /** Batch: runs per worker task (a block of SIM_RISK_REFRESH runs is split into tasks of this size). */
   TASK_RUNS: 25,
   /** Bootstrap resamples for median intervals and its seed. */

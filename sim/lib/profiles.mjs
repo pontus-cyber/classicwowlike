@@ -25,7 +25,7 @@ export function buildProfile(name, classId) {
   if (n === 'fresh' || n === 'p0' || n === 'meta0') return p;
   if (n === 'all' || n === 'pall' || n === 'metaall') {
     for (const m of Object.values(C.META)) p.unlocks[m.id] = m.ranks;
-    // A complete catalogue implies the boss was reached and killed (starforged, oaths, second_breath need it).
+    // A complete catalogue implies the boss was reached and killed (oaths, second_breath need it).
     p.reachedBoss = true;
     p.bossKills = 1;
     p.firstKill = { rogue: true, mage: true, hunter: true };

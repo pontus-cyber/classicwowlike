@@ -98,11 +98,12 @@ Other files in src/ that are not .js: `src/index.html` (HTML shell, the build en
 |---|---|---|---|
 | `sim/play.mjs` | Text play of one run, interactive or scripted, with bots and autoplay | CLI entry | M1 1.2; Simulation & Balance Engineer |
 | `sim/run.mjs` | Batch mode: N seeded runs per class with one bot across worker threads | CLI entry | balance.md 1, 2; Simulation & Balance Engineer |
-| `sim/pass.mjs` | Full balance pass: every cell the report needs, campaigns, replay and throughput checks | CLI entry | balance.md 2, 3; Simulation & Balance Engineer |
-| `sim/report.mjs` | Builds the balance report (targets B1-B37) from a pass directory | CLI entry | balance.md 3, 6; Simulation & Balance Engineer |
+| `sim/pass.mjs` | Full balance pass: every cell the report needs (default trees per profile group by the switch rule, B5 fallback), campaigns, replay and throughput checks | CLI entry | balance.md 1.3, 2, 3; Simulation & Balance Engineer |
+| `sim/report.mjs` | Builds the balance report (targets B1-B38, both default-tree sets with the switch rows) from a pass directory | CLI entry | balance.md 1.3, 3, 6; Simulation & Balance Engineer |
 | `sim/worker.mjs` | Worker thread: plays the runs or campaigns of one task | message handler | Simulation & Balance Engineer |
 | `sim/lib/engine.mjs` | The simulator's only gateway to the engine; engine helpers for bots | `R`, `C`, `CONTENT`, `STREAM`, `newRunFor`, `petsFor`, `BotRng`, `SPELL`, `TALENT`, `CONSUMABLE`, `countCons`, `hpFrac`, `manaFrac`, `legal`, `V`, `xpCurve`, `diffMod` | balance.md 1; Simulation & Balance Engineer |
-| `sim/lib/params.mjs` | Bot parameters and targets (`BAL` = balance.md 6) and open numbers (`SIM`) | `BAL`, `SIM` | balance.md 6; Simulation & Balance Engineer |
+| `sim/lib/params.mjs` | Bot parameters and targets (`BAL` = balance.md 6) and open numbers (`SIM`, incl. the recorded default trees per profile group) | `BAL`, `SIM` | balance.md 6; Simulation & Balance Engineer |
+| `sim/lib/trees.mjs` | Default talent tree per class and profile group: the switch rule (TREE_SWITCH_Z), the B5 fallback's best point estimate, profile groups | `treeSwitch`, `bestPointTree`, `defaultTrees`, `profileGroup` | balance.md 1.3 (M2 v5); Simulation & Balance Engineer |
 | `sim/lib/policy.mjs` | Shared bot policies: talents, bar, gear, consumables, trainer, vendor, hub, camp | `makeBot`, `standardTalent`, `randomTalent`, `templateBar`, `learnOrderBar`, `lootAction`, `vendorAction`, `trainAllAction`, ... | balance.md 1.2, 1.3; Simulation & Balance Engineer |
 | `sim/lib/model.mjs` | Node value model (XP, gear, gold, hours, death risk) used by the planning bots | `makeCtx`, `evalNode`, `expGain`, `innValue`, `vAt`, `copyM` | balance.md 1.1; Simulation & Balance Engineer |
 | `sim/lib/risk.mjs` | Death-risk table learned from the simulator's own runs | `buildTable`, `priorTable`, `riskP`, `riskDh`, `riskType`, `newObs`, `addRecord`, `mergeObs`, `tableSummary` | balance.md 1.1; Simulation & Balance Engineer |

@@ -23,6 +23,7 @@ import { describeState, describeAction, describeEvents, listActions } from './li
 import { createBot, BOT_NAMES } from './bots/index.mjs';
 import { buildProfile } from './lib/profiles.mjs';
 import { SIM } from './lib/params.mjs';
+import { defaultTrees, profileGroup } from './lib/trees.mjs';
 
 function parse(argv) {
   const o = {};
@@ -41,7 +42,9 @@ const state = newRunFor({ classId, petId: classId === 'hunter' ? (args.pet || SI
 const out = [];
 const emit = (line) => { if (args.script) out.push(line); else process.stdout.write(`${line}\n`); };
 const bots = {};
-const botFor = (name) => bots[name] || (bots[name] = createBot(name, { classId, seed, tree: SIM.DEFAULT_TREE[classId] }));
+// Bots play the recorded default tree of the class and profile group (balance.md 1.3, M2 v5).
+const botTree = defaultTrees(profileGroup(args.profile || 'fresh'))[classId];
+const botFor = (name) => bots[name] || (bots[name] = createBot(name, { classId, seed, tree: botTree }));
 
 emit(`# Run: ${classId}, seed ${seed}, profile ${args.profile || 'fresh'}`);
 
