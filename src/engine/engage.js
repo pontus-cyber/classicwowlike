@@ -1,6 +1,7 @@
 // Engage round (rules 7.10, combat v2): the ENGAGE action and the nine class engage options (strike, control,
 // setup per class): legality, resolution, and the option list the UI shows. Options need no bar slot, training or
-// resource and use L (tl = L); they are legal only in the engage round, once per fight.
+// resource and use L (tl = L); they are legal only in the engage round, once per fight. Combat v2.1: on a CC-immune
+// enemy every control option is Disrupt (a trap on its first visible wind-up), legal only while one is visible.
 import {
   SPELL, TALENT, ENGAGE_OPTION, ENGAGE_OPTIONS, OPENING_SHOT_MULT, AMBUSH_MULT, PREMED_CP, SAP_TURNS, GLYPH_TURNS,
   GATHER_SPELLS, GATHER_CRIT, OPENING_MARK_ROUNDS, TRAP_STUN, PET_LEAD_TURNS, PET_LEAD_DR, INTENT_TRACK_LEN,
@@ -28,6 +29,22 @@ export function engageAct(option, target, spellId) {
   return ENGAGE_OPTION[option].target === 'spell' ? { type: 'ENGAGE', option, spellId, target } : { type: 'ENGAGE', option, target };
 }
 
+/**
+ * Turn of the first wind-up (rules 7.12, combat v2.1) within turns 1..INTENT_TRACK_LEN of the enemy's track, or 0:
+ * the turn a Disrupt traps (rules 7.10).
+ */
+export function windupTurn(e) {
+  const x = e.track.find((y) => y.turn >= 1 && y.turn <= INTENT_TRACK_LEN && y.windup);
+  return x ? x.turn : 0;
+}
+
+/** Is this ENGAGE a Disrupt (rules 7.10, combat v2.1): a control option on an enemy immune to control? */
+export function isDisrupt(s, a) {
+  const o = ENGAGE_OPTION[a.option];
+  const e = o && o.target === 'control' && Number.isInteger(a.target) ? s.fight.enemies[a.target] : null;
+  return !!(e && e.alive && e.ccImmune);
+}
+
 /** Why an ENGAGE action is not legal now (rules 7.10), or null. */
 export function engageError(s, a) {
   const f = s.fight;
@@ -37,7 +54,10 @@ export function engageError(s, a) {
   const live = (t) => Number.isInteger(t) && !!f.enemies[t] && f.enemies[t].alive;
   if (o.target === 'enemy' || o.target === 'control') {
     if (!live(a.target)) return `${o.name} needs a living enemy target`;
-    if (o.target === 'control' && f.enemies[a.target].ccImmune) return `${o.name}: ${f.enemies[a.target].name} cannot be controlled`;
+    // Combat v2.1: on an enemy immune to control the option is Disrupt, legal only while a wind-up is visible.
+    if (o.target === 'control' && f.enemies[a.target].ccImmune && !windupTurn(f.enemies[a.target])) {
+      return `${o.name}: ${f.enemies[a.target].name} cannot be controlled, and Disrupt needs a wind-up in its turns 1-${INTENT_TRACK_LEN}`;
+    }
   } else if (o.target === 'none') {
     if (a.target !== null && a.target !== undefined) return `${o.name} takes no target`;
   } else if (o.target === 'spell') {
@@ -60,7 +80,11 @@ export function trapTurn(e) {
   return x ? x.turn : 1;
 }
 
-/** Resolve an ENGAGE action (validated by the caller). STEALTH is handled by playerAction. */
+/**
+ * Resolve an ENGAGE action (validated by the caller). STEALTH is handled by playerAction (Sap keeps it, also as a
+ * Disrupt). Disrupt (rules 7.10, combat v2.1): a TRAP on the target's first visible wind-up turn whose STUN covers that
+ * one turn (it cancels only that entry: OFF_BALANCE and STAGGERED, track.js nowIntent); no SAPPED, no FROZEN.
+ */
 export function engageAction(s, ev, a) {
   const f = s.fight;
   const p = s.player;
@@ -70,6 +94,12 @@ export function engageAction(s, ev, a) {
   if (o.target === 'spell') {
     // Pre-cast: one bar spell at 0 mana cost; its cooldown starts.
     cast(s, ev, a.spellId, SPELL[a.spellId].target === 'enemy' ? tgt : null, { free: true, engage: o.id });
+    return;
+  }
+  if (isDisrupt(s, a)) {
+    ev.push({ t: 'action', kind: 'engage', option: o.id, target: tgt, disrupt: true });
+    // stun 1: "STUN for that one turn" (rules 7.10), whatever TRAP_STUN is.
+    addStatus(s, ev, tgt, { id: 'TRAP', dur: null, turn: windupTurn(f.enemies[tgt]), stun: 1, disrupt: true });
     return;
   }
   ev.push({ t: 'action', kind: 'engage', option: o.id, target: tgt });
@@ -136,25 +166,31 @@ const PRECAST_CONTROL = { hexbind: ['HEXED', 'hex'], rime_burst: ['FROZEN', 'fre
 /**
  * What an ENGAGE action does to the tracks (rules 7.10, for the engage panel's hover preview), without any draw:
  * null if it is not legal, else { enemies: [{ u, cancelled: [turns], offBalance: [turns], window: [turns], pet:
- * [turns] }] } for the enemies it changes: `cancelled` = turns whose entries it cancels (Sap, Binding Glyph,
- * Lay Trap, a Pre-cast Hexbind or Rime Burst; Sap and Hexbind only while no damage breaks them; Rime Burst only
- * if it hits), `offBalance` = those among them whose entry is a heavy or a cast (the enemy will be OFF_BALANCE),
- * `window` = turns it is FROZEN (counts as OFF_BALANCE), `pet` = turns whose single-target entries go to the pet
- * (Send the Pet). Damage options change no entry.
+ * [turns], stagger: [turns], disrupt }] } for the enemies it changes: `cancelled` = turns whose entries it cancels
+ * (Sap, Binding Glyph, Lay Trap, Disrupt, a Pre-cast Hexbind or Rime Burst; Sap and Hexbind only while no damage
+ * breaks them; Rime Burst only if it hits), `offBalance` = those among them whose entry is a heavy or a cast (the
+ * enemy will be OFF_BALANCE), `window` = turns it is FROZEN (counts as OFF_BALANCE), `pet` = turns whose
+ * single-target entries go to the pet (Send the Pet), `stagger` (combat v2.1) = cancelled turns whose entry is a
+ * wind-up (answered: STAGGERED), `disrupt` = the option is a Disrupt on this CC-immune enemy (its one cancelled turn
+ * is the first visible wind-up). Damage options change no entry.
  */
 export function engagePreview(s, a) {
   if (!a || a.type !== 'ENGAGE' || engageError(s, a)) return null;
   const f = s.fight;
   const out = [];
-  const big = (e, t) => { const x = e.track.find((y) => y.turn === t); return !!(x && (x.heavy || x.cast)); };
+  const at = (e, t) => e.track.find((y) => y.turn === t);
+  const big = (e, t) => { const x = at(e, t); return !!(x && (x.heavy || x.cast)); };
+  const wind = (e, t) => { const x = at(e, t); return !!(x && x.windup); };
   const turns = (n) => Array.from({ length: Math.max(0, n) }, (_, i) => i + 1);
-  const cancel = (e, ts, frozen) => out.push({ u: e.idx, cancelled: ts, offBalance: ts.filter((t) => big(e, t)), window: frozen ? ts : [], pet: [] });
+  const item = (e, ts, frozen, pet, disrupt) => ({ u: e.idx, cancelled: ts, offBalance: ts.filter((t) => big(e, t)), window: frozen ? ts : [], pet, stagger: ts.filter((t) => wind(e, t)), disrupt });
+  const cancel = (e, ts, frozen) => out.push(item(e, ts, frozen, [], false));
   const o = ENGAGE_OPTION[a.option];
-  if (o.id === 'sap') cancel(f.enemies[a.target], turns(SAP_TURNS), false);
+  if (isDisrupt(s, a)) out.push(item(f.enemies[a.target], [windupTurn(f.enemies[a.target])], false, [], true));
+  else if (o.id === 'sap') cancel(f.enemies[a.target], turns(SAP_TURNS), false);
   else if (o.id === 'binding_glyph') cancel(f.enemies[a.target], turns(GLYPH_TURNS), true);
   else if (o.id === 'lay_trap') cancel(f.enemies[a.target], [trapTurn(f.enemies[a.target])], false);
   else if (o.id === 'send_pet') {
-    for (const e of f.enemies) if (e.alive) out.push({ u: e.idx, cancelled: [], offBalance: [], window: [], pet: turns(PET_LEAD_TURNS).filter((t) => { const x = e.track.find((y) => y.turn === t); return x && isSingle(x.kind); }) });
+    for (const e of f.enemies) if (e.alive) out.push(item(e, [], false, turns(PET_LEAD_TURNS).filter((t) => { const x = at(e, t); return x && isSingle(x.kind); }), false));
   } else if (o.id === 'precast' && PRECAST_CONTROL[a.spellId]) {
     // A status applied in the engage round covers turns 1..dur-1 (rules 7.4); immune enemies are only interrupted.
     const [id, field] = PRECAST_CONTROL[a.spellId];
@@ -168,7 +204,8 @@ export function engagePreview(s, a) {
 /**
  * Engage options for the UI (rules 7.10), or null outside the engage round: each of the class's options with id,
  * kind, name, `targets` (enemy indices it may target; [null] for no target), `spells` (Pre-cast: bar spells with
- * their targets) and `reason` when it cannot be used now (e.g. every enemy is immune to control).
+ * their targets), `disrupt` (combat v2.1: the targets on which this control option is Disrupt, CC-immune enemies with
+ * a visible wind-up; [] otherwise) and `reason` when it cannot be used now (e.g. an immune enemy without a wind-up).
  */
 export function engageOptions(s) {
   const f = s.fight;
@@ -176,7 +213,7 @@ export function engageOptions(s) {
   const live = f.enemies.filter((e) => e.alive).map((e) => e.idx);
   return ENGAGE_OPTIONS[s.player.classId].map((id) => {
     const o = ENGAGE_OPTION[id];
-    const out = { id, kind: o.kind, name: o.name, targets: [], spells: null, reason: null };
+    const out = { id, kind: o.kind, name: o.name, targets: [], spells: null, disrupt: [], reason: null };
     if (o.target === 'spell') {
       out.spells = [];
       for (const sid of s.player.bar) {
@@ -190,9 +227,12 @@ export function engageOptions(s) {
       const ts = o.target === 'none' ? [null] : live;
       let why = null;
       for (const t of ts) {
-        const err = engageError(s, engageAct(id, t));
-        if (!err) out.targets.push(t);
-        else why = why || err;
+        const act = engageAct(id, t);
+        const err = engageError(s, act);
+        if (!err) {
+          out.targets.push(t);
+          if (isDisrupt(s, act)) out.disrupt.push(t);
+        } else why = why || err;
       }
       if (!out.targets.length) out.reason = why;
     }

@@ -4,7 +4,8 @@
 // where control, Lay Trap, the summon HP trigger and the play conditions are applied. Enemies present at fight start
 // play their archetype's opening script on turns 1..OPENING_TURNS and (elite, rare, dungeon boss) their signature
 // ability on SIGNATURE_TURN (and SIGNATURE_TURN_2); combat v2.1: those signature entries are wind-ups (`windup` and
-// `cast`), and a wind-up cancelled at its turn's start or replaced because SILENCED is answered (STAGGERED, damage.js).
+// `cast`), and a wind-up cancelled at its turn's start (control, a trap, Disrupt's trap) or replaced because SILENCED
+// is answered (STAGGERED, damage.js).
 // The end boss's entries are made by boss.js (rules 10.3). Every entry shows its target, estimate and (D52) the
 // predicted `cancel`, recomputed each round (refreshTrack).
 import {
@@ -307,7 +308,7 @@ export function nowIntent(s, ev, e) {
   const sprung = trap && trap.turn <= T ? trap : null;
   if (sprung) {
     removeStatus(s, ev, e.idx, 'TRAP');
-    ev.push({ t: 'trapSprung', u: e.idx, turn: T });
+    ev.push(sprung.disrupt ? { t: 'trapSprung', u: e.idx, turn: T, disrupt: true } : { t: 'trapSprung', u: e.idx, turn: T });
     addStatus(s, ev, e.idx, { id: 'STUN', dur: sprung.stun });
   }
   const ctl = controlOf(e.st);
@@ -318,7 +319,7 @@ export function nowIntent(s, ev, e) {
     e.intent = { ...CONTROL_INTENT[ctl], kind: 'none', est: 0, turn: T, cancelled };
     ev.push({ t: 'cancel', u: e.idx, id: head.id, name: head.name, by: ctl, turn: T, offBalance: big });
     if (big) gainOffBalance(s, ev, e.idx, OFFBAL_DURATION - 1, 'control', head);
-    answerWindup(s, ev, e.idx, head, sprung ? 'trap' : 'control', ctl);
+    answerWindup(s, ev, e.idx, head, sprung ? (sprung.disrupt ? 'disrupt' : 'trap') : 'control', ctl);
     return;
   }
   for (const id of e.abilities) {

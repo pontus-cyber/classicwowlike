@@ -239,6 +239,74 @@ describe('rules 7.12 wind-ups (combat v2.1)', () => {
   });
 });
 
+describe('rules 7.10 Disrupt (combat v2.1)', () => {
+  const CONTROL = { rogue: 'sap', mage: 'binding_glyph', hunter: 'lay_trap' };
+  const boss = (cls, extra = [], opts = {}) => fight(cls, 20, opts.spells || [], [dboss(1), ...extra], { petId: cls === 'hunter' ? 'ridgewolf' : undefined, prep: cls === 'hunter' ? noPet : tough, ...opts });
+
+  test('on a dungeon boss every class\'s control option is Disrupt: a trap on its first visible wind-up that cancels that one entry at its turn\'s start (STUN for that turn only: OFF_BALANCE, STAGGERED) and does nothing else', () => {
+    for (const cls of C.CLASS_IDS) {
+      const s = boss(cls);
+      const r = R.step(s, engage(CONTROL[cls], 0));
+      assert.ok(ev(r.events, 'action').some((x) => x.kind === 'engage' && x.option === CONTROL[cls] && x.target === 0 && x.disrupt), cls);
+      let e = r.state.fight.enemies[0];
+      const trap = st(e.st, 'TRAP');
+      assert.deepEqual([trap.turn, trap.stun, trap.disrupt], [C.SIGNATURE_TURN, 1, true], cls);
+      assert.ok(!e.st.some((x) => x.id === 'SAPPED' || x.id === 'FROZEN' || x.id === 'STUN'), `${cls}: no SAPPED, no FROZEN`);
+      assert.equal(e.wasSapped, false);
+      assert.deepEqual(e.track.find((x) => x.turn === C.SIGNATURE_TURN).cancel, { by: 'TRAP', offBalance: true, stagger: true, breaks: false, done: false }, `${cls}: D52`);
+      assert.equal(e.intent.id, 'strike', `${cls}: turn 1 plays`);
+      // Round 3 starts: the trap springs on the Dark Cast.
+      const r2 = R.step(r.state, { type: 'PASS' });
+      e = r2.state.fight.enemies[0];
+      assert.ok(ev(r2.events, 'trapSprung').some((x) => x.u === 0 && x.turn === C.SIGNATURE_TURN && x.disrupt), cls);
+      assert.deepEqual([e.intent.cancelled.id, e.intent.cancelled.by, e.intent.cancelled.windup], ['ab_dark', 'STUN', true], cls);
+      assert.equal(st(e.st, 'OFF_BALANCE').dur, C.OFFBAL_DURATION - 1, `${cls}: the player's next action`);
+      assert.deepEqual(brief(r2.events), [['stagger', 'ab_dark', 'disrupt', 'STUN']], cls);
+      // Only that entry: the boss does not act in round 3 and acts again in round 4 (its turn 3).
+      const r3 = R.step(r2.state, { type: 'PASS' });
+      assert.ok(!ev(r3.events, 'enemyAction').some((x) => x.u === 0), cls);
+      assert.ok(!st(r3.state.fight.enemies[0].st, 'STUN'), `${cls}: STUN for that turn only`);
+      const r4 = R.step(r3.state, { type: 'PASS' });
+      assert.ok(ev(r4.events, 'enemyAction').some((x) => x.u === 0 && x.id === 'strike'), `${cls}: turn 3 plays`);
+    }
+    // The second wind-up (turn 4) still needs its own answer: it lands here, so the boss ends with one stack of each.
+    const s = boss('mage');
+    let r = R.step(s, engage('binding_glyph', 0));
+    r = passDrawn(toTurn(r.state, C.SIGNATURE_TURN_2));
+    const e = r.state.fight.enemies[0];
+    assert.deepEqual([stacks(e, 'STAGGERED'), stacks(e, 'EMPOWERED')], [1, 1]);
+    // Sap keeps the Rogue in STEALTH as usual (a stealthed Rogue against an immune enemy).
+    const ro = fight('rogue', 20, [], [dboss(1)], { stealth: true, kind: 'quest', prep: tough });
+    assert.ok(st(ro.fight.p.st, 'STEALTH'));
+    assert.ok(st(R.step(ro, engage('sap', 0)).state.fight.p.st, 'STEALTH'));
+  });
+
+  test('Disrupt is legal only on a visible wind-up, in the engage round; legalActions and engageOptions list it; its preview is the one entry; autoplay rule E Disrupts the boss when it has adds (not alone; the Rogue never: Ambush)', () => {
+    for (const cls of C.CLASS_IDS) {
+      const s = boss(cls);
+      const a = engage(CONTROL[cls], 0);
+      assert.equal(R.whyIllegal(s, a), null, cls);
+      assert.ok(R.legalActions(s).some((x) => x.type === 'ENGAGE' && x.option === CONTROL[cls] && x.target === 0), cls);
+      const o = R.engageOptions(s).find((x) => x.id === CONTROL[cls]);
+      assert.deepEqual([o.targets, o.disrupt, o.reason], [[0], [0], null], cls);
+      assert.deepEqual(R.engagePreview(s, a), { enemies: [{ u: 0, cancelled: [C.SIGNATURE_TURN], offBalance: [C.SIGNATURE_TURN], window: [], pet: [], stagger: [C.SIGNATURE_TURN], disrupt: true }] }, cls);
+      const none = tweak(s, (x) => { for (const y of x.fight.enemies[0].track) delete y.windup; });
+      assert.match(R.whyIllegal(none, a), /Disrupt needs a wind-up/, cls);
+      assert.equal(R.engagePreview(none, a), null);
+      assert.match(R.whyIllegal(pass(s), a), /only in the engage round/, cls);
+    }
+    // Rule E (rules 7.9): with 2 or more enemies the control option goes to the enemy with the most track damage on
+    // the player over turns 1..ENGAGE_AUTO_LOOK: the boss and its wind-up.
+    for (const cls of ['mage', 'hunter']) {
+      const s = boss(cls, [mob('z1_brute')]);
+      assert.deepEqual(R.autoAction(s), engage(CONTROL[cls], 0), cls);
+    }
+    assert.deepEqual(R.autoAction(boss('rogue', [mob('z1_brute')])), engage('ambush', 0), 'the Rogue: Ambush on the default target');
+    assert.deepEqual(R.autoAction(boss('hunter')), engage('opening_shot', 0), 'alone: the strike option');
+    assert.deepEqual(R.autoAction(boss('mage', [], { spells: ['ember_bolt'] })), engage('precast', 0, 'ember_bolt'), 'alone: Pre-cast');
+  });
+});
+
 describe('rules 7.10 setup values (combat v2.1, D57)', () => {
   test('Premeditate gives PREMED_CP = CP_MAX: a full Temple Blow (STUN stunMax) on the turn-2 wind-up from round 2, answered', () => {
     assert.equal(C.PREMED_CP, C.CP_MAX);

@@ -213,6 +213,7 @@ describe('rules 7.11 the predicted cancel on track entries (D52)', () => {
           const now = e.turn >= 1 && x.turn === e.turn;
           if (now) assert.equal(!!(x.cancel && x.cancel.done), !!(e.intent && e.intent.cancelled), 'the now-entry: done when its intent is cancelled');
           if (x.cancel) assert.equal(x.cancel.offBalance, !!(x.cast || x.heavy));
+          if (x.cancel) assert.equal(x.cancel.stagger, !!x.windup, 'combat v2.1: a cancelled wind-up is answered');
         }
       }
       const res = R.step(s, { type: 'PASS' });
@@ -225,7 +226,11 @@ describe('rules 7.11 the predicted cancel on track entries (D52)', () => {
         const actual = e.intent.cancelled ? e.intent.cancelled.by : null;
         const hurt = res.events.some((x) => x.t === 'damage' && x.dst === e.idx && x.hpLost > 0);
         if (p === null) { assert.equal(actual, null, `enemy ${e.idx} turn ${e.turn}: not predicted, not cancelled`); tally.none++; }
-        else if (!p.breaks || !hurt) { assert.equal(actual, p.by === 'TRAP' ? 'STUN' : p.by, `enemy ${e.idx} turn ${e.turn}: predicted ${p.by}`); tally.pred++; }
+        else if (!p.breaks || !hurt) {
+          assert.equal(actual, p.by === 'TRAP' ? 'STUN' : p.by, `enemy ${e.idx} turn ${e.turn}: predicted ${p.by}`);
+          tally.pred++;
+          if (p.stagger) { assert.ok(res.events.some((x) => x.t === 'stagger' && x.u === e.idx && x.turn === e.turn)); tally.windup++; }
+        }
         assert.ok(!e.track[0].cancel || e.track[0].cancel.done === !!actual);
       }
     }
@@ -233,7 +238,7 @@ describe('rules 7.11 the predicted cancel on track entries (D52)', () => {
   }
 
   test('control statuses by their rounds left, the first in the order STUN, FROZEN, HEXED, SAPPED; a laid trap over its STUN; the now-entry done', () => {
-    const tally = { pred: 0, none: 0 };
+    const tally = { pred: 0, none: 0, windup: 0 };
     // Injected statuses (no damage dealt: the Mage passes and has no pet).
     let s = fight('mage', 20, [], [mob('z1_brute'), mob('z1_caster'), mob('z1_mender')], { prep: tough, engage: false });
     s = tweak(s, (x) => {
@@ -258,8 +263,16 @@ describe('rules 7.11 the predicted cancel on track entries (D52)', () => {
         const base = fight(cls, 12, bars[cls], [mob('z1_brute', 12), mob('z1_caster', 12), mob('z1_skulker', 12)], { seed, prep: tough, stealth: cls === 'rogue' });
         for (const act of R.legalActions(base).filter((x) => x.type === 'ENGAGE')) checkRounds(R.step(base, act).state, 5, tally);
       }
+      // Combat v2.1: wind-ups (an elite and its add) and Disrupt (a dungeon boss and an add).
+      for (const mobs of [[mob('z1_elite', 12, 'elite'), mob('z1_caster', 12)], [mob('z1_dboss', 12, 'dboss'), mob('z1_brute', 12)]]) {
+        const kind = mobs[0].variant === 'dboss' ? 'dboss' : 'elite';
+        const base = fight(cls, 12, bars[cls], mobs, { seed: 5, prep: tough, stealth: cls === 'rogue', kind });
+        const acts = R.legalActions(base).filter((x) => x.type === 'ENGAGE');
+        if (kind === 'dboss') assert.ok(acts.some((x) => x.target === 0 && C.ENGAGE_OPTION[x.option].kind === 'control'), `${cls}: Disrupt listed`);
+        for (const act of acts) checkRounds(R.step(base, act).state, 5, tally);
+      }
     }
-    assert.ok(tally.pred > 40 && tally.none > 200, JSON.stringify(tally));
+    assert.ok(tally.pred > 50 && tally.none > 200 && tally.windup >= 6, JSON.stringify(tally)); // windup: each class's control option on the elite and Disrupt on the boss
   });
 
   test('the end boss\'s entries never predict a cancel (immune to control)', () => {
@@ -526,16 +539,24 @@ describe('rules 7.10 engage round (combat v2)', () => {
     assert.ok(R.isLegal(fight('mage', 20, [], [mob()]), { type: 'FLEE' }), 'FLEE stays legal in the engage round');
   });
 
-  test('control options cannot target an enemy immune to control (dungeon boss): engageOptions greys them with a reason', () => {
+  test('control options on an enemy immune to control (dungeon boss) are Disrupt (combat v2.1): legal only while it shows a wind-up; engageOptions lists it under `disrupt`, else greys the option with a reason', () => {
     const s = fight('hunter', 30, [], [mob('z1_dboss', 30, 'dboss')], { kind: 'dboss', petId: 'ridgewolf' });
-    assert.match(R.whyIllegal(s, engage('lay_trap', 0)), /cannot be controlled/);
+    assert.equal(R.whyIllegal(s, engage('lay_trap', 0)), null, 'its turn-2 wind-up is visible');
     const opts = R.engageOptions(s);
     assert.deepEqual(opts.map((o) => o.id), C.ENGAGE_OPTIONS.hunter);
     const trap = opts.find((o) => o.id === 'lay_trap');
-    assert.deepEqual(trap.targets, []);
-    assert.match(trap.reason, /cannot be controlled/);
+    assert.deepEqual([trap.kind, trap.targets, trap.disrupt, trap.reason], ['control', [0], [0], null]);
     assert.deepEqual(opts.find((o) => o.id === 'opening_shot').targets, [0]);
-    assert.equal(opts.find((o) => o.id === 'lay_trap').kind, 'control');
+    assert.deepEqual(opts.find((o) => o.id === 'opening_shot').disrupt, []);
+    // Without a visible wind-up (an immune enemy whose entries are not wind-ups): greyed out with the reason.
+    const none = tweak(s, (x) => { for (const y of x.fight.enemies[0].track) delete y.windup; });
+    assert.match(R.whyIllegal(none, engage('lay_trap', 0)), /cannot be controlled, and Disrupt needs a wind-up in its turns 1-3/);
+    const t2 = R.engageOptions(none).find((o) => o.id === 'lay_trap');
+    assert.deepEqual([t2.targets, t2.disrupt], [[], []]);
+    assert.match(t2.reason, /cannot be controlled/);
+    // An elite is not immune: its control options control it as before (no Disrupt).
+    const el = R.engageOptions(fight('hunter', 30, [], [mob('z1_elite', 30, 'elite')], { petId: 'ridgewolf' })).find((o) => o.id === 'lay_trap');
+    assert.deepEqual([el.targets, el.disrupt], [[0], []]);
   });
 
   test('Ambush: Gutting Jab × AMBUSH_MULT (+2 CP) before Shadowstep Strike is learned, then Shadowstep Strike; the Rogue stays in STEALTH like after an opener (D48)', () => {
@@ -670,10 +691,19 @@ describe('rules 7.10 engage round (combat v2)', () => {
     assert.ok(Math.abs(ratio - (1 - C.PET_LEAD_DR)) < 0.03, `${ratio}`);
   });
 
-  test('engagePreview (engage panel hover): the turns it shows cancelled, OFF_BALANCE, FROZEN and sent to the pet are the ones play shows; no draw; null when not legal; damage options change no entry', () => {
+  test('engagePreview (engage panel hover): the turns it shows cancelled, OFF_BALANCE, FROZEN, sent to the pet and (combat v2.1) staggered, and a Disrupt, are the ones play shows; no draw; null when not legal; damage options change no entry', () => {
     const noPet = (x) => { tough(x); x.player.pet.alive = false; };
     const petUp = (x) => { tough(x); x.player.d.petMaxHp = x.player.pet.hp = 1e6; };
+    const el = mob('z1_elite', 30, 'elite');
+    const db = mob('z1_dboss', 30, 'dboss');
     const cases = [
+      // combat v2.1: wind-ups (an elite's turn 2) cancelled by control are staggered; Disrupt on a dungeon boss
+      ['mage', [], [el, mob('z1_caster', 30)], engage('binding_glyph', 0), {}],
+      ['rogue', [], [mob('z2_elite', 30, 'elite'), mob('z1_brute', 30)], engage('sap', 0), { stealth: true }],
+      ['hunter', [], [el, mob('z1_brute', 30)], engage('lay_trap', 0), { petId: 'ridgewolf', prep: noPet }],
+      ['mage', [], [db, mob('z1_caster', 30)], engage('binding_glyph', 0), { kind: 'dboss' }],
+      ['rogue', [], [db, mob('z1_caster', 30)], engage('sap', 0), { kind: 'dboss' }],
+      ['hunter', [], [db, mob('z1_brute', 30)], engage('lay_trap', 0), { kind: 'dboss', petId: 'ridgewolf', prep: noPet }],
       ['mage', ['hexbind'], [mob('z1_brute', 30), mob('z1_caster', 30)], engage('precast', 0, 'hexbind'), {}],
       ['mage', ['rime_burst'], [mob('z1_brute', 30), mob('z1_caster', 30)], engage('precast', null, 'rime_burst'), {}],
       ['mage', [], [mob('z1_brute', 30), mob('z1_caster', 30)], engage('binding_glyph', 1), {}],
@@ -689,19 +719,23 @@ describe('rules 7.10 engage round (combat v2)', () => {
       assert.equal(R.serialize(s), before, 'no draw, no change');
       // Play it out with PASS (no damage on the enemies) and read what the tracks did on turns 1..INTENT_TRACK_LEN.
       const seen = new Map();
-      const at = (u) => { if (!seen.has(u)) seen.set(u, { u, cancelled: [], offBalance: [], window: [], pet: [] }); return seen.get(u); };
+      const at = (u) => { if (!seen.has(u)) seen.set(u, { u, cancelled: [], offBalance: [], window: [], pet: [], stagger: [], disrupt: false }); return seen.get(u); };
       let r = R.step(s, a);
+      for (const x of ev(r.events, 'action')) if (x.disrupt) at(x.target).disrupt = true;
       for (let k = 0; k < C.INTENT_TRACK_LEN; k++) {
         for (const x of ev(r.events, 'cancel')) {
           at(x.u).cancelled.push(x.turn);
           if (x.offBalance) at(x.u).offBalance.push(x.turn);
           if (x.by === 'FROZEN') at(x.u).window.push(x.turn);
         }
+        for (const x of ev(r.events, 'stagger')) at(x.u).stagger.push(x.turn);
         for (const e of r.state.fight.enemies) if (e.alive && e.intent.target === 'pet' && e.turn <= C.PET_LEAD_TURNS) at(e.idx).pet.push(e.turn);
         r = R.step(r.state, { type: 'PASS' });
       }
       const want = [...seen.values()].filter((x) => x.cancelled.length || x.pet.length).sort((x, y) => x.u - y.u);
-      assert.deepEqual(p.enemies.slice().sort((x, y) => x.u - y.u), want, `${a.option} ${a.spellId || ''}`);
+      assert.deepEqual(p.enemies.slice().sort((x, y) => x.u - y.u), want, `${a.option} ${a.spellId || ''} vs ${mobs[0].tid}`);
+      if (mobs[0].variant !== 'normal') assert.deepEqual(want[0].stagger, [C.SIGNATURE_TURN], `${a.option}: the turn-2 wind-up is staggered`);
+      if (mobs[0].variant === 'dboss') assert.deepEqual([want[0].cancelled, want[0].disrupt], [[C.SIGNATURE_TURN], true], `${a.option}: Disrupt`);
     }
     const m = fight('mage', 30, ['ember_bolt'], [mob('z1_brute', 30), mob('z1_caster', 30)], { prep: tough });
     assert.deepEqual(R.engagePreview(m, engage('precast', 0, 'ember_bolt')), { enemies: [] });

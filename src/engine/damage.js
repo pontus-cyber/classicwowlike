@@ -217,7 +217,7 @@ export function answerWindup(s, ev, u, x, why, by) {
   const e = s.fight.enemies[u];
   if (!x || !x.windup || !e || !e.alive || s.fight.over) return;
   const cur = windupStack(s, ev, u, 'STAGGERED', STAGGER_DMG);
-  ev.push({ t: 'stagger', u, id: x.id, name: x.name, why, by: by === undefined ? null : by, stacks: cur.stacks, value: cur.value });
+  ev.push({ t: 'stagger', u, id: x.id, name: x.name, turn: x.turn, why, by: by === undefined ? null : by, stacks: cur.stacks, value: cur.value });
 }
 
 /**
@@ -230,7 +230,7 @@ export function landWindup(s, ev, u, x) {
   const e = s.fight.enemies[u];
   if (!x || !x.windup || !e || !e.alive || s.fight.over) return;
   const cur = windupStack(s, ev, u, 'EMPOWERED', EMPOWER_DMG);
-  ev.push({ t: 'empower', u, id: x.id, name: x.name, stacks: cur.stacks, value: cur.value });
+  ev.push({ t: 'empower', u, id: x.id, name: x.name, turn: x.turn, stacks: cur.stacks, value: cur.value });
 }
 
 /** EMPOWERED minus STAGGERED (rules 7.2 step 2, 7.12, combat v2.1): the lasting result of the enemy's wind-ups. */

@@ -150,8 +150,8 @@ export function isEngageRound(state) {
 /**
  * Engage options of the class for the engage panel (rules 7.10), or null outside the engage round: [{ id, kind
  * ('strike'|'control'|'setup'), name, targets (enemy indices, or [null]), spells (Pre-cast: [{ spellId, targets }]),
- * reason (why it cannot be used, e.g. immune to control) }]. Send each as ENGAGE { option, target } (Pre-cast also
- * `spellId`).
+ * disrupt (combat v2.1: the targets on which the control option is Disrupt), reason (why it cannot be used, e.g. an
+ * immune enemy without a wind-up) }]. Send each as ENGAGE { option, target } (Pre-cast also `spellId`).
  */
 export function engageOptions(state) {
   return engageList(state);
@@ -160,8 +160,9 @@ export function engageOptions(state) {
 /**
  * What an ENGAGE action would do to the tracks (rules 7.10, combat v2), for the engage panel's hover preview; no
  * draw, so it shows nothing the player cannot see. null when the action is not legal, else { enemies: [{ u,
- * cancelled, offBalance, window, pet }] } (turn numbers): entries it cancels, those that leave the enemy
- * OFF_BALANCE, turns FROZEN (a window), turns whose single-target hits go to the pet.
+ * cancelled, offBalance, window, pet, stagger, disrupt }] } (turn numbers): entries it cancels, those that leave the
+ * enemy OFF_BALANCE, turns FROZEN (a window), turns whose single-target hits go to the pet, (combat v2.1) cancelled
+ * wind-ups (STAGGERED), and whether it is a Disrupt.
  */
 export function engagePreview(state, action) {
   return previewEngage(state, action);
