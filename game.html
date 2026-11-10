@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="c05587c 2026-11-10T06:59:16Z">
+<meta name="build" content="ecc2acf 2026-11-10T09:11:05Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -634,8 +634,8 @@ button { font-family: inherit; }
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (c05587c 2026-11-10T06:59:16Z) from 46 modules.
-const __BUILD__ = "c05587c 2026-11-10T06:59:16Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (ecc2acf 2026-11-10T09:11:05Z) from 46 modules.
+const __BUILD__ = "ecc2acf 2026-11-10T09:11:05Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -1199,12 +1199,12 @@ const TALENT = {
   m_c9: { id: 'm_c9', cls: 'mage', tree: 2, tier: 5, name: 'Hourglass Reversal', ranks: 1, spell: 'hourglass_reversal' },
   // Hunter: Beastbond
   h_a1: { id: 'h_a1', cls: 'hunter', tree: 0, tier: 1, name: 'Thick Hide', ranks: 3, petHpPct: 0.08 },
-  h_a2: { id: 'h_a2', cls: 'hunter', tree: 0, tier: 1, name: 'Ferocity', ranks: 3, petDmgPct: 0.10 },
+  h_a2: { id: 'h_a2', cls: 'hunter', tree: 0, tier: 1, name: 'Ferocity', ranks: 3, petDmgPct: 0.125 },
   h_a3: { id: 'h_a3', cls: 'hunter', tree: 0, tier: 2, name: 'Bonded Spirit', ranks: 2, share: 0.30 },
   h_a4: { id: 'h_a4', cls: 'hunter', tree: 0, tier: 2, name: 'Frenzy Link', ranks: 2, petCrit: 0.05, focus: 5 },
   h_a5: { id: 'h_a5', cls: 'hunter', tree: 0, tier: 3, name: 'Unbreakable Bond', ranks: 2, revive: 0.25, petDr: 0.05 },
-  h_a6: { id: 'h_a6', cls: 'hunter', tree: 0, tier: 3, name: 'Pack Leader', ranks: 2, pct: 0.05 },
-  h_a7: { id: 'h_a7', cls: 'hunter', tree: 0, tier: 4, name: 'Savage Mastery', ranks: 2, cd: 1, pct: 0.10 },
+  h_a6: { id: 'h_a6', cls: 'hunter', tree: 0, tier: 3, name: 'Pack Leader', ranks: 2, pct: 0.0625 },
+  h_a7: { id: 'h_a7', cls: 'hunter', tree: 0, tier: 4, name: 'Savage Mastery', ranks: 2, cd: 1, pct: 0.125 },
   h_a8: { id: 'h_a8', cls: 'hunter', tree: 0, tier: 4, name: 'Shared Wounds', ranks: 1, share: 0.20 },
   h_a9: { id: 'h_a9', cls: 'hunter', tree: 0, tier: 5, name: 'Primal Unity', ranks: 1, spell: 'wild_communion' },
   // Hunter: Marksmanship
@@ -1351,7 +1351,9 @@ const SHRINE_BOON_COUNT = 2;
  * healing +0.025 of max HP per potion (Greater Healing Draught against the Healing Draught) and +1 talent point; its
  * time entries (Quick Study, Swift Boots) save at most META_TIME_BUDGET_H on the planner's route (qa/engine s11 checks
  * the engine side, balance.md B17 the hours). Second Breath does not work in the end-boss fight.
- * Removed (M2 v4): wayfinder (TRAVEL_ON 0 h). A saved profile that owns a removed id keeps it stored; it has no effect.
+ * Removed (M2 v4): wayfinder (TRAVEL_ON 0 h). Removed (M2 v5, D45): starforged (the class's unique epic weapon,
+ * ilvl 62, at the Camp vendor; the three class weapons stay in content). A saved profile that owns a removed id
+ * keeps it stored; it has no effect and no refund (D42).
  */
 const META = {
   vigor: { id: 'vigor', name: 'Vigor of the Line', kind: 'stat', ranks: 4, costs: [80, 120, 170, 230], hpPct: 0.01, req: [] },
@@ -1368,7 +1370,6 @@ const META = {
   alchemist: { id: 'alchemist', name: "Alchemist's Notes", kind: 'items', ranks: 1, costs: [150], req: ['satchel'] },
   cache: { id: 'cache', name: 'Cache of the Wanderer', kind: 'items', ranks: 1, costs: [200], req: [] },
   relics: { id: 'relics', name: 'Relics of the Deep', kind: 'items', ranks: 1, costs: [400], req: ['cache'] },
-  starforged: { id: 'starforged', name: 'Starforged Arms', kind: 'items', ranks: 1, costs: [450], ilvl: 62, req: ['relics', 'flag:bossKill'] },
   sp_r1: { id: 'sp_r1', name: 'Lost Technique I (Rogue)', kind: 'skill', ranks: 1, costs: [150], spell: 'ghostblade_rush', req: [] },
   sp_m1: { id: 'sp_m1', name: 'Lost Technique I (Mage)', kind: 'skill', ranks: 1, costs: [150], spell: 'chrono_sigil', req: [] },
   sp_h1: { id: 'sp_h1', name: 'Lost Technique I (Hunter)', kind: 'skill', ranks: 1, costs: [150], spell: 'ricochet_bolt', req: [] },
@@ -2424,7 +2425,7 @@ function clampLevel(L) {
 
 });
 __bundle.def("src/engine/map.js", function* (__ns, __link) {
-let ZONE_LEVELS, ZONE_CHOICE_ROWS, LANES, DUNGEON_ROW_MIN, DUNGEON_ROW_MAX, REST_ROW_MIN, REST_ROW_MAX, TRAINER_ROW_MIN, TRAINER_ROW_MAX, MAX_SAME_TYPE_PER_ROW, NODE_TYPE, NODE_DRAW_ORDER, ROW1_FORBIDDEN, MAP_REDRAW_TRIES, QUEST_LEVEL_OFFSETS, ELITE_LEVEL_OFFSET, DUNGEON_LEVEL_OFFSET, DUNGEON_BOSS_LEVEL_OFFSET, RARE_CHANCE, QUEST_SIZE_W1, QUEST_SIZE_W2, QUEST_SIZE_W3, QUEST_MAX_SIZE_Z1, GRIND_MAX_WAVES, GRIND_WAVE_SIZE, ELITE_ADD_CHANCE, DUNGEON_TRASH_FIGHTS, DUNGEON_SIZE_W2, DUNGEON_SIZE_W3, TREASURE_GUARD_CHANCE, TREASURE_TRAP_CHANCE, VENDOR_GEAR_STOCK, EMBER_STOCK_CHANCE, BOON, BOON_IDS, SHRINE_BOON_COUNT, MAX_LEVEL, VENDOR_STOCK_CONSUMABLES, EMBER_V, META; __link.imp("src/constants.js", [["ZONE_LEVELS", (v) => { ZONE_LEVELS = v; }], ["ZONE_CHOICE_ROWS", (v) => { ZONE_CHOICE_ROWS = v; }], ["LANES", (v) => { LANES = v; }], ["DUNGEON_ROW_MIN", (v) => { DUNGEON_ROW_MIN = v; }], ["DUNGEON_ROW_MAX", (v) => { DUNGEON_ROW_MAX = v; }], ["REST_ROW_MIN", (v) => { REST_ROW_MIN = v; }], ["REST_ROW_MAX", (v) => { REST_ROW_MAX = v; }], ["TRAINER_ROW_MIN", (v) => { TRAINER_ROW_MIN = v; }], ["TRAINER_ROW_MAX", (v) => { TRAINER_ROW_MAX = v; }], ["MAX_SAME_TYPE_PER_ROW", (v) => { MAX_SAME_TYPE_PER_ROW = v; }], ["NODE_TYPE", (v) => { NODE_TYPE = v; }], ["NODE_DRAW_ORDER", (v) => { NODE_DRAW_ORDER = v; }], ["ROW1_FORBIDDEN", (v) => { ROW1_FORBIDDEN = v; }], ["MAP_REDRAW_TRIES", (v) => { MAP_REDRAW_TRIES = v; }], ["QUEST_LEVEL_OFFSETS", (v) => { QUEST_LEVEL_OFFSETS = v; }], ["ELITE_LEVEL_OFFSET", (v) => { ELITE_LEVEL_OFFSET = v; }], ["DUNGEON_LEVEL_OFFSET", (v) => { DUNGEON_LEVEL_OFFSET = v; }], ["DUNGEON_BOSS_LEVEL_OFFSET", (v) => { DUNGEON_BOSS_LEVEL_OFFSET = v; }], ["RARE_CHANCE", (v) => { RARE_CHANCE = v; }], ["QUEST_SIZE_W1", (v) => { QUEST_SIZE_W1 = v; }], ["QUEST_SIZE_W2", (v) => { QUEST_SIZE_W2 = v; }], ["QUEST_SIZE_W3", (v) => { QUEST_SIZE_W3 = v; }], ["QUEST_MAX_SIZE_Z1", (v) => { QUEST_MAX_SIZE_Z1 = v; }], ["GRIND_MAX_WAVES", (v) => { GRIND_MAX_WAVES = v; }], ["GRIND_WAVE_SIZE", (v) => { GRIND_WAVE_SIZE = v; }], ["ELITE_ADD_CHANCE", (v) => { ELITE_ADD_CHANCE = v; }], ["DUNGEON_TRASH_FIGHTS", (v) => { DUNGEON_TRASH_FIGHTS = v; }], ["DUNGEON_SIZE_W2", (v) => { DUNGEON_SIZE_W2 = v; }], ["DUNGEON_SIZE_W3", (v) => { DUNGEON_SIZE_W3 = v; }], ["TREASURE_GUARD_CHANCE", (v) => { TREASURE_GUARD_CHANCE = v; }], ["TREASURE_TRAP_CHANCE", (v) => { TREASURE_TRAP_CHANCE = v; }], ["VENDOR_GEAR_STOCK", (v) => { VENDOR_GEAR_STOCK = v; }], ["EMBER_STOCK_CHANCE", (v) => { EMBER_STOCK_CHANCE = v; }], ["BOON", (v) => { BOON = v; }], ["BOON_IDS", (v) => { BOON_IDS = v; }], ["SHRINE_BOON_COUNT", (v) => { SHRINE_BOON_COUNT = v; }], ["MAX_LEVEL", (v) => { MAX_LEVEL = v; }], ["VENDOR_STOCK_CONSUMABLES", (v) => { VENDOR_STOCK_CONSUMABLES = v; }], ["EMBER_V", (v) => { EMBER_V = v; }], ["META", (v) => { META = v; }]]); let STREAM, nextFloat, nextInt, weightedIndex; __link.imp("src/rng.js", [["STREAM", (v) => { STREAM = v; }], ["nextFloat", (v) => { nextFloat = v; }], ["nextInt", (v) => { nextInt = v; }], ["weightedIndex", (v) => { weightedIndex = v; }]]); let zoneContent; __link.imp("src/engine/content.js", [["zoneContent", (v) => { zoneContent = v; }]]); let rollGear, consumablePrice, gearPrice, V, priceMult, makeUnique; __link.imp("src/engine/items.js", [["rollGear", (v) => { rollGear = v; }], ["consumablePrice", (v) => { consumablePrice = v; }], ["gearPrice", (v) => { gearPrice = v; }], ["V", (v) => { V = v; }], ["priceMult", (v) => { priceMult = v; }], ["makeUnique", (v) => { makeUnique = v; }]]); let rnd; __link.imp("src/engine/util.js", [["rnd", (v) => { rnd = v; }]]); __link.exp({ "contentLevel": () => contentLevel, "clampCl": () => clampCl, "dungeonLevels": () => dungeonLevels, "generateLayout": () => generateLayout, "setupNode": () => setupNode, "vendorStock": () => vendorStock, "generateZone": () => generateZone, "nextLanes": () => nextLanes });
+let ZONE_LEVELS, ZONE_CHOICE_ROWS, LANES, DUNGEON_ROW_MIN, DUNGEON_ROW_MAX, REST_ROW_MIN, REST_ROW_MAX, TRAINER_ROW_MIN, TRAINER_ROW_MAX, MAX_SAME_TYPE_PER_ROW, NODE_TYPE, NODE_DRAW_ORDER, ROW1_FORBIDDEN, MAP_REDRAW_TRIES, QUEST_LEVEL_OFFSETS, ELITE_LEVEL_OFFSET, DUNGEON_LEVEL_OFFSET, DUNGEON_BOSS_LEVEL_OFFSET, RARE_CHANCE, QUEST_SIZE_W1, QUEST_SIZE_W2, QUEST_SIZE_W3, QUEST_MAX_SIZE_Z1, GRIND_MAX_WAVES, GRIND_WAVE_SIZE, ELITE_ADD_CHANCE, DUNGEON_TRASH_FIGHTS, DUNGEON_SIZE_W2, DUNGEON_SIZE_W3, TREASURE_GUARD_CHANCE, TREASURE_TRAP_CHANCE, VENDOR_GEAR_STOCK, EMBER_STOCK_CHANCE, BOON, BOON_IDS, SHRINE_BOON_COUNT, MAX_LEVEL, VENDOR_STOCK_CONSUMABLES, EMBER_V; __link.imp("src/constants.js", [["ZONE_LEVELS", (v) => { ZONE_LEVELS = v; }], ["ZONE_CHOICE_ROWS", (v) => { ZONE_CHOICE_ROWS = v; }], ["LANES", (v) => { LANES = v; }], ["DUNGEON_ROW_MIN", (v) => { DUNGEON_ROW_MIN = v; }], ["DUNGEON_ROW_MAX", (v) => { DUNGEON_ROW_MAX = v; }], ["REST_ROW_MIN", (v) => { REST_ROW_MIN = v; }], ["REST_ROW_MAX", (v) => { REST_ROW_MAX = v; }], ["TRAINER_ROW_MIN", (v) => { TRAINER_ROW_MIN = v; }], ["TRAINER_ROW_MAX", (v) => { TRAINER_ROW_MAX = v; }], ["MAX_SAME_TYPE_PER_ROW", (v) => { MAX_SAME_TYPE_PER_ROW = v; }], ["NODE_TYPE", (v) => { NODE_TYPE = v; }], ["NODE_DRAW_ORDER", (v) => { NODE_DRAW_ORDER = v; }], ["ROW1_FORBIDDEN", (v) => { ROW1_FORBIDDEN = v; }], ["MAP_REDRAW_TRIES", (v) => { MAP_REDRAW_TRIES = v; }], ["QUEST_LEVEL_OFFSETS", (v) => { QUEST_LEVEL_OFFSETS = v; }], ["ELITE_LEVEL_OFFSET", (v) => { ELITE_LEVEL_OFFSET = v; }], ["DUNGEON_LEVEL_OFFSET", (v) => { DUNGEON_LEVEL_OFFSET = v; }], ["DUNGEON_BOSS_LEVEL_OFFSET", (v) => { DUNGEON_BOSS_LEVEL_OFFSET = v; }], ["RARE_CHANCE", (v) => { RARE_CHANCE = v; }], ["QUEST_SIZE_W1", (v) => { QUEST_SIZE_W1 = v; }], ["QUEST_SIZE_W2", (v) => { QUEST_SIZE_W2 = v; }], ["QUEST_SIZE_W3", (v) => { QUEST_SIZE_W3 = v; }], ["QUEST_MAX_SIZE_Z1", (v) => { QUEST_MAX_SIZE_Z1 = v; }], ["GRIND_MAX_WAVES", (v) => { GRIND_MAX_WAVES = v; }], ["GRIND_WAVE_SIZE", (v) => { GRIND_WAVE_SIZE = v; }], ["ELITE_ADD_CHANCE", (v) => { ELITE_ADD_CHANCE = v; }], ["DUNGEON_TRASH_FIGHTS", (v) => { DUNGEON_TRASH_FIGHTS = v; }], ["DUNGEON_SIZE_W2", (v) => { DUNGEON_SIZE_W2 = v; }], ["DUNGEON_SIZE_W3", (v) => { DUNGEON_SIZE_W3 = v; }], ["TREASURE_GUARD_CHANCE", (v) => { TREASURE_GUARD_CHANCE = v; }], ["TREASURE_TRAP_CHANCE", (v) => { TREASURE_TRAP_CHANCE = v; }], ["VENDOR_GEAR_STOCK", (v) => { VENDOR_GEAR_STOCK = v; }], ["EMBER_STOCK_CHANCE", (v) => { EMBER_STOCK_CHANCE = v; }], ["BOON", (v) => { BOON = v; }], ["BOON_IDS", (v) => { BOON_IDS = v; }], ["SHRINE_BOON_COUNT", (v) => { SHRINE_BOON_COUNT = v; }], ["MAX_LEVEL", (v) => { MAX_LEVEL = v; }], ["VENDOR_STOCK_CONSUMABLES", (v) => { VENDOR_STOCK_CONSUMABLES = v; }], ["EMBER_V", (v) => { EMBER_V = v; }]]); let STREAM, nextFloat, nextInt, weightedIndex; __link.imp("src/rng.js", [["STREAM", (v) => { STREAM = v; }], ["nextFloat", (v) => { nextFloat = v; }], ["nextInt", (v) => { nextInt = v; }], ["weightedIndex", (v) => { weightedIndex = v; }]]); let zoneContent; __link.imp("src/engine/content.js", [["zoneContent", (v) => { zoneContent = v; }]]); let rollGear, consumablePrice, gearPrice, V, priceMult; __link.imp("src/engine/items.js", [["rollGear", (v) => { rollGear = v; }], ["consumablePrice", (v) => { consumablePrice = v; }], ["gearPrice", (v) => { gearPrice = v; }], ["V", (v) => { V = v; }], ["priceMult", (v) => { priceMult = v; }]]); let rnd; __link.imp("src/engine/util.js", [["rnd", (v) => { rnd = v; }]]); __link.exp({ "contentLevel": () => contentLevel, "clampCl": () => clampCl, "dungeonLevels": () => dungeonLevels, "generateLayout": () => generateLayout, "setupNode": () => setupNode, "vendorStock": () => vendorStock, "generateZone": () => generateZone, "nextLanes": () => nextLanes });
 yield;
 // Zone map generation and node setup (rules 1.3, 1.4, 2). Streams map(z) and node(z,r,l).
 
@@ -2548,7 +2549,7 @@ function setupNode(s, z, r, l, type) {
     }
     node.boss = zn.dungeon.boss;
   } else if (type === 'vendor') {
-    node.stock = vendorStock(s, rng, cl, false);
+    node.stock = vendorStock(s, rng, cl);
   } else if (type === 'shrine') {
     const ids = BOON_IDS.slice();
     const boons = [];
@@ -2566,8 +2567,11 @@ function setupNode(s, z, r, l, type) {
   return node;
 }
 
-/** Vendor stock (rules 2.6): consumables (unlimited), VENDOR_GEAR_STOCK gear items, Ember at EMBER_STOCK_CHANCE. */
-function vendorStock(s, rng, cl, camp) {
+/**
+ * Vendor stock (rules 2.6): consumables (unlimited), VENDOR_GEAR_STOCK gear items, Ember at EMBER_STOCK_CHANCE.
+ * Hub, map and Camp vendors use the same rule (M2 v5: the Camp no longer sells the Starforged weapon, D45).
+ */
+function vendorStock(s, rng, cl) {
   const stock = [];
   const cons = VENDOR_STOCK_CONSUMABLES.slice();
   if (s.meta.alchemist) cons.push('greater_healing_draught');
@@ -2578,13 +2582,6 @@ function vendorStock(s, rng, cl, camp) {
   }
   if (nextFloat(rng) < EMBER_STOCK_CHANCE) {
     stock.push({ kind: 'cons', id: 'ember_of_return', price: rnd(EMBER_V * V(cl) * priceMult(s)), sold: false });
-  }
-  if (camp && s.meta.starforged) {
-    const u = Object.values(s.content.uniques).find((x) => x.kind === 'weapon' && x.classId === s.player.classId);
-    if (u) {
-      const item = makeUnique(s, u.id, META.starforged.ilvl);
-      stock.push({ kind: 'gear', item, price: gearPrice(s, item), sold: false });
-    }
   }
   return stock;
 }
@@ -4504,7 +4501,8 @@ function reqMet(profile, req) {
 /**
  * Catalogue view: every entry with rank, next cost and whether it can be bought now (rules 11.2). A stored rank
  * above the entry's ranks (older catalogue) shows as the maximum rank, as it counts in a run. Only catalogue entries
- * are listed: an owned id that is not in META (Wayfinder, removed in M2 v4) is ignored, and buyMeta throws for it.
+ * are listed: an owned id that is not in META (Wayfinder, removed in M2 v4; Starforged Arms, removed in M2 v5) is
+ * ignored, and buyMeta throws for it.
  */
 function metaOffers(profile) {
   return Object.values(META).map((m) => {
@@ -4616,7 +4614,8 @@ yield;
  * Run modifiers from the profile's unlocks. A rank above the catalogue's ranks (a profile saved under an older
  * catalogue, e.g. Keen 3 or Ancestral Insight 2 before M2 v3, Vigor 5 before M2 v4) counts as the maximum rank, so a
  * profile never exceeds the meta power budget (rules 11.2, D32). An owned id that is not in the catalogue (Wayfinder,
- * removed in M2 v4) is ignored: no effect and no refund; the profile keeps it stored.
+ * removed in M2 v4; Starforged Arms, removed in M2 v5) is ignored: no effect and no refund; the profile keeps it
+ * stored (D42, D45).
  */
 function metaFromProfile(profile, classId) {
   const u = (profile && profile.unlocks) || {};
@@ -4636,7 +4635,6 @@ function metaFromProfile(profile, classId) {
     alchemist: r('alchemist') > 0,
     cache: r('cache') > 0,
     relics: r('relics') > 0,
-    starforged: r('starforged') > 0,
     spells: Object.values(META).filter((m) => m.spell && r(m.id) > 0 && SPELL[m.spell].cls === classId).map((m) => m.spell),
     stormhawk: r('stormhawk') > 0,
     talentPoints: r('talent_pt') * META.talent_pt.points,
@@ -4782,7 +4780,7 @@ function openService(s, ev, kind) {
     addHours(s, ev, HOURS_VENDOR, 'vendor');
     const z = camp ? CAMP_Z : s.zone.z;
     const cl = camp ? MAX_LEVEL : contentLevel(z, 0);
-    s.service = { kind: 'vendor', where: camp ? 'camp' : 'hub', cl, stock: vendorStock(s, STREAM.node(s.seed, z, 0, 0), cl, camp) };
+    s.service = { kind: 'vendor', where: camp ? 'camp' : 'hub', cl, stock: vendorStock(s, STREAM.node(s.seed, z, 0, 0), cl) };
     s.stats.vendorVisits += 1;
   }
   ev.push({ t: 'service', service: kind, where: s.service.where });
@@ -11818,7 +11816,6 @@ function metaEffect(m, D, d) {
       const u = D.uniques.epic;
       return { short: `${u.length} unique epics join dungeon boss loot`, long: 'One unique epic item for each dungeon can drop from its boss.', more: u.map((x) => `${x.name} (${x.dungeon || x.zoneName})`) };
     }
-    case 'starforged': return { short: `Your class's unique weapon at the camp, ilvl ${m.ilvl}`, long: `The quartermaster at ${NM.camp} sells your class's unique epic weapon, item level ${m.ilvl}.`, more: Object.entries(D.uniques.weapon).map(([c, w]) => `${cls(c)}: ${w.name}`) };
     case 'stormhawk': { const pet = d.pets[m.pet]; return { short: `Hunters may take the ${pet ? pet.name : humanize(m.pet)}`, long: `${pet ? pet.name : humanize(m.pet)} can be chosen as the Hunter's companion.${pet && pet.text ? ` ${pet.text}` : ''}` }; }
     case 'second_breath': return { short: `${cap1(numWord(m.charges))} resurrection each run, not in the final fight`, long: `Each run you hold ${numWord(m.charges)} more ${plural(m.charges, 'resurrection')}: a death on the journey returns you to the fight. It does not work against ${NM.boss}.` };
     case 'oaths': return { short: 'Swear Oaths at creation for more Echoes', long: `At character creation you may swear Oaths: each makes the run harder and adds ${pct1(N.oathEcho)} to the Echoes it earns.`, more: D.oathIds.map((o) => `${D.oaths[o].name}: ${oathEffect(D.oaths[o], D).short}`) };
@@ -11870,7 +11867,6 @@ function nextRunLines(n, D, d) {
   if (m.alchemist) add('alchemist', `${plurName(2, D.names.greater)} at vendors`);
   if (m.cache) add('cache', 'Unique rares in elite and treasure loot');
   if (m.relics) add('relics', 'Unique epics in dungeon boss loot');
-  if (m.starforged) add('starforged', `${(D.uniques.weapon[n.classId] || {}).name || 'Your unique weapon'} at the camp`);
   for (const id of m.spells || []) {
     const e = Object.values(D.entries).find((x) => x.spell === id); const sp = d.spells[id];
     add(e ? e.id : id, `${sp ? sp.name : humanize(id)} at the trainer${sp ? ` (level ${sp.lvl})` : ''}`);
@@ -15774,7 +15770,7 @@ const META_ICON = {
   vigor: ['heart', 'blood'], edge: ['slash', 'steel'], keen: ['target', 'gold'], quick_study: ['tome', 'arcane'], prospector: ['coin', 'gold'],
   talent_pt: ['stars3', 'epic'], satchel: ['potion', 'blood'], heirloom_blade: ['dagger', 'uncommon'], pockets: ['junk', 'earth'],
   ledger: ['tome', 'parchment'], scout: ['eye', 'nature'], swift_boots: ['boot', 'frost'],
-  alchemist: ['potion', 'epic'], cache: ['gem', 'rare'], relics: ['gem', 'epic'], starforged: ['comet', 'gold'],
+  alchemist: ['potion', 'epic'], cache: ['gem', 'rare'], relics: ['gem', 'epic'],
   stormhawk: ['bolt', 'frost'], second_breath: ['ember', 'heal'], oaths: ['rune', 'blood'],
 };
 function metaIcon(m) {

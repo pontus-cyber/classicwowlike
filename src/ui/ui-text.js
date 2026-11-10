@@ -155,7 +155,6 @@ export function metaEffect(m, D, d) {
       const u = D.uniques.epic;
       return { short: `${u.length} unique epics join dungeon boss loot`, long: 'One unique epic item for each dungeon can drop from its boss.', more: u.map((x) => `${x.name} (${x.dungeon || x.zoneName})`) };
     }
-    case 'starforged': return { short: `Your class's unique weapon at the camp, ilvl ${m.ilvl}`, long: `The quartermaster at ${NM.camp} sells your class's unique epic weapon, item level ${m.ilvl}.`, more: Object.entries(D.uniques.weapon).map(([c, w]) => `${cls(c)}: ${w.name}`) };
     case 'stormhawk': { const pet = d.pets[m.pet]; return { short: `Hunters may take the ${pet ? pet.name : humanize(m.pet)}`, long: `${pet ? pet.name : humanize(m.pet)} can be chosen as the Hunter's companion.${pet && pet.text ? ` ${pet.text}` : ''}` }; }
     case 'second_breath': return { short: `${cap1(numWord(m.charges))} resurrection each run, not in the final fight`, long: `Each run you hold ${numWord(m.charges)} more ${plural(m.charges, 'resurrection')}: a death on the journey returns you to the fight. It does not work against ${NM.boss}.` };
     case 'oaths': return { short: 'Swear Oaths at creation for more Echoes', long: `At character creation you may swear Oaths: each makes the run harder and adds ${pct1(N.oathEcho)} to the Echoes it earns.`, more: D.oathIds.map((o) => `${D.oaths[o].name}: ${oathEffect(D.oaths[o], D).short}`) };
@@ -207,7 +206,6 @@ export function nextRunLines(n, D, d) {
   if (m.alchemist) add('alchemist', `${plurName(2, D.names.greater)} at vendors`);
   if (m.cache) add('cache', 'Unique rares in elite and treasure loot');
   if (m.relics) add('relics', 'Unique epics in dungeon boss loot');
-  if (m.starforged) add('starforged', `${(D.uniques.weapon[n.classId] || {}).name || 'Your unique weapon'} at the camp`);
   for (const id of m.spells || []) {
     const e = Object.values(D.entries).find((x) => x.spell === id); const sp = d.spells[id];
     add(e ? e.id : id, `${sp ? sp.name : humanize(id)} at the trainer${sp ? ` (level ${sp.lvl})` : ''}`);

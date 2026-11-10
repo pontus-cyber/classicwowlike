@@ -13,7 +13,7 @@ const META_ICON = {
   vigor: ['heart', 'blood'], edge: ['slash', 'steel'], keen: ['target', 'gold'], quick_study: ['tome', 'arcane'], prospector: ['coin', 'gold'],
   talent_pt: ['stars3', 'epic'], satchel: ['potion', 'blood'], heirloom_blade: ['dagger', 'uncommon'], pockets: ['junk', 'earth'],
   ledger: ['tome', 'parchment'], scout: ['eye', 'nature'], swift_boots: ['boot', 'frost'],
-  alchemist: ['potion', 'epic'], cache: ['gem', 'rare'], relics: ['gem', 'epic'], starforged: ['comet', 'gold'],
+  alchemist: ['potion', 'epic'], cache: ['gem', 'rare'], relics: ['gem', 'epic'],
   stormhawk: ['bolt', 'frost'], second_breath: ['ember', 'heal'], oaths: ['rune', 'blood'],
 };
 export function metaIcon(m) {

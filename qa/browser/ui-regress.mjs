@@ -882,7 +882,7 @@ async function partF(browser, W, H) {
     const want = [
       ['vigor', `+${Math.round(M.vigor.hpPct * 100)} % max health per rank`], ['pockets', `+${M.pockets.slots} bag slots per rank`],
       ['satchel', `Start with ${M.satchel.potions} ${R.C.CONSUMABLE.healing_draught.name}s`],
-      ['heirloom_blade', `item level ${M.heirloom_blade.ilvl}`], ['starforged', `ilvl ${M.starforged.ilvl}`], ['sp_h1', R.C.SPELL[M.sp_h1.spell].name],
+      ['heirloom_blade', `item level ${M.heirloom_blade.ilvl}`], ['sp_h1', R.C.SPELL[M.sp_h1.spell].name],
     ];
     const badFx = want.filter(([id, t]) => !fxOf(id).includes(t));
     check('M3-1', `effect texts carry the catalogue's numbers (${want.map(([id]) => id).join(', ')}); locked cards name what they need (Alchemist's Notes: ${M[M.alchemist.req[0]].name})`,

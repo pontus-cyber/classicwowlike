@@ -180,8 +180,8 @@ Required suffix keys: `AGI`, `INT`, `STA`, `AGI_STA`, `AGI_SPI`, `INT_STA`, `INT
 Stats follow the normal budget at the item's rarity and level; content picks name, slot, effect and the
 affix. 6 rares (`kind: 'rare'`, one per zone 1-6, meta Cache of the Wanderer: elite and treasure pools of
 that zone), 6 epics (`kind: 'epic'`, one per zone's dungeon, meta Relics of the Deep: that dungeon boss's
-pool), 3 class weapons (`kind: 'weapon'`, slot `weapon`, ilvl 62, one per class, meta Starforged Arms:
-Camp vendor).
+pool), 3 class weapons (`kind: 'weapon'`, slot `weapon`, ilvl 62, one per class, kept in content but not sold or dropped since the Starforged Arms unlock was removed in M2 v5, D45;
+formerly sold by the Camp vendor).
 
 | Field | Type | Rule |
 |---|---|---|
