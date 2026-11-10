@@ -441,7 +441,7 @@ describe('rules 7.10 engage round (combat v2)', () => {
     assert.equal(opts.find((o) => o.id === 'lay_trap').kind, 'control');
   });
 
-  test('Ambush: Gutting Jab × AMBUSH_MULT (+2 CP) before Shadowstep Strike is learned, then Shadowstep Strike; the Rogue leaves STEALTH', () => {
+  test('Ambush: Gutting Jab × AMBUSH_MULT (+2 CP) before Shadowstep Strike is learned, then Shadowstep Strike; the Rogue stays in STEALTH like after an opener (D48)', () => {
     const s = fight('rogue', 3, [], [mob('z1_brute', 3)], { stealth: true, prep: tough });
     const d = s.player.d;
     const c = cloneState(s);
@@ -451,11 +451,18 @@ describe('rules 7.10 engage round (combat v2)', () => {
     assert.equal(hit(r.events, 0).amount, want);
     assert.equal(hit(r.events, 0).spell, 'gutting_jab');
     assert.equal(r.state.fight.p.cp, 2);
-    assert.ok(!st(r.state.fight.p.st, 'STEALTH'));
+    assert.ok(st(r.state.fight.p.st, 'STEALTH'), 'D48: Ambush keeps STEALTH');
+    assert.ok(!ev(r.events, 'status').some((x) => x.id === 'STEALTH' && !x.on));
     assert.ok(ev(r.events, 'action').some((x) => x.kind === 'engage' && x.option === 'ambush'));
     const l = fight('rogue', 10, ['shadowstep_strike'], [mob('z1_brute', 10)], { stealth: true, prep: tough });
     const rl = R.step(l, engage('ambush', 0));
     assert.ok(rl.events.some((x) => (x.t === 'damage' || x.t === 'miss') && x.spell === 'shadowstep_strike'));
+    // As after a CAST of the opener: round 2 can open again from STEALTH; a non-opener action then removes it.
+    const viaCast = R.step(l, { type: 'CAST', spellId: 'shadowstep_strike', target: 0 }).state;
+    assert.equal(!!st(rl.state.fight.p.st, 'STEALTH'), !!st(viaCast.fight.p.st, 'STEALTH'));
+    const t2 = tweak(rl.state, (x) => { x.fight.p.energy = 100; });
+    assert.ok(R.isLegal(t2, { type: 'CAST', spellId: 'shadowstep_strike', target: 0 }));
+    assert.ok(!st(R.step(t2, { type: 'ATTACK', target: 0 }).state.fight.p.st, 'STEALTH'));
   });
 
   test('Sap: SAPPED for SAP_TURNS turns (cancels them), broken by any damage; Sap and Premeditate keep the Rogue in STEALTH; Premeditate +PREMED_CP CP', () => {

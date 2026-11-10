@@ -594,7 +594,7 @@ Between fights in a node: if HP < AUTO_FOOD_HP (or mana < AUTO_FOOD_HP for Mage)
 
 | id | Class | Kind | Name | Target | Effect |
 |---|---|---|---|---|---|
-| ambush | rogue | strike | Ambush | enemy | Shadowstep Strike on the target if learned (its talents and CP), else Gutting Jab × AMBUSH_MULT and +2 CP on a hit; the Rogue leaves STEALTH |
+| ambush | rogue | strike | Ambush | enemy | Shadowstep Strike on the target if learned (its talents and CP), else Gutting Jab × AMBUSH_MULT and +2 CP on a hit; the Rogue stays in STEALTH like after a stealth opener (7.4; D48) |
 | sap | rogue | control | Sap | enemy, not immune | SAPPED for SAP_TURNS turns (cancels those now-entries, 7.11); breaks on any damage to it, DOT ticks and AoE included; the Rogue stays in STEALTH |
 | premeditate | rogue | setup | Premeditate | none | +PREMED_CP CP; the Rogue stays in STEALTH |
 | precast | mage | strike | Pre-cast | a bar spell and its target | casts that bar spell at 0 mana cost (its cooldown starts) |

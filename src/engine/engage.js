@@ -4,14 +4,18 @@
 import {
   SPELL, TALENT, ENGAGE_OPTION, ENGAGE_OPTIONS, OPENING_SHOT_MULT, AMBUSH_MULT, PREMED_CP, SAP_TURNS, GLYPH_TURNS,
   GATHER_SPELLS, GATHER_CRIT, OPENING_MARK_ROUNDS, TRAP_STUN, PET_LEAD_TURNS, PET_LEAD_DR, INTENT_TRACK_LEN,
+  ENGINE_ASSUMPTION as EA,
 } from '../constants.js';
 import { tr } from './stats.js';
 import { addStatus, petAlive } from './damage.js';
 import { isEngageRound, isSingle } from './track.js';
 import { base, pHit, addCp, control, cast, castError, twinFangs, knowsSpell } from './spells.js';
 
-/** Sap and Premeditate keep the Rogue in STEALTH (rules 7.10); every other option is a non-opener action. */
-export const keepsStealth = (option) => option === 'sap' || option === 'premeditate';
+/**
+ * Options that keep the Rogue in STEALTH (rules 7.10): Sap, Premeditate, and Ambush like a stealth opener (D48: as
+ * long as openers keep STEALTH, rules 7.4). Every other option is a non-opener action.
+ */
+export const keepsStealth = (option) => option === 'sap' || option === 'premeditate' || (option === 'ambush' && !EA.OPENER_BREAKS_STEALTH);
 
 /**
  * Status duration that covers an enemy's next n turns when applied in the engage round (rules 7.4 counts the round
@@ -71,7 +75,7 @@ export function engageAction(s, ev, a) {
   ev.push({ t: 'action', kind: 'engage', option: o.id, target: tgt });
   switch (o.id) {
     case 'ambush': {
-      // Shadowstep Strike if learned, else Gutting Jab × AMBUSH_MULT (+2 CP); the Rogue leaves STEALTH.
+      // Shadowstep Strike if learned, else Gutting Jab × AMBUSH_MULT (+2 CP); STEALTH stays like an opener's (D48).
       f.p.target = tgt;
       if (knowsSpell(s, 'shadowstep_strike')) {
         const sp = SPELL.shadowstep_strike;
