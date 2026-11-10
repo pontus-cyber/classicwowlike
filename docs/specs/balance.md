@@ -1,6 +1,6 @@
 # Balance spec (M0 task 0.3)
 
-Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)").
+Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)"); M2 v5 changes 2026-11-10 (marked "(M2 v5)").
 Audience: Simulation & Balance Engineer (sim/), Playtest & QA Lead, Lead.
 
 Every target is checked by the headless simulator running src/rules.js. All target numbers are named constants in section 6. Rules references (e.g. "rules 7.9") point to docs/specs/rules.md.
@@ -14,8 +14,8 @@ All bots use the same engine and the autoplay combat policy (rules 7.9) unless s
 | Bot | Map and node choices | Talents and bar | Economy | Time profile |
 |---|---|---|---|---|
 | random | Uniform over legal actions (lanes, grind waves 1-3, rewards, TRAVEL_ON when legal at 50 %) | Random legal talent each point; bar = known spells in learn order | Equips if item score is higher; trains with 50 % chance per known spell at a trainer; buys nothing | manual |
-| greedy | Picks the node with the highest immediate value per hour (value function 1.1), no lookahead; travels on at exit level only if no remaining reachable node beats GREEDY_STAY_THRESHOLD | Fixed default build per class (tree with highest B5 win rate, re-chosen once per balance pass); bar by template 1.2 | Trains everything at each hub; keeps HEAL_STOCK_TARGET Healing Draughts | manual |
-| planner | Full path search over the visible zone map (at most 3^8 paths) maximising the value function 1.1 over the remaining zone, including rest timing and the travel-on point | Build per class/tree from 1.3 (default: its best tree); bar template 1.2, swaps to the boss bar at Camp | As greedy, plus buys an Ember of Return when affordable and gold after it >= EMBER_RESERVE_V × V | manual |
+| greedy | Picks the node with the highest immediate value per hour (value function 1.1), no lookahead; travels on at exit level only if no remaining reachable node beats GREEDY_STAY_THRESHOLD | Fixed default build per class and profile group (default tree, 1.3; M2 v5: was the tree with the highest B5 win rate); bar by template 1.2 | Trains everything at each hub; keeps HEAL_STOCK_TARGET Healing Draughts | manual |
+| planner | Full path search over the visible zone map (at most 3^8 paths) maximising the value function 1.1 over the remaining zone, including rest timing and the travel-on point | Build per class/tree from 1.3 (default tree: 1.3, M2 v5); bar template 1.2, swaps to the boss bar at Camp | As greedy, plus buys an Ember of Return when affordable and gold after it >= EMBER_RESERVE_V × V | manual |
 | speedrunner | Path search minimising hours to reach the zone exit level; TRAVEL_ON as soon as legal; Camp grind only to reach 60 | As planner | Trains at hubs only; buys Healing Draughts to HEAL_STOCK_TARGET; no vendor nodes | autoplay |
 | tactician | As planner | As planner | As planner | manual |
 
@@ -37,6 +37,10 @@ Fill slots in this order with known spells: interrupt, main nuke/builder, finish
 
 ### 1.3 Standard builds
 For each class and tree: spend points to reach the capstone of the tree first (tier order, highest-rank talents first within a tier), then the remaining points by tier order in the class's other two trees alternately. This gives 9 builds (3 classes × 3 trees).
+
+**Default tree (M2 v5).** Every bot except random plays one default tree per class and **profile group**: the P0 group (P0 and P10 cells, campaigns, P0 route styles and pets, the B5 tactician) and the PALL group (every PALL cell: planner, greedy, speedrunner, tactician, B26-B28 variants, PALL route styles). Each pass re-checks both: the P0 group from the B7 cells (planner P0, each tree, N_RUNS_PER_CELL per class); the PALL group from planner PALL cells with each tree (N_RUNS_PER_CELL per class, after the PALL warm-up), whose chosen-tree cell is the planner PALL cell. The **incumbent** (the group's default recorded in the simulator's parameters) stays unless another tree's win rate p_c beats the incumbent's p_i by more than the interval of the difference: `p_c - p_i > TREE_SWITCH_Z × sqrt(p_c(1 - p_c)/n_c + p_i(1 - p_i)/n_i)`. If several trees clear it, the highest win rate wins (equal rates: higher reach-the-boss rate). A switch updates the recorded default in the same commit as the report. Incumbents from 2026-11-10: P0 group rogue Venomcraft (2), mage Arcanism (2), hunter Marksmanship (1); PALL group rogue Shadowcraft (1), mage Arcanism (2), hunter Beastbond (0) [source: docs/specs/changes-m2-v5.md row 1]. Reason: on 11-10b the rogue's default flipped to Shadowcraft on a 1.9 pp gap inside both 95 % intervals and moved B16, B21 and B29 across their bands; and a player with the full catalogue plays a different best tree than a fresh one (rogue Shadowcraft +5.7 pp over Venomcraft at PALL, hunter Beastbond +11 pp over Marksmanship). (M2 v5)
+
+B5 fallback (M2 v5): if the tactician on the P0-group trees puts B5 under its floor, the P0 tactician cell is re-run with, per class, the tree with the best B7 planner point estimate (no incumbent rule) and that cell counts for B1 tactician and B5; the report says so. Reason: the tactician plays Venomcraft worse than the planner (19.4 % against 23.1 %, package scratch), and a skilled manual player picks the tree where manual play pays. (M2 v5)
 
 ### 1.4 Meta profiles
 | Profile | Contents |
@@ -145,6 +149,7 @@ Priority: P1 = must pass for M1 sign-off; P2 = should pass; P3 = report only.
 - If B5 fails low, combat decisions do not matter: strengthen intents (heavy/cast frequency, mender heals) before raising damage. If it fails high, autoplay is too weak: improve 7.9 conditions.
 - If B10 fails high, cut stat-rank values in the catalogue before item unlocks. Check the time budget too (B17, rules 11.2): time saved before the boss lowers Ascendancy, and on the 11-10 pass Wayfinder alone kept the PALL planner 12 h under the P0 planner and was worth about 12 pp at PALL in the M2 v4 package (removed in M2 v4). (M2 v4)
 - Meta power budget (rules 11.2, M2 v3): a catalogue change that adds combat power must stay inside the budget; check B2, B3, B10 and B6 PALL after it. (M2 v3)
+- B6 PALL and gold (M2 v5): gold buys power only through the vendors, so a class with more gold income (the hunter clears about 4 dungeons per PALL run against 0.4-0.9 for the others) converts every gold entry (Prospector) into more of it. Before pricing an expensive power item at a vendor, check how often each class can afford it (11-10b: the Starforged weapon, 35 400 copper, was bought in 72 % of hunter PALL runs, 18 % rogue, 9 % mage). (M2 v5)
 - B3 greedy and speedrunner bands on PALL (M2 v4): the greedy wins 0.65-0.78 × the planner on P0 and PALL alike (its mage and hunter come within 1-6 pp of the planner at PALL; its rogue wins 8-12 % of its boss fights, likely because it has no Camp bar swap (1.2) [inference: planner rogue 69-77 % on the same seeds]), and the speedrunner loses more than the planner when meta power is cut, because it reaches the boss under BOSS_TIME_PAR anyway and gains nothing from lower Ascendancy. The bands follow those measured ratios around the planner's band. (M2 v4)
 - B21 and B38 (M2 v3): the planner avoids nodes its risk table rates deadly, so mid- and late-zone deaths stay a few % of runs by design; tension in zones 3-6 is measured by B38 (HP dips) and B24, deaths by share of runs. Tune B38 with ZONE_DANGER_STEP first. (M2 v3)
 
@@ -199,6 +204,7 @@ Priority: P1 = must pass for M1 sign-off; P2 = should pass; P3 = report only.
 | CLASS_BAND_PP | 0.05 | rate difference |
 | CLASS_SPREAD_MAX_PP | 0.08 | rate difference |
 | TREE_FLOOR_RATIO | 0.60 | ratio |
+| TREE_SWITCH_Z | 1.96 | z (95 % two-sided) for the default-tree switch, 1.3 | (M2 v5)
 | PET_FLOOR_RATIO | 0.70 | ratio |
 | META_GAP_MIN_PP | 0.20 | rate difference |
 | META_GAP_MAX_PP | 0.45 | rate difference |

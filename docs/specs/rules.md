@@ -1,6 +1,6 @@
 # Rules spec (M0 task 0.2)
 
-Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)").
+Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)"); M2 v5 changes 2026-11-10 (marked "(M2 v5)").
 Audience: Core Gameplay Engineer (src/rules.js), Simulation & Balance Engineer, UI/UX Engineer, Content Designer.
 
 Every global number is a named constant (UPPER_SNAKE_CASE) in section 13. The data tables (classes, spells, pets, talents, archetypes, boss, meta catalogue) are named constant groups: each cell is addressed as `TABLE.id.field` (e.g. `SPELL.ember_bolt.cost`) and is exported as data from src/. Values are starting values; the Simulation & Balance Engineer tunes them within the limits in balance.md.
@@ -455,12 +455,12 @@ Pets: chosen at creation, level = hunter level. Pet acts after the hunter each r
 | id | Tree / tier | Name | Ranks | Effect |
 |---|---|---|---|---|
 | h_a1 | Beastbond 1 | Thick Hide | 3 | pet max HP +8 % /rank |
-| h_a2 | Beastbond 1 | Ferocity | 3 | pet damage +10 % /rank | (M2 v2: 6 -> 10 %)
+| h_a2 | Beastbond 1 | Ferocity | 3 | pet damage +12.5 % /rank | (M2 v2: 6 -> 10 %; M2 v5: 10 -> 12.5 %)
 | h_a3 | Beastbond 2 | Bonded Spirit | 2 | Mend Companion also heals you for 30 % /rank of the amount |
 | h_a4 | Beastbond 2 | Frenzy Link | 2 | pet crit +0.05 /rank; each pet crit gives you 5 focus /rank |
 | h_a5 | Beastbond 3 | Unbreakable Bond | 2 | pet revives after fights at +0.25 /rank; pet takes -5 % damage /rank |
-| h_a6 | Beastbond 3 | Pack Leader | 2 | you and pet deal +5 % damage /rank while pet is alive | (M2 v2: 3 -> 5 %)
-| h_a7 | Beastbond 4 | Savage Mastery | 2 | Savage Order CD -1 and +10 % /rank |
+| h_a6 | Beastbond 3 | Pack Leader | 2 | you and pet deal +6.25 % damage /rank while pet is alive | (M2 v2: 3 -> 5 %; M2 v5: 5 -> 6.25 %)
+| h_a7 | Beastbond 4 | Savage Mastery | 2 | Savage Order CD -1 and +12.5 % /rank | (M2 v5: 10 -> 12.5 %)
 | h_a8 | Beastbond 4 | Shared Wounds | 1 | 20 % of damage you take is moved to the live pet |
 | h_a9 | Beastbond 5 | Primal Unity | 1 | new spell `wild_communion`: 30F, CD 10; 4 rounds: pet damage +50 % and pet TAUNT |
 | h_b1 | Marksmanship 1 | Steady Aim | 3 | Keen Shot +4 % /rank | (M2 v2: 6 -> 4 %)
@@ -729,7 +729,6 @@ Bought between runs on the profile screen. Ranked entries: cost listed per rank.
 | alchemist | Alchemist's Notes | items | 1 | 150 | Greater Healing Draught (heals GREATER_HEAL_PCT 0.375) in all vendors | satchel | (M2 v4: heal 0.50 -> 0.375)
 | cache | Cache of the Wanderer | items | 1 | 200 | 6 unique rares (one per zone band) in elite and treasure pools | - | (M2 v3: cost)
 | relics | Relics of the Deep | items | 1 | 400 | 6 unique epics (one per dungeon) in dungeon boss pools | cache | (M2 v3: cost)
-| starforged | Starforged Arms | items | 1 | 450 | each class's unique epic weapon (ilvl 62) sold at the Camp vendor | relics, first boss kill | (M2 v3: cost)
 | sp_r1 / sp_m1 / sp_h1 | Lost Technique I (per class) | skill | 1 | 150 | Ghostblade Rush / Chrono Sigil / Ricochet Bolt learnable | - |
 | sp_r2 / sp_m2 / sp_h2 | Lost Technique II (per class) | skill | 1 | 300 | Bloodprice Gambit / Mirrorshade / Beastcall Horn learnable | same-class I | (M2 v3: cost)
 | stormhawk | Stormhawk Companion | skill | 1 | 250 | Stormhawk pet selectable | - | (M2 v3: cost)
@@ -737,17 +736,19 @@ Bought between runs on the profile screen. Ranked entries: cost listed per rank.
 | second_breath | Second Breath | resurrect | 1 | 500 | 1 resurrect charge per run, not usable in the end-boss fight | reached the boss once | (M2 v3)
 | oaths | Oaths | challenge | 1 | 0 | unlocks Oaths at creation (11.5) | first boss kill |
 
-Catalogue total: 7 010 Echoes (M2 v4; M2 v3: 7 690, before: 6 730).
+Catalogue total: 6 560 Echoes (M2 v5; M2 v4: 7 010, M2 v3: 7 690, before: 6 730).
 
 Removed (M2 v4): Wayfinder (80 Echoes, TRAVEL_ON cost 0 hours). Its 12 hours per run (6 travels × 2 h) lowered the full-catalogue planner's boss Ascendancy by about one step (0.04: boss HP and damage) and was worth about 12 pp of PALL win rate in the M2 v4 package (about 6 pp per hour of travel cost, two paired steps), about as much as Vigor, Edge and Keen together (11.5 pp). A saved profile that owns it keeps the Echoes spent and gets no effect (as D32). (M2 v4)
 
-**Meta power budget (M2 v3, revised M2 v4).** The full catalogue may add at most: max HP +0.04, Power +0.04, crit +0.015, potion healing +0.025 of max HP per healing potion (Alchemist's Notes: Greater Healing Draught 0.375 against the Healing Draught's 0.35), +1 talent point, the unique items (normal rarity budget plus one 11.3 effect) and the Starforged weapon, and no resurrect in the end-boss fight. (M2 v4)
+Removed (M2 v5): Starforged Arms (450 Echoes; required Relics of the Deep and a first boss kill): each class's unique epic weapon (ilvl 62) sold at the Camp vendor for the normal gear price (35 400 copper). Its price made it a hunter item: on the 11-10b full catalogue the hunter, whose dungeon clears give it about 40 % more gold, bought it in 72 % of runs, the rogue in 18 %, the mage in 9 %, and a hunter holding it won 91 % of its boss fights against 50 % without. It was the cause of the class spread at full catalogue (hunter 77.6 % against 63 %), and Prospector mattered to the hunter mostly because it tipped this purchase. A saved profile that owns it keeps the Echoes spent and gets no effect, as Wayfinder (D42). The three class weapons stay in the content tables (12.1) for a later reward that does not depend on run gold. (M2 v5)
+
+**Meta power budget (M2 v3, revised M2 v4).** The full catalogue may add at most: max HP +0.04, Power +0.04, crit +0.015, potion healing +0.025 of max HP per healing potion (Alchemist's Notes: Greater Healing Draught 0.375 against the Healing Draught's 0.35), +1 talent point, the unique items (normal rarity budget plus one 11.3 effect), and no resurrect in the end-boss fight. (M2 v4; M2 v5: the Starforged weapon is no longer in the catalogue)
 
 Time is budgeted too (M2 v4): hours saved before the boss lower boss Ascendancy (1.7), which is boss HP and damage, so the time entries together (Quick Study, Swift Boots) may save at most META_TIME_BUDGET_H on the planner's median route (measured: planner median hours at the boss on PALL against P0, balance.md B17). (M2 v4)
 
 Every other entry gives economy (gold, training), information (map), bag space, starting consumables, or a new choice (spells and pet that are side-grades, not strict upgrades). A new entry that adds combat power or saves time must take it from this budget. Measured check: balance.md B2, B3, B6, B10. (M2 v3)
 
-Known gap (M2 v4): economy is not free either. Quick Study, Prospector and Trainer's Ledger together are worth about 9.6 pp of PALL planner win rate in the M2 v4 package (Prospector alone 4.3 pp; at half value it still gives 3.7 pp, so the effect is not linear in gold) [source: designer scratch sim/out/v4/Fab]. It is inside the measured B10 cap; if the catalogue grows in M3, give economy a budget line first. (M2 v4)
+Known gap (M2 v4): economy is not free either. Quick Study, Prospector and Trainer's Ledger together are worth about 9.6 pp of PALL planner win rate in the M2 v4 package (Prospector alone 4.3 pp; at half value it still gives 3.7 pp, so the effect is not linear in gold) [source: designer scratch sim/out/v4/Fab]. It is inside the measured B10 cap; if the catalogue grows in M3, give economy a budget line first. (M2 v4) With Starforged Arms removed, Prospector is worth 3.7 / 3.7 / 1.3 pp of PALL planner win rate to the rogue / mage / hunter (was 1.1 / 2.7 / 8.3 pp): gold now buys consumables and ordinary vendor gear, which no class converts much better than another [source: docs/specs/changes-m2-v5.md row 3]. (M2 v5)
 
 ### 11.3 Unique items (Content fills names)
 Unique items use the normal budget at their rarity and one effect from: on-hit proc (chance UNIQUE_PROC_CHANCE, magic `UNIQUE_PROC_BASE + UNIQUE_PROC_PER_LEVEL × L`); heal UNIQUE_HEAL_ON_KILL of max HP on kill; +UNIQUE_ELITE_DMG damage vs elites and bosses; +UNIQUE_POTION_PCT potion healing; WARD of UNIQUE_WARD_PCT max HP at fight start.
@@ -773,7 +774,7 @@ Each Oath adds +OATH_ECHO_BONUS Echoes: Oath of Haste (BOSS_TIME_PAR - OATH_HAST
 | Quest templates (title, giver, text) | 8-12 | 48-72 |
 | Item base names per slot per zone band | >= 3 | >= 180 |
 | Stat-flavour words (prefix/suffix) per stat pair | >= 2 | - |
-| Unique rares / epics / class weapons | - | 6 / 6 / 3 |
+| Unique rares / epics / class weapons | - | 6 / 6 / 3 | (M2 v5: the 3 class weapons stay in content and are not offered while Starforged Arms is removed, 11.2)
 | Shrine and treasure flavour lines | 2 each | 12 each |
 
 ### 12.2 Enemy templates
