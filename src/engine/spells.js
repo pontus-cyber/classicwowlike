@@ -1,6 +1,6 @@
 // Player combat actions (rules 5, 6, 7.1 step 2, 7.3, 7.5, 7.7, 7.8) and the pet action (5.5). Combat v2: an
 // interrupt or control that stops a cast or heavy now-entry leaves the enemy OFF_BALANCE (7.13); Gathered Power
-// (7.10); ENGAGE actions are resolved in engage.js.
+// (7.10); ENGAGE actions are resolved in engage.js. Combat v2.1: an interrupted wind-up is answered (STAGGERED, 7.12).
 import {
   SPELL, CLASS, TALENT, PET, CP_MAX, ENGINE_ASSUMPTION as EA, CHILL_PCT, CONSUMABLE, POTION_CD,
   UNIQUE_PROC_CHANCE, UNIQUE_PROC_BASE, UNIQUE_PROC_PER_LEVEL, UNIQUE_POTION_PCT, FLEE_BASE,
@@ -11,7 +11,7 @@ import { rnd } from './util.js';
 import { tr, hasEffect } from './stats.js';
 import {
   damage, snapshot, addStatus, removeStatus, findSt, hasSt, petAlive, healUnit, dispersal, gainStealth,
-  gainResource, livingEnemies, gainOffBalance,
+  gainResource, livingEnemies, gainOffBalance, answerWindup,
 } from './damage.js';
 import { interruptBoss } from './boss.js';
 import { defaultTarget } from './combat.js';
@@ -168,7 +168,8 @@ function applyDot(s, ev, tgt, status, src, rounds, b, pct, extra = {}) {
 
 /**
  * Interrupt an enemy's cast this round (rules 7.7). Returns true if a cast was stopped; the enemy is then
- * OFF_BALANCE (rules 7.13, combat v2).
+ * OFF_BALANCE (rules 7.13, combat v2), and a stopped wind-up is answered: STAGGERED (rules 7.12, combat v2.1). A
+ * stun-tagged spell or control on a CC-immune enemy comes here too (control), so it stops a dungeon boss's wind-up.
  */
 function interrupt(s, ev, tgt, by) {
   const f = s.fight;
@@ -181,6 +182,7 @@ function interrupt(s, ev, tgt, by) {
     if (it.cd) e.cds[it.id] = f.round + it.cd;
     ev.push({ t: 'interrupt', u: tgt, by });
     gainOffBalance(s, ev, tgt, OFFBAL_DURATION, 'interrupt', it);
+    answerWindup(s, ev, tgt, it, 'interrupt', by);
     return true;
   }
   return false;

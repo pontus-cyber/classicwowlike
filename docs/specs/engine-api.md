@@ -9,7 +9,9 @@ not in the catalogue ignored); 2026-11-10c (M2 v5: Starforged Arms removed, `sta
 `STATE_VERSION` 2; marked "(combat v2)"); 2026-11-10e (expedition map, rules 1.9: `mapMode`, `MOVE`, `PASS_THROUGH`,
 `TAKE_ROAD`, `RING_BELL`, the expedition `mapView`; section 10; marked "(expedition)"); 2026-11-10f (heat, rules
 1.7.1-1.7.4 and 1.9.10: `heatView`, `heatPreview`, the node's entry state, `xp` and `gold` `heat`, the summary's
-`heat` block; section 11; marked "(heat)"). Rules authority:
+`heat` block; section 11; marked "(heat)"); 2026-11-10g (combat v2.1, rules 7.10 and 7.12: wind-ups on the signature
+turns, the EMPOWERED and STAGGERED stacks with the `empower` and `stagger` events; marked "(combat v2.1)").
+Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
 
 The engine is pure and seeded (D5): no DOM, no clock, no `Math.random`, no globals. ES modules (D13); Node
@@ -184,6 +186,8 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `cancel` | `u, id, name, by, turn, offBalance` | (combat v2) control (`by`: STUN FROZEN HEXED SAPPED) cancelled the enemy's entry `id` this turn; `offBalance`: a heavy or cast, so it is now OFF_BALANCE. Log: "Heavy Smash cancelled: stunned -> off-balance" |
 | `replace` | `u, turn, from, fromName, to, toName, reason` | (combat v2) the now-entry could not be played and became the basic attack (rules 7.11) |
 | `offBalance` | `u, why, id, name, dur` | (combat v2) the enemy is OFF_BALANCE (`why`: `interrupt`, `control`, `avoided` = a heavy that cost you 0 HP); the status event follows the rules of 7.4 |
+| `stagger` | `u, id, name, why, by, stacks, value` | (combat v2.1) a wind-up of enemy `u` (action `id`, `name`) was answered (rules 7.12): it gained a STAGGERED stack (its `status` event comes first); `stacks` = STAGGERED stacks now, `value` = stacks × STAGGER_DMG (its damage dealt less). `why`: `interrupt` (an interrupt, a stun-tagged spell or control stopped it during the round; `by` = the spell or engage option id), `control` (STUN, FROZEN, HEXED or SAPPED cancelled it at its turn's start; `by` = the status), `trap` (a laid trap sprang on it; `by` `STUN`), `silenced` (replaced by the basic attack; `by` `SILENCED`), `avoided` (a heavy one that cost the player 0 HP; `by` null). Log: "Wind-up answered: staggered" |
+| `empower` | `u, id, name, stacks, value` | (combat v2.1) a wind-up of enemy `u` landed (rules 7.12): its hit or rend cost the player or the pet HP, or a cleave, curse, self_heal or self_shield was played; it gained an EMPOWERED stack (its `status` event comes first); `value` = stacks × EMPOWER_DMG. Not sent when that hit ended the fight (the player died). Log: "Wind-up landed: empowered" |
 | `trapSprung` | `u, turn` | (combat v2) Lay Trap springs (a STUN status and a `cancel` follow) |
 | `signal` | `u, adds` | (combat v2) a skulker's Signal: `adds` enemies join at the end of the round (`summon` with `signal: true`) |
 | `petAction` | `target` | |
@@ -245,21 +249,31 @@ the node's entry state, null outside a node that pays heat).
   damage per tick of BLEED, BURN and POISON; `amount` is the heal per tick of HOT and what is left of a WARD.
   Combat v2 statuses: enemy `OFF_BALANCE` (`value` = extra damage taken; window, rules 7.13), `SAPPED`, `TRAP`
   (`turn` = the turn it springs on, `stun`); player `GATHER` (`stacks` = spells left, `value` = crit bonus); pet
-  `PET_LEAD` (`value` = damage taken less).
+  `PET_LEAD` (`value` = damage taken less). Combat v2.1 (rules 7.12): enemy `EMPOWERED` and `STAGGERED`, the lasting
+  result of its wind-ups: `{ id, dur: null, stacks, value }`, one stack per wind-up landed or answered, no cap, no
+  expiry (gone with the fight); `value` = stacks × EMPOWER_DMG (damage dealt more) or stacks × STAGGER_DMG (damage
+  dealt less), both in its 7.2 step 2 sum, so its hits and every shown `est` include them. Badge them on the frame
+  ("+15 % damage", "-30 % damage").
 
 **Intent track (combat v2, rules 7.11).** `enemy.track` holds INTENT_TRACK_LEN entries, oldest first: the entry of
 the current turn ("now") and the next turns; before turn 1 (engage round, an add that just appeared) turns
 1..INTENT_TRACK_LEN. Entry: `{ turn, id, name, kind, cast, heavy, school, hits, pct, cd, scripted, aggro, target,
-est, cancel }`: `scripted` = from the opening script or a signature turn (rules 7.12), `aggro` = the drawn pet-aggro target
+est, cancel, windup }`: `scripted` = from the opening script or a signature turn (rules 7.12), `aggro` = the drawn pet-aggro target
 (fixed), `target` and `est` = what to show, recomputed from the current state every round (TAUNT and feign that
 will still run on that turn show `'pet'`; Mend and Bolster show the lowest-HP ally now; Shield Ally the ward).
+`windup` (combat v2.1; only on wind-ups): the entry is a wind-up (rules 7.12), the signature of an elite, rare or
+dungeon boss on SIGNATURE_TURN and a dungeon boss's second on SIGNATURE_TURN_2, set when the entry enters the track,
+so it shows from the engage round on. A wind-up always has `cast: true` (every interrupt, stun-tagged spell or
+control stops it, also on a dungeon boss); `heavy` stays as the ability has it (a heavy one is also answered by a full
+dodge, WARD, Mirrorshade or the pet by TAUNT). Badge: "Wind-up" with what answers it.
 `cancel` (D52) = what will cancel the entry when it becomes now, recomputed every round, or null: `{ by, offBalance,
-breaks, done }`. `by`: `STUN`, `FROZEN`, `HEXED`, `SAPPED` (a control status still on at the start of that turn's
+stagger, breaks, done }`. `by`: `STUN`, `FROZEN`, `HEXED`, `SAPPED` (a control status still on at the start of that turn's
 round) or `TRAP` (a laid trap's STUN covers that turn; the intent then says STUN); `done`: the now-entry, already
 cancelled (`intent.cancelled`); `breaks`: HEXED and SAPPED end on any damage, so the prediction holds only while the
 enemy takes none (draw it softer); `offBalance`: the entry is a heavy or a cast, so the cancel leaves the enemy
-OFF_BALANCE. Not predicted: what the player has not done yet (an interrupt, new control). End boss entries: always
-null (immune to control). Read this instead of inferring from statuses.
+OFF_BALANCE; `stagger` (combat v2.1): the entry is a wind-up, so the cancel answers it (STAGGERED). Not predicted: what
+the player has not done yet (an interrupt, new control). End boss entries: always null (immune to control). Read this
+instead of inferring from statuses.
 Entries never change once shown, except what they show; a new one is appended each round. `enemy.intent` is the
 now-entry as it will be played (below). The engage round's intents are Unaware.
 
@@ -269,14 +283,16 @@ of that round, `shards` = a Shards wave at its start, `ifPhase` = the next phase
 and `alt` = the actions if that phase starts this round (null when they are the same).
 
 Normal intent: `{ id, name, kind, target ('player'|'pet'|'all'|'self'|ally index), est (estimated damage or
-heal), cast (interruptible), heavy (telegraphed big hit), school, hits, turn }`. Kinds: `hit`, `rend`, `cleave`,
+heal), cast (interruptible), heavy (telegraphed big hit), school, hits, turn, windup (combat v2.1: a wind-up) }`. Kinds: `hit`, `rend`, `cleave`,
 `curse`, `brace`, `shieldAlly`, `heal`, `selfHeal`, `selfShield`, `summon`, combat v2 `bolster`, `signal`, and `none`
 (`Stunned`, `Hexed`, `Sapped`, `Unaware`). After an interrupt the intent gets `interrupted: true`; after Chrono
 Sigil `skipped: true`. Combat v2: `cancelled: { by, id, name, cast, heavy }` = control (`by`: STUN, FROZEN, HEXED,
 SAPPED) cancelled this turn's action: set on the intent when control lands during the round, and on the `none`
 intent ("Stunned", "Hexed", "Sapped") of an enemy that is controlled when its turn starts; an entry that could not be
 played was replaced by the basic attack and the intent carries `replaced: { id, name, reason }` (show "Mend -> Strike:
-no wounded ally"); a summon at its HP trigger carries `replaced` too.
+no wounded ally"); a summon at its HP trigger carries `replaced` too. Combat v2.1: `cancelled.windup` and
+`replaced.windup` are true when the action that did not happen was a wind-up (a cancelled one, or one replaced with
+reason `silenced`, was answered: a `stagger` event says so; one replaced for any other reason is neither).
 
 Boss intent: `{ id: 'boss', kind: 'boss', actions: [...], cast, heavy, est, target, telegraph, turn }` where each
 action is `{ id, name, kind, est, target, cast?, heavy?, step? }` (`umbral_strike`, `gravity_crush`,
@@ -339,7 +355,8 @@ Combat v2: in the engage round `autoAction` follows rule E (rules 7.9): the clas
 whose track shows the most damage on the player over turns 1..ENGAGE_AUTO_LOOK (with at least 2 enemies), else the
 strike option (Mage: Pre-cast of the first bar spell whose autoplay condition holds). The Rogue never gets Sap from
 `autoAction` (D49): its rule E is Ambush on the default target. Afterwards it reads only the
-now-intents. `state.autoplay` only records the toggle. When it is on and `state.fight` is set, the front end calls
+now-intents. Combat v2.1: a wind-up is a cast, so rule 3 interrupts it (or stuns it) when an interrupt or stun-tagged
+spell is ready. `state.autoplay` only records the toggle. When it is on and `state.fight` is set, the front end calls
 `step(state, autoAction(state))` at its own pace (PACE_AUTO_ROUND_S). The simulator calls `autoAction` for
 every decision or replaces the out-of-combat part with its bots.
 

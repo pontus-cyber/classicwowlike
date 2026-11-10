@@ -1,4 +1,5 @@
-// Damage pipeline (rules 7.2), statuses (7.4), OFF_BALANCE (7.13, combat v2), kills, death and resurrection (9).
+// Damage pipeline (rules 7.2), statuses (7.4), OFF_BALANCE (7.13, combat v2), the wind-up stacks EMPOWERED and STAGGERED
+// (7.12, combat v2.1), kills, death and resurrection (9).
 // Expedition (rules 1.9.6, 1.9.8): Shardspawn kill rewards, the XP weight, the death location by node id.
 // Units: 'player', 'pet', or an enemy index (number) into s.fight.enemies.
 import {
@@ -9,6 +10,7 @@ import {
   ELITE_XP_MULT, RARE_XP_MULT, DUNGEON_BOSS_XP_MULT, DUNGEON_MOB_XP_MULT, MOB_COIN_V, ELITE_GOLD_V,
   EMBER_ELITE_DROP_CHANCE, DUNGEON_BOSS_DROPS, UNIQUE_HEAL_ON_KILL, ABILITY_TEMPLATE, DODGE_CAP, SPELL,
   SHARD_AOE_TAKEN, OFFBAL_TAKEN, OFFBAL_BOSS_TAKEN, OFFBAL_CRIT, BLOODLUST_STEP, BLOODLUST_MAX, DIM_XP_MULT,
+  EMPOWER_DMG, STAGGER_DMG,
 } from '../constants.js';
 import { nextFloat } from '../rng.js';
 import { rnd, clamp } from './util.js';
@@ -187,6 +189,57 @@ export function gainOffBalance(s, ev, u, dur, why, act) {
   ev.push({ t: 'offBalance', u, why, id: act ? act.id : null, name: act ? act.name : null, dur });
 }
 
+/**
+ * One more stack of a wind-up status on enemy u (rules 7.4, 7.12, combat v2.1): EMPOWERED or STAGGERED, no cap, no
+ * expiry (dur null; gone with the fight). value = stacks × per (the damage it deals more or less, 7.2 step 2).
+ */
+function windupStack(s, ev, u, id, per) {
+  const st = unitSt(s, u);
+  let cur = findSt(st, id);
+  if (!cur) {
+    cur = { id, dur: null, stacks: 0, value: 0 };
+    st.push(cur);
+  }
+  cur.stacks += 1;
+  cur.value = cur.stacks * per;
+  ev.push({ t: 'status', u, id, on: true, dur: null, stacks: cur.stacks });
+  return cur;
+}
+
+/**
+ * A wind-up of enemy u was answered (rules 7.12, combat v2.1): interrupted, cancelled by control at its turn's start
+ * (STUN, FROZEN, HEXED, SAPPED; a trap; Disrupt), replaced because SILENCED, or a heavy one that cost the player 0 HP
+ * (7.13 (3)). The enemy gains a STAGGERED stack (-STAGGER_DMG damage dealt for the rest of the fight). x: the entry or
+ * intent (nothing unless x.windup); why: 'interrupt' | 'control' | 'trap' | 'disrupt' | 'silenced' | 'avoided'; by:
+ * the spell or engage option, the control status, or null. Sends the status event and a `stagger` event.
+ */
+export function answerWindup(s, ev, u, x, why, by) {
+  const e = s.fight.enemies[u];
+  if (!x || !x.windup || !e || !e.alive || s.fight.over) return;
+  const cur = windupStack(s, ev, u, 'STAGGERED', STAGGER_DMG);
+  ev.push({ t: 'stagger', u, id: x.id, name: x.name, why, by: by === undefined ? null : by, stacks: cur.stacks, value: cur.value });
+}
+
+/**
+ * A wind-up of enemy u landed (rules 7.12, combat v2.1): played, and for a hit or rend the player or the pet lost HP to
+ * it (cleave, curse, self_heal and self_shield whenever played). The enemy gains an EMPOWERED stack (+EMPOWER_DMG damage
+ * dealt for the rest of the fight). Nothing once the fight is over (the hit killed the player). Sends the status event
+ * and an `empower` event.
+ */
+export function landWindup(s, ev, u, x) {
+  const e = s.fight.enemies[u];
+  if (!x || !x.windup || !e || !e.alive || s.fight.over) return;
+  const cur = windupStack(s, ev, u, 'EMPOWERED', EMPOWER_DMG);
+  ev.push({ t: 'empower', u, id: x.id, name: x.name, stacks: cur.stacks, value: cur.value });
+}
+
+/** EMPOWERED minus STAGGERED (rules 7.2 step 2, 7.12, combat v2.1): the lasting result of the enemy's wind-ups. */
+export function windupPct(st) {
+  const em = findSt(st, 'EMPOWERED');
+  const sg = findSt(st, 'STAGGERED');
+  return (em ? em.value : 0) - (sg ? sg.value : 0);
+}
+
 /** Living (not despawned) Shards of the end-boss fight. */
 export const livingShards = (s) => s.fight.enemies.filter((x) => x.alive && x.kind === 'shard').length;
 
@@ -223,7 +276,7 @@ export function petPct(s) {
   return pct;
 }
 
-/** Enemy outgoing % modifiers (enrage, soft enrage, Eclipse, Crippling Toxin). */
+/** Enemy outgoing % modifiers (enrage, soft enrage, Eclipse, Crippling Toxin, Bloodlust, EMPOWERED and STAGGERED). */
 function enemyPct(s, e) {
   const f = s.fight;
   let pct = e.enraged || 0;
@@ -232,6 +285,7 @@ function enemyPct(s, e) {
   const poison = findSt(e.st, 'POISON');
   if (poison) pct -= tr(s, 'r_c4') * TALENT.r_c4.pct;
   pct += bloodlust(e);
+  pct += windupPct(e.st); // combat v2.1: +EMPOWER_DMG per EMPOWERED stack, -STAGGER_DMG per STAGGERED stack (rules 7.12)
   return pct;
 }
 

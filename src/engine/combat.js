@@ -1,5 +1,6 @@
 // Fight lifecycle and enemy actions (rules 7.1, 7.4, 7.6, 7.10, 7.12, 7.13). The intent track is in track.js, player
-// actions in spells.js and engage.js, the end boss in boss.js.
+// actions in spells.js and engage.js, the end boss in boss.js. Combat v2.1 (rules 7.12): a played wind-up lands
+// (EMPOWERED) or, a heavy one that cost the player 0 HP, is answered (STAGGERED).
 import {
   ARCHETYPE, VARIANT, ENEMY_HP_BASE, ENEMY_HP_PER_LEVEL, ENEMY_DMG_BASE, ENEMY_DMG_PER_LEVEL,
   ENEMY_ARMOR_PER_LEVEL, ENEMY_DODGE, PET, ENERGY_MAX, ENERGY_REGEN, FOCUS_MAX, FOCUS_REGEN,
@@ -11,6 +12,7 @@ import { rnd, deepClone } from './util.js';
 import { tr, hasEffect } from './stats.js';
 import {
   damage, snapshot, addStatus, findSt, hasSt, petAlive, healUnit, applyDamage, levelMod, gainStealth, gainOffBalance,
+  answerWindup, landWindup,
 } from './damage.js';
 import { bossIntent, bossAct, bossStartRound, bossEndOfRound, mirrorImage, bossTrackView } from './boss.js';
 import { playerAction, petAction } from './spells.js';
@@ -103,7 +105,11 @@ function retarget(s, tgt, single) {
   return tgt;
 }
 
-/** Perform a normal enemy's intent (rules 7.1 step 4). Returns true if it acted. */
+/**
+ * Perform a normal enemy's intent (rules 7.1 step 4). Returns true if it acted. A wind-up (rules 7.12, combat v2.1)
+ * lands when the player or the pet lost HP to its hit or rend, and whenever a cleave, curse, self_heal or self_shield
+ * is played; a heavy one that cost the player 0 HP (7.13 (3)) is answered instead; any other outcome is neither.
+ */
 function enemyAct(s, ev, e) {
   const f = s.fight;
   const it = e.intent;
@@ -117,6 +123,7 @@ function enemyAct(s, ev, e) {
     // A heavy action that costs the player 0 HP leaves the enemy OFF_BALANCE (rules 7.13): every hit missed, was
     // dodged or absorbed (WARD, IMMUNE, image, Death's Sidestep), or went to the pet because of TAUNT or feign.
     let avoided = true;
+    let lost = false; // the player or the pet lost HP to it (a wind-up lands, rules 7.12)
     for (let h = 0; h < it.hits; h++) {
       if (f.over || !e.alive) return true;
       const redirect = single && petAlive(s) && (hasSt(f.pet.st, 'TAUNT') || hasSt(f.p.st, 'FEIGN'));
@@ -124,17 +131,22 @@ function enemyAct(s, ev, e) {
       if (tgt === 'player' && mirrorImage(s, ev)) continue;
       const res = damage(s, ev, e.idx, tgt, { base: it.pct * e.dmg, school: it.school, spell: it.id });
       if (tgt === 'player' ? res.hpLost > 0 : !redirect) avoided = false;
+      if (res.hpLost > 0) lost = true;
       if (it.kind === 'rend' && res.hit && !f.over && (tgt === 'player' || petAlive(s))) {
         const tick = Math.max(MIN_HIT_DAMAGE, rnd(snapshot(s, e.idx, tgt, it.tickPct * e.dmg, {})));
         addStatus(s, ev, tgt, { id: 'BLEED', src: `${it.id}@${e.idx}`, by: e.idx, dur: it.rounds, full: it.rounds, tick, canCrit: false });
       }
     }
     if (it.heavy && avoided && e.alive && !f.over) gainOffBalance(s, ev, e.idx, OFFBAL_DURATION, 'avoided', it);
+    if (it.heavy && avoided) answerWindup(s, ev, e.idx, it, 'avoided', null);
+    else if (lost) landWindup(s, ev, e.idx, it);
   } else if (it.kind === 'cleave') {
     if (!mirrorImage(s, ev)) damage(s, ev, e.idx, 'player', { base: it.pct * e.dmg, school: it.school, spell: it.id });
     if (!f.over && petAlive(s)) damage(s, ev, e.idx, 'pet', { base: it.pct * e.dmg, school: it.school, spell: it.id });
+    landWindup(s, ev, e.idx, it);
   } else if (it.kind === 'curse') {
     addStatus(s, ev, 'player', { id: 'CURSED', dur: it.rounds, by: e.idx });
+    landWindup(s, ev, e.idx, it);
   } else if (it.kind === 'brace') {
     addStatus(s, ev, e.idx, { id: 'BRACE', dur: it.rounds, value: it.reduce });
   } else if (it.kind === 'shieldAlly') {
@@ -160,9 +172,11 @@ function enemyAct(s, ev, e) {
     }
   } else if (it.kind === 'selfHeal') {
     healUnit(s, ev, e.idx, rnd(it.pct * e.maxHp), it.id);
+    landWindup(s, ev, e.idx, it);
   } else if (it.kind === 'selfShield') {
     e.shield = Math.max(e.shield, rnd(it.pct * e.maxHp));
     ev.push({ t: 'shield', u: e.idx, amount: e.shield });
+    landWindup(s, ev, e.idx, it);
   } else if (it.kind === 'summon') {
     e.summoned = true;
     summonAdds(s, ev, e, it.count);

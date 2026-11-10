@@ -3,8 +3,10 @@
 // action pick, then the pet-aggro target); the head entry becomes the enemy's intent ("now") at the start of its turn,
 // where control, Lay Trap, the summon HP trigger and the play conditions are applied. Enemies present at fight start
 // play their archetype's opening script on turns 1..OPENING_TURNS and (elite, rare, dungeon boss) their signature
-// ability on SIGNATURE_TURN (and SIGNATURE_TURN_2). The end boss's entries are made by boss.js (rules 10.3). Every
-// entry shows its target, estimate and (D52) the predicted `cancel`, recomputed each round (refreshTrack).
+// ability on SIGNATURE_TURN (and SIGNATURE_TURN_2); combat v2.1: those signature entries are wind-ups (`windup` and
+// `cast`), and a wind-up cancelled at its turn's start or replaced because SILENCED is answered (STAGGERED, damage.js).
+// The end boss's entries are made by boss.js (rules 10.3). Every entry shows its target, estimate and (D52) the
+// predicted `cancel`, recomputed each round (refreshTrack).
 import {
   ARCHETYPE, ABILITY_TEMPLATE, PET, INTENT_TRACK_LEN, OPENING_TURNS, SIGNATURE_TURN, SIGNATURE_TURN_2,
   HEAVY_SCRIPT_MULT, CAST_SCRIPT_MULT, OPENING_SCRIPT, SCRIPT_ACTION, OFFBAL_DURATION,
@@ -12,7 +14,7 @@ import {
 import { nextFloat, weightedIndex } from '../rng.js';
 import { rnd } from './util.js';
 import {
-  snapshot, mitigation, addStatus, removeStatus, findSt, hasSt, petAlive, gainOffBalance,
+  snapshot, mitigation, addStatus, removeStatus, findSt, hasSt, petAlive, gainOffBalance, answerWindup,
 } from './damage.js';
 import { SHARD_ACTION, bossEntry } from './boss.js';
 
@@ -110,6 +112,15 @@ export function scriptedId(s, e, t) {
   return id;
 }
 
+/**
+ * Is the scripted action sid on enemy e's turn t one of its signatures, i.e. a wind-up (rules 7.12, combat v2.1)? The
+ * signature on SIGNATURE_TURN (elite, rare, dungeon boss) and a dungeon boss's other ability on SIGNATURE_TURN_2.
+ */
+function isWindup(s, e, sid, t) {
+  const [sig, sig2] = signatures(s, e);
+  return (!!sig && sid === sig && t === SIGNATURE_TURN) || (!!sig2 && sid === sig2 && t === SIGNATURE_TURN_2);
+}
+
 function actionById(s, e, id) {
   return SCRIPT_ACTION[id] || enemyActions(s, e).find((a) => a.id === id) || basicAction(e);
 }
@@ -162,6 +173,12 @@ function makeEntry(s, e, t) {
     a = opts[weightedIndex(f.rng, opts.map((o) => o.w))];
   }
   const x = entryOf(a, t, !!sid);
+  // A wind-up (rules 7.12, combat v2.1) is also a cast, whatever its kind: every interrupt, stun or control stops it,
+  // on CC-immune enemies too. Its pct already took the multiplier of its own flag only (entryOf, before `cast`).
+  if (sid && isWindup(s, e, sid, t)) {
+    x.windup = true;
+    x.cast = true;
+  }
   if (petAlive(s)) x.aggro = nextFloat(f.rng) < PET[s.player.pet.id].aggro ? 'pet' : 'player';
   return x;
 }
@@ -267,6 +284,7 @@ function intentOf(x) {
     hits: x.hits, tickPct: x.tickPct, rounds: x.rounds, reduce: x.reduce, below: x.below, turn: x.turn,
     scripted: x.scripted, aggro: x.aggro, target: x.target, est: 0,
   };
+  if (x.windup) it.windup = true;
   if (x.adds) it.adds = x.adds;
   return it;
 }
@@ -276,6 +294,8 @@ function intentOf(x) {
  * trap that is due springs (STUN TRAP_STUN); control (STUN, FROZEN, HEXED, SAPPED) cancels the now-entry, and a
  * cancelled cast or heavy leaves the enemy OFF_BALANCE (7.13) for the player's next action; a template summon at its
  * HP trigger takes the turn; an entry whose condition fails is replaced by the basic attack (with `replaced`).
+ * Combat v2.1 (rules 7.12): a cancelled wind-up, or one replaced because SILENCED, is answered (STAGGERED); one
+ * replaced for any other reason is neither.
  */
 export function nowIntent(s, ev, e) {
   const f = s.fight;
@@ -284,17 +304,21 @@ export function nowIntent(s, ev, e) {
   if (T < 1) { e.intent = { id: 'unaware', name: 'Unaware', kind: 'none', est: 0, turn: 0 }; return; }
   const head = e.track[0];
   const trap = findSt(e.st, 'TRAP');
-  if (trap && trap.turn <= T) {
+  const sprung = trap && trap.turn <= T ? trap : null;
+  if (sprung) {
     removeStatus(s, ev, e.idx, 'TRAP');
     ev.push({ t: 'trapSprung', u: e.idx, turn: T });
-    addStatus(s, ev, e.idx, { id: 'STUN', dur: trap.stun });
+    addStatus(s, ev, e.idx, { id: 'STUN', dur: sprung.stun });
   }
   const ctl = controlOf(e.st);
   if (ctl) {
     const big = !!(head.cast || head.heavy);
-    e.intent = { ...CONTROL_INTENT[ctl], kind: 'none', est: 0, turn: T, cancelled: { by: ctl, id: head.id, name: head.name, cast: head.cast, heavy: head.heavy } };
+    const cancelled = { by: ctl, id: head.id, name: head.name, cast: head.cast, heavy: head.heavy };
+    if (head.windup) cancelled.windup = true;
+    e.intent = { ...CONTROL_INTENT[ctl], kind: 'none', est: 0, turn: T, cancelled };
     ev.push({ t: 'cancel', u: e.idx, id: head.id, name: head.name, by: ctl, turn: T, offBalance: big });
     if (big) gainOffBalance(s, ev, e.idx, OFFBAL_DURATION - 1, 'control', head);
+    answerWindup(s, ev, e.idx, head, sprung ? 'trap' : 'control', ctl);
     return;
   }
   for (const id of e.abilities) {
@@ -312,7 +336,9 @@ export function nowIntent(s, ev, e) {
     x.aggro = head.aggro;
     it = intentOf(x);
     it.replaced = { id: head.id, name: head.name, reason: why };
+    if (head.windup) it.replaced.windup = true;
     ev.push({ t: 'replace', u: e.idx, turn: T, from: head.id, fromName: head.name, to: b.id, toName: b.name, reason: why });
+    if (why === 'silenced') answerWindup(s, ev, e.idx, head, 'silenced', 'SILENCED');
   } else it = intentOf(head);
   it.target = targetOf(s, e, it, f.round);
   it.est = estOf(s, e, it);
@@ -321,22 +347,24 @@ export function nowIntent(s, ev, e) {
 
 /**
  * What will cancel an entry when it becomes now (rules 7.11, D52), predicted from the current state: { by, offBalance,
- * breaks, done } or null. The now-entry: its own cancellation (intent.cancelled; done). Later entries: a laid trap
- * whose STUN covers its turn (by 'TRAP'), else the first control status (STUN, FROZEN, HEXED, SAPPED) still on at the
- * start of its round (rounds left > rounds from now, rules 7.4). breaks: HEXED and SAPPED end on any damage, so the
- * prediction holds only if the enemy takes none. offBalance: a cancelled heavy or cast leaves it OFF_BALANCE (7.13).
- * Actions still to come (an interrupt, new control) are not predicted.
+ * stagger, breaks, done } or null. The now-entry: its own cancellation (intent.cancelled; done). Later entries: a laid
+ * trap whose STUN covers its turn (by 'TRAP'), else the first control status (STUN, FROZEN, HEXED, SAPPED) still on at
+ * the start of its round (rounds left > rounds from now, rules 7.4). breaks: HEXED and SAPPED end on any damage, so
+ * the prediction holds only if the enemy takes none. offBalance: a cancelled heavy or cast leaves it OFF_BALANCE (7.13).
+ * stagger (combat v2.1): the entry is a wind-up, so the cancel answers it (STAGGERED, 7.12). Actions still to come (an
+ * interrupt, new control) are not predicted.
  */
 function cancelOf(s, e, x) {
   const k = roundOf(e, x.turn) - s.fight.round;
   const big = !!(x.cast || x.heavy);
+  const stagger = !!x.windup;
   if (k <= 0) {
     const c = e.intent && e.intent.cancelled && e.intent.turn === x.turn ? e.intent.cancelled : null;
-    return c ? { by: c.by, offBalance: big, breaks: false, done: true } : null;
+    return c ? { by: c.by, offBalance: big, stagger, breaks: false, done: true } : null;
   }
   const trap = findSt(e.st, 'TRAP');
-  if (trap && x.turn >= trap.turn && x.turn < trap.turn + (trap.stun || 1)) return { by: 'TRAP', offBalance: big, breaks: false, done: false };
-  for (const id of CONTROL) if (activeIn(e.st, id, k)) return { by: id, offBalance: big, breaks: id === 'HEXED' || id === 'SAPPED', done: false };
+  if (trap && x.turn >= trap.turn && x.turn < trap.turn + (trap.stun || 1)) return { by: 'TRAP', offBalance: big, stagger, breaks: false, done: false };
+  for (const id of CONTROL) if (activeIn(e.st, id, k)) return { by: id, offBalance: big, stagger, breaks: id === 'HEXED' || id === 'SAPPED', done: false };
   return null;
 }
 
