@@ -223,7 +223,7 @@ export function buildMap(v, ctx, readOnly) {
   travel.disabled = !L.travelOn || readOnly;
   travel.addEventListener('click', () => ctx.act({ type: 'TRAVEL_ON' }));
   tip(travel, () => h('div', h('div.tt-name', 'Travel on'),
-    h('div.tt-line.desc', `Leave ${z.name} for ${nextName}. Costs ${ctx.data.rules.hours.travel} h. Leaving early skips the remaining rows: fewer hours, but less loot and gold.`),
+    h('div.tt-line.desc', `Leave ${z.name} for ${nextName}.${travelCost(z, ctx)} Leaving early skips the remaining rows: fewer hours, but less loot and gold.`),
     h('div.tt-line', ts.under > 0 ? `Open from level ${ts.need}, ${numWord(ts.under)} ${plural(ts.under, 'level')} below the exit level ${ts.exit}, or after row ${ts.rows}.` : `Open from level ${ts.exit}, or after row ${ts.rows}.`),
     ts.kind === 'locked' ? h('div.tt-warn', `Reach level ${ts.need} or finish row ${ts.rows} first (you are level ${p.level}).`) : null,
     ts.kind === 'early' ? h('div.tt-warn', `You are under the exit level (${ts.exit}): the next zone starts above your level. More risk, more experience.`) : null,
@@ -279,6 +279,12 @@ export function buildMap(v, ctx, readOnly) {
   win.append(head, body, h('div.mfoot', legend, story));
   if (readOnly) win.id = 'win-map';
   return win;
+}
+/** The hours Travel on costs now, from the engine (a dry TRAVEL_ON; meta Wayfinder makes it 0); the mock's own number in mock mode. */
+function travelCost(z, ctx) {
+  const hrs = z.travelHours !== undefined ? z.travelHours : ctx.data.rules.hours.travel;
+  const why = ctx.data.meta && ctx.data.meta.entries.wayfinder ? ` (${ctx.data.meta.entries.wayfinder.name})` : '';
+  return hrs == null ? '' : hrs > 0 ? ` Costs ${hrs} h.` : ` Costs no time${why}.`;
 }
 function flagSvg() {
   const d = h('div.flagm');

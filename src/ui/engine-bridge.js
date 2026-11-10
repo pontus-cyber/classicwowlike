@@ -23,8 +23,9 @@
 //              resurrect: what a death would use now, in order ('boon' | 'meta' (Second Breath) | 'ember'; R.resurrectCharges);
 //              resurrectBoss: the same in the end-boss fight; resurrectHeld (engine only): the charges held
 //   zone:    { idx, id, camp, name, hubName, hubText, theme, band, exitLevel, travelLevel, blurb, rows: node[rows][lanes], pos: { row, lane }, path,
-//              questsDone, storyDone }   rows and lanes: as many as the engine's map has (mapView); travelLevel: the level
-//              from which TRAVEL_ON is legal before the last row (rules 1.5, R.travelLevel)
+//              questsDone, storyDone, travelHours }   rows and lanes: as many as the engine's map has (mapView); travelLevel: the level
+//              from which TRAVEL_ON is legal before the last row (rules 1.5, R.travelLevel); travelHours: what TRAVEL_ON
+//              costs now (a dry step; null while it is not legal)
 //   hub:     { used: { trainer, vendor, inn } }
 //   node:    { type, step, cl, row, lane, ... }  step: intro|combat|reward|story|between|chest|rest|vendor|trainer|shrine
 //   combat:  { round, enemies: [{ idx, uid, name, level, rank, arch, hp, maxHp, statuses, alive, intent }], target,
@@ -276,7 +277,13 @@ function engineBackend(seedOpt) {
     const exitLevel = C.ZONE_LEVELS * z; // rules 1.3: a zone's band ends at its exit level
     return { idx: z, id: `z${z}`, camp: false, name: zc ? zc.name : `Zone ${z}`, hubName: zc ? zc.hubName : 'Hub', hubText: zc ? zc.hubText : '', blurb: zc ? zc.theme : '',
       theme: THEMES[z - 1] || 'farmland', band: [exitLevel - C.ZONE_LEVELS + 1, exitLevel], exitLevel, travelLevel: R.travelLevel(s) ?? exitLevel, rows,
-      pos: { row: s.zone.pos.r, lane: s.zone.pos.l }, path, questsDone: s.zone.questsDone || 0, storyDone: !!s.zone.storyDone, next: mv ? mv.next : [] };
+      pos: { row: s.zone.pos.r, lane: s.zone.pos.l }, path, questsDone: s.zone.questsDone || 0, storyDone: !!s.zone.storyDone, next: mv ? mv.next : [],
+      travelHours: travelHours(s) };
+  }
+  /** Hours TRAVEL_ON spends now (meta Wayfinder: none), from a dry step; null while it is not legal. */
+  function travelHours(s) {
+    if (s.phase !== 'MAP' || !R.isLegal(s, { type: 'TRAVEL_ON' })) return null;
+    try { return R.step(s, { type: 'TRAVEL_ON' }).state.hours - s.hours; } catch { return null; }
   }
 
   const rankOf = (e) => (e.boss ? 'boss' : e.kind === 'shard' ? 'shard' : e.kind || 'normal');
