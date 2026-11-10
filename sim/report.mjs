@@ -9,6 +9,9 @@
 // --before: an earlier report made by this script; its generated tables give a "Before" column (checks matched by
 // ID and order within the ID, diagnostic rows excluded; cells by name). Results there are against the targets of
 // that report's date.
+// --before-pass: a pass directory of the earlier engine with planner P0 cells recorded by the M2 v3 recorder
+// (planner-P0-tree0..2 and pass.json with its trees). The checks whose definition changed in M2 v3 (B21, B24, B38)
+// then take their Before value from it, judged against the current targets, instead of the old report's row.
 import { join } from 'node:path';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { BAL } from './lib/params.mjs';
@@ -55,20 +58,22 @@ function parseBefore(md) {
 }
 const pass = readJson(join(IN, 'pass.json'));
 const trees = pass.trees;
+const BEFORE_PASS = args['before-pass'] || null;
 
 // ---------------- Loading ----------------
 const cache = new Map();
-/** Records of a cell per class (from runs-<class>.jsonl). */
-function recs(name) {
-  if (!cache.has(name)) {
-    const dir = join(IN, name);
-    if (!existsSync(join(dir, 'summary.json'))) { cache.set(name, null); return null; }
+/** Records of a cell per class (from runs-<class>.jsonl) in pass directory `root` (default: --in). */
+function recs(name, root = IN) {
+  const key = `${root}|${name}`;
+  if (!cache.has(key)) {
+    const dir = join(root, name);
+    if (!existsSync(join(dir, 'summary.json'))) { cache.set(key, null); return null; }
     const sum = readJson(join(dir, 'summary.json'));
     const out = {};
     for (const cls of Object.keys(sum.classes)) out[cls] = readJsonl(join(dir, `runs-${cls}.jsonl`));
-    cache.set(name, out);
+    cache.set(key, out);
   }
-  return cache.get(name);
+  return cache.get(key);
 }
 /** The P0 planner cell of each class is its best-tree B7 cell. */
 function plannerP0() {
@@ -124,12 +129,13 @@ function miss(v, lo, hi) {
   return 0;
 }
 const ordinal = {};
-function add(id, pri, metric, value, target, ok, missSize = 0, note = '') {
+function add(id, pri, metric, value, target, ok, missSize = 0, note = '', beforeOverride = undefined) {
   let before = null;
   if (pri !== 'diag') {
     ordinal[id] = (ordinal[id] || 0) + 1;
     if (BEFORE) before = BEFORE.checks.get(`${id}#${ordinal[id]}`) || null;
   }
+  if (beforeOverride !== undefined) before = beforeOverride;
   rows.push({ id, pri, metric, value, target, ok, miss: ok === false ? missSize : 0, note, before });
 }
 const rcell = (r) => (r && r.n ? `${pct(r.p)} (${ci(r.ci)})` : 'n/a');
@@ -249,12 +255,56 @@ add('B19', 'P2', 'Rare-or-better share of the 10 slots at boss, planner P0', pct
   add('B20', 'P2', 'Median level when leaving Z1..Z6, planner P0', lv.map((v) => num(v, 0)).join(', '), `10z ± ${BAL.ZONE_LVL_SLACK}`, bad.length === 0, bad.length / 6, bad.length ? `outside: ${bad.join(', ')}` : '');
 }
 // B21-B25: deaths and risk
+/**
+ * B21, B24, B38 (definitions of M2 v3) for planner P0 metrics `x`: [{ id, pri, metric, value, target, ok, miss }].
+ * Used for this pass and, with --before-pass, for the earlier engine (same definitions).
+ */
+function riskChecks(x) {
+  const out = [];
+  const push = (id, pri, metric, value, target, ok, missSize) => out.push({ id, pri, metric, value, target, ok, miss: missSize });
+  const d = x.deathStageRuns;
+  push('B21', 'P1', 'Runs dying in Z1-Z2 (planner P0, share of all runs)', rcell(d.early), `<= ${pct(BAL.DEATH_EARLY_MAX)}`, d.early.p <= BAL.DEATH_EARLY_MAX, miss(d.early.p, null, BAL.DEATH_EARLY_MAX));
+  push('B21', 'P1', 'Runs dying in Z3-Z4 (share of all runs)', rcell(d.mid), band(BAL.DEATH_MID), inBand(d.mid.p, BAL.DEATH_MID), miss(d.mid.p, ...BAL.DEATH_MID));
+  push('B21', 'P1', 'Runs dying in Z5-Z6 or Camp waves (share of all runs)', rcell(d.late), band(BAL.DEATH_LATE), inBand(d.late.p, BAL.DEATH_LATE), miss(d.late.p, ...BAL.DEATH_LATE));
+  const b = x.deathStage.boss;
+  push('B21', 'P1', 'Deaths at the end boss (share of deaths)', rcell(b), band(BAL.DEATH_BOSS), inBand(b.p, BAL.DEATH_BOSS), miss(b.p, ...BAL.DEATH_BOSS));
+  const cf = x.closeFights;
+  push('B24', 'P2', `Won non-boss fights whose lowest HP fell below ${pct(BAL.CLOSE_FIGHT_HP, 0)} (planner P0; ending below 20 %: ${pct(x.closeFightsEnd.p)})`, rcell(cf), band(BAL.CLOSE_FIGHT), cf.n ? inBand(cf.p, BAL.CLOSE_FIGHT) : null, miss(cf.p, ...BAL.CLOSE_FIGHT));
+  const t = x.tension;
+  const zs = t.zones.map((z) => (z.v === null ? 'n/a' : num(z.v * 100, 0))).join(' / ');
+  const okT = t.spread === null || t.z6 === null ? null : t.spread <= BAL.TENSION_SPREAD_MAX && t.z6 <= BAL.TENSION_Z6_MAX;
+  push('B38', 'P1', `Tension: mean lowest HP % in won non-boss fights by zone, planner P0 (Z1..Z6: ${zs})`,
+    t.spread === null ? 'n/a' : `Z2-Z5 spread ${num(t.spread * 100, 1)} pp, Z6 ${pct(t.z6)}`,
+    `spread <= ${num(BAL.TENSION_SPREAD_MAX * 100, 0)} pp, Z6 <= ${pct(BAL.TENSION_Z6_MAX, 0)}`, okT,
+    Math.max(miss(t.spread, null, BAL.TENSION_SPREAD_MAX), miss(t.z6, null, BAL.TENSION_Z6_MAX)));
+  return out;
+}
+/** Planner P0 metrics of the --before-pass directory (pooled over its best-tree cells), or null. */
+function beforePassPlanner() {
+  if (!BEFORE_PASS) return null;
+  const bp = readJson(join(BEFORE_PASS, 'pass.json'));
+  const all = [];
+  for (const cls of CLASSES) {
+    const r = recs(`planner-P0-tree${bp.trees[cls]}`, BEFORE_PASS);
+    if (r && r[cls]) all.push(...r[cls]);
+  }
+  return all.length ? cellMetrics(all, { timeProfile: 'manual' }) : null;
+}
 {
-  const d = pl.deathStage;
-  add('B21', 'P1', 'Deaths in Z1-Z2 (planner P0, share of deaths)', rcell(d.early), `<= ${pct(BAL.DEATH_EARLY_MAX)}`, d.early.p <= BAL.DEATH_EARLY_MAX, miss(d.early.p, null, BAL.DEATH_EARLY_MAX));
-  add('B21', 'P1', 'Deaths in Z3-Z4', rcell(d.mid), band(BAL.DEATH_MID), inBand(d.mid.p, BAL.DEATH_MID), miss(d.mid.p, ...BAL.DEATH_MID));
-  add('B21', 'P1', 'Deaths in Z5-Z6 and Camp waves', rcell(d.late), band(BAL.DEATH_LATE), inBand(d.late.p, BAL.DEATH_LATE), miss(d.late.p, ...BAL.DEATH_LATE));
-  add('B21', 'P1', 'Deaths at the end boss', rcell(d.boss), band(BAL.DEATH_BOSS), inBand(d.boss.p, BAL.DEATH_BOSS), miss(d.boss.p, ...BAL.DEATH_BOSS));
+  const nowRows = riskChecks(pl);
+  const bpl = beforePassPlanner();
+  const beforeRows = bpl ? riskChecks(bpl) : null;
+  const keep = (id) => (r) => r.id === id;
+  const emit = (id) => {
+    const now = nowRows.filter(keep(id));
+    const bef = beforeRows ? beforeRows.filter(keep(id)) : null;
+    now.forEach((r, i) => {
+      const bo = bef ? { value: bef[i].value, result: bef[i].ok === null ? 'n/a' : bef[i].ok ? 'pass' : '**FAIL**' } : undefined;
+      const note = bef ? 'M2 v3 definition; Before: earlier engine re-measured with it' : (BEFORE && id !== 'B38' ? 'M2 v3 definition; Before: old definition' : '');
+      add(r.id, r.pri, r.metric, r.value, r.target, r.ok, r.miss, note, bo);
+    });
+  };
+  emit('B21');
   const types = Object.entries(pl.deathType);
   const top = types[0];
   add('B22', 'P2', `Non-boss deaths by node type (${types.map(([k, v]) => `${k} ${pct(v.p, 0)}`).join(', ')})`, `largest: ${top ? `${top[0]} ${pct(top[1].p)}` : 'n/a'}`, `no type > ${pct(BAL.DEATH_TYPE_MAX)}`, top ? top[1].p <= BAL.DEATH_TYPE_MAX : null, top ? miss(top[1].p, null, BAL.DEATH_TYPE_MAX) : 0);
@@ -264,7 +314,8 @@ add('B19', 'P2', 'Rare-or-better share of the 10 slots at boss, planner P0', pct
   add('B23', 'P2', 'Boss losses in phase 1', rcell(ph['1']), `<= ${pct(BAL.BOSS_P1_LOSS_MAX)}`, ph['1'].p <= BAL.BOSS_P1_LOSS_MAX, miss(ph['1'].p, null, BAL.BOSS_P1_LOSS_MAX));
   const late = rate(ph['3'].k + ph.enrage.k, ph['3'].n);
   add('B23', 'P2', `Boss losses in phase 3 or enrage (phase 2: ${pct(ph['2'].p)})`, rcell(late), `>= ${pct(BAL.BOSS_LATE_LOSS_MIN)}`, late.p >= BAL.BOSS_LATE_LOSS_MIN, miss(late.p, BAL.BOSS_LATE_LOSS_MIN, null));
-  add('B24', 'P2', 'Won non-boss fights ending below 20 % HP (planner P0)', rcell(pl.closeFights), band(BAL.CLOSE_FIGHT), inBand(pl.closeFights.p, BAL.CLOSE_FIGHT), miss(pl.closeFights.p, ...BAL.CLOSE_FIGHT));
+  emit('B24');
+  emit('B38');
   add('B25', 'P3', 'Rests per run (nodes + Inn), planner P0 runs reaching the boss', num(pl.rests.v), `${BAL.REST_COUNT[0]} - ${BAL.REST_COUNT[1]}`, inBand(pl.rests.v, BAL.REST_COUNT), miss(pl.rests.v, ...BAL.REST_COUNT));
   add('B25', 'P3', 'Potions used per run, planner P0 runs reaching the boss', num(pl.potions.v), `${BAL.POTION_COUNT[0]} - ${BAL.POTION_COUNT[1]}`, inBand(pl.potions.v, BAL.POTION_COUNT), miss(pl.potions.v, ...BAL.POTION_COUNT));
 }
@@ -356,7 +407,10 @@ L.push(table(['Metric', ...CLASSES], [
   prow('Median hours at boss / Ascendancy', (x) => `${num(x.hoursBoss.v, 0)} / ${num(x.ascBoss.v, 2)}`),
   prow('Mean ilvl at boss / rare share', (x) => `${num(x.ilvlBoss.v)} / ${pct(x.rareShareBoss.v, 0)}`),
   prow('Rounds: normal / elite / trash / dungeon boss / end boss', (x) => ['normal', 'elite', 'trash', 'dboss', 'boss'].map((k) => num(x.rounds[k].v, 0)).join(' / ')),
-  prow('Deaths: Z1-2 / Z3-4 / Z5-6+camp / boss', (x) => ['early', 'mid', 'late', 'boss'].map((k) => pct(x.deathStage[k].p, 0)).join(' / ')),
+  prow('Runs dying in Z1-2 / Z3-4 / Z5-6+camp (share of runs)', (x) => ['early', 'mid', 'late'].map((k) => pct(x.deathStageRuns[k].p, 1)).join(' / ')),
+  prow('Deaths: Z1-2 / Z3-4 / Z5-6+camp / boss (share of deaths)', (x) => ['early', 'mid', 'late', 'boss'].map((k) => pct(x.deathStage[k].p, 0)).join(' / ')),
+  prow('Mean lowest HP in won non-boss fights, Z1..Z6 (%)', (x) => x.tension.zones.map((z) => num(z.v === null ? null : z.v * 100, 0)).join(' / ')),
+  prow(`Won non-boss fights dipping below ${pct(BAL.CLOSE_FIGHT_HP, 0)} / ending below 20 %`, (x) => `${pct(x.closeFights.p)} / ${pct(x.closeFightsEnd.p)}`),
   prow('Non-boss deaths by type', (x) => Object.entries(x.deathType).map(([k, v]) => `${k} ${pct(v.p, 0)}`).join(', ')),
   prow('Boss losses: phase 1 / 2 / 3 / enrage', (x) => ['1', '2', '3', 'enrage'].map((k) => pct(x.bossLossPhase[k].p, 0)).join(' / ')),
   prow('Boss HP left at loss (median)', (x) => pct(x.bossHpLeft.v, 0)),

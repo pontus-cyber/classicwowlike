@@ -43,7 +43,7 @@ export async function runBatch(opts) {
       onBlock: opts.quiet ? null : (d, n) => process.stderr.write(`  ${name} ${cls}: ${d}/${n}\n`),
     });
     total += opts.runs;
-    const metrics = cellMetrics(res.records, { enrageRound: 50, timeProfile: TIME_PROFILE[opts.bot] });
+    const metrics = cellMetrics(res.records, { timeProfile: TIME_PROFILE[opts.bot] });
     perClass[cls] = { records: res.records, metrics, obs: res.obs, table: res.table, tree };
     if (dir) writeJsonl(join(dir, `runs-${cls}.jsonl`), res.records.map((r) => { const { ne, ...rest } = r; return rest; }));
   }

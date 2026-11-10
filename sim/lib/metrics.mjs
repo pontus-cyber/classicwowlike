@@ -1,5 +1,7 @@
 // Metrics of one cell (class × bot × profile [× variant]) from run records (balance.md 3). Pure functions of
 // the records, so a fixed sample gives fixed numbers (qa/sim/metrics.test.mjs checks them by hand).
+import { C } from './engine.mjs';
+import { BAL } from './params.mjs';
 import { FIGHT_KINDS } from './recorder.mjs';
 import { rate, med, avg, quantile } from './stats.mjs';
 
@@ -22,7 +24,31 @@ export function bossLossPhase(r, enrageRound) {
   return String(r.bp);
 }
 
-export function cellMetrics(records, { enrageRound = 50, timeProfile = 'manual' } = {}) {
+/**
+ * Won non-boss fights of a record with the M2 v3 fight fields (zone, lowest HP): [zone, lowest HP fraction].
+ * Records written before M2 v3 (4-field fights) give none.
+ */
+export function wonFightLows(r) {
+  const out = [];
+  for (const f of r.fx) if (f[2] === 1 && f[0] !== FK.boss && f.length >= 6) out.push([f[4], f[5] / 1000]);
+  return out;
+}
+
+/**
+ * B38 (M2 v3): mean lowest HP in won non-boss fights per zone 1..ZONE_COUNT; spread = max - min over Z2-Z5.
+ * Returns { zones: [{ z, v, n }], spread, z6 }.
+ */
+export function tensionPerZone(records) {
+  const sum = new Array(C.ZONE_COUNT + 2).fill(0);
+  const cnt = new Array(C.ZONE_COUNT + 2).fill(0);
+  for (const r of records) for (const [z, low] of wonFightLows(r)) { sum[z] += low; cnt[z] += 1; }
+  const zones = [];
+  for (let z = 1; z <= C.ZONE_COUNT; z++) zones.push({ z, v: cnt[z] ? sum[z] / cnt[z] : null, n: cnt[z] });
+  const mid = zones.filter((x) => x.z >= 2 && x.z <= 5 && x.v !== null).map((x) => x.v);
+  return { zones, spread: mid.length === 4 ? Math.max(...mid) - Math.min(...mid) : null, z6: zones[5] ? zones[5].v : null };
+}
+
+export function cellMetrics(records, { enrageRound = C.BOSS_ENRAGE_ROUND, timeProfile = 'manual' } = {}) {
   const n = records.length;
   const ok = records.filter((r) => r.out !== 'x');
   const wins = ok.filter((r) => r.out === 'v');
@@ -58,7 +84,9 @@ export function cellMetrics(records, { enrageRound = 50, timeProfile = 'manual' 
   // Deaths (B21-B23, B29)
   const stage = { early: 0, mid: 0, late: 0, boss: 0 };
   for (const r of deaths) stage[deathStage(r.death)] += 1;
+  // Share of deaths (the pre-M2 v3 B21 definition; still the B21 boss band) and share of all runs (M2 v3 stage bands).
   m.deathStage = Object.fromEntries(Object.entries(stage).map(([k, v]) => [k, rate(v, deaths.length)]));
+  m.deathStageRuns = Object.fromEntries(Object.entries(stage).map(([k, v]) => [k, rate(v, ok.length)]));
   const nb = deaths.filter((r) => r.death.type !== 'boss');
   const types = {};
   for (const r of nb) types[r.death.type] = (types[r.death.type] || 0) + 1;
@@ -77,10 +105,24 @@ export function cellMetrics(records, { enrageRound = 50, timeProfile = 'manual' 
     rounds[g] = med(xs);
   }
   m.rounds = rounds;
+  // B24 (M2 v3): won non-boss fights whose lowest HP fell below CLOSE_FIGHT_HP; closeFightsEnd: the pre-M2 v3
+  // reading (HP at the fight's end below 20 %), kept for comparison.
   let won = 0;
+  let closeEnd = 0;
+  let wonLow = 0;
   let close = 0;
-  for (const r of ok) for (const f of r.fx) if (f[2] === 1 && f[0] !== FK.boss) { won++; if (f[3] < 20) close++; }
-  m.closeFights = rate(close, won);
+  const lim = Math.round(BAL.CLOSE_FIGHT_HP * 1000);
+  for (const r of ok) {
+    for (const f of r.fx) {
+      if (f[2] !== 1 || f[0] === FK.boss) continue;
+      won++;
+      if (f[3] < 20) closeEnd++;
+      if (f.length >= 6) { wonLow++; if (f[5] < lim) close++; }
+    }
+  }
+  m.closeFights = rate(close, wonLow);
+  m.closeFightsEnd = rate(closeEnd, won);
+  m.tension = tensionPerZone(ok);
   // Resources (B25), economy (B30, B33, B34)
   m.rests = avg(boss.map((r) => r.rests));
   m.potions = avg(boss.map((r) => r.potions));

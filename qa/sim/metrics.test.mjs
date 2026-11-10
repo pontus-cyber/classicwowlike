@@ -1,32 +1,33 @@
 // Metrics on a tiny fixed sample match hand-checked values (balance.md 3, sim/lib/metrics.mjs).
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { cellMetrics, deathStage } from '../../sim/lib/metrics.mjs';
+import { cellMetrics, deathStage, tensionPerZone } from '../../sim/lib/metrics.mjs';
 import { wilson, median, quantile } from '../../sim/lib/stats.mjs';
 import { campaignMetrics } from '../../sim/lib/campaignreport.mjs';
 import { FK } from '../../sim/lib/recorder.mjs';
 
-// Five runs, written by hand. Fights: [kind, rounds, outcome (1 won, 0 lost, 2 fled), HP % at the end].
+// Five runs, written by hand. Fights (M2 v3 format): [kind, rounds, outcome (1 won, 0 lost, 2 fled), HP % at the end,
+// zone (7 = Camp / end boss), lowest HP during the fight in per mille, potions used].
 const base = { min: [0, 0], nodes: 0, fights: 0, hb: null, asc: null, bp: 0, bhp: null, rests: 0, potions: 0, ech: 0, echFirst: 0, travelLv: [], train: [], boss: null, steps: 10, ms: 1, zone: 1, fx: [], res: 0 };
 const RUNS = [
   // 1: win. Boss reached with level 60, ilvl 58, 6/10 rare slots, Ember bought; 45 min manual / 30 autoplay.
   { ...base, seed: 1, out: 'v', rb: 1, lvl: 60, hb: 150, asc: 0.08, bp: 3, min: [45, 30], nodes: 48, fights: 66, rests: 8, potions: 12, ech: 540, echFirst: 100,
     travelLv: [10, 20, 30, 40, 50, 60], train: [1, 1, 0], boss: { lvl: 60, ilvl: 58, rare: 0.6, empty: 0, ember: 1 },
-    fx: [[FK.quest, 5, 1, 50], [FK.elite, 8, 1, 15], [FK.dboss, 10, 1, 40], [FK.boss, 40, 1, 30]], death: null },
+    fx: [[FK.quest, 5, 1, 50, 1, 400, 0], [FK.elite, 8, 1, 15, 3, 150, 1], [FK.dboss, 10, 1, 40, 4, 300, 1], [FK.boss, 40, 1, 30, 7, 200, 2]], death: null },
   // 2: boss loss in phase 2 at round 30; level 59.
   { ...base, seed: 2, out: 'd', rb: 1, lvl: 59, hb: 170, asc: 0.12, bp: 2, bhp: 0.5, min: [55, 35], nodes: 50, fights: 70, rests: 10, potions: 16, ech: 300,
     travelLv: [10, 20, 30, 39, 49, 59], train: [1, 0], boss: { lvl: 59, ilvl: 52, rare: 0.3, empty: 1, ember: 0 },
-    fx: [[FK.quest, 3, 1, 10], [FK.grind, 6, 1, 90], [FK.boss, 30, 0, 0]], death: { z: 7, type: 'boss', round: 30, ab: 'shard_hit' } },
+    fx: [[FK.quest, 3, 1, 10, 2, 100, 1], [FK.grind, 6, 1, 90, 5, 900, 0], [FK.boss, 30, 0, 0, 7, 0, 3]], death: { z: 7, type: 'boss', round: 30, ab: 'shard_hit' } },
   // 3: boss loss to Final Dark (round 50, phase 3).
   { ...base, seed: 3, out: 'd', rb: 1, lvl: 60, hb: 160, asc: 0.12, bp: 3, bhp: 0.2, min: [50, 33], nodes: 46, fights: 60, rests: 6, potions: 8, ech: 320,
     travelLv: [10, 21, 31, 41, 51, 60], train: [1], boss: { lvl: 60, ilvl: 55, rare: 0.5, empty: 0, ember: 0 },
-    fx: [[FK.treasure, 4, 1, 60], [FK.boss, 50, 0, 0]], death: { z: 7, type: 'boss', round: 50, ab: 'final_dark' } },
+    fx: [[FK.treasure, 4, 1, 60, 6, 600, 0], [FK.boss, 50, 0, 0, 7, 0, 2]], death: { z: 7, type: 'boss', round: 50, ab: 'final_dark' } },
   // 4: died in a Z2 dungeon.
   { ...base, seed: 4, out: 'd', rb: 0, lvl: 15, min: [12, 9], ech: 60, travelLv: [10], train: [0],
-    fx: [[FK.quest, 7, 1, 30], [FK.trash, 6, 0, 0]], death: { z: 2, type: 'dungeon', round: 6, ab: 'strike' } },
+    fx: [[FK.quest, 7, 1, 30, 1, 300, 0], [FK.trash, 6, 0, 0, 2, 0, 1]], death: { z: 2, type: 'dungeon', round: 6, ab: 'strike' } },
   // 5: died in a Z4 quest; one fled fight.
   { ...base, seed: 5, out: 'd', rb: 0, lvl: 33, min: [25, 18], ech: 150, travelLv: [10, 20, 30],
-    fx: [[FK.quest, 2, 2, 70], [FK.quest, 9, 0, 0]], death: { z: 4, type: 'quest', round: 9, ab: 'bolt' } },
+    fx: [[FK.quest, 2, 2, 70, 3, 700, 0], [FK.quest, 9, 0, 0, 4, 0, 1]], death: { z: 4, type: 'quest', round: 9, ab: 'bolt' } },
 ];
 
 describe('cell metrics on a fixed sample (hand-checked)', () => {
@@ -66,6 +67,10 @@ describe('cell metrics on a fixed sample (hand-checked)', () => {
     assert.equal(m.deathStage.late.k, 0);
     assert.equal(m.deathStage.boss.k, 2);
     assert.equal(m.deathStage.boss.n, 4);
+    // B21 (M2 v3): stage bands as a share of all runs, the boss band as a share of deaths.
+    assert.equal(m.deathStageRuns.early.k, 1); assert.equal(m.deathStageRuns.early.n, 5);
+    assert.equal(m.deathStageRuns.mid.p, 0.2);
+    assert.equal(m.deathStageRuns.late.p, 0);
     assert.deepEqual(Object.keys(m.deathType).sort(), ['dungeon', 'quest']);
     assert.equal(m.deathType.dungeon.p, 0.5);
     assert.equal(m.bossLossPhase['2'].k, 1);
@@ -79,8 +84,27 @@ describe('cell metrics on a fixed sample (hand-checked)', () => {
     assert.equal(m.rounds.elite.v, 8);
     assert.equal(m.rounds.dboss.v, 10);
     assert.equal(m.rounds.boss.v, 40);
-    // won non-boss fights: 5r50, 8r15, 10r40, 3r10, 6r90, 4r60, 7r30 -> below 20 %: 15 and 10 -> 2/7
-    assert.equal(m.closeFights.k, 2); assert.equal(m.closeFights.n, 7);
+    // won non-boss fights: 5r50, 8r15, 10r40, 3r10, 6r90, 4r60, 7r30 -> ending below 20 %: 15 and 10 -> 2/7
+    assert.equal(m.closeFightsEnd.k, 2); assert.equal(m.closeFightsEnd.n, 7);
+    // B24 (M2 v3): lowest HP below CLOSE_FIGHT_HP (350 per mille): 400, 150, 300, 100, 900, 600, 300 -> 4/7
+    assert.equal(m.closeFights.k, 4); assert.equal(m.closeFights.n, 7);
+  });
+
+  test('B38 tension: mean lowest HP in won non-boss fights per zone (fled and lost fights excluded)', () => {
+    const t = m.tension;
+    // Z1: 400, 300 -> 0.35; Z2: 100; Z3: 150 (the fled Z3 quest is excluded); Z4: 300; Z5: 900; Z6: 600
+    assert.deepEqual(t.zones.map((z) => z.n), [2, 1, 1, 1, 1, 1]);
+    assert.deepEqual(t.zones.map((z) => Math.round(z.v * 1000)), [350, 100, 150, 300, 900, 600]);
+    assert.ok(Math.abs(t.spread - 0.8) < 1e-12); // Z2-Z5: 0.90 - 0.10
+    assert.equal(t.z6, 0.6);
+    // A zone without won fights: no spread.
+    assert.equal(tensionPerZone([RUNS[3]]).spread, null);
+    // Records written before M2 v3 (4-field fights) give no B24 and no B38 data.
+    const old = RUNS.map((r) => ({ ...r, fx: r.fx.map((f) => f.slice(0, 4)) }));
+    const mo = cellMetrics(old, { enrageRound: 50 });
+    assert.equal(mo.closeFights.n, 0);
+    assert.equal(mo.tension.spread, null);
+    assert.equal(mo.closeFightsEnd.k, 2);
   });
 
   test('resources, Echoes and trainer affordability', () => {

@@ -1,6 +1,9 @@
 // Per-run record for the metrics (balance.md 3). Everything is read from the engine: the run summary
 // (rules 9), s.stats counters and the events of each step. Compact arrays keep 2 000-run cells small.
-//   fx: fights   [kindCode, rounds, outcome (1 won, 0 lost, 2 fled), HP % at the fight's end (before regen)]
+//   fx: fights   [kindCode, rounds, outcome (1 won, 0 lost, 2 fled), HP % at the fight's end (before regen),
+//                 zone (1-6; ZONE_COUNT + 1 for the Camp and the end boss), lowest HP during the fight in per mille of
+//                 max HP rounded down (so "< CLOSE_FIGHT_HP × 1000" is exact; 0 on a death or resurrect), potions used]
+//                 (M2 v3: zone, lowest HP and potions for B21, B24 and B38)
 //   ne: entries  [riskTypeCode, CL - L, HP % at entry, died (0/1), HP % at exit] for the risk table
 //       (a quest whose fight never starts keeps type 'quest' and is skipped by the table)
 import { C, R } from './engine.mjs';
@@ -9,6 +12,9 @@ import { TYPE_CODE } from './risk.mjs';
 export const FIGHT_KINDS = ['quest', 'grind', 'elite', 'trash', 'dboss', 'treasure', 'camp', 'boss'];
 export const FK = Object.fromEntries(FIGHT_KINDS.map((k, i) => [k, i]));
 const pct = (x) => Math.max(0, Math.min(100, Math.round(x * 100)));
+const permille = (x) => Math.max(0, Math.min(1000, Math.floor(x * 1000 + 1e-9)));
+/** Zone code of a fight: 1-6, the Camp (and the end boss there) ZONE_COUNT + 1. */
+const zoneOf = (s) => (s.zone && !s.zone.camp ? s.zone.z : C.ZONE_COUNT + 1);
 const ENTRY_NODE = new Set(['quest', 'elite', 'dungeon', 'treasure']);
 
 /** At a hub or camp trainer visit: does the gold cover TRAIN_ALL? null when nothing is trainable. */
@@ -60,7 +66,12 @@ export class Recorder {
     const hpAfter = () => p.hp / p.d.maxHp;
     for (const e of events) {
       switch (e.t) {
-        case 'damage': if (e.dst === 'player') hp -= e.amount; break;
+        case 'damage':
+          if (e.dst === 'player') {
+            hp -= e.amount;
+            if (this.fight) this.fight.min = Math.min(this.fight.min, hp / p.d.maxHp);
+          }
+          break;
         case 'heal': if (e.dst === 'player') hp += e.amount; break;
         case 'levelUp': if (!lvlApplied) { hp += p.d.maxHp - b.maxHp; lvlApplied = true; } break;
         case 'resurrect': hp = Math.max(1, Math.round(C.RES_HP_PCT * p.d.maxHp)); break;
@@ -68,7 +79,7 @@ export class Recorder {
           if (ENTRY_NODE.has(e.type)) this.openEntry(e.type, e.cl - b.level, b.hp / b.maxHp);
           break;
         case 'fight': {
-          this.fight = { kind: e.kind, r0: b.rounds };
+          this.fight = { kind: e.kind, r0: b.rounds, min: hp / b.maxHp, z: zoneOf(s), pot: s.stats.potionsUsed };
           const lvl = e.enemies.length ? e.enemies[0].level : b.level;
           if (e.kind === 'grind' || e.kind === 'camp') this.openEntry(e.kind, lvl - b.level, hp / b.maxHp);
           else if (this.entry && this.entry.type === 'quest' && e.kind === 'quest') this.entry.type = `quest${Math.min(3, e.enemies.length)}`;
@@ -82,7 +93,8 @@ export class Recorder {
         case 'fled': {
           if (this.fight) {
             const rounds = e.t === 'victory' ? e.rounds : s.stats.rounds - this.fight.r0;
-            this.fx.push([FK[this.fight.kind], rounds, e.t === 'victory' ? 1 : 2, pct(hp / p.d.maxHp)]);
+            const fz = this.fight;
+            this.fx.push([FK[fz.kind], rounds, e.t === 'victory' ? 1 : 2, pct(hp / p.d.maxHp), fz.z, permille(fz.min), s.stats.potionsUsed - fz.pot]);
             const k = this.fight.kind;
             this.fight = null;
             if (this.entry) this.entry.hp1 = pct(hpAfter());
@@ -97,7 +109,7 @@ export class Recorder {
           if (e.outcome === 'death') {
             if (this.fight) {
               const rounds = this.fight.kind === 'boss' ? s.stats.bossRounds : s.stats.rounds - this.fight.r0;
-              this.fx.push([FK[this.fight.kind], rounds, 0, 0]);
+              this.fx.push([FK[this.fight.kind], rounds, 0, 0, this.fight.z, 0, s.stats.potionsUsed - this.fight.pot]);
               this.fight = null;
             }
             this.closeEntry(1, 0);
