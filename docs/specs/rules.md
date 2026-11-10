@@ -1,6 +1,6 @@
 # Rules spec (M0 task 0.2)
 
-Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)"); M2 v5 changes 2026-11-10 (marked "(M2 v5)"); combat v2 (docs/specs/combat-v2.md, on its defaults) folded into sections 3, 7 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(combat v2)"); the expedition map (docs/specs/expedition.md 1, 4-7, 9.5; a run option until the switch-over) folded into 1.9 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(expedition)"); heat (docs/specs/expedition.md section H, on its defaults, both map modes) folded into 1.7.1-1.7.4, 1.9.10, 8.4, 9, 11.1 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(heat)").
+Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)"); M2 v5 changes 2026-11-10 (marked "(M2 v5)"); combat v2 (docs/specs/combat-v2.md, on its defaults) folded into sections 3, 7 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(combat v2)"); the expedition map (docs/specs/expedition.md 1, 4-7, 9.5; a run option until the switch-over) folded into 1.9 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(expedition)"); heat (docs/specs/expedition.md section H, on its defaults, both map modes) folded into 1.7.1-1.7.4, 1.9.10, 8.4, 9, 11.1 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(heat)"); combat v2.1 (docs/specs/combat-v2.md 16, docs/specs/changes-combat-v21.md) in section 7 and 13 by the Lead Game Designer, 2026-11-10 (marked "(combat v2.1)"; not yet in the engine).
 Audience: Core Gameplay Engineer (src/rules.js), Simulation & Balance Engineer, UI/UX Engineer, Content Designer.
 
 Every global number is a named constant (UPPER_SNAKE_CASE) in section 13. The data tables (classes, spells, pets, talents, archetypes, boss, meta catalogue) are named constant groups: each cell is addressed as `TABLE.id.field` (e.g. `SPELL.ember_bolt.cost`) and is exported as data from src/. Values are starting values; the Simulation & Balance Engineer tunes them within the limits in balance.md.
@@ -639,7 +639,7 @@ Fight start: energy/focus full, CP 0, all cooldowns 0. Fight end: statuses (exce
 
 Each damage event draws exactly 3 numbers (r1, r2, r3) even on a miss. Multi-hit spells are separate events. DOT ticks: damage is fixed at application (steps 1-2 and 6 snapshot), no miss, no armor, draw 1 number only if the tick can crit. Heals: no rolls, no crit.
 
-Enemy crit chance ENEMY_CRIT, crit multiplier CRIT_MULT. Enemy dodge ENEMY_DODGE (+ archetype). Step 2 attacker modifiers of a beast include Bloodlust (7.12). (combat v2)
+Enemy crit chance ENEMY_CRIT, crit multiplier CRIT_MULT. Enemy dodge ENEMY_DODGE (+ archetype). Step 2 attacker modifiers of a beast include Bloodlust (7.12). (combat v2) Step 2 attacker modifiers of every template enemy include EMPOWERED (+EMPOWER_DMG per stack) and STAGGERED (-STAGGER_DMG per stack), the lasting result of its wind-ups (7.12). (combat v2.1)
 
 ### 7.3 Resources and costs
 Cost is paid on use, also on a miss. Mana costs are `round(cost% × base mana(L))`. Not enough resource = spell unusable. Energy/Focus regen at end of round; mana regen MANA_REGEN_ROUND_PCT at end of round.
@@ -654,8 +654,10 @@ Durations count end-of-round decrements including the round of application (a 1-
 | HEXED | enemy | skips actions, intent "none" | refresh | any damage to it; bosses immune (= interrupt) |
 | SAPPED | enemy | skips actions, intent "Sapped" (Sap, 7.10) (combat v2) | refresh | end, any damage to it (DOT ticks and AoE included); bosses immune |
 | OFF_BALANCE | enemy | 7.13: damage taken +value from the player and pet, player crit +OFFBAL_CRIT, dodge 0 (combat v2) | refresh | end |
+| EMPOWERED | enemy | +EMPOWER_DMG damage dealt per stack (7.2 step 2): one stack per wind-up it landed unanswered (7.12) (combat v2.1) | +1 stack per wind-up, no cap, no expiry | fight end |
+| STAGGERED | enemy | -STAGGER_DMG damage dealt per stack (7.2 step 2): one stack per wind-up the player answered (7.12) (combat v2.1) | +1 stack per wind-up, no cap, no expiry | fight end |
 | TRAP | enemy | Lay Trap: springs at the start of turn `turn` (7.10) (combat v2) | - | springing |
-| SILENCED | enemy | cannot play `cast` intents: a cast entry that becomes now while SILENCED is replaced by the basic attack (7.11) (combat v2) | refresh | end |
+| SILENCED | enemy | cannot play `cast` intents: a cast entry that becomes now while SILENCED is replaced by the basic attack (7.11) (combat v2); a wind-up replaced this way counts as answered (7.12) (combat v2.1) | refresh | end |
 | BLEED / BURN | any | tick damage at end of round | one per source spell; refresh | end, dispersal (on player) |
 | POISON | enemy | tick per stack | up to cap; each application +1 stack, refresh | end |
 | CHILLED | any | outgoing damage -CHILL_PCT | refresh | end, dispersal |
@@ -693,7 +695,7 @@ Zone danger (M2 v3): every enemy made from an enemy template (normal, quest, gri
 Soft enrage (non-boss fights): from round FIGHT_SOFT_ENRAGE_ROUND, enemies deal +FIGHT_SOFT_ENRAGE_STEP more damage per round (additive). Prevents endless fights.
 
 ### 7.7 Interrupts
-An enemy whose intent has `cast` loses that action if, before it acts in that round, it is hit by an interrupt (Throat Jab, Spellsnap, Muzzle Shot; these always hit, 7.2 step 3), or becomes STUN/FROZEN/HEXED, or (bosses) is hit by any stun-tagged spell. (M2 v2) Cooldown of the cast ability still starts. 2-round boss channels (10.3) can be interrupted in either round. An interrupted enemy becomes OFF_BALANCE (7.13); so does the end boss when its Collapse Litany is interrupted. (combat v2)
+An enemy whose intent has `cast` loses that action if, before it acts in that round, it is hit by an interrupt (Throat Jab, Spellsnap, Muzzle Shot; these always hit, 7.2 step 3), or becomes STUN/FROZEN/HEXED, or (bosses) is hit by any stun-tagged spell. (M2 v2) Cooldown of the cast ability still starts. 2-round boss channels (10.3) can be interrupted in either round. An interrupted enemy becomes OFF_BALANCE (7.13); so does the end boss when its Collapse Litany is interrupted. (combat v2) A wind-up (7.12) has `cast`, so everything above stops it, on a dungeon boss too (an interrupt, or a stun-tagged spell, which is an interrupt on a CC-immune enemy). (combat v2.1)
 
 ### 7.8 Flee
 `FLEE` succeeds if a draw < `FLEE_BASE - FLEE_PER_EXTRA_ENEMY × (living enemies - 1)` (1.0 in STEALTH). Success: leave the node; hours already spent; no further rewards from the node; quest not counted; dungeon not cleared. Not allowed vs dungeon boss or end boss. Legal in the engage round as in any round (combat v2).
@@ -714,19 +716,19 @@ Between fights in a node: if HP < AUTO_FOOD_HP (or mana < AUTO_FOOD_HP for Mage)
 ### 7.10 Engage round (combat v2)
 - Round 1 of every fight except the end boss is the engage round for every class: enemies show "Unaware" and do not act; DOT ticks, regen, durations and the pet act as in any round. An enemy's turn t is fight round t + 1 (end boss: round t). Dungeon bosses included; their immunity to control limits the control options. (combat v2)
 - In the engage round the player sees every track (turns 1..INTENT_TRACK_LEN) and takes one action: `ENGAGE(optionId, targetIdx)`, any bar spell (`CAST`), `ATTACK`, `USE_ITEM`, `PASS`, or `FLEE` (7.8). `ENGAGE` is legal only in the engage round, so at most once per fight. (combat v2)
-- Engage options are class abilities, not bar spells: no bar slot, no training, no resource, known from level 1; their strength uses L (tl = L); damage options follow 7.2 like a spell. Control options cannot target an enemy immune to control (dungeon bosses); on adds they work normally. "n turns" of an option = status duration n + 1 (7.4 counts the round of application). (combat v2)
+- Engage options are class abilities, not bar spells: no bar slot, no training, no resource, known from level 1; their strength uses L (tl = L); damage options follow 7.2 like a spell. Control options cannot control an enemy immune to control (dungeon bosses); on adds they work normally. On a CC-immune enemy every control option (Sap, Binding Glyph, Lay Trap) is instead **Disrupt**: legal only while the enemy's track shows a wind-up (7.12) within turns 1..INTENT_TRACK_LEN; it lays a TRAP on the first such turn that springs as Lay Trap's (STUN for that one turn, which cancels only that entry: OFF_BALANCE and STAGGERED); nothing else (no SAPPED, no FROZEN); Sap keeps the Rogue in STEALTH as usual. (combat v2.1) "n turns" of an option = status duration n + 1 (7.4 counts the round of application). (combat v2)
 - Price of the free round: every template enemy deals × ENGAGE_DMG_COMP (7.6; not the end boss or the Dimming Shards). (combat v2) Not in the Rogue's fights: its enemies were already Unaware in round 1 before combat v2, so the engage round is no new free round for it (D48). Except its dungeon-boss fights, which it starts without STEALTH (5.3): there every template enemy, the boss and its adds, deals × ENGAGE_DMG_COMP (D49).
 
 | id | Class | Kind | Name | Target | Effect |
 |---|---|---|---|---|---|
 | ambush | rogue | strike | Ambush | enemy | Shadowstep Strike on the target if learned (its talents and CP), else Gutting Jab × AMBUSH_MULT and +2 CP on a hit; the Rogue stays in STEALTH like after a stealth opener (7.4; D48) |
-| sap | rogue | control | Sap | enemy, not immune | SAPPED for SAP_TURNS turns (cancels those now-entries, 7.11); breaks on any damage to it, DOT ticks and AoE included; the Rogue stays in STEALTH |
+| sap | rogue | control | Sap | enemy (CC-immune: Disrupt, above; combat v2.1) | SAPPED for SAP_TURNS turns (cancels those now-entries, 7.11); breaks on any damage to it, DOT ticks and AoE included; the Rogue stays in STEALTH |
 | premeditate | rogue | setup | Premeditate | none | +PREMED_CP CP; the Rogue stays in STEALTH |
 | precast | mage | strike | Pre-cast | a bar spell and its target | casts that bar spell at 0 mana cost (its cooldown starts) |
-| binding_glyph | mage | control | Binding Glyph | enemy, not immune | FROZEN for GLYPH_TURNS turns, not broken by damage (counts as OFF_BALANCE while FROZEN, 7.13) |
+| binding_glyph | mage | control | Binding Glyph | enemy (CC-immune: Disrupt, above; combat v2.1) | FROZEN for GLYPH_TURNS turns, not broken by damage (counts as OFF_BALANCE while FROZEN, 7.13) |
 | gather_power | mage | setup | Gathered Power | none | GATHER: the next GATHER_SPELLS damaging spells cost 0 mana and have +GATHER_CRIT crit chance; lasts the fight |
 | opening_shot | hunter | strike | Opening Shot | enemy | Keen Shot × OPENING_SHOT_MULT on the target (its talents), then MARKED (value SPELL.mark_prey.marked) for OPENING_MARK_ROUNDS rounds |
-| lay_trap | hunter | control | Lay Trap | enemy, not immune | TRAP: springs at the start of the target's first turn among 1..INTENT_TRACK_LEN whose entry has `heavy` or `cast` (else of its turn 1): STUN TRAP_STUN, which cancels that now-entry (a cancelled heavy or cast: OFF_BALANCE, 7.13) |
+| lay_trap | hunter | control | Lay Trap | enemy (CC-immune: Disrupt, above; combat v2.1) | TRAP: springs at the start of the target's first turn among 1..INTENT_TRACK_LEN whose entry has `heavy` or `cast` (else of its turn 1): STUN TRAP_STUN, which cancels that now-entry (a cancelled heavy or cast: OFF_BALANCE, 7.13) |
 | send_pet | hunter | setup | Send the Pet | enemy (the pet's target) | needs a live pet; the pet engages first: pet TAUNT and PET_LEAD (damage taken -PET_LEAD_DR) for PET_LEAD_TURNS turns |
 
 ### 7.11 Intent track (combat v2)
@@ -752,6 +754,11 @@ Turns 1..OPENING_TURNS of every enemy present at fight start (not summons, Signa
 | mender | bolster | strike | mend |
 
 A skulker plays `signal` only if the fight started with at least 2 enemies, else `strike`. Elite, rare and dungeon boss: the entry for turn SIGNATURE_TURN is the template ability with the highest pct (ties: first listed); a dungeon boss also plays its other template ability on turn SIGNATURE_TURN_2; abilities with `once` (enrage, summon) are never scripted and keep their HP triggers. A scripted action's pct is × HEAVY_SCRIPT_MULT if it is heavy, × CAST_SCRIPT_MULT if it is a cast. Scripted entries are checked when they become now like every entry (7.11). (combat v2)
+
+Wind-ups (combat v2.1): a signature entry (an elite's, rare's or dungeon boss's entry on SIGNATURE_TURN, a dungeon boss's on SIGNATURE_TURN_2) is a **wind-up**: the entry has the flag `windup` and also `cast`, whatever its kind, so every interrupt, stun or control stops it (7.7), on CC-immune enemies too; its pct takes only the script multiplier of its own flag (a heavy one × HEAVY_SCRIPT_MULT, a cast one × CAST_SCRIPT_MULT; the added `cast` adds nothing). Its result lasts the whole fight:
+- **Answered** (it is interrupted; it is cancelled by STUN, FROZEN, HEXED, SAPPED, a trap or Disrupt; it is replaced because the enemy is SILENCED; or it is a heavy one from which the player lost 0 HP, 7.13 (3)): the enemy gains a STAGGERED stack (-STAGGER_DMG damage dealt for the rest of the fight), besides OFF_BALANCE where 7.13 gives it.
+- **Landed** (it is played, and for a hit or rend the player or the pet lost HP to it; cleave, curse, self_heal and self_shield count as landed whenever they are played): the enemy gains an EMPOWERED stack (+EMPOWER_DMG damage dealt for the rest of the fight).
+- An entry replaced for any other reason (cooldown, a condition) is neither. The track, the intent and the frame show the wind-up flag; the frame shows the stacks; the log says "Wind-up answered: staggered" or "Wind-up landed: empowered".
 
 | Action | Archetype | Effect | Flags | CD |
 |---|---|---|---|---|
@@ -1315,32 +1322,34 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | INTENT_TRACK_LEN | 3 | entries (now + 2) | (combat v2)
 | OPENING_TURNS | 3 | enemy turns with a scripted action | (combat v2)
 | SIGNATURE_TURN | 2 | enemy turn (elite, rare, dungeon boss) | (combat v2)
-| SIGNATURE_TURN_2 | 5 | enemy turn (dungeon boss, second template ability) | (combat v2)
-| HEAVY_SCRIPT_MULT | 1.0 | × a heavy action's pct on a scripted turn (tuning lever) | (combat v2)
-| CAST_SCRIPT_MULT | 1.0 | × a cast action's pct on a scripted turn (tuning lever) | (combat v2)
+| SIGNATURE_TURN_2 | 4 | enemy turn (dungeon boss, second template ability; was 5) | (combat v2.1)
+| HEAVY_SCRIPT_MULT | 1.5 | × a heavy action's pct on a scripted turn (tuning lever; was 1.0) | (combat v2.1)
+| CAST_SCRIPT_MULT | 1.5 | × a cast action's pct on a scripted turn (tuning lever; was 1.0) | (combat v2.1)
 | MEND_BELOW | 0.70 | fraction of max HP (ARCHETYPE.mender Mend `below`) | (combat v2)
 | SIGNAL_ADDS | 1 | enemies | (combat v2)
 | BOLSTER_PCT | 0.20 | fraction of the ally's max HP | (combat v2)
 | BOLSTER_CD | 4 | turns | (combat v2)
 | BLOODLUST_STEP | 0.10 | damage per turn acted | (combat v2)
 | BLOODLUST_MAX | 0.50 | damage | (combat v2)
-| OFFBAL_TAKEN | 0.30 | damage taken | (combat v2)
-| OFFBAL_BOSS_TAKEN | 0.15 | damage taken (end boss) | (combat v2)
+| OFFBAL_TAKEN | 0.50 | damage taken (was 0.30) | (combat v2.1)
+| OFFBAL_BOSS_TAKEN | 0 | damage taken (end boss; was 0.15; its crit and dodge effects stay) | (combat v2.1)
 | OFFBAL_CRIT | 0.20 | crit chance | (combat v2)
 | OFFBAL_DURATION | 2 | status duration (one player action) | (combat v2)
 | ENGAGE_DMG_COMP | 1.15 | × enemy damage (all template enemies; end boss excluded; not in the Rogue's fights except dungeon-boss fights, D48, D49) | (combat v2)
 | AMBUSH_MULT | 1.5 | × Gutting Jab before Shadowstep Strike is learned | (combat v2)
 | SAP_TURNS | 3 | enemy turns | (combat v2)
-| PREMED_CP | 3 | CP | (combat v2)
+| PREMED_CP | 5 | CP (was 3) | (combat v2.1)
 | GLYPH_TURNS | 2 | enemy turns | (combat v2)
-| GATHER_SPELLS | 2 | spells | (combat v2)
-| GATHER_CRIT | 0.50 | crit chance | (combat v2)
+| GATHER_SPELLS | 3 | spells (was 2) | (combat v2.1)
+| GATHER_CRIT | 1.0 | crit chance (was 0.50: gathered spells always crit) | (combat v2.1)
 | OPENING_SHOT_MULT | 1.5 | × Keen Shot | (combat v2)
 | OPENING_MARK_ROUNDS | 4 | rounds | (combat v2)
 | TRAP_STUN | 1 | rounds | (combat v2)
 | PET_LEAD_TURNS | 2 | enemy turns | (combat v2)
 | PET_LEAD_DR | 0.30 | damage taken by the pet | (combat v2)
 | ENGAGE_AUTO_LOOK | 2 | enemy turns (autoplay rule E) | (combat v2)
+| EMPOWER_DMG | 0.15 | damage dealt per EMPOWERED stack (a wind-up landed, 7.12) | (combat v2.1)
+| STAGGER_DMG | 0.30 | damage dealt less per STAGGERED stack (a wind-up answered, 7.12) | (combat v2.1)
 | RING_NODES | [1, 6, 12, 12] | nodes per ring (ring 0 = the hub) | (expedition)
 | RING_CL_BASE | [0, 1, 4, 7] | levels above the zone's band minimum, per ring | (expedition)
 | RING_CL_SPREAD | 3 | levels (u in 0..RING_CL_SPREAD-1) | (expedition)

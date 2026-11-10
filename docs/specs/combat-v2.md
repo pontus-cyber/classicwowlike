@@ -1,6 +1,6 @@
 # Combat v2 spec: the opening matters
 
-Owner: Lead Game Designer (combat). Status: draft for Lead and owner review, 2026-11-10. A change set on top of docs/specs/rules.md section 7 (and 3, 5, 10 where named). Rules in sections 2-8; pacing 9; UI 10; bots 11; balance targets 12; prototype evidence 13; open choices 14; constants 15.
+Owner: Lead Game Designer (combat). Status: draft for Lead and owner review, 2026-11-10. A change set on top of docs/specs/rules.md section 7 (and 3, 5, 10 where named). Rules in sections 2-8; pacing 9; UI 10; bots 11; balance targets 12; prototype evidence 13; open choices 14; constants 15; combat v2.1 (2026-11-10, after the sim measure docs/reports/balance-2026-11-10d.md) in section 16, changed lines marked "(combat v2.1)", change table docs/specs/changes-combat-v21.md.
 Audience: Core Gameplay Engineer, UI/UX Engineer, Simulation & Balance Engineer, Content Designer, QA.
 
 Sources: owner feedback [stated: docs/feedback/2026-11-10-1043-owner.md]; current combat [source: docs/specs/rules.md 5, 6, 7, 10]; balance state [source: docs/reports/balance-2026-11-10b.md]; playtest [source: docs/handoffs/qa-2026-11-09.md]; scratch prototype on the real engine [source: sim/out/combat2/, git-ignored, section 13]. Every number is a named constant in the table at the end (section 15); all are starting values for the Simulation & Balance Engineer.
@@ -93,6 +93,8 @@ The boss's schedule is already deterministic (Umbral Strike, Gravity Crush every
 
 Elite, rare and dungeon boss variants: the entry for turn SIGNATURE_TURN is the template ability with the highest `pct` (ties: first listed); a dungeon boss also plays its second template ability on turn SIGNATURE_TURN_2. Abilities with `once` (enrage, summon) keep their HP triggers.
 
+(combat v2.1) These signature entries are **wind-ups** (section 16.2): interruptible like a cast on every enemy, dungeon bosses included; answered, the enemy is STAGGERED for the rest of the fight (-STAGGER_DMG damage dealt); landed, it is EMPOWERED for the rest of the fight (+EMPOWER_DMG). SIGNATURE_TURN_2 moves from turn 5 to turn 4, so a dungeon boss's two wind-ups fall in rounds 3 and 5.
+
 ### 4.2 New archetype actions
 | Action | Archetype | Effect | Flags | CD |
 |---|---|---|---|---|
@@ -166,6 +168,7 @@ Hunter (ranged, pet)
 
 ### 6.3 Bosses and immunity
 Control options cannot target CC-immune enemies (dungeon bosses) and are greyed out with a reason. `sap`, `binding_glyph` and `lay_trap` on an add of a boss fight work normally. The end boss has no engage round (open choice 4).
+(combat v2.1) On a CC-immune enemy every control option is **Disrupt** instead: legal while its track shows a wind-up in turns 1..INTENT_TRACK_LEN; it cancels that one entry (a trap that springs on its turn: OFF_BALANCE and STAGGERED) and does nothing else. Greyed out with a reason when no wind-up is visible.
 
 ### 6.4 Class opening plans (what "real alternatives" means)
 | Class, situation | Plan A | Plan B | Plan C |
@@ -182,6 +185,7 @@ Each line costs something the others do not: tempo (damage now), a control charg
 - Fight start is unchanged (energy and focus full, CP 0, cooldowns 0), so the opening budget is fixed and known; what changes is that its best use depends on the track.
 - No spell values change in this spec. The ordering pressure comes from: (a) the engage choice, (b) scripted turn-2 and turn-3 threats, (c) OFF_BALANCE windows that a burst spent in round 1-2 misses, (d) existing combos (CP builder -> finisher, BURN -> Pyre Comet crit, CHILLED/FROZEN -> Shatter/Glacier Spike, MARKED -> burst).
 - If B49 (mashing gap) stays under its floor after tuning OFFBAL_TAKEN, the first lever is OFFBAL_TAKEN, the second the scripted turn-2 multipliers (HEAVY_SCRIPT_MULT, CAST_SCRIPT_MULT), the third shorter cooldowns on the payoff spells. Not raw enemy damage: that punishes the planner as much as the masher.
+- (combat v2.1) The levers of the opening's weight are now EMPOWER_DMG and STAGGER_DMG (16.2): together they move the masher and the planned opening apart; STAGGER_DMG - EMPOWER_DMG sets autoplay's difficulty (it answers about two thirds of the wind-ups). Setup options: PREMED_CP 3 -> 5, GATHER_SPELLS 2 -> 3, GATHER_CRIT 0.50 -> 1.0 (16.3).
 
 ---
 
@@ -218,6 +222,7 @@ A manual round costs 3.1 s and every fight 9 s of overhead (PACE_FIGHT_OVERHEAD_
 6. **Combat log** lines for cancelled entries ("Heavy Smash cancelled: stunned -> off-balance"), Signal reinforcements and Bolster shields.
 7. Map tooltip: enemy count and archetype icons for each fight node (4.3).
 8. Animation at the v2 budget: a manual round is on screen at most PACE_ROUND_ANIM_S (2.1 s); impact feedback per hit (the UI task already assigned).
+9. (combat v2.1) Wind-ups: a distinct "Wind-up" badge on the track entry and on the opening ruler, with what answers it (interrupt, stun, control, Disrupt, or for a heavy one a full dodge, WARD or the pet); EMPOWERED and STAGGERED stacks as large, lasting badges on the enemy frame ("+15 % damage" / "-30 % damage"), and a log line "Wind-up answered: staggered" or "Wind-up landed: empowered". Disrupt shows on the engage panel as the control option's label on a dungeon boss.
 
 ---
 
@@ -226,11 +231,12 @@ A manual round costs 3.1 s and every fight 9 s of overhead (PACE_FIGHT_OVERHEAD_
 |---|---|
 | masher (new bot) | planner for everything outside combat. Engage: the strike option on the default target. Each turn: a healing item if HP < AUTO_POTION_HP; else the usable bar spell with the highest damage amount (`spellInfo`; AoE × living enemies) on the default target; else the basic attack. Never reads intents. Manual time profile. Stands in for "rushing in and mashing" [stated]. |
 | opener (new bot) | planner outside combat. At the engage round it plans the whole opening: candidate sequences of (engage option or bar spell, target) followed by OPEN_ROUNDS - 1 actions, built from the visible tracks (beam search, width OPENER_BEAM, over the bar, the engage options and the targets; candidates include holding a burst spell for a predicted OFF_BALANCE window), each sequence scored on OPENER_SAMPLES re-seeded fight streams to the end of round OPEN_ROUNDS plus OPENER_TAIL autoplay rounds, with the tactician's score and potions crediting their heal. It then follows the best sequence, re-planning when the track shows something the plan did not expect (a reinforcement, a changed entry). Later rounds and the end boss: autoplay. Autoplay's potion and cleanse rules (7.9 rules 1-2) always stand. Manual time profile. It isolates the value of planning the opening. Section 13 shows that a per-round 3-round search is not a substitute. |
+| opener, combat v2.1 | the beam keeps, at every depth, the best sequence of every first action besides the OPENER_BEAM best (a setup or a Disrupt pays off two rounds later and fell out of the beam), and the final scoring on the held-out samples takes the best sequence of up to OPENER_ROOT_KEEP first actions. Stun and control spells are candidates on a CC-immune enemy whose now-entry is a cast (a wind-up). Measured in 16.4. |
 | tactician | unchanged definition (balance.md 1) plus the engage search above. |
 | planner, greedy, speedrunner | autoplay v2 (section 8). |
 | Look-ahead fairness | clones keep the track (it is visible); the fight stream is re-seeded from the bot stream, so unshown tail entries are re-drawn (3.2). QA test: a look-ahead never reads an entry that is not yet in the track. |
 | Fight replay harness (new) | at the start of a fight, clone the state; replay the same fight (same fight stream) with policy X for the first OPEN_ROUNDS rounds and policy Y after. Needed for B50. |
-| Recorder | per fight: engage option used, target archetype, rounds to first OFF_BALANCE, OFF_BALANCE windows used/opened, Signal resolved (0/1), HP at end of round OPEN_ROUNDS. |
+| Recorder | per fight: engage option used, target archetype, rounds to first OFF_BALANCE, OFF_BALANCE windows used/opened, Signal resolved (0/1), HP at end of round OPEN_ROUNDS; (combat v2.1) wind-ups answered and landed (engine events `stagger` and `empower`), by fight kind. |
 
 ---
 
@@ -239,11 +245,12 @@ A manual round costs 3.1 s and every fight 9 s of overhead (PACE_FIGHT_OVERHEAD_
 |---|---|---|---|---|
 | B48 | P1 | Opening value: opener minus planner, P0, paired seeds: (a) non-boss deaths per 1 000 fights, ratio opener / planner; (b) reach-the-boss rate | (a) <= OPEN_DEATH_RATIO_MAX; (b) >= OPEN_REACH_GAIN_MIN pp | full runs |
 | B49 | P1 | Mashing works, to an extent: masher P0 reach-the-boss rate | >= MASH_REACH_MIN and <= planner - MASH_GAP_MIN pp | full runs |
-| B50 | P1 | The opening decides: share of the masher's non-boss deaths that survive when the same fight is replayed with the opener's first OPEN_ROUNDS actions and the masher after | >= OPEN_DECIDES_MIN | replay harness |
+| B50 | P1 | The opening decides: share of the masher's non-boss deaths that survive when the same fight is replayed with the opener's first OPEN_ROUNDS actions and the masher after; (combat v2.1) and that share minus the share that survives with autoplay's first OPEN_ROUNDS actions (the harness's control column) | >= OPEN_DECIDES_MIN; (combat v2.1) gap >= OPEN_DECIDES_GAP_MIN pp | replay harness |
 | B51 | P2 | Engage diversity: share of each class option among the opener's engage choices in multi-enemy fights | each >= ENGAGE_SHARE_MIN, none > ENGAGE_SHARE_MAX | opener P0 |
-| B52 | P2 | Windows are used by planning: OFF_BALANCE windows in which the player hits the enemy with a spell, opener vs masher | opener >= WINDOW_USE_MIN; opener - masher >= WINDOW_GAP_MIN pp | recorder |
+| B52 | P2 | Windows are used by planning: (combat v2.1) OFF_BALANCE windows in which the player hits the enemy with a spell, per 100 non-boss fights, opener vs masher (was: share of windows opened, which the masher's few windows on its own target win) | opener >= WINDOW_PER100_MIN; opener - masher >= WINDOW_GAP100_MIN | recorder |
 | B53 | P1 | Combat time budget: median manual combat minutes per run, planner P0 runs reaching the boss (v2 pacing) | <= COMBAT_MIN_MAX | estSeconds terms |
 | B54 | P2 | First target differs from autoplay's default target in multi-enemy fights (opener) | >= FIRST_TARGET_DIFF_MIN | recorder |
+| B55 | P1 | (combat v2.1) Wind-ups are answered by planning, not by mashing: share of wind-ups answered (16.2) in elite and dungeon-boss fights, opener and masher | opener >= WINDUP_ANSWER_MIN; masher <= WINDUP_ANSWER_MASH_MAX | recorder |
 | B5 (changed) | P1 | tactician - planner, P0 | MANUAL_GAP_V2 band (was 8-25 pp); diagnostic: opener - planner >= OPEN_SHARE_MIN × (tactician - planner), i.e. most of the manual edge lives in the opening | full runs |
 | B15 (changed) | P2 | Fights per run incl. boss, planner P0 runs reaching the boss | FIGHTS_V2 band (was 48-66) | full runs |
 | B16 (changed) | P1 | Fight length in rounds incl. the engage round | normal 4-6, elite 6-9, dungeon boss 8-12, end boss ROUNDS_BOSS_V2 | full runs |
@@ -289,7 +296,10 @@ Expected effect of the parts not built [inference: from the mechanism, not measu
 | 3 | Track length | 3 (now + 2) | 2 (less to read) or 5 (the whole opening at once) |
 | 4 | End boss engage round | none (the Camp is its preparation) | an engage round with control options disabled |
 | 5 | Autoplay reads the track? | no, the now-entry only, and never holds for windows | reads the track (smaller manual edge, smoother autoplay) |
-| 6 | Size of the window | +30 % damage taken, +20 % crit, one action | +50 % for one action, or two actions at +20 % |
+| 6 | Size of the window | (combat v2.1) +50 % damage taken, +20 % crit, one action | +30 % (combat v2) or two actions at +20 % |
+| 7 | (combat v2.1) A wind-up's lasting result | answered -30 % enemy damage, landed +15 %, for the rest of the fight | no lasting result (only the window); or landed only (harder for autoplay) |
+| 8 | (combat v2.1) Ambush in a fight of 2 or more enemies | keeps STEALTH (unchanged; measured alternative rejected, 16.3) | breaks STEALTH (autoplay Rogue -6 pp reach) |
+| 9 | (combat v2.1) Autoplay answers a visible wind-up in the engage round also in a one-enemy fight | no (rule E only with 2 or more enemies) | yes (autoplay +3.5 pp reach, the opener's edge mostly gone) |
 
 ---
 
@@ -299,32 +309,34 @@ Expected effect of the parts not built [inference: from the mechanism, not measu
 | INTENT_TRACK_LEN | 3 | entries (now + 2) |
 | OPENING_TURNS | 3 | enemy turns with a scripted action |
 | SIGNATURE_TURN | 2 | enemy turn (elite, rare, dungeon boss) |
-| SIGNATURE_TURN_2 | 5 | enemy turn (dungeon boss, second template ability) |
-| HEAVY_SCRIPT_MULT | 1.0 | × the action's pct on a scripted turn (tuning lever, 7) |
-| CAST_SCRIPT_MULT | 1.0 | × the action's pct on a scripted turn (tuning lever, 7) |
+| SIGNATURE_TURN_2 | 4 | enemy turn (dungeon boss, second template ability; was 5) (combat v2.1) |
+| HEAVY_SCRIPT_MULT | 1.5 | × the action's pct on a scripted turn (tuning lever, 7; was 1.0) (combat v2.1) |
+| CAST_SCRIPT_MULT | 1.5 | × the action's pct on a scripted turn (tuning lever, 7; was 1.0) (combat v2.1) |
 | MEND_BELOW | 0.70 | fraction of max HP (= ARCHETYPE.mender Mend `below`, unchanged) |
 | SIGNAL_ADDS | 1 | enemies |
 | BOLSTER_PCT | 0.20 | fraction of the ally's max HP |
 | BOLSTER_CD | 4 | turns |
 | BLOODLUST_STEP | 0.10 | damage per turn acted |
 | BLOODLUST_MAX | 0.50 | damage |
-| OFFBAL_TAKEN | 0.30 | damage taken |
-| OFFBAL_BOSS_TAKEN | 0.15 | damage taken (end boss) |
+| OFFBAL_TAKEN | 0.50 | damage taken (was 0.30) (combat v2.1) |
+| OFFBAL_BOSS_TAKEN | 0 | damage taken (end boss; was 0.15) (combat v2.1) |
 | OFFBAL_CRIT | 0.20 | crit chance |
 | OFFBAL_DURATION | 2 | status duration under rules 7.4 (one player action) |
 | ENGAGE_DMG_COMP | 1.15 | × enemy damage (all template enemies; end boss excluded) |
 | AMBUSH_MULT | 1.5 | × Gutting Jab before Shadowstep Strike is learned |
 | SAP_TURNS | 3 | enemy turns |
-| PREMED_CP | 3 | CP |
+| PREMED_CP | 5 | CP (was 3) (combat v2.1) |
 | GLYPH_TURNS | 2 | enemy turns |
-| GATHER_SPELLS | 2 | spells |
-| GATHER_CRIT | 0.50 | crit chance |
+| GATHER_SPELLS | 3 | spells (was 2) (combat v2.1) |
+| GATHER_CRIT | 1.0 | crit chance (was 0.50) (combat v2.1) |
 | OPENING_SHOT_MULT | 1.5 | × Keen Shot |
 | OPENING_MARK_ROUNDS | 4 | rounds |
 | TRAP_STUN | 1 | rounds |
 | PET_LEAD_TURNS | 2 | enemy turns |
 | PET_LEAD_DR | 0.30 | damage taken by the pet |
 | ENGAGE_AUTO_LOOK | 2 | enemy turns (autoplay rule E) |
+| EMPOWER_DMG | 0.15 | damage dealt per EMPOWERED stack (wind-up landed) (combat v2.1) |
+| STAGGER_DMG | 0.30 | damage dealt less per STAGGERED stack (wind-up answered) (combat v2.1) |
 | PACE_ROUND_ANIM_S | 2.1 | s (was 1.5) |
 | PACE_ROUND_DECIDE_S | 1.0 | s |
 | PACE_ENGAGE_S | 6 | s per fight with an engage round (manual profile) |
@@ -336,14 +348,72 @@ Expected effect of the parts not built [inference: from the mechanism, not measu
 | OPENER_BEAM | 12 | sequences kept per step (opener bot) |
 | OPENER_SAMPLES | 8 | re-seeded fight streams per sequence (opener bot) |
 | OPENER_TAIL | 3 | autoplay rounds after the plan in the score (opener bot) |
+| OPENER_ROOT_KEEP | 6 | first actions whose best sequence is scored on the held-out samples (opener bot) (combat v2.1) |
 | OPEN_DEATH_RATIO_MAX | 0.70 | opener / planner non-boss deaths (B48) |
 | OPEN_REACH_GAIN_MIN | 5 | pp (B48) |
 | MASH_REACH_MIN | 0.50 | reach-the-boss rate (B49) |
 | MASH_GAP_MIN | 8 | pp below the planner (B49) |
 | OPEN_DECIDES_MIN | 0.50 | share of masher non-boss deaths (B50) |
+| OPEN_DECIDES_GAP_MIN | 8 | pp, opener opening minus autoplay opening (B50) (combat v2.1) |
 | ENGAGE_SHARE_MIN / ENGAGE_SHARE_MAX | 0.15 / 0.60 | share (B51) |
-| WINDOW_USE_MIN | 0.60 | share of windows (B52) |
-| WINDOW_GAP_MIN | 20 | pp (B52) |
+| WINDOW_PER100_MIN | 20 | windows used per 100 non-boss fights, opener (B52; replaces WINDOW_USE_MIN 0.60) (combat v2.1) |
+| WINDOW_GAP100_MIN | 15 | windows used per 100 non-boss fights, opener - masher (B52; replaces WINDOW_GAP_MIN 20 pp) (combat v2.1) |
 | FIRST_TARGET_DIFF_MIN | 0.25 | share (B54) |
+| WINDUP_ANSWER_MIN | 0.70 | share of wind-ups answered, opener, elite and dungeon-boss fights (B55) (combat v2.1) |
+| WINDUP_ANSWER_MASH_MAX | 0.20 | share of wind-ups answered, masher (B55) (combat v2.1) |
 | MANUAL_GAP_V2 | 15-30 | pp (B5, was MANUAL_GAP 8-25) |
 | OPEN_SHARE_MIN | 0.60 | × (B5 diagnostic) |
+
+---
+
+## 16. Combat v2.1: the opening decides the fight (2026-11-10)
+Why [source: docs/reports/balance-2026-11-10d.md]: on the combat v2 defaults mashing reached the boss as often as autoplay (78.7 % against 79.8 %), and the planned opening added +2.2 pp. The fights that kill are elite and dungeon-boss fights decided after round 5; the scripted threats of rounds 2-4 were survivable without an answer and left nothing behind. v2.1 puts the lethal moments in rounds 3 and 5 and makes their result last the whole fight. Change table with old -> new values: docs/specs/changes-combat-v21.md. Decisions D55-D59.
+
+### 16.1 Constants from the sim's measure (D55)
+OFFBAL_TAKEN 0.50, HEAVY_SCRIPT_MULT = CAST_SCRIPT_MULT 1.5, OFFBAL_BOSS_TAKEN 0, ENGAGE_DMG_COMP 1.15 unchanged.
+
+### 16.2 Wind-ups and their lasting result (D56; rules 7.7, 7.10, 7.12, 7.4)
+- The signature entries of 4.1 (elite, rare, dungeon boss on SIGNATURE_TURN; dungeon boss also on SIGNATURE_TURN_2, now turn 4) are **wind-ups**: flags `windup` and `cast`, whatever the action's kind. Every interrupt, stun or control stops one, on a dungeon boss too (rules 7.7). Its pct takes only the multiplier of its own flag (16.1).
+- **Answered** (interrupted; cancelled by STUN, FROZEN, HEXED, SAPPED, a trap or Disrupt; replaced because SILENCED; a heavy one that cost the player 0 HP): OFF_BALANCE as in 5.1, and the enemy is **STAGGERED** for the rest of the fight: -STAGGER_DMG damage dealt per stack.
+- **Landed** (played, and the player or pet lost HP to it; cleave, curse, self_heal and self_shield whenever played): the enemy is **EMPOWERED** for the rest of the fight: +EMPOWER_DMG damage dealt per stack.
+- **Disrupt**: on a CC-immune enemy every control option (Sap, Binding Glyph, Lay Trap) cancels its first wind-up visible in turns 1..INTENT_TRACK_LEN (a trap on that turn) and does nothing else. Every class therefore has a level-1 answer to a dungeon boss's first wind-up; the second (round 5) needs an interrupt, a stun-tagged spell, or for a heavy one a full dodge, WARD, Mirrorshade or the pet (Send the Pet, TAUNT).
+- What it asks of the player: read the round-3 (and round-5) wind-up in the engage round, keep the answer for it (an interrupt on cooldown, CP for Temple Blow, the control option not spent on an add), and spend the burst in the window that follows. A mashed opening lands both wind-ups and fights a boss with +30 % damage to the end; a planned one fights it at -60 %.
+
+### 16.3 Setup options (D57)
+PREMED_CP 5 (a full Temple Blow, 3-turn stun, on the turn-2 wind-up from round 2), GATHER_SPELLS 3 and GATHER_CRIT 1.0 (three free, certain crits: worth more than a Pre-cast in a long fight, less in a short one). Ambush keeps STEALTH in multi-enemy fights: breaking it was measured and rejected (autoplay's Rogue -6.3 pp reach; an autoplay Premeditate opener -23 pp).
+
+### 16.4 Evidence (scratch, real engine)
+Git-ignored copies sim/out/combat21/: the heat engine of main 8507303 with the prototype patch (sim/out/combat21/v21.patch: engine rules 16.2-16.3 behind switches, opener beam of section 11 "combat v2.1", recorder `sg`). P0, 300 runs per class (900 per cell), seeds 1000-1299, paired; risk table of the 11-10d measure (obs-P0); default trees. The opener in both arms has the beam fix (D59), so the difference between the arms is the rules.
+
+| Arm | Autoplay reach R / M / H (all) | Masher reach | Opener reach | Autoplay - masher (paired) | Opener - autoplay (paired) | Non-boss deaths per 1 000 fights, opener / autoplay |
+|---|---|---|---|---|---|---|
+| today on main ac28155 (sim's opener; same seeds) [source: sim/out/m2b-2026-11-10d] | 75.3 / 84.7 / 81.7 (80.6) | 79.3 | 82.4 | +1.2 pp | +1.9 pp | 0.88 |
+| reference: 16.1 only | 79.7 / 85.7 / 80.3 (81.9) | 70.9 | 81.4 | +11.0 pp (7.9 - 14.1) | -0.4 pp (-3.0 - 2.1) | 1.03 (0.83 - 1.27) |
+| **v2.1: 16.1-16.3** | 80.3 / 87.0 / 77.3 (81.6) | 64.8 | 85.8 | **+16.8 pp (13.5 - 20.1)** | **+4.2 pp (1.7 - 6.7)** | **0.74 (0.59 - 0.93)** |
+
+v2.1 detail (autoplay / masher / opener):
+- Deaths per 1 000 fights: elite 24.9 / 74.0 / 14.1; dungeon boss 46.4 / 128.7 / 18.2; quest 3.2 / 3.7 / 3.4. The opening now decides the long fights: the opener's elite and dungeon-boss deaths are 43 % and 61 % below autoplay's.
+- Wind-ups answered in elite and dungeon-boss fights (B55): 67.4 % / 7.6 % / 78.3 % (reference 43.7 / 7.5 / 54.2 %).
+- B50 replays of the masher's deaths: 76.0 % survive with the opener's first 5 rounds, 65.9 % with autoplay's (gap +10.1 pp; reference 56.9 / 51.5 %, +5.4 pp).
+- B52: windows used per 100 non-boss fights: opener 26.5, masher 3.9.
+- B51, the opener's engage choices in multi-enemy fights: Rogue Ambush 73.3 %, Sap 14.5 %, Premeditate 2.0 %; Mage Pre-cast 49.0 %, Binding Glyph 41.8 %, Gathered Power 7.4 %; Hunter Opening Shot 26.1 %, Send the Pet 25.3 %, Lay Trap 23.7 %, a bar spell 24.8 %. Hunter passes; the Rogue and the Mage still fail.
+- By class, opener - autoplay reach: Rogue +0.3, Mage +2.7, Hunter +9.7 pp. The Rogue gains least: autoplay's Rogue already answers most elite wind-ups with Throat Jab and Temple Blow, and its dungeon-boss fights start without STEALTH.
+- Not longer: median rounds of won fights (autoplay) normal 6, elite 7, dungeon boss 9, end boss 41, as in the reference; combat minutes per run 26.2 (reference 26.3); fights per run 51 (B53 and B15 are the expedition's).
+- End boss (autoplay): win 34.4 % (reference 34.8 %) on the heat engine with OFFBAL_BOSS_TAKEN 0.
+
+Intermediate arms (same seeds; A-F on main ac28155, the rest on 8507303; autoplay / masher reach): landed-only EMPOWER 0.25, no stagger: 75.6 / 56.0 %; EMPOWER 0.25 and STAGGER 0.25 with SIGNATURE_TURN_2 4: without the wind-up's `cast` flag 76.1 %, with it 78.1 % (ac28155) and 77.0 / 55.7 % (8507303); EMPOWER 0.15, STAGGER 0.30 with Ambush breaking STEALTH in multi-enemy fights: SIGNATURE_TURN_2 5 81.0 %, turn 4 79.8 %; the same with Ambush keeping STEALTH (final): 81.6 / 64.8 %; autoplay also Disrupting in one-enemy fights: 85.4 % (rejected: the opener's edge goes with it). Opener with the sim's beam (no D59) on the wind-up rules: +1.6 pp over autoplay; with D59: +4.8 pp.
+
+Reproduce: `cd sim/out/combat21 && SCR=v21b X_SIG2=4 X_STAGGER=0.30 X_EMPOWER=0.15 X_PREMED=5 X_GATHER_N=3 X_GATHER_CRIT=1.0 X_AMBUSH_BREAK=0 ./runv.sh K planner masher opener`, reference `SCR=v21b X_WINDUP=0 X_EMPOWER=0 X_CTL_IMMUNE=0 X_AMBUSH_BREAK=0 ./runv.sh ref2 planner masher opener`, then `node an.mjs ref2=out-ref2 K=out-K`. The scratch copy is built by `git archive 8507303 src sim` and `patch -p1 < v21.patch`.
+
+### 16.5 Targets on v2.1 (combat-v2.md 12; 900 runs per cell)
+| ID | Value | Target | Result |
+|---|---|---|---|
+| B48 (a) | 0.74 (0.59 - 0.93) | <= 0.70 | just fails (interval includes it) |
+| B48 (b) | +4.2 pp (1.7 - 6.7) | >= +5 pp | just fails (interval includes it) |
+| B49 | masher 64.8 %, autoplay - masher +16.8 pp | >= 50 %, gap >= 8 pp | pass |
+| B50 | 76.0 %; gap to autoplay's opening +10.1 pp | >= 50 %; gap >= 8 pp | pass |
+| B51 | see 16.4 | each >= 15 %, none > 60 % | Hunter pass; Rogue, Mage fail |
+| B52 | opener 26.5, masher 3.9 per 100 fights | >= 20; gap >= 15 | pass |
+| B54 | 38.0 % | >= 25 % | pass |
+| B55 | opener 78.3 %, masher 7.6 % | >= 70 %; <= 20 % | pass |
+| B16 | 6 / 7 / 9 / 41 rounds | normal 4-6, elite 6-9, dungeon boss 8-12, end boss 30-40 | end boss 41 (reference 41) |
