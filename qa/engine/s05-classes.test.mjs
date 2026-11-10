@@ -395,6 +395,10 @@ describe('rules 5.6 meta-unlock spells', () => {
       assert.equal(e.amount, want.amount, `hit ${i}`);
     });
     assert.equal(sp.bounceFrac, 0.4);
+    // Tooltip data: spellInfo gives the bounce rule, so no front end copies 40 %.
+    const a = R.spellInfo(h, 'ricochet_bolt', 1).amount;
+    assert.deepEqual(a, { kind: 'damage', amount: Math.round(base), hits: 1, school: 'phys', perCp: false, bounces: 2, bounceFrac: 0.4, bounceAmount: Math.round(base * 0.4) });
+    assert.equal(R.spellInfo(h, 'keen_shot', 1).amount.bounces, undefined);
   });
 
   test('chrono_sigil: the target skips its action; mirrorshade: images; ricochet_bolt: target + 2 others; beastcall_horn', () => {

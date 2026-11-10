@@ -548,7 +548,12 @@ export function spellAmount(s, id) {
   if (sp.heal) return { kind: 'heal', amount: rnd(base(s, sp.heal, tl)) };
   if (sp.healPct) return { kind: 'heal', amount: rnd(sp.healPct * s.player.d.maxHp) };
   if (sp.gjFrac) return { kind: 'damage', amount: rnd(sp.gjFrac * gjAmount(s)), hits: sp.hits, school: 'phys' };
-  if (sp.school && (sp.b || sp.p || sp.w)) return { kind: 'damage', amount: rnd(base(s, sp, tl, cp)), hits: sp.hits || 1, school: sp.school, perCp: !!sp.perCp };
+  if (sp.school && (sp.b || sp.p || sp.w)) {
+    const a = { kind: 'damage', amount: rnd(base(s, sp, tl, cp)), hits: sp.hits || 1, school: sp.school, perCp: !!sp.perCp };
+    // Ricochet Bolt: the target takes `amount`, then up to `bounces` other enemies take bounceFrac of it.
+    if (sp.bounces) Object.assign(a, { bounces: sp.bounces, bounceFrac: sp.bounceFrac, bounceAmount: rnd(base(s, sp, tl, cp) * sp.bounceFrac) });
+    return a;
+  }
   return null;
 }
 
