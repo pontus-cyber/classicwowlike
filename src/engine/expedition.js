@@ -1,8 +1,9 @@
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7 and 9.5): the roamable zone graph and
-// its generation (stream map(z)), node setup by region (stream nodeId(z,id)), hop distances, the Dimming's front,
-// vision and the player-visible map view. Pure helpers of the state; the run flow (moves, Dimmed encounters, Roads, the
-// Homeward Bell) is in nodes.js. Only a run created with mapMode 'expedition' uses the map; the mode helpers (node
-// hours, grind waves, XP weight) answer for both maps.
+// its generation (stream map(z)), node setup by region (stream nodeId(z,id)), hop distances, the Dimming's front (off
+// in a run created with dimming: false, D50), vision and the player-visible map view (Road names, expedition texts and
+// region families from content, D51; elites without their name or own archetype, D50). Pure helpers of the state; the
+// run flow (moves, Dimmed encounters, Roads, the Homeward Bell) is in nodes.js. Only a run created with mapMode
+// 'expedition' uses the map; the mode helpers (node hours, grind waves, XP weight) answer for both maps.
 import {
   ZONE_LEVELS, NODE_DRAW_ORDER, QUEST_LEVEL_OFFSETS, ELITE_LEVEL_OFFSET, RARE_CHANCE, QUEST_SIZE_W1, QUEST_SIZE_W2,
   QUEST_SIZE_W3, QUEST_MAX_SIZE_Z1, GRIND_WAVE_SIZE, ELITE_ADD_CHANCE, DUNGEON_SIZE_W2, DUNGEON_SIZE_W3,
