@@ -3,6 +3,7 @@ import {
   ARCHETYPE, VARIANT, ABILITY_TEMPLATE, ENEMY_HP_BASE, ENEMY_HP_PER_LEVEL, ENEMY_DMG_BASE, ENEMY_DMG_PER_LEVEL,
   ENEMY_ARMOR_PER_LEVEL, ENEMY_DODGE, PET, ENERGY_MAX, ENERGY_REGEN, FOCUS_MAX, FOCUS_REGEN,
   MANA_REGEN_ROUND_PCT, PET_REVIVE_PCT, TALENT, UNIQUE_WARD_PCT, BRAND_DMG, BOSS_LEVEL, MIN_HIT_DAMAGE,
+  ZONE_DANGER_FROM, ZONE_DANGER_STEP,
 } from '../constants.js';
 import { nextFloat, weightedIndex, nextInt } from '../rng.js';
 import { rnd, deepClone } from './util.js';
@@ -14,6 +15,16 @@ import { bossIntent, bossAct, bossStartRound, bossEndOfRound, mirrorImage, SHARD
 import { playerAction, petAction } from './spells.js';
 
 // ---------------- Enemies ----------------
+/**
+ * Zone danger (rules 7.6, M2 v3): damage multiplier of an enemy made from an enemy template, by its level M:
+ * 1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10 (level 30 ×1.25, 60 ×2.0). The end boss and the
+ * Dimming Shards (boss.js) are not made here and keep their own constants.
+ */
+export function zoneDanger(level) {
+  return 1 + (ZONE_DANGER_STEP * Math.max(0, level - ZONE_DANGER_FROM)) / 10;
+}
+
+/** Enemy from a template (rules 7.6): every quest, grind, elite, rare, dungeon, Camp and summoned enemy. No draws. */
 export function makeEnemy(s, idx, tid, level, variant) {
   const t = s.content.enemies[tid];
   const a = ARCHETYPE[t.archetype];
@@ -21,7 +32,7 @@ export function makeEnemy(s, idx, tid, level, variant) {
   const hp = Math.max(1, rnd((ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL * level) * a.hp * v.hp * t.hpMult));
   return {
     idx, tid, name: t.name, kind: variant, arch: t.archetype, level, hp, maxHp: hp,
-    dmg: (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL * level) * a.dmg * v.dmg * t.dmgMult,
+    dmg: (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL * level) * a.dmg * v.dmg * t.dmgMult * zoneDanger(level),
     armor: ENEMY_ARMOR_PER_LEVEL * level * a.armor, dodge: ENEMY_DODGE + a.dodge,
     abilities: t.abilities.slice(), cds: {}, st: [], intent: null, alive: true,
     elite: variant === 'elite' || variant === 'rare', boss: variant === 'dboss', ccImmune: variant === 'dboss',

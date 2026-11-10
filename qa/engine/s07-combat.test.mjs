@@ -238,6 +238,56 @@ describe('rules 7.6 enemy AI and intents', () => {
     }
   });
 
+  test('zone danger (M2 v3): enemy damage × (1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10) for every variant; HP, armor, XP unchanged', () => {
+    // M -> multiplier (rules 7.6: level 30 ×1.25, 40 ×1.5, 50 ×1.75, 60 ×2.0; nothing at or below 20)
+    const want = [[1, 1], [10, 1], [20, 1], [21, 1.025], [25, 1.125], [30, 1.25], [40, 1.5], [50, 1.75], [58, 1.95], [60, 2.0]];
+    assert.equal(C.ZONE_DANGER_FROM, 20);
+    assert.equal(C.ZONE_DANGER_STEP, 0.25);
+    for (const [M, mult] of want) {
+      for (const [tid, variant] of [['z1_brute', 'normal'], ['z1_caster', 'trash'], ['z1_elite', 'elite'], ['z1_rare', 'rare'], ['z1_dboss', 'dboss']]) {
+        const s = setup('mage', 20, [], [mob(tid, M, variant)]);
+        const e = s.fight.enemies[0];
+        const A = C.ARCHETYPE[e.arch];
+        const V = C.VARIANT[variant];
+        const old = (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * M) * A.dmg * V.dmg; // fixture templates: dmgMult 1
+        assert.ok(Math.abs(e.dmg - old * mult) < 1e-9, `${tid} ${variant} level ${M}: ${e.dmg} vs ${old} × ${mult}`);
+        assert.equal(e.maxHp, Math.round((C.ENEMY_HP_BASE + C.ENEMY_HP_PER_LEVEL * M) * A.hp * V.hp));
+        assert.equal(e.armor, C.ENEMY_ARMOR_PER_LEVEL * M * A.armor);
+        if (M === 60) assert.equal(e.dmg / old, 2, 'level 60: exactly 2.0 × the old formula');
+      }
+    }
+    // Hits use the scaled damage: same draws, level 50 (×1.75) vs a copy holding the old value.
+    const s = setup('mage', 50, [], [mob('z1_brute', 50)], (x) => { x.player.d.maxHp = x.player.hp = 1e6; x.fight.enemies[0].intent = HITI('hit', { pct: 1 }); });
+    const scaled = s.fight.enemies[0].dmg;
+    const oldCopy = tweak(s, (x) => { x.fight.enemies[0].dmg = scaled / 1.75; });
+    const draws = (d) => d[0] > 0.9 && d[1] > 0.1;
+    const hit = (t) => { const c = cloneState(t); forceDraws(c, 3, draws); return R.step(c, { type: 'PASS' }).events.find((e) => e.t === 'damage' && e.dst === 'player').amount; };
+    assert.ok(Math.abs(hit(s) / hit(oldCopy) - 1.75) < 0.01, `${hit(s)} vs ${hit(oldCopy)}`);
+    // Kill rewards do not depend on damage: same XP and coin with the old value.
+    const kill = (t) => {
+      const c = tweak(t, (x) => { x.fight.enemies[0].hp = 1; x.fight.enemies[0].dodge = 0; });
+      forceDraws(c, 3, (d) => d[0] > 0.9);
+      const e = R.step(c, { type: 'ATTACK', target: 0 }).events;
+      return [ev(e, 'xp').filter((x) => x.why === 'kill').map((x) => x.amount), ev(e, 'gold').filter((x) => x.why === 'kill').map((x) => x.amount)];
+    };
+    assert.ok(kill(s)[0].length === 1 && kill(s)[1].length === 1);
+    assert.deepEqual(kill(s), kill(oldCopy));
+  });
+
+  test('zone danger (M2 v3): summoned adds are scaled at their own level', () => {
+    // z2_rare has the summon template; the add is a zone normal at the fight's add level.
+    const s = setup('mage', 40, [], [mob('z2_rare', 40, 'rare')], (x) => {
+      x.player.d.maxHp = x.player.hp = 1e6;
+      x.fight.enemies[0].intent = { id: 'ab_summon', name: 'Fixture Summon', kind: 'summon', count: 1, target: 'self', est: 0 };
+    });
+    const r = R.step(s, { type: 'PASS' });
+    assert.equal(ev(r.events, 'summon').length, 1);
+    const add = r.state.fight.enemies[1];
+    assert.equal(add.level, 40);
+    const old = (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * 40) * C.ARCHETYPE[add.arch].dmg;
+    assert.ok(Math.abs(add.dmg - old * 1.5) < 1e-9, `${add.dmg} vs ${old} × 1.5`);
+  });
+
   test('intents: eligible actions by cooldown, SILENCED removes casts, Mend only when an ally < 70 %; picks follow weights', () => {
     const counts = {};
     for (let seed = 0; seed < 400; seed++) {

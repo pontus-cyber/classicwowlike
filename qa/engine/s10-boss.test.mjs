@@ -28,6 +28,31 @@ describe('rules 10 end boss', () => {
     assert.equal(b.name, C.BOSS_TEXT.name);
   });
 
+  test('7.6 zone danger (M2 v3): Camp waves (CAMP_GRIND_LEVEL) are scaled; the end boss and Dimming Shards keep their own constants', () => {
+    let c = R.step(started('mage', { seed: 51 }), { type: 'LEAVE_HUB' }).state;
+    c = tweak(atLevel(c, 60), (x) => { x.zone.z = 6; });
+    c = play(c, [{ type: 'TRAVEL_ON' }, { type: 'CAMP_GRIND' }]).state;
+    assert.equal(c.fight.kind, 'camp');
+    const mult = 1 + (C.ZONE_DANGER_STEP * (C.CAMP_GRIND_LEVEL - C.ZONE_DANGER_FROM)) / 10;
+    for (const e of c.fight.enemies) {
+      assert.equal(e.level, C.CAMP_GRIND_LEVEL);
+      const old = (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * C.CAMP_GRIND_LEVEL) * C.ARCHETYPE[e.arch].dmg;
+      assert.ok(Math.abs(e.dmg - old * mult) < 1e-9, `camp ${e.tid}: ${e.dmg} vs ${old} × ${mult}`);
+    }
+    // End boss (level 62) and Shards (level 60): no zone danger.
+    const s = boss('mage', { spells: ['ember_bolt'], prep: (x) => { immortal(x); x.fight.enemies[0].hp = Math.floor(x.fight.enemies[0].maxHp * 0.705); } });
+    assert.equal(s.fight.enemies[0].dmg, C.BOSS_MELEE);
+    const strike = s.fight.enemies[0].intent.actions.find((a) => a.id === 'umbral_strike');
+    assert.equal(strike.base, C.BOSS_MELEE);
+    const t = cloneState(s);
+    forceDraws(t, 3, (d) => d[0] > 0.9 && d[1] > 0.6);
+    const r = R.step(t, { type: 'CAST', spellId: 'ember_bolt', target: 0 });
+    assert.equal(ev(r.events, 'phaseChange')[0].phase, 2);
+    const shards = r.state.fight.enemies.filter((e) => e.kind === 'shard');
+    assert.equal(shards.length, C.SHARD_COUNT);
+    for (const sh of shards) assert.equal(sh.dmg, C.SHARD_DMG);
+  });
+
   test('10.2 phase 1 schedule: Umbral Strike unless channelling, Gravity Crush every 6 rounds, Litany at 3 then every 5, Brand every 4th round', () => {
     let s = boss('mage', { prep: immortal });
     const seen = [];
