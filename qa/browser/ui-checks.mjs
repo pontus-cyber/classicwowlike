@@ -77,7 +77,8 @@ try {
   if (!target) mv.rows.forEach((row, ri) => row.forEach((n, l) => { if (!target && n.archetypes && n.archetypes.length >= 2) target = { r: ri + 1, l, n }; }));
   await page.locator(`#screens button.mnode[data-row="${target.r}"][data-lane="${target.l}"]`).hover();
   await page.waitForTimeout(150);
-  const tip = await page.locator('.tooltip').innerText();
+  // the tooltip without its heat block (hours and the state they end in, M2b heat): its numbers are not the enemy count
+  const tip = await page.locator('.tooltip').evaluate((el) => { const c = el.cloneNode(true); c.querySelectorAll('.tt-heat').forEach((x) => x.remove()); document.body.appendChild(c); const t = c.innerText; c.remove(); return t; });
   const k = target.n.archetypes.length;
   await shot('map-tooltip');
   check(`map tooltip shows the enemy count (${target.n.type} at row ${target.r}: ${k} enemies, ${target.n.archetypes.join(', ')})`, new RegExp(`\\b${k}\\b|${k} ?×|×ub?${k}`).test(tip.replace(/Level \d+|Takes \d+ h/g, '')), tip.replace(/\n/g, ' / '));

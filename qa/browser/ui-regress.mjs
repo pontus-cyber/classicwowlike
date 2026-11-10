@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H]
+ *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -18,13 +18,13 @@
  *   A  real engine, seed 30 Hunter at 1x speed: vendor, item bar, the map (the engine's rows and lanes, the
  *      travel button before the travel level), map tooltip and labels, a fight played with keys A and 8, the
  *      Autoplay switch and key Z, quest reward, equip from the bags, the clock.
- *   B  real engine, seed 20 Hunter at Instant speed, the engine's autoplay choices up to the camp: the clock
+ *   B  real engine, seed 1 Hunter at Instant speed, the engine's autoplay choices up to the camp: the clock
  *      across midnight, the travel button at every map step (and its tooltip when leaving early is legal), the
  *      camp panel, the bag menu at the right edge, an item used out of combat, Face Oruvath, and the boss fight
  *      played on the Autoplay switch with the Linked strength on the boss frame.
  *   C  mock engine, Mage at the boss at Instant speed: autoplay (key Z) to a victory; no banner over the summary.
  *   D  real engine, seed 9 Hunter at the default speed: manual rounds (the keys of the autoplay policy's choices) within
- *      PACE_ROUND_ANIM_S, an action key and a click during enemy animations finish them, and 2x, 4x and Instant from
+ *      PACE_ROUND_ANIM_S (D52: at 1920x1080 only the median is held to the round cap, headless rendering is slow there), an action key and a click during enemy animations finish them, and 2x, 4x and Instant from
  *      the settings window (setup outside fights: the engine's autoplay choices).
  *   E  real engine, seed 8 Hunter with a stored profile that holds Second Breath and Lost Technique I (Ricochet Bolt),
  *      at Instant speed, the engine's autoplay choices up to the camp: the resurrect badge and the character sheet in
@@ -51,6 +51,19 @@
  *      page's engine actions, window.__ui.engineLog), the Lay Trap hover preview (= R.engagePreview), key W, and the trap's
  *      off-balance window: the marker and the bar's window highlight exactly where R.offBalance and R.spellInfo(...).window
  *      say. Mage seed 30: Pre-cast's spells, and Binding Glyph's FROZEN window (frost marker, bar highlight).
+ *   I  the Heat meter (docs/specs/expedition.md H.4, H.5; engine-api.md 11; M2b 2b.6), real engine at Instant speed. Hunter
+ *      seed 22 on a slow policy (every hub service, the longest reachable node that is no elite or dungeon, the most Grind
+ *      waves; the engine's autoplay otherwise) to the summary. At the first hub and at the first map step in Warm, Hot and
+ *      Scorched the meter (state, "N h in hand" / "N h past the line", "Boss +N %", the marker and the Star's line, the pay
+ *      line) equals R.heatView of a Node twin (window.__ui.engineLog), and every service card and reachable node (and Travel
+ *      on) shows R.heatPreview in its hour label, its tooltip and the meter's ghost; a node entered Hot has its badge and
+ *      "This node pays Hot"; a toast and a log line come with every change of state; with every window open over the map
+ *      and on every kind of screen met (hub, services, map, dialogs, fights, loot, camp, boss) the meter is in view and on
+ *      top; the camp panel, tracker and minimap name heatView's par and Ascendancy; the boss frame's Ascendancy is the
+ *      meter's "Boss +N %"; the summary's heat card (track points per zone record, hours by state, over par) and the Echo
+ *      line "Fights won in heat" match the engine's summary; loot marked "raised by heat" came from Hot or Scorched nodes.
+ *      Then an expedition run (?expedition=1, seed 3): the Dimming's marker and "Dimming N h" at the hub, a move's
+ *      preview, and a map step where the Dimming sets the state (marker, "· Dimming", the meter's tooltip) = heatView.
  *
  * Seeds were picked with the engine of 3559e0e (M2 v2): seed 30's first quest has two Guardians that last long
  * enough for the potion and Autoplay checks. M2 v3 (77c0ca5): seed 1's autoplay run no longer reaches the camp, so part B
@@ -58,7 +71,8 @@
  * and whose boss fight reached phase 2 with 1 to 3 Shards. Seed 63 with the part E profile reached the camp holding a Boon
  * of Return and Second Breath; in the boss fight the Boon returned the hero once, then the hero died with Second Breath unused.
  * Combat v2 (e362fd0) changed every run: part B is now seed 20 and part E seed 8, picked by the same conditions on Node runs
- * of the engine's autoplay choices (seed 20 also passes phase 2 with 1 to 4 Shards).
+ * of the engine's autoplay choices (seed 20 also passes phase 2 with 1 to 4 Shards). Heat's rarity step (7196e96) changed
+ * every run's loot once: seed 20 no longer reaches the camp; seed 1 meets part B's conditions again (engineer-2026-11-10f).
  *
  * Prints PASS or FAIL per check with what it saw; exit 1 if any check fails or a page logs an error.
  * Playwright comes from /home/claude/tools-ui (or a local install).
@@ -75,7 +89,7 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -370,7 +384,7 @@ const autoRun = (page, stop = {}) => page.evaluate(async (opt) => {
 const travelKind = (r) => (r.must ? 'done' : r.travelOn ? (r.level >= r.exit ? 'open' : 'early') : 'locked');
 
 async function partB(browser, W, H) {
-  const SEED = 20; // M2 v3: seed 1's autoplay run died before the camp (zone danger); combat v2 (e362fd0): seed 51's dies in zone 1
+  const SEED = 1; // M2 v3: seed 1 died before the camp; combat v2 (e362fd0): 51 died in zone 1; heat (7196e96, rarity step): 20 no longer reaches the camp, 1 does again
   const { context, page, errors } = await open(browser, W, H, `seed=${SEED}&speed=instant`);
   try {
     await page.locator('#create .ccard[data-cls="hunter"]').click();
@@ -570,8 +584,10 @@ async function partD(browser, W, H) {
     const plain = rounds.filter((r) => !isMoment(r)); const ms = plain.map(roundMs);
     const budgets = [...new Set(plain.map((r) => r.round && r.round.budget))];
     const SLOW = SLOWER * BUDGET;
-    check('M2v2-52', `default speed (${speed0}x): rounds without a level-up or fight end take at least ${SLOW} ms at the median (D47: 1.4 × the M2 v2 budget = PACE_ROUND_ANIM_S ${R.C.PACE_ROUND_ANIM_S} s) and at most the round cap`,
-      speed0 === 1 && plain.length >= 8 && budgets.length === 1 && budgets[0] >= SLOW && median(ms) >= SLOW && Math.max(...ms) <= budgets[0],
+    // D52: headless rendering at 1920x1080 runs at about 10 fps, so there only the median is held to the cap; at 1366x768 every round is
+    const maxCapped = !(W >= 1920 && H >= 1080);
+    check('M2v2-52', `default speed (${speed0}x): rounds without a level-up or fight end take at least ${SLOW} ms at the median (D47: 1.4 × the M2 v2 budget = PACE_ROUND_ANIM_S ${R.C.PACE_ROUND_ANIM_S} s) and ${maxCapped ? 'at most the round cap' : 'at the median at most the round cap (D52)'}`,
+      speed0 === 1 && plain.length >= 8 && budgets.length === 1 && budgets[0] >= SLOW && median(ms) >= SLOW && (maxCapped ? Math.max(...ms) <= budgets[0] : median(ms) <= budgets[0]),
       `${plain.length} rounds: median ${median(ms)} ms, max ${Math.max(...ms)} ms, cap ${budgets.join('/')} ms, tempo ${plain.map((r) => r.round ? r.round.tempo.toFixed(2) : '-').join(' ')}; with moments: ${rounds.filter(isMoment).map(roundMs).join(', ') || 'none'} ms`);
 
     // ---- key A pressed twice during enemy animations: the round plays on, A is queued once (visible), one attack follows
@@ -1296,6 +1312,371 @@ async function partH(browser, W, H) {
   }
 }
 
+// ------------------------------------------------------------------ part I: the heat meter, real engine
+// Seeds chosen with the engine of 085b0ae (heat on its defaults, D54). Hunter seed 22 on the slow policy below goes Clear ->
+// Warm (zone 1) -> Hot (zone 2) -> Scorched (zone 5), enters Hot and Scorched nodes, finds items heat raised, reaches the
+// camp at about 158 h and dies at the boss. Seed 3's expedition run (?expedition=1) on the engine's autoplay choices meets a
+// map step where the Dimming sets the state (Hot by the Dimming while the line says Clear).
+const I_SEED = 22;
+const I_EXP_SEED = 3;
+const HNAME = { clear: 'Clear', warm: 'Warm', hot: 'Hot', scorched: 'Scorched' };
+const fh = (x) => String(Math.round(Math.abs(x) * 10) / 10);
+const stand = (x) => (x.heat > 0 ? `${fh(x.heat)} h past the line` : x.heat < 0 ? `${fh(x.heat)} h in hand` : 'On the line');
+const bossTxt = (a) => `Boss +${Math.round((a || 0) * 100)} %`;
+const barPct = (x) => (100 * (Math.min(R.C.HEAT_BAR_MAX, Math.max(R.C.HEAT_BAR_MIN, x)) - R.C.HEAT_BAR_MIN)) / (R.C.HEAT_BAR_MAX - R.C.HEAT_BAR_MIN);
+const chanceTxt = (p) => { for (let d = 2; d <= 10; d++) { const n = p * d; if (Math.abs(n - Math.round(n)) < 1e-9 && Math.round(n) >= 1) return `${Math.round(n)} in ${d}`; } return `${Math.round(p * 100)} %`; };
+/** What a state pays in the meter's short words and the tooltips' long ones (HEAT_GAIN, HEAT_RARITY_UP). */
+const payTxt = (s, short) => {
+  const g = R.C.HEAT_GAIN[s] || 0; const u = R.C.HEAT_RARITY_UP[s] || 0;
+  if (!g && !u) return null;
+  return [g ? `+${Math.round(g * 100)} % XP and gold` : null, u ? (short ? `${chanceTxt(u)} drops up` : `${chanceTxt(u)} drops a rarity up`) : null].filter(Boolean).join(short ? ' · ' : ', ');
+};
+const FIRST_PAYING = R.C.HEAT_STATES.find((s) => payTxt(s, true));
+/** The meter's pay line for a heatView (the view shown at the camp, in a node, elsewhere). */
+function wantPay(hv, camp) {
+  if (camp) return 'At the camp heat pays nothing; it strengthens the boss';
+  if (hv.node && (hv.node.gain > 0 || hv.node.rarityUp > 0)) return `This node pays ${HNAME[hv.node.state]}: ${payTxt(hv.node.state, true)}`;
+  if (payTxt(hv.state, true)) return `Spoils: ${payTxt(hv.state, true)}`;
+  return hv.node ? '' : `${HNAME[FIRST_PAYING]} pays ${payTxt(FIRST_PAYING, true)}`;
+}
+/** The meter as drawn: its state, texts, the marker, line and Dimming positions (style.left, per cent of the bar). */
+const meterDom = (page) => page.evaluate(() => {
+  const m = document.querySelector('#heat'); if (!m) return null;
+  const q = (s) => m.querySelector(s); const t = (s) => (q(s) ? q(s).textContent.replace(/ /g, ' ') : null);
+  const pc = (s) => (q(s) ? parseFloat(q(s).style.left) : null);
+  return { shown: !m.classList.contains('hidden') && getComputedStyle(m).display !== 'none', state: m.dataset.state, by: m.dataset.by, sname: t('.ht-sname'), by2: t('.ht-by'), num: t('.ht-num'),
+    boss: t('.ht-boss'), pay: t('.ht-pay'), on: [...m.querySelectorAll('.ht-seg.on')].map((x) => x.dataset.hs), mark: pc('.ht-mark.run'), line: pc('.ht-line'),
+    runSets: q('.ht-mark.run').classList.contains('sets'), dimShown: !q('.ht-mark.dim').classList.contains('hidden'), dim: pc('.ht-mark.dim'), dimSets: q('.ht-mark.dim').classList.contains('sets'),
+    dimTxt: q('.ht-dim').classList.contains('hidden') ? null : t('.ht-dim span'), ghost: q('.ht-mark.ghost').classList.contains('hidden') ? null : pc('.ht-mark.ghost'),
+    arrow: q('.ht-arrow').classList.contains('hidden') ? null : t('.ht-arrow') };
+});
+/** Is the meter inside the window and on top at five points (no panel, window or frame over it)? */
+const meterCover = (page) => page.evaluate(() => {
+  const m = document.querySelector('#heat'); const r = m.getBoundingClientRect(); const bad = [];
+  for (const [fx, fy] of [[0.5, 0.5], [0.04, 0.2], [0.96, 0.2], [0.04, 0.85], [0.96, 0.85]]) {
+    const x = r.left + r.width * fx; const y = r.top + r.height * fy; const el = document.elementFromPoint(x, y);
+    if (!el || !el.closest('#heat')) bad.push(`${Math.round(x)},${Math.round(y)} under ${el ? (el.id ? `#${el.id}` : `.${[...el.classList].join('.')}` || el.tagName) : 'nothing'}`);
+  }
+  const inside = r.width > 0 && r.left >= 0 && r.top >= 0 && r.right <= innerWidth + 0.5 && r.bottom <= innerHeight + 0.5;
+  return { ok: inside && !bad.length && !m.classList.contains('hidden'), text: `rect ${[r.left, r.top, r.right, r.bottom].map(Math.round).join(',')}${inside ? '' : ' (outside)'}${bad.length ? ` covered at ${bad.join('; ')}` : ''}` };
+});
+/** Differences between the meter drawn and R.heatView (an empty list when they agree). */
+function meterDiff(d, hv, camp) {
+  const out = [];
+  const eq = (k, got, want) => { if (got !== want) out.push(`${k} "${got}" (want "${want}")`); };
+  const near = (k, got, want) => { if (got == null || Math.abs(got - want) > 0.05) out.push(`${k} ${got} (want ${want.toFixed(2)})`); };
+  if (!d || !d.shown) return ['meter not shown'];
+  eq('state', d.state, hv.state); eq('name', d.sname, HNAME[hv.state]); eq('by', d.by, hv.by); eq('numbers', d.num, stand(hv)); eq('boss', d.boss, bossTxt(hv.ascIfPar));
+  eq('segment', d.on.join(','), hv.state); eq('pay line', d.pay, wantPay(hv, camp));
+  near('marker', d.mark, barPct(hv.bar.marker)); near('line', d.line, barPct(0));
+  eq('arrow', d.arrow, hv.bar.beyond < 0 ? '◀' : hv.bar.beyond > 0 ? '▶' : null);
+  if (hv.dimIn === null || hv.dimIn === undefined) { if (d.dimShown || d.dimTxt) out.push('a Dimming marker without a Dimming clock'); } else {
+    eq('Dimming text', d.dimTxt, hv.dimIn <= 0 ? 'Dimmed' : `Dimming ${fh(hv.dimIn)} h`);
+    const seg = { clear: [R.C.HEAT_BAR_MIN, R.C.HEAT_WARM_AT], warm: [R.C.HEAT_WARM_AT, R.C.HEAT_HOT_AT], hot: [R.C.HEAT_HOT_AT, R.C.HEAT_SCORCH_AT], scorched: [R.C.HEAT_SCORCH_AT, R.C.HEAT_BAR_MAX] }[hv.stateDim];
+    if (!d.dimShown || d.dim < barPct(seg[0]) || d.dim > barPct(seg[1])) out.push(`Dimming marker ${d.dim} outside ${hv.stateDim} (${barPct(seg[0]).toFixed(1)}-${barPct(seg[1]).toFixed(1)})`);
+    eq('the clock that sets the state', `${d.dimSets ? 'dim' : ''}${d.runSets ? 'run' : ''}`, hv.by); eq('by text', d.by2, hv.by === 'dim' ? ' · Dimming' : '');
+  }
+  return out;
+}
+/** A Node twin like makeTwin, with newRun options (mapMode). */
+function makeTwinOpts(seed, opts) {
+  let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, ...opts }); let n = 0;
+  return { get s() { return s; }, async sync(page) { const log = await page.evaluate(() => window.__ui.engineLog()); for (const a of log.slice(n)) s = R.step(s, a).state; n = log.length; return s; } };
+}
+/** The tooltip's heat block (.tt-heat) and the meter's ghost while an element is hovered. */
+async function hoverHeat(page, locator) {
+  await locator.hover(); await page.waitForTimeout(60);
+  const r = await page.evaluate(() => {
+    const tt = document.querySelector('.tooltip.on .tt-heat'); const m = document.querySelector('#heat');
+    const g = m.querySelector('.ht-mark.ghost');
+    return { tip: tt ? [...tt.children].map((x) => x.textContent.replace(/ /g, ' ')) : null, ghost: g.classList.contains('hidden') ? null : parseFloat(g.style.left), pay: m.querySelector('.ht-pay').textContent };
+  });
+  await page.mouse.move(2, 2); await page.waitForTimeout(30);
+  r.after = await page.evaluate(() => document.querySelector('#heat .ht-mark.ghost').classList.contains('hidden'));
+  return r;
+}
+/** Differences between a hovered choice's tooltip block and ghost and R.heatPreview p. */
+function previewDiff(r, p, opts = {}) {
+  const out = [];
+  if (!r.tip) return ['no heat block in the tooltip'];
+  const hrs = `${fh(p.hours)} h${p.perWave ? ' a wave' : ''}`;
+  const head = r.tip[0];
+  if (!head.includes(`${hrs} · ends ${HNAME[p.state]}`)) out.push(`head "${head}" (want "${hrs} · ends ${HNAME[p.state]}")`);
+  if (head.includes('(a new state)') !== !!p.change) out.push(`"(a new state)" ${head.includes('(a new state)')} (change ${p.change})`);
+  const pays = r.tip.find((x) => x.startsWith('Pays '));
+  const wantPays = p.pays ? `Pays ${HNAME[p.pays]}: ${payTxt(p.pays, false) || 'no heat reward'}` : null;
+  if ((pays || null) !== wantPays) out.push(`pays "${pays}" (want "${wantPays}")`);
+  const then = r.tip.find((x) => x.startsWith('Then '));
+  const wantThen = `Then ${stand(p)} · ${bossTxt(p.ascIfPar)}${p.dimIn !== null && p.dimIn !== undefined && !p.dimFight ? ` · Dimming ${p.dimIn <= 0 ? 'here' : `${fh(p.dimIn)} h`}` : ''}`;
+  if (then !== wantThen) out.push(`"${then}" (want "${wantThen}")`);
+  if (r.ghost == null || Math.abs(r.ghost - barPct(p.heat)) > 0.05) out.push(`ghost ${r.ghost} (want ${barPct(p.heat).toFixed(2)})`);
+  const wantGhost = `→ ${hrs}${p.dimFight ? ' + Dimmed fight' : ''} · ends ${HNAME[p.state]}`;
+  if (r.pay !== wantGhost) out.push(`meter "${r.pay}" (want "${wantGhost}")`);
+  if (!r.after) out.push('the ghost stays after the hover');
+  if (opts.chip !== undefined) {
+    const want = `${fh(p.hours)} h${p.perWave ? '/wave' : ''}`;
+    if (!opts.chip || opts.chip.text !== want || (opts.chip.hs || null) !== (p.change ? p.state : null)) out.push(`hour label ${JSON.stringify(opts.chip)} (want "${want}"${p.change ? ` in ${p.state}` : ''})`);
+  }
+  return out;
+}
+/**
+ * The slow policy in the page (setup, as autoRun): every hub service, the longest reachable node that is no elite or
+ * dungeon (on today's map), the most Grind waves, the engine's autoplay otherwise. Runs until stop(view) holds or the run
+ * ends. On the way it records every change of the meter's state, the heat toasts and log lines, the coverage of the meter
+ * in each new kind of screen, and the items the loot window marks as raised by heat.
+ */
+const slowRun = (page, stopSrc) => page.evaluate(async (src) => {
+  const ui = window.__ui;
+  const conds = Object.entries(typeof src === 'string' ? { stop: src } : src).map(([k, c]) => [k, new Function('v', `return (${c})(v)`)]);
+  const stop = (v) => { const hit = conds.find(([, f]) => f(v)); return hit ? hit[0] : null; };
+  const rec = window.__heat || (window.__heat = { states: [], toasts: [], logs: [], kinds: {}, raised: [] });
+  if (!window.__heatObs) {
+    window.__heatObs = new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.classList && [...n.classList].some((c) => c.startsWith('heat-'))) rec.toasts.push({ text: n.textContent, cls: n.className }); });
+    window.__heatObs.observe(document.querySelector('#toasts'), { childList: true });
+    const states = /^(Clear|Warm|Hot|Scorched): /;
+    new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.textContent && states.test(n.textContent)) rec.logs.push(n.textContent); }).observe(document.querySelector('#combatlog .lines'), { childList: true });
+  }
+  const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const kindOf = (v) => (v.phase === 'SUMMARY' ? null : v.loot ? `loot:${v.loot.kind}` : v.node && v.node.origin === 'hub' ? `service:${v.node.type}` : v.combat && !v.combat.over ? (v.combat.isBoss ? 'boss fight' : v.combat.engage ? 'engage round' : 'fight')
+    : v.phase === 'NODE' && v.node ? `node:${v.node.type}:${v.node.step}` : v.phase);
+  const cover = () => {
+    const m = document.querySelector('#heat'); const r = m.getBoundingClientRect(); const bad = [];
+    for (const [fx, fy] of [[0.5, 0.5], [0.04, 0.2], [0.96, 0.2], [0.04, 0.85], [0.96, 0.85]]) { const el = document.elementFromPoint(r.left + r.width * fx, r.top + r.height * fy); if (!el || !el.closest('#heat')) bad.push(el ? el.id || el.className || el.tagName : 'nothing'); }
+    const inside = r.width > 0 && r.left >= 0 && r.top >= 0 && r.right <= innerWidth + 0.5 && r.bottom <= innerHeight + 0.5;
+    return { ok: inside && !bad.length && !m.classList.contains('hidden'), bad, rect: [r.left, r.top, r.right, r.bottom].map(Math.round) };
+  };
+  const slow = (v) => {
+    if (v.phase === 'ZONE_HUB' && !(v.node && v.node.origin === 'hub')) { for (const s of ['trainer', 'vendor', 'inn']) if (v.legal.services[s]) return { type: 'HUB_SERVICE', service: s }; }
+    if (v.phase === 'MAP' && v.heat && v.zone.rows.length) {
+      const row = v.zone.rows[v.zone.pos.row];
+      const c = v.heat.list.filter((x) => x.action.type === 'CHOOSE_NODE').map((x) => ({ ...x, type: row[x.action.lane].type }));
+      const safe = c.filter((x) => x.type !== 'elite' && x.type !== 'dungeon'); const pool = safe.length ? safe : c;
+      if (pool.length) { pool.sort((a, b) => b.hours - a.hours || a.action.lane - b.action.lane); return { type: 'CHOOSE_NODE', lane: pool[0].action.lane }; }
+    }
+    if (v.phase === 'NODE' && v.node && v.node.type === 'grind' && v.node.step === 'intro' && v.heat) {
+      const w = v.heat.list.filter((x) => x.action.type === 'GRIND_SET_WAVES').sort((a, b) => b.action.n - a.action.n);
+      if (w.length) return { type: 'GRIND_SET_WAVES', n: w[0].action.n };
+    }
+    return { type: 'AUTO' };
+  };
+  for (let n = 0; n < 5000; n++) {
+    const v = ui.view();
+    if (v.heat && rec.states[rec.states.length - 1] !== v.heat.state) rec.states.push(v.heat.state);
+    const k = kindOf(v);
+    if (k && !rec.kinds[k]) { await frame(); rec.kinds[k] = cover(); }
+    if (v.loot && v.loot.items) for (const it of v.loot.items) if (it.heatUp && !rec.raised.some((x) => x.uid === it.uid)) rec.raised.push({ uid: it.uid, name: it.name, heatUp: it.heatUp, node: v.node ? v.node.heat : null, badge: !!document.querySelector('#screens .loot .heat-badge') });
+    const hit = stop(v);
+    if (hit) { await frame(); return { stopped: true, key: hit, phase: v.phase, hours: v.hours }; }
+    if (v.phase === 'SUMMARY') return { stopped: false, phase: v.phase, hours: v.hours };
+    await ui.act(slow(v)); await ui.idle();
+  }
+  return { stopped: false, phase: ui.view().phase };
+}, stopSrc);
+
+async function partI(browser, W, H) {
+  const twin = makeTwin(I_SEED);
+  const { context, page, errors } = await open(browser, W, H, `seed=${I_SEED}&speed=instant`);
+  try {
+    await page.locator('#create .ccard[data-cls="hunter"]').click();
+    await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+    // ---- the first hub: the meter, the first-time note, the service cards' previews
+    let s = await twin.sync(page); let hv = R.heatView(s);
+    const note = await page.locator('#heat-intro').evaluate((el) => ({ shown: !el.classList.contains('hidden'), text: el.textContent, role: el.getAttribute('role') }));
+    await shot(page, 'I-hub');
+    let d = await meterDom(page); let diff = meterDiff(d, hv, false);
+    check('M2b-heat', `hub (${s.hours} h): the meter shows R.heatView: ${HNAME[hv.state]}, "${stand(hv)}", "${bossTxt(hv.ascIfPar)}", the marker at ${hv.bar.marker} h and the Star's line at 0 on a ${R.C.HEAT_BAR_MIN} to ${R.C.HEAT_BAR_MAX} h bar`, !diff.length, diff.join(' | ') || JSON.stringify(d));
+    check('M2b-heat', 'first-time note on the first hub: "Heat", the Star\'s line, what heat pays (role note, not a tooltip)', note.shown && note.role === 'note' && /Star's line/.test(note.text) && note.text.includes(payTxt(FIRST_PAYING, false)), note.text.slice(0, 160));
+    const svc = [];
+    for (const service of ['trainer', 'vendor', 'inn']) {
+      const card = page.locator('#screens .svc-card', { has: page.locator('.nm', { hasText: { trainer: 'Trainer', vendor: 'Vendor', inn: 'Inn' }[service] }) });
+      const p = R.heatPreview(s, { type: 'SERVICE', service });
+      const chip = await card.locator('.hrs').evaluate((el) => ({ text: el.textContent, hs: el.dataset.hs || null }));
+      const r = await hoverHeat(page, card);
+      svc.push(`${service}: ${previewDiff(r, p, { chip }).join(', ') || 'ok'}`);
+    }
+    check('M2b-heat', 'hub: each service card\'s hours label, tooltip ("1 h · ends Clear", what follows) and the ghost on the meter equal R.heatPreview(SERVICE)', svc.every((x) => x.endsWith('ok')), svc.join(' | '));
+    await page.getByRole('button', { name: 'Got it' }).click();
+    check('M2b-heat', '"Got it" closes the first-time note', await page.locator('#heat-intro').evaluate((el) => el.classList.contains('hidden')), '');
+    // ---- the run on the slow policy: checkpoints in the order the run meets them (the first map step in Warm, Hot and
+    // Scorched, the first node entered Hot, the first Grind)
+    const grindCheck = async () => {
+      s = await twin.sync(page);
+      const btns = page.locator('#screens .dialog .actions button');
+      const out = [];
+      for (let i = 0; i < await btns.count(); i++) {
+        const b = btns.nth(i); const label = (await b.innerText()).replace(NBSP, ' ');
+        const n = Number((/^(\d+) wave/.exec(label) || [])[1]);
+        const p = R.heatPreview(s, { type: 'GRIND_SET_WAVES', n });
+        const chip = await b.locator('.bh').evaluate((x) => ({ text: x.textContent, hs: x.dataset.hs || null }));
+        const r = await hoverHeat(page, b);
+        out.push(`${label}: ${p ? previewDiff(r, p, { chip }).join(', ') || 'ok' : 'no preview'}`);
+      }
+      check('M2b-heat', `Grind (${s.hours} h): each wave button's hours, tooltip and the meter's ghost equal R.heatPreview(GRIND_SET_WAVES n)`, out.length > 0 && out.every((x) => x.endsWith('ok')), out.join(' | '));
+    };
+    const mapCheck = async (label) => {
+      s = await twin.sync(page); hv = R.heatView(s);
+      d = await meterDom(page); diff = meterDiff(d, hv, false);
+      check('M2b-heat', `${label} (zone ${s.zone.z}, ${s.hours} h): the meter equals R.heatView (${HNAME[hv.state]}, "${stand(hv)}", "${bossTxt(hv.ascIfPar)}", pay line "${wantPay(hv, false)}")`, !diff.length, diff.join(' | ') || `${d.state} ${d.num} ${d.boss} marker ${d.mark}`);
+      const nodes = page.locator('#screens button.mnode.reach');
+      const out = [];
+      for (let i = 0; i < await nodes.count(); i++) {
+        const el = nodes.nth(i); const lane = Number(await el.getAttribute('data-lane'));
+        const p = R.heatPreview(s, { type: 'CHOOSE_NODE', lane });
+        const chip = await el.locator('.mhrs').evaluate((x) => ({ text: x.textContent, hs: x.dataset.hs || null })).catch(() => null);
+        const r = await hoverHeat(page, el);
+        out.push(`lane ${lane} (${fh(p.hours)} h, ${p.state}${p.change ? ', new' : ''}): ${previewDiff(r, p, { chip }).join(', ') || 'ok'}`);
+      }
+      const tb = page.locator('#screens .mhead button[data-travel]');
+      if (!(await tb.isDisabled())) { const p = R.heatPreview(s, { type: 'TRAVEL_ON' }); const r = await hoverHeat(page, tb); out.push(`Travel on (${fh(p.hours)} h, ${p.state}): ${previewDiff(r, p).join(', ') || 'ok'}`); }
+      check('M2b-heat', `${label}: every reachable node's hour label, tooltip and the meter's ghost (and Travel on's) equal R.heatPreview`, out.length > 0 && out.every((x) => x.endsWith('ok')), out.join(' | '));
+    };
+    const mapIn = (st) => `(v) => v.phase === 'MAP' && v.heat && v.heat.state === '${st}' && v.heat.list.some((x) => x.action.type === 'CHOOSE_NODE')`;
+    const todo = { warm: mapIn('warm'), hot: mapIn('hot'), scorched: mapIn('scorched'), hotNode: "(v) => v.phase === 'NODE' && v.node && v.node.heat === 'hot' && v.node.step === 'intro'",
+      grind: "(v) => v.phase === 'NODE' && v.node && v.node.type === 'grind' && v.node.step === 'intro' && !!v.heat" };
+    while (Object.keys(todo).length) {
+      const r = await slowRun(page, todo);
+      if (!r.stopped) break;
+      delete todo[r.key];
+      if (r.key === 'grind') { await grindCheck(); continue; }
+      if (r.key === 'hotNode') {
+        // a node entered Hot: the dialog badge and the meter's "This node pays Hot"
+        s = await twin.sync(page); hv = R.heatView(s);
+        d = await meterDom(page); diff = meterDiff(d, hv, false);
+        const badgeTxt = await page.locator('#screens .dialog .wtitle .heat-badge').innerText().catch(() => null);
+        await shot(page, 'I-node-hot');
+        check('M2b-heat', `a ${s.node.type} node entered Hot: the dialog badge "Hot spoils" and the meter's "This node pays Hot: ${payTxt('hot', true)}" (heatView.node)`,
+          !diff.length && hv.node && hv.node.state === 'hot' && /hot spoils/i.test(badgeTxt || ''), `${diff.join(' | ')} | badge "${badgeTxt}" | node ${JSON.stringify(hv.node)}`);
+        continue;
+      }
+      await shot(page, `I-map-${r.key}`);
+      await mapCheck(`map step in ${HNAME[r.key]}`);
+      if (r.key === 'warm') {
+        // windows over the map: the meter stays uncovered
+        const wins = [];
+        for (const w of ['character', 'bags', 'spellbook', 'talents', 'questlog', 'map', 'settings']) {
+          await page.evaluate((x) => window.__ui.openWin(x), w); await page.waitForTimeout(80);
+          const c = await meterCover(page); wins.push(`${w}: ${c.ok ? 'ok' : c.text}`);
+          await page.evaluate(() => window.__ui.closeWins()); await page.waitForTimeout(40);
+        }
+        check('M2b-heat', 'with each window open over the map (character, bags, spellbook, talents, quest log, zone map, settings) the meter is in view and uncovered', wins.every((x) => x.endsWith('ok')), wins.join(' | '));
+      }
+    }
+    const missed = Object.keys(todo).filter((k) => k !== 'scorched');
+    if (missed.length) throw new Error(`setup: the slow run of seed ${I_SEED} never met ${missed.join(', ')}`);
+    // ---- state changes: a toast and a log line each, in the heat colours
+    let rec = await page.evaluate(() => window.__heat);
+    const changes = rec.states.slice(1).map((x, i) => ({ from: rec.states[i], to: x }));
+    const toastStates = rec.toasts.map((t) => (/heat-(\w+)/.exec(t.cls) || [])[1]);
+    const okToasts = changes.length >= 3 && toastStates.length === changes.length && changes.every((c, i) => toastStates[i] === c.to && rec.toasts[i].text.startsWith(`${HNAME[c.to]}:`));
+    check('M2b-heat', `a toast on each change of state (${changes.length} so far: ${rec.states.join(' > ')}), named and coloured by the new state`, okToasts,
+      `toasts: ${rec.toasts.map((t) => t.text).join(' | ')}`);
+    check('M2b-heat', 'the combat log has a line for each change of state, the toast\'s text', rec.logs.length === rec.toasts.length && rec.logs.every((l, i) => l === `${rec.toasts[i].text}.`),
+      rec.logs.slice(0, 6).join(' | '));
+
+    // ---- the camp: panel, tracker and minimap read heatView, as the meter
+    const rc = await slowRun(page, "(v) => v.phase === 'CAMP' && !(v.node && v.node.origin === 'hub') && !v.combat");
+    if (!rc.stopped) throw new Error(`setup: the slow run did not reach the camp (${rc.phase})`);
+    await page.waitForTimeout(1500); // the zone banner fades
+    s = await twin.sync(page); hv = R.heatView(s);
+    d = await meterDom(page); diff = meterDiff(d, hv, true);
+    const foot = (await page.locator('#screens .side .sfoot').innerText()).replace(NBSP, ' ').replace(/\n/g, ' ');
+    const track = (await page.locator('#tracker').innerText()).replace(NBSP, ' ').replace(/\n/g, ' ');
+    const mm = await tipOf(page, page.locator('#minimap .disc'));
+    const ascText = hv.ascIfPar > 0 ? `+${Math.round(hv.ascIfPar * 100)} % health and damage` : 'None: you are on time';
+    await shot(page, 'I-camp');
+    check('M2b-heat', `camp (${s.hours} h): the meter (line = par ${fh(hv.par)} h, ${HNAME[hv.state]}, "${bossTxt(hv.ascIfPar)}", "At the camp heat pays nothing") equals R.heatView`, !diff.length, diff.join(' | '));
+    check('M2b-heat', `camp: the panel "(par ${fh(hv.par)} h)" and "${ascText}", the tracker "Boss par: ${fh(hv.par)} h", the minimap "Heat: ${stand(hv)} ... · ${bossTxt(hv.ascIfPar)}" read heatView like the meter`,
+      foot.includes(`${s.hours} h (par ${fh(hv.par)} h)`) && foot.includes(ascText) && track.includes(`Boss par: ${fh(hv.par)} h · now ${s.hours} h`) && mm.includes(`Heat: ${stand(hv)} (the Star's line at ${fh(hv.line)} h) · ${bossTxt(hv.ascIfPar)}`) && mm.includes(`past ${fh(hv.par)} h`),
+      `panel "${foot}" | tracker "${track}" | minimap "${mm}"`);
+    // ---- the boss fight: the meter's "Boss +N %" is the boss frame's Ascendancy
+    const rb = await slowRun(page, "(v) => !!(v.combat && v.combat.isBoss && !v.combat.over)");
+    if (rb.stopped) {
+      s = await twin.sync(page); hv = R.heatView(s);
+      d = await meterDom(page);
+      const binfo = (await page.locator('#boss-frame .binfo').innerText()).replace(NBSP, ' ');
+      check('M2b-heat', `boss fight: the meter's "${bossTxt(hv.ascIfPar)}" is the boss's Ascendancy (+${Math.round(s.fight.boss.asc * 100)} %, the boss frame)`, d.boss === bossTxt(s.fight.boss.asc) && binfo.includes(`Ascendancy +${Math.round(s.fight.boss.asc * 100)} %`), `${d.boss} | ${binfo.replace(/\n/g, ' ')}`);
+    } else check('M2b-heat', 'boss fight reached', false, rb.phase);
+
+    // ---- the summary: the heat card and the Echo line
+    const rs = await slowRun(page, "(v) => v.phase === 'SUMMARY'");
+    await idle(page); await page.locator('#screens .summary .heatcard').waitFor({ timeout: 10000 });
+    s = await twin.sync(page);
+    const sm = s.result ? s.result.summary : R.summary(s);
+    const card = await page.locator('#screens .summary .heatcard').evaluate((el) => ({ end: el.querySelector('.hc-end').textContent, leg: el.querySelector('.hc-leg').textContent, dots: el.querySelectorAll('.hc-chart .dot').length,
+      xv: [...el.querySelectorAll('.hc-chart .xv')].map((x) => x.textContent), foot: el.querySelector('.hc-foot').textContent, strip: el.querySelector('.hc-strip').getAttribute('aria-label') }));
+    const recs = sm.heat.trackPerZone; const par = R.bossPar(s); const over = sm.hours - par;
+    const signedH = (v) => (v > 0 ? `+${fh(v)} h` : v < 0 ? `−${fh(v)} h` : '0 h');
+    const wantEnd = sm.reached && sm.reached.camp ? `${fh(sm.hours)} h, par ${fh(par)} h: ${over > 0 ? `${fh(over)} h over par` : over < 0 ? `${fh(over)} h under par` : 'on par'}` : null;
+    const hoursOk = R.C.HEAT_STATES.every((st, i) => card.leg.includes(`${HNAME[st]} ${fh(sm.heat.hoursByState[i])} h`));
+    await shot(page, 'I-summary');
+    check('M2b-heat', `summary: the heat card's track has ${recs.length} zone records (${recs.length * 2} points, each zone's heat when left under it), hours by state ${sm.heat.hoursByState.join('/')} and "${wantEnd}" (hours - bossPar)`,
+      rs.phase === 'SUMMARY' && card.dots === recs.length * 2 && card.xv.join(',') === recs.map((r) => signedH(r.exit - r.line)).join(',') && hoursOk && (!wantEnd || card.end === wantEnd),
+      JSON.stringify(card));
+    const echo = await page.locator('#screens .summary .card').nth(2).innerText();
+    const line = sm.echoes.lines.find((l) => l.id === 'heat');
+    check('M2b-heat', `summary: the Echo line of fights won in heat reads "Fights won in heat (${line ? line.count : 0})" with its ${line ? line.echoes : 0} Echoes (summary.echoes.lines "heat")`,
+      !!line && new RegExp(`Fights won in heat${line.count > 1 ? ` \\(${line.count}\\)` : ''}\\s*\\+${line.echoes}\\b`).test(echo) && !/Heat \(\d+\)/.test(echo), echo.replace(/\n/g, ' / '));
+    // ---- loot heat raised: badges only on items found in a node entered Hot or Scorched
+    rec = await page.evaluate(() => window.__heat);
+    const raisedOk = rec.raised.length > 0 && rec.raised.every((x) => (x.heatUp === 'hot' || x.heatUp === 'scorched') && x.node === x.heatUp && R_UP_OK(x.heatUp));
+    check('M2b-heat', `loot heat raised a rarity is marked "▲ Heat" (${rec.raised.length} items), only in nodes entered Hot or Scorched`, raisedOk, JSON.stringify(rec.raised.slice(0, 4)));
+    // ---- coverage: the meter is in view and on top on every kind of screen met
+    const kinds = Object.entries(rec.kinds);
+    const need = ['ZONE_HUB', 'service:vendor', 'service:trainer', 'MAP', 'engage round', 'fight', 'loot:loot', 'CAMP', 'boss fight'];
+    check('M2b-heat', `the meter is in view and uncovered on every screen of the run (${kinds.length} kinds: ${kinds.map(([k]) => k).join(', ')})`,
+      need.every((k) => rec.kinds[k]) && kinds.every(([, c]) => c.ok), kinds.filter(([, c]) => !c.ok).map(([k, c]) => `${k}: ${c.bad.join(',')} ${c.rect.join(',')}`).join(' | ') || `missing: ${need.filter((k) => !rec.kinds[k]).join(', ')}`);
+    check('M2b-heat', 'the meter is hidden on the summary', !(await meterDom(page)).shown, '');
+  } catch (e) {
+    check('-', 'part I ran to the end', false, e.message.split('\n')[0]);
+  }
+  check('-', 'part I: no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+  await context.close();
+  await partIExp(browser, W, H);
+}
+const R_UP_OK = (st) => (R.C.HEAT_RARITY_UP[st] || 0) > 0;
+
+/** Part I, expedition runs (?expedition=1): the Dimming's marker and the clock that sets the state. */
+async function partIExp(browser, W, H) {
+  const twin = makeTwinOpts(I_EXP_SEED, { mapMode: 'expedition' });
+  const { context, page, errors } = await open(browser, W, H, `seed=${I_EXP_SEED}&speed=instant&expedition=1`);
+  try {
+    await page.locator('#create .ccard[data-cls="hunter"]').click();
+    await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+    let s = await twin.sync(page); let hv = R.heatView(s);
+    let d = await meterDom(page); let diff = meterDiff(d, hv, false);
+    check('M2b-heat-exp', `expedition hub (mapMode ${s.mapMode}): the Dimming's marker and "Dimming ${fh(hv.dimIn)} h"; the line sets the state (by ${hv.by})`, s.mapMode === 'expedition' && !diff.length && d.dimShown && hv.by === 'run', diff.join(' | ') || JSON.stringify(d));
+    await page.getByRole('button', { name: 'Got it' }).click();
+    await page.getByRole('button', { name: 'Set out' }).click(); await idle(page);
+    s = await twin.sync(page);
+    const mv = R.mapView(s);
+    const out = [];
+    for (const m of mv.moves.slice(0, 3)) {
+      const el = page.locator(`#screens .expmap button.mnode.reach[data-node="${m.nodeId}"]`);
+      const p = R.heatPreview(s, { type: 'MOVE', nodeId: m.nodeId });
+      const r = await hoverHeat(page, el);
+      out.push(`node ${m.nodeId}: ${previewDiff(r, p).join(', ') || 'ok'}`);
+    }
+    check('M2b-heat-exp', 'expedition map (preview): a move\'s tooltip and the ghost equal R.heatPreview(MOVE), the Dimming hours after it included', out.length > 0 && out.every((x) => x.endsWith('ok')), out.join(' | '));
+    const r = await page.evaluate(async () => {
+      const ui = window.__ui;
+      for (let n = 0; n < 2000; n++) { const v = ui.view(); if (v.phase === 'SUMMARY') return { ok: false }; if (v.phase === 'MAP' && v.heat && v.heat.by === 'dim') { await new Promise((q) => requestAnimationFrame(() => requestAnimationFrame(q))); return { ok: true, n }; } await ui.act({ type: 'AUTO' }); await ui.idle(); }
+      return { ok: false };
+    });
+    if (!r.ok) throw new Error(`setup: seed ${I_EXP_SEED}'s expedition run met no map step where the Dimming sets the state`);
+    s = await twin.sync(page); hv = R.heatView(s);
+    d = await meterDom(page); diff = meterDiff(d, hv, false);
+    await shot(page, 'I-exp-dim');
+    const tip = await tipOf(page, page.locator('#heat'));
+    check('M2b-heat-exp', `the Dimming sets the state (zone hour ${s.hours - s.zone.start}: ${HNAME[hv.stateDim]} by the Dimming, ${HNAME[hv.stateRun]} by the line): "${HNAME[hv.state]} · Dimming", "Dimming ${fh(hv.dimIn)} h", its marker in ${hv.stateDim} and marked as the clock that sets it`,
+      !diff.length && hv.by === 'dim' && d.by === 'dim', diff.join(' | ') || JSON.stringify(d));
+    check('M2b-heat-exp', 'the meter\'s tooltip names the clock that sets the state', tip.includes(`The hotter clock sets the state: now the Dimming (${HNAME[hv.stateDim]}).`), tip);
+  } catch (e) {
+    check('-', 'part I (expedition) ran to the end', false, e.message.split('\n')[0]);
+  }
+  check('-', 'part I (expedition): no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+  await context.close();
+}
+
 // ------------------------------------------------------------------ run
 const browser = await chromium.launch({ headless: true });
 for (const [W, H] of SIZES) {
@@ -1308,6 +1689,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('F')) await partF(browser, W, H);
   if (PARTS.includes('G')) await partG(browser, W, H);
   if (PARTS.includes('H')) await partH(browser, W, H);
+  if (PARTS.includes('I')) await partI(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);
