@@ -83,15 +83,15 @@ describe('rules 4 character', () => {
     assert.equal(m.player.level, 60);
   });
 
-  test('4.3 / 6 talent points at 10 and every 2 levels: 26 at level 60 (+1 per Ancestral Insight rank)', () => {
+  test('4.3 / 6 talent points at 10 and every 2 levels: 26 at level 60 (+1 with Ancestral Insight, 1 rank since M2 v3)', () => {
     const s = started('mage');
     assert.equal(talentPointsEarned(s, 9), 0);
     assert.equal(talentPointsEarned(s, 10), 1);
     assert.equal(talentPointsEarned(s, 11), 1);
     assert.equal(talentPointsEarned(s, 12), 2);
     assert.equal(talentPointsEarned(s, 60), 26);
-    const m = started('mage', { profile: { ...R.newProfile(), unlocks: { talent_pt: 2 } } });
-    assert.equal(talentPointsEarned(m, 60), 28);
+    const m = started('mage', { profile: { ...R.newProfile(), unlocks: { talent_pt: 1 } } });
+    assert.equal(talentPointsEarned(m, 60), 27);
     assert.equal(talentPointsEarned(m, 59), 25);
   });
 

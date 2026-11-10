@@ -254,3 +254,9 @@ every decision or replaces the out-of-combat part with its bots.
 `profile = { v, echoes, earned, spent, unlocks: {id: rank}, reachedBoss, bossKills, firstKill: {rogue, mage,
 hunter}, runs }`. Unlocks apply at START_RUN (rules 11.4). `END_RUN` puts the updated profile in
 `state.result.profile`; the front end stores it. Buy between runs with `buyMeta(profile, id)`.
+
+Catalogue numbers (ranks, costs per rank, effect per rank such as `C.META.vigor.hpPct`) are in `C.META`; show
+them from there or from `metaOffers(profile)` (`rank`, `ranks`, `nextCost`). M2 v3: Vigor and Edge +0.01 per rank,
+Keen 2 ranks, Ancestral Insight 1 rank, new costs (catalogue total 7 690). A stored rank above an entry's ranks
+(a profile saved under an older catalogue) counts as the maximum rank in a run and in `metaOffers`; Echoes are
+not refunded.

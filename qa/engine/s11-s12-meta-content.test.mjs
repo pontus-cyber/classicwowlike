@@ -54,7 +54,8 @@ describe('rules 11 meta progression', () => {
     p = R.buyMeta(p, 'vigor');
     p = R.buyMeta(p, 'vigor');
     assert.equal(p.unlocks.vigor, 2);
-    assert.equal(p.echoes, 10000 - 60 - 90);
+    assert.equal(p.echoes, 10000 - 80 - 120, 'Vigor ranks 1-2 cost 80 + 120 (M2 v3)');
+    assert.equal(p.spent, 200);
     assert.throws(() => R.buyMeta(p, 'swift_boots'), /not available/);
     p = R.buyMeta(R.buyMeta(p, 'wayfinder'), 'swift_boots');
     assert.equal(p.unlocks.swift_boots, 1);
@@ -67,10 +68,59 @@ describe('rules 11 meta progression', () => {
     for (let i = 0; i < 5; i++) full = R.buyMeta(full, 'edge');
     assert.throws(() => R.buyMeta(full, 'edge'), /not available/);
     const total = Object.values(C.META).reduce((n, m) => n + m.costs.reduce((a, b) => a + b, 0), 0);
-    assert.ok(total > 6000 && total < 7500, `catalogue total ${total}`);
+    assert.equal(total, 7690, 'catalogue total 7 690 Echoes (rules 11.2, M2 v3)');
     const offers = R.metaOffers(prof({}, { echoes: 100 }));
     assert.equal(offers.find((o) => o.id === 'scout').affordable, true);
     assert.equal(offers.find((o) => o.id === 'relics').available, false);
+  });
+
+  test('11.2 catalogue M2 v3: Keen 2 ranks, Ancestral Insight 1 rank, new costs; buying stops at the last rank', () => {
+    const withReqs = (p, id) => {
+      for (const r of C.META[id].req) if (!r.startsWith('flag:') && !p.unlocks[r]) p = R.buyMeta(withReqs(p, r), r);
+      return p;
+    };
+    const buyAll = (id) => {
+      let p = withReqs(prof({}, { echoes: 1e6, reachedBoss: true, bossKills: 1 }), id);
+      const before = p.spent;
+      const paid = [];
+      for (let i = 0; i < C.META[id].ranks; i++) { const e = p.echoes; p = R.buyMeta(p, id); paid.push(e - p.echoes); }
+      assert.throws(() => R.buyMeta(p, id), /not available/, `${id} past its last rank`);
+      assert.equal(p.spent - before, paid.reduce((a, b) => a + b, 0));
+      return paid;
+    };
+    const want = {
+      vigor: [80, 120, 170, 230, 300], edge: [80, 120, 170, 230, 300], keen: [150, 250], quick_study: [100, 180, 280],
+      prospector: [60, 110, 170], swift_boots: [200], alchemist: [150], cache: [200], relics: [400], starforged: [450],
+      sp_r2: [300], sp_m2: [300], sp_h2: [300], stormhawk: [250], talent_pt: [500], second_breath: [500],
+    };
+    for (const [id, costs] of Object.entries(want)) assert.deepEqual(buyAll(id), costs, id);
+    assert.equal(C.META.vigor.hpPct, 0.01);
+    assert.equal(C.META.edge.powerPct, 0.01);
+  });
+
+  test('11.2 meta power budget (M2 v3): the full catalogue adds at most max HP +0.05, Power +0.05, crit +0.02, +1 talent point', () => {
+    const all = prof(Object.fromEntries(Object.values(C.META).map((m) => [m.id, m.ranks])), { reachedBoss: true, bossKills: 1 });
+    for (const c of C.CLASS_IDS) {
+      const s = started(c, { profile: all });
+      assert.ok(Math.abs(s.meta.hpPct - 0.05) < 1e-12, `${c} hpPct ${s.meta.hpPct}`);
+      assert.ok(Math.abs(s.meta.powerPct - 0.05) < 1e-12, `${c} powerPct ${s.meta.powerPct}`);
+      assert.ok(Math.abs(s.meta.crit - 0.02) < 1e-12, `${c} crit ${s.meta.crit}`);
+      assert.equal(s.meta.talentPoints, 1);
+      assert.equal(R.talentPointsFree(atLevel(s, 60)), R.talentPointsFree(atLevel(started(c), 60)) + 1);
+      // the only resurrect from the catalogue is not usable at the end boss
+      assert.deepEqual(R.resurrectCharges(s).boss, []);
+      // max HP: the catalogue's +5 % on top of the same raw value (no talents)
+      const d = s.player.d;
+      const raw = C.CLASS[c].hpBase + C.HP_PER_STA * d.STA;
+      assert.equal(d.maxHp, Math.round(raw * 1.05));
+    }
+    // A profile saved under the older catalogue (Keen 3, Ancestral Insight 2, Vigor 7) counts at the new maximum ranks.
+    const old = prof({ keen: 3, talent_pt: 2, vigor: 7, edge: 5 });
+    const s = started('rogue', { profile: old });
+    assert.ok(Math.abs(s.meta.crit - 0.02) < 1e-12 && s.meta.talentPoints === 1 && Math.abs(s.meta.hpPct - 0.05) < 1e-12);
+    const offers = R.metaOffers(old);
+    assert.deepEqual(['keen', 'talent_pt', 'vigor'].map((id) => { const o = offers.find((x) => x.id === id); return [o.rank, o.available, o.nextCost]; }), [[2, false, null], [1, false, null], [5, false, null]]);
+    assert.throws(() => R.buyMeta(old, 'keen'), /not available/);
   });
 
   test('11.3 unique effects: on-hit proc, heal on kill, +damage vs elites, potion healing, WARD at fight start', () => {

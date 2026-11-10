@@ -21,10 +21,13 @@ function reqMet(profile, req) {
   return (profile.unlocks[req] || 0) > 0;
 }
 
-/** Catalogue view: every entry with rank, next cost and whether it can be bought now (rules 11.2). */
+/**
+ * Catalogue view: every entry with rank, next cost and whether it can be bought now (rules 11.2). A stored rank
+ * above the entry's ranks (older catalogue) shows as the maximum rank, as it counts in a run.
+ */
 export function metaOffers(profile) {
   return Object.values(META).map((m) => {
-    const rank = profile.unlocks[m.id] || 0;
+    const rank = Math.min(profile.unlocks[m.id] || 0, m.ranks);
     const maxed = rank >= m.ranks;
     const nextCost = maxed ? null : m.costs[rank];
     const reqOk = m.req.every((r) => reqMet(profile, r));

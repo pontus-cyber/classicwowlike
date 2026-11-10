@@ -644,33 +644,37 @@ export const BOON = {
 export const BOON_IDS = ['return', 'insight', 'fury', 'plenty', 'mending', 'clarity'];
 export const SHRINE_BOON_COUNT = 2;
 
-/** Meta catalogue (rules 11.2). costs: per rank. req: list of requirement ids (unlock ids or profile flags). */
+/**
+ * Meta catalogue (rules 11.2). costs: per rank. req: list of requirement ids (unlock ids or profile flags).
+ * Meta power budget (M2 v3): at all ranks the catalogue adds at most max HP +0.05, Power +0.05, crit +0.02 and
+ * +1 talent point (qa/engine s11 checks it). Second Breath does not work in the end-boss fight.
+ */
 export const META = {
-  vigor: { id: 'vigor', name: 'Vigor of the Line', kind: 'stat', ranks: 5, costs: [60, 90, 130, 180, 240], hpPct: 0.02, req: [] },
-  edge: { id: 'edge', name: 'Edge of the Line', kind: 'stat', ranks: 5, costs: [60, 90, 130, 180, 240], powerPct: 0.02, req: [] },
-  keen: { id: 'keen', name: 'Keen Lineage', kind: 'stat', ranks: 3, costs: [100, 160, 240], crit: 0.01, req: [] },
-  quick_study: { id: 'quick_study', name: 'Quick Study', kind: 'stat', ranks: 3, costs: [80, 140, 220], xpPct: 0.05, req: [] },
-  prospector: { id: 'prospector', name: 'Prospector', kind: 'stat', ranks: 3, costs: [50, 90, 140], goldPct: 0.08, req: [] },
+  vigor: { id: 'vigor', name: 'Vigor of the Line', kind: 'stat', ranks: 5, costs: [80, 120, 170, 230, 300], hpPct: 0.01, req: [] },
+  edge: { id: 'edge', name: 'Edge of the Line', kind: 'stat', ranks: 5, costs: [80, 120, 170, 230, 300], powerPct: 0.01, req: [] },
+  keen: { id: 'keen', name: 'Keen Lineage', kind: 'stat', ranks: 2, costs: [150, 250], crit: 0.01, req: [] },
+  quick_study: { id: 'quick_study', name: 'Quick Study', kind: 'stat', ranks: 3, costs: [100, 180, 280], xpPct: 0.05, req: [] },
+  prospector: { id: 'prospector', name: 'Prospector', kind: 'stat', ranks: 3, costs: [60, 110, 170], goldPct: 0.08, req: [] },
   satchel: { id: 'satchel', name: 'Packed Satchel', kind: 'start kit', ranks: 1, costs: [60], potions: 3, req: [] },
   heirloom_blade: { id: 'heirloom_blade', name: 'Heirloom Blade', kind: 'start kit', ranks: 1, costs: [80], rarity: 'uncommon', ilvl: 3, req: [] },
   pockets: { id: 'pockets', name: 'Deeper Pockets', kind: 'start kit', ranks: 2, costs: [50, 100], slots: 4, req: [] },
   ledger: { id: 'ledger', name: "Trainer's Ledger", kind: 'economy', ranks: 1, costs: [120], req: [] },
   scout: { id: 'scout', name: "Scout's Eye", kind: 'map', ranks: 1, costs: [100], req: [] },
   wayfinder: { id: 'wayfinder', name: 'Wayfinder', kind: 'map', ranks: 1, costs: [80], req: [] },
-  swift_boots: { id: 'swift_boots', name: 'Swift Boots', kind: 'map', ranks: 1, costs: [150], levels: 1, req: ['wayfinder'] },
-  alchemist: { id: 'alchemist', name: "Alchemist's Notes", kind: 'items', ranks: 1, costs: [120], req: ['satchel'] },
-  cache: { id: 'cache', name: 'Cache of the Wanderer', kind: 'items', ranks: 1, costs: [150], req: [] },
-  relics: { id: 'relics', name: 'Relics of the Deep', kind: 'items', ranks: 1, costs: [300], req: ['cache'] },
-  starforged: { id: 'starforged', name: 'Starforged Arms', kind: 'items', ranks: 1, costs: [350], ilvl: 62, req: ['relics', 'flag:bossKill'] },
+  swift_boots: { id: 'swift_boots', name: 'Swift Boots', kind: 'map', ranks: 1, costs: [200], levels: 1, req: ['wayfinder'] },
+  alchemist: { id: 'alchemist', name: "Alchemist's Notes", kind: 'items', ranks: 1, costs: [150], req: ['satchel'] },
+  cache: { id: 'cache', name: 'Cache of the Wanderer', kind: 'items', ranks: 1, costs: [200], req: [] },
+  relics: { id: 'relics', name: 'Relics of the Deep', kind: 'items', ranks: 1, costs: [400], req: ['cache'] },
+  starforged: { id: 'starforged', name: 'Starforged Arms', kind: 'items', ranks: 1, costs: [450], ilvl: 62, req: ['relics', 'flag:bossKill'] },
   sp_r1: { id: 'sp_r1', name: 'Lost Technique I (Rogue)', kind: 'skill', ranks: 1, costs: [150], spell: 'ghostblade_rush', req: [] },
   sp_m1: { id: 'sp_m1', name: 'Lost Technique I (Mage)', kind: 'skill', ranks: 1, costs: [150], spell: 'chrono_sigil', req: [] },
   sp_h1: { id: 'sp_h1', name: 'Lost Technique I (Hunter)', kind: 'skill', ranks: 1, costs: [150], spell: 'ricochet_bolt', req: [] },
-  sp_r2: { id: 'sp_r2', name: 'Lost Technique II (Rogue)', kind: 'skill', ranks: 1, costs: [250], spell: 'bloodprice_gambit', req: ['sp_r1'] },
-  sp_m2: { id: 'sp_m2', name: 'Lost Technique II (Mage)', kind: 'skill', ranks: 1, costs: [250], spell: 'mirrorshade', req: ['sp_m1'] },
-  sp_h2: { id: 'sp_h2', name: 'Lost Technique II (Hunter)', kind: 'skill', ranks: 1, costs: [250], spell: 'beastcall_horn', req: ['sp_h1'] },
-  stormhawk: { id: 'stormhawk', name: 'Stormhawk Companion', kind: 'skill', ranks: 1, costs: [200], pet: 'stormhawk', req: [] },
-  talent_pt: { id: 'talent_pt', name: 'Ancestral Insight', kind: 'stat', ranks: 2, costs: [250, 400], points: 1, req: [] },
-  second_breath: { id: 'second_breath', name: 'Second Breath', kind: 'resurrect', ranks: 1, costs: [400], charges: RES_META_CHARGES, req: ['flag:reachedBoss'] },
+  sp_r2: { id: 'sp_r2', name: 'Lost Technique II (Rogue)', kind: 'skill', ranks: 1, costs: [300], spell: 'bloodprice_gambit', req: ['sp_r1'] },
+  sp_m2: { id: 'sp_m2', name: 'Lost Technique II (Mage)', kind: 'skill', ranks: 1, costs: [300], spell: 'mirrorshade', req: ['sp_m1'] },
+  sp_h2: { id: 'sp_h2', name: 'Lost Technique II (Hunter)', kind: 'skill', ranks: 1, costs: [300], spell: 'beastcall_horn', req: ['sp_h1'] },
+  stormhawk: { id: 'stormhawk', name: 'Stormhawk Companion', kind: 'skill', ranks: 1, costs: [250], pet: 'stormhawk', req: [] },
+  talent_pt: { id: 'talent_pt', name: 'Ancestral Insight', kind: 'stat', ranks: 1, costs: [500], points: 1, req: [] },
+  second_breath: { id: 'second_breath', name: 'Second Breath', kind: 'resurrect', ranks: 1, costs: [500], charges: RES_META_CHARGES, req: ['flag:reachedBoss'] },
   oaths: { id: 'oaths', name: 'Oaths', kind: 'challenge', ranks: 1, costs: [0], req: ['flag:bossKill'] },
 };
 

@@ -23,9 +23,14 @@ import { startFight, endFight } from './combat.js';
 import { makeBoss } from './boss.js';
 
 // ---------------- Meta at run start (rules 11.4) ----------------
+/**
+ * Run modifiers from the profile's unlocks. A rank above the catalogue's ranks (a profile saved under an older
+ * catalogue, e.g. Keen 3 or Ancestral Insight 2 before M2 v3) counts as the maximum rank, so a profile never
+ * exceeds the meta power budget (rules 11.2).
+ */
 export function metaFromProfile(profile, classId) {
   const u = (profile && profile.unlocks) || {};
-  const r = (id) => u[id] || 0;
+  const r = (id) => Math.min(u[id] || 0, META[id].ranks);
   return {
     hpPct: r('vigor') * META.vigor.hpPct,
     powerPct: r('edge') * META.edge.powerPct,
