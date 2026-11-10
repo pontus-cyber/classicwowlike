@@ -11,6 +11,7 @@ Owner ideas and team proposals not yet scheduled. The Lead places each item into
 | 2026-11-10 | FTL-style roamable circular zone map, pursuing threat, exit by rim location or recall item | Owner 10:09 | docs/specs/expedition.md (design), milestone M2b | doing |
 | 2026-11-10 | Visibility is bought with preparation points and meta; fresh profile sees almost nothing | Owner 10:09 | expedition.md | doing |
 | 2026-11-10 | Start-camp preparation points: contracts, supplies, scouting | Owner 10:06 | expedition.md | doing |
+| 2026-11-10 | Dungeon bosses z1_belk and z5_father_vael lost their add summon to get a turn-5 signature (validator allows 2 abilities); consider allowing 3 | Content Designer | M4 | todo |
 | 2026-11-10 | Hunter full-catalogue: one clearly best talent tree | Designer v5 | M3 | todo |
 | 2026-11-10 | Run log stored in the profile; requirements list in metaOffers | UI/UX Engineer | M3 | todo |
 | 2026-11-09 | Owner glance at plain compound names for similarity to existing games (Barrowdeep, Mournwood, Greywater Fens) | Content Designer | M4 | todo |
