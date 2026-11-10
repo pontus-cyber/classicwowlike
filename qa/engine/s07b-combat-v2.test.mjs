@@ -623,6 +623,27 @@ describe('rules 7.9 rule E and pacing (combat v2)', () => {
     assert.notEqual(R.autoAction(pass(s)).type, 'ENGAGE');
   });
 
+  test('D48 (rules 7.9): rule E never saps a beast; the default target never switches back to a sapped enemy while another enemy lives', () => {
+    // A beast with the most track damage is not sapped: the next enemy is; two beasts: Ambush on the default target.
+    const big = (i) => (x) => { tough(x); for (const y of x.fight.enemies[i].track) y.est = 999; };
+    assert.deepEqual(R.autoAction(fight('rogue', 20, [], [mob('z1_beast'), mob('z1_brute')], { stealth: true, prep: big(0) })), engage('sap', 1));
+    const beasts = fight('rogue', 20, [], [mob('z1_beast'), mob('z1_beast')], { stealth: true, prep: (x) => { big(1)(x); x.fight.enemies[0].hp -= 5; } });
+    assert.deepEqual(R.autoAction(beasts), engage('ambush', R.defaultTarget(beasts)));
+    assert.deepEqual(R.autoAction(fight('mage', 20, [], [mob('z1_beast'), mob('z1_brute')], { prep: big(0) })), engage('binding_glyph', 0), 'only Sap avoids beasts');
+    // Sap the caster: the Rogue fights the brute and stays on it after the caster wakes, although casters rank first.
+    let s = fight('rogue', 20, [], [mob('z1_caster'), mob('z1_brute')], { stealth: true, prep: tough });
+    assert.equal(R.defaultTarget(s), 0, 'caster first without a Sap');
+    s = R.step(s, engage('sap', 0)).state;
+    assert.equal(s.fight.enemies[0].wasSapped, true);
+    assert.equal(R.defaultTarget(s), 1);
+    s = pass(s, C.SAP_TURNS);
+    assert.ok(!st(s.fight.enemies[0].st, 'SAPPED'), 'awake');
+    assert.equal(R.defaultTarget(s), 1, 'no switch back while the brute lives');
+    assert.equal(R.autoAction(s).target, 1);
+    const last = tweak(s, (x) => { x.fight.enemies[1].alive = false; x.fight.enemies[1].hp = 0; });
+    assert.equal(R.defaultTarget(last), 0, 'the sapped enemy once no other is left');
+  });
+
   test('pacing (rules 3): PACE_ENGAGE_S per fight with an engage round in the manual profile only; round terms 3.1 s and 1.1 s', () => {
     const st0 = { nodesTotal: 0, zonesLeft: 0, quests: 0, fights: 0, rounds: 0, equipDrops: 0, levelUps: 0, talentPoints: 0, rests: 0, shrines: 0, treasures: 0, vendorVisits: 0, vendorTx: 0, trainerVisits: 0, trainerTx: 0, reachedBoss: false, engages: 0 };
     const add = (o) => ({ ...st0, ...o });

@@ -87,8 +87,10 @@ export function engageAction(s, ev, a) {
       break;
     }
     case 'sap':
-      // SAPPED for SAP_TURNS turns: cancels those now-entries; breaks on any damage (damage.js).
+      // SAPPED for SAP_TURNS turns: cancels those now-entries; breaks on any damage (damage.js). wasSapped keeps
+      // autoplay's default target off it while another enemy lives (rules 7.9, D48).
       addStatus(s, ev, tgt, { id: 'SAPPED', dur: turnsDur(SAP_TURNS) });
+      f.enemies[tgt].wasSapped = true;
       break;
     case 'premeditate':
       addCp(s, PREMED_CP);

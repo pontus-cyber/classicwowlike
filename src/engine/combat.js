@@ -36,7 +36,8 @@ export function zoneDanger(level, variant = 'normal') {
  * Enemy from a template (rules 7.6): every quest, grind, elite, rare, dungeon, Camp, summoned and Signal enemy. No
  * draws. Damage includes zone danger and ENGAGE_DMG_COMP (combat v2: the price of the engage round). Combat v2
  * fields: turn0 (round of its turn 1; set by the caller), turn (current turn), track, acted (turns it has acted;
- * Bloodlust), ward (guardian), unscripted (summons and Signal adds play no opening script), noReward (Signal adds).
+ * Bloodlust), ward (guardian), unscripted (summons and Signal adds play no opening script), noReward (Signal adds),
+ * wasSapped (Sap landed on it this fight; autoplay's default target, D48).
  */
 export function makeEnemy(s, idx, tid, level, variant) {
   const t = s.content.enemies[tid];
@@ -50,7 +51,7 @@ export function makeEnemy(s, idx, tid, level, variant) {
     abilities: t.abilities.slice(), cds: {}, st: [], intent: null, alive: true,
     elite: variant === 'elite' || variant === 'rare', boss: variant === 'dboss', ccImmune: variant === 'dboss',
     enraged: 0, summoned: false, shield: 0, asc: 0,
-    turn0: 1, turn: 0, track: [], acted: 0, ward: null, unscripted: false, noReward: false,
+    turn0: 1, turn: 0, track: [], acted: 0, ward: null, unscripted: false, noReward: false, wasSapped: false,
   };
 }
 
@@ -177,14 +178,19 @@ function enemiesAct(s, ev) {
 const PRIORITY = { mender: 0, caster: 1 };
 /** HEXED or SAPPED: damage would break the control (rules 7.9 skips them as default targets, combat v2). */
 export const breaksOnHit = (e) => hasSt(e.st, 'HEXED') || hasSt(e.st, 'SAPPED');
-/** Default target (rules 7.9): living, non-HEXED, non-SAPPED, mender > caster > others, lowest HP, lowest index. */
+/**
+ * Default target (rules 7.9): living, non-HEXED, non-SAPPED, mender > caster > others, lowest HP, lowest index. An
+ * enemy that was sapped this fight only when no other such enemy lives (D48: autoplay never switches back to it while
+ * it fights another); HEXED or SAPPED enemies only when no other is left.
+ */
+const TARGET_TIERS = [(e) => !breaksOnHit(e) && !e.wasSapped, (e) => !breaksOnHit(e), () => true];
 export function defaultTarget(s) {
   const f = s.fight;
-  let best = null;
   const rank = (e) => (e.arch in PRIORITY ? PRIORITY[e.arch] : 2);
-  for (const pass of [false, true]) {
+  for (const ok of TARGET_TIERS) {
+    let best = null;
     for (const e of f.enemies) {
-      if (!e.alive || (!pass && breaksOnHit(e))) continue;
+      if (!e.alive || !ok(e)) continue;
       if (!best || rank(e) < rank(best) || (rank(e) === rank(best) && e.hp < best.hp)) best = e;
     }
     if (best) return best.idx;

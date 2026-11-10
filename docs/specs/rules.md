@@ -575,7 +575,7 @@ An enemy whose intent has `cast` loses that action if, before it acts in that ro
 
 ### 7.9 Autoplay policy (autoplay toggle and bots)
 Deterministic given state and seed. Each player turn, the first rule that yields an action wins:
-- E. (combat v2) Engage, in the engage round only, before rule 1: if at least 2 enemies are alive and the class's control option (7.10) is usable on some enemy: the control option on the enemy whose track shows the largest estimated damage on the player (entries aimed at the player or at all) over its turns 1..ENGAGE_AUTO_LOOK (ties: default-target order). Otherwise the strike option on the default target (Mage: Pre-cast of the first bar spell whose autoplay condition holds; if none, rules 1-6).
+- E. (combat v2) Engage, in the engage round only, before rule 1: if at least 2 enemies are alive and the class's control option (7.10) is usable on some enemy: the control option on the enemy whose track shows the largest estimated damage on the player (entries aimed at the player or at all) over its turns 1..ENGAGE_AUTO_LOOK (ties: default-target order); the Rogue never saps a beast, whose Bloodlust ramps once it wakes (combat v2, D48). Otherwise the strike option on the default target (Mage: Pre-cast of the first bar spell whose autoplay condition holds; if none, rules 1-6).
 1. HP < AUTO_POTION_HP and a healing item on the item bar is usable -> use it.
 2. Own debuff stacks (BRAND counts per stack) >= AUTO_TONIC_STACKS and a cleanse spell (tag cleanse) or Purifying Tonic is usable -> use it (spell first).
 3. Some enemy intent is `cast` and an interrupt or stun-tagged spell on the bar is usable on it -> use it on the cast with the highest estimated damage (ties: lowest index).
@@ -583,7 +583,7 @@ Deterministic given state and seed. Each player turn, the first rule that yields
 5. Bar slots 1..7 in order: the first usable spell whose autoplay condition holds -> cast on the default target (or the spell's own target rule).
 6. Basic attack on the default target.
 
-Default target: living, non-HEXED, non-SAPPED (combat v2) enemy, priority mender > caster > others; within a priority, lowest current HP; ties lowest index. "Focus" = default target. ">= N enemies" counts living non-HEXED, non-SAPPED enemies. Rules 1-6 read only the now-entry of each track and never hold a spell for an OFF_BALANCE window (combat v2): the track and the window are the manual player's edge.
+Default target: living, non-HEXED, non-SAPPED (combat v2) enemy, priority mender > caster > others; within a priority, lowest current HP; ties lowest index. An enemy that was sapped this fight is the default target only when no other living non-HEXED, non-SAPPED enemy is left, so autoplay never switches back to it while it fights another (combat v2, D48); HEXED or SAPPED enemies only when no other is left. "Focus" = default target. ">= N enemies" counts living non-HEXED, non-SAPPED enemies. Rules 1-6 read only the now-entry of each track and never hold a spell for an OFF_BALANCE window (combat v2): the track and the window are the manual player's edge.
 Between fights in a node: if HP < AUTO_FOOD_HP (or mana < AUTO_FOOD_HP for Mage) and Trail Rations are in the bag, eat one.
 
 ### 7.10 Engage round (combat v2)

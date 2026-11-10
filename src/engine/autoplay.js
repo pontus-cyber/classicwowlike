@@ -130,6 +130,8 @@ function engagePolicy(s) {
     let most = -1;
     for (const e of f.enemies) {
       if (!e.alive || !legal(s, engageAct(control, e.idx))) continue;
+      // D48: the Rogue never saps a beast (its Bloodlust ramps once it wakes, rules 7.12).
+      if (control === 'sap' && e.arch === 'beast') continue;
       let dmg = 0;
       for (const x of e.track) if (x.turn >= 1 && x.turn <= ENGAGE_AUTO_LOOK && (x.target === 'player' || x.target === 'all')) dmg += x.est;
       if (dmg > most || (dmg === most && before(e, best))) { best = e; most = dmg; }
