@@ -2,7 +2,7 @@
 
 Every section of docs/specs/rules.md and the tests that cover it. Engine suite: `node --test qa/engine/` (154 tests, Core Gameplay Engineer). QA suite: `node --test qa/rules/` (this folder). Browser: qa/browser/full-run.mjs and ui-checks.mjs.
 
-File keys. Engine: E00 s00-s01-structure, E01b s01b-expedition, E02 s02-nodes, E03 s03-s04-character, E05 s05-classes, E06 s06-talents, E07 s07-combat, E07b s07b-combat-v2, E08 s08-s09-items-death, E10 s10-boss, E11 s11-s12-meta-content, E13 s13-constants, EH health. QA: Q01 r01-r02-map-nodes, Q04 r04-r07-character-combat, Q06 r06-talents, Q08 r08-items, Q09 r09-r11-summary-meta, Q10 r10-boss, QA api-legal. B browser scripts.
+File keys. Engine: E00 s00-s01-structure, E01b s01b-expedition, E01c s01c-heat, E02 s02-nodes, E03 s03-s04-character, E05 s05-classes, E06 s06-talents, E07 s07-combat, E07b s07b-combat-v2, E08 s08-s09-items-death, E10 s10-boss, E11 s11-s12-meta-content, E13 s13-constants, EH health. QA: Q01 r01-r02-map-nodes, Q04 r04-r07-character-combat, Q06 r06-talents, Q08 r08-items, Q09 r09-r11-summary-meta, Q10 r10-boss, QA api-legal. B browser scripts.
 
 | Section | Covered by | QA additions and notes |
 |---|---|---|
@@ -14,6 +14,10 @@ File keys. Engine: E00 s00-s01-structure, E01b s01b-expedition, E02 s02-nodes, E
 | 1.5 Leaving a zone | E00 TRAVEL_ON rules, Wayfinder, Swift Boots, forced after row 8 | - |
 | 1.6 Camp | E00 camp waves at 58 | Q01 camp vendor at content level 60 |
 | 1.7 In-game time and Ascendancy | E00 formula and boss HP | Q10 all boss damage × (1 + asc); Q09 speed bonus at or under the par |
+| 1.7.1 Heat: the line and the heat (heat) | E01c line per zone (par 120 and Haste, the Camp at the par), heat = hours - line, the line moving on zone entry and TRAVEL_ON hours counting against the zone left, ascIfPar formula and equal to the boss Ascendancy at the Camp | - |
+| 1.7.2 Heat states (heat) | E01c thresholds Clear / Warm / Hot / Scorched, gain and rarityUp by state, the bar; heatView null before START_RUN and defined in every later phase of full runs (rows and expedition), reading it changes nothing; heatPreview exact against the engine's hours, heat and state for every listed choice over four full runs | - |
+| 1.7.3 What heat gives (heat) | E01c entry state fixed before the node's hours (node, fight, node and fight events, heatPreview.pays, heatView.node); XP and gold × (1 + HEAT_GAIN) after rested, Insight and meta (kill, quest turn-in, grind wave, dungeon clear, treasure gold), Warm pays nothing, selling raw; not paid in Camp waves, the boss and Dimmed encounters | - |
+| 1.7.4 Heat in the summary (heat) | E01c hours by the state each hour starts in; trackPerZone chain, lines and last exit; hoursByState, nodesByState and fightsByState add up over full runs (rows and expedition) | - |
 | 1.8 Trade-offs | emergent: sections 2, 8, 10 | playtest notes in docs/handoffs/qa-2026-11-09.md |
 | 1.9.1 Expedition phases and actions (expedition) | E01b mapMode option, rows vs expedition actions, legalActions on the map (every listed action legal), full runs: every action autoplay takes is listed | - |
 | 1.9.2 Zone graph (expedition) | E01b ring sizes and angles over 30 seeds × 6 zones; the whole map(z) draw order replayed exactly (angles, edges, regions, Roads, Shardfall, types; 40 seeds × 3 zones); spokes connect, edge and diagonal frequencies; regions are wedges; Roads and Shardfall; type constraints over 200 zones; determinism and independence from earlier zones; hub vendor keeps what was sold; E13 REGION_W table | - |
@@ -24,6 +28,7 @@ File keys. Engine: E00 s00-s01-structure, E01b s01b-expedition, E02 s02-nodes, E
 | 1.9.7 Leaving a zone (expedition) | E01b TAKE_ROAD through all six zones to the Camp and the boss with no level gate, a Dimmed Road after its encounter, the Homeward Bell (charges, hours, no travel hours, legality) and the Bell with a Dimmed encounter first | - |
 | 1.9.8 Pacing values (expedition) | E01b node hours, a one-wave Grind starting on entry, trash, trash, boss; XP × XP_WEIGHT_MULT on kills, turn-ins, waves and clears; estSeconds walks, passes and the Bell; E13 constants | - |
 | 1.9.9 Default map policy (expedition) | E01b full autoplay runs per class (fixture and real content) end; determinism and a save mid-run | - |
+| 1.9.10 Heat in an expedition zone (heat) | E01c dimIn = dimAt - hz, Dimming states by HEAT_DIM_WARM_H and HEAT_DIM_HOT_H, the hotter state counts (`by`), no clock in rows runs and at the Camp; a node entered at the Dimming's edge pays Hot; a walk into the dark previews its Dimmed encounter | - |
 | 2.0 Node summary, mob kill XP | E02 hours per type, kill XP per kind | - |
 | 2.1 Quest | E02 rewards, story chain, flee | Q01 exact turn-in XP with diffMod above and below, encounter size weights, zone normals |
 | 2.2 Grind | E02 waves, hours, stop | Q01 exact wave XP; stopped after wave 1 of 3 costs 1 h |
@@ -60,13 +65,13 @@ File keys. Engine: E00 s00-s01-structure, E01b s01b-expedition, E02 s02-nodes, E
 | 7.14 Encounter composition (combat v2) | E07b rule examples, every generated quest, grind, elite + add, dungeon and Camp encounter valid over 150 seeds × 6 zones, repair draws only when needed (1 draw, fallback), add pool from the zone and validated, mapView archetypes for treasure guards and dungeon fights; E00 quest draw order with the repair | - |
 | 7.13 Off-balance (combat v2) | E07b interrupt, control on a heavy (mid-round and at turn start), avoided heavies (miss, WARD, IMMUNE, TAUNT; not hit, not pet aggro), +OFFBAL_TAKEN, +OFFBAL_CRIT, dodge 0, FROZEN counts once, durations, end boss (Litany, Crush) | Q06 Brittle vs FROZEN (FROZEN counts as OFF_BALANCE) |
 | 8.1-8.3 Slots, rarity, budget | E08 formulas, rarity stats, class bias, item score | - |
-| 8.4 Drops | E08 mob chances, rare share, guaranteed elite drops, draw order, Ember, uniques | Q08 rarity weights of all 9 sources, trash item chance, grind × 1.5, slots uniform; Q01 rare elite loot |
+| 8.4 Drops | E08 mob chances, rare share, guaranteed elite drops, draw order, Ember, uniques; E01c the heat step (one draw after the rarity draw in every state, step below HEAT_RARITY_UP, epic stays, the same draws in every state, also with the unique unlocks), quest reward choices, vendor stock unchanged | Q08 rarity weights of all 9 sources, trash item chance, grind × 1.5, slots uniform; Q01 rare elite loot |
 | 8.5 Gold | E08 V(L), sell, junk; E02 coins; E11 Prospector | - |
 | 8.6 Consumables | E07; E08 rations, elixir, Ember | Q04 Spark Flask, Tonic |
 | 8.7 Bags | E08 capacity, stacks, loot window | Q08 autoplay discards junk first, then the lowest sell value |
-| 9 Death, resurrection, summary | E08 charge order, death location, Frailty | Q09 every summary field of rules 9, resurrection keeps the round and the enemies, killer and ability |
+| 9 Death, resurrection, summary | E08 charge order, death location, Frailty; E01c the heat block (1.7.4) | Q09 every summary field of rules 9, resurrection keeps the round and the enemies, killer and ability |
 | 10 End boss | E10 setup, phase 1 schedule, Litany, interrupts, Chrono Sigil, phases 2-3, enrage, victory | Q10 Ascendancy on damage, telegraph counters predict the schedule, Crush heavy. Todo: Pulse and Shards counters (BUG-QA-07) |
-| 11 Meta progression | E11 Echoes, catalogue, unique effects, unlocks, Oaths, END_RUN | Q09 speed bonus, progress scaling, profile carried into the next run. B: profile saved after a run |
+| 11 Meta progression | E11 Echoes, catalogue, unique effects, unlocks, Oaths, END_RUN; E01c the heat Echo line (fights won in Hot or Scorched nodes; fled and Clear or Warm give none) | Q09 speed bonus, progress scaling, profile carried into the next run. B: profile saved after a run |
 | 12 Content ranges | E11 validator (fixture, strict real content, errors), engine never changes content; E13 ability templates | - |
 | 13 Constant table | E13 every constant and data table against rules.md | - |
 

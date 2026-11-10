@@ -1,7 +1,8 @@
-// XP, levels, rested pool, talent points, gold income (rules 2.5, 4.3, 4.4, 6, 8.5).
+// XP, levels, rested pool, talent points, gold income (rules 2.5, 4.3, 4.4, 6, 8.5); heat's XP and gold multiplier
+// (rules 1.7.3).
 import {
   XP_A, XP_B, XP_C, MAX_LEVEL, XP_DIFF_STEP, XP_DIFF_MAX, XP_DIFF_SOFT_FLOOR, XP_DIFF_FALL, XP_GREY_DIFF,
-  XP_GREY_MOD, RESTED_MULT, RESTED_CAP_FRAC, TALENT_FIRST_LEVEL, TALENT_LEVEL_STEP, BOON_XP_PCT,
+  XP_GREY_MOD, RESTED_MULT, RESTED_CAP_FRAC, TALENT_FIRST_LEVEL, TALENT_LEVEL_STEP, BOON_XP_PCT, HEAT_GAIN,
 } from '../constants.js';
 import { rnd, flr } from './util.js';
 import { refreshDerived } from './stats.js';
@@ -47,7 +48,14 @@ export function eventXp(s, frac, cl) {
 }
 
 /**
+ * Heat (rules 1.7.3): extra XP and gold of everything the current node pays, HEAT_GAIN of the state it was entered in;
+ * 0 outside such a node (hub services, walks, travel, the Camp, the boss, a Dimmed encounter).
+ */
+export const heatGain = (s) => (s.node && s.node.heat ? HEAT_GAIN[s.node.heat] : 0);
+
+/**
  * Give XP. kill = true applies the rested doubling (rules 2.5): XP × RESTED_MULT, the extra paid from the pool.
+ * Then heat (rules 1.7.3): × (1 + heatGain), after every other modifier; the `xp` event's `heat` is the extra.
  * Handles level-ups (rules 4.3): carry-over, max HP/mana rise and current values rise by the same amount.
  */
 export function gainXp(s, ev, amount, why, kill = false) {
@@ -58,10 +66,12 @@ export function gainXp(s, ev, amount, why, kill = false) {
     rested = Math.min(p.rested, amount * (RESTED_MULT - 1));
     p.rested -= rested;
   }
-  const total = amount + rested;
+  const base = amount + rested;
+  const g = heatGain(s);
+  const total = g > 0 ? rnd(base * (1 + g)) : base;
   p.xp += total;
   s.stats.xpGained += total;
-  ev.push({ t: 'xp', amount: total, rested, why });
+  ev.push(total > base ? { t: 'xp', amount: total, rested, why, heat: total - base } : { t: 'xp', amount: total, rested, why });
   while (p.level < MAX_LEVEL && p.xp >= xpToNext(p.level)) {
     p.xp -= xpToNext(p.level);
     const before = p.d;
@@ -94,13 +104,18 @@ export function addRested(s, fracOfLevel) {
   p.rested = Math.min(rnd(RESTED_CAP_FRAC * need), p.rested + rnd(fracOfLevel * need));
 }
 
-/** Gold found (kills, rewards, boons). Meta Prospector applies. Selling uses addGoldRaw. */
+/**
+ * Gold found (kills, rewards, boons). Meta Prospector applies, then heat (rules 1.7.3): × (1 + heatGain); the `gold`
+ * event's `heat` is the extra. Selling uses addGoldRaw (no Prospector, no heat).
+ */
 export function gainGold(s, ev, copper, why) {
-  const amount = rnd(copper * (1 + s.meta.goldPct));
-  if (amount <= 0) return 0;
+  const base = rnd(copper * (1 + s.meta.goldPct));
+  if (base <= 0) return 0;
+  const g = heatGain(s);
+  const amount = g > 0 ? rnd(base * (1 + g)) : base;
   s.player.gold += amount;
   s.stats.goldEarned += amount;
-  ev.push({ t: 'gold', amount, why });
+  ev.push(amount > base ? { t: 'gold', amount, why, heat: amount - base } : { t: 'gold', amount, why });
   return amount;
 }
 

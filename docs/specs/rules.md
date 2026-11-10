@@ -1,6 +1,6 @@
 # Rules spec (M0 task 0.2)
 
-Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)"); M2 v5 changes 2026-11-10 (marked "(M2 v5)"); combat v2 (docs/specs/combat-v2.md, on its defaults) folded into sections 3, 7 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(combat v2)"); the expedition map (docs/specs/expedition.md 1, 4-7, 9.5; a run option until the switch-over) folded into 1.9 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(expedition)"); heat (docs/specs/expedition.md section H, on its defaults, both map modes) folded into 1.7.1-1.7.2, 1.9.10 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(heat)").
+Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)"); M2 v5 changes 2026-11-10 (marked "(M2 v5)"); combat v2 (docs/specs/combat-v2.md, on its defaults) folded into sections 3, 7 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(combat v2)"); the expedition map (docs/specs/expedition.md 1, 4-7, 9.5; a run option until the switch-over) folded into 1.9 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(expedition)"); heat (docs/specs/expedition.md section H, on its defaults, both map modes) folded into 1.7.1-1.7.4, 1.9.10, 8.4, 9, 11.1 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(heat)").
 Audience: Core Gameplay Engineer (src/rules.js), Simulation & Balance Engineer, UI/UX Engineer, Content Designer.
 
 Every global number is a named constant (UPPER_SNAKE_CASE) in section 13. The data tables (classes, spells, pets, talents, archetypes, boss, meta catalogue) are named constant groups: each cell is addressed as `TABLE.id.field` (e.g. `SPELL.ember_bolt.cost`) and is exported as data from src/. Values are starting values; the Simulation & Balance Engineer tunes them within the limits in balance.md.
@@ -126,6 +126,18 @@ Source: docs/specs/expedition.md section H (H.1, H.2), folded in by the Core Gam
 
 HEAT_HOT_AT equals ASC_STEP_HOURS: Hot starts where Ascendancy starts to cost. In an expedition zone the Dimming adds a second clock and the meter's state is the hotter of the two (1.9.10); elsewhere the state is the run state. The meter is `heatView` and the hover preview of a choice ("2 h, ends Warm") is `heatPreview` (engine-api.md 11); the UI rules for the meter are expedition.md H.4.
 
+#### 1.7.3 What heat gives (heat)
+Source: expedition.md H.3.
+- A node's **heat state is fixed when the player enters it** (today's map: CHOOSE_NODE; expedition: MOVE into an unresolved node): the state at that moment, before any of the node's hours are spent, on the expedition map with the Dimming's clock of the node entered (1.9.10). It applies to everything the node pays, whatever the meter shows later inside it; `heatPreview(...).pays` shows it before the choice.
+- **XP and gold**: every XP and gold gain inside the node (kills, the quest turn-in and story bonus, grind waves, the dungeon clear, treasure gold, Boon of Plenty) × (1 + HEAT_GAIN[state]), after every other modifier (rested doubling, Boon of Insight, meta Quick Study and Prospector), rounded half away from zero. Selling is not a gain.
+- **Better drops**: every item rolled on a drop table in the node (kill drops, elite and dungeon boss drops, treasure, quest and story reward choices; not vendor stock) draws once more on its loot stream right after the rarity draw (8.4): below HEAT_RARITY_UP[state] the rarity is one step higher (common -> uncommon -> rare -> epic; epic stays).
+- **Echoes**: ECHO_PER_HEAT_FIGHT per fight won in a node entered Hot or Scorched (11.1).
+- **Not paid**: hub services, walks, passes and travel (they have no XP or gold), the Camp (its waves are repeatable: heat there would be a farm), the boss, and Dimmed encounters (1.9.6). A Dimmed node cannot be entered, so no node is entered Scorched by the Dimming's clock.
+- What it costs: the hours themselves, which become Ascendancy at the boss (1.7, unchanged), and the lost ECHO_SPEED_BONUS. No new penalty is added.
+
+#### 1.7.4 Heat in the run summary (heat)
+The summary's `heat` block (9): `trackPerZone` (per zone entered, and the Camp: its number, its line, the run hours at arrival and when it was left; the zone the run ends in has the hours at the end), `hoursByState` (every hour spent counts in the state it starts in; TRAVEL_ON and TAKE_ROAD hours by the run state alone), `nodesByState` (nodes entered, by entry state), `fightsByState` (fights won in map nodes, by the node's entry state; Camp waves, the boss and Dimmed encounters are not counted) and `echoHeat` (the Echo line of 11.1). States in the order Clear, Warm, Hot, Scorched.
+
 ### 1.8 Where long-term trade-offs come from
 | Trade-off | Mechanism |
 |---|---|
@@ -230,6 +242,8 @@ Source: expedition.md H.5. In an expedition zone a second clock runs: `dimIn = d
 | Scorched | the node is Dimmed (dimIn <= 0) |
 
 The meter's state is the **hotter** of the run state (1.7.2) and the Dimming state; `heatView.by` names the clock that sets it (`dim` only when the Dimming state is hotter). The Camp, a rows run and a run without the Dimming have no Dimming clock (`dimIn` null).
+
+Rewards (1.7.3) use this combined state at node entry, so a node entered with dimIn <= HEAT_DIM_HOT_H pays as Hot: the reward for working near the dark. Dimmed encounters pay nothing (they keep DIM_XP_MULT and no loot). Contract rewards × (1 + HEAT_GAIN) arrive with contracts (task 2b.5).
 
 ---
 
@@ -790,7 +804,7 @@ No armor types and no durability: any class can equip any item; drops lean to th
 - `ilvl = source content level + RARITY_ILVL_BONUS`, max ILVL_MAX.
 - Budget `B = round(ilvl × BUDGET_PER_ILVL × slotW × rarityMult)`.
 - Affix share (rare, epic): `A = round(AFFIX_SHARE × B)`; stats get `B - A`.
-- Stat split of `B - A`: 1 stat: primary or STA (50/50) all points; 2 stats: primary SPLIT2_MAIN, second (STA or SPI, 70/30) the rest; 3 stats: primary SPLIT3_MAIN, STA SPLIT3_SECOND, SPI the rest.
+- Stat split of `B - A`: 1 stat: primary or STA (50/50) all points; 2 stats: primary SPLIT2_MAIN, second (STA or SPI, 70/30) the rest; 3 stats: primary SPLIT3_MAIN, STA SPLIT3_SECOND, SPI the rest. Draws: split (1-2 stat items), primary, affix (rare, epic); an item rolled on a drop table makes all three draws (8.4, heat).
 - Primary on generated items: current class's primary at DROP_CLASS_BIAS, else the other primary (AGI or INT).
 - Affix (uniform): Crit `+AFFIX_CRIT_PCT × slotW × (epic ? AFFIX_EPIC_MULT : 1)`; Power `+AFFIX_POWER_PER_PT × A`; Armor `+AFFIX_ARMOR_PER_PT × A`.
 - Weapon damage `WD = round((WEAPON_DMG_BASE + WEAPON_DMG_PER_ILVL × ilvl) × rarityMult)`. Item armor (armor slots) `= round(ARMOR_PER_ILVL × ilvl × slotW × rarityMult)`.
@@ -809,7 +823,11 @@ No armor types and no durability: any class can equip any item; drops lean to th
 | Treasure | 1 | 0 | 0 / 70 / 27 / 3 |
 | Vendor stock | 1 | 0 | 0 / 60 / 40 / 0 |
 
-Drop order per kill: item chance draw, junk chance draw, rarity draw, slot draw (uniform over 10 slots), stat draws in 8.3 order. Elites additionally drop an Ember of Return at EMBER_ELITE_DROP_CHANCE. Unique items from meta unlocks (11.3) replace a generated item of matching rarity at UNIQUE_DROP_CHANCE.
+Drop order per kill: item chance draw, junk chance draw, rarity draw, heat step draw, slot draw (uniform over 10 slots), stat draws in 8.3 order. Elites additionally drop an Ember of Return at EMBER_ELITE_DROP_CHANCE. Unique items from meta unlocks (11.3) replace a generated item of matching rarity at UNIQUE_DROP_CHANCE.
+
+Heat step (heat, 1.7.3): whenever an item is rolled on a drop table (every source above but vendor stock), one draw follows the rarity draw; below HEAT_RARITY_UP of the state the current node was entered in, the rarity is one step higher (common -> uncommon -> rare -> epic; epic stays). Outside such a node (Camp waves) the chance is 0. The rarity weights above are those of a Clear or Warm node.
+
+The loot stream does not depend on heat (heat): an item rolled on a drop table always makes the same draws whatever its rarity: its three stat draws of 8.3 (split, primary, affix) are all made and each is used only when the rarity needs it, and the unique draw is made whenever the profile makes the source a unique source (Cache of the Wanderer: elite, rare and treasure drops; Relics of the Deep: dungeon boss drops), whatever the rarity; it replaces the item only when an eligible unique of the final rarity exists (11.3). A rarity step therefore changes only that item's rarity and stats, never a later draw. Vendor stock (2.6) keeps the draws of 8.3.
 
 ### 8.5 Gold
 | Source | Copper |
@@ -845,7 +863,7 @@ BAG_SLOTS slots (+meta). One equipment item per slot; consumables stack per tabl
 - No charge left: the run ends. Death location is recorded: zone, row, lane, node type, fight index, enemy ids, round, killing ability.
 - The run also ends on boss victory.
 
-Run summary (SUMMARY phase): class, pet, talents (per tree), seed, outcome (victory/death), death location, level and XP, zone/row reached, hours, Ascendancy, estimated minutes (manual and autoplay profiles), nodes by type, fights, rounds, kills (normal/elite/rare/boss), quests and story rewards, dungeons cleared, gold earned and spent, potions used, resurrects used, damage dealt/taken, top 3 spells by damage, equipped items with ilvl and rarity, boss phase reached and boss HP % left, Echoes earned with the line-by-line breakdown (11.1).
+Run summary (SUMMARY phase): class, pet, talents (per tree), seed, outcome (victory/death), death location, level and XP, zone/row reached, hours, Ascendancy, estimated minutes (manual and autoplay profiles), nodes by type, fights, rounds, kills (normal/elite/rare/boss), quests and story rewards, dungeons cleared, gold earned and spent, potions used, resurrects used, damage dealt/taken, top 3 spells by damage, equipped items with ilvl and rarity, boss phase reached and boss HP % left, Echoes earned with the line-by-line breakdown (11.1), and the heat block (1.7.4).
 
 ---
 
@@ -879,6 +897,7 @@ The channel shows "Collapse Litany 1/2" then "2/2 - resolves". Gravity Crush sho
 | Per dungeon cleared | ECHO_PER_DUNGEON |
 | Per elite / rare killed | ECHO_PER_ELITE / ECHO_PER_RARE |
 | Per quest completed | ECHO_PER_QUEST |
+| Fights won in heat: per fight won in a node entered Hot or Scorched (1.7.3) | ECHO_PER_HEAT_FIGHT | (heat)
 | Reached the boss | ECHO_BOSS_REACHED |
 | Per boss phase reached after phase 1 | ECHO_BOSS_PHASE |
 | Boss killed | ECHO_BOSS_KILL |

@@ -1,5 +1,6 @@
 // Run summary (rules 9) and the real-time estimate (rules 3; combat v2: PACE_ENGAGE_S per fight with an engage round;
-// expedition, rules 1.9.8: walks and passes, the Homeward Bell, and the `expedition` block of the summary).
+// expedition, rules 1.9.8: walks and passes, the Homeward Bell, and the `expedition` block of the summary; heat, rules
+// 1.7.4: the `heat` block and the Echo line of fights won in heat).
 import {
   PACE_CREATE_S, PACE_DECIDE_S, PACE_TRAVEL_NODE_S, PACE_ZONE_TRAVEL_S, PACE_QUEST_TEXT_S, PACE_FIGHT_OVERHEAD_S,
   PACE_MANUAL_ROUND_S, PACE_AUTO_ROUND_S, PACE_LOOT_S, PACE_LEVELUP_S, PACE_TALENT_S, PACE_REST_S, PACE_SHRINE_S,
@@ -8,6 +9,7 @@ import {
 } from '../constants.js';
 import { echoes, profileHash } from './meta.js';
 import { deepClone } from './util.js';
+import { heatSummary } from './heat.js';
 
 /**
  * estSeconds (rules 3): sum of pace terms; rounds at the manual or autoplay rate. The manual profile also reads the
@@ -42,11 +44,14 @@ export function summary(s) {
   const trees = [0, 0, 0];
   for (const [id, r] of Object.entries(p.talents)) trees[TALENT[id].tree] += r;
   const top = Object.entries(st.spellDmg).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 3).map(([id, dmg]) => ({ id, dmg }));
+  const heat = heatSummary(s);
   const facts = {
     classId: p.classId, level: p.level, zonesLeft: st.zonesLeft, dungeons: st.dungeons, kills: st.kills,
     quests: st.quests, reachedBoss: st.reachedBoss, bossPhase: st.bossPhase, outcome: s.outcome,
-    hoursAtBoss: st.hoursAtBoss, oaths: s.oaths,
+    hoursAtBoss: st.hoursAtBoss, oaths: s.oaths, heatFights: heat.heatFights,
   };
+  const ech = echoes(facts, s.profile);
+  const heatLine = ech.lines.find((l) => l.id === 'heat');
   return deepClone({
     name: p.name, classId: p.classId, className: CLASS[p.classId].name, petId: p.pet ? p.pet.id : null,
     talents: { perTree: trees, trees: CLASS[p.classId].trees, ranks: { ...p.talents } },
@@ -61,7 +66,11 @@ export function summary(s) {
     resurrectsUsed: st.resUsed, damage: { dealt: st.dmgDealt, taken: st.dmgTaken }, topSpells: top,
     equipped: SLOT_IDS.filter((k) => p.equipped[k]).map((k) => ({ slot: k, name: p.equipped[k].name, ilvl: p.equipped[k].ilvl, rarity: p.equipped[k].rarity })),
     reachedBoss: st.reachedBoss, bossPhase: st.bossPhase, bossHpPct: st.bossHpPct,
-    echoes: echoes(facts, s.profile),
+    echoes: ech,
+    heat: {
+      trackPerZone: heat.trackPerZone, hoursByState: heat.hoursByState, nodesByState: heat.nodesByState,
+      fightsByState: heat.fightsByState, echoHeat: heatLine ? heatLine.echoes : 0,
+    },
     ...(st.exp ? { mapMode: 'expedition', expedition: expeditionSummary(s) } : {}),
   });
 }

@@ -1,11 +1,11 @@
-// Items, drops, gold values, bag (rules 8).
+// Items, drops (heat: the rarity step, rules 8.4), gold values, bag (rules 8).
 import {
   VALUE_BASE, VALUE_COEF, VALUE_EXP, RARITY, RARITY_ORDER, SLOT, SLOT_IDS, DROP_TABLE, ILVL_MAX,
   BUDGET_PER_ILVL, AFFIX_SHARE, AFFIX_CRIT_PCT, AFFIX_EPIC_MULT, AFFIX_POWER_PER_PT, AFFIX_ARMOR_PER_PT,
   SPLIT2_MAIN, SPLIT3_MAIN, SPLIT3_SECOND, DROP_CLASS_BIAS, WEAPON_DMG_BASE, WEAPON_DMG_PER_ILVL,
   ARMOR_PER_ILVL, STAT1_PRIMARY_CHANCE, STAT2_STA_CHANCE, AFFIX_KINDS, ITEM_SCORE, ITEM_SCORE_CRIT_UNIT,
   CLASS, CONSUMABLE, STACK_JUNK, BAG_SLOTS, JUNK_V, BUY_MULT, UNIQUE_DROP_CHANCE, ZONE_COUNT, ZONE_LEVELS,
-  OATH_THRIFT_MULT, MAX_LEVEL,
+  OATH_THRIFT_MULT, MAX_LEVEL, HEAT_RARITY_UP,
 } from '../constants.js';
 import { nextFloat, nextInt, weightedIndex, hash32 } from '../rng.js';
 import { rnd } from './util.js';
@@ -26,16 +26,18 @@ const otherPrimary = (p) => (p === 'AGI' ? 'INT' : 'AGI');
 
 /**
  * Stats of a gear item (rules 8.3). Draw order: split (1 or 2 stats), primary, affix (rare/epic).
- * fixed: { primary, second, affix } skips the draws (uniques, starting gear).
+ * fixed: { primary, second, affix } skips the draws (uniques, starting gear). pad (items rolled on a drop table, rules
+ * 8.4 heat): all three draws are made for every rarity, each used only when the rarity needs it, so the draws that
+ * follow do not depend on the rarity (a heat rarity step changes no later draw).
  */
-function rollStats(rng, ilvl, rarity, slot, clsPrimary, fixed) {
+function rollStats(rng, ilvl, rarity, slot, clsPrimary, fixed, pad = false) {
   const R = RARITY[rarity];
   const sw = SLOT[slot].slotW;
   const B = rnd(ilvl * BUDGET_PER_ILVL * sw * R.mult);
   const A = R.affix ? rnd(AFFIX_SHARE * B) : 0;
   const S = B - A;
   let split = null;
-  if (!fixed && (R.stats === 1 || R.stats === 2)) split = nextFloat(rng);
+  if (!fixed && (pad || R.stats === 1 || R.stats === 2)) split = nextFloat(rng);
   const primary = fixed ? fixed.primary : (nextFloat(rng) < DROP_CLASS_BIAS ? clsPrimary : otherPrimary(clsPrimary));
   const st = { AGI: 0, INT: 0, STA: 0, SPI: 0 };
   if (R.stats === 1) {
@@ -61,7 +63,7 @@ function rollStats(rng, ilvl, rarity, slot, clsPrimary, fixed) {
     if (affix === 'crit') crit = AFFIX_CRIT_PCT * sw * (rarity === 'epic' ? AFFIX_EPIC_MULT : 1);
     else if (affix === 'power') power = AFFIX_POWER_PER_PT * A;
     else bonusArmor = AFFIX_ARMOR_PER_PT * A;
-  }
+  } else if (pad && !fixed) nextFloat(rng); // the unused affix draw of a padded roll
   const wd = slot === 'weapon' ? rnd((WEAPON_DMG_BASE + WEAPON_DMG_PER_ILVL * ilvl) * R.mult) : 0;
   const armor = SLOT[slot].armor ? rnd(ARMOR_PER_ILVL * ilvl * sw * R.mult) : 0;
   return { budget: B, stats: st, primary, affix, power, crit, bonusArmor, wd, armor };
@@ -94,9 +96,9 @@ function gearName(s, item) {
   return name;
 }
 
-function buildGear(s, rng, { level, rarity, slot, fixed, ilvl }) {
+function buildGear(s, rng, { level, rarity, slot, fixed, ilvl, pad = false }) {
   const il = ilvl !== undefined ? ilvl : Math.min(ILVL_MAX, Math.max(1, level) + RARITY[rarity].ilvlBonus);
-  const r = rollStats(rng, il, rarity, slot, CLASS[s.player.classId].primary, fixed);
+  const r = rollStats(rng, il, rarity, slot, CLASS[s.player.classId].primary, fixed, pad);
   const item = {
     uid: newUid(s), kind: 'gear', slot, rarity, ilvl: il, name: '',
     stats: r.stats, power: r.power, crit: r.crit, armor: r.armor, bonusArmor: r.bonusArmor, wd: r.wd,
@@ -137,6 +139,12 @@ export function makeConsumable(s, id, qty = 1) {
   return { uid: newUid(s), kind: 'cons', id, qty };
 }
 
+/**
+ * Can a drop from this source be replaced by a unique for this run's profile (rules 8.4, 11.3): Cache of the Wanderer
+ * for elite, rare and treasure drops, Relics of the Deep for dungeon boss drops? Depends on the profile only.
+ */
+const uniqueSource = (s, source) => !!((s.meta.cache && (source === 'elite' || source === 'rare' || source === 'treasure')) || (s.meta.relics && source === 'dboss'));
+
 /** Unique that may replace a generated item (rules 8.4, 11.3), or null. */
 function uniqueFor(s, source, z, rarity) {
   const m = s.meta;
@@ -151,9 +159,18 @@ function uniqueFor(s, source, z, rarity) {
 }
 
 /**
- * One roll on a drop table (rules 8.4). Draw order: item chance, junk chance, rarity, slot, stats, then the
- * unique draw when an eligible unique exists. dropMult multiplies item and junk chances (Grind).
- * Returns { items: [...], junk: item|null }.
+ * Chance that an item rolled now is one rarity step higher (rules 8.4, heat): HEAT_RARITY_UP of the state the current
+ * node was entered in (rules 1.7.3); 0 outside such a node (the Camp, the boss, a Dimmed encounter).
+ */
+export const rarityUpChance = (s) => (s.node && s.node.heat ? HEAT_RARITY_UP[s.node.heat] : 0);
+
+/**
+ * One roll on a drop table (rules 8.4). Draw order: item chance, junk chance; when an item is rolled: rarity, the heat
+ * step (always drawn; below rarityUpChance the rarity is one step higher, epic stays), slot, stats (padded: always the
+ * three draws, rules 8.3), then the unique draw whenever the profile makes this source a unique source (uniqueSource),
+ * applied only when an eligible unique of the final rarity exists. So the number of draws never depends on heat or on
+ * the rarity drawn (heat, rules 8.4). dropMult multiplies item and junk chances (Grind). Returns the items (gear, then
+ * junk).
  */
 export function rollDrop(s, rng, table, level, z, dropMult = 1) {
   const t = DROP_TABLE[table];
@@ -161,13 +178,18 @@ export function rollDrop(s, rng, table, level, z, dropMult = 1) {
   const rJunk = nextFloat(rng);
   const out = [];
   if (rItem < Math.min(1, t.item * dropMult)) {
-    const rarity = RARITY_ORDER[weightedIndex(rng, t.weights)];
+    let ri = weightedIndex(rng, t.weights);
+    if (nextFloat(rng) < rarityUpChance(s)) ri = Math.min(RARITY_ORDER.length - 1, ri + 1);
+    const rarity = RARITY_ORDER[ri];
     const slot = SLOT_IDS[nextInt(rng, SLOT_IDS.length)];
-    let item = buildGear(s, rng, { level, rarity, slot });
-    const uq = uniqueFor(s, table, z, rarity);
-    if (uq && nextFloat(rng) < UNIQUE_DROP_CHANCE) {
-      s.player.uniquesFound.push(uq);
-      item = makeUnique(s, uq, item.ilvl);
+    let item = buildGear(s, rng, { level, rarity, slot, pad: true });
+    if (uniqueSource(s, table)) {
+      const u = nextFloat(rng);
+      const uq = uniqueFor(s, table, z, rarity);
+      if (uq && u < UNIQUE_DROP_CHANCE) {
+        s.player.uniquesFound.push(uq);
+        item = makeUnique(s, uq, item.ilvl);
+      }
     }
     out.push(item);
   }

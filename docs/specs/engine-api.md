@@ -8,7 +8,8 @@ not in the catalogue ignored); 2026-11-10c (M2 v5: Starforged Arms removed, `sta
 2026-11-10d (combat v2, rules 7.10-7.13: intent tracks, the engage round and `ENGAGE`, OFF_BALANCE, pack roles,
 `STATE_VERSION` 2; marked "(combat v2)"); 2026-11-10e (expedition map, rules 1.9: `mapMode`, `MOVE`, `PASS_THROUGH`,
 `TAKE_ROAD`, `RING_BELL`, the expedition `mapView`; section 10; marked "(expedition)"); 2026-11-10f (heat, rules
-1.7.1-1.7.2 and 1.9.10: `heatView`, `heatPreview`; section 11; marked "(heat)"). Rules authority:
+1.7.1-1.7.4 and 1.9.10: `heatView`, `heatPreview`, the node's entry state, `xp` and `gold` `heat`, the summary's
+`heat` block; section 11; marked "(heat)"). Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
 
 The engine is pure and seeded (D5): no DOM, no clock, no `Math.random`, no globals. ES modules (D13); Node
@@ -35,7 +36,7 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 | `stepInPlace(state, action)` | events | Same, but changes `state` in place (no copy). For simulators that own their state. |
 | `isLegal(state, action)`, `whyIllegal(state, action)` | bool / string or null | Validation without applying. |
 | `autoAction(state)` | action or null | Deterministic. In combat: the autoplay policy of rules 7.9. Elsewhere: a simple default policy (talents, gear, bar, hub, map, rewards, camp) so a headless run goes from CREATE to SUMMARY. `null` only in ENDED. |
-| `summary(state)` | object or null | Run summary (rules 9) incl. Echoes breakdown (11.1): `echoes = { lines: [{ id, count, each, echoes }], base, oathMult, total }`; a line's `echoes` is `round(count × each)` (half away from zero, M2 v3; `each` can be fractional), `base` the sum of the lines, `total = round(base × oathMult)`. Show `echoes` per line. Available any time after START_RUN. |
+| `summary(state)` | object or null | Run summary (rules 9) incl. Echoes breakdown (11.1): `echoes = { lines: [{ id, count, each, echoes }], base, oathMult, total }`; a line's `echoes` is `round(count × each)` (half away from zero, M2 v3; `each` can be fractional), `base` the sum of the lines, `total = round(base × oathMult)`. Show `echoes` per line. (heat) Line `heat`: fights won in heat ("Fights won in heat"); block `heat` (section 11.3). Available any time after START_RUN. |
 | `serialize(state)` / `deserialize(str, content)` | string / state | The content tables are not saved; pass the same `CONTENT` (version is checked). |
 | `mapView(state)` | object or null | What the player may see of the zone map (rules 1.4). Rare elites, traps and vendor Embers are `null` unless the profile owns Scout's Eye. Use this, not `state.zone.rows`, to draw the map. Fight nodes list one archetype per enemy: quest and elite `archetypes`, grind `archetypes` (first wave), treasure `archetypes` (the guard; `[]` unguarded, combat v2), dungeon `fights` (one archetype list per trash fight) and `bossArchetype` (combat v2). (expedition) In an expedition run: the zone graph as the player sees it (section 10.3). null outside a zone. |
 | `validateContent(content, {strict})` | string[] | Content checks (src/content/SCHEMA.md). |
@@ -151,10 +152,10 @@ Unaware and do not act; `CAST`, `ATTACK`, `USE_ITEM`, `PASS`, `FLEE` and `ENGAGE
 | `zone` | current zone; draw it with `mapView(state)` |
 | `hub.used.{trainer, vendor, inn}` | hub/camp services used this visit |
 | `service = {kind, where, cl, stock}` | open trainer or vendor; vendor `stock[i] = {kind: 'cons'|'gear', id or item, price, sold, unlimited}` |
-| `node = {type, r, l, cl, stage, k, rewards, quest, planned, wavesDone}` | current node ((expedition) `id` instead of `r`, `l`; section 10.2) |
+| `node = {type, r, l, cl, stage, k, rewards, quest, planned, wavesDone, heat}` | current node ((expedition) `id` instead of `r`, `l`; section 10.2). (heat) `heat`: the heat state the node was entered in, which it pays at (rules 1.7.3); a Dimmed encounter has none |
 | `fight` | see section 6 |
 | `loot[]` | loot window |
-| `stats`, `death` | counters for the summary (combat v2: `stats.engages` = fights with an engage round); death location (rules 9) |
+| `stats`, `death` | counters for the summary (combat v2: `stats.engages` = fights with an engage round; heat: `stats.heat` = the summary block's counters, read `summary(state).heat`); death location (rules 9) |
 
 Items: gear `{uid, kind: 'gear', slot, rarity, ilvl, name, stats: {AGI, INT, STA, SPI}, power, crit, armor,
 bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', id, qty}`; junk
@@ -169,14 +170,14 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `runStart` | `classId, petId, seed, oaths` | |
 | `zone`, `camp`, `travel` | `z, name` / `name` / `from` | zone hub entered / camp / TRAVEL_ON. (expedition) `travel` adds `by` (`road` or `bell`) and `node` |
 | `hours` | `add, total, why` | in-game hours spent |
-| `node`, `nodeDone`, `quest` | `type, r, l, cl` / ... / `quest` | node entered / completed / quest template id. (expedition) `node`: `type, id, ring, cl`; `nodeDone`: `type, id` |
+| `node`, `nodeDone`, `quest` | `type, r, l, cl, heat` / ... / `quest` | node entered / completed / quest template id. (expedition) `node`: `type, id, ring, cl, heat`; `nodeDone`: `type, id`. (heat) `heat`: the node's entry state (rules 1.7.3) |
 | `move` | `from, to, via, seen` | (expedition) a step: `via` `enter`, `walk` or `pass`; `seen` = node ids newly in view |
 | `dimming` | `front, dimmed` | (expedition) the Dimming's front advanced; `dimmed` = node ids it newly covers |
 | `dim` | `id, depth, level, k` | (expedition) a Dimmed encounter starts at node `id` (its `fight` event follows, `kind: 'dim'`) |
 | `bell` | `charges, node` | (expedition) RING_BELL: the channel starts (`charges` left) |
 | `service`, `serviceClosed` | `service, where` | |
 | `rest` | `hp, mana, rested` | Rest node or Inn |
-| `fight` | `kind, k, engage, enemies[{u, name, level, hp, kind, arch}]` | fight started (`kind`: quest grind elite trash dboss treasure camp boss, (expedition) dim; `engage`: it has an engage round, combat v2). A Dimmed encounter's enemies have `kind: 'shardspawn'` |
+| `fight` | `kind, k, engage, heat, enemies[{u, name, level, hp, kind, arch}]` | fight started (`kind`: quest grind elite trash dboss treasure camp boss, (expedition) dim; `engage`: it has an engage round, combat v2). A Dimmed encounter's enemies have `kind: 'shardspawn'`. (heat) `heat`: the node's entry state, null for Camp waves, the boss and Dimmed encounters |
 | `round` | `n`, `engage` (true in the engage round, combat v2) | a new round starts (intents follow) |
 | `intent` | `u, intent` | enemy intent for this round (section 6); the tracks are in the state |
 | `action` | `kind` (`cast` `attack` `item` `pass` `flee` `skip` `engage`), `spell, target, cost, item, success, option, engage` | player action. Combat v2: `kind: 'engage'` with `option` and `target` for an ENGAGE; a Pre-cast is `kind: 'cast'` with `engage: 'precast'` and `cost` 0 |
@@ -198,9 +199,9 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `phaseChange` | `phase` | boss phase 2 or 3 |
 | `death` | `u, name` | enemy, pet or player died |
 | `resurrect` | `source` (`boon` `second_breath` `ember`), `hp, mana` | `hp`, `mana`: the player's values after the resurrect (RES_HP_PCT, RES_MANA_PCT). Never `second_breath` in the end-boss fight (M2 v3) |
-| `xp` | `amount, rested, why` | |
+| `xp` | `amount, rested, why, heat` | (heat) `heat` (only when > 0): the part of `amount` that heat added (rules 1.7.3) |
 | `levelUp` | `level, talentPoint, hpGain, manaGain, petHpGain, maxHp, maxMana, petMaxHp` | one per level gained. Current HP, mana and pet HP (live pet) rise by the max gains (rules 4.3); `*Gain` = what was added, `max*` = the new maxima (`maxMana` 0 without mana, `petMaxHp` 0 without a pet) |
-| `gold` | `amount, why` | negative when spent |
+| `gold` | `amount, why, heat` | negative when spent. (heat) `heat` (only when > 0): the part of `amount` that heat added |
 | `loot` | `item, to` (`bag` or `window`) | |
 | `victory`, `fled` | `kind, rounds` | fight over |
 | `regen` | `pct, hpGain, manaGain, petHpGain` | post-fight regen (rules 4.2) after a won fight, right after `victory`: `pct` of each maximum, capped at the maximum; `*Gain` = what was restored. Not sent when nothing was restored (or after `fled`) |
@@ -227,8 +228,9 @@ WARD or an enemy's shield, Mindguard, the Shared Wounds share (sent as its own `
 Out of combat, equipping, talents and Boon of Mending change HP without an HP field: read the state there.
 
 ## 6. Fight state and intents
-`state.fight = { kind, round, enemies[], canFlee, boss, p, pet, engage, startCount, signalled }` (combat v2: `engage`
-= the fight has an engage round, `startCount` = enemies at fight start, `signalled` = a Signal was given).
+`state.fight = { kind, round, enemies[], canFlee, boss, p, pet, engage, startCount, signalled, heat }` (combat v2: `engage`
+= the fight has an engage round, `startCount` = enemies at fight start, `signalled` = a Signal was given; heat: `heat` =
+the node's entry state, null outside a node that pays heat).
 - `fight.p = { st[], cds{spellId: readyRound}, cp, energy, focus, potionReady, skip, ... }`: the player's
   statuses, cooldowns (usable when `round >= cds[id]`), combo points, energy/focus. Mana is `player.mana`.
 - `fight.pet.st[]`: pet statuses (TAUNT).
@@ -305,8 +307,12 @@ Draw orders the engine guarantees (beyond rules 7.2 and 8.4):
   (combat v2, rules 7.14) draws only when the drawn encounter breaks a rule: 1 draw for its last enemy.
   Vendor: 3 gear items (rarity, slot, stats), then Ember. Shrine: 2 boons by weight without replacement.
 - Treasure: the trap is the first draw of `loot(z,r,l)` (so Scout's Eye can show it).
-- Item stats (rules 8.3 order): split (1-2 stat items), primary, affix (rare/epic); then the unique draw only
-  when the profile has an eligible unique.
+- Drops (rules 8.4): item chance, junk chance; when an item is rolled: rarity, the heat step (heat: always drawn),
+  slot, stats (always the three draws split, primary, affix, each used only when the rarity needs it), then the unique
+  draw whenever the profile owns Cache of the Wanderer (elite, rare, treasure drops) or Relics of the Deep (dungeon boss
+  drops), whatever the rarity. So a drop's draws never depend on heat or on the rarity drawn (heat).
+- Item stats of vendor stock and of starting gear (rules 8.3 order): split (1-2 stat items), primary, affix
+  (rare/epic); no heat step, no unique draw.
 - Combat extra draws: Mirrorshade (before the 3 damage draws; an image skips them), unique procs and Twin Fangs
   after a landed hit, Lucid Flow after each Mage spell, flee, DOT crit (1 draw, only when a tick can crit).
 - Intent tracks (combat v2, rules 7.11): draws happen only when an entry enters a track. At fight start the
@@ -425,6 +431,8 @@ computes everything the meter shows, so the UI never re-implements the line, the
 - `dimIn`: hours until the player's node dims (0 or less: it is Dimmed), or null. Text: "Dimming: 3 h".
 - `ascIfPar`: the boss Ascendancy if the player leaves the zone now and keeps the line from here ("Boss +4 %"). At the
   Camp it is the Ascendancy FIGHT_BOSS would give.
+- `node`: inside a node, `{ state, gain, rarityUp }` of the state the node was entered in, which is what it pays (it
+  can differ from `state` once the node's hours are spent); null elsewhere (map, hub, Camp, boss, Dimmed encounter).
 - `gain`, `rarityUp`: `C.HEAT_GAIN[state]` and `C.HEAT_RARITY_UP[state]`, the rewards of the state (rules 1.7.3):
   "+35 % XP and gold, 1 in 4 drops a rarity up".
 - `bar`: `min` = HEAT_BAR_MIN, `max` = HEAT_BAR_MAX, `marker` = heat clamped to the bar, `beyond` = -1 / 1 when the
@@ -450,3 +458,19 @@ computes everything the meter shows, so the UI never re-implements the line, the
 - `pays`: for an action that enters a node (CHOOSE_NODE, MOVE into an unresolved node), the state the node is entered
   in: the state now, with the Dimming clock of the node entered (rules 1.7.3 fixes the node's rewards by it). null
   for every other action.
+
+### 11.3 Rewards and the summary (rules 1.7.3, 1.7.4)
+- Entry state: `state.node.heat`, the `node` event's `heat` and `state.fight.heat` (each fight of the node) are the
+  state at the moment of entry, before the node's hours (`heatPreview(...).pays` showed it).
+- XP and gold of the node × (1 + `C.HEAT_GAIN[heat]`) after rested and meta: the `xp` and `gold` events carry the
+  extra as `heat`.
+- Every item rolled on a drop table in the node is one rarity step higher below `C.HEAT_RARITY_UP[heat]`; the item's
+  `rarity` is the final one (no extra field).
+- `summary(state).heat`:
+```
+{ trackPerZone: [{ z, line, entry, exit }],   (z: 1-6, the Camp ZONE_COUNT + 1; entry / exit: run hours; the last
+                                                zone's exit = the hours so far)
+  hoursByState: [clear, warm, hot, scorched], nodesByState: [4], fightsByState: [4] (fights won in map nodes),
+  echoHeat }                                   (the Echo line `heat`, before the Oath multiplier)
+```
+  The hours-vs-line chart: per record, heat `entry - line` at arrival and `exit - line` when left.

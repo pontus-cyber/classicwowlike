@@ -2,7 +2,7 @@
 import {
   META, CLASS_IDS, ECHO_PER_LEVEL, ECHO_PER_ZONE, ECHO_PER_DUNGEON, ECHO_PER_ELITE, ECHO_PER_RARE, ECHO_PER_QUEST,
   ECHO_BOSS_REACHED, ECHO_BOSS_PHASE, ECHO_BOSS_KILL, ECHO_SPEED_BONUS, ECHO_FIRST_KILL_CLASS, OATH_ECHO_BONUS,
-  BOSS_TIME_PAR, OATH_HASTE_HOURS,
+  BOSS_TIME_PAR, OATH_HASTE_HOURS, ECHO_PER_HEAT_FIGHT,
 } from '../constants.js';
 import { IllegalActionError, deepClone, rnd } from './util.js';
 import { hash32 } from '../rng.js';
@@ -71,7 +71,7 @@ export function profileHash(profile) {
 /**
  * Echoes earned by a run, line by line (rules 11.1). facts: see summary(). Each line is rounded half away from
  * zero, round(count × each) (M2 v3: ECHO_PER_LEVEL and ECHO_PER_ZONE are fractional); the total is the sum of the
- * rounded lines × the Oath multiplier, rounded.
+ * rounded lines × the Oath multiplier, rounded. Heat: line `heat`, fights won in nodes entered Hot or Scorched.
  */
 export function echoes(facts, profile) {
   const lines = [];
@@ -82,6 +82,7 @@ export function echoes(facts, profile) {
   add('elites', facts.kills.elite, ECHO_PER_ELITE);
   add('rares', facts.kills.rare, ECHO_PER_RARE);
   add('quests', facts.quests, ECHO_PER_QUEST);
+  add('heat', facts.heatFights || 0, ECHO_PER_HEAT_FIGHT);
   if (facts.reachedBoss) {
     add('bossReached', 1, ECHO_BOSS_REACHED);
     add('bossPhases', Math.max(0, facts.bossPhase - 1), ECHO_BOSS_PHASE);

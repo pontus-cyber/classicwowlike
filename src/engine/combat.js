@@ -312,7 +312,8 @@ export function resolveRound(s, ev, action) {
 // ---------------- Fight start and end ----------------
 /**
  * Start a fight. spec: { kind, k, enemies: [{tid, level, variant}], addLevel, addPool, dropMult, noStealth?, canFlee,
- * rng (fight stream state), boss?, bossEnemy?, engage? }. Every fight but the end boss ('boss') has an engage round
+ * rng (fight stream state), boss?, bossEnemy?, engage?, heat? (the node's entry heat state, rules 1.7.3; null for the
+ * Camp, the boss and Dimmed encounters) }. Every fight but the end boss ('boss') has an engage round
  * (rules 7.10): enemies are Unaware in round 1 and their turn 1 is round 2 (`engage` overrides this; tests use it).
  * Guardians take their wards (7.12); the tracks are filled for turns 1..INTENT_TRACK_LEN (7.11).
  */
@@ -322,7 +323,7 @@ export function startFight(s, ev, spec) {
     kind: spec.kind, k: spec.k, z: spec.z, round: 1, rng: spec.rng, enemies: [], over: null,
     canFlee: spec.canFlee, addLevel: spec.addLevel, addPool: spec.addPool || [], dropMult: spec.dropMult || 1,
     drops: [], boss: spec.boss || null, engage: spec.engage !== undefined ? !!spec.engage : spec.kind !== 'boss',
-    startCount: 0, signalled: false,
+    heat: spec.heat || null, startCount: 0, signalled: false,
     signalPending: null,
     p: {
       st: [], cds: {}, cp: 0, energy: ENERGY_MAX, energyMax: ENERGY_MAX, focus: FOCUS_MAX, focusMax: FOCUS_MAX,
@@ -339,7 +340,7 @@ export function startFight(s, ev, spec) {
   for (const e of f.enemies) if (e.arch === 'guardian') assignWard(f, e);
   s.stats.fights += 1;
   if (f.engage) s.stats.engages = (s.stats.engages || 0) + 1;
-  ev.push({ t: 'fight', kind: f.kind, k: f.k, engage: f.engage, enemies: f.enemies.map((e) => ({ u: e.idx, name: e.name, level: e.level, hp: e.hp, kind: e.kind, arch: e.arch })) });
+  ev.push({ t: 'fight', kind: f.kind, k: f.k, engage: f.engage, heat: f.heat, enemies: f.enemies.map((e) => ({ u: e.idx, name: e.name, level: e.level, hp: e.hp, kind: e.kind, arch: e.arch })) });
   if (p.classId === 'rogue' && !spec.noStealth) gainStealth(s, ev, false);
   const wards = hasEffect(s, 'ward');
   if (wards) addStatus(s, ev, 'player', { id: 'WARD', dur: null, amount: rnd(UNIQUE_WARD_PCT * wards * p.d.maxHp), src: 'unique' });

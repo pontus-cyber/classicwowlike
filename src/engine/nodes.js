@@ -1,13 +1,15 @@
 // Run flow outside combat (rules 1, 2, 9): run start, zones and hubs, map moves, node types, rewards,
 // loot window, vendor and trainer services, camp, boss start, fight outcomes and run end. Expedition map (rules 1.9):
 // MOVE, PASS_THROUGH, hub revisits, Dimmed encounters, Roads, the Homeward Bell and the settle step after an action.
+// Heat (rules 1.7.3, 1.7.4): a node's heat state is fixed on entry (state.node.heat, the fight's `heat`), and the
+// summary's heat counters follow hours, zones, nodes and fights won (heat.js).
 import {
   CLASS, PET, SPELL, META, SLOT_IDS, START_GOLD, START_RATIONS, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, ZONE_COUNT,
   ZONE_LEVELS, ZONE_CHOICE_ROWS, HOURS_REST, HOURS_VENDOR, HOURS_TRAINER, HOURS_TRAVEL, QUEST_TURNIN_XP_FRAC, QUEST_GOLD_V,
   QUEST_REWARD_CHOICES, STORY_QUESTS, STORY_XP_FRAC, STORY_REWARD_CHOICES, GRIND_WAVE_XP_FRAC, GRIND_DROP_MULT,
   GRIND_WAVE_SIZE, DUNGEON_CLEAR_XP_FRAC, DUNGEON_GOLD_V, TREASURE_GOLD_V,
   TREASURE_TRAP_CHANCE, TREASURE_TRAP_PCT, REST_RESTED_FRAC, BOON, BOON_GOLD_V, BOON_NODES, CAMP_GRIND_LEVEL,
-  MAX_LEVEL, ASC_CAP, ASC_PER_STEP, ASC_STEP_HOURS, TRAIN_NEW_V, TRAIN_RANK_V, TRAVEL_EARLY_LEVELS,
+  MAX_LEVEL, TRAIN_NEW_V, TRAIN_RANK_V, TRAVEL_EARLY_LEVELS,
   RESPEC_V, CONSUMABLE, ELIXIR_NODES, RES_META_CHARGES, BOSS_LEVEL, UNIQUE_POTION_PCT, HOURS_WALK, DIM_PACK_SIZE,
   DIM_LEVEL_PER_DEPTH, HOURS_DIM_FIGHT, BELL_START_CHARGES, BELL_MAX_CHARGES, BELL_CHANNEL_H,
 } from '../constants.js';
@@ -23,6 +25,7 @@ import { zoneContent, campEnemies, CAMP_Z } from './content.js';
 import { startFight, endFight } from './combat.js';
 import { parHours } from './meta.js';
 import { makeBoss } from './boss.js';
+import { ascOver, newHeatStats, heatHours, heatZoneEntered, heatNodeEntered, heatFightWon } from './heat.js';
 import {
   isExpedition, grindMaxWaves, xpWeight, nodeHours, generateExpZone, refreshVision, zoneHours, frontAt, dimmedNow,
   visionKit, canEnter,
@@ -70,6 +73,7 @@ export function newStats() {
     dmgTaken: 0, spellDmg: {}, zonesLeft: 0, levelUps: 0, talentPoints: 0, equipDrops: 0, rests: 0, shrines: 0,
     treasures: 0, vendorVisits: 0, vendorTx: 0, trainerVisits: 0, trainerTx: 0, xpGained: 0, campWaves: 0,
     reachedBoss: false, bossPhase: 0, bossHpPct: null, hoursAtBoss: null, asc: null, maxZone: 1, maxRow: 0,
+    heat: newHeatStats(),
   };
 }
 
@@ -130,6 +134,7 @@ export function startRun(s, ev) {
 // ---------------- Zones, hub, camp ----------------
 export function addHours(s, ev, h, why) {
   if (h <= 0) return;
+  heatHours(s, h, why); // rules 1.7.4: each hour counted in the heat state it starts in
   s.hours += h;
   ev.push({ t: 'hours', add: h, total: s.hours, why });
   if (s.exp && s.zone && !s.zone.camp) dimmingAfterHours(s, ev, h, why);
@@ -172,12 +177,14 @@ export function enterZone(s, ev, z) {
   s.hub = { used: { trainer: false, vendor: false, inn: false }, ledgerFree: s.meta.ledger };
   s.service = null;
   s.stats.maxZone = Math.max(s.stats.maxZone, z);
+  heatZoneEntered(s); // rules 1.7.1: the line moves one share ahead
   ev.push({ t: 'zone', z, name: zoneContent(s.content, z).name });
   setPhase(s, ev, 'ZONE_HUB');
 }
 
 function enterCamp(s, ev) {
   s.zone = { z: CAMP_Z, camp: true };
+  heatZoneEntered(s); // rules 1.7.1: at the Camp the line is the par
   s.hub = { used: { trainer: false, vendor: false, inn: false }, ledgerFree: s.meta.ledger };
   s.camp = { waves: 0 };
   s.service = null;
@@ -283,7 +290,7 @@ function nodeFight(s, ev, kind, k, enemies, extra = {}) {
   const zn = zoneContent(s.content, s.zone.z);
   startFight(s, ev, {
     kind, k, z: s.zone.z, rng: fightRng(s, k), enemies, addLevel: extra.addLevel || n.cl, addPool: zoneAddPool(zn),
-    dropMult: extra.dropMult || 1, canFlee: kind !== 'dboss', noStealth: kind === 'dboss',
+    dropMult: extra.dropMult || 1, canFlee: kind !== 'dboss', noStealth: kind === 'dboss', heat: n.heat || null,
   });
 }
 
@@ -300,20 +307,22 @@ export function chooseNode(s, ev, lane) {
 
 /**
  * Enter a node and start its content (rules 2): on today's map at (r, l), on the expedition map at node id def.id
- * (r undefined). Hours by type (nodeHours: rules 2.0, 1.9.8).
+ * (r undefined). Hours by type (nodeHours: rules 2.0, 1.9.8). Heat (rules 1.7.3): the node's heat state is fixed first,
+ * before its hours (on the expedition map with the Dimming's clock of this node), and pays everything the node pays.
  */
 function beginNode(s, ev, def, r, lane) {
   const zone = s.zone;
   const exp = r === undefined;
+  const heat = heatNodeEntered(s);
   advanceBuffs(s, ev);
   s.stats.nodes[def.type] += 1;
   s.stats.nodesTotal += 1;
   if (exp) zoneRecord(s).nodes += 1;
   s.lootRng = exp ? STREAM.lootId(s.seed, zone.z, def.id) : STREAM.loot(s.seed, zone.z, r, lane);
-  s.node = exp ? { type: def.type, id: def.id, cl: def.cl, stage: 'fight', k: 0 } : { type: def.type, r, l: lane, cl: def.cl, stage: 'fight', k: 0 };
+  s.node = exp ? { type: def.type, id: def.id, cl: def.cl, stage: 'fight', k: 0, heat } : { type: def.type, r, l: lane, cl: def.cl, stage: 'fight', k: 0, heat };
   const n = s.node;
   setPhase(s, ev, 'NODE');
-  ev.push(exp ? { t: 'node', type: def.type, id: def.id, ring: def.ring, cl: def.cl } : { t: 'node', type: def.type, r, l: lane, cl: def.cl });
+  ev.push(exp ? { t: 'node', type: def.type, id: def.id, ring: def.ring, cl: def.cl, heat } : { t: 'node', type: def.type, r, l: lane, cl: def.cl, heat });
   switch (def.type) {
     case 'quest':
       addHours(s, ev, nodeHours(s, 'quest'), 'quest');
@@ -602,6 +611,7 @@ export function finishFight(s, ev) {
   }
   const { outcome, drops } = endFight(s, ev);
   if (outcome === 'death') { endRun(s, ev, 'death'); return; }
+  if (outcome === 'victory') heatFightWon(s, f.heat); // rules 1.7.4, 11.1: fights won by the node's entry state
   receiveItems(s, ev, drops);
   if (kind === 'boss') { endRun(s, ev, 'victory'); return; }
   if (kind === 'camp') {
@@ -707,9 +717,9 @@ export function campGrind(s, ev) {
   });
 }
 
-/** Boss Ascendancy from hours (rules 1.7). */
+/** Boss Ascendancy from hours (rules 1.7): the hours past the par (heat at the Camp, rules 1.7.1). */
 export function ascendancy(s) {
-  return frac6(Math.min(ASC_CAP, ASC_PER_STEP * Math.floor(Math.max(0, s.hours - parHours(s.oaths)) / ASC_STEP_HOURS)));
+  return ascOver(s.hours - parHours(s.oaths));
 }
 
 export function fightBoss(s, ev) {
