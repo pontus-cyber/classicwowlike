@@ -134,6 +134,7 @@ export class App {
         rec.round = this.director.round ? { budget: this.director.round.budget, avg: this.director.round.avg, plan: this.director.round.plan, tempo: this.director.round.tempo, speed: this.director.round.speed } : null;
         await playing;
         rec.end = performance.now();
+        this.hud.heat.noteStep(prev, res.view); // heat (expedition.md H.4): a toast when the step changed the meter's state
         this.afterPlay();
         this.placeNewItems(prev, res.view);
         return res;

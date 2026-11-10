@@ -110,6 +110,7 @@ export const ECHO_LINE = {
   levels: 'Levels gained', zones: 'Zones completed', dungeons: 'Dungeons cleared', elites: 'Elites slain', rares: 'Rares slain',
   quests: 'Quests completed', bossReached: 'Reached the boss', bossPhases: 'Boss phases reached', bossKill: 'Oruvath defeated',
   speed: 'Swift victory', firstKill: 'First kill with this class',
+  heat: 'Fights won in heat', // rules 11.1 (heat): fights won in nodes entered Hot or Scorched
 };
 export const humanize = (id) => String(id || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 

@@ -46,6 +46,14 @@
 //   oaths:   Oaths of the run (rules 11.5); create.oaths in CREATE
 //   meta:    engine mode, CREATE and SUMMARY only (rules 11): the profile between runs, see metaView() below.
 //   data.meta: the catalogue (R.C.META), Oaths (R.C.OATH) and the names and numbers its texts use.
+//   heat:    the heat meter (docs/specs/expedition.md H, engine-api.md 11): R.heatView in every phase of a run but SUMMARY
+//            (null in CREATE, SUMMARY and the mock), with `next` keyed by heatKey(action) (src/ui/heat.js) and `list` (the
+//            engine's array); heatPreview(action) = R.heatPreview for any other UI action. data.rules.heat: the HEAT_*
+//            constants the texts name. summary.heat: the summary's heat block (engine-api.md 11.3).
+//   Items carry heatUp ('hot' | 'scorched') when heat raised them one rarity (heatSteps below); map nodes carry heat
+//   (the state a visited node was entered in, from the `node` event); node.heat: the entry state of the node shown.
+//   mapMode: 'rows' or 'expedition'. ?expedition=1 starts expedition runs (rules 1.9; off by default): zone.exp is then
+//   R.mapView (engine-api.md 10.3) and zone.rows is empty.
 // UI action META_BUY { id } (CREATE only): R.buyMeta on the stored profile; the run being created picks up the new profile.
 // Events: { t: 'damage'|'heal'|'action'|'status'|'death'|'interrupt'|'skip'|'xp'|'levelUp'|'victory'|'flee'|'resurrect'|'bossPhase'|'summon'|... }
 
@@ -53,6 +61,7 @@ import * as R from '../rules.js';
 import { CONTENT } from '../content/index.js';
 import * as mock from './mock-engine.js';
 import * as TXT from './ui-text.js';
+import { heatKey } from './heat.js';
 
 const params = (() => {
   try { return new URLSearchParams(globalThis.location ? globalThis.location.search : ''); } catch { return new URLSearchParams(''); }
@@ -84,6 +93,14 @@ function rulesTable(K) {
     dangerFrom: K.ZONE_DANGER_FROM ?? null,
     dangerStep: K.ZONE_DANGER_FROM != null ? R.zoneDanger(K.ZONE_DANGER_FROM + TXT.DANGER_LEVELS, 'normal') - 1 : null,
     dangerStepDungeon: K.ZONE_DANGER_FROM != null ? R.zoneDanger(K.ZONE_DANGER_FROM + TXT.DANGER_LEVELS, 'trash') - 1 : null,
+    // Heat (rules 1.7.1-1.7.4, 1.9.10; expedition.md H): the thresholds, rewards and bar range the meter's texts and its
+    // segments use; null on an engine without heat. The meter's state, line, heat and previews come from R.heatView.
+    heat: K.HEAT_STATES ? {
+      states: [...K.HEAT_STATES], warmAt: K.HEAT_WARM_AT, hotAt: K.HEAT_HOT_AT, scorchAt: K.HEAT_SCORCH_AT,
+      dimWarm: K.HEAT_DIM_WARM_H, dimHot: K.HEAT_DIM_HOT_H, gain: { ...K.HEAT_GAIN }, rarityUp: { ...K.HEAT_RARITY_UP },
+      barMin: K.HEAT_BAR_MIN, barMax: K.HEAT_BAR_MAX, echoPerFight: K.ECHO_PER_HEAT_FIGHT ?? null,
+      ascPerStep: K.ASC_PER_STEP, ascStepHours: K.ASC_STEP_HOURS, ascCap: K.ASC_CAP, parBase: K.BOSS_TIME_PAR,
+    } : null,
   };
 }
 
@@ -210,22 +227,23 @@ function loadHistory() {
 function saveHistory(h) { try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); } catch { /* storage blocked */ } }
 const randomSeed = () => Math.floor(Math.random() * 0xffffffff) >>> 0;
 
-function engineBackend(seedOpt) {
+function engineBackend(seedOpt, runOpts = {}) {
   const C = R.C;
   let profile = loadProfile();
   let history = loadHistory();
-  /** A run in CREATE. keep: { classId, petId } of the run before (the next run starts on the same class). */
+  /** A run in CREATE. keep: { classId, petId } of the run before (the next run starts on the same class). runOpts: mapMode. */
   const mkRun = (seed, keep = {}) => {
     const classId = keep.classId || 'rogue'; const petId = classId === 'hunter' ? keep.petId || 'ridgewolf' : null;
-    try { return R.newRun({ classId, petId, seed, content: CONTENT, profile: profile || undefined }); } catch (e) {
-      try { return R.newRun({ classId, petId: classId === 'hunter' ? 'ridgewolf' : null, seed, content: CONTENT, profile: profile || undefined }); } catch (e2) {
-        profile = null; return R.newRun({ classId: 'rogue', seed, content: CONTENT });
+    try { return R.newRun({ classId, petId, seed, content: CONTENT, profile: profile || undefined, ...runOpts }); } catch (e) {
+      try { return R.newRun({ classId, petId: classId === 'hunter' ? 'ridgewolf' : null, seed, content: CONTENT, profile: profile || undefined, ...runOpts }); } catch (e2) {
+        profile = null; return R.newRun({ classId: 'rogue', seed, content: CONTENT, ...runOpts });
       }
     }
   };
   let st = mkRun(seedOpt ?? randomSeed());
   // engineLog: the engine actions applied to this run, in order (a test hook: a Node twin replays them, qa/browser)
-  const local = { introSeen: new Set(), spoils: null, hold: null, reward: null, fightNo: 0, lastRun: null, runNo: 0, engineLog: [] };
+  // heatUp: uid -> the heat state that raised the item one rarity (heatSteps); nodeHeat: node key -> its entry state
+  const local = { introSeen: new Set(), spoils: null, hold: null, reward: null, fightNo: 0, lastRun: null, runNo: 0, engineLog: [], heatUp: new Map(), nodeHeat: new Map() };
 
   // ---------------------------------------------------------------- static data for the UI
   const treeId = (cls, i) => C.CLASS[cls].trees[i].toLowerCase().replace(/\W+/g, '');
@@ -272,7 +290,7 @@ function engineBackend(seedOpt) {
       const s = it.stats || {};
       return { uid: it.uid, kind: 'gear', slot: it.slot, gearKind: gearKind(it.slot, cls), name: it.name, rarity: it.rarity, ilvl: it.ilvl,
         stats: { sta: s.STA || 0, agi: s.AGI || 0, int: s.INT || 0, spi: s.SPI || 0, power: it.power || 0, crit: it.crit || 0, armor: (it.armor || 0) + (it.bonusArmor || 0), wd: it.wd || 0 },
-        effectText: it.effect ? TXT.UNIQUE_EFFECT_TEXT[it.effect] || null : null, unique: !!it.unique, _raw: it, ...extra };
+        effectText: it.effect ? TXT.UNIQUE_EFFECT_TEXT[it.effect] || null : null, unique: !!it.unique, heatUp: local.heatUp.get(it.uid) || null, _raw: it, ...extra };
     }
     if (it.kind === 'cons') { const c = C.CONSUMABLE[it.id] || { name: it.id, stack: 5 }; return { uid: it.uid, kind: 'consumable', id: it.id, name: c.name, rarity: it.id === 'ember_of_return' ? 'rare' : 'common', count: it.qty, stack: c.stack, use: USE_MAP[c.use] || 'both', _raw: it, ...extra }; }
     return { uid: it.uid, kind: 'junk', id: 'junk', name: it.name, rarity: 'junk', count: it.qty || 1, stack: 10, _raw: it, ...extra };
@@ -363,8 +381,10 @@ function engineBackend(seedOpt) {
     }
     const zc = zoneContent(z);
     const mv = R.mapView(s);
+    if (mv && mv.mode === 'expedition') return convExpZone(s, z, zc, mv);
     const rows = mv ? mv.rows.map((row) => row.map((n) => {
-      const out = { row: n.r, lane: n.l, type: n.type, cl: n.cl, visited: !!n.done, title: n.title, level: n.level, danger: nodeDanger(n) };
+      const out = { row: n.r, lane: n.l, type: n.type, cl: n.cl, visited: !!n.done, title: n.title, level: n.level, danger: nodeDanger(n),
+        heat: n.done ? local.nodeHeat.get(`${z}:${n.r}:${n.l}`) || null : null }; // the state the node was entered in (`node` event)
       if (n.archetypes) { out.archetypes = [...n.archetypes]; out.enemyNames = n.archetypes.map(TXT.humanize); } // one entry per enemy (grind: the first wave)
       // combat v2 (rules 7.14): a dungeon's trash fights and boss, a treasure's guard (archetypes [] when unguarded)
       if (n.fights) out.fights = n.fights.map((x) => [...x]);
@@ -381,6 +401,18 @@ function engineBackend(seedOpt) {
       theme: THEMES[z - 1] || 'farmland', band: [exitLevel - C.ZONE_LEVELS + 1, exitLevel], exitLevel, travelLevel: R.travelLevel(s) ?? exitLevel, rows,
       pos: { row: s.zone.pos.r, lane: s.zone.pos.l }, path, questsDone: s.zone.questsDone || 0, storyDone: !!s.zone.storyDone, next: mv ? mv.next : [],
       travelHours: travelHours(s), danger: dangerOf(exitLevel, 'normal') };
+  }
+  /**
+   * An expedition zone (rules 1.9; ?expedition=1 only until the fog map, M2b 2b.6): the rows view is empty and `exp` is the
+   * engine's mapView (engine-api.md 10.3) with each node's entry heat state when it was visited (`node` event).
+   */
+  function convExpZone(s, z, zc, mv) {
+    const exitLevel = C.ZONE_LEVELS * z;
+    const nodes = mv.nodes.map((n) => ({ ...n, heat: n.done ? local.nodeHeat.get(`${z}:#${n.id}`) || null : null }));
+    return { idx: z, id: `z${z}`, camp: false, name: zc ? zc.name : mv.name || `Zone ${z}`, hubName: zc ? zc.hubName : 'Hub', hubText: zc ? zc.hubText : '', blurb: zc ? zc.theme : '',
+      theme: THEMES[z - 1] || 'farmland', band: [exitLevel - C.ZONE_LEVELS + 1, exitLevel], exitLevel, travelLevel: null, rows: [], pos: { row: 0, lane: null }, path: [],
+      questsDone: s.zone.questsDone || 0, storyDone: !!s.zone.storyDone, next: [], travelHours: null, danger: dangerOf(exitLevel, 'normal'),
+      exp: { ...mv, nodes } };
   }
   /** Hours TRAVEL_ON spends now, from a dry step; null while it is not legal. */
   function travelHours(s) {
@@ -534,7 +566,8 @@ function engineBackend(seedOpt) {
       spells: o.spells ? o.spells.map((x) => ({ spellId: x.spellId, targets: [...x.targets] })) : null, reason: o.reason ? cap(o.reason) : null })) };
   }
 
-  function nodeKey(s) { return s.node ? `${s.zone.z}:${s.node.r}:${s.node.l}` : ''; }
+  // a node of today's map by row and lane; an expedition node (rules 1.9) by its id
+  function nodeKey(s) { return s.node ? `${s.zone.z}:${s.node.id != null ? `#${s.node.id}` : `${s.node.r}:${s.node.l}`}` : ''; }
   const NEEDS_INTRO = new Set(['quest', 'elite', 'dungeon', 'treasure']);
   function convStock(s) {
     const cls = s.player.classId;
@@ -549,7 +582,8 @@ function engineBackend(seedOpt) {
     if (s.phase === 'CAMP' && s.fight) return { type: 'camp_grind', step: 'combat', cl: C.CAMP_GRIND_LEVEL, origin: 'camp', fightNo: 1 };
     const n = s.node; if (!n) return null;
     const zc = zoneContent(s.zone.z);
-    const v = { type: n.type, row: n.r, lane: n.l, cl: n.cl, fightNo: (n.k || 0) + 1, waves: n.wavesDone || 0, wavesChosen: n.planned || 0 };
+    // heat: the state the node was entered in, which fixes what it pays (rules 1.7.3); id: an expedition node (rules 1.9)
+    const v = { type: n.type, row: n.r, lane: n.l, id: n.id ?? null, cl: n.cl, fightNo: (n.k || 0) + 1, waves: n.wavesDone || 0, wavesChosen: n.planned || 0, heat: n.heat || null };
     const f = s.fight;
     if (n.stage === 'fight') v.step = NEEDS_INTRO.has(n.type) && (n.k || 0) === 0 && !local.introSeen.has(nodeKey(s)) ? 'intro' : 'combat';
     else if (n.stage === 'grindSetup') v.step = 'intro';
@@ -572,7 +606,8 @@ function engineBackend(seedOpt) {
     const L = { lanes: [], travelOn: has('TRAVEL_ON'), mustTravel: false, outOfCombat: !s.fight, spells: {}, items: [], attack: has('ATTACK'), flee: has('FLEE'), services: {}, talents: {}, trainer: null };
     if (s.fight) { try { L.fleeChance = R.fleeChance(s); } catch { /* older engine */ } }
     const p = s.player; if (!p) return L;
-    if (s.phase === 'MAP') { const mv = R.mapView(s); L.lanes = mv ? [...mv.next] : []; L.mustTravel = L.travelOn && !L.lanes.length; }
+    // today's map: the reachable lanes; an expedition map (rules 1.9) has its moves in zone.exp (mapView)
+    if (s.phase === 'MAP') { const mv = R.mapView(s); L.lanes = mv && mv.next ? [...mv.next] : []; L.mustTravel = L.travelOn && !L.lanes.length; }
     for (const svc of ['trainer', 'vendor', 'inn']) L.services[svc] = has('SERVICE', (a) => a.service === svc);
     const f = s.fight;
     const tgt = f ? (f.enemies.find((e) => e.alive) || { idx: 0 }).idx : 0;
@@ -621,6 +656,18 @@ function engineBackend(seedOpt) {
   function dryCost(s, action) {
     try { const r = R.step(s, action); return s.player.gold - r.state.player.gold; } catch { return null; }
   }
+  /**
+   * The heat meter's data (engine-api.md 11.1): R.heatView with the previews keyed by heatKey(action) (`next`) and in the
+   * engine's order (`list`); null before START_RUN, after the run, or on an engine without heat.
+   */
+  function heatOf(s) {
+    if (!R.heatView || !s.player) return null;
+    let hv = null;
+    try { hv = R.heatView(s); } catch { hv = null; }
+    if (!hv) return null;
+    const list = (hv.next || []).map((x) => ({ ...x, key: heatKey(x.action) }));
+    return { ...hv, bar: { ...hv.bar }, node: hv.node ? { ...hv.node } : null, list, next: Object.fromEntries(list.map((x) => [x.key, x])) };
+  }
   /** The boss's Ascendancy if the player faced it now: read from a dry FIGHT_BOSS step, not recomputed here. */
   function dryBossAsc(s) {
     try { const f = R.step(s, { type: 'FIGHT_BOSS' }).state.fight; return f && f.boss ? f.boss.asc : null; } catch { return null; }
@@ -656,6 +703,11 @@ function engineBackend(seedOpt) {
       equipped: (sm.equipped || []).map((e) => ({ uid: `sum-${e.slot}`, kind: 'gear', slot: e.slot, name: e.name, rarity: e.rarity, ilvl: e.ilvl, stats: {} })),
       estMinutes: { manual: Math.round(sm.minutes.manual), auto: Math.round(sm.minutes.autoplay) }, bossPhase: sm.bossPhase,
       echoes: ((sm.echoes && sm.echoes.lines) || []).map((l) => [`${TXT.ECHO_LINE[l.id] || TXT.humanize(l.id)}${l.count > 1 ? ` (${l.count})` : ''}`, l.echoes]),
+      // heat (rules 1.7.4, engine-api.md 11.3): the zone track, hours / nodes / fights won by state, the Echo line's
+      // Echoes; par: the run's boss par (R.bossPar) for "hours over par"
+      heat: sm.heat ? { trackPerZone: sm.heat.trackPerZone.map((r) => ({ ...r })), hoursByState: [...sm.heat.hoursByState], nodesByState: [...sm.heat.nodesByState],
+        fightsByState: [...sm.heat.fightsByState], echoHeat: sm.heat.echoHeat || 0 } : null,
+      par: R.bossPar(s), reachedCamp: !!z.camp, reachedBoss: !!sm.reachedBoss,
       echoTotal: sm.echoes ? sm.echoes.total : 0,
       // Oaths (rules 11.5): the engine's multiplier on the sum of the lines
       echoMult: sm.echoes ? sm.echoes.oathMult : 1, oaths: (sm.oaths || []).map((o) => (C.OATH[o] ? C.OATH[o].name : TXT.humanize(o))),
@@ -719,7 +771,7 @@ function engineBackend(seedOpt) {
   /** After a purchase: the run being created takes the new profile; class, pet, name, seed and Oaths stay. */
   function rebuildCreate() {
     const c = st.create;
-    let s = R.newRun({ classId: c.classId, petId: c.classId === 'hunter' ? c.petId : null, name: c.name || '', seed: c.seed, profile, content: CONTENT });
+    let s = R.newRun({ classId: c.classId, petId: c.classId === 'hunter' ? c.petId : null, name: c.name || '', seed: c.seed, profile, content: CONTENT, ...runOpts });
     for (const o of c.oaths || []) { const a = { type: 'SET_OATH', oath: o, on: true }; if (R.isLegal(s, a)) s = R.step(s, a).state; }
     st = s;
   }
@@ -759,7 +811,11 @@ function engineBackend(seedOpt) {
     v.summary = v.phase === 'SUMMARY' ? convSummary(s) : null;
     v.meta = v.phase === 'SUMMARY' ? metaView(s) : null;
     v.par = R.bossPar(s); // the run's par (rules 1.7), the Oath of Haste included
-    v.camp = s.phase === 'CAMP' && !s.fight && !s.service ? { par: v.par, asc: dryBossAsc(s) } : null;
+    v.mapMode = s.mapMode || 'rows';
+    v.heat = v.phase === 'SUMMARY' ? null : heatOf(s);
+    // the camp panel reads the meter's numbers (heatView: at the Camp the line is the par and ascIfPar is the Ascendancy
+    // FIGHT_BOSS gives), so the panel, the tracker, the minimap and the meter agree; a dry FIGHT_BOSS without heat
+    v.camp = s.phase === 'CAMP' && !s.fight && !s.service ? (v.heat ? { par: v.heat.par, asc: v.heat.ascIfPar } : { par: v.par, asc: dryBossAsc(s) }) : null;
     if (v.phase === 'CAMP' && s.fight) v.phase = 'NODE';
     if (v.node && v.node.step === 'intro' && s.fight) v.combat = null; // the intro dialog is read before the fight is shown
     const win = (s.loot || []).map((it) => item(it, s.player.classId, { pending: true }));
@@ -877,10 +933,11 @@ function engineBackend(seedOpt) {
           else { hp.set(key(e.u), 0); out.push({ t: 'death', dst: ref(e.u), name: e.name || enemyName(e.u) }); }
           break;
         case 'resurrect': hp.set('player', s.player.hp); out.push({ t: 'resurrect', source: { boon: 'Boon of Return', second_breath: 'Second Breath', ember: 'Ember of Return' }[e.source] || 'A resurrection', hpAfter: s.player.hp, maxHp: s.player.d.maxHp }); break;
-        case 'xp': if (e.amount > 0) out.push({ t: 'xp', amount: e.amount, rested: e.rested || 0, why: e.why }); break;
+        // heat (rules 1.7.3): the extra XP and gold of a node entered Hot or Scorched, carried by the events as `heat`
+        case 'xp': if (e.amount > 0) out.push({ t: 'xp', amount: e.amount, rested: e.rested || 0, why: e.why, heat: e.heat || 0 }); break;
         case 'levelUp': out.push({ t: 'levelUp', level: e.level, talentPoint: !!e.talentPoint, newSpells: Object.values(C.SPELL).filter((sp) => sp.cls === s.player.classId && sp.source === 'class' && sp.lvl === e.level).map((sp) => sp.name), hp: s.player.hp, maxHp: s.player.d.maxHp }); break;
-        case 'gold': if (e.amount > 0 && e.why !== 'sell') out.push({ t: 'gold', amount: e.amount, why: e.why }); break; // a sale says its price itself
-        case 'loot': out.push({ t: 'gotItem', name: e.item.name || (C.CONSUMABLE[e.item.id] || {}).name || 'item', rarity: e.item.rarity || 'common', to: e.to }); break;
+        case 'gold': if (e.amount > 0 && e.why !== 'sell') out.push({ t: 'gold', amount: e.amount, why: e.why, heat: e.heat || 0 }); break; // a sale says its price itself
+        case 'loot': out.push({ t: 'gotItem', name: e.item.name || (C.CONSUMABLE[e.item.id] || {}).name || 'item', rarity: e.item.rarity || 'common', to: e.to, heatUp: local.heatUp.get(e.item.uid) || null }); break;
         case 'victory': out.push({ t: 'victory' }); break;
         case 'fled': out.push({ t: 'flee', ok: true }); break;
         case 'questComplete': out.push({ t: 'msg', text: 'Quest complete!', kind: 'good' }); break;
@@ -905,11 +962,47 @@ function engineBackend(seedOpt) {
 
   // ---------------------------------------------------------------- actions
   function apply(action, events) {
+    const before = st;
     const r = R.step(st, action);
     st = r.state;
     local.engineLog.push(JSON.parse(JSON.stringify(action)));
     events.push(...r.events);
+    for (const e of r.events) if (e.t === 'node' && e.heat && st.zone) local.nodeHeat.set(e.id != null ? `${st.zone.z}:#${e.id}` : `${st.zone.z}:${e.r}:${e.l}`, e.heat);
+    heatSteps(before, action, r);
     return r;
+  }
+
+  /**
+   * Items that heat raised one rarity in this engine step (rules 8.4, expedition.md H.3), recorded in local.heatUp for the
+   * loot window, the reward cards and item tooltips. The engine does not mark the step on the item (engine-api.md 11.3:
+   * the rarity is the final one), so the bridge asks the engine the same step with the node entered in Clear: the heat
+   * draw is made in every state and the loot stream does not depend on heat (rules 8.4), so the same items roll and an
+   * item whose rarity differs is one that heat raised. Only in a node entered Hot or Scorched (the only states with a
+   * HEAT_RARITY_UP above 0), and only when the step rolled items. Interim until the engine marks the step itself
+   * (hand-off ui-2026-11-10f); any failure marks nothing.
+   */
+  function heatSteps(before, action, r) {
+    // reward choices of the node (quest items, then the story's), and the items that existed before the step (taking,
+    // choosing or equipping an item rolls nothing)
+    const rw = (x) => (x && x.node && x.node.rewards ? x.node.rewards.filter((set) => set.kind === 'items').flatMap((set) => set.items) : []);
+    const p0 = before.player;
+    const known = new Set([...(p0 ? [...(p0.bag || []), ...Object.values(p0.equipped || {})] : []), ...(before.loot || []), ...rw(before)].filter(Boolean).map((it) => it.uid));
+    const drops = r.events.filter((e) => e.t === 'loot' && e.item && e.item.kind === 'gear' && !known.has(e.item.uid));
+    const choices = rw(r.state).filter((it) => it.kind === 'gear' && !known.has(it.uid));
+    if (!drops.length && !choices.length) return;
+    const entered = r.events.find((e) => e.t === 'node');
+    const paid = before.node ? before.node.heat : entered ? entered.heat : null;
+    const rate = paid && C.HEAT_RARITY_UP ? C.HEAT_RARITY_UP[paid] || 0 : 0;
+    if (!(rate > 0)) return;
+    try {
+      const alt = R.deserialize(R.serialize(before), before.content);
+      if (alt.node) { alt.node.heat = 'clear'; if (alt.fight) alt.fight.heat = 'clear'; } else alt.hours = Math.min(0, alt.zone && alt.zone.start != null ? alt.zone.start : 0); // a node entered now enters Clear
+      const ar = R.step(alt, action);
+      const altDrops = ar.events.filter((e) => e.t === 'loot' && e.item && e.item.kind === 'gear' && !known.has(e.item.uid));
+      if (altDrops.length === drops.length) drops.forEach((e, i) => { if (e.item.rarity !== altDrops[i].item.rarity) local.heatUp.set(e.item.uid, paid); });
+      const altChoices = rw(ar.state).filter((it) => it.kind === 'gear' && !known.has(it.uid));
+      if (altChoices.length === choices.length) choices.forEach((it, i) => { if (it.rarity !== altChoices[i].rarity) local.heatUp.set(it.uid, paid); });
+    } catch { /* the interim lookup failed: no item is marked */ }
   }
   function translate(a) {
     const p = st.player;
@@ -998,7 +1091,7 @@ function engineBackend(seedOpt) {
               gained: st.result.echoes, before, after: profile.echoes, firstKill: ((sum.echoes && sum.echoes.lines) || []).some((l) => l.id === 'firstKill') };
           }
           st = mkRun(randomSeed(), keep); // the next run starts on the same class
-          local.introSeen.clear(); local.spoils = null; local.hold = null; local.reward = null; local.engineLog = [];
+          local.introSeen.clear(); local.spoils = null; local.hold = null; local.reward = null; local.engineLog = []; local.heatUp.clear(); local.nodeHeat.clear();
           return { ok: true, events: [] };
         }
         case 'META_BUY': {
@@ -1045,11 +1138,11 @@ function engineBackend(seedOpt) {
     if (events.some((e) => e.t === 'questComplete')) local.reward = { xp: sum('xp', (e) => e.why === 'quest'), gold: sum('gold', (e) => e.why === 'quest' && e.amount > 0), storyXp: sum('xp', (e) => e.why === 'story') };
     const entered = events.find((e) => e.t === 'node');
     if (entered && entered.type === 'rest' && has('rest')) {
-      local.hold = { node: { type: 'rest', step: 'rest', row: entered.r, lane: entered.l, cl: entered.cl } };
+      local.hold = { node: { type: 'rest', step: 'rest', row: entered.r, lane: entered.l, id: entered.id ?? null, cl: entered.cl, heat: entered.heat || null } };
       return;
     }
     if (entered && entered.type === 'treasure' && !st.fight && has('nodeDone')) {
-      local.hold = { node: { type: 'treasure', step: 'chest', row: entered.r, lane: entered.l, cl: entered.cl, text: lineFor(zoneContent(st.zone.z) && zoneContent(st.zone.z).treasureLines, { node: { r: entered.r, l: entered.l }, zone: st.zone }) },
+      local.hold = { node: { type: 'treasure', step: 'chest', row: entered.r, lane: entered.l, id: entered.id ?? null, cl: entered.cl, heat: entered.heat || null, text: lineFor(zoneContent(st.zone.z) && zoneContent(st.zone.z).treasureLines, { node: { r: entered.r, l: entered.l, id: entered.id }, zone: st.zone }) },
         gold: sum('gold', (e) => e.why === 'treasure'), trap: sum('trap'), items };
       return;
     }
@@ -1100,6 +1193,13 @@ function engineBackend(seedOpt) {
      */
     /** Test hook: the engine actions applied to this run so far (copies), for a Node twin to replay. */
     engineLog() { return local.engineLog.map((a) => ({ ...a })); },
+    /** Heat after a UI action (R.heatPreview, engine-api.md 11.2; no step), or null when it costs no hours or is not legal. */
+    heatPreview(action) {
+      if (!R.heatPreview || !st.player) return null;
+      const a = action && action.type === 'ENGINE' ? action.action : translate(action);
+      if (!a) return null;
+      try { return R.heatPreview(st, a); } catch { return null; }
+    },
     engagePreview(option, target, spellId) {
       if (!R.engagePreview || !st.fight) return null;
       const o = (C.ENGAGE_OPTION || {})[option]; if (!o) return null;
@@ -1140,20 +1240,29 @@ export class Bridge {
   engineLog() { return this.backend.engineLog ? this.backend.engineLog() : []; }
   /** Engage panel hover preview (combat v2, R.engagePreview); null in mock mode or when the option is not legal. */
   engagePreview(option, target, spellId) { return this.backend.engagePreview ? this.backend.engagePreview(option, target, spellId) : null; }
+  /** Heat after a UI action (R.heatPreview); null in mock mode, for an action without hours or an illegal one. */
+  heatPreview(action) { return this.backend.heatPreview ? this.backend.heatPreview(action) : null; }
   subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   get canDebug() { return !!this.backend.canDebug; }
 }
 
-/** Create the bridge. Flags: ?mock=1 uses the mock engine, ?seed=N fixes the run seed. */
+/**
+ * Create the bridge. Flags: ?mock=1 uses the mock engine, ?seed=N fixes the run seed, ?expedition=1 starts expedition runs
+ * (newRun mapMode 'expedition', rules 1.9; a test and preview switch until expedition runs are chosen on class select,
+ * off by default), with ?dimming=0 a run without the Dimming (D50).
+ */
 export function createBridge(opts = {}) {
   const seedParam = params.get('seed');
   const seed = opts.seed ?? (seedParam !== null && seedParam !== '' ? Number(seedParam) >>> 0 : undefined);
   const useMock = opts.mock ?? params.get('mock') === '1';
-  return new Bridge(useMock ? mockBackend(seed) : engineBackend(seed));
+  const exp = opts.expedition ?? params.get('expedition') === '1';
+  const runOpts = exp ? { mapMode: 'expedition', ...(params.get('dimming') === '0' ? { dimming: false } : {}) } : {};
+  return new Bridge(useMock ? mockBackend(seed) : engineBackend(seed, runOpts));
 }
 
 export const flags = {
   mock: params.get('mock') === '1',
   debug: params.get('debug') === '1',
   speed: params.get('speed'),
+  expedition: params.get('expedition') === '1',
 };

@@ -1,4 +1,6 @@
 // Plays the events of one engine step as animation, then hands the new view to the HUD.
+// Heat (docs/specs/expedition.md H.3): XP and gold lines name the extra from heat (the events' `heat`), loot that heat
+// raised one rarity says so; expedition moves (MOVE, TAKE_ROAD, RING_BELL) travel like map choices and Travel on.
 // Combat v2 (docs/specs/combat-v2.md 10.6): cancelled and replaced track entries, off-balance windows, traps, Signals and
 // Bolster shields are logged; tracks, roles and windows on screen change at the round's start like the intents.
 // Combat rounds play as beats from src/ui/combat-feel.js (owner feedback 2026-11-10): each action winds up, its hits land
@@ -147,8 +149,9 @@ export class Director {
         ctx.ui.banner(next.zone.name, zoneLine(next.zone, ctx.data.rules), 'zone', 2400);
         hud.log(`Welcome to ${next.zone.name}. Visit the trainer, then set out.`, 'lg-sys');
       }
-      if (t === 'CHOOSE_NODE' && next.phase === 'NODE') await this.travel(prev, next, token);
-      if (t === 'TRAVEL_ON') await this.zoneTravel(prev, next, token);
+      // an expedition move into a node (MOVE, rules 1.9) travels like a map choice; a Road or the Bell like Travel on
+      if ((t === 'CHOOSE_NODE' || t === 'MOVE') && next.phase === 'NODE') await this.travel(prev, next, token);
+      if (t === 'TRAVEL_ON' || ((t === 'TAKE_ROAD' || t === 'RING_BELL') && prev.zone && next.zone && prev.zone.idx !== next.zone.idx)) await this.zoneTravel(prev, next, token);
       if (t === 'LEAVE_HUB') { ctx.ui.overlay = true; push(); scene.setMode('travel'); scene.targetSpeed = 240 * scene.u; await W(900); scene.targetSpeed = 0; }
       if (t === 'FIGHT_BOSS') await this.bossIntro(next, token);
       if ((t === 'ACCEPT' || t === 'GRIND_SET_WAVES' || t === 'CONTINUE' || t === 'CAMP_GRIND') && next.combat) {
@@ -316,7 +319,7 @@ export class Director {
             await W(tm.wait);
             break;
           }
-          case 'xp': if (e.amount > 0) { scene.float('player', `+${fmtNum(e.amount)} XP`, { color: '#d0a8ff', size: 17, dy: -30 * scene.u, small: true }); p().xp = Math.min(p().xpToNext, p().xp + e.amount); p().rested = Math.max(0, (p().rested || 0) - (e.rested || 0)); push(); hud.log(`You gain ${fmtNum(e.amount)} experience${e.rested ? ` (${fmtNum(e.rested)} rested bonus)` : ''}.`, 'lg-xp'); } break;
+          case 'xp': if (e.amount > 0) { scene.float('player', `+${fmtNum(e.amount)} XP`, { color: '#d0a8ff', size: 17, dy: -30 * scene.u, small: true }); p().xp = Math.min(p().xpToNext, p().xp + e.amount); p().rested = Math.max(0, (p().rested || 0) - (e.rested || 0)); push(); hud.log(`You gain ${fmtNum(e.amount)} experience${e.rested ? ` (${fmtNum(e.rested)} rested bonus)` : ''}${e.heat ? ` (+${fmtNum(e.heat)} from heat)` : ''}.`, 'lg-xp'); } break;
           case 'levelUp': {
             Object.assign(p(), { level: e.level, maxHp: e.maxHp, hp: e.hp, xp: 0, xpToNext: (next.player && next.player.level === e.level) ? next.player.xpToNext : p().xpToNext });
             push();
@@ -345,7 +348,7 @@ export class Director {
           case 'trapSprung': scene.float(ref(e.dst), 'Trap!', { color: '#ffe08a', size: 22, crit: true }); hud.log(`Your trap springs on ${e.who}!`, 'lg-you'); break;
           case 'signal': scene.float(ref(e.src), 'Signal!', { color: '#ffb05a', size: 22, crit: true }); hud.log(`${cap(e.who)} signals for help: ${e.adds === 1 ? 'one more enemy joins' : `${e.adds} more enemies join`} at the end of the round!`, 'lg-warn'); break;
           case 'bolster': hud.log(`${cap(e.by)} bolsters ${e.name === e.by ? 'itself' : e.name}: a ${fmtNum(e.amount)} shield.`, 'lg-warn'); break;
-          case 'gotItem': hud.log(`You receive loot: ${e.name}${e.to === 'window' ? ' (waiting in the loot window)' : ''}.`, 'lg-loot'); break;
+          case 'gotItem': hud.log(`You receive loot: ${e.name}${e.heatUp ? ' (heat raised it one rarity)' : ''}${e.to === 'window' ? ' (waiting in the loot window)' : ''}.`, 'lg-loot'); break;
           case 'channel': scene.float(ref(e.src), `${e.name} ${e.step}/2`, { color: '#d0b0ff', size: 22, crit: e.step === 2 }); if (e.step === 2) scene.screenFlash('#6a4aff', 0.3, 0.6); hud.log(`${e.name}: ${e.step === 1 ? 'the channel begins' : 'the channel resolves'}.`, 'lg-warn'); await W(tm.wait); break;
           case 'linked': {
             // n: living Shards when the wave came (engine event); the strength from the rules table
@@ -354,7 +357,7 @@ export class Director {
             if (b) scene.float(`enemy:${b.idx}`, e.on ? (dr ? `Linked −${Math.round(dr * 100)} %` : 'Linked') : 'Link broken', { color: e.on ? '#c8a8ff' : '#ffe08a', size: 20 });
             hud.log(e.on ? linkedText(R, 'log') : 'The link is broken.', 'lg-warn'); await W(tm.wait); break;
           }
-          case 'gold': hud.log(`You receive ${fmtNum(e.amount)} copper.`, 'lg-loot'); break;
+          case 'gold': hud.log(`You receive ${fmtNum(e.amount)} copper${e.heat ? ` (+${fmtNum(e.heat)} from heat)` : ''}.`, 'lg-loot'); break;
           case 'msg': ctx.ui.toast(e.text, e.kind === 'warn' ? 'err' : e.kind || 'info'); hud.log(e.text, e.kind === 'warn' ? 'lg-warn' : 'lg-sys'); break;
           case 'rest': scene.aura('player', '#ffd8a0', 1.4); scene.float('player', 'Rested', { color: '#9fb8ff', size: 22 }); hud.log('You rest. Health and mana restored; you feel rested.', 'lg-sys'); await W(500); break;
           case 'chest': ctx.ui.chestOpen = true; ctx.syncScene(next); scene.burst(scene.W * 0.62, scene.groundY - 40 * scene.u, '#ffe08a', 30, 160, { up: 80 }); await W(500); break;

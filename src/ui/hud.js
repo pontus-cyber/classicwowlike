@@ -3,6 +3,8 @@
 // it is given and turns clicks into actions through ctx.act; it decides no rules.
 // Combat v2 (docs/specs/combat-v2.md 10, drawn by tracks.js): the intent track on every nameplate and in the target frame,
 // role badges, the off-balance marker, the opening ruler, the engage panel, and the window highlight on the action bar.
+// Heat (docs/specs/expedition.md H.4, drawn by heat.js): the Heat meter above the action bar, beside the Autoplay controls;
+// the minimap tooltip and the camp tracker line read the same R.heatView (view.heat).
 import { h, add, clear, fmtNum, moneyEl, hoursText, clamp, rgba } from './util.js';
 import { spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS } from './art-icons.js';
 import { drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook } from './art-actors.js';
@@ -11,6 +13,7 @@ import { tip, spellTip, basicTip, itemTip, statusTip } from './tooltip.js';
 import { settings } from './settings.js';
 import { linkedText, resurrectText, dangerRule } from './ui-text.js';
 import { trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createRuler, createEngagePanel } from './tracks.js';
+import { createHeatMeter, standText, bossText, fmtH } from './heat.js';
 
 const RES_NAME = { energy: 'Energy', mana: 'Mana', focus: 'Focus' };
 export function conColor(cl, level) {
@@ -157,6 +160,10 @@ export function createHud(root, ctx) {
   const ruler = createRuler(root, ctx);
   const engage = createEngagePanel(root, ctx);
   els.ruler = ruler.el; els.engage = engage.el;
+  // the Heat meter (heat.js), always shown in a run but on the summary: over the action bar's right half, beside the
+  // Autoplay controls (over its left half), where no screen panel, window or frame reaches at 16:9 (1366x768, 1920x1080)
+  const heat = createHeatMeter(els.actionbar, ctx, root);
+  els.heat = heat.el;
 
   // ------------------------------------------------------------ input wiring
   els.basic.addEventListener('click', () => ctx.ui.attack());
@@ -206,8 +213,11 @@ export function createHud(root, ctx) {
   tip(els.minimap.querySelector('.disc'), () => {
     const v = ctx.view; if (!v.zone) return null; const R = ctx.data.rules;
     const danger = v.zone.danger > 0 ? dangerRule(R) : null; // zone danger (rules 7.6): zone.danger from the engine's zoneDanger
-    // v.par: the run's par from the engine's bossPar (the Oath of Haste included)
-    return h('div', h('div.tt-name', v.zone.name), h('div.tt-sub', `Levels ${v.zone.band[0]}–${v.zone.band[1]}`), h('div.tt-line', `In-game time: ${v.hours} h`), h('div.tt-line.desc', `The boss grows stronger for every ${R.ascStepHours} h past ${v.par} h (Ascendancy).`),
+    // the par and the line from R.heatView (the meter's numbers; the Oath of Haste included); v.par without heat (mock)
+    const hv = v.heat; const par = hv ? hv.par : v.par;
+    return h('div', h('div.tt-name', v.zone.name), h('div.tt-sub', `Levels ${v.zone.band[0]}–${v.zone.band[1]}`), h('div.tt-line', `In-game time: ${v.hours} h`),
+      hv ? h('div.tt-line', `Heat: ${standText(hv)} (the Star's line at ${fmtH(hv.line)} h) · ${bossText(hv.ascIfPar)}`) : null,
+      h('div.tt-line.desc', `The boss grows stronger for every ${R.ascStepHours} h past ${fmtH(par)} h (Ascendancy).`),
       danger ? h('div.tt-warn.danger', danger) : null, h('div.tt-hint', 'Click or press M for the zone map'));
   });
   tip(els.resc, () => { const v = ctx.view; return v.player ? resurrectTip(v) : null; });
@@ -226,7 +236,8 @@ export function createHud(root, ctx) {
     for (const el of [els.player, els.actionbar, els.xp, els.minimap, els.micro, els.log, els.tracker, els.gold]) el.classList.toggle('hidden', !inGame || v.phase === 'SUMMARY');
     const panelUp = v.phase === 'ZONE_HUB' || v.phase === 'CAMP' || v.phase === 'MAP' || !!v.loot || (v.node && v.node.step !== 'combat' && !(v.combat && !v.combat.over));
     els.tracker.classList.toggle('dimmed', !!(inGame && panelUp));
-    if (!inGame) { els.pet.classList.add('hidden'); els.target.classList.add('hidden'); els.boss.classList.add('hidden'); syncNameplates(v); ruler.update(v); engage.update(v); return; }
+    if (!inGame) { els.pet.classList.add('hidden'); els.target.classList.add('hidden'); els.boss.classList.add('hidden'); syncNameplates(v); ruler.update(v); engage.update(v); heat.update(v); return; }
+    heat.update(v);
     const th = THEMES[(v.zone && v.zone.theme) || 'farmland'];
     // player
     const pf = els.player;
@@ -506,7 +517,7 @@ export function createHud(root, ctx) {
       else if (p.level >= t.need) lines.push(['d', `Level ${t.need}: you may travel on early (exit level ${t.exit})`]);
       else lines.push(['l', `Travel on at level ${t.need} (or after row ${t.rows})`]);
       lines.push(['l', `Row ${z.pos.row} of ${t.rows}`]);
-    } else if (z) { lines.push(['h', z.name]); lines.push(['l', `Boss par: ${v.par} h · now ${v.hours} h`]); }
+    } else if (z) { lines.push(['h', z.name]); lines.push(['l', `Boss par: ${fmtH(v.heat ? v.heat.par : v.par)} h · now ${v.hours} h`]); } // heatView's par, as the meter
     const key = JSON.stringify(lines);
     if (els.tracker.dataset.key === key) return;
     els.tracker.dataset.key = key; clear(els.tracker);
@@ -533,7 +544,7 @@ export function createHud(root, ctx) {
     els.qtag.textContent = `Next: ${label}`;
   }
 
-  return { update, placeNameplates, log, clearLog, els, setQueued, flashSlot(i) { const b = els.spells[i] || els.items[i - 7]; if (b) { b.classList.add('pressed'); setTimeout(() => b.classList.remove('pressed'), 120); } } };
+  return { update, placeNameplates, log, clearLog, els, setQueued, heat, flashSlot(i) { const b = els.spells[i] || els.items[i - 7]; if (b) { b.classList.add('pressed'); setTimeout(() => b.classList.remove('pressed'), 120); } } };
 }
 
 /** Tooltip of the resurrect badge (rules 9, M2 v3). */
