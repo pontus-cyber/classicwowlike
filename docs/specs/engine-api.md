@@ -250,9 +250,16 @@ the node's entry state, null outside a node that pays heat).
 **Intent track (combat v2, rules 7.11).** `enemy.track` holds INTENT_TRACK_LEN entries, oldest first: the entry of
 the current turn ("now") and the next turns; before turn 1 (engage round, an add that just appeared) turns
 1..INTENT_TRACK_LEN. Entry: `{ turn, id, name, kind, cast, heavy, school, hits, pct, cd, scripted, aggro, target,
-est }`: `scripted` = from the opening script or a signature turn (rules 7.12), `aggro` = the drawn pet-aggro target
+est, cancel }`: `scripted` = from the opening script or a signature turn (rules 7.12), `aggro` = the drawn pet-aggro target
 (fixed), `target` and `est` = what to show, recomputed from the current state every round (TAUNT and feign that
 will still run on that turn show `'pet'`; Mend and Bolster show the lowest-HP ally now; Shield Ally the ward).
+`cancel` (D52) = what will cancel the entry when it becomes now, recomputed every round, or null: `{ by, offBalance,
+breaks, done }`. `by`: `STUN`, `FROZEN`, `HEXED`, `SAPPED` (a control status still on at the start of that turn's
+round) or `TRAP` (a laid trap's STUN covers that turn; the intent then says STUN); `done`: the now-entry, already
+cancelled (`intent.cancelled`); `breaks`: HEXED and SAPPED end on any damage, so the prediction holds only while the
+enemy takes none (draw it softer); `offBalance`: the entry is a heavy or a cast, so the cancel leaves the enemy
+OFF_BALANCE. Not predicted: what the player has not done yet (an interrupt, new control). End boss entries: always
+null (immune to control). Read this instead of inferring from statuses.
 Entries never change once shown, except what they show; a new one is appended each round. `enemy.intent` is the
 now-entry as it will be played (below). The engage round's intents are Unaware.
 

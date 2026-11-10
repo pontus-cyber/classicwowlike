@@ -194,6 +194,79 @@ describe('rules 7.11 intent track (combat v2)', () => {
   });
 });
 
+describe('rules 7.11 the predicted cancel on track entries (D52)', () => {
+  /**
+   * Play PASS rounds and check every prediction against what happens when its entry becomes now: a prediction made
+   * one round before (k = 1) that does not break must come true (TRAP shows as the STUN it lays); a breaking one
+   * (HEXED, SAPPED) must come true when the enemy took no damage in between; no prediction, no cancellation.
+   */
+  function checkRounds(s, rounds, tally) {
+    for (let r = 0; r < rounds && s.fight; r++) {
+      const pred = s.fight.enemies.map((e) => new Map((e.track || []).map((x) => [x.turn, x.cancel])));
+      for (const e of s.fight.enemies) {
+        for (const x of e.track || []) {
+          assert.ok('cancel' in x, 'every entry has cancel');
+          const now = e.turn >= 1 && x.turn === e.turn;
+          if (now) assert.equal(!!(x.cancel && x.cancel.done), !!(e.intent && e.intent.cancelled), 'the now-entry: done when its intent is cancelled');
+          if (x.cancel) assert.equal(x.cancel.offBalance, !!(x.cast || x.heavy));
+        }
+      }
+      const res = R.step(s, { type: 'PASS' });
+      s = res.state;
+      if (!s.fight) break;
+      for (const e of s.fight.enemies) {
+        if (!e.alive || e.turn < 1 || !pred[e.idx]) continue; // an add that joined in this step has no earlier prediction
+        const p = pred[e.idx].get(e.turn);
+        if (p === undefined) continue;
+        const actual = e.intent.cancelled ? e.intent.cancelled.by : null;
+        const hurt = res.events.some((x) => x.t === 'damage' && x.dst === e.idx && x.hpLost > 0);
+        if (p === null) { assert.equal(actual, null, `enemy ${e.idx} turn ${e.turn}: not predicted, not cancelled`); tally.none++; }
+        else if (!p.breaks || !hurt) { assert.equal(actual, p.by === 'TRAP' ? 'STUN' : p.by, `enemy ${e.idx} turn ${e.turn}: predicted ${p.by}`); tally.pred++; }
+        assert.ok(!e.track[0].cancel || e.track[0].cancel.done === !!actual);
+      }
+    }
+    return s;
+  }
+
+  test('control statuses by their rounds left, the first in the order STUN, FROZEN, HEXED, SAPPED; a laid trap over its STUN; the now-entry done', () => {
+    const tally = { pred: 0, none: 0 };
+    // Injected statuses (no damage dealt: the Mage passes and has no pet).
+    let s = fight('mage', 20, [], [mob('z1_brute'), mob('z1_caster'), mob('z1_mender')], { prep: tough, engage: false });
+    s = tweak(s, (x) => {
+      const [a, b, c] = x.fight.enemies;
+      a.st.push({ id: 'STUN', dur: 2 }, { id: 'SAPPED', dur: 4 });
+      b.st.push({ id: 'HEXED', dur: 3 });
+      c.st.push({ id: 'TRAP', dur: null, turn: 3, stun: 2 });
+    });
+    s = R.step(s, { type: 'PASS' }).state;
+    const [a, b, c] = s.fight.enemies;
+    const by = (e) => e.track.map((x) => (x.cancel ? x.cancel.by : null));
+    assert.deepEqual(by(a), ['STUN', 'SAPPED', 'SAPPED'], 'STUN 1 round left, then SAPPED');
+    assert.deepEqual(a.track.map((x) => x.cancel && x.cancel.breaks), [false, true, true]);
+    assert.equal(a.track[0].cancel.done, true);
+    assert.deepEqual(by(b), ['HEXED', 'HEXED', null]);
+    assert.deepEqual(by(c), [null, 'TRAP', 'TRAP'], 'the trap springs on turn 3; its STUN 2 also covers turn 4');
+    checkRounds(s, 5, tally);
+    // Every class's engage options on every target, then PASS rounds (the Hunter's pet may break a Sap or a Hex).
+    const bars = { rogue: ['gutting_jab', 'severing_flourish'], mage: ['ember_bolt', 'frost_lance', 'rime_burst'], hunter: ['keen_shot', 'barbed_arrow'] };
+    for (const cls of ['rogue', 'mage', 'hunter']) {
+      for (const seed of [3, 7, 11]) {
+        const base = fight(cls, 12, bars[cls], [mob('z1_brute', 12), mob('z1_caster', 12), mob('z1_skulker', 12)], { seed, prep: tough, stealth: cls === 'rogue' });
+        for (const act of R.legalActions(base).filter((x) => x.type === 'ENGAGE')) checkRounds(R.step(base, act).state, 5, tally);
+      }
+    }
+    assert.ok(tally.pred > 40 && tally.none > 200, JSON.stringify(tally));
+  });
+
+  test('the end boss\'s entries never predict a cancel (immune to control)', () => {
+    let s = tweak(atLevel(started('mage', { seed: 4 }), 60), (x) => { x.zone.z = C.ZONE_COUNT; x.hours = 100; });
+    s = R.step(R.step(s, { type: 'LEAVE_HUB' }).state, { type: 'TRAVEL_ON' }).state;
+    s = R.step(s, { type: 'FIGHT_BOSS' }).state;
+    const boss = s.fight.enemies[0];
+    assert.ok(boss.track.length > 0 && boss.track.every((x) => x.cancel === null));
+  });
+});
+
 describe('rules 7.12 opening scripts and pack roles (combat v2)', () => {
   test('every archetype plays its opening script on turns 1..OPENING_TURNS; a lone skulker strikes instead of Signal', () => {
     for (const arch of Object.keys(C.OPENING_SCRIPT)) {

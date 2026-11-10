@@ -430,9 +430,10 @@ function engineBackend(seedOpt) {
    * now, cancel, replaced, boss }. round: the fight round the entry plays in (its turn0 + turn - 1). now: the entry it plays
    * this round (its current turn; none in the engage round or before an add's turn 1); it shows the intent as it will be
    * played (a replaced entry shows the basic attack and why). signature: a template ability on a scripted turn (rules 7.12).
-   * cancel { by, offBalance, breaks }: the now-entry that control cancelled (intent.cancelled), or a later entry that the
-   * enemy's control status still covers, read from the status's rounds left as the engine counts them (rules 7.4: a status
-   * with n rounds left is on at the start of the next n - 1 rounds), or the turn its laid trap springs on (TRAP.turn).
+   * cancel { by, offBalance, breaks, done }: the engine's prediction on the entry (D52, engine-api.md 6: the now-entry
+   * that control cancelled, a later entry a control status still covers, the turns a laid trap's STUN covers). Without it
+   * (the mock engine) it is inferred: the now-entry from intent.cancelled, later entries from the control status's rounds
+   * left (rules 7.4: a status with n rounds left is on at the start of the next n - 1 rounds), the trap from TRAP.turn.
    * breaks: SAPPED and HEXED end on any damage. offBalance: the cancelled entry is a heavy or a cast (rules 7.13).
    * The end boss's entries (rules 10.3) carry boss { actions, brand, shards, ifPhase, alt }.
    */
@@ -457,7 +458,9 @@ function engineBackend(seedOpt) {
       let replaced = null;
       if (now && it.replaced && !it.cancelled) { src = it; replaced = { from: it.replaced.name, reason: it.replaced.reason }; }
       let cancel = null;
-      if (now && it.cancelled) cancel = { by: it.cancelled.by, offBalance: !!(it.cancelled.cast || it.cancelled.heavy), breaks: false, done: true };
+      if ('cancel' in x) { // D52: the engine predicts it
+        if (x.cancel) cancel = { by: x.cancel.by, offBalance: !!x.cancel.offBalance, breaks: !!x.cancel.breaks, ...(x.cancel.done ? { done: true } : {}) };
+      } else if (now && it.cancelled) cancel = { by: it.cancelled.by, offBalance: !!(it.cancelled.cast || it.cancelled.heavy), breaks: false, done: true };
       else if (trap && trap.turn === x.turn && x.turn >= T) cancel = { by: 'TRAP', offBalance: !!(x.cast || x.heavy), breaks: false };
       else if (ctl && ctl.dur != null && x.turn >= Math.max(1, T) && x.turn - Math.max(1, T) < ctl.dur - (T >= 1 ? 0 : 1)) cancel = { by: ctl.id, offBalance: !!(x.cast || x.heavy), breaks: BREAKS.has(ctl.id) };
       const sig = !!(x.scripted && CONTENT.abilities && CONTENT.abilities[x.id]);

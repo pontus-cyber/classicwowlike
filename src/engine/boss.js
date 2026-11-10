@@ -208,6 +208,7 @@ export function bossTrackView(s, e) {
       acts = withEst(s, scheduleAt(x.turn, b.phase, step, b.nextPulse), tgt);
     }
     x.target = k === 0 ? it.target : tgt;
+    x.cancel = null; // D52: the end boss is immune to control (rules 10.1)
     x.actions = acts;
     x.cast = acts.some((a) => a.cast);
     x.heavy = acts.some((a) => a.heavy);

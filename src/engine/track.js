@@ -3,7 +3,8 @@
 // action pick, then the pet-aggro target); the head entry becomes the enemy's intent ("now") at the start of its turn,
 // where control, Lay Trap, the summon HP trigger and the play conditions are applied. Enemies present at fight start
 // play their archetype's opening script on turns 1..OPENING_TURNS and (elite, rare, dungeon boss) their signature
-// ability on SIGNATURE_TURN (and SIGNATURE_TURN_2). The end boss's entries are made by boss.js (rules 10.3).
+// ability on SIGNATURE_TURN (and SIGNATURE_TURN_2). The end boss's entries are made by boss.js (rules 10.3). Every
+// entry shows its target, estimate and (D52) the predicted `cancel`, recomputed each round (refreshTrack).
 import {
   ARCHETYPE, ABILITY_TEMPLATE, PET, INTENT_TRACK_LEN, OPENING_TURNS, SIGNATURE_TURN, SIGNATURE_TURN_2,
   HEAVY_SCRIPT_MULT, CAST_SCRIPT_MULT, OPENING_SCRIPT, SCRIPT_ACTION, OFFBAL_DURATION,
@@ -318,11 +319,36 @@ export function nowIntent(s, ev, e) {
   e.intent = it;
 }
 
-/** Refresh what the track shows (rules 7.11): each entry's target and estimated damage from the current state. */
+/**
+ * What will cancel an entry when it becomes now (rules 7.11, D52), predicted from the current state: { by, offBalance,
+ * breaks, done } or null. The now-entry: its own cancellation (intent.cancelled; done). Later entries: a laid trap
+ * whose STUN covers its turn (by 'TRAP'), else the first control status (STUN, FROZEN, HEXED, SAPPED) still on at the
+ * start of its round (rounds left > rounds from now, rules 7.4). breaks: HEXED and SAPPED end on any damage, so the
+ * prediction holds only if the enemy takes none. offBalance: a cancelled heavy or cast leaves it OFF_BALANCE (7.13).
+ * Actions still to come (an interrupt, new control) are not predicted.
+ */
+function cancelOf(s, e, x) {
+  const k = roundOf(e, x.turn) - s.fight.round;
+  const big = !!(x.cast || x.heavy);
+  if (k <= 0) {
+    const c = e.intent && e.intent.cancelled && e.intent.turn === x.turn ? e.intent.cancelled : null;
+    return c ? { by: c.by, offBalance: big, breaks: false, done: true } : null;
+  }
+  const trap = findSt(e.st, 'TRAP');
+  if (trap && x.turn >= trap.turn && x.turn < trap.turn + (trap.stun || 1)) return { by: 'TRAP', offBalance: big, breaks: false, done: false };
+  for (const id of CONTROL) if (activeIn(e.st, id, k)) return { by: id, offBalance: big, breaks: id === 'HEXED' || id === 'SAPPED', done: false };
+  return null;
+}
+
+/**
+ * Refresh what the track shows (rules 7.11): each entry's target and estimated damage from the current state, and
+ * (D52) `cancel`, what will cancel it when it becomes now (cancelOf).
+ */
 export function refreshTrack(s, e) {
   for (const x of e.track) {
     x.target = targetOf(s, e, x, roundOf(e, x.turn));
     x.est = estOf(s, e, x);
+    x.cancel = cancelOf(s, e, x);
   }
 }
 
