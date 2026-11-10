@@ -116,6 +116,34 @@ describe('rules data tables', () => {
     assert.equal(n, 81);
   });
 
+  test('6.3 Beastbond: every per-rank number of the tree matches the spec (M2 v5: Ferocity, Pack Leader, Savage Mastery +25 %, D44)', () => {
+    // [talent, field, pattern in the Effect cell, scale]: "%" values are fractions in constants.js.
+    const want = [
+      ['h_a1', 'petHpPct', /pet max HP \+([\d.]+) %/, 0.01],
+      ['h_a2', 'petDmgPct', /pet damage \+([\d.]+) %/, 0.01],
+      ['h_a3', 'share', /heals you for ([\d.]+) %/, 0.01],
+      ['h_a4', 'petCrit', /pet crit \+([\d.]+) /, 1],
+      ['h_a4', 'focus', /gives you ([\d.]+) focus/, 1],
+      ['h_a5', 'revive', /revives after fights at \+([\d.]+) /, 1],
+      ['h_a5', 'petDr', /pet takes -([\d.]+) % damage/, 0.01],
+      ['h_a6', 'pct', /deal \+([\d.]+) % damage/, 0.01],
+      ['h_a7', 'cd', /CD -([\d.]+) /, 1],
+      ['h_a7', 'pct', /and \+([\d.]+) % \/rank/, 0.01],
+      ['h_a8', 'share', /^([\d.]+) % of damage you take/, 0.01],
+    ];
+    const effect = Object.fromEntries(rows(section('### 6.3 Hunter')).filter((r) => /^h_a\d$/.test(r[0])).map((r) => [r[0], r[4]]));
+    assert.equal(Object.keys(effect).length, 9, 'nine Beastbond rows');
+    for (const [id, field, re, scale] of want) {
+      const m = effect[id].match(re);
+      assert.ok(m, `${id}: "${effect[id]}" does not match ${re}`);
+      const spec = Number(m[1]) * scale;
+      assert.ok(Math.abs(K.TALENT[id][field] - spec) < 1e-12, `${id}.${field}: spec ${spec}, constants.js ${K.TALENT[id][field]}`);
+    }
+    assert.equal(K.TALENT.h_a9.spell, effect.h_a9.match(/new spell `(\w+)`/)[1]);
+    // D44 itself, as numbers: 0.10 -> 0.125, 0.05 -> 0.0625, 0.10 -> 0.125
+    assert.deepEqual([K.TALENT.h_a2.petDmgPct, K.TALENT.h_a6.pct, K.TALENT.h_a7.pct], [0.125, 0.0625, 0.125]);
+  });
+
   test('7.6 archetypes', () => {
     for (const r of rows(section('### 7.6 Enemy AI and intents'))) {
       const a = K.ARCHETYPE[r[0]];

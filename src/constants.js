@@ -501,12 +501,12 @@ export const TALENT = {
   m_c9: { id: 'm_c9', cls: 'mage', tree: 2, tier: 5, name: 'Hourglass Reversal', ranks: 1, spell: 'hourglass_reversal' },
   // Hunter: Beastbond
   h_a1: { id: 'h_a1', cls: 'hunter', tree: 0, tier: 1, name: 'Thick Hide', ranks: 3, petHpPct: 0.08 },
-  h_a2: { id: 'h_a2', cls: 'hunter', tree: 0, tier: 1, name: 'Ferocity', ranks: 3, petDmgPct: 0.10 },
+  h_a2: { id: 'h_a2', cls: 'hunter', tree: 0, tier: 1, name: 'Ferocity', ranks: 3, petDmgPct: 0.125 },
   h_a3: { id: 'h_a3', cls: 'hunter', tree: 0, tier: 2, name: 'Bonded Spirit', ranks: 2, share: 0.30 },
   h_a4: { id: 'h_a4', cls: 'hunter', tree: 0, tier: 2, name: 'Frenzy Link', ranks: 2, petCrit: 0.05, focus: 5 },
   h_a5: { id: 'h_a5', cls: 'hunter', tree: 0, tier: 3, name: 'Unbreakable Bond', ranks: 2, revive: 0.25, petDr: 0.05 },
-  h_a6: { id: 'h_a6', cls: 'hunter', tree: 0, tier: 3, name: 'Pack Leader', ranks: 2, pct: 0.05 },
-  h_a7: { id: 'h_a7', cls: 'hunter', tree: 0, tier: 4, name: 'Savage Mastery', ranks: 2, cd: 1, pct: 0.10 },
+  h_a6: { id: 'h_a6', cls: 'hunter', tree: 0, tier: 3, name: 'Pack Leader', ranks: 2, pct: 0.0625 },
+  h_a7: { id: 'h_a7', cls: 'hunter', tree: 0, tier: 4, name: 'Savage Mastery', ranks: 2, cd: 1, pct: 0.125 },
   h_a8: { id: 'h_a8', cls: 'hunter', tree: 0, tier: 4, name: 'Shared Wounds', ranks: 1, share: 0.20 },
   h_a9: { id: 'h_a9', cls: 'hunter', tree: 0, tier: 5, name: 'Primal Unity', ranks: 1, spell: 'wild_communion' },
   // Hunter: Marksmanship

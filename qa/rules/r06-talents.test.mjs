@@ -81,11 +81,11 @@ describe('rules 6 talents: damage modifiers (same draws, with / without)', () =>
   test('Hunter: Piercing Volley, Pack Leader, Cornered Beast, Savage Mastery', () => {
     const noPet = (x) => { x.player.pet = null; };
     near(ratio('hunter', 30, ['volley_rain'], { h_b6: 2 }, cast('volley_rain', null), { prep: noPet }), 1.4, 'Piercing Volley 2 (+20 %/rank)');
-    near(ratio('hunter', 30, ['keen_shot'], { h_a6: 2 }, cast('keen_shot'), { n: 6, pred: (d) => d[0] > 0.9 && d[1] > 0.97 && Math.abs(d[2] - 0.5) < 0.05 && d[3] > 0.9 }), 1.10, 'Pack Leader 2 (+5 %/rank, pet alive; M2 v2)');
+    near(ratio('hunter', 30, ['keen_shot'], { h_a6: 2 }, cast('keen_shot'), { n: 6, pred: (d) => d[0] > 0.9 && d[1] > 0.97 && Math.abs(d[2] - 0.5) < 0.05 && d[3] > 0.9 }), 1.125, 'Pack Leader 2 (+6.25 %/rank, pet alive; M2 v5)');
     const low = (x) => { x.player.pet = null; x.player.hp = Math.floor(x.player.d.maxHp * 0.4); };
     near(ratio('hunter', 30, ['keen_shot'], { h_c8: 3 }, cast('keen_shot'), { prep: low }), 1.24, 'Cornered Beast 3 (+8 %/rank below 50 % HP; M2 v2)');
     const pick = (r) => r.events.find((e) => e.t === 'damage' && e.spell === 'savage_order').amount;
-    near(ratio('hunter', 40, ['savage_order'], { h_a7: 2 }, cast('savage_order'), { pick }), 1.2, 'Savage Mastery 2 (+10 %/rank)');
+    near(ratio('hunter', 40, ['savage_order'], { h_a7: 2 }, cast('savage_order'), { pick }), 1.25, 'Savage Mastery 2 (+12.5 %/rank; M2 v5)');
     assert.equal(R.spellCooldown(withTalents(atLevel(started('hunter'), 40), { h_a7: 2 }), 'savage_order'), 4 - 2, 'Savage Mastery: CD -1/rank');
   });
 });
@@ -158,7 +158,7 @@ describe('rules 6 talents: stats, resources and mechanics', () => {
       const r = act(fightWith('hunter', 40, [], talents), { type: 'PASS' }, (x) => x[0] > 0.9 && x[1] > 0.97 && Math.abs(x[2] - 0.5) < 0.05);
       return r.events.find((e) => e.t === 'damage' && e.src === 'pet').amount;
     };
-    near(petHit({ h_a2: 3 }) / petHit({}), 1.30, 'Ferocity 3 (pet damage +10 %/rank; M2 v2)');
+    near(petHit({ h_a2: 3 }) / petHit({}), 1.375, 'Ferocity 3 (pet damage +12.5 %/rank; M2 v5)');
     // Frenzy Link: a pet crit on a draw between the base pet crit and +0.10 (2 ranks)
     const s = fightWith('hunter', 40, [], { h_a4: 2 });
     const petCrit = s.player.d.crit + C.PET[s.player.pet.id].critBonus;
