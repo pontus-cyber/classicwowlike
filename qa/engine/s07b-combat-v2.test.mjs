@@ -101,24 +101,28 @@ describe('rules 7.11 intent track (combat v2)', () => {
 
   test('weighted picks: off cooldown at that turn by the track (earlier entries within their cooldown), by e.cds, and by a later scripted entry', () => {
     const seen = { 4: new Set(), 5: new Set() };
-    const boss4 = new Set();
+    const boss5 = new Set();
     for (let seed = 0; seed < 120; seed++) {
       let s = fight('mage', 20, [], [mob('z1_caster')], { seed, prep: tough });
       s = pass(s, 3, stunAll); // round 4: turns 3..5 shown
       const e = s.fight.enemies[0];
       seen[4].add(e.track.find((x) => x.turn === 4).id);
       seen[5].add(e.track.find((x) => x.turn === 5).id);
-      // Dungeon boss: ab_dark (cd 4) on turn 2, ab_heavy forced on turn 5 (cd 3): turn 4 can hold neither.
+      // Dungeon boss: ab_dark (cd 4) played on turn 2, ab_heavy (cd 3) scripted on turn SIGNATURE_TURN_2 = 4: the
+      // weighted pick of turn 5 (made in round 4) can hold neither: ab_dark by e.cds, ab_heavy by the track's turn 4.
       let b = fight('mage', 20, [], [mob('z1_dboss', 20, 'dboss')], { seed, kind: 'dboss', prep: tough });
-      b = pass(b, 3, stunAll);
+      b = pass(b, 3);
       const be = b.fight.enemies[0];
-      boss4.add(be.track.find((x) => x.turn === 4).id);
-      assert.equal(be.track.find((x) => x.turn === 5).id, 'ab_heavy');
+      assert.equal(be.track.find((x) => x.turn === 4).id, 'ab_heavy');
+      boss5.add(be.track.find((x) => x.turn === 5).id);
     }
     // Caster: hex_bolt on turn 2 (cd 3) and wither on turn 3 (cd 5): turn 4 only bolt; turn 5 bolt or hex_bolt.
     assert.deepEqual([...seen[4]], ['bolt']);
     assert.deepEqual([...seen[5]].sort(), ['bolt', 'hex_bolt']);
-    assert.ok(!boss4.has('ab_heavy') && !boss4.has('ab_dark'), [...boss4].join());
+    assert.ok(!boss5.has('ab_heavy') && !boss5.has('ab_dark'), [...boss5].join());
+    // A later scripted entry (rules 7.11) cannot bind at the defaults: a dungeon boss's turns 1..SIGNATURE_TURN_2 are all
+    // scripted (combat v2.1: SIGNATURE_TURN_2 4 = OPENING_TURNS + 1), so no weighted pick comes before it.
+    assert.ok(C.SIGNATURE_TURN_2 <= C.OPENING_TURNS + 1);
     // e.cds: an ability on cooldown at that turn's round is never picked.
     let c = tweak(fight('mage', 20, [], [mob('z1_brute')], { prep: tough }), (x) => { x.fight.enemies[0].cds.heavy_smash = 99; });
     for (let i = 0; i < 8; i++) c = pass(c, 1, stunAll);
@@ -287,9 +291,9 @@ describe('rules 7.12 opening scripts and pack roles (combat v2)', () => {
     assert.equal(rare.track[1].id, 'ab_heavy');
     let b = fight('mage', 20, [], [mob('z1_dboss', 20, 'dboss')], { kind: 'dboss', prep: tough });
     assert.equal(b.fight.enemies[0].track[1].id, 'ab_dark', 'dark_cast 2.1 > heavy_blow 1.9');
-    b = pass(b, 3, stunAll);
-    assert.ok(b.fight.enemies[0].track.find((x) => x.turn === 5 && x.id === 'ab_heavy' && x.scripted));
-    assert.deepEqual([C.SIGNATURE_TURN, C.SIGNATURE_TURN_2], [2, 5]);
+    b = pass(b, 2, stunAll);
+    assert.ok(b.fight.enemies[0].track.find((x) => x.turn === C.SIGNATURE_TURN_2 && x.id === 'ab_heavy' && x.scripted));
+    assert.deepEqual([C.SIGNATURE_TURN, C.SIGNATURE_TURN_2], [2, 4], 'combat v2.1: SIGNATURE_TURN_2 4 (was 5)');
   });
 
   test('scripted heavy and cast actions take HEAVY_SCRIPT_MULT and CAST_SCRIPT_MULT on their pct', () => {
@@ -610,7 +614,11 @@ describe('rules 7.10 engage round (combat v2)', () => {
     const r = R.step(c, { type: 'CAST', spellId: 'ember_bolt', target: 0 });
     assert.ok(hit(r.events, 0).crit, '+GATHER_CRIT');
     assert.equal(r.state.player.mana, Math.min(s.player.d.maxMana, s.player.mana + Math.round(C.MANA_REGEN_ROUND_PCT * s.player.d.maxMana)), 'free');
-    const t = R.step(r.state, { type: 'CAST', spellId: 'ember_bolt', target: 0 }).state;
+    let t = r.state;
+    for (let i = 1; i < C.GATHER_SPELLS; i++) {
+      assert.equal(st(t.fight.p.st, 'GATHER').stacks, C.GATHER_SPELLS - i);
+      t = R.step(tweak(t, (x) => { x.player.mana = x.player.d.maxMana; }), { type: 'CAST', spellId: 'ember_bolt', target: 0 }).state;
+    }
     assert.ok(!st(t.fight.p.st, 'GATHER'), 'used up');
     assert.ok(R.spellCost(t, 'ember_bolt') > 0);
   });

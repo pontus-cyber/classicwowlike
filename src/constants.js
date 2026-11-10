@@ -320,12 +320,12 @@ export const INTENT_TRACK_LEN = 3;
 export const OPENING_TURNS = 3;
 /** rules 7.12: enemy turn of the signature ability (elite, rare, dungeon boss). */
 export const SIGNATURE_TURN = 2;
-/** rules 7.12: enemy turn of a dungeon boss's second template ability. */
-export const SIGNATURE_TURN_2 = 5;
-/** rules 7.12: × the pct of a heavy action on a scripted turn (tuning lever). */
-export const HEAVY_SCRIPT_MULT = 1.0;
-/** rules 7.12: × the pct of a cast action on a scripted turn (tuning lever). */
-export const CAST_SCRIPT_MULT = 1.0;
+/** rules 7.12: enemy turn of a dungeon boss's second template ability (combat v2.1: was 5). */
+export const SIGNATURE_TURN_2 = 4;
+/** rules 7.12: × the pct of a heavy action on a scripted turn (tuning lever; combat v2.1, D55: was 1.0). */
+export const HEAVY_SCRIPT_MULT = 1.5;
+/** rules 7.12: × the pct of a cast action on a scripted turn (tuning lever; combat v2.1, D55: was 1.0). */
+export const CAST_SCRIPT_MULT = 1.5;
 /** rules 7.6, 7.11: Mend needs an ally below this fraction of max HP (ARCHETYPE.mender Mend `below`). */
 export const MEND_BELOW = 0.70;
 /** rules 7.12: enemies a skulker's Signal brings. */
@@ -338,10 +338,10 @@ export const BOLSTER_CD = 4;
 export const BLOODLUST_STEP = 0.10;
 /** rules 7.12: Bloodlust cap. */
 export const BLOODLUST_MAX = 0.50;
-/** rules 7.13: OFF_BALANCE, damage taken from the player and pet. */
-export const OFFBAL_TAKEN = 0.30;
-/** rules 7.13, 10: OFF_BALANCE on the end boss, damage taken. */
-export const OFFBAL_BOSS_TAKEN = 0.15;
+/** rules 7.13: OFF_BALANCE, damage taken from the player and pet (combat v2.1, D55: was 0.30). */
+export const OFFBAL_TAKEN = 0.50;
+/** rules 7.13, 10: OFF_BALANCE on the end boss, damage taken (combat v2.1, D55: was 0.15; its crit and dodge effects stay). */
+export const OFFBAL_BOSS_TAKEN = 0;
 /** rules 7.13: OFF_BALANCE, the player's crit chance against it. */
 export const OFFBAL_CRIT = 0.20;
 /** rules 7.13: OFF_BALANCE status duration (one player action). */
@@ -352,14 +352,14 @@ export const ENGAGE_DMG_COMP = 1.15;
 export const AMBUSH_MULT = 1.5;
 /** rules 7.10: Sap, enemy turns SAPPED. */
 export const SAP_TURNS = 3;
-/** rules 7.10: Premeditate, combo points. */
-export const PREMED_CP = 3;
+/** rules 7.10: Premeditate, combo points (combat v2.1, D57: was 3). */
+export const PREMED_CP = 5;
 /** rules 7.10: Binding Glyph, enemy turns FROZEN. */
 export const GLYPH_TURNS = 2;
-/** rules 7.10: Gathered Power, damaging spells that cost 0 mana. */
-export const GATHER_SPELLS = 2;
-/** rules 7.10: Gathered Power, crit chance on those spells. */
-export const GATHER_CRIT = 0.50;
+/** rules 7.10: Gathered Power, damaging spells that cost 0 mana (combat v2.1, D57: was 2). */
+export const GATHER_SPELLS = 3;
+/** rules 7.10: Gathered Power, crit chance on those spells (combat v2.1, D57: was 0.50; gathered spells always crit). */
+export const GATHER_CRIT = 1.0;
 /** rules 7.10: Opening Shot = Keen Shot × this. */
 export const OPENING_SHOT_MULT = 1.5;
 /** rules 7.10: Opening Shot, MARKED status duration in rounds. */
@@ -372,6 +372,11 @@ export const PET_LEAD_TURNS = 2;
 export const PET_LEAD_DR = 0.30;
 /** rules 7.9 rule E: enemy turns autoplay reads when it picks the control target. */
 export const ENGAGE_AUTO_LOOK = 2;
+// Combat v2.1 (rules 7.2, 7.4, 7.12, marked "(combat v2.1)"; docs/specs/combat-v2.md 16, D56).
+/** rules 7.12: damage dealt per EMPOWERED stack (a wind-up landed; 7.2 step 2). */
+export const EMPOWER_DMG = 0.15;
+/** rules 7.12: damage dealt less per STAGGERED stack (a wind-up answered; 7.2 step 2). */
+export const STAGGER_DMG = 0.30;
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
 // with mapMode 'expedition'; a run on today's map (mapMode 'rows', the default) never reads them.
 /** rules 1.9.2: nodes per ring (ring 0 = the hub). */

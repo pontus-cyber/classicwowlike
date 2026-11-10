@@ -213,7 +213,15 @@ describe('rules 11 meta progression', () => {
       assert.deepEqual(ra.events, rb.events, `step ${i}`);
       a = ra.state; b = rb.state;
     }
-    const strip = (s) => { const o = JSON.parse(R.serialize(s)); delete o.profile; return o; };
+    // The profile itself, and what is derived from it at the run's end (the summary's profileHash, END_RUN's
+    // result.profile), differ by the stored id; everything else is the same run.
+    const strip = (s) => {
+      const o = JSON.parse(R.serialize(s));
+      delete o.profile;
+      for (const sum of [o.summary, o.result && o.result.summary]) if (sum) delete sum.profileHash;
+      if (o.result) delete o.result.profile;
+      return o;
+    };
     assert.deepEqual(strip(a), strip(b));
     // END_RUN keeps the stored id in the returned profile
     const end = R.step(tweak(started('rogue', { profile: bought }), (x) => { x.phase = 'SUMMARY'; x.outcome = 'death'; }), { type: 'END_RUN' }).state;
