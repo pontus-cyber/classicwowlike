@@ -5,7 +5,7 @@ import { spellIcon, itemIcon, nodeIcon, icon, consumableIcon } from './art-icons
 import { drawPortrait, HERO_LOOKS, PET_LOOKS } from './art-actors.js';
 import { tip, itemTip, spellTip } from './tooltip.js';
 import { conColor, heroPortrait, travelState } from './hud.js';
-import { numWord, plural, dangerAt, pct1 } from './ui-text.js';
+import { numWord, plural, pct1 } from './ui-text.js';
 import { createMeta, buildOaths, echoAmt } from './meta.js';
 
 const NODE_NAME = { quest: 'Quest', grind: 'Grind', elite: 'Elite', dungeon: 'Dungeon', rest: 'Rest', vendor: 'Vendor', trainer: 'Trainer', treasure: 'Treasure', shrine: 'Shrine' };
@@ -203,7 +203,7 @@ function buildCamp(v, ctx) {
     svcCard('vendor', 'earth', 'Quartermaster', `Level ${R.maxLevel} stock`, `${hr.vendor} h`, used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' })),
     svcCard('rest', 'fire', 'Campfire', 'Full rest before the fight', `${hr.inn} h`, used.inn, () => ctx.act({ type: 'HUB_SERVICE', service: 'inn' })),
     svcCard('grind', 'steel', 'Camp wave', `Fight a wave of level ${R.campGrindLevel} enemies`, `${hr.grindWave} h`, false, () => ctx.act({ type: 'CAMP_GRIND' })));
-  const par = v.camp && v.camp.par ? ` (par ${v.camp.par} h)` : '';
+  const par = v.camp && v.camp.par ? ` (par ${v.camp.par} h)` : ''; // the engine's bossPar (Oath of Haste included)
   const kv = h('dl.kv', h('dt', 'Time'), h('dd', `${v.hours} h${par}`), h('dt', 'Ascendancy'),
     asc == null ? h('dd.muted', 'Unknown') : h('dd', { class: asc > 0 ? 'bad' : 'good' }, asc > 0 ? `+${Math.round(asc * 100)} % health and damage` : 'None: you are on time'));
   const go = h('button.btn.primary.big', 'Face Oruvath');
@@ -293,19 +293,13 @@ function flagSvg() {
 function closeBtn(ctx, win) { const b = h('button.xbtn', '×'); b.addEventListener('click', () => ctx.ui.closeWin(win)); return b; }
 
 /**
- * Zone danger of a fight node (rules 7.6, M2 v3), or null: the extra damage of its enemies, from the rules table.
- * Enemy levels as the engine builds the fights: quest and grind enemies at the node's level; an elite at its own
- * level and its escort (a second enemy) at the node's; dungeon trash at its level and the dungeon boss at its own.
- * With more than one level the line says "up to" the highest.
+ * Zone danger of a fight node (rules 7.6, M2 v3; dungeons M2 v4), or null: the extra damage of its enemies, n.danger
+ * { lo, hi } from the engine's zoneDanger (the bridge). When the enemies differ, the line says "up to" the highest.
  */
 function nodeDanger(n, r) {
-  const levels = n.type === 'quest' || n.type === 'grind' ? [n.cl]
-    : n.type === 'elite' ? [n.level ?? n.cl, ...(n.enemyNames && n.enemyNames.length > 1 ? [n.cl] : [])]
-      : n.type === 'dungeon' ? [n.level ?? n.cl, n.bossLevel ?? n.cl] : null;
-  if (!levels) return null;
-  const lo = dangerAt(r, Math.min(...levels)); const hi = dangerAt(r, Math.max(...levels));
-  if (!(hi > 0)) return null;
-  return `Zone danger: enemies here deal ${hi > lo ? 'up to ' : ''}+${pct1(hi)} damage (above level ${r.dangerFrom}).`;
+  const d = n.danger;
+  if (!d || !(d.hi > 0)) return null;
+  return `Zone danger: enemies here deal ${d.hi > d.lo ? 'up to ' : ''}+${pct1(d.hi)} damage (above level ${r.dangerFrom}).`;
 }
 
 function nodeTip(n, v, ctx, reach) {

@@ -33,7 +33,9 @@
 //   data.rules: rule numbers that screens show in text, read from the engine's constants (rulesTable below)
 //   loot:    { kind: 'loot'|'reward'|'story', title, text?, gold, xp, items?, choices? }
 //   summary: run summary (rules.md 9)
+//   par:     the run's boss par in hours (R.bossPar: BOSS_TIME_PAR, shorter under the Oath of Haste); mock: its own
 //   camp:    { par, asc } at the camp (asc: the engine's Ascendancy if the boss were faced now), else null
+//   zone.danger, node.danger { lo, hi }: zone danger (rules 7.6) from R.zoneDanger; the zone's at its highest level
 //   legal:   { lanes, travelOn, mustTravel, outOfCombat, spells: { id: { ok, reason, cd } }, items: [{ ok, reason, count, cd }],
 //              attack, flee, fleeChance?, services, talents, trainer }
 //   oaths:   Oaths of the run (rules 11.5); create.oaths in CREATE
@@ -63,13 +65,17 @@ function rulesTable(K) {
   return {
     zoneCount: K.ZONE_COUNT, maxLevel: K.MAX_LEVEL, storyQuests: K.STORY_QUESTS, dungeonTrashFights: K.DUNGEON_TRASH_FIGHTS,
     grindMaxWaves: K.GRIND_MAX_WAVES, grindWaveSize: K.GRIND_WAVE_SIZE, eliteLevelOffset: K.ELITE_LEVEL_OFFSET,
-    campGrindLevel: K.CAMP_GRIND_LEVEL, par: K.BOSS_TIME_PAR, ascStepHours: K.ASC_STEP_HOURS, cpMax: K.CP_MAX, potionCd: K.POTION_CD,
+    campGrindLevel: K.CAMP_GRIND_LEVEL, ascStepHours: K.ASC_STEP_HOURS, cpMax: K.CP_MAX, potionCd: K.POTION_CD,
     hours: { trainer: K.HOURS_TRAINER, vendor: K.HOURS_VENDOR, inn: K.HOURS_REST, travel: K.HOURS_TRAVEL, grindWave: K.HOURS_GRIND_WAVE },
     linkPerShard: per ?? null, linkCap: K.LINK_DR, linkDr, shardAoeTaken: K.SHARD_AOE_TAKEN ?? null,
     // Round time budget at the default animation speed (rules 3, M2 v2); null on an engine without it.
     roundAnimMs: K.PACE_ROUND_ANIM_S != null ? K.PACE_ROUND_ANIM_S * 1000 : null,
-    // Zone danger (rules 7.6, M2 v3): enemies above dangerFrom deal +dangerStep damage per 10 levels; null without it.
-    dangerFrom: K.ZONE_DANGER_FROM ?? null, dangerStep: K.ZONE_DANGER_STEP ?? null,
+    // Zone danger (rules 7.6, M2 v3; dungeons M2 v4): enemies above dangerFrom hit harder. dangerStep and
+    // dangerStepDungeon: the extra damage TXT.DANGER_LEVELS levels above dangerFrom, in the open world and in a dungeon
+    // (trash), from the engine's zoneDanger; null without zone danger.
+    dangerFrom: K.ZONE_DANGER_FROM ?? null,
+    dangerStep: K.ZONE_DANGER_FROM != null ? R.zoneDanger(K.ZONE_DANGER_FROM + TXT.DANGER_LEVELS, 'normal') - 1 : null,
+    dangerStepDungeon: K.ZONE_DANGER_FROM != null ? R.zoneDanger(K.ZONE_DANGER_FROM + TXT.DANGER_LEVELS, 'trash') - 1 : null,
   };
 }
 
@@ -100,14 +106,14 @@ function metaData(K) {
 function mockBackend(seed) {
   let state = mock.createState({ seed });
   const MC = mock.data.constants; // the mock's own simplified numbers
-  // Screen texts use the rules table; the mock's own par replaces the engine's (the mock computes Ascendancy itself),
-  // and the mock has no zone danger.
-  const data = { ...mock.data, rules: { ...rulesTable(R.C), par: MC.BOSS_TIME_PAR, ascStepHours: MC.ASC_STEP, dangerFrom: null, dangerStep: null } };
+  // Screen texts use the rules table; the mock's own par and Ascendancy step replace the engine's (the mock computes
+  // Ascendancy itself), and the mock has no zone danger.
+  const data = { ...mock.data, rules: { ...rulesTable(R.C), ascStepHours: MC.ASC_STEP, dangerFrom: null, dangerStep: null, dangerStepDungeon: null } };
   return {
     mode: 'mock', data, canDebug: true,
     view() {
       const camp = state.phase === 'CAMP' ? { par: MC.BOSS_TIME_PAR, asc: Math.min(MC.ASC_CAP, MC.ASC_PER * Math.floor(Math.max(0, state.hours - MC.BOSS_TIME_PAR) / MC.ASC_STEP)) } : null; // mock rule
-      return { ...state, camp, legal: state.player ? mock.legalInfo(state) : { lanes: [], services: {}, items: [], spells: {} }, mode: 'mock' };
+      return { ...state, par: MC.BOSS_TIME_PAR, camp, legal: state.player ? mock.legalInfo(state) : { lanes: [], services: {}, items: [], spells: {} }, mode: 'mock' };
     },
     step(action) {
       const r = mock.step(state, action);
@@ -256,17 +262,33 @@ function engineBackend(seedOpt) {
   }
 
   function zoneContent(z) { return z >= 1 && z <= C.ZONE_COUNT ? CONTENT.zones[z - 1] : null; }
+  /** Zone danger (rules 7.6): the extra damage of an enemy of this level and variant, from the engine's zoneDanger. */
+  const dangerOf = (level, variant) => R.zoneDanger(level, variant) - 1;
+  /**
+   * Zone danger of a fight node's enemies, { lo, hi }, or null: the engine's zoneDanger at the levels and variants it
+   * builds the fight with (src/engine/nodes.js): quest and grind at cl; the elite at its level, its escort at cl;
+   * dungeon trash at its level and the dungeon boss at its own (M2 v4: DUNGEON_DANGER_FRAC of the bonus).
+   */
+  function nodeDanger(n) {
+    const foes = n.type === 'quest' || n.type === 'grind' ? [[n.cl, 'normal']]
+      : n.type === 'elite' ? [[n.level, 'elite'], ...(n.archetypes && n.archetypes.length > 1 ? [[n.cl, 'normal']] : [])]
+        : n.type === 'dungeon' ? [[n.level, 'trash'], [n.bossLevel, 'dboss']] : null;
+    if (!foes) return null;
+    const d = foes.map(([lv, va]) => dangerOf(lv, va));
+    return { lo: Math.min(...d), hi: Math.max(...d) };
+  }
   function convZone(s) {
     const z = s.zone ? s.zone.z : 1;
     if (z > C.ZONE_COUNT || (s.zone && s.zone.camp)) {
       const camp = CONTENT.camp || {};
       return { idx: C.ZONE_COUNT + 1, id: 'camp', camp: true, name: camp.name || 'Observatory Steps', hubName: camp.name || 'Observatory Steps', hubText: camp.text, blurb: camp.text, theme: 'observatory',
-        band: [C.MAX_LEVEL, C.MAX_LEVEL], exitLevel: C.MAX_LEVEL, travelLevel: null, rows: [], pos: { row: 0, lane: null }, path: [], questsDone: 0, storyDone: false };
+        band: [C.MAX_LEVEL, C.MAX_LEVEL], exitLevel: C.MAX_LEVEL, travelLevel: null, rows: [], pos: { row: 0, lane: null }, path: [], questsDone: 0, storyDone: false,
+        danger: dangerOf(C.MAX_LEVEL, 'normal') };
     }
     const zc = zoneContent(z);
     const mv = R.mapView(s);
     const rows = mv ? mv.rows.map((row) => row.map((n) => {
-      const out = { row: n.r, lane: n.l, type: n.type, cl: n.cl, visited: !!n.done, title: n.title, level: n.level };
+      const out = { row: n.r, lane: n.l, type: n.type, cl: n.cl, visited: !!n.done, title: n.title, level: n.level, danger: nodeDanger(n) };
       if (n.archetypes) out.enemyNames = n.archetypes.map(TXT.humanize); // one entry per enemy (grind: the first wave)
       if (n.type === 'elite') { out.eliteName = n.name || null; out.rare = n.rare; }
       if (n.type === 'dungeon') { out.dungeon = n.name; out.bossLevel = n.bossLevel; out.bossName = zc && CONTENT.enemies[zc.dungeon.boss] ? CONTENT.enemies[zc.dungeon.boss].name : ''; }
@@ -278,7 +300,7 @@ function engineBackend(seedOpt) {
     return { idx: z, id: `z${z}`, camp: false, name: zc ? zc.name : `Zone ${z}`, hubName: zc ? zc.hubName : 'Hub', hubText: zc ? zc.hubText : '', blurb: zc ? zc.theme : '',
       theme: THEMES[z - 1] || 'farmland', band: [exitLevel - C.ZONE_LEVELS + 1, exitLevel], exitLevel, travelLevel: R.travelLevel(s) ?? exitLevel, rows,
       pos: { row: s.zone.pos.r, lane: s.zone.pos.l }, path, questsDone: s.zone.questsDone || 0, storyDone: !!s.zone.storyDone, next: mv ? mv.next : [],
-      travelHours: travelHours(s) };
+      travelHours: travelHours(s), danger: dangerOf(exitLevel, 'normal') };
   }
   /** Hours TRAVEL_ON spends now, from a dry step; null while it is not legal. */
   function travelHours(s) {
@@ -544,7 +566,8 @@ function engineBackend(seedOpt) {
     v.loot = null;
     v.summary = v.phase === 'SUMMARY' ? convSummary(s) : null;
     v.meta = v.phase === 'SUMMARY' ? metaView(s) : null;
-    v.camp = s.phase === 'CAMP' && !s.fight && !s.service ? { par: C.BOSS_TIME_PAR, asc: dryBossAsc(s) } : null;
+    v.par = R.bossPar(s); // the run's par (rules 1.7), the Oath of Haste included
+    v.camp = s.phase === 'CAMP' && !s.fight && !s.service ? { par: v.par, asc: dryBossAsc(s) } : null;
     if (v.phase === 'CAMP' && s.fight) v.phase = 'NODE';
     if (v.node && v.node.step === 'intro' && s.fight) v.combat = null; // the intro dialog is read before the fight is shown
     const win = (s.loot || []).map((it) => item(it, s.player.classId, { pending: true }));

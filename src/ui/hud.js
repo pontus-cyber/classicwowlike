@@ -7,7 +7,7 @@ import { drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook } from './art
 import { THEMES } from './art-world.js';
 import { tip, spellTip, basicTip, itemTip, statusTip } from './tooltip.js';
 import { settings } from './settings.js';
-import { linkedText, resurrectText, dangerAt, dangerRule } from './ui-text.js';
+import { linkedText, resurrectText, dangerRule } from './ui-text.js';
 
 const RES_NAME = { energy: 'Energy', mana: 'Mana', focus: 'Focus' };
 export function conColor(cl, level) {
@@ -172,8 +172,9 @@ export function createHud(root, ctx) {
   els.minimap.querySelector('.disc').addEventListener('click', () => ctx.ui.toggleWin('map'));
   tip(els.minimap.querySelector('.disc'), () => {
     const v = ctx.view; if (!v.zone) return null; const R = ctx.data.rules;
-    const danger = dangerAt(R, v.zone.band[1]) > 0 ? dangerRule(R) : null; // zone danger (rules 7.6, M2 v3)
-    return h('div', h('div.tt-name', v.zone.name), h('div.tt-sub', `Levels ${v.zone.band[0]}–${v.zone.band[1]}`), h('div.tt-line', `In-game time: ${v.hours} h`), h('div.tt-line.desc', `The boss grows stronger for every ${R.ascStepHours} h past ${R.par} h (Ascendancy).`),
+    const danger = v.zone.danger > 0 ? dangerRule(R) : null; // zone danger (rules 7.6): zone.danger from the engine's zoneDanger
+    // v.par: the run's par from the engine's bossPar (the Oath of Haste included)
+    return h('div', h('div.tt-name', v.zone.name), h('div.tt-sub', `Levels ${v.zone.band[0]}–${v.zone.band[1]}`), h('div.tt-line', `In-game time: ${v.hours} h`), h('div.tt-line.desc', `The boss grows stronger for every ${R.ascStepHours} h past ${v.par} h (Ascendancy).`),
       danger ? h('div.tt-warn.danger', danger) : null, h('div.tt-hint', 'Click or press M for the zone map'));
   });
   tip(els.resc, () => { const v = ctx.view; return v.player ? resurrectTip(v) : null; });
@@ -433,7 +434,7 @@ export function createHud(root, ctx) {
       else if (p.level >= t.need) lines.push(['d', `Level ${t.need}: you may travel on early (exit level ${t.exit})`]);
       else lines.push(['l', `Travel on at level ${t.need} (or after row ${t.rows})`]);
       lines.push(['l', `Row ${z.pos.row} of ${t.rows}`]);
-    } else if (z) { lines.push(['h', z.name]); lines.push(['l', `Boss par: ${R.par} h · now ${v.hours} h`]); }
+    } else if (z) { lines.push(['h', z.name]); lines.push(['l', `Boss par: ${v.par} h · now ${v.hours} h`]); }
     const key = JSON.stringify(lines);
     if (els.tracker.dataset.key === key) return;
     els.tracker.dataset.key = key; clear(els.tracker);

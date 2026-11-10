@@ -93,21 +93,21 @@ export function resurrectText(p, bossFight) {
 }
 
 /**
- * Zone danger (rules 7.6, M2 v3) from the rules table: an enemy of level M deals
- * dangerStep × max(0, M - dangerFrom) / DANGER_LEVELS more damage. DANGER_LEVELS is the unit of ZONE_DANGER_STEP
- * ("× per 10 levels above ZONE_DANGER_FROM", rules.md constants table). 0 when the engine has no zone danger.
+ * Zone danger (rules 7.6, M2 v3; dungeons M2 v4) in words. Every number comes from the engine's zoneDanger, through the
+ * bridge: the rules table's dangerStep and dangerStepDungeon (the extra damage DANGER_LEVELS levels above dangerFrom,
+ * in the open world and in dungeons), zone.danger (at the zone's highest level) and node.danger (the node's enemies).
+ * DANGER_LEVELS is the unit of ZONE_DANGER_STEP ("× per 10 levels above ZONE_DANGER_FROM", rules.md constants table).
  */
-const DANGER_LEVELS = 10;
-export function dangerAt(r, level) {
-  return r.dangerStep == null || r.dangerFrom == null ? 0 : (r.dangerStep * Math.max(0, level - r.dangerFrom)) / DANGER_LEVELS;
-}
+export const DANGER_LEVELS = 10;
 /** The rule in one sentence, or null without zone danger. */
 export function dangerRule(r) {
-  return r.dangerStep == null || r.dangerFrom == null ? null : `Enemies above level ${r.dangerFrom} hit harder: +${pct(r.dangerStep)} damage per ${DANGER_LEVELS} levels.`;
+  if (r.dangerStep == null || r.dangerFrom == null) return null;
+  const dungeon = r.dangerStepDungeon != null && r.dangerStepDungeon !== r.dangerStep ? ` (in dungeons +${pct1(r.dangerStepDungeon)})` : '';
+  return `Enemies above level ${r.dangerFrom} hit harder: +${pct1(r.dangerStep)} damage per ${DANGER_LEVELS} levels${dungeon}.`;
 }
-/** Short line for the zone banner when the zone's levels reach past ZONE_DANGER_FROM, else null. */
-export function dangerBanner(r, band) {
-  return dangerAt(r, band[1]) > 0 ? `Enemies above level ${r.dangerFrom} hit harder` : null;
+/** Short line for the zone banner when the zone's enemies take zone danger (z.danger > 0), else null. */
+export function dangerBanner(r, z) {
+  return r.dangerFrom != null && z.danger > 0 ? `Enemies above level ${r.dangerFrom} hit harder` : null;
 }
 
 // ------------------------------------------------------------------ meta progression (rules 11)

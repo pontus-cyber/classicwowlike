@@ -57,9 +57,9 @@ export function planMs(events, cls) {
 /** A step that plays a combat round: a fight was on before it and the engine resolved a round or an action. */
 const isRound = (prev, events) => !!(prev && prev.combat && !prev.combat.over && events.some((e) => e.t === 'round' || e.t === 'action'));
 
-/** Zone banner sub-line: the level band, and the zone danger line where enemies above ZONE_DANGER_FROM live (M2 v3). */
+/** Zone banner sub-line: the level band, and the zone danger line where the zone's enemies take zone danger (z.danger, M2 v3). */
 function zoneLine(z, rules) {
-  const d = dangerBanner(rules, z.band);
+  const d = dangerBanner(rules, z);
   return `Levels ${z.band[0]}–${z.band[1]}${d ? ` · ${d}` : ''}`;
 }
 /** The death screen's second line: a Second Breath held at a death in the end-boss fight stays unused (rules 9, M2 v3). */
