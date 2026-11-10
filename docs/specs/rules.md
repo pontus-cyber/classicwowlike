@@ -1,6 +1,6 @@
 # Rules spec (M0 task 0.2)
 
-Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)"); M2 v5 changes 2026-11-10 (marked "(M2 v5)").
+Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)"); M2 v5 changes 2026-11-10 (marked "(M2 v5)"); combat v2 (docs/specs/combat-v2.md, on its defaults) folded into sections 3, 7 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(combat v2)").
 Audience: Core Gameplay Engineer (src/rules.js), Simulation & Balance Engineer, UI/UX Engineer, Content Designer.
 
 Every global number is a named constant (UPPER_SNAKE_CASE) in section 13. The data tables (classes, spells, pets, talents, archetypes, boss, meta catalogue) are named constant groups: each cell is addressed as `TABLE.id.field` (e.g. `SPELL.ember_bolt.cost`) and is exported as data from src/. Values are starting values; the Simulation & Balance Engineer tunes them within the limits in balance.md.
@@ -206,8 +206,9 @@ Combat is manual by default; autoplay is an option [stated: owner correction 202
 | Zone travel | PACE_ZONE_TRAVEL_S | 8 per zone |
 | Quest text (accept + turn-in) | PACE_QUEST_TEXT_S | 5 per quest |
 | Fight overhead (intro, loot window) | PACE_FIGHT_OVERHEAD_S | 3 per fight |
-| Round, manual | PACE_MANUAL_ROUND_S = PACE_ROUND_ANIM_S + PACE_ROUND_DECIDE_S | 1.5 + 1.0 = 2.5 per round (M2 v2) |
-| Round, autoplay | PACE_AUTO_ROUND_S | 0.8 per round |
+| Engage round: reading the tracks, choosing the engage (manual profile) | PACE_ENGAGE_S | 6 per fight with an engage round (combat v2) |
+| Round, manual | PACE_MANUAL_ROUND_S = PACE_ROUND_ANIM_S + PACE_ROUND_DECIDE_S | 2.1 + 1.0 = 3.1 per round (combat v2: animation +40 % [stated]; M2 v2: 1.5 + 1.0) |
+| Round, autoplay | PACE_AUTO_ROUND_S | 1.1 per round (combat v2; was 0.8) |
 | Equipment drop decision | PACE_LOOT_S | 3 per equipment item |
 | Level-up | PACE_LEVELUP_S | 2 per level |
 | Talent point | PACE_TALENT_S | 6 per point |
@@ -216,7 +217,7 @@ Combat is manual by default; autoplay is an option [stated: owner correction 202
 | Trainer | PACE_TRAINER_S + PACE_TRAINER_TX_S per spell | 6 + 2 |
 | Boss intro | PACE_BOSS_INTRO_S | 20 |
 
-`estSeconds(run) = sum of the terms`, counting rounds with PACE_MANUAL_ROUND_S for the manual profile and PACE_AUTO_ROUND_S for the autoplay profile (balance.md says which bot uses which).
+`estSeconds(run) = sum of the terms`, counting rounds with PACE_MANUAL_ROUND_S for the manual profile and PACE_AUTO_ROUND_S for the autoplay profile (balance.md says which bot uses which); PACE_ENGAGE_S counts in the manual profile only (combat v2).
 
 Round time budget for the UI (M2 v2): at the default animation speed, a manual round (player action, pet action, enemy actions, end-of-round ticks) is on screen for at most PACE_ROUND_ANIM_S before the action bar accepts the next input; an input given while enemy animations still play finishes them at once. PACE_ROUND_DECIDE_S is the player's reading and choosing time. QA measured 2.3-2.7 s on screen per round at 1x on build 5b3e929 (1.65 s at 2x) [source: docs/handoffs/qa-2026-11-09.md, finding 5], so the default speed must be faster than today's 1x. QA checks the budget with qa/browser/pace.mjs.
 
@@ -488,13 +489,13 @@ Pets: chosen at creation, level = hunter level. Pet acts after the hunter each r
 
 ### 7.1 Manual-first fight flow
 Manual control is the default; the player picks every action [stated: owner correction]. Each round:
-1. **Intents.** Every living enemy that can act rolls its intent for this round (7.6) and the UI shows it: ability name, target (player or pet), estimated damage, and flags `cast` (interruptible) and `heavy` (telegraphed big hit). This is the main source of manual decisions: interrupt a cast, stun or hex the heavy hitter, kill the healer, raise a shield, drink now or later.
-2. **Player action.** Exactly one: `CAST(spellId, targetIdx)`, `ATTACK(targetIdx)`, `USE_ITEM(itemBarSlot, targetIdx)`, `FLEE`, or `PASS`. Autoplay chooses with policy 7.9 if on.
+1. **Intents.** Every living enemy that can act shows its intent for this round and the UI shows it: ability name, target (player or pet), estimated damage, and flags `cast` (interruptible) and `heavy` (telegraphed big hit). The intent is the "now" entry of the enemy's intent track, which also shows its next INTENT_TRACK_LEN - 1 turns (7.11, combat v2; it replaces the per-round intent roll). This is the main source of manual decisions: interrupt a cast, stun or hex the heavy hitter, kill the healer, raise a shield, drink now or later.
+2. **Player action.** Exactly one: `CAST(spellId, targetIdx)`, `ATTACK(targetIdx)`, `USE_ITEM(itemBarSlot, targetIdx)`, `FLEE`, or `PASS`; in the engage round also `ENGAGE(optionId, targetIdx)` (7.10, combat v2). Autoplay chooses with policy 7.9 if on.
 3. **Pet action** (Hunter).
 4. **Enemy actions** in index order, each performing its intent (re-targeted if TAUNT or feign changed the valid target).
-5. **End of round:** DOT/HOT ticks (player side first, then enemies in index order), WARD/status durations -1, cooldowns -1, resources regen, Eclipse etc. Death checks after every damage event; the fight ends at once when all enemies are dead (victory) or the player is dead (section 9).
+5. **End of round:** DOT/HOT ticks (player side first, then enemies in index order), WARD/status durations -1, cooldowns -1, resources regen, Eclipse etc.; then a Signal reinforcement joins (7.12, combat v2). Death checks after every damage event; the fight ends at once when all enemies are dead (victory) or the player is dead (section 9).
 
-Round 1 exception: a stealthed Rogue's enemies have intent "Unaware" (no action) in round 1.
+Round 1 is the engage round of every fight except the end boss (7.10, combat v2): enemies are "Unaware" and do not act. (Before combat v2 only a stealthed Rogue's enemies were Unaware in round 1.)
 
 `SET_AUTOPLAY(on|off)` is legal at any time, including mid-fight; it changes who decides the next player action and nothing else.
 
@@ -503,17 +504,17 @@ Fight start: energy/focus full, CP 0, all cooldowns 0. Fight end: statuses (exce
 ### 7.2 Damage pipeline (exact order)
 1. `base` from the formula (spell, basic attack, enemy ability).
 2. × attacker modifiers (sum of % mods: talents, buffs, boons, elixir, meta), × level modifier `clamp(1 + LVL_DMG_STEP × (attackerLevel - targetLevel), LVL_DMG_MIN, LVL_DMG_MAX)`, × CHILLED/CURSED on attacker.
-3. Draw r1: miss if `r1 < missChance`. `missChance = min(MISS_CAP, MISS_BASE + MISS_PER_LEVEL × max(0, targetLevel - attackerLevel)) + (physical ? target dodge : 0) + STEALTH bonus`. Interrupt-tagged spells (Throat Jab, Spellsnap, Muzzle Shot) never miss and cannot be dodged; r1 is still drawn. (M2 v2)
-4. Draw r2: crit if `r2 < critChance` -> × crit multiplier.
+3. Draw r1: miss if `r1 < missChance`. `missChance = min(MISS_CAP, MISS_BASE + MISS_PER_LEVEL × max(0, targetLevel - attackerLevel)) + (physical ? target dodge : 0) + STEALTH bonus`. Interrupt-tagged spells (Throat Jab, Spellsnap, Muzzle Shot) never miss and cannot be dodged; r1 is still drawn. (M2 v2) An OFF_BALANCE enemy has dodge 0 (7.13). (combat v2)
+4. Draw r2: crit if `r2 < critChance` -> × crit multiplier. The player's crit chance is +OFFBAL_CRIT against an OFF_BALANCE or FROZEN enemy (7.13) and +GATHER_CRIT on a spell cast under Gathered Power (7.10). (combat v2)
 5. Draw r3: × `(1 - DMG_VARIANCE + 2 × DMG_VARIANCE × r3)`.
-6. × target modifiers (EXPOSED, MARKED, Brittle, Fester, Linked, Shard brittleness, shield-wall effects), summed as % and applied once. Linked on the end boss: `-min(LINK_DR, LINK_DR_PER_SHARD × living Shards)`. Shard brittleness: a Shard takes `+SHARD_AOE_TAKEN` from direct hits of the player's aoe-tagged spells (not from DOT ticks or the pet). (M2 v2)
+6. × target modifiers (EXPOSED, MARKED, Brittle, Fester, Linked, Shard brittleness, shield-wall effects, OFF_BALANCE from the player and pet (combat v2), PET_LEAD on the pet (combat v2)), summed as % and applied once. Linked on the end boss: `-min(LINK_DR, LINK_DR_PER_SHARD × living Shards)`. Shard brittleness: a Shard takes `+SHARD_AOE_TAKEN` from direct hits of the player's aoe-tagged spells (not from DOT ticks or the pet). (M2 v2)
 7. Physical: × `(1 - mitigation(target armor, attacker level))`. Magic: unchanged.
 8. Round; a hit deals at least MIN_HIT_DAMAGE.
 9. WARD absorbs first, then HP. IMMUNE: 0 damage (still draws r1-r3).
 
 Each damage event draws exactly 3 numbers (r1, r2, r3) even on a miss. Multi-hit spells are separate events. DOT ticks: damage is fixed at application (steps 1-2 and 6 snapshot), no miss, no armor, draw 1 number only if the tick can crit. Heals: no rolls, no crit.
 
-Enemy crit chance ENEMY_CRIT, crit multiplier CRIT_MULT. Enemy dodge ENEMY_DODGE (+ archetype).
+Enemy crit chance ENEMY_CRIT, crit multiplier CRIT_MULT. Enemy dodge ENEMY_DODGE (+ archetype). Step 2 attacker modifiers of a beast include Bloodlust (7.12). (combat v2)
 
 ### 7.3 Resources and costs
 Cost is paid on use, also on a miss. Mana costs are `round(cost% × base mana(L))`. Not enough resource = spell unusable. Energy/Focus regen at end of round; mana regen MANA_REGEN_ROUND_PCT at end of round.
@@ -523,10 +524,13 @@ Durations count end-of-round decrements including the round of application (a 1-
 
 | Status | On | Effect | Stacking | Removed by |
 |---|---|---|---|---|
-| STUN | enemy | skips actions | refresh | end; bosses immune (stun on boss = interrupt) |
-| FROZEN | enemy | skips actions | refresh | end; bosses immune (= interrupt) |
+| STUN | enemy | skips actions (cancels its now-entries, 7.11) | refresh | end; bosses immune (stun on boss = interrupt) |
+| FROZEN | enemy | skips actions (cancels its now-entries, 7.11); counts as OFF_BALANCE (7.13) (combat v2) | refresh | end; bosses immune (= interrupt) |
 | HEXED | enemy | skips actions, intent "none" | refresh | any damage to it; bosses immune (= interrupt) |
-| SILENCED | enemy | cannot pick `cast` intents | refresh | end |
+| SAPPED | enemy | skips actions, intent "Sapped" (Sap, 7.10) (combat v2) | refresh | end, any damage to it (DOT ticks and AoE included); bosses immune |
+| OFF_BALANCE | enemy | 7.13: damage taken +value from the player and pet, player crit +OFFBAL_CRIT, dodge 0 (combat v2) | refresh | end |
+| TRAP | enemy | Lay Trap: springs at the start of turn `turn` (7.10) (combat v2) | - | springing |
+| SILENCED | enemy | cannot play `cast` intents: a cast entry that becomes now while SILENCED is replaced by the basic attack (7.11) (combat v2) | refresh | end |
 | BLEED / BURN | any | tick damage at end of round | one per source spell; refresh | end, dispersal (on player) |
 | POISON | enemy | tick per stack | up to cap; each application +1 stack, refresh | end |
 | CHILLED | any | outgoing damage -CHILL_PCT | refresh | end, dispersal |
@@ -539,12 +543,14 @@ Durations count end-of-round decrements including the round of application (a 1-
 | IMMUNE | player | no damage, cannot act | - | end (Final Dark ignores it) |
 | HOT | any | heal per tick | refresh | end |
 | TAUNT | pet | all enemy single-target attacks target the pet | refresh | end, pet death |
+| PET_LEAD | pet | damage taken -value (Send the Pet, 7.10) (combat v2) | refresh | end, pet death |
+| GATHER | player | Gathered Power: `stacks` damaging spells left at 0 mana and +GATHER_CRIT crit (7.10) (combat v2) | - | used up, fight end |
 
 ### 7.5 Usable items in combat
 Only items on the 3 item-bar slots, one item per action. Healing and Mana Draughts share POTION_CD. Other items have no cooldown. See 8.6 for effects.
 
 ### 7.6 Enemy AI and intents
-Each enemy has an archetype (table) plus up to 2 template abilities (12.4). Intent roll (1 draw per enemy, then 1 draw for target if a live pet exists and no TAUNT): eligible actions = basic attack + abilities off cooldown whose condition holds (SILENCED removes casts); pick by weight.
+Each enemy has an archetype (table) plus up to 2 template abilities (12.4). Its intents come from its intent track (7.11, combat v2; it replaces the per-round intent roll): each entry is an opening-script action (7.12) or a weighted pick (1 draw) among the basic attack and the abilities eligible for that turn (off cooldown, condition holds), by the weights below, then 1 draw for the target while a live pet exists. Conditions and SILENCED are checked again when the entry becomes now (7.11).
 
 | Archetype | HP mult | Dmg mult | Armor mult | Extra dodge | Actions (weight) |
 |---|---|---|---|---|---|
@@ -552,23 +558,24 @@ Each enemy has an archetype (table) plus up to 2 template abilities (12.4). Inte
 | skulker | 0.9 | 1.0 | 0.8 | 0.10 | Strike (60); Rend 60 % + BLEED 3 rounds tick 20 % (40), CD 3 |
 | caster | 0.8 | 1.1 | 0.5 | 0 | Bolt 110 % magic (60); Hex Bolt 200 % magic, cast, CD 3 (25); Wither: CURSED 3, cast, CD 5 (15) |
 | beast | 1.0 | 0.9 | 0.8 | 0.05 | Bite 100 % phys (60); Frenzy 2 × 70 % phys (40), CD 2 |
-| guardian | 1.5 | 0.8 | 2.0 | 0 | Strike (60); Brace: self takes -50 % 2 rounds, CD 4 (20); Shield Ally: lowest-HP ally takes -50 % 2 rounds, CD 4 (20) |
+| guardian | 1.5 | 0.8 | 2.0 | 0 | Strike (60); Brace: self takes -50 % 2 rounds, CD 4 (20); Shield Ally: its ward takes -50 % 2 rounds, CD 4 (20) (combat v2: the ward, 7.12; was the lowest-HP ally) |
 | mender | 0.9 | 0.6 | 0.8 | 0 | Strike (50); Mend: heal lowest-HP ally (incl. self) 25 % max HP, cast, CD 3, only if some ally < 70 % (50) |
 
-Normal enemy at level M: `HP = (ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL × M) × archetype × variant`, `dmg (100 %) = (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL × M) × archetype × variant`, `armor = ENEMY_ARMOR_PER_LEVEL × M × archetype`. Variants: normal 1/1, dungeon trash DUNGEON_TRASH_HP_MULT/DUNGEON_TRASH_DMG_MULT, elite ELITE_HP_MULT/ELITE_DMG_MULT, rare RARE_HP_MULT/RARE_DMG_MULT, dungeon boss DUNGEON_BOSS_HP_MULT/DUNGEON_BOSS_DMG_MULT.
+Normal enemy at level M: `HP = (ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL × M) × archetype × variant`, `dmg (100 %) = (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL × M) × archetype × variant` (× zone danger below, × ENGAGE_DMG_COMP for every template enemy: the price of the engage round, 7.10 (combat v2)), `armor = ENEMY_ARMOR_PER_LEVEL × M × archetype`. Variants: normal 1/1, dungeon trash DUNGEON_TRASH_HP_MULT/DUNGEON_TRASH_DMG_MULT, elite ELITE_HP_MULT/ELITE_DMG_MULT, rare RARE_HP_MULT/RARE_DMG_MULT, dungeon boss DUNGEON_BOSS_HP_MULT/DUNGEON_BOSS_DMG_MULT.
 
 Zone danger (M2 v3): every enemy made from an enemy template (normal, quest, grind, elite, rare, dungeon trash and boss, Camp waves, summoned adds) has its damage multiplied by `zd(M) = 1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10` (level 30 ×1.25, 40 ×1.5, 50 ×1.75, 60 ×2.0). Dungeon trash and dungeon bosses use `1 + DUNGEON_DANGER_FRAC × (zd(M) - 1)` instead (level 60 ×1.5) (M2 v4). HP, armor and XP are unchanged. The end boss and the Dimming Shards use their own constants (section 10) and are not affected. Purpose: same-level content stays about as threatening in zones 3-6 as in zone 2; the player's power growth (talents, ranks, rarity) otherwise outpaces the linear damage curve. (M2 v3)
 
 Soft enrage (non-boss fights): from round FIGHT_SOFT_ENRAGE_ROUND, enemies deal +FIGHT_SOFT_ENRAGE_STEP more damage per round (additive). Prevents endless fights.
 
 ### 7.7 Interrupts
-An enemy whose intent has `cast` loses that action if, before it acts in that round, it is hit by an interrupt (Throat Jab, Spellsnap, Muzzle Shot; these always hit, 7.2 step 3), or becomes STUN/FROZEN/HEXED, or (bosses) is hit by any stun-tagged spell. (M2 v2) Cooldown of the cast ability still starts. 2-round boss channels (10.3) can be interrupted in either round.
+An enemy whose intent has `cast` loses that action if, before it acts in that round, it is hit by an interrupt (Throat Jab, Spellsnap, Muzzle Shot; these always hit, 7.2 step 3), or becomes STUN/FROZEN/HEXED, or (bosses) is hit by any stun-tagged spell. (M2 v2) Cooldown of the cast ability still starts. 2-round boss channels (10.3) can be interrupted in either round. An interrupted enemy becomes OFF_BALANCE (7.13); so does the end boss when its Collapse Litany is interrupted. (combat v2)
 
 ### 7.8 Flee
-`FLEE` succeeds if a draw < `FLEE_BASE - FLEE_PER_EXTRA_ENEMY × (living enemies - 1)` (1.0 in STEALTH). Success: leave the node; hours already spent; no further rewards from the node; quest not counted; dungeon not cleared. Not allowed vs dungeon boss or end boss.
+`FLEE` succeeds if a draw < `FLEE_BASE - FLEE_PER_EXTRA_ENEMY × (living enemies - 1)` (1.0 in STEALTH). Success: leave the node; hours already spent; no further rewards from the node; quest not counted; dungeon not cleared. Not allowed vs dungeon boss or end boss. Legal in the engage round as in any round (combat v2).
 
 ### 7.9 Autoplay policy (autoplay toggle and bots)
 Deterministic given state and seed. Each player turn, the first rule that yields an action wins:
+- E. (combat v2) Engage, in the engage round only, before rule 1: if at least 2 enemies are alive and the class's control option (7.10) is usable on some enemy: the control option on the enemy whose track shows the largest estimated damage on the player (entries aimed at the player or at all) over its turns 1..ENGAGE_AUTO_LOOK (ties: default-target order). Otherwise the strike option on the default target (Mage: Pre-cast of the first bar spell whose autoplay condition holds; if none, rules 1-6).
 1. HP < AUTO_POTION_HP and a healing item on the item bar is usable -> use it.
 2. Own debuff stacks (BRAND counts per stack) >= AUTO_TONIC_STACKS and a cleanse spell (tag cleanse) or Purifying Tonic is usable -> use it (spell first).
 3. Some enemy intent is `cast` and an interrupt or stun-tagged spell on the bar is usable on it -> use it on the cast with the highest estimated damage (ties: lowest index).
@@ -576,8 +583,68 @@ Deterministic given state and seed. Each player turn, the first rule that yields
 5. Bar slots 1..7 in order: the first usable spell whose autoplay condition holds -> cast on the default target (or the spell's own target rule).
 6. Basic attack on the default target.
 
-Default target: living, non-HEXED enemy, priority mender > caster > others; within a priority, lowest current HP; ties lowest index. "Focus" = default target. ">= N enemies" counts living non-HEXED enemies.
+Default target: living, non-HEXED, non-SAPPED (combat v2) enemy, priority mender > caster > others; within a priority, lowest current HP; ties lowest index. "Focus" = default target. ">= N enemies" counts living non-HEXED, non-SAPPED enemies. Rules 1-6 read only the now-entry of each track and never hold a spell for an OFF_BALANCE window (combat v2): the track and the window are the manual player's edge.
 Between fights in a node: if HP < AUTO_FOOD_HP (or mana < AUTO_FOOD_HP for Mage) and Trail Rations are in the bag, eat one.
+
+### 7.10 Engage round (combat v2)
+- Round 1 of every fight except the end boss is the engage round for every class: enemies show "Unaware" and do not act; DOT ticks, regen, durations and the pet act as in any round. An enemy's turn t is fight round t + 1 (end boss: round t). Dungeon bosses included; their immunity to control limits the control options. (combat v2)
+- In the engage round the player sees every track (turns 1..INTENT_TRACK_LEN) and takes one action: `ENGAGE(optionId, targetIdx)`, any bar spell (`CAST`), `ATTACK`, `USE_ITEM`, `PASS`, or `FLEE` (7.8). `ENGAGE` is legal only in the engage round, so at most once per fight. (combat v2)
+- Engage options are class abilities, not bar spells: no bar slot, no training, no resource, known from level 1; their strength uses L (tl = L); damage options follow 7.2 like a spell. Control options cannot target an enemy immune to control (dungeon bosses); on adds they work normally. "n turns" of an option = status duration n + 1 (7.4 counts the round of application). (combat v2)
+- Price of the free round: every template enemy deals × ENGAGE_DMG_COMP (7.6; not the end boss or the Dimming Shards). (combat v2)
+
+| id | Class | Kind | Name | Target | Effect |
+|---|---|---|---|---|---|
+| ambush | rogue | strike | Ambush | enemy | Shadowstep Strike on the target if learned (its talents and CP), else Gutting Jab × AMBUSH_MULT and +2 CP on a hit; the Rogue leaves STEALTH |
+| sap | rogue | control | Sap | enemy, not immune | SAPPED for SAP_TURNS turns (cancels those now-entries, 7.11); breaks on any damage to it, DOT ticks and AoE included; the Rogue stays in STEALTH |
+| premeditate | rogue | setup | Premeditate | none | +PREMED_CP CP; the Rogue stays in STEALTH |
+| precast | mage | strike | Pre-cast | a bar spell and its target | casts that bar spell at 0 mana cost (its cooldown starts) |
+| binding_glyph | mage | control | Binding Glyph | enemy, not immune | FROZEN for GLYPH_TURNS turns, not broken by damage (counts as OFF_BALANCE while FROZEN, 7.13) |
+| gather_power | mage | setup | Gathered Power | none | GATHER: the next GATHER_SPELLS damaging spells cost 0 mana and have +GATHER_CRIT crit chance; lasts the fight |
+| opening_shot | hunter | strike | Opening Shot | enemy | Keen Shot × OPENING_SHOT_MULT on the target (its talents), then MARKED (value SPELL.mark_prey.marked) for OPENING_MARK_ROUNDS rounds |
+| lay_trap | hunter | control | Lay Trap | enemy, not immune | TRAP: springs at the start of the target's first turn among 1..INTENT_TRACK_LEN whose entry has `heavy` or `cast` (else of its turn 1): STUN TRAP_STUN, which cancels that now-entry (a cancelled heavy or cast: OFF_BALANCE, 7.13) |
+| send_pet | hunter | setup | Send the Pet | enemy (the pet's target) | needs a live pet; the pet engages first: pet TAUNT and PET_LEAD (damage taken -PET_LEAD_DR) for PET_LEAD_TURNS turns |
+
+### 7.11 Intent track (combat v2)
+- Turns: an enemy's turn t is fight round turn0 + t - 1; turn0 = 2 for enemies present at the start of a fight with an engage round, 1 in the end-boss fight, the next round for an enemy that appears mid-fight (template summon, Signal reinforcement, Shards that come with phase 2). A Shards wave at the start of a round acts in that round (10.2 unchanged). (combat v2)
+- Every living enemy has a track of INTENT_TRACK_LEN entries: its current turn ("now") and the next INTENT_TRACK_LEN - 1 turns; before its turn 1 (the engage round, an add that just appeared) the track shows turns 1..INTENT_TRACK_LEN. An entry holds the action with its flags `cast` and `heavy` and the drawn pet-aggro target; the shown target and estimated damage are computed from the current state each round (they change with CHILLED, CURSED, WARD, Bloodlust, TAUNT). (combat v2)
+- Filling (stream `fight`): at fight start the entries for turns 1..INTENT_TRACK_LEN are made turn by turn, enemies in index order; at the start of every later round the used head entries are dropped and one entry is appended to each living enemy's track, enemies in index order; an enemy that appears mid-fight draws its whole track at once. Draws happen only when an entry enters the track, never later: entries already shown are fixed facts, entries not yet shown are not in the state. (combat v2)
+- Entry for turn t: the scripted action (7.12), or a weighted pick (1 draw) with the 7.6 weights among the actions eligible for turn t: off cooldown at that turn (by the enemy's cooldowns, by earlier entries of the track that use it within its cooldown, and by a later scripted entry that uses it within its cooldown) and whose 7.6 condition holds now (Mend: an ally below MEND_BELOW; Shield Ally: a living ward; self_heal: below 70 %; self_shield: no shield). Then 1 draw for the pet-aggro target (PET.aggro) whenever a live pet exists; TAUNT and feign apply when the entry becomes now, so a taunt does not bend entries beyond its duration (the track shows the pet as target for turns a running TAUNT or feign covers). (combat v2)
+- When an entry becomes now (the start of the enemy's turn), in this order: a TRAP that is due springs; if the enemy is STUN, FROZEN, HEXED or SAPPED the entry is cancelled (intent "Stunned", "Hexed" or "Sapped"; a cancelled `cast` or `heavy` entry: OFF_BALANCE, 7.13); a template summon at its HP trigger takes the turn (12.4, once); an entry that cannot be played (its cooldown still runs, `cast` while SILENCED, Mend with no ally below MEND_BELOW, Shield Ally without a living ward, self_heal not below 70 %, self_shield while shielded, Signal already given this fight) is replaced by the archetype's basic attack aimed at the entry's drawn target, and the intent says what it replaced and why. TAUNT and feign retarget single-target entries (7.1 step 4). (combat v2)
+- Control that lands during a round (the player's action) cancels the now-entry at once: a cast is interrupted (7.7), a heavy is cancelled with OFF_BALANCE, any other action is just cancelled. The rest of the track keeps its turns (a stun cancels, it does not delay). (combat v2)
+- End boss (10.3): the track shows its next INTENT_TRACK_LEN rounds; each entry's target is drawn when it enters the track (pet aggro); the scheduled actions are projected each round from the current phase, and later entries carry the next phase and its actions where a phase change would change them. (combat v2)
+
+### 7.12 Opening scripts and pack roles (combat v2)
+Turns 1..OPENING_TURNS of every enemy present at fight start (not summons, Signal reinforcements, Shards or the end boss) follow its archetype's script (no draw for the action):
+
+| Script | Turn 1 | Turn 2 | Turn 3 |
+|---|---|---|---|
+| brute | strike | heavy_smash | strike |
+| caster | bolt | hex_bolt | wither |
+| skulker | rend | strike | signal |
+| beast | frenzy | bite | frenzy |
+| guardian | shield_ally | strike | brace |
+| mender | bolster | strike | mend |
+
+A skulker plays `signal` only if the fight started with at least 2 enemies, else `strike`. Elite, rare and dungeon boss: the entry for turn SIGNATURE_TURN is the template ability with the highest pct (ties: first listed); a dungeon boss also plays its other template ability on turn SIGNATURE_TURN_2; abilities with `once` (enrage, summon) are never scripted and keep their HP triggers. A scripted action's pct is × HEAVY_SCRIPT_MULT if it is heavy, × CAST_SCRIPT_MULT if it is a cast. Scripted entries are checked when they become now like every entry (7.11). (combat v2)
+
+| Action | Archetype | Effect | Flags | CD |
+|---|---|---|---|---|
+| Signal | skulker | at the end of the round SIGNAL_ADDS normal enemy joins: template drawn (1 draw) from the encounter's add pool (zone `addPool`, else the zone's normals; Camp: the Camp pool), at the skulker's level, no XP, coin or loot; at most once per fight; script only | cast | once |
+| Bolster | mender | the lowest-HP ally (self included) gains an enemy shield of BOLSTER_PCT × its max HP (absorbed first; a larger shield stays); script only | - | BOLSTER_CD |
+| Bloodlust | beast | passive: +BLOODLUST_STEP damage per turn the beast has acted, at most BLOODLUST_MAX (7.2 step 2) | - | - |
+| Shield Ally (changed) | guardian | the target is the guardian's ward: the living ally with the lowest index that is not a guardian, fixed when the guardian enters the fight; the ward takes -50 % for 2 rounds; not played without a living ward | - | 4 |
+
+### 7.13 Off-balance (combat v2)
+An enemy becomes OFF_BALANCE when (1) its now-entry with `cast` is interrupted (7.7); (2) it is STUN, FROZEN, HEXED, SAPPED or trapped on a turn whose now-entry has `cast` or `heavy` (the big move is cancelled); (3) it completes a `heavy` action from which the player lost 0 HP: every hit missed, was dodged or absorbed (WARD, IMMUNE, Mirrorshade image, Death's Sidestep) or went to the pet because of TAUNT or feign (a hit the pet takes by its own aggro draw does not count). End boss: (1) an interrupted Collapse Litany, (3) a Gravity Crush that costs the player 0 HP. Dimming Shards: as normal enemies. (combat v2)
+
+| Field | Value |
+|---|---|
+| Damage taken from the player and pet | +OFFBAL_TAKEN (end boss +OFFBAL_BOSS_TAKEN), in the 7.2 step 6 sum (DOT ticks snapshot it at application) |
+| Player crit chance against it | +OFFBAL_CRIT |
+| Its dodge | 0 |
+| Duration | status duration OFFBAL_DURATION, applied at the event: gained by the player's action, the pet hits in that round and the player gets the next round's action; gained during enemy actions, the player gets exactly the next action. Gained at the start of a round (control that was already on cancels the new turn's entry): OFFBAL_DURATION - 1, again exactly the player's next action |
+| Stacking | refresh, no stacks |
+| FROZEN | a FROZEN enemy counts as OFF_BALANCE (OFFBAL_TAKEN, OFFBAL_CRIT, not its dodge) while FROZEN; never both |
 
 ---
 
@@ -1095,10 +1162,11 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | PACE_ZONE_TRAVEL_S | 8 | s per zone |
 | PACE_QUEST_TEXT_S | 5 | s per quest |
 | PACE_FIGHT_OVERHEAD_S | 3 | s per fight |
-| PACE_MANUAL_ROUND_S | 2.5 | s per round |
-| PACE_ROUND_ANIM_S | 1.5 | s per round (UI budget at default speed) | (M2 v2)
+| PACE_ENGAGE_S | 6 | s per fight with an engage round (manual profile) | (combat v2)
+| PACE_MANUAL_ROUND_S | 3.1 | s per round (PACE_ROUND_ANIM_S + PACE_ROUND_DECIDE_S) | (combat v2: was 2.5)
+| PACE_ROUND_ANIM_S | 2.1 | s per round (UI budget at default speed) | (combat v2: was 1.5)
 | PACE_ROUND_DECIDE_S | 1.0 | s per round | (M2 v2)
-| PACE_AUTO_ROUND_S | 0.8 | s per round |
+| PACE_AUTO_ROUND_S | 1.1 | s per round | (combat v2: was 0.8)
 | PACE_LOOT_S | 3 | s per equipment drop |
 | PACE_LEVELUP_S | 2 | s per level |
 | PACE_TALENT_S | 6 | s per point |
@@ -1110,3 +1178,32 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | PACE_TRAINER_S | 6 | s |
 | PACE_TRAINER_TX_S | 2 | s per spell |
 | PACE_BOSS_INTRO_S | 20 | s |
+| INTENT_TRACK_LEN | 3 | entries (now + 2) | (combat v2)
+| OPENING_TURNS | 3 | enemy turns with a scripted action | (combat v2)
+| SIGNATURE_TURN | 2 | enemy turn (elite, rare, dungeon boss) | (combat v2)
+| SIGNATURE_TURN_2 | 5 | enemy turn (dungeon boss, second template ability) | (combat v2)
+| HEAVY_SCRIPT_MULT | 1.0 | × a heavy action's pct on a scripted turn (tuning lever) | (combat v2)
+| CAST_SCRIPT_MULT | 1.0 | × a cast action's pct on a scripted turn (tuning lever) | (combat v2)
+| MEND_BELOW | 0.70 | fraction of max HP (ARCHETYPE.mender Mend `below`) | (combat v2)
+| SIGNAL_ADDS | 1 | enemies | (combat v2)
+| BOLSTER_PCT | 0.20 | fraction of the ally's max HP | (combat v2)
+| BOLSTER_CD | 4 | turns | (combat v2)
+| BLOODLUST_STEP | 0.10 | damage per turn acted | (combat v2)
+| BLOODLUST_MAX | 0.50 | damage | (combat v2)
+| OFFBAL_TAKEN | 0.30 | damage taken | (combat v2)
+| OFFBAL_BOSS_TAKEN | 0.15 | damage taken (end boss) | (combat v2)
+| OFFBAL_CRIT | 0.20 | crit chance | (combat v2)
+| OFFBAL_DURATION | 2 | status duration (one player action) | (combat v2)
+| ENGAGE_DMG_COMP | 1.15 | × enemy damage (all template enemies; end boss excluded) | (combat v2)
+| AMBUSH_MULT | 1.5 | × Gutting Jab before Shadowstep Strike is learned | (combat v2)
+| SAP_TURNS | 3 | enemy turns | (combat v2)
+| PREMED_CP | 3 | CP | (combat v2)
+| GLYPH_TURNS | 2 | enemy turns | (combat v2)
+| GATHER_SPELLS | 2 | spells | (combat v2)
+| GATHER_CRIT | 0.50 | crit chance | (combat v2)
+| OPENING_SHOT_MULT | 1.5 | × Keen Shot | (combat v2)
+| OPENING_MARK_ROUNDS | 4 | rounds | (combat v2)
+| TRAP_STUN | 1 | rounds | (combat v2)
+| PET_LEAD_TURNS | 2 | enemy turns | (combat v2)
+| PET_LEAD_DR | 0.30 | damage taken by the pet | (combat v2)
+| ENGAGE_AUTO_LOOK | 2 | enemy turns (autoplay rule E) | (combat v2)

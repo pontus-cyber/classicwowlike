@@ -58,7 +58,8 @@ describe('rules 6 talents: damage modifiers (same draws, with / without)', () =>
     const chilled = (x) => x.fight.enemies[0].st.push({ id: 'CHILLED', dur: 3, value: C.CHILL_PCT });
     near(ratio('mage', 30, ['ember_bolt'], { m_b4: 2 }, cast('ember_bolt'), { prep: chilled }), 1.12, 'Brittle 2 vs CHILLED');
     const frozen = (x) => x.fight.enemies[0].st.push({ id: 'FROZEN', dur: 3 });
-    near(ratio('mage', 30, ['ember_bolt'], { m_b4: 2 }, cast('ember_bolt'), { prep: frozen }), 1.12, 'Brittle 2 vs FROZEN');
+    // combat v2: a FROZEN target also counts as OFF_BALANCE (+OFFBAL_TAKEN in the same 7.2 step 6 sum).
+    near(ratio('mage', 30, ['ember_bolt'], { m_b4: 2 }, cast('ember_bolt'), { prep: frozen }), (1.12 + C.OFFBAL_TAKEN) / (1 + C.OFFBAL_TAKEN), 'Brittle 2 vs FROZEN');
     const spike = (prep) => { const s = fightWith('mage', 50, ['glacier_spike'], {}, { prep: (x) => { x.player.spells.glacier_spike = { tl: 50, rank: 1 }; if (prep) prep(x); } }); return s; };
     const a = act(spike(), cast('glacier_spike'));
     const b = cloneState(spike(chilled));

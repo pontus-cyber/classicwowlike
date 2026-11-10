@@ -1,17 +1,21 @@
-// Run summary (rules 9) and the real-time estimate (rules 3).
+// Run summary (rules 9) and the real-time estimate (rules 3; combat v2: PACE_ENGAGE_S per fight with an engage round).
 import {
   PACE_CREATE_S, PACE_DECIDE_S, PACE_TRAVEL_NODE_S, PACE_ZONE_TRAVEL_S, PACE_QUEST_TEXT_S, PACE_FIGHT_OVERHEAD_S,
   PACE_MANUAL_ROUND_S, PACE_AUTO_ROUND_S, PACE_LOOT_S, PACE_LEVELUP_S, PACE_TALENT_S, PACE_REST_S, PACE_SHRINE_S,
   PACE_TREASURE_S, PACE_VENDOR_S, PACE_VENDOR_TX_S, PACE_TRAINER_S, PACE_TRAINER_TX_S, PACE_BOSS_INTRO_S,
-  SLOT_IDS, TALENT, CLASS,
+  PACE_ENGAGE_S, SLOT_IDS, TALENT, CLASS,
 } from '../constants.js';
 import { echoes, profileHash } from './meta.js';
 import { deepClone } from './util.js';
 
-/** estSeconds (rules 3): sum of pace terms; rounds at the manual or autoplay rate. */
+/**
+ * estSeconds (rules 3): sum of pace terms; rounds at the manual or autoplay rate. The manual profile also reads the
+ * tracks and picks the engage: PACE_ENGAGE_S per fight with an engage round (combat v2).
+ */
 export function estSeconds(st, profile = 'manual') {
   const round = profile === 'auto' ? PACE_AUTO_ROUND_S : PACE_MANUAL_ROUND_S;
   return PACE_CREATE_S
+    + (profile === 'auto' ? 0 : (st.engages || 0) * PACE_ENGAGE_S)
     + st.nodesTotal * (PACE_DECIDE_S + PACE_TRAVEL_NODE_S)
     + st.zonesLeft * PACE_ZONE_TRAVEL_S
     + st.quests * PACE_QUEST_TEXT_S

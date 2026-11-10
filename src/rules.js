@@ -13,8 +13,8 @@
 //
 // Also exported: validateContent, newProfile, metaOffers, buyMeta, mapView, isLegal, whyIllegal, stepInPlace,
 // IllegalActionError, display helpers (xpToNext, talentPointsFree, itemScore, spellCost, spellCooldown,
-// spellInfo, fleeChance, bagCapacity, travelLevel, resurrectCharges, bossPar), rule helpers (V, xpCurve, diffMod,
-// zoneDanger) and every
+// spellInfo, fleeChance, bagCapacity, travelLevel, resurrectCharges, bossPar, defaultTarget), combat v2 helpers
+// (engageOptions, isEngageRound, offBalance; rules 7.10-7.13), rule helpers (V, xpCurve, diffMod, zoneDanger) and every
 // constant via `C`.
 import * as C from './constants.js';
 import { normaliseSeed } from './rng.js';
@@ -24,15 +24,18 @@ import { checkAction, applyAction, legalActions as legal } from './engine/action
 import { autoAction as auto } from './engine/autoplay.js';
 import { summary as sum } from './engine/summary.js';
 import { newProfile, metaOffers, buyMeta, applyRunToProfile, parHours } from './engine/meta.js';
-import { zoneDanger } from './engine/combat.js';
+import { zoneDanger, defaultTarget as defaultTgt } from './engine/combat.js';
 import { availablePets, metaFromProfile, travelLevel as travelAt } from './engine/nodes.js';
 import { nextLanes } from './engine/map.js';
 import { xpToNext, xpCurve, diffMod, talentPointsFree as freePoints } from './engine/progress.js';
 import { itemScore, V, bagCapacity as bagCap, countConsumable } from './engine/items.js';
 import { spellCost as cost, spellCd, spellAmount, spellTl, fleeChance as flee, castError } from './engine/spells.js';
-import { resurrectOrder } from './engine/damage.js';
+import { resurrectOrder, offBalanceOpen, findSt } from './engine/damage.js';
+import { engageOptions as engageList } from './engine/engage.js';
+import { isEngageRound as engageRound } from './engine/track.js';
 
-export const STATE_VERSION = 1;
+/** 2 (combat v2): enemies carry intent tracks; a state saved by an older engine is refused. */
+export const STATE_VERSION = 2;
 export { C, validateContent, newProfile, metaOffers, buyMeta, applyRunToProfile, IllegalActionError, xpToNext, itemScore };
 /**
  * Read-only rule helpers for front ends and the simulator (never re-implement them):
@@ -101,21 +104,64 @@ export function spellCooldown(state, spellId) {
 /**
  * Tooltip data for a class spell: names, numbers and, in a fight, whether it can be cast on `target`.
  * amount = base amount (before level, target, crit and variance modifiers); null for pure utility spells.
+ * window (combat v2): the spell deals damage and `target` is in an OFF_BALANCE window (rules 7.13).
  */
 export function spellInfo(state, spellId, target = null) {
   const sp = C.SPELL[spellId];
   if (!sp || !state.player || sp.cls !== state.player.classId) return null;
   const known = state.player.spells[spellId] || null;
   const f = state.fight;
+  const amount = spellAmount(state, spellId);
+  const hits = !!amount && (amount.kind === 'damage' || amount.kind === 'dot');
+  const open = (i) => !!(f && f.enemies[i] && f.enemies[i].alive && offBalanceOpen(f.enemies[i]));
+  const window = hits && (sp.target === 'all' ? !!f && f.enemies.some((e, i) => open(i)) : typeof target === 'number' && open(target));
   return {
+    window,
     id: sp.id, name: sp.name, lvl: sp.lvl, tags: sp.tags.slice(), target: sp.target, source: sp.source,
     resource: C.CLASS[sp.cls].resource, cost: cost(state, spellId), cd: spellCd(state, spellId),
     cdLeft: f ? Math.max(0, (f.p.cds[spellId] || 0) - f.round) : 0,
-    tl: known ? spellTl(state, spellId) : null, rank: known ? known.rank : 0, amount: spellAmount(state, spellId),
+    tl: known ? spellTl(state, spellId) : null, rank: known ? known.rank : 0, amount,
     usable: f && known ? !castError(state, spellId, sp.target === 'enemy' ? target : null) : false,
     reason: f && known ? castError(state, spellId, sp.target === 'enemy' ? target : null) : null,
     text: (state.content.texts && state.content.texts.spells && state.content.texts.spells[spellId]) || null,
   };
+}
+
+/**
+ * Autoplay's default target in the current fight (rules 7.9): living, not HEXED or SAPPED, mender > caster > others,
+ * lowest HP, lowest index (HEXED or SAPPED enemies only when no other is left). null outside a fight.
+ */
+export function defaultTarget(state) {
+  return state.fight ? defaultTgt(state) : null;
+}
+
+/** Is the current fight in its engage round (rules 7.10, combat v2)? ENGAGE is legal only then. */
+export function isEngageRound(state) {
+  return engageRound(state.fight);
+}
+
+/**
+ * Engage options of the class for the engage panel (rules 7.10), or null outside the engage round: [{ id, kind
+ * ('strike'|'control'|'setup'), name, targets (enemy indices, or [null]), spells (Pre-cast: [{ spellId, targets }]),
+ * reason (why it cannot be used, e.g. immune to control) }]. Send each as ENGAGE { option, target } (Pre-cast also
+ * `spellId`).
+ */
+export function engageOptions(state) {
+  return engageList(state);
+}
+
+/**
+ * The OFF_BALANCE window on an enemy (rules 7.13, combat v2), or null: { status ('OFF_BALANCE' or 'FROZEN', which
+ * counts as OFF_BALANCE while it lasts), taken (extra damage taken from the player and pet), crit (extra player
+ * crit chance), rounds (status rounds left) }.
+ */
+export function offBalance(state, enemyIdx) {
+  const e = state.fight && state.fight.enemies[enemyIdx];
+  if (!e || !e.alive || !offBalanceOpen(e)) return null;
+  const ob = findSt(e.st, 'OFF_BALANCE');
+  const fr = findSt(e.st, 'FROZEN');
+  const x = ob || fr;
+  return { status: ob ? 'OFF_BALANCE' : 'FROZEN', taken: ob ? ob.value : C.OFFBAL_TAKEN, crit: C.OFFBAL_CRIT, rounds: x.dur };
 }
 
 /** FLEE success chance in the current fight (rules 7.8); 0 when fleeing is not allowed. */
@@ -238,8 +284,13 @@ export function mapView(state) {
       v.rare = scout ? n.rare : null;
       v.name = scout || !n.rare ? c.enemies[n.elite].name : null;
     }
-    if (n.type === 'dungeon') { v.name = zoneContent(c, s.zone.z).dungeon.name; v.level = n.trashLevel; v.bossLevel = n.bossLevel; }
-    if (n.type === 'treasure') { v.guarded = !!n.guard; v.trap = scout ? n.trap : null; }
+    if (n.type === 'dungeon') {
+      v.name = zoneContent(c, s.zone.z).dungeon.name; v.level = n.trashLevel; v.bossLevel = n.bossLevel;
+      // Combat v2 (rules 7.14): archetypes of each trash fight and of the boss, so a pull can be planned from the map.
+      v.fights = n.trash.map((f) => f.map(arch));
+      v.bossArchetype = arch(n.boss);
+    }
+    if (n.type === 'treasure') { v.guarded = !!n.guard; v.trap = scout ? n.trap : null; v.archetypes = n.guard ? [arch(n.guard)] : []; }
     if (n.type === 'vendor') v.ember = scout ? n.stock.some((e) => e.id === 'ember_of_return') : null;
     return v;
   }));

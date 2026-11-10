@@ -6,8 +6,11 @@ import { R, C, started, atLevel, withSpells, inFight, tweak, forceDraws, HIT, MI
 
 const mob = (tid = 'z1_brute', level = 20, variant = 'normal') => ({ tid, level, variant });
 function setup(classId, L, spells, enemies, prep, opts = {}) {
+  return setupFight(classId, L, spells, enemies, prep, opts);
+}
+function setupFight(classId, L, spells, enemies, prep, opts = {}) {
   let s = withSpells(atLevel(started(classId, { seed: opts.seed ?? 41 }), L), spells);
-  s = inFight(s, enemies, { noStealth: !opts.stealth, kind: opts.kind || 'quest' }).state;
+  s = inFight(s, enemies, { noStealth: !opts.stealth, kind: opts.kind || 'quest', engage: opts.engage }).state;
   return prep ? tweak(s, prep) : s;
 }
 function act(s, a, pred = HIT, n = 3) {
@@ -53,11 +56,14 @@ describe('rules 7.1 fight flow', () => {
     assert.equal(r.state.player.hp, Math.min(s.player.d.maxHp, 100 + Math.round(s.player.d.regenPct * s.player.d.maxHp)));
   });
 
-  test('round 1: a stealthed Rogue faces Unaware enemies that do not act', () => {
-    const s = setup('rogue', 20, ['gutting_jab'], [mob(), mob('z1_beast')], bigHp, { stealth: true });
-    assert.ok(s.fight.enemies.every((e) => e.intent.id === 'unaware'));
-    const r = R.step(s, { type: 'PASS' });
-    assert.equal(ev(r.events, 'enemyAction').length, 0);
+  test('round 1 is the engage round for every class (combat v2): enemies are Unaware and do not act', () => {
+    for (const cls of C.CLASS_IDS) {
+      const s = setup(cls, 20, [], [mob(), mob('z1_beast')], bigHp, { stealth: true });
+      assert.ok(s.fight.enemies.every((e) => e.intent.id === 'unaware'), cls);
+      const r = R.step(s, { type: 'PASS' });
+      assert.equal(ev(r.events, 'enemyAction').length, 0, cls);
+      assert.ok(r.state.fight.enemies.every((e) => e.intent.id !== 'unaware' && e.turn === 1), `${cls}: turn 1 is round 2`);
+    }
   });
 });
 
@@ -233,7 +239,8 @@ describe('rules 7.6 enemy AI and intents', () => {
       const A = C.ARCHETYPE[e.arch];
       const V = C.VARIANT[variant];
       assert.equal(e.maxHp, Math.round((C.ENEMY_HP_BASE + C.ENEMY_HP_PER_LEVEL * 15) * A.hp * V.hp));
-      assert.ok(Math.abs(e.dmg - (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * 15) * A.dmg * V.dmg) < 1e-9);
+      // combat v2: template enemies deal × ENGAGE_DMG_COMP (the price of the engage round)
+      assert.ok(Math.abs(e.dmg - (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * 15) * A.dmg * V.dmg * C.ENGAGE_DMG_COMP) < 1e-9);
       assert.equal(e.armor, C.ENEMY_ARMOR_PER_LEVEL * 15 * A.armor);
       assert.equal(e.dodge, C.ENEMY_DODGE + A.dodge);
     }
@@ -253,7 +260,7 @@ describe('rules 7.6 enemy AI and intents', () => {
         const e = s.fight.enemies[0];
         const A = C.ARCHETYPE[e.arch];
         const V = C.VARIANT[variant];
-        const old = (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * M) * A.dmg * V.dmg; // fixture templates: dmgMult 1
+        const old = (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * M) * A.dmg * V.dmg * C.ENGAGE_DMG_COMP; // fixture templates: dmgMult 1
         assert.ok(Math.abs(e.dmg - old * mult) < 1e-9, `${tid} ${variant} level ${M}: ${e.dmg} vs ${old} × ${mult}`);
         assert.equal(e.maxHp, Math.round((C.ENEMY_HP_BASE + C.ENEMY_HP_PER_LEVEL * M) * A.hp * V.hp));
         assert.equal(e.armor, C.ENEMY_ARMOR_PER_LEVEL * M * A.armor);
@@ -282,7 +289,7 @@ describe('rules 7.6 enemy AI and intents', () => {
     for (const [kind, variant, ratio] of [['trash', 'trash', 1.5], ['quest', 'normal', 2.0], ['dboss', 'dboss', 1.5], ['elite', 'elite', 2.0]]) {
       const s = setup('mage', 60, [], [mob(variant === 'dboss' ? 'z1_dboss' : variant === 'elite' ? 'z1_elite' : 'z1_brute', 60, variant)], (x) => { x.player.d.maxHp = x.player.hp = 1e6; x.fight.enemies[0].intent = HITI('hit', { pct: 1 }); }, { kind });
       const e = s.fight.enemies[0];
-      const free = (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * 60) * C.ARCHETYPE[e.arch].dmg * C.VARIANT[variant].dmg; // fixture dmgMult 1
+      const free = (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * 60) * C.ARCHETYPE[e.arch].dmg * C.VARIANT[variant].dmg * C.ENGAGE_DMG_COMP; // fixture dmgMult 1
       assert.ok(Math.abs(e.dmg / free - ratio) < 1e-12, `${variant}: ${e.dmg / free}`);
       const plain = tweak(s, (x) => { x.fight.enemies[0].dmg = free; });
       const hit = (t) => { const c = cloneState(t); forceDraws(c, 3, (d) => d[0] > 0.9 && d[1] > 0.1); return R.step(c, { type: 'PASS' }).events.find((x) => x.t === 'damage' && x.dst === 'player').amount; };
@@ -300,7 +307,7 @@ describe('rules 7.6 enemy AI and intents', () => {
     });
     s = R.step(s, { type: 'CHOOSE_NODE', lane: 0 }).state;
     const zd = (M) => 1 + (C.ZONE_DANGER_STEP * Math.max(0, M - C.ZONE_DANGER_FROM)) / 10;
-    const base = (e) => (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * e.level) * C.ARCHETYPE[e.arch].dmg * C.VARIANT[e.kind].dmg * s.content.enemies[e.tid].dmgMult;
+    const base = (e) => (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * e.level) * C.ARCHETYPE[e.arch].dmg * C.VARIANT[e.kind].dmg * s.content.enemies[e.tid].dmgMult * C.ENGAGE_DMG_COMP;
     assert.equal(s.fight.kind, 'trash');
     for (const e of s.fight.enemies) {
       assert.equal(e.kind, 'trash');
@@ -330,16 +337,19 @@ describe('rules 7.6 enemy AI and intents', () => {
     assert.equal(ev(r.events, 'summon').length, 1);
     const add = r.state.fight.enemies[1];
     assert.equal(add.level, 40);
-    const old = (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * 40) * C.ARCHETYPE[add.arch].dmg;
+    const old = (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * 40) * C.ARCHETYPE[add.arch].dmg * C.ENGAGE_DMG_COMP;
     assert.ok(Math.abs(add.dmg - old * 1.5) < 1e-9, `${add.dmg} vs ${old} × 1.5`);
   });
 
   test('intents: eligible actions by cooldown, SILENCED removes casts, Mend only when an ally < 70 %; picks follow weights', () => {
+    // combat v2: turns 1-3 are scripted; the turn-5 entry is the first weighted pick that may hold Heavy Smash
+    // (scripted on turn 2, cooldown 3). It enters the track at the start of turn 3 (round 4).
     const counts = {};
     for (let seed = 0; seed < 400; seed++) {
-      const s = setup('mage', 20, [], [mob('z1_brute')], null, { seed });
-      const id = s.fight.enemies[0].intent.id;
-      counts[id] = (counts[id] || 0) + 1;
+      let s = setup('mage', 20, [], [mob('z1_brute')], (x) => { x.player.d.maxHp = x.player.hp = 1e6; x.fight.enemies[0].st.push({ id: 'STUN', dur: 9 }); }, { seed });
+      for (let i = 0; i < 3; i++) s = R.step(s, { type: 'PASS' }).state;
+      const x = s.fight.enemies[0].track.find((y) => y.turn === 5);
+      counts[x.id] = (counts[x.id] || 0) + 1;
     }
     assert.ok(Math.abs(counts.heavy_smash / 400 - 0.3) < 0.07, JSON.stringify(counts));
     const sil = setup('mage', 20, [], [mob('z1_caster')], (x) => { x.fight.enemies[0].st.push({ id: 'SILENCED', dur: 30 }); });
@@ -411,8 +421,8 @@ describe('rules 7.7 interrupts', () => {
         assert.ok(r.events.some((e) => e.t === 'damage' && e.dst === 0 && e.spell === id), `${id}: ${name} draw hits`);
         assert.equal(ev(r.events, 'interrupt').length, 1, `${id}: ${name} draw interrupts`);
         assert.ok(r.events.some((e) => e.t === 'status' && e.u === 0 && e.id === 'SILENCED' && e.on), `${id}: SILENCED applied`);
-        // 3 draws for the hit, then 1 intent draw for the (silenced, petless) skulker's next round.
-        assert.deepEqual(r.state.fight.rng, advanced(g, 4), `${id}: ${name} draw uses the same stream positions`);
+        // 3 draws for the hit; the track already holds turns 1-3 (combat v2), so round 2 draws no entry.
+        assert.deepEqual(r.state.fight.rng, advanced(g, 3), `${id}: ${name} draw uses the same stream positions`);
       }
       const ctl = cloneState(s);
       forceDraws(ctl, 3, draws.miss);
@@ -441,6 +451,8 @@ describe('rules 7.8 flee', () => {
 });
 
 describe('rules 7.9 autoplay policy', () => {
+  // Rules 1-6 outside the engage round (rule E has its own tests in s07b): fights without an engage round.
+  const setup = (cls, L, spells, enemies, prep, opts = {}) => setupFight(cls, L, spells, enemies, prep, { engage: false, ...opts });
   test('rule 1: HP < 35 % and a healing item on the item bar -> use it', () => {
     const s = setup('rogue', 20, ['gutting_jab'], [mob()], (x) => { x.player.hp = Math.floor(x.player.d.maxHp * 0.3); x.player.bag.push({ uid: 'h', kind: 'cons', id: 'healing_draught', qty: 1 }); x.player.itemBar = [null, 'healing_draught', null]; });
     assert.deepEqual(R.autoAction(s), { type: 'USE_ITEM', slot: 1, target: null });

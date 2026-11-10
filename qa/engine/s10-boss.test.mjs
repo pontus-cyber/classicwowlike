@@ -36,7 +36,7 @@ describe('rules 10 end boss', () => {
     const mult = 1 + (C.ZONE_DANGER_STEP * (C.CAMP_GRIND_LEVEL - C.ZONE_DANGER_FROM)) / 10;
     for (const e of c.fight.enemies) {
       assert.equal(e.level, C.CAMP_GRIND_LEVEL);
-      const old = (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * C.CAMP_GRIND_LEVEL) * C.ARCHETYPE[e.arch].dmg;
+      const old = (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * C.CAMP_GRIND_LEVEL) * C.ARCHETYPE[e.arch].dmg * C.ENGAGE_DMG_COMP;
       assert.ok(Math.abs(e.dmg - old * mult) < 1e-9, `camp ${e.tid}: ${e.dmg} vs ${old} × ${mult}`);
     }
     // End boss (level 62) and Shards (level 60): no zone danger.

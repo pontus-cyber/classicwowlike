@@ -1,12 +1,16 @@
-// autoAction: the autoplay combat policy (rules 7.9, exact) and a deterministic default policy for every
-// other decision so a headless run can go from CREATE to SUMMARY. The simulator's bots (balance.md 1) replace
-// the out-of-combat part with their own policies; the combat part is the spec's.
+// autoAction: the autoplay combat policy (rules 7.9, exact; combat v2 rule E in the engage round) and a
+// deterministic default policy for every other decision so a headless run can go from CREATE to SUMMARY. The
+// simulator's bots (balance.md 1) replace the out-of-combat part with their own policies; the combat part is the
+// spec's. Autoplay reads only the now-intent, except rule E, which reads turns 1..ENGAGE_AUTO_LOOK of the tracks.
 import {
   SPELL, TALENT, CONSUMABLE, AUTO_POTION_HP, AUTO_TONIC_STACKS, AUTO_MANA_POTION, AUTO_FOOD_HP,
-  ENGINE_ASSUMPTION as EA, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, MAX_LEVEL, PET,
+  ENGINE_ASSUMPTION as EA, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, MAX_LEVEL, PET, ENGAGE_OPTION, ENGAGE_OPTIONS,
+  ENGAGE_AUTO_LOOK,
 } from '../constants.js';
 import { hasSt, findSt, debuffStacks, isEliteOrBoss, petAlive } from './damage.js';
-import { defaultTarget } from './combat.js';
+import { defaultTarget, breaksOnHit } from './combat.js';
+import { isEngageRound } from './track.js';
+import { engageAct } from './engage.js';
 import { castError, itemUsableInCombat } from './spells.js';
 import { itemScore, countConsumable, sellValue, canAdd, V, bagCapacity } from './items.js';
 import { talentPointsFree } from './progress.js';
@@ -17,8 +21,9 @@ import { canTravel, exitLevel, trainerSpells, learnCost, trainCost, trainable, a
 const legal = (s, a) => !checkAction(s, a);
 
 // ---------------- Combat policy (rules 7.9) ----------------
+/** ">= N enemies" counts living enemies that are not HEXED or SAPPED (combat v2: SAPPED like HEXED). */
 function livingCount(s) {
-  return s.fight.enemies.filter((e) => e.alive && !hasSt(e.st, 'HEXED')).length;
+  return s.fight.enemies.filter((e) => e.alive && !breaksOnHit(e)).length;
 }
 
 function intentIsCast(e) {
@@ -28,7 +33,7 @@ function intentIsCast(e) {
 function highestHpNonFocus(s, focus) {
   let best = null;
   for (const e of s.fight.enemies) {
-    if (!e.alive || e.idx === focus || hasSt(e.st, 'HEXED')) continue;
+    if (!e.alive || e.idx === focus || breaksOnHit(e)) continue;
     if (!best || e.hp > best.hp) best = e;
   }
   return best ? best.idx : null;
@@ -100,10 +105,61 @@ function autoTarget(s, id, foc) {
   }
 }
 
+const PRIORITY = { mender: 0, caster: 1 };
+/** Rules 7.9 default-target order between two enemies: mender > caster > others, lower HP, lower index. */
+function before(a, b) {
+  const ra = a.arch in PRIORITY ? PRIORITY[a.arch] : 2;
+  const rb = b.arch in PRIORITY ? PRIORITY[b.arch] : 2;
+  return ra !== rb ? ra < rb : a.hp !== b.hp ? a.hp < b.hp : a.idx < b.idx;
+}
+
+/**
+ * Rule E (rules 7.9, combat v2), engage round only: with at least 2 enemies and the class's control option usable,
+ * control the enemy whose track shows the largest estimated damage on the player over its turns
+ * 1..ENGAGE_AUTO_LOOK (ties: default-target order); otherwise the strike option on the default target (Mage:
+ * Pre-cast of the first bar spell whose autoplay condition holds). null: no rule E action (rules 1-6 decide).
+ */
+function engagePolicy(s) {
+  const f = s.fight;
+  const p = s.player;
+  const ids = ENGAGE_OPTIONS[p.classId];
+  const control = ids.find((id) => ENGAGE_OPTION[id].kind === 'control');
+  const strike = ids.find((id) => ENGAGE_OPTION[id].kind === 'strike');
+  if (livingCount(s) >= 2) {
+    let best = null;
+    let most = -1;
+    for (const e of f.enemies) {
+      if (!e.alive || !legal(s, engageAct(control, e.idx))) continue;
+      let dmg = 0;
+      for (const x of e.track) if (x.turn >= 1 && x.turn <= ENGAGE_AUTO_LOOK && (x.target === 'player' || x.target === 'all')) dmg += x.est;
+      if (dmg > most || (dmg === most && before(e, best))) { best = e; most = dmg; }
+    }
+    if (best) return engageAct(control, best.idx);
+  }
+  const foc = defaultTarget(s);
+  if (ENGAGE_OPTION[strike].target === 'spell') {
+    for (const id of p.bar) {
+      if (!id) continue;
+      const t = autoTarget(s, id, foc);
+      if (t === undefined || (SPELL[id].target === 'enemy' && t === null)) continue;
+      const a = engageAct(strike, SPELL[id].target === 'enemy' ? t : null, id);
+      if (legal(s, a)) return a;
+    }
+    return null;
+  }
+  const a = engageAct(strike, foc);
+  return legal(s, a) ? a : null;
+}
+
 function combatPolicy(s) {
   const f = s.fight;
   const p = s.player;
   if (f.p.skip) return { type: 'PASS' };
+  // E. Engage (combat v2), before rule 1, in the engage round only.
+  if (isEngageRound(f)) {
+    const eng = engagePolicy(s);
+    if (eng) return eng;
+  }
   const hpF = p.hp / p.d.maxHp;
   // 1. Healing item
   if (hpF < AUTO_POTION_HP) {

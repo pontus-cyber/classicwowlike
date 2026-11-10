@@ -1,4 +1,4 @@
-// Damage pipeline (rules 7.2), statuses (7.4), kills, death and resurrection (9).
+// Damage pipeline (rules 7.2), statuses (7.4), OFF_BALANCE (7.13, combat v2), kills, death and resurrection (9).
 // Units: 'player', 'pet', or an enemy index (number) into s.fight.enemies.
 import {
   LVL_DMG_STEP, LVL_DMG_MIN, LVL_DMG_MAX, MISS_BASE, MISS_PER_LEVEL, MISS_CAP, DMG_VARIANCE, ENEMY_CRIT,
@@ -7,7 +7,7 @@ import {
   FIGHT_SOFT_ENRAGE_STEP, ECLIPSE_STEP, BRAND_MAX, DEBUFFS, RES_HP_PCT, RES_MANA_PCT, MOB_XP_FRAC,
   ELITE_XP_MULT, RARE_XP_MULT, DUNGEON_BOSS_XP_MULT, DUNGEON_MOB_XP_MULT, MOB_COIN_V, ELITE_GOLD_V,
   EMBER_ELITE_DROP_CHANCE, DUNGEON_BOSS_DROPS, UNIQUE_HEAL_ON_KILL, ABILITY_TEMPLATE, DODGE_CAP, SPELL,
-  SHARD_AOE_TAKEN,
+  SHARD_AOE_TAKEN, OFFBAL_TAKEN, OFFBAL_BOSS_TAKEN, OFFBAL_CRIT, BLOODLUST_STEP, BLOODLUST_MAX,
 } from '../constants.js';
 import { nextFloat } from '../rng.js';
 import { rnd, clamp } from './util.js';
@@ -134,7 +134,11 @@ export function mitigation(armor, attackerLevel) {
 function targetPct(s, u, src, o) {
   const st = unitSt(s, u);
   let pct = 0;
-  if (u === 'pet') pct -= tr(s, 'h_a5') * TALENT.h_a5.petDr;
+  if (u === 'pet') {
+    pct -= tr(s, 'h_a5') * TALENT.h_a5.petDr;
+    const lead = findSt(st, 'PET_LEAD'); // Send the Pet (rules 7.10, combat v2)
+    if (lead) pct -= lead.value;
+  }
   if (typeof u !== 'number') return pct;
   for (const x of st) {
     if (x.id === 'EXPOSED' || x.id === 'MARKED') pct += x.value;
@@ -144,6 +148,7 @@ function targetPct(s, u, src, o) {
   if (fromPlayer) {
     if (o.isSpell && (hasSt(st, 'CHILLED') || hasSt(st, 'FROZEN'))) pct += tr(s, 'm_b4') * TALENT.m_b4.pct;
     if (findSt(st, 'BLEED', 'open_vein')) pct += tr(s, 'r_c8') * TALENT.r_c8.pct;
+    pct += offBalanceTaken(st); // rules 7.13 (combat v2)
   }
   const e = s.fight.enemies[u];
   // Linked (rules 7.2 step 6, 10.2; M2 v2): -LINK_DR_PER_SHARD per living Shard, at most -LINK_DR.
@@ -152,6 +157,32 @@ function targetPct(s, u, src, o) {
   // and the pet, basic attacks and items are not aoe-tagged spells, so none of them get it.
   if (e.kind === 'shard' && src === 'player' && o.spell && SPELL[o.spell] && SPELL[o.spell].tags.includes('aoe')) pct += SHARD_AOE_TAKEN;
   return pct;
+}
+
+/**
+ * OFF_BALANCE damage taken (rules 7.13, combat v2): the status's value (OFFBAL_TAKEN; the end boss OFFBAL_BOSS_TAKEN);
+ * a FROZEN enemy counts as OFF_BALANCE (OFFBAL_TAKEN) while FROZEN. Never both.
+ */
+function offBalanceTaken(st) {
+  const ob = findSt(st, 'OFF_BALANCE');
+  if (ob) return ob.value;
+  return hasSt(st, 'FROZEN') ? OFFBAL_TAKEN : 0;
+}
+
+/** Is the enemy open to the OFF_BALANCE crit bonus (OFF_BALANCE, or FROZEN; rules 7.13)? */
+export const offBalanceOpen = (e) => !!e && (hasSt(e.st, 'OFF_BALANCE') || hasSt(e.st, 'FROZEN'));
+
+/**
+ * The enemy becomes OFF_BALANCE (rules 7.13, combat v2): status duration `dur` (OFFBAL_DURATION when gained by the
+ * player's action or an enemy action, one less when gained at the start of a round), refreshed, no stacks; value
+ * OFFBAL_TAKEN (end boss OFFBAL_BOSS_TAKEN). why: 'interrupt', 'control' or 'avoided'; act: the action that was
+ * stopped or avoided. Sends the status event and an `offBalance` event.
+ */
+export function gainOffBalance(s, ev, u, dur, why, act) {
+  const e = s.fight.enemies[u];
+  if (!e || !e.alive || s.fight.over) return;
+  addStatus(s, ev, u, { id: 'OFF_BALANCE', dur, value: e.kind === 'boss' ? OFFBAL_BOSS_TAKEN : OFFBAL_TAKEN });
+  ev.push({ t: 'offBalance', u, why, id: act ? act.id : null, name: act ? act.name : null, dur });
 }
 
 /** Living (not despawned) Shards of the end-boss fight. */
@@ -198,7 +229,13 @@ function enemyPct(s, e) {
   if (e.kind === 'boss' && f.boss && f.boss.phase === 3) pct += ECLIPSE_STEP * f.boss.eclipse;
   const poison = findSt(e.st, 'POISON');
   if (poison) pct -= tr(s, 'r_c4') * TALENT.r_c4.pct;
+  pct += bloodlust(e);
   return pct;
+}
+
+/** Bloodlust (rules 7.12, combat v2): a beast deals +BLOODLUST_STEP per turn it has acted, at most BLOODLUST_MAX. */
+export function bloodlust(e) {
+  return e.arch === 'beast' ? Math.min(BLOODLUST_MAX, BLOODLUST_STEP * (e.acted || 0)) : 0;
 }
 
 /** Multiplier from CHILLED / CURSED on the attacker (rules 7.2 step 2). */
@@ -238,6 +275,7 @@ function critChance(s, src, dst, o) {
     if (findSt(s.fight.p.st, 'CONFLAGRANT')) c += findSt(s.fight.p.st, 'CONFLAGRANT').value;
   }
   if (typeof dst === 'number' && hasSt(s.fight.enemies[dst].st, 'FROZEN')) c += tr(s, 'm_b6') * TALENT.m_b6.crit;
+  if (typeof dst === 'number' && offBalanceOpen(s.fight.enemies[dst])) c += OFFBAL_CRIT; // rules 7.13 (combat v2)
   return c;
 }
 
@@ -252,7 +290,8 @@ function dodgeOf(s, u) {
     return Math.min(DODGE_CAP, s.player.d.dodgeRaw + (ev ? ev.value : 0));
   }
   if (u === 'pet') return 0;
-  return s.fight.enemies[u].dodge;
+  const e = s.fight.enemies[u];
+  return hasSt(e.st, 'OFF_BALANCE') ? 0 : e.dodge; // OFF_BALANCE: dodge 0 (rules 7.13, combat v2)
 }
 
 function armorOf(s, u) {
@@ -398,7 +437,10 @@ export function applyDamage(s, ev, src, dst, raw, o = {}) {
   // Enemy
   const e = f.enemies[dst];
   if (!e.alive) return { amount: 0, hpLost: 0, absorbed: 0, killed: false };
-  if (raw > 0) removeStatus(s, ev, dst, 'HEXED');
+  if (raw > 0) {
+    removeStatus(s, ev, dst, 'HEXED');
+    removeStatus(s, ev, dst, 'SAPPED'); // Sap breaks on any damage, DOT ticks and AoE included (rules 7.10)
+  }
   if (e.shield > 0) {
     absorbed = Math.min(e.shield, dmg);
     e.shield -= absorbed;
@@ -476,6 +518,7 @@ function enemyDeath(s, ev, idx) {
   const e = f.enemies[idx];
   e.alive = false;
   e.intent = null;
+  e.track = [];
   ev.push({ t: 'death', u: idx, name: e.name });
   if (e.kind === 'boss') {
     s.stats.kills.boss += 1;
@@ -484,6 +527,12 @@ function enemyDeath(s, ev, idx) {
   }
   if (e.kind === 'shard') {
     if (!livingShards(s)) ev.push({ t: 'linked', on: false, n: 0 });
+    return;
+  }
+  if (e.noReward) {
+    // A Signal reinforcement (rules 7.12, combat v2): no XP, coin or loot.
+    s.stats.kills.normal += 1;
+    if (!f.enemies.some((x) => x.alive)) f.over = 'victory';
     return;
   }
   // Kill rewards (rules 2.0, 4.4, 8.4, 8.5): XP, coin, drops.

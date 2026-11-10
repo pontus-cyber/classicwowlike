@@ -1,18 +1,23 @@
-// Fight lifecycle and enemy AI (rules 7.1, 7.4, 7.6). Player actions are in spells.js; the end boss in boss.js.
+// Fight lifecycle and enemy actions (rules 7.1, 7.4, 7.6, 7.10, 7.12, 7.13). The intent track is in track.js, player
+// actions in spells.js and engage.js, the end boss in boss.js.
 import {
-  ARCHETYPE, VARIANT, ABILITY_TEMPLATE, ENEMY_HP_BASE, ENEMY_HP_PER_LEVEL, ENEMY_DMG_BASE, ENEMY_DMG_PER_LEVEL,
+  ARCHETYPE, VARIANT, ENEMY_HP_BASE, ENEMY_HP_PER_LEVEL, ENEMY_DMG_BASE, ENEMY_DMG_PER_LEVEL,
   ENEMY_ARMOR_PER_LEVEL, ENEMY_DODGE, PET, ENERGY_MAX, ENERGY_REGEN, FOCUS_MAX, FOCUS_REGEN,
   MANA_REGEN_ROUND_PCT, PET_REVIVE_PCT, TALENT, UNIQUE_WARD_PCT, BRAND_DMG, BOSS_LEVEL, MIN_HIT_DAMAGE,
-  ZONE_DANGER_FROM, ZONE_DANGER_STEP, DUNGEON_DANGER_FRAC,
+  ZONE_DANGER_FROM, ZONE_DANGER_STEP, DUNGEON_DANGER_FRAC, ENGAGE_DMG_COMP, OFFBAL_DURATION,
 } from '../constants.js';
-import { nextFloat, weightedIndex, nextInt } from '../rng.js';
+import { nextFloat, nextInt } from '../rng.js';
 import { rnd, deepClone } from './util.js';
 import { tr, hasEffect } from './stats.js';
 import {
-  damage, snapshot, mitigation, addStatus, findSt, hasSt, petAlive, healUnit, applyDamage, levelMod, gainStealth,
+  damage, snapshot, addStatus, findSt, hasSt, petAlive, healUnit, applyDamage, levelMod, gainStealth, gainOffBalance,
 } from './damage.js';
-import { bossIntent, bossAct, bossStartRound, bossEndOfRound, mirrorImage, SHARD_ACTION } from './boss.js';
+import { bossIntent, bossAct, bossStartRound, bossEndOfRound, mirrorImage, bossTrackView } from './boss.js';
 import { playerAction, petAction } from './spells.js';
+import {
+  isEngageRound, updateTracks, fillTrack, nowIntent, refreshTrack, controlOf, lowestHpAlly, wardOf, assignWard,
+  isSingle,
+} from './track.js';
 
 // ---------------- Enemies ----------------
 /**
@@ -27,7 +32,12 @@ export function zoneDanger(level, variant = 'normal') {
   return 1 + (variant === 'trash' || variant === 'dboss' ? DUNGEON_DANGER_FRAC * bonus : bonus);
 }
 
-/** Enemy from a template (rules 7.6): every quest, grind, elite, rare, dungeon, Camp and summoned enemy. No draws. */
+/**
+ * Enemy from a template (rules 7.6): every quest, grind, elite, rare, dungeon, Camp, summoned and Signal enemy. No
+ * draws. Damage includes zone danger and ENGAGE_DMG_COMP (combat v2: the price of the engage round). Combat v2
+ * fields: turn0 (round of its turn 1; set by the caller), turn (current turn), track, acted (turns it has acted;
+ * Bloodlust), ward (guardian), unscripted (summons and Signal adds play no opening script), noReward (Signal adds).
+ */
 export function makeEnemy(s, idx, tid, level, variant) {
   const t = s.content.enemies[tid];
   const a = ARCHETYPE[t.archetype];
@@ -35,96 +45,46 @@ export function makeEnemy(s, idx, tid, level, variant) {
   const hp = Math.max(1, rnd((ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL * level) * a.hp * v.hp * t.hpMult));
   return {
     idx, tid, name: t.name, kind: variant, arch: t.archetype, level, hp, maxHp: hp,
-    dmg: (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL * level) * a.dmg * v.dmg * t.dmgMult * zoneDanger(level, variant),
+    dmg: (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL * level) * a.dmg * v.dmg * t.dmgMult * zoneDanger(level, variant) * ENGAGE_DMG_COMP,
     armor: ENEMY_ARMOR_PER_LEVEL * level * a.armor, dodge: ENEMY_DODGE + a.dodge,
     abilities: t.abilities.slice(), cds: {}, st: [], intent: null, alive: true,
     elite: variant === 'elite' || variant === 'rare', boss: variant === 'dboss', ccImmune: variant === 'dboss',
     enraged: 0, summoned: false, shield: 0, asc: 0,
+    turn0: 1, turn: 0, track: [], acted: 0, ward: null, unscripted: false, noReward: false,
   };
 }
 
-/** Actions an enemy can pick: archetype actions, then template abilities (rules 7.6, 12.4). */
-function enemyActions(s, e) {
-  if (e.kind === 'shard') return [SHARD_ACTION];
-  const list = ARCHETYPE[e.arch].actions.slice();
-  for (const id of e.abilities) {
-    const ab = s.content.abilities[id];
-    const T = ABILITY_TEMPLATE[ab.template];
-    if (T.once) continue;
-    list.push({
-      id, name: ab.name, kind: T.kind, pct: ab.pct, tickPct: ab.tickPct, rounds: T.rounds, school: T.school,
-      heavy: !!T.heavy, cast: !!T.cast, cd: ab.cd, w: T.weight, below: T.below, template: ab.template,
-    });
-  }
-  return list;
-}
-
-const SINGLE = ['hit', 'rend'];
-
-function lowestHpAlly(s, e, includeSelf) {
-  let best = null;
-  for (const o of s.fight.enemies) {
-    if (!o.alive || (!includeSelf && o.idx === e.idx)) continue;
-    if (!best || o.hp / o.maxHp < best.hp / best.maxHp) best = o;
-  }
-  return best;
-}
-
-function eligible(s, e, a) {
+/**
+ * An enemy joins mid-fight (template summon, Signal; rules 7.11): no opening script, its turn 1 is the next round,
+ * its whole track is drawn at once; a guardian takes its ward now.
+ */
+function addEnemy(s, ev, tid, level, by, extra = {}) {
   const f = s.fight;
-  if ((e.cds[a.id] || 0) > f.round) return false;
-  if (a.cast && hasSt(e.st, 'SILENCED')) return false;
-  if (a.kind === 'heal') return f.enemies.some((o) => o.alive && o.hp < a.below * o.maxHp);
-  if (a.kind === 'shieldAlly') return !!lowestHpAlly(s, e, false);
-  if (a.kind === 'selfHeal') return e.hp < a.below * e.maxHp;
-  if (a.kind === 'selfShield') return e.shield <= 0;
-  return true;
+  const add = makeEnemy(s, f.enemies.length, tid, level, 'normal');
+  Object.assign(add, { unscripted: true, turn0: f.round + 1 }, extra);
+  f.enemies.push(add);
+  if (add.arch === 'guardian') assignWard(f, add);
+  ev.push({ t: 'summon', u: add.idx, name: add.name, hp: add.hp, by, ...(extra.noReward ? { signal: true } : {}) });
+  fillTrack(s, add);
+  return add;
 }
 
-function hitEst(s, e, a, tgt) {
-  let x = snapshot(s, e.idx, tgt, a.pct * e.dmg, {});
-  if (a.school === 'phys') x *= 1 - mitigation(tgt === 'pet' ? s.player.d.petArmor : s.player.d.armor, e.level);
-  return rnd(x) * (a.hits || 1);
-}
-
-/** Roll one enemy's intent (rules 7.6): 1 draw for the action, then 1 draw for the target if a live pet exists and no TAUNT/feign. */
-function rollIntent(s, e) {
+function summonAdds(s, ev, e, count) {
   const f = s.fight;
-  if (hasSt(e.st, 'STUN') || hasSt(e.st, 'FROZEN')) return { id: 'stunned', name: 'Stunned', kind: 'none', est: 0 };
-  if (hasSt(e.st, 'HEXED')) return { id: 'hexed', name: 'Hexed', kind: 'none', est: 0 };
-  if (f.round === 1 && f.unaware) return { id: 'unaware', name: 'Unaware', kind: 'none', est: 0 };
-  for (const id of e.abilities) {
-    const ab = s.content.abilities[id];
-    if (ab.template === 'summon' && !e.summoned && e.hp <= ABILITY_TEMPLATE.summon.at * e.maxHp) {
-      return { id, name: ab.name, kind: 'summon', count: ab.count, target: 'self', est: 0 };
-    }
-  }
-  const opts = enemyActions(s, e).filter((a) => eligible(s, e, a));
-  const a = opts[weightedIndex(f.rng, opts.map((o) => o.w))];
-  const pet = petAlive(s);
-  const taunted = pet && (hasSt(f.pet.st, 'TAUNT') || hasSt(f.p.st, 'FEIGN'));
-  let target = 'player';
-  if (pet && !taunted) {
-    const r = nextFloat(f.rng);
-    if (SINGLE.includes(a.kind) && r < PET[s.player.pet.id].aggro) target = 'pet';
-  } else if (taunted && SINGLE.includes(a.kind)) target = 'pet';
-  const it = { id: a.id, name: a.name, kind: a.kind, cast: !!a.cast, heavy: !!a.heavy, school: a.school || null, cd: a.cd || 0, pct: a.pct, hits: a.hits || 1, tickPct: a.tickPct, rounds: a.rounds, reduce: a.reduce, est: 0 };
-  if (a.kind === 'hit' || a.kind === 'rend') { it.target = target; it.est = hitEst(s, e, a, target); }
-  else if (a.kind === 'cleave') { it.target = 'all'; it.est = hitEst(s, e, a, 'player'); }
-  else if (a.kind === 'curse') it.target = 'player';
-  else if (a.kind === 'heal') { const o = lowestHpAlly(s, e, true); it.target = o.idx; it.est = rnd(a.pct * o.maxHp); }
-  else if (a.kind === 'shieldAlly') it.target = lowestHpAlly(s, e, false).idx;
-  else if (a.kind === 'selfHeal') { it.target = 'self'; it.est = rnd(a.pct * e.maxHp); }
-  else it.target = 'self';
-  return it;
+  const pool = f.addPool;
+  for (let i = 0; i < count; i++) addEnemy(s, ev, pool[nextInt(f.rng, pool.length)], f.addLevel, e.idx);
 }
 
-export function rollIntents(s, ev) {
-  for (const e of s.fight.enemies) {
-    if (!e.alive) { e.intent = null; continue; }
-    e.intent = e.kind === 'boss' ? bossIntent(s, e) : rollIntent(s, e);
-    ev.push({ t: 'intent', u: e.idx, intent: deepClone(e.intent) });
-  }
+/**
+ * Signal (rules 7.12, combat v2): at the end of the round SIGNAL_ADDS normal enemies join, each drawn from the
+ * encounter's add pool (1 draw), at the skulker's level, with no XP or loot.
+ */
+function resolveSignal(s, ev) {
+  const f = s.fight;
+  const sig = f.signalPending;
+  f.signalPending = null;
+  if (!sig || f.over || !f.addPool.length) return;
+  for (let i = 0; i < sig.adds; i++) addEnemy(s, ev, f.addPool[nextInt(f.rng, f.addPool.length)], sig.level, sig.by, { noReward: true });
 }
 
 function retarget(s, tgt, single) {
@@ -134,38 +94,33 @@ function retarget(s, tgt, single) {
   return tgt;
 }
 
-function summonAdds(s, ev, e, count) {
-  const f = s.fight;
-  const pool = f.addPool;
-  for (let i = 0; i < count; i++) {
-    const tid = pool[nextInt(f.rng, pool.length)];
-    const add = makeEnemy(s, f.enemies.length, tid, f.addLevel, 'normal');
-    f.enemies.push(add);
-    ev.push({ t: 'summon', u: add.idx, name: add.name, hp: add.hp, by: e.idx });
-  }
-}
-
-/** Perform a normal enemy's intent (rules 7.1 step 4). */
+/** Perform a normal enemy's intent (rules 7.1 step 4). Returns true if it acted. */
 function enemyAct(s, ev, e) {
   const f = s.fight;
   const it = e.intent;
-  if (!it || it.kind === 'none') return;
-  if (hasSt(e.st, 'STUN') || hasSt(e.st, 'FROZEN') || hasSt(e.st, 'HEXED')) return;
-  if (it.interrupted || it.skipped) return;
+  if (!it || it.kind === 'none') return false;
+  if (controlOf(e.st)) return false;
+  if (it.interrupted || it.skipped || it.cancelled) return false;
   if (it.cd) e.cds[it.id] = f.round + it.cd;
-  const single = SINGLE.includes(it.kind);
+  const single = isSingle(it.kind);
   ev.push({ t: 'enemyAction', u: e.idx, id: it.id, name: it.name });
   if (it.kind === 'hit' || it.kind === 'rend') {
+    // A heavy action that costs the player 0 HP leaves the enemy OFF_BALANCE (rules 7.13): every hit missed, was
+    // dodged or absorbed (WARD, IMMUNE, image, Death's Sidestep), or went to the pet because of TAUNT or feign.
+    let avoided = true;
     for (let h = 0; h < it.hits; h++) {
-      if (f.over || !e.alive) return;
+      if (f.over || !e.alive) return true;
+      const redirect = single && petAlive(s) && (hasSt(f.pet.st, 'TAUNT') || hasSt(f.p.st, 'FEIGN'));
       const tgt = retarget(s, it.target, single);
       if (tgt === 'player' && mirrorImage(s, ev)) continue;
       const res = damage(s, ev, e.idx, tgt, { base: it.pct * e.dmg, school: it.school, spell: it.id });
+      if (tgt === 'player' ? res.hpLost > 0 : !redirect) avoided = false;
       if (it.kind === 'rend' && res.hit && !f.over && (tgt === 'player' || petAlive(s))) {
         const tick = Math.max(MIN_HIT_DAMAGE, rnd(snapshot(s, e.idx, tgt, it.tickPct * e.dmg, {})));
         addStatus(s, ev, tgt, { id: 'BLEED', src: `${it.id}@${e.idx}`, by: e.idx, dur: it.rounds, full: it.rounds, tick, canCrit: false });
       }
     }
+    if (it.heavy && avoided && e.alive && !f.over) gainOffBalance(s, ev, e.idx, OFFBAL_DURATION, 'avoided', it);
   } else if (it.kind === 'cleave') {
     if (!mirrorImage(s, ev)) damage(s, ev, e.idx, 'player', { base: it.pct * e.dmg, school: it.school, spell: it.id });
     if (!f.over && petAlive(s)) damage(s, ev, e.idx, 'pet', { base: it.pct * e.dmg, school: it.school, spell: it.id });
@@ -174,11 +129,24 @@ function enemyAct(s, ev, e) {
   } else if (it.kind === 'brace') {
     addStatus(s, ev, e.idx, { id: 'BRACE', dur: it.rounds, value: it.reduce });
   } else if (it.kind === 'shieldAlly') {
-    const o = f.enemies[it.target] && f.enemies[it.target].alive ? f.enemies[it.target] : lowestHpAlly(s, e, false);
-    if (o) addStatus(s, ev, o.idx, { id: 'SHIELDED', dur: it.rounds, value: it.reduce });
+    // The guardian's ward (rules 7.12, combat v2).
+    const w = wardOf(s, e);
+    if (w !== null) addStatus(s, ev, w, { id: 'SHIELDED', dur: it.rounds, value: it.reduce });
   } else if (it.kind === 'heal') {
     const o = f.enemies[it.target] && f.enemies[it.target].alive ? f.enemies[it.target] : lowestHpAlly(s, e, true);
     if (o) healUnit(s, ev, o.idx, rnd(it.pct * o.maxHp), it.id);
+  } else if (it.kind === 'bolster') {
+    // Bolster (rules 7.12, combat v2): the lowest-HP ally (self included) gains an enemy shield.
+    const o = f.enemies[it.target] && f.enemies[it.target].alive ? f.enemies[it.target] : lowestHpAlly(s, e, true);
+    if (o) {
+      o.shield = Math.max(o.shield, rnd(it.pct * o.maxHp));
+      ev.push({ t: 'shield', u: o.idx, amount: o.shield, by: e.idx, spell: it.id });
+    }
+  } else if (it.kind === 'signal') {
+    // Signal (rules 7.12, combat v2): the reinforcement joins at the end of the round; once per fight.
+    f.signalled = true;
+    f.signalPending = { by: e.idx, level: e.level, adds: it.adds };
+    ev.push({ t: 'signal', u: e.idx, adds: it.adds });
   } else if (it.kind === 'selfHeal') {
     healUnit(s, ev, e.idx, rnd(it.pct * e.maxHp), it.id);
   } else if (it.kind === 'selfShield') {
@@ -188,6 +156,7 @@ function enemyAct(s, ev, e) {
     e.summoned = true;
     summonAdds(s, ev, e, it.count);
   }
+  return true;
 }
 
 function enemiesAct(s, ev) {
@@ -196,21 +165,24 @@ function enemiesAct(s, ev) {
     if (f.over) return;
     const e = f.enemies[i];
     if (!e.alive || !e.intent) continue;
+    // `acted` counts the turns an enemy acted (Bloodlust, rules 7.12).
     if (e.kind === 'boss') bossAct(s, ev, e);
-    else enemyAct(s, ev, e);
+    else if (enemyAct(s, ev, e)) e.acted += 1;
   }
 }
 
 // ---------------- Targets ----------------
 const PRIORITY = { mender: 0, caster: 1 };
-/** Default target (rules 7.9): living, non-HEXED, mender > caster > others, lowest HP, lowest index. */
+/** HEXED or SAPPED: damage would break the control (rules 7.9 skips them as default targets, combat v2). */
+export const breaksOnHit = (e) => hasSt(e.st, 'HEXED') || hasSt(e.st, 'SAPPED');
+/** Default target (rules 7.9): living, non-HEXED, non-SAPPED, mender > caster > others, lowest HP, lowest index. */
 export function defaultTarget(s) {
   const f = s.fight;
   let best = null;
   const rank = (e) => (e.arch in PRIORITY ? PRIORITY[e.arch] : 2);
   for (const pass of [false, true]) {
     for (const e of f.enemies) {
-      if (!e.alive || (!pass && hasSt(e.st, 'HEXED'))) continue;
+      if (!e.alive || (!pass && breaksOnHit(e))) continue;
       if (!best || rank(e) < rank(best) || (rank(e) === rank(best) && e.hp < best.hp)) best = e;
     }
     if (best) return best.idx;
@@ -219,15 +191,30 @@ export function defaultTarget(s) {
 }
 
 // ---------------- Rounds ----------------
+/**
+ * Start of a round (rules 7.1 step 1, 7.11): pet TAUNT schedule, boss round start (Shards), then the intent tracks
+ * (one entry per enemy, enemies in index order), then each living enemy's now-intent and what its track shows.
+ */
 export function beginRound(s, ev) {
   const f = s.fight;
-  ev.push({ t: 'round', n: f.round });
+  ev.push(isEngageRound(f) ? { t: 'round', n: f.round, engage: true } : { t: 'round', n: f.round });
   const pet = s.player.pet;
   if (pet && pet.alive && PET[pet.id].tauntEvery && (f.round - 1) % PET[pet.id].tauntEvery === 0) {
     addStatus(s, ev, 'pet', { id: 'TAUNT', dur: PET[pet.id].tauntRounds });
   }
   if (f.boss) bossStartRound(s, ev);
-  rollIntents(s, ev);
+  updateTracks(s);
+  for (const e of f.enemies) {
+    if (!e.alive) { e.intent = null; continue; }
+    if (e.kind === 'boss') {
+      e.intent = bossIntent(s, e);
+      bossTrackView(s, e);
+    } else {
+      nowIntent(s, ev, e);
+      refreshTrack(s, e);
+    }
+    ev.push({ t: 'intent', u: e.idx, intent: deepClone(e.intent) });
+  }
 }
 
 function tickUnit(s, ev, u) {
@@ -271,7 +258,7 @@ function decay(s, ev, u) {
   }
 }
 
-/** End of round (rules 7.1 step 5): ticks (player side first, then enemies), durations, regen, boss. */
+/** End of round (rules 7.1 step 5): ticks (player side first, then enemies), durations, regen, boss, Signal. */
 function endOfRound(s, ev) {
   const f = s.fight;
   const adrenal = findSt(f.p.st, 'ADRENAL');
@@ -288,6 +275,7 @@ function endOfRound(s, ev) {
   else if (p.classId === 'hunter') f.p.focus = Math.min(FOCUS_MAX, f.p.focus + rnd(FOCUS_REGEN * (1 + (rapid ? rapid.focus : 0))));
   else p.mana = Math.min(p.d.maxMana, p.mana + rnd(MANA_REGEN_ROUND_PCT * p.d.maxMana));
   if (f.boss) bossEndOfRound(s, ev);
+  resolveSignal(s, ev);
 }
 
 /** Resolve one full round from the player's action (rules 7.1). */
@@ -307,31 +295,36 @@ export function resolveRound(s, ev, action) {
 
 // ---------------- Fight start and end ----------------
 /**
- * Start a fight. spec: { kind, k, enemies: [{tid, level, variant}], addLevel, addPool, dropMult, unaware?,
- * noStealth?, canFlee, rng (fight stream state), boss? }
+ * Start a fight. spec: { kind, k, enemies: [{tid, level, variant}], addLevel, addPool, dropMult, noStealth?, canFlee,
+ * rng (fight stream state), boss?, bossEnemy?, engage? }. Every fight but the end boss ('boss') has an engage round
+ * (rules 7.10): enemies are Unaware in round 1 and their turn 1 is round 2 (`engage` overrides this; tests use it).
+ * Guardians take their wards (7.12); the tracks are filled for turns 1..INTENT_TRACK_LEN (7.11).
  */
 export function startFight(s, ev, spec) {
   const p = s.player;
   const f = {
     kind: spec.kind, k: spec.k, z: spec.z, round: 1, rng: spec.rng, enemies: [], over: null,
     canFlee: spec.canFlee, addLevel: spec.addLevel, addPool: spec.addPool || [], dropMult: spec.dropMult || 1,
-    drops: [], unaware: false, boss: spec.boss || null,
+    drops: [], boss: spec.boss || null, engage: spec.engage !== undefined ? !!spec.engage : spec.kind !== 'boss',
+    startCount: 0, signalled: false,
+    signalPending: null,
     p: {
       st: [], cds: {}, cp: 0, energy: ENERGY_MAX, energyMax: ENERGY_MAX, focus: FOCUS_MAX, focusMax: FOCUS_MAX,
       potionReady: 0, skip: false, target: null, stealthPrev: false, niBonus: 0, momentum: 0, momBonus: 0,
-      lucid: false, sidestepUsed: false, riposte: false, firstFinisher: false,
+      lucid: false, sidestepUsed: false, riposte: false, firstFinisher: false, gatherCrit: 0,
     },
     pet: { st: [], actions: 0 },
   };
   s.fight = f;
   if (spec.bossEnemy) f.enemies.push(spec.bossEnemy);
   for (const en of spec.enemies || []) f.enemies.push(makeEnemy(s, f.enemies.length, en.tid, en.level, en.variant));
+  f.startCount = f.enemies.length;
+  for (const e of f.enemies) e.turn0 = f.engage ? 2 : 1;
+  for (const e of f.enemies) if (e.arch === 'guardian') assignWard(f, e);
   s.stats.fights += 1;
-  ev.push({ t: 'fight', kind: f.kind, k: f.k, enemies: f.enemies.map((e) => ({ u: e.idx, name: e.name, level: e.level, hp: e.hp, kind: e.kind })) });
-  if (p.classId === 'rogue' && !spec.noStealth) {
-    gainStealth(s, ev, false);
-    f.unaware = true;
-  }
+  if (f.engage) s.stats.engages = (s.stats.engages || 0) + 1;
+  ev.push({ t: 'fight', kind: f.kind, k: f.k, engage: f.engage, enemies: f.enemies.map((e) => ({ u: e.idx, name: e.name, level: e.level, hp: e.hp, kind: e.kind, arch: e.arch })) });
+  if (p.classId === 'rogue' && !spec.noStealth) gainStealth(s, ev, false);
   const wards = hasEffect(s, 'ward');
   if (wards) addStatus(s, ev, 'player', { id: 'WARD', dur: null, amount: rnd(UNIQUE_WARD_PCT * wards * p.d.maxHp), src: 'unique' });
   beginRound(s, ev);
@@ -366,4 +359,3 @@ export function endFight(s, ev) {
   }
   return { outcome, drops: f.drops };
 }
-

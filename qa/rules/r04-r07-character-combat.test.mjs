@@ -157,12 +157,15 @@ describe('rules 7 combat details', () => {
     assert.ok(fled.state.zone.rows[3][0].done, 'the node cannot be entered again');
   });
 
-  test('7.9 autoplay counts only living, non-HEXED enemies for ">= N enemies" (Cinder Storm needs 3)', () => {
+  test('7.9 autoplay counts only living, non-HEXED, non-SAPPED enemies for ">= N enemies" (Cinder Storm needs 3)', () => {
     let s = withSpells(atLevel(started('mage', { seed: 3 }), 30), ['cinder_storm', 'ember_bolt']);
-    s = inFight(s, [mob('z1_brute', 30), mob('z1_brute', 30), mob('z1_brute', 30)]).state;
+    // Rules 1-6 outside the engage round (combat v2: rule E decides round 1).
+    s = inFight(s, [mob('z1_brute', 30), mob('z1_brute', 30), mob('z1_brute', 30)], { engage: false }).state;
     assert.equal(R.autoAction(s).spellId, 'cinder_storm');
     const hexed = tweak(s, (x) => { x.fight.enemies[2].st.push({ id: 'HEXED', dur: 3 }); });
     assert.equal(R.autoAction(hexed).spellId, 'ember_bolt');
+    const sapped = tweak(s, (x) => { x.fight.enemies[2].st.push({ id: 'SAPPED', dur: 3 }); });
+    assert.equal(R.autoAction(sapped).spellId, 'ember_bolt', 'combat v2: SAPPED counts like HEXED');
     const dead = tweak(s, (x) => { x.fight.enemies[1].alive = false; x.fight.enemies[1].hp = 0; });
     assert.equal(R.autoAction(dead).spellId, 'ember_bolt');
   });

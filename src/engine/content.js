@@ -121,6 +121,11 @@ export function validateContent(content, { strict = false } = {}) {
     count(zn.elites, CR.elites, `${w}.elites`);
     count(zn.rares, CR.rares, `${w}.rares`);
     listOf(zn.normals, 'normal', `${w}.normals`);
+    // Optional add pool (rules 7.12, combat v2): normal templates of this zone for summons and Signal reinforcements.
+    if (zn.addPool !== undefined) {
+      if (!Array.isArray(zn.addPool) || !zn.addPool.length) e(`${w}.addPool: expected a non-empty list`);
+      else for (const id of zn.addPool) if (!(zn.normals || []).includes(id)) e(`${w}.addPool: "${id}" is not a normal of ${zn.id}`);
+    }
     listOf(zn.elites, 'elite', `${w}.elites`);
     listOf(zn.rares, 'rare', `${w}.rares`);
     const d = zn.dungeon;

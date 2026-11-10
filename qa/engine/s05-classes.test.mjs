@@ -285,12 +285,16 @@ describe('rules 5.5 Hunter and pets', () => {
   });
 
   test('Thornback taunts all enemies in round 1 and every 4 rounds after (1 round); Stormhawk hits a second enemy', () => {
-    let s = inFight(atLevel(started('hunter', { petId: 'thornback' }), 20), [mob('z1_brute', 20), mob('z1_beast', 20)]).state;
+    // No engage round here (combat v2), so round 1 has single-target intents to retarget.
+    let s = inFight(atLevel(started('hunter', { petId: 'thornback' }), 20), [mob('z1_brute', 20), mob('z1_beast', 20)], { engage: false }).state;
     assert.ok(st(s.fight.pet.st, 'TAUNT'));
+    assert.ok(s.fight.enemies.some((e) => ['hit', 'rend'].includes(e.intent.kind)));
     for (const e of s.fight.enemies) if (['hit', 'rend'].includes(e.intent.kind)) assert.equal(e.intent.target, 'pet');
-    s = tweak(s, (x) => { for (const e of x.fight.enemies) e.maxHp = e.hp = 1e6; });
+    // Player and pet are kept alive so the TAUNT schedule can be observed.
+    const live = (x) => { for (const e of x.fight.enemies) e.maxHp = e.hp = 1e6; x.player.hp = x.player.d.maxHp; x.player.pet.hp = x.player.d.petMaxHp; };
+    s = tweak(s, live);
     const rounds = [];
-    for (let i = 0; i < 9; i++) { rounds.push(!!st(s.fight.pet.st, 'TAUNT')); s = R.step(s, { type: 'PASS' }).state; }
+    for (let i = 0; i < 9; i++) { rounds.push(!!st(s.fight.pet.st, 'TAUNT')); s = tweak(R.step(s, { type: 'PASS' }).state, live); }
     assert.deepEqual(rounds, [true, false, false, false, true, false, false, false, true]);
     const prof = { ...R.newProfile(), unlocks: { stormhawk: 1 } };
     let h = inFight(atLevel(started('hunter', { petId: 'stormhawk', profile: prof }), 20), [mob('z1_brute', 20), mob('z1_beast', 20)]).state;
@@ -300,14 +304,19 @@ describe('rules 5.5 Hunter and pets', () => {
     assert.deepEqual(petHits, [0, 1]);
   });
 
-  test('pet aggro: share of single-target intents on the pet ≈ PET.aggro', () => {
+  test('pet aggro: share of single-target track entries on the pet ≈ PET.aggro; the now-intent takes its entry\'s target', () => {
     let pet = 0;
     let all = 0;
     for (let seed = 0; seed < 120; seed++) {
       const s = inFight(atLevel(started('hunter', { petId: 'ridgewolf', seed }), 20), [mob('z1_brute', 20), mob('z1_beast', 20), mob('z1_skulker', 20)]).state;
-      for (const e of s.fight.enemies) if (['hit', 'rend'].includes(e.intent.kind)) { all++; if (e.intent.target === 'pet') pet++; }
+      for (const e of s.fight.enemies) for (const x of e.track) if (['hit', 'rend'].includes(x.kind)) { all++; if (x.aggro === 'pet') pet++; }
+      if (seed < 10) {
+        const t = R.step(s, { type: 'PASS' }).state; // round 2: turn 1 is now
+        for (const e of t.fight.enemies) if (['hit', 'rend'].includes(e.intent.kind)) assert.equal(e.intent.target, e.track[0].aggro);
+      }
     }
-    assert.ok(Math.abs(pet / all - C.PET.ridgewolf.aggro) < 0.1, `share ${pet / all}`);
+    assert.ok(all > 600);
+    assert.ok(Math.abs(pet / all - C.PET.ridgewolf.aggro) < 0.05, `share ${pet / all}`);
   });
 
   test('pet death never ends the fight; a dead pet revives after the fight at PET_REVIVE_PCT', () => {

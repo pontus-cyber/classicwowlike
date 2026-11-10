@@ -71,9 +71,10 @@ export function withTalents(s, talents) {
 
 /**
  * Put the run into a fight. enemies: [{tid, level, variant}] (fixture template ids, e.g. 'z1_brute').
- * Returns { state, events }. kind: fight kind (quest, elite, trash, dboss, ...).
+ * Returns { state, events }. kind: fight kind (quest, elite, trash, dboss, ...). engage: false starts the fight
+ * without the engage round (combat v2, rules 7.10), so round 1 is every enemy's turn 1.
  */
-export function inFight(s, enemies, { kind = 'quest', k = 0, noStealth = false, canFlee = !['dboss', 'boss'].includes(kind) } = {}) {
+export function inFight(s, enemies, { kind = 'quest', k = 0, noStealth = false, canFlee = !['dboss', 'boss'].includes(kind), engage } = {}) {
   s = cloneState(s);
   const cl = enemies.length ? enemies[0].level : 1;
   s.phase = 'NODE';
@@ -84,7 +85,7 @@ export function inFight(s, enemies, { kind = 'quest', k = 0, noStealth = false, 
   startFight(s, ev, {
     kind, k, z: 1, rng: STREAM.fight(s.seed, 1, 1, 0, k),
     enemies: enemies.map((e) => ({ tid: e.tid, level: e.level, variant: e.variant || 'normal' })),
-    addLevel: cl, addPool: CONTENT.zones[0].normals, canFlee, noStealth: noStealth || kind === 'dboss',
+    addLevel: cl, addPool: CONTENT.zones[0].normals, canFlee, noStealth: noStealth || kind === 'dboss', engage,
   });
   return { state: s, events: ev };
 }

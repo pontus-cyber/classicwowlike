@@ -1,18 +1,23 @@
-// End boss: Oruvath, the Unlit Star (rules 10). Stream: boss.
+// End boss: Oruvath, the Unlit Star (rules 10). Stream: boss. Combat v2: the boss's intent track (rules 7.11, 10.3)
+// shows the next INTENT_TRACK_LEN rounds of its schedule (each entry's target is drawn when it enters the track);
+// OFF_BALANCE hooks (7.13): an interrupted Collapse Litany, a Gravity Crush that costs the player 0 HP.
 import {
   BOSS_LEVEL, BOSS_HP, BOSS_ARMOR, BOSS_MELEE, BOSS_CRUSH, BOSS_CRUSH_EVERY, BOSS_LITANY_DMG, LITANY_FIRST,
   LITANY_EVERY, BRAND_EVERY, P2_AT, P3_AT, SHARD_HP, SHARD_DMG, SHARD_COUNT, SHARD_EVERY, SHARD_MAX, PULSE_DMG,
   PULSE_EVERY, BOSS_ENRAGE_ROUND, FINAL_DARK_DMG, ENEMY_DODGE, ENEMY_ARMOR_PER_LEVEL, BOSS_TEXT, PET,
-  ENGINE_ASSUMPTION as EA,
+  OFFBAL_DURATION, ENGINE_ASSUMPTION as EA,
 } from '../constants.js';
 import { nextFloat } from '../rng.js';
 import { rnd } from './util.js';
 import {
-  damage, snapshot, mitigation, addStatus, findSt, hasSt, petAlive, unitAlive, livingShards,
+  damage, snapshot, mitigation, addStatus, findSt, hasSt, petAlive, unitAlive, livingShards, gainOffBalance,
 } from './damage.js';
-
+import { fillTrack } from './track.js';
 
 export const SHARD_ACTION = { id: 'shard_hit', name: `${BOSS_TEXT.shard} Strike`, kind: 'hit', pct: 1.0, school: 'phys', w: 1 };
+
+/** Fields every enemy carries for the intent track (rules 7.11); the boss and Shards play no opening script. */
+const trackFields = (turn0) => ({ turn0, turn: 0, track: [], acted: 0, ward: null, unscripted: true, noReward: false });
 
 export function makeBoss(asc) {
   const hp = rnd(BOSS_HP * (1 + asc));
@@ -20,29 +25,35 @@ export function makeBoss(asc) {
     idx: 0, tid: 'boss', name: BOSS_TEXT.name, kind: 'boss', arch: null, level: BOSS_LEVEL, hp, maxHp: hp,
     dmg: BOSS_MELEE, armor: BOSS_ARMOR, dodge: ENEMY_DODGE, abilities: [], cds: {}, st: [], intent: null,
     alive: true, elite: false, boss: true, ccImmune: true, enraged: 0, summoned: false, shield: 0, asc,
+    ...trackFields(1),
   };
 }
 
-function makeShard(idx, asc) {
+function makeShard(idx, asc, turn0) {
   const hp = rnd(SHARD_HP * (1 + asc));
   return {
     idx, tid: 'shard', name: BOSS_TEXT.shard, kind: 'shard', arch: null, level: EA.SHARD_LEVEL, hp, maxHp: hp,
     dmg: SHARD_DMG, armor: ENEMY_ARMOR_PER_LEVEL * EA.SHARD_LEVEL, dodge: ENEMY_DODGE, abilities: [], cds: {},
     st: [], intent: null, alive: true, elite: false, boss: false, ccImmune: false, enraged: 0, summoned: false,
-    shield: 0, asc,
+    shield: 0, asc, ...trackFields(turn0),
   };
 }
 
 const isLitanyRound = (r) => r >= LITANY_FIRST && (r - LITANY_FIRST) % LITANY_EVERY === 0;
 
-function summonShards(s, ev) {
+/**
+ * A Shards wave. A wave at the start of a round acts in that round (rules 10.2 unchanged); Shards that come with
+ * phase 2 mid-round act from the next round. Each Shard draws its whole track at once (rules 7.11).
+ */
+function summonShards(s, ev, turn0) {
   const f = s.fight;
   const alive = livingShards(s);
   const n = Math.min(SHARD_COUNT, SHARD_MAX - alive);
   for (let i = 0; i < n; i++) {
-    const sh = makeShard(f.enemies.length, f.boss.asc);
+    const sh = makeShard(f.enemies.length, f.boss.asc, turn0);
     f.enemies.push(sh);
     ev.push({ t: 'summon', u: sh.idx, name: sh.name, hp: sh.hp, by: 0 });
+    fillTrack(s, sh);
   }
   // n: living Shards after the wave (Linked strength: LINK_DR_PER_SHARD each, at most LINK_DR).
   if (n > 0) ev.push({ t: 'linked', on: true, n: alive + n });
@@ -58,7 +69,7 @@ export function onBossDamaged(s, ev) {
     s.stats.bossPhase = Math.max(s.stats.bossPhase, 2);
     ev.push({ t: 'phaseChange', phase: 2 });
     f.boss.nextShard = f.round + SHARD_EVERY;
-    if (b.hp > 0) summonShards(s, ev);
+    if (b.hp > 0) summonShards(s, ev, f.round + 1);
   }
   if (f.boss.phase === 2 && fr < P3_AT) {
     f.boss.phase = 3;
@@ -68,6 +79,7 @@ export function onBossDamaged(s, ev) {
       if (e.kind === 'shard' && e.alive) {
         e.alive = false;
         e.intent = null;
+        e.track = [];
         e.despawned = true;
         ev.push({ t: 'despawn', u: e.idx });
       }
@@ -82,7 +94,7 @@ export function onBossDamaged(s, ev) {
 export function bossStartRound(s, ev) {
   const f = s.fight;
   if (f.boss.phase === 2 && f.round === f.boss.nextShard) {
-    summonShards(s, ev);
+    summonShards(s, ev, f.round);
     f.boss.nextShard += SHARD_EVERY;
   }
 }
@@ -93,36 +105,64 @@ function est(s, base, school, tgt) {
   return rnd(x);
 }
 
-/** Boss intent for this round: the list of scheduled actions plus telegraphs (rules 10.2, 10.3). */
+/**
+ * The boss's actions in round r under `phase` (rules 10.2): Litany channel step `step` (1, 2 or null), Starless
+ * Pulse from round `nextPulse` every PULSE_EVERY rounds. No draws, no state change.
+ */
+function scheduleAt(r, phase, step, nextPulse) {
+  const acts = [];
+  if (step === null) acts.push({ id: 'umbral_strike', name: BOSS_TEXT.strike, kind: 'hit', school: 'phys', base: BOSS_MELEE });
+  if (phase <= 2 && r % BOSS_CRUSH_EVERY === 0) acts.push({ id: 'gravity_crush', name: BOSS_TEXT.crush, kind: 'hit', school: 'phys', base: BOSS_CRUSH, heavy: true });
+  if (step !== null) acts.push({ id: 'collapse_litany', name: `${BOSS_TEXT.litany} ${step}/2${step === 2 ? ' - resolves' : ''}`, kind: 'litany', step, cast: true, school: 'magic', base: BOSS_LITANY_DMG });
+  if (phase === 3 && nextPulse !== null && r >= nextPulse && (r - nextPulse) % PULSE_EVERY === 0) acts.push({ id: 'starless_pulse', name: BOSS_TEXT.pulse, kind: 'pulse', school: 'magic', base: PULSE_DMG });
+  if (r >= BOSS_ENRAGE_ROUND) acts.push({ id: 'final_dark', name: BOSS_TEXT.finalDark, kind: 'final', school: 'magic', base: FINAL_DARK_DMG });
+  return acts;
+}
+
+/** Targets and estimates of a list of boss actions aimed at tgt (single hits), the player (the rest). */
+function withEst(s, acts, tgt) {
+  for (const a of acts) {
+    a.target = a.kind === 'hit' ? tgt : a.kind === 'final' ? 'player' : 'all';
+    if (a.kind === 'final') a.est = FINAL_DARK_DMG;
+    else if (a.kind === 'litany') a.est = a.step === 2 ? est(s, a.base, 'magic', 'player') : 0;
+    else a.est = est(s, a.base, a.school, a.kind === 'hit' ? tgt : 'player');
+  }
+  return acts;
+}
+
+/**
+ * Entry of the boss's track for round t (rules 7.11, 10.3): its target, drawn now (1 draw while a live pet exists:
+ * pet aggro). The scheduled actions are projected each round (bossTrackView), since damage can change the phase.
+ */
+export function bossEntry(s, e, t) {
+  const x = { turn: t, aggro: 'player', target: 'player', actions: [], est: 0 };
+  if (petAlive(s)) x.aggro = nextFloat(s.fight.rng) < PET[s.player.pet.id].aggro ? 'pet' : 'player';
+  return x;
+}
+
+const tauntNow = (s) => petAlive(s) && (hasSt(s.fight.pet.st, 'TAUNT') || hasSt(s.fight.p.st, 'FEIGN'));
+
+/**
+ * Boss intent for this round: the scheduled actions plus telegraphs (rules 10.2, 10.3). The target is the head
+ * entry's drawn target; TAUNT and feign send it to the pet (rules 7.6).
+ */
 export function bossIntent(s, e) {
   const f = s.fight;
   const b = f.boss;
   const r = f.round;
-  // One target draw when a live pet exists and no TAUNT/feign is active (rules 7.6).
-  let tgt = 'player';
-  const taunt = petAlive(s) && (hasSt(f.pet.st, 'TAUNT') || hasSt(f.p.st, 'FEIGN'));
-  if (petAlive(s) && !taunt) {
-    if (nextFloat(f.rng) < PET[s.player.pet.id].aggro) tgt = 'pet';
-  } else if (taunt) tgt = 'pet';
-  const actions = [];
-  let step = null;
-  if (b.resume) step = b.resume;
-  else if (isLitanyRound(r)) step = 1;
-  if (step === null) actions.push({ id: 'umbral_strike', name: BOSS_TEXT.strike, kind: 'hit', school: 'phys', base: BOSS_MELEE, target: tgt, est: est(s, BOSS_MELEE, 'phys', tgt) });
-  if (b.phase <= 2 && r % BOSS_CRUSH_EVERY === 0) actions.push({ id: 'gravity_crush', name: BOSS_TEXT.crush, kind: 'hit', school: 'phys', base: BOSS_CRUSH, heavy: true, target: tgt, est: est(s, BOSS_CRUSH, 'phys', tgt) });
-  if (step !== null) actions.push({ id: 'collapse_litany', name: `${BOSS_TEXT.litany} ${step}/2${step === 2 ? ' - resolves' : ''}`, kind: 'litany', step, cast: true, school: 'magic', base: BOSS_LITANY_DMG, target: 'all', est: step === 2 ? est(s, BOSS_LITANY_DMG, 'magic', 'player') : 0 });
+  e.turn = r;
+  const head = e.track[0];
+  const tgt = tauntNow(s) ? 'pet' : head && head.aggro === 'pet' && petAlive(s) ? 'pet' : 'player';
+  const step = b.resume ? b.resume : isLitanyRound(r) ? 1 : null;
   const pulseNow = b.phase === 3 && r === b.nextPulse;
-  if (pulseNow) {
-    actions.push({ id: 'starless_pulse', name: BOSS_TEXT.pulse, kind: 'pulse', school: 'magic', base: PULSE_DMG, target: 'all', est: est(s, PULSE_DMG, 'magic', 'player') });
-    b.nextPulse += PULSE_EVERY;
-  }
-  if (r >= BOSS_ENRAGE_ROUND) actions.push({ id: 'final_dark', name: BOSS_TEXT.finalDark, kind: 'final', school: 'magic', base: FINAL_DARK_DMG, target: 'player', est: FINAL_DARK_DMG });
+  const actions = withEst(s, scheduleAt(r, b.phase, step, pulseNow ? r : null), tgt);
+  if (pulseNow) b.nextPulse += PULSE_EVERY;
   const brandIn = (BRAND_EVERY - (r % BRAND_EVERY)) % BRAND_EVERY;
   // A Shards wave comes at the start of round nextShard only if fewer than SHARD_MAX are alive (summonShards);
   // with SHARD_MAX alive there is no countdown (BUG-QA-07). Killing a Shard brings the countdown back.
   const shardsAlive = livingShards(s);
   return {
-    id: 'boss', name: BOSS_TEXT.name, kind: 'boss', actions,
+    id: 'boss', name: BOSS_TEXT.name, kind: 'boss', actions, turn: r,
     cast: actions.some((a) => a.cast), heavy: actions.some((a) => a.heavy),
     est: actions.reduce((n, a) => n + a.est, 0), target: tgt,
     telegraph: {
@@ -138,13 +178,61 @@ export function bossIntent(s, e) {
   };
 }
 
+/** Is a pet status on k rounds from now? (TAUNT and feign predicted for the track.) */
+function onIn(st, id, k) {
+  const x = findSt(st, id);
+  return !!x && (x.dur === null || x.dur === undefined || x.dur > k);
+}
+
+/**
+ * What the boss's track shows (rules 10.3, combat v2): for each of the next INTENT_TRACK_LEN rounds the scheduled
+ * actions with target and estimate (the first is this round's intent), `brand` (a BRAND stack at its end), `shards`
+ * (a Shards wave at its start), and for later rounds while phase < 3 `ifPhase` (the next phase) with `alt`, the
+ * actions if that phase starts this round (null when they are the same).
+ */
+export function bossTrackView(s, e) {
+  const f = s.fight;
+  const b = f.boss;
+  const it = e.intent;
+  const now = it.actions.find((a) => a.kind === 'litany');
+  let step = now ? now.step : null;
+  const shardsAlive = livingShards(s);
+  for (const x of e.track) {
+    const k = x.turn - f.round;
+    const pet = petAlive(s) && (onIn(f.pet.st, 'TAUNT', k) || onIn(f.p.st, 'FEIGN', k));
+    const tgt = pet ? 'pet' : x.aggro === 'pet' && petAlive(s) ? 'pet' : 'player';
+    let acts;
+    if (k === 0) acts = it.actions.map((a) => ({ ...a }));
+    else {
+      step = step === 1 ? 2 : isLitanyRound(x.turn) ? 1 : null;
+      acts = withEst(s, scheduleAt(x.turn, b.phase, step, b.nextPulse), tgt);
+    }
+    x.target = k === 0 ? it.target : tgt;
+    x.actions = acts;
+    x.cast = acts.some((a) => a.cast);
+    x.heavy = acts.some((a) => a.heavy);
+    x.est = acts.reduce((n, a) => n + a.est, 0);
+    x.brand = x.turn % BRAND_EVERY === 0;
+    x.shards = k > 0 && b.phase === 2 && shardsAlive < SHARD_MAX && x.turn >= b.nextShard && (x.turn - b.nextShard) % SHARD_EVERY === 0;
+    x.ifPhase = k > 0 && b.phase < 3 ? b.phase + 1 : null;
+    x.alt = null;
+    if (x.ifPhase) {
+      const alt = withEst(s, scheduleAt(x.turn, x.ifPhase, step, x.ifPhase === 3 ? f.round + PULSE_EVERY : b.nextPulse), tgt);
+      if (alt.map((a) => a.id).join() !== acts.map((a) => a.id).join()) x.alt = alt;
+    }
+  }
+}
+
 function nextLitanyIn(r) {
   if (r < LITANY_FIRST) return LITANY_FIRST - r;
   const m = (r - LITANY_FIRST) % LITANY_EVERY;
   return m === 0 ? 0 : LITANY_EVERY - m;
 }
 
-/** Interrupt of the boss: cancels this round's Litany channel (rules 7.7, 10.3). Returns true if it hit a cast. */
+/**
+ * Interrupt of the boss: cancels this round's Litany channel (rules 7.7, 10.3) and leaves the boss OFF_BALANCE
+ * (rules 7.13, combat v2). Returns true if it hit a cast.
+ */
 export function interruptBoss(s, ev, by) {
   const f = s.fight;
   const e = f.enemies[0];
@@ -152,19 +240,21 @@ export function interruptBoss(s, ev, by) {
   if (!it) return false;
   const i = it.actions.findIndex((a) => a.cast);
   if (i < 0) return false;
-  it.actions.splice(i, 1);
+  const [litany] = it.actions.splice(i, 1);
   it.cast = false;
   f.boss.resume = null;
   ev.push({ t: 'interrupt', u: 0, by });
+  gainOffBalance(s, ev, 0, OFFBAL_DURATION, 'interrupt', litany);
   return true;
 }
 
+/** One boss hit. Returns true if it cost the player 0 HP (miss, absorbed, image, or sent to the pet by TAUNT/feign). */
 function attack(s, ev, e, a, tgt) {
-  const f = s.fight;
   const target = tgt === 'pet' && !petAlive(s) ? 'player' : tgt;
-  if (target === 'player' && mirrorImage(s, ev)) return;
-  damage(s, ev, e.idx, target, { base: a.base, school: a.school, spell: a.id });
-  return f;
+  if (target === 'player' && mirrorImage(s, ev)) return true;
+  const redirected = target === 'pet' && tauntNow(s);
+  const res = damage(s, ev, e.idx, target, { base: a.base, school: a.school, spell: a.id });
+  return target === 'player' ? !(res.hpLost > 0) : redirected;
 }
 
 /** Mirrorshade (meta Mage): each enemy attack on the player may hit an image instead (one draw). */
@@ -179,7 +269,7 @@ export function mirrorImage(s, ev) {
   return false;
 }
 
-/** Perform the boss's actions for this round. */
+/** Perform the boss's actions for this round. A Gravity Crush that costs the player 0 HP: OFF_BALANCE (7.13). */
 export function bossAct(s, ev, e) {
   const f = s.fight;
   const it = e.intent;
@@ -193,8 +283,10 @@ export function bossAct(s, ev, e) {
   const tgtNow = retargetBoss(s, it.target);
   for (const a of it.actions) {
     if (f.over || !e.alive) return;
-    if (a.kind === 'hit') attack(s, ev, e, a, tgtNow);
-    else if (a.kind === 'litany') {
+    if (a.kind === 'hit') {
+      const avoided = attack(s, ev, e, a, tgtNow);
+      if (a.heavy && avoided && e.alive && !f.over) gainOffBalance(s, ev, 0, OFFBAL_DURATION, 'avoided', a);
+    } else if (a.kind === 'litany') {
       if (a.step === 1) {
         f.boss.resume = 2;
         ev.push({ t: 'channel', u: 0, name: BOSS_TEXT.litany, step: 1 });

@@ -1,9 +1,9 @@
 // Rules constants (docs/specs/rules.md). Single source of every number the engine uses.
 //
 // Part 1: the global constant table, rules.md section 13, same names and values.
-// Part 2: the data tables (CLASS, SPELL, PET, TALENT, ARCHETYPE, SLOT, RARITY, DROP_TABLE, ITEM_SCORE,
-//         CONSUMABLE, BOON, META, ABILITY_TEMPLATE, CONTENT_RANGE), rules.md sections 2.9, 5, 6, 7.6, 8,
-//         11, 12. A cell is addressed TABLE.id.field, as in the spec.
+// Part 2: the data tables (CLASS, SPELL, PET, TALENT, ARCHETYPE, OPENING_SCRIPT, SCRIPT_ACTION, ENGAGE_OPTION,
+//         SLOT, RARITY, DROP_TABLE, ITEM_SCORE, CONSUMABLE, BOON, META, ABILITY_TEMPLATE, CONTENT_RANGE), rules.md
+//         sections 2.9, 5, 6, 7.6, 7.10, 8, 11, 12. A cell is addressed TABLE.id.field, as in the spec.
 // Part 3: ENGINE_ASSUMPTION: numbers the spec leaves open. Each one is listed under "Spec questions" in
 //         docs/handoffs/engineer-2026-11-09.md. Tune them like any other constant.
 //
@@ -293,11 +293,15 @@ export const PACE_TRAVEL_NODE_S = 3.5;
 export const PACE_ZONE_TRAVEL_S = 8;
 export const PACE_QUEST_TEXT_S = 5;
 export const PACE_FIGHT_OVERHEAD_S = 3;
-export const PACE_ROUND_ANIM_S = 1.5;
+/** rules 3 (combat v2: 1.5 -> 2.1, the animation +40 %). */
+export const PACE_ROUND_ANIM_S = 2.1;
 export const PACE_ROUND_DECIDE_S = 1.0;
 /** rules 3: manual round = UI animation budget + decision time. */
 export const PACE_MANUAL_ROUND_S = PACE_ROUND_ANIM_S + PACE_ROUND_DECIDE_S;
-export const PACE_AUTO_ROUND_S = 0.8;
+/** rules 3 (combat v2: 0.8 -> 1.1). */
+export const PACE_AUTO_ROUND_S = 1.1;
+/** rules 3 (combat v2): reading the tracks and choosing the engage, manual profile, every fight with an engage round. */
+export const PACE_ENGAGE_S = 6;
 export const PACE_LOOT_S = 3;
 export const PACE_LEVELUP_S = 2;
 export const PACE_TALENT_S = 6;
@@ -309,6 +313,65 @@ export const PACE_VENDOR_TX_S = 3;
 export const PACE_TRAINER_S = 6;
 export const PACE_TRAINER_TX_S = 2;
 export const PACE_BOSS_INTRO_S = 20;
+// Combat v2 (rules 7, marked "(combat v2)"; docs/specs/combat-v2.md 15).
+/** rules 7.11: entries of an enemy's intent track (now + 2). */
+export const INTENT_TRACK_LEN = 3;
+/** rules 7.12: enemy turns with a scripted opening action. */
+export const OPENING_TURNS = 3;
+/** rules 7.12: enemy turn of the signature ability (elite, rare, dungeon boss). */
+export const SIGNATURE_TURN = 2;
+/** rules 7.12: enemy turn of a dungeon boss's second template ability. */
+export const SIGNATURE_TURN_2 = 5;
+/** rules 7.12: × the pct of a heavy action on a scripted turn (tuning lever). */
+export const HEAVY_SCRIPT_MULT = 1.0;
+/** rules 7.12: × the pct of a cast action on a scripted turn (tuning lever). */
+export const CAST_SCRIPT_MULT = 1.0;
+/** rules 7.6, 7.11: Mend needs an ally below this fraction of max HP (ARCHETYPE.mender Mend `below`). */
+export const MEND_BELOW = 0.70;
+/** rules 7.12: enemies a skulker's Signal brings. */
+export const SIGNAL_ADDS = 1;
+/** rules 7.12: Bolster shield, fraction of the ally's max HP. */
+export const BOLSTER_PCT = 0.20;
+/** rules 7.12: Bolster cooldown in turns. */
+export const BOLSTER_CD = 4;
+/** rules 7.12: a beast's damage per turn it has acted (Bloodlust). */
+export const BLOODLUST_STEP = 0.10;
+/** rules 7.12: Bloodlust cap. */
+export const BLOODLUST_MAX = 0.50;
+/** rules 7.13: OFF_BALANCE, damage taken from the player and pet. */
+export const OFFBAL_TAKEN = 0.30;
+/** rules 7.13, 10: OFF_BALANCE on the end boss, damage taken. */
+export const OFFBAL_BOSS_TAKEN = 0.15;
+/** rules 7.13: OFF_BALANCE, the player's crit chance against it. */
+export const OFFBAL_CRIT = 0.20;
+/** rules 7.13: OFF_BALANCE status duration (one player action). */
+export const OFFBAL_DURATION = 2;
+/** rules 7.6, 7.10: enemy damage × this for every template enemy (the price of the engage round; not the end boss). */
+export const ENGAGE_DMG_COMP = 1.15;
+/** rules 7.10: Ambush = Gutting Jab × this before Shadowstep Strike is learned. */
+export const AMBUSH_MULT = 1.5;
+/** rules 7.10: Sap, enemy turns SAPPED. */
+export const SAP_TURNS = 3;
+/** rules 7.10: Premeditate, combo points. */
+export const PREMED_CP = 3;
+/** rules 7.10: Binding Glyph, enemy turns FROZEN. */
+export const GLYPH_TURNS = 2;
+/** rules 7.10: Gathered Power, damaging spells that cost 0 mana. */
+export const GATHER_SPELLS = 2;
+/** rules 7.10: Gathered Power, crit chance on those spells. */
+export const GATHER_CRIT = 0.50;
+/** rules 7.10: Opening Shot = Keen Shot × this. */
+export const OPENING_SHOT_MULT = 1.5;
+/** rules 7.10: Opening Shot, MARKED status duration in rounds. */
+export const OPENING_MARK_ROUNDS = 4;
+/** rules 7.10: Lay Trap, STUN rounds when it springs. */
+export const TRAP_STUN = 1;
+/** rules 7.10: Send the Pet, enemy turns of pet TAUNT. */
+export const PET_LEAD_TURNS = 2;
+/** rules 7.10: Send the Pet, damage the pet takes less during them. */
+export const PET_LEAD_DR = 0.30;
+/** rules 7.9 rule E: enemy turns autoplay reads when it picks the control target. */
+export const ENGAGE_AUTO_LOOK = 2;
 
 // ---------------------------------------------------------------------------------------------
 // Part 2. Data tables
@@ -561,8 +624,56 @@ export const ARCHETYPE = {
   ] },
   mender: { id: 'mender', hp: 0.9, dmg: 0.6, armor: 0.8, dodge: 0, actions: [
     { id: 'strike', name: 'Strike', kind: 'hit', pct: 1.0, school: 'phys', w: 50 },
-    { id: 'mend', name: 'Mend', kind: 'heal', pct: 0.25, below: 0.70, cast: true, cd: 3, w: 50 },
+    { id: 'mend', name: 'Mend', kind: 'heal', pct: 0.25, below: MEND_BELOW, cast: true, cd: 3, w: 50 },
   ] },
+};
+
+/**
+ * Opening scripts (rules 7.12, combat v2): the action ids an enemy that is present at fight start plays on its turns
+ * 1..OPENING_TURNS. 'signal' and 'bolster' are SCRIPT_ACTION entries; every other id is an ARCHETYPE action. A skulker
+ * plays Signal only if the fight started with at least 2 enemies (else its basic attack). Elites, rares and dungeon
+ * bosses play their signature ability on SIGNATURE_TURN (and a dungeon boss its other ability on SIGNATURE_TURN_2).
+ */
+export const OPENING_SCRIPT = {
+  brute: ['strike', 'heavy_smash', 'strike'],
+  caster: ['bolt', 'hex_bolt', 'wither'],
+  skulker: ['rend', 'strike', 'signal'],
+  beast: ['frenzy', 'bite', 'frenzy'],
+  guardian: ['shield_ally', 'strike', 'brace'],
+  mender: ['bolster', 'strike', 'mend'],
+};
+
+/**
+ * Script-only archetype actions (rules 7.12, combat v2). They are played from OPENING_SCRIPT and never drawn by weight.
+ * signal (skulker, cast, once per fight): at the end of the round SIGNAL_ADDS normal enemy joins from the add pool.
+ * bolster (mender): the lowest-HP ally (self included) gains an enemy shield of BOLSTER_PCT × its max HP.
+ */
+export const SCRIPT_ACTION = {
+  signal: { id: 'signal', name: 'Signal', kind: 'signal', cast: true, adds: SIGNAL_ADDS, once: true },
+  bolster: { id: 'bolster', name: 'Bolster', kind: 'bolster', pct: BOLSTER_PCT, cd: BOLSTER_CD },
+};
+
+/**
+ * Engage options (rules 7.10, combat v2): one strike, one control and one setup option per class, usable only in the
+ * engage round, no bar slot, no training, no resource; strength uses L (tl = L). target: 'enemy' (a living enemy),
+ * 'control' (a living enemy that is not immune to control), 'none', 'spell' (a bar spell and that spell's target).
+ */
+export const ENGAGE_OPTION = {
+  ambush: { id: 'ambush', cls: 'rogue', kind: 'strike', name: 'Ambush', target: 'enemy', mult: AMBUSH_MULT, cp: 2 },
+  sap: { id: 'sap', cls: 'rogue', kind: 'control', name: 'Sap', target: 'control', turns: SAP_TURNS },
+  premeditate: { id: 'premeditate', cls: 'rogue', kind: 'setup', name: 'Premeditate', target: 'none', cp: PREMED_CP },
+  precast: { id: 'precast', cls: 'mage', kind: 'strike', name: 'Pre-cast', target: 'spell' },
+  binding_glyph: { id: 'binding_glyph', cls: 'mage', kind: 'control', name: 'Binding Glyph', target: 'control', turns: GLYPH_TURNS },
+  gather_power: { id: 'gather_power', cls: 'mage', kind: 'setup', name: 'Gathered Power', target: 'none', spells: GATHER_SPELLS, crit: GATHER_CRIT },
+  opening_shot: { id: 'opening_shot', cls: 'hunter', kind: 'strike', name: 'Opening Shot', target: 'enemy', mult: OPENING_SHOT_MULT, markRounds: OPENING_MARK_ROUNDS },
+  lay_trap: { id: 'lay_trap', cls: 'hunter', kind: 'control', name: 'Lay Trap', target: 'control', stun: TRAP_STUN },
+  send_pet: { id: 'send_pet', cls: 'hunter', kind: 'setup', name: 'Send the Pet', target: 'enemy', turns: PET_LEAD_TURNS, dr: PET_LEAD_DR },
+};
+/** Engage options of each class in display order: strike, control, setup. */
+export const ENGAGE_OPTIONS = {
+  rogue: ['ambush', 'sap', 'premeditate'],
+  mage: ['precast', 'binding_glyph', 'gather_power'],
+  hunter: ['opening_shot', 'lay_trap', 'send_pet'],
 };
 
 /** Enemy variants (rules 7.6): HP and damage multipliers on top of the archetype. */

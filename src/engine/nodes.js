@@ -60,7 +60,7 @@ export function metaFromProfile(profile, classId) {
 export function newStats() {
   return {
     nodes: { quest: 0, grind: 0, elite: 0, dungeon: 0, rest: 0, vendor: 0, trainer: 0, treasure: 0, shrine: 0 },
-    nodesTotal: 0, fights: 0, rounds: 0, bossRounds: 0, kills: { normal: 0, elite: 0, rare: 0, boss: 0 },
+    nodesTotal: 0, fights: 0, engages: 0, rounds: 0, bossRounds: 0, kills: { normal: 0, elite: 0, rare: 0, boss: 0 },
     quests: 0, stories: 0, dungeons: 0, goldEarned: 0, goldSpent: 0, potionsUsed: 0, resUsed: 0, dmgDealt: 0,
     dmgTaken: 0, spellDmg: {}, zonesLeft: 0, levelUps: 0, talentPoints: 0, equipDrops: 0, rests: 0, shrines: 0,
     treasures: 0, vendorVisits: 0, vendorTx: 0, trainerVisits: 0, trainerTx: 0, xpGained: 0, campWaves: 0,
@@ -223,11 +223,14 @@ function fightRng(s, k) {
   return STREAM.fight(s.seed, s.zone.z, n.r, n.l, k);
 }
 
+/** Add pool of a zone's fights (rules 7.12, combat v2): summons and Signal reinforcements; zone `addPool` or normals. */
+export const zoneAddPool = (zn) => (Array.isArray(zn.addPool) && zn.addPool.length ? zn.addPool : zn.normals);
+
 function nodeFight(s, ev, kind, k, enemies, extra = {}) {
   const n = s.node;
   const zn = zoneContent(s.content, s.zone.z);
   startFight(s, ev, {
-    kind, k, z: s.zone.z, rng: fightRng(s, k), enemies, addLevel: extra.addLevel || n.cl, addPool: zn.normals,
+    kind, k, z: s.zone.z, rng: fightRng(s, k), enemies, addLevel: extra.addLevel || n.cl, addPool: zoneAddPool(zn),
     dropMult: extra.dropMult || 1, canFlee: kind !== 'dboss', noStealth: kind === 'dboss',
   });
 }

@@ -122,7 +122,7 @@ describe('rules 2 node types', () => {
     const A = C.ARCHETYPE[T.archetype];
     assert.equal(e.level, s.zone.rows[1][0].cl + C.ELITE_LEVEL_OFFSET);
     assert.equal(e.maxHp, Math.round((C.ENEMY_HP_BASE + C.ENEMY_HP_PER_LEVEL * e.level) * A.hp * C.ELITE_HP_MULT * T.hpMult));
-    assert.ok(Math.abs(e.dmg - (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * e.level) * A.dmg * C.ELITE_DMG_MULT * T.dmgMult) < 1e-9);
+    assert.ok(Math.abs(e.dmg - (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * e.level) * A.dmg * C.ELITE_DMG_MULT * T.dmgMult * R.zoneDanger(e.level, 'elite') * C.ENGAGE_DMG_COMP) < 1e-9);
     assert.deepEqual(e.abilities, T.abilities);
     assert.equal(s.fight.enemies[1].kind, 'normal');
     const rare = enterNode(base, 'elite', { level: 30, r: 2, patch: (n) => { n.rare = true; n.elite = 'z1_rare'; n.add = null; } }).state.fight.enemies[0];

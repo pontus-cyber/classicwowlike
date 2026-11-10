@@ -1,19 +1,22 @@
-// Player combat actions (rules 5, 6, 7.1 step 2, 7.3, 7.5, 7.7, 7.8) and the pet action (5.5).
+// Player combat actions (rules 5, 6, 7.1 step 2, 7.3, 7.5, 7.7, 7.8) and the pet action (5.5). Combat v2: an
+// interrupt or control that stops a cast or heavy now-entry leaves the enemy OFF_BALANCE (7.13); Gathered Power
+// (7.10); ENGAGE actions are resolved in engage.js.
 import {
   SPELL, CLASS, TALENT, PET, CP_MAX, ENGINE_ASSUMPTION as EA, CHILL_PCT, CONSUMABLE, POTION_CD,
   UNIQUE_PROC_CHANCE, UNIQUE_PROC_BASE, UNIQUE_PROC_PER_LEVEL, UNIQUE_POTION_PCT, FLEE_BASE,
-  FLEE_PER_EXTRA_ENEMY, MIN_HIT_DAMAGE,
+  FLEE_PER_EXTRA_ENEMY, MIN_HIT_DAMAGE, OFFBAL_DURATION,
 } from '../constants.js';
 import { nextFloat } from '../rng.js';
 import { rnd } from './util.js';
 import { tr, hasEffect } from './stats.js';
 import {
   damage, snapshot, addStatus, removeStatus, findSt, hasSt, petAlive, healUnit, dispersal, gainStealth,
-  gainResource, livingEnemies,
+  gainResource, livingEnemies, gainOffBalance,
 } from './damage.js';
 import { interruptBoss } from './boss.js';
 import { defaultTarget } from './combat.js';
 import { countConsumable, takeConsumable } from './items.js';
+import { engageAction, keepsStealth } from './engage.js';
 
 // ---------------- Spell facts ----------------
 export function knowsSpell(s, id) {
@@ -33,6 +36,7 @@ export function spellCost(s, id) {
   if (s.player.classId === 'mage') {
     if (f && f.p.lucid) return 0;
     if (f && sp.school === 'fire' && hasSt(f.p.st, 'CONFLAGRANT')) return 0;
+    if (f && isDamaging(id) && hasSt(f.p.st, 'GATHER')) return 0; // Gathered Power (rules 7.10, combat v2)
     let frac = sp.cost;
     if (id === 'ember_bolt') frac -= tr(s, 'm_a4') * TALENT.m_a4.cost;
     return rnd(Math.max(0, frac) * s.player.d.baseMana);
@@ -77,16 +81,19 @@ function pay(s, n) {
 
 export const isFinisher = (id) => SPELL[id].tags.includes('finisher');
 export const isOpener = (id) => SPELL[id].tags.includes('opener');
-const isDamaging = (id) => !!SPELL[id].school || !!SPELL[id].dot;
+export const isDamaging = (id) => !!SPELL[id].school || !!SPELL[id].dot;
 
-/** Why a spell cannot be cast now (null = castable). Bar membership is checked by the caller. */
-export function castError(s, id, tgt) {
+/**
+ * Why a spell cannot be cast now (null = castable). Bar membership is checked by the caller. opts.free: cast at no
+ * cost (Pre-cast, rules 7.10), so the resource is not checked.
+ */
+export function castError(s, id, tgt, opts = {}) {
   const sp = SPELL[id];
   const f = s.fight;
   if (!sp || sp.cls !== s.player.classId) return `unknown spell ${id}`;
   if (!knowsSpell(s, id)) return `${id} is not known`;
   if ((f.p.cds[id] || 0) > f.round) return `${id} is on cooldown`;
-  if (resourceOf(s) < spellCost(s, id)) return `not enough resource for ${id}`;
+  if (!opts.free && resourceOf(s) < spellCost(s, id)) return `not enough resource for ${id}`;
   if (isOpener(id) && !hasSt(f.p.st, 'STEALTH')) return `${id} requires STEALTH`;
   if (isFinisher(id) && f.p.cp < 1) return `${id} needs a combo point`;
   if ((id === 'savage_order' || id === 'wild_communion') && !petAlive(s)) return `${id} needs a live pet`;
@@ -98,7 +105,7 @@ export function castError(s, id, tgt) {
 }
 
 // ---------------- Helpers ----------------
-function base(s, sp, tl, cp = 1) {
+export function base(s, sp, tl, cp = 1) {
   const d = s.player.d;
   let x = (sp.b || 0) + (sp.l || 0) * tl + (sp.p || 0) * d.power;
   if (sp.perCp) x *= cp;
@@ -117,14 +124,18 @@ const poisonStacks = (e) => {
 /** Interrupt-tagged spells (Throat Jab, Spellsnap, Muzzle Shot) never miss and cannot be dodged (rules 7.2 step 3, M2 v2). */
 const alwaysHits = (id) => !!(SPELL[id] && SPELL[id].tags.includes('interrupt'));
 
-/** One direct player hit plus on-hit effects (Toxic Coating, unique procs). */
-function pHit(s, ev, tgt, b, o) {
+/**
+ * One direct player hit plus on-hit effects (Toxic Coating, unique procs). A spell cast under Gathered Power adds
+ * f.p.gatherCrit to its crit chance (rules 7.10).
+ */
+export function pHit(s, ev, tgt, b, o) {
   const f = s.fight;
   if (tgt === null || !f.enemies[tgt] || !f.enemies[tgt].alive) return null;
   const pct = (o.pct || 0) + f.p.niBonus + (o.isSpell ? f.p.momBonus : 0);
   // The miss draw r1 is still made (damage() always draws r1-r3), so stream positions do not change.
   const noMiss = o.noMiss || alwaysHits(o.spell);
-  const res = damage(s, ev, 'player', tgt, { ...o, base: b, pct, noMiss });
+  const critBonus = (o.critBonus || 0) + (f.p.gatherCrit || 0);
+  const res = damage(s, ev, 'player', tgt, { ...o, base: b, pct, noMiss, critBonus });
   if (res.hit && TALENT.r_c1.spells.includes(o.spell) && tr(s, 'r_c1') && f.enemies[tgt].alive) applyPoison(s, ev, tgt);
   const procs = hasEffect(s, 'proc');
   for (let i = 0; i < procs; i++) {
@@ -155,32 +166,51 @@ function applyDot(s, ev, tgt, status, src, rounds, b, pct, extra = {}) {
   addStatus(s, ev, tgt, { id: status, src, dur: rounds, full: rounds, tick, ...extra });
 }
 
-/** Interrupt an enemy's cast this round (rules 7.7). Returns true if a cast was stopped. */
+/**
+ * Interrupt an enemy's cast this round (rules 7.7). Returns true if a cast was stopped; the enemy is then
+ * OFF_BALANCE (rules 7.13, combat v2).
+ */
 function interrupt(s, ev, tgt, by) {
   const f = s.fight;
   const e = f.enemies[tgt];
   if (!e || !e.alive) return false;
   if (e.kind === 'boss') return interruptBoss(s, ev, by);
   const it = e.intent;
-  if (it && it.cast && !it.interrupted) {
+  if (it && it.cast && !it.interrupted && !it.cancelled) {
     it.interrupted = true;
     if (it.cd) e.cds[it.id] = f.round + it.cd;
     ev.push({ t: 'interrupt', u: tgt, by });
+    gainOffBalance(s, ev, tgt, OFFBAL_DURATION, 'interrupt', it);
     return true;
   }
   return false;
 }
 
-/** STUN / FROZEN / HEXED: CC-immune bosses are interrupted instead (rules 7.4, 7.7). */
-function control(s, ev, tgt, id, dur, by) {
+/**
+ * Control cancels this turn's now-entry (rules 7.11, combat v2): a heavy action leaves the enemy OFF_BALANCE (7.13).
+ * (A cast is interrupted instead, rules 7.7.)
+ */
+function cancelNow(s, ev, e, by) {
+  const it = e.intent;
+  if (!it || it.kind === 'none' || it.interrupted || it.skipped || it.cancelled) return;
+  it.cancelled = { by, id: it.id, name: it.name, cast: !!it.cast, heavy: !!it.heavy };
+  ev.push({ t: 'cancel', u: e.idx, id: it.id, name: it.name, by, turn: e.turn, offBalance: !!it.heavy });
+  if (it.heavy) gainOffBalance(s, ev, e.idx, OFFBAL_DURATION, 'control', it);
+}
+
+/**
+ * STUN / FROZEN / HEXED: CC-immune bosses are interrupted instead (rules 7.4, 7.7). The control cancels the enemy's
+ * action this round: a cast is interrupted, any other action is cancelled (rules 7.11, combat v2).
+ */
+export function control(s, ev, tgt, id, dur, by) {
   const e = s.fight.enemies[tgt];
   if (!e || !e.alive) return;
   if (e.ccImmune) { interrupt(s, ev, tgt, by); return; }
   addStatus(s, ev, tgt, { id, dur });
-  interrupt(s, ev, tgt, by);
+  if (!interrupt(s, ev, tgt, by)) cancelNow(s, ev, e, id);
 }
 
-function addCp(s, n) {
+export function addCp(s, n) {
   s.fight.p.cp = Math.min(CP_MAX, s.fight.p.cp + n);
 }
 
@@ -208,20 +238,28 @@ function hpFrac(e) {
 }
 
 // ---------------- Cast ----------------
-function cast(s, ev, id, tgt) {
+/**
+ * Cast a bar spell. opts.free: no cost (Pre-cast, rules 7.10), with opts.engage on the action event. A damaging
+ * Mage spell under Gathered Power uses one charge: no cost, +GATHER_CRIT crit chance on its hits (rules 7.10).
+ */
+export function cast(s, ev, id, tgt, opts = {}) {
   const f = s.fight;
   const p = s.player;
   const sp = SPELL[id];
   const d = p.d;
-  const cost = spellCost(s, id);
+  const gather = p.classId === 'mage' && isDamaging(id) ? findSt(f.p.st, 'GATHER') : null;
+  const cost = opts.free ? 0 : spellCost(s, id);
   const wasLucid = f.p.lucid;
   pay(s, cost);
-  if (p.classId === 'mage' && wasLucid) f.p.lucid = false;
+  if (p.classId === 'mage' && wasLucid && !opts.free) f.p.lucid = false;
   const cd = spellCd(s, id);
   if (cd > 0) f.p.cds[id] = f.round + cd;
   const tl = spellTl(s, id);
   if (sp.target === 'enemy') f.p.target = tgt;
-  ev.push({ t: 'action', kind: 'cast', spell: id, target: sp.target === 'enemy' ? tgt : null, cost });
+  const act = { t: 'action', kind: 'cast', spell: id, target: sp.target === 'enemy' ? tgt : null, cost };
+  if (opts.engage) act.engage = opts.engage;
+  ev.push(act);
+  f.p.gatherCrit = gather ? gather.value : 0;
   const e = typeof tgt === 'number' ? f.enemies[tgt] : null;
   const phys = { school: 'phys', spell: id, isSpell: true };
   switch (id) {
@@ -527,11 +565,16 @@ function cast(s, ev, id, tgt) {
     default:
       throw new Error(`no handler for spell ${id}`);
   }
+  f.p.gatherCrit = 0;
+  if (gather) {
+    gather.stacks -= 1;
+    if (gather.stacks <= 0) removeStatus(s, ev, 'player', 'GATHER');
+  }
   if (p.classId === 'mage' && tr(s, 'm_c3')) f.p.lucid = nextFloat(f.rng) < tr(s, 'm_c3') * TALENT.m_c3.chance;
 }
 
 /** Twin Fangs (r_a7): Strike and Gutting Jab may hit again for 50 % (one draw after a landed hit). */
-function twinFangs(s, ev, tgt, res, b, o) {
+export function twinFangs(s, ev, tgt, res, b, o) {
   const rank = tr(s, 'r_a7');
   const f = s.fight;
   if (!rank || !res || !res.hit || f.over) return;
@@ -613,10 +656,14 @@ export function playerAction(s, ev, a) {
   }
   const wasStealthed = hasSt(f.p.st, 'STEALTH');
   const opener = a.type === 'CAST' && isOpener(a.spellId);
-  if (wasStealthed && (!opener || EA.OPENER_BREAKS_STEALTH)) removeStatus(s, ev, 'player', 'STEALTH');
+  // Openers keep STEALTH (rules 7.4); so do Sap and Premeditate (rules 7.10). Any other action removes it.
+  const keep = (opener && !EA.OPENER_BREAKS_STEALTH) || (a.type === 'ENGAGE' && keepsStealth(a.option));
+  if (wasStealthed && !keep) removeStatus(s, ev, 'player', 'STEALTH');
   f.p.niBonus = (wasStealthed || f.p.stealthPrev) ? tr(s, 'r_b8') * TALENT.r_b8.pct : 0;
   f.p.stealthPrev = wasStealthed;
-  const damagingSpell = a.type === 'CAST' && isDamaging(a.spellId);
+  // A Pre-cast is a cast for Arcane Momentum (rules 6.2).
+  const castId = a.type === 'CAST' ? a.spellId : a.type === 'ENGAGE' && a.option === 'precast' ? a.spellId : null;
+  const damagingSpell = castId !== null && isDamaging(castId);
   f.p.momBonus = damagingSpell ? f.p.momentum * tr(s, 'm_c8') * TALENT.m_c8.pct : 0;
   f.p.momentum = damagingSpell ? Math.min(TALENT.m_c8.maxStacks, f.p.momentum + 1) : 0;
   if (a.type === 'ATTACK') {
@@ -629,6 +676,8 @@ export function playerAction(s, ev, a) {
     if (p.classId === 'rogue') twinFangs(s, ev, a.target, res, b, { school: bas.school, spell: bas.id, isSpell: false });
   } else if (a.type === 'CAST') {
     cast(s, ev, a.spellId, a.target);
+  } else if (a.type === 'ENGAGE') {
+    engageAction(s, ev, a);
   } else if (a.type === 'USE_ITEM') {
     useItem(s, ev, p.itemBar[a.slot]);
   } else if (a.type === 'PASS') {

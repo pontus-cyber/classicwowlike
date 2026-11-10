@@ -1,7 +1,8 @@
 // Action table: legality checks, enumeration (legalActions) and application (step). docs/specs/engine-api.md.
+// Combat v2: ENGAGE (rules 7.10) is legal and listed only in the engage round.
 import {
   CLASS, CLASS_IDS, PET, SPELL, TALENT, TALENT_TIER_GATE, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, CONSUMABLE, OATH_IDS,
-  GRIND_MAX_WAVES, SLOT_IDS,
+  GRIND_MAX_WAVES, SLOT_IDS, ENGAGE_OPTION, ENGAGE_OPTIONS,
 } from '../constants.js';
 import { normaliseSeed } from '../rng.js';
 import { refreshDerived } from './stats.js';
@@ -10,6 +11,8 @@ import { addToBag, canAdd, bagIndex, countConsumable } from './items.js';
 import { nextLanes } from './map.js';
 import { castError, itemUsableInCombat } from './spells.js';
 import { resolveRound } from './combat.js';
+import { isEngageRound } from './track.js';
+import { engageError, engageAct } from './engage.js';
 import {
   availablePets, startRun, canTravel, travelOn, openService, leaveService, chooseNode, startGrind, nextFight,
   completeNode, chooseReward, campGrind, fightBoss, finishFight, trainerSpells, learnCost, trainCost, travelLevel,
@@ -21,7 +24,7 @@ import { applyRunToProfile } from './meta.js';
 
 const OOC = new Set(['EQUIP', 'UNEQUIP', 'DISCARD', 'USE_ITEM', 'SET_BAR', 'SET_ITEM_BAR', 'SPEND_TALENT']);
 const LOOT_OK = new Set(['LOOT_TAKE', 'LOOT_DROP', 'SET_AUTOPLAY', ...OOC]);
-const COMBAT = new Set(['CAST', 'ATTACK', 'USE_ITEM', 'FLEE', 'PASS']);
+const COMBAT = new Set(['CAST', 'ATTACK', 'USE_ITEM', 'FLEE', 'PASS', 'ENGAGE']);
 export const NAME_MAX = 24;
 
 const oocAllowed = (s) => !s.fight && ['ZONE_HUB', 'MAP', 'NODE', 'CAMP'].includes(s.phase);
@@ -359,6 +362,10 @@ const A = {
     check: (s) => (!s.fight ? 'PASS is a combat action' : null),
     apply: (s, ev, a) => combat(s, ev, a),
   },
+  ENGAGE: {
+    check: (s, a) => combatGate(s, a) || engageError(s, a),
+    apply: (s, ev, a) => combat(s, ev, a),
+  },
 };
 
 function combatGate(s, a) {
@@ -412,6 +419,20 @@ export function legalActions(s) {
     }
     for (let i = 0; i < ITEM_BAR_SLOTS; i++) push({ type: 'USE_ITEM', slot: i, target: null });
     push({ type: 'FLEE' });
+    if (isEngageRound(f)) {
+      // Engage options (rules 7.10): each option on each valid target; Pre-cast on each bar spell and its targets.
+      for (const id of ENGAGE_OPTIONS[p.classId]) {
+        const o = ENGAGE_OPTION[id];
+        if (o.target === 'none') push(engageAct(id, null));
+        else if (o.target === 'spell') {
+          for (const sid of p.bar) {
+            if (!sid) continue;
+            if (SPELL[sid].target === 'enemy') for (const e of f.enemies) { if (e.alive) push(engageAct(id, e.idx, sid)); }
+            else push(engageAct(id, null, sid));
+          }
+        } else for (const e of f.enemies) if (e.alive) push(engageAct(id, e.idx));
+      }
+    }
   } else {
     const p = s.player;
     for (const it of s.loot) { push({ type: 'LOOT_TAKE', itemId: it.uid }); push({ type: 'LOOT_DROP', itemId: it.uid }); push({ type: 'EQUIP', itemId: it.uid }); }

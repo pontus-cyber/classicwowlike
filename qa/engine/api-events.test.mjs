@@ -87,7 +87,8 @@ describe('bossPar and zoneDanger on the API (engine-api.md 1, M2 v4)', () => {
         const s = inFight(atLevel(started('mage'), 20), [{ tid, level: L, variant }], { noStealth: true }).state;
         const e = s.fight.enemies[0];
         const free = (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * L) * C.ARCHETYPE[e.arch].dmg * C.VARIANT[variant].dmg;
-        assert.ok(Math.abs(e.dmg - free * R.zoneDanger(L, variant)) < 1e-9, `${variant} level ${L}`);
+        // combat v2: e.dmg also carries ENGAGE_DMG_COMP (not part of zoneDanger)
+        assert.ok(Math.abs(e.dmg - free * R.zoneDanger(L, variant) * C.ENGAGE_DMG_COMP) < 1e-9, `${variant} level ${L}`);
       }
     }
   });
