@@ -4,7 +4,7 @@
 // <out>/combat.json; build the report with sim/combatreport.mjs.
 //
 //   node sim/combatpass.mjs --out sim/out/m2b-2026-11-10d [--runs 1000] [--tact-runs 1000] [--opener-runs 1000]
-//                           [--workers N] [--stages W,P,M,O,T,X] [--resume] [--warmup 1000]
+//                           [--workers N] [--stages W,P,M,O,T,X,R] [--resume] [--warmup 1000] [--pair-runs 200]
 //
 // Stages (P0-group trees, SIM.DEFAULT_TREE; seeds SEED_BASE..):
 //   W  planner warm-up (WARMUP_RUNS from RISK_PRIOR, seeds WARMUP_SEED_BASE..), as pass stage A
@@ -13,6 +13,8 @@
 //   O  opener P0 (--opener-runs)
 //   T  tactician P0 with the engage search (--tact-runs)
 //   X  random, greedy, speedrunner P0 (B1, B4); planner PALL (PALL-group trees, warm-up from obs-P0; B3, B6)
+//   R  diagnostic: planner P0 with opening pairs (cell.pairs: every non-boss fight replayed with autoplay's, the
+//      opener's and the masher's first OPEN_ROUNDS rounds), the first --pair-runs seeds
 import { cpus } from 'node:os';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
@@ -37,8 +39,9 @@ const OUT = ensureDir(args.out || join('sim', 'out', `m2b-${new Date().toISOStri
 const RUNS = Number(args.runs || 1000);
 const TACT_RUNS = Number(args['tact-runs'] || RUNS);
 const OPENER_RUNS = Number(args['opener-runs'] || RUNS);
+const PAIR_RUNS = Number(args['pair-runs'] || 200);
 const WORKERS = Number(args.workers || cpus().length);
-const STAGES = new Set(String(args.stages || 'W,P,M,O,T,X').split(','));
+const STAGES = new Set(String(args.stages || 'W,P,M,O,T,X,R').split(','));
 const WARM = Number(args.warmup ?? SIM.WARMUP_RUNS);
 const SEED = BAL.SEED_BASE;
 const TREES = defaultTrees('P0');
@@ -46,7 +49,7 @@ const TREES_PALL = defaultTrees('PALL');
 const pool = new Pool(WORKERS);
 const manifestFile = join(OUT, 'combat.json');
 const manifest = existsSync(manifestFile) ? readJson(manifestFile) : { cells: {}, warmups: {} };
-manifest.meta = { commit: commitInfo(), started: manifest.meta ? manifest.meta.started : new Date().toISOString(), runs: RUNS, tactRuns: TACT_RUNS, openerRuns: OPENER_RUNS, seedBase: SEED, workers: WORKERS, node: process.version, trees: TREES, treesPALL: TREES_PALL, simOverride: process.env.SIM_OVERRIDE || null };
+manifest.meta = { commit: commitInfo(), started: manifest.meta ? manifest.meta.started : new Date().toISOString(), runs: RUNS, tactRuns: TACT_RUNS, openerRuns: OPENER_RUNS, pairRuns: PAIR_RUNS, seedBase: SEED, workers: WORKERS, node: process.version, trees: TREES, treesPALL: TREES_PALL, simOverride: process.env.SIM_OVERRIDE || null };
 const save = () => writeJson(manifestFile, manifest);
 const log = (m) => process.stderr.write(`[${new Date().toISOString().slice(11, 19)}] ${m}\n`);
 
@@ -62,7 +65,7 @@ async function cell(name, o) {
   }
   log(`${name}: start`);
   const r = await runBatch({ pool, out: OUT, name, workers: WORKERS, quiet: true, warmup: 0, runs: RUNS, seedStart: SEED, classes: CLASSES, ...o });
-  manifest.cells[name] = { dir: name, bot: o.bot, prof: o.prof, trees: o.trees, runs: o.runs || RUNS, replay: !!o.replay, wallS: Math.round(r.meta.wallMs / 1000) };
+  manifest.cells[name] = { dir: name, bot: o.bot, prof: o.prof, trees: o.trees, runs: o.runs || RUNS, replay: !!o.replay, pairs: !!o.pairs, wallS: Math.round(r.meta.wallMs / 1000) };
   save();
   const brief = Object.entries(r.perClass).map(([c, x]) => `${c} ${(x.metrics.win.p * 100).toFixed(1)} %/${(x.metrics.boss.p * 100).toFixed(0)} %`).join(', ');
   log(`${name}: done in ${(r.meta.wallMs / 1000).toFixed(0)} s (win/boss: ${brief})`);
@@ -104,6 +107,7 @@ try {
     const wp = await warmup('PALL', 'all', TREES_PALL, obsP0, WARM);
     await cell('planner-PALL', { bot: 'planner', prof: 'all', trees: TREES_PALL, obsIn: wp });
   }
+  if (STAGES.has('R')) await cell('planner-P0-pairs', { bot: 'planner', prof: 'fresh', trees: TREES, obsIn: obsP0, pairs: true, runs: PAIR_RUNS });
   manifest.meta.finished = new Date().toISOString();
   manifest.meta.wallMin = Math.round((Date.now() - t0) / 60000);
   save();

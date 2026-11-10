@@ -235,6 +235,7 @@ export class Recorder {
       gold: sum ? sum.gold : null, travelLv: this.travelLv, train: this.train, ember: this.ember, boss: this.boss,
       fx: this.fx, f2: this.f2, ne: this.ne, steps: meta.steps, ms: meta.ms,
       ...(meta.rep ? { rep: meta.rep } : {}),
+      ...(meta.pr ? { pr: meta.pr } : {}),
       ...(meta.bm ? { bm: meta.bm } : {}),
       ...(meta.log ? { log: meta.log } : {}),
       ...(meta.hash !== undefined ? { hash: meta.hash } : {}),

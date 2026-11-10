@@ -9,6 +9,7 @@
 //            --warmup N (planner warm-up runs for the risk table, default SIM.WARMUP_RUNS; 0 = start at RISK_PRIOR)
 //            --risk-in <risk.json of an earlier batch>   --log (keep action logs in runs-*.jsonl)
 //            --replay (B50, combat-v2.md 11: replay every non-boss fight that ends a run in death; used with the masher)
+//            --pairs (diagnostic: replay every non-boss fight with autoplay's, the opener's and the masher's opening)
 //   campaigns: node sim/run.mjs --campaign N --class <c|all> --out <dir> [--risk-in <risk.json>]
 //
 // Writes <out>/<bot>-<profile>[-style][-variant][-pet]/{runs-<class>.jsonl, summary.json, summary.md, risk.json}.
@@ -32,7 +33,7 @@ function parse(argv) {
     const a = argv[i];
     if (!a.startsWith('--')) throw new Error(`unexpected argument ${a}`);
     const k = a.slice(2);
-    if (k === 'log' || k === 'replay') { o[k] = true; continue; }
+    if (k === 'log' || k === 'replay' || k === 'pairs') { o[k] = true; continue; }
     o[k] = argv[++i];
   }
   return o;
@@ -67,7 +68,7 @@ try {
     const r = await runBatch({
       pool, bot: args.bot, classes, runs: Number(args.runs || BAL.N_RUNS_PER_CELL), seedStart: Number(args['seed-start'] || BAL.SEED_BASE),
       prof: args.profile || 'fresh', trees, style: args.style || null, variant: args.variant || null, pet: args.pet || null,
-      out, warmup: args.warmup !== undefined ? Number(args.warmup) : SIM.WARMUP_RUNS, obsIn, log: !!args.log, workers, replay: !!args.replay,
+      out, warmup: args.warmup !== undefined ? Number(args.warmup) : SIM.WARMUP_RUNS, obsIn, log: !!args.log, workers, replay: !!args.replay, pairs: !!args.pairs,
     });
     for (const [cls, x] of Object.entries(r.perClass)) {
       const m = x.metrics;

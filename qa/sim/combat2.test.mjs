@@ -164,11 +164,28 @@ describe('fight replay harness (B50)', () => {
         assert.equal(r1.outcome, outcome);
         assert.deepEqual(r1, r2);
         assert.equal(R.serialize(snap), before);
-        assert.equal(live.player.hp / live.player.d.maxHp, r1.hp);
+        if (outcome !== OUTCOME.death) assert.ok(r1.hp > 0 && r1.hp <= 1);
         done++;
       }
     }
     assert.ok(done >= 4);
+  });
+
+  test('opening pairs: the autoplay replay of each fight of a planner run is the live fight', () => {
+    let checked = 0;
+    for (const [cls, seed] of [['mage', 1001], ['rogue', 1002]]) {
+      const { record } = runWithBot({ bot: 'planner', cls, prof: 'fresh', tree: 0, style: null, variant: null, pet: null, pairs: true }, seed, null, { maxActions: 4000 });
+      assert.ok(!record.err || record.err.startsWith('stuck'), record.err);
+      for (const p of record.pr) {
+        const fx = record.fx[p[0]];
+        if (!fx) continue; // the run stopped in this fight (maxActions)
+        assert.equal(p[1], fx[0], 'fight kind');
+        assert.equal(p[2], fx[2], `${cls} seed ${seed} fight ${p[0]}: autoplay replay outcome = live outcome`);
+        if (fx[2] === 1) assert.ok(Math.abs(p[3] / 10 - fx[3]) <= 0.6, `end HP ${p[3] / 10} vs ${fx[3]} %`);
+        checked++;
+      }
+    }
+    assert.ok(checked >= 10, `checked ${checked}`);
   });
 
   test('masher cells with replay: every replayed death has the masher control dying again', () => {

@@ -6,6 +6,9 @@
 // B50: for every non-boss fight that ends a masher run in death, the runner (sim/lib/runner.mjs, cell.replay)
 // replays it three times: X = opener (its first OPEN_ROUNDS actions), Y = masher (the B50 measure); X = autoplay,
 // Y = masher (diagnostic: any sensible opening); X = Y = masher (control: must die again).
+// Opening pairs (diagnostic for B48, cell.pairs): every non-boss fight of an autoplay run replayed with autoplay's,
+// the opener's and the masher's first OPEN_ROUNDS rounds, autoplay after: the opening's value on the same fights,
+// without the run-level path effects (the autoplay replay is the live fight).
 import { R, hash32, BotRng } from './engine.mjs';
 import { C2 } from './params.mjs';
 import { fightClone } from './clone.mjs';
@@ -24,8 +27,8 @@ export function snapshot(s) {
 
 /**
  * Replay a fight: x, y are combat policies (state) -> action; x plays rounds 1..openRounds, y the rest. Returns
- * { outcome (OUTCOME code), rounds, res (resurrects used), hp (HP fraction at the end, 0 on a death), pot (potions
- * used) }.
+ * { outcome (OUTCOME code), rounds, res (resurrects used), hp (HP fraction at the fight's end before post-fight regen,
+ * as the recorder's fx; 0 on a death), pot (potions used) }.
  */
 export function replayFight(snap, x, y, openRounds = C2.OPEN_ROUNDS, maxSteps = 400) {
   const c = fightClone(snap);
@@ -33,18 +36,27 @@ export function replayFight(snap, x, y, openRounds = C2.OPEN_ROUNDS, maxSteps = 
   let res = 0;
   let outcome = null;
   let rounds = 0;
+  let hpEnd = 0;
   for (let n = 0; n < maxSteps && c.fight; n++) {
     const a = c.fight.round <= openRounds ? x(c) : y(c);
     rounds = c.fight.round;
+    let hp = c.player.hp;
+    const maxHp0 = c.player.d.maxHp;
+    let lvl = false;
     for (const e of R.stepInPlace(c, a)) {
-      if (e.t === 'resurrect') res++;
-      else if (e.t === 'victory') { outcome = OUTCOME.victory; rounds = e.rounds; }
-      else if (e.t === 'fled') outcome = OUTCOME.fled;
-      else if (e.t === 'runEnd' && e.outcome === 'death') outcome = OUTCOME.death;
+      if (e.t === 'levelUp' && !lvl) { hp += c.player.d.maxHp - maxHp0; lvl = true; } // as the recorder (fx)
+      else if (e.t === 'damage' && e.dst === 'player') hp -= e.amount;
+      else if (e.t === 'heal' && e.dst === 'player') hp += e.amount;
+      else if (e.t === 'resurrect') { res++; hp = e.hp; }
+      else if (e.t === 'victory' || e.t === 'fled') {
+        outcome = e.t === 'victory' ? OUTCOME.victory : OUTCOME.fled;
+        if (e.t === 'victory') rounds = e.rounds;
+        hpEnd = Math.max(0, hp) / c.player.d.maxHp;
+      } else if (e.t === 'runEnd' && e.outcome === 'death') outcome = OUTCOME.death;
     }
   }
   if (outcome === null) throw new Error(`replay: fight did not end in ${maxSteps} steps`);
-  return { outcome, rounds, res, hp: outcome === OUTCOME.death ? 0 : c.player.hp / c.player.d.maxHp, pot: c.stats.potionsUsed - pot0 };
+  return { outcome, rounds, res, hp: outcome === OUTCOME.death ? 0 : hpEnd, pot: c.stats.potionsUsed - pot0 };
 }
 
 /** The opener as a fresh combat policy for one replayed fight; its bot stream is hash(seed, 'replay', fight). */
@@ -52,6 +64,21 @@ export function openerPolicy(seed, fightNo) {
   const rng = new BotRng(hash32(`${seed}|replay|${fightNo}`));
   const st = { fights: -1, n0: 0, plan: null };
   return (s) => openerChoice(s, rng, st);
+}
+
+/**
+ * Opening pairs of one fight: [fx index, fight kind code, then per opening (autoplay, opener, masher; autoplay after
+ * round OPEN_ROUNDS): outcome code, HP at the end in per mille, potions used].
+ */
+export function replayOpenings(snap, seed, fxIndex) {
+  const fightNo = snap.stats.fights;
+  const auto = (s) => R.autoAction(s);
+  const out = [fxIndex, FK[snap.fight.kind]];
+  for (const x of [auto, openerPolicy(seed, fightNo), mashChoice]) {
+    const r = replayFight(snap, x, auto);
+    out.push(r.outcome, Math.round(r.hp * 1000), r.pot);
+  }
+  return out;
 }
 
 /**

@@ -5,7 +5,7 @@ import { BAL, SIM } from './params.mjs';
 import { createBot } from '../bots/index.mjs';
 import { Recorder } from './recorder.mjs';
 import { buildProfile } from './profiles.mjs';
-import { snapshot, replayDeath } from './replay.mjs';
+import { snapshot, replayDeath, replayOpenings } from './replay.mjs';
 
 /** Hunter pet a cell starts with: preset for every bot but random (random picks with SELECT_PET). */
 export function cellPet(cell) {
@@ -16,7 +16,8 @@ export function cellPet(cell) {
 /**
  * cell: { bot, cls, prof, tree, style, variant, pet, replay } ; seed: run seed ; risk: lookup table (risk.mjs).
  * cell.replay (combat-v2.md 11, B50): keep a snapshot at the first decision of every non-boss fight and, when such a
- * fight ends the run in death, replay it (sim/lib/replay.mjs); the record gets `rep`.
+ * fight ends the run in death, replay it (sim/lib/replay.mjs); the record gets `rep`. cell.pairs (diagnostic): replay
+ * every non-boss fight with autoplay's, the opener's and the masher's opening (replayOpenings); the record gets `pr`.
  * opts: { log: keep the action log, hash: store the final state hash, profile: profile object instead of
  * cell.prof, maxActions }. Returns { record, state }.
  */
@@ -33,9 +34,14 @@ export function runWithBot(cell, seed, risk, opts = {}) {
   let snap = null;
   let snapFight = -1;
   const rep = cell.replay ? [] : null;
+  const pr = cell.pairs ? [] : null;
   while (s.phase !== 'ENDED') {
     if (n >= max) { err = `stuck: ${max} actions without END_RUN (phase ${s.phase})`; break; }
-    if (rep && s.fight && s.fight.kind !== 'boss' && s.stats.fights !== snapFight) { snap = snapshot(s); snapFight = s.stats.fights; }
+    if ((rep || pr) && s.fight && s.fight.kind !== 'boss' && s.stats.fights !== snapFight) {
+      snap = snapshot(s);
+      snapFight = s.stats.fights;
+      if (pr) { try { pr.push(replayOpenings(snap, seed, rec.fx.length)); } catch (e) { err = `pairs: ${e.message}`; break; } }
+    }
     let a;
     try { a = bot.choose(s); } catch (e) { err = `bot ${cell.bot}: ${e.message}`; break; }
     const b = rec.before(s, a);
@@ -51,7 +57,7 @@ export function runWithBot(cell, seed, risk, opts = {}) {
   const ms = performance.now() - t0;
   const bm = bot.memory ? { plans: bot.memory.plans || 0, replans: bot.memory.replans || 0, auto: bot.memory.autoPlans || 0, evals: bot.memory.evals || 0 } : null;
   const record = rec.finish(s, {
-    ...cell, seed, steps: n, err, ms: Math.round(ms * 10) / 10, log, rep, bm,
+    ...cell, seed, steps: n, err, ms: Math.round(ms * 10) / 10, log, rep, pr, bm,
     hash: opts.hash ? hash32(R.serialize(s)) : undefined,
   });
   return { record, state: s };

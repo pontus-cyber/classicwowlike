@@ -13,7 +13,7 @@ import { BAL, C2 } from './lib/params.mjs';
 import { C } from './lib/engine.mjs';
 import { cellMetrics } from './lib/metrics.mjs';
 import { FIGHT_KINDS } from './lib/recorder.mjs';
-import { combatChecks, deathRate, replayStats, windowStats, firstTargetStats, engageTable, reachRate, winRate } from './lib/combatchecks.mjs';
+import { combatChecks, deathRate, replayStats, windowStats, firstTargetStats, engageTable, reachRate, winRate, openingPairs, NON_BOSS } from './lib/combatchecks.mjs';
 import { rate, diffRate, median } from './lib/stats.mjs';
 import { readJson, readJsonl, pct, num, ci, table } from './lib/output.mjs';
 import { TIME_PROFILE } from './bots/index.mjs';
@@ -193,6 +193,23 @@ if (NOW.masher) {
   const s = replayStats(all);
   repRows.push(['all', s.n, pct(s.opener.p), pct(s.auto.p), pct(s.control.p)]);
   L.push(table(['Fight kind', 'Deaths replayed', `Survive: opener rounds 1-${C2.OPEN_ROUNDS}, masher after (B50)`, `Survive: autoplay rounds 1-${C2.OPEN_ROUNDS}, masher after`, 'Survive: masher replayed (control, must be 0 %)'], repRows));
+  L.push('');
+}
+
+// Opening pairs (diagnostic).
+const PAIRS = cellRecs(IN, 'planner-P0-pairs');
+if (PAIRS) {
+  L.push(`### Opening value on the same fights: every non-boss fight of ${flat(PAIRS).length} planner P0 runs replayed from its first decision with autoplay's, the opener's and the masher's first ${C2.OPEN_ROUNDS} rounds, autoplay after`, '');
+  const pRows = [];
+  const kindSets = [['all non-boss', NON_BOSS], ...['quest', 'grind', 'elite', 'trash', 'dboss'].map((k) => [k, new Set([FIGHT_KINDS.indexOf(k)])])];
+  for (const cls of [...CLASSES, null]) {
+    for (const [label, ks] of (cls ? [kindSets[0]] : kindSets)) {
+      const x = openingPairs(cls ? PAIRS[cls] || [] : flat(PAIRS), ks);
+      if (!x.auto.n) continue;
+      pRows.push([cls || 'all', label, x.auto.n, ...['auto', 'opener', 'masher'].map((k) => `${num(x[k].per1000, 1)} / ${pct(x[k].hp, 1)} / ${num(x[k].pot, 3)}`), `${x.better} / ${x.worse}`]);
+    }
+  }
+  L.push(table(['Class', 'Fights', 'n', 'Autoplay opening: deaths per 1 000 / end HP / potions per fight', 'Opener opening', 'Masher opening', 'Opener ends > 2 % higher / lower than autoplay'], pRows));
   L.push('');
 }
 

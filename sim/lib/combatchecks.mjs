@@ -225,6 +225,34 @@ export function combatChecks(cells) {
   return rows;
 }
 
+/**
+ * Opening pairs (replayOpenings) of autoplay records: per opening (auto, opener, masher) { n, deaths, per1000, hp
+ * (mean end HP fraction), pot (potions per fight) } and the fights where the opener ends with more / less HP than
+ * autoplay (by more than 2 % of max HP). kinds: fight kind codes to keep (default all non-boss).
+ */
+export function openingPairs(records, kinds = NON_BOSS) {
+  const names = ['auto', 'opener', 'masher'];
+  const out = Object.fromEntries(names.map((k) => [k, { n: 0, deaths: 0, hp: 0, pot: 0 }]));
+  let better = 0;
+  let worse = 0;
+  for (const r of records) {
+    if (!ok(r) || !r.pr) continue;
+    for (const p of r.pr) {
+      if (!kinds.has(p[1])) continue;
+      names.forEach((k, i) => {
+        const o = out[k];
+        o.n++;
+        if (p[2 + 3 * i] === 0) o.deaths++;
+        o.hp += p[3 + 3 * i] / 1000;
+        o.pot += p[4 + 3 * i];
+      });
+      if (p[6] > p[3] + 20) better++; else if (p[6] < p[3] - 20) worse++;
+    }
+  }
+  for (const o of Object.values(out)) { o.per1000 = o.n ? (1000 * o.deaths) / o.n : null; o.hp = o.n ? o.hp / o.n : null; o.pot = o.n ? o.pot / o.n : null; }
+  return { ...out, better, worse };
+}
+
 /** Engage-round share table per class (B51 detail): rows [cls, n, option shares..., other]. */
 export function engageTable(records) {
   const sh = engageShares(records);
