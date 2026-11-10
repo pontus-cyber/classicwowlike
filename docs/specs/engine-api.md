@@ -36,6 +36,7 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 | `xpToNext(L)`, `talentPointsFree(state)`, `itemScore(item, classId)`, `spellCost(state, id)`, `spellCooldown(state, id)`, `fleeChance(state)` | number | Display helpers so the UI never re-implements a rule. |
 | `bagCapacity(state)` | number | Bag slots: `BAG_SLOTS` + meta Deeper Pockets (rules 8.7, 11.2). In CREATE it reads the profile. |
 | `travelLevel(state)` | number or null | Level from which `TRAVEL_ON` is legal in the current zone (rules 1.5): exit level - TRAVEL_EARLY_LEVELS, one lower with Swift Boots ("Travel on at level N"). After the last row TRAVEL_ON is legal at any level. null outside a zone (CREATE, Camp, run over). |
+| `resurrectCharges(state)` | object or null | Resurrect charges (rules 9, M2 v3): `{ boon, secondBreath, ember, now, boss }`. `boon`, `secondBreath`, `ember` = charges held. `now` = the sources a death would use, in order (`'boon'`, `'second_breath'`, `'ember'`), in the current fight (out of combat: on the journey); `boss` = the same in the end-boss fight, where Second Breath is not used ("not in the final fight"). Both `[]` under the Oath of Frailty. null before START_RUN. |
 | `V(L)`, `xpCurve(L)`, `diffMod(d)` | number | Rule helpers for estimates (read-only): value scale V (rules 8.5; prices and gold are multiples of it), the levelling polynomial (rules 4.3, defined for every L: `xpCurve(60)` is the event-XP base at CL 60 while `xpToNext(60)` is 0), the XP level-difference modifier for `d = CL - L` (rules 4.4). |
 | `spellInfo(state, id, target)` | object or null | Tooltip data: name, level, tags, resource, cost, cd, cdLeft, tl, rank, `amount` (`{kind: damage|dot|ward|heal, amount or perTick, hits, school}`, base value before level/target/crit/variance), `usable` and `reason` in a fight, content flavour `text`. |
 | `C` | module | All constants and data tables (CLASS, SPELL, TALENT, PET, CONSUMABLE, BOON, META, BOSS_TEXT, ...). |
@@ -121,7 +122,7 @@ round, then the next round's intents are rolled and shown. The events list cover
 | `player.talents[id] = rank`, `player.talentSpent` | talents; unspent points: `talentPointsFree(state)` |
 | `player.equipped[slot]`, `player.bag[]` | items (see below) |
 | `player.buffs.{insight, fury, elixir} = {left, active}` | node-timed buffs; `active` while inside a node |
-| `player.res.{boon, meta}`, Embers in the bag | resurrect charges (rules 9) |
+| `player.res.{boon, meta}`, Embers in the bag | resurrect charges (rules 9); `meta` = Second Breath, not used in the end-boss fight. Use `resurrectCharges(state)` for what a death would use |
 | `player.pet = {id, hp, alive}` | Hunter pet |
 | `zone` | current zone; draw it with `mapView(state)` |
 | `hub.used.{trainer, vendor, inn}` | hub/camp services used this visit |
@@ -163,7 +164,7 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `shield`, `enrage`, `image` | | enemy shield, enemy enrage, Mirrorshade image |
 | `phaseChange` | `phase` | boss phase 2 or 3 |
 | `death` | `u, name` | enemy, pet or player died |
-| `resurrect` | `source` (`boon` `second_breath` `ember`), `hp, mana` | `hp`, `mana`: the player's values after the resurrect (RES_HP_PCT, RES_MANA_PCT) |
+| `resurrect` | `source` (`boon` `second_breath` `ember`), `hp, mana` | `hp`, `mana`: the player's values after the resurrect (RES_HP_PCT, RES_MANA_PCT). Never `second_breath` in the end-boss fight (M2 v3) |
 | `xp` | `amount, rested, why` | |
 | `levelUp` | `level, talentPoint, hpGain, manaGain, petHpGain, maxHp, maxMana, petMaxHp` | one per level gained. Current HP, mana and pet HP (live pet) rise by the max gains (rules 4.3); `*Gain` = what was added, `max*` = the new maxima (`maxMana` 0 without mana, `petMaxHp` 0 without a pet) |
 | `gold` | `amount, why` | negative when spent |

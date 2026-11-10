@@ -529,15 +529,29 @@ function enemyDeath(s, ev, idx) {
 }
 
 // ---------------- Death and resurrection ----------------
+/**
+ * Resurrect charges a death would use, in the order they are used (rules 9): Boon of Return, Second Breath
+ * (meta; not in the end-boss fight, M2 v3), Ember of Return. None under the Oath of Frailty (rules 11.5).
+ * endBoss: the death happens in the end-boss fight.
+ */
+export function resurrectOrder(s, endBoss) {
+  if (s.oaths.includes('frailty')) return [];
+  const p = s.player;
+  const out = [];
+  for (let i = 0; i < p.res.boon; i++) out.push('boon');
+  if (!endBoss) for (let i = 0; i < p.res.meta; i++) out.push('second_breath');
+  for (let i = countConsumable(s, 'ember_of_return'); i > 0; i--) out.push('ember');
+  return out;
+}
+
 function playerDeath(s, ev, killer, spell) {
   const f = s.fight;
   const p = s.player;
-  let source = null;
-  if (!s.oaths.includes('frailty')) {
-    if (p.res.boon > 0) { p.res.boon -= 1; source = 'boon'; }
-    else if (p.res.meta > 0) { p.res.meta -= 1; source = 'second_breath'; }
-    else if (countConsumable(s, 'ember_of_return') > 0) { takeConsumable(s, 'ember_of_return', 1); source = 'ember'; }
-  }
+  // In the end-boss fight Second Breath is skipped; it stays unused (M2 v3).
+  const source = resurrectOrder(s, f.kind === 'boss')[0] || null;
+  if (source === 'boon') p.res.boon -= 1;
+  else if (source === 'second_breath') p.res.meta -= 1;
+  else if (source === 'ember') takeConsumable(s, 'ember_of_return', 1);
   if (source) {
     p.hp = Math.max(1, rnd(RES_HP_PCT * p.d.maxHp));
     if (p.d.maxMana) p.mana = rnd(RES_MANA_PCT * p.d.maxMana);

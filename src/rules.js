@@ -13,7 +13,8 @@
 //
 // Also exported: validateContent, newProfile, metaOffers, buyMeta, mapView, isLegal, whyIllegal, stepInPlace,
 // IllegalActionError, display helpers (xpToNext, talentPointsFree, itemScore, spellCost, spellCooldown,
-// spellInfo, fleeChance, bagCapacity, travelLevel), rule helpers (V, xpCurve, diffMod) and every constant via `C`.
+// spellInfo, fleeChance, bagCapacity, travelLevel, resurrectCharges), rule helpers (V, xpCurve, diffMod) and every
+// constant via `C`.
 import * as C from './constants.js';
 import { normaliseSeed } from './rng.js';
 import { cloneState, deepClone, deepFreeze, IllegalActionError } from './engine/util.js';
@@ -25,8 +26,9 @@ import { newProfile, metaOffers, buyMeta, applyRunToProfile } from './engine/met
 import { availablePets, metaFromProfile, travelLevel as travelAt } from './engine/nodes.js';
 import { nextLanes } from './engine/map.js';
 import { xpToNext, xpCurve, diffMod, talentPointsFree as freePoints } from './engine/progress.js';
-import { itemScore, V, bagCapacity as bagCap } from './engine/items.js';
+import { itemScore, V, bagCapacity as bagCap, countConsumable } from './engine/items.js';
 import { spellCost as cost, spellCd, spellAmount, spellTl, fleeChance as flee, castError } from './engine/spells.js';
+import { resurrectOrder } from './engine/damage.js';
 
 export const STATE_VERSION = 1;
 export { C, validateContent, newProfile, metaOffers, buyMeta, applyRunToProfile, IllegalActionError, xpToNext, itemScore };
@@ -50,6 +52,22 @@ export function bagCapacity(state) {
  */
 export function travelLevel(state) {
   return state.player && state.zone && !state.zone.camp && state.phase !== 'SUMMARY' && state.phase !== 'ENDED' ? travelAt(state) : null;
+}
+
+/**
+ * Resurrect charges (rules 9): `{ boon, secondBreath, ember, now, boss }`. The counts are what the player holds;
+ * `now` and `boss` list the sources a death would use, in order ('boon', 'second_breath', 'ember'): `now` in the
+ * current fight (out of combat: on the journey), `boss` in the end-boss fight, where Second Breath is not used
+ * (M2 v3). Both are empty under the Oath of Frailty. null before START_RUN.
+ */
+export function resurrectCharges(state) {
+  if (!state.player) return null;
+  const p = state.player;
+  return {
+    boon: p.res.boon, secondBreath: p.res.meta, ember: countConsumable(state, 'ember_of_return'),
+    now: resurrectOrder(state, !!(state.fight && state.fight.kind === 'boss')),
+    boss: resurrectOrder(state, true),
+  };
 }
 
 /** Unspent talent points (rules 6). */

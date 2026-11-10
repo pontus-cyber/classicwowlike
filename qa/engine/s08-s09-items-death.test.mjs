@@ -188,6 +188,58 @@ describe('rules 9 death and resurrection', () => {
     assert.ok(!r.state.player.bag.some((x) => x.id === 'ember_of_return'));
   });
 
+  test('9 Second Breath is not used in the end-boss fight (M2 v3): the next charge in the order is used, or the run ends', () => {
+    const prof = { ...R.newProfile(), unlocks: { second_breath: 1 }, reachedBoss: true };
+    const ember = (x) => x.player.bag.push({ uid: 'em', kind: 'cons', id: 'ember_of_return', qty: 1 });
+    // A level-60 mage at the end boss (round 1: Umbral Strike) with 1 HP.
+    const atBoss = (prep) => {
+      let s = R.step(started('mage', { seed: 5, profile: prof }), { type: 'LEAVE_HUB' }).state;
+      s = tweak(atLevel(s, 60), (x) => { x.zone.z = 6; x.hours = 100; });
+      s = play(s, [{ type: 'TRAVEL_ON' }, { type: 'FIGHT_BOSS' }]).state;
+      assert.equal(s.fight.kind, 'boss');
+      return tweak(s, (x) => { x.player.hp = 1; if (prep) prep(x); });
+    };
+    const bossDie = (s) => { const c = cloneState(s); forceDraws(c, 3, (d) => d[0] > 0.2 && d[1] > 0.1); return R.step(c, { type: 'PASS' }); };
+    // Only Second Breath: the run ends, the charge stays unused.
+    let r = bossDie(atBoss());
+    assert.equal(ev(r.events, 'resurrect').length, 0);
+    assert.equal(r.state.phase, 'SUMMARY');
+    assert.equal(r.state.outcome, 'death');
+    assert.equal(r.state.death.nodeType, 'boss');
+    assert.equal(r.state.player.res.meta, C.RES_META_CHARGES, 'Second Breath unused');
+    assert.equal(R.summary(r.state).resurrectsUsed, 0);
+    // Second Breath and an Ember: the Ember is used.
+    r = bossDie(atBoss(ember));
+    assert.equal(ev(r.events, 'resurrect')[0].source, 'ember');
+    assert.equal(r.state.player.res.meta, C.RES_META_CHARGES);
+    assert.ok(r.state.fight);
+    // Boon of Return first, as on the journey.
+    r = bossDie(atBoss((x) => { x.player.res.boon = 1; ember(x); }));
+    assert.equal(ev(r.events, 'resurrect')[0].source, 'boon');
+    // On the journey it works in every other fight: dungeon boss and Camp wave.
+    for (const kind of ['dboss', 'camp']) {
+      let s = withSpells(atLevel(started('mage', { seed: 5, profile: prof }), 20), []);
+      s = lethal(inFight(s, [mob('z1_dboss', 20, 'dboss')], { kind }).state);
+      r = die(s);
+      assert.equal(ev(r.events, 'resurrect')[0].source, 'second_breath', kind);
+      assert.equal(r.state.player.res.meta, C.RES_META_CHARGES - 1);
+    }
+  });
+
+  test('9 resurrectCharges(state): counts, and the order used now and in the end-boss fight (M2 v3)', () => {
+    const prof = { ...R.newProfile(), unlocks: { second_breath: 1 }, reachedBoss: true };
+    assert.equal(R.resurrectCharges(R.newRun({ classId: 'mage', content: CONTENT, profile: prof })), null, 'CREATE');
+    const s = tweak(started('mage', { profile: prof }), (x) => { x.player.res.boon = 1; x.player.bag.push({ uid: 'em', kind: 'cons', id: 'ember_of_return', qty: 1 }); });
+    const sb = new Array(C.RES_META_CHARGES).fill('second_breath');
+    assert.deepEqual(R.resurrectCharges(s), { boon: 1, secondBreath: C.RES_META_CHARGES, ember: 1, now: ['boon', ...sb, 'ember'], boss: ['boon', 'ember'] });
+    const inBoss = tweak(s, (x) => { x.fight = { kind: 'boss' }; });
+    assert.deepEqual(R.resurrectCharges(inBoss).now, ['boon', 'ember']);
+    const inDungeon = tweak(s, (x) => { x.fight = { kind: 'dboss' }; });
+    assert.deepEqual(R.resurrectCharges(inDungeon).now, ['boon', ...sb, 'ember']);
+    const frail = tweak(s, (x) => { x.oaths = ['frailty']; });
+    assert.deepEqual(R.resurrectCharges(frail), { boon: 1, secondBreath: C.RES_META_CHARGES, ember: 1, now: [], boss: [] });
+  });
+
   test('9 no charge left: the run ends in SUMMARY with the death location recorded', () => {
     const r = die(fightAt(null));
     assert.equal(r.state.phase, 'SUMMARY');
