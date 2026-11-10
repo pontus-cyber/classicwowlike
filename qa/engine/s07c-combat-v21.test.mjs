@@ -1,9 +1,17 @@
 // rules.md 7.2, 7.4, 7.7, 7.10, 7.12 and 13, the lines marked "(combat v2.1)" (docs/specs/combat-v2.md 16, D55-D57):
-// wind-ups on the signature turns, their lasting result (STAGGERED when answered, EMPOWERED when landed), the setup
-// values. One test (at least) per rule; each fails when its rule is reverted. The constants are checked by s13.
+// wind-ups on the signature turns, their lasting result (STAGGERED when answered, EMPOWERED when landed), Disrupt on
+// CC-immune enemies, the setup values, determinism and full runs (both map modes, fixture and real content). One test
+// (at least) per rule; each fails when its rule is reverted. The constants are checked by s13.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { R, C, started, atLevel, withSpells, inFight, tweak, forceDraws, ev, st, cloneState } from './helpers.mjs';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import {
+  R, C, CONTENT, started, atLevel, withSpells, inFight, tweak, forceDraws, ev, st, cloneState, MAX_ACTIONS_PER_RUN,
+} from './helpers.mjs';
+
+const REAL_PATH = fileURLToPath(new URL('../../src/content/index.js', import.meta.url));
+const REAL = existsSync(REAL_PATH) ? (await import(REAL_PATH)).CONTENT : null;
 
 const mob = (tid, level = 20, variant = 'normal') => ({ tid, level, variant });
 // Fixture content (qa/fixtures/content-min.js): elites z1 Heavy Blow (brute), z2 Dark Cast (caster), z3 Cleave, z4
@@ -345,5 +353,92 @@ describe('rules 7.11 the predicted cancel of a wind-up (D52, combat v2.1)', () =
     const r = R.step(s, { type: 'PASS' });
     assert.deepEqual(brief(r.events), [['stagger', 'ab_heavy', 'control', 'FROZEN']]);
     assert.deepEqual(r.state.fight.enemies[0].track[0].cancel, { by: 'FROZEN', offBalance: true, stagger: true, breaks: false, done: true });
+  });
+});
+
+describe('combat v2.1: determinism and full runs', () => {
+  /** autoAction, except that the engage round of a fight with a Disrupt target uses it (default autoplay never does: a
+   * dungeon boss starts its fight alone, and rule E needs 2 enemies). */
+  const disruptPolicy = (s) => {
+    if (s.fight && R.isEngageRound(s)) for (const o of R.engageOptions(s) || []) if (o.disrupt.length) return engage(o.id, o.disrupt[0]);
+    return R.autoAction(s);
+  };
+
+  /**
+   * A full run with `policy`, checking after every step: every wind-up result belongs to an elite, rare or dungeon boss
+   * of the fight, on SIGNATURE_TURN (a dungeon boss also SIGNATURE_TURN_2), at most one per wind-up; the enemies'
+   * EMPOWERED and STAGGERED stacks equal their events; a fight starts without stacks. Returns counts.
+   */
+  function checkedRun(classId, seed, content, mapMode, policy, log = null) {
+    let s = R.newRun({ classId, petId: classId === 'hunter' ? 'ridgewolf' : null, seed, content, mapMode });
+    const t = { stagger: 0, empower: 0, disrupt: 0, why: new Set(), fights: 0 };
+    let kinds = [];
+    let per = new Map();
+    for (let n = 0; n < MAX_ACTIONS_PER_RUN && s.phase !== 'ENDED'; n++) {
+      const a = policy(s);
+      if (log) log.push(a);
+      const r = R.step(s, a);
+      let started = false;
+      for (const e of r.events) {
+        if (e.t === 'fight') { kinds = e.enemies.map((x) => x.kind); per = new Map(); t.fights++; started = true; }
+        if (e.t === 'summon') kinds[e.u] = 'normal';
+        if (e.t === 'action' && e.disrupt) t.disrupt++;
+        if (e.t !== 'stagger' && e.t !== 'empower') continue;
+        t[e.t]++;
+        if (e.t === 'stagger') t.why.add(e.why);
+        assert.ok(['elite', 'rare', 'dboss'].includes(kinds[e.u]), `${e.t} on a ${kinds[e.u]}`);
+        assert.ok(e.turn === C.SIGNATURE_TURN || (kinds[e.u] === 'dboss' && e.turn === C.SIGNATURE_TURN_2), `turn ${e.turn}`);
+        const key = `${e.u}:${e.turn}`;
+        assert.ok(!per.has(key), `one result per wind-up (${key})`);
+        per.set(key, e.t);
+      }
+      s = r.state;
+      if (!s.fight) continue;
+      for (const en of s.fight.enemies) {
+        const count = (k) => [...per].filter(([key, v]) => key.startsWith(`${en.idx}:`) && v === k).length;
+        assert.equal(stacks(en, 'STAGGERED'), count('stagger'), `seed ${seed} step ${n}`);
+        assert.equal(stacks(en, 'EMPOWERED'), count('empower'), `seed ${seed} step ${n}`);
+        if (started && per.size === 0) assert.ok(!st(en.st, 'STAGGERED') && !st(en.st, 'EMPOWERED'), 'a fight starts without stacks');
+      }
+    }
+    assert.equal(s.phase, 'ENDED', `${classId} ${mapMode} seed ${seed}`);
+    return { t, state: s };
+  }
+
+  test('same seed + same actions = same state through wind-ups, stacks and Disrupt; serialize/deserialize mid-fight with stacks; a full run replays from its action log', () => {
+    let a = fight('hunter', 20, ['keen_shot', 'muzzle_shot', 'snare_trap'], [dboss(1)], { petId: 'ridgewolf' });
+    let b = cloneState(a);
+    let most = 0;
+    for (let i = 0; i < 14 && a.fight; i++) {
+      const act = i === 0 ? engage('lay_trap', 0) : R.autoAction(a);
+      if (i > 0) assert.deepEqual(R.autoAction(b), act);
+      a = R.step(a, act).state;
+      b = R.step(R.deserialize(R.serialize(b), CONTENT), act).state;
+      assert.equal(R.serialize(a), R.serialize(b), `step ${i}`);
+      if (a.fight) most = Math.max(most, stacks(a.fight.enemies[0], 'STAGGERED') + stacks(a.fight.enemies[0], 'EMPOWERED'));
+    }
+    assert.ok(most >= 1, 'stacks were in the state');
+    const content = REAL || CONTENT;
+    const log = [];
+    const { state } = checkedRun('mage', 31, content, 'rows', disruptPolicy, log);
+    let c = R.newRun({ classId: 'mage', seed: 31, content });
+    for (const x of log) c = R.step(c, x).state;
+    assert.equal(R.serialize(c), R.serialize(state));
+  });
+
+  test('full autoplay runs per class in both map modes (fixture and real content) end; wind-up results are consistent with the state; a policy that Disrupts every dungeon boss ends too', () => {
+    const all = { stagger: 0, empower: 0, disrupt: 0, why: new Set(), runs: 0 };
+    const add = (t) => { all.stagger += t.stagger; all.empower += t.empower; all.disrupt += t.disrupt; for (const w of t.why) all.why.add(w); all.runs++; };
+    for (const content of [CONTENT, REAL].filter(Boolean)) {
+      for (const mapMode of ['rows', 'expedition']) {
+        for (const cls of C.CLASS_IDS) {
+          for (const seed of [5, 21, 44]) add(checkedRun(cls, seed, content, mapMode, R.autoAction).t);
+          for (const seed of [8, 60]) add(checkedRun(cls, seed, content, mapMode, disruptPolicy).t);
+        }
+      }
+    }
+    assert.ok(all.runs >= 30);
+    assert.ok(all.stagger > 0 && all.empower > 0 && all.disrupt > 0, JSON.stringify({ ...all, why: [...all.why] }));
+    for (const w of ['interrupt', 'disrupt']) assert.ok(all.why.has(w), `answered by ${w} in full runs: ${[...all.why]}`);
   });
 });
