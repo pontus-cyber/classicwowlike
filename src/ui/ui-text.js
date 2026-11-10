@@ -11,7 +11,52 @@ export const STATUS_INFO = {
   MIRROR: { name: 'Mirrorshade', debuff: false, text: 'Attacks may strike an image instead of you.' },
   FEIGN: { name: 'Feigning', debuff: false, text: 'Enemies attack your pet instead.' },
   COMMUNION: { name: 'Wild Communion', debuff: false, text: 'Your pet deals more damage and taunts.' },
+  // combat v2 (docs/specs/combat-v2.md 5, 6; engine-api.md 6). v2Debuff: shown as a debuff on an enemy (the engine's
+  // DEBUFFS list only names what can land on the player).
+  OFF_BALANCE: { name: 'Off-balance', debuff: true, v2Debuff: true, text: 'Its big move failed: it takes more damage, your hits crit more often, and it cannot dodge. Hit it now.' },
+  SAPPED: { name: 'Sapped', debuff: true, v2Debuff: true, text: 'Skips its turns. Any damage wakes it, damage over time included.' },
+  TRAP: { name: 'Trap', debuff: true, v2Debuff: true, text: 'A trap waits under it and springs on its first heavy blow or cast, else on its first turn.' },
+  GATHER: { name: 'Gathered Power', debuff: false, text: 'Your next damaging spells cost no mana and crit more often.' },
+  PET_LEAD: { name: 'Leading the Charge', debuff: false, text: 'Your pet engaged first: it taunts and takes less damage.' },
 };
+
+// ------------------------------------------------------------------ combat v2 (docs/specs/combat-v2.md 4, 6, 10)
+/**
+ * Enemy roles (rules 7.6 archetypes, combat-v2.md 4.1): the badge name, what the role does, and what its opening script
+ * asks of the player (the spec's table, in words). The script itself is read from the engine (data.v2.scripts).
+ */
+export const ROLE_INFO = {
+  brute: { name: 'Brute', text: 'Hits hard. Its Heavy Smash is a telegraphed big blow.', asks: 'Stop or absorb its Heavy Smash, then punish the opening.' },
+  caster: { name: 'Caster', text: 'Fragile, but its casts hurt and curse you.', asks: 'Interrupt or control its Hex Bolt, or kill it before it casts.' },
+  skulker: { name: 'Skulker', text: 'Bleeds you, and as a lookout signals for help when it is not alone.', asks: 'Kill, interrupt or control it before it signals.' },
+  beast: { name: 'Beast', text: 'Bloodlust: deals more damage every turn it acts.', asks: 'Kill it early: every turn alive makes it stronger.' },
+  guardian: { name: 'Guardian', text: 'Shields its ward and braces itself; tough to bring down.', asks: 'Do not spend your burst on its ward early, or control the guardian.' },
+  mender: { name: 'Mender', text: 'Bolsters the weakest ally with a shield and mends the wounded.', asks: 'Kill or control it; interrupt its Mend.' },
+};
+/** A control status as a word on the track ("Heavy Smash cancelled: stunned"). */
+export const CONTROL_WORD = { STUN: 'stunned', FROZEN: 'frozen', HEXED: 'hexed', SAPPED: 'sapped', TRAP: 'trapped', INTERRUPT: 'interrupted' };
+
+/**
+ * One-line effect of an engage option (rules 7.10, combat-v2.md 6.2) from its engine entry o (data.v2.options[id]: mult,
+ * cp, turns, spells, crit, markRounds, stun, dr) and the numbers in n (data.v2.num). No number is written here.
+ */
+export function engageText(o, n) {
+  if (!o) return '';
+  switch (o.id) {
+    case 'ambush': return `A strike from Stealth: ${n.shadowstep} once learned, else ${n.jab} ×${o.mult} for +${o.cp} combo points. You stay in Stealth.`;
+    case 'sap': return `It skips its next ${numWord(o.turns)} turns. Any damage wakes it, damage over time included. You stay in Stealth.`;
+    case 'premeditate': return `+${o.cp} combo points before the fight starts. You stay in Stealth.`;
+    case 'precast': return 'Cast one spell from your bar for no mana before they notice you; its cooldown starts.';
+    case 'binding_glyph': return `Frozen for its next ${numWord(o.turns)} turns; damage does not break it. Frozen counts as off-balance.`;
+    case 'gather_power': return `Your next ${numWord(o.spells)} damaging spells cost no mana and get +${pct(o.crit)} critical strike chance.`;
+    case 'opening_shot': return `${n.keen} ×${o.mult}, and the target is Marked (+${n.markValue != null ? pct1(n.markValue) : '?'} damage taken) for ${o.markRounds} rounds.`;
+    case 'lay_trap': return `Springs on its first heavy blow or cast in its next ${numWord(n.trackLen)} turns: cancelled, stunned, off-balance. Else on its first turn.`;
+    case 'send_pet': return `Your pet charges first: it taunts for ${numWord(o.turns)} turns and takes ${pct(o.dr)} less damage.`;
+    default: return '';
+  }
+}
+/** Kind of an engage option in words (strike, control, setup). */
+export const ENGAGE_KIND = { strike: 'Strike', control: 'Control', setup: 'Setup' };
 
 export const CLASS_UI = Object.fromEntries(Object.values(CLASSES).map((c) => [c.id, { color: c.color, role: c.role, blurb: c.blurb }]));
 
@@ -111,6 +156,15 @@ export function statusEffect(s, r, info = {}) {
     case 'CONFLAGRANT': if (s.value) effect = `Fire spells cost no mana and have +${pct(s.value)} critical strike chance.`; break;
     case 'MIRROR': if (s.value) effect = `Each enemy attack has a ${pct(s.value)} chance to strike an image instead of you.`; break;
     case 'COMMUNION': if (s.value) effect = `Your pet deals ${pct(s.value)} more damage.`; break;
+    // combat v2 (rules 7.10, 7.13): the window's numbers from the status (value = extra damage taken) and the rules table
+    case 'OFF_BALANCE':
+      if (s.value) effect = `Takes ${pct(s.value)} more damage from you and your pet${R.offbalCrit != null ? `, your hits on it crit ${pct(R.offbalCrit)} more often` : ''}, and it cannot dodge.`;
+      lines.push('Use it: your next action is the window.');
+      break;
+    case 'SAPPED': effect = 'Skips its turns while sapped. Any damage wakes it, damage over time included.'; break;
+    case 'TRAP': if (s.turn != null) effect = `A trap springs on its turn ${s.turn}: that action is cancelled and it is stunned${s.stun ? ` for ${roundsLeft(s.stun)}` : ''}; a cancelled heavy blow or cast leaves it off-balance.`; break;
+    case 'GATHER': if (s.value) effect = `Your next ${s.stacks > 1 ? `${numWord(s.stacks)} damaging spells` : 'damaging spell'} ${s.stacks > 1 ? 'cost' : 'costs'} no mana and ${s.stacks > 1 ? 'have' : 'has'} +${pct(s.value)} critical strike chance.`; break;
+    case 'PET_LEAD': if (s.value) effect = `Your pet taunts and takes ${pct(s.value)} less damage.`; break;
     case 'BRAND':
       if (R.brandDmg != null) {
         effect = `Takes ${R.brandDmg} shadow damage per stack at the end of each round: ${R.brandDmg * (s.stacks || 1)} at ${s.stacks || 1} ${plural(s.stacks || 1, 'stack')}, before level difference and Ascendancy.`;

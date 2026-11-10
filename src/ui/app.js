@@ -3,6 +3,8 @@
 // Input during a combat round (owner feedback 2026-11-10): an action key or button queues one next action, shown on the
 // action bar, and pressing the same one again changes nothing, so mashing cannot run rounds together; Space or a click
 // skips to the end of the hit on screen. Outside rounds any input finishes the step at once.
+// Combat v2 (docs/specs/combat-v2.md 10.3): in the engage round the engage panel's options act on the current target (keys
+// Q, W, E; the Mage's Pre-cast: Q, then a spell key), and hovering an option previews it on the tracks (R.engagePreview).
 import { createBridge, flags } from './engine-bridge.js';
 import { Scene } from './scene.js';
 import { createHud } from './hud.js';
@@ -24,6 +26,7 @@ export class App {
     this.queue = Promise.resolve();
     this.pending = 0;
     this.plays = []; // test hook: timing of the last played steps (testApi().plays)
+    this.ownActions = []; // test hook: actions the UI sent on its own, not from input (a new potion put on the item bar)
     this.renderQueued = false;
     this.autoTimer = null;
     const app = this;
@@ -35,7 +38,11 @@ export class App {
       toast: (t, k) => app.toast(t, k), banner: (a, b, k, ms) => app.banner(a, b, k, ms), hideBanner: () => app.hideBanner(),
       toggleWin: (n) => app.windows.toggle(n), closeWin: (n) => app.windows.close(n), openWin: (n) => app.windows.open(n),
       attack: () => app.combatAct((t) => ({ type: 'ATTACK', target: t }), 'attack', 'Attack'),
-      castSlot: (i) => { const id = app.shown.player && app.shown.player.bar[i]; if (id) app.combatAct((t) => ({ type: 'CAST', spellId: id, target: t }), `spell${i}`, (app.data.spells[id] || {}).name || id, () => app.hud.flashSlot(i)); },
+      castSlot: (i) => {
+        const id = app.shown.player && app.shown.player.bar[i]; if (!id) return;
+        if (ui.precastArmed && app.bridge.view.combat && app.bridge.view.combat.engage) { app.hud.flashSlot(i); app.engageAct('precast', id); return; }
+        app.combatAct((t) => ({ type: 'CAST', spellId: id, target: t }), `spell${i}`, (app.data.spells[id] || {}).name || id, () => app.hud.flashSlot(i));
+      },
       useItemSlot: (i) => { const v = app.shown; if (!v.player || !v.player.itemBar[i]) return; if (v.combat && !v.combat.over) app.combatAct((t) => ({ type: 'USE_ITEM', slot: i, target: t }), `item${i}`, (app.data.consumables[v.player.itemBar[i]] || {}).name || 'Item', () => app.hud.flashSlot(7 + i)); else { app.hud.flashSlot(7 + i); const it = v.player.bag.find((s) => s && s.id === v.player.itemBar[i]); if (it) app.act({ type: 'USE_ITEM', uid: it.uid }); } },
       // read the state when the action runs, so two quick presses (Z Z) turn it on and off again
       toggleAuto: () => app.act(() => ({ type: 'SET_AUTOPLAY', on: !app.bridge.view.autoplay })),
@@ -47,6 +54,12 @@ export class App {
       },
       /** The queued next action ({ key, label }) or null. */
       get queued() { return app.next ? { key: app.next.key, label: app.next.label } : null; },
+      // combat v2 engage round (docs/specs/combat-v2.md 10.3): the hovered option's preview on the tracks
+      // ({ option, spellId, target, valid, ctl, data: R.engagePreview }), an engage option, Pre-cast armed (Mage, key Q)
+      preview: null, precastArmed: false,
+      setPreview: (p) => { ui.preview = p; app.queueRender(); },
+      engage: (id, spellId) => app.engageAct(id, spellId),
+      armPrecast: () => { ui.precastArmed = !ui.precastArmed; app.queueRender(); },
       showDeath: (on, text) => app.showDeath(on, text),
       // Hall of Echoes (meta progression between runs): over class select; from the summary it opens after END_RUN
       openMeta: () => { hideTip(); app.windows.closeAll(); app.screens.meta.open(); app.queueRender(); },
@@ -180,6 +193,33 @@ export class App {
     this.act(n.make(this.validTarget(v)));
     return true;
   }
+  /**
+   * An engage option (combat v2, rules 7.10) from the engage panel or keys Q, W, E: sent as ENGAGE on the current target
+   * when the option may target it (R.engageOptions targets); options without a target take none; Pre-cast needs the spell.
+   * A target the option cannot take, or an option the engine greys out, is refused with its reason (no action is sent).
+   */
+  engageAct(id, spellId = null) {
+    const v = this.bridge.view; const eg = v.combat && !v.combat.over ? v.combat.engage : null;
+    if (!eg) return;
+    const o = eg.options.find((x) => x.id === id); if (!o) return;
+    if (o.reason) { this.toast(`${o.name}: ${o.reason}`, 'err'); return; }
+    let targets = o.targets;
+    if (o.spells) {
+      const sp = o.spells.find((x) => x.spellId === spellId);
+      if (!sp) { if (spellId) this.toast(`${o.name}: ${(this.data.spells[spellId] || {}).name || spellId} cannot be cast now`, 'err'); else { this.ui.armPrecast(); } return; }
+      targets = sp.targets;
+    }
+    const none = targets.length === 1 && targets[0] === null;
+    const cur = this.validTarget(v);
+    if (!none && !targets.includes(cur)) {
+      const names = targets.map((i) => (v.combat.enemies.find((e) => e.idx === i) || {}).name).filter(Boolean);
+      this.toast(`${o.name}: not on ${(v.combat.enemies.find((e) => e.idx === cur) || {}).name || 'that target'}. Choose ${names.join(' or ')}.`, 'err');
+      return;
+    }
+    this.ui.precastArmed = false; this.ui.preview = null;
+    const label = spellId ? `${o.name}: ${(this.data.spells[spellId] || {}).name || spellId}` : o.name;
+    this.combatAct(() => ({ type: 'ENGAGE', option: id, spellId: spellId || undefined, target: none ? null : cur }), `engage-${id}`, label);
+  }
   validTarget(v) {
     const c = v.combat; if (!c) return 0;
     const cur = c.enemies.find((e) => e.idx === this.ui.target && e.alive && !e.hidden);
@@ -196,6 +236,8 @@ export class App {
 
   afterPlay() {
     const v = this.bridge.view;
+    // the engage round is over: no preview, Pre-cast no longer armed
+    if (!(v.combat && v.combat.engage)) { this.ui.precastArmed = false; this.ui.preview = null; document.body.classList.remove('eg-bar-hint'); }
     this.ui.chestOpen = v.node && v.node.type === 'treasure' && v.node.step === 'opened' ? true : v.node && v.node.type === 'treasure' ? this.ui.chestOpen : false;
     if (v.combat && !v.combat.over) this.retarget(v); else if (!v.combat) this.ui.setTarget(null);
     this.windows.update();
@@ -220,7 +262,9 @@ export class App {
     const free = p.itemBar.map((id, i) => (id ? -1 : i)).filter((i) => i >= 0);
     fresh.slice(0, free.length).forEach((id, k) => {
       const slot = free[k]; const key = ['8', '9', '0'][slot]; const nm = this.data.consumables[id].name;
-      this.act({ type: 'SET_ITEM_BAR', slot, itemId: id }).then((r) => {
+      const a = { type: 'SET_ITEM_BAR', slot, itemId: id };
+      this.ownActions.push(a); // test hook: actions the UI sends on its own (qa/browser/full-run.mjs mirrors them in its twin)
+      this.act(a).then((r) => {
         if (r && r.ok) { this.toast(`${nm} is on item slot ${key}`, 'good'); this.hud.log(`${nm} goes on item slot ${key} (key ${key}).`, 'lg-sys'); }
       });
     });
@@ -313,6 +357,8 @@ export class App {
     if (v.combat) for (const e of v.combat.enemies) {
       const a = s.actors.get(`enemy:${e.idx}`); if (!a) continue;
       a.fxStun = has(e, 'STUN'); a.fxFrozen = has(e, 'FROZEN'); a.fxHex = has(e, 'HEXED'); a.fxBurn = has(e, 'BURN'); a.fxWard = has(e, 'WARD');
+      a.fxSap = has(e, 'SAPPED');
+      a.fxOffBal = !!(e.offBalance && e.alive && !v.combat.over); // combat v2: the off-balance marker under the enemy
       // telegraph: a heavy blow or a cast in the intent shows as a held wind-up until the enemy acts
       const it = e.intent;
       const tele = e.alive && !v.combat.over && it && !it.interrupted && !it.support && (it.heavy || it.cast) && it.id !== 'none' && it.id !== 'unaware';
@@ -369,6 +415,7 @@ export class App {
       return;
     }
     if (code === 'Escape') {
+      if (this.ui.precastArmed) { this.ui.precastArmed = false; this.queueRender(); return; }
       if (this.windows.anyOpen()) this.windows.closeAll();
       else if (this.ui.metaOpen) this.ui.closeMeta();
       else this.windows.toggle('settings');
@@ -386,6 +433,14 @@ export class App {
       if (!alive.length) return;
       const i = alive.findIndex((x) => x.idx === this.ui.target);
       this.ui.setTarget(alive[(i + (e.shiftKey ? alive.length - 1 : 1)) % alive.length].idx);
+      return;
+    }
+    // engage options in the engage round (combat v2): Q strike, W control, E setup (Pre-cast: Q arms it, then a spell key)
+    const eg = this.bridge.view.combat && !this.bridge.view.combat.over ? this.bridge.view.combat.engage : null;
+    if (eg && /^Key[QWE]$/.test(code)) {
+      e.preventDefault();
+      const o = eg.options[{ KeyQ: 0, KeyW: 1, KeyE: 2 }[code]];
+      if (o) { if (o.spells && !o.reason) this.ui.armPrecast(); else this.ui.engage(o.id); }
       return;
     }
     const map = { KeyA: () => this.ui.attack(), KeyZ: () => this.ui.toggleAuto(), KeyX: () => this.ui.pass(), KeyF: () => this.ui.flee(),
@@ -416,6 +471,14 @@ export class App {
       openWin: (n) => app.windows.open(n), closeWins: () => app.windows.closeAll(),
       /** Whether the Hall of Echoes is open (it shows over class select). */
       metaOpen: () => app.ui.metaOpen,
+      /** The engine actions applied to this run, in order (engine mode; a Node twin replays them). */
+      engineLog: () => app.bridge.engineLog(),
+      /** Actions the UI sent on its own since the page loaded (copies), e.g. a new potion put on the item bar. */
+      ownActions: () => app.ownActions.map((a) => ({ ...a })),
+      /** The engage hover preview now shown on the tracks (combat v2), or null. */
+      preview: () => (app.ui.preview ? { option: app.ui.preview.option, target: app.ui.preview.target, data: app.ui.preview.data } : null),
+      /** The current target (enemy index) or null. */
+      target: () => app.ui.target,
       canDebug: app.bridge.canDebug,
     };
   }

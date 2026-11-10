@@ -90,6 +90,10 @@ const G = {
   camp(c) { G.rest(c); },
   chain(c) { c.lineWidth = 5; for (const [x, y] of [[20, 20], [32, 32], [44, 44]]) { c.beginPath(); c.ellipse(x, y, 10, 6, 0.78, 0, 7); c.stroke(); } },
   plus(c) { G.cross(c); },
+  // combat v2: roles, off-balance, sleep
+  hammer(c) { c.save(); c.translate(32, 32); c.rotate(-0.6); c.fillRect(-3, -6, 6, 34); c.fillRect(-15, -22, 30, 16); c.restore(); },
+  broken(c) { G.shield(c); c.save(); c.globalCompositeOperation = 'destination-out'; c.lineWidth = 5; c.beginPath(); c.moveTo(30, 4); c.lineTo(36, 20); c.lineTo(26, 30); c.lineTo(38, 42); c.lineTo(30, 60); c.stroke(); c.restore(); },
+  zzz(c) { c.font = '900 26px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('Z', 22, 40); c.font = '900 19px sans-serif'; c.fillText('Z', 38, 26); c.font = '900 13px sans-serif'; c.fillText('Z', 50, 14); },
 };
 
 function star(c, x, y, r, n, inner = 0.45) {
@@ -204,17 +208,35 @@ const STATUS_ICON = {
   IMMUNE: ['tomb', 'frost'], HOT: ['cross', 'heal'], TAUNT: ['horn', 'gold'], RAPID: ['bolt', 'gold'], SHIELDED: ['shield', 'steel'],
   ENRAGED: ['flame', 'blood'], LINKED: ['chain', 'shadow'], BRACE: ['shield', 'steel'], ADRENAL: ['bolt', 'gold'], CONFLAGRANT: ['sun', 'fire'],
   MIRROR: ['mirror', 'arcane'], FEIGN: ['leaf', 'nature'], COMMUNION: ['paw', 'nature'],
+  // combat v2
+  OFF_BALANCE: ['broken', 'gold'], SAPPED: ['zzz', 'shadow'], TRAP: ['trap', 'steel'], GATHER: ['swirl', 'arcane'], PET_LEAD: ['paw', 'gold'],
 };
 export function statusIcon(id) { const m = STATUS_ICON[id] || ['spark', 'steel']; return icon(m[0], m[1]); }
 export const schoolBg = (school) => ({ fire: 'fire', frost: 'frost', arcane: 'arcane', shadow: 'shadow', nature: 'nature', phys: 'steel' }[school] || 'steel');
+/** Icon of an enemy action (an intent or a track entry; kind and flags as the bridge gives them). */
 export const abilityIcon = (intent) => {
   if (!intent) return icon('spark', 'dark');
-  if (intent.selfHeal || intent.mend) return icon('cross', 'heal');
-  if (intent.brace || intent.shieldAlly || intent.shield) return icon('shield', 'steel');
-  if (intent.curse) return icon('skull', 'shadow');
+  const k = intent.kind;
+  if (intent.signal || k === 'signal') return icon('horn', 'gold');
+  if (intent.summon || k === 'summon') return icon('horn', 'blood');
+  if (intent.bolster || k === 'bolster') return icon('shield', 'heal');
+  if (intent.selfHeal || intent.mend || k === 'heal' || k === 'selfHeal') return icon('cross', 'heal');
+  if (intent.brace || intent.shieldAlly || intent.shield || k === 'brace' || k === 'shieldAlly' || k === 'selfShield') return icon('shield', 'steel');
+  if (intent.curse || k === 'curse') return icon('skull', 'shadow');
   if (intent.cast) return icon('rune', 'arcane');
   if (intent.heavy) return icon('bolt', 'blood');
   if (intent.id === 'unaware' || intent.id === 'none') return icon('eye', 'dark');
+  if (k === 'rend') return icon('drop', 'blood');
+  if (k === 'cleave') return icon('whirl', 'blood');
   return icon(intent.school === 'phys' ? 'slash' : 'spark', schoolBg(intent.school));
 };
+/** Role badges (combat v2, rules 7.6 archetypes). */
+const ROLE_ICON = { brute: ['hammer', 'blood'], caster: ['rune', 'arcane'], skulker: ['dagger', 'poison'], beast: ['paw', 'earth'], guardian: ['shield', 'steel'], mender: ['cross', 'heal'] };
+export function roleIcon(arch) { const m = ROLE_ICON[arch] || ['skull', 'dark']; return icon(m[0], m[1]); }
+/** Engage options (combat v2, rules 7.10). */
+const ENGAGE_ICON = { ambush: ['step', 'shadow'], sap: ['zzz', 'shadow'], premeditate: ['stars', 'blood'], precast: ['rune', 'arcane'], binding_glyph: ['snowflake', 'frost'],
+  gather_power: ['swirl', 'arcane'], opening_shot: ['arrow', 'blood'], lay_trap: ['trap', 'steel'], send_pet: ['paw', 'nature'] };
+export function engageIcon(id) { const m = ENGAGE_ICON[id] || ['spark', 'gold']; return icon(m[0], m[1]); }
+/** A control status over a cancelled track entry (STUN, FROZEN, HEXED, SAPPED, or the trap that springs). */
+export function controlIcon(by) { return by === 'TRAP' ? icon('trap', 'steel') : by === 'INTERRUPT' ? icon('silence', 'arcane') : statusIcon(by); }
 export { shade };

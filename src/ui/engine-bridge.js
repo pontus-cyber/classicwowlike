@@ -28,16 +28,21 @@
 //              costs now (a dry step; null while it is not legal)
 //   hub:     { used: { trainer, vendor, inn } }
 //   node:    { type, step, cl, row, lane, ... }  step: intro|combat|reward|story|between|chest|rest|vendor|trainer|shrine
-//   combat:  { round, enemies: [{ idx, uid, name, level, rank, arch, hp, maxHp, statuses, alive, intent }], target,
-//              cooldowns: { spellId: roundsLeft }, potionCd, kind, isBoss, boss: { phase, asc, telegraph }, over, title, fightNo, fights }
+//   combat:  { round, enemies: [{ idx, uid, name, level, rank, arch, hp, maxHp, statuses, alive, intent, track, role, offBalance,
+//              ccImmune }], target, cooldowns: { spellId: roundsLeft }, potionCd, kind, isBoss, boss: { phase, asc, telegraph },
+//              over, title, fightNo, fights, engage }
+//              combat v2 (docs/specs/combat-v2.md 10, engine-api.md 6): track = the enemy's intent track (convTrack), role =
+//              its archetype and pack role (convRole), offBalance = R.offBalance, engage = the engage round's options
+//              (R.isEngageRound, R.engageOptions) or null; bridge.engagePreview(option, target, spellId) = R.engagePreview
 //   data.rules: rule numbers that screens show in text, read from the engine's constants (rulesTable below)
 //   loot:    { kind: 'loot'|'reward'|'story', title, text?, gold, xp, items?, choices? }
 //   summary: run summary (rules.md 9)
 //   par:     the run's boss par in hours (R.bossPar: BOSS_TIME_PAR, shorter under the Oath of Haste); mock: its own
 //   camp:    { par, asc } at the camp (asc: the engine's Ascendancy if the boss were faced now), else null
 //   zone.danger, node.danger { lo, hi }: zone danger (rules 7.6) from R.zoneDanger; the zone's at its highest level
-//   legal:   { lanes, travelOn, mustTravel, outOfCombat, spells: { id: { ok, reason, cd } }, items: [{ ok, reason, count, cd }],
-//              attack, flee, fleeChance?, services, talents, trainer }
+//   legal:   { lanes, travelOn, mustTravel, outOfCombat, spells: { id: { ok, reason, cd, window } }, items: [{ ok, reason, count, cd }],
+//              attack, flee, fleeChance?, services, talents, trainer }   window (combat v2): the enemies on which the spell
+//              lands in an OFF_BALANCE window (R.spellInfo(...).window per enemy; 'all' for an area spell), else null
 //   oaths:   Oaths of the run (rules 11.5); create.oaths in CREATE
 //   meta:    engine mode, CREATE and SUMMARY only (rules 11): the profile between runs, see metaView() below.
 //   data.meta: the catalogue (R.C.META), Oaths (R.C.OATH) and the names and numbers its texts use.
@@ -71,7 +76,8 @@ function rulesTable(K) {
     // Round time budget at the default animation speed (rules 3, M2 v2); null on an engine without it.
     roundAnimMs: K.PACE_ROUND_ANIM_S != null ? K.PACE_ROUND_ANIM_S * 1000 : null,
     // Status numbers that live in the rules, not on the status object (rules 7.4): status tooltips state them.
-    status: { cursePct: K.CURSE_PCT ?? null, brandDmg: K.BRAND_DMG ?? null, brandMax: K.BRAND_MAX ?? null, stealthMiss: K.STEALTH_MISS_BONUS ?? null, dodgeCap: K.DODGE_CAP ?? null },
+    status: { cursePct: K.CURSE_PCT ?? null, brandDmg: K.BRAND_DMG ?? null, brandMax: K.BRAND_MAX ?? null, stealthMiss: K.STEALTH_MISS_BONUS ?? null, dodgeCap: K.DODGE_CAP ?? null,
+      offbalCrit: K.OFFBAL_CRIT ?? null },
     // Zone danger (rules 7.6, M2 v3; dungeons M2 v4): enemies above dangerFrom hit harder. dangerStep and
     // dangerStepDungeon: the extra damage TXT.DANGER_LEVELS levels above dangerFrom, in the open world and in a dungeon
     // (trash), from the engine's zoneDanger; null without zone danger.
@@ -104,6 +110,30 @@ function metaData(K) {
   };
 }
 
+/**
+ * Combat v2 data for the engage panel, role badges and the intent track (docs/specs/combat-v2.md 10): the engage options
+ * (R.C.ENGAGE_OPTION and the class order of ENGAGE_OPTIONS), each archetype's opening script (OPENING_SCRIPT) and actions
+ * (ARCHETYPE, SCRIPT_ACTION), and the numbers the texts of ui-text.js name. null on an engine before combat v2.
+ */
+function v2Data(K) {
+  if (!K.ENGAGE_OPTION || !K.OPENING_SCRIPT) return null;
+  const act = (x) => ({ id: x.id, name: x.name, kind: x.kind, heavy: !!x.heavy, cast: !!x.cast });
+  return {
+    options: Object.fromEntries(Object.values(K.ENGAGE_OPTION).map((o) => [o.id, { ...o }])),
+    classOptions: Object.fromEntries(Object.entries(K.ENGAGE_OPTIONS).map(([c, l]) => [c, [...l]])),
+    scripts: Object.fromEntries(Object.entries(K.OPENING_SCRIPT).map(([a, l]) => [a, [...l]])),
+    actions: Object.fromEntries(Object.values(K.ARCHETYPE).map((a) => [a.id, a.actions.map(act)])),
+    scriptActions: Object.fromEntries(Object.values(K.SCRIPT_ACTION || {}).map((x) => [x.id, act(x)])),
+    num: {
+      trackLen: K.INTENT_TRACK_LEN, openingTurns: K.OPENING_TURNS, signatureTurn: K.SIGNATURE_TURN, offbalTaken: K.OFFBAL_TAKEN,
+      offbalBossTaken: K.OFFBAL_BOSS_TAKEN, offbalCrit: K.OFFBAL_CRIT, bolsterPct: K.BOLSTER_PCT, bloodlustStep: K.BLOODLUST_STEP,
+      bloodlustMax: K.BLOODLUST_MAX, signalAdds: K.SIGNAL_ADDS, markValue: K.SPELL.mark_prey ? K.SPELL.mark_prey.marked : null,
+      shadowstep: K.SPELL.shadowstep_strike ? K.SPELL.shadowstep_strike.name : 'Shadowstep Strike',
+      jab: K.SPELL.gutting_jab ? K.SPELL.gutting_jab.name : 'Gutting Jab', keen: K.SPELL.keen_shot ? K.SPELL.keen_shot.name : 'Keen Shot',
+    },
+  };
+}
+
 // ====================================================================================== mock
 function mockBackend(seed) {
   let state = mock.createState({ seed });
@@ -132,6 +162,17 @@ function mockBackend(seed) {
 const THEMES = ['farmland', 'wetlands', 'highlands', 'ruins', 'haunted', 'scorched'];
 const PROFILE_KEY = 'tbwcr.profile.v1';
 const RES_LETTER = { energy: 'E', mana: 'M', focus: 'F' };
+/** Keys of the engage options in the engage panel (strike, control, setup; combat-v2.md 10.3). */
+export const ENGAGE_KEYS = ['Q', 'W', 'E'];
+/**
+ * How an engage option's action plays (combat-v2.md 6.2; presentation only): at the target (strikes, Sap, Binding Glyph),
+ * on the hero (setups; Lay Trap shows on the target through its TRAP status), on the pet (Send the Pet), and its school.
+ */
+const ENGAGE_FX = {
+  ambush: { at: 'target', school: 'phys' }, sap: { at: 'target', school: 'phys' }, premeditate: { at: 'self', school: 'shadow', tags: ['resource'] },
+  binding_glyph: { at: 'target', school: 'frost' }, gather_power: { at: 'self', school: 'arcane', tags: ['resource'] },
+  opening_shot: { at: 'target', school: 'phys' }, lay_trap: { at: 'self', school: 'nature', tags: ['resource'] }, send_pet: { at: 'pet', school: 'nature', tags: ['defensive'] },
+};
 const RES_KEY = { boon: 'boon', second_breath: 'meta', ember: 'ember' }; // engine resurrect source -> view source
 const USE_MAP = { any: 'both', both: 'both', out: 'out', combat: 'combat', passive: 'passive' };
 const hash = (str) => { let h = 2166136261 >>> 0; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
@@ -183,7 +224,8 @@ function engineBackend(seedOpt) {
     }
   };
   let st = mkRun(seedOpt ?? randomSeed());
-  const local = { introSeen: new Set(), spoils: null, hold: null, reward: null, fightNo: 0, lastRun: null, runNo: 0 };
+  // engineLog: the engine actions applied to this run, in order (a test hook: a Node twin replays them, qa/browser)
+  const local = { introSeen: new Set(), spoils: null, hold: null, reward: null, fightNo: 0, lastRun: null, runNo: 0, engineLog: [] };
 
   // ---------------------------------------------------------------- static data for the UI
   const treeId = (cls, i) => C.CLASS[cls].trees[i].toLowerCase().replace(/\W+/g, '');
@@ -202,14 +244,17 @@ function engineBackend(seedOpt) {
     talents: Object.fromEntries(Object.values(C.TALENT).map((t) => [t.id, { id: t.id, tree: treeId(t.cls, t.tree), tier: t.tier, name: t.name, ranks: t.ranks, spell: t.spell || null, text: TXT.talentText(t.id, CONTENT) }])),
     pets: Object.fromEntries(Object.values(C.PET).map((p) => [p.id, { id: p.id, name: p.name, text: TXT.petText(p.id, CONTENT), meta: p.meta || null, locked: !!p.meta && !(profile && profile.unlocks && profile.unlocks[p.meta]) }])),
     consumables: Object.fromEntries(Object.values(C.CONSUMABLE).map((c) => [c.id, { id: c.id, name: c.name, use: USE_MAP[c.use] || 'both', stack: c.stack, mana: !!c.mana, text: TXT.consumableText(c.id, CONTENT, c) }])),
-    // names and texts from the UI table; buff or debuff from the engine's DEBUFFS list (rules 7.4)
-    statuses: Object.fromEntries(Object.entries(TXT.STATUS_INFO).map(([id, x]) => [id, { ...x, debuff: C.DEBUFFS ? C.DEBUFFS.includes(id) : x.debuff }])),
+    // names and texts from the UI table; buff or debuff from the engine's DEBUFFS list (rules 7.4). The combat v2 enemy
+    // statuses OFF_BALANCE, SAPPED and TRAP never land on the player, so DEBUFFS (what dispersal removes) leaves them out;
+    // on an enemy they work against it and show as debuffs (STATUS_INFO.v2).
+    statuses: Object.fromEntries(Object.entries(TXT.STATUS_INFO).map(([id, x]) => [id, { ...x, debuff: C.DEBUFFS ? C.DEBUFFS.includes(id) || !!x.v2Debuff : x.debuff }])),
     boons: Object.fromEntries(Object.values(C.BOON).map((b) => [b.id, { id: b.id, name: b.name, text: TXT.boonText(b.id, CONTENT) }])),
     slots: C.SLOT_IDS, zones: CONTENT.zones, camp: CONTENT.camp,
     nodeHours: Object.fromEntries(Object.values(C.NODE_TYPE).map((t) => [t.id, t.hours])),
     boss: { name: C.BOSS_TEXT.name, intro: (CONTENT.camp && CONTENT.camp.bossText) || '' },
     rules: rulesTable(C),
     meta: metaData(C),
+    v2: v2Data(C),
   };
   /** A pet that needs a meta unlock (Stormhawk) is locked until the profile owns it; refreshed after every purchase. */
   const refreshPets = () => { for (const pd of Object.values(data.pets)) pd.locked = !!pd.meta && !(profile && (profile.unlocks[pd.meta] || 0) > 0); };
@@ -241,7 +286,9 @@ function engineBackend(seedOpt) {
   const statuses = (list, f, shield = 0, enraged = 0) => {
     const out = (list || []).map((x) => ({ id: x.id, rounds: x.dur == null ? 99 : x.dur, full: x.full || null, stacks: x.stacks || 1,
       value: x.id === 'WARD' ? x.amount || 0 : x.value || 0, tick: x.tick || 0, amount: x.amount || 0, max: x.max || x.maxStacks || null,
-      canCrit: !!x.canCrit, focus: x.focus || 0, srcName: statusSource(x, f) }));
+      canCrit: !!x.canCrit, focus: x.focus || 0, srcName: statusSource(x, f),
+      // combat v2: a laid trap's spring turn and stun (TRAP), engine-api.md 6
+      ...(x.id === 'TRAP' ? { turn: x.turn ?? null, stun: x.stun ?? null } : {}) }));
     if (shield > 0 && !out.some((x) => x.id === 'WARD')) out.push({ id: 'WARD', rounds: 99, stacks: 1, value: shield, amount: shield, srcName: null });
     if (enraged > 0) out.push({ id: 'ENRAGED', rounds: 99, stacks: 1, value: enraged, srcName: null });
     return out;
@@ -318,7 +365,11 @@ function engineBackend(seedOpt) {
     const mv = R.mapView(s);
     const rows = mv ? mv.rows.map((row) => row.map((n) => {
       const out = { row: n.r, lane: n.l, type: n.type, cl: n.cl, visited: !!n.done, title: n.title, level: n.level, danger: nodeDanger(n) };
-      if (n.archetypes) out.enemyNames = n.archetypes.map(TXT.humanize); // one entry per enemy (grind: the first wave)
+      if (n.archetypes) { out.archetypes = [...n.archetypes]; out.enemyNames = n.archetypes.map(TXT.humanize); } // one entry per enemy (grind: the first wave)
+      // combat v2 (rules 7.14): a dungeon's trash fights and boss, a treasure's guard (archetypes [] when unguarded)
+      if (n.fights) out.fights = n.fights.map((x) => [...x]);
+      if (n.bossArchetype) out.bossArchetype = n.bossArchetype;
+      if (n.type === 'treasure') out.guarded = !!n.guarded;
       if (n.type === 'elite') { out.eliteName = n.name || null; out.rare = n.rare; }
       if (n.type === 'dungeon') { out.dungeon = n.name; out.bossLevel = n.bossLevel; out.bossName = zc && CONTENT.enemies[zc.dungeon.boss] ? CONTENT.enemies[zc.dungeon.boss].name : ''; }
       if (n.type === 'quest' && n.title) { const q = Object.values(CONTENT.quests).find((x) => x.title === n.title); if (q) out.giver = q.giver; }
@@ -337,8 +388,15 @@ function engineBackend(seedOpt) {
     try { return R.step(s, { type: 'TRAVEL_ON' }).state.hours - s.hours; } catch { return null; }
   }
 
-  const rankOf = (e) => (e.boss ? 'boss' : e.kind === 'shard' ? 'shard' : e.kind || 'normal');
+  // The end boss is kind 'boss'; a dungeon boss is kind 'dboss' (both carry boss: true, engine-api.md 6), so the rank
+  // reads the kind: a dungeon boss is drawn and framed as itself, not as the end boss.
+  const rankOf = (e) => (e.kind === 'boss' ? 'boss' : e.kind === 'shard' ? 'shard' : e.kind || 'normal');
   function fightKey(s) { const n = s.node; return `${s.zone ? s.zone.z : 0}:${n ? `${n.r}:${n.l}` : `h${s.hours}`}:${s.fight ? s.fight.k : 0}:${s.fight ? s.fight.kind : ''}`; }
+  const INTENT_LABEL = { curse: 'Curse: you deal less damage', brace: 'Braces: takes less damage', shieldAlly: 'Shields an ally', heal: 'Heals an ally', selfHeal: 'Heals itself',
+    selfShield: 'Shields itself', summon: 'Calls for help', cleave: 'Hits you and your pet', rend: 'Hit and bleed', bolster: 'Shields its weakest ally', signal: 'Calls a reinforcement' };
+  const SUPPORT = ['selfHeal', 'heal', 'selfShield', 'shieldAlly', 'brace', 'summon', 'bolster', 'signal'];
+  /** View target of an intent or track entry: 'player', 'pet', 'both' (all), 'self', 'ally' (an ally's index in allyIdx). */
+  const viewTarget = (t) => (t === 'all' ? 'both' : typeof t === 'number' ? 'ally' : t || 'player');
   function convIntent(it, e) {
     if (!it) return null;
     if (it.kind === 'boss') {
@@ -347,15 +405,86 @@ function engineBackend(seedOpt) {
       const tg = it.telegraph || {};
       return { id: 'boss', name: acts.map((a) => a.name).join(' + ') || it.name, target: it.target || 'player', est: it.est || 0, cast: !!it.cast, heavy: !!it.heavy,
         channel: lit && lit.step ? [lit.step, 2] : null, label: lit && lit.step === 2 ? 'Resolves this round' : null,
-        next: tg.crushNextRound ? 'Gravity Crush next round' : null, school: 'shadow', telegraph: tg, interrupted: !!it.interrupted };
+        next: tg.crushNextRound ? 'Gravity Crush next round' : null, school: 'shadow', telegraph: tg, interrupted: !!it.interrupted, turn: it.turn ?? null };
     }
-    const tgt = it.target === 'all' ? 'both' : typeof it.target === 'number' ? 'ally' : it.target || 'player';
-    const label = { curse: 'Curse: you deal less damage', brace: 'Braces: takes less damage', shieldAlly: 'Shields an ally', heal: 'Heals an ally', selfHeal: 'Heals itself', selfShield: 'Shields itself', summon: 'Calls for help', cleave: 'Hits you and your pet', rend: 'Hit and bleed' }[it.kind] || null;
+    const tgt = viewTarget(it.target);
     const none = it.kind === 'none';
-    return { id: none ? (it.name === 'Unaware' ? 'unaware' : 'none') : it.id, name: it.name, target: none ? 'none' : tgt, est: none ? 0 : it.est || 0, cast: !!it.cast, heavy: !!it.heavy,
-      school: it.school || 'phys', hits: it.hits || 1, label, interrupted: !!(it.interrupted || it.skipped),
+    return { id: none ? (it.name === 'Unaware' ? 'unaware' : 'none') : it.id, name: it.name, kind: it.kind, target: none ? 'none' : tgt, allyIdx: typeof it.target === 'number' ? it.target : null,
+      est: none ? 0 : it.est || 0, cast: !!it.cast, heavy: !!it.heavy, school: it.school || 'phys', hits: it.hits || 1, label: INTENT_LABEL[it.kind] || null,
+      interrupted: !!(it.interrupted || it.skipped), turn: it.turn ?? null, scripted: !!it.scripted,
       selfHeal: it.kind === 'selfHeal', mend: it.kind === 'heal', shield: it.kind === 'selfShield', brace: it.kind === 'brace', curse: it.kind === 'curse',
-      support: ['selfHeal', 'heal', 'selfShield', 'shieldAlly', 'brace', 'summon'].includes(it.kind) };
+      bolster: it.kind === 'bolster', signal: it.kind === 'signal', summon: it.kind === 'summon', shieldAlly: it.kind === 'shieldAlly',
+      support: SUPPORT.includes(it.kind),
+      // combat v2 (engine-api.md 6): control cancelled this turn's action, or the entry could not be played
+      cancelled: it.cancelled ? { by: it.cancelled.by, id: it.cancelled.id, name: it.cancelled.name, cast: !!it.cancelled.cast, heavy: !!it.cancelled.heavy } : null,
+      replaced: it.replaced ? { id: it.replaced.id, name: it.replaced.name, reason: it.replaced.reason } : null };
+  }
+
+  // ---------------------------------------------------------------- combat v2: intent track, roles (docs/specs/combat-v2.md 3, 4, 10)
+  /** Control statuses that cancel an enemy's now-entry (engine-api.md 6: intent.cancelled.by); HEXED and SAPPED break on damage. */
+  const CONTROL = ['STUN', 'FROZEN', 'HEXED', 'SAPPED'];
+  const BREAKS = new Set(['HEXED', 'SAPPED']);
+  /**
+   * An enemy's intent track for the view (rules 7.11), oldest first, or null (no track: dead, an older engine, the mock).
+   * Entry: { turn, round, id, name, kind, cast, heavy, scripted, signature, school, hits, target, allyIdx, est, support,
+   * now, cancel, replaced, boss }. round: the fight round the entry plays in (its turn0 + turn - 1). now: the entry it plays
+   * this round (its current turn; none in the engage round or before an add's turn 1); it shows the intent as it will be
+   * played (a replaced entry shows the basic attack and why). signature: a template ability on a scripted turn (rules 7.12).
+   * cancel { by, offBalance, breaks }: the now-entry that control cancelled (intent.cancelled), or a later entry that the
+   * enemy's control status still covers, read from the status's rounds left as the engine counts them (rules 7.4: a status
+   * with n rounds left is on at the start of the next n - 1 rounds), or the turn its laid trap springs on (TRAP.turn).
+   * breaks: SAPPED and HEXED end on any damage. offBalance: the cancelled entry is a heavy or a cast (rules 7.13).
+   * The end boss's entries (rules 10.3) carry boss { actions, brand, shards, ifPhase, alt }.
+   */
+  function convTrack(e, f) {
+    if (!e.alive || !Array.isArray(e.track) || !e.track.length) return null;
+    const T = e.turn || 0; // 0 before its turn 1: every entry is still to come
+    const ctl = CONTROL.map((id) => (e.st || []).find((x) => x.id === id)).find(Boolean);
+    const trap = (e.st || []).find((x) => x.id === 'TRAP');
+    const it = e.intent || {};
+    return e.track.map((x) => {
+      const round = (e.turn0 || 1) + x.turn - 1;
+      const now = T >= 1 && x.turn === T;
+      if (e.kind === 'boss' || x.actions) {
+        const acts = x.actions || [];
+        const anyAll = acts.some((a) => a.target === 'all');
+        return { turn: x.turn, round, id: 'boss', name: acts.map((a) => a.name).join(' + ') || e.name, kind: 'boss', cast: !!x.cast, heavy: !!x.heavy, scripted: false,
+          signature: false, school: 'shadow', hits: 1, target: anyAll ? 'both' : viewTarget(x.target), allyIdx: null, est: x.est || 0, support: false, now,
+          cancel: null, replaced: null, boss: { actions: acts.map((a) => ({ id: a.id, name: a.name, est: a.est || 0, cast: !!a.cast, heavy: !!a.heavy, target: viewTarget(a.target) })),
+            brand: !!x.brand, shards: !!x.shards, ifPhase: x.ifPhase ?? null, alt: x.alt ? x.alt.map((a) => a.name) : null } };
+      }
+      let src = x;
+      let replaced = null;
+      if (now && it.replaced && !it.cancelled) { src = it; replaced = { from: it.replaced.name, reason: it.replaced.reason }; }
+      let cancel = null;
+      if (now && it.cancelled) cancel = { by: it.cancelled.by, offBalance: !!(it.cancelled.cast || it.cancelled.heavy), breaks: false, done: true };
+      else if (trap && trap.turn === x.turn && x.turn >= T) cancel = { by: 'TRAP', offBalance: !!(x.cast || x.heavy), breaks: false };
+      else if (ctl && ctl.dur != null && x.turn >= Math.max(1, T) && x.turn - Math.max(1, T) < ctl.dur - (T >= 1 ? 0 : 1)) cancel = { by: ctl.id, offBalance: !!(x.cast || x.heavy), breaks: BREAKS.has(ctl.id) };
+      const sig = !!(x.scripted && CONTENT.abilities && CONTENT.abilities[x.id]);
+      // what it shows: the intent as it will be played for the now-entry (target and estimate of this round), the entry
+      // itself otherwise and for a cancelled now-entry (the action that will not happen, struck through)
+      const live = now && !cancel;
+      const tg = live && it.target != null ? it.target : x.target;
+      return { turn: x.turn, round, id: src.id, name: src.name, kind: src.kind, cast: !!src.cast, heavy: !!src.heavy, scripted: !!x.scripted, signature: sig,
+        school: src.school || 'phys', hits: src.hits || 1, target: viewTarget(tg), allyIdx: typeof tg === 'number' ? tg : null,
+        est: (live ? it.est : x.est) || 0, support: SUPPORT.includes(src.kind), now, cancel, replaced, boss: null };
+    });
+  }
+  /**
+   * An enemy's role (combat v2, rules 7.12) for the badge: { id: archetype, ward (a guardian: its ward's index), guardedBy
+   * (the guardians whose ward it is), bloodlust (a beast: min(BLOODLUST_MAX, BLOODLUST_STEP × turns acted), engine-api.md 6),
+   * lookout (a skulker whose track holds Signal: the round it signals) }; null for the end boss and Shards.
+   */
+  function convRole(e, f, track) {
+    if (!e.arch || !C.ARCHETYPE || !C.ARCHETYPE[e.arch]) return null;
+    const r = { id: e.arch, ward: null, guardedBy: [], bloodlust: null, lookout: null };
+    const live = (i) => i != null && f.enemies[i] && f.enemies[i].alive;
+    if (e.arch === 'guardian' && live(e.ward)) r.ward = e.ward;
+    r.guardedBy = f.enemies.filter((g) => g.alive && g.arch === 'guardian' && g.ward === e.idx && g.idx !== e.idx).map((g) => g.idx);
+    if (e.arch === 'beast' && C.BLOODLUST_STEP != null) r.bloodlust = Math.min(C.BLOODLUST_MAX, C.BLOODLUST_STEP * (e.acted || 0));
+    const sig = (track || []).find((x) => x.kind === 'signal' && !x.cancel);
+    if (sig) r.lookout = sig.round;
+    return r;
   }
   /** Living Dimming Shards and the Linked damage reduction they give the boss now (rules 10.2), or null. */
   function linkedOf(f) {
@@ -366,12 +495,19 @@ function engineBackend(seedOpt) {
   function convFight(s) {
     const f = s.fight; if (!f) return null;
     const key = fightKey(s);
-    const enemies = f.enemies.map((e) => ({ idx: e.idx, uid: `${key}:${e.idx}`, tplId: e.tid, name: e.name, level: e.level, rank: rankOf(e), arch: e.arch || (e.boss ? 'boss' : 'shard'),
-      hp: e.hp, maxHp: e.maxHp, alive: e.alive, statuses: statuses(e.st, f, e.shield, e.enraged), intent: e.alive ? convIntent(e.intent, e) : null }));
+    const enemies = f.enemies.map((e) => {
+      const track = convTrack(e, f);
+      let ob = null;
+      if (e.alive && R.offBalance) { try { ob = R.offBalance(s, e.idx); } catch { ob = null; } }
+      return { idx: e.idx, uid: `${key}:${e.idx}`, tplId: e.tid, name: e.name, level: e.level, rank: rankOf(e), arch: e.arch || (e.kind === 'boss' ? 'boss' : 'shard'),
+        hp: e.hp, maxHp: e.maxHp, alive: e.alive, statuses: statuses(e.st, f, e.shield, e.enraged), intent: e.alive ? convIntent(e.intent, e) : null,
+        track, role: e.alive ? convRole(e, f, track) : null, offBalance: ob ? { status: ob.status, taken: ob.taken, crit: ob.crit, rounds: ob.rounds } : null,
+        ccImmune: !!e.ccImmune, turn: e.turn || 0, added: !!(e.summoned || e.noReward || (e.unscripted && e.kind !== 'boss' && e.kind !== 'shard')) };
+    });
     const cds = {};
     for (const [id, ready] of Object.entries(f.p.cds || {})) { const left = ready - f.round; if (left > 0) cds[id] = left; }
     const firstAlive = enemies.find((e) => e.alive);
-    const bossE = f.enemies.find((e) => e.boss);
+    const bossE = f.enemies.find((e) => e.kind === 'boss');
     const n = s.node;
     let title = ''; let fights = 1;
     if (n && n.type === 'dungeon') { fights = C.DUNGEON_TRASH_FIGHTS + 1; title = (zoneContent(s.zone.z) || { dungeon: { name: 'Dungeon' } }).dungeon.name; }
@@ -379,7 +515,19 @@ function engineBackend(seedOpt) {
     return { round: f.round, enemies, target: f.p.target != null && enemies[f.p.target] && enemies[f.p.target].alive ? f.p.target : firstAlive ? firstAlive.idx : 0,
       cooldowns: cds, potionCd: Math.max(0, (f.p.potionReady || 0) - f.round), kind: f.kind === 'trash' ? 'dungeon' : f.kind, isBoss: f.kind === 'boss',
       boss: f.boss ? { phase: f.boss.phase, asc: f.boss.asc || 0, telegraph: bossE && bossE.intent ? bossE.intent.telegraph : null, linked: linkedOf(f) } : null,
-      over: f.over, canFlee: f.canFlee, title, fightNo: (f.k || 0) + 1, fights };
+      over: f.over, canFlee: f.canFlee, title, fightNo: (f.k || 0) + 1, fights, engage: engageView(s), hasEngage: !!f.engage };
+  }
+  /**
+   * The engage round (rules 7.10, combat v2) for the engage panel, or null outside it: R.engageOptions in the class order
+   * strike, control, setup, each with its key (Q, W, E). Hover previews come from bridge.engagePreview (R.engagePreview).
+   */
+  function engageView(s) {
+    if (!R.isEngageRound || !R.isEngageRound(s)) return null;
+    let opts = null;
+    try { opts = R.engageOptions(s); } catch { opts = null; }
+    if (!opts) return null;
+    return { options: opts.map((o, i) => ({ id: o.id, kind: o.kind, name: o.name, key: ENGAGE_KEYS[i] || null, targets: [...(o.targets || [])],
+      spells: o.spells ? o.spells.map((x) => ({ spellId: x.spellId, targets: [...x.targets] })) : null, reason: o.reason ? cap(o.reason) : null })) };
   }
 
   function nodeKey(s) { return s.node ? `${s.zone.z}:${s.node.r}:${s.node.l}` : ''; }
@@ -424,14 +572,24 @@ function engineBackend(seedOpt) {
     for (const svc of ['trainer', 'vendor', 'inn']) L.services[svc] = has('SERVICE', (a) => a.service === svc);
     const f = s.fight;
     const tgt = f ? (f.enemies.find((e) => e.alive) || { idx: 0 }).idx : 0;
+    // OFF_BALANCE windows (combat v2, rules 7.13): which enemies a bar spell would hit inside a window (R.spellInfo window)
+    const open = f && R.offBalance ? f.enemies.filter((e) => e.alive && (() => { try { return !!R.offBalance(s, e.idx); } catch { return false; } })()).map((e) => e.idx) : [];
+    const windowOf = (id) => {
+      if (!open.length || !p.bar.includes(id)) return null;
+      try {
+        if (C.SPELL[id] && C.SPELL[id].target === 'all') return R.spellInfo(s, id, null).window ? 'all' : null;
+        const w = open.filter((i) => { const info = R.spellInfo(s, id, i); return !!(info && info.window); });
+        return w.length ? w : null;
+      } catch { return null; }
+    };
     for (const id of Object.keys(p.spells)) {
       if (!f) { L.spells[id] = { ok: false, reason: 'Only in combat' }; continue; }
       const ok = has('CAST', (a) => a.spellId === id);
       const cd = f.p.cds && f.p.cds[id] ? Math.max(0, f.p.cds[id] - f.round) : 0;
-      if (ok) L.spells[id] = { ok: true, cd };
+      if (ok) L.spells[id] = { ok: true, cd, window: windowOf(id) };
       else {
         const target = C.SPELL[id] && C.SPELL[id].target === 'enemy' ? tgt : null;
-        L.spells[id] = { ok: false, cd, reason: p.bar.includes(id) ? reasonOf(R.whyIllegal(s, { type: 'CAST', spellId: id, target }) || 'Not usable now') : 'Not on the action bar' };
+        L.spells[id] = { ok: false, cd, window: null, reason: p.bar.includes(id) ? reasonOf(R.whyIllegal(s, { type: 'CAST', spellId: id, target }) || 'Not usable now') : 'Not on the action bar' };
       }
     }
     L.items = p.itemBar.map((id, slot) => {
@@ -654,11 +812,21 @@ function engineBackend(seedOpt) {
         case 'action': {
           if (e.kind === 'flee') { out.push({ t: 'flee', ok: !!e.success }); break; }
           if (e.kind === 'skip') { out.push({ t: 'skip', src: ref('player'), reason: 'Frozen in time' }); break; }
+          if (e.kind === 'engage') {
+            // an engage option (rules 7.10): strike and control options play at the target, setup options on the hero (the pet
+            // for Send the Pet), Lay Trap without a projectile; ENGAGE_FX holds the presentation
+            const o = (C.ENGAGE_OPTION || {})[e.option] || {}; const fx = ENGAGE_FX[e.option] || {};
+            out.push({ t: 'action', src: ref('player'), kind: 'engage', option: e.option, id: e.option, name: o.name || TXT.humanize(e.option), school: fx.school || 'phys',
+              dst: fx.at === 'target' && e.target != null ? ref(e.target) : fx.at === 'pet' ? ref('pet') : null, target: e.target != null ? ref(e.target) : null,
+              aoe: false, tags: fx.tags || [] });
+            break;
+          }
           if (e.cost) res = Math.max(0, res - e.cost);
           const sp = e.spell ? C.SPELL[e.spell] : null;
           const kind = e.kind === 'cast' ? 'spell' : e.kind;
           out.push({ t: 'action', src: ref('player'), kind, id: e.spell || e.item, name: sp ? sp.name : e.item ? (C.CONSUMABLE[e.item] || {}).name || e.item : C.CLASS[s.player.classId].basic.name,
-            school: sp ? sp.school || 'arcane' : C.CLASS[s.player.classId].basic.school, dst: e.target != null ? ref(e.target) : null, aoe: !!(sp && sp.tags && sp.tags.includes('aoe')), tags: sp ? sp.tags : [], resAfter: kind === 'spell' ? res : undefined });
+            school: sp ? sp.school || 'arcane' : C.CLASS[s.player.classId].basic.school, dst: e.target != null ? ref(e.target) : null, aoe: !!(sp && sp.tags && sp.tags.includes('aoe')), tags: sp ? sp.tags : [], resAfter: kind === 'spell' ? res : undefined,
+            engage: e.engage || null });
           break;
         }
         case 'petAction': out.push({ t: 'action', src: ref('pet'), kind: 'attack', name: 'Pet attack', dst: ref(e.target) }); break;
@@ -684,10 +852,19 @@ function engineBackend(seedOpt) {
         case 'interrupt': out.push({ t: 'interrupt', dst: ref(e.u), name: (prevIntent(e.u) || {}).name || 'cast' }); break;
         case 'skip': out.push({ t: 'skip', src: ref(e.u), reason: 'Time stopped' }); break;
         case 'channel': out.push({ t: 'channel', src: ref(e.u), name: e.name, step: e.step }); break;
-        case 'summon': hp.set(`e${e.u}`, e.hp); max.set(`e${e.u}`, e.hp); out.push({ t: 'summon', idxs: [e.u], names: [e.name] }); break;
+        case 'summon': hp.set(`e${e.u}`, e.hp); max.set(`e${e.u}`, e.hp); out.push({ t: 'summon', idxs: [e.u], names: [e.name], signal: !!e.signal }); break;
         case 'despawn': out.push({ t: 'death', dst: ref(e.u), name: enemyName(e.u), despawn: true }); break;
         case 'linked': out.push({ t: 'linked', on: !!e.on, n: e.n ?? null }); break;
-        case 'shield': out.push({ t: 'status', dst: ref(e.u), id: 'WARD', op: 'add' }); break;
+        case 'shield':
+          // Bolster (combat v2): the mender's shield on its weakest ally
+          if (e.spell === 'bolster') out.push({ t: 'bolster', src: ref(e.by), dst: ref(e.u), amount: e.amount || 0, by: enemyName(e.by), name: enemyName(e.u) });
+          out.push({ t: 'status', dst: ref(e.u), id: 'WARD', op: 'add' }); break;
+        // combat v2 (engine-api.md 5): control cancelled an entry, an entry was replaced, a window opened, a trap sprang, a Signal
+        case 'cancel': out.push({ t: 'cancel', dst: ref(e.u), who: enemyName(e.u), name: e.name, by: e.by, offBalance: !!e.offBalance, turn: e.turn }); break;
+        case 'replace': out.push({ t: 'replace', dst: ref(e.u), who: enemyName(e.u), fromName: e.fromName, toName: e.toName, reason: e.reason }); break;
+        case 'offBalance': out.push({ t: 'offBalance', dst: ref(e.u), who: enemyName(e.u), why: e.why, name: e.name || null }); break;
+        case 'trapSprung': out.push({ t: 'trapSprung', dst: ref(e.u), who: enemyName(e.u) }); break;
+        case 'signal': out.push({ t: 'signal', src: ref(e.u), who: enemyName(e.u), adds: e.adds || 1 }); break;
         case 'enrage': out.push({ t: 'status', dst: ref(e.u), id: 'ENRAGED', op: 'add' }); break;
         case 'image': out.push({ t: 'damage', src: ref(e.src), dst: ref('player'), amount: 0, miss: true, name: 'Mirror image', school: 'arcane', hpAfter: hp.get('player'), maxHp: max.get('player') }); break;
         case 'phaseChange': out.push({ t: 'bossPhase', phase: e.phase, name: e.phase === 2 ? 'The Dimming' : 'Eclipse', text: e.phase === 2 ? TXT.linkedText(data.rules, 'banner') : 'The light dies. Oruvath grows stronger every round.' }); break;
@@ -726,6 +903,7 @@ function engineBackend(seedOpt) {
   function apply(action, events) {
     const r = R.step(st, action);
     st = r.state;
+    local.engineLog.push(JSON.parse(JSON.stringify(action)));
     events.push(...r.events);
     return r;
   }
@@ -744,6 +922,12 @@ function engineBackend(seedOpt) {
         { const it = p && p.bag.find((x) => x.uid === a.uid); return { type: 'USE_ITEM', itemId: it ? it.id : a.itemId }; }
       case 'CAST': { const sp = C.SPELL[a.spellId]; return { type: 'CAST', spellId: a.spellId, target: sp && sp.target === 'enemy' ? (a.target ?? 0) : null }; }
       case 'ATTACK': return { type: 'ATTACK', target: a.target ?? 0 };
+      case 'ENGAGE': {
+        // engine-api.md 3: { type, option, target }, Pre-cast { type, option, spellId, target }; options without a target take null
+        const o = (C.ENGAGE_OPTION || {})[a.option] || {};
+        if (o.target === 'spell') return { type: 'ENGAGE', option: a.option, spellId: a.spellId, target: C.SPELL[a.spellId] && C.SPELL[a.spellId].target === 'enemy' ? (a.target ?? null) : null };
+        return { type: 'ENGAGE', option: a.option, target: o.target === 'none' ? null : (a.target ?? null) };
+      }
       case 'SET_NAME': return a.name ? { type: 'SET_NAME', name: String(a.name).slice(0, 24) } : null;
       case 'SET_SEED': return a.seed === null || a.seed === undefined || a.seed === '' ? null : { type: 'SET_SEED', seed: Number(a.seed) >>> 0 };
       default: return { ...a };
@@ -810,7 +994,7 @@ function engineBackend(seedOpt) {
               gained: st.result.echoes, before, after: profile.echoes, firstKill: ((sum.echoes && sum.echoes.lines) || []).some((l) => l.id === 'firstKill') };
           }
           st = mkRun(randomSeed(), keep); // the next run starts on the same class
-          local.introSeen.clear(); local.spoils = null; local.hold = null; local.reward = null;
+          local.introSeen.clear(); local.spoils = null; local.hold = null; local.reward = null; local.engineLog = [];
           return { ok: true, events: [] };
         }
         case 'META_BUY': {
@@ -906,6 +1090,18 @@ function engineBackend(seedOpt) {
       };
     },
     itemScore(it) { if (!it || it.kind !== 'gear' || !st.player) return 0; try { return R.itemScore(it._raw || it, st.player.classId); } catch { return 0; } },
+    /**
+     * What an engage option would do to the tracks (R.engagePreview, rules 7.10; no draw): { enemies: [{ u, cancelled,
+     * offBalance, window, pet }] } with turn numbers, or null when the action is not legal.
+     */
+    /** Test hook: the engine actions applied to this run so far (copies), for a Node twin to replay. */
+    engineLog() { return local.engineLog.map((a) => ({ ...a })); },
+    engagePreview(option, target, spellId) {
+      if (!R.engagePreview || !st.fight) return null;
+      const o = (C.ENGAGE_OPTION || {})[option]; if (!o) return null;
+      const a = o.target === 'spell' ? { type: 'ENGAGE', option, spellId, target: target ?? null } : { type: 'ENGAGE', option, target: target ?? null };
+      try { return R.engagePreview(st, a); } catch { return null; }
+    },
   };
 }
 
@@ -936,6 +1132,10 @@ export class Bridge {
   autoAction() { return this.backend.autoAction(); }
   describeSpell(id) { return this.backend.describeSpell(id); }
   itemScore(item) { return this.backend.itemScore(item); }
+  /** Test hook: the engine actions applied to the run (engine mode), or [] (mock). */
+  engineLog() { return this.backend.engineLog ? this.backend.engineLog() : []; }
+  /** Engage panel hover preview (combat v2, R.engagePreview); null in mock mode or when the option is not legal. */
+  engagePreview(option, target, spellId) { return this.backend.engagePreview ? this.backend.engagePreview(option, target, spellId) : null; }
   subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   get canDebug() { return !!this.backend.canDebug; }
 }

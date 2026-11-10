@@ -1,11 +1,13 @@
 // Plays the events of one engine step as animation, then hands the new view to the HUD.
+// Combat v2 (docs/specs/combat-v2.md 10.6): cancelled and replaced track entries, off-balance windows, traps, Signals and
+// Bolster shields are logged; tracks, roles and windows on screen change at the round's start like the intents.
 // Combat rounds play as beats from src/ui/combat-feel.js (owner feedback 2026-11-10): each action winds up, its hits land
 // with a hit-stop, recoil, a weighted number and screen shake, and enemies' telegraphed blows get a readable pause.
 // Skipping: Space or a click in a round skips to the end of the hit on screen (the next hit plays normally); any other
 // step, or Instant speed, finishes at once. Waits go through skip tokens.
 import { wait, SkipToken, fmtNum, deepClone } from './util.js';
 import { settings } from './settings.js';
-import { linkedText, dangerBanner } from './ui-text.js';
+import { linkedText, dangerBanner, CONTROL_WORD as CONTROL_LOG } from './ui-text.js';
 import { timeline, roundPace, hitShare, STATUS_LABEL } from './combat-feel.js';
 
 const SCHOOL_PROJ = { fire: 'fire', frost: 'frost', arcane: 'arcane', shadow: 'shadow', nature: 'nature' };
@@ -60,7 +62,8 @@ export function makeInterim(prev, next) {
       v.combat.cooldowns = { ...prev.combat.cooldowns };
       for (const e of v.combat.enemies) {
         const pe = prev.combat.enemies.find((x) => x.idx === e.idx && x.uid === e.uid);
-        if (pe) Object.assign(e, { hp: pe.hp, alive: pe.alive, statuses: deepClone(pe.statuses), intent: deepClone(pe.intent) });
+        // combat v2: the track, role and off-balance window change with the round (refreshed at its 'round' event)
+        if (pe) Object.assign(e, { hp: pe.hp, alive: pe.alive, statuses: deepClone(pe.statuses), intent: deepClone(pe.intent), track: deepClone(pe.track), role: deepClone(pe.role), offBalance: deepClone(pe.offBalance) });
         else e.hidden = true;
       }
     }
@@ -175,6 +178,9 @@ export class Director {
               hitCtx = { side: 'player', school: e.school };
               if (e.kind === 'pass') { scene.float('player', 'Pass', { color: '#cfc6b0', size: 16, small: true }); await W(tm.wait); break; }
               if (e.kind === 'item') { scene.act('player', 'item', D(tm.act || 420)); hud.log(`You use ${e.name}.`, 'lg-you'); await W(tm.wait); break; }
+              // combat v2: the engage round's opening (an engage option, or a bar spell cast free by Pre-cast)
+              if (e.kind === 'engage') hud.log(`You open with ${e.name}${e.target ? ` on ${name(e.target)}` : ''}.`, 'lg-you');
+              if (e.engage === 'precast') hud.log(`Pre-cast: ${e.name}, no mana.`, 'lg-you');
               const glow = SCHOOL_GLOW[e.school] || '#ffe9a8';
               if (tm.style === 'self') {
                 scene.act('player', 'cast', D(tm.act), { contact: tm.windup / tm.act });
@@ -267,7 +273,8 @@ export class Director {
           }
           case 'status': {
             const u = unit(e.dst); const nu = statusSource(next, e.dst);
-            if (u && nu) { u.statuses = deepClone(nu.statuses || []); push(); }
+            // combat v2: the off-balance marker follows the statuses (OFF_BALANCE, or FROZEN which counts as it)
+            if (u && nu) { u.statuses = deepClone(nu.statuses || []); if (e.dst.side === 'enemy') u.offBalance = deepClone(nu.offBalance); push(); }
             const dst = ref(e.dst);
             const label = e.id === 'BRAND' ? `Brand ×${e.stacks || 1}` : STATUS_LABEL[e.id];
             if (e.op === 'add' && label) scene.float(dst, label, { color: ['BRAND', 'CURSED', 'ENRAGED'].includes(e.id) ? '#ff9a8a' : '#ffe08a', size: 17, dy: -16 * scene.u, small: true });
@@ -300,7 +307,7 @@ export class Director {
             if (!shown.combat) break;
             shown.combat.round = e.round;
             const nc = next.combat;
-            if (nc) for (const en of shown.combat.enemies) { const ne = nc.enemies.find((x) => x.idx === en.idx && x.uid === en.uid); if (ne) { en.intent = deepClone(ne.intent); en.statuses = deepClone(ne.statuses); } }
+            if (nc) for (const en of shown.combat.enemies) { const ne = nc.enemies.find((x) => x.idx === en.idx && x.uid === en.uid); if (ne) { en.intent = deepClone(ne.intent); en.statuses = deepClone(ne.statuses); en.track = deepClone(ne.track); en.role = deepClone(ne.role); en.offBalance = deepClone(ne.offBalance); } }
             if (nc) shown.combat.cooldowns = { ...nc.cooldowns };
             if (next.player) { p().statuses = deepClone(next.player.statuses); p().res.cur = next.player.res.cur; }
             this.striker = null;
@@ -324,7 +331,20 @@ export class Director {
           case 'defeat': break;
           case 'flee': if (e.ok) { scene.float('player', 'Escaped!', { color: '#ffe08a', size: 22 }); hud.log('You flee from the fight.', 'lg-warn'); scene.setMode('map'); scene.clearEnemies(); await W(tm.wait); } else { scene.float('player', 'Flee failed', { color: '#ff9a8a', size: 20 }); hud.log('You fail to escape!', 'lg-warn'); await W(tm.wait); } break;
           case 'bossPhase': scene.bossPhase = e.phase; scene.screenFlash(e.phase === 3 ? '#ff5a2a' : '#8a6aff', 0.35, 0.8); scene.shake(14); ctx.ui.banner(`Phase ${e.phase}: ${e.name}`, e.text, 'phase', 2400); hud.log(`${e.name}: ${e.text}`, 'lg-warn'); await WM(M.bossPhase); break;
-          case 'summon': if (!shown.combat) break; for (const idx of e.idxs) { const en = shown.combat.enemies.find((x) => x.idx === idx); if (en) en.hidden = false; } ctx.syncScene(shown, { enter: true }); push(); hud.log(`${e.names.length} ${e.names[0]}s appear!`, 'lg-warn'); await W(tm.wait); break;
+          case 'summon': if (!shown.combat) break; for (const idx of e.idxs) { const en = shown.combat.enemies.find((x) => x.idx === idx); if (en) en.hidden = false; } ctx.syncScene(shown, { enter: true }); push(); hud.log(e.signal ? `${e.names[0]} answers the signal!` : `${e.names.length} ${e.names[0]}s appear!`, 'lg-warn'); await W(tm.wait); break;
+          // combat v2 (engine-api.md 5): what control, traps, Signal and Bolster do to the tracks, in the log (no extra wait)
+          case 'cancel': hud.log(`${cap(e.who)}: ${e.name} cancelled (${CONTROL_LOG[e.by] || 'controlled'})${e.offBalance ? ' → off-balance!' : '.'}`, e.offBalance ? 'lg-loot' : 'lg-you'); break;
+          case 'replace': hud.log(`${cap(e.who)}: ${e.fromName} → ${e.toName} (${e.reason}).`, 'lg-sys'); break;
+          case 'offBalance': {
+            const en = enemy(e.dst.idx); const ob = (statusSource(next, e.dst) || {}).offBalance;
+            if (en && ob) { en.offBalance = deepClone(ob); push(); }
+            const why = { interrupt: 'its cast was interrupted', control: 'its big move was cancelled', avoided: `its ${e.name || 'heavy blow'} missed you` }[e.why] || 'its big move failed';
+            hud.log(`${cap(e.who)} is off-balance (${why}): ${ob ? `+${Math.round(ob.taken * 100)} % damage taken, +${Math.round(ob.crit * 100)} % crit` : 'hit it now'} for your next action.`, 'lg-loot');
+            break;
+          }
+          case 'trapSprung': scene.float(ref(e.dst), 'Trap!', { color: '#ffe08a', size: 22, crit: true }); hud.log(`Your trap springs on ${e.who}!`, 'lg-you'); break;
+          case 'signal': scene.float(ref(e.src), 'Signal!', { color: '#ffb05a', size: 22, crit: true }); hud.log(`${cap(e.who)} signals for help: ${e.adds === 1 ? 'one more enemy joins' : `${e.adds} more enemies join`} at the end of the round!`, 'lg-warn'); break;
+          case 'bolster': hud.log(`${cap(e.by)} bolsters ${e.name === e.by ? 'itself' : e.name}: a ${fmtNum(e.amount)} shield.`, 'lg-warn'); break;
           case 'gotItem': hud.log(`You receive loot: ${e.name}${e.to === 'window' ? ' (waiting in the loot window)' : ''}.`, 'lg-loot'); break;
           case 'channel': scene.float(ref(e.src), `${e.name} ${e.step}/2`, { color: '#d0b0ff', size: 22, crit: e.step === 2 }); if (e.step === 2) scene.screenFlash('#6a4aff', 0.3, 0.6); hud.log(`${e.name}: ${e.step === 1 ? 'the channel begins' : 'the channel resolves'}.`, 'lg-warn'); await W(tm.wait); break;
           case 'linked': {

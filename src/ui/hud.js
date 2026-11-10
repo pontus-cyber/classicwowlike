@@ -1,6 +1,8 @@
 // Persistent classic-MMO HUD: unit frames, enemy nameplates with intents, action bar, XP bar,
 // minimap, micro menu, objective tracker, combat log and the raid-boss frame. It renders the view
 // it is given and turns clicks into actions through ctx.act; it decides no rules.
+// Combat v2 (docs/specs/combat-v2.md 10, drawn by tracks.js): the intent track on every nameplate and in the target frame,
+// role badges, the off-balance marker, the opening ruler, the engage panel, and the window highlight on the action bar.
 import { h, add, clear, fmtNum, moneyEl, hoursText, clamp, rgba } from './util.js';
 import { spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS } from './art-icons.js';
 import { drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook } from './art-actors.js';
@@ -8,6 +10,7 @@ import { THEMES } from './art-world.js';
 import { tip, spellTip, basicTip, itemTip, statusTip } from './tooltip.js';
 import { settings } from './settings.js';
 import { linkedText, resurrectText, dangerRule } from './ui-text.js';
+import { trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createRuler, createEngagePanel } from './tracks.js';
 
 const RES_NAME = { energy: 'Energy', mana: 'Mana', focus: 'Focus' };
 export function conColor(cl, level) {
@@ -108,7 +111,8 @@ export function createHud(root, ctx) {
     h('div.plate', h('div.name', h('span.pn'), h('span.cls')), bar('hp'), bar('res mana'), h('div.cp.hidden', Array.from({ length: ctx.data.rules.cpMax }, () => h('i'))), h('div.strow', h('div.statuses'), els.resc)));
   els.pet = h('div#pet-frame.uf.hidden', h('div.portrait'), h('div.plate', h('div.name', h('span.pn'), h('span.cls', 'Pet')), bar('hp'), h('div.statuses')));
   els.target = h('div#target-frame.uf.hidden', h('div.portrait'), h('div.lvl', { style: { left: '5.4rem', top: '5.4rem' } }),
-    h('div.plate', h('div.name', h('span.pn'), h('span.tag')), bar('hp enemy'), h('div.statuses'), h('div.intent')));
+    h('div.plate', h('div.name', h('span.rb'), h('span.pn'), h('span.tag')), h('div.obal.hidden'), bar('hp enemy'), h('div.statuses'), h('div.ttrack')));
+  tip(els.target.querySelector('.obal'), () => { const c = ctx.view.combat; const e = c && c.enemies.find((x) => x.idx === ctx.ui.target); return e ? offBalanceTip(e) : null; });
   els.bossWarn = h('div.bwarn.hidden');
   els.boss = h('div#boss-frame.panel.hidden', h('div.bname'), h('div', { style: { position: 'relative' } }, bar('hp boss'), h('div.mark', { style: { left: '70%' } }), h('div.mark', { style: { left: '40%' } })), h('div.binfo'), els.bossWarn);
   els.nameplates = h('div#nameplates');
@@ -149,6 +153,10 @@ export function createHud(root, ctx) {
   els.logToggle.addEventListener('click', () => { els.log.classList.toggle('min'); els.logToggle.textContent = els.log.classList.contains('min') ? '+' : '–'; });
 
   root.append(els.nameplates, els.player, els.pet, els.target, els.boss, els.minimap, els.tracker, els.log, els.actionbar, els.micro, els.gold, els.xp);
+  // combat v2: the opening ruler over the enemies and the engage panel of round 1 (tracks.js)
+  const ruler = createRuler(root, ctx);
+  const engage = createEngagePanel(root, ctx);
+  els.ruler = ruler.el; els.engage = engage.el;
 
   // ------------------------------------------------------------ input wiring
   els.basic.addEventListener('click', () => ctx.ui.attack());
@@ -160,7 +168,17 @@ export function createHud(root, ctx) {
       const p = ctx.view.player; if (!p) return null;
       const id = p.bar[i]; if (!id) return h('div', h('div.tt-name', `Empty slot ${i + 1}`), h('div.tt-hint', 'Drag a spell here from the spellbook (P).'));
       const L = ctx.view.legal.spells && ctx.view.legal.spells[id];
-      return spellTip(id, ctx, { reason: L && !L.ok && ctx.view.combat && !ctx.view.combat.over ? L.reason : null, hint: ctx.view.legal.outOfCombat ? 'Right-click to clear · drag to reorder' : `Key: ${i + 1}` });
+      const c = ctx.view.combat;
+      // OFF_BALANCE window (combat v2): where this spell would land in a window (legal.spells[id].window, R.spellInfo)
+      let win = null;
+      if (L && L.ok && L.window && c && !c.over) {
+        const names = (L.window === 'all' ? c.enemies.filter((e) => e.alive && e.offBalance) : c.enemies.filter((e) => L.window.includes(e.idx))).map((e) => e.name);
+        const onTarget = L.window === 'all' || L.window.includes(ctx.ui.target);
+        win = onTarget ? `Off-balance window: lands on ${names.join(', ')} for more damage and more crits.` : `Off-balance window on ${names.join(', ')}: target it first (click its nameplate or Tab).`;
+      }
+      const tipEl = spellTip(id, ctx, { reason: L && !L.ok && c && !c.over ? L.reason : null, hint: ctx.view.legal.outOfCombat ? 'Right-click to clear · drag to reorder' : `Key: ${i + 1}` });
+      if (win && tipEl) tipEl.insertBefore(h('div.tt-line', { style: { color: '#ffc25a', fontWeight: 700 } }, win), tipEl.children[2] || null);
+      return tipEl;
     });
     dropTarget(b, ctx, (d) => { if (d.kind === 'spell') ctx.act({ type: 'SET_BAR', slot: i, spellId: d.id }); });
     dragSource(b, ctx, () => { const p = ctx.view.player; const id = p && p.bar[i]; return id && ctx.view.legal.outOfCombat ? { kind: 'spell', id, icon: spellIcon(id, ctx.data.spells[id]) } : null; });
@@ -208,7 +226,7 @@ export function createHud(root, ctx) {
     for (const el of [els.player, els.actionbar, els.xp, els.minimap, els.micro, els.log, els.tracker, els.gold]) el.classList.toggle('hidden', !inGame || v.phase === 'SUMMARY');
     const panelUp = v.phase === 'ZONE_HUB' || v.phase === 'CAMP' || v.phase === 'MAP' || !!v.loot || (v.node && v.node.step !== 'combat' && !(v.combat && !v.combat.over));
     els.tracker.classList.toggle('dimmed', !!(inGame && panelUp));
-    if (!inGame) { els.pet.classList.add('hidden'); els.target.classList.add('hidden'); els.boss.classList.add('hidden'); syncNameplates(v); return; }
+    if (!inGame) { els.pet.classList.add('hidden'); els.target.classList.add('hidden'); els.boss.classList.add('hidden'); syncNameplates(v); ruler.update(v); engage.update(v); return; }
     const th = THEMES[(v.zone && v.zone.theme) || 'farmland'];
     // player
     const pf = els.player;
@@ -241,6 +259,12 @@ export function createHud(root, ctx) {
       els.pet.style.opacity = p.pet.alive ? 1 : 0.55;
       statusRow(els.pet.querySelector('.statuses'), p.pet.statuses, ctx);
     } else els.pet.classList.add('hidden');
+    // the engage panel (combat v2) starts under the player and pet frames, which grow with their status icons
+    if (!els.engage.classList.contains('hidden') || (v.combat && v.combat.engage)) {
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+      const low = Math.max(pf.offsetTop + pf.offsetHeight, els.pet.classList.contains('hidden') ? 0 : els.pet.getBoundingClientRect().bottom);
+      els.engage.style.top = `${Math.round(Math.max(19.5 * rem, low + 1.2 * rem))}px`;
+    }
     // target & boss
     const c = v.combat;
     const inFight = c && !c.over;
@@ -253,14 +277,25 @@ export function createHud(root, ctx) {
       const tkey = `${tgt.uid}`;
       if (els.target.dataset.key !== tkey) { els.target.dataset.key = tkey; clear(els.target.querySelector('.portrait')).appendChild(enemyPortrait(tgt, v.zone && v.zone.theme)); }
       const nm = els.target.querySelector('.pn'); nm.textContent = tgt.name;
-      const tag = els.target.querySelector('.tag'); clear(tag);
-      if (tgt.rank === 'elite' || tgt.rank === 'dboss') tag.appendChild(h('span.rank-tag', tgt.rank === 'dboss' ? 'Boss' : 'Elite'));
-      if (tgt.rank === 'rare') tag.appendChild(h('span.rank-tag.rare', 'Rare'));
+      const tag = els.target.querySelector('.tag');
+      const tagKey = JSON.stringify([tgt.uid, tgt.rank, tgt.role, tgt.ccImmune]);
+      if (tag.dataset.key !== tagKey) {
+        tag.dataset.key = tagKey; clear(tag);
+        if (tgt.rank === 'elite' || tgt.rank === 'dboss') tag.appendChild(h('span.rank-tag', tgt.rank === 'dboss' ? 'Boss' : 'Elite'));
+        if (tgt.rank === 'rare') tag.appendChild(h('span.rank-tag.rare', 'Rare'));
+        add(tag, roleTags(tgt, ctx));
+        const rb = clear(els.target.querySelector('.rb')); const badge = roleBadge(tgt, ctx); if (badge) rb.appendChild(badge);
+      }
       const lv = els.target.querySelector('.lvl'); lv.textContent = tgt.level; lv.style.color = conColor(tgt.level, p.level);
       const tw = (tgt.statuses || []).find((s) => s.id === 'WARD');
       setBar(els.target.querySelector('.bar.hp'), tgt.hp, tgt.maxHp, `${fmtNum(tgt.hp)} / ${fmtNum(tgt.maxHp)}  ·  ${Math.ceil((tgt.hp / tgt.maxHp) * 100)} %`, tw ? tw.value : 0);
       statusRow(els.target.querySelector('.statuses'), tgt.statuses, ctx);
-      renderIntent(els.target.querySelector('.intent'), tgt.intent, v, true);
+      // the off-balance marker (combat v2, rules 7.13) and the intent track (rules 7.11)
+      const ob = els.target.querySelector('.obal'); const obOn = !!(tgt.offBalance && inFight);
+      ob.classList.toggle('hidden', !obOn); ob.classList.toggle('frost', !!(obOn && tgt.offBalance.status === 'FROZEN')); if (obOn) ob.textContent = offBalanceText(tgt.offBalance);
+      els.target.classList.toggle('offbal', obOn);
+      const tr = els.target.querySelector('.ttrack');
+      if (inFight) trackRows(tr, tgt, ctx); else { tr.classList.add('hidden'); tr.dataset.key = ''; }
     } else els.target.classList.add('hidden');
     const boss = c && c.isBoss ? c.enemies.find((e) => e.rank === 'boss') : null;
     if (boss) {
@@ -293,6 +328,8 @@ export function createHud(root, ctx) {
       els.bossWarn.textContent = extra; els.bossWarn.classList.toggle('hidden', !extra);
     } else els.boss.classList.add('hidden');
     syncNameplates(v);
+    ruler.update(v);
+    engage.update(v);
     // action bar
     updateBar(v);
     // xp
@@ -316,20 +353,6 @@ export function createHud(root, ctx) {
     updateTracker(v);
   }
 
-  function renderIntent(box, it, v, detailed) {
-    const key = it ? `${it.id}|${it.name}|${it.est}|${it.target}|${it.interrupted}|${it.label}|${it.channel}` : 'none';
-    if (box.dataset.key === key) return;
-    box.dataset.key = key; clear(box);
-    if (!it) { box.classList.add('hidden'); return; }
-    box.classList.remove('hidden');
-    const who = it.target === 'pet' ? 'your pet' : it.target === 'both' ? 'you and your pet' : it.target === 'player' ? 'you' : it.target === 'self' ? 'itself' : it.target === 'ally' ? 'an ally' : '';
-    add(box, h('img', { src: abilityIcon(it), alt: '' }),
-      h('div', h('div.what', it.name, it.channel ? ` ${it.channel[0]}/${it.channel[1]}` : ''), h('div.who', it.label || (who ? `Targets ${who}` : it.id === 'unaware' ? 'Has not noticed you' : '')),
-        h('div.row', { style: { gap: '.4rem', marginTop: '.2rem' } }, it.cast && !it.interrupted ? h('span.flag.cast', 'Cast · interruptible') : null, it.heavy ? h('span.flag.heavy', 'Heavy') : null, it.interrupted ? h('span.flag.int', 'Interrupted') : null)),
-      it.est ? h('div.dmg', it.selfHeal || it.mend ? `+${fmtNum(it.est)}` : `≈ ${fmtNum(it.est)}`) : null);
-    if (it.next) box.appendChild(h('div.flag.heavy', it.next));
-  }
-
   function syncNameplates(v) {
     const c = v.combat;
     const live = new Set();
@@ -339,11 +362,12 @@ export function createHud(root, ctx) {
         const id = e.uid || e.idx; live.add(String(id));
         let el = npEls.get(String(id));
         if (!el) {
-          el = h('div.np', h('div.bubble'), h('div.castbar.hidden', h('i')), h('div.nm', h('span.lv'), h('span.n')), bar('hp enemy'), h('div.sts'));
+          el = h('div.np', h('div.trk'), h('div.obal.hidden'), h('div.castbar.hidden', h('i')), h('div.nm', h('span.rb'), h('span.lv'), h('span.n')),
+            h('div.ntag.hidden', h('span.zz.hidden', 'Unaware'), h('span.rtags')), bar('hp enemy'), h('div.sts'));
           el.addEventListener('click', (ev) => { ev.stopPropagation(); ctx.ui.setTarget(e.idx); });
           el.addEventListener('pointerenter', () => { ctx.scene.hover = `enemy:${e.idx}`; });
           el.addEventListener('pointerleave', () => { ctx.scene.hover = null; });
-          tip(el.querySelector('.bubble'), () => intentTip(e, ctx));
+          tip(el.querySelector('.obal'), () => { const x = ctx.view.combat && ctx.view.combat.enemies.find((q) => q.idx === Number(el.dataset.idx)); return x ? offBalanceTip(x) : null; });
           els.nameplates.appendChild(el); npEls.set(String(id), el);
         }
         el.dataset.idx = e.idx;
@@ -352,25 +376,39 @@ export function createHud(root, ctx) {
         el.classList.toggle('boss', e.rank === 'boss');
         el.classList.toggle('shard', e.rank === 'shard' || e.arch === 'shard');
         const lv = el.querySelector('.lv'); lv.textContent = e.rank === 'boss' ? '??' : e.level; lv.style.color = conColor(e.level, v.player.level);
-        el.querySelector('.n').textContent = e.name + (e.rank === 'elite' ? ' (Elite)' : e.rank === 'rare' ? ' (Rare)' : '');
+        el.querySelector('.n').textContent = e.name + (e.rank === 'elite' ? ' (Elite)' : e.rank === 'rare' ? ' (Rare)' : e.rank === 'dboss' ? ' (Boss)' : '');
         setBar(el.querySelector('.bar'), e.hp, e.maxHp, `${Math.ceil((e.hp / e.maxHp) * 100)} %`, ((e.statuses || []).find((s) => s.id === 'WARD') || {}).value || 0);
         statusRow(el.querySelector('.sts'), e.statuses, ctx);
-        const it = e.intent; const bub = el.querySelector('.bubble');
-        const showIntent = it && e.alive && !c.over;
-        bub.classList.toggle('hidden', !showIntent);
-        if (showIntent) {
-          const k = `${it.id}|${it.est}|${it.target}|${it.interrupted}|${it.channel}`;
-          if (bub.dataset.key !== k) {
-            bub.dataset.key = k; clear(bub);
-            const tgtTxt = it.target === 'pet' ? '▸ pet' : it.target === 'both' ? '▸ all' : it.target === 'player' ? '▸ you' : '';
-            add(bub, h('img', { src: abilityIcon(it), alt: '' }), h('span.bn', it.name + (it.channel ? ` ${it.channel[0]}/${it.channel[1]}` : '')),
-              it.est && !(it.selfHeal || it.mend || it.shield) ? h('span.bd', fmtNum(it.est)) : null, tgtTxt ? h('span.bt', tgtTxt) : null);
-          }
-          bub.className = 'bubble' + (it.cast && !it.interrupted ? ' cast' : '') + (it.heavy && !it.cast ? ' heavy' : '') + (it.id === 'unaware' || it.id === 'none' ? ' quiet' : '') + (it.interrupted ? ' interrupted' : '');
+        // role badge and pack-role tags (combat v2, rules 7.12)
+        const roleKey = JSON.stringify([e.role, e.ccImmune]);
+        if (el.dataset.role !== roleKey) {
+          el.dataset.role = roleKey;
+          const rb = clear(el.querySelector('.rb')); const badge = roleBadge(e, ctx); if (badge) rb.appendChild(badge);
+          clear(el.querySelector('.rtags')); add(el.querySelector('.rtags'), roleTags(e, ctx));
         }
+        const it = e.intent;
+        const showIntent = it && e.alive && !c.over;
+        const zz = !!(showIntent && it.id === 'unaware');
+        el.querySelector('.zz').classList.toggle('hidden', !zz);
+        el.querySelector('.ntag').classList.toggle('hidden', !(zz || (e.alive && el.querySelector('.rtags').childElementCount)));
+        // the intent track (rules 7.11): the next actions in order, the first largest
+        const trk = el.querySelector('.trk');
+        trk.classList.toggle('hidden', !showIntent);
+        if (showIntent) trackChips(trk, e, ctx, { allSmall: e.rank === 'shard' || e.arch === 'shard' });
+        // the off-balance marker (rules 7.13)
+        const obOn = !!(e.offBalance && e.alive && !c.over);
+        el.classList.toggle('offbal', obOn);
+        const ob = el.querySelector('.obal'); ob.classList.toggle('hidden', !obOn); ob.classList.toggle('frost', !!(obOn && e.offBalance.status === 'FROZEN'));
+        if (obOn) { const t = offBalanceText(e.offBalance, true); if (ob.textContent !== t) ob.textContent = t; }
+        // engage hover: the enemies the option may target, and the one previewed (combat v2, rules 7.10)
+        const pv = ctx.ui.preview;
+        el.classList.toggle('eg-valid', !!(pv && pv.valid && pv.valid.includes(e.idx) && pv.target !== e.idx));
+        el.classList.toggle('eg-pv', !!(pv && pv.target === e.idx && pv.target != null));
+        el.classList.toggle('eg-invalid', !!(pv && pv.valid && pv.valid.length && !pv.valid.includes(e.idx) && e.alive));
         const cb = el.querySelector('.castbar');
-        cb.classList.toggle('hidden', !(showIntent && it.cast && !it.interrupted));
-        if (showIntent && it.cast) cb.querySelector('i').style.transform = `scaleX(${it.channel ? it.channel[0] / it.channel[1] : 0.5})`;
+        const casting = !!(showIntent && it.cast && !it.interrupted && !(it.cancelled));
+        cb.classList.toggle('hidden', !casting);
+        if (casting) cb.querySelector('i').style.transform = `scaleX(${it.channel ? it.channel[0] / it.channel[1] : 0.5})`;
       }
     }
     for (const [id, el] of npEls) if (!live.has(id)) { el.remove(); npEls.delete(id); }
@@ -412,6 +450,21 @@ export function createHud(root, ctx) {
       } else { cd.style.background = ''; cd.textContent = ''; }
       const intr = fight && ok && sp.tags.includes('interrupt') && c.enemies.some((e) => e.alive && e.intent && e.intent.cast && !e.intent.interrupted);
       b.classList.toggle('hint', !!intr);
+      // OFF_BALANCE window (combat v2, rules 7.13): the spell lands in a window on the current target (an area spell: on
+      // any enemy), from R.spellInfo(...).window; "elsewhere" when only another enemy is off-balance
+      const w = fight && ok && s ? s.window : null;
+      const here = !!(w && (w === 'all' || w.includes(ctx.ui.target)));
+      const there = !!(w && !here && w.length);
+      b.classList.toggle('window', here); b.classList.toggle('window-else', there);
+      let wt = b.querySelector('.wtag');
+      if (here || there) {
+        const src = here ? (w === 'all' ? c.enemies.find((x) => x.alive && x.offBalance) : c.enemies.find((x) => x.idx === ctx.ui.target)) : null;
+        if (!wt) { wt = h('span.wtag'); b.appendChild(wt); }
+        wt.textContent = here ? (src && src.offBalance ? `+${Math.round(src.offBalance.taken * 100)}%` : 'Window') : '⇄ target';
+      } else if (wt) wt.remove();
+      // Pre-cast armed in the engage round (combat v2): the spells it can cast for free
+      const eg = fight && c.engage && ctx.ui.precastArmed ? c.engage.options.find((o) => o.spells) : null;
+      b.classList.toggle('precast', !!(eg && eg.spells.some((x) => x.spellId === id)));
     });
     p.itemBar.forEach((id, i) => {
       const b = els.items[i]; const img = b.querySelector('img'); const cnt = b.querySelector('.cnt'); const cd = b.querySelector('.cd');
@@ -486,16 +539,6 @@ export function resurrectTip(v) {
   const rt = resurrectText(v.player, !!(v.combat && v.combat.isBoss && !v.combat.over));
   return h('div', h('div.tt-name', 'Resurrect charges'), h('div.tt-line', rt.list), rt.note ? h('div.tt-warn', rt.note) : null,
     h('div.tt-sub', 'When you die, the first charge returns you to the fight at once.'));
-}
-
-function intentTip(e, ctx) {
-  const it = e.intent; if (!it) return null;
-  const who = it.target === 'pet' ? 'your pet' : it.target === 'both' ? 'you and your pet' : it.target === 'player' ? 'you' : it.target;
-  return h('div', h('div.tt-name', `${e.name}: ${it.name}`), it.label ? h('div.tt-line', it.label) : null,
-    it.est && !(it.selfHeal || it.mend || it.shield) ? h('div.tt-line.num', `Estimated damage to ${who}: about ${fmtNum(it.est)}`) : null,
-    it.cast && !it.interrupted ? h('div.tt-hint', 'A cast: interrupt it, or stun / freeze / hex the caster, to cancel it.') : null,
-    it.heavy ? h('div.tt-warn', 'Heavy: a telegraphed big hit. Shield up, stun it, or heal after.') : null,
-    it.next ? h('div.tt-warn', it.next) : null, h('div.tt-sub', 'Click to target'));
 }
 
 // ------------------------------------------------------------------ minimap

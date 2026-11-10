@@ -1,22 +1,26 @@
 // Centre screens by phase: class select, hub/camp, zone map, node dialogs, loot, quest rewards,
 // vendor, trainer, shrine, rest, treasure and the run summary. Every button sends an action.
 import { h, add, clear, fmtNum, moneyEl, moneyText, hoursText, clamp } from './util.js';
-import { spellIcon, itemIcon, nodeIcon, icon, consumableIcon } from './art-icons.js';
+import { spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon } from './art-icons.js';
 import { drawPortrait, HERO_LOOKS, PET_LOOKS } from './art-actors.js';
 import { tip, itemTip, spellTip } from './tooltip.js';
 import { conColor, heroPortrait, travelState } from './hud.js';
-import { numWord, plural, pct1 } from './ui-text.js';
+import { numWord, plural, pct1, ROLE_INFO, humanize } from './ui-text.js';
 import { createMeta, buildOaths, echoAmt } from './meta.js';
 
 const NODE_NAME = { quest: 'Quest', grind: 'Grind', elite: 'Elite', dungeon: 'Dungeon', rest: 'Rest', vendor: 'Vendor', trainer: 'Trainer', treasure: 'Treasure', shrine: 'Shrine' };
 const NO_FIGHT = new Set(['rest', 'vendor', 'trainer', 'shrine']); // nodes that hold no fight: labels in a neutral colour
 const NEUTRAL = '#f0e0c0';
-/** "Skulker, 2 × Caster" from one name per enemy. */
-function nameGroups(names) {
+/**
+ * A fight's pack as role badges (combat v2, rules 7.14: the map shows the enemy count and archetypes so a pull can be
+ * planned): one chip per archetype with its count, "2 × Brute", in the order the engine lists the enemies.
+ */
+function archChips(list) {
   const counts = new Map();
-  for (const nm of names) counts.set(nm, (counts.get(nm) || 0) + 1);
-  return [...counts.entries()].map(([nm, k]) => (k > 1 ? `${k} × ${nm}` : nm)).join(', ');
+  for (const a of list) counts.set(a, (counts.get(a) || 0) + 1);
+  return h('span.archs', [...counts.entries()].map(([a, k]) => h('span.arch', { dataset: { arch: a } }, h('img', { src: roleIcon(a), alt: '' }), `${k > 1 ? `${k} × ` : ''}${(ROLE_INFO[a] || {}).name || humanize(a)}`)));
 }
+const enemies = (k) => `${k} ${k === 1 ? 'enemy' : 'enemies'}`;
 /** What a node holds, in words; counts and offsets from the rules table (ctx.data.rules, the engine's constants). */
 function nodeDesc(type, r) {
   const cap = (s) => s[0].toUpperCase() + s.slice(1);
@@ -309,10 +313,14 @@ function nodeTip(n, v, ctx, reach) {
   if (n.type === 'quest') add(box, h('div.tt-line', { style: { color: '#ffd88a', fontWeight: 700 } }, n.title), h('div.tt-sub', `From ${n.giver}`));
   if (n.type === 'elite') add(box, h('div.tt-line', { style: { color: '#ffb08a', fontWeight: 700 } }, n.eliteName || 'An elite'), n.level ? h('div.tt-sub', `Elite level ${n.level}`) : null);
   if (n.type === 'dungeon') add(box, h('div.tt-line', { style: { color: '#c8a8ff', fontWeight: 700 } }, n.dungeon), h('div.tt-sub', `Boss: ${n.bossName}`));
-  if (n.enemyNames && n.enemyNames.length) {
-    const k = n.enemyNames.length;
-    box.appendChild(h('div.tt-line.foes', `${n.type === 'grind' ? 'Wave 1: ' : 'Foes: '}${k} ${k === 1 ? 'enemy' : 'enemies'} (${nameGroups(n.enemyNames)})`));
-  }
+  // the enemies (combat v2, mapView): count and role badges per fight; a dungeon lists each trash fight and its boss
+  if (n.type === 'dungeon' && n.fights && n.fights.length) {
+    n.fights.forEach((f, i) => box.appendChild(h('div.tt-foes', h('span.k', `Fight ${i + 1}: ${enemies(f.length)}`), archChips(f))));
+    if (n.bossArchetype) box.appendChild(h('div.tt-foes', h('span.k', `Boss: ${n.bossName || 'the boss'}`), archChips([n.bossArchetype])));
+  } else if (n.archetypes && n.archetypes.length) {
+    box.appendChild(h('div.tt-foes', h('span.k', `${n.type === 'grind' ? 'Wave 1' : n.type === 'treasure' ? 'Guard' : 'Foes'}: ${enemies(n.archetypes.length)}`), archChips(n.archetypes)));
+  } else if (n.type === 'treasure' && n.guarded === false) box.appendChild(h('div.tt-line', 'Unguarded'));
+  else if (n.enemyNames && n.enemyNames.length) box.appendChild(h('div.tt-line.foes', `Foes: ${n.enemyNames.join(', ')}`)); // mock engine: names only
   box.appendChild(h('div.tt-line.desc', nodeDesc(n.type, ctx.data.rules)));
   const danger = nodeDanger(n, ctx.data.rules);
   if (danger) box.appendChild(h('div.tt-warn.danger', danger));

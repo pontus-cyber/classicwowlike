@@ -80,7 +80,14 @@ export function hitPower(e, actionWeight = 0) {
 export const hitShare = (e) => (e.maxHp ? clamp((e.amount || 0) / e.maxHp, 0, 1) : 0);
 
 /** Floating labels of statuses when they are applied (each takes a short beat). */
-export const STATUS_LABEL = { STUN: 'Stunned!', FROZEN: 'Frozen!', HEXED: 'Hexed!', SILENCED: 'Silenced', CHILLED: 'Chilled', EXPOSED: 'Exposed', MARKED: 'Marked', CURSED: 'Cursed', BRAND: 'Brand', ENRAGED: 'Enraged!', TAUNT: 'Taunt!', SHIELDED: 'Braced' };
+export const STATUS_LABEL = { STUN: 'Stunned!', FROZEN: 'Frozen!', HEXED: 'Hexed!', SILENCED: 'Silenced', CHILLED: 'Chilled', EXPOSED: 'Exposed', MARKED: 'Marked', CURSED: 'Cursed', BRAND: 'Brand', ENRAGED: 'Enraged!', TAUNT: 'Taunt!', SHIELDED: 'Braced',
+  // combat v2: the window and the engage options' statuses
+  OFF_BALANCE: 'Off-balance!', SAPPED: 'Sapped!', TRAP: 'Trap set', GATHER: 'Gathered Power' };
+/**
+ * Weight of an engage option's action (combat v2, rules 7.10; the presentation of ENGAGE, which has no spell entry): the
+ * strikes like a solid spell, control and setup options light. Pre-cast plays as the bar spell it casts.
+ */
+export const ENGAGE_WEIGHT = { ambush: 0.6, opening_shot: 0.55, sap: 0.25, binding_glyph: 0.35, lay_trap: 0.15, send_pet: 0.15, premeditate: 0.1, gather_power: 0.2 };
 
 const selfOnly = (e) => !e.dst || (e.tags && (e.tags.includes('defensive') || e.tags.includes('resource') || e.tags.includes('heal')) && !e.tags.includes('aoe'));
 
@@ -106,8 +113,8 @@ export function timeline(events, prev, spells, scale = 1) {
         if (e.src.side === 'player') {
           if (e.kind === 'pass') { b = { side: 'player', style: 'pass', wait: S(BEAT.pass) }; act = null; break; }
           if (e.kind === 'item') { b = { side: 'player', style: 'item', wait: S(BEAT.item), act: S(420) }; act = null; break; }
-          const sp = spells && e.id ? spells[e.id] : null;
-          const w = e.kind === 'attack' ? 0.12 : spellWeight(sp && sp.raw, cp);
+          const sp = spells && e.id && e.kind !== 'engage' ? spells[e.id] : null;
+          const w = e.kind === 'attack' ? 0.12 : e.kind === 'engage' ? ENGAGE_WEIGHT[e.option] ?? 0.2 : spellWeight(sp && sp.raw, cp);
           const self = selfOnly(e);
           if (self) b = { side: 'player', style: 'self', windup: S(BEAT.self.cast), travel: 0, aura: S(BEAT.self.aura), act: S(BEAT.self.cast * 1.6), w };
           else if (cls === 'rogue') { const wu = S(lerp(BEAT.rogue.windup[0], BEAT.rogue.windup[1], w)); b = { side: 'player', style: 'melee', windup: wu, travel: 0, act: wu / 0.42, w }; }

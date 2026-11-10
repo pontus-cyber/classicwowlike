@@ -446,6 +446,47 @@ export class Scene {
     if (a.fxBurn && a.alive !== false) { const an = this.anchor(a.id); if (Math.random() < 0.4) this.particles.push({ x: an.x + (Math.random() - 0.5) * an.w, y: an.cy, vx: 0, vy: -60 * this.u, life: 0.5, t0: t, size: 2.5 * this.u, color: '#ff9a4a', g: 0, glow: true }); }
     if (a.fxFrozen && a.alive !== false) { const an = this.anchor(a.id); ctx.fillStyle = 'rgba(170,220,255,0.28)'; ctx.fillRect(an.x - an.w * 0.7, an.top, an.w * 1.4, an.feet - an.top); }
     if (a.fxHex && a.alive !== false) { const an = this.anchor(a.id); ctx.save(); ctx.strokeStyle = 'rgba(200,150,255,0.8)'; ctx.lineWidth = 2 * this.u; ctx.beginPath(); ctx.ellipse(an.x, an.feet, an.w, 10 * this.u, 0, t * 2, t * 2 + 4.5); ctx.stroke(); ctx.restore(); }
+    if (a.fxSap && a.alive !== false && !a.deadT0) this.drawSleep(ctx, a);
+    if (a.fxOffBal && a.alive !== false && !a.deadT0) this.drawOffBalance(ctx, a, gy);
+  }
+
+  /** Sapped (combat v2): drifting Z letters over the head. */
+  drawSleep(ctx, a) {
+    const an = this.anchor(a.id); if (!an) return;
+    const t = this.time; const u = this.u;
+    ctx.save(); ctx.textAlign = 'center'; ctx.fillStyle = '#d8ccff'; ctx.strokeStyle = 'rgba(20,10,40,0.85)'; ctx.lineWidth = 3 * u;
+    for (let i = 0; i < 3; i++) {
+      const k = ((t * 0.55 + i / 3) % 1);
+      ctx.globalAlpha = Math.sin(k * Math.PI) * 0.95;
+      ctx.font = `900 ${(11 + 7 * k) * u}px Georgia, serif`;
+      const x = an.x + (10 + 16 * k) * u; const y = an.top + 6 * u - 34 * k * u;
+      ctx.strokeText('Z', x, y); ctx.fillText('Z', x, y);
+    }
+    ctx.restore();
+  }
+
+  /**
+   * Off-balance (combat v2, rules 7.13): the enemy's guard is broken. A pulsing amber ring of broken segments at its feet,
+   * a warm glow on its body and rising sparks, until the window closes.
+   */
+  drawOffBalance(ctx, a, gy) {
+    const an = this.anchor(a.id); if (!an) return;
+    const t = this.time; const u = this.u;
+    const w = (a.kind === 'boss' ? 150 : a.kind === 'beast' ? 62 : 46) * a.scale / (a.kind === 'boss' ? 1 : 1.25);
+    const pulse = 0.5 + 0.5 * Math.sin(t * 7);
+    ctx.save();
+    const g = ctx.createRadialGradient(an.x, an.cy, 4 * u, an.x, an.cy, (an.feet - an.top) * 0.85);
+    g.addColorStop(0, `rgba(255,190,70,${0.16 + 0.12 * pulse})`); g.addColorStop(1, 'rgba(255,170,40,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(an.x, an.cy, (an.feet - an.top) * 0.85, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowColor = '#ffb030'; ctx.shadowBlur = 14 * u; ctx.lineCap = 'round';
+    const segs = 8; const rot = t * 0.9;
+    for (let i = 0; i < segs; i++) {
+      const a0 = rot + (i / segs) * Math.PI * 2; const a1 = a0 + (Math.PI * 2 / segs) * 0.62;
+      ctx.strokeStyle = `rgba(255,${200 + 30 * pulse},90,${0.7 + 0.3 * pulse})`; ctx.lineWidth = (3 + 1.5 * pulse) * u;
+      ctx.beginPath(); ctx.ellipse(an.x, gy + 2 * u, w * (1.25 + 0.1 * pulse), 15 * u, 0, a0, a1); ctx.stroke();
+    }
+    ctx.restore();
+    if (Math.random() < 0.45) this.particles.push({ x: an.x + (Math.random() - 0.5) * w * 2, y: gy, vx: (Math.random() - 0.5) * 20 * u, vy: -(80 + Math.random() * 70) * u, life: 0.7, t0: t, size: 2.4 * u, color: '#ffc85a', g: 0, glow: true });
   }
 
   /** Draw an actor through a scratch canvas and tint its pixels white by `flash` (the contact frame of a hit). */
