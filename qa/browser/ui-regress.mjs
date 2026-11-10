@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I]
+ *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -65,6 +65,19 @@
  *      Then an expedition run (?expedition=1): the Dimming's marker and "Dimming N h" at the hub, a move's preview, and
  *      a map step where the Dimming sets the state (marker, "· Dimming", the meter's tooltip) = heatView. Both seeds are
  *      chosen at run time on Node runs of the same choices (the UI's own item-bar actions included).
+ *   J  combat v2.1 display (docs/specs/combat-v2.md 16, 10.9; M2b 2b.6), real engine at Instant speed, a Hunter seed chosen
+ *      at run time (jPick: Node runs of the same choices). Stacked toasts on the map: the same message merges ("×3"), at most
+ *      two show at once, a queued one follows, none covers the zone map. (A) an elite's engage round: the wind-up badge on
+ *      exactly the track entries the engine flags `windup` (nameplate chips, target frame) and the line over the enemy
+ *      ("Wind-up R3: answer it or it empowers"), the ruler's "Wind-up", each engage card's answered wind-ups = R.engagePreview
+ *      (stagger; Send the Pet on a heavy one), the wind-up's tooltip (round, stakes from EMPOWER_DMG and STAGGER_DMG, what
+ *      answers it) and the bar spells marked on hover; key W (Lay Trap): ANSWERED where the engine predicts cancel.stagger,
+ *      then the STAGGERED badges (nameplate, target frame) = the engine's status and the log line. (B) a later fight where
+ *      the Hunter passes: the wind-up lands, EMPOWERED badges = the engine's status, the log line. (C) a dungeon boss: Lay
+ *      Trap shows as Disrupt exactly as R.engageOptions says, key W logs the wind-up it stops, STAGGERED after it; then the
+ *      same engage round loaded with no wind-up in view (window.__ui.loadState; the real content never shows a dungeon boss
+ *      without one): greyed out with the engine's reason. In every round met with a wind-up playing, the bar marks exactly
+ *      the usable spells that can answer it. Stacked toasts in a fight: merged, clear of the frames, ruler and nameplates.
  *
  * Seeds were picked with the engine of 3559e0e (M2 v2): seed 30's first quest has two Guardians that last long
  * enough for the potion and Autoplay checks. M2 v3 (77c0ca5): seed 1's autoplay run no longer reaches the camp, so part B
@@ -91,7 +104,7 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -1785,6 +1798,330 @@ async function partIExp(browser, W, H) {
   await context.close();
 }
 
+// ------------------------------------------------------------------ part J: combat v2.1 display (wind-ups, stacks, Disrupt)
+/**
+ * Can a bar spell answer a wind-up? The UI's documented reading of the engine's spell entry (src/ui/tracks.js answerKind, a
+ * stopgap until the engine says it per spell): 'stop' for an interrupt, a stun-tagged spell or one that applies HEXED or
+ * FROZEN (rules 7.7: these stop it, on a dungeon boss too); 'avoid' for a defensive spell or a taunt against a heavy one.
+ */
+function jAnswerKind(id, x) {
+  const sp = R.C.SPELL[id]; if (!sp || !x || !x.windup) return null;
+  const t = sp.tags || [];
+  if (t.includes('interrupt') || t.includes('stun') || sp.hex || sp.freeze) return 'stop';
+  if (x.heavy && (t.includes('defensive') || sp.taunt)) return 'avoid';
+  return null;
+}
+const J_WINDUP_FIGHTS = new Set(['elite', 'rare', 'dboss']);
+/** The first living enemy (immune to control or not) whose track shows a wind-up in turns 1..INTENT_TRACK_LEN, or null. */
+const jFoe = (s, immune = false) => s.fight.enemies.find((e) => e.alive && !!e.ccImmune === immune && e.track.some((x) => x.windup && x.turn >= 1 && x.turn <= R.C.INTENT_TRACK_LEN)) || null;
+const jRound = (e, x) => (e.turn0 || 1) + x.turn - 1;
+const jStack = (e, id) => { const st = (e.st || []).find((x) => x.id === id); return st ? { id, stacks: st.stacks, value: st.value } : null; };
+const jPct = (x) => `${Math.round((x || 0) * 100)} %`;
+let J_PICK = null;
+/**
+ * The seed for part J, chosen at run time (the engine still changes): the first Hunter seed of 1-40 whose run on these
+ * choices (a Node run with the UI's own item-bar actions) meets (A) an elite or rare fight whose engage round shows a
+ * wind-up that Lay Trap answers, and the trap answers it; (B) a later elite, rare or dungeon-boss fight whose wind-up lands
+ * while the Hunter passes; (C) a dungeon-boss fight where Lay Trap is Disrupt. Elsewhere: the engine's autoplay choices.
+ */
+function jPick() {
+  if (J_PICK) return J_PICK;
+  for (let seed = 1; seed <= 40; seed++) {
+    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT });
+    for (const a of [{ type: 'SELECT_CLASS', classId: 'hunter' }, { type: 'SELECT_PET', petId: 'ridgewolf' }, { type: 'START_RUN' }]) s = R.step(s, a).state;
+    const step = (a) => { const prev = s; const r = R.step(s, a); s = r.state; const ev = [...r.events]; for (const o of iUiOwn(prev, s)) { const r2 = R.step(s, o); s = r2.state; ev.push(...r2.events); } return ev; };
+    const over = () => s.phase === 'SUMMARY' || s.phase === 'ENDED';
+    const until = (pred) => { for (let n = 0; n < 3000 && !over(); n++) { if (pred()) return true; step(R.autoAction(s)); } return false; };
+    const inFight = () => !!(s.fight && !s.fight.over);
+    // (A) Lay Trap answers an elite's wind-up
+    if (!until(() => s.fight && R.isEngageRound(s) && (s.fight.kind === 'elite' || s.fight.kind === 'rare') && jFoe(s))) continue;
+    const a = jFoe(s); const kindA = s.fight.kind;
+    const pvA = R.engagePreview(s, { type: 'ENGAGE', option: 'lay_trap', target: a.idx });
+    if (!pvA || !(pvA.enemies.find((q) => q.u === a.idx) || { stagger: [] }).stagger.length) continue;
+    let staggered = step({ type: 'ENGAGE', option: 'lay_trap', target: a.idx }).some((e) => e.t === 'stagger' && e.u === a.idx);
+    for (let n = 0; n < 300 && inFight(); n++) if (step(R.autoAction(s)).some((e) => e.t === 'stagger' && e.u === a.idx)) staggered = true;
+    if (!staggered || over()) continue;
+    // (B) a wind-up lands while the Hunter passes
+    if (!until(() => s.fight && R.isEngageRound(s) && J_WINDUP_FIGHTS.has(s.fight.kind) && (jFoe(s) || jFoe(s, true)))) continue;
+    const kindB = s.fight.kind; let landed = false;
+    for (let n = 0; n < 6 && inFight() && !landed; n++) if (step({ type: 'PASS' }).some((e) => e.t === 'empower')) landed = true;
+    if (!landed) continue;
+    for (let n = 0; n < 300 && inFight(); n++) step(R.autoAction(s));
+    if (over()) continue;
+    // (C) Disrupt on a dungeon boss
+    if (!until(() => s.fight && R.isEngageRound(s) && s.fight.kind === 'dboss')) continue;
+    const boss = s.fight.enemies.find((e) => e.alive && e.ccImmune);
+    const ctl = (R.engageOptions(s) || []).find((o) => o.id === 'lay_trap');
+    if (!boss || !ctl || !ctl.disrupt.includes(boss.idx)) continue;
+    J_PICK = { seed, a: `${kindA} ${a.name}`, b: kindB, c: boss.name };
+    return J_PICK;
+  }
+  throw new Error('no Hunter seed of 1-40 meets part J\'s conditions');
+}
+/** The combat v2.1 display on the page: wind-up chips, rows, lines over enemies, stack badges, the ruler, the bar, the engage cards. */
+const j21dom = (page) => page.evaluate(() => {
+  const vis = (el) => !!el && !el.classList.contains('hidden') && getComputedStyle(el).display !== 'none';
+  const wst = (root) => [...root.querySelectorAll('.wstk .wst')].map((b) => ({ id: b.dataset.id, stacks: Number(b.dataset.stacks), value: Number(b.dataset.value), text: b.textContent }));
+  const tf = document.querySelector('#target-frame');
+  return {
+    np: [...document.querySelectorAll('#nameplates .np')].filter((el) => !el.classList.contains('dead')).map((el) => {
+      const wub = el.querySelector('.wub');
+      return { idx: Number(el.dataset.idx), chips: [...el.querySelectorAll('.trk .tk')].map((c) => ({ turn: Number(c.dataset.turn), windup: c.dataset.windup || '', ribbon: (c.querySelector('.b-wu') || {}).textContent || '' })),
+        wub: vis(wub) ? { text: wub.textContent, turn: Number(wub.dataset.turn), state: wub.dataset.state } : null, wst: wst(el) };
+    }),
+    rows: vis(tf) ? [...tf.querySelectorAll('.ttrack .tr')].map((r) => ({ turn: Number(r.dataset.turn), windup: r.dataset.windup || '' })) : [],
+    twst: vis(tf) ? wst(tf) : [],
+    ruler: vis(document.querySelector('#ruler')) ? [...document.querySelectorAll('#ruler .rl-c')].map((c) => ({ round: Number(c.dataset.round), wu: (c.querySelector('.rl-wu') || {}).textContent || '' })) : [],
+    bar: [...document.querySelectorAll('#actionbar .ab[data-slot]')].map((b) => ({ slot: Number(b.dataset.slot), ans: b.classList.contains('wu-ans'), else: b.classList.contains('wu-else'), avoid: b.classList.contains('wu-avoid'), hl: b.classList.contains('wu-hl') })),
+    cards: [...document.querySelectorAll('#engage .eg-opt[data-opt]')].map((c) => ({ opt: c.dataset.opt, disrupt: c.dataset.disrupt === '1', answers: c.dataset.answers || '', off: c.classList.contains('off'),
+      name: (c.querySelector('.eg-name') || {}).textContent || '', was: (c.querySelector('.eg-was') || {}).textContent || '', tg: (c.querySelector('.eg-tg') || {}).textContent || '' })),
+    engage: vis(document.querySelector('#engage')),
+  };
+});
+/** The wind-up badges follow the engine: a chip and a target-frame row carry one exactly for the entries the engine flags `windup`. */
+function jBadgesMatch(d, s, target) {
+  const bad = [];
+  for (const e of s.fight.enemies.filter((x) => x.alive)) {
+    const np = d.np.find((x) => x.idx === e.idx); if (!np) { bad.push(`no nameplate for ${e.idx}`); continue; }
+    const want = e.track.map((x) => `${x.turn}:${x.windup ? 1 : 0}`).join(' '); const saw = np.chips.map((c) => `${c.turn}:${c.windup ? 1 : 0}`).join(' ');
+    if (want !== saw) bad.push(`${e.name} chips ${saw} vs engine ${want}`);
+    // a now-entry replaced for another reason than SILENCED is neither answered nor landed: no line for it (tracks.js)
+    const voidNow = (x) => e.turn >= 1 && x.turn === e.turn && e.intent && e.intent.replaced && !e.intent.cancelled && e.intent.replaced.reason !== 'silenced';
+    const first = e.track.find((x) => x.windup && !voidNow(x));
+    if (!!np.wub !== !!first) bad.push(`${e.name}: wind-up line ${np.wub ? 'shown' : 'hidden'}, engine ${first ? `wind-up on turn ${first.turn}` : 'none'}`);
+  }
+  const t = s.fight.enemies[target];
+  if (t && t.alive && d.rows.length && d.rows.map((r) => `${r.turn}:${r.windup ? 1 : 0}`).join(' ') !== t.track.map((x) => `${x.turn}:${x.windup ? 1 : 0}`).join(' ')) bad.push(`target frame rows ${JSON.stringify(d.rows)}`);
+  return bad;
+}
+/** EMPOWERED and STAGGERED badges = the engine's statuses ({ stacks, value }) on every living enemy and on the target frame. */
+function jStacksMatch(d, s, target) {
+  const bad = [];
+  const want = (e) => ['EMPOWERED', 'STAGGERED'].map((id) => jStack(e, id)).filter(Boolean);
+  const same = (page, w) => page.length === w.length && w.every((x) => page.some((p) => p.id === x.id && p.stacks === x.stacks && Math.abs(p.value - x.value) < 1e-9 && p.text.includes(`${x.id === 'EMPOWERED' ? '+' : '−'}${jPct(x.value)} dmg`)));
+  for (const e of s.fight.enemies.filter((x) => x.alive)) {
+    const np = d.np.find((x) => x.idx === e.idx); if (!np) continue;
+    if (!same(np.wst, want(e))) bad.push(`${e.name}: page ${JSON.stringify(np.wst)} vs engine ${JSON.stringify(want(e))}`);
+  }
+  const t = s.fight.enemies[target];
+  if (t && t.alive && !same(d.twst, want(t))) bad.push(`target frame ${JSON.stringify(d.twst)} vs engine ${JSON.stringify(want(t))}`);
+  return bad;
+}
+/** The bar marks what answers a wind-up playing this round, as the engine's state says (its intent, legality, the spell entries). */
+function jBarMatch(d, s, target) {
+  const bad = [];
+  const now = s.fight.enemies.filter((e) => e.alive && e.intent && e.intent.windup && !e.intent.interrupted && !e.intent.cancelled)
+    .map((e) => ({ e, x: e.track.find((x) => x.turn === e.turn && x.windup) || { windup: true, heavy: !!e.intent.heavy } }));
+  const legal = R.legalActions(s);
+  s.player.bar.forEach((id, slot) => {
+    if (!id) return;
+    const b = d.bar.find((x) => x.slot === slot); const sp = R.C.SPELL[id];
+    const kinds = now.map((w) => ({ w, k: jAnswerKind(id, w.x) })).filter((z) => z.k);
+    const ok = legal.some((a) => a.type === 'CAST' && a.spellId === id) && kinds.length > 0;
+    const onTgt = kinds.some((z) => z.k === 'avoid' || sp.target !== 'enemy' || z.w.e.idx === target);
+    const stop = ok && kinds.some((z) => z.k === 'stop');
+    const want = { ans: stop && onTgt, else: stop && !onTgt, avoid: ok && !stop };
+    if (b.ans !== want.ans || b.else !== want.else || b.avoid !== want.avoid) bad.push(`${id}: page ${JSON.stringify({ ans: b.ans, else: b.else, avoid: b.avoid })} vs ${JSON.stringify(want)}`);
+  });
+  return bad;
+}
+/** Each engage card's "answers the wind-up" = R.engagePreview on its target: cancelled wind-ups, and Send the Pet's heavy ones. */
+function jCardsMatch(d, s, target) {
+  const bad = [];
+  for (const o of R.engageOptions(s) || []) {
+    if (o.spells) continue;
+    const c = d.cards.find((x) => x.opt === o.id); if (!c) { bad.push(`no card ${o.id}`); continue; }
+    const none = o.targets.length === 1 && o.targets[0] === null;
+    const t = none ? null : o.targets.includes(target) ? target : o.targets[0];
+    let want = [];
+    if (!o.reason && (none || t != null)) {
+      const pv = R.engagePreview(s, { type: 'ENGAGE', option: o.id, target: t });
+      for (const q of (pv && pv.enemies) || []) {
+        const e = s.fight.enemies[q.u];
+        for (const x of e.track) if (x.windup && (q.stagger.includes(x.turn) || (x.heavy && q.pet.includes(x.turn)))) want.push({ k: `${e.idx}:${x.turn}`, r: jRound(e, x) });
+      }
+      want = want.sort((a, b) => a.r - b.r);
+    }
+    if (c.answers !== want.map((w) => w.k).join(' ')) bad.push(`${o.id}: page answers "${c.answers}" vs engine "${want.map((w) => w.k).join(' ')}"`);
+    const dis = !o.reason && t != null && o.targets.includes(target) && o.disrupt.includes(target);
+    if (c.disrupt !== dis || (dis && (c.name !== 'Disrupt' || c.was !== o.name)) || (!dis && c.name !== o.name)) bad.push(`${o.id}: page ${c.disrupt ? 'Disrupt' : 'no Disrupt'} "${c.name}" (${c.was}) vs engine disrupt ${JSON.stringify(o.disrupt)} on ${target}`);
+    if (c.off !== !!o.reason || (o.reason && c.tg !== `${o.reason[0].toUpperCase()}${o.reason.slice(1)}`)) bad.push(`${o.id}: page off ${c.off} "${c.tg}" vs engine reason ${JSON.stringify(o.reason)}`);
+  }
+  return bad;
+}
+/** Toasts on screen: their text and box, and the boxes of the panels they must not cover. */
+const jToasts = (page) => page.evaluate(() => {
+  const box = (el) => { if (!el || el.classList.contains('hidden') || getComputedStyle(el).display === 'none') return null; const r = el.getBoundingClientRect(); return r.width ? [r.left, r.top, r.right, r.bottom] : null; };
+  return { toasts: [...document.querySelectorAll('#toasts .toast')].map((t) => ({ text: t.textContent, box: box(t) })),
+    panels: [['map', '#screens .mapwin'], ['target frame', '#target-frame'], ['ruler', '#ruler'], ['engage panel', '#engage'], ['boss frame', '#boss-frame'], ...[...document.querySelectorAll('#nameplates .np:not(.dead)')].map((el, i) => [`nameplate ${i}`, el])]
+      .map(([n, sel]) => [n, box(typeof sel === 'string' ? document.querySelector(sel) : sel)]).filter(([, b]) => b) };
+});
+const jOverlaps = (t) => t.toasts.flatMap((x) => t.panels.filter(([, b]) => x.box && x.box[0] < b[2] && x.box[2] > b[0] && x.box[1] < b[3] && x.box[3] > b[1]).map(([n]) => `"${x.text}" over the ${n}`));
+/** A burst of messages: the same refused action three times and two others; the UI's toasts are its answer. */
+const jBurst = (page) => page.evaluate(() => { for (const t of ['NOPE', 'NOPE', 'NOPE', 'NOPE_TWO', 'NOPE_THREE']) window.__ui.act({ type: t }); });
+
+async function partJ(browser, W, H) {
+  const pick = jPick(); const SEED = pick.seed;
+  const twin = makeTwin(SEED);
+  const { context, page, errors } = await open(browser, W, H, `seed=${SEED}&speed=instant`);
+  check('-', `part J seed ${SEED} (chosen on Node runs: Lay Trap answers the ${pick.a}'s wind-up, a wind-up lands in a ${pick.b} fight, Disrupt on ${pick.c})`, true, '');
+  const frame = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  const nowBad = []; let nowSeen = 0;
+  /** AUTO until pred(twin state) holds with the fight on screen; every combat step on the way checks the bar against a wind-up now. */
+  const until = async (pred, label) => {
+    for (let n = 0; n < 2500; n++) {
+      const s = await twin.sync(page); const v = await view(page);
+      if (v.phase === 'SUMMARY') throw new Error(`the run ended before ${label}`);
+      if (pred(s) && v.step === 'combat' && v.round) { await frame(); return s; }
+      await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page);
+    }
+    throw new Error(`no ${label} within 2500 steps`);
+  };
+  /** One combat action: a key, or 'AUTO' (the engine's autoplay choice, as the Node pick); returns { s } (the twin after it). */
+  const press = async (key) => {
+    if (key === 'AUTO') await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); else await page.keyboard.press(key);
+    await idle(page); await page.mouse.move(2, 2); await frame();
+    const s = await twin.sync(page);
+    if (s.fight && !s.fight.over) {
+      const d = await j21dom(page); const tgt = await page.evaluate(() => window.__ui.target());
+      if (s.fight.enemies.some((e) => e.alive && e.intent && e.intent.windup)) { nowSeen++; nowBad.push(...jBarMatch(d, s, tgt)); }
+    }
+    return { s };
+  };
+  try {
+    await page.locator('#create .ccard[data-cls="hunter"]').click();
+    await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page); await page.mouse.move(2, 2);
+    // ---- stacked toasts on the map: merged and at most two at once, clear of the zone map
+    for (let n = 0; n < 60; n++) { const v = await view(page); if (v.phase === 'MAP' && !(await page.evaluate(() => !!window.__ui.view().loot))) break; await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
+    await frame();
+    await jBurst(page); await page.waitForTimeout(250);
+    const tm = await jToasts(page);
+    await shot(page, 'J-toasts-map');
+    const merged = tm.toasts.find((t) => /NOPE" ×3$/.test(t.text));
+    check('M2b-2b.6', `stacked toasts on the map merge and queue: the same message three times is one toast "×3", at most 2 show at once, none over the zone map`,
+      tm.toasts.length <= 2 && !!merged && !jOverlaps(tm).length && tm.panels.some(([n]) => n === 'map'), `${JSON.stringify(tm.toasts.map((t) => t.text))}; ${jOverlaps(tm).join(', ')}`);
+    await page.waitForTimeout(2900);
+    const tq = await jToasts(page);
+    check('M2b-2b.6', 'a queued toast shows when one leaves (NOPE_THREE after the first two)', tq.toasts.some((t) => t.text.includes('NOPE_THREE')), JSON.stringify(tq.toasts.map((t) => t.text)));
+    await page.waitForTimeout(2900);
+
+    // ---- (A) an elite's wind-up, from the engage round: badges, the line over it, the ruler, the tooltip, the engage cards
+    let s = await until((x) => x.fight && R.isEngageRound(x) && (x.fight.kind === 'elite' || x.fight.kind === 'rare') && jFoe(x), 'an elite fight with a wind-up');
+    const a = jFoe(s); const wx = a.track.find((x) => x.windup); const wRound = jRound(a, wx);
+    await page.locator(`#nameplates .np[data-idx="${a.idx}"]`).click(); await idle(page); await page.mouse.move(2, 2); await frame();
+    let d = await j21dom(page);
+    await shot(page, 'J-windup-engage');
+    let bad = jBadgesMatch(d, s, a.idx);
+    const line = d.np.find((x) => x.idx === a.idx).wub;
+    check('M2b-2b.6', `engage round of the ${s.fight.kind} fight: the wind-up badge is on exactly the entries the engine flags (chips, target frame), and over ${a.name}: "Wind-up R${wRound}: answer it or it empowers"`,
+      !bad.length && line && line.turn === wx.turn && line.text.includes(`Wind-up R${wRound}`) && line.text.includes('answer it or it empowers'), `${bad.join(' | ')}; line ${JSON.stringify(line)}`);
+    const col = d.ruler.find((c) => c.round === wRound);
+    check('M2b-2b.6', `the opening ruler marks round ${wRound} "Wind-up"`, wRound > 5 || (col && col.wu === 'Wind-up'), JSON.stringify(d.ruler));
+    bad = jCardsMatch(d, s, a.idx);
+    check('M2b-2b.6', 'each engage card says which wind-ups it answers exactly as R.engagePreview does (stagger, Send the Pet on a heavy one) on its target', !bad.length, bad.join(' | ') || JSON.stringify(d.cards.map((c) => [c.opt, c.answers])));
+    // hover the wind-up chip: the tooltip says what answers it; the bar marks every spell that can
+    await page.locator(`#nameplates .np[data-idx="${a.idx}"] .trk .tk[data-turn="${wx.turn}"]`).hover(); await page.waitForTimeout(200); await frame();
+    const tip = (await page.getByRole('tooltip').innerText()).replace(NBSP, ' ');
+    const hv = await page.evaluate(() => window.__ui.windupHover());
+    d = await j21dom(page);
+    const wantHl = s.player.bar.map((id, slot) => (id && jAnswerKind(id, wx) ? slot : null)).filter((x) => x !== null);
+    const sawHl = d.bar.filter((b) => b.hl).map((b) => b.slot);
+    await shot(page, 'J-windup-tooltip');
+    check('M2b-2b.6', `hovering the wind-up: its tooltip gives the round, the stakes (−${jPct(R.C.STAGGER_DMG)} / +${jPct(R.C.EMPOWER_DMG)}) and what answers it${wx.heavy ? ' (heavy: a full dodge, a ward or the pet too)' : ''}; the bar marks the spells that can (slots ${wantHl.join(',') || 'none'})`,
+      tip.includes(`Wind-up, round ${wRound}`) && tip.includes(`−${jPct(R.C.STAGGER_DMG)}`) && tip.includes(`+${jPct(R.C.EMPOWER_DMG)}`) && tip.includes('Answer it with an interrupt, a stun or control, a trap, or Disrupt') && tip.includes('full dodge') === !!wx.heavy
+        && hv && hv.idx === a.idx && hv.turn === wx.turn && sawHl.join(',') === wantHl.join(','), `hover ${JSON.stringify(hv)}; bar ${sawHl.join(',')}; tooltip: ${tip.replace(/\n/g, ' / ')}`);
+    await page.mouse.move(2, 2);
+    // W: Lay Trap on it; then the engine's autoplay choices: the trap answers it, STAGGERED as the engine has it
+    let r = await press('KeyW');
+    const sent = (await page.evaluate(() => window.__ui.engineLog())).slice(-1)[0];
+    d = await j21dom(page);
+    const pred = (r.s.fight.enemies[a.idx].track.find((x) => x.turn === wx.turn) || {}).cancel;
+    check('M2b-2b.6', `key W sends Lay Trap on ${a.name}; the engine predicts its wind-up answered (cancel.stagger) and the page says so (ANSWERED, "your trap answers it")`,
+      sent.type === 'ENGAGE' && sent.option === 'lay_trap' && sent.target === a.idx && pred && pred.stagger && (d.np.find((x) => x.idx === a.idx).chips.find((c) => c.turn === wx.turn) || {}).windup === 'answered'
+        && (d.np.find((x) => x.idx === a.idx).wub || { text: '' }).text.includes('your trap'), `${JSON.stringify(sent)}; cancel ${JSON.stringify(pred)}; ${JSON.stringify(d.np.find((x) => x.idx === a.idx))}`);
+    let answered = null;
+    for (let n = 0; n < 60 && r.s.fight && !r.s.fight.over && !answered; n++) {
+      r = await press('AUTO'); // the engine's autoplay choices, as in the Node pick
+      const st = r.s.fight && r.s.fight.enemies[a.idx] && jStack(r.s.fight.enemies[a.idx], 'STAGGERED');
+      if (st) answered = { s: r.s, d: await j21dom(page), tgt: await page.evaluate(() => window.__ui.target()), log: await logLines(page) };
+    }
+    if (answered) {
+      await shot(page, 'J-answered');
+      bad = jStacksMatch(answered.d, answered.s, answered.tgt);
+      const logOk = answered.log.some((l) => l.startsWith(`Wind-up answered: ${a.name}'s ${wx.name}`) && l.includes(`Staggered: −${jPct(R.C.STAGGER_DMG)} damage`));
+      check('M2b-2b.6', `answered: the STAGGERED badge on ${a.name} (nameplate and target frame) equals the engine's status, and the log says "Wind-up answered"`, !bad.length && logOk, `${bad.join(' | ')}; log ${answered.log.slice(-4).join(' / ')}`);
+    } else check('M2b-2b.6', `the trap answers ${a.name}'s wind-up`, false, 'no STAGGERED status');
+    for (let n = 0; n < 300 && twin.s.fight && !twin.s.fight.over; n++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); await twin.sync(page); }
+
+    // ---- (B) a wind-up lands while the Hunter passes: EMPOWERED as the engine has it
+    s = await until((x) => x.fight && R.isEngageRound(x) && J_WINDUP_FIGHTS.has(x.fight.kind) && (jFoe(x) || jFoe(x, true)), 'a second fight with a wind-up');
+    let landed = null;
+    for (let n = 0; n < 6 && !landed; n++) {
+      r = await press('KeyX');
+      const e = r.s.fight && r.s.fight.enemies.find((x) => x.alive && jStack(x, 'EMPOWERED'));
+      if (e) landed = { s: r.s, e, d: await j21dom(page), tgt: await page.evaluate(() => window.__ui.target()), log: await logLines(page) };
+    }
+    if (landed) {
+      await shot(page, 'J-landed');
+      bad = jStacksMatch(landed.d, landed.s, landed.tgt);
+      check('M2b-2b.6', `landed: the EMPOWERED badge on ${landed.e.name} equals the engine's status (+${jPct(jStack(landed.e, 'EMPOWERED').value)} dmg) and the log says "Wind-up landed"`,
+        !bad.length && landed.log.some((l) => l.startsWith(`Wind-up landed: ${landed.e.name}'s`) && l.includes(`Empowered: +${jPct(R.C.EMPOWER_DMG)} damage`)), `${bad.join(' | ')}; log ${landed.log.slice(-4).join(' / ')}`);
+    } else check('M2b-2b.6', 'a wind-up lands while the Hunter passes', false, 'no EMPOWERED status');
+    for (let n = 0; n < 300 && twin.s.fight && !twin.s.fight.over; n++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); await twin.sync(page); }
+
+    // ---- (C) a dungeon boss: the control option is Disrupt, as R.engageOptions says
+    s = await until((x) => x.fight && R.isEngageRound(x) && x.fight.kind === 'dboss', 'a dungeon-boss fight');
+    const boss = s.fight.enemies.find((e) => e.alive && e.ccImmune);
+    await page.locator(`#nameplates .np[data-idx="${boss.idx}"]`).click(); await idle(page); await page.mouse.move(2, 2); await frame();
+    d = await j21dom(page);
+    await shot(page, 'J-disrupt');
+    bad = [...jCardsMatch(d, s, boss.idx), ...jBadgesMatch(d, s, boss.idx)];
+    const ctlOpt = R.engageOptions(s).find((o) => o.id === 'lay_trap');
+    check('M2b-2b.6', `dungeon boss ${boss.name}: Lay Trap shows as "Disrupt" exactly where R.engageOptions lists it (disrupt ${JSON.stringify(ctlOpt.disrupt)}), enabled, with the wind-up it answers`,
+      !bad.length && d.cards.some((c) => c.opt === 'lay_trap' && c.disrupt && !c.off), bad.join(' | ') || JSON.stringify(d.cards));
+    const bossTrack = JSON.parse(R.serialize(s)); // the state of this engage round, for the greyed-out check below
+    r = await press('KeyW');
+    const dx = boss.track.find((x) => x.windup);
+    const log1 = await logLines(page);
+    check('M2b-2b.6', `key W sends Disrupt; the log names the wind-up it will stop ("Disrupt (Lay Trap): ${boss.name} will miss ${dx.name} in round ${jRound(boss, dx)}")`,
+      log1.some((l) => l === `Disrupt (Lay Trap): ${boss.name} will miss ${dx.name} in round ${jRound(boss, dx)}.`), log1.slice(-3).join(' / '));
+    answered = null;
+    for (let n = 0; n < 8 && r.s.fight && !r.s.fight.over && !answered; n++) {
+      r = await press('KeyA');
+      if (r.s.fight && r.s.fight.enemies[boss.idx] && jStack(r.s.fight.enemies[boss.idx], 'STAGGERED')) answered = { s: r.s, d: await j21dom(page), tgt: await page.evaluate(() => window.__ui.target()), log: await logLines(page) };
+    }
+    if (answered) {
+      await shot(page, 'J-disrupt-answered');
+      bad = jStacksMatch(answered.d, answered.s, answered.tgt);
+      check('M2b-2b.6', 'Disrupt answers the boss\'s wind-up: its STAGGERED badge equals the engine\'s status and the log says "cancelled by your Disrupt"',
+        !bad.length && answered.log.some((l) => l.startsWith(`Wind-up answered: ${boss.name}'s ${dx.name} is cancelled by your Disrupt`)), `${bad.join(' | ')}; ${answered.log.slice(-3).join(' / ')}`);
+    } else check('M2b-2b.6', 'Disrupt answers the boss\'s wind-up', false, 'no STAGGERED status');
+    check('M2b-2b.6', `in every round met with a wind-up playing (${nowSeen}), the bar marked exactly the usable spells that can answer it`, !nowBad.length, nowBad.slice(0, 4).join(' | '));
+
+    // ---- Disrupt greyed out with the engine's reason: the same engage round with no wind-up in view (a state the real
+    // content never reaches: every dungeon boss shows its turn-2 wind-up; loaded through the test hook)
+    for (const e of bossTrack.fight.enemies) if (e.ccImmune) for (const x of e.track) delete x.windup;
+    const grey = R.deserialize(JSON.stringify(bossTrack), CONTENT);
+    const loaded = await page.evaluate((str) => window.__ui.loadState(str), JSON.stringify(bossTrack));
+    await idle(page); await page.mouse.move(2, 2); await frame();
+    d = await j21dom(page);
+    await shot(page, 'J-disrupt-grey');
+    const gOpt = R.engageOptions(grey).find((o) => o.id === 'lay_trap');
+    bad = [...jCardsMatch(d, grey, boss.idx), ...jBadgesMatch(d, grey, boss.idx)];
+    check('M2b-2b.6', `no wind-up in view: Lay Trap is greyed out with the engine's reason ("${gOpt.reason}"), not Disrupt; no wind-up badge`, loaded && !bad.length && d.cards.some((c) => c.opt === 'lay_trap' && c.off && !c.disrupt), bad.join(' | ') || JSON.stringify(d.cards));
+    // ---- stacked toasts in a fight: merged, at most two, clear of the target frame, the ruler, the engage panel and nameplates
+    await jBurst(page); await page.waitForTimeout(250);
+    const tf = await jToasts(page);
+    await shot(page, 'J-toasts-fight');
+    check('M2b-2b.6', 'stacked toasts in a fight merge, at most 2 show at once, and none covers the target frame, the ruler, the engage panel or a nameplate',
+      tf.toasts.length <= 2 && tf.toasts.some((t) => /NOPE" ×3$/.test(t.text)) && !jOverlaps(tf).length, `${JSON.stringify(tf.toasts.map((t) => t.text))}; ${jOverlaps(tf).join(', ')}`);
+  } catch (e) {
+    check('-', 'part J ran to the end', false, e.message.split('\n')[0]);
+  }
+  check('-', 'part J: no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+  await context.close();
+}
+
 // ------------------------------------------------------------------ run
 const browser = await chromium.launch({ headless: true });
 for (const [W, H] of SIZES) {
@@ -1798,6 +2135,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('G')) await partG(browser, W, H);
   if (PARTS.includes('H')) await partH(browser, W, H);
   if (PARTS.includes('I')) await partI(browser, W, H);
+  if (PARTS.includes('J')) await partJ(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);
