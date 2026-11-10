@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G]
+ *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -18,7 +18,7 @@
  *   A  real engine, seed 30 Hunter at 1x speed: vendor, item bar, the map (the engine's rows and lanes, the
  *      travel button before the travel level), map tooltip and labels, a fight played with keys A and 8, the
  *      Autoplay switch and key Z, quest reward, equip from the bags, the clock.
- *   B  real engine, seed 51 Hunter at Instant speed, the engine's autoplay choices up to the camp: the clock
+ *   B  real engine, seed 20 Hunter at Instant speed, the engine's autoplay choices up to the camp: the clock
  *      across midnight, the travel button at every map step (and its tooltip when leaving early is legal), the
  *      camp panel, the bag menu at the right edge, an item used out of combat, Face Oruvath, and the boss fight
  *      played on the Autoplay switch with the Linked strength on the boss frame.
@@ -26,7 +26,7 @@
  *   D  real engine, seed 9 Hunter at the default speed: manual rounds (the keys of the autoplay policy's choices) within
  *      PACE_ROUND_ANIM_S, an action key and a click during enemy animations finish them, and 2x, 4x and Instant from
  *      the settings window (setup outside fights: the engine's autoplay choices).
- *   E  real engine, seed 63 Hunter with a stored profile that holds Second Breath and Lost Technique I (Ricochet Bolt),
+ *   E  real engine, seed 8 Hunter with a stored profile that holds Second Breath and Lost Technique I (Ricochet Bolt),
  *      at Instant speed, the engine's autoplay choices up to the camp: the resurrect badge and the character sheet in
  *      zone 1, at the camp and in the boss fight (only the charges that work there, Second Breath named as not working),
  *      the death screen when the hero dies at the boss with Second Breath unused, the Ricochet Bolt tooltip (spellbook),
@@ -45,12 +45,20 @@
  *      panel, the tracker and the minimap tooltip is the engine's bossPar (Oath of Haste included), and the Ascendancy
  *      line is the engine's. The seed is chosen at run time (seeds 1-60 whose Node run reaches the camp; preferably one
  *      whose Ascendancy comes from the Oath alone: at least ASC_STEP_HOURS past bossPar, less than that past BOSS_TIME_PAR).
+ *   H  combat v2 display (docs/specs/combat-v2.md 10, M2b 2b.6), real engine at Instant speed. Hunter seed 16: the engage
+ *      panel in round 1 only (the class's options from R.engageOptions and "any bar spell"), the opening ruler, every
+ *      nameplate's and the target frame's track (INTENT_TRACK_LEN entries as the engine has them: a Node twin replays the
+ *      page's engine actions, window.__ui.engineLog), the Lay Trap hover preview (= R.engagePreview), key W, and the trap's
+ *      off-balance window: the marker and the bar's window highlight exactly where R.offBalance and R.spellInfo(...).window
+ *      say. Mage seed 30: Pre-cast's spells, and Binding Glyph's FROZEN window (frost marker, bar highlight).
  *
  * Seeds were picked with the engine of 3559e0e (M2 v2): seed 30's first quest has two Guardians that last long
  * enough for the potion and Autoplay checks. M2 v3 (77c0ca5): seed 1's autoplay run no longer reaches the camp, so part B
- * moved to seed 51, whose engine autoplay run reaches the camp hurt, with Trail Rations, may leave zone 1 early at level 9,
- * and whose boss fight reaches phase 2 with 1 to 3 Shards. Seed 63 with the part E profile reaches the camp holding a Boon
- * of Return and Second Breath; in the boss fight the Boon returns the hero once, then the hero dies with Second Breath unused.
+ * moved to seed 51, whose engine autoplay run reached the camp hurt, with Trail Rations, could leave zone 1 early at level 9,
+ * and whose boss fight reached phase 2 with 1 to 3 Shards. Seed 63 with the part E profile reached the camp holding a Boon
+ * of Return and Second Breath; in the boss fight the Boon returned the hero once, then the hero died with Second Breath unused.
+ * Combat v2 (e362fd0) changed every run: part B is now seed 20 and part E seed 8, picked by the same conditions on Node runs
+ * of the engine's autoplay choices (seed 20 also passes phase 2 with 1 to 4 Shards).
  *
  * Prints PASS or FAIL per check with what it saw; exit 1 if any check fails or a page logs an error.
  * Playwright comes from /home/claude/tools-ui (or a local install).
@@ -67,14 +75,16 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F,G').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
 const median = (a) => { const b = [...a].sort((x, y) => x - y); return b.length ? b[b.length >> 1] : null; };
 const R_LINK = { per: R.C.LINK_DR_PER_SHARD, cap: R.C.LINK_DR }; // Linked (rules 10.2, M2 v2)
-const BUDGET = R.C.PACE_ROUND_ANIM_S * 1000; // round time budget at the default speed (rules 3, M2 v2)
-const SLOWER = 1.4; // owner 2026-11-10: combat at the default speed at least 40 % slower than BUDGET
+const SLOWER = 1.4; // owner 2026-11-10: combat at the default speed at least 40 % slower than the M2 v2 round budget
+// The M2 v2 round budget (PACE_ROUND_ANIM_S 1.5 s) the owner's "40 % slower" refers to (D47; src/ui/combat-feel.js
+// OLD_ROUND_MS). Combat v2 raised PACE_ROUND_ANIM_S to 2.1 s = 1.4 × 1.5 s, so the floor is the larger of the two.
+const BUDGET = Math.max(R.C.PACE_ROUND_ANIM_S * 1000, SLOWER * 1500) / SLOWER;
 // Steps with these events hold a moment that has its own place in the pacing model (level-up, fight end, boss phase).
 const MOMENTS = ['victory', 'levelUp', 'defeat', 'resurrect', 'bossPhase'];
 const PROFILE_KEY = 'tbwcr.profile.v1'; // where the game keeps the meta profile (src/ui/engine-bridge.js)
@@ -226,16 +236,30 @@ async function partA(browser, W, H) {
     const tracker = (await page.locator('#tracker').innerText()).replace(/\n/g, ' / ');
     check('M2v2-50', `tracker: "Travel on at level ${need} (or after row ${ROWS})" and "Row 0 of ${ROWS}"`, tracker.includes(`Travel on at level ${need} (or after row ${ROWS})`) && tracker.includes(`Row 0 of ${ROWS}`), tracker);
 
-    // ---- map: enemy counts in the tooltip, neutral labels for nodes without a fight
+    // ---- map: enemy count and archetypes in the tooltip (BUG-QA-02; combat v2 rules 7.14, mapView archetypes: one role
+    // badge per archetype with its count), neutral labels for nodes without a fight
     let target = null;
-    mv.rows.forEach((row, ri) => row.forEach((n, l) => { if (!target && n.archetypes && new Set(n.archetypes).size < n.archetypes.length) target = { r: ri + 1, l, n }; }));
-    const names = target.n.archetypes.map((a) => a[0].toUpperCase() + a.slice(1));
-    const groups = [...new Set(names)].map((nm) => { const k = names.filter((x) => x === nm).length; return k > 1 ? `${k} × ${nm}` : nm; }).join(', ');
-    const want = `${target.n.type === 'grind' ? 'Wave 1' : 'Foes'}: ${names.length} enemies (${groups})`;
+    mv.rows.forEach((row, ri) => row.forEach((n, l) => { if (!target && n.archetypes && n.archetypes.length >= 2) target = { r: ri + 1, l, n }; }));
+    const roleName = (a) => a[0].toUpperCase() + a.slice(1);
+    const groups = [...new Set(target.n.archetypes)].map((a) => { const k = target.n.archetypes.filter((x) => x === a).length; return `${k > 1 ? `${k} × ` : ''}${roleName(a)}`; });
+    const want = `${target.n.type === 'grind' ? 'Wave 1' : 'Foes'}: ${target.n.archetypes.length} enemies`;
     await page.locator(`#screens button.mnode[data-row="${target.r}"][data-lane="${target.l}"]`).hover();
-    const tipText = await page.getByRole('tooltip').innerText();
+    const tipFoes = await page.getByRole('tooltip').locator('.tt-foes').evaluateAll((els) => els.map((el) => ({ k: el.querySelector('.k').textContent, archs: [...el.querySelectorAll('.arch')].map((a) => ({ text: a.textContent, icon: !!a.querySelector('img[src^="data:"]') })) })));
     await shot(page, 'A-map-tooltip');
-    check('BUG-QA-02', `map tooltip tells the encounter size (${target.n.type}, row ${target.r}: ${target.n.archetypes.join(', ')})`, tipText.includes(want), `${tipText.replace(/\n/g, ' / ')} (wanted "${want}")`);
+    check('BUG-QA-02', `map tooltip tells the encounter size and archetypes (${target.n.type}, row ${target.r}: ${target.n.archetypes.join(', ')}): "${want}" and the badges ${groups.join(', ')}`,
+      tipFoes.length === 1 && tipFoes[0].k === want && tipFoes[0].archs.map((a) => a.text).join(', ') === groups.join(', ') && tipFoes[0].archs.every((a) => a.icon),
+      JSON.stringify(tipFoes));
+    // a dungeon node lists every trash fight and the boss (mapView fights, bossArchetype)
+    let dun = null;
+    mv.rows.forEach((row, ri) => row.forEach((n, l) => { if (!dun && n.type === 'dungeon') dun = { r: ri + 1, l, n }; }));
+    if (dun) {
+      await page.mouse.move(2, 2);
+      await page.locator(`#screens button.mnode[data-row="${dun.r}"][data-lane="${dun.l}"]`).hover();
+      const dFoes = await page.getByRole('tooltip').locator('.tt-foes').evaluateAll((els) => els.map((el) => ({ k: el.querySelector('.k').textContent, n: el.querySelectorAll('.arch').length })));
+      const wantD = [...dun.n.fights.map((f, i) => `Fight ${i + 1}: ${f.length} ${f.length === 1 ? 'enemy' : 'enemies'}`), 'Boss: '];
+      check('M2b-2b.6', `map tooltip of the dungeon (row ${dun.r}) lists its ${dun.n.fights.length} trash fights and the boss with role badges`,
+        dFoes.length === wantD.length && dFoes.every((f, i) => f.k.startsWith(wantD[i]) && f.n >= 1), JSON.stringify(dFoes));
+    }
     await page.mouse.move(2, 2);
     const labels = await page.locator('#screens button.mnode').evaluateAll((els) => els.map((b) => ({ row: b.dataset.row, lane: b.dataset.lane, text: b.querySelector('.cl').textContent, color: getComputedStyle(b.querySelector('.cl')).color })));
     const calm = labels.filter((x) => /^(Rest|Vendor|Trainer|Shrine)$/.test(x.text));
@@ -346,7 +370,7 @@ const autoRun = (page, stop = {}) => page.evaluate(async (opt) => {
 const travelKind = (r) => (r.must ? 'done' : r.travelOn ? (r.level >= r.exit ? 'open' : 'early') : 'locked');
 
 async function partB(browser, W, H) {
-  const SEED = 51; // M2 v3: seed 1's autoplay run dies before the camp (zone danger)
+  const SEED = 20; // M2 v3: seed 1's autoplay run died before the camp (zone danger); combat v2 (e362fd0): seed 51's dies in zone 1
   const { context, page, errors } = await open(browser, W, H, `seed=${SEED}&speed=instant`);
   try {
     await page.locator('#create .ccard[data-cls="hunter"]').click();
@@ -546,7 +570,7 @@ async function partD(browser, W, H) {
     const plain = rounds.filter((r) => !isMoment(r)); const ms = plain.map(roundMs);
     const budgets = [...new Set(plain.map((r) => r.round && r.round.budget))];
     const SLOW = SLOWER * BUDGET;
-    check('M2v2-52', `default speed (${speed0}x): rounds without a level-up or fight end take at least ${SLOW} ms at the median (1.4 × PACE_ROUND_ANIM_S) and at most the round cap`,
+    check('M2v2-52', `default speed (${speed0}x): rounds without a level-up or fight end take at least ${SLOW} ms at the median (D47: 1.4 × the M2 v2 budget = PACE_ROUND_ANIM_S ${R.C.PACE_ROUND_ANIM_S} s) and at most the round cap`,
       speed0 === 1 && plain.length >= 8 && budgets.length === 1 && budgets[0] >= SLOW && median(ms) >= SLOW && Math.max(...ms) <= budgets[0],
       `${plain.length} rounds: median ${median(ms)} ms, max ${Math.max(...ms)} ms, cap ${budgets.join('/')} ms, tempo ${plain.map((r) => r.round ? r.round.tempo.toFixed(2) : '-').join(' ')}; with moments: ${rounds.filter(isMoment).map(roundMs).join(', ') || 'none'} ms`);
 
@@ -597,7 +621,7 @@ async function partD(browser, W, H) {
 }
 
 // ------------------------------------------------------------------ part E: M2 v3, real engine with a profile, Instant
-const E_SEED = 63;
+const E_SEED = 8; // combat v2 (e362fd0): seed 63's run spends Second Breath before the camp; seed 8 keeps it, as 63 did before
 /** The part E profile: Second Breath and Lost Technique I (Hunter: Ricochet Bolt), bought by the engine's own rules. */
 function eProfile() {
   let p = R.newProfile(); p.echoes = 100000; p.reachedBoss = true; // Second Breath requires "reached the boss once"
@@ -1094,6 +1118,184 @@ async function partG(browser, W, H) {
   await context.close();
 }
 
+// ------------------------------------------------------------------ part H: combat v2 display, real engine
+// Seeds chosen with the engine of e362fd0 (combat v2, D49): Hunter seed 16's first fight is a brute (Heavy Smash on its
+// turn 2) and a skulker (Signal on its turn 3); Mage seed 30's is a beast and a guardian (its ward is the beast).
+const H_SEED = 16;
+const H_MAGE_SEED = 30;
+
+/** A Node twin of the page's run: the same seed, then every engine action the page applied (window.__ui.engineLog). */
+function makeTwin(seed) {
+  let s = R.newRun({ classId: 'rogue', seed, content: CONTENT }); let n = 0;
+  return {
+    get s() { return s; },
+    async sync(page) {
+      const log = await page.evaluate(() => window.__ui.engineLog());
+      for (const a of log.slice(n)) s = R.step(s, a).state;
+      n = log.length;
+      return s;
+    },
+  };
+}
+/** What a track shows (engine-api.md 6): its entries, the now-entry as it will be played (a replaced one: the basic attack). */
+function wantTrack(e) {
+  const it = e.intent || {};
+  return e.track.map((x) => {
+    const now = e.turn >= 1 && x.turn === e.turn; const live = now && !it.cancelled;
+    return { turn: x.turn, id: live && it.replaced ? it.id : x.id, est: (live ? it.est : x.est) || 0 };
+  });
+}
+/** The combat v2 display on the page: engage panel, ruler, nameplate chips, target frame rows, off-balance, bar windows. */
+const v2dom = (page) => page.evaluate(() => {
+  const vis = (el) => !!el && !el.classList.contains('hidden') && getComputedStyle(el).display !== 'none';
+  const cur = document.querySelector('#ruler .rl-c.cur');
+  return {
+    engage: vis(document.querySelector('#engage')), options: [...document.querySelectorAll('#engage .eg-opt[data-opt]')].map((c) => c.dataset.opt),
+    spells: [...document.querySelectorAll('#engage .eg-sp')].map((b) => b.dataset.spell), any: !!document.querySelector('#engage .eg-any'),
+    ruler: vis(document.querySelector('#ruler')), rulerCur: cur ? Number(cur.dataset.round) : null,
+    np: [...document.querySelectorAll('#nameplates .np')].filter((el) => !el.classList.contains('dead')).map((el) => ({
+      idx: Number(el.dataset.idx), offbal: el.classList.contains('offbal'), obal: vis(el.querySelector('.obal')) ? el.querySelector('.obal').textContent : null,
+      frost: el.querySelector('.obal').classList.contains('frost'), role: (el.querySelector('img.role') || { dataset: {} }).dataset.role || null,
+      chips: [...el.querySelectorAll('.trk .tk')].map((c) => ({ turn: Number(c.dataset.turn), id: c.dataset.id, est: Number(c.dataset.est), cancel: c.classList.contains('cancel'), ob: c.classList.contains('ob'), big: c.classList.contains('big') })),
+    })),
+    rows: [...document.querySelectorAll('#target-frame .ttrack .tr')].map((r) => ({ turn: Number(r.dataset.turn), id: r.dataset.id })),
+    targetOffbal: document.querySelector('#target-frame').classList.contains('offbal'),
+    bar: [...document.querySelectorAll('#actionbar .ab[data-slot]')].map((b) => ({ slot: Number(b.dataset.slot), window: b.classList.contains('window'), else: b.classList.contains('window-else') })),
+  };
+});
+const chipText = (c) => c.map((x) => `${x.turn}:${x.id}:${x.est}`).join(' ');
+/** Every living enemy's nameplate shows INTENT_TRACK_LEN chips that match the twin's track; the target frame shows the target's. */
+function tracksMatch(d, s, target) {
+  const bad = [];
+  for (const e of s.fight.enemies.filter((x) => x.alive)) {
+    const np = d.np.find((x) => x.idx === e.idx); const want = wantTrack(e);
+    if (!np) { bad.push(`no nameplate for ${e.idx}`); continue; }
+    if (want.length !== R.C.INTENT_TRACK_LEN || chipText(np.chips) !== chipText(want) || !np.chips[0].big) bad.push(`${e.name}: page ${chipText(np.chips)} vs engine ${chipText(want)}`);
+  }
+  const t = s.fight.enemies[target];
+  if (t && t.alive && d.rows.map((r) => `${r.turn}:${r.id}`).join(' ') !== wantTrack(t).map((x) => `${x.turn}:${x.id}`).join(' ')) bad.push(`target frame rows ${JSON.stringify(d.rows)}`);
+  return bad;
+}
+/** The bar's window highlight follows the engine: R.spellInfo(...).window on the current target (else on another enemy). */
+function windowsMatch(d, s, target) {
+  const bad = [];
+  s.player.bar.forEach((id, slot) => {
+    if (!id) return;
+    const b = d.bar.find((x) => x.slot === slot);
+    const legal = R.isLegal(s, { type: 'CAST', spellId: id, target: R.C.SPELL[id].target === 'enemy' ? target : null });
+    const all = R.C.SPELL[id].target === 'all';
+    const here = legal && (all ? R.spellInfo(s, id, null).window : R.spellInfo(s, id, target).window);
+    const there = legal && !here && !all && s.fight.enemies.some((e) => e.alive && e.idx !== target && R.spellInfo(s, id, e.idx).window);
+    if (!!b.window !== !!here || !!b.else !== !!there) bad.push(`${id}: page window ${b.window}/${b.else}, engine ${here}/${there}`);
+  });
+  return bad;
+}
+/** Every living enemy's off-balance marker follows R.offBalance (the ribbon names its extra damage taken). */
+function offBalanceMatch(d, s) {
+  const bad = [];
+  for (const e of s.fight.enemies.filter((x) => x.alive)) {
+    const ob = R.offBalance(s, e.idx); const np = d.np.find((x) => x.idx === e.idx);
+    if (!np) continue;
+    const pct = ob ? `+${Math.round(ob.taken * 100)} %` : null;
+    if (!!np.offbal !== !!ob || (ob && !(np.obal || '').includes(pct)) || (ob && np.frost !== (ob.status === 'FROZEN'))) bad.push(`${e.name}: page ${np.offbal} "${np.obal}", engine ${JSON.stringify(ob)}`);
+  }
+  return bad;
+}
+
+async function partH(browser, W, H) {
+  // ---- Hunter: engage round, the tracks, the Lay Trap preview, the trap's off-balance window
+  {
+    const { context, page, errors } = await open(browser, W, H, `seed=${H_SEED}&speed=instant`);
+    try {
+      await page.locator('#create .ccard[data-cls="hunter"]').click(); await idle(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      const twin = makeTwin(H_SEED);
+      for (let i = 0; i < 200; i++) { const v = await view(page); if (v.round && !v.over && v.step === 'combat') break; await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
+      let s = await twin.sync(page);
+      const brute = s.fight.enemies.find((e) => e.arch === 'brute'); const skulker = s.fight.enemies.find((e) => e.arch === 'skulker');
+      await page.locator(`#nameplates .np[data-idx="${brute.idx}"]`).click(); await idle(page);
+      let d = await v2dom(page);
+      const want = R.engageOptions(s).map((o) => o.id);
+      await shot(page, 'H-engage');
+      check('M2b-2b.6', `round 1 (R.isEngageRound): the engage panel offers the class's options ${want.join(', ')} in order and "any bar spell"; the opening ruler marks round 1`,
+        R.isEngageRound(s) && d.engage && d.options.join(',') === want.join(',') && d.any && d.ruler && d.rulerCur === 1, JSON.stringify({ engage: d.engage, options: d.options, any: d.any, ruler: d.ruler, cur: d.rulerCur }));
+      let bad = tracksMatch(d, s, brute.idx);
+      check('M2b-2b.6', `each nameplate and the target frame show the enemy's ${R.C.INTENT_TRACK_LEN} track entries in order, as the engine has them (Node twin of the page's actions)`, !bad.length, bad.join(' | ') || d.np.map((x) => `${x.idx}: ${chipText(x.chips)}`).join(' | '));
+      check('M2b-2b.6', 'role badges: brute and skulker; the skulker that will Signal is tagged with its round', d.np.find((x) => x.idx === brute.idx).role === 'brute' && d.np.find((x) => x.idx === skulker.idx).role === 'skulker'
+        && (await page.locator(`#nameplates .np[data-idx="${skulker.idx}"] .rtag.look`).textContent()) === `Signal R${skulker.turn0 + skulker.track.find((x) => x.id === 'signal').turn - 1}`, d.np.map((x) => `${x.idx} ${x.role}`).join(', '));
+      // hover Lay Trap with the brute targeted: the preview the page shows is R.engagePreview's, drawn on the brute's chips
+      await page.locator('#engage .eg-opt[data-opt="lay_trap"]').hover(); await page.waitForTimeout(150);
+      const pv = await page.evaluate(() => window.__ui.preview());
+      const wantPv = R.engagePreview(s, { type: 'ENGAGE', option: 'lay_trap', target: brute.idx });
+      d = await v2dom(page);
+      const chips = d.np.find((x) => x.idx === brute.idx).chips;
+      const pvRow = wantPv.enemies.find((x) => x.u === brute.idx) || { cancelled: [], offBalance: [] };
+      await shot(page, 'H-engage-preview');
+      check('M2b-2b.6', `hovering Lay Trap previews R.engagePreview on the brute's track: cancelled turn(s) ${pvRow.cancelled.join(',')}, off-balance on ${pvRow.offBalance.join(',')}`,
+        pv && JSON.stringify(pv.data) === JSON.stringify(wantPv) && chips.filter((c) => c.cancel).map((c) => c.turn).join(',') === pvRow.cancelled.join(',') && chips.filter((c) => c.ob).map((c) => c.turn).join(',') === pvRow.offBalance.join(','),
+        `page ${JSON.stringify(pv && pv.data)} chips ${JSON.stringify(chips.map((c) => [c.turn, c.cancel, c.ob]))}; engine ${JSON.stringify(wantPv)}`);
+      await page.mouse.move(2, 2);
+      // W: Lay Trap on the brute. Round 2: no engage panel, no window yet
+      await page.keyboard.press('KeyW'); await idle(page);
+      s = await twin.sync(page); d = await v2dom(page);
+      const last = (await page.evaluate(() => window.__ui.engineLog())).slice(-1)[0];
+      bad = [...tracksMatch(d, s, brute.idx), ...offBalanceMatch(d, s), ...windowsMatch(d, s, brute.idx)];
+      check('M2b-2b.6', 'key W sends ENGAGE lay_trap on the target; round 2: no engage panel (ENGAGE is legal in round 1 only), the ruler moves to round 2, tracks, markers and bar match the engine',
+        last.type === 'ENGAGE' && last.option === 'lay_trap' && last.target === brute.idx && s.fight.round === 2 && !R.isEngageRound(s) && !d.engage && d.rulerCur === 2 && !bad.length,
+        `${JSON.stringify(last)}; round ${s.fight.round}, engage panel ${d.engage}, ruler ${d.rulerCur}; ${bad.join(' | ')}`);
+      // attack until the trap springs on the Heavy Smash: the brute is off-balance for the next action
+      let opened = null;
+      for (let r = 0; r < 4 && !opened; r++) {
+        await page.keyboard.press('KeyA'); await idle(page);
+        s = await twin.sync(page); d = await v2dom(page);
+        if (!s.fight || s.fight.over) break;
+        if (d.engage) { check('M2b-2b.6', `no engage panel in round ${s.fight.round}`, false, 'the panel is shown'); break; }
+        if (s.fight.enemies.some((e) => e.alive && R.offBalance(s, e.idx))) opened = { round: s.fight.round, d, s };
+      }
+      if (opened) {
+        await shot(page, 'H-offbalance');
+        const tgt = await page.evaluate(() => window.__ui.target());
+        bad = [...offBalanceMatch(opened.d, opened.s), ...windowsMatch(opened.d, opened.s, tgt), ...tracksMatch(opened.d, opened.s, tgt)];
+        const bchips = opened.d.np.find((x) => x.idx === brute.idx).chips;
+        check('M2b-2b.6', `round ${opened.round}: the trap cancels the brute's Heavy Smash (now chip struck, off-balance) and the off-balance marker and the bar's window highlight appear where R.offBalance and R.spellInfo(...).window say`,
+          !bad.length && bchips[0].cancel && bchips[0].ob && opened.d.np.find((x) => x.idx === brute.idx).offbal && opened.d.bar.some((b) => b.window) && (tgt !== brute.idx || opened.d.targetOffbal),
+          `${bad.join(' | ')} brute now chip ${JSON.stringify(bchips[0])}; bar ${JSON.stringify(opened.d.bar.filter((b) => b.window || b.else))}`);
+      } else check('M2b-2b.6', 'the trap opens an off-balance window on the brute within 4 rounds', false, 'no enemy off-balance');
+    } catch (e) {
+      check('-', 'part H (Hunter) ran to the end', false, e.message.split('\n')[0]);
+    }
+    check('-', 'part H (Hunter): no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- Mage: Pre-cast lists the engine's spells; Binding Glyph freezes the beast, which counts as off-balance
+  {
+    const { context, page, errors } = await open(browser, W, H, `seed=${H_MAGE_SEED}&speed=instant`);
+    try {
+      await page.locator('#create .ccard[data-cls="mage"]').click(); await idle(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      const twin = makeTwin(H_MAGE_SEED);
+      for (let i = 0; i < 200; i++) { const v = await view(page); if (v.round && !v.over && v.step === 'combat') break; await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
+      let s = await twin.sync(page);
+      const beast = s.fight.enemies.find((e) => e.arch === 'beast') || s.fight.enemies[0];
+      await page.locator(`#nameplates .np[data-idx="${beast.idx}"]`).click(); await idle(page);
+      let d = await v2dom(page);
+      const pre = R.engageOptions(s).find((o) => o.id === 'precast');
+      check('M2b-2b.6', `Mage engage round: Pre-cast offers the bar spells R.engageOptions lists (${pre.spells.map((x) => x.spellId).join(', ')})`, d.engage && d.spells.join(',') === pre.spells.map((x) => x.spellId).join(','), JSON.stringify(d.spells));
+      await page.keyboard.press('KeyW'); await idle(page);
+      s = await twin.sync(page); d = await v2dom(page);
+      const ob = R.offBalance(s, beast.idx);
+      await shot(page, 'H-mage-frozen');
+      const bad = [...offBalanceMatch(d, s), ...windowsMatch(d, s, beast.idx), ...tracksMatch(d, s, beast.idx)];
+      check('M2b-2b.6', 'Binding Glyph: the frozen beast is marked as an off-balance window (FROZEN, frost ribbon) and the bar highlights the spells that land in it, as the engine says',
+        ob && ob.status === 'FROZEN' && !bad.length && d.np.find((x) => x.idx === beast.idx).frost && d.bar.some((b) => b.window), `${JSON.stringify(ob)}; ${bad.join(' | ')}`);
+    } catch (e) {
+      check('-', 'part H (Mage) ran to the end', false, e.message.split('\n')[0]);
+    }
+    check('-', 'part H (Mage): no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+}
+
 // ------------------------------------------------------------------ run
 const browser = await chromium.launch({ headless: true });
 for (const [W, H] of SIZES) {
@@ -1105,6 +1307,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('E')) await partE(browser, W, H);
   if (PARTS.includes('F')) await partF(browser, W, H);
   if (PARTS.includes('G')) await partG(browser, W, H);
+  if (PARTS.includes('H')) await partH(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);

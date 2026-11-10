@@ -206,12 +206,17 @@ img.role { display: block; width: 1.9rem; height: 1.9rem; border-radius: .35rem;
 .tk .b-ob { position: absolute; left: 50%; top: -.8rem; transform: translateX(-50%); padding: 0 .3rem; border-radius: .25rem; background: #ffb030; color: #2a1400; font: 900 .72rem/1.25rem var(--font-ui); font-style: normal; letter-spacing: .04em; white-space: nowrap; box-shadow: 0 0 0 1px #000, 0 0 .6rem rgba(255, 180, 60, .9); z-index: 1; }
 .tk .b-ob.frost { background: #8fd6ff; color: #06223a; box-shadow: 0 0 0 1px #000, 0 0 .6rem rgba(120, 200, 255, .9); }
 .tk.pv { outline: 1px dashed rgba(255, 230, 160, .95); outline-offset: 1px; }
+.tk .b-rep { position: absolute; right: -.4rem; bottom: -.45rem; width: 1.4rem; height: 1.4rem; border-radius: 50%; background: #2a3a4a; border: 1px solid #9fc4ff; color: #cfe4ff; font: 900 .95rem/1.25rem var(--font-ui); font-style: normal; text-align: center; }
 .np .nm .rb:empty { display: none; }
 .np .nm img.role { width: 1.7rem; height: 1.7rem; }
 .np .ntag { display: flex; justify-content: center; align-items: center; gap: .3rem; flex-wrap: wrap; }
 .np .ntag .rtags { display: inline-flex; gap: .3rem; }
 .np .ntag .zz { font: 800 .82rem var(--font-ui); letter-spacing: .05em; padding: .05rem .35rem; border-radius: .25rem; text-transform: uppercase; background: rgba(70, 70, 110, .8); color: #dcdcff; }
 #target-frame .name { align-items: center; }
+#nameplates.tight .np { width: 14.4rem; }
+#nameplates.tight .tk.big { max-width: 7.4rem; }
+#nameplates.tight .tk .tn { max-width: 3.9rem; }
+#nameplates.tight .np .trk { gap: .25rem; }
 .np.eg-valid .bar { box-shadow: 0 0 0 1px #7fe07a, 0 0 .9rem rgba(120, 220, 120, .85); }
 .np.eg-pv .bar { box-shadow: 0 0 0 2px #ffe08a, 0 0 1.3rem rgba(255, 220, 120, 1); }
 .np.eg-invalid { opacity: .5; filter: grayscale(.6); }

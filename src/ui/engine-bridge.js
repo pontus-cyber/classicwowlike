@@ -464,7 +464,8 @@ function engineBackend(seedOpt) {
       // what it shows: the intent as it will be played for the now-entry (target and estimate of this round), the entry
       // itself otherwise and for a cancelled now-entry (the action that will not happen, struck through)
       const live = now && !cancel;
-      const tg = live && it.target != null ? it.target : x.target;
+      let tg = live && it.target != null ? it.target : x.target;
+      if (tg === e.idx) tg = 'self'; // Mend or Bolster on the weakest ally when that is itself
       return { turn: x.turn, round, id: src.id, name: src.name, kind: src.kind, cast: !!src.cast, heavy: !!src.heavy, scripted: !!x.scripted, signature: sig,
         school: src.school || 'phys', hits: src.hits || 1, target: viewTarget(tg), allyIdx: typeof tg === 'number' ? tg : null,
         est: (live ? it.est : x.est) || 0, support: SUPPORT.includes(src.kind), now, cancel, replaced, boss: null };

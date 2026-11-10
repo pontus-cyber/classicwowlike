@@ -98,6 +98,7 @@ export function trackChips(box, e, ctx, opts = {}) {
       big ? h('span.tx', h('span.tn', x.name), h('span.tv', amt ? h('b', amt) : null, tgt && tgt !== 'self' && (amt || tgt !== 'player') ? h('i', `▸ ${TGT_SHORT[tgt] || tgt}`) : null))
         : h('span.tv', amt ? h('b', amt) : null, tgt && tgt !== 'player' && tgt !== 'self' ? h('i', TGT_SHORT[tgt] || tgt) : null),
       x.signature ? h('i.b-sig', '★') : null,
+      x.replaced && !cancel ? h('i.b-rep', '↺') : null,
       cancel ? h('img.b-ctl', { src: cancel.by === 'PREVIEW' ? statusIcon('STUN') : controlIcon(cancel.by), alt: '' }) : null,
       ob ? h('i.b-ob', 'OFF-BAL') : null,
       p && p.window && !ob ? h('i.b-ob.frost', 'WINDOW') : null);
@@ -143,7 +144,7 @@ export function trackRows(box, e, ctx) {
     box.appendChild(row);
   }
 }
-const supportWord = (x) => ({ brace: 'Braces itself', selfShield: 'Shields itself', selfHeal: 'Heals itself', signal: 'Calls a reinforcement', summon: 'Calls for help', curse: 'Curses you' }[x.kind] || '');
+const supportWord = (x) => ({ brace: 'Braces itself', selfShield: 'Shields itself', selfHeal: 'Heals itself', heal: 'Mends itself', bolster: 'Shields itself', signal: 'Calls a reinforcement', summon: 'Calls for help', curse: 'Curses you' }[x.kind] || '');
 
 /** Tooltip of a track entry: what, when, to whom, how hard, its marks, and what control or a preview does to it. */
 export function entryTip(e, x, ctx, o = {}) {

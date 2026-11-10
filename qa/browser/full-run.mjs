@@ -16,7 +16,9 @@
  * The choices come from qa/browser/policy.mjs. A Node twin of the run (src/rules.js, same seed, same
  * choices) is stepped alongside: after every action the UI must show the twin's state (hours, level, XP,
  * HP, mana, gold, bags, equipment, bars, talents, zone position, fight round and enemy HP), and at the end
- * the summary screen must show the twin's summary.
+ * the summary screen must show the twin's summary. What the UI sends on its own (a newly bought or looted potion
+ * put on a free item slot, window.__ui.ownActions) is applied to the twin too. Combat v2: the engage round's
+ * ENGAGE choice is a click on the engage panel's option (keys Q, W, E on autoplay-broken fights).
  *
  * Fails (exit 1) on: a console error or page error, a failed request or any request besides the file,
  * a UI state that differs from the twin, a control that cannot be clicked or lies outside the viewport,
@@ -276,6 +278,13 @@ async function playOne(browser, W, H, cls) {
         case 'USE_ITEM': return key(['Digit8', 'Digit9', 'Digit0'][a.slot], 'key item');
         case 'PASS': return key('KeyX', 'key pass');
         case 'FLEE': await key('KeyF', 'key flee'); return key('KeyF', 'key flee (confirm)');
+        case 'ENGAGE': {
+          // combat v2: Q, W, E are the class's engage options in order; the Mage's Pre-cast is Q, then the spell's key
+          if (a.target != null) await setTarget(a.target);
+          const k = C.ENGAGE_OPTIONS[p.classId].indexOf(a.option);
+          if (a.option === 'precast') { await key('KeyQ', 'key engage Pre-cast'); return key(`Digit${p.bar.indexOf(a.spellId) + 1}`, `key pre-cast ${a.spellId}`); }
+          return key(['KeyQ', 'KeyW', 'KeyE'][k], `key engage ${a.option}`);
+        }
         default: break;
       }
     }
@@ -357,6 +366,12 @@ async function playOne(browser, W, H, cls) {
         return click(page.locator(`#actionbar .ab[data-slot="${p.bar.indexOf(a.spellId)}"]`), `cast ${a.spellId}`);
       }
       case 'ATTACK': await setTarget(a.target); return click(page.locator('#actionbar .ab.basic'), 'Attack');
+      case 'ENGAGE': {
+        // combat v2: the engage panel's option card on the current target; Pre-cast: the spell's button in its card
+        if (a.target != null) await setTarget(a.target);
+        if (a.option === 'precast') return click(page.locator(`#engage .eg-opt[data-opt="precast"] .eg-sp[data-spell="${a.spellId}"]`), `engage Pre-cast ${a.spellId}`);
+        return click(page.locator(`#engage .eg-opt[data-opt="${a.option}"]`), `engage ${a.option}`);
+      }
       case 'PASS': return click(button(/^Pass/), 'Pass');
       case 'FLEE': await click(button(/^Flee/), 'Flee'); return click(button(/^Confirm/), 'Flee (confirm)');
       default: throw new Error(`no UI mapping for ${a.type}`);
@@ -398,8 +413,21 @@ async function playOne(browser, W, H, cls) {
 
     let autoplay = false;
     let autoplayBroken = false;
+    // The UI puts a newly bought or looted combat consumable on a free item slot by itself (src/ui/app.js placeNewItems,
+    // BUG-QA-04): it sends SET_ITEM_BAR without input. The twin applies the same actions (window.__ui.ownActions) before
+    // every comparison, after the action that brought the item.
+    let ownSeen = 0;
+    const mirrorOwn = async () => {
+      const own = await page.evaluate(() => (window.__ui.ownActions ? window.__ui.ownActions() : []));
+      for (const a of own.slice(ownSeen)) {
+        if (!R.isLegal(s, a)) { res.problems.push(`the UI's own ${JSON.stringify(a)} is not legal in the twin: ${R.whyIllegal(s, a)}`); continue; }
+        s = R.step(s, a).state;
+      }
+      ownSeen = own.length;
+    };
     for (let step = 0; step < MAX_STEPS; step++) {
       res.steps = step;
+      await mirrorOwn();
       v = await view();
       if (v.phase === 'SUMMARY' || s.phase === 'SUMMARY') break;
       await checkLayout(screenKind(v));

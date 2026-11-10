@@ -356,6 +356,8 @@ export function createHud(root, ctx) {
   function syncNameplates(v) {
     const c = v.combat;
     const live = new Set();
+    // four or more enemies side by side (adds, a Signal): narrower nameplates so their tracks do not overlap
+    els.nameplates.classList.toggle('tight', !!(c && !c.isBoss && c.enemies.filter((e) => e.alive && !e.hidden).length >= 4));
     if (c && v.player) {
       for (const e of c.enemies) {
         if (e.hidden) continue;
