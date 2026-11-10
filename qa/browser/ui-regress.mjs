@@ -18,7 +18,7 @@
  *   A  real engine, seed 30 Hunter at 1x speed: vendor, item bar, the map (the engine's rows and lanes, the
  *      travel button before the travel level), map tooltip and labels, a fight played with keys A and 8, the
  *      Autoplay switch and key Z, quest reward, equip from the bags, the clock.
- *   B  real engine, seed 1 Hunter at Instant speed, the engine's autoplay choices up to the camp: the clock
+ *   B  real engine, a Hunter seed chosen at run time (bPick) at Instant speed, the engine's autoplay choices up to the camp: the clock
  *      across midnight, the travel button at every map step (and its tooltip when leaving early is legal), the
  *      camp panel, the bag menu at the right edge, an item used out of combat, Face Oruvath, and the boss fight
  *      played on the Autoplay switch with the Linked strength on the boss frame.
@@ -73,7 +73,8 @@
  * of Return and Second Breath; in the boss fight the Boon returned the hero once, then the hero died with Second Breath unused.
  * Combat v2 (e362fd0) changed every run: part B is now seed 20 and part E seed 8, picked by the same conditions on Node runs
  * of the engine's autoplay choices (seed 20 also passes phase 2 with 1 to 4 Shards). Heat's rarity step (7196e96) changed
- * every run's loot once: seed 20 no longer reaches the camp; seed 1 meets part B's conditions again (engineer-2026-11-10f).
+ * every run's loot once: seed 20 no longer reaches the camp; seed 1 met part B's conditions again (engineer-2026-11-10f) until
+ * the wind-ups of combat v2.1 (0bd5a55); since then part B, like part I, picks its seed on Node runs of the same choices.
  *
  * Prints PASS or FAIL per check with what it saw; exit 1 if any check fails or a page logs an error.
  * Playwright comes from /home/claude/tools-ui (or a local install).
@@ -384,9 +385,45 @@ const autoRun = (page, stop = {}) => page.evaluate(async (opt) => {
 /** The travel button state the engine's legality and levels call for (rules 1.5). */
 const travelKind = (r) => (r.must ? 'done' : r.travelOn ? (r.level >= r.exit ? 'open' : 'early') : 'locked');
 
+let B_PICK = null;
+/**
+ * Part B's seed, chosen at run time on Node runs of the same choices (the engine still changes under combat v2.1): the
+ * engine's autoplay choices with the UI's own item-bar actions (iUiOwn), the first Hunter seed of 1-60 whose run has a
+ * first legal Travel on below the exit level at the travel level, reaches the camp hurt with Trail Rations, then (rations
+ * eaten, Face Oruvath, autoplay) has phase 2 with at least two different counts of living Shards. Seed 1 was the part's
+ * seed for the engine of 7196e96; it reaches the camp unhurt with the wind-ups of 0bd5a55.
+ */
+function bPick() {
+  if (B_PICK) return B_PICK;
+  const run = (s, a) => { const prev = s; let t = R.step(s, a).state; for (const o of iUiOwn(prev, t)) t = R.step(t, o).state; return t; };
+  for (let seed = 1; seed <= 60; seed++) {
+    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT });
+    for (const a of [{ type: 'SELECT_CLASS', classId: 'hunter' }, { type: 'SELECT_PET', petId: 'ridgewolf' }, { type: 'START_RUN' }]) s = R.step(s, a).state;
+    let early = null;
+    for (let n = 0; n < 6000 && s.phase !== 'CAMP' && s.phase !== 'ENDED'; n++) {
+      if (early === null && s.phase === 'MAP' && !(s.loot && s.loot.length) && R.isLegal(s, { type: 'TRAVEL_ON' })) early = s.player.level < R.C.ZONE_LEVELS * s.zone.z && s.player.level === R.travelLevel(s);
+      s = run(s, R.autoAction(s));
+    }
+    if (!early || s.phase !== 'CAMP') continue;
+    const food = s.player.bag.find((it) => it.kind === 'cons' && it.id === 'trail_rations');
+    if (!food || s.player.hp >= s.player.d.maxHp) continue;
+    s = run(s, { type: 'USE_ITEM', itemId: 'trail_rations' });
+    s = run(s, { type: 'FIGHT_BOSS' });
+    s = run(s, { type: 'SET_AUTOPLAY', on: true });
+    const counts = new Set();
+    for (let n = 0; n < 3000 && s.phase !== 'ENDED'; n++) {
+      if (s.fight && s.fight.boss && s.fight.boss.phase === 2) { const k = s.fight.enemies.filter((e) => e.alive && e.kind === 'shard').length; if (k > 0) counts.add(k); }
+      s = run(s, R.autoAction(s));
+    }
+    if (counts.size >= 2) { B_PICK = { seed, shards: [...counts].sort() }; return B_PICK; }
+  }
+  throw new Error('no Hunter seed of 1-60 meets part B\'s conditions');
+}
+
 async function partB(browser, W, H) {
-  const SEED = 1; // M2 v3: seed 1 died before the camp; combat v2 (e362fd0): 51 died in zone 1; heat (7196e96, rarity step): 20 no longer reaches the camp, 1 does again
+  const pick = bPick(); const SEED = pick.seed;
   const { context, page, errors } = await open(browser, W, H, `seed=${SEED}&speed=instant`);
+  check('-', `part B seed ${SEED} (chosen on Node runs: early travel, the camp hurt with Trail Rations, phase 2 with ${pick.shards.join(', ')} Shards)`, true, '');
   try {
     await page.locator('#create .ccard[data-cls="hunter"]').click();
     await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
