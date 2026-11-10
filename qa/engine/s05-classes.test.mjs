@@ -380,7 +380,24 @@ describe('rules 5.6 meta-unlock spells', () => {
     assert.ok(r.events.some((e) => e.t === 'damage' && e.dst === 'player' && e.spell === 'bloodprice_gambit' && e.amount === Math.round(0.1 * s.player.hp)));
   });
 
-  test('chrono_sigil: the target skips its action; mirrorshade: images; ricochet_bolt: target + 2 others at 70 %; beastcall_horn', () => {
+  test('ricochet_bolt: full hit on the target, then SPELL.ricochet_bolt.bounces other enemies at bounceFrac (40 %, M2 v3)', () => {
+    let h = setup('hunter', 40, ['ricochet_bolt'], [mob('z1_brute', 40), mob('z1_brute', 40), mob('z1_brute', 40), mob('z1_brute', 40)]);
+    h = tweak(h, (x) => { for (const e of x.fight.enemies) e.maxHp = e.hp = 1e6; x.player.pet.alive = false; });
+    const r = act(h, { type: 'CAST', spellId: 'ricochet_bolt', target: 1 }, (d) => [0, 3, 6].every((i) => d[i] > 0.9), 9);
+    const sp = C.SPELL.ricochet_bolt;
+    const d = r.before.player.d;
+    const base = sp.b + sp.l * r.before.player.spells.ricochet_bolt.tl + sp.p * d.power + sp.w * d.wd;
+    const hits = r.events.filter((e) => e.t === 'damage' && e.spell === 'ricochet_bolt');
+    assert.deepEqual(hits.map((e) => e.dst), [1, 0, 2], 'target, then the other living enemies in index order, 2 bounces');
+    hits.forEach((e, i) => {
+      const t = r.before.fight.enemies[e.dst];
+      const want = pipeline({ base: base * (i === 0 ? 1 : sp.bounceFrac), attL: 40, tgtL: 40, phys: true, dodge: t.dodge, crit: d.crit, armor: t.armor, draws: r.draws.slice(3 * i, 3 * i + 3) });
+      assert.equal(e.amount, want.amount, `hit ${i}`);
+    });
+    assert.equal(sp.bounceFrac, 0.4);
+  });
+
+  test('chrono_sigil: the target skips its action; mirrorshade: images; ricochet_bolt: target + 2 others; beastcall_horn', () => {
     let s = setup('mage', 40, ['chrono_sigil', 'mirrorshade'], [mob('z1_brute', 40)]);
     s = tweak(s, (x) => { x.fight.enemies[0].maxHp = x.fight.enemies[0].hp = 1e6; });
     let r = act(s, { type: 'CAST', spellId: 'chrono_sigil', target: 0 }, () => true, 1);

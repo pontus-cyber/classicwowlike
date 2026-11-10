@@ -68,12 +68,14 @@ describe('rules 6 talents', () => {
     const delta = (c, t, r, f) => f(withTalents(base(c), { [t]: r }).player.d) - f(base(c).player.d);
     assert.ok(Math.abs(delta('rogue', 'r_a1', 3, (d) => d.crit) - 0.09) < 1e-9);
     assert.ok(Math.abs(delta('rogue', 'r_b2', 3, (d) => d.dodge) - 0.06) < 1e-9);
+    // rules 4.2: max HP = round(raw × (1 + mods)); raw can be fractional (hpPerLevel 19.5 / 15.5, M2 v3).
+    const rawHp = (c, d) => C.CLASS[c].hpBase + C.CLASS[c].hpPerLevel * 39 + C.HP_PER_STA * d.STA;
     const m = base('mage').player.d;
-    assert.equal(withTalents(base('mage'), { m_b2: 3 }).player.d.maxHp, Math.round(m.maxHp * 1.09));
+    assert.equal(withTalents(base('mage'), { m_b2: 3 }).player.d.maxHp, Math.round(rawHp('mage', m) * 1.09));
     assert.equal(withTalents(base('mage'), { m_c1: 3 }).player.d.maxMana, Math.round(m.maxMana * 1.15));
     assert.ok(Math.abs(withTalents(base('mage'), { m_c2: 3 }).player.d.power - m.power * 1.09) < 1e-9);
     const h = base('hunter').player.d;
-    assert.equal(withTalents(base('hunter'), { h_c1: 3 }).player.d.maxHp, Math.round(h.maxHp * 1.12));
+    assert.equal(withTalents(base('hunter'), { h_c1: 3 }).player.d.maxHp, Math.round(rawHp('hunter', h) * 1.12));
     assert.equal(withTalents(base('hunter'), { h_a1: 3 }).player.d.petMaxHp, Math.round(C.PET.ridgewolf.hpPct * h.maxHp * 1.24));
     assert.ok(Math.abs(delta('rogue', 'r_a5', 2, (d) => d.critMult) - 0.4) < 1e-9);
     assert.ok(Math.abs(delta('hunter', 'h_b4', 2, (d) => d.critMult) - 0.3) < 1e-9, 'Mortal Shots 0.15 per rank (M2 v2)');

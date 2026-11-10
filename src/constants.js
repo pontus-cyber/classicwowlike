@@ -163,6 +163,8 @@ export const ENEMY_HP_BASE = 20;
 export const ENEMY_HP_PER_LEVEL = 12;
 export const ENEMY_DMG_BASE = 4;
 export const ENEMY_DMG_PER_LEVEL = 2.6;
+export const ZONE_DANGER_FROM = 20;
+export const ZONE_DANGER_STEP = 0.25;
 export const ENEMY_ARMOR_PER_LEVEL = 15;
 export const DUNGEON_TRASH_HP_MULT = 1.2;
 export const DUNGEON_TRASH_DMG_MULT = 1.1;
@@ -235,7 +237,7 @@ export const RES_HP_PCT = 0.40;
 export const RES_MANA_PCT = 0.40;
 export const RES_META_CHARGES = 1;
 export const BOSS_LEVEL = 62;
-export const BOSS_HP = 13000;
+export const BOSS_HP = 13500;
 export const BOSS_ARMOR = 1200;
 export const BOSS_MELEE = 260;
 export const BOSS_CRUSH = 380;
@@ -259,16 +261,16 @@ export const SHARD_AOE_TAKEN = 1.00;
 export const ECLIPSE_STEP = 0.05;
 export const PULSE_DMG = 280;
 export const PULSE_EVERY = 3;
-export const BOSS_ENRAGE_ROUND = 50;
+export const BOSS_ENRAGE_ROUND = 55;
 export const FINAL_DARK_DMG = 99999;
-export const ECHO_PER_LEVEL = 2;
-export const ECHO_PER_ZONE = 10;
+export const ECHO_PER_LEVEL = 1.5;
+export const ECHO_PER_ZONE = 7.5;
 export const ECHO_PER_DUNGEON = 8;
 export const ECHO_PER_ELITE = 3;
 export const ECHO_PER_RARE = 6;
 export const ECHO_PER_QUEST = 1;
 export const ECHO_BOSS_REACHED = 20;
-export const ECHO_BOSS_PHASE = 15;
+export const ECHO_BOSS_PHASE = 12;
 export const ECHO_BOSS_KILL = 120;
 export const ECHO_SPEED_BONUS = 40;
 export const ECHO_FIRST_KILL_CLASS = 100;
@@ -339,7 +341,7 @@ export const CLASS = {
   },
   mage: {
     id: 'mage', name: 'Mage', primary: 'INT', resource: 'mana',
-    hpBase: 50, hpPerLevel: 17.5,
+    hpBase: 50, hpPerLevel: 19.5,
     stats: { STA: [8, 1.25], AGI: [8, 0.5], INT: [22, 2.2], SPI: [12, 1.0] },
     armorBase: 10, armorPerLevel: 3, armorMult: 0.5, dodgeBase: 0.03, dodgeFromAgi: 0,
     basic: { id: 'spark', name: 'Spark', school: 'arcane', b: 2, l: 0.6, p: 0.35, w: 0 },
@@ -348,7 +350,7 @@ export const CLASS = {
   },
   hunter: {
     id: 'hunter', name: 'Hunter', primary: 'AGI', resource: 'focus',
-    hpBase: 60, hpPerLevel: 17,
+    hpBase: 60, hpPerLevel: 15.5,
     stats: { STA: [9, 1.2], AGI: [18, 1.8], INT: [10, 0.8], SPI: [9, 0.8] },
     armorBase: 25, armorPerLevel: 7, armorMult: 1.3, dodgeBase: 0.04, dodgeFromAgi: 0.06,
     basic: { id: 'auto_shot', name: 'Auto Shot', school: 'phys', b: 0, l: 0, p: 0.35, w: 1.0 },
@@ -417,14 +419,14 @@ export const SPELL = {
   wild_communion: { id: 'wild_communion', cls: 'hunter', name: 'Wild Communion', lvl: 1, cost: 30, cd: 10, rounds: 4, petDmgPct: 0.50, tags: ['pet'], target: 'self', source: 'talent' },
   starfall_arrow: { id: 'starfall_arrow', cls: 'hunter', name: 'Starfall Arrow', lvl: 1, cost: 50, cd: 5, school: 'phys', b: 20, l: 4.0, p: 1.8, w: 2.0, refundOnKill: 50, tags: ['nuke'], target: 'enemy', source: 'talent' },
   deadfall_trap: { id: 'deadfall_trap', cls: 'hunter', name: 'Deadfall Trap', lvl: 1, cost: 30, cd: 8, school: 'phys', b: 10, l: 2.4, p: 1.0, stun: 1, tags: ['aoe', 'stun'], target: 'all', source: 'talent' },
-  ricochet_bolt: { id: 'ricochet_bolt', cls: 'hunter', name: 'Ricochet Bolt', lvl: 20, cost: 35, cd: 0, school: 'phys', b: 5, l: 1.1, p: 0.5, w: 0.9, bounces: 2, bounceFrac: 0.7, tags: ['aoe'], target: 'enemy', source: 'meta', meta: 'sp_h1', autoEnemies: 2 },
+  ricochet_bolt: { id: 'ricochet_bolt', cls: 'hunter', name: 'Ricochet Bolt', lvl: 20, cost: 35, cd: 0, school: 'phys', b: 5, l: 1.1, p: 0.5, w: 0.9, bounces: 2, bounceFrac: 0.4, tags: ['aoe'], target: 'enemy', source: 'meta', meta: 'sp_h1', autoEnemies: 2 },
   beastcall_horn: { id: 'beastcall_horn', cls: 'hunter', name: 'Beastcall Horn', lvl: 40, cost: 0, cd: 12, taunt: 2, tags: ['pet', 'defensive'], target: 'self', source: 'meta', meta: 'sp_h2', autoHp: 0.40 },
 };
 
 /** Pets (rules 5.5). Specials: doubleEvery (every Nth pet action hits twice), tauntEvery (TAUNT in round 1 and every N rounds after, tauntRounds long), cleave (attack also hits a second enemy). */
 export const PET = {
   ridgewolf: { id: 'ridgewolf', name: 'Ridgewolf', hpPct: 0.50, armorMult: 1.0, dmgMult: 1.0, critBonus: 0, aggro: 0.30, doubleEvery: 3 },
-  thornback: { id: 'thornback', name: 'Thornback Boar', hpPct: 0.80, armorMult: 1.4, dmgMult: 0.9, critBonus: 0, aggro: 0.60, tauntEvery: 4, tauntRounds: 1 },
+  thornback: { id: 'thornback', name: 'Thornback Boar', hpPct: 0.80, armorMult: 1.4, dmgMult: 1.1, critBonus: 0, aggro: 0.60, tauntEvery: 4, tauntRounds: 1 },
   duskcat: { id: 'duskcat', name: 'Duskcat', hpPct: 0.40, armorMult: 0.8, dmgMult: 1.3, critBonus: 0.10, aggro: 0.20 },
   stormhawk: { id: 'stormhawk', name: 'Stormhawk', hpPct: 0.35, armorMult: 0.7, dmgMult: 0.8, critBonus: 0, aggro: 0.15, cleave: true, meta: 'stormhawk' },
 };
