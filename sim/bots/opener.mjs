@@ -26,7 +26,7 @@ import { C, R } from '../lib/engine.mjs';
 import { BAL, SIM, C2 } from '../lib/params.mjs';
 import { fightClone } from '../lib/clone.mjs';
 import {
-  playerView, resample, engageActions, trackOf, nextEntries, isThreat, trackDamage, defaultTarget, offBalance,
+  playerView, resample, engageActions, trackOf, nextEntries, isThreat, trackDamage, defaultTarget, inWindow,
   actionTarget,
 } from '../lib/view.mjs';
 import { directDamage } from './masher.mjs';
@@ -107,7 +107,8 @@ const uniq = (xs) => [...new Set(xs.filter((x) => x !== null && x !== undefined)
  * Candidate actions of one round [assumption: SIM pruning]. The forced autoplay rules 1-2 when they apply (the only
  * candidate). Else: every legal ENGAGE action (engage round), the autoplay action, ATTACK on the default target;
  * damage spells on the default target, the most dangerous enemy (largest estimated damage on the player over its
- * next 2 visible entries), the lowest-HP enemy when no enemy is dangerous, and every OFF_BALANCE enemy; interrupts
+ * next 2 visible entries), the lowest-HP enemy when no enemy is dangerous, and every enemy in a window (OFF_BALANCE, or
+ * FROZEN in combat v2); interrupts
  * on enemies whose current entry is a cast; stun and control spells on enemies with a heavy or cast move in their
  * next 2 entries (and on the most dangerous enemy when 2 or more live); self and AoE spells; healing items below
  * OPENER_POTION_HP, Mana Draughts below TACT_MANA, Purifying Tonic with a debuff on.
@@ -139,7 +140,7 @@ export function openerCandidates(s) {
   }
   let low = null;
   for (const e of alive) if (!low || e.hp < low.hp) low = e;
-  const dmgT = uniq([dt, danger !== null ? danger : (low ? low.idx : null), ...alive.filter(offBalance).map((e) => e.idx)]);
+  const dmgT = uniq([dt, danger !== null ? danger : (low ? low.idx : null), ...alive.filter((e) => inWindow(s, e)).map((e) => e.idx)]);
   const nowCast = alive.filter((e) => { const t = e.intent; return t && t.cast && !t.interrupted && !t.cancelled; }).map((e) => e.idx);
   const threatT = alive.filter((e) => !e.ccImmune && nextEntries(s, e, 2).some(isThreat)).map((e) => e.idx);
   const ctlT = uniq([...threatT, ...(alive.length >= 2 ? [danger] : [])]);
@@ -345,7 +346,7 @@ export function openerChoice(s, rng, st) {
   const forced = forcedAction(s);
   if (forced) { st.plan = null; return forced; }
   let pl = st.plan;
-  let stale = !pl || surprised(s, pl.sig);
+  let stale = !pl || surprised(s, pl.sig) || (SIM.OPENER_REPLAN_EVERY > 0 && !pl.auto);
   if (!stale && !pl.auto) {
     const next = pl.seq[pl.i];
     const tgt = actionTarget(next);

@@ -230,6 +230,8 @@ Object.assign(SIM, {
    *  OPENER_ANCHOR 0 switches the comparison off. */
   OPENER_ANCHOR: 1,
   OPENER_MARGIN: 0.06,
+  /** Opener: 1 = re-plan every round of the opening while following a plan (closed loop); 0 = only on surprises. */
+  OPENER_REPLAN_EVERY: 0,
 });
 
 // Tuning hook for scratch experiments only: SIM_OVERRIDE='{"KEY":value}' changes SIM numbers in every thread. The

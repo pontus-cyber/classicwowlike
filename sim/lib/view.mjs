@@ -61,6 +61,12 @@ export const OFFBAL_ID = typeof C.OFFBAL_STATUS === 'string' ? C.OFFBAL_STATUS :
 const OFFBAL_IDS = new Set([OFFBAL_ID, 'OFF_BALANCE', 'OFFBAL']);
 export const isOffBalanceId = (id) => OFFBAL_IDS.has(id);
 export const offBalance = (e) => !!(e && e.alive && e.st.some((x) => OFFBAL_IDS.has(x.id)));
+/** The enemy is in a window the engine counts (combat v2 R.offBalance: OFF_BALANCE, or FROZEN while it lasts). */
+export function inWindow(s, e) {
+  if (!e || !e.alive) return false;
+  if (typeof R.offBalance === 'function') return !!R.offBalance(s, e.idx);
+  return offBalance(e);
+}
 
 /** True in the engage round (combat-v2.md 6): round 1 of a fight with one (every non-boss fight in v2, the Rogue's
  *  stealth round before). */
