@@ -308,8 +308,10 @@ export class App {
     this.screens.update(v);
     if (!this.director.playing) this.windows.update();
     document.body.dataset.phase = v.phase;
-    // a fight on screen (the toasts move below the opening ruler, clear of the target frame; style.css)
+    // a fight on screen (the toasts move below the opening ruler, clear of the target frame; in the end-boss fight under the
+    // boss frame, between the target frame and the boss's nameplate; style.css)
     document.body.classList.toggle('in-fight', !!(v.combat && !v.combat.over && !v.loot));
+    document.body.classList.toggle('boss-fight', !!(v.combat && !v.combat.over && !v.loot && v.combat.isBoss));
   }
 
   syncScene(v, opts = {}) {

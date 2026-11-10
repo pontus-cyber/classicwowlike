@@ -681,6 +681,10 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 /* where no panel is: in a fight under the opening ruler (clear of the target frame and the nameplates), on the map in the
    free column left of the zone map (under the player and pet frames); at most two show at once (app.js toast) */
 body.in-fight #toasts { left: 91.5rem; top: 12.6rem; }
+/* the end-boss fight: the boss frame fills the top centre, a Shard's target frame sits under it and the boss's nameplate
+   high on the right; there is no engage panel, so the toasts take the left column under the player and pet frames */
+body.in-fight.boss-fight #toasts { left: 16.5rem; top: 21.5rem; width: 30rem; }
+body.in-fight.boss-fight #toasts .toast { white-space: normal; text-align: center; max-width: 30rem; }
 body[data-phase="MAP"]:not(.in-fight) #toasts { left: 16.5rem; top: 21.5rem; width: 30rem; }
 body[data-phase="MAP"]:not(.in-fight) #toasts .toast { white-space: normal; text-align: center; max-width: 30rem; }
 .toast { font: 700 1.45rem var(--font-ui); color: #ffd36a; text-shadow: 0 1px 2px #000, 0 0 6px #000; animation: toast 2.6s forwards;
