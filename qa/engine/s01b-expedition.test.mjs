@@ -739,7 +739,7 @@ describe('rules 1.9 expedition map: leaving a zone (1.9.7)', () => {
       const h = s.hours;
       const r = R.step(s, { type: 'TAKE_ROAD' });
       assert.deepEqual(ev(r.events, 'hours').map((e) => [e.add, e.why]), [[C.HOURS_TRAVEL, 'travel']]);
-      assert.deepEqual(ev(r.events, 'travel')[0], { t: 'travel', from: z, by: 'road', node: road });
+      assert.deepEqual(ev(r.events, 'travel')[0], { t: 'travel', from: z, by: 'road', node: road, road: null }, 'fixture content: no Road names (D51)');
       s = r.state;
       assert.equal(s.hours, h + C.HOURS_TRAVEL);
       assert.equal(s.stats.zonesLeft, z);
@@ -785,7 +785,7 @@ describe('rules 1.9 expedition map: leaving a zone (1.9.7)', () => {
     const r = R.step(s, { type: 'RING_BELL' });
     assert.deepEqual(ev(r.events, 'hours').map((e) => [e.add, e.why]), [[C.BELL_CHANNEL_H, 'bell']]);
     assert.deepEqual(ev(r.events, 'bell')[0], { t: 'bell', charges: C.BELL_START_CHARGES - 1, node: 0 });
-    assert.deepEqual(ev(r.events, 'travel')[0], { t: 'travel', from: 1, by: 'bell', node: 0 });
+    assert.deepEqual(ev(r.events, 'travel')[0], { t: 'travel', from: 1, by: 'bell', node: 0, road: null });
     assert.equal(r.state.zone.z, 2);
     assert.equal(r.state.phase, 'ZONE_HUB');
     assert.equal(r.state.stats.zonesLeft, 1);
@@ -944,5 +944,81 @@ describe('rules 1.9 expedition map: pacing, determinism and full runs (1.9.8, 1.
       if (sum.reached.camp) toCamp += 1;
     }
     assert.ok(toCamp > 0, 'some runs reach the Camp');
+  });
+});
+
+describe('expedition content and options (D50, D51)', () => {
+  test('D51 the map view names the Roads (zones[i].roads, Road k = name k), carries the expedition texts and the regions\' families; the travel event names the Road taken', () => {
+    let s = onMap(expRun('rogue', { seed: 5, content: REAL }));
+    const v = R.mapView(s);
+    const zc = REAL.zones[0];
+    assert.deepEqual(v.roadNames, zc.roads, 'in the order of v.roads');
+    assert.deepEqual(v.texts, REAL.texts.expedition);
+    assert.deepEqual(v.regions.map((r) => [r.name, r.kind, r.families]), zc.regions.map((r) => [r.name, r.kind, r.families]));
+    // Fixture content has none: nulls, and regions without families.
+    const f = R.mapView(onMap(expRun('rogue', { seed: 5 })));
+    assert.deepEqual(f.roadNames, [null, null, null]);
+    assert.deepEqual(Object.values(f.texts), [null, null, null, null]);
+    assert.ok(f.regions.every((r) => Array.isArray(r.families) && r.families.length === 0));
+    // TAKE_ROAD on Road k: the travel event's road is name k.
+    for (let k = 0; k < C.ROAD_COUNT; k++) {
+      const road = s.zone.roads[k];
+      const at = tweak(s, (x) => { x.zone.pos = road; x.hours = x.zone.start; });
+      const r = R.step(at, { type: 'TAKE_ROAD' });
+      assert.equal(ev(r.events, 'travel')[0].road, zc.roads[k]);
+    }
+    const bell = R.step(s, { type: 'RING_BELL' });
+    assert.equal(ev(bell.events, 'travel')[0].road, null, 'the Bell takes no Road');
+  });
+
+  test('D50 a seen elite shows its level and enemy count but not its name or its own archetype, rare or not; the leak is closed for real content', () => {
+    let rares = 0;
+    let elites = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const zone = zoneOf(seed, 1 + (seed % 6), REAL);
+      for (const n of zone.nodes) {
+        if (n.type !== 'elite') continue;
+        const s = tweak(onMap(expRun('mage', { seed, content: REAL })), (x) => { x.zone = zone; x.zone.seen[n.id] = true; });
+        const v = R.mapView(s).nodes[n.id];
+        assert.equal(v.know, 'full');
+        assert.deepEqual([v.name, v.rare, v.archetypes[0]], [null, null, null]);
+        assert.equal(v.archetypes.length, n.add ? 2 : 1, 'one entry per enemy');
+        if (n.add) assert.equal(v.archetypes[1], REAL.enemies[n.add].archetype);
+        assert.equal(v.level, n.eliteLevel);
+        if (n.rare) rares++; else elites++;
+      }
+    }
+    assert.ok(rares > 5 && elites > 20, `rares ${rares}, elites ${elites}`);
+    // Why the archetype is hidden too: in every zone of the real content the rares' archetypes differ from the elites'.
+    for (const z of REAL.zones) {
+      const ea = new Set(z.elites.map((id) => REAL.enemies[id].archetype));
+      assert.ok(z.rares.every((id) => !ea.has(REAL.enemies[id].archetype)), z.id);
+    }
+  });
+
+  test('D50 dimming: false plays an expedition run without the Dimming: no front, no Dimmed nodes or encounters, hub services at any hour; rows runs refuse it', () => {
+    let s = onMap(expRun('hunter', { seed: 6 }));
+    const off = R.newRun({ classId: 'hunter', petId: 'ridgewolf', seed: 6, content: CONTENT, mapMode: 'expedition', dimming: false });
+    let o = R.step(R.step(off, { type: 'START_RUN' }).state, { type: 'LEAVE_HUB' }).state;
+    assert.deepEqual(o.zone.nodes, s.zone.nodes, 'the same zone graph');
+    o = tweak(o, (x) => { x.hours = x.zone.start + 60; });
+    const v = R.mapView(o);
+    assert.deepEqual([v.dim.front, v.dim.nextIn, v.dim.off], [-1, Infinity, true]);
+    assert.ok(v.nodes.every((n) => !n.dimmed && n.dimsIn === Infinity && n.dimAt === Infinity && !n.lost));
+    assert.equal(R.mapView(s).dim.off, false);
+    const r = R.step(o, { type: 'MOVE', nodeId: o.zone.nodes[0].nb[0] });
+    assert.equal(ev(r.events, 'dimming').length + ev(r.events, 'dim').length, 0);
+    assert.notEqual(r.state.node && r.state.node.type, 'dim');
+    assert.equal(R.heatView(o).dimIn, null, 'no Dimming clock on the meter');
+    const hub = R.step(tweak(o, (x) => { x.phase = 'ZONE_HUB'; }), { type: 'SERVICE', service: 'inn' }).state;
+    assert.equal(hub.phase, 'ZONE_HUB');
+    // A full autoplay run without the Dimming ends and meets no Dimmed encounter.
+    let full = R.step(R.newRun({ classId: 'mage', seed: 6, content: REAL, mapMode: 'expedition', dimming: false }), { type: 'START_RUN' }).state;
+    for (let n = 0; full.phase !== 'ENDED' && n < 20000; n++) full = R.step(full, R.autoAction(full)).state;
+    assert.equal(full.phase, 'ENDED');
+    assert.equal(full.result.summary.expedition.dimFights, 0);
+    assert.equal(full.result.summary.expedition.dimming, false);
+    assert.throws(() => R.newRun({ content: CONTENT, dimming: false }), /expedition option/);
+    assert.throws(() => R.newRun({ content: CONTENT, mapMode: 'expedition', dimming: 'no' }), /expedition option/);
   });
 });

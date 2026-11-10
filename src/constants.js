@@ -488,6 +488,8 @@ export const REGION_W = {
 };
 /** Region kinds in order: a zone without content regions has one region of each kind, in this order (rules 1.9.2). */
 export const REGION_KINDS = ['wilds', 'road', 'haunt', 'steads'];
+/** Text ids of the content group texts.expedition (D51; rules 1.9.5-1.9.7): the Shardfall, Shardspawn, the Dimming, the Bell. */
+export const EXPEDITION_TEXT_IDS = ['shardfall', 'shardspawn', 'dimming', 'homeward_bell'];
 /** rules 1.9.2: no Elite, Vendor or Trainer in ring 1. */
 export const RING1_FORBIDDEN = ['elite', 'vendor', 'trainer'];
 

@@ -12,7 +12,7 @@ import {
   EDGE_DIAG_R23, REGION_COUNT, REGION_FAMILY_SHARE, REGION_W, REGION_KINDS, RING1_FORBIDDEN, ROAD_COUNT, VISION_RADIUS,
   VISION_RADIUS_MAX, GUIDE_RADIUS_BONUS, PATHFINDER_RADIUS, DIM_GRACE_H, DIM_HOURS_PER_HOP, BELL_CHANNEL_H,
   XP_WEIGHT_MULT, EXPED_GRIND_MAX_WAVES, EXPED_DUNGEON_TRASH_FIGHTS, EXPED_HOURS_QUEST, EXPED_HOURS_ELITE,
-  EXPED_HOURS_GRIND_WAVE, EXPED_HOURS_DUNGEON,
+  EXPED_HOURS_GRIND_WAVE, EXPED_HOURS_DUNGEON, EXPEDITION_TEXT_IDS,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt, weightedIndex } from '../rng.js';
 import { zoneContent } from './content.js';
@@ -164,6 +164,8 @@ export function generateExpZone(s, z) {
     z, mode: 'expedition', nodes, hub: 0, roads, shardfall, shardDist: hops(nodes, shardfall),
     pos: 0, start: s.hours, seen: nodes.map(() => false), typed: nodes.map(() => false), dimN: nodes.map(() => 0),
     hubStock: null, path: [0], questsDone: 0, storyDone: false,
+    // D50: newRun({ dimming: false }) plays the zone without the Dimming (every node dims at zone hour Infinity).
+    ...(s.exp && s.exp.dimming === false ? { dimOff: true } : {}),
   };
 }
 
@@ -256,8 +258,12 @@ export const zoneHours = (s) => s.hours - s.zone.start;
 export function frontAt(hz) {
   return hz < DIM_GRACE_H ? -1 : Math.floor((hz - DIM_GRACE_H) / DIM_HOURS_PER_HOP + 1e-9);
 }
-/** First whole zone hour at which node id is Dimmed: DIM_GRACE_H + hops from the Shardfall × DIM_HOURS_PER_HOP, rounded up. */
+/**
+ * First whole zone hour at which node id is Dimmed: DIM_GRACE_H + hops from the Shardfall × DIM_HOURS_PER_HOP, rounded
+ * up. Infinity in a zone played without the Dimming (dimOff, newRun option dimming: false, D50).
+ */
 export function dimAt(zone, id) {
+  if (zone.dimOff) return Infinity;
   return Math.ceil(DIM_GRACE_H + zone.shardDist[id] * DIM_HOURS_PER_HOP - 1e-9);
 }
 export const dimmedAt = (zone, id, hz) => hz >= dimAt(zone, id);
@@ -311,20 +317,35 @@ export function knowledge(s, n) {
   return 'none';
 }
 
-/** Node details the player sees on a fully visible node (as rules 1.4's map view; rare flags, traps and Embers hidden). */
+/**
+ * Node details the player sees on a fully visible node (as rules 1.4's map view; rare flags, traps and Embers hidden).
+ * An elite shows its level and one archetype entry per enemy, the elite's own as null, and no name (D50, rules 1.9.5):
+ * content gives a zone's rares other archetypes than its elites, so the elite's name or archetype would tell a rare.
+ */
 function details(c, z, n) {
   const arch = (tid) => c.enemies[tid].archetype;
   if (n.type === 'quest') return { title: c.quests[n.quest].title, archetypes: n.mobs.map(arch) };
   if (n.type === 'grind') return { archetypes: n.waves[0].map(arch) };
-  if (n.type === 'elite') {
-    return { level: n.eliteLevel, archetypes: [arch(n.elite), ...(n.add ? [arch(n.add)] : [])], rare: null, name: n.rare ? null : c.enemies[n.elite].name };
-  }
+  if (n.type === 'elite') return { level: n.eliteLevel, archetypes: [null, ...(n.add ? [arch(n.add)] : [])], rare: null, name: null };
   if (n.type === 'dungeon') {
     return { name: zoneContent(c, z).dungeon.name, level: n.trashLevel, bossLevel: n.bossLevel, fights: n.trash.map((f) => f.map(arch)), bossArchetype: arch(n.boss) };
   }
   if (n.type === 'treasure') return { guarded: !!n.guard, trap: null, archetypes: n.guard ? [arch(n.guard)] : [] };
   if (n.type === 'vendor') return { ember: null };
   return {};
+}
+
+/** Content name of the Road on node id (rules 1.9.7, D51): zones[i].roads[k] for the zone's Road k, else null. */
+export function roadNameOf(s, id) {
+  const names = zoneContent(s.content, s.zone.z).roads;
+  const k = s.zone.roads ? s.zone.roads.indexOf(id) : -1;
+  return k >= 0 && Array.isArray(names) && typeof names[k] === 'string' ? names[k] : null;
+}
+
+/** The expedition texts of the content (D51: texts.expedition), each null when missing. */
+export function expeditionTexts(c) {
+  const g = (c.texts && c.texts.expedition) || {};
+  return Object.fromEntries(EXPEDITION_TEXT_IDS.map((id) => [id, typeof g[id] === 'string' ? g[id] : null]));
 }
 
 /**
@@ -362,14 +383,15 @@ export function expMapView(s) {
     const enter = v.know === 'full' && !v.dimmed && !v.done && !v.hub;
     return { nodeId: id, via: enter ? 'enter' : 'walk', hours: enter ? nodeHours(s, v.type) : HOURS_WALK, passHours: enter ? HOURS_WALK : null, dimmed: v.dimmed };
   });
-  const front = frontAt(hz);
+  const front = zone.dimOff ? -1 : frontAt(hz);
   return {
     mode: 'expedition', z, name: zoneContent(c, z).name, hz, pos: zone.pos, hub: 0, roads: zone.roads.slice(),
+    roadNames: zone.roads.map((id) => roadNameOf(s, id)), texts: expeditionTexts(c),
     shardfall: zone.shardfall, onRoad: zone.nodes[zone.pos].road, walkH: HOURS_WALK, travelH: HOURS_TRAVEL,
     bell: { charges: s.exp.bell, channelH: BELL_CHANNEL_H },
     vision: { radius: visionRadius(s), regions: showRegions, typeRadius: s.exp.vision.typeRadius },
-    dim: { graceH: DIM_GRACE_H, hoursPerHop: DIM_HOURS_PER_HOP, front, nextIn: frontNextIn(hz) },
-    regions: regs.map((r, i) => ({ id: i, name: r.name, kind: r.kind })),
+    dim: { graceH: DIM_GRACE_H, hoursPerHop: DIM_HOURS_PER_HOP, front, nextIn: zone.dimOff ? Infinity : frontNextIn(hz), off: !!zone.dimOff },
+    regions: regs.map((r, i) => ({ id: i, name: r.name, kind: r.kind, families: r.families.slice() })),
     bands: RING_NODES.map((_, r) => (r === 0 ? [band, band] : [clampCl(band + RING_CL_BASE[r]), clampCl(band + RING_CL_BASE[r] + RING_CL_SPREAD - 1)])),
     edges, moves, nodes,
   };

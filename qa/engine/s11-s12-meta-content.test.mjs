@@ -354,6 +354,22 @@ describe('rules 12 content ranges', () => {
     assert.throws(() => R.newRun({ content: bad }), /content is invalid/);
   });
 
+  test('D51 expedition content: zones[i].roads (ROAD_COUNT names <= 28 chars) and the texts.expedition group (its four ids, <= 140 chars)', () => {
+    const ok = JSON.parse(JSON.stringify(CONTENT));
+    ok.zones.forEach((z, i) => { z.roads = [`Road ${i}a`, `Road ${i}b`, `Road ${i}c`]; });
+    ok.texts = { ...(ok.texts || {}), expedition: Object.fromEntries(C.EXPEDITION_TEXT_IDS.map((id) => [id, `Text of ${id}.`])) };
+    assert.deepEqual(R.validateContent(ok), []);
+    assert.deepEqual(C.EXPEDITION_TEXT_IDS, ['shardfall', 'shardspawn', 'dimming', 'homeward_bell']);
+    const bad = JSON.parse(JSON.stringify(ok));
+    bad.zones[0].roads = ['Only', 'Two'];
+    bad.zones[1].roads[2] = 'x'.repeat(29);
+    bad.zones[2].roads[0] = '';
+    bad.texts.expedition.bellfry = 'Unknown id.';
+    bad.texts.expedition.dimming = 'y'.repeat(141);
+    const errs = R.validateContent(bad).join('\n');
+    for (const re of [/zones\[0\]\.roads: expected 3 names/, /zones\[1\]\.roads\[2\]: 29 chars > 28/, /zones\[2\]\.roads\[0\]: missing text/, /texts\.expedition\.bellfry: unknown id/, /texts\.expedition\.dimming: 141 chars > 140/]) assert.match(errs, re);
+  });
+
   test('12 the engine never changes content (it is frozen at newRun)', () => {
     const c = JSON.parse(JSON.stringify(CONTENT));
     const before = JSON.stringify(c);
@@ -367,5 +383,8 @@ describe('rules 12 content ranges', () => {
   test('12 real content (src/content/index.js) passes the strict validator', { skip: !existsSync(REAL) && 'src/content/index.js not present' }, async () => {
     const { CONTENT: real } = await import(REAL);
     assert.deepEqual(R.validateContent(real, { strict: true }), []);
+    // D51: every zone names its three Roads, and the four expedition texts are there.
+    for (const z of real.zones) assert.equal(z.roads.length, C.ROAD_COUNT, z.id);
+    assert.deepEqual(Object.keys(real.texts.expedition).sort(), [...C.EXPEDITION_TEXT_IDS].sort());
   });
 });

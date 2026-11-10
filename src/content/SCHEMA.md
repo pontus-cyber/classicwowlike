@@ -49,6 +49,7 @@ export const CONTENT = {
 | `dungeon` | object | `{ name, text, trash: id[] (3-5, kind 'trash'), boss: id (kind 'dboss') }`; name <= 28, text <= 140 |
 | `addPool` | id[] | optional, non-empty subset of `normals`: the templates a Signal reinforcement or a template summon draws from (combat-v2 4.2). Default: all `normals`. Prefer brute, skulker and beast templates (fighters, not support) |
 | `regions` | object[] | optional, exactly 4 (REGION_COUNT): `{ id, name (<= 28), kind ('wilds' \| 'road' \| 'haunt' \| 'steads'), families: string[] }`. Kind sets the node mix (rules 1.9.2); `families` are the family tags (2.3) the region draws REGION_FAMILY_SHARE of its encounter mobs from. Expedition maps only. Use one region of each kind per zone |
+| `roads` | string[] | optional, exactly 3 (ROAD_COUNT) Road names, each <= 28 chars (D51). Road k of the expedition map (rules 1.9.2: the Roads in rim order from the first drawn one) takes name k; the map view and the `travel` event show them. Expedition maps only |
 | `quests` | id[] | 8-12 QuestTemplate ids |
 | `shrineLines` | string[] | >= 2, each <= 100 chars (shown on Shrine nodes) |
 | `treasureLines` | string[] | >= 2, each <= 100 chars (shown on Treasure nodes) |
@@ -218,13 +219,16 @@ rogue: { text: 'Strikes from the shadows, builds combo points, spends them on fi
   startWeapon: 'Chipped Dirk', startChest: 'Patched Jerkin', heirloomWeapon: 'Grandmother\'s Dirk' }
 ```
 
-### 2.10 Spell, talent, pet, boon, consumable and status text (optional)
+### 2.10 Spell, talent, pet, boon, consumable, status and expedition text (optional)
 `texts` holds optional flavour lines for ids defined by the engine (rules 5, 6, 2.9, 8.6). Unknown ids are
-reported by the validator. Each line <= 140 chars.
+reported by the validator. Each line <= 140 chars. Group `expedition` (D51; rules 1.9.5-1.9.7) has the ids
+`shardfall`, `shardspawn`, `dimming` and `homeward_bell` (C.EXPEDITION_TEXT_IDS); the expedition map view returns them
+as `mapView(state).texts`. src/content/texts.js holds the shipped lines.
 
 ```js
 texts: { spells: { ember_bolt: 'A bolt of living ember.' }, talents: { r_a1: '...' }, pets: { ridgewolf: '...' },
-         boons: { return: '...' }, consumables: { healing_draught: '...' } }
+         boons: { return: '...' }, consumables: { healing_draught: '...' },
+         expedition: { shardfall: '...', shardspawn: '...', dimming: '...', homeward_bell: '...' } }
 ```
 
 ## 3. Counts (rules 12.1)

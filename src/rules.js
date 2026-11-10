@@ -213,14 +213,16 @@ export function fleeChance(state) {
  * (newProfile() when omitted). content: the CONTENT object (src/content/index.js); it is validated
  * (structural check) and frozen. mapMode: 'rows' (today's map, rules 1.4; the default) or 'expedition' (rules 1.9).
  * vision (expedition only, until the start camp and meta buy it, task 2b.5): { guide, charts, pathfinder } booleans
- * for Local Guide, Region Charts and Pathfinder (rules 1.9.5).
+ * for Local Guide, Region Charts and Pathfinder (rules 1.9.5). dimming (expedition only, D50): false plays the run without
+ * the Dimming (no front, no Dimmed nodes or encounters), a measurement option for the simulator (balance.md B44).
  */
-export function newRun({ classId = null, petId = null, name = '', seed = 0, profile = null, content, validate = true, mapMode = 'rows', vision = null } = {}) {
+export function newRun({ classId = null, petId = null, name = '', seed = 0, profile = null, content, validate = true, mapMode = 'rows', vision = null, dimming = true } = {}) {
   if (!content) throw new Error('newRun: content is required (import { CONTENT } from src/content/index.js)');
   if (!MAP_MODES.includes(mapMode)) throw new Error(`newRun: mapMode must be one of ${MAP_MODES.join(', ')}`);
   if (vision !== null && (mapMode !== 'expedition' || typeof vision !== 'object' || Object.keys(vision).some((k) => !['guide', 'charts', 'pathfinder'].includes(k)))) {
     throw new Error('newRun: vision is an expedition option: { guide, charts, pathfinder }');
   }
+  if (typeof dimming !== 'boolean' || (!dimming && mapMode !== 'expedition')) throw new Error('newRun: dimming is an expedition option: true (default) or false');
   if (validate) {
     const errors = validateContent(content);
     if (errors.length) throw new Error(`newRun: content is invalid:\n  ${errors.slice(0, 20).join('\n  ')}`);
@@ -237,7 +239,7 @@ export function newRun({ classId = null, petId = null, name = '', seed = 0, prof
     phase: 'CREATE',
     create: {
       classId, petId, name: typeof name === 'string' ? name.trim().slice(0, 24) : '', seed: normaliseSeed(seed), oaths: [],
-      ...(mapMode === 'expedition' ? { vision: { guide: !!(vision && vision.guide), charts: !!(vision && vision.charts), pathfinder: !!(vision && vision.pathfinder) } } : {}),
+      ...(mapMode === 'expedition' ? { vision: { guide: !!(vision && vision.guide), charts: !!(vision && vision.charts), pathfinder: !!(vision && vision.pathfinder) }, dimming } : {}),
     },
     profile: prof,
     autoplay: false,

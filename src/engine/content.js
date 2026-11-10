@@ -1,7 +1,8 @@
-// Content access and validation (src/content/SCHEMA.md, rules 12).
+// Content access and validation (src/content/SCHEMA.md, rules 12; expedition fields: zone regions and Road names,
+// template families, the texts.expedition group, D51).
 import {
   ZONE_COUNT, CONTENT_RANGE as CR, ARCHETYPE, ABILITY_TEMPLATE, SLOT_IDS, CLASS_IDS, SPELL, TALENT, PET,
-  BOON, CONSUMABLE, ENGINE_ASSUMPTION as EA, REGION_COUNT, REGION_W,
+  BOON, CONSUMABLE, ENGINE_ASSUMPTION as EA, REGION_COUNT, REGION_W, ROAD_COUNT, EXPEDITION_TEXT_IDS,
 } from '../constants.js';
 
 export const SUFFIX_KEYS = ['AGI', 'INT', 'STA', 'AGI_STA', 'AGI_SPI', 'INT_STA', 'INT_SPI', 'AGI_STA_SPI', 'INT_STA_SPI'];
@@ -144,6 +145,11 @@ export function validateContent(content, { strict = false } = {}) {
         });
       }
     }
+    // Optional Road names (rules 1.9.7, expedition, D51): ROAD_COUNT names, Road k of the zone graph takes name k.
+    if (zn.roads !== undefined) {
+      if (!Array.isArray(zn.roads) || zn.roads.length !== ROAD_COUNT) e(`${w}.roads: expected ${ROAD_COUNT} names`);
+      else zn.roads.forEach((n, j) => str(n, CR.len.zoneName, `${w}.roads[${j}]`));
+    }
     const d = zn.dungeon;
     if (!d || typeof d !== 'object') e(`${w}.dungeon: missing`);
     else {
@@ -242,8 +248,9 @@ export function validateContent(content, { strict = false } = {}) {
     str(t.heirloomWeapon, CR.len.itemName, `classes.${c}.heirloomWeapon`);
   }
 
-  // Optional texts
-  const known = { spells: SPELL, talents: TALENT, pets: PET, boons: BOON, consumables: CONSUMABLE };
+  // Optional texts (D51: the expedition group, ids EXPEDITION_TEXT_IDS)
+  const expeditionIds = Object.fromEntries(EXPEDITION_TEXT_IDS.map((id) => [id, true]));
+  const known = { spells: SPELL, talents: TALENT, pets: PET, boons: BOON, consumables: CONSUMABLE, expedition: expeditionIds };
   for (const [group, map] of Object.entries(content.texts || {})) {
     if (!known[group]) { e(`texts.${group}: unknown group`); continue; }
     for (const [id, t] of Object.entries(map || {})) {

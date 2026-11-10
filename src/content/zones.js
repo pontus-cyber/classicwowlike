@@ -28,6 +28,7 @@ export const ZONES = [
     "families": ["wild","outlaw"]
    }
   ],
+  "roads": ["Millbrook Gate", "Harrow Lane", "Stonecutters' Way"],
   "name": "Amberfold Downs",
   "theme": "Farmland giving way to the forest edge, where old boundary stones keep failing.",
   "hubName": "Millbrook Rest",
@@ -117,6 +118,7 @@ export const ZONES = [
     "families": ["reedfolk","fenbeast"]
    }
   ],
+  "roads": ["Stilt Haven Boardwalk", "Lanternless Causeway", "Heron's Ford"],
   "name": "Greywater Fens",
   "theme": "Drowned wetlands of reed, mist and rotting causeways.",
   "hubName": "Stilt Haven",
@@ -206,6 +208,7 @@ export const ZONES = [
     "families": ["reiver","crag"]
    }
   ],
+  "roads": ["Windbarrow Pass", "Cairnwatch Stair", "Drovers' Gap"],
   "name": "Highcairn Reach",
   "theme": "Windswept highlands of stone cairns, heather and fortified steadings.",
   "hubName": "Windbarrow Hold",
@@ -297,6 +300,7 @@ export const ZONES = [
     "families": ["sunbound"]
    }
   ],
+  "roads": ["Cisternhold Gate", "Saltglass Track", "Obelisk Crossing"],
   "name": "Sunscoured Wastes",
   "theme": "Dry ruins of a fallen empire half-buried in wind-cut sand.",
   "hubName": "Cisternhold",
@@ -388,6 +392,7 @@ export const ZONES = [
     "families": ["veil","rootkin"]
    }
   ],
+  "roads": ["Lanternfall Path", "Pilgrim's Stile", "Hollow Oak Road"],
   "name": "Mournwood",
   "theme": "A haunted forest of pale trees, drifting fog and restless spirits.",
   "hubName": "Lanternfall",
@@ -479,6 +484,7 @@ export const ZONES = [
     "families": ["forgeborn","pyrecult"]
    }
   ],
+  "roads": ["Emberwatch Steps", "Slagfall Pass", "Ashen Stair"],
   "name": "Cindercrown Peaks",
   "theme": "Scorched volcanic mountains of ash, lava seams and ruined forts.",
   "hubName": "Emberwatch",

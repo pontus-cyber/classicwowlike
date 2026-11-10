@@ -195,9 +195,11 @@ The first draw is u, uniform in 0..RING_CL_SPREAD-1: CL = ZONE_LEVELS × (z - 1)
 
 #### 1.9.5 Vision
 - Always visible: every node (id, ring, angle, neighbours), every edge, the hub, the Roads, the Shardfall, which nodes are Dimmed and the zone hour each one dims at (1.9.6), the ring's level band, the zone's region names and kinds.
-- Fully visible: the nodes within the vision radius of the player's node (hops on the graph): type, content level, resolved or not, region, and the details of 1.4's map view (quest title and archetypes, grind archetypes, elite level, archetypes and name (not a rare's), dungeon name, levels and fights, treasure guard). Nodes seen once stay seen for the rest of the zone. Vision is refreshed on arrival at the hub and after every step.
+- Fully visible: the nodes within the vision radius of the player's node (hops on the graph): type, content level, resolved or not, region, and the details of 1.4's map view (quest title and archetypes, grind archetypes, elite level and the add's archetype, dungeon name, levels and fights, treasure guard). Nodes seen once stay seen for the rest of the zone. Vision is refreshed on arrival at the hub and after every step.
+- An elite's own name and archetype are not shown, rare or not (D50): content gives each zone's rares other archetypes than its elites, so either one would tell a rare (expedition.md 5.3). The view keeps one archetype entry per enemy, the elite's as null.
 - Radius: VISION_RADIUS, + GUIDE_RADIUS_BONUS with Local Guide; the full radius is capped at VISION_RADIUS_MAX. Region Charts: every node's region and the dungeon's type. Pathfinder: node types (only) within PATHFINDER_RADIUS hops. Until the start camp and meta buy them (2b.5), newRun's `vision` option ({ guide, charts, pathfinder }) gives them; a run without it has the fresh-profile vision.
 - Never shown: rare elite flags, treasure traps, vendor Embers (meta Scout's Eye has no effect in an expedition run).
+- Names and lines (D51, content): the zone's Road names (`zones[i].roads`, Road k takes name k), its regions with their families, and the texts of the Shardfall, Shardspawn, the Dimming and the Homeward Bell (`texts.expedition`); all optional, shown when content has them.
 - `mapView` returns only this; no front end or bot reads the zone state.
 
 #### 1.9.6 The Dimming
@@ -205,11 +207,12 @@ The first draw is u, uniform in 0..RING_CL_SPREAD-1: CL = ZONE_LEVELS × (z - 1)
 - Dimmed encounter: at the end of an action that cost hours (a step, a node's content, a hub service, the Bell's channel), when the player stands in a Dimmed node with nothing open (no node, fight, service or loot window), once per such action: DIM_PACK_SIZE enemies from the zone's normal templates (uniform picks on dim(z, id, n), then the composition repair of 7.14), variant shardspawn: HP × DIM_HP_MULT and damage × DIM_DMG_MULT on top of the archetype, zone danger as a normal enemy (7.6), ENGAGE_DMG_COMP as every template enemy (7.10); level min(MAX_LEVEL, max(CL, L) + DIM_LEVEL_PER_DEPTH × depth), CL the node's content level, depth = front - hops from the Shardfall. It costs HOURS_DIM_FIGHT, which does not start another one. Kill XP × DIM_XP_MULT; no coin, no loot. Flee is allowed (7.8) and counts as passing through: the player stays on the node. The node is not resolved by it.
 - Content lost: MOVE into an unresolved Dimmed node does not enter it (it is a walk, and the Dimmed encounter follows); PASS_THROUGH refuses it. The hub's services stop while it is Dimmed (SERVICE is refused; a walk onto it starts no visit).
 - Death in a Dimmed encounter ends the run as any death (9); the death location has the node id, its ring, node type `dim` and the depth.
+- Measurement option (D50): a run created with `newRun({ mapMode: 'expedition', dimming: false })` has no Dimming: no front, no node dims (`dimAt` is Infinity), no Dimmed encounters, the hub's services never stop, and the meter has no Dimming clock (1.9.10). Everything else is as above. Used by the simulator for balance.md B44.
 
 #### 1.9.7 Leaving a zone
 - `TAKE_ROAD`, standing on a Road in phase MAP: HOURS_TRAVEL, then the next zone's hub (zone 6: the Camp). There is no level gate (TRAVEL_EARLY_LEVELS and Swift Boots do not apply). A Dimmed Road is taken after its Dimmed encounter.
 - Homeward Bell: a run starts with BELL_START_CHARGES charges (never more than BELL_MAX_CHARGES). `RING_BELL` on the map (not in a node, the hub screen, the Camp or at the boss): one charge, a channel of BELL_CHANNEL_H hours; when the player's node is Dimmed at its end the Dimmed encounter comes first; then the next zone's hub (zone 6: the Camp), with no HOURS_TRAVEL.
-- Either way the zone counts as left (zonesLeft, Echoes 11.1).
+- Either way the zone counts as left (zonesLeft, Echoes 11.1). The `travel` event names the Road taken (content `zones[i].roads`, D51).
 
 #### 1.9.8 Pacing values of an expedition run (expedition.md 9.5)
 | Rule | Today's map | Expedition run |

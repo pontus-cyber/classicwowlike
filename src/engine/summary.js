@@ -85,6 +85,6 @@ function expeditionSummary(s) {
   const zones = x.zones.map((r, i) => ({ ...r, hours: r.exit === null && i === x.zones.length - 1 && s.zone && !s.zone.camp ? s.hours - s.zone.start : r.hours }));
   return {
     walks: x.walks, passes: x.passes, dimFights: x.dimFights, dimZones: zones.filter((r) => r.dimFights > 0).length,
-    bellsRung: x.bells, bellCharges: s.exp.bell, roads: x.roads, maxRing: x.maxRing, zones,
+    bellsRung: x.bells, bellCharges: s.exp.bell, roads: x.roads, maxRing: x.maxRing, zones, dimming: s.exp.dimming !== false,
   };
 }

@@ -28,7 +28,7 @@ import { makeBoss } from './boss.js';
 import { ascOver, newHeatStats, heatHours, heatZoneEntered, heatNodeEntered, heatFightWon } from './heat.js';
 import {
   isExpedition, grindMaxWaves, xpWeight, nodeHours, generateExpZone, refreshVision, zoneHours, frontAt, dimmedNow,
-  visionKit, canEnter,
+  visionKit, canEnter, roadNameOf,
 } from './expedition.js';
 
 // ---------------- Meta at run start (rules 11.4) ----------------
@@ -124,7 +124,7 @@ export function startRun(s, ev) {
   if (isExpedition(s)) {
     // Expedition map (rules 1.9): vision kit, Homeward Bell charges, the settle flags (pending: hours were spent
     // since the last Dimming check; bell: the Bell is ringing), and the per-run and per-zone counters.
-    s.exp = { vision: visionKit(c.vision), bell: Math.min(BELL_MAX_CHARGES, BELL_START_CHARGES), pending: false, bellPending: false };
+    s.exp = { vision: visionKit(c.vision), bell: Math.min(BELL_MAX_CHARGES, BELL_START_CHARGES), pending: false, bellPending: false, dimming: c.dimming !== false };
     s.stats.exp = { walks: 0, passes: 0, dimFights: 0, bells: 0, bellExits: 0, roads: 0, maxRing: 0, zones: [] };
   }
   ev.push({ t: 'runStart', classId: c.classId, petId: c.petId, seed: s.seed, oaths: s.oaths });
@@ -149,6 +149,7 @@ function dimmingAfterHours(s, ev, h, why) {
   const zone = s.zone;
   const hz = zoneHours(s);
   if (why !== 'dim') s.exp.pending = true;
+  if (zone.dimOff) return; // a run without the Dimming (newRun option dimming: false, D50)
   const before = frontAt(hz - h);
   const now = frontAt(hz);
   if (now > before) {
@@ -518,12 +519,15 @@ function endDimEncounter(s, ev) {
   setPhase(s, ev, 'MAP');
 }
 
-/** Leave the zone (Road or Bell, rules 1.9.7): record its hours, count it, enter the next zone (zone 6: the Camp). */
+/**
+ * Leave the zone (Road or Bell, rules 1.9.7): record its hours, count it, enter the next zone (zone 6: the Camp). The
+ * travel event names the Road taken (content zones[i].roads, D51; null by the Bell or without names).
+ */
 function leaveZone(s, ev, by) {
   const from = s.zone.z;
   const node = s.zone.pos;
   s.stats.zonesLeft += 1;
-  ev.push({ t: 'travel', from, by, node });
+  ev.push({ t: 'travel', from, by, node, road: by === 'road' ? roadNameOf(s, node) : null });
   enterZone(s, ev, from + 1);
 }
 

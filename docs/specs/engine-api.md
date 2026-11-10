@@ -30,7 +30,7 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 
 | Function | Returns | Notes |
 |---|---|---|
-| `newRun({classId, petId, name, seed, profile, content, mapMode, vision})` | state (phase CREATE) | All fields but `content` optional. `seed`: integer, normalised to uint32; the front end draws a random seed (the engine never does). `profile`: meta profile (`newProfile()` if omitted). `content` is validated (structural) and deep-frozen. (expedition) `mapMode`: `'rows'` (today's map, rules 1.4; the default) or `'expedition'` (rules 1.9, section 10); `state.mapMode` keeps it. `vision`: expedition only, `{ guide, charts, pathfinder }` booleans (Local Guide, Region Charts, Pathfinder, rules 1.9.5) until the start camp and meta buy them (2b.5). Throws on invalid content/class/pet/mapMode/vision. |
+| `newRun({classId, petId, name, seed, profile, content, mapMode, vision, dimming})` | state (phase CREATE) | All fields but `content` optional. `seed`: integer, normalised to uint32; the front end draws a random seed (the engine never does). `profile`: meta profile (`newProfile()` if omitted). `content` is validated (structural) and deep-frozen. (expedition) `mapMode`: `'rows'` (today's map, rules 1.4; the default) or `'expedition'` (rules 1.9, section 10); `state.mapMode` keeps it. `vision`: expedition only, `{ guide, charts, pathfinder }` booleans (Local Guide, Region Charts, Pathfinder, rules 1.9.5) until the start camp and meta buy them (2b.5). `dimming` (D50): expedition only, `false` plays the run without the Dimming (rules 1.9.6; a measurement option for B44), default `true`. Throws on invalid content/class/pet/mapMode/vision/dimming. |
 | `legalActions(state)` | action[] | Every concrete legal action. `SET_NAME` and `SET_SEED` take free values and are not listed (they are legal in CREATE). |
 | `step(state, action)` | `{ state, events }` | Pure: the input is never changed. Throws `IllegalActionError` (`err.code === 'ILLEGAL_ACTION'`, message names the reason) on an illegal action. |
 | `stepInPlace(state, action)` | events | Same, but changes `state` in place (no copy). For simulators that own their state. |
@@ -168,7 +168,7 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 |---|---|---|
 | `phase` | `phase` | phase changed |
 | `runStart` | `classId, petId, seed, oaths` | |
-| `zone`, `camp`, `travel` | `z, name` / `name` / `from` | zone hub entered / camp / TRAVEL_ON. (expedition) `travel` adds `by` (`road` or `bell`) and `node` |
+| `zone`, `camp`, `travel` | `z, name` / `name` / `from` | zone hub entered / camp / TRAVEL_ON. (expedition) `travel` adds `by` (`road` or `bell`), `node` and `road` (D51: the Road's content name, null by the Bell or without names) |
 | `hours` | `add, total, why` | in-game hours spent |
 | `node`, `nodeDone`, `quest` | `type, r, l, cl, heat` / ... / `quest` | node entered / completed / quest template id. (expedition) `node`: `type, id, ring, cl, heat`; `nodeDone`: `type, id`. (heat) `heat`: the node's entry state (rules 1.7.3) |
 | `move` | `from, to, via, seen` | (expedition) a step: `via` `enter`, `walk` or `pass`; `seen` = node ids newly in view |
@@ -388,8 +388,8 @@ the hub contract, Ask the Locals, the Spyglass, the meta changes of expedition.m
 | Path | Meaning |
 |---|---|
 | `mapMode` | `'rows'` or `'expedition'` (every state; saves without it are rows) |
-| `exp` | `{ vision: { radius, regions, typeRadius }, bell (charges), pending, bellPending }` (engine bookkeeping; read the Bell from `mapView`) |
-| `zone` | `{ z, mode: 'expedition', nodes[], hub: 0, roads[], shardfall, shardDist[], pos, start (run hours at arrival), seen[], typed[], dimN[], hubStock, path[], questsDone, storyDone }`: the full zone (hidden contents included). Draw the map with `mapView`, never from here |
+| `exp` | `{ vision: { radius, regions, typeRadius }, bell (charges), pending, bellPending, dimming }` (engine bookkeeping; read the Bell from `mapView`; `dimming` false: newRun option, D50) |
+| `zone` | `{ z, mode: 'expedition', nodes[], hub: 0, roads[], shardfall, shardDist[], pos, start (run hours at arrival), seen[], typed[], dimN[], hubStock, path[], questsDone, storyDone, dimOff? }`: the full zone (hidden contents included; `dimOff` true in a run without the Dimming). Draw the map with `mapView`, never from here |
 | `node` | `{ type, id, cl, stage, k, ... }`; a Dimmed encounter: `{ type: 'dim', id, cl (its level), stage, k, depth }` |
 | `stats.exp` | `{ walks, passes, dimFights, bells, bellExits, roads, maxRing, zones[] }` (the summary's `expedition` block) |
 | `death` | adds `node`, `ring` and `depth` (Dimmed encounters); `row` and `lane` are null |
@@ -397,17 +397,22 @@ the hub contract, Ask the Locals, the Spyglass, the meta changes of expedition.m
 ### 10.3 `mapView(state)` in an expedition run
 ```
 { mode: 'expedition', z, name, hz (zone hours), pos (player's node), hub: 0, roads: [ids], shardfall: id,
+  roadNames: [name per Road, in the order of roads] (D51; null without content names),
+  texts: { shardfall, shardspawn, dimming, homeward_bell } (D51: content texts.expedition; each null when missing),
   onRoad (TAKE_ROAD legal here), walkH, travelH, bell: { charges, channelH },
   vision: { radius (full, capped), regions (Region Charts), typeRadius (Pathfinder) },
-  dim: { graceH, hoursPerHop, front (-1 before the grace ends), nextIn (hours until the front moves) },
-  regions: [{ id, name, kind }]  (the zone's regions in content order; name null without content regions),
+  dim: { graceH, hoursPerHop, front (-1 before the grace ends), nextIn (hours until the front moves), off (D50: a run
+    without the Dimming; then front -1 and nextIn, every node's dimsIn and dimAt are Infinity) },
+  regions: [{ id, name, kind, families }]  (the zone's regions in content order; name null and families [] without
+    content regions; D51: families so contract text can name them),
   bands: [[min, max] per ring], edges: [[a, b]], moves: [{ nodeId, via, hours, passHours, dimmed }],
   nodes: [node] }
 node (every node): { id, ring, angle (degrees), nb (neighbour ids), hops (from the player), hub, road, shardfall,
   dimmed, dimsIn (hours from now; 0 = Dimmed), dimAt (zone hour it dims), know ('full' | 'type' | 'none'),
   region (content region index, or null when unknown) }
 know 'full' (the hub, or seen) adds: type, cl, done, lost (Dimmed and unresolved), and the details of the rows view:
-  quest { title, archetypes }, grind { archetypes }, elite { level, archetypes, rare: null, name (null for a rare) },
+  quest { title, archetypes }, grind { archetypes }, elite { level, archetypes ([null, the add's archetype]: one
+  entry per enemy, the elite's own hidden, D50), rare: null, name: null (D50: neither tells a rare) },
   dungeon { name, level, bossLevel, fights, bossArchetype }, treasure { guarded, trap: null, archetypes },
   vendor { ember: null }
 know 'type' (Pathfinder within its radius; the dungeon with Region Charts) adds: type
@@ -418,7 +423,7 @@ Nothing else of a hidden node is read: qa/engine/s01b checks that a hidden node 
 ### 10.4 Summary (expedition)
 `summary(state)` adds `mapMode: 'expedition'` and `expedition = { walks, passes, dimFights, dimZones, bellsRung,
 bellCharges (left), roads, maxRing, zones: [{ z, hours, nodes, walks, passes, dimFights, exit ('road' | 'bell' |
-null) }] }` (the current zone's `hours` are its hours so far). `minutes` adds the walk and pass terms and the Bell
+null) }], dimming (false in a run without the Dimming, D50) }` (the current zone's `hours` are its hours so far). `minutes` adds the walk and pass terms and the Bell
 (rules 1.9.8). `death` as 10.2.
 
 ## 11. Heat (heat; rules 1.7.1-1.7.2, 1.9.10)
