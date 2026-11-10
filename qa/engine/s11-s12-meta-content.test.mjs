@@ -56,9 +56,12 @@ describe('rules 11 meta progression', () => {
     assert.equal(p.unlocks.vigor, 2);
     assert.equal(p.echoes, 10000 - 80 - 120, 'Vigor ranks 1-2 cost 80 + 120 (M2 v3)');
     assert.equal(p.spent, 200);
-    assert.throws(() => R.buyMeta(p, 'swift_boots'), /not available/);
-    p = R.buyMeta(R.buyMeta(p, 'wayfinder'), 'swift_boots');
+    // M2 v4: Swift Boots has no prerequisite (was Wayfinder)
+    assert.deepEqual(C.META.swift_boots.req, []);
+    assert.equal(R.metaOffers(prof({}, { echoes: 200 })).find((o) => o.id === 'swift_boots').affordable, true);
+    p = R.buyMeta(p, 'swift_boots');
     assert.equal(p.unlocks.swift_boots, 1);
+    assert.equal(p.echoes, 10000 - 200 - 200);
     assert.throws(() => R.buyMeta(p, 'second_breath'), /not available/);
     assert.ok(R.buyMeta({ ...p, reachedBoss: true }, 'second_breath'));
     assert.throws(() => R.buyMeta(p, 'oaths'), /not available/);
