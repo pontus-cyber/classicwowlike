@@ -4,7 +4,7 @@
 // <out>/pass.json; build the report with sim/report.mjs.
 //
 //   node sim/pass.mjs --out sim/out/pass-2026-11-09 [--runs 2000] [--style-runs 1000] [--workers N]
-//                     [--stages A,B,C,D] [--resume] [--warmup 1000] [--campaigns 50] [--replay 1000] [--half-runs 1000]
+//                     [--stages A,B,C,D,E,F] [--resume] [--warmup 1000] [--campaigns 50] [--replay 1000] [--half-runs 1000]
 //                     [--variant-runs 2000] [--pall-runs 2000] [--diag-runs 1000]
 //
 // Order and risk-table chain (balance.md 1.1; each cell keeps refreshing its own table every SIM_RISK_REFRESH runs):
@@ -14,9 +14,10 @@
 //   B  P10:  planner warm-up from the P0 observations -> planner, random.
 //   C  PALL: planner warm-up from the P0 observations -> planner -> random, greedy, speedrunner (--pall-runs; also
 //            caps the PALL route-style cells of stage E),
-//            tactician (--half-runs), B26-B28 variants (--variant-runs, paired with the planner's first seeds); all
+//            B26-B28 variants (--variant-runs, paired with the planner's first seeds); all
 //            start from the PALL planner's observations.
 //   D  campaigns (frozen P0 planner table), B35 replay of 1 000 random runs, B37 autoplay throughput.
+//   F  the PALL tactician (--half-runs; last, so its size can follow the compute left).
 //   E  P2 and diagnostic cells: B9 pets and B8 styles (P0 from the P0 planner's observations, PALL from the PALL
 //            planner's), the rules-only tactician (telegraph rules, no search; --half-runs).
 import { cpus } from 'node:os';
@@ -47,7 +48,7 @@ const OUT = ensureDir(args.out || join('sim', 'out', `pass-${new Date().toISOStr
 const RUNS = Number(args.runs || BAL.N_RUNS_PER_CELL);
 const STYLE_RUNS = Number(args['style-runs'] || Math.round(RUNS / 2));
 const WORKERS = Number(args.workers || cpus().length);
-const STAGES = new Set(String(args.stages || 'A,B,C,D,E').split(','));
+const STAGES = new Set(String(args.stages || 'A,B,C,D,E,F').split(','));
 const WARM = Number(args.warmup ?? SIM.WARMUP_RUNS);
 const CAMPAIGNS = Number(args.campaigns ?? BAL.N_CAMPAIGNS);
 const REPLAY = Number(args.replay ?? BAL.QA_REPLAY_RUNS);
@@ -147,7 +148,6 @@ try {
     writeJson(join(OUT, 'obs-PALL.json'), obsAll);
     await cell('random-PALL', { bot: 'random', classes: CLASSES, prof: 'all', trees, runs: PALL_RUNS });
     for (const bot of ['greedy', 'speedrunner']) await cell(`${bot}-PALL`, { bot, classes: CLASSES, prof: 'all', trees, obsIn: obsAll, runs: PALL_RUNS });
-    await cell('tactician-PALL', { bot: 'tactician', classes: CLASSES, prof: 'all', trees, obsIn: obsAll, runs: HALF });
     for (const variant of ['noInterrupt', 'noCleanse', 'noAoe']) await cell(`planner-PALL-${variant}`, { bot: 'planner', classes: CLASSES, prof: 'all', trees, obsIn: obsAll, variant, runs: VARIANT_RUNS });
   }
   if (STAGES.has('D')) {
@@ -209,6 +209,11 @@ try {
     for (const style of ['quest', 'grind', 'elite', 'speed']) await cell(`planner-P0-${style}`, { bot: 'planner', classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0, style, runs: STYLE_RUNS });
     for (const style of ['quest', 'grind', 'elite', 'speed']) await cell(`planner-PALL-${style}`, { bot: 'planner', classes: CLASSES, prof: 'all', trees, obsIn: obsAll, style, runs: Math.min(STYLE_RUNS, PALL_RUNS) });
     await cell('tactician-P0-rulesOnly', { bot: 'tactician', classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0, variant: 'rulesOnly', runs: DIAG_RUNS });
+  }
+  if (STAGES.has('F')) {
+    // The PALL tactician (B3 upper bound; the most expensive cell) runs last, sized to the compute that is left.
+    const obsAll = readJson(join(OUT, 'obs-PALL.json'));
+    await cell('tactician-PALL', { bot: 'tactician', classes: CLASSES, prof: 'all', trees, obsIn: obsAll, runs: HALF });
   }
   manifest.meta.finished = new Date().toISOString();
   manifest.meta.wallMin = Math.round((performance.now() - t0) / 60000);
