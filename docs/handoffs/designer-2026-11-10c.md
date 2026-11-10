@@ -18,6 +18,10 @@ Key prototype numbers (planner, fresh profile; estimated real minutes calibrated
 
 Without the Dimming the roaming planner takes about 84 minutes: the threat is what bounds the zone.
 
+## Pacing with slower, weightier combat (Lead's 10:43 input)
+Assumed (combat-v2 not written yet): round on screen 2.1 s [stated +40 %], the first 4 rounds of a fight take 3 s each to decide, 6 s to read a fight before it starts, rounds per fight unchanged. A normal fight then takes about 36 s instead of 18; with today's ~50 fights a run would last about 64-65 minutes.
+Plan (expedition.md 9.5): about 36 fights per run instead of 50: one Grind wave, two dungeon trash fights, XP per fight × 1.6, node hours up (quest 3, elite 3, grind 2, dungeon 6) so the in-game clock keeps its scale, Dimming 2.5 h per hop, more Cull sites per region (0.65). Model: 37 resolved nodes (about 6 per zone) and 6 walk-throughs, 132 h, estimated 46-48 minutes. Cost: the planner is caught by the Dimming in about 26 % of zones (B43 asks 8-18 %); first levers: 3 h per hop (+2 min, 21 %) or a gentler depth-0 Dimmed encounter.
+
 ## Pitch for the owner
 Before each run you stand in the start camp with 10 preparation points. The contract board offers eight jobs across the six zones (cull boars in the Barley Reach, hunt a named bandit chief, clear the cellar dungeon); each pays far more than a quest, and only if finished. The same points buy supplies, a Homeward Bell charge, or eyes: region charts, a tracker for your contract targets, a local guide.
 Each zone is a round map with the town in the middle. You can walk anywhere, but on a fresh profile you see only the paths next to you, so finding the boars is half judgement, half luck.
@@ -27,7 +31,8 @@ In the model, a fresh player's route matches the "perfect information" route in 
 
 ## Open choices (default in bold; the team builds on the default)
 1. Exits: **C Roads (3) + Homeward Bell (1 charge per run, 2 h channel)**; runners-up A Roads only (set BELL_START_CHARGES 0) and B Bell only. Owner review.
-2. Threat speed: **grace 6 h, then one hop per 3 h** (planner zone about 23-24 h, run about 48 min). Faster (2.5 h per hop) brings the run to about 45 min but catches the planner in 23 % of zones. Sim to tune against B11, B17, B43.
+2. Threat speed: **grace 6 h, then one hop per 2.5 h** with the weightier nodes of 9.5 (run about 46-48 min, planner caught in about 26 % of zones). 3 h per hop is the fallback if B43 matters more than 2 minutes. Sim to tune against B11, B17, B43.
+10. Fight count with the slower combat: **about 36 fights per run (one Grind wave, two dungeon trash fights, XP × 1.6)**; rules.md values change when M2b lands, not now.
 3. Fresh vision: **adjacent nodes only (radius 1), graph skeleton and landmarks always visible**. Hiding the skeleton too would make the Dimming unfair (the player could not plan an escape).
 4. Vision cap: **full radius 2 at most; Pathfinder (meta) shows types only at 2 hops**. Radius 3 made every choice equal to the oracle's (C_step 1.00).
 5. Level gate on leaving: **none** (the Dimming bounds the zone; under-levelling is its own risk). Swift Boots becomes **+1 Bell charge**.
@@ -50,7 +55,7 @@ In the model, a fresh player's route matches the "perfect information" route in 
 | 9 | Sim | New metrics B39-B47 in the pass and report; diagnostic cells: Dimming off, vision entries off, prep none and random; re-measure B11, B14, B17, B20, B31 | M |
 | 10 | Content | Per zone: 4 regions (name, kind, 2-3 families); `family` tag on every normal and elite template; 1-2 bounty elites per zone; contract text templates (Cull, Bounty, Delve: title <= 32, text <= 240); Road names; Shardfall and Shardspawn names and lines; Homeward Bell text | M |
 | 11 | QA | Rules tests for 2-7; leak test of `mapView`; browser checks for the prep screen and fog map (BUG-QA-10 rule: the Set out button visible at both sizes) | M |
-| 12 | Designer | After the first measure: tune DIM_*, contract rewards (B40, B46), prices; update balance.md with B39-B47 | S |
+| 12 | Designer | Fold expedition.md 9.5 into rules.md (Grind waves, dungeon trash, node hours, XP × 1.6) together with combat-v2's round counts; then after the first measure: tune DIM_*, contract rewards (B40, B46), prices; update balance.md with B39-B47 | S |
 
 Order: 1-4 and 8 first (the Sim measures the map and the threat before the prep economy), then 5, 7, 9-11. Rough total: about 8-10 agent sessions.
 
@@ -59,14 +64,16 @@ What the Sim Engineer must build that the scratch model only fakes: real fights 
 ## Risks
 - Plan value is not shown yet: in the model, planned contracts beat random ones by nothing (16.5 vs 15.8 gear points) because contracts differ only in price and reward. B40 decides; first lever: contract rewards.
 - The greedy (no lookahead) is caught in 19 % of zones and the Dimming is about a third of its expected non-boss deaths: the UI clocks and a clear threat rule are required.
-- Hours rise (model 142 h vs 125 on today's map, +14 %): Ascendancy at the boss goes up unless BOSS_TIME_PAR or the threat speed moves (B17).
+- Tension with the 45-minute budget: shorter zones make the Dimming catch the planner in about 26 % of zones and the greedy in 38 % (9.5).
+- Hours rise (model 132-142 h vs 124-125 on today's map): Ascendancy at the boss goes up unless BOSS_TIME_PAR or the threat speed moves (B17).
 - With more vision the planner takes more elites and dungeons (expected non-boss deaths 0.64 -> 0.88 in the model's stand-in risk); the real risk table will tell.
 - Scope: this is a map rewrite. It touches rules, map generation, UI, bots and content. M3 content should wait for it.
 
 ## Commits
 - a78846d: docs/specs/expedition.md part 1 (sections 1-8)
 - 2bf2794: docs/specs/expedition.md part 2 (sections 9-13)
-- this commit: docs/handoffs/designer-2026-11-10c.md
+- 2db1a26: docs/handoffs/designer-2026-11-10c.md
+- this commit: expedition.md 9.5 and 12.5 (pacing with slower combat) and this note's pacing section
 
 ## Files changed
 docs/specs/expedition.md (new), docs/handoffs/designer-2026-11-10c.md (new). Scratch only, not committed: sim/out/expedition/model.mjs, run.mjs, sum.mjs and result files.

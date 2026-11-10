@@ -184,7 +184,7 @@ Rare elite flags, treasure traps and vendor Embers stay hidden (today only meta 
 Oruvath, the Unlit Star, is the end boss; its phase 2 summons Dimming Shards [source: rules 10.2]. In every zone a shard has fallen on the rim (the **Shardfall**), and the darkness it spreads, **the Dimming**, eats the zone outward from it. Things that walk in it are Shardspawn. The longer the player stays, the less of the zone is left; staying in the dark kills. The threat ties the zones to the boss and to the existing Ascendancy clock (time makes the Unlit Star stronger).
 
 ### 6.2 Spread
-`front(hz) = floor((hz - DIM_GRACE_H) / DIM_HOURS_PER_HOP)`; a node is **Dimmed** when `front >= 0` and its hop distance from the Shardfall is `<= front`. Distances are on the zone graph (edges as generated). With the starting values the first node dims after DIM_GRACE_H hours and the farthest node (6-7 hops) after about 24-27 zone hours; the hub (3 hops) dims at about 15 h.
+`front(hz) = floor((hz - DIM_GRACE_H) / DIM_HOURS_PER_HOP)`; a node is **Dimmed** when `front >= 0` and its hop distance from the Shardfall is `<= front`. Distances are on the zone graph (edges as generated). With the starting values (6 h, 2.5 h per hop) the first node dims after 6 hours, the hub (3 hops) at about 13.5 h and the farthest node (6-7 hops) after about 21-23.5 zone hours.
 
 The front only moves with hours, and every action costs hours, so it advances every step [stated: "advances every step"], and slow actions (Rest 4 h, a dungeon 5 h) let it advance more. The map shows, on every node, "dims in N h".
 
@@ -297,6 +297,36 @@ The quest log (BRIEF HUD) becomes the contract tracker: one line per held contra
 | Bell channel animation | PACE_BELL_S | 6 |
 | Dimmed encounter | as a normal fight | |
 
+### 9.5 Fight and node budget with slower, weightier combat (owner 10:43)
+The owner asked for animations at least 40 % slower and openings that need thought, Slay the Spire style [stated: docs/feedback/2026-11-10-1043-owner.md]; docs/specs/combat-v2.md (separate task, not yet written) owns the combat rules. This section plans the expedition's node and fight counts so a run still lands near 45 minutes.
+
+Assumptions (to be replaced by combat-v2's measured values):
+| Term | Constant | Value | Tag |
+|---|---|---|---|
+| Round on screen at default speed | PACE_ROUND_ANIM_S | 2.1 s (was 1.5) | [stated: +40 %] |
+| Decision time, first rounds of a fight | PACE_OPENING_ROUNDS, PACE_OPENING_DECIDE_S | 4 rounds × 3.0 s | [assumption] |
+| Decision time, later rounds | PACE_ROUND_DECIDE_S | 1.0 s (unchanged) | [assumption] |
+| Pre-fight read of the enemies and plan | PACE_FIGHT_PLAN_S | 6 s per fight | [assumption] |
+| Rounds per fight | B16 values | normal 6, elite 9, dungeon boss 13, end boss 46 (unchanged) | [assumption] |
+
+So a normal fight takes about 36 s on screen (was 18 s), an elite 45 s (26 s), the end boss 160 s (135 s). With today's fight count (about 50 per run) the run would take about 64 minutes on today's map and about 65 on the expedition map [source: scratch model, 12.5].
+
+Plan: about **36 fights per run instead of 50**, each worth more:
+| Change (proposed rules.md values; rules.md not edited in this task) | From | To |
+|---|---|---|
+| Grind node: one wave (GRIND_MAX_WAVES) | 3 | 1 |
+| Dungeon trash fights (DUNGEON_TRASH_FIGHTS) | 3 | 2 |
+| Node hours: HOURS_QUEST / HOURS_ELITE / HOURS_GRIND_WAVE / HOURS_DUNGEON | 2 / 2 / 1 / 5 | 3 / 3 / 2 / 6 |
+| XP per fight and per node: MOB_XP_FRAC, QUEST_TURNIN_XP_FRAC, GRIND_WAVE_XP_FRAC, DUNGEON_CLEAR_XP_FRAC, contract XP | × 1 | × XP_WEIGHT_MULT (1.6) |
+| The Dimming: DIM_HOURS_PER_HOP | 3 | 2.5 |
+| Cull sites in the target region: CULL_SITE_IN | 0.50 | 0.65 (fewer nodes per zone) |
+
+Node hours rise with the fights' weight, so the in-game clock (Dimming, Ascendancy, BOSS_TIME_PAR) keeps its scale: about 22 hours per zone, 132 h per run in the model (today's map in the model: 124 h).
+
+Budget per run (model, variant C, planner P0): 37 resolved nodes (about 6 per zone) and 6 walk-throughs, about 36 fights plus the boss; levels leaving zones 12 / 22 / 32 / 43 / 53 / 60; model 45.1 minutes, estimated **46-48 minutes** real (the calibration difference shrinks with fewer loot windows). Contract completion 46 % (P0) and 59 % (full-catalogue vision); C_step 0.69 / 0.91.
+
+Cost: the shorter zones make the Dimming bite harder. The planner is caught in about 26 % of zones and Dimmed encounters are about a third of its expected non-boss deaths, above B43 (8-18 %, 5-20 %). Levers, in order: (1) keep DIM_HOURS_PER_HOP at 3 (planner caught about 21 %, about +2 minutes); (2) make a depth-0 Dimmed encounter a normal-strength fight and let only depth add danger; (3) a fifth fewer nodes per zone via ring 3 of 10 nodes instead of 12. The Sim Engineer measures (1) and (2) on the real engine first. If combat-v2 lowers rounds per fight, the budget gains about 3 s per removed round per fight (about 2 minutes per round removed).
+
 ## 10. Bots (balance.md 1)
 
 ### 10.1 Shared rule: bots read `mapView` only
@@ -372,6 +402,20 @@ Prep (variant C, planner P0): contracts planned vs random vs none: gear 15.8 / 1
 5. Honest gap: in the model, choosing contracts well beats choosing them at random by nothing (16.5 vs 15.8 gear points), because the model's contracts differ only in price and reward. Whether the plan "heavily shapes the run" [stated] depends on what the real engine adds: class fit (families and archetypes), risk of Bounties, and the vision/safety purchases competing for the same points. B40 measures it; if planned prep beats "none" by less than PLAN_GAIN_MIN, raise contract rewards first (CULL_XP_FRAC, epic weight), then make kinds differ more.
 6. The greedy bot suffers from the Dimming (a third of its expected non-boss deaths). The UI clocks (9.2) and the threat rule (10.2) are required, not optional.
 
+### 12.5 With the slower combat (owner 10:43; 200 runs, planner unless marked)
+Pacing assumptions of 9.5. "Weightier" = one Grind wave, two dungeon trash fights, node hours 3/3/2/6, XP × 1.6.
+| Setup | Model min | Hours | Nodes + walks | Completion | Caught | C_step |
+|---|---|---|---|---|---|---|
+| Today's map, slower combat, today's nodes | 60.7 | 124 | 42 + 0 | 81 % | - | 1.00 |
+| C, slower combat, today's nodes | 61.0 | 141 | 50 + 9 | 57 % | 15 % | 0.72 |
+| C, weightier, Dimming 6 h / 3 h per hop | 46.8 | 140 | 39 + 7 | 42 % | 21 % | 0.69 |
+| **C, weightier, 6 h / 2.5 h, CULL_SITE_IN 0.65** | **45.1** | **132** | **37 + 6** | **46 %** | **26 %** | **0.69** |
+| same, full-catalogue vision | 46.3 | 131 | 34 + 7 | 59 % | 24 % | 0.91 |
+| same, greedy P0 | 44.9 | 128 | 33 + 7 | 37 % | 38 % | |
+| B Bell only, weightier, 5 h / 2.5 h | 39.6 | 113 | 32 + 3 | 39 % | 23 % | 0.66 |
+
+Reproduce: `PACEV2=1 SHAPEV2=1 XPS=1.3 OVR='{"dimGraceH":6,"dimHoursPerHop":2.5,"pIn":0.65}' node run.mjs 200 both_P0 both_PALL | node sum.mjs` (XPS 1.3 = the model's 0.82 calibration × 1.6).
+
 ### 12.4 Reproduce
 `cd sim/out/expedition && node run.mjs 300 rows_today rim_P0 recall_P0 both_P0 both_PALL | node sum.mjs`; threat sweeps with `OVR='{"dimGraceH":6,"dimHoursPerHop":3,"dimP":0.08}' node run.mjs 200 both_P0`. The folder is git-ignored; the Sim Engineer rebuilds the measurement on the real engine (handoff designer-2026-11-10c).
 
@@ -391,7 +435,7 @@ Prep (variant C, planner P0): contracts planned vs random vs none: gear 15.8 / 1
 | CONTRACT.cull.price / bounty / delve | 2 / 3 / 1 | points |
 | CULL_SITES | 2 | sites |
 | CULL_SITE_SPARE | 1 | extra sites guaranteed |
-| CULL_SITE_IN | 0.50 | probability per eligible node in the target region |
+| CULL_SITE_IN | 0.65 | probability per eligible node in the target region (0.50 with today's node counts, 9.5) |
 | CULL_SITE_OUT | 0.08 | probability per eligible node elsewhere |
 | BOUNTY_PLACED | 2 | nodes |
 | CONTRACT_CL_OFFSET | 5 | levels above the band start (CL_c = 10(z-1) + 5) |
@@ -428,7 +472,7 @@ Prep (variant C, planner P0): contracts planned vs random vs none: gear 15.8 / 1
 | HOURS_WALK | 1 | h |
 | ROAD_COUNT | 3 | Roads per zone |
 | DIM_GRACE_H | 6 | zone hours |
-| DIM_HOURS_PER_HOP | 3 | h |
+| DIM_HOURS_PER_HOP | 2.5 | h (3 with today's node counts, 9.5) |
 | DIM_PACK_SIZE | 2 | mobs |
 | DIM_LEVEL_PER_DEPTH | 2 | levels per hop of depth |
 | DIM_HP_MULT / DIM_DMG_MULT | 1.2 / 1.3 | × (tuned to about 8 % death chance at depth 0 for the planner P0, prototype SI) |
@@ -443,6 +487,11 @@ Prep (variant C, planner P0): contracts planned vs random vs none: gear 15.8 / 1
 | PACE_PREP_S | 60 | s |
 | PACE_HUB_CONTRACT_S | 6 | s per hub |
 | PACE_BELL_S | 6 | s |
+| PACE_ROUND_ANIM_S | 2.1 | s per round (owner 10:43; rules.md value 1.5 until combat-v2) |
+| PACE_OPENING_ROUNDS | 4 | rounds [assumption] |
+| PACE_OPENING_DECIDE_S | 3.0 | s per opening round [assumption] |
+| PACE_FIGHT_PLAN_S | 6 | s per fight [assumption] |
+| XP_WEIGHT_MULT | 1.6 | × XP per fight and node (9.5; applied to the rules.md XP constants when M2b lands) |
 | PLANNER_FOG_DEPTH | 4 | moves (bots) |
 | SITE_PARTIAL_MULT | 0.8 | × (bots) |
 | BELL_KEEP_VALUE | 80 | value units (bots) |
@@ -451,7 +500,7 @@ Prep (variant C, planner P0): contracts planned vs random vs none: gear 15.8 / 1
 | PLAN_VS_RANDOM_MIN | 2 | pp win rate (B40) |
 | C_STEP_P0 / C_STEP_PALL | 0.60-0.80 / 0.80-0.92 | share (B41) |
 | C_ROUTE_P0_MAX / C_ROUTE_PALL_MAX | 0.15 / 0.50 | share (B41) |
-| CAUGHT_ZONES | 0.08-0.18 | share (B43) |
+| CAUGHT_ZONES | 0.08-0.18 | share (B43; at risk with the 9.5 budget, see there) |
 | DIM_DEATH_SHARE | 0.05-0.20 | share (B43) |
 | CLOSE_CALL_GREEDY | 0.40-0.75 | share (B43) |
 | THREAT_BOUND_MIN | 1.5 | × (B44) |
