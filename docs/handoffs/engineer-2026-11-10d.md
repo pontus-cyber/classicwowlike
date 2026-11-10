@@ -18,6 +18,55 @@
 - **Balance finding (Lead, Designer, Sim Engineer).** On the spec defaults the Rogue reaches the boss far less often:
   80.5 % before combat v2, 50.0 % now. Mage and Hunter hold or improve. I measured three causes (below). I did not
   change any spec default.
+- **Update: the Lead decided D48** (all three Rogue fixes). They are on main in 88643a7, 177e625 and 7f9b4f0; see
+  "D48 Rogue fixes" below. Reach the boss after the fixes, planner P0, 200 seeds per class: Rogue 70.5 %, Mage
+  81.0 %, Hunter 88.0 % [measured].
+
+## D48 Rogue fixes (after the Lead's decision)
+| Commit | Fix | Code | Rules / API | Test (fails without the change) |
+|---|---|---|---|---|
+| 88643a7 | (1) The default target takes an enemy that was sapped this fight only when no other living, non-HEXED, non-SAPPED enemy is left, so autoplay never switches back to it while it fights another. Rule E's Sap never targets a beast. | combat.js (`defaultTarget` tiers, enemy field `wasSapped`), engage.js (Sap sets it), autoplay.js (rule E) | rules.md 7.9 (rule E, default target); engine-api.md `defaultTarget`, `wasSapped` | s07b "D48 (rules 7.9): rule E never saps a beast; the default target never switches back ..." |
+| 177e625 | (2) Ambush keeps STEALTH like a stealth opener: `keepsStealth('ambush')` follows `OPENER_BREAKS_STEALTH` (false), so the Rogue can open again in round 2 | engage.js | rules.md 7.10 option row | s07b "Ambush: ... the Rogue stays in STEALTH like after an opener (D48)" (same STEALTH as after a CAST of Shadowstep Strike) |
+| 7f9b4f0 | (3) No ENGAGE_DMG_COMP in the Rogue's fights; adds and Signal reinforcements included. Mage and Hunter unchanged | combat.js (`engageComp`) | rules.md 7.6, 7.10 and the ENGAGE_DMG_COMP row of the constant table; engine-api.md (enemy `dmg`) | s07b "ENGAGE_DMG_COMP: ... except in the Rogue's fights (D48) ..." (all three classes and a Signal add); s07 dungeon zone-danger test now uses the Rogue's formula |
+
+Tests at 7f9b4f0:
+
+| Suite | Result |
+|---|---|
+| qa/engine | 228/228 |
+| qa/rules | 56/56 |
+| qa/docs | 3/3 |
+| qa/sim | 63/64 |
+| build | 49 modules, 1 094 KB |
+
+The qa/sim failure is not caused by D48. It is qa/sim/m2v3.test.mjs "planner and tactician map choices use
+PLANNER_HOUR_MULT; the greedy uses 1" ("0 of 92 map choices change with the weight"; the test needs more than 100
+map states and at least one difference). It fails the same way at f16b117, before my D48 commits, and passes at
+a9cdd91. So it started with the Content Designer's a379e3c (new quest lists and add pools change the sampled map
+states). It is a qa/sim test, outside my paths: the Sim Engineer should re-pick its seeds or thresholds.
+
+Measurements. Planner, P0, seeds 1000-1199, 2 workers. All rows use the current content (a379e3c), so they are
+comparable with each other but not with the old-content tables in the next section [measured]:
+
+| Engine | Risk table | Rogue reach / win / early deaths | Mage reach / win | Hunter reach / win |
+|---|---|---|---|---|
+| f16b117 (before D48) | fixed (pass-2026-11-10c obs-P0) | 56.5 % / 21.5 % / 40.5 % | 81.0 % / 37.5 % | 88.0 % / 41.0 % |
+| 7f9b4f0 (D48) | fixed | 70.5 % / 26.0 % / 27.0 % | 81.0 % / 37.5 % | 88.0 % / 41.0 % |
+| 7f9b4f0 (D48) | fresh v2 warm-up, 1 000 runs per class | 65.5 % / 32.5 % / 30.5 % | 86.5 % / 42.0 % | 84.0 % / 36.0 % |
+| scratch: D48 + rule E never saps for the Rogue | fixed | 79.0 % / 30.0 % / 20.0 % | - | - |
+
+- Mage and Hunter runs are identical with and without D48 (every recorded field except the run time), because every
+  change applies only in the Rogue's fights.
+- The 78 % in D48's rationale came from my experiment (a), in which rule E never saps. D48's fix (1) keeps the Sap
+  and guards it instead. On the current content that recovers 14 pp of the Rogue's reach (56.5 % to 70.5 %), while
+  never sapping recovers 22.5 pp (to 79.0 %). [inference: from the last two fixed-table rows] Autoplay's Sap still
+  costs the Rogue about 8.5 pp of reach. If the Lead wants the Rogue at the other classes' level, the next step is
+  rule E without Sap for the Rogue (Sap stays a manual choice).
+- Fix (3) applies in every Rogue fight, as D48 says, dungeon bosses included. Before combat v2 the Rogue did not
+  start dungeon-boss fights in STEALTH (rules 5.3), so there it had no free round. Say so if the comp should stay in
+  those fights.
+- combat-v2.md 6.2 still says Ambush "leaves STEALTH". D48 supersedes it. The file is the Designer's, so I left it.
+- Median manual minutes of wins at 7f9b4f0 (fixed table): 54.6 / 56.6 / 55.7 (Rogue / Mage / Hunter).
 
 ## Commits (all on main)
 | Commit | What | Files |
@@ -26,7 +75,9 @@
 | 7609df3 | One test or more per rule (s07b); fix: two skulkers no longer both Signal in one round; spec tables in the s13 constants test | src/engine/{combat,track}.js, docs/specs/rules.md, qa/engine/s07b-combat-v2.test.mjs (new), qa/engine/s13-constants.test.mjs, qa/rules/COVERAGE.md |
 | 9cc6d0e | Encounter composition (rules 7.14) at node setup, add pool, fixture add pool | src/engine/{map,nodes}.js, docs/specs/{rules,engine-api}.md, docs/ARCHITECTURE.md, qa/engine/{s00-s01-structure,s07b-combat-v2}.test.mjs, qa/fixtures/content-min.js, qa/rules/COVERAGE.md |
 | 7ef2ec8 | `engagePreview` for the engage panel's hover preview (combat-v2.md 10.3) | src/engine/engage.js, src/rules.js, docs/specs/engine-api.md, docs/ARCHITECTURE.md, qa/engine/s07b-combat-v2.test.mjs |
-| (this note) | "Engine: combat v2 implemented" | docs/handoffs/engineer-2026-11-10d.md |
+| 57cc3ae | "Engine: combat v2 implemented" (this note, first version) | docs/handoffs/engineer-2026-11-10d.md |
+| 88643a7, 177e625, 7f9b4f0 | D48 Rogue fixes, one commit each (section "D48 Rogue fixes") | see that section |
+| (this update) | "Engine: combat v2 Rogue fixes" | docs/handoffs/engineer-2026-11-10d.md |
 
 The Sim Engineer's 07ba544 and 9d49d75 sit between my commits. They touch sim/ only.
 
@@ -56,14 +107,14 @@ content needs). Sim batches at 7ef2ec8: 600 + 3 600 runs, 0 errors.
 2. OFF_BALANCE gained at the start of a round (control that was already on cancels the new turn's entry) lasts
    OFFBAL_DURATION - 1, so it covers exactly the player's next action, as the spec's duration row intends.
 3. Signal and Bolster are script only, because combat-v2.md gives them no 7.6 weight. So BOLSTER_CD has no effect
-   today. Give Bolster a weight if the mender should also pick it later in the fight.
+   today. Give Bolster a weight if the mender should also pick it later in the fight. (Confirmed by D48.)
 4. A second skulker whose Signal turn comes in the same round as the first one's plays its basic attack instead
    ("help already called"). An interrupted Signal brings nobody.
 5. Signal adds give no coin either, since coin counts as loot. They still count as kills.
 6. Bolster keeps a larger shield the ally already has.
 7. The default target also skips SAPPED enemies, as it already skipped HEXED ones. Without this, autoplay would
-   break its own Sap at once. combat-v2.md 8 says the default target is unchanged, so this needs confirming.
-8. FLEE stays legal in the engage round (rules 7.8). The spec's 6.1 list leaves it out.
+   break its own Sap at once. (Confirmed by D48, which also keeps the default target off a once-sapped enemy.)
+8. FLEE stays legal in the engage round (rules 7.8). The spec's 6.1 list leaves it out. (Confirmed by D48.)
 9. Composition repair: the last enemy is redrawn (1 draw) from the encounter's pool among the templates that make
    it valid. For quests it falls back to the zone's normals. Camp waves are included. The spec states the rules
    only.
@@ -76,7 +127,7 @@ content needs). Sim batches at 7ef2ec8: 600 + 3 600 runs, 0 errors.
 13. ENGAGE_DMG_COMP applies to every template enemy: summons, Signal adds, Camp enemies and dungeon bosses
     included, but not the end boss or the Shards.
 
-## Balance finding: Rogue (for the Lead, the Designer and the Sim Engineer)
+## Balance finding: Rogue, before D48 (old content, 7ef2ec8; for the Lead, the Designer and the Sim Engineer)
 Planner, P0, 200 seeds per class (1000-1199), the same fixed risk table on both sides (the Sim Engineer's
 pass-2026-11-10c obs-P0, copied to /tmp/obs-P0-pass10c.json), 2 workers [measured]:
 
@@ -116,6 +167,10 @@ pass-2026-11-10c obs-P0, copied to /tmp/obs-P0-pass10c.json), 2 workers [measure
     combat-v2.md 9 expects the expedition spec's fewer fights to bring it back (B53).
 
 ## Content needs (Content Designer, src/content/)
+Items 1-3 are done in a379e3c [measured at 7f9b4f0, same 400-seed sample]: all 6 zones have an `addPool`; 0 of
+1 655 multi-mob quest encounters need a zone normal from outside the quest list (all 17 542 encounters are valid);
+every dungeon boss has a second usable ability. Item 4 waits for the expedition spec. The original list:
+
 1. `zones[i].addPool` (optional): the zone's normal templates that may join as Signal reinforcements or template
    summons. The engine validates that it is non-empty and a subset of the zone's normals; without it the zone's
    normals are used. Please add a row to src/content/SCHEMA.md. No real zone has one yet. The fixture has zone 1:
@@ -183,6 +238,8 @@ node sim/run.mjs --bot planner --class all --runs 200 --seed-start 1000 --profil
 ```
 
 ## Known issues
+- qa/sim/m2v3.test.mjs "planner and tactician map choices use PLANNER_HOUR_MULT" fails since the content commit
+  a379e3c (see "D48 Rogue fixes"). This is for the Sim Engineer; the engine is not involved.
 - BOLSTER_CD has no effect while Bolster is script only (decision 3).
 - Pure `step` throughput is lower (see above). If a pure-step consumer needs more speed, the tracks could keep only
   the fields that are set.
