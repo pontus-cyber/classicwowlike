@@ -156,7 +156,7 @@ export const ENEMIES = {
   "dmgMult": 1.05,
   "abilities": [
    "ab_z1_belk_heavy_blow",
-   "ab_z1_belk_summon"
+   "ab_z1_belk_rend"
   ],
   "text": "The manor reeve who bricked himself in with his stolen rents and never left."
  },
@@ -868,7 +868,7 @@ export const ENEMIES = {
   "dmgMult": 1.1,
   "abilities": [
    "ab_z5_father_vael_dark_cast",
-   "ab_z5_father_vael_summon"
+   "ab_z5_father_vael_curse"
   ],
   "text": "The last priest of Dunmere, who sold his flock to the dark."
  },

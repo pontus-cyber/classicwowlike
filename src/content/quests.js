@@ -5,7 +5,7 @@ export const QUESTS = {
   "title": "Blight in the Barley",
   "giver": "Farmer Osric Dunne",
   "objective": "slay",
-  "text": "The boars have trampled my north field flat. Cull them before they ruin the harvest.",
+  "text": "The boars have trampled my north field flat, and thieves are stripping what is left. Cull them before the harvest is lost.",
   "turnIn": "Good. The barley may yet stand next year.",
   "sizeWeights": [
    40,
@@ -13,7 +13,8 @@ export const QUESTS = {
    20
   ],
   "enemies": [
-   "z1_furrow_boar"
+   "z1_furrow_boar",
+   "z1_hedgerow_cutpurse"
   ]
  },
  "q_z1_lost_lambs": {
@@ -21,7 +22,7 @@ export const QUESTS = {
   "title": "Lost Lambs",
   "giver": "Maud Thatcher",
   "objective": "rescue",
-  "text": "Three lambs strayed into the wood and the wolves are circling. Find them and drive the pack off.",
+  "text": "Three lambs strayed into the wood, where wolves circle and an ogre has been seen. Find them and drive the lot off.",
   "turnIn": "You found them! I will light a candle for you tonight.",
   "sizeWeights": [
    30,
@@ -29,7 +30,8 @@ export const QUESTS = {
    30
   ],
   "enemies": [
-   "z1_barn_wolf"
+   "z1_barn_wolf",
+   "z1_hedge_ogre"
   ]
  },
  "q_z1_hedge_and_thorn": {
@@ -45,7 +47,8 @@ export const QUESTS = {
    40
   ],
   "enemies": [
-   "z1_hedgerow_cutpurse"
+   "z1_hedgerow_cutpurse",
+   "z1_bramble_herbalist"
   ]
  },
  "q_z1_flour_for_the_crossing": {
@@ -53,7 +56,7 @@ export const QUESTS = {
   "title": "Flour for the Crossing",
   "giver": "Miller Teodor",
   "objective": "deliver",
-  "text": "Carry this sack of flour to the guard post by the old bridge. Mind the wolves on the way.",
+  "text": "Carry this sack of flour to the guard post by the old bridge. Mind the wolves and the road thieves on the way.",
   "turnIn": "Fresh bread tonight, thanks to you.",
   "sizeWeights": [
    50,
@@ -61,7 +64,8 @@ export const QUESTS = {
    10
   ],
   "enemies": [
-   "z1_barn_wolf"
+   "z1_barn_wolf",
+   "z1_hedgerow_cutpurse"
   ]
  },
  "q_z1_what_the_scarecrow_saw": {
@@ -69,7 +73,7 @@ export const QUESTS = {
   "title": "What the Scarecrow Saw",
   "giver": "Elder Wynne",
   "objective": "scout",
-  "text": "Strange lights move among the straw men at night. Go see what stirs them.",
+  "text": "Strange lights move among the straw men and the old stone sentinels at night. Go see what stirs them.",
   "turnIn": "So the charm is stolen. That is worse than I feared.",
   "sizeWeights": [
    30,
@@ -77,7 +81,8 @@ export const QUESTS = {
    30
   ],
   "enemies": [
-   "z1_scarecrow_hexer"
+   "z1_scarecrow_hexer",
+   "z1_stonewall_sentinel"
   ]
  },
  "q_z1_pillars_of_the_field": {
@@ -85,7 +90,7 @@ export const QUESTS = {
   "title": "Pillars of the Field",
   "giver": "Wardkeeper Ilsa",
   "objective": "gather",
-  "text": "The boundary stones are cracking. Gather shards from the stone sentinels to be reset.",
+  "text": "The boundary stones are cracking. Gather shards from the stone sentinels to be reset, and watch for boars rooting among the rubble.",
   "turnIn": "These shards will mend the old wards.",
   "sizeWeights": [
    20,
@@ -93,7 +98,8 @@ export const QUESTS = {
    40
   ],
   "enemies": [
-   "z1_stonewall_sentinel"
+   "z1_stonewall_sentinel",
+   "z1_furrow_boar"
   ]
  },
  "q_z1_a_hermit_s_debt": {
@@ -118,7 +124,7 @@ export const QUESTS = {
   "title": "The Ogre of the Threshing Floor",
   "giver": "Reeve Hollis",
   "objective": "slay",
-  "text": "An ogre has seized the village threshing floor and the grain with it. Drive him out.",
+  "text": "An ogre and his thieving crew have seized the village threshing floor and the grain with it. Drive them out.",
   "turnIn": "The floor is ours again. Well fought.",
   "sizeWeights": [
    10,
@@ -126,7 +132,8 @@ export const QUESTS = {
    50
   ],
   "enemies": [
-   "z1_hedge_ogre"
+   "z1_hedge_ogre",
+   "z1_hedgerow_cutpurse"
   ]
  },
  "q_z1_ashes_on_the_wind": {
@@ -151,7 +158,7 @@ export const QUESTS = {
   "title": "Fever on the Water",
   "giver": "Healer Maren",
   "objective": "gather",
-  "text": "The fen fever spreads. Bring me sap from the stalks guarded by the bog witches.",
+  "text": "The fen fever spreads. Bring me sap from the stalks guarded by the bog witches and their acolytes.",
   "turnIn": "Brewed and ready. The sick will thank you.",
   "sizeWeights": [
    30,
@@ -159,7 +166,8 @@ export const QUESTS = {
    30
   ],
   "enemies": [
-   "z2_bog_witch"
+   "z2_bog_witch",
+   "z2_fen_healer"
   ]
  },
  "q_z2_stilts_and_snares": {
@@ -167,7 +175,7 @@ export const QUESTS = {
   "title": "Stilts and Snares",
   "giver": "Harbourwarden Pell",
   "objective": "slay",
-  "text": "Mist hounds are snatching the catch from our drying racks. Thin their packs.",
+  "text": "Mist hounds and the reed stalkers who run with them are snatching the catch from our drying racks. Thin their ranks.",
   "turnIn": "The racks hold fish again.",
   "sizeWeights": [
    20,
@@ -175,7 +183,8 @@ export const QUESTS = {
    40
   ],
   "enemies": [
-   "z2_mist_hound"
+   "z2_mist_hound",
+   "z2_reed_stalker"
   ]
  },
  "q_z2_the_lost_causeway": {
@@ -200,7 +209,7 @@ export const QUESTS = {
   "title": "Salt for the Smokehouse",
   "giver": "Ketil Reedman",
   "objective": "deliver",
-  "text": "Bring this salt crate across the fen to the smokehouse. The lurkers hunt the shallows.",
+  "text": "Bring this salt crate across the fen to the smokehouse. The lurkers hunt the shallows and witches hex the path.",
   "turnIn": "Not a grain wet. You have my thanks.",
   "sizeWeights": [
    50,
@@ -208,7 +217,8 @@ export const QUESTS = {
    10
   ],
   "enemies": [
-   "z2_marsh_lurker"
+   "z2_marsh_lurker",
+   "z2_bog_witch"
   ]
  },
  "q_z2_a_witch_s_bargain": {
@@ -216,7 +226,7 @@ export const QUESTS = {
   "title": "A Witch's Bargain",
   "giver": "Old Sedge",
   "objective": "slay",
-  "text": "The bog witches poison the wells to sell the cure. End their trade for good.",
+  "text": "The bog witches poison the wells to sell the cure, and their peat guardians keep watch. End their trade for good.",
   "turnIn": "The wells run clear. At last.",
   "sizeWeights": [
    10,
@@ -224,7 +234,8 @@ export const QUESTS = {
    50
   ],
   "enemies": [
-   "z2_bog_witch"
+   "z2_bog_witch",
+   "z2_peat_sentinel"
   ]
  },
  "q_z2_fenmother_s_request": {
@@ -249,7 +260,7 @@ export const QUESTS = {
   "title": "Gloam Eel Tales",
   "giver": "Fisher Dagny",
   "objective": "slay",
-  "text": "Gape-jawed lurkers have taken three boats this season. Hunt them down in the dark channel.",
+  "text": "Gape-jawed lurkers and a mire brute have taken three boats this season. Hunt them down in the dark channel.",
   "turnIn": "Things like that should not be swimming. Well done.",
   "sizeWeights": [
    30,
@@ -257,7 +268,8 @@ export const QUESTS = {
    30
   ],
   "enemies": [
-   "z2_marsh_lurker"
+   "z2_marsh_lurker",
+   "z2_mire_brute"
   ]
  },
  "q_z2_rot_beneath_the_planks": {
@@ -265,7 +277,7 @@ export const QUESTS = {
   "title": "Rot Beneath the Planks",
   "giver": "Harbourwarden Pell",
   "objective": "slay",
-  "text": "Peat guardians wake near the stilt walkways and crack our footings. Break them apart.",
+  "text": "Peat guardians wake near the stilt walkways and crack our footings, and lurkers follow the noise. Break them apart.",
   "turnIn": "The footings hold. We owe you.",
   "sizeWeights": [
    40,
@@ -273,7 +285,8 @@ export const QUESTS = {
    20
   ],
   "enemies": [
-   "z2_peat_sentinel"
+   "z2_peat_sentinel",
+   "z2_marsh_lurker"
   ]
  },
  "q_z2_the_weir_keeps_rising": {
@@ -298,7 +311,7 @@ export const QUESTS = {
   "title": "Wolves at the Wall",
   "giver": "Thane Brannoch",
   "objective": "slay",
-  "text": "Crag prowlers have been taking our herd-dogs. Hunt them down above the high pasture.",
+  "text": "Crag prowlers, driven by a shaman's call, have been taking our herd-dogs. Hunt them down above the high pasture.",
   "turnIn": "The herd sleeps safe tonight.",
   "sizeWeights": [
    40,
@@ -306,7 +319,8 @@ export const QUESTS = {
    20
   ],
   "enemies": [
-   "z3_crag_prowler"
+   "z3_crag_prowler",
+   "z3_wind_shaman"
   ]
  },
  "q_z3_stones_that_walk": {
@@ -314,7 +328,7 @@ export const QUESTS = {
   "title": "Stones That Walk",
   "giver": "Lorekeeper Ysolt",
   "objective": "scout",
-  "text": "The old guardian stones are moving along the ridge. Watch where they go and why.",
+  "text": "The old guardian stones are moving along the ridge, and shamans call the wind around them. Watch where they go and why.",
   "turnIn": "They march toward Barrowdeep. This is troubling.",
   "sizeWeights": [
    30,
@@ -322,7 +336,8 @@ export const QUESTS = {
    30
   ],
   "enemies": [
-   "z3_standing_stone_guard"
+   "z3_standing_stone_guard",
+   "z3_wind_shaman"
   ]
  },
  "q_z3_lightning_on_the_ridge": {
@@ -330,7 +345,7 @@ export const QUESTS = {
   "title": "Lightning on the Ridge",
   "giver": "Shepherd Tam",
   "objective": "slay",
-  "text": "Wind shamans have burnt three of my flocks with their storm-calling. Silence them.",
+  "text": "Wind shamans and their stone-sworn bodyguards have burnt three of my flocks with storm-calling. Silence them.",
   "turnIn": "May the grass grow back swiftly.",
   "sizeWeights": [
    20,
@@ -338,7 +353,8 @@ export const QUESTS = {
    40
   ],
   "enemies": [
-   "z3_wind_shaman"
+   "z3_wind_shaman",
+   "z3_cairn_brute"
   ]
  },
  "q_z3_mead_for_the_steading": {
@@ -346,7 +362,7 @@ export const QUESTS = {
   "title": "Mead for the Steading",
   "giver": "Innkeeper Hild",
   "objective": "deliver",
-  "text": "Bring this cask of mead to Stonehaven before the feast. The heath reivers will hunt it.",
+  "text": "Bring this cask of mead to Stonehaven before the feast. The heath reivers will hunt it, and their shaman rides with them.",
   "turnIn": "You saved the feast! Drink with us.",
   "sizeWeights": [
    50,
@@ -354,7 +370,8 @@ export const QUESTS = {
    10
   ],
   "enemies": [
-   "z3_reiver_scout"
+   "z3_reiver_scout",
+   "z3_wind_shaman"
   ]
  },
  "q_z3_reiver_s_toll": {
@@ -362,7 +379,7 @@ export const QUESTS = {
   "title": "Reiver's Toll",
   "giver": "Thane Brannoch",
   "objective": "slay",
-  "text": "Heath reivers take tolls at the ford where none are owed. Show them the Hold's answer.",
+  "text": "Heath reivers and the prowlers they keep take tolls at the ford where none are owed. Show them the Hold's answer.",
   "turnIn": "The ford is free again.",
   "sizeWeights": [
    20,
@@ -370,7 +387,8 @@ export const QUESTS = {
    40
   ],
   "enemies": [
-   "z3_reiver_scout"
+   "z3_reiver_scout",
+   "z3_crag_prowler"
   ]
  },
  "q_z3_ram_horn_signal": {
@@ -378,7 +396,7 @@ export const QUESTS = {
   "title": "Ram-Horn Signal",
   "giver": "Huntress Ketra",
   "objective": "gather",
-  "text": "We need ridge-ram horns for the warning pipes. Gather six and bring them down.",
+  "text": "We need ridge-ram horns for the warning pipes. Gather six past the guardian stones and bring them down.",
   "turnIn": "These will carry across three valleys.",
   "sizeWeights": [
    30,
@@ -386,7 +404,8 @@ export const QUESTS = {
    30
   ],
   "enemies": [
-   "z3_ridge_ram"
+   "z3_ridge_ram",
+   "z3_standing_stone_guard"
   ]
  },
  "q_z3_a_healer_taken": {
@@ -411,7 +430,7 @@ export const QUESTS = {
   "title": "The Silent Cairns",
   "giver": "Lorekeeper Ysolt",
   "objective": "scout",
-  "text": "No bell has rung from the Barrow road in a week. Go and see what has silenced it.",
+  "text": "No bell has rung from the Barrow road in a week, and the wind there carries chanting. Go and see what has silenced it.",
   "turnIn": "A giant has torn up the cairns. We must warn the clans.",
   "sizeWeights": [
    30,
@@ -419,7 +438,8 @@ export const QUESTS = {
    30
   ],
   "enemies": [
-   "z3_cairn_brute"
+   "z3_cairn_brute",
+   "z3_wind_shaman"
   ]
  },
  "q_z3_hrothgar_s_oath": {
@@ -444,7 +464,7 @@ export const QUESTS = {
   "title": "The Thirsty Caravan",
   "giver": "Caravanmaster Sefu",
   "objective": "deliver",
-  "text": "Carry water-skins to our stranded caravan beyond the dunes. The jackals are thick on that road.",
+  "text": "Carry water-skins to our stranded caravan beyond the dunes. Jackals and sand stalkers are thick on that road.",
   "turnIn": "You have saved eleven lives. Thank you.",
   "sizeWeights": [
    50,
@@ -452,7 +472,8 @@ export const QUESTS = {
    10
   ],
   "enemies": [
-   "z4_dust_jackal"
+   "z4_dust_jackal",
+   "z4_sand_stalker"
   ]
  },
  "q_z4_scarab_plague": {
@@ -460,7 +481,7 @@ export const QUESTS = {
   "title": "Scarab Plague",
   "giver": "Digger Imhotep",
   "objective": "slay",
-  "text": "Gilded scarabs are devouring the food in our camp. Crush the swarms at their nest.",
+  "text": "Gilded scarabs are devouring the food in our camp, and an adept is feeding them. Crush the swarms at their nest.",
   "turnIn": "The pests are gone. Our camp can sleep again.",
   "sizeWeights": [
    20,
@@ -468,7 +489,8 @@ export const QUESTS = {
    40
   ],
   "enemies": [
-   "z4_scarab_swarm"
+   "z4_scarab_swarm",
+   "z4_sun_cultist"
   ]
  },
  "q_z4_whispers_in_the_glyphs": {
@@ -510,7 +532,7 @@ export const QUESTS = {
   "title": "Relics of the Empire",
   "giver": "Digger Imhotep",
   "objective": "gather",
-  "text": "Gather broken sun-discs from the ruin juggernauts. The scholars can read their markings.",
+  "text": "Gather broken sun-discs from the ruin juggernauts. The scholars can read their markings, but sunscribe adepts guard the dig.",
   "turnIn": "These discs hold names we thought lost.",
   "sizeWeights": [
    30,
@@ -518,7 +540,8 @@ export const QUESTS = {
    30
   ],
   "enemies": [
-   "z4_dune_juggernaut"
+   "z4_dune_juggernaut",
+   "z4_sun_cultist"
   ]
  },
  "q_z4_sandstorm_hunters": {
@@ -526,7 +549,7 @@ export const QUESTS = {
   "title": "Sandstorm Hunters",
   "giver": "Caravanmaster Sefu",
   "objective": "slay",
-  "text": "Sand stalkers strike from the dunes whenever a sandstorm hides them. Hunt them down.",
+  "text": "Sand stalkers and their jackals strike from the dunes whenever a sandstorm hides them. Hunt them down.",
   "turnIn": "Open ground feels safe again.",
   "sizeWeights": [
    20,
@@ -534,7 +557,8 @@ export const QUESTS = {
    40
   ],
   "enemies": [
-   "z4_sand_stalker"
+   "z4_sand_stalker",
+   "z4_dust_jackal"
   ]
  },
  "q_z4_the_unburied_champion": {
@@ -542,7 +566,7 @@ export const QUESTS = {
   "title": "The Unburied Champion",
   "giver": "Scholar Neferu",
   "objective": "slay",
-  "text": "The champion Kharun walks his old halls again. Put him back to rest.",
+  "text": "The champion Kharun walks his old halls again, and the tomb scarabs swarm with him. Put him back to rest.",
   "turnIn": "At last the tomb may be sealed.",
   "sizeWeights": [
    10,
@@ -550,7 +574,8 @@ export const QUESTS = {
    50
   ],
   "enemies": [
-   "z4_sepulchre_guard"
+   "z4_sepulchre_guard",
+   "z4_scarab_swarm"
   ]
  },
  "q_z4_light_the_beacon": {
@@ -617,7 +642,8 @@ export const QUESTS = {
    30
   ],
   "enemies": [
-   "z5_stone_penitent"
+   "z5_stone_penitent",
+   "z5_hex_widow"
   ]
  },
  "q_z5_hollow_heart": {
@@ -625,7 +651,7 @@ export const QUESTS = {
   "title": "Hollow Heart",
   "giver": "Woodcutter Aldo",
   "objective": "slay",
-  "text": "The hollow oaks fall upon our camp each dusk. Fell them before they fell us.",
+  "text": "The hollow oaks fall upon our camp each dusk, led on by thorn wisps. Fell them before they fell us.",
   "turnIn": "Quiet again. Thank you.",
   "sizeWeights": [
    20,
@@ -633,7 +659,8 @@ export const QUESTS = {
    40
   ],
   "enemies": [
-   "z5_hollow_oak"
+   "z5_hollow_oak",
+   "z5_thorn_wisp"
   ]
  },
  "q_z5_bell_in_the_mist": {
@@ -658,7 +685,7 @@ export const QUESTS = {
   "title": "Hounds of the Graveyard",
   "giver": "Gravekeeper Isolde",
   "objective": "slay",
-  "text": "Grave hounds are digging up our churchyard. Put them down for good.",
+  "text": "Grave hounds are digging up our churchyard, and wisps lead them on. Put them down for good.",
   "turnIn": "The dead may rest at last.",
   "sizeWeights": [
    20,
@@ -666,7 +693,8 @@ export const QUESTS = {
    40
   ],
   "enemies": [
-   "z5_ghoul_hound"
+   "z5_ghoul_hound",
+   "z5_thorn_wisp"
   ]
  },
  "q_z5_letters_to_the_grave": {
@@ -691,7 +719,7 @@ export const QUESTS = {
   "title": "Veil-Cursed",
   "giver": "Brother Corvin",
   "objective": "rescue",
-  "text": "A hunter has been cursed by a hex widow and wanders the woods in a daze. Find him.",
+  "text": "A hunter has been cursed by a hex widow and wanders the woods in a daze, her hounds close behind. Find him.",
   "turnIn": "He wakes! The curse has broken.",
   "sizeWeights": [
    40,
@@ -699,7 +727,8 @@ export const QUESTS = {
    20
   ],
   "enemies": [
-   "z5_hex_widow"
+   "z5_hex_widow",
+   "z5_ghoul_hound"
   ]
  },
  "q_z5_the_pale_hunter": {
@@ -707,7 +736,7 @@ export const QUESTS = {
   "title": "The Pale Hunter",
   "giver": "Warden Ysmay",
   "objective": "slay",
-  "text": "A spectral huntsman has been tracking our scouts through the mist. Make him the quarry.",
+  "text": "A spectral huntsman and his grave hounds have been tracking our scouts through the mist. Make him the quarry.",
   "turnIn": "His horn is silent. Well done.",
   "sizeWeights": [
    10,
@@ -715,7 +744,8 @@ export const QUESTS = {
    50
   ],
   "enemies": [
-   "z5_wraith_stalker"
+   "z5_wraith_stalker",
+   "z5_ghoul_hound"
   ]
  },
  "q_z5_lord_varis_s_penance": {
@@ -757,7 +787,7 @@ export const QUESTS = {
   "title": "Hounds of Fire",
   "giver": "Scout Kettil",
   "objective": "slay",
-  "text": "Magma hounds roam the foothills, scorching our outposts. Drive them back.",
+  "text": "Magma hounds roam the foothills with pyre magi at their heels, scorching our outposts. Drive them back.",
   "turnIn": "The outposts are quiet. Well done.",
   "sizeWeights": [
    20,
@@ -765,7 +795,8 @@ export const QUESTS = {
    40
   ],
   "enemies": [
-   "z6_magma_hound"
+   "z6_magma_hound",
+   "z6_pyre_magus"
   ]
  },
  "q_z6_embers_of_the_old_forge": {
@@ -773,7 +804,7 @@ export const QUESTS = {
   "title": "Embers of the Old Forge",
   "giver": "Smith Brennar",
   "objective": "gather",
-  "text": "The old forges still hold cinder-steel in their ash. Retrieve ingots from the slag brutes.",
+  "text": "The old forges still hold cinder-steel in their ash. Retrieve ingots from the slag brutes and the priests who tend them.",
   "turnIn": "Perfect metal. We can arm the garrison.",
   "sizeWeights": [
    30,
@@ -781,7 +812,8 @@ export const QUESTS = {
    30
   ],
   "enemies": [
-   "z6_slag_brute"
+   "z6_slag_brute",
+   "z6_forge_priest"
   ]
  },
  "q_z6_the_last_supply_wagon": {
@@ -789,7 +821,7 @@ export const QUESTS = {
   "title": "The Last Supply Wagon",
   "giver": "Quartermaster Lisel",
   "objective": "deliver",
-  "text": "A wagon of supplies lies abandoned in the pass. Fetch the cargo before the wyrmlings find it.",
+  "text": "A wagon of supplies lies abandoned in the pass. Fetch the cargo before the wyrmlings and ash stalkers find it.",
   "turnIn": "The garrison eats tonight. Thank you.",
   "sizeWeights": [
    50,
@@ -797,7 +829,8 @@ export const QUESTS = {
    10
   ],
   "enemies": [
-   "z6_cinder_wyrmling"
+   "z6_cinder_wyrmling",
+   "z6_ash_stalker"
   ]
  },
  "q_z6_the_obsidian_wardens": {
@@ -805,7 +838,7 @@ export const QUESTS = {
   "title": "The Obsidian Wardens",
   "giver": "Marshal Doran",
   "objective": "slay",
-  "text": "The glassy wardens guard the pass and will not stand aside. Smash them.",
+  "text": "The glassy wardens and their magma hounds guard the pass and will not stand aside. Smash them.",
   "turnIn": "The pass is open. Excellent work.",
   "sizeWeights": [
    40,
@@ -813,7 +846,8 @@ export const QUESTS = {
    20
   ],
   "enemies": [
-   "z6_obsidian_warden"
+   "z6_obsidian_warden",
+   "z6_magma_hound"
   ]
  },
  "q_z6_cult_of_the_furnace": {
@@ -838,7 +872,7 @@ export const QUESTS = {
   "title": "Pyre Magus",
   "giver": "Marshal Doran",
   "objective": "slay",
-  "text": "A renegade magus burns villages for fuel. Stop him before his flame spreads.",
+  "text": "A renegade magus and his slag thralls burn villages for fuel. Stop them before the flame spreads.",
   "turnIn": "The fires are dying down. Thank you.",
   "sizeWeights": [
    10,
@@ -846,7 +880,8 @@ export const QUESTS = {
    50
   ],
   "enemies": [
-   "z6_pyre_magus"
+   "z6_pyre_magus",
+   "z6_slag_brute"
   ]
  },
  "q_z6_rescue_at_emberwatch": {
@@ -871,7 +906,7 @@ export const QUESTS = {
   "title": "The Drake's Roost",
   "giver": "Quartermaster Lisel",
   "objective": "slay",
-  "text": "Wyrmlings circle a ridge high above the pass, and their mother is the cause. End the nest.",
+  "text": "Wyrmlings and the slag brutes that serve them circle a ridge high above the pass, and their mother is the cause. End the nest.",
   "turnIn": "The sky is clear. May the pass stay safe.",
   "sizeWeights": [
    20,
@@ -879,7 +914,8 @@ export const QUESTS = {
    40
   ],
   "enemies": [
-   "z6_cinder_wyrmling"
+   "z6_cinder_wyrmling",
+   "z6_slag_brute"
   ]
  }
 };

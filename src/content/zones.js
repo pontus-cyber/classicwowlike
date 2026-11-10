@@ -15,6 +15,11 @@ export const ZONES = [
    "z1_stonewall_sentinel",
    "z1_bramble_herbalist"
   ],
+  "addPool": [
+   "z1_hedge_ogre",
+   "z1_hedgerow_cutpurse",
+   "z1_barn_wolf"
+  ],
   "elites": [
    "z1_gorrak",
    "z1_marrow"
@@ -71,6 +76,11 @@ export const ZONES = [
    "z2_marsh_lurker",
    "z2_peat_sentinel",
    "z2_fen_healer",
+   "z2_mist_hound"
+  ],
+  "addPool": [
+   "z2_mire_brute",
+   "z2_reed_stalker",
    "z2_mist_hound"
   ],
   "elites": [
@@ -131,6 +141,11 @@ export const ZONES = [
    "z3_hearth_priest",
    "z3_ridge_ram"
   ],
+  "addPool": [
+   "z3_cairn_brute",
+   "z3_reiver_scout",
+   "z3_crag_prowler"
+  ],
   "elites": [
    "z3_hrothgar",
    "z3_urseth",
@@ -189,6 +204,11 @@ export const ZONES = [
    "z4_sun_cultist",
    "z4_sepulchre_guard",
    "z4_canal_healer",
+   "z4_dust_jackal"
+  ],
+  "addPool": [
+   "z4_dune_juggernaut",
+   "z4_sand_stalker",
    "z4_dust_jackal"
   ],
   "elites": [
@@ -251,6 +271,11 @@ export const ZONES = [
    "z5_lantern_keeper",
    "z5_thorn_wisp"
   ],
+  "addPool": [
+   "z5_hollow_oak",
+   "z5_wraith_stalker",
+   "z5_ghoul_hound"
+  ],
   "elites": [
    "z5_varis",
    "z5_morrigan",
@@ -309,6 +334,11 @@ export const ZONES = [
    "z6_cinder_wyrmling",
    "z6_obsidian_warden",
    "z6_forge_priest",
+   "z6_magma_hound"
+  ],
+  "addPool": [
+   "z6_slag_brute",
+   "z6_ash_stalker",
    "z6_magma_hound"
   ],
   "elites": [

@@ -47,6 +47,7 @@ export const CONTENT = {
 | `elites` | id[] | 2-3 ids with `kind: 'elite'` |
 | `rares` | id[] | 1-2 ids with `kind: 'rare'` |
 | `dungeon` | object | `{ name, text, trash: id[] (3-5, kind 'trash'), boss: id (kind 'dboss') }`; name <= 28, text <= 140 |
+| `addPool` | id[] | optional, non-empty subset of `normals`: the templates a Signal reinforcement or a template summon draws from (combat-v2 4.2). Default: all `normals`. Prefer brute, skulker and beast templates (fighters, not support) |
 | `quests` | id[] | 8-12 QuestTemplate ids |
 | `shrineLines` | string[] | >= 2, each <= 100 chars (shown on Shrine nodes) |
 | `treasureLines` | string[] | >= 2, each <= 100 chars (shown on Treasure nodes) |
@@ -140,7 +141,7 @@ Mechanics are fixed by rules 2.1; the objective type is flavour only.
 | `text` | string | <= 240 chars, two sentences at most |
 | `turnIn` | string | <= 120 chars |
 | `sizeWeights` | number[3] | optional weights for 1/2/3 mobs; average size 1.6-2.4. Default `[25, 50, 25]` |
-| `enemies` | id[] | optional subset of the zone's `normals` the encounter draws from. Default: all zone normals |
+| `enemies` | id[] | optional subset of the zone's `normals` the encounter draws from. Default: all zone normals. Keep it valid by itself (rules 7.14): 2+ archetypes, at least one of caster, mender, skulker or beast, and never a guardian with only menders, so composition repair stays inside the list |
 
 ```js
 q_z1_lost_flock: { id: 'q_z1_lost_flock', title: 'The Lost Flock', giver: 'Shepherd Wenna', objective: 'rescue',
@@ -247,7 +248,7 @@ the engine needs to run, used for the test fixture in qa/fixtures/content-min.js
   `enemies` set the encounter. A zone's quests can repeat within a run when there are more quest nodes than
   templates, so write 8-12.
 - Grind and treasure guards: zone `normals`. Elite nodes: zone `elites`; the rare variant uses zone `rares`.
-  Elite adds: zone `normals`. Dungeons: `dungeon.trash` and `dungeon.boss`. Summons: zone `normals`.
+  Elite adds: zone `normals`. Dungeons: `dungeon.trash` and `dungeon.boss`. Summons and Signal reinforcements: zone `addPool`, else `normals`.
 - Generated item names: base name from `itemNames[band][slot]`, words from `affixWords`. The name is picked
   with a hash of the item, not from a game stream, so names never change drops.
 - Junk: a name from the zone's `junkNames`.

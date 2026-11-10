@@ -35,11 +35,13 @@ export const ABILITIES = {
   "pct": 2,
   "cd": 3
  },
- "ab_z1_belk_summon": {
-  "id": "ab_z1_belk_summon",
-  "template": "summon",
-  "name": "Call the Tenants",
-  "count": 1
+ "ab_z1_belk_rend": {
+  "id": "ab_z1_belk_rend",
+  "template": "rend",
+  "name": "Distraint Chain",
+  "pct": 0.65,
+  "tickPct": 0.2,
+  "cd": 3
  },
  "ab_z2_bargh_heavy_blow": {
   "id": "ab_z2_bargh_heavy_blow",
@@ -253,11 +255,11 @@ export const ABILITIES = {
   "pct": 2.4,
   "cd": 4
  },
- "ab_z5_father_vael_summon": {
-  "id": "ab_z5_father_vael_summon",
-  "template": "summon",
-  "name": "Raise the Congregation",
-  "count": 2
+ "ab_z5_father_vael_curse": {
+  "id": "ab_z5_father_vael_curse",
+  "template": "curse",
+  "name": "Writ of Excommunion",
+  "cd": 4
  },
  "ab_z6_skarn_heavy_blow": {
   "id": "ab_z6_skarn_heavy_blow",
