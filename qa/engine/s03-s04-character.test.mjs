@@ -102,9 +102,11 @@ describe('rules 4 character', () => {
 
   test('4.4 XP per event: round(frac × xpToNext(CL) × diffMod × (1 + Insight + Quick Study))', () => {
     const s = cloneState(atLevel(started('rogue', { profile: { ...R.newProfile(), unlocks: { quick_study: 2 } } }), 10));
-    assert.equal(eventXp(s, 0.8, 10), Math.round(0.8 * xpToNext(10) * (1 + 0.1)));
+    const qs = 2 * C.META.quick_study.xpPct; // M2 v4: 0.0375 per rank
+    assert.ok(Math.abs(qs - 0.075) < 1e-12);
+    assert.equal(eventXp(s, 0.8, 10), Math.round(0.8 * xpToNext(10) * (1 + qs)));
     s.player.buffs.insight = { left: 2, active: true };
-    assert.equal(eventXp(s, 0.8, 12), Math.round(0.8 * xpToNext(12) * diffMod(2) * (1 + 0.1 + C.BOON_XP_PCT)));
+    assert.equal(eventXp(s, 0.8, 12), Math.round(0.8 * xpToNext(12) * diffMod(2) * (1 + qs + C.BOON_XP_PCT)));
   });
 });
 

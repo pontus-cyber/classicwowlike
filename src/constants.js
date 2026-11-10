@@ -53,6 +53,8 @@ export const BOSS_TIME_PAR = 120;
 export const ASC_STEP_HOURS = 10;
 export const ASC_PER_STEP = 0.04;
 export const ASC_CAP = 0.40;
+/** rules 11.2 (M2 v4): hours the full catalogue's time entries may save on the planner's median route (measured by the sim, balance.md B17). */
+export const META_TIME_BUDGET_H = 5;
 export const QUEST_SIZE_W1 = 25;
 export const QUEST_SIZE_W2 = 50;
 export const QUEST_SIZE_W3 = 25;
@@ -165,6 +167,7 @@ export const ENEMY_DMG_BASE = 4;
 export const ENEMY_DMG_PER_LEVEL = 2.6;
 export const ZONE_DANGER_FROM = 20;
 export const ZONE_DANGER_STEP = 0.25;
+export const DUNGEON_DANGER_FRAC = 0.5;
 export const ENEMY_ARMOR_PER_LEVEL = 15;
 export const DUNGEON_TRASH_HP_MULT = 1.2;
 export const DUNGEON_TRASH_DMG_MULT = 1.1;
@@ -173,7 +176,7 @@ export const ELITE_DMG_MULT = 1.5;
 export const RARE_HP_MULT = 4.5;
 export const RARE_DMG_MULT = 1.6;
 export const DUNGEON_BOSS_HP_MULT = 5.6;
-export const DUNGEON_BOSS_DMG_MULT = 1.7;
+export const DUNGEON_BOSS_DMG_MULT = 1.5;
 export const AUTO_POTION_HP = 0.35;
 export const AUTO_MANA_POTION = 0.20;
 export const AUTO_TONIC_STACKS = 3;
@@ -216,7 +219,7 @@ export const EMBER_MAX_CARRIED = 1;
 export const HEAL_DRAUGHT_PCT = 0.35;
 export const MANA_DRAUGHT_PCT = 0.35;
 export const RATION_PCT = 0.40;
-export const GREATER_HEAL_PCT = 0.50;
+export const GREATER_HEAL_PCT = 0.375;
 export const SPARK_BASE = 6;
 export const SPARK_PER_LEVEL = 2.2;
 export const ELIXIR_DMG_PCT = 0.10;
@@ -237,7 +240,7 @@ export const RES_HP_PCT = 0.40;
 export const RES_MANA_PCT = 0.40;
 export const RES_META_CHARGES = 1;
 export const BOSS_LEVEL = 62;
-export const BOSS_HP = 13500;
+export const BOSS_HP = 13900;
 export const BOSS_ARMOR = 1200;
 export const BOSS_MELEE = 260;
 export const BOSS_CRUSH = 380;
@@ -261,7 +264,7 @@ export const SHARD_AOE_TAKEN = 1.00;
 export const ECLIPSE_STEP = 0.05;
 export const PULSE_DMG = 280;
 export const PULSE_EVERY = 3;
-export const BOSS_ENRAGE_ROUND = 55;
+export const BOSS_ENRAGE_ROUND = 57;
 export const FINAL_DARK_DMG = 99999;
 export const ECHO_PER_LEVEL = 1.5;
 export const ECHO_PER_ZONE = 7.5;
@@ -646,15 +649,15 @@ export const SHRINE_BOON_COUNT = 2;
 
 /**
  * Meta catalogue (rules 11.2). costs: per rank. req: list of requirement ids (unlock ids or profile flags).
- * Meta power budget (M2 v3): at all ranks the catalogue adds at most max HP +0.05, Power +0.05, crit +0.02 and
+ * Meta power budget (M2 v4): at all ranks the catalogue adds at most max HP +0.04, Power +0.04, crit +0.015 and
  * +1 talent point (qa/engine s11 checks it). Second Breath does not work in the end-boss fight.
  */
 export const META = {
-  vigor: { id: 'vigor', name: 'Vigor of the Line', kind: 'stat', ranks: 5, costs: [80, 120, 170, 230, 300], hpPct: 0.01, req: [] },
-  edge: { id: 'edge', name: 'Edge of the Line', kind: 'stat', ranks: 5, costs: [80, 120, 170, 230, 300], powerPct: 0.01, req: [] },
-  keen: { id: 'keen', name: 'Keen Lineage', kind: 'stat', ranks: 2, costs: [150, 250], crit: 0.01, req: [] },
-  quick_study: { id: 'quick_study', name: 'Quick Study', kind: 'stat', ranks: 3, costs: [100, 180, 280], xpPct: 0.05, req: [] },
-  prospector: { id: 'prospector', name: 'Prospector', kind: 'stat', ranks: 3, costs: [60, 110, 170], goldPct: 0.08, req: [] },
+  vigor: { id: 'vigor', name: 'Vigor of the Line', kind: 'stat', ranks: 4, costs: [80, 120, 170, 230], hpPct: 0.01, req: [] },
+  edge: { id: 'edge', name: 'Edge of the Line', kind: 'stat', ranks: 4, costs: [80, 120, 170, 230], powerPct: 0.01, req: [] },
+  keen: { id: 'keen', name: 'Keen Lineage', kind: 'stat', ranks: 2, costs: [150, 250], crit: 0.0075, req: [] },
+  quick_study: { id: 'quick_study', name: 'Quick Study', kind: 'stat', ranks: 3, costs: [100, 180, 280], xpPct: 0.0375, req: [] },
+  prospector: { id: 'prospector', name: 'Prospector', kind: 'stat', ranks: 3, costs: [60, 110, 170], goldPct: 0.06, req: [] },
   satchel: { id: 'satchel', name: 'Packed Satchel', kind: 'start kit', ranks: 1, costs: [60], potions: 3, req: [] },
   heirloom_blade: { id: 'heirloom_blade', name: 'Heirloom Blade', kind: 'start kit', ranks: 1, costs: [80], rarity: 'uncommon', ilvl: 3, req: [] },
   pockets: { id: 'pockets', name: 'Deeper Pockets', kind: 'start kit', ranks: 2, costs: [50, 100], slots: 4, req: [] },
