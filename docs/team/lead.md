@@ -8,7 +8,7 @@ You are accountable to the owner for the milestones in docs/MILESTONES.md.
 3. Pick the next 1 to 3 tasks that move the active milestone. If none can move without the owner, say what you need in one line and end the session without starting other agents.
 4. Delegate with the Agent tool: give each agent "Rules for all agents" from docs/README.md, its role file, the task, and the files to read and write. Model and effort: see below.
 5. Review what comes back against the done-when line. Reject what does not meet it.
-6. Integrate, build game.html, run it headless and check for console errors. Commit and push.
+6. Integrate, build game.html, run it headless and check for console errors. Run every test suite, including qa/docs/ (code map). Commit and push.
 7. Update STATUS.md (including the session log row) and MILESTONES.md. Commit and push.
 8. When something changed that the owner should see, send a short report (format below) and attach the build as a file.
 
