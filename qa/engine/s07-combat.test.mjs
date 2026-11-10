@@ -307,19 +307,19 @@ describe('rules 7.6 enemy AI and intents', () => {
     });
     s = R.step(s, { type: 'CHOOSE_NODE', lane: 0 }).state;
     const zd = (M) => 1 + (C.ZONE_DANGER_STEP * Math.max(0, M - C.ZONE_DANGER_FROM)) / 10;
-    // A Rogue's fight: no ENGAGE_DMG_COMP (D48).
+    // A Rogue's fight: no ENGAGE_DMG_COMP (D48), except its dungeon-boss fight (D49).
     const base = (e) => (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * e.level) * C.ARCHETYPE[e.arch].dmg * C.VARIANT[e.kind].dmg * s.content.enemies[e.tid].dmgMult;
     assert.equal(s.fight.kind, 'trash');
     for (const e of s.fight.enemies) {
       assert.equal(e.kind, 'trash');
       assert.ok(Math.abs(e.dmg - base(e) * (1 + C.DUNGEON_DANGER_FRAC * (zd(e.level) - 1))) < 1e-9, `trash level ${e.level}`);
     }
-    // the dungeon boss, built as dboss at its own level
+    // the dungeon boss, built as dboss at its own level (a dungeon-boss fight: × ENGAGE_DMG_COMP for the Rogue too, D49)
     const b = tweak(s, (x) => { x.fight = null; x.node.stage = 'between'; x.node.k = C.DUNGEON_TRASH_FIGHTS - 1; });
     const boss = R.step(b, { type: 'NEXT_FIGHT' }).state.fight;
     assert.equal(boss.kind, 'dboss');
     const e = boss.enemies[0];
-    assert.ok(Math.abs(e.dmg - base(e) * (1 + C.DUNGEON_DANGER_FRAC * (zd(e.level) - 1))) < 1e-9, `boss level ${e.level}`);
+    assert.ok(Math.abs(e.dmg - base(e) * C.ENGAGE_DMG_COMP * (1 + C.DUNGEON_DANGER_FRAC * (zd(e.level) - 1))) < 1e-9, `boss level ${e.level}`);
     // an add summoned in a dungeon fight is a normal enemy at the add level: full zone danger
     const sm = tweak(s, (x) => { x.player.d.maxHp = x.player.hp = 1e6; x.fight.enemies[0].intent = { id: 'ab_summon', name: 'Summon', kind: 'summon', count: 1, target: 'self', est: 0 }; for (const o of x.fight.enemies.slice(1)) o.st.push({ id: 'STUN', dur: 3 }); });
     const r = R.step(sm, { type: 'PASS' }).state;

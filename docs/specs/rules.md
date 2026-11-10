@@ -561,7 +561,7 @@ Each enemy has an archetype (table) plus up to 2 template abilities (12.4). Its 
 | guardian | 1.5 | 0.8 | 2.0 | 0 | Strike (60); Brace: self takes -50 % 2 rounds, CD 4 (20); Shield Ally: its ward takes -50 % 2 rounds, CD 4 (20) (combat v2: the ward, 7.12; was the lowest-HP ally) |
 | mender | 0.9 | 0.6 | 0.8 | 0 | Strike (50); Mend: heal lowest-HP ally (incl. self) 25 % max HP, cast, CD 3, only if some ally < 70 % (50) |
 
-Normal enemy at level M: `HP = (ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL × M) × archetype × variant`, `dmg (100 %) = (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL × M) × archetype × variant` (× zone danger below, × ENGAGE_DMG_COMP for every template enemy: the price of the engage round, 7.10 (combat v2); not in the Rogue's fights (D48)), `armor = ENEMY_ARMOR_PER_LEVEL × M × archetype`. Variants: normal 1/1, dungeon trash DUNGEON_TRASH_HP_MULT/DUNGEON_TRASH_DMG_MULT, elite ELITE_HP_MULT/ELITE_DMG_MULT, rare RARE_HP_MULT/RARE_DMG_MULT, dungeon boss DUNGEON_BOSS_HP_MULT/DUNGEON_BOSS_DMG_MULT.
+Normal enemy at level M: `HP = (ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL × M) × archetype × variant`, `dmg (100 %) = (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL × M) × archetype × variant` (× zone danger below, × ENGAGE_DMG_COMP for every template enemy: the price of the engage round, 7.10 (combat v2); not in the Rogue's fights except its dungeon-boss fights (D48, D49)), `armor = ENEMY_ARMOR_PER_LEVEL × M × archetype`. Variants: normal 1/1, dungeon trash DUNGEON_TRASH_HP_MULT/DUNGEON_TRASH_DMG_MULT, elite ELITE_HP_MULT/ELITE_DMG_MULT, rare RARE_HP_MULT/RARE_DMG_MULT, dungeon boss DUNGEON_BOSS_HP_MULT/DUNGEON_BOSS_DMG_MULT.
 
 Zone danger (M2 v3): every enemy made from an enemy template (normal, quest, grind, elite, rare, dungeon trash and boss, Camp waves, summoned adds) has its damage multiplied by `zd(M) = 1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10` (level 30 ×1.25, 40 ×1.5, 50 ×1.75, 60 ×2.0). Dungeon trash and dungeon bosses use `1 + DUNGEON_DANGER_FRAC × (zd(M) - 1)` instead (level 60 ×1.5) (M2 v4). HP, armor and XP are unchanged. The end boss and the Dimming Shards use their own constants (section 10) and are not affected. Purpose: same-level content stays about as threatening in zones 3-6 as in zone 2; the player's power growth (talents, ranks, rarity) otherwise outpaces the linear damage curve. (M2 v3)
 
@@ -590,7 +590,7 @@ Between fights in a node: if HP < AUTO_FOOD_HP (or mana < AUTO_FOOD_HP for Mage)
 - Round 1 of every fight except the end boss is the engage round for every class: enemies show "Unaware" and do not act; DOT ticks, regen, durations and the pet act as in any round. An enemy's turn t is fight round t + 1 (end boss: round t). Dungeon bosses included; their immunity to control limits the control options. (combat v2)
 - In the engage round the player sees every track (turns 1..INTENT_TRACK_LEN) and takes one action: `ENGAGE(optionId, targetIdx)`, any bar spell (`CAST`), `ATTACK`, `USE_ITEM`, `PASS`, or `FLEE` (7.8). `ENGAGE` is legal only in the engage round, so at most once per fight. (combat v2)
 - Engage options are class abilities, not bar spells: no bar slot, no training, no resource, known from level 1; their strength uses L (tl = L); damage options follow 7.2 like a spell. Control options cannot target an enemy immune to control (dungeon bosses); on adds they work normally. "n turns" of an option = status duration n + 1 (7.4 counts the round of application). (combat v2)
-- Price of the free round: every template enemy deals × ENGAGE_DMG_COMP (7.6; not the end boss or the Dimming Shards). (combat v2) Not in the Rogue's fights: its enemies were already Unaware in round 1 before combat v2, so the engage round is no new free round for it (D48).
+- Price of the free round: every template enemy deals × ENGAGE_DMG_COMP (7.6; not the end boss or the Dimming Shards). (combat v2) Not in the Rogue's fights: its enemies were already Unaware in round 1 before combat v2, so the engage round is no new free round for it (D48). Except its dungeon-boss fights, which it starts without STEALTH (5.3): there every template enemy, the boss and its adds, deals × ENGAGE_DMG_COMP (D49).
 
 | id | Class | Kind | Name | Target | Effect |
 |---|---|---|---|---|---|
@@ -1197,7 +1197,7 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | OFFBAL_BOSS_TAKEN | 0.15 | damage taken (end boss) | (combat v2)
 | OFFBAL_CRIT | 0.20 | crit chance | (combat v2)
 | OFFBAL_DURATION | 2 | status duration (one player action) | (combat v2)
-| ENGAGE_DMG_COMP | 1.15 | × enemy damage (all template enemies; end boss excluded; not in the Rogue's fights, D48) | (combat v2)
+| ENGAGE_DMG_COMP | 1.15 | × enemy damage (all template enemies; end boss excluded; not in the Rogue's fights except dungeon-boss fights, D48, D49) | (combat v2)
 | AMBUSH_MULT | 1.5 | × Gutting Jab before Shadowstep Strike is learned | (combat v2)
 | SAP_TURNS | 3 | enemy turns | (combat v2)
 | PREMED_CP | 3 | CP | (combat v2)

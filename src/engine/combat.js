@@ -34,9 +34,11 @@ export function zoneDanger(level, variant = 'normal') {
 
 /**
  * The price of the engage round on template enemies (rules 7.10, combat v2): ENGAGE_DMG_COMP, except in the Rogue's
- * fights, whose enemies were already Unaware in round 1 before combat v2 (D48).
+ * fights, whose enemies were already Unaware in round 1 before combat v2 (D48); its dungeon-boss fights pay it,
+ * because it starts those without STEALTH (rules 5.3; D49). The fight kind is that of s.fight (set before enemies are
+ * made).
  */
-const engageComp = (s) => (s.player.classId === 'rogue' ? 1 : ENGAGE_DMG_COMP);
+const engageComp = (s) => (s.player.classId === 'rogue' && !(s.fight && s.fight.kind === 'dboss') ? 1 : ENGAGE_DMG_COMP);
 
 /**
  * Enemy from a template (rules 7.6): every quest, grind, elite, rare, dungeon, Camp, summoned and Signal enemy. No

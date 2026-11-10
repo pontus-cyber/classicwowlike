@@ -41,7 +41,7 @@ File keys. Engine: E00 s00-s01-structure, E02 s02-nodes, E03 s03-s04-character, 
 | 7.3 Resources | E07 costs, mana rounding, focus regen | Q04 energy regen and cap, cost on a miss |
 | 7.4 Status effects | E07 durations, refresh, per-source BLEED, dispersal, BRAND, POISON, WARD, EXPOSED/MARKED, EVASION cap, TAUNT; E05 STUN, FROZEN, HEXED, SILENCED, STEALTH, IMMUNE, HOT | Q04 STEALTH gained mid-fight lasts one round |
 | 7.5 Items in combat | E07 item bar, shared POTION_CD, Tonic, Spark | Q04 Spark and Tonic have no cooldown, Spark formula |
-| 7.6 Enemy AI and intents | E07 stats (× ENGAGE_DMG_COMP; none in the Rogue's fights, D48), weights (turn-5 picks), SILENCED, Mend, cooldowns, soft enrage, templates; E13 archetypes; E07b ENGAGE_DMG_COMP not on the end boss | - |
+| 7.6 Enemy AI and intents | E07 stats (× ENGAGE_DMG_COMP; none in the Rogue's fights except dungeon-boss fights, D48, D49), weights (turn-5 picks), SILENCED, Mend, cooldowns, soft enrage, templates; E13 archetypes; E07b ENGAGE_DMG_COMP not on the end boss | - |
 | 7.7 Interrupts | E07; E05; E10 boss channel in either round; E07b OFF_BALANCE after an interrupt (also the end boss's Litany) | - |
 | 7.8 Flee | E07 chance, stealth, bosses; E02 quest flee; E07b legal in the engage round | Q04 flee from a dungeon fight |
 | 7.9 Autoplay policy | E07 rules 1-6, default target; E07b rule E (control on the most damaging track, strike, Mage Pre-cast, ties), SAPPED skipped by the default target; D49: the Rogue's rule E never uses Sap; D48: no switch back to a sapped enemy while another lives | Q04 ">= N enemies" ignores HEXED and SAPPED; rations between fights |

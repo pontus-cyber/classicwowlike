@@ -138,7 +138,7 @@ The window is the payoff for a set-up: a held finisher, Pyre Comet, Starlance Ba
 - Round 1 of every fight except the end boss is the **engage round** for every class: enemies show "Unaware" and do not act; DOT ticks, regen and durations run as in any round. (Today only a stealthed Rogue gets this round; v2 generalises it.) Dungeon bosses included; their CC immunity limits the control options (6.3).
 - In the engage round the player sees every track (turns 1..INTENT_TRACK_LEN) and takes one action: `ENGAGE(optionId, targetIdx)`, any bar spell (`CAST`), `ATTACK`, `USE_ITEM`, or `PASS`. `ENGAGE` is legal only in the engage round, once per fight.
 - Engage options are class abilities, not bar spells: they need no bar slot, no training and no resource, and are known from level 1. Their strength scales with L (and tl = L).
-- Price of the free round: enemy damage × ENGAGE_DMG_COMP (section 13: measured to keep the autoplay reach-the-boss rate where it is today).
+- Price of the free round: enemy damage × ENGAGE_DMG_COMP (section 13: measured to keep the autoplay reach-the-boss rate where it is today). Not in the Rogue's fights, which already had a free round (D48), except its dungeon-boss fights, which it starts without STEALTH (D49).
 
 ### 6.2 Class engage options
 Each class has a **strike**, a **control** and a **setup** option. Damage options follow rules 7.2 like a spell.

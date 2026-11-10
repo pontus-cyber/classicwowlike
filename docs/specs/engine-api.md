@@ -224,7 +224,8 @@ Out of combat, equipping, talents and Boon of Mending change HP without an HP fi
   (turns it acted; a beast's Bloodlust is `min(BLOODLUST_MAX, BLOODLUST_STEP × acted)`), `ward` (a guardian's ward
   index or null; draw the link on both frames), `unscripted` (summons, Signal adds, Shards, end boss), `noReward`
   (Signal adds: no XP, coin or loot), `wasSapped` (Sap landed on it this fight; the default target keeps off it while
-  another enemy lives, D48). `dmg` includes zone danger and ENGAGE_DMG_COMP (not in the Rogue's fights, D48).
+  another enemy lives, D48). `dmg` includes zone danger and ENGAGE_DMG_COMP (not in the Rogue's fights except its dungeon-boss fights, D48,
+  D49).
 - Status object: `{ id, dur (rounds left, null = no expiry), stacks, value, tick, amount, src }`: `tick` is the
   damage per tick of BLEED, BURN and POISON; `amount` is the heal per tick of HOT and what is left of a WARD.
   Combat v2 statuses: enemy `OFF_BALANCE` (`value` = extra damage taken; window, rules 7.13), `SAPPED`, `TRAP`

@@ -294,7 +294,7 @@ describe('rules 7.12 opening scripts and pack roles (combat v2)', () => {
     assert.equal(fight('mage', 20, [], [mob('z1_guardian'), mob('z1_guardian')]).fight.enemies[0].ward, null);
   });
 
-  test('ENGAGE_DMG_COMP: every template enemy deals × ENGAGE_DMG_COMP, except in the Rogue\'s fights (D48); the end boss and the Shards do not', () => {
+  test('ENGAGE_DMG_COMP: every template enemy deals × ENGAGE_DMG_COMP, except in the Rogue\'s fights (D48) other than its dungeon-boss fights (D49); the end boss and the Shards do not', () => {
     const free = (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * 15) * C.ARCHETYPE.brute.dmg;
     for (const [cls, petId] of [['mage'], ['hunter', 'ridgewolf']]) {
       const e = fight(cls, 20, [], [mob('z1_brute', 15)], { petId }).fight.enemies[0];
@@ -306,6 +306,17 @@ describe('rules 7.12 opening scripts and pack roles (combat v2)', () => {
     const sig = tweak(r, (x) => { x.fight.signalPending = { by: 1, level: 15, adds: 1 }; x.fight.signalled = true; });
     const add = R.step(sig, { type: 'PASS' }).state.fight.enemies[2];
     assert.ok(Math.abs(add.dmg - (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * 15) * C.ARCHETYPE[add.arch].dmg * sig.content.enemies[add.tid].dmgMult) < 1e-9, 'rogue: Signal add');
+    // The Rogue's dungeon-boss fight pays it (no STEALTH start there, rules 5.3; D49): the boss and an add it summons.
+    const db = fight('rogue', 20, [], [mob('z1_dboss', 15, 'dboss')], { kind: 'dboss', prep: (x) => { x.player.d.maxHp = x.player.hp = 1e6; } });
+    const boss = db.fight.enemies[0];
+    const bfree = (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * 15) * C.ARCHETYPE[boss.arch].dmg * C.VARIANT.dboss.dmg * db.content.enemies[boss.tid].dmgMult * R.zoneDanger(15, 'dboss');
+    assert.ok(Math.abs(boss.dmg - bfree * C.ENGAGE_DMG_COMP) < 1e-9, 'rogue: dungeon boss');
+    const sm = tweak(pass(db), (x) => { x.fight.enemies[0].intent = { id: 'ab_summon', name: 'Summon', kind: 'summon', count: 1, target: 'self', est: 0, turn: 1 }; });
+    const dadd = R.step(sm, { type: 'PASS' }).state.fight.enemies[1];
+    assert.ok(Math.abs(dadd.dmg - (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * dadd.level) * C.ARCHETYPE[dadd.arch].dmg * sm.content.enemies[dadd.tid].dmgMult * R.zoneDanger(dadd.level) * C.ENGAGE_DMG_COMP) < 1e-9, 'rogue: dungeon-boss add');
+    // Its trash fights in the same dungeon stay exempt.
+    const tr = fight('rogue', 20, [], [mob('z1_brute', 15, 'trash')], { kind: 'trash', stealth: true }).fight.enemies[0];
+    assert.ok(Math.abs(tr.dmg - (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * 15) * C.ARCHETYPE.brute.dmg * C.VARIANT.trash.dmg * R.zoneDanger(15, 'trash')) < 1e-9, 'rogue: dungeon trash');
     let b = R.step(started('mage', { seed: 51 }), { type: 'LEAVE_HUB' }).state;
     b = play(tweak(atLevel(b, 60), (x) => { x.zone.z = 6; x.hours = 100; }), [{ type: 'TRAVEL_ON' }, { type: 'FIGHT_BOSS' }]).state;
     assert.equal(b.fight.enemies[0].dmg, C.BOSS_MELEE);
