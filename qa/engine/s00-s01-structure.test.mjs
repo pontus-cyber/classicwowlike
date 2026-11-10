@@ -211,10 +211,21 @@ describe('rules 1 run structure', () => {
     assert.ok(rare / elites > 0.08 && rare / elites < 0.35, `rare share ${rare / elites}`);
   });
 
-  test('2.1 zone 1 quest cap: the size draw is unchanged, its result capped at QUEST_MAX_SIZE_Z1, then mobs and the level offset are drawn (M2 v2)', () => {
+  test('2.1 zone 1 quest cap: the size draw is unchanged, its result capped at QUEST_MAX_SIZE_Z1, then mobs, the composition repair (combat v2) and the level offset are drawn (M2 v2)', () => {
     const at = cloneState(started('rogue', { seed: 1 }));
     const counts = { 1: [0, 0, 0, 0], 2: [0, 0, 0, 0] };
     let capped = 0;
+    // rules 7.14 (combat v2): 2+ enemies hold 2+ archetypes; 3+ a caster, mender, skulker or beast; no guardian
+    // alone with menders. A broken encounter redraws its last enemy among the valid templates (pool, else normals).
+    const valid = (mobs) => {
+      const a = mobs.map((x) => CONTENT.enemies[x].archetype);
+      const set = new Set(a);
+      if (mobs.length < 2) return true;
+      if (set.size < 2) return false;
+      if (mobs.length >= 3 && !a.some((x) => ['caster', 'mender', 'skulker', 'beast'].includes(x))) return false;
+      return !(set.size === 2 && set.has('guardian') && set.has('mender'));
+    };
+    let repaired = 0;
     for (let seed = 0; seed < 300; seed++) {
       at.seed = seed;
       for (const z of [1, 2]) {
@@ -226,10 +237,18 @@ describe('rules 1 run structure', () => {
         const drawn = 1 + weightedIndex(rng, q.sizeWeights || [C.QUEST_SIZE_W1, C.QUEST_SIZE_W2, C.QUEST_SIZE_W3]);
         const size = z === 1 ? Math.min(C.QUEST_MAX_SIZE_Z1, drawn) : drawn;
         const pool = q.enemies && q.enemies.length ? q.enemies : zn.normals;
-        const mobs = Array.from({ length: size }, () => pool[nextInt(rng, pool.length)]);
+        let mobs = Array.from({ length: size }, () => pool[nextInt(rng, pool.length)]);
+        if (!valid(mobs)) {
+          const rest = mobs.slice(0, -1);
+          const ok = pool.filter((x) => valid([...rest, x]));
+          const list = ok.length ? ok : zn.normals.filter((x) => valid([...rest, x]));
+          mobs = [...rest, list[nextInt(rng, list.length)]];
+          repaired++;
+        }
         const off = C.QUEST_LEVEL_OFFSETS[nextInt(rng, C.QUEST_LEVEL_OFFSETS.length)];
         assert.equal(node.quest, q.id);
         assert.deepEqual(node.mobs, mobs, `seed ${seed} zone ${z}`);
+        assert.ok(valid(node.mobs));
         assert.equal(node.cl, contentLevel(z, 3) + off);
         counts[z][node.mobs.length]++;
         if (z === 1 && drawn > size) capped++;
@@ -237,6 +256,7 @@ describe('rules 1 run structure', () => {
     }
     assert.equal(counts[1][3], 0, 'no 3-mob quest in zone 1');
     assert.ok(capped > 0 && counts[2][3] > 0, `${capped} capped zone-1 draws; ${counts[2][3]} 3-mob quests in zone 2`);
+    assert.ok(repaired > 0, 'some drawn encounters were repaired');
   });
 
   test('1.4 movement: hub -> any lane of row 1; then (r+1, l-1..l+1); nothing after the last row', () => {

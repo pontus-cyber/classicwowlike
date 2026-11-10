@@ -17,7 +17,7 @@ import { eventXp, gainXp, gainGold, addRested, spendGold, addGoldRaw } from './p
 import {
   V, rollDrop, makeFixedGear, makeConsumable, addToBag, bagIndex, sellValue, takeConsumable,
 } from './items.js';
-import { generateZone, contentLevel, vendorStock } from './map.js';
+import { generateZone, contentLevel, vendorStock, composeEncounter } from './map.js';
 import { zoneContent, campEnemies, CAMP_Z } from './content.js';
 import { startFight, endFight } from './combat.js';
 import { parHours } from './meta.js';
@@ -478,8 +478,10 @@ export function campGrind(s, ev) {
   s.lootRng = STREAM.loot(s.seed, CAMP_Z, w, 0);
   const pool = campEnemies(s.content);
   const setup = STREAM.node(s.seed, CAMP_Z, w, 0);
-  const en = [];
-  for (let i = 0; i < GRIND_WAVE_SIZE; i++) en.push({ tid: pool[nextInt(setup, pool.length)], level: CAMP_GRIND_LEVEL, variant: 'normal' });
+  let tids = [];
+  for (let i = 0; i < GRIND_WAVE_SIZE; i++) tids.push(pool[nextInt(setup, pool.length)]);
+  tids = composeEncounter(s.content, setup, tids, pool); // rules 7.14 (combat v2)
+  const en = tids.map((tid) => ({ tid, level: CAMP_GRIND_LEVEL, variant: 'normal' }));
   startFight(s, ev, {
     kind: 'camp', k: 0, z: CAMP_Z, rng: STREAM.fight(s.seed, CAMP_Z, w, 0, 0), enemies: en,
     addLevel: CAMP_GRIND_LEVEL, addPool: pool, dropMult: GRIND_DROP_MULT, canFlee: true,

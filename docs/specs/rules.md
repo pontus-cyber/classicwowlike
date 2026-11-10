@@ -646,6 +646,9 @@ An enemy becomes OFF_BALANCE when (1) its now-entry with `cast` is interrupted (
 | Stacking | refresh, no stacks |
 | FROZEN | a FROZEN enemy counts as OFF_BALANCE (OFFBAL_TAKEN, OFFBAL_CRIT, not its dodge) while FROZEN; never both |
 
+### 7.14 Encounter composition (combat v2)
+An encounter of 2 or more enemies holds at least 2 different archetypes; one of 3 or more holds a caster, mender, skulker or beast; a guardian never appears alone with menders only. The engine applies this when a node is set up (stream `node`, rules 1.4 step 4) to quest encounters, grind waves, an elite with its add, dungeon trash fights, and Camp waves (stream `node(7,w,0)`): when the drawn encounter breaks a rule, its last enemy is redrawn (1 draw) among the templates of its pool that make it valid (quest: the quest's enemy list; grind and elite add: the zone's normals; dungeon: the trash list; Camp: the Camp pool), and if none would, among the zone's normals (quests only); if none would, it stays as drawn. A valid encounter costs no draw. Content keeps the pools varied enough that the repair stays within them (12.2). The map shows one archetype per enemy for every fight node (quests, grind, elite and add, treasure guard, each dungeon fight and the dungeon boss), so a pull can be planned from the map. (combat v2)
+
 ---
 
 ## 8. Items

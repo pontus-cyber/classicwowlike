@@ -635,3 +635,69 @@ describe('combat v2: determinism, state version, full runs', () => {
     }
   });
 });
+
+describe('rules 7.14 encounter composition and the add pool (combat v2)', () => {
+  test('validEncounter: 2+ enemies hold 2+ archetypes; 3+ hold a caster, mender, skulker or beast; a guardian is never alone with menders', async () => {
+    const { validEncounter } = await import('../../src/engine/map.js');
+    const v = (...a) => validEncounter(CONTENT, a.map((x) => `z1_${x}`));
+    assert.ok(v('brute') && v('brute', 'caster') && v('brute', 'guardian', 'beast') && v('guardian', 'mender', 'caster'));
+    assert.ok(!v('brute', 'brute'), 'one archetype');
+    assert.ok(!v('brute', 'guardian', 'brute'), '3 without caster, mender, skulker or beast');
+    assert.ok(!v('guardian', 'mender') && !v('guardian', 'mender', 'mender'), 'guardian alone with menders');
+  });
+
+  test('every generated encounter is valid (quests, grind waves, elite + add, dungeon trash, Camp waves); a valid draw costs no extra draw', async () => {
+    const { setupNode, validEncounter, composeEncounter } = await import('../../src/engine/map.js');
+    const s = cloneState(started('rogue', { seed: 1 }));
+    let n = 0;
+    for (let seed = 0; seed < 150; seed++) {
+      s.seed = seed;
+      for (let z = 1; z <= 6; z++) {
+        const q = setupNode(s, z, 3, 1, 'quest');
+        const g = setupNode(s, z, 2, 0, 'grind');
+        const el = setupNode(s, z, 4, 2, 'elite');
+        const d = setupNode(s, z, 5, 0, 'dungeon');
+        for (const enc of [q.mobs, ...g.waves, el.add ? [el.elite, el.add] : [], ...d.trash]) { assert.ok(validEncounter(CONTENT, enc), `seed ${seed} zone ${z}: ${enc.join(',')}`); n++; }
+      }
+    }
+    assert.ok(n > 3000);
+    let c = R.step(started('mage', { seed: 51 }), { type: 'LEAVE_HUB' }).state;
+    c = tweak(atLevel(c, 60), (x) => { x.zone.z = 6; });
+    c = play(c, [{ type: 'TRAVEL_ON' }]).state;
+    for (let w = 0; w < 30; w++) {
+      const f = R.step(tweak(c, (x) => { x.camp.waves = w; }), { type: 'CAMP_GRIND' }).state.fight;
+      assert.ok(validEncounter(CONTENT, f.enemies.map((e) => e.tid)));
+    }
+    const g = makeRng(9);
+    const before = g.slice();
+    assert.deepEqual(composeEncounter(CONTENT, g, ['z1_brute', 'z1_caster'], CONTENT.zones[0].normals), ['z1_brute', 'z1_caster']);
+    assert.deepEqual(g, before, 'a valid encounter draws nothing');
+    const fixed = composeEncounter(CONTENT, g, ['z1_brute', 'z1_brute'], ['z1_brute'], CONTENT.zones[0].normals);
+    assert.ok(fixed[0] === 'z1_brute' && fixed[1] !== 'z1_brute' && validEncounter(CONTENT, fixed), 'the last enemy is redrawn, from the fallback when the pool cannot fix it');
+    assert.deepEqual(g, advanced(before, 1), 'one draw');
+  });
+
+  test('add pool: zone `addPool` for summons and Signal in node fights, else the zone normals; validated against the zone normals', () => {
+    let s = R.step(started('mage', { seed: 4 }), { type: 'LEAVE_HUB' }).state;
+    s = R.step(s, { type: 'CHOOSE_NODE', lane: R.mapView(s).rows[0].findIndex((n) => n.type === 'quest') }).state;
+    assert.deepEqual(s.fight.addPool, CONTENT.zones[0].addPool);
+    const bad = { ...CONTENT, zones: CONTENT.zones.map((z, i) => (i === 1 ? { ...z, addPool: ['z1_brute'] } : z)) };
+    assert.ok(R.validateContent(bad).some((e) => /zones\[1\]\.addPool: "z1_brute" is not a normal of z2/.test(e)));
+    assert.deepEqual(R.validateContent(CONTENT), []);
+  });
+
+  test('mapView shows one archetype per enemy for treasure guards and each dungeon fight (a pull can be planned from the map)', () => {
+    for (let seed = 1; seed < 40; seed++) {
+      const v = R.mapView(R.step(started('rogue', { seed }), { type: 'LEAVE_HUB' }).state);
+      const s = R.step(started('rogue', { seed }), { type: 'LEAVE_HUB' }).state;
+      v.rows.forEach((row, r) => row.forEach((n, l) => {
+        const def = s.zone.rows[r][l];
+        if (n.type === 'treasure') assert.deepEqual(n.archetypes, def.guard ? [CONTENT.enemies[def.guard].archetype] : []);
+        if (n.type === 'dungeon') {
+          assert.deepEqual(n.fights, def.trash.map((f) => f.map((t) => CONTENT.enemies[t].archetype)));
+          assert.equal(n.bossArchetype, CONTENT.enemies[def.boss].archetype);
+        }
+      }));
+    }
+  });
+});

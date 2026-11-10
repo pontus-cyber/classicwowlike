@@ -2,6 +2,8 @@
 // Follows src/content/SCHEMA.md. Names are deliberately plain placeholders.
 // It passes the structural validator; it uses the strict minimum counts where cheap
 // (6 normals per zone, one of each archetype) so every archetype is exercised.
+// Combat v2 (rules 7.12): zone 1 has an add pool (summons and Signal reinforcements); the other zones use their
+// normals.
 
 const ARCHES = ['brute', 'skulker', 'caster', 'beast', 'guardian', 'mender'];
 const SLOTS = ['head', 'chest', 'legs', 'hands', 'feet', 'neck', 'ring', 'trinket', 'weapon', 'offhand'];
@@ -53,6 +55,7 @@ for (let z = 1; z <= 6; z++) {
   zones.push({
     id: `z${z}`, name: `Fixture Zone ${z}`, theme: `Theme ${z}.`, hubName: `Hub ${z}`, hubText: 'A hub.',
     normals, elites: [elite], rares: [rare],
+    ...(z === 1 ? { addPool: [normals[0], normals[1], normals[3]] } : {}),
     dungeon: { name: `Dungeon ${z}`, text: 'A dungeon.', trash, boss },
     quests: qids,
     shrineLines: ['A shrine.', 'A quiet shrine.'],

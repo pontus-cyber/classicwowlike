@@ -1,4 +1,5 @@
-// Zone map generation and node setup (rules 1.3, 1.4, 2). Streams map(z) and node(z,r,l).
+// Zone map generation and node setup (rules 1.3, 1.4, 2) with encounter composition (rules 7.14, combat v2).
+// Streams map(z) and node(z,r,l).
 import {
   ZONE_LEVELS, ZONE_CHOICE_ROWS, LANES, DUNGEON_ROW_MIN, DUNGEON_ROW_MAX, REST_ROW_MIN, REST_ROW_MAX, TRAINER_ROW_MIN, TRAINER_ROW_MAX,
   MAX_SAME_TYPE_PER_ROW, NODE_TYPE, NODE_DRAW_ORDER, ROW1_FORBIDDEN, MAP_REDRAW_TRIES, QUEST_LEVEL_OFFSETS,
@@ -69,6 +70,38 @@ function pickFrom(rng, list) {
   return list[nextInt(rng, list.length)];
 }
 
+/** Archetypes that make an opening worth planning (rules 7.14): a 3-enemy encounter holds one of them. */
+const ACTIVE_ARCHETYPES = ['caster', 'mender', 'skulker', 'beast'];
+
+/**
+ * Is an encounter (template ids) valid under the composition rules (rules 7.14, combat v2)? 2 or more enemies hold
+ * at least 2 archetypes; 3 or more hold a caster, mender, skulker or beast; a guardian is never alone with menders.
+ */
+export function validEncounter(content, mobs) {
+  if (mobs.length < 2) return true;
+  const archs = mobs.map((t) => content.enemies[t].archetype);
+  const set = new Set(archs);
+  if (set.size < 2) return false;
+  if (mobs.length >= 3 && !archs.some((a) => ACTIVE_ARCHETYPES.includes(a))) return false;
+  return !(set.size === 2 && set.has('guardian') && set.has('mender'));
+}
+
+/**
+ * Encounter composition (rules 7.14, combat v2): when the drawn encounter breaks a rule, its last enemy is redrawn
+ * (1 draw) from the templates of `pool` that make it valid, else from `fallback`'s; if none would, it stays as drawn.
+ * Valid encounters draw nothing. Returns the encounter (a new list when it changed).
+ */
+export function composeEncounter(content, rng, mobs, pool, fallback = null) {
+  if (validEncounter(content, mobs)) return mobs;
+  const rest = mobs.slice(0, -1);
+  for (const list of [pool, fallback]) {
+    if (!list || !list.length) continue;
+    const ok = list.filter((t) => validEncounter(content, [...rest, t]));
+    if (ok.length) return [...rest, pickFrom(rng, ok)];
+  }
+  return mobs;
+}
+
 /**
  * Map step 4: setup of one node from stream node(z,r,l). Everything a node needs is drawn here, so the map and
  * the node's loot never depend on how fights are played (rules 0, "Consequence").
@@ -87,8 +120,9 @@ export function setupNode(s, z, r, l, type) {
     const drawn = 1 + weightedIndex(rng, w);
     const size = z === 1 ? Math.min(QUEST_MAX_SIZE_Z1, drawn) : drawn;
     const pool = q.enemies && q.enemies.length ? q.enemies : zn.normals;
-    const mobs = [];
+    let mobs = [];
     for (let i = 0; i < size; i++) mobs.push(pickFrom(rng, pool));
+    mobs = composeEncounter(c, rng, mobs, pool, zn.normals); // rules 7.14 (combat v2)
     const off = QUEST_LEVEL_OFFSETS[nextInt(rng, QUEST_LEVEL_OFFSETS.length)];
     node.cl = clampCl(cl + off);
     node.quest = qid;
@@ -98,13 +132,14 @@ export function setupNode(s, z, r, l, type) {
     for (let w = 0; w < GRIND_MAX_WAVES; w++) {
       const wave = [];
       for (let i = 0; i < GRIND_WAVE_SIZE; i++) wave.push(pickFrom(rng, zn.normals));
-      node.waves.push(wave);
+      node.waves.push(composeEncounter(c, rng, wave, zn.normals));
     }
   } else if (type === 'elite') {
     const rare = nextFloat(rng) < RARE_CHANCE;
     node.rare = rare;
     node.elite = pickFrom(rng, rare ? zn.rares : zn.elites);
     node.add = nextFloat(rng) < ELITE_ADD_CHANCE ? pickFrom(rng, zn.normals) : null;
+    if (node.add) node.add = composeEncounter(c, rng, [node.elite, node.add], zn.normals)[1];
     node.eliteLevel = clampCl(cl + ELITE_LEVEL_OFFSET);
   } else if (type === 'dungeon') {
     const lv = dungeonLevels(z);
@@ -116,7 +151,7 @@ export function setupNode(s, z, r, l, type) {
       const size = 2 + weightedIndex(rng, [DUNGEON_SIZE_W2, DUNGEON_SIZE_W3]);
       const f = [];
       for (let i = 0; i < size; i++) f.push(pickFrom(rng, zn.dungeon.trash));
-      node.trash.push(f);
+      node.trash.push(composeEncounter(c, rng, f, zn.dungeon.trash));
     }
     node.boss = zn.dungeon.boss;
   } else if (type === 'vendor') {
