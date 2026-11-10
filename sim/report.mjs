@@ -50,8 +50,11 @@ function parseBefore(md) {
     if (!head) { head = c; continue; }
     if (c.every((x) => /^-+$/.test(x))) continue;
     if (head[0] === 'ID' && head[1] === 'Pri' && c[1] !== 'diag') {
+      // A report made with --before has its own Before columns: read its "Now" columns.
+      const vi = head.indexOf('Now: value (95 % interval)') >= 0 ? head.indexOf('Now: value (95 % interval)') : head.indexOf('Value (95 % interval)');
+      const ri = head.indexOf('Now') >= 0 ? head.indexOf('Now') : head.indexOf('Result');
       count[c[0]] = (count[c[0]] || 0) + 1;
-      checks.set(`${c[0]}#${count[c[0]]}`, { value: c[3], result: c[5] });
+      checks.set(`${c[0]}#${count[c[0]]}`, { value: c[vi], result: c[ri] });
     } else if (head[0] === 'Cell' && head[1] === 'Runs') cells.set(c[0], c);
   }
   return { checks, cells, summary, file: args.before };
