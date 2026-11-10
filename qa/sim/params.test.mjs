@@ -25,9 +25,13 @@ function parseCell(name, v) {
     }
     return o;
   }
+  // A report-only cell (M2 v4: MIN_SPEED_P10_MAX "- (report only)") has no value.
+  if (/^-(\s|$)/.test(v)) return null;
   const range = v.match(/^([\d.]+)-([\d.]+)$/);
   if (range) return [Number(range[1]), Number(range[2])];
-  return Number(v);
+  const n = Number(v);
+  assert.ok(!Number.isNaN(n), `${name}: cannot parse "${v}"`);
+  return n;
 }
 
 test('every balance.md section 6 constant is in BAL with the same value, and nothing else', () => {

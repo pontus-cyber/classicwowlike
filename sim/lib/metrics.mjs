@@ -3,7 +3,7 @@
 import { C } from './engine.mjs';
 import { BAL } from './params.mjs';
 import { FIGHT_KINDS } from './recorder.mjs';
-import { rate, med, avg, quantile } from './stats.mjs';
+import { rate, med, avg, quantile, medianDiff } from './stats.mjs';
 
 const FK = Object.fromEntries(FIGHT_KINDS.map((k, i) => [k, i]));
 /** Fight groups for B16: normal encounters are Quest, Grind and Treasure fights of normal mobs (rules 2). */
@@ -46,6 +46,18 @@ export function tensionPerZone(records) {
   for (let z = 1; z <= C.ZONE_COUNT; z++) zones.push({ z, v: cnt[z] ? sum[z] / cnt[z] : null, n: cnt[z] });
   const mid = zones.filter((x) => x.z >= 2 && x.z <= 5 && x.v !== null).map((x) => x.v);
   return { zones, spread: mid.length === 4 ? Math.max(...mid) - Math.min(...mid) : null, z6: zones[5] ? zones[5].v : null };
+}
+
+/**
+ * B17 time budget (M2 v4, rules 11.2): median hours at the boss of the P0 records minus that of the PALL records
+ * (runs that reach the boss; all classes pooled by the caller), with a bootstrap 95 % interval.
+ * Returns { v, ci, p0, pall, na, nb } (p0 / pall: the two medians).
+ */
+export function timeBudget(p0, pall) {
+  const hb = (rs) => rs.filter((r) => r.out !== 'x' && r.rb && r.hb !== null && r.hb !== undefined).map((r) => r.hb);
+  const a = hb(p0);
+  const b = hb(pall);
+  return { ...medianDiff(a, b), p0: a.length ? quantile(a, 0.5) : null, pall: b.length ? quantile(b, 0.5) : null };
 }
 
 export function cellMetrics(records, { enrageRound = C.BOSS_ENRAGE_ROUND, timeProfile = 'manual' } = {}) {
@@ -128,6 +140,9 @@ export function cellMetrics(records, { enrageRound = C.BOSS_ENRAGE_ROUND, timePr
   m.potions = avg(boss.map((r) => r.potions));
   m.restsAll = avg(ok.map((r) => r.rests));
   m.potionsAll = avg(ok.map((r) => r.potions));
+  // Dungeons cleared (engine stat; B22 context, M2 v4 problem 5).
+  m.dungeons = avg(ok.map((r) => r.dungeons || 0));
+  m.dungeonsBoss = avg(boss.map((r) => r.dungeons || 0));
   m.echoes = avg(ok.map((r) => r.ech));
   m.echoesWin = avg(wins.map((r) => r.ech));
   m.echoesWinNoFirst = avg(wins.map((r) => r.ech - r.echFirst));

@@ -27,7 +27,7 @@ import { Pool } from './lib/pool.mjs';
 import { runBatch, CLASSES } from './lib/session.mjs';
 import { runCell, runCampaigns } from './lib/batch.mjs';
 import { buildTable } from './lib/risk.mjs';
-import { campaignMetrics, campaignMarkdown } from './lib/campaignreport.mjs';
+import { campaignMarkdown } from './lib/campaignreport.mjs';
 import { replayHash } from './lib/runner.mjs';
 import { R, newRunFor } from './lib/engine.mjs';
 import { readJson, writeJson, readJsonl, commitInfo, ensureDir } from './lib/output.mjs';
@@ -162,7 +162,7 @@ try {
       const meta = { commit: commitInfo(), date: new Date().toISOString().slice(0, 10), count: CAMPAIGNS, seedStart: SIM.CAMPAIGN_SEED_BASE, maxRuns: BAL.CAMPAIGN_MAX_RUNS, trees, riskIn: 'P0 planner final observations (obs-P0.json)' };
       const dir = ensureDir(join(OUT, 'campaigns'));
       writeJson(join(dir, 'campaigns.json'), { meta, classes: Object.fromEntries(Object.entries(res).map(([c, r]) => [c, r.campaigns])) });
-      writeFileSync(join(dir, 'summary.md'), campaignMarkdown(meta, Object.fromEntries(Object.entries(res).map(([c, r]) => [c, campaignMetrics(r.campaigns)]))));
+      writeFileSync(join(dir, 'summary.md'), campaignMarkdown(meta, Object.fromEntries(Object.entries(res).map(([c, r]) => [c, r.campaigns]))));
     }
     // B35: replay QA_REPLAY_RUNS random runs from seed + action log with the pure step; compare final state hashes.
     if (!(args.resume && existsSync(join(OUT, 'health.json')))) {

@@ -9,14 +9,16 @@
 // --before: an earlier report made by this script; its generated tables give a "Before" column (checks matched by
 // ID and order within the ID, diagnostic rows excluded; cells by name). Results there are against the targets of
 // that report's date.
-// --before-pass: a pass directory of the earlier engine with planner P0 cells recorded by the M2 v3 recorder
-// (planner-P0-tree0..2 and pass.json with its trees). The checks whose definition changed in M2 v3 (B21, B24, B38)
-// then take their Before value from it, judged against the current targets, instead of the old report's row.
+// --before-pass: the pass directory of the --before report. The checks whose definition changed in M2 v4 (B12 p10
+// report-only, the new B17 time budget, the B32 dip over blocks of at least CURVE_BLOCK_MIN_RUNS runs) then take
+// their Before value from it, measured with the current definition and judged against the current targets, instead
+// of the old report's row. (In M2 v3 the same option re-measured B21, B24 and B38; their definition is unchanged.)
 import { join } from 'node:path';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { BAL } from './lib/params.mjs';
-import { cellMetrics } from './lib/metrics.mjs';
-import { campaignMetrics } from './lib/campaignreport.mjs';
+import { C } from './lib/engine.mjs';
+import { cellMetrics, timeBudget } from './lib/metrics.mjs';
+import { campaignMetricsByClass, blockList } from './lib/campaignreport.mjs';
 import { rate, diffRate, median, quantile } from './lib/stats.mjs';
 import { readJson, readJsonl, pct, num, ci, table } from './lib/output.mjs';
 import { TIME_PROFILE } from './bots/index.mjs';
@@ -78,11 +80,20 @@ function recs(name, root = IN) {
   }
   return cache.get(key);
 }
-/** The P0 planner cell of each class is its best-tree B7 cell. */
-function plannerP0() {
+/** The P0 planner cell of each class is its best-tree B7 cell (trees of pass directory `root`). */
+function plannerP0(root = IN) {
+  const tr = root === IN ? trees : readJson(join(root, 'pass.json')).trees;
   const out = {};
-  for (const cls of CLASSES) out[cls] = recs(`planner-P0-tree${trees[cls]}`)[cls];
+  for (const cls of CLASSES) {
+    const r = recs(`planner-P0-tree${tr[cls]}`, root);
+    if (r && r[cls]) out[cls] = r[cls];
+  }
   return out;
+}
+/** Records of a cell in pass directory `root`, all classes pooled ('planner-P0': the best-tree cells). */
+function pooledRecs(name, root = IN) {
+  const r = name === 'planner-P0' ? plannerP0(root) : recs(name, root);
+  return r ? Object.values(r).flat() : [];
 }
 const botOf = (name) => name.split('-')[0];
 // Metrics of "<base>@<other>" cells use the base bot.
@@ -141,6 +152,12 @@ function add(id, pri, metric, value, target, ok, missSize = 0, note = '', before
   if (beforeOverride !== undefined) before = beforeOverride;
   rows.push({ id, pri, metric, value, target, ok, miss: ok === false ? missSize : 0, note, before });
 }
+/** Before value of a check re-measured on the --before-pass directory with the current definition. */
+function beforeOf(f) {
+  const r = f();
+  return { value: r.value, result: res(r.ok) };
+}
+const mOf = (records, bot) => cellMetrics(records, { timeProfile: TIME_PROFILE[bot] });
 const rcell = (r) => (r && r.n ? `${pct(r.p)} (${ci(r.ci)})` : 'n/a');
 const P = (name, cls) => m(name, cls);
 
@@ -226,11 +243,39 @@ const pl = P('planner-P0');
 const spA = P('speedrunner-PALL');
 const b11 = pl.minutesBossManual.v;
 add('B11', 'P1', 'Median run length, planner P0, runs reaching the boss (manual profile)', `${num(b11)} min (${ci(pl.minutesBossManual.ci, (x) => num(x))})`, `${BAL.MIN_NORMAL_LOW} - ${BAL.MIN_NORMAL_HIGH} min (aim ${BAL.MIN_NORMAL_TARGET})`, inBand(b11, [BAL.MIN_NORMAL_LOW, BAL.MIN_NORMAL_HIGH]), miss(b11, BAL.MIN_NORMAL_LOW, BAL.MIN_NORMAL_HIGH));
+/**
+ * B12 (M2 v4): median of the speedrunner's PALL wins (autoplay profile) <= SPEED_RATIO_MAX × B11 and <= MIN_SPEED_MAX;
+ * p10 reported without a target (MIN_SPEED_P10_MAX is report-only; a number there would still be applied).
+ */
+function b12Check(sp, b11v) {
+  const v = sp.minutesWinAuto.v;
+  const p10 = sp.minutesWinAutoP10;
+  const p10Max = typeof BAL.MIN_SPEED_P10_MAX === 'number' ? BAL.MIN_SPEED_P10_MAX : null;
+  const ok = v !== null && v <= BAL.SPEED_RATIO_MAX * b11v && v <= BAL.MIN_SPEED_MAX && (p10Max === null || p10 <= p10Max);
+  return {
+    value: `median ${num(v)} min (${num(v / b11v, 2)} × B11), p10 ${num(p10)} min${p10Max === null ? ' (reported)' : ''}; n=${sp.minutesWinAuto.n}`,
+    target: `median <= ${BAL.SPEED_RATIO_MAX} × B11 and <= ${BAL.MIN_SPEED_MAX} min; ${p10Max === null ? 'p10 reported, no target' : `p10 <= ${p10Max} min`}`,
+    ok, miss: miss(v, null, Math.min(BAL.MIN_SPEED_MAX, BAL.SPEED_RATIO_MAX * b11v)),
+  };
+}
+/**
+ * B17 time budget (M2 v4, rules 11.2): planner P0 median hours at the boss - planner PALL median <= META_TIME_BUDGET_H
+ * (a rules constant: read from the engine). p0 / pall: run records (all classes pooled).
+ */
+function timeBudgetCheck(p0, pall) {
+  const d = timeBudget(p0, pall);
+  const budget = C.META_TIME_BUDGET_H;
+  const has = typeof budget === 'number';
+  return {
+    metric: `Time budget: planner P0 median hours at boss - planner PALL median (P0 ${num(d.p0, 0)} h, PALL ${num(d.pall, 0)} h)`,
+    value: d.v === null ? 'n/a' : `${num(d.v, 1)} h (${ci(d.ci, (x) => num(x, 1))})`,
+    target: has ? `<= ${budget} h (META_TIME_BUDGET_H)` : 'META_TIME_BUDGET_H (not in this engine)',
+    ok: has && d.v !== null ? d.v <= budget : null, miss: has ? miss(d.v, null, budget) : 0,
+  };
+}
 {
-  const v = spA.minutesWinAuto.v;
-  const p10 = spA.minutesWinAutoP10;
-  const ok = v !== null && v <= BAL.SPEED_RATIO_MAX * b11 && v <= BAL.MIN_SPEED_MAX && p10 <= BAL.MIN_SPEED_P10_MAX;
-  add('B12', 'P1', 'Speedrun length, speedrunner PALL wins (autoplay profile)', `median ${num(v)} min (${num(v / b11, 2)} × B11), p10 ${num(p10)} min; n=${spA.minutesWinAuto.n}`, `median <= ${BAL.SPEED_RATIO_MAX} × B11 and <= ${BAL.MIN_SPEED_MAX} min; p10 <= ${BAL.MIN_SPEED_P10_MAX} min`, ok, miss(v, null, Math.min(BAL.MIN_SPEED_MAX, BAL.SPEED_RATIO_MAX * b11)));
+  const r = b12Check(spA, b11);
+  add('B12', 'P1', 'Speedrun length, speedrunner PALL wins (autoplay profile)', r.value, r.target, r.ok, r.miss, BEFORE_PASS ? 'M2 v4 definition; Before: the earlier pass re-measured with it' : 'M2 v4 definition', BEFORE_PASS ? beforeOf(() => b12Check(mOf(pooledRecs('speedrunner-PALL', BEFORE_PASS), 'speedrunner'), mOf(pooledRecs('planner-P0', BEFORE_PASS), 'planner').minutesBossManual.v)) : undefined);
   const vm = spA.minutesWinManual.v;
   add('B13', 'P2', 'Speedrun played manually, speedrunner PALL wins (manual profile)', `median ${num(vm)} min (${num(vm / b11, 2)} × B11)`, `<= ${BAL.SPEED_MANUAL_RATIO_MAX} × B11`, vm !== null && vm <= BAL.SPEED_MANUAL_RATIO_MAX * b11, miss(vm, null, BAL.SPEED_MANUAL_RATIO_MAX * b11));
 }
@@ -244,6 +289,10 @@ for (const [k, label, b] of [['normal', 'normal encounter', BAL.ROUNDS_NORMAL], 
 add('B17', 'P2', 'Hours at boss, planner P0 median', `${num(pl.hoursBoss.v, 0)} h`, `${BAL.HOURS_NORMAL[0]} - ${BAL.HOURS_NORMAL[1]} h`, inBand(pl.hoursBoss.v, BAL.HOURS_NORMAL), miss(pl.hoursBoss.v, ...BAL.HOURS_NORMAL));
 add('B17', 'P2', 'Hours at boss, speedrunner PALL median', `${num(spA.hoursBoss.v, 0)} h`, `${BAL.HOURS_SPEED[0]} - ${BAL.HOURS_SPEED[1]} h`, inBand(spA.hoursBoss.v, BAL.HOURS_SPEED), miss(spA.hoursBoss.v, ...BAL.HOURS_SPEED));
 add('B17', 'P2', 'Ascendancy at boss, planner P0 median', `${num(pl.ascBoss.v, 2)}`, `<= ${BAL.ASC_MEDIAN_MAX}`, pl.ascBoss.v <= BAL.ASC_MEDIAN_MAX, miss(pl.ascBoss.v, null, BAL.ASC_MEDIAN_MAX));
+{
+  const r = timeBudgetCheck(pooledRecs('planner-P0'), pooledRecs('planner-PALL'));
+  add('B17', 'P2', r.metric, r.value, r.target, r.ok, r.miss, BEFORE_PASS ? 'new in M2 v4; Before: the earlier pass measured with it' : 'new in M2 v4', BEFORE_PASS ? beforeOf(() => timeBudgetCheck(pooledRecs('planner-P0', BEFORE_PASS), pooledRecs('planner-PALL', BEFORE_PASS))) : undefined);
+}
 // B18-B20: character at the boss
 add('B18', 'P1', 'Level 60 at boss, planner P0', rcell(pl.lvl60), `>= ${pct(BAL.LVL60_SHARE_MIN)}`, pl.lvl60.p >= BAL.LVL60_SHARE_MIN, miss(pl.lvl60.p, BAL.LVL60_SHARE_MIN, null));
 {
@@ -260,7 +309,6 @@ add('B19', 'P2', 'Rare-or-better share of the 10 slots at boss, planner P0', pct
 // B21-B25: deaths and risk
 /**
  * B21, B24, B38 (definitions of M2 v3) for planner P0 metrics `x`: [{ id, pri, metric, value, target, ok, miss }].
- * Used for this pass and, with --before-pass, for the earlier engine (same definitions).
  */
 function riskChecks(x) {
   const out = [];
@@ -282,31 +330,9 @@ function riskChecks(x) {
     Math.max(miss(t.spread, null, BAL.TENSION_SPREAD_MAX), miss(t.z6, null, BAL.TENSION_Z6_MAX)));
   return out;
 }
-/** Planner P0 metrics of the --before-pass directory (pooled over its best-tree cells), or null. */
-function beforePassPlanner() {
-  if (!BEFORE_PASS) return null;
-  const bp = readJson(join(BEFORE_PASS, 'pass.json'));
-  const all = [];
-  for (const cls of CLASSES) {
-    const r = recs(`planner-P0-tree${bp.trees[cls]}`, BEFORE_PASS);
-    if (r && r[cls]) all.push(...r[cls]);
-  }
-  return all.length ? cellMetrics(all, { timeProfile: 'manual' }) : null;
-}
 {
   const nowRows = riskChecks(pl);
-  const bpl = beforePassPlanner();
-  const beforeRows = bpl ? riskChecks(bpl) : null;
-  const keep = (id) => (r) => r.id === id;
-  const emit = (id) => {
-    const now = nowRows.filter(keep(id));
-    const bef = beforeRows ? beforeRows.filter(keep(id)) : null;
-    now.forEach((r, i) => {
-      const bo = bef ? { value: bef[i].value, result: bef[i].ok === null ? 'n/a' : bef[i].ok ? 'pass' : '**FAIL**' } : undefined;
-      const note = bef ? 'M2 v3 definition; Before: earlier engine re-measured with it' : (BEFORE && id !== 'B38' ? 'M2 v3 definition; Before: old definition' : '');
-      add(r.id, r.pri, r.metric, r.value, r.target, r.ok, r.miss, note, bo);
-    });
-  };
+  const emit = (id) => { for (const r of nowRows.filter((x) => x.id === id)) add(r.id, r.pri, r.metric, r.value, r.target, r.ok, r.miss); };
   emit('B21');
   const types = Object.entries(pl.deathType);
   const top = types[0];
@@ -338,15 +364,17 @@ add('B30', 'P1', `Echoes per win, planner P0 mean (without the first-kill line: 
 let camp = null;
 if (existsSync(join(IN, 'campaigns', 'campaigns.json'))) {
   const cj = readJson(join(IN, 'campaigns', 'campaigns.json'));
-  const all = Object.values(cj.classes).flat();
-  camp = { all: campaignMetrics(all), per: Object.fromEntries(Object.entries(cj.classes).map(([c, x]) => [c, campaignMetrics(x)])), meta: cj.meta };
+  camp = { ...campaignMetricsByClass(cj.classes), meta: cj.meta };
   const a = camp.all;
   const medNum = typeof a.medianRuns === 'number' ? a.medianRuns : null;
   add('B31', 'P1', `Runs to full catalogue, campaign median (completed ${a.completed}/${a.n})`, `${a.medianRuns}`, `${BAL.CAMPAIGN_RUNS[0]} - ${BAL.CAMPAIGN_RUNS[1]}`, medNum !== null && inBand(medNum, BAL.CAMPAIGN_RUNS), medNum === null ? 2 : miss(medNum, ...BAL.CAMPAIGN_RUNS));
   add('B31', 'P1', 'Fewest runs to full catalogue in any campaign', `${a.minRuns ?? 'none completed'}`, `>= ${BAL.CAMPAIGN_RUNS_MIN_ANY}`, a.minRuns === null ? null : a.minRuns >= BAL.CAMPAIGN_RUNS_MIN_ANY, 0);
   add('B32', 'P1', 'Campaign win rate, runs 1-5', rcell(a.wr1to5), band(BAL.WR_RUNS_1_5), inBand(a.wr1to5.p, BAL.WR_RUNS_1_5), miss(a.wr1to5.p, ...BAL.WR_RUNS_1_5));
   add('B32', 'P1', 'Campaign win rate, runs 21-30', rcell(a.wr21to30), band(BAL.WR_RUNS_21_30), inBand(a.wr21to30.p, BAL.WR_RUNS_21_30), miss(a.wr21to30.p, ...BAL.WR_RUNS_21_30));
-  add('B32', 'P1', 'Largest dip between blocks of 5 runs', pct(a.maxDip), `<= ${pct(BAL.CURVE_DIP_PP)}`, a.maxDip <= BAL.CURVE_DIP_PP, miss(a.maxDip, null, BAL.CURVE_DIP_PP));
+  const dipCheck = (x) => ({ value: `${pct(x.maxDip)} (all blocks: ${pct(x.maxDipAll)})`, ok: x.maxDip <= BAL.CURVE_DIP_PP });
+  const bfile = BEFORE_PASS ? join(BEFORE_PASS, 'campaigns', 'campaigns.json') : null;
+  add('B32', 'P1', `Largest dip between blocks of 5 runs with >= ${BAL.CURVE_BLOCK_MIN_RUNS} runs, pooled (counted: ${a.countedBlocks.join(', ')})`, dipCheck(a).value, `<= ${pct(BAL.CURVE_DIP_PP)}`, dipCheck(a).ok, miss(a.maxDip, null, BAL.CURVE_DIP_PP),
+    bfile ? 'M2 v4 definition; Before: the earlier pass re-measured with it' : 'M2 v4 definition', bfile && existsSync(bfile) ? beforeOf(() => dipCheck(campaignMetricsByClass(readJson(bfile).classes).all)) : undefined);
 }
 add('B33', 'P2', 'Hub and Camp trainer visits where gold covers TRAIN_ALL, planner P0', rcell(pl.trainAfford), `>= ${pct(BAL.TRAIN_AFFORD_MIN)}`, pl.trainAfford.p >= BAL.TRAIN_AFFORD_MIN, miss(pl.trainAfford.p, BAL.TRAIN_AFFORD_MIN, null));
 add('B34', 'P3', 'Runs with an Ember bought by the boss, planner P0 runs reaching the boss', rcell(pl.emberBuy), band(BAL.EMBER_BUY), inBand(pl.emberBuy.p, BAL.EMBER_BUY), miss(pl.emberBuy.p, ...BAL.EMBER_BUY));
@@ -420,14 +448,15 @@ L.push(table(['Metric', ...CLASSES], [
   prow('Level leaving Z1..Z6', (x) => x.travelLv.map((y) => num(y.v, 0)).join(', ')),
   prow('Echoes per run / per win', (x) => `${num(x.echoes.v, 0)} / ${num(x.echoesWin.v, 0)}`),
   prow('Rests / potions (runs at boss)', (x) => `${num(x.rests.v)} / ${num(x.potions.v)}`),
+  prow('Dungeons cleared per run (all runs / runs at boss)', (x) => `${num(x.dungeons.v, 2)} / ${num(x.dungeonsBoss.v, 2)}`),
 ]));
 L.push('');
 if (camp) {
   L.push('### Campaigns (B31, B32)', '');
-  L.push(table(['Class', 'Completed', 'Median runs', 'Fewest', 'Win rate 1-5', 'Win rate 21-30', 'Largest dip', 'Echoes per run'],
-    [...Object.entries(camp.per), ['all', camp.all]].map(([c, x]) => [c, `${x.completed}/${x.n}`, `${x.medianRuns}`, `${x.minRuns ?? 'n/a'}`, pct(x.wr1to5.p), pct(x.wr21to30.p), pct(x.maxDip), num(x.echoesPerRun, 0)])));
+  L.push(table(['Class', 'Completed', 'Median runs', 'Fewest', 'Win rate 1-5', 'Win rate 21-30', 'Largest dip (counted blocks / all blocks)', 'Echoes per run'],
+    [...Object.entries(camp.per), ['all', camp.all]].map(([c, x]) => [c, `${x.completed}/${x.n}`, `${x.medianRuns}`, `${x.minRuns ?? 'n/a'}`, pct(x.wr1to5.p), pct(x.wr21to30.p), `${pct(x.maxDip)} / ${pct(x.maxDipAll)}`, num(x.echoesPerRun, 0)])));
   L.push('');
-  L.push(`Win rate by block of 5 runs (all classes): ${camp.all.blocks.map((b) => `${b.runs}: ${pct(b.p, 0)}`).join(', ')}`, '');
+  L.push(`Win rate by block of 5 runs (all classes; B32 dip counts blocks with >= ${BAL.CURVE_BLOCK_MIN_RUNS} runs): ${blockList(camp.all.blocks)}`, '');
 }
 L.push('### Final death-risk tables of the planner (balance.md 5: report the final values)', '');
 for (const [prof, file] of [['P0', 'obs-P0.json'], ['PALL', 'obs-PALL.json']]) {

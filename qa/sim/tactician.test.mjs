@@ -161,7 +161,8 @@ describe('travel level (rules 1.5, M2 v2)', () => {
   test('exitLevelOf matches the engine: TRAVEL_ON is legal from that level, not one level below', () => {
     for (const swift of [false, true]) {
       const prof = buildProfile('fresh', 'rogue');
-      if (swift) { prof.unlocks.wayfinder = 1; prof.unlocks.swift_boots = 1; }
+      // Swift Boots needed Wayfinder before M2 v4 (META.swift_boots.req); M2 v4 removes Wayfinder.
+      if (swift) { for (const id of C.META.swift_boots.req) prof.unlocks[id] = 1; prof.unlocks.swift_boots = 1; }
       const s = newRunFor({ classId: 'rogue', seed: 4, profile: prof });
       R.stepInPlace(s, { type: 'START_RUN' });
       R.stepInPlace(s, { type: 'LEAVE_HUB' });

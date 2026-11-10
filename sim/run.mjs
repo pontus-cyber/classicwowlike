@@ -21,7 +21,7 @@ import { runCampaigns } from './lib/batch.mjs';
 import { buildTable } from './lib/risk.mjs';
 import { BOT_NAMES } from './bots/index.mjs';
 import { readJson, writeJson, commitInfo, ensureDir } from './lib/output.mjs';
-import { campaignMarkdown, campaignMetrics } from './lib/campaignreport.mjs';
+import { campaignMarkdown } from './lib/campaignreport.mjs';
 
 function parse(argv) {
   const o = {};
@@ -55,7 +55,7 @@ try {
     const dir = ensureDir(join(out, 'campaigns'));
     const meta = { commit: commitInfo(), date: new Date().toISOString().slice(0, 10), count: n, seedStart: Number(args['seed-start'] || SIM.CAMPAIGN_SEED_BASE), maxRuns: BAL.CAMPAIGN_MAX_RUNS, trees, riskIn: args['risk-in'] || null };
     writeJson(join(dir, 'campaigns.json'), { meta, classes: Object.fromEntries(Object.entries(res).map(([c, r]) => [c, r.campaigns])) });
-    writeFileSync(join(dir, 'summary.md'), campaignMarkdown(meta, Object.fromEntries(Object.entries(res).map(([c, r]) => [c, campaignMetrics(r.campaigns)]))));
+    writeFileSync(join(dir, 'summary.md'), campaignMarkdown(meta, Object.fromEntries(Object.entries(res).map(([c, r]) => [c, r.campaigns]))));
     console.log(`wrote ${dir}`);
   } else {
     if (!BOT_NAMES.includes(args.bot)) throw new Error(`--bot must be one of ${BOT_NAMES.join(', ')}`);

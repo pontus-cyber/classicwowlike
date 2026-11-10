@@ -2,6 +2,8 @@
 //
 // BAL: the constant table of docs/specs/balance.md section 6, same names and values (bot parameters and
 //      targets). qa/sim/params.test.mjs parses balance.md and compares every cell, so the two cannot drift.
+//      A report-only cell ("- (report only)") is null. META_TIME_BUDGET_H (B17 time budget, M2 v4) is a rules
+//      constant (rules.md 13), so the report reads it from the engine (C.META_TIME_BUDGET_H), not from BAL.
 // SIM: numbers the balance spec leaves open, used by the bots and the batch runner. Each is an [assumption]
 //      of the Simulation & Balance Engineer, listed in docs/handoffs/sim-2026-11-09.md.
 
@@ -36,9 +38,9 @@ export const BAL = {
   WR_P10_PLANNER: [0.32, 0.48],
   WR_P10_RANDOM_MAX: 0.08,
   WR_PALL_RANDOM_MAX: 0.15,
-  WR_PALL_GREEDY: [0.30, 0.50],
+  WR_PALL_GREEDY: [0.35, 0.55],
   WR_PALL_PLANNER: [0.55, 0.75],
-  WR_PALL_SPEED: [0.40, 0.60],
+  WR_PALL_SPEED: [0.30, 0.50],
   WR_PALL_TACTICIAN_MAX: 0.90,
   CHOICE_GAP_MIN: 0.15,
   MANUAL_GAP: [0.08, 0.25],
@@ -54,7 +56,7 @@ export const BAL = {
   MIN_NORMAL_TARGET: 45,
   SPEED_RATIO_MAX: 0.70,
   MIN_SPEED_MAX: 30,
-  MIN_SPEED_P10_MAX: 25,
+  MIN_SPEED_P10_MAX: null,
   SPEED_MANUAL_RATIO_MAX: 0.85,
   NODES_NORMAL: [38, 47],
   NODES_SPEED: [28, 37],
@@ -64,7 +66,7 @@ export const BAL = {
   ROUNDS_DBOSS: [8, 13],
   ROUNDS_BOSS: [30, 45],
   HOURS_NORMAL: [125, 155],
-  HOURS_SPEED: [70, 100],
+  HOURS_SPEED: [80, 110],
   ASC_MEDIAN_MAX: 0.12,
   LVL60_SHARE_MIN: 0.90,
   LVL_SPEED_MEDIAN_MIN: 60,
@@ -94,6 +96,7 @@ export const BAL = {
   WR_RUNS_1_5: [0.15, 0.35],
   WR_RUNS_21_30: [0.45, 0.70],
   CURVE_DIP_PP: 0.05,
+  CURVE_BLOCK_MIN_RUNS: 50,
   TRAIN_AFFORD_MIN: 0.70,
   EMBER_BUY: [0.30, 0.70],
   QA_REPLAY_RUNS: 1000,

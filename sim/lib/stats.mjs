@@ -30,12 +30,12 @@ export const median = (values) => quantile(values, 0.5);
 export const mean = (values) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : null);
 
 /**
- * Bootstrap 95 % interval of a quantile (fixed seed, SIM.BOOT_N resamples). A resample's quantile is read from the
- * counts of its draws per distinct value (no sort), which gives the same result as sorting the resample.
+ * Quantile q of nBoot bootstrap resamples of `values` (resample order), drawn from makeRng(seed). A resample's
+ * quantile is read from the counts of its draws per distinct value (no sort), which gives the same result as
+ * sorting the resample.
  */
-export function bootQuantile(values, q = 0.5, nBoot = SIM.BOOT_N) {
-  if (values.length < 2) return [quantile(values, q), quantile(values, q)];
-  const rng = makeRng(SIM.BOOT_SEED);
+export function resampleQuantiles(values, q = 0.5, nBoot = SIM.BOOT_N, seed = SIM.BOOT_SEED) {
+  const rng = makeRng(seed);
   const n = values.length;
   const distinct = Float64Array.from(new Set(values)).sort();
   const index = new Map();
@@ -61,8 +61,31 @@ export function bootQuantile(values, q = 0.5, nBoot = SIM.BOOT_N) {
     }
     est[b] = vlo + (vhi - vlo) * (pos - lo);
   }
-  est.sort();
-  return [est[Math.floor(0.025 * (nBoot - 1))], est[Math.ceil(0.975 * (nBoot - 1))]];
+  return est;
+}
+
+const interval95 = (est) => {
+  const a = Float64Array.from(est).sort();
+  return [a[Math.floor(0.025 * (a.length - 1))], a[Math.ceil(0.975 * (a.length - 1))]];
+};
+
+/** Bootstrap 95 % interval of a quantile (fixed seed SIM.BOOT_SEED, SIM.BOOT_N resamples). */
+export function bootQuantile(values, q = 0.5, nBoot = SIM.BOOT_N) {
+  if (values.length < 2) return [quantile(values, q), quantile(values, q)];
+  return interval95(resampleQuantiles(values, q, nBoot, SIM.BOOT_SEED));
+}
+
+/**
+ * Difference of the medians of two independent samples (a - b) with its bootstrap 95 % interval (each sample
+ * resampled on its own fixed stream). Returns { v, ci, na, nb }.
+ */
+export function medianDiff(a, b, nBoot = SIM.BOOT_N) {
+  if (!a.length || !b.length) return { v: null, ci: [null, null], na: a.length, nb: b.length };
+  const v = median(a) - median(b);
+  if (a.length < 2 || b.length < 2) return { v, ci: [v, v], na: a.length, nb: b.length };
+  const ra = resampleQuantiles(a, 0.5, nBoot, SIM.BOOT_SEED);
+  const rb = resampleQuantiles(b, 0.5, nBoot, SIM.BOOT_SEED + 1);
+  return { v, ci: interval95(ra.map((x, i) => x - rb[i])), na: a.length, nb: b.length };
 }
 
 /**
