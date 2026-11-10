@@ -87,7 +87,7 @@ Every action is `{ type, ...fields }`. Indices are 0-based. Enemy targets are in
 | `SELL` | `itemId` (bag uid) | vendor |
 | `SELL_JUNK` | | vendor; junk in bag |
 | `CHOOSE_NODE` | `lane` 0-2 | MAP; `mapView(state).next` lists reachable lanes |
-| `TRAVEL_ON` | | MAP; level >= `travelLevel(state)` (exit level - TRAVEL_EARLY_LEVELS, Swift Boots one lower) or the last row (ZONE_CHOICE_ROWS) done (then it is the only move) |
+| `TRAVEL_ON` | | MAP; level >= `travelLevel(state)` (exit level - TRAVEL_EARLY_LEVELS, Swift Boots one lower) or the last row (ZONE_CHOICE_ROWS) done (then it is the only move). Costs HOURS_TRAVEL with every profile (M2 v4: Wayfinder removed) |
 | `GRIND_SET_WAVES` | `n` 1-3 | Grind node, on entry (starts wave 1) |
 | `NEXT_FIGHT` | | between Grind waves or Dungeon fights |
 | `GRIND_STOP` | | between Grind waves |
@@ -261,3 +261,9 @@ them from there or from `metaOffers(profile)` (`rank`, `ranks`, `nextCost`). M2 
 Keen 2 ranks, Ancestral Insight 1 rank, new costs (catalogue total 7 690). A stored rank above an entry's ranks
 (a profile saved under an older catalogue) counts as the maximum rank in a run and in `metaOffers`; Echoes are
 not refunded.
+
+M2 v4: Vigor and Edge 4 ranks (80/120/170/230; a stored rank 5 counts as 4), Keen +0.0075 crit, Quick Study +0.0375
+XP, Prospector +0.06 gold per rank, Swift Boots without requirement, catalogue total 7 010. Wayfinder is removed
+(D34). An owned id that is not in `C.META` (a profile that bought Wayfinder) is ignored, as D32 handles ranks: no
+effect in a run (`state.meta` has no `wayfinder` flag), not listed by `metaOffers`, `buyMeta` throws "unknown meta
+unlock", no Echoes refunded; the id stays in `profile.unlocks` and in the profile END_RUN returns.

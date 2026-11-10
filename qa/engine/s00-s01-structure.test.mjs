@@ -264,7 +264,7 @@ describe('rules 1 run structure', () => {
     assert.ok(!R.isLegal(s, { type: 'SERVICE', service: 'inn' }));
   });
 
-  test('1.5 TRAVEL_ON: legal from exit level - TRAVEL_EARLY_LEVELS (Swift Boots: one lower) or after the last row, costs HOURS_TRAVEL; Wayfinder 0 h (M2 v2)', () => {
+  test('1.5 TRAVEL_ON: legal from exit level - TRAVEL_EARLY_LEVELS (Swift Boots: one lower) or after the last row, costs HOURS_TRAVEL with any profile (M2 v4: Wayfinder removed)', () => {
     const m = R.step(started('rogue'), { type: 'LEAVE_HUB' }).state;
     assert.ok(!R.isLegal(m, { type: 'TRAVEL_ON' }));
     assert.equal(C.TRAVEL_EARLY_LEVELS, 1);
@@ -281,12 +281,23 @@ describe('rules 1 run structure', () => {
     assert.equal(R.travelLevel(R.step(r.state, { type: 'LEAVE_HUB' }).state), 20 - C.TRAVEL_EARLY_LEVELS, 'zone 2');
     const last = tweak(m, (x) => { x.zone.pos = { r: C.ZONE_CHOICE_ROWS, l: 1 }; });
     assert.deepEqual(R.legalActions(last).filter((a) => a.type === 'CHOOSE_NODE' || a.type === 'TRAVEL_ON'), [{ type: 'TRAVEL_ON' }], 'after the last row TRAVEL_ON is the only move');
-    const way = R.step(started('rogue', { profile: { ...R.newProfile(), unlocks: { wayfinder: 1, swift_boots: 1 } } }), { type: 'LEAVE_HUB' }).state;
-    assert.equal(R.travelLevel(way), 10 - C.TRAVEL_EARLY_LEVELS - C.META.swift_boots.levels);
-    assert.ok(!R.isLegal(atLevel(way, 7), { type: 'TRAVEL_ON' }));
-    const at8 = atLevel(way, 8);
-    assert.ok(R.isLegal(at8, { type: 'TRAVEL_ON' }), 'Swift Boots: exit level - 2');
-    assert.equal(R.step(at8, { type: 'TRAVEL_ON' }).state.hours, 0, 'Wayfinder: 0 hours');
+    // Swift Boots alone; and a profile saved before M2 v4 that still owns Wayfinder: travel costs HOURS_TRAVEL for both.
+    for (const unlocks of [{ swift_boots: 1 }, { wayfinder: 1, swift_boots: 1 }]) {
+      const way = R.step(started('rogue', { profile: { ...R.newProfile(), unlocks } }), { type: 'LEAVE_HUB' }).state;
+      assert.equal(R.travelLevel(way), 10 - C.TRAVEL_EARLY_LEVELS - C.META.swift_boots.levels);
+      assert.ok(!R.isLegal(atLevel(way, 7), { type: 'TRAVEL_ON' }));
+      const at8 = atLevel(way, 8);
+      assert.ok(R.isLegal(at8, { type: 'TRAVEL_ON' }), 'Swift Boots: exit level - 2');
+      const t = R.step(at8, { type: 'TRAVEL_ON' });
+      assert.equal(t.state.hours, C.HOURS_TRAVEL, `${Object.keys(unlocks)}: TRAVEL_ON costs HOURS_TRAVEL`);
+      assert.deepEqual(t.events.filter((e) => e.t === 'hours').map((e) => [e.add, e.why]), [[C.HOURS_TRAVEL, 'travel']]);
+    }
+    // Full catalogue: TRAVEL_ON costs HOURS_TRAVEL from every zone, the last one to the Camp included.
+    const full = { ...R.newProfile(), unlocks: Object.fromEntries(Object.values(C.META).map((x) => [x.id, x.ranks])), reachedBoss: true, bossKills: 1 };
+    for (let z = 1; z <= C.ZONE_COUNT; z++) {
+      const m2 = tweak(atLevel(R.step(started('mage', { profile: full }), { type: 'LEAVE_HUB' }).state, 60), (x) => { x.zone.z = z; });
+      assert.equal(R.step(m2, { type: 'TRAVEL_ON' }).state.hours, C.HOURS_TRAVEL, `zone ${z}`);
+    }
     assert.equal(R.travelLevel(R.newRun({ classId: 'rogue', content: CONTENT })), null, 'no zone in CREATE');
   });
 

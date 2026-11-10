@@ -651,6 +651,7 @@ export const SHRINE_BOON_COUNT = 2;
  * Meta catalogue (rules 11.2). costs: per rank. req: list of requirement ids (unlock ids or profile flags).
  * Meta power budget (M2 v4): at all ranks the catalogue adds at most max HP +0.04, Power +0.04, crit +0.015 and
  * +1 talent point (qa/engine s11 checks it). Second Breath does not work in the end-boss fight.
+ * Removed (M2 v4): wayfinder (TRAVEL_ON 0 h). A saved profile that owns a removed id keeps it stored; it has no effect.
  */
 export const META = {
   vigor: { id: 'vigor', name: 'Vigor of the Line', kind: 'stat', ranks: 4, costs: [80, 120, 170, 230], hpPct: 0.01, req: [] },
@@ -663,7 +664,6 @@ export const META = {
   pockets: { id: 'pockets', name: 'Deeper Pockets', kind: 'start kit', ranks: 2, costs: [50, 100], slots: 4, req: [] },
   ledger: { id: 'ledger', name: "Trainer's Ledger", kind: 'economy', ranks: 1, costs: [120], req: [] },
   scout: { id: 'scout', name: "Scout's Eye", kind: 'map', ranks: 1, costs: [100], req: [] },
-  wayfinder: { id: 'wayfinder', name: 'Wayfinder', kind: 'map', ranks: 1, costs: [80], req: [] },
   swift_boots: { id: 'swift_boots', name: 'Swift Boots', kind: 'map', ranks: 1, costs: [200], levels: 1, req: [] },
   alchemist: { id: 'alchemist', name: "Alchemist's Notes", kind: 'items', ranks: 1, costs: [150], req: ['satchel'] },
   cache: { id: 'cache', name: 'Cache of the Wanderer', kind: 'items', ranks: 1, costs: [200], req: [] },

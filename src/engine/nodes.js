@@ -25,8 +25,9 @@ import { makeBoss } from './boss.js';
 // ---------------- Meta at run start (rules 11.4) ----------------
 /**
  * Run modifiers from the profile's unlocks. A rank above the catalogue's ranks (a profile saved under an older
- * catalogue, e.g. Keen 3 or Ancestral Insight 2 before M2 v3) counts as the maximum rank, so a profile never
- * exceeds the meta power budget (rules 11.2).
+ * catalogue, e.g. Keen 3 or Ancestral Insight 2 before M2 v3, Vigor 5 before M2 v4) counts as the maximum rank, so a
+ * profile never exceeds the meta power budget (rules 11.2, D32). An owned id that is not in the catalogue (Wayfinder,
+ * removed in M2 v4) is ignored: no effect and no refund; the profile keeps it stored.
  */
 export function metaFromProfile(profile, classId) {
   const u = (profile && profile.unlocks) || {};
@@ -42,7 +43,6 @@ export function metaFromProfile(profile, classId) {
     heirloom: r('heirloom_blade') > 0,
     ledger: r('ledger') > 0,
     scout: r('scout') > 0,
-    wayfinder: r('wayfinder') > 0,
     swiftBoots: r('swift_boots') > 0,
     alchemist: r('alchemist') > 0,
     cache: r('cache') > 0,
@@ -160,7 +160,7 @@ export function canTravel(s) {
 }
 
 export function travelOn(s, ev) {
-  addHours(s, ev, s.meta.wayfinder ? 0 : HOURS_TRAVEL, 'travel');
+  addHours(s, ev, HOURS_TRAVEL, 'travel'); // every profile (M2 v4: Wayfinder removed)
   s.stats.zonesLeft += 1;
   ev.push({ t: 'travel', from: s.zone.z });
   enterZone(s, ev, s.zone.z + 1);

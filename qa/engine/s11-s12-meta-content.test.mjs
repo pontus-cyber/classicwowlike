@@ -72,7 +72,7 @@ describe('rules 11 meta progression', () => {
     assert.equal(full.unlocks.edge, 4, 'Edge of the Line: 4 ranks (M2 v4)');
     assert.throws(() => R.buyMeta(full, 'edge'), /not available/);
     const total = Object.values(C.META).reduce((n, m) => n + m.costs.reduce((a, b) => a + b, 0), 0);
-    assert.equal(total, 7090, 'M2 v4 ranks: 7 690 - 2 × 300 (Vigor and Edge rank 5); Wayfinder (80) still listed');
+    assert.equal(total, 7010, 'catalogue total 7 010 Echoes (rules 11.2, M2 v4)');
     const offers = R.metaOffers(prof({}, { echoes: 100 }));
     assert.equal(offers.find((o) => o.id === 'scout').affordable, true);
     assert.equal(offers.find((o) => o.id === 'relics').available, false);
@@ -137,6 +137,37 @@ describe('rules 11 meta progression', () => {
     assert.ok(Math.abs(v3s.meta.hpPct - 0.04) < 1e-12 && Math.abs(v3s.meta.powerPct - 0.04) < 1e-12);
     assert.throws(() => R.buyMeta(v3, 'vigor'), /not available/);
     assert.deepEqual([v3s.profile.echoes, v3s.profile.spent, v3s.profile.unlocks.vigor], [40, 1800, 5], 'stored as saved');
+  });
+
+  test('11.2 Wayfinder removed (M2 v4): a saved profile that owns it gets no effect and no refund; metaOffers, START_RUN, buyMeta and END_RUN work', () => {
+    assert.equal(C.META.wayfinder, undefined);
+    for (const m of Object.values(C.META)) for (const r of m.req) assert.ok(r.startsWith('flag:') ? ['flag:bossKill', 'flag:reachedBoss'].includes(r) : !!C.META[r], `${m.id} requires unknown ${r}`);
+    const saved = prof({ wayfinder: 1, vigor: 2 }, { echoes: 500, spent: 280 });
+    const offers = R.metaOffers(saved);
+    assert.equal(offers.length, Object.keys(C.META).length);
+    assert.ok(!offers.some((o) => o.id === 'wayfinder'));
+    assert.equal(offers.find((o) => o.id === 'vigor').rank, 2);
+    assert.throws(() => R.buyMeta(saved, 'wayfinder'), /unknown meta unlock wayfinder/);
+    const bought = R.buyMeta(saved, 'swift_boots');
+    assert.deepEqual(bought.unlocks, { wayfinder: 1, vigor: 2, swift_boots: 1 }, 'the removed id stays stored');
+    assert.deepEqual([bought.echoes, bought.spent], [300, 480], 'no refund');
+    // START_RUN: the same run as the profile without the removed id (no effect, no draws changed)
+    const without = prof({ vigor: 2, swift_boots: 1 }, { echoes: 300, spent: 480 });
+    let a = started('hunter', { seed: 6, profile: bought });
+    let b = started('hunter', { seed: 6, profile: without });
+    assert.ok(!('wayfinder' in a.meta));
+    assert.deepEqual(a.meta, b.meta);
+    for (let i = 0; i < 400 && a.phase !== 'ENDED'; i++) {
+      const act = R.autoAction(a);
+      const ra = R.step(a, act); const rb = R.step(b, act);
+      assert.deepEqual(ra.events, rb.events, `step ${i}`);
+      a = ra.state; b = rb.state;
+    }
+    const strip = (s) => { const o = JSON.parse(R.serialize(s)); delete o.profile; return o; };
+    assert.deepEqual(strip(a), strip(b));
+    // END_RUN keeps the stored id in the returned profile
+    const end = R.step(tweak(started('rogue', { profile: bought }), (x) => { x.phase = 'SUMMARY'; x.outcome = 'death'; }), { type: 'END_RUN' }).state;
+    assert.equal(end.result.profile.unlocks.wayfinder, 1);
   });
 
   test('11.3 unique effects: on-hit proc, heal on kill, +damage vs elites, potion healing, WARD at fight start', () => {
