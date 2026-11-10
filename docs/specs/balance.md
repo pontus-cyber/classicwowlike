@@ -1,6 +1,6 @@
 # Balance spec (M0 task 0.3)
 
-Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09.
+Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)").
 Audience: Simulation & Balance Engineer (sim/), Playtest & QA Lead, Lead.
 
 Every target is checked by the headless simulator running src/rules.js. All target numbers are named constants in section 6. Rules references (e.g. "rules 7.9") point to docs/specs/rules.md.
@@ -45,7 +45,7 @@ For each class and tree: spend points to reach the capstone of the tree first (t
 | P10 | the first 10 entries of the standard purchase order |
 | PALL | full catalogue |
 
-Standard purchase order: satchel, vigor 1, edge 1, quick_study 1, pockets 1, ledger, scout, vigor 2, edge 2, sp_(class)1, cache, keen 1, wayfinder, quick_study 2, second_breath (when its requirement is met), then cheapest remaining first.
+Standard purchase order: satchel, vigor 1, edge 1, quick_study 1, pockets 1, ledger, scout, vigor 2, edge 2, sp_(class)1, cache, keen 1, quick_study 2, second_breath (when its requirement is met), then cheapest remaining first. (M2 v4: wayfinder removed from the catalogue)
 
 Campaign: a planner profile plays consecutive runs from P0 and buys in the standard order whenever affordable (requirements are tracked).
 
@@ -89,12 +89,12 @@ Priority: P1 = must pass for M1 sign-off; P2 = should pass; P3 = report only.
 | ID | Metric | Target | How computed | Pri |
 |---|---|---|---|---|
 | B11 | Median run length, normal | MIN_NORMAL_LOW - MIN_NORMAL_HIGH min, aim MIN_NORMAL_TARGET | planner, P0, runs that reach the boss; estSeconds with manual profile (rules 3) / 60 | P1 |
-| B12 | Speedrun length | median <= SPEED_RATIO_MAX × B11 median and <= MIN_SPEED_MAX min; p10 <= MIN_SPEED_P10_MAX min | speedrunner, PALL, wins only, autoplay profile | P1 |
+| B12 | Speedrun length (M2 v4) | median <= SPEED_RATIO_MAX × B11 median and <= MIN_SPEED_MAX min; p10 reported, no target | speedrunner, PALL, wins only, autoplay profile. The p10 clause is dropped: one bot policy has only luck as spread (p10 1.0 min under the median in three passes, fastest of 3 891 wins 26.1 min), so it measured bot variance; the median clauses bound speed | P1 |
 | B13 | Speedrun played manually | median <= SPEED_MANUAL_RATIO_MAX × B11 median | speedrunner wins, manual profile | P2 |
 | B14 | Nodes per run | planner NODES_NORMAL band; speedrunner NODES_SPEED band | entered nodes, excl. hubs and Camp services | P2 |
 | B15 | Fights per run | planner FIGHTS_NORMAL band | fights incl. boss | P2 |
 | B16 | Fight length (rounds, planner, wins) | normal encounter median ROUNDS_NORMAL band; elite ROUNDS_ELITE band; dungeon boss ROUNDS_DBOSS band; end boss ROUNDS_BOSS band | median rounds by fight kind | P1 |
-| B17 | Hours at boss | planner median HOURS_NORMAL band; speedrunner HOURS_SPEED band; planner median Ascendancy <= ASC_MEDIAN_MAX | hours at FIGHT_BOSS | P2 |
+| B17 | Hours at boss | planner median HOURS_NORMAL band; speedrunner HOURS_SPEED band; planner median Ascendancy <= ASC_MEDIAN_MAX; time budget (M2 v4): planner P0 median - planner PALL median <= META_TIME_BUDGET_H (rules 11.2) | hours at FIGHT_BOSS | P2 |
 
 ### 3.4 Character at the boss
 | ID | Metric | Target | How computed | Pri |
@@ -126,7 +126,7 @@ Priority: P1 = must pass for M1 sign-off; P2 = should pass; P3 = report only.
 |---|---|---|---|---|
 | B30 | Echoes per run | planner P0 mean ECHO_P0 band; wins ECHO_WIN band | summary | P1 |
 | B31 | Runs to full catalogue | campaign median CAMPAIGN_RUNS band; no campaign under CAMPAIGN_RUNS_MIN_ANY | campaigns | P1 |
-| B32 | Progress curve | campaign win rate over runs 1-5 WR_RUNS_1_5 band; runs 21-30 WR_RUNS_21_30 band; monotone non-decreasing by blocks of 5 runs within CURVE_DIP_PP | campaigns | P1 |
+| B32 | Progress curve | campaign win rate over runs 1-5 WR_RUNS_1_5 band; runs 21-30 WR_RUNS_21_30 band; monotone non-decreasing by blocks of 5 runs within CURVE_DIP_PP, counting only blocks that hold at least CURVE_BLOCK_MIN_RUNS runs (all classes pooled) (M2 v4) | campaigns | P1 |
 | B33 | Trainer affordability | planner hub visits where gold covers TRAIN_ALL: >= TRAIN_AFFORD_MIN | hub logs | P2 |
 | B34 | Ember use | planner runs with an Ember bought by the boss: EMBER_BUY band | summary | P3 |
 
@@ -143,8 +143,9 @@ Priority: P1 = must pass for M1 sign-off; P2 = should pass; P3 = report only.
 - If B11 fails high, shorten fights first (enemy HP), then node counts (ZONE_CHOICE_ROWS), never the manual round time constant (that one is checked in playtest).
 - If B4 fails, choices are too flat: widen elite/dungeon reward and risk before touching class power.
 - If B5 fails low, combat decisions do not matter: strengthen intents (heavy/cast frequency, mender heals) before raising damage. If it fails high, autoplay is too weak: improve 7.9 conditions.
-- If B10 fails high, cut stat-rank values in the catalogue before item unlocks.
+- If B10 fails high, cut stat-rank values in the catalogue before item unlocks. Check the time budget too (B17, rules 11.2): time saved before the boss lowers Ascendancy, and on the 11-10 pass Wayfinder alone kept the PALL planner 12 h under the P0 planner and was worth about 12 pp at PALL in the M2 v4 package (removed in M2 v4). (M2 v4)
 - Meta power budget (rules 11.2, M2 v3): a catalogue change that adds combat power must stay inside the budget; check B2, B3, B10 and B6 PALL after it. (M2 v3)
+- B3 greedy and speedrunner bands on PALL (M2 v4): the greedy wins 0.65-0.75 × the planner on P0 and PALL alike (its mage and hunter come within 1-6 pp of the planner at PALL; its rogue wins 8-12 % of its boss fights, likely because it has no Camp bar swap (1.2) [inference: planner rogue 69-77 % on the same seeds]), and the speedrunner loses more than the planner when meta power is cut, because it reaches the boss under BOSS_TIME_PAR anyway and gains nothing from lower Ascendancy. The bands follow those measured ratios around the planner's band. (M2 v4)
 - B21 and B38 (M2 v3): the planner avoids nodes its risk table rates deadly, so mid- and late-zone deaths stay a few % of runs by design; tension in zones 3-6 is measured by B38 (HP dips) and B24, deaths by share of runs. Tune B38 with ZONE_DANGER_STEP first. (M2 v3)
 
 ---
@@ -189,9 +190,9 @@ Priority: P1 = must pass for M1 sign-off; P2 = should pass; P3 = report only.
 | WR_P10_PLANNER | 0.32-0.48 | rate |
 | WR_P10_RANDOM_MAX | 0.08 | rate |
 | WR_PALL_RANDOM_MAX | 0.15 | rate |
-| WR_PALL_GREEDY | 0.30-0.50 | rate |
+| WR_PALL_GREEDY | 0.35-0.55 | rate | (M2 v4: was 0.30-0.50)
 | WR_PALL_PLANNER | 0.55-0.75 | rate |
-| WR_PALL_SPEED | 0.40-0.60 | rate |
+| WR_PALL_SPEED | 0.30-0.50 | rate | (M2 v4: was 0.40-0.60)
 | WR_PALL_TACTICIAN_MAX | 0.90 | rate |
 | CHOICE_GAP_MIN | 0.15 | rate difference |
 | MANUAL_GAP | 0.08-0.25 | rate difference |
@@ -207,7 +208,7 @@ Priority: P1 = must pass for M1 sign-off; P2 = should pass; P3 = report only.
 | MIN_NORMAL_TARGET | 45 | min |
 | SPEED_RATIO_MAX | 0.70 | ratio |
 | MIN_SPEED_MAX | 30 | min |
-| MIN_SPEED_P10_MAX | 25 | min |
+| MIN_SPEED_P10_MAX | - (report only) | min | (M2 v4: was 25; B12 p10 has no target)
 | SPEED_MANUAL_RATIO_MAX | 0.85 | ratio |
 | NODES_NORMAL | 38-47 | nodes | (M2 v2: 7 rows per zone)
 | NODES_SPEED | 28-37 | nodes | (M2 v2: 7 rows per zone)
@@ -247,6 +248,7 @@ Priority: P1 = must pass for M1 sign-off; P2 = should pass; P3 = report only.
 | WR_RUNS_1_5 | 0.15-0.35 | rate |
 | WR_RUNS_21_30 | 0.45-0.70 | rate |
 | CURVE_DIP_PP | 0.05 | rate difference |
+| CURVE_BLOCK_MIN_RUNS | 50 | runs in a 5-run block (pooled) for the B32 dip check | (M2 v4)
 | TRAIN_AFFORD_MIN | 0.70 | share |
 | EMBER_BUY | 0.30-0.70 | share |
 | QA_REPLAY_RUNS | 1000 | runs |

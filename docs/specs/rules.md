@@ -1,6 +1,6 @@
 # Rules spec (M0 task 0.2)
 
-Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09.
+Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)").
 Audience: Core Gameplay Engineer (src/rules.js), Simulation & Balance Engineer, UI/UX Engineer, Content Designer.
 
 Every global number is a named constant (UPPER_SNAKE_CASE) in section 13. The data tables (classes, spells, pets, talents, archetypes, boss, meta catalogue) are named constant groups: each cell is addressed as `TABLE.id.field` (e.g. `SPELL.ember_bolt.cost`) and is exported as data from src/. Values are starting values; the Simulation & Balance Engineer tunes them within the limits in balance.md.
@@ -165,6 +165,7 @@ Mob kill XP = `MOB_XP_FRAC × mult × xpToNext(enemyLevel) × diffMod`, with mul
 - Sequence: DUNGEON_TRASH_FIGHTS trash encounters (size weights DUNGEON_SIZE_W2 / DUNGEON_SIZE_W3), then the dungeon boss (alone). Between fights: post-fight regen, out-of-combat actions, rations allowed.
 - `DUNGEON_LEAVE` between fights: keeps loot so far; full hours are spent; no clear bonus; the dungeon counts as not cleared.
 - Boss: DUNGEON_BOSS_HP_MULT, DUNGEON_BOSS_DMG_MULT, exactly 2 abilities from 12.4, immune to stun/freeze/hex (they interrupt casts instead). No flee from the boss fight.
+- Zone danger in dungeons (M2 v4): dungeon trash and dungeon bosses get DUNGEON_DANGER_FRAC of the zone-danger bonus of 7.6 (level 60: ×1.5 instead of ×2.0). Dungeons already carry their own multipliers; full zone danger on top made them 39-65 % deadly per entry and the planner stopped entering them. (M2 v4)
 - Clear: `DUNGEON_CLEAR_XP_FRAC × xpToNext(boss level) × diffMod`, gold DUNGEON_GOLD_V × V, DUNGEON_BOSS_DROPS rolls on "Dungeon boss".
 
 ### 2.5 Rest
@@ -556,7 +557,7 @@ Each enemy has an archetype (table) plus up to 2 template abilities (12.4). Inte
 
 Normal enemy at level M: `HP = (ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL × M) × archetype × variant`, `dmg (100 %) = (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL × M) × archetype × variant`, `armor = ENEMY_ARMOR_PER_LEVEL × M × archetype`. Variants: normal 1/1, dungeon trash DUNGEON_TRASH_HP_MULT/DUNGEON_TRASH_DMG_MULT, elite ELITE_HP_MULT/ELITE_DMG_MULT, rare RARE_HP_MULT/RARE_DMG_MULT, dungeon boss DUNGEON_BOSS_HP_MULT/DUNGEON_BOSS_DMG_MULT.
 
-Zone danger (M2 v3): every enemy made from an enemy template (normal, quest, grind, elite, rare, dungeon trash and boss, Camp waves, summoned adds) has its damage multiplied by `1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10` (level 30 ×1.25, 40 ×1.5, 50 ×1.75, 60 ×2.0). HP, armor and XP are unchanged. The end boss and the Dimming Shards use their own constants (section 10) and are not affected. Purpose: same-level content stays about as threatening in zones 3-6 as in zone 2; the player's power growth (talents, ranks, rarity) otherwise outpaces the linear damage curve. (M2 v3)
+Zone danger (M2 v3): every enemy made from an enemy template (normal, quest, grind, elite, rare, dungeon trash and boss, Camp waves, summoned adds) has its damage multiplied by `zd(M) = 1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10` (level 30 ×1.25, 40 ×1.5, 50 ×1.75, 60 ×2.0). Dungeon trash and dungeon bosses use `1 + DUNGEON_DANGER_FRAC × (zd(M) - 1)` instead (level 60 ×1.5) (M2 v4). HP, armor and XP are unchanged. The end boss and the Dimming Shards use their own constants (section 10) and are not affected. Purpose: same-level content stays about as threatening in zones 3-6 as in zone 2; the player's power growth (talents, ranks, rarity) otherwise outpaces the linear damage curve. (M2 v3)
 
 Soft enrage (non-boss fights): from round FIGHT_SOFT_ENRAGE_ROUND, enemies deal +FIGHT_SOFT_ENRAGE_STEP more damage per round (additive). Prevents endless fights.
 
@@ -714,19 +715,18 @@ Bought between runs on the profile screen. Ranked entries: cost listed per rank.
 
 | id | Name | Kind | Ranks | Cost per rank | Effect | Req |
 |---|---|---|---|---|---|---|
-| vigor | Vigor of the Line | stat | 5 | 80/120/170/230/300 | max HP +0.01 /rank | - | (M2 v3)
-| edge | Edge of the Line | stat | 5 | 80/120/170/230/300 | Power +0.01 /rank | - | (M2 v3)
-| keen | Keen Lineage | stat | 2 | 150/250 | crit +0.01 /rank | - | (M2 v3)
-| quick_study | Quick Study | stat | 3 | 100/180/280 | XP +0.05 /rank | - | (M2 v3)
-| prospector | Prospector | stat | 3 | 60/110/170 | gold +0.08 /rank | - | (M2 v3)
+| vigor | Vigor of the Line | stat | 4 | 80/120/170/230 | max HP +0.01 /rank | - | (M2 v4: 5 ranks -> 4)
+| edge | Edge of the Line | stat | 4 | 80/120/170/230 | Power +0.01 /rank | - | (M2 v4: 5 ranks -> 4)
+| keen | Keen Lineage | stat | 2 | 150/250 | crit +0.0075 /rank | - | (M2 v4: 0.01 -> 0.0075)
+| quick_study | Quick Study | stat | 3 | 100/180/280 | XP +0.0375 /rank | - | (M2 v4: 0.05 -> 0.0375)
+| prospector | Prospector | stat | 3 | 60/110/170 | gold +0.06 /rank | - | (M2 v4: 0.08 -> 0.06)
 | satchel | Packed Satchel | start kit | 1 | 60 | start with 3 Healing Draughts | - |
 | heirloom_blade | Heirloom Blade | start kit | 1 | 80 | starting weapon is uncommon ilvl 3 | - |
 | pockets | Deeper Pockets | start kit | 2 | 50/100 | +4 bag slots /rank | - |
 | ledger | Trainer's Ledger | economy | 1 | 120 | first LEARN or TRAIN at each hub is free | - |
 | scout | Scout's Eye | map | 1 | 100 | rare elites, treasure traps and vendor Embers visible on the map | - |
-| wayfinder | Wayfinder | map | 1 | 80 | TRAVEL_ON costs 0 hours | - |
-| swift_boots | Swift Boots | map | 1 | 200 | TRAVEL_ON legal at exit level - 1 | wayfinder | (M2 v3: cost)
-| alchemist | Alchemist's Notes | items | 1 | 150 | Greater Healing Draught in all vendors | satchel | (M2 v3: cost)
+| swift_boots | Swift Boots | map | 1 | 200 | TRAVEL_ON legal at exit level - 1 | - | (M2 v4: no requirement; was wayfinder)
+| alchemist | Alchemist's Notes | items | 1 | 150 | Greater Healing Draught (heals GREATER_HEAL_PCT 0.375) in all vendors | satchel | (M2 v4: heal 0.50 -> 0.375)
 | cache | Cache of the Wanderer | items | 1 | 200 | 6 unique rares (one per zone band) in elite and treasure pools | - | (M2 v3: cost)
 | relics | Relics of the Deep | items | 1 | 400 | 6 unique epics (one per dungeon) in dungeon boss pools | cache | (M2 v3: cost)
 | starforged | Starforged Arms | items | 1 | 450 | each class's unique epic weapon (ilvl 62) sold at the Camp vendor | relics, first boss kill | (M2 v3: cost)
@@ -737,9 +737,17 @@ Bought between runs on the profile screen. Ranked entries: cost listed per rank.
 | second_breath | Second Breath | resurrect | 1 | 500 | 1 resurrect charge per run, not usable in the end-boss fight | reached the boss once | (M2 v3)
 | oaths | Oaths | challenge | 1 | 0 | unlocks Oaths at creation (11.5) | first boss kill |
 
-Catalogue total: 7 690 Echoes (M2 v3; was 6 730).
+Catalogue total: 7 010 Echoes (M2 v4; M2 v3: 7 690, before: 6 730).
 
-**Meta power budget (M2 v3).** The full catalogue may add at most: max HP +0.05, Power +0.05, crit +0.02, +1 talent point, the unique items (normal rarity budget plus one 11.3 effect) and the Starforged weapon, and no resurrect in the end-boss fight. Every other entry gives time (XP, travel), economy (gold, training), information (map), bag space, starting consumables, or a new choice (spells and pet that are side-grades, not strict upgrades). A new entry that adds combat power must take it from this budget. Measured check: balance.md B2, B3, B10. (M2 v3)
+Removed (M2 v4): Wayfinder (80 Echoes, TRAVEL_ON cost 0 hours). Its 12 hours per run (6 travels × 2 h) lowered the full-catalogue planner's boss Ascendancy by about one step (0.04: boss HP and damage) and was worth about 12 pp of PALL win rate in the M2 v4 package (about 6 pp per hour of travel cost, two paired steps), about as much as Vigor, Edge and Keen together (11.5 pp). A saved profile that owns it keeps the Echoes spent and gets no effect (as D32). (M2 v4)
+
+**Meta power budget (M2 v3, revised M2 v4).** The full catalogue may add at most: max HP +0.04, Power +0.04, crit +0.015, potion healing +0.025 of max HP per healing potion (Alchemist's Notes: Greater Healing Draught 0.375 against the Healing Draught's 0.35), +1 talent point, the unique items (normal rarity budget plus one 11.3 effect) and the Starforged weapon, and no resurrect in the end-boss fight. (M2 v4)
+
+Time is budgeted too (M2 v4): hours saved before the boss lower boss Ascendancy (1.7), which is boss HP and damage, so the time entries together (Quick Study, Swift Boots) may save at most META_TIME_BUDGET_H on the planner's median route (measured: planner median hours at the boss on PALL against P0, balance.md B17). (M2 v4)
+
+Every other entry gives economy (gold, training), information (map), bag space, starting consumables, or a new choice (spells and pet that are side-grades, not strict upgrades). A new entry that adds combat power or saves time must take it from this budget. Measured check: balance.md B2, B3, B6, B10. (M2 v3)
+
+Known gap (M2 v4): economy is not free either. Quick Study, Prospector and Trainer's Ledger together are worth about 9.6 pp of PALL planner win rate in the M2 v4 package (Prospector alone 4.3 pp; at half value it still gives 3.7 pp, so the effect is not linear in gold) [source: designer scratch sim/out/v4/Fab]. It is inside the measured B10 cap; if the catalogue grows in M3, give economy a budget line first. (M2 v4)
 
 ### 11.3 Unique items (Content fills names)
 Unique items use the normal budget at their rarity and one effect from: on-hit proc (chance UNIQUE_PROC_CHANCE, magic `UNIQUE_PROC_BASE + UNIQUE_PROC_PER_LEVEL × L`); heal UNIQUE_HEAL_ON_KILL of max HP on kill; +UNIQUE_ELITE_DMG damage vs elites and bosses; +UNIQUE_POTION_PCT potion healing; WARD of UNIQUE_WARD_PCT max HP at fight start.
@@ -847,6 +855,7 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | ASC_STEP_HOURS | 10 | h |
 | ASC_PER_STEP | 0.04 | fraction |
 | ASC_CAP | 0.40 | fraction |
+| META_TIME_BUDGET_H | 5 | h saved by the full catalogue's time entries, planner median (half of ASC_STEP_HOURS) | (M2 v4)
 | QUEST_SIZE_W1 | 25 | weight |
 | QUEST_SIZE_W2 | 50 | weight |
 | QUEST_SIZE_W3 | 25 | weight |
@@ -959,6 +968,7 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | ENEMY_DMG_PER_LEVEL | 2.6 | damage |
 | ZONE_DANGER_FROM | 20 | level | (M2 v3)
 | ZONE_DANGER_STEP | 0.25 | × per 10 levels above ZONE_DANGER_FROM | (M2 v3)
+| DUNGEON_DANGER_FRAC | 0.5 | share of the zone-danger bonus for dungeon trash and dungeon bosses | (M2 v4)
 | ENEMY_ARMOR_PER_LEVEL | 15 | armor |
 | DUNGEON_TRASH_HP_MULT | 1.2 | × |
 | DUNGEON_TRASH_DMG_MULT | 1.1 | × |
@@ -967,7 +977,7 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | RARE_HP_MULT | 4.5 | × |
 | RARE_DMG_MULT | 1.6 | × |
 | DUNGEON_BOSS_HP_MULT | 5.6 | × | (M2 v2)
-| DUNGEON_BOSS_DMG_MULT | 1.7 | × |
+| DUNGEON_BOSS_DMG_MULT | 1.5 | × | (M2 v4: was 1.7)
 | AUTO_POTION_HP | 0.35 | fraction |
 | AUTO_MANA_POTION | 0.20 | fraction |
 | AUTO_TONIC_STACKS | 3 | stacks |
@@ -1010,7 +1020,7 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | HEAL_DRAUGHT_PCT | 0.35 | of max HP |
 | MANA_DRAUGHT_PCT | 0.35 | of max mana |
 | RATION_PCT | 0.40 | of max |
-| GREATER_HEAL_PCT | 0.50 | of max HP |
+| GREATER_HEAL_PCT | 0.375 | of max HP | (M2 v4: was 0.50)
 | SPARK_BASE | 6 | damage |
 | SPARK_PER_LEVEL | 2.2 | damage |
 | ELIXIR_DMG_PCT | 0.10 | fraction |
@@ -1031,7 +1041,7 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | RES_MANA_PCT | 0.40 | of max mana |
 | RES_META_CHARGES | 1 | charges |
 | BOSS_LEVEL | 62 | level |
-| BOSS_HP | 13500 | HP | (M2 v3)
+| BOSS_HP | 13900 | HP | (M2 v4: was 13500)
 | BOSS_ARMOR | 1200 | armor |
 | BOSS_MELEE | 260 | damage | (M2 v2)
 | BOSS_CRUSH | 380 | damage |
@@ -1055,7 +1065,7 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | ECLIPSE_STEP | 0.05 | per round |
 | PULSE_DMG | 280 | damage |
 | PULSE_EVERY | 3 | rounds |
-| BOSS_ENRAGE_ROUND | 55 | round | (M2 v3)
+| BOSS_ENRAGE_ROUND | 57 | round | (M2 v4: was 55)
 | FINAL_DARK_DMG | 99999 | damage |
 | ECHO_PER_LEVEL | 1.5 | Echoes | (M2 v3)
 | ECHO_PER_ZONE | 7.5 | Echoes | (M2 v3)
