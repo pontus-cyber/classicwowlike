@@ -41,7 +41,7 @@ Done when a run plays on the roamable fog map with contracts, the Dimming, Roads
 | 2b.3 | Engine: circular zone map, vision, the Dimming, Roads and Bell | Core Gameplay Engineer | done (6d27a78, behind mapMode 'expedition') |
 | 2b.4 | Sim: fog-only bots with a leak test, oracle for measuring; B39-B47 | Simulation & Balance Engineer | todo |
 | 2b.5 | Engine + content: prep points, contracts, hub contract, regions and enemy families | Core Gameplay Engineer + Content Designer | todo |
-| 2b.6 | UI: combat v2 display; prep screen; fog map with regions, landmarks and Dimming clocks; contract tracker | UI/UX & Visual Engineer | doing (combat v2 display first) |
+| 2b.6 | UI: combat v2 display; prep screen; fog map with regions, landmarks and Dimming clocks; contract tracker | UI/UX & Visual Engineer | doing (combat v2 display done c867c6f; heat meter, prep screen, fog map next) |
 | 2b.7 | Fold expedition 9.5 and combat-v2 into rules.md and balance.md; tune after first measure | Lead Game Designer | todo |
 | 2b.8 | QA: rule tests, leak test, browser checks; playtest | Playtest & QA Lead | todo |
 | 2b.9 | Owner plays the build | Owner | todo |
