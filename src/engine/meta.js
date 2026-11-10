@@ -55,10 +55,14 @@ export function profileHash(profile) {
   return hash32(keys.map((k) => `${k}:${profile.unlocks[k]}`).join(','));
 }
 
-/** Echoes earned by a run, line by line (rules 11.1). facts: see summary(). */
+/**
+ * Echoes earned by a run, line by line (rules 11.1). facts: see summary(). Each line is rounded half away from
+ * zero, round(count × each) (M2 v3: ECHO_PER_LEVEL and ECHO_PER_ZONE are fractional); the total is the sum of the
+ * rounded lines × the Oath multiplier, rounded.
+ */
 export function echoes(facts, profile) {
   const lines = [];
-  const add = (id, count, each) => { if (count > 0) lines.push({ id, count, each, echoes: count * each }); };
+  const add = (id, count, each) => { if (count > 0) lines.push({ id, count, each, echoes: rnd(count * each) }); };
   add('levels', facts.level - 1, ECHO_PER_LEVEL);
   add('zones', facts.zonesLeft, ECHO_PER_ZONE);
   add('dungeons', facts.dungeons, ECHO_PER_DUNGEON);

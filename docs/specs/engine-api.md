@@ -28,7 +28,7 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 | `stepInPlace(state, action)` | events | Same, but changes `state` in place (no copy). For simulators that own their state. |
 | `isLegal(state, action)`, `whyIllegal(state, action)` | bool / string or null | Validation without applying. |
 | `autoAction(state)` | action or null | Deterministic. In combat: the autoplay policy of rules 7.9. Elsewhere: a simple default policy (talents, gear, bar, hub, map, rewards, camp) so a headless run goes from CREATE to SUMMARY. `null` only in ENDED. |
-| `summary(state)` | object or null | Run summary (rules 9) incl. Echoes breakdown (11.1). Available any time after START_RUN. |
+| `summary(state)` | object or null | Run summary (rules 9) incl. Echoes breakdown (11.1): `echoes = { lines: [{ id, count, each, echoes }], base, oathMult, total }`; a line's `echoes` is `round(count × each)` (half away from zero, M2 v3; `each` can be fractional), `base` the sum of the lines, `total = round(base × oathMult)`. Show `echoes` per line. Available any time after START_RUN. |
 | `serialize(state)` / `deserialize(str, content)` | string / state | The content tables are not saved; pass the same `CONTENT` (version is checked). |
 | `mapView(state)` | object or null | What the player may see of the zone map (rules 1.4). Rare elites, traps and vendor Embers are `null` unless the profile owns Scout's Eye. Use this, not `state.zone.rows`, to draw the map. |
 | `validateContent(content, {strict})` | string[] | Content checks (src/content/SCHEMA.md). |

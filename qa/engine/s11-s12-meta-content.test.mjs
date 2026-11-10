@@ -26,6 +26,29 @@ describe('rules 11 meta progression', () => {
     assert.ok(!again.lines.some((l) => l.id === 'firstKill'), 'first kill once per profile per class');
   });
 
+  test('11.1 Echo lines are rounded half away from zero, round(count × each), before the total (M2 v3)', () => {
+    assert.deepEqual([C.ECHO_PER_LEVEL, C.ECHO_PER_ZONE, C.ECHO_BOSS_PHASE], [1.5, 7.5, 12]);
+    const facts = (f) => ({ classId: 'rogue', level: 1, zonesLeft: 0, dungeons: 0, kills: { elite: 0, rare: 0 }, quests: 0, reachedBoss: false, bossPhase: 0, outcome: 'death', hoursAtBoss: null, oaths: [], ...f });
+    const line = (e, id) => e.lines.find((l) => l.id === id);
+    // 1 level × 1.5 = 1.5 -> 2; 59 × 1.5 = 88.5 -> 89; 1 zone × 7.5 -> 8; 3 zones 22.5 -> 23; 6 zones 45
+    for (const [level, want] of [[2, 2], [3, 3], [4, 5], [31, 45], [60, 89]]) assert.equal(line(echoes(facts({ level }), null), 'levels').echoes, want, `level ${level}`);
+    for (const [zonesLeft, want] of [[1, 8], [2, 15], [3, 23], [5, 38], [6, 45]]) assert.equal(line(echoes(facts({ zonesLeft }), null), 'zones').echoes, want, `${zonesLeft} zones`);
+    const e = echoes(facts({ level: 60, zonesLeft: 5, dungeons: 3, kills: { elite: 4, rare: 1 }, quests: 9, reachedBoss: true, bossPhase: 3 }), R.newProfile());
+    assert.equal(line(e, 'bossPhases').echoes, 2 * C.ECHO_BOSS_PHASE);
+    assert.ok(e.lines.every((l) => Number.isInteger(l.echoes) && l.echoes === Math.round(l.count * l.each)), 'every line shows its rounded value');
+    assert.equal(e.base, e.lines.reduce((n, l) => n + l.echoes, 0), 'total = sum of the rounded lines');
+    assert.equal(e.base, 89 + 38 + 3 * C.ECHO_PER_DUNGEON + 4 * C.ECHO_PER_ELITE + C.ECHO_PER_RARE + 9 * C.ECHO_PER_QUEST + C.ECHO_BOSS_REACHED + 24);
+    assert.equal(e.total, e.base);
+    // Oath multiplier on the sum of the rounded lines, rounded once: 3 levels (4.5 -> 5) + 1 zone (7.5 -> 8) = 13; × 1.25 = 16.25 -> 16
+    const o = echoes(facts({ level: 4, zonesLeft: 1, oaths: ['thrift'] }), R.newProfile());
+    assert.deepEqual([o.base, o.oathMult, o.total], [5 + 8, 1 + C.OATH_ECHO_BONUS, Math.round(13 * (1 + C.OATH_ECHO_BONUS))]);
+    // The run summary carries the same rounded lines (the UI shows them).
+    const s = tweak(started('mage'), (x) => { x.player.level = 2; x.stats.zonesLeft = 3; });
+    const sum = R.summary(s);
+    assert.deepEqual(sum.echoes.lines.map((l) => [l.id, l.echoes]), [['levels', 2], ['zones', 23]]);
+    assert.equal(sum.echoes.total, 25);
+  });
+
   test('11.2 catalogue: cost per rank, max ranks, requirements; buyMeta throws when not allowed', () => {
     let p = prof({}, { echoes: 10000 });
     p = R.buyMeta(p, 'vigor');
