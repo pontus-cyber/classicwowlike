@@ -4,6 +4,7 @@ Owner ideas and team proposals not yet scheduled. The Lead places each item into
 
 | Date | Item | Source | Placed in | Status |
 |---|---|---|---|---|
+| 2026-11-10 | Run summary: a short "what decided this run" line (cause of death, potions held vs used, hours over par) so a loss teaches the next run | Owner playtest 13:53 (inference) | M2b UI | todo |
 | 2026-11-10 | Animation weight per class and spell: Rogue near-instant; Hunter bow draw and visible projectiles; Mage light spells instant, heavy spells slower to land | Owner 10:46 | UI combat presentation task (running) | doing |
 | 2026-11-10 | Larger, readable DoT/buff/status icons on player and enemies (planning depends on them) | Owner 10:44 | UI combat presentation task (running) | doing |
 | 2026-11-10 | Opening 4-5 moves of a fight decide the outcome, Slay the Spire style; mashing works but worse | Owner 10:43 | docs/specs/combat-v2.md (design) | doing |
