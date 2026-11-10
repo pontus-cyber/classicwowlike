@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F]
+ *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -39,6 +39,12 @@
  *      saved profile, Alchemist's Notes opens), Esc and the Echoes button, and a new run (seed typed in) that starts
  *      with the unlock (bridge view = a Node START_RUN with the bought profile). Then a profile after a first victory:
  *      Oaths bought for 0, the Oath switches on class select (SET_OATH), the Echo multiplier and the run's Oaths.
+ *   G  M2 v4, real engine at Instant speed. A stored profile from the older catalogue (Wayfinder, removed in M2 v4) that
+ *      owns the Oaths; class select with the Oath of Haste sworn; the run on the engine's autoplay choices: the first
+ *      Travel on (tooltip cost and the hours spent = HOURS_TRAVEL, as a Node run), then the camp: the par on the camp
+ *      panel, the tracker and the minimap tooltip is the engine's bossPar (Oath of Haste included), and the Ascendancy
+ *      line is the engine's. The seed is chosen at run time (seeds 1-60 whose Node run reaches the camp; preferably one
+ *      whose Ascendancy comes from the Oath alone: at least ASC_STEP_HOURS past bossPar, less than that past BOSS_TIME_PAR).
  *
  * Seeds were picked with the engine of 3559e0e (M2 v2): seed 30's first quest has two Guardians that last long
  * enough for the potion and Autoplay checks. M2 v3 (77c0ca5): seed 1's autoplay run no longer reaches the camp, so part B
@@ -55,14 +61,13 @@ import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import * as R from '../../src/rules.js';
 import { CONTENT } from '../../src/content/index.js';
-import { zoneDanger } from '../../src/engine/combat.js'; // zone danger multiplier (rules 7.6, M2 v3); not in the rules.js API
 
 const args = process.argv.slice(2);
 const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
 const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -305,7 +310,8 @@ async function partA(browser, W, H) {
  * as for a player. The clock is read after every hour change, the travel button at every map step and the zone banner
  * after every change of zone.
  * stop.early: stop at the first map step where travelling on is legal under the exit level (the button's data-travel
- * is "early"); stop.zone: stop at the first map step in that zone or later.
+ * is "early"); stop.zone: stop at the first map step in that zone or later; stop.travel: stop at the first map step where
+ * the autoplay choice is TRAVEL_ON (before it is sent).
  */
 const autoRun = (page, stop = {}) => page.evaluate(async (opt) => {
   const ui = window.__ui; const out = { clock: [], travel: [], early: null, at: null, banners: [] }; let last = -1;
@@ -324,6 +330,7 @@ const autoRun = (page, stop = {}) => page.evaluate(async (opt) => {
       if (opt.zone && v.zone.idx >= opt.zone) { out.at = rec; return out; }
     }
     const c = v.phase === 'MAP' ? ui.autoChoice() : null;
+    if (opt.travel && c && c.type === 'ENGINE' && c.action.type === 'TRAVEL_ON') { out.at = out.travel[out.travel.length - 1]; return out; }
     await ui.act(c && c.type === 'ENGINE' && c.action.type === 'TRAVEL_ON' ? { type: 'TRAVEL_ON' } : { type: 'AUTO' });
     await ui.idle();
     const nv = ui.view();
@@ -674,21 +681,24 @@ async function partE(browser, W, H) {
     // a node of the engine's zone 3 map: { n, r (row, from 1), l (lane) }
     const pickNode = (pred) => { for (const [ri, row] of rows.entries()) for (const [l, n] of row.entries()) if (pred(n)) return { n, r: ri + 1, l }; return null; };
     const plain = pickNode((n) => n.type === 'quest' || n.type === 'grind');
-    const multi = pickNode((n) => n.type === 'dungeon' || (n.type === 'elite' && n.archetypes.length > 1)) || pickNode((n) => n.type === 'elite');
+    const multi = pickNode((n) => n.type === 'dungeon') || pickNode((n) => n.type === 'elite' && n.archetypes.length > 1) || pickNode((n) => n.type === 'elite');
     for (const { n, r, l } of [plain, multi].filter(Boolean)) {
-      // enemy levels as the engine builds the fights (src/engine/nodes.js): quest and grind at cl; elite at its level,
-      // its escort at cl; dungeon trash at its level, the dungeon boss at bossLevel
-      const levels = n.type === 'dungeon' ? [n.level, n.bossLevel] : n.type === 'elite' ? [n.level, ...(n.archetypes.length > 1 ? [n.cl] : [])] : [n.cl];
-      const lo = zoneDanger(Math.min(...levels)) - 1; const hi = zoneDanger(Math.max(...levels)) - 1;
+      // enemies as the engine builds the fights (src/engine/nodes.js): quest and grind at cl; elite at its level, its
+      // escort at cl; dungeon trash at its level, the dungeon boss at bossLevel (M2 v4: dungeon variants take half)
+      const foes = n.type === 'dungeon' ? [[n.level, 'trash'], [n.bossLevel, 'dboss']] : n.type === 'elite' ? [[n.level, 'elite'], ...(n.archetypes.length > 1 ? [[n.cl, 'normal']] : [])] : [[n.cl, 'normal']];
+      const levels = foes.map(([lv]) => lv);
+      const ds = foes.map(([lv, va]) => R.zoneDanger(lv, va) - 1); const lo = Math.min(...ds); const hi = Math.max(...ds);
       const line = `Zone danger: enemies here deal ${hi > lo ? 'up to ' : ''}+${pct1(hi)} damage (above level ${FROM}).`;
       const t = await tipOf(page, page.locator(`#screens button.mnode[data-row="${r}"][data-lane="${l}"]`), `E-map-zone3-${n.type}`);
       tips.push({ n, r, levels, line, t, ok: t.includes(line) });
     }
-    check('M2v3-1', `zone 3 map tooltips: the zone danger line with the engine's zoneDanger at the enemies' levels (${tips.map((x) => `${x.n.type} r${x.r}: levels ${x.levels.join('/')}`).join('; ')})`,
+    check('M2v3-1', `zone 3 map tooltips: the zone danger line with the engine's zoneDanger at the enemies' levels and variants (${tips.map((x) => `${x.n.type} r${x.r}: levels ${x.levels.join('/')}`).join('; ')})`,
       tips.length === 2 && tips.every((x) => x.ok), tips.map((x) => `${x.ok ? 'ok' : 'WRONG'} "${x.t}" (wanted "${x.line}")`).join(' | '));
     const mm3 = await tipOf(page, page.locator('#minimap .disc'));
-    const rule = `Enemies above level ${FROM} hit harder: +${Math.round(R.C.ZONE_DANGER_STEP * 100)} % damage per 10 levels.`;
-    check('M2v3-1', `zone 3: the minimap tooltip states the rule from ZONE_DANGER_FROM ${FROM} and ZONE_DANGER_STEP ${R.C.ZONE_DANGER_STEP}`, mm3.includes(rule), `${mm3} (wanted "${rule}")`);
+    const step = R.zoneDanger(FROM + 10, 'normal') - 1; const dstep = R.zoneDanger(FROM + 10, 'trash') - 1;
+    const rule = `Enemies above level ${FROM} hit harder: +${pct1(step)} damage per 10 levels (in dungeons +${pct1(dstep)}).`;
+    check('M2v4-10', `zone 3: the minimap tooltip states the rule from the engine's zoneDanger (ZONE_DANGER_STEP ${R.C.ZONE_DANGER_STEP}, DUNGEON_DANGER_FRAC ${R.C.DUNGEON_DANGER_FRAC})`,
+      step === R.C.ZONE_DANGER_STEP && mm3.includes(rule), `${mm3} (wanted "${rule}")`);
 
     // ---- setup: on to the camp; then the zone banners of the whole run
     const r2 = await autoRun(page);
@@ -865,7 +875,7 @@ async function partF(browser, W, H) {
     });
     const states = cards.reduce((m, c) => ({ ...m, [c.state]: (m[c.state] || 0) + 1 }), {});
     check('M3-1', `catalogue: all ${offers.length} offers of R.metaOffers, each in its kind's group (${[...new Set(offers.map((o) => o.kind))].join(', ')}), with rank/ranks, next cost and state`,
-      cards.length === offers.length && !wrong.length && states.owned && states.affordable && states.unaffordable && states.locked,
+      cards.length === offers.length && !wrong.length && states.affordable && states.unaffordable && states.locked, // owned: after the purchase below (M2 v4: Vigor has 4 ranks)
       wrong.length ? wrong.slice(0, 4).map((o) => `${o.id}: ${JSON.stringify(cards.find((x) => x.id === o.id) || 'missing')} (engine ${stateOf(o)} ${o.rank}/${o.ranks} cost ${o.nextCost})`).join(' | ') : `${cards.length} cards: ${JSON.stringify(states)}`);
     const fxOf = (id) => (cards.find((c) => c.id === id) || {}).fx || '';
     const reqOf = (id) => (cards.find((c) => c.id === id) || {}).req || '';
@@ -989,6 +999,90 @@ async function partFOaths(browser, W, H) {
   await context.close();
 }
 
+// ------------------------------------------------------------------ part G: M2 v4, real engine, Instant
+/** The part G profile: owns the Oaths (after a victory) and still holds Wayfinder from the older catalogue (F_OLD). */
+function gProfile() {
+  let p = R.newProfile(); p.reachedBoss = true; p.bossKills = 1; p.firstKill.hunter = true; p.runs = 5; p.echoes = 30; p.earned = 30 + F_OLD.cost;
+  p = R.buyMeta(p, 'oaths');
+  p.unlocks[F_OLD.id] = 1; p.spent += F_OLD.cost;
+  return p;
+}
+let G_TWIN = null;
+/** The Node run of a seed (Hunter, Ridgewolf, Oath of Haste, the engine's autoplay choices): the first travel and the camp. */
+function gRun(seed, profile) {
+  let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, profile });
+  for (const a of [{ type: 'SELECT_CLASS', classId: 'hunter' }, { type: 'SELECT_PET', petId: 'ridgewolf' }, { type: 'SET_OATH', oath: 'haste', on: true }, { type: 'START_RUN' }]) s = R.step(s, a).state;
+  let travel = null;
+  for (let n = 0; n < 20000 && s.phase !== 'CAMP' && s.phase !== 'ENDED' && s.phase !== 'SUMMARY'; n++) {
+    const a = R.autoAction(s);
+    const r = R.step(s, a);
+    if (!travel && a.type === 'TRAVEL_ON') travel = { z: s.zone.z, before: s.hours, spent: r.state.hours - s.hours };
+    s = r.state;
+  }
+  if (s.phase !== 'CAMP') return null;
+  const f = R.step(s, { type: 'FIGHT_BOSS' }).state.fight;
+  return { seed, travel, hours: s.hours, par: R.bossPar(s), asc: f.boss.asc };
+}
+function gTwin() {
+  if (G_TWIN) return G_TWIN;
+  const profile = gProfile(); const runs = [];
+  // preferred: Ascendancy only because of the Oath (at least one ASC_STEP_HOURS past bossPar, less than one past BOSS_TIME_PAR)
+  const onlyOath = (r) => r.hours >= r.par + R.C.ASC_STEP_HOURS && r.hours < R.C.BOSS_TIME_PAR + R.C.ASC_STEP_HOURS;
+  for (let seed = 1; seed <= 60 && !runs.some(onlyOath); seed++) { const r = gRun(seed, profile); if (r && r.travel) runs.push(r); }
+  if (!runs.length) throw new Error('no seed of 1-60 reaches the camp');
+  const pick = runs.find(onlyOath) || runs[0];
+  G_TWIN = { profile, ...pick };
+  return G_TWIN;
+}
+
+async function partG(browser, W, H) {
+  const twin = gTwin();
+  const { context, page, errors } = await open(browser, W, H, `seed=${twin.seed}&speed=instant`, twin.profile);
+  try {
+    const PAR = R.C.BOSS_TIME_PAR - R.C.OATH_HASTE_HOURS; // rules 1.7 with the Oath of Haste: what bossPar must give
+    await page.locator('#create .ccard[data-cls="hunter"]').click(); await idle(page);
+    const sw = page.getByRole('switch', { name: R.C.OATH.haste.name });
+    await sw.click(); await idle(page);
+    const create = await page.evaluate(() => window.__ui.view().create.oaths);
+    await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+    let v = await page.evaluate(() => ({ phase: window.__ui.view().phase, oaths: window.__ui.view().oaths }));
+    check('M2v4-7', `class select with a profile holding ${F_OLD.id} (older catalogue) and the Oaths: Oath of Haste sworn (${JSON.stringify(create)}), the run starts (seed ${twin.seed})`,
+      JSON.stringify(create) === '["haste"]' && v.phase === 'ZONE_HUB' && JSON.stringify(v.oaths) === '["haste"]', JSON.stringify({ create, ...v }));
+
+    // ---- the first Travel on: its tooltip and the hours it spends
+    const r1 = await autoRun(page, { travel: true });
+    if (!r1.at) throw new Error('setup: no Travel on choice before the camp');
+    await page.waitForTimeout(300);
+    const btn = page.locator('#screens .mhead button[data-travel]');
+    const tTip = await tipOf(page, btn, 'G-travel');
+    const h0 = (await view(page)).hours;
+    await btn.click(); await idle(page);
+    const h1 = (await view(page)).hours;
+    check('M2v4-7', `Travel on with ${F_OLD.id} in the profile (zone ${r1.at.z}): the tooltip says "Costs ${R.C.HOURS_TRAVEL} h.", the clock moves ${h0} -> ${h1} h (Node run: +${twin.travel.spent} h at ${twin.travel.before} h)`,
+      tTip.includes(`Costs ${R.C.HOURS_TRAVEL} h.`) && !/no time/i.test(tTip) && h1 - h0 === R.C.HOURS_TRAVEL && twin.travel.spent === R.C.HOURS_TRAVEL && h0 === twin.travel.before,
+      tTip);
+
+    // ---- the camp: par from bossPar with the Oath of Haste, and the engine's Ascendancy
+    await autoRun(page);
+    v = await view(page);
+    if (v.phase !== 'CAMP') throw new Error(`setup did not reach the camp (phase ${v.phase})`);
+    await page.waitForTimeout(1500); // the zone banner fades
+    const foot = (await page.locator('#screens .side .sfoot').innerText()).replace(NBSP, ' ').replace(/\n/g, ' ');
+    const track = (await page.locator('#tracker').innerText()).replace(NBSP, ' ').replace(/\n/g, ' ');
+    const mm = await tipOf(page, page.locator('#minimap .disc'));
+    await shot(page, 'G-camp-haste');
+    const ascText = twin.asc > 0 ? `+${Math.round(twin.asc * 100)} % health and damage` : 'None: you are on time';
+    check('M2v4-par', `camp with the Oath of Haste at ${v.hours} h: panel "(par ${twin.par} h)", tracker "Boss par: ${twin.par} h", minimap "past ${twin.par} h" = bossPar (${R.C.BOSS_TIME_PAR} - ${R.C.OATH_HASTE_HOURS}), Ascendancy "${ascText}" (the engine's)`,
+      twin.par === PAR && v.hours === twin.hours && foot.includes(`${v.hours} h (par ${twin.par} h)`) && foot.includes(ascText) && track.includes(`Boss par: ${twin.par} h · now ${v.hours} h`)
+        && mm.includes(`past ${twin.par} h`) && !foot.includes(`par ${R.C.BOSS_TIME_PAR} h`),
+      `panel "${foot}" | tracker "${track}" | minimap "${mm}"`);
+  } catch (e) {
+    check('-', 'part G ran to the end', false, e.message.split('\n')[0]);
+  }
+  check('-', 'part G: no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+  await context.close();
+}
+
 // ------------------------------------------------------------------ run
 const browser = await chromium.launch({ headless: true });
 for (const [W, H] of SIZES) {
@@ -999,6 +1093,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('D')) await partD(browser, W, H);
   if (PARTS.includes('E')) await partE(browser, W, H);
   if (PARTS.includes('F')) await partF(browser, W, H);
+  if (PARTS.includes('G')) await partG(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);
