@@ -7,18 +7,19 @@
 #   stages: A classic P0: onebutton, nopot, masher, planner (RUNS per class), planner on the slot-1 trees (diagnostic),
 #             think replays (THINK per class), opener (OPENER per class)
 #           B classic PALL: the same bots (nopot, slot-1 planner left out), think (THINK_PALL), opener (OPENER_PALL)
-#           C expedition with the start camp, P0 and PALL: onebutton, masher, planner (XRUNS per class)
-#           D expedition P0: think (XTHINK), opener (XOPENER)
+#           C expedition with the start camp, P0 and PALL: onebutton, planner (XRUNS per class); masher P0 only
+#           D expedition P0: think (XTHINK); opener (XOPENER, default 0: about 1.5 s per run, left out of the 11-11 measure)
+# The rotation replays (masher on onebutton's fights) run separately: run.mjs --bot onebutton --think-mash (report).
 # Starting tables (all bots of a cell start from the same one, so cells are paired by class and seed): classic the 11-11b
 # planner warm-up tables, expedition the 11-11f node-risk observations with the v11 table pass's `ct` and `dim`.
 # Env: WORKERS (2), RUNS (1000), THINK (100), OPENER (100), THINK_PALL (50), OPENER_PALL (50), XRUNS (300), XTHINK (50),
-#      XOPENER (50).
+#      XOPENER (0).
 set -euo pipefail
 W=$(cd "$(dirname "$0")/.." && pwd)
 O=$(mkdir -p "${1:-$W/sim/out/mash}" && cd "${1:-$W/sim/out/mash}" && pwd)
 STAGES=" ${2:-A B C D} "
 WK=${WORKERS:-2}; RUNS=${RUNS:-1000}; THINK=${THINK:-100}; OPENER=${OPENER:-100}; THINK_PALL=${THINK_PALL:-50}
-OPENER_PALL=${OPENER_PALL:-50}; XRUNS=${XRUNS:-300}; XTHINK=${XTHINK:-50}; XOPENER=${XOPENER:-50}
+OPENER_PALL=${OPENER_PALL:-50}; XRUNS=${XRUNS:-300}; XTHINK=${XTHINK:-50}; XOPENER=${XOPENER:-0}
 P11B=$W/sim/out/pass-2026-11-11b; P11F=$W/sim/out/pass-v9v10; PV11=$W/sim/out/pass-v11/exp/table
 R0="--risk-in $P11B/warmup-P0.json"; RA="--risk-in $P11B/warmup-PALL.json"
 X0="--map expedition --prep --risk-in $P11F/obs-P0.json --tables-in $PV11/planner-P0-exp-prep/risk.json"
@@ -45,11 +46,11 @@ fi
 if has C; then
   for p in fresh all; do
     X=$X0; [ "$p" = all ] && X=$XA
-    for b in onebutton planner masher; do run "$O/exp" --bot $b --class all --runs "$XRUNS" --profile $p $X; done
+    for b in onebutton planner masher; do [ "$p" = all ] && [ $b = masher ] && continue; run "$O/exp" --bot $b --class all --runs "$XRUNS" --profile $p $X; done
   done
 fi
 if has D; then
   run "$O/think" --bot onebutton --class all --runs "$XTHINK" --profile fresh $X0 --think
-  run "$O/exp" --bot opener --class all --runs "$XOPENER" --profile fresh $X0
+  if [ "$XOPENER" -gt 0 ]; then run "$O/exp" --bot opener --class all --runs "$XOPENER" --profile fresh $X0; fi
 fi
 log "done"

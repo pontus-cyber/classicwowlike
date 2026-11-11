@@ -11,7 +11,8 @@ import { createBot } from '../../sim/bots/index.mjs';
 import { oneButtonChoice, slot1Spell, slot1Tree, SLOT1_TALENTS } from '../../sim/bots/onebutton.mjs';
 import { engageKind } from '../../sim/lib/view.mjs';
 import { runWithBot } from '../../sim/lib/runner.mjs';
-import { OUTCOME } from '../../sim/lib/replay.mjs';
+import { OUTCOME, snapshot, replayFight } from '../../sim/lib/replay.mjs';
+import { mashChoice } from '../../sim/bots/masher.mjs';
 import { FIGHT_KINDS } from '../../sim/lib/recorder.mjs';
 
 const CLASSES = ['rogue', 'mage', 'hunter'];
@@ -127,6 +128,26 @@ describe('onebutton: talents of the slot-1 spell', () => {
 });
 
 describe('think replays and the fc record', () => {
+  test('a replay never changes the live state, on the classic map and the expedition (fightClone copies exp and the zone graph)', () => {
+    let checked = 0;
+    for (const map of [null, 'expedition']) {
+      for (const seed of [1001, 1002, 1003, 1004, 1005]) {
+        const s = newRunFor({ classId: 'mage', seed, mapMode: map, prep: map === 'expedition', profile: buildProfile('fresh', 'mage') });
+        const bot = createBot('onebutton', { classId: 'mage', seed });
+        for (let n = 0; n < 8000 && s.phase !== 'ENDED'; n++) {
+          if (s.fight && s.fight.round === 1 && s.fight.kind !== 'boss' && !s.fight.acted) {
+            const before = JSON.stringify(R.serialize(s));
+            replayFight(snapshot(s), mashChoice, mashChoice);
+            assert.equal(JSON.stringify(R.serialize(s)), before, `${map || 'classic'} seed ${seed}: a replay changed the live state`);
+            checked++;
+          }
+          R.stepInPlace(s, bot.choose(s));
+        }
+      }
+    }
+    assert.ok(checked >= 20, `checked ${checked}`);
+  });
+
   test('the own-policy replay reproduces each live fight; fc is aligned with fx', () => {
     for (const cls of CLASSES) {
       const { record } = runWithBot({ bot: 'onebutton', cls, prof: 'fresh', tree: slot1Tree(cls), style: null, variant: null, pet: null, think: true, thinkMash: true }, 48, null);
