@@ -81,3 +81,7 @@ Status: final, owner review (built on, easy to change), team (delegated to the L
 | D75 | Beastbond: Ferocity 0.15625, Thick Hide 0.10 per rank (v8 row 6) | B7 Hunter tree ratio; measured 0.73 | Lead Game Designer | team |
 | D76 | Keep the default-tree switch rule; trim Shadowcraft and Wildcraft healing/dodge talents (v8 rows 7-8) | The boss factor cannot close the class split; the excess sits in the survival trees | Lead Game Designer | team |
 | D77 | Free potion (Packed Satchel) restores half: FREE_POTION_MULT 0.5, still once per fight in every fight (v8 row 9); owner may veto; alternative O1 (none at the end boss) is the owner's call | Cuts the satchel's end-boss value inside the owner's "once per fight" rule | Lead Game Designer | owner veto open |
+| D78 | Death's Sidestep heal 0.10 -> 0.15 (changes-m2b-v9.md row 1) | B6 PALL rogue, rogue part of the B3 speedrunner miss | Lead Game Designer | team |
+| D79 | Beastbond Ferocity 0.18, Thick Hide 0.115 per rank (v9 row 2; arm B Thick Hide 0.13 alone, picked by the sim's decision rule) | B7 Beastbond tree | Lead Game Designer | team |
+| D80 | ZONE_DANGER_STEP 0.375 -> 0.45 (v9 row 3) | B21 zones 5-6 deaths, B38, B1 greedy | Lead Game Designer | team |
+| D81 | ECHO_PER_LEVEL 1.5 -> 1.0 (v9 row 4) | B30 Echo income; computed 276 -> 249 per run on the v8 runs | Lead Game Designer | team |
