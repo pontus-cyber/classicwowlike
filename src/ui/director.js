@@ -186,7 +186,12 @@ export class Director {
             if (e.src.side === 'player') {
               hitCtx = { side: 'player', school: e.school };
               if (e.kind === 'pass') { scene.float('player', 'Pass', { color: '#cfc6b0', size: 16, small: true }); await W(tm.wait); break; }
-              if (e.kind === 'item') { scene.act('player', 'item', D(tm.act || 420)); hud.log(`You use ${e.name}.`, 'lg-you'); await W(tm.wait); break; }
+              if (e.kind === 'item') {
+                scene.act('player', 'item', D(tm.act || 420)); hud.log(`You use ${e.name}.`, 'lg-you');
+                // M2b v6 (rules 7.5): Packed Satchel's free potion costs no turn; the player acts again this round
+                if (e.free) { scene.float('player', 'Free action', { color: '#ffe08a', size: 16, small: true }); hud.log('Free action (Packed Satchel).', 'lg-sys'); }
+                await W(tm.wait); break;
+              }
               // combat v2: the engage round's opening (an engage option, or a bar spell cast free by Pre-cast); combat v2.1: a
               // Disrupt on a dungeon boss says the wind-up its trap will stop (engine-api.md 5: "Disrupt: <boss> will miss <wind-up>")
               if (e.kind === 'engage' && e.disrupt) hud.log(`Disrupt (${e.name}): ${cap(name(e.target))} will miss ${e.disrupt.name || 'its wind-up'}${e.disrupt.round ? ` in round ${e.disrupt.round}` : ''}.`, 'lg-you');

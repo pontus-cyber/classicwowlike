@@ -11,6 +11,7 @@
 // player and pet frames) the HP that the ticks at the end of the round will take is a hatched end segment, with a skull
 // when they kill; the bar's tooltip has the numbers (view `dot`, from R.pendingTicks). Low health: a healing potion on the
 // item bar that can be drunk pulses below POTION_HINT_HP (owner playtest 08:03: a run ended with 0 potions used).
+// M2b v6 (rules 7.5): while Packed Satchel's free potion of a fight is unused, the potions on the item bar show "Free".
 import { h, add, clear, fmtNum, moneyEl, hoursText, clamp, rgba } from './util.js';
 import { spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS } from './art-icons.js';
 import { drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook } from './art-actors.js';
@@ -268,7 +269,8 @@ export function createHud(root, ctx) {
       if (!id) return h('div', h('div.tt-name', `Empty item slot ${['8', '9', '0'][i]}`), h('div.tt-hint', 'Drag a potion or flask here from your bags (B).'));
       const it = p.bag.find((s) => s && s.id === id) || { kind: 'consumable', id, name: ctx.data.consumables[id].name, rarity: 'common' };
       const L = ctx.view.legal.items && ctx.view.legal.items[i];
-      return itemTip(it, ctx, { hint: L && !L.ok ? L.reason : 'Right-click to clear' });
+      // M2b v6 (rules 7.5): the fight's first potion is a free action with Packed Satchel
+      return itemTip(it, ctx, { hint: L && !L.ok ? L.reason : L && L.free ? 'Free action (Packed Satchel): your first potion this fight costs no turn. Right-click to clear' : 'Right-click to clear' });
     });
     dropTarget(b, ctx, (d) => { if (d.kind === 'item' && d.item.kind === 'consumable') ctx.act({ type: 'SET_ITEM_BAR', slot: i, itemId: d.item.id }); });
   });
@@ -597,6 +599,11 @@ export function createHud(root, ctx) {
       const pulse = !!(fight && heals && s && s.ok && count > 0 && p.maxHp > 0 && p.hp / p.maxHp < POTION_HINT_HP);
       b.classList.toggle('pulse', pulse);
       if (pulse) b.setAttribute('aria-label', `Item slot ${key}: ${(ctx.data.consumables[id] || { name: id }).name}. Low health: drink it`);
+      // the free mark (M2b v6, rules 7.5): Packed Satchel's free potion of this fight is unused and this is a potion
+      const free = !!(fight && s && s.free && count > 0);
+      let ft = b.querySelector('.ftag');
+      if (free && !ft) { ft = h('span.ftag', 'Free'); b.appendChild(ft); } else if (!free && ft) ft.remove();
+      if (free) b.setAttribute('aria-label', `${b.getAttribute('aria-label')}. Free action (Packed Satchel)`);
       if (s && s.cd) { cd.style.background = `conic-gradient(rgba(0,0,0,.74) ${clamp(s.cd / ctx.data.rules.potionCd, 0, 1) * 360}deg, rgba(0,0,0,.18) 0)`; cd.textContent = s.cd; } else { cd.style.background = ''; cd.textContent = ''; }
     });
     els.auto.classList.toggle('on', !!v.autoplay);

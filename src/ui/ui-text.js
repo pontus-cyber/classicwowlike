@@ -331,7 +331,8 @@ export function metaEffect(m, D, d) {
     case 'quick_study': return { short: `+${pct1(m.xpPct)} experience per rank`, long: `Every hero earns ${pct1(m.xpPct)} more experience for each rank: levels come sooner.` };
     case 'prospector': return { short: `+${pct1(m.goldPct)} gold per rank`, long: `Every hero finds ${pct1(m.goldPct)} more gold for each rank.` };
     case 'talent_pt': return { short: `+${m.points} talent ${plural(m.points, 'point')} at level ${N.maxLevel}`, long: `At level ${N.maxLevel} you get ${numWord(m.points)} more talent ${plural(m.points, 'point')} to spend.` };
-    case 'satchel': return { short: `Start with ${m.potions} ${plurName(m.potions, NM.potion)}`, long: `Every run begins with ${numWord(m.potions)} ${plurName(m.potions, NM.potion)} in your bags.` };
+    // M2b v6 (rules 7.5, 11.2): also the free potion, the first potion each fight costs no turn
+    case 'satchel': return { short: `Start with ${m.potions} ${plurName(m.potions, NM.potion)}; first potion each fight is free`, long: `Every run begins with ${numWord(m.potions)} ${plurName(m.potions, NM.potion)} in your bags, and the first potion you drink in each fight is a free action: you act again in the same round.` };
     case 'heirloom_blade': return { short: `${humanize(m.rarity)} starting weapon, item level ${m.ilvl}`, long: `Your starting weapon is ${m.rarity} quality, item level ${m.ilvl}, instead of a common one.` };
     case 'pockets': return { short: `+${m.slots} bag slots per rank`, long: `Your bags hold ${m.slots} more items for each rank.` };
     case 'ledger': return { short: 'First lesson at each trainer visit is free', long: 'At the trainer of every zone hub and of the camp, the first spell you learn or train costs no gold.' };

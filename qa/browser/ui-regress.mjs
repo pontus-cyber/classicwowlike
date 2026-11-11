@@ -1004,7 +1004,7 @@ async function partF(browser, W, H) {
     const fxOf = (id) => (cards.find((c) => c.id === id) || {}).fx || '';
     const reqOf = (id) => (cards.find((c) => c.id === id) || {}).req || '';
     const want = [
-      ['vigor', `+${Math.round(M.vigor.hpPct * 100)} % max health per rank`], ['pockets', `+${M.pockets.slots} bag slots per rank`],
+      ['vigor', `+${Math.round(M.vigor.hpPct * 1000) / 10} % max health per rank`], ['pockets', `+${M.pockets.slots} bag slots per rank`], // M2b v6: 0.5 %
       ['satchel', `Start with ${M.satchel.potions} ${R.C.CONSUMABLE.healing_draught.name}s`],
       ['heirloom_blade', `item level ${M.heirloom_blade.ilvl}`], ['sp_h1', R.C.SPELL[M.sp_h1.spell].name],
     ];

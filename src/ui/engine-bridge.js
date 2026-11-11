@@ -45,9 +45,11 @@
 //   par:     the run's boss par in hours (R.bossPar: BOSS_TIME_PAR, shorter under the Oath of Haste); mock: its own
 //   camp:    { par, asc } at the camp (asc: the engine's Ascendancy if the boss were faced now), else null
 //   zone.danger, node.danger { lo, hi }: zone danger (rules 7.6) from R.zoneDanger; the zone's at its highest level
-//   legal:   { lanes, travelOn, mustTravel, outOfCombat, spells: { id: { ok, reason, cd, window } }, items: [{ ok, reason, count, cd }],
+//   legal:   { lanes, travelOn, mustTravel, outOfCombat, spells: { id: { ok, reason, cd, window } }, items: [{ ok, reason, count, cd, free }],
 //              attack, flee, fleeChance?, services, talents, trainer }   window (combat v2): the enemies on which the spell
-//              lands in an OFF_BALANCE window (R.spellInfo(...).window per enemy; 'all' for an area spell), else null
+//              lands in an OFF_BALANCE window (R.spellInfo(...).window per enemy; 'all' for an area spell), else null;
+//              items[].free (M2b v6): a potion that Packed Satchel's free potion would make a free action now (R.freePotion);
+//              the `action` event of that potion carries free: true
 //   oaths:   Oaths of the run (rules 11.5); create.oaths in CREATE
 //   meta:    engine mode, CREATE and SUMMARY only (rules 11): the profile between runs, see metaView() below.
 //   data.meta: the catalogue (R.C.META), Oaths (R.C.OATH) and the names and numbers its texts use.
@@ -764,7 +766,10 @@ function engineBackend(seedOpt, runOpts = {}) {
       const cd = f ? Math.max(0, (f.p.potionReady || 0) - f.round) : 0;
       const ok = f ? has('USE_ITEM', (a) => a.slot === slot) : has('USE_ITEM', (a) => a.itemId === id);
       const reason = ok ? null : count ? reasonOf(R.whyIllegal(s, f ? { type: 'USE_ITEM', slot, target: null } : { type: 'USE_ITEM', itemId: id }) || 'Not usable now') : 'None left';
-      return { ok, reason, count, cd: C.CONSUMABLE[id] && C.CONSUMABLE[id].potion ? cd : 0 };
+      // free (M2b v6, rules 7.5): Packed Satchel's free potion of this fight is unused (R.freePotion) and this is a potion
+      const potion = !!(C.CONSUMABLE[id] && C.CONSUMABLE[id].potion);
+      const free = !!(f && potion && R.freePotion && (() => { try { return R.freePotion(s); } catch { return false; } })());
+      return { ok, reason, count, cd: potion ? cd : 0, free };
     });
     const cls = p.classId;
     for (const t of Object.values(C.TALENT)) {
@@ -1024,7 +1029,7 @@ function engineBackend(seedOpt, runOpts = {}) {
           const kind = e.kind === 'cast' ? 'spell' : e.kind;
           out.push({ t: 'action', src: ref('player'), kind, id: e.spell || e.item, name: sp ? sp.name : e.item ? (C.CONSUMABLE[e.item] || {}).name || e.item : C.CLASS[s.player.classId].basic.name,
             school: sp ? sp.school || 'arcane' : C.CLASS[s.player.classId].basic.school, dst: e.target != null ? ref(e.target) : null, aoe: !!(sp && sp.tags && sp.tags.includes('aoe')), tags: sp ? sp.tags : [], resAfter: kind === 'spell' ? res : undefined,
-            engage: e.engage || null });
+            engage: e.engage || null, free: !!e.free }); // free (M2b v6): Packed Satchel's free potion, the round goes on
           break;
         }
         case 'petAction': out.push({ t: 'action', src: ref('pet'), kind: 'attack', name: 'Pet attack', dst: ref(e.target) }); break;

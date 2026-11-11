@@ -420,6 +420,8 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 .ab .cnt { position: absolute; right: .3rem; bottom: .1rem; font: 800 1.2rem var(--font-num); color: #fff; text-shadow: 0 0 2px #000, 0 1px 1px #000; pointer-events: none; }
 .ab .cd { position: absolute; inset: 0; border-radius: .4rem; display: flex; align-items: center; justify-content: center; font: 800 2rem var(--font-num); color: #ffe8a0; text-shadow: 0 0 3px #000, 0 1px 1px #000; pointer-events: none; }
 .ab.empty { background: repeating-linear-gradient(135deg, #15110d 0 .5rem, #1a1510 .5rem 1rem); }
+/* M2b v6 (rules 7.5): Packed Satchel's free potion of the fight, on the potions of the item bar */
+.ab .ftag { position: absolute; left: .2rem; bottom: .2rem; padding: 0 .25rem; border-radius: .25rem; background: linear-gradient(180deg, #fff1b0, #d9a632); color: #2a1a00; font: 800 .75rem/1.15rem var(--font-ui); letter-spacing: .04em; text-transform: uppercase; box-shadow: 0 0 0 1px #000; pointer-events: none; z-index: 2; }
 .ab.off img { filter: grayscale(.9) brightness(.45); }
 .ab.nores img { filter: saturate(.6) brightness(.55) sepia(.4) hue-rotate(180deg); }
 .ab:not(.off):not(.empty):hover { box-shadow: inset 0 0 0 2px rgba(255, 236, 170, .95), 0 0 1rem rgba(236, 198, 110, .45); }
