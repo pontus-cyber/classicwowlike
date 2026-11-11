@@ -583,7 +583,66 @@ function buildExpMap(v, ctx, readOnly) {
   const body = h('div.mbody.parchment.xbody', left, disc, right);
   win.append(body);
   if (readOnly) win.id = 'win-map';
+  // labels of neighbouring nodes (levels, toll labels, Dimming clocks) step aside once the disc has its size
+  // (again when the web fonts are in, which changes the labels' widths, and once the window's opening animation is over)
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => declutterLabels(disc)).observe(disc);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => declutterLabels(disc));
+  setTimeout(() => declutterLabels(disc), 400);
   return win;
+}
+/**
+ * The fog map's node labels never overlap each other or another node (small screens crowd the hub's ring). Greedy, in
+ * order of importance: levels, the player's own clock, toll labels, then the other clocks. A label keeps its place
+ * (style.css) when it is free; otherwise it takes the first free spot around its own node (above, below, right, left,
+ * the corners, then one more row out), set with the CSS `translate` property so the label's own transform stays. With no
+ * free spot it keeps the one that overlaps least. Presentation only: what a label says does not change.
+ */
+function declutterLabels(disc) {
+  if (!disc.isConnected) return;
+  const nodes = [...disc.querySelectorAll(':scope > .mnode')];
+  const labs = [];
+  for (const n of nodes) for (const el of n.querySelectorAll(':scope > .cl, :scope > .mhrs, :scope > .xclock')) { el.style.translate = ''; labs.push({ el, n }); }
+  const shown = labs.filter(({ el }) => el.getClientRects().length > 0);
+  // in the disc's own pixels: the window may still be scaling in (its opening animation), which moves and scales every rect
+  const D = disc.getBoundingClientRect(); const k = D.width / (disc.offsetWidth || D.width || 1) || 1;
+  const box = (r) => ({ l: (r.left - D.left) / k, t: (r.top - D.top) / k, r: (r.right - D.left) / k, b: (r.bottom - D.top) / k });
+  const ring = new Map(nodes.map((n) => [n, box((n.querySelector('.ring') || n).getBoundingClientRect())]));
+  const fixed = nodes.flatMap((n) => [...n.querySelectorAll(':scope > .xfoes, :scope > .xsite')].map((x) => ({ n, b: box(x.getBoundingClientRect()) })));
+  const rank = ({ el }) => (el.classList.contains('cl') ? 0 : el.classList.contains('urgent') ? 1 : el.classList.contains('mhrs') ? 2 : 3);
+  shown.sort((a, b) => rank(a) - rank(b));
+  const placed = [];
+  const area = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l)) * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t));
+  for (const lab of shown) {
+    const nat = box(lab.el.getBoundingClientRect()); const w = nat.r - nat.l; const ht = nat.b - nat.t;
+    const R = ring.get(lab.n); const cx = (R.l + R.r) / 2; const cy = (R.t + R.b) / 2; const g = 2;
+    const at = (x, y) => ({ l: x, t: y, r: x + w, b: y + ht });
+    const cand = [nat, at(cx - w / 2, R.t - g - ht), at(cx - w / 2, R.b + g), at(R.r + g, cy - ht / 2), at(R.l - g - w, cy - ht / 2),
+      at(R.r + g, R.t - ht), at(R.l - g - w, R.t - ht), at(R.r + g, R.b), at(R.l - g - w, R.b),
+      at(cx - w / 2, R.t - 2 * (g + ht)), at(cx - w / 2, R.b + 2 * g + ht), at(nat.l, nat.b + g), at(nat.l, nat.t - g - ht),
+      at(R.r + g, R.t - 2 * ht - g), at(R.l - g - w, R.t - 2 * ht - g), at(R.r + g, R.b + ht + g), at(R.l - g - w, R.b + ht + g),
+      at(nat.l, nat.b + ht + 2 * g), at(nat.l, nat.t - 2 * (g + ht))];
+    // then any spot near the node, nearest first (at most a label's width sideways and three rows up or down)
+    const near = [];
+    for (let dx = -w; dx <= w + 0.1; dx += w / 4) for (let dy = -3 * ht; dy <= 3 * ht + 0.1; dy += ht / 2) near.push(at(cx - w / 2 + dx, (lab.el.classList.contains('mhrs') ? R.t - g - ht : R.b + g) + dy));
+    const d2 = (c) => (c.l - nat.l) ** 2 + (c.t - nat.t) ** 2;
+    cand.push(...near.sort((a, b) => d2(a) - d2(b)));
+    // text on text is the worst, then a label on a node's icon; a small "?" marker of an unknown node may be touched
+    const cost = (c) => {
+      let k = 0;
+      for (const [n, b] of ring) if (n !== lab.n) k += area(c, b) * (n.classList.contains('x-unknown') ? 0.3 : 2);
+      if (lab.el.classList.contains('cl')) { /* its own ring is fine to touch */ } else k += 2 * area(c, R);
+      for (const f of fixed) k += 2 * area(c, f.b);
+      for (const p of placed) k += 4 * area(c, p);
+      return k;
+    };
+    let best = cand[0]; let bestK = cost(best);
+    for (const c of cand.slice(1)) { if (bestK <= 0) break; const k = cost(c); if (k < bestK - 0.5) { best = c; bestK = k; } }
+    if (best !== cand[0]) lab.el.style.translate = `${(best.l - nat.l).toFixed(1)}px ${(best.t - nat.t).toFixed(1)}px`;
+    placed.push(best);
+  }
+  // a node's labels are drawn inside its own layer (the node's transform): nodes with toll labels or clocks sit over
+  // plain nodes, the player's own urgent clock over all, so no label hides under a neighbour's ring
+  for (const n of nodes) n.style.zIndex = n.classList.contains('here') ? '' : n.querySelector(':scope > .mhrs, :scope > .xclock') ? '3' : '';
 }
 /** The tooltip of a node of the fog map: only what mapView gives of it. */
 function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {

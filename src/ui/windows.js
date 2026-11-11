@@ -191,7 +191,8 @@ export function createWindows(root, ctx) {
       return win;
     },
     map(v) {
-      if (!v.zone || !v.zone.rows || !v.zone.rows.length) return frame('map', 'Map', null, h('div.muted', { style: { padding: '2rem' } }, 'No zone map here.'));
+      // an expedition zone has no rows: its map is the fog map (zone.exp), read-only here
+      if (!v.zone || (!v.zone.exp && (!v.zone.rows || !v.zone.rows.length))) return frame('map', 'Map', null, h('div.muted', { style: { padding: '2rem' } }, 'No zone map here.'));
       const el = buildMap(v, ctx, true);
       el.classList.add('win');
       return el;
@@ -239,6 +240,9 @@ export function createWindows(root, ctx) {
   function toggle(name) { if (open.has(name)) close(name); else openWin(name); }
   function openWin(name) {
     if (!builders[name]) return;
+    // in an expedition run the fog map is the map screen itself: on that screen M says so instead of a second copy
+    const v = ctx.view;
+    if (name === 'map' && v && v.phase === 'MAP' && v.zone && v.zone.exp) { ctx.toast('The zone map is the screen you are on. M opens it in fights, nodes and the hub.', 'info'); return; }
     if (name === 'talents' || name === 'settings' || name === 'map') for (const n of ['talents', 'settings', 'map']) if (n !== name) close(n);
     if (name === 'character' || name === 'spellbook' || name === 'questlog') for (const n of ['character', 'spellbook', 'questlog']) if (n !== name) close(n);
     render(name);

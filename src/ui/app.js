@@ -100,6 +100,8 @@ export class App {
     this.hud = createHud(this.root, this.ctx);
     this.screens = createScreens(this.root, this.ctx);
     this.windows = createWindows(this.root, this.ctx);
+    // toasts step aside when a window opens, closes or re-renders (placeToasts)
+    new MutationObserver(() => this.placeToasts()).observe(this.root.querySelector('#windows'), { childList: true });
     this.devMenu = createDevMenu(this.root, this.ctx, { allowed: () => flags.dev && this.bridge.mode === 'engine' });
     this.director = new Director(this.ctx);
     this.bannerEl = h('div#banner', h('div.b0'), h('div.b1'), h('div.b2'));
@@ -458,6 +460,33 @@ export class App {
     const t = h('div.toast' + (x.kind ? '.' + x.kind : ''), { dataset: { key: x.key, n: String(x.n) } }, x.n > 1 ? `${x.text} ×${x.n}` : x.text);
     this.toasts.appendChild(t);
     this.armToast(t);
+    this.placeToasts();
+  }
+  /**
+   * Toasts never cover an open window (UX review item 9). The stack keeps its place (style.css) while it is clear of every
+   * open window; otherwise it moves sideways, at the same height, into the nearest gap between windows wide enough for
+   * it; with no such gap it stays and goes under the windows. Called when a toast shows and
+   * when windows open, close or re-render.
+   */
+  placeToasts() {
+    const el = this.toasts;
+    el.style.left = ''; el.style.top = ''; el.classList.remove('under-wins');
+    if (!el.children.length) return;
+    const wins = [...document.querySelectorAll('#windows > .win')].map((w) => w.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0);
+    if (!wins.length) return;
+    const r = el.getBoundingClientRect(); const pad = 8;
+    const hits = (x0, y0) => wins.some((w) => x0 < w.right + pad && x0 + r.width > w.left - pad && y0 < w.bottom + pad && y0 + r.height > w.top - pad);
+    if (!hits(r.left, r.top)) return;
+    const base = (el.offsetParent || document.body).getBoundingClientRect();
+    const put = (x0, y0) => { el.style.left = `${x0 + r.width / 2 - base.left}px`; el.style.top = `${y0 - base.top}px`; };
+    // sideways at the same height: candidate left edges next to each window, nearest the stack's own place first
+    const xs = [pad, innerWidth - r.width - pad, ...wins.flatMap((w) => [w.right + pad, w.left - pad - r.width])]
+      .filter((x0) => x0 >= pad && x0 + r.width <= innerWidth - pad).sort((a, b) => Math.abs(a - r.left) - Math.abs(b - r.left));
+    const x = xs.find((x0) => !hits(x0, r.top));
+    if (x !== undefined) { put(x, r.top); return; }
+    // no gap at its height (moving it up or down would put it on the Furnace, the frames or the action bar): it stays
+    // where it is, under the windows
+    el.classList.add('under-wins');
   }
   /** A toast leaves after TOAST_MS; the next queued one takes its place while there is room. */
   armToast(t) {
@@ -589,6 +618,8 @@ export class App {
       queued: () => (app.next ? { key: app.next.key, label: app.next.label } : null),
       settings,
       openWin: (n) => app.windows.open(n), closeWins: () => app.windows.closeAll(),
+      /** A toast, as the game shows one (tests of where toasts go). */
+      toast: (t, k) => app.toast(t, k),
       /** Whether the Hall of Echoes is open (it shows over class select). */
       metaOpen: () => app.ui.metaOpen,
       /** The engine actions applied to this run, in order (engine mode; a Node twin replays them). */

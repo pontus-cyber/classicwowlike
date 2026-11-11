@@ -2955,6 +2955,20 @@ function fogLayout(d, W, H) {
   for (const s of d.roads) for (const p of d.sides) if (s.rect[0] < p[2] && s.rect[2] > p[0] && s.rect[1] < p[3] && s.rect[3] > p[1]) out.push(`signpost ${s.text} ${s.rect} over a side panel ${p}`);
   return out;
 }
+/** Labels of the fog map (level, toll label, clock) that overlap another label, or the icon of another node that is not
+ * an unknown "?" marker, by more than 2 px. */
+const fogOverlaps = (page) => page.evaluate(() => {
+  const nodes = [...document.querySelectorAll('#screens .expmap .xdisc > .mnode')];
+  const labs = nodes.flatMap((n) => [...n.querySelectorAll(':scope > .mhrs, :scope > .xclock, :scope > .cl')].filter((e) => e.getClientRects().length).map((e) => ({ n: n.dataset.node, c: e.className.split(' ')[0], t: e.textContent, r: e.getBoundingClientRect() })));
+  const rings = nodes.map((n) => ({ n: n.dataset.node, unknown: n.classList.contains('x-unknown'), r: n.querySelector('.ring').getBoundingClientRect() }));
+  const ov = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 2 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 2;
+  const out = [];
+  labs.forEach((a, i) => {
+    for (const b of labs.slice(i + 1)) if (ov(a.r, b.r)) out.push(`${a.c} "${a.t}" of node ${a.n} on ${b.c} "${b.t}" of node ${b.n}`);
+    for (const g of rings) if (g.n !== a.n && !g.unknown && ov(a.r, g.r)) out.push(`${a.c} "${a.t}" of node ${a.n} on node ${g.n}`);
+  });
+  return out;
+});
 async function partN(browser, W, H) {
   const { context, page, errors } = await open(browser, W, H, `seed=${M_SEED}&speed=instant&prep=1`);
   const twin = mTwin(M_SEED);
@@ -2972,6 +2986,8 @@ async function partN(browser, W, H) {
     const fogs = (x) => ['seen', 'remembered', 'typed', 'unknown'].map((f) => `${x.nodes.filter((n) => n.fog === f).length} ${f}`).join(', ');
     check('N-fog', `zone 1 after setting out with Region Charts: every node's fog state (${fogs(d)}), level, enemy count, site marks and moves = R.mapView; hidden nodes show "?" only`, s.phase === 'MAP' && !diff.length, diff.slice(0, 6).join(' | '));
     check('N-fog', `regions: a tint on the ${d.tints.length} nodes whose region the view gives, ${d.names.length} names on the rim, the legend; ${d.roads.length} Roads signposted to ${nextZone}; the Shardfall's star; "your node dims in ${d.mine}"`, mv.vision.regions && d.names.length === mv.regions.length && !diff.length, JSON.stringify({ names: d.names, roads: d.roads.map((r) => r.text) }));
+    const ovl = await fogOverlaps(page);
+    check('N-fog', `around the hub at ${W}x${H}: no level, toll label or Dimming clock overlaps another label or a known node's icon (screens.js declutterLabels)`, !ovl.length, ovl.slice(0, 6).join(' | '));
     const lay = fogLayout(d, W, H);
     check('N-fog', `readable at ${W}x${H}: the disc round and in view (${d.disc && d.disc[2] - d.disc[0]} px), every node inside it and at least 24 px, no signpost over a side panel`, !lay.length, lay.slice(0, 5).join(' | '));
     // a hover: the move's tooltip names the node and its tolls; a hidden node's names nothing
@@ -2991,6 +3007,38 @@ async function partN(browser, W, H) {
     d = await fogDom(page); diff = fogDiff(d, mv, nextZone);
     check('N-fog', `the Dimming spread (front ${mv.dim.front}, zone toll ${mv.zt}): its wash on the ${d.wash} Dimmed nodes, "dims in N" on the ${d.nodes.filter((n) => n.clock !== null).length} nodes within two hops of the front, the rest as R.mapView`, mv.dim.front >= 1 && d.wash > 0 && !diff.length, diff.slice(0, 6).join(' | '));
     await page.waitForTimeout(2500); await shot(page, 'N-fog-dim');
+    // M on the map screen: the map is already the screen, a toast says so and no second map opens
+    await page.keyboard.press('KeyM'); await page.waitForTimeout(120);
+    const mToast = await page.locator('#toasts .toast').allInnerTexts();
+    check('N-fog', 'M on the fog map screen opens no second map and a toast says the map is the screen', !(await page.locator('#win-map').count()) && mToast.some((t) => /zone map is the screen/.test(t)), mToast.join(' | '));
+    // toasts never cover an open window: bags and the quest log open, two toasts
+    const toastClear = async () => page.evaluate(() => {
+      const wins = [...document.querySelectorAll('#windows > .win')].map((w) => w.getBoundingClientRect());
+      const ts = [...document.querySelectorAll('#toasts .toast')].map((t) => t.getBoundingClientRect());
+      // under the windows: the stack's z-index below the windows' (same stacking context, #hud), so a window paints over it
+      const under = document.querySelector('#toasts').classList.contains('under-wins') && Number(getComputedStyle(document.querySelector('#toasts')).zIndex) < Math.min(...[...document.querySelectorAll('#windows > .win')].map((w) => Number(getComputedStyle(w).zIndex) || 30));
+      const hit = under ? [] : ts.filter((t) => wins.some((w) => t.left < w.right && t.right > w.left && t.top < w.bottom && t.bottom > w.top));
+      return { n: ts.length, wins: wins.length, under, hit: hit.length };
+    });
+    const tw = [];
+    for (const set of [['bags', 'questlog'], ['character', 'bags'], ['talents'], ['settings']]) {
+      await page.evaluate(() => window.__ui.closeWins());
+      for (const w of set) await page.evaluate((x) => window.__ui.openWin(x), w);
+      await page.waitForTimeout(80);
+      await page.evaluate(() => { window.__ui.toast('Test toast one', 'info'); window.__ui.toast('Test toast two, a longer line of text', 'good'); });
+      await page.waitForTimeout(80);
+      const c = await toastClear(); tw.push(`${set.join('+')}: ${c.n} toasts, ${c.hit} over a window${c.under ? ' (under the windows)' : ''}`);
+      if (set[0] === 'bags') await shot(page, 'N-toast-windows');
+    }
+    await page.evaluate(() => window.__ui.closeWins());
+    check('N-fog', 'toasts never cover an open window (bags + quest log, character + bags, talents, settings): they move aside or go under', tw.every((x) => / 0 over a window/.test(x)), tw.join(' | '));
+    // M in a node of an expedition run: the fog map, read-only, in a window
+    const left = await page.evaluate(async () => { const ui = window.__ui; for (let n = 0; n < 40; n++) { const v = ui.view(); if (v.phase !== 'MAP' && v.phase !== 'SUMMARY' && v.zone && v.zone.exp) return v.phase; await ui.act({ type: 'AUTO' }); await ui.idle(); } return null; });
+    await idle(page); await page.keyboard.press('KeyM'); await page.waitForTimeout(150);
+    const mw = await page.evaluate(() => { const w = document.querySelector('#win-map'); if (!w) return null; const r = w.getBoundingClientRect(); return { exp: w.classList.contains('expmap'), nodes: w.querySelectorAll('.mnode').length, reach: w.querySelectorAll('.mnode.reach').length, moves: !!w.querySelector('.expmoves'), r: [r.left, r.top, r.right, r.bottom].map(Math.round) }; });
+    await shot(page, 'N-map-window');
+    check('N-fog', `M in an expedition run off the map screen (${left}): the fog map opens read-only in a window (no moves), fully in view`, !!mw && mw.exp && mw.nodes > 10 && !mw.reach && !mw.moves && mw.r[0] >= 0 && mw.r[1] >= 0 && mw.r[2] <= W && mw.r[3] <= H, JSON.stringify(mw));
+    await page.keyboard.press('KeyM');
   } catch (e) {
     await shot(page, 'N-error');
     check('-', 'part N (fog map) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));

@@ -696,6 +696,8 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 /* where no panel is: in a fight under the opening ruler (clear of the target frame and the nameplates), on the map in the
    free column left of the zone map (under the player and pet frames); at most two show at once (app.js toast) */
 body.in-fight #toasts { left: 91.5rem; top: 12.6rem; }
+/* no room beside, above or below the open windows: the toasts go under them (app.js placeToasts) */
+#toasts.under-wins { z-index: 29; }
 /* the end-boss fight: the boss frame fills the top centre, a Shard's target frame sits under it and the boss's nameplate
    high on the right; there is no engage panel, so the toasts take the left column under the player and pet frames */
 body.in-fight.boss-fight #toasts { left: 16.5rem; top: 21.5rem; width: 30rem; }
@@ -1305,7 +1307,7 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .pp-card .money, .pp-card .money .coin { color: #3a2a16; text-shadow: none; font-weight: 700; }
 
 /* ---- the fog map (expedition.md 9.2, M2b 2b.6): the disc between two side columns; everything from mapView */
-#screens .mapwin.expmap { width: min(104rem, calc(100vw - 54rem)); height: min(74rem, calc(100vh - 19.8rem - var(--furnace-h))); }
+#screens .mapwin.expmap, #win-map.expmap { width: min(104rem, calc(100vw - 54rem)); height: min(74rem, calc(100vh - 19.8rem - var(--furnace-h))); }
 .expmap .mhead { padding: .8rem 1.6rem .5rem; }
 .expmap .xbody { display: flex; align-items: stretch; justify-content: space-between; gap: .8rem; margin: 0 1rem 1rem; padding: .6rem; background: radial-gradient(ellipse at 50% 45%, #3a2a18, #1c140c 75%); box-shadow: inset 0 0 2.4rem rgba(0, 0, 0, .7); }
 .expmap .xdisc { position: relative; height: 100%; aspect-ratio: 1 / 1; flex: none; max-width: 62%; margin: 0 4.6rem; }
