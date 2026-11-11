@@ -1,6 +1,6 @@
 # Expedition spec: start-camp preparation, contracts, roaming zone maps, the Dimming
 
-Owner: Lead Game Designer. Status: draft for Lead and owner review, 2026-11-10 (milestone M2b). Sections 2 (start camp: points, board, rerolls, supplies, vision perks, Reserve) and 3 (contracts: kinds, rewards, story chain retired, sites, slots, hub contract 3.6) are in the engine behind `newRun({ mapMode: 'expedition', prep: true })` until the simulator and the UI handle PREP (2026-11-11, docs/handoffs/engineer-2026-11-11f.md; engine-api.md 13), with the PREP actions of section 1, `USE_SPYGLASS`, the Tracker's and Delve's vision of 5.2, the summary and Echo lines of 8.1 and the pacing terms of 9.4 (in the engine); not yet: `ASK_LOCALS` and the meta catalogue of 8.2. Rules in sections 1-8; UI 9; bots 10; balance targets 11; prototype evidence 12; Heat addendum H (2026-11-10, rows mode and expedition); constants 13. Tuning pass M2b v6 (2026-11-11, docs/specs/changes-m2b-v6.md) changes lines marked "(M2b v6)". M2b v7 (2026-11-11, docs/specs/changes-m2b-v7.md): time is counted in whole **tolls** (1 toll = 1 former hour, every number kept), the meter is called **the Furnace** with the states Calm, Smouldering, Burning and Infernal, and every time constant is renamed from HOURS_* / *_H to TIME_*; rule lines marked "(M2b v7)", lines changed only by the rename are not marked. Prototype and measurement records (sections 9.5, 12, H.7) keep their "h": read 1 h as 1 toll.
+Owner: Lead Game Designer. Status: draft for Lead and owner review, 2026-11-10 (milestone M2b). Sections 2 (start camp: points, board, rerolls, supplies, vision perks, Reserve) and 3 (contracts: kinds, rewards, story chain retired, sites, slots, hub contract 3.6) are in the engine behind `newRun({ mapMode: 'expedition', prep: true })` until the simulator and the UI handle PREP (2026-11-11, docs/handoffs/engineer-2026-11-11f.md; engine-api.md 13), with the PREP actions of section 1, `USE_SPYGLASS`, the Tracker's and Delve's vision of 5.2, the summary and Echo lines of 8.1 and the pacing terms of 9.4 (in the engine); not yet: `ASK_LOCALS` and the meta catalogue of 8.2. The engine defaults of engineer-2026-11-11f section 4 are confirmed by the designer (docs/specs/changes-m2b-v10.md, "Engine defaults"; lines marked "(M2b v10)"); the M2b v10 tuning package for the switch-over (draft) changes no line here until it is built. Rules in sections 1-8; UI 9; bots 10; balance targets 11; prototype evidence 12; Heat addendum H (2026-11-10, rows mode and expedition); constants 13. Tuning pass M2b v6 (2026-11-11, docs/specs/changes-m2b-v6.md) changes lines marked "(M2b v6)". M2b v7 (2026-11-11, docs/specs/changes-m2b-v7.md): time is counted in whole **tolls** (1 toll = 1 former hour, every number kept), the meter is called **the Furnace** with the states Calm, Smouldering, Burning and Infernal, and every time constant is renamed from HOURS_* / *_H to TIME_*; rule lines marked "(M2b v7)", lines changed only by the rename are not marked. Prototype and measurement records (sections 9.5, 12, H.7) keep their "h": read 1 h as 1 toll.
 Audience: Core Gameplay Engineer, UI/UX Engineer, Simulation & Balance Engineer, Content Designer, QA.
 
 Sources: owner feedback [stated: docs/feedback/2026-11-10-1006-owner.md, including the 10:09 follow-up]; current rules [source: docs/specs/rules.md sections 1, 2, 3, 11]; playtest [source: docs/handoffs/qa-2026-11-09.md]; balance state [source: docs/reports/balance-2026-11-10b.md]. Every number is a named constant in the table at the end (section 13); all are starting values for the Simulation & Balance Engineer to tune.
@@ -23,7 +23,7 @@ Kept [stated: docs/BRIEF.md]: about 45 minutes, manual combat, the end boss and 
 |---|---|
 | CREATE | as rules 1.1 |
 | **PREP** | **`TAKE_CONTRACT(i)`, `DROP_CONTRACT(i)`, `BUY_PREP(id)`, `SELL_PREP(id)`, `REROLL_BOARD`, `SET_OUT`** (section 2) |
-| ZONE_HUB | hub services (rules 1.4), **`TAKE_HUB_CONTRACT(mode)`** (3.6), **`ASK_LOCALS`** (5.3), `LEAVE_HUB` |
+| ZONE_HUB | hub services (rules 1.4), **`TAKE_HUB_CONTRACT(mode, contractId)`** (3.6; `contractId` for `swap` only, M2b v10), **`ASK_LOCALS`** (5.3), `LEAVE_HUB` |
 | MAP | **`MOVE(nodeId)`** (adjacent node only), **`TAKE_ROAD`** (on a Road node), **`RING_BELL`** (Homeward Bell, 7.2), **`USE_SPYGLASS(nodeId)`**, out-of-combat actions. `CHOOSE_NODE(lane)` and `TRAVEL_ON` are removed. |
 | NODE | node actions as rules 2, plus **`PASS`** (leave the node unresolved, 4.6) |
 | CAMP, BOSS, SUMMARY | as rules 1.1; SUMMARY adds the contract and expedition lines (9.3) |
@@ -54,6 +54,8 @@ At PREP the board shows CONTRACT_BOARD_SIZE contracts drawn on stream `prep(k)` 
 | prep_ember | Ember of Return | PRICE_PREP_EMBER | one Ember of Return (rules 8.6; EMBER_MAX_CARRIED still applies) |
 | prep_bell | Second Clapper | PRICE_PREP_BELL | +1 Homeward Bell charge (7.2), up to BELL_MAX_CHARGES |
 | prep_mule | Pack Mule | PRICE_PREP_MULE | +PREP_MULE_SLOTS bag slots for the run |
+
+Each supply and each vision perk can be bought once per run; supplies do not stack (engine default, confirmed M2b v10).
 
 ### 2.4 Vision perks (owner decision 1)
 Vision is a resource. A fresh profile sees adjacent nodes only (section 5). Perks bought here last the whole run:
@@ -111,9 +113,9 @@ The player knows the target region of each contract but, with a fresh profile, n
 CONTRACT_SLOTS limits held contracts (PREP and hubs together). The board covers all six zones, so the start camp sets most of the run's goals; the hub offers one change per zone.
 
 ### 3.6 Hub contract
-Each zone hub (zones 2..6; zone 1's hub follows PREP directly) offers one contract of that zone (stream hash(runSeed, "hubc", z); kind and target as 2.2). `TAKE_HUB_CONTRACT(mode)`:
+Each zone hub (zones 2..6; zone 1's hub follows PREP directly) offers one contract of that zone (stream hash(runSeed, "hubc", z); kind and target as 2.2), open until the zone's first `LEAVE_HUB` (a later hub visit does not offer it; M2b v10). `TAKE_HUB_CONTRACT(mode, contractId)`:
 - `reserve`: pay its price from Reserve; needs a free slot;
-- `swap`: abandon one held contract (any zone; no refund, progress lost) and take this one for free.
+- `swap`: abandon the held contract `contractId` (any zone; no refund, progress lost) and take this one for free.
 Taken before `LEAVE_HUB`, its sites are placed with the zone (3.3).
 
 ## 4. Zone map: a roamable disc (replaces rules 1.4)
