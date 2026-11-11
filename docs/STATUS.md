@@ -10,6 +10,10 @@ M2 done 2026-11-10 (P1 45/45). Active: M2b, expedition map and combat v2 (docs/s
 2. Waiting on the owner: free potion at the end boss (half strength is the default, D77), pet revive (v8 appendix A), comments on the meta v2 proposal (docs/specs/meta-v2.md, draft).
 3. Next: 2b.5 prep points and contracts (engine + content); fog map UI; 2b.4 fog-only bots; switch default map; UX open items 5, 6, 9, 10.
 
+## Next (from the v11 measure, report balance-2026-11-11g)
+- Engine: Delve price back to 2 (D93 guard tripped), EXPED_DROP_MULT 1.9 (cell 10), remove DUNGEON_DIM_HOLD (B4 dropped); Beastcall Horn stays 12 (row 8 void: PALL hunter lead is Ricochet Bolt).
+- Designer: B43 (caught zones 21.7 %, Dimmed share 20.2 %) and B12 (31.8 / 30.8 min); PALL hunter via Ricochet Bolt; P10 profile under the 8.2 order. Flip criteria 2 and 3 pass, 1 fails on B43 and B12.
+
 ## Waiting on the owner
 Nothing blocking. See docs/OWNER.md.
 
