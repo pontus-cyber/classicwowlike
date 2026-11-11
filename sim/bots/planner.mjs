@@ -10,10 +10,18 @@
 // ('heatAvoid') values no heat reward (a Hot node is never a reason to go) and weighs hours × HEAT_AVOID_TIME_MULT; both
 // pay the boss term. Diagnostics: 'noHeat' (balance.md 1.1 without heat terms, the planner before 2026-11-11) and
 // 'hm<x>' (hour weight x instead of PLANNER_TIME_MULT, for the hour-weight check).
+// Expedition map (expedition.md 10.1-10.2; MILESTONES 2b.4): planFog, a belief search of depth PLANNER_FOG_DEPTH over
+// moves on the fog view only (sim/lib/view.mjs fogInput): seen nodes valued exactly, unseen nodes as the expectation
+// over the region kind's weights (zone mean when the region is unknown), the Dimming exactly, Dimmed encounters at
+// SIM.EXP_DIM_DEATH × (1 + depth), leaf = leaving by the cheapest Road (Dimmed steps on the way) or the Bell, leaving
+// valued with an under-level penalty (SIM.EXP_UNDER_LEVEL_VALUE per level under 10z). Contract sites are not valued
+// until contracts exist (2b.5). oracleMap: the same search on the oracle's full-information view (diagnostic only:
+// C_step, B41; never acts in a measured run).
 import { C, R, legal, hpFrac } from '../lib/engine.mjs';
-import { BAL, HEAT, SIM } from '../lib/params.mjs';
-import { makeCtx, evalNode, copyM } from '../lib/model.mjs';
+import { BAL, HEAT, SIM, EXP } from '../lib/params.mjs';
+import { makeCtx, evalNode, copyM, levelPos, eatModel } from '../lib/model.mjs';
 import { createValueBot, hubFull, FULL_KIT } from './shared.mjs';
+import { fogInput, oracleInput, dimmedAtV, dimDepthV, enterableV, escapeV, typeBelief, protoCell } from '../lib/view.mjs';
 
 const ROWS = C.ZONE_CHOICE_ROWS;
 
@@ -103,15 +111,216 @@ export function plannerHeat(variant) {
   return { rewards: variant !== 'heatAvoid', ascW: SIM.VAL_ASC };
 }
 
+// ---------------- Expedition map: belief search on the fog view (expedition.md 10.2) ----------------
+/** Zone exit level of zone z (rules 1.9.7 has no gate; the bots aim at ZONE_LEVELS × z, B20). */
+export const expExitLevel = (z) => C.ZONE_LEVELS * z;
+
+/** One toll of walking (or a Dimmed encounter's toll) in the model: evalNode's default cell costs 1 toll. */
+function tollCost(ctx, m, n) {
+  let v = 0;
+  for (let i = 0; i < n; i++) v += evalNode(ctx, m, { type: 'walk' }).value;
+  return v;
+}
+
+/** Value of a Dimmed encounter at depth d in the model (death chance, HP, its toll); mutates m. */
+function dimCost(ctx, m, d) {
+  const p = Math.min(0.9, SIM.EXP_DIM_DEATH * (1 + d));
+  const v = tollCost(ctx, m, C.TIME_DIM_FIGHT) - p * BAL.VAL_DEATH;
+  m.hp = Math.max(0.02, m.hp - SIM.EXP_DIM_HP);
+  eatModel(m);
+  return v;
+}
+
+/** Value of entering view node id at zone toll zt (exact when seen, belief otherwise); mutates m; returns { value, hours }. */
+function enterValue(view, ctx, m, id, zt, pays) {
+  const n = view.nodes[id];
+  if (n.know === 'full') {
+    const ev = evalNode(ctx, m, n, { pays: pays || null });
+    return { value: ev.value, hours: ev.hours };
+  }
+  const bel = n.know === 'type' ? [[n.type, 1]] : typeBelief(view, n);
+  let value = 0;
+  let hours = 0;
+  let mBest = null;
+  for (const [t, p] of bel) {
+    const m2 = copyM(m);
+    const ev = evalNode(ctx, m2, protoCell(view, n, t));
+    // Seen on arrival: a node worth less than walking through is passed (option value of the information).
+    const walk = -view.walkTime * BAL.VAL_TIME * ctx.hourMult;
+    value += p * Math.max(ev.value, walk);
+    hours += p * (ev.value >= walk ? ev.hours : view.walkTime);
+    if (!mBest) mBest = ev.value >= walk ? m2 : null;
+  }
+  if (mBest) Object.assign(m, mBest);
+  else tollCost(ctx, m, view.walkTime);
+  return { value, hours: Math.max(view.walkTime, Math.round(hours)) };
+}
+
+/**
+ * The belief search (expedition.md 10.2 planner). view: the fog view (or the oracle's); ctx: makeCtx of the decision;
+ * opts: { depth, exit (level), pays ({nodeId: heat state} of the first step, R.heatPreview), bellKeep (value of holding a
+ * Bell charge), leaveNow (speedrunner: leave as soon as the level is reached) }. Returns { action, value, options }.
+ */
+export function planFog(view, ctx, opts = {}) {
+  const depthMax = opts.depth ?? EXP.PLANNER_FOG_DEPTH;
+  const exit = opts.exit ?? expExitLevel(view.z);
+  const keep = opts.bellKeep ?? (view.z < C.ZONE_COUNT ? EXP.BELL_KEEP_VALUE : 0);
+  const under = (m) => -Math.max(0, exit - levelPos(m)) * SIM.EXP_UNDER_LEVEL_VALUE;
+  const escMemo = new Map();
+  const esc = (id, zt) => {
+    const k = id * 4096 + zt;
+    let e = escMemo.get(k);
+    if (!e) { e = escapeV(view, id, zt); escMemo.set(k, e); }
+    return e;
+  };
+  // Leaving from (pos, zt): by the Road (walk there, Dimmed steps, TIME_TRAVEL) or by the Bell (channel, a Dimmed
+  // encounter if the node dims during it, the charge's keep value).
+  const leaveRoad = (pos, zt, m) => {
+    const e = esc(pos, zt);
+    if (e.road === null) return -Infinity;
+    const m2 = copyM(m);
+    let v = tollCost(ctx, m2, e.time - e.dims * C.TIME_DIM_FIGHT);
+    for (let i = 0; i < e.dims; i++) v += dimCost(ctx, m2, e.dims ? e.depth / e.dims : 0);
+    v += tollCost(ctx, m2, view.travelTime);
+    return v + under(m2);
+  };
+  const leaveBell = (pos, zt, m, bell) => {
+    if (bell <= 0) return -Infinity;
+    const m2 = copyM(m);
+    let v = tollCost(ctx, m2, view.bell.channelTime) - keep;
+    const dd = dimDepthV(view, pos, zt + view.bell.channelTime);
+    if (dd >= 0) v += dimCost(ctx, m2, dd);
+    return v + under(m2);
+  };
+  const leaf = (pos, zt, m, bell) => Math.max(leaveRoad(pos, zt, m), leaveBell(pos, zt, m, bell));
+  const resolved = new Set();
+  const rec = (pos, zt, m, d, bell) => {
+    let best = leaf(pos, zt, m, bell);
+    if (d >= depthMax) return best;
+    if (opts.leaveNow && levelPos(m) >= exit) return best;
+    for (const id of view.nodes[pos].nb) {
+      const m2 = copyM(m);
+      let v;
+      let zt2;
+      if (enterableV(view, id, zt, resolved) || (view.nodes[id].know !== 'full' && !view.nodes[id].hub && !resolved.has(id) && !dimmedAtV(view, id, zt))) {
+        const ev = enterValue(view, ctx, m2, id, zt, null);
+        zt2 = zt + ev.hours;
+        v = ev.value;
+        if (v < -view.walkTime * BAL.VAL_TIME * ctx.hourMult) {
+          // Deeper in the search a bad node is walked through, not entered.
+          Object.assign(m2, copyM(m));
+          v = tollCost(ctx, m2, view.walkTime);
+          zt2 = zt + view.walkTime;
+          const dd = dimDepthV(view, id, zt2);
+          if (dd >= 0) v += dimCost(ctx, m2, dd);
+          v += rec(id, zt2, m2, d + 1, bell);
+        } else {
+          const dd = dimDepthV(view, id, zt2);
+          if (dd >= 0) v += dimCost(ctx, m2, dd);
+          resolved.add(id);
+          v += rec(id, zt2, m2, d + 1, bell);
+          resolved.delete(id);
+        }
+      } else {
+        zt2 = zt + view.walkTime;
+        v = tollCost(ctx, m2, view.walkTime);
+        const dd = dimDepthV(view, id, zt2);
+        if (dd >= 0) v += dimCost(ctx, m2, dd);
+        v += rec(id, zt2, m2, d + 1, bell);
+      }
+      if (v > best) best = v;
+    }
+    return best;
+  };
+  const zt = view.zt;
+  const pos = view.pos;
+  const m0 = ctx.m;
+  const bell = view.bell.charges;
+  const options = [];
+  if (view.onRoad) {
+    const m2 = copyM(m0);
+    options.push({ action: { type: 'TAKE_ROAD' }, value: tollCost(ctx, m2, view.travelTime) + under(m2) });
+  }
+  if (bell > 0) options.push({ action: { type: 'RING_BELL' }, value: leaveBell(pos, zt, m0, bell) });
+  if (!(opts.leaveNow && levelPos(m0) >= exit)) {
+    for (const mv of view.moves) {
+      const id = mv.nodeId;
+      if (mv.via === 'enter') {
+        const m2 = copyM(m0);
+        const ev = enterValue(view, ctx, m2, id, zt, opts.pays && opts.pays[id]);
+        let v = ev.value;
+        const zt2 = zt + mv.time;
+        const dd = dimDepthV(view, id, zt2);
+        if (dd >= 0) v += dimCost(ctx, m2, dd);
+        resolved.add(id);
+        v += rec(id, zt2, m2, 1, bell);
+        resolved.delete(id);
+        options.push({ action: { type: 'MOVE', nodeId: id }, value: v });
+      }
+      const m3 = copyM(m0);
+      const zt3 = zt + view.walkTime;
+      let w = tollCost(ctx, m3, view.walkTime);
+      const dd = dimDepthV(view, id, zt3);
+      if (dd >= 0) w += dimCost(ctx, m3, dd);
+      w += rec(id, zt3, m3, 1, bell);
+      options.push({ action: mv.via === 'enter' ? { type: 'PASS_THROUGH', nodeId: id } : { type: 'MOVE', nodeId: id }, value: w });
+    }
+  }
+  if (!options.length) options.push(exitStep(view));
+  let best = options[0];
+  for (const o of options) if (o.value > best.value) best = o;
+  return { action: best.action, value: best.value, options };
+}
+
+/** The next step of leaving: TAKE_ROAD on a Road, else towards the cheapest Road (walk; pass an unresolved node). */
+export function exitStep(view, roads = view.roads) {
+  if (view.onRoad) return { action: { type: 'TAKE_ROAD' }, value: 0 };
+  const e = escapeV(view, view.pos, view.zt, roads);
+  const id = e.path.length > 1 ? e.path[1] : view.nodes[view.pos].nb[0];
+  const mv = view.moves.find((x) => x.nodeId === id);
+  return { action: mv && mv.via === 'enter' ? { type: 'PASS_THROUGH', nodeId: id } : { type: 'MOVE', nodeId: id }, value: -Infinity };
+}
+
+/** Heat states the first step's nodes would pay (R.heatPreview `pays`, a player-visible preview) for the seen neighbours. */
+export function firstPays(s, view, heat) {
+  if (!heat) return null;
+  const out = {};
+  for (const mv of view.moves) if (mv.via === 'enter') { const pv = R.heatPreview(s, { type: 'MOVE', nodeId: mv.nodeId }); out[mv.nodeId] = pv ? pv.pays : null; }
+  return out;
+}
+
+/** The planner's expedition map decision from the fog view (plus its trail-ration top-up through `food`). */
+export function planExpMap(s, risk, style, hourMult = 1, heat = null, input = fogInput) {
+  const view = input(s);
+  const ctx = makeCtx(s, risk, { style, hourMult, heat });
+  return planFog(view, ctx, { pays: firstPays(s, view, heat) });
+}
+
+/**
+ * Oracle (diagnostic only; expedition.md 10.2, B41): the planner's search with full information of the current zone
+ * (sim/lib/view.mjs oracleInput). The runner calls it next to a planner decision to measure C_step; it never acts in a
+ * measured run.
+ */
+export function oracleMap(s, risk, style, hourMult = 1, heat = null) {
+  return planExpMap(s, risk, style, hourMult, heat, oracleInput);
+}
+
+/** Hub of the planner family in an expedition run: hubFull while the services are legal (a Dimmed hub has none). */
+export function expHub(s, inn) {
+  const a = hubFull(s, inn);
+  return a.type === 'SERVICE' && !legal(s, a) ? { type: 'LEAVE_HUB' } : a;
+}
+
 export function createPlannerBot({ classId, risk, tree, style = 'balanced', variant = null, combat = null, name = 'planner' }) {
   const hm = plannerHourMult(variant);
   const heat = plannerHeat(variant);
+  const inn = (x) => innByValue(x, risk, style, hm, heat);
   return createValueBot(name, {
     classId, tree, variant, style, campBar: true,
     kit: { ...FULL_KIT, ember: true },
     combat,
-    hub: (s) => hubFull(s, (x) => innByValue(x, risk, style, hm, heat)),
-    map: (s) => planMap(s, risk, style, hm, heat).action,
+    hub: (s) => (s.mapMode === 'expedition' ? expHub(s, inn) : hubFull(s, inn)),
+    map: (s) => (s.mapMode === 'expedition' ? planExpMap(s, risk, style, hm, heat).action : planMap(s, risk, style, hm, heat).action),
     grindWaves: (s) => valueGrindWaves(s, risk, style, hm, heat),
   });
 }

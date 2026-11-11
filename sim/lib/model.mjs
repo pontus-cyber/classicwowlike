@@ -12,6 +12,10 @@
 // The model only estimates; the engine decides. It reads what the player may see (mapView, heatView) plus the
 // character, and it predicts the character after the node (level, XP, rested pool, HP, rations, hours) so the
 // planners can chain nodes along a path. P(death) and the HP change come from the risk table (risk.mjs).
+// Expedition map (expedition.md 9.5, 10; rules 1.9): in an expedition run makeCtx sets ctx.exp, and evalNode uses the
+// expedition node tolls (EXPED_TIME_*), one Grind wave (EXPED_GRIND_MAX_WAVES), EXPED_DUNGEON_TRASH_FIGHTS and the XP
+// weight XP_WEIGHT_MULT on kills, quest turn-ins, Grind waves and dungeon clears (not on the story XP), as the engine
+// does. Without ctx.exp (rows runs) every term is the rows value.
 import { C, R, V, xpCurve, diffMod } from './engine.mjs';
 import { BAL, SIM } from './params.mjs';
 import { riskP, riskDh, riskType } from './risk.mjs';
@@ -98,9 +102,17 @@ export function makeCtx(s, risk, opts = {}) {
     swift: !!s.meta.swiftBoots, res, potions, train, unknown,
     style: opts.style || 'balanced', hourMult: (opts.hourMult ?? 1) * (opts.style === 'speed' ? SIM.STYLE_SPEED_TIME_MULT : 1),
     heat: opts.heat ? heatCtx(s, opts.heat) : null,
+    exp: s.mapMode === 'expedition' ? EXP_CTX : null,
     m: { L: p.level, xp: p.xp, rested: p.rested, hp: p.hp / p.d.maxHp, q: s.zone && !s.zone.camp ? s.zone.questsDone : 0, rations, tAt: 0, dh: 0 },
   };
 }
+
+/** Expedition terms of the value model (rules 1.9; expedition.md 9.5). */
+const EXP_CTX = Object.freeze({
+  xpw: C.XP_WEIGHT_MULT, grindMax: C.EXPED_GRIND_MAX_WAVES, trash: C.EXPED_DUNGEON_TRASH_FIGHTS,
+  time: { quest: C.EXPED_TIME_QUEST, grind: C.EXPED_TIME_GRIND_WAVE, elite: C.EXPED_TIME_ELITE, dungeon: C.EXPED_TIME_DUNGEON },
+});
+const ROWS_TIME = Object.freeze({ quest: C.TIME_QUEST, grind: C.TIME_GRIND_WAVE, elite: C.TIME_ELITE, dungeon: C.TIME_DUNGEON });
 
 /** Value of visiting a trainer at model state m (and mark the model as trained at m.L). */
 function trainerGain(ctx, m) {
@@ -182,7 +194,7 @@ function bossCost(ctx, dh, hours) {
 }
 
 // ---------------- Character progression in the model ----------------
-const killXp = (ctx, M, mult, L) => (L >= C.MAX_LEVEL ? 0 : C.MOB_XP_FRAC * mult * XC[Math.min(MAXL, M)] * dmod(M - L) * (1 + ctx.xpPct));
+const killXp = (ctx, M, mult, L) => (L >= C.MAX_LEVEL ? 0 : C.MOB_XP_FRAC * mult * (ctx.exp ? ctx.exp.xpw : 1) * XC[Math.min(MAXL, M)] * dmod(M - L) * (1 + ctx.xpPct));
 const evXp = (ctx, frac, cl, L) => (L >= C.MAX_LEVEL ? 0 : frac * XC[Math.min(MAXL, cl)] * dmod(cl - L) * (1 + ctx.xpPct));
 
 /**
@@ -251,6 +263,8 @@ export function evalNode(ctx, m, v, opts = {}) {
   const event = (frac, cl) => giveXp(m, evXp(ctx, frac, cl, m.L), false, hg);
   const g = (copper) => { gold += copper * (1 + ctx.goldPct) * (1 + hg); };
   const eg = (table, level) => expGain(ctx, table, level, up);
+  const NT = ctx.exp ? ctx.exp.time : ROWS_TIME; // node tolls (the dungeon case has its own T)
+  const xw = ctx.exp ? ctx.exp.xpw : 1;
   switch (type) {
     case 'quest': {
       const n = v.archetypes ? v.archetypes.length : 2;
@@ -258,7 +272,7 @@ export function evalNode(ctx, m, v, opts = {}) {
       const rt = riskType(v);
       pDeath = riskP(ctx.risk, rt, dl, m.hp);
       kill(v.cl, 1, n);
-      event(C.QUEST_TURNIN_XP_FRAC, v.cl);
+      event(C.QUEST_TURNIN_XP_FRAC * xw, v.cl);
       g(n * C.MOB_COIN_V * vAt(v.cl) + C.QUEST_GOLD_V * vAt(v.cl));
       gear += n * C.MOB_ITEM_CHANCE * eg('mob', v.cl) + 1.5 * eg('quest', v.cl);
       if (m.q + 1 === C.STORY_QUESTS) {
@@ -266,12 +280,12 @@ export function evalNode(ctx, m, v, opts = {}) {
         gear += 1.8 * eg('story', v.cl);
       }
       m.q += 1;
-      hours = C.TIME_QUEST;
+      hours = NT.quest;
       afterFightHp(ctx, m, rt, dl);
       break;
     }
     case 'grind': {
-      const maxW = opts.grindWaves || C.GRIND_MAX_WAVES;
+      const maxW = opts.grindWaves || (ctx.exp ? ctx.exp.grindMax : C.GRIND_MAX_WAVES);
       let value = 0;
       for (let w = 0; w < maxW; w++) {
         const dl = v.cl - m.L;
@@ -281,20 +295,20 @@ export function evalNode(ctx, m, v, opts = {}) {
         const gd0 = gold;
         const ge0 = gear;
         kill(v.cl, 1, C.GRIND_WAVE_SIZE);
-        event(C.GRIND_WAVE_XP_FRAC, v.cl);
+        event(C.GRIND_WAVE_XP_FRAC * xw, v.cl);
         g(C.GRIND_WAVE_SIZE * C.MOB_COIN_V * vAt(v.cl));
         gear += C.GRIND_WAVE_SIZE * C.MOB_ITEM_CHANCE * C.GRIND_DROP_MULT * eg('mob', v.cl);
         const sm = styleMult(ctx, 'grind');
         const marginal = ((bankedPos(m) - p0) * BAL.VAL_XP + (gear - ge0) * BAL.VAL_GEAR + ((gold - gd0) / Vl) * BAL.VAL_GOLD) * sm
-          - C.TIME_GRIND_WAVE * BAL.VAL_TIME * ctx.hourMult - p * BAL.VAL_DEATH - bossCost(ctx, m.dh, C.TIME_GRIND_WAVE);
+          - NT.grind * BAL.VAL_TIME * ctx.hourMult - p * BAL.VAL_DEATH - bossCost(ctx, m.dh, NT.grind);
         if (!opts.grindWaves && w > 0 && marginal <= 0) {
           gold = gd0; gear = ge0; Object.assign(m, save);
           break;
         }
         value += marginal;
         waves += 1;
-        hours += C.TIME_GRIND_WAVE;
-        m.dh += C.TIME_GRIND_WAVE;
+        hours += NT.grind;
+        m.dh += NT.grind;
         pDeath = 1 - (1 - pDeath) * (1 - p);
         afterFightHp(ctx, m, 'grind', dl);
         eatModel(m);
@@ -316,7 +330,7 @@ export function evalNode(ctx, m, v, opts = {}) {
         g(C.MOB_COIN_V * vAt(v.cl));
         gear += C.MOB_ITEM_CHANCE * eg('mob', v.cl);
       }
-      hours = C.TIME_ELITE;
+      hours = NT.elite;
       afterFightHp(ctx, m, rt, dl);
       break;
     }
@@ -326,13 +340,13 @@ export function evalNode(ctx, m, v, opts = {}) {
       const dl = T - m.L;
       pDeath = riskP(ctx.risk, 'dungeon', dl, m.hp);
       const meanSize = (2 * C.DUNGEON_SIZE_W2 + 3 * C.DUNGEON_SIZE_W3) / (C.DUNGEON_SIZE_W2 + C.DUNGEON_SIZE_W3);
-      const nTrash = Math.round(C.DUNGEON_TRASH_FIGHTS * meanSize);
+      const nTrash = Math.round((ctx.exp ? ctx.exp.trash : C.DUNGEON_TRASH_FIGHTS) * meanSize);
       kill(T, C.DUNGEON_MOB_XP_MULT, nTrash);
       kill(B, C.DUNGEON_BOSS_XP_MULT, 1);
-      event(C.DUNGEON_CLEAR_XP_FRAC, B);
+      event(C.DUNGEON_CLEAR_XP_FRAC * xw, B);
       g(nTrash * C.MOB_COIN_V * vAt(T) + C.MOB_COIN_V * vAt(B) + C.DUNGEON_GOLD_V * vAt(B));
       gear += nTrash * C.DUNGEON_ITEM_CHANCE * eg('trash', T) + C.DUNGEON_BOSS_DROPS * eg('dboss', B);
-      hours = C.TIME_DUNGEON;
+      hours = NT.dungeon;
       afterFightHp(ctx, m, 'dungeon', dl);
       break;
     }

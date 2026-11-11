@@ -24,6 +24,10 @@ export function cellName(cell) {
   if (cell.style && cell.style !== 'balanced') parts.push(cell.style);
   if (cell.variant) parts.push(cell.variant);
   if (cell.pet) parts.push(cell.pet);
+  if (cell.map === 'expedition') parts.push('exp');
+  if (cell.vision) parts.push('vis');
+  if (cell.dimming === false) parts.push('nodim');
+  if (cell.oracle) parts.push('oracle');
   return parts.join('-');
 }
 

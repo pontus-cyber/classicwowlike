@@ -3,11 +3,18 @@
 // default build per class (1.3); bar template 1.2 (no boss bar swap); trains everything at each hub; keeps
 // HEAL_STOCK_TARGET Healing Draughts; autoplay combat; manual time profile. Hour weight 1 (balance.md 1.1, M2 v3: no
 // lookahead, so no PLANNER_TIME_MULT).
+// Expedition map (expedition.md 10.2; MILESTONES 2b.4): greedyExpMap on the fog view only (sim/lib/view.mjs): the best
+// adjacent node by value per toll; threat rule: never step into a node that dims within EXP_GREEDY_DIM_MARGIN tolls of
+// arrival unless leaving; when the front is within one hop: leave if L >= 10z - 2 (Bell if held, else the Road, else
+// walk to the Road farthest from the Shardfall), else retreat to the best neighbour farther from the Shardfall that does
+// not dim within the margin. Leaves at 10z when no adjacent node beats GREEDY_STAY_THRESHOLD; otherwise walks to the
+// nearest unresolved node it may enter.
 import { C, R, legal } from '../lib/engine.mjs';
-import { BAL } from '../lib/params.mjs';
-import { makeCtx, evalNode, copyM } from '../lib/model.mjs';
+import { BAL, SIM } from '../lib/params.mjs';
+import { makeCtx, evalNode, copyM, levelPos } from '../lib/model.mjs';
 import { createValueBot, hubFull, FULL_KIT } from './shared.mjs';
-import { valueGrindWaves, innByValue } from './planner.mjs';
+import { valueGrindWaves, innByValue, exitStep, expExitLevel, expHub } from './planner.mjs';
+import { fogInput, viewHops, enterableV } from '../lib/view.mjs';
 
 const perHour = (ev) => ev.value / Math.max(1, ev.hours);
 
@@ -38,12 +45,78 @@ export function greedyMap(s, risk) {
   return { type: 'CHOOSE_NODE', lane: best.lane };
 }
 
+/** The greedy's expedition map decision from the fog view (threat rule of expedition.md 10.2). */
+export function greedyExpMap(s, risk) {
+  const view = fogInput(s);
+  const ctx = makeCtx(s, risk, { hourMult: 1 });
+  const zt = view.zt;
+  const pos = view.pos;
+  const L = levelPos(ctx.m);
+  const exit = expExitLevel(view.z);
+  const margin = SIM.EXP_GREEDY_DIM_MARGIN;
+  const shard = viewHops(view, view.shardfall);
+  const safe = (id, at) => view.nodes[id].dimAt - at > margin;
+  const step = (id) => {
+    const mv = view.moves.find((x) => x.nodeId === id);
+    return mv && mv.via === 'enter' ? { type: 'PASS_THROUGH', nodeId: id } : { type: 'MOVE', nodeId: id };
+  };
+  const leave = (bell) => {
+    if (bell && view.bell.charges > 0) return { type: 'RING_BELL' };
+    if (view.onRoad) return { type: 'TAKE_ROAD' };
+    let far = view.roads[0];
+    for (const r of view.roads) if (shard[r] > shard[far]) far = r;
+    return exitStep(view, [far]).action;
+  };
+  const near = view.nodes[pos].dimmed || view.nodes[pos].nb.some((id) => view.nodes[id].dimmed);
+  const scored = [];
+  for (const mv of view.moves) {
+    if (mv.via !== 'enter' || !safe(mv.nodeId, zt)) continue;
+    const ev = evalNode(ctx, copyM(ctx.m), view.nodes[mv.nodeId]);
+    scored.push({ id: mv.nodeId, v: ev.value / Math.max(1, ev.hours) });
+  }
+  scored.sort((a, b) => b.v - a.v);
+  if (near) {
+    if (L >= exit - 2) return leave(true);
+    const away = view.nodes[pos].nb.filter((id) => shard[id] > shard[pos] && safe(id, zt + view.walkTime));
+    const best = scored.find((x) => away.includes(x.id));
+    if (best) return { type: 'MOVE', nodeId: best.id };
+    if (away.length) return step(away[0]);
+    return leave(true);
+  }
+  const best = scored[0];
+  if (L >= exit && (!best || best.v < BAL.GREEDY_STAY_THRESHOLD)) return leave(false);
+  if (best && best.v > 0) return { type: 'MOVE', nodeId: best.id };
+  // Nothing worth it next door: walk towards the nearest unresolved node it may enter (BFS over safe nodes).
+  const N = view.nodes.length;
+  const prev = new Array(N).fill(-2);
+  prev[pos] = -1;
+  const q = [pos];
+  for (let i = 0; i < q.length; i++) {
+    const u = q[i];
+    const at = zt + view.walkTime * (i === 0 ? 1 : 2);
+    for (const v of view.nodes[u].nb) {
+      if (prev[v] !== -2 || !safe(v, at)) continue;
+      prev[v] = u;
+      q.push(v);
+      const n = view.nodes[v];
+      const open = n.know !== 'full' ? !n.hub : enterableV(view, v, zt) && !scored.some((x) => x.id === v);
+      if (open && v !== pos) {
+        let x = v;
+        while (prev[x] !== pos) x = prev[x];
+        return step(x);
+      }
+    }
+  }
+  return leave(false);
+}
+
 export function createGreedyBot({ classId, risk, tree }) {
+  const inn = (x) => innByValue(x, risk, 'balanced', 1);
   return createValueBot('greedy', {
     classId, tree, campBar: false,
     kit: { ...FULL_KIT },
-    hub: (s) => hubFull(s, (x) => innByValue(x, risk, 'balanced', 1)),
-    map: (s) => greedyMap(s, risk),
+    hub: (s) => (s.mapMode === 'expedition' ? expHub(s, inn) : hubFull(s, inn)),
+    map: (s) => (s.mapMode === 'expedition' ? greedyExpMap(s, risk) : greedyMap(s, risk)),
     grindWaves: (s) => valueGrindWaves(s, risk, 'balanced', 1),
   });
 }

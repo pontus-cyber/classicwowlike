@@ -6,6 +6,9 @@
 // checks that the opener's choice does not change when they change and that it never reads them.
 // Adapters: one place that knows how the engine shows the engage round, the engage options, the intent track and
 // OFF_BALANCE, so the bots work on the M2 v5 engine (no track, Rogue stealth round only) and on combat v2.
+// Expedition fog map (expedition.md 5, 10; MILESTONES 2b.4): fogInput (the bots' only zone input: R.mapView), skeleton
+// helpers on that view (hops, Dimming depth, escape route), the belief over unknown nodes, and, separated, the oracle's
+// full-information input (diagnostic only, B41).
 import { R, C, makeRng } from './engine.mjs';
 import { treeClone } from './clone.mjs';
 
@@ -171,4 +174,137 @@ export function actionLabel(a) {
   if (a.type === 'ATTACK') return 'attack';
   if (a.type === 'USE_ITEM') return 'item';
   return a.type.toLowerCase();
+}
+
+// ---------------- Expedition fog map (expedition.md 5, 10.1-10.2; engine-api.md 10.3) ----------------
+// The bots' expedition map policies decide from fogInput(s) only: R.mapView(s), the fog view (skeleton, every
+// node's Dimming clock, Roads, Shardfall, the zone's region list, and the nodes the player has seen), plus the
+// character model of sim/lib/model.mjs (makeCtx: level, XP, HP, bag, meta; nothing of the zone's hidden contents).
+// The helpers below read only that view. qa/sim/fog.test.mjs replaces the hidden nodes' contents and checks that every
+// bot decision stays the same (the leak test of expedition.md 10.1), and that the oracle's decisions do change.
+
+/** The fog view: the only zone input of a bot's expedition map decision. */
+export function fogInput(s) {
+  return R.mapView(s);
+}
+
+const hopCache = new WeakMap();
+/** Hops of every node from node `from` over the skeleton (visible edges). */
+export function viewHops(view, from) {
+  let byFrom = hopCache.get(view);
+  if (!byFrom) { byFrom = new Map(); hopCache.set(view, byFrom); }
+  if (byFrom.has(from)) return byFrom.get(from);
+  const d = new Array(view.nodes.length).fill(Infinity);
+  d[from] = 0;
+  const q = [from];
+  for (let i = 0; i < q.length; i++) for (const v of view.nodes[q[i]].nb) if (d[v] === Infinity) { d[v] = d[q[i]] + 1; q.push(v); }
+  byFrom.set(from, d);
+  return d;
+}
+
+/** Is view node id Dimmed at zone toll zt? (dimAt is on every node of the view; Infinity without the Dimming.) */
+export const dimmedAtV = (view, id, zt) => zt >= view.nodes[id].dimAt;
+
+/** Front at zone toll zt (rules 1.9.6, from the view's dim block). */
+export function frontAtV(view, zt) {
+  const d = view.dim;
+  if (d.off || zt < d.grace) return -1;
+  return Math.floor((d.frontHops * (zt - d.grace)) / d.frontTime);
+}
+
+/** Depth of a Dimmed encounter at node id at zone toll zt (front - hops from the Shardfall), -1 when not Dimmed. */
+export function dimDepthV(view, id, zt) {
+  if (!dimmedAtV(view, id, zt)) return -1;
+  return Math.max(0, frontAtV(view, zt) - viewHops(view, view.shardfall)[id]);
+}
+
+/** Can MOVE enter view node id's content at zone toll zt: known, unresolved, not the hub, not Dimmed. */
+export function enterableV(view, id, zt, resolved = null) {
+  const n = view.nodes[id];
+  return n.know === 'full' && !n.hub && !n.done && !(resolved && resolved.has(id)) && !dimmedAtV(view, id, zt);
+}
+
+/**
+ * Cheapest way from node `from` at zone toll zt to a Road over the skeleton (as the engine's default policy, rules
+ * 1.9.9): Dijkstra over steps of walkTime; a step onto a node Dimmed on arrival also costs TIME_DIM_FIGHT and counts as
+ * a Dimmed step (its depth is summed). Order: Dimmed steps, tolls, lower id. `roads` (default: the view's) restricts the
+ * targets. Returns { road, path (from `from` to the Road), dims, depth, time }.
+ */
+export function escapeV(view, from, zt, roads = view.roads) {
+  const N = view.nodes.length;
+  const lab = new Array(N).fill(null);
+  const prev = new Array(N).fill(-1);
+  const done = new Array(N).fill(false);
+  const better = (a, b) => !b || a.dims < b.dims || (a.dims === b.dims && a.h < b.h);
+  lab[from] = { dims: 0, depth: 0, h: 0 };
+  for (;;) {
+    let u = -1;
+    for (let i = 0; i < N; i++) if (!done[i] && lab[i] && (u < 0 || better(lab[i], lab[u]))) u = i;
+    if (u < 0) break;
+    done[u] = true;
+    for (const v of view.nodes[u].nb) {
+      if (done[v]) continue;
+      let h = lab[u].h + view.walkTime;
+      const dd = dimDepthV(view, v, zt + h);
+      if (dd >= 0) h += C.TIME_DIM_FIGHT;
+      const c = { dims: lab[u].dims + (dd >= 0 ? 1 : 0), depth: lab[u].depth + Math.max(0, dd), h };
+      if (better(c, lab[v])) { lab[v] = c; prev[v] = u; }
+    }
+  }
+  let road = null;
+  for (const r of roads) if (lab[r] && (road === null || better(lab[r], lab[road]))) road = r;
+  if (road === null) return { road: null, path: [from], dims: 0, depth: 0, time: Infinity };
+  const path = [];
+  for (let x = road; x !== -1; x = prev[x]) path.unshift(x);
+  return { road, path, dims: lab[road].dims, depth: lab[road].depth, time: lab[road].h };
+}
+
+const FILL_TYPES = ['quest', 'grind', 'elite', 'rest', 'vendor', 'trainer', 'treasure', 'shrine'];
+const NO_RING1 = new Set(['elite', 'vendor', 'trainer']);
+
+/**
+ * Belief over an unknown node's type (expedition.md 10.2): the region kind's weights (REGION_W) when the node's
+ * region is known, else the mean over the zone's region kinds (the view lists them); no Elite, Vendor or Trainer in
+ * ring 1 (rules 1.9.3). Returns [[type, probability]].
+ */
+export function typeBelief(view, node) {
+  const kinds = node.region !== null && node.region !== undefined && view.regions[node.region]
+    ? [view.regions[node.region].kind]
+    : (view.regions.length ? view.regions.map((r) => r.kind) : Object.keys(C.REGION_W));
+  const w = {};
+  let tot = 0;
+  for (const t of FILL_TYPES) {
+    if (node.ring === 1 && NO_RING1.has(t)) continue;
+    let x = 0;
+    for (const k of kinds) x += (C.REGION_W[k] && C.REGION_W[k][t]) || 0;
+    if (x > 0) { w[t] = x; tot += x; }
+  }
+  return Object.entries(w).map(([t, x]) => [t, x / tot]).sort((a, b) => b[1] - a[1]);
+}
+
+/**
+ * A stand-in map cell of type `type` for a node whose details are not seen: content level the middle of its ring's
+ * band (the view's bands), two quest mobs, one Grind wave of GRIND_WAVE_SIZE, an elite at CL + ELITE_LEVEL_OFFSET
+ * without an add, a treasure guarded with TREASURE_GUARD_CHANCE (valued as guarded when >= 0.5).
+ */
+export function protoCell(view, node, type) {
+  const [lo, hi] = view.bands[node.ring];
+  const cl = Math.round((lo + hi) / 2);
+  switch (type) {
+    case 'quest': return { type, cl, archetypes: [null, null] };
+    case 'grind': return { type, cl, archetypes: new Array(C.GRIND_WAVE_SIZE).fill(null) };
+    case 'elite': return { type, cl, level: cl + C.ELITE_LEVEL_OFFSET, archetypes: [null], rare: null };
+    case 'treasure': return { type, cl, guarded: C.TREASURE_GUARD_CHANCE >= 0.5, trap: null };
+    case 'dungeon': return { type, cl, level: cl, bossLevel: cl + 1 };
+    default: return { type, cl };
+  }
+}
+
+// ---------------- Oracle input (diagnostic only; expedition.md 10.2, 11.1 B41) ----------------
+// The oracle is the planner's search with full information of the current zone. It reads the hidden contents through
+// the engine's own reveal (R.debug.revealMap on a copy: every node seen) and is used only to measure C_step: the
+// runner asks it at every planner map decision and records whether the two agree; its choice never acts in a
+// measured run. No other bot code calls this.
+export function oracleInput(s) {
+  return R.mapView(R.debug.revealMap(s).state);
 }

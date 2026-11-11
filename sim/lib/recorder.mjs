@@ -23,12 +23,15 @@
 //       heat.nodesByState; B56)
 //   boss: at FIGHT_BOSS { lvl, ilvl (mean equipped), rare (share of slots rare or epic), empty, ember, gs (sum of the
 //       equipped items' itemScore; heat report, balance-2026-11-11) }
+//   ex: expedition runs (rules 1.9; expedition.md 11.1, MILESTONES 2b.4): the summary's expedition block (expRecord);
+//       fight kind 'dim' (Dimmed encounters) is FIGHT_KINDS' last code
+//   xs: expedition measures of the runner (sim/lib/runner.mjs): C_step agree / decisions, close-call zones
 import { C, R } from './engine.mjs';
 import { TYPE_CODE } from './risk.mjs';
 import { C2 } from './params.mjs';
 import { isEngageRound, isOffBalanceId, actionTarget, actionLabel, defaultTarget } from './view.mjs';
 
-export const FIGHT_KINDS = ['quest', 'grind', 'elite', 'trash', 'dboss', 'treasure', 'camp', 'boss'];
+export const FIGHT_KINDS = ['quest', 'grind', 'elite', 'trash', 'dboss', 'treasure', 'camp', 'boss', 'dim'];
 export const FK = Object.fromEntries(FIGHT_KINDS.map((k, i) => [k, i]));
 const pct = (x) => Math.max(0, Math.min(100, Math.round(x * 100)));
 const permille = (x) => Math.max(0, Math.min(1000, Math.floor(x * 1000 + 1e-9)));
@@ -279,6 +282,8 @@ export class Recorder {
       gold: sum ? sum.gold : null, travelLv: this.travelLv, train: this.train, ember: this.ember, boss: this.boss,
       fx: this.fx, f2: this.f2, wy: this.wy, ne: this.ne, steps: meta.steps, ms: meta.ms,
       ht: sum && sum.heat ? sum.heat.nodesByState : null,
+      ...(sum && sum.expedition ? { ex: expRecord(sum.expedition) } : {}),
+      ...(meta.xs ? { xs: meta.xs } : {}),
       ...(meta.rep ? { rep: meta.rep } : {}),
       ...(meta.pr ? { pr: meta.pr } : {}),
       ...(meta.bm ? { bm: meta.bm } : {}),
@@ -289,3 +294,14 @@ export class Recorder {
 }
 
 const round2 = (x) => Math.round(x * 100) / 100;
+
+/**
+ * Expedition block of a record (engine summary `expedition`, engine-api.md 10.4): walks, passes, Dimmed fights and
+ * zones, Bells rung, Roads taken, and per zone [z, tolls, nodes, walks, passes, dimFights, exit ('r' Road, 'b' Bell, '' none)].
+ */
+function expRecord(x) {
+  return {
+    walks: x.walks, passes: x.passes, dim: x.dimFights, dimZ: x.dimZones, bells: x.bellsRung, roads: x.roads,
+    zones: x.zones.map((z) => [z.z, z.time, z.nodes, z.walks, z.passes, z.dimFights, z.exit === 'road' ? 'r' : z.exit === 'bell' ? 'b' : '']),
+  };
+}

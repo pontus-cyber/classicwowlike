@@ -2,8 +2,10 @@
 // at 50 %); a random legal talent each point; bar = known spells in learn order; equips higher item score;
 // trains each spell with 50 % chance at a trainer; buys nothing; autoplay combat (rules 7.9); manual profile.
 // All draws come from the bot stream (BotRng), so game streams are the same as for every other bot.
+// Expedition map (expedition.md 10.2): uniform over the fog view's legal moves, the Road at 50 %, the Bell at 10 %.
 import { C, R, legal } from '../lib/engine.mjs';
 import { makeBot, randomTalent, learnOrderBar, desiredItemBar, foodAction } from '../lib/policy.mjs';
+import { fogInput } from '../lib/view.mjs';
 
 export function createRandomBot({ rng }) {
   let trainerPlan = null; // spells this trainer visit will learn or train (one 50 % draw per class spell)
@@ -34,12 +36,24 @@ export function createRandomBot({ rng }) {
     },
     vendor: () => ({ type: 'LEAVE' }),
     hub: (s) => {
-      if (!s.hub.used.trainer) return { type: 'SERVICE', service: 'trainer' };
+      if (!s.hub.used.trainer && legal(s, { type: 'SERVICE', service: 'trainer' })) return { type: 'SERVICE', service: 'trainer' };
       if (innKey !== s.zone.z) { innKey = s.zone.z; innWanted = rng.chance(0.5); }
-      if (innWanted && !s.hub.used.inn) return { type: 'SERVICE', service: 'inn' };
+      if (innWanted && !s.hub.used.inn && legal(s, { type: 'SERVICE', service: 'inn' })) return { type: 'SERVICE', service: 'inn' };
       return { type: 'LEAVE_HUB' };
     },
     map: (s) => {
+      if (s.mapMode === 'expedition') {
+        // expedition.md 10.2: uniform over legal moves; the Road when on one at 50 %; the Bell at 10 % when held.
+        const view = fogInput(s);
+        if (view.onRoad && rng.chance(0.5)) return { type: 'TAKE_ROAD' };
+        if (view.bell.charges > 0 && rng.chance(0.1)) return { type: 'RING_BELL' };
+        const opts = [];
+        for (const mv of view.moves) {
+          opts.push({ type: 'MOVE', nodeId: mv.nodeId });
+          if (mv.passTime !== null) opts.push({ type: 'PASS_THROUGH', nodeId: mv.nodeId });
+        }
+        return rng.pick(opts);
+      }
       const lanes = R.mapView(s).next;
       if (legal(s, { type: 'TRAVEL_ON' }) && (lanes.length === 0 || rng.chance(0.5))) return { type: 'TRAVEL_ON' };
       return { type: 'CHOOSE_NODE', lane: rng.pick(lanes) };

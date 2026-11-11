@@ -242,6 +242,38 @@ export const HEAT = {
   HEAT_POWER_MAX: 4,
 };
 
+/**
+ * Expedition map bots and targets (expedition.md 10, 11.1, 13; MILESTONES 2b.4): the bot constants of section 13
+ * (PLANNER_FOG_DEPTH, BELL_KEEP_VALUE) and the B41-B47 bands. B39, B40, B46 (contracts, prep) wait for 2b.5.
+ */
+export const EXP = {
+  PLANNER_FOG_DEPTH: 4,
+  BELL_KEEP_VALUE: 80,
+  C_STEP_P0: [0.60, 0.80],
+  C_STEP_PALL: [0.80, 0.92],
+  C_ROUTE_P0_MAX: 0.15,
+  C_ROUTE_PALL_MAX: 0.50,
+  CAUGHT_ZONES: [0.08, 0.18],
+  DIM_DEATH_SHARE: [0.05, 0.20],
+  CLOSE_CALL_GREEDY: [0.40, 0.75],
+  THREAT_BOUND_MIN: 1.5,
+  WALKS_PER_ZONE_MAX: 2.5,
+  BELL_USE: [0.4, 0.9],
+};
+
+/** Expedition map bots: numbers the spec leaves open [assumption: starting values, sim 2026-11-11d]. */
+Object.assign(SIM, {
+  /** Value units per level under the zone's exit level (10z) when the planner leaves a zone (expedition.md 10.2:
+   *  "leaving valued with an under-level penalty"): 1.5 × VAL_XP. */
+  EXP_UNDER_LEVEL_VALUE: 150,
+  /** Death chance of a Dimmed encounter at depth d in the bots' model: EXP_DIM_DEATH × (1 + d) (expedition.md 12.1 SI). */
+  EXP_DIM_DEATH: 0.08,
+  /** HP fraction a Dimmed encounter costs in the bots' model. */
+  EXP_DIM_HP: 0.30,
+  /** Greedy threat rule (expedition.md 10.2): tolls of margin before a node dims. */
+  EXP_GREEDY_DIM_MARGIN: 2,
+});
+
 /** Heat in the planner's value function (expedition.md H.6 leaves the exchange rates open) [assumption]. */
 Object.assign(SIM, {
   /** Boss term (sim/lib/model.mjs): value units per 1.0 of projected boss Ascendancy (320 per ASC_PER_STEP step, 32 per

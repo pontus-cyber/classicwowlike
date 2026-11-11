@@ -6,11 +6,15 @@
 // value function's own exchange rates). Its value calls carry hourMult = PLANNER_TIME_MULT (balance.md 1.1, M2 v3);
 // the search uses only their hours and P(death), so the weight does not change its choices (spec reading, see the
 // sim hand-off of 2026-11-10).
+// Expedition map (expedition.md 10.2; MILESTONES 2b.4): speedExpMap, the planner's belief search on the fog view with
+// the speed style's time weight (PLANNER_TIME_MULT × STYLE_SPEED_TIME_MULT) until the level reaches 10z - 1, then
+// the cheapest Road, or the Bell when that way crosses the Dimming or takes longer than the Bell's channel.
 import { C, R, legal, hpFrac } from '../lib/engine.mjs';
 import { BAL, SIM } from '../lib/params.mjs';
 import { makeCtx, evalNode, copyM, levelPos } from '../lib/model.mjs';
 import { createValueBot, FULL_KIT } from './shared.mjs';
-import { exitLevelOf } from './planner.mjs';
+import { exitLevelOf, planFog, exitStep, expExitLevel } from './planner.mjs';
+import { fogInput, escapeV } from '../lib/view.mjs';
 import { trainerUseful } from '../lib/policy.mjs';
 
 const ROWS = C.ZONE_CHOICE_ROWS;
@@ -78,18 +82,33 @@ export function speedGrindWaves(s, risk) {
   return best.w;
 }
 
+/** The speedrunner's expedition map decision from the fog view. */
+export function speedExpMap(s, risk) {
+  const view = fogInput(s);
+  const ctx = makeCtx(s, risk, { style: 'speed', hourMult: BAL.PLANNER_TIME_MULT });
+  const exit = expExitLevel(view.z) - 1;
+  if (levelPos(ctx.m) >= exit) {
+    if (view.onRoad) return { type: 'TAKE_ROAD' };
+    const e = escapeV(view, view.pos, view.zt);
+    if (view.bell.charges > 0 && (e.dims > 0 || e.time > view.bell.channelTime)) return { type: 'RING_BELL' };
+    return exitStep(view).action;
+  }
+  return planFog(view, ctx, { exit, leaveNow: true, bellKeep: 0 }).action;
+}
+
 export function createSpeedrunnerBot({ classId, risk, tree, variant = null }) {
   return createValueBot('speedrunner', {
     classId, tree, variant, campBar: true,
     kit: { ...FULL_KIT, gear: true },
     hub: (s) => {
       const u = s.hub.used;
+      if (s.mapMode === 'expedition' && !legal(s, { type: 'SERVICE', service: 'vendor' }) && !legal(s, { type: 'SERVICE', service: 'trainer' }) && !legal(s, { type: 'SERVICE', service: 'inn' })) return { type: 'LEAVE_HUB' };
       if (!u.trainer && trainerUseful(s)) return { type: 'SERVICE', service: 'trainer' };
       if (!u.vendor) return { type: 'SERVICE', service: 'vendor' };
       if (!u.inn && hpFrac(s) < SIM.SPEED_INN_HP) return { type: 'SERVICE', service: 'inn' };
       return { type: 'LEAVE_HUB' };
     },
-    map: (s) => speedMap(s, risk),
+    map: (s) => (s.mapMode === 'expedition' ? speedExpMap(s, risk) : speedMap(s, risk)),
     grindWaves: (s) => speedGrindWaves(s, risk),
   });
 }

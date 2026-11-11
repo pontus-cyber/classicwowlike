@@ -13,9 +13,17 @@ export { R, CONTENT, STREAM, makeRng, nextFloat, nextU32, hash32, V, xpCurve, di
 const errors = R.validateContent(CONTENT);
 if (errors.length) throw new Error(`sim: content is invalid:\n  ${errors.slice(0, 10).join('\n  ')}`);
 
-/** A run in phase CREATE (content validated once at module load). */
-export function newRunFor({ classId, petId = null, seed, profile = null }) {
-  return R.newRun({ classId, petId: classId === 'hunter' ? petId : null, seed, profile, content: CONTENT, validate: false });
+/**
+ * A run in phase CREATE (content validated once at module load). mapMode 'expedition' (rules 1.9), its vision kit
+ * ({ guide, charts, pathfinder }) and dimming (false: B44's diagnostic cell) are passed to the engine only when set,
+ * so a rows run is created exactly as before.
+ */
+export function newRunFor({ classId, petId = null, seed, profile = null, mapMode = null, vision = null, dimming = null }) {
+  const o = { classId, petId: classId === 'hunter' ? petId : null, seed, profile, content: CONTENT, validate: false };
+  if (mapMode) o.mapMode = mapMode;
+  if (vision) o.vision = vision;
+  if (dimming === false) o.dimming = false;
+  return R.newRun(o);
 }
 
 /** Pets a profile can pick for the Hunter. */
