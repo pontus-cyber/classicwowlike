@@ -241,7 +241,10 @@ export const RES_HP_PCT = 0.40;
 export const RES_MANA_PCT = 0.40;
 export const RES_META_CHARGES = 1;
 export const BOSS_LEVEL = 62;
-export const BOSS_HP = 13900;
+/** rules 10.1 (M2b v6, D64: 13900 -> 13066, × 0.94). */
+export const BOSS_HP = 13066;
+/** rules 10.1 (M2b v6, D64): every damage the end-boss fight's enemies deal (Oruvath, the Shards, the Brand's ticks) × this, with (1 + asc). */
+export const BOSS_DMG_MULT = 1.17;
 export const BOSS_ARMOR = 1200;
 export const BOSS_MELEE = 260;
 export const BOSS_CRUSH = 380;

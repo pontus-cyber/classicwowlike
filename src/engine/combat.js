@@ -14,7 +14,7 @@ import { rnd, deepClone, cloneState } from './util.js';
 import { tr, hasEffect } from './stats.js';
 import {
   damage, snapshot, addStatus, findSt, hasSt, petAlive, healUnit, applyDamage, levelMod, gainStealth, gainOffBalance,
-  answerWindup, landWindup,
+  answerWindup, landWindup, bossDmgFactor,
 } from './damage.js';
 import { bossIntent, bossAct, bossStartRound, bossEndOfRound, mirrorImage, bossTrackView } from './boss.js';
 import { playerAction, petAction } from './spells.js';
@@ -270,8 +270,9 @@ function tickUnit(s, ev, u, crits) {
       const src = x.by !== undefined ? x.by : 'player';
       applyDamage(s, ev, src, u, Math.max(MIN_HIT_DAMAGE, rnd(amt)), { tick: true, crit, spell: x.src || x.id.toLowerCase(), school: x.id === 'BURN' ? 'fire' : 'phys' });
     } else if (x.id === 'BRAND' && u === 'player') {
+      // rules 10.2: BRAND_DMG × stacks × BOSS_DMG_MULT × (1 + asc) × levelMod in the end-boss fight (M2b v6, D64)
       const asc = f.boss ? f.boss.asc : 0;
-      const amt = rnd(BRAND_DMG * x.stacks * (1 + asc) * levelMod(BOSS_LEVEL, s.player.level));
+      const amt = rnd(BRAND_DMG * x.stacks * bossDmgFactor(s, asc) * levelMod(BOSS_LEVEL, s.player.level));
       applyDamage(s, ev, 0, 'player', Math.max(MIN_HIT_DAMAGE, amt), { tick: true, spell: 'brand', school: 'magic' });
     } else if (x.id === 'HOT') {
       healUnit(s, ev, u, x.amount, x.src);

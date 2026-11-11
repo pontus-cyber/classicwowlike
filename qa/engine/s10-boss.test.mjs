@@ -1,7 +1,8 @@
 // rules.md section 10: end boss Oruvath, the Unlit Star.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { R, C, started, atLevel, withSpells, tweak, forceDraws, ev, st, cloneState, play } from './helpers.mjs';
+import { R, C, started, atLevel, withSpells, tweak, forceDraws, ev, st, cloneState, play, inFight } from './helpers.mjs';
+import { snapshot, levelMod, mitigation } from '../../src/engine/damage.js';
 
 /** A level-60 character at FIGHT_BOSS with given hours. */
 function boss(classId = 'mage', { hours = 100, spells = [], petId, prep } = {}) {
@@ -83,7 +84,7 @@ describe('rules 10 end boss', () => {
     const r = R.step(c, { type: 'PASS' });
     const hits = r.events.filter((e) => e.t === 'damage' && e.spell === 'collapse_litany');
     assert.deepEqual(hits.map((e) => e.dst), ['player', 'pet']);
-    const want = C.BOSS_LITANY_DMG * (1 + 0.04 * (62 - 60));
+    const want = C.BOSS_LITANY_DMG * C.BOSS_DMG_MULT * (1 + 0.04 * (62 - 60)); // M2b v6: × BOSS_DMG_MULT
     assert.ok(hits.every((e) => e.amount >= Math.floor(want * 0.9) && e.amount <= Math.ceil(want * 1.1)));
     // Interrupt in round 1/2 and in round 2/2
     const m = boss('mage', { spells: ['spellsnap'], prep: immortal });
@@ -262,5 +263,70 @@ describe('rules 10 end boss', () => {
     assert.equal(lines.speed, C.ECHO_SPEED_BONUS, 'hours 100 <= par');
     assert.equal(lines.firstKill, C.ECHO_FIRST_KILL_CLASS);
     assert.equal(sum.bossHpPct, 0);
+  });
+});
+
+// ---------------- M2b v6 (D64): end boss HP × 0.94 and BOSS_DMG_MULT ----------------
+describe('rules 10.1 end boss HP and BOSS_DMG_MULT (M2b v6, D64)', () => {
+  const at = (asc) => (asc ? C.BOSS_TIME_PAR + 50 - C.HOURS_TRAVEL : 100); // 50 h past the par: 5 steps of ASC_PER_STEP
+  test('BOSS_HP 13066 and BOSS_DMG_MULT 1.17; boss HP BOSS_HP × (1 + asc); Shard HP SHARD_HP × (1 + asc), without the damage factor', () => {
+    assert.equal(C.BOSS_HP, 13066);
+    assert.equal(C.BOSS_DMG_MULT, 1.17);
+    for (const asc of [0, 5 * C.ASC_PER_STEP]) {
+      const s = boss('mage', { hours: at(asc), spells: ['ember_bolt'], prep: (x) => { immortal(x); x.fight.enemies[0].hp = Math.floor(x.fight.enemies[0].maxHp * 0.705); } });
+      assert.equal(s.fight.boss.asc, asc);
+      assert.equal(s.fight.enemies[0].maxHp, Math.round(13066 * (1 + asc)));
+      const t = cloneState(s);
+      forceDraws(t, 3, (d) => d[0] > 0.9 && d[1] > 0.6);
+      const shards = R.step(t, { type: 'CAST', spellId: 'ember_bolt', target: 0 }).state.fight.enemies.filter((e) => e.kind === 'shard');
+      assert.ok(shards.length > 0 && shards.every((e) => e.maxHp === Math.round(C.SHARD_HP * (1 + asc))), 'Shard HP');
+    }
+  });
+
+  test('every damage of the end-boss fight\'s enemies × BOSS_DMG_MULT × (1 + asc), also at Ascendancy 0: Oruvath\'s hit, a Shard\'s snapshot, the intent estimate', () => {
+    for (const asc of [0, 5 * C.ASC_PER_STEP]) {
+      const s = boss('rogue', { hours: at(asc), prep: immortal });
+      const lm = levelMod(C.BOSS_LEVEL, 60);
+      const want = 1000 * lm * 1.17 * (1 + asc);
+      assert.ok(Math.abs(snapshot(s, 0, 'player', 1000, {}) - want) < 1e-6, `snapshot at asc ${asc}`);
+      // Umbral Strike lands: hit, no crit, variance factor 1 (r3 0.5); phys, so the player's armor mitigates it
+      const c = cloneState(s);
+      forceDraws(c, 3, (d) => d[0] > 0.95 && d[1] > 0.95 && Math.abs(d[2] - 0.5) < 0.0005);
+      const hit = R.step(c, { type: 'PASS' }).events.find((e) => e.t === 'damage' && e.spell === 'umbral_strike');
+      const mit = 1 - mitigation(c.player.d.armor, C.BOSS_LEVEL);
+      const exp = C.BOSS_MELEE * lm * 1.17 * (1 + asc) * mit;
+      assert.ok(Math.abs(hit.amount - exp) <= 1, `Umbral Strike ${hit.amount}, want ${exp.toFixed(1)} (without BOSS_DMG_MULT ${(exp / 1.17).toFixed(1)})`);
+      // the intent estimate uses the same snapshot (rules 7.11)
+      const strike = s.fight.enemies[0].intent.actions.find((a) => a.id === 'umbral_strike');
+      assert.ok(Math.abs(strike.est - Math.round(exp)) <= 1, `estimate ${strike.est}, want ${exp.toFixed(1)}`);
+    }
+    // a Shard (level EA.SHARD_LEVEL) in phase 2
+    const m = boss('mage', { spells: ['ember_bolt'], prep: (x) => { immortal(x); x.fight.enemies[0].hp = Math.floor(x.fight.enemies[0].maxHp * 0.705); } });
+    const t = cloneState(m);
+    forceDraws(t, 3, (d) => d[0] > 0.9 && d[1] > 0.6);
+    const p2 = R.step(t, { type: 'CAST', spellId: 'ember_bolt', target: 0 }).state;
+    const sh = p2.fight.enemies.find((e) => e.kind === 'shard');
+    assert.ok(Math.abs(snapshot(p2, sh.idx, 'player', 1000, {}) - 1000 * levelMod(sh.level, 60) * 1.17) < 1e-6, 'Shard snapshot × BOSS_DMG_MULT at asc 0');
+  });
+
+  test('the Brand tick is BRAND_DMG × stacks × BOSS_DMG_MULT × (1 + asc) × levelMod (rules 10.2), and the DoT preview shows it', () => {
+    for (const asc of [0, 5 * C.ASC_PER_STEP]) {
+      const s = boss('mage', { hours: at(asc), prep: (x) => { immortal(x); x.fight.p.st.push({ id: 'BRAND', stacks: 3, dur: null }); } });
+      const want = Math.round(C.BRAND_DMG * 3 * 1.17 * (1 + asc) * levelMod(C.BOSS_LEVEL, 60));
+      assert.equal(R.pendingTicks(s, 'player').amount, want, `preview at asc ${asc}`);
+      const tick = R.step(s, { type: 'PASS' }).events.find((e) => e.t === 'damage' && e.spell === 'brand');
+      assert.equal(tick.amount, want, `Brand tick at asc ${asc}`);
+    }
+  });
+
+  test('not an end-boss fight: a dungeon boss and a Camp wave keep their damage (no BOSS_DMG_MULT)', () => {
+    const d = inFight(atLevel(started('rogue', { seed: 3 }), 20), [{ tid: 'z1_brute', level: 20, variant: 'dboss' }], { kind: 'dboss' }).state;
+    assert.ok(Math.abs(snapshot(d, 0, 'player', 1000, {}) - 1000) < 1e-9, 'dungeon boss');
+    let c = R.step(started('mage', { seed: 51 }), { type: 'LEAVE_HUB' }).state;
+    c = tweak(atLevel(c, 60), (x) => { x.zone.z = 6; });
+    c = play(c, [{ type: 'TRAVEL_ON' }, { type: 'CAMP_GRIND' }]).state;
+    assert.equal(c.fight.kind, 'camp');
+    const e = c.fight.enemies[0];
+    assert.ok(Math.abs(snapshot(c, 0, 'player', 1000, {}) - 1000 * levelMod(e.level, 60)) < 1e-6, 'Camp wave');
   });
 });

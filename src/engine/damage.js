@@ -1,5 +1,5 @@
 // Damage pipeline (rules 7.2), statuses (7.4), OFF_BALANCE (7.13, combat v2), the wind-up stacks EMPOWERED and STAGGERED
-// (7.12, combat v2.1), kills, death and resurrection (9).
+// (7.12, combat v2.1), kills, death and resurrection (9). The end-boss fight's BOSS_DMG_MULT (10.1, M2b v6): bossDmgFactor.
 // Expedition (rules 1.9.6, 1.9.8): Shardspawn kill rewards, the XP weight, the death location by node id.
 // Dev tools (engine-api.md 12): god mode (state.dev.god) stops all damage to the player in a dev run.
 // Units: 'player', 'pet', or an enemy index (number) into s.fight.enemies.
@@ -7,7 +7,7 @@ import {
   LVL_DMG_STEP, LVL_DMG_MIN, LVL_DMG_MAX, MISS_BASE, MISS_PER_LEVEL, MISS_CAP, DMG_VARIANCE, ENEMY_CRIT,
   CRIT_MULT, ARMOR_K, ARMOR_C, ARMOR_MIT_CAP, MIN_HIT_DAMAGE, CHILL_PCT, CURSE_PCT, STEALTH_MISS_BONUS,
   TALENT, BOON_DMG_PCT, ELIXIR_DMG_PCT, UNIQUE_ELITE_DMG, LINK_DR, LINK_DR_PER_SHARD, FIGHT_SOFT_ENRAGE_ROUND,
-  FIGHT_SOFT_ENRAGE_STEP, ECLIPSE_STEP, BRAND_MAX, DEBUFFS, RES_HP_PCT, RES_MANA_PCT, MOB_XP_FRAC,
+  FIGHT_SOFT_ENRAGE_STEP, ECLIPSE_STEP, BRAND_MAX, BOSS_DMG_MULT, DEBUFFS, RES_HP_PCT, RES_MANA_PCT, MOB_XP_FRAC,
   ELITE_XP_MULT, RARE_XP_MULT, DUNGEON_BOSS_XP_MULT, DUNGEON_MOB_XP_MULT, MOB_COIN_V, ELITE_GOLD_V,
   EMBER_ELITE_DROP_CHANCE, DUNGEON_BOSS_DROPS, UNIQUE_HEAL_ON_KILL, ABILITY_TEMPLATE, DODGE_CAP, SPELL,
   SHARD_AOE_TAKEN, OFFBAL_TAKEN, OFFBAL_BOSS_TAKEN, OFFBAL_CRIT, BLOODLUST_STEP, BLOODLUST_MAX, DIM_XP_MULT,
@@ -304,6 +304,15 @@ function attackerDebuffMult(st) {
   return m;
 }
 
+/**
+ * The end-boss fight's damage factor (rules 10.1, M2b v6, D64): BOSS_DMG_MULT × (1 + asc) on every damage an enemy of
+ * the end-boss fight deals (Oruvath, the Shards; the Brand's ticks in combat.js), also at Ascendancy 0. In every other
+ * fight (dungeon bosses, Camp waves, Dimmed encounters) only (1 + asc), and those enemies have asc 0.
+ */
+export function bossDmgFactor(s, asc) {
+  return s.fight && s.fight.kind === 'boss' ? BOSS_DMG_MULT * (1 + (asc || 0)) : 1 + (asc || 0);
+}
+
 /** Steps 1-2 and 6 of the pipeline: the snapshot used for DOT ticks and intent estimates. */
 export function snapshot(s, src, dst, base, o = {}) {
   let mult = 1 + (o.pct || 0);
@@ -312,7 +321,8 @@ export function snapshot(s, src, dst, base, o = {}) {
   else mult += enemyPct(s, s.fight.enemies[src]);
   let x = base * mult * levelMod(unitLevel(s, src), unitLevel(s, dst));
   x *= attackerDebuffMult(unitSt(s, src === 'pet' ? 'pet' : src));
-  if (typeof src === 'number' && s.fight.enemies[src].asc) x *= 1 + s.fight.enemies[src].asc;
+  // Ascendancy (rules 1.7) and, in the end-boss fight, BOSS_DMG_MULT (rules 10.1, M2b v6): at asc 0 too.
+  if (typeof src === 'number' && (s.fight.kind === 'boss' || s.fight.enemies[src].asc)) x *= bossDmgFactor(s, s.fight.enemies[src].asc);
   x *= Math.max(0, 1 + targetPct(s, dst, src, o));
   return x;
 }

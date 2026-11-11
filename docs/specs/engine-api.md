@@ -286,7 +286,9 @@ now-entry as it will be played (below). The engage round's intents are Unaware.
 End boss track: entries `{ turn (= round), aggro, target, actions[], cast, heavy, est, brand, shards, ifPhase,
 alt }`: `actions` as in the boss intent (the first entry is this round's intent), `brand` = a BRAND stack at the end
 of that round, `shards` = a Shards wave at its start, `ifPhase` = the next phase for later rounds while phase < 3,
-and `alt` = the actions if that phase starts this round (null when they are the same).
+and `alt` = the actions if that phase starts this round (null when they are the same). (M2b v6) Every `est` of the
+end-boss fight (Oruvath and the Shards) includes BOSS_DMG_MULT × (1 + asc), as their hits and the Brand's ticks do
+(rules 10.1, `C.BOSS_DMG_MULT`; also at Ascendancy 0); `bossStart.asc` and `fight.boss.asc` stay the Ascendancy alone.
 
 Normal intent: `{ id, name, kind, target ('player'|'pet'|'all'|'self'|ally index), est (estimated damage or
 heal), cast (interruptible), heavy (telegraphed big hit), school, hits, turn, windup (combat v2.1: a wind-up) }`. Kinds: `hit`, `rend`, `cleave`,
