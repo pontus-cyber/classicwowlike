@@ -79,6 +79,7 @@
 // Names (owner screenshot 2026-11-11 08:31): actionName gives every damage source and enemy action by its display name (a
 // content ability by its content name), never an id; the summary's Killed by and the combat log use it.
 // bridge.talentInfo(id) = R.talentInfo (talent totals, owner feedback 2026-11-11 08:14); mock: null.
+// bridge.damageView() = R.damageView (the character sheet's damage block, owner feedback 2026-11-11 11:58); mock: null.
 
 import * as R from '../rules.js';
 import { CONTENT } from '../content/index.js';
@@ -1544,6 +1545,11 @@ function engineBackend(seedOpt, runOpts = {}) {
       if (!R.talentInfo) return null;
       try { return R.talentInfo(st, id); } catch { return null; }
     },
+    /** The character sheet's damage block (R.damageView, engine-api.md 1; owner feedback 2026-11-11 11:58). */
+    damageView() {
+      if (!R.damageView) return null;
+      try { return R.damageView(st); } catch { return null; }
+    },
   };
 }
 
@@ -1619,6 +1625,8 @@ export class Bridge {
   heatPreview(action) { return this.backend.heatPreview ? this.backend.heatPreview(action) : null; }
   /** Talent totals (R.talentInfo: per rank, now, next); null in mock mode. */
   talentInfo(id) { return this.backend.talentInfo ? this.backend.talentInfo(id) : null; }
+  /** The character sheet's damage block (R.damageView: main attack, pet, bonus, value per point); null in mock mode. */
+  damageView() { return this.backend.damageView ? this.backend.damageView() : null; }
   subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   get canDebug() { return !!this.backend.canDebug; }
 }

@@ -18,6 +18,31 @@ const TREE_BG = {
   beastbond: ['#3a2c18', '#120c06'], marksmanship: ['#2c3a1e', '#0c1208'], wildcraft: ['#1e3a2e', '#08140e'],
 };
 
+const num2 = (x) => (Math.round(x * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
+const signPct = (x) => `${x >= 0 ? '+' : '−'}${(Math.round(Math.abs(x) * 1000) / 10).toLocaleString('en-US', { maximumFractionDigits: 1 })} %`;
+/**
+ * The character sheet's Damage block (owner feedback 2026-11-11 11:58): R.damageView's damage bonus, the main attack's
+ * hit range and average with crits, the Hunter pet's; hover for the crit range and chance. No damage maths here.
+ */
+function damageBlock(dv) {
+  const line = (cls, label, a, sub) => {
+    const el = h('div.dmrow' + cls, h('span.dk', label), h('b.dr', `${fmtNum(a.lo)}–${fmtNum(a.hi)}`), h('span.da', `avg ${num2(a.avg)}`));
+    el.dataset.lo = String(a.lo); el.dataset.hi = String(a.hi); el.dataset.avg = String(a.avg);
+    tip(el, () => h('div', h('div.tt-name', label), h('div.tt-line', `A hit: ${fmtNum(a.lo)}–${fmtNum(a.hi)} damage`),
+      h('div.tt-line', `A critical hit: ${fmtNum(a.critLo)}–${fmtNum(a.critHi)} (${pct(a.crit, 1)} chance, × ${a.critMult.toFixed(2)})`),
+      h('div.tt-line', `Average per use: ${num2(a.avg)}, critical hits included`),
+      a.pct ? h('div.tt-line', `Damage bonus on it: ${signPct(a.pct)}`) : null, sub ? h('div.tt-sub', sub) : null,
+      h('div.tt-hint', 'On a foe of your level with no armour. Armour, level and misses change what lands.')));
+    return el;
+  };
+  const bonus = h('span.dmbonus', h('span.dk', 'bonus'), h('b.dr', signPct(dv.pct)));
+  bonus.dataset.pct = String(dv.pct);
+  tip(bonus, () => h('div', h('div.tt-name', 'Damage bonus'), h('div.tt-line', 'Every bonus to your damage added up: talents, boons, elixirs and, in a fight, your buffs.'), h('div.tt-sub', `Now ${signPct(dv.pct)} on every attack`)));
+  return h('div.dmgblock', h('div.dmhead', h('span', 'Damage'), bonus),
+    line('.dmmain', dv.main.name, dv.main, `Your main attack, trained to level ${dv.main.tl}`),
+    dv.pet ? line('.dmpet', `${dv.pet.name} (pet)`, dv.pet, 'Your pet\'s attack') : null);
+}
+
 export function createWindows(root, ctx) {
   const layer = h('div#windows');
   root.appendChild(layer);
@@ -50,15 +75,19 @@ export function createWindows(root, ctx) {
       drawHumanoid(g, 250, 636, 4.6, HERO_LOOKS[p.classId], { t: 1.2 });
       const s = p.stats;
       const stat = (k, val) => h('div', h('span', k), h('b', val));
+      // the damage block (owner feedback 2026-11-11 11:58): every number from the engine (R.damageView), none worked out here
+      const dv = ctx.bridge.damageView ? ctx.bridge.damageView() : null;
+      const perTip = (el, name, per) => { if (dv) tip(el, () => h('div', h('div.tt-name', name), per > 0 ? h('div.tt-line', `1 ${name} = +${num2(per)} damage on ${dv.main.name}`) : h('div.tt-line', `${name} does not add to ${dv.main.name}`), h('div.tt-sub', 'Average per use, critical hits included, on a foe of your level with no armour'))); return el; };
       const resName = { energy: 'Energy', mana: 'Mana', focus: 'Focus' }[p.res.kind];
       // resurrect charges (rules 9, M2 v3): what a death would use now; Second Breath not in the final fight
       const rt = resurrectText(p, !!(v.combat && v.combat.isBoss && !v.combat.over));
       const body = h('div', h('div.paperdoll', h('div.colslots', ['head', 'neck', 'chest', 'hands', 'legs'].map(slotEl)), model, h('div.colslots', ['feet', 'ring', 'trinket', 'weapon', 'offhand'].map(slotEl))),
         h('div.statgrid', stat('Health', `${fmtNum(p.hp)} / ${fmtNum(p.maxHp)}`), stat(resName, `${fmtNum(p.res.cur)} / ${fmtNum(p.res.max)}`),
           stat('Stamina', fmtNum(s.sta)), stat('Agility', fmtNum(s.agi)), stat('Intellect', fmtNum(s.int)), stat('Spirit', fmtNum(s.spi)),
-          stat('Power', fmtNum(s.power)), stat('Critical strike', pct(s.crit, 1)), stat('Dodge', pct(s.dodge, 1)), stat('Armor', fmtNum(s.armor)),
-          stat('Weapon damage', fmtNum(s.wd || 0)), stat('Crit damage', `× ${(s.critMult || 1.5).toFixed(2)}`),
-          h('div.wide.resline', h('span', 'Resurrections'), h('b', rt.list)), rt.note ? h('div.wide.resnote', rt.note) : null));
+          perTip(stat('Power', fmtNum(s.power)), 'Power', dv && dv.perPower), stat('Critical strike', pct(s.crit, 1)), stat('Dodge', pct(s.dodge, 1)), stat('Armor', fmtNum(s.armor)),
+          perTip(stat('Weapon damage', fmtNum(s.wd || 0)), 'Weapon damage', dv && dv.perWd), stat('Crit damage', `× ${(s.critMult || 1.5).toFixed(2)}`),
+          h('div.wide.resline', h('span', 'Resurrections'), h('b', rt.list)), rt.note ? h('div.wide.resnote', rt.note) : null),
+        dv ? damageBlock(dv) : null);
       return frame('character', `${p.name}`, `Level ${p.level} ${p.className}`, body);
     },
     bags(v) {

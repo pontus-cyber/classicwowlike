@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M]
+ *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -110,6 +110,12 @@
  *      unnamed; the quest log lists every contract; zone 2's hub (Dev menu Start at) shows its offer and Take pays from
  *      Reserve. Then seed 1 on the engine's autoplay choices to a completed contract: its reward window (title, +XP and gold
  *      = the engine's events, the item cards) and the choice. No console errors.
+ *   N  the fog map (docs/specs/expedition.md 4-6, 9.2; M2b 2b.6), real engine at Instant speed, ?prep=1, seed M_SEED with
+ *      Region Charts: every node's fog state (seen, remembered, type known, unknown), level, enemy count, site marks and moves,
+ *      the region tints and rim names, the Roads' signposts, the Shardfall, the Dimming's wash and "dims in N" clocks = R.mapView
+ *      of a Node twin (nothing the view hides is drawn); the disc round, in view and readable; again once the Dimming spread.
+ *   O  the character sheet's Damage block (owner feedback 2026-11-11 11:58): bonus, main attack and pet ranges and averages, the
+ *      Power and Weapon damage hovers = R.damageView of a Node twin, Hunter and Mage, at the hub and in a fight.
  *
  * Seeds were picked with the engine of 3559e0e (M2 v2): seed 30's first quest has two Guardians that last long
  * enough for the potion and Autoplay checks. M2 v3 (77c0ca5): seed 1's autoplay run no longer reaches the camp, so part B
@@ -138,7 +144,7 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -2849,6 +2855,181 @@ async function partMReward(browser, W, H) {
   await context.close();
 }
 
+// ------------------------------------------------------------------ part N: the fog map (expedition.md 4-6, 9.2; M2b 2b.6)
+// Real engine at Instant speed, ?prep=1, seed M_SEED: two contracts and Region Charts bought, set out. Every node's fog
+// state, the regions, Roads, the Shardfall, the Dimming's wash and clocks, site marks and moves are compared with
+// R.mapView of a Node twin (mTwin); nothing the view hides is drawn. Then the run on the engine's autoplay choices until
+// the Dimming has spread, and the same checks again.
+/** The fog map's DOM, as the checks read it. */
+const fogDom = (page) => page.evaluate(() => {
+  const r = (el) => { const b = el.getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom].map(Math.round); };
+  const disc = document.querySelector('#screens .expmap .xdisc');
+  return {
+    disc: disc ? r(disc) : null,
+    nodes: [...document.querySelectorAll('#screens .expmap .mnode')].map((n) => ({ id: Number(n.dataset.node), fog: n.dataset.fog, img: !!n.querySelector('.ring img'), label: n.querySelector('.cl').textContent,
+      aria: n.getAttribute('aria-label'), foes: n.querySelector('.xfoes') ? Number(n.querySelector('.xfoes').dataset.foes) : null, clock: n.querySelector('.xclock') ? Number(n.querySelector('.xclock').dataset.dimsIn) : null,
+      reach: n.classList.contains('reach'), here: n.classList.contains('here'), dimmed: n.classList.contains('dimmed'), sites: n.querySelector('.xsite') ? n.querySelector('.xsite').dataset.sites : null, rect: r(n), size: n.getBoundingClientRect().width })),
+    tints: [...document.querySelectorAll('#screens .expmap .xregions path')].map((x) => Number(x.dataset.region)),
+    names: [...document.querySelectorAll('#screens .expmap .xrname')].map((x) => ({ region: Number(x.dataset.region), text: x.textContent })),
+    legend: document.querySelectorAll('#screens .expmap .xreg').length,
+    roads: [...document.querySelectorAll('#screens .expmap .xroad')].map((x) => ({ id: Number(x.dataset.road), text: x.innerText.replace(/\s+/g, ' '), rect: r(x) })),
+    sides: [...document.querySelectorAll('#screens .expmap .xside .xpanel')].map(r),
+    shard: document.querySelectorAll('#screens .expmap .xshard').length, wash: document.querySelectorAll('#screens .expmap .xdimwash path').length,
+    mine: (document.querySelector('#screens .expmap .xmine') || {}).dataset ? Number(document.querySelector('#screens .expmap .xmine').dataset.dimsIn) : null,
+    moves: document.querySelectorAll('#screens .expmap .expmoves .em').length,
+  };
+});
+/** What the fog map must show of R.mapView mv; a list of differences (empty = equal). */
+function fogDiff(d, mv, nextZone) {
+  const out = [];
+  const fogOf = (n) => (n.hub ? 'seen' : n.know === 'full' ? (n.hops <= mv.vision.radius ? 'seen' : 'remembered') : n.know === 'type' ? 'typed' : 'unknown');
+  if (d.nodes.length !== mv.nodes.length) out.push(`${d.nodes.length} nodes drawn (view ${mv.nodes.length})`);
+  // hops from the Shardfall on the view's edges, for the clocks within two hops of the front
+  const nb = mv.nodes.map(() => []); for (const [a, b] of mv.edges) { nb[a].push(b); nb[b].push(a); }
+  const hs = mv.nodes.map(() => Infinity); hs[mv.shardfall] = 0; const q = [mv.shardfall];
+  while (q.length) { const x = q.shift(); for (const y of nb[x]) if (hs[y] === Infinity) { hs[y] = hs[x] + 1; q.push(y); } }
+  const front = mv.dim.off ? -Infinity : mv.dim.front;
+  const moves = new Set(mv.moves.map((m) => m.nodeId));
+  for (const n of mv.nodes) {
+    const e = d.nodes.find((x) => x.id === n.id);
+    if (!e) { out.push(`node ${n.id} missing`); continue; }
+    const f = fogOf(n);
+    if (e.fog !== f) out.push(`node ${n.id} fog ${e.fog} (view ${f})`);
+    if (n.know === 'none' && !n.hub && (e.img || e.label !== '?' || !/^Unknown/.test(e.aria) || e.foes !== null)) out.push(`hidden node ${n.id} shows more than the view: ${JSON.stringify(e)}`);
+    if (n.know === 'type' && (e.label !== `${mv.bands[n.ring][0]}–${mv.bands[n.ring][1]}` || e.foes !== null || !e.img)) out.push(`type-known node ${n.id}: label ${e.label}, foes ${e.foes}`);
+    if (n.know === 'full' && !n.hub && n.cl && e.label !== String(n.cl)) out.push(`seen node ${n.id} level ${e.label} (view ${n.cl})`);
+    const foes = n.know === 'full' && !n.hub && !n.done && n.type !== 'dungeon' && n.archetypes && n.archetypes.length ? n.archetypes.length : null;
+    if (e.foes !== foes) out.push(`node ${n.id} enemy count ${e.foes} (view ${foes})`);
+    const clock = !mv.dim.off && !n.dimmed && Number.isFinite(n.dimsIn) && (hs[n.id] <= front + 2 || (n.id === mv.pos && n.dimsIn <= 2)) ? n.dimsIn : null;
+    if (e.clock !== clock) out.push(`node ${n.id} clock ${e.clock} (view ${clock}: dimsIn ${n.dimsIn}, ${hs[n.id]} hops from the Shardfall, front ${front})`);
+    if (e.reach !== moves.has(n.id)) out.push(`node ${n.id} reachable ${e.reach}`);
+    if (e.here !== (n.id === mv.pos)) out.push(`node ${n.id} here ${e.here}`);
+    if (e.dimmed !== !!n.dimmed) out.push(`node ${n.id} dimmed ${e.dimmed}`);
+    if ((e.sites || null) !== (n.sites ? n.sites.join(',') : null)) out.push(`node ${n.id} sites ${e.sites} (view ${n.sites})`);
+  }
+  const tintWant = mv.nodes.filter((n) => !n.hub && n.region != null).map((n) => n.region).sort();
+  if (JSON.stringify([...d.tints].sort()) !== JSON.stringify(tintWant)) out.push(`region tints on ${d.tints.length} nodes (view gives ${tintWant.length} regions)`);
+  const nameWant = [...new Set(mv.nodes.filter((n) => n.ring >= 2 && n.region != null).map((n) => n.region))].sort();
+  if (JSON.stringify(d.names.map((x) => x.region).sort()) !== JSON.stringify(nameWant) || d.names.some((x) => x.text !== mv.regions[x.region].name)) out.push(`region names ${JSON.stringify(d.names)} (view: ${nameWant})`);
+  if (d.legend !== mv.regions.length) out.push(`legend ${d.legend} regions`);
+  if (d.roads.length !== mv.roads.length || d.roads.some((r) => !mv.roads.includes(r.id) || !r.text.includes(nextZone))) out.push(`roads ${JSON.stringify(d.roads.map((r) => r.text))} (view ${mv.roads}, to ${nextZone})`);
+  if (d.shard !== 1) out.push(`${d.shard} Shardfall stars`);
+  if (d.wash !== mv.nodes.filter((n) => n.dimmed).length) out.push(`Dimming wash on ${d.wash} nodes (view ${mv.nodes.filter((n) => n.dimmed).length})`);
+  const me = mv.nodes[mv.pos]; if (d.mine !== (me.dimmed ? 0 : me.dimsIn)) out.push(`"your node dims in" ${d.mine} (view ${me.dimsIn})`);
+  if (d.moves !== mv.moves.length) out.push(`${d.moves} moves listed (view ${mv.moves.length})`);
+  return out;
+}
+/** The disc is round and in view, every node inside it and big enough to read, no signpost on a side panel. */
+function fogLayout(d, W, H) {
+  const out = [];
+  const [l, t, r, b] = d.disc || [0, 0, 0, 0];
+  if (!d.disc || Math.abs((r - l) - (b - t)) > 2 || l < 0 || t < 0 || r > W || b > H) out.push(`disc ${d.disc}`);
+  if ((r - l) < 0.45 * H) out.push(`disc ${r - l} px high, under 45 % of the window`);
+  for (const n of d.nodes) { const [nl, nt, nr, nb] = n.rect; if (nl < l - 4 || nt < t - 4 || nr > r + 4 || nb > b + 4) out.push(`node ${n.id} outside the disc ${n.rect}`); if (n.size < 24) out.push(`node ${n.id} ${n.size} px`); }
+  for (const s of d.roads) for (const p of d.sides) if (s.rect[0] < p[2] && s.rect[2] > p[0] && s.rect[1] < p[3] && s.rect[3] > p[1]) out.push(`signpost ${s.text} ${s.rect} over a side panel ${p}`);
+  return out;
+}
+async function partN(browser, W, H) {
+  const { context, page, errors } = await open(browser, W, H, `seed=${M_SEED}&speed=instant&prep=1`);
+  const twin = mTwin(M_SEED);
+  const nextZone = CONTENT.zones[1].name;
+  try {
+    await page.keyboard.press('Enter'); await idle(page); await page.waitForTimeout(750);
+    await page.locator('#prep .pp-card').nth(0).click(); await idle(page);
+    await page.locator('#prep .pp-card').nth(1).click(); await idle(page);
+    await page.locator('#prep .pp-opt[data-id="prep_charts"]').click(); await idle(page);
+    await page.keyboard.press('Enter'); await idle(page);
+    const got = page.getByRole('button', { name: 'Got it' }); if (await got.count()) await got.first().click();
+    await page.locator('#screens .side .btn.primary').click(); await idle(page);
+    let s = await twin.sync(page); let mv = R.mapView(s);
+    let d = await fogDom(page); let diff = fogDiff(d, mv, nextZone);
+    const fogs = (x) => ['seen', 'remembered', 'typed', 'unknown'].map((f) => `${x.nodes.filter((n) => n.fog === f).length} ${f}`).join(', ');
+    check('N-fog', `zone 1 after setting out with Region Charts: every node's fog state (${fogs(d)}), level, enemy count, site marks and moves = R.mapView; hidden nodes show "?" only`, s.phase === 'MAP' && !diff.length, diff.slice(0, 6).join(' | '));
+    check('N-fog', `regions: a tint on the ${d.tints.length} nodes whose region the view gives, ${d.names.length} names on the rim, the legend; ${d.roads.length} Roads signposted to ${nextZone}; the Shardfall's star; "your node dims in ${d.mine}"`, mv.vision.regions && d.names.length === mv.regions.length && !diff.length, JSON.stringify({ names: d.names, roads: d.roads.map((r) => r.text) }));
+    const lay = fogLayout(d, W, H);
+    check('N-fog', `readable at ${W}x${H}: the disc round and in view (${d.disc && d.disc[2] - d.disc[0]} px), every node inside it and at least 24 px, no signpost over a side panel`, !lay.length, lay.slice(0, 5).join(' | '));
+    // a hover: the move's tooltip names the node and its tolls; a hidden node's names nothing
+    const hid = mv.nodes.find((n) => n.know === 'none' && !n.shardfall && !n.road);
+    const t1 = await tipOf(page, page.locator(`#screens .expmap .mnode[data-node="${hid.id}"]`));
+    check('N-fog', `a hidden node's tooltip: "Unknown", its ring's levels ${mv.bands[hid.ring].join('–')} and its region (charts), nothing of its content`, /^Unknown/.test(t1) && t1.includes(`levels ${mv.bands[hid.ring][0]}–${mv.bands[hid.ring][1]}`) && !/Level \d|Foes|Wave|Click to/.test(t1), t1);
+    await shot(page, 'N-fog-start');
+    // the run on the engine's autoplay choices until the Dimming has spread two hops, then the map again
+    const r = await page.evaluate(async () => {
+      const ui = window.__ui;
+      for (let n = 0; n < 600; n++) { const v = ui.view(); if (v.phase === 'SUMMARY') return false; if (v.phase === 'MAP' && v.zone && v.zone.exp && v.zone.exp.z === 1 && v.zone.exp.dim.front >= 1) return true; if (v.zone && v.zone.exp && v.zone.exp.z > 1) return false; await ui.act({ type: 'AUTO' }); await ui.idle(); }
+      return false;
+    });
+    if (!r) throw new Error(`setup: seed ${M_SEED}'s run left zone 1 before the Dimming spread`);
+    await idle(page); await page.mouse.move(2, 2);
+    s = await twin.sync(page); mv = R.mapView(s);
+    d = await fogDom(page); diff = fogDiff(d, mv, nextZone);
+    check('N-fog', `the Dimming spread (front ${mv.dim.front}, zone toll ${mv.zt}): its wash on the ${d.wash} Dimmed nodes, "dims in N" on the ${d.nodes.filter((n) => n.clock !== null).length} nodes within two hops of the front, the rest as R.mapView`, mv.dim.front >= 1 && d.wash > 0 && !diff.length, diff.slice(0, 6).join(' | '));
+    await page.waitForTimeout(2500); await shot(page, 'N-fog-dim');
+  } catch (e) {
+    await shot(page, 'N-error');
+    check('-', 'part N (fog map) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
+  }
+  check('-', 'part N: no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+  await context.close();
+}
+
+// ------------------------------------------------------------------ part O: the character sheet's Damage block
+// Owner feedback 2026-11-11 11:58: every number of the block and the Power / Weapon damage hovers = R.damageView of a
+// Node twin; a Hunter (pet line) and a Mage (no Weapon damage on Ember Bolt), in a hub and in a fight.
+async function partO(browser, W, H) {
+  for (const cls of ['hunter', 'mage']) {
+    const { context, page, errors } = await open(browser, W, H, 'seed=12&speed=instant');
+    const twin = makeTwinOpts(12, {});
+    try {
+      await page.locator(`#create .ccard[data-cls="${cls}"]`).click();
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      const got = page.getByRole('button', { name: 'Got it' }); if (await got.count()) await got.first().click();
+      const read = async () => {
+        if (!(await page.locator('#win-character').count())) { await page.keyboard.press('KeyC'); await idle(page); }
+        return page.evaluate(() => {
+          const b = document.querySelector('#win-character .dmgblock'); if (!b) return null;
+          const row = (sel) => { const e = b.querySelector(sel); return e ? { name: e.querySelector('.dk').textContent, range: e.querySelector('.dr').textContent, avg: e.querySelector('.da').textContent, lo: Number(e.dataset.lo), hi: Number(e.dataset.hi), mean: Number(e.dataset.avg) } : null; };
+          return { pct: Number(b.querySelector('.dmbonus').dataset.pct), bonus: b.querySelector('.dmbonus .dr').textContent, main: row('.dmmain'), pet: row('.dmpet') };
+        });
+      };
+      const cmp = (ui, dv) => {
+        const out = [];
+        if (!ui) return ['no Damage block'];
+        if (ui.pct !== dv.pct) out.push(`bonus ${ui.pct} (engine ${dv.pct})`);
+        const one = (u, x, what) => { if (!u) { out.push(`${what} missing`); return; } if (u.lo !== x.lo || u.hi !== x.hi || u.mean !== x.avg || u.range.replace(/[\s,  ]/g, '') !== `${x.lo}–${x.hi}` || !u.avg.includes(String(Math.round(x.avg * 100) / 100))) out.push(`${what} ${JSON.stringify(u)} (engine ${x.lo}-${x.hi}, ${x.avg})`); };
+        one(ui.main, dv.main, dv.main.name);
+        if (dv.pet) one(ui.pet, dv.pet, 'pet'); else if (ui.pet) out.push('a pet line without a pet');
+        return out;
+      };
+      let s = await twin.sync(page); let dv = R.damageView(s);
+      let ui = await read(); let diff = cmp(ui, dv);
+      check('O-sheet', `${cls} at the hub: Damage bonus ${ui && ui.bonus}, ${dv.main.name} ${dv.main.lo}–${dv.main.hi} avg ${dv.main.avg}${dv.pet ? `, ${dv.pet.name} ${dv.pet.lo}–${dv.pet.hi}` : ''} = R.damageView`, !diff.length, diff.join(' | '));
+      const tp = await tipOf(page, page.locator('#win-character .statgrid div').filter({ hasText: 'Power' }).first());
+      const tw = await tipOf(page, page.locator('#win-character .statgrid div').filter({ hasText: 'Weapon damage' }).first());
+      const n2 = (x) => (Math.round(x * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
+      const wantW = dv.perWd > 0 ? `1 Weapon damage = +${n2(dv.perWd)} damage on ${dv.main.name}` : `Weapon damage does not add to ${dv.main.name}`;
+      check('O-sheet', `${cls}: hovering Power and Weapon damage gives the value per point ("1 Power = +${n2(dv.perPower)} damage on ${dv.main.name}"; "${wantW}")`, tp.includes(`1 Power = +${n2(dv.perPower)} damage on ${dv.main.name}`) && tw.includes(wantW), `${tp} || ${tw}`);
+      const tm = await tipOf(page, page.locator('#win-character .dmmain'));
+      check('O-sheet', `${cls}: the main attack's tooltip has its crit range and chance (${dv.main.critLo}–${dv.main.critHi})`, tm.includes(`A critical hit: ${dv.main.critLo}–${dv.main.critHi}`), tm);
+      const pl = await placement(page.locator('#win-character .dmgblock'));
+      check('O-sheet', `${cls}: the Damage block is fully in view in the character window`, fullyShown(pl), placeText(pl));
+      if (cls === 'hunter') await shot(page, 'O-sheet');
+      // in a fight: the engine's numbers with the fight's buffs
+      await page.keyboard.press('KeyC'); await idle(page);
+      const r = await page.evaluate(async () => { const ui = window.__ui; for (let n = 0; n < 300; n++) { const v = ui.view(); if (v.combat && !v.combat.over) return true; if (v.phase === 'SUMMARY') return false; await ui.act({ type: 'AUTO' }); await ui.idle(); } return false; });
+      if (!r) throw new Error('setup: no fight reached');
+      s = await twin.sync(page); dv = R.damageView(s);
+      ui = await read(); diff = cmp(ui, dv);
+      check('O-sheet', `${cls} in a fight (round ${s.fight.round}): the block = R.damageView`, !diff.length, diff.join(' | '));
+    } catch (e) {
+      await shot(page, `O-error-${cls}`);
+      check('-', `part O (${cls}) ran to the end`, false, e.message.split('\n').slice(0, 3).join(' / '));
+    }
+    check('-', `part O (${cls}): no console errors, page errors or requests`, errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+}
+
 // ------------------------------------------------------------------ run
 const browser = await chromium.launch({ headless: true });
 for (const [W, H] of SIZES) {
@@ -2866,6 +3047,8 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('K')) await partK(browser, W, H);
   if (PARTS.includes('L')) await partL(browser, W, H);
   if (PARTS.includes('M')) await partM(browser, W, H);
+  if (PARTS.includes('N')) await partN(browser, W, H);
+  if (PARTS.includes('O')) await partO(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);

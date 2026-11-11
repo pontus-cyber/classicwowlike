@@ -350,11 +350,50 @@ export function buildMap(v, ctx, readOnly) {
   if (readOnly) win.id = 'win-map';
   return win;
 }
+// ------------------------------------------------------------------ the fog map (expedition.md 4-6, 9.2; M2b 2b.6)
+// Everything drawn comes from mapView (zone.exp, engine-api.md 10.3): rings, edges, every node's fog state, regions
+// where `region` is given, landmarks, the Dimming (dimmed, dimsIn, dim.front), site marks and moves. Nothing else of the
+// zone is read; the Shardfall's hop distances are counted on mapView's own edges (the skeleton is always visible, 5.1).
+const SVGNS = 'http://www.w3.org/2000/svg';
+const REGION_TINT = { wilds: '#7fa646', road: '#c8913c', haunt: '#8a6cc0', steads: '#e0bc52' };
+const REGION_FEEL = { wilds: 'Wilds: beasts, open country', road: 'Road country: bandits and waystations', haunt: 'Haunt: ruins, casters and shrines', steads: 'Steads: farms, villages and rest' };
+const XR = [0, 138, 262, 376]; // ring radii in the disc's 1000 units
+const XCELL = [[0, 66], [66, 200], [200, 320], [320, 468]]; // each ring's band of the disc
+const svgEl = (tag, attrs = {}, parent = null) => { const e = document.createElementNS(SVGNS, tag); for (const [k, x] of Object.entries(attrs)) e.setAttribute(k, x); if (parent) parent.appendChild(e); return e; };
+const polar = (r, deg) => { const a = (deg * Math.PI) / 180; return [500 + r * Math.cos(a), 500 + r * Math.sin(a)]; };
+/** A node's cell: the annular sector of its ring between the half-steps to its ring neighbours (the hub: a disc). */
+function cellPath(ring, angle, step) {
+  const [r0, r1] = XCELL[ring];
+  if (ring === 0) return `M${500 - r1} 500 a${r1} ${r1} 0 1 0 ${2 * r1} 0 a${r1} ${r1} 0 1 0 ${-2 * r1} 0 Z`;
+  const a0 = angle - step / 2 - 0.6; const a1 = angle + step / 2 + 0.6; const large = a1 - a0 > 180 ? 1 : 0;
+  const [x0, y0] = polar(r1, a0); const [x1, y1] = polar(r1, a1); const [x2, y2] = polar(r0, a1); const [x3, y3] = polar(r0, a0);
+  return `M${x0.toFixed(1)} ${y0.toFixed(1)} A${r1} ${r1} 0 ${large} 1 ${x1.toFixed(1)} ${y1.toFixed(1)} L${x2.toFixed(1)} ${y2.toFixed(1)} A${r0} ${r0} 0 ${large} 0 ${x3.toFixed(1)} ${y3.toFixed(1)} Z`;
+}
+/** Hops from `from` on the view's edges (breadth first). */
+function hopsFrom(mv, from) {
+  const nb = mv.nodes.map(() => []);
+  for (const [a, b] of mv.edges) { nb[a].push(b); nb[b].push(a); }
+  const d = mv.nodes.map(() => Infinity); d[from] = 0; const q = [from];
+  while (q.length) { const x = q.shift(); for (const y of nb[x]) if (d[y] === Infinity) { d[y] = d[x] + 1; q.push(y); } }
+  return d;
+}
+/** The circular mean of angles (degrees). */
+function meanAngle(list) { let x = 0; let y = 0; for (const a of list) { x += Math.cos((a * Math.PI) / 180); y += Math.sin((a * Math.PI) / 180); } return (Math.atan2(y, x) * 180) / Math.PI; }
+/** Where a Road leads: the next zone's name (zone 6's: the Camp). */
+function roadTo(v, ctx) {
+  const zs = ctx.data.zones || []; const z = v.zone.idx;
+  if (zs[z] && zs[z].name) return zs[z].name;
+  return (ctx.data.camp && ctx.data.camp.name) || 'the Camp';
+}
+/** The fog state of a node: 'seen' (in sight now), 'known' (seen before, or its type known), 'unknown'. */
+function fogState(n, mv) { return n.hub ? 'seen' : n.know === 'full' ? (n.hops <= mv.vision.radius ? 'seen' : 'remembered') : n.know === 'type' ? 'typed' : 'unknown'; }
+
 /**
- * The expedition zone map (rules 1.9, engine-api.md 10.3) as a plain disc: the engine's nodes by ring and angle, the
- * edges, the player's node, Roads, the Shardfall and Dimmed nodes, with MOVE on a click and PASS_THROUGH in the list of
- * moves. A preview behind ?expedition=1 so heat can be tried in expedition runs; the fog map with regions, landmarks
- * and Dimming clocks is M2b 2b.6. Every move shows its heat preview (MOVE, PASS_THROUGH, TAKE_ROAD, RING_BELL).
+ * The expedition zone map (rules 1.9, engine-api.md 10.3; expedition.md 9.2): the zone disc with its rings, paths,
+ * region tints and names (where mapView gives a node's region), the Roads as signposts on the rim with the zone they lead
+ * to, the Shardfall as a cracked star, the Dimming as a dark wash over Dimmed nodes with "dims in N" on every node within
+ * two hops of its front, fog (seen, remembered, type only, unknown), contract site marks, the player's node and the moves
+ * (MOVE on a click, PASS_THROUGH in the list). Every move shows its heat preview (MOVE, PASS_THROUGH, TAKE_ROAD, RING_BELL).
  */
 function buildExpMap(v, ctx, readOnly) {
   const z = v.zone; const mv = z.exp; const p = v.player;
@@ -364,7 +403,7 @@ function buildExpMap(v, ctx, readOnly) {
   if (!readOnly && mv.bell && mv.bell.charges > 0) acts.push([`Ring the Bell (${mv.bell.charges})`, { type: 'RING_BELL' }]);
   const btns = acts.map(([label, a]) => {
     const b = btn(label, () => ctx.act(a), a.type === 'TAKE_ROAD' ? '.primary' : '');
-    tip(b, () => h('div', h('div.tt-name', label), previewBlock(heatOf(ctx.view, a), ctx, { leaves: true })));
+    tip(b, () => h('div', h('div.tt-name', label), a.type === 'RING_BELL' ? h('div.tt-line', `${mv.texts && mv.texts.homeward_bell ? mv.texts.homeward_bell + ' ' : ''}Rung on the map: ${tolls(mv.bell.channelTime)} to ring, then the next zone's hub.`) : h('div.tt-line', `Leave for ${roadTo(v, ctx)}.`), previewBlock(heatOf(ctx.view, a), ctx, { leaves: true })));
     return ghostOn(b, ctx, a);
   });
   // the Spyglass (expedition.md 2.4; prep): arm it, then click any node: it and its neighbours come into full view, no tolls
@@ -375,36 +414,116 @@ function buildExpMap(v, ctx, readOnly) {
       h('div.tt-sub', `${mv.spyglass} ${plural(mv.spyglass, 'look')} left`), h('div.tt-hint', spy.armed ? 'Click a node on the map · Esc or this button to stop' : 'Click, then click a node')));
     btns.unshift(sb);
   } else if (spy.armed) spy.armed = false;
-  win.appendChild(h('div.mhead', h('div', h('div.title', z.name), h('div.subtitle', `Levels ${z.band[0]}–${z.band[1]} · expedition map (preview)`)), h('div.row', readOnly ? closeBtn(ctx, 'map') : null, ...btns)));
-  const body = h('div.mbody.parchment');
-  const svgNS = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(svgNS, 'svg');
-  svg.setAttribute('viewBox', '0 0 1000 1000'); svg.setAttribute('preserveAspectRatio', 'none');
-  body.appendChild(svg);
-  const ringR = 140; const maxRing = Math.max(1, ...mv.nodes.map((n) => n.ring));
-  const pos = (n) => { const r = (n.ring / maxRing) * 3 * ringR; const a = (n.angle * Math.PI) / 180; return [500 + r * Math.cos(a), 500 + r * Math.sin(a)]; };
-  for (const [a, b] of mv.edges) {
-    const [x1, y1] = pos(mv.nodes[a]); const [x2, y2] = pos(mv.nodes[b]);
-    const ln = document.createElementNS(svgNS, 'line');
-    const near = (a === mv.pos || b === mv.pos);
-    for (const [k, val] of Object.entries({ x1, y1, x2, y2, stroke: near ? '#c8901a' : '#7a5a30', 'stroke-width': near ? 5 : 3, 'stroke-dasharray': near ? '2 10' : '10 12', 'stroke-linecap': 'round', 'vector-effect': 'non-scaling-stroke', opacity: near ? 0.95 : 0.5 })) ln.setAttribute(k, val);
-    svg.appendChild(ln);
-  }
-  const moves = new Map(mv.moves.map((m) => [m.nodeId, m]));
+  const dm = mv.dim || {}; const off = !!dm.off;
+  win.appendChild(h('div.mhead', h('div', h('div.title', z.name), h('div.subtitle', `Levels ${z.band[0]}–${z.band[1]} · zone toll ${mv.zt}`)), h('div.row', readOnly ? closeBtn(ctx, 'map') : null, ...btns)));
+
+  // ---- the disc
+  const disc = h('div.xdisc');
+  const svg = svgEl('svg', { viewBox: '0 0 1000 1000', class: 'xsvg' });
+  disc.appendChild(svg);
+  const defs = svgEl('defs', {}, svg);
+  defs.innerHTML = '<radialGradient id="xg-land" cx="50%" cy="46%" r="55%"><stop offset="0" stop-color="#e9d6a8"/><stop offset=".62" stop-color="#d6bb84"/><stop offset=".9" stop-color="#a98552"/><stop offset="1" stop-color="#6e5130"/></radialGradient>'
+    + '<radialGradient id="xg-dim" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#140a26" stop-opacity=".95"/><stop offset=".7" stop-color="#1e1038" stop-opacity=".85"/><stop offset="1" stop-color="#2a1650" stop-opacity="0"/></radialGradient>'
+    + '<filter id="xf-soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="9"/></filter>'
+    + '<filter id="xf-mist" x="-30%" y="-30%" width="160%" height="160%"><feTurbulence type="fractalNoise" baseFrequency=".012" numOctaves="3" seed="7" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="38"/><feGaussianBlur stdDeviation="7"/></filter>'
+    + '<filter id="xf-ink" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="3" result="g"/><feColorMatrix in="g" type="matrix" values="0 0 0 0 .35  0 0 0 0 .24  0 0 0 0 .12  0 0 0 .22 0" result="gc"/><feComposite in="gc" in2="SourceGraphic" operator="in"/></filter>'
+    + '<clipPath id="xc-disc"><circle cx="500" cy="500" r="468"/></clipPath>';
+  // land: the painted parchment disc, a grain over it, the rim
+  svgEl('circle', { cx: 500, cy: 500, r: 482, fill: '#3a2814', opacity: 0.55, filter: 'url(#xf-soft)' }, svg);
+  svgEl('circle', { cx: 500, cy: 500, r: 468, fill: 'url(#xg-land)' }, svg);
+  svgEl('circle', { cx: 500, cy: 500, r: 468, fill: '#000', filter: 'url(#xf-ink)' }, svg);
+  const per = {}; for (const n of mv.nodes) per[n.ring] = (per[n.ring] || 0) + 1;
+  const step = (ring) => 360 / Math.max(1, per[ring] || 1);
+  // regions: a soft tint on every node whose region the view gives (seen, or Region Charts); names on the rim
+  const gReg = svgEl('g', { 'clip-path': 'url(#xc-disc)', filter: 'url(#xf-soft)', opacity: 0.66, class: 'xregions' }, svg);
+  const regAngles = new Map();
   for (const n of mv.nodes) {
-    const [x, y] = pos(n); const m = readOnly ? null : moves.get(n.id);
-    const known = n.know !== 'none';
-    const type = n.hub ? 'hub' : known && n.type ? n.type : null;
+    if (n.hub || n.region == null || !mv.regions[n.region]) continue;
+    svgEl('path', { d: cellPath(n.ring, n.angle, step(n.ring)), fill: REGION_TINT[mv.regions[n.region].kind] || '#a08a60', 'data-region': n.region }, gReg);
+    if (n.ring >= 2) { if (!regAngles.has(n.region)) regAngles.set(n.region, []); regAngles.get(n.region).push(n.angle); }
+  }
+  // rings and the rim
+  for (const r of XR.slice(1)) svgEl('circle', { cx: 500, cy: 500, r, fill: 'none', stroke: '#6a4a26', 'stroke-width': 1.6, 'stroke-dasharray': '3 9', opacity: 0.45 }, svg);
+  svgEl('circle', { cx: 500, cy: 500, r: 468, fill: 'none', stroke: '#4a3018', 'stroke-width': 5, opacity: 0.8 }, svg);
+  svgEl('circle', { cx: 500, cy: 500, r: 458, fill: 'none', stroke: '#8a6a3a', 'stroke-width': 1.2, opacity: 0.6 }, svg);
+  // region names along the rim, at the middle of the region's known nodes
+  for (const [ri, angs] of regAngles) {
+    const reg = mv.regions[ri]; if (!reg || !reg.name) continue;
+    const mid = meanAngle(angs); const span = 70; const r = 437;
+    const top = Math.sin((mid * Math.PI) / 180) < 0.05; // upper half: read clockwise; lower half: counter-clockwise, so the text stands upright
+    const [ax, ay] = polar(r, top ? mid - span / 2 : mid + span / 2); const [bx, by] = polar(r, top ? mid + span / 2 : mid - span / 2);
+    const id = `xr-arc-${ri}`;
+    svgEl('path', { id, d: `M${ax.toFixed(1)} ${ay.toFixed(1)} A${r} ${r} 0 0 ${top ? 1 : 0} ${bx.toFixed(1)} ${by.toFixed(1)}`, fill: 'none' }, defs);
+    const t = svgEl('text', { class: 'xrname', 'text-anchor': 'middle', dy: 7, 'data-region': ri }, svg);
+    const tp = svgEl('textPath', { href: `#${id}`, startOffset: '50%' }, t);
+    tp.textContent = reg.name;
+  }
+  // fog: mist over every node the player has not seen
+  const gFog = svgEl('g', { 'clip-path': 'url(#xc-disc)', filter: 'url(#xf-mist)', class: 'xfogwash' }, svg);
+  for (const n of mv.nodes) if (!n.hub && n.know !== 'full') svgEl('path', { d: cellPath(n.ring, n.angle, step(n.ring)), fill: n.know === 'type' ? '#cfc8bc' : '#b4b0aa', opacity: n.know === 'type' ? 0.34 : 0.52 }, gFog);
+  // the Dimming: a dark wash over every Dimmed node, from the Shardfall outward (a landmark: drawn over the fog, 5.1)
+  const gDim = svgEl('g', { 'clip-path': 'url(#xc-disc)', class: 'xdimwash' }, svg);
+  for (const n of mv.nodes) if (n.dimmed) svgEl('path', { d: cellPath(n.ring, n.angle, step(n.ring)), fill: '#1a0d30', opacity: 0.8, filter: 'url(#xf-soft)' }, gDim);
+  // paths: every edge; the ones from the player's node lit
+  const XY = (n) => polar(XR[n.ring], n.angle);
+  for (const [a, b] of mv.edges) {
+    const na = mv.nodes[a]; const nb = mv.nodes[b];
+    const [x1, y1] = XY(na); const [x2, y2] = XY(nb);
+    const near = !readOnly && (a === mv.pos || b === mv.pos);
+    const known = na.know !== 'none' && nb.know !== 'none';
+    // a path between two nodes of the same ring bends along it, as roads round a hill
+    let d = `M${x1.toFixed(1)} ${y1.toFixed(1)} L${x2.toFixed(1)} ${y2.toFixed(1)}`;
+    if (na.ring === nb.ring && na.ring > 0) d = `M${x1.toFixed(1)} ${y1.toFixed(1)} A${XR[na.ring]} ${XR[na.ring]} 0 0 ${((nb.angle - na.angle + 540) % 360) - 180 > 0 ? 1 : 0} ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+    svgEl('path', { d, fill: 'none', stroke: near ? '#f2c25a' : '#5a3c1c', 'stroke-width': near ? 5 : known ? 3.2 : 2.4, 'stroke-dasharray': near ? '3 9' : known ? '11 9' : '4 10', 'stroke-linecap': 'round', opacity: near ? 0.95 : known ? 0.62 : 0.4, class: near ? 'xedge near' : 'xedge' }, svg);
+  }
+  // the Shardfall: a cracked star of cold light
+  const sf = mv.nodes[mv.shardfall];
+  if (sf) {
+    const [sx, sy] = XY(sf); const g = svgEl('g', { class: 'xshard', transform: `translate(${sx.toFixed(1)} ${sy.toFixed(1)})` }, svg);
+    svgEl('circle', { r: 58, fill: '#7a5cff', opacity: 0.28, filter: 'url(#xf-soft)' }, g);
+    const pts = []; for (let i = 0; i < 16; i++) { const rr = i % 2 ? 17 : 44 - (i % 4 === 0 ? 0 : 8); const a = (i * Math.PI) / 8 - Math.PI / 2; pts.push(`${(rr * Math.cos(a)).toFixed(1)},${(rr * Math.sin(a)).toFixed(1)}`); }
+    svgEl('polygon', { points: pts.join(' '), fill: '#cfc2ff', stroke: '#2a1660', 'stroke-width': 3, opacity: 0.85 }, g);
+    svgEl('path', { d: 'M-4 -30 L3 -8 L-6 4 L5 22 M3 -8 L16 -4 M-6 4 L-20 9', fill: 'none', stroke: '#1a0c40', 'stroke-width': 2.6, 'stroke-linecap': 'round' }, g);
+  }
+  // ---- the Roads: signposts on the rim with the zone they lead to
+  const to = roadTo(v, ctx);
+  (mv.roads || []).forEach((rid, i) => {
+    const n = mv.nodes[rid]; if (!n) return;
+    const side = Math.abs(Math.cos((n.angle * Math.PI) / 180)) > 0.6; // at the left or right edge: the board stands above its post
+    const [x, y] = polar(side ? 484 : 478, n.angle); const right = Math.cos((n.angle * Math.PI) / 180) >= 0;
+    const name = mv.roadNames && mv.roadNames[i] ? mv.roadNames[i] : 'Road';
+    const sign = h('div.xroad' + (side ? '.side' : right ? '.r' : '.l') + (n.dimmed ? '.dimmed' : '') + (n.id === mv.pos ? '.on' : ''), { style: { left: `${x / 10}%`, top: `${y / 10}%` }, dataset: { road: rid } },
+      h('span.xpost'), h('span.xsign', h('b', side ? to : `${right ? '' : '« '}${to}${right ? ' »' : ''}`)));
+    tip(sign, () => h('div', h('div.tt-name', name), h('div.tt-line', `A Road out of the zone, to ${to}.`), h('div.tt-sub', `Standing on it: Take the Road · ${tolls(mv.travelTime)}`), n.dimmed ? h('div.tt-warn', 'Dimmed: a fight with Shardspawn first, then the Road can still be taken.') : null));
+    disc.appendChild(sign);
+  });
+
+  // ---- nodes
+  const front = off ? -Infinity : dm.front ?? -1;
+  const sfHops = sf ? hopsFrom(mv, mv.shardfall) : mv.nodes.map(() => Infinity);
+  const moves = new Map(mv.moves.map((m) => [m.nodeId, m]));
+  const finite = (x) => x != null && Number.isFinite(x);
+  for (const n of mv.nodes) {
+    const [x, y] = XY(n); const m = readOnly ? null : moves.get(n.id);
+    const fog = fogState(n, mv);
+    const type = n.hub ? 'hub' : n.know !== 'none' && n.type ? n.type : null;
     const here = n.id === mv.pos;
-    const el = h('button.mnode' + (m ? '.reach' : '') + (n.done && !n.hub ? '.visited' : '') + (here ? '.here' : '') + (n.dimmed ? '.dimmed' : '') + (type ? '' : '.fog'),
-      { style: { left: `${x / 10}%`, top: `${y / 10}%` }, 'aria-label': `${type ? NODE_NAME[type] || 'Hub' : 'Unknown'} node ${n.id}`, dataset: { node: n.id } },
+    const full = n.know === 'full';
+    const band = mv.bands && mv.bands[n.ring] ? mv.bands[n.ring] : null;
+    const label = n.hub ? 'Hub' : full && n.cl ? String(n.cl) : n.know === 'type' && band ? `${band[0]}–${band[1]}` : '?';
+    const el = h(`button.mnode.x-${fog}` + (m ? '.reach' : '') + (n.done && !n.hub ? '.visited' : '') + (here ? '.here' : '') + (n.dimmed ? '.dimmed' : '') + (n.lost ? '.lost' : '') + (type ? '' : '.fog') + (n.hub ? '.xhub' : '') + (n.shardfall ? '.xsf' : '') + (n.road ? '.xrd' : ''),
+      { style: { left: `${x / 10}%`, top: `${y / 10}%` }, 'aria-label': `${type ? NODE_NAME[type] || 'Hub' : 'Unknown'} node ${n.id}`, dataset: { node: n.id, fog } },
       h('div.ring', type ? h('img', { src: nodeIcon(type), alt: '' }) : h('span.fogq', '?')),
-      h('div.cl', { style: { color: n.know === 'full' && n.cl && !n.hub ? conColor(n.cl, p.level) : NEUTRAL } }, n.hub ? 'Hub' : type ? `${NODE_NAME[type] || type}${n.know === 'full' && n.cl ? ` ${n.cl}` : ''}` : '?'));
+      h('div.cl' + (n.know === 'type' ? '.band' : ''), { style: { color: full && n.cl && !n.hub && !NO_FIGHT.has(n.type) ? conColor(n.cl, p.level) : NEUTRAL } }, label));
     if (here) el.appendChild(flagSvg());
-    if (n.road) el.appendChild(h('div.xtag.road', 'Road'));
+    // enemy count on a seen fight node (BUG-QA-02)
+    const foes = full && !n.hub && !n.done ? (n.type === 'dungeon' ? null : n.archetypes && n.archetypes.length ? n.archetypes.length : null) : null;
+    if (foes) el.appendChild(h('div.xfoes', { dataset: { foes } }, `×${foes}`));
     const marks = siteBadge(n, v); // contract site marks (prep): only the ones the player sees; a hidden node stays unnamed
     if (marks) el.appendChild(marks);
-    if (n.shardfall) el.appendChild(h('div.xtag.shard', 'Shardfall'));
+    // the Dimming's clock: "dims in N" on every node within two hops of its front; the player's own count stands out at 2 or less
+    const near = !off && !n.dimmed && finite(n.dimsIn) && sfHops[n.id] <= front + 2;
+    if (near || (here && !off && !n.dimmed && finite(n.dimsIn) && n.dimsIn <= 2)) el.appendChild(h('div.xclock' + (here && n.dimsIn <= 2 ? '.urgent' : '') + (n.dimsIn <= 2 ? '.soon' : ''), { dataset: { dimsIn: n.dimsIn } }, here && n.dimsIn <= 2 ? `Dims in ${n.dimsIn}!` : `dims in ${n.dimsIn}`));
     const act = { type: 'MOVE', nodeId: n.id };
     const hp = m ? heatOf(v, act) : null;
     if (hp) el.appendChild(tollLabel(h('div.mhrs', tolls(hp.time)), hp));
@@ -412,32 +531,100 @@ function buildExpMap(v, ctx, readOnly) {
     const look = { type: 'USE_SPYGLASS', nodeId: n.id };
     if (!readOnly) el.addEventListener('click', () => { if (spy.armed) { spy.armed = false; ctx.act(look); } else if (m) ctx.act(act); });
     if (m) ghostOn(el, ctx, act);
-    tip(el, () => {
-      const box = h('div.tt-node', h('div.tt-name', n.hub ? z.hubName : type ? NODE_NAME[type] || type : 'Unknown'), h('div.tt-sub', `Ring ${n.ring}${n.know === 'full' && n.cl && !n.hub ? ` · level ${n.cl}` : ''}${n.dimmed ? ' · Dimmed' : n.dimsIn !== Infinity && n.dimsIn != null ? ` · dims in ${tolls(n.dimsIn)}` : ''}`));
-      for (const ln of siteLines(n, ctx.view, ctx)) box.appendChild(ln);
-      if (spy.armed && !readOnly) { box.appendChild(h('div.tt-hint', 'Click to look here through the Spyglass')); return box; }
-      if (m) {
-        box.appendChild(h('div.tt-line', m.via === 'enter' ? 'Click to enter' : 'Click to walk here'));
-        box.appendChild(previewBlock(heatOf(ctx.view, act), ctx));
-        if (m.passTime != null) box.appendChild(h('div.tt-hint', 'Pass through it from the list of moves.'));
-      } else if (!here) box.appendChild(h('div.tt-warn', 'Not next to you'));
-      return box;
-    });
-    body.appendChild(el);
+    tip(el, () => expNodeTip(n, mv, v, ctx, m, here, readOnly, act));
+    disc.appendChild(el);
   }
+
+  // ---- side columns: the Dimming and the key (left), regions and moves (right)
+  const me = mv.nodes[mv.pos];
+  const left = h('div.xside.xleft');
+  const dimBox = h('div.xpanel.xdimp' + (me && !off && finite(me.dimsIn) && me.dimsIn <= 2 ? '.urgent' : ''), h('div.xph', 'The Dimming'));
+  if (off) dimBox.appendChild(h('div.xpl.muted', 'Not in this run.'));
+  else {
+    dimBox.appendChild(h('div.xpl', front < 0 ? `Starts to spread in ${tolls(dm.nextIn)}` : `Spreads again in ${tolls(dm.nextIn)}`));
+    if (me) dimBox.appendChild(h('div.xpl.xmine', { dataset: { dimsIn: me.dimmed ? 0 : me.dimsIn } }, me.dimmed ? 'You stand in the Dimming!' : `Your node dims in ${tolls(me.dimsIn)}`));
+    dimBox.appendChild(h('div.xpl.muted', `${mv.nodes.filter((n) => n.dimmed).length} of ${mv.nodes.length} nodes Dimmed`));
+  }
+  tip(dimBox, () => h('div', h('div.tt-name', 'The Dimming'), mv.texts && mv.texts.dimming ? h('div.tt-line', mv.texts.dimming) : null,
+    h('div.tt-line', `It spreads ${dm.frontHops} hops every ${tolls(dm.frontTime)} from the Shardfall, after ${tolls(dm.grace)} in the zone.`),
+    h('div.tt-sub', 'Entering or standing in a Dimmed node starts a fight with Shardspawn; its content is lost. Leave by a Road or the Bell.')));
+  const key = h('div.xpanel.xkey', h('div.xph', 'Key'),
+    h('div.xk', h('i.xk-seen'), 'Seen: in sight'), h('div.xk', h('i.xk-rem'), 'Remembered'), h('div.xk', h('i.xk-typed'), 'Type known'), h('div.xk', h('i.xk-unk'), 'Unknown'),
+    h('div.xk', h('i.xk-dim'), 'Dimmed'), h('div.xk', h('i.xk-shard'), 'Shardfall'));
+  tip(key, () => h('div', h('div.tt-name', 'What you see'), h('div.tt-line', `Nodes within ${mv.vision.radius} ${plural(mv.vision.radius, 'hop')} of you are in full view; a node once seen stays on the map.`),
+    mv.vision.typeRadius ? h('div.tt-line', `Pathfinder: node types within ${mv.vision.typeRadius} hops.`) : null, mv.vision.regions ? h('div.tt-line', 'Your charts show every region.') : h('div.tt-line', 'A region shows where you have seen its land.')));
+  left.append(dimBox, key);
+  const right = h('div.xside.xright');
+  const regBox = h('div.xpanel.xregp', h('div.xph', 'Regions'));
+  mv.regions.forEach((r, i) => {
+    const seen = mv.nodes.some((n) => n.region === i);
+    const row = h('div.xreg' + (seen ? '' : '.unseen'), { dataset: { region: i } }, h('i', { style: { background: REGION_TINT[r.kind] || '#a08a60' } }), h('span', r.name || REGION_FEEL[r.kind] || r.kind));
+    tip(row, () => h('div', h('div.tt-name', r.name || r.kind), h('div.tt-line', REGION_FEEL[r.kind] || r.kind), h('div.tt-sub', seen ? (mv.vision.regions ? 'Charted' : 'Seen in part') : 'Not yet found')));
+    regBox.appendChild(row);
+  });
+  right.appendChild(regBox);
   // the moves: enter or walk (MOVE) and pass through (PASS_THROUGH), each with its tolls and heat
-  const list = h('div.expmoves', readOnly ? null : mv.moves.map((m) => {
-    const n = mv.nodes[m.nodeId]; const name = n.hub ? 'Hub' : n.know !== 'none' && n.type ? NODE_NAME[n.type] || n.type : 'Unknown';
-    const go = { type: 'MOVE', nodeId: m.nodeId }; const pass = { type: 'PASS_THROUGH', nodeId: m.nodeId };
-    const b1 = ghostOn(btn(`${m.via === 'enter' ? 'Enter' : 'Walk to'} ${name} · ${tolls(m.time)}`, () => ctx.act(go), '.small'), ctx, go);
-    tip(b1, () => previewBlock(heatOf(ctx.view, go), ctx));
-    const b2 = m.passTime != null ? ghostOn(btn(`Pass · ${tolls(m.passTime)}`, () => ctx.act(pass), '.small'), ctx, pass) : null;
-    if (b2) tip(b2, () => h('div', h('div.tt-line', 'Walk through without resolving it.'), previewBlock(heatOf(ctx.view, pass), ctx)));
-    return h('div.em', b1, b2);
-  }));
-  win.append(body, h('div.mfoot', list));
+  if (!readOnly) {
+    const list = h('div.xpanel.expmoves', h('div.xph', 'Moves'), mv.moves.map((m) => {
+      const n = mv.nodes[m.nodeId]; const name = n.hub ? 'Hub' : n.know !== 'none' && n.type ? NODE_NAME[n.type] || n.type : 'Unknown';
+      const go = { type: 'MOVE', nodeId: m.nodeId }; const pass = { type: 'PASS_THROUGH', nodeId: m.nodeId };
+      const b1 = ghostOn(btn(`${m.via === 'enter' ? 'Enter' : 'Walk to'} ${name} · ${tolls(m.time)}`, () => ctx.act(go), '.small'), ctx, go);
+      tip(b1, () => previewBlock(heatOf(ctx.view, go), ctx));
+      const b2 = m.passTime != null ? ghostOn(btn(`Pass · ${tolls(m.passTime)}`, () => ctx.act(pass), '.small'), ctx, pass) : null;
+      if (b2) tip(b2, () => h('div', h('div.tt-line', 'Walk through without resolving it.'), previewBlock(heatOf(ctx.view, pass), ctx)));
+      // hovering a move lights its node on the map
+      const lit = (on) => { const el = disc.querySelector(`.mnode[data-node="${m.nodeId}"]`); if (el) el.classList.toggle('lit', on); };
+      const row = h('div.em' + (m.dimmed ? '.dimmed' : ''), b1, b2);
+      row.addEventListener('mouseenter', () => lit(true)); row.addEventListener('mouseleave', () => lit(false));
+      return row;
+    }));
+    right.appendChild(list);
+  }
+  const body = h('div.mbody.parchment.xbody', left, disc, right);
+  win.append(body);
   if (readOnly) win.id = 'win-map';
   return win;
+}
+/** The tooltip of a node of the fog map: only what mapView gives of it. */
+function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
+  const z = v.zone; const p = v.player;
+  const type = n.hub ? 'hub' : n.know !== 'none' ? n.type : null;
+  const full = n.know === 'full';
+  const box = h('div.tt-node');
+  const lvl = full && n.cl && !n.hub ? h('div', { style: { color: NO_FIGHT.has(n.type) ? NEUTRAL : conColor(n.cl, p.level), fontWeight: 800 } }, `Level ${n.cl}`) : null;
+  box.appendChild(h('div.tt-row', h('div.tt-name', n.hub ? z.hubName : type ? NODE_NAME[type] || type : 'Unknown'), lvl));
+  const band = mv.bands && mv.bands[n.ring];
+  const reg = n.region != null && mv.regions[n.region] ? mv.regions[n.region] : null;
+  box.appendChild(h('div.tt-sub', [n.hub ? 'Zone hub: trainer, vendor and inn' : `Ring ${n.ring}${band ? ` · levels ${band[0]}–${band[1]}` : ''}`, reg && reg.name ? reg.name : null].filter(Boolean).join(' · ')));
+  const fog = fogState(n, mv);
+  if (fog === 'unknown') box.appendChild(h('div.tt-line.muted', 'Unknown: not seen yet. Its ring gives its level range.'));
+  else if (fog === 'typed') box.appendChild(h('div.tt-line.muted', 'Known from afar: its type only.'));
+  else if (fog === 'remembered') box.appendChild(h('div.tt-line.muted', 'Remembered: seen before, out of sight now.'));
+  if (full && !n.hub) {
+    if (n.type === 'quest' && n.title) box.appendChild(h('div.tt-line', { style: { color: '#ffd88a', fontWeight: 700 } }, n.title));
+    if (n.type === 'dungeon' && n.name) box.appendChild(h('div.tt-line', { style: { color: '#c8a8ff', fontWeight: 700 } }, n.name));
+    if (n.type === 'dungeon' && n.fights && n.fights.length) {
+      n.fights.forEach((f, i) => box.appendChild(h('div.tt-foes', h('span.k', `Fight ${i + 1}: ${enemies(f.length)}`), archChips(f))));
+      if (n.bossArchetype) box.appendChild(h('div.tt-foes', h('span.k', 'Boss'), archChips([n.bossArchetype])));
+    } else if (n.archetypes && n.archetypes.length) box.appendChild(h('div.tt-foes', h('span.k', `${n.type === 'grind' ? 'Wave 1' : n.type === 'treasure' ? 'Guard' : 'Foes'}: ${enemies(n.archetypes.length)}`), archChips(n.archetypes)));
+    else if (n.type === 'treasure' && n.guarded === false) box.appendChild(h('div.tt-line', 'Unguarded'));
+    if (n.type) box.appendChild(h('div.tt-line.desc', nodeDesc(n.type, ctx.data.rules)));
+    if (n.lost) box.appendChild(h('div.tt-warn', 'Lost to the Dimming: it can no longer be done.'));
+    else if (n.done) box.appendChild(h('div.tt-hint', 'Done'));
+  }
+  if (n.road) { const i = (mv.roads || []).indexOf(n.id); box.appendChild(h('div.tt-line', `${mv.roadNames && mv.roadNames[i] ? mv.roadNames[i] : 'A Road'}: leads to ${roadTo(v, ctx)}`)); }
+  if (n.shardfall) box.appendChild(h('div.tt-line', mv.texts && mv.texts.shardfall ? mv.texts.shardfall : 'The Shardfall: the Dimming starts here.'));
+  if (n.dimmed) box.appendChild(h('div.tt-warn', 'Dimmed: entering or staying here starts a fight with Shardspawn.'));
+  else if (n.dimsIn != null && Number.isFinite(n.dimsIn)) box.appendChild(h(n.dimsIn <= 2 ? 'div.tt-warn' : 'div.tt-sub', `Dims in ${tolls(n.dimsIn)}`));
+  for (const ln of siteLines(n, ctx.view, ctx)) box.appendChild(ln);
+  if (spy.armed && !readOnly) { box.appendChild(h('div.tt-hint', 'Click to look here through the Spyglass')); return box; }
+  if (m) {
+    box.appendChild(h('div.tt-line', m.via === 'enter' ? 'Click to enter' : 'Click to walk here'));
+    box.appendChild(previewBlock(heatOf(ctx.view, act), ctx));
+    if (m.passTime != null) box.appendChild(h('div.tt-hint', 'Pass through it from the list of moves.'));
+  } else if (here) box.appendChild(h('div.tt-hint', 'You are here'));
+  else if (!readOnly) box.appendChild(h('div.tt-warn', 'Not next to you'));
+  return box;
 }
 /** The tolls Travel on costs now, from the engine (a dry TRAVEL_ON); the mock's own number in mock mode. */
 function travelCost(z, ctx) {

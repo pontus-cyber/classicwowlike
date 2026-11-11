@@ -1303,3 +1303,86 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 /* a completed contract's reward */
 .contract-reward .ctr .giver { display: flex; align-items: center; gap: .6rem; } .contract-reward .ctr .giver img { width: 2.6rem; height: 2.6rem; border-radius: .3rem; }
 .pp-card .money, .pp-card .money .coin { color: #3a2a16; text-shadow: none; font-weight: 700; }
+
+/* ---- the fog map (expedition.md 9.2, M2b 2b.6): the disc between two side columns; everything from mapView */
+#screens .mapwin.expmap { width: min(104rem, calc(100vw - 54rem)); height: min(74rem, calc(100vh - 19.8rem - var(--furnace-h))); }
+.expmap .mhead { padding: .8rem 1.6rem .5rem; }
+.expmap .xbody { display: flex; align-items: stretch; justify-content: space-between; gap: .8rem; margin: 0 1rem 1rem; padding: .6rem; background: radial-gradient(ellipse at 50% 45%, #3a2a18, #1c140c 75%); box-shadow: inset 0 0 2.4rem rgba(0, 0, 0, .7); }
+.expmap .xdisc { position: relative; height: 100%; aspect-ratio: 1 / 1; flex: none; max-width: 62%; margin: 0 4.6rem; }
+.expmap .xdisc .xsvg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.expmap .xrname { font: 700 21px var(--font-title); fill: #3e2a12; letter-spacing: .14em; text-transform: uppercase; paint-order: stroke; stroke: rgba(240, 222, 178, .75); stroke-width: 4px; pointer-events: none; }
+.expmap .xside { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: .7rem; overflow: hidden; }
+.expmap .xpanel { color: var(--ink); padding: .6rem .8rem .7rem; border-radius: .5rem; background: rgba(20, 14, 8, .72); box-shadow: inset 0 0 0 1px rgba(208, 170, 96, .22); font-size: 1.12rem; }
+.expmap .xph { font: 700 1.2rem var(--font-title); color: #ffd88a; letter-spacing: .06em; margin-bottom: .35rem; }
+.expmap .xpl { line-height: 1.5rem; color: var(--ink); } .expmap .xpl.muted { color: var(--ink-mute); font-size: 1.05rem; }
+.expmap .xdimp { box-shadow: inset 0 0 0 1px rgba(150, 110, 240, .45), inset 0 0 1.6rem rgba(90, 50, 180, .25); }
+.expmap .xdimp .xph { color: #d4c4ff; }
+.expmap .xdimp .xmine { font-weight: 800; color: #e8dcff; }
+.expmap .xdimp.urgent { animation: xurgent 1.1s ease-in-out infinite; }
+.expmap .xdimp.urgent .xmine { color: #ff9a8a; }
+@keyframes xurgent { 50% { box-shadow: inset 0 0 0 2px rgba(255, 120, 110, .9), 0 0 1.4rem rgba(200, 80, 255, .6); } }
+.expmap .xk { display: flex; align-items: center; gap: .5rem; line-height: 1.6rem; color: var(--ink-dim); }
+.expmap .xk i { width: 1.2rem; height: 1.2rem; border-radius: 50%; flex: none; }
+.expmap .xk-seen { background: #e8c878; box-shadow: 0 0 0 2px #3a2a16, 0 0 .5rem #ffd88a; }
+.expmap .xk-rem { background: #b09868; box-shadow: 0 0 0 2px #3a2a16; }
+.expmap .xk-typed { background: #8a8070; box-shadow: 0 0 0 2px #3a2a16; outline: 1px dashed #d8cfc0; outline-offset: 1px; }
+.expmap .xk-unk { background: #5a5248; box-shadow: 0 0 0 2px #2a2420; opacity: .8; }
+.expmap .xk-dim { background: radial-gradient(#140a26, #3a2070); box-shadow: 0 0 0 2px #8a6ad8; }
+.expmap .xk-shard { background: radial-gradient(#fff, #b8a8ff 50%, #4a30a0); box-shadow: 0 0 .6rem #9a80ff; }
+.expmap .xreg { display: flex; align-items: center; gap: .5rem; line-height: 1.6rem; }
+.expmap .xreg i { width: 1.6rem; height: 1rem; border-radius: .3rem; flex: none; box-shadow: 0 0 0 1px rgba(0, 0, 0, .6); }
+.expmap .xreg.unseen { opacity: .45; } .expmap .xreg.unseen i { filter: grayscale(.8); }
+.expmap .expmoves { display: flex; flex-direction: column; gap: .35rem; overflow-y: auto; min-height: 0; flex: 0 1 auto; }
+.expmap .expmoves .em { display: flex; gap: .3rem; flex-wrap: wrap; }
+.expmap .expmoves .em .btn.small { font-size: 1.05rem; padding: .25rem .6rem; }
+.expmap .expmoves .em.dimmed .btn { box-shadow: inset 0 0 0 1px #8a6ad8; }
+/* nodes on the disc: smaller markers; fog states read at a glance */
+.expmap .mnode { width: 3.7rem; height: 3.7rem; z-index: 2; }
+.expmap .mnode .cl { font-size: 1rem; transform: translate(-50%, .25rem); }
+.expmap .mnode .cl.band { font-style: italic; color: #cfc6b4 !important; background: rgba(40, 34, 28, .8); }
+.expmap .mnode.x-remembered .ring { box-shadow: 0 0 0 .22rem #3a2a16, 0 0 0 .32rem #8a7656, 0 .3rem .7rem rgba(0, 0, 0, .5); }
+.expmap .mnode.x-remembered img { filter: saturate(.55) brightness(.85); }
+.expmap .mnode.x-typed .ring { box-shadow: 0 0 0 .22rem #2e2820, 0 .2rem .6rem rgba(0, 0, 0, .4); outline: .15rem dashed rgba(230, 220, 200, .75); outline-offset: .15rem; }
+.expmap .mnode.x-typed img { filter: grayscale(.9) sepia(.35) brightness(.8) contrast(.9); opacity: .85; }
+.expmap .mnode.x-unknown { width: 2.8rem; height: 2.8rem; }
+.expmap .mnode.x-unknown .ring { background: radial-gradient(circle at 40% 35%, #5a5248, #2a2420); box-shadow: 0 0 0 .18rem rgba(30, 24, 18, .8), 0 0 1rem rgba(220, 214, 200, .35); opacity: .85; }
+.expmap .mnode.x-unknown .fogq { font-size: 1.5rem; color: #d8cfc0; }
+.expmap .mnode.x-unknown .cl { display: none; }
+.expmap .mnode.xsf .ring { background: transparent; box-shadow: 0 0 0 .18rem rgba(170, 140, 255, .85), 0 0 1.6rem rgba(140, 100, 255, .85); }
+.expmap .mnode.xsf .fogq { display: none; }
+.expmap .mnode.xsf.x-unknown { width: 3.4rem; height: 3.4rem; }
+.expmap .mnode.xhub { width: 4.6rem; height: 4.6rem; }
+.expmap .mnode.lost .ring { opacity: .55; } .expmap .mnode.lost img { filter: grayscale(1) brightness(.4) hue-rotate(220deg); }
+.expmap .mnode.lit .ring { box-shadow: 0 0 0 .25rem #3a2a16, 0 0 0 .5rem #fff0b0, 0 0 2.4rem rgba(255, 230, 150, 1); }
+.expmap .mnode.lit { transform: translate(-50%, -50%) scale(1.12); z-index: 3; }
+.expmap .mnode.here { z-index: 4; }
+.expmap .mnode .flagm { top: -2.3rem; width: 2rem; height: 2.5rem; }
+.expmap .mnode .xfoes { position: absolute; right: -.75rem; bottom: -.2rem; padding: 0 .3rem; border-radius: .6rem; background: #5a1a12; color: #ffd6c8; font: 800 .9rem/1.3rem var(--font-num); box-shadow: 0 0 0 1px #1a0804; pointer-events: none; }
+.expmap .mnode .xclock { position: absolute; left: 50%; top: calc(100% + 1.75rem); transform: translateX(-50%); padding: 0 .35rem; border-radius: .3rem; background: rgba(26, 14, 52, .92); color: #d8ccff; font: 700 .9rem/1.3rem var(--font-ui); white-space: nowrap; box-shadow: 0 0 0 1px rgba(140, 110, 230, .7); pointer-events: none; }
+.expmap .mnode .xclock.soon { color: #ffd0c8; box-shadow: 0 0 0 1px rgba(255, 120, 110, .9), 0 0 .6rem rgba(160, 80, 255, .7); }
+.expmap .mnode .xclock.urgent { top: auto; bottom: calc(100% + 2.6rem); font-size: 1.15rem; line-height: 1.7rem; padding: 0 .6rem; background: #3a0c2a; color: #fff; box-shadow: 0 0 0 2px #ff6a6a, 0 0 1.2rem rgba(255, 80, 120, .9); animation: xurgent 1.1s ease-in-out infinite; }
+.expmap .mnode.here .mhrs { display: none; }
+/* Roads: a signpost on the rim with the zone it leads to */
+.expmap .xroad { position: absolute; z-index: 1; width: max-content; display: flex; align-items: center; gap: .2rem; transform: translate(0, -50%); pointer-events: auto; cursor: default; }
+.expmap .xroad.l { flex-direction: row-reverse; transform: translate(-100%, -50%); }
+.expmap .xroad.side { flex-direction: column-reverse; align-items: center; gap: 0; transform: translate(-50%, -100%); }
+.expmap .xroad.side .xpost { height: 2.2rem; }
+.expmap .xroad .xpost { width: .35rem; height: 2.4rem; border-radius: .1rem; background: linear-gradient(90deg, #4a3018, #8a6034); box-shadow: 0 .2rem .3rem rgba(0, 0, 0, .5); }
+.expmap .xroad .xsign { display: flex; flex-direction: column; padding: .15rem .5rem; border-radius: .25rem; background: linear-gradient(180deg, #8a6236, #5e3e1c); box-shadow: 0 0 0 1px #2a1808, 0 .2rem .4rem rgba(0, 0, 0, .55); white-space: nowrap; }
+.expmap .xroad .xsign b { font: 700 1rem/1.25rem var(--font-title); color: #ffe6b0; letter-spacing: .03em; }
+.expmap .xroad .xsign i { font: 600 .85rem/1.1rem var(--font-ui); font-style: normal; color: #f0d8a8; opacity: .85; }
+.expmap .xroad.dimmed .xsign { background: linear-gradient(180deg, #3e2a5a, #241638); }
+.expmap .xroad.on .xsign { box-shadow: 0 0 0 1px #2a1808, 0 0 1rem rgba(255, 220, 140, .9); }
+.expmap.spying .xbody { cursor: crosshair; box-shadow: inset 0 0 0 .25rem rgba(140, 200, 255, .55), inset 0 0 3rem rgba(120, 180, 255, .25); }
+
+/* ---- the character sheet's Damage block (owner feedback 2026-11-11 11:58): R.damageView's numbers */
+.dmgblock { margin: -.8rem 1.6rem 1rem; padding: .4rem 1rem .5rem; border-radius: .5rem; background: linear-gradient(180deg, rgba(70, 46, 20, .5), rgba(30, 20, 10, .5)); box-shadow: inset 0 0 0 1px rgba(208, 170, 96, .25); font-size: 1.2rem; }
+.dmgblock .dmhead { display: flex; justify-content: space-between; align-items: baseline; font: 700 1.3rem var(--font-title); color: #ffd88a; letter-spacing: .06em; margin-bottom: .1rem; }
+.dmgblock .dmbonus { font: 600 1.15rem var(--font-ui); letter-spacing: 0; display: inline-flex; gap: .5rem; }
+.dmgblock .dmbonus .dk { color: var(--ink-mute); } .dmgblock .dmbonus .dr { font-family: var(--font-num); color: #a8e890; }
+.dmrow { display: grid; grid-template-columns: 1fr auto 8.4rem; gap: 1.2rem; align-items: baseline; padding: .15rem 0; border-bottom: 1px dotted rgba(208, 170, 96, .15); }
+.dmrow:last-child { border-bottom: 0; }
+.dmrow .dk { color: var(--ink-mute); }
+.dmrow .dr { font-family: var(--font-num); color: #f6e6c4; }
+.dmrow .da { font-family: var(--font-num); color: var(--ink-dim); text-align: right; font-size: 1.12rem; }
+.dmrow.dmmain .dk { color: #ffe0a0; }
