@@ -10,7 +10,7 @@
 // helpers on that view (hops, Dimming depth, escape route), the belief over unknown nodes, and, separated, the oracle's
 // full-information input (diagnostic only, B41). Contracts (MILESTONES 2b.5; prep): siteKnowledge, the chance that a
 // node is a site of an active contract from the view's site marks and R.contractView only.
-import { R, C, makeRng } from './engine.mjs';
+import { R, C, makeRng, outwardStep, dimFightTime } from './engine.mjs';
 import { treeClone } from './clone.mjs';
 
 /** Hidden parts of the state: the random streams. state.lootRng and state.fight.rng. */
@@ -225,19 +225,36 @@ export function enterableV(view, id, zt, resolved = null) {
   return n.know === 'full' && !n.hub && !n.done && !(resolved && resolved.has(id)) && !dimmedAtV(view, id, zt);
 }
 
+/** The view as the engine's escape helpers read a zone: { shardDist } (hops from the Shardfall; the view's skeleton is
+ *  the whole zone graph, expedition.md 4.5). */
+export const shardZoneV = (view) => ({ shardDist: viewHops(view, view.shardfall) });
+
+/**
+ * Tolls of a Dimmed encounter after a step u -> v of the view (rules 1.9.6, M2b v12, D101; the engine's outwardStep and
+ * dimFightTime): TIME_DIM_ESCAPE when the step is a walk (MOVE onto a resolved node, the hub, or a node Dimmed when the
+ * step starts; `walk`) farther from the Shardfall, else TIME_DIM_FIGHT (an entry's content, a PASS_THROUGH, a sideways or
+ * inward walk). sz: shardZoneV(view).
+ */
+export const dimTollsV = (sz, u, v, walk) => dimFightTime(!!walk && outwardStep(sz, u, v));
+
 /**
  * Cheapest way from node `from` at zone toll zt to a Road over the skeleton (as the engine's default policy, rules
- * 1.9.9): Dijkstra over steps of walkTime; a step onto a node Dimmed on arrival also costs TIME_DIM_FIGHT and counts as
- * a Dimmed step (its depth is summed). Order: Dimmed steps, tolls, lower id. `roads` (default: the view's) restricts the
- * targets. Returns { road, path (from `from` to the Road), dims, depth, time }.
+ * 1.9.9): Dijkstra over steps of walkTime; a step onto a node Dimmed on arrival also costs its Dimmed encounter and
+ * counts as a Dimmed step (its depth is summed). The encounter's tolls as the engine spends them (M2b v12, D101; as the
+ * engine's autoplay escape route): a step onto a resolved node, the hub or a node Dimmed when the step starts is a walk
+ * (MOVE; the bots pass through every other node, exitStep), and a walk farther from the Shardfall starts its encounter at
+ * TIME_DIM_ESCAPE; every other encounter costs TIME_DIM_FIGHT. Order: Dimmed steps, tolls, lower id. `roads` (default: the
+ * view's) restricts the targets. Returns { road, path (from `from` to the Road), dims, depth, time, dimTime (tolls of the
+ * Dimmed encounters, in `time`), esc (Dimmed encounters after an outward walk) }.
  */
 export function escapeV(view, from, zt, roads = view.roads) {
   const N = view.nodes.length;
+  const sz = shardZoneV(view);
   const lab = new Array(N).fill(null);
   const prev = new Array(N).fill(-1);
   const done = new Array(N).fill(false);
   const better = (a, b) => !b || a.dims < b.dims || (a.dims === b.dims && a.h < b.h);
-  lab[from] = { dims: 0, depth: 0, h: 0 };
+  lab[from] = { dims: 0, depth: 0, h: 0, dt: 0, esc: 0 };
   for (;;) {
     let u = -1;
     for (let i = 0; i < N; i++) if (!done[i] && lab[i] && (u < 0 || better(lab[i], lab[u]))) u = i;
@@ -245,19 +262,27 @@ export function escapeV(view, from, zt, roads = view.roads) {
     done[u] = true;
     for (const v of view.nodes[u].nb) {
       if (done[v]) continue;
+      const t0 = zt + lab[u].h;
       let h = lab[u].h + view.walkTime;
       const dd = dimDepthV(view, v, zt + h);
-      if (dd >= 0) h += C.TIME_DIM_FIGHT;
-      const c = { dims: lab[u].dims + (dd >= 0 ? 1 : 0), depth: lab[u].depth + Math.max(0, dd), h };
+      let dt = 0;
+      let e = false;
+      if (dd >= 0) {
+        const nv = view.nodes[v];
+        e = (nv.hub || nv.done === true || dimmedAtV(view, v, t0)) && outwardStep(sz, u, v);
+        dt = dimFightTime(e);
+        h += dt;
+      }
+      const c = { dims: lab[u].dims + (dd >= 0 ? 1 : 0), depth: lab[u].depth + Math.max(0, dd), h, dt: lab[u].dt + dt, esc: lab[u].esc + (e ? 1 : 0) };
       if (better(c, lab[v])) { lab[v] = c; prev[v] = u; }
     }
   }
   let road = null;
   for (const r of roads) if (lab[r] && (road === null || better(lab[r], lab[road]))) road = r;
-  if (road === null) return { road: null, path: [from], dims: 0, depth: 0, time: Infinity };
+  if (road === null) return { road: null, path: [from], dims: 0, depth: 0, time: Infinity, dimTime: 0, esc: 0 };
   const path = [];
   for (let x = road; x !== -1; x = prev[x]) path.unshift(x);
-  return { road, path, dims: lab[road].dims, depth: lab[road].depth, time: lab[road].h };
+  return { road, path, dims: lab[road].dims, depth: lab[road].depth, time: lab[road].h, dimTime: lab[road].dt, esc: lab[road].esc };
 }
 
 const FILL_TYPES = ['quest', 'grind', 'elite', 'rest', 'vendor', 'trainer', 'treasure', 'shrine'];

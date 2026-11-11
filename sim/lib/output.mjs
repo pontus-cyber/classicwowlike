@@ -1,4 +1,5 @@
-// Output helpers: commit hash, cell names, JSON/JSONL/Markdown writers, number formatting.
+// Output helpers: commit hash, cell names (M2b v12: 'rcg' for the gated Ricochet Bolt arm), JSON/JSONL/Markdown writers,
+// number formatting.
 import { execSync } from 'node:child_process';
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -30,6 +31,7 @@ export function cellName(cell) {
   if (cell.prepBan) parts.push(`ban${cell.prepBan.map((id) => id.replace(/^prep_/, '')).join('')}`);
   if (cell.metaDrop) parts.push(`drop${cell.metaDrop.map((id) => id.replace(/_/g, '').slice(0, 4)).join('')}`);
   if (cell.beastcallGated) parts.push('bcg');
+  if (cell.ricochetGated) parts.push('rcg');
   if (cell.expMeta) parts.push(`meta${Object.keys(cell.expMeta).map((k) => k.slice(0, 2)).join('')}`);
   if (cell.vision) parts.push(`vis${Object.keys(cell.vision).map((k) => k[0]).join('')}`);
   if (cell.dimming === false) parts.push('nodim');

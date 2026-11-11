@@ -8,7 +8,8 @@
 // 'random'; cell.expMeta: the expedition meta entries of 8.2 as profile unlocks; cell.prepForce / prepBan: start-camp
 // options the planner family buys first / never, M2b v10 cell 9): the record's `ct` (recorder.mjs). M2b v11: cell.metaDrop
 // (catalogue entries removed from the profile: B42's no-vision cell, the row 8 attribution arm), cell.beastcallGated
-// (row 8 arm: Beastcall Horn cooldown BEASTCALL_HORN_CD_GATED).
+// (row 8 arm: Beastcall Horn cooldown BEASTCALL_HORN_CD_GATED). M2b v12: cell.ricochetGated (row 5 arm, D104: Ricochet
+// Bolt's bounce RICOCHET_BOUNCE_FRAC_GATED).
 import { C, R, newRunFor, withExpMeta, hash32 } from './engine.mjs';
 import { BAL, SIM } from './params.mjs';
 import { createBot } from '../bots/index.mjs';
@@ -41,6 +42,9 @@ export function runWithBot(cell, seed, risk, opts = {}) {
   // M2b v11 row 8 (gated): the Beastcall Horn cooldown of the arm; the engine reads the field at each cast, so it is set
   // for every run (a worker plays runs of several cells).
   if (C.SPELL.beastcall_horn && C.BEASTCALL_HORN_CD_GATED !== undefined) C.SPELL.beastcall_horn.cd = cell.beastcallGated ? C.BEASTCALL_HORN_CD_GATED : C.BEASTCALL_HORN_CD;
+  // M2b v12 row 5 (gated, D104): Ricochet Bolt's bounce of the arm, else the engine's value; set for every run for the same
+  // reason (the engine and sim/lib/policy.mjs read SPELL.ricochet_bolt.bounceFrac at each use).
+  if (C.SPELL.ricochet_bolt && C.RICOCHET_BOUNCE_FRAC_GATED !== undefined) C.SPELL.ricochet_bolt.bounceFrac = cell.ricochetGated ? C.RICOCHET_BOUNCE_FRAC_GATED : C.RICOCHET_BOUNCE_FRAC;
   const bot = createBot(cell.bot, { classId: cell.cls, seed, risk, tree: cell.tree, style: cell.style, variant: cell.variant, ...(cell.prepPolicy ? { prepPolicy: cell.prepPolicy } : {}), ...(cell.prepForce ? { prepForce: cell.prepForce } : {}), ...(cell.prepBan ? { prepBan: cell.prepBan } : {}) });
   const s = newRunFor({ classId: cell.cls, petId: cellPet(cell), seed, profile, mapMode: cell.map || null, vision: cell.vision || null, dimming: cell.dimming === false ? false : null, prep: !!cell.prep });
   // Expedition measures (expedition.md 11.1; MILESTONES 2b.4). cell.oracle: at every map decision of the acting bot,

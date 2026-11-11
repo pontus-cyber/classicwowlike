@@ -448,7 +448,8 @@ function refGain(ctx, table, cl) {
  * Reward value of a contract (expedition.md 10.3): XP levels of the reward × VAL_XP + item-score gain of the best of its
  * item choices × VAL_GEAR + gold / V × VAL_GOLD. rw: the `reward` of R.prepView / R.contractView (cl, xpFrac: levels-worth
  * with XP_WEIGHT_MULT, gold, choices, table). opts.L: the level it is valued at (default: the model's); opts.ref: items
- * against an uncommon of the contract's level (refGain) instead of what is equipped. The best of n choices is
+ * against an uncommon of the contract's level (refGain) instead of what is equipped; opts.xpOnly (M2b v12 row 4, the
+ * speedrunner): the XP term only. The best of n choices is
  * SIM.CONTRACT_CHOICE_GEAR[n] × one roll's expected gain [assumption].
  */
 export function contractValue(ctx, rw, opts = {}) {
@@ -457,6 +458,7 @@ export function contractValue(ctx, rw, opts = {}) {
   // 1 keeps the modifier of the engine before A1.
   const xpRaw = SIM.CONTRACT_XP_DIFFMOD ? evXp(ctx, rw.xpFrac, rw.cl, L) : rw.xpFrac * XC[Math.min(MAXL, rw.cl)] * (1 + ctx.xpPct);
   const xpLv = L >= C.MAX_LEVEL ? 0 : xpRaw / XN[L];
+  if (opts.xpOnly) return xpLv * BAL.VAL_XP; // M2b v12 row 4: the speedrunner counts a contract's XP only
   const one = opts.ref ? refGain(ctx, rw.table, rw.cl) : expGain(ctx, rw.table, rw.cl);
   const gear = (SIM.CONTRACT_CHOICE_GEAR[rw.choices] ?? SIM.CONTRACT_CHOICE_GEAR[SIM.CONTRACT_CHOICE_GEAR.length - 1]) * one;
   const gold = (rw.gold * (1 + ctx.goldPct)) / vAt(L);

@@ -16,6 +16,13 @@
 #      pass, whose v9 observations are the node-risk base), CAMPAIGNS (20).
 set -euo pipefail
 W=$(cd "$(dirname "$0")/.." && pwd)
+# Retired with the M2b v12 engine (D100: Delve price 2, EXPED_DROP_MULT 1.9 and no DUNGEON_DIM_HOLD are engine values, so
+# the arms' patches no longer match). It measures the v11 engine only: run it from a checkout of the 11-11g build
+# (git worktree add ../v11 65f528a). The v12 measure is sim/measure-v12.sh.
+if ! grep -qF "export const DUNGEON_DIM_HOLD = 3;" "$W/src/constants.js"; then
+  echo "sim/measure-v11.sh: retired (this engine holds the v12 rows; run it from 65f528a, or use sim/measure-v12.sh)" >&2
+  exit 2
+fi
 O=$(mkdir -p "${1:-$W/sim/out/pass-v11}" && cd "${1:-$W/sim/out/pass-v11}" && pwd)
 STAGES=" ${2:-H X K} "
 WK=${WORKERS:-2}; REF=${REF:-19df854}; P11F=${P11F:-$W/sim/out/pass-v9v10}; NC=${CAMPAIGNS:-20}

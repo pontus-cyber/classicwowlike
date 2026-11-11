@@ -259,7 +259,9 @@ export const EXP = {
   C_STEP_PALL: [0.80, 0.92],
   C_ROUTE_P0_MAX: 0.15,
   C_ROUTE_PALL_MAX: 0.50,
-  CAUGHT_ZONES: [0.08, 0.18],
+  /** M2b v12 row 3 (D102, owner O9 default): 0.08-0.25; the old band is kept for the report's second reading. */
+  CAUGHT_ZONES: [0.08, 0.25],
+  CAUGHT_ZONES_OLD: [0.08, 0.18],
   DIM_DEATH_SHARE: [0.05, 0.20],
   CLOSE_CALL_GREEDY: [0.40, 0.75],
   THREAT_BOUND_MIN: 1.5,

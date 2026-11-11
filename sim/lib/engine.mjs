@@ -9,6 +9,9 @@ import { STREAM, makeRng, nextFloat, nextU32, hash32 } from '../../src/rng.js';
 const { V, xpCurve, diffMod } = R;
 export const C = R.C;
 export { R, CONTENT, STREAM, makeRng, nextFloat, nextU32, hash32, V, xpCurve, diffMod };
+// M2b v12 (D101; engine-api.md 10): the engine's own escape rule helpers, so the bots price a Dimmed encounter after a
+// walk as the engine spends it: outwardStep(zone-like { shardDist }, from, to), dimFightTime(escape) -> tolls.
+export { outwardStep, dimFightTime } from '../../src/engine/expedition.js';
 
 const errors = R.validateContent(CONTENT);
 if (errors.length) throw new Error(`sim: content is invalid:\n  ${errors.slice(0, 10).join('\n  ')}`);

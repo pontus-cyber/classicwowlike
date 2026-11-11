@@ -13,17 +13,19 @@
 // Expedition map (expedition.md 10.1-10.2; MILESTONES 2b.4): planFog, a belief search of depth PLANNER_FOG_DEPTH over
 // moves on the fog view only (sim/lib/view.mjs fogInput): seen nodes valued exactly, unseen nodes as the expectation
 // over the region kind's weights (zone mean when the region is unknown), the Dimming exactly, Dimmed encounters priced
-// from the risk table's `dim` rows by depth (M2b v10 row C2: learned, prior SIM.EXP_DIM_DEATH × (1 + depth)), leaf = leaving by the cheapest Road (Dimmed steps on the way) or the Bell, leaving
+// from the risk table's `dim` rows by depth (M2b v10 row C2: learned, prior SIM.EXP_DIM_DEATH × (1 + depth)) at the tolls
+// the engine spends (M2b v12, D101: TIME_DIM_ESCAPE after a walk farther from the Shardfall, view.mjs dimTollsV; else
+// TIME_DIM_FIGHT), leaf = leaving by the cheapest Road (Dimmed steps on the way) or the Bell, leaving
 // valued with an under-level penalty (SIM.EXP_UNDER_LEVEL_VALUE per level under 10z). Contract sites (2b.5, prep;
 // expedition.md 10.3): the site term on every node entered and a leaf that walks to a known site (contractSites). The
 // start camp and the hub contract: plannerPrep, plannerHubContract (shared.mjs). oracleMap: the same search on the
 // oracle's full-information view (diagnostic only: C_step, B41; never acts in a measured run).
-import { C, R, legal, hpFrac } from '../lib/engine.mjs';
+import { C, R, legal, hpFrac, dimFightTime } from '../lib/engine.mjs';
 import { BAL, HEAT, SIM, EXP } from '../lib/params.mjs';
 import { makeCtx, evalNode, copyM, levelPos, eatModel, contractValue, siteTerm } from '../lib/model.mjs';
 import { dimRisk } from '../lib/risk.mjs';
 import { createValueBot, hubFull, FULL_KIT, plannerPrep, plannerHubContract } from './shared.mjs';
-import { fogInput, oracleInput, dimmedAtV, dimDepthV, enterableV, escapeV, typeBelief, protoCell, siteKnowledge, viewHops } from '../lib/view.mjs';
+import { fogInput, oracleInput, dimmedAtV, dimDepthV, enterableV, escapeV, typeBelief, protoCell, siteKnowledge, viewHops, shardZoneV, dimTollsV } from '../lib/view.mjs';
 
 const ROWS = C.ZONE_CHOICE_ROWS;
 
@@ -125,18 +127,18 @@ function tollCost(ctx, m, n) {
 }
 
 /** Value of a Dimmed encounter at depth d in the model (death chance and HP lost from the risk table's `dim` rows, its
- *  toll); mutates m. */
-function dimCost(ctx, m, d) {
+ *  tolls: TIME_DIM_FIGHT, or TIME_DIM_ESCAPE after an outward walk, M2b v12); mutates m. */
+function dimCost(ctx, m, d, tolls = C.TIME_DIM_FIGHT) {
   const r = dimRisk(ctx.risk, d);
   const p = Math.min(0.9, r.p);
-  const v = tollCost(ctx, m, C.TIME_DIM_FIGHT) - p * BAL.VAL_DEATH;
+  const v = tollCost(ctx, m, tolls) - p * BAL.VAL_DEATH;
   m.hp = Math.max(0.02, m.hp - r.hp);
   eatModel(m);
   return v;
 }
 
 /** Type of a hidden node that is a sure site (a Tracker's mark): Cull 'quest', Bounty 'elite', Delve 'dungeon'; else null. */
-function siteType(sk, id) {
+export function siteType(sk, id) {
   const l = sk && sk.perNode.get(id);
   if (!l) return null;
   for (const [i, p] of l) if (p >= 1) return { cull: 'quest', bounty: 'elite', delve: 'dungeon' }[sk.act[i].kind];
@@ -186,6 +188,7 @@ export function planFog(view, ctx, opts = {}) {
   const exit = opts.exit ?? expExitLevel(view.z);
   const keep = opts.bellKeep ?? (view.z < C.ZONE_COUNT ? EXP.BELL_KEEP_VALUE : 0);
   const under = (m) => -Math.max(0, exit - levelPos(m)) * SIM.EXP_UNDER_LEVEL_VALUE;
+  const sz = shardZoneV(view);
   const escMemo = new Map();
   const esc = (id, zt) => {
     const k = id * 4096 + zt;
@@ -199,8 +202,8 @@ export function planFog(view, ctx, opts = {}) {
     const e = esc(pos, zt);
     if (e.road === null) return -Infinity;
     const m2 = copyM(m);
-    let v = tollCost(ctx, m2, e.time - e.dims * C.TIME_DIM_FIGHT);
-    for (let i = 0; i < e.dims; i++) v += dimCost(ctx, m2, e.dims ? e.depth / e.dims : 0);
+    let v = tollCost(ctx, m2, e.time - e.dimTime);
+    for (let i = 0; i < e.dims; i++) v += dimCost(ctx, m2, e.dims ? e.depth / e.dims : 0, dimFightTime(i < e.esc));
     v += tollCost(ctx, m2, view.travelTime);
     return v + under(m2);
   };
@@ -268,10 +271,11 @@ export function planFog(view, ctx, opts = {}) {
           resolved.delete(id);
         }
       } else {
+        // A walk (MOVE onto the hub, a resolved node or a node Dimmed now): outward, its encounter costs TIME_DIM_ESCAPE.
         zt2 = zt + view.walkTime;
         v = tollCost(ctx, m2, view.walkTime);
         const dd = dimDepthV(view, id, zt2);
-        if (dd >= 0) v += dimCost(ctx, m2, dd);
+        if (dd >= 0) v += dimCost(ctx, m2, dd, dimTollsV(sz, pos, id, true));
         v += rec(id, zt2, m2, d + 1, bell);
       }
       if (v > best) best = v;
@@ -307,7 +311,8 @@ export function planFog(view, ctx, opts = {}) {
       const zt3 = zt + view.walkTime;
       let w = tollCost(ctx, m3, view.walkTime);
       const dd = dimDepthV(view, id, zt3);
-      if (dd >= 0) w += dimCost(ctx, m3, dd);
+      // PASS_THROUGH of an enterable node: TIME_DIM_FIGHT; a MOVE that walks: TIME_DIM_ESCAPE when outward (M2b v12).
+      if (dd >= 0) w += dimCost(ctx, m3, dd, dimTollsV(sz, pos, id, mv.via !== 'enter'));
       w += rec(id, zt3, m3, 1, bell);
       options.push({ action: mv.via === 'enter' ? { type: 'PASS_THROUGH', nodeId: id } : { type: 'MOVE', nodeId: id }, value: w });
     }
