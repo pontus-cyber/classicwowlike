@@ -21,6 +21,8 @@ const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 export function createDevMenu(root, ctx, { allowed }) {
   const d = ctx.data;
   const D = d.dev;
+  // the mock engine (?mock=1) has no dev tools: no button, no menu, the key does nothing
+  if (!D) return { el: null, button: null, open() {}, close() {}, toggle() {}, isOpen: () => false, enabled: () => false, update() {}, tab() {} };
   const button = h('button#devbtn', { type: 'button', 'aria-label': 'Dev tools', title: 'Dev tools (`)' }, h('span', 'D'), h('span', 'E'), h('span', 'V'));
   const panel = h('div#devmenu.panel.hidden', { role: 'dialog', 'aria-label': 'Dev tools' });
   root.append(button, panel);
