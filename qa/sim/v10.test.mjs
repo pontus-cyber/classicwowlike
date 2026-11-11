@@ -196,7 +196,7 @@ describe('A1: contract XP in the bots\' model follows the engine', () => {
   // against the formula with and without the level-difference modifier.
   const seen = [];
   for (const cls of ['rogue', 'mage', 'hunter']) {
-    for (let seed = 1000; seed < 1010 && seen.length < 12; seed++) {
+    for (let seed = 1000; seed < 1060 && seen.length < 12; seed++) {
       const s = newRunFor({ classId: cls, petId: cls === 'hunter' ? SIM.DEFAULT_PET : null, seed, mapMode: 'expedition', prep: true });
       for (let i = 0; i < 30000 && s.phase !== 'ENDED'; i++) {
         const L0 = s.player ? s.player.level : 1;

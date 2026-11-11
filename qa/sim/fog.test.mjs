@@ -178,6 +178,8 @@ test('leak test with the start camp and contracts: prep, hub and map decisions o
     ['planner', 'rogue', 1000, 'fresh', 300, {}], ['planner', 'mage', 1001, 'fresh', 300, {}],
     ['planner', 'hunter', 1002, 'all', 300, { expMeta: EXP_META, vision: { pathfinder: true } }],
     ['greedy', 'mage', 1003, 'fresh', 300, {}], ['speedrunner', 'hunter', 1004, 'fresh', 300, {}],
+    // M2b v10: a Delve costs 2 points, so seed 1004 has one start-camp decision fewer; a second speedrunner run keeps >= 10.
+    ['speedrunner', 'rogue', 1007, 'fresh', 300, {}],
     ['random', 'rogue', 1005, 'fresh', 60, {}], ['random', 'mage', 1008, 'fresh', 60, {}],
   ];
   const per = {};
