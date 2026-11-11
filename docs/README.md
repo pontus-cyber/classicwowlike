@@ -29,6 +29,7 @@ Add a role only when a task needs one, and log the reason in docs/DECISIONS.md.
 | docs/DECISIONS.md | Every decision with reason and status | Lead (others propose) |
 | docs/STATUS.md | One page: where we are, next tasks, blockers, build, cost | Lead |
 | docs/OWNER.md | Tasks only the owner can do, with dates | Lead writes, owner ticks |
+| docs/EXPERIMENTS.md | Owner ideas parked for later: not designed, built or measured until the owner reconnects | Lead |
 | docs/specs/*.md | Rules and content specs | Designer, Engineer |
 | docs/reports/*.md | Report to the owner when something changed | Lead |
 | docs/feedback/*.md | Owner feedback written down by any chat | Any |
