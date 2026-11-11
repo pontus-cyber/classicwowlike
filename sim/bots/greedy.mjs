@@ -10,12 +10,15 @@
 // not dim within the margin. Leaves at 10z when no adjacent node beats GREEDY_STAY_THRESHOLD; otherwise walks to the
 // nearest unresolved node it may enter. Contracts (2b.5, prep): the site term of 10.3 on adjacent nodes; walks to the
 // nearest known site first (also at 10z); start camp greedyPrep, hub contract from Reserve (shared.mjs).
+// Clean-escape test (M2b v10, D87; the engine's rules 1.9.9 step 3): a node is entered only if it is not Dimmed when its
+// content ends and a Road can be reached from it then without a Dimmed step (escapeV on the fog view); a walk target
+// must pass the same test at its arrival (an unseen target after EXPED_TIME_QUEST tolls, as the engine's policy).
 import { C, R, legal } from '../lib/engine.mjs';
 import { BAL, SIM } from '../lib/params.mjs';
 import { makeCtx, evalNode, copyM, levelPos, siteTerm } from '../lib/model.mjs';
 import { createValueBot, hubFull, FULL_KIT, greedyPrep, greedyHubContract } from './shared.mjs';
 import { valueGrindWaves, innByValue, exitStep, expExitLevel, expHub, contractSites } from './planner.mjs';
-import { fogInput, viewHops, enterableV } from '../lib/view.mjs';
+import { fogInput, viewHops, enterableV, escapeV } from '../lib/view.mjs';
 
 const perHour = (ev) => ev.value / Math.max(1, ev.hours);
 
@@ -57,6 +60,8 @@ export function greedyExpMap(s, risk) {
   const margin = SIM.EXP_GREEDY_DIM_MARGIN;
   const shard = viewHops(view, view.shardfall);
   const safe = (id, at) => view.nodes[id].dimAt - at > margin;
+  // Clean escape at zone toll `at` (the end of the node's content): not Dimmed, and a Road without a Dimmed step.
+  const clean = (id, at) => at < view.nodes[id].dimAt && escapeV(view, id, at).dims === 0;
   const step = (id) => {
     const mv = view.moves.find((x) => x.nodeId === id);
     return mv && mv.via === 'enter' ? { type: 'PASS_THROUGH', nodeId: id } : { type: 'MOVE', nodeId: id };
@@ -78,7 +83,7 @@ export function greedyExpMap(s, risk) {
     const ev = evalNode(ctx, m, view.nodes[mv.nodeId]);
     // "Arrival" read as the end of the node's content, when the player is back on the map and the engine checks the
     // Dimming (rules 1.9.6 settle step): entering at the front's edge is a Dimmed encounter at its end.
-    if (!safe(mv.nodeId, zt + ev.hours)) continue;
+    if (!safe(mv.nodeId, zt + ev.hours) || !clean(mv.nodeId, zt + ev.hours)) continue;
     scored.push({ id: mv.nodeId, v: (ev.value + siteTerm(sk, m, mv.nodeId)) / Math.max(1, ev.hours) });
   }
   scored.sort((a, b) => b.v - a.v);
@@ -98,19 +103,29 @@ export function greedyExpMap(s, risk) {
   // enter (BFS over safe nodes); at the exit level only towards a site.
   const N = view.nodes.length;
   const prev = new Array(N).fill(-2);
+  const dist = new Array(N).fill(0);
   prev[pos] = -1;
   const q = [pos];
+  // Clean escape of a walk target reached after `steps` walks: content time from the model when the node is seen,
+  // else EXPED_TIME_QUEST (the engine's policy for unseen targets).
+  const cleanTarget = (v, steps) => {
+    const n = view.nodes[v];
+    const arrive = zt + steps * view.walkTime;
+    const t = n.know === 'full' ? evalNode(ctx, copyM(ctx.m), n).hours : C.EXPED_TIME_QUEST;
+    return clean(v, arrive + t);
+  };
   for (let i = 0; i < q.length; i++) {
     const u = q[i];
     const at = zt + view.walkTime * (i === 0 ? 1 : 2);
     for (const v of view.nodes[u].nb) {
       if (prev[v] !== -2 || !safe(v, at)) continue;
       prev[v] = u;
+      dist[v] = dist[u] + 1;
       q.push(v);
       const n = view.nodes[v];
-      const open = sites.length ? sites.includes(v)
-        : n.know !== 'full' ? !n.hub : enterableV(view, v, zt) && !scored.some((x) => x.id === v);
-      if (open && v !== pos) {
+      const open = (sites.length ? sites.includes(v)
+        : n.know !== 'full' ? !n.hub : enterableV(view, v, zt) && !scored.some((x) => x.id === v)) && v !== pos && cleanTarget(v, dist[v]);
+      if (open) {
         let x = v;
         while (prev[x] !== pos) x = prev[x];
         return step(x);

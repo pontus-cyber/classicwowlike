@@ -12,8 +12,8 @@
 // 'hm<x>' (hour weight x instead of PLANNER_TIME_MULT, for the hour-weight check).
 // Expedition map (expedition.md 10.1-10.2; MILESTONES 2b.4): planFog, a belief search of depth PLANNER_FOG_DEPTH over
 // moves on the fog view only (sim/lib/view.mjs fogInput): seen nodes valued exactly, unseen nodes as the expectation
-// over the region kind's weights (zone mean when the region is unknown), the Dimming exactly, Dimmed encounters at
-// SIM.EXP_DIM_DEATH × (1 + depth), leaf = leaving by the cheapest Road (Dimmed steps on the way) or the Bell, leaving
+// over the region kind's weights (zone mean when the region is unknown), the Dimming exactly, Dimmed encounters priced
+// from the risk table's `dim` rows by depth (M2b v10 row C2: learned, prior SIM.EXP_DIM_DEATH × (1 + depth)), leaf = leaving by the cheapest Road (Dimmed steps on the way) or the Bell, leaving
 // valued with an under-level penalty (SIM.EXP_UNDER_LEVEL_VALUE per level under 10z). Contract sites (2b.5, prep;
 // expedition.md 10.3): the site term on every node entered and a leaf that walks to a known site (contractSites). The
 // start camp and the hub contract: plannerPrep, plannerHubContract (shared.mjs). oracleMap: the same search on the
@@ -21,6 +21,7 @@
 import { C, R, legal, hpFrac } from '../lib/engine.mjs';
 import { BAL, HEAT, SIM, EXP } from '../lib/params.mjs';
 import { makeCtx, evalNode, copyM, levelPos, eatModel, contractValue, siteTerm } from '../lib/model.mjs';
+import { dimRisk } from '../lib/risk.mjs';
 import { createValueBot, hubFull, FULL_KIT, plannerPrep, plannerHubContract } from './shared.mjs';
 import { fogInput, oracleInput, dimmedAtV, dimDepthV, enterableV, escapeV, typeBelief, protoCell, siteKnowledge, viewHops } from '../lib/view.mjs';
 
@@ -123,11 +124,13 @@ function tollCost(ctx, m, n) {
   return v;
 }
 
-/** Value of a Dimmed encounter at depth d in the model (death chance, HP, its toll); mutates m. */
+/** Value of a Dimmed encounter at depth d in the model (death chance and HP lost from the risk table's `dim` rows, its
+ *  toll); mutates m. */
 function dimCost(ctx, m, d) {
-  const p = Math.min(0.9, SIM.EXP_DIM_DEATH * (1 + d));
+  const r = dimRisk(ctx.risk, d);
+  const p = Math.min(0.9, r.p);
   const v = tollCost(ctx, m, C.TIME_DIM_FIGHT) - p * BAL.VAL_DEATH;
-  m.hp = Math.max(0.02, m.hp - SIM.EXP_DIM_HP);
+  m.hp = Math.max(0.02, m.hp - r.hp);
   eatModel(m);
   return v;
 }
@@ -369,7 +372,7 @@ export function expHub(s, inn) {
  * oracle: true builds the oracle as an acting bot (diagnostic only, B41 C_route): the runner plays it on a copy of the
  * zone-entry state to get the oracle's route; it never plays a measured run.
  */
-export function createPlannerBot({ classId, risk, tree, style = 'balanced', variant = null, combat = null, name = 'planner', oracle = false, rng = null, prepPolicy = null }) {
+export function createPlannerBot({ classId, risk, tree, style = 'balanced', variant = null, combat = null, name = 'planner', oracle = false, rng = null, prepPolicy = null, prepForce = null, prepBan = null }) {
   const hm = plannerHourMult(variant);
   const heat = plannerHeat(variant);
   const inn = (x) => innByValue(x, risk, style, hm, heat);
@@ -381,8 +384,9 @@ export function createPlannerBot({ classId, risk, tree, style = 'balanced', vari
     hub: (s) => (s.mapMode === 'expedition' ? expHub(s, inn) : hubFull(s, inn)),
     map: (s) => (s.mapMode === 'expedition' ? expMap(s) : planMap(s, risk, style, hm, heat).action),
     grindWaves: (s) => valueGrindWaves(s, risk, style, hm, heat),
-    // Start camp and hub contract (expedition.md 10.2 planner; prep): plannerPrep, plannerHubContract (shared.mjs).
-    prep: (s) => plannerPrep(s, risk),
+    // Start camp and hub contract (expedition.md 10.2 planner; prep): plannerPrep, plannerHubContract (shared.mjs);
+    // prepForce / prepBan: options bought first / never (M2b v10 cell 9 calibration arms).
+    prep: (s) => plannerPrep(s, risk, prepForce, prepBan),
     hubContract: (s) => plannerHubContract(s, risk),
     prepPolicy, rng,
   });

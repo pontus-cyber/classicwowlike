@@ -17,7 +17,8 @@
 // weight XP_WEIGHT_MULT on kills, quest turn-ins, Grind waves and dungeon clears (not on the story XP), as the engine
 // does. Without ctx.exp (rows runs) every term is the rows value.
 // Start camp and contracts (expedition.md 3, 10.3; MILESTONES 2b.5; runs with newRun prep): no story chain (ctx.story),
-// contractValue (a contract's reward in value units), siteValueOf / siteTerm (the site value of 10.3, with the sites a
+// contractValue (a contract's reward in value units; its XP without the level-difference modifier, M2b v10 row A1, unless
+// SIM.CONTRACT_XP_DIFFMOD), siteValueOf / siteTerm (the site value of 10.3, with the sites a
 // search branch has already counted in m.cp).
 import { C, R, V, xpCurve, diffMod } from './engine.mjs';
 import { BAL, SIM, EXP } from './params.mjs';
@@ -446,7 +447,10 @@ function refGain(ctx, table, cl) {
  */
 export function contractValue(ctx, rw, opts = {}) {
   const L = Math.max(1, Math.min(C.MAX_LEVEL, opts.L ?? ctx.m.L));
-  const xpLv = L >= C.MAX_LEVEL ? 0 : evXp(ctx, rw.xpFrac, rw.cl, L) / XN[L];
+  // Contract XP (expedition.md 3.1): M2b v10 row A1 pays it without the level-difference modifier; SIM.CONTRACT_XP_DIFFMOD
+  // 1 keeps the modifier of the engine before A1.
+  const xpRaw = SIM.CONTRACT_XP_DIFFMOD ? evXp(ctx, rw.xpFrac, rw.cl, L) : rw.xpFrac * XC[Math.min(MAXL, rw.cl)] * (1 + ctx.xpPct);
+  const xpLv = L >= C.MAX_LEVEL ? 0 : xpRaw / XN[L];
   const one = opts.ref ? refGain(ctx, rw.table, rw.cl) : expGain(ctx, rw.table, rw.cl);
   const gear = (SIM.CONTRACT_CHOICE_GEAR[rw.choices] ?? SIM.CONTRACT_CHOICE_GEAR[SIM.CONTRACT_CHOICE_GEAR.length - 1]) * one;
   const gold = (rw.gold * (1 + ctx.goldPct)) / vAt(L);

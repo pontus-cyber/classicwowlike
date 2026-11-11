@@ -26,6 +26,8 @@ export function cellName(cell) {
   if (cell.pet) parts.push(cell.pet);
   if (cell.map === 'expedition') parts.push('exp');
   if (cell.prep) parts.push(cell.prepPolicy ? `prep${cell.prepPolicy}` : 'prep');
+  if (cell.prepForce) parts.push(`force${cell.prepForce.map((id) => id.replace(/^prep_/, '')).join('')}`);
+  if (cell.prepBan) parts.push(`ban${cell.prepBan.map((id) => id.replace(/^prep_/, '')).join('')}`);
   if (cell.expMeta) parts.push(`meta${Object.keys(cell.expMeta).map((k) => k.slice(0, 2)).join('')}`);
   if (cell.vision) parts.push(`vis${Object.keys(cell.vision).map((k) => k[0]).join('')}`);
   if (cell.dimming === false) parts.push('nodim');

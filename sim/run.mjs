@@ -16,6 +16,10 @@
 //            start camp and contracts (expedition.md 2-3, 10.2; MILESTONES 2b.5): --prep (with --map expedition)
 //            --prep-policy none|random (B40: every point to Reserve, or random purchases; the bot's map play is kept)
 //            --exp-meta quartermaster:2,cartographer:1,old_hand:1 (expedition meta entries of 8.2 as profile unlocks)
+//            M2b v10: --prep-force ember,draughts / --prep-ban draughts (start-camp options the planner family buys
+//            first / never; cell 9 calibration)
+//            --tables-in <risk.json> (the contract completion `ct` and Dimmed encounter `dim` observations of each class
+//            are taken from this file, replacing those of --risk-in: the table pass of changes-m2b-v10.md cell 1)
 //   campaigns: node sim/run.mjs --campaign N --class <c|all> --out <dir> [--risk-in <risk.json>]
 //
 // Writes <out>/<bot>-<profile>[-style][-variant][-pet]/{runs-<class>.jsonl, summary.json, summary.md, risk.json}.
@@ -30,6 +34,7 @@ import { runCampaigns } from './lib/batch.mjs';
 import { buildTable } from './lib/risk.mjs';
 import { BOT_NAMES } from './bots/index.mjs';
 import { readJson, writeJson, commitInfo, ensureDir } from './lib/output.mjs';
+import { C } from './lib/engine.mjs';
 import { campaignMarkdown } from './lib/campaignreport.mjs';
 import { defaultTrees, profileGroup } from './lib/trees.mjs';
 
@@ -56,6 +61,27 @@ const out = args.out || join('sim', 'out', new Date().toISOString().slice(0, 10)
 const groupTrees = defaultTrees(args.campaign ? 'P0' : profileGroup(args.profile || 'fresh'));
 const trees = Object.fromEntries(classes.map((c) => [c, args.tree !== undefined ? Number(args.tree) : groupTrees[c]]));
 const obsIn = args['risk-in'] ? readJson(args['risk-in']) : null;
+// M2b v10: completion and Dimmed encounter tables from a table pass, on top of --risk-in's node-risk observations.
+if (args['tables-in']) {
+  if (!obsIn) throw new Error('--tables-in needs --risk-in');
+  const t = readJson(args['tables-in']);
+  for (const c of classes) {
+    if (!obsIn[c] || !t[c]) throw new Error(`--risk-in / --tables-in: no observations for ${c}`);
+    delete obsIn[c].ct;
+    delete obsIn[c].dim;
+    if (t[c].ct) obsIn[c].ct = t[c].ct;
+    if (t[c].dim) obsIn[c].dim = t[c].dim;
+  }
+}
+const prepIds = (k) => {
+  if (!args[k]) return null;
+  const ids = args[k].split(',').map((x) => (x.startsWith('prep_') ? x : `prep_${x}`));
+  for (const id of ids) if (!C.PREP_OPTION[id]) throw new Error(`--${k}: unknown option ${id}`);
+  if (!args.prep) throw new Error(`--${k} needs --prep`);
+  return ids;
+};
+const prepForce = prepIds('prep-force');
+const prepBan = prepIds('prep-ban');
 const pool = new Pool(workers);
 try {
   if (args.campaign) {
@@ -78,7 +104,7 @@ try {
       prof: args.profile || 'fresh', trees, style: args.style || null, variant: args.variant || null, pet: args.pet || null,
       out, warmup: args.warmup !== undefined ? Number(args.warmup) : SIM.WARMUP_RUNS, obsIn, log: !!args.log, workers, replay: !!args.replay, pairs: !!args.pairs,
       map: args.map || null, vision: args.vision ? Object.fromEntries(args.vision.split(',').map((k) => [k, true])) : null, dimming: args.dimming === 'off' ? false : true, oracle: !!args.oracle, route: !!args.route,
-      prep: !!args.prep, prepPolicy: args['prep-policy'] || null,
+      prep: !!args.prep, prepPolicy: args['prep-policy'] || null, prepForce, prepBan, tablesIn: args['tables-in'] || null,
       expMeta: args['exp-meta'] ? Object.fromEntries(args['exp-meta'].split(',').map((x) => { const [id, r] = x.split(':'); return [id, Number(r || 1)]; })) : null,
     });
     for (const [cls, x] of Object.entries(r.perClass)) {

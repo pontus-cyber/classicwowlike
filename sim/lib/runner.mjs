@@ -5,7 +5,8 @@
 // acting bot's action is what is played), C_route (cell.route: `cr` = zones whose realised route equals the oracle's
 // route from the same zone-entry state, played on a copy by oracleRoute) and the close-call zones (B43).
 // Start camp and contracts (cell.prep: newRun prep, expedition.md 2-3; cell.prepPolicy: the B40 overrides 'none' and
-// 'random'; cell.expMeta: the expedition meta entries of 8.2 as profile unlocks): the record's `ct` (recorder.mjs).
+// 'random'; cell.expMeta: the expedition meta entries of 8.2 as profile unlocks; cell.prepForce / prepBan: start-camp
+// options the planner family buys first / never, M2b v10 cell 9): the record's `ct` (recorder.mjs).
 import { R, newRunFor, withExpMeta, hash32 } from './engine.mjs';
 import { BAL, SIM } from './params.mjs';
 import { createBot } from '../bots/index.mjs';
@@ -32,7 +33,7 @@ export function cellPet(cell) {
  */
 export function runWithBot(cell, seed, risk, opts = {}) {
   const profile = opts.profile || withExpMeta(buildProfile(cell.prof, cell.cls), cell.expMeta || null);
-  const bot = createBot(cell.bot, { classId: cell.cls, seed, risk, tree: cell.tree, style: cell.style, variant: cell.variant, ...(cell.prepPolicy ? { prepPolicy: cell.prepPolicy } : {}) });
+  const bot = createBot(cell.bot, { classId: cell.cls, seed, risk, tree: cell.tree, style: cell.style, variant: cell.variant, ...(cell.prepPolicy ? { prepPolicy: cell.prepPolicy } : {}), ...(cell.prepForce ? { prepForce: cell.prepForce } : {}), ...(cell.prepBan ? { prepBan: cell.prepBan } : {}) });
   const s = newRunFor({ classId: cell.cls, petId: cellPet(cell), seed, profile, mapMode: cell.map || null, vision: cell.vision || null, dimming: cell.dimming === false ? false : null, prep: !!cell.prep });
   // Expedition measures (expedition.md 11.1; MILESTONES 2b.4). cell.oracle: at every map decision of the acting bot,
   // the planner's fog choice and the oracle's full-information choice from the same state (C_step = agree / n, B41);

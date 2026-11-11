@@ -267,7 +267,12 @@ export const EXP = {
  */
 Object.assign(EXP, {
   SITE_PARTIAL_MULT: 0.8,
-  EST_COMPLETE: { cull: 0.55, bounty: 0.50, delve: 0.90 },
+  /** M2b v10 (changes-m2b-v10.md, simulator assumptions): 0.55 / 0.45 / 0.35 (was 0.55 / 0.50 / 0.90). */
+  EST_COMPLETE: { cull: 0.55, bounty: 0.45, delve: 0.35 },
+  /** M2b v10 D2: completion-gain priors of Region Charts, the Local Guide and the Spyglass on the held contracts' value. */
+  EST_CHARTS_GAIN: 0.05,
+  EST_GUIDE_GAIN: 0.05,
+  EST_SPYGLASS_GAIN: 0.03,
   PLAN_GAIN_MIN: 0.03,
   PLAN_VS_RANDOM_MIN: 0.02,
   COMPLETION_P0: [0.45, 0.65],
@@ -294,15 +299,39 @@ Object.assign(SIM, {
   COMPLETION_SHRINK: 20,
 });
 
+/**
+ * Planner start camp by value per point (M2b v10 rows D1, D2; changes-m2b-v10.md): bot values of the supplies (value units
+ * per option bought; draughts = qty × POTION_VALUE, ember = EMBER_VALUE, rations and mule from PREP_VALUE) and the
+ * value of a second contract of a zone that already has one held. [assumption: designer starting values, calibrated by
+ * the forced-option cells (cell 9).] SPYGLASS_USED 0: no bot has a USE_SPYGLASS policy, so the planner does not value the
+ * Spyglass (EST_SPYGLASS_GAIN applies once a policy uses it).
+ */
+Object.assign(SIM, {
+  POTION_VALUE: 45,
+  EMBER_VALUE: 320,
+  PREP_VALUE: { rations: 45, mule: 20 },
+  PREP_SAME_ZONE_MULT: 0.6,
+  SPYGLASS_USED: 0,
+  /** Contract XP in the bots' model (expedition.md 3.1): 0 = no level-difference modifier (M2b v10 row A1, the engine
+   *  package being built); 1 = × diffMod(CL_c - L) as the engine before A1 (set it to reproduce an earlier measure). */
+  CONTRACT_XP_DIFFMOD: 0,
+});
+
 /** Expedition map bots: numbers the spec leaves open [assumption: starting values, sim 2026-11-11d]. */
 Object.assign(SIM, {
   /** Value units per level under the zone's exit level (10z) when the planner leaves a zone (expedition.md 10.2:
    *  "leaving valued with an under-level penalty"): 1.5 × VAL_XP. */
   EXP_UNDER_LEVEL_VALUE: 150,
-  /** Death chance of a Dimmed encounter at depth d in the bots' model: EXP_DIM_DEATH × (1 + d) (expedition.md 12.1 SI). */
-  EXP_DIM_DEATH: 0.08,
-  /** HP fraction a Dimmed encounter costs in the bots' model. */
+  /** Death chance of a Dimmed encounter at depth d in the bots' model (expedition.md 12.1 SI): learned by depth bucket
+   *  0, 1, 2+ (sim/lib/risk.mjs `dim`, M2b v10 row C2), prior EXP_DIM_DEATH × (1 + d), shrunk with RISK_SHRINK (was a
+   *  fixed 0.08 × (1 + d)). */
+  EXP_DIM_DEATH: 0.02,
+  /** Deepest depth bucket of the `dim` table (2 = "2+"). */
+  DIM_DEPTH_MAX: 2,
+  /** HP fraction a Dimmed encounter costs in the bots' model: the prior of the learned HP change (survivors, after the
+   *  fight) when DIM_LEARN_HP is 1, else fixed (C2: "learned the same way" once the recorder gives it). */
   EXP_DIM_HP: 0.30,
+  DIM_LEARN_HP: 1,
   /** Greedy threat rule (expedition.md 10.2): tolls of margin before a node dims. */
   EXP_GREEDY_DIM_MARGIN: 2,
 });

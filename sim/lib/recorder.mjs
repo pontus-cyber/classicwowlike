@@ -26,6 +26,8 @@
 //   ex: expedition runs (rules 1.9; expedition.md 11.1, MILESTONES 2b.4): the summary's expedition block (expRecord);
 //       fight kind 'dim' (Dimmed encounters) is FIGHT_KINDS' last code
 //   xs: expedition measures of the runner (sim/lib/runner.mjs): C_step agree / decisions, close-call zones
+//   dm: Dimmed encounters (expedition runs with one; M2b v10 row C2, sim/lib/risk.mjs `dim`): [depth (engine `dim`
+//       event), died (0/1), HP % at the encounter's start, HP % after it (0 on a death)]
 //   ct: start camp and contracts (prep runs only; expedition.md 2-3, 11.1 B39, B40, B42, B46): { c: per contract taken
 //       [zone, kind, from ('b' board, 'h' hub), state ('c' complete, 'e' expired, 'a' abandoned, 'h' held at the end),
 //       progress, need], xpC (XP of contract rewards), xp (all XP gained), bought (prep options), res (Reserve left),
@@ -68,6 +70,8 @@ export class Recorder {
     this.f2 = [];
     this.wy = {};
     this.xpC = 0;
+    this.dm = [];
+    this.dimAt = null;
   }
 
   /** State facts before a step; with the action `a`, the combat v2 fields that need the state before it. */
@@ -194,6 +198,7 @@ export class Recorder {
         case 'node':
           if (ENTRY_NODE.has(e.type)) this.openEntry(e.type, e.cl - b.level, b.hp / b.maxHp);
           break;
+        case 'dim': this.dimAt = { d: e.depth, hp0: pct(hp / b.maxHp) }; break;
         case 'fight': {
           this.fight = {
             kind: e.kind, r0: b.rounds, min: hp / b.maxHp, z: zoneOf(s), pot: s.stats.potionsUsed,
@@ -219,6 +224,7 @@ export class Recorder {
             this.closeF2(false, hp / p.d.maxHp);
             const k = this.fight.kind;
             this.fight = null;
+            if (k === 'dim' && this.dimAt) { this.dm.push([this.dimAt.d, 0, this.dimAt.hp0, pct(hpAfter())]); this.dimAt = null; }
             if (this.entry) this.entry.hp1 = pct(hpAfter());
             if ((k === 'grind' || k === 'camp') && this.entry) this.closeEntry(0, hpAfter());
           }
@@ -236,6 +242,7 @@ export class Recorder {
               this.closeF2(true, 0);
               this.fight = null;
             }
+            if (this.dimAt) { this.dm.push([this.dimAt.d, 1, this.dimAt.hp0, 0]); this.dimAt = null; }
             this.closeEntry(1, 0);
           }
           break;
@@ -289,6 +296,7 @@ export class Recorder {
       fx: this.fx, f2: this.f2, wy: this.wy, ne: this.ne, steps: meta.steps, ms: meta.ms,
       ht: sum && sum.heat ? sum.heat.nodesByState : null,
       ...(sum && sum.expedition ? { ex: expRecord(sum.expedition) } : {}),
+      ...(this.dm.length ? { dm: this.dm } : {}),
       ...(meta.xs ? { xs: meta.xs } : {}),
       ...(s.exp && s.exp.prep ? { ct: this.contractRecord(s) } : {}),
       ...(meta.rep ? { rep: meta.rep } : {}),

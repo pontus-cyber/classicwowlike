@@ -15,7 +15,9 @@ export const CLASSES = ['rogue', 'mage', 'hunter'];
  * opts: { pool, bot, classes, runs, seedStart, prof, trees: {cls: tree}, style, variant, pet, out,
  *         warmup (runs, 0 = none), obsIn: {cls: obs}, log, quiet, workers, name, replay (B50 replays, combat-v2.md 11),
  *         map ('expedition'), vision ({ guide, charts, pathfinder }), dimming (false: no Dimming), oracle (C_step), route (C_route),
- *         prep (start camp and contracts), prepPolicy ('none' | 'random', B40), expMeta ({ quartermaster, cartographer, old_hand }) }
+ *         prep (start camp and contracts), prepPolicy ('none' | 'random', B40), expMeta ({ quartermaster, cartographer, old_hand }),
+ *         prepForce / prepBan ([option id]: bought first / never by the planner family, M2b v10 cell 9), tablesIn (file name,
+ *         for meta only) }
  * Returns { name, dir, perClass: { cls: { records, metrics, obs, table } } }.
  */
 export async function runBatch(opts) {
@@ -27,6 +29,8 @@ export async function runBatch(opts) {
     ...(opts.map ? { map: opts.map } : {}), ...(opts.vision ? { vision: opts.vision } : {}), ...(opts.dimming === false ? { dimming: false } : {}), ...(opts.oracle ? { oracle: true } : {}), ...(opts.route ? { route: true } : {}),
     // Start camp and contracts (MILESTONES 2b.5): prep, the B40 prep overrides, the expedition meta entries.
     ...(opts.prep ? { prep: true } : {}), ...(opts.prepPolicy ? { prepPolicy: opts.prepPolicy } : {}), ...(opts.expMeta ? { expMeta: opts.expMeta } : {}),
+    // M2b v10 cell 9: start-camp options the planner family buys first / never.
+    ...(opts.prepForce ? { prepForce: opts.prepForce } : {}), ...(opts.prepBan ? { prepBan: opts.prepBan } : {}),
   };
   const name = opts.name || cellName({ ...cellBase, tree: null });
   const dir = opts.out ? ensureDir(join(opts.out, name)) : null;
@@ -61,7 +65,8 @@ export async function runBatch(opts) {
     warmupNote: notes.join('; '), bot: opts.bot, prof: opts.prof, trees: opts.trees, style: opts.style || 'balanced', variant: opts.variant || null, pet: opts.pet || null,
     replay: !!opts.replay, pairs: !!opts.pairs, simOverride: process.env.SIM_OVERRIDE || null,
     map: opts.map || 'rows', vision: opts.vision || null, dimming: opts.dimming !== false, oracle: !!opts.oracle, route: !!opts.route,
-    ...(opts.prep ? { prep: true, prepPolicy: opts.prepPolicy || null, expMeta: opts.expMeta || null } : {}),
+    ...(opts.prep ? { prep: true, prepPolicy: opts.prepPolicy || null, expMeta: opts.expMeta || null, prepForce: opts.prepForce || null, prepBan: opts.prepBan || null } : {}),
+    ...(opts.tablesIn ? { tablesIn: opts.tablesIn } : {}),
   };
   if (dir) {
     writeJson(join(dir, 'summary.json'), { meta, classes: Object.fromEntries(Object.entries(perClass).map(([c, x]) => [c, { tree: x.tree, metrics: x.metrics }])) });

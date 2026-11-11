@@ -3,6 +3,9 @@
 // It also learns the mean HP-fraction change of a node (exit - entry), which the planners use to predict the
 // HP at the next node. Estimates shrink with RISK_SHRINK pseudo-observations: (type, dl, hp) toward (type, dl),
 // and (type, dl) toward RISK_PRIOR (P(death)) or the type mean (HP change). P(death) is then made monotone.
+// Dimmed encounters (expedition.md 12.1; M2b v10 row C2): table `dim` by depth bucket 0, 1, 2+ (SIM.DIM_DEPTH_MAX),
+// P(death) shrunk to the prior SIM.EXP_DIM_DEATH × (1 + bucket) and the survivors' HP change to -SIM.EXP_DIM_HP, with
+// RISK_SHRINK pseudo-observations; P(death) is made monotone in depth. Read with dimRisk (fractional depths interpolate).
 import { SIM } from './params.mjs';
 
 // Node types of the table. Quests are split by encounter size and elites by the visible add (rules 2.1, 2.3):
@@ -46,8 +49,17 @@ export function addEntry(obs, e) {
   add(obs.t, t, e[3], dh);
 }
 
+/** Depth bucket of a Dimmed encounter: 0 .. SIM.DIM_DEPTH_MAX (the last is "and deeper"). */
+export const dimKey = (d) => Math.max(0, Math.min(SIM.DIM_DEPTH_MAX, Math.round(d)));
+
 export function addRecord(obs, rec) {
   if (rec.ne) for (const e of rec.ne) addEntry(obs, e);
+  // Dimmed encounters (record block `dm`: [depth, died, HP % at entry, HP % at exit]): [encounters, deaths, sum of the
+  // survivors' HP change] by depth bucket. Kept only when a run had one.
+  if (rec.dm && rec.dm.length) {
+    const dim = obs.dim || (obs.dim = {});
+    for (const [d, died, h0, h1] of rec.dm) add(dim, dimKey(d), died, died ? 0 : (h1 - h0) / 100);
+  }
   // Contract completion (prep runs; expedition.md 10.2 planner table): [taken, completed] by `${kind}|${tracker}|${z}`,
   // abandoned contracts (a swap is the bot's own choice) not counted. Kept only when a run has contracts.
   if (rec.ct) {
@@ -76,8 +88,48 @@ export function mergeObs(a, b) {
       out.ct = out.ct || {};
       for (const [key, c] of Object.entries(o.ct)) { const d = out.ct[key] || (out.ct[key] = [0, 0]); d[0] += c[0]; d[1] += c[1]; }
     }
+    if (o.dim) {
+      out.dim = out.dim || {};
+      for (const [key, c] of Object.entries(o.dim)) { const d = out.dim[key] || (out.dim[key] = [0, 0, 0]); d[0] += c[0]; d[1] += c[1]; d[2] += c[2]; }
+    }
   }
   return out;
+}
+
+/**
+ * Dimmed encounter table from observations (obs.dim, may be absent): { p: [P(death) by bucket], dh: [survivors' mean HP
+ * change by bucket], n: [encounters by bucket] }. Prior P(death) SIM.EXP_DIM_DEATH × (1 + bucket), prior HP change
+ * -SIM.EXP_DIM_HP (fixed when SIM.DIM_LEARN_HP is 0); RISK_SHRINK pseudo-observations; P(death) monotone in depth.
+ */
+export function buildDimTable(dimObs) {
+  const k = SIM.RISK_SHRINK;
+  const p = [];
+  const dh = [];
+  const n = [];
+  for (let b = 0; b <= SIM.DIM_DEPTH_MAX; b++) {
+    const c = dimObs ? dimObs[b] : null;
+    const prior = SIM.EXP_DIM_DEATH * (1 + b);
+    p.push(Math.max(b ? p[b - 1] : 0, ((c ? c[1] : 0) + k * prior) / ((c ? c[0] : 0) + k)));
+    const alive = c ? c[0] - c[1] : 0;
+    dh.push(SIM.DIM_LEARN_HP && alive > 0 ? (c[2] - k * SIM.EXP_DIM_HP) / (alive + k) : -SIM.EXP_DIM_HP);
+    n.push(c ? c[0] : 0);
+  }
+  return { p, dh, n };
+}
+
+/**
+ * The bots' model of a Dimmed encounter at depth d (fractional for a mean over several encounters): { p (death chance),
+ * hp (HP fraction lost, > 0) }, interpolated between the depth buckets; a table without `dim` (an older risk.json) uses
+ * the prior.
+ */
+let priorDim = null;
+export function dimRisk(table, d) {
+  const t = (table && table.dim) || priorDim || (priorDim = buildDimTable(null));
+  const x = Math.max(0, Math.min(SIM.DIM_DEPTH_MAX, d));
+  const i = Math.floor(x);
+  const j = Math.min(SIM.DIM_DEPTH_MAX, i + 1);
+  const f = x - i;
+  return { p: t.p[i] + (t.p[j] - t.p[i]) * f, hp: -(t.dh[i] + (t.dh[j] - t.dh[i]) * f) };
 }
 
 /**
@@ -122,7 +174,9 @@ export function buildTable(obs) {
       }
     }
   }
-  return obs.ct ? { p, dh, runs: obs.runs, ct: obs.ct } : { p, dh, runs: obs.runs };
+  const out = { p, dh, runs: obs.runs, dim: buildDimTable(obs.dim || null) };
+  if (obs.ct) out.ct = obs.ct;
+  return out;
 }
 
 export function priorTable() {
