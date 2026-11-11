@@ -5,6 +5,7 @@ Owner ideas and team proposals not yet scheduled. The Lead places each item into
 | Date | Item | Source | Placed in | Status |
 |---|---|---|---|---|
 | 2026-11-10 | Combat v2.1 display | UI hand-off 2026-11-10g | M2b 2b.6 | done (a105328) |
+| 2026-11-11 | Meta v2: persistent character per class that levels across runs (capped talents and spell ranks unlocked by it); hard first runs, rising Echo income, noticeable early upgrades; damage and HP numbers divided by 2-3; Echo board stays account-wide | Owner 10:26 | M3 design now, build after M2b | doing |
 | 2026-11-11 | Heat: own name (default "the Pyre"), small integer time unit replacing hours (default "bells"), meter at top centre, hell-to-calm visuals | Owner 10:12 | UX pass (visuals) + designer spec + engine/UI | doing |
 | 2026-11-11 | Sound: procedural Web Audio for UI and combat impacts after M2b; CC0 or commissioned files for music and ambience in M4 | Owner 10:12 question | after M2b | todo |
 | 2026-11-11 | HUD/UX readability pass: easier to follow along; first-time-player review of every combat and map screen | Owner 08:31 | after DoT preview | todo |
