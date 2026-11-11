@@ -108,8 +108,8 @@ Other files in src/ that are not .js: `src/index.html` (HTML shell, the build en
 |---|---|---|---|
 | `sim/play.mjs` | Text play of one run, interactive or scripted, with bots and autoplay | CLI entry | M1 1.2; Simulation & Balance Engineer |
 | `sim/run.mjs` | Batch mode: N seeded runs per class with one bot across worker threads | CLI entry | balance.md 1, 2; Simulation & Balance Engineer |
-| `sim/pass.mjs` | Full balance pass: every cell the report needs (default trees per profile group by the switch rule, B5 fallback), campaigns, replay and throughput checks | CLI entry | balance.md 1.3, 2, 3; Simulation & Balance Engineer |
-| `sim/report.mjs` | Builds the balance report (targets B1-B38, both default-tree sets with the switch rows) from a pass directory | CLI entry | balance.md 1.3, 3, 6; Simulation & Balance Engineer |
+| `sim/pass.mjs` | Full balance pass: every cell the report needs (default trees per profile group by the switch rule; the P0 tactician in its own stage T with the B5 fallback; combat v2 masher and opener, stage G; heat-seek and heat-avoid, stage H), campaigns, replay and throughput checks | CLI entry | balance.md 1.3, 2, 3; combat-v2.md 11; expedition.md H.6; Simulation & Balance Engineer |
+| `sim/report.mjs` | Builds the balance report from a pass directory: targets B1-B38, the combat v2 targets B48-B55 and the changed B5/B15/B16, the heat targets B58/B56/B57, both default-tree sets with the switch rows; Before column re-measured on an earlier combat measure and heat cells | CLI entry | balance.md 1.3, 3, 6; combat-v2.md 12; expedition.md H.6; Simulation & Balance Engineer |
 | `sim/combatpass.mjs` | Combat v2 measure: P0 planner (warm-up chain as pass stage A), masher with B50 replays, opener, tactician; cheap B1/B3 cells; heat-seek / heat-avoid cells (stage H) | CLI entry | combat-v2.md 11, 12; expedition.md H.6; Simulation & Balance Engineer |
 | `sim/combatreport.mjs` | Combat v2 report: B48-B55, the changed B5/B15/B16, B53, B1/B3/B4/B6/B21 and the heat targets B58, B56, B57, wind-up tables, now against a before pass or an earlier combat measure | CLI entry | combat-v2.md 12; balance.md 3; expedition.md H.6; Simulation & Balance Engineer |
 | `sim/heatreport.mjs` | Heat report tables: B58, B56, B57 from planner P0 cells, the hour-weight check, the Ascendancy calibration of SIM.VAL_ASC, scratch proposals (paired by class and seed) | CLI entry | expedition.md H.6; D61; Simulation & Balance Engineer |
@@ -210,8 +210,8 @@ Node 22 is used (directory arguments to `node --test` resolve to each folder's `
 | Text play (interactive) | `node sim/play.mjs --class mage --seed 42 [--pet ridgewolf] [--profile fresh]` |
 | Text play (scripted) | `node sim/play.mjs --class mage --seed 42 --script run.txt [--transcript out.md] [--finish auto]` |
 | Batch | `node sim/run.mjs --bot planner --class all --runs 500 --seed-start 1 --profile fresh --out sim/out/test` |
-| Balance pass | `node sim/pass.mjs --out sim/out/pass-YYYY-MM-DD [--runs 2000] [--stages A,B,C,D,E,F] [--resume]` |
-| Balance report | `node sim/report.mjs --in sim/out/pass-YYYY-MM-DD --out docs/reports/balance-YYYY-MM-DD.md [--before <earlier report>]` |
+| Balance pass | `node sim/pass.mjs --out sim/out/pass-YYYY-MM-DD [--runs 2000] [--stages A,T,G,B,C,D,H,E,F] [--tact-runs N] [--opener-runs N] [--resume]` |
+| Balance report | `node sim/report.mjs --in sim/out/pass-YYYY-MM-DD --out docs/reports/balance-YYYY-MM-DD.md [--heat-off <B57 arm>] [--before-combat <dir> --before-heat <dir>] [--before <earlier report>]` |
 | Build | `node tools/build.mjs` (to `dist/game.html`), `node tools/build.mjs --out game.html` (Lead's release), `--watch`, `--serve [port]` for unbundled development |
 | Browser checks | build first: `node tools/build.mjs --out /tmp/qa-game.html`; then `NODE_PATH=/opt/npm-tools/node_modules node qa/browser/full-run.mjs --file /tmp/qa-game.html`, and likewise `ui-checks.mjs`, `ui-regress.mjs`, `pace.mjs` |
 | QA player, headless | `node qa/browser/playtest.mjs [--classes rogue,mage,hunter] [--seeds 1-20] [--trace]` |

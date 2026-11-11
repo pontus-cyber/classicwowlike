@@ -4,19 +4,25 @@
 // <out>/pass.json; build the report with sim/report.mjs.
 //
 //   node sim/pass.mjs --out sim/out/pass-2026-11-09 [--runs 2000] [--style-runs 1000] [--workers N]
-//                     [--stages A,B,C,D,E,F] [--resume] [--warmup 1000] [--campaigns 50] [--replay 1000] [--half-runs 1000]
-//                     [--variant-runs 2000] [--pall-runs 2000] [--diag-runs 1000] [--opener-runs 1000]
+//                     [--stages A,T,G,H,B,C,D,E,F] [--resume] [--warmup 1000] [--campaigns 50] [--replay 1000] [--half-runs 1000]
+//                     [--variant-runs 2000] [--pall-runs 2000] [--diag-runs 1000] [--opener-runs 1000] [--tact-runs 2000]
+//                     [--heat-runs 2000]
+// Stages run in the order A, T, G, B, C, D, H, E, F whatever the order given; a later invocation with --resume reloads
+// the cells an earlier one wrote (stage T and H need stage A's results on disk).
 //
 // Order and risk-table chain (balance.md 1.1; each cell keeps refreshing its own table every SIM_RISK_REFRESH runs).
 // Default trees (balance.md 1.3, M2 v5, D43): one per class and profile group, chosen by the switch rule
 // (sim/lib/trees.mjs) from that group's planner cells with each tree, the incumbents being SIM.DEFAULT_TREE (P0 group)
 // and SIM.DEFAULT_TREE_PALL (PALL group); pass.json records the incumbents, the choice and both tree sets.
 //   A  P0:   planner warm-up (P0 incumbents) -> B7 planner with each tree -> P0-group trees by the switch rule ->
-//            random, greedy, speedrunner, tactician; all start from the chosen-tree planner's final observations.
-//            B5 fallback (balance.md 1.3): if tactician - planner on P0 is under MANUAL_GAP, the tactician cell is
-//            re-run with each class's best B7 point-estimate tree (tactician-P0-b5, only the classes whose tree
-//            differs; the others keep their tactician-P0 runs, which the same tree and seeds would repeat) and that
-//            cell counts for B1 tactician and B5.
+//            random, greedy, speedrunner; all start from the chosen-tree planner's final observations.
+//   T  P0 tactician (--tact-runs, default --runs; the most expensive P0 cell, so it has its own stage and size), from
+//            the chosen-tree planner's final observations. B5 fallback (balance.md 1.3): if tactician - planner on P0 is
+//            under B5's floor, the tactician cell is re-run with each class's best B7 point-estimate tree
+//            (tactician-P0-b5, only the classes whose tree differs; the others keep their tactician-P0 runs, which the
+//            same tree and seeds would repeat) and that cell counts for B1 tactician and B5. B5's floor is the lower
+//            bound of MANUAL_GAP_V2 (combat-v2.md 12 changed B5's band from MANUAL_GAP) [inference: "its floor" in 1.3
+//            is the band in force]. The comparison uses the planner on the tactician's seeds (paired subset).
 //   B  P10:  planner warm-up from the P0 observations -> planner, random (P0-group trees).
 //   C  PALL: planner warm-up (PALL incumbents) from the P0 observations -> planner with each tree (--pall-runs) ->
 //            PALL-group trees by the switch rule; the chosen-tree cell of each class is the planner PALL cell, whose
@@ -28,12 +34,16 @@
 //   E  P2 and diagnostic cells: B9 pets and B8 styles (P0 from the P0 planner's observations, PALL from the PALL
 //            planner's, each on its group's trees), the rules-only tactician (telegraph rules, no search;
 //            --diag-runs; P0-group trees).
-//   G  combat v2 cells (combat-v2.md 11-12; B48-B54): masher P0 with the B50 fight replays and opener P0
+//   G  combat v2 cells (combat-v2.md 11-12; B48-B55): masher P0 with the B50 fight replays and opener P0
 //            (--opener-runs, default --half-runs), P0-group trees, from the P0 planner's observations.
+//   H  heat (expedition.md H.6; B58, B56, B57): heat-seek and heat-avoid planner P0 cells (--heat-runs, default --runs),
+//            P0-group trees, from the P0 warm-up observations (warmup-P0.json), as the B7 cells, so they are paired by
+//            class and seed with the planner P0 cell. B57's arm (the planner on an engine without the H.3 rewards) is a
+//            scratch copy outside this script (sim/report.mjs --heat-off).
 import { cpus } from 'node:os';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
-import { BAL, SIM } from './lib/params.mjs';
+import { BAL, SIM, C2 } from './lib/params.mjs';
 import { Pool } from './lib/pool.mjs';
 import { runBatch, CLASSES } from './lib/session.mjs';
 import { runCell, runCampaigns } from './lib/batch.mjs';
@@ -59,7 +69,7 @@ const OUT = ensureDir(args.out || join('sim', 'out', `pass-${new Date().toISOStr
 const RUNS = Number(args.runs || BAL.N_RUNS_PER_CELL);
 const STYLE_RUNS = Number(args['style-runs'] || Math.round(RUNS / 2));
 const WORKERS = Number(args.workers || cpus().length);
-const STAGES = new Set(String(args.stages || 'A,G,B,C,D,E,F').split(','));
+const STAGES = new Set(String(args.stages || 'A,T,G,B,C,D,H,E,F').split(','));
 const WARM = Number(args.warmup ?? SIM.WARMUP_RUNS);
 const CAMPAIGNS = Number(args.campaigns ?? BAL.N_CAMPAIGNS);
 const REPLAY = Number(args.replay ?? BAL.QA_REPLAY_RUNS);
@@ -71,13 +81,21 @@ const DIAG_RUNS = Number(args['diag-runs'] || HALF);
 const OPENER_RUNS = Number(args['opener-runs'] || HALF);
 // PALL planner, random, greedy and speedrunner cells (the first to cut when compute is short).
 const PALL_RUNS = Number(args['pall-runs'] || RUNS);
+// P0 tactician (stage T; B1 tactician and B5) and the heat cells (stage H).
+const TACT_RUNS = Number(args['tact-runs'] || RUNS);
+const HEAT_RUNS = Number(args['heat-runs'] || RUNS);
+// B5's floor for the fallback (balance.md 1.3): the lower bound of the B5 band in force (combat-v2.md 12, MANUAL_GAP_V2 in pp).
+const B5_FLOOR = C2.MANUAL_GAP_V2[0] / 100;
 // B26-B28 variants run on the first VARIANT_RUNS seeds of the PALL planner cell (paired seeds, so at most PALL_RUNS).
 const VARIANT_RUNS = Math.min(PALL_RUNS, Number(args['variant-runs'] || RUNS));
 const SEED = BAL.SEED_BASE;
 const pool = new Pool(WORKERS);
 const manifestFile = join(OUT, 'pass.json');
 const manifest = existsSync(manifestFile) ? readJson(manifestFile) : { cells: {}, warmups: {} };
-manifest.meta = { commit: commitInfo(), started: manifest.meta ? manifest.meta.started : new Date().toISOString(), runs: RUNS, styleRuns: STYLE_RUNS, halfRuns: HALF, diagRuns: DIAG_RUNS, openerRuns: OPENER_RUNS, variantRuns: VARIANT_RUNS, pallRuns: PALL_RUNS, campaigns: CAMPAIGNS, seedBase: SEED, workers: WORKERS, node: process.version };
+// Each invocation records its own commit and sizes (a pass made in several invocations keeps the list in meta.runsBy).
+const invocation = { commit: commitInfo(), stages: [...STAGES].join(','), at: new Date().toISOString(), runs: RUNS, tactRuns: TACT_RUNS, openerRuns: OPENER_RUNS, heatRuns: HEAT_RUNS, halfRuns: HALF, simOverride: process.env.SIM_OVERRIDE || null };
+manifest.meta = { ...(manifest.meta || {}), commit: commitInfo(), started: manifest.meta ? manifest.meta.started : new Date().toISOString(), runs: RUNS, styleRuns: STYLE_RUNS, halfRuns: HALF, diagRuns: DIAG_RUNS, openerRuns: OPENER_RUNS, tactRuns: TACT_RUNS, heatRuns: HEAT_RUNS, variantRuns: VARIANT_RUNS, pallRuns: PALL_RUNS, campaigns: CAMPAIGNS, seedBase: SEED, workers: WORKERS, node: process.version };
+manifest.meta.runsBy = [...((manifest.meta && manifest.meta.runsBy) || []), invocation];
 const save = () => writeJson(manifestFile, manifest);
 const log = (m) => process.stderr.write(`[${new Date().toISOString().slice(11, 19)}] ${m}\n`);
 
@@ -99,6 +117,17 @@ async function cell(name, o) {
   const brief = Object.entries(r.perClass).map(([c, x]) => `${c} ${(x.metrics.win.p * 100).toFixed(1)} %/${(x.metrics.boss.p * 100).toFixed(0)} %`).join(', ');
   log(`${name}: done in ${(r.meta.wallMs / 1000).toFixed(0)} s (win/boss: ${brief})`);
   return r;
+}
+
+/** Reload a cell written earlier (by this or an earlier invocation); throws if it is missing. */
+function loadCell(name) {
+  const dir = join(OUT, name);
+  if (!existsSync(join(dir, 'summary.json'))) throw new Error(`cell ${name} missing (run its stage first)`);
+  const sum = readJson(join(dir, 'summary.json'));
+  const risk = readJson(join(dir, 'risk.json'));
+  const perClass = {};
+  for (const cls of Object.keys(sum.classes)) perClass[cls] = { records: readJsonl(join(dir, `runs-${cls}.jsonl`)), metrics: sum.classes[cls].metrics, obs: risk[cls], tree: sum.classes[cls].tree };
+  return { perClass };
 }
 
 /** Planner warm-up for the risk table (observations only; runs discarded). */
@@ -164,32 +193,39 @@ try {
     obsP0 = Object.fromEntries(CLASSES.map((c) => [c, byTree[trees[c]].perClass[c].obs]));
     writeJson(join(OUT, 'obs-P0.json'), obsP0);
     await cell('random-P0', { bot: 'random', classes: CLASSES, prof: 'fresh', trees });
-    let tac = null;
-    for (const bot of ['greedy', 'speedrunner', 'tactician']) {
-      const r = await cell(`${bot}-P0`, { bot, classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0 });
-      if (bot === 'tactician') tac = r;
-    }
-    // B5 fallback (balance.md 1.3, M2 v5): tactician - planner on P0 under the MANUAL_GAP floor -> re-run the
-    // tactician with each class's best B7 point-estimate tree; that cell counts for B1 tactician and B5.
+    for (const bot of ['greedy', 'speedrunner']) await cell(`${bot}-P0`, { bot, classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0 });
+    save();
+  }
+  if (!trees || !obsP0) throw new Error('stage A results missing (run stage A first)');
+  if (STAGES.has('T')) {
+    // The P0 tactician from the chosen-tree planner's final observations (stage A's obs-P0.json).
+    const tac = await cell('tactician-P0', { bot: 'tactician', classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0, runs: TACT_RUNS });
+    // B5 fallback (balance.md 1.3, M2 v5): tactician - planner on P0 under B5's floor -> re-run the tactician with each
+    // class's best B7 point-estimate tree; that cell counts for B1 tactician and B5. The planner side is the default-tree
+    // B7 cells on the tactician's seeds (the first TACT_RUNS seeds of each class).
+    const byTree = [0, 1, 2].map((t) => loadCell(`planner-P0-tree${t}`));
     const plannerWin = { k: 0, n: 0 };
-    for (const cls of CLASSES) { plannerWin.k += byTree[trees[cls]].perClass[cls].metrics.win.k; plannerWin.n += byTree[trees[cls]].perClass[cls].metrics.win.n; }
+    for (const cls of CLASSES) {
+      const xs = byTree[trees[cls]].perClass[cls].records.filter((r) => r.seed < SEED + TACT_RUNS && r.out !== 'x');
+      plannerWin.k += xs.filter((r) => r.out === 'v').length;
+      plannerWin.n += xs.length;
+    }
     const tacWin = pooledWin(tac.perClass);
     const b5 = tacWin.p - plannerWin.k / plannerWin.n;
     const fbTrees = Object.fromEntries(CLASSES.map((c) => [c, bestPointTree(byTree.map((r) => r.perClass[c].metrics))]));
     const rerun = CLASSES.filter((c) => fbTrees[c] !== trees[c]);
-    manifest.b5 = { onGroupTrees: b5, floor: BAL.MANUAL_GAP[0], applied: b5 < BAL.MANUAL_GAP[0], trees: fbTrees, rerun };
+    manifest.b5 = { onGroupTrees: b5, floor: B5_FLOOR, floorSource: 'MANUAL_GAP_V2 (combat-v2.md 12)', applied: b5 < B5_FLOOR, trees: fbTrees, rerun, plannerSeeds: `first ${TACT_RUNS} per class` };
     manifest.tacticianP0 = Object.fromEntries(CLASSES.map((c) => [c, 'tactician-P0']));
     if (manifest.b5.applied) {
-      log(`B5 on the P0-group trees ${(b5 * 100).toFixed(1)} pp < ${(BAL.MANUAL_GAP[0] * 100).toFixed(0)} pp: fallback trees ${JSON.stringify(fbTrees)} (re-run: ${rerun.join(', ') || 'none, same trees'})`);
+      log(`B5 on the P0-group trees ${(b5 * 100).toFixed(1)} pp < ${(B5_FLOOR * 100).toFixed(0)} pp: fallback trees ${JSON.stringify(fbTrees)} (re-run: ${rerun.join(', ') || 'none, same trees'})`);
       if (rerun.length) {
         const obsFb = Object.fromEntries(rerun.map((c) => [c, byTree[fbTrees[c]].perClass[c].obs]));
-        await cell('tactician-P0-b5', { bot: 'tactician', classes: rerun, prof: 'fresh', trees: fbTrees, obsIn: obsFb });
+        await cell('tactician-P0-b5', { bot: 'tactician', classes: rerun, prof: 'fresh', trees: fbTrees, obsIn: obsFb, runs: TACT_RUNS });
         for (const c of rerun) manifest.tacticianP0[c] = 'tactician-P0-b5';
       }
     } else log(`B5 on the P0-group trees ${(b5 * 100).toFixed(1)} pp: no fallback`);
     save();
   }
-  if (!trees || !obsP0) throw new Error('stage A results missing (run stage A first)');
   if (STAGES.has('G')) {
     await cell('masher-P0', { bot: 'masher', classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0, replay: true });
     await cell('opener-P0', { bot: 'opener', classes: CLASSES, prof: 'fresh', trees, obsIn: obsP0, runs: OPENER_RUNS });
@@ -272,6 +308,11 @@ try {
       writeJson(join(OUT, 'health.json'), { replay: { runs: total, identical: same, mismatches: mismatches.slice(0, 20), seeds: `${SIM.REPLAY_SEED_BASE}-${SIM.REPLAY_SEED_BASE + per - 1} per class` }, autoplayRunsPerMinPerCore: tp });
       log(`B35: ${same}/${total} identical; B37 autoplay runs/min/core ${JSON.stringify(tp)}`);
     }
+  }
+  if (STAGES.has('H')) {
+    // Heat policies (expedition.md H.6): from the P0 warm-up observations, as the B7 cells (paired with planner P0).
+    const wh = readJson(join(OUT, 'warmup-P0.json'));
+    for (const variant of ['heatSeek', 'heatAvoid']) await cell(`planner-P0-${variant}`, { bot: 'planner', classes: CLASSES, prof: 'fresh', trees, obsIn: wh, variant, runs: HEAT_RUNS });
   }
   if (STAGES.has('E')) {
     // P2 and diagnostic cells: B9 pets, B8 route styles, the rules-only tactician.
