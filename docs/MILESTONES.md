@@ -46,8 +46,8 @@ Done when a run plays on the roamable fog map with contracts, the Dimming, Roads
 | 2b.8 | QA: rule tests, leak test, browser checks; playtest | Playtest & QA Lead | todo |
 | 2b.9 | Owner plays the build | Owner | todo |
 
-## M3. Meta progression
-Done when meta points, the unlock screen and permanent unlocks (items in drop pools, skills, stat boosts) work, ten consecutive simulated runs show rising strength, and the owner has played five runs in a row.
+## M3. Meta progression and onboarding
+Done when meta points, the unlock screen and permanent unlocks (items in drop pools, skills, stat boosts) work, ten consecutive simulated runs show rising strength, and the owner has played five runs in a row. Includes the meta v2 proposal once agreed (persistent character per class, account quests) and a proper tutorial: a guided first run (fixed seed, zone 1: intent track, engage round, wind-ups, DoT preview, potions, the Furnace, the map), the first-loss-to-first-unlock nudge to the potion upgrade, and skippable first-time hints for every system; checked by QA as a new-player playtest and by the owner.
 
 ## M4. Content, look and feel
 Done when the zones, dungeons, gear tiers and boss mechanics in docs/specs/content.md are in, the art and animation pass is done, and the build still meets the M2 targets.
