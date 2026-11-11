@@ -59,6 +59,11 @@
 //   mapMode: 'rows' or 'expedition'. ?expedition=1 starts expedition runs (rules 1.9; off by default): zone.exp is then
 //   R.mapView (engine-api.md 10.3) and zone.rows is empty.
 // UI action META_BUY { id } (CREATE only): R.buyMeta on the stored profile; the run being created picks up the new profile.
+//   dev:     the dev tools' marker of the run (engine-api.md 12: { god, tools }), null for a normal run; data.dev: what the Dev
+//            menu lists (the enemy templates from R.debug.enemies, rarities, limits, heat states, zones' first levels).
+// Dev tools (engine-api.md 12; src/ui/dev-menu.js): bridge.dev(op, args) runs R.debug on the run or the profile and replaces
+//   the run with the result; every op goes into the engine log as { type: 'DEV', fn, args } so a Node twin replays it. A dev
+//   run is left out of the run log (tbwcr.history.v1); its summary carries `dev` { god, tools, withheld }.
 // Events: { t: 'damage'|'heal'|'action'|'status'|'death'|'interrupt'|'skip'|'xp'|'levelUp'|'victory'|'flee'|'resurrect'|'bossPhase'|'summon'|... }
 
 import * as R from '../rules.js';
@@ -128,6 +133,19 @@ function metaData(K) {
     greaterHeal: K.CONSUMABLE.greater_healing_draught.heal,
     uniques: { rare: byZone('rare'), epic: byZone('epic'), weapon: Object.fromEntries(uniq.filter((u) => u.kind === 'weapon').map((u) => [u.classId, { name: u.name, text: u.text }])) },
     zones: zones.map((z) => z.name),
+  };
+}
+
+/**
+ * What the Dev menu offers (engine-api.md 12; src/ui/dev-menu.js): every enemy template with its home zone and kind
+ * (R.debug.enemies), the gear rarities, the limits of the level and item level, the heat states, each zone's first level
+ * (rules 1.3: the level debug.build gives a zone when none is chosen), and the build defaults (C.DEV).
+ */
+function devData(K) {
+  return {
+    enemies: R.debug.enemies(CONTENT), rarities: [...K.RARITY_ORDER], maxLevel: K.MAX_LEVEL, ilvlMax: K.ILVL_MAX, heatStates: [...K.HEAT_STATES],
+    zoneCount: K.ZONE_COUNT, firstLevel: Array.from({ length: K.ZONE_COUNT + 1 }, (_, i) => (i < K.ZONE_COUNT ? K.ZONE_LEVELS * i + 1 : K.MAX_LEVEL)),
+    defaults: { ...K.DEV }, kinds: ['normal', 'elite', 'rare', 'trash', 'dboss'],
   };
 }
 
@@ -237,13 +255,15 @@ const randomSeed = () => Math.floor(Math.random() * 0xffffffff) >>> 0;
 function engineBackend(seedOpt, runOpts = {}) {
   const C = R.C;
   let profile = loadProfile();
+  // newRun's map options for this session (?expedition=1, ?dimming=0); the Dev menu can switch the map mode
+  let runMode = { ...runOpts };
   let history = loadHistory();
   /** A run in CREATE. keep: { classId, petId } of the run before (the next run starts on the same class). runOpts: mapMode. */
   const mkRun = (seed, keep = {}) => {
     const classId = keep.classId || 'rogue'; const petId = classId === 'hunter' ? keep.petId || 'ridgewolf' : null;
-    try { return R.newRun({ classId, petId, seed, content: CONTENT, profile: profile || undefined, ...runOpts }); } catch (e) {
-      try { return R.newRun({ classId, petId: classId === 'hunter' ? 'ridgewolf' : null, seed, content: CONTENT, profile: profile || undefined, ...runOpts }); } catch (e2) {
-        profile = null; return R.newRun({ classId: 'rogue', seed, content: CONTENT, ...runOpts });
+    try { return R.newRun({ classId, petId, seed, content: CONTENT, profile: profile || undefined, ...runMode }); } catch (e) {
+      try { return R.newRun({ classId, petId: classId === 'hunter' ? 'ridgewolf' : null, seed, content: CONTENT, profile: profile || undefined, ...runMode }); } catch (e2) {
+        profile = null; return R.newRun({ classId: 'rogue', seed, content: CONTENT, ...runMode });
       }
     }
   };
@@ -251,6 +271,8 @@ function engineBackend(seedOpt, runOpts = {}) {
   // engineLog: the engine actions applied to this run, in order (a test hook: a Node twin replays them, qa/browser)
   // heatUp: uid -> the heat state that raised the item one rarity (heatSteps); nodeHeat: node key -> its entry state
   const local = { introSeen: new Set(), spoils: null, hold: null, reward: null, fightNo: 0, lastRun: null, runNo: 0, engineLog: [], heatUp: new Map(), nodeHeat: new Map() };
+  /** A new run on screen: the presentation state and the engine log start afresh. */
+  const resetLocal = () => { local.introSeen.clear(); local.spoils = null; local.hold = null; local.reward = null; local.engineLog = []; local.heatUp.clear(); local.nodeHeat.clear(); };
 
   // ---------------------------------------------------------------- static data for the UI
   const treeId = (cls, i) => C.CLASS[cls].trees[i].toLowerCase().replace(/\W+/g, '');
@@ -280,6 +302,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     rules: rulesTable(C),
     meta: metaData(C),
     v2: v2Data(C),
+    dev: devData(C),
   };
   /** A pet that needs a meta unlock (Stormhawk) is locked until the profile owns it; refreshed after every purchase. */
   const refreshPets = () => { for (const pd of Object.values(data.pets)) pd.locked = !!pd.meta && !(profile && (profile.unlocks[pd.meta] || 0) > 0); };
@@ -746,6 +769,8 @@ function engineBackend(seedOpt, runOpts = {}) {
       echoTotal: sm.echoes ? sm.echoes.total : 0,
       // Oaths (rules 11.5): the engine's multiplier on the sum of the lines
       echoMult: sm.echoes ? sm.echoes.oathMult : 1, oaths: (sm.oaths || []).map((o) => (C.OATH[o] ? C.OATH[o].name : TXT.humanize(o))),
+      // a dev run (engine-api.md 12): no Echoes; withheld = what it would have earned
+      dev: sm.dev ? { god: !!sm.dev.god, tools: [...sm.dev.tools], withheld: (sm.echoes && sm.echoes.withheld) || 0 } : null,
     };
   }
 
@@ -806,7 +831,7 @@ function engineBackend(seedOpt, runOpts = {}) {
   /** After a purchase: the run being created takes the new profile; class, pet, name, seed and Oaths stay. */
   function rebuildCreate() {
     const c = st.create;
-    let s = R.newRun({ classId: c.classId, petId: c.classId === 'hunter' ? c.petId : null, name: c.name || '', seed: c.seed, profile, content: CONTENT, ...runOpts });
+    let s = R.newRun({ classId: c.classId, petId: c.classId === 'hunter' ? c.petId : null, name: c.name || '', seed: c.seed, profile, content: CONTENT, ...runMode });
     for (const o of c.oaths || []) { const a = { type: 'SET_OATH', oath: o, on: true }; if (R.isLegal(s, a)) s = R.step(s, a).state; }
     st = s;
   }
@@ -833,7 +858,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     const s = st;
     const v = { hours: s.hours || 0, autoplay: !!s.autoplay, seed: s.create ? s.create.seed : s.seed, mode: 'engine' };
     if (s.phase === 'CREATE') {
-      return { ...v, phase: 'CREATE', create: { classId: s.create.classId || 'rogue', petId: s.create.petId || 'ridgewolf', name: s.create.name || '', seed: s.create.seed, oaths: (s.create.oaths || []).slice() }, oaths: (s.create.oaths || []).slice(), meta: metaView(s), player: null, zone: null, node: null, combat: null, loot: null, summary: null, legal: { lanes: [], services: {}, items: [], spells: {} } };
+      return { ...v, phase: 'CREATE', create: { classId: s.create.classId || 'rogue', petId: s.create.petId || 'ridgewolf', name: s.create.name || '', seed: s.create.seed, oaths: (s.create.oaths || []).slice() }, oaths: (s.create.oaths || []).slice(), meta: metaView(s), player: null, zone: null, node: null, combat: null, loot: null, summary: null, dev: null, mapMode: s.mapMode || 'rows', legal: { lanes: [], services: {}, items: [], spells: {} } };
     }
     v.oaths = (s.oaths || []).slice();
     v.phase = s.phase === 'ENDED' ? 'SUMMARY' : s.phase;
@@ -847,6 +872,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     v.meta = v.phase === 'SUMMARY' ? metaView(s) : null;
     v.par = R.bossPar(s); // the run's par (rules 1.7), the Oath of Haste included
     v.mapMode = s.mapMode || 'rows';
+    v.dev = s.dev ? { god: !!s.dev.god, tools: [...s.dev.tools] } : null; // dev tools (engine-api.md 12)
     v.heat = v.phase === 'SUMMARY' ? null : heatOf(s);
     // the camp panel reads the meter's numbers (heatView: at the Camp the line is the par and ascIfPar is the Ascendancy
     // FIGHT_BOSS gives), so the panel, the tracker, the minimap and the meter agree; a dry FIGHT_BOSS without heat
@@ -1135,12 +1161,12 @@ function engineBackend(seedOpt, runOpts = {}) {
           if (st.result && st.result.profile) {
             const sum = st.result.summary;
             profile = st.result.profile; saveProfile(profile); refreshPets();
-            recordRun(sum);
+            if (!sum.dev) recordRun(sum); // a dev run (engine-api.md 12) stays out of the run log
             local.lastRun = { n: ++local.runNo, name: sum.name, classId: sum.classId, className: sum.className, outcome: sum.outcome, level: sum.level,
-              gained: st.result.echoes, before, after: profile.echoes, firstKill: ((sum.echoes && sum.echoes.lines) || []).some((l) => l.id === 'firstKill') };
+              gained: st.result.echoes, before, after: profile.echoes, firstKill: ((sum.echoes && sum.echoes.lines) || []).some((l) => l.id === 'firstKill'), dev: !!sum.dev };
           }
           st = mkRun(randomSeed(), keep); // the next run starts on the same class
-          local.introSeen.clear(); local.spoils = null; local.hold = null; local.reward = null; local.engineLog = []; local.heatUp.clear(); local.nodeHeat.clear();
+          resetLocal();
           return { ok: true, events: [] };
         }
         case 'META_BUY': {
@@ -1206,6 +1232,73 @@ function engineBackend(seedOpt, runOpts = {}) {
     }
   }
 
+  /**
+   * Dev tools (engine-api.md 12; the Dev menu): op on the run or the profile through R.debug, then the run on screen is the
+   * result. Ops: build (Start at), camp, boss { phase }, nextZone, fight { ids, level }, kill { target }, refill, god { on },
+   * give { gold, potions, talentPoints }, hours { hours }, heat { state }, reveal, mapMode { mode }, echoes { n }, catalogue,
+   * seed { seed } (a new run in CREATE on that seed, class and pet kept). Each op on the run goes into the engine log as
+   * { type: 'DEV', fn, args } (R.debug.fn(state, ...args); build: R.debug.build({ ...args[0], content })). Jumps start the
+   * presentation afresh (no spoils, intros or holds); a kill that ends a fight shows its spoils as a victory would. The
+   * result is checked with R.debug.validate (no steps): a failure is logged as a console error. Returns { ok, error, note }.
+   */
+  function dev(op, args = {}) {
+    const D = R.debug;
+    const before = st; const logLen = local.engineLog.length;
+    const prev = view();
+    const events = [];
+    let note = null; let fresh = false;
+    const copy = (x) => JSON.parse(JSON.stringify(x));
+    const run = (fn, ...a) => { const r = D[fn](st, ...a); st = r.state; events.push(...r.events); local.engineLog.push({ type: 'DEV', fn, args: copy(a) }); return r; };
+    const modeOf = (mode) => (mode === 'expedition' ? { mapMode: 'expedition' } : {});
+    try {
+      switch (op) {
+        case 'build': {
+          const o = { ...args, seed: args.seed ?? (st.create ? st.create.seed : st.seed), profile: profile || null };
+          const r = D.build({ ...o, content: CONTENT });
+          st = r.state; resetLocal(); fresh = true;
+          local.engineLog = [{ type: 'DEV', fn: 'build', args: [copy(o)] }];
+          runMode = modeOf(st.mapMode);
+          break;
+        }
+        case 'camp': run('toCamp'); fresh = true; break;
+        case 'boss': run('toBoss', { phase: args.phase || 1 }); fresh = true; break;
+        case 'nextZone': run('nextZone'); fresh = true; break;
+        case 'fight': run('encounter', { ids: args.ids, level: args.level ?? null }); fresh = true; break;
+        case 'kill': run('killTarget', args.target ?? null); break;
+        case 'refill': run('refill'); break;
+        case 'god': run('setGod', !!args.on); break;
+        case 'give': note = run('give', { gold: args.gold || 0, potions: args.potions || 0, talentPoints: args.talentPoints || 0 }).given; break;
+        case 'hours': run('setHours', args.hours); break;
+        case 'heat': run('setHeat', args.state); break;
+        case 'reveal': run('revealMap'); break;
+        case 'mapMode':
+          runMode = modeOf(args.mode);
+          if (st.phase === 'CREATE') { rebuildCreate(); local.engineLog = []; } else { run('setMapMode', args.mode); fresh = true; }
+          break;
+        case 'echoes': case 'catalogue':
+          profile = op === 'echoes' ? D.grantEchoes(profile || R.newProfile(), args.n) : D.fullCatalogue(profile || R.newProfile());
+          saveProfile(profile); refreshPets();
+          if (st.phase === 'CREATE') rebuildCreate();
+          else if (st.phase !== 'ENDED') run('setProfile', profile);
+          break;
+        case 'seed': {
+          const keep = st.create ? { classId: st.create.classId, petId: st.create.petId } : { classId: st.player.classId, petId: st.player.pet ? st.player.pet.id : null };
+          st = mkRun(Number(args.seed) >>> 0, keep); resetLocal(); fresh = true;
+          break;
+        }
+        default: return { ok: false, error: `Unknown dev tool ${op}` };
+      }
+    } catch (err) {
+      st = before; local.engineLog.length = Math.min(local.engineLog.length, logLen);
+      if (err && err.code === 'ILLEGAL_ACTION') return { ok: false, error: reasonOf(err) };
+      throw err;
+    }
+    if (fresh) { local.spoils = null; local.hold = null; local.reward = null; } else afterStep(prev, events);
+    const bad = R.debug.validate(st, { steps: false });
+    if (bad.length) console.error(`[dev] ${op}: the state fails the engine's checks: ${bad.join('; ')}`);
+    return { ok: true, note };
+  }
+
   return {
     mode: 'engine', data, canDebug: false,
     view,
@@ -1249,10 +1342,13 @@ function engineBackend(seedOpt, runOpts = {}) {
      */
     testLoad(serialized) {
       st = R.deserialize(serialized, CONTENT);
-      local.introSeen.clear(); local.spoils = null; local.hold = null; local.reward = null; local.engineLog = []; local.heatUp.clear(); local.nodeHeat.clear();
+      resetLocal();
       if (st.node && st.fight) local.introSeen.add(nodeKey(st));
       return true;
     },
+    /** Test hook (qa/browser/ui-regress.mjs part K): the run as R.serialize has it. */
+    serialized() { return R.serialize(st); },
+    dev,
     /** Heat after a UI action (R.heatPreview, engine-api.md 11.2; no step), or null when it costs no hours or is not legal. */
     heatPreview(action) {
       if (!R.heatPreview || !st.player) return null;
@@ -1306,6 +1402,21 @@ export class Bridge {
     for (const fn of this.listeners) fn(this._view, [], { type: 'TEST_LOAD' });
     return true;
   }
+  /**
+   * Dev tools (engine-api.md 12; src/ui/dev-menu.js): run a dev op (engine backend dev(): R.debug on the run or the
+   * profile). Listeners see the new view. Returns { ok, error, note, view }; mock mode: not available.
+   */
+  dev(op, args = {}) {
+    if (!this.backend.dev) return { ok: false, error: 'The dev tools need the engine (not ?mock=1)', view: this._view };
+    const r = this.backend.dev(op, args);
+    if (r.ok) {
+      this._view = this.backend.view();
+      for (const fn of this.listeners) fn(this._view, [], { type: 'DEV', op });
+    }
+    return { ...r, view: this._view };
+  }
+  /** Test hook: the run as R.serialize has it (engine mode), or null. */
+  serialized() { return this.backend.serialized ? this.backend.serialized() : null; }
   /** Engage panel hover preview (combat v2, R.engagePreview); null in mock mode or when the option is not legal. */
   engagePreview(option, target, spellId) { return this.backend.engagePreview ? this.backend.engagePreview(option, target, spellId) : null; }
   /** Heat after a UI action (R.heatPreview); null in mock mode, for an action without hours or an illegal one. */
@@ -1330,6 +1441,8 @@ export function createBridge(opts = {}) {
 
 export const flags = {
   mock: params.get('mock') === '1',
+  // the Dev menu (engine-api.md 12): on unless ?dev=0 (the settings can hide it too)
+  dev: params.get('dev') !== '0',
   debug: params.get('debug') === '1',
   speed: params.get('speed'),
   expedition: params.get('expedition') === '1',

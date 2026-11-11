@@ -662,7 +662,9 @@ function buildSummary(v, ctx) {
   const won = s.outcome === 'victory';
   win.appendChild(h('div.shead', h('div.t1.subtitle', { style: { letterSpacing: '.4em', textTransform: 'uppercase' } }, won ? 'Victory' : 'The run has ended'),
     h('div.t2', { style: { color: won ? '#ffe08a' : '#e8a090' } }, won ? 'Oruvath has fallen' : `${s.name} has fallen`),
-    h('div.subtitle', `${s.name} · level ${s.level} ${s.className}${s.petId ? ' with ' + ctx.data.pets[s.petId].name : ''} · ${s.zone}`)));
+    h('div.subtitle', `${s.name} · level ${s.level} ${s.className}${s.petId ? ' with ' + ctx.data.pets[s.petId].name : ''} · ${s.zone}`),
+    // a dev run (engine-api.md 12): the dev tools changed it, so it earns no Echoes
+    s.dev ? h('div.devrun', `Dev run${s.dev.god ? ' · god mode' : ''}`) : null));
   const kv = (pairs) => h('dl.kv', pairs.flatMap(([k, val]) => [h('dt', k), h('dd', val)]));
   const card1 = h('div.card', h('h3', 'The journey'), kv([
     ['Reached', `${s.zone}${s.row ? `, row ${s.row}` : ''}`], ['In-game time', `${s.hours} h`], ['Ascendancy', s.asc ? `+${Math.round(s.asc * 100)} %` : 'none'],
@@ -677,7 +679,8 @@ function buildSummary(v, ctx) {
   // Echoes (rules 11.1): the engine's lines; the balance after the run from the bridge's dry END_RUN (view.meta.after)
   const after = v.meta && v.meta.after;
   const oathLine = s.echoMult && s.echoMult !== 1 ? h('div.echo', h('span.dim', `${s.oaths.join(', ')}`), h('b', `×${Math.round(s.echoMult * 100) / 100}`)) : null;
-  const card3 = h('div.card', h('h3', 'Echoes earned'), s.echoes.map(([k, n]) => h('div.echo', h('span.dim', k), h('b', `+${n}`))), oathLine, h('div.echo.total', h('span', 'Total'), h('span', `${s.echoTotal} Echoes`)),
+  const devLine = s.dev ? h('div.echo.devline', h('span', `A dev run earns no Echoes (${s.dev.withheld} withheld)`)) : null;
+  const card3 = h('div.card', h('h3', 'Echoes earned'), s.echoes.map(([k, n]) => h('div.echo', h('span.dim', k), h('b', `+${n}`))), oathLine, devLine, h('div.echo.total', h('span', 'Total'), h('span', `${s.echoTotal} Echoes`)),
     after ? h('div.echo.after', h('span.dim', 'Your Echoes after this run'), echoAmt(after.echoes)) : null,
     h('div.muted', { style: { marginTop: '.8rem', fontSize: '1.1rem' } }, after
       ? (after.affordable ? `Echoes buy lasting unlocks between runs. ${cap(numWord(after.affordable))} ${plural(after.affordable, 'unlock')} within reach.` : 'Echoes buy lasting unlocks between runs. Keep them for the next one.')

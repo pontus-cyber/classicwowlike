@@ -7,6 +7,7 @@ import { dragSource, dropTarget } from './hud.js';
 import { buildMap } from './screens.js';
 import { settings } from './settings.js';
 import { resurrectText } from './ui-text.js';
+import { flags } from './engine-bridge.js';
 
 const TREE_BG = {
   bladework: ['#3a3f4a', '#14161c'], shadowcraft: ['#2e2440', '#0e0a16'], venomcraft: ['#24361a', '#0a1208'],
@@ -130,7 +131,7 @@ export function createWindows(root, ctx) {
       };
       // reduceMotion shows what is in force (the system's setting until the player chooses)
       const on = (key) => (key === 'reduceMotion' ? settings.reduceMotion : !!s[key]);
-      const LABEL = { speedrun: 'Speedrun mode', skipTravel: 'Skip travel scenes', shake: 'Screen shake', reduceMotion: 'Reduce motion', showLog: 'Combat log' };
+      const LABEL = { speedrun: 'Speedrun mode', skipTravel: 'Skip travel scenes', shake: 'Screen shake', reduceMotion: 'Reduce motion', showLog: 'Combat log', devTools: 'Dev tools' };
       const tog = (key) => { const b = h('div.toggle' + (on(key) ? '.on' : ''), { role: 'switch', 'aria-checked': on(key) ? 'true' : 'false', 'aria-label': LABEL[key] || key }, h('div.sw')); b.addEventListener('click', () => { settings.set(key, !on(key)); refresh('settings'); }); return b; };
       const body = h('div.col', { style: { padding: '1rem 1.6rem 1.6rem', gap: 0 } },
         h('div.setrow', h('div', h('div', 'Animation speed'), h('div.muted', 'Space or a click skips to the end of the hit on screen. A key pressed while a round plays is queued as your next action.')), seg('speed', [[1, '1×'], [2, '2×'], [4, '4×'], [0, 'Instant']])),
@@ -140,6 +141,8 @@ export function createWindows(root, ctx) {
         h('div.setrow', h('div', 'Screen shake'), tog('shake')),
         h('div.setrow', h('div', h('div', 'Reduce motion'), h('div.muted', 'No screen shake, smaller recoil, numbers without the slam.')), tog('reduceMotion')),
         h('div.setrow', h('div', 'Combat log'), tog('showLog')),
+        // the Dev menu (dev-menu.js): hidden for good with ?dev=0 and with the mock engine
+        flags.dev && ctx.bridge.mode === 'engine' ? h('div.setrow', h('div', h('div', 'Dev tools'), h('div.muted', 'The DEV button in the corner and the ` key: start anywhere, jump to the boss, any fight.')), tog('devTools')) : null,
         h('div', { style: { marginTop: '1.2rem' } }, h('div.title', { style: { fontSize: '1.5rem', marginBottom: '.6rem' } }, 'Keys'),
           h('div.keys', h('span.kbd', '1–7'), 'Spells', h('span.kbd', '8 9 0'), 'Items', h('span.kbd', 'A'), 'Basic attack', h('span.kbd', 'Tab'), 'Next target',
             h('span.kbd', 'Z'), 'Autoplay', h('span.kbd', 'F F'), 'Flee', h('span.kbd', 'X'), 'Pass', h('span.kbd', 'Space'), 'Skip a hit / take loot',

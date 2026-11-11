@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J]
+ *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -83,6 +83,12 @@
  *      (D) a Rogue (jPickRogue: a seed whose autoplay run meets a wind-up playing while a bar spell can stop it): the bar
  *      marks that spell "Answer" as the engine's state says, hovering the wind-up marks every spell that can answer it,
  *      the spell's tooltip names the wind-up, and its key stops it ("is stopped by your ...", STAGGERED = the engine's).
+ *   K  the Dev menu (owner feedback 2026-11-11; docs/specs/engine-api.md 12), real engine at Instant speed, seed 4: the corner
+ *      button in view and clear of the minimap, the backquote key opens the menu fully in view; Start at (Mage, zone 4,
+ *      level 35, the menu's own fields), Jump to the boss in phase 2, Fight an elite of zone 4 found by its id in the search;
+ *      after each the view says so and the page's state equals a Node twin that replays the page's engine log
+ *      (window.__ui.engineLog: R.debug for the dev ops, R.step for the rest; window.__ui.state = R.serialize); god mode
+ *      from the World tab; the key closes it; ?dev=0 and the setting hide the button and the key. No console errors.
  *
  * Seeds were picked with the engine of 3559e0e (M2 v2): seed 30's first quest has two Guardians that last long
  * enough for the potion and Autoplay checks. M2 v3 (77c0ca5): seed 1's autoplay run no longer reaches the camp, so part B
@@ -109,7 +115,7 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -2292,6 +2298,100 @@ async function partJRogue(browser, W, H) {
   await context.close();
 }
 
+// ------------------------------------------------------------------ part K: the Dev menu (engine-api.md 12)
+/** Replay a page's engine log in Node: dev ops through R.debug (build with the content), engine actions through R.step. */
+function devTwin(log) {
+  let s = null;
+  for (const e of log) {
+    if (e.type === 'DEV') s = e.fn === 'build' ? R.debug.build({ ...e.args[0], content: CONTENT }).state : R.debug[e.fn](s, ...e.args).state;
+    else s = R.step(s, e).state;
+  }
+  return s;
+}
+async function partK(browser, W, H) {
+  const SEED = 4;
+  const ELITE = R.debug.enemies(CONTENT).find((x) => x.kind === 'elite' && x.zone === 4);
+  const { context, page, errors } = await open(browser, W, H, `seed=${SEED}&speed=instant`);
+  const panel = page.locator('#devmenu');
+  const f = (key) => page.locator(`#devmenu [data-f="${key}"]`);
+  const tab = async (name) => { await panel.getByRole('tab', { name }).click(); await idle(page); };
+  /** The page's state against the Node twin of its engine log. */
+  const twinCheck = async (what) => {
+    const [log, state] = await page.evaluate(() => [window.__ui.engineLog(), window.__ui.state()]);
+    let twin = null; let err = null;
+    try { twin = R.serialize(devTwin(log)); } catch (e) { err = e.message; }
+    const errs = twin ? R.debug.validate(R.deserialize(state, CONTENT), { steps: false }) : [];
+    check('DEV-K', `${what}: the page's state equals the engine's (a Node twin of ${log.length} logged ops) and passes R.debug.validate`, !err && twin === state && !errs.length,
+      err || (twin !== state ? `differs (${log.map((x) => x.fn || x.type).join(', ')})` : errs.join('; ')));
+  };
+  try {
+    const btn = page.locator('#devbtn');
+    const bp = await placement(btn);
+    await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle(page);
+    check('DEV-K', 'the DEV corner button is in view and on top', fullyShown(bp), placeText(bp));
+    const clearOfMap = async () => page.evaluate(() => {
+      const b = document.getElementById('devbtn').getBoundingClientRect();
+      return [...document.querySelectorAll('#minimap, #minimap .zname, #tracker')].map((el) => el.getBoundingClientRect()).every((r) => r.width === 0 || b.right <= r.left || b.left >= r.right || b.bottom <= r.top || b.top >= r.bottom);
+    });
+    await page.keyboard.press('Backquote'); await idle(page);
+    const pp = await placement(panel);
+    check('DEV-K', 'the backquote key opens the Dev menu, fully in view', await page.evaluate(() => window.__ui.devOpen()) && fullyShown(pp), placeText(pp));
+    // ---- Start at: Mage, zone 4, level 35 (the menu's own fields)
+    await tab('Start at');
+    await f('classId').selectOption('mage');
+    await f('zone').selectOption('4');
+    await f('level').fill('35');
+    await panel.getByRole('button', { name: 'Start here' }).click(); await idle(page);
+    let v = await page.evaluate(() => { const x = window.__ui.view(); return { phase: x.phase, zone: x.zone && x.zone.idx, level: x.player && x.player.level, cls: x.player && x.player.classId, dev: x.dev }; });
+    check('DEV-K', 'Start at: a level 35 Mage in the hub of zone 4, marked a dev run', v.phase === 'ZONE_HUB' && v.zone === 4 && v.level === 35 && v.cls === 'mage' && !!v.dev, JSON.stringify(v));
+    check('DEV-K', 'the DEV button covers no part of the minimap, its zone name (17 letters, the longest) or the tracker', await clearOfMap(), await btn.evaluate((el) => JSON.stringify(el.getBoundingClientRect())));
+    await twinCheck('Start at');
+    // ---- Jump: the end-boss fight in phase 2
+    await tab('Jump');
+    await panel.locator('[data-dev="boss2"]').click(); await idle(page);
+    v = await page.evaluate(() => { const x = window.__ui.view(); return { phase: x.phase, boss: x.combat && x.combat.boss && x.combat.boss.phase, shards: x.combat ? x.combat.enemies.filter((e) => e.rank === 'shard' && e.alive).length : 0, level: x.player.level }; });
+    check('DEV-K', `Jump: the end-boss fight in phase 2 with ${R.C.SHARD_COUNT} Shards, the Mage still level 35`, v.phase === 'BOSS' && v.boss === 2 && v.shards === R.C.SHARD_COUNT && v.level === 35, JSON.stringify(v));
+    await twinCheck('Boss phase 2');
+    // ---- Fight: an elite of zone 4 by its id
+    await tab('Fight');
+    await f('q').fill(ELITE.id); await idle(page);
+    const rows = await panel.locator('.dm-row').evaluateAll((els) => els.map((e) => e.dataset.enemy));
+    check('DEV-K', `Fight: searching "${ELITE.id}" lists exactly that template`, rows.length === 1 && rows[0] === ELITE.id, rows.join(', '));
+    await panel.locator(`button[data-enemy="${ELITE.id}"]`).click(); await idle(page);
+    v = await page.evaluate(() => { const x = window.__ui.view(); return { phase: x.phase, node: x.node && x.node.type, enemies: x.combat ? x.combat.enemies.map((e) => ({ tpl: e.tplId, level: e.level, rank: e.rank })) : null }; });
+    check('DEV-K', `Fight: ${ELITE.name} (${ELITE.id}), an elite at level 35, in a dev fight`, v.phase === 'NODE' && v.node === 'dev' && v.enemies && v.enemies.length === 1 && v.enemies[0].tpl === ELITE.id && v.enemies[0].level === 35 && v.enemies[0].rank === 'elite',
+      JSON.stringify(v));
+    await twinCheck('Elite fight');
+    const tf = await placement(page.locator('#devmenu'));
+    check('DEV-K', 'the menu stays in view in the fight', fullyShown(tf), placeText(tf));
+    await shot(page, 'K-elite-fight');
+    // ---- World: god mode on
+    await tab('World');
+    await panel.getByRole('switch', { name: 'God mode' }).click(); await idle(page);
+    v = await page.evaluate(() => window.__ui.view().dev);
+    check('DEV-K', 'World: god mode on (the view and the menu say so)', !!(v && v.god) && (await panel.locator('.dm-run').innerText()) === 'Dev run · god mode', JSON.stringify(v));
+    await twinCheck('God mode');
+    // ---- the key closes it; the setting hides the button and the key
+    await page.keyboard.press('Backquote'); await idle(page);
+    check('DEV-K', 'the backquote key closes the menu', !(await page.evaluate(() => window.__ui.devOpen())) && !(await panel.isVisible()), '');
+    await page.evaluate(() => window.__ui.settings.set('devTools', false)); await idle(page);
+    await page.keyboard.press('Backquote'); await idle(page);
+    check('DEV-K', 'the setting hides the button and the key', !(await btn.isVisible()) && !(await page.evaluate(() => window.__ui.devOpen())), '');
+    await page.evaluate(() => window.__ui.settings.set('devTools', true)); await idle(page);
+  } catch (e) {
+    await shot(page, 'K-error');
+    check('DEV-K', 'part K ran to the end', false, e.message.split('\n').slice(0, 4).join(' / '));
+  }
+  check('DEV-K', 'part K: no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+  await context.close();
+  // ?dev=0: no button, the key does nothing
+  const off = await open(browser, W, H, `seed=${SEED}&speed=instant&dev=0`);
+  await off.page.keyboard.press('Backquote'); await idle(off.page);
+  check('DEV-K', '?dev=0: no Dev button, the key opens nothing', !(await off.page.locator('#devbtn').isVisible()) && !(await off.page.evaluate(() => window.__ui.devOpen())), '');
+  check('DEV-K', '?dev=0: no console errors', off.errors.length === 0, off.errors.join(' | '));
+  await off.context.close();
+}
+
 // ------------------------------------------------------------------ run
 const browser = await chromium.launch({ headless: true });
 for (const [W, H] of SIZES) {
@@ -2306,6 +2406,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('H')) await partH(browser, W, H);
   if (PARTS.includes('I')) await partI(browser, W, H);
   if (PARTS.includes('J')) await partJ(browser, W, H);
+  if (PARTS.includes('K')) await partK(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);

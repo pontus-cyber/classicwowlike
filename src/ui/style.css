@@ -997,3 +997,46 @@ body[data-phase="MAP"]:not(.in-fight) #toasts .toast { white-space: normal; text
 .expmap .xtag.road { background: #5a4220; color: #ffe2a8; } .expmap .xtag.shard { background: #3a2a6a; color: #e2d4ff; }
 .expmap .expmoves { display: flex; flex-wrap: wrap; gap: .4rem .8rem; }
 .expmap .expmoves .em { display: inline-flex; gap: .3rem; }
+
+/* ---------------------------------------------------------------- the Dev menu (dev-menu.js; engine-api.md 12) */
+/* a narrow tab on the right edge, right of the minimap and its zone name (they end 1.8rem from the edge) */
+#devbtn { position: absolute; right: .1rem; top: .3rem; z-index: 81; width: 1.5rem; padding: .35rem 0; display: flex; flex-direction: column; align-items: center; border-radius: .3rem; border: 1px solid #000; background: linear-gradient(180deg, #3a2a52, #1a1226); color: #d8c8ff; font: 800 .85rem/1.05rem var(--font-ui); cursor: pointer; opacity: .6; box-shadow: inset 0 0 0 1px rgba(190, 160, 255, .45); }
+#devbtn:hover, #devbtn.on { opacity: 1; }
+#devmenu { position: absolute; right: 2rem; top: .6rem; z-index: 80; width: 40rem; max-height: calc(100vh - 12rem); display: flex; flex-direction: column; font-size: 1.2rem; }
+#devmenu .dm-head { display: flex; align-items: center; gap: .8rem; padding: .8rem 1rem .4rem 1.2rem; }
+#devmenu .dm-head .title { font-size: 1.6rem; }
+#devmenu .dm-run { margin-left: auto; font: 700 1.05rem var(--font-ui); color: #d8c8ff; }
+#devmenu .dm-warn { padding: 0 1.2rem .5rem; color: var(--ink-mute); font-size: 1.05rem; }
+#devmenu .dm-tabs { display: flex; gap: .2rem; padding: 0 .8rem; border-bottom: 1px solid rgba(208, 170, 96, .25); }
+#devmenu .dm-tab { flex: 1; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--ink-dim); font: 700 1.15rem var(--font-ui); padding: .5rem .2rem; cursor: pointer; }
+#devmenu .dm-tab:hover { color: var(--ink); }
+#devmenu .dm-tab.on { color: var(--gold); border-bottom-color: var(--gold); }
+#devmenu .dm-body { padding: .8rem 1.2rem 1rem; overflow-y: auto; scrollbar-width: thin; min-height: 0; }
+#devmenu .dm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem 1rem; }
+#devmenu .dm-f { display: flex; flex-direction: column; gap: .2rem; min-width: 0; }
+#devmenu .dm-l { color: var(--ink-mute); font: 700 1rem var(--font-ui); text-transform: uppercase; letter-spacing: .06em; }
+#devmenu .dm-h { color: var(--ink-mute); font-size: 1rem; }
+#devmenu select, #devmenu input { font: 600 1.2rem var(--font-ui); color: var(--ink); background: #0e0b08; border: 1px solid #000; border-radius: .3rem; box-shadow: inset 0 0 0 1px rgba(208, 170, 96, .3); padding: .35rem .5rem; min-width: 0; width: 100%; }
+#devmenu select:disabled { opacity: .45; }
+#devmenu .dm-acts { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .8rem; align-items: center; }
+#devmenu .dm-sub { margin-top: 1rem; color: var(--gold); font: 600 1.25rem var(--font-title); }
+#devmenu .dm-note { margin-top: .8rem; color: var(--ink-mute); font-size: 1.05rem; line-height: 1.35; }
+#devmenu .dm-note:empty { display: none; }
+#devmenu .dm-line { display: flex; align-items: flex-end; gap: .6rem; margin-top: .6rem; }
+#devmenu .dm-line .dm-f { flex: 1; }
+#devmenu .dm-filter { display: flex; gap: .5rem; align-items: flex-end; margin-bottom: .5rem; }
+#devmenu .dm-filter > * { flex: 1; }
+#devmenu .dm-list { display: flex; flex-direction: column; gap: .3rem; max-height: 22rem; overflow-y: auto; scrollbar-width: thin; padding-right: .3rem; }
+#devmenu .dm-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: .6rem; align-items: center; padding: .3rem .5rem; border-radius: .35rem; background: rgba(0, 0, 0, .3); }
+#devmenu .dm-row > button { grid-row: 1 / 3; grid-column: 2; }
+#devmenu .dm-rn { display: flex; gap: .5rem; align-items: baseline; min-width: 0; }
+#devmenu .dm-rn b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#devmenu .dm-rm { color: var(--ink-mute); font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#devmenu code { font: 600 1rem ui-monospace, Menlo, Consolas, monospace; color: var(--ink-dim); }
+#devmenu .dm-k { font: 800 .9rem var(--font-ui); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-dim); white-space: nowrap; }
+#devmenu .k-elite { color: #ffd36a; } #devmenu .k-rare { color: #9fc4ff; } #devmenu .k-dboss { color: #ff9a7a; } #devmenu .k-trash { color: #c8b89a; }
+#devmenu .dm-seg { display: inline-flex; margin-top: .4rem; }
+#devmenu .toggle.disabled { opacity: .45; pointer-events: none; }
+#devmenu .dm-seed { font-size: 1.3rem; color: var(--gold); padding: .2rem .5rem; background: #0e0b08; border-radius: .3rem; user-select: text; -webkit-user-select: text; }
+.summary .devrun { display: inline-block; margin-top: .5rem; padding: .1rem .7rem; border-radius: .3rem; background: #3a2a52; color: #e2d4ff; font: 800 1.05rem var(--font-ui); letter-spacing: .06em; text-transform: uppercase; }
+.summary .echo.devline { color: #d8c8ff; }

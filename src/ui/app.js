@@ -8,6 +8,9 @@
 // Combat v2.1 (combat-v2.md 10.9): the wind-up hovered on a track, the ruler or a nameplate (the bar marks what answers it),
 // and a wind-up's own telegraph. Toasts: the same message merges ("×2") and at most two show at once (a queue holds the
 // rest), placed where no panel is: under the ruler in a fight, left of the zone map on the map.
+// Dev tools (owner feedback 2026-11-11; engine-api.md 12): the Dev menu (dev-menu.js) opens with the backquote key or its
+// corner button; each of its ops runs through devAct (the bridge's dev, R.debug) and the result is shown at once, as a
+// loaded state (no animation). ?dev=0 or the settings hide it.
 import { createBridge, flags } from './engine-bridge.js';
 import { Scene } from './scene.js';
 import { createHud } from './hud.js';
@@ -15,6 +18,7 @@ import { createScreens } from './screens.js';
 import { createWindows } from './windows.js';
 import { Director } from './director.js';
 import { initTooltip, hide as hideTip } from './tooltip.js';
+import { createDevMenu } from './dev-menu.js';
 import { settings } from './settings.js';
 import { h, clear } from './util.js';
 import { enemyLook } from './art-actors.js';
@@ -77,6 +81,9 @@ export class App {
       bridge: this.bridge, data: this.data, scene: this.scene, ui, settings,
       get view() { return app.shown; },
       act: (a) => app.act(a),
+      // the Dev menu (dev-menu.js): one dev op through the bridge (engine-api.md 12), and its messages
+      dev: (op, args) => app.devAct(op, args),
+      toast: (t, k) => app.toast(t, k),
       setShown: (v) => { app.shown = v; app.queueRender(); },
       syncScene: (v, o) => app.syncScene(v, o),
       get hud() { return app.hud; },
@@ -85,6 +92,7 @@ export class App {
     this.hud = createHud(this.root, this.ctx);
     this.screens = createScreens(this.root, this.ctx);
     this.windows = createWindows(this.root, this.ctx);
+    this.devMenu = createDevMenu(this.root, this.ctx, { allowed: () => flags.dev && this.bridge.mode === 'engine' });
     this.director = new Director(this.ctx);
     this.bannerEl = h('div#banner', h('div.b0'), h('div.b1'), h('div.b2'));
     this.toasts = h('div#toasts', { 'aria-live': 'polite' });
@@ -307,6 +315,7 @@ export class App {
     this.hud.update(v);
     this.screens.update(v);
     if (!this.director.playing) this.windows.update();
+    this.devMenu.update(this.bridge.view);
     document.body.dataset.phase = v.phase;
     // a fight on screen (the toasts move below the opening ruler, clear of the target frame; in the end-boss fight under the
     // boss frame, between the target frame and the boss's nameplate; style.css)
@@ -458,7 +467,9 @@ export class App {
   }
 
   onKey(e) {
-    if (e.target && e.target.tagName === 'INPUT') return;
+    // the Dev menu (dev-menu.js): the backquote key opens and closes it, also from its own fields
+    if (e.code === 'Backquote' && this.devMenu.enabled()) { e.preventDefault(); this.devMenu.toggle(); return; }
+    if (e.target && ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
     const v = this.shown; const code = e.code;
     const inFight = v.combat && !v.combat.over;
     if (code === 'Space') {
@@ -502,6 +513,34 @@ export class App {
       KeyC: () => this.windows.toggle('character'), KeyB: () => this.windows.toggle('bags'), KeyP: () => this.windows.toggle('spellbook'),
       KeyN: () => this.windows.toggle('talents'), KeyL: () => this.windows.toggle('questlog'), KeyM: () => this.windows.toggle('map') };
     if (map[code]) { e.preventDefault(); map[code](); }
+  }
+
+  /**
+   * A dev op from the Dev menu (engine-api.md 12): queued after the step on screen (which finishes at once), sent to the
+   * bridge (R.debug), and its result shown at once like a loaded state: no animation, the target, previews and the
+   * queued action cleared, the scene redrawn. A toast and a log line say what changed; a refusal shows its reason.
+   * Returns { ok, error }.
+   */
+  devAct(op, args = {}) {
+    clearTimeout(this.autoTimer);
+    if (this.director.playing) this.director.skip();
+    this.next = null; this.hud.setQueued(null);
+    const run = async () => {
+      try {
+        const r = this.bridge.dev(op, args);
+        if (!r.ok) { this.toast(r.error, 'err'); return r; }
+        this.ui.target = null; this.ui.preview = null; this.ui.precastArmed = false; this.ui.wuHover = null; this.ui.fleeArmed = false;
+        this.scene.clearFx(); this.showDeath(false); hideTip();
+        this.shown = this.bridge.view; this.syncScene(this.shown, { instant: true, enter: true }); this.retarget(this.shown);
+        this.windows.update(); this.queueRender();
+        const text = devText(op, args, r, this.shown);
+        this.toast(text, 'good'); this.hud.log(`Dev: ${text}`, 'lg-sys');
+        return r;
+      } catch (err) { console.error(err); return { ok: false, error: String(err) }; } finally { this.scheduleAuto(); }
+    };
+    const p = this.queue.then(run, run);
+    this.queue = p;
+    return p;
   }
 
   // ------------------------------------------------------------------ test hooks (headless checks)
@@ -548,7 +587,36 @@ export class App {
         return true;
       },
       canDebug: app.bridge.canDebug,
+      /** The run as R.serialize has it (engine mode), for a Node twin to compare (qa/browser/ui-regress.mjs part K). */
+      state: () => app.bridge.serialized(),
+      /** Dev menu (engine-api.md 12): whether it is open; a dev op as the menu sends it. */
+      devOpen: () => app.devMenu.isOpen(),
+      dev: (op, args) => app.devAct(op, args),
     };
+  }
+}
+
+/** What a dev op did, for its toast and log line (dev-menu.js; presentation only). */
+function devText(op, args, r, v) {
+  const p = v.player;
+  const where = v.zone ? (v.zone.camp ? v.zone.name : `${v.zone.name} (zone ${v.zone.idx})`) : '';
+  switch (op) {
+    case 'build': return `${p ? `Level ${p.level} ${p.className}` : 'A new run'} at ${where}`;
+    case 'camp': return `At ${where}`;
+    case 'boss': return `End-boss fight, phase ${args.phase || 1}`;
+    case 'nextZone': return `On to ${where}`;
+    case 'fight': return `Fight: ${v.combat ? v.combat.enemies.map((e) => e.name).join(', ') : 'started'}`;
+    case 'kill': return 'Target killed';
+    case 'refill': return 'Health and resources refilled';
+    case 'god': return v.dev && v.dev.god ? 'God mode on: you take no damage' : 'God mode off';
+    case 'give': { const g = r.note || {}; return [g.gold ? `${g.gold} copper` : '', g.potions ? `${g.potions} potions` : '', g.talentPoints ? `${g.talentPoints} talent points` : ''].filter(Boolean).join(', ') + (g.gold || g.potions || g.talentPoints ? ' given' : 'Nothing fits in the bags'); }
+    case 'hours': case 'heat': return `${v.hours} h${v.heat ? `, ${v.heat.state}` : ''}`;
+    case 'reveal': return 'Map revealed';
+    case 'mapMode': return `${args.mode === 'expedition' ? 'Expedition' : 'Rows'} map`;
+    case 'echoes': return `${args.n} Echoes given`;
+    case 'catalogue': return 'Every unlock in the catalogue';
+    case 'seed': return `New run on seed ${args.seed}`;
+    default: return `Dev: ${op}`;
   }
 }
 

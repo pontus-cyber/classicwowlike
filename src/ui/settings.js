@@ -1,5 +1,5 @@
-// Player-facing presentation settings (animation speed, fast mode, screen shake, reduce motion). Persisted in
-// localStorage when available. Nothing here changes game rules.
+// Player-facing presentation settings (animation speed, fast mode, screen shake, reduce motion, the Dev menu). Persisted
+// in localStorage when available. Nothing here changes game rules.
 import { emitter } from './util.js';
 
 const KEY = 'tbwcr.ui.settings.v1';
@@ -11,6 +11,7 @@ const DEFAULTS = {
   shake: true,         // screen shake on heavy hits
   speedrun: false,     // preset: instant animations, no travel, short autoplay delay
   reduceMotion: null,  // no screen shake, small recoil, no number slam; null follows the system's reduced-motion setting
+  devTools: true,      // the Dev menu (dev-menu.js, engine-api.md 12): its corner button and the backquote key
 };
 
 function load() {
