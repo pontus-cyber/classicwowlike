@@ -338,18 +338,18 @@ describe('rules 1 run structure', () => {
     if (s.phase === 'CAMP') assert.ok(R.isLegal(s, { type: 'CAMP_GRIND' }) && R.isLegal(s, { type: 'FIGHT_BOSS' }));
   });
 
-  test('1.7 Ascendancy: 0.04 per full 10 h over par BOSS_TIME_PAR, capped at 0.40; Oath of Haste lowers par by 20', () => {
+  test('1.7 Ascendancy: 0.02 per full 10 h over par BOSS_TIME_PAR (M2b v6: was 0.04), capped at 0.40; Oath of Haste lowers par by 20', () => {
     const par = C.BOSS_TIME_PAR;
-    const cases = [[par - 30, 0], [par, 0], [par + 9, 0], [par + 10, 0.04], [par + 20, 0.08], [par + 99, 0.36], [500, 0.4]];
+    const cases = [[par - 30, 0], [par, 0], [par + 9, 0], [par + 10, 0.02], [par + 20, 0.04], [par + 99, 0.18], [par + 199, 0.38], [par + 200, 0.4], [700, 0.4]];
     for (const [hours, asc] of cases) assert.equal(ascendancy({ hours, oaths: [] }), asc, `${hours} h`);
-    assert.equal(ascendancy({ hours: par - C.OATH_HASTE_HOURS + 10, oaths: ['haste'] }), 0.04);
+    assert.equal(ascendancy({ hours: par - C.OATH_HASTE_HOURS + 10, oaths: ['haste'] }), 0.02);
   });
 
   test('1.7 boss HP and damage scale with (1 + asc)', () => {
     let s = R.step(started('rogue'), { type: 'LEAVE_HUB' }).state;
     s = tweak(atLevel(s, 60), (x) => { x.zone.z = 6; x.hours = C.BOSS_TIME_PAR + 30 - C.HOURS_TRAVEL; });
     s = play(s, [{ type: 'TRAVEL_ON' }, { type: 'FIGHT_BOSS' }]).state;
-    const asc = 0.12;
+    const asc = 0.06; // 3 steps of 0.02 (M2b v6)
     assert.equal(s.stats.asc, asc);
     assert.equal(s.fight.enemies[0].maxHp, Math.round(C.BOSS_HP * (1 + asc)));
     assert.equal(s.fight.enemies[0].asc, asc);

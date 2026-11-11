@@ -51,7 +51,8 @@ export const HOURS_TRAVEL = 2;
 export const TRAVEL_EARLY_LEVELS = 1;
 export const BOSS_TIME_PAR = 120;
 export const ASC_STEP_HOURS = 10;
-export const ASC_PER_STEP = 0.04;
+/** rules 1.7 (M2b v6, D62: was 0.04): boss Ascendancy per full ASC_STEP_HOURS past the par. */
+export const ASC_PER_STEP = 0.02;
 export const ASC_CAP = 0.40;
 /** rules 11.2 (M2 v4): hours the full catalogue's time entries may save on the planner's median route (measured by the sim, balance.md B17). */
 export const META_TIME_BUDGET_H = 5;

@@ -12,7 +12,8 @@ not in the catalogue ignored); 2026-11-10c (M2 v5: Starforged Arms removed, `sta
 `heat` block; section 11; marked "(heat)"); 2026-11-10g (combat v2.1, rules 7.10 and 7.12: wind-ups on the signature
 turns, the EMPOWERED and STAGGERED stacks with the `empower` and `stagger` events, Disrupt; marked "(combat v2.1)");
 2026-11-11 (dev tools, owner feedback 2026-11-11 07:41: `debug`, section 12, a dev-only API; marked "(dev)"); 2026-11-11b (owner feedback 08:11 and 08:14: `pendingTicks`, the DoT preview, section 6.1; `talentInfo`, talent
-totals; marked "(preview)").
+totals; marked "(preview)"); 2026-11-11c (tuning pass M2b v6, docs/specs/changes-m2b-v6.md: new numbers in `C`, the end
+boss's BOSS_DMG_MULT, the Packed Satchel free potion; marked "(M2b v6)").
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
 
@@ -493,8 +494,8 @@ computes everything the meter shows, so the UI never re-implements the line, the
   or `dimming: false`); `state` is the hotter of the two, and `by` names the clock that sets it (`'dim'` only when the
   Dimming state is hotter).
 - `dimIn`: hours until the player's node dims (0 or less: it is Dimmed), or null. Text: "Dimming: 3 h".
-- `ascIfPar`: the boss Ascendancy if the player leaves the zone now and keeps the line from here ("Boss +4 %"). At the
-  Camp it is the Ascendancy FIGHT_BOSS would give.
+- `ascIfPar`: the boss Ascendancy if the player leaves the zone now and keeps the line from here ("Boss +2 %"; steps of
+  ASC_PER_STEP 0.02 per ASC_STEP_HOURS past the par, M2b v6). At the Camp it is the Ascendancy FIGHT_BOSS would give.
 - `node`: inside a node, `{ state, gain, rarityUp }` of the state the node was entered in, which is what it pays (it
   can differ from `state` once the node's hours are spent); null elsewhere (map, hub, Camp, boss, Dimmed encounter).
 - `gain`, `rarityUp`: `C.HEAT_GAIN[state]` and `C.HEAT_RARITY_UP[state]`, the rewards of the state (rules 1.7.3):

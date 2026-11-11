@@ -15,7 +15,7 @@ const immortal = (x) => { x.player.d.maxHp = 1e9; x.player.hp = 1e9; x.fight.p.s
 const ids = (s) => s.fight.enemies[0].intent.actions.map((a) => (a.id === 'collapse_litany' ? `litany${a.step}` : a.id));
 
 describe('rules 10 end boss (QA additions)', () => {
-  test('10.1 all boss damage × (1 + asc): the same Litany hit is 1.2 × as large at Ascendancy 0.20', () => {
+  test('10.1 all boss damage × (1 + asc): the same Litany hit is 1.1 × as large at Ascendancy 0.10 (M2b v6: ASC_PER_STEP 0.02)', () => {
     const run = (hours) => {
       let s = boss('mage', { hours, prep: immortal });
       s = tweak(R.step(R.step(s, { type: 'PASS' }).state, { type: 'PASS' }).state, immortal);
@@ -25,8 +25,9 @@ describe('rules 10 end boss (QA additions)', () => {
       return R.step(c, { type: 'PASS' }).events.find((e) => e.t === 'damage' && e.spell === 'collapse_litany').amount;
     };
     const a = run(100);
-    const b = run(C.BOSS_TIME_PAR + 50); // 50 h over par (+ HOURS_TRAVEL): 5 steps of 0.04
-    assert.ok(Math.abs(b / a - 1.2) < 0.005, `${a} -> ${b}`);
+    const b = run(C.BOSS_TIME_PAR + 50); // 50 h over par (+ HOURS_TRAVEL): 5 steps of 0.02
+    assert.equal(C.ASC_PER_STEP, 0.02);
+    assert.ok(Math.abs(b / a - 1.1) < 0.005, `${a} -> ${b}`);
   });
 
   /** 44 rounds with the boss taken into phase 2 at round 12 and phase 3 at round 30; per round: intent, telegraph, what happened. */
