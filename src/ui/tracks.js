@@ -6,14 +6,21 @@
 // the enemy (the nameplate's wind-up line, from the first round the track shows it), a tooltip with what answers it and the
 // bar spells that can, the EMPOWERED and STAGGERED stacks as lasting badges with their damage, and Disrupt as the control
 // option's label on a dungeon boss (greyed out with the engine's reason when no wind-up is visible).
+// M2b v13 (docs/specs/changes-m2b-v13.md "UI needs" 1-4, 6): a Deathblow (the first wind-up of an elite, rare or dungeon
+// boss) has its own crimson badge with a skull, apart from the ember wind-up badge, on its chip, row, ruler round and the
+// line over the enemy, with its estimate and "MAIMS if it lands", readable in the engage round without hovering; the
+// answers ready now (R.windupView answers: engage options in the engage round, bar spells in its round; "sure" and "now")
+// are named with their keys on that line and the engage panel, and highlighted on the engage cards; "No answer ready" in
+// red when windupView says ready is false; EMPOWERED from a Deathblow is its own "+100 %" badge; a first meeting's
+// enemy is tagged "New".
 // The first-fight hint (owner playtest 2026-11-11 08:03): beside the engage panel in the first engage round of each class,
 // the three openers on keys Q, W, E; dismissed for good with "Got it" or the end of that round (localStorage HINT_KEY).
 // Presentation only: every entry, target, estimate, option, preview and window comes from the engine through the bridge
 // view (engine-bridge.js convTrack, convRole, engageView, legal.spells[].window, bridge.engagePreview).
 import { h, add, clear, fmtNum } from './util.js';
-import { abilityIcon, roleIcon, engageIcon, controlIcon, statusIcon, spellIcon, windupIcon } from './art-icons.js';
+import { abilityIcon, roleIcon, engageIcon, controlIcon, statusIcon, spellIcon, windupIcon, deathblowIcon } from './art-icons.js';
 import { tip, spellTip } from './tooltip.js';
-import { ROLE_INFO, CONTROL_WORD, ENGAGE_KIND, engageText, engageHint, numWord, plural, windupAnswers, windupStakes } from './ui-text.js';
+import { ROLE_INFO, CONTROL_WORD, ENGAGE_KIND, engageText, engageHint, numWord, plural, windupAnswers, windupStakes, deathblowStakes } from './ui-text.js';
 
 /** Rounds the opening ruler numbers (combat-v2.md 10.4: rounds 1-5, the first 4-5 moves of the owner's feedback). */
 export const OPENING_ROUNDS = 5;
@@ -87,6 +94,45 @@ export function firstWindup(e, ctx) {
 }
 /** When a wind-up plays, in words: "now" or "R3". */
 const whenText = (x) => (x.now ? 'now' : x.round != null ? `R${x.round}` : '');
+
+// ------------------------------------------------------------------ M2b v13: Deathblows (rules 7.12; engine-api.md 6.2)
+/** The engine's windupView item (estimate, stakes, answers, ready) of wind-up x of enemy e, or null (view.combat.windups). */
+export function windupItem(v, e, x) {
+  const c = v && v.combat;
+  return c && c.windups ? c.windups.find((w) => w.u === e.idx && w.turn === x.turn) || null : null;
+}
+/** The key of an answer: Q, W or E for an engage option (the panel's order), 1-7 for a bar spell; '' when none. */
+export function answerKey(v, a) {
+  if (a.via === 'engage') { const o = v.combat && v.combat.engage ? v.combat.engage.options.find((q) => q.id === a.id) : null; return (o && o.key) || ''; }
+  const i = v.player ? v.player.bar.indexOf(a.id) : -1;
+  return i >= 0 ? String(i + 1) : '';
+}
+/** An answer's label: the option or spell name (a Pre-cast with its spell), " ?" when it is a chance (sure false). */
+export function answerName(a, ctx) {
+  const nm = a.spellId ? `${a.name}: ${(ctx.data.spells[a.spellId] || { name: a.spellId }).name}` : a.name;
+  return nm;
+}
+/**
+ * The answers of a windupView item to name now: those usable this round (`now`), else those that will be ready in its
+ * round; one per key and name, sure ones first. { list: [{ a, key, name }], when: 'now' | 'later' }.
+ */
+export function answersToShow(w, v, ctx) {
+  if (!w) return { list: [], when: 'now' };
+  const uniq = (xs) => { const seen = new Set(); return xs.filter((a) => { const k = `${a.via}:${a.id}:${a.spellId || ''}`; if (seen.has(k)) return false; seen.add(k); return true; }); };
+  const order = (xs) => [...xs].sort((p, q) => (q.sure ? 1 : 0) - (p.sure ? 1 : 0));
+  const now = uniq(order(w.answers.filter((a) => a.now)));
+  const list = now.length ? now : uniq(order(w.answers));
+  return { list: list.map((a) => ({ a, key: answerKey(v, a), name: answerName(a, ctx) })), when: now.length ? 'now' : 'later' };
+}
+/** The answers as inline elements: "W Lay Trap · E Send the Pet" (a chance marked "?"). */
+function answerEls(list) {
+  const out = [];
+  list.forEach((x, i) => {
+    if (i) out.push(h('span.sep', ' · '));
+    out.push(h('span.ans-o', { dataset: { via: x.a.via, id: x.a.id, sure: x.a.sure ? '1' : '' } }, x.key ? h('kbd', x.key) : null, ` ${x.name}${x.a.sure ? '' : ' ?'}`));
+  });
+  return out;
+}
 /** What answers it, in the badge's words: "your trap", "Sapped", "your pet". */
 function answeredBy(st) {
   if (!st) return '';
@@ -133,8 +179,18 @@ export function answersOnBar(v, ctx, x) {
 /** The wind-up's lines for a tooltip: when, the stakes, what answers it, the bar spells that can, and its state. */
 export function windupLines(e, x, ctx, st) {
   const v = ctx.view; const n = (ctx.data.v2 && ctx.data.v2.num) || {};
-  const lines = [h('div.tt-line.wu', h('img', { src: windupIcon(), alt: '' }), h('b', `Wind-up${x.round != null ? `, round ${x.round}` : ''}`), `: ${e.name}'s signature, telegraphed from the round it shows.`),
-    h('div.tt-line.num', windupStakes(n)), h('div.tt-hint', windupAnswers(x.heavy, !!e.ccImmune))];
+  const w = x.deathblow ? windupItem(v, e, x) : null;
+  const lines = x.deathblow
+    ? [h('div.tt-line.wu.db', h('img', { src: deathblowIcon(), alt: '' }), h('b', `Deathblow${x.round != null ? `, round ${x.round}` : ''}`), `: ${e.name}'s signature${n.deathblowMult && isDamage(x) ? `, at ×${n.deathblowMult} damage` : ''}. It decides the fight.`),
+      (w ? w.est : x.est) && isDamage(x) ? h('div.tt-line.num.db', `Estimated damage to ${targetWord(x, v) || 'you'}: about ${fmtNum(w ? w.est : x.est)}`) : null,
+      h('div.tt-line.num', w ? deathblowStakes(w) : windupStakes(n)), h('div.tt-hint', windupAnswers(x.heavy, !!e.ccImmune))]
+    : [h('div.tt-line.wu', h('img', { src: windupIcon(), alt: '' }), h('b', `Wind-up${x.round != null ? `, round ${x.round}` : ''}`), `: ${e.name}'s signature, telegraphed from the round it shows.`),
+      h('div.tt-line.num', windupStakes(n)), h('div.tt-hint', windupAnswers(x.heavy, !!e.ccImmune))];
+  if (w && (!st || st.kind === 'open')) {
+    const sh = answersToShow(w, v, ctx);
+    if (!w.ready) lines.push(h('div.tt-warn.db-no', 'No answer ready: nothing you have now can stop it. Kill it first, or be ready to take it.'));
+    else if (sh.list.length) lines.push(h('div.tt-line.db-a', `${sh.when === 'now' ? 'Answer it now' : `Ready by round ${w.round}`}: ${sh.list.map((q) => `${q.key ? `[${q.key}] ` : ''}${q.name}${q.a.sure ? '' : ' (a chance)'}${q.a.breaks ? ' (any damage before its turn wakes it)' : ''}`).join(', ')}.`));
+  }
   const bar = answersOnBar(v, ctx, x);
   if (bar.length) {
     const word = (b) => `${b.name}${b.kind === 'avoid' ? ' (avoid)' : ''}${b.cd ? ` (${b.late ? `cooldown ${b.cd}: not ready by then` : `ready in ${b.cd}`})` : ''}`;
@@ -160,7 +216,9 @@ function windupHover(el, e, x, ctx) {
  */
 export function windupBanner(box, e, ctx) {
   const w = e.alive ? firstWindup(e, ctx) : null;
-  const key = w ? JSON.stringify([e.idx, w.x.turn, w.x.round, w.x.now, w.state, w.x.name, !!(w.cancel && w.cancel.done), w.cancel && w.cancel.by]) : '';
+  const wi = w && w.x.deathblow ? windupItem(ctx.view, e, w.x) : null;
+  const key = w ? JSON.stringify([e.idx, w.x.turn, w.x.round, w.x.now, w.state, w.x.name, !!(w.cancel && w.cancel.done), w.cancel && w.cancel.by, w.x.deathblow, wi && [wi.est, wi.ready, wi.maims, wi.answers.map((a) => [a.id, a.now, a.sure])],
+    wi && ctx.view.combat.engage ? ctx.view.combat.engage.options.map((o) => o.key) : null]) : '';
   if (box.dataset.key === key) return;
   box.dataset.key = key; clear(box);
   box.classList.toggle('hidden', !w);
@@ -170,11 +228,28 @@ export function windupBanner(box, e, ctx) {
   // stopped this round (its cancel is done, or an interrupt landed): the line says so until the round ends
   const stopped = state.kind === 'answered' && x.now && (!w.cancel || w.cancel.done || w.cancel.by === 'INTERRUPT');
   box.className = `wub${ans ? ' ans' : ''}${state.kind === 'preview' ? ' pv' : ''}${x.now && !stopped ? ' now' : ''}`;
-  box.dataset.turn = x.turn; box.dataset.state = stopped ? 'stopped' : state.kind;
+  box.dataset.turn = x.turn; box.dataset.state = stopped ? 'stopped' : state.kind; box.dataset.deathblow = ''; box.dataset.est = ''; box.dataset.ready = '';
   const n = (ctx.data.v2 && ctx.data.v2.num) || {};
   const msg = stopped ? `staggered${n.staggerDmg != null ? `: −${Math.round(n.staggerDmg * 100)} % dmg` : ''}` : state.kind === 'open' ? 'answer it or it empowers'
     : state.kind === 'preview' ? (state.by === 'PET' ? 'your pet takes it: answered' : 'this opening answers it') : `${answeredBy(state)}: answered${state.soft ? ' if not hit' : ''}`;
-  box.append(h('span.wu-b', h('img', { src: windupIcon(), alt: '' }), stopped ? 'Wind-up stopped' : `Wind-up ${whenText(x)}`), h('span.wu-t', msg));
+  if (x.deathblow) {
+    // M2b v13: the Deathblow's own badge (crimson, a skull), its estimate, "MAIMS if it lands" and the answers ready now
+    const wi = windupItem(ctx.view, e, x);
+    const est = wi ? wi.est : x.est;
+    box.classList.add('db'); box.dataset.deathblow = '1'; box.dataset.est = est || 0;
+    box.append(h('span.wu-b', h('img', { src: deathblowIcon(), alt: '' }), stopped ? 'Deathblow stopped' : `Deathblow ${whenText(x)}`));
+    if (state.kind === 'open') {
+      if (est && isDamage(x)) box.append(h('span.db-est', `≈ ${fmtNum(est)}`));
+      if (!wi || wi.maims) box.append(h('span.db-m', 'MAIMS if it lands'));
+      else box.append(h('span.db-m', `+${Math.round((wi.empower || 0) * 100)} % if it lands`));
+      if (wi) {
+        box.dataset.ready = wi.ready ? '1' : '';
+        const sh = answersToShow(wi, ctx.view, ctx);
+        if (!wi.ready) box.append(h('span.db-a.no', 'No answer ready'));
+        else if (sh.list.length) box.append(h(`span.db-a${sh.when === 'now' ? '.now' : ''}`, h('span.db-al', sh.when === 'now' ? 'Answer: ' : `${whenText(x)}: `), answerEls(sh.list.slice(0, 3))));
+      }
+    } else box.append(h('span.wu-t', msg));
+  } else box.append(h('span.wu-b', h('img', { src: windupIcon(), alt: '' }), stopped ? 'Wind-up stopped' : `Wind-up ${whenText(x)}`), h('span.wu-t', msg));
   tip(box, () => h('div.tt-spell', h('div.tt-row', h('div.tt-name', `${e.name}: ${x.windupOf ? x.windupOf.name : x.name}`), h('div.tt-rank', x.now ? 'This round' : `Round ${x.round}`)), windupLines(e, x, ctx, state)));
   windupHover(box, e, x, ctx);
 }
@@ -186,21 +261,28 @@ export function windupBanner(box, e, ctx) {
 export function stackBadges(box, e, ctx) {
   const st = (id) => (e.statuses || []).find((s) => s.id === id) || null;
   const em = e.alive ? st('EMPOWERED') : null; const sg = e.alive ? st('STAGGERED') : null;
-  const key = JSON.stringify([em && [em.stacks, em.value], sg && [sg.stacks, sg.value]]);
+  // M2b v13: EMPOWERED's Deathblow share (deathblows, deathblowValue) is its own badge, "Deathblow +100 % dmg"; the other
+  // stacks keep the Empowered badge. data-value is each badge's own share; together they are the engine's value.
+  const dbS = em ? em.deathblows || 0 : 0; const dbV = em ? em.deathblowValue || 0 : 0;
+  const db = em && dbS > 0 ? { id: 'EMPOWERED', stacks: dbS, value: dbV } : null;
+  const emRest = em && em.stacks - dbS > 0 ? { id: 'EMPOWERED', stacks: em.stacks - dbS, value: Math.round((em.value - dbV) * 1e6) / 1e6 } : null;
+  const key = JSON.stringify([emRest && [emRest.stacks, emRest.value], sg && [sg.stacks, sg.value], db && [db.stacks, db.value]]);
   if (box.dataset.key === key) return;
-  const before = box.dataset.key ? JSON.parse(box.dataset.key) : [null, null];
+  const before = box.dataset.key ? JSON.parse(box.dataset.key) : [null, null, null];
   box.dataset.key = key; clear(box);
   box.classList.toggle('hidden', !em && !sg);
   const pctOf = (x) => `${Math.round((x || 0) * 100)} %`;
   const badge = (s, kind, prev) => {
-    const el = h(`div.wst.${kind}`, { dataset: { id: s.id, stacks: s.stacks, value: s.value } },
-      h('img', { src: statusIcon(s.id), alt: '' }), h('span.wn', kind === 'emp' ? 'Empowered' : 'Staggered'), s.stacks > 1 ? h('span.wx', `×${s.stacks}`) : null,
-      h('b', `${kind === 'emp' ? '+' : '−'}${pctOf(s.value)} dmg`));
+    const isDb = kind === 'emp.db';
+    const el = h(`div.wst.${kind}`, { dataset: { id: s.id, stacks: s.stacks, value: s.value, part: isDb ? 'deathblow' : '' } },
+      h('img', { src: isDb ? deathblowIcon() : statusIcon(s.id), alt: '' }), h('span.wn', isDb ? 'Deathblow' : kind === 'emp' ? 'Empowered' : 'Staggered'), s.stacks > 1 ? h('span.wx', `×${s.stacks}`) : null,
+      h('b', `${kind === 'stg' ? '−' : '+'}${pctOf(s.value)} dmg`));
     if (!prev || prev[0] !== s.stacks) el.classList.add('fresh'); // a new stack: the badge pops (style.css)
     tip(el, () => stackTip(e, ctx));
     return el;
   };
-  if (em) box.appendChild(badge(em, 'emp', before[0]));
+  if (db) box.appendChild(badge(db, 'emp.db', before[2]));
+  if (emRest) box.appendChild(badge(emRest, 'emp', before[0]));
   if (sg) box.appendChild(badge(sg, 'stg', before[1]));
 }
 /** Tooltip of the stack badges: each stack, the damage it deals now in sum, and why. */
@@ -210,8 +292,10 @@ export function stackTip(e, ctx) {
   const em = st('EMPOWERED'); const sg = st('STAGGERED');
   const pctOf = (x) => `${Math.round((x || 0) * 100)} %`;
   const net = (em ? em.value : 0) - (sg ? sg.value : 0);
+  const dbS = em ? em.deathblows || 0 : 0;
   return h('div.tt-spell', h('div.tt-name', `${e.name}: its wind-ups`),
-    em ? h('div.tt-line', { style: { color: '#ff9a8a' } }, `Empowered ×${em.stacks}: +${pctOf(em.value)} damage (${em.stacks} ${plural(em.stacks, 'wind-up')} landed${n.empowerDmg != null ? `, +${pctOf(n.empowerDmg)} each` : ''}).`) : null,
+    em && dbS ? h('div.tt-line', { style: { color: '#ff6a6a', fontWeight: 700 } }, `Deathblow landed: +${pctOf(em.deathblowValue)} damage for the rest of the fight.`) : null,
+    em && em.stacks > dbS ? h('div.tt-line', { style: { color: '#ff9a8a' } }, `Empowered ×${em.stacks - dbS}: +${pctOf(em.value - (em.deathblowValue || 0))} damage (${em.stacks - dbS} ${plural(em.stacks - dbS, 'wind-up')} landed${n.empowerDmg != null ? `, +${pctOf(n.empowerDmg)} each` : ''}).`) : null,
     sg ? h('div.tt-line', { style: { color: '#9fdcff' } }, `Staggered ×${sg.stacks}: −${pctOf(sg.value)} damage (${sg.stacks} ${plural(sg.stacks, 'wind-up')} answered${n.staggerDmg != null ? `, −${pctOf(n.staggerDmg)} each` : ''}).`) : null,
     em && sg ? h('div.tt-line.num', `Together: ${net >= 0 ? '+' : '−'}${pctOf(Math.abs(net))} damage.`) : null,
     h('div.tt-sub', 'For the rest of the fight. Its estimates on the track include it.'));
@@ -243,7 +327,7 @@ function amountText(x) {
 export function trackChips(box, e, ctx, opts = {}) {
   const v = ctx.view; const list = entriesOf(e);
   const pv = ctx.ui.preview && ctx.ui.preview.data;
-  const key = `${JSON.stringify(list.map((x) => [x.turn, x.id, x.est, x.target, x.allyIdx, x.cancel && x.cancel.by, x.cancel && x.cancel.stagger, x.replaced && x.replaced.reason, x.now, x.windup]))}|${pv ? JSON.stringify(pv.enemies.find((q) => q.u === e.idx) || null) : ''}|${opts.allSmall ? 1 : 0}|${e.intent && e.intent.interrupted ? 'I' : ''}`;
+  const key = `${JSON.stringify(list.map((x) => [x.turn, x.id, x.est, x.target, x.allyIdx, x.cancel && x.cancel.by, x.cancel && x.cancel.stagger, x.replaced && x.replaced.reason, x.now, x.windup, x.deathblow]))}|${pv ? JSON.stringify(pv.enemies.find((q) => q.u === e.idx) || null) : ''}|${opts.allSmall ? 1 : 0}|${e.intent && e.intent.interrupted ? 'I' : ''}`;
   if (box.dataset.key === key) return;
   box.dataset.key = key; clear(box);
   list.forEach((x, i) => {
@@ -255,12 +339,12 @@ export function trackChips(box, e, ctx, opts = {}) {
     const tgt = petHit ? 'pet' : x.target;
     // combat v2.1: a wind-up's ribbon says WIND-UP, ANSWERED (a cancel answers it) or ANSWERS IT (the opening previewed)
     const wu = windupState(e, x, cancel, p);
-    const wuRib = wu && wu.kind === 'open' ? 'WIND-UP' : wu && wu.kind === 'answered' ? 'ANSWERED' : wu && wu.kind === 'preview' ? 'ANSWERS IT' : null;
+    const wuRib = wu && wu.kind === 'open' ? (x.deathblow ? 'DEATHBLOW' : 'WIND-UP') : wu && wu.kind === 'answered' ? 'ANSWERED' : wu && wu.kind === 'preview' ? 'ANSWERS IT' : null;
     const cls = ['tk', big ? 'big' : 'sm', x.now ? 'now' : '', x.heavy ? 'heavy' : '', x.cast ? 'cast' : '', x.signature && !x.windup ? 'sig' : '', cancel ? 'cancel' : '',
       cancel && (cancel.breaks || cancel.preview) ? 'soft' : '', ob ? 'ob' : '', p ? 'pv' : '', p && p.window ? 'pvwin' : '', isHeal(x) || x.support ? 'sup' : '',
-      wu && wu.kind !== 'void' ? 'wu' : '', wu ? `wu-${wu.kind}` : ''].filter(Boolean);
+      wu && wu.kind !== 'void' ? 'wu' : '', wu ? `wu-${wu.kind}` : '', x.deathblow && wu && wu.kind !== 'void' ? 'db' : '', x.firstMeet && wu ? 'fm' : ''].filter(Boolean);
     const amt = amountText(x);
-    const el = h(`div.${cls.join('.')}`, { dataset: { turn: x.turn, round: x.round ?? '', id: x.id, est: x.est || 0, windup: wu ? wu.kind : '' } },
+    const el = h(`div.${cls.join('.')}`, { dataset: { turn: x.turn, round: x.round ?? '', id: x.id, est: x.est || 0, windup: wu ? wu.kind : '', deathblow: x.deathblow ? '1' : '' } },
       x.round != null ? h('span.r', String(x.round)) : null,
       h('img', { src: abilityIcon(x), alt: '' }),
       big ? h('span.tx', h('span.tn', x.name), h('span.tv', amt ? h('b', amt) : null, tgt && tgt !== 'self' && (amt || tgt !== 'player') ? h('i', `▸ ${TGT_SHORT[tgt] || tgt}`) : null))
@@ -268,7 +352,7 @@ export function trackChips(box, e, ctx, opts = {}) {
       x.signature && !x.windup ? h('i.b-sig', '★') : null,
       x.replaced && !cancel ? h('i.b-rep', '↺') : null,
       cancel ? h('img.b-ctl', { src: cancel.by === 'PREVIEW' ? statusIcon('STUN') : controlIcon(cancel.by), alt: '' }) : null,
-      wuRib ? h(`i.b-wu${wu.kind !== 'open' ? '.ans' : ''}`, wuRib) : null,
+      wuRib ? h(`i.b-wu${wu.kind !== 'open' ? '.ans' : ''}${x.deathblow ? '.db' : ''}`, wuRib) : null,
       ob && !wuRib ? h('i.b-ob', 'OFF-BAL') : null,
       p && p.window && !ob && !wuRib ? h('i.b-ob.frost', 'WINDOW') : null);
     tip(el, () => entryTip(e, x, ctx, { cancel, ob, petHit, preview: p, wu }));
@@ -285,7 +369,7 @@ export function trackRows(box, e, ctx) {
   const v = ctx.view; const list = entriesOf(e);
   const pv = ctx.ui.preview && ctx.ui.preview.data;
   const unaware = e.intent && e.intent.id === 'unaware';
-  const key = `${JSON.stringify(list.map((x) => [x.turn, x.id, x.est, x.target, x.allyIdx, x.cancel && x.cancel.by, x.cancel && x.cancel.stagger, x.replaced && x.replaced.reason, x.now, x.windup]))}|${unaware}|${e.intent && e.intent.interrupted ? 'I' : ''}|${pv ? JSON.stringify(pv.enemies.find((q) => q.u === e.idx) || null) : ''}|${(e.role && JSON.stringify(e.role)) || ''}`;
+  const key = `${JSON.stringify(list.map((x) => [x.turn, x.id, x.est, x.target, x.allyIdx, x.cancel && x.cancel.by, x.cancel && x.cancel.stagger, x.replaced && x.replaced.reason, x.now, x.windup, x.deathblow]))}|${unaware}|${e.intent && e.intent.interrupted ? 'I' : ''}|${pv ? JSON.stringify(pv.enemies.find((q) => q.u === e.idx) || null) : ''}|${(e.role && JSON.stringify(e.role)) || ''}`;
   if (box.dataset.key === key) return;
   box.dataset.key = key; clear(box);
   if (!list.length && !unaware) { box.classList.add('hidden'); return; }
@@ -299,7 +383,7 @@ export function trackRows(box, e, ctx) {
     const tgt = petHit ? 'pet' : x.target;
     const wu = windupState(e, x, cancel, p);
     // combat v2.1: a wind-up shows one flag (it is always a cast; "heavy" goes to the line below), so its name keeps its room
-    const flags = wu ? [h(`span.flag.wu${wu.kind !== 'open' ? '.ans' : ''}`, wu.kind === 'open' ? 'Wind-up' : wu.kind === 'void' ? 'Wind-up ↺' : 'Answered')]
+    const flags = wu ? [h(`span.flag.wu${wu.kind !== 'open' ? '.ans' : ''}${x.deathblow && wu.kind === 'open' ? '.db' : ''}`, wu.kind === 'open' ? (x.deathblow ? 'Deathblow' : 'Wind-up') : wu.kind === 'void' ? 'Wind-up ↺' : 'Answered')]
       : [x.heavy ? h('span.flag.heavy', 'Heavy') : null, x.cast ? h('span.flag.cast', 'Cast') : null, x.signature ? h('span.flag.sig', '★ Signature') : null];
     let sub = '';
     if (cancel) sub = `${cap(CONTROL_WORD[cancel.by] || 'controlled')}${cancel.offBalance || (wu && wu.kind !== 'open') ? '' : ': skipped'}`;
@@ -308,12 +392,12 @@ export function trackRows(box, e, ctx) {
     else { const w = targetWord({ ...x, target: tgt }, v); sub = isDamage(x) ? `Hits ${w}` : w && w !== 'itself' && x.kind !== 'curse' ? `On ${w}` : supportWord(x); }
     if (wu && x.heavy && !cancel && !x.replaced) sub = `Heavy · ${sub ? sub[0].toLowerCase() + sub.slice(1) : ''}`;
     const amt = amountText(x);
-    const row = h(`div.tr${x.now ? '.now' : ''}${x.heavy ? '.heavy' : ''}${x.cast ? '.cast' : ''}${cancel ? '.cancel' : ''}${cancel && (cancel.breaks || cancel.preview) ? '.soft' : ''}${ob ? '.ob' : ''}${p ? '.pv' : ''}${wu ? `${wu.kind !== 'void' ? '.wu' : ''}.wu-${wu.kind}` : ''}`,
-      { dataset: { turn: x.turn, round: x.round ?? '', id: x.id, windup: wu ? wu.kind : '' } },
+    const row = h(`div.tr${x.now ? '.now' : ''}${x.heavy ? '.heavy' : ''}${x.cast ? '.cast' : ''}${cancel ? '.cancel' : ''}${cancel && (cancel.breaks || cancel.preview) ? '.soft' : ''}${ob ? '.ob' : ''}${p ? '.pv' : ''}${wu ? `${wu.kind !== 'void' ? '.wu' : ''}.wu-${wu.kind}` : ''}${x.deathblow && wu && wu.kind !== 'void' ? '.db' : ''}`,
+      { dataset: { turn: x.turn, round: x.round ?? '', id: x.id, windup: wu ? wu.kind : '', deathblow: x.deathblow ? '1' : '' } },
       h('span.rt', x.now ? 'Now' : x.round != null ? `R${x.round}` : ''),
       h('img', { src: abilityIcon(x), alt: '' }),
       h('div.tm', h('div.tn', h('span.nm', x.name), flags), h('div.ts', sub,
-        wu && (wu.kind === 'answered' || wu.kind === 'preview') ? h('b.wut', ' → staggered') : wu && wu.kind === 'open' && !x.replaced ? h('b.wuo', ' · answer it') : null,
+        wu && (wu.kind === 'answered' || wu.kind === 'preview') ? h('b.wut', ' → staggered') : wu && wu.kind === 'open' && !x.replaced ? h(`b.wuo${x.deathblow ? '.db' : ''}`, x.deathblow ? ' · MAIMS if it lands' : ' · answer it') : null,
         ob ? h('b.obt', ' → off-balance') : null, p && p.window && !ob ? h('b.obt.frost', ' → frozen window') : null)),
       amt ? h(`div.td${isHeal(x) ? '.heal' : ''}`, amt) : null);
     tip(row, () => entryTip(e, x, ctx, { cancel, ob, petHit, preview: p, wu }));
@@ -446,11 +530,11 @@ export function createRuler(root, ctx) {
         if (!cancelled && isDamage(x) && (x.target === 'player' || x.target === 'both') && !(p && p.pet)) col.dmg += x.est || 0;
         // combat v2.1: a wind-up is marked on its round, answered when a cancel (or the previewed opening) answers it
         const wu = windupState(e, x, cancelOf(e, x, p, ctx), p);
-        if (notable(x)) col.threats.push({ e, x, cancelled, ob: !!((x.cancel && x.cancel.offBalance) || (p && p.ob)), wu: wu ? wu.kind : null, wuState: wu });
+        if (notable(x)) col.threats.push({ e, x, cancelled, ob: !!((x.cancel && x.cancel.offBalance) || (p && p.ob)), wu: wu ? wu.kind : null, wuState: wu, db: !!x.deathblow });
       }
     }
-    for (const k of cols) k.threats.sort((a, b) => (b.wu ? 1 : 0) - (a.wu ? 1 : 0)); // wind-ups first: they are what the opening is about
-    const key = JSON.stringify([c.round, cols.map((k) => [k.known, k.dmg, k.threats.map((t) => [t.e.idx, t.x.turn, t.x.id, t.cancelled, t.ob, t.wu])])]);
+    for (const k of cols) k.threats.sort((a, b) => (b.db ? 2 : b.wu ? 1 : 0) - (a.db ? 2 : a.wu ? 1 : 0)); // Deathblows, then wind-ups first: they are what the opening is about
+    const key = JSON.stringify([c.round, cols.map((k) => [k.known, k.dmg, k.threats.map((t) => [t.e.idx, t.x.turn, t.x.id, t.cancelled, t.ob, t.wu, t.db])])]);
     if (key === lastKey) return;
     lastKey = key; clear(el);
     el.appendChild(h('div.rl-h', h('span.rl-t', 'Opening'), h('span.rl-s', c.round === 1 ? 'Plan your first moves' : `Round ${c.round} of ${OPENING_ROUNDS}`)));
@@ -459,18 +543,19 @@ export function createRuler(root, ctx) {
       const state = k.r < c.round ? 'past' : k.r === c.round ? 'cur' : 'next';
       const engage = k.r === 1;
       const wuOpen = k.threats.some((t) => t.wu === 'open'); const wuAns = !wuOpen && k.threats.some((t) => t.wu === 'answered' || t.wu === 'preview');
+      const dbOpen = k.threats.some((t) => t.wu === 'open' && t.db);
       const head = h('div.rl-n', engage ? h('span', '1 · Engage') : h('span', `Round ${k.r}`),
-        wuOpen || wuAns ? h(`b.rl-wu${wuAns ? '.ans' : ''}`, wuAns ? 'Answered' : 'Wind-up') : state === 'cur' ? h('b.rl-now', 'Now') : null);
+        wuOpen || wuAns ? h(`b.rl-wu${wuAns ? '.ans' : ''}${dbOpen ? '.db' : ''}`, wuAns ? 'Answered' : dbOpen ? 'Deathblow' : 'Wind-up') : state === 'cur' ? h('b.rl-now', 'Now') : null);
       const body = h('div.rl-b');
       if (engage) body.appendChild(h('div.rl-q', 'They do not act'));
       else if (!k.known) body.appendChild(h('div.rl-q', '?'));
       else {
         const icons = h('div.rl-ic');
         for (const t of k.threats.slice(0, 4)) {
-          const ic = h(`div.rl-x${t.x.heavy ? '.heavy' : ''}${t.x.cast ? '.cast' : ''}${t.cancelled ? '.cancel' : ''}${t.ob ? '.ob' : ''}${t.wu ? `${t.wu !== 'void' ? '.wu' : ''}.wu-${t.wu}` : ''}`,
-            { dataset: { idx: t.e.idx, turn: t.x.turn, windup: t.wu || '' } },
+          const ic = h(`div.rl-x${t.x.heavy ? '.heavy' : ''}${t.x.cast ? '.cast' : ''}${t.cancelled ? '.cancel' : ''}${t.ob ? '.ob' : ''}${t.wu ? `${t.wu !== 'void' ? '.wu' : ''}.wu-${t.wu}` : ''}${t.db && t.wu && t.wu !== 'void' ? '.db' : ''}`,
+            { dataset: { idx: t.e.idx, turn: t.x.turn, windup: t.wu || '', deathblow: t.db ? '1' : '' } },
             h('img', { src: abilityIcon(t.x), alt: '' }), t.e.role ? h('img.rl-role', { src: roleIcon(t.e.role.id), alt: '' }) : null,
-            t.wu && t.wu !== 'void' ? h('img.rl-wui', { src: windupIcon(), alt: '' }) : null);
+            t.wu && t.wu !== 'void' ? h('img.rl-wui', { src: t.db ? deathblowIcon() : windupIcon(), alt: '' }) : null);
           ic.addEventListener('click', () => ctx.ui.setTarget(t.e.idx));
           tip(ic, () => entryTip(t.e, t.x, ctx, { cancel: t.x.cancel || (t.cancelled ? { by: 'PREVIEW', preview: true, offBalance: t.ob } : null), ob: t.ob, wu: t.wuState }));
           windupHover(ic, t.e, t.x, ctx);
@@ -567,8 +652,28 @@ export function createEngagePanel(root, ctx) {
     }
     return out.sort((a, b) => (a.x.round || 0) - (b.x.round || 0));
   };
-  const answerTag = (list) => (list.length ? h('div.eg-ans', h('img', { src: windupIcon(), alt: '' }),
-    `Answers ${list.length > 1 ? `${list.length} wind-ups` : `the wind-up`} (${list.map((w) => `R${w.x.round}`).join(', ')}): staggered`) : null);
+  const answerTag = (list) => {
+    if (!list.length) return null;
+    const db = list.some((w) => w.x.deathblow); // M2b v13: an option that answers a Deathblow says so, in its colour
+    return h(`div.eg-ans${db ? '.db' : ''}`, h('img', { src: db ? deathblowIcon() : windupIcon(), alt: '' }),
+      `Answers ${db ? (list.length > 1 ? 'the Deathblow and a wind-up' : 'the Deathblow') : list.length > 1 ? `${list.length} wind-ups` : 'the wind-up'} (${list.map((w) => `R${w.x.round}`).join(', ')}): staggered`);
+  };
+  /**
+   * M2b v13 (UI needs 1, 2): the Deathblow alert at the head of the panel: each open Deathblow in view (R.windupView), when,
+   * whose, its estimate, "MAIMS if it lands", and the answers ready now with their keys ("No answer ready" in red).
+   */
+  const deathblowAlert = (v) => {
+    const list = (v.combat.windups || []).filter((w) => w.deathblow && !(w.cancel && w.cancel.stagger && !w.cancel.breaks));
+    if (!list.length) return null;
+    return list.map((w) => {
+      const sh = answersToShow(w, v, ctx);
+      return h('div.eg-db', { dataset: { u: w.u, turn: w.turn, ready: w.ready ? '1' : '' } },
+        h('img.eg-dbi', { src: deathblowIcon(), alt: '' }),
+        h('div.eg-dbm', h('div.eg-dbt', h('b', `Deathblow, round ${w.round}`), `: ${w.enemy}'s ${w.name}${w.est && DAMAGE_KINDS.has(w.kind) ? `, ≈ ${fmtNum(w.est)} to ${w.target === 'pet' ? 'your pet' : 'you'}` : ''}. `, h('b.eg-dbmaim', w.maims ? 'MAIMS if it lands.' : `+${Math.round(w.empower * 100)} % if it lands.`)),
+          !w.ready ? h('div.eg-dba.no', 'No answer ready')
+            : h('div.eg-dba', sh.when === 'now' ? 'Answer it now: ' : `Ready by round ${w.round}: `, answerEls(sh.list.slice(0, 4)))));
+    });
+  };
   const pctOf = (x) => `${Math.round((x || 0) * 100)} %`;
   /** Disrupt's line on the card (rules 7.10): the wind-up its trap stops, from R.engagePreview (ans), and the result. */
   const disruptText = (v, t, ans) => {
@@ -599,11 +704,15 @@ export function createEngagePanel(root, ctx) {
     document.body.classList.toggle('engage-round', show);
     updateHint(v, show, eg);
     if (!show) { lastKey = ''; return; }
-    const key = JSON.stringify([eg, ctx.ui.target, ctx.ui.precastArmed, v.player.classId]);
+    const key = JSON.stringify([eg, ctx.ui.target, ctx.ui.precastArmed, v.player.classId, (c.windups || []).filter((w) => w.deathblow).map((w) => [w.u, w.turn, w.est, w.ready, w.answers])]);
     if (key === lastKey) return;
     lastKey = key; clear(el);
     const d = ctx.data.v2 || { options: {}, num: {} };
     el.appendChild(h('div.eg-h', h('div.title', 'Engage'), h('div.eg-sub', h('b', 'They have not noticed you: enemies do not act this round.'), ' Read their tracks, pick a target, then open.')));
+    const dba = deathblowAlert(v); if (dba) el.append(...dba);
+    // the engage options that answer an open Deathblow (R.windupView answers, via 'engage'): { option id: [answer] }
+    const dbAns = {};
+    for (const w of (v.combat.windups || []).filter((q) => q.deathblow)) for (const a of w.answers) if (a.via === 'engage') (dbAns[a.id] = dbAns[a.id] || []).push({ ...a, round: w.round });
     const opts = h('div.eg-opts');
     const cur = ctx.ui.target;
     for (const o of eg.options) {
@@ -625,11 +734,16 @@ export function createEngagePanel(root, ctx) {
       else if (notHere) tline = h('div.eg-tg.bad', notHere, h('span.eg-alt', ` Choose: ${o.targets.map((i) => nameOf(v, i)).join(', ')}`));
       else tline = h('div.eg-tg.warn', `Choose a target: ${o.targets.map((i) => nameOf(v, i)).join(', ')}`);
       const name = disrupt ? 'Disrupt' : o.name;
-      const card = h(`div.eg-opt.k-${o.kind}${off ? '.off' : ''}${notHere ? '.off-here' : ''}${disrupt ? '.disrupt' : ''}${ans.length ? '.answers' : ''}${o.spells && ctx.ui.precastArmed ? '.armed' : ''}`,
-        { role: o.spells ? null : 'button', tabindex: '-1', dataset: { opt: o.id, disrupt: disrupt ? '1' : '', answers: ans.map((w) => `${w.e.idx}:${w.x.turn}`).join(' ') }, 'aria-label': `${name}${disrupt ? ` (${o.name})` : ''} (${ENGAGE_KIND[o.kind] || o.kind})` },
+      // M2b v13: the card is an answer to a Deathblow (windupView): highlighted; "sure" false (Sap, Rime Burst) marked a chance
+      const dbA = dbAns[o.id] || [];
+      const dbSure = dbA.some((a) => a.sure);
+      const card = h(`div.eg-opt.k-${o.kind}${off ? '.off' : ''}${notHere ? '.off-here' : ''}${disrupt ? '.disrupt' : ''}${ans.length ? '.answers' : ''}${o.spells && ctx.ui.precastArmed ? '.armed' : ''}${dbA.length ? '.db-ans' : ''}`,
+        { role: o.spells ? null : 'button', tabindex: '-1', dataset: { opt: o.id, disrupt: disrupt ? '1' : '', answers: ans.map((w) => `${w.e.idx}:${w.x.turn}`).join(' '), db: dbA.length ? (dbSure ? 'sure' : 'chance') : '' }, 'aria-label': `${name}${disrupt ? ` (${o.name})` : ''} (${ENGAGE_KIND[o.kind] || o.kind})` },
         h('img.eg-ic', { src: engageIcon(o.id), alt: '' }),
         h('div.eg-main', h('div.eg-nm', h('span.eg-name', name), disrupt ? h('span.eg-was', o.name) : null, h('span.eg-kind', ENGAGE_KIND[o.kind] || o.kind), o.key ? h('span.kbd', o.key) : null),
-          h('div.eg-txt', disrupt ? disruptText(v, here, ans) : engageText(data, d.num)), tline, answerTag(ans)));
+          h('div.eg-txt', disrupt ? disruptText(v, here, ans) : engageText(data, d.num)), tline, answerTag(ans),
+          dbA.length && !dbSure ? h('div.eg-dbc', dbA.some((a) => a.breaks) ? 'A chance: any damage before its turn wakes it' : 'A chance: it can fail') : null));
+      if (dbA.length) card.prepend(h('i.eg-dbtag', 'Deathblow'));
       if (disrupt || notHere) tip(card, () => disruptTip(v, o, here ?? cur, disrupt, notHere));
       if (o.spells && !off) {
         const row = h('div.eg-spells');
@@ -640,8 +754,9 @@ export function createEngagePanel(root, ctx) {
           const t = sp.targets.length === 1 && sp.targets[0] === null ? null : sp.targets.includes(cur) ? cur : sp.targets[0];
           const sa = answersOf(v, o.id, t, sp.spellId);
           if (sa.length && !any.length) any = sa.map((w) => ({ ...w, spell: sd.name }));
-          const b = h(`button.eg-sp${sa.length ? '.ans' : ''}`, { type: 'button', 'aria-label': `Pre-cast ${sd.name}`, dataset: { spell: sp.spellId } }, h('img', { src: spellIcon(sp.spellId, sd), alt: '' }), slot >= 0 ? h('span.k', String(slot + 1)) : null,
-            sa.length ? h('img.eg-spw', { src: windupIcon(), alt: '' }) : null);
+          const spDb = sa.some((w) => w.x.deathblow);
+          const b = h(`button.eg-sp${sa.length ? '.ans' : ''}${spDb ? '.db' : ''}`, { type: 'button', 'aria-label': `Pre-cast ${sd.name}`, dataset: { spell: sp.spellId, db: spDb ? '1' : '' } }, h('img', { src: spellIcon(sp.spellId, sd), alt: '' }), slot >= 0 ? h('span.k', String(slot + 1)) : null,
+            sa.length ? h('img.eg-spw', { src: spDb ? deathblowIcon() : windupIcon(), alt: '' }) : null);
           b.addEventListener('click', (ev) => { ev.stopPropagation(); ctx.ui.engage(o.id, sp.spellId); });
           b.addEventListener('pointerenter', () => hover(v, o, sp));
           b.addEventListener('pointerleave', () => ctx.ui.setPreview(null));
@@ -649,7 +764,7 @@ export function createEngagePanel(root, ctx) {
           row.appendChild(b);
         }
         card.querySelector('.eg-main').appendChild(row);
-        if (any.length) card.querySelector('.eg-main').appendChild(h('div.eg-ans', h('img', { src: windupIcon(), alt: '' }), `${any[0].spell} answers the wind-up (${any.map((w) => `R${w.x.round}`).join(', ')}): staggered`));
+        if (any.length) { const adb = any.some((w) => w.x.deathblow); card.querySelector('.eg-main').appendChild(h(`div.eg-ans${adb ? '.db' : ''}`, h('img', { src: adb ? deathblowIcon() : windupIcon(), alt: '' }), `${any[0].spell} answers the ${adb ? 'Deathblow' : 'wind-up'} (${any.map((w) => `R${w.x.round}`).join(', ')}): staggered`)); }
       }
       if (!o.spells) {
         card.addEventListener('click', () => ctx.ui.engage(o.id));

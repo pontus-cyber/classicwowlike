@@ -1406,3 +1406,92 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .dmrow .dr { font-family: var(--font-num); color: #f6e6c4; }
 .dmrow .da { font-family: var(--font-num); color: var(--ink-dim); text-align: right; font-size: 1.12rem; }
 .dmrow.dmmain .dk { color: #ffe0a0; }
+
+/* ===================================================================== M2b v13: the Deathblow (docs/specs/changes-m2b-v13.md "UI needs")
+   One colour per meaning, one more: crimson with a skull = a Deathblow (it MAIMS if it lands) and what answers it, apart from
+   the ember of an ordinary wind-up; frost blue stays "answered". The line over the enemy pops in, then pulses. */
+.np .wub.db { gap: .2rem .4rem; padding: .28rem .6rem .32rem .32rem; border-radius: .35rem; max-width: 22rem; margin: 0 -2.75rem;
+  background: linear-gradient(180deg, rgba(128, 6, 16, .97), rgba(44, 2, 6, .97)); box-shadow: 0 0 0 1px #000, inset 0 0 0 2px #ff3a4a, 0 0 1.8rem rgba(255, 30, 50, .9);
+  animation: dbin .6s ease-out 1, dbpulse 1.1s ease-in-out .6s infinite; }
+.np .wub.db .wu-b { background: linear-gradient(180deg, #ffe4e4, #ff4a5a 55%, #b00818); color: #26000a; font-size: 1.02rem; letter-spacing: .07em; }
+.np .wub.db .wu-b img { width: 1.75rem; height: 1.75rem; }
+.np .wub.db .db-est { font: 900 1.35rem var(--font-num); color: #fff0f0; text-shadow: 0 1px 2px #000, 0 0 .6rem rgba(255, 60, 70, .9); white-space: nowrap; }
+.np .wub.db .db-m { font: 900 .98rem var(--font-ui); color: #ffb0b8; white-space: nowrap; text-shadow: 0 1px 1px #000; }
+.np .wub.db .db-a { flex-basis: 100%; text-align: center; font: 800 .98rem/1.5 var(--font-ui); color: #ffeede; text-shadow: 0 1px 1px #000; }
+.np .wub.db .db-a .db-al { color: #ffb0b8; }
+.np .wub.db .db-a kbd, .eg-db kbd { display: inline-block; min-width: 1.3rem; padding: 0 .25rem; border-radius: .22rem; font: 900 .92rem/1.3rem var(--font-ui); text-align: center; color: #2a0004; background: linear-gradient(180deg, #fff2f2, #ff9aa4); box-shadow: 0 0 0 1px #000; }
+.np .wub.db .db-a.no, .eg-db .eg-dba.no { color: #ff4a4a; font-weight: 900; letter-spacing: .03em; text-transform: uppercase; }
+.np .wub.db.now { animation: dbin .6s ease-out 1, dbpulse .6s ease-in-out .6s infinite; }
+.np .wub.db.ans { background: linear-gradient(180deg, rgba(10, 52, 72, .95), rgba(4, 22, 34, .95)); box-shadow: 0 0 0 1px #000, inset 0 0 0 1px #7fd8ff, 0 0 1rem rgba(110, 200, 255, .6); animation: none; }
+.np .wub.db.ans .wu-b { background: linear-gradient(180deg, #dff6ff, #5ab4e8); color: #04202e; }
+#nameplates.tight .np .wub.db { max-width: 18rem; margin: 0 -.75rem; }
+@keyframes dbin { 0% { transform: scale(1.35); filter: brightness(1.9); } 70% { transform: scale(.97); } 100% { transform: none; filter: none; } }
+@keyframes dbpulse { 50% { box-shadow: 0 0 0 1px #000, inset 0 0 0 2px #ffc0c6, 0 0 2.8rem rgba(255, 40, 60, 1); } }
+/* its chip, row, ruler round and ribbon */
+.tk.db { box-shadow: inset 0 0 0 2px #ff3a4a, 0 0 1.4rem rgba(255, 30, 50, .95); background: linear-gradient(180deg, rgba(110, 6, 14, .98), rgba(34, 2, 6, .98)); }
+.tk.db.wu-answered, .tk.db.wu-preview { box-shadow: inset 0 0 0 2px #7fd8ff, 0 0 1rem rgba(110, 200, 255, .7); background: linear-gradient(180deg, rgba(10, 40, 60, .97), rgba(4, 18, 28, .97)); }
+.tk .b-wu.db { background: linear-gradient(180deg, #ffe4e4, #ff4a5a 55%, #b00818); color: #26000a; box-shadow: 0 0 0 1px #000, 0 0 .8rem rgba(255, 40, 60, 1); }
+.tk.db .tv b { color: #fff0f0; }
+.tr.db { box-shadow: inset .35rem 0 0 #ff3a4a; background: rgba(120, 6, 16, .42); }
+.tr.db.wu-answered, .tr.db.wu-preview { box-shadow: inset .3rem 0 0 #7fd8ff; background: rgba(10, 60, 90, .32); }
+.flag.wu.db { background: linear-gradient(180deg, #ffe4e4, #ff4a5a 55%, #b00818); color: #26000a; box-shadow: 0 0 .7rem rgba(255, 40, 60, .9); }
+.tr .wuo.db { color: #ff9aa4; }
+.rl-x.db { box-shadow: 0 0 0 2px #ff3a4a, 0 0 1.1rem rgba(255, 30, 50, 1); }
+.rl-x.db.wu-answered, .rl-x.db.wu-preview { box-shadow: 0 0 0 2px #7fd8ff, 0 0 .9rem rgba(110, 200, 255, .8); }
+.rl-wu.db { background: linear-gradient(180deg, #ffe4e4, #ff4a5a 55%, #b00818); color: #26000a; }
+/* EMPOWERED from a Deathblow: its own "+100 %" badge */
+.wst.emp.db { background: linear-gradient(180deg, #8a0a16, #3a0206); color: #ffe4e4; box-shadow: 0 0 0 1px #000, inset 0 0 0 2px #ff3a4a, 0 0 1.2rem rgba(255, 30, 50, .8); }
+.wst.emp.db b { color: #fff; font-size: 1.2rem; }
+/* the engage panel: the Deathblow's alert, and the options that answer it */
+.eg-db { display: flex; align-items: flex-start; gap: .55rem; margin: 0 0 .6rem; padding: .45rem .6rem .5rem .45rem; border-radius: .45rem;
+  background: linear-gradient(180deg, rgba(110, 6, 14, .95), rgba(40, 2, 6, .95)); box-shadow: inset 0 0 0 2px #ff3a4a, 0 0 1.4rem rgba(255, 30, 50, .55); animation: dbin .6s ease-out 1; }
+.eg-db .eg-dbi { width: 3rem; height: 3rem; border-radius: .35rem; border: 1px solid #000; flex: none; }
+.eg-db .eg-dbm { display: flex; flex-direction: column; gap: .25rem; min-width: 0; }
+.eg-db .eg-dbt { font-size: 1.12rem; line-height: 1.3; color: #ffe6e6; }
+.eg-db .eg-dbt > b:first-child { color: #fff; }
+.eg-db .eg-dbmaim { color: #ff9aa4; }
+.eg-db .eg-dba { font: 800 1.08rem var(--font-ui); color: #ffeede; }
+.eg-opt.db-ans { box-shadow: inset 0 0 0 2px #ff3a4a, 0 0 1.4rem rgba(255, 40, 60, .6); }
+.eg-opt.db-ans:hover { box-shadow: inset 0 0 0 3px #ff6a76, 0 0 1.8rem rgba(255, 50, 70, .8); }
+.eg-opt .eg-dbtag { position: absolute; right: .5rem; top: -.75rem; padding: 0 .4rem; border-radius: .25rem; font: 900 .78rem/1.3rem var(--font-ui); font-style: normal; letter-spacing: .06em; text-transform: uppercase;
+  background: linear-gradient(180deg, #ffe4e4, #ff4a5a 55%, #b00818); color: #26000a; box-shadow: 0 0 0 1px #000, 0 0 .7rem rgba(255, 40, 60, .9); }
+.eg-ans.db { background: rgba(90, 6, 14, .92); color: #ffe4e4; box-shadow: inset 0 0 0 1px #ff4a5a; }
+.eg-dbc { font: 700 .98rem var(--font-ui); color: #ffb0b8; }
+.eg-sp.db { box-shadow: inset 0 0 0 2px #ff3a4a, 0 0 .9rem rgba(255, 40, 60, .8); }
+/* the bar: a Deathblow's answer now (a crimson pulse) or kept for its round (a dashed crimson ring and "R3") */
+.ab.db-now { box-shadow: inset 0 0 0 2px #ff6a76, 0 0 0 2px rgba(255, 40, 60, .85), 0 0 2rem rgba(255, 30, 50, 1); animation: dbabpulse .7s ease-in-out infinite; }
+.ab.db-soon::after { content: ''; position: absolute; inset: -.3rem; border-radius: .7rem; border: 2px dashed #ff4a5a; box-shadow: 0 0 .8rem rgba(255, 40, 60, .6); pointer-events: none; }
+.ab .atag.db { background: linear-gradient(180deg, #ffe4e4, #ff4a5a 55%, #b00818); color: #26000a; box-shadow: 0 0 0 1px #000, 0 0 .8rem rgba(255, 40, 60, 1); }
+.ab .atag.db.soon { background: rgba(50, 2, 8, .95); color: #ff9aa4; box-shadow: 0 0 0 1px #ff4a5a; }
+@keyframes dbabpulse { 50% { box-shadow: inset 0 0 0 2px #ffd0d4, 0 0 0 3px rgba(255, 60, 80, 1), 0 0 2.8rem rgba(255, 30, 50, 1); } }
+/* MAIMED: a large lasting badge on the player frame; healing potions show what they restore now */
+.uf .maimb { display: flex; align-items: center; gap: .4rem; padding: .12rem .5rem .12rem .15rem; border-radius: .35rem; cursor: help;
+  background: linear-gradient(180deg, #7a0812, #36020a); box-shadow: 0 0 0 1px #000, inset 0 0 0 2px #ff3a4a, 0 0 1rem rgba(255, 30, 50, .6); }
+.uf .maimb.hidden { display: none; }
+.uf .maimb img { width: 2rem; height: 2rem; border-radius: .25rem; border: 1px solid #000; }
+.uf .maimb .mn { font: 900 1.05rem var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: #fff0f0; }
+.uf .maimb .mv { margin-left: auto; font: 900 1.15rem var(--font-num); color: #ffb0b8; white-space: nowrap; }
+.uf .maimb.fresh { animation: dbin .7s ease-out 1; }
+.ab .mtag { position: absolute; right: -.4rem; top: -1rem; padding: 0 .3rem; border-radius: .3rem; background: linear-gradient(180deg, #ffd0d4, #d02838); color: #26000a; font: 900 .88rem/1.35rem var(--font-num); white-space: nowrap; box-shadow: 0 0 0 1px #000, 0 0 .6rem rgba(255, 40, 60, .8); pointer-events: none; z-index: 2; }
+.ab.maimed { box-shadow: inset 0 0 0 2px rgba(255, 60, 80, .8); }
+.tt-warn.maim { color: #ff9aa4; }
+/* the turn prompt: the Deathblow's answer, "no answer ready", and autoplay's answer */
+#turnprompt[data-kind="deathblow"], #turnprompt[data-kind="deathblow-no"], #turnprompt[data-kind="auto-db"] { box-shadow: inset 0 0 0 2px #ff3a4a, 0 0 1.6rem rgba(255, 30, 50, .55); background: linear-gradient(180deg, rgba(70, 6, 12, .95), rgba(24, 2, 6, .95)); }
+#turnprompt[data-kind="deathblow"] .tp-k, #turnprompt[data-kind="deathblow-no"] .tp-k, #turnprompt[data-kind="auto-db"] .tp-k { background: linear-gradient(180deg, #ffe4e4, #ff4a5a 55%, #b00818); color: #26000a; }
+#turnprompt .tp-no { color: #ff4a4a; font-weight: 900; text-transform: uppercase; letter-spacing: .03em; }
+#turnprompt .tp-s { color: var(--ink-dim); font-weight: 600; }
+#turnprompt[data-kind="auto"] .tp-k { background: linear-gradient(180deg, #dff6ff, #5ab4e8); color: #04202e; }
+/* a first meeting (gated, rules 7.12): "New" on the nameplate and the target frame */
+.np .newtag { font: 900 .78rem/1.25rem var(--font-ui); letter-spacing: .08em; text-transform: uppercase; padding: 0 .35rem; border-radius: .25rem; background: linear-gradient(180deg, #fff6c8, #e8b84a); color: #2a1a00; box-shadow: 0 0 0 1px #000; }
+.np .newtag.hidden { display: none; }
+.rank-tag.new { background: #4a3a0a; color: #fff1b0; }
+/* tooltips */
+.tt-line.wu.db { color: #ffb0b8; }
+.tt-line.wu.db b { color: #fff0f0; }
+.tt-line.num.db { color: #ffd0d4; font-weight: 800; }
+.tt-line.db-a { color: #ffe0c8; font-weight: 700; }
+.tt-warn.db-no { color: #ff5a5a; font-weight: 800; }
+.tt-line.tt-db { color: #ffb0b8; }
+.tt-line.tt-db b { color: #fff0f0; }
+.tt-line.tt-db img { width: 1.5rem; height: 1.5rem; border-radius: .25rem; border: 1px solid #000; vertical-align: -.35rem; margin-right: .35rem; }
+@media (prefers-reduced-motion: reduce) { .np .wub.db, .np .wub.db.now, .eg-db, .ab.db-now, .uf .maimb.fresh { animation: none; } }

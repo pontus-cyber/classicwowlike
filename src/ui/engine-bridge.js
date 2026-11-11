@@ -197,6 +197,8 @@ function v2Data(K) {
       // combat v2.1 (rules 7.12): a wind-up answered gives a STAGGERED stack (-STAGGER_DMG damage dealt), landed an
       // EMPOWERED stack (+EMPOWER_DMG); null on an engine before combat v2.1
       empowerDmg: K.EMPOWER_DMG ?? null, staggerDmg: K.STAGGER_DMG ?? null, signatureTurn2: K.SIGNATURE_TURN_2 ?? null,
+      // M2b v13 (rules 7.12, 7.4): a Deathblow's damage multiplier, its EMPOWERED value and MAIMED's healing cut; null before v13
+      deathblowMult: K.DEATHBLOW_MULT ?? null, deathblowEmpower: K.DEATHBLOW_EMPOWER ?? null, maimHeal: K.MAIM_HEAL ?? null,
     },
   };
 }
@@ -394,7 +396,11 @@ function engineBackend(seedOpt, runOpts = {}) {
       value: x.id === 'WARD' ? x.amount || 0 : x.value || 0, tick: x.tick || 0, amount: x.amount || 0, max: x.max || x.maxStacks || null,
       canCrit: !!x.canCrit, focus: x.focus || 0, srcName: statusSource(x, f),
       // combat v2: a laid trap's spring turn and stun (TRAP), engine-api.md 6
-      ...(x.id === 'TRAP' ? { turn: x.turn ?? null, stun: x.stun ?? null } : {}) }));
+      ...(x.id === 'TRAP' ? { turn: x.turn ?? null, stun: x.stun ?? null } : {}),
+      // M2b v13 (engine-api.md 6): EMPOWERED's stacks and value from Deathblows (shown apart: "+100 % (Deathblow)"); MAIMED's
+      // Deathblow by name (srcName is the enemy that landed it)
+      ...(x.id === 'EMPOWERED' ? { deathblows: x.deathblows || 0, deathblowValue: x.deathblowValue || 0 } : {}),
+      ...(x.id === 'MAIMED' ? { ability: x.name || null } : {}) }));
     if (shield > 0 && !out.some((x) => x.id === 'WARD')) out.push({ id: 'WARD', rounds: 99, stacks: 1, value: shield, amount: shield, srcName: null });
     if (enraged > 0) out.push({ id: 'ENRAGED', rounds: 99, stacks: 1, value: enraged, srcName: null });
     return out;
@@ -512,8 +518,8 @@ function engineBackend(seedOpt, runOpts = {}) {
       if (n.fights) out.fights = n.fights.map((x) => [...x]);
       if (n.bossArchetype) out.bossArchetype = n.bossArchetype;
       if (n.type === 'treasure') out.guarded = !!n.guarded;
-      if (n.type === 'elite') { out.eliteName = n.name || null; out.rare = n.rare; }
-      if (n.type === 'dungeon') { out.dungeon = n.name; out.bossLevel = n.bossLevel; out.bossName = zc && CONTENT.enemies[zc.dungeon.boss] ? CONTENT.enemies[zc.dungeon.boss].name : ''; }
+      if (n.type === 'elite') { out.eliteName = n.name || null; out.rare = n.rare; out.deathblow = n.deathblow ? { ...n.deathblow } : null; } // M2b v13: shown with its name
+      if (n.type === 'dungeon') { out.dungeon = n.name; out.bossLevel = n.bossLevel; out.bossDeathblow = n.bossDeathblow ? { ...n.bossDeathblow } : null; out.bossName = zc && CONTENT.enemies[zc.dungeon.boss] ? CONTENT.enemies[zc.dungeon.boss].name : ''; }
       if (n.type === 'quest' && n.title) { const q = Object.values(CONTENT.quests).find((x) => x.title === n.title); if (q) out.giver = q.giver; }
       return out;
     })) : [];
@@ -569,8 +575,8 @@ function engineBackend(seedOpt, runOpts = {}) {
       selfHeal: it.kind === 'selfHeal', mend: it.kind === 'heal', shield: it.kind === 'selfShield', brace: it.kind === 'brace', curse: it.kind === 'curse',
       bolster: it.kind === 'bolster', signal: it.kind === 'signal', summon: it.kind === 'summon', shieldAlly: it.kind === 'shieldAlly',
       support: SUPPORT.includes(it.kind),
-      // combat v2.1 (rules 7.12): this round's action is a wind-up
-      windup: !!it.windup,
+      // combat v2.1 (rules 7.12): this round's action is a wind-up; M2b v13: a Deathblow, a first meeting's wind-up
+      windup: !!it.windup, deathblow: !!it.deathblow, firstMeet: !!it.firstMeet,
       // combat v2 (engine-api.md 6): control cancelled this turn's action, or the entry could not be played; combat v2.1:
       // `windup` on either when the action that did not happen was a wind-up
       cancelled: it.cancelled ? { by: it.cancelled.by, id: it.cancelled.id, name: it.cancelled.name, cast: !!it.cancelled.cast, heavy: !!it.cancelled.heavy, windup: !!it.cancelled.windup } : null,
@@ -634,7 +640,9 @@ function engineBackend(seedOpt, runOpts = {}) {
         school: src.school || 'phys', hits: src.hits || 1, target: viewTarget(tg), allyIdx: typeof tg === 'number' ? tg : null,
         est: (live ? it.est : x.est) || 0, support: SUPPORT.includes(src.kind), now, cancel, replaced, boss: null,
         // combat v2.1: the wind-up flag, and the wind-up's own name and heavy flag when the shown action replaced it
-        windup: wu, ...(wu && src !== x ? { windupOf: { id: x.id, name: x.name, heavy: !!x.heavy } } : {}) };
+        windup: wu, ...(wu && src !== x ? { windupOf: { id: x.id, name: x.name, heavy: !!x.heavy } } : {}),
+        // M2b v13 (rules 7.12): the entry is a Deathblow (its est includes DEATHBLOW_MULT), or a first meeting's wind-up
+        deathblow: !!x.deathblow, firstMeet: !!x.firstMeet };
     });
   }
   /**
@@ -669,7 +677,7 @@ function engineBackend(seedOpt, runOpts = {}) {
       return { idx: e.idx, uid: `${key}:${e.idx}`, tplId: e.tid, name: e.name, level: e.level, rank: rankOf(e), arch: e.arch || (e.kind === 'boss' ? 'boss' : 'shard'),
         hp: e.hp, maxHp: e.maxHp, alive: e.alive, statuses: statuses(e.st, f, e.shield, e.enraged), intent: e.alive ? convIntent(e.intent, e) : null,
         track, role: e.alive ? convRole(e, f, track) : null, offBalance: ob ? { status: ob.status, taken: ob.taken, crit: ob.crit, rounds: ob.rounds } : null,
-        ccImmune: !!e.ccImmune, turn: e.turn || 0, added: !!(e.summoned || e.noReward || (e.unscripted && e.kind !== 'boss' && e.kind !== 'shard')),
+        ccImmune: !!e.ccImmune, firstMeet: !!e.firstMeet, turn: e.turn || 0, added: !!(e.summoned || e.noReward || (e.unscripted && e.kind !== 'boss' && e.kind !== 'shard')),
         dot: e.alive ? dotOf(s, e.idx) : null }; // the DoT preview (engine-api.md 6.1)
     });
     const cds = {};
@@ -683,7 +691,22 @@ function engineBackend(seedOpt, runOpts = {}) {
     return { round: f.round, enemies, target: f.p.target != null && enemies[f.p.target] && enemies[f.p.target].alive ? f.p.target : firstAlive ? firstAlive.idx : 0,
       cooldowns: cds, potionCd: Math.max(0, (f.p.potionReady || 0) - f.round), kind: f.kind === 'trash' ? 'dungeon' : f.kind, isBoss: f.kind === 'boss',
       boss: f.boss ? { phase: f.boss.phase, asc: f.boss.asc || 0, telegraph: bossE && bossE.intent ? bossE.intent.telegraph : null, linked: linkedOf(f) } : null,
-      over: f.over, canFlee: f.canFlee, title, fightNo: (f.k || 0) + 1, fights, engage: engageView(s), hasEngage: !!f.engage };
+      over: f.over, canFlee: f.canFlee, title, fightNo: (f.k || 0) + 1, fights, engage: engageView(s), hasEngage: !!f.engage,
+      windups: windupsOf(s), autoEngage: autoEngageOf(s) };
+  }
+  /**
+   * M2b v13 (engine-api.md 6.2): every wind-up on the living enemies' tracks with its Deathblow flag, estimate, stakes and
+   * answers (R.windupView), a copy; [] on an engine before v13. The badges, the bar and the engage cards read it; never
+   * computed here.
+   */
+  function windupsOf(s) {
+    if (!R.windupView || s.fight.over) return [];
+    try { return JSON.parse(JSON.stringify(R.windupView(s) || [])); } catch { return []; }
+  }
+  /** Autoplay's engage answer (R.autoplayEngage, rule E2): { option, name, target, enemy, windup } or null; the hint reads it. */
+  function autoEngageOf(s) {
+    if (!R.autoplayEngage || s.fight.over) return null;
+    try { const a = R.autoplayEngage(s); return a ? { option: a.option, name: a.name, target: a.target, enemy: a.enemy, windup: { ...a.windup } } : null; } catch { return null; }
   }
   /**
    * The engage round (rules 7.10, combat v2) for the engage panel, or null outside it: R.engageOptions in the class order
@@ -791,7 +814,8 @@ function engineBackend(seedOpt, runOpts = {}) {
       const free = !!(f && potion && R.freePotion && (() => { try { return R.freePotion(s); } catch { return false; } })());
       // M2b v8 (rules 7.5): what one use restores now, from the engine (the free potion at FREE_POTION_MULT); never computed here
       const info = R.potionInfo ? (() => { try { return R.potionInfo(s, id); } catch { return null; } })() : null;
-      return { ok, reason, count, cd: potion ? cd : 0, free, mult: info ? info.mult : null, heal: info ? info.heal : null, mana: info ? info.mana : null };
+      // M2b v13 (rules 7.5): maim = the MAIMED share while the player is MAIMED (heal is then the cut amount), else 0
+      return { ok, reason, count, cd: potion ? cd : 0, free, mult: info ? info.mult : null, heal: info ? info.heal : null, mana: info ? info.mana : null, maim: info ? info.maim || 0 : 0 };
     });
     const cls = p.classId;
     for (const t of Object.values(C.TALENT)) {
@@ -1110,7 +1134,7 @@ function engineBackend(seedOpt, runOpts = {}) {
           break;
         }
         case 'miss': out.push({ t: 'damage', src: ref(e.src), dst: ref(e.dst), amount: 0, miss: true, dodge: !!e.dodge, name: e.spell === 'pet' ? 'Pet' : spellName(e.spell), school: 'phys', hpAfter: hp.get(key(e.dst)), maxHp: max.get(key(e.dst)) }); break;
-        case 'heal': { const k = key(e.dst); const m = max.get(k) ?? Infinity; const after = Math.min(m, (hp.get(k) ?? 0) + (e.amount || 0)); hp.set(k, after); out.push({ t: 'heal', dst: ref(e.dst), amount: e.amount || 0, name: e.spell ? spellName(e.spell) : lastUsed || 'Healing', hpAfter: after, maxHp: max.get(k) }); break; }
+        case 'heal': { const k = key(e.dst); const m = max.get(k) ?? Infinity; const after = Math.min(m, (hp.get(k) ?? 0) + (e.amount || 0)); hp.set(k, after); out.push({ t: 'heal', dst: ref(e.dst), amount: e.amount || 0, name: e.spell ? spellName(e.spell) : lastUsed || 'Healing', hpAfter: after, maxHp: max.get(k), maimed: !!e.maimed }); break; }
         case 'petRevive': hp.set('pet', e.hp); out.push({ t: 'heal', dst: ref('pet'), amount: e.hp, name: 'Revive', hpAfter: e.hp, maxHp: max.get('pet') }); break;
         case 'mana': res = Math.max(0, res + (e.amount || 0)); out.push({ t: 'resource', amount: e.amount, after: res }); break;
         case 'status': out.push({ t: 'status', dst: ref(e.u), id: e.id, op: e.on ? 'add' : 'remove', stacks: e.stacks }); break;
@@ -1134,7 +1158,7 @@ function engineBackend(seedOpt, runOpts = {}) {
         case 'stagger': case 'empower':
           out.push({ t: 'windup', result: e.t === 'stagger' ? 'answered' : 'landed', dst: ref(e.u), who: enemyName(e.u), id: e.id, name: e.name, turn: e.turn,
             why: e.why || null, by: e.by ?? null, byName: e.by && (C.SPELL[e.by] || (C.ENGAGE_OPTION || {})[e.by]) ? (C.SPELL[e.by] || C.ENGAGE_OPTION[e.by]).name : null,
-            stacks: e.stacks || 1, value: e.value || 0 });
+            stacks: e.stacks || 1, value: e.value || 0, deathblow: !!e.deathblow, maimed: !!e.maimed });
           break;
         case 'signal': out.push({ t: 'signal', src: ref(e.u), who: enemyName(e.u), adds: e.adds || 1 }); break;
         case 'enrage': out.push({ t: 'status', dst: ref(e.u), id: 'ENRAGED', op: 'add' }); break;

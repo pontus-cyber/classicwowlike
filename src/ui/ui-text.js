@@ -52,6 +52,20 @@ export function windupAnswers(heavy, immune = false) {
     : 'Answer it with an interrupt, a stun or control on its turn, or with an engage option that covers that turn';
   return `${how}${heavy ? '; a heavy one also by a full dodge, a ward that takes it all, Mirrorshade or your pet taking it' : ''}.`;
 }
+/**
+ * A Deathblow's stakes in words (M2b v13, rules 7.12, 7.4), from the engine's windupView item (empower, maimHeal, stagger):
+ * "Answered: staggered, −30 % damage for the rest of the fight. Landed: empowered +100 %, and you are MAIMED: healing you
+ * receive −50 %, potions included." No number is written here.
+ */
+export function deathblowStakes(w) {
+  if (!w) return '';
+  return `Answered: staggered, −${pct(w.stagger)} damage for the rest of the fight. Landed: empowered, +${pct(w.empower)} damage${w.maims ? `, and you are MAIMED: healing you receive −${pct(w.maimHeal)}, potions included` : ''}.`;
+}
+/** How a Deathblow can be answered, by its kind (the map's `type`): 'heavy' or 'cast' (rules 7.12, 7.13 (3)). */
+export function deathblowKind(type) {
+  return type === 'heavy' ? 'heavy blow: stun, control or interrupt it on its turn; a full dodge, a ward or your pet taking it also answer it'
+    : 'cast: interrupt it or control the caster on its turn';
+}
 /** The lasting result in words, from the engine's EMPOWER_DMG and STAGGER_DMG (data.v2.num); no number written here. */
 export function windupStakes(n) {
   if (!n || n.empowerDmg == null) return 'Answered, it is staggered for the fight; landed, it is empowered.';

@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O]
+ *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -116,6 +116,16 @@
  *      of a Node twin (nothing the view hides is drawn); the disc round, in view and readable; again once the Dimming spread.
  *   O  the character sheet's Damage block (owner feedback 2026-11-11 11:58): bonus, main attack and pet ranges and averages, the
  *      Power and Weapon damage hovers = R.damageView of a Node twin, Hunter and Mage, at the hub and in a fight.
+ *   P  the Deathblow (docs/specs/changes-m2b-v13.md "UI needs"; engine-api.md 6.2), real engine at Instant speed, Dev menu fights
+ *      against the zone-2 elite Bargh the Drowned King; every number from a Node twin of the page's engine log (R.windupView,
+ *      R.autoplayEngage, R.potionInfo, the statuses). Hunter: in the engage round the Deathblow's badge over the enemy (round,
+ *      estimate, "MAIMS if it lands"), its chip, row and ruler round = windupView; the engage cards that answer it and the
+ *      answers named on the badge = windupView's engage answers (keys, sure); the autoplay hint = R.autoplayEngage; round 2:
+ *      "No answer ready" in red (ready false); landed: MAIMED on the player frame, the potion's cut amount on its button and
+ *      tooltip = R.potionInfo (half the amount before), "Deathblow +100 % dmg" on the nameplate and target frame, the log line.
+ *      Rogue: Sap marked a chance, Throat Jab kept for round 3 ("R3"), then answering now; its key answers it ("Deathblow
+ *      answered"). The map tooltips of elite and dungeon nodes name the Deathblow and its kind = mapView. A loaded state with
+ *      a first meeting shows "New" on that enemy only.
  *
  * Seeds were picked with the engine of 3559e0e (M2 v2): seed 30's first quest has two Guardians that last long
  * enough for the potion and Autoplay checks. M2 v3 (77c0ca5): seed 1's autoplay run no longer reaches the camp, so part B
@@ -137,14 +147,14 @@ import { pathToFileURL } from 'node:url';
 import * as R from '../../src/rules.js';
 import { CONTENT } from '../../src/content/index.js';
 // the Furnace's player-facing words (changes-m2b-v7.md table D: names, states, whole tolls; UX pass 2026-11-11)
-import { HEAT_WORDS, tolls, ECHO_LINE } from '../../src/ui/ui-text.js';
+import { HEAT_WORDS, tolls, ECHO_LINE, deathblowKind } from '../../src/ui/ui-text.js';
 
 const args = process.argv.slice(2);
 const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
 const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -1910,7 +1920,7 @@ function jStopNow(s) {
     const x = e.track.find((y) => y.turn === e.turn && y.windup); if (!x) continue;
     for (const [slot, id] of s.player.bar.entries()) {
       if (id && jAnswerKind(id, x) === 'stop' && legal.some((a) => a.type === 'CAST' && a.spellId === id && (a.target === e.idx || a.target == null))) {
-        return { idx: e.idx, name: e.name, ability: x.name, turn: x.turn, heavy: !!x.heavy, spellId: id, slot };
+        return { idx: e.idx, name: e.name, ability: x.name, turn: x.turn, heavy: !!x.heavy, spellId: id, slot, deathblow: !!x.deathblow };
       }
     }
   }
@@ -1957,7 +1967,9 @@ function jPickRogue() {
 /** The first living enemy (immune to control or not) whose track shows a wind-up in turns 1..INTENT_TRACK_LEN, or null. */
 const jFoe = (s, immune = false) => s.fight.enemies.find((e) => e.alive && !!e.ccImmune === immune && e.track.some((x) => x.windup && x.turn >= 1 && x.turn <= R.C.INTENT_TRACK_LEN)) || null;
 const jRound = (e, x) => (e.turn0 || 1) + x.turn - 1;
-const jStack = (e, id) => { const st = (e.st || []).find((x) => x.id === id); return st ? { id, stacks: st.stacks, value: st.value } : null; };
+const jStack = (e, id) => { const st = (e.st || []).find((x) => x.id === id); return st ? { id, stacks: st.stacks, value: st.value, deathblows: st.deathblows || 0 } : null; };
+/** M2b v13: a Deathblow's words where an ordinary wind-up's stood ("Deathblow R3", "Deathblow answered: ..."). */
+const jWord = (x) => (x && x.deathblow ? 'Deathblow' : 'Wind-up');
 const jPct = (x) => `${Math.round((x || 0) * 100)} %`;
 let J_PICK = null;
 /**
@@ -2003,7 +2015,7 @@ function jPick() {
 /** The combat v2.1 display on the page: wind-up chips, rows, lines over enemies, stack badges, the ruler, the bar, the engage cards. */
 const j21dom = (page) => page.evaluate(() => {
   const vis = (el) => !!el && !el.classList.contains('hidden') && getComputedStyle(el).display !== 'none';
-  const wst = (root) => [...root.querySelectorAll('.wstk .wst')].map((b) => ({ id: b.dataset.id, stacks: Number(b.dataset.stacks), value: Number(b.dataset.value), text: b.textContent }));
+  const wst = (root) => [...root.querySelectorAll('.wstk .wst')].map((b) => ({ id: b.dataset.id, stacks: Number(b.dataset.stacks), value: Number(b.dataset.value), text: b.textContent, part: b.dataset.part || '' }));
   const tf = document.querySelector('#target-frame');
   return {
     np: [...document.querySelectorAll('#nameplates .np')].filter((el) => !el.classList.contains('dead')).map((el) => {
@@ -2041,7 +2053,13 @@ function jBadgesMatch(d, s, target) {
 function jStacksMatch(d, s, target) {
   const bad = [];
   const want = (e) => ['EMPOWERED', 'STAGGERED'].map((id) => jStack(e, id)).filter(Boolean);
-  const same = (page, w) => page.length === w.length && w.every((x) => page.some((p) => p.id === x.id && p.stacks === x.stacks && Math.abs(p.value - x.value) < 1e-9 && p.text.includes(`${x.id === 'EMPOWERED' ? '+' : '−'}${jPct(x.value)} dmg`)));
+  // M2b v13: EMPOWERED's Deathblow share is its own badge ("Deathblow +100 % dmg"): per status, the badges' stacks and values
+  // add up to the engine's, each badge states its own share, and a Deathblow badge exactly when the engine has deathblows
+  const same = (page, w) => w.length === new Set(page.map((p) => p.id)).size && w.every((x) => {
+    const mine = page.filter((p) => p.id === x.id);
+    return mine.length && mine.reduce((a, p) => a + p.stacks, 0) === x.stacks && Math.abs(mine.reduce((a, p) => a + p.value, 0) - x.value) < 1e-6
+      && mine.every((p) => p.text.includes(`${x.id === 'EMPOWERED' ? '+' : '−'}${jPct(p.value)} dmg`)) && mine.some((p) => p.part === 'deathblow') === (x.deathblows > 0);
+  });
   for (const e of s.fight.enemies.filter((x) => x.alive)) {
     const np = d.np.find((x) => x.idx === e.idx); if (!np) continue;
     if (!same(np.wst, want(e))) bad.push(`${e.name}: page ${JSON.stringify(np.wst)} vs engine ${JSON.stringify(want(e))}`);
@@ -2161,10 +2179,10 @@ async function partJ(browser, W, H) {
     await shot(page, 'J-windup-engage');
     let bad = jBadgesMatch(d, s, a.idx);
     const line = d.np.find((x) => x.idx === a.idx).wub;
-    check('M2b-2b.6', `engage round of the ${s.fight.kind} fight: the wind-up badge is on exactly the entries the engine flags (chips, target frame), and over ${a.name}: "Wind-up R${wRound}: answer it or it empowers"`,
-      !bad.length && line && line.turn === wx.turn && line.text.includes(`Wind-up R${wRound}`) && line.text.includes('answer it or it empowers'), `${bad.join(' | ')}; line ${JSON.stringify(line)}`);
+    check('M2b-2b.6', `engage round of the ${s.fight.kind} fight: the wind-up badge is on exactly the entries the engine flags (chips, target frame), and over ${a.name}: "${jWord(wx)} R${wRound}: ${wx.deathblow ? 'MAIMS if it lands' : 'answer it or it empowers'}"`,
+      !bad.length && line && line.turn === wx.turn && line.text.includes(`${jWord(wx)} R${wRound}`) && line.text.includes(wx.deathblow ? 'MAIMS if it lands' : 'answer it or it empowers'), `${bad.join(' | ')}; line ${JSON.stringify(line)}`);
     const col = d.ruler.find((c) => c.round === wRound);
-    check('M2b-2b.6', `the opening ruler marks round ${wRound} "Wind-up"`, wRound > 5 || (col && col.wu === 'Wind-up'), JSON.stringify(d.ruler));
+    check('M2b-2b.6', `the opening ruler marks round ${wRound} "${jWord(wx)}"`, wRound > 5 || (col && col.wu === jWord(wx)), JSON.stringify(d.ruler));
     bad = jCardsMatch(d, s, a.idx);
     check('M2b-2b.6', 'each engage card says which wind-ups it answers exactly as R.engagePreview does (stagger, Send the Pet on a heavy one) on its target', !bad.length, bad.join(' | ') || JSON.stringify(d.cards.map((c) => [c.opt, c.answers])));
     // hover the wind-up chip: the tooltip says what answers it; the bar marks every spell that can
@@ -2175,8 +2193,9 @@ async function partJ(browser, W, H) {
     const wantHl = s.player.bar.map((id, slot) => (id && jAnswerKind(id, wx) ? slot : null)).filter((x) => x !== null);
     const sawHl = d.bar.filter((b) => b.hl).map((b) => b.slot);
     await shot(page, 'J-windup-tooltip');
-    check('M2b-2b.6', `hovering the wind-up: its tooltip gives the round, the stakes (−${jPct(R.C.STAGGER_DMG)} / +${jPct(R.C.EMPOWER_DMG)}) and what answers it${wx.heavy ? ' (heavy: a full dodge, a ward or the pet too)' : ''}; the bar marks the spells that can (slots ${wantHl.join(',') || 'none'})`,
-      tip.includes(`Wind-up, round ${wRound}`) && tip.includes(`−${jPct(R.C.STAGGER_DMG)}`) && tip.includes(`+${jPct(R.C.EMPOWER_DMG)}`) && tip.includes(J_ANSWERS.control) && !tip.includes('Disrupt') && tip.includes('full dodge') === !!wx.heavy
+    const wEmp = wx.deathblow ? R.C.DEATHBLOW_EMPOWER : R.C.EMPOWER_DMG; // M2b v13: a Deathblow's stakes
+    check('M2b-2b.6', `hovering the wind-up: its tooltip gives the round, the stakes (−${jPct(R.C.STAGGER_DMG)} / +${jPct(wEmp)}${wx.deathblow ? ', MAIMED' : ''}) and what answers it${wx.heavy ? ' (heavy: a full dodge, a ward or the pet too)' : ''}; the bar marks the spells that can (slots ${wantHl.join(',') || 'none'})`,
+      tip.includes(`${jWord(wx)}, round ${wRound}`) && tip.includes(`−${jPct(R.C.STAGGER_DMG)}`) && tip.includes(`+${jPct(wEmp)}`) && (!wx.deathblow || tip.includes(`MAIMED: healing you receive −${jPct(R.C.MAIM_HEAL)}`)) && tip.includes(J_ANSWERS.control) && !tip.includes('Disrupt') && tip.includes('full dodge') === !!wx.heavy
         && hv && hv.idx === a.idx && hv.turn === wx.turn && sawHl.join(',') === wantHl.join(','), `hover ${JSON.stringify(hv)}; bar ${sawHl.join(',')}; tooltip: ${tip.replace(/\n/g, ' / ')}`);
     await page.mouse.move(2, 2);
     // W: Lay Trap on it; then the engine's autoplay choices: the trap answers it, STAGGERED as the engine has it
@@ -2196,8 +2215,8 @@ async function partJ(browser, W, H) {
     if (answered) {
       await shot(page, 'J-answered');
       bad = jStacksMatch(answered.d, answered.s, answered.tgt);
-      const logOk = answered.log.some((l) => l.startsWith(`Wind-up answered: ${a.name}'s ${wx.name}`) && l.includes(`Staggered: −${jPct(R.C.STAGGER_DMG)} damage`));
-      check('M2b-2b.6', `answered: the STAGGERED badge on ${a.name} (nameplate and target frame) equals the engine's status, and the log says "Wind-up answered"`, !bad.length && logOk, `${bad.join(' | ')}; log ${answered.log.slice(-4).join(' / ')}`);
+      const logOk = answered.log.some((l) => l.startsWith(`${jWord(wx)} answered: ${a.name}'s ${wx.name}`) && l.includes(`Staggered: −${jPct(R.C.STAGGER_DMG)} damage`));
+      check('M2b-2b.6', `answered: the STAGGERED badge on ${a.name} (nameplate and target frame) equals the engine's status, and the log says "${jWord(wx)} answered"`, !bad.length && logOk, `${bad.join(' | ')}; log ${answered.log.slice(-4).join(' / ')}`);
     } else check('M2b-2b.6', `the trap answers ${a.name}'s wind-up`, false, 'no STAGGERED status');
     for (let n = 0; n < 300 && twin.s.fight && !twin.s.fight.over; n++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); await twin.sync(page); }
 
@@ -2212,8 +2231,9 @@ async function partJ(browser, W, H) {
     if (landed) {
       await shot(page, 'J-landed');
       bad = jStacksMatch(landed.d, landed.s, landed.tgt);
-      check('M2b-2b.6', `landed: the EMPOWERED badge on ${landed.e.name} equals the engine's status (+${jPct(jStack(landed.e, 'EMPOWERED').value)} dmg) and the log says "Wind-up landed"`,
-        !bad.length && landed.log.some((l) => l.startsWith(`Wind-up landed: ${landed.e.name}'s`) && l.includes(`Empowered: +${jPct(R.C.EMPOWER_DMG)} damage`)), `${bad.join(' | ')}; log ${landed.log.slice(-4).join(' / ')}`);
+      const ldb = jStack(landed.e, 'EMPOWERED').deathblows > 0; // M2b v13: a landed Deathblow, +DEATHBLOW_EMPOWER
+    check('M2b-2b.6', `landed: the EMPOWERED badge on ${landed.e.name} equals the engine's status (+${jPct(jStack(landed.e, 'EMPOWERED').value)} dmg${ldb ? ', a Deathblow badge' : ''}) and the log says "${ldb ? 'Deathblow' : 'Wind-up'} landed"`,
+        !bad.length && landed.log.some((l) => l.startsWith(`${ldb ? 'Deathblow' : 'Wind-up'} landed: ${landed.e.name}'s`) && l.includes(`Empowered: +${jPct(ldb ? R.C.DEATHBLOW_EMPOWER : R.C.EMPOWER_DMG)} damage`)), `${bad.join(' | ')}; log ${landed.log.slice(-4).join(' / ')}`);
     } else check('M2b-2b.6', 'a wind-up lands while the Hunter passes', false, 'no EMPOWERED status');
     for (let n = 0; n < 300 && twin.s.fight && !twin.s.fight.over; n++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); await twin.sync(page); }
 
@@ -2248,7 +2268,7 @@ async function partJ(browser, W, H) {
       await shot(page, 'J-disrupt-answered');
       bad = jStacksMatch(answered.d, answered.s, answered.tgt);
       check('M2b-2b.6', 'Disrupt answers the boss\'s wind-up: its STAGGERED badge equals the engine\'s status and the log says "cancelled by your Disrupt"',
-        !bad.length && answered.log.some((l) => l.startsWith(`Wind-up answered: ${boss.name}'s ${dx.name} is cancelled by your Disrupt`)), `${bad.join(' | ')}; ${answered.log.slice(-3).join(' / ')}`);
+        !bad.length && answered.log.some((l) => l.startsWith(`${jWord(dx)} answered: ${boss.name}'s ${dx.name} is cancelled by your Disrupt`)), `${bad.join(' | ')}; ${answered.log.slice(-3).join(' / ')}`);
     } else check('M2b-2b.6', 'Disrupt answers the boss\'s wind-up', false, 'no STAGGERED status');
     check('M2b-2b.6', `in every round met (${barSeen}, ${nowSeen} with a wind-up playing), the bar marked exactly the usable spells that can answer one now (none without)`, barSeen > 0 && !nowBad.length, nowBad.slice(0, 4).join(' | '));
 
@@ -2326,8 +2346,8 @@ async function partJRogue(browser, W, H) {
       const c = (x, y) => { const e = document.elementFromPoint(x, y); return e ? e.closest('#actionbar .ab, #actionbar .ctrl') : null; };
       return { shown: !el.classList.contains('hidden'), kind: el.dataset.kind, text: el.textContent.replace(/\s+/g, ' ').trim(), turn: bar.classList.contains('your-turn'),
         inView: r.width > 0 && r.left >= 0 && r.right <= innerWidth && r.top >= 0, overBar: [[0.1, 0.5], [0.5, 0.5], [0.9, 0.5]].some(([fx, fy]) => c(r.left + r.width * fx, r.top + r.height * fy)) }; });
-    check('UX-1', `turn prompt on the wind-up round: "Wind-up now: answer with ${w.slot + 1} ${spName}", the bar framed as your turn, in view and covering no bar button`,
-      tp.shown && tp.kind === 'windup' && tp.text.includes(`Wind-up now: answer with ${w.slot + 1} ${spName}`) && tp.turn && tp.inView && !tp.overBar, JSON.stringify(tp));
+    check('UX-1', `turn prompt on the wind-up round: "${jWord(w)} now: answer with ${w.slot + 1} ${spName}", the bar framed as your turn, in view and covering no bar button`,
+      tp.shown && tp.kind === (w.deathblow ? 'deathblow' : 'windup') && tp.text.includes(`${jWord(w)} now: answer with ${w.slot + 1} ${spName}`) && tp.turn && tp.inView && !tp.overBar, JSON.stringify(tp));
     // hovering the wind-up's chip marks every bar spell that can answer it (stop or, for a heavy one, avoid)
     await page.locator(`#nameplates .np[data-idx="${w.idx}"] .trk .tk[data-turn="${w.turn}"]`).hover(); await page.waitForTimeout(200); await frame();
     d = await j21dom(page);
@@ -2367,8 +2387,8 @@ async function partJRogue(browser, W, H) {
     const st = e && jStack(e, 'STAGGERED');
     bad = s.fight && !s.fight.over ? jStacksMatch(d, s, await page.evaluate(() => window.__ui.target())) : [];
     await shot(page, 'J-rogue-stopped');
-    check('M2b-2b.6', `key ${w.slot + 1} casts ${spName} on ${w.name}: the wind-up is stopped ("Wind-up answered: ${w.name}'s ${w.ability} is stopped by your ${spName}") and the STAGGERED badge equals the engine's status`,
-      !!sent && sent.type === 'CAST' && sent.spellId === w.spellId && !!st && !bad.length && log.some((l) => l.startsWith(`Wind-up answered: ${w.name}'s ${w.ability} is stopped by your ${spName}.`)),
+    check('M2b-2b.6', `key ${w.slot + 1} casts ${spName} on ${w.name}: the wind-up is stopped ("${jWord(w)} answered: ${w.name}'s ${w.ability} is stopped by your ${spName}") and the STAGGERED badge equals the engine's status`,
+      !!sent && sent.type === 'CAST' && sent.spellId === w.spellId && !!st && !bad.length && log.some((l) => l.startsWith(`${jWord(w)} answered: ${w.name}'s ${w.ability} is stopped by your ${spName}.`)),
       `${JSON.stringify(sent)}; stack ${JSON.stringify(st)}; ${bad.join(' | ')}; log ${log.slice(-3).join(' / ')}`);
   } catch (e) {
     await shot(page, 'J-rogue-error');
@@ -3198,6 +3218,198 @@ async function partO(browser, W, H) {
   }
 }
 
+// ------------------------------------------------------------------ part P: the Deathblow (M2b v13)
+const P_ELITE = 'z2_bargh'; // zone 2 elite with a heavy Deathblow (Tidefall Slam)
+/** The Deathblow display on the page: the line over each enemy, chips, rows, ruler, engage cards and alert, bar, items, MAIMED, the prompt. */
+const pDom = (page) => page.evaluate(() => {
+  const vis = (el) => !!el && !el.classList.contains('hidden') && getComputedStyle(el).display !== 'none';
+  const wst = (root) => [...root.querySelectorAll('.wstk .wst')].map((b) => ({ part: b.dataset.part || '', value: Number(b.dataset.value), text: b.textContent }));
+  const tf = document.querySelector('#target-frame'); const mb = document.querySelector('#player-frame .maimb'); const tp = document.querySelector('#turnprompt');
+  return {
+    np: [...document.querySelectorAll('#nameplates .np')].filter((el) => !el.classList.contains('dead')).map((el) => {
+      const wub = el.querySelector('.wub'); const no = wub && wub.querySelector('.db-a.no');
+      return { idx: Number(el.dataset.idx), newTag: vis(el.querySelector('.newtag')), wst: wst(el),
+        chips: [...el.querySelectorAll('.trk .tk')].map((c) => ({ turn: Number(c.dataset.turn), db: c.classList.contains('db'), ribbon: (c.querySelector('.b-wu') || {}).textContent || '' })),
+        wub: vis(wub) ? { text: wub.textContent, turn: Number(wub.dataset.turn), db: wub.dataset.deathblow === '1', est: Number(wub.dataset.est), ready: wub.dataset.ready, state: wub.dataset.state,
+          no: vis(no) ? getComputedStyle(no).color : null, answers: [...wub.querySelectorAll('.ans-o')].map((a) => ({ via: a.dataset.via, id: a.dataset.id, text: a.textContent.trim() })) } : null };
+    }),
+    rows: vis(tf) ? [...tf.querySelectorAll('.ttrack .tr')].map((r) => ({ turn: Number(r.dataset.turn), db: r.classList.contains('db'), text: r.textContent })) : [],
+    twst: vis(tf) ? wst(tf) : [], tnew: vis(tf) && !!tf.querySelector('.rank-tag.new'),
+    ruler: vis(document.querySelector('#ruler')) ? [...document.querySelectorAll('#ruler .rl-c')].map((c) => ({ round: Number(c.dataset.round), wu: (c.querySelector('.rl-wu') || {}).textContent || '' })) : [],
+    cards: [...document.querySelectorAll('#engage .eg-opt')].map((c) => ({ opt: c.dataset.opt, db: c.dataset.db || '', tag: !!c.querySelector('.eg-dbtag') })),
+    alert: [...document.querySelectorAll('#engage .eg-db')].map((a) => ({ u: Number(a.dataset.u), turn: Number(a.dataset.turn), ready: a.dataset.ready, text: a.textContent })),
+    bar: [...document.querySelectorAll('#actionbar .ab[data-slot]')].map((b) => ({ slot: Number(b.dataset.slot), db: b.dataset.db || '', now: b.classList.contains('db-now'), soon: b.classList.contains('db-soon'), tag: (b.querySelector('.atag') || {}).textContent || '' })),
+    items: [...document.querySelectorAll('#actionbar .ab[data-islot]')].map((b) => ({ slot: Number(b.dataset.islot), mtag: (b.querySelector('.mtag') || {}).textContent || '' })),
+    maim: vis(mb) ? { text: mb.textContent, value: Number(mb.dataset.value) } : null,
+    prompt: vis(tp) ? { kind: tp.dataset.kind, text: tp.textContent.replace(/\s+/g, ' ').trim() } : null,
+  };
+});
+/** The key the page names for a windupView answer: Q, W, E by R.engageOptions' order; a bar spell's slot + 1. */
+const pKey = (s, a) => (a.via === 'engage' ? ['Q', 'W', 'E'][(R.engageOptions(s) || []).findIndex((o) => o.id === a.id)] || '' : String(s.player.bar.indexOf(a.id) + 1));
+const pDigits = (t) => (t || '').replace(/\D/g, '');
+/** The Deathblow's telegraph on the page against windupView item w (enemy e): the line, the chip, the row, the ruler. */
+function pTelegraph(d, w, opts = {}) {
+  const bad = [];
+  const np = d.np.find((x) => x.idx === w.u);
+  if (!np || !np.wub) return [`no line over enemy ${w.u}`];
+  const L = np.wub;
+  if (!L.db || L.turn !== w.turn || L.est !== w.est) bad.push(`line ${JSON.stringify(L)} vs turn ${w.turn} est ${w.est}`);
+  if (!L.text.includes(`Deathblow ${w.inRounds === 0 ? 'now' : `R${w.round}`}`) || !L.text.includes(`≈ ${w.est}`) || !L.text.includes(w.maims ? 'MAIMS if it lands' : '')) bad.push(`line text "${L.text}"`);
+  const chip = np.chips.find((c) => c.turn === w.turn);
+  if (!chip || !chip.db || chip.ribbon !== 'DEATHBLOW' || np.chips.some((c) => c.db && c.turn !== w.turn)) bad.push(`chips ${JSON.stringify(np.chips)}`);
+  if (opts.target) { const row = d.rows.find((r) => r.turn === w.turn); if (!row || !row.db || !row.text.includes('MAIMS if it lands') || d.rows.some((r) => r.db && r.turn !== w.turn)) bad.push(`rows ${JSON.stringify(d.rows)}`); }
+  if (w.round <= 5) { const col = d.ruler.find((c) => c.round === w.round); if (!col || col.wu !== 'Deathblow') bad.push(`ruler ${JSON.stringify(d.ruler)}`); }
+  return bad;
+}
+async function partP(browser, W, H) {
+  // ---- (1) Hunter: telegraph, answers, autoplay hint, no answer ready, landed (MAIMED, potions, +100 %), the map tooltips
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=5&speed=instant');
+    const twin = async () => devTwin(await page.evaluate(() => window.__ui.engineLog()));
+    try {
+      await page.evaluate(() => window.__ui.dev('build', { classId: 'hunter', zone: 2 })); await idle(page);
+      // the map first: elite and dungeon nodes name their Deathblow and its kind (mapView deathblow, bossDeathblow)
+      await page.getByRole('button', { name: 'Set out' }).click(); await idle(page); await page.mouse.move(2, 2);
+      let s = await twin();
+      const mv = R.mapView(s); const nodes = [];
+      mv.rows.forEach((row, ri) => row.forEach((n, l) => { if (n.type === 'elite' || n.type === 'dungeon') nodes.push({ r: ri + 1, l, n }); }));
+      const badMap = []; let named = 0;
+      for (const { r, l, n } of nodes) {
+        await page.locator(`#screens button.mnode[data-row="${r}"][data-lane="${l}"]`).hover(); await page.waitForTimeout(160);
+        const t = (await page.getByRole('tooltip').innerText().catch(() => '')).replace(NBSP, ' ');
+        const db = n.type === 'elite' ? n.deathblow : n.bossDeathblow;
+        const want = db ? `${n.type === 'dungeon' ? "The boss's Deathblow" : 'Deathblow'}: ${db.name} (${deathblowKind(db.type)})` : null;
+        if (want ? !t.includes(want) : /Deathblow:/.test(t)) badMap.push(`${n.type} r${r} l${l}: want ${want || 'no Deathblow line'}; saw ${t.replace(/\n/g, ' / ').slice(0, 160)}`);
+        if (want) named++;
+        await page.mouse.move(2, 2);
+      }
+      check('M2b-v13', `map: every elite and dungeon node's tooltip names its Deathblow and kind exactly as mapView gives it (${nodes.length} nodes, ${named} named)`, nodes.length > 0 && named > 0 && !badMap.length, badMap.join(' | ') || `${nodes.length} nodes`);
+      // the fight: Bargh the Drowned King, its engage round
+      await page.evaluate((id) => window.__ui.dev('fight', { ids: [id] }), P_ELITE); await idle(page); await page.mouse.move(2, 2);
+      s = await twin();
+      const w = (R.windupView(s) || []).find((x) => x.deathblow);
+      let d = await pDom(page);
+      await shot(page, 'P-engage');
+      let bad = w ? pTelegraph(d, w, { target: true }) : ['no Deathblow in windupView'];
+      check('M2b-v13', `engage round: the Deathblow over ${w && w.enemy} ("Deathblow R${w && w.round} ≈ ${w && w.est} MAIMS if it lands"), its chip, target row and ruler round = R.windupView`, !bad.length, bad.join(' | '));
+      // the answers: engage cards and the names on the line = windupView's engage answers (keys; sure)
+      const eng = w.answers.filter((a) => a.via === 'engage');
+      const wantCards = [...new Set(eng.map((a) => a.id))].map((id) => `${id}:${eng.some((a) => a.id === id && a.sure) ? 'sure' : 'chance'}`).sort().join(' ');
+      const sawCards = d.cards.filter((c) => c.db && c.tag).map((c) => `${c.opt}:${c.db}`).sort().join(' ');
+      const L = d.np.find((x) => x.idx === w.u).wub;
+      const wantNames = eng.filter((a) => a.now).slice(0, 3).map((a) => `${pKey(s, a)} ${a.name}${a.sure ? '' : ' ?'}`);
+      const sawNames = L.answers.map((a) => a.text.replace(/\s+/g, ' '));
+      const alert = d.alert.find((a) => a.u === w.u && a.turn === w.turn);
+      check('M2b-v13', `answers: the engage cards marked "Deathblow" (${wantCards}) and the answers on the line (${wantNames.join(', ')}) = windupView's engage answers; ready ${w.ready}, the panel's alert says so`,
+        eng.length > 0 && sawCards === wantCards && wantNames.every((n) => sawNames.includes(n)) && w.ready && L.ready === '1' && !L.no && alert && alert.ready === '1' && alert.text.includes('MAIMS if it lands') && alert.text.includes(`≈ ${w.est}`),
+        `cards ${sawCards} | line ${JSON.stringify(sawNames)} | alert ${JSON.stringify(alert)}`);
+      check('M2b-v13', 'engage round: the turn prompt names the Deathblow and its first answer with its key', !!d.prompt && d.prompt.kind === 'deathblow' && d.prompt.text.includes(`Deathblow in R${w.round}: answer with ${pKey(s, eng.find((a) => a.now && a.sure) || eng[0])}`), JSON.stringify(d.prompt));
+      // the autoplay hint (rule E2): Z on, the line, Z off before autoplay acts (its delay held long for the reading)
+      await page.evaluate(() => { window.__ui.settings.set('autoDelay', 9000); window.__ui.settings.set('speed', 1); });
+      await page.keyboard.press('KeyZ');
+      await page.waitForFunction(() => window.__ui.view().autoplay === true, null, { timeout: 4000 }); await idle(page); await page.waitForTimeout(150);
+      const ae = R.autoplayEngage(await twin());
+      d = await pDom(page);
+      await shot(page, 'P-autoplay-hint');
+      await page.keyboard.press('KeyZ');
+      await page.waitForFunction(() => window.__ui.view().autoplay === false, null, { timeout: 4000 }); await idle(page);
+      await page.evaluate(() => { window.__ui.settings.set('speed', 0); window.__ui.settings.set('autoDelay', 350); });
+      const stillEngage = R.isEngageRound(await twin());
+      check('M2b-v13', `autoplay on in the engage round: "Autoplay will answer the Deathblow with ${ae && ae.name}" (R.autoplayEngage); off again before it acts`,
+        !!ae && !!d.prompt && d.prompt.kind === 'auto-db' && d.prompt.text.includes(`Autoplay will answer the Deathblow with ${ae.name}`) && stillEngage, `${JSON.stringify(d.prompt)}; autoplayEngage ${JSON.stringify(ae && ae.name)}; still the engage round ${stillEngage}`);
+      // round 2: nothing on the bar answers it by round 3 (windupView ready false): "No answer ready" in red
+      const potBefore = R.potionInfo(s, 'healing_draught');
+      await page.keyboard.press('KeyX'); await idle(page); await page.mouse.move(2, 2);
+      s = await twin();
+      const w2 = (R.windupView(s) || []).find((x) => x.deathblow);
+      d = await pDom(page);
+      const L2 = w2 && d.np.find((x) => x.idx === w2.u).wub;
+      const red = (c) => { const m = /rgba?\((\d+), (\d+), (\d+)/.exec(c || ''); return !!m && Number(m[1]) >= 200 && Number(m[2]) < 110 && Number(m[3]) < 110; };
+      check('M2b-v13', `round 2: windupView ready ${w2 && w2.ready}: the line says "No answer ready" in red, and so does the turn prompt`,
+        !!w2 && !w2.ready && !!L2 && L2.text.includes('No answer ready') && red(L2.no) && L2.ready === '' && !!d.prompt && d.prompt.kind === 'deathblow-no' && /No answer ready/i.test(d.prompt.text), `${JSON.stringify(L2)}; prompt ${JSON.stringify(d.prompt)}`);
+      // it lands: MAIMED, the cut potion amount, "+100 %" on the enemy, the log
+      for (let n = 0; n < 3; n++) { const t = await twin(); if (t.fight.p.st.some((x) => x.id === 'MAIMED')) break; await page.keyboard.press('KeyX'); await idle(page); }
+      await page.mouse.move(2, 2); await page.waitForTimeout(150);
+      s = await twin();
+      const mst = s.fight.p.st.find((x) => x.id === 'MAIMED'); const est = s.fight.enemies[w.u].st.find((x) => x.id === 'EMPOWERED');
+      const pot = R.potionInfo(s, 'healing_draught');
+      d = await pDom(page);
+      await shot(page, 'P-maimed');
+      check('M2b-v13', `landed: MAIMED on the player frame, "Healing −${jPct(mst && mst.value)}" = the engine's status`, !!mst && !!d.maim && d.maim.text.includes(`Healing −${jPct(mst.value)}`) && Math.abs(d.maim.value - mst.value) < 1e-9, `${JSON.stringify(d.maim)}; engine ${JSON.stringify(mst)}`);
+      const slot = s.player.itemBar.indexOf('healing_draught');
+      const it = d.items.find((x) => x.slot === slot);
+      const ttip = slot >= 0 ? await tipText(page, page.locator(`#actionbar .ab[data-islot="${slot}"]`)) : '';
+      check('M2b-v13', `MAIMED halves the potion: its button shows +${pot && pot.heal} and its tooltip "restores ${pot && pot.heal} health" (R.potionInfo; ${potBefore && potBefore.heal} before, × ${1 - (pot ? pot.maim : 0)})`,
+        !!pot && pot.maim > 0 && Math.abs(pot.heal - potBefore.heal * (1 - pot.maim)) <= 0.5 && !!it && pDigits(it.mtag) === String(pot.heal) && ttip.includes(`Maimed: restores ${pot.heal} health`), `${JSON.stringify(it)}; tooltip ${ttip.replace(/\n/g, ' / ')}; engine ${JSON.stringify(pot)}`);
+      const npd = d.np.find((x) => x.idx === w.u);
+      const dbB = (list) => list.filter((b) => b.part === 'deathblow');
+      const okBadge = (list) => dbB(list).length === 1 && Math.abs(dbB(list)[0].value - est.deathblowValue) < 1e-9 && dbB(list)[0].text.includes(`+${jPct(est.deathblowValue)} dmg`);
+      check('M2b-v13', `landed: "Deathblow +${jPct(est && est.deathblowValue)} dmg" on the nameplate and the target frame = EMPOWERED's deathblowValue`, !!est && est.deathblows === 1 && !!npd && okBadge(npd.wst) && okBadge(d.twst), `${JSON.stringify(npd && npd.wst)}; target ${JSON.stringify(d.twst)}; engine ${JSON.stringify(est)}`);
+      const log = await logLines(page);
+      check('M2b-v13', 'landed: the log says "Deathblow landed: ..., you are maimed"', log.some((l) => l.startsWith(`Deathblow landed: ${w.enemy}'s ${w.name}`) && l.includes(`+${jPct(R.C.DEATHBLOW_EMPOWER)} damage`) && l.includes(`you are maimed: healing you receive −${jPct(mst.value)}`)), log.slice(-3).join(' / '));
+    } catch (e) {
+      await shot(page, 'P-error-hunter');
+      check('-', 'part P (Hunter) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
+    }
+    check('-', 'part P (Hunter): no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- (2) Rogue: Sap a chance; Throat Jab kept for round 3, then answering now; its key answers it
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=5&speed=instant');
+    const twin = async () => devTwin(await page.evaluate(() => window.__ui.engineLog()));
+    try {
+      await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 2 })); await idle(page);
+      await page.evaluate((id) => window.__ui.dev('fight', { ids: [id] }), P_ELITE); await idle(page); await page.mouse.move(2, 2);
+      let s = await twin();
+      let w = (R.windupView(s) || []).find((x) => x.deathblow);
+      let d = await pDom(page);
+      const spell = w && w.answers.find((a) => a.via === 'spell' && a.how === 'interrupt');
+      const sap = w && w.answers.find((a) => a.via === 'engage' && a.id === 'sap');
+      const slot = spell ? s.player.bar.indexOf(spell.id) : -1;
+      const b1 = d.bar.find((x) => x.slot === slot);
+      check('M2b-v13', `Rogue, engage round: Sap answers it as a chance (sure ${sap && sap.sure}): its card "chance"; ${spell && spell.name} (not now) kept for round ${w && w.round}: "R${w && w.round}" on key ${slot + 1}`,
+        !!sap && !sap.sure && d.cards.some((c) => c.opt === 'sap' && c.db === 'chance') && !!spell && !spell.now && !!b1 && b1.soon && !b1.now && b1.tag === `R${w.round}`, `cards ${JSON.stringify(d.cards)}; bar ${JSON.stringify(b1)}`);
+      for (let n = 0; n < 4; n++) { s = await twin(); w = (R.windupView(s) || []).find((x) => x.deathblow); if (!w || w.inRounds === 0) break; await page.keyboard.press('KeyX'); await idle(page); }
+      await page.mouse.move(2, 2);
+      d = await pDom(page);
+      const now = w && w.answers.find((a) => a.via === 'spell' && a.id === spell.id);
+      const b3 = d.bar.find((x) => x.slot === slot);
+      const bad = w ? pTelegraph(d, w) : ['no Deathblow'];
+      await shot(page, 'P-rogue-now');
+      check('M2b-v13', `Rogue, round ${w && w.round}: the Deathblow plays now; ${spell.name} answers it now (windupView now ${now && now.now}): the bar marks it, the line and the prompt name key ${slot + 1}`,
+        !bad.length && !!now && now.now && !!b3 && b3.now && b3.tag.startsWith('Answer') && d.np.find((x) => x.idx === w.u).wub.answers.some((a) => a.id === spell.id && a.text.startsWith(`${slot + 1} `)) && !!d.prompt && d.prompt.text.includes(`Deathblow now: answer with ${slot + 1} ${spell.name}`),
+        `${bad.join(' | ')}; bar ${JSON.stringify(b3)}; prompt ${JSON.stringify(d.prompt)}`);
+      await page.keyboard.press(`Digit${slot + 1}`); await idle(page);
+      s = await twin();
+      const st = s.fight && s.fight.enemies[w.u].st.find((x) => x.id === 'STAGGERED');
+      const log = await logLines(page);
+      check('M2b-v13', `key ${slot + 1}: the Deathblow is answered (STAGGERED in the engine), the log says "Deathblow answered: ... stopped by your ${spell.name}", no MAIMED`,
+        !!st && !s.fight.p.st.some((x) => x.id === 'MAIMED') && log.some((l) => l.startsWith(`Deathblow answered: ${w.enemy}'s ${w.name} is stopped by your ${spell.name}.`)) && !(await pDom(page)).maim, log.slice(-3).join(' / '));
+    } catch (e) {
+      await shot(page, 'P-error-rogue');
+      check('-', 'part P (Rogue) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
+    }
+    check('-', 'part P (Rogue): no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- (3) a first meeting (gated, rules 7.12): "New" on that enemy's nameplate and the target frame, no other
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=5&speed=instant');
+    try {
+      const ser = lFight('hunter', 5, 2, (o) => { o.fight.enemies[1].firstMeet = true; });
+      await page.evaluate((x) => window.__ui.loadState(x), ser); await idle(page);
+      await page.locator('#nameplates .np[data-idx="1"]').click(); await idle(page); await page.mouse.move(2, 2);
+      const d = await pDom(page);
+      check('M2b-v13', 'first meeting: "New" on the nameplate of the enemy the engine marks firstMeet, and on the target frame; none on the other', d.np.find((x) => x.idx === 1).newTag && !d.np.find((x) => x.idx === 0).newTag && d.tnew, JSON.stringify(d.np.map((x) => [x.idx, x.newTag])) + ` target ${d.tnew}`);
+    } catch (e) {
+      check('-', 'part P (first meeting) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
+    }
+    check('-', 'part P (first meeting): no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+}
+
 // ------------------------------------------------------------------ run
 const browser = await chromium.launch({ headless: true });
 for (const [W, H] of SIZES) {
@@ -3217,6 +3429,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('M')) await partM(browser, W, H);
   if (PARTS.includes('N')) await partN(browser, W, H);
   if (PARTS.includes('O')) await partO(browser, W, H);
+  if (PARTS.includes('P')) await partP(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);

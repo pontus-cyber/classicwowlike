@@ -7,12 +7,14 @@
 // Grind waves, the next wave) shows its tolls and the state it ends in from R.heatView's previews (view.heat.next) in its
 // tooltip, colours its toll label when the state changes, and moves a ghost marker on the meter while hovered; nodes
 // entered Hot or Scorched and items heat raised carry a badge; the summary has a heat card (heat.js).
+// M2b v13 (docs/specs/changes-m2b-v13.md "UI needs" 7): elite and dungeon node tooltips name the special enemy's Deathblow
+// and its kind (mapView `deathblow`, `bossDeathblow`), so the answer can be planned before entering.
 import { h, add, clear, fmtNum, moneyEl, moneyText, clamp } from './util.js';
-import { spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon } from './art-icons.js';
+import { spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon, deathblowIcon } from './art-icons.js';
 import { drawPortrait, HERO_LOOKS, PET_LOOKS } from './art-actors.js';
 import { tip, itemTip, spellTip, hide as hideTip } from './tooltip.js';
 import { conColor, heroPortrait, travelState } from './hud.js';
-import { numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS } from './ui-text.js';
+import { numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, deathblowKind } from './ui-text.js';
 import { createMeta, buildOaths, echoAmt } from './meta.js';
 import { heatKey, previewBlock, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME } from './heat.js';
 import { createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon } from './prep.js';
@@ -715,6 +717,8 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
   if (full && !n.hub) {
     if (n.type === 'quest' && n.title) box.appendChild(h('div.tt-line', { style: { color: '#ffd88a', fontWeight: 700 } }, n.title));
     if (n.type === 'dungeon' && n.name) box.appendChild(h('div.tt-line', { style: { color: '#c8a8ff', fontWeight: 700 } }, n.name));
+    const dbl = deathblowLine(n.type === 'elite' ? n.deathblow : n.type === 'dungeon' ? n.bossDeathblow : null, n.type === 'dungeon'); // M2b v13 (UI needs 7)
+    if (dbl) box.appendChild(dbl);
     if (n.type === 'dungeon' && n.fights && n.fights.length) {
       n.fights.forEach((f, i) => box.appendChild(h('div.tt-foes', h('span.k', `Fight ${i + 1}: ${enemies(f.length)}`), archChips(f))));
       if (n.bossArchetype) box.appendChild(h('div.tt-foes', h('span.k', 'Boss'), archChips([n.bossArchetype])));
@@ -737,6 +741,15 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
   } else if (here) box.appendChild(h('div.tt-hint', 'You are here'));
   else if (!readOnly) box.appendChild(h('div.tt-warn', 'Not next to you'));
   return box;
+}
+/**
+ * M2b v13 (UI needs 7): a node's Deathblow line from mapView (`deathblow` of an elite, `bossDeathblow` of a dungeon): its name,
+ * kind (heavy blow or cast) and what answers it; null when the view gives none (a hidden rare, an expedition elite).
+ */
+function deathblowLine(db, boss) {
+  if (!db) return null;
+  return h('div.tt-line.tt-db', { dataset: { deathblow: db.id, type: db.type } }, h('img', { src: deathblowIcon(), alt: '' }),
+    h('b', `${boss ? "The boss's Deathblow" : 'Deathblow'}: ${db.name}`), ` (${deathblowKind(db.type)}). Landed, it maims you.`);
 }
 /** The tolls Travel on costs now, from the engine (a dry TRAVEL_ON); the mock's own number in mock mode. */
 function travelCost(z, ctx) {
@@ -767,6 +780,9 @@ function nodeTip(n, v, ctx, reach, hp = null) {
   if (n.type === 'quest') add(box, h('div.tt-line', { style: { color: '#ffd88a', fontWeight: 700 } }, n.title), h('div.tt-sub', `From ${n.giver}`));
   if (n.type === 'elite') add(box, h('div.tt-line', { style: { color: '#ffb08a', fontWeight: 700 } }, n.eliteName || 'An elite'), n.level ? h('div.tt-sub', `Elite level ${n.level}`) : null);
   if (n.type === 'dungeon') add(box, h('div.tt-line', { style: { color: '#c8a8ff', fontWeight: 700 } }, n.dungeon), h('div.tt-sub', `Boss: ${n.bossName}`));
+  // M2b v13 (UI needs 7): the special enemy's Deathblow and its kind (mapView `deathblow`, `bossDeathblow`), to plan the answer
+  const dbl = deathblowLine(n.type === 'elite' ? n.deathblow : n.type === 'dungeon' ? n.bossDeathblow : null, n.type === 'dungeon');
+  if (dbl) box.appendChild(dbl);
   // the enemies (combat v2, mapView): count and role badges per fight; a dungeon lists each trash fight and its boss
   if (n.type === 'dungeon' && n.fights && n.fights.length) {
     n.fights.forEach((f, i) => box.appendChild(h('div.tt-foes', h('span.k', `Fight ${i + 1}: ${enemies(f.length)}`), archChips(f))));

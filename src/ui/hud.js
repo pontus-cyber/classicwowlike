@@ -18,6 +18,11 @@
 // Contracts (docs/specs/expedition.md 9.3; prep.js): in a run with the start camp the tracker pins this zone's contracts
 // (colour, title, progress) under the minimap, in fights and, narrowed beside the zone map, on the map; at the start camp
 // (PREP) the HUD is hidden like on class select.
+// M2b v13 (docs/specs/changes-m2b-v13.md "UI needs" 2, 3, 6, 8): MAIMED as a large lasting badge on the player frame
+// ("Healing −50 %"), the potion buttons and tooltips with the cut amounts (R.potionInfo); the bar spells that answer an open
+// Deathblow (R.windupView answers: now, or ready by its round) ringed in crimson; the turn prompt names the Deathblow's answer
+// with its key or "No answer ready"; with autoplay on, the engage round says "Autoplay will answer the Deathblow with ..."
+// (R.autoplayEngage); a first meeting's enemy is tagged "New".
 import { h, add, clear, fmtNum, moneyEl, clamp, rgba } from './util.js';
 import { spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS } from './art-icons.js';
 import { drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook } from './art-actors.js';
@@ -25,13 +30,15 @@ import { THEMES } from './art-world.js';
 import { tip, spellTip, basicTip, itemTip, statusTip } from './tooltip.js';
 import { settings } from './settings.js';
 import { linkedText, resurrectText, dangerRule, HEAT_WORDS, tolls, freeActionText } from './ui-text.js';
-import { trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createRuler, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind } from './tracks.js';
+import { trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createRuler, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind, answersToShow } from './tracks.js';
 import { createHeatMeter, standText, bossText, fmtTime, lineShown } from './heat.js';
 import { trackerContracts } from './prep.js';
 
 const RES_NAME = { energy: 'Energy', mana: 'Mana', focus: 'Focus' };
 /** Combat v2.1: the wind-up stacks, drawn as large badges (stackBadges) instead of small status icons. */
 const WINDUP_STACKS = new Set(['EMPOWERED', 'STAGGERED']);
+/** M2b v13: MAIMED is drawn as its own large badge on the player frame (maimBadge), not as a small status icon. */
+const PLAYER_BADGES = new Set(['MAIMED']);
 export function conColor(cl, level) {
   const d = cl - level;
   if (d <= -6) return '#9d9d9d';
@@ -174,7 +181,9 @@ export function createHud(root, ctx) {
   els.resc = h('div.resc.hidden', { 'aria-label': 'Resurrect charges' }, h('img', { src: icon('ember', 'heal'), alt: '' }), h('span.n'));
   els.player = h('div#player-frame.uf',
     h('div.portrait'), h('div.lvl', { style: { left: '5.4rem', top: '5.4rem' } }),
-    h('div.plate', h('div.name', h('span.pn'), h('span.cls')), bar('hp'), bar('res mana'), h('div.cp.hidden', Array.from({ length: ctx.data.rules.cpMax }, () => h('i'))), h('div.strow', h('div.statuses'), els.resc)));
+    h('div.plate', h('div.name', h('span.pn'), h('span.cls')), bar('hp'), bar('res mana'), h('div.cp.hidden', Array.from({ length: ctx.data.rules.cpMax }, () => h('i'))), h('div.strow', h('div.statuses'), els.resc),
+      h('div.maimb.hidden', { 'aria-live': 'polite' }, h('img', { src: statusIcon('MAIMED'), alt: '' }), h('span.mn', 'Maimed'), h('b.mv'))));
+  tip(els.player.querySelector('.maimb'), () => { const m = ((ctx.view.player || {}).statuses || []).find((x) => x.id === 'MAIMED'); return m ? statusTip(m, ctx) : null; });
   els.pet = h('div#pet-frame.uf.hidden', h('div.portrait'), h('div.plate', h('div.name', h('span.pn'), h('span.cls', 'Pet')), bar('hp'), h('div.statuses')));
   els.target = h('div#target-frame.uf.hidden', h('div.portrait'), h('div.lvl', { style: { left: '5.4rem', top: '5.4rem' } }),
     h('div.plate', h('div.name', h('span.rb'), h('span.pn'), h('span.tag')), h('div.obal.hidden'), bar('hp enemy'), h('div.wstk.hidden'), h('div.statuses'), h('div.ttrack')));
@@ -282,7 +291,10 @@ export function createHud(root, ctx) {
       // M2b v6 (rules 7.5): the fight's first potion is a free action with Packed Satchel; M2b v8: at FREE_POTION_MULT strength,
       // and what it restores now is the engine's number (R.potionInfo through the bridge: L.heal, L.mana)
       const restores = L && L.free ? [L.heal ? `${fmtNum(L.heal)} health` : null, L.mana ? `${fmtNum(L.mana)} mana` : null].filter(Boolean).join(' and ') : '';
-      return itemTip(it, ctx, { hint: L && !L.ok ? L.reason : L && L.free ? `${freeActionText(L.mult)}: your first potion this fight costs no turn${restores ? ` and restores ${restores} now` : ''}. Right-click to clear` : 'Right-click to clear' });
+      const tipEl = itemTip(it, ctx, { hint: L && !L.ok ? L.reason : L && L.free ? `${freeActionText(L.mult)}: your first potion this fight costs no turn${restores ? ` and restores ${restores} now` : ''}. Right-click to clear` : 'Right-click to clear' });
+      // M2b v13 (rules 7.5): MAIMED cuts it; the amount is the engine's (R.potionInfo through the bridge: L.heal, L.maim)
+      if (tipEl && L && L.maim > 0 && L.heal > 0) tipEl.insertBefore(h('div.tt-warn.maim', `Maimed: restores ${fmtNum(L.heal)} health now (healing you receive −${Math.round(L.maim * 100)} % for the rest of this fight).`), tipEl.children[2] || null);
+      return tipEl;
     });
     dropTarget(b, ctx, (d) => { if (d.kind === 'item' && d.item.kind === 'consumable') ctx.act({ type: 'SET_ITEM_BAR', slot: i, itemId: d.item.id }); });
   });
@@ -340,7 +352,13 @@ export function createHud(root, ctx) {
     const cp = pf.querySelector('.cp');
     cp.classList.toggle('hidden', p.classId !== 'rogue');
     [...cp.children].forEach((c, i) => c.classList.toggle('on', i < (p.cp || 0)));
-    statusRow(pf.querySelector('.statuses'), p.statuses, ctx);
+    statusRow(pf.querySelector('.statuses'), (p.statuses || []).filter((x) => !PLAYER_BADGES.has(x.id)), ctx);
+    // M2b v13 (rules 7.4): MAIMED, large and lasting: "Maimed · Healing −50 %" (the status's value: MAIM_HEAL)
+    const maim = (p.statuses || []).find((x) => x.id === 'MAIMED');
+    const mb = pf.querySelector('.maimb');
+    if (!!maim !== !mb.classList.contains('hidden') && maim) mb.classList.add('fresh');
+    mb.classList.toggle('hidden', !maim);
+    if (maim) { const t = `Healing −${Math.round((maim.value || 0) * 100)} %`; if (mb.querySelector('.mv').textContent !== t) mb.querySelector('.mv').textContent = t; mb.dataset.value = maim.value || 0; } else mb.classList.remove('fresh');
     // resurrect badge: the charges that work now; dimmed at 0 when a Second Breath is held in the final fight
     const rt = resurrectText(p, !!(v.combat && v.combat.isBoss && !v.combat.over));
     els.resc.classList.toggle('hidden', !rt.count && !rt.note);
@@ -376,9 +394,10 @@ export function createHud(root, ctx) {
       if (els.target.dataset.key !== tkey) { els.target.dataset.key = tkey; clear(els.target.querySelector('.portrait')).appendChild(enemyPortrait(tgt, v.zone && v.zone.theme)); }
       const nm = els.target.querySelector('.pn'); nm.textContent = tgt.name;
       const tag = els.target.querySelector('.tag');
-      const tagKey = JSON.stringify([tgt.uid, tgt.rank, tgt.role, tgt.ccImmune]);
+      const tagKey = JSON.stringify([tgt.uid, tgt.rank, tgt.role, tgt.ccImmune, tgt.firstMeet]);
       if (tag.dataset.key !== tagKey) {
         tag.dataset.key = tagKey; clear(tag);
+        if (tgt.firstMeet) tag.appendChild(h('span.rank-tag.new', 'New')); // M2b v13: a first meeting (rules 7.12, gated)
         if (tgt.rank === 'elite' || tgt.rank === 'dboss') tag.appendChild(h('span.rank-tag', tgt.rank === 'dboss' ? 'Boss' : 'Elite'));
         if (tgt.rank === 'rare') tag.appendChild(h('span.rank-tag.rare', 'Rare'));
         add(tag, roleTags(tgt, ctx));
@@ -465,7 +484,7 @@ export function createHud(root, ctx) {
         if (!el) {
           // what comes and goes during a round (the off-balance chip, tags, stack badges, statuses) hangs under the health
           // bar (.under, out of the flow), so the wind-up line, the track and the name above it never move (UX pass 2026-11-11)
-          el = h('div.np', h('div.wub.hidden'), h('div.trk'), h('div.castbar.hidden', h('i')), h('div.nm', h('span.rb'), h('span.lv'), h('span.n')),
+          el = h('div.np', h('div.wub.hidden'), h('div.trk'), h('div.castbar.hidden', h('i')), h('div.nm', h('span.rb'), h('span.lv'), h('span.n'), h('span.newtag.hidden', 'New')),
             bar('hp enemy'), h('div.under', h('div.obal.hidden'), h('div.ntag.hidden', h('span.zz.hidden', 'Unaware'), h('span.rtags')), h('div.wstk.hidden'), h('div.sts')));
           el.addEventListener('click', (ev) => { ev.stopPropagation(); ctx.ui.setTarget(e.idx); });
           el.addEventListener('pointerenter', () => { ctx.scene.hover = `enemy:${e.idx}`; });
@@ -481,6 +500,7 @@ export function createHud(root, ctx) {
         el.classList.toggle('shard', e.rank === 'shard' || e.arch === 'shard');
         const lv = el.querySelector('.lv'); lv.textContent = e.rank === 'boss' ? '??' : e.level; lv.style.color = conColor(e.level, v.player.level);
         el.querySelector('.n').textContent = e.name + (e.rank === 'elite' ? ' (Elite)' : e.rank === 'rare' ? ' (Rare)' : e.rank === 'dboss' ? ' (Boss)' : '');
+        el.querySelector('.newtag').classList.toggle('hidden', !(e.firstMeet && e.alive)); // M2b v13: first meeting (gated)
         setBar(el.querySelector('.bar'), e.hp, e.maxHp, `${Math.ceil((e.hp / e.maxHp) * 100)} %`, ((e.statuses || []).find((s) => s.id === 'WARD') || {}).value || 0, e.alive && !c.over ? e.dot : null);
         statusRow(el.querySelector('.sts'), (e.statuses || []).filter((s) => !WINDUP_STACKS.has(s.id)), ctx);
         // combat v2.1: the lasting stacks of its wind-ups, and the wind-up line over it (from the round its track shows one)
@@ -545,6 +565,9 @@ export function createHud(root, ctx) {
     // cancelled) and the one hovered on a track, the ruler or a nameplate; answerKind reads each spell's engine entry
     const wuNow = fight ? c.enemies.filter((e) => e.alive && !e.hidden && e.intent && e.intent.windup && !e.intent.interrupted && !e.intent.cancelled)
       .map((e) => ({ e, x: entriesOf(e).find((x) => x.now && x.windup) || { windup: true, heavy: !!e.intent.heavy, now: true } })) : [];
+    // M2b v13: the bar spells that answer an open Deathblow (R.windupView answers via 'spell'): now, or ready by its round
+    const dbSp = {};
+    if (fight) for (const w of (c.windups || []).filter((q) => q.deathblow && !(q.cancel && q.cancel.stagger && !q.cancel.breaks))) for (const a of w.answers) if (a.via === 'spell') { const o = dbSp[a.id]; if (!o || (a.now && !o.now)) dbSp[a.id] = { now: a.now, sure: a.sure, round: w.round, inRounds: w.inRounds }; }
     const hv = ctx.ui.wuHover; const hvE = hv && c ? c.enemies.find((e) => e.idx === hv.idx) : null;
     const hvX = hvE ? entriesOf(hvE).find((x) => x.turn === hv.turn && x.windup) || null : null;
     p.bar.forEach((id, i) => {
@@ -591,6 +614,9 @@ export function createHud(root, ctx) {
       const stop = usable && kinds.some((z) => z.k === 'stop'); const avoid = usable && !stop;
       b.classList.toggle('wu-ans', stop && onTgt); b.classList.toggle('wu-else', stop && !onTgt); b.classList.toggle('wu-avoid', avoid);
       b.classList.toggle('wu-hl', !!(hvX && answerKind(sp.raw, hvX)));
+      const db = dbSp[id] || null;
+      b.classList.toggle('db-now', !!(db && db.now)); b.classList.toggle('db-soon', !!(db && !db.now));
+      b.dataset.db = db ? `${db.now ? 'now' : `r${db.round}`}${db.sure ? '' : '?'}` : '';
       let at = b.querySelector('.atag');
       if (stop || avoid) {
         if (!at) { at = h('span.atag'); b.appendChild(at); }
@@ -598,7 +624,13 @@ export function createHud(root, ctx) {
         // one on another enemy gives way to the wind-up, which plays this round (the button keeps its window class)
         const aText = avoid ? 'Avoid' : onTgt ? 'Answer' : '⇄ target';
         at.textContent = wText && here ? `${aText} · ${wText}` : aText;
+        at.classList.toggle('db', !!(db && db.now)); at.classList.remove('soon');
         if (wt) wt.remove();
+      } else if (db && !db.now && !(here || there)) {
+        // a Deathblow answer ready by its round (not now): "R3" in crimson, so the player keeps it for then (an off-balance
+        // window's tag, which is about this round, keeps the button)
+        if (!at) { at = h('span.atag'); b.appendChild(at); }
+        at.textContent = `R${db.round}`; at.classList.add('db', 'soon');
       } else if (at) at.remove();
     });
     p.itemBar.forEach((id, i) => {
@@ -623,12 +655,17 @@ export function createHud(root, ctx) {
       if (free && !ft) { ft = h('span.ftag', 'Free'); b.appendChild(ft); } else if (!free && ft) ft.remove();
       if (free) b.setAttribute('aria-label', `${b.getAttribute('aria-label')}. ${freeActionText(s.mult)}`); // M2b v8: "Free action, half strength (Packed Satchel)"
       if (s && s.cd) { cd.style.background = `conic-gradient(rgba(0,0,0,.74) ${clamp(s.cd / ctx.data.rules.potionCd, 0, 1) * 360}deg, rgba(0,0,0,.18) 0)`; cd.textContent = s.cd; } else { cd.style.background = ''; cd.textContent = ''; }
+      // M2b v13 (rules 7.5): MAIMED: a healing potion shows what it restores now, the engine's cut amount (R.potionInfo heal)
+      const maimed = !!(c && !c.over && s && s.maim > 0 && s.heal > 0 && count > 0);
+      let mt = b.querySelector('.mtag');
+      if (maimed) { if (!mt) { mt = h('span.mtag'); b.appendChild(mt); } mt.textContent = `+${fmtNum(s.heal)}`; mt.dataset.heal = s.heal; b.setAttribute('aria-label', `${b.getAttribute('aria-label')}. Maimed: restores ${fmtNum(s.heal)} health`); } else if (mt) mt.remove();
+      b.classList.toggle('maimed', maimed);
     });
     els.auto.classList.toggle('on', !!v.autoplay);
     els.auto.setAttribute('aria-checked', v.autoplay ? 'true' : 'false');
     els.pass.disabled = !fight; els.flee.disabled = !fight || !L.flee;
     els.flee.firstChild.textContent = ctx.ui.fleeArmed ? 'Confirm?' : 'Flee';
-    turnPrompt(v, fight && !v.autoplay);
+    turnPrompt(v, fight && !v.autoplay, fight && v.autoplay);
   }
 
   /**
@@ -636,10 +673,21 @@ export function createHud(root, ctx) {
    * the bar (no rule of its own): in order, the engage round, a wind-up to answer now (or that nothing on the bar can),
    * a potion to drink at low health, an off-balance window on the target, else the plain choice.
    */
-  function turnPrompt(v, mine) {
+  function turnPrompt(v, mine, auto = false) {
     const c = v.combat;
-    els.turn.classList.toggle('hidden', !mine);
+    // M2b v13 (UI needs 8): with autoplay on, in the engage round of a special fight, what autoplay will answer (rule E2)
+    const ae = auto && c && c.engage ? c.autoEngage : null;
+    els.turn.classList.toggle('hidden', !mine && !ae);
     els.actionbar.classList.toggle('your-turn', !!mine);
+    if (ae) {
+      els.turn.querySelector('.tp-k').textContent = `Autoplay · R${c.round}`;
+      const tEl = els.turn.querySelector('.tp-t');
+      const t = `Autoplay will answer the ${ae.windup.deathblow ? 'Deathblow' : 'wind-up'} with ${ae.name}`;
+      const sig = `auto:${t}:${ae.enemy}`;
+      if (tEl.dataset.sig !== sig) { tEl.dataset.sig = sig; clear(tEl); tEl.append(t, h('span.tp-s', ` (${ae.enemy}'s ${ae.windup.name})`)); }
+      els.turn.dataset.kind = ae.windup.deathblow ? 'auto-db' : 'auto';
+      return;
+    }
     if (!mine) return;
     const name = (b) => (b.getAttribute('aria-label') || '').replace(/^(Item slot|Slot) [0-9]+: /, '').replace(/\..*$/, '');
     const key = (b) => b.querySelector('.key').textContent;
@@ -648,7 +696,21 @@ export function createHud(root, ctx) {
     let k = 'Your turn'; let parts;
     const ans = first('wu-ans'); const els2 = first('wu-else'); const avoid = first('wu-avoid'); const pot = first('pulse'); const win = first('window');
     const wuLive = c.enemies.some((e) => e.alive && !e.hidden && e.intent && e.intent.windup && !e.intent.interrupted && !e.intent.cancelled);
-    if (c.engage) { k = 'Opening move'; parts = ['Open with ', kb('Q'), ' ', kb('W'), ' ', kb('E'), ' (left panel) or any bar key: they do not act yet']; }
+    // M2b v13: an open Deathblow in view comes first: its answer now with its key, or "no answer ready" (R.windupView)
+    const dbw = (c.windups || []).find((w) => w.deathblow && !(w.cancel && w.cancel.stagger && !w.cancel.breaks));
+    const dbSh = dbw ? answersToShow(dbw, v, ctx) : null;
+    let dbKind = null;
+    if (dbw && (c.engage || dbw.inRounds <= 1)) {
+      const when = dbw.inRounds === 0 ? 'now' : `in R${dbw.round}`;
+      const first = dbSh.list.find((x) => x.key) || null;
+      k = 'Deathblow';
+      if (!dbw.ready) { parts = [`Deathblow ${when}: `, h('b.tp-no', 'No answer ready'), dbw.inRounds > 0 ? '. Kill it first or brace for it' : '']; dbKind = 'deathblow-no'; }
+      else if (first && dbSh.when === 'now' && first.a.target != null && first.a.target !== (ctx.ui.target ?? c.target)) { parts = [`Deathblow ${when} on ${dbw.enemy}: `, kb('Tab'), ' to it, then ', kb(first.key), ` ${first.name}`]; dbKind = 'deathblow'; }
+      else if (first && dbSh.when === 'now') { parts = [`Deathblow ${when}: answer with `, kb(first.key), ` ${first.name}${first.a.sure ? '' : ' (a chance)'}`]; dbKind = 'deathblow'; }
+      else if (first) { parts = [`Deathblow ${when}: keep `, kb(first.key), ` ${first.name} for round ${dbw.round}`]; dbKind = 'deathblow'; }
+    }
+    if (dbKind) { /* the Deathblow's line above */ }
+    else if (c.engage) { k = 'Opening move'; parts = ['Open with ', kb('Q'), ' ', kb('W'), ' ', kb('E'), ' (left panel) or any bar key: they do not act yet']; }
     else if (ans) parts = ['Wind-up now: answer with ', kb(key(ans)), ` ${name(ans)}`];
     else if (els2) parts = ['Wind-up on another enemy: ', kb('Tab'), ' to it, then ', kb(key(els2)), ` ${name(els2)}`];
     else if (avoid) parts = ['Heavy wind-up now: ', kb(key(avoid)), ` ${name(avoid)} can blunt it`];
@@ -660,7 +722,7 @@ export function createHud(root, ctx) {
     kEl.textContent = `${k} · R${c.round}`;
     const sig = parts.map((x) => (typeof x === 'string' ? x : `[${x.textContent}]`)).join('');
     if (tEl.dataset.sig !== sig) { tEl.dataset.sig = sig; clear(tEl); tEl.append(...parts); }
-    els.turn.dataset.kind = c.engage ? 'engage' : ans || els2 || avoid || wuLive ? 'windup' : pot ? 'potion' : win ? 'window' : 'plain';
+    els.turn.dataset.kind = dbKind || (c.engage ? 'engage' : ans || els2 || avoid || wuLive ? 'windup' : pot ? 'potion' : win ? 'window' : 'plain');
   }
 
   function updateTracker(v) {

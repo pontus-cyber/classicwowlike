@@ -310,7 +310,9 @@ export class App {
     clearTimeout(this.autoTimer);
     const v = this.bridge.view;
     if (!v.autoplay || !v.combat || v.combat.over || this.pending > 0) return;
-    const delay = settings.instant ? 30 : settings.get('autoDelay') / Math.max(1, settings.get('speed') || 1);
+    let delay = settings.instant ? 30 : settings.get('autoDelay') / Math.max(1, settings.get('speed') || 1);
+    // M2b v13 (UI needs 8): in an engage round where autoplay answers a wind-up (rule E2), its hint stays readable a moment
+    if (!settings.instant && v.combat.engage && v.combat.autoEngage) delay = Math.max(delay, AUTO_HINT_MS / Math.max(1, settings.get('speed') || 1));
     this.autoTimer = setTimeout(() => {
       const vv = this.bridge.view;
       if (!vv.autoplay || !vv.combat || vv.combat.over || this.pending > 0) return;
@@ -680,6 +682,8 @@ function devText(op, args, r, v) {
   }
 }
 
+/** M2b v13: how long autoplay's engage round holds at 1x when it shows "Autoplay will answer the Deathblow with ..." (ms). */
+const AUTO_HINT_MS = 1600;
 // toasts: on screen at most TOAST_MAX at once for TOAST_MS each (the CSS fade is 2.6 s); at most TOAST_QUEUE wait
 const TOAST_MAX = 2;
 const TOAST_MS = 2700;
