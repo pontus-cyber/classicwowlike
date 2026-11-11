@@ -209,8 +209,103 @@ export const ECHO_LINE = {
   quests: 'Quests completed', bossReached: 'Reached the boss', bossPhases: 'Boss phases reached', bossKill: 'Oruvath defeated',
   speed: 'Swift victory', firstKill: 'First kill with this class',
   heat: `Fights won ${HEAT_WORDS.state.hot} or ${HEAT_WORDS.state.scorched}`, // rules 11.1 (heat): fights won in nodes entered Hot or Scorched
+  contracts: 'Contracts completed', reserve: 'Reserve kept', // expedition.md 8.1, 11.1 (prep)
 };
 export const humanize = (id) => String(id || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+// ------------------------------------------------------------------ start camp and contracts (expedition.md 2, 3, 9; prep)
+// Words from content (src/content/texts.js, docs/handoffs/content-2026-11-11.md): texts.families[id] { singular, plural },
+// texts.prep[id] { name, flavour, rule }, texts.contracts { cull, bounty, delve, hub } sentence templates with {n},
+// {family}, {familyOne}, {region}, {zone}, {levels}, {elite}, {dungeon}, {hub}, {contract}. Without them: the id in
+// words ("wild foes") and the lines below. Every price, count and reward comes from R.prepView / R.contractView; radii
+// and limits from the rules table (data.rules.prep).
+export const CONTRACT_KIND = { cull: 'Cull', bounty: 'Bounty', delve: 'Delve' };
+const CONTRACT_KIND_TEXT = {
+  cull: 'Win fights at its sites: Quest and Grind nodes, most of them in one region.',
+  bounty: 'Hunt down one named elite that roams one region.',
+  delve: "Clear the zone's dungeon, its boss included.",
+};
+const group = (content, g) => (content && content.texts && content.texts[g]) || null;
+/** A family's display name (texts.families: plural, or singular with one), else its id in words: "wild foes". */
+export function familyName(id, content, one = false) {
+  if (!id) return one ? 'foe' : 'foes';
+  const g = group(content, 'families'); const x = g && g[id];
+  const t = typeof x === 'string' ? x : x && (one ? x.singular || x.plural : x.plural || x.singular);
+  return t || `${String(id).replace(/_/g, ' ')} ${one ? 'foe' : 'foes'}`;
+}
+/** A level band in words: "levels 1-10". */
+export const bandText = (band) => (band ? `levels ${band[0]}-${band[1]}` : '');
+/** What a contract asks for, short: "wild beasts in Barleyreach Verge", "Grosk, roaming Harrow Lane", a dungeon's name. */
+export function contractTarget(c, content) {
+  if (c.kind === 'delve') return c.dungeon || "the zone's dungeon";
+  if (c.kind === 'bounty') return `${c.name || 'a named elite'}${c.regionName ? `, roaming ${c.regionName}` : ''}`;
+  return `${familyName(c.family, content)}${c.regionName ? ` in ${c.regionName}` : ''}`;
+}
+/** A contract in a few words (tracker, toasts, map marks): "Cull wild beasts in Barleyreach Verge", "Bounty: Grosk". */
+export function contractTitle(c, content) {
+  if (c.kind === 'cull') return `Cull ${contractTarget(c, content)}`;
+  if (c.kind === 'bounty') return `Bounty: ${c.name || 'a named elite'}`;
+  return `${CONTRACT_KIND[c.kind] || humanize(c.kind)}: ${contractTarget(c, content)}`;
+}
+const fill = (tpl, vals) => tpl.replace(/\{(\w+)\}/g, (m, k) => (vals[k] != null && vals[k] !== '' ? String(vals[k]) : m));
+/**
+ * A contract as a sentence (texts.contracts[kind], content): "Cull 2 wild beasts in Barleyreach Verge, Amberfold Downs,
+ * levels 1-10." Without the template: the title, the zone and the band. A placeholder without a value stays as it is.
+ */
+export function contractSentence(c, content) {
+  const g = group(content, 'contracts'); const tpl = g && typeof g[c.kind] === 'string' ? g[c.kind] : null;
+  const vals = { n: c.need, family: familyName(c.family, content), familyOne: familyName(c.family, content, true), region: c.regionName, zone: c.zoneName,
+    levels: bandText(c.band), elite: c.name, dungeon: c.dungeon };
+  // "a {familyOne}" takes "an" before a vowel ("an outlaw")
+  if (tpl) return fill(tpl.replace(/\ba \{familyOne\}/g, /^[aeiou]/i.test(vals.familyOne) ? 'an {familyOne}' : 'a {familyOne}'), vals);
+  return `${contractTitle(c, content)}, ${c.zoneName}, ${bandText(c.band)}.`;
+}
+/** The hub's offer as a sentence (texts.contracts.hub): "Millbrook Rest has work on the board: Cull ...". */
+export function hubOfferSentence(c, hubName, content) {
+  const g = group(content, 'contracts'); const tpl = g && typeof g.hub === 'string' ? g.hub : null;
+  const one = contractSentence(c, content);
+  return tpl ? fill(tpl, { hub: hubName, contract: one }) : `${hubName} has work on the board: ${one}`;
+}
+/** A contract kind in one line. */
+export function contractKindText(kind) { return CONTRACT_KIND_TEXT[kind] || ''; }
+/**
+ * Where a contract's sites are and when the map shows them (expedition.md 3.3, 5.1, 5.2). r: the rules table's prep block;
+ * has: { guide, tracker } (the perk is owned or bought).
+ */
+export function contractSitesText(c, r, has = {}) {
+  if (c.kind === 'delve') return `Its one site is ${c.dungeon || "the zone's dungeon"}. Holding this contract shows the dungeon on that zone's map.`;
+  const see = `You see a site's mark on nodes in full view: within ${r.vision} ${plural(r.vision, 'hop')}${has.guide ? `, ${r.guide} more with the Local Guide` : ''}${has.tracker ? `; with Tracker's Notes within ${r.tracker} hops, hidden nodes too` : ''}.`;
+  if (c.kind === 'bounty') return `The elite waits at ${numWord(r.bountyPlaced)} Elite nodes of rings 2 and 3 in ${c.regionName || 'its region'}; win either. ${see}`;
+  return `Sites: Quest or Grind nodes, most of them in ${c.regionName || 'its region'}. ${see}`;
+}
+/** A contract's item choice in words: "choose 1 of 3: 80 % rare, 20 % epic" (the drop table's weights, R.prepView). */
+export function contractItemsText(rw) {
+  const w = Object.entries(rw.rarity || {}); const tot = w.reduce((a, [, x]) => a + x, 0) || 1;
+  return `choose 1 of ${rw.choices}${w.length ? `: ${w.map(([k, x]) => `${Math.round((x / tot) * 100)} % ${k}`).join(', ')}` : ''}`;
+}
+/** Levels-worth of XP in words ("3.2 levels of XP"; xpFrac from R.prepView, XP_WEIGHT_MULT included). */
+export const levelsText = (x) => `${Math.round(x * 10) / 10} ${x === 1 ? 'level' : 'levels'} of XP`;
+/**
+ * What a start-camp option does, in one line with the engine's numbers (expedition.md 2.3, 2.4). o: R.prepView's option
+ * (qty, bell, slots, charges); r: the rules table's prep block; name(id): a consumable's name; content: texts.prep's
+ * rule line for an option this table does not know.
+ */
+export function prepOptionEffect(o, r, name = (id) => humanize(id), content = null) {
+  const many = (n, nm) => (n === 1 || /s$/.test(nm) ? nm : `${nm}s`);
+  switch (o.id) {
+    case 'prep_draughts': case 'prep_rations': return `${o.qty} ${many(o.qty, name(o.item))} in your bags.`;
+    case 'prep_ember': return `${o.qty > 1 ? o.qty : 'One'} ${name(o.item)}: you rise again once when you would die.`;
+    case 'prep_bell': return `+${o.bell} Homeward Bell charge: one more way out of a zone.`;
+    case 'prep_mule': return `+${o.slots} bag slots for the whole run.`;
+    case 'prep_charts': return "Every node's region and every dungeon shown on each zone map.";
+    case 'prep_tracker': return `Contract sites marked within ${r.tracker} hops of you, hidden nodes too.`;
+    case 'prep_guide': return `Your full view reaches ${r.guide} ${plural(r.guide, 'hop')} further on every zone map.`;
+    case 'prep_spyglass': return `${o.charges} looks on the map: any node and its neighbours in full view, no tolls.`;
+    default: { const g = group(content, 'prep'); const x = g && g[o.id]; return (x && x.rule) || ''; }
+  }
+}
+/** A start-camp option's flavour line (texts.prep[id].flavour), or ''. */
+export function prepFlavour(id, content) { const g = group(content, 'prep'); const x = g && g[id]; return (typeof x === 'string' ? x : x && (x.flavour || x.text)) || ''; }
 
 const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
 /** A small count in words ("three"), larger ones as digits. */

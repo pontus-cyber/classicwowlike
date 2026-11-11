@@ -63,6 +63,12 @@
 //   (the state a visited node was entered in, from the `node` event); node.heat: the entry state of the node shown.
 //   mapMode: 'rows' or 'expedition'. ?expedition=1 starts expedition runs (rules 1.9; off by default): zone.exp is then
 //   R.mapView (engine-api.md 10.3) and zone.rows is empty.
+//   Start camp and contracts (docs/specs/expedition.md 2, 3, 9.1, 9.3; engine-api.md 13): ?prep=1, or the setting
+//   "Expedition map with start camp" (App: createBridge({ prep }), setRunMode), starts runs with newRun({ mapMode:
+//   'expedition', prep: true }). phase 'PREP' (after START_RUN, no zone): prep = R.prepView; zone, node, combat and heat
+//   are null. contracts: R.contractView in every phase of such a run (null otherwise): the tracker and the hub offer. The
+//   reward window of a completed contract is loot.kind 'contract' (its contract, XP and gold). Contract, prep and Spyglass
+//   events become log lines and toasts (msg).
 // UI action META_BUY { id } (CREATE only): R.buyMeta on the stored profile; the run being created picks up the new profile.
 //   dev:     the dev tools' marker of the run (engine-api.md 12: { god, tools }), null for a normal run; data.dev: what the Dev
 //            menu lists (the enemy templates from R.debug.enemies, rarities, limits, heat states, zones' first levels).
@@ -117,6 +123,12 @@ function rulesTable(K) {
       dimWarm: K.HEAT_DIM_WARM, dimHot: K.HEAT_DIM_HOT, gain: { ...K.HEAT_GAIN }, rarityUp: { ...K.HEAT_RARITY_UP },
       barMin: K.HEAT_BAR_MIN, barMax: K.HEAT_BAR_MAX, echoPerFight: K.ECHO_PER_HEAT_FIGHT ?? null,
       ascPerStep: K.ASC_PER_STEP, ascStepTime: K.ASC_STEP_TIME, ascCap: K.ASC_CAP, parBase: K.BOSS_TIME_PAR,
+    } : null,
+    // Start camp and contracts (expedition.md 2.4, 3.3, 5.1; prep): the radii and counts the prep screen's and the
+    // tracker's texts name; every price, point and reward comes from R.prepView / R.contractView. null without them.
+    prep: K.PREP_OPTION ? {
+      vision: K.VISION_RADIUS, visionMax: K.VISION_RADIUS_MAX, guide: K.GUIDE_RADIUS_BONUS, tracker: K.TRACKER_RADIUS,
+      bountyPlaced: K.BOUNTY_PLACED, bellMax: K.BELL_MAX_CHARGES, emberMax: K.EMBER_MAX_CARRIED,
     } : null,
   };
 }
@@ -338,6 +350,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     statuses: Object.fromEntries(Object.entries(TXT.STATUS_INFO).map(([id, x]) => [id, { ...x, debuff: C.DEBUFFS ? C.DEBUFFS.includes(id) || !!x.v2Debuff : x.debuff }])),
     boons: Object.fromEntries(Object.values(C.BOON).map((b) => [b.id, { id: b.id, name: b.name, text: TXT.boonText(b.id, CONTENT) }])),
     slots: C.SLOT_IDS, zones: CONTENT.zones, camp: CONTENT.camp,
+    content: { texts: CONTENT.texts || {} }, // texts.families, .prep, .contracts: the contract and start-camp words (ui-text.js)
     nodeTime: Object.fromEntries(Object.values(C.NODE_TYPE).map((t) => [t.id, t.time])),
     boss: { name: C.BOSS_TEXT.name, intro: (CONTENT.camp && CONTENT.camp.bossText) || '' },
     rules: rulesTable(C),
@@ -805,6 +818,19 @@ function engineBackend(seedOpt, runOpts = {}) {
     const list = (hv.next || []).map((x) => ({ ...x, key: heatKey(x.action) }));
     return { ...hv, bar: { ...hv.bar }, node: hv.node ? { ...hv.node } : null, list, next: Object.fromEntries(list.map((x) => [x.key, x])) };
   }
+  /** The start camp screen's data (R.prepView, engine-api.md 13.2), a copy; null outside PREP or on an engine without it. */
+  function prepOf(s) {
+    if (!R.prepView) return null;
+    try { const pv = R.prepView(s); return pv ? JSON.parse(JSON.stringify(pv)) : null; } catch { return null; }
+  }
+  /**
+   * The contract tracker (R.contractView, engine-api.md 13.3), a copy: every contract of the run with its status and the
+   * hub offer with its legal modes. null in a run without the start camp. Never names a site's node.
+   */
+  function contractsOf(s) {
+    if (!R.contractView || !s.player) return null;
+    try { const cv = R.contractView(s); return cv ? JSON.parse(JSON.stringify(cv)) : null; } catch { return null; }
+  }
   /** The boss's Ascendancy if the player faced it now: read from a dry FIGHT_BOSS step, not recomputed here. */
   function dryBossAsc(s) {
     try { const f = R.step(s, { type: 'FIGHT_BOSS' }).state.fight; return f && f.boss ? f.boss.asc : null; } catch { return null; }
@@ -851,6 +877,8 @@ function engineBackend(seedOpt, runOpts = {}) {
       echoMult: sm.echoes ? sm.echoes.oathMult : 1, oaths: (sm.oaths || []).map((o) => (C.OATH[o] ? C.OATH[o].name : TXT.humanize(o))),
       // a dev run (engine-api.md 12): no Echoes; withheld = what it would have earned
       dev: sm.dev ? { god: !!sm.dev.god, tools: [...sm.dev.tools], withheld: (sm.echoes && sm.echoes.withheld) || 0 } : null,
+      // contracts (expedition.md 8.1; prep): taken, completed, expired, abandoned, held, bought, reserve; null without
+      contracts: sm.expedition && sm.expedition.contracts ? JSON.parse(JSON.stringify(sm.expedition.contracts)) : null,
     };
   }
 
@@ -943,6 +971,14 @@ function engineBackend(seedOpt, runOpts = {}) {
     v.oaths = (s.oaths || []).slice();
     v.phase = s.phase === 'ENDED' ? 'SUMMARY' : s.phase;
     v.player = convPlayer(s);
+    v.mapMode = s.mapMode || 'rows';
+    // the start camp (prep; expedition.md 2, 9.1): no zone yet; the screen reads R.prepView, the tracker R.contractView
+    v.contracts = contractsOf(s);
+    if (s.phase === 'PREP') {
+      return { ...v, prep: prepOf(s), zone: null, hub: { used: {} }, node: null, combat: null, loot: null, summary: null, meta: null, par: R.bossPar(s),
+        dev: s.dev ? { god: !!s.dev.god, tools: [...s.dev.tools] } : null, heat: null, camp: null, legal: convLegal(s) };
+    }
+    v.prep = null;
     v.zone = convZone(s);
     v.hub = s.hub || { used: {} };
     v.node = convNode(s);
@@ -951,7 +987,6 @@ function engineBackend(seedOpt, runOpts = {}) {
     v.summary = v.phase === 'SUMMARY' ? convSummary(s) : null;
     v.meta = v.phase === 'SUMMARY' ? metaView(s) : null;
     v.par = R.bossPar(s); // the run's par (rules 1.7), the Oath of Haste included
-    v.mapMode = s.mapMode || 'rows';
     v.dev = s.dev ? { god: !!s.dev.god, tools: [...s.dev.tools] } : null; // dev tools (engine-api.md 12)
     v.heat = v.phase === 'SUMMARY' ? null : heatOf(s);
     // the camp panel reads the meter's numbers (heatView: at the Camp the line is the par and ascIfPar is the Ascendancy
@@ -970,7 +1005,11 @@ function engineBackend(seedOpt, runOpts = {}) {
     } else if (s.node && s.node.stage === 'reward' && s.node.rewards[0].kind === 'items') {
       const r0 = s.node.rewards[0]; const q = CONTENT.quests[s.node.quest] || {};
       const rw = local.reward || {};
-      v.loot = r0.story
+      // a completed contract's item choice (prep, expedition.md 3.1, 9.3): after the node's own rewards, as the story's
+      const kc = r0.contract && v.contracts ? v.contracts.contracts.find((c) => c.id === r0.contract) || null : null;
+      const paid = (rw.contracts || {})[r0.contract] || {};
+      if (r0.contract) v.loot = { kind: 'contract', title: 'Contract complete', contract: kc, hubName: v.zone.hubName, xp: paid.xp || 0, gold: paid.gold || 0, choices: r0.items.map((it) => item(it, s.player.classId)) };
+      else v.loot = r0.story
         ? { kind: 'story', title: `${v.zone.name}: the story is told`, text: 'Three tasks done; the people of this land will remember your name.', xp: rw.storyXp || 0, gold: 0, choices: r0.items.map((it) => item(it, s.player.classId)) }
         : { kind: 'reward', title: q.title || 'Quest', giver: q.giver, text: q.turnIn || '', xp: rw.xp || 0, gold: rw.gold || 0, choices: r0.items.map((it) => item(it, s.player.classId)) };
     }
@@ -1109,10 +1148,31 @@ function engineBackend(seedOpt, runOpts = {}) {
         case 'talent': out.push({ t: 'talent', name: (C.TALENT[e.talentId || e.id] || {}).name || 'talent', rank: e.rank || '' }); break;
         case 'useItem': lastUsed = consName(e.item) || 'An item'; out.push({ t: 'used', name: lastUsed }); break;
         case 'zone': out.push({ t: 'zone' }); break;
+        // start camp and contracts (prep, engine-api.md 5): the screens show PREP's own steps; these say what changed
+        case 'contract': { const m = contractMsg(e, s); if (m) out.push(m); break; }
+        case 'prep':
+          if (e.what === 'setOut') out.push({ t: 'msg', text: `You set out with ${e.contracts} ${TXT.plural(e.contracts, 'contract')} and ${e.reserve} ${TXT.plural(e.reserve, 'point')} of Reserve.`, kind: 'good' });
+          break;
+        case 'spyglass': out.push({ t: 'msg', text: `Spyglass: ${e.seen.length ? `${e.seen.length} more ${TXT.plural(e.seen.length, 'place')} in view` : 'nothing new in view'} · ${e.charges} ${TXT.plural(e.charges, 'look')} left`, kind: 'good' }); break;
         default: break;
       }
     }
     return out;
+  }
+  /** A contract event (prep) as a toast and log line, named as the tracker names it; take and drop at PREP say nothing. */
+  function contractMsg(e, s) {
+    if (s.phase === 'PREP' && (e.what === 'take' || e.what === 'drop')) return null;
+    const cv = contractsOf(s);
+    const c = cv ? cv.contracts.find((x) => x.id === e.id) : null;
+    const name = c ? TXT.contractTitle(c, CONTENT) : TXT.CONTRACT_KIND[e.kind] || 'A contract';
+    switch (e.what) {
+      case 'take': return { t: 'msg', text: `Contract taken: ${name}`, kind: 'good' };
+      case 'site': return { t: 'msg', text: `Contract site won: ${name} · ${e.progress} / ${e.need}`, kind: 'good' };
+      case 'complete': return { t: 'msg', text: `Contract complete: ${name}`, kind: 'good' };
+      case 'expire': return { t: 'msg', text: `Contract expired: ${name}`, kind: 'info' };
+      case 'abandon': return { t: 'msg', text: `Contract given up: ${name}`, kind: 'info' };
+      default: return null;
+    }
   }
 
   // ---------------------------------------------------------------- actions
@@ -1291,6 +1351,18 @@ function engineBackend(seedOpt, runOpts = {}) {
     const sum = (t, pred) => events.filter((e) => e.t === t && (!pred || pred(e))).reduce((a, e) => a + (e.amount || 0), 0);
     const items = events.filter((e) => e.t === 'loot').map((e) => item(e.item, st.player ? st.player.classId : 'rogue', { inBag: e.to === 'bag', pending: e.to === 'window' }));
     if (events.some((e) => e.t === 'questComplete')) local.reward = { xp: sum('xp', (e) => e.why === 'quest'), gold: sum('gold', (e) => e.why === 'quest' && e.amount > 0), storyXp: sum('xp', (e) => e.why === 'story') };
+    // contracts completed in this step (prep): each one's XP and gold (the events after its `contract` complete event,
+    // why 'contract'), shown on its reward window
+    const done = events.map((e, i) => [e, i]).filter(([e]) => e.t === 'contract' && e.what === 'complete');
+    if (done.length) {
+      const r = local.reward && events.some((e) => e.t === 'questComplete') ? local.reward : (local.reward = {});
+      r.contracts = r.contracts || {};
+      done.forEach(([e, i], k) => {
+        const end = k + 1 < done.length ? done[k + 1][1] : events.length;
+        const mine = events.slice(i + 1, end).filter((x) => x.why === 'contract');
+        r.contracts[e.id] = { xp: mine.filter((x) => x.t === 'xp').reduce((a, x) => a + (x.amount || 0), 0), gold: mine.filter((x) => x.t === 'gold' && x.amount > 0).reduce((a, x) => a + x.amount, 0) };
+      });
+    }
     const entered = events.find((e) => e.t === 'node');
     if (entered && entered.type === 'rest' && has('rest')) {
       local.hold = { node: { type: 'rest', step: 'rest', row: entered.r, lane: entered.l, id: entered.id ?? null, cl: entered.cl, heat: entered.heat || null } };
@@ -1307,7 +1379,8 @@ function engineBackend(seedOpt, runOpts = {}) {
       local.spoils = {
         title: kind === 'dboss' ? `${(prev.node && prev.node.dungeon) || 'Dungeon'} cleared` : prev.node && prev.node.type === 'treasure' ? 'Treasure chest' : 'Loot',
         phase: 'NODE', node: prev.node ? { ...prev.node, step: 'combat' } : { type: 'camp_grind', step: 'combat', cl: C.CAMP_GRIND_LEVEL },
-        combat: pc, gold: sum('gold', (e) => e.amount > 0 && e.why !== 'quest'), xp: sum('xp', (e) => e.why !== 'quest' && e.why !== 'story'), trap: sum('trap') > 0, items,
+        // a contract's XP and gold show on its own reward window (prep), not with the fight's spoils
+        combat: pc, gold: sum('gold', (e) => e.amount > 0 && e.why !== 'quest' && e.why !== 'contract'), xp: sum('xp', (e) => e.why !== 'quest' && e.why !== 'story' && e.why !== 'contract'), trap: sum('trap') > 0, items,
       };
     }
   }
@@ -1329,7 +1402,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     let note = null; let fresh = false;
     const copy = (x) => JSON.parse(JSON.stringify(x));
     const run = (fn, ...a) => { const r = D[fn](st, ...a); st = r.state; events.push(...r.events); local.engineLog.push({ type: 'DEV', fn, args: copy(a) }); return r; };
-    const modeOf = (mode) => (mode === 'expedition' ? { mapMode: 'expedition' } : {});
+    const modeOf = (mode, prep = false) => (mode === 'expedition' ? { mapMode: 'expedition', ...(prep ? { prep: true } : {}) } : {});
     try {
       switch (op) {
         case 'build': {
@@ -1337,7 +1410,7 @@ function engineBackend(seedOpt, runOpts = {}) {
           const r = D.build({ ...o, content: CONTENT });
           st = r.state; resetLocal(); fresh = true;
           local.engineLog = [{ type: 'DEV', fn: 'build', args: [copy(o)] }];
-          runMode = modeOf(st.mapMode);
+          runMode = modeOf(st.mapMode, !!(st.exp && st.exp.prep)); // the next runs keep the map mode (and the start camp)
           break;
         }
         case 'camp': run('toCamp'); fresh = true; break;
@@ -1430,6 +1503,21 @@ function engineBackend(seedOpt, runOpts = {}) {
     /** Test hook (qa/browser/ui-regress.mjs part K): the run as R.serialize has it. */
     serialized() { return R.serialize(st); },
     dev,
+    /**
+     * The map mode of new runs (the setting "Expedition map with start camp"; ?expedition=1, ?prep=1): { mapMode, prep }.
+     * At class select the run being created takes it at once (class, pet, name, seed and Oaths kept); in a run it applies
+     * from the next one. Returns { ok, now } (now: the run on screen changed).
+     */
+    setRunMode(m = {}) {
+      const next = m.mapMode === 'expedition' ? { mapMode: 'expedition', ...(m.prep ? { prep: true } : {}), ...(runMode.dimming === false ? { dimming: false } : {}) } : {};
+      if (JSON.stringify(next) === JSON.stringify(runMode)) return { ok: true, now: false };
+      runMode = next;
+      if (st.phase === 'CREATE') { rebuildCreate(); local.engineLog = []; return { ok: true, now: true }; }
+      return { ok: true, now: false };
+    },
+    runMode() { return { ...runMode }; },
+    /** Why an engine action is not legal now (R.whyIllegal, capitalised), or null when it is (the prep screen's tooltips). */
+    why(a) { try { const r = R.whyIllegal(st, a); return r ? reasonOf(r) : null; } catch { return null; } },
     /** Heat after a UI action (R.heatPreview, engine-api.md 11.2; no step), or null when it costs no time or is not legal. */
     heatPreview(action) {
       if (!R.heatPreview || !st.player) return null;
@@ -1503,6 +1591,20 @@ export class Bridge {
   }
   /** Test hook: the run as R.serialize has it (engine mode), or null. */
   serialized() { return this.backend.serialized ? this.backend.serialized() : null; }
+  /**
+   * The map mode of new runs ({ mapMode, prep }; engine mode). At class select the run on screen changes at once and
+   * listeners see it; returns { ok, now, view }. The mock has none.
+   */
+  setRunMode(m) {
+    if (!this.backend.setRunMode) return { ok: false, now: false, view: this._view };
+    const r = this.backend.setRunMode(m);
+    if (r.now) { this._view = this.backend.view(); for (const fn of this.listeners) fn(this._view, [], { type: 'RUN_MODE' }); }
+    return { ...r, view: this._view };
+  }
+  /** The map mode new runs get ({ mapMode, prep }), {} for the classic map or the mock. */
+  runMode() { return this.backend.runMode ? this.backend.runMode() : {}; }
+  /** Why an engine action is not legal now (the engine's reason), or null; null in mock mode. */
+  why(a) { return this.backend.why ? this.backend.why(a) : null; }
   /** Engage panel hover preview (combat v2, R.engagePreview); null in mock mode or when the option is not legal. */
   engagePreview(option, target, spellId) { return this.backend.engagePreview ? this.backend.engagePreview(option, target, spellId) : null; }
   /** Heat after a UI action (R.heatPreview); null in mock mode, for an action without time or an illegal one. */
@@ -1522,8 +1624,10 @@ export function createBridge(opts = {}) {
   const seedParam = params.get('seed');
   const seed = opts.seed ?? (seedParam !== null && seedParam !== '' ? Number(seedParam) >>> 0 : undefined);
   const useMock = opts.mock ?? params.get('mock') === '1';
-  const exp = opts.expedition ?? params.get('expedition') === '1';
-  const runOpts = exp ? { mapMode: 'expedition', ...(params.get('dimming') === '0' ? { dimming: false } : {}) } : {};
+  // ?prep=1 (or opts.prep: the setting "Expedition map with start camp") starts expedition runs at the start camp
+  const prep = !!(opts.prep ?? params.get('prep') === '1');
+  const exp = prep || (opts.expedition ?? params.get('expedition') === '1');
+  const runOpts = exp ? { mapMode: 'expedition', ...(prep ? { prep: true } : {}), ...(params.get('dimming') === '0' ? { dimming: false } : {}) } : {};
   return new Bridge(useMock ? mockBackend(seed) : engineBackend(seed, runOpts));
 }
 
@@ -1534,4 +1638,6 @@ export const flags = {
   debug: params.get('debug') === '1',
   speed: params.get('speed'),
   expedition: params.get('expedition') === '1',
+  // the start camp on the expedition map (prep): ?prep=1 for this page; the setting keeps it between visits
+  prep: params.get('prep') === '1',
 };

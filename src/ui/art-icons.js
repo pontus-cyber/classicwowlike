@@ -98,6 +98,11 @@ const G = {
   coil(c) { c.lineWidth = 5; c.lineCap = 'round'; c.beginPath(); for (let a = 0; a <= 4.6 * Math.PI; a += 0.12) { const r = 3 + a * 1.55; const x = 30 + Math.cos(a) * r; const y = 34 + Math.sin(a) * r; if (a === 0) c.moveTo(x, y); else c.lineTo(x, y); } c.stroke(); star(c, 50, 13, 8, 4); },
   up(c) { c.lineWidth = 7; c.lineCap = 'round'; c.lineJoin = 'round'; for (const y of [30, 50]) { c.beginPath(); c.moveTo(13, y); c.lineTo(32, y - 17); c.lineTo(51, y); c.stroke(); } },
   down(c) { c.lineWidth = 7; c.lineCap = 'round'; c.lineJoin = 'round'; for (const y of [14, 34]) { c.beginPath(); c.moveTo(13, y); c.lineTo(32, y + 17); c.lineTo(51, y); c.stroke(); } },
+  // start camp and contracts (expedition.md 2, 3; prep): the Second Clapper's bell, Region Charts, the Spyglass, a seal
+  bell(c) { c.beginPath(); c.moveTo(32, 9); c.quadraticCurveTo(47, 11, 47, 31); c.lineTo(52, 46); c.lineTo(12, 46); c.lineTo(17, 31); c.quadraticCurveTo(17, 11, 32, 9); c.fill(); c.fillRect(29, 4, 6, 7); c.beginPath(); c.arc(32, 53, 5.5, 0, 7); c.fill(); },
+  chart(c) { c.beginPath(); c.moveTo(8, 15); c.lineTo(23, 9); c.lineTo(41, 15); c.lineTo(56, 9); c.lineTo(56, 49); c.lineTo(41, 55); c.lineTo(23, 49); c.lineTo(8, 55); c.closePath(); c.fill(); c.save(); c.globalCompositeOperation = 'destination-out'; c.lineWidth = 2.2; c.beginPath(); c.moveTo(23, 9); c.lineTo(23, 49); c.moveTo(41, 15); c.lineTo(41, 55); c.stroke(); c.setLineDash([3, 3]); c.beginPath(); c.moveTo(12, 40); c.quadraticCurveTo(30, 22, 50, 30); c.stroke(); c.restore(); },
+  spyglass(c) { c.save(); c.translate(32, 32); c.rotate(-0.62); c.fillRect(-26, -5, 15, 10); c.fillRect(-12, -7, 14, 14); c.fillRect(3, -9.5, 22, 19); c.restore(); },
+  seal(c) { for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; c.beginPath(); c.arc(32 + Math.cos(a) * 19, 32 + Math.sin(a) * 19, 7, 0, 7); c.fill(); } c.beginPath(); c.arc(32, 32, 20, 0, 7); c.fill(); c.save(); c.globalCompositeOperation = 'destination-out'; c.lineWidth = 5; c.lineCap = 'round'; c.lineJoin = 'round'; c.beginPath(); c.moveTo(22, 33); c.lineTo(29, 40); c.lineTo(43, 24); c.stroke(); c.restore(); },
 };
 
 function star(c, x, y, r, n, inner = 0.45) {

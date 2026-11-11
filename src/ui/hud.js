@@ -15,6 +15,9 @@
 // when they kill; the bar's tooltip has the numbers (view `dot`, from R.pendingTicks). Low health: a healing potion on the
 // item bar that can be drunk pulses below POTION_HINT_HP (owner playtest 08:03: a run ended with 0 potions used).
 // M2b v6 (rules 7.5): while Packed Satchel's free potion of a fight is unused, the potions on the item bar show "Free".
+// Contracts (docs/specs/expedition.md 9.3; prep.js): in a run with the start camp the tracker pins this zone's contracts
+// (colour, title, progress) under the minimap, in fights and, narrowed beside the zone map, on the map; at the start camp
+// (PREP) the HUD is hidden like on class select.
 import { h, add, clear, fmtNum, moneyEl, clamp, rgba } from './util.js';
 import { spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS } from './art-icons.js';
 import { drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook } from './art-actors.js';
@@ -24,6 +27,7 @@ import { settings } from './settings.js';
 import { linkedText, resurrectText, dangerRule, HEAT_WORDS, tolls, freeActionText } from './ui-text.js';
 import { trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createRuler, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind } from './tracks.js';
 import { createHeatMeter, standText, bossText, fmtTime, lineShown } from './heat.js';
+import { trackerContracts } from './prep.js';
 
 const RES_NAME = { energy: 'Energy', mana: 'Mana', focus: 'Focus' };
 /** Combat v2.1: the wind-up stacks, drawn as large badges (stackBadges) instead of small status icons. */
@@ -311,10 +315,14 @@ export function createHud(root, ctx) {
 
   function update(v) {
     const p = v.player;
-    const inGame = !!p && v.phase !== 'CREATE';
+    // the start camp (PREP, expedition.md 9.1) is one full screen: no HUD around it, as on class select
+    const inGame = !!p && v.phase !== 'CREATE' && v.phase !== 'PREP';
     for (const el of [els.player, els.actionbar, els.xp, els.minimap, els.micro, els.log, els.tracker, els.gold]) el.classList.toggle('hidden', !inGame || v.phase === 'SUMMARY');
     const panelUp = v.phase === 'ZONE_HUB' || v.phase === 'CAMP' || v.phase === 'MAP' || !!v.loot || (v.node && v.node.step !== 'combat' && !(v.combat && !v.combat.over));
-    els.tracker.classList.toggle('dimmed', !!(inGame && panelUp));
+    // contracts (expedition.md 9.3; prep): on the map the tracker stays, narrowed to the column under the minimap, clear of the map
+    const onMap = v.phase === 'MAP' && !!v.contracts && !v.loot;
+    els.tracker.classList.toggle('dimmed', !!(inGame && panelUp && !onMap));
+    els.tracker.classList.toggle('narrow', onMap);
     if (!inGame) { els.pet.classList.add('hidden'); els.target.classList.add('hidden'); els.boss.classList.add('hidden'); syncNameplates(v); ruler.update(v); engage.update(v); heat.update(v); return; }
     heat.update(v);
     const th = THEMES[(v.zone && v.zone.theme) || 'farmland'];
@@ -665,6 +673,9 @@ export function createHud(root, ctx) {
       else if (n.type === 'elite') { lines.push(['h', n.rare ? 'Rare elite' : 'Elite']); lines.push(['l', `Defeat ${n.eliteName}`]); }
     }
     const nNode = lines.length;
+    // contracts of this zone (expedition.md 9.3; prep.js), after the node's lines and before the zone's
+    const cv = v.contracts;
+    const cKey = cv ? JSON.stringify([z && z.idx, cv.held, cv.reserve, cv.contracts.map((c) => [c.id, c.status, c.progress])]) : '';
     if (z && !z.camp && z.rows && z.rows.length) {
       const sq = R.storyQuests; const t = travelState(v);
       lines.push(['h', z.name]);
@@ -676,11 +687,14 @@ export function createHud(root, ctx) {
       else lines.push(['l', `Travel on at level ${t.need} (or after row ${t.rows})`]);
       lines.push(['l', `Row ${z.pos.row} of ${t.rows}`]);
     } else if (z) { lines.push(['h', z.name]); lines.push(['l', `${HEAT_WORDS.Units}: ${fmtTime(v.time)} (par ${fmtTime(v.heat ? v.heat.par : v.par)})`]); } // heatView's par, as the meter
-    const key = JSON.stringify(lines) + nNode;
+    const key = JSON.stringify(lines) + nNode + cKey;
     if (els.tracker.dataset.key === key) return;
     els.tracker.dataset.key = key; clear(els.tracker);
     // the zone's lines (.zl) give way in a fight (style.css body.in-fight), the node's lines stay
-    lines.forEach(([k, t], i) => els.tracker.appendChild(h((k === 'h' ? 'div.tk-h' : 'div.tk-l' + (k === 'd' ? '.done' : '')) + (i >= nNode ? '.zl' : ''), t)));
+    const line = ([k, t], i) => h((k === 'h' ? 'div.tk-h' : 'div.tk-l' + (k === 'd' ? '.done' : '')) + (i >= nNode ? '.zl' : ''), t);
+    lines.slice(0, nNode).forEach((x, i) => els.tracker.appendChild(line(x, i)));
+    if (cv && z && !z.camp) els.tracker.append(...trackerContracts(v, ctx));
+    lines.slice(nNode).forEach((x, i) => els.tracker.appendChild(line(x, i + nNode)));
   }
 
   function log(text, cls = 'lg-hit') {

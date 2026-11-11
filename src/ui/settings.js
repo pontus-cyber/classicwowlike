@@ -1,5 +1,6 @@
-// Player-facing presentation settings (animation speed, fast mode, screen shake, reduce motion, the Dev menu). Persisted
-// in localStorage when available. Nothing here changes game rules.
+// Player-facing presentation settings (animation speed, fast mode, screen shake, reduce motion, the Dev menu, the map new
+// runs get: "Expedition map with start camp", a preview of expedition.md 2 and 9.1). Persisted in localStorage when
+// available. Nothing here changes game rules: the map mode is a newRun option the engine already has.
 import { emitter } from './util.js';
 
 const KEY = 'tbwcr.ui.settings.v1';
@@ -12,6 +13,7 @@ const DEFAULTS = {
   speedrun: false,     // preset: instant animations, no travel, short autoplay delay
   reduceMotion: null,  // no screen shake, small recoil, no number slam; null follows the system's reduced-motion setting
   devTools: true,      // the Dev menu (dev-menu.js, engine-api.md 12): its corner button and the backquote key
+  expeditionCamp: false, // new runs on the expedition map with the start camp (expedition.md 2, 9.1; a preview, off: classic map)
 };
 
 function load() {

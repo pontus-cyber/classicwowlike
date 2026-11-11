@@ -11,10 +11,14 @@
 // Dev tools (owner feedback 2026-11-11; engine-api.md 12): the Dev menu (dev-menu.js) opens with the backquote key or its
 // corner button; each of its ops runs through devAct (the bridge's dev, R.debug) and the result is shown at once, as a
 // loaded state (no animation). ?dev=0 or the settings hide it.
+// Start camp (docs/specs/expedition.md 2, 9.1; prep.js): phase PREP shows the prep screen over the camp scene, its keys go
+// to prepKey (1-8, A-I, R, Enter); the setting "Expedition map with start camp" sets the map new runs get (the bridge's
+// setRunMode; at class select at once). Esc also puts the map's armed Spyglass away.
 import { createBridge, flags } from './engine-bridge.js';
 import { Scene } from './scene.js';
 import { createHud } from './hud.js';
-import { createScreens } from './screens.js';
+import { createScreens, disarmSpyglass } from './screens.js';
+import { prepKey } from './prep.js';
 import { createWindows } from './windows.js';
 import { Director } from './director.js';
 import { initTooltip, hide as hideTip } from './tooltip.js';
@@ -26,7 +30,8 @@ import { HEAT_WORDS, tolls } from './ui-text.js';
 
 export class App {
   constructor() {
-    this.bridge = createBridge();
+    // the map new runs get: the setting "Expedition map with start camp" (prep), else ?expedition=1 / ?prep=1, else classic
+    this.bridge = createBridge(settings.get('expeditionCamp') ? { prep: true } : {});
     this.data = this.bridge.data;
     this.scene = new Scene(document.getElementById('world'));
     this.root = document.getElementById('hud');
@@ -76,6 +81,8 @@ export class App {
       openMeta: () => { hideTip(); app.windows.closeAll(); app.screens.meta.open(); app.queueRender(); },
       closeMeta: () => { app.screens.meta.close(); hideTip(); app.queueRender(); },
       get metaOpen() { return !!(app.screens && app.screens.meta.isOpen()); },
+      // a screen that changed only in presentation (the map's armed Spyglass) is built again
+      refreshScreens: () => { app.screens.refresh(); hideTip(); app.queueRender(); },
     };
     this.ui = ui;
     this.ctx = {
@@ -103,6 +110,14 @@ export class App {
     this.deathEl = h('div.hidden', h('div.overlay-dark'), h('div.deathmsg', h('div.d1', 'You have died'), h('div.d2', 'No resurrection remains. Your journey ends here.')));
     this.root.append(this.bannerEl, this.toasts, this.skipHint, this.deathEl);
     this.bindInput();
+    // "Expedition map with start camp" (settings window, Dev menu): the map of new runs; at class select the run changes now
+    settings.on('change', (k) => {
+      if (k !== 'expeditionCamp') return;
+      const on = !!settings.get('expeditionCamp');
+      const r = this.bridge.setRunMode(on ? { mapMode: 'expedition', prep: true } : {});
+      if (r.now) { this.shown = this.bridge.view; this.syncScene(this.shown, { instant: true }); this.queueRender(); }
+      if (r.ok) this.toast(on ? `Expedition map with start camp${r.now ? '' : ': from the next run'}` : `Classic map${r.now ? '' : ': from the next run'}`, 'info');
+    });
     window.addEventListener('resize', () => { this.scene.resize(); this.applyScale(); this.syncScene(this.shown, { instant: true }); this.queueRender(); });
     this.applyScale();
     this.syncScene(this.shown, { instant: true });
@@ -327,8 +342,14 @@ export class App {
   syncScene(v, opts = {}) {
     const s = this.scene;
     if (!v) return;
-    if (v.phase === 'CREATE') {
+    if (v.phase === 'CREATE' || v.phase === 'PREP') {
+      // class select and the start camp (expedition.md 9.1): the hero by the fire at dusk
       s.setTheme('dusk', false, true);
+      if (v.phase === 'PREP') {
+        s.setHero(v.player.classId, v.player.petId); s.clearEnemies();
+        if (s.mode !== 'create' || opts.instant) s.setMode('create', { props: [{ kind: 'campfire', at: 0.635 }, { kind: 'tent', at: 0.77 }, { kind: 'banner', at: 0.37, color: this.data.classes[v.player.classId].color }], instant: opts.instant });
+        return;
+      }
       s.setHero(v.create.classId, v.create.classId === 'hunter' ? v.create.petId : null);
       s.clearEnemies();
       if (s.mode !== 'create' || opts.instant) s.setMode('create', { props: [{ kind: 'campfire', at: 0.635 }, { kind: 'tent', at: 0.77 }, { kind: 'banner', at: 0.37, color: this.data.classes[v.create.classId].color }], instant: opts.instant });
@@ -483,12 +504,16 @@ export class App {
     }
     if (code === 'Escape') {
       if (this.ui.precastArmed) { this.ui.precastArmed = false; this.queueRender(); return; }
+      if (disarmSpyglass()) { this.ui.refreshScreens(); return; }
       if (this.windows.anyOpen()) this.windows.closeAll();
       else if (this.ui.metaOpen) this.ui.closeMeta();
       else this.windows.toggle('settings');
       hideTip(); return;
     }
-    if (v.phase === 'CREATE') { if (code === 'Enter' && !this.ui.metaOpen) this.act({ type: 'START_RUN' }); return; }
+    if (v.phase === 'CREATE') { if (code === 'Enter' && !this.ui.metaOpen && !e.repeat) this.act({ type: 'START_RUN' }); return; }
+    // the start camp (prep.js): 1-8 contracts, A-I supplies and sight, R reroll, Enter set out; Tab and a focused card's
+    // Space or Enter as the browser's own
+    if (v.phase === 'PREP') { if (prepKey(e, this.ctx) === 'native') return; return; }
     if (/^Digit[1-7]$/.test(code)) { this.ui.castSlot(Number(code[5]) - 1); return; }
     if (code === 'Digit8') { this.ui.useItemSlot(0); return; }
     if (code === 'Digit9') { this.ui.useItemSlot(1); return; }

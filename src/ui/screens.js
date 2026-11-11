@@ -1,6 +1,8 @@
 // Centre screens by phase: class select, hub/camp, zone map, node dialogs, loot, quest rewards,
 // vendor, trainer, shrine, rest, treasure and the run summary (its Killed by line names the killing blow, never an id).
 // Every button sends an action.
+// Start camp and contracts (docs/specs/expedition.md 9.1, 9.3; prep.js): the prep screen in phase PREP, the hub's contract
+// offer, a completed contract's reward choice, the site marks and the Spyglass on the expedition map.
 // Heat (docs/specs/expedition.md H.4): every time-costing choice (map node, Travel on, hub and camp service, Camp wave,
 // Grind waves, the next wave) shows its tolls and the state it ends in from R.heatView's previews (view.heat.next) in its
 // tooltip, colours its toll label when the state changes, and moves a ghost marker on the meter while hovered; nodes
@@ -8,11 +10,13 @@
 import { h, add, clear, fmtNum, moneyEl, moneyText, clamp } from './util.js';
 import { spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon } from './art-icons.js';
 import { drawPortrait, HERO_LOOKS, PET_LOOKS } from './art-actors.js';
-import { tip, itemTip, spellTip } from './tooltip.js';
+import { tip, itemTip, spellTip, hide as hideTip } from './tooltip.js';
 import { conColor, heroPortrait, travelState } from './hud.js';
 import { numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS } from './ui-text.js';
 import { createMeta, buildOaths, echoAmt } from './meta.js';
 import { heatKey, previewBlock, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME } from './heat.js';
+import { createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon } from './prep.js';
+import { contractTitle } from './ui-text.js';
 
 /** The heat preview of a time-costing engine action now (view.heat.next, R.heatView), or null. */
 const heatOf = (v, action) => (v.heat && v.heat.next ? v.heat.next[heatKey(action)] || null : null);
@@ -70,7 +74,7 @@ export function createScreens(root, ctx) {
 
   function mount(key, build) {
     if (cur.key === key && cur.el) return cur.el;
-    if (cur.el) cur.el.remove();
+    if (cur.el) { const hov = [...document.querySelectorAll(':hover')].pop(); if (hov && cur.el.contains(hov)) hideTip(); cur.el.remove(); } // a tooltip of a card that goes goes too
     const el = build();
     cur = { key, el };
     if (el) layer.appendChild(el);
@@ -82,11 +86,13 @@ export function createScreens(root, ctx) {
     if (ctx.ui.overlay) { mount('overlay', () => null); return; }
     const p = v.player;
     if (v.phase === 'CREATE') { mount('create', () => (createEl = buildCreate(ctx))); updateCreate(createEl, v, ctx); return; }
+    // the start camp (expedition.md 9.1): one screen built once per run and patched on every view (focus stays put)
+    if (v.phase === 'PREP' && v.prep) { const el = mount(`prep:${v.seed}`, () => createPrepScreen(v, ctx)); if (el && el.update) el.update(v); return; }
     if (v.phase === 'SUMMARY') { mount('summary:' + (v.summary ? v.summary.seed + v.summary.outcome : ''), () => buildSummary(v, ctx)); return; }
     if (v.loot) { mount('loot:' + lootKey(v), () => (v.loot.kind === 'loot' ? buildLoot(v, ctx) : buildReward(v, ctx))); return; }
     const n = v.node;
     if ((v.phase === 'ZONE_HUB' || v.phase === 'CAMP') && n && n.origin === 'hub') { mount(`svc:${n.type}:${svcKey(v)}`, () => (n.type === 'trainer' ? buildTrainer(v, ctx) : buildVendor(v, ctx))); return; }
-    if (v.phase === 'ZONE_HUB') { mount('hub:' + JSON.stringify(v.hub) + (p && p.talentPoints), () => buildHub(v, ctx)); return; }
+    if (v.phase === 'ZONE_HUB') { mount('hub:' + JSON.stringify(v.hub) + (p && p.talentPoints) + hubContractKey(v), () => buildHub(v, ctx)); return; }
     if (v.phase === 'CAMP') { mount('camp:' + JSON.stringify(v.hub) + v.time + (p && p.level), () => buildCamp(v, ctx)); return; }
     if (v.phase === 'MAP') { mount('map:' + mapKey(v), () => buildMap(v, ctx, false)); return; }
     if (v.phase === 'NODE' && n) {
@@ -103,7 +109,13 @@ export function createScreens(root, ctx) {
 
 const lootKey = (v) => `${v.loot.kind}|${v.loot.title}|${(v.loot.items || v.loot.choices || []).map((i) => i.uid).join(',')}|${v.player.bag.filter(Boolean).length}`;
 const svcKey = (v) => `${v.player.gold}|${v.player.bag.map((s) => (s ? s.uid + ':' + (s.count || 1) : '-')).join(',')}|${v.player.spells.map((s) => s.id + s.tl).join(',')}|${v.player.talentPoints}|${(v.node.stock || []).length}`;
-const mapKey = (v) => `${v.zone.idx}|${v.zone.pos.row}|${v.zone.pos.lane}|${v.zone.exp ? v.zone.exp.pos : ''}|${v.player.level}|${v.legal.travelOn}|${v.time}`;
+const mapKey = (v) => `${v.zone.idx}|${v.zone.pos.row}|${v.zone.pos.lane}|${v.zone.exp ? `${v.zone.exp.pos}|${v.zone.exp.spyglass}|${spy.armed}` : ''}|${v.player.level}|${v.legal.travelOn}|${v.time}`;
+/** The hub's contract state in the hub screen's key (prep): the offer, Reserve and the held contracts. */
+const hubContractKey = (v) => (v.contracts ? `|${v.contracts.reserve}|${v.contracts.held}|${v.contracts.hub ? `${v.contracts.hub.kind}${v.contracts.hub.reserve}${v.contracts.hub.swap.join(',')}` : '-'}` : '');
+/** The Spyglass (expedition.md 2.4; prep): armed from the map's button, the next node clicked is looked at (USE_SPYGLASS). */
+const spy = { armed: false };
+/** Esc or a new screen disarms the Spyglass; true when it was armed. */
+export function disarmSpyglass() { const was = spy.armed; spy.armed = false; return was; }
 
 // ------------------------------------------------------------------ class select
 function buildCreate(ctx) {
@@ -145,12 +157,17 @@ function buildCreate(ctx) {
         h('div.tt-line.num', `${fmtNum(m.echoes)} Echoes · ${numWord(reach)} ${plural(reach, 'unlock')} within reach`), h('div.tt-hint', 'Click to open'));
     });
   }
-  root.append(classes, details, h('div.bottom.panel', h('div.field', h('label', 'Name'), name), h('div.field', h('label', 'Seed'), seed), echoes, go));
+  // the map new runs get (the setting "Expedition map with start camp", ?expedition=1, ?prep=1): said on class select
+  const mode = h('div.modechip.hidden');
+  tip(mode, () => h('div', h('div.tt-name', mode.textContent), h('div.tt-line', 'A preview of the coming expedition map. Switch it in the settings (Esc) or the Dev menu.')));
+  root.append(classes, details, h('div.bottom.panel', h('div.field', h('label', 'Name'), name), h('div.field', h('label', 'Seed'), seed), mode, echoes, go));
   return root;
 }
 
 function updateCreate(root, v, ctx) {
   const d = ctx.data; const c = v.create; const cls = d.classes[c.classId];
+  const mc = root.querySelector('.modechip'); const rm = ctx.bridge.runMode ? ctx.bridge.runMode() : {};
+  if (mc) { mc.textContent = rm.mapMode === 'expedition' ? (rm.prep ? 'Expedition map with start camp (preview)' : 'Expedition map (preview)') : ''; mc.classList.toggle('hidden', rm.mapMode !== 'expedition'); }
   root.querySelectorAll('.ccard').forEach((el) => el.classList.toggle('sel', el.dataset.cls === c.classId));
   const m = v.meta;
   // Echoes button: the balance and how many unlocks it can buy (the engine's offers)
@@ -209,12 +226,17 @@ function svcCard(glyph, bg, name, meta, cost, used, onClick, heat = null) {
   return el;
 }
 
+const hubSwap = { swap: false }; // the hub offer's swap list stays open across the hub screen's rebuilds
 function buildHub(v, ctx) {
   const z = v.zone; const p = v.player; const used = (v.hub && v.hub.used) || {}; const hr = ctx.data.rules.time;
   const el = h('div.side.panel');
   el.append(h('div.wtitle', h('div', h('div.title', { style: { fontSize: '2.4rem' } }, z.hubName), h('div.subtitle', `${z.name} · levels ${z.band[0]}–${z.band[1]}`))));
   const body = h('div.body.col', { style: { padding: '1.2rem 1.6rem 1.6rem', gap: '.8rem' } });
   if (z.hubText || z.blurb) body.appendChild(h('div', { style: { font: 'italic 1.4rem var(--font-title)', color: 'var(--ink-dim)', marginBottom: '.4rem' } }, z.hubText || z.blurb));
+  // the hub's contract offer (expedition.md 3.6; prep) first: it is only open before leaving the hub
+  if (hubSwap.z !== z.idx) { hubSwap.swap = false; hubSwap.z = z.idx; }
+  const offer = buildHubOffer(v, ctx, hubSwap);
+  if (offer) body.appendChild(offer);
   const svc = (service) => ({ ctx, v, action: { type: 'SERVICE', service } });
   body.append(
     svcCard('tome', 'arcane', 'Trainer', 'Learn and rank up spells', tolls(hr.trainer), used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer')),
@@ -336,7 +358,7 @@ export function buildMap(v, ctx, readOnly) {
  */
 function buildExpMap(v, ctx, readOnly) {
   const z = v.zone; const mv = z.exp; const p = v.player;
-  const win = h('div.mapwin.panel.expmap');
+  const win = h('div.mapwin.panel.expmap' + (spy.armed && !readOnly ? '.spying' : ''));
   const acts = [];
   if (!readOnly && mv.onRoad) acts.push(['Take the Road', { type: 'TAKE_ROAD' }]);
   if (!readOnly && mv.bell && mv.bell.charges > 0) acts.push([`Ring the Bell (${mv.bell.charges})`, { type: 'RING_BELL' }]);
@@ -345,6 +367,14 @@ function buildExpMap(v, ctx, readOnly) {
     tip(b, () => h('div', h('div.tt-name', label), previewBlock(heatOf(ctx.view, a), ctx, { leaves: true })));
     return ghostOn(b, ctx, a);
   });
+  // the Spyglass (expedition.md 2.4; prep): arm it, then click any node: it and its neighbours come into full view, no tolls
+  if (!readOnly && mv.spyglass > 0) {
+    const sb = btn(spy.armed ? 'Choose a node…' : `Spyglass (${mv.spyglass})`, () => { spy.armed = !spy.armed; ctx.ui.refreshScreens(); }, spy.armed ? '.primary.spyon' : '');
+    sb.dataset.spyglass = String(mv.spyglass);
+    tip(sb, () => h('div', h('div.tt-name', 'Spyglass'), h('div.tt-line', 'Look at any node of the zone, however far: it and its neighbours come into full view. Costs no tolls.'),
+      h('div.tt-sub', `${mv.spyglass} ${plural(mv.spyglass, 'look')} left`), h('div.tt-hint', spy.armed ? 'Click a node on the map · Esc or this button to stop' : 'Click, then click a node')));
+    btns.unshift(sb);
+  } else if (spy.armed) spy.armed = false;
   win.appendChild(h('div.mhead', h('div', h('div.title', z.name), h('div.subtitle', `Levels ${z.band[0]}–${z.band[1]} · expedition map (preview)`)), h('div.row', readOnly ? closeBtn(ctx, 'map') : null, ...btns)));
   const body = h('div.mbody.parchment');
   const svgNS = 'http://www.w3.org/2000/svg';
@@ -372,14 +402,20 @@ function buildExpMap(v, ctx, readOnly) {
       h('div.cl', { style: { color: n.know === 'full' && n.cl && !n.hub ? conColor(n.cl, p.level) : NEUTRAL } }, n.hub ? 'Hub' : type ? `${NODE_NAME[type] || type}${n.know === 'full' && n.cl ? ` ${n.cl}` : ''}` : '?'));
     if (here) el.appendChild(flagSvg());
     if (n.road) el.appendChild(h('div.xtag.road', 'Road'));
+    const marks = siteBadge(n, v); // contract site marks (prep): only the ones the player sees; a hidden node stays unnamed
+    if (marks) el.appendChild(marks);
     if (n.shardfall) el.appendChild(h('div.xtag.shard', 'Shardfall'));
     const act = { type: 'MOVE', nodeId: n.id };
     const hp = m ? heatOf(v, act) : null;
     if (hp) el.appendChild(tollLabel(h('div.mhrs', tolls(hp.time)), hp));
     if (n.done && n.heat && ctx.data.rules.heat && (ctx.data.rules.heat.gain[n.heat] > 0 || ctx.data.rules.heat.rarityUp[n.heat] > 0)) el.appendChild(h('div.mheat', { dataset: { hs: n.heat } }));
-    if (m) { el.addEventListener('click', () => ctx.act(act)); ghostOn(el, ctx, act); }
+    const look = { type: 'USE_SPYGLASS', nodeId: n.id };
+    if (!readOnly) el.addEventListener('click', () => { if (spy.armed) { spy.armed = false; ctx.act(look); } else if (m) ctx.act(act); });
+    if (m) ghostOn(el, ctx, act);
     tip(el, () => {
       const box = h('div.tt-node', h('div.tt-name', n.hub ? z.hubName : type ? NODE_NAME[type] || type : 'Unknown'), h('div.tt-sub', `Ring ${n.ring}${n.know === 'full' && n.cl && !n.hub ? ` · level ${n.cl}` : ''}${n.dimmed ? ' · Dimmed' : n.dimsIn !== Infinity && n.dimsIn != null ? ` · dims in ${tolls(n.dimsIn)}` : ''}`));
+      for (const ln of siteLines(n, ctx.view, ctx)) box.appendChild(ln);
+      if (spy.armed && !readOnly) { box.appendChild(h('div.tt-hint', 'Click to look here through the Spyglass')); return box; }
       if (m) {
         box.appendChild(h('div.tt-line', m.via === 'enter' ? 'Click to enter' : 'Click to walk here'));
         box.appendChild(previewBlock(heatOf(ctx.view, act), ctx));
@@ -597,6 +633,17 @@ function buildReward(v, ctx) {
     tip(c, () => itemTip(it, ctx, { hint: 'Click to choose this reward' }));
     return c;
   }));
+  if (L.kind === 'contract') {
+    // a completed contract (expedition.md 3.1, 9.3): paid at once on its last site; its item choice as the story's
+    const c = L.contract;
+    const head = h('div.qtext.parchment.ctr', c ? h('div.giver', h('img', { src: kindIcon(c.kind), alt: '' }), contractTitle(c, ctx.data.content)) : null, h('div.turnin', `“A runner from ${L.hubName || 'the hub'} brings your pay. Well done.”`));
+    if (c) tip(head, () => contractTip(c, ctx, { status: 'Complete' }));
+    return dialog('Contract complete', c ? `Zone ${c.z} · ${c.zoneName}` : '', [head,
+      h('div.row', { style: { gap: '2rem' } }, L.xp ? h('span', { style: { color: '#d0a8ff', fontWeight: 700, fontSize: '1.35rem' } }, `+${fmtNum(L.xp)} XP`) : null, L.gold ? h('span', moneyEl(L.gold)) : null),
+      h('div.subtitle', 'Choose one reward'), cards,
+      p.bag.every(Boolean) ? h('div.warn', 'Your bags are full: discard something first (B).') : null,
+    ], [], { style: { width: '60rem' }, cls: 'contract-reward' });
+  }
   const story = L.kind === 'story';
   return dialog(story ? 'Story complete' : 'Quest complete', L.title, [
     h('div.qtext.parchment', L.giver ? h('div.giver', `${L.giver} says:`) : null, h('div.turnin', `“${L.text}”`)),
@@ -674,7 +721,10 @@ function buildSummary(v, ctx) {
     ...(s.death ? [['Killed by', h('span.killed', { dataset: { ability: s.death.ability || '' } }, s.death.ability ? `${s.death.killer} (${s.death.ability})` : s.death.killer)], ['Where', `${s.death.node}, round ${s.death.round}`]] : []),
   ]));
   const card2 = h('div.card', h('h3', 'Deeds'), kv([
-    ['Kills', `${s.kills.normal} normal · ${s.kills.elite} elite · ${s.kills.rare} rare · ${s.kills.boss} boss`], ['Quests', `${s.quests} (${s.story} stories)`], ['Dungeons cleared', String(s.dungeons)],
+    ['Kills', `${s.kills.normal} normal · ${s.kills.elite} elite · ${s.kills.rare} rare · ${s.kills.boss} boss`], ['Quests', s.contracts ? String(s.quests) : `${s.quests} (${s.story} stories)`],
+    // contracts (expedition.md 8.1; prep): the summary's expedition.contracts
+    ...(s.contracts ? [['Contracts', `${s.contracts.completed} of ${s.contracts.taken} completed${s.contracts.expired ? ` · ${s.contracts.expired} expired` : ''}${s.contracts.abandoned ? ` · ${s.contracts.abandoned} given up` : ''} · Reserve left ${s.contracts.reserve}`]] : []),
+    ['Dungeons cleared', String(s.dungeons)],
     ['Gold', `earned ${moneyText(s.goldEarned)} · spent ${moneyText(s.goldSpent)}`], ['Potions used', String(s.potions)], ['Resurrections', String(s.resurrects)],
     ['Damage', `dealt ${fmtNum(s.dealt)} · taken ${fmtNum(s.taken)}`], ['Top spells', s.topSpells.map(([n, d]) => `${n} ${fmtNum(d)}`).join(', ') || '—'],
   ]), h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '.4rem', marginTop: '.8rem' } }, s.equipped.map((it) => tip(h('div.slot.q-' + it.rarity, h('img', { src: itemIcon(it), alt: '' })), () => itemTip(it, ctx, { compare: false })))));

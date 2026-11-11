@@ -146,14 +146,17 @@ export class Director {
       // ------------------------------------------------ transitions driven by the action
       const t = action.type;
       if (t === 'SELECT_CLASS' || t === 'SELECT_PET') { ctx.syncScene(next); scene.act('player', 'cheer', D(900)); }
-      if (t === 'START_RUN') {
-        // the hub panel shows at once; the world fades in behind it
+      if (t === 'START_RUN' || t === 'SET_OUT') {
+        // the hub panel shows at once; the world fades in behind it. A run with the start camp (expedition.md 2) opens
+        // the camp first (no zone yet); SET_OUT leaves it for zone 1's hub
         scene.screenFlash('#000000', 1, 1.1);
         ctx.syncScene(next, { instant: true });
         Object.assign(shown, next); push();
         hud.clearLog();
-        ctx.ui.banner(next.zone.name, zoneLine(next.zone, ctx.data.rules), 'zone', 2400);
-        hud.log(`Welcome to ${next.zone.name}. Visit the trainer, then set out.`, 'lg-sys');
+        if (next.zone) {
+          ctx.ui.banner(next.zone.name, zoneLine(next.zone, ctx.data.rules), 'zone', 2400);
+          hud.log(`Welcome to ${next.zone.name}. Visit the trainer, then set out.`, 'lg-sys');
+        }
       }
       // an expedition move into a node (MOVE, rules 1.9) travels like a map choice; a Road or the Bell like Travel on
       if ((t === 'CHOOSE_NODE' || t === 'MOVE') && next.phase === 'NODE') await this.travel(prev, next, token);
