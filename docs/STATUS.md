@@ -14,6 +14,11 @@ M2 done 2026-11-10 (P1 45/45). Active: M2b, expedition map and combat v2 (docs/s
 - Engine: Delve price back to 2 (D93 guard tripped), EXPED_DROP_MULT 1.9 (cell 10), remove DUNGEON_DIM_HOLD (B4 dropped); Beastcall Horn stays 12 (row 8 void: PALL hunter lead is Ricochet Bolt).
 - Designer: B43 (caught zones 21.7 %, Dimmed share 20.2 %) and B12 (31.8 / 30.8 min); PALL hunter via Ricochet Bolt; P10 profile under the 8.2 order. Flip criteria 2 and 3 pass, 1 fails on B43 and B12.
 
+## Next (after engine v12, c0ab802)
+- Sim: v12 sim rows (escapeV and planner price an outward Dimmed step at TIME_DIM_ESCAPE; speedrunner per balance.md 1; Ricochet arm via C.RICOCHET_BOUNCE_FRAC_GATED; drop the v11 row-8 test; measure-v11.sh patches) and the v12 measure; then the flip decision.
+- Running: one-button study (owner 18:41/18:46), report docs/reports/mash-2026-11-11.md.
+- UI: playtest items in BACKLOG (contract expiry warning, duplicate offers, card labels, heat toast flapping).
+
 ## Waiting on the owner
 Nothing blocking. See docs/OWNER.md.
 
