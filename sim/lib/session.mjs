@@ -14,6 +14,7 @@ export const CLASSES = ['rogue', 'mage', 'hunter'];
 /**
  * opts: { pool, bot, classes, runs, seedStart, prof, trees: {cls: tree}, style, variant, pet, out,
  *         warmup (runs, 0 = none), obsIn: {cls: obs}, log, quiet, workers, name, replay (B50 replays, combat-v2.md 11),
+ *         think (mash report: replayThink of every non-boss fight, the record's `tk`),
  *         map ('expedition'), vision ({ guide, charts, pathfinder }), dimming (false: no Dimming), oracle (C_step), route (C_route),
  *         prep (start camp and contracts), prepPolicy ('none' | 'random', B40), expMeta ({ quartermaster, cartographer, old_hand }),
  *         prepForce / prepBan ([option id]: bought first / never by the planner family, M2b v10 cell 9), tablesIn (file name,
@@ -24,7 +25,7 @@ export async function runBatch(opts) {
   const commit = commitInfo();
   const date = new Date().toISOString().slice(0, 10);
   const cellBase = {
-    bot: opts.bot, prof: opts.prof, style: opts.style || null, variant: opts.variant || null, pet: opts.pet || null, ...(opts.replay ? { replay: true } : {}), ...(opts.pairs ? { pairs: true } : {}),
+    bot: opts.bot, prof: opts.prof, style: opts.style || null, variant: opts.variant || null, pet: opts.pet || null, ...(opts.replay ? { replay: true } : {}), ...(opts.pairs ? { pairs: true } : {}), ...(opts.think ? { think: true } : {}),
     // Expedition cells (MILESTONES 2b.4): map mode, vision kit, Dimming off (B44), oracle C_step (B41).
     ...(opts.map ? { map: opts.map } : {}), ...(opts.vision ? { vision: opts.vision } : {}), ...(opts.dimming === false ? { dimming: false } : {}), ...(opts.oracle ? { oracle: true } : {}), ...(opts.route ? { route: true } : {}),
     // Start camp and contracts (MILESTONES 2b.5): prep, the B40 prep overrides, the expedition meta entries.
@@ -65,7 +66,7 @@ export async function runBatch(opts) {
   const meta = {
     name, commit, date, runs: opts.runs, seedStart: opts.seedStart, workers: opts.workers || 1, wallMs, totalRuns: total,
     warmupNote: notes.join('; '), bot: opts.bot, prof: opts.prof, trees: opts.trees, style: opts.style || 'balanced', variant: opts.variant || null, pet: opts.pet || null,
-    replay: !!opts.replay, pairs: !!opts.pairs, simOverride: process.env.SIM_OVERRIDE || null,
+    replay: !!opts.replay, pairs: !!opts.pairs, think: !!opts.think, simOverride: process.env.SIM_OVERRIDE || null,
     map: opts.map || 'rows', vision: opts.vision || null, dimming: opts.dimming !== false, oracle: !!opts.oracle, route: !!opts.route,
     ...(opts.prep ? { prep: true, prepPolicy: opts.prepPolicy || null, expMeta: opts.expMeta || null, prepForce: opts.prepForce || null, prepBan: opts.prepBan || null } : {}),
     ...(opts.tablesIn ? { tablesIn: opts.tablesIn } : {}),

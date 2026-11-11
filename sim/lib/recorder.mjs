@@ -19,6 +19,9 @@
 //        `action` events with `disrupt`)]
 //   wy: combat v2.1, answered wind-ups per run by fight kind and how: { '<kind>|<why>': n } (why of the `stagger`
 //       event: interrupt, control, trap, disrupt, silenced, avoided)
+//   fc: per fight, aligned with fx (mash report, docs/reports/mash-2026-11-11.md): [HP % at the fight's start, nodes
+//       entered before it in the run (engine `node` events), enemies at the start as 'tid:k' joined by ',' (k: n normal,
+//       e elite, r rare, d dungeon boss, b end boss)]
 //   ht: heat (expedition.md H.6, rules 9): nodes entered per heat state [clear, warm, hot, scorched] (summary
 //       heat.nodesByState; B56)
 //   boss: at FIGHT_BOSS { lvl, ilvl (mean equipped), rare (share of slots rare or epic), empty, ember, gs (sum of the
@@ -38,6 +41,8 @@ import { C2 } from './params.mjs';
 import { isEngageRound, isOffBalanceId, actionTarget, actionLabel, defaultTarget } from './view.mjs';
 
 export const FIGHT_KINDS = ['quest', 'grind', 'elite', 'trash', 'dboss', 'treasure', 'camp', 'boss', 'dim'];
+/** Enemy variant codes of the fc composition (combat.js makeEnemy `kind`). */
+export const ENEMY_KIND_CODE = { normal: 'n', elite: 'e', rare: 'r', dboss: 'd', boss: 'b' };
 export const FK = Object.fromEntries(FIGHT_KINDS.map((k, i) => [k, i]));
 const pct = (x) => Math.max(0, Math.min(100, Math.round(x * 100)));
 const permille = (x) => Math.max(0, Math.min(1000, Math.floor(x * 1000 + 1e-9)));
@@ -72,6 +77,8 @@ export class Recorder {
     this.xpC = 0;
     this.dm = [];
     this.dimAt = null;
+    this.fc = [];
+    this.nodeN = 0;
   }
 
   /** State facts before a step; with the action `a`, the combat v2 fields that need the state before it. */
@@ -196,6 +203,7 @@ export class Recorder {
         case 'levelUp': if (!lvlApplied) { hp += p.d.maxHp - b.maxHp; lvlApplied = true; } break;
         case 'resurrect': hp = Math.max(1, Math.round(C.RES_HP_PCT * p.d.maxHp)); break;
         case 'node':
+          this.nodeN++;
           if (ENTRY_NODE.has(e.type)) this.openEntry(e.type, e.cl - b.level, b.hp / b.maxHp);
           break;
         case 'dim': this.dimAt = { d: e.depth, hp0: pct(hp / b.maxHp) }; break;
@@ -205,6 +213,7 @@ export class Recorder {
             n0: e.enemies.length, engage: '', engageArch: '', acted: false, firstDiff: null, firstArch: '', spell: false,
             round: 1, firstOb: 0, opened: 0, used: 0, win: new Map(), signal: 0, hpOpen: null,
             wuA: 0, wuL: 0, wuK: 0, dis: 0, wuNow: null,
+            hp0: pct(hp / b.maxHp), nodeN: this.nodeN, comp: fightComp(s, e),
           };
           const lvl = e.enemies.length ? e.enemies[0].level : b.level;
           if (e.kind === 'grind' || e.kind === 'camp') this.openEntry(e.kind, lvl - b.level, hp / b.maxHp);
@@ -221,6 +230,7 @@ export class Recorder {
             const rounds = e.t === 'victory' ? e.rounds : s.stats.rounds - this.fight.r0;
             const fz = this.fight;
             this.fx.push([FK[fz.kind], rounds, e.t === 'victory' ? 1 : 2, pct(hp / p.d.maxHp), fz.z, permille(fz.min), s.stats.potionsUsed - fz.pot]);
+            this.fc.push([fz.hp0, fz.nodeN, fz.comp]);
             this.closeF2(false, hp / p.d.maxHp);
             const k = this.fight.kind;
             this.fight = null;
@@ -238,6 +248,7 @@ export class Recorder {
             if (this.fight) {
               const rounds = this.fight.kind === 'boss' ? s.stats.bossRounds : s.stats.rounds - this.fight.r0;
               this.fx.push([FK[this.fight.kind], rounds, 0, 0, this.fight.z, 0, s.stats.potionsUsed - this.fight.pot]);
+              this.fc.push([this.fight.hp0, this.fight.nodeN, this.fight.comp]);
               this.fight.wuK = this.killedByWindup(s, events);
               this.closeF2(true, 0);
               this.fight = null;
@@ -293,7 +304,7 @@ export class Recorder {
       ech: sum ? sum.echoes.total : 0, echFirst: line('firstKill'), echSpeed: line('speed'),
       rests: st.rests || 0, potions: sum ? sum.potionsUsed : 0, res: sum ? sum.resurrectsUsed : 0,
       gold: sum ? sum.gold : null, travelLv: this.travelLv, train: this.train, ember: this.ember, boss: this.boss,
-      fx: this.fx, f2: this.f2, wy: this.wy, ne: this.ne, steps: meta.steps, ms: meta.ms,
+      fx: this.fx, f2: this.f2, wy: this.wy, fc: this.fc, ne: this.ne, steps: meta.steps, ms: meta.ms,
       ht: sum && sum.heat ? sum.heat.nodesByState : null,
       ...(sum && sum.expedition ? { ex: expRecord(sum.expedition) } : {}),
       ...(this.dm.length ? { dm: this.dm } : {}),
@@ -301,6 +312,7 @@ export class Recorder {
       ...(s.exp && s.exp.prep ? { ct: this.contractRecord(s) } : {}),
       ...(meta.rep ? { rep: meta.rep } : {}),
       ...(meta.pr ? { pr: meta.pr } : {}),
+      ...(meta.tk ? { tk: meta.tk } : {}),
       ...(meta.bm ? { bm: meta.bm } : {}),
       ...(meta.log ? { log: meta.log } : {}),
       ...(meta.hash !== undefined ? { hash: meta.hash } : {}),
@@ -309,6 +321,16 @@ export class Recorder {
 }
 
 const round2 = (x) => Math.round(x * 100) / 100;
+
+/** The fc composition of a `fight` event: 'tid:k' per enemy (template id from the state's enemy, else the name). */
+function fightComp(s, e) {
+  const live = s.fight ? s.fight.enemies : [];
+  return e.enemies.map((x) => {
+    const en = live.find((y) => y.idx === x.u);
+    const tid = en && en.tid ? en.tid : x.kind === 'boss' ? 'boss' : String(x.name);
+    return `${tid}:${ENEMY_KIND_CODE[x.kind] || '?'}`;
+  }).join(',');
+}
 
 const CT_STATE = { complete: 'c', expired: 'e', abandoned: 'a', held: 'h' };
 /** Contract block of a prep run's record (see the header: `ct`). */

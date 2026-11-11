@@ -26,7 +26,8 @@ export function excludedSpells(classId, variant) {
 }
 
 /**
- * cfg: { tree, variant, style, campBar (bool), kit: {potions, rations, mana, tonics, elixir, ember, gear},
+ * cfg: { tree, talent(s) -> talentId|null (optional: default the standard build of `tree`; the onebutton bot's slot-1
+ *        talents), variant, style, campBar (bool), kit: {potions, rations, mana, tonics, elixir, ember, gear},
  *        hub(s, base) -> action, map(s) -> action, grindWaves(s) -> n, combat(s) -> action, trainerNodes (bool),
  *        prep(s) -> action (phase PREP), hubContract(s) -> action | null (prep runs), prepPolicy ('none' | 'random' | null:
  *        B40 overrides of the start camp and the hub contract), rng (bot stream, for prepPolicy 'random') }
@@ -43,7 +44,7 @@ export function createValueBot(name, cfg) {
   return makeBot({
     name,
     combat: cfg.combat || ((s) => R.autoAction(s)),
-    talent: (s) => standardTalent(s, cfg.tree),
+    talent: cfg.talent || ((s) => standardTalent(s, cfg.tree)),
     bar: (s) => templateBar(s, { camp: cfg.campBar && s.phase === 'CAMP', exclude }),
     itemBar: (s) => desiredItemBar(s, { noTonic }),
     food: (s) => foodAction(s, SIM.FOOD_HP),

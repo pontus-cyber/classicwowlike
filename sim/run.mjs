@@ -10,6 +10,9 @@
 //            --risk-in <risk.json of an earlier batch>   --log (keep action logs in runs-*.jsonl)
 //            --replay (B50, combat-v2.md 11: replay every non-boss fight that ends a run in death; used with the masher)
 //            --pairs (diagnostic: replay every non-boss fight with autoplay's, the opener's and the masher's opening)
+//            --think (mash report: replay every non-boss fight with the bot's own combat policy, the opener's opening
+//            then autoplay, and autoplay; the record's `tk`, sim/lib/replay.mjs replayThink)
+//            onebutton: --variant nopot (no healing items in fights); default trees: the slot-1 trees
 //            expedition map (expedition.md 10-11, MILESTONES 2b.4): --map expedition   --vision guide,charts,pathfinder
 //            (vision kit, any subset)   --dimming off (B44 diagnostic)   --oracle (record C_step against the oracle, B41)
 //            --route (with --oracle: C_route, the oracle replays every zone from its entry state on a copy, B41)
@@ -41,6 +44,7 @@ import { readJson, writeJson, commitInfo, ensureDir } from './lib/output.mjs';
 import { C } from './lib/engine.mjs';
 import { campaignMarkdown } from './lib/campaignreport.mjs';
 import { defaultTrees, profileGroup } from './lib/trees.mjs';
+import { oneButtonTrees } from './bots/onebutton.mjs';
 
 function parse(argv) {
   const o = {};
@@ -48,7 +52,7 @@ function parse(argv) {
     const a = argv[i];
     if (!a.startsWith('--')) throw new Error(`unexpected argument ${a}`);
     const k = a.slice(2);
-    if (k === 'log' || k === 'replay' || k === 'pairs' || k === 'oracle' || k === 'route' || k === 'prep' || k === 'beastcall-gated') { o[k] = true; continue; }
+    if (k === 'log' || k === 'replay' || k === 'pairs' || k === 'think' || k === 'oracle' || k === 'route' || k === 'prep' || k === 'beastcall-gated') { o[k] = true; continue; }
     o[k] = argv[++i];
   }
   return o;
@@ -62,7 +66,8 @@ for (const c of classes) if (!CLASSES.includes(c)) throw new Error(`unknown clas
 const workers = Number(args.workers || cpus().length);
 const out = args.out || join('sim', 'out', new Date().toISOString().slice(0, 10));
 // Campaigns start from P0, so they play the P0-group trees.
-const groupTrees = defaultTrees(args.campaign ? 'P0' : profileGroup(args.profile || 'fresh'));
+// The onebutton bot plays the slot-1 tree of each class (sim/bots/onebutton.mjs slot1Tree) unless --tree is given.
+const groupTrees = args.bot === 'onebutton' && !args.campaign ? oneButtonTrees() : defaultTrees(args.campaign ? 'P0' : profileGroup(args.profile || 'fresh'));
 const trees = Object.fromEntries(classes.map((c) => [c, args.tree !== undefined ? Number(args.tree) : groupTrees[c]]));
 const obsIn = args['risk-in'] ? readJson(args['risk-in']) : null;
 // M2b v10: completion and Dimmed encounter tables from a table pass, on top of --risk-in's node-risk observations.
@@ -110,7 +115,7 @@ try {
     const r = await runBatch({
       pool, bot: args.bot, classes, runs: Number(args.runs || BAL.N_RUNS_PER_CELL), seedStart: Number(args['seed-start'] || BAL.SEED_BASE),
       prof: args.profile || 'fresh', trees, style: args.style || null, variant: args.variant || null, pet: args.pet || null,
-      out, warmup: args.warmup !== undefined ? Number(args.warmup) : SIM.WARMUP_RUNS, obsIn, log: !!args.log, workers, replay: !!args.replay, pairs: !!args.pairs,
+      out, warmup: args.warmup !== undefined ? Number(args.warmup) : SIM.WARMUP_RUNS, obsIn, log: !!args.log, workers, replay: !!args.replay, pairs: !!args.pairs, think: !!args.think,
       map: args.map || null, vision: args.vision ? Object.fromEntries(args.vision.split(',').map((k) => [k, true])) : null, dimming: args.dimming === 'off' ? false : true, oracle: !!args.oracle, route: !!args.route,
       prep: !!args.prep, prepPolicy: args['prep-policy'] || null, prepForce, prepBan, tablesIn: args['tables-in'] || null, metaDrop, beastcallGated: !!args['beastcall-gated'],
       expMeta: args['exp-meta'] ? Object.fromEntries(args['exp-meta'].split(',').map((x) => { const [id, r] = x.split(':'); return [id, Number(r || 1)]; })) : null,

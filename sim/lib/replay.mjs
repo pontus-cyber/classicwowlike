@@ -9,6 +9,9 @@
 // Opening pairs (diagnostic for B48, cell.pairs): every non-boss fight of an autoplay run replayed with autoplay's,
 // the opener's and the masher's first OPEN_ROUNDS rounds, autoplay after: the opening's value on the same fights,
 // without the run-level path effects (the autoplay replay is the live fight).
+// Think fights (mash report docs/reports/mash-2026-11-11.md, cell.think): every non-boss fight of a run replayed with
+// the acting bot's own combat policy (the live fight again), the opener's first OPEN_ROUNDS rounds then autoplay, and
+// autoplay; the same character, fight and fight stream for all three.
 import { R, hash32, BotRng } from './engine.mjs';
 import { C2 } from './params.mjs';
 import { fightClone } from './clone.mjs';
@@ -77,6 +80,23 @@ export function replayOpenings(snap, seed, fxIndex) {
   for (const x of [auto, openerPolicy(seed, fightNo), mashChoice]) {
     const r = replayFight(snap, x, auto);
     out.push(r.outcome, Math.round(r.hp * 1000), r.pot);
+  }
+  return out;
+}
+
+/**
+ * Think-fight replays of one fight (cell.think): [fx index, fight kind code, HP at the start in per mille, then per
+ * policy (own: the acting bot's combat policy throughout; opener: its first OPEN_ROUNDS rounds, autoplay after;
+ * autoplay throughout): outcome code, HP at the end in per mille (0 on a death), potions used, resurrects used].
+ * own must be a stateless combat policy (onebutton, masher, autoplay).
+ */
+export function replayThink(snap, seed, fxIndex, own) {
+  const fightNo = snap.stats.fights;
+  const auto = (s) => R.autoAction(s);
+  const out = [fxIndex, FK[snap.fight.kind], Math.round((snap.player.hp / snap.player.d.maxHp) * 1000)];
+  for (const [x, y] of [[own, own], [openerPolicy(seed, fightNo), auto], [auto, auto]]) {
+    const r = replayFight(snap, x, y);
+    out.push(r.outcome, Math.round(r.hp * 1000), r.pot, r.res);
   }
   return out;
 }

@@ -370,15 +370,16 @@ export function expHub(s, inn) {
 
 /**
  * oracle: true builds the oracle as an acting bot (diagnostic only, B41 C_route): the runner plays it on a copy of the
- * zone-entry state to get the oracle's route; it never plays a measured run.
+ * zone-entry state to get the oracle's route; it never plays a measured run. combat / talent: the masher's, opener's and
+ * onebutton bot's own combat and talent policies (null: autoplay, the standard build of `tree`).
  */
-export function createPlannerBot({ classId, risk, tree, style = 'balanced', variant = null, combat = null, name = 'planner', oracle = false, rng = null, prepPolicy = null, prepForce = null, prepBan = null }) {
+export function createPlannerBot({ classId, risk, tree, style = 'balanced', variant = null, combat = null, talent = null, name = 'planner', oracle = false, rng = null, prepPolicy = null, prepForce = null, prepBan = null }) {
   const hm = plannerHourMult(variant);
   const heat = plannerHeat(variant);
   const inn = (x) => innByValue(x, risk, style, hm, heat);
   const expMap = oracle ? (s) => oracleMap(s, risk, style, hm, heat).action : (s) => planExpMap(s, risk, style, hm, heat).action;
   return createValueBot(oracle ? 'oracle' : name, {
-    classId, tree, variant, style, campBar: true,
+    classId, tree, talent, variant, style, campBar: true,
     kit: { ...FULL_KIT, ember: true },
     combat,
     hub: (s) => (s.mapMode === 'expedition' ? expHub(s, inn) : hubFull(s, inn)),
