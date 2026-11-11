@@ -1695,8 +1695,8 @@ async function partI(browser, W, H) {
         d = await meterDom(page); diff = meterDiff(d, hv, false);
         const badgeTxt = await page.locator('#screens .dialog .wtitle .heat-badge').innerText().catch(() => null);
         await shot(page, 'I-node-hot');
-        check('M2b-heat', `a ${s.node.type} node entered Hot: the dialog badge "Hot spoils" and the meter's "This node pays Hot: ${payTxt('hot', true)}" (heatView.node)`,
-          !diff.length && hv.node && hv.node.state === 'hot' && /hot spoils/i.test(badgeTxt || ''), `${diff.join(' | ')} | badge "${badgeTxt}" | node ${JSON.stringify(hv.node)}`);
+        check('M2b-heat', `a ${s.node.type} node entered Hot: the dialog badge "${HNAME.hot} spoils" and the meter's "This node pays Hot: ${payTxt('hot', true)}" (heatView.node)`,
+          !diff.length && hv.node && hv.node.state === 'hot' && (badgeTxt || '').toLowerCase().includes(`${HNAME.hot} spoils`.toLowerCase()), `${diff.join(' | ')} | badge "${badgeTxt}" | node ${JSON.stringify(hv.node)}`);
         continue;
       }
       await shot(page, `I-map-${r.key}`);
@@ -1757,7 +1757,7 @@ async function partI(browser, W, H) {
       xv: [...el.querySelectorAll('.hc-chart .xv')].map((x) => x.textContent), foot: el.querySelector('.hc-foot').textContent, strip: el.querySelector('.hc-strip').getAttribute('aria-label') }));
     const recs = sm.heat.trackPerZone; const par = R.bossPar(s); const over = sm.hours - par;
     const signedH = (v) => { const k = v > 0 ? Math.floor(v + 1e-9) : Math.ceil(-v - 1e-9); return v > 0 && k ? `+${k}` : v < 0 && k ? `−${k}` : '0'; };
-    const wantEnd = sm.reached && sm.reached.camp ? `${HEAT_WORDS.Units}: ${fh(sm.hours)} (par ${fh(par)}) · ${over > 0 ? `${tolls(over)} over par` : over < 0 ? `${tolls(over)} under par` : 'on par'}${sm.asc ? ` · Ascendancy +${Math.round(sm.asc * 100)} %` : ''}` : null;
+    const wantEnd = sm.reached && sm.reached.camp ? `${HEAT_WORDS.Units}: ${fh(sm.hours)} (par ${fh(par)}) · ${over > 0 ? `${tolls(over)} over par` : over < 0 ? `${tolls(over)} under par` : 'on par'}${sm.ascendancy ? ` · Ascendancy +${Math.round(sm.ascendancy * 100)} %` : ''}` : null; // the bridge's summary.asc = R.summary ascendancy
     const hoursOk = card.leg.startsWith(`${HEAT_WORDS.Units} in each state: `) && R.C.HEAT_STATES.every((st, i) => card.leg.includes(`${HNAME[st]} ${fh(sm.heat.hoursByState[i])}`));
     await shot(page, 'I-summary');
     check('M2b-heat', `summary: the heat card's track has ${recs.length} zone records (${recs.length * 2} points, each zone's heat when left under it), hours by state ${sm.heat.hoursByState.join('/')} and "${wantEnd}" (hours - bossPar)`,
@@ -2271,6 +2271,13 @@ async function partJRogue(browser, W, H) {
     await shot(page, 'J-rogue-answer');
     check('M2b-2b.6', `a wind-up plays this round (${w.name}'s ${w.ability}): the bar marks exactly the usable spells that can stop it, ${spName} (key ${w.slot + 1}) tagged "Answer"`,
       tgt === w.idx && !bad.length && !!b && b.ans && b.tag.startsWith('Answer') && !b.wtag, `${bad.join(' | ')}; target ${tgt}; slot ${JSON.stringify(b)}`);
+    // UX pass 2026-11-11: the turn prompt over the action bar names the answer and its key; the bar is framed as your turn
+    const tp = await page.evaluate(() => { const el = document.querySelector('#turnprompt'); const r = el.getBoundingClientRect(); const bar = document.querySelector('#actionbar');
+      const c = (x, y) => { const e = document.elementFromPoint(x, y); return e ? e.closest('#actionbar .ab, #actionbar .ctrl') : null; };
+      return { shown: !el.classList.contains('hidden'), kind: el.dataset.kind, text: el.textContent.replace(/\s+/g, ' ').trim(), turn: bar.classList.contains('your-turn'),
+        inView: r.width > 0 && r.left >= 0 && r.right <= innerWidth && r.top >= 0, overBar: [[0.1, 0.5], [0.5, 0.5], [0.9, 0.5]].some(([fx, fy]) => c(r.left + r.width * fx, r.top + r.height * fy)) }; });
+    check('UX-1', `turn prompt on the wind-up round: "Wind-up now: answer with ${w.slot + 1} ${spName}", the bar framed as your turn, in view and covering no bar button`,
+      tp.shown && tp.kind === 'windup' && tp.text.includes(`Wind-up now: answer with ${w.slot + 1} ${spName}`) && tp.turn && tp.inView && !tp.overBar, JSON.stringify(tp));
     // hovering the wind-up's chip marks every bar spell that can answer it (stop or, for a heavy one, avoid)
     await page.locator(`#nameplates .np[data-idx="${w.idx}"] .trk .tk[data-turn="${w.turn}"]`).hover(); await page.waitForTimeout(200); await frame();
     d = await j21dom(page);
@@ -2290,9 +2297,12 @@ async function partJRogue(browser, W, H) {
     const k0 = await page.evaluate(() => performance.now()); // plays() keeps the last 200 steps: find the round by its input time
     await page.keyboard.press(`Digit${w.slot + 1}`);
     const atMoment = await page.waitForFunction(() => { const e = window.__ui.playingEvent(); return !!(e && e.t === 'windup'); }, null, { timeout: 6000, polling: 'raf' }).then(() => true, () => false);
+    const tpDuring = atMoment ? await page.evaluate(() => document.querySelector('#turnprompt').classList.contains('hidden')) : null;
     if (atMoment) { await page.waitForTimeout(150); await shot(page, 'J-rogue-moment'); }
     await idle(page);
     const rec = (await page.evaluate(() => window.__ui.plays())).find((r) => r.input >= k0) || null;
+    { const after = await page.evaluate(() => { const v = window.__ui.view(); return { hidden: document.querySelector('#turnprompt').classList.contains('hidden'), live: !!(v.combat && !v.combat.over) }; });
+      check('UX-1', 'the turn prompt is hidden while the round plays (at the wind-up\'s moment) and back when the game waits again', atMoment && tpDuring === true && (!after.live || !after.hidden), `during the moment: hidden ${tpDuring}; after: ${JSON.stringify(after)}`); }
     const ms = rec ? roundMs(rec) : null; const cap = rec && rec.round ? rec.round.budget : null;
     // D52: headless rendering at 1920x1080 runs at about 10 fps, so there a single round is reported and not held to the cap
     const capHeld = !(W >= 1920 && H >= 1080);
