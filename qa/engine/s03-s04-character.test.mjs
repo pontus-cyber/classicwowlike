@@ -22,6 +22,24 @@ describe('rules 3 pacing model', () => {
   });
 });
 
+describe('rules 5.1 Rogue health (M2b v6, D65)', () => {
+  // rules 4.1: hpBase + hpPerLevel × (L - 1) + HP_PER_STA × STA (the change doc's 121 / 520 / 1 360 count L, not L - 1)
+  test('CLASS.rogue hpBase 100, hpPerLevel 21 (was 70 / 20): before STA and items 100 HP at level 1, 499 at level 20, 1 339 at level 60', () => {
+    assert.deepEqual([C.CLASS.rogue.hpBase, C.CLASS.rogue.hpPerLevel], [100, 21]);
+    const raw = (L) => C.CLASS.rogue.hpBase + C.CLASS.rogue.hpPerLevel * (L - 1);
+    assert.deepEqual([raw(1), raw(20), raw(60)], [100, 499, 1339]);
+    for (const L of [1, 20, 60]) {
+      const s = L === 1 ? started('rogue') : atLevel(started('rogue'), L, { learnAll: false });
+      const p = s.player;
+      const STA = C.CLASS.rogue.stats.STA[0] + C.CLASS.rogue.stats.STA[1] * (L - 1) + Object.values(p.equipped).reduce((a, it) => a + (it ? it.stats.STA || 0 : 0), 0);
+      assert.equal(p.d.maxHp, Math.round(100 + 21 * (L - 1) + C.HP_PER_STA * STA), `level ${L}`);
+      if (L === 1) assert.equal(p.hp, p.d.maxHp, 'a new Rogue starts at full health');
+    }
+    // the other classes are unchanged
+    assert.deepEqual([C.CLASS.mage.hpBase, C.CLASS.mage.hpPerLevel, C.CLASS.hunter.hpBase, C.CLASS.hunter.hpPerLevel], [50, 19.5, 60, 15.5]);
+  });
+});
+
 describe('rules 4 character', () => {
   test('4.1 / 4.2 derived values: max HP, Power, crit, dodge, armor, mana, base mana, post-fight regen', () => {
     for (const c of C.CLASS_IDS) {

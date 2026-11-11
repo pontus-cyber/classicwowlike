@@ -506,7 +506,7 @@ export const RING1_FORBIDDEN = ['elite', 'vendor', 'trainer'];
 export const CLASS = {
   rogue: {
     id: 'rogue', name: 'Rogue', primary: 'AGI', resource: 'energy',
-    hpBase: 70, hpPerLevel: 20,
+    hpBase: 100, hpPerLevel: 21, // M2b v6 (D65): was 70 / 20
     stats: { STA: [10, 1.4], AGI: [20, 2.0], INT: [6, 0.3], SPI: [8, 0.6] },
     armorBase: 20, armorPerLevel: 6, armorMult: 1.0, dodgeBase: 0.05, dodgeFromAgi: 0.10,
     basic: { id: 'strike', name: 'Strike', school: 'phys', b: 0, l: 0, p: 0.30, w: 1.0 },
