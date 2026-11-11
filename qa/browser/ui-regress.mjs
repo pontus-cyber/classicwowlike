@@ -108,7 +108,8 @@
  *      and an option's tooltip; Enter sets out (contracts and Reserve = R.contractView); on the map the tracker shows this
  *      zone's contracts (title, "N / M sites") clear of the zone map, site marks on exactly mapView's nodes, hidden ones
  *      unnamed; the quest log lists every contract; zone 2's hub (Dev menu Start at) shows its offer and Take pays from
- *      Reserve. No console errors.
+ *      Reserve. Then seed 1 on the engine's autoplay choices to a completed contract: its reward window (title, +XP and gold
+ *      = the engine's events, the item cards) and the choice. No console errors.
  *
  * Seeds were picked with the engine of 3559e0e (M2 v2): seed 30's first quest has two Guardians that last long
  * enough for the potion and Autoplay checks. M2 v3 (77c0ca5): seed 1's autoplay run no longer reaches the camp, so part B
@@ -2702,12 +2703,19 @@ async function partM(browser, W, H) {
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const pagePrep = () => page.evaluate(() => window.__ui.view().prep);
   try {
-    await page.keyboard.press('Enter'); await idle(page);
-    // Enter again at once (the key that started the run): the camp stays open (the guard)
-    await page.keyboard.press('Enter'); await idle(page);
+    await page.keyboard.press('Enter');
+    // Enter again at once (a double press of the key that started the run): the camp stays open (prep.js's guard). The
+    // second press is sent the moment the screen is there, so a slow machine cannot stretch the gap past the guard.
+    const age = await page.evaluate(async () => {
+      for (let i = 0; i < 400 && !document.getElementById('prep'); i++) await new Promise((r) => setTimeout(r, 10));
+      const el = document.getElementById('prep'); const a = el ? performance.now() - Number(el.dataset.mounted) : null;
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', key: 'Enter', bubbles: true }));
+      return a;
+    });
+    await idle(page);
     let s = await twin.sync(page); let pv = R.prepView(s);
     const ui0 = await page.evaluate(() => ({ phase: window.__ui.view().phase, bar: document.querySelector('#actionbar').classList.contains('hidden'), n: document.querySelector('#prep .pm-n') && document.querySelector('#prep .pm-n').textContent }));
-    check('M-prep', `class select's Enter opens the start camp (phase ${ui0.phase}); a second Enter at once does not set out; no HUD around it`, ui0.phase === 'PREP' && s.phase === 'PREP' && ui0.bar, JSON.stringify(ui0));
+    check('M-prep', `class select's Enter opens the start camp (phase ${ui0.phase}); a second Enter ${Math.round(age)} ms after it opened does not set out; no HUD around it`, ui0.phase === 'PREP' && s.phase === 'PREP' && ui0.bar && age != null && age < 700, JSON.stringify({ ...ui0, age }));
     const dom = () => page.evaluate(() => ({
       left: document.querySelector('#prep .pm-n').textContent, reserve: document.querySelector('#prep .pm-rl').textContent,
       cards: [...document.querySelectorAll('#prep .pp-card')].map((b) => ({ zone: b.querySelector('.pc-zone').textContent, price: b.querySelector('.pc-price').textContent, need: b.querySelector('.pc-need').textContent, taken: b.classList.contains('taken') })),
@@ -2803,6 +2811,41 @@ async function partM(browser, W, H) {
     check('-', 'part M (start camp and contracts) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
   }
   check('-', 'part M: no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+  await context.close();
+  await partMReward(browser, W, H);
+}
+/** Part M, a completed contract: seed 1 on the engine's autoplay choices (its start camp takes contracts) to the reward. */
+async function partMReward(browser, W, H) {
+  const { context, page, errors } = await open(browser, W, H, 'seed=1&speed=instant&prep=1');
+  const T = await import('../../src/ui/ui-text.js');
+  try {
+    await page.keyboard.press('Enter'); await idle(page);
+    let L = null;
+    for (let i = 0; i < 1500 && !L; i++) {
+      const v = await page.evaluate(() => { const x = window.__ui.view(); return { loot: x.loot && x.loot.kind === 'contract' ? x.loot : null, phase: x.phase }; });
+      if (v.loot) { L = v.loot; break; }
+      if (v.phase === 'SUMMARY') break;
+      await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page);
+    }
+    if (!L) throw new Error('seed 1 completed no contract on the autoplay choices');
+    // the engine's pay: replay the log, sum the XP and gold events after the step's contract complete event
+    const log = await page.evaluate(() => window.__ui.engineLog());
+    let s = R.newRun({ classId: 'rogue', seed: 1, content: CONTENT, mapMode: 'expedition', prep: true }); let pay = null;
+    for (const a of log) { const r = R.step(s, a); s = r.state; const k = r.events.findIndex((e) => e.t === 'contract' && e.what === 'complete'); if (k >= 0) { const after = r.events.slice(k + 1).filter((e) => e.why === 'contract'); pay = { id: r.events[k].id, xp: after.filter((e) => e.t === 'xp').reduce((x, e) => x + e.amount, 0), gold: after.filter((e) => e.t === 'gold').reduce((x, e) => x + e.amount, 0) }; } }
+    const c = R.contractView(s).contracts.find((x) => x.id === pay.id);
+    const dlg = await page.evaluate(() => { const d = document.querySelector('.dialog.contract-reward'); return d ? { title: d.querySelector('.wtitle .title').textContent, text: d.innerText, cards: d.querySelectorAll('.choice-cards .icard').length } : null; });
+    check('M-reward', `a completed contract shows its reward choice: "${c ? T.contractTitle(c, CONTENT) : '?'}", +${pay.xp} XP and its gold (the engine's events), ${s.node.rewards[0].items.length} items to choose from`,
+      !!dlg && dlg.title === 'Contract complete' && dlg.text.includes(T.contractTitle(c, CONTENT)) && L.xp === pay.xp && L.gold === pay.gold && /\+[\d,.\s\u202f\u00a0]+ XP/.test(dlg.text) && dlg.cards === s.node.rewards[0].items.length,
+      JSON.stringify({ dlg: dlg && { title: dlg.title, cards: dlg.cards }, view: { xp: L.xp, gold: L.gold }, engine: pay }));
+    await shot(page, 'M-reward');
+    await page.locator('.dialog.contract-reward .choice-cards .icard').first().click(); await idle(page);
+    const after = await page.evaluate(() => { const x = window.__ui.view(); return { loot: x.loot && x.loot.kind, log: window.__ui.engineLog().slice(-1)[0] }; });
+    check('M-reward', 'choosing a card sends CHOOSE_REWARD and closes the window', after.log.type === 'CHOOSE_REWARD' && after.loot !== 'contract', JSON.stringify(after));
+  } catch (e) {
+    await shot(page, 'M-reward-error');
+    check('-', 'part M (contract reward) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
+  }
+  check('-', 'part M (contract reward): no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
   await context.close();
 }
 

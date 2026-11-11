@@ -11,7 +11,7 @@ import { h, clear, moneyEl } from './util.js';
 import { icon, consumableIcon } from './art-icons.js';
 import { tip } from './tooltip.js';
 import {
-  CONTRACT_KIND, contractTitle, contractTarget, contractSentence, hubOfferSentence, contractKindText, contractSitesText,
+  CONTRACT_KIND, contractTitle, contractSentence, familyName, hubOfferSentence, contractKindText, contractSitesText,
   contractItemsText, levelsText, prepOptionEffect, prepFlavour, bandText, numWord, plural,
 } from './ui-text.js';
 
@@ -181,7 +181,9 @@ export function createPrepScreen(v, ctx) {
       clear(b).append(
         h('div.pc-top', h('span.kbd', BOARD_KEYS[i]), h('span.pc-zone', `Zone ${o.z} · ${o.zoneName}`), h('span.pc-band', `${o.band[0]}–${o.band[1]}`), h('span.pc-price', { title: '' }, String(o.price))),
         h('div.pc-kind', h('img', { src: kindIcon(o.kind), alt: '' }), h('b', CONTRACT_KIND[o.kind] || o.kind), h('span.pc-need', `${o.need} ${plural(o.need, 'site')}`)),
-        h('div.pc-target', contractTarget(o, ctx.data.content)),
+        // the target on one line, where it is on the next (a long Bounty never runs into the pay line)
+        h('div.pc-target', o.kind === 'delve' ? o.dungeon || "the zone's dungeon" : o.kind === 'bounty' ? o.name || 'a named elite' : familyName(o.family, ctx.data.content)),
+        h('div.pc-where', o.kind === 'delve' ? `the dungeon of ${o.zoneName}` : `${o.kind === 'bounty' ? 'roaming' : 'in'} ${o.regionName || 'its region'}`),
         h('div.pc-reward', h('span.xp', levelsText(o.reward.xpFrac)), moneyEl(o.reward.gold), h('span.it', h('i.r-rare', '◆'), h('i.r-epic', '◆'), ` 1 of ${o.reward.choices}`)),
         h('div.pc-act', o.taken ? [h('span.seal', h('img', { src: icon('seal', 'blood'), alt: '' }), 'Taken'), h('span.pc-btn', 'Drop')] : h('span.pc-btn', 'Take')));
       if (o.taken && !was && prev) { b.classList.remove('stamp'); void b.offsetWidth; b.classList.add('stamp'); }
