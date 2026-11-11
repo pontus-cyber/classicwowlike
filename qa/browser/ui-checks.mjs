@@ -81,13 +81,13 @@ try {
   const tip = await page.locator('.tooltip').evaluate((el) => { const c = el.cloneNode(true); c.querySelectorAll('.tt-heat').forEach((x) => x.remove()); document.body.appendChild(c); const t = c.innerText; c.remove(); return t; });
   const k = target.n.archetypes.length;
   await shot('map-tooltip');
-  check(`map tooltip shows the enemy count (${target.n.type} at row ${target.r}: ${k} enemies, ${target.n.archetypes.join(', ')})`, new RegExp(`\\b${k}\\b|${k} ?×|×ub?${k}`).test(tip.replace(/Level \d+|Takes \d+ h/g, '')), tip.replace(/\n/g, ' / '));
+  check(`map tooltip shows the enemy count (${target.n.type} at row ${target.r}: ${k} enemies, ${target.n.archetypes.join(', ')})`, new RegExp(`\\b${k}\\b|${k} ?×|×ub?${k}`).test(tip.replace(/Level \d+|Takes \d+ tolls?( per wave)?/g, '')), tip.replace(/\n/g, ' / '));
 
   // Into a fight on row 1: a quest or grind.
   const lane = mv.rows[0].findIndex((n) => n.type === 'quest' || n.type === 'grind');
   await page.mouse.move(5, 5);
   await page.locator(`#screens button.mnode.reach[data-row="1"][data-lane="${lane}"]`).click(); await idle();
-  if (mv.rows[0][lane].type === 'grind') await page.getByRole('button', { name: '2 waves · 2 h' }).click();
+  if (mv.rows[0][lane].type === 'grind') await page.getByRole('button', { name: '2 waves · 2 tolls' }).click(); // M2b v7: whole tolls, no "h"
   else await page.getByRole('button', { name: 'Accept' }).click();
   await idle();
   let v = await view();

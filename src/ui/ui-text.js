@@ -3,6 +3,20 @@
 // engine at run time. CONTENT.texts (src/content) overrides any line when it provides one.
 import { SPELLS, TALENTS, STATUS_INFO as BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS } from './mock-data.js';
 
+/**
+ * Player-facing words for the run's time pressure (docs/specs/changes-m2b-v7.md table D, draft; owner 2026-11-11 10:12):
+ * the meter is the Furnace, its states Calm, Smouldering, Burning and Infernal (engine ids clear, warm, hot, scorched),
+ * time is counted in tolls, whole numbers only, no "h" and no day clock. Every heat and time text of the UI takes its
+ * words from here, so a rename is one edit. Until the engine's own rename, 1 toll = 1 engine hour (view.hours).
+ */
+export const HEAT_WORDS = {
+  name: 'the Furnace', Name: 'The Furnace', // in a sentence / as a title
+  state: { clear: 'Calm', warm: 'Smouldering', hot: 'Burning', scorched: 'Infernal' },
+  unit: 'toll', units: 'tolls', Units: 'Tolls',
+};
+/** A whole number of tolls in words: "1 toll", "3 tolls" (rounded; never a decimal, never "h"). */
+export function tolls(n) { const k = Math.round(Math.abs(n || 0)); return `${k} ${k === 1 ? HEAT_WORDS.unit : HEAT_WORDS.units}`; }
+
 export const STATUS_INFO = {
   ...BASE_STATUS,
   BRACE: { name: 'Braced', debuff: false, text: 'Takes 50 % less damage.' },
@@ -194,7 +208,7 @@ export const ECHO_LINE = {
   levels: 'Levels gained', zones: 'Zones completed', dungeons: 'Dungeons cleared', elites: 'Elites slain', rares: 'Rares slain',
   quests: 'Quests completed', bossReached: 'Reached the boss', bossPhases: 'Boss phases reached', bossKill: 'Oruvath defeated',
   speed: 'Swift victory', firstKill: 'First kill with this class',
-  heat: 'Fights won in heat', // rules 11.1 (heat): fights won in nodes entered Hot or Scorched
+  heat: `Fights won ${HEAT_WORDS.state.hot} or ${HEAT_WORDS.state.scorched}`, // rules 11.1 (heat): fights won in nodes entered Hot or Scorched
 };
 export const humanize = (id) => String(id || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
@@ -368,7 +382,7 @@ export function metaReqText(req, D, short = false) {
 /** An Oath (rules 11.5, R.C.OATH) in words: { short, long }. Numbers from D.num. */
 export function oathEffect(o, D) {
   switch (o.id) {
-    case 'haste': return { short: `Par time ${D.num.oathHaste} h shorter`, long: `${D.names.boss}'s par time is ${D.num.oathHaste} hours shorter: Ascendancy begins sooner, and the swift-victory bonus asks for a faster run.` };
+    case 'haste': return { short: `Par ${tolls(D.num.oathHaste)} sooner`, long: `${D.names.boss}'s par is ${tolls(D.num.oathHaste)} sooner: Ascendancy begins sooner, and the swift-victory bonus asks for a faster run.` };
     case 'frailty': return { short: 'No resurrections', long: `Nothing brings you back: no ${D.names.boon}, no Second Breath, no ${D.names.ember}. One death ends the run.` };
     case 'thrift': return { short: `Vendor prices ×${D.num.oathThrift}`, long: `Everything vendors sell costs ×${D.num.oathThrift}: potions, gear and Embers.` };
     default: return { short: '', long: '' };

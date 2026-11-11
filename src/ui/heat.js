@@ -3,12 +3,15 @@
 // line, the heat, the projected boss Ascendancy, the Dimming's clock and every preview come from R.heatView and
 // R.heatPreview through the bridge (view.heat, bridge.heatPreview); the thresholds and rewards the texts name come from
 // the engine's constants (data.rules.heat). Nothing here computes a state, a line or a reward.
+// Owner 2026-11-11 10:12 (draft): the meter is named the Furnace (changes-m2b-v7.md table D: Calm, Smouldering, Burning,
+// Infernal; whole tolls, 1 toll = 1 engine hour until the engine's rename) and sits at the top centre, calm water on the
+// cool side and embers on the hot side; its name and time unit come from ui-text.js HEAT_WORDS (a rename is one edit).
 //
 //   createHeatMeter(root, ctx)  the HUD meter, on every screen of a run but the summary: the four states (Clear, Warm,
 //                               Hot, Scorched) as segments of one bar over HEAT_BAR_MIN..HEAT_BAR_MAX hours past the
 //                               line, the Star's line (red) at heat 0, the player's marker (bar.marker, an arrow when
 //                               bar.beyond), in an expedition zone the Dimming's marker, a ghost marker for the hovered
-//                               choice, the numbers ("12 h in hand" / "8 h past the line", "Boss +4 %"), what the state
+//                               choice, the numbers ("12 tolls in hand" / "8 tolls past the line", "Boss +4 %"), what the state
 //                               or the node the player is in pays, a first-time note; noteStep: a toast on every change of
 //                               state, after the step that made it has played.
 //   heatKey(action)             the key of an hour-costing engine action in view.heat.next
@@ -27,8 +30,9 @@
 // is drawn here; the state is the engine's.
 import { h, clear, clamp } from './util.js';
 import { tip } from './tooltip.js';
+import { HEAT_WORDS as HW, tolls } from './ui-text.js';
 
-export const HEAT_NAME = { clear: 'Clear', warm: 'Warm', hot: 'Hot', scorched: 'Scorched' };
+export const HEAT_NAME = HW.state; // Calm, Smouldering, Burning, Infernal (ui-text.js HEAT_WORDS)
 export const HEAT_COLOR = { clear: '#3f9bd6', warm: '#f0c75a', hot: '#ec7a2c', scorched: '#b8263f' };
 const INTRO_KEY = 'tbwcr.heatIntro.v1'; // the first-time note was shown (localStorage)
 const STATES = ['clear', 'warm', 'hot', 'scorched'];
@@ -46,12 +50,18 @@ export function heatKey(a) {
   }
 }
 
-/** Hours with at most one decimal (the line under the Oath of Haste is not whole): 12, 16.7. */
-export const fmtH = (x) => String(Math.round(Math.abs(x) * 10) / 10);
-/** Where the player stands against the line: "12 h in hand", "8 h past the line", "On the line". */
+/** A time value as a whole number (M2b v7: no decimals; 1 toll = 1 engine hour until the engine's rename). */
+export const fmtH = (x) => String(Math.round(Math.abs(x)));
+/** The Star's line as shown: rounded up per zone (changes-m2b-v7.md A row 2; the states are the same either way). */
+export const lineShown = (line) => Math.ceil(line - 1e-9);
+/**
+ * Where the player stands against this zone's line (the meter's main number): "12 tolls in hand", "On the line",
+ * "8 tolls past the line". Whole tolls against the line rounded up: past = floor(heat), in hand = ceil(-heat).
+ */
 export function standText(x) {
-  if (x.heat > 0) return `${fmtH(x.heat)} h past the line`;
-  if (x.heat < 0) return `${fmtH(x.heat)} h in hand`;
+  const past = Math.floor(x.heat + 1e-9); const hand = Math.ceil(-x.heat - 1e-9);
+  if (x.heat > 0 && past > 0) return `${tolls(past)} past the line`;
+  if (x.heat < 0 && hand > 0) return `${tolls(hand)} in hand`;
   return 'On the line';
 }
 export const bossText = (asc) => `Boss +${Math.round((asc || 0) * 100)} %`;
@@ -79,10 +89,11 @@ function firstPaying(H) { return STATES.find((s) => (H.gain[s] || 0) > 0 || (H.r
 export function heatToast(hv, camp = false) {
   const dim = hv.by === 'dim';
   switch (hv.state) {
-    case 'clear': return 'Clear: you are ahead of the Star\'s line';
-    case 'warm': return dim ? 'Warm: the Dimming draws near' : 'Warm: the Star\'s line has caught you';
-    case 'hot': return dim ? 'Hot: the Dimming closes in; spoils grow' : camp ? 'Hot: the Unlit Star gains on you' : 'Hot: the Unlit Star gains on you; spoils grow';
-    case 'scorched': return dim ? 'Scorched: you stand in the Dimming' : camp ? 'Scorched: the Star burns close' : 'Scorched: the Star burns close; spoils are richest';
+    // changes-m2b-v7.md table D (the Dimming and the camp keep their own endings)
+    case 'clear': return `${HEAT_NAME.clear}: you are ahead of the Star.`;
+    case 'warm': return dim ? `${HEAT_NAME.warm}: the Dimming draws near.` : `${HEAT_NAME.warm}: past the Star's line; the speed bonus is lost.`;
+    case 'hot': return dim ? `${HEAT_NAME.hot}: the Dimming closes in; spoils grow.` : camp ? `${HEAT_NAME.hot}: the Unlit Star gains on you.` : `${HEAT_NAME.hot}: the Unlit Star gains on you; spoils grow.`;
+    case 'scorched': return dim ? `${HEAT_NAME.scorched}: you stand in the Dimming.` : camp ? `${HEAT_NAME.scorched}: the Star burns high.` : `${HEAT_NAME.scorched}: the Star burns high; spoils are richest.`;
     default: return HEAT_NAME[hv.state] || '';
   }
 }
@@ -123,14 +134,16 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
   els.ghost = h('div.ht-mark.ghost.hidden', h('i'));
   els.mark = h('div.ht-mark.run', h('i'), h('b.ht-arrow.hidden'));
   els.dmark = h('div.ht-mark.dim.hidden', h('i'));
-  els.el = h('div#heat.panel.hidden', { role: 'group', 'aria-label': 'Heat' },
-    h('div.ht-row', h('span.ht-title', 'Heat'), els.state, els.num, els.boss, els.dimTxt), els.bar, h('div.ht-row2', els.pay));
+  // the meter at the top centre of the HUD (owner 2026-11-11 10:12): the calm side (still water) left, the hot side (embers,
+  // molten glow) right, the player's pointer moving between them; .ht-calm and .ht-core are decoration only
+  els.el = h('div#heat.panel.hidden', { role: 'group', 'aria-label': HW.Name },
+    h('div.ht-row', h('span.ht-title', HW.Name), els.state, els.num, els.boss, els.dimTxt), els.bar, h('div.ht-row2', els.pay));
   host.appendChild(els.el);
   tip(els.el, () => heatTip(ctx));
   // the first-time note (H.4 wording: "Heat", "the Star's line"), once per browser profile, on the first hub until
   // "Got it" or setting out
   els.introBtn = h('button.btn.small', { type: 'button' }, 'Got it');
-  els.intro = h('div#heat-intro.hidden', { role: 'note', 'aria-label': 'About heat' }, h('div.hi-t', 'Heat'), h('div.hi-b'), h('div.hi-f', els.introBtn));
+  els.intro = h('div#heat-intro.hidden', { role: 'note', 'aria-label': `About ${HW.name}` }, h('div.hi-t', HW.Name), h('div.hi-b'), h('div.hi-f', els.introBtn));
   noteRoot.appendChild(els.intro);
   let introSeen = (() => { try { return !!localStorage.getItem(INTRO_KEY); } catch { return false; } })();
   const closeIntro = () => { introSeen = true; els.intro.classList.add('hidden'); try { localStorage.setItem(INTRO_KEY, '1'); } catch { /* storage blocked */ } };
@@ -149,7 +162,10 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
       els.segs[s] = seg; els.bar.appendChild(seg);
     }
     els.line.style.left = `${pctOf(0, bar)}%`;
-    els.bar.append(els.line, els.span, els.ghost, els.dmark, els.mark);
+    const hot0 = pctOf(H.hotAt, bar);
+    els.bar.append(h('div.ht-calm', { 'aria-hidden': 'true', style: { width: `${pctOf(0, bar)}%` } }),
+      h('div.ht-core', { 'aria-hidden': 'true', style: { left: `${hot0}%`, width: `${100 - hot0}%` } }, h('i'), h('i'), h('i')),
+      els.line, els.span, els.ghost, els.dmark, els.mark);
   }
 
   function update(v) {
@@ -179,7 +195,7 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
     if (dp) {
       els.dmark.style.left = `${pctOf(dp.x, bar)}%`;
       els.dmark.classList.toggle('sets', hv.by === 'dim');
-      els.dimTxt.querySelector('span').textContent = hv.dimIn <= 0 ? 'Dimmed' : `Dimming ${fmtH(hv.dimIn)} h`;
+      els.dimTxt.querySelector('span').textContent = hv.dimIn <= 0 ? 'Dimmed' : `Dimming: ${tolls(hv.dimIn)}`;
       els.dimTxt.classList.toggle('sets', hv.by === 'dim');
     }
     // what pays now (rules 1.7.3): inside a node its entry state (heatView.node), on the map or the hub what a node entered
@@ -190,25 +206,25 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
     const fp = firstPaying(H);
     let payLine = '';
     if (inNode) payLine = `This node pays ${HEAT_NAME[hv.node.state]}: ${pays}`;
-    else if (atCamp) payLine = 'At the camp heat pays nothing; it strengthens the boss';
+    else if (atCamp) payLine = `At the camp ${HW.name} pays nothing; it strengthens the boss`;
     else if (pays) payLine = `Spoils: ${pays}`;
     else if (fp && !(hv.node)) payLine = `${HEAT_NAME[fp]} pays ${payText(fp, H, true)}`;
     els.pay.classList.toggle('quiet', !inNode && !pays);
     els.pay.classList.toggle('node', !!inNode);
     els.pay.dataset.hs = inNode ? hv.node.state : hv.state;
     drawGhost(hv, payLine);
-    els.el.setAttribute('aria-label', `Heat: ${HEAT_NAME[hv.state]}${hv.by === 'dim' ? ' (set by the Dimming)' : ''}, ${standText(hv)}, ${bossText(hv.ascIfPar)}${payLine ? `. ${payLine}` : ''}`);
+    els.el.setAttribute('aria-label', `${HW.Name}: ${HEAT_NAME[hv.state]}${hv.by === 'dim' ? ' (set by the Dimming)' : ''}, ${standText(hv)}, ${bossText(hv.ascIfPar)}${payLine ? `. ${payLine}` : ''}`);
     // the first-time note: on the hub (hidden while a service window is open), until "Got it" or setting out
     if (!introSeen) {
       const svcOpen = !!(v.node && v.node.origin === 'hub');
       if (v.phase === 'ZONE_HUB' && svcOpen) els.intro.classList.add('hidden');
       else if (v.phase === 'ZONE_HUB') {
         if (els.intro.classList.contains('hidden')) {
-          const fpay = fp ? `${HEAT_NAME[fp]} from ${fmtH(fp === 'hot' ? H.hotAt : fp === 'scorched' ? H.scorchAt : H.warmAt)} h past it pays ${payText(fp, H)}.` : '';
+          const fpay = fp ? `${HEAT_NAME[fp]} from ${tolls(fp === 'hot' ? H.hotAt : fp === 'scorched' ? H.scorchAt : H.warmAt)} past it pays ${payText(fp, H)}.` : '';
           clear(els.intro.querySelector('.hi-b')).append(
-            h('p', `Every hour counts against the Star's line (red). Left of it you are in the clear; past it, Oruvath grows stronger before you meet him (${bossText(hv.ascIfPar)} now).`),
+            h('p', `Every toll counts against the Star's line (red). Left of it ${HW.name} is ${HEAT_NAME.clear}; past it, Oruvath grows stronger before you meet him (${bossText(hv.ascIfPar)} now).`),
             fpay ? h('p', `Running hot pays: ${fpay}`) : null,
-            h('p.dim', 'Hover the meter, a node or a service to see the hours and where they leave you.'));
+            h('p.dim', `Hover ${HW.name}, a node or a service to see its ${HW.units} and where they leave you.`));
           els.intro.classList.remove('hidden');
         }
       } else if (!els.intro.classList.contains('hidden')) closeIntro();
@@ -227,7 +243,7 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
       const a = pctOf(bar.marker, bar); const b = pctOf(gx, bar);
       els.span.style.left = `${Math.min(a, b)}%`; els.span.style.width = `${Math.abs(b - a)}%`;
       els.span.classList.toggle('back', b < a); // leaving the zone: the line moves ahead, the heat drops
-      clear(els.pay).append(h('i.ht-dot', { dataset: { hs: p.state } }), `→ ${fmtH(p.hours)} h${p.perWave ? ' a wave' : ''}${p.dimFight ? ' + Dimmed fight' : ''} · ends ${HEAT_NAME[p.state]}`);
+      clear(els.pay).append(h('i.ht-dot', { dataset: { hs: p.state } }), `→ ${tolls(p.hours)}${p.perWave ? ' a wave' : ''}${p.dimFight ? ' + Dimmed fight' : ''}, ends ${HEAT_NAME[p.state]}`);
       els.pay.classList.add('pv');
     } else {
       els.pay.classList.remove('pv');
@@ -265,20 +281,21 @@ export function heatTip(ctx) {
   const hv = ctx.view && ctx.view.heat; const H = ctx.data.rules.heat;
   if (!hv || !H) return null;
   const box = h('div.tt-heatbox');
-  box.appendChild(h('div.tt-name', 'Heat'));
-  box.appendChild(h('div.tt-line', `${standText(hv)}: ${fmtH(hv.hours)} h on the clock, the Star's line at ${fmtH(hv.line)} h.`));
-  box.appendChild(h('div.tt-line.desc', `${bossText(hv.ascIfPar)} if you keep the line from here. The line reaches the par (${fmtH(hv.par)} h) at the camp; for every ${H.ascStepHours} h past the par Oruvath gains +${Math.round(H.ascPerStep * 100)} % health and damage (Ascendancy, at most +${Math.round(H.ascCap * 100)} %).`));
+  box.appendChild(h('div.tt-name', HW.Name));
+  box.appendChild(h('div.tt-line', `${standText(hv)} in this zone.`));
+  box.appendChild(h('div.tt-line', `${HW.Units} so far: ${fmtH(hv.hours)} · the Star's line: ${lineShown(hv.line)}`));
+  box.appendChild(h('div.tt-line.desc', `Oruvath grows stronger for every ${tolls(H.ascStepHours)} past ${fmtH(hv.par)} (Ascendancy): +${Math.round(H.ascPerStep * 100)} % health and damage each, at most +${Math.round(H.ascCap * 100)} %. ${bossText(hv.ascIfPar)} if you keep the line from here.`));
   const rows = [
-    ['clear', 'ahead of the line'], ['warm', `${fmtH(H.warmAt)} to ${fmtH(H.hotAt)} h past`], ['hot', `${fmtH(H.hotAt)} to ${fmtH(H.scorchAt)} h past`], ['scorched', `${fmtH(H.scorchAt)} h or more past`],
+    ['clear', 'ahead of the line'], ['warm', `${fmtH(H.warmAt)} to ${tolls(H.hotAt)} past`], ['hot', `${fmtH(H.hotAt)} to ${tolls(H.scorchAt)} past`], ['scorched', `${tolls(H.scorchAt)} or more past`],
   ];
   box.appendChild(h('div.tt-heatstates', rows.map(([s, when]) => h('div.hs' + (s === hv.state ? '.on' : ''), { dataset: { hs: s } }, h('i.ht-dot', { dataset: { hs: s } }), h('b', HEAT_NAME[s]), h('span.w', when), h('span.p', payText(s, H) || 'no reward')))));
   box.appendChild(h('div.tt-sub', 'A node pays the state you enter it in.'));
-  if (hv.node) box.appendChild(h('div.tt-line', { style: { color: HEAT_COLOR[hv.node.state] === HEAT_COLOR.scorched ? '#ff8a96' : HEAT_COLOR[hv.node.state] } }, `This node was entered ${HEAT_NAME[hv.node.state]}: ${payText(hv.node.state, H) || 'no heat reward'}.`));
+  if (hv.node) box.appendChild(h('div.tt-line', { style: { color: HEAT_COLOR[hv.node.state] === HEAT_COLOR.scorched ? '#ff8a96' : HEAT_COLOR[hv.node.state] } }, `This node was entered ${HEAT_NAME[hv.node.state]}: ${payText(hv.node.state, H) || 'no reward'}.`));
   if (hv.dimIn !== null && hv.dimIn !== undefined) {
-    box.appendChild(h('div.tt-line.dimline', hv.dimIn <= 0 ? 'Dimming: your node is Dimmed (Scorched).' : `Dimming: your node dims in ${fmtH(hv.dimIn)} h (${HEAT_NAME.warm} at ${fmtH(H.dimWarm)} h or less, ${HEAT_NAME.hot} at ${fmtH(H.dimHot)} h or less, ${HEAT_NAME.scorched} once Dimmed).`));
+    box.appendChild(h('div.tt-line.dimline', hv.dimIn <= 0 ? `Dimming: your node is Dimmed (${HEAT_NAME.scorched}).` : `Dimming: your node dims in ${tolls(hv.dimIn)} (${HEAT_NAME.warm} at ${tolls(H.dimWarm)} or less, ${HEAT_NAME.hot} at ${tolls(H.dimHot)} or less, ${HEAT_NAME.scorched} once Dimmed).`));
     box.appendChild(h('div.tt-line', `The hotter clock sets the state: now ${hv.by === 'dim' ? `the Dimming (${HEAT_NAME[hv.stateDim]})` : `the line (${HEAT_NAME[hv.stateRun]})`}.`));
   }
-  box.appendChild(h('div.tt-hint', 'Hover a node, a service or a wave to see its hours and where they leave you.'));
+  box.appendChild(h('div.tt-hint', `Hover a node, a service or a wave to see its ${HW.units} and where they leave you.`));
   return box;
 }
 
@@ -290,15 +307,15 @@ export function previewBlock(p, ctx, opts = {}) {
   const H = ctx.data.rules.heat;
   if (!p || !H) return null;
   const box = h('div.tt-heat', { dataset: { hs: p.state } });
-  const hrs = `${fmtH(p.hours)} h${p.perWave ? ' a wave' : ''}`;
-  box.appendChild(h('div.th-l', h('span.k', 'Heat'), h('i.ht-dot', { dataset: { hs: p.state } }), `${hrs} · ends `, h('b', { dataset: { hs: p.state } }, HEAT_NAME[p.state]), p.change ? h('span.chg', ' (a new state)') : null));
-  if (p.dimFight) box.appendChild(h('div.th-w', 'It ends in the Dimming: a Dimmed encounter follows (its hour included).'));
+  const hrs = `${tolls(p.hours)}${p.perWave ? ' a wave' : ''}`;
+  box.appendChild(h('div.th-l', h('span.k', HW.Name), h('i.ht-dot', { dataset: { hs: p.state } }), `${hrs}, ends `, h('b', { dataset: { hs: p.state } }, HEAT_NAME[p.state]), p.change ? h('span.chg', ' (a new state)') : null));
+  if (p.dimFight) box.appendChild(h('div.th-w', `It ends in the Dimming: a Dimmed encounter follows (its ${HW.unit} included).`));
   if (p.pays) {
     const pt = payText(p.pays, H);
-    box.appendChild(h('div.th-p' + (pt ? '.paid' : ''), { dataset: { hs: p.pays } }, `Pays ${HEAT_NAME[p.pays]}: ${pt || 'no heat reward'}`));
+    box.appendChild(h('div.th-p' + (pt ? '.paid' : ''), { dataset: { hs: p.pays } }, `Pays ${HEAT_NAME[p.pays]}: ${pt || 'no reward'}`));
   }
   if (opts.leaves) box.appendChild(h('div.th-s', 'The next zone moves the Star\'s line ahead.'));
-  box.appendChild(h('div.th-s', `Then ${standText(p).replace(/^On the line$/, 'on the line')} · ${bossText(p.ascIfPar)}${p.dimIn !== null && p.dimIn !== undefined && !p.dimFight ? ` · Dimming ${p.dimIn <= 0 ? 'here' : `${fmtH(p.dimIn)} h`}` : ''}`));
+  box.appendChild(h('div.th-s', `Then ${standText(p).replace(/^On the line$/, 'on the line')} · ${bossText(p.ascIfPar)}${p.dimIn !== null && p.dimIn !== undefined && !p.dimFight ? ` · Dimming ${p.dimIn <= 0 ? 'here' : `in ${tolls(p.dimIn)}`}` : ''}`));
   return box;
 }
 
@@ -306,9 +323,9 @@ export function previewBlock(p, ctx, opts = {}) {
 export function heatBadge(state, ctx, kind = 'node') {
   const H = ctx.data.rules.heat;
   if (!H || !state || !(H.gain[state] > 0 || H.rarityUp[state] > 0)) return null;
-  const el = h('span.heat-badge', { dataset: { hs: state } }, kind === 'item' ? '▲ Heat' : `${HEAT_NAME[state]} spoils`);
-  tip(el, () => h('div', h('div.tt-name', kind === 'item' ? 'Raised by heat' : `Entered ${HEAT_NAME[state]}`),
-    h('div.tt-line.desc', kind === 'item' ? `Found in a node entered ${HEAT_NAME[state]}: heat raised this item one rarity.` : `This node pays ${payText(state, H)}.`)));
+  const el = h('span.heat-badge', { dataset: { hs: state } }, kind === 'item' ? `▲ ${HW.Name}` : `${HEAT_NAME[state]} spoils`);
+  tip(el, () => h('div', h('div.tt-name', kind === 'item' ? `Raised by ${HW.name}` : `Entered ${HEAT_NAME[state]}`),
+    h('div.tt-line.desc', kind === 'item' ? `Found in a node entered ${HEAT_NAME[state]}: ${HW.name} raised this item one rarity.` : `This node pays ${payText(state, H)}.`)));
   return el;
 }
 
@@ -327,18 +344,19 @@ export function buildHeatSummary(sum, ctx) {
   const over = sum.hours - sum.par;
   const card = h('div.card.heatcard');
   const endLine = sum.reachedCamp
-    ? `${fmtH(sum.hours)} h, par ${fmtH(sum.par)} h: ${over > 0 ? `${fmtH(over)} h over par` : over < 0 ? `${fmtH(over)} h under par` : 'on par'}`
-    : `${fmtH(sum.hours)} h, the Star's line at ${fmtH(last.line)} h: ${standText({ heat: last.b })}`;
+    ? `${HW.Units}: ${fmtH(sum.hours)} (par ${fmtH(sum.par)}) · ${over > 0 ? `${tolls(over)} over par` : over < 0 ? `${tolls(over)} under par` : 'on par'}${sum.asc ? ` · Ascendancy +${Math.round(sum.asc * 100)} %` : ''}`
+    : `${HW.Units}: ${fmtH(sum.hours)} · the Star's line: ${lineShown(last.line)} · ${standText({ heat: last.b })}`;
   // hours by state: a thin bar of the run's hours with the figures beside it, in the card's head next to the end line
   const tot = ht.hoursByState.reduce((a, b) => a + b, 0) || 1;
-  const strip = h('div.hc-strip', { role: 'img', 'aria-label': `Hours by state: ${STATES.map((s, i) => `${HEAT_NAME[s]} ${ht.hoursByState[i]} h`).join(', ')}` },
+  const strip = h('div.hc-strip', { role: 'img', 'aria-label': `${HW.Units} in each state: ${STATES.map((s, i) => `${HEAT_NAME[s]} ${fmtH(ht.hoursByState[i])}`).join(' · ')}` },
     STATES.map((s, i) => (ht.hoursByState[i] > 0 ? h('i', { dataset: { hs: s }, style: { flexGrow: String(ht.hoursByState[i] / tot) } }) : null)));
-  card.appendChild(h('div.hc-head', h('h3', 'Heat'), h('div.hc-hours', strip,
-    h('span.hc-leg', STATES.map((s, i) => h('span', h('i.ht-dot', { dataset: { hs: s } }), `${HEAT_NAME[s]} ${fmtH(ht.hoursByState[i])} h`)))), h('span.hc-end', endLine)));
+  card.appendChild(h('div.hc-head', h('h3', HW.Name), h('div.hc-hours', strip,
+    h('span.hc-leg', `${HW.Units} in each state: `, STATES.map((s, i) => h('span', h('i.ht-dot', { dataset: { hs: s } }), `${HEAT_NAME[s]} ${fmtH(ht.hoursByState[i])}`)))), h('span.hc-end', endLine)));
+  card.appendChild(h('div.hc-cap', `${HW.Units} against the Star's line`));
   card.appendChild(heatChart(recs, H, zc));
   const hotNodes = ht.nodesByState[2] + ht.nodesByState[3];
   const hotFights = ht.fightsByState[2] + ht.fightsByState[3];
-  card.appendChild(h('div.hc-foot', `Nodes entered: ${STATES.map((s, i) => `${ht.nodesByState[i]} ${HEAT_NAME[s]}`).join(' · ')}. Fights won in heat: ${hotFights}${hotNodes ? '' : ' (no node entered Hot or Scorched)'}. Hover a point for its hours.`));
+  card.appendChild(h('div.hc-foot', `Nodes entered: ${STATES.map((s, i) => `${ht.nodesByState[i]} ${HEAT_NAME[s]}`).join(' · ')}. Fights won in heat: ${hotFights}${hotNodes ? '' : ' (no node entered ${HEAT_NAME.hot} or ${HEAT_NAME.scorched})'}. Hover a point for its ${HW.units}.`));
   return card;
 }
 
@@ -355,7 +373,7 @@ function heatChart(recs, H, zc) {
   const el = (tag, attrs, ...kids) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, v); for (const c of kids) if (c) e.appendChild(c); return e; };
   const txt = (x, yy, s, attrs = {}) => { const t = el('text', { x, y: yy, ...attrs }); t.textContent = s; return t; };
   const svg = el('svg', { viewBox: `0 0 ${W} ${HT}`, class: 'hc-chart', role: 'img',
-    'aria-label': `Heat per zone, hours past the Star's line on arrival and when left: ${recs.map((r) => `${r.z > zc ? 'camp' : `zone ${r.z}`} ${signed(r.a)} to ${signed(r.b)}`).join('; ')}` });
+    'aria-label': `${HW.Units} against the Star's line per zone, on arrival and when left: ${recs.map((r) => `${r.z > zc ? 'camp' : `zone ${r.z}`} ${signed(r.a)} to ${signed(r.b)}`).join('; ')}` });
   // state bands (a wash of each state's colour) and their names at the left
   const bands = [['clear', lo, H.warmAt], ['warm', H.warmAt, H.hotAt], ['hot', H.hotAt, H.scorchAt], ['scorched', H.scorchAt, hi]];
   for (const [s, a, b] of bands) {
@@ -380,7 +398,7 @@ function heatChart(recs, H, zc) {
     const v = k === 'a' ? r.a : r.b;
     const g = el('g', { class: 'pt', tabindex: '0' }, el('circle', { cx: px, cy: py, r: 12, class: 'hit' }), el('circle', { cx: px, cy: py, r: 4.5, class: 'dot' }));
     const zoneName = r.z > zc ? 'Camp' : `Zone ${r.z}`;
-    tip(g, () => h('div', h('div.tt-name', `${zoneName}, ${k === 'a' ? 'arrival' : 'leaving'}`), h('div.tt-line', `${fmtH(k === 'a' ? r.entry : r.exit)} h on the clock, the Star's line at ${fmtH(r.line)} h`),
+    tip(g, () => h('div', h('div.tt-name', `${zoneName}, ${k === 'a' ? 'arrival' : 'leaving'}`), h('div.tt-line', `${HW.Units} so far: ${fmtH(k === 'a' ? r.entry : r.exit)} · the Star's line: ${lineShown(r.line)}`),
       h('div.tt-line', { style: { fontWeight: 700 } }, standText({ heat: v }))));
     svg.appendChild(g);
   }
@@ -388,5 +406,5 @@ function heatChart(recs, H, zc) {
   svg.appendChild(txt(x1(recs.length - 1) + 9, y(lr.b) + 4, signed(lr.b), { class: 'endv' }));
   return h('div.hc-wrap', svg);
 }
-/** "+8 h" past the line, "−12 h" in hand. */
-function signed(v) { return v > 0 ? `+${fmtH(v)} h` : v < 0 ? `−${fmtH(v)} h` : '0 h'; }
+/** "+8" past the line, "−12" in hand (whole tolls). */
+function signed(v) { const k = v > 0 ? Math.floor(v + 1e-9) : Math.ceil(-v - 1e-9); return v > 0 && k ? `+${k}` : v < 0 && k ? `−${k}` : '0'; }

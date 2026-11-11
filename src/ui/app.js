@@ -22,6 +22,7 @@ import { createDevMenu } from './dev-menu.js';
 import { settings } from './settings.js';
 import { h, clear } from './util.js';
 import { enemyLook } from './art-actors.js';
+import { HEAT_WORDS, tolls } from './ui-text.js';
 
 export class App {
   constructor() {
@@ -610,7 +611,7 @@ function devText(op, args, r, v) {
     case 'refill': return 'Health and resources refilled';
     case 'god': return v.dev && v.dev.god ? 'God mode on: you take no damage' : 'God mode off';
     case 'give': { const g = r.note || {}; return [g.gold ? `${g.gold} copper` : '', g.potions ? `${g.potions} potions` : '', g.talentPoints ? `${g.talentPoints} talent points` : ''].filter(Boolean).join(', ') + (g.gold || g.potions || g.talentPoints ? ' given' : 'Nothing fits in the bags'); }
-    case 'hours': case 'heat': return `${v.hours} h${v.heat ? `, ${v.heat.state}` : ''}`;
+    case 'hours': case 'heat': return `${tolls(v.hours)}${v.heat ? `, ${HEAT_WORDS.state[v.heat.state] || v.heat.state}` : ''}`;
     case 'reveal': return 'Map revealed';
     case 'mapMode': return `${args.mode === 'expedition' ? 'Expedition' : 'Rows'} map`;
     case 'echoes': return `${args.n} Echoes given`;

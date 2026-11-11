@@ -3,7 +3,7 @@
 // next rank's (owner feedback 2026-11-11 08:14) from R.talentInfo through the bridge.
 import { h, clear, moneyEl, pct, fmtNum } from './util.js';
 import { itemIcon } from './art-icons.js';
-import { statusEffect, talentTotals } from './ui-text.js';
+import { statusEffect, talentTotals, HEAT_WORDS } from './ui-text.js';
 
 let el = null;
 let current = null;
@@ -56,7 +56,7 @@ export function itemTip(item, ctx, opts = {}) {
   const box = h('div.tt-item');
   box.appendChild(h('div.tt-head', h('img.tt-icon', { src: itemIcon(item), alt: '' }), h('div', h('div.tt-name.r-' + (item.rarity || 'common'), item.name), item.kind === 'gear' ? h('div.tt-sub', `${SLOT_NAMES[item.slot] || item.slot} · Item level ${item.ilvl}`) : null)));
   // heat (rules 8.4): found in a node entered Hot or Scorched, one rarity higher (the bridge's heatUp)
-  if (item.heatUp) box.appendChild(h('div.tt-line.heatup', { dataset: { hs: item.heatUp } }, `▲ Heat raised it one rarity (found ${item.heatUp[0].toUpperCase()}${item.heatUp.slice(1)})`));
+  if (item.heatUp) box.appendChild(h('div.tt-line.heatup', { dataset: { hs: item.heatUp } }, `▲ ${HEAT_WORDS.Name} raised it one rarity (found ${item.heatUp[0].toUpperCase()}${item.heatUp.slice(1)})`));
   if (item.kind === 'gear') {
     const s = item.stats || {};
     if (s.wd) box.appendChild(h('div.tt-line', statLine('wd', s.wd)));

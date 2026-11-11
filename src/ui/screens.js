@@ -5,12 +5,12 @@
 // Grind waves, the next wave) shows its hours and the state it ends in from R.heatView's previews (view.heat.next) in its
 // tooltip, colours its hour label when the state changes, and moves a ghost marker on the meter while hovered; nodes
 // entered Hot or Scorched and items heat raised carry a badge; the summary has a heat card (heat.js).
-import { h, add, clear, fmtNum, moneyEl, moneyText, hoursText, clamp } from './util.js';
+import { h, add, clear, fmtNum, moneyEl, moneyText, clamp } from './util.js';
 import { spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon } from './art-icons.js';
 import { drawPortrait, HERO_LOOKS, PET_LOOKS } from './art-actors.js';
 import { tip, itemTip, spellTip } from './tooltip.js';
 import { conColor, heroPortrait, travelState } from './hud.js';
-import { numWord, plural, pct1, ROLE_INFO, humanize } from './ui-text.js';
+import { numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS } from './ui-text.js';
 import { createMeta, buildOaths, echoAmt } from './meta.js';
 import { heatKey, previewBlock, heatBadge, buildHeatSummary, fmtH, HEAT_NAME } from './heat.js';
 
@@ -199,7 +199,7 @@ function updateCreate(root, v, ctx) {
  */
 function svcCard(glyph, bg, name, meta, hours, used, onClick, heat = null) {
   const p = heat && !used ? heatOf(heat.v, heat.action) : null;
-  const hrs = hourLabel(h('div.hrs', p ? `${fmtH(p.hours)} h` : hours), p);
+  const hrs = hourLabel(h('div.hrs', p ? tolls(p.hours) : hours), p);
   const el = h('div.svc-card' + (used ? '.used' : ''), h('img', { src: icon(glyph, bg), alt: '' }), h('div', h('div.nm', name), h('div.meta', used ? 'Used this visit' : meta)), hrs);
   if (!used) el.addEventListener('click', onClick);
   if (p) {
@@ -217,13 +217,13 @@ function buildHub(v, ctx) {
   if (z.hubText || z.blurb) body.appendChild(h('div', { style: { font: 'italic 1.4rem var(--font-title)', color: 'var(--ink-dim)', marginBottom: '.4rem' } }, z.hubText || z.blurb));
   const svc = (service) => ({ ctx, v, action: { type: 'SERVICE', service } });
   body.append(
-    svcCard('tome', 'arcane', 'Trainer', 'Learn and rank up spells', `${hr.trainer} h`, used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer')),
-    svcCard('vendor', 'earth', 'Vendor', 'Potions, rations and gear', `${hr.vendor} h`, used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' }), svc('vendor')),
-    svcCard('rest', 'fire', 'Inn', 'Full rest and rested experience', `${hr.inn} h`, used.inn, () => ctx.act({ type: 'HUB_SERVICE', service: 'inn' }), svc('inn')));
+    svcCard('tome', 'arcane', 'Trainer', 'Learn and rank up spells', tolls(hr.trainer), used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer')),
+    svcCard('vendor', 'earth', 'Vendor', 'Potions, rations and gear', tolls(hr.vendor), used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' }), svc('vendor')),
+    svcCard('rest', 'fire', 'Inn', 'Full rest and rested experience', tolls(hr.inn), used.inn, () => ctx.act({ type: 'HUB_SERVICE', service: 'inn' }), svc('inn')));
   if (p.talentPoints) body.appendChild(h('div.warn', { style: { fontSize: '1.25rem' } }, `You have ${p.talentPoints} unspent talent point${p.talentPoints > 1 ? 's' : ''}. Press N.`));
   const go = h('button.btn.primary.big', 'Set out');
   go.addEventListener('click', () => ctx.act({ type: 'LEAVE_HUB' }));
-  el.append(body, h('div.sfoot', h('span.muted', `Day clock: ${v.hours} h`), go));
+  el.append(body, h('div.sfoot', h('span.muted', `${HEAT_WORDS.Units} so far: ${fmtH(v.hours)}`), go));
   return el;
 }
 
@@ -236,13 +236,13 @@ function buildCamp(v, ctx) {
   body.appendChild(h('div', { style: { font: 'italic 1.4rem var(--font-title)', color: 'var(--ink-dim)' } }, z.blurb || ''));
   const svc = (service) => ({ ctx, v, action: { type: 'SERVICE', service } });
   body.append(
-    svcCard('tome', 'arcane', 'Trainer', 'Last chance to train', `${hr.trainer} h`, used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer')),
-    svcCard('vendor', 'earth', 'Quartermaster', `Level ${R.maxLevel} stock`, `${hr.vendor} h`, used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' }), svc('vendor')),
-    svcCard('rest', 'fire', 'Campfire', 'Full rest before the fight', `${hr.inn} h`, used.inn, () => ctx.act({ type: 'HUB_SERVICE', service: 'inn' }), svc('inn')),
-    svcCard('grind', 'steel', 'Camp wave', `Fight a wave of level ${R.campGrindLevel} enemies`, `${hr.grindWave} h`, false, () => ctx.act({ type: 'CAMP_GRIND' }), { ctx, v, action: { type: 'CAMP_GRIND' } }));
+    svcCard('tome', 'arcane', 'Trainer', 'Last chance to train', tolls(hr.trainer), used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer')),
+    svcCard('vendor', 'earth', 'Quartermaster', `Level ${R.maxLevel} stock`, tolls(hr.vendor), used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' }), svc('vendor')),
+    svcCard('rest', 'fire', 'Campfire', 'Full rest before the fight', tolls(hr.inn), used.inn, () => ctx.act({ type: 'HUB_SERVICE', service: 'inn' }), svc('inn')),
+    svcCard('grind', 'steel', 'Camp wave', `Fight a wave of level ${R.campGrindLevel} enemies`, `${tolls(hr.grindWave)} a wave`, false, () => ctx.act({ type: 'CAMP_GRIND' }), { ctx, v, action: { type: 'CAMP_GRIND' } }));
   // the par and the Ascendancy: R.heatView's (the bridge's v.camp: at the Camp the line is the par, ascIfPar the boss's)
-  const par = v.camp && v.camp.par ? ` (par ${fmtH(v.camp.par)} h)` : '';
-  const kv = h('dl.kv', h('dt', 'Time'), h('dd', `${v.hours} h${par}`), h('dt', 'Ascendancy'),
+  const par = v.camp && v.camp.par ? ` (par ${fmtH(v.camp.par)})` : '';
+  const kv = h('dl.kv', h('dt', HEAT_WORDS.Units), h('dd', `${fmtH(v.hours)}${par}`), h('dt', 'Ascendancy'),
     asc == null ? h('dd.muted', 'Unknown') : h('dd', { class: asc > 0 ? 'bad' : 'good' }, asc > 0 ? `+${Math.round(asc * 100)} % health and damage` : 'None: you are on time'));
   const go = h('button.btn.primary.big', 'Face Oruvath');
   go.addEventListener('click', () => ctx.act({ type: 'FIGHT_BOSS' }));
@@ -312,7 +312,7 @@ export function buildMap(v, ctx, readOnly) {
     // entered Hot or Scorched keeps a mark of what it paid
     const act = { type: 'CHOOSE_NODE', lane: l };
     const hp = reach && !readOnly ? heatOf(v, act) : null;
-    if (hp) el.appendChild(hourLabel(h('div.mhrs', `${fmtH(hp.hours)} h${hp.perWave ? '/wave' : ''}`), hp));
+    if (hp) el.appendChild(hourLabel(h('div.mhrs', `${tolls(hp.hours)}${hp.perWave ? '/wave' : ''}`), hp));
     if (n.visited && n.heat && ctx.data.rules.heat && (ctx.data.rules.heat.gain[n.heat] > 0 || ctx.data.rules.heat.rarityUp[n.heat] > 0)) el.appendChild(h('div.mheat', { dataset: { hs: n.heat } }));
     if (reach) el.addEventListener('click', () => ctx.act(act));
     tip(el, () => nodeTip(n, v, ctx, reach, reach && !readOnly ? heatOf(ctx.view, act) : null));
@@ -323,7 +323,7 @@ export function buildMap(v, ctx, readOnly) {
   // row ruler
   for (let r = 1; r <= ROWS; r++) body.appendChild(h('div.mrow', { style: { left: `${PX(r) / 10}%` } }, `${r}`));
   const sq = ctx.data.rules.storyQuests;
-  const story = h('div.dim', { style: { fontSize: '1.2rem', whiteSpace: 'nowrap' } }, `Story ${Math.min(sq, z.questsDone)}/${sq} · ${v.hours} h`);
+  const story = h('div.dim', { style: { fontSize: '1.2rem', whiteSpace: 'nowrap' } }, `Story ${Math.min(sq, z.questsDone)}/${sq}`);
   win.append(head, body, h('div.mfoot', legend, story));
   if (readOnly) win.id = 'win-map';
   return win;
@@ -345,7 +345,7 @@ function buildExpMap(v, ctx, readOnly) {
     tip(b, () => h('div', h('div.tt-name', label), previewBlock(heatOf(ctx.view, a), ctx, { leaves: true })));
     return ghostOn(b, ctx, a);
   });
-  win.appendChild(h('div.mhead', h('div', h('div.title', z.name), h('div.subtitle', `Levels ${z.band[0]}–${z.band[1]} · expedition map (preview) · zone hour ${fmtH(mv.hz)}`)), h('div.row', readOnly ? closeBtn(ctx, 'map') : null, ...btns)));
+  win.appendChild(h('div.mhead', h('div', h('div.title', z.name), h('div.subtitle', `Levels ${z.band[0]}–${z.band[1]} · expedition map (preview)`)), h('div.row', readOnly ? closeBtn(ctx, 'map') : null, ...btns)));
   const body = h('div.mbody.parchment');
   const svgNS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(svgNS, 'svg');
@@ -375,11 +375,11 @@ function buildExpMap(v, ctx, readOnly) {
     if (n.shardfall) el.appendChild(h('div.xtag.shard', 'Shardfall'));
     const act = { type: 'MOVE', nodeId: n.id };
     const hp = m ? heatOf(v, act) : null;
-    if (hp) el.appendChild(hourLabel(h('div.mhrs', `${fmtH(hp.hours)} h`), hp));
+    if (hp) el.appendChild(hourLabel(h('div.mhrs', tolls(hp.hours)), hp));
     if (n.done && n.heat && ctx.data.rules.heat && (ctx.data.rules.heat.gain[n.heat] > 0 || ctx.data.rules.heat.rarityUp[n.heat] > 0)) el.appendChild(h('div.mheat', { dataset: { hs: n.heat } }));
     if (m) { el.addEventListener('click', () => ctx.act(act)); ghostOn(el, ctx, act); }
     tip(el, () => {
-      const box = h('div.tt-node', h('div.tt-name', n.hub ? z.hubName : type ? NODE_NAME[type] || type : 'Unknown'), h('div.tt-sub', `Ring ${n.ring}${n.know === 'full' && n.cl && !n.hub ? ` · level ${n.cl}` : ''}${n.dimmed ? ' · Dimmed' : n.dimsIn !== Infinity && n.dimsIn != null ? ` · dims in ${fmtH(n.dimsIn)} h` : ''}`));
+      const box = h('div.tt-node', h('div.tt-name', n.hub ? z.hubName : type ? NODE_NAME[type] || type : 'Unknown'), h('div.tt-sub', `Ring ${n.ring}${n.know === 'full' && n.cl && !n.hub ? ` · level ${n.cl}` : ''}${n.dimmed ? ' · Dimmed' : n.dimsIn !== Infinity && n.dimsIn != null ? ` · dims in ${tolls(n.dimsIn)}` : ''}`));
       if (m) {
         box.appendChild(h('div.tt-line', m.via === 'enter' ? 'Click to enter' : 'Click to walk here'));
         box.appendChild(previewBlock(heatOf(ctx.view, act), ctx));
@@ -393,9 +393,9 @@ function buildExpMap(v, ctx, readOnly) {
   const list = h('div.expmoves', readOnly ? null : mv.moves.map((m) => {
     const n = mv.nodes[m.nodeId]; const name = n.hub ? 'Hub' : n.know !== 'none' && n.type ? NODE_NAME[n.type] || n.type : 'Unknown';
     const go = { type: 'MOVE', nodeId: m.nodeId }; const pass = { type: 'PASS_THROUGH', nodeId: m.nodeId };
-    const b1 = ghostOn(btn(`${m.via === 'enter' ? 'Enter' : 'Walk to'} ${name} · ${fmtH(m.hours)} h`, () => ctx.act(go), '.small'), ctx, go);
+    const b1 = ghostOn(btn(`${m.via === 'enter' ? 'Enter' : 'Walk to'} ${name} · ${tolls(m.hours)}`, () => ctx.act(go), '.small'), ctx, go);
     tip(b1, () => previewBlock(heatOf(ctx.view, go), ctx));
-    const b2 = m.passHours != null ? ghostOn(btn(`Pass · ${fmtH(m.passHours)} h`, () => ctx.act(pass), '.small'), ctx, pass) : null;
+    const b2 = m.passHours != null ? ghostOn(btn(`Pass · ${tolls(m.passHours)}`, () => ctx.act(pass), '.small'), ctx, pass) : null;
     if (b2) tip(b2, () => h('div', h('div.tt-line', 'Walk through without resolving it.'), previewBlock(heatOf(ctx.view, pass), ctx)));
     return h('div.em', b1, b2);
   }));
@@ -406,7 +406,7 @@ function buildExpMap(v, ctx, readOnly) {
 /** The hours Travel on costs now, from the engine (a dry TRAVEL_ON); the mock's own number in mock mode. */
 function travelCost(z, ctx) {
   const hrs = z.travelHours !== undefined ? z.travelHours : ctx.data.rules.hours.travel;
-  return hrs == null ? '' : hrs > 0 ? ` Costs ${hrs} h.` : ' Costs no time.';
+  return hrs == null ? '' : hrs > 0 ? ` Costs ${tolls(hrs)}.` : ' Costs no time.';
 }
 function flagSvg() {
   const d = h('div.flagm');
@@ -447,7 +447,7 @@ function nodeTip(n, v, ctx, reach, hp = null) {
   // node ends in, H.4), else the node type's hours
   const hrs = ctx.data.nodeHours ? ctx.data.nodeHours[n.type] : null;
   if (hp) box.appendChild(previewBlock(hp, ctx));
-  else if (hrs != null) box.appendChild(h('div.tt-sub', n.type === 'grind' ? `Takes ${hrs} h per wave` : `Takes ${hrs} h`));
+  else if (hrs != null) box.appendChild(h('div.tt-sub', n.type === 'grind' ? `Takes ${tolls(hrs)} per wave` : `Takes ${tolls(hrs)}`));
   const H = ctx.data.rules.heat;
   if (n.visited && n.heat && H) box.appendChild(h('div.tt-sub', `Entered ${HEAT_NAME[n.heat]}${H.gain[n.heat] > 0 || H.rarityUp[n.heat] > 0 ? ': it paid heat spoils' : ''}`));
   if (n.visited) box.appendChild(h('div.tt-hint', 'Visited'));
@@ -493,7 +493,7 @@ function buildNode(v, ctx) {
     const w = (k) => {
       const a = { type: 'GRIND_SET_WAVES', n: k }; const hp = heatOf(v, a);
       const b = btn('', () => ctx.act(a), k === Math.min(2, ks.length) ? '.primary' : '');
-      b.append(`${k} wave${k > 1 ? 's' : ''} · `, hourLabel(h('span.bh', `${hp ? fmtH(hp.hours) : k * R.hours.grindWave} h`), hp));
+      b.append(`${k} wave${k > 1 ? 's' : ''} · `, hourLabel(h('span.bh', tolls(hp ? hp.hours : k * R.hours.grindWave)), hp));
       if (hp) { tip(b, () => previewBlock(heatOf(ctx.view, a), ctx)); ghostOn(b, ctx, a); }
       return b;
     };
@@ -668,7 +668,7 @@ function buildSummary(v, ctx) {
     s.dev ? h('div.devrun', `Dev run${s.dev.god ? ' · god mode' : ''}`) : null));
   const kv = (pairs) => h('dl.kv', pairs.flatMap(([k, val]) => [h('dt', k), h('dd', val)]));
   const card1 = h('div.card', h('h3', 'The journey'), kv([
-    ['Reached', `${s.zone}${s.row ? `, row ${s.row}` : ''}`], ['In-game time', `${s.hours} h`], ['Ascendancy', s.asc ? `+${Math.round(s.asc * 100)} %` : 'none'],
+    ['Reached', `${s.zone}${s.row ? `, row ${s.row}` : ''}`], [HEAT_WORDS.Units, `${fmtH(s.hours)}${s.par ? ` (par ${fmtH(s.par)})` : ''}`], ['Ascendancy', s.asc ? `+${Math.round(s.asc * 100)} %` : 'none'],
     ['Estimated time', `${s.estMinutes.manual} min manual · ${s.estMinutes.auto} min autoplay`], ['Fights', `${s.fights} (${s.rounds} rounds)`], ['Seed', String(s.seed)],
     // the killing blow by its display name (the bridge's actionName; without a name only the killer)
     ...(s.death ? [['Killed by', h('span.killed', { dataset: { ability: s.death.ability || '' } }, s.death.ability ? `${s.death.killer} (${s.death.ability})` : s.death.killer)], ['Where', `${s.death.node}, round ${s.death.round}`]] : []),

@@ -12,7 +12,7 @@
 // step, or Instant speed, finishes at once. Waits go through skip tokens.
 import { wait, SkipToken, fmtNum, deepClone } from './util.js';
 import { settings } from './settings.js';
-import { linkedText, dangerBanner, CONTROL_WORD as CONTROL_LOG } from './ui-text.js';
+import { linkedText, dangerBanner, CONTROL_WORD as CONTROL_LOG, HEAT_WORDS } from './ui-text.js';
 import { timeline, roundPace, hitShare, STATUS_LABEL } from './combat-feel.js';
 
 const SCHOOL_PROJ = { fire: 'fire', frost: 'frost', arcane: 'arcane', shadow: 'shadow', nature: 'nature' };
@@ -378,7 +378,7 @@ export class Director {
           }
           case 'signal': scene.float(ref(e.src), 'Signal!', { color: '#ffb05a', size: 22, crit: true }); hud.log(`${cap(e.who)} signals for help: ${e.adds === 1 ? 'one more enemy joins' : `${e.adds} more enemies join`} at the end of the round!`, 'lg-warn'); break;
           case 'bolster': hud.log(`${cap(e.by)} bolsters ${e.name === e.by ? 'itself' : e.name}: a ${fmtNum(e.amount)} shield.`, 'lg-warn'); break;
-          case 'gotItem': hud.log(`You receive loot: ${e.name}${e.heatUp ? ' (heat raised it one rarity)' : ''}${e.to === 'window' ? ' (waiting in the loot window)' : ''}.`, 'lg-loot'); break;
+          case 'gotItem': hud.log(`You receive loot: ${e.name}${e.heatUp ? ` (${HEAT_WORDS.name} raised it one rarity)` : ''}${e.to === 'window' ? ' (waiting in the loot window)' : ''}.`, 'lg-loot'); break;
           case 'channel': scene.float(ref(e.src), `${e.name} ${e.step}/2`, { color: '#d0b0ff', size: 22, crit: e.step === 2 }); if (e.step === 2) scene.screenFlash('#6a4aff', 0.3, 0.6); hud.log(`${e.name}: ${e.step === 1 ? 'the channel begins' : 'the channel resolves'}.`, 'lg-warn'); await W(tm.wait); break;
           case 'linked': {
             // n: living Shards when the wave came (engine event); the strength from the rules table

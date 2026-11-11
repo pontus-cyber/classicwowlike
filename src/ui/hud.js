@@ -5,22 +5,25 @@
 // role badges, the off-balance marker, the opening ruler, the engage panel, and the window highlight on the action bar.
 // Combat v2.1 (combat-v2.md 10.9): the wind-up line over each enemy (its nameplate), EMPOWERED and STAGGERED badges on the
 // nameplate and the target frame, and the bar spells that can answer a wind-up marked (now: "Answer"; on hover: all).
-// Heat (docs/specs/expedition.md H.4, drawn by heat.js): the Heat meter above the action bar, beside the Autoplay controls;
-// the minimap tooltip and the camp tracker line read the same R.heatView (view.heat).
+// Heat (docs/specs/expedition.md H.4, drawn by heat.js): the meter, named the Furnace (changes-m2b-v7.md D), at the top centre (owner 2026-11-11
+// 10:12); the minimap tooltip and the camp tracker line read the same R.heatView (view.heat).
+// UX pass 2026-11-11 (docs/handoffs/ux-review-2026-11-11.md): the turn prompt over the action bar's right half (what to do
+// now, read from the bar's own marks), nameplate parts that come and go hung under the health bar so the track never
+// moves, and the zone's tracker lines hidden in a fight.
 // DoT preview (owner feedback 2026-11-11 08:11; engine-api.md 6.1): on every HP bar of a fight (nameplates, the target, boss,
 // player and pet frames) the HP that the ticks at the end of the round will take is a hatched end segment, with a skull
 // when they kill; the bar's tooltip has the numbers (view `dot`, from R.pendingTicks). Low health: a healing potion on the
 // item bar that can be drunk pulses below POTION_HINT_HP (owner playtest 08:03: a run ended with 0 potions used).
 // M2b v6 (rules 7.5): while Packed Satchel's free potion of a fight is unused, the potions on the item bar show "Free".
-import { h, add, clear, fmtNum, moneyEl, hoursText, clamp, rgba } from './util.js';
+import { h, add, clear, fmtNum, moneyEl, clamp, rgba } from './util.js';
 import { spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS } from './art-icons.js';
 import { drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook } from './art-actors.js';
 import { THEMES } from './art-world.js';
 import { tip, spellTip, basicTip, itemTip, statusTip } from './tooltip.js';
 import { settings } from './settings.js';
-import { linkedText, resurrectText, dangerRule } from './ui-text.js';
+import { linkedText, resurrectText, dangerRule, HEAT_WORDS, tolls } from './ui-text.js';
 import { trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createRuler, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind } from './tracks.js';
-import { createHeatMeter, standText, bossText, fmtH } from './heat.js';
+import { createHeatMeter, standText, bossText, fmtH, lineShown } from './heat.js';
 
 const RES_NAME = { energy: 'Energy', mana: 'Mana', focus: 'Focus' };
 /** Combat v2.1: the wind-up stacks, drawn as large badges (stackBadges) instead of small status icons. */
@@ -190,9 +193,12 @@ export function createHud(root, ctx) {
   els.flee = h('button.btn.small', 'Flee', h('span.k', 'F'));
   // the queued next action during a combat round (app.combatAct): a tag over the bar, the button ringed
   els.qtag = h('div.qtag.hidden', { 'aria-live': 'polite' });
+  // "what to do now" on the player's turn in a fight (UX pass 2026-11-11): one line over the action bar that names the
+  // most urgent thing the bar already marks (the engage options, a wind-up to answer, low health, an off-balance window)
+  els.turn = h('div#turnprompt.hidden', { 'aria-live': 'polite' }, h('span.tp-k'), h('span.tp-t'));
   els.actionbar.append(
     h('div.grp', els.basic), h('div.sep'), h('div.grp', els.spells), h('div.sep'), h('div.grp', els.items),
-    h('div.ctrl.panel', els.auto, els.pass, els.flee), els.qtag);
+    h('div.ctrl.panel', els.auto, els.pass, els.flee), els.qtag, els.turn);
   // ------------------------------------------------------------ xp bar
   els.xp = h('div#xpbar', h('div.rested'), h('div.fill'), h('div.ticks'), h('div.txt'));
   // ------------------------------------------------------------ minimap
@@ -223,7 +229,7 @@ export function createHud(root, ctx) {
   els.ruler = ruler.el; els.engage = engage.el;
   // the Heat meter (heat.js), always shown in a run but on the summary: over the action bar's right half, beside the
   // Autoplay controls (over its left half), where no screen panel, window or frame reaches at 16:9 (1366x768, 1920x1080)
-  const heat = createHeatMeter(els.actionbar, ctx, root);
+  const heat = createHeatMeter(root, ctx, root); // at the top centre (owner 2026-11-11 10:12)
   els.heat = heat.el;
 
   // ------------------------------------------------------------ input wiring
@@ -286,9 +292,9 @@ export function createHud(root, ctx) {
     const danger = v.zone.danger > 0 ? dangerRule(R) : null; // zone danger (rules 7.6): zone.danger from the engine's zoneDanger
     // the par and the line from R.heatView (the meter's numbers; the Oath of Haste included); v.par without heat (mock)
     const hv = v.heat; const par = hv ? hv.par : v.par;
-    return h('div', h('div.tt-name', v.zone.name), h('div.tt-sub', `Levels ${v.zone.band[0]}–${v.zone.band[1]}`), h('div.tt-line', `In-game time: ${v.hours} h`),
-      hv ? h('div.tt-line', `Heat: ${standText(hv)} (the Star's line at ${fmtH(hv.line)} h) · ${bossText(hv.ascIfPar)}`) : null,
-      h('div.tt-line.desc', `The boss grows stronger for every ${R.ascStepHours} h past ${fmtH(par)} h (Ascendancy).`),
+    return h('div', h('div.tt-name', v.zone.name), h('div.tt-sub', `Levels ${v.zone.band[0]}–${v.zone.band[1]}`),
+      hv ? h('div.tt-line', `${HEAT_WORDS.Name}: ${standText(hv)} (the Star's line: ${lineShown(hv.line)}) · ${bossText(hv.ascIfPar)}`) : null,
+      h('div.tt-line.desc', `Oruvath grows stronger for every ${tolls(R.ascStepHours)} past ${fmtH(par)} (Ascendancy).`),
       danger ? h('div.tt-warn.danger', danger) : null, h('div.tt-hint', 'Click or press M for the zone map'));
   });
   tip(els.resc, () => { const v = ctx.view; return v.player ? resurrectTip(v) : null; });
@@ -425,8 +431,8 @@ export function createHud(root, ctx) {
     // minimap & clock
     if (v.zone) {
       els.minimap.querySelector('.zname').textContent = v.zone.name;
-      const ht = hoursText(v.hours || 0);
-      els.minimap.querySelector('.clock').textContent = `${ht.label} · ${v.hours} h`;
+      // no day clock (changes-m2b-v7.md A row 10): the Furnace is the time display; the minimap names the zone only
+      els.minimap.querySelector('.clock').textContent = '';
       drawMinimap(els.mmCanvas, v, th);
     }
     // talents badge
@@ -447,8 +453,10 @@ export function createHud(root, ctx) {
         const id = e.uid || e.idx; live.add(String(id));
         let el = npEls.get(String(id));
         if (!el) {
-          el = h('div.np', h('div.wub.hidden'), h('div.trk'), h('div.obal.hidden'), h('div.castbar.hidden', h('i')), h('div.nm', h('span.rb'), h('span.lv'), h('span.n')),
-            h('div.ntag.hidden', h('span.zz.hidden', 'Unaware'), h('span.rtags')), h('div.wstk.hidden'), bar('hp enemy'), h('div.sts'));
+          // what comes and goes during a round (the off-balance chip, tags, stack badges, statuses) hangs under the health
+          // bar (.under, out of the flow), so the wind-up line, the track and the name above it never move (UX pass 2026-11-11)
+          el = h('div.np', h('div.wub.hidden'), h('div.trk'), h('div.castbar.hidden', h('i')), h('div.nm', h('span.rb'), h('span.lv'), h('span.n')),
+            bar('hp enemy'), h('div.under', h('div.obal.hidden'), h('div.ntag.hidden', h('span.zz.hidden', 'Unaware'), h('span.rtags')), h('div.wstk.hidden'), h('div.sts')));
           el.addEventListener('click', (ev) => { ev.stopPropagation(); ctx.ui.setTarget(e.idx); });
           el.addEventListener('pointerenter', () => { ctx.scene.hover = `enemy:${e.idx}`; });
           el.addEventListener('pointerleave', () => { ctx.scene.hover = null; });
@@ -610,6 +618,39 @@ export function createHud(root, ctx) {
     els.auto.setAttribute('aria-checked', v.autoplay ? 'true' : 'false');
     els.pass.disabled = !fight; els.flee.disabled = !fight || !L.flee;
     els.flee.firstChild.textContent = ctx.ui.fleeArmed ? 'Confirm?' : 'Flee';
+    turnPrompt(v, fight && !v.autoplay);
+  }
+
+  /**
+   * The turn prompt: shown only while the game waits for the player in a fight. It reads the marks updateBar just set on
+   * the bar (no rule of its own): in order, the engage round, a wind-up to answer now (or that nothing on the bar can),
+   * a potion to drink at low health, an off-balance window on the target, else the plain choice.
+   */
+  function turnPrompt(v, mine) {
+    const c = v.combat;
+    els.turn.classList.toggle('hidden', !mine);
+    els.actionbar.classList.toggle('your-turn', !!mine);
+    if (!mine) return;
+    const name = (b) => (b.getAttribute('aria-label') || '').replace(/^(Item slot|Slot) [0-9]+: /, '').replace(/\..*$/, '');
+    const key = (b) => b.querySelector('.key').textContent;
+    const kb = (k) => h('kbd', k);
+    const first = (cls) => [...els.spells, ...els.items].find((b) => b.classList.contains(cls) && !b.classList.contains('empty'));
+    let k = 'Your turn'; let parts;
+    const ans = first('wu-ans'); const els2 = first('wu-else'); const avoid = first('wu-avoid'); const pot = first('pulse'); const win = first('window');
+    const wuLive = c.enemies.some((e) => e.alive && !e.hidden && e.intent && e.intent.windup && !e.intent.interrupted && !e.intent.cancelled);
+    if (c.engage) { k = 'Opening move'; parts = ['Open with ', kb('Q'), ' ', kb('W'), ' ', kb('E'), ' (left panel) or any bar key: they do not act yet']; }
+    else if (ans) parts = ['Wind-up now: answer with ', kb(key(ans)), ` ${name(ans)}`];
+    else if (els2) parts = ['Wind-up on another enemy: ', kb('Tab'), ' to it, then ', kb(key(els2)), ` ${name(els2)}`];
+    else if (avoid) parts = ['Heavy wind-up now: ', kb(key(avoid)), ` ${name(avoid)} can blunt it`];
+    else if (wuLive) parts = ['Wind-up now: nothing on your bar can stop it this round'];
+    else if (pot) parts = ['Low health: ', kb(key(pot)), ` ${name(pot)}`];
+    else if (win) parts = ['Off-balance: ', kb(key(win)), ` ${name(win)} hits ${(win.querySelector('.wtag') || {}).textContent || 'harder'}`];
+    else parts = ['Choose ', kb('1'), '–', kb('7'), ', ', kb('A'), ' attack or ', kb('X'), ' pass'];
+    const kEl = els.turn.querySelector('.tp-k'); const tEl = els.turn.querySelector('.tp-t');
+    kEl.textContent = `${k} · R${c.round}`;
+    const sig = parts.map((x) => (typeof x === 'string' ? x : `[${x.textContent}]`)).join('');
+    if (tEl.dataset.sig !== sig) { tEl.dataset.sig = sig; clear(tEl); tEl.append(...parts); }
+    els.turn.dataset.kind = c.engage ? 'engage' : ans || els2 || avoid || wuLive ? 'windup' : pot ? 'potion' : win ? 'window' : 'plain';
   }
 
   function updateTracker(v) {
@@ -621,6 +662,7 @@ export function createHud(root, ctx) {
       else if (n.type === 'grind') { lines.push(['h', 'Grind']); lines.push(['l', n.wavesChosen ? `Wave ${n.waves} of ${n.wavesChosen}` : 'Choose how many waves']); }
       else if (n.type === 'elite') { lines.push(['h', n.rare ? 'Rare elite' : 'Elite']); lines.push(['l', `Defeat ${n.eliteName}`]); }
     }
+    const nNode = lines.length;
     if (z && !z.camp && z.rows && z.rows.length) {
       const sq = R.storyQuests; const t = travelState(v);
       lines.push(['h', z.name]);
@@ -631,11 +673,12 @@ export function createHud(root, ctx) {
       else if (p.level >= t.need) lines.push(['d', `Level ${t.need}: you may travel on early (exit level ${t.exit})`]);
       else lines.push(['l', `Travel on at level ${t.need} (or after row ${t.rows})`]);
       lines.push(['l', `Row ${z.pos.row} of ${t.rows}`]);
-    } else if (z) { lines.push(['h', z.name]); lines.push(['l', `Boss par: ${fmtH(v.heat ? v.heat.par : v.par)} h · now ${v.hours} h`]); } // heatView's par, as the meter
-    const key = JSON.stringify(lines);
+    } else if (z) { lines.push(['h', z.name]); lines.push(['l', `${HEAT_WORDS.Units}: ${fmtH(v.hours)} (par ${fmtH(v.heat ? v.heat.par : v.par)})`]); } // heatView's par, as the meter
+    const key = JSON.stringify(lines) + nNode;
     if (els.tracker.dataset.key === key) return;
     els.tracker.dataset.key = key; clear(els.tracker);
-    for (const [k, t] of lines) els.tracker.appendChild(h(k === 'h' ? 'div.tk-h' : 'div.tk-l' + (k === 'd' ? '.done' : ''), t));
+    // the zone's lines (.zl) give way in a fight (style.css body.in-fight), the node's lines stay
+    lines.forEach(([k, t], i) => els.tracker.appendChild(h((k === 'h' ? 'div.tk-h' : 'div.tk-l' + (k === 'd' ? '.done' : '')) + (i >= nNode ? '.zl' : ''), t)));
   }
 
   function log(text, cls = 'lg-hit') {

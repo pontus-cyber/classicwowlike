@@ -62,7 +62,7 @@
  *      top; the camp panel, tracker and minimap name heatView's par and Ascendancy; the boss frame's Ascendancy is the
  *      meter's "Boss +N %"; the summary's heat card (track points per zone record, hours by state, over par) and the Echo
  *      line "Fights won in heat" match the engine's summary; loot marked "raised by heat" came from Hot or Scorched nodes.
- *      Then an expedition run (?expedition=1): the Dimming's marker and "Dimming N h" at the hub, a move's preview, and
+ *      Then an expedition run (?expedition=1): the Dimming's marker and "Dimming: N tolls" at the hub, a move's preview, and
  *      a map step where the Dimming sets the state (marker, "· Dimming", the meter's tooltip) = heatView. Both seeds are
  *      chosen at run time on Node runs of the same choices (the UI's own item-bar actions included).
  *   J  combat v2.1 display (docs/specs/combat-v2.md 16, 10.9; M2b 2b.6), real engine at Instant speed, a Hunter seed chosen
@@ -120,6 +120,8 @@ import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import * as R from '../../src/rules.js';
 import { CONTENT } from '../../src/content/index.js';
+// the Furnace's player-facing words (changes-m2b-v7.md table D: names, states, whole tolls; UX pass 2026-11-11)
+import { HEAT_WORDS, tolls, ECHO_LINE } from '../../src/ui/ui-text.js';
 
 const args = process.argv.slice(2);
 const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
@@ -183,7 +185,11 @@ const view = (page) => page.evaluate(() => {
 });
 const logLines = async (page) => (await page.locator('#combatlog .lines').innerText()).split('\n').map((s) => s.trim()).filter(Boolean);
 const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: path.join(SHOTS, `${SIZE}-${name}.png`) }); };
-const clockLabel = (h) => { const t = h + 6; return `Day ${Math.floor(t / 24) + 1}, ${String(t % 24).padStart(2, '0')}:00 · ${h} h`; };
+// M2b v7 (changes-m2b-v7.md A row 10): no day clock; the minimap's clock is empty and hidden at every reading
+const clockLabel = () => '';
+/** Time labels on screen (hour chips, service and wave labels, the Furnace, the minimap, footers, the tracker): none says "Day N", "N h" or a decimal time. */
+const timeLabelsBad = (page) => page.evaluate(() => [...document.querySelectorAll('#heat, #minimap, #tracker, .hrs, .mhrs, .bh, .sfoot, .mfoot, .mhead')].map((el) => el.innerText || '').join(' | ')
+  .split(' | ').filter((t) => /\bDay \d|\d h\b|\d\.\d+ tolls?\b|\bhours?\b/i.test(t)));
 /** Wait until the fight's round passes `r` (or the fight is over); false on timeout. */
 const roundPast = (page, r, ms) => page.waitForFunction((r0) => { const x = window.__ui.view(); return !(x.combat && !x.combat.over) || x.combat.round > r0; }, r, { timeout: ms, polling: 50 }).then(() => true, () => false);
 
@@ -232,7 +238,8 @@ async function partA(browser, W, H) {
     await page.locator('#create .ccard[data-cls="hunter"]').click();
     await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
 
-    check('BUG-QA-09', 'the clock starts on day 1 at 06:00', (await page.locator('#minimap .clock').innerText()) === clockLabel(0), await page.locator('#minimap .clock').innerText());
+    check('BUG-QA-09', 'no day clock (M2b v7): the minimap shows no clock at the start', (await page.locator('#minimap .clock').textContent()) === clockLabel(0) && !(await page.locator('#minimap .clock').isVisible()), await page.locator('#minimap .clock').textContent());
+    { const bad = await timeLabelsBad(page); check('M2b-v7', 'hub: no time label says "Day N", "N h", hours or a decimal (tolls in whole numbers)', !bad.length, bad.join(' | ') || 'none'); }
     const setOut = await placement(page.getByRole('button', { name: 'Set out' }));
     check('BUG-QA-10', 'hub: "Set out" is in view without scrolling', fullyShown(setOut), placeText(setOut));
 
@@ -371,7 +378,8 @@ async function partA(browser, W, H) {
       await closeBags(page);
     } else check('BUG-QA-03', 'log names the item equipped from the bags', false, 'no quest reward reached the bags');
     v = await view(page);
-    check('BUG-QA-09', `the clock matches the hours (${v.hours} h)`, (await page.locator('#minimap .clock').innerText()) === clockLabel(v.hours), await page.locator('#minimap .clock').innerText());
+    check('BUG-QA-09', `no day clock at ${v.hours} tolls (M2b v7)`, (await page.locator('#minimap .clock').textContent()) === clockLabel(v.hours), await page.locator('#minimap .clock').textContent());
+    { const bad = await timeLabelsBad(page); check('M2b-v7', 'map: no time label says "Day N", "N h", hours or a decimal (tolls in whole numbers)', !bad.length, bad.join(' | ') || 'none'); }
   } catch (e) {
     check('-', 'part A ran to the end', false, e.message.split('\n')[0]);
   }
@@ -486,8 +494,8 @@ async function partB(browser, W, H) {
     if (v.phase !== 'CAMP') throw new Error(`setup did not reach the camp (phase ${v.phase})`);
     const wrong = samples.filter(([h, txt]) => txt !== clockLabel(h));
     const midnight = samples.find(([h]) => h >= 18);
-    check('BUG-QA-09', `the clock matches the hours at ${samples.length} readings (0 to ${v.hours} h) and turns to day 2 at midnight`, !wrong.length && midnight && /^Day 2, /.test(midnight[1]),
-      wrong.length ? wrong.slice(0, 3).map(([h, t]) => `${h} h: "${t}"`).join(' | ') : `first reading past 17 h: "${midnight && midnight[1]}"`);
+    check('BUG-QA-09', `no day clock at ${samples.length} readings (0 to ${v.hours} tolls, M2b v7)`, !wrong.length && !!midnight,
+      wrong.length ? wrong.slice(0, 3).map(([h, t]) => `${h} tolls: "${t}"`).join(' | ') : `none past 17 tolls shows a clock`);
 
     // ---- the camp panel
     await page.waitForTimeout(1500); // the zone banner fades
@@ -499,7 +507,7 @@ async function partB(browser, W, H) {
     const time = await placement(foot.locator('dd').nth(0));
     const asc = await placement(foot.locator('dd').nth(1));
     const footText = (await foot.innerText()).replace(/\n/g, ' ');
-    check('BUG-QA-10', 'camp: the time and the Ascendancy lines are in view', fullyShown(time) && fullyShown(asc) && /Time/.test(footText) && /Ascendancy/.test(footText), `${footText} | ${placeText(time)} | ${placeText(asc)}`);
+    check('BUG-QA-10', 'camp: the time (Tolls, M2b v7) and the Ascendancy lines are in view', fullyShown(time) && fullyShown(asc) && footText.includes(HEAT_WORDS.Units) && /Ascendancy/.test(footText), `${footText} | ${placeText(time)} | ${placeText(asc)}`);
     const cards = page.locator('#screens .side .svc-card');
     const cardPl = [];
     for (let i = 0; i < await cards.count(); i++) cardPl.push(await placement(cards.nth(i)));
@@ -1097,7 +1105,7 @@ async function partFOaths(browser, W, H) {
     for (const id of R.C.OATH_IDS) texts[id] = (await sw(id).innerText()).replace(/\n/g, ' ');
     check('M3-3', `Oaths (cost ${R.C.META.oaths.costs[0]}, needs a victory): no switches before; bought in the Hall (${card && card.state} -> ${owned && owned.state}); then a switch per Oath on class select with its effect`,
       before === 0 && card && card.state === 'affordable' && /^Buy\s*Free$/.test(card.buy) && owned && owned.state === 'owned'
-        && texts.haste.includes(`${R.C.OATH_HASTE_HOURS} h shorter`) && texts.thrift.includes(`×${R.C.OATH_THRIFT_MULT}`) && texts.frailty.includes('No resurrections'),
+        && texts.haste.includes(`${tolls(R.C.OATH_HASTE_HOURS)} sooner`) && texts.thrift.includes(`×${R.C.OATH_THRIFT_MULT}`) && texts.frailty.includes('No resurrections'),
       `before ${before}, card ${JSON.stringify(card)} -> ${JSON.stringify(owned)} | ${JSON.stringify(texts)}`);
     const tHaste = await tipOf(page, sw('haste'));
     await sw('haste').click(); await idle(page);
@@ -1182,8 +1190,8 @@ async function partG(browser, W, H) {
     const h0 = (await view(page)).hours;
     await btn.click(); await idle(page);
     const h1 = (await view(page)).hours;
-    check('M2v4-7', `Travel on with ${F_OLD.id} in the profile (zone ${r1.at.z}): the tooltip says "Costs ${R.C.HOURS_TRAVEL} h.", the clock moves ${h0} -> ${h1} h (Node run: +${twin.travel.spent} h at ${twin.travel.before} h)`,
-      tTip.includes(`Costs ${R.C.HOURS_TRAVEL} h.`) && !/no time/i.test(tTip) && h1 - h0 === R.C.HOURS_TRAVEL && twin.travel.spent === R.C.HOURS_TRAVEL && h0 === twin.travel.before,
+    check('M2v4-7', `Travel on with ${F_OLD.id} in the profile (zone ${r1.at.z}): the tooltip says "Costs ${tolls(R.C.HOURS_TRAVEL)}.", the time moves ${h0} -> ${h1} tolls (Node run: +${twin.travel.spent} at ${twin.travel.before})`,
+      tTip.includes(`Costs ${tolls(R.C.HOURS_TRAVEL)}.`) && !/no time/i.test(tTip) && h1 - h0 === R.C.HOURS_TRAVEL && twin.travel.spent === R.C.HOURS_TRAVEL && h0 === twin.travel.before,
       tTip);
 
     // ---- the camp: par from bossPar with the Oath of Haste, and the engine's Ascendancy
@@ -1196,9 +1204,9 @@ async function partG(browser, W, H) {
     const mm = await tipOf(page, page.locator('#minimap .disc'));
     await shot(page, 'G-camp-haste');
     const ascText = twin.asc > 0 ? `+${Math.round(twin.asc * 100)} % health and damage` : 'None: you are on time';
-    check('M2v4-par', `camp with the Oath of Haste at ${v.hours} h: panel "(par ${twin.par} h)", tracker "Boss par: ${twin.par} h", minimap "past ${twin.par} h" = bossPar (${R.C.BOSS_TIME_PAR} - ${R.C.OATH_HASTE_HOURS}), Ascendancy "${ascText}" (the engine's)`,
-      twin.par === PAR && v.hours === twin.hours && foot.includes(`${v.hours} h (par ${twin.par} h)`) && foot.includes(ascText) && track.includes(`Boss par: ${twin.par} h · now ${v.hours} h`)
-        && mm.includes(`past ${twin.par} h`) && !foot.includes(`par ${R.C.BOSS_TIME_PAR} h`),
+    check('M2v4-par', `camp with the Oath of Haste at ${v.hours} tolls: panel "${v.hours} (par ${twin.par})", tracker "Tolls: ${v.hours} (par ${twin.par})", minimap "past ${twin.par} (Ascendancy)" = bossPar (${R.C.BOSS_TIME_PAR} - ${R.C.OATH_HASTE_HOURS}), Ascendancy "${ascText}" (the engine's)`,
+      twin.par === PAR && v.hours === twin.hours && foot.includes(`${v.hours} (par ${twin.par})`) && foot.includes(ascText) && track.includes(`${HEAT_WORDS.Units}: ${v.hours} (par ${twin.par})`)
+        && mm.includes(`past ${twin.par} (Ascendancy)`) && !foot.includes(`par ${R.C.BOSS_TIME_PAR})`),
       `panel "${foot}" | tracker "${track}" | minimap "${mm}"`);
   } catch (e) {
     check('-', 'part G ran to the end', false, e.message.split('\n')[0]);
@@ -1388,9 +1396,10 @@ async function partH(browser, W, H) {
 // ------------------------------------------------------------------ part I: the heat meter, real engine
 // Both seeds are chosen at run time on Node runs (the engine still changes under combat v2.1): iPick for the rows run on
 // the slow policy, iExpPick for the expedition run (?expedition=1) on the engine's autoplay choices.
-const HNAME = { clear: 'Clear', warm: 'Warm', hot: 'Hot', scorched: 'Scorched' };
-const fh = (x) => String(Math.round(Math.abs(x) * 10) / 10);
-const stand = (x) => (x.heat > 0 ? `${fh(x.heat)} h past the line` : x.heat < 0 ? `${fh(x.heat)} h in hand` : 'On the line');
+const HNAME = HEAT_WORDS.state; // Calm, Smouldering, Burning, Infernal (M2b v7)
+const fh = (x) => String(Math.round(Math.abs(x))); // whole tolls (M2b v7: no decimals)
+const lineS = (l) => Math.ceil(l - 1e-9); // the Star's line as shown: rounded up (changes-m2b-v7.md A row 2)
+const stand = (x) => { const past = Math.floor(x.heat + 1e-9); const hand = Math.ceil(-x.heat - 1e-9); return x.heat > 0 && past > 0 ? `${tolls(past)} past the line` : x.heat < 0 && hand > 0 ? `${tolls(hand)} in hand` : 'On the line'; };
 const bossTxt = (a) => `Boss +${Math.round((a || 0) * 100)} %`;
 const barPct = (x) => (100 * (Math.min(R.C.HEAT_BAR_MAX, Math.max(R.C.HEAT_BAR_MIN, x)) - R.C.HEAT_BAR_MIN)) / (R.C.HEAT_BAR_MAX - R.C.HEAT_BAR_MIN);
 const chanceTxt = (p) => { for (let d = 2; d <= 10; d++) { const n = p * d; if (Math.abs(n - Math.round(n)) < 1e-9 && Math.round(n) >= 1) return `${Math.round(n)} in ${d}`; } return `${Math.round(p * 100)} %`; };
@@ -1403,7 +1412,7 @@ const payTxt = (s, short) => {
 const FIRST_PAYING = R.C.HEAT_STATES.find((s) => payTxt(s, true));
 /** The meter's pay line for a heatView (the view shown at the camp, in a node, elsewhere). */
 function wantPay(hv, camp) {
-  if (camp) return 'At the camp heat pays nothing; it strengthens the boss';
+  if (camp) return `At the camp ${HEAT_WORDS.name} pays nothing; it strengthens the boss`;
   if (hv.node && (hv.node.gain > 0 || hv.node.rarityUp > 0)) return `This node pays ${HNAME[hv.node.state]}: ${payTxt(hv.node.state, true)}`;
   if (payTxt(hv.state, true)) return `Spoils: ${payTxt(hv.state, true)}`;
   return hv.node ? '' : `${HNAME[FIRST_PAYING]} pays ${payTxt(FIRST_PAYING, true)}`;
@@ -1440,7 +1449,7 @@ function meterDiff(d, hv, camp) {
   near('marker', d.mark, barPct(hv.bar.marker)); near('line', d.line, barPct(0));
   eq('arrow', d.arrow, hv.bar.beyond < 0 ? '◀' : hv.bar.beyond > 0 ? '▶' : null);
   if (hv.dimIn === null || hv.dimIn === undefined) { if (d.dimShown || d.dimTxt) out.push('a Dimming marker without a Dimming clock'); } else {
-    eq('Dimming text', d.dimTxt, hv.dimIn <= 0 ? 'Dimmed' : `Dimming ${fh(hv.dimIn)} h`);
+    eq('Dimming text', d.dimTxt, hv.dimIn <= 0 ? 'Dimmed' : `Dimming: ${tolls(hv.dimIn)}`);
     const seg = { clear: [R.C.HEAT_BAR_MIN, R.C.HEAT_WARM_AT], warm: [R.C.HEAT_WARM_AT, R.C.HEAT_HOT_AT], hot: [R.C.HEAT_HOT_AT, R.C.HEAT_SCORCH_AT], scorched: [R.C.HEAT_SCORCH_AT, R.C.HEAT_BAR_MAX] }[hv.stateDim];
     if (!d.dimShown || d.dim < barPct(seg[0]) || d.dim > barPct(seg[1])) out.push(`Dimming marker ${d.dim} outside ${hv.stateDim} (${barPct(seg[0]).toFixed(1)}-${barPct(seg[1]).toFixed(1)})`);
     eq('the clock that sets the state', `${d.dimSets ? 'dim' : ''}${d.runSets ? 'run' : ''}`, hv.by); eq('by text', d.by2, hv.by === 'dim' ? ' · Dimming' : '');
@@ -1468,22 +1477,22 @@ async function hoverHeat(page, locator) {
 function previewDiff(r, p, opts = {}) {
   const out = [];
   if (!r.tip) return ['no heat block in the tooltip'];
-  const hrs = `${fh(p.hours)} h${p.perWave ? ' a wave' : ''}`;
+  const hrs = `${tolls(p.hours)}${p.perWave ? ' a wave' : ''}`;
   const head = r.tip[0];
-  if (!head.includes(`${hrs} · ends ${HNAME[p.state]}`)) out.push(`head "${head}" (want "${hrs} · ends ${HNAME[p.state]}")`);
+  if (!head.includes(`${hrs}, ends ${HNAME[p.state]}`)) out.push(`head "${head}" (want "${hrs}, ends ${HNAME[p.state]}")`);
   if (head.includes('(a new state)') !== !!p.change) out.push(`"(a new state)" ${head.includes('(a new state)')} (change ${p.change})`);
   const pays = r.tip.find((x) => x.startsWith('Pays '));
-  const wantPays = p.pays ? `Pays ${HNAME[p.pays]}: ${payTxt(p.pays, false) || 'no heat reward'}` : null;
+  const wantPays = p.pays ? `Pays ${HNAME[p.pays]}: ${payTxt(p.pays, false) || 'no reward'}` : null;
   if ((pays || null) !== wantPays) out.push(`pays "${pays}" (want "${wantPays}")`);
   const then = r.tip.find((x) => x.startsWith('Then '));
-  const wantThen = `Then ${stand(p).replace(/^On the line$/, 'on the line')} · ${bossTxt(p.ascIfPar)}${p.dimIn !== null && p.dimIn !== undefined && !p.dimFight ? ` · Dimming ${p.dimIn <= 0 ? 'here' : `${fh(p.dimIn)} h`}` : ''}`;
+  const wantThen = `Then ${stand(p).replace(/^On the line$/, 'on the line')} · ${bossTxt(p.ascIfPar)}${p.dimIn !== null && p.dimIn !== undefined && !p.dimFight ? ` · Dimming ${p.dimIn <= 0 ? 'here' : `in ${tolls(p.dimIn)}`}` : ''}`;
   if (then !== wantThen) out.push(`"${then}" (want "${wantThen}")`);
   if (r.ghost == null || Math.abs(r.ghost - barPct(p.heat)) > 0.05) out.push(`ghost ${r.ghost} (want ${barPct(p.heat).toFixed(2)})`);
-  const wantGhost = `→ ${hrs}${p.dimFight ? ' + Dimmed fight' : ''} · ends ${HNAME[p.state]}`;
+  const wantGhost = `→ ${hrs}${p.dimFight ? ' + Dimmed fight' : ''}, ends ${HNAME[p.state]}`;
   if (r.pay !== wantGhost) out.push(`meter "${r.pay}" (want "${wantGhost}")`);
   if (!r.after) out.push('the ghost stays after the hover');
   if (opts.chip !== undefined) {
-    const want = `${fh(p.hours)} h${p.perWave ? '/wave' : ''}`;
+    const want = `${tolls(p.hours)}${p.perWave ? '/wave' : ''}`;
     if (!opts.chip || opts.chip.text !== want || (opts.chip.hs || null) !== (p.change ? p.state : null)) out.push(`hour label ${JSON.stringify(opts.chip)} (want "${want}"${p.change ? ` in ${p.state}` : ''})`);
   }
   return out;
@@ -1571,7 +1580,7 @@ function iExpPick() {
  * toasts and log lines, the coverage of the meter in each new kind of screen, and the items the loot window marks as
  * raised by heat.
  */
-const slowRun = (page, stopSrc) => page.evaluate(async ([src, choiceSrc, maxWaves]) => {
+const slowRun = (page, stopSrc) => page.evaluate(async ([src, choiceSrc, maxWaves, stateNames]) => {
   const ui = window.__ui;
   const conds = Object.entries(typeof src === 'string' ? { stop: src } : src).map(([k, c]) => [k, new Function('v', `return (${c})(v)`)]);
   const stop = (v) => { const hit = conds.find(([, f]) => f(v)); return hit ? hit[0] : null; };
@@ -1579,7 +1588,7 @@ const slowRun = (page, stopSrc) => page.evaluate(async ([src, choiceSrc, maxWave
   if (!window.__heatObs) {
     window.__heatObs = new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.classList && [...n.classList].some((c) => c.startsWith('heat-'))) rec.toasts.push({ text: n.textContent, cls: n.className }); });
     window.__heatObs.observe(document.querySelector('#toasts'), { childList: true });
-    const states = /^(Clear|Warm|Hot|Scorched): /;
+    const states = new RegExp(`^(${stateNames.join('|')}): `); // the Furnace's state names (passed in: HEAT_WORDS.state)
     new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.textContent && states.test(n.textContent)) rec.logs.push(n.textContent); }).observe(document.querySelector('#combatlog .lines'), { childList: true });
   }
   const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -1611,7 +1620,7 @@ const slowRun = (page, stopSrc) => page.evaluate(async ([src, choiceSrc, maxWave
     await ui.act(slow(v)); await ui.idle();
   }
   return { stopped: false, phase: ui.view().phase };
-}, [stopSrc, iSlowChoice.toString(), R.C.GRIND_MAX_WAVES]);
+}, [stopSrc, iSlowChoice.toString(), R.C.GRIND_MAX_WAVES, Object.values(HEAT_WORDS.state)]);
 
 async function partI(browser, W, H) {
   const pick = iPick(); const I_SEED = pick.seed;
@@ -1626,7 +1635,7 @@ async function partI(browser, W, H) {
     const note = await page.locator('#heat-intro').evaluate((el) => ({ shown: !el.classList.contains('hidden'), text: el.textContent, role: el.getAttribute('role') }));
     await shot(page, 'I-hub');
     let d = await meterDom(page); let diff = meterDiff(d, hv, false);
-    check('M2b-heat', `hub (${s.hours} h): the meter shows R.heatView: ${HNAME[hv.state]}, "${stand(hv)}", "${bossTxt(hv.ascIfPar)}", the marker at ${hv.bar.marker} h and the Star's line at 0 on a ${R.C.HEAT_BAR_MIN} to ${R.C.HEAT_BAR_MAX} h bar`, !diff.length, diff.join(' | ') || JSON.stringify(d));
+    check('M2b-heat', `hub (${s.hours} tolls): the meter shows R.heatView: ${HNAME[hv.state]}, "${stand(hv)}", "${bossTxt(hv.ascIfPar)}", the marker at ${hv.bar.marker} and the Star's line at 0 on a ${R.C.HEAT_BAR_MIN} to ${R.C.HEAT_BAR_MAX} toll bar`, !diff.length, diff.join(' | ') || JSON.stringify(d));
     check('M2b-heat', 'first-time note on the first hub: "Heat", the Star\'s line, what heat pays (role note, not a tooltip)', note.shown && note.role === 'note' && /Star's line/.test(note.text) && note.text.includes(payTxt(FIRST_PAYING, false)), note.text.slice(0, 160));
     const svc = [];
     for (const service of ['trainer', 'vendor', 'inn']) {
@@ -1653,12 +1662,12 @@ async function partI(browser, W, H) {
         const r = await hoverHeat(page, b);
         out.push(`${label}: ${p ? previewDiff(r, p, { chip }).join(', ') || 'ok' : 'no preview'}`);
       }
-      check('M2b-heat', `Grind (${s.hours} h): each wave button's hours, tooltip and the meter's ghost equal R.heatPreview(GRIND_SET_WAVES n)`, out.length > 0 && out.every((x) => x.endsWith('ok')), out.join(' | '));
+      check('M2b-heat', `Grind (${s.hours} tolls): each wave button's hours, tooltip and the meter's ghost equal R.heatPreview(GRIND_SET_WAVES n)`, out.length > 0 && out.every((x) => x.endsWith('ok')), out.join(' | '));
     };
     const mapCheck = async (label) => {
       s = await twin.sync(page); hv = R.heatView(s);
       d = await meterDom(page); diff = meterDiff(d, hv, false);
-      check('M2b-heat', `${label} (zone ${s.zone.z}, ${s.hours} h): the meter equals R.heatView (${HNAME[hv.state]}, "${stand(hv)}", "${bossTxt(hv.ascIfPar)}", pay line "${wantPay(hv, false)}")`, !diff.length, diff.join(' | ') || `${d.state} ${d.num} ${d.boss} marker ${d.mark}`);
+      check('M2b-heat', `${label} (zone ${s.zone.z}, ${s.hours} tolls): the meter equals R.heatView (${HNAME[hv.state]}, "${stand(hv)}", "${bossTxt(hv.ascIfPar)}", pay line "${wantPay(hv, false)}")`, !diff.length, diff.join(' | ') || `${d.state} ${d.num} ${d.boss} marker ${d.mark}`);
       const nodes = page.locator('#screens button.mnode.reach');
       const out = [];
       for (let i = 0; i < await nodes.count(); i++) {
@@ -1666,10 +1675,10 @@ async function partI(browser, W, H) {
         const p = R.heatPreview(s, { type: 'CHOOSE_NODE', lane });
         const chip = await el.locator('.mhrs').evaluate((x) => ({ text: x.textContent, hs: x.dataset.hs || null })).catch(() => null);
         const r = await hoverHeat(page, el);
-        out.push(`lane ${lane} (${fh(p.hours)} h, ${p.state}${p.change ? ', new' : ''}): ${previewDiff(r, p, { chip }).join(', ') || 'ok'}`);
+        out.push(`lane ${lane} (${fh(p.hours)} tolls, ${p.state}${p.change ? ', new' : ''}): ${previewDiff(r, p, { chip }).join(', ') || 'ok'}`);
       }
       const tb = page.locator('#screens .mhead button[data-travel]');
-      if (!(await tb.isDisabled())) { const p = R.heatPreview(s, { type: 'TRAVEL_ON' }); const r = await hoverHeat(page, tb); out.push(`Travel on (${fh(p.hours)} h, ${p.state}): ${previewDiff(r, p).join(', ') || 'ok'}`); }
+      if (!(await tb.isDisabled())) { const p = R.heatPreview(s, { type: 'TRAVEL_ON' }); const r = await hoverHeat(page, tb); out.push(`Travel on (${fh(p.hours)} tolls, ${p.state}): ${previewDiff(r, p).join(', ') || 'ok'}`); }
       check('M2b-heat', `${label}: every reachable node's hour label, tooltip and the meter's ghost (and Travel on's) equal R.heatPreview`, out.length > 0 && out.every((x) => x.endsWith('ok')), out.join(' | '));
     };
     const mapIn = (st) => `(v) => v.phase === 'MAP' && v.heat && v.heat.state === '${st}' && v.heat.list.some((x) => x.action.type === 'CHOOSE_NODE')`;
@@ -1726,9 +1735,9 @@ async function partI(browser, W, H) {
     const mm = await tipOf(page, page.locator('#minimap .disc'));
     const ascText = hv.ascIfPar > 0 ? `+${Math.round(hv.ascIfPar * 100)} % health and damage` : 'None: you are on time';
     await shot(page, 'I-camp');
-    check('M2b-heat', `camp (${s.hours} h): the meter (line = par ${fh(hv.par)} h, ${HNAME[hv.state]}, "${bossTxt(hv.ascIfPar)}", "At the camp heat pays nothing") equals R.heatView`, !diff.length, diff.join(' | '));
-    check('M2b-heat', `camp: the panel "(par ${fh(hv.par)} h)" and "${ascText}", the tracker "Boss par: ${fh(hv.par)} h", the minimap "Heat: ${stand(hv)} ... · ${bossTxt(hv.ascIfPar)}" read heatView like the meter`,
-      foot.includes(`${s.hours} h (par ${fh(hv.par)} h)`) && foot.includes(ascText) && track.includes(`Boss par: ${fh(hv.par)} h · now ${s.hours} h`) && mm.includes(`Heat: ${stand(hv)} (the Star's line at ${fh(hv.line)} h) · ${bossTxt(hv.ascIfPar)}`) && mm.includes(`past ${fh(hv.par)} h`),
+    check('M2b-heat', `camp (${s.hours} tolls): the meter (line = par ${fh(hv.par)}, ${HNAME[hv.state]}, "${bossTxt(hv.ascIfPar)}", "At the camp the Furnace pays nothing") equals R.heatView`, !diff.length, diff.join(' | '));
+    check('M2b-heat', `camp: the panel "(par ${fh(hv.par)})" and "${ascText}", the tracker "Tolls: ... (par ${fh(hv.par)})", the minimap "${HEAT_WORDS.Name}: ${stand(hv)} ... · ${bossTxt(hv.ascIfPar)}" read heatView like the meter`,
+      foot.includes(`${s.hours} (par ${fh(hv.par)})`) && foot.includes(ascText) && track.includes(`${HEAT_WORDS.Units}: ${s.hours} (par ${fh(hv.par)})`) && mm.includes(`${HEAT_WORDS.Name}: ${stand(hv)} (the Star's line: ${lineS(hv.line)}) · ${bossTxt(hv.ascIfPar)}`) && mm.includes(`past ${fh(hv.par)} (Ascendancy)`),
       `panel "${foot}" | tracker "${track}" | minimap "${mm}"`);
     // ---- the boss fight: the meter's "Boss +N %" is the boss frame's Ascendancy
     const rb = await slowRun(page, "(v) => !!(v.combat && v.combat.isBoss && !v.combat.over)");
@@ -1747,17 +1756,17 @@ async function partI(browser, W, H) {
     const card = await page.locator('#screens .summary .heatcard').evaluate((el) => ({ end: el.querySelector('.hc-end').textContent, leg: el.querySelector('.hc-leg').textContent, dots: el.querySelectorAll('.hc-chart .dot').length,
       xv: [...el.querySelectorAll('.hc-chart .xv')].map((x) => x.textContent), foot: el.querySelector('.hc-foot').textContent, strip: el.querySelector('.hc-strip').getAttribute('aria-label') }));
     const recs = sm.heat.trackPerZone; const par = R.bossPar(s); const over = sm.hours - par;
-    const signedH = (v) => (v > 0 ? `+${fh(v)} h` : v < 0 ? `−${fh(v)} h` : '0 h');
-    const wantEnd = sm.reached && sm.reached.camp ? `${fh(sm.hours)} h, par ${fh(par)} h: ${over > 0 ? `${fh(over)} h over par` : over < 0 ? `${fh(over)} h under par` : 'on par'}` : null;
-    const hoursOk = R.C.HEAT_STATES.every((st, i) => card.leg.includes(`${HNAME[st]} ${fh(sm.heat.hoursByState[i])} h`));
+    const signedH = (v) => { const k = v > 0 ? Math.floor(v + 1e-9) : Math.ceil(-v - 1e-9); return v > 0 && k ? `+${k}` : v < 0 && k ? `−${k}` : '0'; };
+    const wantEnd = sm.reached && sm.reached.camp ? `${HEAT_WORDS.Units}: ${fh(sm.hours)} (par ${fh(par)}) · ${over > 0 ? `${tolls(over)} over par` : over < 0 ? `${tolls(over)} under par` : 'on par'}${sm.asc ? ` · Ascendancy +${Math.round(sm.asc * 100)} %` : ''}` : null;
+    const hoursOk = card.leg.startsWith(`${HEAT_WORDS.Units} in each state: `) && R.C.HEAT_STATES.every((st, i) => card.leg.includes(`${HNAME[st]} ${fh(sm.heat.hoursByState[i])}`));
     await shot(page, 'I-summary');
     check('M2b-heat', `summary: the heat card's track has ${recs.length} zone records (${recs.length * 2} points, each zone's heat when left under it), hours by state ${sm.heat.hoursByState.join('/')} and "${wantEnd}" (hours - bossPar)`,
       rs.phase === 'SUMMARY' && card.dots === recs.length * 2 && card.xv.join(',') === recs.map((r) => signedH(r.exit - r.line)).join(',') && hoursOk && (!wantEnd || card.end === wantEnd),
       JSON.stringify(card));
     const echo = await page.locator('#screens .summary .card').nth(2).innerText();
     const line = sm.echoes.lines.find((l) => l.id === 'heat');
-    check('M2b-heat', `summary: the Echo line of fights won in heat reads "Fights won in heat (${line ? line.count : 0})" with its ${line ? line.echoes : 0} Echoes (summary.echoes.lines "heat")`,
-      !!line && new RegExp(`Fights won in heat${line.count > 1 ? ` \\(${line.count}\\)` : ''}\\s*\\+${line.echoes}\\b`).test(echo) && !/Heat \(\d+\)/.test(echo), echo.replace(/\n/g, ' / '));
+    check('M2b-heat', `summary: the Echo line of fights won in heat reads "${ECHO_LINE.heat} (${line ? line.count : 0})" with its ${line ? line.echoes : 0} Echoes (summary.echoes.lines "heat")`,
+      !!line && new RegExp(`${ECHO_LINE.heat}${line.count > 1 ? ` \\(${line.count}\\)` : ''}\\s*\\+${line.echoes}\\b`).test(echo) && !/Heat \(\d+\)/.test(echo), echo.replace(/\n/g, ' / '));
     // ---- loot heat raised: badges only on items found in a node entered Hot or Scorched
     rec = await page.evaluate(() => window.__heat);
     const raisedOk = rec.raised.length > 0 && rec.raised.every((x) => (x.heatUp === 'hot' || x.heatUp === 'scorched') && x.node === x.heatUp && R_UP_OK(x.heatUp));
@@ -1787,7 +1796,7 @@ async function partIExp(browser, W, H) {
     await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
     let s = await twin.sync(page); let hv = R.heatView(s);
     let d = await meterDom(page); let diff = meterDiff(d, hv, false);
-    check('M2b-heat-exp', `expedition hub (mapMode ${s.mapMode}): the Dimming's marker and "Dimming ${fh(hv.dimIn)} h"; the line sets the state (by ${hv.by})`, s.mapMode === 'expedition' && !diff.length && d.dimShown && hv.by === 'run', diff.join(' | ') || JSON.stringify(d));
+    check('M2b-heat-exp', `expedition hub (mapMode ${s.mapMode}): the Dimming's marker and "Dimming: ${tolls(hv.dimIn)}"; the line sets the state (by ${hv.by})`, s.mapMode === 'expedition' && !diff.length && d.dimShown && hv.by === 'run', diff.join(' | ') || JSON.stringify(d));
     await page.getByRole('button', { name: 'Got it' }).click();
     await page.getByRole('button', { name: 'Set out' }).click(); await idle(page);
     s = await twin.sync(page);
@@ -1810,7 +1819,7 @@ async function partIExp(browser, W, H) {
     d = await meterDom(page); diff = meterDiff(d, hv, false);
     await shot(page, 'I-exp-dim');
     const tip = await tipOf(page, page.locator('#heat'));
-    check('M2b-heat-exp', `the Dimming sets the state (zone hour ${s.hours - s.zone.start}: ${HNAME[hv.stateDim]} by the Dimming, ${HNAME[hv.stateRun]} by the line): "${HNAME[hv.state]} · Dimming", "Dimming ${fh(hv.dimIn)} h", its marker in ${hv.stateDim} and marked as the clock that sets it`,
+    check('M2b-heat-exp', `the Dimming sets the state (zone toll ${s.hours - s.zone.start}: ${HNAME[hv.stateDim]} by the Dimming, ${HNAME[hv.stateRun]} by the line): "${HNAME[hv.state]} · Dimming", "Dimming: ${tolls(hv.dimIn)}", its marker in ${hv.stateDim} and marked as the clock that sets it`,
       !diff.length && hv.by === 'dim' && d.by === 'dim', diff.join(' | ') || JSON.stringify(d));
     check('M2b-heat-exp', 'the meter\'s tooltip names the clock that sets the state', tip.includes(`The hotter clock sets the state: now the Dimming (${HNAME[hv.stateDim]}).`), tip);
   } catch (e) {
@@ -2278,12 +2287,12 @@ async function partJRogue(browser, W, H) {
     // its key stops it, played at the default speed (D47): the moment on screen, the round within its cap; then answered by
     // the interrupt, STAGGERED = the engine's status, the log line
     await setSpeed(page, '1×'); await page.mouse.move(2, 2); await frame();
-    const k0 = await page.evaluate(() => window.__ui.plays().length);
+    const k0 = await page.evaluate(() => performance.now()); // plays() keeps the last 200 steps: find the round by its input time
     await page.keyboard.press(`Digit${w.slot + 1}`);
     const atMoment = await page.waitForFunction(() => { const e = window.__ui.playingEvent(); return !!(e && e.t === 'windup'); }, null, { timeout: 6000, polling: 'raf' }).then(() => true, () => false);
     if (atMoment) { await page.waitForTimeout(150); await shot(page, 'J-rogue-moment'); }
     await idle(page);
-    const rec = (await page.evaluate(() => window.__ui.plays()))[k0];
+    const rec = (await page.evaluate(() => window.__ui.plays())).find((r) => r.input >= k0) || null;
     const ms = rec ? roundMs(rec) : null; const cap = rec && rec.round ? rec.round.budget : null;
     // D52: headless rendering at 1920x1080 runs at about 10 fps, so there a single round is reported and not held to the cap
     const capHeld = !(W >= 1920 && H >= 1080);

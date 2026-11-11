@@ -7,10 +7,11 @@
 // settings hide it. Presentation only: every button sends one dev op through the bridge (ctx.dev -> engine-bridge.js dev
 // -> R.debug); the numbers it shows (levels, limits, kinds) come from the bridge's data.dev.
 import { h, clear, fmtNum, moneyEl } from './util.js';
+import { HEAT_WORDS, tolls } from './ui-text.js';
 
 const TABS = [['start', 'Start at'], ['jump', 'Jump'], ['fight', 'Fight'], ['give', 'Give'], ['world', 'World'], ['seed', 'Seed']];
 const KIND_NAME = { normal: 'Normal', elite: 'Elite', rare: 'Rare', trash: 'Dungeon trash', dboss: 'Dungeon boss' };
-const HEAT_LABEL = { clear: 'Clear', warm: 'Warm', hot: 'Hot', scorched: 'Scorched' };
+const HEAT_LABEL = HEAT_WORDS.state; // Calm, Smouldering, Burning, Infernal (ui-text.js)
 const RUN_PHASES = ['ZONE_HUB', 'MAP', 'NODE', 'CAMP', 'BOSS'];
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
@@ -189,8 +190,8 @@ export function createDevMenu(root, ctx, { allowed }) {
       const modes = [['rows', 'Rows'], ['expedition', 'Expedition']].map(([m, label]) => { const b = h('button', { type: 'button' }, label); b.dataset.mode = m; b.addEventListener('click', () => { b.blur(); ctx.dev('mapMode', { mode: m }); }); return b; });
       return {
         el: h('div',
-          h('div.dm-line', field('Hours', hours, null), set, now),
-          h('div.dm-sub', 'Heat (the run\'s own clock)'), h('div.dm-acts', heat),
+          h('div.dm-line', field(HEAT_WORDS.Units, hours, null), set, now),
+          h('div.dm-sub', `${HEAT_WORDS.Name} (the run's own clock)`), h('div.dm-acts', heat),
           h('div.dm-acts', reveal, god),
           h('div.dm-sub', 'Map'), h('div.seg.dm-seg', modes),
           h('div.dm-note', 'God mode: you take no damage (a heavy blow counts as avoided). A run with it, or with any tool here, is a dev run: no Echoes. Map: the zone is drawn again in that mode, you at its hub.')),
@@ -202,7 +203,7 @@ export function createDevMenu(root, ctx, { allowed }) {
           god.classList.toggle('on', on); god.setAttribute('aria-checked', on ? 'true' : 'false'); god.classList.toggle('disabled', !ok);
           for (const b of modes) b.classList.toggle('on', (vv.mapMode || 'rows') === b.dataset.mode);
           hours.placeholder = String(vv.hours ?? 0);
-          now.textContent = vv.heat ? `now ${fmtNum(vv.hours)} h · ${HEAT_LABEL[vv.heat.state] || vv.heat.state}` : '';
+          now.textContent = vv.heat ? `now ${tolls(vv.hours)} · ${HEAT_LABEL[vv.heat.state] || vv.heat.state}` : '';
         },
       };
     },

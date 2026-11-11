@@ -1070,3 +1070,94 @@ body[data-phase="MAP"]:not(.in-fight) #toasts .toast { white-space: normal; text
 #engage-hint .eh-opts .eh-k { color: var(--ink-dim); }
 #engage-hint .eh-f { display: flex; justify-content: space-between; align-items: center; gap: .8rem; }
 #engage-hint .eh-once { font-size: 1rem; color: var(--ink-dim); }
+
+/* ===================================================================== UX readability pass (2026-11-11)
+   One place per kind of information: the run's time pressure (the Furnace) at the top centre; what to do now over the
+   action bar's right half; per-enemy intent on the nameplates; detail of the target in the target frame.
+   One colour per meaning: ember/orange = a wind-up and what answers it, gold = an off-balance window and "your turn",
+   frost blue = answered/staggered, red = damage to you and danger, teal-blue = the calm side of the Furnace. */
+#hud { --furnace-h: 6.6rem; }
+/* the top-centre band belongs to the Furnace: the frames and panels under it move down by its height */
+#target-frame { top: calc(1.6rem + var(--furnace-h)); }
+#ruler { top: calc(1.4rem + var(--furnace-h)); }
+#boss-frame { top: calc(1.4rem + var(--furnace-h)); }
+#screens .mapwin { top: calc(2rem + var(--furnace-h)); height: min(57rem, calc(100vh - 19.8rem - var(--furnace-h))); }
+#toasts { top: calc(13rem + var(--furnace-h)); }
+body.in-fight #toasts { top: calc(11.2rem + var(--furnace-h)); }
+
+/* ---- the Furnace (heat.js): calm water on the left, the core of the fire on the right, the pointer between them */
+#heat { right: auto; bottom: auto; left: 50%; top: .6rem; transform: translateX(-50%); width: 50rem; z-index: 32; padding: .32rem .9rem .3rem; gap: .42rem;
+  background: linear-gradient(90deg, rgba(8, 30, 34, .95), rgba(13, 13, 13, .95) 42%, rgba(18, 10, 8, .95) 58%, rgba(46, 9, 4, .96)); }
+#heat .ht-row { justify-content: center; }
+#heat .ht-row2 { justify-content: center; }
+#heat .ht-pay { flex: 0 1 auto; text-align: center; }
+#heat .ht-title { font-size: 1.45rem; letter-spacing: .04em; background: linear-gradient(90deg, #bfe8e6, #ffe2a8 45%, #ff8a4a); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; filter: drop-shadow(0 1px 1px #000); }
+#heat .ht-bar { height: 1.8rem; overflow: visible; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .9), 0 0 0 1px rgba(208, 170, 96, .3), 0 .2rem .8rem rgba(0, 0, 0, .6); }
+#heat .ht-seg span { font-size: .92rem; }
+/* the calm side: still water, soft blue-green, a slow shimmer */
+#heat .ht-seg[data-hs="clear"] { background: linear-gradient(180deg, #2c6f78 0%, #1f5866 45%, #153f4c 100%); }
+#heat .ht-seg[data-hs="clear"].on { background: linear-gradient(180deg, #67c3c4, #3a95a4 50%, #23707f); }
+#heat .ht-calm { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; pointer-events: none; border-radius: .35rem 0 0 .35rem; opacity: .55;
+  background: repeating-linear-gradient(180deg, transparent 0 .32rem, rgba(210, 250, 245, .16) .32rem .38rem), linear-gradient(90deg, rgba(190, 240, 235, .14), transparent 70%);
+  background-size: 100% 100%, 200% 100%; animation: pyre-calm 7s ease-in-out infinite alternate; }
+@keyframes pyre-calm { to { background-position: 0 .18rem, 100% 0; } }
+/* the hot side: Warm amber, Hot molten, Scorched the core: deep reds, a molten glow and rising embers */
+#heat .ht-seg[data-hs="warm"] { background: linear-gradient(180deg, #7a5a1c, #4e3810); }
+#heat .ht-seg[data-hs="hot"] { background: linear-gradient(180deg, #a8380e, #6a1c06 60%, #3e0e04); }
+#heat .ht-seg[data-hs="scorched"] { background: radial-gradient(ellipse at 50% 120%, #ff6a1a 0%, #b81c06 38%, #4a0603 75%, #1c0201 100%); }
+#heat .ht-row, #heat .ht-row2 { position: relative; z-index: 6; }
+#heat .ht-core { position: absolute; top: -.45rem; bottom: 0; z-index: 1; pointer-events: none; overflow: hidden; border-radius: 0 .35rem .35rem 0; }
+#heat .ht-core::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1.8rem; background: linear-gradient(90deg, transparent, rgba(255, 120, 30, .35) 40%, rgba(255, 70, 20, .55)); mix-blend-mode: screen; animation: pyre-glow 2.4s ease-in-out infinite; }
+#heat .ht-core i { position: absolute; inset: 0; background-image: radial-gradient(circle, rgba(255, 210, 120, .95) 0 1px, transparent 1.6px), radial-gradient(circle, rgba(255, 120, 40, .9) 0 1px, transparent 1.8px);
+  background-size: 2.3rem 2.7rem, 3.1rem 3.3rem; background-position: 0 0, 1.1rem 1.3rem; animation: pyre-ember 2.8s linear infinite; opacity: .85; }
+#heat .ht-core i:nth-child(2) { animation-duration: 3.7s; animation-delay: -1.3s; background-size: 2.9rem 3.1rem, 1.9rem 2.6rem; opacity: .6; }
+#heat .ht-core i:nth-child(3) { animation-duration: 5.1s; animation-delay: -2.6s; background-size: 4.1rem 3.6rem, 3.3rem 2.9rem; opacity: .45; }
+@keyframes pyre-ember { from { background-position-y: 2.7rem, 4rem; } to { background-position-y: 0, 0.7rem; } }
+@keyframes pyre-glow { 50% { opacity: .55; } }
+#heat .ht-seg.on { z-index: 0; }
+/* the pointer: a needle through the bar with a head above it, moving along the bar */
+#heat .ht-mark.run { top: -.3rem; bottom: -.4rem; width: .5rem; margin-left: -.25rem; z-index: 5; }
+#heat .ht-mark.run i { border-radius: .25rem; }
+#heat .ht-mark.run::before { content: ''; position: absolute; left: 50%; top: -.42rem; transform: translateX(-50%); border: .45rem solid transparent; border-top-color: #fff4cf; border-bottom: 0; filter: drop-shadow(0 0 .25rem rgba(0, 0, 0, .9)); }
+#heat .ht-line { z-index: 4; }
+/* the first-time note: under the Furnace, its arrow pointing up at it */
+#heat-intro { left: 50%; bottom: auto; top: calc(var(--furnace-h) + 1.2rem); transform: translateX(-50%); z-index: 12; }
+#heat-intro::after { right: auto; left: 50%; bottom: auto; top: -.8rem; transform: translateX(-50%); border-top-color: transparent; border-bottom: .8rem solid rgba(190, 160, 255, .7); border-top: 0; }
+
+/* ---- what to do now: the turn prompt over the action bar's right half (hud.js turnPrompt), and the bar's frame */
+#turnprompt { position: absolute; right: 0; bottom: calc(100% + .7rem); width: 38.4rem; min-height: 3rem; display: flex; align-items: center; gap: .7rem; padding: .35rem .8rem; border-radius: .5rem; pointer-events: none;
+  background: linear-gradient(180deg, rgba(40, 32, 14, .94), rgba(16, 12, 6, .94)); box-shadow: inset 0 0 0 1px rgba(255, 214, 120, .55), 0 0 1.2rem rgba(255, 200, 90, .25); animation: tp-in .25s ease-out; }
+#turnprompt.hidden { display: none; }
+@keyframes tp-in { from { opacity: 0; transform: translateY(.4rem); } }
+#turnprompt .tp-k { flex: none; font: 800 1rem var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: #1c1404; background: linear-gradient(180deg, #ffe7a0, #e8b44a); border-radius: .3rem; padding: .15rem .45rem; }
+#turnprompt .tp-t { flex: 1 1 auto; min-width: 0; font: 700 1.15rem/1.3 var(--font-ui); color: var(--ink); text-shadow: 0 1px 1px #000; }
+#turnprompt kbd { display: inline-block; min-width: 1.5rem; padding: 0 .3rem; margin: 0 .1rem; border-radius: .25rem; font: 800 1.05rem/1.45rem var(--font-ui); text-align: center; color: #fff4cf; background: #2a2010; box-shadow: inset 0 0 0 1px rgba(255, 214, 120, .7); }
+#turnprompt[data-kind="windup"] { box-shadow: inset 0 0 0 1px #ff8a4a, 0 0 1.4rem rgba(255, 100, 40, .45); }
+#turnprompt[data-kind="windup"] .tp-k { background: linear-gradient(180deg, #ffb070, #e0461a); color: #2a0800; }
+#turnprompt[data-kind="potion"] { box-shadow: inset 0 0 0 1px #7fe07a, 0 0 1.2rem rgba(120, 220, 120, .35); }
+#actionbar.your-turn { box-shadow: inset 0 0 0 1px rgba(255, 214, 120, .65), 0 0 1.6rem rgba(255, 200, 90, .35), 0 .4rem 1.4rem rgba(0, 0, 0, .6); }
+
+/* ---- nameplates: what comes and goes during a round hangs under the health bar, so the track above never moves */
+.np .under { position: absolute; top: 100%; left: -2.6rem; right: -2.6rem; display: flex; flex-flow: row wrap; justify-content: center; align-items: center; gap: .25rem .3rem; padding-top: .25rem; }
+.np .under .sts { min-height: 0; padding-top: 0; }
+.np .under .sts .st { width: 2.4rem; height: 2.4rem; }
+/* the plate stands one row higher, so the first row under the bar sits over the head, not on the body where numbers pop */
+#nameplates .np:not(.boss) { margin-top: -3rem; }
+.np .under:empty { display: none; }
+.np .sts:empty { display: none; }
+
+/* ---- the zone tracker: in a fight only the node's own lines (waves, fights left) stay */
+body.in-fight #tracker .zl { display: none; }
+#tracker .tk-h, #tracker .tk-l { align-self: flex-end; padding: 0 .4rem; border-radius: .3rem; background: rgba(8, 6, 4, .38); }
+/* the end boss's track sits under the boss frame (which moved down under the Furnace), over the boss's own sprite */
+#nameplates .np.boss { margin-top: 3.4rem; }
+#minimap .clock:empty { display: none; }
+/* windows open below the Furnace (it stays in view and uncovered); the settings window scrolls when the screen is short */
+#win-map { top: calc(2rem + var(--furnace-h)); }
+#win-settings, #win-settings.dev { top: calc(var(--furnace-h) + .8rem); transform: translateX(-50%); max-height: calc(100vh - var(--furnace-h) - 17.2rem); overflow-y: auto; scrollbar-width: thin; scrollbar-color: #5a4628 transparent; }
+#win-talents { top: calc(50% + var(--furnace-h) / 2 - 2rem); max-height: calc(100vh - var(--furnace-h) - 12rem); overflow-y: auto; }
+.hc-cap { margin: .2rem 0 .1rem; font: 700 1.05rem var(--font-ui); color: var(--ink-dim); letter-spacing: .03em; }
+/* in a fight the Furnace holds still (its embers and water move only between fights): the fight is the focus, and a round's
+   frames stay cheap on a loaded machine */
+body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-fight #heat .ht-core i { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) { #heat .ht-calm, #heat .ht-core::before, #heat .ht-core i { animation: none; } }
