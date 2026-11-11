@@ -1,6 +1,6 @@
 # Rules spec (M0 task 0.2)
 
-Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)"); M2 v5 changes 2026-11-10 (marked "(M2 v5)"); combat v2 (docs/specs/combat-v2.md, on its defaults) folded into sections 3, 7 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(combat v2)"); the expedition map (docs/specs/expedition.md 1, 4-7, 9.5; a run option until the switch-over) folded into 1.9 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(expedition)"); heat (docs/specs/expedition.md section H, on its defaults, both map modes) folded into 1.7.1-1.7.4, 1.9.10, 8.4, 9, 11.1 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(heat)"); combat v2.1 (docs/specs/combat-v2.md 16, docs/specs/changes-combat-v21.md) in section 7 and 13 by the Lead Game Designer, 2026-11-10 (marked "(combat v2.1)"), in the engine since 2026-11-10 (Core Gameplay Engineer, docs/handoffs/engineer-2026-11-10g.md; its clarifications in 7.11 and 7.12 are marked "(combat v2.1, engine)").
+Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)"); M2 v5 changes 2026-11-10 (marked "(M2 v5)"); combat v2 (docs/specs/combat-v2.md, on its defaults) folded into sections 3, 7 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(combat v2)"); the expedition map (docs/specs/expedition.md 1, 4-7, 9.5; a run option until the switch-over) folded into 1.9 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(expedition)"); heat (docs/specs/expedition.md section H, on its defaults, both map modes) folded into 1.7.1-1.7.4, 1.9.10, 8.4, 9, 11.1 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(heat)"); combat v2.1 (docs/specs/combat-v2.md 16, docs/specs/changes-combat-v21.md) in section 7 and 13 by the Lead Game Designer, 2026-11-10 (marked "(combat v2.1)"), in the engine since 2026-11-10 (Core Gameplay Engineer, docs/handoffs/engineer-2026-11-10g.md; its clarifications in 7.11 and 7.12 are marked "(combat v2.1, engine)"); tuning pass M2b v6 by the Lead Game Designer, 2026-11-11 (docs/specs/changes-m2b-v6.md; marked "(M2b v6)"; not yet in the engine).
 Audience: Core Gameplay Engineer (src/rules.js), Simulation & Balance Engineer, UI/UX Engineer, Content Designer.
 
 Every global number is a named constant (UPPER_SNAKE_CASE) in section 13. The data tables (classes, spells, pets, talents, archetypes, boss, meta catalogue) are named constant groups: each cell is addressed as `TABLE.id.field` (e.g. `SPELL.ember_bolt.cost`) and is exported as data from src/. Values are starting values; the Simulation & Balance Engineer tunes them within the limits in balance.md.
@@ -107,7 +107,7 @@ Services as a hub (Trainer, Vendor at CL 60 with ilvl 60 stock, Inn) plus repeat
 ### 1.7 In-game time and Ascendancy
 Every node and service costs hours (table 2.0). The total `hours` at `FIGHT_BOSS` sets the boss Ascendancy:
 `asc = min(ASC_CAP, ASC_PER_STEP × floor(max(0, hours - BOSS_TIME_PAR) / ASC_STEP_HOURS))`.
-Boss HP (incl. adds) and all boss damage are multiplied by `(1 + asc)`. Runs at or under BOSS_TIME_PAR also earn ECHO_SPEED_BONUS on a kill.
+Boss HP (incl. adds) and all boss damage are multiplied by `(1 + asc)` (boss damage also by BOSS_DMG_MULT, 10.1; M2b v6). With ASC_PER_STEP 0.02 every 10 h past the par add 2 % (M2b v6: was 4 %). Runs at or under BOSS_TIME_PAR also earn ECHO_SPEED_BONUS on a kill.
 
 #### 1.7.1 Heat: the line and the player's heat (heat)
 Source: docs/specs/expedition.md section H (H.1, H.2), folded in by the Core Gameplay Engineer; it applies to both map modes. Constants: section 13, marked "(heat)".
@@ -121,8 +121,8 @@ Source: docs/specs/expedition.md section H (H.1, H.2), folded in by the Core Gam
 |---|---|---|
 | Clear | heat < HEAT_WARM_AT | under par: no Ascendancy, ECHO_SPEED_BONUS in reach |
 | Warm | HEAT_WARM_AT <= heat < HEAT_HOT_AT | speed bonus lost, no Ascendancy yet |
-| Hot | HEAT_HOT_AT <= heat < HEAT_SCORCH_AT | Ascendancy +4 % to +8 % |
-| Scorched | heat >= HEAT_SCORCH_AT | Ascendancy +12 % or more (cap ASC_CAP) |
+| Hot | HEAT_HOT_AT <= heat < HEAT_SCORCH_AT | Ascendancy +2 % to +4 % | (M2b v6: was +4 % to +8 %)
+| Scorched | heat >= HEAT_SCORCH_AT | Ascendancy +6 % or more (cap ASC_CAP) | (M2b v6: was +12 % or more)
 
 HEAT_HOT_AT equals ASC_STEP_HOURS: Hot starts where Ascendancy starts to cost. In an expedition zone the Dimming adds a second clock and the meter's state is the hotter of the two (1.9.10); elsewhere the state is the run state. The meter is `heatView` and the hover preview of a choice ("2 h, ends Warm") is `heatPreview` (engine-api.md 11); the UI rules for the meter are expedition.md H.4.
 
@@ -416,7 +416,7 @@ Expected XP per node at d = 0, in levels: Quest (2 mobs) 1.7; Grind wave 0.7; El
 ### 5.1 Base stats and growth
 | Field | Rogue | Mage | Hunter |
 |---|---|---|---|
-| hpBase / hpPerLevel | 70 / 20 | 50 / 19.5 | 60 / 15.5 | (M2 v3: mage 17.5 -> 19.5, hunter 17 -> 15.5)
+| hpBase / hpPerLevel | 100 / 21 | 50 / 19.5 | 60 / 15.5 | (M2 v3: mage 17.5 -> 19.5, hunter 17 -> 15.5; M2b v6: rogue 70 / 20 -> 100 / 21)
 | STA base / growth | 10 / 1.4 | 8 / 1.25 | 9 / 1.2 | (M2 v2: mage 1.0 -> 1.25)
 | AGI base / growth | 20 / 2.0 | 8 / 0.5 | 18 / 1.8 |
 | INT base / growth | 6 / 0.3 | 22 / 2.2 | 10 / 0.8 |
@@ -676,6 +676,12 @@ Durations count end-of-round decrements including the round of application (a 1-
 ### 7.5 Usable items in combat
 Only items on the 3 item-bar slots, one item per action. Healing and Mana Draughts share POTION_CD. Other items have no cooldown. See 8.6 for effects.
 
+**Free potion (Packed Satchel, 11.2) (M2b v6).** With Packed Satchel, the first potion the player drinks in each fight costs no turn. A potion is an item with the potion flag (Healing Draught, Mana Draught, Greater Healing Draught; the POTION_CD group). Exact behaviour:
+- The first legal `USE_ITEM` of a potion in a fight (any round, the end-boss fight included) resolves as a normal player action (its effect, POTION_CD starts, and every side effect of a player action: STEALTH is removed (7.4), Arcane Momentum resets), and then the round does not go on: no pet action, no enemy actions, no end of round, the round number stays. The player chooses an action again in the same round (autoplay runs its policy again, 7.9). The fight's free potion is then used.
+- Every later potion in the fight costs the turn as before. Without Packed Satchel nothing changes. Other items (Tonic, Spark Flask) are never free.
+- It is legal only when the player could act in that round (not while the player's action is skipped).
+- Event: the item-use event carries `free: true` so the UI can say "Free action (Packed Satchel)"; the run summary's potions count includes free potions.
+
 ### 7.6 Enemy AI and intents
 Each enemy has an archetype (table) plus up to 2 template abilities (12.4). Its intents come from its intent track (7.11, combat v2; it replaces the per-round intent roll): each entry is an opening-script action (7.12) or a weighted pick (1 draw) among the basic attack and the abilities eligible for that turn (off cooldown, condition holds), by the weights below, then 1 draw for the target while a live pet exists. Conditions and SILENCED are checked again when the entry becomes now (7.11).
 
@@ -882,7 +888,7 @@ Run summary (SUMMARY phase): class, pet, talents (per tree), seed, outcome (vict
 ## 10. End boss: Oruvath, the Unlit Star
 
 ### 10.1 Setup
-Fought once at the end of the Camp in the Sunken Observatory. Level BOSS_LEVEL. HP `BOSS_HP × (1 + asc)`, armor BOSS_ARMOR, crit ENEMY_CRIT. Immune to STUN, FROZEN, HEXED (they interrupt casts instead). No flee. The boss always targets the player except when a pet has TAUNT, feign is active, or a single-target attack rolls pet aggro.
+Fought once at the end of the Camp in the Sunken Observatory. Level BOSS_LEVEL. HP `BOSS_HP × (1 + asc)`, armor BOSS_ARMOR, crit ENEMY_CRIT. Every damage the boss fight's enemies deal (Oruvath's attacks, the Shards' hits, the Brand's ticks; 10.2) is × BOSS_DMG_MULT × (1 + asc), at the same step as (1 + asc) today (7.2 step 2 and the Brand tick); Shard HP stays `SHARD_HP × (1 + asc)`. (M2b v6) Immune to STUN, FROZEN, HEXED (they interrupt casts instead). No flee. The boss always targets the player except when a pet has TAUNT, feign is active, or a single-target attack rolls pet aggro.
 
 ### 10.2 Phases and mechanics
 | Phase | HP band | Mechanics | What it tests |
@@ -892,7 +898,7 @@ Fought once at the end of the Camp in the Sunken Observatory. Level BOSS_LEVEL. 
 | 3 | < P3_AT | Shards despawn. Eclipse: boss damage +ECLIPSE_STEP per round in phase 3 (additive). Starless Pulse every PULSE_EVERY rounds: PULSE_DMG magic to player and pet (not interruptible). Litany and Brand continue. | burst, potions, sustain, cleanse |
 | Enrage | round >= BOSS_ENRAGE_ROUND | Final Dark each round: FINAL_DARK_DMG magic; ignores WARD and IMMUNE. | overall damage check |
 
-All boss and Shard damage × (1 + asc). Phase changes happen at once when HP crosses the threshold (no skipping: damage that crosses two thresholds triggers both in order).
+All boss and Shard damage × BOSS_DMG_MULT × (1 + asc) (M2b v6: was × (1 + asc)). Phase changes happen at once when HP crosses the threshold (no skipping: damage that crosses two thresholds triggers both in order).
 
 ### 10.3 Intent display
 The channel shows "Collapse Litany 1/2" then "2/2 - resolves". Gravity Crush shows its round one round ahead ("next round"). Brand stack timing is shown as a counter.
@@ -924,12 +930,12 @@ Bought between runs on the profile screen. Ranked entries: cost listed per rank.
 
 | id | Name | Kind | Ranks | Cost per rank | Effect | Req |
 |---|---|---|---|---|---|---|
-| vigor | Vigor of the Line | stat | 4 | 80/120/170/230 | max HP +0.01 /rank | - | (M2 v4: 5 ranks -> 4)
-| edge | Edge of the Line | stat | 4 | 80/120/170/230 | Power +0.01 /rank | - | (M2 v4: 5 ranks -> 4)
+| vigor | Vigor of the Line | stat | 4 | 80/120/170/230 | max HP +0.005 /rank | - | (M2 v4: 5 ranks -> 4; M2b v6: 0.01 -> 0.005)
+| edge | Edge of the Line | stat | 4 | 80/120/170/230 | Power +0.005 /rank | - | (M2 v4: 5 ranks -> 4; M2b v6: 0.01 -> 0.005)
 | keen | Keen Lineage | stat | 2 | 150/250 | crit +0.0075 /rank | - | (M2 v4: 0.01 -> 0.0075)
 | quick_study | Quick Study | stat | 3 | 100/180/280 | XP +0.0375 /rank | - | (M2 v4: 0.05 -> 0.0375)
 | prospector | Prospector | stat | 3 | 60/110/170 | gold +0.06 /rank | - | (M2 v4: 0.08 -> 0.06)
-| satchel | Packed Satchel | start kit | 1 | 60 | start with 3 Healing Draughts | - |
+| satchel | Packed Satchel | start kit | 1 | 60 | start with 3 Healing Draughts; the first potion each fight costs no turn (7.5) | - | (M2b v6: free potion)
 | heirloom_blade | Heirloom Blade | start kit | 1 | 80 | starting weapon is uncommon ilvl 3 | - |
 | pockets | Deeper Pockets | start kit | 2 | 50/100 | +4 bag slots /rank | - |
 | ledger | Trainer's Ledger | economy | 1 | 120 | first LEARN or TRAIN at each hub is free | - |
@@ -951,7 +957,7 @@ Removed (M2 v4): Wayfinder (80 Echoes, TRAVEL_ON cost 0 hours). Its 12 hours per
 
 Removed (M2 v5): Starforged Arms (450 Echoes; required Relics of the Deep and a first boss kill): each class's unique epic weapon (ilvl 62) sold at the Camp vendor for the normal gear price (35 400 copper). Its price made it a hunter item: on the 11-10b full catalogue the hunter, whose dungeon clears give it about 40 % more gold, bought it in 72 % of runs, the rogue in 18 %, the mage in 9 %, and a hunter holding it won 91 % of its boss fights against 50 % without. It was the cause of the class spread at full catalogue (hunter 77.6 % against 63 %), and Prospector mattered to the hunter mostly because it tipped this purchase. A saved profile that owns it keeps the Echoes spent and gets no effect, as Wayfinder (D42). The three class weapons stay in the content tables (12.1) for a later reward that does not depend on run gold. (M2 v5)
 
-**Meta power budget (M2 v3, revised M2 v4).** The full catalogue may add at most: max HP +0.04, Power +0.04, crit +0.015, potion healing +0.025 of max HP per healing potion (Alchemist's Notes: Greater Healing Draught 0.375 against the Healing Draught's 0.35), +1 talent point, the unique items (normal rarity budget plus one 11.3 effect), and no resurrect in the end-boss fight. (M2 v4; M2 v5: the Starforged weapon is no longer in the catalogue)
+**Meta power budget (M2 v3, revised M2 v4 and M2b v6).** The full catalogue may add at most: one free potion action per fight (Packed Satchel, 7.5; M2b v6), max HP +0.02, Power +0.02 (M2b v6: were +0.04 each; Vigor and Edge pay for the free potion), crit +0.015, potion healing +0.025 of max HP per healing potion (Alchemist's Notes: Greater Healing Draught 0.375 against the Healing Draught's 0.35), +1 talent point, the unique items (normal rarity budget plus one 11.3 effect), and no resurrect in the end-boss fight. (M2 v4; M2 v5: the Starforged weapon is no longer in the catalogue)
 
 Time is budgeted too (M2 v4): hours saved before the boss lower boss Ascendancy (1.7), which is boss HP and damage, so the time entries together (Quick Study, Swift Boots) may save at most META_TIME_BUDGET_H on the planner's median route (measured: planner median hours at the boss on PALL against P0, balance.md B17). (M2 v4)
 
@@ -1063,7 +1069,7 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | TRAVEL_EARLY_LEVELS | 1 | levels below exit level | (M2 v2)
 | BOSS_TIME_PAR | 120 | h | (M2 v2)
 | ASC_STEP_HOURS | 10 | h |
-| ASC_PER_STEP | 0.04 | fraction |
+| ASC_PER_STEP | 0.02 | fraction | (M2b v6: was 0.04)
 | ASC_CAP | 0.40 | fraction |
 | META_TIME_BUDGET_H | 5 | h saved by the full catalogue's time entries, planner median (half of ASC_STEP_HOURS) | (M2 v4)
 | QUEST_SIZE_W1 | 25 | weight |
@@ -1251,7 +1257,8 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | RES_MANA_PCT | 0.40 | of max mana |
 | RES_META_CHARGES | 1 | charges |
 | BOSS_LEVEL | 62 | level |
-| BOSS_HP | 13900 | HP | (M2 v4: was 13500)
+| BOSS_HP | 13066 | HP | (M2 v4: was 13500; M2b v6: 13900 -> 13066, × 0.94)
+| BOSS_DMG_MULT | 1.17 | × every damage of the end-boss fight's enemies (10.1) | (M2b v6)
 | BOSS_ARMOR | 1200 | armor |
 | BOSS_MELEE | 260 | damage | (M2 v2)
 | BOSS_CRUSH | 380 | damage |
@@ -1338,7 +1345,7 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | OFFBAL_DURATION | 2 | status duration (one player action) | (combat v2)
 | ENGAGE_DMG_COMP | 1.15 | × enemy damage (all template enemies; end boss excluded; not in the Rogue's fights except dungeon-boss fights, D48, D49) | (combat v2)
 | AMBUSH_MULT | 1.5 | × Gutting Jab before Shadowstep Strike is learned | (combat v2)
-| SAP_TURNS | 3 | enemy turns | (combat v2)
+| SAP_TURNS | 4 | enemy turns | (combat v2; M2b v6: was 3)
 | PREMED_CP | 5 | CP (was 3) | (combat v2.1)
 | GLYPH_TURNS | 2 | enemy turns | (combat v2)
 | GATHER_SPELLS | 3 | spells (was 2) | (combat v2.1)
@@ -1391,7 +1398,7 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | HEAT_DIM_WARM_H | 4 | h until the player's node dims: Warm at or below (1.9.10) | (heat)
 | HEAT_DIM_HOT_H | 2 | h until the player's node dims: Hot at or below (1.9.10) | (heat)
 | HEAT_GAIN | clear 0, warm 0, hot 0.35, scorched 0.50 | × extra XP and gold of a node, by the state it was entered in (1.7.3) | (heat)
-| HEAT_RARITY_UP | clear 0, warm 0, hot 0.25, scorched 0.40 | chance per item rolled in a node of one rarity step, by its entry state (8.4) | (heat)
+| HEAT_RARITY_UP | clear 0, warm 0, hot 0.50, scorched 0.70 | chance per item rolled in a node of one rarity step, by its entry state (8.4) | (heat; M2b v6: hot 0.25 -> 0.50, scorched 0.40 -> 0.70)
 | ECHO_PER_HEAT_FIGHT | 1 | Echoes per fight won in a node entered Hot or Scorched (11.1) [assumption: not prototyped] | (heat)
 | HEAT_BAR_MIN | -20 | h of heat at the meter's left end (expedition.md H.4) | (heat)
 | HEAT_BAR_MAX | 40 | h of heat at the meter's right end (expedition.md H.4) | (heat)

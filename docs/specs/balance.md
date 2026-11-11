@@ -1,6 +1,6 @@
 # Balance spec (M0 task 0.3)
 
-Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)"); M2 v5 changes 2026-11-10 (marked "(M2 v5)").
+Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)"); M2 v5 changes 2026-11-10 (marked "(M2 v5)"); M2b v6 changes 2026-11-11 (marked "(M2b v6)", docs/specs/changes-m2b-v6.md).
 Audience: Simulation & Balance Engineer (sim/), Playtest & QA Lead, Lead.
 
 Every target is checked by the headless simulator running src/rules.js. All target numbers are named constants in section 6. Rules references (e.g. "rules 7.9") point to docs/specs/rules.md.
@@ -28,7 +28,7 @@ The tactician stands in for a skilled manual player who reads the intents (rules
 Search: for each legal action, simulate TACTICIAN_DEPTH rounds ahead on cloned state with autoplay continuation over TACTICIAN_SAMPLES sampled seeds (cloned streams, not the live stream) and pick the action with the best mean of `(enemy HP removed, summoned adds weighted TACTICIAN_ADD_WEIGHT) - TACTICIAN_HP_WEIGHT × (own HP lost) - TACTICIAN_DEATH_PENALTY × deaths`. (M2 v2)
 
 ### 1.1 Value function (greedy, planner)
-`value(node) = XP_in_levels × VAL_XP + expected item-score gain × VAL_GEAR + gold / V(L) × VAL_GOLD - hours × VAL_HOUR × hourMult - P(death) × VAL_DEATH`. hourMult = 1 for the greedy; PLANNER_HOUR_MULT for the bots with lookahead (planner, tactician, and the speedrunner's tie-breaks), which see that hours past BOSS_TIME_PAR raise boss Ascendancy (rules 1.7); the speed route style multiplies on top (STYLE_SPEED_HOUR_MULT). (M2 v3)
+`value(node) = XP_in_levels × VAL_XP + expected item-score gain × VAL_GEAR + gold / V(L) × VAL_GOLD - hours × VAL_HOUR × hourMult - P(death) × VAL_DEATH`. hourMult = 1 for the greedy; PLANNER_HOUR_MULT for the bots with lookahead (planner, tactician, and the speedrunner's tie-breaks), which see that hours past BOSS_TIME_PAR raise boss Ascendancy (rules 1.7); the speed route style multiplies on top (STYLE_SPEED_HOUR_MULT). (M2 v3) The planner-based bots also value the heat rewards and pay a boss term for projected Ascendancy (expedition.md H.6; sim 2026-11-11). PLANNER_HOUR_MULT 3: on the v6 rules it wins 2.1 pp more than 2 (34.8 against 32.7 %, paired, 1 000 runs per class; 0.2 - 4.1). (M2b v6)
 
 Resurrect awareness (M2 v3): when a bot ranks a Shrine boon or decides whether it already holds a resurrect, it counts only charges usable at the end boss (Boon of Return, Ember of Return); Second Breath does not work there (rules 9). P(death) is estimated from the simulator's own running table of death rate by (node type, CL - L, HP fraction at entry), refreshed every SIM_RISK_REFRESH runs; before data exists use RISK_PRIOR by node type.
 
@@ -151,6 +151,7 @@ Priority: P1 = must pass for M1 sign-off; P2 = should pass; P3 = report only.
 - Meta power budget (rules 11.2, M2 v3): a catalogue change that adds combat power must stay inside the budget; check B2, B3, B10 and B6 PALL after it. (M2 v3)
 - B6 PALL and gold (M2 v5): gold buys power only through the vendors, so a class with more gold income (the hunter clears about 4 dungeons per PALL run against 0.4-0.9 for the others) converts every gold entry (Prospector) into more of it. Before pricing an expensive power item at a vendor, check how often each class can afford it (11-10b: the Starforged weapon, 35 400 copper, was bought in 72 % of hunter PALL runs, 18 % rogue, 9 % mage). (M2 v5)
 - B3 greedy and speedrunner bands on PALL (M2 v4): the greedy wins 0.65-0.78 × the planner on P0 and PALL alike (its mage and hunter come within 1-6 pp of the planner at PALL; its rogue wins 8-12 % of its boss fights, likely because it has no Camp bar swap (1.2) [inference: planner rogue 69-77 % on the same seeds]), and the speedrunner loses more than the planner when meta power is cut, because it reaches the boss under BOSS_TIME_PAR anyway and gains nothing from lower Ascendancy. The bands follow those measured ratios around the planner's band. (M2 v4)
+- B1 planner band and the hour weight (M2b v6): the band WR_P0_PLANNER (20-35 %) was set and checked with a planner that did not price Ascendancy and reached the boss at about 141 h with +8 % (as the owner's own runs, 148 h). It is kept: on the v6 rules the planner at PLANNER_HOUR_MULT 3 wins 34.8 % and the planner before the heat terms 34.9 % (paired, 1 000 runs per class), so the better bot no longer finds an easier game. On the v5 rules the same weight-3 planner won 48.1 %: there the band would have had to move, because the steep Ascendancy step (0.04) punished only slow play. Re-check B1 tactician, B5, B3 and B10 with weight 3 (every planner-based bot inherits it). (M2b v6)
 - B21 and B38 (M2 v3): the planner avoids nodes its risk table rates deadly, so mid- and late-zone deaths stay a few % of runs by design; tension in zones 3-6 is measured by B38 (HP dips) and B24, deaths by share of runs. Tune B38 with ZONE_DANGER_STEP first. (M2 v3)
 
 ---
@@ -184,7 +185,7 @@ Priority: P1 = must pass for M1 sign-off; P2 = should pass; P3 = report only.
 | VAL_GOLD | 5 | points per V |
 | VAL_HOUR | 6 | points per hour |
 | VAL_DEATH | 2000 | points |
-| PLANNER_HOUR_MULT | 2 | × VAL_HOUR (planner, tactician, speedrunner) | (M2 v3)
+| PLANNER_HOUR_MULT | 3 | × VAL_HOUR (planner, tactician, speedrunner) | (M2 v3; M2b v6: was 2)
 | SIM_RISK_REFRESH | 500 | runs |
 | RISK_PRIOR | quest 0.005, grind 0.004 per wave, elite 0.03, dungeon 0.05, treasure 0.002 | probability |
 | WR_P0_RANDOM_MAX | 0.03 | rate |

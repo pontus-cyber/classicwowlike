@@ -1,6 +1,6 @@
 # Expedition spec: start-camp preparation, contracts, roaming zone maps, the Dimming
 
-Owner: Lead Game Designer. Status: draft for Lead and owner review, 2026-11-10 (milestone M2b). Rules in sections 1-8; UI 9; bots 10; balance targets 11; prototype evidence 12; Heat addendum H (2026-11-10, rows mode and expedition); constants 13.
+Owner: Lead Game Designer. Status: draft for Lead and owner review, 2026-11-10 (milestone M2b). Rules in sections 1-8; UI 9; bots 10; balance targets 11; prototype evidence 12; Heat addendum H (2026-11-10, rows mode and expedition); constants 13. Tuning pass M2b v6 (2026-11-11, docs/specs/changes-m2b-v6.md) changes lines marked "(M2b v6)".
 Audience: Core Gameplay Engineer, UI/UX Engineer, Simulation & Balance Engineer, Content Designer, QA.
 
 Sources: owner feedback [stated: docs/feedback/2026-11-10-1006-owner.md, including the 10:09 follow-up]; current rules [source: docs/specs/rules.md sections 1, 2, 3, 11]; playtest [source: docs/handoffs/qa-2026-11-09.md]; balance state [source: docs/reports/balance-2026-11-10b.md]. Every number is a named constant in the table at the end (section 13); all are starting values for the Simulation & Balance Engineer to tune.
@@ -436,8 +436,8 @@ The **line** is the par schedule: each zone's share of the boss par.
 |---|---|---|---|
 | Clear | heat < HEAT_WARM_AT (0) | under par: no Ascendancy, ECHO_SPEED_BONUS in reach | none |
 | Warm | HEAT_WARM_AT <= heat < HEAT_HOT_AT (0-10 h) | speed bonus lost, no Ascendancy yet | none (a warning) |
-| Hot | HEAT_HOT_AT <= heat < HEAT_SCORCH_AT (10-30 h) | Ascendancy +4 % to +8 % | HEAT_GAIN.hot, HEAT_RARITY_UP.hot |
-| Scorched | heat >= HEAT_SCORCH_AT (30 h or more) | Ascendancy +12 % or more (cap ASC_CAP) | HEAT_GAIN.scorched, HEAT_RARITY_UP.scorched |
+| Hot | HEAT_HOT_AT <= heat < HEAT_SCORCH_AT (10-30 h) | Ascendancy +2 % to +4 % (M2b v6: ASC_PER_STEP 0.02; was +4 % to +8 %) | HEAT_GAIN.hot, HEAT_RARITY_UP.hot |
+| Scorched | heat >= HEAT_SCORCH_AT (30 h or more) | Ascendancy +6 % or more (cap ASC_CAP) (M2b v6: was +12 % or more) | HEAT_GAIN.scorched, HEAT_RARITY_UP.scorched |
 
 HEAT_HOT_AT equals ASC_STEP_HOURS on purpose: Hot starts where Ascendancy starts to cost, so heat pays only where it is paid for. Warm pays nothing because it costs nothing at the boss except the speed bonus; the prototype showed that paying in Warm is free power (H.7). The owner's run (148 h) ends Hot at +28 h; the planner P0 median (141 h) ends Hot at +21 h [source: docs/reports/balance-2026-11-10c.md B17].
 
@@ -455,7 +455,7 @@ The choice this creates: run Hot through the middle zones for more levels-worth,
 ### H.4 UI (always visible, rows mode and expedition)
 The meter is a fixed HUD element on every screen of the run except PREP and SUMMARY (map, node, fight, hub, Camp, boss intro):
 - A horizontal bar of the four states (Clear, Warm, Hot, Scorched), the line drawn as a red vertical mark at heat 0, the player's marker at `heat`, the bar spanning HEAT_BAR_MIN to HEAT_BAR_MAX hours (clamped, marker shows an arrow when beyond).
-- Text next to it: "12 h in hand" or "8 h past the line"; "Boss +4 %" (ascIfPar); in Hot and Scorched the live reward "+35 % XP and gold, 1 in 4 drops a rarity up".
+- Text next to it: "12 h in hand" or "8 h past the line"; "Boss +4 %" (ascIfPar); in Hot and Scorched the live reward "+35 % XP and gold, 1 in 2 drops a rarity up" (M2b v6: HEAT_RARITY_UP.hot 0.50; Scorched "+50 % XP and gold, 7 in 10 drops a rarity up").
 - On hover over a node (map) or a service, the hours it costs and the state the player will be in after it ("2 h, ends Warm"). A node that would move the player into a new state shows the new state's colour on its hour label.
 - A state change shows a short toast once ("Hot: the Unlit Star gains on you; spoils grow").
 - SUMMARY: the hours-vs-line track of the whole run as a small chart, with the time spent in each state and the Echo line of H.3; the existing "In-game time / Ascendancy" lines stay.
@@ -475,13 +475,15 @@ The meter's state is the **hotter** of the run state (H.2) and the Dimming state
 ### H.6 Engine, bots and balance targets
 Engine (Core Gameplay Engineer): `heatView(s)` = { hours, line, heat, stateRun, dimIn (expedition, else null), stateDim, state, ascIfPar, gain, rarityUp }, pure and cheap, usable by the UI at any phase; the node's entry state stored on the node and in the fight record; summary adds `heat` = { trackPerZone: [hours at entry and exit, line], fightsByState: [4], echoHeat }. The UI's meter (H.4) may ship before the rewards: `heatView` without H.3 is display-only and changes no balance.
 
-Bots (Simulation & Balance Engineer): the value function adds the heat multiplier to the XP, gold and gear terms of a node from the state it would be entered in. Two policies for B58: **heat-seek** = planner with hour weight × HEAT_SEEK_HOUR_MULT; **heat-avoid** = planner with hour weight × HEAT_AVOID_HOUR_MULT (both instead of PLANNER_HOUR_MULT). Greedy and autoplay keep their rules; the greedy's threat rule (10.2) treats Dimming-Hot nodes as today.
+Bots (Simulation & Balance Engineer): the value function adds the heat multiplier to the XP, gold and gear terms of a node from the state it would be entered in. Two policies for B58: **heat-seek** = planner with hour weight × HEAT_SEEK_HOUR_MULT; **heat-avoid** = planner with hour weight × HEAT_AVOID_HOUR_MULT (both instead of PLANNER_HOUR_MULT). Every policy also pays the boss term (balance-2026-11-11: change of projected Ascendancy × SIM.VAL_ASC). With PLANNER_HOUR_MULT 3 (balance.md 6, M2b v6) the default planner plays on the time-light side: on the v6 rules it enters no Hot node and wins like heat-avoid (34.8 % against 34.3 %, paired, 1 000 runs per class). (M2b v6) Greedy and autoplay keep their rules; the greedy's threat rule (10.2) treats Dimming-Hot nodes as today.
 
 | ID | Pri | Metric | Target |
 |---|---|---|---|
 | B58 | P1 | Heat is a real option: win rate heat-seek minus heat-avoid, planner P0, all classes pooled, paired seeds | within ±HEAT_POLICY_GAP_MAX pp |
-| B56 | P2 | Heat is used, not forced: share of winning planner P0 runs with at least one Hot or Scorched node | HEAT_WIN_SHARE |
+| B56 | P2 | Heat is used, not forced (M2b v6, redefined): (a) heat-seek minus planner win rate, planner P0, paired; (b) share of heat-seek's winning P0 runs with at least one Hot or Scorched node. Diagnostic, no target: the same share for the default planner (the old B56) | (a) >= -HEAT_POLICY_GAP_MAX pp; (b) HEAT_WIN_SHARE |
 | B57 | P2 | Heat rewards do not inflate power: planner P0 win rate with H.3 minus without | <= HEAT_POWER_MAX pp |
+
+Why B56 changed (M2b v6): the old B56 measured the default planner's own hour weight. At PLANNER_HOUR_MULT 3 that planner sits at the time-light end and never enters Hot, even with HEAT_RARITY_UP and HEAT_GAIN doubled [measured: designer scratch, 300 runs per class], while heat-seek wins as often (+1.2 pp). Rewards large enough to pull it into Hot would put heat-seek more than 5 pp ahead of heat-avoid (B58). B56 now asks what the owner asked for: a player who goes into heat on purpose wins as often as the default planner (a), and that player really uses heat without being forced to run Hot every time (b). [owner review]
 
 If B58 fails with avoid ahead, raise HEAT_RARITY_UP first (gear is what wins the boss; XP is capped at level 60), then HEAT_GAIN; with seek ahead, lower them. If B57 fails, lower HEAT_GAIN before the rarity step. Expedition: re-measure B43 with H.5, since a reward at the Dimming's edge pulls the planner toward it; lever HEAT_DIM_HOT_H.
 
@@ -603,12 +605,12 @@ Reproduce: `cd sim/out/heat && HEATP='{"gain":[0,0,0.35,0.5],"up":[0,0,0.25,0.4]
 | HEAT_SCORCH_AT | 30 | h past the line |
 | HEAT_DIM_WARM_H / HEAT_DIM_HOT_H | 4 / 2 | h until the player's node dims (H.5) |
 | HEAT_GAIN clear / warm / hot / scorched | 0 / 0 / 0.35 / 0.50 | × extra XP and gold (H.3) |
-| HEAT_RARITY_UP clear / warm / hot / scorched | 0 / 0 / 0.25 / 0.40 | chance per rolled item of one rarity step (H.3) |
+| HEAT_RARITY_UP clear / warm / hot / scorched | 0 / 0 / 0.50 / 0.70 | chance per rolled item of one rarity step (H.3) (M2b v6: was 0 / 0 / 0.25 / 0.40) |
 | ECHO_PER_HEAT_FIGHT | 1 | Echoes per fight won in a Hot or Scorched node [assumption] |
 | HEAT_BAR_MIN / HEAT_BAR_MAX | -20 / 40 | h shown on the meter (H.4) |
 | HEAT_SEEK_HOUR_MULT / HEAT_AVOID_HOUR_MULT | 0.5 / 4 | × VAL_HOUR (bots, B58) |
 | HEAT_POLICY_GAP_MAX | 5 | pp (B58) |
-| HEAT_WIN_SHARE | 0.30-0.85 | share of planner P0 wins (B56) |
+| HEAT_WIN_SHARE | 0.30-0.85 | share of heat-seek's P0 wins (B56 b) (M2b v6: was of the default planner's wins) |
 | HEAT_POWER_MAX | 4 | pp (B57) |
 
 Retired from rules.md 13: ZONE_CHOICE_ROWS, LANES, DUNGEON_ROW_MIN/MAX, REST_ROW_MIN/MAX, TRAINER_ROW_MIN/MAX, MAX_SAME_TYPE_PER_ROW, W_* (kept only as the zone-average fallback), TRAVEL_EARLY_LEVELS, STORY_QUESTS, STORY_XP_FRAC, STORY_REWARD_CHOICES.
