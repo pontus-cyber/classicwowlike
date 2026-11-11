@@ -846,7 +846,7 @@ async function partE(browser, W, H) {
     const step = R.zoneDanger(FROM + 10, 'normal') - 1; const dstep = R.zoneDanger(FROM + 10, 'trash') - 1;
     const rule = `Enemies above level ${FROM} hit harder: +${pct1(step)} damage per 10 levels (in dungeons +${pct1(dstep)}).`;
     check('M2v4-10', `zone 3: the minimap tooltip states the rule from the engine's zoneDanger (ZONE_DANGER_STEP ${R.C.ZONE_DANGER_STEP}, DUNGEON_DANGER_FRAC ${R.C.DUNGEON_DANGER_FRAC})`,
-      step === R.C.ZONE_DANGER_STEP && mm3.includes(rule), `${mm3} (wanted "${rule}")`);
+      Math.abs(step - R.C.ZONE_DANGER_STEP) < 1e-9 && mm3.includes(rule), `${mm3} (wanted "${rule}")`);
 
     // ---- setup: on to the camp; then the zone banners of the whole run
     const r2 = await autoRun(page);
