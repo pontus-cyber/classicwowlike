@@ -45,6 +45,7 @@ import { MAP_MODES, isExpedition, expMapView } from './engine/expedition.js';
 import { heatView as heatMeter, heatPreview as previewHeat } from './engine/heat.js';
 import { prepView as prepScreen, contractView as contractTracker } from './engine/contracts.js';
 import { createDebug } from './engine/debug.js';
+import { damageView as dmgView } from './engine/damageview.js';
 
 /**
  * 3 (M2b v7): the run's time is `state.time` in whole tolls (was `hours`), with `stats.timeAtBoss`,
@@ -277,6 +278,15 @@ export function pendingTicks(state, unit) {
   const all = previewTicks(state);
   if (unit === undefined || !all) return all;
   return all.find((x) => x.u === unit) || null;
+}
+
+/**
+ * The character sheet's damage block (owner feedback 2026-11-11 11:58; engine-api.md 1): the class's main attack's hit
+ * range, crit range and average (crit included) on a target-free foe, the Hunter pet's, the summed % modifiers and what one
+ * point of Power or Weapon damage adds. From the damage pipeline (src/engine/damageview.js); null without a character.
+ */
+export function damageView(state) {
+  return dmgView(state);
 }
 
 /**

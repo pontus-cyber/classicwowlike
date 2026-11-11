@@ -333,7 +333,7 @@ function schoolPct(s, school) {
   return 0;
 }
 
-function critChance(s, src, dst, o) {
+export function critChance(s, src, dst, o) {
   if (typeof src === 'number') return ENEMY_CRIT;
   const d = s.player.d;
   if (src === 'pet') return d.petCrit;
@@ -347,7 +347,7 @@ function critChance(s, src, dst, o) {
   return c;
 }
 
-function critMult(s, src) {
+export function critMult(s, src) {
   if (src === 'player') return s.player.d.critMult;
   return CRIT_MULT;
 }
