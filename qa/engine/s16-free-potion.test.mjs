@@ -117,7 +117,7 @@ describe('rules 7.5 Packed Satchel: the first potion each fight costs no turn (M
 
   test('the end-boss fight has its free potion too; Brand and the boss do not act on it', () => {
     let s = R.step(started('mage', { seed: 51, profile: SATCHEL }), { type: 'LEAVE_HUB' }).state;
-    s = tweak(atLevel(s, 60), (x) => { x.zone.z = 6; x.hours = 100; });
+    s = tweak(atLevel(s, 60), (x) => { x.zone.z = 6; x.time = 100; });
     s = R.step(R.step(s, { type: 'TRAVEL_ON' }).state, { type: 'FIGHT_BOSS' }).state;
     s = tweak(s, (x) => { x.player.itemBar = ['healing_draught', null, null]; x.player.hp = Math.round(x.player.d.maxHp / 2); x.fight.p.st.push({ id: 'BRAND', stacks: 2, dur: null }); });
     assert.equal(s.fight.kind, 'boss');

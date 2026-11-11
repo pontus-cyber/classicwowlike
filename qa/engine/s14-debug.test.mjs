@@ -52,7 +52,7 @@ describe('engine-api 12 dev tools', () => {
     assert.deepEqual([count('healing_draught'), count('mana_draught')], [C.DEV.POTIONS, C.DEV.POTIONS]);
     assert.deepEqual([s.player.hp, s.player.mana], [s.player.d.maxHp, s.player.d.maxMana]);
     assert.equal(s.player.bar.filter(Boolean).length, C.SPELL_BAR_SLOTS, 'the bar is full');
-    assert.equal(s.hours, Math.ceil(C.BOSS_TIME_PAR * 3 / C.ZONE_COUNT), 'on schedule: the line of zone 3');
+    assert.equal(s.time, Math.ceil(C.BOSS_TIME_PAR * 3 / C.ZONE_COUNT), 'on schedule: the line of zone 3');
     assert.deepEqual(R.summary(s).heat.trackPerZone.map((x) => x.z), [4], 'the heat record starts at the zone built');
     assert.deepEqual(s.dev.tools, ['build']);
   });
@@ -63,23 +63,23 @@ describe('engine-api 12 dev tools', () => {
     assert.equal(R.talentPointsFree(u), Math.floor((24 - C.TALENT_FIRST_LEVEL) / C.TALENT_LEVEL_STEP) + 1);
     const h = valid(build({ classId: 'hunter' }), 'hunter');
     const firstPet = Object.values(C.PET).find((p) => !p.meta).id;
-    assert.deepEqual([h.player.pet.id, h.player.level, h.zone.z, h.hours], [firstPet, 1, 1, 0]);
+    assert.deepEqual([h.player.pet.id, h.player.level, h.zone.z, h.time], [firstPet, 1, 1, 0]);
     assert.equal(h.player.pet.hp, h.player.d.petMaxHp);
     const camp = valid(build({ classId: 'hunter', petId: 'duskcat', zone: CAMP }), 'camp');
-    assert.deepEqual([camp.phase, camp.player.level, camp.player.pet.id, camp.hours], ['CAMP', C.MAX_LEVEL, 'duskcat', C.BOSS_TIME_PAR]);
+    assert.deepEqual([camp.phase, camp.player.level, camp.player.pet.id, camp.time], ['CAMP', C.MAX_LEVEL, 'duskcat', C.BOSS_TIME_PAR]);
     for (const o of [{ zone: 0 }, { zone: CAMP + 1 }, { level: 61 }, { rarity: 'junk' }, { ilvl: C.ILVL_MAX + 1 }, { talents: 'some' }, { classId: 'paladin' }, { gold: -1 },
-      { classId: 'hunter', petId: 'stormhawk' }, { mapMode: 'hex' }]) {
+      { classId: 'hunter', petId: 'stormhawk' }, { mapMode: 'hex' }, { hours: 10 }, { time: 1.5 }]) {
       assert.throws(() => build(o), (e) => e.code === 'ILLEGAL_ACTION', JSON.stringify(o));
     }
     assert.throws(() => D.build({ zone: 2 }), /content is required/);
   });
 
-  test('build: deterministic, plays on to the end of the run in both map modes; the expedition zone starts at the hours given', () => {
+  test('build: deterministic, plays on to the end of the run in both map modes; the expedition zone starts at the time given', () => {
     const a = build({ classId: 'hunter', zone: 2, level: 15 });
     assert.equal(R.serialize(build({ classId: 'hunter', zone: 2, level: 15 })), R.serialize(a), 'same options, same state');
     assert.notEqual(R.serialize(build({ classId: 'hunter', zone: 2, level: 15, seed: 12 })), R.serialize(a), 'the seed matters');
     for (const mapMode of ['rows', 'expedition']) {
-      const s = valid(build({ classId: 'mage', zone: 5, mapMode, hours: 70 }), mapMode);
+      const s = valid(build({ classId: 'mage', zone: 5, mapMode, time: 70 }), mapMode);
       assert.equal(s.mapMode, mapMode);
       if (mapMode === 'expedition') { assert.equal(s.zone.start, 70); assert.equal(R.mapView(s).mode, 'expedition'); }
       const end = autoUntil(s);
@@ -87,13 +87,13 @@ describe('engine-api 12 dev tools', () => {
     }
   });
 
-  test('toCamp and nextZone: from anywhere, leaving what is open; Travel on hours; zone 6 leads to the Camp', () => {
+  test('toCamp and nextZone: from anywhere, leaving what is open; Travel on tolls; zone 6 leads to the Camp', () => {
     const s = build({ classId: 'rogue', zone: 2, level: 12 });
     const inFight = D.encounter(s, { ids: enemyOf('normal', 2) }).state;
     const c = valid(run(D.toCamp, inFight), 'toCamp from a fight');
-    assert.deepEqual([c.phase, c.fight, c.node, c.zone.camp, c.hours], ['CAMP', null, null, true, s.hours]);
+    assert.deepEqual([c.phase, c.fight, c.node, c.zone.camp, c.time], ['CAMP', null, null, true, s.time]);
     const n = valid(run(D.nextZone, s), 'nextZone');
-    assert.deepEqual([n.phase, n.zone.z, n.hours], ['ZONE_HUB', 3, s.hours + C.HOURS_TRAVEL]);
+    assert.deepEqual([n.phase, n.zone.z, n.time], ['ZONE_HUB', 3, s.time + C.TIME_TRAVEL]);
     const z6 = valid(run(D.nextZone, build({ zone: 6 })), 'nextZone from zone 6');
     assert.equal(z6.phase, 'CAMP');
     assert.throws(() => D.nextZone(z6), /the Camp is the last stop/);
@@ -238,21 +238,21 @@ describe('engine-api 12 dev tools', () => {
     assert.equal(R.serialize(run(D.setGod, plain, false)), R.serialize(plain), 'turning it off when it is off changes nothing');
   });
 
-  test('setHours and setHeat: each heat state by the run\'s own clock; the expedition zone\'s Dimming stays; Ascendancy at the Camp', () => {
+  test('setTime and setHeat: each heat state by the run\'s own clock; the expedition zone\'s Dimming stays; Ascendancy at the Camp', () => {
     for (const mapMode of ['rows', 'expedition']) {
       const s = build({ classId: 'rogue', zone: 3, mapMode });
       for (const state of C.HEAT_STATES) {
         const h = valid(run(D.setHeat, s, state), `${mapMode} ${state}`);
         const hv = R.heatView(h);
         assert.equal(hv.stateRun, state, `${mapMode} ${state}`);
-        if (mapMode === 'expedition') assert.equal(h.hours - h.zone.start, s.hours - s.zone.start, 'zone hours unchanged');
+        if (mapMode === 'expedition') assert.equal(h.time - h.zone.start, s.time - s.zone.start, 'zone time unchanged');
       }
     }
     const camp = build({ zone: CAMP });
-    const late = valid(run(D.setHours, camp, C.BOSS_TIME_PAR + 3 * C.ASC_STEP_HOURS), 'late at the Camp');
+    const late = valid(run(D.setTime, camp, C.BOSS_TIME_PAR + 3 * C.ASC_STEP_TIME), 'late at the Camp');
     const b = R.step(late, { type: 'FIGHT_BOSS' }).state;
     assert.equal(b.fight.boss.asc, Math.round(3 * C.ASC_PER_STEP * 1e6) / 1e6);
-    assert.throws(() => D.setHours(camp, -1), /whole number/);
+    assert.throws(() => D.setTime(camp, -1), /whole number/);
     assert.throws(() => D.setHeat(camp, 'boiling'), /state must be one of/);
   });
 

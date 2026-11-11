@@ -1,10 +1,12 @@
 // rules.md 1.7.1-1.7.2 and 1.9.10 (heat): the line, the player's heat, the four states, the Dimming's clock in an
-// expedition zone, projected Ascendancy, heatView and heatPreview (exact against the engine's own hours and states).
+// expedition zone, projected Ascendancy, heatView and heatPreview (exact against the engine's own tolls and states).
+// M2b v7 (docs/specs/changes-m2b-v7.md A rows 2-4, D70): whole tolls, the line rounded up per zone, the Dimming's front
+// in integers; sweeps against the old exact formulas show every state, projected Ascendancy and dimming toll unchanged.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { R, C, CONTENT, started, tweak, atLevel, withSpells, inFight, forceDraws, ev, peek, cloneState } from './helpers.mjs';
 import { CONTENT as REAL } from '../../src/content/index.js';
-import { dimAt, zoneHours } from '../../src/engine/expedition.js';
+import { dimAt, dimAtHops, frontAt, frontNextIn, zoneTime } from '../../src/engine/expedition.js';
 import { lineAt, runState, dimState, ascOver, hotter } from '../../src/engine/heat.js';
 import { rollDrop } from '../../src/engine/items.js';
 import { vendorStock } from '../../src/engine/map.js';
@@ -34,43 +36,46 @@ function sameStep(p) {
 }
 
 describe('rules 1.7.1 the line and the heat', () => {
-  test('line(z) = parHours × min(z, ZONE_COUNT) / ZONE_COUNT: 20 h per zone at par 120, the Camp at the par; Haste lowers it', () => {
+  test('line(z) = ceil(parTime × min(z, ZONE_COUNT) / ZONE_COUNT) (M2b v7): 20 tolls per zone at par 120, the Camp at the par; Haste lowers it', () => {
     for (let z = 1; z <= C.ZONE_COUNT + 1; z++) assert.equal(lineAt([], z), (C.BOSS_TIME_PAR * Math.min(z, C.ZONE_COUNT)) / C.ZONE_COUNT);
     assert.equal(lineAt([], 1), 20);
     assert.equal(lineAt([], C.ZONE_COUNT + 1), C.BOSS_TIME_PAR);
-    const par = C.BOSS_TIME_PAR - C.OATH_HASTE_HOURS;
-    for (let z = 1; z <= C.ZONE_COUNT; z++) assert.equal(lineAt(['haste'], z), Math.round(((par * z) / C.ZONE_COUNT) * 1e6) / 1e6, `haste z${z}`);
-    // In a run: heat = hours - line of the current zone; the hub of zone 1 starts with a full share in hand.
+    const par = C.BOSS_TIME_PAR - C.OATH_HASTE_TIME;
+    for (let z = 1; z <= C.ZONE_COUNT; z++) assert.equal(lineAt(['haste'], z), Math.ceil((par * z) / C.ZONE_COUNT - 1e-9), `haste z${z}`);
+    assert.deepEqual([1, 2, 3, 4, 5, 6, 7].map((z) => lineAt(['haste'], z)), [17, 34, 50, 67, 84, 100, 100], 'changes-m2b-v7.md A row 2');
+    // In a run: heat = time - line of the current zone; the hub of zone 1 starts with a full share in hand.
     let s = started('rogue');
     let v = R.heatView(s);
-    assert.deepEqual([v.hours, v.par, v.z, v.line, v.heat, v.inHand, v.past], [0, C.BOSS_TIME_PAR, 1, 20, -20, 20, 0]);
-    s = tweak(s, (x) => { x.hours = 27; });
+    assert.deepEqual([v.time, v.par, v.z, v.line, v.heat, v.inHand, v.past], [0, C.BOSS_TIME_PAR, 1, 20, -20, 20, 0]);
+    s = tweak(s, (x) => { x.time = 27; });
     v = R.heatView(s);
     assert.deepEqual([v.heat, v.inHand, v.past], [7, 0, 7]);
-    // Haste: the line of zone 1 is 100 / 6 (6 decimals); the heat keeps 6 decimals.
+    // Haste: the line of zone 1 is 100 / 6 rounded up, 17 (M2b v7: was 16.666667); the heat is a whole number.
     let h = R.newRun({ classId: 'rogue', seed: 1, content: CONTENT, profile: OATHS });
     h = R.step(R.step(h, { type: 'SET_OATH', oath: 'haste', on: true }).state, { type: 'START_RUN' }).state;
-    v = R.heatView(tweak(h, (x) => { x.hours = 17; }));
+    v = R.heatView(tweak(h, (x) => { x.time = 17; }));
     assert.equal(v.par, par);
-    assert.equal(v.line, 16.666667);
-    assert.equal(v.heat, 0.333333);
+    assert.equal(v.line, 17);
+    assert.equal(v.heat, 0);
     assert.equal(v.state, 'warm');
+    v = R.heatView(tweak(h, (x) => { x.time = 16; }));
+    assert.deepEqual([v.line, v.heat, v.state], [17, -1, 'clear']);
   });
 
   test('entering the next zone moves the line one share ahead; TRAVEL_ON hours count against the zone left; the Camp line is the par', () => {
     let s = R.step(started('mage'), { type: 'LEAVE_HUB' }).state;
-    s = tweak(atLevel(s, 10), (x) => { x.hours = 25; });
+    s = tweak(atLevel(s, 10), (x) => { x.time = 25; });
     const before = R.heatView(s);
     assert.equal(before.heat, 5);
     const pv = R.heatPreview(s, { type: 'TRAVEL_ON' });
-    assert.equal(pv.hours, C.HOURS_TRAVEL);
+    assert.equal(pv.time, C.TIME_TRAVEL);
     s = R.step(s, { type: 'TRAVEL_ON' }).state;
     const after = R.heatView(s);
-    assert.deepEqual([after.z, after.line, after.hours, after.heat], [2, 40, 27, -13]);
+    assert.deepEqual([after.z, after.line, after.time, after.heat], [2, 40, 27, -13]);
     assert.deepEqual([pv.line, pv.heat, pv.state], [after.line, after.heat, after.state]);
     // The Camp: the line is the par, heat at FIGHT_BOSS is the over-par hours of the Ascendancy formula.
     for (const over of [-7, 0, 9, 10, 25, 39, 40, 200]) {
-      let c = tweak(atLevel(started('mage'), 60), (x) => { x.zone.z = C.ZONE_COUNT; x.hours = C.BOSS_TIME_PAR + over - C.HOURS_TRAVEL; });
+      let c = tweak(atLevel(started('mage'), 60), (x) => { x.zone.z = C.ZONE_COUNT; x.time = C.BOSS_TIME_PAR + over - C.TIME_TRAVEL; });
       c = R.step(R.step(c, { type: 'LEAVE_HUB' }).state, { type: 'TRAVEL_ON' }).state;
       assert.equal(c.phase, 'CAMP');
       const v = R.heatView(c);
@@ -80,24 +85,24 @@ describe('rules 1.7.1 the line and the heat', () => {
     }
   });
 
-  test('ascIfPar = min(ASC_CAP, ASC_PER_STEP × floor(max(0, heat) / ASC_STEP_HOURS))', () => {
+  test('ascIfPar = min(ASC_CAP, ASC_PER_STEP × floor(max(0, heat) / ASC_STEP_TIME))', () => {
     for (const heat of [-20, -0.5, 0, 0.333333, 9, 10, 19.5, 20, 30.333333, 99, 1000]) {
-      const want = Math.round(Math.min(C.ASC_CAP, C.ASC_PER_STEP * Math.floor(Math.max(0, heat) / C.ASC_STEP_HOURS)) * 1e6) / 1e6;
+      const want = Math.round(Math.min(C.ASC_CAP, C.ASC_PER_STEP * Math.floor(Math.max(0, heat) / C.ASC_STEP_TIME)) * 1e6) / 1e6;
       assert.equal(ascOver(heat), want, `heat ${heat}`);
-      assert.equal(R.heatView(tweak(started('rogue'), (x) => { x.hours = 20 + heat; })).ascIfPar, want);
+      assert.equal(R.heatView(tweak(started('rogue'), (x) => { x.time = 20 + heat; })).ascIfPar, want);
     }
   });
 });
 
 describe('rules 1.7.2 heat states', () => {
-  test('Clear below HEAT_WARM_AT, Warm from it, Hot from HEAT_HOT_AT (= ASC_STEP_HOURS), Scorched from HEAT_SCORCH_AT; rewards by state', () => {
-    assert.equal(C.HEAT_HOT_AT, C.ASC_STEP_HOURS);
+  test('Clear below HEAT_WARM_AT, Warm from it, Hot from HEAT_HOT_AT (= ASC_STEP_TIME), Scorched from HEAT_SCORCH_AT; rewards by state', () => {
+    assert.equal(C.HEAT_HOT_AT, C.ASC_STEP_TIME);
     assert.deepEqual(C.HEAT_STATES, ['clear', 'warm', 'hot', 'scorched']);
     const cases = [[-20, 'clear'], [-1, 'clear'], [-0.000001, 'clear'], [0, 'warm'], [9, 'warm'], [10, 'hot'], [29, 'hot'], [30, 'scorched'], [80, 'scorched']];
     for (const [heat, st] of cases) {
       assert.equal(runState(heat), st, `heat ${heat}`);
       if (Number.isInteger(heat)) {
-        const v = R.heatView(tweak(started('hunter'), (x) => { x.hours = 20 + heat; }));
+        const v = R.heatView(tweak(started('hunter'), (x) => { x.time = 20 + heat; }));
         assert.deepEqual([v.stateRun, v.state, v.by, v.dimIn, v.stateDim], [st, st, 'run', null, null], `rows run at heat ${heat}`);
         assert.equal(v.gain, C.HEAT_GAIN[st]);
         assert.equal(v.rarityUp, C.HEAT_RARITY_UP[st]);
@@ -112,30 +117,30 @@ describe('rules 1.7.2 heat states', () => {
 
   test('the bar: HEAT_BAR_MIN..HEAT_BAR_MAX, the marker clamped, beyond -1 / 0 / 1', () => {
     for (const [heat, marker, beyond] of [[-25, C.HEAT_BAR_MIN, -1], [-20, -20, 0], [7, 7, 0], [40, 40, 0], [41, C.HEAT_BAR_MAX, 1]]) {
-      const v = R.heatView(tweak(started('rogue'), (x) => { x.hours = 20 + heat; }));
+      const v = R.heatView(tweak(started('rogue'), (x) => { x.time = 20 + heat; }));
       assert.deepEqual(v.bar, { min: C.HEAT_BAR_MIN, max: C.HEAT_BAR_MAX, marker, beyond }, `heat ${heat}`);
     }
   });
 });
 
 describe('rules 1.9.10 heat in an expedition zone', () => {
-  test('dimIn = dimAt(player node) - hz; Dimming states by HEAT_DIM_WARM_H and HEAT_DIM_HOT_H; the hotter state counts, by = dim', () => {
+  test('dimIn = dimAt(player node) - zt; Dimming states by HEAT_DIM_WARM and HEAT_DIM_HOT; the hotter state counts, by = dim', () => {
     const s = onMap(expRun('mage', { seed: 4 }));
     const at = dimAt(s.zone, 0);
-    for (const [left, st] of [[at, 'clear'], [C.HEAT_DIM_WARM_H + 1, 'clear'], [C.HEAT_DIM_WARM_H, 'warm'], [C.HEAT_DIM_HOT_H + 1, 'warm'], [C.HEAT_DIM_HOT_H, 'hot'], [1, 'hot'], [0, 'scorched'], [-3, 'scorched']]) {
+    for (const [left, st] of [[at, 'clear'], [C.HEAT_DIM_WARM + 1, 'clear'], [C.HEAT_DIM_WARM, 'warm'], [C.HEAT_DIM_HOT + 1, 'warm'], [C.HEAT_DIM_HOT, 'hot'], [1, 'hot'], [0, 'scorched'], [-3, 'scorched']]) {
       assert.equal(dimState(left), st);
-      const t = tweak(s, (x) => { x.hours = x.zone.start + at - left; });
+      const t = tweak(s, (x) => { x.time = x.zone.start + at - left; });
       const v = R.heatView(t);
-      assert.equal(v.dimIn, dimAt(t.zone, t.zone.pos) - zoneHours(t));
+      assert.equal(v.dimIn, dimAt(t.zone, t.zone.pos) - zoneTime(t));
       assert.equal(v.dimIn, left);
       assert.equal(v.stateDim, st, `${left} h left`);
-      // Zone 1 at hz <= at: the run state is Clear (at most 14 of its 20 h), so the Dimming sets the state.
+      // Zone 1 at zt <= at: the run state is Clear (at most 14 of its 20 h), so the Dimming sets the state.
       assert.equal(v.stateRun, 'clear');
       assert.equal(v.state, st);
       assert.equal(v.by, st === 'clear' ? 'run' : 'dim');
     }
     // The run state wins when it is hotter.
-    const hot = R.heatView(tweak(s, (x) => { x.hours = 40; x.zone.start = 40 - (at - 3); }));
+    const hot = R.heatView(tweak(s, (x) => { x.time = 40; x.zone.start = 40 - (at - 3); }));
     assert.equal(hot.stateDim, 'warm');
     assert.equal(hot.stateRun, 'hot');
     assert.deepEqual([hot.state, hot.by], ['hot', 'run']);
@@ -187,7 +192,7 @@ describe('heatView and heatPreview (engine-api.md 11)', () => {
           if (!sameStep(p)) continue;
           const r = R.step(s, p.action);
           const w = R.heatView(r.state);
-          assert.equal(w.hours, s.hours + p.hours, `${JSON.stringify(p.action)} hours`);
+          assert.equal(w.time, s.time + p.time, `${JSON.stringify(p.action)} hours`);
           assert.deepEqual([w.line, w.heat, w.stateRun, w.state, w.ascIfPar], [p.line, p.heat, p.stateRun, p.state, p.ascIfPar], JSON.stringify(p.action));
           // Leaving the zone: the next zone's map is drawn on arrival, so the preview has no Dimming clock; its hub starts Clear.
           if (w.z !== v.z) { assert.equal(p.dimIn, null); assert.ok(w.stateDim === null || w.stateDim === 'clear'); }
@@ -210,15 +215,15 @@ describe('heatView and heatPreview (engine-api.md 11)', () => {
     let s = onMap(expRun('mage', { seed: 8 }));
     const nb = s.zone.nodes[0].nb[0];
     // The neighbour dims one hour from now: a pass through it ends in the dark.
-    s = tweak(s, (x) => { x.hours = x.zone.start + dimAt(x.zone, nb) - 1; });
+    s = tweak(s, (x) => { x.time = x.zone.start + dimAt(x.zone, nb) - 1; });
     const pass = R.heatPreview(s, { type: 'PASS_THROUGH', nodeId: nb });
     assert.equal(pass.dimFight, true);
-    assert.equal(pass.hours, C.HOURS_WALK + C.HOURS_DIM_FIGHT);
+    assert.equal(pass.time, C.TIME_WALK + C.TIME_DIM_FIGHT);
     assert.equal(pass.state, 'scorched');
     assert.equal(pass.pays, null);
     const r = R.step(s, { type: 'PASS_THROUGH', nodeId: nb }).state;
     assert.equal(r.node.type, 'dim');
-    assert.equal(r.hours, s.hours + pass.hours);
+    assert.equal(r.time, s.time + pass.time);
     // Entering it now pays at its clock now: 1 h left = Hot.
     const enter = R.heatPreview(s, { type: 'MOVE', nodeId: nb });
     assert.equal(enter.pays, 'hot');
@@ -247,23 +252,23 @@ describe('rules 1.7.3 what heat gives', () => {
     // Today's map: Warm at entry (heat 9); the 2 h quest ends Hot, the node pays Warm.
     let s = R.step(started('rogue', { seed: 2 }), { type: 'LEAVE_HUB' }).state;
     const lane = R.mapView(s).next.find((l) => s.zone.rows[0][l].type === 'quest');
-    for (const [hours, want] of [[29, 'warm'], [19, 'clear'], [30, 'hot'], [55, 'scorched']]) {
-      const t0 = tweak(s, (x) => { x.hours = hours; });
+    for (const [time, want] of [[29, 'warm'], [19, 'clear'], [30, 'hot'], [55, 'scorched']]) {
+      const t0 = tweak(s, (x) => { x.time = time; });
       const pv = R.heatPreview(t0, { type: 'CHOOSE_NODE', lane });
       assert.equal(pv.pays, want);
       const r = R.step(t0, { type: 'CHOOSE_NODE', lane });
-      assert.equal(r.state.node.heat, want, `heat ${hours - 20}`);
+      assert.equal(r.state.node.heat, want, `heat ${time - 20}`);
       assert.equal(r.state.fight.heat, want);
       assert.equal(ev(r.events, 'node')[0].heat, want);
       assert.equal(ev(r.events, 'fight')[0].heat, want);
       assert.deepEqual(R.heatView(r.state).node, { state: want, gain: C.HEAT_GAIN[want], rarityUp: C.HEAT_RARITY_UP[want] });
     }
     // The meter moves on inside the node; the node keeps its state.
-    const w = R.step(tweak(s, (x) => { x.hours = 29; }), { type: 'CHOOSE_NODE', lane }).state;
+    const w = R.step(tweak(s, (x) => { x.time = 29; }), { type: 'CHOOSE_NODE', lane }).state;
     assert.equal(R.heatView(w).state, 'hot');
     assert.equal(R.heatView(w).node.state, 'warm');
     // Camp waves and the boss have none.
-    let c = tweak(atLevel(started('mage'), 60), (x) => { x.zone.z = C.ZONE_COUNT; x.hours = 400; });
+    let c = tweak(atLevel(started('mage'), 60), (x) => { x.zone.z = C.ZONE_COUNT; x.time = 400; });
     c = R.step(R.step(c, { type: 'LEAVE_HUB' }).state, { type: 'TRAVEL_ON' }).state;
     const wave = R.step(c, { type: 'CAMP_GRIND' });
     assert.equal(wave.state.fight.heat, null);
@@ -322,10 +327,10 @@ describe('rules 1.7.3 what heat gives', () => {
     // Treasure: an unguarded chest entered Scorched.
     let s = R.step(started('hunter', { seed: 6 }), { type: 'LEAVE_HUB' }).state;
     s = tweak(s, (x) => { const n = x.zone.rows[0][0]; n.type = 'treasure'; n.guard = null; n.trap = false; });
-    const chest = (hours) => ev(R.step(tweak(s, (x) => { x.hours = hours; }), { type: 'CHOOSE_NODE', lane: 0 }).events, 'gold').find((e) => e.why === 'treasure');
+    const chest = (time) => ev(R.step(tweak(s, (x) => { x.time = time; }), { type: 'CHOOSE_NODE', lane: 0 }).events, 'gold').find((e) => e.why === 'treasure');
     assert.equal(chest(60).amount, Math.round(chest(0).amount * (1 + C.HEAT_GAIN.scorched) + 1e-9));
     // Selling in a vendor node entered Scorched: raw value, no heat.
-    let v = tweak(s, (x) => { const n = x.zone.rows[0][1]; n.type = 'vendor'; n.stock = vendorStock(x, makeRng(3), n.cl); x.hours = 60; });
+    let v = tweak(s, (x) => { const n = x.zone.rows[0][1]; n.type = 'vendor'; n.stock = vendorStock(x, makeRng(3), n.cl); x.time = 60; });
     v = R.step(v, { type: 'CHOOSE_NODE', lane: 1 }).state;
     assert.equal(v.node.heat, 'scorched');
     const junk = { uid: 'jk', kind: 'junk', name: 'J', level: 5, qty: 2 };
@@ -336,7 +341,7 @@ describe('rules 1.7.3 what heat gives', () => {
   });
 
   test('not paid: Camp waves, the boss and Dimmed encounters, whatever the meter shows', () => {
-    let c = tweak(atLevel(started('mage', { seed: 3 }), 59), (x) => { x.zone.z = C.ZONE_COUNT; x.hours = 400; });
+    let c = tweak(atLevel(started('mage', { seed: 3 }), 59), (x) => { x.zone.z = C.ZONE_COUNT; x.time = 400; });
     c = R.step(R.step(c, { type: 'LEAVE_HUB' }).state, { type: 'TRAVEL_ON' }).state;
     let w = R.step(c, { type: 'CAMP_GRIND' }).state;
     w = tweak(w, (x) => { for (const e of x.fight.enemies) { e.hp = 1; e.dodge = 0; } });
@@ -347,7 +352,7 @@ describe('rules 1.7.3 what heat gives', () => {
     // A Dimmed encounter: the player's node is Dimmed (the meter is Scorched), the kills pay no heat.
     let s = onMap(atLevel(expRun('mage', { seed: 9 }), 12));
     const target = s.zone.nodes[0].nb[0];
-    s = tweak(s, (x) => { x.hours = x.zone.start + dimAt(x.zone, target) + 1; });
+    s = tweak(s, (x) => { x.time = x.zone.start + dimAt(x.zone, target) + 1; });
     let d = R.step(s, { type: 'MOVE', nodeId: target }).state;
     assert.equal(d.node.type, 'dim');
     assert.equal(d.node.heat, undefined);
@@ -459,12 +464,12 @@ describe('rules 11.1 and 1.7.4 the Echo line and the summary block', () => {
     assert.deepEqual(R.summary(fled.state).heat.fightsByState, [0, 0, 0, 0]);
   });
 
-  test('summary heat block: trackPerZone (line, entry, exit), hoursByState adds up to the hours, nodesByState to the nodes, fightsByState', () => {
+  test('summary heat block: trackPerZone (line, entry, exit), timeByState adds up to the hours, nodesByState to the nodes, fightsByState', () => {
     // Hours by the state each hour starts in: a 2 h quest entered at heat -1 is 1 h Clear and 1 h Warm.
     let s = R.step(started('rogue', { seed: 2 }), { type: 'LEAVE_HUB' }).state;
     const lane = R.mapView(s).next.find((l) => s.zone.rows[0][l].type === 'quest');
-    const q = R.step(tweak(s, (x) => { x.hours = 19; x.stats.heat.hoursByState = [19, 0, 0, 0]; }), { type: 'CHOOSE_NODE', lane }).state;
-    assert.deepEqual(R.summary(q).heat.hoursByState, [20, 1, 0, 0]);
+    const q = R.step(tweak(s, (x) => { x.time = 19; x.stats.heat.timeByState = [19, 0, 0, 0]; }), { type: 'CHOOSE_NODE', lane }).state;
+    assert.deepEqual(R.summary(q).heat.timeByState, [20, 1, 0, 0]);
     assert.deepEqual(R.summary(q).heat.nodesByState, [1, 0, 0, 0]);
     for (const [mapMode, seed, cls, content] of [['rows', 1, 'hunter', CONTENT], ['rows', 3, 'mage', REAL], ['expedition', 5, 'hunter', CONTENT], ['expedition', 1, 'mage', REAL]]) {
       let r = R.step(R.newRun({ classId: cls, petId: cls === 'hunter' ? 'ridgewolf' : null, seed, content, mapMode }), { type: 'START_RUN' }).state;
@@ -476,7 +481,7 @@ describe('rules 11.1 and 1.7.4 the Echo line and the summary block', () => {
       }
       const sm = R.summary(r);
       const h = sm.heat;
-      assert.equal(h.hoursByState.reduce((a, b) => a + b, 0), sm.hours, `${mapMode} ${seed}: hours`);
+      assert.equal(h.timeByState.reduce((a, b) => a + b, 0), sm.time, `${mapMode} ${seed}: hours`);
       assert.equal(h.nodesByState.reduce((a, b) => a + b, 0), sm.nodes.total, 'nodes');
       assert.equal(h.fightsByState.reduce((a, b) => a + b, 0), won, 'fights won in map nodes');
       assert.equal(h.trackPerZone[0].entry, 0);
@@ -485,23 +490,108 @@ describe('rules 11.1 and 1.7.4 the Echo line and the summary block', () => {
         if (i > 0) assert.equal(z.entry, h.trackPerZone[i - 1].exit, 'a zone is entered when the last is left');
         assert.ok(z.exit >= z.entry);
       });
-      assert.equal(h.trackPerZone[h.trackPerZone.length - 1].exit, sm.hours);
+      assert.equal(h.trackPerZone[h.trackPerZone.length - 1].exit, sm.time);
       assert.equal(h.trackPerZone.length, sm.reached.zone + (sm.reached.camp ? 1 : 0));
     }
   });
 });
 
 describe('rules 1.9.10 heat rewards in an expedition zone', () => {
-  test('a node entered at the Dimming\'s edge (dimIn <= HEAT_DIM_HOT_H) pays as Hot', () => {
+  test('a node entered at the Dimming\'s edge (dimIn <= HEAT_DIM_HOT) pays as Hot', () => {
     let s = onMap(atLevel(expRun('mage', { seed: 14 }), 6));
     const id = s.zone.nodes[0].nb.find((x) => s.zone.nodes[x].type === 'quest') ?? s.zone.nodes[0].nb[0];
     for (const [left, want] of [[2, 'hot'], [1, 'hot'], [3, 'warm'], [9, 'clear']]) {
-      const t0 = tweak(s, (x) => { x.hours = x.zone.start + dimAt(x.zone, id) - left; });
+      const t0 = tweak(s, (x) => { x.time = x.zone.start + dimAt(x.zone, id) - left; });
       assert.equal(R.heatView(t0).stateRun, 'clear');
       assert.equal(R.heatPreview(t0, { type: 'MOVE', nodeId: id }).pays, want);
       const r = R.step(t0, { type: 'MOVE', nodeId: id });
       assert.equal(r.state.node.heat, want, `${left} h before the node dims`);
       assert.equal(ev(r.events, 'node')[0].heat, want);
     }
+  });
+});
+
+describe('M2b v7 (D70): whole tolls; the rounded-up line and the integer front keep every state, Ascendancy and dimming toll', () => {
+  // The old formulas (before M2b v7), kept here as the reference: the line at 6 decimals, the heat at 6 decimals,
+  // DIM_HOURS_PER_HOP 2.5 with the 1e-9 guards.
+  const r6 = (x) => Math.round(x * 1e6) / 1e6;
+  const oldLine = (par, z) => r6((par * Math.min(z, C.ZONE_COUNT)) / C.ZONE_COUNT);
+  const OLD_PER_HOP = 2.5;
+  const oldFront = (zt) => (zt < C.DIM_GRACE ? -1 : Math.floor((zt - C.DIM_GRACE) / OLD_PER_HOP + 1e-9));
+  const oldDimAt = (hops) => Math.ceil(C.DIM_GRACE + hops * OLD_PER_HOP - 1e-9);
+  const oldNextIn = (zt) => Math.max(1, Math.ceil(C.DIM_GRACE + (oldFront(zt) + 1) * OLD_PER_HOP - zt - 1e-9));
+
+  test('par 100 and 120, z 1-7, time 0-250: the run state and ascIfPar equal the old exact line\'s; the line and heat are whole', () => {
+    let n = 0;
+    for (const [oaths, par] of [[[], C.BOSS_TIME_PAR], [['haste'], C.BOSS_TIME_PAR - C.OATH_HASTE_TIME]]) {
+      assert.equal(par === 100 || par === 120, true);
+      for (let z = 1; z <= C.ZONE_COUNT + 1; z++) {
+        const line = lineAt(oaths, z);
+        assert.ok(Number.isInteger(line), `line ${par} z${z}`);
+        assert.equal(line, Math.ceil(oldLine(par, z) - 1e-9), `line ${par} z${z} = ceil(old)`);
+        for (let t = 0; t <= 250; t++) {
+          const heat = t - line;
+          const old = r6(t - oldLine(par, z));
+          assert.equal(runState(heat), runState(old), `state par ${par} z${z} t${t}`);
+          assert.equal(ascOver(heat), ascOver(old), `ascIfPar par ${par} z${z} t${t}`);
+          n++;
+        }
+      }
+    }
+    assert.equal(n, 2 * (C.ZONE_COUNT + 1) * 251);
+  });
+
+  test('zone time 0-60, hops 0-8: front, dimAt, nextIn and the Dimming state equal the old 2.5-per-hop values', () => {
+    assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7].map(dimAtHops), [6, 9, 11, 14, 16, 19, 21, 24], 'changes-m2b-v7.md A row 4');
+    for (let hops = 0; hops <= 8; hops++) assert.equal(dimAtHops(hops), oldDimAt(hops), `dimAt hops ${hops}`);
+    for (let zt = 0; zt <= 60; zt++) {
+      assert.equal(frontAt(zt), oldFront(zt), `front zt ${zt}`);
+      assert.equal(frontNextIn(zt), oldNextIn(zt), `nextIn zt ${zt}`);
+      assert.equal(frontNextIn(zt), Math.max(1, dimAtHops(frontAt(zt) + 1) - zt), `nextIn = dimAt(front + 1) - zt, zt ${zt}`);
+      for (let hops = 0; hops <= 8; hops++) {
+        assert.equal(dimState(dimAtHops(hops) - zt), dimState(oldDimAt(hops) - zt), `Dimming state zt ${zt} hops ${hops}`);
+        assert.equal(zt >= dimAtHops(hops), frontAt(zt) >= hops, `Dimmed at zt ${zt} hops ${hops} exactly when the front covers it`);
+      }
+    }
+  });
+
+  test('every time value the meter, its previews, the map view and the summary show is a whole number (Oath of Haste, both map modes)', () => {
+    const whole = (x, what) => assert.ok(x === null || x === Infinity || Number.isInteger(x), `${what}: ${x}`);
+    for (const mapMode of ['rows', 'expedition']) {
+      let s = R.newRun({ classId: 'mage', seed: 2, content: REAL, profile: OATHS, mapMode });
+      s = R.step(R.step(s, { type: 'SET_OATH', oath: 'haste', on: true }).state, { type: 'START_RUN' }).state;
+      for (let i = 0; i < 400 && s.phase !== 'SUMMARY'; i++) {
+        const v = R.heatView(s);
+        if (v) {
+          for (const k of ['time', 'par', 'line', 'heat', 'inHand', 'past', 'dimIn']) whole(v[k], `${mapMode} heatView.${k}`);
+          for (const p of v.next) for (const k of ['time', 'timeAfter', 'line', 'heat', 'dimIn']) whole(p[k], `${mapMode} preview.${k}`);
+        }
+        const m = R.mapView(s);
+        if (m && m.mode === 'expedition') {
+          whole(m.zt, 'mapView.zt');
+          for (const n of m.nodes) { whole(n.dimsIn, 'dimsIn'); whole(n.dimAt, 'dimAt'); }
+          for (const mv of m.moves) { whole(mv.time, 'moves.time'); whole(mv.passTime, 'moves.passTime'); }
+          whole(m.dim.nextIn, 'dim.nextIn');
+        }
+        s = R.step(s, R.autoAction(s)).state;
+      }
+      const sm = R.summary(s);
+      whole(sm.time, 'summary.time');
+      for (const r of sm.heat.trackPerZone) { whole(r.line, 'trackPerZone.line'); whole(r.entry, 'entry'); whole(r.exit, 'exit'); }
+    }
+  });
+
+  test('STATE_VERSION 3: a state saved by version 2 (hours) is refused with a clear message', () => {
+    assert.equal(R.STATE_VERSION, 3);
+    const s = started('rogue');
+    assert.equal(s.v, 3);
+    assert.equal(s.time, 0);
+    assert.ok(!('hours' in s), 'no hours in the state');
+    const old = JSON.parse(R.serialize(s));
+    old.v = 2;
+    old.hours = old.time;
+    delete old.time;
+    assert.throws(() => R.deserialize(JSON.stringify(old), CONTENT), /state version 2, engine expects 3 \(saved before M2b v7: it counts time in hours, the engine counts tolls\); old saves cannot be loaded, start a new run/);
+    assert.equal(R.serialize(R.deserialize(R.serialize(s), CONTENT)), R.serialize(s), 'a version 3 save round-trips');
   });
 });

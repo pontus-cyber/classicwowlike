@@ -8,8 +8,8 @@ import { CONTENT as REAL } from '../../src/content/index.js';
 import { nextInt, weightedIndex } from '../../src/rng.js';
 import { dungeonLevels, validEncounter, composeEncounter } from '../../src/engine/map.js';
 import {
-  generateExpZone, setupExpNode, zoneRegions, hops, frontAt, dimAt, zoneHours, RING_START, NODE_COUNT, xpWeight,
-  nodeHours, grindMaxWaves,
+  generateExpZone, setupExpNode, zoneRegions, hops, frontAt, dimAt, zoneTime, RING_START, NODE_COUNT, xpWeight,
+  nodeTime, grindMaxWaves,
 } from '../../src/engine/expedition.js';
 
 const [, N1, N2, N3] = C.RING_NODES;
@@ -26,7 +26,7 @@ function expRun(classId = 'mage', opts = {}) {
   return R.step(s, { type: 'START_RUN' }).state;
 }
 const onMap = (s) => R.step(s, { type: 'LEAVE_HUB' }).state;
-const hoursOf = (events) => ev(events, 'hours').reduce((n, e) => n + e.add, 0);
+const timeOf = (events) => ev(events, 'time').reduce((n, e) => n + e.add, 0);
 const ringOf = (id) => (id === 0 ? 0 : id < RING_START[2] ? 1 : id < RING_START[3] ? 2 : 3);
 /** Zone z of a seed as the engine generates it on entry. */
 const zoneOf = (seed, z, content = CONTENT) => generateExpZone(expRun('mage', { seed, content }), z);
@@ -60,8 +60,8 @@ function makeType(x, id, type, patch = null) {
   setupExpNode(x, x.zone.z, n, zoneRegions(x.content, x.zone.z));
   if (patch) patch(n);
 }
-/** Zone hours set to hz (the front follows), without spending an action. */
-const atZoneHour = (x, hz) => { x.hours = x.zone.start + hz; };
+/** Zone time set to zt (the front follows), without spending an action. */
+const atZoneTime = (x, zt) => { x.time = x.zone.start + zt; };
 
 // Independent replay of rules 1.9.2's draw order on stream map(z) (fixture content: default regions).
 function replay(seed, z) {
@@ -356,14 +356,14 @@ describe('rules 1.9 expedition map: moving, the hub and the actions (1.9.1, 1.9.
     assert.ok(!R.legalActions(rows).some((a) => ['MOVE', 'PASS_THROUGH', 'TAKE_ROAD', 'RING_BELL'].includes(a.type)));
   });
 
-  test('1.9.4 MOVE enters an unresolved node (its content and hours); a resolved node or the hub is a walk of HOURS_WALK; the way back is legal', () => {
+  test('1.9.4 MOVE enters an unresolved node (its content and tolls); a resolved node or the hub is a walk of TIME_WALK; the way back is legal', () => {
     let s = onMap(expRun('mage', { seed: 3 }));
     const id = s.zone.nodes[0].nb[0];
     s = tweak(s, (x) => makeType(x, id, 'rest'));
     s = tweak(s, (x) => { x.player.hp = 5; });
     let r = R.step(s, { type: 'MOVE', nodeId: id });
     assert.deepEqual(ev(r.events, 'move')[0], { t: 'move', from: 0, to: id, via: 'enter', seen: ev(r.events, 'move')[0].seen });
-    assert.equal(hoursOf(r.events), C.HOURS_REST);
+    assert.equal(timeOf(r.events), C.TIME_REST);
     assert.equal(ev(r.events, 'node')[0].id, id);
     assert.equal(r.state.player.hp, r.state.player.d.maxHp);
     assert.equal(r.state.zone.nodes[id].done, true);
@@ -371,22 +371,22 @@ describe('rules 1.9 expedition map: moving, the hub and the actions (1.9.1, 1.9.
     assert.equal(r.state.phase, 'MAP');
     // Back to the hub (a walk, and a new hub visit), then into the resolved node again (a walk, no rest).
     r = R.step(r.state, { type: 'MOVE', nodeId: 0 });
-    assert.equal(hoursOf(r.events), C.HOURS_WALK);
+    assert.equal(timeOf(r.events), C.TIME_WALK);
     assert.equal(ev(r.events, 'move')[0].via, 'walk');
     assert.equal(r.state.phase, 'ZONE_HUB');
     r = R.step(R.step(r.state, { type: 'LEAVE_HUB' }).state, { type: 'MOVE', nodeId: id });
-    assert.equal(hoursOf(r.events), C.HOURS_WALK);
+    assert.equal(timeOf(r.events), C.TIME_WALK);
     assert.equal(ev(r.events, 'rest').length, 0, 'a node is resolved at most once');
     assert.equal(r.state.stats.exp.walks, 2);
     assert.equal(r.state.stats.nodesTotal, 1);
   });
 
-  test('1.9.4 PASS_THROUGH: HOURS_WALK, the node stays unresolved and can be entered later; not for a resolved node or the hub', () => {
+  test('1.9.4 PASS_THROUGH: TIME_WALK, the node stays unresolved and can be entered later; not for a resolved node or the hub', () => {
     let s = onMap(expRun('hunter', { seed: 4 }));
     const id = s.zone.nodes[0].nb[1];
     s = tweak(s, (x) => makeType(x, id, 'shrine'));
     let r = R.step(s, { type: 'PASS_THROUGH', nodeId: id });
-    assert.equal(hoursOf(r.events), C.HOURS_WALK);
+    assert.equal(timeOf(r.events), C.TIME_WALK);
     assert.equal(ev(r.events, 'move')[0].via, 'pass');
     assert.equal(r.state.zone.nodes[id].done, false);
     assert.equal(r.state.phase, 'MAP');
@@ -501,11 +501,11 @@ describe('rules 1.9 expedition map: vision and the map view (1.9.5)', () => {
       }
     }
     assert.deepEqual(v.moves.map((m) => m.nodeId), s.zone.nodes[0].nb);
-    const H = { quest: C.EXPED_HOURS_QUEST, elite: C.EXPED_HOURS_ELITE, grind: C.EXPED_HOURS_GRIND_WAVE, dungeon: C.EXPED_HOURS_DUNGEON, rest: C.HOURS_REST, vendor: C.HOURS_VENDOR, trainer: C.HOURS_TRAINER, treasure: C.HOURS_TREASURE, shrine: C.HOURS_SHRINE };
+    const H = { quest: C.EXPED_TIME_QUEST, elite: C.EXPED_TIME_ELITE, grind: C.EXPED_TIME_GRIND_WAVE, dungeon: C.EXPED_TIME_DUNGEON, rest: C.TIME_REST, vendor: C.TIME_VENDOR, trainer: C.TIME_TRAINER, treasure: C.TIME_TREASURE, shrine: C.TIME_SHRINE };
     for (const m of v.moves) {
       assert.equal(m.via, 'enter');
-      assert.equal(m.hours, H[s.zone.nodes[m.nodeId].type]);
-      assert.equal(m.passHours, C.HOURS_WALK);
+      assert.equal(m.time, H[s.zone.nodes[m.nodeId].type]);
+      assert.equal(m.passTime, C.TIME_WALK);
     }
     // Region Charts: every node's region and the dungeon's type (no other content).
     const ch = R.mapView(onMap(expRun('hunter', { seed: 21, vision: { charts: true } })));
@@ -558,34 +558,34 @@ describe('rules 1.9 expedition map: vision and the map view (1.9.5)', () => {
 });
 
 describe('rules 1.9 expedition map: the Dimming (1.9.6)', () => {
-  test('1.9.6 front: -1 before DIM_GRACE_H, then one hop per DIM_HOURS_PER_HOP; Dimmed = hops from the Shardfall <= front', () => {
+  test('1.9.6 front (M2b v7): -1 before DIM_GRACE, then DIM_FRONT_HOPS hops per DIM_FRONT_TIME tolls; Dimmed = hops from the Shardfall <= front', () => {
     assert.equal(frontAt(0), -1);
-    assert.equal(frontAt(C.DIM_GRACE_H - 1), -1);
-    assert.equal(frontAt(C.DIM_GRACE_H), 0);
-    for (let hz = C.DIM_GRACE_H; hz < 40; hz++) assert.equal(frontAt(hz), Math.floor((hz - C.DIM_GRACE_H) / C.DIM_HOURS_PER_HOP + 1e-9));
+    assert.equal(frontAt(C.DIM_GRACE - 1), -1);
+    assert.equal(frontAt(C.DIM_GRACE), 0);
+    for (let zt = C.DIM_GRACE; zt < 40; zt++) assert.equal(frontAt(zt), Math.floor((C.DIM_FRONT_HOPS * (zt - C.DIM_GRACE)) / C.DIM_FRONT_TIME));
     const s0 = onMap(expRun('mage', { seed: 2 }));
-    for (const hz of [0, 5, 6, 8, 9, 13, 14, 20, 30]) {
-      const s = tweak(s0, (x) => atZoneHour(x, hz));
+    for (const zt of [0, 5, 6, 8, 9, 13, 14, 20, 30]) {
+      const s = tweak(s0, (x) => atZoneTime(x, zt));
       const v = R.mapView(s);
-      const f = frontAt(hz);
+      const f = frontAt(zt);
       assert.equal(v.dim.front, f);
       for (const n of v.nodes) {
         const d = s.zone.shardDist[n.id];
-        assert.equal(n.dimmed, f >= 0 && d <= f, `hz ${hz} node ${n.id}`);
+        assert.equal(n.dimmed, f >= 0 && d <= f, `zt ${zt} node ${n.id}`);
         assert.equal(n.dimAt, dimAt(s.zone, n.id));
-        assert.equal(n.dimsIn, Math.max(0, n.dimAt - hz));
-        assert.equal(frontAt(n.dimAt) >= d && frontAt(n.dimAt - 1) < d, true, 'dimAt is the first hour it is Dimmed');
+        assert.equal(n.dimsIn, Math.max(0, n.dimAt - zt));
+        assert.equal(frontAt(n.dimAt) >= d && frontAt(n.dimAt - 1) < d, true, 'dimAt is the first toll it is Dimmed');
       }
     }
     // With the starting values: the Shardfall at 6 h, the hub (3 hops) at 14 h (expedition.md 6.2).
     const hub = s0.zone.shardDist[0];
-    assert.equal(dimAt(s0.zone, s0.zone.shardfall), C.DIM_GRACE_H);
-    assert.equal(dimAt(s0.zone, 0), Math.ceil(C.DIM_GRACE_H + hub * C.DIM_HOURS_PER_HOP));
+    assert.equal(dimAt(s0.zone, s0.zone.shardfall), C.DIM_GRACE);
+    assert.equal(dimAt(s0.zone, 0), C.DIM_GRACE + Math.ceil((hub * C.DIM_FRONT_TIME) / C.DIM_FRONT_HOPS));
   });
 
-  test('1.9.6 the front moves with hours: a dimming event lists the nodes it newly covers', () => {
+  test('1.9.6 the front moves with tolls: a dimming event lists the nodes it newly covers', () => {
     let s = onMap(expRun('mage', { seed: 2 }));
-    s = tweak(s, (x) => atZoneHour(x, C.DIM_GRACE_H - 1));
+    s = tweak(s, (x) => atZoneTime(x, C.DIM_GRACE - 1));
     const id = s.zone.nodes[0].nb.find((x) => R.isLegal(s, { type: 'PASS_THROUGH', nodeId: x }));
     const r = R.step(s, { type: 'PASS_THROUGH', nodeId: id });
     const d = ev(r.events, 'dimming');
@@ -594,31 +594,31 @@ describe('rules 1.9 expedition map: the Dimming (1.9.6)', () => {
     assert.deepEqual(d[0].dimmed, [s.zone.shardfall]);
   });
 
-  /** A mage at level L standing next to node `target` (Dimmed at zone hour hz) on zone 1's map. */
+  /** A mage at level L standing next to node `target` (Dimmed at zone toll zt) on zone 1's map. */
   function nextToDimmed(seed, L, depth) {
     let s = onMap(atLevel(expRun('mage', { seed }), L));
     const zone = s.zone;
     const target = zone.nodes[0].nb[0];
     // Dimmed before the step (so MOVE walks in) and `depth` hops deep or more on arrival.
-    const hz = dimAt(zone, target) + Math.ceil(depth * C.DIM_HOURS_PER_HOP);
-    s = tweak(s, (x) => atZoneHour(x, hz));
+    const zt = dimAt(zone, target) + Math.ceil((depth * C.DIM_FRONT_TIME) / C.DIM_FRONT_HOPS);
+    s = tweak(s, (x) => atZoneTime(x, zt));
     return { s, target };
   }
 
-  test('1.9.6 Dimmed encounter: entering a Dimmed node, DIM_PACK_SIZE Shardspawn of the zone\'s normals, level max(CL, L) + DIM_LEVEL_PER_DEPTH × depth, HP × DIM_HP_MULT, damage × DIM_DMG_MULT, HOURS_DIM_FIGHT', () => {
+  test('1.9.6 Dimmed encounter: entering a Dimmed node, DIM_PACK_SIZE Shardspawn of the zone\'s normals, level max(CL, L) + DIM_LEVEL_PER_DEPTH × depth, HP × DIM_HP_MULT, damage × DIM_DMG_MULT, TIME_DIM_FIGHT', () => {
     for (const [L, depth] of [[3, 0], [5, 2], [59, 2]]) {
       const { s, target } = nextToDimmed(9, L, depth);
       const node = s.zone.nodes[target];
       const r = R.step(s, { type: 'MOVE', nodeId: target });
       const st = r.state;
       assert.equal(ev(r.events, 'move')[0].via, 'walk', 'a Dimmed node is not entered');
-      assert.deepEqual(ev(r.events, 'hours').map((e) => [e.add, e.why]), [[C.HOURS_WALK, 'walk'], [C.HOURS_DIM_FIGHT, 'dim']]);
+      assert.deepEqual(ev(r.events, 'time').map((e) => [e.add, e.why]), [[C.TIME_WALK, 'walk'], [C.TIME_DIM_FIGHT, 'dim']]);
       assert.equal(st.phase, 'NODE');
       assert.equal(st.node.type, 'dim');
       assert.equal(st.fight.kind, 'dim');
       assert.ok(st.fight.engage, 'an engage round, as every fight but the end boss');
-      const hz = zoneHours(s) + C.HOURS_WALK;
-      const dep = frontAt(hz) - s.zone.shardDist[target];
+      const zt = zoneTime(s) + C.TIME_WALK;
+      const dep = frontAt(zt) - s.zone.shardDist[target];
       assert.equal(st.node.depth, dep);
       const level = Math.min(C.MAX_LEVEL, Math.max(node.cl, L) + C.DIM_LEVEL_PER_DEPTH * dep);
       assert.equal(ev(r.events, 'dim')[0].level, level);
@@ -673,7 +673,7 @@ describe('rules 1.9 expedition map: the Dimming (1.9.6)', () => {
   test('1.9.6 ending an action in a Dimmed node: the front reaching the player during a node starts the encounter after it, once', () => {
     let s = onMap(atLevel(expRun('mage', { seed: 14 }), 15));
     const id = s.zone.nodes[0].nb[0];
-    s = tweak(s, (x) => { makeType(x, id, 'rest'); atZoneHour(x, dimAt(x.zone, id) - 1); });
+    s = tweak(s, (x) => { makeType(x, id, 'rest'); atZoneTime(x, dimAt(x.zone, id) - 1); });
     assert.ok(!R.mapView(s).nodes[id].dimmed && R.mapView(s).nodes[id].dimsIn === 1);
     const r = R.step(s, { type: 'MOVE', nodeId: id });
     assert.equal(ev(r.events, 'rest').length, 1, 'the rest happens: the node was entered before the dark came');
@@ -681,7 +681,7 @@ describe('rules 1.9 expedition map: the Dimming (1.9.6)', () => {
     assert.equal(r.state.phase, 'NODE');
     assert.equal(r.state.node.type, 'dim', 'then the Dimmed encounter');
     assert.equal(ev(r.events, 'dim').length, 1);
-    // After it the player stands in the dark: actions without hours start nothing; the next step out is fine.
+    // After it the player stands in the dark: actions without tolls start nothing; the next step out is fine.
     let t = autoUntil(tweak(r.state, (x) => { for (const e of x.fight.enemies) e.hp = 1; }), (x) => !x.fight);
     assert.equal(t.phase, 'MAP');
     const t2 = R.step(t, { type: 'SET_AUTOPLAY', on: true });
@@ -691,20 +691,20 @@ describe('rules 1.9 expedition map: the Dimming (1.9.6)', () => {
   test('1.9.6 content lost: an unresolved Dimmed node is walked into; PASS_THROUGH refuses it; the hub\'s services stop when it is Dimmed', () => {
     let s = onMap(atLevel(expRun('rogue', { seed: 15 }), 20));
     const id = s.zone.nodes[0].nb[2];
-    s = tweak(s, (x) => { makeType(x, id, 'shrine'); atZoneHour(x, dimAt(x.zone, id)); });
+    s = tweak(s, (x) => { makeType(x, id, 'shrine'); atZoneTime(x, dimAt(x.zone, id)); });
     assert.match(R.whyIllegal(s, { type: 'PASS_THROUGH', nodeId: id }), /Dimmed/);
     const v = R.mapView(s);
     assert.equal(v.nodes[id].lost, true);
-    assert.deepEqual(v.moves.find((m) => m.nodeId === id), { nodeId: id, via: 'walk', hours: C.HOURS_WALK, passHours: null, dimmed: true });
+    assert.deepEqual(v.moves.find((m) => m.nodeId === id), { nodeId: id, via: 'walk', time: C.TIME_WALK, passTime: null, dimmed: true });
     const r = R.step(s, { type: 'MOVE', nodeId: id });
     assert.equal(ev(r.events, 'node').length, 0, 'no shrine');
     assert.equal(r.state.node.type, 'dim');
     // The hub: SERVICE is refused while it is Dimmed; walking onto a Dimmed hub is no new visit.
-    const h = tweak(expRun('rogue', { seed: 15 }), (x) => atZoneHour(x, dimAt(x.zone, 0)));
+    const h = tweak(expRun('rogue', { seed: 15 }), (x) => atZoneTime(x, dimAt(x.zone, 0)));
     assert.match(R.whyIllegal(h, { type: 'SERVICE', service: 'inn' }), /Dimming covers the hub/);
     let w = onMap(atLevel(expRun('rogue', { seed: 15 }), 20));
     w = R.step(w, { type: 'PASS_THROUGH', nodeId: id }).state;
-    w = tweak(w, (x) => atZoneHour(x, dimAt(x.zone, 0) - C.HOURS_WALK));
+    w = tweak(w, (x) => atZoneTime(x, dimAt(x.zone, 0) - C.TIME_WALK));
     const back = R.step(w, { type: 'MOVE', nodeId: 0 });
     assert.ok(!ev(back.events, 'phase').some((e) => e.phase === 'ZONE_HUB'), 'no hub visit in the dark');
     assert.equal(back.state.node && back.state.node.type, 'dim');
@@ -719,7 +719,7 @@ describe('rules 1.9 expedition map: the Dimming (1.9.6)', () => {
     assert.equal(st.death.nodeType, 'dim');
     assert.equal(st.death.node, target);
     assert.equal(st.death.ring, s.zone.nodes[target].ring);
-    assert.equal(st.death.depth, frontAt(zoneHours(s) + C.HOURS_WALK) - s.zone.shardDist[target]);
+    assert.equal(st.death.depth, frontAt(zoneTime(s) + C.TIME_WALK) - s.zone.shardDist[target]);
     assert.equal(st.death.row, null);
     const sum = R.summary(st);
     assert.equal(sum.expedition.dimFights, 1);
@@ -728,7 +728,7 @@ describe('rules 1.9 expedition map: the Dimming (1.9.6)', () => {
 });
 
 describe('rules 1.9 expedition map: leaving a zone (1.9.7)', () => {
-  test('1.9.7 TAKE_ROAD: only on a Road, HOURS_TRAVEL, the next zone\'s hub; no level gate; zone 6 leads to the Camp and the boss', () => {
+  test('1.9.7 TAKE_ROAD: only on a Road, TIME_TRAVEL, the next zone\'s hub; no level gate; zone 6 leads to the Camp and the boss', () => {
     let s = onMap(expRun('hunter', { seed: 17 }));
     for (let z = 1; z <= C.ZONE_COUNT; z++) {
       if (z > 1) s = onMap(s);
@@ -736,18 +736,18 @@ describe('rules 1.9 expedition map: leaving a zone (1.9.7)', () => {
       s = walk(s, pathTo(s.zone, s.zone.pos, road)).state;
       assert.equal(R.mapView(s).onRoad, true);
       assert.equal(s.player.level, 1, 'no level gate');
-      const h = s.hours;
+      const h = s.time;
       const r = R.step(s, { type: 'TAKE_ROAD' });
-      assert.deepEqual(ev(r.events, 'hours').map((e) => [e.add, e.why]), [[C.HOURS_TRAVEL, 'travel']]);
+      assert.deepEqual(ev(r.events, 'time').map((e) => [e.add, e.why]), [[C.TIME_TRAVEL, 'travel']]);
       assert.deepEqual(ev(r.events, 'travel')[0], { t: 'travel', from: z, by: 'road', node: road, road: null }, 'fixture content: no Road names (D51)');
       s = r.state;
-      assert.equal(s.hours, h + C.HOURS_TRAVEL);
+      assert.equal(s.time, h + C.TIME_TRAVEL);
       assert.equal(s.stats.zonesLeft, z);
       if (z < C.ZONE_COUNT) {
         assert.equal(s.phase, 'ZONE_HUB');
         assert.equal(s.zone.z, z + 1);
         assert.equal(s.zone.pos, 0);
-        assert.equal(zoneHours(s), 0, 'zone hours start at the hub');
+        assert.equal(zoneTime(s), 0, 'zone time starts at the hub');
       }
     }
     assert.equal(s.phase, 'CAMP');
@@ -760,7 +760,7 @@ describe('rules 1.9 expedition map: leaving a zone (1.9.7)', () => {
     const sum = R.summary(s);
     assert.equal(sum.expedition.roads, C.ZONE_COUNT);
     assert.equal(sum.expedition.zones.length, C.ZONE_COUNT);
-    assert.ok(sum.expedition.zones.every((x) => x.exit === 'road' && x.hours > 0));
+    assert.ok(sum.expedition.zones.every((x) => x.exit === 'road' && x.time > 0));
   });
 
   test('1.9.7 a Dimmed Road is taken after its Dimmed encounter', () => {
@@ -768,7 +768,7 @@ describe('rules 1.9 expedition map: leaving a zone (1.9.7)', () => {
     const road = s.zone.roads[0];
     const path = pathTo(s.zone, 0, road);
     s = walk(s, path.slice(0, -1)).state;
-    s = tweak(s, (x) => atZoneHour(x, dimAt(x.zone, road)));
+    s = tweak(s, (x) => atZoneTime(x, dimAt(x.zone, road)));
     const r = R.step(s, { type: 'MOVE', nodeId: road });
     assert.equal(r.state.node.type, 'dim');
     assert.ok(!R.isLegal(r.state, { type: 'TAKE_ROAD' }), 'not during the fight');
@@ -778,12 +778,12 @@ describe('rules 1.9 expedition map: leaving a zone (1.9.7)', () => {
     assert.equal(R.step(t, { type: 'TAKE_ROAD' }).state.zone.z, 2);
   });
 
-  test('1.9.7 Homeward Bell: BELL_START_CHARGES; RING_BELL costs BELL_CHANNEL_H, no HOURS_TRAVEL, the next zone; not with no charge or in a node', () => {
+  test('1.9.7 Homeward Bell: BELL_START_CHARGES; RING_BELL costs BELL_CHANNEL_TIME, no TIME_TRAVEL, the next zone; not with no charge or in a node', () => {
     let s = onMap(expRun('rogue', { seed: 23 }));
     assert.equal(s.exp.bell, C.BELL_START_CHARGES);
     assert.ok(C.BELL_START_CHARGES <= C.BELL_MAX_CHARGES);
     const r = R.step(s, { type: 'RING_BELL' });
-    assert.deepEqual(ev(r.events, 'hours').map((e) => [e.add, e.why]), [[C.BELL_CHANNEL_H, 'bell']]);
+    assert.deepEqual(ev(r.events, 'time').map((e) => [e.add, e.why]), [[C.BELL_CHANNEL_TIME, 'bell']]);
     assert.deepEqual(ev(r.events, 'bell')[0], { t: 'bell', charges: C.BELL_START_CHARGES - 1, node: 0 });
     assert.deepEqual(ev(r.events, 'travel')[0], { t: 'travel', from: 1, by: 'bell', node: 0, road: null });
     assert.equal(r.state.zone.z, 2);
@@ -806,7 +806,7 @@ describe('rules 1.9 expedition map: leaving a zone (1.9.7)', () => {
     let s = onMap(atLevel(expRun('hunter', { seed: 24 }), 30));
     const id = s.zone.nodes[0].nb[0];
     s = R.step(s, { type: 'PASS_THROUGH', nodeId: id }).state;
-    s = tweak(s, (x) => atZoneHour(x, dimAt(x.zone, id) - 1));
+    s = tweak(s, (x) => atZoneTime(x, dimAt(x.zone, id) - 1));
     const r = R.step(s, { type: 'RING_BELL' });
     assert.equal(r.state.phase, 'NODE');
     assert.equal(r.state.node.type, 'dim');
@@ -820,18 +820,18 @@ describe('rules 1.9 expedition map: leaving a zone (1.9.7)', () => {
 });
 
 describe('rules 1.9 expedition map: pacing, determinism and full runs (1.9.8, 1.9.9)', () => {
-  test('1.9.8 node hours 3 / 3 / 2 per wave / 6 (quest, elite, grind, dungeon); a Grind of one wave starts on entry; two dungeon trash fights', () => {
+  test('1.9.8 node tolls 3 / 3 / 2 per wave / 6 (quest, elite, grind, dungeon); a Grind of one wave starts on entry; two dungeon trash fights', () => {
     const base = onMap(atLevel(expRun('mage', { seed: 31 }), 30));
     const id = base.zone.nodes[0].nb[0];
-    const want = { quest: C.EXPED_HOURS_QUEST, elite: C.EXPED_HOURS_ELITE, grind: C.EXPED_HOURS_GRIND_WAVE, dungeon: C.EXPED_HOURS_DUNGEON, rest: C.HOURS_REST, vendor: C.HOURS_VENDOR, trainer: C.HOURS_TRAINER, treasure: C.HOURS_TREASURE, shrine: C.HOURS_SHRINE };
+    const want = { quest: C.EXPED_TIME_QUEST, elite: C.EXPED_TIME_ELITE, grind: C.EXPED_TIME_GRIND_WAVE, dungeon: C.EXPED_TIME_DUNGEON, rest: C.TIME_REST, vendor: C.TIME_VENDOR, trainer: C.TIME_TRAINER, treasure: C.TIME_TREASURE, shrine: C.TIME_SHRINE };
     for (const [type, h] of Object.entries(want)) {
       const s = tweak(base, (x) => makeType(x, id, type));
       const r = R.step(s, { type: 'MOVE', nodeId: id });
-      assert.equal(hoursOf(r.events), h, type);
-      assert.equal(R.mapView(s).moves.find((m) => m.nodeId === id).hours, h, `${type}: hours in the map view`);
+      assert.equal(timeOf(r.events), h, type);
+      assert.equal(R.mapView(s).moves.find((m) => m.nodeId === id).time, h, `${type}: tolls in the map view`);
       if (type === 'grind') { assert.equal(r.state.node.planned, 1); assert.ok(r.state.fight, 'the wave starts on entry'); }
     }
-    assert.deepEqual([C.EXPED_HOURS_QUEST, C.EXPED_HOURS_ELITE, C.EXPED_HOURS_GRIND_WAVE, C.EXPED_HOURS_DUNGEON], [3, 3, 2, 6]);
+    assert.deepEqual([C.EXPED_TIME_QUEST, C.EXPED_TIME_ELITE, C.EXPED_TIME_GRIND_WAVE, C.EXPED_TIME_DUNGEON], [3, 3, 2, 6]);
     // Dungeon: trash, trash, boss.
     let d = R.step(tweak(base, (x) => makeType(x, id, 'dungeon')), { type: 'MOVE', nodeId: id }).state;
     const kinds = [];
@@ -881,7 +881,7 @@ describe('rules 1.9 expedition map: pacing, determinism and full runs (1.9.8, 1.
     const rows = R.step(R.newRun({ classId: 'mage', seed: 33, content: CONTENT }), { type: 'START_RUN' }).state;
     assert.equal(xpWeight(rows), 1);
     assert.equal(xpWeight(base), C.XP_WEIGHT_MULT);
-    assert.equal(nodeHours(rows, 'quest'), C.HOURS_QUEST);
+    assert.equal(nodeTime(rows, 'quest'), C.TIME_QUEST);
     assert.equal(grindMaxWaves(rows), C.GRIND_MAX_WAVES);
   });
 
@@ -963,7 +963,7 @@ describe('expedition content and options (D50, D51)', () => {
     // TAKE_ROAD on Road k: the travel event's road is name k.
     for (let k = 0; k < C.ROAD_COUNT; k++) {
       const road = s.zone.roads[k];
-      const at = tweak(s, (x) => { x.zone.pos = road; x.hours = x.zone.start; });
+      const at = tweak(s, (x) => { x.zone.pos = road; x.time = x.zone.start; });
       const r = R.step(at, { type: 'TAKE_ROAD' });
       assert.equal(ev(r.events, 'travel')[0].road, zc.roads[k]);
     }
@@ -1001,7 +1001,7 @@ describe('expedition content and options (D50, D51)', () => {
     const off = R.newRun({ classId: 'hunter', petId: 'ridgewolf', seed: 6, content: CONTENT, mapMode: 'expedition', dimming: false });
     let o = R.step(R.step(off, { type: 'START_RUN' }).state, { type: 'LEAVE_HUB' }).state;
     assert.deepEqual(o.zone.nodes, s.zone.nodes, 'the same zone graph');
-    o = tweak(o, (x) => { x.hours = x.zone.start + 60; });
+    o = tweak(o, (x) => { x.time = x.zone.start + 60; });
     const v = R.mapView(o);
     assert.deepEqual([v.dim.front, v.dim.nextIn, v.dim.off], [-1, Infinity, true]);
     assert.ok(v.nodes.every((n) => !n.dimmed && n.dimsIn === Infinity && n.dimAt === Infinity && !n.lost));

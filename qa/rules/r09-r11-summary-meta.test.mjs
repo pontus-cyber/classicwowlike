@@ -32,7 +32,7 @@ describe('rules 9 death and the run summary', () => {
     const m = R.summary(s);
     const want = {
       classId: 'class', petId: 'pet', talents: 'talents (per tree)', seed: 'seed', outcome: 'outcome', death: 'death location', level: 'level', xp: 'XP',
-      reached: 'zone/row reached', hours: 'hours', ascendancy: 'Ascendancy', minutes: 'estimated minutes', nodes: 'nodes by type', fights: 'fights',
+      reached: 'zone/row reached', time: 'time (tolls)', ascendancy: 'Ascendancy', minutes: 'estimated minutes', nodes: 'nodes by type', fights: 'fights',
       rounds: 'rounds', kills: 'kills', quests: 'quests', stories: 'story rewards', dungeons: 'dungeons cleared', gold: 'gold earned and spent',
       potionsUsed: 'potions used', resurrectsUsed: 'resurrects used', damage: 'damage dealt/taken', topSpells: 'top 3 spells', equipped: 'equipped items',
       bossPhase: 'boss phase reached', bossHpPct: 'boss HP % left', echoes: 'Echoes',
@@ -76,17 +76,17 @@ describe('rules 9 death and the run summary', () => {
 });
 
 describe('rules 11 Echoes', () => {
-  const facts = (o) => ({ classId: 'rogue', level: 60, zonesLeft: 6, dungeons: 0, kills: { elite: 0, rare: 0 }, quests: 0, reachedBoss: true, bossPhase: 3, outcome: 'victory', hoursAtBoss: C.BOSS_TIME_PAR, oaths: [], ...o });
+  const facts = (o) => ({ classId: 'rogue', level: 60, zonesLeft: 6, dungeons: 0, kills: { elite: 0, rare: 0 }, quests: 0, reachedBoss: true, bossPhase: 3, outcome: 'victory', timeAtBoss: C.BOSS_TIME_PAR, oaths: [], ...o });
   test('11.1 the speed bonus needs a kill at or under BOSS_TIME_PAR; a loss earns none', () => {
     const has = (f) => echoes(facts(f), R.newProfile()).lines.some((l) => l.id === 'speed');
     assert.ok(has({}), 'kill at the par');
-    assert.ok(!has({ hoursAtBoss: C.BOSS_TIME_PAR + 1 }), 'kill over the par');
+    assert.ok(!has({ timeAtBoss: C.BOSS_TIME_PAR + 1 }), 'kill over the par');
     assert.ok(!has({ outcome: 'death' }), 'loss at the par');
   });
 
   test('11.1 Echoes scale with progress: a deeper death earns more', () => {
-    const a = echoes(facts({ level: 12, zonesLeft: 1, reachedBoss: false, bossPhase: 0, outcome: 'death', hoursAtBoss: null }), R.newProfile()).total;
-    const b = echoes(facts({ level: 35, zonesLeft: 3, reachedBoss: false, bossPhase: 0, outcome: 'death', hoursAtBoss: null }), R.newProfile()).total;
+    const a = echoes(facts({ level: 12, zonesLeft: 1, reachedBoss: false, bossPhase: 0, outcome: 'death', timeAtBoss: null }), R.newProfile()).total;
+    const b = echoes(facts({ level: 35, zonesLeft: 3, reachedBoss: false, bossPhase: 0, outcome: 'death', timeAtBoss: null }), R.newProfile()).total;
     const c = echoes(facts({ outcome: 'death', bossPhase: 2 }), R.newProfile()).total;
     const d = echoes(facts({}), R.newProfile()).total;
     assert.ok(a < b && b < c && c < d, `${a} < ${b} < ${c} < ${d}`);

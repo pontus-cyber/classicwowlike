@@ -8,7 +8,7 @@
 import {
   SPELL, TALENT, CONSUMABLE, AUTO_POTION_HP, AUTO_TONIC_STACKS, AUTO_MANA_POTION, AUTO_FOOD_HP,
   ENGINE_ASSUMPTION as EA, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, MAX_LEVEL, PET, ENGAGE_OPTION, ENGAGE_OPTIONS,
-  ENGAGE_AUTO_LOOK, HOURS_WALK, HOURS_DIM_FIGHT, HOURS_REST, HOURS_VENDOR, HOURS_TRAINER, EXPED_HOURS_QUEST,
+  ENGAGE_AUTO_LOOK, TIME_WALK, TIME_DIM_FIGHT, TIME_REST, TIME_VENDOR, TIME_TRAINER, EXPED_TIME_QUEST,
 } from '../constants.js';
 import { hasSt, findSt, debuffStacks, isEliteOrBoss, petAlive } from './damage.js';
 import { defaultTarget, breaksOnHit } from './combat.js';
@@ -20,7 +20,7 @@ import { talentPointsFree } from './progress.js';
 import { nextLanes, dungeonLevels } from './map.js';
 import { checkAction } from './actions.js';
 import { canTravel, exitLevel, trainerSpells, learnCost, trainCost, trainable, availablePets, canEnter } from './nodes.js';
-import { isExpedition, grindMaxWaves, nodeHours, zoneHours, dimmedAt } from './expedition.js';
+import { isExpedition, grindMaxWaves, nodeTime, zoneTime, dimmedAt } from './expedition.js';
 
 const legal = (s, a) => !checkAction(s, a);
 
@@ -350,10 +350,10 @@ function hubPolicy(s, leave) {
   const p = s.player;
   const u = s.hub.used;
   // Expedition (rules 1.9.9): a service only when the hub stays out of the Dimming and a clean way to a Road remains.
-  const ok = (h) => s.phase !== 'ZONE_HUB' || !isExpedition(s) || expSafe(s, s.zone.pos, zoneHours(s) + h);
-  if (!u.trainer && trainerUseful(s) && ok(HOURS_TRAINER)) return { type: 'SERVICE', service: 'trainer' };
-  if (!u.vendor && (p.bag.some((x) => x.kind !== 'cons') || countConsumable(s, 'healing_draught') < EA.AUTO_POTION_STOCK) && ok(HOURS_VENDOR)) return { type: 'SERVICE', service: 'vendor' };
-  if (!u.inn && p.hp < EA.AUTO_INN_HP * p.d.maxHp && ok(HOURS_REST)) return { type: 'SERVICE', service: 'inn' };
+  const ok = (h) => s.phase !== 'ZONE_HUB' || !isExpedition(s) || expSafe(s, s.zone.pos, zoneTime(s) + h);
+  if (!u.trainer && trainerUseful(s) && ok(TIME_TRAINER)) return { type: 'SERVICE', service: 'trainer' };
+  if (!u.vendor && (p.bag.some((x) => x.kind !== 'cons') || countConsumable(s, 'healing_draught') < EA.AUTO_POTION_STOCK) && ok(TIME_VENDOR)) return { type: 'SERVICE', service: 'vendor' };
+  if (!u.inn && p.hp < EA.AUTO_INN_HP * p.d.maxHp && ok(TIME_REST)) return { type: 'SERVICE', service: 'inn' };
   return leave;
 }
 
@@ -377,11 +377,11 @@ function nodeScore(s, node) {
 
 // ---------------- Expedition map policy (rules 1.9.9) ----------------
 /**
- * Cheapest way from node `from` at zone hour hz to a Road: Dijkstra over steps of HOURS_WALK; a step onto a node that
- * is Dimmed on arrival also costs HOURS_DIM_FIGHT and counts as a Dimmed step. Order: Dimmed steps, hours, lower id.
- * Returns { road, path (from `from` to the Road), dims, hours }.
+ * Cheapest way from node `from` at zone time zt to a Road: Dijkstra over steps of TIME_WALK; a step onto a node that
+ * is Dimmed on arrival also costs TIME_DIM_FIGHT and counts as a Dimmed step. Order: Dimmed steps, tolls, lower id.
+ * Returns { road, path (from `from` to the Road), dims, time }.
  */
-function escapeRoute(zone, from, hz) {
+function escapeRoute(zone, from, zt) {
   const N = zone.nodes.length;
   const lab = new Array(N).fill(null);
   const prev = new Array(N).fill(-1);
@@ -395,9 +395,9 @@ function escapeRoute(zone, from, hz) {
     done[u] = true;
     for (const v of zone.nodes[u].nb) {
       if (done[v]) continue;
-      let h = lab[u].h + HOURS_WALK;
-      const dim = dimmedAt(zone, v, hz + h);
-      if (dim) h += HOURS_DIM_FIGHT;
+      let h = lab[u].h + TIME_WALK;
+      const dim = dimmedAt(zone, v, zt + h);
+      if (dim) h += TIME_DIM_FIGHT;
       const c = { dims: lab[u].dims + (dim ? 1 : 0), h };
       if (better(c, lab[v])) { lab[v] = c; prev[v] = u; }
     }
@@ -406,25 +406,25 @@ function escapeRoute(zone, from, hz) {
   for (const r of zone.roads) if (road === null || better(lab[r], lab[road]) || (!better(lab[road], lab[r]) && r < road)) road = r;
   const path = [];
   for (let x = road; x !== -1; x = prev[x]) path.unshift(x);
-  return { road, path, dims: lab[road].dims, hours: lab[road].h };
+  return { road, path, dims: lab[road].dims, time: lab[road].h };
 }
 
-/** Node id is out of the Dimming at zone hour hz and a Road can be reached from it without a Dimmed step. */
-function expSafe(s, id, hz) {
-  return !dimmedAt(s.zone, id, hz) && escapeRoute(s.zone, id, hz).dims === 0;
+/** Node id is out of the Dimming at zone time zt and a Road can be reached from it without a Dimmed step. */
+function expSafe(s, id, zt) {
+  return !dimmedAt(s.zone, id, zt) && escapeRoute(s.zone, id, zt).dims === 0;
 }
 
 /**
- * Score of entering seen node id at zone hour hz (the default node score), or null when the policy would not: resolved,
+ * Score of entering seen node id at zone time zt (the default node score), or null when the policy would not: resolved,
  * the hub, Dimmed, Dimmed before its content ends, risky, or no clean way to a Road afterwards.
  */
-function expScore(s, id, hz) {
+function expScore(s, id, zt) {
   const zone = s.zone;
   const n = zone.nodes[id];
-  if (!zone.seen[id] || n.done || n.ring === 0 || dimmedAt(zone, id, hz)) return null;
+  if (!zone.seen[id] || n.done || n.ring === 0 || dimmedAt(zone, id, zt)) return null;
   const sc = nodeScore(s, n);
   if (sc <= EA.AUTO_NODE_SCORE.risky) return null;
-  return expSafe(s, id, hz + nodeHours(s, n.type)) ? sc : null;
+  return expSafe(s, id, zt + nodeTime(s, n.type)) ? sc : null;
 }
 
 /** Walk (MOVE) or pass through (PASS_THROUGH) to adjacent node id: an unresolved node in transit is passed. */
@@ -432,9 +432,9 @@ const stepAction = (s, id) => (canEnter(s, id) ? { type: 'PASS_THROUGH', nodeId:
 
 /**
  * First step towards the nearest node worth exploring: BFS over nodes out of the Dimming on arrival; a seen target
- * must score (expScore), an unseen one must leave a clean way out after a quest's hours. null: nothing left.
+ * must score (expScore), an unseen one must leave a clean way out after a quest's tolls. null: nothing left.
  */
-function exploreStep(s, hz) {
+function exploreStep(s, zt) {
   const zone = s.zone;
   const N = zone.nodes.length;
   const dist = new Array(N).fill(-1);
@@ -444,7 +444,7 @@ function exploreStep(s, hz) {
   for (let i = 0; i < q.length; i++) {
     const u = q[i];
     for (const v of zone.nodes[u].nb) {
-      if (dist[v] >= 0 || dimmedAt(zone, v, hz + (dist[u] + 1) * HOURS_WALK)) continue;
+      if (dist[v] >= 0 || dimmedAt(zone, v, zt + (dist[u] + 1) * TIME_WALK)) continue;
       dist[v] = dist[u] + 1;
       prev[v] = u;
       q.push(v);
@@ -453,8 +453,8 @@ function exploreStep(s, hz) {
   for (const t of q) {
     if (t === zone.pos) continue;
     const n = zone.nodes[t];
-    const at = hz + dist[t] * HOURS_WALK;
-    const ok = zone.seen[t] ? expScore(s, t, at) !== null : expSafe(s, t, at + EXPED_HOURS_QUEST);
+    const at = zt + dist[t] * TIME_WALK;
+    const ok = zone.seen[t] ? expScore(s, t, at) !== null : expSafe(s, t, at + EXPED_TIME_QUEST);
     if (!ok || n.done || n.ring === 0) continue;
     let x = t;
     while (prev[x] !== zone.pos) x = prev[x];
@@ -473,17 +473,17 @@ function expMapPolicy(s) {
   const zone = s.zone;
   const p = s.player;
   if (p.hp < EA.AUTO_TOPUP_HP * p.d.maxHp && countConsumable(s, 'trail_rations') > 0) return { type: 'USE_ITEM', itemId: 'trail_rations' };
-  const hz = zoneHours(s);
-  const esc = escapeRoute(zone, zone.pos, hz);
+  const zt = zoneTime(s);
+  const esc = escapeRoute(zone, zone.pos, zt);
   if (p.level < exitLevel(zone.z) && esc.dims === 0) {
     let best = null;
     let bs = -Infinity;
     for (const id of zone.nodes[zone.pos].nb) {
-      const sc = expScore(s, id, hz);
+      const sc = expScore(s, id, zt);
       if (sc !== null && sc > bs) { bs = sc; best = id; }
     }
     if (best !== null) return { type: 'MOVE', nodeId: best };
-    const next = exploreStep(s, hz);
+    const next = exploreStep(s, zt);
     if (next !== null) return stepAction(s, next);
   }
   if (esc.path.length === 1) return { type: 'TAKE_ROAD' };

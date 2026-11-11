@@ -3,7 +3,7 @@
 // grind, loot kept on DUNGEON_LEAVE, trap damage, shrine boon weights).
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { R, C, CONTENT, started, play, atLevel, tweak, ev, cloneState, enterNode, winFight, setupNode, xpOf, hoursOf } from './helpers.mjs';
+import { R, C, CONTENT, started, play, atLevel, tweak, ev, cloneState, enterNode, winFight, setupNode, xpOf, timeOf } from './helpers.mjs';
 import { generateLayout, contentLevel, dungeonLevels } from '../../src/engine/map.js';
 import { xpToNext, diffMod } from '../../src/engine/progress.js';
 import { V } from '../../src/engine/items.js';
@@ -136,14 +136,14 @@ describe('rules 2 node rewards and rules', () => {
     let { state: s, events } = enterNode(started('hunter', { seed: 32 }), 'grind', { level: L, r: 4 });
     const cl = s.node.cl;
     s = R.step(s, { type: 'GRIND_SET_WAVES', n: 3 }).state;
-    const h0 = s.hours;
-    assert.equal(h0 - hoursOf(events), C.HOURS_GRIND_WAVE, 'the first wave costs its hour when it starts');
+    const h0 = s.time;
+    assert.equal(h0 - timeOf(events), C.TIME_GRIND_WAVE, 'the first wave costs its hour when it starts');
     const w = winFight(tweak(s, (x) => { x.player.rested = 0; }));
     assert.equal(xpOf(w.events, 'wave'), Math.round(C.GRIND_WAVE_XP_FRAC * xpToNext(cl) * diffMod(cl - L)));
     assert.equal(w.state.node.stage, 'between');
     const stop = R.step(w.state, { type: 'GRIND_STOP' });
     assert.equal(stop.state.phase, 'MAP');
-    assert.equal(stop.state.hours, h0, 'waves that never started cost nothing');
+    assert.equal(stop.state.time, h0, 'waves that never started cost nothing');
     assert.ok(stop.state.zone.rows[s.node.r - 1][s.node.l].done);
   });
 
@@ -190,10 +190,10 @@ describe('rules 2 node rewards and rules', () => {
       got = ev(w.events, 'loot').map((e) => e.item.uid);
     }
     assert.ok(got.length, 'a first trash fight that drops loot');
-    const h = s.hours;
+    const h = s.time;
     const left = R.step(w.state, { type: 'DUNGEON_LEAVE' }).state;
     assert.equal(left.phase, 'MAP');
-    assert.equal(left.hours, h, 'no hours refunded');
+    assert.equal(left.time, h, 'no hours refunded');
     assert.equal(left.stats.dungeons, 0, 'not cleared');
     for (const uid of got) assert.ok(left.player.bag.some((b) => b.uid === uid) || w.state.player.bag.every((b) => b.uid !== uid), `loot ${uid} kept`);
     assert.ok(got.some((uid) => left.player.bag.some((b) => b.uid === uid)));

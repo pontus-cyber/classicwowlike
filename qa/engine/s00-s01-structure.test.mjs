@@ -270,21 +270,21 @@ describe('rules 1 run structure', () => {
     assert.ok(!R.isLegal(tweak(s, (x) => { x.zone.pos = { r: 2, l: 0 }; }), { type: 'CHOOSE_NODE', lane: 2 }));
   });
 
-  test('1.4 hub services: each once per visit, hours trainer 1, vendor 1, inn 4', () => {
+  test('1.4 hub services: each once per visit, tolls trainer 1, vendor 1, inn 4', () => {
     let s = started('rogue');
     s = play(s, [{ type: 'SERVICE', service: 'trainer' }, { type: 'LEAVE' }]).state;
-    assert.equal(s.hours, C.HOURS_TRAINER);
+    assert.equal(s.time, C.TIME_TRAINER);
     assert.ok(!R.isLegal(s, { type: 'SERVICE', service: 'trainer' }));
     s = play(s, [{ type: 'SERVICE', service: 'vendor' }, { type: 'LEAVE' }]).state;
-    assert.equal(s.hours, C.HOURS_TRAINER + C.HOURS_VENDOR);
+    assert.equal(s.time, C.TIME_TRAINER + C.TIME_VENDOR);
     s = tweak(s, (x) => { x.player.hp = 1; });
     s = R.step(s, { type: 'SERVICE', service: 'inn' }).state;
-    assert.equal(s.hours, C.HOURS_TRAINER + C.HOURS_VENDOR + C.HOURS_REST);
+    assert.equal(s.time, C.TIME_TRAINER + C.TIME_VENDOR + C.TIME_REST);
     assert.equal(s.player.hp, s.player.d.maxHp);
     assert.ok(!R.isLegal(s, { type: 'SERVICE', service: 'inn' }));
   });
 
-  test('1.5 TRAVEL_ON: legal from exit level - TRAVEL_EARLY_LEVELS (Swift Boots: one lower) or after the last row, costs HOURS_TRAVEL with any profile (M2 v4: Wayfinder removed)', () => {
+  test('1.5 TRAVEL_ON: legal from exit level - TRAVEL_EARLY_LEVELS (Swift Boots: one lower) or after the last row, costs TIME_TRAVEL with any profile (M2 v4: Wayfinder removed)', () => {
     const m = R.step(started('rogue'), { type: 'LEAVE_HUB' }).state;
     assert.ok(!R.isLegal(m, { type: 'TRAVEL_ON' }));
     assert.equal(C.TRAVEL_EARLY_LEVELS, 1);
@@ -294,14 +294,14 @@ describe('rules 1 run structure', () => {
     const at9 = atLevel(m, 9);
     assert.ok(R.isLegal(at9, { type: 'TRAVEL_ON' }), 'one level under the exit level');
     const r = R.step(at9, { type: 'TRAVEL_ON' });
-    assert.equal(r.state.hours, C.HOURS_TRAVEL);
+    assert.equal(r.state.time, C.TIME_TRAVEL);
     assert.equal(r.state.zone.z, 2);
     assert.equal(r.state.phase, 'ZONE_HUB');
     assert.equal(r.state.stats.zonesLeft, 1);
     assert.equal(R.travelLevel(R.step(r.state, { type: 'LEAVE_HUB' }).state), 20 - C.TRAVEL_EARLY_LEVELS, 'zone 2');
     const last = tweak(m, (x) => { x.zone.pos = { r: C.ZONE_CHOICE_ROWS, l: 1 }; });
     assert.deepEqual(R.legalActions(last).filter((a) => a.type === 'CHOOSE_NODE' || a.type === 'TRAVEL_ON'), [{ type: 'TRAVEL_ON' }], 'after the last row TRAVEL_ON is the only move');
-    // Swift Boots alone; and a profile saved before M2 v4 that still owns Wayfinder: travel costs HOURS_TRAVEL for both.
+    // Swift Boots alone; and a profile saved before M2 v4 that still owns Wayfinder: travel costs TIME_TRAVEL for both.
     for (const unlocks of [{ swift_boots: 1 }, { wayfinder: 1, swift_boots: 1 }]) {
       const way = R.step(started('rogue', { profile: { ...R.newProfile(), unlocks } }), { type: 'LEAVE_HUB' }).state;
       assert.equal(R.travelLevel(way), 10 - C.TRAVEL_EARLY_LEVELS - C.META.swift_boots.levels);
@@ -309,14 +309,14 @@ describe('rules 1 run structure', () => {
       const at8 = atLevel(way, 8);
       assert.ok(R.isLegal(at8, { type: 'TRAVEL_ON' }), 'Swift Boots: exit level - 2');
       const t = R.step(at8, { type: 'TRAVEL_ON' });
-      assert.equal(t.state.hours, C.HOURS_TRAVEL, `${Object.keys(unlocks)}: TRAVEL_ON costs HOURS_TRAVEL`);
-      assert.deepEqual(t.events.filter((e) => e.t === 'hours').map((e) => [e.add, e.why]), [[C.HOURS_TRAVEL, 'travel']]);
+      assert.equal(t.state.time, C.TIME_TRAVEL, `${Object.keys(unlocks)}: TRAVEL_ON costs TIME_TRAVEL`);
+      assert.deepEqual(t.events.filter((e) => e.t === 'time').map((e) => [e.add, e.why]), [[C.TIME_TRAVEL, 'travel']]);
     }
-    // Full catalogue: TRAVEL_ON costs HOURS_TRAVEL from every zone, the last one to the Camp included.
+    // Full catalogue: TRAVEL_ON costs TIME_TRAVEL from every zone, the last one to the Camp included.
     const full = { ...R.newProfile(), unlocks: Object.fromEntries(Object.values(C.META).map((x) => [x.id, x.ranks])), reachedBoss: true, bossKills: 1 };
     for (let z = 1; z <= C.ZONE_COUNT; z++) {
       const m2 = tweak(atLevel(R.step(started('mage', { profile: full }), { type: 'LEAVE_HUB' }).state, 60), (x) => { x.zone.z = z; });
-      assert.equal(R.step(m2, { type: 'TRAVEL_ON' }).state.hours, C.HOURS_TRAVEL, `zone ${z}`);
+      assert.equal(R.step(m2, { type: 'TRAVEL_ON' }).state.time, C.TIME_TRAVEL, `zone ${z}`);
     }
     assert.equal(R.travelLevel(R.newRun({ classId: 'rogue', content: CONTENT })), null, 'no zone in CREATE');
   });
@@ -327,9 +327,9 @@ describe('rules 1 run structure', () => {
     s = R.step(s, { type: 'TRAVEL_ON' }).state;
     assert.equal(s.phase, 'CAMP');
     assert.equal(R.travelLevel(s), null, 'no travel level at the Camp');
-    const h = s.hours;
+    const h = s.time;
     s = R.step(s, { type: 'CAMP_GRIND' }).state;
-    assert.equal(s.hours, h + C.HOURS_GRIND_WAVE);
+    assert.equal(s.time, h + C.TIME_GRIND_WAVE);
     assert.ok(s.fight);
     assert.equal(s.fight.kind, 'camp');
     assert.ok(s.fight.enemies.every((e) => e.level === C.CAMP_GRIND_LEVEL));
@@ -341,13 +341,13 @@ describe('rules 1 run structure', () => {
   test('1.7 Ascendancy: 0.02 per full 10 h over par BOSS_TIME_PAR (M2b v6: was 0.04), capped at 0.40; Oath of Haste lowers par by 20', () => {
     const par = C.BOSS_TIME_PAR;
     const cases = [[par - 30, 0], [par, 0], [par + 9, 0], [par + 10, 0.02], [par + 20, 0.04], [par + 99, 0.18], [par + 199, 0.38], [par + 200, 0.4], [700, 0.4]];
-    for (const [hours, asc] of cases) assert.equal(ascendancy({ hours, oaths: [] }), asc, `${hours} h`);
-    assert.equal(ascendancy({ hours: par - C.OATH_HASTE_HOURS + 10, oaths: ['haste'] }), 0.02);
+    for (const [time, asc] of cases) assert.equal(ascendancy({ time, oaths: [] }), asc, `${time} tolls`);
+    assert.equal(ascendancy({ time: par - C.OATH_HASTE_TIME + 10, oaths: ['haste'] }), 0.02);
   });
 
   test('1.7 boss HP and damage scale with (1 + asc)', () => {
     let s = R.step(started('rogue'), { type: 'LEAVE_HUB' }).state;
-    s = tweak(atLevel(s, 60), (x) => { x.zone.z = 6; x.hours = C.BOSS_TIME_PAR + 30 - C.HOURS_TRAVEL; });
+    s = tweak(atLevel(s, 60), (x) => { x.zone.z = 6; x.time = C.BOSS_TIME_PAR + 30 - C.TIME_TRAVEL; });
     s = play(s, [{ type: 'TRAVEL_ON' }, { type: 'FIGHT_BOSS' }]).state;
     const asc = 0.06; // 3 steps of 0.02 (M2b v6)
     assert.equal(s.stats.asc, asc);
@@ -355,11 +355,11 @@ describe('rules 1 run structure', () => {
     assert.equal(s.fight.enemies[0].asc, asc);
   });
 
-  test('1.8 trade-offs are emergent (covered by the node, item and boss tests); events report hours for every node', () => {
+  test('1.8 trade-offs are emergent (covered by the node, item and boss tests); events report the tolls of every node', () => {
     const s = R.step(started('mage'), { type: 'LEAVE_HUB' }).state;
     const r = R.step(s, { type: 'CHOOSE_NODE', lane: 0 });
     const type = s.zone.rows[0][0].type;
-    const want = { quest: C.HOURS_QUEST, grind: 0, treasure: C.HOURS_TREASURE, shrine: C.HOURS_SHRINE }[type];
-    assert.equal(ev(r.events, 'hours').reduce((n, e) => n + e.add, 0), want);
+    const want = { quest: C.TIME_QUEST, grind: 0, treasure: C.TIME_TREASURE, shrine: C.TIME_SHRINE }[type];
+    assert.equal(ev(r.events, 'time').reduce((n, e) => n + e.add, 0), want);
   });
 });

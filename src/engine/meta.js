@@ -3,17 +3,17 @@
 import {
   META, CLASS_IDS, ECHO_PER_LEVEL, ECHO_PER_ZONE, ECHO_PER_DUNGEON, ECHO_PER_ELITE, ECHO_PER_RARE, ECHO_PER_QUEST,
   ECHO_BOSS_REACHED, ECHO_BOSS_PHASE, ECHO_BOSS_KILL, ECHO_SPEED_BONUS, ECHO_FIRST_KILL_CLASS, OATH_ECHO_BONUS,
-  BOSS_TIME_PAR, OATH_HASTE_HOURS, ECHO_PER_HEAT_FIGHT,
+  BOSS_TIME_PAR, OATH_HASTE_TIME, ECHO_PER_HEAT_FIGHT,
 } from '../constants.js';
 import { IllegalActionError, deepClone, rnd } from './util.js';
 import { hash32 } from '../rng.js';
 
 /**
- * Boss time par in hours (rules 1.7, 11.5): BOSS_TIME_PAR, OATH_HASTE_HOURS less under the Oath of Haste. Ascendancy
- * counts the hours past it; the Echoes speed bonus needs a kill at or under it.
+ * Boss time par in tolls (rules 1.7, 11.5): BOSS_TIME_PAR, OATH_HASTE_TIME less under the Oath of Haste. Ascendancy
+ * counts the tolls past it; the Echoes speed bonus needs a kill at or under it.
  */
-export function parHours(oaths) {
-  return BOSS_TIME_PAR - (oaths && oaths.includes('haste') ? OATH_HASTE_HOURS : 0);
+export function parTime(oaths) {
+  return BOSS_TIME_PAR - (oaths && oaths.includes('haste') ? OATH_HASTE_TIME : 0);
 }
 
 /** A fresh profile (no unlocks). Plain JSON; the front end stores it. */
@@ -90,8 +90,8 @@ export function echoes(facts, profile) {
   }
   if (facts.outcome === 'victory') {
     add('bossKill', 1, ECHO_BOSS_KILL);
-    const par = parHours(facts.oaths);
-    if (facts.hoursAtBoss !== null && facts.hoursAtBoss <= par) add('speed', 1, ECHO_SPEED_BONUS);
+    const par = parTime(facts.oaths);
+    if (facts.timeAtBoss !== null && facts.timeAtBoss <= par) add('speed', 1, ECHO_SPEED_BONUS);
     if (profile && profile.firstKill && !profile.firstKill[facts.classId]) add('firstKill', 1, ECHO_FIRST_KILL_CLASS);
   }
   const base = lines.reduce((n, l) => n + l.echoes, 0);

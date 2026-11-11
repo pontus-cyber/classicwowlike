@@ -38,24 +38,24 @@ export const DUNGEON_LEVEL_OFFSET = 4;
 export const DUNGEON_BOSS_LEVEL_OFFSET = 2;
 export const RARE_CHANCE = 0.20;
 export const CAMP_GRIND_LEVEL = 58;
-export const HOURS_QUEST = 2;
-export const HOURS_GRIND_WAVE = 1;
-export const HOURS_ELITE = 2;
-export const HOURS_DUNGEON = 5;
-export const HOURS_REST = 4;
-export const HOURS_VENDOR = 1;
-export const HOURS_TRAINER = 1;
-export const HOURS_TREASURE = 1;
-export const HOURS_SHRINE = 1;
-export const HOURS_TRAVEL = 2;
+export const TIME_QUEST = 2;
+export const TIME_GRIND_WAVE = 1;
+export const TIME_ELITE = 2;
+export const TIME_DUNGEON = 5;
+export const TIME_REST = 4;
+export const TIME_VENDOR = 1;
+export const TIME_TRAINER = 1;
+export const TIME_TREASURE = 1;
+export const TIME_SHRINE = 1;
+export const TIME_TRAVEL = 2;
 export const TRAVEL_EARLY_LEVELS = 1;
 export const BOSS_TIME_PAR = 120;
-export const ASC_STEP_HOURS = 10;
-/** rules 1.7 (M2b v6, D62: was 0.04): boss Ascendancy per full ASC_STEP_HOURS past the par. */
+export const ASC_STEP_TIME = 10;
+/** rules 1.7 (M2b v6, D62: was 0.04): boss Ascendancy per full ASC_STEP_TIME past the par. */
 export const ASC_PER_STEP = 0.02;
 export const ASC_CAP = 0.40;
-/** rules 11.2 (M2 v4): hours the full catalogue's time entries may save on the planner's median route (measured by the sim, balance.md B17). */
-export const META_TIME_BUDGET_H = 5;
+/** rules 11.2 (M2 v4): tolls the full catalogue's time entries may save on the planner's median route (measured by the sim, balance.md B17). */
+export const META_TIME_BUDGET = 5;
 export const QUEST_SIZE_W1 = 25;
 export const QUEST_SIZE_W2 = 50;
 export const QUEST_SIZE_W3 = 25;
@@ -282,7 +282,7 @@ export const ECHO_BOSS_KILL = 120;
 export const ECHO_SPEED_BONUS = 40;
 export const ECHO_FIRST_KILL_CLASS = 100;
 export const OATH_ECHO_BONUS = 0.25;
-export const OATH_HASTE_HOURS = 20;
+export const OATH_HASTE_TIME = 20;
 export const OATH_THRIFT_MULT = 1.5;
 export const UNIQUE_PROC_CHANCE = 0.15;
 export const UNIQUE_PROC_BASE = 5;
@@ -399,8 +399,8 @@ export const EDGE_DIAG_R23 = 0.35;
 export const REGION_COUNT = 4;
 /** rules 1.9.3: share of encounter templates drawn from the region's families. */
 export const REGION_FAMILY_SHARE = 0.70;
-/** rules 1.9.4: hours of a step to a resolved node, the hub, a Dimmed node, or through an unresolved node. */
-export const HOURS_WALK = 1;
+/** rules 1.9.4: tolls of a step to a resolved node, the hub, a Dimmed node, or through an unresolved node. */
+export const TIME_WALK = 1;
 /** rules 1.9.2, 1.9.7: Roads on the rim. */
 export const ROAD_COUNT = 3;
 /** rules 1.9.5: full vision radius in hops (fresh profile). */
@@ -411,10 +411,11 @@ export const VISION_RADIUS_MAX = 2;
 export const GUIDE_RADIUS_BONUS = 1;
 /** rules 1.9.5: Pathfinder, node types (only) within this many hops. */
 export const PATHFINDER_RADIUS = 2;
-/** rules 1.9.6: zone hours before the Dimming starts. */
-export const DIM_GRACE_H = 6;
-/** rules 1.9.6: zone hours per hop of the Dimming's front. */
-export const DIM_HOURS_PER_HOP = 2.5;
+/** rules 1.9.6: zone tolls before the Dimming starts. */
+export const DIM_GRACE = 6;
+/** rules 1.9.6 (M2b v7, D70: replaces DIM_HOURS_PER_HOP 2.5): the Dimming's front advances DIM_FRONT_HOPS hops every DIM_FRONT_TIME zone tolls. */
+export const DIM_FRONT_HOPS = 2;
+export const DIM_FRONT_TIME = 5;
 /** rules 1.9.6: enemies in a Dimmed encounter. */
 export const DIM_PACK_SIZE = 2;
 /** rules 1.9.6: levels per hop of depth in the Dimming. */
@@ -424,43 +425,44 @@ export const DIM_HP_MULT = 1.2;
 export const DIM_DMG_MULT = 1.3;
 /** rules 1.9.6: Shardspawn kill XP × this. */
 export const DIM_XP_MULT = 0.25;
-/** rules 1.9.6: hours of a Dimmed encounter. */
-export const HOURS_DIM_FIGHT = 1;
+/** rules 1.9.6: tolls of a Dimmed encounter. */
+export const TIME_DIM_FIGHT = 1;
 /** rules 1.9.7: Homeward Bell charges at the start of a run, and the most a run can hold. */
 export const BELL_START_CHARGES = 1;
 export const BELL_MAX_CHARGES = 2;
-/** rules 1.9.7: hours of the Bell's channel. */
-export const BELL_CHANNEL_H = 2;
+/** rules 1.9.7: tolls of the Bell's channel. */
+export const BELL_CHANNEL_TIME = 2;
 /** rules 1.9.8, 3: seconds of the Bell's channel on screen (instead of PACE_ZONE_TRAVEL_S). */
 export const PACE_BELL_S = 6;
 /** rules 1.9.8 (expedition.md 9.5): XP of kills, quest turn-ins, grind waves and dungeon clears × this. */
 export const XP_WEIGHT_MULT = 1.6;
-/** rules 1.9.8 (expedition.md 9.5): grind waves, dungeon trash fights and node hours in an expedition run. */
+/** rules 1.9.8 (expedition.md 9.5): grind waves, dungeon trash fights and node tolls in an expedition run. */
 export const EXPED_GRIND_MAX_WAVES = 1;
 export const EXPED_DUNGEON_TRASH_FIGHTS = 2;
-export const EXPED_HOURS_QUEST = 3;
-export const EXPED_HOURS_ELITE = 3;
-export const EXPED_HOURS_GRIND_WAVE = 2;
-export const EXPED_HOURS_DUNGEON = 6;
+export const EXPED_TIME_QUEST = 3;
+export const EXPED_TIME_ELITE = 3;
+export const EXPED_TIME_GRIND_WAVE = 2;
+export const EXPED_TIME_DUNGEON = 6;
 
 // Heat (rules 1.7.1-1.7.4, 1.9.10, marked "(heat)"; docs/specs/expedition.md section H, constants block "Heat"): time
-// pressure on one meter in both map modes. The line per zone is derived (parHours / ZONE_COUNT), not a constant.
+// pressure on one meter in both map modes (the player sees it as the Furnace, M2b v7). Time is counted in whole tolls
+// (M2b v7, D69). The line per zone is derived (par × z / ZONE_COUNT rounded up, D70), not a constant.
 /** rules 1.7.2: heat states in order, coolest first. */
 export const HEAT_STATES = ['clear', 'warm', 'hot', 'scorched'];
-/** rules 1.7.2: hours past the line from which the run is Warm, Hot (= ASC_STEP_HOURS) and Scorched. */
+/** rules 1.7.2: tolls past the line from which the run is Warm, Hot (= ASC_STEP_TIME) and Scorched. */
 export const HEAT_WARM_AT = 0;
 export const HEAT_HOT_AT = 10;
 export const HEAT_SCORCH_AT = 30;
-/** rules 1.9.10: hours until the player's node dims at or below which the Dimming is Warm, Hot. */
-export const HEAT_DIM_WARM_H = 4;
-export const HEAT_DIM_HOT_H = 2;
+/** rules 1.9.10: tolls until the player's node dims at or below which the Dimming is Warm, Hot. */
+export const HEAT_DIM_WARM = 4;
+export const HEAT_DIM_HOT = 2;
 /** rules 1.7.3: extra XP and gold of a node by the state it was entered in (× (1 + this)). */
 export const HEAT_GAIN = { clear: 0, warm: 0, hot: 0.35, scorched: 0.50 };
 /** rules 8.4: chance per item rolled in a node that its rarity is one step higher, by the node's entry state (M2b v6, D62: hot 0.25 -> 0.50, scorched 0.40 -> 0.70). */
 export const HEAT_RARITY_UP = { clear: 0, warm: 0, hot: 0.50, scorched: 0.70 };
 /** rules 11.1: Echoes per fight won in a node entered Hot or Scorched. */
 export const ECHO_PER_HEAT_FIGHT = 1;
-/** expedition.md H.4: hours of heat shown on the meter, left and right end. */
+/** expedition.md H.4: tolls of heat shown on the meter, left and right end. */
 export const HEAT_BAR_MIN = -20;
 export const HEAT_BAR_MAX = 40;
 
@@ -468,17 +470,17 @@ export const HEAT_BAR_MAX = 40;
 // Part 2. Data tables
 // ---------------------------------------------------------------------------------------------
 
-/** Node types (rules 2.0) with map weight and hours. Dungeon has no weight: placed once by map step 1. */
+/** Node types (rules 2.0) with map weight and time (tolls). Dungeon has no weight: placed once by map step 1. */
 export const NODE_TYPE = {
-  quest: { id: 'quest', name: 'Quest', weight: W_QUEST, hours: HOURS_QUEST },
-  grind: { id: 'grind', name: 'Grind', weight: W_GRIND, hours: HOURS_GRIND_WAVE },
-  elite: { id: 'elite', name: 'Elite', weight: W_ELITE, hours: HOURS_ELITE },
-  rest: { id: 'rest', name: 'Rest', weight: W_REST, hours: HOURS_REST },
-  vendor: { id: 'vendor', name: 'Vendor', weight: W_VENDOR, hours: HOURS_VENDOR },
-  trainer: { id: 'trainer', name: 'Trainer', weight: W_TRAINER, hours: HOURS_TRAINER },
-  treasure: { id: 'treasure', name: 'Treasure', weight: W_TREASURE, hours: HOURS_TREASURE },
-  shrine: { id: 'shrine', name: 'Shrine', weight: W_SHRINE, hours: HOURS_SHRINE },
-  dungeon: { id: 'dungeon', name: 'Dungeon', weight: 0, hours: HOURS_DUNGEON },
+  quest: { id: 'quest', name: 'Quest', weight: W_QUEST, time: TIME_QUEST },
+  grind: { id: 'grind', name: 'Grind', weight: W_GRIND, time: TIME_GRIND_WAVE },
+  elite: { id: 'elite', name: 'Elite', weight: W_ELITE, time: TIME_ELITE },
+  rest: { id: 'rest', name: 'Rest', weight: W_REST, time: TIME_REST },
+  vendor: { id: 'vendor', name: 'Vendor', weight: W_VENDOR, time: TIME_VENDOR },
+  trainer: { id: 'trainer', name: 'Trainer', weight: W_TRAINER, time: TIME_TRAINER },
+  treasure: { id: 'treasure', name: 'Treasure', weight: W_TREASURE, time: TIME_TREASURE },
+  shrine: { id: 'shrine', name: 'Shrine', weight: W_SHRINE, time: TIME_SHRINE },
+  dungeon: { id: 'dungeon', name: 'Dungeon', weight: 0, time: TIME_DUNGEON },
 };
 /** Map step 3 draw order (row 1 forbids elite, rest, vendor, trainer). */
 export const NODE_DRAW_ORDER = ['quest', 'grind', 'elite', 'rest', 'vendor', 'trainer', 'treasure', 'shrine'];
@@ -891,9 +893,9 @@ export const SHRINE_BOON_COUNT = 2;
  * Meta catalogue (rules 11.2). costs: per rank. req: list of requirement ids (unlock ids or profile flags).
  * Meta power budget (M2 v4): at all ranks the catalogue adds at most max HP +0.04, Power +0.04, crit +0.015, potion
  * healing +0.025 of max HP per potion (Greater Healing Draught against the Healing Draught) and +1 talent point; its
- * time entries (Quick Study, Swift Boots) save at most META_TIME_BUDGET_H on the planner's route (qa/engine s11 checks
- * the engine side, balance.md B17 the hours). Second Breath does not work in the end-boss fight.
- * Removed (M2 v4): wayfinder (TRAVEL_ON 0 h). Removed (M2 v5, D45): starforged (the class's unique epic weapon,
+ * time entries (Quick Study, Swift Boots) save at most META_TIME_BUDGET on the planner's route (qa/engine s11 checks
+ * the engine side, balance.md B17 the tolls). Second Breath does not work in the end-boss fight.
+ * Removed (M2 v4): wayfinder (TRAVEL_ON 0 tolls). Removed (M2 v5, D45): starforged (the class's unique epic weapon,
  * ilvl 62, at the Camp vendor; the three class weapons stay in content). A saved profile that owns a removed id
  * keeps it stored; it has no effect and no refund (D42).
  */
@@ -927,7 +929,7 @@ export const META = {
 
 /** Oaths (rules 11.5). */
 export const OATH = {
-  haste: { id: 'haste', name: 'Oath of Haste', parHours: OATH_HASTE_HOURS },
+  haste: { id: 'haste', name: 'Oath of Haste', parTime: OATH_HASTE_TIME },
   frailty: { id: 'frailty', name: 'Oath of Frailty' },
   thrift: { id: 'thrift', name: 'Oath of Thrift', priceMult: OATH_THRIFT_MULT },
 };

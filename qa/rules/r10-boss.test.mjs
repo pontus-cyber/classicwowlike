@@ -4,10 +4,10 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { R, C, started, atLevel, withSpells, tweak, st, play, cloneState, forceDraws, ev } from './helpers.mjs';
 
-function boss(classId = 'mage', { hours = 100, prep } = {}) {
+function boss(classId = 'mage', { time = 100, prep } = {}) {
   let s = R.step(started(classId, { seed: 52 }), { type: 'LEAVE_HUB' }).state;
   s = withSpells(atLevel(s, 60), []);
-  s = tweak(s, (x) => { x.zone.z = 6; x.hours = hours; });
+  s = tweak(s, (x) => { x.zone.z = 6; x.time = time; });
   s = play(s, [{ type: 'TRAVEL_ON' }, { type: 'FIGHT_BOSS' }]).state;
   return prep ? tweak(s, prep) : s;
 }
@@ -16,8 +16,8 @@ const ids = (s) => s.fight.enemies[0].intent.actions.map((a) => (a.id === 'colla
 
 describe('rules 10 end boss (QA additions)', () => {
   test('10.1 all boss damage × (1 + asc): the same Litany hit is 1.1 × as large at Ascendancy 0.10 (M2b v6: ASC_PER_STEP 0.02)', () => {
-    const run = (hours) => {
-      let s = boss('mage', { hours, prep: immortal });
+    const run = (time) => {
+      let s = boss('mage', { time, prep: immortal });
       s = tweak(R.step(R.step(s, { type: 'PASS' }).state, { type: 'PASS' }).state, immortal);
       s = tweak(R.step(s, { type: 'PASS' }).state, immortal); // Litany 2/2 resolves next
       const c = cloneState(s);
@@ -25,7 +25,7 @@ describe('rules 10 end boss (QA additions)', () => {
       return R.step(c, { type: 'PASS' }).events.find((e) => e.t === 'damage' && e.spell === 'collapse_litany').amount;
     };
     const a = run(100);
-    const b = run(C.BOSS_TIME_PAR + 50); // 50 h over par (+ HOURS_TRAVEL): 5 steps of 0.02
+    const b = run(C.BOSS_TIME_PAR + 50); // 50 h over par (+ TIME_TRAVEL): 5 steps of 0.02
     assert.equal(C.ASC_PER_STEP, 0.02);
     assert.ok(Math.abs(b / a - 1.1) < 0.005, `${a} -> ${b}`);
   });

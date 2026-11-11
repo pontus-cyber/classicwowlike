@@ -3,17 +3,18 @@
 // in a run created with dimming: false, D50), vision and the player-visible map view (Road names, expedition texts and
 // region families from content, D51; elites without their name or own archetype, D50). Pure helpers of the state; the
 // run flow (moves, Dimmed encounters, Roads, the Homeward Bell) is in nodes.js. Only a run created with mapMode
-// 'expedition' uses the map; the mode helpers (node hours, grind waves, XP weight) answer for both maps.
+// 'expedition' uses the map; the mode helpers (node time, grind waves, XP weight) answer for both maps. Time is counted in
+// whole tolls (M2b v7, docs/specs/changes-m2b-v7.md A-C); the Dimming's front is computed in integers (D70).
 import {
   ZONE_LEVELS, NODE_DRAW_ORDER, QUEST_LEVEL_OFFSETS, ELITE_LEVEL_OFFSET, RARE_CHANCE, QUEST_SIZE_W1, QUEST_SIZE_W2,
   QUEST_SIZE_W3, QUEST_MAX_SIZE_Z1, GRIND_WAVE_SIZE, ELITE_ADD_CHANCE, DUNGEON_SIZE_W2, DUNGEON_SIZE_W3,
-  TREASURE_GUARD_CHANCE, TREASURE_TRAP_CHANCE, BOON, BOON_IDS, SHRINE_BOON_COUNT, GRIND_MAX_WAVES, HOURS_QUEST,
-  HOURS_GRIND_WAVE, HOURS_ELITE, HOURS_DUNGEON, HOURS_REST, HOURS_VENDOR, HOURS_TRAINER, HOURS_TREASURE, HOURS_SHRINE,
-  HOURS_WALK, HOURS_TRAVEL, RING_NODES, RING_CL_BASE, RING_CL_SPREAD, EDGE_KEEP_R1, EDGE_KEEP_R2, EDGE_KEEP_R3,
+  TREASURE_GUARD_CHANCE, TREASURE_TRAP_CHANCE, BOON, BOON_IDS, SHRINE_BOON_COUNT, GRIND_MAX_WAVES, TIME_QUEST,
+  TIME_GRIND_WAVE, TIME_ELITE, TIME_DUNGEON, TIME_REST, TIME_VENDOR, TIME_TRAINER, TIME_TREASURE, TIME_SHRINE,
+  TIME_WALK, TIME_TRAVEL, RING_NODES, RING_CL_BASE, RING_CL_SPREAD, EDGE_KEEP_R1, EDGE_KEEP_R2, EDGE_KEEP_R3,
   EDGE_DIAG_R23, REGION_COUNT, REGION_FAMILY_SHARE, REGION_W, REGION_KINDS, RING1_FORBIDDEN, ROAD_COUNT, VISION_RADIUS,
-  VISION_RADIUS_MAX, GUIDE_RADIUS_BONUS, PATHFINDER_RADIUS, DIM_GRACE_H, DIM_HOURS_PER_HOP, BELL_CHANNEL_H,
-  XP_WEIGHT_MULT, EXPED_GRIND_MAX_WAVES, EXPED_DUNGEON_TRASH_FIGHTS, EXPED_HOURS_QUEST, EXPED_HOURS_ELITE,
-  EXPED_HOURS_GRIND_WAVE, EXPED_HOURS_DUNGEON, EXPEDITION_TEXT_IDS,
+  VISION_RADIUS_MAX, GUIDE_RADIUS_BONUS, PATHFINDER_RADIUS, DIM_GRACE, DIM_FRONT_HOPS, DIM_FRONT_TIME, BELL_CHANNEL_TIME,
+  XP_WEIGHT_MULT, EXPED_GRIND_MAX_WAVES, EXPED_DUNGEON_TRASH_FIGHTS, EXPED_TIME_QUEST, EXPED_TIME_ELITE,
+  EXPED_TIME_GRIND_WAVE, EXPED_TIME_DUNGEON, EXPEDITION_TEXT_IDS,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt, weightedIndex } from '../rng.js';
 import { zoneContent } from './content.js';
@@ -27,13 +28,13 @@ export const isExpedition = (s) => s.mapMode === 'expedition';
 export const grindMaxWaves = (s) => (isExpedition(s) ? EXPED_GRIND_MAX_WAVES : GRIND_MAX_WAVES);
 /** × the XP of kills, quest turn-ins, grind waves and dungeon clears (rules 1.9.8: XP_WEIGHT_MULT; rows: 1). */
 export const xpWeight = (s) => (isExpedition(s) ? XP_WEIGHT_MULT : 1);
-const ROWS_HOURS = {
-  quest: HOURS_QUEST, grind: HOURS_GRIND_WAVE, elite: HOURS_ELITE, dungeon: HOURS_DUNGEON, rest: HOURS_REST,
-  vendor: HOURS_VENDOR, trainer: HOURS_TRAINER, treasure: HOURS_TREASURE, shrine: HOURS_SHRINE,
+const ROWS_TIME = {
+  quest: TIME_QUEST, grind: TIME_GRIND_WAVE, elite: TIME_ELITE, dungeon: TIME_DUNGEON, rest: TIME_REST,
+  vendor: TIME_VENDOR, trainer: TIME_TRAINER, treasure: TIME_TREASURE, shrine: TIME_SHRINE,
 };
-const EXP_HOURS = { ...ROWS_HOURS, quest: EXPED_HOURS_QUEST, grind: EXPED_HOURS_GRIND_WAVE, elite: EXPED_HOURS_ELITE, dungeon: EXPED_HOURS_DUNGEON };
-/** Hours of a node type on entry (rules 2.0; a Grind per wave); in an expedition run the 1.9.8 values. */
-export const nodeHours = (s, type) => (isExpedition(s) ? EXP_HOURS : ROWS_HOURS)[type];
+const EXP_TIME = { ...ROWS_TIME, quest: EXPED_TIME_QUEST, grind: EXPED_TIME_GRIND_WAVE, elite: EXPED_TIME_ELITE, dungeon: EXPED_TIME_DUNGEON };
+/** Tolls of a node type on entry (rules 2.0; a Grind per wave); in an expedition run the 1.9.8 values. */
+export const nodeTime = (s, type) => (isExpedition(s) ? EXP_TIME : ROWS_TIME)[type];
 
 // ---------------- Graph (rules 1.9.2) ----------------
 /** First node id of each ring: the hub is id 0, then ring 1, ring 2, ring 3; ids follow angle order within a ring. */
@@ -163,9 +164,9 @@ export function generateExpZone(s, z) {
   for (const n of nodes) setupExpNode(s, z, n, regs);
   return {
     z, mode: 'expedition', nodes, hub: 0, roads, shardfall, shardDist: hops(nodes, shardfall),
-    pos: 0, start: s.hours, seen: nodes.map(() => false), typed: nodes.map(() => false), dimN: nodes.map(() => 0),
+    pos: 0, start: s.time, seen: nodes.map(() => false), typed: nodes.map(() => false), dimN: nodes.map(() => 0),
     hubStock: null, path: [0], questsDone: 0, storyDone: false,
-    // D50: newRun({ dimming: false }) plays the zone without the Dimming (every node dims at zone hour Infinity).
+    // D50: newRun({ dimming: false }) plays the zone without the Dimming (every node dims at zone time Infinity).
     ...(s.exp && s.exp.dimming === false ? { dimOff: true } : {}),
   };
 }
@@ -253,30 +254,37 @@ export function setupExpNode(s, z, n, regs) {
 }
 
 // ---------------- The Dimming (rules 1.9.6) ----------------
-/** Zone hours: run hours since arrival at the zone's hub, hub services included. */
-export const zoneHours = (s) => s.hours - s.zone.start;
-/** The front at zone hour hz: -1 before DIM_GRACE_H, then floor((hz - DIM_GRACE_H) / DIM_HOURS_PER_HOP). */
-export function frontAt(hz) {
-  return hz < DIM_GRACE_H ? -1 : Math.floor((hz - DIM_GRACE_H) / DIM_HOURS_PER_HOP + 1e-9);
+/** Zone time zt: run tolls since arrival at the zone's hub, hub services included. */
+export const zoneTime = (s) => s.time - s.zone.start;
+/**
+ * The front at zone time zt (rules 1.9.6, M2b v7 / D70): -1 before DIM_GRACE, then
+ * floor(DIM_FRONT_HOPS × (zt - DIM_GRACE) / DIM_FRONT_TIME), in integers.
+ */
+export function frontAt(zt) {
+  return zt < DIM_GRACE ? -1 : Math.floor((DIM_FRONT_HOPS * (zt - DIM_GRACE)) / DIM_FRONT_TIME);
+}
+/** First zone toll at which a node `hops` from the Shardfall is Dimmed: DIM_GRACE + ceil(hops × DIM_FRONT_TIME / DIM_FRONT_HOPS), in integers. */
+export function dimAtHops(hops) {
+  return DIM_GRACE + Math.floor((hops * DIM_FRONT_TIME + DIM_FRONT_HOPS - 1) / DIM_FRONT_HOPS);
 }
 /**
- * First whole zone hour at which node id is Dimmed: DIM_GRACE_H + hops from the Shardfall × DIM_HOURS_PER_HOP, rounded
- * up. Infinity in a zone played without the Dimming (dimOff, newRun option dimming: false, D50).
+ * First zone toll at which node id is Dimmed: dimAtHops(hops from the Shardfall). Infinity in a zone played without the
+ * Dimming (dimOff, newRun option dimming: false, D50).
  */
 export function dimAt(zone, id) {
   if (zone.dimOff) return Infinity;
-  return Math.ceil(DIM_GRACE_H + zone.shardDist[id] * DIM_HOURS_PER_HOP - 1e-9);
+  return dimAtHops(zone.shardDist[id]);
 }
-export const dimmedAt = (zone, id, hz) => hz >= dimAt(zone, id);
+export const dimmedAt = (zone, id, zt) => zt >= dimAt(zone, id);
 /** Is node id (default: the player's) Dimmed now? */
-export const dimmedNow = (s, id = s.zone.pos) => dimmedAt(s.zone, id, zoneHours(s));
-/** Hours until the front advances again (at least 1). */
-export function frontNextIn(hz) {
-  return Math.max(1, Math.ceil(DIM_GRACE_H + (frontAt(hz) + 1) * DIM_HOURS_PER_HOP - hz - 1e-9));
+export const dimmedNow = (s, id = s.zone.pos) => dimmedAt(s.zone, id, zoneTime(s));
+/** Tolls until the front advances again: dimAtHops(front + 1) - zt, at least 1. */
+export function frontNextIn(zt) {
+  return Math.max(1, dimAtHops(frontAt(zt) + 1) - zt);
 }
-/** Nodes the front covers at zone hour hz. */
-export function dimmedIds(zone, hz) {
-  return zone.nodes.filter((n) => dimmedAt(zone, n.id, hz)).map((n) => n.id);
+/** Nodes the front covers at zone time zt. */
+export function dimmedIds(zone, zt) {
+  return zone.nodes.filter((n) => dimmedAt(zone, n.id, zt)).map((n) => n.id);
 }
 /** Can MOVE enter node id's content (rules 1.9.4): unresolved, not the hub, not Dimmed now? */
 export const canEnter = (s, id) => {
@@ -359,7 +367,7 @@ export function expMapView(s) {
   const zone = s.zone;
   const c = s.content;
   const z = zone.z;
-  const hz = zoneHours(s);
+  const zt = zoneTime(s);
   const regs = zoneRegions(c, z);
   const showRegions = !!s.exp.vision.regions;
   const d = hops(zone.nodes, zone.pos);
@@ -367,10 +375,10 @@ export function expMapView(s) {
   const nodes = zone.nodes.map((n) => {
     const know = knowledge(s, n);
     const at = dimAt(zone, n.id);
-    const dimmed = hz >= at;
+    const dimmed = zt >= at;
     const v = {
       id: n.id, ring: n.ring, angle: n.angle, nb: n.nb.slice(), hops: d[n.id], hub: n.ring === 0, road: n.road,
-      shardfall: n.shardfall, dimmed, dimsIn: Math.max(0, at - hz), dimAt: at, know,
+      shardfall: n.shardfall, dimmed, dimsIn: Math.max(0, at - zt), dimAt: at, know,
       region: n.ring > 0 && (know === 'full' || showRegions) ? n.region : null,
     };
     if (know === 'type') v.type = n.type;
@@ -382,16 +390,16 @@ export function expMapView(s) {
   const moves = zone.nodes[zone.pos].nb.map((id) => {
     const v = nodes[id];
     const enter = v.know === 'full' && !v.dimmed && !v.done && !v.hub;
-    return { nodeId: id, via: enter ? 'enter' : 'walk', hours: enter ? nodeHours(s, v.type) : HOURS_WALK, passHours: enter ? HOURS_WALK : null, dimmed: v.dimmed };
+    return { nodeId: id, via: enter ? 'enter' : 'walk', time: enter ? nodeTime(s, v.type) : TIME_WALK, passTime: enter ? TIME_WALK : null, dimmed: v.dimmed };
   });
-  const front = zone.dimOff ? -1 : frontAt(hz);
+  const front = zone.dimOff ? -1 : frontAt(zt);
   return {
-    mode: 'expedition', z, name: zoneContent(c, z).name, hz, pos: zone.pos, hub: 0, roads: zone.roads.slice(),
+    mode: 'expedition', z, name: zoneContent(c, z).name, zt, pos: zone.pos, hub: 0, roads: zone.roads.slice(),
     roadNames: zone.roads.map((id) => roadNameOf(s, id)), texts: expeditionTexts(c),
-    shardfall: zone.shardfall, onRoad: zone.nodes[zone.pos].road, walkH: HOURS_WALK, travelH: HOURS_TRAVEL,
-    bell: { charges: s.exp.bell, channelH: BELL_CHANNEL_H },
+    shardfall: zone.shardfall, onRoad: zone.nodes[zone.pos].road, walkTime: TIME_WALK, travelTime: TIME_TRAVEL,
+    bell: { charges: s.exp.bell, channelTime: BELL_CHANNEL_TIME },
     vision: { radius: visionRadius(s), regions: showRegions, typeRadius: s.exp.vision.typeRadius },
-    dim: { graceH: DIM_GRACE_H, hoursPerHop: DIM_HOURS_PER_HOP, front, nextIn: zone.dimOff ? Infinity : frontNextIn(hz), off: !!zone.dimOff },
+    dim: { grace: DIM_GRACE, frontHops: DIM_FRONT_HOPS, frontTime: DIM_FRONT_TIME, front, nextIn: zone.dimOff ? Infinity : frontNextIn(zt), off: !!zone.dimOff },
     regions: regs.map((r, i) => ({ id: i, name: r.name, kind: r.kind, families: r.families.slice() })),
     bands: RING_NODES.map((_, r) => (r === 0 ? [band, band] : [clampCl(band + RING_CL_BASE[r]), clampCl(band + RING_CL_BASE[r] + RING_CL_SPREAD - 1)])),
     edges, moves, nodes,

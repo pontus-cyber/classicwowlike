@@ -28,7 +28,7 @@ import { validateContent, zoneContent } from './engine/content.js';
 import { checkAction, applyAction, legalActions as legal } from './engine/actions.js';
 import { autoAction as auto } from './engine/autoplay.js';
 import { summary as sum } from './engine/summary.js';
-import { newProfile, metaOffers, buyMeta, applyRunToProfile, parHours } from './engine/meta.js';
+import { newProfile, metaOffers, buyMeta, applyRunToProfile, parTime } from './engine/meta.js';
 import { zoneDanger, defaultTarget as defaultTgt, pendingTicks as previewTicks } from './engine/combat.js';
 import { availablePets, metaFromProfile, travelLevel as travelAt } from './engine/nodes.js';
 import { nextLanes } from './engine/map.js';
@@ -42,8 +42,12 @@ import { MAP_MODES, isExpedition, expMapView } from './engine/expedition.js';
 import { heatView as heatMeter, heatPreview as previewHeat } from './engine/heat.js';
 import { createDebug } from './engine/debug.js';
 
-/** 2 (combat v2): enemies carry intent tracks; a state saved by an older engine is refused. */
-export const STATE_VERSION = 2;
+/**
+ * 3 (M2b v7): the run's time is `state.time` in whole tolls (was `hours`), with `stats.timeAtBoss`,
+ * `stats.heat.timeByState` and the expedition zone records' `time`. 2 (combat v2): enemies carry intent tracks.
+ * deserialize refuses a state saved by any other version (no conversion).
+ */
+export const STATE_VERSION = 3;
 export { C, validateContent, newProfile, metaOffers, buyMeta, applyRunToProfile, IllegalActionError, xpToNext, itemScore };
 /**
  * Read-only rule helpers for front ends and the simulator (never re-implement them):
@@ -57,11 +61,11 @@ export { C, validateContent, newProfile, metaOffers, buyMeta, applyRunToProfile,
 export { V, xpCurve, diffMod, zoneDanger };
 
 /**
- * Boss time par in hours (rules 1.7, 11.5): BOSS_TIME_PAR, OATH_HASTE_HOURS less under the Oath of Haste. Ascendancy
- * counts the hours past it; the speed bonus needs a kill at or under it. In CREATE: from the Oaths chosen so far.
+ * Boss time par in tolls (rules 1.7, 11.5): BOSS_TIME_PAR, OATH_HASTE_TIME less under the Oath of Haste. Ascendancy
+ * counts the tolls past it; the speed bonus needs a kill at or under it. In CREATE: from the Oaths chosen so far.
  */
 export function bossPar(state) {
-  return parHours(state.player ? state.oaths : (state.create && state.create.oaths) || []);
+  return parTime(state.player ? state.oaths : (state.create && state.create.oaths) || []);
 }
 
 /** Bag slots of the run: BAG_SLOTS plus meta Deeper Pockets (rules 8.7, 11.2). In CREATE: from the profile. */
@@ -186,21 +190,21 @@ export function offBalance(state, enemyIdx) {
 }
 
 /**
- * The heat meter (rules 1.7.1-1.7.2, 1.9.10; expedition.md H.4, H.6), or null before START_RUN: hours, par, line, heat
- * (hours past the line; negative = hours in hand), inHand, past, stateRun, dimIn and stateDim (expedition zones: the
- * Dimming's clock on the player's node, else null), state (the hotter one) and by ('run' | 'dim'), ascIfPar (boss
- * Ascendancy if every later zone keeps its line share), gain and rarityUp (the state's rewards, rules 1.7.3), bar
- * (HEAT_BAR_MIN..HEAT_BAR_MAX, marker, beyond), and next: heatPreview of every legal hour-costing choice now ("2 h,
- * ends Warm"). Cheap and pure; usable in any phase.
+ * The heat meter, shown as the Furnace (rules 1.7.1-1.7.2, 1.9.10; expedition.md H.4, H.6; M2b v7: whole tolls), or
+ * null before START_RUN: time, par, line, heat (tolls past the line; negative = tolls in hand), inHand, past, stateRun,
+ * dimIn and stateDim (expedition zones: the Dimming's clock on the player's node, else null), state (the hotter one)
+ * and by ('run' | 'dim'), ascIfPar (boss Ascendancy if every later zone keeps its line share), gain and rarityUp (the
+ * state's rewards, rules 1.7.3), bar (HEAT_BAR_MIN..HEAT_BAR_MAX, marker, beyond), and next: heatPreview of every legal
+ * time-costing choice now ("3 tolls, ends Smouldering"). Cheap and pure; usable in any phase.
  */
 export function heatView(state) {
   return heatMeter(state, (a) => !checkAction(state, a));
 }
 
 /**
- * Heat after one hour-costing action (rules 1.7.1, 1.9.10): { hours, line, heat, stateRun, dimIn, stateDim, state, by,
- * ascIfPar, change, dimFight, perWave, pays }, `pays` being the state a node entered by this action pays at (rules
- * 1.7.3); null when the action costs no hours or is not legal now.
+ * Heat after one time-costing action (rules 1.7.1, 1.9.10): { time, timeAfter, line, heat, stateRun, dimIn, stateDim,
+ * state, by, ascIfPar, change, dimFight, perWave, pays }, `pays` being the state a node entered by this action pays at
+ * (rules 1.7.3); null when the action costs no time or is not legal now.
  */
 export function heatPreview(state, action) {
   return checkAction(state, action) ? null : previewHeat(state, action);
@@ -359,10 +363,16 @@ export function serialize(state) {
   return JSON.stringify(o);
 }
 
-/** State from serialize() output. content must be the same tables the run started with. */
+/**
+ * State from serialize() output. content must be the same tables the run started with. A state of another
+ * STATE_VERSION is refused (M2b v7: a version 2 save counts hours and cannot be loaded; start a new run).
+ */
 export function deserialize(str, content) {
   const o = JSON.parse(str);
-  if (o.v !== STATE_VERSION) throw new Error(`deserialize: state version ${o.v}, engine expects ${STATE_VERSION}`);
+  if (o.v !== STATE_VERSION) {
+    const why = o.v === 2 ? ' (saved before M2b v7: it counts time in hours, the engine counts tolls)' : '';
+    throw new Error(`deserialize: state version ${o.v}, engine expects ${STATE_VERSION}${why}; old saves cannot be loaded, start a new run`);
+  }
   if (!content) throw new Error('deserialize: content is required');
   if (o.contentVersion && content.version && o.contentVersion !== content.version) {
     throw new Error(`deserialize: saved with content ${o.contentVersion}, given ${content.version}`);
@@ -409,7 +419,7 @@ export function mapView(state) {
 
 /**
  * Dev tools (engine-api.md 12; dev only, not game rules): build a run at any zone and level, jump to the Camp or the
- * end-boss fight, start any encounter, set the hours, grant Echoes, god mode, validate a state. A run they change is a
+ * end-boss fight, start any encounter, set the run's time, grant Echoes, god mode, validate a state. A run they change is a
  * dev run: no Echoes, the profile stays as it was. Pure and seeded like step.
  */
 export const debug = createDebug({ newRun, step, serialize, deserialize, mapView, heatView, summary, STATE_VERSION });

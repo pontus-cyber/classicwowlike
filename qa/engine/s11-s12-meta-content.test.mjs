@@ -20,10 +20,10 @@ function campVendor(s) {
 
 describe('rules 11 meta progression', () => {
   test('11.1 Echoes: one line per source, Oath multiplier on the total', () => {
-    const facts = { classId: 'mage', level: 31, zonesLeft: 2, dungeons: 2, kills: { elite: 3, rare: 1 }, quests: 12, reachedBoss: false, bossPhase: 0, outcome: 'death', hoursAtBoss: null, oaths: [] };
+    const facts = { classId: 'mage', level: 31, zonesLeft: 2, dungeons: 2, kills: { elite: 3, rare: 1 }, quests: 12, reachedBoss: false, bossPhase: 0, outcome: 'death', timeAtBoss: null, oaths: [] };
     const e = echoes(facts, R.newProfile());
     assert.equal(e.total, 30 * C.ECHO_PER_LEVEL + 2 * C.ECHO_PER_ZONE + 2 * C.ECHO_PER_DUNGEON + 3 * C.ECHO_PER_ELITE + C.ECHO_PER_RARE + 12 * C.ECHO_PER_QUEST);
-    const win = { ...facts, level: 60, zonesLeft: 6, reachedBoss: true, bossPhase: 3, outcome: 'victory', hoursAtBoss: 120, oaths: ['thrift', 'haste'] };
+    const win = { ...facts, level: 60, zonesLeft: 6, reachedBoss: true, bossPhase: 3, outcome: 'victory', timeAtBoss: 120, oaths: ['thrift', 'haste'] };
     const w = echoes(win, R.newProfile());
     const ids = w.lines.map((l) => l.id);
     for (const id of ['bossReached', 'bossPhases', 'bossKill', 'firstKill']) assert.ok(ids.includes(id), id);
@@ -35,7 +35,7 @@ describe('rules 11 meta progression', () => {
 
   test('11.1 Echo lines are rounded half away from zero, round(count × each), before the total (M2 v3)', () => {
     assert.deepEqual([C.ECHO_PER_LEVEL, C.ECHO_PER_ZONE, C.ECHO_BOSS_PHASE], [1.5, 7.5, 12]);
-    const facts = (f) => ({ classId: 'rogue', level: 1, zonesLeft: 0, dungeons: 0, kills: { elite: 0, rare: 0 }, quests: 0, reachedBoss: false, bossPhase: 0, outcome: 'death', hoursAtBoss: null, oaths: [], ...f });
+    const facts = (f) => ({ classId: 'rogue', level: 1, zonesLeft: 0, dungeons: 0, kills: { elite: 0, rare: 0 }, quests: 0, reachedBoss: false, bossPhase: 0, outcome: 'death', timeAtBoss: null, oaths: [], ...f });
     const line = (e, id) => e.lines.find((l) => l.id === id);
     // 1 level × 1.5 = 1.5 -> 2; 59 × 1.5 = 88.5 -> 89; 1 zone × 7.5 -> 8; 3 zones 22.5 -> 23; 6 zones 45
     for (const [level, want] of [[2, 2], [3, 3], [4, 5], [31, 45], [60, 89]]) assert.equal(line(echoes(facts({ level }), null), 'levels').echoes, want, `level ${level}`);
@@ -152,7 +152,7 @@ describe('rules 11 meta progression', () => {
     assert.deepEqual([v3s.profile.echoes, v3s.profile.spent, v3s.profile.unlocks.vigor], [40, 1800, 5], 'stored as saved');
   });
 
-  test('11.2 meta power budget (M2 v4): potion line +0.025 of max HP per healing potion; time line: no entry makes an action cost fewer hours', () => {
+  test('11.2 meta power budget (M2 v4): potion line +0.025 of max HP per healing potion; time line: no entry makes an action cost fewer tolls', () => {
     const all = prof(Object.fromEntries(Object.values(C.META).map((m) => [m.id, m.ranks])), { reachedBoss: true, bossKills: 1 });
     // Potion line: Alchemist's Greater Healing Draught is the only healing potion the catalogue adds.
     const metaPotions = Object.values(C.CONSUMABLE).filter((c) => c.meta);
@@ -172,17 +172,17 @@ describe('rules 11 meta progression', () => {
       assert.equal(heal(1), Math.round(C.HEAL_DRAUGHT_PCT * max), `${c} Healing Draught`);
       assert.ok(heal(0) - heal(1) <= 0.025 * max + 1, `${c}: +${heal(0) - heal(1)} of ${max}`);
     }
-    // Time line: META_TIME_BUDGET_H is half an Ascendancy step; the catalogue saves time only through the route
-    // (Quick Study XP, Swift Boots one level earlier), which balance.md B17 measures. Every hours event of a full-catalogue
+    // Time line: META_TIME_BUDGET is half an Ascendancy step; the catalogue saves time only through the route
+    // (Quick Study XP, Swift Boots one level earlier), which balance.md B17 measures. Every time event of a full-catalogue
     // run costs what the rules table says for its reason.
-    assert.equal(C.META_TIME_BUDGET_H, C.ASC_STEP_HOURS / 2);
-    const want = { quest: C.HOURS_QUEST, grind: C.HOURS_GRIND_WAVE, elite: C.HOURS_ELITE, dungeon: C.HOURS_DUNGEON, rest: C.HOURS_REST, vendor: C.HOURS_VENDOR, trainer: C.HOURS_TRAINER, treasure: C.HOURS_TREASURE, shrine: C.HOURS_SHRINE, travel: C.HOURS_TRAVEL, inn: C.HOURS_REST, camp: C.HOURS_GRIND_WAVE };
+    assert.equal(C.META_TIME_BUDGET, C.ASC_STEP_TIME / 2);
+    const want = { quest: C.TIME_QUEST, grind: C.TIME_GRIND_WAVE, elite: C.TIME_ELITE, dungeon: C.TIME_DUNGEON, rest: C.TIME_REST, vendor: C.TIME_VENDOR, trainer: C.TIME_TRAINER, treasure: C.TIME_TREASURE, shrine: C.TIME_SHRINE, travel: C.TIME_TRAVEL, inn: C.TIME_REST, camp: C.TIME_GRIND_WAVE };
     const seen = new Set();
     for (const seed of [1, 2, 3]) {
       let s = started('hunter', { seed, profile: all });
       for (let i = 0; i < 6000 && s.phase !== 'ENDED'; i++) {
         const r = R.step(s, R.autoAction(s));
-        for (const e of r.events) if (e.t === 'hours') { assert.equal(e.add, want[e.why], `${e.why}: ${e.add} h`); seen.add(e.why); }
+        for (const e of r.events) if (e.t === 'time') { assert.equal(e.add, want[e.why], `${e.why}: ${e.add} h`); seen.add(e.why); }
         s = r.state;
       }
     }
@@ -327,7 +327,7 @@ describe('rules 11 meta progression', () => {
 
   test('END_RUN writes Echoes and flags into the returned profile', () => {
     let s = started('hunter');
-    s = tweak(s, (x) => { x.phase = 'SUMMARY'; x.outcome = 'victory'; x.stats.reachedBoss = true; x.stats.hoursAtBoss = 140; x.stats.bossPhase = 3; x.player.level = 60; });
+    s = tweak(s, (x) => { x.phase = 'SUMMARY'; x.outcome = 'victory'; x.stats.reachedBoss = true; x.stats.timeAtBoss = 140; x.stats.bossPhase = 3; x.player.level = 60; });
     const r = R.step(s, { type: 'END_RUN' }).state.result;
     assert.equal(r.profile.runs, 1);
     assert.equal(r.profile.echoes, r.echoes);

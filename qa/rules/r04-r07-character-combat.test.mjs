@@ -2,7 +2,7 @@
 // STEALTH gained mid-fight, item cooldowns, flee from a dungeon, autoplay rules that qa/engine/ does not assert.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { R, C, started, atLevel, withSpells, withTalents, inFight, tweak, ev, st, cloneState, forceDraws, enterNode, winFight, hoursOf } from './helpers.mjs';
+import { R, C, started, atLevel, withSpells, withTalents, inFight, tweak, ev, st, cloneState, forceDraws, enterNode, winFight, timeOf } from './helpers.mjs';
 import { gainXp, xpToNext } from '../../src/engine/progress.js';
 
 const mob = (tid = 'z1_brute', level = 20, variant = 'normal') => ({ tid, level, variant });
@@ -142,7 +142,7 @@ describe('rules 7 combat details', () => {
 
   test('7.8 flee from a dungeon trash fight: the node ends, the dungeon is not cleared, its hours stay spent', () => {
     let { state: s, events } = enterNode(started('mage', { seed: 7 }), 'dungeon', { level: 9, r: 4 });
-    assert.equal(hoursOf(events), C.HOURS_DUNGEON);
+    assert.equal(timeOf(events), C.TIME_DUNGEON);
     let fled = null;
     for (let k = 0; k < 200 && !fled; k++) {
       const c = cloneState(s);
@@ -151,7 +151,7 @@ describe('rules 7 combat details', () => {
       if (r.state.phase === 'MAP') fled = r;
     }
     assert.ok(fled, 'flee succeeded on a low draw');
-    assert.equal(fled.state.hours, s.hours);
+    assert.equal(fled.state.time, s.time);
     assert.equal(fled.state.stats.dungeons, 0);
     assert.equal(ev(fled.events, 'dungeonClear').length, 0);
     assert.ok(fled.state.zone.rows[3][0].done, 'the node cannot be entered again');

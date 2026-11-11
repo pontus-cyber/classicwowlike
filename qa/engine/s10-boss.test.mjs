@@ -4,11 +4,11 @@ import assert from 'node:assert/strict';
 import { R, C, started, atLevel, withSpells, tweak, forceDraws, ev, st, cloneState, play, inFight } from './helpers.mjs';
 import { snapshot, levelMod, mitigation } from '../../src/engine/damage.js';
 
-/** A level-60 character at FIGHT_BOSS with given hours. */
-function boss(classId = 'mage', { hours = 100, spells = [], petId, prep } = {}) {
+/** A level-60 character at FIGHT_BOSS with a given time (tolls). */
+function boss(classId = 'mage', { time = 100, spells = [], petId, prep } = {}) {
   let s = R.step(started(classId, { seed: 51, petId }), { type: 'LEAVE_HUB' }).state;
   s = withSpells(atLevel(s, 60), spells);
-  s = tweak(s, (x) => { x.zone.z = 6; x.hours = hours; });
+  s = tweak(s, (x) => { x.zone.z = 6; x.time = time; });
   s = play(s, [{ type: 'TRAVEL_ON' }, { type: 'FIGHT_BOSS' }]).state;
   return prep ? tweak(s, prep) : s;
 }
@@ -18,7 +18,7 @@ const names = (s) => s.fight.enemies[0].intent.actions.map((a) => (a.id === 'col
 
 describe('rules 10 end boss', () => {
   test('10.1 setup: level 62, HP BOSS_HP × (1 + asc), armor BOSS_ARMOR, no flee, no Rogue stealth', () => {
-    const s = boss('rogue', { hours: C.BOSS_TIME_PAR + 43 }); // + HOURS_TRAVEL = par + 45 h: Ascendancy 0.08 (M2b v6: 4 steps of 0.02)
+    const s = boss('rogue', { time: C.BOSS_TIME_PAR + 43 }); // + TIME_TRAVEL = par + 45 tolls: Ascendancy 0.08 (M2b v6: 4 steps of 0.02)
     const b = s.fight.enemies[0];
     assert.equal(s.phase, 'BOSS');
     assert.equal(b.level, C.BOSS_LEVEL);
@@ -260,7 +260,7 @@ describe('rules 10 end boss', () => {
     assert.equal(lines.bossKill, C.ECHO_BOSS_KILL);
     assert.equal(lines.bossReached, C.ECHO_BOSS_REACHED);
     assert.equal(lines.bossPhases, 2 * C.ECHO_BOSS_PHASE);
-    assert.equal(lines.speed, C.ECHO_SPEED_BONUS, 'hours 100 <= par');
+    assert.equal(lines.speed, C.ECHO_SPEED_BONUS, 'time 100 <= par');
     assert.equal(lines.firstKill, C.ECHO_FIRST_KILL_CLASS);
     assert.equal(sum.bossHpPct, 0);
   });
@@ -268,12 +268,12 @@ describe('rules 10 end boss', () => {
 
 // ---------------- M2b v6 (D64): end boss HP × 0.94 and BOSS_DMG_MULT ----------------
 describe('rules 10.1 end boss HP and BOSS_DMG_MULT (M2b v6, D64)', () => {
-  const at = (asc) => (asc ? C.BOSS_TIME_PAR + 50 - C.HOURS_TRAVEL : 100); // 50 h past the par: 5 steps of ASC_PER_STEP
+  const at = (asc) => (asc ? C.BOSS_TIME_PAR + 50 - C.TIME_TRAVEL : 100); // 50 h past the par: 5 steps of ASC_PER_STEP
   test('BOSS_HP 13066 and BOSS_DMG_MULT 1.17; boss HP BOSS_HP × (1 + asc); Shard HP SHARD_HP × (1 + asc), without the damage factor', () => {
     assert.equal(C.BOSS_HP, 13066);
     assert.equal(C.BOSS_DMG_MULT, 1.17);
     for (const asc of [0, 5 * C.ASC_PER_STEP]) {
-      const s = boss('mage', { hours: at(asc), spells: ['ember_bolt'], prep: (x) => { immortal(x); x.fight.enemies[0].hp = Math.floor(x.fight.enemies[0].maxHp * 0.705); } });
+      const s = boss('mage', { time: at(asc), spells: ['ember_bolt'], prep: (x) => { immortal(x); x.fight.enemies[0].hp = Math.floor(x.fight.enemies[0].maxHp * 0.705); } });
       assert.equal(s.fight.boss.asc, asc);
       assert.equal(s.fight.enemies[0].maxHp, Math.round(13066 * (1 + asc)));
       const t = cloneState(s);
@@ -285,7 +285,7 @@ describe('rules 10.1 end boss HP and BOSS_DMG_MULT (M2b v6, D64)', () => {
 
   test('every damage of the end-boss fight\'s enemies × BOSS_DMG_MULT × (1 + asc), also at Ascendancy 0: Oruvath\'s hit, a Shard\'s snapshot, the intent estimate', () => {
     for (const asc of [0, 5 * C.ASC_PER_STEP]) {
-      const s = boss('rogue', { hours: at(asc), prep: immortal });
+      const s = boss('rogue', { time: at(asc), prep: immortal });
       const lm = levelMod(C.BOSS_LEVEL, 60);
       const want = 1000 * lm * 1.17 * (1 + asc);
       assert.ok(Math.abs(snapshot(s, 0, 'player', 1000, {}) - want) < 1e-6, `snapshot at asc ${asc}`);
@@ -311,7 +311,7 @@ describe('rules 10.1 end boss HP and BOSS_DMG_MULT (M2b v6, D64)', () => {
 
   test('the Brand tick is BRAND_DMG × stacks × BOSS_DMG_MULT × (1 + asc) × levelMod (rules 10.2), and the DoT preview shows it', () => {
     for (const asc of [0, 5 * C.ASC_PER_STEP]) {
-      const s = boss('mage', { hours: at(asc), prep: (x) => { immortal(x); x.fight.p.st.push({ id: 'BRAND', stacks: 3, dur: null }); } });
+      const s = boss('mage', { time: at(asc), prep: (x) => { immortal(x); x.fight.p.st.push({ id: 'BRAND', stacks: 3, dur: null }); } });
       const want = Math.round(C.BRAND_DMG * 3 * 1.17 * (1 + asc) * levelMod(C.BOSS_LEVEL, 60));
       assert.equal(R.pendingTicks(s, 'player').amount, want, `preview at asc ${asc}`);
       const tick = R.step(s, { type: 'PASS' }).events.find((e) => e.t === 'damage' && e.spell === 'brand');

@@ -1,7 +1,7 @@
 // Run summary (rules 9) and the real-time estimate (rules 3; combat v2: PACE_ENGAGE_S per fight with an engage round;
 // expedition, rules 1.9.8: walks and passes, the Homeward Bell, and the `expedition` block of the summary; heat, rules
-// 1.7.4: the `heat` block and the Echo line of fights won in heat). Dev tools (engine-api.md 12): a dev run's summary
-// has a `dev` block and no Echoes.
+// 1.7.4: the `heat` block and the Echo line of fights won in heat; M2b v7: time in whole tolls, `time`, `timeAtBoss`,
+// `heat.timeByState`). Dev tools (engine-api.md 12): a dev run's summary has a `dev` block and no Echoes.
 import {
   PACE_CREATE_S, PACE_DECIDE_S, PACE_TRAVEL_NODE_S, PACE_ZONE_TRAVEL_S, PACE_QUEST_TEXT_S, PACE_FIGHT_OVERHEAD_S,
   PACE_MANUAL_ROUND_S, PACE_AUTO_ROUND_S, PACE_LOOT_S, PACE_LEVELUP_S, PACE_TALENT_S, PACE_REST_S, PACE_SHRINE_S,
@@ -49,7 +49,7 @@ export function summary(s) {
   const facts = {
     classId: p.classId, level: p.level, zonesLeft: st.zonesLeft, dungeons: st.dungeons, kills: st.kills,
     quests: st.quests, reachedBoss: st.reachedBoss, bossPhase: st.bossPhase, outcome: s.outcome,
-    hoursAtBoss: st.hoursAtBoss, oaths: s.oaths, heatFights: heat.heatFights,
+    timeAtBoss: st.timeAtBoss, oaths: s.oaths, heatFights: heat.heatFights,
   };
   // Dev tools (engine-api.md 12): a dev run earns no Echoes; `withheld` is what the run would have earned.
   const dev = s.dev ? { god: !!s.dev.godUsed, tools: s.dev.tools.slice() } : null;
@@ -62,7 +62,7 @@ export function summary(s) {
     seed: s.seed, profileHash: profileHash(s.profile), contentVersion: s.contentVersion, oaths: s.oaths.slice(),
     outcome: s.outcome, death: s.death, level: p.level, xp: p.xp,
     reached: { zone: st.maxZone, row: st.maxRow, camp: !!(s.zone && s.zone.camp) || st.reachedBoss },
-    hours: s.hours, ascendancy: st.asc, hoursAtBoss: st.hoursAtBoss,
+    time: s.time, ascendancy: st.asc, timeAtBoss: st.timeAtBoss,
     minutes: { manual: estSeconds(st, 'manual') / 60, autoplay: estSeconds(st, 'auto') / 60 },
     nodes: { ...st.nodes, total: st.nodesTotal }, campWaves: st.campWaves, fights: st.fights, rounds: st.rounds,
     bossRounds: st.bossRounds, kills: { ...st.kills }, quests: st.quests, stories: st.stories, dungeons: st.dungeons,
@@ -72,7 +72,7 @@ export function summary(s) {
     reachedBoss: st.reachedBoss, bossPhase: st.bossPhase, bossHpPct: st.bossHpPct,
     echoes: ech,
     heat: {
-      trackPerZone: heat.trackPerZone, hoursByState: heat.hoursByState, nodesByState: heat.nodesByState,
+      trackPerZone: heat.trackPerZone, timeByState: heat.timeByState, nodesByState: heat.nodesByState,
       fightsByState: heat.fightsByState, echoHeat: heatLine ? heatLine.echoes : 0,
     },
     ...(st.exp ? { mapMode: 'expedition', expedition: expeditionSummary(s) } : {}),
@@ -83,11 +83,11 @@ export function summary(s) {
 /**
  * Expedition lines of the summary (rules 1.9, 9): walks (steps to resolved nodes, the hub or Dimmed nodes), passes
  * (PASS_THROUGH), Dimmed encounters and the zones that had one, Bell charges rung and left, Roads taken, the furthest
- * ring, and per zone { z, hours (zone hours; the current zone so far), nodes, walks, passes, dimFights, exit }.
+ * ring, and per zone { z, time (zone tolls; the current zone so far), nodes, walks, passes, dimFights, exit }.
  */
 function expeditionSummary(s) {
   const x = s.stats.exp;
-  const zones = x.zones.map((r, i) => ({ ...r, hours: r.exit === null && i === x.zones.length - 1 && s.zone && !s.zone.camp ? s.hours - s.zone.start : r.hours }));
+  const zones = x.zones.map((r, i) => ({ ...r, time: r.exit === null && i === x.zones.length - 1 && s.zone && !s.zone.camp ? s.time - s.zone.start : r.time }));
   return {
     walks: x.walks, passes: x.passes, dimFights: x.dimFights, dimZones: zones.filter((r) => r.dimFights > 0).length,
     bellsRung: x.bells, bellCharges: s.exp.bell, roads: x.roads, maxRing: x.maxRing, zones, dimming: s.exp.dimming !== false,

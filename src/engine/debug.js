@@ -6,7 +6,7 @@
 //   toCamp(s), toBoss(s, {phase}), nextZone(s)        jumps (the end-boss fight in phase 1, 2 or 3)
 //   encounter(s, {ids, level})        a fight against any enemy templates (node type `dev`; back where it started)
 //   killTarget(s, idx), refill(s), setGod(s, on), give(s, {gold, potions, talentPoints})
-//   setHours(s, hours), setHeat(s, state), revealMap(s), setMapMode(s, mode)
+//   setTime(s, time), setHeat(s, state), revealMap(s), setMapMode(s, mode)       (time in whole tolls, M2b v7)
 //   grantEchoes(profile, n), fullCatalogue(profile), setProfile(s, profile)      the meta profile
 //   enemies(content)                  every enemy template with its zone and kind (the Dev menu's list)
 //   validate(s, {steps})              the state checks every helper's result passes (string[]; empty = valid)
@@ -142,7 +142,7 @@ function enemies(content) {
   return out;
 }
 
-/** The hours past the line that put the run in a heat state (rules 1.7.2): the middle of its band. */
+/** The tolls past the line that put the run in a heat state (rules 1.7.2): the middle of its band (whole numbers). */
 function heatTarget(state) {
   if (state === 'clear') return HEAT_WARM_AT - (HEAT_HOT_AT - HEAT_WARM_AT) / 2;
   if (state === 'warm') return (HEAT_WARM_AT + HEAT_HOT_AT) / 2;
@@ -178,7 +178,7 @@ export function createDebug(api) {
    * first level; the Camp MAX_LEVEL), rarity (DEV.RARITY) and ilvl (level + the rarity's ilvlBonus, at most ILVL_MAX) of
    * the gear in every slot (fixed stats as starting gear: the class's primary, STA, the power affix), talents ('auto':
    * the default build of autoplay; 'unspent'), gold (DEV.GOLD_V × V(level) copper), potions (DEV.POTIONS Healing
-   * Draughts, and as many Mana Draughts for a Mage), hours (the line of zone - 1: on schedule). Every class spell up to
+   * Draughts, and as many Mana Draughts for a Mage), time (tolls; the line of zone - 1: on schedule). Every class spell up to
    * the level (and the profile's meta spells) is learned and trained to the level; the bars are autoplay's. Full HP and
    * mana. Returns { state, events }.
    */
@@ -197,7 +197,8 @@ export function createDebug(api) {
     if (!isInt(ilvl) || ilvl < 1 || ilvl > ILVL_MAX) fail(`debug.build: item level must be 1-${ILVL_MAX}`);
     const talents = o.talents || 'auto';
     if (!['auto', 'unspent'].includes(talents)) fail("debug.build: talents must be 'auto' or 'unspent'");
-    for (const [k, v] of [['gold', o.gold], ['potions', o.potions], ['hours', o.hours]]) if (v != null && (!isInt(v) || v < 0)) fail(`debug.build: ${k} must be a whole number >= 0`);
+    if (o.hours !== undefined) fail('debug.build: `hours` is now `time` (whole tolls, M2b v7)');
+    for (const [k, v] of [['gold', o.gold], ['potions', o.potions], ['time', o.time]]) if (v != null && (!isInt(v) || v < 0)) fail(`debug.build: ${k} must be a whole number >= 0`);
     const profile = o.profile || null;
     const petId = classId === 'hunter' ? o.petId || availablePets(profile || newProfile())[0] : null;
     if (petId && !availablePets(profile || newProfile()).includes(petId)) fail(`debug.build: the pet ${petId} is not unlocked in the profile`);
@@ -227,8 +228,8 @@ export function createDebug(api) {
     }
     p.gold = o.gold ?? rnd(DEV.GOLD_V * V(level));
     addPotions(s, o.potions ?? DEV.POTIONS);
-    // The zone (rules 1.3): its hub, arrived at `hours`; the heat records start there.
-    s.hours = o.hours ?? Math.ceil(lineAt(s.oaths, zone - 1));
+    // The zone (rules 1.3): its hub, arrived at `time` (whole tolls); the heat records start there.
+    s.time = o.time ?? lineAt(s.oaths, zone - 1);
     s.stats.heat = newHeatStats();
     if (s.stats.exp) s.stats.exp.zones = [];
     s.stats.zonesLeft = zone - 1;
@@ -241,7 +242,7 @@ export function createDebug(api) {
     return { state: s, events: ev };
   }
 
-  /** To the Camp (phase CAMP), leaving whatever is open; the hours stay. At the Camp: what is open closes. */
+  /** To the Camp (phase CAMP), leaving whatever is open; the run's time stays. At the Camp: what is open closes. */
   function toCamp(state) {
     const s = runCopy(state, 'debug.toCamp');
     const ev = [];
@@ -254,7 +255,7 @@ export function createDebug(api) {
   /**
    * Into the end-boss fight (phase BOSS, round 1; from anywhere: the Camp first). phase 2: the boss at P2_AT of its HP,
    * phase 3: just below P3_AT, both reached by the engine's own phase change (rules 10.2: Shards, Eclipse); its intent
-   * and track are shown for the new phase. Ascendancy from the hours (rules 1.7).
+   * and track are shown for the new phase. Ascendancy from the run's time (rules 1.7).
    */
   function toBoss(state, { phase = 1 } = {}) {
     if (![1, 2, 3].includes(phase)) fail('debug.toBoss: phase must be 1, 2 or 3');
@@ -275,7 +276,7 @@ export function createDebug(api) {
     return { state: s, events: ev };
   }
 
-  /** On to the next zone's hub as by Travel on (a Road on the expedition map): HOURS_TRAVEL, no level gate. Zone 6: the Camp. */
+  /** On to the next zone's hub as by Travel on (a Road on the expedition map): TIME_TRAVEL, no level gate. Zone 6: the Camp. */
   function nextZone(state) {
     const s = runCopy(state, 'debug.nextZone');
     if (s.zone.camp) fail('debug.nextZone: the Camp is the last stop (debug.toBoss)');
@@ -380,15 +381,16 @@ export function createDebug(api) {
   }
 
   /**
-   * Set the run's hours (rules 1.7: heat, the boss's Ascendancy). The zone's own clock stays: on the expedition map its
-   * arrival hour moves with the run's, so the Dimming stands where it was; the zone's heat record moves the same way.
+   * Set the run's time in whole tolls (rules 1.7: heat, the boss's Ascendancy). The zone's own clock stays: on the
+   * expedition map its arrival toll moves with the run's, so the Dimming stands where it was; the zone's heat record
+   * moves the same way.
    */
-  function setHours(state, hours) {
-    if (!isInt(hours) || hours < 0) fail('debug.setHours: hours must be a whole number >= 0');
-    const s = runCopy(state, 'debug.setHours');
-    mark(s, 'hours');
-    const d = hours - s.hours;
-    s.hours = hours;
+  function setTime(state, time) {
+    if (!isInt(time) || time < 0) fail('debug.setTime: time must be a whole number >= 0');
+    const s = runCopy(state, 'debug.setTime');
+    mark(s, 'time');
+    const d = time - s.time;
+    s.time = time;
     if (isExpedition(s) && !s.zone.camp) s.zone.start += d;
     const recs = s.stats.heat ? s.stats.heat.zones : [];
     const last = recs[recs.length - 1];
@@ -396,12 +398,12 @@ export function createDebug(api) {
     return { state: s, events: [] };
   }
 
-  /** Set the hours so the run's own heat is in `heatState` (HEAT_STATES; the middle of its band, rules 1.7.2). */
+  /** Set the time so the run's own heat is in `heatState` (HEAT_STATES; the middle of its band, rules 1.7.2): line + x. */
   function setHeat(state, heatState) {
     if (!HEAT_STATES.includes(heatState)) fail(`debug.setHeat: state must be one of ${HEAT_STATES.join(', ')}`);
     if (!state || !state.zone) fail('debug.setHeat: only during a run');
     const line = lineAt(state.oaths, state.zone.camp ? CAMP : state.zone.z);
-    return setHours(state, Math.max(0, Math.ceil(line + heatTarget(heatState))));
+    return setTime(state, Math.max(0, line + heatTarget(heatState)));
   }
 
   /**
@@ -601,7 +603,7 @@ export function createDebug(api) {
   }
 
   return Object.freeze({
-    build, toCamp, toBoss, nextZone, encounter, killTarget, refill, setGod, give, setHours, setHeat, revealMap, setMapMode,
+    build, toCamp, toBoss, nextZone, encounter, killTarget, refill, setGod, give, setTime, setHeat, revealMap, setMapMode,
     grantEchoes, fullCatalogue, setProfile, enemies, validate,
   });
 }

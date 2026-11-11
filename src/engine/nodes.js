@@ -2,17 +2,17 @@
 // loot window, vendor and trainer services, camp, boss start, fight outcomes and run end. Expedition map (rules 1.9):
 // MOVE, PASS_THROUGH, hub revisits, Dimmed encounters, Roads, the Homeward Bell and the settle step after an action.
 // Heat (rules 1.7.3, 1.7.4): a node's heat state is fixed on entry (state.node.heat, the fight's `heat`), and the
-// summary's heat counters follow hours, zones, nodes and fights won (heat.js).
+// summary's heat counters follow tolls, zones, nodes and fights won (heat.js).
 // Dev tools (engine-api.md 12): a fight a dev tool starts (node type `dev`) ends back where it was started.
 import {
   CLASS, PET, SPELL, META, SLOT_IDS, START_GOLD, START_RATIONS, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, ZONE_COUNT,
-  ZONE_LEVELS, ZONE_CHOICE_ROWS, HOURS_REST, HOURS_VENDOR, HOURS_TRAINER, HOURS_TRAVEL, QUEST_TURNIN_XP_FRAC, QUEST_GOLD_V,
+  ZONE_LEVELS, ZONE_CHOICE_ROWS, TIME_REST, TIME_VENDOR, TIME_TRAINER, TIME_TRAVEL, QUEST_TURNIN_XP_FRAC, QUEST_GOLD_V,
   QUEST_REWARD_CHOICES, STORY_QUESTS, STORY_XP_FRAC, STORY_REWARD_CHOICES, GRIND_WAVE_XP_FRAC, GRIND_DROP_MULT,
   GRIND_WAVE_SIZE, DUNGEON_CLEAR_XP_FRAC, DUNGEON_GOLD_V, TREASURE_GOLD_V,
   TREASURE_TRAP_CHANCE, TREASURE_TRAP_PCT, REST_RESTED_FRAC, BOON, BOON_GOLD_V, BOON_NODES, CAMP_GRIND_LEVEL,
   MAX_LEVEL, TRAIN_NEW_V, TRAIN_RANK_V, TRAVEL_EARLY_LEVELS,
-  RESPEC_V, CONSUMABLE, ELIXIR_NODES, RES_META_CHARGES, BOSS_LEVEL, UNIQUE_POTION_PCT, HOURS_WALK, DIM_PACK_SIZE,
-  DIM_LEVEL_PER_DEPTH, HOURS_DIM_FIGHT, BELL_START_CHARGES, BELL_MAX_CHARGES, BELL_CHANNEL_H,
+  RESPEC_V, CONSUMABLE, ELIXIR_NODES, RES_META_CHARGES, BOSS_LEVEL, UNIQUE_POTION_PCT, TIME_WALK, DIM_PACK_SIZE,
+  DIM_LEVEL_PER_DEPTH, TIME_DIM_FIGHT, BELL_START_CHARGES, BELL_MAX_CHARGES, BELL_CHANNEL_TIME,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt } from '../rng.js';
 import { rnd, frac6, deepClone } from './util.js';
@@ -24,11 +24,11 @@ import {
 import { generateZone, contentLevel, vendorStock, composeEncounter, pickFrom } from './map.js';
 import { zoneContent, campEnemies, CAMP_Z } from './content.js';
 import { startFight, endFight } from './combat.js';
-import { parHours } from './meta.js';
+import { parTime } from './meta.js';
 import { makeBoss } from './boss.js';
-import { ascOver, newHeatStats, heatHours, heatZoneEntered, heatNodeEntered, heatFightWon } from './heat.js';
+import { ascOver, newHeatStats, heatTime, heatZoneEntered, heatNodeEntered, heatFightWon } from './heat.js';
 import {
-  isExpedition, grindMaxWaves, xpWeight, nodeHours, generateExpZone, refreshVision, zoneHours, frontAt, dimmedNow,
+  isExpedition, grindMaxWaves, xpWeight, nodeTime, generateExpZone, refreshVision, zoneTime, frontAt, dimmedNow,
   visionKit, canEnter, roadNameOf,
 } from './expedition.js';
 
@@ -73,7 +73,7 @@ export function newStats() {
     quests: 0, stories: 0, dungeons: 0, goldEarned: 0, goldSpent: 0, potionsUsed: 0, resUsed: 0, dmgDealt: 0,
     dmgTaken: 0, spellDmg: {}, zonesLeft: 0, levelUps: 0, talentPoints: 0, equipDrops: 0, rests: 0, shrines: 0,
     treasures: 0, vendorVisits: 0, vendorTx: 0, trainerVisits: 0, trainerTx: 0, xpGained: 0, campWaves: 0,
-    reachedBoss: false, bossPhase: 0, bossHpPct: null, hoursAtBoss: null, asc: null, maxZone: 1, maxRow: 0,
+    reachedBoss: false, bossPhase: 0, bossHpPct: null, timeAtBoss: null, asc: null, maxZone: 1, maxRow: 0,
     heat: newHeatStats(),
   };
 }
@@ -92,7 +92,7 @@ export function startRun(s, ev) {
   s.meta = metaFromProfile(s.profile, c.classId);
   s.oaths = c.oaths.slice();
   s.nextUid = 1;
-  s.hours = 0;
+  s.time = 0;
   s.player = {
     name: c.name || cls.name, classId: c.classId, level: 1, xp: 0, rested: 0, hp: 0, mana: 0, gold: START_GOLD,
     spells: {}, spellOrder: [], bar: new Array(SPELL_BAR_SLOTS).fill(null), itemBar: new Array(ITEM_BAR_SLOTS).fill(null),
@@ -129,7 +129,7 @@ export function startRun(s, ev) {
 
 /**
  * Expedition map (rules 1.9) at run start (also debug.setMapMode, engine-api.md 12): the vision kit and the Dimming option
- * of state.create, Homeward Bell charges, the settle flags (pending: hours were spent since the last Dimming check;
+ * of state.create, Homeward Bell charges, the settle flags (pending: tolls were spent since the last Dimming check;
  * bellPending: the Bell is ringing), and the per-run and per-zone counters.
  */
 export function startExpedition(s) {
@@ -139,26 +139,27 @@ export function startExpedition(s) {
 }
 
 // ---------------- Zones, hub, camp ----------------
-export function addHours(s, ev, h, why) {
-  if (h <= 0) return;
-  heatHours(s, h, why); // rules 1.7.4: each hour counted in the heat state it starts in
-  s.hours += h;
-  ev.push({ t: 'hours', add: h, total: s.hours, why });
-  if (s.exp && s.zone && !s.zone.camp) dimmingAfterHours(s, ev, h, why);
+/** Spend `t` tolls (M2b v7: state.time in whole tolls; the `time` event). */
+export function addTime(s, ev, t, why) {
+  if (t <= 0) return;
+  heatTime(s, t, why); // rules 1.7.4: each toll counted in the heat state it starts in
+  s.time += t;
+  ev.push({ t: 'time', add: t, total: s.time, why });
+  if (s.exp && s.zone && !s.zone.camp) dimmingAfterTime(s, ev, t, why);
 }
 
 /**
- * Expedition (rules 1.9.6): hours in a zone move the Dimming. A `dimming` event lists the nodes the front newly covers.
- * Hours other than a Dimmed encounter's own mark the step for the settle check (settleExpedition).
+ * Expedition (rules 1.9.6): tolls in a zone move the Dimming. A `dimming` event lists the nodes the front newly covers.
+ * Tolls other than a Dimmed encounter's own mark the step for the settle check (settleExpedition).
  */
-function dimmingAfterHours(s, ev, h, why) {
+function dimmingAfterTime(s, ev, t, why) {
   if (why === 'travel') return; // on the Road: the zone is left
   const zone = s.zone;
-  const hz = zoneHours(s);
+  const zt = zoneTime(s);
   if (why !== 'dim') s.exp.pending = true;
   if (zone.dimOff) return; // a run without the Dimming (newRun option dimming: false, D50)
-  const before = frontAt(hz - h);
-  const now = frontAt(hz);
+  const before = frontAt(zt - t);
+  const now = frontAt(zt);
   if (now > before) {
     const dimmed = zone.nodes.filter((n) => zone.shardDist[n.id] > before && zone.shardDist[n.id] <= now).map((n) => n.id);
     ev.push({ t: 'dimming', front: now, dimmed });
@@ -182,7 +183,7 @@ export function enterZone(s, ev, z, { again = false } = {}) {
     s.exp.pending = false;
     s.exp.bellPending = false;
     refreshVision(s);
-    s.stats.exp.zones.push({ z, hours: 0, nodes: 0, walks: 0, passes: 0, dimFights: 0, exit: null });
+    s.stats.exp.zones.push({ z, time: 0, nodes: 0, walks: 0, passes: 0, dimFights: 0, exit: null });
   } else {
     s.zone = generateZone(s, z);
   }
@@ -218,7 +219,7 @@ export function canTravel(s) {
 }
 
 export function travelOn(s, ev) {
-  addHours(s, ev, HOURS_TRAVEL, 'travel'); // every profile (M2 v4: Wayfinder removed)
+  addTime(s, ev, TIME_TRAVEL, 'travel'); // every profile (M2 v4: Wayfinder removed)
   s.stats.zonesLeft += 1;
   ev.push({ t: 'travel', from: s.zone.z });
   enterZone(s, ev, s.zone.z + 1);
@@ -239,16 +240,16 @@ export function openService(s, ev, kind) {
   const camp = s.phase === 'CAMP';
   s.hub.used[kind] = true;
   if (kind === 'inn') {
-    addHours(s, ev, HOURS_REST, 'inn');
+    addTime(s, ev, TIME_REST, 'inn');
     restEffect(s, ev);
     return;
   }
   if (kind === 'trainer') {
-    addHours(s, ev, HOURS_TRAINER, 'trainer');
+    addTime(s, ev, TIME_TRAINER, 'trainer');
     s.service = { kind: 'trainer', where: camp ? 'camp' : 'hub' };
     s.stats.trainerVisits += 1;
   } else {
-    addHours(s, ev, HOURS_VENDOR, 'vendor');
+    addTime(s, ev, TIME_VENDOR, 'vendor');
     const z = camp ? CAMP_Z : s.zone.z;
     const cl = camp ? MAX_LEVEL : contentLevel(z, 0);
     let stock;
@@ -319,8 +320,8 @@ export function chooseNode(s, ev, lane) {
 
 /**
  * Enter a node and start its content (rules 2): on today's map at (r, l), on the expedition map at node id def.id
- * (r undefined). Hours by type (nodeHours: rules 2.0, 1.9.8). Heat (rules 1.7.3): the node's heat state is fixed first,
- * before its hours (on the expedition map with the Dimming's clock of this node), and pays everything the node pays.
+ * (r undefined). Tolls by type (nodeTime: rules 2.0, 1.9.8). Heat (rules 1.7.3): the node's heat state is fixed first,
+ * before its tolls (on the expedition map with the Dimming's clock of this node), and pays everything the node pays.
  */
 function beginNode(s, ev, def, r, lane) {
   const zone = s.zone;
@@ -337,7 +338,7 @@ function beginNode(s, ev, def, r, lane) {
   ev.push(exp ? { t: 'node', type: def.type, id: def.id, ring: def.ring, cl: def.cl, heat } : { t: 'node', type: def.type, r, l: lane, cl: def.cl, heat });
   switch (def.type) {
     case 'quest':
-      addHours(s, ev, nodeHours(s, 'quest'), 'quest');
+      addTime(s, ev, nodeTime(s, 'quest'), 'quest');
       n.quest = def.quest;
       ev.push({ t: 'quest', quest: def.quest });
       nodeFight(s, ev, 'quest', 0, def.mobs.map((tid) => ({ tid, level: def.cl, variant: 'normal' })));
@@ -350,45 +351,45 @@ function beginNode(s, ev, def, r, lane) {
       if (grindMaxWaves(s) === 1) startGrind(s, ev, 1);
       break;
     case 'elite': {
-      addHours(s, ev, nodeHours(s, 'elite'), 'elite');
+      addTime(s, ev, nodeTime(s, 'elite'), 'elite');
       const en = [{ tid: def.elite, level: def.eliteLevel, variant: def.rare ? 'rare' : 'elite' }];
       if (def.add) en.push({ tid: def.add, level: def.cl, variant: 'normal' });
       nodeFight(s, ev, 'elite', 0, en);
       break;
     }
     case 'dungeon':
-      addHours(s, ev, nodeHours(s, 'dungeon'), 'dungeon');
+      addTime(s, ev, nodeTime(s, 'dungeon'), 'dungeon');
       n.bossLevel = def.bossLevel;
       startDungeonFight(s, ev, 0);
       break;
     case 'rest':
-      addHours(s, ev, nodeHours(s, 'rest'), 'rest');
+      addTime(s, ev, nodeTime(s, 'rest'), 'rest');
       restEffect(s, ev);
       completeNode(s, ev);
       break;
     case 'vendor':
-      addHours(s, ev, nodeHours(s, 'vendor'), 'vendor');
+      addTime(s, ev, nodeTime(s, 'vendor'), 'vendor');
       n.stage = 'service';
       s.service = { kind: 'vendor', where: 'node', cl: def.cl, stock: deepClone(def.stock) };
       s.stats.vendorVisits += 1;
       ev.push({ t: 'service', service: 'vendor', where: 'node' });
       break;
     case 'trainer':
-      addHours(s, ev, nodeHours(s, 'trainer'), 'trainer');
+      addTime(s, ev, nodeTime(s, 'trainer'), 'trainer');
       n.stage = 'service';
       s.service = { kind: 'trainer', where: 'node' };
       s.stats.trainerVisits += 1;
       ev.push({ t: 'service', service: 'trainer', where: 'node' });
       break;
     case 'treasure':
-      addHours(s, ev, nodeHours(s, 'treasure'), 'treasure');
+      addTime(s, ev, nodeTime(s, 'treasure'), 'treasure');
       s.stats.treasures += 1;
       n.trap = nextFloat(s.lootRng) < TREASURE_TRAP_CHANCE; // first draw of loot(z,r,l) / loot(z,id)
       if (def.guard) nodeFight(s, ev, 'treasure', 0, [{ tid: def.guard, level: def.cl, variant: 'normal' }]);
       else { openChest(s, ev); completeNode(s, ev); }
       break;
     case 'shrine':
-      addHours(s, ev, nodeHours(s, 'shrine'), 'shrine');
+      addTime(s, ev, nodeTime(s, 'shrine'), 'shrine');
       s.stats.shrines += 1;
       n.stage = 'reward';
       n.rewards = [{ kind: 'boons', boons: def.boons.slice() }];
@@ -417,7 +418,7 @@ export function startGrind(s, ev, waves) {
 function startGrindWave(s, ev) {
   const n = s.node;
   const def = nodeDef(s);
-  addHours(s, ev, nodeHours(s, 'grind'), 'grind');
+  addTime(s, ev, nodeTime(s, 'grind'), 'grind');
   n.k = n.wavesDone;
   n.stage = 'fight';
   nodeFight(s, ev, 'grind', n.k, def.waves[n.k].map((tid) => ({ tid, level: def.cl, variant: 'normal' })), { dropMult: GRIND_DROP_MULT });
@@ -463,8 +464,8 @@ function stepTo(s, ev, id, via) {
 }
 
 /**
- * MOVE (rules 1.9.4): to an adjacent node. Unresolved, not the hub and not Dimmed: enter it (its content and hours).
- * Otherwise a walk of HOURS_WALK; walking onto the hub when it is not Dimmed starts a new hub visit (services again).
+ * MOVE (rules 1.9.4): to an adjacent node. Unresolved, not the hub and not Dimmed: enter it (its content and tolls).
+ * Otherwise a walk of TIME_WALK; walking onto the hub when it is not Dimmed starts a new hub visit (services again).
  */
 export function moveTo(s, ev, id) {
   if (canEnter(s, id)) {
@@ -475,32 +476,32 @@ export function moveTo(s, ev, id) {
   stepTo(s, ev, id, 'walk');
   s.stats.exp.walks += 1;
   zoneRecord(s).walks += 1;
-  addHours(s, ev, HOURS_WALK, 'walk');
+  addTime(s, ev, TIME_WALK, 'walk');
   if (s.zone.nodes[id].ring === 0 && !dimmedNow(s, id)) {
     s.hub.used = { trainer: false, vendor: false, inn: false };
     setPhase(s, ev, 'ZONE_HUB');
   }
 }
 
-/** PASS_THROUGH (rules 1.9.4): walk through an adjacent unresolved node for HOURS_WALK; it stays unresolved. */
+/** PASS_THROUGH (rules 1.9.4): walk through an adjacent unresolved node for TIME_WALK; it stays unresolved. */
 export function passThrough(s, ev, id) {
   stepTo(s, ev, id, 'pass');
   s.stats.exp.passes += 1;
   zoneRecord(s).passes += 1;
-  addHours(s, ev, HOURS_WALK, 'pass');
+  addTime(s, ev, TIME_WALK, 'pass');
 }
 
 /**
  * Dimmed encounter (rules 1.9.6) at node id: DIM_PACK_SIZE of the zone's normal templates (stream dim(z, id, n), n =
  * Dimmed encounters at this node so far; composition repair 7.14), variant shardspawn, level min(MAX_LEVEL, max(CL, L)
- * + DIM_LEVEL_PER_DEPTH × depth), depth = front - hops from the Shardfall. HOURS_DIM_FIGHT; fought in phase NODE as
+ * + DIM_LEVEL_PER_DEPTH × depth), depth = front - hops from the Shardfall. TIME_DIM_FIGHT; fought in phase NODE as
  * node type `dim`; the node is not resolved by it.
  */
 export function startDimEncounter(s, ev, id) {
   const zone = s.zone;
   const z = zone.z;
   const def = zone.nodes[id];
-  const depth = frontAt(zoneHours(s)) - zone.shardDist[id];
+  const depth = frontAt(zoneTime(s)) - zone.shardDist[id];
   const level = Math.min(MAX_LEVEL, Math.max(def.cl, s.player.level) + DIM_LEVEL_PER_DEPTH * depth);
   const k = zone.dimN[id];
   zone.dimN[id] = k + 1;
@@ -515,7 +516,7 @@ export function startDimEncounter(s, ev, id) {
   s.node = { type: 'dim', id, cl: level, stage: 'fight', k, depth };
   setPhase(s, ev, 'NODE');
   ev.push({ t: 'dim', id, depth, level, k });
-  addHours(s, ev, HOURS_DIM_FIGHT, 'dim');
+  addTime(s, ev, TIME_DIM_FIGHT, 'dim');
   startFight(s, ev, {
     kind: 'dim', k, z, rng, enemies: tids.map((tid) => ({ tid, level, variant: 'shardspawn' })), addLevel: level,
     addPool: zoneAddPool(zn), canFlee: true,
@@ -543,7 +544,7 @@ export function endDevEncounter(s, ev) {
 }
 
 /**
- * Leave the zone (Road or Bell, rules 1.9.7): record its hours, count it, enter the next zone (zone 6: the Camp). The
+ * Leave the zone (Road or Bell, rules 1.9.7): record its time, count it, enter the next zone (zone 6: the Camp). The
  * travel event names the Road taken (content zones[i].roads, D51; null by the Bell or without names).
  */
 function leaveZone(s, ev, by) {
@@ -554,32 +555,32 @@ function leaveZone(s, ev, by) {
   enterZone(s, ev, from + 1);
 }
 
-/** TAKE_ROAD (rules 1.9.7): on a Road node, HOURS_TRAVEL, then the next zone's hub. */
+/** TAKE_ROAD (rules 1.9.7): on a Road node, TIME_TRAVEL, then the next zone's hub. */
 export function takeRoad(s, ev) {
   const rec = zoneRecord(s);
-  rec.hours = zoneHours(s);
+  rec.time = zoneTime(s);
   rec.exit = 'road';
   s.stats.exp.roads += 1;
-  addHours(s, ev, HOURS_TRAVEL, 'travel');
+  addTime(s, ev, TIME_TRAVEL, 'travel');
   leaveZone(s, ev, 'road');
 }
 
 /**
- * RING_BELL (rules 1.9.7): one charge, BELL_CHANNEL_H hours. The settle step then runs a Dimmed encounter first if the
- * player's node is Dimmed, and completes the Bell (completeBell): the next zone's hub, no HOURS_TRAVEL.
+ * RING_BELL (rules 1.9.7): one charge, BELL_CHANNEL_TIME tolls. The settle step then runs a Dimmed encounter first if the
+ * player's node is Dimmed, and completes the Bell (completeBell): the next zone's hub, no TIME_TRAVEL.
  */
 export function ringBell(s, ev) {
   s.exp.bell -= 1;
   s.exp.bellPending = true;
   s.stats.exp.bells += 1;
   ev.push({ t: 'bell', charges: s.exp.bell, node: s.zone.pos });
-  addHours(s, ev, BELL_CHANNEL_H, 'bell');
+  addTime(s, ev, BELL_CHANNEL_TIME, 'bell');
 }
 
 function completeBell(s, ev) {
   s.exp.bellPending = false;
   const rec = zoneRecord(s);
-  rec.hours = zoneHours(s);
+  rec.time = zoneTime(s);
   rec.exit = 'bell';
   s.stats.exp.bellExits += 1;
   leaveZone(s, ev, 'bell');
@@ -587,8 +588,8 @@ function completeBell(s, ev) {
 
 /**
  * Settle step of an expedition run (rules 1.9.6, 1.9.7), after every action: when the player is back on the map or in
- * the hub with nothing open (no node, fight, service or loot window) and hours were spent since the last check, a
- * Dimmed encounter starts if the player's node is Dimmed (once per such action; its own hours do not count). Then a
+ * the hub with nothing open (no node, fight, service or loot window) and tolls were spent since the last check, a
+ * Dimmed encounter starts if the player's node is Dimmed (once per such action; its own tolls do not count). Then a
  * ringing Bell completes.
  */
 export function settleExpedition(s, ev) {
@@ -732,7 +733,7 @@ export function campGrind(s, ev) {
   s.stats.campWaves += 1;
   const w = s.camp.waves;
   advanceBuffs(s, ev);
-  addHours(s, ev, nodeHours(s, 'grind'), 'camp');
+  addTime(s, ev, nodeTime(s, 'grind'), 'camp');
   s.lootRng = STREAM.loot(s.seed, CAMP_Z, w, 0);
   const pool = campEnemies(s.content);
   const setup = STREAM.node(s.seed, CAMP_Z, w, 0);
@@ -746,9 +747,9 @@ export function campGrind(s, ev) {
   });
 }
 
-/** Boss Ascendancy from hours (rules 1.7): the hours past the par (heat at the Camp, rules 1.7.1). */
+/** Boss Ascendancy from the run's time (rules 1.7): the tolls past the par (heat at the Camp, rules 1.7.1). */
 export function ascendancy(s) {
-  return ascOver(s.hours - parHours(s.oaths));
+  return ascOver(s.time - parTime(s.oaths));
 }
 
 export function fightBoss(s, ev) {
@@ -756,11 +757,11 @@ export function fightBoss(s, ev) {
   const asc = ascendancy(s);
   s.stats.reachedBoss = true;
   s.stats.bossPhase = 1;
-  s.stats.hoursAtBoss = s.hours;
+  s.stats.timeAtBoss = s.time;
   s.stats.asc = asc;
   s.lootRng = null;
   setPhase(s, ev, 'BOSS');
-  ev.push({ t: 'bossStart', asc, hours: s.hours, level: BOSS_LEVEL });
+  ev.push({ t: 'bossStart', asc, time: s.time, level: BOSS_LEVEL });
   startFight(s, ev, {
     kind: 'boss', k: 0, z: CAMP_Z, rng: STREAM.boss(s.seed), enemies: [], bossEnemy: makeBoss(asc),
     addLevel: BOSS_LEVEL, addPool: [], canFlee: false, noStealth: true,

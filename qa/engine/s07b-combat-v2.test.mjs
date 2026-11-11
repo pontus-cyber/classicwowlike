@@ -44,7 +44,7 @@ describe('rules 7.11 intent track (combat v2)', () => {
     assert.equal(C.INTENT_TRACK_LEN, 3);
     // The end boss has no engage round: its turn t is round t.
     let b = R.step(started('mage', { seed: 51 }), { type: 'LEAVE_HUB' }).state;
-    b = play(tweak(atLevel(b, 60), (x) => { x.zone.z = 6; x.hours = 100; }), [{ type: 'TRAVEL_ON' }, { type: 'FIGHT_BOSS' }]).state;
+    b = play(tweak(atLevel(b, 60), (x) => { x.zone.z = 6; x.time = 100; }), [{ type: 'TRAVEL_ON' }, { type: 'FIGHT_BOSS' }]).state;
     assert.equal(b.fight.engage, false);
     assert.deepEqual(b.fight.enemies[0].track.map((x) => x.turn), [1, 2, 3]);
     assert.equal(b.fight.enemies[0].intent.kind, 'boss');
@@ -276,7 +276,7 @@ describe('rules 7.11 the predicted cancel on track entries (D52)', () => {
   });
 
   test('the end boss\'s entries never predict a cancel (immune to control)', () => {
-    let s = tweak(atLevel(started('mage', { seed: 4 }), 60), (x) => { x.zone.z = C.ZONE_COUNT; x.hours = 100; });
+    let s = tweak(atLevel(started('mage', { seed: 4 }), 60), (x) => { x.zone.z = C.ZONE_COUNT; x.time = 100; });
     s = R.step(R.step(s, { type: 'LEAVE_HUB' }).state, { type: 'TRAVEL_ON' }).state;
     s = R.step(s, { type: 'FIGHT_BOSS' }).state;
     const boss = s.fight.enemies[0];
@@ -413,7 +413,7 @@ describe('rules 7.12 opening scripts and pack roles (combat v2)', () => {
     const tr = fight('rogue', 20, [], [mob('z1_brute', 15, 'trash')], { kind: 'trash', stealth: true }).fight.enemies[0];
     assert.ok(Math.abs(tr.dmg - (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * 15) * C.ARCHETYPE.brute.dmg * C.VARIANT.trash.dmg * R.zoneDanger(15, 'trash')) < 1e-9, 'rogue: dungeon trash');
     let b = R.step(started('mage', { seed: 51 }), { type: 'LEAVE_HUB' }).state;
-    b = play(tweak(atLevel(b, 60), (x) => { x.zone.z = 6; x.hours = 100; }), [{ type: 'TRAVEL_ON' }, { type: 'FIGHT_BOSS' }]).state;
+    b = play(tweak(atLevel(b, 60), (x) => { x.zone.z = 6; x.time = 100; }), [{ type: 'TRAVEL_ON' }, { type: 'FIGHT_BOSS' }]).state;
     assert.equal(b.fight.enemies[0].dmg, C.BOSS_MELEE);
   });
 });
@@ -508,7 +508,7 @@ describe('rules 7.13 off-balance (combat v2)', () => {
     const immortal = (x) => { x.player.d.maxHp = 1e9; x.player.hp = 1e9; };
     let b = R.step(started('mage', { seed: 51 }), { type: 'LEAVE_HUB' }).state;
     b = withSpells(atLevel(b, 60), ['spellsnap']);
-    b = play(tweak(b, (x) => { x.zone.z = 6; x.hours = 100; }), [{ type: 'TRAVEL_ON' }, { type: 'FIGHT_BOSS' }]).state;
+    b = play(tweak(b, (x) => { x.zone.z = 6; x.time = 100; }), [{ type: 'TRAVEL_ON' }, { type: 'FIGHT_BOSS' }]).state;
     b = pass(b, 2, immortal); // round 3: Litany 1/2
     const c = cloneState(tweak(b, immortal));
     forceDraws(c, 3, (d) => d[0] > 0.9);
@@ -537,7 +537,7 @@ describe('rules 7.10 engage round (combat v2)', () => {
       assert.equal(R.engageOptions(t), null);
     }
     let b = R.step(started('rogue', { seed: 51 }), { type: 'LEAVE_HUB' }).state;
-    b = play(tweak(atLevel(b, 60), (x) => { x.zone.z = 6; x.hours = 100; }), [{ type: 'TRAVEL_ON' }, { type: 'FIGHT_BOSS' }]).state;
+    b = play(tweak(atLevel(b, 60), (x) => { x.zone.z = 6; x.time = 100; }), [{ type: 'TRAVEL_ON' }, { type: 'FIGHT_BOSS' }]).state;
     assert.equal(b.fight.round, 1);
     assert.equal(R.legalActions(b).filter((a) => a.type === 'ENGAGE').length, 0, 'end boss: no engage round');
     assert.ok(!R.isEngageRound(b));
@@ -814,7 +814,7 @@ describe('rules 7.9 rule E and pacing (combat v2)', () => {
 });
 
 describe('combat v2: determinism, state version, full runs', () => {
-  test('same seed + same actions = same state through engage rounds; serialize/deserialize mid-track; STATE_VERSION 2 refuses older states', () => {
+  test('same seed + same actions = same state through engage rounds; serialize/deserialize mid-track; STATE_VERSION (3 since M2b v7) refuses older states', () => {
     let a = fight('hunter', 20, [], [mob('z1_skulker'), mob('z1_mender'), mob('z1_beast')], { petId: 'ridgewolf' });
     let b = cloneState(a);
     for (let i = 0; i < 6 && a.fight; i++) {
@@ -825,7 +825,7 @@ describe('combat v2: determinism, state version, full runs', () => {
       b = R.step(copy, act).state;
       assert.equal(R.serialize(a), R.serialize(b), `step ${i}`);
     }
-    assert.equal(R.STATE_VERSION, 2);
+    assert.equal(R.STATE_VERSION, 3);
     const old = JSON.parse(R.serialize(a));
     old.v = 1;
     assert.throws(() => R.deserialize(JSON.stringify(old), CONTENT), /state version 1/);

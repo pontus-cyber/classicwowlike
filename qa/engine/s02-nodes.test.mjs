@@ -20,15 +20,15 @@ function enterNode(base, type, { level = 20, r = 1, patch = null, prep = null } 
   return R.step(s, { type: 'CHOOSE_NODE', lane: 0 });
 }
 const win = (s) => autoUntil(s, (x) => !x.fight);
-const hoursOf = (events) => ev(events, 'hours').reduce((n, e) => n + e.add, 0);
+const timeOf = (events) => ev(events, 'time').reduce((n, e) => n + e.add, 0);
 
 describe('rules 2 node types', () => {
-  test('2.0 hours per node type', () => {
+  test('2.0 tolls per node type', () => {
     const base = started('rogue', { seed: 4 });
-    const want = { quest: C.HOURS_QUEST, elite: C.HOURS_ELITE, dungeon: C.HOURS_DUNGEON, rest: C.HOURS_REST, vendor: C.HOURS_VENDOR, trainer: C.HOURS_TRAINER, treasure: C.HOURS_TREASURE, shrine: C.HOURS_SHRINE, grind: 0 };
-    for (const [type, h] of Object.entries(want)) assert.equal(hoursOf(enterNode(base, type).events), h, type);
+    const want = { quest: C.TIME_QUEST, elite: C.TIME_ELITE, dungeon: C.TIME_DUNGEON, rest: C.TIME_REST, vendor: C.TIME_VENDOR, trainer: C.TIME_TRAINER, treasure: C.TIME_TREASURE, shrine: C.TIME_SHRINE, grind: 0 };
+    for (const [type, h] of Object.entries(want)) assert.equal(timeOf(enterNode(base, type).events), h, type);
     const g = enterNode(base, 'grind').state;
-    assert.equal(hoursOf(R.step(g, { type: 'GRIND_SET_WAVES', n: 1 }).events), C.HOURS_GRIND_WAVE);
+    assert.equal(timeOf(R.step(g, { type: 'GRIND_SET_WAVES', n: 1 }).events), C.TIME_GRIND_WAVE);
   });
 
   test('2.0 mob kill XP = MOB_XP_FRAC × mult × xpToNext(level) × diffMod, mult by kind', () => {
@@ -102,14 +102,14 @@ describe('rules 2 node types', () => {
     s = R.step(s, { type: 'GRIND_SET_WAVES', n: 2 }).state;
     assert.equal(s.fight.dropMult, C.GRIND_DROP_MULT);
     assert.equal(s.fight.enemies.length, C.GRIND_WAVE_SIZE);
-    const h0 = s.hours;
+    const h0 = s.time;
     const all = [];
     while (s.fight) { const x = R.step(s, R.autoAction(s)); all.push(...x.events); s = x.state; }
     assert.equal(ev(all, 'xp').filter((e) => e.why === 'wave').length, 1);
     assert.equal(s.node.stage, 'between');
     assert.ok(R.isLegal(s, { type: 'GRIND_STOP' }));
     s = R.step(s, { type: 'NEXT_FIGHT' }).state;
-    assert.equal(s.hours, h0 + C.HOURS_GRIND_WAVE);
+    assert.equal(s.time, h0 + C.TIME_GRIND_WAVE);
     s = win(s);
     assert.equal(s.phase, 'MAP', 'node completes after the planned waves');
   });
@@ -141,7 +141,7 @@ describe('rules 2 node types', () => {
 
   test('2.4 dungeon: 3 trash fights, then the boss; DUNGEON_LEAVE between; no flee from the boss; clear rewards', () => {
     let { state: s, events } = enterNode(started('rogue', { seed: 10 }), 'dungeon', { level: 40, r: 4 });
-    assert.equal(hoursOf(events), C.HOURS_DUNGEON);
+    assert.equal(timeOf(events), C.TIME_DUNGEON);
     assert.equal(s.fight.kind, 'trash');
     assert.ok(s.fight.enemies.length >= 2 && s.fight.enemies.length <= 3);
     const lv = dungeonLevels(1);

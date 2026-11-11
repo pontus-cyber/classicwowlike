@@ -13,7 +13,12 @@ not in the catalogue ignored); 2026-11-10c (M2 v5: Starforged Arms removed, `sta
 turns, the EMPOWERED and STAGGERED stacks with the `empower` and `stagger` events, Disrupt; marked "(combat v2.1)");
 2026-11-11 (dev tools, owner feedback 2026-11-11 07:41: `debug`, section 12, a dev-only API; marked "(dev)"); 2026-11-11b (owner feedback 08:11 and 08:14: `pendingTicks`, the DoT preview, section 6.1; `talentInfo`, talent
 totals; marked "(preview)"); 2026-11-11c (tuning pass M2b v6, docs/specs/changes-m2b-v6.md: new numbers in `C`, the end
-boss's BOSS_DMG_MULT, the Packed Satchel free potion; marked "(M2b v6)").
+boss's BOSS_DMG_MULT, the Packed Satchel free potion; marked "(M2b v6)"); 2026-11-11d (M2b v7, docs/specs/changes-m2b-v7.md
+B-C, D68-D70: time in whole tolls; `state.time`, the `time` event, `heatView.time`, `heatPreview.time` / `timeAfter`,
+`mapView` `zt`, `moves[].time` / `passTime`, `walkTime`, `travelTime`, `bell.channelTime`, `dim { grace, frontHops,
+frontTime }`, the summary's `time`, `timeAtBoss`, `heat.timeByState` and `expedition.zones[].time`, `debug.setTime` and
+`build({ time })`; the line rounded up per zone and the Dimming's front in integers; `STATE_VERSION` 3; marked "(M2b v7)").
+Units: every time value of the API is a whole number of tolls (1 toll = 1 former in-game hour, D69); there are no hours.
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
 
@@ -41,7 +46,7 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 | `stepInPlace(state, action)` | events | Same, but changes `state` in place (no copy). For simulators that own their state. |
 | `isLegal(state, action)`, `whyIllegal(state, action)` | bool / string or null | Validation without applying. |
 | `autoAction(state)` | action or null | Deterministic. In combat: the autoplay policy of rules 7.9. Elsewhere: a simple default policy (talents, gear, bar, hub, map, rewards, camp) so a headless run goes from CREATE to SUMMARY. `null` only in ENDED. |
-| `summary(state)` | object or null | Run summary (rules 9) incl. Echoes breakdown (11.1): `echoes = { lines: [{ id, count, each, echoes }], base, oathMult, total }`; a line's `echoes` is `round(count × each)` (half away from zero, M2 v3; `each` can be fractional), `base` the sum of the lines, `total = round(base × oathMult)`. Show `echoes` per line. (heat) Line `heat`: fights won in heat ("Fights won in heat"); block `heat` (section 11.3). Available any time after START_RUN. |
+| `summary(state)` | object or null | Run summary (rules 9) incl. Echoes breakdown (11.1): `echoes = { lines: [{ id, count, each, echoes }], base, oathMult, total }`; a line's `echoes` is `round(count × each)` (half away from zero, M2 v3; `each` can be fractional), `base` the sum of the lines, `total = round(base × oathMult)`. Show `echoes` per line. (heat) Line `heat`: fights won in heat ("Fights won in heat"); block `heat` (section 11.3). (M2b v7) The run's time is `time` and the time at the end boss `timeAtBoss` (whole tolls; null before the boss; were `hours`, `hoursAtBoss`). Available any time after START_RUN. |
 | `serialize(state)` / `deserialize(str, content)` | string / state | The content tables are not saved; pass the same `CONTENT` (version is checked). |
 | `mapView(state)` | object or null | What the player may see of the zone map (rules 1.4). Rare elites, traps and vendor Embers are `null` unless the profile owns Scout's Eye. Use this, not `state.zone.rows`, to draw the map. Fight nodes list one archetype per enemy: quest and elite `archetypes`, grind `archetypes` (first wave), treasure `archetypes` (the guard; `[]` unguarded, combat v2), dungeon `fights` (one archetype list per trash fight) and `bossArchetype` (combat v2). (expedition) In an expedition run: the zone graph as the player sees it (section 10.3). null outside a zone. |
 | `validateContent(content, {strict})` | string[] | Content checks (src/content/SCHEMA.md). |
@@ -50,7 +55,7 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 | `bagCapacity(state)` | number | Bag slots: `BAG_SLOTS` + meta Deeper Pockets (rules 8.7, 11.2). In CREATE it reads the profile. |
 | `travelLevel(state)` | number or null | Level from which `TRAVEL_ON` is legal in the current zone (rules 1.5): exit level - TRAVEL_EARLY_LEVELS, one lower with Swift Boots ("Travel on at level N"). After the last row TRAVEL_ON is legal at any level. null outside a zone (CREATE, Camp, run over) and in an expedition run (no level gate, rules 1.9.7). |
 | `resurrectCharges(state)` | object or null | Resurrect charges (rules 9, M2 v3): `{ boon, secondBreath, ember, now, boss }`. `boon`, `secondBreath`, `ember` = charges held. `now` = the sources a death would use, in order (`'boon'`, `'second_breath'`, `'ember'`), in the current fight (out of combat: on the journey); `boss` = the same in the end-boss fight, where Second Breath is not used ("not in the final fight"). Both `[]` under the Oath of Frailty. null before START_RUN. |
-| `bossPar(state)` | number | Boss time par in hours (rules 1.7, 11.5): BOSS_TIME_PAR, OATH_HASTE_HOURS less under the Oath of Haste. Ascendancy counts full ASC_STEP_HOURS past it; the Echoes speed bonus needs a kill at or under it. After START_RUN from `state.oaths`, in CREATE from the Oaths chosen so far (M2 v4). |
+| `bossPar(state)` | number | Boss time par in tolls (rules 1.7, 11.5): BOSS_TIME_PAR, OATH_HASTE_TIME less under the Oath of Haste. Ascendancy counts full ASC_STEP_TIME past it; the Echoes speed bonus needs a kill at or under it. After START_RUN from `state.oaths`, in CREATE from the Oaths chosen so far (M2 v4). |
 | `zoneDanger(level, variant = 'normal')` | number | Zone danger (rules 7.6): the damage multiplier the engine gives an enemy built from a template at `level`. `zd = 1 + ZONE_DANGER_STEP × max(0, level - ZONE_DANGER_FROM) / 10` for `'normal'` (quest, grind, Camp waves, summoned adds), `'elite'`, `'rare'`; `1 + DUNGEON_DANGER_FRAC × (zd - 1)` for dungeon `'trash'` and `'dboss'` (M2 v4: level 60 ×1.5 against ×2.0). Show `zoneDanger(...) - 1` as the extra damage; for a dungeon node use the trash level with `'trash'` and `bossLevel` with `'dboss'`. Not the end boss or the Shards. |
 | `V(L)`, `xpCurve(L)`, `diffMod(d)` | number | Rule helpers for estimates (read-only): value scale V (rules 8.5; prices and gold are multiples of it), the levelling polynomial (rules 4.3, defined for every L: `xpCurve(60)` is the event-XP base at CL 60 while `xpToNext(60)` is 0), the XP level-difference modifier for `d = CL - L` (rules 4.4). |
 | `spellInfo(state, id, target)` | object or null | Tooltip data: name, level, tags, resource, cost, cd, cdLeft, tl, rank, `amount` (`{kind: damage|dot|ward|heal, amount or perTick, hits, school}`, base value before level/target/crit/variance; Ricochet Bolt adds `bounces, bounceFrac, bounceAmount`: the target takes `amount`, up to `bounces` other enemies take `bounceAmount` = round(amount before rounding × bounceFrac), M2 v3 40 %), `usable` and `reason` in a fight, content flavour `text`, `window` (combat v2: the spell deals damage and `target`, or for an AoE spell some enemy, is in an OFF_BALANCE window; cost 0 under Gathered Power shows in `cost`). |
@@ -63,13 +68,16 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 | `freePotion(state)` | bool | (M2b v6) Packed Satchel's free potion (rules 7.5): true while the current fight's free potion is unused, so the next potion the player drinks (an item with `C.CONSUMABLE[id].potion`: Healing, Mana or Greater Healing Draught) costs no turn. false outside a fight, without the unlock, once used, and while the player's action is skipped. Mark the potions on the item bar "free" while it is true. |
 | `talentInfo(state, talentId)` | object or null | (preview) Talent totals for the tooltip (owner feedback 2026-11-11 08:14; rules 6): `{ id, name, ranks, rank, per, now, next }`. `per`: the values one rank gives, `now`: their totals at the ranks taken (null at rank 0), `next`: at one more rank (null at the maximum). The keys are the talent's per-rank fields (`C.TALENT_PER_RANK`; the numbers stay in `C.TALENT`), e.g. Silent Footing at 3/3: `now { pct: 0.3 }`, `next` null. `base` (Toxic Coating, Trapper): the damage formula b + l × L (Trapper: the Snare Trap's training level) + p × Power, times the ranks, before modifiers, rounded to 0.1 (null without a character). Hemorrhage Mastery: `{ dotCrit, dotPct }` by rank. Any phase; null for an unknown id. |
 | `heatView(state)` | object or null | (heat) The heat meter (rules 1.7.1-1.7.2, 1.9.10), in any phase after START_RUN (null before): the line, the player's heat, the state, the Dimming's clock in an expedition zone, the projected boss Ascendancy and the previews of the legal hour-costing choices. Fields in section 11. Pure and cheap. |
-| `heatPreview(state, action)` | object or null | (heat) The hours an action costs and the heat after it ("2 h, ends Warm", rules 1.7.1, 1.9.10), and for an action that enters a node the state it pays at (`pays`); null when the action is not legal or costs no hours. Fields in section 11. |
+| `heatPreview(state, action)` | object or null | (heat) The tolls an action costs and the heat after it ("3 tolls, ends Smouldering", rules 1.7.1, 1.9.10), and for an action that enters a node the state it pays at (`pays`); null when the action is not legal or costs no time. Fields in section 11. |
 | `C` | module | All constants and data tables (CLASS, SPELL, TALENT, TALENT_PER_RANK (preview), PET, CONSUMABLE, BOON, META, BOSS_TEXT, OPENING_SCRIPT, SCRIPT_ACTION, ENGAGE_OPTION, ENGAGE_OPTIONS, ...). |
-| `debug` | object | (dev) The dev tools, section 12: build a run at any zone and level, jumps, any encounter, hours, god mode, the profile, `validate`. Not game rules; a run they change is a dev run. |
+| `debug` | object | (dev) The dev tools, section 12: build a run at any zone and level, jumps, any encounter, the run's time, god mode, the profile, `validate`. Not game rules; a run they change is a dev run. |
 
 State is plain JSON except `state.content`, a shared reference to the frozen content tables (never copied by
-`step`, left out by `serialize`). Compare states with `serialize`. `STATE_VERSION` is 2 since combat v2 (enemies carry
-intent tracks): `deserialize` refuses a state saved by an older engine.
+`step`, left out by `serialize`). Compare states with `serialize`. `STATE_VERSION` is 3 since M2b v7 (the run's time
+is `state.time` in tolls; 2 since combat v2: enemies carry intent tracks): `deserialize` refuses a state saved by any
+other version, and names the reason for a version 2 save ("saved before M2b v7: it counts time in hours, the engine
+counts tolls; old saves cannot be loaded, start a new run"). There is no conversion: the UI saves only the profile,
+never a run. (M2b v7)
 
 ## 2. Phases (rules 1.1)
 `CREATE -> ZONE_HUB -> MAP <-> NODE -> ... -> CAMP -> BOSS -> SUMMARY -> ENDED`
@@ -113,7 +121,7 @@ Every action is `{ type, ...fields }`. Indices are 0-based. Enemy targets are in
 | `SELL` | `itemId` (bag uid) | vendor |
 | `SELL_JUNK` | | vendor; junk in bag |
 | `CHOOSE_NODE` | `lane` 0-2 | MAP; `mapView(state).next` lists reachable lanes. Not in an expedition run |
-| `TRAVEL_ON` | | MAP; level >= `travelLevel(state)` (exit level - TRAVEL_EARLY_LEVELS, Swift Boots one lower) or the last row (ZONE_CHOICE_ROWS) done (then it is the only move). Costs HOURS_TRAVEL with every profile (M2 v4: Wayfinder removed). Not in an expedition run |
+| `TRAVEL_ON` | | MAP; level >= `travelLevel(state)` (exit level - TRAVEL_EARLY_LEVELS, Swift Boots one lower) or the last row (ZONE_CHOICE_ROWS) done (then it is the only move). Costs TIME_TRAVEL with every profile (M2 v4: Wayfinder removed). Not in an expedition run |
 | `GRIND_SET_WAVES` | `n` 1-3 | Grind node, on entry (starts wave 1). (expedition) 1-EXPED_GRIND_MAX_WAVES; with one wave the Grind starts it on entry and this stage is skipped |
 | `NEXT_FIGHT` | | between Grind waves or Dungeon fights |
 | `GRIND_STOP` | | between Grind waves |
@@ -135,10 +143,10 @@ Every action is `{ type, ...fields }`. Indices are 0-based. Enemy targets are in
 | `USE_ITEM` (in combat) | `slot` 0-2, `target` null | fight; item on the item bar, in the bag, potion cooldown. (M2b v6) With Packed Satchel the fight's first potion costs no turn (below) |
 | `FLEE` | | fight, not vs dungeon boss or end boss |
 | `PASS` | | fight (the only legal combat action while Glacial Tomb skips your turn, `state.fight.p.skip`) |
-| `MOVE` | `nodeId` | (expedition) MAP; a node next to the player's (`mapView(state).moves`). Enters an unresolved, non-hub, non-Dimmed node (its content and hours); else a walk of HOURS_WALK; a walk onto the hub out of the Dimming starts a hub visit (rules 1.9.4) |
-| `PASS_THROUGH` | `nodeId` | (expedition) MAP; a neighbour that MOVE would enter: walk through it for HOURS_WALK, it stays unresolved |
-| `TAKE_ROAD` | | (expedition) MAP, standing on a Road (`mapView(state).onRoad`): HOURS_TRAVEL, next zone's hub (zone 6: the Camp); no level gate |
-| `RING_BELL` | | (expedition) MAP (not in a node, the hub screen, the Camp or at the boss), a Bell charge left: BELL_CHANNEL_H, then (after a Dimmed encounter if the node is Dimmed then) the next zone's hub; no HOURS_TRAVEL |
+| `MOVE` | `nodeId` | (expedition) MAP; a node next to the player's (`mapView(state).moves`). Enters an unresolved, non-hub, non-Dimmed node (its content and tolls); else a walk of TIME_WALK; a walk onto the hub out of the Dimming starts a hub visit (rules 1.9.4) |
+| `PASS_THROUGH` | `nodeId` | (expedition) MAP; a neighbour that MOVE would enter: walk through it for TIME_WALK, it stays unresolved |
+| `TAKE_ROAD` | | (expedition) MAP, standing on a Road (`mapView(state).onRoad`): TIME_TRAVEL, next zone's hub (zone 6: the Camp); no level gate |
+| `RING_BELL` | | (expedition) MAP (not in a node, the hub screen, the Camp or at the boss), a Bell charge left: BELL_CHANNEL_TIME, then (after a Dimmed encounter if the node is Dimmed then) the next zone's hub; no TIME_TRAVEL |
 | `ENGAGE` | `option`, `target` (enemy index or null), `spellId` (Pre-cast only) | (combat v2) the engage round only (rules 7.10), so once per fight; `option` one of the class's `C.ENGAGE_OPTIONS[classId]`; target rules in `engageOptions(state)` (control options: on an enemy immune to control only as Disrupt, while its track shows a wind-up in turns 1..INTENT_TRACK_LEN, combat v2.1; Send the Pet: a live pet). Key order as listed: `{ type, option, target }`, Pre-cast `{ type, option, spellId, target }` |
 
 One combat action resolves one full round (rules 7.1): player action, pet, enemies in index order, end of
@@ -157,7 +165,7 @@ always cost the turn. `stats.potionsUsed` counts the free potion.
 ## 4. State fields the front end reads
 | Path | Meaning |
 |---|---|
-| `phase`, `hours`, `autoplay`, `oaths`, `outcome` | run level |
+| `phase`, `time` (the run's tolls, a whole number; M2b v7: was `hours`), `autoplay`, `oaths`, `outcome` | run level |
 | `player.{name, classId, level, xp, rested, hp, mana, gold}` | character; XP bar max: `xpToNext(level)` (0 at 60) |
 | `player.d.{maxHp, maxMana, power, crit, critMult, dodge, armor, wd, STA, AGI, INT, SPI, regenPct, petMaxHp}` | derived values (rules 4.2), refreshed by the engine |
 | `player.spells[id] = {tl, rank}`, `player.spellOrder`, `player.bar[7]`, `player.itemBar[3]` | spells and bars |
@@ -186,7 +194,7 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `phase` | `phase` | phase changed |
 | `runStart` | `classId, petId, seed, oaths` | |
 | `zone`, `camp`, `travel` | `z, name` / `name` / `from` | zone hub entered / camp / TRAVEL_ON. (expedition) `travel` adds `by` (`road` or `bell`), `node` and `road` (D51: the Road's content name, null by the Bell or without names) |
-| `hours` | `add, total, why` | in-game hours spent |
+| `time` | `add, total, why` | tolls spent (M2b v7: was the `hours` event) |
 | `node`, `nodeDone`, `quest` | `type, r, l, cl, heat` / ... / `quest` | node entered / completed / quest template id. (expedition) `node`: `type, id, ring, cl, heat`; `nodeDone`: `type, id`. (heat) `heat`: the node's entry state (rules 1.7.3) |
 | `move` | `from, to, via, seen` | (expedition) a step: `via` `enter`, `walk` or `pass`; `seen` = node ids newly in view |
 | `dimming` | `front, dimmed` | (expedition) the Dimming's front advanced; `dimmed` = node ids it newly covers |
@@ -228,7 +236,7 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `questComplete`, `story`, `dungeonClear`, `dungeonLeft` | | |
 | `boon`, `trap`, `buffEnd` | `id, name` / `amount` / `id` | |
 | `learn`, `train`, `respec`, `talent`, `buy`, `sell`, `equip`, `unequip`, `discard`, `bar`, `itemBar`, `useItem`, `lootDropped`, `autoplay` | | bookkeeping |
-| `bossStart` | `asc, hours, level` | |
+| `bossStart` | `asc, time, level` | `time`: the run's tolls at the boss (M2b v7) |
 | `runEnd`, `echoes` | `outcome` / `total` | |
 
 **Damage amounts.** The pipeline rolls a hit (rules 7.2); absorbs come off it, in this order: IMMUNE (all),
@@ -445,11 +453,11 @@ the hub contract, Ask the Locals, the Spyglass, the meta changes of expedition.m
   hub. `MOVE` back onto the hub (out of the Dimming) is a new hub visit: phase ZONE_HUB, services once each again; the
   hub vendor's stock is drawn once per zone and keeps what was sold.
 - MAP: `MOVE(nodeId)`, `PASS_THROUGH(nodeId)`, `TAKE_ROAD`, `RING_BELL`, out-of-combat actions. `mapView(state).moves`
-  lists the neighbours with `via` (`enter` or `walk`), `hours` and `passHours` (PASS_THROUGH, null when not legal).
+  lists the neighbours with `via` (`enter` or `walk`), `time` and `passTime` (tolls; PASS_THROUGH, null when not legal). (M2b v7)
 - A node entered by MOVE plays as on today's map (phase NODE, `state.node = { type, id, cl, stage, k, ... }`). When it
   is done the player stands on it (phase MAP).
 - Settle step: after every action, once the player is on the map or in the hub with nothing open (no node, fight,
-  service or loot window), hours spent since the last check make the engine check the Dimming: if the player's node is
+  service or loot window), tolls spent since the last check make the engine check the Dimming: if the player's node is
   Dimmed, a Dimmed encounter starts (phase NODE, `state.node.type === 'dim'`, `state.fight.kind === 'dim'`). After it
   (won or fled) the player is back on the map on the same node. Then a ringing Bell completes (next zone).
 - Leaving: `TAKE_ROAD` (on a Road) or the Bell; either goes to the next zone's hub, zone 6's to the Camp.
@@ -459,26 +467,28 @@ the hub contract, Ask the Locals, the Spyglass, the meta changes of expedition.m
 |---|---|
 | `mapMode` | `'rows'` or `'expedition'` (every state; saves without it are rows) |
 | `exp` | `{ vision: { radius, regions, typeRadius }, bell (charges), pending, bellPending, dimming }` (engine bookkeeping; read the Bell from `mapView`; `dimming` false: newRun option, D50) |
-| `zone` | `{ z, mode: 'expedition', nodes[], hub: 0, roads[], shardfall, shardDist[], pos, start (run hours at arrival), seen[], typed[], dimN[], hubStock, path[], questsDone, storyDone, dimOff? }`: the full zone (hidden contents included; `dimOff` true in a run without the Dimming). Draw the map with `mapView`, never from here |
+| `zone` | `{ z, mode: 'expedition', nodes[], hub: 0, roads[], shardfall, shardDist[], pos, start (run tolls at arrival), seen[], typed[], dimN[], hubStock, path[], questsDone, storyDone, dimOff? }`: the full zone (hidden contents included; `dimOff` true in a run without the Dimming). Draw the map with `mapView`, never from here |
 | `node` | `{ type, id, cl, stage, k, ... }`; a Dimmed encounter: `{ type: 'dim', id, cl (its level), stage, k, depth }` |
 | `stats.exp` | `{ walks, passes, dimFights, bells, bellExits, roads, maxRing, zones[] }` (the summary's `expedition` block) |
 | `death` | adds `node`, `ring` and `depth` (Dimmed encounters); `row` and `lane` are null |
 
 ### 10.3 `mapView(state)` in an expedition run
 ```
-{ mode: 'expedition', z, name, hz (zone hours), pos (player's node), hub: 0, roads: [ids], shardfall: id,
+{ mode: 'expedition', z, name, zt (zone time: tolls since arrival at the hub), pos (player's node), hub: 0, roads: [ids], shardfall: id,
   roadNames: [name per Road, in the order of roads] (D51; null without content names),
   texts: { shardfall, shardspawn, dimming, homeward_bell } (D51: content texts.expedition; each null when missing),
-  onRoad (TAKE_ROAD legal here), walkH, travelH, bell: { charges, channelH },
+  onRoad (TAKE_ROAD legal here), walkTime (TIME_WALK), travelTime (TIME_TRAVEL), bell: { charges, channelTime (BELL_CHANNEL_TIME) },
   vision: { radius (full, capped), regions (Region Charts), typeRadius (Pathfinder) },
-  dim: { graceH, hoursPerHop, front (-1 before the grace ends), nextIn (hours until the front moves), off (D50: a run
-    without the Dimming; then front -1 and nextIn, every node's dimsIn and dimAt are Infinity) },
+  dim: { grace (DIM_GRACE), frontHops (DIM_FRONT_HOPS), frontTime (DIM_FRONT_TIME), front (-1 before the grace ends;
+    then floor(frontHops × (zt - grace) / frontTime)), nextIn (tolls until the front moves: dimAt(front + 1) - zt, at
+    least 1), off (D50: a run without the Dimming; then front -1 and nextIn, every node's dimsIn and dimAt are Infinity) },
   regions: [{ id, name, kind, families }]  (the zone's regions in content order; name null and families [] without
     content regions; D51: families so contract text can name them),
-  bands: [[min, max] per ring], edges: [[a, b]], moves: [{ nodeId, via, hours, passHours, dimmed }],
+  bands: [[min, max] per ring], edges: [[a, b]], moves: [{ nodeId, via, time, passTime, dimmed }],
   nodes: [node] }
 node (every node): { id, ring, angle (degrees), nb (neighbour ids), hops (from the player), hub, road, shardfall,
-  dimmed, dimsIn (hours from now; 0 = Dimmed), dimAt (zone hour it dims), know ('full' | 'type' | 'none'),
+  dimmed, dimsIn (tolls from now; 0 = Dimmed), dimAt (zone toll it dims: grace + ceil(hops from the Shardfall ×
+  frontTime / frontHops)), know ('full' | 'type' | 'none'),
   region (content region index, or null when unknown) }
 know 'full' (the hub, or seen) adds: type, cl, done, lost (Dimmed and unresolved), and the details of the rows view:
   quest { title, archetypes }, grind { archetypes }, elite { level, archetypes ([null, the add's archetype]: one
@@ -492,17 +502,20 @@ Nothing else of a hidden node is read: qa/engine/s01b checks that a hidden node 
 
 ### 10.4 Summary (expedition)
 `summary(state)` adds `mapMode: 'expedition'` and `expedition = { walks, passes, dimFights, dimZones, bellsRung,
-bellCharges (left), roads, maxRing, zones: [{ z, hours, nodes, walks, passes, dimFights, exit ('road' | 'bell' |
-null) }], dimming (false in a run without the Dimming, D50) }` (the current zone's `hours` are its hours so far). `minutes` adds the walk and pass terms and the Bell
+bellCharges (left), roads, maxRing, zones: [{ z, time, nodes, walks, passes, dimFights, exit ('road' | 'bell' |
+null) }], dimming (false in a run without the Dimming, D50) }` (`time`: the zone's tolls; the current zone's so far). `minutes` adds the walk and pass terms and the Bell
 (rules 1.9.8). `death` as 10.2.
 
 ## 11. Heat (heat; rules 1.7.1-1.7.2, 1.9.10)
-One meter for time pressure in both map modes (docs/specs/expedition.md section H; the UI rules are H.4). The engine
-computes everything the meter shows, so the UI never re-implements the line, the states or the Dimming's clock.
+One meter for time pressure in both map modes (docs/specs/expedition.md section H; the UI rules are H.4; the player
+sees it as the Furnace with the states Calm, Smouldering, Burning and Infernal, D68: the engine keeps the names below).
+The engine computes everything the meter shows, so the UI never re-implements the line, the states or the Dimming's
+clock. Every time value is a whole number of tolls (M2b v7): the line is rounded up per zone, `ceil(par × min(z, 6) /
+6)` in integers (D70; Oath of Haste, par 100: 17, 34, 50, 67, 84, 100), so the heat is whole too.
 
 ### 11.1 `heatView(state)`
 ```
-{ hours, par (bossPar), z (state.zone.z; the Camp ZONE_COUNT + 1), line, heat (hours - line; negative = in hand),
+{ time, par (bossPar), z (state.zone.z; the Camp ZONE_COUNT + 1), line, heat (time - line; negative = in hand),
   inHand (max(0, -heat)), past (max(0, heat)), stateRun, dimIn, stateDim, state, by ('run' | 'dim'),
   ascIfPar, gain, rarityUp, bar: { min, max, marker, beyond }, next: [{ action, ...heatPreview(action) }] }
 ```
@@ -510,30 +523,30 @@ computes everything the meter shows, so the UI never re-implements the line, the
   the heat (rules 1.7.2); `stateDim` from `dimIn` (rules 1.9.10), null without a Dimming clock (a rows run, the Camp,
   or `dimming: false`); `state` is the hotter of the two, and `by` names the clock that sets it (`'dim'` only when the
   Dimming state is hotter).
-- `dimIn`: hours until the player's node dims (0 or less: it is Dimmed), or null. Text: "Dimming: 3 h".
+- `dimIn`: tolls until the player's node dims (0 or less: it is Dimmed), or null. Text: "Dimming: 3 tolls".
 - `ascIfPar`: the boss Ascendancy if the player leaves the zone now and keeps the line from here ("Boss +2 %"; steps of
-  ASC_PER_STEP 0.02 per ASC_STEP_HOURS past the par, M2b v6). At the Camp it is the Ascendancy FIGHT_BOSS would give.
+  ASC_PER_STEP 0.02 per ASC_STEP_TIME past the par, M2b v6). At the Camp it is the Ascendancy FIGHT_BOSS would give.
 - `node`: inside a node, `{ state, gain, rarityUp }` of the state the node was entered in, which is what it pays (it
-  can differ from `state` once the node's hours are spent); null elsewhere (map, hub, Camp, boss, Dimmed encounter).
+  can differ from `state` once the node's tolls are spent); null elsewhere (map, hub, Camp, boss, Dimmed encounter).
 - `gain`, `rarityUp`: `C.HEAT_GAIN[state]` and `C.HEAT_RARITY_UP[state]`, the rewards of the state (rules 1.7.3):
   "+35 % XP and gold, 1 in 2 drops a rarity up" (Hot; Scorched "+50 % XP and gold, 7 in 10 drops a rarity up", M2b v6).
 - `bar`: `min` = HEAT_BAR_MIN, `max` = HEAT_BAR_MAX, `marker` = heat clamped to the bar, `beyond` = -1 / 1 when the
   heat is off the bar (draw the arrow), else 0. The line is the mark at heat 0.
-- `next`: the legal choices of the current phase that cost hours, each with its preview: map moves (rows:
+- `next`: the legal choices of the current phase that cost time, each with its preview: map moves (rows:
   `CHOOSE_NODE` per reachable lane and `TRAVEL_ON`; expedition: `MOVE` and `PASS_THROUGH` per neighbour, `TAKE_ROAD`,
   `RING_BELL`), hub and Camp services (`SERVICE`), `CAMP_GRIND`, and in a Grind `GRIND_SET_WAVES` and `NEXT_FIGHT`.
   Empty during a fight. Match an entry to a map node by `action.lane` or `action.nodeId`.
 
 ### 11.2 `heatPreview(state, action)`
 ```
-{ hours, hoursAfter, line, heat, stateRun, dimIn, stateDim, state, by, ascIfPar,   (as heatView, after the action)
+{ time, timeAfter, line, heat, stateRun, dimIn, stateDim, state, by, ascIfPar,   (as heatView, after the action)
   change (state differs from now), dimFight, perWave, pays }
 ```
-- `hours`: what the action costs (`hoursAfter` = run hours then), as the engine spends it: node hours (rules 2.0, 1.9.8), a walk or a pass
-  (HOURS_WALK), TRAVEL_ON and TAKE_ROAD (HOURS_TRAVEL), the Bell's channel (BELL_CHANNEL_H), a service, a Camp wave,
+- `time`: the tolls the action costs (`timeAfter` = run time then), as the engine spends it: node tolls (rules 2.0, 1.9.8), a walk or a pass
+  (TIME_WALK), TRAVEL_ON and TAKE_ROAD (TIME_TRAVEL), the Bell's channel (BELL_CHANNEL_TIME), a service, a Camp wave,
   n Grind waves. `dimFight`: the step, node, service or channel ends on a node that is Dimmed by then, so a Dimmed
-  encounter follows (rules 1.9.6); its HOURS_DIM_FIGHT is included and the state after is Scorched. `perWave`: a Grind
-  whose waves are chosen inside (today's map): `hours` is one wave.
+  encounter follows (rules 1.9.6); its TIME_DIM_FIGHT is included and the state after is Scorched. `perWave`: a Grind
+  whose waves are chosen inside (today's map): `time` is one wave. Text: "3 tolls, ends Smouldering".
 - Leaving the zone (TRAVEL_ON, TAKE_ROAD, RING_BELL): the state after uses the next zone's line (the Camp: the par);
   `dimIn` is null there (the next zone's map is not drawn yet; its hub is at least 3 hops from the Shardfall, so it
   starts Clear).
@@ -543,19 +556,19 @@ computes everything the meter shows, so the UI never re-implements the line, the
 
 ### 11.3 Rewards and the summary (rules 1.7.3, 1.7.4)
 - Entry state: `state.node.heat`, the `node` event's `heat` and `state.fight.heat` (each fight of the node) are the
-  state at the moment of entry, before the node's hours (`heatPreview(...).pays` showed it).
+  state at the moment of entry, before the node's tolls (`heatPreview(...).pays` showed it).
 - XP and gold of the node × (1 + `C.HEAT_GAIN[heat]`) after rested and meta: the `xp` and `gold` events carry the
   extra as `heat`.
 - Every item rolled on a drop table in the node is one rarity step higher below `C.HEAT_RARITY_UP[heat]`; the item's
   `rarity` is the final one (no extra field).
 - `summary(state).heat`:
 ```
-{ trackPerZone: [{ z, line, entry, exit }],   (z: 1-6, the Camp ZONE_COUNT + 1; entry / exit: run hours; the last
-                                                zone's exit = the hours so far)
-  hoursByState: [clear, warm, hot, scorched], nodesByState: [4], fightsByState: [4] (fights won in map nodes),
+{ trackPerZone: [{ z, line, entry, exit }],   (z: 1-6, the Camp ZONE_COUNT + 1; line: whole tolls; entry / exit:
+                                                run tolls; the last zone's exit = the run's time so far)
+  timeByState: [clear, warm, hot, scorched], nodesByState: [4], fightsByState: [4] (fights won in map nodes),
   echoHeat }                                   (the Echo line `heat`, before the Oath multiplier)
 ```
-  The hours-vs-line chart: per record, heat `entry - line` at arrival and `exit - line` when left.
+  The tolls-against-the-line chart: per record, heat `entry - line` at arrival and `exit - line` when left.
 
 ## 12. Dev tools (dev; dev only, not game rules)
 Owner feedback 2026-11-11 07:41 [stated]: "in-game dev tools from a menu, so he can test any stage without playing
@@ -574,17 +587,17 @@ would have earned); `END_RUN` returns the profile as it was (no Echoes, no run c
 
 | Function | Returns | Notes |
 |---|---|---|
-| `build({ content, classId, petId, name, seed, profile, oaths, mapMode, vision, dimming, zone, level, rarity, ilvl, talents, gold, potions, hours })` | `{ state, events }` | A run at zone `zone` (1..ZONE_COUNT; ZONE_COUNT + 1 = the Camp), phase ZONE_HUB (CAMP). Defaults: classId `rogue`, a Hunter's first pet the profile has, seed 0, `oaths` [] (sworn in CREATE; the profile must own them), mapMode `rows`, level the zone's first (the Camp MAX_LEVEL), rarity DEV.RARITY, ilvl level + the rarity's `ilvlBonus` (at most ILVL_MAX), talents `'auto'` (autoplay's default build, one SPEND_TALENT at a time) or `'unspent'`, gold DEV.GOLD_V × V(level) copper, potions DEV.POTIONS Healing Draughts (a Mage as many Mana Draughts too), hours `ceil(line of zone - 1)` (on schedule; the expedition zone's clock starts there). Every slot holds fixed-stat gear of that ilvl and rarity (as starting gear: the class's primary, STA, the power affix; generated names). Every spell the trainer teaches up to the level is learned and trained to it; the bars are autoplay's; full HP and mana. The heat records (summary `heat`) and the expedition zone records start at this zone; zones left = zone - 1 |
-| `toCamp(state)` | `{ state, events }` | To the Camp (phase CAMP), leaving whatever is open (below); the hours stay; zones left at least ZONE_COUNT |
-| `toBoss(state, { phase })` | `{ state, events }` | The end-boss fight (phase BOSS, round 1), from anywhere (the Camp first). `phase` 2: the boss at floor(P2_AT × HP), 3: ceil(P3_AT × HP) - 1, each reached by the engine's own phase change (rules 10.2: Shards come with phase 2, go with phase 3); its intent and track are then shown for the new phase. Ascendancy from the hours (rules 1.7) |
-| `nextZone(state)` | `{ state, events }` | The next zone's hub as by TRAVEL_ON (a Road, TAKE_ROAD, on the expedition map): HOURS_TRAVEL, no level gate; from zone ZONE_COUNT the Camp. Throws at the Camp |
+| `build({ content, classId, petId, name, seed, profile, oaths, mapMode, vision, dimming, zone, level, rarity, ilvl, talents, gold, potions, time })` | `{ state, events }` | A run at zone `zone` (1..ZONE_COUNT; ZONE_COUNT + 1 = the Camp), phase ZONE_HUB (CAMP). Defaults: classId `rogue`, a Hunter's first pet the profile has, seed 0, `oaths` [] (sworn in CREATE; the profile must own them), mapMode `rows`, level the zone's first (the Camp MAX_LEVEL), rarity DEV.RARITY, ilvl level + the rarity's `ilvlBonus` (at most ILVL_MAX), talents `'auto'` (autoplay's default build, one SPEND_TALENT at a time) or `'unspent'`, gold DEV.GOLD_V × V(level) copper, potions DEV.POTIONS Healing Draughts (a Mage as many Mana Draughts too), time (whole tolls) the line of zone - 1 (on schedule; whole since M2b v7; the expedition zone's clock starts there); the old option `hours` throws. Every slot holds fixed-stat gear of that ilvl and rarity (as starting gear: the class's primary, STA, the power affix; generated names). Every spell the trainer teaches up to the level is learned and trained to it; the bars are autoplay's; full HP and mana. The heat records (summary `heat`) and the expedition zone records start at this zone; zones left = zone - 1 |
+| `toCamp(state)` | `{ state, events }` | To the Camp (phase CAMP), leaving whatever is open (below); the run's time stays; zones left at least ZONE_COUNT |
+| `toBoss(state, { phase })` | `{ state, events }` | The end-boss fight (phase BOSS, round 1), from anywhere (the Camp first). `phase` 2: the boss at floor(P2_AT × HP), 3: ceil(P3_AT × HP) - 1, each reached by the engine's own phase change (rules 10.2: Shards come with phase 2, go with phase 3); its intent and track are then shown for the new phase. Ascendancy from the run's time (rules 1.7) |
+| `nextZone(state)` | `{ state, events }` | The next zone's hub as by TRAVEL_ON (a Road, TAKE_ROAD, on the expedition map): TIME_TRAVEL, no level gate; from zone ZONE_COUNT the Camp. Throws at the Camp |
 | `encounter(state, { ids, level })` | `{ state, events }` | A fight against one or more enemy templates by id, any kind, each as its template's `kind` (normal, elite, rare, trash, dboss) at `level` (default: the player's level). Fight kind: `dboss`, `elite` (elite or rare), `trash` or `grind`, by the strongest; an engage round as every fight; no flight from a dungeon boss; no heat. Played in phase NODE as node `{ type: 'dev', cl, stage, k, heat: null, from, enemies, id (expedition: the player's node) }` on the dev stream (`STREAM.dev(seed, n, 0)` the fight, `(seed, n, 1)` its loot). Won or fled, the player is back at `from` (`MAP`, `ZONE_HUB` or `CAMP`); kills pay their XP, coin and loot; no map node is resolved |
 | `killTarget(state, target)` | `{ state, events }` | Kill a living enemy of the current fight (default: `defaultTarget`) through the damage pipeline (`damage` event `src: 'dev'`): kill rewards, a boss's phase changes. The last one ends the fight as a victory (a boss kill ends the run). Then the settle step (expedition) |
 | `refill(state)` | `{ state, events }` | Full HP and mana, the pet alive at full HP; in a fight also full energy and focus, no cooldowns, potions ready |
 | `setGod(state, on)` | `{ state, events }` | God mode: the player takes no damage. It works as a lasting IMMUNE that Final Dark does not pierce (`damage` event `amount: 0, hpLost: 0, immune: true, god: true`), so a heavy blow on the player counts as avoided (rules 7.13: OFF_BALANCE; 7.12: its wind-up answered). The pet takes damage as usual. Turning it off when it is off changes nothing |
 | `give(state, { gold, potions, talentPoints })` | `{ state, events, given }` | Gold in copper; Healing Draughts while the bag takes them (a Mage as many Mana Draughts); unspent talent points on top of the level's (rules 6: `talentPointsFree` counts them, SPEND_TALENT spends them). `given`: what was added |
-| `setHours(state, hours)` | `{ state, events }` | The run's hours (whole, >= 0): heat, the boss's Ascendancy. The zone's own clock stays: on the expedition map its arrival hour moves with the run's, so the Dimming stands where it was; the zone's open heat record moves the same way |
-| `setHeat(state, heatState)` | `{ state, events }` | `setHours` to `ceil(line + x)`, x the middle of the state's band (rules 1.7.2): Clear HEAT_WARM_AT - (HEAT_HOT_AT - HEAT_WARM_AT) / 2, Warm (HEAT_WARM_AT + HEAT_HOT_AT) / 2, Hot (HEAT_HOT_AT + HEAT_SCORCH_AT) / 2, Scorched HEAT_SCORCH_AT + (HEAT_SCORCH_AT - HEAT_HOT_AT) / 2. `heatView(...).stateRun` is then that state |
+| `setTime(state, time)` | `{ state, events }` | (M2b v7: was `setHours`) The run's time in tolls (whole, >= 0): heat, the boss's Ascendancy. The zone's own clock stays: on the expedition map its arrival toll moves with the run's, so the Dimming stands where it was; the zone's open heat record moves the same way |
+| `setHeat(state, heatState)` | `{ state, events }` | `setTime` to `line + x` (whole; no rounding needed since M2b v7), x the middle of the state's band (rules 1.7.2): Clear HEAT_WARM_AT - (HEAT_HOT_AT - HEAT_WARM_AT) / 2, Warm (HEAT_WARM_AT + HEAT_HOT_AT) / 2, Hot (HEAT_HOT_AT + HEAT_SCORCH_AT) / 2, Scorched HEAT_SCORCH_AT + (HEAT_SCORCH_AT - HEAT_HOT_AT) / 2. `heatView(...).stateRun` is then that state |
 | `revealMap(state)` | `{ state, events }` | Expedition: every node of the zone seen (`know: 'full'`). Today's map hides only rare elites, traps and vendor Embers: Scout's Eye is on for the rest of the run (`state.meta.scout`). Throws at the Camp |
 | `setMapMode(state, mode)` | `{ state, events }` | Play on with the other map: the current zone is drawn again in that mode and the player is at its hub (services again; its heat record stays); at the Camp only the mode changes. An expedition starts without vision unlocks, with the Dimming and BELL_START_CHARGES. The same mode changes nothing |
 | `grantEchoes(profile, n)` | profile | n more Echoes to spend (not counted in `earned`) |

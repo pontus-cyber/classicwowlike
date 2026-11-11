@@ -51,21 +51,21 @@ describe('public rule helpers (engine-api.md 1)', () => {
 });
 
 describe('bossPar and zoneDanger on the API (engine-api.md 1, M2 v4)', () => {
-  test('bossPar: BOSS_TIME_PAR, OATH_HASTE_HOURS less under Haste, in CREATE and in a run; Ascendancy and the speed bonus use it', () => {
+  test('bossPar: BOSS_TIME_PAR, OATH_HASTE_TIME less under Haste, in CREATE and in a run; Ascendancy and the speed bonus use it', () => {
     const prof = { ...R.newProfile(), unlocks: { oaths: 1 }, bossKills: 1 };
     let c = R.newRun({ classId: 'rogue', seed: 3, content: CONTENT, profile: prof });
     assert.equal(R.bossPar(c), C.BOSS_TIME_PAR);
     c = R.step(c, { type: 'SET_OATH', oath: 'haste', on: true }).state;
-    assert.equal(R.bossPar(c), C.BOSS_TIME_PAR - C.OATH_HASTE_HOURS, 'CREATE: Oaths chosen so far');
+    assert.equal(R.bossPar(c), C.BOSS_TIME_PAR - C.OATH_HASTE_TIME, 'CREATE: Oaths chosen so far');
     for (const haste of [false, true]) {
       let s = R.newRun({ classId: 'rogue', seed: 3, content: CONTENT, profile: prof });
       if (haste) s = R.step(s, { type: 'SET_OATH', oath: 'haste', on: true }).state;
       s = R.step(R.step(s, { type: 'START_RUN' }).state, { type: 'LEAVE_HUB' }).state;
       const par = R.bossPar(s);
-      assert.equal(par, C.BOSS_TIME_PAR - (haste ? C.OATH_HASTE_HOURS : 0));
-      for (const [over, asc] of [[0, 0], [C.ASC_STEP_HOURS - 1, 0], [C.ASC_STEP_HOURS, C.ASC_PER_STEP]]) {
-        // arrive at the camp at par + over hours, then FIGHT_BOSS
-        const t = tweak(atLevel(s, 60), (x) => { x.zone.z = C.ZONE_COUNT; x.hours = par + over - C.HOURS_TRAVEL; });
+      assert.equal(par, C.BOSS_TIME_PAR - (haste ? C.OATH_HASTE_TIME : 0));
+      for (const [over, asc] of [[0, 0], [C.ASC_STEP_TIME - 1, 0], [C.ASC_STEP_TIME, C.ASC_PER_STEP]]) {
+        // arrive at the camp at par + over tolls, then FIGHT_BOSS
+        const t = tweak(atLevel(s, 60), (x) => { x.zone.z = C.ZONE_COUNT; x.time = par + over - C.TIME_TRAVEL; });
         const b = R.step(R.step(t, { type: 'TRAVEL_ON' }).state, { type: 'FIGHT_BOSS' }).state;
         assert.equal(R.bossPar(b), par);
         assert.equal(b.fight.boss.asc, asc, `haste ${haste}, par + ${over} h`);

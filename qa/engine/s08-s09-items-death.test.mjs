@@ -194,7 +194,7 @@ describe('rules 9 death and resurrection', () => {
     // A level-60 mage at the end boss (round 1: Umbral Strike) with 1 HP.
     const atBoss = (prep) => {
       let s = R.step(started('mage', { seed: 5, profile: prof }), { type: 'LEAVE_HUB' }).state;
-      s = tweak(atLevel(s, 60), (x) => { x.zone.z = 6; x.hours = 100; });
+      s = tweak(atLevel(s, 60), (x) => { x.zone.z = 6; x.time = 100; });
       s = play(s, [{ type: 'TRAVEL_ON' }, { type: 'FIGHT_BOSS' }]).state;
       assert.equal(s.fight.kind, 'boss');
       return tweak(s, (x) => { x.player.hp = 1; if (prep) prep(x); });
@@ -254,7 +254,7 @@ describe('rules 9 death and resurrection', () => {
     assert.equal(typeof d.round, 'number');
     const sum = R.summary(r.state);
     assert.equal(sum.outcome, 'death');
-    for (const k of ['level', 'hours', 'kills', 'damage', 'topSpells', 'equipped', 'echoes', 'minutes', 'nodes', 'gold', 'talents']) assert.ok(k in sum, k);
+    for (const k of ['level', 'time', 'kills', 'damage', 'topSpells', 'equipped', 'echoes', 'minutes', 'nodes', 'gold', 'talents']) assert.ok(k in sum, k);
     const end = R.step(r.state, { type: 'END_RUN' }).state;
     assert.equal(end.phase, 'ENDED');
     assert.equal(end.result.profile.echoes, sum.echoes.total);

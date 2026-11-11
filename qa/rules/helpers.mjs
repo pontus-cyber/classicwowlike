@@ -40,5 +40,5 @@ export function winFight(s) {
 export const onMap = (classId, seed, opts = {}) => R.step(started(classId, { seed, ...opts }), { type: 'LEAVE_HUB' }).state;
 
 export const xpOf = (events, why) => ev(events, 'xp').filter((e) => e.why === why).reduce((n, e) => n + e.amount, 0);
-export const hoursOf = (events) => ev(events, 'hours').reduce((n, e) => n + e.add, 0);
+export const timeOf = (events) => ev(events, 'time').reduce((n, e) => n + e.add, 0);
 export { R, C, CONTENT };
