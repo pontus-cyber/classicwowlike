@@ -1,6 +1,6 @@
 # Rules spec (M0 task 0.2)
 
-Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)"); M2 v5 changes 2026-11-10 (marked "(M2 v5)"); combat v2 (docs/specs/combat-v2.md, on its defaults) folded into sections 3, 7 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(combat v2)"); the expedition map (docs/specs/expedition.md 1, 4-7, 9.5; a run option until the switch-over) folded into 1.9 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(expedition)"); heat (docs/specs/expedition.md section H, on its defaults, both map modes) folded into 1.7.1-1.7.4, 1.9.10, 8.4, 9, 11.1 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(heat)"); combat v2.1 (docs/specs/combat-v2.md 16, docs/specs/changes-combat-v21.md) in section 7 and 13 by the Lead Game Designer, 2026-11-10 (marked "(combat v2.1)"), in the engine since 2026-11-10 (Core Gameplay Engineer, docs/handoffs/engineer-2026-11-10g.md; its clarifications in 7.11 and 7.12 are marked "(combat v2.1, engine)"); tuning pass M2b v6 by the Lead Game Designer, 2026-11-11 (docs/specs/changes-m2b-v6.md; marked "(M2b v6)"; not yet in the engine).
+Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)"); M2 v5 changes 2026-11-10 (marked "(M2 v5)"); combat v2 (docs/specs/combat-v2.md, on its defaults) folded into sections 3, 7 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(combat v2)"); the expedition map (docs/specs/expedition.md 1, 4-7, 9.5; a run option until the switch-over) folded into 1.9 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(expedition)"); heat (docs/specs/expedition.md section H, on its defaults, both map modes) folded into 1.7.1-1.7.4, 1.9.10, 8.4, 9, 11.1 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(heat)"); combat v2.1 (docs/specs/combat-v2.md 16, docs/specs/changes-combat-v21.md) in section 7 and 13 by the Lead Game Designer, 2026-11-10 (marked "(combat v2.1)"), in the engine since 2026-11-10 (Core Gameplay Engineer, docs/handoffs/engineer-2026-11-10g.md; its clarifications in 7.11 and 7.12 are marked "(combat v2.1, engine)"); tuning pass M2b v6 by the Lead Game Designer, 2026-11-11 (docs/specs/changes-m2b-v6.md; marked "(M2b v6)"); time in tolls and the Furnace, M2b v7 by the Lead Game Designer, 2026-11-11 (docs/specs/changes-m2b-v7.md; rule lines marked "(M2b v7)"; not yet in the engine). M2b v7 renamed every time constant from HOURS_* / *_H to TIME_* (values unchanged, list in changes-m2b-v7.md); lines changed only by that rename are not marked.
 Audience: Core Gameplay Engineer (src/rules.js), Simulation & Balance Engineer, UI/UX Engineer, Content Designer.
 
 Every global number is a named constant (UPPER_SNAKE_CASE) in section 13. The data tables (classes, spells, pets, talents, archetypes, boss, meta catalogue) are named constant groups: each cell is addressed as `TABLE.id.field` (e.g. `SPELL.ember_bolt.cost`) and is exported as data from src/. Values are starting values; the Simulation & Balance Engineer tunes them within the limits in balance.md.
@@ -17,7 +17,7 @@ Tags: most of this document is design choice and carries no tag. Owner requireme
 | Integers | HP, mana, energy, focus, damage, heals, XP, copper are integers. Round with `Math.round` at the end of each formula (half away from zero), unless a formula says floor. |
 | Percentages | Stored as fractions (0.35 = 35 %). |
 | Currency | Integer copper. UI shows 100 c = 1 s, 100 s = 1 g. |
-| Time | In-game time in hours (h, integer). Real time is only estimated (section 3); the engine never reads a clock. |
+| Time | In-game time is counted in **tolls**, whole numbers only (M2b v7). 1 toll = 1 former in-game hour, so every value keeps its number. The engine stores tolls directly (`state.time`, the TIME_* constants); there are no hours, days or clock times anywhere in the engine or on screen. Real time is only estimated (section 3); the engine never reads a clock. Measurements recorded before M2b v7 say "h": read 1 h as 1 toll. (M2b v7) |
 | RNG | One 32-bit seeded PRNG (sfc32 or mulberry32, Engineer's choice) per stream. Stream seeds come from a 32-bit string hash (Engineer's choice) of the listed keys. |
 | Streams | `map(z)` = hash(runSeed, "map", z): zone map. `node(z,r,l)` = hash(runSeed, "node", z, r, l): node setup (encounter make-up, quest, vendor stock). `fight(z,r,l,k)` = hash(runSeed, "fight", z, r, l, k), k = fight index in node: combat. `loot(z,r,l)` = hash(runSeed, "loot", z, r, l): all drops and rewards of that node. `boss` = hash(runSeed, "boss"). |
 | Consequence | Maps and loot of a node do not depend on how fights were played; fights replay exactly from seed + action log [stated: deterministic]. |
@@ -90,61 +90,61 @@ Generation order (draws in this order):
 
 Content level of row r in zone z: `CL(z,r) = ZONE_LEVELS×(z-1) + 1 + floor((r-1) × (ZONE_LEVELS-1) / (ZONE_CHOICE_ROWS-1))` (Z1: rows 1..7 -> 1,2,4,5,7,8,10) (M2 v2). Node offsets: Quest + one of QUEST_LEVEL_OFFSETS (uniform); Elite + ELITE_LEVEL_OFFSET; Dungeon trash at `ZONE_LEVELS×(z-1)+1+DUNGEON_LEVEL_OFFSET`, dungeon boss + DUNGEON_BOSS_LEVEL_OFFSET more; other nodes CL(z,r). Content level never exceeds 60 except the end boss.
 
-Hub (row 0) services; each may be used once per hub visit, in any order, and costs hours:
+Hub (row 0) services; each may be used once per hub visit, in any order, and costs tolls:
 
-| Service | Hours | Effect |
+| Service | Tolls | Effect |
 |---|---|---|
-| Trainer | HOURS_TRAINER | as Trainer node (2.7) |
-| Vendor | HOURS_VENDOR | as Vendor node (2.6), content level = zone band minimum |
-| Inn | HOURS_REST | as Rest node (2.5) |
+| Trainer | TIME_TRAINER | as Trainer node (2.7) |
+| Vendor | TIME_VENDOR | as Vendor node (2.6), content level = zone band minimum |
+| Inn | TIME_REST | as Rest node (2.5) |
 
 ### 1.5 Leaving a zone
-`TRAVEL_ON` is legal in MAP when `L >= exit level - TRAVEL_EARLY_LEVELS` (meta Swift Boots: one level lower again), or after the last row (then forced). It costs HOURS_TRAVEL and moves to the next zone's hub (Z6 -> Camp). Leaving early skips the remaining rows: this is the speedrun lever. A player who leaves under the exit level, or is under it after the last row, faces higher content in the next zone (more risk, and more XP via the level-difference bonus). (M2 v2)
+`TRAVEL_ON` is legal in MAP when `L >= exit level - TRAVEL_EARLY_LEVELS` (meta Swift Boots: one level lower again), or after the last row (then forced). It costs TIME_TRAVEL and moves to the next zone's hub (Z6 -> Camp). Leaving early skips the remaining rows: this is the speedrun lever. A player who leaves under the exit level, or is under it after the last row, faces higher content in the next zone (more risk, and more XP via the level-difference bonus). (M2 v2)
 
 ### 1.6 Camp (before the boss)
-Services as a hub (Trainer, Vendor at CL 60 with ilvl 60 stock, Inn) plus repeatable `CAMP_GRIND` waves: one wave = one Grind wave (2.2) at CAMP_GRIND_LEVEL, HOURS_GRIND_WAVE each, no limit. `FIGHT_BOSS` starts the single boss attempt (section 10). Hours keep counting, so every camp wave raises boss Ascendancy (1.7).
+Services as a hub (Trainer, Vendor at CL 60 with ilvl 60 stock, Inn) plus repeatable `CAMP_GRIND` waves: one wave = one Grind wave (2.2) at CAMP_GRIND_LEVEL, TIME_GRIND_WAVE each, no limit. `FIGHT_BOSS` starts the single boss attempt (section 10). Tolls keep counting, so every camp wave raises boss Ascendancy (1.7).
 
 ### 1.7 In-game time and Ascendancy
-Every node and service costs hours (table 2.0). The total `hours` at `FIGHT_BOSS` sets the boss Ascendancy:
-`asc = min(ASC_CAP, ASC_PER_STEP × floor(max(0, hours - BOSS_TIME_PAR) / ASC_STEP_HOURS))`.
-Boss HP (incl. adds) and all boss damage are multiplied by `(1 + asc)` (boss damage also by BOSS_DMG_MULT, 10.1; M2b v6). With ASC_PER_STEP 0.02 every 10 h past the par add 2 % (M2b v6: was 4 %). Runs at or under BOSS_TIME_PAR also earn ECHO_SPEED_BONUS on a kill.
+Every node and service costs a whole number of tolls (table 2.0). The run's total `time` (tolls) at `FIGHT_BOSS` sets the boss Ascendancy: (M2b v7)
+`asc = min(ASC_CAP, ASC_PER_STEP × floor(max(0, time - BOSS_TIME_PAR) / ASC_STEP_TIME))`.
+Boss HP (incl. adds) and all boss damage are multiplied by `(1 + asc)` (boss damage also by BOSS_DMG_MULT, 10.1; M2b v6). With ASC_PER_STEP 0.02 every 10 tolls past the par add 2 % (M2b v6: was 4 %). Runs at or under BOSS_TIME_PAR also earn ECHO_SPEED_BONUS on a kill.
 
 #### 1.7.1 Heat: the line and the player's heat (heat)
-Source: docs/specs/expedition.md section H (H.1, H.2), folded in by the Core Gameplay Engineer; it applies to both map modes. Constants: section 13, marked "(heat)".
-- The **line** is the par schedule: `line(z) = parHours × min(z, ZONE_COUNT) / ZONE_COUNT`, z = the current zone (the Camp counts as ZONE_COUNT), kept at 6 decimals. `parHours` is the par above: BOSS_TIME_PAR, OATH_HASTE_HOURS less under the Oath of Haste (11.5). With par 120 the line is 20 h per zone: 20, 40, ... 120 h. The line per zone is derived (parHours / ZONE_COUNT), not a constant.
-- `heat = hours - line(z)` (run hours, 6 decimals). Negative heat is hours in hand, positive heat hours past the line. Entering the next zone moves the line one share ahead; the hours of TRAVEL_ON (and of TAKE_ROAD and the Bell's channel, 1.9.7) count against the zone being left. Time saved or lost in one zone carries into the next.
-- At the Camp the line is the par, so `heat` at FIGHT_BOSS is the over-par hours of the Ascendancy formula above, which is unchanged.
-- **Projected Ascendancy**: `ascIfPar = min(ASC_CAP, ASC_PER_STEP × floor(max(0, heat) / ASC_STEP_HOURS))`, the boss Ascendancy if the player leaves the zone now and plays every later zone in exactly its line share (an honest floor: staying longer only raises it).
+Source: docs/specs/expedition.md section H (H.1, H.2), folded in by the Core Gameplay Engineer; it applies to both map modes. Constants: section 13, marked "(heat)". Player-facing name of the meter: **the Furnace** (M2b v7; `heat` stays the engine's name).
+- The **line** is the par schedule, in whole tolls: `line(z) = ceil(par × min(z, ZONE_COUNT) / ZONE_COUNT)`, z = the current zone (the Camp counts as ZONE_COUNT), computed in integers as `floor((par × min(z, ZONE_COUNT) + ZONE_COUNT - 1) / ZONE_COUNT)`. `par` is the par above: BOSS_TIME_PAR, OATH_HASTE_TIME less under the Oath of Haste (11.5). With par 120 the line is 20 tolls per zone: 20, 40, ... 120. Under the Oath of Haste (par 100): 17, 34, 50, 67, 84, 100. The line per zone is derived, not a constant. (M2b v7: was par × z / 6 kept at 6 decimals; rounding up keeps every state and every projected Ascendancy exactly as before, because tolls are whole: time >= line + T holds for the exact line exactly when it holds for the rounded-up one)
+- `heat = time - line(z)`, a whole number of tolls. Negative heat is tolls in hand, positive heat tolls past the line. Entering the next zone moves the line one share ahead; the tolls of TRAVEL_ON (and of TAKE_ROAD and the Bell's channel, 1.9.7) count against the zone being left. Time saved or lost in one zone carries into the next. (M2b v7)
+- At the Camp the line is the par, so `heat` at FIGHT_BOSS is the over-par tolls of the Ascendancy formula above, which is unchanged.
+- **Projected Ascendancy**: `ascIfPar = min(ASC_CAP, ASC_PER_STEP × floor(max(0, heat) / ASC_STEP_TIME))`, the boss Ascendancy if the player leaves the zone now and plays every later zone in exactly its line share (an honest floor: staying longer only raises it).
 
 #### 1.7.2 Heat states (heat)
-| State | Run heat (hours past the line) | Meaning at the boss if the line is kept from here |
-|---|---|---|
-| Clear | heat < HEAT_WARM_AT | under par: no Ascendancy, ECHO_SPEED_BONUS in reach |
-| Warm | HEAT_WARM_AT <= heat < HEAT_HOT_AT | speed bonus lost, no Ascendancy yet |
-| Hot | HEAT_HOT_AT <= heat < HEAT_SCORCH_AT | Ascendancy +2 % to +4 % | (M2b v6: was +4 % to +8 %)
-| Scorched | heat >= HEAT_SCORCH_AT | Ascendancy +6 % or more (cap ASC_CAP) | (M2b v6: was +12 % or more)
+| State (engine id) | Shown to the player (M2b v7) | Run heat (tolls past the line) | Meaning at the boss if the line is kept from here |
+|---|---|---|---|
+| Clear (`clear`) | Calm | heat < HEAT_WARM_AT | under par: no Ascendancy, ECHO_SPEED_BONUS in reach |
+| Warm (`warm`) | Smouldering | HEAT_WARM_AT <= heat < HEAT_HOT_AT | speed bonus lost, no Ascendancy yet |
+| Hot (`hot`) | Burning | HEAT_HOT_AT <= heat < HEAT_SCORCH_AT | Ascendancy +2 % to +4 % | (M2b v6: was +4 % to +8 %)
+| Scorched (`scorched`) | Infernal | heat >= HEAT_SCORCH_AT | Ascendancy +6 % or more (cap ASC_CAP) | (M2b v6: was +12 % or more)
 
-HEAT_HOT_AT equals ASC_STEP_HOURS: Hot starts where Ascendancy starts to cost. In an expedition zone the Dimming adds a second clock and the meter's state is the hotter of the two (1.9.10); elsewhere the state is the run state. The meter is `heatView` and the hover preview of a choice ("2 h, ends Warm") is `heatPreview` (engine-api.md 11); the UI rules for the meter are expedition.md H.4.
+The specs keep the engine names Clear, Warm, Hot and Scorched; the player only ever sees Calm, Smouldering, Burning and Infernal (M2b v7). HEAT_HOT_AT equals ASC_STEP_TIME: Hot starts where Ascendancy starts to cost. In an expedition zone the Dimming adds a second clock and the meter's state is the hotter of the two (1.9.10); elsewhere the state is the run state. The meter is `heatView` and the hover preview of a choice ("3 tolls, ends Smouldering") is `heatPreview` (engine-api.md 11); the UI rules for the meter are expedition.md H.4. (M2b v7)
 
 #### 1.7.3 What heat gives (heat)
 Source: expedition.md H.3.
-- A node's **heat state is fixed when the player enters it** (today's map: CHOOSE_NODE; expedition: MOVE into an unresolved node): the state at that moment, before any of the node's hours are spent, on the expedition map with the Dimming's clock of the node entered (1.9.10). It applies to everything the node pays, whatever the meter shows later inside it; `heatPreview(...).pays` shows it before the choice.
+- A node's **heat state is fixed when the player enters it** (today's map: CHOOSE_NODE; expedition: MOVE into an unresolved node): the state at that moment, before any of the node's tolls are spent, on the expedition map with the Dimming's clock of the node entered (1.9.10). It applies to everything the node pays, whatever the meter shows later inside it; `heatPreview(...).pays` shows it before the choice.
 - **XP and gold**: every XP and gold gain inside the node (kills, the quest turn-in and story bonus, grind waves, the dungeon clear, treasure gold, Boon of Plenty) × (1 + HEAT_GAIN[state]), after every other modifier (rested doubling, Boon of Insight, meta Quick Study and Prospector), rounded half away from zero. Selling is not a gain.
 - **Better drops**: every item rolled on a drop table in the node (kill drops, elite and dungeon boss drops, treasure, quest and story reward choices; not vendor stock) draws once more on its loot stream right after the rarity draw (8.4): below HEAT_RARITY_UP[state] the rarity is one step higher (common -> uncommon -> rare -> epic; epic stays).
 - **Echoes**: ECHO_PER_HEAT_FIGHT per fight won in a node entered Hot or Scorched (11.1).
 - **Not paid**: hub services, walks, passes and travel (they have no XP or gold), the Camp (its waves are repeatable: heat there would be a farm), the boss, and Dimmed encounters (1.9.6). A Dimmed node cannot be entered, so no node is entered Scorched by the Dimming's clock.
-- What it costs: the hours themselves, which become Ascendancy at the boss (1.7, unchanged), and the lost ECHO_SPEED_BONUS. No new penalty is added.
+- What it costs: the tolls themselves, which become Ascendancy at the boss (1.7, unchanged), and the lost ECHO_SPEED_BONUS. No new penalty is added.
 
 #### 1.7.4 Heat in the run summary (heat)
-The summary's `heat` block (9): `trackPerZone` (per zone entered, and the Camp: its number, its line, the run hours at arrival and when it was left; the zone the run ends in has the hours at the end), `hoursByState` (every hour spent counts in the state it starts in; TRAVEL_ON and TAKE_ROAD hours by the run state alone), `nodesByState` (nodes entered, by entry state), `fightsByState` (fights won in map nodes, by the node's entry state; Camp waves, the boss and Dimmed encounters are not counted) and `echoHeat` (the Echo line of 11.1). States in the order Clear, Warm, Hot, Scorched.
+The summary's `heat` block (9): `trackPerZone` (per zone entered, and the Camp: its number, its line, the run's tolls at arrival and when it was left; the zone the run ends in has the tolls at the end), `timeByState` (every toll spent counts in the state it starts in; TRAVEL_ON and TAKE_ROAD tolls by the run state alone; M2b v7: was `hoursByState`), `nodesByState` (nodes entered, by entry state), `fightsByState` (fights won in map nodes, by the node's entry state; Camp waves, the boss and Dimmed encounters are not counted) and `echoHeat` (the Echo line of 11.1). States in the order Clear, Warm, Hot, Scorched.
 
 ### 1.8 Where long-term trade-offs come from
 | Trade-off | Mechanism |
 |---|---|
-| XP vs gear | Leaving a zone at exit level saves hours (lower Ascendancy) but skips quest rewards, dungeon loot and gold. |
-| Risk vs reward | Elites and dungeons give the best XP per hour and rare/epic loot; they are the main causes of death. |
-| Gold vs time | Rations (gold) replace Rest (4 h). Grind waves give gold and drops per hour. Vendors sell rares and the Ember of Return. |
-| Spells vs gold | Spells only improve at a trainer (rank = trained level). Skipping trainers saves hours and gold but weakens every spell. |
+| XP vs gear | Leaving a zone at exit level saves tolls (lower Ascendancy) but skips quest rewards, dungeon loot and gold. |
+| Risk vs reward | Elites and dungeons give the best XP per toll and rare/epic loot; they are the main causes of death. |
+| Gold vs time | Rations (gold) replace Rest (4 tolls). Grind waves give gold and drops per toll. Vendors sell rares and the Ember of Return. |
+| Spells vs gold | Spells only improve at a trainer (rank = trained level). Skipping trainers saves tolls and gold but weakens every spell. |
 | Rested XP | Rest gives a rested pool that doubles kill XP; resting before a grind or dungeon is efficient. |
 | Resurrects | Ember of Return (30 V gold), Shrine boon, meta Second Breath (journey only, not in the end-boss fight). Spending gold on an Ember competes with gear and potions. | (M2 v3)
 | Consumables vs bag | 16 bag slots shared by gear, potions and junk; potion stacks are 5. |
@@ -187,14 +187,14 @@ The weights are `REGION_W.kind.type` (constants: `REGION_W`). Streams by node id
 #### 1.9.3 Content level and node setup (stream node(z, id))
 The first draw is u, uniform in 0..RING_CL_SPREAD-1: CL = ZONE_LEVELS × (z - 1) + 1 + RING_CL_BASE[ring] + u (zone 1: ring 1 levels 2-4, ring 2 5-7, ring 3 8-10). The hub is the band minimum. Then as 1.4 step 4 (quest offsets, Elite + ELITE_LEVEL_OFFSET, dungeon levels as 1.4, rare flag, vendor stock, shrine boons, treasure guard) with EXPED_GRIND_MAX_WAVES grind wave(s) and EXPED_DUNGEON_TRASH_FIGHTS dungeon trash fights. Every enemy template pick of a quest, a grind wave, an elite (its elite or rare template and its add) and a treasure guard takes two draws: the first decides the family share (below REGION_FAMILY_SHARE the pick comes from the list's templates whose `family` is one of the region's families, when the list has any), the second picks. Dungeons, the Camp and Dimmed encounters do not use regions. The treasure trap is the first draw of loot(z, id).
 
-#### 1.9.4 Moving and hours
-- `MOVE(id)`, id next to the player's node: when id is unresolved, not the hub and not Dimmed, the player enters it: its content starts and costs its node hours (1.9.8). Otherwise the step is a walk of HOURS_WALK. A walk onto the hub, when it is not Dimmed, starts a new hub visit (phase ZONE_HUB; each service once per visit again).
-- `PASS_THROUGH(id)`, a neighbour MOVE would enter: a walk of HOURS_WALK through it; it stays unresolved and can be entered later.
+#### 1.9.4 Moving and tolls
+- `MOVE(id)`, id next to the player's node: when id is unresolved, not the hub and not Dimmed, the player enters it: its content starts and costs its node tolls (1.9.8). Otherwise the step is a walk of TIME_WALK. A walk onto the hub, when it is not Dimmed, starts a new hub visit (phase ZONE_HUB; each service once per visit again).
+- `PASS_THROUGH(id)`, a neighbour MOVE would enter: a walk of TIME_WALK through it; it stays unresolved and can be entered later.
 - Each node is resolved at most once; a fled fight resolves its node, as on today's map.
-- Zone hours hz = the run's hours since arrival at the zone's hub, hub services included. Run hours keep counting for Ascendancy (1.7).
+- Zone time zt = the run's tolls since arrival at the zone's hub, hub services included (M2b v7: was zone hours hz). Run tolls keep counting for Ascendancy (1.7).
 
 #### 1.9.5 Vision
-- Always visible: every node (id, ring, angle, neighbours), every edge, the hub, the Roads, the Shardfall, which nodes are Dimmed and the zone hour each one dims at (1.9.6), the ring's level band, the zone's region names and kinds.
+- Always visible: every node (id, ring, angle, neighbours), every edge, the hub, the Roads, the Shardfall, which nodes are Dimmed and the zone toll each one dims at (1.9.6), the ring's level band, the zone's region names and kinds.
 - Fully visible: the nodes within the vision radius of the player's node (hops on the graph): type, content level, resolved or not, region, and the details of 1.4's map view (quest title and archetypes, grind archetypes, elite level and the add's archetype, dungeon name, levels and fights, treasure guard). Nodes seen once stay seen for the rest of the zone. Vision is refreshed on arrival at the hub and after every step.
 - An elite's own name and archetype are not shown, rare or not (D50): content gives each zone's rares other archetypes than its elites, so either one would tell a rare (expedition.md 5.3). The view keeps one archetype entry per enemy, the elite's as null.
 - Radius: VISION_RADIUS, + GUIDE_RADIUS_BONUS with Local Guide; the full radius is capped at VISION_RADIUS_MAX. Region Charts: every node's region and the dungeon's type. Pathfinder: node types (only) within PATHFINDER_RADIUS hops. Until the start camp and meta buy them (2b.5), newRun's `vision` option ({ guide, charts, pathfinder }) gives them; a run without it has the fresh-profile vision.
@@ -203,15 +203,15 @@ The first draw is u, uniform in 0..RING_CL_SPREAD-1: CL = ZONE_LEVELS × (z - 1)
 - `mapView` returns only this; no front end or bot reads the zone state.
 
 #### 1.9.6 The Dimming
-- front(hz) = floor((hz - DIM_GRACE_H) / DIM_HOURS_PER_HOP) from DIM_GRACE_H on (before: none). A node is Dimmed when front >= 0 and its hops from the Shardfall (on the zone graph) are <= front, i.e. from zone hour ceil(DIM_GRACE_H + hops × DIM_HOURS_PER_HOP) on. With the starting values the Shardfall dims at 6 h and a node 3 hops away at 14 h. The front only moves with hours.
-- Dimmed encounter: at the end of an action that cost hours (a step, a node's content, a hub service, the Bell's channel), when the player stands in a Dimmed node with nothing open (no node, fight, service or loot window), once per such action: DIM_PACK_SIZE enemies from the zone's normal templates (uniform picks on dim(z, id, n), then the composition repair of 7.14), variant shardspawn: HP × DIM_HP_MULT and damage × DIM_DMG_MULT on top of the archetype, zone danger as a normal enemy (7.6), ENGAGE_DMG_COMP as every template enemy (7.10); level min(MAX_LEVEL, max(CL, L) + DIM_LEVEL_PER_DEPTH × depth), CL the node's content level, depth = front - hops from the Shardfall. It costs HOURS_DIM_FIGHT, which does not start another one. Kill XP × DIM_XP_MULT; no coin, no loot. Flee is allowed (7.8) and counts as passing through: the player stays on the node. The node is not resolved by it.
+- front(zt) = floor(DIM_FRONT_HOPS × (zt - DIM_GRACE) / DIM_FRONT_TIME) from DIM_GRACE on (before: none), in integers. A node is Dimmed when front >= 0 and its hops from the Shardfall (on the zone graph) are <= front, i.e. from zone toll `dimAt(hops) = DIM_GRACE + ceil(hops × DIM_FRONT_TIME / DIM_FRONT_HOPS)` on. The front advances DIM_FRONT_HOPS hops every DIM_FRONT_TIME tolls (two every five: one step after 3 tolls, the next after 2). With the starting values the Shardfall dims at 6 and a node 1, 2, 3, 4, 5, 6 hops away at 9, 11, 14, 16, 19, 21: the same tolls as the old 2.5 hours per hop. The front only moves with tolls. (M2b v7: DIM_HOURS_PER_HOP 2.5 replaced by DIM_FRONT_HOPS 2 per DIM_FRONT_TIME 5)
+- Dimmed encounter: at the end of an action that cost tolls (a step, a node's content, a hub service, the Bell's channel), when the player stands in a Dimmed node with nothing open (no node, fight, service or loot window), once per such action: DIM_PACK_SIZE enemies from the zone's normal templates (uniform picks on dim(z, id, n), then the composition repair of 7.14), variant shardspawn: HP × DIM_HP_MULT and damage × DIM_DMG_MULT on top of the archetype, zone danger as a normal enemy (7.6), ENGAGE_DMG_COMP as every template enemy (7.10); level min(MAX_LEVEL, max(CL, L) + DIM_LEVEL_PER_DEPTH × depth), CL the node's content level, depth = front - hops from the Shardfall. It costs TIME_DIM_FIGHT, which does not start another one. Kill XP × DIM_XP_MULT; no coin, no loot. Flee is allowed (7.8) and counts as passing through: the player stays on the node. The node is not resolved by it.
 - Content lost: MOVE into an unresolved Dimmed node does not enter it (it is a walk, and the Dimmed encounter follows); PASS_THROUGH refuses it. The hub's services stop while it is Dimmed (SERVICE is refused; a walk onto it starts no visit).
 - Death in a Dimmed encounter ends the run as any death (9); the death location has the node id, its ring, node type `dim` and the depth.
 - Measurement option (D50): a run created with `newRun({ mapMode: 'expedition', dimming: false })` has no Dimming: no front, no node dims (`dimAt` is Infinity), no Dimmed encounters, the hub's services never stop, and the meter has no Dimming clock (1.9.10). Everything else is as above. Used by the simulator for balance.md B44.
 
 #### 1.9.7 Leaving a zone
-- `TAKE_ROAD`, standing on a Road in phase MAP: HOURS_TRAVEL, then the next zone's hub (zone 6: the Camp). There is no level gate (TRAVEL_EARLY_LEVELS and Swift Boots do not apply). A Dimmed Road is taken after its Dimmed encounter.
-- Homeward Bell: a run starts with BELL_START_CHARGES charges (never more than BELL_MAX_CHARGES). `RING_BELL` on the map (not in a node, the hub screen, the Camp or at the boss): one charge, a channel of BELL_CHANNEL_H hours; when the player's node is Dimmed at its end the Dimmed encounter comes first; then the next zone's hub (zone 6: the Camp), with no HOURS_TRAVEL.
+- `TAKE_ROAD`, standing on a Road in phase MAP: TIME_TRAVEL, then the next zone's hub (zone 6: the Camp). There is no level gate (TRAVEL_EARLY_LEVELS and Swift Boots do not apply). A Dimmed Road is taken after its Dimmed encounter.
+- Homeward Bell: a run starts with BELL_START_CHARGES charges (never more than BELL_MAX_CHARGES). `RING_BELL` on the map (not in a node, the hub screen, the Camp or at the boss): one charge, a channel of BELL_CHANNEL_TIME tolls; when the player's node is Dimmed at its end the Dimmed encounter comes first; then the next zone's hub (zone 6: the Camp), with no TIME_TRAVEL.
 - Either way the zone counts as left (zonesLeft, Echoes 11.1). The `travel` event names the Road taken (content `zones[i].roads`, D51).
 
 #### 1.9.8 Pacing values of an expedition run (expedition.md 9.5)
@@ -219,34 +219,34 @@ The first draw is u, uniform in 0..RING_CL_SPREAD-1: CL = ZONE_LEVELS × (z - 1)
 |---|---|---|
 | Grind waves (2.2) | 1-GRIND_MAX_WAVES | 1-EXPED_GRIND_MAX_WAVES; a Grind of one wave starts it on entry |
 | Dungeon trash fights (2.4) | DUNGEON_TRASH_FIGHTS | EXPED_DUNGEON_TRASH_FIGHTS |
-| Hours of a Quest / Elite / grind wave / Dungeon (2.0) | HOURS_QUEST / HOURS_ELITE / HOURS_GRIND_WAVE / HOURS_DUNGEON | EXPED_HOURS_QUEST / EXPED_HOURS_ELITE / EXPED_HOURS_GRIND_WAVE / EXPED_HOURS_DUNGEON (Camp waves too) |
+| Tolls of a Quest / Elite / grind wave / Dungeon (2.0) | TIME_QUEST / TIME_ELITE / TIME_GRIND_WAVE / TIME_DUNGEON | EXPED_TIME_QUEST / EXPED_TIME_ELITE / EXPED_TIME_GRIND_WAVE / EXPED_TIME_DUNGEON (Camp waves too) |
 | XP of kills, quest turn-ins, grind waves, dungeon clears (Camp included) | × 1 | × XP_WEIGHT_MULT |
 
 The story chain (2.1) stays until contracts replace it (2b.5); its XP is not weighted. Pacing terms (3): every walk and pass costs PACE_DECIDE_S + PACE_TRAVEL_NODE_S; a Bell costs PACE_BELL_S, and a zone left by the Bell no PACE_ZONE_TRAVEL_S.
 
-Run summary (9) of an expedition run: `mapMode` and `expedition` = walks, passes, Dimmed encounters, zones with at least one, Bell charges rung and left, Roads taken, the furthest ring, and per zone: zone hours, resolved nodes, walks, passes, Dimmed encounters, the exit (`road`, `bell` or none yet).
+Run summary (9) of an expedition run: `mapMode` and `expedition` = walks, passes, Dimmed encounters, zones with at least one, Bell charges rung and left, Roads taken, the furthest ring, and per zone: zone tolls, resolved nodes, walks, passes, Dimmed encounters, the exit (`road`, `bell` or none yet).
 
 #### 1.9.9 Default autoplay map policy (engine, not a bot)
 `autoAction` must take an expedition run from CREATE to SUMMARY. On the map it reads only what the player sees (the seen nodes, the skeleton, the Dimming):
 1. Trail Rations below AUTO_TOPUP_HP, as on today's map.
-2. Escape route: the cheapest way from the player's node to a Road, by (Dimmed steps, hours, Road id): every step HOURS_WALK, a step onto a node that is Dimmed on arrival also HOURS_DIM_FIGHT.
-3. Explore while the level is under the zone's exit level (10 × z) and the escape route has no Dimmed step: enter the adjacent seen node with the best default node score (AUTO_NODE_SCORE, not risky) that is not Dimmed, will not be Dimmed when its content ends, and leaves a Road reachable without a Dimmed step afterwards; else take one step (PASS_THROUGH an unresolved node, MOVE otherwise) towards the nearest node worth exploring (seen: by the same test; unseen: a clean way out after EXPED_HOURS_QUEST hours), on nodes out of the Dimming on arrival.
+2. Escape route: the cheapest way from the player's node to a Road, by (Dimmed steps, tolls, Road id): every step TIME_WALK, a step onto a node that is Dimmed on arrival also TIME_DIM_FIGHT.
+3. Explore while the level is under the zone's exit level (10 × z) and the escape route has no Dimmed step: enter the adjacent seen node with the best default node score (AUTO_NODE_SCORE, not risky) that is not Dimmed, will not be Dimmed when its content ends, and leaves a Road reachable without a Dimmed step afterwards; else take one step (PASS_THROUGH an unresolved node, MOVE otherwise) towards the nearest node worth exploring (seen: by the same test; unseen: a clean way out after EXPED_TIME_QUEST tolls), on nodes out of the Dimming on arrival.
 4. Otherwise leave: TAKE_ROAD on the Road; RING_BELL when the escape route has a Dimmed step and a charge is left; else the next step of the escape route.
-5. Hub services (1.4 policy) are used only when the hub stays out of the Dimming and the escape route stays clean after their hours.
+5. Hub services (1.4 policy) are used only when the hub stays out of the Dimming and the escape route stays clean after their tolls.
 
 #### 1.9.10 Heat in an expedition zone (heat)
-Source: expedition.md H.5. In an expedition zone a second clock runs: `dimIn = dimAt(node) - hz`, the hours until the player's node dims (1.9.6; a node without a front yet dims at zone hour ceil(DIM_GRACE_H + hops × DIM_HOURS_PER_HOP), which is what `dimAt` gives).
+Source: expedition.md H.5. In an expedition zone a second clock runs: `dimIn = dimAt(node) - zt`, the tolls until the player's node dims (1.9.6; `dimAt` is the zone toll of 1.9.6 for the node's hops, whether the front has started or not). (M2b v7)
 
 | Dimming state | Condition |
 |---|---|
-| Clear | dimIn > HEAT_DIM_WARM_H |
-| Warm | HEAT_DIM_HOT_H < dimIn <= HEAT_DIM_WARM_H |
-| Hot | 0 < dimIn <= HEAT_DIM_HOT_H |
+| Clear | dimIn > HEAT_DIM_WARM |
+| Warm | HEAT_DIM_HOT < dimIn <= HEAT_DIM_WARM |
+| Hot | 0 < dimIn <= HEAT_DIM_HOT |
 | Scorched | the node is Dimmed (dimIn <= 0) |
 
 The meter's state is the **hotter** of the run state (1.7.2) and the Dimming state; `heatView.by` names the clock that sets it (`dim` only when the Dimming state is hotter). The Camp, a rows run and a run without the Dimming have no Dimming clock (`dimIn` null).
 
-Rewards (1.7.3) use this combined state at node entry, so a node entered with dimIn <= HEAT_DIM_HOT_H pays as Hot: the reward for working near the dark. Dimmed encounters pay nothing (they keep DIM_XP_MULT and no loot). Contract rewards × (1 + HEAT_GAIN) arrive with contracts (task 2b.5).
+Rewards (1.7.3) use this combined state at node entry, so a node entered with dimIn <= HEAT_DIM_HOT pays as Hot: the reward for working near the dark. Dimmed encounters pay nothing (they keep DIM_XP_MULT and no loot). Contract rewards × (1 + HEAT_GAIN) arrive with contracts (task 2b.5).
 
 ---
 
@@ -255,17 +255,17 @@ Rewards (1.7.3) use this combined state at node entry, so a node entered with di
 ### 2.0 Summary
 XP values are fractions of `xpToNext(contentLevel)` before the level-difference modifier (4.4). V = value scale (8.5). Fights listed are for the manual pacing model.
 
-| Type | Hours | Fights | XP (before diff mod) | Gold | Loot | Main risk |
+| Type | Tolls | Fights | XP (before diff mod) | Gold | Loot | Main risk |
 |---|---|---|---|---|---|---|
-| Quest | HOURS_QUEST | 1 encounter of 1-3 mobs | kills + QUEST_TURNIN_XP_FRAC | kills + QUEST_GOLD_V × V | choose 1 of QUEST_REWARD_CHOICES (2.1) | low |
-| Grind | HOURS_GRIND_WAVE per wave, 1-GRIND_MAX_WAVES waves | 1 per wave, 2 mobs | kills + GRIND_WAVE_XP_FRAC per wave | kills | drops × GRIND_DROP_MULT | low, attrition |
-| Elite | HOURS_ELITE | 1: elite (+ add at ELITE_ADD_CHANCE) | ELITE_XP_MULT × MOB_XP_FRAC (rare: RARE_XP_MULT) | ELITE_GOLD_V × V | 1 guaranteed (table 8.4) | high |
-| Dungeon | HOURS_DUNGEON | DUNGEON_TRASH_FIGHTS trash + 1 boss | kills + DUNGEON_CLEAR_XP_FRAC | kills + DUNGEON_GOLD_V × V | trash drops + DUNGEON_BOSS_DROPS | highest |
-| Rest | HOURS_REST | 0 | rested pool | 0 | 0 | none |
-| Vendor | HOURS_VENDOR | 0 | 0 | spend/sell | buy | none |
-| Trainer | HOURS_TRAINER | 0 | 0 | spend | spells | none |
-| Treasure | HOURS_TREASURE | 0-1 (guard at TREASURE_GUARD_CHANCE) | kill only | TREASURE_GOLD_V × V | 1 roll | trap |
-| Shrine | HOURS_SHRINE | 0 | 0 | 0 | choose 1 of 2 boons | none |
+| Quest | TIME_QUEST | 1 encounter of 1-3 mobs | kills + QUEST_TURNIN_XP_FRAC | kills + QUEST_GOLD_V × V | choose 1 of QUEST_REWARD_CHOICES (2.1) | low |
+| Grind | TIME_GRIND_WAVE per wave, 1-GRIND_MAX_WAVES waves | 1 per wave, 2 mobs | kills + GRIND_WAVE_XP_FRAC per wave | kills | drops × GRIND_DROP_MULT | low, attrition |
+| Elite | TIME_ELITE | 1: elite (+ add at ELITE_ADD_CHANCE) | ELITE_XP_MULT × MOB_XP_FRAC (rare: RARE_XP_MULT) | ELITE_GOLD_V × V | 1 guaranteed (table 8.4) | high |
+| Dungeon | TIME_DUNGEON | DUNGEON_TRASH_FIGHTS trash + 1 boss | kills + DUNGEON_CLEAR_XP_FRAC | kills + DUNGEON_GOLD_V × V | trash drops + DUNGEON_BOSS_DROPS | highest |
+| Rest | TIME_REST | 0 | rested pool | 0 | 0 | none |
+| Vendor | TIME_VENDOR | 0 | 0 | spend/sell | buy | none |
+| Trainer | TIME_TRAINER | 0 | 0 | spend | spells | none |
+| Treasure | TIME_TREASURE | 0-1 (guard at TREASURE_GUARD_CHANCE) | kill only | TREASURE_GOLD_V × V | 1 roll | trap |
+| Shrine | TIME_SHRINE | 0 | 0 | 0 | choose 1 of 2 boons | none |
 
 Mob kill XP = `MOB_XP_FRAC × mult × xpToNext(enemyLevel) × diffMod`, with mult 1 (normal), DUNGEON_MOB_XP_MULT (dungeon trash), ELITE_XP_MULT, RARE_XP_MULT, DUNGEON_BOSS_XP_MULT.
 
@@ -277,7 +277,7 @@ Mob kill XP = `MOB_XP_FRAC × mult × xpToNext(enemyLevel) × diffMod`, with mul
 - Flee: allowed; no turn-in, quest not counted.
 
 ### 2.2 Grind
-- On enter: `GRIND_SET_WAVES(n)` with 1 <= n <= GRIND_MAX_WAVES. After each wave the player may `GRIND_STOP`. Each started wave costs HOURS_GRIND_WAVE.
+- On enter: `GRIND_SET_WAVES(n)` with 1 <= n <= GRIND_MAX_WAVES. After each wave the player may `GRIND_STOP`. Each started wave costs TIME_GRIND_WAVE.
 - Each wave: one encounter of GRIND_WAVE_SIZE normal mobs at CL; wave bonus `GRIND_WAVE_XP_FRAC × xpToNext(CL) × diffMod`.
 - Item and junk drop chances × GRIND_DROP_MULT.
 
@@ -288,7 +288,7 @@ Mob kill XP = `MOB_XP_FRAC × mult × xpToNext(enemyLevel) × diffMod`, with mul
 
 ### 2.4 Dungeon
 - Sequence: DUNGEON_TRASH_FIGHTS trash encounters (size weights DUNGEON_SIZE_W2 / DUNGEON_SIZE_W3), then the dungeon boss (alone). Between fights: post-fight regen, out-of-combat actions, rations allowed.
-- `DUNGEON_LEAVE` between fights: keeps loot so far; full hours are spent; no clear bonus; the dungeon counts as not cleared.
+- `DUNGEON_LEAVE` between fights: keeps loot so far; full tolls are spent; no clear bonus; the dungeon counts as not cleared.
 - Boss: DUNGEON_BOSS_HP_MULT, DUNGEON_BOSS_DMG_MULT, exactly 2 abilities from 12.4, immune to stun/freeze/hex (they interrupt casts instead). No flee from the boss fight.
 - Zone danger in dungeons (M2 v4): dungeon trash and dungeon bosses get DUNGEON_DANGER_FRAC of the zone-danger bonus of 7.6 (level 60: ×1.5 instead of ×2.0). Dungeons already carry their own multipliers; full zone danger on top made them 39-65 % deadly per entry and the planner stopped entering them. (M2 v4)
 - Clear: `DUNGEON_CLEAR_XP_FRAC × xpToNext(boss level) × diffMod`, gold DUNGEON_GOLD_V × V, DUNGEON_BOSS_DROPS rolls on "Dungeon boss".
@@ -350,14 +350,14 @@ Worked estimate (design intent, to be verified by the simulator):
 
 | Per zone | Normal route (manual) | Speed route (autoplay) |
 |---|---|---|
-| Hub | Trainer (3 spells) + Vendor (4 tx): 44 s, 2 h | Trainer (3 spells): 12 s, 1 h |
+| Hub | Trainer (3 spells) + Vendor (4 tx): 44 s, 2 tolls | Trainer (3 spells): 12 s, 1 toll |
 | Nodes | 4 Quest, 1 Dungeon, 1 Elite, 1 Grind (2 waves), 1 Rest = 8 nodes | 3 Quest, 1 Dungeon, 2 Elite = 6 nodes |
 | Fights / rounds | 11 fights; quest 5 r, wave 5 r, elite 8 r, trash 6 r, dungeon boss 10 r | 9 fights, same rounds |
 | Seconds | about 375 s | about 190 s |
-| Hours | 25 h (incl. travel) | 18 h |
+| Tolls | 25 (incl. travel) | 18 |
 | XP (levels, before diff mod) | about 11.8 | about 10.9 incl. story bonus and under-level bonus |
 
-Run totals: normal = 6 × 375 + create 40 + level-ups 118 + talents 156 + boss (20 + 40 rounds manual) about 2690 s = 45 min, 150 h (Ascendancy +8 %). Speed = 6 × 190 + 40 + 118 + 156 + 120 (boss manual) about 1575 s = 26 min, 108 h (no Ascendancy). A speedrunner playing every fight manually lands near 37 min.
+Run totals: normal = 6 × 375 + create 40 + level-ups 118 + talents 156 + boss (20 + 40 rounds manual) about 2690 s = 45 min, 150 tolls (Ascendancy +8 %). Speed = 6 × 190 + 40 + 118 + 156 + 120 (boss manual) about 1575 s = 26 min, 108 tolls (no Ascendancy). A speedrunner playing every fight manually lands near 37 min.
 
 Measured with the M2 v2 values (7 rows; designer scratch run of the simulator, planner P0, 600 runs per class, runs that reach the boss): 42 nodes, 300-345 rounds, 142 h, 44-46 min manual, 35-36 min autoplay. Speedrunner PALL: 31 nodes, 78-80 h, 28-29 min autoplay. Speedrunner P0: 36-37 nodes, 104-112 h, 31-32 min autoplay [source: docs/handoffs/designer-2026-11-09b.md]. (M2 v2)
 
@@ -704,7 +704,7 @@ Soft enrage (non-boss fights): from round FIGHT_SOFT_ENRAGE_ROUND, enemies deal 
 An enemy whose intent has `cast` loses that action if, before it acts in that round, it is hit by an interrupt (Throat Jab, Spellsnap, Muzzle Shot; these always hit, 7.2 step 3), or becomes STUN/FROZEN/HEXED, or (bosses) is hit by any stun-tagged spell. (M2 v2) Cooldown of the cast ability still starts. 2-round boss channels (10.3) can be interrupted in either round. An interrupted enemy becomes OFF_BALANCE (7.13); so does the end boss when its Collapse Litany is interrupted. (combat v2) A wind-up (7.12) has `cast`, so everything above stops it, on a dungeon boss too (an interrupt, or a stun-tagged spell, which is an interrupt on a CC-immune enemy). (combat v2.1)
 
 ### 7.8 Flee
-`FLEE` succeeds if a draw < `FLEE_BASE - FLEE_PER_EXTRA_ENEMY × (living enemies - 1)` (1.0 in STEALTH). Success: leave the node; hours already spent; no further rewards from the node; quest not counted; dungeon not cleared. Not allowed vs dungeon boss or end boss. Legal in the engage round as in any round (combat v2).
+`FLEE` succeeds if a draw < `FLEE_BASE - FLEE_PER_EXTRA_ENEMY × (living enemies - 1)` (1.0 in STEALTH). Success: leave the node; tolls already spent; no further rewards from the node; quest not counted; dungeon not cleared. Not allowed vs dungeon boss or end boss. Legal in the engage round as in any round (combat v2).
 
 ### 7.9 Autoplay policy (autoplay toggle and bots)
 Deterministic given state and seed. Each player turn, the first rule that yields an action wins:
@@ -881,7 +881,7 @@ BAG_SLOTS slots (+meta). One equipment item per slot; consumables stack per tabl
 - No charge left: the run ends. Death location is recorded: zone, row, lane, node type, fight index, enemy ids, round, killing ability.
 - The run also ends on boss victory.
 
-Run summary (SUMMARY phase): class, pet, talents (per tree), seed, outcome (victory/death), death location, level and XP, zone/row reached, hours, Ascendancy, estimated minutes (manual and autoplay profiles), nodes by type, fights, rounds, kills (normal/elite/rare/boss), quests and story rewards, dungeons cleared, gold earned and spent, potions used, resurrects used, damage dealt/taken, top 3 spells by damage, equipped items with ilvl and rarity, boss phase reached and boss HP % left, Echoes earned with the line-by-line breakdown (11.1), and the heat block (1.7.4).
+Run summary (SUMMARY phase): class, pet, talents (per tree), seed, outcome (victory/death), death location, level and XP, zone/row reached, tolls (`time`), Ascendancy, estimated minutes (manual and autoplay profiles), nodes by type, fights, rounds, kills (normal/elite/rare/boss), quests and story rewards, dungeons cleared, gold earned and spent, potions used, resurrects used, damage dealt/taken, top 3 spells by damage, equipped items with ilvl and rarity, boss phase reached and boss HP % left, Echoes earned with the line-by-line breakdown (11.1), and the heat block (1.7.4).
 
 ---
 
@@ -919,7 +919,7 @@ The channel shows "Collapse Litany 1/2" then "2/2 - resolves". Gravity Crush sho
 | Reached the boss | ECHO_BOSS_REACHED |
 | Per boss phase reached after phase 1 | ECHO_BOSS_PHASE |
 | Boss killed | ECHO_BOSS_KILL |
-| Kill with hours <= BOSS_TIME_PAR | ECHO_SPEED_BONUS |
+| Kill with time <= BOSS_TIME_PAR (tolls) | ECHO_SPEED_BONUS |
 | First kill with this class (once per profile per class) | ECHO_FIRST_KILL_CLASS |
 | Oath multiplier | × (1 + OATH_ECHO_BONUS × oaths taken) on the total |
 
@@ -959,7 +959,7 @@ Removed (M2 v5): Starforged Arms (450 Echoes; required Relics of the Deep and a 
 
 **Meta power budget (M2 v3, revised M2 v4 and M2b v6).** The full catalogue may add at most: one free potion action per fight (Packed Satchel, 7.5; M2b v6), max HP +0.02, Power +0.02 (M2b v6: were +0.04 each; Vigor and Edge pay for the free potion), crit +0.015, potion healing +0.025 of max HP per healing potion (Alchemist's Notes: Greater Healing Draught 0.375 against the Healing Draught's 0.35), +1 talent point, the unique items (normal rarity budget plus one 11.3 effect), and no resurrect in the end-boss fight. (M2 v4; M2 v5: the Starforged weapon is no longer in the catalogue)
 
-Time is budgeted too (M2 v4): hours saved before the boss lower boss Ascendancy (1.7), which is boss HP and damage, so the time entries together (Quick Study, Swift Boots) may save at most META_TIME_BUDGET_H on the planner's median route (measured: planner median hours at the boss on PALL against P0, balance.md B17). (M2 v4)
+Time is budgeted too (M2 v4): tolls saved before the boss lower boss Ascendancy (1.7), which is boss HP and damage, so the time entries together (Quick Study, Swift Boots) may save at most META_TIME_BUDGET on the planner's median route (measured: planner median tolls at the boss on PALL against P0, balance.md B17). (M2 v4)
 
 Every other entry gives economy (gold, training), information (map), bag space, starting consumables, or a new choice (spells and pet that are side-grades, not strict upgrades). A new entry that adds combat power or saves time must take it from this budget. Measured check: balance.md B2, B3, B6, B10. (M2 v3)
 
@@ -972,7 +972,7 @@ Unique items use the normal budget at their rarity and one effect from: on-hit p
 Applied at character creation: stat ranks as % modifiers, start kit into the bag/slots, map/economy rules as flags, unique items into drop pools from the start of the run, meta spells added to the class's trainer list. Unlocks never change the seed streams except by adding pool entries (so the same seed is not identical across profiles; the run summary records the profile hash).
 
 ### 11.5 Oaths (after the first kill)
-Each Oath adds +OATH_ECHO_BONUS Echoes: Oath of Haste (BOSS_TIME_PAR - OATH_HASTE_HOURS), Oath of Frailty (no resurrect charges), Oath of Thrift (vendor prices × OATH_THRIFT_MULT). They keep late profiles challenged; power from meta stays capped (balance.md B10).
+Each Oath adds +OATH_ECHO_BONUS Echoes: Oath of Haste (BOSS_TIME_PAR - OATH_HASTE_TIME), Oath of Frailty (no resurrect charges), Oath of Thrift (vendor prices × OATH_THRIFT_MULT). They keep late profiles challenged; power from meta stays capped (balance.md B10).
 
 ---
 
@@ -1056,22 +1056,22 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | DUNGEON_BOSS_LEVEL_OFFSET | 2 | levels above trash |
 | RARE_CHANCE | 0.20 | probability |
 | CAMP_GRIND_LEVEL | 58 | level |
-| HOURS_QUEST | 2 | h |
-| HOURS_GRIND_WAVE | 1 | h |
-| HOURS_ELITE | 2 | h |
-| HOURS_DUNGEON | 5 | h |
-| HOURS_REST | 4 | h |
-| HOURS_VENDOR | 1 | h |
-| HOURS_TRAINER | 1 | h |
-| HOURS_TREASURE | 1 | h |
-| HOURS_SHRINE | 1 | h |
-| HOURS_TRAVEL | 2 | h |
+| TIME_QUEST | 2 | tolls |
+| TIME_GRIND_WAVE | 1 | tolls |
+| TIME_ELITE | 2 | tolls |
+| TIME_DUNGEON | 5 | tolls |
+| TIME_REST | 4 | tolls |
+| TIME_VENDOR | 1 | tolls |
+| TIME_TRAINER | 1 | tolls |
+| TIME_TREASURE | 1 | tolls |
+| TIME_SHRINE | 1 | tolls |
+| TIME_TRAVEL | 2 | tolls |
 | TRAVEL_EARLY_LEVELS | 1 | levels below exit level | (M2 v2)
-| BOSS_TIME_PAR | 120 | h | (M2 v2)
-| ASC_STEP_HOURS | 10 | h |
+| BOSS_TIME_PAR | 120 | tolls | (M2 v2)
+| ASC_STEP_TIME | 10 | tolls |
 | ASC_PER_STEP | 0.02 | fraction | (M2b v6: was 0.04)
 | ASC_CAP | 0.40 | fraction |
-| META_TIME_BUDGET_H | 5 | h saved by the full catalogue's time entries, planner median (half of ASC_STEP_HOURS) | (M2 v4)
+| META_TIME_BUDGET | 5 | tolls saved by the full catalogue's time entries, planner median (half of ASC_STEP_TIME) | (M2 v4)
 | QUEST_SIZE_W1 | 25 | weight |
 | QUEST_SIZE_W2 | 50 | weight |
 | QUEST_SIZE_W3 | 25 | weight |
@@ -1296,7 +1296,7 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | ECHO_SPEED_BONUS | 40 | Echoes |
 | ECHO_FIRST_KILL_CLASS | 100 | Echoes |
 | OATH_ECHO_BONUS | 0.25 | fraction |
-| OATH_HASTE_HOURS | 20 | h |
+| OATH_HASTE_TIME | 20 | tolls |
 | OATH_THRIFT_MULT | 1.5 | × |
 | UNIQUE_PROC_CHANCE | 0.15 | probability |
 | UNIQUE_PROC_BASE | 5 | damage |
@@ -1367,38 +1367,39 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | EDGE_DIAG_R23 | 0.35 | probability (a ring 3 node's second ring 2 link) | (expedition)
 | REGION_COUNT | 4 | regions (wedges) per zone | (expedition)
 | REGION_FAMILY_SHARE | 0.70 | share of a region's template picks from its families | (expedition)
-| HOURS_WALK | 1 | h (a walk or a pass) | (expedition)
+| TIME_WALK | 1 | tolls (a walk or a pass) | (expedition)
 | ROAD_COUNT | 3 | Roads on the rim | (expedition)
 | VISION_RADIUS | 1 | hops (full vision, fresh profile) | (expedition)
 | VISION_RADIUS_MAX | 2 | hops (full vision cap) | (expedition)
 | GUIDE_RADIUS_BONUS | 1 | hops (Local Guide) | (expedition)
 | PATHFINDER_RADIUS | 2 | hops (Pathfinder, node types only) | (expedition)
-| DIM_GRACE_H | 6 | zone hours before the front starts | (expedition)
-| DIM_HOURS_PER_HOP | 2.5 | zone hours per hop of the front (expedition.md 9.5) | (expedition)
+| DIM_GRACE | 6 | zone tolls before the front starts | (expedition)
+| DIM_FRONT_HOPS | 2 | hops the front advances per DIM_FRONT_TIME (1.9.6) | (M2b v7: with DIM_FRONT_TIME replaces DIM_HOURS_PER_HOP 2.5)
+| DIM_FRONT_TIME | 5 | zone tolls per DIM_FRONT_HOPS hops (1.9.6; 2.5 per hop, as expedition.md 9.5) | (M2b v7)
 | DIM_PACK_SIZE | 2 | enemies in a Dimmed encounter | (expedition)
 | DIM_LEVEL_PER_DEPTH | 2 | levels per hop of depth | (expedition)
 | DIM_HP_MULT | 1.2 | × Shardspawn HP | (expedition)
 | DIM_DMG_MULT | 1.3 | × Shardspawn damage | (expedition)
 | DIM_XP_MULT | 0.25 | × Shardspawn kill XP | (expedition)
-| HOURS_DIM_FIGHT | 1 | h (a Dimmed encounter) | (expedition)
+| TIME_DIM_FIGHT | 1 | tolls (a Dimmed encounter) | (expedition)
 | BELL_START_CHARGES | 1 | Homeward Bell charges per run | (expedition)
 | BELL_MAX_CHARGES | 2 | charges | (expedition)
-| BELL_CHANNEL_H | 2 | h (the Bell's channel) | (expedition)
+| BELL_CHANNEL_TIME | 2 | tolls (the Bell's channel) | (expedition)
 | PACE_BELL_S | 6 | s per Bell (instead of PACE_ZONE_TRAVEL_S) | (expedition)
 | XP_WEIGHT_MULT | 1.6 | × XP of kills, quest turn-ins, grind waves, dungeon clears (expedition.md 9.5) | (expedition)
 | EXPED_GRIND_MAX_WAVES | 1 | waves (expedition.md 9.5) | (expedition)
 | EXPED_DUNGEON_TRASH_FIGHTS | 2 | fights (expedition.md 9.5) | (expedition)
-| EXPED_HOURS_QUEST | 3 | h (expedition.md 9.5) | (expedition)
-| EXPED_HOURS_ELITE | 3 | h (expedition.md 9.5) | (expedition)
-| EXPED_HOURS_GRIND_WAVE | 2 | h per wave, Camp waves too (expedition.md 9.5) | (expedition)
-| EXPED_HOURS_DUNGEON | 6 | h (expedition.md 9.5) | (expedition)
-| HEAT_WARM_AT | 0 | h past the line: Warm from here (1.7.2) | (heat)
-| HEAT_HOT_AT | 10 | h past the line: Hot from here (= ASC_STEP_HOURS) | (heat)
-| HEAT_SCORCH_AT | 30 | h past the line: Scorched from here | (heat)
-| HEAT_DIM_WARM_H | 4 | h until the player's node dims: Warm at or below (1.9.10) | (heat)
-| HEAT_DIM_HOT_H | 2 | h until the player's node dims: Hot at or below (1.9.10) | (heat)
+| EXPED_TIME_QUEST | 3 | tolls (expedition.md 9.5) | (expedition)
+| EXPED_TIME_ELITE | 3 | tolls (expedition.md 9.5) | (expedition)
+| EXPED_TIME_GRIND_WAVE | 2 | tolls per wave, Camp waves too (expedition.md 9.5) | (expedition)
+| EXPED_TIME_DUNGEON | 6 | tolls (expedition.md 9.5) | (expedition)
+| HEAT_WARM_AT | 0 | tolls past the line: Warm (Smouldering) from here (1.7.2) | (heat)
+| HEAT_HOT_AT | 10 | tolls past the line: Hot (Burning) from here (= ASC_STEP_TIME) | (heat)
+| HEAT_SCORCH_AT | 30 | tolls past the line: Scorched (Infernal) from here | (heat)
+| HEAT_DIM_WARM | 4 | tolls until the player's node dims: Warm at or below (1.9.10) | (heat)
+| HEAT_DIM_HOT | 2 | tolls until the player's node dims: Hot at or below (1.9.10) | (heat)
 | HEAT_GAIN | clear 0, warm 0, hot 0.35, scorched 0.50 | × extra XP and gold of a node, by the state it was entered in (1.7.3) | (heat)
 | HEAT_RARITY_UP | clear 0, warm 0, hot 0.50, scorched 0.70 | chance per item rolled in a node of one rarity step, by its entry state (8.4) | (heat; M2b v6: hot 0.25 -> 0.50, scorched 0.40 -> 0.70)
 | ECHO_PER_HEAT_FIGHT | 1 | Echoes per fight won in a node entered Hot or Scorched (11.1) [assumption: not prototyped] | (heat)
-| HEAT_BAR_MIN | -20 | h of heat at the meter's left end (expedition.md H.4) | (heat)
-| HEAT_BAR_MAX | 40 | h of heat at the meter's right end (expedition.md H.4) | (heat)
+| HEAT_BAR_MIN | -20 | tolls of heat at the meter's left end (expedition.md H.4) | (heat)
+| HEAT_BAR_MAX | 40 | tolls of heat at the meter's right end (expedition.md H.4) | (heat)

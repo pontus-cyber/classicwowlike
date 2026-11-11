@@ -1,6 +1,6 @@
 # Expedition spec: start-camp preparation, contracts, roaming zone maps, the Dimming
 
-Owner: Lead Game Designer. Status: draft for Lead and owner review, 2026-11-10 (milestone M2b). Rules in sections 1-8; UI 9; bots 10; balance targets 11; prototype evidence 12; Heat addendum H (2026-11-10, rows mode and expedition); constants 13. Tuning pass M2b v6 (2026-11-11, docs/specs/changes-m2b-v6.md) changes lines marked "(M2b v6)".
+Owner: Lead Game Designer. Status: draft for Lead and owner review, 2026-11-10 (milestone M2b). Rules in sections 1-8; UI 9; bots 10; balance targets 11; prototype evidence 12; Heat addendum H (2026-11-10, rows mode and expedition); constants 13. Tuning pass M2b v6 (2026-11-11, docs/specs/changes-m2b-v6.md) changes lines marked "(M2b v6)". M2b v7 (2026-11-11, docs/specs/changes-m2b-v7.md): time is counted in whole **tolls** (1 toll = 1 former hour, every number kept), the meter is called **the Furnace** with the states Calm, Smouldering, Burning and Infernal, and every time constant is renamed from HOURS_* / *_H to TIME_*; rule lines marked "(M2b v7)", lines changed only by the rename are not marked. Prototype and measurement records (sections 9.5, 12, H.7) keep their "h": read 1 h as 1 toll.
 Audience: Core Gameplay Engineer, UI/UX Engineer, Simulation & Balance Engineer, Content Designer, QA.
 
 Sources: owner feedback [stated: docs/feedback/2026-11-10-1006-owner.md, including the 10:09 follow-up]; current rules [source: docs/specs/rules.md sections 1, 2, 3, 11]; playtest [source: docs/handoffs/qa-2026-11-09.md]; balance state [source: docs/reports/balance-2026-11-10b.md]. Every number is a named constant in the table at the end (section 13); all are starting values for the Simulation & Balance Engineer to tune.
@@ -63,7 +63,7 @@ Vision is a resource. A fresh profile sees adjacent nodes only (section 5). Perk
 | prep_charts | Region Charts | PRICE_CHARTS | the region of every node of every zone is shown (tint and name), and every dungeon's location |
 | prep_tracker | Tracker's Notes | PRICE_TRACKER | contract sites (4.5) are shown within TRACKER_RADIUS hops, even when the node itself is hidden |
 | prep_guide | Local Guide | PRICE_GUIDE | full vision radius +GUIDE_RADIUS_BONUS (capped at VISION_RADIUS_MAX) |
-| prep_spyglass | Spyglass | PRICE_SPYGLASS | SPYGLASS_CHARGES uses of `USE_SPYGLASS(nodeId)` (0 h): reveals that node and its neighbours fully, any distance |
+| prep_spyglass | Spyglass | PRICE_SPYGLASS | SPYGLASS_CHARGES uses of `USE_SPYGLASS(nodeId)` (0 tolls): reveals that node and its neighbours fully, any distance |
 
 A perk the profile already has from meta (11) is shown as owned and cannot be bought.
 
@@ -144,12 +144,12 @@ Node ids replace (row, lane): `node(z, id)`, `fight(z, id, k)`, `loot(z, id)`.
 
 Named REGION_W.kind.type in section 13. Encounters in a region draw REGION_FAMILY_SHARE of their mobs from the region's families, the rest from the zone's normal templates.
 
-### 4.5 Hours and moving
-- `MOVE(id)` to an unresolved node enters it: the node's content starts and costs its hours (rules 2.0).
-- `MOVE(id)` to a resolved node (or the hub) costs HOURS_WALK and nothing else.
-- `PASS` inside an unresolved node (before its first fight or choice) leaves it unresolved and costs HOURS_WALK instead of the node's hours. The player can come back later.
+### 4.5 Tolls and moving
+- `MOVE(id)` to an unresolved node enters it: the node's content starts and costs its tolls (rules 2.0).
+- `MOVE(id)` to a resolved node (or the hub) costs TIME_WALK and nothing else.
+- `PASS` inside an unresolved node (before its first fight or choice) leaves it unresolved and costs TIME_WALK instead of the node's tolls. The player can come back later.
 - Each node is resolved at most once.
-- Zone hours `hz` count from arrival at the hub, hub services included. Run hours keep counting for Ascendancy (rules 1.7).
+- Zone time `zt` (tolls) counts from arrival at the hub, hub services included. Run tolls keep counting for Ascendancy (rules 1.7). (M2b v7: was zone hours `hz`)
 
 ### 4.6 Hub
 The hub is a node with the services of rules 1.4 (Trainer, Vendor, Inn), usable on every visit, each once per visit. Walking back to the hub to train is legal and costs the walk (the QA finding that zone 1's trainer comes too early is softened: the player can return at level 4-6) [source: qa-2026-11-09 finding 2]. The hub can be reached by the Dimming (section 6); its services stop then.
@@ -158,7 +158,7 @@ The hub is a node with the services of rules 1.4 (Trainer, Vendor, Inn), usable 
 
 ### 5.1 What the player always sees
 - The whole graph skeleton: every node as a marker, every edge, every ring (so the level band of an unseen node is known roughly from its ring).
-- Landmarks: the hub, the Roads, the Shardfall, the Dimming's current extent and the hours until it advances (section 6).
+- Landmarks: the hub, the Roads, the Shardfall, the Dimming's current extent and the tolls until it advances (section 6).
 - Every node within the **vision radius** (hops from the player's node, VISION_RADIUS at P0) fully: type, content level, enemy count and archetypes, quest title, contract site markers.
 - Nodes seen once stay seen (remembered) for the rest of the zone.
 
@@ -170,7 +170,7 @@ The hub is a node with the services of rules 1.4 (Trainer, Vendor, Inn), usable 
 | Local Guide (prep) | full vision radius +GUIDE_RADIUS_BONUS |
 | Pathfinder (meta) | node **type** (no level detail, enemy count or site marker) within PATHFINDER_RADIUS hops |
 | Spyglass (prep) | one node and its neighbours, fully, per charge |
-| `ASK_LOCALS` (hub, HOURS_ASK_LOCALS) | the zone's regions, as Region Charts, for this zone only |
+| `ASK_LOCALS` (hub, TIME_ASK_LOCALS) | the zone's regions, as Region Charts, for this zone only |
 | Delve contract | its dungeon's location |
 
 Full vision radius is capped at VISION_RADIUS_MAX. Reason (prototype, 12.3): at radius 3 the whole zone is in view from the hub and the planner's choices match the full-information choice in every decision, which is today's problem again.
@@ -184,12 +184,12 @@ Rare elite flags, treasure traps and vendor Embers stay hidden (today only meta 
 Oruvath, the Unlit Star, is the end boss; its phase 2 summons Dimming Shards [source: rules 10.2]. In every zone a shard has fallen on the rim (the **Shardfall**), and the darkness it spreads, **the Dimming**, eats the zone outward from it. Things that walk in it are Shardspawn. The longer the player stays, the less of the zone is left; staying in the dark kills. The threat ties the zones to the boss and to the existing Ascendancy clock (time makes the Unlit Star stronger).
 
 ### 6.2 Spread
-`front(hz) = floor((hz - DIM_GRACE_H) / DIM_HOURS_PER_HOP)`; a node is **Dimmed** when `front >= 0` and its hop distance from the Shardfall is `<= front`. Distances are on the zone graph (edges as generated). With the starting values (6 h, 2.5 h per hop) the first node dims after 6 hours, the hub (3 hops) at about 13.5 h and the farthest node (6-7 hops) after about 21-23.5 zone hours.
+`front(zt) = floor(DIM_FRONT_HOPS × (zt - DIM_GRACE) / DIM_FRONT_TIME)`; a node is **Dimmed** when `front >= 0` and its hop distance from the Shardfall is `<= front`. Distances are on the zone graph (edges as generated). With the starting values (grace 6 tolls, then two hops every five tolls) the first node dims after 6 tolls, the next ring of hops at 9, 11, 14, 16, 19, 21, so the hub (3 hops) dims at 14 and the farthest node (6-7 hops) at 21-24. (M2b v7: DIM_HOURS_PER_HOP 2.5 became DIM_FRONT_HOPS 2 per DIM_FRONT_TIME 5, the same schedule in whole tolls)
 
-The front only moves with hours, and every action costs hours, so it advances every step [stated: "advances every step"], and slow actions (Rest 4 h, a dungeon 5 h) let it advance more. The map shows, on every node, "dims in N h".
+The front only moves with tolls, and every action costs tolls, so it advances every step [stated: "advances every step"], and slow actions (Rest 4 tolls, a dungeon 6 tolls) let it advance more. The map shows, on every node, "dims in N tolls". (M2b v7)
 
 ### 6.3 Inside the Dimming
-- Entering a Dimmed node, or ending any action in one (the front reached the player), starts a **Dimmed encounter**: DIM_PACK_SIZE Shardspawn (zone's normal templates with the Shardspawn variant) at level `max(CL, L) + DIM_LEVEL_PER_DEPTH × depth`, depth = `front - distance` (0 at the edge), HP × DIM_HP_MULT, damage × DIM_DMG_MULT; it costs HOURS_DIM_FIGHT; XP × DIM_XP_MULT, no loot, no gold. Flee is allowed (rules 7.8) and counts as passing through.
+- Entering a Dimmed node, or ending any action in one (the front reached the player), starts a **Dimmed encounter**: DIM_PACK_SIZE Shardspawn (zone's normal templates with the Shardspawn variant) at level `max(CL, L) + DIM_LEVEL_PER_DEPTH × depth`, depth = `front - distance` (0 at the edge), HP × DIM_HP_MULT, damage × DIM_DMG_MULT; it costs TIME_DIM_FIGHT; XP × DIM_XP_MULT, no loot, no gold. Flee is allowed (rules 7.8) and counts as passing through.
 - A Dimmed node's content is lost (it cannot be resolved; Rest, Vendor, Trainer and hub services do not work there). Sites in it are lost.
 - Fights deeper in the dark are higher level, so standing still or walking deeper kills; the way out is to leave (section 7).
 
@@ -200,11 +200,11 @@ Target (B43): a planner is caught in 8-18 % of zones and Dimmed encounters are 5
 The owner asked to compare Roads on the rim, a recall item, and both [stated]. The recommendation is **both** (7.3), with Roads as the normal way out; section 12.2 has the evidence.
 
 ### 7.1 Roads
-ROAD_COUNT Roads on the rim. On a Road node, `TAKE_ROAD` leaves the zone: HOURS_TRAVEL, then the next zone's hub (Z6: the Camp). A Dimmed Road can still be taken after its Dimmed encounter. There is **no level gate**: the player may leave at any level (TRAVEL_EARLY_LEVELS retired); leaving under-levelled is its own risk, as today.
+ROAD_COUNT Roads on the rim. On a Road node, `TAKE_ROAD` leaves the zone: TIME_TRAVEL, then the next zone's hub (Z6: the Camp). A Dimmed Road can still be taken after its Dimmed encounter. There is **no level gate**: the player may leave at any level (TRAVEL_EARLY_LEVELS retired); leaving under-levelled is its own risk, as today.
 
 ### 7.2 Homeward Bell (the recall item)
 An original item: a small brass bell that, rung, calls its bearer home along the road it was cast for. Every run starts with BELL_START_CHARGES charge (prep 2.3 and meta 11.2 add more, max BELL_MAX_CHARGES).
-- `RING_BELL` on the map: channel of BELL_CHANNEL_H hours (the Dimming advances; if the player's node dims during the channel, a Dimmed encounter happens first, then the bell completes), then the player arrives at the next zone's hub (Z6: the Camp). No HOURS_TRAVEL.
+- `RING_BELL` on the map: channel of BELL_CHANNEL_TIME tolls (the Dimming advances; if the player's node dims during the channel, a Dimmed encounter happens first, then the bell completes), then the player arrives at the next zone's hub (Z6: the Camp). No TIME_TRAVEL.
 - Not usable in a node (only on the map), in the Camp or at the boss.
 
 ### 7.3 Recommendation and why
@@ -225,7 +225,7 @@ Why C:
 
 Runners-up: **A** if the owner wants FTL's hard edge with no safety net (one constant: BELL_START_CHARGES = 0); **B** if he wants the gentlest version (Roads removed, BELL_START_CHARGES per zone).
 
-Risk: the greedy bot (no lookahead) is caught in about 19 % of zones under A and C, and the Dimming is about a third of its expected non-boss deaths. A human sees the darkness coming, which the greedy partly ignores, but the UI must make "dims in N h" impossible to miss (section 9) and the Sim Engineer's greedy needs the threat rule of 10.2.
+Risk: the greedy bot (no lookahead) is caught in about 19 % of zones under A and C, and the Dimming is about a third of its expected non-boss deaths. A human sees the darkness coming, which the greedy partly ignores, but the UI must make "dims in N tolls" impossible to miss (section 9) and the Sim Engineer's greedy needs the threat rule of 10.2.
 
 ## 8. Changes to rules.md and the meta catalogue
 
@@ -237,13 +237,13 @@ Risk: the greedy bot (no lookahead) is caught in about 19 % of zones under A and
 | 1.4 Map | replaced by section 4 (disc graph, regions, landmarks, sites); weights W_* replaced by REGION_W; DUNGEON_ROW_*, REST_ROW_*, TRAINER_ROW_*, ZONE_CHOICE_ROWS, LANES, MAX_SAME_TYPE_PER_ROW retired; hub services unchanged but usable on every hub visit |
 | 1.5 Leaving | replaced by section 7; TRAVEL_EARLY_LEVELS retired |
 | 1.6 Camp | unchanged (the Camp is reached by a Z6 Road or the Bell) |
-| 1.7 Ascendancy | unchanged; BOSS_TIME_PAR to be re-measured (B17) because zone hours change |
+| 1.7 Ascendancy | unchanged; BOSS_TIME_PAR to be re-measured (B17) because zone tolls change |
 | 1.8 Trade-offs | "Story chain" row replaced by "Contracts" (plan the run at the start camp; find sites under fog); new rows "Vision vs contracts vs safety" (prep points) and "One more node vs the Dimming" |
 | 2.0 / 2.1 Quest | quest nodes unchanged; story chain retired (3.2); a Quest node can be a contract site |
 | 2.5 Rest | unusable in a Dimmed node |
 | 3 Pacing | new terms in 9.4; the worked estimate is replaced by the prototype estimate (12.4) until the simulator measures it |
 | 8.4 Drops | tables "Contract" and "Bounty" added |
-| 9 Summary | adds contracts taken / completed / expired, prep purchases, Reserve left, Dimmed encounters, Bell charges used, zone hours |
+| 9 Summary | adds contracts taken / completed / expired, prep purchases, Reserve left, Dimmed encounters, Bell charges used, zone tolls |
 | 11.1 Echoes | new line: Reserve × PREP_ECHO_PER_POINT; ECHO_PER_QUEST also paid per contract completed × ECHO_CONTRACT_MULT |
 | 11.2 Catalogue | see 8.2 |
 | Streams (0) | `prep(k)`, `hubc(z)` added; `node`, `fight`, `loot` keyed by node id |
@@ -282,8 +282,8 @@ One screen, landscape, three columns: **Contract board** (8 cards: zone and band
 ### 9.2 Fog map
 - The zone disc fills the map panel: hub in the centre, rings as faint circles, edges as paths, nodes as markers. Unseen nodes: dim marker with "?" and the ring's level range on hover. Seen nodes: type icon, level coloured against the player (as today), enemy count (BUG-QA-02), contract-site badge in the contract's colour.
 - Regions (when known): soft tint per wedge with the region name on the rim.
-- Landmarks: Roads as signposts on the rim with the next zone's name; the Shardfall as a cracked star; the Dimming as a dark wash over Dimmed nodes, and on every node within 2 hops of the front a small clock "dims in N h". The player's node shows its own clock prominently when N <= 2 h.
-- Legal moves highlight on hover with their hours; a resolved node shows "walk 1 h". Taking a Road and ringing the Bell are buttons on the map panel with their hours and, for the Bell, charges left.
+- Landmarks: Roads as signposts on the rim with the next zone's name; the Shardfall as a cracked star; the Dimming as a dark wash over Dimmed nodes, and on every node within 2 hops of the front a small mark "dims in N tolls". The player's node shows its own count prominently when N <= 2. (M2b v7)
+- Legal moves highlight on hover with their tolls; a resolved node shows "walk 1 toll". Taking a Road and ringing the Bell are buttons on the map panel with their tolls and, for the Bell, charges left.
 
 ### 9.3 Contract tracker
 The quest log (BRIEF HUD) becomes the contract tracker: one line per held contract: zone, kind, target, progress "1/2 sites", and state (active in this zone / later zone / complete / expired). Contracts of the current zone are pinned at the top-right under the minimap. Completing one shows the reward choice (as today's story reward).
@@ -316,7 +316,7 @@ Plan: about **36 fights per run instead of 50**, each worth more:
 |---|---|---|
 | Grind node: one wave (GRIND_MAX_WAVES) | 3 | 1 |
 | Dungeon trash fights (DUNGEON_TRASH_FIGHTS) | 3 | 2 |
-| Node hours: HOURS_QUEST / HOURS_ELITE / HOURS_GRIND_WAVE / HOURS_DUNGEON | 2 / 2 / 1 / 5 | 3 / 3 / 2 / 6 |
+| Node hours: TIME_QUEST / TIME_ELITE / TIME_GRIND_WAVE / TIME_DUNGEON | 2 / 2 / 1 / 5 | 3 / 3 / 2 / 6 |
 | XP per fight and per node: MOB_XP_FRAC, QUEST_TURNIN_XP_FRAC, GRIND_WAVE_XP_FRAC, DUNGEON_CLEAR_XP_FRAC, contract XP | × 1 | × XP_WEIGHT_MULT (1.6) |
 | The Dimming: DIM_HOURS_PER_HOP | 3 | 2.5 |
 | Cull sites in the target region: CULL_SITE_IN | 0.50 | 0.65 (fewer nodes per zone) |
@@ -336,9 +336,9 @@ No bot may read the zone state. The Sim Engineer adds a QA check that the planne
 | Bot | Prep | Map |
 |---|---|---|
 | random | random affordable purchases until no point can be spent | uniform over legal moves; Road when on one at 50 %; Bell at 10 % per decision when held |
-| greedy | contracts by `reward value / price` (no completion estimate), then Field Draughts | best adjacent move by value per hour (balance 1.1, site value added, 10.3); **threat rule**: never step into a node that dims within 2 h of arrival unless leaving; when the front is within one hop: leave if `L >= 10z - 2` (Bell if held, else Road, else walk to the Road farthest from the Shardfall), otherwise retreat to the best neighbour farther from the Shardfall that does not dim within 2 h |
+| greedy | contracts by `reward value / price` (no completion estimate), then Field Draughts | best adjacent move by value per toll (balance 1.1, site value added, 10.3); **threat rule**: never step into a node that dims within 2 tolls of arrival unless leaving; when the front is within one hop: leave if `L >= 10z - 2` (Bell if held, else Road, else walk to the Road farthest from the Shardfall), otherwise retreat to the best neighbour farther from the Shardfall that does not dim within 2 tolls |
 | planner | contracts by `estimated completion × reward value / price` from a running table of completion rate by (kind, vision profile, zone), refreshed every SIM_RISK_REFRESH runs; prior EST_COMPLETE; buys Tracker when its estimated gain in completion × reward beats its price in contract value; keeps Bell charges | **belief search**: depth PLANNER_FOG_DEPTH over moves; known nodes valued exactly; unknown nodes valued as the expectation over the region kind's weights (zone average if the region is unknown) with site chance CULL_SITE_IN / CULL_SITE_OUT (by region if known); the Dimming exactly (it is visible); leaf term = expected cost of reaching the cheapest Road (Dimmed encounters on the way) or the Bell channel; leaving valued with an under-level penalty |
-| speedrunner | Delve contracts, Second Clapper, Field Draughts | belief search minimising hours to `L >= 10z - 1`, then the nearest Road or the Bell |
+| speedrunner | Delve contracts, Second Clapper, Field Draughts | belief search minimising tolls to `L >= 10z - 1`, then the nearest Road or the Bell |
 | tactician | as planner | as planner (combat as today) |
 | oracle (diagnostic only) | n/a | the planner's search with full information of the current zone; never acts in a measured run; used for B41 |
 
@@ -361,12 +361,12 @@ Today both are 1.00 by construction (full map in view).
 | B41 | P1 | C_step planner P0 / PALL; C_route planner P0 / PALL | 0.60-0.80 / 0.80-0.92; <= 0.15 / <= 0.50 |
 | B42 | P2 | Vision value: planner PALL minus planner PALL without the vision entries (scout, cartographer, old_hand): contract completion; win rate | >= 10 pp; inside B10 |
 | B43 | P1 | Tension: zones with at least one Dimmed encounter, planner P0; Dimmed encounters' share of non-boss deaths, planner P0; zones where the front came within one hop, greedy P0 | 8-18 %; 5-20 %; 40-75 % |
-| B44 | P2 | Threat bounds the zone: planner P0 zone hours with the Dimming off, divided by with it on (diagnostic cell) | >= 1.5 |
+| B44 | P2 | Threat bounds the zone: planner P0 zone tolls with the Dimming off, divided by with it on (diagnostic cell) | >= 1.5 |
 | B45 | P2 | Walk-throughs (resolved nodes passed) per zone, planner P0 | <= 2.5 |
 | B46 | P2 | Contract reward share of total XP, planner P0 | 8-20 % |
 | B47 | P2 | Bell charges used per run, planner P0 (variant C) | 0.4-0.9 |
 
-Existing targets that move: B11 (40-50 min) stays; B14 nodes per run 38-47 becomes 44-56 resolved nodes plus walk-throughs; B17 hours band and BOSS_TIME_PAR are re-set from the first measure (zone hours change); B20 zone exit levels stay (10z ± 1) and are now also a check that the Dimming leaves enough time.
+Existing targets that move: B11 (40-50 min) stays; B14 nodes per run 38-47 becomes 44-56 resolved nodes plus walk-throughs; B17 tolls band and BOSS_TIME_PAR are re-set from the first measure (zone tolls change); B20 zone exit levels stay (10z ± 1) and are now also a check that the Dimming leaves enough time.
 
 ## 12. Prototype estimate (scratch, not a measurement of the game)
 
@@ -425,21 +425,21 @@ Source: owner feedback [stated: docs/feedback/2026-11-10-1405-owner.md]: he did 
 
 ### H.1 The line and the player's heat
 The **line** is the par schedule: each zone's share of the boss par.
-`line(z) = parHours(oaths) × min(z, ZONE_COUNT) / ZONE_COUNT`, z = the current zone (the Camp counts as ZONE_COUNT). With BOSS_TIME_PAR 120 and six zones the line is 20 h per zone: 20, 40, ... 120 h. `parHours` is rules 1.7's par (Oath of Haste lowers it).
-`heat = hours - line(z)` (run hours, rules 1.7). Negative heat is time in hand; positive heat is hours past the line.
-- On entering a zone the line jumps 20 h ahead, so a player who left the last zone on time starts each zone with 20 h in hand, and the line closes in as the zone is played. Time saved in one zone carries into the next; time lost carries too. This is the chasing line.
-- At the Camp the line is the par itself, so `heat` at FIGHT_BOSS is exactly the over-par hours that rules 1.7 turns into Ascendancy. Ascendancy's formula is unchanged.
-- **Projected Ascendancy** (what the meter promises): `ascIfPar = min(ASC_CAP, ASC_PER_STEP × floor(max(0, heat) / ASC_STEP_HOURS))`, the boss Ascendancy if the player leaves this zone now and plays every later zone in exactly its line share. It is an honest floor: staying longer only raises it.
+`line(z) = ceil(par(oaths) × min(z, ZONE_COUNT) / ZONE_COUNT)`, whole tolls, z = the current zone (the Camp counts as ZONE_COUNT). With BOSS_TIME_PAR 120 and six zones the line is 20 tolls per zone: 20, 40, ... 120. `par` is rules 1.7's par (Oath of Haste lowers it to 100: line 17, 34, 50, 67, 84, 100). (M2b v7: rounded up, rules 1.7.1; no state or projected Ascendancy changes)
+`heat = time - line(z)` (run tolls, rules 1.7), a whole number. Negative heat is tolls in hand; positive heat is tolls past the line.
+- On entering a zone the line jumps 20 tolls ahead, so a player who left the last zone on time starts each zone with 20 tolls in hand, and the line closes in as the zone is played. Time saved in one zone carries into the next; time lost carries too. This is the chasing line.
+- At the Camp the line is the par itself, so `heat` at FIGHT_BOSS is exactly the over-par tolls that rules 1.7 turns into Ascendancy. Ascendancy's formula is unchanged.
+- **Projected Ascendancy** (what the meter promises): `ascIfPar = min(ASC_CAP, ASC_PER_STEP × floor(max(0, heat) / ASC_STEP_TIME))`, the boss Ascendancy if the player leaves this zone now and plays every later zone in exactly its line share. It is an honest floor: staying longer only raises it.
 
 ### H.2 States
-| State | Run heat (hours past the line) | Meaning at the boss if par is kept from here | Reward (H.3) |
+| State (shown as, M2b v7) | Run heat (tolls past the line) | Meaning at the boss if par is kept from here | Reward (H.3) |
 |---|---|---|---|
-| Clear | heat < HEAT_WARM_AT (0) | under par: no Ascendancy, ECHO_SPEED_BONUS in reach | none |
-| Warm | HEAT_WARM_AT <= heat < HEAT_HOT_AT (0-10 h) | speed bonus lost, no Ascendancy yet | none (a warning) |
-| Hot | HEAT_HOT_AT <= heat < HEAT_SCORCH_AT (10-30 h) | Ascendancy +2 % to +4 % (M2b v6: ASC_PER_STEP 0.02; was +4 % to +8 %) | HEAT_GAIN.hot, HEAT_RARITY_UP.hot |
-| Scorched | heat >= HEAT_SCORCH_AT (30 h or more) | Ascendancy +6 % or more (cap ASC_CAP) (M2b v6: was +12 % or more) | HEAT_GAIN.scorched, HEAT_RARITY_UP.scorched |
+| Clear (Calm) | heat < HEAT_WARM_AT (0) | under par: no Ascendancy, ECHO_SPEED_BONUS in reach | none |
+| Warm (Smouldering) | HEAT_WARM_AT <= heat < HEAT_HOT_AT (0-10 tolls) | speed bonus lost, no Ascendancy yet | none (a warning) |
+| Hot (Burning) | HEAT_HOT_AT <= heat < HEAT_SCORCH_AT (10-30 tolls) | Ascendancy +2 % to +4 % (M2b v6: ASC_PER_STEP 0.02; was +4 % to +8 %) | HEAT_GAIN.hot, HEAT_RARITY_UP.hot |
+| Scorched (Infernal) | heat >= HEAT_SCORCH_AT (30 tolls or more) | Ascendancy +6 % or more (cap ASC_CAP) (M2b v6: was +12 % or more) | HEAT_GAIN.scorched, HEAT_RARITY_UP.scorched |
 
-HEAT_HOT_AT equals ASC_STEP_HOURS on purpose: Hot starts where Ascendancy starts to cost, so heat pays only where it is paid for. Warm pays nothing because it costs nothing at the boss except the speed bonus; the prototype showed that paying in Warm is free power (H.7). The owner's run (148 h) ends Hot at +28 h; the planner P0 median (141 h) ends Hot at +21 h [source: docs/reports/balance-2026-11-10c.md B17].
+HEAT_HOT_AT equals ASC_STEP_TIME on purpose: Hot starts where Ascendancy starts to cost, so heat pays only where it is paid for. Warm pays nothing because it costs nothing at the boss except the speed bonus; the prototype showed that paying in Warm is free power (H.7). The owner's run (148 tolls) ends Hot at +28; the planner P0 median (141 tolls) ends Hot at +21 [source: docs/reports/balance-2026-11-10c.md B17].
 
 ### H.3 What heat gives
 The node's **heat state is fixed when the player enters the node** (rows: CHOOSE_NODE; expedition: MOVE into an unresolved node) and applies to everything the node pays, so the hover preview and the result agree. Hub services, walks and travel pay nothing.
@@ -448,34 +448,36 @@ The node's **heat state is fixed when the player enters the node** (rows: CHOOSE
 - **Echoes**: new rules 11.1 line "Fights won in heat": ECHO_PER_HEAT_FIGHT per fight won in a Hot or Scorched node [assumption: not prototyped; about 10-20 Echoes on a 235-Echo planner run, the Sim Engineer checks B31].
 - **Not paid**: the Camp (its waves are repeatable; heat there would be a farm), the boss, Dimmed encounters (H.5), and nodes in the Dimming.
 
-What it costs: the hours themselves, which become Ascendancy at the boss (unchanged rules 1.7), and the lost ECHO_SPEED_BONUS. No new penalty is added: the meter makes the existing cost visible and prices a reward against it.
+What it costs: the tolls themselves, which become Ascendancy at the boss (unchanged rules 1.7), and the lost ECHO_SPEED_BONUS. No new penalty is added: the meter makes the existing cost visible and prices a reward against it.
 
-The choice this creates: run Hot through the middle zones for more levels-worth, gold and rare/epic gear, and meet a stronger boss; or stay Clear and bank hours for a dungeon or a bad zone later, and meet a weaker boss with less gear.
+The choice this creates: run Hot through the middle zones for more levels-worth, gold and rare/epic gear, and meet a stronger boss; or stay Clear and bank tolls for a dungeon or a bad zone later, and meet a weaker boss with less gear.
 
-### H.4 UI (always visible, rows mode and expedition)
-The meter is a fixed HUD element on every screen of the run except PREP and SUMMARY (map, node, fight, hub, Camp, boss intro):
-- A horizontal bar of the four states (Clear, Warm, Hot, Scorched), the line drawn as a red vertical mark at heat 0, the player's marker at `heat`, the bar spanning HEAT_BAR_MIN to HEAT_BAR_MAX hours (clamped, marker shows an arrow when beyond).
-- Text next to it: "12 h in hand" or "8 h past the line"; "Boss +4 %" (ascIfPar); in Hot and Scorched the live reward "+35 % XP and gold, 1 in 2 drops a rarity up" (M2b v6: HEAT_RARITY_UP.hot 0.50; Scorched "+50 % XP and gold, 7 in 10 drops a rarity up").
-- On hover over a node (map) or a service, the hours it costs and the state the player will be in after it ("2 h, ends Warm"). A node that would move the player into a new state shows the new state's colour on its hour label.
-- A state change shows a short toast once ("Hot: the Unlit Star gains on you; spoils grow").
-- SUMMARY: the hours-vs-line track of the whole run as a small chart, with the time spent in each state and the Echo line of H.3; the existing "In-game time / Ascendancy" lines stay.
-- Wording rule: the in-game term is "Heat"; the line is "the Star's line" in tooltip fiction (Oruvath grows stronger with time, rules 10). The words Ascendancy and par stay in tooltips only.
+### H.4 UI: the Furnace (always visible, rows mode and expedition) (M2b v7)
+The owner asked for heat to have its own name, for a small whole-number time unit in place of hours, and for the meter to sit at the top centre as a central part of the game [stated: docs/feedback/2026-11-11-1012-owner.md]. The meter is called **the Furnace**; time is counted in **tolls**.
+- Place: top centre of the HUD on every screen of the run except PREP and SUMMARY (map, node, fight, hub, Camp, boss intro), always in view, never covered by a window.
+- Look: a central horizontal bar with a pointer that moves along it. The left (cool) end is a very calm setting; the right (hot) end looks like the core of hell. The four segments carry the player names Calm, Smouldering, Burning and Infernal (engine states Clear, Warm, Hot, Scorched). The Star's line is a mark at heat 0; the pointer sits at `heat`; the bar spans HEAT_BAR_MIN to HEAT_BAR_MAX tolls (clamped, the pointer shows an arrow when beyond).
+- Text: the state name; "12 tolls in hand", "On the line" (heat 0) or "8 tolls past the line" ("1 toll" in the singular); "Boss +4 %" (ascIfPar); in Burning and Infernal the live reward "+35 % XP and gold, 1 in 2 drops a rarity up" (Infernal "+50 % XP and gold, 7 in 10 drops a rarity up").
+- Tooltip: "Tolls so far: 47 · the Star's line: 60"; "Oruvath grows stronger for every 10 tolls past 120 (Ascendancy)."
+- On hover over a node (map) or a service: the tolls it costs and the state after it ("3 tolls, ends Smouldering"). A choice that would move the player into a new state shows the new state's colour on its toll label.
+- A state change shows a short toast once: Calm "Calm: you are ahead of the Star." Smouldering "Smouldering: past the Star's line; the speed bonus is lost." Burning "Burning: the Unlit Star gains on you; spoils grow." Infernal "Infernal: the Star burns high; spoils are richest."
+- SUMMARY: the tolls-vs-line track of the whole run as a small chart, the tolls spent in each state and the Echo line of H.3; "Tolls: 141 (par 120) · Ascendancy +4 %".
+- Wording rules: the meter is "the Furnace"; the unit is "toll" / "tolls", always written out and always a whole number. No "h", "hours", days, clock times ("Day 2, 14:00") or decimals anywhere on screen; the day clock is removed. The words Ascendancy and par stay in tooltips only; the line is "the Star's line".
 
 ### H.5 Expedition runs: the Dimming on the same meter
-In an expedition zone a second clock runs: the hours until the player's node dims, `dimIn = dimHour(node) - hz` (rules 1.9.6; a node without a front yet uses DIM_GRACE_H + hops × DIM_HOURS_PER_HOP).
+In an expedition zone a second clock runs: the tolls until the player's node dims, `dimIn = dimAt(node) - zt` (rules 1.9.6: `dimAt = DIM_GRACE + ceil(hops × DIM_FRONT_TIME / DIM_FRONT_HOPS)`). (M2b v7)
 | Dimming state | Condition |
 |---|---|
-| Clear | dimIn > HEAT_DIM_WARM_H (4 h) |
-| Warm | HEAT_DIM_HOT_H < dimIn <= HEAT_DIM_WARM_H (2-4 h) |
-| Hot | 0 < dimIn <= HEAT_DIM_HOT_H (2 h or less) |
-| Scorched | the node is Dimmed |
+| Clear (Calm) | dimIn > HEAT_DIM_WARM (4 tolls) |
+| Warm (Smouldering) | HEAT_DIM_HOT < dimIn <= HEAT_DIM_WARM (3-4 tolls) |
+| Hot (Burning) | 0 < dimIn <= HEAT_DIM_HOT (1-2 tolls) |
+| Scorched (Infernal) | the node is Dimmed |
 
-The meter's state is the **hotter** of the run state (H.2) and the Dimming state; the meter shows the Dimming as a second marker ("Dimming: 3 h") and names which clock sets the state. Rewards (H.3) use the combined state at node entry, so a node at the Dimming's edge pays as Hot: the reward for working near the dark. A Dimmed node pays nothing (its content is lost; Dimmed encounters keep DIM_XP_MULT and no loot). Contracts completed in a Hot node pay their reward × (1 + HEAT_GAIN.hot), which is the contract bonus for running hot.
+The meter's state is the **hotter** of the run state (H.2) and the Dimming state; the meter shows the Dimming as a second marker ("Dimming: 3 tolls") and names which clock sets the state. Rewards (H.3) use the combined state at node entry, so a node at the Dimming's edge pays as Hot: the reward for working near the dark. A Dimmed node pays nothing (its content is lost; Dimmed encounters keep DIM_XP_MULT and no loot). Contracts completed in a Hot node pay their reward × (1 + HEAT_GAIN.hot), which is the contract bonus for running hot.
 
 ### H.6 Engine, bots and balance targets
-Engine (Core Gameplay Engineer): `heatView(s)` = { hours, line, heat, stateRun, dimIn (expedition, else null), stateDim, state, ascIfPar, gain, rarityUp }, pure and cheap, usable by the UI at any phase; the node's entry state stored on the node and in the fight record; summary adds `heat` = { trackPerZone: [hours at entry and exit, line], fightsByState: [4], echoHeat }. The UI's meter (H.4) may ship before the rewards: `heatView` without H.3 is display-only and changes no balance.
+Engine (Core Gameplay Engineer): `heatView(s)` = { time, line, heat, stateRun, dimIn (expedition, else null), stateDim, state, ascIfPar, gain, rarityUp }, pure and cheap, usable by the UI at any phase; the node's entry state stored on the node and in the fight record; summary adds `heat` = { trackPerZone: [tolls at entry and exit, line], fightsByState: [4], echoHeat }. The UI's meter (H.4) may ship before the rewards: `heatView` without H.3 is display-only and changes no balance.
 
-Bots (Simulation & Balance Engineer): the value function adds the heat multiplier to the XP, gold and gear terms of a node from the state it would be entered in. Two policies for B58: **heat-seek** = planner with hour weight × HEAT_SEEK_HOUR_MULT; **heat-avoid** = planner with hour weight × HEAT_AVOID_HOUR_MULT (both instead of PLANNER_HOUR_MULT). Every policy also pays the boss term (balance-2026-11-11: change of projected Ascendancy × SIM.VAL_ASC). With PLANNER_HOUR_MULT 3 (balance.md 6, M2b v6) the default planner plays on the time-light side: on the v6 rules it enters no Hot node and wins like heat-avoid (34.8 % against 34.3 %, paired, 1 000 runs per class). (M2b v6) Greedy and autoplay keep their rules; the greedy's threat rule (10.2) treats Dimming-Hot nodes as today.
+Bots (Simulation & Balance Engineer): the value function adds the heat multiplier to the XP, gold and gear terms of a node from the state it would be entered in. Two policies for B58: **heat-seek** = planner with time weight × HEAT_SEEK_TIME_MULT; **heat-avoid** = planner with time weight × HEAT_AVOID_TIME_MULT (both instead of PLANNER_TIME_MULT). Every policy also pays the boss term (balance-2026-11-11: change of projected Ascendancy × SIM.VAL_ASC). With PLANNER_TIME_MULT 3 (balance.md 6, M2b v6) the default planner plays on the time-light side: on the v6 rules it enters no Hot node and wins like heat-avoid (34.8 % against 34.3 %, paired, 1 000 runs per class). (M2b v6) Greedy and autoplay keep their rules; the greedy's threat rule (10.2) treats Dimming-Hot nodes as today.
 
 | ID | Pri | Metric | Target |
 |---|---|---|---|
@@ -483,12 +485,12 @@ Bots (Simulation & Balance Engineer): the value function adds the heat multiplie
 | B56 | P2 | Heat is used, not forced (M2b v6, redefined): (a) heat-seek minus planner win rate, planner P0, paired; (b) share of heat-seek's winning P0 runs with at least one Hot or Scorched node. Diagnostic, no target: the same share for the default planner (the old B56) | (a) >= -HEAT_POLICY_GAP_MAX pp; (b) HEAT_WIN_SHARE |
 | B57 | P2 | Heat rewards do not inflate power: planner P0 win rate with H.3 minus without | <= HEAT_POWER_MAX pp |
 
-Why B56 changed (M2b v6): the old B56 measured the default planner's own hour weight. At PLANNER_HOUR_MULT 3 that planner sits at the time-light end and never enters Hot, even with HEAT_RARITY_UP and HEAT_GAIN doubled [measured: designer scratch, 300 runs per class], while heat-seek wins as often (+1.2 pp). Rewards large enough to pull it into Hot would put heat-seek more than 5 pp ahead of heat-avoid (B58). B56 now asks what the owner asked for: a player who goes into heat on purpose wins as often as the default planner (a), and that player really uses heat without being forced to run Hot every time (b). [owner review]
+Why B56 changed (M2b v6): the old B56 measured the default planner's own time weight. At PLANNER_TIME_MULT 3 that planner sits at the time-light end and never enters Hot, even with HEAT_RARITY_UP and HEAT_GAIN doubled [measured: designer scratch, 300 runs per class], while heat-seek wins as often (+1.2 pp). Rewards large enough to pull it into Hot would put heat-seek more than 5 pp ahead of heat-avoid (B58). B56 now asks what the owner asked for: a player who goes into heat on purpose wins as often as the default planner (a), and that player really uses heat without being forced to run Hot every time (b). [owner review]
 
-If B58 fails with avoid ahead, raise HEAT_RARITY_UP first (gear is what wins the boss; XP is capped at level 60), then HEAT_GAIN; with seek ahead, lower them. If B57 fails, lower HEAT_GAIN before the rarity step. Expedition: re-measure B43 with H.5, since a reward at the Dimming's edge pulls the planner toward it; lever HEAT_DIM_HOT_H.
+If B58 fails with avoid ahead, raise HEAT_RARITY_UP first (gear is what wins the boss; XP is capped at level 60), then HEAT_GAIN; with seek ahead, lower them. If B57 fails, lower HEAT_GAIN before the rarity step. Expedition: re-measure B43 with H.5, since a reward at the Dimming's edge pulls the planner toward it; lever HEAT_DIM_HOT.
 
 ### H.7 Prototype (scratch, rows mode; not a measurement of the game)
-A scratch copy of src/ and sim/ at commit 5f67d5e in the git-ignored sim/out/heat/ with H.1-H.3 patched into the engine (XP and gold multiplier and the rarity draw, state taken at each gain rather than at node entry; no Echo line) and PLANNER_HOUR_MULT set per cell; the planner does not yet value the heat reward (so heat-seek is approximated by a low hour weight). Planner P0, 300 runs per class, warm-up 300, same seeds per cell.
+A scratch copy of src/ and sim/ at commit 5f67d5e in the git-ignored sim/out/heat/ with H.1-H.3 patched into the engine (XP and gold multiplier and the rarity draw, state taken at each gain rather than at node entry; no Echo line) and PLANNER_TIME_MULT set per cell; the planner does not yet value the heat reward (so heat-seek is approximated by a low hour weight). Planner P0, 300 runs per class, warm-up 300, same seeds per cell.
 
 | Cell | Win | Reach boss | Hours at boss (median) | Asc | Gear score | Rarity steps per run |
 |---|---|---|---|---|---|---|
@@ -506,7 +508,7 @@ Findings:
 1. With the defaults the choice is real: heat-seek 42.9 % against heat-avoid 46.9 % (B58: 4.0 pp, inside 5; the standard error of the difference is about 2.3 pp), and the two win differently: seek reaches the boss more often (76 % against 66 %) with better gear (599 against 579) and a +8 % boss; avoid dies more on the journey and meets a +0 % boss. Without heat the slow style is 15 pp behind the fast one; heat closes 11 pp of that.
 2. B56: 81 % of the default planner's wins had a Hot node (band 30-85 %); 47 / 41 / 12 / 0 % of its XP events were Clear / Warm / Hot / Scorched. Scorched is not reached by any planner in rows mode; it is the meter's danger zone, not a target.
 3. B57: the defaults raise today's planner by 3.3 pp (40.7 -> 44.0 %). Paying from Warm raised it by 9 pp and is rejected: Warm costs nothing at the boss.
-4. Side finding for the Sim Engineer [inference: from the no-heat cells]: the planner with hour weight 4 wins 6 pp more than with today's PLANNER_HOUR_MULT 2 (46.9 against 40.7 %) while reaching the boss 10 pp less often, so today's planner undervalues time against Ascendancy. Worth a check before B58 is measured on the real policy.
+4. Side finding for the Sim Engineer [inference: from the no-heat cells]: the planner with hour weight 4 wins 6 pp more than with today's PLANNER_TIME_MULT 2 (46.9 against 40.7 %) while reaching the boss 10 pp less often, so today's planner undervalues time against Ascendancy. Worth a check before B58 is measured on the real policy.
 
 Reproduce: `cd sim/out/heat && HEATP='{"gain":[0,0,0.35,0.5],"up":[0,0,0.25,0.4]}' HM=0.5 node sim/run.mjs --bot planner --class all --runs 300 --profile fresh --warmup 300 --out o/seek3 && node sum.mjs o/seek3/planner-P0` (HEAT=0 turns the patch off; HM sets the hour weight).
 
@@ -551,7 +553,7 @@ Reproduce: `cd sim/out/heat && HEATP='{"gain":[0,0,0.35,0.5],"up":[0,0,0.25,0.4]
 | GUIDE_RADIUS_BONUS | 1 | hops |
 | TRACKER_RADIUS | 2 | hops |
 | PATHFINDER_RADIUS | 2 | hops (type only) |
-| HOURS_ASK_LOCALS | 1 | h |
+| TIME_ASK_LOCALS | 1 | tolls |
 | RING_NODES | [1, 6, 12, 12] | nodes per ring (0 = hub) |
 | RING_CL_BASE | [0, 1, 4, 7] | levels above the band minimum |
 | RING_CL_SPREAD | 3 | levels |
@@ -560,18 +562,18 @@ Reproduce: `cd sim/out/heat && HEATP='{"gain":[0,0,0.35,0.5],"up":[0,0,0.25,0.4]
 | REGION_COUNT | 4 | regions per zone |
 | REGION_W.kind.type | table 4.4 | weight |
 | REGION_FAMILY_SHARE | 0.70 | share of encounter mobs from the region's families |
-| HOURS_WALK | 1 | h |
+| TIME_WALK | 1 | tolls |
 | ROAD_COUNT | 3 | Roads per zone |
-| DIM_GRACE_H | 6 | zone hours |
-| DIM_HOURS_PER_HOP | 2.5 | h (3 with today's node counts, 9.5) |
+| DIM_GRACE | 6 | zone tolls |
+| DIM_FRONT_HOPS / DIM_FRONT_TIME | 2 / 5 | hops per zone tolls: 2.5 tolls per hop in whole tolls (M2b v7: was DIM_HOURS_PER_HOP 2.5; 3 with today's node counts, 9.5) |
 | DIM_PACK_SIZE | 2 | mobs |
 | DIM_LEVEL_PER_DEPTH | 2 | levels per hop of depth |
 | DIM_HP_MULT / DIM_DMG_MULT | 1.2 / 1.3 | × (tuned to about 8 % death chance at depth 0 for the planner P0, prototype SI) |
 | DIM_XP_MULT | 0.25 | × normal kill XP |
-| HOURS_DIM_FIGHT | 1 | h |
+| TIME_DIM_FIGHT | 1 | tolls |
 | BELL_START_CHARGES | 1 | charges per run |
 | BELL_MAX_CHARGES | 2 | charges |
-| BELL_CHANNEL_H | 2 | h |
+| BELL_CHANNEL_TIME | 2 | tolls |
 | META_COST_CARTOGRAPHER | 100 | Echoes |
 | META_COST_OLD_HAND | 150 | Echoes |
 | META_COST_QM_1 / META_COST_QM_2 | 120 / 200 | Echoes |
@@ -599,16 +601,16 @@ Reproduce: `cd sim/out/heat && HEATP='{"gain":[0,0,0.35,0.5],"up":[0,0,0.25,0.4]
 | CONTRACT_XP_SHARE | 0.08-0.20 | share (B46) |
 | BELL_USE | 0.4-0.9 | charges per run (B47) |
 | **Heat (section H)** | | |
-| HEAT_LINE_PER_ZONE | parHours / ZONE_COUNT (20 at par 120) | h of line per zone (derived, H.1) |
-| HEAT_WARM_AT | 0 | h past the line (H.2) |
-| HEAT_HOT_AT | 10 | h past the line (= ASC_STEP_HOURS) |
-| HEAT_SCORCH_AT | 30 | h past the line |
-| HEAT_DIM_WARM_H / HEAT_DIM_HOT_H | 4 / 2 | h until the player's node dims (H.5) |
+| HEAT_LINE_PER_ZONE | par / ZONE_COUNT, rounded up per zone total (20 at par 120) | tolls of line per zone (derived, H.1) (M2b v7) |
+| HEAT_WARM_AT | 0 | tolls past the line (H.2) |
+| HEAT_HOT_AT | 10 | tolls past the line (= ASC_STEP_TIME) |
+| HEAT_SCORCH_AT | 30 | tolls past the line |
+| HEAT_DIM_WARM / HEAT_DIM_HOT | 4 / 2 | tolls until the player's node dims (H.5) |
 | HEAT_GAIN clear / warm / hot / scorched | 0 / 0 / 0.35 / 0.50 | × extra XP and gold (H.3) |
 | HEAT_RARITY_UP clear / warm / hot / scorched | 0 / 0 / 0.50 / 0.70 | chance per rolled item of one rarity step (H.3) (M2b v6: was 0 / 0 / 0.25 / 0.40) |
 | ECHO_PER_HEAT_FIGHT | 1 | Echoes per fight won in a Hot or Scorched node [assumption] |
-| HEAT_BAR_MIN / HEAT_BAR_MAX | -20 / 40 | h shown on the meter (H.4) |
-| HEAT_SEEK_HOUR_MULT / HEAT_AVOID_HOUR_MULT | 0.5 / 4 | × VAL_HOUR (bots, B58) |
+| HEAT_BAR_MIN / HEAT_BAR_MAX | -20 / 40 | tolls shown on the meter (H.4) |
+| HEAT_SEEK_TIME_MULT / HEAT_AVOID_TIME_MULT | 0.5 / 4 | × VAL_TIME (bots, B58) |
 | HEAT_POLICY_GAP_MAX | 5 | pp (B58) |
 | HEAT_WIN_SHARE | 0.30-0.85 | share of heat-seek's P0 wins (B56 b) (M2b v6: was of the default planner's wins) |
 | HEAT_POWER_MAX | 4 | pp (B57) |
