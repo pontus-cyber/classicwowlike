@@ -6,11 +6,11 @@ Owner ideas and team proposals not yet scheduled. The Lead places each item into
 |---|---|---|---|---|
 | 2026-11-10 | Combat v2.1 display | UI hand-off 2026-11-10g | M2b 2b.6 | done (a105328) |
 | 2026-11-11 | HUD/UX readability pass: easier to follow along; first-time-player review of every combat and map screen | Owner 08:31 | after DoT preview | todo |
-| 2026-11-11 | Bug: run summary "Killed by" shows a raw ability id (Ab Z3 King Aldrec Heavy Blow): ability without display name | Owner screenshot 08:31 | with DoT task | todo |
-| 2026-11-11 | Talent tooltip shows the current total (e.g. "Now: +30 %") and the next rank's total | Owner 08:14 | with the DoT-preview task | todo |
-| 2026-11-11 | DoT preview: marked segment on enemy HP bars for damage that pending DoT ticks will deal, lethal marker when they kill (also for the player and pet) | Owner 08:11 | next engine+UI task after Dev menu | todo |
+| 2026-11-11 | Bug: run summary "Killed by" shows a raw ability id (Ab Z3 King Aldrec Heavy Blow): ability without display name | Owner screenshot 08:31 | with DoT task | done (ba7eb2c) |
+| 2026-11-11 | Talent tooltip shows the current total (e.g. "Now: +30 %") and the next rank's total | Owner 08:14 | with the DoT-preview task | done (ba7eb2c) |
+| 2026-11-11 | DoT preview: marked segment on enemy HP bars for damage that pending DoT ticks will deal, lethal marker when they kill (also for the player and pet) | Owner 08:11 | next engine+UI task after Dev menu | done (ba7eb2c) |
 | 2026-11-11 | Packed Satchel also makes the first potion each fight free (no turn spent), once per fight (owner agreed 08:04); designer + sim check vs meta targets | Owner 08:04 | 2b.7 (meta) | todo |
-| 2026-11-11 | Rogue: Sap exists (W in the engage round) but was not found; first-fight hint per class for the engage panel; measure SAP_TURNS 4 and Rogue zone 1-2 deaths; low-HP potion hint | Owner playtest 08:03 | 2b.6 UI hint + 2b.7 tuning | todo |
+| 2026-11-11 | Rogue: Sap exists (W in the engage round) but was not found; first-fight hint per class for the engage panel; measure SAP_TURNS 4 and Rogue zone 1-2 deaths; low-HP potion hint | Owner playtest 08:03 | 2b.6 UI hint + 2b.7 tuning | hint done (ba7eb2c); SAP_TURNS 4 in tuning v6 |
 | 2026-11-11 | In-game dev tools menu | Owner 07:41 | done (5603c3a); any dev tool marks the run as a dev run (no Echoes, profile untouched) | done |
 | 2026-11-10 | Answer moment: Off-balance!, Interrupted!, Staggered! and the damage number float on top of each other; stagger them. Engine: per-spell "answers current wind-up" field, Send the Pet in engage preview answers, heatUp on loot, pays:false at camp | Lead review + UI hand-offs | M2b 2b.5/2b.6 | todo |
 | 2026-11-10 | Always-visible Heat meter: hours vs boss par and Ascendancy, plus Dimming distance in expedition zones; going into heat should pay something, not only cost | Owner 14:05 | M2b UI + expedition.md addendum | done (engine 8507303, UI 78c18c6) |
