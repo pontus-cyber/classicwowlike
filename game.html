@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="963da6b 2026-11-11T09:05:49Z">
+<meta name="build" content="cc485e6 2026-11-11T10:11:02Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -1079,6 +1079,97 @@ body[data-phase="MAP"]:not(.in-fight) #toasts .toast { white-space: normal; text
 #engage-hint .eh-f { display: flex; justify-content: space-between; align-items: center; gap: .8rem; }
 #engage-hint .eh-once { font-size: 1rem; color: var(--ink-dim); }
 
+/* ===================================================================== UX readability pass (2026-11-11)
+   One place per kind of information: the run's time pressure (the Furnace) at the top centre; what to do now over the
+   action bar's right half; per-enemy intent on the nameplates; detail of the target in the target frame.
+   One colour per meaning: ember/orange = a wind-up and what answers it, gold = an off-balance window and "your turn",
+   frost blue = answered/staggered, red = damage to you and danger, teal-blue = the calm side of the Furnace. */
+#hud { --furnace-h: 6.6rem; }
+/* the top-centre band belongs to the Furnace: the frames and panels under it move down by its height */
+#target-frame { top: calc(1.6rem + var(--furnace-h)); }
+#ruler { top: calc(1.4rem + var(--furnace-h)); }
+#boss-frame { top: calc(1.4rem + var(--furnace-h)); }
+#screens .mapwin { top: calc(2rem + var(--furnace-h)); height: min(57rem, calc(100vh - 19.8rem - var(--furnace-h))); }
+#toasts { top: calc(13rem + var(--furnace-h)); }
+body.in-fight #toasts { top: calc(11.2rem + var(--furnace-h)); }
+
+/* ---- the Furnace (heat.js): calm water on the left, the core of the fire on the right, the pointer between them */
+#heat { right: auto; bottom: auto; left: 50%; top: .6rem; transform: translateX(-50%); width: 50rem; z-index: 32; padding: .32rem .9rem .3rem; gap: .42rem;
+  background: linear-gradient(90deg, rgba(8, 30, 34, .95), rgba(13, 13, 13, .95) 42%, rgba(18, 10, 8, .95) 58%, rgba(46, 9, 4, .96)); }
+#heat .ht-row { justify-content: center; }
+#heat .ht-row2 { justify-content: center; }
+#heat .ht-pay { flex: 0 1 auto; text-align: center; }
+#heat .ht-title { font-size: 1.45rem; letter-spacing: .04em; background: linear-gradient(90deg, #bfe8e6, #ffe2a8 45%, #ff8a4a); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; filter: drop-shadow(0 1px 1px #000); }
+#heat .ht-bar { height: 1.8rem; overflow: visible; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .9), 0 0 0 1px rgba(208, 170, 96, .3), 0 .2rem .8rem rgba(0, 0, 0, .6); }
+#heat .ht-seg span { font-size: .92rem; }
+/* the calm side: still water, soft blue-green, a slow shimmer */
+#heat .ht-seg[data-hs="clear"] { background: linear-gradient(180deg, #2c6f78 0%, #1f5866 45%, #153f4c 100%); }
+#heat .ht-seg[data-hs="clear"].on { background: linear-gradient(180deg, #67c3c4, #3a95a4 50%, #23707f); }
+#heat .ht-calm { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; pointer-events: none; border-radius: .35rem 0 0 .35rem; opacity: .55;
+  background: repeating-linear-gradient(180deg, transparent 0 .32rem, rgba(210, 250, 245, .16) .32rem .38rem), linear-gradient(90deg, rgba(190, 240, 235, .14), transparent 70%);
+  background-size: 100% 100%, 200% 100%; animation: pyre-calm 7s ease-in-out infinite alternate; }
+@keyframes pyre-calm { to { background-position: 0 .18rem, 100% 0; } }
+/* the hot side: Warm amber, Hot molten, Scorched the core: deep reds, a molten glow and rising embers */
+#heat .ht-seg[data-hs="warm"] { background: linear-gradient(180deg, #7a5a1c, #4e3810); }
+#heat .ht-seg[data-hs="hot"] { background: linear-gradient(180deg, #a8380e, #6a1c06 60%, #3e0e04); }
+#heat .ht-seg[data-hs="scorched"] { background: radial-gradient(ellipse at 50% 120%, #ff6a1a 0%, #b81c06 38%, #4a0603 75%, #1c0201 100%); }
+#heat .ht-row, #heat .ht-row2 { position: relative; z-index: 6; }
+#heat .ht-core { position: absolute; top: -.45rem; bottom: 0; z-index: 1; pointer-events: none; overflow: hidden; border-radius: 0 .35rem .35rem 0; }
+#heat .ht-core::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1.8rem; background: linear-gradient(90deg, transparent, rgba(255, 120, 30, .35) 40%, rgba(255, 70, 20, .55)); mix-blend-mode: screen; animation: pyre-glow 2.4s ease-in-out infinite; }
+#heat .ht-core i { position: absolute; inset: 0; background-image: radial-gradient(circle, rgba(255, 210, 120, .95) 0 1px, transparent 1.6px), radial-gradient(circle, rgba(255, 120, 40, .9) 0 1px, transparent 1.8px);
+  background-size: 2.3rem 2.7rem, 3.1rem 3.3rem; background-position: 0 0, 1.1rem 1.3rem; animation: pyre-ember 2.8s linear infinite; opacity: .85; }
+#heat .ht-core i:nth-child(2) { animation-duration: 3.7s; animation-delay: -1.3s; background-size: 2.9rem 3.1rem, 1.9rem 2.6rem; opacity: .6; }
+#heat .ht-core i:nth-child(3) { animation-duration: 5.1s; animation-delay: -2.6s; background-size: 4.1rem 3.6rem, 3.3rem 2.9rem; opacity: .45; }
+@keyframes pyre-ember { from { background-position-y: 2.7rem, 4rem; } to { background-position-y: 0, 0.7rem; } }
+@keyframes pyre-glow { 50% { opacity: .55; } }
+#heat .ht-seg.on { z-index: 0; }
+/* the pointer: a needle through the bar with a head above it, moving along the bar */
+#heat .ht-mark.run { top: -.3rem; bottom: -.4rem; width: .5rem; margin-left: -.25rem; z-index: 5; }
+#heat .ht-mark.run i { border-radius: .25rem; }
+#heat .ht-mark.run::before { content: ''; position: absolute; left: 50%; top: -.42rem; transform: translateX(-50%); border: .45rem solid transparent; border-top-color: #fff4cf; border-bottom: 0; filter: drop-shadow(0 0 .25rem rgba(0, 0, 0, .9)); }
+#heat .ht-line { z-index: 4; }
+/* the first-time note: under the Furnace, its arrow pointing up at it */
+#heat-intro { left: 50%; bottom: auto; top: calc(var(--furnace-h) + 1.2rem); transform: translateX(-50%); z-index: 12; }
+#heat-intro::after { right: auto; left: 50%; bottom: auto; top: -.8rem; transform: translateX(-50%); border-top-color: transparent; border-bottom: .8rem solid rgba(190, 160, 255, .7); border-top: 0; }
+
+/* ---- what to do now: the turn prompt over the action bar's right half (hud.js turnPrompt), and the bar's frame */
+#turnprompt { position: absolute; right: 0; bottom: calc(100% + .7rem); width: 38.4rem; min-height: 3rem; display: flex; align-items: center; gap: .7rem; padding: .35rem .8rem; border-radius: .5rem; pointer-events: none;
+  background: linear-gradient(180deg, rgba(40, 32, 14, .94), rgba(16, 12, 6, .94)); box-shadow: inset 0 0 0 1px rgba(255, 214, 120, .55), 0 0 1.2rem rgba(255, 200, 90, .25); animation: tp-in .25s ease-out; }
+#turnprompt.hidden { display: none; }
+@keyframes tp-in { from { opacity: 0; transform: translateY(.4rem); } }
+#turnprompt .tp-k { flex: none; font: 800 1rem var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: #1c1404; background: linear-gradient(180deg, #ffe7a0, #e8b44a); border-radius: .3rem; padding: .15rem .45rem; }
+#turnprompt .tp-t { flex: 1 1 auto; min-width: 0; font: 700 1.15rem/1.3 var(--font-ui); color: var(--ink); text-shadow: 0 1px 1px #000; }
+#turnprompt kbd { display: inline-block; min-width: 1.5rem; padding: 0 .3rem; margin: 0 .1rem; border-radius: .25rem; font: 800 1.05rem/1.45rem var(--font-ui); text-align: center; color: #fff4cf; background: #2a2010; box-shadow: inset 0 0 0 1px rgba(255, 214, 120, .7); }
+#turnprompt[data-kind="windup"] { box-shadow: inset 0 0 0 1px #ff8a4a, 0 0 1.4rem rgba(255, 100, 40, .45); }
+#turnprompt[data-kind="windup"] .tp-k { background: linear-gradient(180deg, #ffb070, #e0461a); color: #2a0800; }
+#turnprompt[data-kind="potion"] { box-shadow: inset 0 0 0 1px #7fe07a, 0 0 1.2rem rgba(120, 220, 120, .35); }
+#actionbar.your-turn { box-shadow: inset 0 0 0 1px rgba(255, 214, 120, .65), 0 0 1.6rem rgba(255, 200, 90, .35), 0 .4rem 1.4rem rgba(0, 0, 0, .6); }
+
+/* ---- nameplates: what comes and goes during a round hangs under the health bar, so the track above never moves */
+.np .under { position: absolute; top: 100%; left: -2.6rem; right: -2.6rem; display: flex; flex-flow: row wrap; justify-content: center; align-items: center; gap: .25rem .3rem; padding-top: .25rem; }
+.np .under .sts { min-height: 0; padding-top: 0; }
+.np .under .sts .st { width: 2.4rem; height: 2.4rem; }
+/* the plate stands one row higher, so the first row under the bar sits over the head, not on the body where numbers pop */
+#nameplates .np:not(.boss) { margin-top: -3rem; }
+.np .under:empty { display: none; }
+.np .sts:empty { display: none; }
+
+/* ---- the zone tracker: in a fight only the node's own lines (waves, fights left) stay */
+body.in-fight #tracker .zl { display: none; }
+#tracker .tk-h, #tracker .tk-l { align-self: flex-end; padding: 0 .4rem; border-radius: .3rem; background: rgba(8, 6, 4, .38); }
+/* the end boss's track sits under the boss frame (which moved down under the Furnace), over the boss's own sprite */
+#nameplates .np.boss { margin-top: 3.4rem; }
+#minimap .clock:empty { display: none; }
+/* windows open below the Furnace (it stays in view and uncovered); the settings window scrolls when the screen is short */
+#win-map { top: calc(2rem + var(--furnace-h)); }
+#win-settings, #win-settings.dev { top: calc(var(--furnace-h) + .8rem); transform: translateX(-50%); max-height: calc(100vh - var(--furnace-h) - 17.2rem); overflow-y: auto; scrollbar-width: thin; scrollbar-color: #5a4628 transparent; }
+#win-talents { top: calc(50% + var(--furnace-h) / 2 - 2rem); max-height: calc(100vh - var(--furnace-h) - 12rem); overflow-y: auto; }
+.hc-cap { margin: .2rem 0 .1rem; font: 700 1.05rem var(--font-ui); color: var(--ink-dim); letter-spacing: .03em; }
+/* in a fight the Furnace holds still (its embers and water move only between fights): the fight is the focus, and a round's
+   frames stay cheap on a loaded machine */
+body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-fight #heat .ht-core i { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) { #heat .ht-calm, #heat .ht-core::before, #heat .ht-core i { animation: none; } }
+
 </style>
 </head>
 <body>
@@ -1090,8 +1181,8 @@ body[data-phase="MAP"]:not(.in-fight) #toasts .toast { white-space: normal; text
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (963da6b 2026-11-11T09:05:49Z) from 56 modules.
-const __BUILD__ = "963da6b 2026-11-11T09:05:49Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (cc485e6 2026-11-11T10:11:02Z) from 56 modules.
+const __BUILD__ = "cc485e6 2026-11-11T10:11:02Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -15869,12 +15960,26 @@ const data = {
 
 });
 __bundle.def("src/ui/ui-text.js", function* (__ns, __link) {
-let SPELLS, TALENTS, BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS; __link.imp("src/ui/mock-data.js", [["SPELLS", (v) => { SPELLS = v; }], ["TALENTS", (v) => { TALENTS = v; }], ["STATUS_INFO", (v) => { BASE_STATUS = v; }], ["CONSUMABLES", (v) => { CONSUMABLES = v; }], ["BOONS", (v) => { BOONS = v; }], ["CLASSES", (v) => { CLASSES = v; }], ["PETS", (v) => { PETS = v; }]]); __link.exp({ "STATUS_INFO": () => STATUS_INFO, "windupAnswers": () => windupAnswers, "windupStakes": () => windupStakes, "ROLE_INFO": () => ROLE_INFO, "CONTROL_WORD": () => CONTROL_WORD, "engageText": () => engageText, "engageHint": () => engageHint, "ENGAGE_KIND": () => ENGAGE_KIND, "CLASS_UI": () => CLASS_UI, "spellText": () => spellText, "bounceText": () => bounceText, "talentText": () => talentText, "talentTotals": () => talentTotals, "consumableText": () => consumableText, "boonText": () => boonText, "petText": () => petText, "UNIQUE_EFFECT_TEXT": () => UNIQUE_EFFECT_TEXT, "ECHO_LINE": () => ECHO_LINE, "humanize": () => humanize, "numWord": () => numWord, "plural": () => plural, "pct1": () => pct1, "pct2": () => pct2, "statusEffect": () => statusEffect, "RES_NAME": () => RES_NAME, "resurrectText": () => resurrectText, "DANGER_LEVELS": () => DANGER_LEVELS, "dangerRule": () => dangerRule, "dangerBanner": () => dangerBanner, "META_KIND": () => META_KIND, "metaEffect": () => metaEffect, "metaReqText": () => metaReqText, "oathEffect": () => oathEffect, "nextRunLines": () => nextRunLines, "linkedText": () => linkedText });
+let SPELLS, TALENTS, BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS; __link.imp("src/ui/mock-data.js", [["SPELLS", (v) => { SPELLS = v; }], ["TALENTS", (v) => { TALENTS = v; }], ["STATUS_INFO", (v) => { BASE_STATUS = v; }], ["CONSUMABLES", (v) => { CONSUMABLES = v; }], ["BOONS", (v) => { BOONS = v; }], ["CLASSES", (v) => { CLASSES = v; }], ["PETS", (v) => { PETS = v; }]]); __link.exp({ "HEAT_WORDS": () => HEAT_WORDS, "tolls": () => tolls, "STATUS_INFO": () => STATUS_INFO, "windupAnswers": () => windupAnswers, "windupStakes": () => windupStakes, "ROLE_INFO": () => ROLE_INFO, "CONTROL_WORD": () => CONTROL_WORD, "engageText": () => engageText, "engageHint": () => engageHint, "ENGAGE_KIND": () => ENGAGE_KIND, "CLASS_UI": () => CLASS_UI, "spellText": () => spellText, "bounceText": () => bounceText, "talentText": () => talentText, "talentTotals": () => talentTotals, "consumableText": () => consumableText, "boonText": () => boonText, "petText": () => petText, "UNIQUE_EFFECT_TEXT": () => UNIQUE_EFFECT_TEXT, "ECHO_LINE": () => ECHO_LINE, "humanize": () => humanize, "numWord": () => numWord, "plural": () => plural, "pct1": () => pct1, "pct2": () => pct2, "statusEffect": () => statusEffect, "RES_NAME": () => RES_NAME, "resurrectText": () => resurrectText, "DANGER_LEVELS": () => DANGER_LEVELS, "dangerRule": () => dangerRule, "dangerBanner": () => dangerBanner, "META_KIND": () => META_KIND, "metaEffect": () => metaEffect, "metaReqText": () => metaReqText, "oathEffect": () => oathEffect, "nextRunLines": () => nextRunLines, "linkedText": () => linkedText });
 yield;
 // Display text for tooltips and screens (descriptions of spells, talents, statuses, consumables,
 // boons and classes). Wording follows docs/specs/rules.md; numbers that matter come from the
 // engine at run time. CONTENT.texts (src/content) overrides any line when it provides one.
 
+
+/**
+ * Player-facing words for the run's time pressure (docs/specs/changes-m2b-v7.md table D, draft; owner 2026-11-11 10:12):
+ * the meter is the Furnace, its states Calm, Smouldering, Burning and Infernal (engine ids clear, warm, hot, scorched),
+ * time is counted in tolls, whole numbers only, no "h" and no day clock. Every heat and time text of the UI takes its
+ * words from here, so a rename is one edit. Until the engine's own rename, 1 toll = 1 engine hour (view.hours).
+ */
+const HEAT_WORDS = {
+  name: 'the Furnace', Name: 'The Furnace', // in a sentence / as a title
+  state: { clear: 'Calm', warm: 'Smouldering', hot: 'Burning', scorched: 'Infernal' },
+  unit: 'toll', units: 'tolls', Units: 'Tolls',
+};
+/** A whole number of tolls in words: "1 toll", "3 tolls" (rounded; never a decimal, never "h"). */
+function tolls(n) { const k = Math.round(Math.abs(n || 0)); return `${k} ${k === 1 ? HEAT_WORDS.unit : HEAT_WORDS.units}`; }
 
 const STATUS_INFO = {
   ...BASE_STATUS,
@@ -16067,7 +16172,7 @@ const ECHO_LINE = {
   levels: 'Levels gained', zones: 'Zones completed', dungeons: 'Dungeons cleared', elites: 'Elites slain', rares: 'Rares slain',
   quests: 'Quests completed', bossReached: 'Reached the boss', bossPhases: 'Boss phases reached', bossKill: 'Oruvath defeated',
   speed: 'Swift victory', firstKill: 'First kill with this class',
-  heat: 'Fights won in heat', // rules 11.1 (heat): fights won in nodes entered Hot or Scorched
+  heat: `Fights won ${HEAT_WORDS.state.hot} or ${HEAT_WORDS.state.scorched}`, // rules 11.1 (heat): fights won in nodes entered Hot or Scorched
 };
 const humanize = (id) => String(id || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
@@ -16241,7 +16346,7 @@ function metaReqText(req, D, short = false) {
 /** An Oath (rules 11.5, R.C.OATH) in words: { short, long }. Numbers from D.num. */
 function oathEffect(o, D) {
   switch (o.id) {
-    case 'haste': return { short: `Par time ${D.num.oathHaste} h shorter`, long: `${D.names.boss}'s par time is ${D.num.oathHaste} hours shorter: Ascendancy begins sooner, and the swift-victory bonus asks for a faster run.` };
+    case 'haste': return { short: `Par ${tolls(D.num.oathHaste)} sooner`, long: `${D.names.boss}'s par is ${tolls(D.num.oathHaste)} sooner: Ascendancy begins sooner, and the swift-victory bonus asks for a faster run.` };
     case 'frailty': return { short: 'No resurrections', long: `Nothing brings you back: no ${D.names.boon}, no Second Breath, no ${D.names.ember}. One death ends the run.` };
     case 'thrift': return { short: `Vendor prices ×${D.num.oathThrift}`, long: `Everything vendors sell costs ×${D.num.oathThrift}: potions, gear and Embers.` };
     default: return { short: '', long: '' };
@@ -16694,7 +16799,7 @@ function controlIcon(by) { return by === 'TRAP' ? icon('trap', 'steel') : by ===
 
 });
 __bundle.def("src/ui/tooltip.js", function* (__ns, __link) {
-let h, clear, moneyEl, pct, fmtNum; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["pct", (v) => { pct = v; }], ["fmtNum", (v) => { fmtNum = v; }]]); let itemIcon; __link.imp("src/ui/art-icons.js", [["itemIcon", (v) => { itemIcon = v; }]]); let statusEffect, talentTotals; __link.imp("src/ui/ui-text.js", [["statusEffect", (v) => { statusEffect = v; }], ["talentTotals", (v) => { talentTotals = v; }]]); __link.exp({ "initTooltip": () => initTooltip, "tip": () => tip, "show": () => show, "hide": () => hide, "statLine": () => statLine, "itemTip": () => itemTip, "spellTip": () => spellTip, "basicTip": () => basicTip, "talentTip": () => talentTip, "statusTip": () => statusTip, "SLOT_NAMES": () => SLOT_NAMES, "STAT_NAMES": () => STAT_NAMES, "pct": () => pct });
+let h, clear, moneyEl, pct, fmtNum; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["pct", (v) => { pct = v; }], ["fmtNum", (v) => { fmtNum = v; }]]); let itemIcon; __link.imp("src/ui/art-icons.js", [["itemIcon", (v) => { itemIcon = v; }]]); let statusEffect, talentTotals, HEAT_WORDS; __link.imp("src/ui/ui-text.js", [["statusEffect", (v) => { statusEffect = v; }], ["talentTotals", (v) => { talentTotals = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }]]); __link.exp({ "initTooltip": () => initTooltip, "tip": () => tip, "show": () => show, "hide": () => hide, "statLine": () => statLine, "itemTip": () => itemTip, "spellTip": () => spellTip, "basicTip": () => basicTip, "talentTip": () => talentTip, "statusTip": () => statusTip, "SLOT_NAMES": () => SLOT_NAMES, "STAT_NAMES": () => STAT_NAMES, "pct": () => pct });
 yield;
 // Hover tooltips for spells, items, talents, statuses and map nodes. Content is built from the
 // view and the bridge's data tables; nothing here decides game rules. Talents show the totals of the ranks taken and the
@@ -16754,7 +16859,7 @@ function itemTip(item, ctx, opts = {}) {
   const box = h('div.tt-item');
   box.appendChild(h('div.tt-head', h('img.tt-icon', { src: itemIcon(item), alt: '' }), h('div', h('div.tt-name.r-' + (item.rarity || 'common'), item.name), item.kind === 'gear' ? h('div.tt-sub', `${SLOT_NAMES[item.slot] || item.slot} · Item level ${item.ilvl}`) : null)));
   // heat (rules 8.4): found in a node entered Hot or Scorched, one rarity higher (the bridge's heatUp)
-  if (item.heatUp) box.appendChild(h('div.tt-line.heatup', { dataset: { hs: item.heatUp } }, `▲ Heat raised it one rarity (found ${item.heatUp[0].toUpperCase()}${item.heatUp.slice(1)})`));
+  if (item.heatUp) box.appendChild(h('div.tt-line.heatup', { dataset: { hs: item.heatUp } }, `▲ ${HEAT_WORDS.Name} raised it one rarity (found ${item.heatUp[0].toUpperCase()}${item.heatUp.slice(1)})`));
   if (item.kind === 'gear') {
     const s = item.stats || {};
     if (s.wd) box.appendChild(h('div.tt-line', statLine('wd', s.wd)));
@@ -16845,19 +16950,22 @@ function statusTip(s, ctx) {
 
 });
 __bundle.def("src/ui/heat.js", function* (__ns, __link) {
-let h, clear, clamp; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["clamp", (v) => { clamp = v; }]]); let tip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }]]); __link.exp({ "HEAT_NAME": () => HEAT_NAME, "HEAT_COLOR": () => HEAT_COLOR, "heatKey": () => heatKey, "fmtH": () => fmtH, "standText": () => standText, "bossText": () => bossText, "chanceText": () => chanceText, "payText": () => payText, "heatToast": () => heatToast, "dimBarPos": () => dimBarPos, "createHeatMeter": () => createHeatMeter, "heatTip": () => heatTip, "previewBlock": () => previewBlock, "heatBadge": () => heatBadge, "buildHeatSummary": () => buildHeatSummary });
+let h, clear, clamp; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["clamp", (v) => { clamp = v; }]]); let tip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }]]); let HW, tolls; __link.imp("src/ui/ui-text.js", [["HEAT_WORDS", (v) => { HW = v; }], ["tolls", (v) => { tolls = v; }]]); __link.exp({ "HEAT_NAME": () => HEAT_NAME, "HEAT_COLOR": () => HEAT_COLOR, "heatKey": () => heatKey, "fmtH": () => fmtH, "lineShown": () => lineShown, "standText": () => standText, "bossText": () => bossText, "chanceText": () => chanceText, "payText": () => payText, "heatToast": () => heatToast, "dimBarPos": () => dimBarPos, "createHeatMeter": () => createHeatMeter, "heatTip": () => heatTip, "previewBlock": () => previewBlock, "heatBadge": () => heatBadge, "buildHeatSummary": () => buildHeatSummary });
 yield;
 // heat.js - the Heat meter and the texts that name heat (docs/specs/expedition.md H.4, H.5; engine-api.md 11; owner
 // feedback 2026-11-10 14:05: an always-visible meter, like FTL's chasing red line). Presentation only: the state, the
 // line, the heat, the projected boss Ascendancy, the Dimming's clock and every preview come from R.heatView and
 // R.heatPreview through the bridge (view.heat, bridge.heatPreview); the thresholds and rewards the texts name come from
 // the engine's constants (data.rules.heat). Nothing here computes a state, a line or a reward.
+// Owner 2026-11-11 10:12 (draft): the meter is named the Furnace (changes-m2b-v7.md table D: Calm, Smouldering, Burning,
+// Infernal; whole tolls, 1 toll = 1 engine hour until the engine's rename) and sits at the top centre, calm water on the
+// cool side and embers on the hot side; its name and time unit come from ui-text.js HEAT_WORDS (a rename is one edit).
 //
 //   createHeatMeter(root, ctx)  the HUD meter, on every screen of a run but the summary: the four states (Clear, Warm,
 //                               Hot, Scorched) as segments of one bar over HEAT_BAR_MIN..HEAT_BAR_MAX hours past the
 //                               line, the Star's line (red) at heat 0, the player's marker (bar.marker, an arrow when
 //                               bar.beyond), in an expedition zone the Dimming's marker, a ghost marker for the hovered
-//                               choice, the numbers ("12 h in hand" / "8 h past the line", "Boss +4 %"), what the state
+//                               choice, the numbers ("12 tolls in hand" / "8 tolls past the line", "Boss +4 %"), what the state
 //                               or the node the player is in pays, a first-time note; noteStep: a toast on every change of
 //                               state, after the step that made it has played.
 //   heatKey(action)             the key of an hour-costing engine action in view.heat.next
@@ -16877,7 +16985,8 @@ yield;
 
 
 
-const HEAT_NAME = { clear: 'Clear', warm: 'Warm', hot: 'Hot', scorched: 'Scorched' };
+
+const HEAT_NAME = HW.state; // Calm, Smouldering, Burning, Infernal (ui-text.js HEAT_WORDS)
 const HEAT_COLOR = { clear: '#3f9bd6', warm: '#f0c75a', hot: '#ec7a2c', scorched: '#b8263f' };
 const INTRO_KEY = 'tbwcr.heatIntro.v1'; // the first-time note was shown (localStorage)
 const STATES = ['clear', 'warm', 'hot', 'scorched'];
@@ -16895,12 +17004,18 @@ function heatKey(a) {
   }
 }
 
-/** Hours with at most one decimal (the line under the Oath of Haste is not whole): 12, 16.7. */
-const fmtH = (x) => String(Math.round(Math.abs(x) * 10) / 10);
-/** Where the player stands against the line: "12 h in hand", "8 h past the line", "On the line". */
+/** A time value as a whole number (M2b v7: no decimals; 1 toll = 1 engine hour until the engine's rename). */
+const fmtH = (x) => String(Math.round(Math.abs(x)));
+/** The Star's line as shown: rounded up per zone (changes-m2b-v7.md A row 2; the states are the same either way). */
+const lineShown = (line) => Math.ceil(line - 1e-9);
+/**
+ * Where the player stands against this zone's line (the meter's main number): "12 tolls in hand", "On the line",
+ * "8 tolls past the line". Whole tolls against the line rounded up: past = floor(heat), in hand = ceil(-heat).
+ */
 function standText(x) {
-  if (x.heat > 0) return `${fmtH(x.heat)} h past the line`;
-  if (x.heat < 0) return `${fmtH(x.heat)} h in hand`;
+  const past = Math.floor(x.heat + 1e-9); const hand = Math.ceil(-x.heat - 1e-9);
+  if (x.heat > 0 && past > 0) return `${tolls(past)} past the line`;
+  if (x.heat < 0 && hand > 0) return `${tolls(hand)} in hand`;
   return 'On the line';
 }
 const bossText = (asc) => `Boss +${Math.round((asc || 0) * 100)} %`;
@@ -16928,10 +17043,11 @@ function firstPaying(H) { return STATES.find((s) => (H.gain[s] || 0) > 0 || (H.r
 function heatToast(hv, camp = false) {
   const dim = hv.by === 'dim';
   switch (hv.state) {
-    case 'clear': return 'Clear: you are ahead of the Star\'s line';
-    case 'warm': return dim ? 'Warm: the Dimming draws near' : 'Warm: the Star\'s line has caught you';
-    case 'hot': return dim ? 'Hot: the Dimming closes in; spoils grow' : camp ? 'Hot: the Unlit Star gains on you' : 'Hot: the Unlit Star gains on you; spoils grow';
-    case 'scorched': return dim ? 'Scorched: you stand in the Dimming' : camp ? 'Scorched: the Star burns close' : 'Scorched: the Star burns close; spoils are richest';
+    // changes-m2b-v7.md table D (the Dimming and the camp keep their own endings)
+    case 'clear': return `${HEAT_NAME.clear}: you are ahead of the Star.`;
+    case 'warm': return dim ? `${HEAT_NAME.warm}: the Dimming draws near.` : `${HEAT_NAME.warm}: past the Star's line; the speed bonus is lost.`;
+    case 'hot': return dim ? `${HEAT_NAME.hot}: the Dimming closes in; spoils grow.` : camp ? `${HEAT_NAME.hot}: the Unlit Star gains on you.` : `${HEAT_NAME.hot}: the Unlit Star gains on you; spoils grow.`;
+    case 'scorched': return dim ? `${HEAT_NAME.scorched}: you stand in the Dimming.` : camp ? `${HEAT_NAME.scorched}: the Star burns high.` : `${HEAT_NAME.scorched}: the Star burns high; spoils are richest.`;
     default: return HEAT_NAME[hv.state] || '';
   }
 }
@@ -16972,14 +17088,16 @@ function createHeatMeter(host, ctx, noteRoot = host) {
   els.ghost = h('div.ht-mark.ghost.hidden', h('i'));
   els.mark = h('div.ht-mark.run', h('i'), h('b.ht-arrow.hidden'));
   els.dmark = h('div.ht-mark.dim.hidden', h('i'));
-  els.el = h('div#heat.panel.hidden', { role: 'group', 'aria-label': 'Heat' },
-    h('div.ht-row', h('span.ht-title', 'Heat'), els.state, els.num, els.boss, els.dimTxt), els.bar, h('div.ht-row2', els.pay));
+  // the meter at the top centre of the HUD (owner 2026-11-11 10:12): the calm side (still water) left, the hot side (embers,
+  // molten glow) right, the player's pointer moving between them; .ht-calm and .ht-core are decoration only
+  els.el = h('div#heat.panel.hidden', { role: 'group', 'aria-label': HW.Name },
+    h('div.ht-row', h('span.ht-title', HW.Name), els.state, els.num, els.boss, els.dimTxt), els.bar, h('div.ht-row2', els.pay));
   host.appendChild(els.el);
   tip(els.el, () => heatTip(ctx));
   // the first-time note (H.4 wording: "Heat", "the Star's line"), once per browser profile, on the first hub until
   // "Got it" or setting out
   els.introBtn = h('button.btn.small', { type: 'button' }, 'Got it');
-  els.intro = h('div#heat-intro.hidden', { role: 'note', 'aria-label': 'About heat' }, h('div.hi-t', 'Heat'), h('div.hi-b'), h('div.hi-f', els.introBtn));
+  els.intro = h('div#heat-intro.hidden', { role: 'note', 'aria-label': `About ${HW.name}` }, h('div.hi-t', HW.Name), h('div.hi-b'), h('div.hi-f', els.introBtn));
   noteRoot.appendChild(els.intro);
   let introSeen = (() => { try { return !!localStorage.getItem(INTRO_KEY); } catch { return false; } })();
   const closeIntro = () => { introSeen = true; els.intro.classList.add('hidden'); try { localStorage.setItem(INTRO_KEY, '1'); } catch { /* storage blocked */ } };
@@ -16998,7 +17116,10 @@ function createHeatMeter(host, ctx, noteRoot = host) {
       els.segs[s] = seg; els.bar.appendChild(seg);
     }
     els.line.style.left = `${pctOf(0, bar)}%`;
-    els.bar.append(els.line, els.span, els.ghost, els.dmark, els.mark);
+    const hot0 = pctOf(H.hotAt, bar);
+    els.bar.append(h('div.ht-calm', { 'aria-hidden': 'true', style: { width: `${pctOf(0, bar)}%` } }),
+      h('div.ht-core', { 'aria-hidden': 'true', style: { left: `${hot0}%`, width: `${100 - hot0}%` } }, h('i'), h('i'), h('i')),
+      els.line, els.span, els.ghost, els.dmark, els.mark);
   }
 
   function update(v) {
@@ -17028,7 +17149,7 @@ function createHeatMeter(host, ctx, noteRoot = host) {
     if (dp) {
       els.dmark.style.left = `${pctOf(dp.x, bar)}%`;
       els.dmark.classList.toggle('sets', hv.by === 'dim');
-      els.dimTxt.querySelector('span').textContent = hv.dimIn <= 0 ? 'Dimmed' : `Dimming ${fmtH(hv.dimIn)} h`;
+      els.dimTxt.querySelector('span').textContent = hv.dimIn <= 0 ? 'Dimmed' : `Dimming: ${tolls(hv.dimIn)}`;
       els.dimTxt.classList.toggle('sets', hv.by === 'dim');
     }
     // what pays now (rules 1.7.3): inside a node its entry state (heatView.node), on the map or the hub what a node entered
@@ -17039,25 +17160,25 @@ function createHeatMeter(host, ctx, noteRoot = host) {
     const fp = firstPaying(H);
     let payLine = '';
     if (inNode) payLine = `This node pays ${HEAT_NAME[hv.node.state]}: ${pays}`;
-    else if (atCamp) payLine = 'At the camp heat pays nothing; it strengthens the boss';
+    else if (atCamp) payLine = `At the camp ${HW.name} pays nothing; it strengthens the boss`;
     else if (pays) payLine = `Spoils: ${pays}`;
     else if (fp && !(hv.node)) payLine = `${HEAT_NAME[fp]} pays ${payText(fp, H, true)}`;
     els.pay.classList.toggle('quiet', !inNode && !pays);
     els.pay.classList.toggle('node', !!inNode);
     els.pay.dataset.hs = inNode ? hv.node.state : hv.state;
     drawGhost(hv, payLine);
-    els.el.setAttribute('aria-label', `Heat: ${HEAT_NAME[hv.state]}${hv.by === 'dim' ? ' (set by the Dimming)' : ''}, ${standText(hv)}, ${bossText(hv.ascIfPar)}${payLine ? `. ${payLine}` : ''}`);
+    els.el.setAttribute('aria-label', `${HW.Name}: ${HEAT_NAME[hv.state]}${hv.by === 'dim' ? ' (set by the Dimming)' : ''}, ${standText(hv)}, ${bossText(hv.ascIfPar)}${payLine ? `. ${payLine}` : ''}`);
     // the first-time note: on the hub (hidden while a service window is open), until "Got it" or setting out
     if (!introSeen) {
       const svcOpen = !!(v.node && v.node.origin === 'hub');
       if (v.phase === 'ZONE_HUB' && svcOpen) els.intro.classList.add('hidden');
       else if (v.phase === 'ZONE_HUB') {
         if (els.intro.classList.contains('hidden')) {
-          const fpay = fp ? `${HEAT_NAME[fp]} from ${fmtH(fp === 'hot' ? H.hotAt : fp === 'scorched' ? H.scorchAt : H.warmAt)} h past it pays ${payText(fp, H)}.` : '';
+          const fpay = fp ? `${HEAT_NAME[fp]} from ${tolls(fp === 'hot' ? H.hotAt : fp === 'scorched' ? H.scorchAt : H.warmAt)} past it pays ${payText(fp, H)}.` : '';
           clear(els.intro.querySelector('.hi-b')).append(
-            h('p', `Every hour counts against the Star's line (red). Left of it you are in the clear; past it, Oruvath grows stronger before you meet him (${bossText(hv.ascIfPar)} now).`),
+            h('p', `Every toll counts against the Star's line (red). Left of it ${HW.name} is ${HEAT_NAME.clear}; past it, Oruvath grows stronger before you meet him (${bossText(hv.ascIfPar)} now).`),
             fpay ? h('p', `Running hot pays: ${fpay}`) : null,
-            h('p.dim', 'Hover the meter, a node or a service to see the hours and where they leave you.'));
+            h('p.dim', `Hover ${HW.name}, a node or a service to see its ${HW.units} and where they leave you.`));
           els.intro.classList.remove('hidden');
         }
       } else if (!els.intro.classList.contains('hidden')) closeIntro();
@@ -17076,7 +17197,7 @@ function createHeatMeter(host, ctx, noteRoot = host) {
       const a = pctOf(bar.marker, bar); const b = pctOf(gx, bar);
       els.span.style.left = `${Math.min(a, b)}%`; els.span.style.width = `${Math.abs(b - a)}%`;
       els.span.classList.toggle('back', b < a); // leaving the zone: the line moves ahead, the heat drops
-      clear(els.pay).append(h('i.ht-dot', { dataset: { hs: p.state } }), `→ ${fmtH(p.hours)} h${p.perWave ? ' a wave' : ''}${p.dimFight ? ' + Dimmed fight' : ''} · ends ${HEAT_NAME[p.state]}`);
+      clear(els.pay).append(h('i.ht-dot', { dataset: { hs: p.state } }), `→ ${tolls(p.hours)}${p.perWave ? ' a wave' : ''}${p.dimFight ? ' + Dimmed fight' : ''}, ends ${HEAT_NAME[p.state]}`);
       els.pay.classList.add('pv');
     } else {
       els.pay.classList.remove('pv');
@@ -17114,20 +17235,21 @@ function heatTip(ctx) {
   const hv = ctx.view && ctx.view.heat; const H = ctx.data.rules.heat;
   if (!hv || !H) return null;
   const box = h('div.tt-heatbox');
-  box.appendChild(h('div.tt-name', 'Heat'));
-  box.appendChild(h('div.tt-line', `${standText(hv)}: ${fmtH(hv.hours)} h on the clock, the Star's line at ${fmtH(hv.line)} h.`));
-  box.appendChild(h('div.tt-line.desc', `${bossText(hv.ascIfPar)} if you keep the line from here. The line reaches the par (${fmtH(hv.par)} h) at the camp; for every ${H.ascStepHours} h past the par Oruvath gains +${Math.round(H.ascPerStep * 100)} % health and damage (Ascendancy, at most +${Math.round(H.ascCap * 100)} %).`));
+  box.appendChild(h('div.tt-name', HW.Name));
+  box.appendChild(h('div.tt-line', `${standText(hv)} in this zone.`));
+  box.appendChild(h('div.tt-line', `${HW.Units} so far: ${fmtH(hv.hours)} · the Star's line: ${lineShown(hv.line)}`));
+  box.appendChild(h('div.tt-line.desc', `Oruvath grows stronger for every ${tolls(H.ascStepHours)} past ${fmtH(hv.par)} (Ascendancy): +${Math.round(H.ascPerStep * 100)} % health and damage each, at most +${Math.round(H.ascCap * 100)} %. ${bossText(hv.ascIfPar)} if you keep the line from here.`));
   const rows = [
-    ['clear', 'ahead of the line'], ['warm', `${fmtH(H.warmAt)} to ${fmtH(H.hotAt)} h past`], ['hot', `${fmtH(H.hotAt)} to ${fmtH(H.scorchAt)} h past`], ['scorched', `${fmtH(H.scorchAt)} h or more past`],
+    ['clear', 'ahead of the line'], ['warm', `${fmtH(H.warmAt)} to ${tolls(H.hotAt)} past`], ['hot', `${fmtH(H.hotAt)} to ${tolls(H.scorchAt)} past`], ['scorched', `${tolls(H.scorchAt)} or more past`],
   ];
   box.appendChild(h('div.tt-heatstates', rows.map(([s, when]) => h('div.hs' + (s === hv.state ? '.on' : ''), { dataset: { hs: s } }, h('i.ht-dot', { dataset: { hs: s } }), h('b', HEAT_NAME[s]), h('span.w', when), h('span.p', payText(s, H) || 'no reward')))));
   box.appendChild(h('div.tt-sub', 'A node pays the state you enter it in.'));
-  if (hv.node) box.appendChild(h('div.tt-line', { style: { color: HEAT_COLOR[hv.node.state] === HEAT_COLOR.scorched ? '#ff8a96' : HEAT_COLOR[hv.node.state] } }, `This node was entered ${HEAT_NAME[hv.node.state]}: ${payText(hv.node.state, H) || 'no heat reward'}.`));
+  if (hv.node) box.appendChild(h('div.tt-line', { style: { color: HEAT_COLOR[hv.node.state] === HEAT_COLOR.scorched ? '#ff8a96' : HEAT_COLOR[hv.node.state] } }, `This node was entered ${HEAT_NAME[hv.node.state]}: ${payText(hv.node.state, H) || 'no reward'}.`));
   if (hv.dimIn !== null && hv.dimIn !== undefined) {
-    box.appendChild(h('div.tt-line.dimline', hv.dimIn <= 0 ? 'Dimming: your node is Dimmed (Scorched).' : `Dimming: your node dims in ${fmtH(hv.dimIn)} h (${HEAT_NAME.warm} at ${fmtH(H.dimWarm)} h or less, ${HEAT_NAME.hot} at ${fmtH(H.dimHot)} h or less, ${HEAT_NAME.scorched} once Dimmed).`));
+    box.appendChild(h('div.tt-line.dimline', hv.dimIn <= 0 ? `Dimming: your node is Dimmed (${HEAT_NAME.scorched}).` : `Dimming: your node dims in ${tolls(hv.dimIn)} (${HEAT_NAME.warm} at ${tolls(H.dimWarm)} or less, ${HEAT_NAME.hot} at ${tolls(H.dimHot)} or less, ${HEAT_NAME.scorched} once Dimmed).`));
     box.appendChild(h('div.tt-line', `The hotter clock sets the state: now ${hv.by === 'dim' ? `the Dimming (${HEAT_NAME[hv.stateDim]})` : `the line (${HEAT_NAME[hv.stateRun]})`}.`));
   }
-  box.appendChild(h('div.tt-hint', 'Hover a node, a service or a wave to see its hours and where they leave you.'));
+  box.appendChild(h('div.tt-hint', `Hover a node, a service or a wave to see its ${HW.units} and where they leave you.`));
   return box;
 }
 
@@ -17139,15 +17261,15 @@ function previewBlock(p, ctx, opts = {}) {
   const H = ctx.data.rules.heat;
   if (!p || !H) return null;
   const box = h('div.tt-heat', { dataset: { hs: p.state } });
-  const hrs = `${fmtH(p.hours)} h${p.perWave ? ' a wave' : ''}`;
-  box.appendChild(h('div.th-l', h('span.k', 'Heat'), h('i.ht-dot', { dataset: { hs: p.state } }), `${hrs} · ends `, h('b', { dataset: { hs: p.state } }, HEAT_NAME[p.state]), p.change ? h('span.chg', ' (a new state)') : null));
-  if (p.dimFight) box.appendChild(h('div.th-w', 'It ends in the Dimming: a Dimmed encounter follows (its hour included).'));
+  const hrs = `${tolls(p.hours)}${p.perWave ? ' a wave' : ''}`;
+  box.appendChild(h('div.th-l', h('span.k', HW.Name), h('i.ht-dot', { dataset: { hs: p.state } }), `${hrs}, ends `, h('b', { dataset: { hs: p.state } }, HEAT_NAME[p.state]), p.change ? h('span.chg', ' (a new state)') : null));
+  if (p.dimFight) box.appendChild(h('div.th-w', `It ends in the Dimming: a Dimmed encounter follows (its ${HW.unit} included).`));
   if (p.pays) {
     const pt = payText(p.pays, H);
-    box.appendChild(h('div.th-p' + (pt ? '.paid' : ''), { dataset: { hs: p.pays } }, `Pays ${HEAT_NAME[p.pays]}: ${pt || 'no heat reward'}`));
+    box.appendChild(h('div.th-p' + (pt ? '.paid' : ''), { dataset: { hs: p.pays } }, `Pays ${HEAT_NAME[p.pays]}: ${pt || 'no reward'}`));
   }
   if (opts.leaves) box.appendChild(h('div.th-s', 'The next zone moves the Star\'s line ahead.'));
-  box.appendChild(h('div.th-s', `Then ${standText(p).replace(/^On the line$/, 'on the line')} · ${bossText(p.ascIfPar)}${p.dimIn !== null && p.dimIn !== undefined && !p.dimFight ? ` · Dimming ${p.dimIn <= 0 ? 'here' : `${fmtH(p.dimIn)} h`}` : ''}`));
+  box.appendChild(h('div.th-s', `Then ${standText(p).replace(/^On the line$/, 'on the line')} · ${bossText(p.ascIfPar)}${p.dimIn !== null && p.dimIn !== undefined && !p.dimFight ? ` · Dimming ${p.dimIn <= 0 ? 'here' : `in ${tolls(p.dimIn)}`}` : ''}`));
   return box;
 }
 
@@ -17155,9 +17277,9 @@ function previewBlock(p, ctx, opts = {}) {
 function heatBadge(state, ctx, kind = 'node') {
   const H = ctx.data.rules.heat;
   if (!H || !state || !(H.gain[state] > 0 || H.rarityUp[state] > 0)) return null;
-  const el = h('span.heat-badge', { dataset: { hs: state } }, kind === 'item' ? '▲ Heat' : `${HEAT_NAME[state]} spoils`);
-  tip(el, () => h('div', h('div.tt-name', kind === 'item' ? 'Raised by heat' : `Entered ${HEAT_NAME[state]}`),
-    h('div.tt-line.desc', kind === 'item' ? `Found in a node entered ${HEAT_NAME[state]}: heat raised this item one rarity.` : `This node pays ${payText(state, H)}.`)));
+  const el = h('span.heat-badge', { dataset: { hs: state } }, kind === 'item' ? `▲ ${HW.Name}` : `${HEAT_NAME[state]} spoils`);
+  tip(el, () => h('div', h('div.tt-name', kind === 'item' ? `Raised by ${HW.name}` : `Entered ${HEAT_NAME[state]}`),
+    h('div.tt-line.desc', kind === 'item' ? `Found in a node entered ${HEAT_NAME[state]}: ${HW.name} raised this item one rarity.` : `This node pays ${payText(state, H)}.`)));
   return el;
 }
 
@@ -17176,18 +17298,19 @@ function buildHeatSummary(sum, ctx) {
   const over = sum.hours - sum.par;
   const card = h('div.card.heatcard');
   const endLine = sum.reachedCamp
-    ? `${fmtH(sum.hours)} h, par ${fmtH(sum.par)} h: ${over > 0 ? `${fmtH(over)} h over par` : over < 0 ? `${fmtH(over)} h under par` : 'on par'}`
-    : `${fmtH(sum.hours)} h, the Star's line at ${fmtH(last.line)} h: ${standText({ heat: last.b })}`;
+    ? `${HW.Units}: ${fmtH(sum.hours)} (par ${fmtH(sum.par)}) · ${over > 0 ? `${tolls(over)} over par` : over < 0 ? `${tolls(over)} under par` : 'on par'}${sum.asc ? ` · Ascendancy +${Math.round(sum.asc * 100)} %` : ''}`
+    : `${HW.Units}: ${fmtH(sum.hours)} · the Star's line: ${lineShown(last.line)} · ${standText({ heat: last.b })}`;
   // hours by state: a thin bar of the run's hours with the figures beside it, in the card's head next to the end line
   const tot = ht.hoursByState.reduce((a, b) => a + b, 0) || 1;
-  const strip = h('div.hc-strip', { role: 'img', 'aria-label': `Hours by state: ${STATES.map((s, i) => `${HEAT_NAME[s]} ${ht.hoursByState[i]} h`).join(', ')}` },
+  const strip = h('div.hc-strip', { role: 'img', 'aria-label': `${HW.Units} in each state: ${STATES.map((s, i) => `${HEAT_NAME[s]} ${fmtH(ht.hoursByState[i])}`).join(' · ')}` },
     STATES.map((s, i) => (ht.hoursByState[i] > 0 ? h('i', { dataset: { hs: s }, style: { flexGrow: String(ht.hoursByState[i] / tot) } }) : null)));
-  card.appendChild(h('div.hc-head', h('h3', 'Heat'), h('div.hc-hours', strip,
-    h('span.hc-leg', STATES.map((s, i) => h('span', h('i.ht-dot', { dataset: { hs: s } }), `${HEAT_NAME[s]} ${fmtH(ht.hoursByState[i])} h`)))), h('span.hc-end', endLine)));
+  card.appendChild(h('div.hc-head', h('h3', HW.Name), h('div.hc-hours', strip,
+    h('span.hc-leg', `${HW.Units} in each state: `, STATES.map((s, i) => h('span', h('i.ht-dot', { dataset: { hs: s } }), `${HEAT_NAME[s]} ${fmtH(ht.hoursByState[i])}`)))), h('span.hc-end', endLine)));
+  card.appendChild(h('div.hc-cap', `${HW.Units} against the Star's line`));
   card.appendChild(heatChart(recs, H, zc));
   const hotNodes = ht.nodesByState[2] + ht.nodesByState[3];
   const hotFights = ht.fightsByState[2] + ht.fightsByState[3];
-  card.appendChild(h('div.hc-foot', `Nodes entered: ${STATES.map((s, i) => `${ht.nodesByState[i]} ${HEAT_NAME[s]}`).join(' · ')}. Fights won in heat: ${hotFights}${hotNodes ? '' : ' (no node entered Hot or Scorched)'}. Hover a point for its hours.`));
+  card.appendChild(h('div.hc-foot', `Nodes entered: ${STATES.map((s, i) => `${ht.nodesByState[i]} ${HEAT_NAME[s]}`).join(' · ')}. Fights won in heat: ${hotFights}${hotNodes ? '' : ' (no node entered ${HEAT_NAME.hot} or ${HEAT_NAME.scorched})'}. Hover a point for its ${HW.units}.`));
   return card;
 }
 
@@ -17204,7 +17327,7 @@ function heatChart(recs, H, zc) {
   const el = (tag, attrs, ...kids) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, v); for (const c of kids) if (c) e.appendChild(c); return e; };
   const txt = (x, yy, s, attrs = {}) => { const t = el('text', { x, y: yy, ...attrs }); t.textContent = s; return t; };
   const svg = el('svg', { viewBox: `0 0 ${W} ${HT}`, class: 'hc-chart', role: 'img',
-    'aria-label': `Heat per zone, hours past the Star's line on arrival and when left: ${recs.map((r) => `${r.z > zc ? 'camp' : `zone ${r.z}`} ${signed(r.a)} to ${signed(r.b)}`).join('; ')}` });
+    'aria-label': `${HW.Units} against the Star's line per zone, on arrival and when left: ${recs.map((r) => `${r.z > zc ? 'camp' : `zone ${r.z}`} ${signed(r.a)} to ${signed(r.b)}`).join('; ')}` });
   // state bands (a wash of each state's colour) and their names at the left
   const bands = [['clear', lo, H.warmAt], ['warm', H.warmAt, H.hotAt], ['hot', H.hotAt, H.scorchAt], ['scorched', H.scorchAt, hi]];
   for (const [s, a, b] of bands) {
@@ -17229,7 +17352,7 @@ function heatChart(recs, H, zc) {
     const v = k === 'a' ? r.a : r.b;
     const g = el('g', { class: 'pt', tabindex: '0' }, el('circle', { cx: px, cy: py, r: 12, class: 'hit' }), el('circle', { cx: px, cy: py, r: 4.5, class: 'dot' }));
     const zoneName = r.z > zc ? 'Camp' : `Zone ${r.z}`;
-    tip(g, () => h('div', h('div.tt-name', `${zoneName}, ${k === 'a' ? 'arrival' : 'leaving'}`), h('div.tt-line', `${fmtH(k === 'a' ? r.entry : r.exit)} h on the clock, the Star's line at ${fmtH(r.line)} h`),
+    tip(g, () => h('div', h('div.tt-name', `${zoneName}, ${k === 'a' ? 'arrival' : 'leaving'}`), h('div.tt-line', `${HW.Units} so far: ${fmtH(k === 'a' ? r.entry : r.exit)} · the Star's line: ${lineShown(r.line)}`),
       h('div.tt-line', { style: { fontWeight: 700 } }, standText({ heat: v }))));
     svg.appendChild(g);
   }
@@ -17237,8 +17360,8 @@ function heatChart(recs, H, zc) {
   svg.appendChild(txt(x1(recs.length - 1) + 9, y(lr.b) + 4, signed(lr.b), { class: 'endv' }));
   return h('div.hc-wrap', svg);
 }
-/** "+8 h" past the line, "−12 h" in hand. */
-function signed(v) { return v > 0 ? `+${fmtH(v)} h` : v < 0 ? `−${fmtH(v)} h` : '0 h'; }
+/** "+8" past the line, "−12" in hand (whole tolls). */
+function signed(v) { const k = v > 0 ? Math.floor(v + 1e-9) : Math.ceil(-v - 1e-9); return v > 0 && k ? `+${k}` : v < 0 && k ? `−${k}` : '0'; }
 
 });
 __bundle.def("src/ui/engine-bridge.js", function* (__ns, __link) {
@@ -20101,11 +20224,19 @@ yield;
 // heavy and cast intents hold a visible wind-up (telegraph) until the enemy acts; spells charge up and projectiles leave trails.
 // Combat v2.1 (docs/specs/combat-v2.md 16): a wind-up intent has its own, hotter telegraph, and the moment one is answered
 // (a frost shatter) or lands (an ember flare) has its effect (windupResult).
+// UX pass 2026-11-11: floating words (Interrupted!, Off-balance!, Staggered!, statuses) have their own lane under the
+// damage numbers and take turns in it (word()), so the words and the number of one moment never cover each other.
 
 
 
 
 
+// floating text lanes (UX pass 2026-11-11): a damage or heal number (NUM_RE) slams in on the body and rises; every other
+// float is a word in its own lane under the number: WORD_ROWS rows from WORD_DY0, WORD_ROW apart (px at 768 high), a
+// row held WORD_HOLD s before the next word may take it (the word in it then fades in WORD_CUT s), words at most
+// WORD_MAX px and rising WORD_RISE px
+const NUM_RE = /^[-+\u2212]?[\d\s\u00a0\u2009\u202f.,]+!?$/;
+const WORD_ROWS = 2; const WORD_DY0 = 34; const WORD_ROW = 27; const WORD_HOLD = 0.55; const WORD_CUT = 0.16; const WORD_MAX = 22; const WORD_RISE = 8;
 const SCHOOL_COL = { phys: '#f4ead6', fire: '#ff8a3a', frost: '#8fd6ff', arcane: '#c79bff', shadow: '#a07aff', nature: '#8fe07a', heal: '#7fffa0' };
 
 class Scene {
@@ -20121,6 +20252,7 @@ class Scene {
     this.actors = new Map();
     this.props = [];
     this.particles = []; this.texts = []; this.projectiles = []; this.rings = []; this.beams = [];
+    this.wrows = new Map(); // word lanes per actor (word())
     this.ambient = []; this.shakeAmt = 0; this.flash = null; this.pillar = null; this.dim = 0; this.targetDim = 0;
     this.atime = 0; this.freeze = 0; // actor clock and hit-stop (s left)
     this.charges = []; this.cores = []; this.rays = []; this.fstack = new Map();
@@ -20298,10 +20430,12 @@ class Scene {
   float(id, text, style = {}) {
     const an = this.anchor(id); if (!an) return;
     if (style.under) { // a note under the number just shown on this actor (absorbed damage)
-      const last = [...this.texts].reverse().find((f) => f.id === id && !f.small);
+      const last = [...this.texts].reverse().find((f) => f.id === id && !f.small && !f.word);
       if (last) { this.texts.push({ ...last, text, color: style.color || '#ffffff', size: (style.size || 14) * this.u, small: true, crit: false, slam: false, weight: 0, y: last.y + (style.dy || 20 * this.u) }); return; }
     }
-    const now = this.time; const st = this.fstack.get(id);
+    const now = this.time;
+    if (!NUM_RE.test(text)) { this.word(id, an, text, style); return; }
+    const st = this.fstack.get(id);
     const n = st && now - st.t < 0.6 ? Math.min(4, st.n + 1) : 0; this.fstack.set(id, { t: now, n });
     // numbers sit on the body (the nameplate is over the head); a second one beside the first, alternating sides
     const side = n ? (n % 2 ? 1 : -1) * Math.ceil(n / 2) * 50 * this.u : 0;
@@ -20311,6 +20445,29 @@ class Scene {
     this.texts.push({ id, x: an.x + jitter + side + (style.dx || 0), y: an.cy - (an.cy - an.top) * 0.15 + (style.dy || 0) - n * 6 * this.u, text, color: style.color || '#ffffff',
       size: (style.size || 22) * this.u * (small ? 1 : 1 + 0.4 * w), t0: now, life: style.life || (crit ? 2.0 : small ? 1.3 : 1.55), crit, small,
       weight: w, slam: !small && style.slam !== false && !settings.reduceMotion, rise: (crit ? 18 : small ? 34 : 28 - 10 * w) * this.u, outline: style.outline || 'rgba(0,0,0,0.85)' });
+  }
+  /**
+   * A word over an actor (Interrupted!, Off-balance!, Staggered!, Dodge, a status...; UX pass 2026-11-11): words have
+   * their own lane under the number lane (numbers rise away from it), in WORD_ROWS rows centred on the actor. A word takes
+   * the first row that is free when it starts; a row is free WORD_HOLD s after its word started, and the word still in
+   * it then fades out quickly. When every row is held, the word waits its turn (it is not drawn until it starts), so the
+   * words of one moment come one after another and never cover the damage number or each other.
+   */
+  word(id, an, text, style) {
+    const u = this.u; const now = this.time;
+    const rows = this.wrows.get(id) || Array.from({ length: WORD_ROWS }, () => ({ free: 0, f: null }));
+    this.wrows.set(id, rows);
+    let r = 0;
+    for (let i = 1; i < rows.length; i++) if (Math.max(now, rows[i].free) < Math.max(now, rows[r].free)) r = i;
+    const start = Math.max(now, rows[r].free);
+    const old = rows[r].f; if (old && this.texts.includes(old)) old.cut = start; // the word before it in this row makes room
+    const numY = an.cy - (an.cy - an.top) * 0.15;
+    const crit = !!style.crit;
+    const f = { id, x: an.x + (style.dx || 0), y: numY + (WORD_DY0 + r * WORD_ROW) * u, text, color: style.color || '#ffffff',
+      size: Math.min(style.size || 20, WORD_MAX) * u, t0: start, life: style.life || (crit ? 1.9 : 1.5), crit, small: !crit, word: true,
+      weight: 0, slam: crit && !settings.reduceMotion, rise: WORD_RISE * u, outline: style.outline || 'rgba(0,0,0,0.85)' };
+    rows[r] = { free: start + WORD_HOLD, f };
+    this.texts.push(f);
   }
   floatAt(x, y, text, style = {}) {
     this.texts.push({ x, y, text, color: style.color || '#fff', size: (style.size || 22) * this.u, t0: this.time, life: style.life || 1.4, crit: !!style.crit, weight: 0, slam: false, rise: 40 * this.u, outline: 'rgba(0,0,0,0.85)' });
@@ -20425,7 +20582,7 @@ class Scene {
     for (const a of this.actors.values()) { a.act = null; a.kb = null; if (a.deadT0) a.dead = 1; }
   }
   /** Drop floating text, rings, beams and sparks left from a fight (e.g. behind the run summary). */
-  clearFx() { this.finishAll(); this.texts = []; this.rings = []; this.beams = []; this.particles = []; this.cores = []; this.rays = []; this.pillar = null; }
+  clearFx() { this.finishAll(); this.texts = []; this.wrows.clear(); this.rings = []; this.beams = []; this.particles = []; this.cores = []; this.rays = []; this.pillar = null; }
 
   seedAmbient() {
     const kind = (THEMES[this.theme] || {}).particles;
@@ -20805,15 +20962,18 @@ class Scene {
     if (this.particles.length > 900) this.particles.splice(0, this.particles.length - 900);
     // floating text: damage numbers slam in (crits larger, slower, shaking), then rise a little and fade
     for (const f of [...this.texts]) {
-      const age = t - f.t0; const k = age / f.life; if (k >= 1) { this.texts.splice(this.texts.indexOf(f), 1); continue; }
+      const age = t - f.t0; const k = age / f.life;
+      const cutK = f.cut != null && t > f.cut ? (t - f.cut) / WORD_CUT : 0; // a word whose row the next word took
+      if (k >= 1 || cutK >= 1) { this.texts.splice(this.texts.indexOf(f), 1); continue; }
+      if (age < 0) continue; // a word waiting for its row
       let sc = 1;
       if (f.slam) {
-        const s0 = f.crit ? 2.1 : 1.5 + 0.35 * f.weight; const sd = f.crit ? 0.17 : 0.11; const rest = f.crit ? 1.1 : 1;
+        const s0 = f.word ? 1.45 : f.crit ? 2.1 : 1.5 + 0.35 * f.weight; const sd = f.crit ? 0.17 : 0.11; const rest = f.crit && !f.word ? 1.1 : 1;
         sc = age < sd ? lerp(s0, rest * 0.92, ease.out(age / sd)) : age < sd + 0.08 ? lerp(rest * 0.92, rest, (age - sd) / 0.08) : rest;
       } else if (!f.small && age < 0.1) sc = 0.75 + 2.5 * age;
       const y = f.y - f.rise * ease.out(clamp(age / (f.crit ? 1.25 : 0.9), 0, 1));
       const jx = f.crit && f.slam && age < 0.32 ? Math.sin(age * 95) * 3.2 * u * (1 - age / 0.32) : 0;
-      const a = k < 0.72 ? 1 : 1 - (k - 0.72) / 0.28;
+      const a = (k < 0.72 ? 1 : 1 - (k - 0.72) / 0.28) * (1 - cutK);
       ctx.save(); ctx.globalAlpha = a; ctx.translate(f.x + jx, y); ctx.scale(sc, sc);
       ctx.font = `${f.small ? 700 : 800} ${f.size}px ${FCT_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.lineWidth = Math.max(2, f.size * (f.crit ? 0.2 : 0.16)); ctx.strokeStyle = f.outline; ctx.lineJoin = 'round';
@@ -21643,7 +21803,7 @@ function createEngagePanel(root, ctx) {
 
 });
 __bundle.def("src/ui/hud.js", function* (__ns, __link) {
-let h, add, clear, fmtNum, moneyEl, hoursText, clamp, rgba; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["hoursText", (v) => { hoursText = v; }], ["clamp", (v) => { clamp = v; }], ["rgba", (v) => { rgba = v; }]]); let spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["basicIcon", (v) => { basicIcon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["statusIcon", (v) => { statusIcon = v; }], ["abilityIcon", (v) => { abilityIcon = v; }], ["icon", (v) => { icon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["NODE_COLORS", (v) => { NODE_COLORS = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }], ["enemyLook", (v) => { enemyLook = v; }], ["beastLook", (v) => { beastLook = v; }]]); let THEMES; __link.imp("src/ui/art-world.js", [["THEMES", (v) => { THEMES = v; }]]); let tip, spellTip, basicTip, itemTip, statusTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["spellTip", (v) => { spellTip = v; }], ["basicTip", (v) => { basicTip = v; }], ["itemTip", (v) => { itemTip = v; }], ["statusTip", (v) => { statusTip = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let linkedText, resurrectText, dangerRule; __link.imp("src/ui/ui-text.js", [["linkedText", (v) => { linkedText = v; }], ["resurrectText", (v) => { resurrectText = v; }], ["dangerRule", (v) => { dangerRule = v; }]]); let trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createRuler, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind; __link.imp("src/ui/tracks.js", [["trackChips", (v) => { trackChips = v; }], ["trackRows", (v) => { trackRows = v; }], ["roleBadge", (v) => { roleBadge = v; }], ["roleTags", (v) => { roleTags = v; }], ["offBalanceText", (v) => { offBalanceText = v; }], ["offBalanceTip", (v) => { offBalanceTip = v; }], ["createRuler", (v) => { createRuler = v; }], ["createEngagePanel", (v) => { createEngagePanel = v; }], ["windupBanner", (v) => { windupBanner = v; }], ["stackBadges", (v) => { stackBadges = v; }], ["entriesOf", (v) => { entriesOf = v; }], ["answerKind", (v) => { answerKind = v; }]]); let createHeatMeter, standText, bossText, fmtH; __link.imp("src/ui/heat.js", [["createHeatMeter", (v) => { createHeatMeter = v; }], ["standText", (v) => { standText = v; }], ["bossText", (v) => { bossText = v; }], ["fmtH", (v) => { fmtH = v; }]]); __link.exp({ "conColor": () => conColor, "travelState": () => travelState, "POTION_HINT_HP": () => POTION_HINT_HP, "dotTip": () => dotTip, "heroPortrait": () => heroPortrait, "petPortrait": () => petPortrait, "createHud": () => createHud, "resurrectTip": () => resurrectTip, "dragSource": () => dragSource, "dropTarget": () => dropTarget, "NODE_COLORS": () => NODE_COLORS, "nodeIcon": () => nodeIcon });
+let h, add, clear, fmtNum, moneyEl, clamp, rgba; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["clamp", (v) => { clamp = v; }], ["rgba", (v) => { rgba = v; }]]); let spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["basicIcon", (v) => { basicIcon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["statusIcon", (v) => { statusIcon = v; }], ["abilityIcon", (v) => { abilityIcon = v; }], ["icon", (v) => { icon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["NODE_COLORS", (v) => { NODE_COLORS = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }], ["enemyLook", (v) => { enemyLook = v; }], ["beastLook", (v) => { beastLook = v; }]]); let THEMES; __link.imp("src/ui/art-world.js", [["THEMES", (v) => { THEMES = v; }]]); let tip, spellTip, basicTip, itemTip, statusTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["spellTip", (v) => { spellTip = v; }], ["basicTip", (v) => { basicTip = v; }], ["itemTip", (v) => { itemTip = v; }], ["statusTip", (v) => { statusTip = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let linkedText, resurrectText, dangerRule, HEAT_WORDS, tolls; __link.imp("src/ui/ui-text.js", [["linkedText", (v) => { linkedText = v; }], ["resurrectText", (v) => { resurrectText = v; }], ["dangerRule", (v) => { dangerRule = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["tolls", (v) => { tolls = v; }]]); let trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createRuler, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind; __link.imp("src/ui/tracks.js", [["trackChips", (v) => { trackChips = v; }], ["trackRows", (v) => { trackRows = v; }], ["roleBadge", (v) => { roleBadge = v; }], ["roleTags", (v) => { roleTags = v; }], ["offBalanceText", (v) => { offBalanceText = v; }], ["offBalanceTip", (v) => { offBalanceTip = v; }], ["createRuler", (v) => { createRuler = v; }], ["createEngagePanel", (v) => { createEngagePanel = v; }], ["windupBanner", (v) => { windupBanner = v; }], ["stackBadges", (v) => { stackBadges = v; }], ["entriesOf", (v) => { entriesOf = v; }], ["answerKind", (v) => { answerKind = v; }]]); let createHeatMeter, standText, bossText, fmtH, lineShown; __link.imp("src/ui/heat.js", [["createHeatMeter", (v) => { createHeatMeter = v; }], ["standText", (v) => { standText = v; }], ["bossText", (v) => { bossText = v; }], ["fmtH", (v) => { fmtH = v; }], ["lineShown", (v) => { lineShown = v; }]]); __link.exp({ "conColor": () => conColor, "travelState": () => travelState, "POTION_HINT_HP": () => POTION_HINT_HP, "dotTip": () => dotTip, "heroPortrait": () => heroPortrait, "petPortrait": () => petPortrait, "createHud": () => createHud, "resurrectTip": () => resurrectTip, "dragSource": () => dragSource, "dropTarget": () => dropTarget, "NODE_COLORS": () => NODE_COLORS, "nodeIcon": () => nodeIcon });
 yield;
 // Persistent classic-MMO HUD: unit frames, enemy nameplates with intents, action bar, XP bar,
 // minimap, micro menu, objective tracker, combat log and the raid-boss frame. It renders the view
@@ -21652,8 +21812,11 @@ yield;
 // role badges, the off-balance marker, the opening ruler, the engage panel, and the window highlight on the action bar.
 // Combat v2.1 (combat-v2.md 10.9): the wind-up line over each enemy (its nameplate), EMPOWERED and STAGGERED badges on the
 // nameplate and the target frame, and the bar spells that can answer a wind-up marked (now: "Answer"; on hover: all).
-// Heat (docs/specs/expedition.md H.4, drawn by heat.js): the Heat meter above the action bar, beside the Autoplay controls;
-// the minimap tooltip and the camp tracker line read the same R.heatView (view.heat).
+// Heat (docs/specs/expedition.md H.4, drawn by heat.js): the meter, named the Furnace (changes-m2b-v7.md D), at the top centre (owner 2026-11-11
+// 10:12); the minimap tooltip and the camp tracker line read the same R.heatView (view.heat).
+// UX pass 2026-11-11 (docs/handoffs/ux-review-2026-11-11.md): the turn prompt over the action bar's right half (what to do
+// now, read from the bar's own marks), nameplate parts that come and go hung under the health bar so the track never
+// moves, and the zone's tracker lines hidden in a fight.
 // DoT preview (owner feedback 2026-11-11 08:11; engine-api.md 6.1): on every HP bar of a fight (nameplates, the target, boss,
 // player and pet frames) the HP that the ticks at the end of the round will take is a hatched end segment, with a skull
 // when they kill; the bar's tooltip has the numbers (view `dot`, from R.pendingTicks). Low health: a healing potion on the
@@ -21837,9 +22000,12 @@ function createHud(root, ctx) {
   els.flee = h('button.btn.small', 'Flee', h('span.k', 'F'));
   // the queued next action during a combat round (app.combatAct): a tag over the bar, the button ringed
   els.qtag = h('div.qtag.hidden', { 'aria-live': 'polite' });
+  // "what to do now" on the player's turn in a fight (UX pass 2026-11-11): one line over the action bar that names the
+  // most urgent thing the bar already marks (the engage options, a wind-up to answer, low health, an off-balance window)
+  els.turn = h('div#turnprompt.hidden', { 'aria-live': 'polite' }, h('span.tp-k'), h('span.tp-t'));
   els.actionbar.append(
     h('div.grp', els.basic), h('div.sep'), h('div.grp', els.spells), h('div.sep'), h('div.grp', els.items),
-    h('div.ctrl.panel', els.auto, els.pass, els.flee), els.qtag);
+    h('div.ctrl.panel', els.auto, els.pass, els.flee), els.qtag, els.turn);
   // ------------------------------------------------------------ xp bar
   els.xp = h('div#xpbar', h('div.rested'), h('div.fill'), h('div.ticks'), h('div.txt'));
   // ------------------------------------------------------------ minimap
@@ -21870,7 +22036,7 @@ function createHud(root, ctx) {
   els.ruler = ruler.el; els.engage = engage.el;
   // the Heat meter (heat.js), always shown in a run but on the summary: over the action bar's right half, beside the
   // Autoplay controls (over its left half), where no screen panel, window or frame reaches at 16:9 (1366x768, 1920x1080)
-  const heat = createHeatMeter(els.actionbar, ctx, root);
+  const heat = createHeatMeter(root, ctx, root); // at the top centre (owner 2026-11-11 10:12)
   els.heat = heat.el;
 
   // ------------------------------------------------------------ input wiring
@@ -21933,9 +22099,9 @@ function createHud(root, ctx) {
     const danger = v.zone.danger > 0 ? dangerRule(R) : null; // zone danger (rules 7.6): zone.danger from the engine's zoneDanger
     // the par and the line from R.heatView (the meter's numbers; the Oath of Haste included); v.par without heat (mock)
     const hv = v.heat; const par = hv ? hv.par : v.par;
-    return h('div', h('div.tt-name', v.zone.name), h('div.tt-sub', `Levels ${v.zone.band[0]}–${v.zone.band[1]}`), h('div.tt-line', `In-game time: ${v.hours} h`),
-      hv ? h('div.tt-line', `Heat: ${standText(hv)} (the Star's line at ${fmtH(hv.line)} h) · ${bossText(hv.ascIfPar)}`) : null,
-      h('div.tt-line.desc', `The boss grows stronger for every ${R.ascStepHours} h past ${fmtH(par)} h (Ascendancy).`),
+    return h('div', h('div.tt-name', v.zone.name), h('div.tt-sub', `Levels ${v.zone.band[0]}–${v.zone.band[1]}`),
+      hv ? h('div.tt-line', `${HEAT_WORDS.Name}: ${standText(hv)} (the Star's line: ${lineShown(hv.line)}) · ${bossText(hv.ascIfPar)}`) : null,
+      h('div.tt-line.desc', `Oruvath grows stronger for every ${tolls(R.ascStepHours)} past ${fmtH(par)} (Ascendancy).`),
       danger ? h('div.tt-warn.danger', danger) : null, h('div.tt-hint', 'Click or press M for the zone map'));
   });
   tip(els.resc, () => { const v = ctx.view; return v.player ? resurrectTip(v) : null; });
@@ -22072,8 +22238,8 @@ function createHud(root, ctx) {
     // minimap & clock
     if (v.zone) {
       els.minimap.querySelector('.zname').textContent = v.zone.name;
-      const ht = hoursText(v.hours || 0);
-      els.minimap.querySelector('.clock').textContent = `${ht.label} · ${v.hours} h`;
+      // no day clock (changes-m2b-v7.md A row 10): the Furnace is the time display; the minimap names the zone only
+      els.minimap.querySelector('.clock').textContent = '';
       drawMinimap(els.mmCanvas, v, th);
     }
     // talents badge
@@ -22094,8 +22260,10 @@ function createHud(root, ctx) {
         const id = e.uid || e.idx; live.add(String(id));
         let el = npEls.get(String(id));
         if (!el) {
-          el = h('div.np', h('div.wub.hidden'), h('div.trk'), h('div.obal.hidden'), h('div.castbar.hidden', h('i')), h('div.nm', h('span.rb'), h('span.lv'), h('span.n')),
-            h('div.ntag.hidden', h('span.zz.hidden', 'Unaware'), h('span.rtags')), h('div.wstk.hidden'), bar('hp enemy'), h('div.sts'));
+          // what comes and goes during a round (the off-balance chip, tags, stack badges, statuses) hangs under the health
+          // bar (.under, out of the flow), so the wind-up line, the track and the name above it never move (UX pass 2026-11-11)
+          el = h('div.np', h('div.wub.hidden'), h('div.trk'), h('div.castbar.hidden', h('i')), h('div.nm', h('span.rb'), h('span.lv'), h('span.n')),
+            bar('hp enemy'), h('div.under', h('div.obal.hidden'), h('div.ntag.hidden', h('span.zz.hidden', 'Unaware'), h('span.rtags')), h('div.wstk.hidden'), h('div.sts')));
           el.addEventListener('click', (ev) => { ev.stopPropagation(); ctx.ui.setTarget(e.idx); });
           el.addEventListener('pointerenter', () => { ctx.scene.hover = `enemy:${e.idx}`; });
           el.addEventListener('pointerleave', () => { ctx.scene.hover = null; });
@@ -22257,6 +22425,39 @@ function createHud(root, ctx) {
     els.auto.setAttribute('aria-checked', v.autoplay ? 'true' : 'false');
     els.pass.disabled = !fight; els.flee.disabled = !fight || !L.flee;
     els.flee.firstChild.textContent = ctx.ui.fleeArmed ? 'Confirm?' : 'Flee';
+    turnPrompt(v, fight && !v.autoplay);
+  }
+
+  /**
+   * The turn prompt: shown only while the game waits for the player in a fight. It reads the marks updateBar just set on
+   * the bar (no rule of its own): in order, the engage round, a wind-up to answer now (or that nothing on the bar can),
+   * a potion to drink at low health, an off-balance window on the target, else the plain choice.
+   */
+  function turnPrompt(v, mine) {
+    const c = v.combat;
+    els.turn.classList.toggle('hidden', !mine);
+    els.actionbar.classList.toggle('your-turn', !!mine);
+    if (!mine) return;
+    const name = (b) => (b.getAttribute('aria-label') || '').replace(/^(Item slot|Slot) [0-9]+: /, '').replace(/\..*$/, '');
+    const key = (b) => b.querySelector('.key').textContent;
+    const kb = (k) => h('kbd', k);
+    const first = (cls) => [...els.spells, ...els.items].find((b) => b.classList.contains(cls) && !b.classList.contains('empty'));
+    let k = 'Your turn'; let parts;
+    const ans = first('wu-ans'); const els2 = first('wu-else'); const avoid = first('wu-avoid'); const pot = first('pulse'); const win = first('window');
+    const wuLive = c.enemies.some((e) => e.alive && !e.hidden && e.intent && e.intent.windup && !e.intent.interrupted && !e.intent.cancelled);
+    if (c.engage) { k = 'Opening move'; parts = ['Open with ', kb('Q'), ' ', kb('W'), ' ', kb('E'), ' (left panel) or any bar key: they do not act yet']; }
+    else if (ans) parts = ['Wind-up now: answer with ', kb(key(ans)), ` ${name(ans)}`];
+    else if (els2) parts = ['Wind-up on another enemy: ', kb('Tab'), ' to it, then ', kb(key(els2)), ` ${name(els2)}`];
+    else if (avoid) parts = ['Heavy wind-up now: ', kb(key(avoid)), ` ${name(avoid)} can blunt it`];
+    else if (wuLive) parts = ['Wind-up now: nothing on your bar can stop it this round'];
+    else if (pot) parts = ['Low health: ', kb(key(pot)), ` ${name(pot)}`];
+    else if (win) parts = ['Off-balance: ', kb(key(win)), ` ${name(win)} hits ${(win.querySelector('.wtag') || {}).textContent || 'harder'}`];
+    else parts = ['Choose ', kb('1'), '–', kb('7'), ', ', kb('A'), ' attack or ', kb('X'), ' pass'];
+    const kEl = els.turn.querySelector('.tp-k'); const tEl = els.turn.querySelector('.tp-t');
+    kEl.textContent = `${k} · R${c.round}`;
+    const sig = parts.map((x) => (typeof x === 'string' ? x : `[${x.textContent}]`)).join('');
+    if (tEl.dataset.sig !== sig) { tEl.dataset.sig = sig; clear(tEl); tEl.append(...parts); }
+    els.turn.dataset.kind = c.engage ? 'engage' : ans || els2 || avoid || wuLive ? 'windup' : pot ? 'potion' : win ? 'window' : 'plain';
   }
 
   function updateTracker(v) {
@@ -22268,6 +22469,7 @@ function createHud(root, ctx) {
       else if (n.type === 'grind') { lines.push(['h', 'Grind']); lines.push(['l', n.wavesChosen ? `Wave ${n.waves} of ${n.wavesChosen}` : 'Choose how many waves']); }
       else if (n.type === 'elite') { lines.push(['h', n.rare ? 'Rare elite' : 'Elite']); lines.push(['l', `Defeat ${n.eliteName}`]); }
     }
+    const nNode = lines.length;
     if (z && !z.camp && z.rows && z.rows.length) {
       const sq = R.storyQuests; const t = travelState(v);
       lines.push(['h', z.name]);
@@ -22278,11 +22480,12 @@ function createHud(root, ctx) {
       else if (p.level >= t.need) lines.push(['d', `Level ${t.need}: you may travel on early (exit level ${t.exit})`]);
       else lines.push(['l', `Travel on at level ${t.need} (or after row ${t.rows})`]);
       lines.push(['l', `Row ${z.pos.row} of ${t.rows}`]);
-    } else if (z) { lines.push(['h', z.name]); lines.push(['l', `Boss par: ${fmtH(v.heat ? v.heat.par : v.par)} h · now ${v.hours} h`]); } // heatView's par, as the meter
-    const key = JSON.stringify(lines);
+    } else if (z) { lines.push(['h', z.name]); lines.push(['l', `${HEAT_WORDS.Units}: ${fmtH(v.hours)} (par ${fmtH(v.heat ? v.heat.par : v.par)})`]); } // heatView's par, as the meter
+    const key = JSON.stringify(lines) + nNode;
     if (els.tracker.dataset.key === key) return;
     els.tracker.dataset.key = key; clear(els.tracker);
-    for (const [k, t] of lines) els.tracker.appendChild(h(k === 'h' ? 'div.tk-h' : 'div.tk-l' + (k === 'd' ? '.done' : ''), t));
+    // the zone's lines (.zl) give way in a fight (style.css body.in-fight), the node's lines stay
+    lines.forEach(([k, t], i) => els.tracker.appendChild(h((k === 'h' ? 'div.tk-h' : 'div.tk-l' + (k === 'd' ? '.done' : '')) + (i >= nNode ? '.zl' : ''), t)));
   }
 
   function log(text, cls = 'lg-hit') {
@@ -22710,7 +22913,7 @@ function buildOaths(v, ctx) {
 
 });
 __bundle.def("src/ui/screens.js", function* (__ns, __link) {
-let h, add, clear, fmtNum, moneyEl, moneyText, hoursText, clamp; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["moneyText", (v) => { moneyText = v; }], ["hoursText", (v) => { hoursText = v; }], ["clamp", (v) => { clamp = v; }]]); let spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["roleIcon", (v) => { roleIcon = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }]]); let tip, itemTip, spellTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }]]); let conColor, heroPortrait, travelState; __link.imp("src/ui/hud.js", [["conColor", (v) => { conColor = v; }], ["heroPortrait", (v) => { heroPortrait = v; }], ["travelState", (v) => { travelState = v; }]]); let numWord, plural, pct1, ROLE_INFO, humanize; __link.imp("src/ui/ui-text.js", [["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["pct1", (v) => { pct1 = v; }], ["ROLE_INFO", (v) => { ROLE_INFO = v; }], ["humanize", (v) => { humanize = v; }]]); let createMeta, buildOaths, echoAmt; __link.imp("src/ui/meta.js", [["createMeta", (v) => { createMeta = v; }], ["buildOaths", (v) => { buildOaths = v; }], ["echoAmt", (v) => { echoAmt = v; }]]); let heatKey, previewBlock, heatBadge, buildHeatSummary, fmtH, HEAT_NAME; __link.imp("src/ui/heat.js", [["heatKey", (v) => { heatKey = v; }], ["previewBlock", (v) => { previewBlock = v; }], ["heatBadge", (v) => { heatBadge = v; }], ["buildHeatSummary", (v) => { buildHeatSummary = v; }], ["fmtH", (v) => { fmtH = v; }], ["HEAT_NAME", (v) => { HEAT_NAME = v; }]]); __link.exp({ "createScreens": () => createScreens, "buildMap": () => buildMap });
+let h, add, clear, fmtNum, moneyEl, moneyText, clamp; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["moneyText", (v) => { moneyText = v; }], ["clamp", (v) => { clamp = v; }]]); let spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["roleIcon", (v) => { roleIcon = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }]]); let tip, itemTip, spellTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }]]); let conColor, heroPortrait, travelState; __link.imp("src/ui/hud.js", [["conColor", (v) => { conColor = v; }], ["heroPortrait", (v) => { heroPortrait = v; }], ["travelState", (v) => { travelState = v; }]]); let numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS; __link.imp("src/ui/ui-text.js", [["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["pct1", (v) => { pct1 = v; }], ["ROLE_INFO", (v) => { ROLE_INFO = v; }], ["humanize", (v) => { humanize = v; }], ["tolls", (v) => { tolls = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }]]); let createMeta, buildOaths, echoAmt; __link.imp("src/ui/meta.js", [["createMeta", (v) => { createMeta = v; }], ["buildOaths", (v) => { buildOaths = v; }], ["echoAmt", (v) => { echoAmt = v; }]]); let heatKey, previewBlock, heatBadge, buildHeatSummary, fmtH, HEAT_NAME; __link.imp("src/ui/heat.js", [["heatKey", (v) => { heatKey = v; }], ["previewBlock", (v) => { previewBlock = v; }], ["heatBadge", (v) => { heatBadge = v; }], ["buildHeatSummary", (v) => { buildHeatSummary = v; }], ["fmtH", (v) => { fmtH = v; }], ["HEAT_NAME", (v) => { HEAT_NAME = v; }]]); __link.exp({ "createScreens": () => createScreens, "buildMap": () => buildMap });
 yield;
 // Centre screens by phase: class select, hub/camp, zone map, node dialogs, loot, quest rewards,
 // vendor, trainer, shrine, rest, treasure and the run summary (its Killed by line names the killing blow, never an id).
@@ -22913,7 +23116,7 @@ function updateCreate(root, v, ctx) {
  */
 function svcCard(glyph, bg, name, meta, hours, used, onClick, heat = null) {
   const p = heat && !used ? heatOf(heat.v, heat.action) : null;
-  const hrs = hourLabel(h('div.hrs', p ? `${fmtH(p.hours)} h` : hours), p);
+  const hrs = hourLabel(h('div.hrs', p ? tolls(p.hours) : hours), p);
   const el = h('div.svc-card' + (used ? '.used' : ''), h('img', { src: icon(glyph, bg), alt: '' }), h('div', h('div.nm', name), h('div.meta', used ? 'Used this visit' : meta)), hrs);
   if (!used) el.addEventListener('click', onClick);
   if (p) {
@@ -22931,13 +23134,13 @@ function buildHub(v, ctx) {
   if (z.hubText || z.blurb) body.appendChild(h('div', { style: { font: 'italic 1.4rem var(--font-title)', color: 'var(--ink-dim)', marginBottom: '.4rem' } }, z.hubText || z.blurb));
   const svc = (service) => ({ ctx, v, action: { type: 'SERVICE', service } });
   body.append(
-    svcCard('tome', 'arcane', 'Trainer', 'Learn and rank up spells', `${hr.trainer} h`, used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer')),
-    svcCard('vendor', 'earth', 'Vendor', 'Potions, rations and gear', `${hr.vendor} h`, used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' }), svc('vendor')),
-    svcCard('rest', 'fire', 'Inn', 'Full rest and rested experience', `${hr.inn} h`, used.inn, () => ctx.act({ type: 'HUB_SERVICE', service: 'inn' }), svc('inn')));
+    svcCard('tome', 'arcane', 'Trainer', 'Learn and rank up spells', tolls(hr.trainer), used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer')),
+    svcCard('vendor', 'earth', 'Vendor', 'Potions, rations and gear', tolls(hr.vendor), used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' }), svc('vendor')),
+    svcCard('rest', 'fire', 'Inn', 'Full rest and rested experience', tolls(hr.inn), used.inn, () => ctx.act({ type: 'HUB_SERVICE', service: 'inn' }), svc('inn')));
   if (p.talentPoints) body.appendChild(h('div.warn', { style: { fontSize: '1.25rem' } }, `You have ${p.talentPoints} unspent talent point${p.talentPoints > 1 ? 's' : ''}. Press N.`));
   const go = h('button.btn.primary.big', 'Set out');
   go.addEventListener('click', () => ctx.act({ type: 'LEAVE_HUB' }));
-  el.append(body, h('div.sfoot', h('span.muted', `Day clock: ${v.hours} h`), go));
+  el.append(body, h('div.sfoot', h('span.muted', `${HEAT_WORDS.Units} so far: ${fmtH(v.hours)}`), go));
   return el;
 }
 
@@ -22950,13 +23153,13 @@ function buildCamp(v, ctx) {
   body.appendChild(h('div', { style: { font: 'italic 1.4rem var(--font-title)', color: 'var(--ink-dim)' } }, z.blurb || ''));
   const svc = (service) => ({ ctx, v, action: { type: 'SERVICE', service } });
   body.append(
-    svcCard('tome', 'arcane', 'Trainer', 'Last chance to train', `${hr.trainer} h`, used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer')),
-    svcCard('vendor', 'earth', 'Quartermaster', `Level ${R.maxLevel} stock`, `${hr.vendor} h`, used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' }), svc('vendor')),
-    svcCard('rest', 'fire', 'Campfire', 'Full rest before the fight', `${hr.inn} h`, used.inn, () => ctx.act({ type: 'HUB_SERVICE', service: 'inn' }), svc('inn')),
-    svcCard('grind', 'steel', 'Camp wave', `Fight a wave of level ${R.campGrindLevel} enemies`, `${hr.grindWave} h`, false, () => ctx.act({ type: 'CAMP_GRIND' }), { ctx, v, action: { type: 'CAMP_GRIND' } }));
+    svcCard('tome', 'arcane', 'Trainer', 'Last chance to train', tolls(hr.trainer), used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer')),
+    svcCard('vendor', 'earth', 'Quartermaster', `Level ${R.maxLevel} stock`, tolls(hr.vendor), used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' }), svc('vendor')),
+    svcCard('rest', 'fire', 'Campfire', 'Full rest before the fight', tolls(hr.inn), used.inn, () => ctx.act({ type: 'HUB_SERVICE', service: 'inn' }), svc('inn')),
+    svcCard('grind', 'steel', 'Camp wave', `Fight a wave of level ${R.campGrindLevel} enemies`, `${tolls(hr.grindWave)} a wave`, false, () => ctx.act({ type: 'CAMP_GRIND' }), { ctx, v, action: { type: 'CAMP_GRIND' } }));
   // the par and the Ascendancy: R.heatView's (the bridge's v.camp: at the Camp the line is the par, ascIfPar the boss's)
-  const par = v.camp && v.camp.par ? ` (par ${fmtH(v.camp.par)} h)` : '';
-  const kv = h('dl.kv', h('dt', 'Time'), h('dd', `${v.hours} h${par}`), h('dt', 'Ascendancy'),
+  const par = v.camp && v.camp.par ? ` (par ${fmtH(v.camp.par)})` : '';
+  const kv = h('dl.kv', h('dt', HEAT_WORDS.Units), h('dd', `${fmtH(v.hours)}${par}`), h('dt', 'Ascendancy'),
     asc == null ? h('dd.muted', 'Unknown') : h('dd', { class: asc > 0 ? 'bad' : 'good' }, asc > 0 ? `+${Math.round(asc * 100)} % health and damage` : 'None: you are on time'));
   const go = h('button.btn.primary.big', 'Face Oruvath');
   go.addEventListener('click', () => ctx.act({ type: 'FIGHT_BOSS' }));
@@ -23026,7 +23229,7 @@ function buildMap(v, ctx, readOnly) {
     // entered Hot or Scorched keeps a mark of what it paid
     const act = { type: 'CHOOSE_NODE', lane: l };
     const hp = reach && !readOnly ? heatOf(v, act) : null;
-    if (hp) el.appendChild(hourLabel(h('div.mhrs', `${fmtH(hp.hours)} h${hp.perWave ? '/wave' : ''}`), hp));
+    if (hp) el.appendChild(hourLabel(h('div.mhrs', `${tolls(hp.hours)}${hp.perWave ? '/wave' : ''}`), hp));
     if (n.visited && n.heat && ctx.data.rules.heat && (ctx.data.rules.heat.gain[n.heat] > 0 || ctx.data.rules.heat.rarityUp[n.heat] > 0)) el.appendChild(h('div.mheat', { dataset: { hs: n.heat } }));
     if (reach) el.addEventListener('click', () => ctx.act(act));
     tip(el, () => nodeTip(n, v, ctx, reach, reach && !readOnly ? heatOf(ctx.view, act) : null));
@@ -23037,7 +23240,7 @@ function buildMap(v, ctx, readOnly) {
   // row ruler
   for (let r = 1; r <= ROWS; r++) body.appendChild(h('div.mrow', { style: { left: `${PX(r) / 10}%` } }, `${r}`));
   const sq = ctx.data.rules.storyQuests;
-  const story = h('div.dim', { style: { fontSize: '1.2rem', whiteSpace: 'nowrap' } }, `Story ${Math.min(sq, z.questsDone)}/${sq} · ${v.hours} h`);
+  const story = h('div.dim', { style: { fontSize: '1.2rem', whiteSpace: 'nowrap' } }, `Story ${Math.min(sq, z.questsDone)}/${sq}`);
   win.append(head, body, h('div.mfoot', legend, story));
   if (readOnly) win.id = 'win-map';
   return win;
@@ -23059,7 +23262,7 @@ function buildExpMap(v, ctx, readOnly) {
     tip(b, () => h('div', h('div.tt-name', label), previewBlock(heatOf(ctx.view, a), ctx, { leaves: true })));
     return ghostOn(b, ctx, a);
   });
-  win.appendChild(h('div.mhead', h('div', h('div.title', z.name), h('div.subtitle', `Levels ${z.band[0]}–${z.band[1]} · expedition map (preview) · zone hour ${fmtH(mv.hz)}`)), h('div.row', readOnly ? closeBtn(ctx, 'map') : null, ...btns)));
+  win.appendChild(h('div.mhead', h('div', h('div.title', z.name), h('div.subtitle', `Levels ${z.band[0]}–${z.band[1]} · expedition map (preview)`)), h('div.row', readOnly ? closeBtn(ctx, 'map') : null, ...btns)));
   const body = h('div.mbody.parchment');
   const svgNS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(svgNS, 'svg');
@@ -23089,11 +23292,11 @@ function buildExpMap(v, ctx, readOnly) {
     if (n.shardfall) el.appendChild(h('div.xtag.shard', 'Shardfall'));
     const act = { type: 'MOVE', nodeId: n.id };
     const hp = m ? heatOf(v, act) : null;
-    if (hp) el.appendChild(hourLabel(h('div.mhrs', `${fmtH(hp.hours)} h`), hp));
+    if (hp) el.appendChild(hourLabel(h('div.mhrs', tolls(hp.hours)), hp));
     if (n.done && n.heat && ctx.data.rules.heat && (ctx.data.rules.heat.gain[n.heat] > 0 || ctx.data.rules.heat.rarityUp[n.heat] > 0)) el.appendChild(h('div.mheat', { dataset: { hs: n.heat } }));
     if (m) { el.addEventListener('click', () => ctx.act(act)); ghostOn(el, ctx, act); }
     tip(el, () => {
-      const box = h('div.tt-node', h('div.tt-name', n.hub ? z.hubName : type ? NODE_NAME[type] || type : 'Unknown'), h('div.tt-sub', `Ring ${n.ring}${n.know === 'full' && n.cl && !n.hub ? ` · level ${n.cl}` : ''}${n.dimmed ? ' · Dimmed' : n.dimsIn !== Infinity && n.dimsIn != null ? ` · dims in ${fmtH(n.dimsIn)} h` : ''}`));
+      const box = h('div.tt-node', h('div.tt-name', n.hub ? z.hubName : type ? NODE_NAME[type] || type : 'Unknown'), h('div.tt-sub', `Ring ${n.ring}${n.know === 'full' && n.cl && !n.hub ? ` · level ${n.cl}` : ''}${n.dimmed ? ' · Dimmed' : n.dimsIn !== Infinity && n.dimsIn != null ? ` · dims in ${tolls(n.dimsIn)}` : ''}`));
       if (m) {
         box.appendChild(h('div.tt-line', m.via === 'enter' ? 'Click to enter' : 'Click to walk here'));
         box.appendChild(previewBlock(heatOf(ctx.view, act), ctx));
@@ -23107,9 +23310,9 @@ function buildExpMap(v, ctx, readOnly) {
   const list = h('div.expmoves', readOnly ? null : mv.moves.map((m) => {
     const n = mv.nodes[m.nodeId]; const name = n.hub ? 'Hub' : n.know !== 'none' && n.type ? NODE_NAME[n.type] || n.type : 'Unknown';
     const go = { type: 'MOVE', nodeId: m.nodeId }; const pass = { type: 'PASS_THROUGH', nodeId: m.nodeId };
-    const b1 = ghostOn(btn(`${m.via === 'enter' ? 'Enter' : 'Walk to'} ${name} · ${fmtH(m.hours)} h`, () => ctx.act(go), '.small'), ctx, go);
+    const b1 = ghostOn(btn(`${m.via === 'enter' ? 'Enter' : 'Walk to'} ${name} · ${tolls(m.hours)}`, () => ctx.act(go), '.small'), ctx, go);
     tip(b1, () => previewBlock(heatOf(ctx.view, go), ctx));
-    const b2 = m.passHours != null ? ghostOn(btn(`Pass · ${fmtH(m.passHours)} h`, () => ctx.act(pass), '.small'), ctx, pass) : null;
+    const b2 = m.passHours != null ? ghostOn(btn(`Pass · ${tolls(m.passHours)}`, () => ctx.act(pass), '.small'), ctx, pass) : null;
     if (b2) tip(b2, () => h('div', h('div.tt-line', 'Walk through without resolving it.'), previewBlock(heatOf(ctx.view, pass), ctx)));
     return h('div.em', b1, b2);
   }));
@@ -23120,7 +23323,7 @@ function buildExpMap(v, ctx, readOnly) {
 /** The hours Travel on costs now, from the engine (a dry TRAVEL_ON); the mock's own number in mock mode. */
 function travelCost(z, ctx) {
   const hrs = z.travelHours !== undefined ? z.travelHours : ctx.data.rules.hours.travel;
-  return hrs == null ? '' : hrs > 0 ? ` Costs ${hrs} h.` : ' Costs no time.';
+  return hrs == null ? '' : hrs > 0 ? ` Costs ${tolls(hrs)}.` : ' Costs no time.';
 }
 function flagSvg() {
   const d = h('div.flagm');
@@ -23161,7 +23364,7 @@ function nodeTip(n, v, ctx, reach, hp = null) {
   // node ends in, H.4), else the node type's hours
   const hrs = ctx.data.nodeHours ? ctx.data.nodeHours[n.type] : null;
   if (hp) box.appendChild(previewBlock(hp, ctx));
-  else if (hrs != null) box.appendChild(h('div.tt-sub', n.type === 'grind' ? `Takes ${hrs} h per wave` : `Takes ${hrs} h`));
+  else if (hrs != null) box.appendChild(h('div.tt-sub', n.type === 'grind' ? `Takes ${tolls(hrs)} per wave` : `Takes ${tolls(hrs)}`));
   const H = ctx.data.rules.heat;
   if (n.visited && n.heat && H) box.appendChild(h('div.tt-sub', `Entered ${HEAT_NAME[n.heat]}${H.gain[n.heat] > 0 || H.rarityUp[n.heat] > 0 ? ': it paid heat spoils' : ''}`));
   if (n.visited) box.appendChild(h('div.tt-hint', 'Visited'));
@@ -23207,7 +23410,7 @@ function buildNode(v, ctx) {
     const w = (k) => {
       const a = { type: 'GRIND_SET_WAVES', n: k }; const hp = heatOf(v, a);
       const b = btn('', () => ctx.act(a), k === Math.min(2, ks.length) ? '.primary' : '');
-      b.append(`${k} wave${k > 1 ? 's' : ''} · `, hourLabel(h('span.bh', `${hp ? fmtH(hp.hours) : k * R.hours.grindWave} h`), hp));
+      b.append(`${k} wave${k > 1 ? 's' : ''} · `, hourLabel(h('span.bh', tolls(hp ? hp.hours : k * R.hours.grindWave)), hp));
       if (hp) { tip(b, () => previewBlock(heatOf(ctx.view, a), ctx)); ghostOn(b, ctx, a); }
       return b;
     };
@@ -23382,7 +23585,7 @@ function buildSummary(v, ctx) {
     s.dev ? h('div.devrun', `Dev run${s.dev.god ? ' · god mode' : ''}`) : null));
   const kv = (pairs) => h('dl.kv', pairs.flatMap(([k, val]) => [h('dt', k), h('dd', val)]));
   const card1 = h('div.card', h('h3', 'The journey'), kv([
-    ['Reached', `${s.zone}${s.row ? `, row ${s.row}` : ''}`], ['In-game time', `${s.hours} h`], ['Ascendancy', s.asc ? `+${Math.round(s.asc * 100)} %` : 'none'],
+    ['Reached', `${s.zone}${s.row ? `, row ${s.row}` : ''}`], [HEAT_WORDS.Units, `${fmtH(s.hours)}${s.par ? ` (par ${fmtH(s.par)})` : ''}`], ['Ascendancy', s.asc ? `+${Math.round(s.asc * 100)} %` : 'none'],
     ['Estimated time', `${s.estMinutes.manual} min manual · ${s.estMinutes.auto} min autoplay`], ['Fights', `${s.fights} (${s.rounds} rounds)`], ['Seed', String(s.seed)],
     // the killing blow by its display name (the bridge's actionName; without a name only the killer)
     ...(s.death ? [['Killed by', h('span.killed', { dataset: { ability: s.death.ability || '' } }, s.death.ability ? `${s.death.killer} (${s.death.ability})` : s.death.killer)], ['Where', `${s.death.node}, round ${s.death.round}`]] : []),
@@ -23818,7 +24021,7 @@ function timeline(events, prev, spells, scale = 1) {
 
 });
 __bundle.def("src/ui/director.js", function* (__ns, __link) {
-let wait, SkipToken, fmtNum, deepClone; __link.imp("src/ui/util.js", [["wait", (v) => { wait = v; }], ["SkipToken", (v) => { SkipToken = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["deepClone", (v) => { deepClone = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let linkedText, dangerBanner, CONTROL_LOG; __link.imp("src/ui/ui-text.js", [["linkedText", (v) => { linkedText = v; }], ["dangerBanner", (v) => { dangerBanner = v; }], ["CONTROL_WORD", (v) => { CONTROL_LOG = v; }]]); let timeline, roundPace, hitShare, STATUS_LABEL; __link.imp("src/ui/combat-feel.js", [["timeline", (v) => { timeline = v; }], ["roundPace", (v) => { roundPace = v; }], ["hitShare", (v) => { hitShare = v; }], ["STATUS_LABEL", (v) => { STATUS_LABEL = v; }]]); __link.exp({ "planMs": () => planMs, "makeInterim": () => makeInterim, "Director": () => Director });
+let wait, SkipToken, fmtNum, deepClone; __link.imp("src/ui/util.js", [["wait", (v) => { wait = v; }], ["SkipToken", (v) => { SkipToken = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["deepClone", (v) => { deepClone = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let linkedText, dangerBanner, CONTROL_LOG, HEAT_WORDS; __link.imp("src/ui/ui-text.js", [["linkedText", (v) => { linkedText = v; }], ["dangerBanner", (v) => { dangerBanner = v; }], ["CONTROL_WORD", (v) => { CONTROL_LOG = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }]]); let timeline, roundPace, hitShare, STATUS_LABEL; __link.imp("src/ui/combat-feel.js", [["timeline", (v) => { timeline = v; }], ["roundPace", (v) => { roundPace = v; }], ["hitShare", (v) => { hitShare = v; }], ["STATUS_LABEL", (v) => { STATUS_LABEL = v; }]]); __link.exp({ "planMs": () => planMs, "makeInterim": () => makeInterim, "Director": () => Director });
 yield;
 // Plays the events of one engine step as animation, then hands the new view to the HUD.
 // The DoT preview (view `dot`, engine-api.md 6.1) is the next decision's: the views shown while a round plays carry none.
@@ -24200,7 +24403,7 @@ class Director {
           }
           case 'signal': scene.float(ref(e.src), 'Signal!', { color: '#ffb05a', size: 22, crit: true }); hud.log(`${cap(e.who)} signals for help: ${e.adds === 1 ? 'one more enemy joins' : `${e.adds} more enemies join`} at the end of the round!`, 'lg-warn'); break;
           case 'bolster': hud.log(`${cap(e.by)} bolsters ${e.name === e.by ? 'itself' : e.name}: a ${fmtNum(e.amount)} shield.`, 'lg-warn'); break;
-          case 'gotItem': hud.log(`You receive loot: ${e.name}${e.heatUp ? ' (heat raised it one rarity)' : ''}${e.to === 'window' ? ' (waiting in the loot window)' : ''}.`, 'lg-loot'); break;
+          case 'gotItem': hud.log(`You receive loot: ${e.name}${e.heatUp ? ` (${HEAT_WORDS.name} raised it one rarity)` : ''}${e.to === 'window' ? ' (waiting in the loot window)' : ''}.`, 'lg-loot'); break;
           case 'channel': scene.float(ref(e.src), `${e.name} ${e.step}/2`, { color: '#d0b0ff', size: 22, crit: e.step === 2 }); if (e.step === 2) scene.screenFlash('#6a4aff', 0.3, 0.6); hud.log(`${e.name}: ${e.step === 1 ? 'the channel begins' : 'the channel resolves'}.`, 'lg-warn'); await W(tm.wait); break;
           case 'linked': {
             // n: living Shards when the wave came (engine event); the strength from the rules table
@@ -24349,7 +24552,7 @@ const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
 });
 __bundle.def("src/ui/dev-menu.js", function* (__ns, __link) {
-let h, clear, fmtNum, moneyEl; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }]]); __link.exp({ "createDevMenu": () => createDevMenu });
+let h, clear, fmtNum, moneyEl; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }]]); let HEAT_WORDS, tolls; __link.imp("src/ui/ui-text.js", [["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["tolls", (v) => { tolls = v; }]]); __link.exp({ "createDevMenu": () => createDevMenu });
 yield;
 // The Dev menu (owner feedback 2026-11-11 07:41: "in-game dev tools from a menu, so he can test any stage without playing
 // through"; docs/specs/engine-api.md 12). A corner button and the backquote key (`) open a panel with six tabs: Start at
@@ -24361,9 +24564,10 @@ yield;
 // -> R.debug); the numbers it shows (levels, limits, kinds) come from the bridge's data.dev.
 
 
+
 const TABS = [['start', 'Start at'], ['jump', 'Jump'], ['fight', 'Fight'], ['give', 'Give'], ['world', 'World'], ['seed', 'Seed']];
 const KIND_NAME = { normal: 'Normal', elite: 'Elite', rare: 'Rare', trash: 'Dungeon trash', dboss: 'Dungeon boss' };
-const HEAT_LABEL = { clear: 'Clear', warm: 'Warm', hot: 'Hot', scorched: 'Scorched' };
+const HEAT_LABEL = HEAT_WORDS.state; // Calm, Smouldering, Burning, Infernal (ui-text.js)
 const RUN_PHASES = ['ZONE_HUB', 'MAP', 'NODE', 'CAMP', 'BOSS'];
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
@@ -24542,8 +24746,8 @@ function createDevMenu(root, ctx, { allowed }) {
       const modes = [['rows', 'Rows'], ['expedition', 'Expedition']].map(([m, label]) => { const b = h('button', { type: 'button' }, label); b.dataset.mode = m; b.addEventListener('click', () => { b.blur(); ctx.dev('mapMode', { mode: m }); }); return b; });
       return {
         el: h('div',
-          h('div.dm-line', field('Hours', hours, null), set, now),
-          h('div.dm-sub', 'Heat (the run\'s own clock)'), h('div.dm-acts', heat),
+          h('div.dm-line', field(HEAT_WORDS.Units, hours, null), set, now),
+          h('div.dm-sub', `${HEAT_WORDS.Name} (the run's own clock)`), h('div.dm-acts', heat),
           h('div.dm-acts', reveal, god),
           h('div.dm-sub', 'Map'), h('div.seg.dm-seg', modes),
           h('div.dm-note', 'God mode: you take no damage (a heavy blow counts as avoided). A run with it, or with any tool here, is a dev run: no Echoes. Map: the zone is drawn again in that mode, you at its hub.')),
@@ -24555,7 +24759,7 @@ function createDevMenu(root, ctx, { allowed }) {
           god.classList.toggle('on', on); god.setAttribute('aria-checked', on ? 'true' : 'false'); god.classList.toggle('disabled', !ok);
           for (const b of modes) b.classList.toggle('on', (vv.mapMode || 'rows') === b.dataset.mode);
           hours.placeholder = String(vv.hours ?? 0);
-          now.textContent = vv.heat ? `now ${fmtNum(vv.hours)} h · ${HEAT_LABEL[vv.heat.state] || vv.heat.state}` : '';
+          now.textContent = vv.heat ? `now ${tolls(vv.hours)} · ${HEAT_LABEL[vv.heat.state] || vv.heat.state}` : '';
         },
       };
     },
@@ -24626,7 +24830,7 @@ function createDevMenu(root, ctx, { allowed }) {
 
 });
 __bundle.def("src/ui/app.js", function* (__ns, __link) {
-let createBridge, flags; __link.imp("src/ui/engine-bridge.js", [["createBridge", (v) => { createBridge = v; }], ["flags", (v) => { flags = v; }]]); let Scene; __link.imp("src/ui/scene.js", [["Scene", (v) => { Scene = v; }]]); let createHud; __link.imp("src/ui/hud.js", [["createHud", (v) => { createHud = v; }]]); let createScreens; __link.imp("src/ui/screens.js", [["createScreens", (v) => { createScreens = v; }]]); let createWindows; __link.imp("src/ui/windows.js", [["createWindows", (v) => { createWindows = v; }]]); let Director; __link.imp("src/ui/director.js", [["Director", (v) => { Director = v; }]]); let initTooltip, hideTip; __link.imp("src/ui/tooltip.js", [["initTooltip", (v) => { initTooltip = v; }], ["hide", (v) => { hideTip = v; }]]); let createDevMenu; __link.imp("src/ui/dev-menu.js", [["createDevMenu", (v) => { createDevMenu = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let h, clear; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }]]); let enemyLook; __link.imp("src/ui/art-actors.js", [["enemyLook", (v) => { enemyLook = v; }]]); __link.exp({ "App": () => App, "flags": () => flags });
+let createBridge, flags; __link.imp("src/ui/engine-bridge.js", [["createBridge", (v) => { createBridge = v; }], ["flags", (v) => { flags = v; }]]); let Scene; __link.imp("src/ui/scene.js", [["Scene", (v) => { Scene = v; }]]); let createHud; __link.imp("src/ui/hud.js", [["createHud", (v) => { createHud = v; }]]); let createScreens; __link.imp("src/ui/screens.js", [["createScreens", (v) => { createScreens = v; }]]); let createWindows; __link.imp("src/ui/windows.js", [["createWindows", (v) => { createWindows = v; }]]); let Director; __link.imp("src/ui/director.js", [["Director", (v) => { Director = v; }]]); let initTooltip, hideTip; __link.imp("src/ui/tooltip.js", [["initTooltip", (v) => { initTooltip = v; }], ["hide", (v) => { hideTip = v; }]]); let createDevMenu; __link.imp("src/ui/dev-menu.js", [["createDevMenu", (v) => { createDevMenu = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let h, clear; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }]]); let enemyLook; __link.imp("src/ui/art-actors.js", [["enemyLook", (v) => { enemyLook = v; }]]); let HEAT_WORDS, tolls; __link.imp("src/ui/ui-text.js", [["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["tolls", (v) => { tolls = v; }]]); __link.exp({ "App": () => App, "flags": () => flags });
 yield;
 // App orchestrator: owns the bridge, scene, HUD, screens and windows; turns input into actions and
 // plays each step through the director. Presentation only.
@@ -24641,6 +24845,7 @@ yield;
 // Dev tools (owner feedback 2026-11-11; engine-api.md 12): the Dev menu (dev-menu.js) opens with the backquote key or its
 // corner button; each of its ops runs through devAct (the bridge's dev, R.debug) and the result is shown at once, as a
 // loaded state (no animation). ?dev=0 or the settings hide it.
+
 
 
 
@@ -25240,7 +25445,7 @@ function devText(op, args, r, v) {
     case 'refill': return 'Health and resources refilled';
     case 'god': return v.dev && v.dev.god ? 'God mode on: you take no damage' : 'God mode off';
     case 'give': { const g = r.note || {}; return [g.gold ? `${g.gold} copper` : '', g.potions ? `${g.potions} potions` : '', g.talentPoints ? `${g.talentPoints} talent points` : ''].filter(Boolean).join(', ') + (g.gold || g.potions || g.talentPoints ? ' given' : 'Nothing fits in the bags'); }
-    case 'hours': case 'heat': return `${v.hours} h${v.heat ? `, ${v.heat.state}` : ''}`;
+    case 'hours': case 'heat': return `${tolls(v.hours)}${v.heat ? `, ${HEAT_WORDS.state[v.heat.state] || v.heat.state}` : ''}`;
     case 'reveal': return 'Map revealed';
     case 'mapMode': return `${args.mode === 'expedition' ? 'Expedition' : 'Rows'} map`;
     case 'echoes': return `${args.n} Echoes given`;
