@@ -434,8 +434,12 @@ export const DIM_DMG_MULT = 1.3;
 export const DIM_XP_MULT = 0.25;
 /** rules 1.9.6 (M2b v11, D94: 1 -> 2; the arm is 1 with DIM_DMG_MULT 1.6): tolls of a Dimmed encounter. */
 export const TIME_DIM_FIGHT = 2;
-/** rules 1.9.6 (M2b v10, D85; expedition.md 6.2): tolls the zone's Dungeon node stays out of the Dimming after the front reaches it. */
-export const DUNGEON_DIM_HOLD = 3;
+/**
+ * rules 1.9.6 (M2b v12, D101; expedition.md 6.3, 13): tolls of a Dimmed encounter that a MOVE (a walk) farther from the
+ * Shardfall started (the settle step after that MOVE); every other Dimmed encounter costs TIME_DIM_FIGHT.
+ * (M2b v12, D100: DUNGEON_DIM_HOLD removed; the Dungeon dims by its hops as every node.)
+ */
+export const TIME_DIM_ESCAPE = 1;
 /** rules 1.9.7: Homeward Bell charges at the start of a run, and the most a run can hold. */
 export const BELL_START_CHARGES = 1;
 export const BELL_MAX_CHARGES = 2;
@@ -455,9 +459,9 @@ export const EXPED_TIME_DUNGEON = 5; // M2b v10 (D84): 6 -> 5, the rows map's TI
 /**
  * rules 1.9.8, 8.4 (M2b v11, D91; expedition.md 9.5, 13): × the item and junk chance of a normal or dungeon-trash kill in an
  * expedition run (× GRIND_DROP_MULT as well on a Grind node or a Camp wave; a chance is capped at 1). Not elites, rares,
- * dungeon bosses, treasure or rewards; Dimmed encounters drop nothing. The conditional arm is 1.9.
+ * dungeon bosses, treasure or rewards; Dimmed encounters drop nothing. M2b v12 (D100): 1.6 -> 1.9 (v11's cell 10).
  */
-export const EXPED_DROP_MULT = 1.6;
+export const EXPED_DROP_MULT = 1.9;
 /** rules 1.9.8, 8.4 (M2b v11, D92): rolls on "Dungeon boss" at a dungeon clear in an expedition run (rows: DUNGEON_BOSS_DROPS). */
 export const EXPED_DUNGEON_BOSS_DROPS = 3;
 // Start camp and contracts (docs/specs/expedition.md 2, 3 and 13, task M2b 2b.5; "(prep)" in engine-api.md). Used only by
@@ -627,13 +631,19 @@ export const CLASS = {
 export const CLASS_IDS = ['rogue', 'mage', 'hunter'];
 
 /**
- * rules 5.6 (M2b v11 row 8, D98, gated): Beastcall Horn's cooldown in rounds (SPELL.beastcall_horn.cd). It stays 12 until
- * the sim's gate passes (changes-m2b-v11.md cell 9 / 11); the gated value is BEASTCALL_HORN_CD_GATED. The sim arms it at
- * run time by setting C.SPELL.beastcall_horn.cd = C.BEASTCALL_HORN_CD_GATED in every process (the engine reads the
- * field when the spell is cast), or in a scratch copy by changing this line.
+ * rules 5.6 (M2b v11 row 8, D98): Beastcall Horn's cooldown in rounds (SPELL.beastcall_horn.cd). M2b v12 (D100): stays
+ * 12, row 8 void; its gated switch (BEASTCALL_HORN_CD_GATED 15) is removed.
  */
 export const BEASTCALL_HORN_CD = 12;
-export const BEASTCALL_HORN_CD_GATED = 15;
+/**
+ * rules 5.6 (M2b v12 row 5, D104, gated): Ricochet Bolt's bounce, × the main hit per bounce (SPELL.ricochet_bolt.bounceFrac).
+ * It stays 0.40 until the sim's gate passes (changes-m2b-v12.md cell 3 against 3b: expedition planner PALL >= 50 % with
+ * it); the gated value is RICOCHET_BOUNCE_FRAC_GATED. The sim arms it at run time by setting
+ * C.SPELL.ricochet_bolt.bounceFrac = C.RICOCHET_BOUNCE_FRAC_GATED in every process (the engine reads the field at each
+ * cast and in spellInfo), or in a scratch copy by changing this line.
+ */
+export const RICOCHET_BOUNCE_FRAC = 0.4;
+export const RICOCHET_BOUNCE_FRAC_GATED = 0.3;
 
 /**
  * Spells (rules 5.3-5.6, talent spells 6.x).
@@ -694,7 +704,7 @@ export const SPELL = {
   wild_communion: { id: 'wild_communion', cls: 'hunter', name: 'Wild Communion', lvl: 1, cost: 30, cd: 10, rounds: 4, petDmgPct: 0.50, tags: ['pet'], target: 'self', source: 'talent' },
   starfall_arrow: { id: 'starfall_arrow', cls: 'hunter', name: 'Starfall Arrow', lvl: 1, cost: 50, cd: 5, school: 'phys', b: 20, l: 4.0, p: 1.8, w: 2.0, refundOnKill: 50, tags: ['nuke'], target: 'enemy', source: 'talent' },
   deadfall_trap: { id: 'deadfall_trap', cls: 'hunter', name: 'Deadfall Trap', lvl: 1, cost: 30, cd: 8, school: 'phys', b: 10, l: 2.4, p: 1.0, stun: 1, tags: ['aoe', 'stun'], target: 'all', source: 'talent' },
-  ricochet_bolt: { id: 'ricochet_bolt', cls: 'hunter', name: 'Ricochet Bolt', lvl: 20, cost: 35, cd: 0, school: 'phys', b: 5, l: 1.1, p: 0.5, w: 0.9, bounces: 2, bounceFrac: 0.4, tags: ['aoe'], target: 'enemy', source: 'meta', meta: 'sp_h1', autoEnemies: 2 },
+  ricochet_bolt: { id: 'ricochet_bolt', cls: 'hunter', name: 'Ricochet Bolt', lvl: 20, cost: 35, cd: 0, school: 'phys', b: 5, l: 1.1, p: 0.5, w: 0.9, bounces: 2, bounceFrac: RICOCHET_BOUNCE_FRAC, tags: ['aoe'], target: 'enemy', source: 'meta', meta: 'sp_h1', autoEnemies: 2 },
   beastcall_horn: { id: 'beastcall_horn', cls: 'hunter', name: 'Beastcall Horn', lvl: 40, cost: 0, cd: BEASTCALL_HORN_CD, taunt: 2, tags: ['pet', 'defensive'], target: 'self', source: 'meta', meta: 'sp_h2', autoHp: 0.40 },
 };
 
@@ -1054,11 +1064,11 @@ export const PREP_OPTION = {
   prep_spyglass: { id: 'prep_spyglass', name: 'Spyglass', kind: 'vision', price: PRICE_SPYGLASS, charges: SPYGLASS_CHARGES },
 };
 export const PREP_OPTION_IDS = Object.keys(PREP_OPTION);
-/** Contract kinds (expedition.md 3.1; prep): price, sites needed, XP share, gold × V, item choices and table, board weight (M2b v10, D84: delve price 1 -> 2; M2b v11, D93: 2 -> 1). */
+/** Contract kinds (expedition.md 3.1; prep): price, sites needed, XP share, gold × V, item choices and table, board weight (M2b v10, D84: delve price 1 -> 2; M2b v11, D93: 2 -> 1; M2b v12, D100: 2 again, the D93 guard). */
 export const CONTRACT = {
   cull: { id: 'cull', price: 2, sites: CULL_SITES, xpFrac: CULL_XP_FRAC, goldV: CULL_GOLD_V, choices: CONTRACT_REWARD_CHOICES, table: 'contract', weight: CW_CULL },
   bounty: { id: 'bounty', price: 3, sites: 1, xpFrac: BOUNTY_XP_FRAC, goldV: BOUNTY_GOLD_V, choices: CONTRACT_REWARD_CHOICES, table: 'bounty', weight: CW_BOUNTY },
-  delve: { id: 'delve', price: 1, sites: 1, xpFrac: DELVE_XP_FRAC, goldV: DELVE_GOLD_V, choices: DELVE_REWARD_CHOICES, table: 'contract', weight: CW_DELVE },
+  delve: { id: 'delve', price: 2, sites: 1, xpFrac: DELVE_XP_FRAC, goldV: DELVE_GOLD_V, choices: DELVE_REWARD_CHOICES, table: 'contract', weight: CW_DELVE },
 };
 export const CONTRACT_KINDS = ['cull', 'bounty', 'delve'];
 /**

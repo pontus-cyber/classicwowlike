@@ -1,6 +1,6 @@
 # Expedition spec: start-camp preparation, contracts, roaming zone maps, the Dimming
 
-Owner: Lead Game Designer. Status: draft for Lead and owner review, 2026-11-10 (milestone M2b). Sections 2 (start camp: points, board, rerolls, supplies, vision perks, Reserve) and 3 (contracts: kinds, rewards, story chain retired, sites, slots, hub contract 3.6) are in the engine behind `newRun({ mapMode: 'expedition', prep: true })` until the simulator and the UI handle PREP (2026-11-11, docs/handoffs/engineer-2026-11-11f.md; engine-api.md 13), with the PREP actions of section 1, `USE_SPYGLASS`, the Tracker's and Delve's vision of 5.2, the summary and Echo lines of 8.1 and the pacing terms of 9.4 (in the engine), and the meta catalogue of 8.2 (in the engine since the M2b v11 build, 2026-11-11, docs/handoffs/engineer-2026-11-11h.md; the entries act in runs with the start camp); not yet: `ASK_LOCALS`. The engine defaults of engineer-2026-11-11f section 4 are confirmed by the designer (docs/specs/changes-m2b-v10.md, "Engine defaults"; lines marked "(M2b v10)"); the M2b v10 tuning package for the switch-over (docs/specs/changes-m2b-v10.md, draft, D82-D86) is in the engine with its rows A1-A3, B1-B4 and C1 since 2026-11-11 (docs/handoffs/engineer-2026-11-11g.md; lines in 3.1, 6.2 and 13 marked "(M2b v10)"); its bot rows (C2, D1, D2, the EST_COMPLETE prior) and the B44 target (C3) are the Simulation & Balance Engineer's and the designer's and are not folded here. The flip package M2b v11 (docs/specs/changes-m2b-v11.md, draft, D91-D98) is in the engine with its rows 1-4 and row 8 as a named constant at its old value (gated) since 2026-11-11 (docs/handoffs/engineer-2026-11-11h.md; lines in 6.3, 8.2, 9.5 and 13 marked "(M2b v11)"); its target rows 5-7 are folded when the Lead accepts D95-D97. Rules in sections 1-8; UI 9; bots 10; balance targets 11; prototype evidence 12; Heat addendum H (2026-11-10, rows mode and expedition); constants 13. Tuning pass M2b v6 (2026-11-11, docs/specs/changes-m2b-v6.md) changes lines marked "(M2b v6)". M2b v7 (2026-11-11, docs/specs/changes-m2b-v7.md): time is counted in whole **tolls** (1 toll = 1 former hour, every number kept), the meter is called **the Furnace** with the states Calm, Smouldering, Burning and Infernal, and every time constant is renamed from HOURS_* / *_H to TIME_*; rule lines marked "(M2b v7)", lines changed only by the rename are not marked. Prototype and measurement records (sections 9.5, 12, H.7) keep their "h": read 1 h as 1 toll.
+Owner: Lead Game Designer. Status: draft for Lead and owner review, 2026-11-10 (milestone M2b). Sections 2 (start camp: points, board, rerolls, supplies, vision perks, Reserve) and 3 (contracts: kinds, rewards, story chain retired, sites, slots, hub contract 3.6) are in the engine behind `newRun({ mapMode: 'expedition', prep: true })` until the simulator and the UI handle PREP (2026-11-11, docs/handoffs/engineer-2026-11-11f.md; engine-api.md 13), with the PREP actions of section 1, `USE_SPYGLASS`, the Tracker's and Delve's vision of 5.2, the summary and Echo lines of 8.1 and the pacing terms of 9.4 (in the engine), and the meta catalogue of 8.2 (in the engine since the M2b v11 build, 2026-11-11, docs/handoffs/engineer-2026-11-11h.md; the entries act in runs with the start camp); not yet: `ASK_LOCALS`. The engine defaults of engineer-2026-11-11f section 4 are confirmed by the designer (docs/specs/changes-m2b-v10.md, "Engine defaults"; lines marked "(M2b v10)"); the M2b v10 tuning package for the switch-over (docs/specs/changes-m2b-v10.md, draft, D82-D86) is in the engine with its rows A1-A3, B1-B4 and C1 since 2026-11-11 (docs/handoffs/engineer-2026-11-11g.md; lines in 3.1, 6.2 and 13 marked "(M2b v10)"); its bot rows (C2, D1, D2, the EST_COMPLETE prior) and the B44 target (C3) are the Simulation & Balance Engineer's and the designer's and are not folded here. The flip package M2b v11 (docs/specs/changes-m2b-v11.md, draft, D91-D98) is in the engine with its rows 1-4 and row 8 as a named constant at its old value (gated) since 2026-11-11 (docs/handoffs/engineer-2026-11-11h.md; lines in 6.3, 8.2, 9.5 and 13 marked "(M2b v11)"); its target rows 5-7 are folded when the Lead accepts D95-D97. The last package before the flip, M2b v12 (docs/specs/changes-m2b-v12.md, draft, D100-D104), is in the engine with its rows 1-2, the B43 caught band of row 3 (D102, owner O9 default) and row 5 as a named constant at its old value (gated) since 2026-11-11 (docs/handoffs/engineer-2026-11-11i.md; lines in 6.2, 6.3, 9.5, 11.1 and 13 marked "(M2b v12)"); row 4 is the simulator's. Rules in sections 1-8; UI 9; bots 10; balance targets 11; prototype evidence 12; Heat addendum H (2026-11-10, rows mode and expedition); constants 13. Tuning pass M2b v6 (2026-11-11, docs/specs/changes-m2b-v6.md) changes lines marked "(M2b v6)". M2b v7 (2026-11-11, docs/specs/changes-m2b-v7.md): time is counted in whole **tolls** (1 toll = 1 former hour, every number kept), the meter is called **the Furnace** with the states Calm, Smouldering, Burning and Infernal, and every time constant is renamed from HOURS_* / *_H to TIME_*; rule lines marked "(M2b v7)", lines changed only by the rename are not marked. Prototype and measurement records (sections 9.5, 12, H.7) keep their "h": read 1 h as 1 toll.
 Audience: Core Gameplay Engineer, UI/UX Engineer, Simulation & Balance Engineer, Content Designer, QA.
 
 Sources: owner feedback [stated: docs/feedback/2026-11-10-1006-owner.md, including the 10:09 follow-up]; current rules [source: docs/specs/rules.md sections 1, 2, 3, 11]; playtest [source: docs/handoffs/qa-2026-11-09.md]; balance state [source: docs/reports/balance-2026-11-10b.md]. Every number is a named constant in the table at the end (section 13); all are starting values for the Simulation & Balance Engineer to tune.
@@ -190,14 +190,15 @@ Oruvath, the Unlit Star, is the end boss; its phase 2 summons Dimming Shards [so
 
 The front only moves with tolls, and every action costs tolls, so it advances every step [stated: "advances every step"], and slow actions (Rest 4 tolls, a dungeon 5 tolls, M2b v10) let it advance more. The map shows, on every node, "dims in N tolls". (M2b v7)
 
-**The dungeon holds out** (M2b v10): the zone's Dungeon node dims DUNGEON_DIM_HOLD tolls later than its hops give, `dimAt(dungeon) = DIM_GRACE + ceil(hops × DIM_FRONT_TIME / DIM_FRONT_HOPS) + DUNGEON_DIM_HOLD` (2 hops from the Shardfall: 14 instead of 11; 4 hops: 19 instead of 16). Its "dims in N" label and the Dimming state (H.5) use this value. The front's spread through other nodes is unchanged (the dungeon is not a gap the front walks around). The Shardfall is never the Dungeon (4.3 step 5). A Delve held on a Dimmed dungeon expires as any contract when the zone is left. Fiction: the dungeon's walls hold the dark out a while. Engine readings (rules 1.9.6): a Dimmed encounter there has depth front - hops, so at least 1 once the hold ends; the map shows the hold only once the player knows the node is the Dungeon (seen, or its type known), since on a hidden node it would tell where the Dungeon is.
+The Dungeon dims by its hops as every node (M2b v12, D100: M2b v10's "the dungeon holds out", DUNGEON_DIM_HOLD 3 tolls added to the Dungeon's dimAt, is struck; it added 4.3 pp of Delve completion against the 8 pp it had to earn). Its "dims in N" label and the Dimming state (H.5) use the hops formula. A Delve held on a Dimmed dungeon expires as any contract when the zone is left.
 
 ### 6.3 Inside the Dimming
 - Entering a Dimmed node, or ending any action in one (the front reached the player), starts a **Dimmed encounter**: DIM_PACK_SIZE Shardspawn (zone's normal templates with the Shardspawn variant) at level `max(CL, L) + DIM_LEVEL_PER_DEPTH × depth`, depth = `front - distance` (0 at the edge), HP × DIM_HP_MULT, damage × DIM_DMG_MULT; it costs TIME_DIM_FIGHT (M2b v11: 2 tolls, was 1; the front check after it uses the new zone time); XP × DIM_XP_MULT, no loot, no gold. Flee is allowed (rules 7.8) and counts as passing through.
 - A Dimmed node's content is lost (it cannot be resolved; Rest, Vendor, Trainer and hub services do not work there). Sites in it are lost.
 - Fights deeper in the dark are higher level, so standing still or walking deeper kills; the way out is to leave (section 7).
+- **Walking out** (M2b v12, D101): a Dimmed encounter that a `MOVE` farther from the Shardfall started (a walk to a node with more hops from the Shardfall than the one left, `shardDist[to] > shardDist[from]` on the zone graph, as 6.2) costs TIME_DIM_ESCAPE (1 toll) instead of TIME_DIM_FIGHT. Every other Dimmed encounter keeps TIME_DIM_FIGHT: the first one when the front reaches the player after a node's content, and those after a PASS, the Bell's channel, a hub service, or a walk sideways or inward. Depth, level, pack and rewards are unchanged. An outward step in the dark then costs TIME_WALK + TIME_DIM_ESCAPE = 2 tolls, the front moves 0.8 hop and the step adds 1 hop, so depth falls 0.2 per outward step (with TIME_DIM_FIGHT on every step it rose 0.2: no way out on foot). Fiction: the Shardspawn come for what stands still in the dark; a bearer walking out of it fights them off on the move. The map's tolls previews count it (rules 1.9.6, 1.9.10).
 
-Target (B43): a planner is caught in 8-18 % of zones and Dimmed encounters are 5-20 % of non-boss deaths. The prototype lands at 15 % and about 17 % (section 12).
+Target (B43): a planner is caught in 8-25 % of zones (M2b v12, D102: was 8-18 %, set on the prototype before H.5 paid Hot at the edge; owner O9) and Dimmed encounters are 5-20 % of non-boss deaths. The prototype lands at 15 % and about 17 % (section 12).
 
 ## 7. Leaving a zone (replaces rules 1.5)
 
@@ -324,7 +325,7 @@ Plan: about **36 fights per run instead of 50**, each worth more:
 | Dungeon trash fights (DUNGEON_TRASH_FIGHTS) | 3 | 2 |
 | Node hours: TIME_QUEST / TIME_ELITE / TIME_GRIND_WAVE / TIME_DUNGEON | 2 / 2 / 1 / 5 | 3 / 3 / 2 / 6 (M2b v10: dungeon 5, EXPED_TIME_DUNGEON) |
 | XP per fight and per node: MOB_XP_FRAC, QUEST_TURNIN_XP_FRAC, GRIND_WAVE_XP_FRAC, DUNGEON_CLEAR_XP_FRAC, contract XP | × 1 | × XP_WEIGHT_MULT (1.6; M2b v10: 1.4) |
-| Kill loot: item and junk chance of normal and dungeon-trash kills (rules 8.4) | × 1 | × EXPED_DROP_MULT 1.6 (M2b v11, D91) |
+| Kill loot: item and junk chance of normal and dungeon-trash kills (rules 8.4) | × 1 | × EXPED_DROP_MULT 1.6 (M2b v11, D91); 1.9 (M2b v12, D100) |
 | Dungeon boss rolls at a clear (rules 8.4) | DUNGEON_BOSS_DROPS 2 | EXPED_DUNGEON_BOSS_DROPS 3 (M2b v11, D92) |
 | The Dimming: DIM_HOURS_PER_HOP | 3 | 2.5 |
 | Cull sites in the target region: CULL_SITE_IN | 0.50 | 0.65 (fewer nodes per zone) |
@@ -368,7 +369,7 @@ Today both are 1.00 by construction (full map in view).
 | B40 | P1 | Plan matters: planner P0 win rate, planned prep minus prep "none" (all points to Reserve), paired seeds; and planned minus random prep | >= PLAN_GAIN_MIN pp; >= PLAN_VS_RANDOM_MIN pp |
 | B41 | P1 | C_step planner P0 / PALL; C_route planner P0 / PALL | 0.60-0.80 / 0.80-0.92; <= 0.15 / <= 0.50 |
 | B42 | P2 | Vision value: planner PALL minus planner PALL without the vision entries (scout, cartographer, old_hand): contract completion; win rate | >= 10 pp; inside B10 |
-| B43 | P1 | Tension: zones with at least one Dimmed encounter, planner P0; Dimmed encounters' share of non-boss deaths, planner P0; zones where the front came within one hop, greedy P0 | 8-18 %; 5-20 %; 40-75 % |
+| B43 | P1 | Tension: zones with at least one Dimmed encounter, planner P0; Dimmed encounters' share of non-boss deaths, planner P0; zones where the front came within one hop, greedy P0 | 8-25 % (M2b v12, D102: was 8-18 %; owner O9); 5-20 %; 40-75 % |
 | B44 | P2 | Threat bounds the zone: planner P0 zone tolls with the Dimming off, divided by with it on (diagnostic cell) | >= 1.5 |
 | B45 | P2 | Walk-throughs (resolved nodes passed) per zone, planner P0 | <= 2.5 |
 | B46 | P2 | Contract reward share of total XP, planner P0 | 8-20 % |
@@ -533,7 +534,7 @@ Reproduce: `cd sim/out/heat && HEATP='{"gain":[0,0,0.35,0.5],"up":[0,0,0.25,0.4]
 | REROLL_PRICE | 1 | points |
 | REROLL_MAX | 2 | rerolls |
 | CW_CULL / CW_BOUNTY / CW_DELVE | 55 / 25 / 20 | weight |
-| CONTRACT.cull.price / bounty / delve | 2 / 3 / 1 | points (M2b v10: delve 1 -> 2; M2b v11: back to 1, D93) |
+| CONTRACT.cull.price / bounty / delve | 2 / 3 / 2 | points (M2b v10: delve 1 -> 2; M2b v11: back to 1, D93; M2b v12: 2 again, D100, the D93 guard) |
 | CULL_SITES | 2 | sites |
 | CULL_SITE_SPARE | 1 | extra sites guaranteed |
 | CULL_SITE_IN | 0.65 | probability per eligible node in the target region (0.50 with today's node counts, 9.5) |
@@ -578,8 +579,8 @@ Reproduce: `cd sim/out/heat && HEATP='{"gain":[0,0,0.35,0.5],"up":[0,0,0.25,0.4]
 | DIM_LEVEL_PER_DEPTH | 2 | levels per hop of depth |
 | DIM_HP_MULT / DIM_DMG_MULT | 1.2 / 1.3 | × (tuned to about 8 % death chance at depth 0 for the planner P0, prototype SI) |
 | DIM_XP_MULT | 0.25 | × normal kill XP |
-| TIME_DIM_FIGHT | 2 | tolls (M2b v11, D94: was 1; arm 1 with DIM_DMG_MULT 1.6) |
-| DUNGEON_DIM_HOLD | 3 | tolls added to the Dungeon node's dimAt (6.2; M2b v10) |
+| TIME_DIM_FIGHT | 2 | tolls (M2b v11, D94: was 1; arm 1 with DIM_DMG_MULT 1.6); every Dimmed encounter but an escape (6.3) |
+| TIME_DIM_ESCAPE | 1 | tolls of a Dimmed encounter after a MOVE farther from the Shardfall (6.3; rules 1.9.6; M2b v12, D101) |
 | BELL_START_CHARGES | 1 | charges per run |
 | BELL_MAX_CHARGES | 2 | charges |
 | BELL_CHANNEL_TIME | 2 | tolls |
@@ -595,7 +596,7 @@ Reproduce: `cd sim/out/heat && HEATP='{"gain":[0,0,0.35,0.5],"up":[0,0,0.25,0.4]
 | PACE_FIGHT_PLAN_S | 6 | s per fight [assumption] |
 | XP_WEIGHT_MULT | 1.4 | × XP per fight and node and of contracts (9.5; rules 1.9.8; M2b v10: was 1.6; the sim's arm 1.5) |
 | EXPED_TIME_DUNGEON | 5 | tolls of a Dungeon node (9.5; rules 1.9.8; M2b v10: was 6) |
-| EXPED_DROP_MULT | 1.6 | × item and junk chance of normal and dungeon-trash kills, expedition runs (9.5; rules 1.9.8, 8.4; M2b v11, D91; conditional arm 1.9) |
+| EXPED_DROP_MULT | 1.9 | × item and junk chance of normal and dungeon-trash kills, expedition runs (9.5; rules 1.9.8, 8.4; M2b v11, D91; M2b v12, D100: was 1.6, v11's cell 10) |
 | EXPED_DUNGEON_BOSS_DROPS | 3 | rolls on "Dungeon boss" at a dungeon clear, expedition runs (rules 1.9.8, 8.4; M2b v11, D92) |
 | PLANNER_FOG_DEPTH | 4 | moves (bots) |
 | SITE_PARTIAL_MULT | 0.8 | × (bots) |
@@ -605,7 +606,7 @@ Reproduce: `cd sim/out/heat && HEATP='{"gain":[0,0,0.35,0.5],"up":[0,0,0.25,0.4]
 | PLAN_VS_RANDOM_MIN | 2 | pp win rate (B40) |
 | C_STEP_P0 / C_STEP_PALL | 0.60-0.80 / 0.80-0.92 | share (B41) |
 | C_ROUTE_P0_MAX / C_ROUTE_PALL_MAX | 0.15 / 0.50 | share (B41) |
-| CAUGHT_ZONES | 0.08-0.18 | share (B43; at risk with the 9.5 budget, see there) |
+| CAUGHT_ZONES | 0.08-0.25 | share (B43; M2b v12, D102: was 0.08-0.18; owner O9) |
 | DIM_DEATH_SHARE | 0.05-0.20 | share (B43) |
 | CLOSE_CALL_GREEDY | 0.40-0.75 | share (B43) |
 | THREAT_BOUND_MIN | 1.5 | × (B44) |

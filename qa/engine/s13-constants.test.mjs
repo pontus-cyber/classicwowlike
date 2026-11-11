@@ -35,7 +35,7 @@ describe('rules 13 constant table', () => {
   });
 });
 
-describe('change docs M2b v9, v10 and v11: the engine constants equal the "New" column of their constant tables', () => {
+describe('change docs M2b v9, v10, v11 and v12: the engine constants equal the "New" column of their constant tables', () => {
   const doc = (f) => readFileSync(fileURLToPath(new URL(`../../docs/specs/${f}`, import.meta.url)), 'utf8');
   // [row label as the table starts it, getters in the order of the cell's "a / b" values]; bot, sim and balance rows are not engine constants
   const WANT = {
@@ -46,13 +46,19 @@ describe('change docs M2b v9, v10 and v11: the engine constants equal the "New" 
     'changes-m2b-v10.md': [
       ['CONTRACT_CL_OFFSET', [() => K.CONTRACT_CL_OFFSET]], ['CONTRACT_RARE_W / CONTRACT_EPIC_W', [() => K.CONTRACT_RARE_W, () => K.CONTRACT_EPIC_W]],
       ['BOUNTY_RARE_W / BOUNTY_EPIC_W', [() => K.BOUNTY_RARE_W, () => K.BOUNTY_EPIC_W]], ['DELVE_XP_FRAC', [() => K.DELVE_XP_FRAC]],
-      // CONTRACT.delve.price: 2 in v10, back to 1 in v11 (D93), checked against the v11 table below
-      ['EXPED_TIME_DUNGEON', [() => K.EXPED_TIME_DUNGEON]], ['DUNGEON_DIM_HOLD', [() => K.DUNGEON_DIM_HOLD]], ['XP_WEIGHT_MULT', [() => K.XP_WEIGHT_MULT]],
+      // CONTRACT.delve.price: 2 in v10, 1 in v11 (D93), 2 again in v12 (D100); DUNGEON_DIM_HOLD removed in v12 (D100):
+      // both checked against the v12 table below
+      ['EXPED_TIME_DUNGEON', [() => K.EXPED_TIME_DUNGEON]], ['XP_WEIGHT_MULT', [() => K.XP_WEIGHT_MULT]],
     ],
-    // M2b v11 engine rows 1-4 (D91-D94); row 8 is gated (below); rows 5-7 are targets
+    // M2b v11 engine rows 1-4 (D91-D94); row 8 is gated (below); rows 5-7 are targets. EXPED_DROP_MULT (1.6) and
+    // CONTRACT.delve.price (1) are superseded by v12 row 1 (D100), checked against the v12 table below.
     'changes-m2b-v11.md': [
-      ['EXPED_DROP_MULT', [() => K.EXPED_DROP_MULT]], ['EXPED_DUNGEON_BOSS_DROPS', [() => K.EXPED_DUNGEON_BOSS_DROPS]],
-      ['CONTRACT.delve.price', [() => K.CONTRACT.delve.price]], ['TIME_DIM_FIGHT', [() => K.TIME_DIM_FIGHT]], ['XP_WEIGHT_MULT', [() => K.XP_WEIGHT_MULT]],
+      ['EXPED_DUNGEON_BOSS_DROPS', [() => K.EXPED_DUNGEON_BOSS_DROPS]], ['TIME_DIM_FIGHT', [() => K.TIME_DIM_FIGHT]], ['XP_WEIGHT_MULT', [() => K.XP_WEIGHT_MULT]],
+    ],
+    // M2b v12 engine rows 1-2 (D100, D101); row 5 is gated (below); row 3 is a target, row 4 a bot
+    'changes-m2b-v12.md': [
+      ['CONTRACT.delve.price', [() => K.CONTRACT.delve.price]], ['EXPED_DROP_MULT', [() => K.EXPED_DROP_MULT]],
+      ['SPELL.beastcall_horn.cd', [() => K.SPELL.beastcall_horn.cd]], ['TIME_DIM_ESCAPE', [() => K.TIME_DIM_ESCAPE]],
     ],
   };
   for (const [file, want] of Object.entries(WANT)) {
@@ -70,11 +76,25 @@ describe('change docs M2b v9, v10 and v11: the engine constants equal the "New" 
       assert.equal(K.CONTRACT.delve.xpFrac, K.DELVE_XP_FRAC);
     });
   }
-  test('changes-m2b-v11.md row 8 (gated, not applied): SPELL.beastcall_horn.cd keeps the "Old" value, the "New" value is BEASTCALL_HORN_CD_GATED', () => {
+  test('changes-m2b-v11.md row 8 (gated, void in v12): SPELL.beastcall_horn.cd keeps the "Old" value; the gated switch is removed (v12 row 1, D100)', () => {
     const text = doc('changes-m2b-v11.md');
     const row = rows(text.slice(text.indexOf('## Constants'))).find((r) => r[0].startsWith('SPELL.beastcall_horn.cd'));
     assert.ok(row && /gated/.test(row[0]));
-    assert.deepEqual([K.SPELL.beastcall_horn.cd, K.BEASTCALL_HORN_CD, K.BEASTCALL_HORN_CD_GATED], [Number(row[1]), Number(row[1]), Number(row[2])]);
+    assert.deepEqual([K.SPELL.beastcall_horn.cd, K.BEASTCALL_HORN_CD], [Number(row[1]), Number(row[1])]);
+    assert.equal('BEASTCALL_HORN_CD_GATED' in K, false);
+  });
+
+  test('changes-m2b-v12.md: DUNGEON_DIM_HOLD "removed"; TIME_DIM_ESCAPE\'s "Old" is TIME_DIM_FIGHT 2; row 5 (gated, not applied): bounceFrac keeps the "Old" value, the "New" value is RICOCHET_BOUNCE_FRAC_GATED', () => {
+    const text = doc('changes-m2b-v12.md');
+    const table = rows(text.slice(text.indexOf('## Constants')));
+    const get = (label) => table.find((r) => r[0] === label || r[0].startsWith(`${label} `));
+    assert.match(get('DUNGEON_DIM_HOLD')[2], /^removed/);
+    assert.equal('DUNGEON_DIM_HOLD' in K, false);
+    assert.match(get('TIME_DIM_ESCAPE')[1], /TIME_DIM_FIGHT 2/);
+    assert.equal(K.TIME_DIM_FIGHT, 2);
+    const ric = get('SPELL.ricochet_bolt.bounceFrac');
+    assert.ok(ric && /gated/.test(ric[0]));
+    assert.deepEqual([K.SPELL.ricochet_bolt.bounceFrac, K.RICOCHET_BOUNCE_FRAC, K.RICOCHET_BOUNCE_FRAC_GATED], [Number(ric[1]), Number(ric[1]), Number(ric[2])]);
   });
 });
 

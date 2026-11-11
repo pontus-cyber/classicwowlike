@@ -15,7 +15,7 @@ import {
   TREASURE_TRAP_CHANCE, TREASURE_TRAP_PCT, REST_RESTED_FRAC, BOON, BOON_GOLD_V, BOON_NODES, CAMP_GRIND_LEVEL,
   MAX_LEVEL, TRAIN_NEW_V, TRAIN_RANK_V, TRAVEL_EARLY_LEVELS,
   RESPEC_V, CONSUMABLE, ELIXIR_NODES, RES_META_CHARGES, BOSS_LEVEL, UNIQUE_POTION_PCT, TIME_WALK, DIM_PACK_SIZE,
-  DIM_LEVEL_PER_DEPTH, TIME_DIM_FIGHT, BELL_START_CHARGES, BELL_MAX_CHARGES, BELL_CHANNEL_TIME, TRACKER_RADIUS,
+  DIM_LEVEL_PER_DEPTH, BELL_START_CHARGES, BELL_MAX_CHARGES, BELL_CHANNEL_TIME, TRACKER_RADIUS,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt } from '../rng.js';
 import { rnd, frac6, deepClone } from './util.js';
@@ -32,7 +32,7 @@ import { makeBoss } from './boss.js';
 import { ascOver, newHeatStats, heatTime, heatZoneEntered, heatNodeEntered, heatFightWon } from './heat.js';
 import {
   isExpedition, grindMaxWaves, xpWeight, nodeTime, generateExpZone, refreshVision, zoneTime, frontAt, dimmedNow,
-  visionKit, canEnter, roadNameOf,
+  visionKit, canEnter, roadNameOf, outwardStep, dimFightTime,
 } from './expedition.js';
 import { newPrep, applySetOut, contractsAtZone, siteWon, expireContracts, ownedPerks } from './contracts.js';
 
@@ -152,6 +152,8 @@ export function startExpedition(s) {
   const c = s.create;
   s.exp = {
     vision: visionKit(c.vision), bell: Math.min(BELL_MAX_CHARGES, BELL_START_CHARGES), pending: false, bellPending: false, dimming: c.dimming !== false,
+    // M2b v12 (D101): the last MOVE walked farther from the Shardfall; set by that MOVE, read and cleared by its settle step.
+    outward: false,
     // Start camp and contracts (prep, expedition.md 2-3; newRun option prep): contracts taken, Reserve, Spyglass charges,
     // the Pack Mule. Without the option none of it is used.
     prep: !!c.prep, contracts: [], nextContract: 1, reserve: 0, spyglass: 0, mule: false,
@@ -179,8 +181,8 @@ export function addTime(s, ev, t, why) {
 
 /**
  * Expedition (rules 1.9.6): tolls in a zone move the Dimming. A `dimming` event lists the nodes the front newly covers
- * (the zone's Dungeon among them is Dimmed DUNGEON_DIM_HOLD tolls later, M2b v10: dimAt). Tolls other than a Dimmed
- * encounter's own mark the step for the settle check (settleExpedition).
+ * (every node by its hops, the Dungeon too since M2b v12). Tolls other than a Dimmed encounter's own mark the step for
+ * the settle check (settleExpedition).
  */
 function dimmingAfterTime(s, ev, t, why) {
   if (why === 'travel') return; // on the Road: the zone is left
@@ -497,6 +499,8 @@ function stepTo(s, ev, id, via) {
 /**
  * MOVE (rules 1.9.4): to an adjacent node. Unresolved, not the hub and not Dimmed: enter it (its content and tolls).
  * Otherwise a walk of TIME_WALK; walking onto the hub when it is not Dimmed starts a new hub visit (services again).
+ * A walk records whether it went farther from the Shardfall (M2b v12, D101: a Dimmed encounter its settle step starts
+ * costs TIME_DIM_ESCAPE); an entry does not (an encounter after a node's content costs TIME_DIM_FIGHT).
  */
 export function moveTo(s, ev, id) {
   if (canEnter(s, id)) {
@@ -504,7 +508,9 @@ export function moveTo(s, ev, id) {
     beginNode(s, ev, s.zone.nodes[id]);
     return;
   }
+  const from = s.zone.pos;
   stepTo(s, ev, id, 'walk');
+  s.exp.outward = outwardStep(s.zone, from, id);
   s.stats.exp.walks += 1;
   zoneRecord(s).walks += 1;
   addTime(s, ev, TIME_WALK, 'walk');
@@ -525,10 +531,11 @@ export function passThrough(s, ev, id) {
 /**
  * Dimmed encounter (rules 1.9.6) at node id: DIM_PACK_SIZE of the zone's normal templates (stream dim(z, id, n), n =
  * Dimmed encounters at this node so far; composition repair 7.14), variant shardspawn, level min(MAX_LEVEL, max(CL, L)
- * + DIM_LEVEL_PER_DEPTH × depth), depth = front - hops from the Shardfall. TIME_DIM_FIGHT; fought in phase NODE as
+ * + DIM_LEVEL_PER_DEPTH × depth), depth = front - hops from the Shardfall. TIME_DIM_FIGHT, or TIME_DIM_ESCAPE when
+ * `escape` (the settle step after a MOVE that walked farther from the Shardfall, M2b v12, D101); fought in phase NODE as
  * node type `dim`; the node is not resolved by it.
  */
-export function startDimEncounter(s, ev, id) {
+export function startDimEncounter(s, ev, id, escape = false) {
   const zone = s.zone;
   const z = zone.z;
   const def = zone.nodes[id];
@@ -547,7 +554,7 @@ export function startDimEncounter(s, ev, id) {
   s.node = { type: 'dim', id, cl: level, stage: 'fight', k, depth };
   setPhase(s, ev, 'NODE');
   ev.push({ t: 'dim', id, depth, level, k });
-  addTime(s, ev, TIME_DIM_FIGHT, 'dim');
+  addTime(s, ev, dimFightTime(escape), 'dim');
   startFight(s, ev, {
     kind: 'dim', k, z, rng, enemies: tids.map((tid) => ({ tid, level, variant: 'shardspawn' })), addLevel: level,
     addPool: zoneAddPool(zn), canFlee: true,
@@ -621,17 +628,21 @@ function completeBell(s, ev) {
 /**
  * Settle step of an expedition run (rules 1.9.6, 1.9.7), after every action: when the player is back on the map or in
  * the hub with nothing open (no node, fight, service or loot window) and tolls were spent since the last check, a
- * Dimmed encounter starts if the player's node is Dimmed (once per such action; its own tolls do not count). Then a
- * ringing Bell completes.
+ * Dimmed encounter starts if the player's node is Dimmed (once per such action; its own tolls do not count; after a
+ * MOVE that walked farther from the Shardfall it costs TIME_DIM_ESCAPE, M2b v12). Then a ringing Bell completes. The
+ * walk's flag is cleared here, after every action: it counts only for the settle step right after its MOVE.
  */
 export function settleExpedition(s, ev) {
   const x = s.exp;
-  if (!x || !s.zone || s.zone.camp || (s.phase !== 'MAP' && s.phase !== 'ZONE_HUB')) return;
+  if (!x) return;
+  const escape = x.outward === true;
+  x.outward = false;
+  if (!s.zone || s.zone.camp || (s.phase !== 'MAP' && s.phase !== 'ZONE_HUB')) return;
   if (s.node || s.fight || s.service || (s.loot && s.loot.length)) return;
   if (x.pending) {
     x.pending = false;
     if (dimmedNow(s)) {
-      startDimEncounter(s, ev, s.zone.pos);
+      startDimEncounter(s, ev, s.zone.pos, escape);
       return;
     }
   }

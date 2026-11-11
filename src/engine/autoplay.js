@@ -10,7 +10,7 @@
 import {
   SPELL, TALENT, CONSUMABLE, AUTO_POTION_HP, AUTO_TONIC_STACKS, AUTO_MANA_POTION, AUTO_FOOD_HP,
   ENGINE_ASSUMPTION as EA, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, MAX_LEVEL, PET, ENGAGE_OPTION, ENGAGE_OPTIONS,
-  ENGAGE_AUTO_LOOK, TIME_WALK, TIME_DIM_FIGHT, TIME_REST, TIME_VENDOR, TIME_TRAINER, EXPED_TIME_QUEST,
+  ENGAGE_AUTO_LOOK, TIME_WALK, TIME_REST, TIME_VENDOR, TIME_TRAINER, EXPED_TIME_QUEST,
 } from '../constants.js';
 import { hasSt, findSt, debuffStacks, isEliteOrBoss, petAlive } from './damage.js';
 import { defaultTarget, breaksOnHit } from './combat.js';
@@ -22,7 +22,7 @@ import { talentPointsFree } from './progress.js';
 import { nextLanes, dungeonLevels } from './map.js';
 import { checkAction } from './actions.js';
 import { canTravel, exitLevel, trainerSpells, learnCost, trainCost, trainable, availablePets, canEnter } from './nodes.js';
-import { isExpedition, grindMaxWaves, nodeTime, zoneTime, dimmedSeen } from './expedition.js';
+import { isExpedition, grindMaxWaves, nodeTime, zoneTime, dimmedAt, outwardStep, dimFightTime } from './expedition.js';
 import { takeContractError, buyPrepError, hubContractError, prepLeft } from './contracts.js';
 
 const legal = (s, a) => !checkAction(s, a);
@@ -399,9 +399,11 @@ function nodeScore(s, node) {
 // ---------------- Expedition map policy (rules 1.9.9) ----------------
 /**
  * Cheapest way from node `from` at zone time zt to a Road: Dijkstra over steps of TIME_WALK; a step onto a node that
- * is Dimmed on arrival also costs TIME_DIM_FIGHT and counts as a Dimmed step. Order: Dimmed steps, tolls, lower id.
- * The Dimming as the player sees it (dimmedSeen: the Dungeon's hold only when its type is known, M2b v10).
- * Returns { road, path (from `from` to the Road), dims, time }.
+ * is Dimmed on arrival also costs its Dimmed encounter and counts as a Dimmed step. Order: Dimmed steps, tolls, lower id.
+ * The encounter's tolls as the engine spends them (M2b v12, D101): TIME_DIM_ESCAPE when the step is a walk (MOVE: the
+ * node is resolved, the hub or Dimmed when the step starts; the policy passes through every other node) farther from
+ * the Shardfall, else TIME_DIM_FIGHT. Every node dims by its hops (M2b v12: the Dungeon's hold removed), which the
+ * player sees. Returns { road, path (from `from` to the Road), dims, time }.
  */
 function escapeRoute(s, from, zt) {
   const zone = s.zone;
@@ -418,9 +420,14 @@ function escapeRoute(s, from, zt) {
     done[u] = true;
     for (const v of zone.nodes[u].nb) {
       if (done[v]) continue;
+      const t0 = zt + lab[u].h;
       let h = lab[u].h + TIME_WALK;
-      const dim = dimmedSeen(s, v, zt + h);
-      if (dim) h += TIME_DIM_FIGHT;
+      const dim = dimmedAt(zone, v, zt + h);
+      if (dim) {
+        const nv = zone.nodes[v];
+        const walk = nv.done || nv.ring === 0 || dimmedAt(zone, v, t0);
+        h += dimFightTime(walk && outwardStep(zone, u, v));
+      }
       const c = { dims: lab[u].dims + (dim ? 1 : 0), h };
       if (better(c, lab[v])) { lab[v] = c; prev[v] = u; }
     }
@@ -434,7 +441,7 @@ function escapeRoute(s, from, zt) {
 
 /** Node id is out of the Dimming at zone time zt and a Road can be reached from it without a Dimmed step. */
 function expSafe(s, id, zt) {
-  return !dimmedSeen(s, id, zt) && escapeRoute(s, id, zt).dims === 0;
+  return !dimmedAt(s.zone, id, zt) && escapeRoute(s, id, zt).dims === 0;
 }
 
 /**
@@ -444,7 +451,7 @@ function expSafe(s, id, zt) {
 function expScore(s, id, zt) {
   const zone = s.zone;
   const n = zone.nodes[id];
-  if (!zone.seen[id] || n.done || n.ring === 0 || dimmedSeen(s, id, zt)) return null;
+  if (!zone.seen[id] || n.done || n.ring === 0 || dimmedAt(zone, id, zt)) return null;
   const sc = nodeScore(s, n);
   if (sc <= EA.AUTO_NODE_SCORE.risky) return null;
   return expSafe(s, id, zt + nodeTime(s, n.type)) ? sc : null;
@@ -467,7 +474,7 @@ function exploreStep(s, zt) {
   for (let i = 0; i < q.length; i++) {
     const u = q[i];
     for (const v of zone.nodes[u].nb) {
-      if (dist[v] >= 0 || dimmedSeen(s, v, zt + (dist[u] + 1) * TIME_WALK)) continue;
+      if (dist[v] >= 0 || dimmedAt(zone, v, zt + (dist[u] + 1) * TIME_WALK)) continue;
       dist[v] = dist[u] + 1;
       prev[v] = u;
       q.push(v);

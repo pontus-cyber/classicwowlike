@@ -11,12 +11,12 @@
 import {
   ZONE_COUNT, HEAT_STATES, HEAT_WARM_AT, HEAT_HOT_AT, HEAT_SCORCH_AT, HEAT_DIM_WARM, HEAT_DIM_HOT, HEAT_GAIN,
   HEAT_RARITY_UP, HEAT_BAR_MIN, HEAT_BAR_MAX, ASC_CAP, ASC_PER_STEP, ASC_STEP_TIME, TIME_TRAVEL, TIME_WALK,
-  TIME_TRAINER, TIME_VENDOR, TIME_REST, TIME_DIM_FIGHT, BELL_CHANNEL_TIME,
+  TIME_TRAINER, TIME_VENDOR, TIME_REST, BELL_CHANNEL_TIME,
 } from '../constants.js';
 import { frac6 } from './util.js';
 import { parTime } from './meta.js';
 import { nextLanes } from './map.js';
-import { isExpedition, zoneTime, dimAt, dimmedAt, nodeTime, grindMaxWaves, canEnter } from './expedition.js';
+import { isExpedition, zoneTime, dimAt, dimmedAt, nodeTime, grindMaxWaves, canEnter, outwardStep, dimFightTime } from './expedition.js';
 
 const IDX = Object.fromEntries(HEAT_STATES.map((k, i) => [k, i]));
 /** Index of a heat state in HEAT_STATES (0 = Clear ... 3 = Scorched). */
@@ -93,8 +93,9 @@ export function heatState(s) {
  * Tolls and the place after a time-costing action, as the engine would spend them (rules 1.4-1.9, 2.0): { time, z
  * (line zone afterwards), node (expedition: the node the player stands on afterwards, for the Dimming; null when the
  * zone is left or on today's map), enters (node id or lane the action enters), dimFight (a Dimmed encounter follows:
- * TIME_DIM_FIGHT included), perWave (a Grind whose waves are chosen inside: the tolls of one wave) }, or null when
- * the action costs no time. Legality is not checked here.
+ * its tolls included, TIME_DIM_FIGHT, or TIME_DIM_ESCAPE after a MOVE that walks farther from the Shardfall, M2b v12),
+ * perWave (a Grind whose waves are chosen inside: the tolls of one wave) }, or null when the action costs no time.
+ * Legality is not checked here.
  */
 function costOf(s, a) {
   const zone = s.zone;
@@ -102,12 +103,13 @@ function costOf(s, a) {
   const exp = isExpedition(s) && !zone.camp;
   const here = exp ? zone.pos : null;
   const nextZ = zone.camp ? null : zone.z + 1;
-  const out = (time, z, node, extra = {}) => {
+  const out = (time, z, node, extra = {}, escape = false) => {
     if (!(time > 0)) return null;
     let t = time;
     let dimFight = false;
-    // A step, a node's content, a service or the Bell's channel that ends on a Dimmed node: a Dimmed encounter follows.
-    if (exp && node !== null && !zone.dimOff && dimmedAt(zone, node, zoneTime(s) + t)) { t += TIME_DIM_FIGHT; dimFight = true; }
+    // A step, a node's content, a service or the Bell's channel that ends on a Dimmed node: a Dimmed encounter follows
+    // (M2b v12: TIME_DIM_ESCAPE after a walk farther from the Shardfall, else TIME_DIM_FIGHT).
+    if (exp && node !== null && !zone.dimOff && dimmedAt(zone, node, zoneTime(s) + t)) { t += dimFightTime(escape); dimFight = true; }
     return { time: t, z, node, enters: null, dimFight, perWave: false, ...extra };
   };
   switch (a.type) {
@@ -123,7 +125,7 @@ function costOf(s, a) {
       const n = exp && zone.nodes[a.nodeId];
       if (!n) return null;
       if (canEnter(s, n.id)) return out(nodeTime(s, n.type), zone.z, n.id, { enters: n.id, perWave: n.type === 'grind' && grindMaxWaves(s) > 1 });
-      return out(TIME_WALK, zone.z, n.id);
+      return out(TIME_WALK, zone.z, n.id, {}, outwardStep(zone, here, n.id));
     }
     case 'PASS_THROUGH': return exp && zone.nodes[a.nodeId] ? out(TIME_WALK, zone.z, a.nodeId) : null;
     case 'TAKE_ROAD': return exp ? out(TIME_TRAVEL, nextZ, null) : null;

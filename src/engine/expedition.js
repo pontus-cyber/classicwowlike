@@ -15,7 +15,7 @@ import {
   TIME_GRIND_WAVE, TIME_ELITE, TIME_DUNGEON, TIME_REST, TIME_VENDOR, TIME_TRAINER, TIME_TREASURE, TIME_SHRINE,
   TIME_WALK, TIME_TRAVEL, RING_NODES, RING_CL_BASE, RING_CL_SPREAD, EDGE_KEEP_R1, EDGE_KEEP_R2, EDGE_KEEP_R3,
   EDGE_DIAG_R23, REGION_COUNT, REGION_FAMILY_SHARE, REGION_W, REGION_KINDS, RING1_FORBIDDEN, ROAD_COUNT, VISION_RADIUS,
-  VISION_RADIUS_MAX, GUIDE_RADIUS_BONUS, PATHFINDER_RADIUS, DIM_GRACE, DIM_FRONT_HOPS, DIM_FRONT_TIME, DUNGEON_DIM_HOLD, BELL_CHANNEL_TIME,
+  VISION_RADIUS_MAX, GUIDE_RADIUS_BONUS, PATHFINDER_RADIUS, DIM_GRACE, DIM_FRONT_HOPS, DIM_FRONT_TIME, TIME_DIM_FIGHT, TIME_DIM_ESCAPE, BELL_CHANNEL_TIME,
   XP_WEIGHT_MULT, EXPED_GRIND_MAX_WAVES, EXPED_DUNGEON_TRASH_FIGHTS, EXPED_TIME_QUEST, EXPED_TIME_ELITE,
   EXPED_TIME_GRIND_WAVE, EXPED_TIME_DUNGEON, EXPEDITION_TEXT_IDS, EXPED_DROP_MULT, EXPED_DUNGEON_BOSS_DROPS, DUNGEON_BOSS_DROPS,
 } from '../constants.js';
@@ -278,28 +278,22 @@ export function dimAtHops(hops) {
   return DIM_GRACE + Math.floor((hops * DIM_FRONT_TIME + DIM_FRONT_HOPS - 1) / DIM_FRONT_HOPS);
 }
 /**
- * First zone toll at which node id is Dimmed: dimAtHops(hops from the Shardfall), and for the zone's Dungeon node
- * DUNGEON_DIM_HOLD tolls later (M2b v10, D85: the dungeon holds out; the front and every other node are unchanged).
+ * First zone toll at which node id is Dimmed: dimAtHops(hops from the Shardfall), for every node (M2b v12, D100: the
+ * Dungeon's DUNGEON_DIM_HOLD of M2b v10 is removed, so what the player sees and the engine's test are the same value).
  * Infinity in a zone played without the Dimming (dimOff, newRun option dimming: false, D50).
  */
 export function dimAt(zone, id) {
   if (zone.dimOff) return Infinity;
-  return dimAtHops(zone.shardDist[id]) + (zone.nodes[id].type === 'dungeon' ? DUNGEON_DIM_HOLD : 0);
+  return dimAtHops(zone.shardDist[id]);
 }
 export const dimmedAt = (zone, id, zt) => zt >= dimAt(zone, id);
+/** A step from node `from` to node `to` goes farther from the Shardfall (rules 1.9.6, M2b v12; hops on the zone graph). */
+export const outwardStep = (zone, from, to) => zone.shardDist[to] > zone.shardDist[from];
 /**
- * The zone toll node id dims at as the player sees it (rules 1.9.5, 1.9.6; mapView and the autoplay map policy): dimAt,
- * but the Dungeon's hold only once the player knows the node is the Dungeon (seen, or its type known: Region Charts, a
- * Delve, Pathfinder). On a hidden node the hold would tell where the Dungeon is. The player can only enter a node next
- * to his own, which is always seen, so what he can do never differs from dimAt.
+ * Tolls of a Dimmed encounter (rules 1.9.6): TIME_DIM_ESCAPE when a MOVE that walked farther from the Shardfall started
+ * it (M2b v12, D101: the settle step right after that walk), TIME_DIM_FIGHT for every other one.
  */
-export function dimAtSeen(s, id) {
-  const zone = s.zone;
-  if (zone.dimOff) return Infinity;
-  const n = zone.nodes[id];
-  return dimAtHops(zone.shardDist[id]) + (n.type === 'dungeon' && knowledge(s, n) !== 'none' ? DUNGEON_DIM_HOLD : 0);
-}
-export const dimmedSeen = (s, id, zt) => zt >= dimAtSeen(s, id);
+export const dimFightTime = (escape) => (escape ? TIME_DIM_ESCAPE : TIME_DIM_FIGHT);
 /** Is node id (default: the player's) Dimmed now? */
 export const dimmedNow = (s, id = s.zone.pos) => dimmedAt(s.zone, id, zoneTime(s));
 /** Tolls until the front advances again: dimAtHops(front + 1) - zt, at least 1. */
@@ -411,7 +405,7 @@ export function expMapView(s) {
   const band = ZONE_LEVELS * (z - 1) + 1;
   const nodes = zone.nodes.map((n) => {
     const know = knowledge(s, n);
-    const at = dimAtSeen(s, n.id); // M2b v10: the Dungeon's hold once the player knows it is the Dungeon
+    const at = dimAt(zone, n.id); // M2b v12: every node by its hops (the Dungeon's hold of M2b v10 removed)
     const dimmed = zt >= at;
     const v = {
       id: n.id, ring: n.ring, angle: n.angle, nb: n.nb.slice(), hops: d[n.id], hub: n.ring === 0, road: n.road,

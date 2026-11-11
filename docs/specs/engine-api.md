@@ -30,7 +30,11 @@ DUNGEON_DIM_HOLD in `dimAt`, `mapView` and `heatView`, the engine defaults of 13
 2026-11-11h (the flip package M2b v11, docs/specs/changes-m2b-v11.md rows 1-4 and 8: new numbers in `C` (EXPED_DROP_MULT,
 EXPED_DUNGEON_BOSS_DROPS, TIME_DIM_FIGHT 2, the Delve's price 1, BEASTCALL_HORN_CD and its gated value); the meta catalogue
 of expedition.md 8.2 in `C.META` (Cartographer, Old Hand, Quartermaster with `mapMode: 'expedition'`; Scout's Eye and
-Swift Boots with an `expedition` effect) and its effects in runs with the start camp; marked "(M2b v11)").
+Swift Boots with an `expedition` effect) and its effects in runs with the start camp; marked "(M2b v11)");
+2026-11-11i (M2b v12, docs/specs/changes-m2b-v12.md rows 1-2 and the gated row 5: EXPED_DROP_MULT 1.9, the Delve's price
+2, DUNGEON_DIM_HOLD and BEASTCALL_HORN_CD_GATED removed from `C` (the Dungeon dims by its hops in `dimAt`, `mapView` and
+`heatView`), the new TIME_DIM_ESCAPE in the settle step, `heatPreview`'s `dimFight` tolls and the autoplay map policy,
+`exp.outward`, RICOCHET_BOUNCE_FRAC and its gated value; marked "(M2b v12)").
 Units: every time value of the API is a whole number of tolls (1 toll = 1 former in-game hour, D69); there are no hours.
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
@@ -224,7 +228,7 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `time` | `add, total, why` | tolls spent (M2b v7: was the `hours` event) |
 | `node`, `nodeDone`, `quest` | `type, r, l, cl, heat` / ... / `quest` | node entered / completed / quest template id. (expedition) `node`: `type, id, ring, cl, heat`; `nodeDone`: `type, id`. (heat) `heat`: the node's entry state (rules 1.7.3) |
 | `move` | `from, to, via, seen` | (expedition) a step: `via` `enter`, `walk` or `pass`; `seen` = node ids newly in view |
-| `dimming` | `front, dimmed` | (expedition) the Dimming's front advanced; `dimmed` = node ids it newly covers (the zone's Dungeon among them is Dimmed DUNGEON_DIM_HOLD tolls later, M2b v10; no event then) |
+| `dimming` | `front, dimmed` | (expedition) the Dimming's front advanced; `dimmed` = node ids it newly covers (M2b v12: the zone's Dungeon too, by its hops; M2b v10's DUNGEON_DIM_HOLD removed; no event then) |
 | `dim` | `id, depth, level, k` | (expedition) a Dimmed encounter starts at node `id` (its `fight` event follows, `kind: 'dim'`) |
 | `bell` | `charges, node` | (expedition) RING_BELL: the channel starts (`charges` left) |
 | `prep` | `what` (`buy`, `sell`, `reroll`, `setOut`), `id`, `k`, `left`, `reserve`, `bought`, `contracts` | (prep) a start camp action; `left` = points left; `setOut`: `reserve`, the options `bought`, contracts held |
@@ -492,7 +496,9 @@ switch-over the default stays `'rows'`; nothing of a rows run changes. (prep) Th
 the Spyglass are in the engine behind `newRun`'s `prep: true` (section 13), and so are the catalogue's expedition effects of
 expedition.md 8.2 (section 9, M2b v11). Not yet: Ask the Locals. (M2b v11) An expedition run's kills drop more: a normal
 or trash kill's item and junk chance × EXPED_DROP_MULT, a dungeon clear EXPED_DUNGEON_BOSS_DROPS rolls (rules 1.9.8, 8.4);
-a Dimmed encounter costs TIME_DIM_FIGHT 2 tolls.
+a Dimmed encounter costs TIME_DIM_FIGHT 2 tolls. (M2b v12) EXPED_DROP_MULT is 1.9; the Dungeon dims by its hops as every node
+(DUNGEON_DIM_HOLD removed); a Dimmed encounter that the settle step after a MOVE walking farther from the Shardfall starts
+costs TIME_DIM_ESCAPE 1 toll (rules 1.9.6), every other one TIME_DIM_FIGHT.
 
 ### 10.1 Flow
 - START_RUN: phase ZONE_HUB on the hub (node 0) of zone 1. `LEAVE_HUB` puts the player on the map, standing on the
@@ -512,7 +518,7 @@ a Dimmed encounter costs TIME_DIM_FIGHT 2 tolls.
 | Path | Meaning |
 |---|---|
 | `mapMode` | `'rows'` or `'expedition'` (every state; saves without it are rows) |
-| `exp` | `{ vision: { radius, regions, typeRadius, tracker }, bell (charges), pending, bellPending, dimming, contracts, nextContract, reserve, spyglass, mule }` (engine bookkeeping; read the Bell from `mapView`, contracts from `contractView`; `dimming` false: newRun option, D50) |
+| `exp` | `{ vision: { radius, regions, typeRadius, tracker }, bell (charges), pending, bellPending, dimming, outward, contracts, nextContract, reserve, spyglass, mule }` (engine bookkeeping; `outward` (M2b v12): set by a MOVE that walks farther from the Shardfall, read and cleared by the settle step of the same action, so false between actions; read the Bell from `mapView`, contracts from `contractView`; `dimming` false: newRun option, D50) |
 | `prep` | (prep) `{ points, board, rerolls, bought, done }`: the start camp; kept after SET_OUT (`done`). Read it with `prepView` |
 | `zone` | `{ z, mode: 'expedition', nodes[], hub: 0, roads[], shardfall, shardDist[], pos, start (run tolls at arrival), seen[], typed[], dimN[], hubStock, path[], questsDone, storyDone, dimOff? }`: the full zone (hidden contents included; `dimOff` true in a run without the Dimming). Draw the map with `mapView`, never from here |
 | `node` | `{ type, id, cl, stage, k, ... }`; a Dimmed encounter: `{ type: 'dim', id, cl (its level), stage, k, depth }` |
@@ -536,9 +542,8 @@ a Dimmed encounter costs TIME_DIM_FIGHT 2 tolls.
   nodes: [node] }
 node (every node): { id, ring, angle (degrees), nb (neighbour ids), hops (from the player), hub, road, shardfall,
   dimmed, dimsIn (tolls from now; 0 = Dimmed), dimAt (zone toll it dims: grace + ceil(hops from the Shardfall ×
-  frontTime / frontHops); (M2b v10) + DUNGEON_DIM_HOLD on the zone's Dungeon once the player knows it is the Dungeon
-  (know 'full' or 'type'): on a hidden node the hold would tell where the Dungeon is, so a hidden Dungeon shows the
-  hops' value and may show as Dimmed before it is), know ('full' | 'type' | 'none'),
+  frontTime / frontHops), the zone's Dungeon too (M2b v12: M2b v10's DUNGEON_DIM_HOLD removed, so every node shows the
+  engine's value), know ('full' | 'type' | 'none'),
   region (content region index, or null when unknown) }
 know 'full' (the hub, or seen) adds: type, cl, done, lost (Dimmed and unresolved), and the details of the rows view:
   quest { title, archetypes }, grind { archetypes }, elite { level, archetypes ([null, the add's archetype]: one
@@ -597,7 +602,8 @@ clock. Every time value is a whole number of tolls (M2b v7): the line is rounded
 - `time`: the tolls the action costs (`timeAfter` = run time then), as the engine spends it: node tolls (rules 2.0, 1.9.8), a walk or a pass
   (TIME_WALK), TRAVEL_ON and TAKE_ROAD (TIME_TRAVEL), the Bell's channel (BELL_CHANNEL_TIME), a service, a Camp wave,
   n Grind waves. `dimFight`: the step, node, service or channel ends on a node that is Dimmed by then, so a Dimmed
-  encounter follows (rules 1.9.6); its TIME_DIM_FIGHT is included and the state after is Scorched. `perWave`: a Grind
+  encounter follows (rules 1.9.6); its tolls are included (TIME_DIM_FIGHT; TIME_DIM_ESCAPE for a MOVE that walks
+  farther from the Shardfall, M2b v12) and the state after is Scorched. `perWave`: a Grind
   whose waves are chosen inside (today's map): `time` is one wave. Text: "3 tolls, ends Smouldering".
 - Leaving the zone (TRAVEL_ON, TAKE_ROAD, RING_BELL): the state after uses the next zone's line (the Camp: the par);
   `dimIn` is null there (the next zone's map is not drawn yet; its hub is at least 3 hops from the Shardfall, so it
@@ -678,8 +684,9 @@ START_RUN builds the character and opens the start camp; SET_OUT applies the pur
 contracts, hub offers or Spyglass; the story chain stays), and a rows run never has any of it (both checked run for run
 against the engine before 2b.5). `debug.build({ mapMode: 'expedition', prep: true })` sets out with nothing bought.
 Turning the default on is one line (`newRun`'s `prep = false`); sim/lib/policy.mjs `makeBot` answers phase PREP since
-2b.5's sim slice. (M2b v10) The M2b v10 numbers that are not contract numbers (XP_WEIGHT_MULT 1.4, EXPED_TIME_DUNGEON 5,
-DUNGEON_DIM_HOLD 3) act on every expedition run, with or without `prep`; rows runs are untouched by v10.
+2b.5's sim slice. (M2b v10) The M2b v10 numbers that are not contract numbers (XP_WEIGHT_MULT 1.4, EXPED_TIME_DUNGEON 5;
+DUNGEON_DIM_HOLD 3 until M2b v12 removed it) act on every expedition run, with or without `prep`; rows runs are untouched by v10.
+(M2b v12) The same holds for EXPED_DROP_MULT 1.9 and TIME_DIM_ESCAPE; the Delve's price 2 acts with `prep`.
 
 ### 13.1 Rules as the engine plays them
 - Points: `PREP_POINTS + PREP_POINTS_PER_QM × min(profile.unlocks.quartermaster, 2)`. Spent on contracts (their price),
@@ -742,5 +749,5 @@ Delve shows its dungeon's type while held or complete; a Grind site counts at it
 slot by slot from `prep(k + 1)`; board draws: kind, region, family (always one draw), the Bounty's elite, extra slots
 their zone first; Cartographer, Old Hand and Quartermaster are read from `profile.unlocks` (catalogue entries in `C.META`
 since the M2b v11 build, section 9; `C.META_EXPEDITION` names the three); autoplay's start camp: Field Draughts, then the board's
-contract for each of zones 1-AUTO_PREP_ZONES whatever its kind (a Delve costs 1 again since M2b v11) while AUTO_PREP_RESERVE
+contract for each of zones 1-AUTO_PREP_ZONES whatever its kind (a Delve costs 2 again since M2b v12) while AUTO_PREP_RESERVE
 points stay; the hub contract from Reserve when it can; its map policy does not seek sites.

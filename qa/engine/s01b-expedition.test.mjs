@@ -571,13 +571,12 @@ describe('rules 1.9 expedition map: the Dimming (1.9.6)', () => {
       assert.equal(v.dim.front, f);
       for (const n of v.nodes) {
         const d = s.zone.shardDist[n.id];
-        // M2b v10 (D85): the Dungeon holds out DUNGEON_DIM_HOLD tolls; the view shows the hold once its type is known.
-        const hold = s.zone.nodes[n.id].type === 'dungeon' && n.know !== 'none' ? C.DUNGEON_DIM_HOLD : 0;
-        assert.equal(n.dimmed, f >= 0 && d <= f && zt >= dimAtHops(d) + hold, `zt ${zt} node ${n.id}`);
-        assert.equal(n.dimAt, dimAtHops(d) + hold);
-        if (s.zone.nodes[n.id].type !== 'dungeon') assert.equal(n.dimAt, dimAt(s.zone, n.id));
+        // M2b v12 (D100): every node, the Dungeon too, dims by its hops (the M2b v10 hold is removed).
+        assert.equal(n.dimmed, f >= 0 && d <= f, `zt ${zt} node ${n.id}`);
+        assert.equal(n.dimAt, dimAtHops(d));
+        assert.equal(n.dimAt, dimAt(s.zone, n.id));
         assert.equal(n.dimsIn, Math.max(0, n.dimAt - zt));
-        assert.equal(frontAt(n.dimAt - hold) >= d && frontAt(n.dimAt - hold - 1) < d, true, 'dimAt is the first toll it is Dimmed');
+        assert.equal(frontAt(n.dimAt) >= d && frontAt(n.dimAt - 1) < d, true, 'dimAt is the first toll it is Dimmed');
       }
     }
     // With the starting values: the Shardfall at 6 h, the hub (3 hops) at 14 h (expedition.md 6.2).
@@ -597,38 +596,31 @@ describe('rules 1.9 expedition map: the Dimming (1.9.6)', () => {
     assert.deepEqual(d[0].dimmed, [s.zone.shardfall]);
   });
 
-  test('1.9.6 the dungeon holds out (M2b v10, D85): the Dungeon dims DUNGEON_DIM_HOLD tolls after its hops give; front and other nodes unchanged; the map shows the hold once its type is known', () => {
-    assert.equal(C.DUNGEON_DIM_HOLD, 3);
-    let checked = 0;
+  test('1.9.6 the Dungeon dims by its hops (M2b v12, D100: DUNGEON_DIM_HOLD removed): dimAt, the map, the Dimming clock and entry follow the front', () => {
+    assert.equal('DUNGEON_DIM_HOLD' in C, false);
     for (const seed of [2, 5, 9]) {
       const s0 = onMap(expRun('mage', { seed, content: REAL }));
       const zone = s0.zone;
       const dg = zone.nodes.find((n) => n.type === 'dungeon').id;
       const h = zone.shardDist[dg];
       assert.notEqual(dg, zone.shardfall, 'the Shardfall is never the Dungeon');
-      for (const n of zone.nodes) assert.equal(dimAt(zone, n.id), dimAtHops(zone.shardDist[n.id]) + (n.id === dg ? C.DUNGEON_DIM_HOLD : 0), `seed ${seed} node ${n.id}`);
+      for (const n of zone.nodes) assert.equal(dimAt(zone, n.id), dimAtHops(zone.shardDist[n.id]), `seed ${seed} node ${n.id}`);
       const nb = zone.nodes[dg].nb[0];
-      // Standing next to it (so it is seen), when the front has just reached it and when the hold ends.
+      // Standing next to it (so it is seen), the toll before the front reaches it and the toll it does.
       const at = (zt) => tweak(s0, (x) => { x.zone.pos = nb; x.zone.seen[dg] = true; x.zone.seen[nb] = true; atZoneTime(x, zt); });
+      const before = at(dimAtHops(h) - 1);
+      assert.deepEqual([R.mapView(before).nodes[dg].dimmed, R.mapView(before).nodes[dg].dimsIn], [false, 1]);
+      assert.equal(R.mapView(before).moves.find((m) => m.nodeId === dg).via, 'enter');
+      assert.equal(R.heatView(tweak(before, (x) => { x.zone.pos = dg; })).dimIn, 1, 'the Dimming clock on the Dungeon: its hops');
       const reached = at(dimAtHops(h));
-      assert.ok(frontAt(dimAtHops(h)) >= h, 'the front covers the Dungeon on time');
-      const v = R.mapView(reached).nodes[dg];
-      assert.deepEqual([v.dimmed, v.dimsIn, v.dimAt, v.lost], [false, C.DUNGEON_DIM_HOLD, dimAtHops(h) + C.DUNGEON_DIM_HOLD, false]);
-      assert.equal(R.mapView(reached).moves.find((m) => m.nodeId === dg).via, 'enter', 'its content can still be entered');
-      assert.equal(R.heatView(tweak(reached, (x) => { x.zone.pos = dg; })).dimIn, C.DUNGEON_DIM_HOLD, 'the Dimming clock on the Dungeon counts the hold');
-      const ended = at(dimAtHops(h) + C.DUNGEON_DIM_HOLD);
-      const w = R.mapView(ended).nodes[dg];
-      assert.deepEqual([w.dimmed, w.dimsIn, w.lost], [true, 0, true]);
-      assert.equal(R.mapView(ended).moves.find((m) => m.nodeId === dg).via, 'walk', 'Dimmed: a walk, not an entry');
-      // Hidden (not seen, type unknown): the hops' value, so the skeleton does not tell where the Dungeon is.
+      const w = R.mapView(reached).nodes[dg];
+      assert.deepEqual([w.dimmed, w.dimsIn, w.dimAt, w.lost], [true, 0, dimAtHops(h), true]);
+      assert.equal(R.mapView(reached).moves.find((m) => m.nodeId === dg).via, 'walk', 'Dimmed when the front reaches it: a walk, not an entry');
+      // Hidden or charted: the same value (nothing to hide any more).
       const hid = tweak(s0, (x) => { x.zone.seen[dg] = false; x.zone.typed[dg] = false; });
-      const hv = R.mapView(hid).nodes[dg];
-      if (hv.know === 'none') { assert.equal(hv.dimAt, dimAtHops(h)); checked++; }
-      // Region Charts show the dungeon's type: then its hold.
-      const charted = tweak(hid, (x) => { x.exp.vision.regions = true; });
-      assert.deepEqual([R.mapView(charted).nodes[dg].know, R.mapView(charted).nodes[dg].dimAt], ['type', dimAtHops(h) + C.DUNGEON_DIM_HOLD]);
+      assert.equal(R.mapView(hid).nodes[dg].dimAt, dimAtHops(h));
+      assert.equal(R.mapView(tweak(hid, (x) => { x.exp.vision.regions = true; })).nodes[dg].dimAt, dimAtHops(h));
     }
-    assert.ok(checked > 0, 'a hidden Dungeon was checked');
   });
 
   /** A mage at level L standing next to node `target` (Dimmed at zone toll zt) on zone 1's map. */
@@ -649,7 +641,9 @@ describe('rules 1.9 expedition map: the Dimming (1.9.6)', () => {
       const r = R.step(s, { type: 'MOVE', nodeId: target });
       const st = r.state;
       assert.equal(ev(r.events, 'move')[0].via, 'walk', 'a Dimmed node is not entered');
-      assert.deepEqual(ev(r.events, 'time').map((e) => [e.add, e.why]), [[C.TIME_WALK, 'walk'], [C.TIME_DIM_FIGHT, 'dim']]);
+      // M2b v12 (D101): TIME_DIM_ESCAPE when the walk went farther from the Shardfall, else TIME_DIM_FIGHT
+      const dimT = s.zone.shardDist[target] > s.zone.shardDist[s.zone.pos] ? C.TIME_DIM_ESCAPE : C.TIME_DIM_FIGHT;
+      assert.deepEqual(ev(r.events, 'time').map((e) => [e.add, e.why]), [[C.TIME_WALK, 'walk'], [dimT, 'dim']]);
       assert.equal(st.phase, 'NODE');
       assert.equal(st.node.type, 'dim');
       assert.equal(st.fight.kind, 'dim');

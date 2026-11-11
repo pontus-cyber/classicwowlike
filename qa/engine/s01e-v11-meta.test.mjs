@@ -91,12 +91,12 @@ describe('M2b v11 rows 1-2 (D91, D92): expedition kill loot × EXPED_DROP_MULT, 
 });
 
 describe('M2b v11 rows 3, 4 and 8 (D93, D94, D98)', () => {
-  test('row 3: a Delve costs CONTRACT.delve.price 1 on the board and the hub', () => {
-    assert.equal(C.CONTRACT.delve.price, 1);
+  test('row 3: a Delve costs CONTRACT.delve.price on the board and the hub (1 in v11; 2 again since M2b v12, D100)', () => {
+    assert.equal(C.CONTRACT.delve.price, 2);
     let seen = 0;
     for (let seed = 1; seed <= 20; seed++) {
       const v = R.prepView(startedRun('expedition', { seed, prep: true }));
-      for (const o of v.board.filter((x) => x.kind === 'delve')) { assert.equal(o.price, 1); seen++; }
+      for (const o of v.board.filter((x) => x.kind === 'delve')) { assert.equal(o.price, C.CONTRACT.delve.price); seen++; }
     }
     assert.ok(seen > 0);
   });
@@ -106,8 +106,9 @@ describe('M2b v11 rows 3, 4 and 8 (D93, D94, D98)', () => {
     let s = startedRun('expedition', { seed: 3 });
     s = R.step(s, { type: 'LEAVE_HUB' }).state;
     // a walk onto a resolved neighbour of the hub when every node is Dimmed: the walk, then the Dimmed encounter
+    // (M2b v12: a neighbour no farther from the Shardfall, so the encounter is not an escape)
     const zone = s.zone;
-    const nb = zone.nodes[0].nb[0];
+    const nb = zone.nodes[0].nb.find((id) => zone.shardDist[id] <= zone.shardDist[0]);
     s = tweak(s, (x) => { x.zone.nodes[nb].done = true; x.zone.start = x.time - 40; }); // zone toll 40: every node Dimmed
     const r = R.step(s, { type: 'MOVE', nodeId: nb });
     const dim = ev(r.events, 'time').filter((e) => e.why === 'dim');
@@ -115,9 +116,9 @@ describe('M2b v11 rows 3, 4 and 8 (D93, D94, D98)', () => {
     assert.equal(dim[0].add, C.TIME_DIM_FIGHT);
   });
 
-  test('row 8 (gated, not applied): SPELL.beastcall_horn.cd = BEASTCALL_HORN_CD 12; BEASTCALL_HORN_CD_GATED 15; arming the field at run time sets the cooldown a cast starts', () => {
+  test('row 8 (void since M2b v12, D100): SPELL.beastcall_horn.cd = BEASTCALL_HORN_CD 12, no gated switch; the engine reads the field at each cast', () => {
     assert.equal(C.BEASTCALL_HORN_CD, 12);
-    assert.equal(C.BEASTCALL_HORN_CD_GATED, 15);
+    assert.equal('BEASTCALL_HORN_CD_GATED' in C, false, 'the gated switch is removed (M2b v12 row 1)');
     assert.equal(C.SPELL.beastcall_horn.cd, C.BEASTCALL_HORN_CD);
     const castAt = () => {
       let s = startedRun('rows', { classId: 'hunter', seed: 4 });
@@ -130,8 +131,8 @@ describe('M2b v11 rows 3, 4 and 8 (D93, D94, D98)', () => {
     };
     assert.equal(castAt(), C.BEASTCALL_HORN_CD);
     try {
-      C.SPELL.beastcall_horn.cd = C.BEASTCALL_HORN_CD_GATED;
-      assert.equal(castAt(), C.BEASTCALL_HORN_CD_GATED);
+      C.SPELL.beastcall_horn.cd = 15;
+      assert.equal(castAt(), 15);
     } finally {
       C.SPELL.beastcall_horn.cd = C.BEASTCALL_HORN_CD;
     }
