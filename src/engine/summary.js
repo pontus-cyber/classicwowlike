@@ -1,13 +1,16 @@
 // Run summary (rules 9) and the real-time estimate (rules 3; combat v2: PACE_ENGAGE_S per fight with an engage round;
 // expedition, rules 1.9.8: walks and passes, the Homeward Bell, and the `expedition` block of the summary; heat, rules
 // 1.7.4: the `heat` block and the Echo line of fights won in heat; M2b v7: time in whole tolls, `time`, `timeAtBoss`,
-// `heat.timeByState`). Dev tools (engine-api.md 12): a dev run's summary has a `dev` block and no Echoes.
+// `heat.timeByState`). Dev tools (engine-api.md 12): a dev run's summary has a `dev` block and no Echoes. Start camp and
+// contracts (prep, expedition.md 8.1, 9.4): the `expedition.contracts` lines, the prep screen and hub decisions in the
+// estimate, the Echo lines of contracts completed and Reserve left.
 import {
   PACE_CREATE_S, PACE_DECIDE_S, PACE_TRAVEL_NODE_S, PACE_ZONE_TRAVEL_S, PACE_QUEST_TEXT_S, PACE_FIGHT_OVERHEAD_S,
   PACE_MANUAL_ROUND_S, PACE_AUTO_ROUND_S, PACE_LOOT_S, PACE_LEVELUP_S, PACE_TALENT_S, PACE_REST_S, PACE_SHRINE_S,
   PACE_TREASURE_S, PACE_VENDOR_S, PACE_VENDOR_TX_S, PACE_TRAINER_S, PACE_TRAINER_TX_S, PACE_BOSS_INTRO_S,
-  PACE_ENGAGE_S, PACE_BELL_S, SLOT_IDS, TALENT, CLASS,
+  PACE_ENGAGE_S, PACE_BELL_S, PACE_PREP_S, PACE_HUB_CONTRACT_S, SLOT_IDS, TALENT, CLASS,
 } from '../constants.js';
+import { contractSummary } from './contracts.js';
 import { echoes, profileHash } from './meta.js';
 import { deepClone } from './util.js';
 import { heatSummary } from './heat.js';
@@ -34,7 +37,9 @@ export function estSeconds(st, profile = 'manual') {
     + st.vendorVisits * PACE_VENDOR_S + st.vendorTx * PACE_VENDOR_TX_S
     + st.trainerVisits * PACE_TRAINER_S + st.trainerTx * PACE_TRAINER_TX_S
     + (st.reachedBoss ? PACE_BOSS_INTRO_S : 0)
-    + (st.exp ? (st.exp.walks + st.exp.passes) * (PACE_DECIDE_S + PACE_TRAVEL_NODE_S) + st.exp.bells * PACE_BELL_S - st.exp.bellExits * PACE_ZONE_TRAVEL_S : 0);
+    + (st.exp ? (st.exp.walks + st.exp.passes) * (PACE_DECIDE_S + PACE_TRAVEL_NODE_S) + st.exp.bells * PACE_BELL_S - st.exp.bellExits * PACE_ZONE_TRAVEL_S : 0)
+    // prep (expedition.md 9.4): the prep screen once, a hub contract decision per hub that offers one
+    + (st.exp ? (st.exp.preps || 0) * PACE_PREP_S + (st.exp.hubOffers || 0) * PACE_HUB_CONTRACT_S : 0);
 }
 
 /** Run summary (rules 9). Works in any phase after START_RUN; final in SUMMARY. */
@@ -50,6 +55,8 @@ export function summary(s) {
     classId: p.classId, level: p.level, zonesLeft: st.zonesLeft, dungeons: st.dungeons, kills: st.kills,
     quests: st.quests, reachedBoss: st.reachedBoss, bossPhase: st.bossPhase, outcome: s.outcome,
     timeAtBoss: st.timeAtBoss, oaths: s.oaths, heatFights: heat.heatFights,
+    // prep (expedition.md 2.6, 8.1, 11.1): contracts completed and Reserve left
+    ...(s.exp && s.exp.prep ? { contracts: contractSummary(s).completed, reserve: s.exp.reserve || 0 } : {}),
   };
   // Dev tools (engine-api.md 12): a dev run earns no Echoes; `withheld` is what the run would have earned.
   const dev = s.dev ? { god: !!s.dev.godUsed, tools: s.dev.tools.slice() } : null;
@@ -91,5 +98,6 @@ function expeditionSummary(s) {
   return {
     walks: x.walks, passes: x.passes, dimFights: x.dimFights, dimZones: zones.filter((r) => r.dimFights > 0).length,
     bellsRung: x.bells, bellCharges: s.exp.bell, roads: x.roads, maxRing: x.maxRing, zones, dimming: s.exp.dimming !== false,
+    ...(s.exp.prep ? { contracts: contractSummary(s) } : {}),
   };
 }

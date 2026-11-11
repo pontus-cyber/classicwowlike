@@ -4,7 +4,7 @@ import {
   BUDGET_PER_ILVL, AFFIX_SHARE, AFFIX_CRIT_PCT, AFFIX_EPIC_MULT, AFFIX_POWER_PER_PT, AFFIX_ARMOR_PER_PT,
   SPLIT2_MAIN, SPLIT3_MAIN, SPLIT3_SECOND, DROP_CLASS_BIAS, WEAPON_DMG_BASE, WEAPON_DMG_PER_ILVL,
   ARMOR_PER_ILVL, STAT1_PRIMARY_CHANCE, STAT2_STA_CHANCE, AFFIX_KINDS, ITEM_SCORE, ITEM_SCORE_CRIT_UNIT,
-  CLASS, CONSUMABLE, STACK_JUNK, BAG_SLOTS, JUNK_V, BUY_MULT, UNIQUE_DROP_CHANCE, ZONE_COUNT, ZONE_LEVELS,
+  CLASS, CONSUMABLE, STACK_JUNK, BAG_SLOTS, PREP_MULE_SLOTS, JUNK_V, BUY_MULT, UNIQUE_DROP_CHANCE, ZONE_COUNT, ZONE_LEVELS,
   OATH_THRIFT_MULT, MAX_LEVEL, HEAT_RARITY_UP,
 } from '../constants.js';
 import { nextFloat, nextInt, weightedIndex, hash32 } from '../rng.js';
@@ -238,7 +238,8 @@ export function gearPrice(s, item) {
 
 // ---------------- Bag ----------------
 export function bagCapacity(s) {
-  return BAG_SLOTS + s.meta.bagSlots;
+  // prep (expedition.md 2.3): the Pack Mule's slots for the run
+  return BAG_SLOTS + s.meta.bagSlots + (s.exp && s.exp.mule ? PREP_MULE_SLOTS : 0);
 }
 
 function stackLimit(item) {

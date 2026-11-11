@@ -449,6 +449,74 @@ export const EXPED_TIME_QUEST = 3;
 export const EXPED_TIME_ELITE = 3;
 export const EXPED_TIME_GRIND_WAVE = 2;
 export const EXPED_TIME_DUNGEON = 6;
+// Start camp and contracts (docs/specs/expedition.md 2, 3 and 13, task M2b 2b.5; "(prep)" in engine-api.md). Used only by
+// an expedition run (mapMode 'expedition'): the PREP phase after START_RUN, the contract board, supplies and vision perks,
+// contracts with their sites and rewards, the hub contract, Reserve.
+/** expedition.md 2.1: preparation points of a fresh profile, and per Quartermaster rank (meta). */
+export const PREP_POINTS = 10;
+export const PREP_POINTS_PER_QM = 2;
+/** expedition.md 2.6, 11.1: Echoes per Reserve point left at SUMMARY. */
+export const PREP_ECHO_PER_POINT = 2;
+/** expedition.md 2.2: contracts on the board, of which one per zone and this many more for drawn zones. */
+export const CONTRACT_BOARD_SIZE = 8;
+export const CONTRACT_BOARD_EXTRA = 2;
+/** expedition.md 2.2, 3.5: contracts held at once (PREP and hubs together). */
+export const CONTRACT_SLOTS = 4;
+/** expedition.md 2.2: price of REROLL_BOARD and the most rerolls per run. */
+export const REROLL_PRICE = 1;
+export const REROLL_MAX = 2;
+/** expedition.md 2.2: weight of each contract kind on the board. */
+export const CW_CULL = 55;
+export const CW_BOUNTY = 25;
+export const CW_DELVE = 20;
+/** expedition.md 3.1: Cull sites needed. */
+export const CULL_SITES = 2;
+/** expedition.md 3.3: extra Cull sites guaranteed beyond CULL_SITES. */
+export const CULL_SITE_SPARE = 1;
+/** expedition.md 3.3: chance per Quest or Grind node of being a Cull site, in the target region and elsewhere. */
+export const CULL_SITE_IN = 0.65;
+export const CULL_SITE_OUT = 0.08;
+/** expedition.md 3.3: nodes that carry a Bounty's elite. */
+export const BOUNTY_PLACED = 2;
+/** expedition.md 3.1: the contract level CL_c = ZONE_LEVELS × (z - 1) + CONTRACT_CL_OFFSET. */
+export const CONTRACT_CL_OFFSET = 5;
+/** expedition.md 3.1: contract XP as a share of xpToNext(CL_c) (× diffMod, × XP_WEIGHT_MULT, 9.5). */
+export const CULL_XP_FRAC = 2.0;
+export const BOUNTY_XP_FRAC = 2.5;
+export const DELVE_XP_FRAC = 1.0;
+/** expedition.md 3.1: contract gold × V(CL_c). */
+export const CULL_GOLD_V = 4;
+export const BOUNTY_GOLD_V = 6;
+export const DELVE_GOLD_V = 2;
+/** expedition.md 3.1: items to choose from (one is taken). */
+export const CONTRACT_REWARD_CHOICES = 3;
+export const DELVE_REWARD_CHOICES = 2;
+/** expedition.md 3.1: drop tables "Contract" and "Bounty", rare and epic weights (DROP_TABLE.contract, DROP_TABLE.bounty). */
+export const CONTRACT_RARE_W = 80;
+export const CONTRACT_EPIC_W = 20;
+export const BOUNTY_RARE_W = 60;
+export const BOUNTY_EPIC_W = 40;
+/** expedition.md 8.1, 11.1: Echoes per contract completed = ECHO_PER_QUEST × this. */
+export const ECHO_CONTRACT_MULT = 3;
+/** expedition.md 2.3: supply prices and amounts. */
+export const PRICE_PREP_DRAUGHTS = 1;
+export const PREP_DRAUGHT_COUNT = 2;
+export const PRICE_PREP_RATIONS = 1;
+export const PREP_RATION_COUNT = 3;
+export const PRICE_PREP_EMBER = 4;
+export const PRICE_PREP_BELL = 2;
+export const PRICE_PREP_MULE = 1;
+export const PREP_MULE_SLOTS = 4;
+/** expedition.md 2.4: vision perk prices; Spyglass charges; Tracker's Notes radius. */
+export const PRICE_CHARTS = 1;
+export const PRICE_TRACKER = 2;
+export const PRICE_GUIDE = 3;
+export const PRICE_SPYGLASS = 1;
+export const SPYGLASS_CHARGES = 3;
+export const TRACKER_RADIUS = 2;
+/** expedition.md 9.4: seconds of the prep screen and of a hub contract decision (rules 3 pacing terms). */
+export const PACE_PREP_S = 60;
+export const PACE_HUB_CONTRACT_S = 6;
 
 // Heat (rules 1.7.1-1.7.4, 1.9.10, marked "(heat)"; docs/specs/expedition.md section H, constants block "Heat"): time
 // pressure on one meter in both map modes (the player sees it as the Furnace, M2b v7). Time is counted in whole tolls
@@ -863,6 +931,9 @@ export const DROP_TABLE = {
   story: { item: 1, junk: 0, weights: [0, 0, 100, 0] },
   treasure: { item: 1, junk: 0, weights: [0, 70, 27, 3] },
   vendor: { item: 1, junk: 0, weights: [0, 60, 40, 0] },
+  // expedition.md 3.1 (prep): contract and bounty reward choices
+  contract: { item: 1, junk: 0, weights: [0, 0, CONTRACT_RARE_W, CONTRACT_EPIC_W] },
+  bounty: { item: 1, junk: 0, weights: [0, 0, BOUNTY_RARE_W, BOUNTY_EPIC_W] },
 };
 
 /** Item score weights (rules 8.3). crit is per CRIT unit (0.01). Wrong primary scores 0; Mage scores WD 0. */
@@ -933,6 +1004,40 @@ export const META = {
   oaths: { id: 'oaths', name: 'Oaths', kind: 'challenge', ranks: 1, costs: [0], req: ['flag:bossKill'] },
 };
 
+/**
+ * Start camp options (expedition.md 2.3 supplies, 2.4 vision perks; prep). Each is bought at most once per run (engine
+ * default, designer to confirm). kind 'supply' takes effect at SET_OUT; kind 'vision' lasts the whole run.
+ */
+export const PREP_OPTION = {
+  prep_draughts: { id: 'prep_draughts', name: 'Field Draughts', kind: 'supply', price: PRICE_PREP_DRAUGHTS, item: 'healing_draught', qty: PREP_DRAUGHT_COUNT },
+  prep_rations: { id: 'prep_rations', name: 'Trail Pack', kind: 'supply', price: PRICE_PREP_RATIONS, item: 'trail_rations', qty: PREP_RATION_COUNT },
+  prep_ember: { id: 'prep_ember', name: 'Ember of Return', kind: 'supply', price: PRICE_PREP_EMBER, item: 'ember_of_return', qty: 1 },
+  prep_bell: { id: 'prep_bell', name: 'Second Clapper', kind: 'supply', price: PRICE_PREP_BELL, bell: 1 },
+  prep_mule: { id: 'prep_mule', name: 'Pack Mule', kind: 'supply', price: PRICE_PREP_MULE, slots: PREP_MULE_SLOTS },
+  prep_charts: { id: 'prep_charts', name: 'Region Charts', kind: 'vision', price: PRICE_CHARTS, meta: 'cartographer' },
+  prep_tracker: { id: 'prep_tracker', name: "Tracker's Notes", kind: 'vision', price: PRICE_TRACKER, meta: 'old_hand' },
+  prep_guide: { id: 'prep_guide', name: 'Local Guide', kind: 'vision', price: PRICE_GUIDE },
+  prep_spyglass: { id: 'prep_spyglass', name: 'Spyglass', kind: 'vision', price: PRICE_SPYGLASS, charges: SPYGLASS_CHARGES },
+};
+export const PREP_OPTION_IDS = Object.keys(PREP_OPTION);
+/** Contract kinds (expedition.md 3.1; prep): price, sites needed, XP share, gold × V, item choices and table, board weight. */
+export const CONTRACT = {
+  cull: { id: 'cull', price: 2, sites: CULL_SITES, xpFrac: CULL_XP_FRAC, goldV: CULL_GOLD_V, choices: CONTRACT_REWARD_CHOICES, table: 'contract', weight: CW_CULL },
+  bounty: { id: 'bounty', price: 3, sites: 1, xpFrac: BOUNTY_XP_FRAC, goldV: BOUNTY_GOLD_V, choices: CONTRACT_REWARD_CHOICES, table: 'bounty', weight: CW_BOUNTY },
+  delve: { id: 'delve', price: 1, sites: 1, xpFrac: DELVE_XP_FRAC, goldV: DELVE_GOLD_V, choices: DELVE_REWARD_CHOICES, table: 'contract', weight: CW_DELVE },
+};
+export const CONTRACT_KINDS = ['cull', 'bounty', 'delve'];
+/**
+ * Meta entries of expedition.md 8.2 the start camp reads (prep): Quartermaster ranks add PREP_POINTS_PER_QM points each,
+ * Cartographer owns Region Charts, Old Hand owns Tracker's Notes. Not in META (the catalogue) until the switch-over to
+ * the expedition map (engine default, Lead to confirm): the engine reads `profile.unlocks[id]` (ranks capped here).
+ */
+export const META_EXPEDITION = {
+  quartermaster: { id: 'quartermaster', name: 'Quartermaster', ranks: 2, costs: [120, 200], points: PREP_POINTS_PER_QM },
+  cartographer: { id: 'cartographer', name: 'Cartographer', ranks: 1, costs: [100], perk: 'prep_charts' },
+  old_hand: { id: 'old_hand', name: 'Old Hand', ranks: 1, costs: [150], perk: 'prep_tracker' },
+};
+
 /** Oaths (rules 11.5). */
 export const OATH = {
   haste: { id: 'haste', name: 'Oath of Haste', parTime: OATH_HASTE_TIME },
@@ -998,6 +1103,9 @@ export const ENGINE_ASSUMPTION = {
   AUTO_INN_HP: 0.70,
   AUTO_REST_HP: 0.60,
   AUTO_TOPUP_HP: 0.75,
+  // prep (expedition.md 2; autoplay's default start camp): contracts for zones 1..this, and points kept back as Reserve.
+  AUTO_PREP_ZONES: 3,
+  AUTO_PREP_RESERVE: 2,
   AUTO_DUNGEON_HP: 0.85,
   AUTO_ELITE_HP: 0.80,
   AUTO_LEAVE_DUNGEON_HP: 0.30,

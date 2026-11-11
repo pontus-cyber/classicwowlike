@@ -1,9 +1,11 @@
 // Action table: legality checks, enumeration (legalActions) and application (step). docs/specs/engine-api.md.
 // Combat v2: ENGAGE (rules 7.10) is legal and listed only in the engage round. Expedition map (rules 1.9): MOVE,
 // PASS_THROUGH, TAKE_ROAD and RING_BELL replace CHOOSE_NODE and TRAVEL_ON, and every action ends with the settle step.
+// Start camp and contracts (prep, expedition.md 1-3): TAKE_CONTRACT, DROP_CONTRACT, BUY_PREP, SELL_PREP, REROLL_BOARD and
+// SET_OUT in phase PREP; TAKE_HUB_CONTRACT in a hub before LEAVE_HUB; USE_SPYGLASS on the map.
 import {
   CLASS, CLASS_IDS, PET, SPELL, TALENT, TALENT_TIER_GATE, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, CONSUMABLE, OATH_IDS,
-  SLOT_IDS, ENGAGE_OPTION, ENGAGE_OPTIONS,
+  SLOT_IDS, ENGAGE_OPTION, ENGAGE_OPTIONS, PREP_OPTION_IDS,
 } from '../constants.js';
 import { normaliseSeed } from '../rng.js';
 import { refreshDerived } from './stats.js';
@@ -18,8 +20,12 @@ import {
   availablePets, startRun, canTravel, travelOn, openService, leaveService, chooseNode, startGrind, nextFight,
   completeNode, chooseReward, campGrind, fightBoss, finishFight, trainerSpells, learnCost, trainCost, travelLevel,
   respecCost, learnSpell, trainSpell, trainAll, trainable, respec, buy, sell, sellJunk, useItemOutOfCombat,
-  clampAfterStatChange, moveTo, passThrough, takeRoad, ringBell, settleExpedition, canEnter,
+  clampAfterStatChange, moveTo, passThrough, takeRoad, ringBell, settleExpedition, canEnter, setOut,
 } from './nodes.js';
+import {
+  takeContractError, dropContractError, buyPrepError, sellPrepError, rerollError, takeContract, dropContract, buyPrep,
+  sellPrep, rerollBoard, hubContractError, takeHubContract, spyglassError, useSpyglass,
+} from './contracts.js';
 import { isExpedition, grindMaxWaves, dimmedNow } from './expedition.js';
 import { summary } from './summary.js';
 import { applyRunToProfile } from './meta.js';
@@ -102,7 +108,29 @@ const A = {
   },
   LEAVE_HUB: {
     check: (s) => (s.phase !== 'ZONE_HUB' ? 'only in a zone hub' : s.service ? 'close the service first (LEAVE)' : null),
-    apply: (s, ev) => { s.phase = 'MAP'; ev.push({ t: 'phase', phase: 'MAP' }); },
+    apply: (s, ev) => {
+      if (isExpedition(s)) s.zone.leftHub = true; // prep (expedition.md 3.6): the hub contract is taken before this
+      s.phase = 'MAP';
+      ev.push({ t: 'phase', phase: 'MAP' });
+    },
+  },
+  // ---------------- Start camp (expedition.md 2; prep) ----------------
+  TAKE_CONTRACT: { check: (s, a) => takeContractError(s, a.index), apply: (s, ev, a) => takeContract(s, ev, a.index) },
+  DROP_CONTRACT: { check: (s, a) => dropContractError(s, a.index), apply: (s, ev, a) => dropContract(s, ev, a.index) },
+  BUY_PREP: { check: (s, a) => buyPrepError(s, a.id), apply: (s, ev, a) => buyPrep(s, ev, a.id) },
+  SELL_PREP: { check: (s, a) => sellPrepError(s, a.id), apply: (s, ev, a) => sellPrep(s, ev, a.id) },
+  REROLL_BOARD: { check: (s) => rerollError(s), apply: (s, ev) => rerollBoard(s, ev) },
+  SET_OUT: {
+    check: (s) => (s.phase !== 'PREP' || !s.prep || s.prep.done ? 'only at the start camp (PREP)' : null),
+    apply: (s, ev) => setOut(s, ev),
+  },
+  TAKE_HUB_CONTRACT: {
+    check: (s, a) => (!isExpedition(s) ? 'an expedition-map action' : hubContractError(s, a)),
+    apply: (s, ev, a) => takeHubContract(s, ev, a),
+  },
+  USE_SPYGLASS: {
+    check: (s, a) => expMapGate(s) || spyglassError(s, a.nodeId),
+    apply: (s, ev, a) => useSpyglass(s, ev, a.nodeId),
   },
   LEARN: {
     check: (s, a) => {
@@ -438,7 +466,13 @@ export function legalActions(s) {
   const out = [];
   const push = (a) => { if (!checkAction(s, a)) out.push(a); };
   if (s.phase === 'ENDED') return out;
-  if (s.phase === 'CREATE') {
+  if (s.phase === 'PREP') {
+    // Start camp (expedition.md 2; prep): the board, the options, reroll, set out.
+    s.prep.board.forEach((_, i) => { push({ type: 'TAKE_CONTRACT', index: i }); push({ type: 'DROP_CONTRACT', index: i }); });
+    for (const id of PREP_OPTION_IDS) { push({ type: 'BUY_PREP', id }); push({ type: 'SELL_PREP', id }); }
+    push({ type: 'REROLL_BOARD' });
+    push({ type: 'SET_OUT' });
+  } else if (s.phase === 'CREATE') {
     for (const c of CLASS_IDS) push({ type: 'SELECT_CLASS', classId: c });
     if (s.create.classId === 'hunter') for (const p of Object.keys(PET)) push({ type: 'SELECT_PET', petId: p });
     for (const o of OATH_IDS) push({ type: 'SET_OATH', oath: o, on: !s.create.oaths.includes(o) });
@@ -486,6 +520,11 @@ export function legalActions(s) {
         push({ type: 'SELL_JUNK' });
       }
     }
+    if (s.phase === 'ZONE_HUB' && isExpedition(s)) {
+      // The hub contract (expedition.md 3.6; prep): from Reserve, or a swap for each held contract.
+      push({ type: 'TAKE_HUB_CONTRACT', mode: 'reserve' });
+      for (const c of s.exp.contracts) if (c.state === 'held') push({ type: 'TAKE_HUB_CONTRACT', mode: 'swap', contractId: c.id });
+    }
     if (s.phase === 'ZONE_HUB' || s.phase === 'CAMP') {
       for (const sv of ['trainer', 'vendor', 'inn']) push({ type: 'SERVICE', service: sv });
       push({ type: 'LEAVE_HUB' });
@@ -498,6 +537,7 @@ export function legalActions(s) {
       }
       push({ type: 'TAKE_ROAD' });
       push({ type: 'RING_BELL' });
+      if (s.exp.spyglass > 0 && s.zone && !s.zone.camp) for (const n of s.zone.nodes) push({ type: 'USE_SPYGLASS', nodeId: n.id });
     } else if (s.phase === 'MAP') {
       for (const l of nextLanes(s.zone)) push({ type: 'CHOOSE_NODE', lane: l });
       push({ type: 'TRAVEL_ON' });

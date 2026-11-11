@@ -19,7 +19,10 @@ B-C, D68-D70: time in whole tolls; `state.time`, the `time` event, `heatView.tim
 frontTime }`, the summary's `time`, `timeAtBoss`, `heat.timeByState` and `expedition.zones[].time`, `debug.setTime` and
 `build({ time })`; the line rounded up per zone and the Dimming's front in integers; `STATE_VERSION` 3; marked "(M2b v7)");
 2026-11-11e (tuning pass M2b v8, docs/specs/changes-m2b-v8.md rows 1-9: new numbers in `C`, `zoneDanger`'s early factor,
-the free potion at FREE_POTION_MULT with the event's `mult`, `potionInfo`; marked "(M2b v8)").
+the free potion at FREE_POTION_MULT with the event's `mult`, `potionInfo`; marked "(M2b v8)"); 2026-11-11f (start camp and contracts,
+docs/specs/expedition.md 2-3, task 2b.5, expedition runs only: phase PREP, `prepView`, `contractView`, the PREP actions,
+`TAKE_HUB_CONTRACT`, `USE_SPYGLASS`, the `prep`, `contract` and `spyglass` events, `mapView` site marks and `spyglass`, the
+summary's `expedition.contracts` and the Echo lines `contracts` and `reserve`; section 13; marked "(prep)").
 Units: every time value of the API is a whole number of tolls (1 toll = 1 former in-game hour, D69); there are no hours.
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
@@ -42,7 +45,7 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 
 | Function | Returns | Notes |
 |---|---|---|
-| `newRun({classId, petId, name, seed, profile, content, mapMode, vision, dimming})` | state (phase CREATE) | All fields but `content` optional. `seed`: integer, normalised to uint32; the front end draws a random seed (the engine never does). `profile`: meta profile (`newProfile()` if omitted). `content` is validated (structural) and deep-frozen. (expedition) `mapMode`: `'rows'` (today's map, rules 1.4; the default) or `'expedition'` (rules 1.9, section 10); `state.mapMode` keeps it. `vision`: expedition only, `{ guide, charts, pathfinder }` booleans (Local Guide, Region Charts, Pathfinder, rules 1.9.5) until the start camp and meta buy them (2b.5). `dimming` (D50): expedition only, `false` plays the run without the Dimming (rules 1.9.6; a measurement option for B44), default `true`. Throws on invalid content/class/pet/mapMode/vision/dimming. |
+| `newRun({classId, petId, name, seed, profile, content, mapMode, vision, dimming, prep})` | state (phase CREATE) | All fields but `content` optional. `seed`: integer, normalised to uint32; the front end draws a random seed (the engine never does). `profile`: meta profile (`newProfile()` if omitted). `content` is validated (structural) and deep-frozen. (expedition) `mapMode`: `'rows'` (today's map, rules 1.4; the default) or `'expedition'` (rules 1.9, section 10); `state.mapMode` keeps it. `vision`: expedition only, `{ guide, charts, pathfinder }` booleans (Local Guide, Region Charts, Pathfinder, rules 1.9.5) until the start camp and meta buy them (2b.5). `dimming` (D50): expedition only, `false` plays the run without the Dimming (rules 1.9.6; a measurement option for B44), default `true`. (prep) `prep`: expedition only, `true` starts the run at the start camp (phase PREP) and plays contracts (section 13); default `false` until the simulator's bots and the UI handle PREP: the expedition map then plays exactly as before task 2b.5. Throws on invalid content/class/pet/mapMode/vision/dimming/prep. |
 | `legalActions(state)` | action[] | Every concrete legal action. `SET_NAME` and `SET_SEED` take free values and are not listed (they are legal in CREATE). |
 | `step(state, action)` | `{ state, events }` | Pure: the input is never changed. Throws `IllegalActionError` (`err.code === 'ILLEGAL_ACTION'`, message names the reason) on an illegal action. |
 | `stepInPlace(state, action)` | events | Same, but changes `state` in place (no copy). For simulators that own their state. |
@@ -69,6 +72,8 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 | `pendingTicks(state, unit)` | array, object or null | (preview) The DoT preview (owner feedback 2026-11-11 08:11): what the ticks at the end of the current round (rules 7.1 step 5) will do if nothing else happens before them, one entry per unit they touch, in tick order (player, pet, enemies). With `unit` (`'player'`, `'pet'` or an enemy index): that unit's entry or null. null outside a fight. Fields and guarantees: section 6.1. |
 | `freePotion(state)` | bool | (M2b v6) Packed Satchel's free potion (rules 7.5): true while the current fight's free potion is unused, so the next potion the player drinks (an item with `C.CONSUMABLE[id].potion`: Healing, Mana or Greater Healing Draught) costs no turn. false outside a fight, without the unlock, once used, and while the player's action is skipped. Mark the potions on the item bar "free" while it is true. (M2b v8) The free potion restores FREE_POTION_MULT (0.5) × its normal amount ("Free action, half strength"); `potionInfo` gives the amount. |
 | `potionInfo(state, itemId)` | object or null | (M2b v8) What one use of a consumable restores now (rules 8.6, 7.5): `{ id, free, mult, heal, mana }`. `heal` (HP) and `mana` are the amounts before the cap at max HP and max mana, potion uniques included (rules 11.3), 0 when it restores none (Purifying Tonic, Spark Flask). `free`: in a fight, this use would be Packed Satchel's free potion (`freePotion(state)` and a potion); then `mult` is `C.FREE_POTION_MULT` and the amounts are that share of the normal ones, else `mult` 1. The engine's own numbers (the same function resolves the use): show them, never recompute them. The `heal` / `mana` events of the use show what was restored after the cap. null for an id that is not a consumable, or before START_RUN. |
+| `prepView(state)` | object or null | (prep) The start camp screen (expedition.md 2, 9.1), null outside phase PREP. Fields in section 13.2 |
+| `contractView(state)` | object or null | (prep) The contract tracker (expedition.md 9.3) and the hub contract on offer, any phase of an expedition run after START_RUN; null in a rows run. Never names a site's node. Fields in section 13.3 |
 | `talentInfo(state, talentId)` | object or null | (preview) Talent totals for the tooltip (owner feedback 2026-11-11 08:14; rules 6): `{ id, name, ranks, rank, per, now, next }`. `per`: the values one rank gives, `now`: their totals at the ranks taken (null at rank 0), `next`: at one more rank (null at the maximum). The keys are the talent's per-rank fields (`C.TALENT_PER_RANK`; the numbers stay in `C.TALENT`), e.g. Silent Footing at 3/3: `now { pct: 0.3 }`, `next` null. `base` (Toxic Coating, Trapper): the damage formula b + l × L (Trapper: the Snare Trap's training level) + p × Power, times the ranks, before modifiers, rounded to 0.1 (null without a character). Hemorrhage Mastery: `{ dotCrit, dotPct }` by rank. Any phase; null for an unknown id. |
 | `heatView(state)` | object or null | (heat) The heat meter (rules 1.7.1-1.7.2, 1.9.10), in any phase after START_RUN (null before): the line, the player's heat, the state, the Dimming's clock in an expedition zone, the projected boss Ascendancy and the previews of the legal hour-costing choices. Fields in section 11. Pure and cheap. |
 | `heatPreview(state, action)` | object or null | (heat) The tolls an action costs and the heat after it ("3 tolls, ends Smouldering", rules 1.7.1, 1.9.10), and for an action that enters a node the state it pays at (`pays`); null when the action is not legal or costs no time. Fields in section 11. |
@@ -88,6 +93,7 @@ never a run. (M2b v7)
 | Phase | What is going on | Typical actions |
 |---|---|---|
 | CREATE | class, pet, name, seed, oaths | `SELECT_CLASS`, `SELECT_PET`, `SET_NAME`, `SET_SEED`, `SET_OATH`, `START_RUN` |
+| PREP | (prep) the start camp of an expedition run created with `prep: true`, after START_RUN: no zone yet; `mapView` and `heatView` are null | `TAKE_CONTRACT`, `DROP_CONTRACT`, `BUY_PREP`, `SELL_PREP`, `REROLL_BOARD`, `SET_OUT`, `SET_AUTOPLAY` |
 | ZONE_HUB | zone hub; `state.service` may be open | `SERVICE`, service actions, `LEAVE_HUB`, out-of-combat |
 | MAP | choose the next node | `CHOOSE_NODE`, `TRAVEL_ON`, out-of-combat; (expedition) `MOVE`, `PASS_THROUGH`, `TAKE_ROAD`, `RING_BELL` (section 10) |
 | NODE | inside a node; `state.node.stage` = `fight`, `between`, `grindSetup`, `reward` or `service` | per stage |
@@ -150,6 +156,12 @@ Every action is `{ type, ...fields }`. Indices are 0-based. Enemy targets are in
 | `PASS_THROUGH` | `nodeId` | (expedition) MAP; a neighbour that MOVE would enter: walk through it for TIME_WALK, it stays unresolved |
 | `TAKE_ROAD` | | (expedition) MAP, standing on a Road (`mapView(state).onRoad`): TIME_TRAVEL, next zone's hub (zone 6: the Camp); no level gate |
 | `RING_BELL` | | (expedition) MAP (not in a node, the hub screen, the Camp or at the boss), a Bell charge left: BELL_CHANNEL_TIME, then (after a Dimmed encounter if the node is Dimmed then) the next zone's hub; no TIME_TRAVEL |
+| `TAKE_CONTRACT` / `DROP_CONTRACT` | `index` (board slot, 0-based) | (prep) PREP. Take: not taken, its price within the points left, fewer than CONTRACT_SLOTS held. Drop: taken; refunds the price |
+| `BUY_PREP` / `SELL_PREP` | `id` (`C.PREP_OPTION_IDS`) | (prep) PREP. Buy: not bought (each option once), not owned (meta or the `vision` option), the price within the points left, the Bell under BELL_MAX_CHARGES, no Ember carried. Sell: bought; refunds |
+| `REROLL_BOARD` | | (prep) PREP; fewer than REROLL_MAX rerolls, REROLL_PRICE within the points left, an offer not taken |
+| `SET_OUT` | | (prep) PREP: purchases take effect, the points left become Reserve, then zone 1's hub (phase ZONE_HUB) |
+| `TAKE_HUB_CONTRACT` | `mode` (`reserve` or `swap`), `contractId` (swap: a held contract's id) | (prep) ZONE_HUB of zones 2-6, no service open, before the zone's first `LEAVE_HUB`, its offer not taken. reserve: its price from Reserve and a free slot; swap: abandons that contract (no refund, progress lost), free |
+| `USE_SPYGLASS` | `nodeId` (any node of the zone) | (prep) MAP of an expedition zone, a Spyglass charge left: 0 tolls, the node and its neighbours are seen |
 | `ENGAGE` | `option`, `target` (enemy index or null), `spellId` (Pre-cast only) | (combat v2) the engage round only (rules 7.10), so once per fight; `option` one of the class's `C.ENGAGE_OPTIONS[classId]`; target rules in `engageOptions(state)` (control options: on an enemy immune to control only as Disrupt, while its track shows a wind-up in turns 1..INTENT_TRACK_LEN, combat v2.1; Send the Pet: a live pet). Key order as listed: `{ type, option, target }`, Pre-cast `{ type, option, spellId, target }` |
 
 One combat action resolves one full round (rules 7.1): player action, pet, enemies in index order, end of
@@ -206,6 +218,9 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `dimming` | `front, dimmed` | (expedition) the Dimming's front advanced; `dimmed` = node ids it newly covers |
 | `dim` | `id, depth, level, k` | (expedition) a Dimmed encounter starts at node `id` (its `fight` event follows, `kind: 'dim'`) |
 | `bell` | `charges, node` | (expedition) RING_BELL: the channel starts (`charges` left) |
+| `prep` | `what` (`buy`, `sell`, `reroll`, `setOut`), `id`, `k`, `left`, `reserve`, `bought`, `contracts` | (prep) a start camp action; `left` = points left; `setOut`: `reserve`, the options `bought`, contracts held |
+| `contract` | `what` (`take`, `drop`, `site`, `complete`, `expire`, `abandon`), `id, z, kind, from, node, progress, need` | (prep) a contract changed: taken (`from` `board` or `hub`), dropped at PREP, a site won (`node`, `progress` of `need`), complete (its `xp` and `gold` events with `why: 'contract'` follow; the item choice is a reward set of the node), expired when the zone was left, abandoned by a swap |
+| `spyglass` | `node, seen, charges` | (prep) USE_SPYGLASS: the node ids newly seen, charges left |
 | `service`, `serviceClosed` | `service, where` | |
 | `rest` | `hp, mana, rested` | Rest node or Inn |
 | `fight` | `kind, k, engage, heat, enemies[{u, name, level, hp, kind, arch}]` | fight started (`kind`: quest grind elite trash dboss treasure camp boss, (expedition) dim; `engage`: it has an engage round, combat v2). A Dimmed encounter's enemies have `kind: 'shardspawn'`. (heat) `heat`: the node's entry state, null for Camp waves, the boss and Dimmed encounters |
@@ -379,6 +394,8 @@ by a 32-bit hash of the keys). Hub and camp use row 0; the camp is zone 7; camp 
 `lootId`); the hub is id 0 (its vendor: `node(z,0)`); Dimmed encounter n at node id: `dim(z,id,n)` (make-up, then
 its fight). Map draw order: rules 1.9.2; node setup: rules 1.9.3.
 (dev) Dev encounter n of a run (section 12): `dev(n, 0)` its fight, `dev(n, 1)` its loot (`STREAM.dev`).
+(prep) The board after k rerolls: `prep(k)` (`STREAM.prep`); the hub contract of zone z: `hubc(z)` (`STREAM.hubc`); contract
+sites: the zone's `map(z)` stream continued after the node types (kept as `zone.siteRng`); draw orders in section 13.1.
 Item names use a separate hash and never touch a stream. The sim's bots must use their own stream
 (`STREAM.bot` in `src/rng.js`), never the game's.
 
@@ -451,8 +468,9 @@ stays stored. The class weapons stay in `CONTENT.uniques` (kind `weapon`); no ru
 
 ## 10. Expedition map (expedition; rules 1.9)
 A run created with `newRun({ mapMode: 'expedition' })` plays the roamable zone graph (rules 1.9). Until the
-switch-over the default stays `'rows'`; nothing of a rows run changes. Not yet in the engine (2b.5): PREP, contracts,
-the hub contract, Ask the Locals, the Spyglass, the meta changes of expedition.md 8.2.
+switch-over the default stays `'rows'`; nothing of a rows run changes. (prep) The start camp, contracts, the hub contract and
+the Spyglass are in the engine behind `newRun`'s `prep: true` (section 13). Not yet: Ask the Locals, the meta changes of expedition.md 8.2 (Pathfinder for
+Scout's Eye, Swift Boots as a Bell charge; Cartographer, Old Hand and Quartermaster are read from the profile, section 13.4).
 
 ### 10.1 Flow
 - START_RUN: phase ZONE_HUB on the hub (node 0) of zone 1. `LEAVE_HUB` puts the player on the map, standing on the
@@ -472,7 +490,8 @@ the hub contract, Ask the Locals, the Spyglass, the meta changes of expedition.m
 | Path | Meaning |
 |---|---|
 | `mapMode` | `'rows'` or `'expedition'` (every state; saves without it are rows) |
-| `exp` | `{ vision: { radius, regions, typeRadius }, bell (charges), pending, bellPending, dimming }` (engine bookkeeping; read the Bell from `mapView`; `dimming` false: newRun option, D50) |
+| `exp` | `{ vision: { radius, regions, typeRadius, tracker }, bell (charges), pending, bellPending, dimming, contracts, nextContract, reserve, spyglass, mule }` (engine bookkeeping; read the Bell from `mapView`, contracts from `contractView`; `dimming` false: newRun option, D50) |
+| `prep` | (prep) `{ points, board, rerolls, bought, done }`: the start camp; kept after SET_OUT (`done`). Read it with `prepView` |
 | `zone` | `{ z, mode: 'expedition', nodes[], hub: 0, roads[], shardfall, shardDist[], pos, start (run tolls at arrival), seen[], typed[], dimN[], hubStock, path[], questsDone, storyDone, dimOff? }`: the full zone (hidden contents included; `dimOff` true in a run without the Dimming). Draw the map with `mapView`, never from here |
 | `node` | `{ type, id, cl, stage, k, ... }`; a Dimmed encounter: `{ type: 'dim', id, cl (its level), stage, k, depth }` |
 | `stats.exp` | `{ walks, passes, dimFights, bells, bellExits, roads, maxRing, zones[] }` (the summary's `expedition` block) |
@@ -484,6 +503,7 @@ the hub contract, Ask the Locals, the Spyglass, the meta changes of expedition.m
   roadNames: [name per Road, in the order of roads] (D51; null without content names),
   texts: { shardfall, shardspawn, dimming, homeward_bell } (D51: content texts.expedition; each null when missing),
   onRoad (TAKE_ROAD legal here), walkTime (TIME_WALK), travelTime (TIME_TRAVEL), bell: { charges, channelTime (BELL_CHANNEL_TIME) },
+  spyglass (prep: Spyglass charges left),
   vision: { radius (full, capped), regions (Region Charts), typeRadius (Pathfinder) },
   dim: { grace (DIM_GRACE), frontHops (DIM_FRONT_HOPS), frontTime (DIM_FRONT_TIME), front (-1 before the grace ends;
     then floor(frontHops × (zt - grace) / frontTime)), nextIn (tolls until the front moves: dimAt(front + 1) - zt, at
@@ -501,7 +521,9 @@ know 'full' (the hub, or seen) adds: type, cl, done, lost (Dimmed and unresolved
   entry per enemy, the elite's own hidden, D50), rare: null, name: null (D50: neither tells a rare) },
   dungeon { name, level, bossLevel, fights, bossArchetype }, treasure { guarded, trap: null, archetypes },
   vendor { ember: null }
-know 'type' (Pathfinder within its radius; the dungeon with Region Charts) adds: type
+know 'type' (Pathfinder within its radius; the dungeon with Region Charts or a held Delve contract of the zone, prep) adds: type
+sites (prep; only when the player sees marks there): [ids of held contracts with a site on the node], on a 'full' node,
+  and with Tracker's Notes on any node within TRACKER_RADIUS hops (hidden ones too)
 ```
 Nothing else of a hidden node is read: qa/engine/s01b checks that a hidden node has only the skeleton keys and that
 `mapView` (and `autoAction`) do not change when hidden contents are replaced.
@@ -509,7 +531,7 @@ Nothing else of a hidden node is read: qa/engine/s01b checks that a hidden node 
 ### 10.4 Summary (expedition)
 `summary(state)` adds `mapMode: 'expedition'` and `expedition = { walks, passes, dimFights, dimZones, bellsRung,
 bellCharges (left), roads, maxRing, zones: [{ z, time, nodes, walks, passes, dimFights, exit ('road' | 'bell' |
-null) }], dimming (false in a run without the Dimming, D50) }` (`time`: the zone's tolls; the current zone's so far). `minutes` adds the walk and pass terms and the Bell
+null) }], dimming (false in a run without the Dimming, D50), contracts (prep: { taken, completed, expired, abandoned, held, bought (option ids), reserve }) }` (`time`: the zone's tolls; the current zone's so far). (prep) Echo lines `contracts` (completed × ECHO_PER_QUEST × ECHO_CONTRACT_MULT) and `reserve` (Reserve × PREP_ECHO_PER_POINT); `minutes` adds PACE_PREP_S once and PACE_HUB_CONTRACT_S per hub with an offer. `minutes` adds the walk and pass terms and the Bell
 (rules 1.9.8). `death` as 10.2.
 
 ## 11. Heat (heat; rules 1.7.1-1.7.2, 1.9.10)
@@ -624,3 +646,66 @@ Constants (src/constants.js `DEV`, dev tools only):
 | DEV.GOLD_V | 30 | `build`: gold = DEV.GOLD_V × V(level) |
 | DEV.POTIONS | 5 | `build`: Healing Draughts (and Mana Draughts for a Mage) |
 | DEV.RARITY | uncommon | `build`: gear rarity when none is given |
+
+## 13. Start camp and contracts (prep; docs/specs/expedition.md 2-3, task 2b.5)
+An expedition run created with `newRun({ mapMode: 'expedition', prep: true })` goes `CREATE -> PREP -> ZONE_HUB -> ...`:
+START_RUN builds the character and opens the start camp; SET_OUT applies the purchases and enters zone 1. Without `prep`
+(the default until the simulator's bots and the UI handle PREP) an expedition run plays exactly as before 2b.5 (no PREP,
+contracts, hub offers or Spyglass; the story chain stays), and a rows run never has any of it (both checked run for run
+against the engine before 2b.5). `debug.build({ mapMode: 'expedition', prep: true })` sets out with nothing bought.
+Turning the default on is one line (`newRun`'s `prep = false`), after sim/lib/policy.mjs `makeBot` answers phase PREP.
+
+### 13.1 Rules as the engine plays them
+- Points: `PREP_POINTS + PREP_POINTS_PER_QM × min(profile.unlocks.quartermaster, 2)`. Spent on contracts (their price),
+  options (each bought once) and rerolls (REROLL_PRICE each, not refunded); DROP and SELL refund. Left at SET_OUT: Reserve.
+- Board (`prep(k)`): slot i < ZONE_COUNT is zone i + 1, the others draw a zone (1 draw). Each offer: kind by weight CW_* (1
+  draw); Cull and Bounty: region (1 draw, uniform over the zone's regions in content order), family (1 draw over the
+  region's families; null without), Bounty: its elite (1 draw over the zone's rares of that family, else over all its
+  rares); Delve: the zone's dungeon. REROLL_BOARD replaces every offer not taken by the same slot of `prep(k + 1)`.
+- Slots: at most CONTRACT_SLOTS contracts held at once (taken and not complete, expired or abandoned).
+- SET_OUT: Field Draughts, Trail Pack and the Ember go into the bag (what does not fit: the loot window); Second Clapper
+  +1 Bell charge (at most BELL_MAX_CHARGES); Pack Mule +PREP_MULE_SLOTS bag slots for the run (`bagCapacity`); Region
+  Charts, Tracker's Notes (TRACKER_RADIUS), Local Guide (+GUIDE_RADIUS_BONUS radius) and the Spyglass (SPYGLASS_CHARGES)
+  for the run. Owned (not for sale): Region Charts with `cartographer`, Tracker's Notes with `old_hand` (profile unlocks)
+  or with the newRun `vision` option (`charts`, `guide`).
+- Sites, when a zone is generated (held contracts of the zone, in the order taken) and when the hub contract is taken, on
+  `map(z)` after the node types: Cull: one draw per Quest or Grind node (id order) below CULL_SITE_IN in the target region,
+  else CULL_SITE_OUT; then while fewer than CULL_SITES + CULL_SITE_SPARE, one draw adds a Quest or Grind node of the region;
+  then per site (id order) without a mob of the family: one draw picks a zone normal of the family, which replaces the last
+  mob, else an earlier one, the first that keeps rules 7.14 (none: unchanged). Bounty: BOUNTY_PLACED times one draw over the
+  region's ring 2-3 nodes that are not the Dungeon, a Rest, a Road, the Shardfall, the Trainer or a site; a non-Elite is set
+  up again as an Elite on `node(z, id)`; its elite becomes the bounty's rare. Delve: the Dungeon (no draw).
+- Progress: a site counts when its node is won: a Quest's encounter, a Grind's first wave, an Elite's fight, a Dungeon's
+  boss. The last one completes the contract at once: XP `eventXp(xpFrac × XP_WEIGHT_MULT, CL_c)` (diffMod at the player's
+  level then), gold `goldV × V(CL_c)` (`why: 'contract'`; Prospector and the node's heat apply), and an item choice of
+  `choices` items on table `contract` or `bounty` at level CL_c from the node's loot stream (heat's rarity step applies),
+  offered after the node's own rewards (`CHOOSE_REWARD`). A completed Bounty's other site gets its own elite back.
+- Expiry: leaving a zone (Road or Bell) expires its held contracts. Story chain: off on the expedition map.
+- Hub contract (`hubc(z)`, zones 2-6, as one board offer): `TAKE_HUB_CONTRACT` before the zone's first LEAVE_HUB.
+
+### 13.2 `prepView(state)`
+```
+{ points, spent, left, slots, held,
+  board: [{ index, z, zoneName, band: [min, max], kind, region, regionName, family, template, name (Bounty: the elite's
+    name), dungeon (Delve: its name), need, price, reward: { cl, xpFrac (levels-worth incl. XP_WEIGHT_MULT), gold (copper,
+    before Prospector and heat), choices, table, rarity: { rare, epic } }, taken, canTake, canDrop }],
+  options: [{ id, name, kind ('supply' | 'vision'), price, owned, bought, canBuy, canSell, why (why it cannot be bought),
+    item, qty, bell, slots, charges }],
+  reroll: { used, max, price, can }, reserve: { points, echoes } }
+```
+
+### 13.3 `contractView(state)`
+```
+{ slots, held, reserve,
+  contracts: [{ id, z, zoneName, band, kind, region, regionName, family, template, name, dungeon, need, price, reward,
+    from ('board' | 'hub'), progress, status ('active' | 'later' | 'complete' | 'expired' | 'abandoned') }],
+  hub: null or { ...the offer as above, reserve (TAKE_HUB_CONTRACT reserve legal), swap: [contract ids a swap may give up] } }
+```
+Site locations are never in it: the map shows the marks the player sees (`mapView` node `sites`).
+
+### 13.4 Engine defaults (designer or Lead to confirm)
+Each option once per run; a Bounty's elite of another family when the zone has no rare of the target family; the Trainer
+is never a Bounty site; the hub contract only before the zone's first LEAVE_HUB; Cartographer, Old Hand and Quartermaster
+are read from `profile.unlocks` (`C.META_EXPEDITION`) and are not in the catalogue (`C.META`) until the switch-over;
+autoplay's start camp: Field Draughts, then one contract per zone for zones 1-AUTO_PREP_ZONES keeping AUTO_PREP_RESERVE
+points; the hub contract from Reserve when it can.

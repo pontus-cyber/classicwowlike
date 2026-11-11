@@ -104,6 +104,9 @@ export const STREAM = {
   fightId: (seed, z, id, k) => makeRng(streamSeed(seed, 'fight', z, id, k)),
   lootId: (seed, z, id) => makeRng(streamSeed(seed, 'loot', z, id)),
   dim: (seed, z, id, n) => makeRng(streamSeed(seed, 'dim', z, id, n)),
+  // Start camp and contracts (expedition.md 2.2, 3.6): the board after k rerolls, the hub contract of zone z.
+  prep: (seed, k) => makeRng(streamSeed(seed, 'prep', k)),
+  hubc: (seed, z) => makeRng(streamSeed(seed, 'hubc', z)),
   // Dev tools (engine-api.md 12): the n-th dev encounter of a run, k 0 = its fight, 1 = its loot.
   dev: (seed, n, k) => makeRng(streamSeed(seed, 'dev', n, k)),
 };

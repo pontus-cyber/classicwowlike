@@ -4,7 +4,9 @@
 // region families from content, D51; elites without their name or own archetype, D50). Pure helpers of the state; the
 // run flow (moves, Dimmed encounters, Roads, the Homeward Bell) is in nodes.js. Only a run created with mapMode
 // 'expedition' uses the map; the mode helpers (node time, grind waves, XP weight) answer for both maps. Time is counted in
-// whole tolls (M2b v7, docs/specs/changes-m2b-v7.md A-C); the Dimming's front is computed in integers (D70).
+// whole tolls (M2b v7, docs/specs/changes-m2b-v7.md A-C); the Dimming's front is computed in integers (D70). Start camp
+// and contracts (prep, expedition.md 2-3; contracts.js): the zone keeps the map(z) stream after the node types for the
+// contract sites (siteRng), a Delve contract shows its dungeon, and the view shows the site marks the player sees.
 import {
   ZONE_LEVELS, NODE_DRAW_ORDER, QUEST_LEVEL_OFFSETS, ELITE_LEVEL_OFFSET, RARE_CHANCE, QUEST_SIZE_W1, QUEST_SIZE_W2,
   QUEST_SIZE_W3, QUEST_MAX_SIZE_Z1, GRIND_WAVE_SIZE, ELITE_ADD_CHANCE, DUNGEON_SIZE_W2, DUNGEON_SIZE_W3,
@@ -160,10 +162,10 @@ export function generateExpZone(s, z) {
     const w = REGION_W[regs[n.region].kind];
     n.type = NODE_DRAW_ORDER[weightedIndex(rng, NODE_DRAW_ORDER.map((t) => (n.ring === 1 && RING1_FORBIDDEN.includes(t) ? 0 : w[t])))];
   }
-  // 6. Node setup
+  // 6. Node setup; the contract sites (expedition.md 3.3, contracts.js) continue the map(z) stream from here (siteRng).
   for (const n of nodes) setupExpNode(s, z, n, regs);
   return {
-    z, mode: 'expedition', nodes, hub: 0, roads, shardfall, shardDist: hops(nodes, shardfall),
+    z, mode: 'expedition', nodes, hub: 0, roads, shardfall, shardDist: hops(nodes, shardfall), siteRng: rng,
     pos: 0, start: s.time, seen: nodes.map(() => false), typed: nodes.map(() => false), dimN: nodes.map(() => 0),
     hubStock: null, path: [0], questsDone: 0, storyDone: false,
     // D50: newRun({ dimming: false }) plays the zone without the Dimming (every node dims at zone time Infinity).
@@ -294,12 +296,13 @@ export const canEnter = (s, id) => {
 
 // ---------------- Vision (rules 1.9.5) ----------------
 /**
- * Vision kit of a run from the newRun option `vision` ({ guide, charts, pathfinder }; until PREP and meta buy them,
- * task 2b.5): radius VISION_RADIUS (+GUIDE_RADIUS_BONUS), regions (Region Charts), typeRadius (Pathfinder).
+ * Vision kit of a run from the newRun option `vision` ({ guide, charts, pathfinder }; a test and measurement option):
+ * radius VISION_RADIUS (+GUIDE_RADIUS_BONUS), regions (Region Charts), typeRadius (Pathfinder), tracker (Tracker's Notes'
+ * radius, 0 without). The start camp and meta add to it (contracts.js applySetOut, nodes.js startExpedition; prep).
  */
 export function visionKit(opt) {
   const o = opt || {};
-  return { radius: VISION_RADIUS + (o.guide ? GUIDE_RADIUS_BONUS : 0), regions: !!o.charts, typeRadius: o.pathfinder ? PATHFINDER_RADIUS : 0 };
+  return { radius: VISION_RADIUS + (o.guide ? GUIDE_RADIUS_BONUS : 0), regions: !!o.charts, typeRadius: o.pathfinder ? PATHFINDER_RADIUS : 0, tracker: 0 };
 }
 /** Full vision radius of the run, capped at VISION_RADIUS_MAX. */
 export const visionRadius = (s) => Math.min(VISION_RADIUS_MAX, s.exp.vision.radius);
@@ -318,11 +321,23 @@ export function refreshVision(s) {
   return fresh;
 }
 
-/** What the player knows of a node: 'full' (the hub, or seen), 'type' (Pathfinder; the dungeon with Region Charts), 'none'. */
+/** A held or completed Delve contract of this zone shows its dungeon's location (expedition.md 3.3, 5.2; prep). */
+const delveHeld = (s) => !!(s.exp.contracts && s.exp.contracts.some((c) => c.kind === 'delve' && c.z === s.zone.z && (c.state === 'held' || c.state === 'complete')));
+
+/** Contract site marks the player sees on node id (expedition.md 5.1, 5.2; prep): held contracts' ids, or null. */
+function siteView(s, n, know, d) {
+  if (!n.sites || !s.exp.contracts) return null;
+  const tr = s.exp.vision.tracker || 0;
+  if (know !== 'full' && !(tr > 0 && d <= tr)) return null;
+  const held = n.sites.filter((id) => s.exp.contracts.some((c) => c.id === id && c.state === 'held'));
+  return held.length ? held : null;
+}
+
+/** What the player knows of a node: 'full' (the hub, or seen), 'type' (Pathfinder; the dungeon with Region Charts or a Delve contract), 'none'. */
 export function knowledge(s, n) {
   const zone = s.zone;
   if (n.ring === 0 || zone.seen[n.id]) return 'full';
-  if (zone.typed[n.id] || (s.exp.vision.regions && n.type === 'dungeon')) return 'type';
+  if (zone.typed[n.id] || ((s.exp.vision.regions || delveHeld(s)) && n.type === 'dungeon')) return 'type';
   return 'none';
 }
 
@@ -383,6 +398,8 @@ export function expMapView(s) {
     };
     if (know === 'type') v.type = n.type;
     if (know === 'full') Object.assign(v, { type: n.type, cl: n.cl, done: n.done, lost: dimmed && !n.done && n.ring > 0 }, details(c, z, n));
+    const sites = siteView(s, n, know, d[n.id]);
+    if (sites) v.sites = sites;
     return v;
   });
   const edges = [];
@@ -397,7 +414,7 @@ export function expMapView(s) {
     mode: 'expedition', z, name: zoneContent(c, z).name, zt, pos: zone.pos, hub: 0, roads: zone.roads.slice(),
     roadNames: zone.roads.map((id) => roadNameOf(s, id)), texts: expeditionTexts(c),
     shardfall: zone.shardfall, onRoad: zone.nodes[zone.pos].road, walkTime: TIME_WALK, travelTime: TIME_TRAVEL,
-    bell: { charges: s.exp.bell, channelTime: BELL_CHANNEL_TIME },
+    bell: { charges: s.exp.bell, channelTime: BELL_CHANNEL_TIME }, ...(s.exp.prep ? { spyglass: s.exp.spyglass } : {}),
     vision: { radius: visionRadius(s), regions: showRegions, typeRadius: s.exp.vision.typeRadius },
     dim: { grace: DIM_GRACE, frontHops: DIM_FRONT_HOPS, frontTime: DIM_FRONT_TIME, front, nextIn: zone.dimOff ? Infinity : frontNextIn(zt), off: !!zone.dimOff },
     regions: regs.map((r, i) => ({ id: i, name: r.name, kind: r.kind, families: r.families.slice() })),

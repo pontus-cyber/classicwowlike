@@ -29,7 +29,7 @@ import { checkAction, applyAction, legalActions } from './actions.js';
 import { autoAction, nextTalent, desiredBar, desiredItemBar } from './autoplay.js';
 import {
   enterZone, completeNode, endDevEncounter, travelOn, takeRoad, fightBoss, finishFight, zoneAddPool, trainerSpells,
-  availablePets, startExpedition, settleExpedition,
+  availablePets, startExpedition, settleExpedition, setOut,
 } from './nodes.js';
 import { startFight, defaultTarget } from './combat.js';
 import { applyDamage } from './damage.js';
@@ -41,7 +41,7 @@ import { zoneContent } from './content.js';
 import { newProfile } from './meta.js';
 
 const RUN_PHASES = ['ZONE_HUB', 'MAP', 'NODE', 'CAMP', 'BOSS'];
-const PHASES = ['CREATE', ...RUN_PHASES, 'SUMMARY', 'ENDED'];
+const PHASES = ['CREATE', 'PREP', ...RUN_PHASES, 'SUMMARY', 'ENDED'];
 const CAMP = ZONE_COUNT + 1;
 
 const fail = (msg) => { throw new IllegalActionError(msg); };
@@ -203,12 +203,14 @@ export function createDebug(api) {
     const petId = classId === 'hunter' ? o.petId || availablePets(profile || newProfile())[0] : null;
     if (petId && !availablePets(profile || newProfile()).includes(petId)) fail(`debug.build: the pet ${petId} is not unlocked in the profile`);
     if (o.mapMode && !MAP_MODES.includes(o.mapMode)) fail(`debug.build: mapMode must be one of ${MAP_MODES.join(', ')}`);
-    let s = newRun({ classId, petId, name: o.name || '', seed: o.seed ?? 0, profile, content: o.content, mapMode: o.mapMode || 'rows', vision: o.vision ?? null, dimming: o.dimming ?? true });
+    let s = newRun({ classId, petId, name: o.name || '', seed: o.seed ?? 0, profile, content: o.content, mapMode: o.mapMode || 'rows', vision: o.vision ?? null, dimming: o.dimming ?? true, prep: o.prep ?? false });
     const ev = [];
     for (const oath of o.oaths || []) { const r = step(s, { type: 'SET_OATH', oath, on: true }); s = r.state; ev.push(...r.events); }
     const r0 = step(s, { type: 'START_RUN' });
     s = r0.state;
     ev.push(...r0.events);
+    // Expedition (prep): the start camp is left with nothing bought, every point kept as Reserve.
+    if (s.phase === 'PREP') setOut(s, ev, { enter: false });
     mark(s, 'build');
     const p = s.player;
     // Level (rules 4.3): the character has just reached it.
@@ -558,7 +560,11 @@ export function createDebug(api) {
       for (const [id, c0] of Object.entries(CONSUMABLE)) if (c0.max !== undefined && countConsumable(s, id) > c0.max) e(`${id} × ${countConsumable(s, id)} over its maximum`);
       // phase, zone, node, fight (rules 1.1)
       const z = s.zone;
-      if (!over) {
+      if (s.phase === 'PREP') {
+        // The start camp (prep): no zone yet, the board and the budget in place.
+        if (z) e('a zone at the start camp');
+        if (!s.prep || s.prep.done) e('phase PREP without an open start camp');
+      } else if (!over) {
         if (!z) e(`phase ${s.phase} without a zone`);
         else {
           if (['ZONE_HUB', 'MAP'].includes(s.phase) && z.camp) e(`phase ${s.phase} at the Camp`);

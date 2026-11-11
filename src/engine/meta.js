@@ -1,9 +1,9 @@
 // Meta progression (rules 11): profile, catalogue purchases, Echoes per run (a dev run leaves the profile as it was,
-// engine-api.md 12).
+// engine-api.md 12; prep, expedition.md 8.1: the lines of contracts completed and Reserve left).
 import {
   META, CLASS_IDS, ECHO_PER_LEVEL, ECHO_PER_ZONE, ECHO_PER_DUNGEON, ECHO_PER_ELITE, ECHO_PER_RARE, ECHO_PER_QUEST,
   ECHO_BOSS_REACHED, ECHO_BOSS_PHASE, ECHO_BOSS_KILL, ECHO_SPEED_BONUS, ECHO_FIRST_KILL_CLASS, OATH_ECHO_BONUS,
-  BOSS_TIME_PAR, OATH_HASTE_TIME, ECHO_PER_HEAT_FIGHT,
+  BOSS_TIME_PAR, OATH_HASTE_TIME, ECHO_PER_HEAT_FIGHT, ECHO_CONTRACT_MULT, PREP_ECHO_PER_POINT,
 } from '../constants.js';
 import { IllegalActionError, deepClone, rnd } from './util.js';
 import { hash32 } from '../rng.js';
@@ -84,6 +84,9 @@ export function echoes(facts, profile) {
   add('rares', facts.kills.rare, ECHO_PER_RARE);
   add('quests', facts.quests, ECHO_PER_QUEST);
   add('heat', facts.heatFights || 0, ECHO_PER_HEAT_FIGHT);
+  // prep (expedition.md 8.1, 2.6): contracts completed × ECHO_PER_QUEST × ECHO_CONTRACT_MULT; Reserve × PREP_ECHO_PER_POINT
+  add('contracts', facts.contracts || 0, ECHO_PER_QUEST * ECHO_CONTRACT_MULT);
+  add('reserve', facts.reserve || 0, PREP_ECHO_PER_POINT);
   if (facts.reachedBoss) {
     add('bossReached', 1, ECHO_BOSS_REACHED);
     add('bossPhases', Math.max(0, facts.bossPhase - 1), ECHO_BOSS_PHASE);

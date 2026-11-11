@@ -22,6 +22,8 @@
 // `debug` (engine-api.md 12, dev only: src/engine/debug.js). Owner feedback 2026-11-11: pendingTicks (the DoT preview,
 // engine-api.md 6.1) and talentInfo (talent totals, rules 6). M2b v6: freePotion (Packed Satchel's free potion, rules 7.5).
 // M2b v8: potionInfo (what a consumable restores now; the free potion at FREE_POTION_MULT, rules 7.5); zoneDanger's early factor.
+// Start camp and contracts (prep, docs/specs/expedition.md 2-3, task 2b.5): an expedition run starts in phase PREP;
+// prepView (the prep screen) and contractView (the contract tracker).
 import * as C from './constants.js';
 import { normaliseSeed } from './rng.js';
 import { cloneState, deepClone, deepFreeze, IllegalActionError } from './engine/util.js';
@@ -41,6 +43,7 @@ import { engageOptions as engageList, engagePreview as previewEngage } from './e
 import { isEngageRound as engageRound } from './engine/track.js';
 import { MAP_MODES, isExpedition, expMapView } from './engine/expedition.js';
 import { heatView as heatMeter, heatPreview as previewHeat } from './engine/heat.js';
+import { prepView as prepScreen, contractView as contractTracker } from './engine/contracts.js';
 import { createDebug } from './engine/debug.js';
 
 /**
@@ -212,6 +215,26 @@ export function heatPreview(state, action) {
   return checkAction(state, action) ? null : previewHeat(state, action);
 }
 
+/**
+ * The start camp (prep; expedition.md 2, 9.1), null outside PREP: { points, spent, left, slots, held, board: [{ index, z,
+ * zoneName, band, kind, region, regionName, family, template, name, dungeon, need, price, reward, taken, canTake, canDrop
+ * }], options: [{ id, name, kind, price, owned, bought, canBuy, canSell, why, item, qty, bell, slots, charges }], reroll:
+ * { used, max, price, can }, reserve: { points, echoes } }. Fields in engine-api.md 13.
+ */
+export function prepView(state) {
+  return prepScreen(state);
+}
+
+/**
+ * The contract tracker (prep; expedition.md 3, 9.3): { slots, held, reserve, contracts: [{ id, z, zoneName, band, kind,
+ * region, regionName, family, template, name, dungeon, need, price, reward, from, progress, status }], hub: the hub
+ * contract on offer with the legal modes, or null }. Never the sites' nodes (mapView marks the ones the player sees).
+ * null in a rows run and before START_RUN. Fields in engine-api.md 13.
+ */
+export function contractView(state) {
+  return contractTracker(state, (a) => !checkAction(state, a));
+}
+
 /** FLEE success chance in the current fight (rules 7.8); 0 when fleeing is not allowed. */
 export function fleeChance(state) {
   return flee(state);
@@ -293,15 +316,19 @@ export function talentInfo(state, talentId) {
  * (structural check) and frozen. mapMode: 'rows' (today's map, rules 1.4; the default) or 'expedition' (rules 1.9).
  * vision (expedition only, until the start camp and meta buy it, task 2b.5): { guide, charts, pathfinder } booleans
  * for Local Guide, Region Charts and Pathfinder (rules 1.9.5). dimming (expedition only, D50): false plays the run without
- * the Dimming (no front, no Dimmed nodes or encounters), a measurement option for the simulator (balance.md B44).
+ * the Dimming (no front, no Dimmed nodes or encounters), a measurement option for the simulator (balance.md B44). prep
+ * (expedition only; prep, expedition.md 2-3): true starts the run at the start camp (phase PREP) and plays contracts, the
+ * hub contract and the Spyglass, with the story chain retired; false (the default until the simulator's bots and the UI
+ * handle PREP) plays the expedition map as before task 2b.5.
  */
-export function newRun({ classId = null, petId = null, name = '', seed = 0, profile = null, content, validate = true, mapMode = 'rows', vision = null, dimming = true } = {}) {
+export function newRun({ classId = null, petId = null, name = '', seed = 0, profile = null, content, validate = true, mapMode = 'rows', vision = null, dimming = true, prep = false } = {}) {
   if (!content) throw new Error('newRun: content is required (import { CONTENT } from src/content/index.js)');
   if (!MAP_MODES.includes(mapMode)) throw new Error(`newRun: mapMode must be one of ${MAP_MODES.join(', ')}`);
   if (vision !== null && (mapMode !== 'expedition' || typeof vision !== 'object' || Object.keys(vision).some((k) => !['guide', 'charts', 'pathfinder'].includes(k)))) {
     throw new Error('newRun: vision is an expedition option: { guide, charts, pathfinder }');
   }
   if (typeof dimming !== 'boolean' || (!dimming && mapMode !== 'expedition')) throw new Error('newRun: dimming is an expedition option: true (default) or false');
+  if (typeof prep !== 'boolean' || (prep && mapMode !== 'expedition')) throw new Error('newRun: prep is an expedition option: true or false (default)');
   if (validate) {
     const errors = validateContent(content);
     if (errors.length) throw new Error(`newRun: content is invalid:\n  ${errors.slice(0, 20).join('\n  ')}`);
@@ -318,7 +345,7 @@ export function newRun({ classId = null, petId = null, name = '', seed = 0, prof
     phase: 'CREATE',
     create: {
       classId, petId, name: typeof name === 'string' ? name.trim().slice(0, 24) : '', seed: normaliseSeed(seed), oaths: [],
-      ...(mapMode === 'expedition' ? { vision: { guide: !!(vision && vision.guide), charts: !!(vision && vision.charts), pathfinder: !!(vision && vision.pathfinder) }, dimming } : {}),
+      ...(mapMode === 'expedition' ? { vision: { guide: !!(vision && vision.guide), charts: !!(vision && vision.charts), pathfinder: !!(vision && vision.pathfinder) }, dimming, prep } : {}),
     },
     profile: prof,
     autoplay: false,

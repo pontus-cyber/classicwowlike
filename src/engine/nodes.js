@@ -4,6 +4,9 @@
 // Heat (rules 1.7.3, 1.7.4): a node's heat state is fixed on entry (state.node.heat, the fight's `heat`), and the
 // summary's heat counters follow tolls, zones, nodes and fights won (heat.js).
 // Dev tools (engine-api.md 12): a fight a dev tool starts (node type `dev`) ends back where it was started.
+// Start camp and contracts (prep, expedition.md 2-3; contracts.js): an expedition run starts in PREP, SET_OUT enters zone 1,
+// a zone's generation places the hub contract and the sites, won sites count, leaving a zone expires its contracts, and
+// the story chain is retired on the expedition map.
 import {
   CLASS, PET, SPELL, META, SLOT_IDS, START_GOLD, START_RATIONS, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, ZONE_COUNT,
   ZONE_LEVELS, ZONE_CHOICE_ROWS, TIME_REST, TIME_VENDOR, TIME_TRAINER, TIME_TRAVEL, QUEST_TURNIN_XP_FRAC, QUEST_GOLD_V,
@@ -12,7 +15,7 @@ import {
   TREASURE_TRAP_CHANCE, TREASURE_TRAP_PCT, REST_RESTED_FRAC, BOON, BOON_GOLD_V, BOON_NODES, CAMP_GRIND_LEVEL,
   MAX_LEVEL, TRAIN_NEW_V, TRAIN_RANK_V, TRAVEL_EARLY_LEVELS,
   RESPEC_V, CONSUMABLE, ELIXIR_NODES, RES_META_CHARGES, BOSS_LEVEL, UNIQUE_POTION_PCT, TIME_WALK, DIM_PACK_SIZE,
-  DIM_LEVEL_PER_DEPTH, TIME_DIM_FIGHT, BELL_START_CHARGES, BELL_MAX_CHARGES, BELL_CHANNEL_TIME,
+  DIM_LEVEL_PER_DEPTH, TIME_DIM_FIGHT, BELL_START_CHARGES, BELL_MAX_CHARGES, BELL_CHANNEL_TIME, TRACKER_RADIUS,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt } from '../rng.js';
 import { rnd, frac6, deepClone } from './util.js';
@@ -31,6 +34,7 @@ import {
   isExpedition, grindMaxWaves, xpWeight, nodeTime, generateExpZone, refreshVision, zoneTime, frontAt, dimmedNow,
   visionKit, canEnter, roadNameOf,
 } from './expedition.js';
+import { newPrep, applySetOut, contractsAtZone, siteWon, expireContracts, ownedPerks } from './contracts.js';
 
 // ---------------- Meta at run start (rules 11.4) ----------------
 /**
@@ -122,9 +126,21 @@ export function startRun(s, ev) {
   s.death = null;
   s.outcome = null;
   s.result = null;
-  if (isExpedition(s)) startExpedition(s);
   ev.push({ t: 'runStart', classId: c.classId, petId: c.petId, seed: s.seed, oaths: s.oaths });
+  if (isExpedition(s)) startExpedition(s);
+  if (isExpedition(s) && s.exp.prep) {
+    // Expedition with the start camp (expedition.md 1, 2; prep): PREP comes first; SET_OUT enters zone 1.
+    newPrep(s);
+    setPhase(s, ev, 'PREP');
+    return;
+  }
   enterZone(s, ev, 1);
+}
+
+/** SET_OUT (expedition.md 2; prep): the purchases take effect, unspent points become Reserve, then zone 1's hub. */
+export function setOut(s, ev, { enter = true } = {}) {
+  applySetOut(s, ev);
+  if (enter) enterZone(s, ev, 1);
 }
 
 /**
@@ -134,8 +150,17 @@ export function startRun(s, ev) {
  */
 export function startExpedition(s) {
   const c = s.create;
-  s.exp = { vision: visionKit(c.vision), bell: Math.min(BELL_MAX_CHARGES, BELL_START_CHARGES), pending: false, bellPending: false, dimming: c.dimming !== false };
-  s.stats.exp = { walks: 0, passes: 0, dimFights: 0, bells: 0, bellExits: 0, roads: 0, maxRing: 0, zones: [] };
+  s.exp = {
+    vision: visionKit(c.vision), bell: Math.min(BELL_MAX_CHARGES, BELL_START_CHARGES), pending: false, bellPending: false, dimming: c.dimming !== false,
+    // Start camp and contracts (prep, expedition.md 2-3; newRun option prep): contracts taken, Reserve, Spyglass charges,
+    // the Pack Mule. Without the option none of it is used.
+    prep: !!c.prep, contracts: [], nextContract: 1, reserve: 0, spyglass: 0, mule: false,
+  };
+  // Vision perks owned from meta (expedition.md 2.4, 8.2: Cartographer, Old Hand) last every run with the start camp.
+  const owned = s.exp.prep ? ownedPerks(s) : [];
+  if (owned.includes('prep_charts')) s.exp.vision.regions = true;
+  if (owned.includes('prep_tracker')) s.exp.vision.tracker = TRACKER_RADIUS;
+  s.stats.exp = { walks: 0, passes: 0, dimFights: 0, bells: 0, bellExits: 0, roads: 0, maxRing: 0, zones: [], preps: 0, hubOffers: 0 };
 }
 
 // ---------------- Zones, hub, camp ----------------
@@ -182,6 +207,7 @@ export function enterZone(s, ev, z, { again = false } = {}) {
     s.zone = generateExpZone(s, z);
     s.exp.pending = false;
     s.exp.bellPending = false;
+    if (s.exp.prep) contractsAtZone(s); // prep (expedition.md 3.3, 3.6): the hub contract on offer, the sites of held contracts
     refreshVision(s);
     s.stats.exp.zones.push({ z, time: 0, nodes: 0, walks: 0, passes: 0, dimFights: 0, exit: null });
   } else {
@@ -550,6 +576,7 @@ export function endDevEncounter(s, ev) {
 function leaveZone(s, ev, by) {
   const from = s.zone.z;
   const node = s.zone.pos;
+  if (s.exp.prep) expireContracts(s, ev, from); // prep (expedition.md 3.1): this zone's held contracts expire
   s.stats.zonesLeft += 1;
   ev.push({ t: 'travel', from, by, node, road: by === 'road' ? roadNameOf(s, node) : null });
   enterZone(s, ev, from + 1);
@@ -653,6 +680,12 @@ export function finishFight(s, ev) {
   if (s.node && s.node.type === 'dev') { endDevEncounter(s, ev); return; }
   const n = s.node;
   if (outcome === 'fled') { completeNode(s, ev); return; }
+  // Contracts (prep, expedition.md 3.3): a won site counts; a contract it completes pays now, its item choice comes after
+  // the node's own (reward stage). Only on the expedition map.
+  const sites = () => (s.exp && s.exp.prep && n.id !== undefined ? siteWon(s, ev) : []);
+  const done = (sets) => {
+    if (sets.length) { n.rewards = [...(n.rewards || []), ...sets]; n.stage = 'reward'; } else completeNode(s, ev);
+  };
   if (kind === 'quest') {
     s.stats.quests += 1;
     s.zone.questsDone += 1;
@@ -660,20 +693,23 @@ export function finishFight(s, ev) {
     gainXp(s, ev, eventXp(s, QUEST_TURNIN_XP_FRAC * xpWeight(s), n.cl), 'quest');
     gainGold(s, ev, QUEST_GOLD_V * V(n.cl), 'quest');
     n.rewards = [{ kind: 'items', items: genChoices(s, 'quest', QUEST_REWARD_CHOICES, n.cl) }];
-    if (s.zone.questsDone === STORY_QUESTS) {
+    // The story chain (rules 2.1) is retired on the expedition map: contracts replace it (expedition.md 3.2; prep).
+    if (!(isExpedition(s) && s.exp.prep) && s.zone.questsDone === STORY_QUESTS) {
       s.stats.stories += 1;
       ev.push({ t: 'story', z: s.zone.z });
       gainXp(s, ev, eventXp(s, STORY_XP_FRAC, n.cl), 'story');
       n.rewards.push({ kind: 'items', items: genChoices(s, 'story', STORY_REWARD_CHOICES, n.cl), story: true });
     }
+    n.rewards.push(...sites());
     n.stage = 'reward';
   } else if (kind === 'grind') {
     gainXp(s, ev, eventXp(s, GRIND_WAVE_XP_FRAC * xpWeight(s), n.cl), 'wave');
     n.wavesDone += 1;
-    if (n.wavesDone < n.planned) n.stage = 'between';
-    else completeNode(s, ev);
+    const sets = n.wavesDone === 1 ? sites() : [];
+    if (!sets.length && n.wavesDone < n.planned) n.stage = 'between';
+    else done(sets);
   } else if (kind === 'elite') {
-    completeNode(s, ev);
+    done(sites());
   } else if (kind === 'trash') {
     n.stage = 'between';
   } else if (kind === 'dboss') {
@@ -681,7 +717,7 @@ export function finishFight(s, ev) {
     ev.push({ t: 'dungeonClear', z: s.zone.z });
     gainXp(s, ev, eventXp(s, DUNGEON_CLEAR_XP_FRAC * xpWeight(s), n.bossLevel), 'dungeon');
     gainGold(s, ev, DUNGEON_GOLD_V * V(n.bossLevel), 'dungeon');
-    completeNode(s, ev);
+    done(sites());
   } else if (kind === 'treasure') {
     openChest(s, ev);
     completeNode(s, ev);

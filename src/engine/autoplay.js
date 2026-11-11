@@ -5,6 +5,8 @@
 // Expedition map (rules 1.9.9): the default map policy explores what it can leave cleanly and walks to the cheapest
 // Road around the Dimming; it reads only what the player sees (seen nodes, the skeleton, the Dimming).
 // The default talent build, bar and item bar are exported for the dev tools (debug.build, engine-api.md 12).
+// Start camp and contracts (prep, expedition.md 2-3): a fixed default at PREP (Field Draughts, then one contract per zone
+// for zones 1-3 by board order while points and slots last, the rest kept as Reserve) and the hub contract from Reserve.
 import {
   SPELL, TALENT, CONSUMABLE, AUTO_POTION_HP, AUTO_TONIC_STACKS, AUTO_MANA_POTION, AUTO_FOOD_HP,
   ENGINE_ASSUMPTION as EA, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, MAX_LEVEL, PET, ENGAGE_OPTION, ENGAGE_OPTIONS,
@@ -21,6 +23,7 @@ import { nextLanes, dungeonLevels } from './map.js';
 import { checkAction } from './actions.js';
 import { canTravel, exitLevel, trainerSpells, learnCost, trainCost, trainable, availablePets, canEnter } from './nodes.js';
 import { isExpedition, grindMaxWaves, nodeTime, zoneTime, dimmedAt } from './expedition.js';
+import { takeContractError, buyPrepError, hubContractError, prepLeft } from './contracts.js';
 
 const legal = (s, a) => !checkAction(s, a);
 
@@ -346,9 +349,27 @@ function trainerUseful(s) {
   return learnable || (trainable(s).length > 0 && p.gold >= trainCost(s));
 }
 
+/**
+ * Default start camp (prep, expedition.md 2; engine default, not a bot): Field Draughts; then, in board order, one
+ * contract for each of zones 1..EA.AUTO_PREP_ZONES not yet covered, while points last with EA.AUTO_PREP_RESERVE points kept
+ * back for a hub contract; then SET_OUT.
+ */
+function prepPolicy(s) {
+  if (!buyPrepError(s, 'prep_draughts')) return { type: 'BUY_PREP', id: 'prep_draughts' };
+  const left = prepLeft(s);
+  const covered = new Set(s.prep.board.filter((o) => o.taken).map((o) => o.z));
+  for (const o of s.prep.board) {
+    if (o.z > EA.AUTO_PREP_ZONES || covered.has(o.z) || left - o.price < EA.AUTO_PREP_RESERVE) continue;
+    if (!takeContractError(s, o.index)) return { type: 'TAKE_CONTRACT', index: o.index };
+  }
+  return { type: 'SET_OUT' };
+}
+
 function hubPolicy(s, leave) {
   const p = s.player;
   const u = s.hub.used;
+  // The hub contract (expedition.md 3.6): from Reserve when a slot is free.
+  if (s.phase === 'ZONE_HUB' && isExpedition(s) && !hubContractError(s, { mode: 'reserve' })) return { type: 'TAKE_HUB_CONTRACT', mode: 'reserve' };
   // Expedition (rules 1.9.9): a service only when the hub stays out of the Dimming and a clean way to a Road remains.
   const ok = (h) => s.phase !== 'ZONE_HUB' || !isExpedition(s) || expSafe(s, s.zone.pos, zoneTime(s) + h);
   if (!u.trainer && trainerUseful(s) && ok(TIME_TRAINER)) return { type: 'SERVICE', service: 'trainer' };
@@ -552,6 +573,7 @@ export function autoAction(s) {
     if (s.create.classId === 'hunter' && !s.create.petId) return { type: 'SELECT_PET', petId: availablePets(s.profile)[0] || Object.keys(PET)[0] };
     return { type: 'START_RUN' };
   }
+  if (s.phase === 'PREP') return prepPolicy(s);
   if (s.fight) return combatPolicy(s);
   if (s.loot.length) return lootPolicy(s);
   const ooc = oocPolicy(s);
