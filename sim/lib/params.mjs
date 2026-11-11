@@ -32,7 +32,7 @@ export const BAL = {
   VAL_GOLD: 5,
   VAL_HOUR: 6,
   VAL_DEATH: 2000,
-  PLANNER_HOUR_MULT: 2,
+  PLANNER_HOUR_MULT: 3,
   SIM_RISK_REFRESH: 500,
   RISK_PRIOR: { quest: 0.005, grind: 0.004, elite: 0.03, dungeon: 0.05, treasure: 0.002 },
   WR_P0_RANDOM_MAX: 0.03,
@@ -226,6 +226,8 @@ export const C2 = {
  * HEAT: the simulator's constants of docs/specs/expedition.md section 13, block "Heat" (bots and targets of H.6:
  * heat-seek / heat-avoid hour weights, B58 (was B55 of section H, D61), B56, B57), same names and values (pp as pp). Rules constants of
  * that block (HEAT_GAIN, HEAT_RARITY_UP, ...) are read from the engine (C). qa/sim/heat.test.mjs compares them.
+ * M2b v6 (D63): HEAT_POLICY_GAP_MAX is also B56 (a)'s floor (heat-seek - planner), HEAT_WIN_SHARE the band of B56 (b)
+ * (heat-seek's wins with a Hot node).
  */
 export const HEAT = {
   HEAT_SEEK_HOUR_MULT: 0.5,
