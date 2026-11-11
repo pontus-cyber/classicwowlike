@@ -198,9 +198,11 @@ export const SIM = {
    * Speedrunner on the expedition map (speedFog, sim/bots/speedrunner.mjs; balance-2026-11-11h "Row 4"): tolls one level
    * is worth in the search (the levels still missing at the search's end, and a contract site's XP). M2b v12 used
    * balance.md 1's exchange rate VAL_XP / VAL_TIME = 16.7 tolls; null keeps that. Calibrated in the M2b v13 measure
-   * (balance-2026-11-12) on a small paired arm against the v11 policy (about 4.6 tolls per level).
+   * (balance-2026-11-12; expedition PALL, 100 per class, seeds 1000-1099, paired with the v11 policy's 11.3 % wins):
+   * 4.6 tolls 0.3 %, 8 1.7 %, 16.7 3.7 %, 30 5.7 %, 60 4.3 % wins. No price reaches the v11 policy (its edge is gear:
+   * 0.79 dungeons per run against none, boss ilvl 46.2 against 44.8); 30 is the best arm.
    */
-  SPEED_LEVEL_TOLLS: null,
+  SPEED_LEVEL_TOLLS: 30,
   /**
    * Planner's fog search (planFog, sim/bots/planner.mjs): 1 advances the search's zone time by a Dimmed encounter's tolls
    * (TIME_DIM_FIGHT, or TIME_DIM_ESCAPE after an outward walk), as speedFog and the engine do; 0 is the search up to M2b

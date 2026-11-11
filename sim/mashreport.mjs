@@ -12,6 +12,7 @@
 // Fight kind groups: a fight with a rare enemy is 'rare' whatever its node; else the recorder's fight kind.
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { C, CONTENT } from './lib/engine.mjs';
 import { SIM } from './lib/params.mjs';
 import { readJsonl } from './lib/output.mjs';
@@ -403,4 +404,6 @@ function main() {
   process.stdout.write(out.join('\n') + '\n');
 }
 
-main();
+// Run as a script only (sim/v13report.mjs imports the helpers).
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
+export { thinkRows, spacing, kindStats, load, flat, paired, templateTable, zoneTable, thinkTable, rotTable, CLASSES as MASH_CLASSES };

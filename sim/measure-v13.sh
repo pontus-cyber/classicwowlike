@@ -19,7 +19,8 @@
 #     C7  row 6 arm: --gates firstMeetWindup: onebutton (RUNS), onebutton --think (THINK7), planner (RUNS)   B62a gate
 #     X4  expedition P0 with the start camp: onebutton, masher, planner (XRUNS); onebutton --think --think-mash (XTHINK)
 #     X8  expedition PALL: onebutton (X8RUNS), planner (XRUNS; the flip's PALL cell)
-#     F   flip cells: speedrunner PALL (SPEEDRUNS), greedy P0 (XRUNS), prep none / random (N6), oracle P0 and PALL (50)
+#     F   flip cells: speedrunner PALL (SPEEDRUNS; the level price of SIM.SPEED_LEVEL_TOLLS) and the v11 policy (--variant
+#         v11, SPEEDRUNS: B12 on >= 200 wins), greedy P0 (XRUNS), prep none / random (N6), oracle P0 and PALL (50)
 #     K   planner Dimmed clock off (SIM.PLANNER_DIM_CLOCK 0, a scratch arm through SIM_OVERRIDE): planner P0 and PALL
 #         expedition (XRUNS), paired with X4 / X8's planner
 # Env: WORKERS (2), RUNS (1000), THINK (100), THINK_PALL (50), THINK7 (50), OPENER (50), XRUNS (300), XTHINK (50),
@@ -102,6 +103,7 @@ if has X8; then
 fi
 if has F; then
   run "$O/exp" --bot speedrunner --class all --runs "$SPEEDRUNS" --profile all $XA
+  run "$O/exp" --bot speedrunner --variant v11 --class all --runs "$SPEEDRUNS" --profile all $XA
   run "$O/exp" --bot greedy --class all --runs "$XRUNS" --profile fresh $X0
   run "$O/exp" --bot planner --class all --runs "$N6" --profile fresh $X0 --prep-policy none
   run "$O/exp" --bot planner --class all --runs "$N6" --profile fresh $X0 --prep-policy random
