@@ -11,7 +11,8 @@ not in the catalogue ignored); 2026-11-10c (M2 v5: Starforged Arms removed, `sta
 1.7.1-1.7.4 and 1.9.10: `heatView`, `heatPreview`, the node's entry state, `xp` and `gold` `heat`, the summary's
 `heat` block; section 11; marked "(heat)"); 2026-11-10g (combat v2.1, rules 7.10 and 7.12: wind-ups on the signature
 turns, the EMPOWERED and STAGGERED stacks with the `empower` and `stagger` events, Disrupt; marked "(combat v2.1)");
-2026-11-11 (dev tools, owner feedback 2026-11-11 07:41: `debug`, section 12, a dev-only API; marked "(dev)").
+2026-11-11 (dev tools, owner feedback 2026-11-11 07:41: `debug`, section 12, a dev-only API; marked "(dev)"); 2026-11-11b (owner feedback 08:11 and 08:14: `pendingTicks`, the DoT preview, section 6.1; `talentInfo`, talent
+totals; marked "(preview)").
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
 
@@ -57,9 +58,11 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 | `engageOptions(state)` | array or null | (combat v2) The engage panel (rules 7.10), null outside the engage round: one entry per class option in the order strike, control, setup: `{ id, kind ('strike'|'control'|'setup'), name, targets, spells, disrupt, reason }`. `targets`: the enemy indices it may be used on (`[null]` for no target); Pre-cast has `spells: [{ spellId, targets }]` instead (bar spells castable at 0 mana). `disrupt` (combat v2.1): the targets on which this control option is **Disrupt** (an enemy immune to control, a dungeon boss, that shows a wind-up in turns 1..INTENT_TRACK_LEN; rules 7.10): label the option "Disrupt" there; `[]` for every other option and target. `reason`: why it cannot be used at all (e.g. the only enemy is immune to control and shows no wind-up: grey it out with this text). Option data (name, turns, multipliers): `C.ENGAGE_OPTION[id]`. |
 | `engagePreview(state, action)` | object or null | (combat v2) What an ENGAGE action does to the tracks, for the engage panel's hover preview (rules 7.10). No draw, so it shows nothing the player cannot see. null when the action is not legal, else `{ enemies: [{ u, cancelled, offBalance, window, pet, stagger, disrupt }] }` with turn numbers: entries it cancels (Sap, Binding Glyph, Lay Trap, Disrupt, a Pre-cast Hexbind or Rime Burst; Sap and Hexbind only while no damage breaks them, Rime Burst only if it hits), those among them that leave the enemy OFF_BALANCE (heavy or cast: "OFF_BALANCE on turn 2"), turns FROZEN (a window), turns whose single-target hits go to the pet (Send the Pet), (combat v2.1) `stagger`: the cancelled turns whose entry is a wind-up (answered: STAGGERED), `disrupt`: true when the option is a Disrupt on this enemy (its one cancelled turn is the first visible wind-up). Send the Pet answers a heavy wind-up among its `pet` turns too while the pet lives (rules 7.13 (3)); the preview lists it under `pet` only. Damage options change no entry. |
 | `offBalance(state, enemyIdx)` | object or null | (combat v2) The OFF_BALANCE window on an enemy (rules 7.13): `{ status ('OFF_BALANCE', or 'FROZEN', which counts as OFF_BALANCE while it lasts), taken, crit, rounds }`; null when there is none. Highlight bar spells with `spellInfo(...).window`. |
+| `pendingTicks(state, unit)` | array, object or null | (preview) The DoT preview (owner feedback 2026-11-11 08:11): what the ticks at the end of the current round (rules 7.1 step 5) will do if nothing else happens before them, one entry per unit they touch, in tick order (player, pet, enemies). With `unit` (`'player'`, `'pet'` or an enemy index): that unit's entry or null. null outside a fight. Fields and guarantees: section 6.1. |
+| `talentInfo(state, talentId)` | object or null | (preview) Talent totals for the tooltip (owner feedback 2026-11-11 08:14; rules 6): `{ id, name, ranks, rank, per, now, next }`. `per`: the values one rank gives, `now`: their totals at the ranks taken (null at rank 0), `next`: at one more rank (null at the maximum). The keys are the talent's per-rank fields (`C.TALENT_PER_RANK`; the numbers stay in `C.TALENT`), e.g. Silent Footing at 3/3: `now { pct: 0.3 }`, `next` null. `base` (Toxic Coating, Trapper): the damage formula b + l × L (Trapper: the Snare Trap's training level) + p × Power, times the ranks, before modifiers, rounded to 0.1 (null without a character). Hemorrhage Mastery: `{ dotCrit, dotPct }` by rank. Any phase; null for an unknown id. |
 | `heatView(state)` | object or null | (heat) The heat meter (rules 1.7.1-1.7.2, 1.9.10), in any phase after START_RUN (null before): the line, the player's heat, the state, the Dimming's clock in an expedition zone, the projected boss Ascendancy and the previews of the legal hour-costing choices. Fields in section 11. Pure and cheap. |
 | `heatPreview(state, action)` | object or null | (heat) The hours an action costs and the heat after it ("2 h, ends Warm", rules 1.7.1, 1.9.10), and for an action that enters a node the state it pays at (`pays`); null when the action is not legal or costs no hours. Fields in section 11. |
-| `C` | module | All constants and data tables (CLASS, SPELL, TALENT, PET, CONSUMABLE, BOON, META, BOSS_TEXT, OPENING_SCRIPT, SCRIPT_ACTION, ENGAGE_OPTION, ENGAGE_OPTIONS, ...). |
+| `C` | module | All constants and data tables (CLASS, SPELL, TALENT, TALENT_PER_RANK (preview), PET, CONSUMABLE, BOON, META, BOSS_TEXT, OPENING_SCRIPT, SCRIPT_ACTION, ENGAGE_OPTION, ENGAGE_OPTIONS, ...). |
 | `debug` | object | (dev) The dev tools, section 12: build a run at any zone and level, jumps, any encounter, hours, god mode, the profile, `validate`. Not game rules; a run they change is a dev run. |
 
 State is plain JSON except `state.content`, a shared reference to the frozen content tables (never copied by
@@ -311,6 +314,35 @@ Telegraph counters are rounds from the current round; 0 = this round:
 | `shardsInRounds` | phase 2 only: rounds until the round that starts with a Shards wave (1: next round). `null` outside phase 2 and while SHARD_MAX Shards are alive (that wave would summon none); killing a Shard brings the countdown back |
 | `pulseInRounds` | phase 3 only: 0 when this round's intent has Starless Pulse, else rounds until the next Pulse |
 | `enrageInRounds` | rounds until Final Dark (BOSS_ENRAGE_ROUND) |
+
+### 6.1 DoT preview (preview; owner feedback 2026-11-11 08:11)
+`pendingTicks(state)` answers "what will the ticks at the end of this round do?" so the HP bars can mark the HP that
+pending DoTs will take, and whether that kills (Slay the Spire style). It plays the engine's own tick phase (rules 7.1
+step 5, `tickPhase` in src/engine/combat.js) on a copy of the state, so the numbers are exact for that phase: BLEED, BURN
+and POISON (tick × stacks; no miss, no armor, rules 7.2) and BRAND, after IMMUNE (and god mode), WARD or an enemy's shield,
+Mindguard, the Shared Wounds share (it shows as damage on the pet's entry, `spell: 'shared_wounds'`) and Death's Sidestep;
+HOT ticks (and Veiled Recovery) heal in the status order; a death ends the fight at once (no later tick), and an enemy
+killed by a tick spreads Plague Heart before the later enemies tick. It draws nothing and reveals no draw: a tick that
+can crit (Hemorrhage Mastery) is counted without the crit, and `crit` gives the same numbers with every such tick a crit.
+Not counted: what happens earlier in the round (the player's action, the pet, the enemies' actions, new statuses). Shown
+at the start of a round, the entry is what the ticks do when the round changes nothing that unit's ticks read.
+
+Entry: `{ u, hp, amount, hpLost, absorbed, heal, hpAfter, lethal, resurrect, ticks, crit }`.
+| Field | Meaning |
+|---|---|
+| `u` | `'player'`, `'pet'` or an enemy index |
+| `hp` | HP now |
+| `amount`, `hpLost`, `absorbed` | the sums of its `damage` events in the tick phase (section 5 "Damage amounts"): damage after absorbs, HP lost, absorbed |
+| `heal` | HP healed in the tick phase (HOT, Veiled Recovery, a kill heal, Death's Sidestep) |
+| `hpAfter` | HP after the tick phase (0 for a unit that died; the player after a resurrect: the resurrect HP). Mark `hp - hpAfter` on the bar when it is positive |
+| `lethal` | the unit dies in the tick phase (the player: also when a resurrect would bring it back) |
+| `resurrect` | the player: the resurrect source a lethal tick would use (`'boon'`, `'second_breath'`, `'ember'`), else null |
+| `ticks` | `[{ spell, amount, absorbed, crit }]`, one per `damage` event, in order; `spell` as in the `damage` event (an enemy's DoT: `'<ability>@<enemy index>'`; POISON: `'poison'`); `immune: true` or `sidestep: true` when it applies |
+| `crit` | null, or `{ amount, hpLost, hpAfter, lethal, resurrect }` when every tick that can crit crits and the numbers differ |
+
+Tested over 1 500 combat steps of autoplay and built runs (qa/engine/s15-dot-preview.test.mjs): at the moment the ticks
+start, every entry equals what the ticks then do; at the start of the round it does too whenever nothing the unit's ticks
+read changed in the round.
 
 ## 7. Randomness and replays
 Streams (rules 0): `map(z)`, `node(z,r,l)`, `fight(z,r,l,k)`, `loot(z,r,l)`, `boss` (`src/rng.js`, sfc32 seeded

@@ -1,6 +1,8 @@
 // Fight lifecycle and enemy actions (rules 7.1, 7.4, 7.6, 7.10, 7.12, 7.13). The intent track is in track.js, player
 // actions in spells.js and engage.js, the end boss in boss.js. Combat v2.1 (rules 7.12): a played wind-up lands
 // (EMPOWERED) or, a heavy one that cost the player 0 HP, is answered (STAGGERED).
+// DoT preview (owner feedback 2026-11-11 08:11; engine-api.md 6.1): pendingTicks plays the end-of-round tick phase
+// (tickPhase) on a copy of the state, without draws, so the UI can mark the HP that the ticks will take.
 import {
   ARCHETYPE, VARIANT, ENEMY_HP_BASE, ENEMY_HP_PER_LEVEL, ENEMY_DMG_BASE, ENEMY_DMG_PER_LEVEL,
   ENEMY_ARMOR_PER_LEVEL, ENEMY_DODGE, PET, ENERGY_MAX, ENERGY_REGEN, FOCUS_MAX, FOCUS_REGEN,
@@ -8,7 +10,7 @@ import {
   ZONE_DANGER_FROM, ZONE_DANGER_STEP, DUNGEON_DANGER_FRAC, ENGAGE_DMG_COMP, OFFBAL_DURATION,
 } from '../constants.js';
 import { nextFloat, nextInt } from '../rng.js';
-import { rnd, deepClone } from './util.js';
+import { rnd, deepClone, cloneState } from './util.js';
 import { tr, hasEffect } from './stats.js';
 import {
   damage, snapshot, addStatus, findSt, hasSt, petAlive, healUnit, applyDamage, levelMod, gainStealth, gainOffBalance,
@@ -247,7 +249,11 @@ export function beginRound(s, ev) {
   }
 }
 
-function tickUnit(s, ev, u) {
+/**
+ * One unit's DOT/HOT ticks (rules 7.1 step 5, 7.4). crits: undefined in play (a tick that can crit draws 1 number, rules
+ * 7.2); 'never' or 'always' only for pendingTicks, which draws nothing and plays the ticks on a copy of the state.
+ */
+function tickUnit(s, ev, u, crits) {
   const f = s.fight;
   const st = u === 'player' ? f.p.st : u === 'pet' ? f.pet.st : f.enemies[u].st;
   for (const x of st.slice()) {
@@ -258,7 +264,7 @@ function tickUnit(s, ev, u) {
       let amt = x.tick * (x.stacks || 1);
       let crit = false;
       if (x.canCrit) {
-        crit = nextFloat(f.rng) < s.player.d.crit;
+        crit = crits === undefined ? nextFloat(f.rng) < s.player.d.crit : crits === 'always';
         if (crit) amt *= s.player.d.critMult;
       }
       const src = x.by !== undefined ? x.by : 'player';
@@ -288,14 +294,24 @@ function decay(s, ev, u) {
   }
 }
 
+/**
+ * The ticks of the end of a round (rules 7.1 step 5): the player first, then the pet, then the enemies in index order.
+ * A death ends the fight at once (no later tick), and an enemy killed by a tick spreads Plague Heart before the later
+ * enemies tick. crits: see tickUnit (undefined in play).
+ */
+export function tickPhase(s, ev, crits) {
+  const f = s.fight;
+  tickUnit(s, ev, 'player', crits);
+  if (!f.over && s.player.pet) tickUnit(s, ev, 'pet', crits);
+  for (let i = 0; i < f.enemies.length && !f.over; i++) if (f.enemies[i].alive) tickUnit(s, ev, i, crits);
+}
+
 /** End of round (rules 7.1 step 5): ticks (player side first, then enemies), durations, regen, boss, Signal. */
 function endOfRound(s, ev) {
   const f = s.fight;
   const adrenal = findSt(f.p.st, 'ADRENAL');
   const rapid = findSt(f.p.st, 'RAPID');
-  tickUnit(s, ev, 'player');
-  if (!f.over && s.player.pet) tickUnit(s, ev, 'pet');
-  for (let i = 0; i < f.enemies.length && !f.over; i++) if (f.enemies[i].alive) tickUnit(s, ev, i);
+  tickPhase(s, ev);
   if (f.over) return;
   decay(s, ev, 'player');
   if (s.player.pet) decay(s, ev, 'pet');
@@ -308,19 +324,88 @@ function endOfRound(s, ev) {
   resolveSignal(s, ev);
 }
 
-/** Resolve one full round from the player's action (rules 7.1). */
-export function resolveRound(s, ev, action) {
+/**
+ * A round up to its end (rules 7.1 steps 2-4): the player's action, the pet, the enemies. resolveRound plays the rest;
+ * the tests use it to stop a round right before its ticks (qa/engine/s15-dot-preview.test.mjs).
+ */
+export function roundActions(s, ev, action) {
   const f = s.fight;
   s.stats.rounds += 1;
   if (f.kind === 'boss') s.stats.bossRounds += 1;
   playerAction(s, ev, action);
   if (!f.over) petAction(s, ev);
   if (!f.over) enemiesAct(s, ev);
+}
+
+/** Resolve one full round from the player's action (rules 7.1). */
+export function resolveRound(s, ev, action) {
+  const f = s.fight;
+  roundActions(s, ev, action);
   if (!f.over) endOfRound(s, ev);
   if (!f.over) {
     f.round += 1;
     beginRound(s, ev);
   }
+}
+
+// ---------------- DoT preview (owner feedback 2026-11-11 08:11; engine-api.md 6.1) ----------------
+/** The tick phase played on a copy: per unit what it took, healed and whether it died. Draws nothing. */
+function simulateTicks(s, crits) {
+  const c = cloneState(s);
+  const ev = [];
+  tickPhase(c, ev, crits);
+  const out = new Map();
+  const rec = (u) => {
+    if (!out.has(u)) out.set(u, { u, amount: 0, hpLost: 0, absorbed: 0, heal: 0, lethal: false, resurrect: null, ticks: [] });
+    return out.get(u);
+  };
+  for (const e of ev) {
+    if (e.t === 'damage') {
+      const r = rec(e.dst);
+      r.amount += e.amount; r.hpLost += e.hpLost; r.absorbed += e.absorbed || 0;
+      r.ticks.push({ spell: e.spell, amount: e.amount, absorbed: e.absorbed || 0, crit: !!e.crit, ...(e.immune ? { immune: true } : {}), ...(e.sidestep ? { sidestep: true } : {}) });
+    } else if (e.t === 'heal') rec(e.dst).heal += e.amount;
+    else if (e.t === 'death') rec(e.u).lethal = true;
+    else if (e.t === 'resurrect') Object.assign(rec('player'), { lethal: true, resurrect: e.source });
+  }
+  const hpOf = (u) => (u === 'player' ? c.player.hp : u === 'pet' ? (c.player.pet && c.player.pet.alive ? c.player.pet.hp : 0) : c.fight.enemies[u].alive ? c.fight.enemies[u].hp : 0);
+  for (const r of out.values()) r.hpAfter = hpOf(r.u);
+  return out;
+}
+
+/** Does a DOT on a living unit tick with a possible crit (Hemorrhage Mastery, rules 6.1 r_c5)? */
+function critTicks(s) {
+  const f = s.fight;
+  const lists = [f.p.st, f.pet.st, ...f.enemies.filter((e) => e.alive).map((e) => e.st)];
+  return lists.some((st) => st.some((x) => x.canCrit && (x.id === 'BLEED' || x.id === 'BURN' || x.id === 'POISON')));
+}
+
+/**
+ * What the ticks at the end of the current round (rules 7.1 step 5) will do if nothing else happens before them: the
+ * damage each unit's active DOTs deal it (BLEED, BURN, POISON with their stacks, BRAND; no armor, rules 7.2), after
+ * IMMUNE, WARD or a shield, Mindguard, the Shared Wounds share and Death's Sidestep, the HOT heals among them, and whether
+ * the unit dies. Exact: the engine's own tick phase played on a copy of the state, in its order (a death ends the fight,
+ * Plague Heart spreads before the later enemies tick). A tick that can crit is counted without the crit; `crit` gives the
+ * same numbers with every such tick a crit. Draws nothing and reveals no draw. Not counted: what happens earlier in the
+ * round (the player's action, the pet, the enemies' actions). null outside a fight.
+ * Returns [{ u, hp, amount, hpLost, absorbed, heal, hpAfter, lethal, resurrect, ticks: [{ spell, amount, absorbed, crit }],
+ * crit: null | { amount, hpLost, hpAfter, lethal, resurrect } }]: one entry per unit the phase touches, in tick order.
+ */
+export function pendingTicks(s) {
+  const f = s.fight;
+  if (!f || f.over) return null;
+  const base = simulateTicks(s, 'never');
+  const hi = critTicks(s) ? simulateTicks(s, 'always') : null;
+  const hpNow = (u) => (u === 'player' ? s.player.hp : u === 'pet' ? s.player.pet.hp : f.enemies[u].hp);
+  const order = (u) => (u === 'player' ? -2 : u === 'pet' ? -1 : u);
+  const keys = [...new Set([...base.keys(), ...(hi ? hi.keys() : [])])].sort((a, b) => order(a) - order(b));
+  const none = (u) => ({ u, amount: 0, hpLost: 0, absorbed: 0, heal: 0, lethal: false, resurrect: null, ticks: [], hpAfter: hpNow(u) });
+  return keys.map((u) => {
+    const b = base.get(u) || none(u);
+    const x = hi ? hi.get(u) || none(u) : null;
+    const differs = x && (x.amount !== b.amount || x.lethal !== b.lethal || x.hpAfter !== b.hpAfter);
+    return { ...b, hp: hpNow(u), crit: differs ? { amount: x.amount, hpLost: x.hpLost, hpAfter: x.hpAfter, lethal: x.lethal, resurrect: x.resurrect } : null };
+  });
 }
 
 // ---------------- Fight start and end ----------------

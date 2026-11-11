@@ -19,7 +19,8 @@
 // spellInfo, fleeChance, bagCapacity, travelLevel, resurrectCharges, bossPar, defaultTarget), combat v2 helpers
 // (engageOptions, engagePreview, isEngageRound, offBalance; rules 7.10-7.13), the heat meter (heatView, heatPreview;
 // rules 1.7.1-1.7.2, 1.9.10), rule helpers (V, xpCurve, diffMod, zoneDanger), every constant via `C`, and the dev tools
-// `debug` (engine-api.md 12, dev only: src/engine/debug.js).
+// `debug` (engine-api.md 12, dev only: src/engine/debug.js). Owner feedback 2026-11-11: pendingTicks (the DoT preview,
+// engine-api.md 6.1) and talentInfo (talent totals, rules 6).
 import * as C from './constants.js';
 import { normaliseSeed } from './rng.js';
 import { cloneState, deepClone, deepFreeze, IllegalActionError } from './engine/util.js';
@@ -28,7 +29,7 @@ import { checkAction, applyAction, legalActions as legal } from './engine/action
 import { autoAction as auto } from './engine/autoplay.js';
 import { summary as sum } from './engine/summary.js';
 import { newProfile, metaOffers, buyMeta, applyRunToProfile, parHours } from './engine/meta.js';
-import { zoneDanger, defaultTarget as defaultTgt } from './engine/combat.js';
+import { zoneDanger, defaultTarget as defaultTgt, pendingTicks as previewTicks } from './engine/combat.js';
 import { availablePets, metaFromProfile, travelLevel as travelAt } from './engine/nodes.js';
 import { nextLanes } from './engine/map.js';
 import { xpToNext, xpCurve, diffMod, talentPointsFree as freePoints } from './engine/progress.js';
@@ -208,6 +209,49 @@ export function heatPreview(state, action) {
 /** FLEE success chance in the current fight (rules 7.8); 0 when fleeing is not allowed. */
 export function fleeChance(state) {
   return flee(state);
+}
+
+/**
+ * DoT preview (owner feedback 2026-11-11 08:11; engine-api.md 6.1): what the ticks at the end of the current round
+ * (rules 7.1 step 5) will do if nothing else happens before them, played exactly on a copy of the state without draws:
+ * [{ u, hp, amount, hpLost, absorbed, heal, hpAfter, lethal, resurrect, ticks, crit }] in tick order (player, pet,
+ * enemies), one entry per unit the ticks touch. With `unit` ('player', 'pet' or an enemy index): that unit's entry, or
+ * null when no tick touches it. null outside a fight.
+ */
+export function pendingTicks(state, unit) {
+  const all = previewTicks(state);
+  if (unit === undefined || !all) return all;
+  return all.find((x) => x.u === unit) || null;
+}
+
+/**
+ * Talent totals (owner feedback 2026-11-11 08:14; rules 6, engine-api.md 1): { id, name, ranks, rank, per, now, next }.
+ * per = the per-rank values (C.TALENT_PER_RANK), now = their totals at the ranks taken (null at rank 0), next = at one
+ * more rank (null at the maximum). `base` (Toxic Coating, Trapper) is the damage formula evaluated with the character's
+ * level, Power and the spell's training level, before modifiers. Hemorrhage Mastery: { dotCrit, dotPct } by rank. null
+ * for an unknown talent. Works in any phase; without a character (CREATE) `base` is null.
+ */
+export function talentInfo(state, talentId) {
+  const t = C.TALENT[talentId];
+  if (!t) return null;
+  const p = state && state.player;
+  const rank = p && p.talents ? p.talents[talentId] || 0 : 0;
+  const keys = C.TALENT_PER_RANK[talentId] || [];
+  const r6 = (x) => Math.round(x * 1e6) / 1e6;
+  const baseOf = () => {
+    if (!p || !p.d) return null;
+    const lvl = talentId === 'h_c3' && p.spells.snare_trap ? spellTl(state, 'snare_trap') : p.level;
+    return t.b + t.l * lvl + t.p * p.d.power;
+  };
+  const at = (n) => {
+    if (talentId === 'r_c5') return { dotCrit: n >= 1, dotPct: n >= 2 ? t.rank2DotPct : 0 };
+    const o = {};
+    for (const k of keys) {
+      if (k === 'base') { const b = baseOf(); o.base = b === null ? null : Math.round(b * n * 10) / 10; } else o[k] = r6(t[k] * n);
+    }
+    return o;
+  };
+  return { id: t.id, name: t.name, ranks: t.ranks, rank, per: at(1), now: rank > 0 ? at(rank) : null, next: rank < t.ranks ? at(rank + 1) : null };
 }
 
 /**

@@ -699,6 +699,25 @@ export const TALENT = {
 };
 
 /**
+ * The TALENT fields that multiply by the ranks taken (rules 6: the "/rank" values); every other field is fixed. No
+ * numbers here: they stay in TALENT. `base`: the damage formula b + l × L + p × Power per rank (Trapper h_c3: l × the
+ * Snare Trap's training level), evaluated by talentInfo (engine-api.md 1). Hemorrhage Mastery (r_c5) has rank-specific
+ * effects instead (rank 1: ticks can crit; rank 2: also rank2DotPct), handled by talentInfo. Owner feedback 2026-11-11
+ * 08:14 (talent totals in tooltips).
+ */
+export const TALENT_PER_RANK = {
+  r_a1: ['crit'], r_a2: ['cost'], r_a3: ['pct'], r_a4: ['pct'], r_a5: ['critMult'], r_a6: ['energyPerCp'], r_a7: ['chance'], r_a8: ['pct', 'cp'], r_a9: [],
+  r_b1: ['pct'], r_b2: ['dodge'], r_b3: ['cp'], r_b4: ['healPct'], r_b5: ['cost', 'cd'], r_b6: ['pct'], r_b7: ['cd', 'healPct'], r_b8: ['pct'], r_b9: [],
+  r_c1: ['base'], r_c2: ['pct'], r_c3: ['stacks'], r_c4: ['pct'], r_c5: [], r_c6: ['pct'], r_c7: [], r_c8: ['pct'], r_c9: [],
+  m_a1: ['pct'], m_a2: ['crit'], m_a3: ['rounds', 'pct'], m_a4: ['cost'], m_a5: ['pct'], m_a6: ['cd'], m_a7: ['strength'], m_a8: ['wardPct'], m_a9: [],
+  m_b1: ['pct'], m_b2: ['hpPct'], m_b3: ['chill'], m_b4: ['pct'], m_b5: ['cd'], m_b6: ['crit'], m_b7: ['pct'], m_b8: [], m_b9: [],
+  m_c1: ['manaPct'], m_c2: ['powerPct'], m_c3: ['chance'], m_c4: ['pct'], m_c5: ['cd', 'manaPct'], m_c6: ['pct'], m_c7: [], m_c8: ['pct'], m_c9: [],
+  h_a1: ['petHpPct'], h_a2: ['petDmgPct'], h_a3: ['share'], h_a4: ['petCrit', 'focus'], h_a5: ['revive', 'petDr'], h_a6: ['pct'], h_a7: ['cd', 'pct'], h_a8: [], h_a9: [],
+  h_b1: ['pct'], h_b2: ['crit'], h_b3: ['cost'], h_b4: ['critMult'], h_b5: ['marked'], h_b6: ['pct'], h_b7: ['cd', 'pct'], h_b8: [], h_b9: [],
+  h_c1: ['hpPct'], h_c2: ['pct'], h_c3: ['cd', 'base'], h_c4: ['pct'], h_c5: ['dodge'], h_c6: ['stacks'], h_c7: [], h_c8: ['pct'], h_c9: [],
+};
+
+/**
  * Enemy archetypes (rules 7.6). Action kinds: hit (pct of 100 % damage, hits times), rend (hit + BLEED),
  * curse (CURSED on the player), brace (self takes less), shieldAlly (lowest-HP other ally takes less),
  * heal (lowest-HP ally incl. self, only if some ally is below `below`). The first action is the basic attack.
