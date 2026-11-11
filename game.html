@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="a105328 2026-11-10T21:03:21Z">
+<meta name="build" content="54267d6 2026-11-11T07:31:44Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -539,6 +539,7 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 #win-talents { left: 50%; top: calc(50% - 2rem); transform: translate(-50%, -50%); width: 88rem; max-width: calc(100vw - 2rem); }
 #win-questlog { left: 2rem; top: 17rem; width: 40rem; }
 #win-settings { left: 50%; top: calc(50% - 5.8rem); transform: translate(-50%, -50%); width: 46rem; }
+#win-settings.dev { top: calc(50% - 7.9rem); } /* the Dev tools row: up by half its height, the bottom stays clear of the Heat meter */
 #win-map { right: 21rem; top: 2rem; } /* where the map screen is: clear of the Heat meter */
 .paperdoll { display: grid; grid-template-columns: 4.6rem 1fr 4.6rem; gap: 1rem; padding: 1.2rem 1.4rem; }
 .paperdoll .colslots { display: flex; flex-direction: column; gap: .7rem; }
@@ -1006,6 +1007,49 @@ body[data-phase="MAP"]:not(.in-fight) #toasts .toast { white-space: normal; text
 .expmap .expmoves { display: flex; flex-wrap: wrap; gap: .4rem .8rem; }
 .expmap .expmoves .em { display: inline-flex; gap: .3rem; }
 
+/* ---------------------------------------------------------------- the Dev menu (dev-menu.js; engine-api.md 12) */
+/* a narrow tab on the right edge, right of the minimap and its zone name (they end 1.8rem from the edge) */
+#devbtn { position: absolute; right: .1rem; top: .3rem; z-index: 81; width: 1.5rem; padding: .35rem 0; display: flex; flex-direction: column; align-items: center; border-radius: .3rem; border: 1px solid #000; background: linear-gradient(180deg, #3a2a52, #1a1226); color: #d8c8ff; font: 800 .85rem/1.05rem var(--font-ui); cursor: pointer; opacity: .6; box-shadow: inset 0 0 0 1px rgba(190, 160, 255, .45); }
+#devbtn:hover, #devbtn.on { opacity: 1; }
+#devmenu { position: absolute; right: 2rem; top: .6rem; z-index: 80; width: 40rem; max-height: calc(100vh - 12rem); display: flex; flex-direction: column; font-size: 1.2rem; }
+#devmenu .dm-head { display: flex; align-items: center; gap: .8rem; padding: .8rem 1rem .4rem 1.2rem; }
+#devmenu .dm-head .title { font-size: 1.6rem; }
+#devmenu .dm-run { margin-left: auto; font: 700 1.05rem var(--font-ui); color: #d8c8ff; }
+#devmenu .dm-warn { padding: 0 1.2rem .5rem; color: var(--ink-mute); font-size: 1.05rem; }
+#devmenu .dm-tabs { display: flex; gap: .2rem; padding: 0 .8rem; border-bottom: 1px solid rgba(208, 170, 96, .25); }
+#devmenu .dm-tab { flex: 1; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--ink-dim); font: 700 1.15rem var(--font-ui); padding: .5rem .2rem; cursor: pointer; }
+#devmenu .dm-tab:hover { color: var(--ink); }
+#devmenu .dm-tab.on { color: var(--gold); border-bottom-color: var(--gold); }
+#devmenu .dm-body { padding: .8rem 1.2rem 1rem; overflow-y: auto; scrollbar-width: thin; min-height: 0; }
+#devmenu .dm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem 1rem; }
+#devmenu .dm-f { display: flex; flex-direction: column; gap: .2rem; min-width: 0; }
+#devmenu .dm-l { color: var(--ink-mute); font: 700 1rem var(--font-ui); text-transform: uppercase; letter-spacing: .06em; }
+#devmenu .dm-h { color: var(--ink-mute); font-size: 1rem; }
+#devmenu select, #devmenu input { font: 600 1.2rem var(--font-ui); color: var(--ink); background: #0e0b08; border: 1px solid #000; border-radius: .3rem; box-shadow: inset 0 0 0 1px rgba(208, 170, 96, .3); padding: .35rem .5rem; min-width: 0; width: 100%; }
+#devmenu select:disabled { opacity: .45; }
+#devmenu .dm-acts { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .8rem; align-items: center; }
+#devmenu .dm-sub { margin-top: 1rem; color: var(--gold); font: 600 1.25rem var(--font-title); }
+#devmenu .dm-note { margin-top: .8rem; color: var(--ink-mute); font-size: 1.05rem; line-height: 1.35; }
+#devmenu .dm-note:empty { display: none; }
+#devmenu .dm-line { display: flex; align-items: flex-end; gap: .6rem; margin-top: .6rem; }
+#devmenu .dm-line .dm-f { flex: 1; }
+#devmenu .dm-filter { display: flex; gap: .5rem; align-items: flex-end; margin-bottom: .5rem; }
+#devmenu .dm-filter > * { flex: 1; }
+#devmenu .dm-list { display: flex; flex-direction: column; gap: .3rem; max-height: 22rem; overflow-y: auto; scrollbar-width: thin; padding-right: .3rem; }
+#devmenu .dm-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: .6rem; align-items: center; padding: .3rem .5rem; border-radius: .35rem; background: rgba(0, 0, 0, .3); }
+#devmenu .dm-row > button { grid-row: 1 / 3; grid-column: 2; }
+#devmenu .dm-rn { display: flex; gap: .5rem; align-items: baseline; min-width: 0; }
+#devmenu .dm-rn b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#devmenu .dm-rm { color: var(--ink-mute); font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#devmenu code { font: 600 1rem ui-monospace, Menlo, Consolas, monospace; color: var(--ink-dim); }
+#devmenu .dm-k { font: 800 .9rem var(--font-ui); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-dim); white-space: nowrap; }
+#devmenu .k-elite { color: #ffd36a; } #devmenu .k-rare { color: #9fc4ff; } #devmenu .k-dboss { color: #ff9a7a; } #devmenu .k-trash { color: #c8b89a; }
+#devmenu .dm-seg { display: inline-flex; margin-top: .4rem; }
+#devmenu .toggle.disabled { opacity: .45; pointer-events: none; }
+#devmenu .dm-seed { font-size: 1.3rem; color: var(--gold); padding: .2rem .5rem; background: #0e0b08; border-radius: .3rem; user-select: text; -webkit-user-select: text; }
+.summary .devrun { display: inline-block; margin-top: .5rem; padding: .1rem .7rem; border-radius: .3rem; background: #3a2a52; color: #e2d4ff; font: 800 1.05rem var(--font-ui); letter-spacing: .06em; text-transform: uppercase; }
+.summary .echo.devline { color: #d8c8ff; }
+
 </style>
 </head>
 <body>
@@ -1017,8 +1061,8 @@ body[data-phase="MAP"]:not(.in-fight) #toasts .toast { white-space: normal; text
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (a105328 2026-11-10T21:03:21Z) from 54 modules.
-const __BUILD__ = "a105328 2026-11-10T21:03:21Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (54267d6 2026-11-11T07:31:44Z) from 56 modules.
+const __BUILD__ = "54267d6 2026-11-11T07:31:44Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -1077,7 +1121,7 @@ const __bundle = (() => {
   };
 })();
 __bundle.def("src/constants.js", function* (__ns, __link) {
-__link.exp({ "MAX_LEVEL": () => MAX_LEVEL, "ZONE_COUNT": () => ZONE_COUNT, "ZONE_LEVELS": () => ZONE_LEVELS, "ZONE_CHOICE_ROWS": () => ZONE_CHOICE_ROWS, "LANES": () => LANES, "DUNGEON_ROW_MIN": () => DUNGEON_ROW_MIN, "DUNGEON_ROW_MAX": () => DUNGEON_ROW_MAX, "REST_ROW_MIN": () => REST_ROW_MIN, "REST_ROW_MAX": () => REST_ROW_MAX, "TRAINER_ROW_MIN": () => TRAINER_ROW_MIN, "TRAINER_ROW_MAX": () => TRAINER_ROW_MAX, "MAX_SAME_TYPE_PER_ROW": () => MAX_SAME_TYPE_PER_ROW, "W_QUEST": () => W_QUEST, "W_GRIND": () => W_GRIND, "W_ELITE": () => W_ELITE, "W_REST": () => W_REST, "W_VENDOR": () => W_VENDOR, "W_TRAINER": () => W_TRAINER, "W_TREASURE": () => W_TREASURE, "W_SHRINE": () => W_SHRINE, "QUEST_LEVEL_OFFSETS": () => QUEST_LEVEL_OFFSETS, "ELITE_LEVEL_OFFSET": () => ELITE_LEVEL_OFFSET, "DUNGEON_LEVEL_OFFSET": () => DUNGEON_LEVEL_OFFSET, "DUNGEON_BOSS_LEVEL_OFFSET": () => DUNGEON_BOSS_LEVEL_OFFSET, "RARE_CHANCE": () => RARE_CHANCE, "CAMP_GRIND_LEVEL": () => CAMP_GRIND_LEVEL, "HOURS_QUEST": () => HOURS_QUEST, "HOURS_GRIND_WAVE": () => HOURS_GRIND_WAVE, "HOURS_ELITE": () => HOURS_ELITE, "HOURS_DUNGEON": () => HOURS_DUNGEON, "HOURS_REST": () => HOURS_REST, "HOURS_VENDOR": () => HOURS_VENDOR, "HOURS_TRAINER": () => HOURS_TRAINER, "HOURS_TREASURE": () => HOURS_TREASURE, "HOURS_SHRINE": () => HOURS_SHRINE, "HOURS_TRAVEL": () => HOURS_TRAVEL, "TRAVEL_EARLY_LEVELS": () => TRAVEL_EARLY_LEVELS, "BOSS_TIME_PAR": () => BOSS_TIME_PAR, "ASC_STEP_HOURS": () => ASC_STEP_HOURS, "ASC_PER_STEP": () => ASC_PER_STEP, "ASC_CAP": () => ASC_CAP, "META_TIME_BUDGET_H": () => META_TIME_BUDGET_H, "QUEST_SIZE_W1": () => QUEST_SIZE_W1, "QUEST_SIZE_W2": () => QUEST_SIZE_W2, "QUEST_SIZE_W3": () => QUEST_SIZE_W3, "QUEST_MAX_SIZE_Z1": () => QUEST_MAX_SIZE_Z1, "QUEST_TURNIN_XP_FRAC": () => QUEST_TURNIN_XP_FRAC, "QUEST_GOLD_V": () => QUEST_GOLD_V, "QUEST_REWARD_CHOICES": () => QUEST_REWARD_CHOICES, "STORY_QUESTS": () => STORY_QUESTS, "STORY_XP_FRAC": () => STORY_XP_FRAC, "STORY_REWARD_CHOICES": () => STORY_REWARD_CHOICES, "GRIND_MAX_WAVES": () => GRIND_MAX_WAVES, "GRIND_WAVE_SIZE": () => GRIND_WAVE_SIZE, "GRIND_WAVE_XP_FRAC": () => GRIND_WAVE_XP_FRAC, "GRIND_DROP_MULT": () => GRIND_DROP_MULT, "ELITE_ADD_CHANCE": () => ELITE_ADD_CHANCE, "ELITE_GOLD_V": () => ELITE_GOLD_V, "DUNGEON_TRASH_FIGHTS": () => DUNGEON_TRASH_FIGHTS, "DUNGEON_SIZE_W2": () => DUNGEON_SIZE_W2, "DUNGEON_SIZE_W3": () => DUNGEON_SIZE_W3, "DUNGEON_CLEAR_XP_FRAC": () => DUNGEON_CLEAR_XP_FRAC, "DUNGEON_GOLD_V": () => DUNGEON_GOLD_V, "DUNGEON_BOSS_DROPS": () => DUNGEON_BOSS_DROPS, "TREASURE_GUARD_CHANCE": () => TREASURE_GUARD_CHANCE, "TREASURE_GOLD_V": () => TREASURE_GOLD_V, "TREASURE_TRAP_CHANCE": () => TREASURE_TRAP_CHANCE, "TREASURE_TRAP_PCT": () => TREASURE_TRAP_PCT, "BOON_W_RETURN": () => BOON_W_RETURN, "BOON_W_INSIGHT": () => BOON_W_INSIGHT, "BOON_W_FURY": () => BOON_W_FURY, "BOON_W_PLENTY": () => BOON_W_PLENTY, "BOON_W_MENDING": () => BOON_W_MENDING, "BOON_W_CLARITY": () => BOON_W_CLARITY, "BOON_XP_PCT": () => BOON_XP_PCT, "BOON_DMG_PCT": () => BOON_DMG_PCT, "BOON_NODES": () => BOON_NODES, "BOON_GOLD_V": () => BOON_GOLD_V, "MOB_XP_FRAC": () => MOB_XP_FRAC, "DUNGEON_MOB_XP_MULT": () => DUNGEON_MOB_XP_MULT, "ELITE_XP_MULT": () => ELITE_XP_MULT, "RARE_XP_MULT": () => RARE_XP_MULT, "DUNGEON_BOSS_XP_MULT": () => DUNGEON_BOSS_XP_MULT, "XP_A": () => XP_A, "XP_B": () => XP_B, "XP_C": () => XP_C, "XP_DIFF_STEP": () => XP_DIFF_STEP, "XP_DIFF_MAX": () => XP_DIFF_MAX, "XP_DIFF_SOFT_FLOOR": () => XP_DIFF_SOFT_FLOOR, "XP_DIFF_FALL": () => XP_DIFF_FALL, "XP_GREY_DIFF": () => XP_GREY_DIFF, "XP_GREY_MOD": () => XP_GREY_MOD, "REST_RESTED_FRAC": () => REST_RESTED_FRAC, "RESTED_CAP_FRAC": () => RESTED_CAP_FRAC, "RESTED_MULT": () => RESTED_MULT, "TALENT_FIRST_LEVEL": () => TALENT_FIRST_LEVEL, "TALENT_LEVEL_STEP": () => TALENT_LEVEL_STEP, "TALENT_TIER_GATE": () => TALENT_TIER_GATE, "START_GOLD": () => START_GOLD, "START_RATIONS": () => START_RATIONS, "HP_PER_STA": () => HP_PER_STA, "POWER_PER_PRIMARY": () => POWER_PER_PRIMARY, "RATING_K": () => RATING_K, "RATING_C": () => RATING_C, "CRIT_BASE": () => CRIT_BASE, "CRIT_FROM_PRIMARY": () => CRIT_FROM_PRIMARY, "CRIT_CAP": () => CRIT_CAP, "CRIT_MULT": () => CRIT_MULT, "DODGE_CAP": () => DODGE_CAP, "ARMOR_K": () => ARMOR_K, "ARMOR_C": () => ARMOR_C, "ARMOR_MIT_CAP": () => ARMOR_MIT_CAP, "MANA_BASE": () => MANA_BASE, "MANA_PER_LEVEL": () => MANA_PER_LEVEL, "MANA_PER_INT": () => MANA_PER_INT, "MANA_REGEN_ROUND_PCT": () => MANA_REGEN_ROUND_PCT, "ENERGY_MAX": () => ENERGY_MAX, "ENERGY_REGEN": () => ENERGY_REGEN, "FOCUS_MAX": () => FOCUS_MAX, "FOCUS_REGEN": () => FOCUS_REGEN, "CP_MAX": () => CP_MAX, "POST_FIGHT_REGEN_BASE": () => POST_FIGHT_REGEN_BASE, "POST_FIGHT_REGEN_SPI": () => POST_FIGHT_REGEN_SPI, "REGEN_SPI_K": () => REGEN_SPI_K, "REGEN_SPI_C": () => REGEN_SPI_C, "SPELL_BAR_SLOTS": () => SPELL_BAR_SLOTS, "ITEM_BAR_SLOTS": () => ITEM_BAR_SLOTS, "PET_DMG_BASE": () => PET_DMG_BASE, "PET_DMG_PER_LEVEL": () => PET_DMG_PER_LEVEL, "PET_DMG_POWER": () => PET_DMG_POWER, "PET_REVIVE_PCT": () => PET_REVIVE_PCT, "MISS_BASE": () => MISS_BASE, "MISS_PER_LEVEL": () => MISS_PER_LEVEL, "MISS_CAP": () => MISS_CAP, "LVL_DMG_STEP": () => LVL_DMG_STEP, "LVL_DMG_MIN": () => LVL_DMG_MIN, "LVL_DMG_MAX": () => LVL_DMG_MAX, "DMG_VARIANCE": () => DMG_VARIANCE, "ENEMY_CRIT": () => ENEMY_CRIT, "ENEMY_DODGE": () => ENEMY_DODGE, "CHILL_PCT": () => CHILL_PCT, "CURSE_PCT": () => CURSE_PCT, "STEALTH_MISS_BONUS": () => STEALTH_MISS_BONUS, "POTION_CD": () => POTION_CD, "FLEE_BASE": () => FLEE_BASE, "FLEE_PER_EXTRA_ENEMY": () => FLEE_PER_EXTRA_ENEMY, "FIGHT_SOFT_ENRAGE_ROUND": () => FIGHT_SOFT_ENRAGE_ROUND, "FIGHT_SOFT_ENRAGE_STEP": () => FIGHT_SOFT_ENRAGE_STEP, "ENEMY_HP_BASE": () => ENEMY_HP_BASE, "ENEMY_HP_PER_LEVEL": () => ENEMY_HP_PER_LEVEL, "ENEMY_DMG_BASE": () => ENEMY_DMG_BASE, "ENEMY_DMG_PER_LEVEL": () => ENEMY_DMG_PER_LEVEL, "ZONE_DANGER_FROM": () => ZONE_DANGER_FROM, "ZONE_DANGER_STEP": () => ZONE_DANGER_STEP, "DUNGEON_DANGER_FRAC": () => DUNGEON_DANGER_FRAC, "ENEMY_ARMOR_PER_LEVEL": () => ENEMY_ARMOR_PER_LEVEL, "DUNGEON_TRASH_HP_MULT": () => DUNGEON_TRASH_HP_MULT, "DUNGEON_TRASH_DMG_MULT": () => DUNGEON_TRASH_DMG_MULT, "ELITE_HP_MULT": () => ELITE_HP_MULT, "ELITE_DMG_MULT": () => ELITE_DMG_MULT, "RARE_HP_MULT": () => RARE_HP_MULT, "RARE_DMG_MULT": () => RARE_DMG_MULT, "DUNGEON_BOSS_HP_MULT": () => DUNGEON_BOSS_HP_MULT, "DUNGEON_BOSS_DMG_MULT": () => DUNGEON_BOSS_DMG_MULT, "AUTO_POTION_HP": () => AUTO_POTION_HP, "AUTO_MANA_POTION": () => AUTO_MANA_POTION, "AUTO_TONIC_STACKS": () => AUTO_TONIC_STACKS, "AUTO_FOOD_HP": () => AUTO_FOOD_HP, "BUDGET_PER_ILVL": () => BUDGET_PER_ILVL, "ILVL_MAX": () => ILVL_MAX, "MIN_HIT_DAMAGE": () => MIN_HIT_DAMAGE, "RARITY_ILVL_BONUS": () => RARITY_ILVL_BONUS, "AFFIX_SHARE": () => AFFIX_SHARE, "AFFIX_CRIT_PCT": () => AFFIX_CRIT_PCT, "AFFIX_EPIC_MULT": () => AFFIX_EPIC_MULT, "AFFIX_POWER_PER_PT": () => AFFIX_POWER_PER_PT, "AFFIX_ARMOR_PER_PT": () => AFFIX_ARMOR_PER_PT, "SPLIT2_MAIN": () => SPLIT2_MAIN, "SPLIT3_MAIN": () => SPLIT3_MAIN, "SPLIT3_SECOND": () => SPLIT3_SECOND, "DROP_CLASS_BIAS": () => DROP_CLASS_BIAS, "WEAPON_DMG_BASE": () => WEAPON_DMG_BASE, "WEAPON_DMG_PER_ILVL": () => WEAPON_DMG_PER_ILVL, "ARMOR_PER_ILVL": () => ARMOR_PER_ILVL, "MOB_ITEM_CHANCE": () => MOB_ITEM_CHANCE, "DUNGEON_ITEM_CHANCE": () => DUNGEON_ITEM_CHANCE, "MOB_JUNK_CHANCE": () => MOB_JUNK_CHANCE, "EMBER_ELITE_DROP_CHANCE": () => EMBER_ELITE_DROP_CHANCE, "UNIQUE_DROP_CHANCE": () => UNIQUE_DROP_CHANCE, "VALUE_BASE": () => VALUE_BASE, "VALUE_COEF": () => VALUE_COEF, "VALUE_EXP": () => VALUE_EXP, "MOB_COIN_V": () => MOB_COIN_V, "JUNK_V": () => JUNK_V, "BUY_MULT": () => BUY_MULT, "TRAIN_NEW_V": () => TRAIN_NEW_V, "TRAIN_RANK_V": () => TRAIN_RANK_V, "RESPEC_V": () => RESPEC_V, "VENDOR_CONSUMABLES": () => VENDOR_CONSUMABLES, "VENDOR_GEAR_STOCK": () => VENDOR_GEAR_STOCK, "EMBER_STOCK_CHANCE": () => EMBER_STOCK_CHANCE, "EMBER_V": () => EMBER_V, "EMBER_MAX_CARRIED": () => EMBER_MAX_CARRIED, "HEAL_DRAUGHT_PCT": () => HEAL_DRAUGHT_PCT, "MANA_DRAUGHT_PCT": () => MANA_DRAUGHT_PCT, "RATION_PCT": () => RATION_PCT, "GREATER_HEAL_PCT": () => GREATER_HEAL_PCT, "SPARK_BASE": () => SPARK_BASE, "SPARK_PER_LEVEL": () => SPARK_PER_LEVEL, "ELIXIR_DMG_PCT": () => ELIXIR_DMG_PCT, "ELIXIR_NODES": () => ELIXIR_NODES, "PRICE_HEAL_V": () => PRICE_HEAL_V, "PRICE_MANA_V": () => PRICE_MANA_V, "PRICE_RATION_V": () => PRICE_RATION_V, "PRICE_TONIC_V": () => PRICE_TONIC_V, "PRICE_SPARK_V": () => PRICE_SPARK_V, "PRICE_ELIXIR_V": () => PRICE_ELIXIR_V, "PRICE_GHEAL_V": () => PRICE_GHEAL_V, "STACK_POTION": () => STACK_POTION, "STACK_FOOD": () => STACK_FOOD, "STACK_ELIXIR": () => STACK_ELIXIR, "STACK_JUNK": () => STACK_JUNK, "BAG_SLOTS": () => BAG_SLOTS, "RES_HP_PCT": () => RES_HP_PCT, "RES_MANA_PCT": () => RES_MANA_PCT, "RES_META_CHARGES": () => RES_META_CHARGES, "BOSS_LEVEL": () => BOSS_LEVEL, "BOSS_HP": () => BOSS_HP, "BOSS_ARMOR": () => BOSS_ARMOR, "BOSS_MELEE": () => BOSS_MELEE, "BOSS_CRUSH": () => BOSS_CRUSH, "BOSS_CRUSH_EVERY": () => BOSS_CRUSH_EVERY, "BOSS_LITANY_DMG": () => BOSS_LITANY_DMG, "LITANY_FIRST": () => LITANY_FIRST, "LITANY_EVERY": () => LITANY_EVERY, "BRAND_EVERY": () => BRAND_EVERY, "BRAND_DMG": () => BRAND_DMG, "BRAND_MAX": () => BRAND_MAX, "P2_AT": () => P2_AT, "P3_AT": () => P3_AT, "SHARD_HP": () => SHARD_HP, "SHARD_DMG": () => SHARD_DMG, "SHARD_COUNT": () => SHARD_COUNT, "SHARD_EVERY": () => SHARD_EVERY, "SHARD_MAX": () => SHARD_MAX, "LINK_DR": () => LINK_DR, "LINK_DR_PER_SHARD": () => LINK_DR_PER_SHARD, "SHARD_AOE_TAKEN": () => SHARD_AOE_TAKEN, "ECLIPSE_STEP": () => ECLIPSE_STEP, "PULSE_DMG": () => PULSE_DMG, "PULSE_EVERY": () => PULSE_EVERY, "BOSS_ENRAGE_ROUND": () => BOSS_ENRAGE_ROUND, "FINAL_DARK_DMG": () => FINAL_DARK_DMG, "ECHO_PER_LEVEL": () => ECHO_PER_LEVEL, "ECHO_PER_ZONE": () => ECHO_PER_ZONE, "ECHO_PER_DUNGEON": () => ECHO_PER_DUNGEON, "ECHO_PER_ELITE": () => ECHO_PER_ELITE, "ECHO_PER_RARE": () => ECHO_PER_RARE, "ECHO_PER_QUEST": () => ECHO_PER_QUEST, "ECHO_BOSS_REACHED": () => ECHO_BOSS_REACHED, "ECHO_BOSS_PHASE": () => ECHO_BOSS_PHASE, "ECHO_BOSS_KILL": () => ECHO_BOSS_KILL, "ECHO_SPEED_BONUS": () => ECHO_SPEED_BONUS, "ECHO_FIRST_KILL_CLASS": () => ECHO_FIRST_KILL_CLASS, "OATH_ECHO_BONUS": () => OATH_ECHO_BONUS, "OATH_HASTE_HOURS": () => OATH_HASTE_HOURS, "OATH_THRIFT_MULT": () => OATH_THRIFT_MULT, "UNIQUE_PROC_CHANCE": () => UNIQUE_PROC_CHANCE, "UNIQUE_PROC_BASE": () => UNIQUE_PROC_BASE, "UNIQUE_PROC_PER_LEVEL": () => UNIQUE_PROC_PER_LEVEL, "UNIQUE_HEAL_ON_KILL": () => UNIQUE_HEAL_ON_KILL, "UNIQUE_ELITE_DMG": () => UNIQUE_ELITE_DMG, "UNIQUE_POTION_PCT": () => UNIQUE_POTION_PCT, "UNIQUE_WARD_PCT": () => UNIQUE_WARD_PCT, "PACE_CREATE_S": () => PACE_CREATE_S, "PACE_DECIDE_S": () => PACE_DECIDE_S, "PACE_TRAVEL_NODE_S": () => PACE_TRAVEL_NODE_S, "PACE_ZONE_TRAVEL_S": () => PACE_ZONE_TRAVEL_S, "PACE_QUEST_TEXT_S": () => PACE_QUEST_TEXT_S, "PACE_FIGHT_OVERHEAD_S": () => PACE_FIGHT_OVERHEAD_S, "PACE_ROUND_ANIM_S": () => PACE_ROUND_ANIM_S, "PACE_ROUND_DECIDE_S": () => PACE_ROUND_DECIDE_S, "PACE_MANUAL_ROUND_S": () => PACE_MANUAL_ROUND_S, "PACE_AUTO_ROUND_S": () => PACE_AUTO_ROUND_S, "PACE_ENGAGE_S": () => PACE_ENGAGE_S, "PACE_LOOT_S": () => PACE_LOOT_S, "PACE_LEVELUP_S": () => PACE_LEVELUP_S, "PACE_TALENT_S": () => PACE_TALENT_S, "PACE_REST_S": () => PACE_REST_S, "PACE_SHRINE_S": () => PACE_SHRINE_S, "PACE_TREASURE_S": () => PACE_TREASURE_S, "PACE_VENDOR_S": () => PACE_VENDOR_S, "PACE_VENDOR_TX_S": () => PACE_VENDOR_TX_S, "PACE_TRAINER_S": () => PACE_TRAINER_S, "PACE_TRAINER_TX_S": () => PACE_TRAINER_TX_S, "PACE_BOSS_INTRO_S": () => PACE_BOSS_INTRO_S, "INTENT_TRACK_LEN": () => INTENT_TRACK_LEN, "OPENING_TURNS": () => OPENING_TURNS, "SIGNATURE_TURN": () => SIGNATURE_TURN, "SIGNATURE_TURN_2": () => SIGNATURE_TURN_2, "HEAVY_SCRIPT_MULT": () => HEAVY_SCRIPT_MULT, "CAST_SCRIPT_MULT": () => CAST_SCRIPT_MULT, "MEND_BELOW": () => MEND_BELOW, "SIGNAL_ADDS": () => SIGNAL_ADDS, "BOLSTER_PCT": () => BOLSTER_PCT, "BOLSTER_CD": () => BOLSTER_CD, "BLOODLUST_STEP": () => BLOODLUST_STEP, "BLOODLUST_MAX": () => BLOODLUST_MAX, "OFFBAL_TAKEN": () => OFFBAL_TAKEN, "OFFBAL_BOSS_TAKEN": () => OFFBAL_BOSS_TAKEN, "OFFBAL_CRIT": () => OFFBAL_CRIT, "OFFBAL_DURATION": () => OFFBAL_DURATION, "ENGAGE_DMG_COMP": () => ENGAGE_DMG_COMP, "AMBUSH_MULT": () => AMBUSH_MULT, "SAP_TURNS": () => SAP_TURNS, "PREMED_CP": () => PREMED_CP, "GLYPH_TURNS": () => GLYPH_TURNS, "GATHER_SPELLS": () => GATHER_SPELLS, "GATHER_CRIT": () => GATHER_CRIT, "OPENING_SHOT_MULT": () => OPENING_SHOT_MULT, "OPENING_MARK_ROUNDS": () => OPENING_MARK_ROUNDS, "TRAP_STUN": () => TRAP_STUN, "PET_LEAD_TURNS": () => PET_LEAD_TURNS, "PET_LEAD_DR": () => PET_LEAD_DR, "ENGAGE_AUTO_LOOK": () => ENGAGE_AUTO_LOOK, "EMPOWER_DMG": () => EMPOWER_DMG, "STAGGER_DMG": () => STAGGER_DMG, "RING_NODES": () => RING_NODES, "RING_CL_BASE": () => RING_CL_BASE, "RING_CL_SPREAD": () => RING_CL_SPREAD, "EDGE_KEEP_R1": () => EDGE_KEEP_R1, "EDGE_KEEP_R2": () => EDGE_KEEP_R2, "EDGE_KEEP_R3": () => EDGE_KEEP_R3, "EDGE_DIAG_R23": () => EDGE_DIAG_R23, "REGION_COUNT": () => REGION_COUNT, "REGION_FAMILY_SHARE": () => REGION_FAMILY_SHARE, "HOURS_WALK": () => HOURS_WALK, "ROAD_COUNT": () => ROAD_COUNT, "VISION_RADIUS": () => VISION_RADIUS, "VISION_RADIUS_MAX": () => VISION_RADIUS_MAX, "GUIDE_RADIUS_BONUS": () => GUIDE_RADIUS_BONUS, "PATHFINDER_RADIUS": () => PATHFINDER_RADIUS, "DIM_GRACE_H": () => DIM_GRACE_H, "DIM_HOURS_PER_HOP": () => DIM_HOURS_PER_HOP, "DIM_PACK_SIZE": () => DIM_PACK_SIZE, "DIM_LEVEL_PER_DEPTH": () => DIM_LEVEL_PER_DEPTH, "DIM_HP_MULT": () => DIM_HP_MULT, "DIM_DMG_MULT": () => DIM_DMG_MULT, "DIM_XP_MULT": () => DIM_XP_MULT, "HOURS_DIM_FIGHT": () => HOURS_DIM_FIGHT, "BELL_START_CHARGES": () => BELL_START_CHARGES, "BELL_MAX_CHARGES": () => BELL_MAX_CHARGES, "BELL_CHANNEL_H": () => BELL_CHANNEL_H, "PACE_BELL_S": () => PACE_BELL_S, "XP_WEIGHT_MULT": () => XP_WEIGHT_MULT, "EXPED_GRIND_MAX_WAVES": () => EXPED_GRIND_MAX_WAVES, "EXPED_DUNGEON_TRASH_FIGHTS": () => EXPED_DUNGEON_TRASH_FIGHTS, "EXPED_HOURS_QUEST": () => EXPED_HOURS_QUEST, "EXPED_HOURS_ELITE": () => EXPED_HOURS_ELITE, "EXPED_HOURS_GRIND_WAVE": () => EXPED_HOURS_GRIND_WAVE, "EXPED_HOURS_DUNGEON": () => EXPED_HOURS_DUNGEON, "HEAT_STATES": () => HEAT_STATES, "HEAT_WARM_AT": () => HEAT_WARM_AT, "HEAT_HOT_AT": () => HEAT_HOT_AT, "HEAT_SCORCH_AT": () => HEAT_SCORCH_AT, "HEAT_DIM_WARM_H": () => HEAT_DIM_WARM_H, "HEAT_DIM_HOT_H": () => HEAT_DIM_HOT_H, "HEAT_GAIN": () => HEAT_GAIN, "HEAT_RARITY_UP": () => HEAT_RARITY_UP, "ECHO_PER_HEAT_FIGHT": () => ECHO_PER_HEAT_FIGHT, "HEAT_BAR_MIN": () => HEAT_BAR_MIN, "HEAT_BAR_MAX": () => HEAT_BAR_MAX, "NODE_TYPE": () => NODE_TYPE, "NODE_DRAW_ORDER": () => NODE_DRAW_ORDER, "ROW1_FORBIDDEN": () => ROW1_FORBIDDEN, "MAP_REDRAW_TRIES": () => MAP_REDRAW_TRIES, "REGION_W": () => REGION_W, "REGION_KINDS": () => REGION_KINDS, "EXPEDITION_TEXT_IDS": () => EXPEDITION_TEXT_IDS, "RING1_FORBIDDEN": () => RING1_FORBIDDEN, "CLASS": () => CLASS, "CLASS_IDS": () => CLASS_IDS, "SPELL": () => SPELL, "PET": () => PET, "TALENT": () => TALENT, "ARCHETYPE": () => ARCHETYPE, "OPENING_SCRIPT": () => OPENING_SCRIPT, "SCRIPT_ACTION": () => SCRIPT_ACTION, "ENGAGE_OPTION": () => ENGAGE_OPTION, "ENGAGE_OPTIONS": () => ENGAGE_OPTIONS, "VARIANT": () => VARIANT, "SLOT": () => SLOT, "SLOT_IDS": () => SLOT_IDS, "RARITY": () => RARITY, "RARITY_ORDER": () => RARITY_ORDER, "STAT1_PRIMARY_CHANCE": () => STAT1_PRIMARY_CHANCE, "STAT2_STA_CHANCE": () => STAT2_STA_CHANCE, "AFFIX_KINDS": () => AFFIX_KINDS, "DROP_TABLE": () => DROP_TABLE, "ITEM_SCORE": () => ITEM_SCORE, "ITEM_SCORE_CRIT_UNIT": () => ITEM_SCORE_CRIT_UNIT, "CONSUMABLE": () => CONSUMABLE, "VENDOR_STOCK_CONSUMABLES": () => VENDOR_STOCK_CONSUMABLES, "BOON": () => BOON, "BOON_IDS": () => BOON_IDS, "SHRINE_BOON_COUNT": () => SHRINE_BOON_COUNT, "META": () => META, "OATH": () => OATH, "OATH_IDS": () => OATH_IDS, "ABILITY_TEMPLATE": () => ABILITY_TEMPLATE, "CONTENT_RANGE": () => CONTENT_RANGE, "BOSS_TEXT": () => BOSS_TEXT, "DEBUFFS": () => DEBUFFS, "ENGINE_ASSUMPTION": () => ENGINE_ASSUMPTION });
+__link.exp({ "MAX_LEVEL": () => MAX_LEVEL, "ZONE_COUNT": () => ZONE_COUNT, "ZONE_LEVELS": () => ZONE_LEVELS, "ZONE_CHOICE_ROWS": () => ZONE_CHOICE_ROWS, "LANES": () => LANES, "DUNGEON_ROW_MIN": () => DUNGEON_ROW_MIN, "DUNGEON_ROW_MAX": () => DUNGEON_ROW_MAX, "REST_ROW_MIN": () => REST_ROW_MIN, "REST_ROW_MAX": () => REST_ROW_MAX, "TRAINER_ROW_MIN": () => TRAINER_ROW_MIN, "TRAINER_ROW_MAX": () => TRAINER_ROW_MAX, "MAX_SAME_TYPE_PER_ROW": () => MAX_SAME_TYPE_PER_ROW, "W_QUEST": () => W_QUEST, "W_GRIND": () => W_GRIND, "W_ELITE": () => W_ELITE, "W_REST": () => W_REST, "W_VENDOR": () => W_VENDOR, "W_TRAINER": () => W_TRAINER, "W_TREASURE": () => W_TREASURE, "W_SHRINE": () => W_SHRINE, "QUEST_LEVEL_OFFSETS": () => QUEST_LEVEL_OFFSETS, "ELITE_LEVEL_OFFSET": () => ELITE_LEVEL_OFFSET, "DUNGEON_LEVEL_OFFSET": () => DUNGEON_LEVEL_OFFSET, "DUNGEON_BOSS_LEVEL_OFFSET": () => DUNGEON_BOSS_LEVEL_OFFSET, "RARE_CHANCE": () => RARE_CHANCE, "CAMP_GRIND_LEVEL": () => CAMP_GRIND_LEVEL, "HOURS_QUEST": () => HOURS_QUEST, "HOURS_GRIND_WAVE": () => HOURS_GRIND_WAVE, "HOURS_ELITE": () => HOURS_ELITE, "HOURS_DUNGEON": () => HOURS_DUNGEON, "HOURS_REST": () => HOURS_REST, "HOURS_VENDOR": () => HOURS_VENDOR, "HOURS_TRAINER": () => HOURS_TRAINER, "HOURS_TREASURE": () => HOURS_TREASURE, "HOURS_SHRINE": () => HOURS_SHRINE, "HOURS_TRAVEL": () => HOURS_TRAVEL, "TRAVEL_EARLY_LEVELS": () => TRAVEL_EARLY_LEVELS, "BOSS_TIME_PAR": () => BOSS_TIME_PAR, "ASC_STEP_HOURS": () => ASC_STEP_HOURS, "ASC_PER_STEP": () => ASC_PER_STEP, "ASC_CAP": () => ASC_CAP, "META_TIME_BUDGET_H": () => META_TIME_BUDGET_H, "QUEST_SIZE_W1": () => QUEST_SIZE_W1, "QUEST_SIZE_W2": () => QUEST_SIZE_W2, "QUEST_SIZE_W3": () => QUEST_SIZE_W3, "QUEST_MAX_SIZE_Z1": () => QUEST_MAX_SIZE_Z1, "QUEST_TURNIN_XP_FRAC": () => QUEST_TURNIN_XP_FRAC, "QUEST_GOLD_V": () => QUEST_GOLD_V, "QUEST_REWARD_CHOICES": () => QUEST_REWARD_CHOICES, "STORY_QUESTS": () => STORY_QUESTS, "STORY_XP_FRAC": () => STORY_XP_FRAC, "STORY_REWARD_CHOICES": () => STORY_REWARD_CHOICES, "GRIND_MAX_WAVES": () => GRIND_MAX_WAVES, "GRIND_WAVE_SIZE": () => GRIND_WAVE_SIZE, "GRIND_WAVE_XP_FRAC": () => GRIND_WAVE_XP_FRAC, "GRIND_DROP_MULT": () => GRIND_DROP_MULT, "ELITE_ADD_CHANCE": () => ELITE_ADD_CHANCE, "ELITE_GOLD_V": () => ELITE_GOLD_V, "DUNGEON_TRASH_FIGHTS": () => DUNGEON_TRASH_FIGHTS, "DUNGEON_SIZE_W2": () => DUNGEON_SIZE_W2, "DUNGEON_SIZE_W3": () => DUNGEON_SIZE_W3, "DUNGEON_CLEAR_XP_FRAC": () => DUNGEON_CLEAR_XP_FRAC, "DUNGEON_GOLD_V": () => DUNGEON_GOLD_V, "DUNGEON_BOSS_DROPS": () => DUNGEON_BOSS_DROPS, "TREASURE_GUARD_CHANCE": () => TREASURE_GUARD_CHANCE, "TREASURE_GOLD_V": () => TREASURE_GOLD_V, "TREASURE_TRAP_CHANCE": () => TREASURE_TRAP_CHANCE, "TREASURE_TRAP_PCT": () => TREASURE_TRAP_PCT, "BOON_W_RETURN": () => BOON_W_RETURN, "BOON_W_INSIGHT": () => BOON_W_INSIGHT, "BOON_W_FURY": () => BOON_W_FURY, "BOON_W_PLENTY": () => BOON_W_PLENTY, "BOON_W_MENDING": () => BOON_W_MENDING, "BOON_W_CLARITY": () => BOON_W_CLARITY, "BOON_XP_PCT": () => BOON_XP_PCT, "BOON_DMG_PCT": () => BOON_DMG_PCT, "BOON_NODES": () => BOON_NODES, "BOON_GOLD_V": () => BOON_GOLD_V, "MOB_XP_FRAC": () => MOB_XP_FRAC, "DUNGEON_MOB_XP_MULT": () => DUNGEON_MOB_XP_MULT, "ELITE_XP_MULT": () => ELITE_XP_MULT, "RARE_XP_MULT": () => RARE_XP_MULT, "DUNGEON_BOSS_XP_MULT": () => DUNGEON_BOSS_XP_MULT, "XP_A": () => XP_A, "XP_B": () => XP_B, "XP_C": () => XP_C, "XP_DIFF_STEP": () => XP_DIFF_STEP, "XP_DIFF_MAX": () => XP_DIFF_MAX, "XP_DIFF_SOFT_FLOOR": () => XP_DIFF_SOFT_FLOOR, "XP_DIFF_FALL": () => XP_DIFF_FALL, "XP_GREY_DIFF": () => XP_GREY_DIFF, "XP_GREY_MOD": () => XP_GREY_MOD, "REST_RESTED_FRAC": () => REST_RESTED_FRAC, "RESTED_CAP_FRAC": () => RESTED_CAP_FRAC, "RESTED_MULT": () => RESTED_MULT, "TALENT_FIRST_LEVEL": () => TALENT_FIRST_LEVEL, "TALENT_LEVEL_STEP": () => TALENT_LEVEL_STEP, "TALENT_TIER_GATE": () => TALENT_TIER_GATE, "START_GOLD": () => START_GOLD, "START_RATIONS": () => START_RATIONS, "HP_PER_STA": () => HP_PER_STA, "POWER_PER_PRIMARY": () => POWER_PER_PRIMARY, "RATING_K": () => RATING_K, "RATING_C": () => RATING_C, "CRIT_BASE": () => CRIT_BASE, "CRIT_FROM_PRIMARY": () => CRIT_FROM_PRIMARY, "CRIT_CAP": () => CRIT_CAP, "CRIT_MULT": () => CRIT_MULT, "DODGE_CAP": () => DODGE_CAP, "ARMOR_K": () => ARMOR_K, "ARMOR_C": () => ARMOR_C, "ARMOR_MIT_CAP": () => ARMOR_MIT_CAP, "MANA_BASE": () => MANA_BASE, "MANA_PER_LEVEL": () => MANA_PER_LEVEL, "MANA_PER_INT": () => MANA_PER_INT, "MANA_REGEN_ROUND_PCT": () => MANA_REGEN_ROUND_PCT, "ENERGY_MAX": () => ENERGY_MAX, "ENERGY_REGEN": () => ENERGY_REGEN, "FOCUS_MAX": () => FOCUS_MAX, "FOCUS_REGEN": () => FOCUS_REGEN, "CP_MAX": () => CP_MAX, "POST_FIGHT_REGEN_BASE": () => POST_FIGHT_REGEN_BASE, "POST_FIGHT_REGEN_SPI": () => POST_FIGHT_REGEN_SPI, "REGEN_SPI_K": () => REGEN_SPI_K, "REGEN_SPI_C": () => REGEN_SPI_C, "SPELL_BAR_SLOTS": () => SPELL_BAR_SLOTS, "ITEM_BAR_SLOTS": () => ITEM_BAR_SLOTS, "PET_DMG_BASE": () => PET_DMG_BASE, "PET_DMG_PER_LEVEL": () => PET_DMG_PER_LEVEL, "PET_DMG_POWER": () => PET_DMG_POWER, "PET_REVIVE_PCT": () => PET_REVIVE_PCT, "MISS_BASE": () => MISS_BASE, "MISS_PER_LEVEL": () => MISS_PER_LEVEL, "MISS_CAP": () => MISS_CAP, "LVL_DMG_STEP": () => LVL_DMG_STEP, "LVL_DMG_MIN": () => LVL_DMG_MIN, "LVL_DMG_MAX": () => LVL_DMG_MAX, "DMG_VARIANCE": () => DMG_VARIANCE, "ENEMY_CRIT": () => ENEMY_CRIT, "ENEMY_DODGE": () => ENEMY_DODGE, "CHILL_PCT": () => CHILL_PCT, "CURSE_PCT": () => CURSE_PCT, "STEALTH_MISS_BONUS": () => STEALTH_MISS_BONUS, "POTION_CD": () => POTION_CD, "FLEE_BASE": () => FLEE_BASE, "FLEE_PER_EXTRA_ENEMY": () => FLEE_PER_EXTRA_ENEMY, "FIGHT_SOFT_ENRAGE_ROUND": () => FIGHT_SOFT_ENRAGE_ROUND, "FIGHT_SOFT_ENRAGE_STEP": () => FIGHT_SOFT_ENRAGE_STEP, "ENEMY_HP_BASE": () => ENEMY_HP_BASE, "ENEMY_HP_PER_LEVEL": () => ENEMY_HP_PER_LEVEL, "ENEMY_DMG_BASE": () => ENEMY_DMG_BASE, "ENEMY_DMG_PER_LEVEL": () => ENEMY_DMG_PER_LEVEL, "ZONE_DANGER_FROM": () => ZONE_DANGER_FROM, "ZONE_DANGER_STEP": () => ZONE_DANGER_STEP, "DUNGEON_DANGER_FRAC": () => DUNGEON_DANGER_FRAC, "ENEMY_ARMOR_PER_LEVEL": () => ENEMY_ARMOR_PER_LEVEL, "DUNGEON_TRASH_HP_MULT": () => DUNGEON_TRASH_HP_MULT, "DUNGEON_TRASH_DMG_MULT": () => DUNGEON_TRASH_DMG_MULT, "ELITE_HP_MULT": () => ELITE_HP_MULT, "ELITE_DMG_MULT": () => ELITE_DMG_MULT, "RARE_HP_MULT": () => RARE_HP_MULT, "RARE_DMG_MULT": () => RARE_DMG_MULT, "DUNGEON_BOSS_HP_MULT": () => DUNGEON_BOSS_HP_MULT, "DUNGEON_BOSS_DMG_MULT": () => DUNGEON_BOSS_DMG_MULT, "AUTO_POTION_HP": () => AUTO_POTION_HP, "AUTO_MANA_POTION": () => AUTO_MANA_POTION, "AUTO_TONIC_STACKS": () => AUTO_TONIC_STACKS, "AUTO_FOOD_HP": () => AUTO_FOOD_HP, "BUDGET_PER_ILVL": () => BUDGET_PER_ILVL, "ILVL_MAX": () => ILVL_MAX, "MIN_HIT_DAMAGE": () => MIN_HIT_DAMAGE, "RARITY_ILVL_BONUS": () => RARITY_ILVL_BONUS, "AFFIX_SHARE": () => AFFIX_SHARE, "AFFIX_CRIT_PCT": () => AFFIX_CRIT_PCT, "AFFIX_EPIC_MULT": () => AFFIX_EPIC_MULT, "AFFIX_POWER_PER_PT": () => AFFIX_POWER_PER_PT, "AFFIX_ARMOR_PER_PT": () => AFFIX_ARMOR_PER_PT, "SPLIT2_MAIN": () => SPLIT2_MAIN, "SPLIT3_MAIN": () => SPLIT3_MAIN, "SPLIT3_SECOND": () => SPLIT3_SECOND, "DROP_CLASS_BIAS": () => DROP_CLASS_BIAS, "WEAPON_DMG_BASE": () => WEAPON_DMG_BASE, "WEAPON_DMG_PER_ILVL": () => WEAPON_DMG_PER_ILVL, "ARMOR_PER_ILVL": () => ARMOR_PER_ILVL, "MOB_ITEM_CHANCE": () => MOB_ITEM_CHANCE, "DUNGEON_ITEM_CHANCE": () => DUNGEON_ITEM_CHANCE, "MOB_JUNK_CHANCE": () => MOB_JUNK_CHANCE, "EMBER_ELITE_DROP_CHANCE": () => EMBER_ELITE_DROP_CHANCE, "UNIQUE_DROP_CHANCE": () => UNIQUE_DROP_CHANCE, "VALUE_BASE": () => VALUE_BASE, "VALUE_COEF": () => VALUE_COEF, "VALUE_EXP": () => VALUE_EXP, "MOB_COIN_V": () => MOB_COIN_V, "JUNK_V": () => JUNK_V, "BUY_MULT": () => BUY_MULT, "TRAIN_NEW_V": () => TRAIN_NEW_V, "TRAIN_RANK_V": () => TRAIN_RANK_V, "RESPEC_V": () => RESPEC_V, "VENDOR_CONSUMABLES": () => VENDOR_CONSUMABLES, "VENDOR_GEAR_STOCK": () => VENDOR_GEAR_STOCK, "EMBER_STOCK_CHANCE": () => EMBER_STOCK_CHANCE, "EMBER_V": () => EMBER_V, "EMBER_MAX_CARRIED": () => EMBER_MAX_CARRIED, "HEAL_DRAUGHT_PCT": () => HEAL_DRAUGHT_PCT, "MANA_DRAUGHT_PCT": () => MANA_DRAUGHT_PCT, "RATION_PCT": () => RATION_PCT, "GREATER_HEAL_PCT": () => GREATER_HEAL_PCT, "SPARK_BASE": () => SPARK_BASE, "SPARK_PER_LEVEL": () => SPARK_PER_LEVEL, "ELIXIR_DMG_PCT": () => ELIXIR_DMG_PCT, "ELIXIR_NODES": () => ELIXIR_NODES, "PRICE_HEAL_V": () => PRICE_HEAL_V, "PRICE_MANA_V": () => PRICE_MANA_V, "PRICE_RATION_V": () => PRICE_RATION_V, "PRICE_TONIC_V": () => PRICE_TONIC_V, "PRICE_SPARK_V": () => PRICE_SPARK_V, "PRICE_ELIXIR_V": () => PRICE_ELIXIR_V, "PRICE_GHEAL_V": () => PRICE_GHEAL_V, "STACK_POTION": () => STACK_POTION, "STACK_FOOD": () => STACK_FOOD, "STACK_ELIXIR": () => STACK_ELIXIR, "STACK_JUNK": () => STACK_JUNK, "BAG_SLOTS": () => BAG_SLOTS, "RES_HP_PCT": () => RES_HP_PCT, "RES_MANA_PCT": () => RES_MANA_PCT, "RES_META_CHARGES": () => RES_META_CHARGES, "BOSS_LEVEL": () => BOSS_LEVEL, "BOSS_HP": () => BOSS_HP, "BOSS_ARMOR": () => BOSS_ARMOR, "BOSS_MELEE": () => BOSS_MELEE, "BOSS_CRUSH": () => BOSS_CRUSH, "BOSS_CRUSH_EVERY": () => BOSS_CRUSH_EVERY, "BOSS_LITANY_DMG": () => BOSS_LITANY_DMG, "LITANY_FIRST": () => LITANY_FIRST, "LITANY_EVERY": () => LITANY_EVERY, "BRAND_EVERY": () => BRAND_EVERY, "BRAND_DMG": () => BRAND_DMG, "BRAND_MAX": () => BRAND_MAX, "P2_AT": () => P2_AT, "P3_AT": () => P3_AT, "SHARD_HP": () => SHARD_HP, "SHARD_DMG": () => SHARD_DMG, "SHARD_COUNT": () => SHARD_COUNT, "SHARD_EVERY": () => SHARD_EVERY, "SHARD_MAX": () => SHARD_MAX, "LINK_DR": () => LINK_DR, "LINK_DR_PER_SHARD": () => LINK_DR_PER_SHARD, "SHARD_AOE_TAKEN": () => SHARD_AOE_TAKEN, "ECLIPSE_STEP": () => ECLIPSE_STEP, "PULSE_DMG": () => PULSE_DMG, "PULSE_EVERY": () => PULSE_EVERY, "BOSS_ENRAGE_ROUND": () => BOSS_ENRAGE_ROUND, "FINAL_DARK_DMG": () => FINAL_DARK_DMG, "ECHO_PER_LEVEL": () => ECHO_PER_LEVEL, "ECHO_PER_ZONE": () => ECHO_PER_ZONE, "ECHO_PER_DUNGEON": () => ECHO_PER_DUNGEON, "ECHO_PER_ELITE": () => ECHO_PER_ELITE, "ECHO_PER_RARE": () => ECHO_PER_RARE, "ECHO_PER_QUEST": () => ECHO_PER_QUEST, "ECHO_BOSS_REACHED": () => ECHO_BOSS_REACHED, "ECHO_BOSS_PHASE": () => ECHO_BOSS_PHASE, "ECHO_BOSS_KILL": () => ECHO_BOSS_KILL, "ECHO_SPEED_BONUS": () => ECHO_SPEED_BONUS, "ECHO_FIRST_KILL_CLASS": () => ECHO_FIRST_KILL_CLASS, "OATH_ECHO_BONUS": () => OATH_ECHO_BONUS, "OATH_HASTE_HOURS": () => OATH_HASTE_HOURS, "OATH_THRIFT_MULT": () => OATH_THRIFT_MULT, "UNIQUE_PROC_CHANCE": () => UNIQUE_PROC_CHANCE, "UNIQUE_PROC_BASE": () => UNIQUE_PROC_BASE, "UNIQUE_PROC_PER_LEVEL": () => UNIQUE_PROC_PER_LEVEL, "UNIQUE_HEAL_ON_KILL": () => UNIQUE_HEAL_ON_KILL, "UNIQUE_ELITE_DMG": () => UNIQUE_ELITE_DMG, "UNIQUE_POTION_PCT": () => UNIQUE_POTION_PCT, "UNIQUE_WARD_PCT": () => UNIQUE_WARD_PCT, "PACE_CREATE_S": () => PACE_CREATE_S, "PACE_DECIDE_S": () => PACE_DECIDE_S, "PACE_TRAVEL_NODE_S": () => PACE_TRAVEL_NODE_S, "PACE_ZONE_TRAVEL_S": () => PACE_ZONE_TRAVEL_S, "PACE_QUEST_TEXT_S": () => PACE_QUEST_TEXT_S, "PACE_FIGHT_OVERHEAD_S": () => PACE_FIGHT_OVERHEAD_S, "PACE_ROUND_ANIM_S": () => PACE_ROUND_ANIM_S, "PACE_ROUND_DECIDE_S": () => PACE_ROUND_DECIDE_S, "PACE_MANUAL_ROUND_S": () => PACE_MANUAL_ROUND_S, "PACE_AUTO_ROUND_S": () => PACE_AUTO_ROUND_S, "PACE_ENGAGE_S": () => PACE_ENGAGE_S, "PACE_LOOT_S": () => PACE_LOOT_S, "PACE_LEVELUP_S": () => PACE_LEVELUP_S, "PACE_TALENT_S": () => PACE_TALENT_S, "PACE_REST_S": () => PACE_REST_S, "PACE_SHRINE_S": () => PACE_SHRINE_S, "PACE_TREASURE_S": () => PACE_TREASURE_S, "PACE_VENDOR_S": () => PACE_VENDOR_S, "PACE_VENDOR_TX_S": () => PACE_VENDOR_TX_S, "PACE_TRAINER_S": () => PACE_TRAINER_S, "PACE_TRAINER_TX_S": () => PACE_TRAINER_TX_S, "PACE_BOSS_INTRO_S": () => PACE_BOSS_INTRO_S, "INTENT_TRACK_LEN": () => INTENT_TRACK_LEN, "OPENING_TURNS": () => OPENING_TURNS, "SIGNATURE_TURN": () => SIGNATURE_TURN, "SIGNATURE_TURN_2": () => SIGNATURE_TURN_2, "HEAVY_SCRIPT_MULT": () => HEAVY_SCRIPT_MULT, "CAST_SCRIPT_MULT": () => CAST_SCRIPT_MULT, "MEND_BELOW": () => MEND_BELOW, "SIGNAL_ADDS": () => SIGNAL_ADDS, "BOLSTER_PCT": () => BOLSTER_PCT, "BOLSTER_CD": () => BOLSTER_CD, "BLOODLUST_STEP": () => BLOODLUST_STEP, "BLOODLUST_MAX": () => BLOODLUST_MAX, "OFFBAL_TAKEN": () => OFFBAL_TAKEN, "OFFBAL_BOSS_TAKEN": () => OFFBAL_BOSS_TAKEN, "OFFBAL_CRIT": () => OFFBAL_CRIT, "OFFBAL_DURATION": () => OFFBAL_DURATION, "ENGAGE_DMG_COMP": () => ENGAGE_DMG_COMP, "AMBUSH_MULT": () => AMBUSH_MULT, "SAP_TURNS": () => SAP_TURNS, "PREMED_CP": () => PREMED_CP, "GLYPH_TURNS": () => GLYPH_TURNS, "GATHER_SPELLS": () => GATHER_SPELLS, "GATHER_CRIT": () => GATHER_CRIT, "OPENING_SHOT_MULT": () => OPENING_SHOT_MULT, "OPENING_MARK_ROUNDS": () => OPENING_MARK_ROUNDS, "TRAP_STUN": () => TRAP_STUN, "PET_LEAD_TURNS": () => PET_LEAD_TURNS, "PET_LEAD_DR": () => PET_LEAD_DR, "ENGAGE_AUTO_LOOK": () => ENGAGE_AUTO_LOOK, "EMPOWER_DMG": () => EMPOWER_DMG, "STAGGER_DMG": () => STAGGER_DMG, "RING_NODES": () => RING_NODES, "RING_CL_BASE": () => RING_CL_BASE, "RING_CL_SPREAD": () => RING_CL_SPREAD, "EDGE_KEEP_R1": () => EDGE_KEEP_R1, "EDGE_KEEP_R2": () => EDGE_KEEP_R2, "EDGE_KEEP_R3": () => EDGE_KEEP_R3, "EDGE_DIAG_R23": () => EDGE_DIAG_R23, "REGION_COUNT": () => REGION_COUNT, "REGION_FAMILY_SHARE": () => REGION_FAMILY_SHARE, "HOURS_WALK": () => HOURS_WALK, "ROAD_COUNT": () => ROAD_COUNT, "VISION_RADIUS": () => VISION_RADIUS, "VISION_RADIUS_MAX": () => VISION_RADIUS_MAX, "GUIDE_RADIUS_BONUS": () => GUIDE_RADIUS_BONUS, "PATHFINDER_RADIUS": () => PATHFINDER_RADIUS, "DIM_GRACE_H": () => DIM_GRACE_H, "DIM_HOURS_PER_HOP": () => DIM_HOURS_PER_HOP, "DIM_PACK_SIZE": () => DIM_PACK_SIZE, "DIM_LEVEL_PER_DEPTH": () => DIM_LEVEL_PER_DEPTH, "DIM_HP_MULT": () => DIM_HP_MULT, "DIM_DMG_MULT": () => DIM_DMG_MULT, "DIM_XP_MULT": () => DIM_XP_MULT, "HOURS_DIM_FIGHT": () => HOURS_DIM_FIGHT, "BELL_START_CHARGES": () => BELL_START_CHARGES, "BELL_MAX_CHARGES": () => BELL_MAX_CHARGES, "BELL_CHANNEL_H": () => BELL_CHANNEL_H, "PACE_BELL_S": () => PACE_BELL_S, "XP_WEIGHT_MULT": () => XP_WEIGHT_MULT, "EXPED_GRIND_MAX_WAVES": () => EXPED_GRIND_MAX_WAVES, "EXPED_DUNGEON_TRASH_FIGHTS": () => EXPED_DUNGEON_TRASH_FIGHTS, "EXPED_HOURS_QUEST": () => EXPED_HOURS_QUEST, "EXPED_HOURS_ELITE": () => EXPED_HOURS_ELITE, "EXPED_HOURS_GRIND_WAVE": () => EXPED_HOURS_GRIND_WAVE, "EXPED_HOURS_DUNGEON": () => EXPED_HOURS_DUNGEON, "HEAT_STATES": () => HEAT_STATES, "HEAT_WARM_AT": () => HEAT_WARM_AT, "HEAT_HOT_AT": () => HEAT_HOT_AT, "HEAT_SCORCH_AT": () => HEAT_SCORCH_AT, "HEAT_DIM_WARM_H": () => HEAT_DIM_WARM_H, "HEAT_DIM_HOT_H": () => HEAT_DIM_HOT_H, "HEAT_GAIN": () => HEAT_GAIN, "HEAT_RARITY_UP": () => HEAT_RARITY_UP, "ECHO_PER_HEAT_FIGHT": () => ECHO_PER_HEAT_FIGHT, "HEAT_BAR_MIN": () => HEAT_BAR_MIN, "HEAT_BAR_MAX": () => HEAT_BAR_MAX, "NODE_TYPE": () => NODE_TYPE, "NODE_DRAW_ORDER": () => NODE_DRAW_ORDER, "ROW1_FORBIDDEN": () => ROW1_FORBIDDEN, "MAP_REDRAW_TRIES": () => MAP_REDRAW_TRIES, "REGION_W": () => REGION_W, "REGION_KINDS": () => REGION_KINDS, "EXPEDITION_TEXT_IDS": () => EXPEDITION_TEXT_IDS, "RING1_FORBIDDEN": () => RING1_FORBIDDEN, "CLASS": () => CLASS, "CLASS_IDS": () => CLASS_IDS, "SPELL": () => SPELL, "PET": () => PET, "TALENT": () => TALENT, "ARCHETYPE": () => ARCHETYPE, "OPENING_SCRIPT": () => OPENING_SCRIPT, "SCRIPT_ACTION": () => SCRIPT_ACTION, "ENGAGE_OPTION": () => ENGAGE_OPTION, "ENGAGE_OPTIONS": () => ENGAGE_OPTIONS, "VARIANT": () => VARIANT, "SLOT": () => SLOT, "SLOT_IDS": () => SLOT_IDS, "RARITY": () => RARITY, "RARITY_ORDER": () => RARITY_ORDER, "STAT1_PRIMARY_CHANCE": () => STAT1_PRIMARY_CHANCE, "STAT2_STA_CHANCE": () => STAT2_STA_CHANCE, "AFFIX_KINDS": () => AFFIX_KINDS, "DROP_TABLE": () => DROP_TABLE, "ITEM_SCORE": () => ITEM_SCORE, "ITEM_SCORE_CRIT_UNIT": () => ITEM_SCORE_CRIT_UNIT, "CONSUMABLE": () => CONSUMABLE, "VENDOR_STOCK_CONSUMABLES": () => VENDOR_STOCK_CONSUMABLES, "BOON": () => BOON, "BOON_IDS": () => BOON_IDS, "SHRINE_BOON_COUNT": () => SHRINE_BOON_COUNT, "META": () => META, "OATH": () => OATH, "OATH_IDS": () => OATH_IDS, "ABILITY_TEMPLATE": () => ABILITY_TEMPLATE, "CONTENT_RANGE": () => CONTENT_RANGE, "BOSS_TEXT": () => BOSS_TEXT, "DEBUFFS": () => DEBUFFS, "ENGINE_ASSUMPTION": () => ENGINE_ASSUMPTION, "DEV": () => DEV });
 yield;
 // Rules constants (docs/specs/rules.md). Single source of every number the engine uses.
 //
@@ -2079,6 +2123,19 @@ const ENGINE_ASSUMPTION = {
   AUTO_BOON_ORDER: ['return', 'fury', 'insight', 'mending', 'clarity', 'plenty'],
 };
 
+// ---------------------------------------------------------------------------------------------
+// Part 4. DEV: defaults of the dev tools (docs/specs/engine-api.md 12; owner feedback 2026-11-11). Not game rules:
+// they only shape a state the dev tools build. A run a dev tool changed is a dev run (no Echoes).
+// ---------------------------------------------------------------------------------------------
+const DEV = {
+  /** debug.build: gold of the built character, × V(level) (rules 8.5). */
+  GOLD_V: 30,
+  /** debug.build: Healing Draughts in the bag (and Mana Draughts for a Mage). */
+  POTIONS: 5,
+  /** debug.build: the rarity of every equipped item when none is given. */
+  RARITY: 'uncommon',
+};
+
 });
 __bundle.def("src/rng.js", function* (__ns, __link) {
 __link.exp({ "hash32": () => hash32, "streamSeed": () => streamSeed, "makeRng": () => makeRng, "nextU32": () => nextU32, "nextFloat": () => nextFloat, "nextInt": () => nextInt, "weightedIndex": () => weightedIndex, "STREAM": () => STREAM, "normaliseSeed": () => normaliseSeed });
@@ -2100,6 +2157,7 @@ yield;
 // Expedition map (rules 1.9): node ids replace (row, lane): nodeId(z,id), fightId(z,id,k), lootId(z,id) hash the keys
 // "node", "fight", "loot" with the node id, and dim(z,id,n) is the n-th Dimmed encounter at node id (make-up, then
 // its fight). The hub is id 0.
+// Dev tools (engine-api.md 12, dev only): dev(n,k) is the n-th encounter a dev tool starts (k 0: its fight, 1: its loot).
 
 /** 32-bit hash of a string. Returns an unsigned 32-bit integer. */
 function hash32(str) {
@@ -2188,6 +2246,8 @@ const STREAM = {
   fightId: (seed, z, id, k) => makeRng(streamSeed(seed, 'fight', z, id, k)),
   lootId: (seed, z, id) => makeRng(streamSeed(seed, 'loot', z, id)),
   dim: (seed, z, id, n) => makeRng(streamSeed(seed, 'dim', z, id, n)),
+  // Dev tools (engine-api.md 12): the n-th dev encounter of a run, k 0 = its fight, 1 = its loot.
+  dev: (seed, n, k) => makeRng(streamSeed(seed, 'dev', n, k)),
 };
 
 /** Normalise a run seed to an unsigned 32-bit integer. Throws on non-integers. */
@@ -2662,10 +2722,13 @@ function diffMod(d) {
   return XP_GREY_MOD;
 }
 
-/** Talent points earned by level L (rules 6), plus meta Ancestral Insight at MAX_LEVEL. */
+/**
+ * Talent points earned by level L (rules 6), plus meta Ancestral Insight at MAX_LEVEL, plus the points a dev tool gave
+ * (debug.give, engine-api.md 12; dev runs only).
+ */
 function talentPointsEarned(s, L = s.player.level) {
   const base = L >= TALENT_FIRST_LEVEL ? flr((L - TALENT_FIRST_LEVEL) / TALENT_LEVEL_STEP) + 1 : 0;
-  return base + (L >= MAX_LEVEL ? s.meta.talentPoints : 0);
+  return base + (L >= MAX_LEVEL ? s.meta.talentPoints : 0) + (s.dev ? s.dev.talentPoints : 0);
 }
 
 function talentPointsFree(s) {
@@ -2894,11 +2957,14 @@ function makeUnique(s, uniqueId, ilvl) {
   return item;
 }
 
-/** Starting / heirloom gear: deterministic stats (no draws). */
+/**
+ * Starting / heirloom gear: deterministic stats (no draws). name null (the dev tools' gear, engine-api.md 12): the
+ * generated name of rules 12.5.
+ */
 function makeFixedGear(s, slot, rarity, ilvl, name) {
   const primary = CLASS[s.player.classId].primary;
   const item = buildGear(s, null, { rarity, slot, ilvl, fixed: { primary, second: 'STA', affix: 'power' } });
-  item.name = name;
+  if (name !== null) item.name = name;
   return item;
 }
 
@@ -4446,6 +4512,7 @@ yield;
 // Damage pipeline (rules 7.2), statuses (7.4), OFF_BALANCE (7.13, combat v2), the wind-up stacks EMPOWERED and STAGGERED
 // (7.12, combat v2.1), kills, death and resurrection (9).
 // Expedition (rules 1.9.6, 1.9.8): Shardspawn kill rewards, the XP weight, the death location by node id.
+// Dev tools (engine-api.md 12): god mode (state.dev.god) stops all damage to the player in a dev run.
 // Units: 'player', 'pet', or an enemy index (number) into s.fight.enemies.
 
 
@@ -4874,6 +4941,11 @@ function applyDamage(s, ev, src, dst, raw, o = {}) {
   let dmg = raw;
   let absorbed = 0;
   if (dst === 'player') {
+    // Dev tools (engine-api.md 12, dev runs only): god mode is a lasting IMMUNE that Final Dark does not pierce.
+    if (s.dev && s.dev.god) {
+      ev.push({ t: 'damage', src, dst, amount: 0, hpLost: 0, absorbed: 0, immune: true, god: true, spell: o.spell, crit: !!o.crit, school: o.school, tick: !!o.tick });
+      return { amount: 0, hpLost: 0, absorbed: 0, killed: false };
+    }
     if (!o.ignoreImmune && hasSt(f.p.st, 'IMMUNE')) {
       ev.push({ t: 'damage', src, dst, amount: 0, hpLost: 0, absorbed: 0, immune: true, spell: o.spell, crit: !!o.crit, school: o.school, tick: !!o.tick });
       return { amount: 0, hpLost: 0, absorbed: 0, killed: false };
@@ -6503,7 +6575,8 @@ function petAction(s, ev) {
 __bundle.def("src/engine/meta.js", function* (__ns, __link) {
 let META, CLASS_IDS, ECHO_PER_LEVEL, ECHO_PER_ZONE, ECHO_PER_DUNGEON, ECHO_PER_ELITE, ECHO_PER_RARE, ECHO_PER_QUEST, ECHO_BOSS_REACHED, ECHO_BOSS_PHASE, ECHO_BOSS_KILL, ECHO_SPEED_BONUS, ECHO_FIRST_KILL_CLASS, OATH_ECHO_BONUS, BOSS_TIME_PAR, OATH_HASTE_HOURS, ECHO_PER_HEAT_FIGHT; __link.imp("src/constants.js", [["META", (v) => { META = v; }], ["CLASS_IDS", (v) => { CLASS_IDS = v; }], ["ECHO_PER_LEVEL", (v) => { ECHO_PER_LEVEL = v; }], ["ECHO_PER_ZONE", (v) => { ECHO_PER_ZONE = v; }], ["ECHO_PER_DUNGEON", (v) => { ECHO_PER_DUNGEON = v; }], ["ECHO_PER_ELITE", (v) => { ECHO_PER_ELITE = v; }], ["ECHO_PER_RARE", (v) => { ECHO_PER_RARE = v; }], ["ECHO_PER_QUEST", (v) => { ECHO_PER_QUEST = v; }], ["ECHO_BOSS_REACHED", (v) => { ECHO_BOSS_REACHED = v; }], ["ECHO_BOSS_PHASE", (v) => { ECHO_BOSS_PHASE = v; }], ["ECHO_BOSS_KILL", (v) => { ECHO_BOSS_KILL = v; }], ["ECHO_SPEED_BONUS", (v) => { ECHO_SPEED_BONUS = v; }], ["ECHO_FIRST_KILL_CLASS", (v) => { ECHO_FIRST_KILL_CLASS = v; }], ["OATH_ECHO_BONUS", (v) => { OATH_ECHO_BONUS = v; }], ["BOSS_TIME_PAR", (v) => { BOSS_TIME_PAR = v; }], ["OATH_HASTE_HOURS", (v) => { OATH_HASTE_HOURS = v; }], ["ECHO_PER_HEAT_FIGHT", (v) => { ECHO_PER_HEAT_FIGHT = v; }]]); let IllegalActionError, deepClone, rnd; __link.imp("src/engine/util.js", [["IllegalActionError", (v) => { IllegalActionError = v; }], ["deepClone", (v) => { deepClone = v; }], ["rnd", (v) => { rnd = v; }]]); let hash32; __link.imp("src/rng.js", [["hash32", (v) => { hash32 = v; }]]); __link.exp({ "parHours": () => parHours, "newProfile": () => newProfile, "metaOffers": () => metaOffers, "buyMeta": () => buyMeta, "profileHash": () => profileHash, "echoes": () => echoes, "applyRunToProfile": () => applyRunToProfile });
 yield;
-// Meta progression (rules 11): profile, catalogue purchases, Echoes per run.
+// Meta progression (rules 11): profile, catalogue purchases, Echoes per run (a dev run leaves the profile as it was,
+// engine-api.md 12).
 
 
 
@@ -6603,9 +6676,13 @@ function echoes(facts, profile) {
   return { lines, base, oathMult: mult, total: rnd(base * mult) };
 }
 
-/** Profile after a run (END_RUN): Echoes added, flags updated. Returns a new profile. */
+/**
+ * Profile after a run (END_RUN): Echoes added, flags updated. Returns a new profile. A dev run (summary `dev`, engine-api.md
+ * 12) leaves the profile as it was: no Echoes, no run counted, no boss flags.
+ */
 function applyRunToProfile(profile, sum) {
   const p = deepClone(profile);
+  if (sum.dev) return p;
   p.echoes += sum.echoes.total;
   p.earned += sum.echoes.total;
   p.runs += 1;
@@ -6900,13 +6977,14 @@ function heatView(s, legal = () => true) {
 
 });
 __bundle.def("src/engine/nodes.js", function* (__ns, __link) {
-let CLASS, PET, SPELL, META, SLOT_IDS, START_GOLD, START_RATIONS, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, ZONE_COUNT, ZONE_LEVELS, ZONE_CHOICE_ROWS, HOURS_REST, HOURS_VENDOR, HOURS_TRAINER, HOURS_TRAVEL, QUEST_TURNIN_XP_FRAC, QUEST_GOLD_V, QUEST_REWARD_CHOICES, STORY_QUESTS, STORY_XP_FRAC, STORY_REWARD_CHOICES, GRIND_WAVE_XP_FRAC, GRIND_DROP_MULT, GRIND_WAVE_SIZE, DUNGEON_CLEAR_XP_FRAC, DUNGEON_GOLD_V, TREASURE_GOLD_V, TREASURE_TRAP_CHANCE, TREASURE_TRAP_PCT, REST_RESTED_FRAC, BOON, BOON_GOLD_V, BOON_NODES, CAMP_GRIND_LEVEL, MAX_LEVEL, TRAIN_NEW_V, TRAIN_RANK_V, TRAVEL_EARLY_LEVELS, RESPEC_V, CONSUMABLE, ELIXIR_NODES, RES_META_CHARGES, BOSS_LEVEL, UNIQUE_POTION_PCT, HOURS_WALK, DIM_PACK_SIZE, DIM_LEVEL_PER_DEPTH, HOURS_DIM_FIGHT, BELL_START_CHARGES, BELL_MAX_CHARGES, BELL_CHANNEL_H; __link.imp("src/constants.js", [["CLASS", (v) => { CLASS = v; }], ["PET", (v) => { PET = v; }], ["SPELL", (v) => { SPELL = v; }], ["META", (v) => { META = v; }], ["SLOT_IDS", (v) => { SLOT_IDS = v; }], ["START_GOLD", (v) => { START_GOLD = v; }], ["START_RATIONS", (v) => { START_RATIONS = v; }], ["SPELL_BAR_SLOTS", (v) => { SPELL_BAR_SLOTS = v; }], ["ITEM_BAR_SLOTS", (v) => { ITEM_BAR_SLOTS = v; }], ["ZONE_COUNT", (v) => { ZONE_COUNT = v; }], ["ZONE_LEVELS", (v) => { ZONE_LEVELS = v; }], ["ZONE_CHOICE_ROWS", (v) => { ZONE_CHOICE_ROWS = v; }], ["HOURS_REST", (v) => { HOURS_REST = v; }], ["HOURS_VENDOR", (v) => { HOURS_VENDOR = v; }], ["HOURS_TRAINER", (v) => { HOURS_TRAINER = v; }], ["HOURS_TRAVEL", (v) => { HOURS_TRAVEL = v; }], ["QUEST_TURNIN_XP_FRAC", (v) => { QUEST_TURNIN_XP_FRAC = v; }], ["QUEST_GOLD_V", (v) => { QUEST_GOLD_V = v; }], ["QUEST_REWARD_CHOICES", (v) => { QUEST_REWARD_CHOICES = v; }], ["STORY_QUESTS", (v) => { STORY_QUESTS = v; }], ["STORY_XP_FRAC", (v) => { STORY_XP_FRAC = v; }], ["STORY_REWARD_CHOICES", (v) => { STORY_REWARD_CHOICES = v; }], ["GRIND_WAVE_XP_FRAC", (v) => { GRIND_WAVE_XP_FRAC = v; }], ["GRIND_DROP_MULT", (v) => { GRIND_DROP_MULT = v; }], ["GRIND_WAVE_SIZE", (v) => { GRIND_WAVE_SIZE = v; }], ["DUNGEON_CLEAR_XP_FRAC", (v) => { DUNGEON_CLEAR_XP_FRAC = v; }], ["DUNGEON_GOLD_V", (v) => { DUNGEON_GOLD_V = v; }], ["TREASURE_GOLD_V", (v) => { TREASURE_GOLD_V = v; }], ["TREASURE_TRAP_CHANCE", (v) => { TREASURE_TRAP_CHANCE = v; }], ["TREASURE_TRAP_PCT", (v) => { TREASURE_TRAP_PCT = v; }], ["REST_RESTED_FRAC", (v) => { REST_RESTED_FRAC = v; }], ["BOON", (v) => { BOON = v; }], ["BOON_GOLD_V", (v) => { BOON_GOLD_V = v; }], ["BOON_NODES", (v) => { BOON_NODES = v; }], ["CAMP_GRIND_LEVEL", (v) => { CAMP_GRIND_LEVEL = v; }], ["MAX_LEVEL", (v) => { MAX_LEVEL = v; }], ["TRAIN_NEW_V", (v) => { TRAIN_NEW_V = v; }], ["TRAIN_RANK_V", (v) => { TRAIN_RANK_V = v; }], ["TRAVEL_EARLY_LEVELS", (v) => { TRAVEL_EARLY_LEVELS = v; }], ["RESPEC_V", (v) => { RESPEC_V = v; }], ["CONSUMABLE", (v) => { CONSUMABLE = v; }], ["ELIXIR_NODES", (v) => { ELIXIR_NODES = v; }], ["RES_META_CHARGES", (v) => { RES_META_CHARGES = v; }], ["BOSS_LEVEL", (v) => { BOSS_LEVEL = v; }], ["UNIQUE_POTION_PCT", (v) => { UNIQUE_POTION_PCT = v; }], ["HOURS_WALK", (v) => { HOURS_WALK = v; }], ["DIM_PACK_SIZE", (v) => { DIM_PACK_SIZE = v; }], ["DIM_LEVEL_PER_DEPTH", (v) => { DIM_LEVEL_PER_DEPTH = v; }], ["HOURS_DIM_FIGHT", (v) => { HOURS_DIM_FIGHT = v; }], ["BELL_START_CHARGES", (v) => { BELL_START_CHARGES = v; }], ["BELL_MAX_CHARGES", (v) => { BELL_MAX_CHARGES = v; }], ["BELL_CHANNEL_H", (v) => { BELL_CHANNEL_H = v; }]]); let STREAM, nextFloat, nextInt; __link.imp("src/rng.js", [["STREAM", (v) => { STREAM = v; }], ["nextFloat", (v) => { nextFloat = v; }], ["nextInt", (v) => { nextInt = v; }]]); let rnd, frac6, deepClone; __link.imp("src/engine/util.js", [["rnd", (v) => { rnd = v; }], ["frac6", (v) => { frac6 = v; }], ["deepClone", (v) => { deepClone = v; }]]); let refreshDerived, hasEffect; __link.imp("src/engine/stats.js", [["refreshDerived", (v) => { refreshDerived = v; }], ["hasEffect", (v) => { hasEffect = v; }]]); let eventXp, gainXp, gainGold, addRested, spendGold, addGoldRaw; __link.imp("src/engine/progress.js", [["eventXp", (v) => { eventXp = v; }], ["gainXp", (v) => { gainXp = v; }], ["gainGold", (v) => { gainGold = v; }], ["addRested", (v) => { addRested = v; }], ["spendGold", (v) => { spendGold = v; }], ["addGoldRaw", (v) => { addGoldRaw = v; }]]); let V, rollDrop, makeFixedGear, makeConsumable, addToBag, bagIndex, sellValue, takeConsumable; __link.imp("src/engine/items.js", [["V", (v) => { V = v; }], ["rollDrop", (v) => { rollDrop = v; }], ["makeFixedGear", (v) => { makeFixedGear = v; }], ["makeConsumable", (v) => { makeConsumable = v; }], ["addToBag", (v) => { addToBag = v; }], ["bagIndex", (v) => { bagIndex = v; }], ["sellValue", (v) => { sellValue = v; }], ["takeConsumable", (v) => { takeConsumable = v; }]]); let generateZone, contentLevel, vendorStock, composeEncounter, pickFrom; __link.imp("src/engine/map.js", [["generateZone", (v) => { generateZone = v; }], ["contentLevel", (v) => { contentLevel = v; }], ["vendorStock", (v) => { vendorStock = v; }], ["composeEncounter", (v) => { composeEncounter = v; }], ["pickFrom", (v) => { pickFrom = v; }]]); let zoneContent, campEnemies, CAMP_Z; __link.imp("src/engine/content.js", [["zoneContent", (v) => { zoneContent = v; }], ["campEnemies", (v) => { campEnemies = v; }], ["CAMP_Z", (v) => { CAMP_Z = v; }]]); let startFight, endFight; __link.imp("src/engine/combat.js", [["startFight", (v) => { startFight = v; }], ["endFight", (v) => { endFight = v; }]]); let parHours; __link.imp("src/engine/meta.js", [["parHours", (v) => { parHours = v; }]]); let makeBoss; __link.imp("src/engine/boss.js", [["makeBoss", (v) => { makeBoss = v; }]]); let ascOver, newHeatStats, heatHours, heatZoneEntered, heatNodeEntered, heatFightWon; __link.imp("src/engine/heat.js", [["ascOver", (v) => { ascOver = v; }], ["newHeatStats", (v) => { newHeatStats = v; }], ["heatHours", (v) => { heatHours = v; }], ["heatZoneEntered", (v) => { heatZoneEntered = v; }], ["heatNodeEntered", (v) => { heatNodeEntered = v; }], ["heatFightWon", (v) => { heatFightWon = v; }]]); let isExpedition, grindMaxWaves, xpWeight, nodeHours, generateExpZone, refreshVision, zoneHours, frontAt, dimmedNow, visionKit, canEnter, roadNameOf; __link.imp("src/engine/expedition.js", [["isExpedition", (v) => { isExpedition = v; }], ["grindMaxWaves", (v) => { grindMaxWaves = v; }], ["xpWeight", (v) => { xpWeight = v; }], ["nodeHours", (v) => { nodeHours = v; }], ["generateExpZone", (v) => { generateExpZone = v; }], ["refreshVision", (v) => { refreshVision = v; }], ["zoneHours", (v) => { zoneHours = v; }], ["frontAt", (v) => { frontAt = v; }], ["dimmedNow", (v) => { dimmedNow = v; }], ["visionKit", (v) => { visionKit = v; }], ["canEnter", (v) => { canEnter = v; }], ["roadNameOf", (v) => { roadNameOf = v; }]]); __link.exp({ "metaFromProfile": () => metaFromProfile, "newStats": () => newStats, "availablePets": () => availablePets, "startRun": () => startRun, "addHours": () => addHours, "enterZone": () => enterZone, "exitLevel": () => exitLevel, "travelLevel": () => travelLevel, "canTravel": () => canTravel, "travelOn": () => travelOn, "restEffect": () => restEffect, "openService": () => openService, "leaveService": () => leaveService, "zoneAddPool": () => zoneAddPool, "chooseNode": () => chooseNode, "startGrind": () => startGrind, "nextFight": () => nextFight, "completeNode": () => completeNode, "canEnter": () => canEnter, "moveTo": () => moveTo, "passThrough": () => passThrough, "startDimEncounter": () => startDimEncounter, "takeRoad": () => takeRoad, "ringBell": () => ringBell, "settleExpedition": () => settleExpedition, "receiveItems": () => receiveItems, "finishFight": () => finishFight, "chooseReward": () => chooseReward, "campGrind": () => campGrind, "ascendancy": () => ascendancy, "fightBoss": () => fightBoss, "endRun": () => endRun, "trainerSpells": () => trainerSpells, "learnCost": () => learnCost, "trainCost": () => trainCost, "respecCost": () => respecCost, "learnSpell": () => learnSpell, "trainSpell": () => trainSpell, "trainable": () => trainable, "trainAll": () => trainAll, "respec": () => respec, "clampAfterStatChange": () => clampAfterStatChange, "buy": () => buy, "sell": () => sell, "sellJunk": () => sellJunk, "useItemOutOfCombat": () => useItemOutOfCombat });
+let CLASS, PET, SPELL, META, SLOT_IDS, START_GOLD, START_RATIONS, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, ZONE_COUNT, ZONE_LEVELS, ZONE_CHOICE_ROWS, HOURS_REST, HOURS_VENDOR, HOURS_TRAINER, HOURS_TRAVEL, QUEST_TURNIN_XP_FRAC, QUEST_GOLD_V, QUEST_REWARD_CHOICES, STORY_QUESTS, STORY_XP_FRAC, STORY_REWARD_CHOICES, GRIND_WAVE_XP_FRAC, GRIND_DROP_MULT, GRIND_WAVE_SIZE, DUNGEON_CLEAR_XP_FRAC, DUNGEON_GOLD_V, TREASURE_GOLD_V, TREASURE_TRAP_CHANCE, TREASURE_TRAP_PCT, REST_RESTED_FRAC, BOON, BOON_GOLD_V, BOON_NODES, CAMP_GRIND_LEVEL, MAX_LEVEL, TRAIN_NEW_V, TRAIN_RANK_V, TRAVEL_EARLY_LEVELS, RESPEC_V, CONSUMABLE, ELIXIR_NODES, RES_META_CHARGES, BOSS_LEVEL, UNIQUE_POTION_PCT, HOURS_WALK, DIM_PACK_SIZE, DIM_LEVEL_PER_DEPTH, HOURS_DIM_FIGHT, BELL_START_CHARGES, BELL_MAX_CHARGES, BELL_CHANNEL_H; __link.imp("src/constants.js", [["CLASS", (v) => { CLASS = v; }], ["PET", (v) => { PET = v; }], ["SPELL", (v) => { SPELL = v; }], ["META", (v) => { META = v; }], ["SLOT_IDS", (v) => { SLOT_IDS = v; }], ["START_GOLD", (v) => { START_GOLD = v; }], ["START_RATIONS", (v) => { START_RATIONS = v; }], ["SPELL_BAR_SLOTS", (v) => { SPELL_BAR_SLOTS = v; }], ["ITEM_BAR_SLOTS", (v) => { ITEM_BAR_SLOTS = v; }], ["ZONE_COUNT", (v) => { ZONE_COUNT = v; }], ["ZONE_LEVELS", (v) => { ZONE_LEVELS = v; }], ["ZONE_CHOICE_ROWS", (v) => { ZONE_CHOICE_ROWS = v; }], ["HOURS_REST", (v) => { HOURS_REST = v; }], ["HOURS_VENDOR", (v) => { HOURS_VENDOR = v; }], ["HOURS_TRAINER", (v) => { HOURS_TRAINER = v; }], ["HOURS_TRAVEL", (v) => { HOURS_TRAVEL = v; }], ["QUEST_TURNIN_XP_FRAC", (v) => { QUEST_TURNIN_XP_FRAC = v; }], ["QUEST_GOLD_V", (v) => { QUEST_GOLD_V = v; }], ["QUEST_REWARD_CHOICES", (v) => { QUEST_REWARD_CHOICES = v; }], ["STORY_QUESTS", (v) => { STORY_QUESTS = v; }], ["STORY_XP_FRAC", (v) => { STORY_XP_FRAC = v; }], ["STORY_REWARD_CHOICES", (v) => { STORY_REWARD_CHOICES = v; }], ["GRIND_WAVE_XP_FRAC", (v) => { GRIND_WAVE_XP_FRAC = v; }], ["GRIND_DROP_MULT", (v) => { GRIND_DROP_MULT = v; }], ["GRIND_WAVE_SIZE", (v) => { GRIND_WAVE_SIZE = v; }], ["DUNGEON_CLEAR_XP_FRAC", (v) => { DUNGEON_CLEAR_XP_FRAC = v; }], ["DUNGEON_GOLD_V", (v) => { DUNGEON_GOLD_V = v; }], ["TREASURE_GOLD_V", (v) => { TREASURE_GOLD_V = v; }], ["TREASURE_TRAP_CHANCE", (v) => { TREASURE_TRAP_CHANCE = v; }], ["TREASURE_TRAP_PCT", (v) => { TREASURE_TRAP_PCT = v; }], ["REST_RESTED_FRAC", (v) => { REST_RESTED_FRAC = v; }], ["BOON", (v) => { BOON = v; }], ["BOON_GOLD_V", (v) => { BOON_GOLD_V = v; }], ["BOON_NODES", (v) => { BOON_NODES = v; }], ["CAMP_GRIND_LEVEL", (v) => { CAMP_GRIND_LEVEL = v; }], ["MAX_LEVEL", (v) => { MAX_LEVEL = v; }], ["TRAIN_NEW_V", (v) => { TRAIN_NEW_V = v; }], ["TRAIN_RANK_V", (v) => { TRAIN_RANK_V = v; }], ["TRAVEL_EARLY_LEVELS", (v) => { TRAVEL_EARLY_LEVELS = v; }], ["RESPEC_V", (v) => { RESPEC_V = v; }], ["CONSUMABLE", (v) => { CONSUMABLE = v; }], ["ELIXIR_NODES", (v) => { ELIXIR_NODES = v; }], ["RES_META_CHARGES", (v) => { RES_META_CHARGES = v; }], ["BOSS_LEVEL", (v) => { BOSS_LEVEL = v; }], ["UNIQUE_POTION_PCT", (v) => { UNIQUE_POTION_PCT = v; }], ["HOURS_WALK", (v) => { HOURS_WALK = v; }], ["DIM_PACK_SIZE", (v) => { DIM_PACK_SIZE = v; }], ["DIM_LEVEL_PER_DEPTH", (v) => { DIM_LEVEL_PER_DEPTH = v; }], ["HOURS_DIM_FIGHT", (v) => { HOURS_DIM_FIGHT = v; }], ["BELL_START_CHARGES", (v) => { BELL_START_CHARGES = v; }], ["BELL_MAX_CHARGES", (v) => { BELL_MAX_CHARGES = v; }], ["BELL_CHANNEL_H", (v) => { BELL_CHANNEL_H = v; }]]); let STREAM, nextFloat, nextInt; __link.imp("src/rng.js", [["STREAM", (v) => { STREAM = v; }], ["nextFloat", (v) => { nextFloat = v; }], ["nextInt", (v) => { nextInt = v; }]]); let rnd, frac6, deepClone; __link.imp("src/engine/util.js", [["rnd", (v) => { rnd = v; }], ["frac6", (v) => { frac6 = v; }], ["deepClone", (v) => { deepClone = v; }]]); let refreshDerived, hasEffect; __link.imp("src/engine/stats.js", [["refreshDerived", (v) => { refreshDerived = v; }], ["hasEffect", (v) => { hasEffect = v; }]]); let eventXp, gainXp, gainGold, addRested, spendGold, addGoldRaw; __link.imp("src/engine/progress.js", [["eventXp", (v) => { eventXp = v; }], ["gainXp", (v) => { gainXp = v; }], ["gainGold", (v) => { gainGold = v; }], ["addRested", (v) => { addRested = v; }], ["spendGold", (v) => { spendGold = v; }], ["addGoldRaw", (v) => { addGoldRaw = v; }]]); let V, rollDrop, makeFixedGear, makeConsumable, addToBag, bagIndex, sellValue, takeConsumable; __link.imp("src/engine/items.js", [["V", (v) => { V = v; }], ["rollDrop", (v) => { rollDrop = v; }], ["makeFixedGear", (v) => { makeFixedGear = v; }], ["makeConsumable", (v) => { makeConsumable = v; }], ["addToBag", (v) => { addToBag = v; }], ["bagIndex", (v) => { bagIndex = v; }], ["sellValue", (v) => { sellValue = v; }], ["takeConsumable", (v) => { takeConsumable = v; }]]); let generateZone, contentLevel, vendorStock, composeEncounter, pickFrom; __link.imp("src/engine/map.js", [["generateZone", (v) => { generateZone = v; }], ["contentLevel", (v) => { contentLevel = v; }], ["vendorStock", (v) => { vendorStock = v; }], ["composeEncounter", (v) => { composeEncounter = v; }], ["pickFrom", (v) => { pickFrom = v; }]]); let zoneContent, campEnemies, CAMP_Z; __link.imp("src/engine/content.js", [["zoneContent", (v) => { zoneContent = v; }], ["campEnemies", (v) => { campEnemies = v; }], ["CAMP_Z", (v) => { CAMP_Z = v; }]]); let startFight, endFight; __link.imp("src/engine/combat.js", [["startFight", (v) => { startFight = v; }], ["endFight", (v) => { endFight = v; }]]); let parHours; __link.imp("src/engine/meta.js", [["parHours", (v) => { parHours = v; }]]); let makeBoss; __link.imp("src/engine/boss.js", [["makeBoss", (v) => { makeBoss = v; }]]); let ascOver, newHeatStats, heatHours, heatZoneEntered, heatNodeEntered, heatFightWon; __link.imp("src/engine/heat.js", [["ascOver", (v) => { ascOver = v; }], ["newHeatStats", (v) => { newHeatStats = v; }], ["heatHours", (v) => { heatHours = v; }], ["heatZoneEntered", (v) => { heatZoneEntered = v; }], ["heatNodeEntered", (v) => { heatNodeEntered = v; }], ["heatFightWon", (v) => { heatFightWon = v; }]]); let isExpedition, grindMaxWaves, xpWeight, nodeHours, generateExpZone, refreshVision, zoneHours, frontAt, dimmedNow, visionKit, canEnter, roadNameOf; __link.imp("src/engine/expedition.js", [["isExpedition", (v) => { isExpedition = v; }], ["grindMaxWaves", (v) => { grindMaxWaves = v; }], ["xpWeight", (v) => { xpWeight = v; }], ["nodeHours", (v) => { nodeHours = v; }], ["generateExpZone", (v) => { generateExpZone = v; }], ["refreshVision", (v) => { refreshVision = v; }], ["zoneHours", (v) => { zoneHours = v; }], ["frontAt", (v) => { frontAt = v; }], ["dimmedNow", (v) => { dimmedNow = v; }], ["visionKit", (v) => { visionKit = v; }], ["canEnter", (v) => { canEnter = v; }], ["roadNameOf", (v) => { roadNameOf = v; }]]); __link.exp({ "metaFromProfile": () => metaFromProfile, "newStats": () => newStats, "availablePets": () => availablePets, "startRun": () => startRun, "startExpedition": () => startExpedition, "addHours": () => addHours, "enterZone": () => enterZone, "exitLevel": () => exitLevel, "travelLevel": () => travelLevel, "canTravel": () => canTravel, "travelOn": () => travelOn, "restEffect": () => restEffect, "openService": () => openService, "leaveService": () => leaveService, "zoneAddPool": () => zoneAddPool, "chooseNode": () => chooseNode, "startGrind": () => startGrind, "nextFight": () => nextFight, "completeNode": () => completeNode, "canEnter": () => canEnter, "moveTo": () => moveTo, "passThrough": () => passThrough, "startDimEncounter": () => startDimEncounter, "endDevEncounter": () => endDevEncounter, "takeRoad": () => takeRoad, "ringBell": () => ringBell, "settleExpedition": () => settleExpedition, "receiveItems": () => receiveItems, "finishFight": () => finishFight, "chooseReward": () => chooseReward, "campGrind": () => campGrind, "ascendancy": () => ascendancy, "fightBoss": () => fightBoss, "endRun": () => endRun, "trainerSpells": () => trainerSpells, "learnCost": () => learnCost, "trainCost": () => trainCost, "respecCost": () => respecCost, "learnSpell": () => learnSpell, "trainSpell": () => trainSpell, "trainable": () => trainable, "trainAll": () => trainAll, "respec": () => respec, "clampAfterStatChange": () => clampAfterStatChange, "buy": () => buy, "sell": () => sell, "sellJunk": () => sellJunk, "useItemOutOfCombat": () => useItemOutOfCombat });
 yield;
 // Run flow outside combat (rules 1, 2, 9): run start, zones and hubs, map moves, node types, rewards,
 // loot window, vendor and trainer services, camp, boss start, fight outcomes and run end. Expedition map (rules 1.9):
 // MOVE, PASS_THROUGH, hub revisits, Dimmed encounters, Roads, the Homeward Bell and the settle step after an action.
 // Heat (rules 1.7.3, 1.7.4): a node's heat state is fixed on entry (state.node.heat, the fight's `heat`), and the
 // summary's heat counters follow hours, zones, nodes and fights won (heat.js).
+// Dev tools (engine-api.md 12): a fight a dev tool starts (node type `dev`) ends back where it was started.
 
 
 
@@ -7025,14 +7103,20 @@ function startRun(s, ev) {
   s.death = null;
   s.outcome = null;
   s.result = null;
-  if (isExpedition(s)) {
-    // Expedition map (rules 1.9): vision kit, Homeward Bell charges, the settle flags (pending: hours were spent
-    // since the last Dimming check; bell: the Bell is ringing), and the per-run and per-zone counters.
-    s.exp = { vision: visionKit(c.vision), bell: Math.min(BELL_MAX_CHARGES, BELL_START_CHARGES), pending: false, bellPending: false, dimming: c.dimming !== false };
-    s.stats.exp = { walks: 0, passes: 0, dimFights: 0, bells: 0, bellExits: 0, roads: 0, maxRing: 0, zones: [] };
-  }
+  if (isExpedition(s)) startExpedition(s);
   ev.push({ t: 'runStart', classId: c.classId, petId: c.petId, seed: s.seed, oaths: s.oaths });
   enterZone(s, ev, 1);
+}
+
+/**
+ * Expedition map (rules 1.9) at run start (also debug.setMapMode, engine-api.md 12): the vision kit and the Dimming option
+ * of state.create, Homeward Bell charges, the settle flags (pending: hours were spent since the last Dimming check;
+ * bellPending: the Bell is ringing), and the per-run and per-zone counters.
+ */
+function startExpedition(s) {
+  const c = s.create;
+  s.exp = { vision: visionKit(c.vision), bell: Math.min(BELL_MAX_CHARGES, BELL_START_CHARGES), pending: false, bellPending: false, dimming: c.dimming !== false };
+  s.stats.exp = { walks: 0, passes: 0, dimFights: 0, bells: 0, bellExits: 0, roads: 0, maxRing: 0, zones: [] };
 }
 
 // ---------------- Zones, hub, camp ----------------
@@ -7067,7 +7151,11 @@ function setPhase(s, ev, phase) {
   s.phase = phase;
 }
 
-function enterZone(s, ev, z) {
+/**
+ * Enter zone z's hub (the Camp after zone ZONE_COUNT). again: a dev tool draws the same zone again (debug.setMapMode,
+ * engine-api.md 12): the zone's heat record stays as it is.
+ */
+function enterZone(s, ev, z, { again = false } = {}) {
   if (z > ZONE_COUNT) { enterCamp(s, ev); return; }
   if (isExpedition(s)) {
     // Expedition map (rules 1.9): the zone graph; the player starts on the hub, its neighbours in view.
@@ -7082,7 +7170,7 @@ function enterZone(s, ev, z) {
   s.hub = { used: { trainer: false, vendor: false, inn: false }, ledgerFree: s.meta.ledger };
   s.service = null;
   s.stats.maxZone = Math.max(s.stats.maxZone, z);
-  heatZoneEntered(s); // rules 1.7.1: the line moves one share ahead
+  if (!again) heatZoneEntered(s); // rules 1.7.1: the line moves one share ahead
   ev.push({ t: 'zone', z, name: zoneContent(s.content, z).name });
   setPhase(s, ev, 'ZONE_HUB');
 }
@@ -7424,6 +7512,18 @@ function endDimEncounter(s, ev) {
 }
 
 /**
+ * After a fight a dev tool started (node type `dev`, debug.encounter, engine-api.md 12), won or fled: back where it was
+ * started (`node.from`: the map, the hub or the Camp); no map node is resolved by it.
+ */
+function endDevEncounter(s, ev) {
+  const from = s.node.from;
+  s.node = null;
+  s.lootRng = null;
+  s.service = null;
+  setPhase(s, ev, from);
+}
+
+/**
  * Leave the zone (Road or Bell, rules 1.9.7): record its hours, count it, enter the next zone (zone 6: the Camp). The
  * travel event names the Road taken (content zones[i].roads, D51; null by the Bell or without names).
  */
@@ -7529,6 +7629,8 @@ function finishFight(s, ev) {
   }
   // A Dimmed encounter (rules 1.9.6), won or fled: back on the map; the node is not resolved by it.
   if (kind === 'dim') { endDimEncounter(s, ev); return; }
+  // A dev tool's fight (engine-api.md 12): back where it was started.
+  if (s.node && s.node.type === 'dev') { endDevEncounter(s, ev); return; }
   const n = s.node;
   if (outcome === 'fled') { completeNode(s, ev); return; }
   if (kind === 'quest') {
@@ -7819,7 +7921,8 @@ let PACE_CREATE_S, PACE_DECIDE_S, PACE_TRAVEL_NODE_S, PACE_ZONE_TRAVEL_S, PACE_Q
 yield;
 // Run summary (rules 9) and the real-time estimate (rules 3; combat v2: PACE_ENGAGE_S per fight with an engage round;
 // expedition, rules 1.9.8: walks and passes, the Homeward Bell, and the `expedition` block of the summary; heat, rules
-// 1.7.4: the `heat` block and the Echo line of fights won in heat).
+// 1.7.4: the `heat` block and the Echo line of fights won in heat). Dev tools (engine-api.md 12): a dev run's summary
+// has a `dev` block and no Echoes.
 
 
 
@@ -7869,7 +7972,10 @@ function summary(s) {
     quests: st.quests, reachedBoss: st.reachedBoss, bossPhase: st.bossPhase, outcome: s.outcome,
     hoursAtBoss: st.hoursAtBoss, oaths: s.oaths, heatFights: heat.heatFights,
   };
-  const ech = echoes(facts, s.profile);
+  // Dev tools (engine-api.md 12): a dev run earns no Echoes; `withheld` is what the run would have earned.
+  const dev = s.dev ? { god: !!s.dev.godUsed, tools: s.dev.tools.slice() } : null;
+  let ech = echoes(facts, s.profile);
+  if (dev) ech = { lines: [], base: 0, oathMult: ech.oathMult, total: 0, withheld: ech.total };
   const heatLine = ech.lines.find((l) => l.id === 'heat');
   return deepClone({
     name: p.name, classId: p.classId, className: CLASS[p.classId].name, petId: p.pet ? p.pet.id : null,
@@ -7891,6 +7997,7 @@ function summary(s) {
       fightsByState: heat.fightsByState, echoHeat: heatLine ? heatLine.echoes : 0,
     },
     ...(st.exp ? { mapMode: 'expedition', expedition: expeditionSummary(s) } : {}),
+    ...(dev ? { dev } : {}),
   });
 }
 
@@ -8453,7 +8560,7 @@ function legalActions(s) {
 
 });
 __bundle.def("src/engine/autoplay.js", function* (__ns, __link) {
-let SPELL, TALENT, CONSUMABLE, AUTO_POTION_HP, AUTO_TONIC_STACKS, AUTO_MANA_POTION, AUTO_FOOD_HP, EA, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, MAX_LEVEL, PET, ENGAGE_OPTION, ENGAGE_OPTIONS, ENGAGE_AUTO_LOOK, HOURS_WALK, HOURS_DIM_FIGHT, HOURS_REST, HOURS_VENDOR, HOURS_TRAINER, EXPED_HOURS_QUEST; __link.imp("src/constants.js", [["SPELL", (v) => { SPELL = v; }], ["TALENT", (v) => { TALENT = v; }], ["CONSUMABLE", (v) => { CONSUMABLE = v; }], ["AUTO_POTION_HP", (v) => { AUTO_POTION_HP = v; }], ["AUTO_TONIC_STACKS", (v) => { AUTO_TONIC_STACKS = v; }], ["AUTO_MANA_POTION", (v) => { AUTO_MANA_POTION = v; }], ["AUTO_FOOD_HP", (v) => { AUTO_FOOD_HP = v; }], ["ENGINE_ASSUMPTION", (v) => { EA = v; }], ["SPELL_BAR_SLOTS", (v) => { SPELL_BAR_SLOTS = v; }], ["ITEM_BAR_SLOTS", (v) => { ITEM_BAR_SLOTS = v; }], ["MAX_LEVEL", (v) => { MAX_LEVEL = v; }], ["PET", (v) => { PET = v; }], ["ENGAGE_OPTION", (v) => { ENGAGE_OPTION = v; }], ["ENGAGE_OPTIONS", (v) => { ENGAGE_OPTIONS = v; }], ["ENGAGE_AUTO_LOOK", (v) => { ENGAGE_AUTO_LOOK = v; }], ["HOURS_WALK", (v) => { HOURS_WALK = v; }], ["HOURS_DIM_FIGHT", (v) => { HOURS_DIM_FIGHT = v; }], ["HOURS_REST", (v) => { HOURS_REST = v; }], ["HOURS_VENDOR", (v) => { HOURS_VENDOR = v; }], ["HOURS_TRAINER", (v) => { HOURS_TRAINER = v; }], ["EXPED_HOURS_QUEST", (v) => { EXPED_HOURS_QUEST = v; }]]); let hasSt, findSt, debuffStacks, isEliteOrBoss, petAlive; __link.imp("src/engine/damage.js", [["hasSt", (v) => { hasSt = v; }], ["findSt", (v) => { findSt = v; }], ["debuffStacks", (v) => { debuffStacks = v; }], ["isEliteOrBoss", (v) => { isEliteOrBoss = v; }], ["petAlive", (v) => { petAlive = v; }]]); let defaultTarget, breaksOnHit; __link.imp("src/engine/combat.js", [["defaultTarget", (v) => { defaultTarget = v; }], ["breaksOnHit", (v) => { breaksOnHit = v; }]]); let isEngageRound; __link.imp("src/engine/track.js", [["isEngageRound", (v) => { isEngageRound = v; }]]); let engageAct; __link.imp("src/engine/engage.js", [["engageAct", (v) => { engageAct = v; }]]); let castError, itemUsableInCombat; __link.imp("src/engine/spells.js", [["castError", (v) => { castError = v; }], ["itemUsableInCombat", (v) => { itemUsableInCombat = v; }]]); let itemScore, countConsumable, sellValue, canAdd, V, bagCapacity; __link.imp("src/engine/items.js", [["itemScore", (v) => { itemScore = v; }], ["countConsumable", (v) => { countConsumable = v; }], ["sellValue", (v) => { sellValue = v; }], ["canAdd", (v) => { canAdd = v; }], ["V", (v) => { V = v; }], ["bagCapacity", (v) => { bagCapacity = v; }]]); let talentPointsFree; __link.imp("src/engine/progress.js", [["talentPointsFree", (v) => { talentPointsFree = v; }]]); let nextLanes, dungeonLevels; __link.imp("src/engine/map.js", [["nextLanes", (v) => { nextLanes = v; }], ["dungeonLevels", (v) => { dungeonLevels = v; }]]); let checkAction; __link.imp("src/engine/actions.js", [["checkAction", (v) => { checkAction = v; }]]); let canTravel, exitLevel, trainerSpells, learnCost, trainCost, trainable, availablePets, canEnter; __link.imp("src/engine/nodes.js", [["canTravel", (v) => { canTravel = v; }], ["exitLevel", (v) => { exitLevel = v; }], ["trainerSpells", (v) => { trainerSpells = v; }], ["learnCost", (v) => { learnCost = v; }], ["trainCost", (v) => { trainCost = v; }], ["trainable", (v) => { trainable = v; }], ["availablePets", (v) => { availablePets = v; }], ["canEnter", (v) => { canEnter = v; }]]); let isExpedition, grindMaxWaves, nodeHours, zoneHours, dimmedAt; __link.imp("src/engine/expedition.js", [["isExpedition", (v) => { isExpedition = v; }], ["grindMaxWaves", (v) => { grindMaxWaves = v; }], ["nodeHours", (v) => { nodeHours = v; }], ["zoneHours", (v) => { zoneHours = v; }], ["dimmedAt", (v) => { dimmedAt = v; }]]); __link.exp({ "autoAction": () => autoAction, "autoTarget": () => autoTarget });
+let SPELL, TALENT, CONSUMABLE, AUTO_POTION_HP, AUTO_TONIC_STACKS, AUTO_MANA_POTION, AUTO_FOOD_HP, EA, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, MAX_LEVEL, PET, ENGAGE_OPTION, ENGAGE_OPTIONS, ENGAGE_AUTO_LOOK, HOURS_WALK, HOURS_DIM_FIGHT, HOURS_REST, HOURS_VENDOR, HOURS_TRAINER, EXPED_HOURS_QUEST; __link.imp("src/constants.js", [["SPELL", (v) => { SPELL = v; }], ["TALENT", (v) => { TALENT = v; }], ["CONSUMABLE", (v) => { CONSUMABLE = v; }], ["AUTO_POTION_HP", (v) => { AUTO_POTION_HP = v; }], ["AUTO_TONIC_STACKS", (v) => { AUTO_TONIC_STACKS = v; }], ["AUTO_MANA_POTION", (v) => { AUTO_MANA_POTION = v; }], ["AUTO_FOOD_HP", (v) => { AUTO_FOOD_HP = v; }], ["ENGINE_ASSUMPTION", (v) => { EA = v; }], ["SPELL_BAR_SLOTS", (v) => { SPELL_BAR_SLOTS = v; }], ["ITEM_BAR_SLOTS", (v) => { ITEM_BAR_SLOTS = v; }], ["MAX_LEVEL", (v) => { MAX_LEVEL = v; }], ["PET", (v) => { PET = v; }], ["ENGAGE_OPTION", (v) => { ENGAGE_OPTION = v; }], ["ENGAGE_OPTIONS", (v) => { ENGAGE_OPTIONS = v; }], ["ENGAGE_AUTO_LOOK", (v) => { ENGAGE_AUTO_LOOK = v; }], ["HOURS_WALK", (v) => { HOURS_WALK = v; }], ["HOURS_DIM_FIGHT", (v) => { HOURS_DIM_FIGHT = v; }], ["HOURS_REST", (v) => { HOURS_REST = v; }], ["HOURS_VENDOR", (v) => { HOURS_VENDOR = v; }], ["HOURS_TRAINER", (v) => { HOURS_TRAINER = v; }], ["EXPED_HOURS_QUEST", (v) => { EXPED_HOURS_QUEST = v; }]]); let hasSt, findSt, debuffStacks, isEliteOrBoss, petAlive; __link.imp("src/engine/damage.js", [["hasSt", (v) => { hasSt = v; }], ["findSt", (v) => { findSt = v; }], ["debuffStacks", (v) => { debuffStacks = v; }], ["isEliteOrBoss", (v) => { isEliteOrBoss = v; }], ["petAlive", (v) => { petAlive = v; }]]); let defaultTarget, breaksOnHit; __link.imp("src/engine/combat.js", [["defaultTarget", (v) => { defaultTarget = v; }], ["breaksOnHit", (v) => { breaksOnHit = v; }]]); let isEngageRound; __link.imp("src/engine/track.js", [["isEngageRound", (v) => { isEngageRound = v; }]]); let engageAct; __link.imp("src/engine/engage.js", [["engageAct", (v) => { engageAct = v; }]]); let castError, itemUsableInCombat; __link.imp("src/engine/spells.js", [["castError", (v) => { castError = v; }], ["itemUsableInCombat", (v) => { itemUsableInCombat = v; }]]); let itemScore, countConsumable, sellValue, canAdd, V, bagCapacity; __link.imp("src/engine/items.js", [["itemScore", (v) => { itemScore = v; }], ["countConsumable", (v) => { countConsumable = v; }], ["sellValue", (v) => { sellValue = v; }], ["canAdd", (v) => { canAdd = v; }], ["V", (v) => { V = v; }], ["bagCapacity", (v) => { bagCapacity = v; }]]); let talentPointsFree; __link.imp("src/engine/progress.js", [["talentPointsFree", (v) => { talentPointsFree = v; }]]); let nextLanes, dungeonLevels; __link.imp("src/engine/map.js", [["nextLanes", (v) => { nextLanes = v; }], ["dungeonLevels", (v) => { dungeonLevels = v; }]]); let checkAction; __link.imp("src/engine/actions.js", [["checkAction", (v) => { checkAction = v; }]]); let canTravel, exitLevel, trainerSpells, learnCost, trainCost, trainable, availablePets, canEnter; __link.imp("src/engine/nodes.js", [["canTravel", (v) => { canTravel = v; }], ["exitLevel", (v) => { exitLevel = v; }], ["trainerSpells", (v) => { trainerSpells = v; }], ["learnCost", (v) => { learnCost = v; }], ["trainCost", (v) => { trainCost = v; }], ["trainable", (v) => { trainable = v; }], ["availablePets", (v) => { availablePets = v; }], ["canEnter", (v) => { canEnter = v; }]]); let isExpedition, grindMaxWaves, nodeHours, zoneHours, dimmedAt; __link.imp("src/engine/expedition.js", [["isExpedition", (v) => { isExpedition = v; }], ["grindMaxWaves", (v) => { grindMaxWaves = v; }], ["nodeHours", (v) => { nodeHours = v; }], ["zoneHours", (v) => { zoneHours = v; }], ["dimmedAt", (v) => { dimmedAt = v; }]]); __link.exp({ "autoAction": () => autoAction, "autoTarget": () => autoTarget, "nextTalent": () => nextTalent, "desiredBar": () => desiredBar, "desiredItemBar": () => desiredItemBar });
 yield;
 // autoAction: the autoplay combat policy (rules 7.9, exact; combat v2 rule E in the engage round) and a
 // deterministic default policy for every other decision so a headless run can go from CREATE to SUMMARY. The
@@ -8461,6 +8568,7 @@ yield;
 // spec's. Autoplay reads only the now-intent, except rule E, which reads turns 1..ENGAGE_AUTO_LOOK of the tracks.
 // Expedition map (rules 1.9.9): the default map policy explores what it can leave cleanly and walks to the cheapest
 // Road around the Dimming; it reads only what the player sees (seen nodes, the skeleton, the Dimming).
+// The default talent build, bar and item bar are exported for the dev tools (debug.build, engine-api.md 12).
 
 
 
@@ -9020,11 +9128,624 @@ function autoAction(s) {
   return null;
 }
 
+// The default build, bar and item bar, also used by the dev tools to equip a character they build (engine-api.md 12).
 
 
 });
+__bundle.def("src/engine/debug.js", function* (__ns, __link) {
+let CLASS, SPELL, TALENT, META, SLOT_IDS, RARITY, RARITY_ORDER, ILVL_MAX, ZONE_COUNT, ZONE_LEVELS, MAX_LEVEL, P2_AT, P3_AT, HEAT_STATES, HEAT_WARM_AT, HEAT_HOT_AT, HEAT_SCORCH_AT, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, CONSUMABLE, STACK_JUNK, INTENT_TRACK_LEN, DEV, TALENT_TIER_GATE; __link.imp("src/constants.js", [["CLASS", (v) => { CLASS = v; }], ["SPELL", (v) => { SPELL = v; }], ["TALENT", (v) => { TALENT = v; }], ["META", (v) => { META = v; }], ["SLOT_IDS", (v) => { SLOT_IDS = v; }], ["RARITY", (v) => { RARITY = v; }], ["RARITY_ORDER", (v) => { RARITY_ORDER = v; }], ["ILVL_MAX", (v) => { ILVL_MAX = v; }], ["ZONE_COUNT", (v) => { ZONE_COUNT = v; }], ["ZONE_LEVELS", (v) => { ZONE_LEVELS = v; }], ["MAX_LEVEL", (v) => { MAX_LEVEL = v; }], ["P2_AT", (v) => { P2_AT = v; }], ["P3_AT", (v) => { P3_AT = v; }], ["HEAT_STATES", (v) => { HEAT_STATES = v; }], ["HEAT_WARM_AT", (v) => { HEAT_WARM_AT = v; }], ["HEAT_HOT_AT", (v) => { HEAT_HOT_AT = v; }], ["HEAT_SCORCH_AT", (v) => { HEAT_SCORCH_AT = v; }], ["SPELL_BAR_SLOTS", (v) => { SPELL_BAR_SLOTS = v; }], ["ITEM_BAR_SLOTS", (v) => { ITEM_BAR_SLOTS = v; }], ["CONSUMABLE", (v) => { CONSUMABLE = v; }], ["STACK_JUNK", (v) => { STACK_JUNK = v; }], ["INTENT_TRACK_LEN", (v) => { INTENT_TRACK_LEN = v; }], ["DEV", (v) => { DEV = v; }], ["TALENT_TIER_GATE", (v) => { TALENT_TIER_GATE = v; }]]); let STREAM; __link.imp("src/rng.js", [["STREAM", (v) => { STREAM = v; }]]); let cloneState, deepClone, rnd, IllegalActionError; __link.imp("src/engine/util.js", [["cloneState", (v) => { cloneState = v; }], ["deepClone", (v) => { deepClone = v; }], ["rnd", (v) => { rnd = v; }], ["IllegalActionError", (v) => { IllegalActionError = v; }]]); let refreshDerived; __link.imp("src/engine/stats.js", [["refreshDerived", (v) => { refreshDerived = v; }]]); let talentPointsFree, xpToNext; __link.imp("src/engine/progress.js", [["talentPointsFree", (v) => { talentPointsFree = v; }], ["xpToNext", (v) => { xpToNext = v; }]]); let V, makeFixedGear, makeConsumable, addToBag, canAdd, countConsumable, bagCapacity; __link.imp("src/engine/items.js", [["V", (v) => { V = v; }], ["makeFixedGear", (v) => { makeFixedGear = v; }], ["makeConsumable", (v) => { makeConsumable = v; }], ["addToBag", (v) => { addToBag = v; }], ["canAdd", (v) => { canAdd = v; }], ["countConsumable", (v) => { countConsumable = v; }], ["bagCapacity", (v) => { bagCapacity = v; }]]); let checkAction, applyAction, legalActions; __link.imp("src/engine/actions.js", [["checkAction", (v) => { checkAction = v; }], ["applyAction", (v) => { applyAction = v; }], ["legalActions", (v) => { legalActions = v; }]]); let autoAction, nextTalent, desiredBar, desiredItemBar; __link.imp("src/engine/autoplay.js", [["autoAction", (v) => { autoAction = v; }], ["nextTalent", (v) => { nextTalent = v; }], ["desiredBar", (v) => { desiredBar = v; }], ["desiredItemBar", (v) => { desiredItemBar = v; }]]); let enterZone, completeNode, endDevEncounter, travelOn, takeRoad, fightBoss, finishFight, zoneAddPool, trainerSpells, availablePets, startExpedition, settleExpedition; __link.imp("src/engine/nodes.js", [["enterZone", (v) => { enterZone = v; }], ["completeNode", (v) => { completeNode = v; }], ["endDevEncounter", (v) => { endDevEncounter = v; }], ["travelOn", (v) => { travelOn = v; }], ["takeRoad", (v) => { takeRoad = v; }], ["fightBoss", (v) => { fightBoss = v; }], ["finishFight", (v) => { finishFight = v; }], ["zoneAddPool", (v) => { zoneAddPool = v; }], ["trainerSpells", (v) => { trainerSpells = v; }], ["availablePets", (v) => { availablePets = v; }], ["startExpedition", (v) => { startExpedition = v; }], ["settleExpedition", (v) => { settleExpedition = v; }]]); let startFight, defaultTarget; __link.imp("src/engine/combat.js", [["startFight", (v) => { startFight = v; }], ["defaultTarget", (v) => { defaultTarget = v; }]]); let applyDamage; __link.imp("src/engine/damage.js", [["applyDamage", (v) => { applyDamage = v; }]]); let onBossDamaged, bossIntent, bossTrackView; __link.imp("src/engine/boss.js", [["onBossDamaged", (v) => { onBossDamaged = v; }], ["bossIntent", (v) => { bossIntent = v; }], ["bossTrackView", (v) => { bossTrackView = v; }]]); let refreshTrack; __link.imp("src/engine/track.js", [["refreshTrack", (v) => { refreshTrack = v; }]]); let lineAt, newHeatStats; __link.imp("src/engine/heat.js", [["lineAt", (v) => { lineAt = v; }], ["newHeatStats", (v) => { newHeatStats = v; }]]); let isExpedition, MAP_MODES; __link.imp("src/engine/expedition.js", [["isExpedition", (v) => { isExpedition = v; }], ["MAP_MODES", (v) => { MAP_MODES = v; }]]); let zoneContent; __link.imp("src/engine/content.js", [["zoneContent", (v) => { zoneContent = v; }]]); let newProfile; __link.imp("src/engine/meta.js", [["newProfile", (v) => { newProfile = v; }]]); __link.exp({ "createDebug": () => createDebug });
+yield;
+// Dev tools (owner feedback 2026-11-11 07:41; docs/specs/engine-api.md section 12, a dev-only API, not game rules):
+// pure, seeded helpers that build or change a run so any stage can be tested without playing to it. src/rules.js
+// exports them as `debug` (R.debug.*), made by createDebug with the public functions they need (no import cycle).
+//
+//   build(opts)                       a run at a zone and level: gear, spells, talents, gold, potions (phase ZONE_HUB or CAMP)
+//   toCamp(s), toBoss(s, {phase}), nextZone(s)        jumps (the end-boss fight in phase 1, 2 or 3)
+//   encounter(s, {ids, level})        a fight against any enemy templates (node type `dev`; back where it started)
+//   killTarget(s, idx), refill(s), setGod(s, on), give(s, {gold, potions, talentPoints})
+//   setHours(s, hours), setHeat(s, state), revealMap(s), setMapMode(s, mode)
+//   grantEchoes(profile, n), fullCatalogue(profile), setProfile(s, profile)      the meta profile
+//   enemies(content)                  every enemy template with its zone and kind (the Dev menu's list)
+//   validate(s, {steps})              the state checks every helper's result passes (string[]; empty = valid)
+//
+// Each run helper returns { state, events } with a new state (its input is never changed) and marks the run a dev run
+// (state.dev: { tools, god, godUsed, n, talentPoints }): its summary has a `dev` block, it earns no Echoes and END_RUN
+// leaves the profile as it was (summary.js, meta.js). God mode stops all damage to the player (damage.js). Draws come
+// only from the engine's own streams and the dev stream (rng.js STREAM.dev): same state + same calls = same result.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const RUN_PHASES = ['ZONE_HUB', 'MAP', 'NODE', 'CAMP', 'BOSS'];
+const PHASES = ['CREATE', ...RUN_PHASES, 'SUMMARY', 'ENDED'];
+const CAMP = ZONE_COUNT + 1;
+
+const fail = (msg) => { throw new IllegalActionError(msg); };
+const isInt = (x) => Number.isInteger(x);
+
+/** A copy of a state in a run (ZONE_HUB, MAP, NODE, CAMP, BOSS), or an IllegalActionError naming the helper. */
+function runCopy(state, what) {
+  if (!state || !state.player || !RUN_PHASES.includes(state.phase)) fail(`${what}: only during a run (phase ${state ? state.phase : 'none'})`);
+  return cloneState(state);
+}
+
+/** Mark the run a dev run and record the tool (state.dev). Returns state.dev. */
+function mark(s, tool) {
+  if (!s.dev) s.dev = { tools: [], god: false, godUsed: false, n: 0, talentPoints: 0 };
+  if (!s.dev.tools.includes(tool)) s.dev.tools.push(tool);
+  return s.dev;
+}
+
+function setPhase(s, ev, phase) {
+  if (s.phase !== phase) ev.push({ t: 'phase', phase });
+  s.phase = phase;
+}
+
+/** Apply one engine action in place, as step would (its own legality check). */
+function act(s, ev, a) {
+  const err = checkAction(s, a);
+  if (err) fail(`debug: ${a.type} ${JSON.stringify(a)}: ${err}`);
+  applyAction(s, ev, a);
+}
+
+/**
+ * Leave whatever is open before a jump, by the engine's own exits: the loot window's items are dropped, a fight is left
+ * (its rewards with it), a service closes, a map node is resolved as after a flight (completeNode), a Dimmed encounter
+ * or a dev fight ends where it would. The end-boss fight is left for the Camp.
+ */
+function leaveAll(s, ev) {
+  for (const it of s.loot || []) ev.push({ t: 'lootDropped', item: it.uid });
+  s.loot = [];
+  s.fight = null;
+  if (s.service) {
+    if (s.service.where === 'hub' && s.service.kind === 'vendor' && s.zone && s.zone.hubStock) s.zone.hubStock = s.service.stock;
+    s.service = null;
+    ev.push({ t: 'serviceClosed' });
+  }
+  if (s.node) {
+    if (s.node.type === 'dev') endDevEncounter(s, ev);
+    else if (s.node.type === 'dim') { s.node = null; setPhase(s, ev, 'MAP'); }
+    else completeNode(s, ev);
+  }
+  s.lootRng = null;
+  if (s.phase === 'BOSS') setPhase(s, ev, 'CAMP');
+}
+
+/** Add n units of a consumable while the bag takes them (rules 8.7). Returns how many were added. */
+function addUnits(s, id, n) {
+  let k = 0;
+  while (k < n && canAdd(s, { kind: 'cons', id, qty: 1 })) { addToBag(s, makeConsumable(s, id, 1)); k++; }
+  return k;
+}
+
+/** Healing Draughts, and Mana Draughts for a class with mana. Returns the Healing Draughts added. */
+function addPotions(s, n) {
+  const k = addUnits(s, 'healing_draught', n);
+  if (CLASS[s.player.classId].resource === 'mana') addUnits(s, 'mana_draught', n);
+  return k;
+}
+
+/** The default policy's bar and item bar (autoplay, rules 7.9), set by SET_BAR and SET_ITEM_BAR. */
+function setBars(s, ev) {
+  const p = s.player;
+  const bar = desiredBar(s);
+  for (let i = 0; i < SPELL_BAR_SLOTS; i++) if (p.bar[i] !== bar[i]) act(s, ev, { type: 'SET_BAR', slot: i, spellId: bar[i] });
+  const ib = desiredItemBar(s);
+  for (let i = 0; i < ITEM_BAR_SLOTS; i++) if (p.itemBar[i] !== ib[i]) act(s, ev, { type: 'SET_ITEM_BAR', slot: i, itemId: ib[i] });
+}
+
+/** Go to the Camp from a zone: counted as ZONE_COUNT zones left (rules 1.6). */
+function enterCampNow(s, ev) {
+  s.stats.zonesLeft = Math.max(s.stats.zonesLeft, ZONE_COUNT);
+  s.stats.maxZone = ZONE_COUNT;
+  enterZone(s, ev, CAMP);
+}
+
+/** Every enemy template with the first zone that lists it (its home zone; null when no zone does) and its kind. */
+function enemies(content) {
+  const out = [];
+  const seen = new Set();
+  const add = (id, z) => {
+    const t = content.enemies[id];
+    if (!t || seen.has(id)) return;
+    seen.add(id);
+    out.push({ id, name: t.name, kind: t.kind, archetype: t.archetype, family: t.family || null, zone: z });
+  };
+  content.zones.forEach((zn, i) => {
+    for (const id of [...zn.normals, ...zn.elites, ...zn.rares, ...zn.dungeon.trash, zn.dungeon.boss]) add(id, i + 1);
+  });
+  for (const id of Object.keys(content.enemies)) add(id, null);
+  return out;
+}
+
+/** The hours past the line that put the run in a heat state (rules 1.7.2): the middle of its band. */
+function heatTarget(state) {
+  if (state === 'clear') return HEAT_WARM_AT - (HEAT_HOT_AT - HEAT_WARM_AT) / 2;
+  if (state === 'warm') return (HEAT_WARM_AT + HEAT_HOT_AT) / 2;
+  if (state === 'hot') return (HEAT_HOT_AT + HEAT_SCORCH_AT) / 2;
+  return HEAT_SCORCH_AT + (HEAT_SCORCH_AT - HEAT_HOT_AT) / 2;
+}
+
+/** Path of an object that appears twice in the state tree (content excluded), or null. */
+function sharedPath(root) {
+  const seen = new Set();
+  const walk = (v, path) => {
+    if (v === null || typeof v !== 'object') return null;
+    if (seen.has(v)) return path;
+    seen.add(v);
+    for (const k of Object.keys(v)) { const r = walk(v[k], `${path}.${k}`); if (r) return r; }
+    return null;
+  };
+  for (const k of Object.keys(root)) if (k !== 'content') { const r = walk(root[k], k); if (r) return r; }
+  return null;
+}
+
+/**
+ * Make the dev tools around the public engine functions they need: { newRun, step, serialize, deserialize, mapView,
+ * heatView, summary, STATE_VERSION } of src/rules.js.
+ */
+function createDebug(api) {
+  const { newRun, step, serialize, deserialize, mapView, heatView, summary, STATE_VERSION } = api;
+
+  /**
+   * A run at a zone and level (phase ZONE_HUB of zone `zone`, or CAMP for zone ZONE_COUNT + 1). opts: content (required),
+   * classId ('rogue'), petId (Hunter: the first pet the profile has), name, seed (0), profile, oaths ([]: Oaths sworn in
+   * CREATE, the profile must own them), mapMode ('rows'), vision, dimming (newRun options), zone (1), level (the zone's
+   * first level; the Camp MAX_LEVEL), rarity (DEV.RARITY) and ilvl (level + the rarity's ilvlBonus, at most ILVL_MAX) of
+   * the gear in every slot (fixed stats as starting gear: the class's primary, STA, the power affix), talents ('auto':
+   * the default build of autoplay; 'unspent'), gold (DEV.GOLD_V × V(level) copper), potions (DEV.POTIONS Healing
+   * Draughts, and as many Mana Draughts for a Mage), hours (the line of zone - 1: on schedule). Every class spell up to
+   * the level (and the profile's meta spells) is learned and trained to the level; the bars are autoplay's. Full HP and
+   * mana. Returns { state, events }.
+   */
+  function build(opts = {}) {
+    const o = opts || {};
+    if (!o.content) throw new Error('debug.build: content is required');
+    const classId = o.classId || 'rogue';
+    if (!CLASS[classId]) fail(`debug.build: unknown class ${classId}`);
+    const zone = o.zone ?? 1;
+    if (!isInt(zone) || zone < 1 || zone > CAMP) fail(`debug.build: zone must be 1-${CAMP} (${CAMP}: the Camp)`);
+    const level = o.level ?? (zone === CAMP ? MAX_LEVEL : ZONE_LEVELS * (zone - 1) + 1);
+    if (!isInt(level) || level < 1 || level > MAX_LEVEL) fail(`debug.build: level must be 1-${MAX_LEVEL}`);
+    const rarity = o.rarity || DEV.RARITY;
+    if (!RARITY_ORDER.includes(rarity)) fail(`debug.build: rarity must be one of ${RARITY_ORDER.join(', ')}`);
+    const ilvl = o.ilvl ?? Math.min(ILVL_MAX, level + RARITY[rarity].ilvlBonus);
+    if (!isInt(ilvl) || ilvl < 1 || ilvl > ILVL_MAX) fail(`debug.build: item level must be 1-${ILVL_MAX}`);
+    const talents = o.talents || 'auto';
+    if (!['auto', 'unspent'].includes(talents)) fail("debug.build: talents must be 'auto' or 'unspent'");
+    for (const [k, v] of [['gold', o.gold], ['potions', o.potions], ['hours', o.hours]]) if (v != null && (!isInt(v) || v < 0)) fail(`debug.build: ${k} must be a whole number >= 0`);
+    const profile = o.profile || null;
+    const petId = classId === 'hunter' ? o.petId || availablePets(profile || newProfile())[0] : null;
+    if (petId && !availablePets(profile || newProfile()).includes(petId)) fail(`debug.build: the pet ${petId} is not unlocked in the profile`);
+    if (o.mapMode && !MAP_MODES.includes(o.mapMode)) fail(`debug.build: mapMode must be one of ${MAP_MODES.join(', ')}`);
+    let s = newRun({ classId, petId, name: o.name || '', seed: o.seed ?? 0, profile, content: o.content, mapMode: o.mapMode || 'rows', vision: o.vision ?? null, dimming: o.dimming ?? true });
+    const ev = [];
+    for (const oath of o.oaths || []) { const r = step(s, { type: 'SET_OATH', oath, on: true }); s = r.state; ev.push(...r.events); }
+    const r0 = step(s, { type: 'START_RUN' });
+    s = r0.state;
+    ev.push(...r0.events);
+    mark(s, 'build');
+    const p = s.player;
+    // Level (rules 4.3): the character has just reached it.
+    p.level = level;
+    p.xp = 0;
+    p.rested = 0;
+    // Spells (rules 2.7): every spell the trainer teaches up to the level, learned in level order, all trained to it.
+    const learn = trainerSpells(s).filter((id) => SPELL[id].lvl <= level && !p.spells[id]).sort((a, b) => SPELL[a].lvl - SPELL[b].lvl || (a < b ? -1 : 1));
+    for (const id of learn) { p.spells[id] = { tl: level, rank: 1 }; p.spellOrder.push(id); }
+    for (const id of Object.keys(p.spells)) if (SPELL[id].source !== 'talent') p.spells[id].tl = level;
+    // Gear (rules 8.3): every slot, fixed stats, the generated name.
+    for (const slot of SLOT_IDS) p.equipped[slot] = makeFixedGear(s, slot, rarity, ilvl, null);
+    refreshDerived(s);
+    // Talents (rules 6): the default build, one SPEND_TALENT at a time, or left unspent.
+    if (talents === 'auto') {
+      for (let t = talentPointsFree(s) > 0 ? nextTalent(s) : null; t; t = talentPointsFree(s) > 0 ? nextTalent(s) : null) act(s, ev, { type: 'SPEND_TALENT', talentId: t });
+    }
+    p.gold = o.gold ?? rnd(DEV.GOLD_V * V(level));
+    addPotions(s, o.potions ?? DEV.POTIONS);
+    // The zone (rules 1.3): its hub, arrived at `hours`; the heat records start there.
+    s.hours = o.hours ?? Math.ceil(lineAt(s.oaths, zone - 1));
+    s.stats.heat = newHeatStats();
+    if (s.stats.exp) s.stats.exp.zones = [];
+    s.stats.zonesLeft = zone - 1;
+    if (zone === CAMP) enterCampNow(s, ev);
+    else enterZone(s, ev, zone);
+    setBars(s, ev);
+    p.hp = p.d.maxHp;
+    p.mana = p.d.maxMana;
+    if (p.pet) { p.pet.alive = true; p.pet.hp = p.d.petMaxHp; }
+    return { state: s, events: ev };
+  }
+
+  /** To the Camp (phase CAMP), leaving whatever is open; the hours stay. At the Camp: what is open closes. */
+  function toCamp(state) {
+    const s = runCopy(state, 'debug.toCamp');
+    const ev = [];
+    mark(s, 'camp');
+    leaveAll(s, ev);
+    if (!s.zone.camp) enterCampNow(s, ev);
+    return { state: s, events: ev };
+  }
+
+  /**
+   * Into the end-boss fight (phase BOSS, round 1; from anywhere: the Camp first). phase 2: the boss at P2_AT of its HP,
+   * phase 3: just below P3_AT, both reached by the engine's own phase change (rules 10.2: Shards, Eclipse); its intent
+   * and track are shown for the new phase. Ascendancy from the hours (rules 1.7).
+   */
+  function toBoss(state, { phase = 1 } = {}) {
+    if (![1, 2, 3].includes(phase)) fail('debug.toBoss: phase must be 1, 2 or 3');
+    const s = runCopy(state, 'debug.toBoss');
+    const ev = [];
+    mark(s, 'boss');
+    leaveAll(s, ev);
+    if (!s.zone.camp) enterCampNow(s, ev);
+    fightBoss(s, ev);
+    if (phase > 1) {
+      const b = s.fight.enemies[0];
+      b.hp = phase === 2 ? Math.floor(P2_AT * b.maxHp) : Math.ceil(P3_AT * b.maxHp) - 1;
+      onBossDamaged(s, ev);
+      b.intent = bossIntent(s, b);
+      bossTrackView(s, b);
+      ev.push({ t: 'intent', u: 0, intent: deepClone(b.intent) });
+    }
+    return { state: s, events: ev };
+  }
+
+  /** On to the next zone's hub as by Travel on (a Road on the expedition map): HOURS_TRAVEL, no level gate. Zone 6: the Camp. */
+  function nextZone(state) {
+    const s = runCopy(state, 'debug.nextZone');
+    if (s.zone.camp) fail('debug.nextZone: the Camp is the last stop (debug.toBoss)');
+    const ev = [];
+    mark(s, 'nextZone');
+    leaveAll(s, ev);
+    if (isExpedition(s)) takeRoad(s, ev);
+    else travelOn(s, ev);
+    return { state: s, events: ev };
+  }
+
+  /**
+   * A fight against enemy templates by id (any kind: normal, elite, rare, dungeon trash or boss) at `level` (the
+   * player's), leaving whatever is open first. Each enemy is its template's kind; the fight kind is dboss, elite, trash or
+   * grind by the strongest; no heat (rules 1.7.3). It is played in phase NODE as node type `dev` on the dev stream
+   * (STREAM.dev(seed, n, 0), loot n, 1); won or fled, the player is back where it started (map, hub or Camp).
+   */
+  function encounter(state, { ids, level = null } = {}) {
+    const list = Array.isArray(ids) ? ids.slice() : ids != null ? [ids] : [];
+    const s = runCopy(state, 'debug.encounter');
+    const c = s.content;
+    if (!list.length) fail('debug.encounter: give one or more enemy ids');
+    for (const id of list) if (!c.enemies[id]) fail(`debug.encounter: unknown enemy ${id}`);
+    const L = level ?? s.player.level;
+    if (!isInt(L) || L < 1 || L > MAX_LEVEL) fail(`debug.encounter: level must be 1-${MAX_LEVEL}`);
+    const ev = [];
+    const dev = mark(s, 'encounter');
+    leaveAll(s, ev);
+    const kinds = list.map((id) => c.enemies[id].kind);
+    const kind = kinds.includes('dboss') ? 'dboss' : kinds.some((k) => k === 'elite' || k === 'rare') ? 'elite' : kinds.includes('trash') ? 'trash' : 'grind';
+    const n = dev.n;
+    dev.n += 1;
+    const home = (enemies(c).find((x) => x.id === list[0]) || {}).zone || Math.min(s.zone.z, ZONE_COUNT);
+    const from = s.zone.camp ? 'CAMP' : s.phase === 'ZONE_HUB' ? 'ZONE_HUB' : 'MAP';
+    // id: the expedition node the player stands on (a death there is recorded at it, rules 9)
+    s.node = { type: 'dev', ...(isExpedition(s) && !s.zone.camp ? { id: s.zone.pos } : {}), cl: L, stage: 'fight', k: 0, heat: null, from, enemies: list };
+    s.lootRng = STREAM.dev(s.seed, n, 1);
+    setPhase(s, ev, 'NODE');
+    startFight(s, ev, {
+      kind, k: 0, z: home, rng: STREAM.dev(s.seed, n, 0), enemies: list.map((tid) => ({ tid, level: L, variant: c.enemies[tid].kind })),
+      addLevel: L, addPool: zoneAddPool(zoneContent(c, home)), dropMult: 1, canFlee: kind !== 'dboss', noStealth: kind === 'dboss', heat: null,
+    });
+    return { state: s, events: ev };
+  }
+
+  /**
+   * Kill an enemy of the current fight (default: autoplay's default target) through the damage pipeline (rules 7.2:
+   * its kill rewards, a boss's phase changes). The last one ends the fight as a victory would.
+   */
+  function killTarget(state, target = null) {
+    const s = runCopy(state, 'debug.killTarget');
+    const f = s.fight;
+    if (!f) fail('debug.killTarget: not in a fight');
+    const i = target ?? defaultTarget(s);
+    const e = isInt(i) ? f.enemies[i] : null;
+    if (!e || !e.alive) fail('debug.killTarget: the target must be a living enemy');
+    const ev = [];
+    mark(s, 'kill');
+    applyDamage(s, ev, 'dev', i, e.hp + e.shield, { spell: 'dev_kill', school: 'magic' });
+    if (f.over) finishFight(s, ev);
+    else for (const x of f.enemies) if (x.alive) { if (x.kind === 'boss') bossTrackView(s, x); else refreshTrack(s, x); }
+    if (isExpedition(s)) settleExpedition(s, ev); // as after every action (actions.js applyAction)
+    return { state: s, events: ev };
+  }
+
+  /** Full HP and mana, the pet alive at full HP; in a fight also full energy and focus, no cooldowns, potions ready. */
+  function refill(state) {
+    const s = runCopy(state, 'debug.refill');
+    mark(s, 'refill');
+    const p = s.player;
+    p.hp = p.d.maxHp;
+    p.mana = p.d.maxMana;
+    if (p.pet) { p.pet.alive = true; p.pet.hp = p.d.petMaxHp; }
+    const f = s.fight;
+    if (f) Object.assign(f.p, { energy: f.p.energyMax, focus: f.p.focusMax, potionReady: 0, cds: {} });
+    return { state: s, events: [] };
+  }
+
+  /** God mode on or off (damage.js: the player takes no damage). A run that had it on is marked `god` in its summary. */
+  function setGod(state, on = true) {
+    if (typeof on !== 'boolean') fail('debug.setGod: on must be true or false');
+    const s = runCopy(state, 'debug.setGod');
+    if (!on && !(s.dev && s.dev.god)) return { state: s, events: [] };
+    const dev = mark(s, 'god');
+    dev.god = on;
+    if (on) dev.godUsed = true;
+    return { state: s, events: [] };
+  }
+
+  /**
+   * Give gold (copper), potions (Healing Draughts while the bag takes them; a Mage as many Mana Draughts) and unspent
+   * talent points (on top of the level's, rules 6). Returns { state, events, given: { gold, potions, talentPoints } }.
+   */
+  function give(state, { gold = 0, potions = 0, talentPoints = 0 } = {}) {
+    for (const [k, v] of [['gold', gold], ['potions', potions], ['talentPoints', talentPoints]]) if (!isInt(v) || v < 0) fail(`debug.give: ${k} must be a whole number >= 0`);
+    const s = runCopy(state, 'debug.give');
+    const dev = mark(s, 'give');
+    s.player.gold += gold;
+    const k = addPotions(s, potions);
+    dev.talentPoints += talentPoints;
+    return { state: s, events: [], given: { gold, potions: k, talentPoints } };
+  }
+
+  /**
+   * Set the run's hours (rules 1.7: heat, the boss's Ascendancy). The zone's own clock stays: on the expedition map its
+   * arrival hour moves with the run's, so the Dimming stands where it was; the zone's heat record moves the same way.
+   */
+  function setHours(state, hours) {
+    if (!isInt(hours) || hours < 0) fail('debug.setHours: hours must be a whole number >= 0');
+    const s = runCopy(state, 'debug.setHours');
+    mark(s, 'hours');
+    const d = hours - s.hours;
+    s.hours = hours;
+    if (isExpedition(s) && !s.zone.camp) s.zone.start += d;
+    const recs = s.stats.heat ? s.stats.heat.zones : [];
+    const last = recs[recs.length - 1];
+    if (last && last.exit === null) last.entry += d;
+    return { state: s, events: [] };
+  }
+
+  /** Set the hours so the run's own heat is in `heatState` (HEAT_STATES; the middle of its band, rules 1.7.2). */
+  function setHeat(state, heatState) {
+    if (!HEAT_STATES.includes(heatState)) fail(`debug.setHeat: state must be one of ${HEAT_STATES.join(', ')}`);
+    if (!state || !state.zone) fail('debug.setHeat: only during a run');
+    const line = lineAt(state.oaths, state.zone.camp ? CAMP : state.zone.z);
+    return setHours(state, Math.max(0, Math.ceil(line + heatTarget(heatState))));
+  }
+
+  /**
+   * Show the whole map: on the expedition map every node of the zone is seen (rules 1.9.5); on today's map, which hides
+   * only rare elites, traps and vendor Embers, Scout's Eye is on for the rest of the run (rules 1.4).
+   */
+  function revealMap(state) {
+    const s = runCopy(state, 'debug.revealMap');
+    if (s.zone.camp) fail('debug.revealMap: the Camp has no map');
+    mark(s, 'reveal');
+    if (isExpedition(s)) s.zone.seen = s.zone.nodes.map(() => true);
+    else s.meta.scout = true;
+    return { state: s, events: [] };
+  }
+
+  /**
+   * Play on with the other map (rules 1.4 rows or 1.9 expedition): the current zone is drawn again in that mode and
+   * the player is at its hub (its heat record stays); at the Camp only the mode changes. The expedition starts with no
+   * vision unlocks and the Dimming on.
+   */
+  function setMapMode(state, mode) {
+    if (!MAP_MODES.includes(mode)) fail(`debug.setMapMode: mode must be one of ${MAP_MODES.join(', ')}`);
+    const s = runCopy(state, 'debug.setMapMode');
+    const ev = [];
+    if ((s.mapMode || 'rows') === mode) return { state: s, events: ev };
+    mark(s, 'mapMode');
+    leaveAll(s, ev);
+    s.mapMode = mode;
+    if (mode === 'expedition') {
+      s.create.vision = { guide: false, charts: false, pathfinder: false };
+      s.create.dimming = true;
+      startExpedition(s);
+    } else {
+      delete s.exp;
+      delete s.stats.exp;
+      delete s.create.vision;
+      delete s.create.dimming;
+    }
+    if (!s.zone.camp) enterZone(s, ev, s.zone.z, { again: true });
+    return { state: s, events: ev };
+  }
+
+  /** The profile with n more Echoes to spend (rules 11.2; not counted as earned). */
+  function grantEchoes(profile, n) {
+    if (!isInt(n) || n < 1) fail('debug.grantEchoes: n must be a whole number >= 1');
+    const p = deepClone(profile || newProfile());
+    p.echoes += n;
+    return p;
+  }
+
+  /** The profile with every catalogue entry at its highest rank (rules 11.2; no Echoes spent). */
+  function fullCatalogue(profile) {
+    const p = deepClone(profile || newProfile());
+    for (const m of Object.values(META)) p.unlocks[m.id] = m.ranks;
+    return p;
+  }
+
+  /**
+   * The state with another profile (the meta profile END_RUN updates; in CREATE also the one START_RUN reads). The run's
+   * own modifiers (state.meta, rules 11.4) were fixed at START_RUN and do not change, so the run is not marked.
+   */
+  function setProfile(state, profile) {
+    if (!state || state.phase === 'ENDED') fail('debug.setProfile: not after the run has ended');
+    if (!profile || typeof profile !== 'object' || !profile.unlocks) fail('debug.setProfile: a profile is required');
+    const s = cloneState(state);
+    s.profile = deepClone(profile);
+    return { state: s, events: [] };
+  }
+
+  /**
+   * Check a state as the engine's guarantees have it (engine-api.md 1, 4, 6; qa/engine/health.test.mjs): version and
+   * phase, plain JSON (serialize/deserialize round trip, no shared object), the character (level, XP, HP, mana, pet,
+   * derived values current, talents and tier gates, spells, bars, gear, bag, item uids, gold), the zone and node for the
+   * phase, the fight (enemy indices, HP, intents and tracks), the views (mapView, heatView, summary), and the actions:
+   * legalActions not empty, autoAction legal, and with `steps` (default) every listed action steps without error.
+   * Returns the problems found (empty = valid).
+   */
+  function validate(state, { steps = true } = {}) {
+    const errs = [];
+    const e = (m) => errs.push(m);
+    const s = state;
+    if (!s || typeof s !== 'object') return ['not a state'];
+    if (s.v !== STATE_VERSION) e(`state version ${s.v}, engine ${STATE_VERSION}`);
+    if (!PHASES.includes(s.phase)) e(`unknown phase ${s.phase}`);
+    try {
+      const str = serialize(s);
+      if (serialize(deserialize(str, s.content)) !== str) e('serialize/deserialize does not round-trip');
+    } catch (err) { e(`serialize: ${err.message}`); }
+    const sh = sharedPath(s);
+    if (sh) e(`object shared at ${sh}`);
+    const guard = (what, fn) => { try { fn(); } catch (err) { e(`${what} throws: ${err.message}`); } };
+    if (s.phase !== 'CREATE') {
+      const p = s.player;
+      if (!p) return [...errs, 'no player after START_RUN'];
+      const cls = CLASS[p.classId];
+      if (!cls) e(`unknown class ${p.classId}`);
+      if (!isInt(p.level) || p.level < 1 || p.level > MAX_LEVEL) e(`level ${p.level}`);
+      if (p.level < MAX_LEVEL ? !(p.xp >= 0 && p.xp < xpToNext(p.level)) : p.xp !== 0) e(`xp ${p.xp} at level ${p.level}`);
+      const c = cloneState(s);
+      guard('refreshDerived', () => { refreshDerived(c); if (JSON.stringify(c.player.d) !== JSON.stringify(p.d)) e('derived values (player.d) are not current'); });
+      const over = s.phase === 'SUMMARY' || s.phase === 'ENDED';
+      if (over ? !(p.hp >= 0 && p.hp <= p.d.maxHp) : !(isInt(p.hp) && p.hp >= 1 && p.hp <= p.d.maxHp)) e(`hp ${p.hp} of ${p.d.maxHp}`);
+      if (!(p.mana >= 0 && p.mana <= p.d.maxMana)) e(`mana ${p.mana} of ${p.d.maxMana}`);
+      if (p.pet && (p.pet.alive ? !(p.pet.hp >= 1 && p.pet.hp <= p.d.petMaxHp) : p.pet.hp !== 0)) e(`pet hp ${p.pet.hp} (alive ${p.pet.alive})`);
+      if (p.pet && !p.pet.alive && !s.fight && !over) e('the pet is dead out of combat');
+      if (!isInt(p.gold) || p.gold < 0) e(`gold ${p.gold}`);
+      // talents (rules 6)
+      let spent = 0;
+      const tree = [0, 0, 0];
+      for (const [id, r] of Object.entries(p.talents)) {
+        const t = TALENT[id];
+        if (!t || t.cls !== p.classId) { e(`talent ${id} is not a ${p.classId} talent`); continue; }
+        if (!isInt(r) || r < 1 || r > t.ranks) e(`talent ${id} rank ${r}`);
+        spent += r;
+        tree[t.tree] += r;
+      }
+      for (const id of Object.keys(p.talents)) { const t = TALENT[id]; if (t && tree[t.tree] < TALENT_TIER_GATE * (t.tier - 1)) e(`talent ${id}: tier ${t.tier} without ${TALENT_TIER_GATE * (t.tier - 1)} points in its tree`); }
+      if (spent !== p.talentSpent) e(`talentSpent ${p.talentSpent}, ranks sum to ${spent}`);
+      if (talentPointsFree(s) < 0) e(`talent points free ${talentPointsFree(s)}`);
+      // spells and bars (rules 2.7, 5, 6)
+      const known = Object.keys(p.spells);
+      const metaSpells = (s.meta && s.meta.spells) || [];
+      for (const id of known) {
+        const sp = SPELL[id];
+        if (!sp || sp.cls !== p.classId) { e(`spell ${id} is not a ${p.classId} spell`); continue; }
+        if (sp.source === 'talent' && !Object.keys(p.talents).some((t) => TALENT[t] && TALENT[t].spell === id)) e(`talent spell ${id} without its talent`);
+        if (sp.source === 'meta' && !metaSpells.includes(id)) e(`meta spell ${id} without its unlock`);
+        if (sp.source !== 'talent' && (sp.lvl > p.level || p.spells[id].tl > p.level)) e(`spell ${id} (level ${sp.lvl}, trained ${p.spells[id].tl}) at level ${p.level}`);
+      }
+      if (p.spellOrder.length !== known.length || !known.every((id) => p.spellOrder.includes(id))) e('spellOrder does not list the known spells');
+      const barIds = p.bar.filter(Boolean);
+      if (p.bar.length !== SPELL_BAR_SLOTS || barIds.some((id) => !p.spells[id]) || new Set(barIds).size !== barIds.length) e(`bar ${JSON.stringify(p.bar)}`);
+      const items = p.itemBar.filter(Boolean);
+      if (p.itemBar.length !== ITEM_BAR_SLOTS || items.some((id) => !CONSUMABLE[id] || !['any', 'combat'].includes(CONSUMABLE[id].use)) || new Set(items).size !== items.length) e(`item bar ${JSON.stringify(p.itemBar)}`);
+      // gear, bag, uids (rules 8)
+      const uids = [];
+      for (const slot of SLOT_IDS) {
+        const it = p.equipped[slot];
+        if (it && (it.kind !== 'gear' || it.slot !== slot)) e(`equipped ${slot}: ${it.kind} for ${it.slot}`);
+        if (it) uids.push(it.uid);
+      }
+      if (p.bag.length > bagCapacity(s)) e(`bag ${p.bag.length} of ${bagCapacity(s)} slots`);
+      for (const it of p.bag) {
+        uids.push(it.uid);
+        if (it.kind === 'cons' && (!CONSUMABLE[it.id] || !(it.qty >= 1 && it.qty <= CONSUMABLE[it.id].stack))) e(`bag stack ${it.id} × ${it.qty}`);
+        if (it.kind === 'junk' && !(it.qty >= 1 && it.qty <= STACK_JUNK)) e(`junk stack ${it.qty}`);
+        if (!['gear', 'cons', 'junk'].includes(it.kind)) e(`bag item kind ${it.kind}`);
+      }
+      for (const it of s.loot || []) uids.push(it.uid);
+      if (new Set(uids).size !== uids.length) e('an item uid is used twice');
+      if (uids.some((u) => !/^i\d+$/.test(u) || Number(u.slice(1)) >= s.nextUid)) e('an item uid is not below nextUid');
+      for (const [id, c0] of Object.entries(CONSUMABLE)) if (c0.max !== undefined && countConsumable(s, id) > c0.max) e(`${id} × ${countConsumable(s, id)} over its maximum`);
+      // phase, zone, node, fight (rules 1.1)
+      const z = s.zone;
+      if (!over) {
+        if (!z) e(`phase ${s.phase} without a zone`);
+        else {
+          if (['ZONE_HUB', 'MAP'].includes(s.phase) && z.camp) e(`phase ${s.phase} at the Camp`);
+          if (['CAMP', 'BOSS'].includes(s.phase) && !z.camp) e(`phase ${s.phase} outside the Camp`);
+          if (s.phase === 'NODE' && z.camp && !(s.node && s.node.type === 'dev')) e('phase NODE at the Camp');
+          if (!z.camp && !(z.z >= 1 && z.z <= ZONE_COUNT)) e(`zone ${z.z}`);
+        }
+        if (s.phase === 'NODE' && !s.node) e('phase NODE without a node');
+        if (s.node && s.phase !== 'NODE') e(`a node in phase ${s.phase}`);
+        if (s.node && s.node.stage === 'fight' && !s.fight) e('a node in its fight stage without a fight');
+        if (s.node && s.node.type === 'dev' && !['MAP', 'ZONE_HUB', 'CAMP'].includes(s.node.from)) e(`dev node from ${s.node.from}`);
+        if (s.fight && !['NODE', 'CAMP', 'BOSS'].includes(s.phase)) e(`a fight in phase ${s.phase}`);
+        if (s.phase === 'BOSS' && !(s.fight && s.fight.kind === 'boss')) e('phase BOSS without the boss fight');
+        if (s.service && !['ZONE_HUB', 'CAMP', 'NODE'].includes(s.phase)) e(`a service in phase ${s.phase}`);
+      }
+      const f = s.fight;
+      if (f) {
+        if (f.over) e(`fight over (${f.over}) between steps`);
+        if (!f.enemies.some((x) => x.alive)) e('a fight without a living enemy');
+        f.enemies.forEach((x, i) => {
+          if (x.idx !== i) e(`enemy ${i} has idx ${x.idx}`);
+          if (x.alive ? !(x.hp >= 1 && x.hp <= x.maxHp) : x.hp < 0) e(`enemy ${i} hp ${x.hp} of ${x.maxHp} (alive ${x.alive})`);
+          if (x.alive && x.turn0 <= f.round && !x.intent) e(`enemy ${i} has no intent`);
+          if (x.alive && (!Array.isArray(x.track) || x.track.length !== INTENT_TRACK_LEN)) e(`enemy ${i} track of ${x.track ? x.track.length : 0}`);
+        });
+      }
+      if (s.dev && (!Array.isArray(s.dev.tools) || typeof s.dev.god !== 'boolean' || !isInt(s.dev.n) || !isInt(s.dev.talentPoints))) e('state.dev is malformed');
+      if (!over) {
+        guard('mapView', () => mapView(s));
+        guard('heatView', () => heatView(s));
+      }
+      guard('summary', () => summary(s));
+    }
+    if (s.phase !== 'ENDED') {
+      let list = [];
+      guard('legalActions', () => { list = legalActions(s); });
+      if (!list.length) e(`no legal action in ${s.phase}`);
+      guard('autoAction', () => { const a = autoAction(s); const why = a ? checkAction(s, a) : 'none'; if (why) e(`autoAction ${JSON.stringify(a)} is not legal: ${why}`); });
+      if (steps) for (const a of list) guard(`step ${JSON.stringify(a)}`, () => step(s, a));
+    }
+    return errs;
+  }
+
+  return Object.freeze({
+    build, toCamp, toBoss, nextZone, encounter, killTarget, refill, setGod, give, setHours, setHeat, revealMap, setMapMode,
+    grantEchoes, fullCatalogue, setProfile, enemies, validate,
+  });
+}
+
+});
 __bundle.def("src/rules.js", function* (__ns, __link) {
-const C = __link.ns("src/constants.js"); let normaliseSeed; __link.imp("src/rng.js", [["normaliseSeed", (v) => { normaliseSeed = v; }]]); let cloneState, deepClone, deepFreeze, IllegalActionError; __link.imp("src/engine/util.js", [["cloneState", (v) => { cloneState = v; }], ["deepClone", (v) => { deepClone = v; }], ["deepFreeze", (v) => { deepFreeze = v; }], ["IllegalActionError", (v) => { IllegalActionError = v; }]]); let validateContent, zoneContent; __link.imp("src/engine/content.js", [["validateContent", (v) => { validateContent = v; }], ["zoneContent", (v) => { zoneContent = v; }]]); let checkAction, applyAction, legal; __link.imp("src/engine/actions.js", [["checkAction", (v) => { checkAction = v; }], ["applyAction", (v) => { applyAction = v; }], ["legalActions", (v) => { legal = v; }]]); let auto; __link.imp("src/engine/autoplay.js", [["autoAction", (v) => { auto = v; }]]); let sum; __link.imp("src/engine/summary.js", [["summary", (v) => { sum = v; }]]); let newProfile, metaOffers, buyMeta, applyRunToProfile, parHours; __link.imp("src/engine/meta.js", [["newProfile", (v) => { newProfile = v; }], ["metaOffers", (v) => { metaOffers = v; }], ["buyMeta", (v) => { buyMeta = v; }], ["applyRunToProfile", (v) => { applyRunToProfile = v; }], ["parHours", (v) => { parHours = v; }]]); let zoneDanger, defaultTgt; __link.imp("src/engine/combat.js", [["zoneDanger", (v) => { zoneDanger = v; }], ["defaultTarget", (v) => { defaultTgt = v; }]]); let availablePets, metaFromProfile, travelAt; __link.imp("src/engine/nodes.js", [["availablePets", (v) => { availablePets = v; }], ["metaFromProfile", (v) => { metaFromProfile = v; }], ["travelLevel", (v) => { travelAt = v; }]]); let nextLanes; __link.imp("src/engine/map.js", [["nextLanes", (v) => { nextLanes = v; }]]); let xpToNext, xpCurve, diffMod, freePoints; __link.imp("src/engine/progress.js", [["xpToNext", (v) => { xpToNext = v; }], ["xpCurve", (v) => { xpCurve = v; }], ["diffMod", (v) => { diffMod = v; }], ["talentPointsFree", (v) => { freePoints = v; }]]); let itemScore, V, bagCap, countConsumable; __link.imp("src/engine/items.js", [["itemScore", (v) => { itemScore = v; }], ["V", (v) => { V = v; }], ["bagCapacity", (v) => { bagCap = v; }], ["countConsumable", (v) => { countConsumable = v; }]]); let cost, spellCd, spellAmount, spellTl, flee, castError; __link.imp("src/engine/spells.js", [["spellCost", (v) => { cost = v; }], ["spellCd", (v) => { spellCd = v; }], ["spellAmount", (v) => { spellAmount = v; }], ["spellTl", (v) => { spellTl = v; }], ["fleeChance", (v) => { flee = v; }], ["castError", (v) => { castError = v; }]]); let resurrectOrder, offBalanceOpen, findSt; __link.imp("src/engine/damage.js", [["resurrectOrder", (v) => { resurrectOrder = v; }], ["offBalanceOpen", (v) => { offBalanceOpen = v; }], ["findSt", (v) => { findSt = v; }]]); let engageList, previewEngage; __link.imp("src/engine/engage.js", [["engageOptions", (v) => { engageList = v; }], ["engagePreview", (v) => { previewEngage = v; }]]); let engageRound; __link.imp("src/engine/track.js", [["isEngageRound", (v) => { engageRound = v; }]]); let MAP_MODES, isExpedition, expMapView; __link.imp("src/engine/expedition.js", [["MAP_MODES", (v) => { MAP_MODES = v; }], ["isExpedition", (v) => { isExpedition = v; }], ["expMapView", (v) => { expMapView = v; }]]); let heatMeter, previewHeat; __link.imp("src/engine/heat.js", [["heatView", (v) => { heatMeter = v; }], ["heatPreview", (v) => { previewHeat = v; }]]); __link.exp({ "STATE_VERSION": () => STATE_VERSION, "C": () => C, "validateContent": () => validateContent, "newProfile": () => newProfile, "metaOffers": () => metaOffers, "buyMeta": () => buyMeta, "applyRunToProfile": () => applyRunToProfile, "IllegalActionError": () => IllegalActionError, "xpToNext": () => xpToNext, "itemScore": () => itemScore, "V": () => V, "xpCurve": () => xpCurve, "diffMod": () => diffMod, "zoneDanger": () => zoneDanger, "bossPar": () => bossPar, "bagCapacity": () => bagCapacity, "travelLevel": () => travelLevel, "resurrectCharges": () => resurrectCharges, "talentPointsFree": () => talentPointsFree, "spellCost": () => spellCost, "spellCooldown": () => spellCooldown, "spellInfo": () => spellInfo, "defaultTarget": () => defaultTarget, "isEngageRound": () => isEngageRound, "engageOptions": () => engageOptions, "engagePreview": () => engagePreview, "offBalance": () => offBalance, "heatView": () => heatView, "heatPreview": () => heatPreview, "fleeChance": () => fleeChance, "newRun": () => newRun, "legalActions": () => legalActions, "whyIllegal": () => whyIllegal, "isLegal": () => isLegal, "step": () => step, "stepInPlace": () => stepInPlace, "autoAction": () => autoAction, "summary": () => summary, "serialize": () => serialize, "deserialize": () => deserialize, "mapView": () => mapView });
+const C = __link.ns("src/constants.js"); let normaliseSeed; __link.imp("src/rng.js", [["normaliseSeed", (v) => { normaliseSeed = v; }]]); let cloneState, deepClone, deepFreeze, IllegalActionError; __link.imp("src/engine/util.js", [["cloneState", (v) => { cloneState = v; }], ["deepClone", (v) => { deepClone = v; }], ["deepFreeze", (v) => { deepFreeze = v; }], ["IllegalActionError", (v) => { IllegalActionError = v; }]]); let validateContent, zoneContent; __link.imp("src/engine/content.js", [["validateContent", (v) => { validateContent = v; }], ["zoneContent", (v) => { zoneContent = v; }]]); let checkAction, applyAction, legal; __link.imp("src/engine/actions.js", [["checkAction", (v) => { checkAction = v; }], ["applyAction", (v) => { applyAction = v; }], ["legalActions", (v) => { legal = v; }]]); let auto; __link.imp("src/engine/autoplay.js", [["autoAction", (v) => { auto = v; }]]); let sum; __link.imp("src/engine/summary.js", [["summary", (v) => { sum = v; }]]); let newProfile, metaOffers, buyMeta, applyRunToProfile, parHours; __link.imp("src/engine/meta.js", [["newProfile", (v) => { newProfile = v; }], ["metaOffers", (v) => { metaOffers = v; }], ["buyMeta", (v) => { buyMeta = v; }], ["applyRunToProfile", (v) => { applyRunToProfile = v; }], ["parHours", (v) => { parHours = v; }]]); let zoneDanger, defaultTgt; __link.imp("src/engine/combat.js", [["zoneDanger", (v) => { zoneDanger = v; }], ["defaultTarget", (v) => { defaultTgt = v; }]]); let availablePets, metaFromProfile, travelAt; __link.imp("src/engine/nodes.js", [["availablePets", (v) => { availablePets = v; }], ["metaFromProfile", (v) => { metaFromProfile = v; }], ["travelLevel", (v) => { travelAt = v; }]]); let nextLanes; __link.imp("src/engine/map.js", [["nextLanes", (v) => { nextLanes = v; }]]); let xpToNext, xpCurve, diffMod, freePoints; __link.imp("src/engine/progress.js", [["xpToNext", (v) => { xpToNext = v; }], ["xpCurve", (v) => { xpCurve = v; }], ["diffMod", (v) => { diffMod = v; }], ["talentPointsFree", (v) => { freePoints = v; }]]); let itemScore, V, bagCap, countConsumable; __link.imp("src/engine/items.js", [["itemScore", (v) => { itemScore = v; }], ["V", (v) => { V = v; }], ["bagCapacity", (v) => { bagCap = v; }], ["countConsumable", (v) => { countConsumable = v; }]]); let cost, spellCd, spellAmount, spellTl, flee, castError; __link.imp("src/engine/spells.js", [["spellCost", (v) => { cost = v; }], ["spellCd", (v) => { spellCd = v; }], ["spellAmount", (v) => { spellAmount = v; }], ["spellTl", (v) => { spellTl = v; }], ["fleeChance", (v) => { flee = v; }], ["castError", (v) => { castError = v; }]]); let resurrectOrder, offBalanceOpen, findSt; __link.imp("src/engine/damage.js", [["resurrectOrder", (v) => { resurrectOrder = v; }], ["offBalanceOpen", (v) => { offBalanceOpen = v; }], ["findSt", (v) => { findSt = v; }]]); let engageList, previewEngage; __link.imp("src/engine/engage.js", [["engageOptions", (v) => { engageList = v; }], ["engagePreview", (v) => { previewEngage = v; }]]); let engageRound; __link.imp("src/engine/track.js", [["isEngageRound", (v) => { engageRound = v; }]]); let MAP_MODES, isExpedition, expMapView; __link.imp("src/engine/expedition.js", [["MAP_MODES", (v) => { MAP_MODES = v; }], ["isExpedition", (v) => { isExpedition = v; }], ["expMapView", (v) => { expMapView = v; }]]); let heatMeter, previewHeat; __link.imp("src/engine/heat.js", [["heatView", (v) => { heatMeter = v; }], ["heatPreview", (v) => { previewHeat = v; }]]); let createDebug; __link.imp("src/engine/debug.js", [["createDebug", (v) => { createDebug = v; }]]); __link.exp({ "STATE_VERSION": () => STATE_VERSION, "C": () => C, "validateContent": () => validateContent, "newProfile": () => newProfile, "metaOffers": () => metaOffers, "buyMeta": () => buyMeta, "applyRunToProfile": () => applyRunToProfile, "IllegalActionError": () => IllegalActionError, "xpToNext": () => xpToNext, "itemScore": () => itemScore, "V": () => V, "xpCurve": () => xpCurve, "diffMod": () => diffMod, "zoneDanger": () => zoneDanger, "bossPar": () => bossPar, "bagCapacity": () => bagCapacity, "travelLevel": () => travelLevel, "resurrectCharges": () => resurrectCharges, "talentPointsFree": () => talentPointsFree, "spellCost": () => spellCost, "spellCooldown": () => spellCooldown, "spellInfo": () => spellInfo, "defaultTarget": () => defaultTarget, "isEngageRound": () => isEngageRound, "engageOptions": () => engageOptions, "engagePreview": () => engagePreview, "offBalance": () => offBalance, "heatView": () => heatView, "heatPreview": () => heatPreview, "fleeChance": () => fleeChance, "newRun": () => newRun, "legalActions": () => legalActions, "whyIllegal": () => whyIllegal, "isLegal": () => isLegal, "step": () => step, "stepInPlace": () => stepInPlace, "autoAction": () => autoAction, "summary": () => summary, "serialize": () => serialize, "deserialize": () => deserialize, "mapView": () => mapView, "debug": () => debug });
 yield;
 // Rules engine: public API (docs/specs/engine-api.md has the full contract and the event list).
 //
@@ -9046,7 +9767,9 @@ yield;
 // IllegalActionError, display helpers (xpToNext, talentPointsFree, itemScore, spellCost, spellCooldown,
 // spellInfo, fleeChance, bagCapacity, travelLevel, resurrectCharges, bossPar, defaultTarget), combat v2 helpers
 // (engageOptions, engagePreview, isEngageRound, offBalance; rules 7.10-7.13), the heat meter (heatView, heatPreview;
-// rules 1.7.1-1.7.2, 1.9.10), rule helpers (V, xpCurve, diffMod, zoneDanger) and every constant via `C`.
+// rules 1.7.1-1.7.2, 1.9.10), rule helpers (V, xpCurve, diffMod, zoneDanger), every constant via `C`, and the dev tools
+// `debug` (engine-api.md 12, dev only: src/engine/debug.js).
+
 
 
 
@@ -9378,6 +10101,13 @@ function mapView(state) {
   }));
   return { z: s.zone.z, name: zoneContent(c, s.zone.z).name, pos: { ...s.zone.pos }, next: nextLanes(s.zone), rows };
 }
+
+/**
+ * Dev tools (engine-api.md 12; dev only, not game rules): build a run at any zone and level, jump to the Camp or the
+ * end-boss fight, start any encounter, set the hours, grant Echoes, god mode, validate a state. A run they change is a
+ * dev run: no Echoes, the profile stays as it was. Pure and seeded like step.
+ */
+const debug = createDebug({ newRun, step, serialize, deserialize, mapView, heatView, summary, STATE_VERSION });
 
 });
 __bundle.def("src/content/zones.js", function* (__ns, __link) {
@@ -16268,6 +16998,11 @@ yield;
 //   mapMode: 'rows' or 'expedition'. ?expedition=1 starts expedition runs (rules 1.9; off by default): zone.exp is then
 //   R.mapView (engine-api.md 10.3) and zone.rows is empty.
 // UI action META_BUY { id } (CREATE only): R.buyMeta on the stored profile; the run being created picks up the new profile.
+//   dev:     the dev tools' marker of the run (engine-api.md 12: { god, tools }), null for a normal run; data.dev: what the Dev
+//            menu lists (the enemy templates from R.debug.enemies, rarities, limits, heat states, zones' first levels).
+// Dev tools (engine-api.md 12; src/ui/dev-menu.js): bridge.dev(op, args) runs R.debug on the run or the profile and replaces
+//   the run with the result; every op goes into the engine log as { type: 'DEV', fn, args } so a Node twin replays it. A dev
+//   run is left out of the run log (tbwcr.history.v1); its summary carries `dev` { god, tools, withheld }.
 // Events: { t: 'damage'|'heal'|'action'|'status'|'death'|'interrupt'|'skip'|'xp'|'levelUp'|'victory'|'flee'|'resurrect'|'bossPhase'|'summon'|... }
 
 
@@ -16337,6 +17072,19 @@ function metaData(K) {
     greaterHeal: K.CONSUMABLE.greater_healing_draught.heal,
     uniques: { rare: byZone('rare'), epic: byZone('epic'), weapon: Object.fromEntries(uniq.filter((u) => u.kind === 'weapon').map((u) => [u.classId, { name: u.name, text: u.text }])) },
     zones: zones.map((z) => z.name),
+  };
+}
+
+/**
+ * What the Dev menu offers (engine-api.md 12; src/ui/dev-menu.js): every enemy template with its home zone and kind
+ * (R.debug.enemies), the gear rarities, the limits of the level and item level, the heat states, each zone's first level
+ * (rules 1.3: the level debug.build gives a zone when none is chosen), and the build defaults (C.DEV).
+ */
+function devData(K) {
+  return {
+    enemies: R.debug.enemies(CONTENT), rarities: [...K.RARITY_ORDER], maxLevel: K.MAX_LEVEL, ilvlMax: K.ILVL_MAX, heatStates: [...K.HEAT_STATES],
+    zoneCount: K.ZONE_COUNT, firstLevel: Array.from({ length: K.ZONE_COUNT + 1 }, (_, i) => (i < K.ZONE_COUNT ? K.ZONE_LEVELS * i + 1 : K.MAX_LEVEL)),
+    defaults: { ...K.DEV }, kinds: ['normal', 'elite', 'rare', 'trash', 'dboss'],
   };
 }
 
@@ -16446,13 +17194,15 @@ const randomSeed = () => Math.floor(Math.random() * 0xffffffff) >>> 0;
 function engineBackend(seedOpt, runOpts = {}) {
   const C = R.C;
   let profile = loadProfile();
+  // newRun's map options for this session (?expedition=1, ?dimming=0); the Dev menu can switch the map mode
+  let runMode = { ...runOpts };
   let history = loadHistory();
   /** A run in CREATE. keep: { classId, petId } of the run before (the next run starts on the same class). runOpts: mapMode. */
   const mkRun = (seed, keep = {}) => {
     const classId = keep.classId || 'rogue'; const petId = classId === 'hunter' ? keep.petId || 'ridgewolf' : null;
-    try { return R.newRun({ classId, petId, seed, content: CONTENT, profile: profile || undefined, ...runOpts }); } catch (e) {
-      try { return R.newRun({ classId, petId: classId === 'hunter' ? 'ridgewolf' : null, seed, content: CONTENT, profile: profile || undefined, ...runOpts }); } catch (e2) {
-        profile = null; return R.newRun({ classId: 'rogue', seed, content: CONTENT, ...runOpts });
+    try { return R.newRun({ classId, petId, seed, content: CONTENT, profile: profile || undefined, ...runMode }); } catch (e) {
+      try { return R.newRun({ classId, petId: classId === 'hunter' ? 'ridgewolf' : null, seed, content: CONTENT, profile: profile || undefined, ...runMode }); } catch (e2) {
+        profile = null; return R.newRun({ classId: 'rogue', seed, content: CONTENT, ...runMode });
       }
     }
   };
@@ -16460,6 +17210,8 @@ function engineBackend(seedOpt, runOpts = {}) {
   // engineLog: the engine actions applied to this run, in order (a test hook: a Node twin replays them, qa/browser)
   // heatUp: uid -> the heat state that raised the item one rarity (heatSteps); nodeHeat: node key -> its entry state
   const local = { introSeen: new Set(), spoils: null, hold: null, reward: null, fightNo: 0, lastRun: null, runNo: 0, engineLog: [], heatUp: new Map(), nodeHeat: new Map() };
+  /** A new run on screen: the presentation state and the engine log start afresh. */
+  const resetLocal = () => { local.introSeen.clear(); local.spoils = null; local.hold = null; local.reward = null; local.engineLog = []; local.heatUp.clear(); local.nodeHeat.clear(); };
 
   // ---------------------------------------------------------------- static data for the UI
   const treeId = (cls, i) => C.CLASS[cls].trees[i].toLowerCase().replace(/\W+/g, '');
@@ -16489,6 +17241,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     rules: rulesTable(C),
     meta: metaData(C),
     v2: v2Data(C),
+    dev: devData(C),
   };
   /** A pet that needs a meta unlock (Stormhawk) is locked until the profile owns it; refreshed after every purchase. */
   const refreshPets = () => { for (const pd of Object.values(data.pets)) pd.locked = !!pd.meta && !(profile && (profile.unlocks[pd.meta] || 0) > 0); };
@@ -16955,6 +17708,8 @@ function engineBackend(seedOpt, runOpts = {}) {
       echoTotal: sm.echoes ? sm.echoes.total : 0,
       // Oaths (rules 11.5): the engine's multiplier on the sum of the lines
       echoMult: sm.echoes ? sm.echoes.oathMult : 1, oaths: (sm.oaths || []).map((o) => (C.OATH[o] ? C.OATH[o].name : TXT.humanize(o))),
+      // a dev run (engine-api.md 12): no Echoes; withheld = what it would have earned
+      dev: sm.dev ? { god: !!sm.dev.god, tools: [...sm.dev.tools], withheld: (sm.echoes && sm.echoes.withheld) || 0 } : null,
     };
   }
 
@@ -17015,7 +17770,7 @@ function engineBackend(seedOpt, runOpts = {}) {
   /** After a purchase: the run being created takes the new profile; class, pet, name, seed and Oaths stay. */
   function rebuildCreate() {
     const c = st.create;
-    let s = R.newRun({ classId: c.classId, petId: c.classId === 'hunter' ? c.petId : null, name: c.name || '', seed: c.seed, profile, content: CONTENT, ...runOpts });
+    let s = R.newRun({ classId: c.classId, petId: c.classId === 'hunter' ? c.petId : null, name: c.name || '', seed: c.seed, profile, content: CONTENT, ...runMode });
     for (const o of c.oaths || []) { const a = { type: 'SET_OATH', oath: o, on: true }; if (R.isLegal(s, a)) s = R.step(s, a).state; }
     st = s;
   }
@@ -17042,7 +17797,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     const s = st;
     const v = { hours: s.hours || 0, autoplay: !!s.autoplay, seed: s.create ? s.create.seed : s.seed, mode: 'engine' };
     if (s.phase === 'CREATE') {
-      return { ...v, phase: 'CREATE', create: { classId: s.create.classId || 'rogue', petId: s.create.petId || 'ridgewolf', name: s.create.name || '', seed: s.create.seed, oaths: (s.create.oaths || []).slice() }, oaths: (s.create.oaths || []).slice(), meta: metaView(s), player: null, zone: null, node: null, combat: null, loot: null, summary: null, legal: { lanes: [], services: {}, items: [], spells: {} } };
+      return { ...v, phase: 'CREATE', create: { classId: s.create.classId || 'rogue', petId: s.create.petId || 'ridgewolf', name: s.create.name || '', seed: s.create.seed, oaths: (s.create.oaths || []).slice() }, oaths: (s.create.oaths || []).slice(), meta: metaView(s), player: null, zone: null, node: null, combat: null, loot: null, summary: null, dev: null, mapMode: s.mapMode || 'rows', legal: { lanes: [], services: {}, items: [], spells: {} } };
     }
     v.oaths = (s.oaths || []).slice();
     v.phase = s.phase === 'ENDED' ? 'SUMMARY' : s.phase;
@@ -17056,6 +17811,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     v.meta = v.phase === 'SUMMARY' ? metaView(s) : null;
     v.par = R.bossPar(s); // the run's par (rules 1.7), the Oath of Haste included
     v.mapMode = s.mapMode || 'rows';
+    v.dev = s.dev ? { god: !!s.dev.god, tools: [...s.dev.tools] } : null; // dev tools (engine-api.md 12)
     v.heat = v.phase === 'SUMMARY' ? null : heatOf(s);
     // the camp panel reads the meter's numbers (heatView: at the Camp the line is the par and ascIfPar is the Ascendancy
     // FIGHT_BOSS gives), so the panel, the tracker, the minimap and the meter agree; a dry FIGHT_BOSS without heat
@@ -17344,12 +18100,12 @@ function engineBackend(seedOpt, runOpts = {}) {
           if (st.result && st.result.profile) {
             const sum = st.result.summary;
             profile = st.result.profile; saveProfile(profile); refreshPets();
-            recordRun(sum);
+            if (!sum.dev) recordRun(sum); // a dev run (engine-api.md 12) stays out of the run log
             local.lastRun = { n: ++local.runNo, name: sum.name, classId: sum.classId, className: sum.className, outcome: sum.outcome, level: sum.level,
-              gained: st.result.echoes, before, after: profile.echoes, firstKill: ((sum.echoes && sum.echoes.lines) || []).some((l) => l.id === 'firstKill') };
+              gained: st.result.echoes, before, after: profile.echoes, firstKill: ((sum.echoes && sum.echoes.lines) || []).some((l) => l.id === 'firstKill'), dev: !!sum.dev };
           }
           st = mkRun(randomSeed(), keep); // the next run starts on the same class
-          local.introSeen.clear(); local.spoils = null; local.hold = null; local.reward = null; local.engineLog = []; local.heatUp.clear(); local.nodeHeat.clear();
+          resetLocal();
           return { ok: true, events: [] };
         }
         case 'META_BUY': {
@@ -17415,6 +18171,74 @@ function engineBackend(seedOpt, runOpts = {}) {
     }
   }
 
+  /**
+   * Dev tools (engine-api.md 12; the Dev menu): op on the run or the profile through R.debug, then the run on screen is the
+   * result. Ops: build (Start at), camp, boss { phase }, nextZone, fight { ids, level }, kill { target }, refill, god { on },
+   * give { gold, potions, talentPoints }, hours { hours }, heat { state }, reveal, mapMode { mode }, echoes { n }, catalogue,
+   * seed { seed } (a new run in CREATE on that seed, class and pet kept). Each op on the run goes into the engine log as
+   * { type: 'DEV', fn, args } (R.debug.fn(state, ...args); build: R.debug.build({ ...args[0], content })). Jumps start the
+   * presentation afresh (no spoils, intros or holds); a kill that ends a fight shows its spoils as a victory would. The
+   * result is checked with R.debug.validate (no steps): a failure is logged as a console error. Returns { ok, error, note }.
+   */
+  function dev(op, args = {}) {
+    const D = R.debug;
+    const before = st; const logLen = local.engineLog.length;
+    const prev = view();
+    const events = [];
+    let note = null; let fresh = false;
+    const copy = (x) => JSON.parse(JSON.stringify(x));
+    const run = (fn, ...a) => { const r = D[fn](st, ...a); st = r.state; events.push(...r.events); local.engineLog.push({ type: 'DEV', fn, args: copy(a) }); return r; };
+    const modeOf = (mode) => (mode === 'expedition' ? { mapMode: 'expedition' } : {});
+    try {
+      switch (op) {
+        case 'build': {
+          const o = { ...args, seed: args.seed ?? (st.create ? st.create.seed : st.seed), profile: profile || null };
+          const r = D.build({ ...o, content: CONTENT });
+          st = r.state; resetLocal(); fresh = true;
+          local.engineLog = [{ type: 'DEV', fn: 'build', args: [copy(o)] }];
+          runMode = modeOf(st.mapMode);
+          break;
+        }
+        case 'camp': run('toCamp'); fresh = true; break;
+        case 'boss': run('toBoss', { phase: args.phase || 1 }); fresh = true; break;
+        case 'nextZone': run('nextZone'); fresh = true; break;
+        case 'fight': run('encounter', { ids: args.ids, level: args.level ?? null }); fresh = true; break;
+        case 'kill': run('killTarget', args.target ?? null); break;
+        case 'refill': run('refill'); break;
+        case 'god': run('setGod', !!args.on); break;
+        case 'give': note = run('give', { gold: args.gold || 0, potions: args.potions || 0, talentPoints: args.talentPoints || 0 }).given; break;
+        case 'hours': run('setHours', args.hours); break;
+        case 'heat': run('setHeat', args.state); break;
+        case 'reveal': run('revealMap'); break;
+        case 'mapMode':
+          runMode = modeOf(args.mode);
+          if (st.phase === 'CREATE') { rebuildCreate(); local.engineLog = []; } else { run('setMapMode', args.mode); fresh = true; }
+          break;
+        case 'echoes': case 'catalogue':
+          profile = op === 'echoes' ? D.grantEchoes(profile || R.newProfile(), args.n) : D.fullCatalogue(profile || R.newProfile());
+          saveProfile(profile); refreshPets();
+          if (st.phase === 'CREATE') rebuildCreate();
+          else if (st.phase !== 'ENDED') run('setProfile', profile);
+          break;
+        case 'seed': {
+          const keep = st.create ? { classId: st.create.classId, petId: st.create.petId } : { classId: st.player.classId, petId: st.player.pet ? st.player.pet.id : null };
+          st = mkRun(Number(args.seed) >>> 0, keep); resetLocal(); fresh = true;
+          break;
+        }
+        default: return { ok: false, error: `Unknown dev tool ${op}` };
+      }
+    } catch (err) {
+      st = before; local.engineLog.length = Math.min(local.engineLog.length, logLen);
+      if (err && err.code === 'ILLEGAL_ACTION') return { ok: false, error: reasonOf(err) };
+      console.error(err); // not a refusal: a fault of the dev tools, shown and logged
+      return { ok: false, error: `Dev tools: ${(err && err.message) || err}` };
+    }
+    if (fresh) { local.spoils = null; local.hold = null; local.reward = null; } else afterStep(prev, events);
+    const bad = R.debug.validate(st, { steps: false });
+    if (bad.length) console.error(`[dev] ${op}: the state fails the engine's checks: ${bad.join('; ')}`);
+    return { ok: true, note };
+  }
+
   return {
     mode: 'engine', data, canDebug: false,
     view,
@@ -17458,10 +18282,13 @@ function engineBackend(seedOpt, runOpts = {}) {
      */
     testLoad(serialized) {
       st = R.deserialize(serialized, CONTENT);
-      local.introSeen.clear(); local.spoils = null; local.hold = null; local.reward = null; local.engineLog = []; local.heatUp.clear(); local.nodeHeat.clear();
+      resetLocal();
       if (st.node && st.fight) local.introSeen.add(nodeKey(st));
       return true;
     },
+    /** Test hook (qa/browser/ui-regress.mjs part K): the run as R.serialize has it. */
+    serialized() { return R.serialize(st); },
+    dev,
     /** Heat after a UI action (R.heatPreview, engine-api.md 11.2; no step), or null when it costs no hours or is not legal. */
     heatPreview(action) {
       if (!R.heatPreview || !st.player) return null;
@@ -17515,6 +18342,21 @@ class Bridge {
     for (const fn of this.listeners) fn(this._view, [], { type: 'TEST_LOAD' });
     return true;
   }
+  /**
+   * Dev tools (engine-api.md 12; src/ui/dev-menu.js): run a dev op (engine backend dev(): R.debug on the run or the
+   * profile). Listeners see the new view. Returns { ok, error, note, view }; mock mode: not available.
+   */
+  dev(op, args = {}) {
+    if (!this.backend.dev) return { ok: false, error: 'The dev tools need the engine (not ?mock=1)', view: this._view };
+    const r = this.backend.dev(op, args);
+    if (r.ok) {
+      this._view = this.backend.view();
+      for (const fn of this.listeners) fn(this._view, [], { type: 'DEV', op });
+    }
+    return { ...r, view: this._view };
+  }
+  /** Test hook: the run as R.serialize has it (engine mode), or null. */
+  serialized() { return this.backend.serialized ? this.backend.serialized() : null; }
   /** Engage panel hover preview (combat v2, R.engagePreview); null in mock mode or when the option is not legal. */
   engagePreview(option, target, spellId) { return this.backend.engagePreview ? this.backend.engagePreview(option, target, spellId) : null; }
   /** Heat after a UI action (R.heatPreview); null in mock mode, for an action without hours or an illegal one. */
@@ -17539,6 +18381,8 @@ function createBridge(opts = {}) {
 
 const flags = {
   mock: params.get('mock') === '1',
+  // the Dev menu (engine-api.md 12): on unless ?dev=0 (the settings can hide it too)
+  dev: params.get('dev') !== '0',
   debug: params.get('debug') === '1',
   speed: params.get('speed'),
   expedition: params.get('expedition') === '1',
@@ -18801,8 +19645,8 @@ function drawPortrait(ctx, size, look, kind = 'humanoid', extra = {}) {
 __bundle.def("src/ui/settings.js", function* (__ns, __link) {
 let emitter; __link.imp("src/ui/util.js", [["emitter", (v) => { emitter = v; }]]); __link.exp({ "settings": () => settings });
 yield;
-// Player-facing presentation settings (animation speed, fast mode, screen shake, reduce motion). Persisted in
-// localStorage when available. Nothing here changes game rules.
+// Player-facing presentation settings (animation speed, fast mode, screen shake, reduce motion, the Dev menu). Persisted
+// in localStorage when available. Nothing here changes game rules.
 
 
 const KEY = 'tbwcr.ui.settings.v1';
@@ -18814,6 +19658,7 @@ const DEFAULTS = {
   shake: true,         // screen shake on heavy hits
   speedrun: false,     // preset: instant animations, no travel, short autoplay delay
   reduceMotion: null,  // no screen shake, small recoil, no number slam; null follows the system's reduced-motion setting
+  devTools: true,      // the Dev menu (dev-menu.js, engine-api.md 12): its corner button and the backquote key
 };
 
 function load() {
@@ -22028,7 +22873,9 @@ function buildSummary(v, ctx) {
   const won = s.outcome === 'victory';
   win.appendChild(h('div.shead', h('div.t1.subtitle', { style: { letterSpacing: '.4em', textTransform: 'uppercase' } }, won ? 'Victory' : 'The run has ended'),
     h('div.t2', { style: { color: won ? '#ffe08a' : '#e8a090' } }, won ? 'Oruvath has fallen' : `${s.name} has fallen`),
-    h('div.subtitle', `${s.name} · level ${s.level} ${s.className}${s.petId ? ' with ' + ctx.data.pets[s.petId].name : ''} · ${s.zone}`)));
+    h('div.subtitle', `${s.name} · level ${s.level} ${s.className}${s.petId ? ' with ' + ctx.data.pets[s.petId].name : ''} · ${s.zone}`),
+    // a dev run (engine-api.md 12): the dev tools changed it, so it earns no Echoes
+    s.dev ? h('div.devrun', `Dev run${s.dev.god ? ' · god mode' : ''}`) : null));
   const kv = (pairs) => h('dl.kv', pairs.flatMap(([k, val]) => [h('dt', k), h('dd', val)]));
   const card1 = h('div.card', h('h3', 'The journey'), kv([
     ['Reached', `${s.zone}${s.row ? `, row ${s.row}` : ''}`], ['In-game time', `${s.hours} h`], ['Ascendancy', s.asc ? `+${Math.round(s.asc * 100)} %` : 'none'],
@@ -22043,7 +22890,8 @@ function buildSummary(v, ctx) {
   // Echoes (rules 11.1): the engine's lines; the balance after the run from the bridge's dry END_RUN (view.meta.after)
   const after = v.meta && v.meta.after;
   const oathLine = s.echoMult && s.echoMult !== 1 ? h('div.echo', h('span.dim', `${s.oaths.join(', ')}`), h('b', `×${Math.round(s.echoMult * 100) / 100}`)) : null;
-  const card3 = h('div.card', h('h3', 'Echoes earned'), s.echoes.map(([k, n]) => h('div.echo', h('span.dim', k), h('b', `+${n}`))), oathLine, h('div.echo.total', h('span', 'Total'), h('span', `${s.echoTotal} Echoes`)),
+  const devLine = s.dev ? h('div.echo.devline', h('span', `A dev run earns no Echoes (${s.dev.withheld} withheld)`)) : null;
+  const card3 = h('div.card', h('h3', 'Echoes earned'), s.echoes.map(([k, n]) => h('div.echo', h('span.dim', k), h('b', `+${n}`))), oathLine, devLine, h('div.echo.total', h('span', 'Total'), h('span', `${s.echoTotal} Echoes`)),
     after ? h('div.echo.after', h('span.dim', 'Your Echoes after this run'), echoAmt(after.echoes)) : null,
     h('div.muted', { style: { marginTop: '.8rem', fontSize: '1.1rem' } }, after
       ? (after.affordable ? `Echoes buy lasting unlocks between runs. ${cap(numWord(after.affordable))} ${plural(after.affordable, 'unlock')} within reach.` : 'Echoes buy lasting unlocks between runs. Keep them for the next one.')
@@ -22063,9 +22911,10 @@ function buildSummary(v, ctx) {
 
 });
 __bundle.def("src/ui/windows.js", function* (__ns, __link) {
-let h, clear, fmtNum, moneyEl, pct; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["pct", (v) => { pct = v; }]]); let spellIcon, itemIcon, slotIcon, talentIcon, icon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["slotIcon", (v) => { slotIcon = v; }], ["talentIcon", (v) => { talentIcon = v; }], ["icon", (v) => { icon = v; }]]); let drawHumanoid, HERO_LOOKS; __link.imp("src/ui/art-actors.js", [["drawHumanoid", (v) => { drawHumanoid = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }]]); let tip, itemTip, spellTip, talentTip, SLOT_NAMES; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }], ["talentTip", (v) => { talentTip = v; }], ["SLOT_NAMES", (v) => { SLOT_NAMES = v; }]]); let dragSource, dropTarget; __link.imp("src/ui/hud.js", [["dragSource", (v) => { dragSource = v; }], ["dropTarget", (v) => { dropTarget = v; }]]); let buildMap; __link.imp("src/ui/screens.js", [["buildMap", (v) => { buildMap = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let resurrectText; __link.imp("src/ui/ui-text.js", [["resurrectText", (v) => { resurrectText = v; }]]); __link.exp({ "createWindows": () => createWindows });
+let h, clear, fmtNum, moneyEl, pct; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["pct", (v) => { pct = v; }]]); let spellIcon, itemIcon, slotIcon, talentIcon, icon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["slotIcon", (v) => { slotIcon = v; }], ["talentIcon", (v) => { talentIcon = v; }], ["icon", (v) => { icon = v; }]]); let drawHumanoid, HERO_LOOKS; __link.imp("src/ui/art-actors.js", [["drawHumanoid", (v) => { drawHumanoid = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }]]); let tip, itemTip, spellTip, talentTip, SLOT_NAMES; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }], ["talentTip", (v) => { talentTip = v; }], ["SLOT_NAMES", (v) => { SLOT_NAMES = v; }]]); let dragSource, dropTarget; __link.imp("src/ui/hud.js", [["dragSource", (v) => { dragSource = v; }], ["dropTarget", (v) => { dropTarget = v; }]]); let buildMap; __link.imp("src/ui/screens.js", [["buildMap", (v) => { buildMap = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let resurrectText; __link.imp("src/ui/ui-text.js", [["resurrectText", (v) => { resurrectText = v; }]]); let flags; __link.imp("src/ui/engine-bridge.js", [["flags", (v) => { flags = v; }]]); __link.exp({ "createWindows": () => createWindows });
 yield;
 // Toggleable windows: character sheet, bags, spellbook, talents, quest log, settings, zone map.
+
 
 
 
@@ -22197,7 +23046,8 @@ function createWindows(root, ctx) {
       };
       // reduceMotion shows what is in force (the system's setting until the player chooses)
       const on = (key) => (key === 'reduceMotion' ? settings.reduceMotion : !!s[key]);
-      const LABEL = { speedrun: 'Speedrun mode', skipTravel: 'Skip travel scenes', shake: 'Screen shake', reduceMotion: 'Reduce motion', showLog: 'Combat log' };
+      const LABEL = { speedrun: 'Speedrun mode', skipTravel: 'Skip travel scenes', shake: 'Screen shake', reduceMotion: 'Reduce motion', showLog: 'Combat log', devTools: 'Dev tools' };
+      const devRow = flags.dev && ctx.bridge.mode === 'engine';
       const tog = (key) => { const b = h('div.toggle' + (on(key) ? '.on' : ''), { role: 'switch', 'aria-checked': on(key) ? 'true' : 'false', 'aria-label': LABEL[key] || key }, h('div.sw')); b.addEventListener('click', () => { settings.set(key, !on(key)); refresh('settings'); }); return b; };
       const body = h('div.col', { style: { padding: '1rem 1.6rem 1.6rem', gap: 0 } },
         h('div.setrow', h('div', h('div', 'Animation speed'), h('div.muted', 'Space or a click skips to the end of the hit on screen. A key pressed while a round plays is queued as your next action.')), seg('speed', [[1, '1×'], [2, '2×'], [4, '4×'], [0, 'Instant']])),
@@ -22207,12 +23057,17 @@ function createWindows(root, ctx) {
         h('div.setrow', h('div', 'Screen shake'), tog('shake')),
         h('div.setrow', h('div', h('div', 'Reduce motion'), h('div.muted', 'No screen shake, smaller recoil, numbers without the slam.')), tog('reduceMotion')),
         h('div.setrow', h('div', 'Combat log'), tog('showLog')),
+        // the Dev menu (dev-menu.js): one line, so the window keeps clear of the Heat meter (#win-settings.dev); none with
+        // ?dev=0 or the mock engine
+        devRow ? h('div.setrow', h('div', 'Dev tools (the DEV tab and the ` key)'), tog('devTools')) : null,
         h('div', { style: { marginTop: '1.2rem' } }, h('div.title', { style: { fontSize: '1.5rem', marginBottom: '.6rem' } }, 'Keys'),
           h('div.keys', h('span.kbd', '1–7'), 'Spells', h('span.kbd', '8 9 0'), 'Items', h('span.kbd', 'A'), 'Basic attack', h('span.kbd', 'Tab'), 'Next target',
             h('span.kbd', 'Z'), 'Autoplay', h('span.kbd', 'F F'), 'Flee', h('span.kbd', 'X'), 'Pass', h('span.kbd', 'Space'), 'Skip a hit / take loot',
             h('span.kbd', 'C B P'), 'Character, bags, spells', h('span.kbd', 'N L M'), 'Talents, quests, map')),
         h('div.muted', { style: { marginTop: '1.2rem', fontSize: '1.1rem' } }, `Engine: ${ctx.bridge.mode}${globalThis.__BUILD__ ? ` · build ${globalThis.__BUILD__}` : ''}`));
-      return frame('settings', 'Menu and settings', null, body);
+      const win = frame('settings', 'Menu and settings', null, body);
+      if (devRow) win.classList.add('dev');
+      return win;
     },
     map(v) {
       if (!v.zone || !v.zone.rows || !v.zone.rows.length) return frame('map', 'Map', null, h('div.muted', { style: { padding: '2rem' } }, 'No zone map here.'));
@@ -22981,8 +23836,285 @@ function logDamage(e, name) {
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
 });
+__bundle.def("src/ui/dev-menu.js", function* (__ns, __link) {
+let h, clear, fmtNum, moneyEl; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }]]); __link.exp({ "createDevMenu": () => createDevMenu });
+yield;
+// The Dev menu (owner feedback 2026-11-11 07:41: "in-game dev tools from a menu, so he can test any stage without playing
+// through"; docs/specs/engine-api.md 12). A corner button and the backquote key (`) open a panel with six tabs: Start at
+// (class, pet, zone, level, item level, rarity, map mode, talents), Jump (the Camp, the end-boss fight in phase 1, 2 or 3,
+// the next zone), Fight (a searchable list of every enemy template by zone and type, the target killed, health and
+// resources refilled), Give (gold, potions, talent points, Echoes, the full catalogue), World (hours and heat, the map
+// revealed, god mode, the map mode) and Seed (the seed, copy it, a new run on a seed). On by default; ?dev=0 or the
+// settings hide it. Presentation only: every button sends one dev op through the bridge (ctx.dev -> engine-bridge.js dev
+// -> R.debug); the numbers it shows (levels, limits, kinds) come from the bridge's data.dev.
+
+
+const TABS = [['start', 'Start at'], ['jump', 'Jump'], ['fight', 'Fight'], ['give', 'Give'], ['world', 'World'], ['seed', 'Seed']];
+const KIND_NAME = { normal: 'Normal', elite: 'Elite', rare: 'Rare', trash: 'Dungeon trash', dboss: 'Dungeon boss' };
+const HEAT_LABEL = { clear: 'Clear', warm: 'Warm', hot: 'Hot', scorched: 'Scorched' };
+const RUN_PHASES = ['ZONE_HUB', 'MAP', 'NODE', 'CAMP', 'BOSS'];
+const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+
+/**
+ * Create the Dev menu in the HUD root. ctx: the app context (view, data, settings) plus dev(op, args) -> Promise<{ ok,
+ * error }> (App.devAct) and toast(text, kind). Returns { el, button, open, close, toggle, isOpen, enabled, update }.
+ */
+function createDevMenu(root, ctx, { allowed }) {
+  const d = ctx.data;
+  const D = d.dev;
+  // the mock engine (?mock=1) has no dev tools: no button, no menu, the key does nothing
+  if (!D) return { el: null, button: null, open() {}, close() {}, toggle() {}, isOpen: () => false, enabled: () => false, update() {}, tab() {} };
+  const button = h('button#devbtn', { type: 'button', 'aria-label': 'Dev tools', title: 'Dev tools (`)' }, h('span', 'D'), h('span', 'E'), h('span', 'V'));
+  const panel = h('div#devmenu.panel.hidden', { role: 'dialog', 'aria-label': 'Dev tools' });
+  root.append(button, panel);
+  let tab = 'start';
+  let built = null; // the tab on screen: { tab, refresh(view) }
+  // form values kept while the menu is open and between tabs
+  const form = { classId: null, petId: null, zone: null, level: '', ilvl: '', rarity: D.defaults.RARITY, mapMode: null, talents: 'auto',
+    q: '', fzone: 'all', fkind: 'all', flevel: '', gold: '10000', potions: String(D.defaults.POTIONS), points: '1', echoes: '1000', hours: '', seed: '' };
+
+  const enabled = () => allowed() && ctx.settings.get('devTools') !== false;
+  const isOpen = () => !panel.classList.contains('hidden');
+  const inRun = (v) => !!(v && v.player && RUN_PHASES.includes(v.phase));
+  /** A button that sends a dev op; focus leaves it afterwards so Space and the game's keys go to the game. */
+  const opBtn = (label, op, args, cls = '') => {
+    const b = h('button.btn.small' + cls, { type: 'button' }, label);
+    b.addEventListener('click', async () => {
+      b.blur();
+      const a = typeof args === 'function' ? args() : args;
+      if (a === null) return;
+      await ctx.dev(op, a || {});
+    });
+    return b;
+  };
+  const field = (label, input, hint = null) => h('label.dm-f', h('span.dm-l', label), input, hint ? h('span.dm-h', hint) : null);
+  const select = (key, options, onChange = null) => {
+    const el = h('select', { dataset: { f: key } }, options.map(([val, label]) => h('option', { value: String(val) }, label)));
+    el.value = String(form[key]);
+    el.addEventListener('change', () => { form[key] = el.value; if (onChange) onChange(el.value); });
+    return el;
+  };
+  const number = (key, { min, max, placeholder = '', step = 1 } = {}) => {
+    const el = h('input', { type: 'number', min: String(min), ...(max != null ? { max: String(max) } : {}), step: String(step), placeholder: String(placeholder), dataset: { f: key } });
+    el.value = form[key];
+    el.addEventListener('input', () => { form[key] = el.value; });
+    return el;
+  };
+  /** A whole number from a form field, or null with a toast naming the field. */
+  const whole = (key, label, min, max = Infinity, blankOk = false) => {
+    const raw = String(form[key]).trim();
+    if (raw === '' && blankOk) return undefined;
+    const n = Number(raw);
+    if (!Number.isInteger(n) || n < min || n > max) { ctx.toast(`${label}: a whole number ${max < Infinity ? `from ${min} to ${max}` : `of at least ${min}`}`, 'err'); return null; }
+    return n;
+  };
+
+  // ---------------------------------------------------------------- tabs
+  const builders = {
+    start(v) {
+      const cur = v.player || v.create || {};
+      if (!form.classId) form.classId = cur.classId || 'rogue';
+      if (!form.petId) form.petId = (v.player && v.player.petId) || (v.create && v.create.petId) || Object.keys(d.pets)[0];
+      if (form.zone === null) form.zone = v.zone && !v.zone.camp ? v.zone.idx : v.zone && v.zone.camp ? D.zoneCount + 1 : 1;
+      if (!form.mapMode) form.mapMode = v.mapMode || 'rows';
+      const zones = Array.from({ length: D.zoneCount }, (_, i) => [i + 1, `${i + 1} · ${(d.zones[i] || {}).name || `Zone ${i + 1}`}`]);
+      const lvl = number('level', { min: 1, max: D.maxLevel, placeholder: D.firstLevel[form.zone - 1] });
+      const pet = select('petId', Object.values(d.pets).map((p) => [p.id, `${p.name}${p.locked ? ' (locked)' : ''}`]));
+      const syncPet = () => { pet.disabled = form.classId !== 'hunter'; };
+      const cls = select('classId', Object.values(d.classes).map((c) => [c.id, c.name]), syncPet);
+      syncPet();
+      const zone = select('zone', [...zones, [D.zoneCount + 1, `${D.zoneCount + 1} · ${(d.camp && d.camp.name) || 'The Camp'}`]], (z) => { form.zone = Number(z); lvl.placeholder = String(D.firstLevel[form.zone - 1]); });
+      const go = opBtn('Start here', 'build', () => {
+        const level = whole('level', 'Level', 1, D.maxLevel, true);
+        const ilvl = whole('ilvl', 'Item level', 1, D.ilvlMax, true);
+        if (level === null || ilvl === null) return null;
+        return { classId: form.classId, petId: form.classId === 'hunter' ? form.petId : null, zone: Number(form.zone), level, ilvl, rarity: form.rarity, mapMode: form.mapMode, talents: form.talents };
+      }, '.primary');
+      go.dataset.dev = 'start';
+      const body = h('div.dm-grid',
+        field('Class', cls), field('Pet', pet), field('Zone', zone), field('Level', lvl, 'blank: the zone\'s first'),
+        field('Item level', number('ilvl', { min: 1, max: D.ilvlMax, placeholder: 'level' }), 'blank: the level'),
+        field('Rarity', select('rarity', D.rarities.map((r) => [r, cap(r)]))),
+        field('Map', select('mapMode', [['rows', 'Rows'], ['expedition', 'Expedition']])),
+        field('Talents', select('talents', [['auto', 'Spent (default build)'], ['unspent', 'Unspent']])));
+      return { el: h('div', body, h('div.dm-acts', go), h('div.dm-note', 'A new run in the zone\'s hub (the Camp: at the Camp), gear in every slot, every spell trained, potions and gold. The seed is the Seed tab\'s.')), refresh() {} };
+    },
+    jump(v) {
+      const btns = [opBtn('To the Camp', 'camp'), opBtn('Next zone', 'nextZone')];
+      const boss = [1, 2, 3].map((n) => { const b = opBtn(`Boss phase ${n}`, 'boss', { phase: n }); b.dataset.dev = `boss${n}`; return b; });
+      const all = [...btns, ...boss];
+      const why = h('div.dm-note');
+      return {
+        el: h('div', h('div.dm-acts', btns), h('div.dm-sub', 'End-boss fight'), h('div.dm-acts', boss), why,
+          h('div.dm-note', 'Leaves whatever is open (a fight, a node, a service, the loot window). The character and the hours stay; Next zone costs the travel hours.')),
+        refresh(vv) {
+          const ok = inRun(vv);
+          for (const b of all) b.disabled = !ok;
+          all[1].disabled = !ok || !!(vv.zone && vv.zone.camp);
+          why.textContent = ok ? '' : 'Start a run first (Start at, or Enter the world).';
+        },
+      };
+    },
+    fight(v) {
+      const list = h('div.dm-list', { role: 'list' });
+      const count = h('span.dm-h');
+      const search = h('input', { type: 'search', placeholder: 'Search name or id', 'aria-label': 'Search enemies', dataset: { f: 'q' } });
+      search.value = form.q;
+      const draw = () => {
+        const q = form.q.trim().toLowerCase();
+        const rows = D.enemies.filter((x) => (form.fzone === 'all' || String(x.zone) === form.fzone) && (form.fkind === 'all' || x.kind === form.fkind)
+          && (!q || x.name.toLowerCase().includes(q) || x.id.toLowerCase().includes(q)));
+        clear(list);
+        for (const x of rows) {
+          const b = opBtn('Fight', 'fight', () => { const level = whole('flevel', 'Level', 1, D.maxLevel, true); return level === null ? null : { ids: [x.id], level }; });
+          b.dataset.enemy = x.id;
+          b.disabled = !inRun(ctx.bridge.view);
+          list.appendChild(h('div.dm-row', { role: 'listitem', dataset: { enemy: x.id } },
+            h('div.dm-rn', h('b', x.name), h('span.dm-k.k-' + x.kind, KIND_NAME[x.kind] || x.kind)),
+            h('div.dm-rm', `${cap(x.archetype)} · zone ${x.zone ?? '-'} · `, h('code', x.id)), b));
+        }
+        count.textContent = `${rows.length} of ${D.enemies.length}`;
+      };
+      search.addEventListener('input', () => { form.q = search.value; draw(); });
+      const zoneSel = select('fzone', [['all', 'All zones'], ...Array.from({ length: D.zoneCount }, (_, i) => [String(i + 1), `Zone ${i + 1}`])], draw);
+      const kindSel = select('fkind', [['all', 'All types'], ...D.kinds.map((k) => [k, KIND_NAME[k]])], draw);
+      const lvl = number('flevel', { min: 1, max: D.maxLevel, placeholder: 'yours' });
+      draw();
+      const kill = opBtn('Kill target', 'kill', () => ({ target: ctx.ui.target }));
+      kill.dataset.dev = 'kill';
+      const refill = opBtn('Heal and refill', 'refill');
+      return {
+        el: h('div', h('div.dm-filter', search, zoneSel, kindSel), h('div.dm-filter', field('Level', lvl, 'blank: yours'), count), list,
+          h('div.dm-acts', kill, refill), h('div.dm-note', 'The fight replaces whatever is open; won or fled, you are back where you were. Kills pay XP, coin and loot.')),
+        refresh(vv) {
+          const ok = inRun(vv);
+          for (const b of list.querySelectorAll('button')) b.disabled = !ok;
+          kill.disabled = !(ok && vv.combat && !vv.combat.over);
+          refill.disabled = !ok;
+          lvl.placeholder = vv.player ? String(vv.player.level) : 'yours';
+        },
+      };
+    },
+    give(v) {
+      const gold = number('gold', { min: 1 });
+      const preview = h('span.dm-h');
+      const showGold = () => { clear(preview); const n = Number(form.gold); if (Number.isInteger(n) && n > 0) preview.appendChild(moneyEl(n)); };
+      gold.addEventListener('input', showGold); showGold();
+      const runOnly = [
+        opBtn('Give', 'give', () => { const n = whole('gold', 'Gold', 1); return n === null ? null : { gold: n }; }),
+        opBtn('Give', 'give', () => { const n = whole('potions', 'Potions', 1, 100); return n === null ? null : { potions: n }; }),
+        opBtn('Give', 'give', () => { const n = whole('points', 'Talent points', 1, 100); return n === null ? null : { talentPoints: n }; }),
+      ];
+      const ech = opBtn('Give', 'echoes', () => { const n = whole('echoes', 'Echoes', 1); return n === null ? null : { n }; });
+      const full = opBtn('Unlock the full catalogue', 'catalogue');
+      return {
+        el: h('div',
+          h('div.dm-line', field('Gold (copper)', gold, null), preview, runOnly[0]),
+          h('div.dm-line', field('Potions', number('potions', { min: 1, max: 100 }), null), runOnly[1]),
+          h('div.dm-line', field('Talent points', number('points', { min: 1, max: 100 }), null), runOnly[2]),
+          h('div.dm-sub', 'Profile (kept between runs)'),
+          h('div.dm-line', field('Echoes', number('echoes', { min: 1 }), null), ech),
+          h('div.dm-acts', full),
+          h('div.dm-note', 'Potions: Healing Draughts while the bags take them (a Mage gets Mana Draughts too). Echoes and the catalogue go to your saved profile.')),
+        refresh(vv) { for (const b of runOnly) b.disabled = !inRun(vv); },
+      };
+    },
+    world(v) {
+      const hours = number('hours', { min: 0, placeholder: v.hours ?? 0 });
+      const now = h('span.dm-h');
+      const set = opBtn('Set', 'hours', () => { const n = whole('hours', 'Hours', 0); return n === null ? null : { hours: n }; });
+      const heat = D.heatStates.map((st) => { const b = opBtn(HEAT_LABEL[st] || cap(st), 'heat', { state: st }); b.dataset.heat = st; return b; });
+      const reveal = opBtn('Reveal the map', 'reveal');
+      const god = h('div.toggle', { role: 'switch', 'aria-label': 'God mode', tabindex: '0' }, h('div.sw'), 'God mode');
+      god.addEventListener('click', () => ctx.dev('god', { on: !(ctx.bridge.view.dev && ctx.bridge.view.dev.god) }));
+      const modes = [['rows', 'Rows'], ['expedition', 'Expedition']].map(([m, label]) => { const b = h('button', { type: 'button' }, label); b.dataset.mode = m; b.addEventListener('click', () => { b.blur(); ctx.dev('mapMode', { mode: m }); }); return b; });
+      return {
+        el: h('div',
+          h('div.dm-line', field('Hours', hours, null), set, now),
+          h('div.dm-sub', 'Heat (the run\'s own clock)'), h('div.dm-acts', heat),
+          h('div.dm-acts', reveal, god),
+          h('div.dm-sub', 'Map'), h('div.seg.dm-seg', modes),
+          h('div.dm-note', 'God mode: you take no damage (a heavy blow counts as avoided). A run with it, or with any tool here, is a dev run: no Echoes. Map: the zone is drawn again in that mode, you at its hub.')),
+        refresh(vv) {
+          const ok = inRun(vv);
+          set.disabled = !ok; for (const b of heat) b.disabled = !ok;
+          reveal.disabled = !ok || !!(vv.zone && vv.zone.camp);
+          const on = !!(vv.dev && vv.dev.god);
+          god.classList.toggle('on', on); god.setAttribute('aria-checked', on ? 'true' : 'false'); god.classList.toggle('disabled', !ok);
+          for (const b of modes) b.classList.toggle('on', (vv.mapMode || 'rows') === b.dataset.mode);
+          hours.placeholder = String(vv.hours ?? 0);
+          now.textContent = vv.heat ? `now ${fmtNum(vv.hours)} h · ${HEAT_LABEL[vv.heat.state] || vv.heat.state}` : '';
+        },
+      };
+    },
+    seed(v) {
+      const cur = h('code.dm-seed');
+      const copy = h('button.btn.small', { type: 'button' }, 'Copy');
+      copy.addEventListener('click', async () => {
+        copy.blur();
+        const text = cur.textContent;
+        let ok = false;
+        try { await navigator.clipboard.writeText(text); ok = true; } catch { /* no clipboard (file://): select it instead */ }
+        if (!ok) { const r = document.createRange(); r.selectNodeContents(cur); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); try { ok = document.execCommand('copy'); } catch { ok = false; } }
+        ctx.toast(ok ? `Seed ${text} copied` : `Seed ${text} selected: copy it with Ctrl+C`, ok ? 'good' : 'info');
+      });
+      const restart = opBtn('Restart with this seed', 'seed', () => { const n = whole('seed', 'Seed', 0, 0xffffffff); return n === null ? null : { seed: n }; });
+      return {
+        el: h('div', h('div.dm-line', h('span.dm-l', 'Current seed'), cur, copy), h('div.dm-line', field('Seed', number('seed', { min: 0, placeholder: 'any whole number' }), null), restart),
+          h('div.dm-note', 'Restart: a new run on this seed at class select, the class and pet kept. Start at uses the current seed.')),
+        refresh(vv) { cur.textContent = String(vv.seed ?? (vv.create ? vv.create.seed : '')); },
+      };
+    },
+  };
+
+  // ---------------------------------------------------------------- frame
+  const status = h('span.dm-run');
+  const tabsEl = h('div.dm-tabs', { role: 'tablist' });
+  const body = h('div.dm-body', { role: 'tabpanel' });
+  const close = h('button.xbtn', { type: 'button', 'aria-label': 'Close dev tools' }, '×');
+  close.addEventListener('click', () => setOpen(false));
+  for (const [id, label] of TABS) {
+    const b = h('button.dm-tab', { type: 'button', role: 'tab', dataset: { tab: id } }, label);
+    b.addEventListener('click', () => { b.blur(); tab = id; build(); });
+    tabsEl.appendChild(b);
+  }
+  panel.append(h('div.dm-head', h('div.title', 'Dev tools'), status, close),
+    h('div.dm-warn', 'For testing. A run changed here is a dev run: no Echoes, your profile stays as it was.'), tabsEl, body);
+  button.addEventListener('click', () => { button.blur(); setOpen(!isOpen()); });
+
+  function build() {
+    const v = ctx.bridge.view;
+    for (const b of tabsEl.children) { const on = b.dataset.tab === tab; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); }
+    const t = builders[tab](v);
+    clear(body).appendChild(t.el);
+    built = { tab, refresh: t.refresh };
+    refresh(v);
+  }
+  function refresh(v) {
+    if (!v) return;
+    status.textContent = v.dev ? (v.dev.god ? 'Dev run · god mode' : 'Dev run') : '';
+    if (built) built.refresh(v);
+  }
+  function setOpen(on) {
+    if (on && !enabled()) return;
+    panel.classList.toggle('hidden', !on);
+    button.classList.toggle('on', on);
+    if (on) build();
+  }
+  function update(v) {
+    const en = enabled();
+    button.classList.toggle('hidden', !en);
+    if (!en && isOpen()) setOpen(false);
+    if (isOpen()) refresh(v);
+  }
+  ctx.settings.on('change', (k) => { if (k === 'devTools') update(ctx.bridge.view); });
+  update(ctx.bridge.view);
+  return { el: panel, button, open: () => setOpen(true), close: () => setOpen(false), toggle: () => setOpen(!isOpen()), isOpen, enabled, update, tab: (id) => { if (builders[id]) { tab = id; if (isOpen()) build(); } } };
+}
+
+});
 __bundle.def("src/ui/app.js", function* (__ns, __link) {
-let createBridge, flags; __link.imp("src/ui/engine-bridge.js", [["createBridge", (v) => { createBridge = v; }], ["flags", (v) => { flags = v; }]]); let Scene; __link.imp("src/ui/scene.js", [["Scene", (v) => { Scene = v; }]]); let createHud; __link.imp("src/ui/hud.js", [["createHud", (v) => { createHud = v; }]]); let createScreens; __link.imp("src/ui/screens.js", [["createScreens", (v) => { createScreens = v; }]]); let createWindows; __link.imp("src/ui/windows.js", [["createWindows", (v) => { createWindows = v; }]]); let Director; __link.imp("src/ui/director.js", [["Director", (v) => { Director = v; }]]); let initTooltip, hideTip; __link.imp("src/ui/tooltip.js", [["initTooltip", (v) => { initTooltip = v; }], ["hide", (v) => { hideTip = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let h, clear; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }]]); let enemyLook; __link.imp("src/ui/art-actors.js", [["enemyLook", (v) => { enemyLook = v; }]]); __link.exp({ "App": () => App, "flags": () => flags });
+let createBridge, flags; __link.imp("src/ui/engine-bridge.js", [["createBridge", (v) => { createBridge = v; }], ["flags", (v) => { flags = v; }]]); let Scene; __link.imp("src/ui/scene.js", [["Scene", (v) => { Scene = v; }]]); let createHud; __link.imp("src/ui/hud.js", [["createHud", (v) => { createHud = v; }]]); let createScreens; __link.imp("src/ui/screens.js", [["createScreens", (v) => { createScreens = v; }]]); let createWindows; __link.imp("src/ui/windows.js", [["createWindows", (v) => { createWindows = v; }]]); let Director; __link.imp("src/ui/director.js", [["Director", (v) => { Director = v; }]]); let initTooltip, hideTip; __link.imp("src/ui/tooltip.js", [["initTooltip", (v) => { initTooltip = v; }], ["hide", (v) => { hideTip = v; }]]); let createDevMenu; __link.imp("src/ui/dev-menu.js", [["createDevMenu", (v) => { createDevMenu = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let h, clear; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }]]); let enemyLook; __link.imp("src/ui/art-actors.js", [["enemyLook", (v) => { enemyLook = v; }]]); __link.exp({ "App": () => App, "flags": () => flags });
 yield;
 // App orchestrator: owns the bridge, scene, HUD, screens and windows; turns input into actions and
 // plays each step through the director. Presentation only.
@@ -22994,6 +24126,10 @@ yield;
 // Combat v2.1 (combat-v2.md 10.9): the wind-up hovered on a track, the ruler or a nameplate (the bar marks what answers it),
 // and a wind-up's own telegraph. Toasts: the same message merges ("×2") and at most two show at once (a queue holds the
 // rest), placed where no panel is: under the ruler in a fight, left of the zone map on the map.
+// Dev tools (owner feedback 2026-11-11; engine-api.md 12): the Dev menu (dev-menu.js) opens with the backquote key or its
+// corner button; each of its ops runs through devAct (the bridge's dev, R.debug) and the result is shown at once, as a
+// loaded state (no animation). ?dev=0 or the settings hide it.
+
 
 
 
@@ -23063,6 +24199,9 @@ class App {
       bridge: this.bridge, data: this.data, scene: this.scene, ui, settings,
       get view() { return app.shown; },
       act: (a) => app.act(a),
+      // the Dev menu (dev-menu.js): one dev op through the bridge (engine-api.md 12), and its messages
+      dev: (op, args) => app.devAct(op, args),
+      toast: (t, k) => app.toast(t, k),
       setShown: (v) => { app.shown = v; app.queueRender(); },
       syncScene: (v, o) => app.syncScene(v, o),
       get hud() { return app.hud; },
@@ -23071,6 +24210,7 @@ class App {
     this.hud = createHud(this.root, this.ctx);
     this.screens = createScreens(this.root, this.ctx);
     this.windows = createWindows(this.root, this.ctx);
+    this.devMenu = createDevMenu(this.root, this.ctx, { allowed: () => flags.dev && this.bridge.mode === 'engine' });
     this.director = new Director(this.ctx);
     this.bannerEl = h('div#banner', h('div.b0'), h('div.b1'), h('div.b2'));
     this.toasts = h('div#toasts', { 'aria-live': 'polite' });
@@ -23293,6 +24433,7 @@ class App {
     this.hud.update(v);
     this.screens.update(v);
     if (!this.director.playing) this.windows.update();
+    this.devMenu.update(this.bridge.view);
     document.body.dataset.phase = v.phase;
     // a fight on screen (the toasts move below the opening ruler, clear of the target frame; in the end-boss fight under the
     // boss frame, between the target frame and the boss's nameplate; style.css)
@@ -23444,7 +24585,9 @@ class App {
   }
 
   onKey(e) {
-    if (e.target && e.target.tagName === 'INPUT') return;
+    // the Dev menu (dev-menu.js): the backquote key opens and closes it, also from its own fields
+    if (e.code === 'Backquote' && this.devMenu.enabled()) { e.preventDefault(); this.devMenu.toggle(); return; }
+    if (e.target && ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
     const v = this.shown; const code = e.code;
     const inFight = v.combat && !v.combat.over;
     if (code === 'Space') {
@@ -23488,6 +24631,34 @@ class App {
       KeyC: () => this.windows.toggle('character'), KeyB: () => this.windows.toggle('bags'), KeyP: () => this.windows.toggle('spellbook'),
       KeyN: () => this.windows.toggle('talents'), KeyL: () => this.windows.toggle('questlog'), KeyM: () => this.windows.toggle('map') };
     if (map[code]) { e.preventDefault(); map[code](); }
+  }
+
+  /**
+   * A dev op from the Dev menu (engine-api.md 12): queued after the step on screen (which finishes at once), sent to the
+   * bridge (R.debug), and its result shown at once like a loaded state: no animation, the target, previews and the
+   * queued action cleared, the scene redrawn. A toast and a log line say what changed; a refusal shows its reason.
+   * Returns { ok, error }.
+   */
+  devAct(op, args = {}) {
+    clearTimeout(this.autoTimer);
+    if (this.director.playing) this.director.skip();
+    this.next = null; this.hud.setQueued(null);
+    const run = async () => {
+      try {
+        const r = this.bridge.dev(op, args);
+        if (!r.ok) { this.toast(r.error, 'err'); return r; }
+        this.ui.target = null; this.ui.preview = null; this.ui.precastArmed = false; this.ui.wuHover = null; this.ui.fleeArmed = false;
+        this.scene.clearFx(); this.showDeath(false); hideTip();
+        this.shown = this.bridge.view; this.syncScene(this.shown, { instant: true, enter: true }); this.retarget(this.shown);
+        this.windows.update(); this.queueRender();
+        const text = devText(op, args, r, this.shown);
+        this.toast(text, 'good'); this.hud.log(`Dev: ${text}`, 'lg-sys');
+        return r;
+      } catch (err) { console.error(err); return { ok: false, error: String(err) }; } finally { this.scheduleAuto(); }
+    };
+    const p = this.queue.then(run, run);
+    this.queue = p;
+    return p;
   }
 
   // ------------------------------------------------------------------ test hooks (headless checks)
@@ -23534,7 +24705,36 @@ class App {
         return true;
       },
       canDebug: app.bridge.canDebug,
+      /** The run as R.serialize has it (engine mode), for a Node twin to compare (qa/browser/ui-regress.mjs part K). */
+      state: () => app.bridge.serialized(),
+      /** Dev menu (engine-api.md 12): whether it is open; a dev op as the menu sends it. */
+      devOpen: () => app.devMenu.isOpen(),
+      dev: (op, args) => app.devAct(op, args),
     };
+  }
+}
+
+/** What a dev op did, for its toast and log line (dev-menu.js; presentation only). */
+function devText(op, args, r, v) {
+  const p = v.player;
+  const where = v.zone ? (v.zone.camp ? v.zone.name : `${v.zone.name} (zone ${v.zone.idx})`) : '';
+  switch (op) {
+    case 'build': return `${p ? `Level ${p.level} ${p.className}` : 'A new run'} at ${where}`;
+    case 'camp': return `At ${where}`;
+    case 'boss': return `End-boss fight, phase ${args.phase || 1}`;
+    case 'nextZone': return `On to ${where}`;
+    case 'fight': return `Fight: ${v.combat ? v.combat.enemies.map((e) => e.name).join(', ') : 'started'}`;
+    case 'kill': return 'Target killed';
+    case 'refill': return 'Health and resources refilled';
+    case 'god': return v.dev && v.dev.god ? 'God mode on: you take no damage' : 'God mode off';
+    case 'give': { const g = r.note || {}; return [g.gold ? `${g.gold} copper` : '', g.potions ? `${g.potions} potions` : '', g.talentPoints ? `${g.talentPoints} talent points` : ''].filter(Boolean).join(', ') + (g.gold || g.potions || g.talentPoints ? ' given' : 'Nothing fits in the bags'); }
+    case 'hours': case 'heat': return `${v.hours} h${v.heat ? `, ${v.heat.state}` : ''}`;
+    case 'reveal': return 'Map revealed';
+    case 'mapMode': return `${args.mode === 'expedition' ? 'Expedition' : 'Rows'} map`;
+    case 'echoes': return `${args.n} Echoes given`;
+    case 'catalogue': return 'Every unlock in the catalogue';
+    case 'seed': return `New run on seed ${args.seed}`;
+    default: return `Dev: ${op}`;
   }
 }
 
