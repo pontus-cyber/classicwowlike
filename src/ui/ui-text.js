@@ -436,11 +436,15 @@ const plurName = (n, name) => (n === 1 ? name : `${name}s`);
 /**
  * What an unlock does, from its catalogue entry m (R.C.META[id]: the effect per rank) and data.meta (D), with the
  * spells and pets tables (d): { short } for the card, { long } for the tooltip, { more } extra tooltip lines.
- * No number is written here: each comes from m or from D.
+ * No number is written here: each comes from m or from D. mode: 'expedition' when new runs start on the expedition map
+ * with the start camp (expedition.md 8.2, M2b v11: Scout's Eye is Pathfinder there, Swift Boots a Bell charge; the
+ * entries with m.mapMode 'expedition' act only there), else the classic map.
  */
-export function metaEffect(m, D, d) {
+export function metaEffect(m, D, d, mode = 'rows') {
   const N = D.num; const NM = D.names;
   const sp = m.spell && d.spells[m.spell];
+  const exp = mode === 'expedition';
+  const onlyExp = 'No effect on the classic map.';
   switch (m.id) {
     case 'vigor': return { short: `+${pct1(m.hpPct)} max health per rank`, long: `Every hero starts with ${pct1(m.hpPct)} more maximum health for each rank.` };
     case 'edge': return { short: `+${pct1(m.powerPct)} Power per rank`, long: `Every hero has ${pct1(m.powerPct)} more Power for each rank: more damage from every attack and spell.` };
@@ -458,8 +462,22 @@ export function metaEffect(m, D, d) {
     case 'heirloom_blade': return { short: `${humanize(m.rarity)} starting weapon, item level ${m.ilvl}`, long: `Your starting weapon is ${m.rarity} quality, item level ${m.ilvl}, instead of a common one.` };
     case 'pockets': return { short: `+${m.slots} bag slots per rank`, long: `Your bags hold ${m.slots} more items for each rank.` };
     case 'ledger': return { short: 'First lesson at each trainer visit is free', long: 'At the trainer of every zone hub and of the camp, the first spell you learn or train costs no gold.' };
-    case 'scout': return { short: 'The map shows rare elites, traps and Embers', long: `The zone map tells you which elites are rare, which chests are trapped, and which vendors sell an ${NM.ember}.` };
-    case 'swift_boots': return { short: `Travel on opens ${numWord(m.levels)} ${plural(m.levels, 'level')} earlier`, long: `You may travel on to the next zone ${numWord(m.levels)} ${plural(m.levels, 'level')} sooner than before.` };
+    case 'scout': {
+      const x = m.expedition; const pf = x ? `the type of every node within ${numWord(x.typeRadius)} hops shows on the map (not its level, enemies or contract marks)` : null;
+      const rows = `The zone map tells you which elites are rare, which chests are trapped, and which vendors sell an ${NM.ember}.`;
+      if (exp && x) return { short: `${x.name}: node types within ${x.typeRadius} hops`, long: `On the expedition map Scout's Eye works as ${x.name}: ${pf}.`, more: [`Classic map: ${rows}`] };
+      return { short: 'The map shows rare elites, traps and Embers', long: rows, more: pf ? [`Expedition map, as ${x.name}: ${pf}.`] : undefined };
+    }
+    case 'swift_boots': {
+      const x = m.expedition; const bell = x ? `${numWord(x.bell)} more Homeward Bell ${plural(x.bell, 'charge')} each run (at most ${numWord(N.bellMax)})` : null;
+      const rows = `You may travel on to the next zone ${numWord(m.levels)} ${plural(m.levels, 'level')} sooner than before.`;
+      if (exp && x) return { short: `+${x.bell} Homeward Bell ${plural(x.bell, 'charge')} each run`, long: `On the expedition map you set out with ${bell}.`, more: [`Classic map: ${rows}`] };
+      return { short: `Travel on opens ${numWord(m.levels)} ${plural(m.levels, 'level')} earlier`, long: rows, more: bell ? [`Expedition map: ${bell}.`] : undefined };
+    }
+    // expedition.md 8.2 (M2b v11): entries of the expedition map only (m.mapMode 'expedition'; the card shows a tag)
+    case 'cartographer': return { short: `${NM.charts} every run, free`, long: `On the expedition map the start camp's ${NM.charts} are yours every run, free: every node's region and the dungeon's place show on the map. ${onlyExp}` };
+    case 'old_hand': return { short: `${NM.tracker} every run, free`, long: `On the expedition map the start camp's ${NM.tracker} are yours every run, free: contract sites show within ${numWord(N.trackerRadius)} hops, hidden nodes too. ${onlyExp}` };
+    case 'quartermaster': return { short: `+${m.points} preparation points per rank`, long: `On the expedition map you have ${numWord(m.points)} more preparation points to spend at the start camp for each rank. ${onlyExp}` };
     case 'alchemist': return { short: `Vendors sell ${plurName(2, NM.greater)}`, long: `Every vendor also sells ${plurName(2, NM.greater)}: each restores ${pct1(D.greaterHeal)} of your maximum health.` };
     case 'cache': {
       const u = D.uniques.rare;
@@ -515,8 +533,13 @@ export function nextRunLines(n, D, d) {
   if (m.heirloom && n.weapon) add('heirloom_blade', `${n.weapon.name}: ${n.weapon.rarity} weapon, item level ${n.weapon.ilvl}`);
   if (m.bagSlots) add('pockets', `+${m.bagSlots} bag slots (${n.bagSlots} in all)`);
   if (m.ledger) add('ledger', 'First lesson at each trainer visit free');
-  if (m.scout) add('scout', 'Rare elites, traps and Embers on the map');
-  if (m.swiftBoots) add('swift_boots', `Travel on ${numWord(D.entries.swift_boots.levels)} ${plural(D.entries.swift_boots.levels, 'level')} earlier`);
+  // expedition.md 8.2 (M2b v11): n.exp when the next run starts on the expedition map with the start camp
+  const x = n.exp;
+  if (m.scout) add('scout', x ? `Pathfinder: node types within ${x.typeRadius} hops` : 'Rare elites, traps and Embers on the map');
+  if (m.swiftBoots) add('swift_boots', x ? `Homeward Bell: ${x.bell} ${plural(x.bell, 'charge')}` : `Travel on ${numWord(D.entries.swift_boots.levels)} ${plural(D.entries.swift_boots.levels, 'level')} earlier`);
+  if (x && x.unlocks.cartographer) add('cartographer', `${D.names.charts} owned`);
+  if (x && x.unlocks.old_hand) add('old_hand', `${D.names.tracker} owned`);
+  if (x && x.unlocks.quartermaster) add('quartermaster', `${x.points} preparation points (+${x.points - D.num.prepPoints})`);
   if (m.alchemist) add('alchemist', `${plurName(2, D.names.greater)} at vendors`);
   if (m.cache) add('cache', 'Unique rares in elite and treasure loot');
   if (m.relics) add('relics', 'Unique epics in dungeon boss loot');

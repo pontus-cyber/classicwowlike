@@ -13,6 +13,7 @@ const META_ICON = {
   vigor: ['heart', 'blood'], edge: ['slash', 'steel'], keen: ['target', 'gold'], quick_study: ['tome', 'arcane'], prospector: ['coin', 'gold'],
   talent_pt: ['stars3', 'epic'], satchel: ['potion', 'blood'], heirloom_blade: ['dagger', 'uncommon'], pockets: ['junk', 'earth'],
   ledger: ['tome', 'parchment'], scout: ['eye', 'nature'], swift_boots: ['boot', 'frost'],
+  cartographer: ['tome', 'nature'], old_hand: ['target', 'parchment'], quartermaster: ['coin', 'parchment'], // expedition.md 8.2 (M2b v11)
   alchemist: ['potion', 'epic'], cache: ['gem', 'rare'], relics: ['gem', 'epic'],
   stormhawk: ['bolt', 'frost'], second_breath: ['ember', 'heal'], oaths: ['rune', 'blood'],
 };
@@ -21,8 +22,12 @@ export function metaIcon(m) {
   const g = META_ICON[m && m.id] || ['spark', 'arcane'];
   return icon(g[0], g[1]);
 }
-/** Catalogue columns: the kinds of rules 11.2 in catalogue order, laid out in four columns of about equal height. */
-const COLUMN_OF = { stat: 0, 'start kit': 1, economy: 1, map: 1, items: 2, resurrect: 2, challenge: 2, skill: 3 };
+/**
+ * Catalogue columns: the kinds of rules 11.2 in catalogue order, laid out in four columns of about equal height. M2b v11:
+ * the expedition entries (Quartermaster in start kit, Cartographer and Old Hand in map) made column 1 the tallest, so
+ * economy moved under the stats.
+ */
+const COLUMN_OF = { stat: 0, economy: 0, 'start kit': 1, map: 1, items: 2, resurrect: 2, challenge: 2, skill: 3 };
 const COLUMNS = 4;
 const BUY_GAP_MS = 350; // a double click buys one rank, not two
 
@@ -94,7 +99,7 @@ export function createMeta(ctx) {
     const n = m.next;
     const chip = (l) => {
       const e = D.entries[l.id]; const c = h('span.mn-chip', { dataset: { id: l.id } }, l.text);
-      tip(c, () => h('div', h('div.tt-name', e ? e.name : l.text), e ? h('div.tt-line.desc', metaEffect(e, D, d).long) : null, h('div.tt-line.use', `Your next run: ${l.text}`)));
+      tip(c, () => h('div', h('div.tt-name', e ? e.name : l.text), e ? h('div.tt-line.desc', metaEffect(e, D, d, runMap()).long) : null, h('div.tt-line.use', `Your next run: ${l.text}`)));
       return c;
     };
     const list = h('div.mn-list', lines.length ? lines.map(chip) : h('span.muted', 'Nothing yet. Every unlock you buy shows here, and applies from the first step of the run.'));
@@ -107,10 +112,13 @@ export function createMeta(ctx) {
     idleTicker(m);
   }
 
+  /** The map new runs start on: 'expedition' with the start camp (expedition.md 8.2, M2b v11), else 'rows'. */
+  const runMap = () => { const rm = ctx.bridge && ctx.bridge.runMode ? ctx.bridge.runMode() : {}; return rm.mapMode === 'expedition' && rm.prep ? 'expedition' : 'rows'; };
+
   /** One unlock: icon, name, rank, effect, requirement, and the Buy button with its cost (or Owned / Locked). */
   function card(o, m, nowOf) {
     const D = ctx.data.meta; const e = D.entries[o.id] || { id: o.id, kind: o.kind };
-    const fx = metaEffect(e, D, ctx.data);
+    const fx = metaEffect(e, D, ctx.data, runMap());
     const state = offerState(o);
     const pips = o.ranks > 1 ? h('span.pips', Array.from({ length: o.ranks }, (_, i) => h('i' + (i < o.rank ? '.on' : '')))) : null;
     let right;
@@ -124,7 +132,7 @@ export function createMeta(ctx) {
     const req = state === 'locked' ? h('div.mc-req', `Needs ${o.req.map((r) => metaReqText(r, D, true)).join(' and ')}`) : null;
     const el2 = h('div.mcard', { dataset: { id: o.id, state } }, h('img.ic', { src: metaIcon(e), alt: '' }),
       h('div.mc-t', h('span.nm', o.name), h('span.rk', `${o.rank}/${o.ranks}`), pips), right,
-      h('div.mc-fx', fx.short), req);
+      h('div.mc-fx', e.mapMode === 'expedition' ? h('span.mexp', 'Expedition') : null, fx.short), req);
     el2.classList.add(state);
     if (o.rank > 0 && state !== 'owned') el2.classList.add('some');
     tip(el2, () => cardTip(o, e, fx, state, m, nowOf));
@@ -136,7 +144,9 @@ export function createMeta(ctx) {
     const [kindName] = META_KIND[o.kind] || [o.kind];
     const box = h('div.tt-spell.tt-meta');
     box.appendChild(h('div.tt-row', h('div.tt-name', o.name), h('div.tt-rank', `Rank ${o.rank}/${o.ranks}`)));
-    box.appendChild(h('div.tt-sub', o.ranks > 1 ? `${kindName} · ${o.ranks} ranks` : kindName));
+    // expedition.md 8.2 (M2b v11): an entry of the expedition map only says so under its kind
+    const only = e.mapMode === 'expedition' ? ' · expedition map only' : '';
+    box.appendChild(h('div.tt-sub', `${o.ranks > 1 ? `${kindName} · ${o.ranks} ranks` : kindName}${only}`));
     box.appendChild(h('div.tt-line.desc', fx.long || fx.short));
     for (const line of fx.more || []) box.appendChild(h('div.tt-line.stat', line));
     if (nowOf.has(o.id)) box.appendChild(h('div.tt-line.use', `Your next run: ${nowOf.get(o.id)}`));
@@ -159,6 +169,7 @@ export function createMeta(ctx) {
     if (o.id === 'oaths') return 'Owned. Swear them on class select, under the class cards.';
     if (e.spell && d.spells[e.spell]) return `Owned. It works on ${cls(d.spells[e.spell].cls)} runs.`;
     if (e.pet) return `Owned. It works on ${cls('hunter')} runs.`;
+    if (e.mapMode === 'expedition') return `Owned${o.ranks > 1 ? `: rank ${o.rank}` : ''}. It works on expedition runs with the start camp.`; // expedition.md 8.2 (M2b v11)
     return `Owned${o.ranks > 1 ? `: rank ${o.rank}` : ''}.`;
   }
 

@@ -148,8 +148,11 @@ function metaData(K) {
     entries: Object.fromEntries(Object.values(K.META).map((m) => [m.id, { ...m, costs: [...m.costs], req: [...m.req] }])),
     oathIds: [...(K.OATH_IDS || [])],
     oaths: Object.fromEntries(Object.values(K.OATH || {}).map((o) => [o.id, { ...o }])),
-    num: { maxLevel: K.MAX_LEVEL, zoneCount: K.ZONE_COUNT, firstKill: K.ECHO_FIRST_KILL_CLASS, oathEcho: K.OATH_ECHO_BONUS, oathHaste: K.OATH_HASTE_TIME, oathThrift: K.OATH_THRIFT_MULT },
-    names: { boon: K.BOON.return.name, ember: K.CONSUMABLE.ember_of_return.name, potion: K.CONSUMABLE.healing_draught.name, greater: K.CONSUMABLE.greater_healing_draught.name, boss: K.BOSS_TEXT.name.split(',')[0], camp: (CONTENT.camp && CONTENT.camp.name) || 'the camp' },
+    // expedition.md 8.2 (M2b v11): the numbers and names of the expedition entries' texts (bellMax, trackerRadius, prepPoints, charts, tracker)
+    num: { maxLevel: K.MAX_LEVEL, zoneCount: K.ZONE_COUNT, firstKill: K.ECHO_FIRST_KILL_CLASS, oathEcho: K.OATH_ECHO_BONUS, oathHaste: K.OATH_HASTE_TIME, oathThrift: K.OATH_THRIFT_MULT,
+      bellMax: K.BELL_MAX_CHARGES ?? null, trackerRadius: K.TRACKER_RADIUS ?? null, prepPoints: K.PREP_POINTS ?? null },
+    names: { boon: K.BOON.return.name, ember: K.CONSUMABLE.ember_of_return.name, potion: K.CONSUMABLE.healing_draught.name, greater: K.CONSUMABLE.greater_healing_draught.name, boss: K.BOSS_TEXT.name.split(',')[0], camp: (CONTENT.camp && CONTENT.camp.name) || 'the camp',
+      charts: K.PREP_OPTION ? K.PREP_OPTION.prep_charts.name : 'Region Charts', tracker: K.PREP_OPTION ? K.PREP_OPTION.prep_tracker.name : "Tracker's Notes" },
     greaterHeal: K.CONSUMABLE.greater_healing_draught.heal,
     freePotionMult: K.FREE_POTION_MULT ?? null, // M2b v8 (rules 7.5): the free potion's share of its normal amount
     uniques: { rare: byZone('rare'), epic: byZone('epic'), weapon: Object.fromEntries(uniq.filter((u) => u.kind === 'weapon').map((u) => [u.classId, { name: u.name, text: u.text }])) },
@@ -898,6 +901,11 @@ function engineBackend(seedOpt, runOpts = {}) {
         classId: r.player.classId, className: C.CLASS[r.player.classId].name, meta: JSON.parse(JSON.stringify(r.meta)), oaths: r.oaths.slice(),
         oathMult: sm && sm.echoes ? sm.echoes.oathMult : 1, bagSlots: R.bagCapacity(r), potions: count('healing_draught'),
         weapon: item(r.player.equipped.weapon, r.player.classId), resurrect: ((R.resurrectCharges(r) || {}).now || []).map((x) => RES_KEY[x] || x),
+        // expedition.md 8.2 (M2b v11): a run on the expedition map with the start camp: what the catalogue gives it
+        exp: r.exp && r.exp.prep ? {
+          typeRadius: r.exp.vision.typeRadius, bell: r.exp.bell, points: r.prep ? r.prep.points : null,
+          unlocks: Object.fromEntries(['cartographer', 'old_hand', 'quartermaster'].map((id) => [id, C.META[id] ? Math.min((r.profile && r.profile.unlocks && r.profile.unlocks[id]) || 0, C.META[id].ranks) : 0])),
+        } : null,
       };
     } catch { out = null; }
     dry.nextOf = s; dry.next = out;
