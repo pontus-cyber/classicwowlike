@@ -6,11 +6,19 @@
 // heavy and cast intents hold a visible wind-up (telegraph) until the enemy acts; spells charge up and projectiles leave trails.
 // Combat v2.1 (docs/specs/combat-v2.md 16): a wind-up intent has its own, hotter telegraph, and the moment one is answered
 // (a frost shatter) or lands (an ember flare) has its effect (windupResult).
+// UX pass 2026-11-11: floating words (Interrupted!, Off-balance!, Staggered!, statuses) have their own lane under the
+// damage numbers and take turns in it (word()), so the words and the number of one moment never cover each other.
 import { buildBackdrop, drawBackdrop, drawForeground, THEMES, GROUND_Y, oak, pine } from './art-world.js';
 import { drawHumanoid, drawBeast, drawBoss, drawShard, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook, glowBall } from './art-actors.js';
 import { clamp, lerp, ease, rgba, shade, mix, prng } from './util.js';
 import { settings } from './settings.js';
 
+// floating text lanes (UX pass 2026-11-11): a damage or heal number (NUM_RE) slams in on the body and rises; every other
+// float is a word in its own lane under the number: WORD_ROWS rows from WORD_DY0, WORD_ROW apart (px at 768 high), a
+// row held WORD_HOLD s before the next word may take it (the word in it then fades in WORD_CUT s), words at most
+// WORD_MAX px and rising WORD_RISE px
+const NUM_RE = /^[-+\u2212]?[\d\s\u00a0\u2009\u202f.,]+!?$/;
+const WORD_ROWS = 2; const WORD_DY0 = 34; const WORD_ROW = 27; const WORD_HOLD = 0.55; const WORD_CUT = 0.16; const WORD_MAX = 22; const WORD_RISE = 8;
 const SCHOOL_COL = { phys: '#f4ead6', fire: '#ff8a3a', frost: '#8fd6ff', arcane: '#c79bff', shadow: '#a07aff', nature: '#8fe07a', heal: '#7fffa0' };
 
 export class Scene {
@@ -26,6 +34,7 @@ export class Scene {
     this.actors = new Map();
     this.props = [];
     this.particles = []; this.texts = []; this.projectiles = []; this.rings = []; this.beams = [];
+    this.wrows = new Map(); // word lanes per actor (word())
     this.ambient = []; this.shakeAmt = 0; this.flash = null; this.pillar = null; this.dim = 0; this.targetDim = 0;
     this.atime = 0; this.freeze = 0; // actor clock and hit-stop (s left)
     this.charges = []; this.cores = []; this.rays = []; this.fstack = new Map();
@@ -203,10 +212,12 @@ export class Scene {
   float(id, text, style = {}) {
     const an = this.anchor(id); if (!an) return;
     if (style.under) { // a note under the number just shown on this actor (absorbed damage)
-      const last = [...this.texts].reverse().find((f) => f.id === id && !f.small);
+      const last = [...this.texts].reverse().find((f) => f.id === id && !f.small && !f.word);
       if (last) { this.texts.push({ ...last, text, color: style.color || '#ffffff', size: (style.size || 14) * this.u, small: true, crit: false, slam: false, weight: 0, y: last.y + (style.dy || 20 * this.u) }); return; }
     }
-    const now = this.time; const st = this.fstack.get(id);
+    const now = this.time;
+    if (!NUM_RE.test(text)) { this.word(id, an, text, style); return; }
+    const st = this.fstack.get(id);
     const n = st && now - st.t < 0.6 ? Math.min(4, st.n + 1) : 0; this.fstack.set(id, { t: now, n });
     // numbers sit on the body (the nameplate is over the head); a second one beside the first, alternating sides
     const side = n ? (n % 2 ? 1 : -1) * Math.ceil(n / 2) * 50 * this.u : 0;
@@ -216,6 +227,29 @@ export class Scene {
     this.texts.push({ id, x: an.x + jitter + side + (style.dx || 0), y: an.cy - (an.cy - an.top) * 0.15 + (style.dy || 0) - n * 6 * this.u, text, color: style.color || '#ffffff',
       size: (style.size || 22) * this.u * (small ? 1 : 1 + 0.4 * w), t0: now, life: style.life || (crit ? 2.0 : small ? 1.3 : 1.55), crit, small,
       weight: w, slam: !small && style.slam !== false && !settings.reduceMotion, rise: (crit ? 18 : small ? 34 : 28 - 10 * w) * this.u, outline: style.outline || 'rgba(0,0,0,0.85)' });
+  }
+  /**
+   * A word over an actor (Interrupted!, Off-balance!, Staggered!, Dodge, a status...; UX pass 2026-11-11): words have
+   * their own lane under the number lane (numbers rise away from it), in WORD_ROWS rows centred on the actor. A word takes
+   * the first row that is free when it starts; a row is free WORD_HOLD s after its word started, and the word still in
+   * it then fades out quickly. When every row is held, the word waits its turn (it is not drawn until it starts), so the
+   * words of one moment come one after another and never cover the damage number or each other.
+   */
+  word(id, an, text, style) {
+    const u = this.u; const now = this.time;
+    const rows = this.wrows.get(id) || Array.from({ length: WORD_ROWS }, () => ({ free: 0, f: null }));
+    this.wrows.set(id, rows);
+    let r = 0;
+    for (let i = 1; i < rows.length; i++) if (Math.max(now, rows[i].free) < Math.max(now, rows[r].free)) r = i;
+    const start = Math.max(now, rows[r].free);
+    const old = rows[r].f; if (old && this.texts.includes(old)) old.cut = start; // the word before it in this row makes room
+    const numY = an.cy - (an.cy - an.top) * 0.15;
+    const crit = !!style.crit;
+    const f = { id, x: an.x + (style.dx || 0), y: numY + (WORD_DY0 + r * WORD_ROW) * u, text, color: style.color || '#ffffff',
+      size: Math.min(style.size || 20, WORD_MAX) * u, t0: start, life: style.life || (crit ? 1.9 : 1.5), crit, small: !crit, word: true,
+      weight: 0, slam: crit && !settings.reduceMotion, rise: WORD_RISE * u, outline: style.outline || 'rgba(0,0,0,0.85)' };
+    rows[r] = { free: start + WORD_HOLD, f };
+    this.texts.push(f);
   }
   floatAt(x, y, text, style = {}) {
     this.texts.push({ x, y, text, color: style.color || '#fff', size: (style.size || 22) * this.u, t0: this.time, life: style.life || 1.4, crit: !!style.crit, weight: 0, slam: false, rise: 40 * this.u, outline: 'rgba(0,0,0,0.85)' });
@@ -330,7 +364,7 @@ export class Scene {
     for (const a of this.actors.values()) { a.act = null; a.kb = null; if (a.deadT0) a.dead = 1; }
   }
   /** Drop floating text, rings, beams and sparks left from a fight (e.g. behind the run summary). */
-  clearFx() { this.finishAll(); this.texts = []; this.rings = []; this.beams = []; this.particles = []; this.cores = []; this.rays = []; this.pillar = null; }
+  clearFx() { this.finishAll(); this.texts = []; this.wrows.clear(); this.rings = []; this.beams = []; this.particles = []; this.cores = []; this.rays = []; this.pillar = null; }
 
   seedAmbient() {
     const kind = (THEMES[this.theme] || {}).particles;
@@ -710,15 +744,18 @@ export class Scene {
     if (this.particles.length > 900) this.particles.splice(0, this.particles.length - 900);
     // floating text: damage numbers slam in (crits larger, slower, shaking), then rise a little and fade
     for (const f of [...this.texts]) {
-      const age = t - f.t0; const k = age / f.life; if (k >= 1) { this.texts.splice(this.texts.indexOf(f), 1); continue; }
+      const age = t - f.t0; const k = age / f.life;
+      const cutK = f.cut != null && t > f.cut ? (t - f.cut) / WORD_CUT : 0; // a word whose row the next word took
+      if (k >= 1 || cutK >= 1) { this.texts.splice(this.texts.indexOf(f), 1); continue; }
+      if (age < 0) continue; // a word waiting for its row
       let sc = 1;
       if (f.slam) {
-        const s0 = f.crit ? 2.1 : 1.5 + 0.35 * f.weight; const sd = f.crit ? 0.17 : 0.11; const rest = f.crit ? 1.1 : 1;
+        const s0 = f.word ? 1.45 : f.crit ? 2.1 : 1.5 + 0.35 * f.weight; const sd = f.crit ? 0.17 : 0.11; const rest = f.crit && !f.word ? 1.1 : 1;
         sc = age < sd ? lerp(s0, rest * 0.92, ease.out(age / sd)) : age < sd + 0.08 ? lerp(rest * 0.92, rest, (age - sd) / 0.08) : rest;
       } else if (!f.small && age < 0.1) sc = 0.75 + 2.5 * age;
       const y = f.y - f.rise * ease.out(clamp(age / (f.crit ? 1.25 : 0.9), 0, 1));
       const jx = f.crit && f.slam && age < 0.32 ? Math.sin(age * 95) * 3.2 * u * (1 - age / 0.32) : 0;
-      const a = k < 0.72 ? 1 : 1 - (k - 0.72) / 0.28;
+      const a = (k < 0.72 ? 1 : 1 - (k - 0.72) / 0.28) * (1 - cutK);
       ctx.save(); ctx.globalAlpha = a; ctx.translate(f.x + jx, y); ctx.scale(sc, sc);
       ctx.font = `${f.small ? 700 : 800} ${f.size}px ${FCT_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.lineWidth = Math.max(2, f.size * (f.crit ? 0.2 : 0.16)); ctx.strokeStyle = f.outline; ctx.lineJoin = 'round';
