@@ -2,7 +2,7 @@
 /**
  * qa/browser/full-run.mjs - headless browser check of the built game (M1 1.5).
  *
- *   node tools/build.mjs --out /tmp/qa-game.html
+ *   node tools/build.mjs --out /tmp/qa-game.html   # or test the repository's game.html (default)
  *   node qa/browser/full-run.mjs [--file /tmp/qa-game.html] [--sizes 1366x768,1920x1080]
  *        [--classes rogue,mage,hunter] [--seed 7] [--seeds rogue:7,mage:7,hunter:7] [--manual-zones 1]
  *        [--shots /tmp/qa/shots] [--json /tmp/qa/full-run.json] [--quiet]
@@ -35,7 +35,11 @@ import { playerAction } from './policy.mjs';
 const C = R.C;
 const args = process.argv.slice(2);
 const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
-const FILE = path.resolve(arg('--file', '/tmp/qa-game.html'));
+// Default: the repository's game.html (the Lead's build). The old default /tmp/qa-game.html was a stale
+// build from 2026-11-09 on this machine, so runs without --file tested old code (vendor log "You buy item.").
+const FILE = path.resolve(arg('--file', new URL('../../game.html', import.meta.url).pathname));
+if (!fs.existsSync(FILE)) { console.error(`no build at ${FILE}: node tools/build.mjs --out <file>, then --file <file>`); process.exit(2); }
+console.log(`build: ${FILE} (${new Date(fs.statSync(FILE).mtimeMs).toISOString().slice(0, 16)}, ${Math.round(fs.statSync(FILE).size / 1024)} KB)`);
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const CLASSES = arg('--classes', 'rogue,mage,hunter').split(',');
 const SEED = Number(arg('--seed', '7'));

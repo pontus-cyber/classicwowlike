@@ -7,13 +7,18 @@
  *
  *   node qa/browser/pace.mjs [--file /tmp/qa-game.html] [--speed 1] [--rounds 30] [--class mage] [--seed 9]
  */
+import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 
 const args = process.argv.slice(2);
 const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
-const FILE = path.resolve(arg('--file', '/tmp/qa-game.html'));
+// Default: the repository's game.html (the Lead's build). The old default /tmp/qa-game.html was a stale
+// build from 2026-11-09 on this machine, so runs without --file tested old code (vendor log "You buy item.").
+const FILE = path.resolve(arg('--file', new URL('../../game.html', import.meta.url).pathname));
+if (!fs.existsSync(FILE)) { console.error(`no build at ${FILE}: node tools/build.mjs --out <file>, then --file <file>`); process.exit(2); }
+console.log(`build: ${FILE} (${new Date(fs.statSync(FILE).mtimeMs).toISOString().slice(0, 16)}, ${Math.round(fs.statSync(FILE).size / 1024)} KB)`);
 const SPEED = Number(arg('--speed', '1'));
 const ROUNDS = Number(arg('--rounds', '30'));
 const CLS = arg('--class', 'mage');

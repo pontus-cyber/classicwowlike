@@ -3,7 +3,7 @@
  * qa/browser/ui-checks.mjs - focused checks of single UI behaviours in the built game (M1 1.5).
  * Each check prints PASS or FAIL with what it saw; exit 1 if any fails. About one minute.
  *
- *   node tools/build.mjs --out /tmp/qa-game.html
+ *   node tools/build.mjs --out /tmp/qa-game.html   # or test the repository's game.html (default)
  *   node qa/browser/ui-checks.mjs [--file /tmp/qa-game.html] [--size 1366x768] [--shots dir]
  *
  * Checks: the Autoplay toggle (button and key Z) advances a fight on its own; the map tooltip of a node
@@ -19,7 +19,11 @@ import { CONTENT } from '../../src/content/index.js';
 
 const args = process.argv.slice(2);
 const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
-const FILE = path.resolve(arg('--file', '/tmp/qa-game.html'));
+// Default: the repository's game.html (the Lead's build). The old default /tmp/qa-game.html was a stale
+// build from 2026-11-09 on this machine, so runs without --file tested old code (vendor log "You buy item.").
+const FILE = path.resolve(arg('--file', new URL('../../game.html', import.meta.url).pathname));
+if (!fs.existsSync(FILE)) { console.error(`no build at ${FILE}: node tools/build.mjs --out <file>, then --file <file>`); process.exit(2); }
+console.log(`build: ${FILE} (${new Date(fs.statSync(FILE).mtimeMs).toISOString().slice(0, 16)}, ${Math.round(fs.statSync(FILE).size / 1024)} KB)`);
 const [W, H] = arg('--size', '1366x768').split('x').map(Number);
 const SHOTS = arg('--shots', null);
 const SEED = 5;
@@ -135,7 +139,7 @@ try {
     await page.locator('.ctxmenu').getByRole('button', { name: 'Equip' }).click(); await idle();
     log = await logText();
     check('combat log names the item equipped', new RegExp(`Equipped ${v3.bag[gi].name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(log), log.split('\n').filter((l) => /Equipped/.test(l)).join(' | '));
-  }
+  } else console.log('SKIP  combat log names the item equipped (no gear in the bags after the first fight)');
 } catch (e) {
   check('ui-checks ran to the end', false, e.message.split('\n')[0]);
 }
