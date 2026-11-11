@@ -19,7 +19,7 @@ export const CLASSES = ['rogue', 'mage', 'hunter'];
  *         prep (start camp and contracts), prepPolicy ('none' | 'random', B40), expMeta ({ quartermaster, cartographer, old_hand }),
  *         prepForce / prepBan ([option id]: bought first / never by the planner family, M2b v10 cell 9), tablesIn (file name,
  *         for meta only), metaDrop ([catalogue id] removed from the profile), beastcallGated (M2b v11 row 8 arm), ricochetGated
- *         (M2b v12 row 5 arm) }
+ *         (M2b v12 row 5 arm), gates ({ rareHpMultZ1, firstMeetWindup }: M2b v13 gated rows 5-6, C.GATES) }
  * Returns { name, dir, perClass: { cls: { records, metrics, obs, table } } }.
  */
 export async function runBatch(opts) {
@@ -37,6 +37,8 @@ export async function runBatch(opts) {
     ...(opts.metaDrop ? { metaDrop: opts.metaDrop } : {}), ...(opts.beastcallGated ? { beastcallGated: true } : {}),
     // M2b v12 row 5 arm (gated Ricochet Bolt bounce).
     ...(opts.ricochetGated ? { ricochetGated: true } : {}),
+    // M2b v13 gated rows 5-6 (C.GATES.rareHpMultZ1, C.GATES.firstMeetWindup; cells 6-7).
+    ...(opts.gates ? { gates: opts.gates } : {}),
   };
   const name = opts.name || cellName({ ...cellBase, tree: null });
   const dir = opts.out ? ensureDir(join(opts.out, name)) : null;
@@ -75,6 +77,7 @@ export async function runBatch(opts) {
     ...(opts.tablesIn ? { tablesIn: opts.tablesIn } : {}),
     ...(opts.metaDrop ? { metaDrop: opts.metaDrop } : {}), ...(opts.beastcallGated ? { beastcallGated: true } : {}),
     ...(opts.ricochetGated ? { ricochetGated: true } : {}),
+    ...(opts.gates ? { gates: opts.gates } : {}),
   };
   if (dir) {
     writeJson(join(dir, 'summary.json'), { meta, classes: Object.fromEntries(Object.entries(perClass).map(([c, x]) => [c, { tree: x.tree, metrics: x.metrics }])) });

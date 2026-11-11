@@ -29,6 +29,7 @@
 //            PALL (--profile all) holds the expedition entries of 8.2 since the M2b v11 engine: no --exp-meta stand-in needed
 //            M2b v12: --ricochet-gated (row 5 arm: Ricochet Bolt bounce RICOCHET_BOUNCE_FRAC_GATED; campaigns too)
 //            speedrunner --variant v11 (row 4 off: the v11 expedition map policy, arm 9)
+//            M2b v13: --gates rareHpMultZ1,firstMeetWindup (gated rows 5-6 on: C.GATES, cells 6-7; cell names 'g5', 'g6')
 //   campaigns: --map expedition --prep also apply (B31 / B32 on the expedition with the start camp)
 //   campaigns: node sim/run.mjs --campaign N --class <c|all> --out <dir> [--risk-in <risk.json>]
 //
@@ -98,6 +99,8 @@ const metaDrop = args['meta-drop'] ? args['meta-drop'].split(',') : null;
 if (metaDrop) for (const id of metaDrop) if (!C.META[id]) throw new Error(`--meta-drop: unknown catalogue entry ${id}`);
 if (args['beastcall-gated'] && C.BEASTCALL_HORN_CD_GATED === undefined) throw new Error('--beastcall-gated needs an engine with BEASTCALL_HORN_CD_GATED');
 if (args['ricochet-gated'] && C.RICOCHET_BOUNCE_FRAC_GATED === undefined) throw new Error('--ricochet-gated needs an engine with RICOCHET_BOUNCE_FRAC_GATED');
+const gates = args.gates ? Object.fromEntries(args.gates.split(',').map((k) => [k, true])) : null;
+if (gates) for (const k of Object.keys(gates)) if (!C.GATES || !(k in C.GATES)) throw new Error(`--gates: unknown gate ${k} (C.GATES: ${C.GATES ? Object.keys(C.GATES).join(', ') : 'none'})`);
 const pool = new Pool(workers);
 try {
   if (args.campaign) {
@@ -121,7 +124,7 @@ try {
       prof: args.profile || 'fresh', trees, style: args.style || null, variant: args.variant || null, pet: args.pet || null,
       out, warmup: args.warmup !== undefined ? Number(args.warmup) : SIM.WARMUP_RUNS, obsIn, log: !!args.log, workers, replay: !!args.replay, pairs: !!args.pairs, think: !!args.think, thinkMash: !!args['think-mash'],
       map: args.map || null, vision: args.vision ? Object.fromEntries(args.vision.split(',').map((k) => [k, true])) : null, dimming: args.dimming === 'off' ? false : true, oracle: !!args.oracle, route: !!args.route,
-      prep: !!args.prep, prepPolicy: args['prep-policy'] || null, prepForce, prepBan, tablesIn: args['tables-in'] || null, metaDrop, beastcallGated: !!args['beastcall-gated'], ricochetGated: !!args['ricochet-gated'],
+      prep: !!args.prep, prepPolicy: args['prep-policy'] || null, prepForce, prepBan, tablesIn: args['tables-in'] || null, metaDrop, beastcallGated: !!args['beastcall-gated'], ricochetGated: !!args['ricochet-gated'], gates,
       expMeta: args['exp-meta'] ? Object.fromEntries(args['exp-meta'].split(',').map((x) => { const [id, r] = x.split(':'); return [id, Number(r || 1)]; })) : null,
     });
     for (const [cls, x] of Object.entries(r.perClass)) {

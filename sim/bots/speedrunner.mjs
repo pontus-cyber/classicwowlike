@@ -10,7 +10,8 @@
 // fog view: a belief search of depth PLANNER_FOG_DEPTH minimising tolls + P(death) × VAL_DEATH / VAL_TIME + the levels
 // still missing to 10z - 1 at the search's end × VAL_XP / VAL_TIME (speedMap's cost; no gear, gold, heat or boon
 // terms), the fog model of planFog and the Dimming exactly (Dimmed encounters at the engine's tolls, M2b v12); the
-// contract sites of its Delves count as their reward's XP only. When the level reaches 10z - 1: the cheapest Road, or the
+// contract sites of its Delves count as their reward's XP only. M2b v13 measure: a level is priced at SIM.SPEED_LEVEL_TOLLS
+// tolls (null: VAL_XP / VAL_TIME = 16.7, the v12 policy; balance-2026-11-12). When the level reaches 10z - 1: the cheapest Road, or the
 // Bell when that way crosses the Dimming or takes longer than the Bell's channel (unchanged). Variant 'v11' (arm 9 of
 // changes-m2b-v12.md, diagnostic): the v11 policy, the planner's belief search with the full value function at the speed
 // style's time weight (PLANNER_TIME_MULT × STYLE_SPEED_TIME_MULT).
@@ -103,7 +104,10 @@ export function speedGrindWaves(s, risk) {
  * search step deeper than the first that costs more than walking through is passed. sites: siteKnowledge with each held
  * contract valued at its XP only (contractValue xpOnly). Returns { action, cost, options }.
  */
-export function speedFog(view, ctx, { exit, sites = null, depth = EXP.PLANNER_FOG_DEPTH }) {
+export function speedFog(view, ctx, { exit, sites = null, depth = EXP.PLANNER_FOG_DEPTH, levelTolls = SIM.SPEED_LEVEL_TOLLS }) {
+  // M2b v13 measure (balance-2026-11-12): a level's price in tolls (SIM.SPEED_LEVEL_TOLLS; null: VAL_XP / VAL_TIME, v12).
+  const LEVEL_T = levelTolls === null || levelTolls === undefined ? LEVEL_H : levelTolls;
+  const siteK = LEVEL_T / LEVEL_H;
   const sz = shardZoneV(view);
   const W = view.walkTime;
   // Tolls in the model: each one advances its hours and lets it eat (evalNode's one-toll default cell).
@@ -120,10 +124,10 @@ export function speedFog(view, ctx, { exit, sites = null, depth = EXP.PLANNER_FO
     const p0 = capPos(m);
     const ev = evalNode(ctx, m, cell);
     const avoid = cell.type === 'vendor' || cell.type === 'trainer' ? AVOID_H : 0;
-    return { cost: ev.hours + ev.pDeath * DEATH_H + avoid - (capPos(m) - p0) * LEVEL_H, hours: ev.hours };
+    return { cost: ev.hours + ev.pDeath * DEATH_H + avoid - (capPos(m) - p0) * LEVEL_T, hours: ev.hours };
   };
   // A contract site (siteTerm with XP-only values, value units / VAL_TIME), capped at the levels still missing.
-  const site = (m, id) => (sites ? -Math.min(siteTerm(sites, m, id) / BAL.VAL_TIME, Math.max(0, exit - levelPos(m)) * LEVEL_H) : 0);
+  const site = (m, id) => (sites ? -Math.min((siteTerm(sites, m, id) / BAL.VAL_TIME) * siteK, Math.max(0, exit - levelPos(m)) * LEVEL_T) : 0);
   const enter = (m, id) => {
     const n = view.nodes[id];
     if (n.know === 'full') { const r = node(m, n); return { cost: r.cost + site(m, id), hours: r.hours }; }

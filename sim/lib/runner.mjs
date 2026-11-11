@@ -45,6 +45,7 @@ export function runWithBot(cell, seed, risk, opts = {}) {
   // M2b v12 row 5 (gated, D104): Ricochet Bolt's bounce of the arm, else the engine's value; set for every run for the same
   // reason (the engine and sim/lib/policy.mjs read SPELL.ricochet_bolt.bounceFrac at each use).
   if (C.SPELL.ricochet_bolt && C.RICOCHET_BOUNCE_FRAC_GATED !== undefined) C.SPELL.ricochet_bolt.bounceFrac = cell.ricochetGated ? C.RICOCHET_BOUNCE_FRAC_GATED : C.RICOCHET_BOUNCE_FRAC;
+  setGates(cell.gates);
   const bot = createBot(cell.bot, { classId: cell.cls, seed, risk, tree: cell.tree, style: cell.style, variant: cell.variant, ...(cell.prepPolicy ? { prepPolicy: cell.prepPolicy } : {}), ...(cell.prepForce ? { prepForce: cell.prepForce } : {}), ...(cell.prepBan ? { prepBan: cell.prepBan } : {}) });
   const s = newRunFor({ classId: cell.cls, petId: cellPet(cell), seed, profile, mapMode: cell.map || null, vision: cell.vision || null, dimming: cell.dimming === false ? false : null, prep: !!cell.prep });
   // Expedition measures (expedition.md 11.1; MILESTONES 2b.4). cell.oracle: at every map decision of the acting bot,
@@ -152,6 +153,20 @@ export function oracleRoute(s0, cell, risk) {
   return { nodes, exit };
 }
 
+/**
+ * M2b v13 gated rows (engine-2026-11-11j section 4): C.GATES.rareHpMultZ1 (row 5, cell 6) and C.GATES.firstMeetWindup
+ * (row 6, cell 7) as the cell asks (cell.gates: { rareHpMultZ1, firstMeetWindup }), every other switch off; set for every
+ * run, since a worker plays runs of several cells. Engines without C.GATES are left alone.
+ */
+export function setGates(gates = null) {
+  if (!C.GATES) {
+    if (gates && Object.values(gates).some(Boolean)) throw new Error('cell.gates needs an engine with C.GATES (M2b v13)');
+    return;
+  }
+  for (const k of Object.keys(C.GATES)) C.GATES[k] = !!(gates && gates[k]);
+  if (gates) for (const k of Object.keys(gates)) if (!(k in C.GATES)) throw new Error(`cell.gates: unknown gate ${k}`);
+}
+
 export function playRun(cell, seed, risk, opts = {}) {
   return runWithBot(cell, seed, risk, opts).record;
 }
@@ -159,6 +174,7 @@ export function playRun(cell, seed, risk, opts = {}) {
 /** Replay a run from its seed and action log with the pure step; returns the final state hash. */
 export function replayHash(cell, seed, log, profile = null) {
   const prof = profile || withoutMeta(withExpMeta(buildProfile(cell.prof, cell.cls), cell.expMeta || null), cell.metaDrop || null);
+  setGates(cell.gates);
   let s = newRunFor({ classId: cell.cls, petId: cellPet(cell), seed, profile: prof, mapMode: cell.map || null, vision: cell.vision || null, dimming: cell.dimming === false ? false : null, prep: !!cell.prep });
   for (const a of log) s = R.step(s, a).state;
   return hash32(R.serialize(s));

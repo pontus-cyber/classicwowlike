@@ -112,7 +112,8 @@ describe('recorder wind-up fields (synthetic events; combat v2.1)', () => {
     rec.after(s, null, [{ t: 'action', kind: 'engage', option: 'sap', target: 0, disrupt: true }, { t: 'round', n: 2 }], bOf(s));
     rec.after(s, null, [{ t: 'stagger', u: 0, id: 'w', turn: 2, why: 'disrupt', by: 'sap', stacks: 1, value: 0.3 }, { t: 'empower', u: 0, id: 'w2', turn: 4, stacks: 1, value: 0.15 }], bOf(s));
     rec.after(s, null, [{ t: 'stagger', u: 0, id: 'w3', turn: 2, why: 'interrupt', by: 'throat_jab', stacks: 2, value: 0.6 }, { t: 'victory', kind: 'elite', rounds: 6 }], bOf(s));
-    assert.deepEqual(rec.f2[0].slice(10), [2, 1, 0, 1]);
+    assert.deepEqual(rec.f2[0].slice(10, 14), [2, 1, 0, 1]);
+    assert.deepEqual(rec.f2[0].slice(14), [0, 0, 0, 0, 0], 'M2b v13 fields: no Deathblow in these events');
     assert.deepEqual(rec.wy, { 'elite|disrupt': 1, 'elite|interrupt': 1 });
   });
 
@@ -127,7 +128,7 @@ describe('recorder wind-up fields (synthetic events; combat v2.1)', () => {
       s.death = { killer: { idx: 0, name: e0.name, ability } };
       rec.after(s, null, [{ t: 'enemyAction', u: 0, id: ability, name: 'x' }, { t: 'damage', src: 0, dst: 'player', amount: 999, hpLost: 999 }, { t: 'death', u: 'player' }, { t: 'runEnd', outcome: 'death' }], bOf(s));
       assert.equal(rec.fx[0][2], 0);
-      assert.deepEqual(rec.f2[0].slice(10), [0, 0, want, 0], ability);
+      assert.deepEqual(rec.f2[0].slice(10, 14), [0, 0, want, 0], ability);
     }
   });
 });

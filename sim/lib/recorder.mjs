@@ -16,7 +16,11 @@
 //        combat v2.1 (combat-v2.md 11 "Recorder", 16.2; B55): wind-ups answered (engine `stagger` events), wind-ups
 //        landed (`empower` events), 1 if a wind-up's hit killed the player (no event: a killing wind-up adds no
 //        stack, D60; counted from s.death.killer against the enemy's wind-up intent of that round), Disrupts (ENGAGE
-//        `action` events with `disrupt`)]
+//        `action` events with `disrupt`),
+//        M2b v13 (changes-m2b-v13.md rows 1-3, engine-2026-11-11j section 4): Deathblows answered (`stagger` events with
+//        `deathblow`), Deathblows landed (`empower` events with `deathblow`), 1 if a Deathblow's hit killed the player
+//        (as the wind-up kill above, for an intent with `deathblow`), 1 if the player was MAIMED in the fight (`empower`
+//        with `maimed`), heals on the player while MAIMED (`heal` events with `maimed`: potions, spells, HOT ticks)]
 //   wy: combat v2.1, answered wind-ups per run by fight kind and how: { '<kind>|<why>': n } (why of the `stagger`
 //       event: interrupt, control, trap, disrupt, silenced, avoided)
 //   fc: per fight, aligned with fx (mash report, docs/reports/mash-2026-11-11.md): [HP % at the fight's start, nodes
@@ -105,9 +109,13 @@ export class Recorder {
     if (fz && s.fight) {
       // Combat v2.1: the wind-ups to be played this round (now-entries not stopped yet), to tell a killing wind-up.
       fz.wuNow = null;
+      fz.dbNow = null;
       for (const e of s.fight.enemies) {
         const it = e.alive ? e.intent : null;
-        if (it && it.windup && !it.cancelled && !it.interrupted && !it.skipped) (fz.wuNow = fz.wuNow || new Map()).set(e.idx, it.id);
+        if (it && it.windup && !it.cancelled && !it.interrupted && !it.skipped) {
+          (fz.wuNow = fz.wuNow || new Map()).set(e.idx, it.id);
+          if (it.deathblow) (fz.dbNow = fz.dbNow || new Set()).add(e.idx);
+        }
       }
     }
     return { hp: p.hp, maxHp: p.d.maxHp, level: p.level, rounds: s.stats.rounds };
@@ -128,7 +136,7 @@ export class Recorder {
     fz.win.clear();
     if (fz.hpOpen === null) fz.hpOpen = died ? 0 : permille(hpFrac);
     this.f2.push([fz.n0, fz.engage, fz.engageArch, fz.firstOb, fz.opened, fz.used, fz.signal, fz.hpOpen, fz.firstDiff === null ? -1 : fz.firstDiff, fz.firstArch,
-      fz.wuA, fz.wuL, fz.wuK, fz.dis]);
+      fz.wuA, fz.wuL, fz.wuK, fz.dis, fz.dbA, fz.dbL, fz.dbK, fz.mm, fz.hm]);
   }
 
   openEntry(type, dl, hpFrac) {
@@ -191,17 +199,27 @@ export class Recorder {
         case 'stagger':
           if (this.fight) {
             this.fight.wuA++;
+            if (e.deathblow) this.fight.dbA++;
             const k = `${this.fight.kind}|${e.why}`;
             this.wy[k] = (this.wy[k] || 0) + 1;
           }
           break;
         case 'empower':
-          if (this.fight) this.fight.wuL++;
+          if (this.fight) {
+            this.fight.wuL++;
+            if (e.deathblow) this.fight.dbL++;
+            if (e.maimed) this.fight.mm = 1;
+          }
           break;
         case 'action':
           if (this.fight && e.kind === 'engage' && e.disrupt) this.fight.dis++;
           break;
-        case 'heal': if (e.dst === 'player') hp += e.amount; break;
+        case 'heal':
+          if (e.dst === 'player') {
+            hp += e.amount;
+            if (e.maimed && this.fight) this.fight.hm++;
+          }
+          break;
         case 'levelUp': if (!lvlApplied) { hp += p.d.maxHp - b.maxHp; lvlApplied = true; } break;
         case 'resurrect': hp = Math.max(1, Math.round(C.RES_HP_PCT * p.d.maxHp)); break;
         case 'node':
@@ -214,7 +232,7 @@ export class Recorder {
             kind: e.kind, r0: b.rounds, min: hp / b.maxHp, z: zoneOf(s), pot: s.stats.potionsUsed,
             n0: e.enemies.length, engage: '', engageArch: '', acted: false, firstDiff: null, firstArch: '', spell: false,
             round: 1, firstOb: 0, opened: 0, used: 0, win: new Map(), signal: 0, hpOpen: null,
-            wuA: 0, wuL: 0, wuK: 0, dis: 0, wuNow: null,
+            wuA: 0, wuL: 0, wuK: 0, dis: 0, wuNow: null, dbA: 0, dbL: 0, dbK: 0, mm: 0, hm: 0, dbNow: null,
             hp0: pct(hp / b.maxHp), nodeN: this.nodeN, comp: fightComp(s, e),
           };
           const lvl = e.enemies.length ? e.enemies[0].level : b.level;
@@ -252,6 +270,7 @@ export class Recorder {
               this.fx.push([FK[this.fight.kind], rounds, 0, 0, this.fight.z, 0, s.stats.potionsUsed - this.fight.pot]);
               this.fc.push([this.fight.hp0, this.fight.nodeN, this.fight.comp]);
               this.fight.wuK = this.killedByWindup(s, events);
+              this.fight.dbK = this.fight.wuK && this.fight.dbNow && this.fight.dbNow.has(s.death.killer.idx) ? 1 : 0;
               this.closeF2(true, 0);
               this.fight = null;
             }

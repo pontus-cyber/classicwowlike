@@ -113,7 +113,9 @@ describe('onebutton: talents of the slot-1 spell', () => {
       const tree = slot1Tree(cls);
       const mine = SLOT1_TALENTS[cls].filter((id) => TALENT[id].tree === tree);
       let spent = 0;
-      for (let seed = 47; seed < 57 && spent < 6; seed++) {
+      // M2b v13: one-button runs die earlier in special fights (the Deathblow), so a seed spends fewer points; more seeds
+      // keep the floor of 6 checked points per class (the mage spent 5 over seeds 47-56 on the v13 engine).
+      for (let seed = 47; seed < 97 && spent < 6; seed++) {
         playOneButton(cls, seed, {
           spend: (s, id) => {
             spent++;

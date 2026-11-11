@@ -32,6 +32,9 @@ export function cellName(cell) {
   if (cell.metaDrop) parts.push(`drop${cell.metaDrop.map((id) => id.replace(/_/g, '').slice(0, 4)).join('')}`);
   if (cell.beastcallGated) parts.push('bcg');
   if (cell.ricochetGated) parts.push('rcg');
+  // M2b v13 gated rows: 'g5' RARE_HP_MULT_Z1 (C.GATES.rareHpMultZ1), 'g6' first meeting (C.GATES.firstMeetWindup).
+  if (cell.gates && cell.gates.rareHpMultZ1) parts.push('g5');
+  if (cell.gates && cell.gates.firstMeetWindup) parts.push('g6');
   if (cell.expMeta) parts.push(`meta${Object.keys(cell.expMeta).map((k) => k.slice(0, 2)).join('')}`);
   if (cell.vision) parts.push(`vis${Object.keys(cell.vision).map((k) => k[0]).join('')}`);
   if (cell.dimming === false) parts.push('nodim');

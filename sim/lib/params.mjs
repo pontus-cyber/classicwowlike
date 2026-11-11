@@ -194,6 +194,19 @@ export const SIM = {
    * max HP lower [assumption: "clearly more HP", owner follow-up 2026-11-11 18:46; the report shows 0.10 and 0.30 too].
    */
   THINK_HP_GAP: 0.20,
+  /**
+   * Speedrunner on the expedition map (speedFog, sim/bots/speedrunner.mjs; balance-2026-11-11h "Row 4"): tolls one level
+   * is worth in the search (the levels still missing at the search's end, and a contract site's XP). M2b v12 used
+   * balance.md 1's exchange rate VAL_XP / VAL_TIME = 16.7 tolls; null keeps that. Calibrated in the M2b v13 measure
+   * (balance-2026-11-12) on a small paired arm against the v11 policy (about 4.6 tolls per level).
+   */
+  SPEED_LEVEL_TOLLS: null,
+  /**
+   * Planner's fog search (planFog, sim/bots/planner.mjs): 1 advances the search's zone time by a Dimmed encounter's tolls
+   * (TIME_DIM_FIGHT, or TIME_DIM_ESCAPE after an outward walk), as speedFog and the engine do; 0 is the search up to M2b
+   * v12 (it saw the front 1-2 tolls late; balance-2026-11-11h reading 2). Default 1 from the M2b v13 measure.
+   */
+  PLANNER_DIM_CLOCK: 1,
 };
 
 export const C2 = {

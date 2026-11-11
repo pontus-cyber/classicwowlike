@@ -15,7 +15,8 @@
 // over the region kind's weights (zone mean when the region is unknown), the Dimming exactly, Dimmed encounters priced
 // from the risk table's `dim` rows by depth (M2b v10 row C2: learned, prior SIM.EXP_DIM_DEATH × (1 + depth)) at the tolls
 // the engine spends (M2b v12, D101: TIME_DIM_ESCAPE after a walk farther from the Shardfall, view.mjs dimTollsV; else
-// TIME_DIM_FIGHT), leaf = leaving by the cheapest Road (Dimmed steps on the way) or the Bell, leaving
+// TIME_DIM_FIGHT; the search's zone time advances by them, SIM.PLANNER_DIM_CLOCK, M2b v13 measure), leaf = leaving by the
+// cheapest Road (Dimmed steps on the way) or the Bell, leaving
 // valued with an under-level penalty (SIM.EXP_UNDER_LEVEL_VALUE per level under 10z). Contract sites (2b.5, prep;
 // expedition.md 10.3): the site term on every node entered and a leaf that walks to a known site (contractSites). The
 // start camp and the hub contract: plannerPrep, plannerHubContract (shared.mjs). oracleMap: the same search on the
@@ -188,6 +189,9 @@ export function planFog(view, ctx, opts = {}) {
   const exit = opts.exit ?? expExitLevel(view.z);
   const keep = opts.bellKeep ?? (view.z < C.ZONE_COUNT ? EXP.BELL_KEEP_VALUE : 0);
   const under = (m) => -Math.max(0, exit - levelPos(m)) * SIM.EXP_UNDER_LEVEL_VALUE;
+  // M2b v13 measure: a Dimmed encounter in the search advances its zone time by the encounter's tolls (SIM.PLANNER_DIM_CLOCK
+  // 1, as speedFog and the engine); 0 is the v12 search, which saw the front 1-2 tolls late (balance-2026-11-11h).
+  const clk = SIM.PLANNER_DIM_CLOCK ? 1 : 0;
   const sz = shardZoneV(view);
   const escMemo = new Map();
   const esc = (id, zt) => {
@@ -231,9 +235,9 @@ export function planFog(view, ctx, opts = {}) {
       let v = tollCost(ctx, m2, (h - 1) * view.walkTime);
       const ev = evalNode(ctx, m2, n.know === 'full' ? n : protoCell(view, n, n.know === 'type' ? n.type : siteType(sk, t)));
       v += ev.value + siteTerm(sk, m2, t);
-      const zt2 = arrive + ev.hours;
+      let zt2 = arrive + ev.hours;
       const dd = dimDepthV(view, t, zt2);
-      if (dd >= 0) v += dimCost(ctx, m2, dd);
+      if (dd >= 0) { v += dimCost(ctx, m2, dd); zt2 += clk * C.TIME_DIM_FIGHT; }
       v += Math.max(leaveRoad(t, zt2, m2), leaveBell(t, zt2, m2, bell));
       if (v > best) best = v;
     }
@@ -261,11 +265,11 @@ export function planFog(view, ctx, opts = {}) {
           v = tollCost(ctx, m2, view.walkTime);
           zt2 = zt + view.walkTime;
           const dd = dimDepthV(view, id, zt2);
-          if (dd >= 0) v += dimCost(ctx, m2, dd);
+          if (dd >= 0) { v += dimCost(ctx, m2, dd); zt2 += clk * C.TIME_DIM_FIGHT; }
           v += rec(id, zt2, m2, d + 1, bell);
         } else {
           const dd = dimDepthV(view, id, zt2);
-          if (dd >= 0) v += dimCost(ctx, m2, dd);
+          if (dd >= 0) { v += dimCost(ctx, m2, dd); zt2 += clk * C.TIME_DIM_FIGHT; }
           resolved.add(id);
           v += rec(id, zt2, m2, d + 1, bell);
           resolved.delete(id);
@@ -275,7 +279,7 @@ export function planFog(view, ctx, opts = {}) {
         zt2 = zt + view.walkTime;
         v = tollCost(ctx, m2, view.walkTime);
         const dd = dimDepthV(view, id, zt2);
-        if (dd >= 0) v += dimCost(ctx, m2, dd, dimTollsV(sz, pos, id, true));
+        if (dd >= 0) { const t = dimTollsV(sz, pos, id, true); v += dimCost(ctx, m2, dd, t); zt2 += clk * t; }
         v += rec(id, zt2, m2, d + 1, bell);
       }
       if (v > best) best = v;
@@ -299,20 +303,20 @@ export function planFog(view, ctx, opts = {}) {
         const m2 = copyM(m0);
         const ev = enterValue(view, ctx, m2, id, zt, opts.pays && opts.pays[id], sk);
         let v = ev.value;
-        const zt2 = zt + mv.time;
+        let zt2 = zt + mv.time;
         const dd = dimDepthV(view, id, zt2);
-        if (dd >= 0) v += dimCost(ctx, m2, dd);
+        if (dd >= 0) { v += dimCost(ctx, m2, dd); zt2 += clk * C.TIME_DIM_FIGHT; }
         resolved.add(id);
         v += rec(id, zt2, m2, 1, bell);
         resolved.delete(id);
         options.push({ action: { type: 'MOVE', nodeId: id }, value: v });
       }
       const m3 = copyM(m0);
-      const zt3 = zt + view.walkTime;
+      let zt3 = zt + view.walkTime;
       let w = tollCost(ctx, m3, view.walkTime);
       const dd = dimDepthV(view, id, zt3);
       // PASS_THROUGH of an enterable node: TIME_DIM_FIGHT; a MOVE that walks: TIME_DIM_ESCAPE when outward (M2b v12).
-      if (dd >= 0) w += dimCost(ctx, m3, dd, dimTollsV(sz, pos, id, mv.via !== 'enter'));
+      if (dd >= 0) { const t = dimTollsV(sz, pos, id, mv.via !== 'enter'); w += dimCost(ctx, m3, dd, t); zt3 += clk * t; }
       w += rec(id, zt3, m3, 1, bell);
       options.push({ action: mv.via === 'enter' ? { type: 'PASS_THROUGH', nodeId: id } : { type: 'MOVE', nodeId: id }, value: w });
     }

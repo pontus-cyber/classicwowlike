@@ -156,7 +156,52 @@ export function cellMetrics(records, { enrageRound = C.BOSS_ENRAGE_ROUND, timePr
   m.steps = avg(ok.map((r) => r.steps));
   m.msPerRun = avg(records.map((r) => r.ms));
   m.zoneReached = avg(ok.map((r) => r.zone));
+  m.deathblow = deathblowMetrics(ok);
   return m;
+}
+
+// ---------------- M2b v13: special fights (changes-m2b-v13.md rows 1-3, B59-B62) ----------------
+/** Special-fight group of fight i of a record: 'rare' when its fc composition holds a rare enemy (':r'), else 'elite' or
+ *  'dboss' from the fight kind; null for any other fight. Records without fc count an elite fight as 'elite'. */
+export function specialGroup(r, i) {
+  const k = FIGHT_KINDS[r.fx[i][0]];
+  const comp = r.fc && r.fc[i] ? r.fc[i][2] : '';
+  if (comp && /:r(,|$)/.test(comp)) return 'rare';
+  return k === 'elite' || k === 'dboss' ? k : null;
+}
+
+/**
+ * Deathblows and MAIMED per special-fight group (elite without a rare, rare, dungeon boss; recorder f2 fields 14-18, M2b
+ * v13): fights, deaths (the run ended in the fight), Deathblows answered / landed / killing the player per fight, share of
+ * fights with MAIMED, heals received while MAIMED per MAIMED fight, potions per fight. Zone 1 specials ('z1') pooled too.
+ * Records without the v13 fields count fights and deaths only.
+ */
+export function deathblowMetrics(records) {
+  const g = {};
+  const add = (k, f, v) => {
+    const x = g[k] || (g[k] = { n: 0, d: 0, dbA: 0, dbL: 0, dbK: 0, mm: 0, hm: 0, pot: 0 });
+    x.n++;
+    if (f[2] === 0) x.d++;
+    x.pot += f[6] || 0;
+    if (v && v.length > 14) { x.dbA += v[14]; x.dbL += v[15]; x.dbK += v[16]; x.mm += v[17]; x.hm += v[18]; }
+  };
+  for (const r of records) {
+    for (let i = 0; i < r.fx.length; i++) {
+      const k = specialGroup(r, i);
+      if (!k) continue;
+      const v = r.f2 && r.f2[i];
+      add(k, r.fx[i], v);
+      if (r.fx[i][4] === 1) add('z1', r.fx[i], v);
+    }
+  }
+  const out = {};
+  for (const [k, x] of Object.entries(g)) {
+    out[k] = {
+      n: x.n, deaths: rate(x.d, x.n), dbAnswered: x.dbA / x.n, dbLanded: x.dbL / x.n, dbKilled: x.dbK / x.n,
+      maimed: rate(x.mm, x.n), healsMaimed: x.mm ? x.hm / x.mm : null, potions: x.pot / x.n,
+    };
+  }
+  return out;
 }
 
 // ---------------- Expedition map (expedition.md 11.1, B41-B47; MILESTONES 2b.4) ----------------
