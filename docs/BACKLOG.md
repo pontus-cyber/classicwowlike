@@ -12,12 +12,12 @@ Owner ideas and team proposals not yet scheduled. The Lead places each item into
 | 2026-11-11 | Bug: run summary "Killed by" shows a raw ability id (Ab Z3 King Aldrec Heavy Blow): ability without display name | Owner screenshot 08:31 | with DoT task | done (ba7eb2c) |
 | 2026-11-11 | Talent tooltip shows the current total (e.g. "Now: +30 %") and the next rank's total | Owner 08:14 | with the DoT-preview task | done (ba7eb2c) |
 | 2026-11-11 | DoT preview: marked segment on enemy HP bars for damage that pending DoT ticks will deal, lethal marker when they kill (also for the player and pet) | Owner 08:11 | next engine+UI task after Dev menu | done (ba7eb2c) |
-| 2026-11-11 | Packed Satchel also makes the first potion each fight free (no turn spent), once per fight (owner agreed 08:04); designer + sim check vs meta targets | Owner 08:04 | 2b.7 (meta) | todo |
+| 2026-11-11 | Packed Satchel also makes the first potion each fight free (no turn spent), once per fight (owner agreed 08:04); designer + sim check vs meta targets | Owner 08:04 | 2b.7 (meta) | built (M2b v6, D66); v8 draft: the free potion at half strength in every fight (changes-m2b-v8.md row 9); "no free potion at the end boss" is owner decision O1 |
 | 2026-11-11 | Rogue: Sap exists (W in the engage round) but was not found; first-fight hint per class for the engage panel; measure SAP_TURNS 4 and Rogue zone 1-2 deaths; low-HP potion hint | Owner playtest 08:03 | 2b.6 UI hint + 2b.7 tuning | hint done (ba7eb2c); SAP_TURNS 4 in tuning v6 |
 | 2026-11-11 | In-game dev tools menu | Owner 07:41 | done (5603c3a); any dev tool marks the run as a dev run (no Echoes, profile untouched) | done |
 | 2026-11-10 | Answer moment: Off-balance!, Interrupted!, Staggered! and the damage number float on top of each other; stagger them. Engine: per-spell "answers current wind-up" field, Send the Pet in engage preview answers, heatUp on loot, pays:false at camp | Lead review + UI hand-offs | M2b 2b.5/2b.6 | todo |
 | 2026-11-11 | qa/browser/ui-checks.mjs: vendor buy/sell log checks fail on builds 91f9290 and v7 (same result on both, so not a v7 regression); find whether test or UI | Lead 12:13 | QA, next session | todo |
-| 2026-11-11 | Hunter pet revive costs at least 2 rounds and is expensive; pays off through a taunt on revive | Owner 12:02 | design + sim after v7 rename, M2b tuning | discuss |
+| 2026-11-11 | Hunter pet revive costs at least 2 rounds and is expensive; pays off through a taunt on revive | Owner 12:02 | design + sim after v7 rename, M2b tuning | discuss: draft in changes-m2b-v8.md appendix A (2-round channel, taunt on return; constants PET_RECALL_*), owner decision O3, outside the v8 package |
 | 2026-11-11 | Character sheet has no damage stats: add damage bonus %, main attack hit range and average incl. crit, pet hit (Hunter), per-Power value on hover; numbers from an engine helper | Owner 11:58 | M2b UX, next UI task | todo |
 | 2026-11-10 | Always-visible Heat meter: hours vs boss par and Ascendancy, plus Dimming distance in expedition zones; going into heat should pay something, not only cost | Owner 14:05 | M2b UI + expedition.md addendum | done (engine 8507303, UI 78c18c6) |
 | 2026-11-10 | Run summary: a short "what decided this run" line (cause of death, potions held vs used, hours over par) so a loss teaches the next run | Owner playtest 13:53 (inference) | M2b UI | todo |
@@ -29,7 +29,7 @@ Owner ideas and team proposals not yet scheduled. The Lead places each item into
 | 2026-11-10 | Visibility is bought with preparation points and meta; fresh profile sees almost nothing | Owner 10:09 | expedition.md | doing |
 | 2026-11-10 | Start-camp preparation points: contracts, supplies, scouting | Owner 10:06 | expedition.md | doing |
 | 2026-11-10 | Dungeon bosses z1_belk and z5_father_vael lost their add summon to get a turn-5 signature (validator allows 2 abilities); consider allowing 3 | Content Designer | M4 | todo |
-| 2026-11-10 | Hunter full-catalogue: one clearly best talent tree | Designer v5 | M3 | todo |
+| 2026-11-10 | Hunter full-catalogue: one clearly best talent tree | Designer v5 | M3 | todo; v8 draft rows 6 and 8 (Beastbond up, Wildcraft trimmed) re-checked on PALL in the v8 measure |
 | 2026-11-10 | Run log stored in the profile; requirements list in metaOffers | UI/UX Engineer | M3 | todo |
 | 2026-11-09 | Owner glance at plain compound names for similarity to existing games (Barrowdeep, Mournwood, Greywater Fens) | Content Designer | M4 | todo |
 | 2026-11-09 | Quest givers, merchants, trainers use a generic figure | UI/UX Engineer | M4 | todo |
