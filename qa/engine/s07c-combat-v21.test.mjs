@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
-  R, C, CONTENT, started, atLevel, withSpells, inFight, tweak, forceDraws, ev, st, cloneState, MAX_ACTIONS_PER_RUN,
+  R, C, CONTENT, started, atLevel, withSpells, inFight, tweak, forceDraws, ev, st, cloneState, MAX_ACTIONS_PER_RUN, gates,
 } from './helpers.mjs';
 
 const REAL_PATH = fileURLToPath(new URL('../../src/content/index.js', import.meta.url));
@@ -51,6 +51,7 @@ function passDrawn(s, prep, pred = LAND, n = 3) {
 }
 
 describe('rules 7.12 wind-ups (combat v2.1)', () => {
+  gates({ firstMeetWindup: false }); // M2b v14 (D113): written for the rules without this v13 switch
   test('signature entries are wind-ups: `windup` and `cast` on SIGNATURE_TURN (elite, rare, dungeon boss) and a dungeon boss\'s SIGNATURE_TURN_2; the pct takes only the multiplier of its own flag; no other entry is one', () => {
     const at = (s, t) => s.fight.enemies[0].track.find((x) => x.turn === t);
     const flags = (x) => [x.id, !!x.windup, !!x.cast, !!x.heavy, x.pct];
@@ -368,6 +369,7 @@ describe('rules 7.11 the predicted cancel of a wind-up (D52, combat v2.1)', () =
 });
 
 describe('combat v2.1: determinism and full runs', () => {
+  gates({ firstMeetWindup: false }); // M2b v14 (D113): written for the rules without this v13 switch
   /** autoAction, except that the engage round of a fight with a Disrupt target uses it (default autoplay never does: a
    * dungeon boss starts its fight alone, and rule E needs 2 enemies). */
   const disruptPolicy = (s) => {

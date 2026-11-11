@@ -1,7 +1,7 @@
 // rules.md section 2: node types.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { R, C, CONTENT, started, play, atLevel, tweak, autoUntil, ev } from './helpers.mjs';
+import { R, C, CONTENT, started, play, atLevel, tweak, autoUntil, ev, gates } from './helpers.mjs';
 import { setupNode, dungeonLevels } from '../../src/engine/map.js';
 import { xpToNext } from '../../src/engine/progress.js';
 import { V } from '../../src/engine/items.js';
@@ -23,6 +23,7 @@ const win = (s) => autoUntil(s, (x) => !x.fight);
 const timeOf = (events) => ev(events, 'time').reduce((n, e) => n + e.add, 0);
 
 describe('rules 2 node types', () => {
+  gates({ rareHpMultZ1: false }); // M2b v14 (D113): written for the rules without this v13 switch
   test('2.0 tolls per node type', () => {
     const base = started('rogue', { seed: 4 });
     const want = { quest: C.TIME_QUEST, elite: C.TIME_ELITE, dungeon: C.TIME_DUNGEON, rest: C.TIME_REST, vendor: C.TIME_VENDOR, trainer: C.TIME_TRAINER, treasure: C.TIME_TREASURE, shrine: C.TIME_SHRINE, grind: 0 };

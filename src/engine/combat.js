@@ -5,8 +5,9 @@
 // (tickPhase) on a copy of the state, without draws, so the UI can mark the HP that the ticks will take.
 // Packed Satchel's free potion (rules 7.5, M2b v6): resolveRound plays it as the player's action and stops the round
 // (M2b v8: at FREE_POTION_MULT strength, spells.js). Zone danger (rules 7.6) with the early factor EARLY_DMG_MULT (M2b v8).
-// M2b v13 (D109, gated): a zone-1 rare's HP with RARE_HP_MULT_Z1 (GATES.rareHpMultZ1, rules 2.3); first meetings
-// (s.met, GATES.firstMeetWindup, rules 7.12) are marked when a fight starts.
+// M2b v13 (D109; on by default since M2b v14, D113): a zone-1 rare's HP with RARE_HP_MULT_Z1 (GATES.rareHpMultZ1, rules
+// 2.3); first meetings (s.met, GATES.firstMeetWindup, rules 7.12) are marked when a fight starts. M2b v14 (D111):
+// allSapped, read by autoplay rule H and the PASS that keeps STEALTH.
 import {
   ARCHETYPE, VARIANT, ENEMY_HP_BASE, ENEMY_HP_PER_LEVEL, ENEMY_DMG_BASE, ENEMY_DMG_PER_LEVEL,
   ENEMY_ARMOR_PER_LEVEL, ENEMY_DODGE, PET, ENERGY_MAX, ENERGY_REGEN, FOCUS_MAX, FOCUS_REGEN,
@@ -212,6 +213,14 @@ function enemiesAct(s, ev) {
 const PRIORITY = { mender: 0, caster: 1 };
 /** HEXED or SAPPED: damage would break the control (rules 7.9 skips them as default targets, combat v2). */
 export const breaksOnHit = (e) => hasSt(e.st, 'HEXED') || hasSt(e.st, 'SAPPED');
+/**
+ * Every living enemy is SAPPED (M2b v14, D111): autoplay rule H (rules 7.9) and the PASS that keeps STEALTH (rules 7.4)
+ * read it. False when no enemy lives.
+ */
+export function allSapped(s) {
+  const live = s.fight.enemies.filter((e) => e.alive);
+  return live.length > 0 && live.every((e) => hasSt(e.st, 'SAPPED'));
+}
 /**
  * Default target (rules 7.9): living, non-HEXED, non-SAPPED, mender > caster > others, lowest HP, lowest index. An
  * enemy that was sapped this fight only when no other such enemy lives (D48: autoplay never switches back to it while

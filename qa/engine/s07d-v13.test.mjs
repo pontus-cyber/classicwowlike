@@ -165,28 +165,32 @@ describe('rules 7.9 autoplay rule E2 (M2b v13 row 4, D108)', () => {
   });
 });
 
-describe('rules 2.3, 7.12 gated rows 5-6 (M2b v13, D109): off by default, the sim arms them', () => {
+describe('rules 2.3, 7.12 gated rows 5-6 (M2b v13, D109): switches the sim sets; on by default since M2b v14 (D113)', () => {
   test('row 5: a zone-1 rare uses RARE_HP_MULT, with GATES.rareHpMultZ1 RARE_HP_MULT_Z1; other zones and elites never', () => {
     const s = started('mage', { seed: 3 });
     const hp = (z, tid, v) => makeEnemy({ ...s, fight: { z, kind: 'elite' } }, 0, tid, 10, v).maxHp;
-    assert.equal(C.GATES.rareHpMultZ1, false);
-    const off = [hp(1, 'z1_rare', 'rare'), hp(2, 'z1_rare', 'rare'), hp(1, 'z1_elite', 'elite')];
+    assert.equal(C.GATES.rareHpMultZ1, true, 'on by default (M2b v14, D113)');
+    const on = [hp(1, 'z1_rare', 'rare'), hp(2, 'z1_rare', 'rare'), hp(1, 'z1_elite', 'elite')];
     try {
-      C.GATES.rareHpMultZ1 = true;
-      const on = [hp(1, 'z1_rare', 'rare'), hp(2, 'z1_rare', 'rare'), hp(1, 'z1_elite', 'elite')];
+      C.GATES.rareHpMultZ1 = false;
+      const off = [hp(1, 'z1_rare', 'rare'), hp(2, 'z1_rare', 'rare'), hp(1, 'z1_elite', 'elite')];
       assert.ok(Math.abs(on[0] / off[0] - C.RARE_HP_MULT_Z1 / C.RARE_HP_MULT) < 0.01, `${off[0]} -> ${on[0]}`);
       assert.deepEqual(on.slice(1), off.slice(1));
-    } finally { C.GATES.rareHpMultZ1 = false; }
+    } finally { C.GATES.rareHpMultZ1 = true; }
   });
 
   test('row 6: s.met records the normal templates of every fight but grind, trash, Camp, Dimmed and boss fights; with GATES.firstMeetWindup a first meeting in a quest fight (`firstMeet`) plays its turn-2 scripted action as a wind-up (pct unchanged, no Deathblow, EMPOWER_DMG if it lands); off: none', () => {
     const base = started('mage', { seed: 3 });
     assert.deepEqual(base.met, []);
-    let s = inFight(atLevel(base, 20), [mob('z1_brute'), mob('z1_brute')], { kind: 'quest' }).state;
-    assert.deepEqual([s.met, s.fight.enemies.map((e) => !!e.firstMeet), s.fight.enemies[0].track.some((x) => x.windup)], [['z1_brute'], [false, false], false]);
-    assert.deepEqual(inFight(atLevel(base, 20), [mob('z1_brute')], { kind: 'grind' }).state.met, [], 'grind: not met');
+    assert.equal(C.GATES.firstMeetWindup, true, 'on by default (M2b v14, D113)');
+    let s;
     try {
-      C.GATES.firstMeetWindup = true;
+      C.GATES.firstMeetWindup = false;
+      s = inFight(atLevel(base, 20), [mob('z1_brute'), mob('z1_brute')], { kind: 'quest' }).state;
+      assert.deepEqual([s.met, s.fight.enemies.map((e) => !!e.firstMeet), s.fight.enemies[0].track.some((x) => x.windup)], [['z1_brute'], [false, false], false]);
+    } finally { C.GATES.firstMeetWindup = true; }
+    assert.deepEqual(inFight(atLevel(base, 20), [mob('z1_brute')], { kind: 'grind' }).state.met, [], 'grind: not met');
+    { // on (the default)
       s = tweak(inFight(atLevel(base, 20), [mob('z1_brute'), mob('z1_caster')], { kind: 'quest' }).state, tough);
       assert.deepEqual(s.fight.enemies.map((e) => e.firstMeet), [true, true]);
       const x = at(s, 2);
@@ -200,7 +204,7 @@ describe('rules 2.3, 7.12 gated rows 5-6 (M2b v13, D109): off by default, the si
       assert.equal(!!again.fight.enemies[0].firstMeet, false);
       const add = inFight(atLevel(base, 20), [elite(1), mob('z1_skulker')], { kind: 'elite' }).state;
       assert.deepEqual([!!add.fight.enemies[1].firstMeet, add.met], [false, ['z1_skulker']]);
-    } finally { C.GATES.firstMeetWindup = false; }
+    }
   });
 });
 
@@ -236,7 +240,7 @@ describe('views for the UI (M2b v13 UI list; engine-api.md 6.2)', () => {
     assert.equal(R.autoplayEngage(pass(s)), null);
   });
 
-  test('map tooltips: elite nodes carry their Deathblow when their name shows (a rare only with Scout\'s Eye; never on the expedition map, D50); dungeon nodes the boss\'s', () => {
+  test('map tooltips: elite nodes carry their Deathblow when their name shows (a rare only with Scout\'s Eye); a hidden name shows only its type (M2b v14, D112; every expedition elite, D50); dungeon nodes the boss\'s', () => {
     let seen = 0;
     for (const mapMode of ['rows', 'expedition']) {
       for (let seed = 1; seed <= 6; seed++) {
@@ -245,7 +249,7 @@ describe('views for the UI (M2b v13 UI list; engine-api.md 6.2)', () => {
         const nodes = mapMode === 'rows' ? v.rows.flat() : v.nodes.filter((n) => n.know === 'full');
         for (const n of nodes) {
           if (n.type === 'elite') {
-            if (mapMode === 'expedition' || n.name === null) assert.equal(n.deathblow, null);
+            if (mapMode === 'expedition' || n.name === null) assert.ok(n.deathblow && Object.keys(n.deathblow).join() === 'type' && ['heavy', 'cast'].includes(n.deathblow.type), JSON.stringify(n));
             else { assert.ok(n.deathblow && n.deathblow.name && ['heavy', 'cast'].includes(n.deathblow.type), JSON.stringify(n)); seen++; }
           }
           if (n.type === 'dungeon') { assert.ok(n.bossDeathblow && n.bossDeathblow.name, JSON.stringify(n)); seen++; }

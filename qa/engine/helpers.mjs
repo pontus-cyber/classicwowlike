@@ -1,4 +1,5 @@
 // Test helpers for qa/engine/*.test.mjs (node:test, no dependencies).
+import { before, after } from 'node:test';
 import * as R from '../../src/rules.js';
 import { CONTENT } from '../fixtures/content-min.js';
 import { cloneState } from '../../src/engine/util.js';
@@ -9,6 +10,16 @@ import { STREAM, nextFloat } from '../../src/rng.js';
 export { R, CONTENT, cloneState, refreshDerived, STREAM, nextFloat };
 export const C = R.C;
 export const MAX_ACTIONS_PER_RUN = 20000; // balance.md 6 (B36)
+
+/**
+ * Set rule switches (C.GATES) for the enclosing describe and restore them after it (M2b v14, D113: the v13 rows 5-6 are on
+ * by default; a suite written for the rules without one sets it off explicitly).
+ */
+export function gates(values) {
+  let saved = null;
+  before(() => { saved = { ...C.GATES }; Object.assign(C.GATES, values); });
+  after(() => { Object.assign(C.GATES, saved); });
+}
 
 /** A started run (phase ZONE_HUB). */
 export function started(classId = 'rogue', opts = {}) {

@@ -3,7 +3,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  R, C, CONTENT, started, atLevel, withSpells, inFight, tweak, forceDraws, ev, st, cloneState, peek, STREAM, play,
+  R, C, CONTENT, started, atLevel, withSpells, inFight, tweak, forceDraws, ev, st, cloneState, peek, STREAM, play, gates,
 } from './helpers.mjs';
 import { makeRng, nextFloat } from '../../src/rng.js';
 import { estSeconds } from '../../src/engine/summary.js';
@@ -25,6 +25,7 @@ const engage = (option, target = null, spellId) => (C.ENGAGE_OPTION[option].targ
 const advanced = (g, n) => { const x = g.slice(); for (let i = 0; i < n; i++) nextFloat(x); return x; };
 
 describe('rules 7.11 intent track (combat v2)', () => {
+  gates({ firstMeetWindup: false }); // M2b v14 (D113): written for the rules without this v13 switch
   test('fight start: every enemy shows turns 1..INTENT_TRACK_LEN, is Unaware in the engage round, and its turn 1 is round 2', () => {
     let s = fight('mage', 20, [], [mob('z1_brute'), mob('z1_caster'), mob('z1_mender')], { prep: tough });
     for (const e of s.fight.enemies) {
@@ -285,6 +286,7 @@ describe('rules 7.11 the predicted cancel on track entries (D52)', () => {
 });
 
 describe('rules 7.12 opening scripts and pack roles (combat v2)', () => {
+  gates({ firstMeetWindup: false }); // M2b v14 (D113): written for the rules without this v13 switch
   test('every archetype plays its opening script on turns 1..OPENING_TURNS; a lone skulker strikes instead of Signal', () => {
     for (const arch of Object.keys(C.OPENING_SCRIPT)) {
       const s = fight('mage', 20, [], [mob(`z1_${arch}`), mob(arch === 'brute' ? 'z1_beast' : 'z1_brute')], { prep: tough });
@@ -524,6 +526,7 @@ describe('rules 7.13 off-balance (combat v2)', () => {
 });
 
 describe('rules 7.10 engage round (combat v2)', () => {
+  gates({ firstMeetWindup: false }); // M2b v14 (D113): written for the rules without this v13 switch
   test('legalActions offers ENGAGE only in the engage round (never in round 2 or in the end-boss fight); each listed ENGAGE steps', () => {
     for (const [cls, petId] of [['rogue'], ['mage'], ['hunter', 'ridgewolf']]) {
       const s = fight(cls, 30, cls === 'mage' ? ['ember_bolt', 'arcane_ward'] : [], [mob('z1_brute', 30), mob('z1_caster', 30)], { petId, stealth: cls === 'rogue', prep: tough });

@@ -48,7 +48,7 @@ import { heatView as heatMeter, heatPreview as previewHeat } from './engine/heat
 import { prepView as prepScreen, contractView as contractTracker } from './engine/contracts.js';
 import { createDebug } from './engine/debug.js';
 import { windupView as windups, autoplayEngage as autoEngage } from './engine/answers.js';
-import { deathblowOf } from './engine/track.js';
+import { deathblowOf, deathblowType } from './engine/track.js';
 import { damageView as dmgView } from './engine/damageview.js';
 
 /**
@@ -485,8 +485,9 @@ export function mapView(state) {
       v.archetypes = [arch(n.elite), ...(n.add ? [arch(n.add)] : [])];
       v.rare = scout ? n.rare : null;
       v.name = scout || !n.rare ? c.enemies[n.elite].name : null;
-      // M2b v13 (UI list 7): its Deathblow, shown when its name is (a rare's only with Scout's Eye)
-      v.deathblow = v.name !== null ? deathblowOf(c, n.elite, n.rare ? 'rare' : 'elite') : null;
+      // M2b v13 (UI list 7): its Deathblow, shown when its name is (a rare's only with Scout's Eye); M2b v14 (row 2, D112):
+      // a hidden name shows only the Deathblow's type
+      v.deathblow = v.name !== null ? deathblowOf(c, n.elite, n.rare ? 'rare' : 'elite') : deathblowType(c, n.elite, n.rare);
     }
     if (n.type === 'dungeon') {
       v.name = zoneContent(c, s.zone.z).dungeon.name; v.level = n.trashLevel; v.bossLevel = n.bossLevel;

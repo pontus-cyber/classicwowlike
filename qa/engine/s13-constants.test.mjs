@@ -109,14 +109,31 @@ describe('change doc M2b v13 (docs/specs/changes-m2b-v13.md, D105-D109): the eng
     assert.match(ws[2], /^unchanged/);
     assert.deepEqual([K.EMPOWER_DMG, K.STAGGER_DMG], ws[1].split(',').map((x) => Number(x.trim())));
   });
-  test('rows 5-6 (gated): RARE_HP_MULT_Z1 is the "New" value, applied only with GATES.rareHpMultZ1 (off: the "Old" RARE_HP_MULT); FIRST_MEET_WINDUP is GATES.firstMeetWindup, "Old" (off) until the sim\'s gate passes', () => {
+  test('rows 5-6 (gated): RARE_HP_MULT_Z1 is the "New" value, applied only with GATES.rareHpMultZ1 (off: the "Old" RARE_HP_MULT); FIRST_MEET_WINDUP is GATES.firstMeetWindup; both switches on since M2b v14 (D113, checked below)', () => {
     const rare = get('RARE_HP_MULT_Z1');
     assert.ok(rare && /gated/.test(rare[0]));
     assert.deepEqual([K.RARE_HP_MULT_Z1, K.RARE_HP_MULT, K.VARIANT.rare.hp], [Number(rare[2]), Number(rare[1].split(/\s/)[0]), K.RARE_HP_MULT]);
     const fm = get('FIRST_MEET_WINDUP');
     assert.ok(fm && /gated/.test(fm[0]));
     assert.deepEqual([fm[1], fm[2]], ['off', 'on']);
-    assert.deepEqual(K.GATES, { rareHpMultZ1: false, firstMeetWindup: false });
+    assert.deepEqual([K.GATES.rareHpMultZ1, K.GATES.firstMeetWindup], [fm[2] === 'on', fm[2] === 'on']);
+  });
+});
+
+describe('change doc M2b v14 (docs/specs/changes-m2b-v14.md, D111-D113): the engine switches equal its constant table', () => {
+  const text = readFileSync(fileURLToPath(new URL('../../docs/specs/changes-m2b-v14.md', import.meta.url)), 'utf8');
+  const table = rows(text.slice(text.indexOf('## Constants')));
+  const get = (label) => table.find((r) => r[0].startsWith(label));
+  const on = (v) => ({ on: true, yes: true, true: true, off: false, no: false, false: false, '-': false })[v];
+  test('rows 1 and 4: rule H and the PASS that keeps STEALTH are on (GATES.sapHold, GATES.passStealth); GATES.rareHpMultZ1 and GATES.firstMeetWindup are the "New" column (true)', () => {
+    const rows4 = [['Autoplay rule H', 'sapHold'], ['PASS keeps STEALTH', 'passStealth'], ['`C.GATES.rareHpMultZ1`', 'rareHpMultZ1'], ['`C.GATES.firstMeetWindup`', 'firstMeetWindup']];
+    for (const [label, key] of rows4) {
+      const r = get(label);
+      assert.ok(r, label);
+      assert.equal(K.GATES[key], on(r[2]), `${label}: New ${r[2]}`);
+      assert.notEqual(on(r[1]), on(r[2]), `${label}: Old ${r[1]} differs`);
+    }
+    assert.deepEqual(Object.keys(K.GATES).sort(), rows4.map((x) => x[1]).sort());
   });
 });
 

@@ -1,5 +1,6 @@
 // Content access and validation (src/content/SCHEMA.md, rules 12; expedition fields: zone regions and Road names,
-// template families, the texts.expedition group, D51; texts.families, texts.prep, texts.contracts, 2b.5).
+// template families, the texts.expedition group, D51; texts.families, texts.prep, texts.contracts, 2b.5). M2b v14 (D112,
+// rules 12.4): in strict mode every zone's elite pool keeps a heavy and a cast Deathblow.
 import {
   ZONE_COUNT, CONTENT_RANGE as CR, ARCHETYPE, ABILITY_TEMPLATE, SLOT_IDS, CLASS_IDS, SPELL, TALENT, PET,
   BOON, CONSUMABLE, ENGINE_ASSUMPTION as EA, REGION_COUNT, REGION_W, ROAD_COUNT, EXPEDITION_TEXT_IDS, PREP_OPTION,
@@ -24,7 +25,9 @@ export const CAMP_Z = EA.CAMP_ZONE;
 
 /**
  * Validate a content object. Returns an array of error strings (empty when valid).
- * strict: also check the rules 12.1 counts (use for src/content); otherwise only what the engine needs.
+ * strict: also check the rules 12.1 counts and (M2b v14, D112) that each zone's elite pool has at least one heavy and one
+ * cast Deathblow (rules 12.4; the map shows a hidden elite's Deathblow type, which then never tells a rare, D50); use for
+ * src/content. Otherwise only what the engine needs.
  */
 export function validateContent(content, { strict = false } = {}) {
   const err = [];
@@ -47,6 +50,15 @@ export function validateContent(content, { strict = false } = {}) {
   const enemies = content.enemies || {};
   const abilities = content.abilities || {};
   const quests = content.quests || {};
+  // An elite template's Deathblow type (rules 7.12, track.js deathblowOf): its non-once ability with the highest pct
+  // (ties: first listed); 'heavy' when that template is heavy, else 'cast'. null when it has none.
+  const deathblowTypeOf = (id) => {
+    const abs = ((enemies[id] && enemies[id].abilities) || []).filter((a) => abilities[a] && ABILITY_TEMPLATE[abilities[a].template] && !ABILITY_TEMPLATE[abilities[a].template].once);
+    if (!abs.length) return null;
+    let best = abs[0];
+    for (const a of abs) if ((abilities[a].pct || 0) > (abilities[best].pct || 0)) best = a;
+    return ABILITY_TEMPLATE[abilities[best].template].heavy ? 'heavy' : 'cast';
+  };
   if (typeof content.enemies !== 'object') e('enemies: missing table');
   if (typeof content.abilities !== 'object') e('abilities: missing table');
   if (typeof content.quests !== 'object') e('quests: missing table');
@@ -131,6 +143,11 @@ export function validateContent(content, { strict = false } = {}) {
     }
     listOf(zn.elites, 'elite', `${w}.elites`);
     listOf(zn.rares, 'rare', `${w}.rares`);
+    // M2b v14 (D112): the elite pool keeps a heavy and a cast Deathblow (its signature ability, rules 7.12).
+    if (strict && Array.isArray(zn.elites)) {
+      const types = new Set(zn.elites.map((id) => deathblowTypeOf(id)).filter(Boolean));
+      if (!types.has('heavy') || !types.has('cast')) e(`${w}.elites: Deathblow types ${[...types].sort().join(', ') || 'none'}, expected at least one heavy and one cast (D112)`);
+    }
     // Optional regions (rules 1.9.2, expedition): exactly REGION_COUNT of { id, name, kind, families }.
     if (zn.regions !== undefined) {
       if (!Array.isArray(zn.regions) || zn.regions.length !== REGION_COUNT) e(`${w}.regions: expected ${REGION_COUNT} regions`);

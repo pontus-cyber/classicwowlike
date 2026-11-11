@@ -2,10 +2,11 @@
 // interrupt or control that stops a cast or heavy now-entry leaves the enemy OFF_BALANCE (7.13); Gathered Power
 // (7.10); ENGAGE actions are resolved in engage.js. Combat v2.1: an interrupted wind-up is answered (STAGGERED, 7.12).
 // M2b v8 (rules 7.5): itemAmount, what a consumable restores; Packed Satchel's free potion at FREE_POTION_MULT.
+// M2b v14 (rules 7.4, D111): a PASS keeps STEALTH while every living enemy is SAPPED (GATES.passStealth).
 import {
   SPELL, CLASS, TALENT, PET, CP_MAX, ENGINE_ASSUMPTION as EA, CHILL_PCT, CONSUMABLE, POTION_CD,
   UNIQUE_PROC_CHANCE, UNIQUE_PROC_BASE, UNIQUE_PROC_PER_LEVEL, UNIQUE_POTION_PCT, FLEE_BASE,
-  FLEE_PER_EXTRA_ENEMY, MIN_HIT_DAMAGE, OFFBAL_DURATION, FREE_POTION_MULT,
+  FLEE_PER_EXTRA_ENEMY, MIN_HIT_DAMAGE, OFFBAL_DURATION, FREE_POTION_MULT, GATES,
 } from '../constants.js';
 import { nextFloat } from '../rng.js';
 import { rnd } from './util.js';
@@ -15,7 +16,7 @@ import {
   gainResource, livingEnemies, gainOffBalance, answerWindup,
 } from './damage.js';
 import { interruptBoss } from './boss.js';
-import { defaultTarget } from './combat.js';
+import { defaultTarget, allSapped } from './combat.js';
 import { countConsumable, takeConsumable } from './items.js';
 import { engageAction, keepsStealth } from './engage.js';
 
@@ -668,6 +669,12 @@ export function itemUsableInCombat(s, id) {
 
 // ---------------- Player action dispatcher ----------------
 /**
+ * Does a PASS now keep STEALTH (rules 7.4, M2b v14 row 1 (b), D111)? Yes while every living enemy is SAPPED and the
+ * switch GATES.passStealth is on: the Rogue waits for Sap to cancel a wind-up and still opens from STEALTH.
+ */
+export const passKeepsStealth = (s) => GATES.passStealth && !!s.fight && allSapped(s);
+
+/**
  * Resolve the player's action for the round (validated by the caller). free: the action is Packed Satchel's free potion
  * (rules 7.5, M2b v6; combat.js resolveRound): resolved exactly the same, its item event carries `free: true`.
  */
@@ -682,8 +689,10 @@ export function playerAction(s, ev, a, free = false) {
   }
   const wasStealthed = hasSt(f.p.st, 'STEALTH');
   const opener = a.type === 'CAST' && isOpener(a.spellId);
-  // Openers keep STEALTH (rules 7.4); so do Sap and Premeditate (rules 7.10). Any other action removes it.
-  const keep = (opener && !EA.OPENER_BREAKS_STEALTH) || (a.type === 'ENGAGE' && keepsStealth(a.option));
+  // Openers keep STEALTH (rules 7.4); so do Sap and Premeditate (rules 7.10), and (M2b v14, D111) a PASS while every
+  // living enemy is SAPPED. Any other action removes it.
+  const keep = (opener && !EA.OPENER_BREAKS_STEALTH) || (a.type === 'ENGAGE' && keepsStealth(a.option))
+    || (a.type === 'PASS' && passKeepsStealth(s));
   if (wasStealthed && !keep) removeStatus(s, ev, 'player', 'STEALTH');
   f.p.niBonus = (wasStealthed || f.p.stealthPrev) ? tr(s, 'r_b8') * TALENT.r_b8.pct : 0;
   f.p.stealthPrev = wasStealthed;

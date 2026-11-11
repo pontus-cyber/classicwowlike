@@ -21,7 +21,7 @@ import {
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt, weightedIndex } from '../rng.js';
 import { zoneContent } from './content.js';
-import { deathblowOf } from './track.js';
+import { deathblowOf, deathblowType } from './track.js';
 import { composeEncounter, vendorStock, dungeonLevels, clampCl, pickFrom } from './map.js';
 
 // ---------------- Map modes (rules 1.9) ----------------
@@ -361,14 +361,16 @@ export function knowledge(s, n) {
 /**
  * Node details the player sees on a fully visible node (as rules 1.4's map view; rare flags, traps and Embers hidden).
  * An elite shows its level and one archetype entry per enemy, the elite's own as null, and no name (D50, rules 1.9.5):
- * content gives a zone's rares other archetypes than its elites, so the elite's name or archetype would tell a rare.
+ * content gives a zone's rares other archetypes than its elites, so the elite's name or archetype would tell a rare. Its
+ * Deathblow shows only its type, heavy or cast (M2b v14, D112).
  */
 function details(c, z, n) {
   const arch = (tid) => c.enemies[tid].archetype;
   if (n.type === 'quest') return { title: c.quests[n.quest].title, archetypes: n.mobs.map(arch) };
   if (n.type === 'grind') return { archetypes: n.waves[0].map(arch) };
-  // M2b v13 (UI list 7): an elite's Deathblow stays hidden with its name (D50); the dungeon boss's shows.
-  if (n.type === 'elite') return { level: n.eliteLevel, archetypes: [null, ...(n.add ? [arch(n.add)] : [])], rare: null, name: null, deathblow: null };
+  // M2b v13 (UI list 7): an elite's Deathblow stays hidden with its name (D50); the dungeon boss's shows. M2b v14 (row 2,
+  // D112): its type only ('heavy' or 'cast'; every zone's elite pool has both, content.js), never id, name or kind.
+  if (n.type === 'elite') return { level: n.eliteLevel, archetypes: [null, ...(n.add ? [arch(n.add)] : [])], rare: null, name: null, deathblow: deathblowType(c, n.elite, n.rare) };
   if (n.type === 'dungeon') {
     return { name: zoneContent(c, z).dungeon.name, level: n.trashLevel, bossLevel: n.bossLevel, fights: n.trash.map((f) => f.map(arch)), bossArchetype: arch(n.boss), bossDeathblow: deathblowOf(c, n.boss, 'dboss') };
   }

@@ -2,7 +2,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { setupNode } from '../../src/engine/map.js';
-import { R, C, started, atLevel, withSpells, inFight, tweak, forceDraws, HIT, MISS, pipeline, ev, st, cloneState, nextFloat } from './helpers.mjs';
+import { R, C, started, atLevel, withSpells, inFight, tweak, forceDraws, HIT, MISS, pipeline, ev, st, cloneState, nextFloat, gates } from './helpers.mjs';
 
 const mob = (tid = 'z1_brute', level = 20, variant = 'normal') => ({ tid, level, variant });
 function setup(classId, L, spells, enemies, prep, opts = {}) {
@@ -232,6 +232,7 @@ describe('rules 7.5 usable items in combat', () => {
 });
 
 describe('rules 7.6 enemy AI and intents', () => {
+  gates({ rareHpMultZ1: false }); // M2b v14 (D113): written for the rules without this v13 switch
   test('enemy stats: HP, damage and armor by level × archetype × variant × template', () => {
     for (const [tid, variant] of [['z1_brute', 'normal'], ['z1_caster', 'trash'], ['z1_elite', 'elite'], ['z1_rare', 'rare'], ['z1_dboss', 'dboss']]) {
       const s = setup('mage', 20, [], [mob(tid, 15, variant)]);

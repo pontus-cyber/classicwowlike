@@ -2,7 +2,8 @@
 // deterministic default policy for every other decision so a headless run can go from CREATE to SUMMARY. The
 // simulator's bots (balance.md 1) replace the out-of-combat part with their own policies; the combat part is the
 // spec's. Autoplay reads only the now-intent, except rule E, which reads turns 1..ENGAGE_AUTO_LOOK of the tracks, and
-// rule E2 (M2b v13, D108), which answers a visible wind-up of an elite, rare or dungeon boss in the engage round.
+// rule E2 (M2b v13, D108), which answers a visible wind-up of an elite, rare or dungeon boss in the engage round, and
+// rule H (M2b v14, D111), which waits while every living enemy is SAPPED and Sap will cancel a wind-up (the track's cancel).
 // Expedition map (rules 1.9.9): the default map policy explores what it can leave cleanly and walks to the cheapest
 // Road around the Dimming; it reads only what the player sees (seen nodes, the skeleton, the Dimming).
 // The default talent build, bar and item bar are exported for the dev tools (debug.build, engine-api.md 12).
@@ -11,11 +12,11 @@
 import {
   SPELL, TALENT, CONSUMABLE, AUTO_POTION_HP, AUTO_TONIC_STACKS, AUTO_MANA_POTION, AUTO_FOOD_HP,
   ENGINE_ASSUMPTION as EA, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, MAX_LEVEL, PET, ENGAGE_OPTION, ENGAGE_OPTIONS,
-  ENGAGE_AUTO_LOOK, TIME_WALK, TIME_REST, TIME_VENDOR, TIME_TRAINER, EXPED_TIME_QUEST,
+  ENGAGE_AUTO_LOOK, TIME_WALK, TIME_REST, TIME_VENDOR, TIME_TRAINER, EXPED_TIME_QUEST, GATES,
 } from '../constants.js';
 import { hasSt, findSt, debuffStacks, isEliteOrBoss, petAlive } from './damage.js';
-import { defaultTarget, breaksOnHit } from './combat.js';
-import { isEngageRound } from './track.js';
+import { defaultTarget, breaksOnHit, allSapped } from './combat.js';
+import { isEngageRound, turnOf } from './track.js';
 import { engageAct, windupTurn } from './engage.js';
 import { castError, itemUsableInCombat } from './spells.js';
 import { itemScore, countConsumable, sellValue, canAdd, V, bagCapacity } from './items.js';
@@ -181,6 +182,22 @@ export function engageAnswer(s) {
   return null;
 }
 
+/** A track entry is a wind-up whose cancel the track predicts by SAPPED (rules 7.11, D52): Sap will answer it. */
+const sapCancels = (x) => !!(x.windup && x.cancel && x.cancel.by === 'SAPPED' && x.cancel.stagger);
+
+/**
+ * Rule H (rules 7.9, M2b v14 row 1 (a), D111), after rules 1-2 and before rule 3, not in the engage round: wait while
+ * every living enemy is SAPPED and some SAPPED enemy's track shows, after its now-entry, a wind-up whose cancel the track
+ * predicts by SAPPED (rules 7.11). Any damage would break Sap; the wait lets Sap cancel the wind-up (STAGGERED, rules
+ * 7.12), and the PASS keeps STEALTH (rules 7.4). Any class with SAPPED enemies (today the Rogue). Off with GATES.sapHold.
+ * Exported for the UI's answers (answers.js).
+ */
+export function sapWait(s) {
+  const f = s.fight;
+  if (!GATES.sapHold || !f || isEngageRound(f) || !allSapped(s)) return false;
+  return f.enemies.some((e) => e.alive && e.track && e.track.some((x) => x.turn > turnOf(f, e) && sapCancels(x)));
+}
+
 function combatPolicy(s) {
   const f = s.fight;
   const p = s.player;
@@ -206,6 +223,8 @@ function combatPolicy(s) {
       if (id && CONSUMABLE[id].dispersal && itemUsableInCombat(s, id)) return { type: 'USE_ITEM', slot: i, target: null };
     }
   }
+  // H (M2b v14, D111): wait in the shadows while Sap will cancel a wind-up.
+  if (sapWait(s)) return { type: 'PASS' };
   // 3. Interrupt the cast with the highest estimated damage (ties: lowest index)
   const casts = f.enemies.filter(intentIsCast).sort((a, b) => b.intent.est - a.intent.est || a.idx - b.idx);
   for (const e of casts) {

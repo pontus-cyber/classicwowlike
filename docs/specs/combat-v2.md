@@ -1,6 +1,6 @@
 # Combat v2 spec: the opening matters
 
-Owner: Lead Game Designer (combat). Status: draft for Lead and owner review, 2026-11-10. A change set on top of docs/specs/rules.md section 7 (and 3, 5, 10 where named). Rules in sections 2-8; pacing 9; UI 10; bots 11; balance targets 12; prototype evidence 13; open choices 14; constants 15; combat v2.1 (2026-11-10, after the sim measure docs/reports/balance-2026-11-10d.md) in section 16, changed lines marked "(combat v2.1)", change table docs/specs/changes-combat-v21.md. M2b v13 "special fights demand thought" (2026-11-11, docs/specs/changes-m2b-v13.md, D105-D110; owner go-ahead 21:26) in section 17, changed lines marked "(M2b v13)"; in the engine since 2026-11-11 (docs/handoffs/engineer-2026-11-11j.md).
+Owner: Lead Game Designer (combat). Status: draft for Lead and owner review, 2026-11-10. A change set on top of docs/specs/rules.md section 7 (and 3, 5, 10 where named). Rules in sections 2-8; pacing 9; UI 10; bots 11; balance targets 12; prototype evidence 13; open choices 14; constants 15; combat v2.1 (2026-11-10, after the sim measure docs/reports/balance-2026-11-10d.md) in section 16, changed lines marked "(combat v2.1)", change table docs/specs/changes-combat-v21.md. M2b v13 "special fights demand thought" (2026-11-11, docs/specs/changes-m2b-v13.md, D105-D110; owner go-ahead 21:26) in section 17, changed lines marked "(M2b v13)"; in the engine since 2026-11-11 (docs/handoffs/engineer-2026-11-11j.md). M2b v14 (2026-11-12, docs/specs/changes-m2b-v14.md rows 1 and 4, D111 and D113; status draft as that file): autoplay rule H and the PASS that keeps STEALTH while every enemy is SAPPED (6.2, 8, 17.2), the v13 switches on by default (17.3); changed lines marked "(M2b v14)"; in the engine since 2026-11-12 (docs/handoffs/engineer-2026-11-12.md).
 Audience: Core Gameplay Engineer, UI/UX Engineer, Simulation & Balance Engineer, Content Designer, QA.
 
 Sources: owner feedback [stated: docs/feedback/2026-11-10-1043-owner.md]; current combat [source: docs/specs/rules.md 5, 6, 7, 10]; balance state [source: docs/reports/balance-2026-11-10b.md]; playtest [source: docs/handoffs/qa-2026-11-09.md]; scratch prototype on the real engine [source: sim/out/combat2/, git-ignored, section 13]. Every number is a named constant in the table at the end (section 15); all are starting values for the Simulation & Balance Engineer.
@@ -151,7 +151,7 @@ Rogue (starts the fight in STEALTH as today; the engage round replaces its Unawa
 | id | Kind | Effect |
 |---|---|---|
 | ambush | strike | Shadowstep Strike on the target if learned, else Gutting Jab × AMBUSH_MULT; +2 CP; keeps STEALTH like today's stealth opener (D48), so round 2 can open again |
-| sap | control | target non-boss enemy is SAPPED for SAP_TURNS turns (cancels those now-entries, 3.4); breaks on any damage to it, DOT ticks and AoE included; the Rogue **stays in STEALTH**, so round 2 can still open with Shadowstep Strike on another enemy |
+| sap | control | target non-boss enemy is SAPPED for SAP_TURNS turns (cancels those now-entries, 3.4); breaks on any damage to it, DOT ticks and AoE included; the Rogue **stays in STEALTH**, so round 2 can still open with Shadowstep Strike on another enemy. (M2b v14) A PASS keeps STEALTH while every living enemy is SAPPED, so against a lone enemy the Rogue can wait for Sap to cancel its wind-up and still open from STEALTH into the OFF_BALANCE window |
 | premeditate | setup | +PREMED_CP CP; stays in STEALTH. Typical use: round 2 Temple Blow with 3 CP (STUN 2) on the brute's turn-2 Heavy Smash -> cancelled -> OFF_BALANCE -> finisher into the window |
 
 Mage (no stealth; the engage round is "from range")
@@ -197,7 +197,9 @@ Before rule 1, in the engage round only:
 
 - **E2. Answer the Deathblow** (M2b v13, D108), before E: the class's control option on the first living elite, rare or dungeon boss (index order) whose track shows a wind-up in turns 1..INTENT_TRACK_LEN, if legal on it (Disrupt on a dungeon boss); a lone special enemy counts and the Rogue may Sap here (E2 supersedes D49 and open choice 9 for this case; rule E keeps them). (M2b v13)
 
-Then rules 1-6 as today. Autoplay reads **only the now-entry** (as today) and never holds a spell for an OFF_BALANCE window. This is deliberate: the track and the window are the manual player's edge; autoplay remains a sound, safe default (it still interrupts, drinks and cleanses).
+- **H. Wait in the shadows** (M2b v14, D111), after rules 1-2 and before rule 3, not in the engage round: while every living enemy is SAPPED and a SAPPED enemy's track shows, after its now-entry, a wind-up whose cancel the track predicts by SAPPED, PASS. Sap then cancels it at its turn (STAGGERED, OFF_BALANCE) and the PASS keeps STEALTH (6.2), so the Rogue opens next round. Switch `C.GATES.sapHold` (on). (M2b v14)
+
+Then rules 1-6 as today. Autoplay reads **only the now-entry** (as today; rule H reads the track's predicted cancel, M2b v14) and never holds a spell for an OFF_BALANCE window. This is deliberate: the track and the window are the manual player's edge; autoplay remains a sound, safe default (it still interrupts, drinks and cleanses).
 
 Default target: priority unchanged (mender > caster > others, lowest HP); SAPPED enemies are skipped like HEXED ones, and an enemy that was sapped is taken only when no other is left (D48).
 
@@ -349,7 +351,7 @@ Expected effect of the parts not built [inference: from the mechanism, not measu
 | DEATHBLOW_MULT | 2.0 | × the pct of a damaging Deathblow, on top of the script multiplier (M2b v13) |
 | DEATHBLOW_EMPOWER | 1.00 | EMPOWERED value of a landed Deathblow's stack (M2b v13) |
 | MAIM_HEAL | 0.50 | share of every heal on the player removed while MAIMED (M2b v13) |
-| RARE_HP_MULT_Z1 | 3.0 | × HP of a zone-1 rare, gated: only with GATES.rareHpMultZ1 (M2b v13) |
+| RARE_HP_MULT_Z1 | 3.0 | × HP of a zone-1 rare, gated: only with GATES.rareHpMultZ1 (M2b v13); the switch is on (M2b v14) |
 | PACE_ROUND_ANIM_S | 2.1 | s (was 1.5) |
 | PACE_ROUND_DECIDE_S | 1.0 | s |
 | PACE_ENGAGE_S | 6 | s per fight with an engage round (manual profile) |
@@ -442,7 +444,7 @@ Why and the measured package: docs/specs/changes-m2b-v13.md (owner 18:41, 18:46,
 - Every class has a level-1 answer in the engage round: the control option (Sap, Binding Glyph, Lay Trap) on an elite or rare, Disrupt on a dungeon boss; later also interrupts, stun-tagged spells and, for a heavy one, a full dodge, WARD, Mirrorshade or the pet.
 
 ### 17.2 Autoplay rule E2 (D108)
-Section 8. Engine reading: Sap on a lone special enemy cancels its turns only while nothing damages it; autoplay's rules 1-6 then attack it (it is the only target), so a lone elite's or rare's Deathblow is answered by the Rogue's E2 only when an add takes the hits first, or later by rule 3 (Throat Jab, Temple Blow). Binding Glyph (FROZEN, not broken by damage), Lay Trap and Disrupt hold. Measured only pooled by the designer; the sim reads it per class (handoff engineer-2026-11-11j).
+Section 8. Engine reading: Sap on a lone special enemy cancels its turns only while nothing damages it; autoplay's rules 1-6 then attack it (it is the only target), so a lone elite's or rare's Deathblow is answered by the Rogue's E2 only when an add takes the hits first, or later by rule 3 (Throat Jab, Temple Blow). Binding Glyph (FROZEN, not broken by damage), Lay Trap and Disrupt hold. Measured only pooled by the designer; the sim reads it per class (handoff engineer-2026-11-11j). (M2b v14, D111) Rule H closes this: after the Sap of a lone special enemy autoplay waits a round (PASS, STEALTH kept), Sap cancels the Deathblow (STAGGERED) and the Rogue opens into the OFF_BALANCE window (section 8).
 
 ### 17.3 Gated rows 5-6 (D109)
-Switches in `C.GATES`, off until the sim's gates pass: `rareHpMultZ1` (zone-1 rares with RARE_HP_MULT_Z1, cell 6) and `firstMeetWindup` (FIRST_MEET_WINDUP: the first meeting of a normal enemy type in a quest fight makes its turn-2 scripted action a wind-up at the grind's stakes, cell 7). The engine records the met templates (`state.met`) whatever the switch.
+Switches in `C.GATES`: `rareHpMultZ1` (zone-1 rares with RARE_HP_MULT_Z1, cell 6) and `firstMeetWindup` (FIRST_MEET_WINDUP: the first meeting of a normal enemy type in a quest fight makes its turn-2 scripted action a wind-up at the grind's stakes, cell 7). The engine records the met templates (`state.met`) whatever the switch. (M2b v14, D113) Both are on (the sim's decision rules of the v13 measure); the switches stay for sim arms, with `sapHold` and `passStealth` (rule H and the PASS that keeps STEALTH, section 8).

@@ -398,16 +398,20 @@ export const DEATHBLOW_MULT = 2.0;
 export const DEATHBLOW_EMPOWER = 1.0;
 /** rules 7.4, 7.5 (D107): share of the healing the player receives that MAIMED removes (rest of the fight). */
 export const MAIM_HEAL = 0.5;
-/** rules 2.3 (D109, M2b v13 row 5, gated): × HP of a zone-1 rare elite while GATES.rareHpMultZ1 is on (off: RARE_HP_MULT). */
+/** rules 2.3 (D109, M2b v13 row 5; on by default since M2b v14, D113): × HP of a zone-1 rare elite while GATES.rareHpMultZ1 is on (off: RARE_HP_MULT). */
 export const RARE_HP_MULT_Z1 = 3.0;
 /**
- * Gated rules (M2b v13 rows 5-6, D109): off until the sim's gates pass (changes-m2b-v13.md cells 6 and 7).
+ * Rule switches, every one on by default; kept so the sim can play an arm without a rule (it sets them in every process
+ * before a run, as RICOCHET_BOUNCE_FRAC_GATED; a scratch copy changes them here).
+ * M2b v13 rows 5-6 (D109), on since M2b v14 row 4 (D113, the sim's decision rules of the v13 measure):
  * rareHpMultZ1 (row 5): a zone-1 rare is made with RARE_HP_MULT_Z1 instead of RARE_HP_MULT (rules 2.3, combat.js makeEnemy).
  * firstMeetWindup (row 6, FIRST_MEET_WINDUP): the first-meeting wind-up of a new normal enemy type in a quest fight
- * (rules 7.12). The engine reads the fields when it makes an enemy and when a fight starts; the sim arms an arm by
- * setting them in every process before a run (as RICOCHET_BOUNCE_FRAC_GATED), a scratch copy by changing them here.
+ * (rules 7.12). The engine reads them when it makes an enemy and when a fight starts.
+ * M2b v14 row 1 (D111, changes-m2b-v14.md "What the sim must run"): sapHold (row 1 (a)): autoplay rule H, wait while every
+ * living enemy is SAPPED and Sap will cancel a wind-up (rules 7.9, autoplay.js); passStealth (row 1 (b)): a PASS keeps
+ * STEALTH while every living enemy is SAPPED (rules 7.4, spells.js playerAction).
  */
-export const GATES = { rareHpMultZ1: false, firstMeetWindup: false };
+export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true };
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
 // with mapMode 'expedition'; a run on today's map (mapMode 'rows', the default) never reads them.
 /** rules 1.9.2: nodes per ring (ring 0 = the hub). */

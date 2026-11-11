@@ -38,7 +38,10 @@ Swift Boots with an `expedition` effect) and its effects in runs with the start 
 0.30); 2026-11-11j (M2b v13, docs/specs/changes-m2b-v13.md rows 1-6: the Deathblow flag and estimate on track entries and
 intents, summed EMPOWERED / STAGGERED values with their Deathblow share, the player status MAIMED and `potionInfo`'s cut amount,
 the `empower` / `stagger` / `heal` event fields, autoplay rule E2, `state.met` and the gated switches `C.GATES`, and the views
-`windupView`, `autoplayEngage` and the map's Deathblow fields (section 6.2); marked "(M2b v13)").
+`windupView`, `autoplayEngage` and the map's Deathblow fields (section 6.2); marked "(M2b v13)"); 2026-11-12 (M2b v14,
+docs/specs/changes-m2b-v14.md rows 1, 2 and 4: autoplay rule H, the PASS that keeps STEALTH while every living enemy is SAPPED,
+`C.GATES` on by default with the new `sapHold` and `passStealth`, a hidden elite's `deathblow: { type }`, `autoplayEngage`'s
+`wait`, and in `windupView` the Sap answer's `wait` / `stealth` and the PASS answer; marked "(M2b v14)").
 Units: every time value of the API is a whole number of tolls (1 toll = 1 former in-game hour, D69); there are no hours.
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
@@ -69,7 +72,7 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 | `autoAction(state)` | action or null | Deterministic. In combat: the autoplay policy of rules 7.9. Elsewhere: a simple default policy (talents, gear, bar, hub, map, rewards, camp) so a headless run goes from CREATE to SUMMARY. `null` only in ENDED. |
 | `summary(state)` | object or null | Run summary (rules 9) incl. Echoes breakdown (11.1): `echoes = { lines: [{ id, count, each, echoes }], base, oathMult, total }`; a line's `echoes` is `round(count × each)` (half away from zero, M2 v3; `each` can be fractional), `base` the sum of the lines, `total = round(base × oathMult)`. Show `echoes` per line. (heat) Line `heat`: fights won in heat ("Fights won in heat"); block `heat` (section 11.3). (M2b v7) The run's time is `time` and the time at the end boss `timeAtBoss` (whole tolls; null before the boss; were `hours`, `hoursAtBoss`). Available any time after START_RUN. |
 | `serialize(state)` / `deserialize(str, content)` | string / state | The content tables are not saved; pass the same `CONTENT` (version is checked). |
-| `mapView(state)` | object or null | What the player may see of the zone map (rules 1.4). Rare elites, traps and vendor Embers are `null` unless the profile owns Scout's Eye. Use this, not `state.zone.rows`, to draw the map. Fight nodes list one archetype per enemy: quest and elite `archetypes`, grind `archetypes` (first wave), treasure `archetypes` (the guard; `[]` unguarded, combat v2), dungeon `fights` (one archetype list per trash fight) and `bossArchetype` (combat v2). (M2b v13) Elite nodes add `deathblow` (null while the name is hidden: a rare without Scout's Eye) and dungeon nodes `bossDeathblow` (section 6.2). (expedition) In an expedition run: the zone graph as the player sees it (section 10.3). null outside a zone. |
+| `mapView(state)` | object or null | What the player may see of the zone map (rules 1.4). Rare elites, traps and vendor Embers are `null` unless the profile owns Scout's Eye. Use this, not `state.zone.rows`, to draw the map. Fight nodes list one archetype per enemy: quest and elite `archetypes`, grind `archetypes` (first wave), treasure `archetypes` (the guard; `[]` unguarded, combat v2), dungeon `fights` (one archetype list per trash fight) and `bossArchetype` (combat v2). (M2b v13) Elite nodes add `deathblow` (M2b v14: `{ type }` only while the name is hidden: a rare without Scout's Eye) and dungeon nodes `bossDeathblow` (section 6.2). (expedition) In an expedition run: the zone graph as the player sees it (section 10.3). null outside a zone. |
 | `validateContent(content, {strict})` | string[] | Content checks (src/content/SCHEMA.md). |
 | `newProfile()`, `metaOffers(profile)`, `buyMeta(profile, id)` | profile / offers / profile | Meta catalogue between runs (rules 11.2). `buyMeta` throws `IllegalActionError` when not allowed. (M2b v11) The expedition entries are offered and bought as any entry; read `C.META[id].mapMode` (`'expedition'`: no effect on the rows map) and `C.META[id].expedition` (Scout's Eye, Swift Boots: the effect in an expedition run) to label them. |
 | `xpToNext(L)`, `talentPointsFree(state)`, `itemScore(item, classId)`, `spellCost(state, id)`, `spellCooldown(state, id)`, `fleeChance(state)` | number | Display helpers so the UI never re-implements a rule. |
@@ -89,7 +92,7 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 | `freePotion(state)` | bool | (M2b v6) Packed Satchel's free potion (rules 7.5): true while the current fight's free potion is unused, so the next potion the player drinks (an item with `C.CONSUMABLE[id].potion`: Healing, Mana or Greater Healing Draught) costs no turn. false outside a fight, without the unlock, once used, and while the player's action is skipped. Mark the potions on the item bar "free" while it is true. (M2b v8) The free potion restores FREE_POTION_MULT (0.5) × its normal amount ("Free action, half strength"); `potionInfo` gives the amount. |
 | `potionInfo(state, itemId)` | object or null | (M2b v8) What one use of a consumable restores now (rules 8.6, 7.5): `{ id, free, mult, heal, mana }`. `heal` (HP) and `mana` are the amounts before the cap at max HP and max mana, potion uniques included (rules 11.3), 0 when it restores none (Purifying Tonic, Spark Flask). `free`: in a fight, this use would be Packed Satchel's free potion (`freePotion(state)` and a potion); then `mult` is `C.FREE_POTION_MULT` and the amounts are that share of the normal ones, else `mult` 1. The engine's own numbers (the same function resolves the use): show them, never recompute them. The `heal` / `mana` events of the use show what was restored after the cap. (M2b v13) `maim`: the MAIMED share (rules 7.5; `C.MAIM_HEAL`, 0 when not MAIMED); while MAIMED `heal` is already the cut amount, × (1 - maim) rounded once, as the use heals. null for an id that is not a consumable, or before START_RUN. |
 | `windupView(state)` | array or null | (M2b v13) Every wind-up on the enemies' tracks with its Deathblow flag, estimate, stakes and the player's answers now ("answers ready"); section 6.2. null outside a fight. |
-| `autoplayEngage(state)` | object or null | (M2b v13) In the engage round, the ENGAGE autoplay plays by rule E2 on a special enemy's wind-up, for the hint "Autoplay will answer the Deathblow with <name>"; section 6.2. |
+| `autoplayEngage(state)` | object or null | (M2b v13) In the engage round, the ENGAGE autoplay plays by rule E2 on a special enemy's wind-up, for the hint "Autoplay will answer the Deathblow with <name>"; (M2b v14) `wait` when rule H will then wait a round ("..., then wait a round"); section 6.2. |
 | `prepView(state)` | object or null | (prep) The start camp screen (expedition.md 2, 9.1), null outside phase PREP. Fields in section 13.2 |
 | `contractView(state)` | object or null | (prep) The contract tracker (expedition.md 9.3) and the hub contract on offer, any phase of an expedition run after START_RUN; null in a rows run. Never names a site's node. Fields in section 13.3 |
 | `talentInfo(state, talentId)` | object or null | (preview) Talent totals for the tooltip (owner feedback 2026-11-11 08:14; rules 6): `{ id, name, ranks, rank, per, now, next }`. `per`: the values one rank gives, `now`: their totals at the ranks taken (null at rank 0), `next`: at one more rank (null at the maximum). The keys are the talent's per-rank fields (`C.TALENT_PER_RANK`; the numbers stay in `C.TALENT`), e.g. Silent Footing at 3/3: `now { pct: 0.3 }`, `next` null. `base` (Toxic Coating, Trapper): the damage formula b + l × L (Trapper: the Snare Trap's training level) + p × Power, times the ranks, before modifiers, rounded to 0.1 (null without a character). Hemorrhage Mastery: `{ dotCrit, dotPct }` by rank. Any phase; null for an unknown id. |
@@ -323,7 +326,7 @@ the node's entry state, null outside a node that pays heat).
   `deathblowValue` their share of `value` (show it apart: "+100 % (Deathblow)"). Player `MAIMED` (M2b v13, rules 7.4): `{ id,
   dur: null, value (MAIM_HEAL), by (the enemy index), src (the Deathblow's id), name }`, the rest of the fight; dispersal and
   a resurrect keep it. Badge it large and lasting ("Healing halved"); `potionInfo` shows the cut potion amounts.
-  (M2b v13) Enemy `firstMeet: true` (only while `C.GATES.firstMeetWindup` is on): a first meeting in a quest fight (rules
+  (M2b v13) Enemy `firstMeet: true` (only while `C.GATES.firstMeetWindup` is on, the default since M2b v14): a first meeting in a quest fight (rules
   7.12), its turn-2 scripted entry is a wind-up; tag the frame "New".
 
 **Intent track (combat v2, rules 7.11).** `enemy.track` holds INTENT_TRACK_LEN entries, oldest first: the entry of
@@ -429,17 +432,20 @@ none), null outside a fight:
 | `deathblow`, `firstMeet` | a Deathblow (badge it; rules 7.12), a gated first meeting's wind-up |
 | `empower`, `maims`, `maimHeal`, `stagger` | if it lands: EMPOWERED value it adds (DEATHBLOW_EMPOWER or EMPOWER_DMG) and whether it would MAIM the player now (a Deathblow while not MAIMED; `maimHeal` = MAIM_HEAL); if answered: STAGGER_DMG |
 | `cancel` | the track's prediction (D52) that it will be cancelled, or null |
-| `answers` | `[{ via, id, name, target, spellId, how, sure, now, breaks }]`: `via` `engage` (engage round only: an ENGAGE whose preview cancels it, or sends a heavy single hit to the pet; `name` 'Disrupt' on a CC-immune enemy) or `spell` (a bar spell that answers it in its round: interrupt-tagged, stun-tagged, Hexbind; for a heavy one Glacial Tomb, Feign Stillness, Beastcall Horn, Arcane Ward, Mirrorshade, Smoke Veil, Vanishing Step), listed when its cooldown is over by the wind-up's round; `how`: `disrupt`, `control`, `pet`, `interrupt`, `stun`, `immune`, `ward`, `image`, `dodge`, `stealth`; `sure` false for a chance, an amount or a hit roll (Rime Burst, Deadfall Trap); `now`: usable this round (engage options in the engage round; a spell only in the wind-up's own round, by `castError`); `breaks`: Sap or Hexbind, which any damage ends before the wind-up's turn |
+| `answers` | `[{ via, id, name, target, spellId, how, sure, now, breaks, wait, stealth }]`: `via` `engage` (engage round only: an ENGAGE whose preview cancels it, or sends a heavy single hit to the pet; `name` 'Disrupt' on a CC-immune enemy), `pass` (M2b v14: `id` 'pass', `how` 'wait', `sure`, `now`: while every living enemy is SAPPED and the track predicts its cancel by SAPPED, waiting answers it; `stealth`: the PASS keeps STEALTH, rules 7.4; show it on the Pass button) or `spell` (a bar spell that answers it in its round: interrupt-tagged, stun-tagged, Hexbind; for a heavy one Glacial Tomb, Feign Stillness, Beastcall Horn, Arcane Ward, Mirrorshade, Smoke Veil, Vanishing Step), listed when its cooldown is over by the wind-up's round; `how`: `disrupt`, `control`, `pet`, `interrupt`, `stun`, `immune`, `ward`, `image`, `dodge`, `stealth`; `sure` false for a chance, an amount or a hit roll (Rime Burst, Deadfall Trap); `now`: usable this round (engage options in the engage round; a spell only in the wind-up's own round, by `castError`); `breaks`: Sap or Hexbind, which any damage ends before the wind-up's turn; `wait` (M2b v14, Sap only): sure if the player then passes until its turn, because every other living enemy is SAPPED or none lives and the wind-up comes after the enemy's turn 1 ("Sure if you wait: press Pass next round"); `stealth` with it: those passes keep STEALTH ("you stay hidden") |
 | `ready` | "answers ready": an answer, or a `cancel` that answers it and does not break; false: show "no answer ready" in red |
 
 `autoplayEngage(state)`: in the engage round, when autoplay's rule E2 acts (rules 7.9): `{ action (the ENGAGE `autoAction`
-returns), option, name ('Disrupt' or the option's name), target, enemy, windup: { turn, id, name, deathblow } }`; else null.
-The front end shows "Autoplay will answer the Deathblow with <name>" while autoplay is on.
+returns), option, name ('Disrupt' or the option's name), target, enemy, windup: { turn, id, name, deathblow }, wait }`; else
+null. `wait` (M2b v14; present only when true): the option is a Sap that leaves every living enemy SAPPED and cancels the
+wind-up after the enemy's turn 1, so rule H will wait a round (`C.GATES.sapHold` on). The front end shows "Autoplay will
+answer the Deathblow with <name>" (with `wait`: "..., then wait a round") while autoplay is on.
 
 Map tooltips (`mapView`): an elite node's `deathblow` and a dungeon node's `bossDeathblow` = `{ id, name, kind (the
 ability's kind), heavy, cast (its own flags), type ('heavy': also a full dodge, WARD, an image or the pet answer it; else
-'cast': interrupt or control it), damaging }`. An elite's is null while its name is hidden (a rare without Scout's Eye; on
-the expedition map always, D50); the dungeon boss's always shows.
+'cast': interrupt or control it), damaging }`. An elite's is `{ type }` only while its name is hidden (a rare without Scout's
+Eye; on the expedition map always, D50): no `id`, `name`, `kind` or `damaging` (M2b v14, D112; every zone's elite pool has a
+heavy and a cast Deathblow, so the type never tells a rare; null if it has none); the dungeon boss's always shows in full.
 
 ## 7. Randomness and replays
 Streams (rules 0): `map(z)`, `node(z,r,l)`, `fight(z,r,l,k)`, `loot(z,r,l)`, `boss` (`src/rng.js`, sfc32 seeded
@@ -487,7 +493,9 @@ Dimming). It reads only what `mapView` shows.
 
 M2b v13: first rule E2 (rules 7.9, D108): the class's control option on the first special enemy (elite, rare, dungeon boss)
 whose track shows a wind-up in turns 1..INTENT_TRACK_LEN, if legal (Disrupt on a dungeon boss; a lone elite counts; the
-Rogue may Sap here, which supersedes D49 for this case). Then, combat v2: in the engage round `autoAction` follows rule E (rules 7.9): the class's control option on the enemy
+Rogue may Sap here, which supersedes D49 for this case). M2b v14 (D111): rule H after rules 1-2, outside the engage round:
+`PASS` while every living enemy is SAPPED and a SAPPED enemy's track shows a later wind-up whose cancel is predicted by
+SAPPED; that PASS keeps STEALTH (rules 7.4). Switches `C.GATES.sapHold` (rule H) and `C.GATES.passStealth` (the STEALTH), on. Then, combat v2: in the engage round `autoAction` follows rule E (rules 7.9): the class's control option on the enemy
 whose track shows the most damage on the player over turns 1..ENGAGE_AUTO_LOOK (with at least 2 enemies), else the
 strike option (Mage: Pre-cast of the first bar spell whose autoplay condition holds). The Rogue never gets Sap from
 `autoAction` (D49): its rule E is Ambush on the default target. Afterwards it reads only the
@@ -591,8 +599,8 @@ node (every node): { id, ring, angle (degrees), nb (neighbour ids), hops (from t
   region (content region index, or null when unknown) }
 know 'full' (the hub, or seen) adds: type, cl, done, lost (Dimmed and unresolved), and the details of the rows view:
   quest { title, archetypes }, grind { archetypes }, elite { level, archetypes ([null, the add's archetype]: one
-  entry per enemy, the elite's own hidden, D50), rare: null, name: null (D50: neither tells a rare), deathblow: null (M2b
-  v13: hidden with the name) }, dungeon { name, level, bossLevel, fights, bossArchetype, bossDeathblow (M2b v13, 6.2) },
+  entry per enemy, the elite's own hidden, D50), rare: null, name: null (D50: neither tells a rare), deathblow: { type }
+  (M2b v14, D112: 'heavy' or 'cast' only; M2b v13 hid it with the name) }, dungeon { name, level, bossLevel, fights, bossArchetype, bossDeathblow (M2b v13, 6.2) },
   treasure { guarded, trap: null, archetypes },
   vendor { ember: null }
 know 'type' (Pathfinder within its radius; the dungeon with Region Charts or a held Delve contract of the zone, prep) adds: type

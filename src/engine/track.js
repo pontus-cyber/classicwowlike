@@ -8,7 +8,8 @@
 // is answered (STAGGERED, damage.js).
 // M2b v13 (rules 7.12, D105, D109): the SIGNATURE_TURN wind-up of an elite, rare or dungeon boss is its Deathblow
 // (`deathblow`; a damaging one × DEATHBLOW_MULT); with GATES.firstMeetWindup a normal enemy met for the first time in a
-// quest fight (`firstMeet`, combat.js) plays its turn-2 scripted action as a wind-up (no Deathblow).
+// quest fight (`firstMeet`, combat.js) plays its turn-2 scripted action as a wind-up (no Deathblow). M2b v14 (D112):
+// deathblowType, the type alone for a map elite whose name is hidden.
 // The end boss's entries are made by boss.js (rules 10.3). Every entry shows its target, estimate and (D52) the
 // predicted `cancel`, recomputed each round (refreshTrack).
 import {
@@ -122,6 +123,16 @@ export function deathblowOf(content, tid, variant) {
   const ab = content.abilities[sig];
   const T = ABILITY_TEMPLATE[ab.template];
   return { id: sig, name: ab.name, kind: T.kind, heavy: !!T.heavy, cast: !!T.cast, type: T.heavy ? 'heavy' : 'cast', damaging: DAMAGING.includes(T.kind) };
+}
+
+/**
+ * The Deathblow of a map elite whose name is hidden (rules 1.9.5, M2b v14 row 2, D112): `{ type }` only ('heavy' or
+ * 'cast'), or null. No id, name, kind or damaging: a kind can tell a rare (D50), a type cannot (every zone's elite pool
+ * has a heavy and a cast Deathblow, content.js).
+ */
+export function deathblowType(content, tid, rare) {
+  const d = deathblowOf(content, tid, rare ? 'rare' : 'elite');
+  return d ? { type: d.type } : null;
 }
 
 /** Id of the scripted action of enemy e on its turn t (rules 7.12), or null for a weighted pick. */
