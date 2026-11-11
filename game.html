@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="3eaadeb 2026-11-11T17:43:52Z">
+<meta name="build" content="fb6a889 2026-11-11T20:23:00Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -1204,7 +1204,7 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .pp-card .pc-top { display: flex; align-items: center; gap: .5rem; font-size: 1.08rem; color: #6a5032; }
 .pp-card .pc-top .kbd { background: #3a2a16; color: #f6e2b0; box-shadow: none; min-width: 1.8rem; font-size: 1rem; }
 .pp-card .pc-zone { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; }
-.pp-card .pc-band { font: 700 1.05rem var(--font-num); color: #7a5a30; }
+.pp-card .pc-band { flex: none; white-space: nowrap; font: 700 1.05rem var(--font-num); color: #7a5a30; }
 .pc-price, .pp-opt .pc-price { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 2.4rem; height: 2.4rem; padding: 0 .4rem; border-radius: 50%; font: 800 1.35rem var(--font-num); color: #fff3d0; background: radial-gradient(circle at 35% 30%, #e8b850, #9a6a14 60%, #5a3a08); box-shadow: 0 0 0 1px #2a1a04, 0 .1rem .3rem rgba(0, 0, 0, .5); text-shadow: 0 1px 1px #000; }
 .pp-card .pc-kind { display: flex; align-items: center; gap: .5rem; font: 700 1.4rem var(--font-title); }
 .pp-card .pc-kind img { width: 2.2rem; height: 2.2rem; border-radius: .3rem; box-shadow: 0 0 0 1px rgba(0, 0, 0, .6); }
@@ -1216,11 +1216,18 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .pp-card .pc-reward .xp { color: #6a2fa0; font-weight: 700; }
 .pp-card .pc-reward .money { text-shadow: none; }
 .pp-card .pc-reward .it { font-weight: 700; } .pp-card .pc-reward .it i { font-style: normal; } .pp-card .r-rare { color: #2a64c8; } .pp-card .r-epic { color: #8a3ec8; }
+.pc-reward .pl, .hc-rw .pl { font-weight: 400; font-style: italic; opacity: .8; margin-right: .25rem; } /* the words on a contract's numbers (QA 2026-11-11) */
+.pc-reward .gd, .hc-rw .gd { display: inline-flex; align-items: baseline; }
+.pc-reward .it .mk, .hc-rw .it .mk { margin-left: .3rem; letter-spacing: .05em; }
+.pc-cost { flex: none; display: inline-flex; align-items: center; gap: .25rem; }
+.pc-cost .pc-pl { font: 700 1rem var(--font-ui); color: #6a5032; }
 .pp-card .pc-act { display: flex; align-items: center; justify-content: flex-end; gap: .6rem; min-height: 2.4rem; }
+.pp-card .pc-act .it { margin-right: auto; font: 700 1.1rem var(--font-ui); color: #4a3820; white-space: nowrap; } .pp-card .pc-act .it i { font-style: normal; }
+.pp-card .pc-reward { flex-wrap: nowrap; white-space: nowrap; overflow: hidden; }
 .pp-card .pc-btn { font: 700 1.15rem var(--font-ui); padding: .25rem 1.1rem; border-radius: .35rem; color: #ffeac0; background: linear-gradient(180deg, #a83c2a, #6a1c12); box-shadow: inset 0 1px 0 rgba(255, 200, 160, .35), 0 0 0 1px #2a0a04; }
 .pp-card.taken .pc-btn { color: #3a2a16; background: linear-gradient(180deg, #e8d6a8, #c4a670); box-shadow: inset 0 0 0 1px rgba(90, 60, 20, .6); }
 .pp-card.cant .pc-btn { filter: grayscale(.7); }
-.pp-card .seal { display: inline-flex; align-items: center; gap: .3rem; margin-right: auto; font: 700 1.1rem var(--font-title); color: #7a1a10; letter-spacing: .06em; text-transform: uppercase; }
+.pp-card .seal { display: inline-flex; align-items: center; gap: .3rem; font: 700 1.1rem var(--font-title); color: #7a1a10; letter-spacing: .06em; text-transform: uppercase; }
 .pp-card .seal img { width: 2.6rem; height: 2.6rem; transform: rotate(-12deg); border-radius: 50%; filter: drop-shadow(0 .1rem .2rem rgba(0, 0, 0, .55)); }
 /* supplies and sight */
 #prep .pp-shop { overflow: hidden; }
@@ -1277,6 +1284,7 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 #tracker .tk-c .t { line-height: 1.25; } #tracker .tk-c .pr { font: 800 1.1rem var(--font-num); color: var(--gold); }
 #tracker .tk-c.done .pr { color: #9fe09a; } #tracker .tk-c.gone { opacity: .6; }
 #tracker .tk-later, #tracker .tk-none { color: var(--ink-dim); font-size: 1.1rem; }
+#tracker .tk-exp { color: #ffb08a; font-size: 1.1rem; font-style: italic; } /* held contracts here expire on leaving (QA 2026-11-11) */
 /* the hub's contract offer */
 .hubc { margin-top: .3rem; padding: .9rem 1rem .8rem; border-radius: .5rem; background: linear-gradient(180deg, rgba(70, 52, 28, .92), rgba(32, 24, 14, .92)); box-shadow: inset 0 0 0 1px rgba(236, 198, 110, .5), 0 0 1.4rem rgba(236, 198, 110, .14); }
 .hubc .hc-head { display: flex; align-items: flex-start; gap: .8rem; }
@@ -1317,6 +1325,16 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 /* ---- the fog map (expedition.md 9.2, M2b 2b.6): the disc between two side columns; everything from mapView */
 #screens .mapwin.expmap, #win-map.expmap { width: min(104rem, calc(100vw - 54rem)); height: min(74rem, calc(100vh - 19.8rem - var(--furnace-h))); }
 .expmap .mhead { padding: .8rem 1.6rem .5rem; }
+/* the reward windows that follow (QA playtest 2026-11-11 finding 8): one line above the loot window's foot or in a reward dialog */
+.lnext { display: flex; align-items: baseline; gap: .7rem; margin: .4rem 1.2rem .2rem; padding: .5rem .8rem; border-radius: .35rem; background: rgba(208, 168, 255, .1); box-shadow: inset 0 0 0 1px rgba(208, 168, 255, .35); font-size: 1.15rem; color: var(--ink); }
+.lnext .nx { flex: none; font: 700 1rem var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: #d0a8ff; }
+/* leaving a zone with held contracts of it (QA playtest 2026-11-11 finding 3): the Road or the Bell asks first, over the disc */
+.expmap .leavewarn { position: absolute; left: 50%; top: 6.4rem; transform: translateX(-50%); z-index: 25; width: min(48rem, 92%); padding: 1rem 1.4rem 1.1rem; border-radius: .5rem;
+  background: linear-gradient(180deg, rgba(52, 22, 14, .97), rgba(30, 12, 8, .97)); box-shadow: 0 0 0 1px #c0563a, 0 .6rem 1.6rem rgba(0, 0, 0, .7); }
+.leavewarn .lw-t { font: 700 1.55rem var(--font-title); color: #ffd0a0; }
+.leavewarn .lw-l { margin: .35rem 0 .8rem; font-size: 1.2rem; line-height: 1.4; color: #f2dcc4; }
+.leavewarn .lw-b { gap: .8rem; align-items: center; }
+.btn.danger { background: linear-gradient(180deg, #4a2a20, #2a1410); color: #ffc0a8; box-shadow: inset 0 0 0 1px #c0563a, 0 .2rem .5rem rgba(0, 0, 0, .5); }
 .expmap .xbody { display: flex; align-items: stretch; justify-content: space-between; gap: .8rem; margin: 0 1rem 1rem; padding: .6rem; background: radial-gradient(ellipse at 50% 45%, #3a2a18, #1c140c 75%); box-shadow: inset 0 0 2.4rem rgba(0, 0, 0, .7); }
 .expmap .xdisc { position: relative; height: 100%; aspect-ratio: 1 / 1; flex: none; max-width: 62%; margin: 0 4.6rem; }
 .expmap .xdisc .xsvg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
@@ -1408,8 +1426,8 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (3eaadeb 2026-11-11T17:43:52Z) from 59 modules.
-const __BUILD__ = "3eaadeb 2026-11-11T17:43:52Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (fb6a889 2026-11-11T20:23:00Z) from 59 modules.
+const __BUILD__ = "fb6a889 2026-11-11T20:23:00Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -7742,7 +7760,7 @@ function heatView(s, legal = () => true) {
 
 });
 __bundle.def("src/engine/contracts.js", function* (__ns, __link) {
-let ZONE_COUNT, ZONE_LEVELS, PREP_POINTS, PREP_POINTS_PER_QM, PREP_ECHO_PER_POINT, CONTRACT_BOARD_SIZE, CONTRACT_SLOTS, REROLL_PRICE, REROLL_MAX, CULL_SITES, CULL_SITE_SPARE, CULL_SITE_IN, CULL_SITE_OUT, BOUNTY_PLACED, CONTRACT_CL_OFFSET, PREP_OPTION, PREP_OPTION_IDS, CONTRACT, CONTRACT_KINDS, META, BELL_MAX_CHARGES, GUIDE_RADIUS_BONUS, TRACKER_RADIUS, EMBER_MAX_CARRIED, XP_WEIGHT_MULT, DROP_TABLE, RARITY_ORDER; __link.imp("src/constants.js", [["ZONE_COUNT", (v) => { ZONE_COUNT = v; }], ["ZONE_LEVELS", (v) => { ZONE_LEVELS = v; }], ["PREP_POINTS", (v) => { PREP_POINTS = v; }], ["PREP_POINTS_PER_QM", (v) => { PREP_POINTS_PER_QM = v; }], ["PREP_ECHO_PER_POINT", (v) => { PREP_ECHO_PER_POINT = v; }], ["CONTRACT_BOARD_SIZE", (v) => { CONTRACT_BOARD_SIZE = v; }], ["CONTRACT_SLOTS", (v) => { CONTRACT_SLOTS = v; }], ["REROLL_PRICE", (v) => { REROLL_PRICE = v; }], ["REROLL_MAX", (v) => { REROLL_MAX = v; }], ["CULL_SITES", (v) => { CULL_SITES = v; }], ["CULL_SITE_SPARE", (v) => { CULL_SITE_SPARE = v; }], ["CULL_SITE_IN", (v) => { CULL_SITE_IN = v; }], ["CULL_SITE_OUT", (v) => { CULL_SITE_OUT = v; }], ["BOUNTY_PLACED", (v) => { BOUNTY_PLACED = v; }], ["CONTRACT_CL_OFFSET", (v) => { CONTRACT_CL_OFFSET = v; }], ["PREP_OPTION", (v) => { PREP_OPTION = v; }], ["PREP_OPTION_IDS", (v) => { PREP_OPTION_IDS = v; }], ["CONTRACT", (v) => { CONTRACT = v; }], ["CONTRACT_KINDS", (v) => { CONTRACT_KINDS = v; }], ["META", (v) => { META = v; }], ["BELL_MAX_CHARGES", (v) => { BELL_MAX_CHARGES = v; }], ["GUIDE_RADIUS_BONUS", (v) => { GUIDE_RADIUS_BONUS = v; }], ["TRACKER_RADIUS", (v) => { TRACKER_RADIUS = v; }], ["EMBER_MAX_CARRIED", (v) => { EMBER_MAX_CARRIED = v; }], ["XP_WEIGHT_MULT", (v) => { XP_WEIGHT_MULT = v; }], ["DROP_TABLE", (v) => { DROP_TABLE = v; }], ["RARITY_ORDER", (v) => { RARITY_ORDER = v; }]]); let STREAM, nextFloat, nextInt, weightedIndex; __link.imp("src/rng.js", [["STREAM", (v) => { STREAM = v; }], ["nextFloat", (v) => { nextFloat = v; }], ["nextInt", (v) => { nextInt = v; }], ["weightedIndex", (v) => { weightedIndex = v; }]]); let zoneContent; __link.imp("src/engine/content.js", [["zoneContent", (v) => { zoneContent = v; }]]); let validEncounter, clampCl; __link.imp("src/engine/map.js", [["validEncounter", (v) => { validEncounter = v; }], ["clampCl", (v) => { clampCl = v; }]]); let flatXp, gainXp, gainGold; __link.imp("src/engine/progress.js", [["flatXp", (v) => { flatXp = v; }], ["gainXp", (v) => { gainXp = v; }], ["gainGold", (v) => { gainGold = v; }]]); let V, rollDrop, makeConsumable, addToBag, countConsumable; __link.imp("src/engine/items.js", [["V", (v) => { V = v; }], ["rollDrop", (v) => { rollDrop = v; }], ["makeConsumable", (v) => { makeConsumable = v; }], ["addToBag", (v) => { addToBag = v; }], ["countConsumable", (v) => { countConsumable = v; }]]); let zoneRegions, setupExpNode, xpWeight; __link.imp("src/engine/expedition.js", [["zoneRegions", (v) => { zoneRegions = v; }], ["setupExpNode", (v) => { setupExpNode = v; }], ["xpWeight", (v) => { xpWeight = v; }]]); __link.exp({ "prepPoints": () => prepPoints, "contractLevel": () => contractLevel, "drawOffer": () => drawOffer, "drawBoard": () => drawBoard, "ownedPerks": () => ownedPerks, "newPrep": () => newPrep, "heldCount": () => heldCount, "prepSpent": () => prepSpent, "prepLeft": () => prepLeft, "takeContractError": () => takeContractError, "dropContractError": () => dropContractError, "buyPrepError": () => buyPrepError, "sellPrepError": () => sellPrepError, "rerollError": () => rerollError, "takeContract": () => takeContract, "dropContract": () => dropContract, "buyPrep": () => buyPrep, "sellPrep": () => sellPrep, "rerollBoard": () => rerollBoard, "applySetOut": () => applySetOut, "rewardInfo": () => rewardInfo, "prepView": () => prepView, "contractView": () => contractView, "placeSites": () => placeSites, "contractsAtZone": () => contractsAtZone, "hubContractError": () => hubContractError, "takeHubContract": () => takeHubContract, "siteWon": () => siteWon, "expireContracts": () => expireContracts, "siteMarks": () => siteMarks, "trackerShows": () => trackerShows, "delveKnown": () => delveKnown, "spyglassError": () => spyglassError, "useSpyglass": () => useSpyglass, "contractSummary": () => contractSummary });
+let ZONE_COUNT, ZONE_LEVELS, PREP_POINTS, PREP_POINTS_PER_QM, PREP_ECHO_PER_POINT, CONTRACT_BOARD_SIZE, CONTRACT_SLOTS, REROLL_PRICE, REROLL_MAX, CULL_SITES, CULL_SITE_SPARE, CULL_SITE_IN, CULL_SITE_OUT, BOUNTY_PLACED, CONTRACT_CL_OFFSET, PREP_OPTION, PREP_OPTION_IDS, CONTRACT, CONTRACT_KINDS, META, BELL_MAX_CHARGES, GUIDE_RADIUS_BONUS, TRACKER_RADIUS, EMBER_MAX_CARRIED, XP_WEIGHT_MULT, DROP_TABLE, RARITY_ORDER; __link.imp("src/constants.js", [["ZONE_COUNT", (v) => { ZONE_COUNT = v; }], ["ZONE_LEVELS", (v) => { ZONE_LEVELS = v; }], ["PREP_POINTS", (v) => { PREP_POINTS = v; }], ["PREP_POINTS_PER_QM", (v) => { PREP_POINTS_PER_QM = v; }], ["PREP_ECHO_PER_POINT", (v) => { PREP_ECHO_PER_POINT = v; }], ["CONTRACT_BOARD_SIZE", (v) => { CONTRACT_BOARD_SIZE = v; }], ["CONTRACT_SLOTS", (v) => { CONTRACT_SLOTS = v; }], ["REROLL_PRICE", (v) => { REROLL_PRICE = v; }], ["REROLL_MAX", (v) => { REROLL_MAX = v; }], ["CULL_SITES", (v) => { CULL_SITES = v; }], ["CULL_SITE_SPARE", (v) => { CULL_SITE_SPARE = v; }], ["CULL_SITE_IN", (v) => { CULL_SITE_IN = v; }], ["CULL_SITE_OUT", (v) => { CULL_SITE_OUT = v; }], ["BOUNTY_PLACED", (v) => { BOUNTY_PLACED = v; }], ["CONTRACT_CL_OFFSET", (v) => { CONTRACT_CL_OFFSET = v; }], ["PREP_OPTION", (v) => { PREP_OPTION = v; }], ["PREP_OPTION_IDS", (v) => { PREP_OPTION_IDS = v; }], ["CONTRACT", (v) => { CONTRACT = v; }], ["CONTRACT_KINDS", (v) => { CONTRACT_KINDS = v; }], ["META", (v) => { META = v; }], ["BELL_MAX_CHARGES", (v) => { BELL_MAX_CHARGES = v; }], ["GUIDE_RADIUS_BONUS", (v) => { GUIDE_RADIUS_BONUS = v; }], ["TRACKER_RADIUS", (v) => { TRACKER_RADIUS = v; }], ["EMBER_MAX_CARRIED", (v) => { EMBER_MAX_CARRIED = v; }], ["XP_WEIGHT_MULT", (v) => { XP_WEIGHT_MULT = v; }], ["DROP_TABLE", (v) => { DROP_TABLE = v; }], ["RARITY_ORDER", (v) => { RARITY_ORDER = v; }]]); let STREAM, nextFloat, nextInt, weightedIndex; __link.imp("src/rng.js", [["STREAM", (v) => { STREAM = v; }], ["nextFloat", (v) => { nextFloat = v; }], ["nextInt", (v) => { nextInt = v; }], ["weightedIndex", (v) => { weightedIndex = v; }]]); let zoneContent; __link.imp("src/engine/content.js", [["zoneContent", (v) => { zoneContent = v; }]]); let validEncounter, clampCl; __link.imp("src/engine/map.js", [["validEncounter", (v) => { validEncounter = v; }], ["clampCl", (v) => { clampCl = v; }]]); let flatXp, gainXp, gainGold; __link.imp("src/engine/progress.js", [["flatXp", (v) => { flatXp = v; }], ["gainXp", (v) => { gainXp = v; }], ["gainGold", (v) => { gainGold = v; }]]); let V, rollDrop, makeConsumable, addToBag, countConsumable; __link.imp("src/engine/items.js", [["V", (v) => { V = v; }], ["rollDrop", (v) => { rollDrop = v; }], ["makeConsumable", (v) => { makeConsumable = v; }], ["addToBag", (v) => { addToBag = v; }], ["countConsumable", (v) => { countConsumable = v; }]]); let zoneRegions, setupExpNode, xpWeight; __link.imp("src/engine/expedition.js", [["zoneRegions", (v) => { zoneRegions = v; }], ["setupExpNode", (v) => { setupExpNode = v; }], ["xpWeight", (v) => { xpWeight = v; }]]); __link.exp({ "prepPoints": () => prepPoints, "contractLevel": () => contractLevel, "drawOffer": () => drawOffer, "sameOffer": () => sameOffer, "drawBoard": () => drawBoard, "ownedPerks": () => ownedPerks, "newPrep": () => newPrep, "heldCount": () => heldCount, "prepSpent": () => prepSpent, "prepLeft": () => prepLeft, "takeContractError": () => takeContractError, "dropContractError": () => dropContractError, "buyPrepError": () => buyPrepError, "sellPrepError": () => sellPrepError, "rerollError": () => rerollError, "takeContract": () => takeContract, "dropContract": () => dropContract, "buyPrep": () => buyPrep, "sellPrep": () => sellPrep, "rerollBoard": () => rerollBoard, "applySetOut": () => applySetOut, "rewardInfo": () => rewardInfo, "prepView": () => prepView, "contractView": () => contractView, "placeSites": () => placeSites, "contractsAtZone": () => contractsAtZone, "hubContractError": () => hubContractError, "takeHubContract": () => takeHubContract, "siteWon": () => siteWon, "expireContracts": () => expireContracts, "siteMarks": () => siteMarks, "trackerShows": () => trackerShows, "delveKnown": () => delveKnown, "spyglassError": () => spyglassError, "useSpyglass": () => useSpyglass, "contractSummary": () => contractSummary });
 yield;
 // Start camp and contracts of an expedition run (docs/specs/expedition.md 2 and 3, task M2b 2b.5; marked "(prep)" in
 // engine-api.md). PREP: preparation points (PREP_POINTS + Quartermaster ranks, meta), the contract board (stream prep(k),
@@ -7799,13 +7817,64 @@ function drawOffer(c, rng, z) {
   return o;
 }
 
-/** The board after k rerolls (stream prep(k)): one contract for each zone 1..ZONE_COUNT, then drawn zones (2.2). */
-function drawBoard(s, k) {
+/** Two offers are the same contract: zone, kind, target region and family, and a Bounty's elite (expedition.md 2.2). */
+const sameOffer = (a, b) => a.z === b.z && a.kind === b.kind && a.region === b.region && a.family === b.family && a.template === b.template;
+
+/**
+ * Every offer a board slot can draw over zones `zs` (each 1 / zs.length), with its chance in drawOffer: kind by weight,
+ * region uniform, family uniform (null without), a Bounty's elite uniform over its list. Order: zone, kind
+ * (CONTRACT_KINDS), region (content order), family (region order), elite (list order). Used only to replace a repeat.
+ */
+function offerOdds(c, zs) {
+  const kw = CONTRACT_KINDS.map((k) => CONTRACT[k].weight);
+  const sum = kw.reduce((a, b) => a + b, 0);
+  const out = [];
+  for (const z of zs) {
+    CONTRACT_KINDS.forEach((kind, ki) => {
+      const pk = kw[ki] / sum / zs.length;
+      if (kind === 'delve') { out.push({ o: { z, kind, region: null, family: null, template: null }, p: pk }); return; }
+      const regs = zoneRegions(c, z);
+      regs.forEach((reg, region) => {
+        const fams = reg.families.length ? reg.families : [null];
+        for (const family of fams) {
+          const p = pk / regs.length / fams.length;
+          if (kind !== 'bounty') { out.push({ o: { z, kind, region, family, template: null }, p }); continue; }
+          const rares = zoneContent(c, z).rares;
+          const own = rares.filter((t) => c.enemies[t].family === family);
+          const list = own.length ? own : rares;
+          for (const template of list) out.push({ o: { z, kind, region, family, template }, p: p / list.length });
+        }
+      });
+    });
+  }
+  return out;
+}
+
+/**
+ * The board after k rerolls (stream prep(k), 2.2): one contract for each zone 1..ZONE_COUNT, then drawn zones. `kept`
+ * (REROLL_BOARD): the taken offers by slot; such a slot still makes its draws and keeps its offer. No two offers on a
+ * board are the same contract: a slot whose offer equals one already on the board (an earlier slot or a kept offer) takes
+ * instead one weighted draw over the offers it can draw (a zone slot: its zone; an extra slot: every zone) that are not on
+ * the board, each with its chance in the normal draw (offerOdds); with none left the offer stays. A board without a
+ * repeat is drawn as before this rule (2026-11-11).
+ */
+function drawBoard(s, k, kept = []) {
   const rng = STREAM.prep(s.seed, k);
   const out = [];
   for (let i = 0; i < CONTRACT_BOARD_SIZE; i++) {
     const z = i < ZONE_COUNT ? i + 1 : 1 + nextInt(rng, ZONE_COUNT);
-    out.push({ index: i, ...drawOffer(s.content, rng, z), taken: false });
+    let o = drawOffer(s.content, rng, z);
+    if (kept[i]) { out.push(kept[i]); continue; }
+    const board = [...out, ...kept.slice(i + 1).filter(Boolean)];
+    if (board.some((b) => sameOffer(b, o))) {
+      const zs = i < ZONE_COUNT ? [z] : Array.from({ length: ZONE_COUNT }, (_, j) => j + 1);
+      const free = offerOdds(s.content, zs).filter((x) => !board.some((b) => sameOffer(b, x.o)));
+      if (free.length) {
+        const pick = free[weightedIndex(rng, free.map((x) => x.p))].o;
+        o = { ...pick, need: CONTRACT[pick.kind].sites, price: CONTRACT[pick.kind].price };
+      }
+    }
+    out.push({ index: i, ...o, taken: false });
   }
   return out;
 }
@@ -7912,11 +7981,10 @@ function sellPrep(s, ev, id) {
   s.prep.bought = s.prep.bought.filter((x) => x !== id);
   ev.push({ t: 'prep', what: 'sell', id, left: prepLeft(s) });
 }
-/** REROLL_BOARD: every offer not taken is replaced by the same slot of the board of prep(k + 1). */
+/** REROLL_BOARD: every offer not taken is replaced by the same slot of the board of prep(k + 1), drawn around the taken ones. */
 function rerollBoard(s, ev) {
   s.prep.rerolls += 1;
-  const fresh = drawBoard(s, s.prep.rerolls);
-  s.prep.board = s.prep.board.map((o, i) => (o.taken ? o : fresh[i]));
+  s.prep.board = drawBoard(s, s.prep.rerolls, s.prep.board.map((o) => (o.taken ? o : null)));
   ev.push({ t: 'prep', what: 'reroll', k: s.prep.rerolls, left: prepLeft(s) });
 }
 
@@ -18548,12 +18616,18 @@ yield;
 // Hover tooltips for spells, items, talents, statuses and map nodes. Content is built from the
 // view and the bridge's data tables; nothing here decides game rules. Talents show the totals of the ranks taken and the
 // next rank's (owner feedback 2026-11-11 08:14) from R.talentInfo through the bridge.
+// Placement (QA playtest 2026-11-11 finding 7): a tooltip never covers the next action. It takes the first spot (below
+// right of the pointer, below left, above right, above left, beside the hovered element, then for a tip with `avoid`
+// beside that whole group) that covers no primary button (and, with `avoid`, none of those elements but the hovered
+// one); with none free, the spot that covers least. Never under the pointer; it keeps its spot while that stays free.
 
 
 
 
 let el = null;
 let current = null;
+let hover = null; // { target, avoid }: the hovered element and the selector of what else its tip must not cover
+let spot = -1; // the spot the tip took last (kept while it stays free)
 
 function initTooltip(root) {
   el = h('div.tooltip', { role: 'tooltip' });
@@ -18561,30 +18635,67 @@ function initTooltip(root) {
   document.addEventListener('pointermove', (e) => { if (current) place(e.clientX, e.clientY); }, { passive: true });
 }
 
+/** The next action on screen: primary buttons (Set out, Take the Road, Continue, ...), wherever they are. */
+const PRIMARY = '.btn.primary, #pp-go';
+/** Rects the tip must not cover: visible primary buttons and the tip's own `avoid` elements, never the hovered one. */
+function keepClear() {
+  const t = hover && hover.target;
+  const els = [...document.querySelectorAll(PRIMARY + (hover && hover.avoid ? `, ${hover.avoid}` : ''))];
+  return els.filter((b) => !(t && (b === t || b.contains(t) || t.contains(b))) && !b.closest('.tooltip'))
+    .map((b) => b.getBoundingClientRect()).filter((q) => q.width > 0 && q.height > 0 && q.bottom > 0 && q.right > 0 && q.top < innerHeight && q.left < innerWidth);
+}
 function place(x, y) {
-  const r = el.getBoundingClientRect();
-  let tx = x + 18; let ty = y + 18;
-  if (tx + r.width > window.innerWidth - 8) tx = x - r.width - 14;
-  if (ty + r.height > window.innerHeight - 8) ty = Math.max(8, y - r.height - 14);
+  const r = el.getBoundingClientRect(); const w = r.width; const ht = r.height; const pad = 8;
+  const W = window.innerWidth; const H = window.innerHeight;
+  const fit = ([tx, ty]) => [Math.max(pad, Math.min(tx, W - w - pad)), Math.max(pad, Math.min(ty, H - ht - pad))];
+  const tr = hover && hover.target && hover.target.isConnected ? hover.target.getBoundingClientRect() : null;
+  const spots = [[x + 18, y + 18], [x - w - 14, y + 18], [x + 18, y - ht - 14], [x - w - 14, y - ht - 14]];
+  if (tr) spots.push([tr.right + 10, tr.top], [tr.left - w - 10, tr.top], [tr.left, tr.bottom + 10], [tr.left, tr.top - ht - 10]);
+  // a tip with `avoid` (a group of cards): also beside the whole group, level with the hovered card
+  if (tr && hover.avoid) {
+    const g = [...document.querySelectorAll(hover.avoid)].map((b) => b.getBoundingClientRect()).filter((q) => q.width > 0);
+    if (g.length) spots.push([Math.max(...g.map((q) => q.right)) + 12, tr.top], [Math.min(...g.map((q) => q.left)) - w - 12, tr.top]);
+  }
+  const clearOf = keepClear();
+  const area = (a, b) => Math.max(0, Math.min(a[2], b.right) - Math.max(a[0], b.left)) * Math.max(0, Math.min(a[3], b.bottom) - Math.max(a[1], b.top));
+  const cost = (p) => {
+    const [tx, ty] = fit(p); const box = [tx, ty, tx + w, ty + ht];
+    let k = 0; for (const q of clearOf) k += area(box, q);
+    // never under the pointer itself
+    if (x >= box[0] - 4 && x <= box[2] + 4 && y >= box[1] - 4 && y <= box[3] + 4) k += 1e7;
+    return k;
+  };
+  let best = spot >= 0 && spot < spots.length && cost(spots[spot]) === 0 ? spot : -1;
+  if (best < 0) {
+    let bestK = Infinity;
+    spots.forEach((p, i) => { const k = cost(p); if (k < bestK - 0.5) { best = i; bestK = k; } });
+  }
+  spot = best;
+  const [tx, ty] = fit(spots[best]);
   el.style.transform = `translate(${Math.round(tx)}px, ${Math.round(ty)}px)`;
 }
 
-/** Attach a tooltip to an element; build() returns DOM content (called on hover). */
-function tip(target, build) {
-  target.addEventListener('pointerenter', (e) => show(build, e.clientX, e.clientY));
+/**
+ * Attach a tooltip to an element; build() returns DOM content (called on hover). opts.avoid: a selector of elements the
+ * tip must not cover besides the primary buttons (the start camp's cards: their neighbours).
+ */
+function tip(target, build, opts = null) {
+  target.addEventListener('pointerenter', (e) => { hover = { target, avoid: opts && opts.avoid }; show(build, e.clientX, e.clientY, true); });
   target.addEventListener('pointerleave', hide);
   target.addEventListener('pointerdown', hide);
   return target;
 }
-function show(build, x, y) {
+function show(build, x, y, keepHover = false) {
   const content = typeof build === 'function' ? build() : build;
   if (!content) return;
+  if (!keepHover) hover = null;
   clear(el).appendChild(content);
   el.classList.add('on');
   current = build;
+  spot = -1;
   place(x, y);
 }
-function hide() { current = null; if (el) el.classList.remove('on'); }
+function hide() { current = null; hover = null; spot = -1; if (el) el.classList.remove('on'); }
 
 // ------------------------------------------------------------------ builders
 const STAT_NAMES = { sta: 'Stamina', agi: 'Agility', int: 'Intellect', spi: 'Spirit', power: 'Power', crit: 'Critical strike', armor: 'Armor', wd: 'Weapon damage' };
@@ -18958,7 +19069,8 @@ function createHeatMeter(host, ctx, noteRoot = host) {
     if (!a || !b || a.state === b.state || !prev.player || !next.player || prev.seed !== next.seed) return;
     const msg = heatToast(b, !!(next.zone && next.zone.camp));
     ctx.ui.toast(msg, `heat-${b.state}`);
-    if (ctx.hud) ctx.hud.log(`${msg}.`, b.state === 'clear' ? 'lg-sys' : 'lg-warn');
+    // the log line is the toast's sentence (it ends in its own full stop; QA playtest 2026-11-11 finding 6: not "..")
+    if (ctx.hud) ctx.hud.log(/[.!?]$/.test(msg) ? msg : `${msg}.`, b.state === 'clear' ? 'lg-sys' : 'lg-warn');
     els.el.classList.remove('flash'); void els.el.offsetWidth; els.el.classList.add('flash');
   }
 
@@ -20117,11 +20229,19 @@ function engineBackend(seedOpt, runOpts = {}) {
     if (v.phase === 'CAMP' && s.fight) v.phase = 'NODE';
     if (v.node && v.node.step === 'intro' && s.fight) v.combat = null; // the intro dialog is read before the fight is shown
     const win = (s.loot || []).map((it) => item(it, s.player.classId, { pending: true }));
+    // the reward windows still to come after the one on screen, in order (QA playtest 2026-11-11 finding 8: the spoils,
+    // then a quest's or a contract's choice, say what follows): { kind: 'quest' | 'story' | 'contract', title }
+    const pend = s.node && s.node.stage === 'reward' ? s.node.rewards.filter((r) => r.kind === 'items') : [];
+    const nextOf = (list) => list.map((r) => {
+      if (r.contract) { const c = v.contracts ? v.contracts.contracts.find((x) => x.id === r.contract) : null; return { kind: 'contract', title: c ? TXT.contractTitle(c, CONTENT) : 'a contract' }; }
+      if (r.story) return { kind: 'story', title: v.zone ? `${v.zone.name}: the story` : 'the story' };
+      return { kind: 'quest', title: (CONTENT.quests[s.node.quest] || {}).title || 'the quest' };
+    });
     if (local.hold) { v.phase = 'NODE'; v.node = local.hold.node; v.combat = null; }
     if (local.spoils) {
       const sp = local.spoils;
       v.phase = sp.phase || 'NODE'; v.node = sp.node; v.combat = sp.combat;
-      v.loot = { kind: 'loot', title: sp.title, gold: sp.gold, xp: sp.xp, trap: sp.trap, items: [...win, ...sp.items.filter((it) => it.inBag)] };
+      v.loot = { kind: 'loot', title: sp.title, gold: sp.gold, xp: sp.xp, trap: sp.trap, items: [...win, ...sp.items.filter((it) => it.inBag)], next: nextOf(pend) };
     } else if (win.length) {
       v.loot = { kind: 'loot', title: 'Items waiting', gold: 0, xp: 0, items: win, windowOnly: true };
     } else if (s.node && s.node.stage === 'reward' && s.node.rewards[0].kind === 'items') {
@@ -20134,6 +20254,7 @@ function engineBackend(seedOpt, runOpts = {}) {
       else v.loot = r0.story
         ? { kind: 'story', title: `${v.zone.name}: the story is told`, text: 'Three tasks done; the people of this land will remember your name.', xp: rw.storyXp || 0, gold: 0, choices: r0.items.map((it) => item(it, s.player.classId)) }
         : { kind: 'reward', title: q.title || 'Quest', giver: q.giver, text: q.turnIn || '', xp: rw.xp || 0, gold: rw.gold || 0, choices: r0.items.map((it) => item(it, s.player.classId)) };
+      v.loot.next = nextOf(pend.slice(1));
     }
     v.legal = convLegal(s);
     if (local.hold || local.spoils) { v.legal = { ...v.legal, lanes: [], travelOn: false, attack: false, flee: false }; }
@@ -23802,7 +23923,7 @@ function createPrepScreen(v, ctx) {
       const why = x.taken || x.canTake ? null : ctx.bridge.why({ type: 'TAKE_CONTRACT', index: i });
       return contractTip(x, ctx, { has: hasPerks(pv), price: `${pts(x.price)} · refunded if you drop it before you set out`, warn: why,
         hint: x.taken ? `Click or press ${BOARD_KEYS[i]} to drop it (+${pts(x.price)})` : `Click or press ${BOARD_KEYS[i]} to take it` });
-    });
+    }, { avoid: '#prep .pp-card' });
     cards.appendChild(b);
     return b;
   });
@@ -23813,7 +23934,7 @@ function createPrepScreen(v, ctx) {
     const i = pv0.options.findIndex((x) => x.id === o.id);
     const b = h('button.pp-opt', { type: 'button', dataset: { id: o.id, kind: o.kind } });
     b.addEventListener('click', (e) => { if (e.detail) b.blur(); optionAct(ctx, o.id); });
-    tip(b, () => { const pv = ctx.view.prep; const x = pv && pv.options.find((y) => y.id === o.id); return x ? optionTip(x, ctx, OPT_KEYS[i], x.why ? cap1(x.why) : null) : null; });
+    tip(b, () => { const pv = ctx.view.prep; const x = pv && pv.options.find((y) => y.id === o.id); return x ? optionTip(x, ctx, OPT_KEYS[i], x.why ? cap1(x.why) : null) : null; }, { avoid: '#prep .pp-opt' });
     optEls.set(o.id, { el: b, key: OPT_KEYS[i] });
     return b;
   }));
@@ -23861,13 +23982,15 @@ function createPrepScreen(v, ctx) {
       b.style.setProperty('--cc', held1 ? colors.get(held1.id) || OFF_COLOR : 'transparent');
       b.setAttribute('aria-label', `${contractTitle(o, ctx.data.content)}, zone ${o.z}, ${pts(o.price)}${o.taken ? ', taken' : ''}`);
       clear(b).append(
-        h('div.pc-top', h('span.kbd', BOARD_KEYS[i]), h('span.pc-zone', `Zone ${o.z} · ${o.zoneName}`), h('span.pc-band', `${o.band[0]}–${o.band[1]}`), h('span.pc-price', { title: '' }, String(o.price))),
+        // every number carries its word (QA playtest 2026-11-11 finding 5): levels, sites, pay, items, price
+        h('div.pc-top', h('span.kbd', BOARD_KEYS[i]), h('span.pc-zone', `Zone ${o.z} · ${o.zoneName}`), h('span.pc-band', `levels ${o.band[0]}–${o.band[1]}`), priceTag(o.price)),
         h('div.pc-kind', h('img', { src: kindIcon(o.kind), alt: '' }), h('b', CONTRACT_KIND[o.kind] || o.kind), h('span.pc-need', `${o.need} ${plural(o.need, 'site')}`)),
         // the target on one line, where it is on the next (a long Bounty never runs into the pay line)
         h('div.pc-target', o.kind === 'delve' ? o.dungeon || "the zone's dungeon" : o.kind === 'bounty' ? o.name || 'a named elite' : familyName(o.family, ctx.data.content)),
         h('div.pc-where', o.kind === 'delve' ? `the dungeon of ${o.zoneName}` : `${o.kind === 'bounty' ? 'roaming' : 'in'} ${o.regionName || 'its region'}`),
-        h('div.pc-reward', h('span.xp', levelsText(o.reward.xpFrac)), moneyEl(o.reward.gold), h('span.it', h('i.r-rare', '◆'), h('i.r-epic', '◆'), ` 1 of ${o.reward.choices}`)),
-        h('div.pc-act', o.taken ? [h('span.seal', h('img', { src: icon('seal', 'blood'), alt: '' }), 'Taken'), h('span.pc-btn', 'Drop')] : h('span.pc-btn', 'Take')));
+        payLine(o.reward, 'div.pc-reward', false),
+        // the item choice on the button row (the pay line stays one line at 1366x768); a taken card adds its seal
+        h('div.pc-act', o.taken ? h('span.seal', { title: 'Taken' }, h('img', { src: icon('seal', 'blood'), alt: 'Taken' })) : null, itemsChip(o.reward), h('span.pc-btn', o.taken ? 'Drop' : 'Take')));
       if (o.taken && !was && prev) { b.classList.remove('stamp'); void b.offsetWidth; b.classList.add('stamp'); }
     });
     for (const o of pv.options) {
@@ -23902,6 +24025,20 @@ function createPrepScreen(v, ctx) {
   return root;
 }
 const cap1 = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+/** A price in preparation points: the number on its seal and the word next to it. */
+const priceTag = (n) => h('span.pc-cost', { 'aria-label': pts(n) }, h('span.pc-price', String(n)), h('span.pc-pl', plural(n, 'pt')));
+/**
+ * What a contract pays, every number with its word (QA playtest 2026-11-11 finding 5): "Pays 1.5 levels of XP · gold 9 56
+ * (coins) · choose 1 of 3 ◆◆" (rarity marks: the reward table's rare and epic). rw: an offer's reward (R.prepView).
+ */
+function payLine(rw, tag, items = true) {
+  return h(tag, h('span.pl', 'Pays'), h('span.xp', levelsText(rw.xpFrac)), h('span.gd', h('span.pl', 'gold'), moneyEl(rw.gold)), items ? itemsChip(rw) : null);
+}
+/** "choose 1 of 3 ◆◆": the item choice and the rarities it can be (the reward table's rare and epic). */
+function itemsChip(rw) {
+  const marks = ['rare', 'epic'].filter((r) => !rw.rarity || rw.rarity[r] > 0).map((r) => h(`i.r-${r}`, '◆'));
+  return h('span.it', `choose 1 of ${rw.choices}`, h('span.mk', marks));
+}
 
 /** Take or drop board contract i (the engine says why when it cannot). */
 function boardAct(ctx, i) {
@@ -23965,9 +24102,13 @@ function trackerContracts(v, ctx) {
   for (const c of here) {
     const el = h('div.tk-c' + (c.status === 'complete' ? '.done' : c.status === 'expired' ? '.gone' : ''), { dataset: { contract: c.id, status: c.status }, style: { '--cc': colors.get(c.id) || OFF_COLOR } },
       h('span.t', h('i.dot'), contractTitle(c, ctx.data.content)), h('span.pr', progressText(c)));
-    tip(el, () => contractTip(c, ctx, { status: STATUS_WORD[c.status], progress: c.status === 'active' ? `Sites won: ${c.progress} of ${c.need}. The map marks the sites you see.` : null }));
+    tip(el, () => contractTip(c, ctx, { status: STATUS_WORD[c.status], progress: c.status === 'active' ? `Sites won: ${c.progress} of ${c.need}. The map marks the sites you see.` : null,
+      warn: c.status === 'active' ? 'Expires when you leave this zone (a Road or the Bell): no reward.' : null }));
     out.push(el);
   }
+  // held contracts of this zone expire when the player leaves it (expedition.md 3.1; QA playtest 2026-11-11 finding 3)
+  const active = here.filter((c) => c.status === 'active').length;
+  if (active) out.push(h('div.tk-l.tk-exp', { dataset: { expire: String(active) } }, active === 1 ? 'Expires when you leave this zone' : `${active === 2 ? 'Both' : `All ${active}`} expire when you leave this zone`));
   if (later.length) out.push(h('div.tk-l.tk-later', `Later: ${later.length} ${plural(later.length, 'contract')} (zone ${[...new Set(later.map((c) => c.z))].join(', ')}) · L`));
   return out;
 }
@@ -24021,7 +24162,7 @@ function buildHubOffer(v, ctx, state = { swap: false }) {
     return b;
   }));
   swapBtn.addEventListener('click', () => { if (!o.swap.length) return; state.swap = !state.swap; list.classList.toggle('hidden', !state.swap); swapBtn.textContent = state.swap ? 'Keep my contracts' : 'Swap…'; });
-  const pay = h('div.hc-rw', h('span.xp', levelsText(rw.xpFrac)), moneyEl(rw.gold), h('span.it', h('i.r-rare', '◆'), h('i.r-epic', '◆'), ` 1 of ${rw.choices}`));
+  const pay = payLine(rw, 'div.hc-rw');
   tip(pay, () => h('div', h('div.tt-name', 'Pays at once on its last site'), h('div.tt-line', `${levelsText(rw.xpFrac)} at level ${rw.cl}${typeof rw.xp === 'number' ? ` (${fmtNum(rw.xp)} XP)` : ''}, gold, and ${contractItemsText(rw)}.`)));
   box.append(head, h('div.hc-row', pay, h('div.hc-acts', take, swapBtn)), list);
   return box;
@@ -25185,7 +25326,7 @@ function buildOaths(v, ctx) {
 
 });
 __bundle.def("src/ui/screens.js", function* (__ns, __link) {
-let h, add, clear, fmtNum, moneyEl, moneyText, clamp; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["moneyText", (v) => { moneyText = v; }], ["clamp", (v) => { clamp = v; }]]); let spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["roleIcon", (v) => { roleIcon = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }]]); let tip, itemTip, spellTip, hideTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }], ["hide", (v) => { hideTip = v; }]]); let conColor, heroPortrait, travelState; __link.imp("src/ui/hud.js", [["conColor", (v) => { conColor = v; }], ["heroPortrait", (v) => { heroPortrait = v; }], ["travelState", (v) => { travelState = v; }]]); let numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS; __link.imp("src/ui/ui-text.js", [["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["pct1", (v) => { pct1 = v; }], ["ROLE_INFO", (v) => { ROLE_INFO = v; }], ["humanize", (v) => { humanize = v; }], ["tolls", (v) => { tolls = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }]]); let createMeta, buildOaths, echoAmt; __link.imp("src/ui/meta.js", [["createMeta", (v) => { createMeta = v; }], ["buildOaths", (v) => { buildOaths = v; }], ["echoAmt", (v) => { echoAmt = v; }]]); let heatKey, previewBlock, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME; __link.imp("src/ui/heat.js", [["heatKey", (v) => { heatKey = v; }], ["previewBlock", (v) => { previewBlock = v; }], ["heatBadge", (v) => { heatBadge = v; }], ["buildHeatSummary", (v) => { buildHeatSummary = v; }], ["fmtTime", (v) => { fmtTime = v; }], ["HEAT_NAME", (v) => { HEAT_NAME = v; }]]); let createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon; __link.imp("src/ui/prep.js", [["createPrepScreen", (v) => { createPrepScreen = v; }], ["buildHubOffer", (v) => { buildHubOffer = v; }], ["siteBadge", (v) => { siteBadge = v; }], ["siteLines", (v) => { siteLines = v; }], ["contractTip", (v) => { contractTip = v; }], ["kindIcon", (v) => { kindIcon = v; }]]); let contractTitle; __link.imp("src/ui/ui-text.js", [["contractTitle", (v) => { contractTitle = v; }]]); __link.exp({ "createScreens": () => createScreens, "disarmSpyglass": () => disarmSpyglass, "buildMap": () => buildMap });
+let h, add, clear, fmtNum, moneyEl, moneyText, clamp; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["moneyText", (v) => { moneyText = v; }], ["clamp", (v) => { clamp = v; }]]); let spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["roleIcon", (v) => { roleIcon = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }]]); let tip, itemTip, spellTip, hideTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }], ["hide", (v) => { hideTip = v; }]]); let conColor, heroPortrait, travelState; __link.imp("src/ui/hud.js", [["conColor", (v) => { conColor = v; }], ["heroPortrait", (v) => { heroPortrait = v; }], ["travelState", (v) => { travelState = v; }]]); let numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS; __link.imp("src/ui/ui-text.js", [["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["pct1", (v) => { pct1 = v; }], ["ROLE_INFO", (v) => { ROLE_INFO = v; }], ["humanize", (v) => { humanize = v; }], ["tolls", (v) => { tolls = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }]]); let createMeta, buildOaths, echoAmt; __link.imp("src/ui/meta.js", [["createMeta", (v) => { createMeta = v; }], ["buildOaths", (v) => { buildOaths = v; }], ["echoAmt", (v) => { echoAmt = v; }]]); let heatKey, previewBlock, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME; __link.imp("src/ui/heat.js", [["heatKey", (v) => { heatKey = v; }], ["previewBlock", (v) => { previewBlock = v; }], ["heatBadge", (v) => { heatBadge = v; }], ["buildHeatSummary", (v) => { buildHeatSummary = v; }], ["fmtTime", (v) => { fmtTime = v; }], ["HEAT_NAME", (v) => { HEAT_NAME = v; }]]); let createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon; __link.imp("src/ui/prep.js", [["createPrepScreen", (v) => { createPrepScreen = v; }], ["buildHubOffer", (v) => { buildHubOffer = v; }], ["siteBadge", (v) => { siteBadge = v; }], ["siteLines", (v) => { siteLines = v; }], ["contractTip", (v) => { contractTip = v; }], ["kindIcon", (v) => { kindIcon = v; }]]); let contractTitle; __link.imp("src/ui/ui-text.js", [["contractTitle", (v) => { contractTitle = v; }]]); __link.exp({ "createScreens": () => createScreens, "disarmSpyglass": () => disarmSpyglass, "expiringHere": () => expiringHere, "expiryText": () => expiryText, "buildMap": () => buildMap });
 yield;
 // Centre screens by phase: class select, hub/camp, zone map, node dialogs, loot, quest rewards,
 // vendor, trainer, shrine, rest, treasure and the run summary (its Killed by line names the killing blow, never an id).
@@ -25298,13 +25439,25 @@ function createScreens(root, ctx) {
 
 const lootKey = (v) => `${v.loot.kind}|${v.loot.title}|${(v.loot.items || v.loot.choices || []).map((i) => i.uid).join(',')}|${v.player.bag.filter(Boolean).length}`;
 const svcKey = (v) => `${v.player.gold}|${v.player.bag.map((s) => (s ? s.uid + ':' + (s.count || 1) : '-')).join(',')}|${v.player.spells.map((s) => s.id + s.tl).join(',')}|${v.player.talentPoints}|${(v.node.stock || []).length}`;
-const mapKey = (v) => `${v.zone.idx}|${v.zone.pos.row}|${v.zone.pos.lane}|${v.zone.exp ? `${v.zone.exp.pos}|${v.zone.exp.spyglass}|${spy.armed}` : ''}|${v.player.level}|${v.legal.travelOn}|${v.time}`;
+const mapKey = (v) => `${v.zone.idx}|${v.zone.pos.row}|${v.zone.pos.lane}|${v.zone.exp ? `${v.zone.exp.pos}|${v.zone.exp.spyglass}|${spy.armed}|${leave.armed}` : ''}|${v.player.level}|${v.legal.travelOn}|${v.time}`;
 /** The hub's contract state in the hub screen's key (prep): the offer, Reserve and the held contracts. */
 const hubContractKey = (v) => (v.contracts ? `|${v.contracts.reserve}|${v.contracts.held}|${v.contracts.hub ? `${v.contracts.hub.kind}${v.contracts.hub.reserve}${v.contracts.hub.swap.join(',')}` : '-'}` : '');
 /** The Spyglass (expedition.md 2.4; prep): armed from the map's button, the next node clicked is looked at (USE_SPYGLASS). */
 const spy = { armed: false };
-/** Esc or a new screen disarms the Spyglass; true when it was armed. */
-function disarmSpyglass() { const was = spy.armed; spy.armed = false; return was; }
+/**
+ * Leaving a zone with held contracts of it (expedition.md 3.1: they expire; QA playtest 2026-11-11 finding 3): the Road or
+ * the Bell first asks, naming them; armed holds the action type waiting for the answer.
+ */
+const leave = { armed: null };
+/** Esc or a new screen disarms the Spyglass and puts away the leave prompt; true when either was armed. */
+function disarmSpyglass() { const was = spy.armed || !!leave.armed; spy.armed = false; leave.armed = null; return was; }
+/** The held contracts of this zone that leaving it expires (contractView status 'active'). */
+function expiringHere(v) { return v.contracts ? v.contracts.contracts.filter((c) => c.status === 'active') : []; }
+/** "2 contracts here will expire: Cull reedfolk (1 / 3 sites); Delve: The Harrow Cellars (0 / 1 site)". */
+function expiryText(list, content) {
+  const n = list.length;
+  return `${n === 1 ? '1 contract' : `${n} contracts`} here will expire: ${list.map((c) => `${contractTitle(c, content)} (${c.progress} / ${c.need} ${plural(c.need, 'site')})`).join('; ')}`;
+}
 
 // ------------------------------------------------------------------ class select
 function buildCreate(ctx) {
@@ -25590,9 +25743,14 @@ function buildExpMap(v, ctx, readOnly) {
   const acts = [];
   if (!readOnly && mv.onRoad) acts.push(['Take the Road', { type: 'TAKE_ROAD' }]);
   if (!readOnly && mv.bell && mv.bell.charges > 0) acts.push([`Ring the Bell (${mv.bell.charges})`, { type: 'RING_BELL' }]);
+  const expiring = readOnly ? [] : expiringHere(v);
+  if (leave.armed && (readOnly || !expiring.length || !acts.some(([, a]) => a.type === leave.armed))) leave.armed = null;
   const btns = acts.map(([label, a]) => {
-    const b = btn(label, () => ctx.act(a), a.type === 'TAKE_ROAD' ? '.primary' : '');
-    tip(b, () => h('div', h('div.tt-name', label), a.type === 'RING_BELL' ? h('div.tt-line', `${mv.texts && mv.texts.homeward_bell ? mv.texts.homeward_bell + ' ' : ''}Rung on the map: ${tolls(mv.bell.channelTime)} to ring, then the next zone's hub.`) : h('div.tt-line', `Leave for ${roadTo(v, ctx)}.`), previewBlock(heatOf(ctx.view, a), ctx, { leaves: true })));
+    const b = btn(label, () => { if (expiring.length && leave.armed !== a.type) { leave.armed = a.type; ctx.ui.refreshScreens(); return; } leave.armed = null; ctx.act(a); }, a.type === 'TAKE_ROAD' ? '.primary' : '');
+    b.dataset.leave = a.type;
+    tip(b, () => h('div', h('div.tt-name', label), a.type === 'RING_BELL' ? h('div.tt-line', `${mv.texts && mv.texts.homeward_bell ? mv.texts.homeward_bell + ' ' : ''}Rung on the map: ${tolls(mv.bell.channelTime)} to ring, then the next zone's hub.`) : h('div.tt-line', `Leave for ${roadTo(v, ctx)}.`),
+      expiring.length ? h('div.tt-warn', `${expiryText(expiring, ctx.data.content)}. No reward.`) : null, previewBlock(heatOf(ctx.view, a), ctx, { leaves: true }),
+      expiring.length ? h('div.tt-hint', 'Click, then confirm') : null));
     return ghostOn(b, ctx, a);
   });
   // the Spyglass (expedition.md 2.4; prep): arm it, then click any node: it and its neighbours come into full view, no tolls
@@ -25605,6 +25763,14 @@ function buildExpMap(v, ctx, readOnly) {
   } else if (spy.armed) spy.armed = false;
   const dm = mv.dim || {}; const off = !!dm.off;
   win.appendChild(h('div.mhead', h('div', h('div.title', z.name), h('div.subtitle', `Levels ${z.band[0]}–${z.band[1]} · zone toll ${mv.zt}`)), h('div.row', readOnly ? closeBtn(ctx, 'map') : null, ...btns)));
+  if (leave.armed) {
+    const a = { type: leave.armed }; const road = a.type === 'TAKE_ROAD';
+    const go = btn(road ? 'Take the Road anyway' : 'Ring the Bell anyway', () => { leave.armed = null; ctx.act(a); }, '.danger');
+    const stay = btn('Stay', () => { leave.armed = null; ctx.ui.refreshScreens(); }, '.primary');
+    win.appendChild(h('div.leavewarn', { role: 'alertdialog', 'aria-label': `Leave ${z.name}?` },
+      h('div.lw-t', `Leave ${z.name}?`), h('div.lw-l', `${expiryText(expiring, ctx.data.content)}. They pay nothing once expired.`),
+      h('div.row.lw-b', go, stay, h('span.muted', 'Esc: stay'))));
+  }
 
   // ---- the disc
   const disc = h('div.xdisc');
@@ -25718,7 +25884,7 @@ function buildExpMap(v, ctx, readOnly) {
     if (hp) el.appendChild(tollLabel(h('div.mhrs', tolls(hp.time)), hp));
     if (n.done && n.heat && ctx.data.rules.heat && (ctx.data.rules.heat.gain[n.heat] > 0 || ctx.data.rules.heat.rarityUp[n.heat] > 0)) el.appendChild(h('div.mheat', { dataset: { hs: n.heat } }));
     const look = { type: 'USE_SPYGLASS', nodeId: n.id };
-    if (!readOnly) el.addEventListener('click', () => { if (spy.armed) { spy.armed = false; ctx.act(look); } else if (m) ctx.act(act); });
+    if (!readOnly) el.addEventListener('click', () => { leave.armed = null; if (spy.armed) { spy.armed = false; ctx.act(look); } else if (m) ctx.act(act); });
     if (m) ghostOn(el, ctx, act);
     tip(el, () => expNodeTip(n, mv, v, ctx, m, here, readOnly, act));
     disc.appendChild(el);
@@ -25799,8 +25965,10 @@ function declutterLabels(disc) {
   const fixed = nodes.flatMap((n) => [...n.querySelectorAll(':scope > .xfoes, :scope > .xsite')].map((x) => ({ n, b: box(x.getBoundingClientRect()) })));
   const rank = ({ el }) => (el.classList.contains('cl') ? 0 : el.classList.contains('urgent') ? 1 : el.classList.contains('mhrs') ? 2 : 3);
   shown.sort((a, b) => rank(a) - rank(b));
-  const placed = [];
   const area = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l)) * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t));
+  // candidate spots of each label: around its own node first, then any spot near it, nearest first (at most one and a half
+  // label widths sideways and four rows up or down)
+  const spots = new Map();
   for (const lab of shown) {
     const nat = box(lab.el.getBoundingClientRect()); const w = nat.r - nat.l; const ht = nat.b - nat.t;
     const R = ring.get(lab.n); const cx = (R.l + R.r) / 2; const cy = (R.t + R.b) / 2; const g = 2;
@@ -25810,24 +25978,50 @@ function declutterLabels(disc) {
       at(cx - w / 2, R.t - 2 * (g + ht)), at(cx - w / 2, R.b + 2 * g + ht), at(nat.l, nat.b + g), at(nat.l, nat.t - g - ht),
       at(R.r + g, R.t - 2 * ht - g), at(R.l - g - w, R.t - 2 * ht - g), at(R.r + g, R.b + ht + g), at(R.l - g - w, R.b + ht + g),
       at(nat.l, nat.b + ht + 2 * g), at(nat.l, nat.t - 2 * (g + ht))];
-    // then any spot near the node, nearest first (at most a label's width sideways and three rows up or down)
     const near = [];
-    for (let dx = -w; dx <= w + 0.1; dx += w / 4) for (let dy = -3 * ht; dy <= 3 * ht + 0.1; dy += ht / 2) near.push(at(cx - w / 2 + dx, (lab.el.classList.contains('mhrs') ? R.t - g - ht : R.b + g) + dy));
+    for (let dx = -1.5 * w; dx <= 1.5 * w + 0.1; dx += w / 4) for (let dy = -4 * ht; dy <= 4 * ht + 0.1; dy += ht / 2) near.push(at(cx - w / 2 + dx, (lab.el.classList.contains('mhrs') ? R.t - g - ht : R.b + g) + dy));
     const d2 = (c) => (c.l - nat.l) ** 2 + (c.t - nat.t) ** 2;
     cand.push(...near.sort((a, b) => d2(a) - d2(b)));
-    // text on text is the worst, then a label on a node's icon; a small "?" marker of an unknown node may be touched
-    const cost = (c) => {
-      let k = 0;
-      for (const [n, b] of ring) if (n !== lab.n) k += area(c, b) * (n.classList.contains('x-unknown') ? 0.3 : 2);
-      if (lab.el.classList.contains('cl')) { /* its own ring is fine to touch */ } else k += 2 * area(c, R);
-      for (const f of fixed) k += 2 * area(c, f.b);
-      for (const p of placed) k += 4 * area(c, p);
-      return k;
-    };
-    let best = cand[0]; let bestK = cost(best);
-    for (const c of cand.slice(1)) { if (bestK <= 0) break; const k = cost(c); if (k < bestK - 0.5) { best = c; bestK = k; } }
-    if (best !== cand[0]) lab.el.style.translate = `${(best.l - nat.l).toFixed(1)}px ${(best.t - nat.t).toFixed(1)}px`;
-    placed.push(best);
+    spots.set(lab, { nat, R, cand });
+  }
+  // text on text costs most, then a label on a node's icon, an unknown node's "?" marker included (after the Dimming
+  // spreads, clocks crowd the outer rings: QA playtest 2026-11-11 finding 9), the enemy count or site marks
+  const cost = (lab, c, others) => {
+    const { R } = spots.get(lab); let k = 0;
+    for (const [n, b] of ring) if (n !== lab.n) k += 8 * area(c, b);
+    if (!lab.el.classList.contains('cl')) k += 2 * area(c, R); // a level may touch its own ring
+    for (const f of fixed) k += 8 * area(c, f.b);
+    for (const p of others) k += 50 * area(c, p);
+    return k;
+  };
+  const pick = (lab, others) => {
+    const { cand } = spots.get(lab);
+    let best = cand[0]; let bestK = cost(lab, best, others);
+    for (const c of cand.slice(1)) { if (bestK <= 0) break; const k = cost(lab, c, others); if (k < bestK - 0.5) { best = c; bestK = k; } }
+    // still touching something: nudge it a few pixels (the spots are half a row apart; a sliver often clears)
+    if (bestK > 0) {
+      const base = best;
+      nudge: for (const dy of [-2, 2, -4, 4, -6, 6, -8, 8, 0]) for (const dx of [0, -3, 3, -6, 6, -9, 9]) {
+        if (!dx && !dy) continue;
+        const c = { l: base.l + dx, t: base.t + dy, r: base.r + dx, b: base.b + dy };
+        const k = cost(lab, c, others); if (k < bestK - 0.5) { best = c; bestK = k; if (bestK <= 0) break nudge; }
+      }
+    }
+    return { best, k: bestK };
+  };
+  // greedy in rank order, then two repair passes: a label still on something looks again with every other label placed
+  const at = new Map();
+  for (const lab of shown) { const { best, k } = pick(lab, [...at.values()].map((x) => x.best)); at.set(lab, { best, k }); }
+  for (let pass = 0; pass < 2; pass++) {
+    for (const lab of shown) {
+      if (at.get(lab).k <= 0) continue;
+      const others = shown.filter((x) => x !== lab).map((x) => at.get(x).best);
+      const r = pick(lab, others); if (r.k < at.get(lab).k - 0.5) at.set(lab, r);
+    }
+  }
+  for (const lab of shown) {
+    const { best } = at.get(lab); const { nat } = spots.get(lab);
+    if (best !== spots.get(lab).cand[0]) lab.el.style.translate = `${(best.l - nat.l).toFixed(1)}px ${(best.t - nat.t).toFixed(1)}px`;
   }
   // a node's labels are drawn inside its own layer (the node's transform): nodes with toll labels or clocks sit over
   // plain nodes, the player's own urgent clock over all, so no label hides under a neighbour's ring
@@ -26051,8 +26245,18 @@ function buildLoot(v, ctx) {
   const full = p.bag.every(Boolean) && (L.items || []).some((it) => it.kind === 'gear' && !it.inBag);
   const take = btn(pending ? 'Take all' : 'Continue', () => ctx.act({ type: 'LOOT_TAKE_ALL' }), '.primary');
   take.appendChild(h('span.k', 'Space'));
+  const nx = nextStrip(L); if (nx) win.appendChild(nx);
   win.appendChild(h('div.foot', full ? h('span.warn', 'Bags full: discard (B)') : h('span.muted.nowrap', `Bags ${p.bag.filter(Boolean).length}/${p.bag.length}`), h('div.row', { style: { gap: '.6rem' } }, pending ? btn('Leave', () => ctx.act({ type: 'LOOT_CLOSE' })) : null, take)));
   return win;
+}
+/**
+ * The reward windows that follow the one on screen (the bridge's loot.next), in one line: "Next  Quest complete: The Lost
+ * Ledger, then Contract complete: Cull reedfolk" (QA playtest 2026-11-11 finding 8: the windows come one after the other).
+ */
+function nextStrip(L) {
+  const list = L.next || []; if (!list.length) return null;
+  const word = (x) => (x.kind === 'contract' ? `Contract complete: ${x.title}` : x.kind === 'story' ? `Story complete: ${x.title}` : `Quest complete: ${x.title}`);
+  return h('div.lnext', { dataset: { next: list.map((x) => x.kind).join(',') } }, h('span.nx', 'Next'), h('span.nt', list.map(word).join(', then ')));
 }
 function miniBtn(label, fn) { const b = h('button.btn.small', label); b.addEventListener('click', (e) => { e.stopPropagation(); fn(); }); return b; }
 function closeLootBtn(ctx) { const b = h('button.xbtn', '×'); b.addEventListener('click', () => ctx.act({ type: 'LOOT_CLOSE' })); return b; }
@@ -26076,7 +26280,7 @@ function buildReward(v, ctx) {
     return dialog('Contract complete', c ? `Zone ${c.z} · ${c.zoneName}` : '', [head,
       h('div.row', { style: { gap: '2rem' } }, L.xp ? h('span', { style: { color: '#d0a8ff', fontWeight: 700, fontSize: '1.35rem' } }, `+${fmtNum(L.xp)} XP`) : null, L.gold ? h('span', moneyEl(L.gold)) : null),
       h('div.subtitle', 'Choose one reward'), cards,
-      p.bag.every(Boolean) ? h('div.warn', 'Your bags are full: discard something first (B).') : null,
+      p.bag.every(Boolean) ? h('div.warn', 'Your bags are full: discard something first (B).') : null, nextStrip(L),
     ], [], { style: { width: '60rem' }, cls: 'contract-reward' });
   }
   const story = L.kind === 'story';
@@ -26084,7 +26288,7 @@ function buildReward(v, ctx) {
     h('div.qtext.parchment', L.giver ? h('div.giver', `${L.giver} says:`) : null, h('div.turnin', `“${L.text}”`)),
     h('div.row', { style: { gap: '2rem' } }, L.xp ? h('span', { style: { color: '#d0a8ff', fontWeight: 700, fontSize: '1.35rem' } }, `+${fmtNum(L.xp)} XP`) : null, L.gold ? h('span', moneyEl(L.gold)) : null),
     h('div.subtitle', story ? 'Choose one rare reward' : 'Choose your reward'), cards,
-    p.bag.every(Boolean) ? h('div.warn', 'Your bags are full: discard something first (B).') : null,
+    p.bag.every(Boolean) ? h('div.warn', 'Your bags are full: discard something first (B).') : null, nextStrip(L),
   ], [], { style: { width: '60rem' } });
 }
 
@@ -26143,9 +26347,11 @@ function buildSummary(v, ctx) {
   const s = v.summary; if (!s) return null;
   const win = h('div.summary.panel.center');
   const won = s.outcome === 'victory';
+  // a hero without a name of its own carries the class name: say it once (QA playtest 2026-11-11 finding 10)
+  const named = s.name && s.name.toLowerCase() !== String(s.className).toLowerCase() ? s.name : null;
   win.appendChild(h('div.shead', h('div.t1.subtitle', { style: { letterSpacing: '.4em', textTransform: 'uppercase' } }, won ? 'Victory' : 'The run has ended'),
-    h('div.t2', { style: { color: won ? '#ffe08a' : '#e8a090' } }, won ? 'Oruvath has fallen' : `${s.name} has fallen`),
-    h('div.subtitle', `${s.name} · level ${s.level} ${s.className}${s.petId ? ' with ' + ctx.data.pets[s.petId].name : ''} · ${s.zone}`),
+    h('div.t2', { style: { color: won ? '#ffe08a' : '#e8a090' } }, won ? 'Oruvath has fallen' : named ? `${named} has fallen` : `Your ${s.className} has fallen`),
+    h('div.subtitle.s-who', `${named ? `${named} · level` : 'Level'} ${s.level} ${s.className}${s.petId ? ' with ' + ctx.data.pets[s.petId].name : ''} · ${s.zone}`),
     // a dev run (engine-api.md 12): the dev tools changed it, so it earns no Echoes
     s.dev ? h('div.devrun', `Dev run${s.dev.god ? ' · god mode' : ''}`) : null));
   const kv = (pairs) => h('dl.kv', pairs.flatMap(([k, val]) => [h('dt', k), h('dd', val)]));
@@ -27882,9 +28088,12 @@ class App {
    * too), so a burst (quests turned in at speed, a level, a heat change) never stacks over the map or the frames.
    */
   toast(text, kind = '') {
-    // a change of the heat state (heat.js, expedition.md H.4) shows at once and never merges: one toast per change
+    // a change of the heat state (heat.js, expedition.md H.4) shows at once and never merges. Only one heat toast is on
+    // screen: a later change replaces it, so a burst (a zone change: Burning, Smouldering, Calm, ...) ends on the final
+    // state and the stack keeps TOAST_MAX (QA playtest 2026-11-11 finding 1)
     const first = /^heat-/.test(kind);
     const key = `${kind}|${text}`;
+    if (first) for (const t of [...this.toasts.children]) if (/\bheat-/.test(t.className)) { clearTimeout(t._toastT); t.remove(); }
     if (!first) {
       const live = [...this.toasts.children].find((t) => t.dataset.key === key);
       if (live) {
