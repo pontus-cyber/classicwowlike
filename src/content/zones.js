@@ -52,7 +52,9 @@ export const ZONES = [
    "z1_marrow"
   ],
   "rares": [
-   "z1_thistlewick"
+   "z1_thistlewick",
+   "z1_hobb_tollwright",
+   "z1_mildew_warden"
   ],
   "dungeon": {
    "name": "The Harrow Cellars",
@@ -142,7 +144,9 @@ export const ZONES = [
    "z2_sisel"
   ],
   "rares": [
-   "z2_gloam_eel"
+   "z2_gloam_eel",
+   "z2_skerrow",
+   "z2_wrenna"
   ],
   "dungeon": {
    "name": "The Sunken Weir",
@@ -233,7 +237,9 @@ export const ZONES = [
    "z3_mawra"
   ],
   "rares": [
-   "z3_grey_stag"
+   "z3_grey_stag",
+   "z3_kell",
+   "z3_hesk"
   ],
   "dungeon": {
    "name": "Barrowdeep",
@@ -326,7 +332,8 @@ export const ZONES = [
   ],
   "rares": [
    "z4_gilded_queen",
-   "z4_pharan"
+   "z4_pharan",
+   "z4_qatheb"
   ],
   "dungeon": {
    "name": "The Obelisk of Veth",
@@ -418,7 +425,8 @@ export const ZONES = [
   ],
   "rares": [
    "z5_pale_hunter",
-   "z5_black_doe"
+   "z5_black_doe",
+   "z5_weeping_chandler"
   ],
   "dungeon": {
    "name": "Dunmere Chapel",
@@ -510,7 +518,8 @@ export const ZONES = [
   ],
   "rares": [
    "z6_ember_drake",
-   "z6_stone_matron"
+   "z6_stone_matron",
+   "z6_karrith"
   ],
   "dungeon": {
    "name": "The Furnace of Karth",

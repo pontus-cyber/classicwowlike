@@ -324,5 +324,134 @@ export const ABILITIES = {
   "name": "Molten Wave",
   "pct": 0.9,
   "cd": 3
+ },
+ "ab_z1_hobb_tollwright_tollhook": {
+  "id": "ab_z1_hobb_tollwright_tollhook",
+  "template": "rend",
+  "name": "Toll Hook",
+  "pct": 0.75,
+  "tickPct": 0.22,
+  "cd": 3
+ },
+ "ab_z1_hobb_tollwright_receipt": {
+  "id": "ab_z1_hobb_tollwright_receipt",
+  "template": "heavy_blow",
+  "name": "Final Receipt",
+  "pct": 1.8,
+  "cd": 3
+ },
+ "ab_z1_mildew_warden_husk": {
+  "id": "ab_z1_mildew_warden_husk",
+  "template": "self_shield",
+  "name": "Blight Husk",
+  "pct": 0.24,
+  "cd": 5
+ },
+ "ab_z1_mildew_warden_haymaker": {
+  "id": "ab_z1_mildew_warden_haymaker",
+  "template": "heavy_blow",
+  "name": "Rotting Haymaker",
+  "pct": 1.9,
+  "cd": 4
+ },
+ "ab_z2_skerrow_barb": {
+  "id": "ab_z2_skerrow_barb",
+  "template": "rend",
+  "name": "Reed Barb",
+  "pct": 0.7,
+  "tickPct": 0.2,
+  "cd": 3
+ },
+ "ab_z2_skerrow_pole_sweep": {
+  "id": "ab_z2_skerrow_pole_sweep",
+  "template": "cleave_all",
+  "name": "Pole Sweep",
+  "pct": 0.85,
+  "cd": 3
+ },
+ "ab_z2_wrenna_peat": {
+  "id": "ab_z2_wrenna_peat",
+  "template": "self_heal",
+  "name": "Peat Poultice",
+  "pct": 0.17,
+  "cd": 5
+ },
+ "ab_z2_wrenna_whisper": {
+  "id": "ab_z2_wrenna_whisper",
+  "template": "dark_cast",
+  "name": "Drowning Whisper",
+  "pct": 2.1,
+  "cd": 4
+ },
+ "ab_z3_kell_hamstring": {
+  "id": "ab_z3_kell_hamstring",
+  "template": "rend",
+  "name": "Hamstring Cut",
+  "pct": 0.75,
+  "tickPct": 0.22,
+  "cd": 3
+ },
+ "ab_z3_kell_raiders_sweep": {
+  "id": "ab_z3_kell_raiders_sweep",
+  "template": "cleave_all",
+  "name": "Raider's Sweep",
+  "pct": 0.9,
+  "cd": 3
+ },
+ "ab_z3_hesk_rain_mercy": {
+  "id": "ab_z3_hesk_rain_mercy",
+  "template": "self_heal",
+  "name": "Rainfall Mercy",
+  "pct": 0.17,
+  "cd": 5
+ },
+ "ab_z3_hesk_thunder_verse": {
+  "id": "ab_z3_hesk_thunder_verse",
+  "template": "dark_cast",
+  "name": "Thunder Verse",
+  "pct": 2.2,
+  "cd": 4
+ },
+ "ab_z4_qatheb_noon_balm": {
+  "id": "ab_z4_qatheb_noon_balm",
+  "template": "self_heal",
+  "name": "Noon Balm",
+  "pct": 0.17,
+  "cd": 5
+ },
+ "ab_z4_qatheb_noon_verdict": {
+  "id": "ab_z4_qatheb_noon_verdict",
+  "template": "dark_cast",
+  "name": "Noonday Verdict",
+  "pct": 2.3,
+  "cd": 4
+ },
+ "ab_z5_weeping_chandler_wax_mending": {
+  "id": "ab_z5_weeping_chandler_wax_mending",
+  "template": "self_heal",
+  "name": "Wax Mending",
+  "pct": 0.17,
+  "cd": 5
+ },
+ "ab_z5_weeping_chandler_candle_dirge": {
+  "id": "ab_z5_weeping_chandler_candle_dirge",
+  "template": "dark_cast",
+  "name": "Dirge of Candles",
+  "pct": 2.3,
+  "cd": 4
+ },
+ "ab_z6_karrith_absolution": {
+  "id": "ab_z6_karrith_absolution",
+  "template": "self_heal",
+  "name": "Ash Absolution",
+  "pct": 0.17,
+  "cd": 5
+ },
+ "ab_z6_karrith_pyre_verdict": {
+  "id": "ab_z6_karrith_pyre_verdict",
+  "template": "dark_cast",
+  "name": "Pyre Verdict",
+  "pct": 2.4,
+  "cd": 4
  }
 };

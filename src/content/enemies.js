@@ -1133,5 +1133,131 @@ export const ENEMIES = {
    "ab_z6_karth_cleave_all"
   ],
   "text": "A colossus of molten iron, fuelled by the forge it guards."
+ },
+ "z1_hobb_tollwright": {
+  "id": "z1_hobb_tollwright",
+  "name": "Hobb Tollwright",
+  "kind": "rare",
+  "archetype": "skulker",
+  "family": "outlaw",
+  "hpMult": 0.95,
+  "dmgMult": 1.1,
+  "abilities": [
+   "ab_z1_hobb_tollwright_tollhook",
+   "ab_z1_hobb_tollwright_receipt"
+  ],
+  "text": "A road-warden turned robber who still writes a receipt for every purse."
+ },
+ "z1_mildew_warden": {
+  "id": "z1_mildew_warden",
+  "name": "The Mildew Warden",
+  "kind": "rare",
+  "archetype": "guardian",
+  "family": "blight",
+  "hpMult": 1.1,
+  "dmgMult": 0.95,
+  "abilities": [
+   "ab_z1_mildew_warden_husk",
+   "ab_z1_mildew_warden_haymaker"
+  ],
+  "text": "A stone-walled field guardian crusted in grey rot that spreads wherever it stands."
+ },
+ "z2_skerrow": {
+  "id": "z2_skerrow",
+  "name": "Skerrow Stiltwalker",
+  "kind": "rare",
+  "archetype": "skulker",
+  "family": "reedfolk",
+  "hpMult": 0.95,
+  "dmgMult": 1.1,
+  "abilities": [
+   "ab_z2_skerrow_barb",
+   "ab_z2_skerrow_pole_sweep"
+  ],
+  "text": "A gaunt reed-hunter who crosses the mire on poles and is never where you struck."
+ },
+ "z2_wrenna": {
+  "id": "z2_wrenna",
+  "name": "Old Wrenna Marshlight",
+  "kind": "rare",
+  "archetype": "mender",
+  "family": "witchkin",
+  "hpMult": 1.05,
+  "dmgMult": 1,
+  "abilities": [
+   "ab_z2_wrenna_peat",
+   "ab_z2_wrenna_whisper"
+  ],
+  "text": "A fen-crone who bottles marsh fires and drinks what her enemies spill."
+ },
+ "z3_kell": {
+  "id": "z3_kell",
+  "name": "Kell Windthief",
+  "kind": "rare",
+  "archetype": "skulker",
+  "family": "reiver",
+  "hpMult": 0.95,
+  "dmgMult": 1.1,
+  "abilities": [
+   "ab_z3_kell_hamstring",
+   "ab_z3_kell_raiders_sweep"
+  ],
+  "text": "A cattle-raider who strikes from the heather and is gone with the herd."
+ },
+ "z3_hesk": {
+  "id": "z3_hesk",
+  "name": "Hesk the Rainwife",
+  "kind": "rare",
+  "archetype": "mender",
+  "family": "stormward",
+  "hpMult": 1.05,
+  "dmgMult": 1,
+  "abilities": [
+   "ab_z3_hesk_rain_mercy",
+   "ab_z3_hesk_thunder_verse"
+  ],
+  "text": "A stone-circle keeper who calls rain to close her wounds and lightning to open yours."
+ },
+ "z4_qatheb": {
+  "id": "z4_qatheb",
+  "name": "Qatheb the Dialkeeper",
+  "kind": "rare",
+  "archetype": "mender",
+  "family": "sunbound",
+  "hpMult": 1.05,
+  "dmgMult": 1,
+  "abilities": [
+   "ab_z4_qatheb_noon_balm",
+   "ab_z4_qatheb_noon_verdict"
+  ],
+  "text": "A Sunscribe who still marks the hours on a sundial that lost its shadow."
+ },
+ "z5_weeping_chandler": {
+  "id": "z5_weeping_chandler",
+  "name": "The Weeping Chandler",
+  "kind": "rare",
+  "archetype": "mender",
+  "family": "veil",
+  "hpMult": 1.05,
+  "dmgMult": 1,
+  "abilities": [
+   "ab_z5_weeping_chandler_wax_mending",
+   "ab_z5_weeping_chandler_candle_dirge"
+  ],
+  "text": "A veiled candle-maker whose tallow is rendered from the lost and whose flames never gutter."
+ },
+ "z6_karrith": {
+  "id": "z6_karrith",
+  "name": "Karrith the Ash Confessor",
+  "kind": "rare",
+  "archetype": "mender",
+  "family": "pyrecult",
+  "hpMult": 1.05,
+  "dmgMult": 1,
+  "abilities": [
+   "ab_z6_karrith_absolution",
+   "ab_z6_karrith_pyre_verdict"
+  ],
+  "text": "A pyre-priest who hears final confessions and burns the penitent for them."
  }
 };
