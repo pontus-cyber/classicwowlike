@@ -3,11 +3,12 @@
 // (EMPOWERED) or, a heavy one that cost the player 0 HP, is answered (STAGGERED).
 // DoT preview (owner feedback 2026-11-11 08:11; engine-api.md 6.1): pendingTicks plays the end-of-round tick phase
 // (tickPhase) on a copy of the state, without draws, so the UI can mark the HP that the ticks will take.
+// Packed Satchel's free potion (rules 7.5, M2b v6): resolveRound plays it as the player's action and stops the round.
 import {
   ARCHETYPE, VARIANT, ENEMY_HP_BASE, ENEMY_HP_PER_LEVEL, ENEMY_DMG_BASE, ENEMY_DMG_PER_LEVEL,
   ENEMY_ARMOR_PER_LEVEL, ENEMY_DODGE, PET, ENERGY_MAX, ENERGY_REGEN, FOCUS_MAX, FOCUS_REGEN,
   MANA_REGEN_ROUND_PCT, PET_REVIVE_PCT, TALENT, UNIQUE_WARD_PCT, BRAND_DMG, BOSS_LEVEL, MIN_HIT_DAMAGE,
-  ZONE_DANGER_FROM, ZONE_DANGER_STEP, DUNGEON_DANGER_FRAC, ENGAGE_DMG_COMP, OFFBAL_DURATION,
+  ZONE_DANGER_FROM, ZONE_DANGER_STEP, DUNGEON_DANGER_FRAC, ENGAGE_DMG_COMP, OFFBAL_DURATION, CONSUMABLE,
 } from '../constants.js';
 import { nextFloat, nextInt } from '../rng.js';
 import { rnd, deepClone, cloneState } from './util.js';
@@ -338,9 +339,31 @@ export function roundActions(s, ev, action) {
   if (!f.over) enemiesAct(s, ev);
 }
 
-/** Resolve one full round from the player's action (rules 7.1). */
+/**
+ * Is this (legal) action Packed Satchel's free potion (rules 7.5, M2b v6, D66)? With the unlock, the fight's first
+ * USE_ITEM of an item with the potion flag (Healing, Mana and Greater Healing Draught) while the player can act. Every
+ * later potion of the fight, Purifying Tonic and Spark Flask cost the turn.
+ */
+export function isFreePotion(s, a) {
+  const f = s.fight;
+  if (!f || !f.p.freePotion || f.p.skip || !a || a.type !== 'USE_ITEM') return false;
+  const id = s.player.itemBar[a.slot];
+  return !!(id && CONSUMABLE[id] && CONSUMABLE[id].potion);
+}
+
+/**
+ * Resolve one full round from the player's action (rules 7.1). Packed Satchel's free potion (rules 7.5, M2b v6) is
+ * resolved as the player's action of the round (its effect, POTION_CD from this round, STEALTH removed, Arcane
+ * Momentum reset) and the round stops there: no pet or enemy action, no end of round, the round and its counters stay;
+ * the player acts again in the same round (the engage options stay legal in the engage round).
+ */
 export function resolveRound(s, ev, action) {
   const f = s.fight;
+  if (isFreePotion(s, action)) {
+    f.p.freePotion = false;
+    playerAction(s, ev, action, true);
+    return;
+  }
   roundActions(s, ev, action);
   if (!f.over) endOfRound(s, ev);
   if (!f.over) {
@@ -429,6 +452,7 @@ export function startFight(s, ev, spec) {
       st: [], cds: {}, cp: 0, energy: ENERGY_MAX, energyMax: ENERGY_MAX, focus: FOCUS_MAX, focusMax: FOCUS_MAX,
       potionReady: 0, skip: false, target: null, stealthPrev: false, niBonus: 0, momentum: 0, momBonus: 0,
       lucid: false, sidestepUsed: false, riposte: false, firstFinisher: false, gatherCrit: 0,
+      freePotion: !!(s.meta && s.meta.satchel), // Packed Satchel (rules 7.5, M2b v6): this fight's free potion is unused
     },
     pet: { st: [], actions: 0 },
   };

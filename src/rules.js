@@ -20,7 +20,7 @@
 // (engageOptions, engagePreview, isEngageRound, offBalance; rules 7.10-7.13), the heat meter (heatView, heatPreview;
 // rules 1.7.1-1.7.2, 1.9.10), rule helpers (V, xpCurve, diffMod, zoneDanger), every constant via `C`, and the dev tools
 // `debug` (engine-api.md 12, dev only: src/engine/debug.js). Owner feedback 2026-11-11: pendingTicks (the DoT preview,
-// engine-api.md 6.1) and talentInfo (talent totals, rules 6).
+// engine-api.md 6.1) and talentInfo (talent totals, rules 6). M2b v6: freePotion (Packed Satchel's free potion, rules 7.5).
 import * as C from './constants.js';
 import { normaliseSeed } from './rng.js';
 import { cloneState, deepClone, deepFreeze, IllegalActionError } from './engine/util.js';
@@ -209,6 +209,16 @@ export function heatPreview(state, action) {
 /** FLEE success chance in the current fight (rules 7.8); 0 when fleeing is not allowed. */
 export function fleeChance(state) {
   return flee(state);
+}
+
+/**
+ * Packed Satchel's free potion (rules 7.5, M2b v6): true while the current fight's free potion is unused, so the next
+ * potion (an item with `C.CONSUMABLE[id].potion`) the player drinks costs no turn. false outside a fight, without the
+ * unlock, once it is used, and while the player's action is skipped. Its item event carries `free: true`.
+ */
+export function freePotion(state) {
+  const f = state.fight;
+  return !!(f && !f.over && f.p.freePotion && !f.p.skip);
 }
 
 /**

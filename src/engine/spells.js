@@ -611,12 +611,13 @@ export function fleeChance(s) {
 }
 
 // ---------------- Items ----------------
-function useItem(s, ev, id) {
+function useItem(s, ev, id, free) {
   const f = s.fight;
   const p = s.player;
   const c = CONSUMABLE[id];
   takeConsumable(s, id, 1);
-  ev.push({ t: 'action', kind: 'item', item: id });
+  // free: Packed Satchel's free potion (rules 7.5, M2b v6): the event says so, the round goes on (combat.js)
+  ev.push(free ? { t: 'action', kind: 'item', item: id, free: true } : { t: 'action', kind: 'item', item: id });
   if (c.potion) {
     f.p.potionReady = f.round + POTION_CD;
     s.stats.potionsUsed += 1;
@@ -646,8 +647,11 @@ export function itemUsableInCombat(s, id) {
 }
 
 // ---------------- Player action dispatcher ----------------
-/** Resolve the player's action for the round (validated by the caller). */
-export function playerAction(s, ev, a) {
+/**
+ * Resolve the player's action for the round (validated by the caller). free: the action is Packed Satchel's free potion
+ * (rules 7.5, M2b v6; combat.js resolveRound): resolved exactly the same, its item event carries `free: true`.
+ */
+export function playerAction(s, ev, a, free = false) {
   const f = s.fight;
   const p = s.player;
   if (f.p.skip) {
@@ -681,7 +685,7 @@ export function playerAction(s, ev, a) {
   } else if (a.type === 'ENGAGE') {
     engageAction(s, ev, a);
   } else if (a.type === 'USE_ITEM') {
-    useItem(s, ev, p.itemBar[a.slot]);
+    useItem(s, ev, p.itemBar[a.slot], free);
   } else if (a.type === 'PASS') {
     ev.push({ t: 'action', kind: 'pass' });
   } else if (a.type === 'FLEE') {

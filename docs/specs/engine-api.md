@@ -60,6 +60,7 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 | `engagePreview(state, action)` | object or null | (combat v2) What an ENGAGE action does to the tracks, for the engage panel's hover preview (rules 7.10). No draw, so it shows nothing the player cannot see. null when the action is not legal, else `{ enemies: [{ u, cancelled, offBalance, window, pet, stagger, disrupt }] }` with turn numbers: entries it cancels (Sap, Binding Glyph, Lay Trap, Disrupt, a Pre-cast Hexbind or Rime Burst; Sap and Hexbind only while no damage breaks them, Rime Burst only if it hits), those among them that leave the enemy OFF_BALANCE (heavy or cast: "OFF_BALANCE on turn 2"), turns FROZEN (a window), turns whose single-target hits go to the pet (Send the Pet), (combat v2.1) `stagger`: the cancelled turns whose entry is a wind-up (answered: STAGGERED), `disrupt`: true when the option is a Disrupt on this enemy (its one cancelled turn is the first visible wind-up). Send the Pet answers a heavy wind-up among its `pet` turns too while the pet lives (rules 7.13 (3)); the preview lists it under `pet` only. Damage options change no entry. (M2b v6) Sap's `cancelled` lists turns 1..SAP_TURNS (4), one more than the engage round's track shows; `offBalance` and `stagger` can name only turns that have an entry. |
 | `offBalance(state, enemyIdx)` | object or null | (combat v2) The OFF_BALANCE window on an enemy (rules 7.13): `{ status ('OFF_BALANCE', or 'FROZEN', which counts as OFF_BALANCE while it lasts), taken, crit, rounds }`; null when there is none. Highlight bar spells with `spellInfo(...).window`. |
 | `pendingTicks(state, unit)` | array, object or null | (preview) The DoT preview (owner feedback 2026-11-11 08:11): what the ticks at the end of the current round (rules 7.1 step 5) will do if nothing else happens before them, one entry per unit they touch, in tick order (player, pet, enemies). With `unit` (`'player'`, `'pet'` or an enemy index): that unit's entry or null. null outside a fight. Fields and guarantees: section 6.1. |
+| `freePotion(state)` | bool | (M2b v6) Packed Satchel's free potion (rules 7.5): true while the current fight's free potion is unused, so the next potion the player drinks (an item with `C.CONSUMABLE[id].potion`: Healing, Mana or Greater Healing Draught) costs no turn. false outside a fight, without the unlock, once used, and while the player's action is skipped. Mark the potions on the item bar "free" while it is true. |
 | `talentInfo(state, talentId)` | object or null | (preview) Talent totals for the tooltip (owner feedback 2026-11-11 08:14; rules 6): `{ id, name, ranks, rank, per, now, next }`. `per`: the values one rank gives, `now`: their totals at the ranks taken (null at rank 0), `next`: at one more rank (null at the maximum). The keys are the talent's per-rank fields (`C.TALENT_PER_RANK`; the numbers stay in `C.TALENT`), e.g. Silent Footing at 3/3: `now { pct: 0.3 }`, `next` null. `base` (Toxic Coating, Trapper): the damage formula b + l × L (Trapper: the Snare Trap's training level) + p × Power, times the ranks, before modifiers, rounded to 0.1 (null without a character). Hemorrhage Mastery: `{ dotCrit, dotPct }` by rank. Any phase; null for an unknown id. |
 | `heatView(state)` | object or null | (heat) The heat meter (rules 1.7.1-1.7.2, 1.9.10), in any phase after START_RUN (null before): the line, the player's heat, the state, the Dimming's clock in an expedition zone, the projected boss Ascendancy and the previews of the legal hour-costing choices. Fields in section 11. Pure and cheap. |
 | `heatPreview(state, action)` | object or null | (heat) The hours an action costs and the heat after it ("2 h, ends Warm", rules 1.7.1, 1.9.10), and for an action that enters a node the state it pays at (`pays`); null when the action is not legal or costs no hours. Fields in section 11. |
@@ -131,7 +132,7 @@ Every action is `{ type, ...fields }`. Indices are 0-based. Enemy targets are in
 | `SPEND_TALENT` | `talentId` | out of combat; free point; tier gate (rules 6) |
 | `CAST` | `spellId`, `target` (enemy index, or null for self/AoE spells) | fight; spell on the bar, off cooldown, resource, requirements |
 | `ATTACK` | `target` | fight; free basic attack (Strike / Spark / Auto Shot) |
-| `USE_ITEM` (in combat) | `slot` 0-2, `target` null | fight; item on the item bar, in the bag, potion cooldown |
+| `USE_ITEM` (in combat) | `slot` 0-2, `target` null | fight; item on the item bar, in the bag, potion cooldown. (M2b v6) With Packed Satchel the fight's first potion costs no turn (below) |
 | `FLEE` | | fight, not vs dungeon boss or end boss |
 | `PASS` | | fight (the only legal combat action while Glacial Tomb skips your turn, `state.fight.p.skip`) |
 | `MOVE` | `nodeId` | (expedition) MAP; a node next to the player's (`mapView(state).moves`). Enters an unresolved, non-hub, non-Dimmed node (its content and hours); else a walk of HOURS_WALK; a walk onto the hub out of the Dimming starts a hub visit (rules 1.9.4) |
@@ -144,6 +145,14 @@ One combat action resolves one full round (rules 7.1): player action, pet, enemi
 round (then a Signal reinforcement joins), then the next round's intents are shown from the intent tracks. The
 events list covers all of it. Round 1 of every fight but the end boss is the engage round (combat v2): enemies are
 Unaware and do not act; `CAST`, `ATTACK`, `USE_ITEM`, `PASS`, `FLEE` and `ENGAGE` are legal.
+
+(M2b v6) Packed Satchel's free potion (rules 7.5): with the unlock, the first `USE_ITEM` of a potion in each fight
+(the end-boss fight included) resolves as the player's action (its effect, POTION_CD from this round, STEALTH removed,
+Arcane Momentum reset) and the round stops there: no pet or enemy action, no end of round, no `round` or `intent`
+events; `fight.round`, `stats.rounds` and `stats.bossRounds` stay. The player then chooses again in the same round
+(`legalActions` as before, the potion on cooldown; in the engage round the engage options stay legal). Its `action`
+event has `free: true`; `freePotion(state)` turns false. Later potions of the fight, Purifying Tonic and Spark Flask
+always cost the turn. `stats.potionsUsed` counts the free potion.
 
 ## 4. State fields the front end reads
 | Path | Meaning |
@@ -188,7 +197,7 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `fight` | `kind, k, engage, heat, enemies[{u, name, level, hp, kind, arch}]` | fight started (`kind`: quest grind elite trash dboss treasure camp boss, (expedition) dim; `engage`: it has an engage round, combat v2). A Dimmed encounter's enemies have `kind: 'shardspawn'`. (heat) `heat`: the node's entry state, null for Camp waves, the boss and Dimmed encounters |
 | `round` | `n`, `engage` (true in the engage round, combat v2) | a new round starts (intents follow) |
 | `intent` | `u, intent` | enemy intent for this round (section 6); the tracks are in the state |
-| `action` | `kind` (`cast` `attack` `item` `pass` `flee` `skip` `engage`), `spell, target, cost, item, success, option, engage` | player action. Combat v2: `kind: 'engage'` with `option` and `target` for an ENGAGE; a Pre-cast is `kind: 'cast'` with `engage: 'precast'` and `cost` 0. Combat v2.1: a Disrupt adds `disrupt: true` (log "Disrupt: <boss> will miss <wind-up>") |
+| `action` | `kind` (`cast` `attack` `item` `pass` `flee` `skip` `engage`), `spell, target, cost, item, success, option, engage, free` | player action. Combat v2: `kind: 'engage'` with `option` and `target` for an ENGAGE; a Pre-cast is `kind: 'cast'` with `engage: 'precast'` and `cost` 0. Combat v2.1: a Disrupt adds `disrupt: true` (log "Disrupt: <boss> will miss <wind-up>"). (M2b v6) `kind: 'item'` with `free: true`: Packed Satchel's free potion, the round goes on (log "Free action (Packed Satchel)"; section 3) |
 | `cancel` | `u, id, name, by, turn, offBalance` | (combat v2) control (`by`: STUN FROZEN HEXED SAPPED) cancelled the enemy's entry `id` this turn; `offBalance`: a heavy or cast, so it is now OFF_BALANCE. Log: "Heavy Smash cancelled: stunned -> off-balance" |
 | `replace` | `u, turn, from, fromName, to, toName, reason` | (combat v2) the now-entry could not be played and became the basic attack (rules 7.11) |
 | `offBalance` | `u, why, id, name, dur` | (combat v2) the enemy is OFF_BALANCE (`why`: `interrupt`, `control`, `avoided` = a heavy that cost you 0 HP); the status event follows the rules of 7.4 |
@@ -241,8 +250,9 @@ Out of combat, equipping, talents and Boon of Mending change HP without an HP fi
 `state.fight = { kind, round, enemies[], canFlee, boss, p, pet, engage, startCount, signalled, heat }` (combat v2: `engage`
 = the fight has an engage round, `startCount` = enemies at fight start, `signalled` = a Signal was given; heat: `heat` =
 the node's entry state, null outside a node that pays heat).
-- `fight.p = { st[], cds{spellId: readyRound}, cp, energy, focus, potionReady, skip, ... }`: the player's
-  statuses, cooldowns (usable when `round >= cds[id]`), combo points, energy/focus. Mana is `player.mana`.
+- `fight.p = { st[], cds{spellId: readyRound}, cp, energy, focus, potionReady, skip, freePotion, ... }`: the player's
+  statuses, cooldowns (usable when `round >= cds[id]`), combo points, energy/focus. Mana is `player.mana`. (M2b v6)
+  `freePotion`: Packed Satchel's free potion of this fight is unused; read it with `freePotion(state)`.
 - `fight.pet.st[]`: pet statuses (TAUNT).
 - Enemy: `{ idx, tid, name, kind, arch, level, hp, maxHp, armor, dodge, st[], intent, alive, elite, boss, shield }`;
   combat v2 adds `turn` (its current turn, 0 before turn 1), `turn0` (round of its turn 1), `track` (below), `acted`
@@ -394,7 +404,8 @@ whose track shows the most damage on the player over turns 1..ENGAGE_AUTO_LOOK (
 strike option (Mage: Pre-cast of the first bar spell whose autoplay condition holds). The Rogue never gets Sap from
 `autoAction` (D49): its rule E is Ambush on the default target. Afterwards it reads only the
 now-intents. Combat v2.1: a wind-up is a cast, so rule 3 interrupts it (or stuns it) when an interrupt or stun-tagged
-spell is ready. `state.autoplay` only records the toggle. When it is on and `state.fight` is set, the front end calls
+spell is ready. (M2b v6) After Packed Satchel's free potion the round goes on: `autoAction` runs the policy again
+in the same round (the potion is then on cooldown). `state.autoplay` only records the toggle. When it is on and `state.fight` is set, the front end calls
 `step(state, autoAction(state))` at its own pace (PACE_AUTO_ROUND_S). The simulator calls `autoAction` for
 every decision or replaces the out-of-combat part with its bots.
 
@@ -414,6 +425,10 @@ XP, Prospector +0.06 gold per rank, Swift Boots without requirement, catalogue t
 (D34). An owned id that is not in `C.META` (a profile that bought Wayfinder) is ignored, as D32 handles ranks: no
 effect in a run (`state.meta` has no `wayfinder` flag), not listed by `metaOffers`, `buyMeta` throws "unknown meta
 unlock", no Echoes refunded; the id stays in `profile.unlocks` and in the profile END_RUN returns.
+
+M2b v6 (D66): Vigor and Edge +0.005 per rank (`C.META.vigor.hpPct`, `C.META.edge.powerPct`; ranks and costs
+unchanged; a saved rank keeps its count at the new value). Packed Satchel also gives the free potion (section 3,
+`freePotion`).
 
 M2 v5: Starforged Arms is removed (D45), catalogue total 6 560. A stored `starforged` id is handled as Wayfinder
 (D42): `state.meta` has no `starforged` flag, the Camp vendor's stock follows the same rule as every vendor (no class

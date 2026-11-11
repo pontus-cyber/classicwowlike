@@ -898,11 +898,12 @@ export const SHRINE_BOON_COUNT = 2;
  * keeps it stored; it has no effect and no refund (D42).
  */
 export const META = {
-  vigor: { id: 'vigor', name: 'Vigor of the Line', kind: 'stat', ranks: 4, costs: [80, 120, 170, 230], hpPct: 0.01, req: [] },
-  edge: { id: 'edge', name: 'Edge of the Line', kind: 'stat', ranks: 4, costs: [80, 120, 170, 230], powerPct: 0.01, req: [] },
+  vigor: { id: 'vigor', name: 'Vigor of the Line', kind: 'stat', ranks: 4, costs: [80, 120, 170, 230], hpPct: 0.005, req: [] }, // M2b v6 (D66): was 0.01
+  edge: { id: 'edge', name: 'Edge of the Line', kind: 'stat', ranks: 4, costs: [80, 120, 170, 230], powerPct: 0.005, req: [] }, // M2b v6 (D66): was 0.01
   keen: { id: 'keen', name: 'Keen Lineage', kind: 'stat', ranks: 2, costs: [150, 250], crit: 0.0075, req: [] },
   quick_study: { id: 'quick_study', name: 'Quick Study', kind: 'stat', ranks: 3, costs: [100, 180, 280], xpPct: 0.0375, req: [] },
   prospector: { id: 'prospector', name: 'Prospector', kind: 'stat', ranks: 3, costs: [60, 110, 170], goldPct: 0.06, req: [] },
+  // M2b v6 (D66): also the free potion, the first potion each fight costs no turn (rules 7.5; combat.js)
   satchel: { id: 'satchel', name: 'Packed Satchel', kind: 'start kit', ranks: 1, costs: [60], potions: 3, req: [] },
   heirloom_blade: { id: 'heirloom_blade', name: 'Heirloom Blade', kind: 'start kit', ranks: 1, costs: [80], rarity: 'uncommon', ilvl: 3, req: [] },
   pockets: { id: 'pockets', name: 'Deeper Pockets', kind: 'start kit', ranks: 2, costs: [50, 100], slots: 4, req: [] },
