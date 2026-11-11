@@ -4,6 +4,7 @@
 // spec's. Autoplay reads only the now-intent, except rule E, which reads turns 1..ENGAGE_AUTO_LOOK of the tracks.
 // Expedition map (rules 1.9.9): the default map policy explores what it can leave cleanly and walks to the cheapest
 // Road around the Dimming; it reads only what the player sees (seen nodes, the skeleton, the Dimming).
+// The default talent build, bar and item bar are exported for the dev tools (debug.build, engine-api.md 12).
 import {
   SPELL, TALENT, CONSUMABLE, AUTO_POTION_HP, AUTO_TONIC_STACKS, AUTO_MANA_POTION, AUTO_FOOD_HP,
   ENGINE_ASSUMPTION as EA, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, MAX_LEVEL, PET, ENGAGE_OPTION, ENGAGE_OPTIONS,
@@ -563,4 +564,5 @@ export function autoAction(s) {
   return null;
 }
 
-export { autoTarget };
+// The default build, bar and item bar, also used by the dev tools to equip a character they build (engine-api.md 12).
+export { autoTarget, nextTalent, desiredBar, desiredItemBar };

@@ -1,6 +1,7 @@
 // Damage pipeline (rules 7.2), statuses (7.4), OFF_BALANCE (7.13, combat v2), the wind-up stacks EMPOWERED and STAGGERED
 // (7.12, combat v2.1), kills, death and resurrection (9).
 // Expedition (rules 1.9.6, 1.9.8): Shardspawn kill rewards, the XP weight, the death location by node id.
+// Dev tools (engine-api.md 12): god mode (state.dev.god) stops all damage to the player in a dev run.
 // Units: 'player', 'pet', or an enemy index (number) into s.fight.enemies.
 import {
   LVL_DMG_STEP, LVL_DMG_MIN, LVL_DMG_MAX, MISS_BASE, MISS_PER_LEVEL, MISS_CAP, DMG_VARIANCE, ENEMY_CRIT,
@@ -429,6 +430,11 @@ export function applyDamage(s, ev, src, dst, raw, o = {}) {
   let dmg = raw;
   let absorbed = 0;
   if (dst === 'player') {
+    // Dev tools (engine-api.md 12, dev runs only): god mode is a lasting IMMUNE that Final Dark does not pierce.
+    if (s.dev && s.dev.god) {
+      ev.push({ t: 'damage', src, dst, amount: 0, hpLost: 0, absorbed: 0, immune: true, god: true, spell: o.spell, crit: !!o.crit, school: o.school, tick: !!o.tick });
+      return { amount: 0, hpLost: 0, absorbed: 0, killed: false };
+    }
     if (!o.ignoreImmune && hasSt(f.p.st, 'IMMUNE')) {
       ev.push({ t: 'damage', src, dst, amount: 0, hpLost: 0, absorbed: 0, immune: true, spell: o.spell, crit: !!o.crit, school: o.school, tick: !!o.tick });
       return { amount: 0, hpLost: 0, absorbed: 0, killed: false };

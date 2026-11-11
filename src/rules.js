@@ -18,7 +18,8 @@
 // IllegalActionError, display helpers (xpToNext, talentPointsFree, itemScore, spellCost, spellCooldown,
 // spellInfo, fleeChance, bagCapacity, travelLevel, resurrectCharges, bossPar, defaultTarget), combat v2 helpers
 // (engageOptions, engagePreview, isEngageRound, offBalance; rules 7.10-7.13), the heat meter (heatView, heatPreview;
-// rules 1.7.1-1.7.2, 1.9.10), rule helpers (V, xpCurve, diffMod, zoneDanger) and every constant via `C`.
+// rules 1.7.1-1.7.2, 1.9.10), rule helpers (V, xpCurve, diffMod, zoneDanger), every constant via `C`, and the dev tools
+// `debug` (engine-api.md 12, dev only: src/engine/debug.js).
 import * as C from './constants.js';
 import { normaliseSeed } from './rng.js';
 import { cloneState, deepClone, deepFreeze, IllegalActionError } from './engine/util.js';
@@ -38,6 +39,7 @@ import { engageOptions as engageList, engagePreview as previewEngage } from './e
 import { isEngageRound as engageRound } from './engine/track.js';
 import { MAP_MODES, isExpedition, expMapView } from './engine/expedition.js';
 import { heatView as heatMeter, heatPreview as previewHeat } from './engine/heat.js';
+import { createDebug } from './engine/debug.js';
 
 /** 2 (combat v2): enemies carry intent tracks; a state saved by an older engine is refused. */
 export const STATE_VERSION = 2;
@@ -350,3 +352,10 @@ export function mapView(state) {
   }));
   return { z: s.zone.z, name: zoneContent(c, s.zone.z).name, pos: { ...s.zone.pos }, next: nextLanes(s.zone), rows };
 }
+
+/**
+ * Dev tools (engine-api.md 12; dev only, not game rules): build a run at any zone and level, jump to the Camp or the
+ * end-boss fight, start any encounter, set the hours, grant Echoes, god mode, validate a state. A run they change is a
+ * dev run: no Echoes, the profile stays as it was. Pure and seeded like step.
+ */
+export const debug = createDebug({ newRun, step, serialize, deserialize, mapView, heatView, summary, STATE_VERSION });

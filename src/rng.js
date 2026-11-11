@@ -15,6 +15,7 @@
 // Expedition map (rules 1.9): node ids replace (row, lane): nodeId(z,id), fightId(z,id,k), lootId(z,id) hash the keys
 // "node", "fight", "loot" with the node id, and dim(z,id,n) is the n-th Dimmed encounter at node id (make-up, then
 // its fight). The hub is id 0.
+// Dev tools (engine-api.md 12, dev only): dev(n,k) is the n-th encounter a dev tool starts (k 0: its fight, 1: its loot).
 
 /** 32-bit hash of a string. Returns an unsigned 32-bit integer. */
 export function hash32(str) {
@@ -103,6 +104,8 @@ export const STREAM = {
   fightId: (seed, z, id, k) => makeRng(streamSeed(seed, 'fight', z, id, k)),
   lootId: (seed, z, id) => makeRng(streamSeed(seed, 'loot', z, id)),
   dim: (seed, z, id, n) => makeRng(streamSeed(seed, 'dim', z, id, n)),
+  // Dev tools (engine-api.md 12): the n-th dev encounter of a run, k 0 = its fight, 1 = its loot.
+  dev: (seed, n, k) => makeRng(streamSeed(seed, 'dev', n, k)),
 };
 
 /** Normalise a run seed to an unsigned 32-bit integer. Throws on non-integers. */

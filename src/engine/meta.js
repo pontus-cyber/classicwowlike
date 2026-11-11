@@ -1,4 +1,5 @@
-// Meta progression (rules 11): profile, catalogue purchases, Echoes per run.
+// Meta progression (rules 11): profile, catalogue purchases, Echoes per run (a dev run leaves the profile as it was,
+// engine-api.md 12).
 import {
   META, CLASS_IDS, ECHO_PER_LEVEL, ECHO_PER_ZONE, ECHO_PER_DUNGEON, ECHO_PER_ELITE, ECHO_PER_RARE, ECHO_PER_QUEST,
   ECHO_BOSS_REACHED, ECHO_BOSS_PHASE, ECHO_BOSS_KILL, ECHO_SPEED_BONUS, ECHO_FIRST_KILL_CLASS, OATH_ECHO_BONUS,
@@ -98,9 +99,13 @@ export function echoes(facts, profile) {
   return { lines, base, oathMult: mult, total: rnd(base * mult) };
 }
 
-/** Profile after a run (END_RUN): Echoes added, flags updated. Returns a new profile. */
+/**
+ * Profile after a run (END_RUN): Echoes added, flags updated. Returns a new profile. A dev run (summary `dev`, engine-api.md
+ * 12) leaves the profile as it was: no Echoes, no run counted, no boss flags.
+ */
 export function applyRunToProfile(profile, sum) {
   const p = deepClone(profile);
+  if (sum.dev) return p;
   p.echoes += sum.echoes.total;
   p.earned += sum.echoes.total;
   p.runs += 1;

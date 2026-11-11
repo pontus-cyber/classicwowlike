@@ -10,7 +10,8 @@ not in the catalogue ignored); 2026-11-10c (M2 v5: Starforged Arms removed, `sta
 `TAKE_ROAD`, `RING_BELL`, the expedition `mapView`; section 10; marked "(expedition)"); 2026-11-10f (heat, rules
 1.7.1-1.7.4 and 1.9.10: `heatView`, `heatPreview`, the node's entry state, `xp` and `gold` `heat`, the summary's
 `heat` block; section 11; marked "(heat)"); 2026-11-10g (combat v2.1, rules 7.10 and 7.12: wind-ups on the signature
-turns, the EMPOWERED and STAGGERED stacks with the `empower` and `stagger` events, Disrupt; marked "(combat v2.1)").
+turns, the EMPOWERED and STAGGERED stacks with the `empower` and `stagger` events, Disrupt; marked "(combat v2.1)");
+2026-11-11 (dev tools, owner feedback 2026-11-11 07:41: `debug`, section 12, a dev-only API; marked "(dev)").
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
 
@@ -59,6 +60,7 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 | `heatView(state)` | object or null | (heat) The heat meter (rules 1.7.1-1.7.2, 1.9.10), in any phase after START_RUN (null before): the line, the player's heat, the state, the Dimming's clock in an expedition zone, the projected boss Ascendancy and the previews of the legal hour-costing choices. Fields in section 11. Pure and cheap. |
 | `heatPreview(state, action)` | object or null | (heat) The hours an action costs and the heat after it ("2 h, ends Warm", rules 1.7.1, 1.9.10), and for an action that enters a node the state it pays at (`pays`); null when the action is not legal or costs no hours. Fields in section 11. |
 | `C` | module | All constants and data tables (CLASS, SPELL, TALENT, PET, CONSUMABLE, BOON, META, BOSS_TEXT, OPENING_SCRIPT, SCRIPT_ACTION, ENGAGE_OPTION, ENGAGE_OPTIONS, ...). |
+| `debug` | object | (dev) The dev tools, section 12: build a run at any zone and level, jumps, any encounter, hours, god mode, the profile, `validate`. Not game rules; a run they change is a dev run. |
 
 State is plain JSON except `state.content`, a shared reference to the frozen content tables (never copied by
 `step`, left out by `serialize`). Compare states with `serialize`. `STATE_VERSION` is 2 since combat v2 (enemies carry
@@ -317,6 +319,7 @@ by a 32-bit hash of the keys). Hub and camp use row 0; the camp is zone 7; camp 
 (expedition) Node ids replace (row, lane): `node(z,id)`, `fight(z,id,k)`, `loot(z,id)` (`STREAM.nodeId`, `fightId`,
 `lootId`); the hub is id 0 (its vendor: `node(z,0)`); Dimmed encounter n at node id: `dim(z,id,n)` (make-up, then
 its fight). Map draw order: rules 1.9.2; node setup: rules 1.9.3.
+(dev) Dev encounter n of a run (section 12): `dev(n, 0)` its fight, `dev(n, 1)` its loot (`STREAM.dev`).
 Item names use a separate hash and never touch a stream. The sim's bots must use their own stream
 (`STREAM.bot` in `src/rng.js`), never the game's.
 
@@ -503,3 +506,52 @@ computes everything the meter shows, so the UI never re-implements the line, the
   echoHeat }                                   (the Echo line `heat`, before the Oath multiplier)
 ```
   The hours-vs-line chart: per record, heat `entry - line` at arrival and `exit - line` when left.
+
+## 12. Dev tools (dev; dev only, not game rules)
+Owner feedback 2026-11-11 07:41 [stated]: "in-game dev tools from a menu, so he can test any stage without playing
+through". `R.debug` (src/engine/debug.js) builds or changes a run for testing; the UI's Dev menu (src/ui/dev-menu.js)
+calls it through the bridge, and nothing else in the game or the simulator does. Pure and seeded like `step`: every run
+helper returns `{ state, events }` with a new state (its input is never changed) that passes `debug.validate`, and the
+same state with the same calls gives the same result. Errors are `IllegalActionError` (`code 'ILLEGAL_ACTION'`) naming
+the helper and the reason.
+
+**Dev runs.** Every run helper marks the run: `state.dev = { tools: [ids of the helpers used], god, godUsed, n (dev
+encounters started), talentPoints (given) }`. A dev run's `summary` has `dev: { god (god mode was on at some point),
+tools }` and earns no Echoes: `echoes = { lines: [], base: 0, oathMult, total: 0, withheld }` (`withheld` = what the run
+would have earned); `END_RUN` returns the profile as it was (no Echoes, no run counted, no boss flags; meta.js
+`applyRunToProfile`). A normal run has no `dev` key in its state or summary. `setProfile`, `grantEchoes` and
+`fullCatalogue` change the profile, not the run, and do not mark it.
+
+| Function | Returns | Notes |
+|---|---|---|
+| `build({ content, classId, petId, name, seed, profile, oaths, mapMode, vision, dimming, zone, level, rarity, ilvl, talents, gold, potions, hours })` | `{ state, events }` | A run at zone `zone` (1..ZONE_COUNT; ZONE_COUNT + 1 = the Camp), phase ZONE_HUB (CAMP). Defaults: classId `rogue`, a Hunter's first pet the profile has, seed 0, `oaths` [] (sworn in CREATE; the profile must own them), mapMode `rows`, level the zone's first (the Camp MAX_LEVEL), rarity DEV.RARITY, ilvl level + the rarity's `ilvlBonus` (at most ILVL_MAX), talents `'auto'` (autoplay's default build, one SPEND_TALENT at a time) or `'unspent'`, gold DEV.GOLD_V × V(level) copper, potions DEV.POTIONS Healing Draughts (a Mage as many Mana Draughts too), hours `ceil(line of zone - 1)` (on schedule; the expedition zone's clock starts there). Every slot holds fixed-stat gear of that ilvl and rarity (as starting gear: the class's primary, STA, the power affix; generated names). Every spell the trainer teaches up to the level is learned and trained to it; the bars are autoplay's; full HP and mana. The heat records (summary `heat`) and the expedition zone records start at this zone; zones left = zone - 1 |
+| `toCamp(state)` | `{ state, events }` | To the Camp (phase CAMP), leaving whatever is open (below); the hours stay; zones left at least ZONE_COUNT |
+| `toBoss(state, { phase })` | `{ state, events }` | The end-boss fight (phase BOSS, round 1), from anywhere (the Camp first). `phase` 2: the boss at floor(P2_AT × HP), 3: ceil(P3_AT × HP) - 1, each reached by the engine's own phase change (rules 10.2: Shards come with phase 2, go with phase 3); its intent and track are then shown for the new phase. Ascendancy from the hours (rules 1.7) |
+| `nextZone(state)` | `{ state, events }` | The next zone's hub as by TRAVEL_ON (a Road, TAKE_ROAD, on the expedition map): HOURS_TRAVEL, no level gate; from zone ZONE_COUNT the Camp. Throws at the Camp |
+| `encounter(state, { ids, level })` | `{ state, events }` | A fight against one or more enemy templates by id, any kind, each as its template's `kind` (normal, elite, rare, trash, dboss) at `level` (default: the player's level). Fight kind: `dboss`, `elite` (elite or rare), `trash` or `grind`, by the strongest; an engage round as every fight; no flight from a dungeon boss; no heat. Played in phase NODE as node `{ type: 'dev', cl, stage, k, heat: null, from, enemies, id (expedition: the player's node) }` on the dev stream (`STREAM.dev(seed, n, 0)` the fight, `(seed, n, 1)` its loot). Won or fled, the player is back at `from` (`MAP`, `ZONE_HUB` or `CAMP`); kills pay their XP, coin and loot; no map node is resolved |
+| `killTarget(state, target)` | `{ state, events }` | Kill a living enemy of the current fight (default: `defaultTarget`) through the damage pipeline (`damage` event `src: 'dev'`): kill rewards, a boss's phase changes. The last one ends the fight as a victory (a boss kill ends the run). Then the settle step (expedition) |
+| `refill(state)` | `{ state, events }` | Full HP and mana, the pet alive at full HP; in a fight also full energy and focus, no cooldowns, potions ready |
+| `setGod(state, on)` | `{ state, events }` | God mode: the player takes no damage. It works as a lasting IMMUNE that Final Dark does not pierce (`damage` event `amount: 0, hpLost: 0, immune: true, god: true`), so a heavy blow on the player counts as avoided (rules 7.13: OFF_BALANCE; 7.12: its wind-up answered). The pet takes damage as usual. Turning it off when it is off changes nothing |
+| `give(state, { gold, potions, talentPoints })` | `{ state, events, given }` | Gold in copper; Healing Draughts while the bag takes them (a Mage as many Mana Draughts); unspent talent points on top of the level's (rules 6: `talentPointsFree` counts them, SPEND_TALENT spends them). `given`: what was added |
+| `setHours(state, hours)` | `{ state, events }` | The run's hours (whole, >= 0): heat, the boss's Ascendancy. The zone's own clock stays: on the expedition map its arrival hour moves with the run's, so the Dimming stands where it was; the zone's open heat record moves the same way |
+| `setHeat(state, heatState)` | `{ state, events }` | `setHours` to `ceil(line + x)`, x the middle of the state's band (rules 1.7.2): Clear HEAT_WARM_AT - (HEAT_HOT_AT - HEAT_WARM_AT) / 2, Warm (HEAT_WARM_AT + HEAT_HOT_AT) / 2, Hot (HEAT_HOT_AT + HEAT_SCORCH_AT) / 2, Scorched HEAT_SCORCH_AT + (HEAT_SCORCH_AT - HEAT_HOT_AT) / 2. `heatView(...).stateRun` is then that state |
+| `revealMap(state)` | `{ state, events }` | Expedition: every node of the zone seen (`know: 'full'`). Today's map hides only rare elites, traps and vendor Embers: Scout's Eye is on for the rest of the run (`state.meta.scout`). Throws at the Camp |
+| `setMapMode(state, mode)` | `{ state, events }` | Play on with the other map: the current zone is drawn again in that mode and the player is at its hub (services again; its heat record stays); at the Camp only the mode changes. An expedition starts without vision unlocks, with the Dimming and BELL_START_CHARGES. The same mode changes nothing |
+| `grantEchoes(profile, n)` | profile | n more Echoes to spend (not counted in `earned`) |
+| `fullCatalogue(profile)` | profile | Every `C.META` entry at its highest rank (no Echoes spent) |
+| `setProfile(state, profile)` | `{ state, events }` | The state with another profile: in CREATE the one START_RUN reads (pets, Oaths, unlocks); in a run the one END_RUN updates (the run's `state.meta` stays as START_RUN made it). Not after ENDED |
+| `enemies(content)` | `[{ id, name, kind, archetype, family, zone }]` | Every enemy template once, with its home zone (the first zone that lists it; null if none) |
+| `validate(state, { steps = true })` | string[] | The state checks every helper's result passes (empty = valid): version and phase; plain JSON (`serialize`/`deserialize` round trip, no object shared); the character (level and XP, HP and mana in range, the pet, `player.d` current, talents with their ranks, tier gates and `talentSpent`, spells known and trained up to the level, the bars, gear in its slots, bag stacks and capacity, unique item uids below `nextUid`, gold); the zone and node for the phase (a `dev` node only during its fight); the fight (enemy indices, HP, intents, INTENT_TRACK_LEN track entries); `mapView`, `heatView` and `summary` do not throw; `legalActions` is not empty and `autoAction` is legal; with `steps`, every listed action steps without error. It passes every state of autoplay runs (qa/engine/s14-debug.test.mjs) |
+
+**Leaving what is open** (`toCamp`, `toBoss`, `nextZone`, `encounter`, `setMapMode`), by the engine's own exits: the
+loot window's items are dropped (`lootDropped`), a fight is left without its rewards, a service closes (a hub vendor's
+stock is kept), a map node is resolved as after a flight (`completeNode`), a Dimmed encounter or a dev fight ends where
+it would, and the end-boss fight is left for the Camp.
+
+Constants (src/constants.js `DEV`, dev tools only):
+
+| Name | Value | Use |
+|---|---|---|
+| DEV.GOLD_V | 30 | `build`: gold = DEV.GOLD_V × V(level) |
+| DEV.POTIONS | 5 | `build`: Healing Draughts (and Mana Draughts for a Mage) |
+| DEV.RARITY | uncommon | `build`: gear rarity when none is given |

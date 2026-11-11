@@ -3,6 +3,7 @@
 // MOVE, PASS_THROUGH, hub revisits, Dimmed encounters, Roads, the Homeward Bell and the settle step after an action.
 // Heat (rules 1.7.3, 1.7.4): a node's heat state is fixed on entry (state.node.heat, the fight's `heat`), and the
 // summary's heat counters follow hours, zones, nodes and fights won (heat.js).
+// Dev tools (engine-api.md 12): a fight a dev tool starts (node type `dev`) ends back where it was started.
 import {
   CLASS, PET, SPELL, META, SLOT_IDS, START_GOLD, START_RATIONS, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, ZONE_COUNT,
   ZONE_LEVELS, ZONE_CHOICE_ROWS, HOURS_REST, HOURS_VENDOR, HOURS_TRAINER, HOURS_TRAVEL, QUEST_TURNIN_XP_FRAC, QUEST_GOLD_V,
@@ -121,14 +122,20 @@ export function startRun(s, ev) {
   s.death = null;
   s.outcome = null;
   s.result = null;
-  if (isExpedition(s)) {
-    // Expedition map (rules 1.9): vision kit, Homeward Bell charges, the settle flags (pending: hours were spent
-    // since the last Dimming check; bell: the Bell is ringing), and the per-run and per-zone counters.
-    s.exp = { vision: visionKit(c.vision), bell: Math.min(BELL_MAX_CHARGES, BELL_START_CHARGES), pending: false, bellPending: false, dimming: c.dimming !== false };
-    s.stats.exp = { walks: 0, passes: 0, dimFights: 0, bells: 0, bellExits: 0, roads: 0, maxRing: 0, zones: [] };
-  }
+  if (isExpedition(s)) startExpedition(s);
   ev.push({ t: 'runStart', classId: c.classId, petId: c.petId, seed: s.seed, oaths: s.oaths });
   enterZone(s, ev, 1);
+}
+
+/**
+ * Expedition map (rules 1.9) at run start (also debug.setMapMode, engine-api.md 12): the vision kit and the Dimming option
+ * of state.create, Homeward Bell charges, the settle flags (pending: hours were spent since the last Dimming check;
+ * bellPending: the Bell is ringing), and the per-run and per-zone counters.
+ */
+export function startExpedition(s) {
+  const c = s.create;
+  s.exp = { vision: visionKit(c.vision), bell: Math.min(BELL_MAX_CHARGES, BELL_START_CHARGES), pending: false, bellPending: false, dimming: c.dimming !== false };
+  s.stats.exp = { walks: 0, passes: 0, dimFights: 0, bells: 0, bellExits: 0, roads: 0, maxRing: 0, zones: [] };
 }
 
 // ---------------- Zones, hub, camp ----------------
@@ -163,7 +170,11 @@ function setPhase(s, ev, phase) {
   s.phase = phase;
 }
 
-export function enterZone(s, ev, z) {
+/**
+ * Enter zone z's hub (the Camp after zone ZONE_COUNT). again: a dev tool draws the same zone again (debug.setMapMode,
+ * engine-api.md 12): the zone's heat record stays as it is.
+ */
+export function enterZone(s, ev, z, { again = false } = {}) {
   if (z > ZONE_COUNT) { enterCamp(s, ev); return; }
   if (isExpedition(s)) {
     // Expedition map (rules 1.9): the zone graph; the player starts on the hub, its neighbours in view.
@@ -178,7 +189,7 @@ export function enterZone(s, ev, z) {
   s.hub = { used: { trainer: false, vendor: false, inn: false }, ledgerFree: s.meta.ledger };
   s.service = null;
   s.stats.maxZone = Math.max(s.stats.maxZone, z);
-  heatZoneEntered(s); // rules 1.7.1: the line moves one share ahead
+  if (!again) heatZoneEntered(s); // rules 1.7.1: the line moves one share ahead
   ev.push({ t: 'zone', z, name: zoneContent(s.content, z).name });
   setPhase(s, ev, 'ZONE_HUB');
 }
@@ -520,6 +531,18 @@ function endDimEncounter(s, ev) {
 }
 
 /**
+ * After a fight a dev tool started (node type `dev`, debug.encounter, engine-api.md 12), won or fled: back where it was
+ * started (`node.from`: the map, the hub or the Camp); no map node is resolved by it.
+ */
+export function endDevEncounter(s, ev) {
+  const from = s.node.from;
+  s.node = null;
+  s.lootRng = null;
+  s.service = null;
+  setPhase(s, ev, from);
+}
+
+/**
  * Leave the zone (Road or Bell, rules 1.9.7): record its hours, count it, enter the next zone (zone 6: the Camp). The
  * travel event names the Road taken (content zones[i].roads, D51; null by the Bell or without names).
  */
@@ -625,6 +648,8 @@ export function finishFight(s, ev) {
   }
   // A Dimmed encounter (rules 1.9.6), won or fled: back on the map; the node is not resolved by it.
   if (kind === 'dim') { endDimEncounter(s, ev); return; }
+  // A dev tool's fight (engine-api.md 12): back where it was started.
+  if (s.node && s.node.type === 'dev') { endDevEncounter(s, ev); return; }
   const n = s.node;
   if (outcome === 'fled') { completeNode(s, ev); return; }
   if (kind === 'quest') {

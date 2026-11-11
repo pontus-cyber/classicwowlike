@@ -120,11 +120,14 @@ export function makeUnique(s, uniqueId, ilvl) {
   return item;
 }
 
-/** Starting / heirloom gear: deterministic stats (no draws). */
+/**
+ * Starting / heirloom gear: deterministic stats (no draws). name null (the dev tools' gear, engine-api.md 12): the
+ * generated name of rules 12.5.
+ */
 export function makeFixedGear(s, slot, rarity, ilvl, name) {
   const primary = CLASS[s.player.classId].primary;
   const item = buildGear(s, null, { rarity, slot, ilvl, fixed: { primary, second: 'STA', affix: 'power' } });
-  item.name = name;
+  if (name !== null) item.name = name;
   return item;
 }
 

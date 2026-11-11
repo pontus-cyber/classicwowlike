@@ -997,3 +997,16 @@ export const ENGINE_ASSUMPTION = {
   },
   AUTO_BOON_ORDER: ['return', 'fury', 'insight', 'mending', 'clarity', 'plenty'],
 };
+
+// ---------------------------------------------------------------------------------------------
+// Part 4. DEV: defaults of the dev tools (docs/specs/engine-api.md 12; owner feedback 2026-11-11). Not game rules:
+// they only shape a state the dev tools build. A run a dev tool changed is a dev run (no Echoes).
+// ---------------------------------------------------------------------------------------------
+export const DEV = {
+  /** debug.build: gold of the built character, × V(level) (rules 8.5). */
+  GOLD_V: 30,
+  /** debug.build: Healing Draughts in the bag (and Mana Draughts for a Mage). */
+  POTIONS: 5,
+  /** debug.build: the rarity of every equipped item when none is given. */
+  RARITY: 'uncommon',
+};

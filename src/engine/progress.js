@@ -25,10 +25,13 @@ export function diffMod(d) {
   return XP_GREY_MOD;
 }
 
-/** Talent points earned by level L (rules 6), plus meta Ancestral Insight at MAX_LEVEL. */
+/**
+ * Talent points earned by level L (rules 6), plus meta Ancestral Insight at MAX_LEVEL, plus the points a dev tool gave
+ * (debug.give, engine-api.md 12; dev runs only).
+ */
 export function talentPointsEarned(s, L = s.player.level) {
   const base = L >= TALENT_FIRST_LEVEL ? flr((L - TALENT_FIRST_LEVEL) / TALENT_LEVEL_STEP) + 1 : 0;
-  return base + (L >= MAX_LEVEL ? s.meta.talentPoints : 0);
+  return base + (L >= MAX_LEVEL ? s.meta.talentPoints : 0) + (s.dev ? s.dev.talentPoints : 0);
 }
 
 export function talentPointsFree(s) {
