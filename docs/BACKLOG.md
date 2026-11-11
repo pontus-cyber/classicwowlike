@@ -4,6 +4,7 @@ Owner ideas and team proposals not yet scheduled. The Lead places each item into
 
 | Date | Item | Source | Placed in | Status |
 |---|---|---|---|---|
+| 2026-11-11 | B3 speedrunner PALL band after the half-strength free potion: WR_PALL_SPEED 0.30-0.50 -> 0.20-0.40 (speedrunner 19.2 % on v8; cause: half free potion, Shadowcraft trim, 1.30 boss on the thinnest kit) | Designer v9 | 2b.7 tuning | owner review O4 (changes-m2b-v9.md row 5); default: report both bands |
 | 2026-11-10 | Combat v2.1 display | UI hand-off 2026-11-10g | M2b 2b.6 | done (a105328) |
 | 2026-11-11 | Meta v2: persistent character per class that levels across runs (capped talents and spell ranks unlocked by it); hard first runs, rising Echo income, noticeable early upgrades; damage and HP numbers divided by 2-3; Echo board stays account-wide | Owner 10:26 | M3 design now, build after M2b | doing |
 | 2026-11-11 | Heat: own name (default "the Pyre"), small integer time unit replacing hours (default "bells"), meter at top centre, hell-to-calm visuals | Owner 10:12 | UX pass (visuals) + designer spec + engine/UI | doing |
@@ -30,7 +31,7 @@ Owner ideas and team proposals not yet scheduled. The Lead places each item into
 | 2026-11-10 | Visibility is bought with preparation points and meta; fresh profile sees almost nothing | Owner 10:09 | expedition.md | doing |
 | 2026-11-10 | Start-camp preparation points: contracts, supplies, scouting | Owner 10:06 | expedition.md | doing |
 | 2026-11-10 | Dungeon bosses z1_belk and z5_father_vael lost their add summon to get a turn-5 signature (validator allows 2 abilities); consider allowing 3 | Content Designer | M4 | todo |
-| 2026-11-10 | Hunter full-catalogue: one clearly best talent tree | Designer v5 | M3 | todo; v8 draft rows 6 and 8 (Beastbond up, Wildcraft trimmed) re-checked on PALL in the v8 measure |
+| 2026-11-10 | Hunter full-catalogue: one clearly best talent tree | Designer v5 | M3 | todo; v8 measured PALL hunter Beastbond 64.3 / Marksmanship 61.5 / Wildcraft 55.3 % (no longer one clear tree); B6 PALL now led by the hunter: v9 draft cell 2 checks every PALL tree |
 | 2026-11-10 | Run log stored in the profile; requirements list in metaOffers | UI/UX Engineer | M3 | todo |
 | 2026-11-09 | Owner glance at plain compound names for similarity to existing games (Barrowdeep, Mournwood, Greywater Fens) | Content Designer | M4 | todo |
 | 2026-11-09 | Quest givers, merchants, trainers use a generic figure | UI/UX Engineer | M4 | todo |
