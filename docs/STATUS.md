@@ -26,6 +26,10 @@ M2 done 2026-11-10 (P1 45/45). Active: M2b, expedition map and combat v2 (docs/s
 - B59 passes both maps (one-button elite 50.6 %, rare 84.0 %, dungeon boss 79.4 %, zone 1 55.8 %); B60 rares pass with row 5; B61 autoplay held (Rogue zone 1 +6-9 pp: Sap breaks in round 2, no interrupt before level 6); B62 grind held. Gates: row 5 on, row 6 on (engineer to set).
 - Flip: no, on B12 only (speedrun 31.3 min from SET_OUT with the v11 policy; spec policy too few wins). Owner question raised 2026-11-11 22:5x.
 
+## Next (after engine v14, 5a6ee16)
+- Sim: fix qa/sim v13.test setGates deepEqual (new switches sapHold, passStealth); setGates turns unnamed switches off, so the v14 cells need --gates rareHpMultZ1,firstMeetWindup,sapHold,passStealth; run the v14 list (about 20 min).
+- Flip: waiting on the owner (B12 speedrun 31.3 min).
+
 ## Waiting on the owner
 Nothing blocking. See docs/OWNER.md.
 

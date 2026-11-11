@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="31798dd 2026-11-11T21:19:58Z">
+<meta name="build" content="5a6ee16 2026-11-11T23:13:21Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -1468,6 +1468,9 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .eg-sp.db { box-shadow: inset 0 0 0 2px #ff3a4a, 0 0 .9rem rgba(255, 40, 60, .8); }
 /* the bar: a Deathblow's answer now (a crimson pulse) or kept for its round (a dashed crimson ring and "R3") */
 .ab.db-now { box-shadow: inset 0 0 0 2px #ff6a76, 0 0 0 2px rgba(255, 40, 60, .85), 0 0 2rem rgba(255, 30, 50, 1); animation: dbabpulse .7s ease-in-out infinite; }
+/* M2b v14 (UI need 2): Pass answers the Deathblow (Sap holds while you wait): the same crimson answer ring */
+.btn.db-now { box-shadow: inset 0 0 0 2px #ff6a76, 0 0 0 2px rgba(255, 40, 60, .85), 0 0 1.4rem rgba(255, 30, 50, .9); animation: dbabpulse .7s ease-in-out infinite; }
+.eg-dbc.wait { color: #b8e8ff; }
 .ab.db-soon::after { content: ''; position: absolute; inset: -.3rem; border-radius: .7rem; border: 2px dashed #ff4a5a; box-shadow: 0 0 .8rem rgba(255, 40, 60, .6); pointer-events: none; }
 .ab .atag.db { background: linear-gradient(180deg, #ffe4e4, #ff4a5a 55%, #b00818); color: #26000a; box-shadow: 0 0 0 1px #000, 0 0 .8rem rgba(255, 40, 60, 1); }
 .ab .atag.db.soon { background: rgba(50, 2, 8, .95); color: #ff9aa4; box-shadow: 0 0 0 1px #ff4a5a; }
@@ -1502,7 +1505,7 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .tt-line.tt-db { color: #ffb0b8; }
 .tt-line.tt-db b { color: #fff0f0; }
 .tt-line.tt-db img { width: 1.5rem; height: 1.5rem; border-radius: .25rem; border: 1px solid #000; vertical-align: -.35rem; margin-right: .35rem; }
-@media (prefers-reduced-motion: reduce) { .np .wub.db, .np .wub.db.now, .eg-db, .ab.db-now, .uf .maimb.fresh { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .np .wub.db, .np .wub.db.now, .eg-db, .ab.db-now, .btn.db-now, .uf .maimb.fresh { animation: none; } }
 
 </style>
 </head>
@@ -1515,8 +1518,8 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (31798dd 2026-11-11T21:19:58Z) from 60 modules.
-const __BUILD__ = "31798dd 2026-11-11T21:19:58Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (5a6ee16 2026-11-11T23:13:21Z) from 60 modules.
+const __BUILD__ = "5a6ee16 2026-11-11T23:13:21Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -1977,16 +1980,20 @@ const DEATHBLOW_MULT = 2.0;
 const DEATHBLOW_EMPOWER = 1.0;
 /** rules 7.4, 7.5 (D107): share of the healing the player receives that MAIMED removes (rest of the fight). */
 const MAIM_HEAL = 0.5;
-/** rules 2.3 (D109, M2b v13 row 5, gated): × HP of a zone-1 rare elite while GATES.rareHpMultZ1 is on (off: RARE_HP_MULT). */
+/** rules 2.3 (D109, M2b v13 row 5; on by default since M2b v14, D113): × HP of a zone-1 rare elite while GATES.rareHpMultZ1 is on (off: RARE_HP_MULT). */
 const RARE_HP_MULT_Z1 = 3.0;
 /**
- * Gated rules (M2b v13 rows 5-6, D109): off until the sim's gates pass (changes-m2b-v13.md cells 6 and 7).
+ * Rule switches, every one on by default; kept so the sim can play an arm without a rule (it sets them in every process
+ * before a run, as RICOCHET_BOUNCE_FRAC_GATED; a scratch copy changes them here).
+ * M2b v13 rows 5-6 (D109), on since M2b v14 row 4 (D113, the sim's decision rules of the v13 measure):
  * rareHpMultZ1 (row 5): a zone-1 rare is made with RARE_HP_MULT_Z1 instead of RARE_HP_MULT (rules 2.3, combat.js makeEnemy).
  * firstMeetWindup (row 6, FIRST_MEET_WINDUP): the first-meeting wind-up of a new normal enemy type in a quest fight
- * (rules 7.12). The engine reads the fields when it makes an enemy and when a fight starts; the sim arms an arm by
- * setting them in every process before a run (as RICOCHET_BOUNCE_FRAC_GATED), a scratch copy by changing them here.
+ * (rules 7.12). The engine reads them when it makes an enemy and when a fight starts.
+ * M2b v14 row 1 (D111, changes-m2b-v14.md "What the sim must run"): sapHold (row 1 (a)): autoplay rule H, wait while every
+ * living enemy is SAPPED and Sap will cancel a wind-up (rules 7.9, autoplay.js); passStealth (row 1 (b)): a PASS keeps
+ * STEALTH while every living enemy is SAPPED (rules 7.4, spells.js playerAction).
  */
-const GATES = { rareHpMultZ1: false, firstMeetWindup: false };
+const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true };
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
 // with mapMode 'expedition'; a run on today's map (mapMode 'rows', the default) never reads them.
 /** rules 1.9.2: nodes per ring (ring 0 = the hub). */
@@ -2989,7 +2996,8 @@ __bundle.def("src/engine/content.js", function* (__ns, __link) {
 let ZONE_COUNT, CR, ARCHETYPE, ABILITY_TEMPLATE, SLOT_IDS, CLASS_IDS, SPELL, TALENT, PET, BOON, CONSUMABLE, EA, REGION_COUNT, REGION_W, ROAD_COUNT, EXPEDITION_TEXT_IDS, PREP_OPTION; __link.imp("src/constants.js", [["ZONE_COUNT", (v) => { ZONE_COUNT = v; }], ["CONTENT_RANGE", (v) => { CR = v; }], ["ARCHETYPE", (v) => { ARCHETYPE = v; }], ["ABILITY_TEMPLATE", (v) => { ABILITY_TEMPLATE = v; }], ["SLOT_IDS", (v) => { SLOT_IDS = v; }], ["CLASS_IDS", (v) => { CLASS_IDS = v; }], ["SPELL", (v) => { SPELL = v; }], ["TALENT", (v) => { TALENT = v; }], ["PET", (v) => { PET = v; }], ["BOON", (v) => { BOON = v; }], ["CONSUMABLE", (v) => { CONSUMABLE = v; }], ["ENGINE_ASSUMPTION", (v) => { EA = v; }], ["REGION_COUNT", (v) => { REGION_COUNT = v; }], ["REGION_W", (v) => { REGION_W = v; }], ["ROAD_COUNT", (v) => { ROAD_COUNT = v; }], ["EXPEDITION_TEXT_IDS", (v) => { EXPEDITION_TEXT_IDS = v; }], ["PREP_OPTION", (v) => { PREP_OPTION = v; }]]); __link.exp({ "SUFFIX_KEYS": () => SUFFIX_KEYS, "zoneContent": () => zoneContent, "campEnemies": () => campEnemies, "CAMP_Z": () => CAMP_Z, "validateContent": () => validateContent });
 yield;
 // Content access and validation (src/content/SCHEMA.md, rules 12; expedition fields: zone regions and Road names,
-// template families, the texts.expedition group, D51; texts.families, texts.prep, texts.contracts, 2b.5).
+// template families, the texts.expedition group, D51; texts.families, texts.prep, texts.contracts, 2b.5). M2b v14 (D112,
+// rules 12.4): in strict mode every zone's elite pool keeps a heavy and a cast Deathblow.
 
 
 
@@ -3014,7 +3022,9 @@ const CAMP_Z = EA.CAMP_ZONE;
 
 /**
  * Validate a content object. Returns an array of error strings (empty when valid).
- * strict: also check the rules 12.1 counts (use for src/content); otherwise only what the engine needs.
+ * strict: also check the rules 12.1 counts and (M2b v14, D112) that each zone's elite pool has at least one heavy and one
+ * cast Deathblow (rules 12.4; the map shows a hidden elite's Deathblow type, which then never tells a rare, D50); use for
+ * src/content. Otherwise only what the engine needs.
  */
 function validateContent(content, { strict = false } = {}) {
   const err = [];
@@ -3037,6 +3047,15 @@ function validateContent(content, { strict = false } = {}) {
   const enemies = content.enemies || {};
   const abilities = content.abilities || {};
   const quests = content.quests || {};
+  // An elite template's Deathblow type (rules 7.12, track.js deathblowOf): its non-once ability with the highest pct
+  // (ties: first listed); 'heavy' when that template is heavy, else 'cast'. null when it has none.
+  const deathblowTypeOf = (id) => {
+    const abs = ((enemies[id] && enemies[id].abilities) || []).filter((a) => abilities[a] && ABILITY_TEMPLATE[abilities[a].template] && !ABILITY_TEMPLATE[abilities[a].template].once);
+    if (!abs.length) return null;
+    let best = abs[0];
+    for (const a of abs) if ((abilities[a].pct || 0) > (abilities[best].pct || 0)) best = a;
+    return ABILITY_TEMPLATE[abilities[best].template].heavy ? 'heavy' : 'cast';
+  };
   if (typeof content.enemies !== 'object') e('enemies: missing table');
   if (typeof content.abilities !== 'object') e('abilities: missing table');
   if (typeof content.quests !== 'object') e('quests: missing table');
@@ -3121,6 +3140,11 @@ function validateContent(content, { strict = false } = {}) {
     }
     listOf(zn.elites, 'elite', `${w}.elites`);
     listOf(zn.rares, 'rare', `${w}.rares`);
+    // M2b v14 (D112): the elite pool keeps a heavy and a cast Deathblow (its signature ability, rules 7.12).
+    if (strict && Array.isArray(zn.elites)) {
+      const types = new Set(zn.elites.map((id) => deathblowTypeOf(id)).filter(Boolean));
+      if (!types.has('heavy') || !types.has('cast')) e(`${w}.elites: Deathblow types ${[...types].sort().join(', ') || 'none'}, expected at least one heavy and one cast (D112)`);
+    }
     // Optional regions (rules 1.9.2, expedition): exactly REGION_COUNT of { id, name, kind, families }.
     if (zn.regions !== undefined) {
       if (!Array.isArray(zn.regions) || zn.regions.length !== REGION_COUNT) e(`${w}.regions: expected ${REGION_COUNT} regions`);
@@ -4067,7 +4091,7 @@ function nextLanes(zone) {
 
 });
 __bundle.def("src/engine/track.js", function* (__ns, __link) {
-let ARCHETYPE, ABILITY_TEMPLATE, PET, INTENT_TRACK_LEN, OPENING_TURNS, SIGNATURE_TURN, SIGNATURE_TURN_2, HEAVY_SCRIPT_MULT, CAST_SCRIPT_MULT, OPENING_SCRIPT, SCRIPT_ACTION, OFFBAL_DURATION, DEATHBLOW_MULT; __link.imp("src/constants.js", [["ARCHETYPE", (v) => { ARCHETYPE = v; }], ["ABILITY_TEMPLATE", (v) => { ABILITY_TEMPLATE = v; }], ["PET", (v) => { PET = v; }], ["INTENT_TRACK_LEN", (v) => { INTENT_TRACK_LEN = v; }], ["OPENING_TURNS", (v) => { OPENING_TURNS = v; }], ["SIGNATURE_TURN", (v) => { SIGNATURE_TURN = v; }], ["SIGNATURE_TURN_2", (v) => { SIGNATURE_TURN_2 = v; }], ["HEAVY_SCRIPT_MULT", (v) => { HEAVY_SCRIPT_MULT = v; }], ["CAST_SCRIPT_MULT", (v) => { CAST_SCRIPT_MULT = v; }], ["OPENING_SCRIPT", (v) => { OPENING_SCRIPT = v; }], ["SCRIPT_ACTION", (v) => { SCRIPT_ACTION = v; }], ["OFFBAL_DURATION", (v) => { OFFBAL_DURATION = v; }], ["DEATHBLOW_MULT", (v) => { DEATHBLOW_MULT = v; }]]); let nextFloat, weightedIndex; __link.imp("src/rng.js", [["nextFloat", (v) => { nextFloat = v; }], ["weightedIndex", (v) => { weightedIndex = v; }]]); let rnd; __link.imp("src/engine/util.js", [["rnd", (v) => { rnd = v; }]]); let snapshot, mitigation, addStatus, removeStatus, findSt, hasSt, petAlive, gainOffBalance, answerWindup; __link.imp("src/engine/damage.js", [["snapshot", (v) => { snapshot = v; }], ["mitigation", (v) => { mitigation = v; }], ["addStatus", (v) => { addStatus = v; }], ["removeStatus", (v) => { removeStatus = v; }], ["findSt", (v) => { findSt = v; }], ["hasSt", (v) => { hasSt = v; }], ["petAlive", (v) => { petAlive = v; }], ["gainOffBalance", (v) => { gainOffBalance = v; }], ["answerWindup", (v) => { answerWindup = v; }]]); let SHARD_ACTION, bossEntry; __link.imp("src/engine/boss.js", [["SHARD_ACTION", (v) => { SHARD_ACTION = v; }], ["bossEntry", (v) => { bossEntry = v; }]]); __link.exp({ "isEngageRound": () => isEngageRound, "turnOf": () => turnOf, "controlOf": () => controlOf, "enemyActions": () => enemyActions, "basicAction": () => basicAction, "lowestHpAlly": () => lowestHpAlly, "wardOf": () => wardOf, "assignWard": () => assignWard, "signatures": () => signatures, "deathblowOf": () => deathblowOf, "scriptedId": () => scriptedId, "updateTracks": () => updateTracks, "fillTrack": () => fillTrack, "hitEst": () => hitEst, "nowIntent": () => nowIntent, "refreshTrack": () => refreshTrack, "isSingle": () => isSingle });
+let ARCHETYPE, ABILITY_TEMPLATE, PET, INTENT_TRACK_LEN, OPENING_TURNS, SIGNATURE_TURN, SIGNATURE_TURN_2, HEAVY_SCRIPT_MULT, CAST_SCRIPT_MULT, OPENING_SCRIPT, SCRIPT_ACTION, OFFBAL_DURATION, DEATHBLOW_MULT; __link.imp("src/constants.js", [["ARCHETYPE", (v) => { ARCHETYPE = v; }], ["ABILITY_TEMPLATE", (v) => { ABILITY_TEMPLATE = v; }], ["PET", (v) => { PET = v; }], ["INTENT_TRACK_LEN", (v) => { INTENT_TRACK_LEN = v; }], ["OPENING_TURNS", (v) => { OPENING_TURNS = v; }], ["SIGNATURE_TURN", (v) => { SIGNATURE_TURN = v; }], ["SIGNATURE_TURN_2", (v) => { SIGNATURE_TURN_2 = v; }], ["HEAVY_SCRIPT_MULT", (v) => { HEAVY_SCRIPT_MULT = v; }], ["CAST_SCRIPT_MULT", (v) => { CAST_SCRIPT_MULT = v; }], ["OPENING_SCRIPT", (v) => { OPENING_SCRIPT = v; }], ["SCRIPT_ACTION", (v) => { SCRIPT_ACTION = v; }], ["OFFBAL_DURATION", (v) => { OFFBAL_DURATION = v; }], ["DEATHBLOW_MULT", (v) => { DEATHBLOW_MULT = v; }]]); let nextFloat, weightedIndex; __link.imp("src/rng.js", [["nextFloat", (v) => { nextFloat = v; }], ["weightedIndex", (v) => { weightedIndex = v; }]]); let rnd; __link.imp("src/engine/util.js", [["rnd", (v) => { rnd = v; }]]); let snapshot, mitigation, addStatus, removeStatus, findSt, hasSt, petAlive, gainOffBalance, answerWindup; __link.imp("src/engine/damage.js", [["snapshot", (v) => { snapshot = v; }], ["mitigation", (v) => { mitigation = v; }], ["addStatus", (v) => { addStatus = v; }], ["removeStatus", (v) => { removeStatus = v; }], ["findSt", (v) => { findSt = v; }], ["hasSt", (v) => { hasSt = v; }], ["petAlive", (v) => { petAlive = v; }], ["gainOffBalance", (v) => { gainOffBalance = v; }], ["answerWindup", (v) => { answerWindup = v; }]]); let SHARD_ACTION, bossEntry; __link.imp("src/engine/boss.js", [["SHARD_ACTION", (v) => { SHARD_ACTION = v; }], ["bossEntry", (v) => { bossEntry = v; }]]); __link.exp({ "isEngageRound": () => isEngageRound, "turnOf": () => turnOf, "controlOf": () => controlOf, "enemyActions": () => enemyActions, "basicAction": () => basicAction, "lowestHpAlly": () => lowestHpAlly, "wardOf": () => wardOf, "assignWard": () => assignWard, "signatures": () => signatures, "deathblowOf": () => deathblowOf, "deathblowType": () => deathblowType, "scriptedId": () => scriptedId, "updateTracks": () => updateTracks, "fillTrack": () => fillTrack, "hitEst": () => hitEst, "nowIntent": () => nowIntent, "refreshTrack": () => refreshTrack, "isSingle": () => isSingle });
 yield;
 // Intent track (rules 7.11, combat v2) and opening scripts (rules 7.12): every living enemy shows its next
 // INTENT_TRACK_LEN actions. An entry is drawn from the fight stream when it enters the track and never later (the
@@ -4079,7 +4103,8 @@ yield;
 // is answered (STAGGERED, damage.js).
 // M2b v13 (rules 7.12, D105, D109): the SIGNATURE_TURN wind-up of an elite, rare or dungeon boss is its Deathblow
 // (`deathblow`; a damaging one × DEATHBLOW_MULT); with GATES.firstMeetWindup a normal enemy met for the first time in a
-// quest fight (`firstMeet`, combat.js) plays its turn-2 scripted action as a wind-up (no Deathblow).
+// quest fight (`firstMeet`, combat.js) plays its turn-2 scripted action as a wind-up (no Deathblow). M2b v14 (D112):
+// deathblowType, the type alone for a map elite whose name is hidden.
 // The end boss's entries are made by boss.js (rules 10.3). Every entry shows its target, estimate and (D52) the
 // predicted `cancel`, recomputed each round (refreshTrack).
 
@@ -4193,6 +4218,16 @@ function deathblowOf(content, tid, variant) {
   const ab = content.abilities[sig];
   const T = ABILITY_TEMPLATE[ab.template];
   return { id: sig, name: ab.name, kind: T.kind, heavy: !!T.heavy, cast: !!T.cast, type: T.heavy ? 'heavy' : 'cast', damaging: DAMAGING.includes(T.kind) };
+}
+
+/**
+ * The Deathblow of a map elite whose name is hidden (rules 1.9.5, M2b v14 row 2, D112): `{ type }` only ('heavy' or
+ * 'cast'), or null. No id, name, kind or damaging: a kind can tell a rare (D50), a type cannot (every zone's elite pool
+ * has a heavy and a cast Deathblow, content.js).
+ */
+function deathblowType(content, tid, rare) {
+  const d = deathblowOf(content, tid, rare ? 'rare' : 'elite');
+  return d ? { type: d.type } : null;
 }
 
 /** Id of the scripted action of enemy e on its turn t (rules 7.12), or null for a weighted pick. */
@@ -4830,7 +4865,7 @@ function bossEndOfRound(s, ev) {
 
 });
 __bundle.def("src/engine/expedition.js", function* (__ns, __link) {
-let ZONE_LEVELS, NODE_DRAW_ORDER, QUEST_LEVEL_OFFSETS, ELITE_LEVEL_OFFSET, RARE_CHANCE, QUEST_SIZE_W1, QUEST_SIZE_W2, QUEST_SIZE_W3, QUEST_MAX_SIZE_Z1, GRIND_WAVE_SIZE, ELITE_ADD_CHANCE, DUNGEON_SIZE_W2, DUNGEON_SIZE_W3, TREASURE_GUARD_CHANCE, TREASURE_TRAP_CHANCE, BOON, BOON_IDS, SHRINE_BOON_COUNT, GRIND_MAX_WAVES, TIME_QUEST, TIME_GRIND_WAVE, TIME_ELITE, TIME_DUNGEON, TIME_REST, TIME_VENDOR, TIME_TRAINER, TIME_TREASURE, TIME_SHRINE, TIME_WALK, TIME_TRAVEL, RING_NODES, RING_CL_BASE, RING_CL_SPREAD, EDGE_KEEP_R1, EDGE_KEEP_R2, EDGE_KEEP_R3, EDGE_DIAG_R23, REGION_COUNT, REGION_FAMILY_SHARE, REGION_W, REGION_KINDS, RING1_FORBIDDEN, ROAD_COUNT, VISION_RADIUS, VISION_RADIUS_MAX, GUIDE_RADIUS_BONUS, PATHFINDER_RADIUS, DIM_GRACE, DIM_FRONT_HOPS, DIM_FRONT_TIME, TIME_DIM_FIGHT, TIME_DIM_ESCAPE, BELL_CHANNEL_TIME, XP_WEIGHT_MULT, EXPED_GRIND_MAX_WAVES, EXPED_DUNGEON_TRASH_FIGHTS, EXPED_TIME_QUEST, EXPED_TIME_ELITE, EXPED_TIME_GRIND_WAVE, EXPED_TIME_DUNGEON, EXPEDITION_TEXT_IDS, EXPED_DROP_MULT, EXPED_DUNGEON_BOSS_DROPS, DUNGEON_BOSS_DROPS; __link.imp("src/constants.js", [["ZONE_LEVELS", (v) => { ZONE_LEVELS = v; }], ["NODE_DRAW_ORDER", (v) => { NODE_DRAW_ORDER = v; }], ["QUEST_LEVEL_OFFSETS", (v) => { QUEST_LEVEL_OFFSETS = v; }], ["ELITE_LEVEL_OFFSET", (v) => { ELITE_LEVEL_OFFSET = v; }], ["RARE_CHANCE", (v) => { RARE_CHANCE = v; }], ["QUEST_SIZE_W1", (v) => { QUEST_SIZE_W1 = v; }], ["QUEST_SIZE_W2", (v) => { QUEST_SIZE_W2 = v; }], ["QUEST_SIZE_W3", (v) => { QUEST_SIZE_W3 = v; }], ["QUEST_MAX_SIZE_Z1", (v) => { QUEST_MAX_SIZE_Z1 = v; }], ["GRIND_WAVE_SIZE", (v) => { GRIND_WAVE_SIZE = v; }], ["ELITE_ADD_CHANCE", (v) => { ELITE_ADD_CHANCE = v; }], ["DUNGEON_SIZE_W2", (v) => { DUNGEON_SIZE_W2 = v; }], ["DUNGEON_SIZE_W3", (v) => { DUNGEON_SIZE_W3 = v; }], ["TREASURE_GUARD_CHANCE", (v) => { TREASURE_GUARD_CHANCE = v; }], ["TREASURE_TRAP_CHANCE", (v) => { TREASURE_TRAP_CHANCE = v; }], ["BOON", (v) => { BOON = v; }], ["BOON_IDS", (v) => { BOON_IDS = v; }], ["SHRINE_BOON_COUNT", (v) => { SHRINE_BOON_COUNT = v; }], ["GRIND_MAX_WAVES", (v) => { GRIND_MAX_WAVES = v; }], ["TIME_QUEST", (v) => { TIME_QUEST = v; }], ["TIME_GRIND_WAVE", (v) => { TIME_GRIND_WAVE = v; }], ["TIME_ELITE", (v) => { TIME_ELITE = v; }], ["TIME_DUNGEON", (v) => { TIME_DUNGEON = v; }], ["TIME_REST", (v) => { TIME_REST = v; }], ["TIME_VENDOR", (v) => { TIME_VENDOR = v; }], ["TIME_TRAINER", (v) => { TIME_TRAINER = v; }], ["TIME_TREASURE", (v) => { TIME_TREASURE = v; }], ["TIME_SHRINE", (v) => { TIME_SHRINE = v; }], ["TIME_WALK", (v) => { TIME_WALK = v; }], ["TIME_TRAVEL", (v) => { TIME_TRAVEL = v; }], ["RING_NODES", (v) => { RING_NODES = v; }], ["RING_CL_BASE", (v) => { RING_CL_BASE = v; }], ["RING_CL_SPREAD", (v) => { RING_CL_SPREAD = v; }], ["EDGE_KEEP_R1", (v) => { EDGE_KEEP_R1 = v; }], ["EDGE_KEEP_R2", (v) => { EDGE_KEEP_R2 = v; }], ["EDGE_KEEP_R3", (v) => { EDGE_KEEP_R3 = v; }], ["EDGE_DIAG_R23", (v) => { EDGE_DIAG_R23 = v; }], ["REGION_COUNT", (v) => { REGION_COUNT = v; }], ["REGION_FAMILY_SHARE", (v) => { REGION_FAMILY_SHARE = v; }], ["REGION_W", (v) => { REGION_W = v; }], ["REGION_KINDS", (v) => { REGION_KINDS = v; }], ["RING1_FORBIDDEN", (v) => { RING1_FORBIDDEN = v; }], ["ROAD_COUNT", (v) => { ROAD_COUNT = v; }], ["VISION_RADIUS", (v) => { VISION_RADIUS = v; }], ["VISION_RADIUS_MAX", (v) => { VISION_RADIUS_MAX = v; }], ["GUIDE_RADIUS_BONUS", (v) => { GUIDE_RADIUS_BONUS = v; }], ["PATHFINDER_RADIUS", (v) => { PATHFINDER_RADIUS = v; }], ["DIM_GRACE", (v) => { DIM_GRACE = v; }], ["DIM_FRONT_HOPS", (v) => { DIM_FRONT_HOPS = v; }], ["DIM_FRONT_TIME", (v) => { DIM_FRONT_TIME = v; }], ["TIME_DIM_FIGHT", (v) => { TIME_DIM_FIGHT = v; }], ["TIME_DIM_ESCAPE", (v) => { TIME_DIM_ESCAPE = v; }], ["BELL_CHANNEL_TIME", (v) => { BELL_CHANNEL_TIME = v; }], ["XP_WEIGHT_MULT", (v) => { XP_WEIGHT_MULT = v; }], ["EXPED_GRIND_MAX_WAVES", (v) => { EXPED_GRIND_MAX_WAVES = v; }], ["EXPED_DUNGEON_TRASH_FIGHTS", (v) => { EXPED_DUNGEON_TRASH_FIGHTS = v; }], ["EXPED_TIME_QUEST", (v) => { EXPED_TIME_QUEST = v; }], ["EXPED_TIME_ELITE", (v) => { EXPED_TIME_ELITE = v; }], ["EXPED_TIME_GRIND_WAVE", (v) => { EXPED_TIME_GRIND_WAVE = v; }], ["EXPED_TIME_DUNGEON", (v) => { EXPED_TIME_DUNGEON = v; }], ["EXPEDITION_TEXT_IDS", (v) => { EXPEDITION_TEXT_IDS = v; }], ["EXPED_DROP_MULT", (v) => { EXPED_DROP_MULT = v; }], ["EXPED_DUNGEON_BOSS_DROPS", (v) => { EXPED_DUNGEON_BOSS_DROPS = v; }], ["DUNGEON_BOSS_DROPS", (v) => { DUNGEON_BOSS_DROPS = v; }]]); let STREAM, nextFloat, nextInt, weightedIndex; __link.imp("src/rng.js", [["STREAM", (v) => { STREAM = v; }], ["nextFloat", (v) => { nextFloat = v; }], ["nextInt", (v) => { nextInt = v; }], ["weightedIndex", (v) => { weightedIndex = v; }]]); let zoneContent; __link.imp("src/engine/content.js", [["zoneContent", (v) => { zoneContent = v; }]]); let deathblowOf; __link.imp("src/engine/track.js", [["deathblowOf", (v) => { deathblowOf = v; }]]); let composeEncounter, vendorStock, dungeonLevels, clampCl, pickFrom; __link.imp("src/engine/map.js", [["composeEncounter", (v) => { composeEncounter = v; }], ["vendorStock", (v) => { vendorStock = v; }], ["dungeonLevels", (v) => { dungeonLevels = v; }], ["clampCl", (v) => { clampCl = v; }], ["pickFrom", (v) => { pickFrom = v; }]]); __link.exp({ "MAP_MODES": () => MAP_MODES, "isExpedition": () => isExpedition, "grindMaxWaves": () => grindMaxWaves, "xpWeight": () => xpWeight, "killDropMult": () => killDropMult, "bossDropRolls": () => bossDropRolls, "nodeTime": () => nodeTime, "RING_START": () => RING_START, "NODE_COUNT": () => NODE_COUNT, "angDist": () => angDist, "hops": () => hops, "zoneRegions": () => zoneRegions, "generateExpZone": () => generateExpZone, "setupExpNode": () => setupExpNode, "zoneTime": () => zoneTime, "frontAt": () => frontAt, "dimAtHops": () => dimAtHops, "dimAt": () => dimAt, "dimmedAt": () => dimmedAt, "outwardStep": () => outwardStep, "dimFightTime": () => dimFightTime, "dimmedNow": () => dimmedNow, "frontNextIn": () => frontNextIn, "dimmedIds": () => dimmedIds, "canEnter": () => canEnter, "visionKit": () => visionKit, "visionRadius": () => visionRadius, "refreshVision": () => refreshVision, "knowledge": () => knowledge, "roadNameOf": () => roadNameOf, "expeditionTexts": () => expeditionTexts, "expMapView": () => expMapView });
+let ZONE_LEVELS, NODE_DRAW_ORDER, QUEST_LEVEL_OFFSETS, ELITE_LEVEL_OFFSET, RARE_CHANCE, QUEST_SIZE_W1, QUEST_SIZE_W2, QUEST_SIZE_W3, QUEST_MAX_SIZE_Z1, GRIND_WAVE_SIZE, ELITE_ADD_CHANCE, DUNGEON_SIZE_W2, DUNGEON_SIZE_W3, TREASURE_GUARD_CHANCE, TREASURE_TRAP_CHANCE, BOON, BOON_IDS, SHRINE_BOON_COUNT, GRIND_MAX_WAVES, TIME_QUEST, TIME_GRIND_WAVE, TIME_ELITE, TIME_DUNGEON, TIME_REST, TIME_VENDOR, TIME_TRAINER, TIME_TREASURE, TIME_SHRINE, TIME_WALK, TIME_TRAVEL, RING_NODES, RING_CL_BASE, RING_CL_SPREAD, EDGE_KEEP_R1, EDGE_KEEP_R2, EDGE_KEEP_R3, EDGE_DIAG_R23, REGION_COUNT, REGION_FAMILY_SHARE, REGION_W, REGION_KINDS, RING1_FORBIDDEN, ROAD_COUNT, VISION_RADIUS, VISION_RADIUS_MAX, GUIDE_RADIUS_BONUS, PATHFINDER_RADIUS, DIM_GRACE, DIM_FRONT_HOPS, DIM_FRONT_TIME, TIME_DIM_FIGHT, TIME_DIM_ESCAPE, BELL_CHANNEL_TIME, XP_WEIGHT_MULT, EXPED_GRIND_MAX_WAVES, EXPED_DUNGEON_TRASH_FIGHTS, EXPED_TIME_QUEST, EXPED_TIME_ELITE, EXPED_TIME_GRIND_WAVE, EXPED_TIME_DUNGEON, EXPEDITION_TEXT_IDS, EXPED_DROP_MULT, EXPED_DUNGEON_BOSS_DROPS, DUNGEON_BOSS_DROPS; __link.imp("src/constants.js", [["ZONE_LEVELS", (v) => { ZONE_LEVELS = v; }], ["NODE_DRAW_ORDER", (v) => { NODE_DRAW_ORDER = v; }], ["QUEST_LEVEL_OFFSETS", (v) => { QUEST_LEVEL_OFFSETS = v; }], ["ELITE_LEVEL_OFFSET", (v) => { ELITE_LEVEL_OFFSET = v; }], ["RARE_CHANCE", (v) => { RARE_CHANCE = v; }], ["QUEST_SIZE_W1", (v) => { QUEST_SIZE_W1 = v; }], ["QUEST_SIZE_W2", (v) => { QUEST_SIZE_W2 = v; }], ["QUEST_SIZE_W3", (v) => { QUEST_SIZE_W3 = v; }], ["QUEST_MAX_SIZE_Z1", (v) => { QUEST_MAX_SIZE_Z1 = v; }], ["GRIND_WAVE_SIZE", (v) => { GRIND_WAVE_SIZE = v; }], ["ELITE_ADD_CHANCE", (v) => { ELITE_ADD_CHANCE = v; }], ["DUNGEON_SIZE_W2", (v) => { DUNGEON_SIZE_W2 = v; }], ["DUNGEON_SIZE_W3", (v) => { DUNGEON_SIZE_W3 = v; }], ["TREASURE_GUARD_CHANCE", (v) => { TREASURE_GUARD_CHANCE = v; }], ["TREASURE_TRAP_CHANCE", (v) => { TREASURE_TRAP_CHANCE = v; }], ["BOON", (v) => { BOON = v; }], ["BOON_IDS", (v) => { BOON_IDS = v; }], ["SHRINE_BOON_COUNT", (v) => { SHRINE_BOON_COUNT = v; }], ["GRIND_MAX_WAVES", (v) => { GRIND_MAX_WAVES = v; }], ["TIME_QUEST", (v) => { TIME_QUEST = v; }], ["TIME_GRIND_WAVE", (v) => { TIME_GRIND_WAVE = v; }], ["TIME_ELITE", (v) => { TIME_ELITE = v; }], ["TIME_DUNGEON", (v) => { TIME_DUNGEON = v; }], ["TIME_REST", (v) => { TIME_REST = v; }], ["TIME_VENDOR", (v) => { TIME_VENDOR = v; }], ["TIME_TRAINER", (v) => { TIME_TRAINER = v; }], ["TIME_TREASURE", (v) => { TIME_TREASURE = v; }], ["TIME_SHRINE", (v) => { TIME_SHRINE = v; }], ["TIME_WALK", (v) => { TIME_WALK = v; }], ["TIME_TRAVEL", (v) => { TIME_TRAVEL = v; }], ["RING_NODES", (v) => { RING_NODES = v; }], ["RING_CL_BASE", (v) => { RING_CL_BASE = v; }], ["RING_CL_SPREAD", (v) => { RING_CL_SPREAD = v; }], ["EDGE_KEEP_R1", (v) => { EDGE_KEEP_R1 = v; }], ["EDGE_KEEP_R2", (v) => { EDGE_KEEP_R2 = v; }], ["EDGE_KEEP_R3", (v) => { EDGE_KEEP_R3 = v; }], ["EDGE_DIAG_R23", (v) => { EDGE_DIAG_R23 = v; }], ["REGION_COUNT", (v) => { REGION_COUNT = v; }], ["REGION_FAMILY_SHARE", (v) => { REGION_FAMILY_SHARE = v; }], ["REGION_W", (v) => { REGION_W = v; }], ["REGION_KINDS", (v) => { REGION_KINDS = v; }], ["RING1_FORBIDDEN", (v) => { RING1_FORBIDDEN = v; }], ["ROAD_COUNT", (v) => { ROAD_COUNT = v; }], ["VISION_RADIUS", (v) => { VISION_RADIUS = v; }], ["VISION_RADIUS_MAX", (v) => { VISION_RADIUS_MAX = v; }], ["GUIDE_RADIUS_BONUS", (v) => { GUIDE_RADIUS_BONUS = v; }], ["PATHFINDER_RADIUS", (v) => { PATHFINDER_RADIUS = v; }], ["DIM_GRACE", (v) => { DIM_GRACE = v; }], ["DIM_FRONT_HOPS", (v) => { DIM_FRONT_HOPS = v; }], ["DIM_FRONT_TIME", (v) => { DIM_FRONT_TIME = v; }], ["TIME_DIM_FIGHT", (v) => { TIME_DIM_FIGHT = v; }], ["TIME_DIM_ESCAPE", (v) => { TIME_DIM_ESCAPE = v; }], ["BELL_CHANNEL_TIME", (v) => { BELL_CHANNEL_TIME = v; }], ["XP_WEIGHT_MULT", (v) => { XP_WEIGHT_MULT = v; }], ["EXPED_GRIND_MAX_WAVES", (v) => { EXPED_GRIND_MAX_WAVES = v; }], ["EXPED_DUNGEON_TRASH_FIGHTS", (v) => { EXPED_DUNGEON_TRASH_FIGHTS = v; }], ["EXPED_TIME_QUEST", (v) => { EXPED_TIME_QUEST = v; }], ["EXPED_TIME_ELITE", (v) => { EXPED_TIME_ELITE = v; }], ["EXPED_TIME_GRIND_WAVE", (v) => { EXPED_TIME_GRIND_WAVE = v; }], ["EXPED_TIME_DUNGEON", (v) => { EXPED_TIME_DUNGEON = v; }], ["EXPEDITION_TEXT_IDS", (v) => { EXPEDITION_TEXT_IDS = v; }], ["EXPED_DROP_MULT", (v) => { EXPED_DROP_MULT = v; }], ["EXPED_DUNGEON_BOSS_DROPS", (v) => { EXPED_DUNGEON_BOSS_DROPS = v; }], ["DUNGEON_BOSS_DROPS", (v) => { DUNGEON_BOSS_DROPS = v; }]]); let STREAM, nextFloat, nextInt, weightedIndex; __link.imp("src/rng.js", [["STREAM", (v) => { STREAM = v; }], ["nextFloat", (v) => { nextFloat = v; }], ["nextInt", (v) => { nextInt = v; }], ["weightedIndex", (v) => { weightedIndex = v; }]]); let zoneContent; __link.imp("src/engine/content.js", [["zoneContent", (v) => { zoneContent = v; }]]); let deathblowOf, deathblowType; __link.imp("src/engine/track.js", [["deathblowOf", (v) => { deathblowOf = v; }], ["deathblowType", (v) => { deathblowType = v; }]]); let composeEncounter, vendorStock, dungeonLevels, clampCl, pickFrom; __link.imp("src/engine/map.js", [["composeEncounter", (v) => { composeEncounter = v; }], ["vendorStock", (v) => { vendorStock = v; }], ["dungeonLevels", (v) => { dungeonLevels = v; }], ["clampCl", (v) => { clampCl = v; }], ["pickFrom", (v) => { pickFrom = v; }]]); __link.exp({ "MAP_MODES": () => MAP_MODES, "isExpedition": () => isExpedition, "grindMaxWaves": () => grindMaxWaves, "xpWeight": () => xpWeight, "killDropMult": () => killDropMult, "bossDropRolls": () => bossDropRolls, "nodeTime": () => nodeTime, "RING_START": () => RING_START, "NODE_COUNT": () => NODE_COUNT, "angDist": () => angDist, "hops": () => hops, "zoneRegions": () => zoneRegions, "generateExpZone": () => generateExpZone, "setupExpNode": () => setupExpNode, "zoneTime": () => zoneTime, "frontAt": () => frontAt, "dimAtHops": () => dimAtHops, "dimAt": () => dimAt, "dimmedAt": () => dimmedAt, "outwardStep": () => outwardStep, "dimFightTime": () => dimFightTime, "dimmedNow": () => dimmedNow, "frontNextIn": () => frontNextIn, "dimmedIds": () => dimmedIds, "canEnter": () => canEnter, "visionKit": () => visionKit, "visionRadius": () => visionRadius, "refreshVision": () => refreshVision, "knowledge": () => knowledge, "roadNameOf": () => roadNameOf, "expeditionTexts": () => expeditionTexts, "expMapView": () => expMapView });
 yield;
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7 and 9.5): the roamable zone graph and
 // its generation (stream map(z)), node setup by region (stream nodeId(z,id)), hop distances, the Dimming's front (off
@@ -5195,14 +5230,16 @@ function knowledge(s, n) {
 /**
  * Node details the player sees on a fully visible node (as rules 1.4's map view; rare flags, traps and Embers hidden).
  * An elite shows its level and one archetype entry per enemy, the elite's own as null, and no name (D50, rules 1.9.5):
- * content gives a zone's rares other archetypes than its elites, so the elite's name or archetype would tell a rare.
+ * content gives a zone's rares other archetypes than its elites, so the elite's name or archetype would tell a rare. Its
+ * Deathblow shows only its type, heavy or cast (M2b v14, D112).
  */
 function details(c, z, n) {
   const arch = (tid) => c.enemies[tid].archetype;
   if (n.type === 'quest') return { title: c.quests[n.quest].title, archetypes: n.mobs.map(arch) };
   if (n.type === 'grind') return { archetypes: n.waves[0].map(arch) };
-  // M2b v13 (UI list 7): an elite's Deathblow stays hidden with its name (D50); the dungeon boss's shows.
-  if (n.type === 'elite') return { level: n.eliteLevel, archetypes: [null, ...(n.add ? [arch(n.add)] : [])], rare: null, name: null, deathblow: null };
+  // M2b v13 (UI list 7): an elite's Deathblow stays hidden with its name (D50); the dungeon boss's shows. M2b v14 (row 2,
+  // D112): its type only ('heavy' or 'cast'; every zone's elite pool has both, content.js), never id, name or kind.
+  if (n.type === 'elite') return { level: n.eliteLevel, archetypes: [null, ...(n.add ? [arch(n.add)] : [])], rare: null, name: null, deathblow: deathblowType(c, n.elite, n.rare) };
   if (n.type === 'dungeon') {
     return { name: zoneContent(c, z).dungeon.name, level: n.trashLevel, bossLevel: n.bossLevel, fights: n.trash.map((f) => f.map(arch)), bossArchetype: arch(n.boss), bossDeathblow: deathblowOf(c, n.boss, 'dboss') };
   }
@@ -6025,7 +6062,7 @@ function playerDeath(s, ev, killer, spell) {
 
 });
 __bundle.def("src/engine/combat.js", function* (__ns, __link) {
-let ARCHETYPE, VARIANT, ENEMY_HP_BASE, ENEMY_HP_PER_LEVEL, ENEMY_DMG_BASE, ENEMY_DMG_PER_LEVEL, ENEMY_ARMOR_PER_LEVEL, ENEMY_DODGE, PET, ENERGY_MAX, ENERGY_REGEN, FOCUS_MAX, FOCUS_REGEN, MANA_REGEN_ROUND_PCT, PET_REVIVE_PCT, TALENT, UNIQUE_WARD_PCT, BRAND_DMG, BOSS_LEVEL, MIN_HIT_DAMAGE, ZONE_DANGER_FROM, ZONE_DANGER_STEP, DUNGEON_DANGER_FRAC, ENGAGE_DMG_COMP, OFFBAL_DURATION, CONSUMABLE, EARLY_DMG_MULT, EARLY_DMG_MAX_LEVEL, RARE_HP_MULT_Z1, GATES; __link.imp("src/constants.js", [["ARCHETYPE", (v) => { ARCHETYPE = v; }], ["VARIANT", (v) => { VARIANT = v; }], ["ENEMY_HP_BASE", (v) => { ENEMY_HP_BASE = v; }], ["ENEMY_HP_PER_LEVEL", (v) => { ENEMY_HP_PER_LEVEL = v; }], ["ENEMY_DMG_BASE", (v) => { ENEMY_DMG_BASE = v; }], ["ENEMY_DMG_PER_LEVEL", (v) => { ENEMY_DMG_PER_LEVEL = v; }], ["ENEMY_ARMOR_PER_LEVEL", (v) => { ENEMY_ARMOR_PER_LEVEL = v; }], ["ENEMY_DODGE", (v) => { ENEMY_DODGE = v; }], ["PET", (v) => { PET = v; }], ["ENERGY_MAX", (v) => { ENERGY_MAX = v; }], ["ENERGY_REGEN", (v) => { ENERGY_REGEN = v; }], ["FOCUS_MAX", (v) => { FOCUS_MAX = v; }], ["FOCUS_REGEN", (v) => { FOCUS_REGEN = v; }], ["MANA_REGEN_ROUND_PCT", (v) => { MANA_REGEN_ROUND_PCT = v; }], ["PET_REVIVE_PCT", (v) => { PET_REVIVE_PCT = v; }], ["TALENT", (v) => { TALENT = v; }], ["UNIQUE_WARD_PCT", (v) => { UNIQUE_WARD_PCT = v; }], ["BRAND_DMG", (v) => { BRAND_DMG = v; }], ["BOSS_LEVEL", (v) => { BOSS_LEVEL = v; }], ["MIN_HIT_DAMAGE", (v) => { MIN_HIT_DAMAGE = v; }], ["ZONE_DANGER_FROM", (v) => { ZONE_DANGER_FROM = v; }], ["ZONE_DANGER_STEP", (v) => { ZONE_DANGER_STEP = v; }], ["DUNGEON_DANGER_FRAC", (v) => { DUNGEON_DANGER_FRAC = v; }], ["ENGAGE_DMG_COMP", (v) => { ENGAGE_DMG_COMP = v; }], ["OFFBAL_DURATION", (v) => { OFFBAL_DURATION = v; }], ["CONSUMABLE", (v) => { CONSUMABLE = v; }], ["EARLY_DMG_MULT", (v) => { EARLY_DMG_MULT = v; }], ["EARLY_DMG_MAX_LEVEL", (v) => { EARLY_DMG_MAX_LEVEL = v; }], ["RARE_HP_MULT_Z1", (v) => { RARE_HP_MULT_Z1 = v; }], ["GATES", (v) => { GATES = v; }]]); let nextFloat, nextInt; __link.imp("src/rng.js", [["nextFloat", (v) => { nextFloat = v; }], ["nextInt", (v) => { nextInt = v; }]]); let rnd, deepClone, cloneState; __link.imp("src/engine/util.js", [["rnd", (v) => { rnd = v; }], ["deepClone", (v) => { deepClone = v; }], ["cloneState", (v) => { cloneState = v; }]]); let tr, hasEffect; __link.imp("src/engine/stats.js", [["tr", (v) => { tr = v; }], ["hasEffect", (v) => { hasEffect = v; }]]); let damage, snapshot, addStatus, findSt, hasSt, petAlive, healUnit, applyDamage, levelMod, gainStealth, gainOffBalance, answerWindup, landWindup, bossDmgFactor; __link.imp("src/engine/damage.js", [["damage", (v) => { damage = v; }], ["snapshot", (v) => { snapshot = v; }], ["addStatus", (v) => { addStatus = v; }], ["findSt", (v) => { findSt = v; }], ["hasSt", (v) => { hasSt = v; }], ["petAlive", (v) => { petAlive = v; }], ["healUnit", (v) => { healUnit = v; }], ["applyDamage", (v) => { applyDamage = v; }], ["levelMod", (v) => { levelMod = v; }], ["gainStealth", (v) => { gainStealth = v; }], ["gainOffBalance", (v) => { gainOffBalance = v; }], ["answerWindup", (v) => { answerWindup = v; }], ["landWindup", (v) => { landWindup = v; }], ["bossDmgFactor", (v) => { bossDmgFactor = v; }]]); let bossIntent, bossAct, bossStartRound, bossEndOfRound, mirrorImage, bossTrackView; __link.imp("src/engine/boss.js", [["bossIntent", (v) => { bossIntent = v; }], ["bossAct", (v) => { bossAct = v; }], ["bossStartRound", (v) => { bossStartRound = v; }], ["bossEndOfRound", (v) => { bossEndOfRound = v; }], ["mirrorImage", (v) => { mirrorImage = v; }], ["bossTrackView", (v) => { bossTrackView = v; }]]); let playerAction, petAction; __link.imp("src/engine/spells.js", [["playerAction", (v) => { playerAction = v; }], ["petAction", (v) => { petAction = v; }]]); let isEngageRound, updateTracks, fillTrack, nowIntent, refreshTrack, controlOf, lowestHpAlly, wardOf, assignWard, isSingle; __link.imp("src/engine/track.js", [["isEngageRound", (v) => { isEngageRound = v; }], ["updateTracks", (v) => { updateTracks = v; }], ["fillTrack", (v) => { fillTrack = v; }], ["nowIntent", (v) => { nowIntent = v; }], ["refreshTrack", (v) => { refreshTrack = v; }], ["controlOf", (v) => { controlOf = v; }], ["lowestHpAlly", (v) => { lowestHpAlly = v; }], ["wardOf", (v) => { wardOf = v; }], ["assignWard", (v) => { assignWard = v; }], ["isSingle", (v) => { isSingle = v; }]]); __link.exp({ "zoneDanger": () => zoneDanger, "makeEnemy": () => makeEnemy, "breaksOnHit": () => breaksOnHit, "defaultTarget": () => defaultTarget, "beginRound": () => beginRound, "tickPhase": () => tickPhase, "roundActions": () => roundActions, "isFreePotion": () => isFreePotion, "resolveRound": () => resolveRound, "pendingTicks": () => pendingTicks, "startFight": () => startFight, "endFight": () => endFight });
+let ARCHETYPE, VARIANT, ENEMY_HP_BASE, ENEMY_HP_PER_LEVEL, ENEMY_DMG_BASE, ENEMY_DMG_PER_LEVEL, ENEMY_ARMOR_PER_LEVEL, ENEMY_DODGE, PET, ENERGY_MAX, ENERGY_REGEN, FOCUS_MAX, FOCUS_REGEN, MANA_REGEN_ROUND_PCT, PET_REVIVE_PCT, TALENT, UNIQUE_WARD_PCT, BRAND_DMG, BOSS_LEVEL, MIN_HIT_DAMAGE, ZONE_DANGER_FROM, ZONE_DANGER_STEP, DUNGEON_DANGER_FRAC, ENGAGE_DMG_COMP, OFFBAL_DURATION, CONSUMABLE, EARLY_DMG_MULT, EARLY_DMG_MAX_LEVEL, RARE_HP_MULT_Z1, GATES; __link.imp("src/constants.js", [["ARCHETYPE", (v) => { ARCHETYPE = v; }], ["VARIANT", (v) => { VARIANT = v; }], ["ENEMY_HP_BASE", (v) => { ENEMY_HP_BASE = v; }], ["ENEMY_HP_PER_LEVEL", (v) => { ENEMY_HP_PER_LEVEL = v; }], ["ENEMY_DMG_BASE", (v) => { ENEMY_DMG_BASE = v; }], ["ENEMY_DMG_PER_LEVEL", (v) => { ENEMY_DMG_PER_LEVEL = v; }], ["ENEMY_ARMOR_PER_LEVEL", (v) => { ENEMY_ARMOR_PER_LEVEL = v; }], ["ENEMY_DODGE", (v) => { ENEMY_DODGE = v; }], ["PET", (v) => { PET = v; }], ["ENERGY_MAX", (v) => { ENERGY_MAX = v; }], ["ENERGY_REGEN", (v) => { ENERGY_REGEN = v; }], ["FOCUS_MAX", (v) => { FOCUS_MAX = v; }], ["FOCUS_REGEN", (v) => { FOCUS_REGEN = v; }], ["MANA_REGEN_ROUND_PCT", (v) => { MANA_REGEN_ROUND_PCT = v; }], ["PET_REVIVE_PCT", (v) => { PET_REVIVE_PCT = v; }], ["TALENT", (v) => { TALENT = v; }], ["UNIQUE_WARD_PCT", (v) => { UNIQUE_WARD_PCT = v; }], ["BRAND_DMG", (v) => { BRAND_DMG = v; }], ["BOSS_LEVEL", (v) => { BOSS_LEVEL = v; }], ["MIN_HIT_DAMAGE", (v) => { MIN_HIT_DAMAGE = v; }], ["ZONE_DANGER_FROM", (v) => { ZONE_DANGER_FROM = v; }], ["ZONE_DANGER_STEP", (v) => { ZONE_DANGER_STEP = v; }], ["DUNGEON_DANGER_FRAC", (v) => { DUNGEON_DANGER_FRAC = v; }], ["ENGAGE_DMG_COMP", (v) => { ENGAGE_DMG_COMP = v; }], ["OFFBAL_DURATION", (v) => { OFFBAL_DURATION = v; }], ["CONSUMABLE", (v) => { CONSUMABLE = v; }], ["EARLY_DMG_MULT", (v) => { EARLY_DMG_MULT = v; }], ["EARLY_DMG_MAX_LEVEL", (v) => { EARLY_DMG_MAX_LEVEL = v; }], ["RARE_HP_MULT_Z1", (v) => { RARE_HP_MULT_Z1 = v; }], ["GATES", (v) => { GATES = v; }]]); let nextFloat, nextInt; __link.imp("src/rng.js", [["nextFloat", (v) => { nextFloat = v; }], ["nextInt", (v) => { nextInt = v; }]]); let rnd, deepClone, cloneState; __link.imp("src/engine/util.js", [["rnd", (v) => { rnd = v; }], ["deepClone", (v) => { deepClone = v; }], ["cloneState", (v) => { cloneState = v; }]]); let tr, hasEffect; __link.imp("src/engine/stats.js", [["tr", (v) => { tr = v; }], ["hasEffect", (v) => { hasEffect = v; }]]); let damage, snapshot, addStatus, findSt, hasSt, petAlive, healUnit, applyDamage, levelMod, gainStealth, gainOffBalance, answerWindup, landWindup, bossDmgFactor; __link.imp("src/engine/damage.js", [["damage", (v) => { damage = v; }], ["snapshot", (v) => { snapshot = v; }], ["addStatus", (v) => { addStatus = v; }], ["findSt", (v) => { findSt = v; }], ["hasSt", (v) => { hasSt = v; }], ["petAlive", (v) => { petAlive = v; }], ["healUnit", (v) => { healUnit = v; }], ["applyDamage", (v) => { applyDamage = v; }], ["levelMod", (v) => { levelMod = v; }], ["gainStealth", (v) => { gainStealth = v; }], ["gainOffBalance", (v) => { gainOffBalance = v; }], ["answerWindup", (v) => { answerWindup = v; }], ["landWindup", (v) => { landWindup = v; }], ["bossDmgFactor", (v) => { bossDmgFactor = v; }]]); let bossIntent, bossAct, bossStartRound, bossEndOfRound, mirrorImage, bossTrackView; __link.imp("src/engine/boss.js", [["bossIntent", (v) => { bossIntent = v; }], ["bossAct", (v) => { bossAct = v; }], ["bossStartRound", (v) => { bossStartRound = v; }], ["bossEndOfRound", (v) => { bossEndOfRound = v; }], ["mirrorImage", (v) => { mirrorImage = v; }], ["bossTrackView", (v) => { bossTrackView = v; }]]); let playerAction, petAction; __link.imp("src/engine/spells.js", [["playerAction", (v) => { playerAction = v; }], ["petAction", (v) => { petAction = v; }]]); let isEngageRound, updateTracks, fillTrack, nowIntent, refreshTrack, controlOf, lowestHpAlly, wardOf, assignWard, isSingle; __link.imp("src/engine/track.js", [["isEngageRound", (v) => { isEngageRound = v; }], ["updateTracks", (v) => { updateTracks = v; }], ["fillTrack", (v) => { fillTrack = v; }], ["nowIntent", (v) => { nowIntent = v; }], ["refreshTrack", (v) => { refreshTrack = v; }], ["controlOf", (v) => { controlOf = v; }], ["lowestHpAlly", (v) => { lowestHpAlly = v; }], ["wardOf", (v) => { wardOf = v; }], ["assignWard", (v) => { assignWard = v; }], ["isSingle", (v) => { isSingle = v; }]]); __link.exp({ "zoneDanger": () => zoneDanger, "makeEnemy": () => makeEnemy, "breaksOnHit": () => breaksOnHit, "allSapped": () => allSapped, "defaultTarget": () => defaultTarget, "beginRound": () => beginRound, "tickPhase": () => tickPhase, "roundActions": () => roundActions, "isFreePotion": () => isFreePotion, "resolveRound": () => resolveRound, "pendingTicks": () => pendingTicks, "startFight": () => startFight, "endFight": () => endFight });
 yield;
 // Fight lifecycle and enemy actions (rules 7.1, 7.4, 7.6, 7.10, 7.12, 7.13). The intent track is in track.js, player
 // actions in spells.js and engage.js, the end boss in boss.js. Combat v2.1 (rules 7.12): a played wind-up lands
@@ -6034,8 +6071,9 @@ yield;
 // (tickPhase) on a copy of the state, without draws, so the UI can mark the HP that the ticks will take.
 // Packed Satchel's free potion (rules 7.5, M2b v6): resolveRound plays it as the player's action and stops the round
 // (M2b v8: at FREE_POTION_MULT strength, spells.js). Zone danger (rules 7.6) with the early factor EARLY_DMG_MULT (M2b v8).
-// M2b v13 (D109, gated): a zone-1 rare's HP with RARE_HP_MULT_Z1 (GATES.rareHpMultZ1, rules 2.3); first meetings
-// (s.met, GATES.firstMeetWindup, rules 7.12) are marked when a fight starts.
+// M2b v13 (D109; on by default since M2b v14, D113): a zone-1 rare's HP with RARE_HP_MULT_Z1 (GATES.rareHpMultZ1, rules
+// 2.3); first meetings (s.met, GATES.firstMeetWindup, rules 7.12) are marked when a fight starts. M2b v14 (D111):
+// allSapped, read by autoplay rule H and the PASS that keeps STEALTH.
 
 
 
@@ -6241,6 +6279,14 @@ function enemiesAct(s, ev) {
 const PRIORITY = { mender: 0, caster: 1 };
 /** HEXED or SAPPED: damage would break the control (rules 7.9 skips them as default targets, combat v2). */
 const breaksOnHit = (e) => hasSt(e.st, 'HEXED') || hasSt(e.st, 'SAPPED');
+/**
+ * Every living enemy is SAPPED (M2b v14, D111): autoplay rule H (rules 7.9) and the PASS that keeps STEALTH (rules 7.4)
+ * read it. False when no enemy lives.
+ */
+function allSapped(s) {
+  const live = s.fight.enemies.filter((e) => e.alive);
+  return live.length > 0 && live.every((e) => hasSt(e.st, 'SAPPED'));
+}
 /**
  * Default target (rules 7.9): living, non-HEXED, non-SAPPED, mender > caster > others, lowest HP, lowest index. An
  * enemy that was sapped this fight only when no other such enemy lives (D48: autoplay never switches back to it while
@@ -6805,12 +6851,13 @@ function engageOptions(s) {
 
 });
 __bundle.def("src/engine/spells.js", function* (__ns, __link) {
-let SPELL, CLASS, TALENT, PET, CP_MAX, EA, CHILL_PCT, CONSUMABLE, POTION_CD, UNIQUE_PROC_CHANCE, UNIQUE_PROC_BASE, UNIQUE_PROC_PER_LEVEL, UNIQUE_POTION_PCT, FLEE_BASE, FLEE_PER_EXTRA_ENEMY, MIN_HIT_DAMAGE, OFFBAL_DURATION, FREE_POTION_MULT; __link.imp("src/constants.js", [["SPELL", (v) => { SPELL = v; }], ["CLASS", (v) => { CLASS = v; }], ["TALENT", (v) => { TALENT = v; }], ["PET", (v) => { PET = v; }], ["CP_MAX", (v) => { CP_MAX = v; }], ["ENGINE_ASSUMPTION", (v) => { EA = v; }], ["CHILL_PCT", (v) => { CHILL_PCT = v; }], ["CONSUMABLE", (v) => { CONSUMABLE = v; }], ["POTION_CD", (v) => { POTION_CD = v; }], ["UNIQUE_PROC_CHANCE", (v) => { UNIQUE_PROC_CHANCE = v; }], ["UNIQUE_PROC_BASE", (v) => { UNIQUE_PROC_BASE = v; }], ["UNIQUE_PROC_PER_LEVEL", (v) => { UNIQUE_PROC_PER_LEVEL = v; }], ["UNIQUE_POTION_PCT", (v) => { UNIQUE_POTION_PCT = v; }], ["FLEE_BASE", (v) => { FLEE_BASE = v; }], ["FLEE_PER_EXTRA_ENEMY", (v) => { FLEE_PER_EXTRA_ENEMY = v; }], ["MIN_HIT_DAMAGE", (v) => { MIN_HIT_DAMAGE = v; }], ["OFFBAL_DURATION", (v) => { OFFBAL_DURATION = v; }], ["FREE_POTION_MULT", (v) => { FREE_POTION_MULT = v; }]]); let nextFloat; __link.imp("src/rng.js", [["nextFloat", (v) => { nextFloat = v; }]]); let rnd; __link.imp("src/engine/util.js", [["rnd", (v) => { rnd = v; }]]); let tr, hasEffect; __link.imp("src/engine/stats.js", [["tr", (v) => { tr = v; }], ["hasEffect", (v) => { hasEffect = v; }]]); let damage, snapshot, addStatus, removeStatus, findSt, hasSt, petAlive, healUnit, dispersal, gainStealth, gainResource, livingEnemies, gainOffBalance, answerWindup; __link.imp("src/engine/damage.js", [["damage", (v) => { damage = v; }], ["snapshot", (v) => { snapshot = v; }], ["addStatus", (v) => { addStatus = v; }], ["removeStatus", (v) => { removeStatus = v; }], ["findSt", (v) => { findSt = v; }], ["hasSt", (v) => { hasSt = v; }], ["petAlive", (v) => { petAlive = v; }], ["healUnit", (v) => { healUnit = v; }], ["dispersal", (v) => { dispersal = v; }], ["gainStealth", (v) => { gainStealth = v; }], ["gainResource", (v) => { gainResource = v; }], ["livingEnemies", (v) => { livingEnemies = v; }], ["gainOffBalance", (v) => { gainOffBalance = v; }], ["answerWindup", (v) => { answerWindup = v; }]]); let interruptBoss; __link.imp("src/engine/boss.js", [["interruptBoss", (v) => { interruptBoss = v; }]]); let defaultTarget; __link.imp("src/engine/combat.js", [["defaultTarget", (v) => { defaultTarget = v; }]]); let countConsumable, takeConsumable; __link.imp("src/engine/items.js", [["countConsumable", (v) => { countConsumable = v; }], ["takeConsumable", (v) => { takeConsumable = v; }]]); let engageAction, keepsStealth; __link.imp("src/engine/engage.js", [["engageAction", (v) => { engageAction = v; }], ["keepsStealth", (v) => { keepsStealth = v; }]]); __link.exp({ "knowsSpell": () => knowsSpell, "spellTl": () => spellTl, "spellCost": () => spellCost, "spellCd": () => spellCd, "isFinisher": () => isFinisher, "isOpener": () => isOpener, "isDamaging": () => isDamaging, "castError": () => castError, "base": () => base, "pHit": () => pHit, "control": () => control, "addCp": () => addCp, "cast": () => cast, "twinFangs": () => twinFangs, "spellAmount": () => spellAmount, "fleeChance": () => fleeChance, "itemAmount": () => itemAmount, "itemUsableInCombat": () => itemUsableInCombat, "playerAction": () => playerAction, "petAction": () => petAction });
+let SPELL, CLASS, TALENT, PET, CP_MAX, EA, CHILL_PCT, CONSUMABLE, POTION_CD, UNIQUE_PROC_CHANCE, UNIQUE_PROC_BASE, UNIQUE_PROC_PER_LEVEL, UNIQUE_POTION_PCT, FLEE_BASE, FLEE_PER_EXTRA_ENEMY, MIN_HIT_DAMAGE, OFFBAL_DURATION, FREE_POTION_MULT, GATES; __link.imp("src/constants.js", [["SPELL", (v) => { SPELL = v; }], ["CLASS", (v) => { CLASS = v; }], ["TALENT", (v) => { TALENT = v; }], ["PET", (v) => { PET = v; }], ["CP_MAX", (v) => { CP_MAX = v; }], ["ENGINE_ASSUMPTION", (v) => { EA = v; }], ["CHILL_PCT", (v) => { CHILL_PCT = v; }], ["CONSUMABLE", (v) => { CONSUMABLE = v; }], ["POTION_CD", (v) => { POTION_CD = v; }], ["UNIQUE_PROC_CHANCE", (v) => { UNIQUE_PROC_CHANCE = v; }], ["UNIQUE_PROC_BASE", (v) => { UNIQUE_PROC_BASE = v; }], ["UNIQUE_PROC_PER_LEVEL", (v) => { UNIQUE_PROC_PER_LEVEL = v; }], ["UNIQUE_POTION_PCT", (v) => { UNIQUE_POTION_PCT = v; }], ["FLEE_BASE", (v) => { FLEE_BASE = v; }], ["FLEE_PER_EXTRA_ENEMY", (v) => { FLEE_PER_EXTRA_ENEMY = v; }], ["MIN_HIT_DAMAGE", (v) => { MIN_HIT_DAMAGE = v; }], ["OFFBAL_DURATION", (v) => { OFFBAL_DURATION = v; }], ["FREE_POTION_MULT", (v) => { FREE_POTION_MULT = v; }], ["GATES", (v) => { GATES = v; }]]); let nextFloat; __link.imp("src/rng.js", [["nextFloat", (v) => { nextFloat = v; }]]); let rnd; __link.imp("src/engine/util.js", [["rnd", (v) => { rnd = v; }]]); let tr, hasEffect; __link.imp("src/engine/stats.js", [["tr", (v) => { tr = v; }], ["hasEffect", (v) => { hasEffect = v; }]]); let damage, snapshot, addStatus, removeStatus, findSt, hasSt, petAlive, healUnit, dispersal, gainStealth, gainResource, livingEnemies, gainOffBalance, answerWindup; __link.imp("src/engine/damage.js", [["damage", (v) => { damage = v; }], ["snapshot", (v) => { snapshot = v; }], ["addStatus", (v) => { addStatus = v; }], ["removeStatus", (v) => { removeStatus = v; }], ["findSt", (v) => { findSt = v; }], ["hasSt", (v) => { hasSt = v; }], ["petAlive", (v) => { petAlive = v; }], ["healUnit", (v) => { healUnit = v; }], ["dispersal", (v) => { dispersal = v; }], ["gainStealth", (v) => { gainStealth = v; }], ["gainResource", (v) => { gainResource = v; }], ["livingEnemies", (v) => { livingEnemies = v; }], ["gainOffBalance", (v) => { gainOffBalance = v; }], ["answerWindup", (v) => { answerWindup = v; }]]); let interruptBoss; __link.imp("src/engine/boss.js", [["interruptBoss", (v) => { interruptBoss = v; }]]); let defaultTarget, allSapped; __link.imp("src/engine/combat.js", [["defaultTarget", (v) => { defaultTarget = v; }], ["allSapped", (v) => { allSapped = v; }]]); let countConsumable, takeConsumable; __link.imp("src/engine/items.js", [["countConsumable", (v) => { countConsumable = v; }], ["takeConsumable", (v) => { takeConsumable = v; }]]); let engageAction, keepsStealth; __link.imp("src/engine/engage.js", [["engageAction", (v) => { engageAction = v; }], ["keepsStealth", (v) => { keepsStealth = v; }]]); __link.exp({ "knowsSpell": () => knowsSpell, "spellTl": () => spellTl, "spellCost": () => spellCost, "spellCd": () => spellCd, "isFinisher": () => isFinisher, "isOpener": () => isOpener, "isDamaging": () => isDamaging, "castError": () => castError, "base": () => base, "pHit": () => pHit, "control": () => control, "addCp": () => addCp, "cast": () => cast, "twinFangs": () => twinFangs, "spellAmount": () => spellAmount, "fleeChance": () => fleeChance, "itemAmount": () => itemAmount, "itemUsableInCombat": () => itemUsableInCombat, "passKeepsStealth": () => passKeepsStealth, "playerAction": () => playerAction, "petAction": () => petAction });
 yield;
 // Player combat actions (rules 5, 6, 7.1 step 2, 7.3, 7.5, 7.7, 7.8) and the pet action (5.5). Combat v2: an
 // interrupt or control that stops a cast or heavy now-entry leaves the enemy OFF_BALANCE (7.13); Gathered Power
 // (7.10); ENGAGE actions are resolved in engage.js. Combat v2.1: an interrupted wind-up is answered (STAGGERED, 7.12).
 // M2b v8 (rules 7.5): itemAmount, what a consumable restores; Packed Satchel's free potion at FREE_POTION_MULT.
+// M2b v14 (rules 7.4, D111): a PASS keeps STEALTH while every living enemy is SAPPED (GATES.passStealth).
 
 
 
@@ -7477,6 +7524,12 @@ function itemUsableInCombat(s, id) {
 
 // ---------------- Player action dispatcher ----------------
 /**
+ * Does a PASS now keep STEALTH (rules 7.4, M2b v14 row 1 (b), D111)? Yes while every living enemy is SAPPED and the
+ * switch GATES.passStealth is on: the Rogue waits for Sap to cancel a wind-up and still opens from STEALTH.
+ */
+const passKeepsStealth = (s) => GATES.passStealth && !!s.fight && allSapped(s);
+
+/**
  * Resolve the player's action for the round (validated by the caller). free: the action is Packed Satchel's free potion
  * (rules 7.5, M2b v6; combat.js resolveRound): resolved exactly the same, its item event carries `free: true`.
  */
@@ -7491,8 +7544,10 @@ function playerAction(s, ev, a, free = false) {
   }
   const wasStealthed = hasSt(f.p.st, 'STEALTH');
   const opener = a.type === 'CAST' && isOpener(a.spellId);
-  // Openers keep STEALTH (rules 7.4); so do Sap and Premeditate (rules 7.10). Any other action removes it.
-  const keep = (opener && !EA.OPENER_BREAKS_STEALTH) || (a.type === 'ENGAGE' && keepsStealth(a.option));
+  // Openers keep STEALTH (rules 7.4); so do Sap and Premeditate (rules 7.10), and (M2b v14, D111) a PASS while every
+  // living enemy is SAPPED. Any other action removes it.
+  const keep = (opener && !EA.OPENER_BREAKS_STEALTH) || (a.type === 'ENGAGE' && keepsStealth(a.option))
+    || (a.type === 'PASS' && passKeepsStealth(s));
   if (wasStealthed && !keep) removeStatus(s, ev, 'player', 'STEALTH');
   f.p.niBonus = (wasStealthed || f.p.stealthPrev) ? tr(s, 'r_b8') * TALENT.r_b8.pct : 0;
   f.p.stealthPrev = wasStealthed;
@@ -10233,13 +10288,14 @@ function legalActions(s) {
 
 });
 __bundle.def("src/engine/autoplay.js", function* (__ns, __link) {
-let SPELL, TALENT, CONSUMABLE, AUTO_POTION_HP, AUTO_TONIC_STACKS, AUTO_MANA_POTION, AUTO_FOOD_HP, EA, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, MAX_LEVEL, PET, ENGAGE_OPTION, ENGAGE_OPTIONS, ENGAGE_AUTO_LOOK, TIME_WALK, TIME_REST, TIME_VENDOR, TIME_TRAINER, EXPED_TIME_QUEST; __link.imp("src/constants.js", [["SPELL", (v) => { SPELL = v; }], ["TALENT", (v) => { TALENT = v; }], ["CONSUMABLE", (v) => { CONSUMABLE = v; }], ["AUTO_POTION_HP", (v) => { AUTO_POTION_HP = v; }], ["AUTO_TONIC_STACKS", (v) => { AUTO_TONIC_STACKS = v; }], ["AUTO_MANA_POTION", (v) => { AUTO_MANA_POTION = v; }], ["AUTO_FOOD_HP", (v) => { AUTO_FOOD_HP = v; }], ["ENGINE_ASSUMPTION", (v) => { EA = v; }], ["SPELL_BAR_SLOTS", (v) => { SPELL_BAR_SLOTS = v; }], ["ITEM_BAR_SLOTS", (v) => { ITEM_BAR_SLOTS = v; }], ["MAX_LEVEL", (v) => { MAX_LEVEL = v; }], ["PET", (v) => { PET = v; }], ["ENGAGE_OPTION", (v) => { ENGAGE_OPTION = v; }], ["ENGAGE_OPTIONS", (v) => { ENGAGE_OPTIONS = v; }], ["ENGAGE_AUTO_LOOK", (v) => { ENGAGE_AUTO_LOOK = v; }], ["TIME_WALK", (v) => { TIME_WALK = v; }], ["TIME_REST", (v) => { TIME_REST = v; }], ["TIME_VENDOR", (v) => { TIME_VENDOR = v; }], ["TIME_TRAINER", (v) => { TIME_TRAINER = v; }], ["EXPED_TIME_QUEST", (v) => { EXPED_TIME_QUEST = v; }]]); let hasSt, findSt, debuffStacks, isEliteOrBoss, petAlive; __link.imp("src/engine/damage.js", [["hasSt", (v) => { hasSt = v; }], ["findSt", (v) => { findSt = v; }], ["debuffStacks", (v) => { debuffStacks = v; }], ["isEliteOrBoss", (v) => { isEliteOrBoss = v; }], ["petAlive", (v) => { petAlive = v; }]]); let defaultTarget, breaksOnHit; __link.imp("src/engine/combat.js", [["defaultTarget", (v) => { defaultTarget = v; }], ["breaksOnHit", (v) => { breaksOnHit = v; }]]); let isEngageRound; __link.imp("src/engine/track.js", [["isEngageRound", (v) => { isEngageRound = v; }]]); let engageAct, windupTurn; __link.imp("src/engine/engage.js", [["engageAct", (v) => { engageAct = v; }], ["windupTurn", (v) => { windupTurn = v; }]]); let castError, itemUsableInCombat; __link.imp("src/engine/spells.js", [["castError", (v) => { castError = v; }], ["itemUsableInCombat", (v) => { itemUsableInCombat = v; }]]); let itemScore, countConsumable, sellValue, canAdd, V, bagCapacity; __link.imp("src/engine/items.js", [["itemScore", (v) => { itemScore = v; }], ["countConsumable", (v) => { countConsumable = v; }], ["sellValue", (v) => { sellValue = v; }], ["canAdd", (v) => { canAdd = v; }], ["V", (v) => { V = v; }], ["bagCapacity", (v) => { bagCapacity = v; }]]); let talentPointsFree; __link.imp("src/engine/progress.js", [["talentPointsFree", (v) => { talentPointsFree = v; }]]); let nextLanes, dungeonLevels; __link.imp("src/engine/map.js", [["nextLanes", (v) => { nextLanes = v; }], ["dungeonLevels", (v) => { dungeonLevels = v; }]]); let checkAction; __link.imp("src/engine/actions.js", [["checkAction", (v) => { checkAction = v; }]]); let canTravel, exitLevel, trainerSpells, learnCost, trainCost, trainable, availablePets, canEnter; __link.imp("src/engine/nodes.js", [["canTravel", (v) => { canTravel = v; }], ["exitLevel", (v) => { exitLevel = v; }], ["trainerSpells", (v) => { trainerSpells = v; }], ["learnCost", (v) => { learnCost = v; }], ["trainCost", (v) => { trainCost = v; }], ["trainable", (v) => { trainable = v; }], ["availablePets", (v) => { availablePets = v; }], ["canEnter", (v) => { canEnter = v; }]]); let isExpedition, grindMaxWaves, nodeTime, zoneTime, dimmedAt, outwardStep, dimFightTime; __link.imp("src/engine/expedition.js", [["isExpedition", (v) => { isExpedition = v; }], ["grindMaxWaves", (v) => { grindMaxWaves = v; }], ["nodeTime", (v) => { nodeTime = v; }], ["zoneTime", (v) => { zoneTime = v; }], ["dimmedAt", (v) => { dimmedAt = v; }], ["outwardStep", (v) => { outwardStep = v; }], ["dimFightTime", (v) => { dimFightTime = v; }]]); let takeContractError, buyPrepError, hubContractError, prepLeft; __link.imp("src/engine/contracts.js", [["takeContractError", (v) => { takeContractError = v; }], ["buyPrepError", (v) => { buyPrepError = v; }], ["hubContractError", (v) => { hubContractError = v; }], ["prepLeft", (v) => { prepLeft = v; }]]); __link.exp({ "engageAnswer": () => engageAnswer, "autoAction": () => autoAction, "autoTarget": () => autoTarget, "nextTalent": () => nextTalent, "desiredBar": () => desiredBar, "desiredItemBar": () => desiredItemBar });
+let SPELL, TALENT, CONSUMABLE, AUTO_POTION_HP, AUTO_TONIC_STACKS, AUTO_MANA_POTION, AUTO_FOOD_HP, EA, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, MAX_LEVEL, PET, ENGAGE_OPTION, ENGAGE_OPTIONS, ENGAGE_AUTO_LOOK, TIME_WALK, TIME_REST, TIME_VENDOR, TIME_TRAINER, EXPED_TIME_QUEST, GATES; __link.imp("src/constants.js", [["SPELL", (v) => { SPELL = v; }], ["TALENT", (v) => { TALENT = v; }], ["CONSUMABLE", (v) => { CONSUMABLE = v; }], ["AUTO_POTION_HP", (v) => { AUTO_POTION_HP = v; }], ["AUTO_TONIC_STACKS", (v) => { AUTO_TONIC_STACKS = v; }], ["AUTO_MANA_POTION", (v) => { AUTO_MANA_POTION = v; }], ["AUTO_FOOD_HP", (v) => { AUTO_FOOD_HP = v; }], ["ENGINE_ASSUMPTION", (v) => { EA = v; }], ["SPELL_BAR_SLOTS", (v) => { SPELL_BAR_SLOTS = v; }], ["ITEM_BAR_SLOTS", (v) => { ITEM_BAR_SLOTS = v; }], ["MAX_LEVEL", (v) => { MAX_LEVEL = v; }], ["PET", (v) => { PET = v; }], ["ENGAGE_OPTION", (v) => { ENGAGE_OPTION = v; }], ["ENGAGE_OPTIONS", (v) => { ENGAGE_OPTIONS = v; }], ["ENGAGE_AUTO_LOOK", (v) => { ENGAGE_AUTO_LOOK = v; }], ["TIME_WALK", (v) => { TIME_WALK = v; }], ["TIME_REST", (v) => { TIME_REST = v; }], ["TIME_VENDOR", (v) => { TIME_VENDOR = v; }], ["TIME_TRAINER", (v) => { TIME_TRAINER = v; }], ["EXPED_TIME_QUEST", (v) => { EXPED_TIME_QUEST = v; }], ["GATES", (v) => { GATES = v; }]]); let hasSt, findSt, debuffStacks, isEliteOrBoss, petAlive; __link.imp("src/engine/damage.js", [["hasSt", (v) => { hasSt = v; }], ["findSt", (v) => { findSt = v; }], ["debuffStacks", (v) => { debuffStacks = v; }], ["isEliteOrBoss", (v) => { isEliteOrBoss = v; }], ["petAlive", (v) => { petAlive = v; }]]); let defaultTarget, breaksOnHit, allSapped; __link.imp("src/engine/combat.js", [["defaultTarget", (v) => { defaultTarget = v; }], ["breaksOnHit", (v) => { breaksOnHit = v; }], ["allSapped", (v) => { allSapped = v; }]]); let isEngageRound, turnOf; __link.imp("src/engine/track.js", [["isEngageRound", (v) => { isEngageRound = v; }], ["turnOf", (v) => { turnOf = v; }]]); let engageAct, windupTurn; __link.imp("src/engine/engage.js", [["engageAct", (v) => { engageAct = v; }], ["windupTurn", (v) => { windupTurn = v; }]]); let castError, itemUsableInCombat; __link.imp("src/engine/spells.js", [["castError", (v) => { castError = v; }], ["itemUsableInCombat", (v) => { itemUsableInCombat = v; }]]); let itemScore, countConsumable, sellValue, canAdd, V, bagCapacity; __link.imp("src/engine/items.js", [["itemScore", (v) => { itemScore = v; }], ["countConsumable", (v) => { countConsumable = v; }], ["sellValue", (v) => { sellValue = v; }], ["canAdd", (v) => { canAdd = v; }], ["V", (v) => { V = v; }], ["bagCapacity", (v) => { bagCapacity = v; }]]); let talentPointsFree; __link.imp("src/engine/progress.js", [["talentPointsFree", (v) => { talentPointsFree = v; }]]); let nextLanes, dungeonLevels; __link.imp("src/engine/map.js", [["nextLanes", (v) => { nextLanes = v; }], ["dungeonLevels", (v) => { dungeonLevels = v; }]]); let checkAction; __link.imp("src/engine/actions.js", [["checkAction", (v) => { checkAction = v; }]]); let canTravel, exitLevel, trainerSpells, learnCost, trainCost, trainable, availablePets, canEnter; __link.imp("src/engine/nodes.js", [["canTravel", (v) => { canTravel = v; }], ["exitLevel", (v) => { exitLevel = v; }], ["trainerSpells", (v) => { trainerSpells = v; }], ["learnCost", (v) => { learnCost = v; }], ["trainCost", (v) => { trainCost = v; }], ["trainable", (v) => { trainable = v; }], ["availablePets", (v) => { availablePets = v; }], ["canEnter", (v) => { canEnter = v; }]]); let isExpedition, grindMaxWaves, nodeTime, zoneTime, dimmedAt, outwardStep, dimFightTime; __link.imp("src/engine/expedition.js", [["isExpedition", (v) => { isExpedition = v; }], ["grindMaxWaves", (v) => { grindMaxWaves = v; }], ["nodeTime", (v) => { nodeTime = v; }], ["zoneTime", (v) => { zoneTime = v; }], ["dimmedAt", (v) => { dimmedAt = v; }], ["outwardStep", (v) => { outwardStep = v; }], ["dimFightTime", (v) => { dimFightTime = v; }]]); let takeContractError, buyPrepError, hubContractError, prepLeft; __link.imp("src/engine/contracts.js", [["takeContractError", (v) => { takeContractError = v; }], ["buyPrepError", (v) => { buyPrepError = v; }], ["hubContractError", (v) => { hubContractError = v; }], ["prepLeft", (v) => { prepLeft = v; }]]); __link.exp({ "engageAnswer": () => engageAnswer, "sapWait": () => sapWait, "autoAction": () => autoAction, "autoTarget": () => autoTarget, "nextTalent": () => nextTalent, "desiredBar": () => desiredBar, "desiredItemBar": () => desiredItemBar });
 yield;
 // autoAction: the autoplay combat policy (rules 7.9, exact; combat v2 rule E in the engage round) and a
 // deterministic default policy for every other decision so a headless run can go from CREATE to SUMMARY. The
 // simulator's bots (balance.md 1) replace the out-of-combat part with their own policies; the combat part is the
 // spec's. Autoplay reads only the now-intent, except rule E, which reads turns 1..ENGAGE_AUTO_LOOK of the tracks, and
-// rule E2 (M2b v13, D108), which answers a visible wind-up of an elite, rare or dungeon boss in the engage round.
+// rule E2 (M2b v13, D108), which answers a visible wind-up of an elite, rare or dungeon boss in the engage round, and
+// rule H (M2b v14, D111), which waits while every living enemy is SAPPED and Sap will cancel a wind-up (the track's cancel).
 // Expedition map (rules 1.9.9): the default map policy explores what it can leave cleanly and walks to the cheapest
 // Road around the Dimming; it reads only what the player sees (seen nodes, the skeleton, the Dimming).
 // The default talent build, bar and item bar are exported for the dev tools (debug.build, engine-api.md 12).
@@ -10418,6 +10474,22 @@ function engageAnswer(s) {
   return null;
 }
 
+/** A track entry is a wind-up whose cancel the track predicts by SAPPED (rules 7.11, D52): Sap will answer it. */
+const sapCancels = (x) => !!(x.windup && x.cancel && x.cancel.by === 'SAPPED' && x.cancel.stagger);
+
+/**
+ * Rule H (rules 7.9, M2b v14 row 1 (a), D111), after rules 1-2 and before rule 3, not in the engage round: wait while
+ * every living enemy is SAPPED and some SAPPED enemy's track shows, after its now-entry, a wind-up whose cancel the track
+ * predicts by SAPPED (rules 7.11). Any damage would break Sap; the wait lets Sap cancel the wind-up (STAGGERED, rules
+ * 7.12), and the PASS keeps STEALTH (rules 7.4). Any class with SAPPED enemies (today the Rogue). Off with GATES.sapHold.
+ * Exported for the UI's answers (answers.js).
+ */
+function sapWait(s) {
+  const f = s.fight;
+  if (!GATES.sapHold || !f || isEngageRound(f) || !allSapped(s)) return false;
+  return f.enemies.some((e) => e.alive && e.track && e.track.some((x) => x.turn > turnOf(f, e) && sapCancels(x)));
+}
+
 function combatPolicy(s) {
   const f = s.fight;
   const p = s.player;
@@ -10443,6 +10515,8 @@ function combatPolicy(s) {
       if (id && CONSUMABLE[id].dispersal && itemUsableInCombat(s, id)) return { type: 'USE_ITEM', slot: i, target: null };
     }
   }
+  // H (M2b v14, D111): wait in the shadows while Sap will cancel a wind-up.
+  if (sapWait(s)) return { type: 'PASS' };
   // 3. Interrupt the cast with the highest estimated damage (ties: lowest index)
   const casts = f.enemies.filter(intentIsCast).sort((a, b) => b.intent.est - a.intent.est || a.idx - b.idx);
   for (const e of casts) {
@@ -11479,12 +11553,16 @@ function createDebug(api) {
 
 });
 __bundle.def("src/engine/answers.js", function* (__ns, __link) {
-let SPELL, ENGAGE_OPTION, ENGAGE_OPTIONS, DEATHBLOW_EMPOWER, EMPOWER_DMG, STAGGER_DMG, MAIM_HEAL; __link.imp("src/constants.js", [["SPELL", (v) => { SPELL = v; }], ["ENGAGE_OPTION", (v) => { ENGAGE_OPTION = v; }], ["ENGAGE_OPTIONS", (v) => { ENGAGE_OPTIONS = v; }], ["DEATHBLOW_EMPOWER", (v) => { DEATHBLOW_EMPOWER = v; }], ["EMPOWER_DMG", (v) => { EMPOWER_DMG = v; }], ["STAGGER_DMG", (v) => { STAGGER_DMG = v; }], ["MAIM_HEAL", (v) => { MAIM_HEAL = v; }]]); let findSt, petAlive; __link.imp("src/engine/damage.js", [["findSt", (v) => { findSt = v; }], ["petAlive", (v) => { petAlive = v; }]]); let isEngageRound, isSingle; __link.imp("src/engine/track.js", [["isEngageRound", (v) => { isEngageRound = v; }], ["isSingle", (v) => { isSingle = v; }]]); let engageAct, engageError, engagePreview, isDisrupt, windupTurn; __link.imp("src/engine/engage.js", [["engageAct", (v) => { engageAct = v; }], ["engageError", (v) => { engageError = v; }], ["engagePreview", (v) => { engagePreview = v; }], ["isDisrupt", (v) => { isDisrupt = v; }], ["windupTurn", (v) => { windupTurn = v; }]]); let castError; __link.imp("src/engine/spells.js", [["castError", (v) => { castError = v; }]]); let engageAnswer; __link.imp("src/engine/autoplay.js", [["engageAnswer", (v) => { engageAnswer = v; }]]); __link.exp({ "windupView": () => windupView, "autoplayEngage": () => autoplayEngage });
+let SPELL, ENGAGE_OPTION, ENGAGE_OPTIONS, DEATHBLOW_EMPOWER, EMPOWER_DMG, STAGGER_DMG, MAIM_HEAL, GATES; __link.imp("src/constants.js", [["SPELL", (v) => { SPELL = v; }], ["ENGAGE_OPTION", (v) => { ENGAGE_OPTION = v; }], ["ENGAGE_OPTIONS", (v) => { ENGAGE_OPTIONS = v; }], ["DEATHBLOW_EMPOWER", (v) => { DEATHBLOW_EMPOWER = v; }], ["EMPOWER_DMG", (v) => { EMPOWER_DMG = v; }], ["STAGGER_DMG", (v) => { STAGGER_DMG = v; }], ["MAIM_HEAL", (v) => { MAIM_HEAL = v; }], ["GATES", (v) => { GATES = v; }]]); let findSt, hasSt, petAlive; __link.imp("src/engine/damage.js", [["findSt", (v) => { findSt = v; }], ["hasSt", (v) => { hasSt = v; }], ["petAlive", (v) => { petAlive = v; }]]); let isEngageRound, isSingle, turnOf; __link.imp("src/engine/track.js", [["isEngageRound", (v) => { isEngageRound = v; }], ["isSingle", (v) => { isSingle = v; }], ["turnOf", (v) => { turnOf = v; }]]); let engageAct, engageError, engagePreview, isDisrupt, windupTurn; __link.imp("src/engine/engage.js", [["engageAct", (v) => { engageAct = v; }], ["engageError", (v) => { engageError = v; }], ["engagePreview", (v) => { engagePreview = v; }], ["isDisrupt", (v) => { isDisrupt = v; }], ["windupTurn", (v) => { windupTurn = v; }]]); let castError, passKeepsStealth; __link.imp("src/engine/spells.js", [["castError", (v) => { castError = v; }], ["passKeepsStealth", (v) => { passKeepsStealth = v; }]]); let allSapped; __link.imp("src/engine/combat.js", [["allSapped", (v) => { allSapped = v; }]]); let engageAnswer; __link.imp("src/engine/autoplay.js", [["engageAnswer", (v) => { engageAnswer = v; }]]); __link.exp({ "windupView": () => windupView, "autoplayEngage": () => autoplayEngage });
 yield;
 // Wind-up answers (rules 7.7, 7.10-7.13; M2b v13, docs/specs/changes-m2b-v13.md "UI needs" 1, 2, 4 and 8): for every
 // wind-up on the enemies' tracks (each Deathblow among them) what it costs if it lands, which of the player's options
 // answer it now ("answers ready"), and autoplay's engage answer (rule E2) for the engage-round hint. Read-only views:
 // no draw, no state change; engine-api.md 6.2.
+// M2b v14 (docs/specs/changes-m2b-v14.md row 1 and "UI needs" 1-2, D111): Sap is sure if the Rogue waits while no other
+// enemy can be hit (`wait`), a PASS that waits for it is an answer (`via` 'pass'), and the hint says autoplay will wait.
+
+
 
 
 
@@ -11524,6 +11602,7 @@ function engageActions(s) {
 
 /** Engage-round answers to wind-up x of enemy e: ENGAGE actions whose preview cancels it, or sends its heavy single hit to the pet. */
 function engageAnswers(s, e, x, acts) {
+  const f = s.fight;
   const out = [];
   for (const a of acts) {
     const pv = engagePreview(s, a);
@@ -11536,9 +11615,14 @@ function engageAnswers(s, e, x, acts) {
     else if (x.heavy && isSingle(x.kind) && it.pet.includes(x.turn)) how = 'pet';
     if (!how) continue;
     const breaks = !disrupt && (a.option === 'sap' || a.spellId === 'hexbind');
+    // M2b v14 (UI need 2): Sap is sure if the Rogue then waits (PASS) until the wind-up's turn, when every other living
+    // enemy is SAPPED or none lives (nothing else to hit) and the wind-up comes after the enemy's turn 1; `stealth`: the
+    // passes keep STEALTH (rules 7.4).
+    const wait = a.option === 'sap' && !disrupt && x.turn > 1 && f.enemies.every((y) => !y.alive || y.idx === a.target || hasSt(y.st, 'SAPPED'));
     out.push({
       via: 'engage', id: a.option, name: disrupt ? 'Disrupt' : o.name, target: a.target, ...(a.spellId ? { spellId: a.spellId } : {}),
       how, sure: !breaks && a.spellId !== 'rime_burst', now: true, ...(breaks ? { breaks: true } : {}),
+      ...(wait ? { wait: true, stealth: !!GATES.passStealth && hasSt(f.p.st, 'STEALTH') } : {}),
     });
   }
   return out;
@@ -11572,6 +11656,18 @@ function barAnswers(s, e, x, R) {
 }
 
 /**
+ * The PASS answer (M2b v14 row 1, D111; UI need 2): before wind-up x of SAPPED enemy e (after its now-entry), while every
+ * living enemy is SAPPED and the track predicts the cancel by SAPPED, waiting is the answer: Sap cancels it at its turn
+ * (STAGGERED). `stealth`: the PASS keeps STEALTH (rules 7.4). Autoplay plays it (rule H) when GATES.sapHold is on.
+ */
+function passAnswer(s, e, x) {
+  const f = s.fight;
+  if (isEngageRound(f) || x.turn <= turnOf(f, e) || !allSapped(s)) return [];
+  if (!(x.cancel && x.cancel.by === 'SAPPED' && x.cancel.stagger)) return [];
+  return [{ via: 'pass', id: 'pass', name: 'Pass', target: null, how: 'wait', sure: true, now: true, stealth: passKeepsStealth(s) && hasSt(f.p.st, 'STEALTH') }];
+}
+
+/**
  * Wind-up view (M2b v13, engine-api.md 6.2): one item per wind-up in the living enemies' tracks (enemy index order, then
  * turn), null outside a fight. Item: { u, enemy, turn, round, inRounds, id, name, kind, deathblow, firstMeet, heavy,
  * target, est, empower, maims, stagger, cancel, answers, ready }. est: its estimated damage now (a Deathblow's includes
@@ -11579,9 +11675,11 @@ function barAnswers(s, e, x, R) {
  * MAIM the player (a Deathblow while the player is not MAIMED); stagger: STAGGER_DMG if answered. cancel: the track's
  * prediction (D52) that it will be cancelled. answers: [{ via ('engage' | 'spell'), id (option or spell id), name ('Disrupt'
  * on a CC-immune enemy), target, spellId (Pre-cast), how ('disrupt', 'control', 'pet', 'interrupt', 'stun', 'immune',
- * 'ward', 'image', 'dodge', 'stealth'), sure (false: a chance, an amount or a hit roll), now (usable this round),
- * breaks (Sap, Hexbind: any damage ends it before the wind-up's turn) }]: engage answers only in the engage round; bar
- * answers whose cooldown is over by the wind-up's round. ready: an answer or a cancel that does not break exists.
+ * 'ward', 'image', 'dodge', 'stealth', 'wait'), sure (false: a chance, an amount or a hit roll), now (usable this round),
+ * breaks (Sap, Hexbind: any damage ends it before the wind-up's turn), wait and stealth (M2b v14: Sap, sure if the player
+ * then passes; the passes keep STEALTH) }]: engage answers only in the engage round; the PASS answer (`via` 'pass', how
+ * 'wait'; M2b v14) while every living enemy is SAPPED and Sap will cancel it; bar answers whose cooldown is over by the
+ * wind-up's round. ready: an answer or a cancel that does not break exists.
  */
 function windupView(s) {
   const f = s.fight;
@@ -11594,7 +11692,7 @@ function windupView(s) {
     for (const x of e.track) {
       if (!x.windup) continue;
       const R = e.turn0 + x.turn - 1;
-      const answers = [...(acts.length ? engageAnswers(s, e, x, acts) : []), ...barAnswers(s, e, x, R)];
+      const answers = [...(acts.length ? engageAnswers(s, e, x, acts) : []), ...passAnswer(s, e, x), ...barAnswers(s, e, x, R)];
       const cancel = x.cancel || null;
       out.push({
         u: e.idx, enemy: e.name, turn: x.turn, round: R, inRounds: R - f.round, id: x.id, name: x.name, kind: x.kind,
@@ -11610,8 +11708,9 @@ function windupView(s) {
 /**
  * Autoplay's engage answer for the UI hint (M2b v13 UI list 8: "Autoplay will answer the Deathblow with <option>"): in the
  * engage round, when rule E2 acts (rules 7.9): { action (the ENGAGE autoAction plays), option, name ('Disrupt' on a
- * CC-immune enemy, else the option's name), target, enemy (its name), windup: { turn, id, name, deathblow } }; else null.
- * Shown whether or not autoplay is on; the front end shows it when it is.
+ * CC-immune enemy, else the option's name), target, enemy (its name), windup: { turn, id, name, deathblow }, wait (M2b
+ * v14: true when rule H will then wait a round: "..., then wait a round") }; else null. Shown whether or not autoplay is
+ * on; the front end shows it when it is.
  */
 function autoplayEngage(s) {
   if (!s.fight || !s.player) return null;
@@ -11620,9 +11719,15 @@ function autoplayEngage(s) {
   const e = s.fight.enemies[a.target];
   const t = windupTurn(e);
   const x = e.track.find((y) => y.turn === t);
+  // M2b v14 (UI need 1): `wait` when rule H will apply next round: a Sap (not Disrupt) that leaves every living enemy
+  // SAPPED, on a wind-up after the enemy's turn 1 that the Sap cancels (engagePreview), with GATES.sapHold on.
+  const pv = a.option === 'sap' && !isDisrupt(s, a) ? engagePreview(s, a) : null;
+  const it = pv && pv.enemies.find((y) => y.u === a.target);
+  const lone = s.fight.enemies.every((y) => !y.alive || y.idx === a.target || hasSt(y.st, 'SAPPED'));
+  const wait = !!(GATES.sapHold && it && it.stagger.includes(t) && t > 1 && lone);
   return {
     action: a, option: a.option, name: isDisrupt(s, a) ? 'Disrupt' : ENGAGE_OPTION[a.option].name, target: a.target, enemy: e.name,
-    windup: { turn: x.turn, id: x.id, name: x.name, deathblow: !!x.deathblow },
+    windup: { turn: x.turn, id: x.id, name: x.name, deathblow: !!x.deathblow }, ...(wait ? { wait: true } : {}),
   };
 }
 
@@ -11701,7 +11806,7 @@ function damageView(s) {
 
 });
 __bundle.def("src/rules.js", function* (__ns, __link) {
-const C = __link.ns("src/constants.js"); let normaliseSeed; __link.imp("src/rng.js", [["normaliseSeed", (v) => { normaliseSeed = v; }]]); let cloneState, deepClone, deepFreeze, IllegalActionError; __link.imp("src/engine/util.js", [["cloneState", (v) => { cloneState = v; }], ["deepClone", (v) => { deepClone = v; }], ["deepFreeze", (v) => { deepFreeze = v; }], ["IllegalActionError", (v) => { IllegalActionError = v; }]]); let validateContent, zoneContent; __link.imp("src/engine/content.js", [["validateContent", (v) => { validateContent = v; }], ["zoneContent", (v) => { zoneContent = v; }]]); let checkAction, applyAction, legal; __link.imp("src/engine/actions.js", [["checkAction", (v) => { checkAction = v; }], ["applyAction", (v) => { applyAction = v; }], ["legalActions", (v) => { legal = v; }]]); let auto; __link.imp("src/engine/autoplay.js", [["autoAction", (v) => { auto = v; }]]); let sum; __link.imp("src/engine/summary.js", [["summary", (v) => { sum = v; }]]); let newProfile, metaOffers, buyMeta, applyRunToProfile, parTime; __link.imp("src/engine/meta.js", [["newProfile", (v) => { newProfile = v; }], ["metaOffers", (v) => { metaOffers = v; }], ["buyMeta", (v) => { buyMeta = v; }], ["applyRunToProfile", (v) => { applyRunToProfile = v; }], ["parTime", (v) => { parTime = v; }]]); let zoneDanger, defaultTgt, previewTicks; __link.imp("src/engine/combat.js", [["zoneDanger", (v) => { zoneDanger = v; }], ["defaultTarget", (v) => { defaultTgt = v; }], ["pendingTicks", (v) => { previewTicks = v; }]]); let availablePets, metaFromProfile, travelAt; __link.imp("src/engine/nodes.js", [["availablePets", (v) => { availablePets = v; }], ["metaFromProfile", (v) => { metaFromProfile = v; }], ["travelLevel", (v) => { travelAt = v; }]]); let nextLanes; __link.imp("src/engine/map.js", [["nextLanes", (v) => { nextLanes = v; }]]); let xpToNext, xpCurve, diffMod, freePoints; __link.imp("src/engine/progress.js", [["xpToNext", (v) => { xpToNext = v; }], ["xpCurve", (v) => { xpCurve = v; }], ["diffMod", (v) => { diffMod = v; }], ["talentPointsFree", (v) => { freePoints = v; }]]); let itemScore, V, bagCap, countConsumable; __link.imp("src/engine/items.js", [["itemScore", (v) => { itemScore = v; }], ["V", (v) => { V = v; }], ["bagCapacity", (v) => { bagCap = v; }], ["countConsumable", (v) => { countConsumable = v; }]]); let cost, spellCd, spellAmount, spellTl, flee, castError, itemAmount; __link.imp("src/engine/spells.js", [["spellCost", (v) => { cost = v; }], ["spellCd", (v) => { spellCd = v; }], ["spellAmount", (v) => { spellAmount = v; }], ["spellTl", (v) => { spellTl = v; }], ["fleeChance", (v) => { flee = v; }], ["castError", (v) => { castError = v; }], ["itemAmount", (v) => { itemAmount = v; }]]); let resurrectOrder, offBalanceOpen, findSt, maimedHeal; __link.imp("src/engine/damage.js", [["resurrectOrder", (v) => { resurrectOrder = v; }], ["offBalanceOpen", (v) => { offBalanceOpen = v; }], ["findSt", (v) => { findSt = v; }], ["maimedHeal", (v) => { maimedHeal = v; }]]); let engageList, previewEngage; __link.imp("src/engine/engage.js", [["engageOptions", (v) => { engageList = v; }], ["engagePreview", (v) => { previewEngage = v; }]]); let engageRound; __link.imp("src/engine/track.js", [["isEngageRound", (v) => { engageRound = v; }]]); let MAP_MODES, isExpedition, expMapView; __link.imp("src/engine/expedition.js", [["MAP_MODES", (v) => { MAP_MODES = v; }], ["isExpedition", (v) => { isExpedition = v; }], ["expMapView", (v) => { expMapView = v; }]]); let heatMeter, previewHeat; __link.imp("src/engine/heat.js", [["heatView", (v) => { heatMeter = v; }], ["heatPreview", (v) => { previewHeat = v; }]]); let prepScreen, contractTracker; __link.imp("src/engine/contracts.js", [["prepView", (v) => { prepScreen = v; }], ["contractView", (v) => { contractTracker = v; }]]); let createDebug; __link.imp("src/engine/debug.js", [["createDebug", (v) => { createDebug = v; }]]); let windups, autoEngage; __link.imp("src/engine/answers.js", [["windupView", (v) => { windups = v; }], ["autoplayEngage", (v) => { autoEngage = v; }]]); let deathblowOf; __link.imp("src/engine/track.js", [["deathblowOf", (v) => { deathblowOf = v; }]]); let dmgView; __link.imp("src/engine/damageview.js", [["damageView", (v) => { dmgView = v; }]]); __link.exp({ "STATE_VERSION": () => STATE_VERSION, "C": () => C, "validateContent": () => validateContent, "newProfile": () => newProfile, "metaOffers": () => metaOffers, "buyMeta": () => buyMeta, "applyRunToProfile": () => applyRunToProfile, "IllegalActionError": () => IllegalActionError, "xpToNext": () => xpToNext, "itemScore": () => itemScore, "V": () => V, "xpCurve": () => xpCurve, "diffMod": () => diffMod, "zoneDanger": () => zoneDanger, "bossPar": () => bossPar, "bagCapacity": () => bagCapacity, "travelLevel": () => travelLevel, "resurrectCharges": () => resurrectCharges, "talentPointsFree": () => talentPointsFree, "spellCost": () => spellCost, "spellCooldown": () => spellCooldown, "spellInfo": () => spellInfo, "defaultTarget": () => defaultTarget, "isEngageRound": () => isEngageRound, "engageOptions": () => engageOptions, "engagePreview": () => engagePreview, "offBalance": () => offBalance, "heatView": () => heatView, "heatPreview": () => heatPreview, "prepView": () => prepView, "contractView": () => contractView, "fleeChance": () => fleeChance, "freePotion": () => freePotion, "potionInfo": () => potionInfo, "windupView": () => windupView, "autoplayEngage": () => autoplayEngage, "pendingTicks": () => pendingTicks, "damageView": () => damageView, "talentInfo": () => talentInfo, "newRun": () => newRun, "legalActions": () => legalActions, "whyIllegal": () => whyIllegal, "isLegal": () => isLegal, "step": () => step, "stepInPlace": () => stepInPlace, "autoAction": () => autoAction, "summary": () => summary, "serialize": () => serialize, "deserialize": () => deserialize, "mapView": () => mapView, "debug": () => debug });
+const C = __link.ns("src/constants.js"); let normaliseSeed; __link.imp("src/rng.js", [["normaliseSeed", (v) => { normaliseSeed = v; }]]); let cloneState, deepClone, deepFreeze, IllegalActionError; __link.imp("src/engine/util.js", [["cloneState", (v) => { cloneState = v; }], ["deepClone", (v) => { deepClone = v; }], ["deepFreeze", (v) => { deepFreeze = v; }], ["IllegalActionError", (v) => { IllegalActionError = v; }]]); let validateContent, zoneContent; __link.imp("src/engine/content.js", [["validateContent", (v) => { validateContent = v; }], ["zoneContent", (v) => { zoneContent = v; }]]); let checkAction, applyAction, legal; __link.imp("src/engine/actions.js", [["checkAction", (v) => { checkAction = v; }], ["applyAction", (v) => { applyAction = v; }], ["legalActions", (v) => { legal = v; }]]); let auto; __link.imp("src/engine/autoplay.js", [["autoAction", (v) => { auto = v; }]]); let sum; __link.imp("src/engine/summary.js", [["summary", (v) => { sum = v; }]]); let newProfile, metaOffers, buyMeta, applyRunToProfile, parTime; __link.imp("src/engine/meta.js", [["newProfile", (v) => { newProfile = v; }], ["metaOffers", (v) => { metaOffers = v; }], ["buyMeta", (v) => { buyMeta = v; }], ["applyRunToProfile", (v) => { applyRunToProfile = v; }], ["parTime", (v) => { parTime = v; }]]); let zoneDanger, defaultTgt, previewTicks; __link.imp("src/engine/combat.js", [["zoneDanger", (v) => { zoneDanger = v; }], ["defaultTarget", (v) => { defaultTgt = v; }], ["pendingTicks", (v) => { previewTicks = v; }]]); let availablePets, metaFromProfile, travelAt; __link.imp("src/engine/nodes.js", [["availablePets", (v) => { availablePets = v; }], ["metaFromProfile", (v) => { metaFromProfile = v; }], ["travelLevel", (v) => { travelAt = v; }]]); let nextLanes; __link.imp("src/engine/map.js", [["nextLanes", (v) => { nextLanes = v; }]]); let xpToNext, xpCurve, diffMod, freePoints; __link.imp("src/engine/progress.js", [["xpToNext", (v) => { xpToNext = v; }], ["xpCurve", (v) => { xpCurve = v; }], ["diffMod", (v) => { diffMod = v; }], ["talentPointsFree", (v) => { freePoints = v; }]]); let itemScore, V, bagCap, countConsumable; __link.imp("src/engine/items.js", [["itemScore", (v) => { itemScore = v; }], ["V", (v) => { V = v; }], ["bagCapacity", (v) => { bagCap = v; }], ["countConsumable", (v) => { countConsumable = v; }]]); let cost, spellCd, spellAmount, spellTl, flee, castError, itemAmount; __link.imp("src/engine/spells.js", [["spellCost", (v) => { cost = v; }], ["spellCd", (v) => { spellCd = v; }], ["spellAmount", (v) => { spellAmount = v; }], ["spellTl", (v) => { spellTl = v; }], ["fleeChance", (v) => { flee = v; }], ["castError", (v) => { castError = v; }], ["itemAmount", (v) => { itemAmount = v; }]]); let resurrectOrder, offBalanceOpen, findSt, maimedHeal; __link.imp("src/engine/damage.js", [["resurrectOrder", (v) => { resurrectOrder = v; }], ["offBalanceOpen", (v) => { offBalanceOpen = v; }], ["findSt", (v) => { findSt = v; }], ["maimedHeal", (v) => { maimedHeal = v; }]]); let engageList, previewEngage; __link.imp("src/engine/engage.js", [["engageOptions", (v) => { engageList = v; }], ["engagePreview", (v) => { previewEngage = v; }]]); let engageRound; __link.imp("src/engine/track.js", [["isEngageRound", (v) => { engageRound = v; }]]); let MAP_MODES, isExpedition, expMapView; __link.imp("src/engine/expedition.js", [["MAP_MODES", (v) => { MAP_MODES = v; }], ["isExpedition", (v) => { isExpedition = v; }], ["expMapView", (v) => { expMapView = v; }]]); let heatMeter, previewHeat; __link.imp("src/engine/heat.js", [["heatView", (v) => { heatMeter = v; }], ["heatPreview", (v) => { previewHeat = v; }]]); let prepScreen, contractTracker; __link.imp("src/engine/contracts.js", [["prepView", (v) => { prepScreen = v; }], ["contractView", (v) => { contractTracker = v; }]]); let createDebug; __link.imp("src/engine/debug.js", [["createDebug", (v) => { createDebug = v; }]]); let windups, autoEngage; __link.imp("src/engine/answers.js", [["windupView", (v) => { windups = v; }], ["autoplayEngage", (v) => { autoEngage = v; }]]); let deathblowOf, deathblowType; __link.imp("src/engine/track.js", [["deathblowOf", (v) => { deathblowOf = v; }], ["deathblowType", (v) => { deathblowType = v; }]]); let dmgView; __link.imp("src/engine/damageview.js", [["damageView", (v) => { dmgView = v; }]]); __link.exp({ "STATE_VERSION": () => STATE_VERSION, "C": () => C, "validateContent": () => validateContent, "newProfile": () => newProfile, "metaOffers": () => metaOffers, "buyMeta": () => buyMeta, "applyRunToProfile": () => applyRunToProfile, "IllegalActionError": () => IllegalActionError, "xpToNext": () => xpToNext, "itemScore": () => itemScore, "V": () => V, "xpCurve": () => xpCurve, "diffMod": () => diffMod, "zoneDanger": () => zoneDanger, "bossPar": () => bossPar, "bagCapacity": () => bagCapacity, "travelLevel": () => travelLevel, "resurrectCharges": () => resurrectCharges, "talentPointsFree": () => talentPointsFree, "spellCost": () => spellCost, "spellCooldown": () => spellCooldown, "spellInfo": () => spellInfo, "defaultTarget": () => defaultTarget, "isEngageRound": () => isEngageRound, "engageOptions": () => engageOptions, "engagePreview": () => engagePreview, "offBalance": () => offBalance, "heatView": () => heatView, "heatPreview": () => heatPreview, "prepView": () => prepView, "contractView": () => contractView, "fleeChance": () => fleeChance, "freePotion": () => freePotion, "potionInfo": () => potionInfo, "windupView": () => windupView, "autoplayEngage": () => autoplayEngage, "pendingTicks": () => pendingTicks, "damageView": () => damageView, "talentInfo": () => talentInfo, "newRun": () => newRun, "legalActions": () => legalActions, "whyIllegal": () => whyIllegal, "isLegal": () => isLegal, "step": () => step, "stepInPlace": () => stepInPlace, "autoAction": () => autoAction, "summary": () => summary, "serialize": () => serialize, "deserialize": () => deserialize, "mapView": () => mapView, "debug": () => debug });
 yield;
 // Rules engine: public API (docs/specs/engine-api.md has the full contract and the event list).
 //
@@ -12190,8 +12295,9 @@ function mapView(state) {
       v.archetypes = [arch(n.elite), ...(n.add ? [arch(n.add)] : [])];
       v.rare = scout ? n.rare : null;
       v.name = scout || !n.rare ? c.enemies[n.elite].name : null;
-      // M2b v13 (UI list 7): its Deathblow, shown when its name is (a rare's only with Scout's Eye)
-      v.deathblow = v.name !== null ? deathblowOf(c, n.elite, n.rare ? 'rare' : 'elite') : null;
+      // M2b v13 (UI list 7): its Deathblow, shown when its name is (a rare's only with Scout's Eye); M2b v14 (row 2, D112):
+      // a hidden name shows only the Deathblow's type
+      v.deathblow = v.name !== null ? deathblowOf(c, n.elite, n.rare ? 'rare' : 'elite') : deathblowType(c, n.elite, n.rare);
     }
     if (n.type === 'dungeon') {
       v.name = zoneContent(c, s.zone.z).dungeon.name; v.level = n.trashLevel; v.bossLevel = n.bossLevel;
@@ -18051,7 +18157,7 @@ const data = {
 
 });
 __bundle.def("src/ui/ui-text.js", function* (__ns, __link) {
-let SPELLS, TALENTS, BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS; __link.imp("src/ui/mock-data.js", [["SPELLS", (v) => { SPELLS = v; }], ["TALENTS", (v) => { TALENTS = v; }], ["STATUS_INFO", (v) => { BASE_STATUS = v; }], ["CONSUMABLES", (v) => { CONSUMABLES = v; }], ["BOONS", (v) => { BOONS = v; }], ["CLASSES", (v) => { CLASSES = v; }], ["PETS", (v) => { PETS = v; }]]); __link.exp({ "HEAT_WORDS": () => HEAT_WORDS, "tolls": () => tolls, "STATUS_INFO": () => STATUS_INFO, "windupAnswers": () => windupAnswers, "deathblowStakes": () => deathblowStakes, "deathblowKind": () => deathblowKind, "windupStakes": () => windupStakes, "ROLE_INFO": () => ROLE_INFO, "CONTROL_WORD": () => CONTROL_WORD, "engageText": () => engageText, "engageHint": () => engageHint, "ENGAGE_KIND": () => ENGAGE_KIND, "CLASS_UI": () => CLASS_UI, "spellText": () => spellText, "bounceText": () => bounceText, "talentText": () => talentText, "talentTotals": () => talentTotals, "consumableText": () => consumableText, "boonText": () => boonText, "petText": () => petText, "UNIQUE_EFFECT_TEXT": () => UNIQUE_EFFECT_TEXT, "ECHO_LINE": () => ECHO_LINE, "humanize": () => humanize, "CONTRACT_KIND": () => CONTRACT_KIND, "familyName": () => familyName, "bandText": () => bandText, "contractTarget": () => contractTarget, "contractTitle": () => contractTitle, "contractSentence": () => contractSentence, "hubOfferSentence": () => hubOfferSentence, "contractKindText": () => contractKindText, "contractSitesText": () => contractSitesText, "contractItemsText": () => contractItemsText, "levelsText": () => levelsText, "prepOptionEffect": () => prepOptionEffect, "prepFlavour": () => prepFlavour, "numWord": () => numWord, "plural": () => plural, "pct1": () => pct1, "pct2": () => pct2, "strengthText": () => strengthText, "freeActionText": () => freeActionText, "statusEffect": () => statusEffect, "RES_NAME": () => RES_NAME, "resurrectText": () => resurrectText, "DANGER_LEVELS": () => DANGER_LEVELS, "dangerRule": () => dangerRule, "dangerBanner": () => dangerBanner, "META_KIND": () => META_KIND, "metaEffect": () => metaEffect, "metaReqText": () => metaReqText, "oathEffect": () => oathEffect, "nextRunLines": () => nextRunLines, "linkedText": () => linkedText });
+let SPELLS, TALENTS, BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS; __link.imp("src/ui/mock-data.js", [["SPELLS", (v) => { SPELLS = v; }], ["TALENTS", (v) => { TALENTS = v; }], ["STATUS_INFO", (v) => { BASE_STATUS = v; }], ["CONSUMABLES", (v) => { CONSUMABLES = v; }], ["BOONS", (v) => { BOONS = v; }], ["CLASSES", (v) => { CLASSES = v; }], ["PETS", (v) => { PETS = v; }]]); __link.exp({ "HEAT_WORDS": () => HEAT_WORDS, "tolls": () => tolls, "STATUS_INFO": () => STATUS_INFO, "windupAnswers": () => windupAnswers, "deathblowStakes": () => deathblowStakes, "deathblowAnswers": () => deathblowAnswers, "deathblowKind": () => deathblowKind, "sapWaitText": () => sapWaitText, "windupStakes": () => windupStakes, "ROLE_INFO": () => ROLE_INFO, "CONTROL_WORD": () => CONTROL_WORD, "engageText": () => engageText, "engageHint": () => engageHint, "ENGAGE_KIND": () => ENGAGE_KIND, "CLASS_UI": () => CLASS_UI, "spellText": () => spellText, "bounceText": () => bounceText, "talentText": () => talentText, "talentTotals": () => talentTotals, "consumableText": () => consumableText, "boonText": () => boonText, "petText": () => petText, "UNIQUE_EFFECT_TEXT": () => UNIQUE_EFFECT_TEXT, "ECHO_LINE": () => ECHO_LINE, "humanize": () => humanize, "CONTRACT_KIND": () => CONTRACT_KIND, "familyName": () => familyName, "bandText": () => bandText, "contractTarget": () => contractTarget, "contractTitle": () => contractTitle, "contractSentence": () => contractSentence, "hubOfferSentence": () => hubOfferSentence, "contractKindText": () => contractKindText, "contractSitesText": () => contractSitesText, "contractItemsText": () => contractItemsText, "levelsText": () => levelsText, "prepOptionEffect": () => prepOptionEffect, "prepFlavour": () => prepFlavour, "numWord": () => numWord, "plural": () => plural, "pct1": () => pct1, "pct2": () => pct2, "strengthText": () => strengthText, "freeActionText": () => freeActionText, "statusEffect": () => statusEffect, "RES_NAME": () => RES_NAME, "resurrectText": () => resurrectText, "DANGER_LEVELS": () => DANGER_LEVELS, "dangerRule": () => dangerRule, "dangerBanner": () => dangerBanner, "META_KIND": () => META_KIND, "metaEffect": () => metaEffect, "metaReqText": () => metaReqText, "oathEffect": () => oathEffect, "nextRunLines": () => nextRunLines, "linkedText": () => linkedText });
 yield;
 // Display text for tooltips and screens (descriptions of spells, talents, statuses, consumables,
 // boons and classes). Wording follows docs/specs/rules.md; numbers that matter come from the
@@ -18116,10 +18222,18 @@ function deathblowStakes(w) {
   if (!w) return '';
   return `Answered: staggered, −${pct(w.stagger)} damage for the rest of the fight. Landed: empowered, +${pct(w.empower)} damage${w.maims ? `, and you are MAIMED: healing you receive −${pct(w.maimHeal)}, potions included` : ''}.`;
 }
-/** How a Deathblow can be answered, by its kind (the map's `type`): 'heavy' or 'cast' (rules 7.12, 7.13 (3)). */
+/** What answers a Deathblow of this type (the map's `type`: 'heavy' or 'cast'; rules 7.12, 7.13 (3)), without its noun. */
+function deathblowAnswers(type) {
+  return type === 'heavy' ? 'stun, control or interrupt it on its turn; a full dodge, a ward or your pet taking it also answer it'
+    : 'interrupt it or control the caster on its turn';
+}
+/** How a Deathblow can be answered, by its kind (the map's `type`): "heavy blow: ..." or "cast: ...". */
 function deathblowKind(type) {
-  return type === 'heavy' ? 'heavy blow: stun, control or interrupt it on its turn; a full dodge, a ward or your pet taking it also answer it'
-    : 'cast: interrupt it or control the caster on its turn';
+  return `${type === 'heavy' ? 'heavy blow' : 'cast'}: ${deathblowAnswers(type)}`;
+}
+/** M2b v14 (UI need 2): Sap is sure if the Rogue waits (windupView answer `wait`; `stealth`: the passes keep STEALTH). */
+function sapWaitText(a) {
+  return `Sure if you wait: press Pass next round${a && a.stealth ? '; you stay hidden' : ''}`;
 }
 /** The lasting result in words, from the engine's EMPOWER_DMG and STAGGER_DMG (data.v2.num); no number written here. */
 function windupStakes(n) {
@@ -20359,10 +20473,13 @@ function engineBackend(seedOpt, runOpts = {}) {
     if (!R.windupView || s.fight.over) return [];
     try { return JSON.parse(JSON.stringify(R.windupView(s) || [])); } catch { return []; }
   }
-  /** Autoplay's engage answer (R.autoplayEngage, rule E2): { option, name, target, enemy, windup } or null; the hint reads it. */
+  /**
+   * Autoplay's engage answer (R.autoplayEngage, rule E2): { option, name, target, enemy, windup, wait } or null; the hint reads
+   * it. M2b v14: `wait` when autoplay will then wait a round (rule H: Sap cancels the Deathblow).
+   */
   function autoEngageOf(s) {
     if (!R.autoplayEngage || s.fight.over) return null;
-    try { const a = R.autoplayEngage(s); return a ? { option: a.option, name: a.name, target: a.target, enemy: a.enemy, windup: { ...a.windup } } : null; } catch { return null; }
+    try { const a = R.autoplayEngage(s); return a ? { option: a.option, name: a.name, target: a.target, enemy: a.enemy, windup: { ...a.windup }, wait: !!a.wait } : null; } catch { return null; }
   }
   /**
    * The engage round (rules 7.10, combat v2) for the engage panel, or null outside it: R.engageOptions in the class order
@@ -23569,7 +23686,7 @@ function banner(ctx, x, y, u, t, col) {
 
 });
 __bundle.def("src/ui/tracks.js", function* (__ns, __link) {
-let h, add, clear, fmtNum; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }]]); let abilityIcon, roleIcon, engageIcon, controlIcon, statusIcon, spellIcon, windupIcon, deathblowIcon; __link.imp("src/ui/art-icons.js", [["abilityIcon", (v) => { abilityIcon = v; }], ["roleIcon", (v) => { roleIcon = v; }], ["engageIcon", (v) => { engageIcon = v; }], ["controlIcon", (v) => { controlIcon = v; }], ["statusIcon", (v) => { statusIcon = v; }], ["spellIcon", (v) => { spellIcon = v; }], ["windupIcon", (v) => { windupIcon = v; }], ["deathblowIcon", (v) => { deathblowIcon = v; }]]); let tip, spellTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["spellTip", (v) => { spellTip = v; }]]); let ROLE_INFO, CONTROL_WORD, ENGAGE_KIND, engageText, engageHint, numWord, plural, windupAnswers, windupStakes, deathblowStakes; __link.imp("src/ui/ui-text.js", [["ROLE_INFO", (v) => { ROLE_INFO = v; }], ["CONTROL_WORD", (v) => { CONTROL_WORD = v; }], ["ENGAGE_KIND", (v) => { ENGAGE_KIND = v; }], ["engageText", (v) => { engageText = v; }], ["engageHint", (v) => { engageHint = v; }], ["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["windupAnswers", (v) => { windupAnswers = v; }], ["windupStakes", (v) => { windupStakes = v; }], ["deathblowStakes", (v) => { deathblowStakes = v; }]]); __link.exp({ "OPENING_ROUNDS": () => OPENING_ROUNDS, "targetWord": () => targetWord, "windupState": () => windupState, "firstWindup": () => firstWindup, "windupItem": () => windupItem, "answerKey": () => answerKey, "answerName": () => answerName, "answersToShow": () => answersToShow, "answerKind": () => answerKind, "answersOnBar": () => answersOnBar, "windupLines": () => windupLines, "windupBanner": () => windupBanner, "stackBadges": () => stackBadges, "stackTip": () => stackTip, "entriesOf": () => entriesOf, "trackChips": () => trackChips, "trackRows": () => trackRows, "entryTip": () => entryTip, "roleBadge": () => roleBadge, "roleTags": () => roleTags, "roleTip": () => roleTip, "offBalanceText": () => offBalanceText, "offBalanceTip": () => offBalanceTip, "createRuler": () => createRuler, "HINT_KEY": () => HINT_KEY, "createEngagePanel": () => createEngagePanel });
+let h, add, clear, fmtNum; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }]]); let abilityIcon, roleIcon, engageIcon, controlIcon, statusIcon, spellIcon, windupIcon, deathblowIcon; __link.imp("src/ui/art-icons.js", [["abilityIcon", (v) => { abilityIcon = v; }], ["roleIcon", (v) => { roleIcon = v; }], ["engageIcon", (v) => { engageIcon = v; }], ["controlIcon", (v) => { controlIcon = v; }], ["statusIcon", (v) => { statusIcon = v; }], ["spellIcon", (v) => { spellIcon = v; }], ["windupIcon", (v) => { windupIcon = v; }], ["deathblowIcon", (v) => { deathblowIcon = v; }]]); let tip, spellTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["spellTip", (v) => { spellTip = v; }]]); let ROLE_INFO, CONTROL_WORD, ENGAGE_KIND, engageText, engageHint, numWord, plural, windupAnswers, windupStakes, deathblowStakes, sapWaitText; __link.imp("src/ui/ui-text.js", [["ROLE_INFO", (v) => { ROLE_INFO = v; }], ["CONTROL_WORD", (v) => { CONTROL_WORD = v; }], ["ENGAGE_KIND", (v) => { ENGAGE_KIND = v; }], ["engageText", (v) => { engageText = v; }], ["engageHint", (v) => { engageHint = v; }], ["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["windupAnswers", (v) => { windupAnswers = v; }], ["windupStakes", (v) => { windupStakes = v; }], ["deathblowStakes", (v) => { deathblowStakes = v; }], ["sapWaitText", (v) => { sapWaitText = v; }]]); __link.exp({ "OPENING_ROUNDS": () => OPENING_ROUNDS, "targetWord": () => targetWord, "windupState": () => windupState, "firstWindup": () => firstWindup, "windupItem": () => windupItem, "answerKey": () => answerKey, "answerName": () => answerName, "answersToShow": () => answersToShow, "answerKind": () => answerKind, "answersOnBar": () => answersOnBar, "windupLines": () => windupLines, "windupBanner": () => windupBanner, "stackBadges": () => stackBadges, "stackTip": () => stackTip, "entriesOf": () => entriesOf, "trackChips": () => trackChips, "trackRows": () => trackRows, "entryTip": () => entryTip, "roleBadge": () => roleBadge, "roleTags": () => roleTags, "roleTip": () => roleTip, "offBalanceText": () => offBalanceText, "offBalanceTip": () => offBalanceTip, "createRuler": () => createRuler, "HINT_KEY": () => HINT_KEY, "createEngagePanel": () => createEngagePanel });
 yield;
 // tracks.js - the combat v2 display (docs/specs/combat-v2.md 10; engine-api.md 1, 6): each enemy's intent track on its
 // nameplate (chips, the next action largest) and in the target frame (rows), role badges with their pack role, the
@@ -23585,7 +23702,8 @@ yield;
 // answers ready now (R.windupView answers: engage options in the engage round, bar spells in its round; "sure" and "now")
 // are named with their keys on that line and the engage panel, and highlighted on the engage cards; "No answer ready" in
 // red when windupView says ready is false; EMPOWERED from a Deathblow is its own "+100 %" badge; a first meeting's
-// enemy is tagged "New".
+// enemy is tagged "New". M2b v14 ("UI needs" 2): Sap on a lone enemy reads "Sure if you wait: press Pass next round; you
+// stay hidden" (answer `wait`, `stealth`) on its card and in the tooltip, and the PASS answer is named with its key X.
 // The first-fight hint (owner playtest 2026-11-11 08:03): beside the engage panel in the first engage round of each class,
 // the three openers on keys Q, W, E; dismissed for good with "Got it" or the end of that round (localStorage HINT_KEY).
 // Presentation only: every entry, target, estimate, option, preview and window comes from the engine through the bridge
@@ -23674,8 +23792,9 @@ function windupItem(v, e, x) {
   const c = v && v.combat;
   return c && c.windups ? c.windups.find((w) => w.u === e.idx && w.turn === x.turn) || null : null;
 }
-/** The key of an answer: Q, W or E for an engage option (the panel's order), 1-7 for a bar spell; '' when none. */
+/** The key of an answer: Q, W or E for an engage option (the panel's order), 1-7 for a bar spell, X for Pass (M2b v14); '' when none. */
 function answerKey(v, a) {
+  if (a.via === 'pass') return 'X';
   if (a.via === 'engage') { const o = v.combat && v.combat.engage ? v.combat.engage.options.find((q) => q.id === a.id) : null; return (o && o.key) || ''; }
   const i = v.player ? v.player.bar.indexOf(a.id) : -1;
   return i >= 0 ? String(i + 1) : '';
@@ -23702,9 +23821,19 @@ function answerEls(list) {
   const out = [];
   list.forEach((x, i) => {
     if (i) out.push(h('span.sep', ' · '));
-    out.push(h('span.ans-o', { dataset: { via: x.a.via, id: x.a.id, sure: x.a.sure ? '1' : '' } }, x.key ? h('kbd', x.key) : null, ` ${x.name}${x.a.sure ? '' : ' ?'}`));
+    // M2b v14: Sap that is sure if you wait reads "Sap, then wait" (no "?")
+    out.push(h('span.ans-o', { dataset: { via: x.a.via, id: x.a.id, sure: x.a.sure ? '1' : '', wait: x.a.wait ? '1' : '' } }, x.key ? h('kbd', x.key) : null, ` ${x.name}${x.a.sure ? '' : x.a.wait ? ', then wait' : ' ?'}`));
   });
   return out;
+}
+/**
+ * An answer's note in the Deathblow tooltip: a chance and why; M2b v14 (UI need 2): Sap "sure if you wait: press Pass next
+ * round; you stay hidden" (`wait`, `stealth`), and the PASS answer "Sap stops it" while every enemy is sapped.
+ */
+function answerNote(a) {
+  if (a.via === 'pass') return ` (Sap stops it${a.stealth ? '; you stay hidden' : ''})`;
+  if (a.wait) return ` (${sapWaitText(a).replace(/^S/, 's')})`;
+  return `${a.sure ? '' : ' (a chance)'}${a.breaks ? ' (any damage before its turn wakes it)' : ''}`;
 }
 /** What answers it, in the badge's words: "your trap", "Sapped", "your pet". */
 function answeredBy(st) {
@@ -23762,7 +23891,7 @@ function windupLines(e, x, ctx, st) {
   if (w && (!st || st.kind === 'open')) {
     const sh = answersToShow(w, v, ctx);
     if (!w.ready) lines.push(h('div.tt-warn.db-no', 'No answer ready: nothing you have now can stop it. Kill it first, or be ready to take it.'));
-    else if (sh.list.length) lines.push(h('div.tt-line.db-a', `${sh.when === 'now' ? 'Answer it now' : `Ready by round ${w.round}`}: ${sh.list.map((q) => `${q.key ? `[${q.key}] ` : ''}${q.name}${q.a.sure ? '' : ' (a chance)'}${q.a.breaks ? ' (any damage before its turn wakes it)' : ''}`).join(', ')}.`));
+    else if (sh.list.length) lines.push(h('div.tt-line.db-a', `${sh.when === 'now' ? 'Answer it now' : `Ready by round ${w.round}`}: ${sh.list.map((q) => `${q.key ? `[${q.key}] ` : ''}${q.name}${answerNote(q.a)}`).join(', ')}.`));
   }
   const bar = answersOnBar(v, ctx, x);
   if (bar.length) {
@@ -23821,7 +23950,12 @@ function windupBanner(box, e, ctx) {
         if (!wi.ready) box.append(h('span.db-a.no', 'No answer ready'));
         else if (sh.list.length) box.append(h(`span.db-a${sh.when === 'now' ? '.now' : ''}`, h('span.db-al', sh.when === 'now' ? 'Answer: ' : `${whenText(x)}: `), answerEls(sh.list.slice(0, 3))));
       }
-    } else box.append(h('span.wu-t', msg));
+    } else {
+      // M2b v14 (UI need 2): Sap holds while every enemy is sapped: waiting answers it (windupView's PASS answer, key X)
+      const pass = !stopped && wi ? wi.answers.filter((a) => a.via === 'pass' && a.now) : [];
+      if (pass.length) box.append(h('span.wu-t', `${answeredBy(state)}: answered if you wait`), h('span.db-a.now', h('span.db-al', ' Wait: '), answerEls(pass.map((a) => ({ a, key: answerKey(ctx.view, a), name: answerName(a, ctx) })))));
+      else box.append(h('span.wu-t', msg));
+    }
   } else box.append(h('span.wu-b', h('img', { src: windupIcon(), alt: '' }), stopped ? 'Wind-up stopped' : `Wind-up ${whenText(x)}`), h('span.wu-t', msg));
   tip(box, () => h('div.tt-spell', h('div.tt-row', h('div.tt-name', `${e.name}: ${x.windupOf ? x.windupOf.name : x.name}`), h('div.tt-rank', x.now ? 'This round' : `Round ${x.round}`)), windupLines(e, x, ctx, state)));
   windupHover(box, e, x, ctx);
@@ -24310,12 +24444,14 @@ function createEngagePanel(root, ctx) {
       // M2b v13: the card is an answer to a Deathblow (windupView): highlighted; "sure" false (Sap, Rime Burst) marked a chance
       const dbA = dbAns[o.id] || [];
       const dbSure = dbA.some((a) => a.sure);
+      const dbWait = dbSure ? null : dbA.find((a) => a.wait) || null; // M2b v14 (UI need 2): Sap, sure if you wait
       const card = h(`div.eg-opt.k-${o.kind}${off ? '.off' : ''}${notHere ? '.off-here' : ''}${disrupt ? '.disrupt' : ''}${ans.length ? '.answers' : ''}${o.spells && ctx.ui.precastArmed ? '.armed' : ''}${dbA.length ? '.db-ans' : ''}`,
-        { role: o.spells ? null : 'button', tabindex: '-1', dataset: { opt: o.id, disrupt: disrupt ? '1' : '', answers: ans.map((w) => `${w.e.idx}:${w.x.turn}`).join(' '), db: dbA.length ? (dbSure ? 'sure' : 'chance') : '' }, 'aria-label': `${name}${disrupt ? ` (${o.name})` : ''} (${ENGAGE_KIND[o.kind] || o.kind})` },
+        { role: o.spells ? null : 'button', tabindex: '-1', dataset: { opt: o.id, disrupt: disrupt ? '1' : '', answers: ans.map((w) => `${w.e.idx}:${w.x.turn}`).join(' '), db: dbA.length ? (dbSure ? 'sure' : dbWait ? 'wait' : 'chance') : '' }, 'aria-label': `${name}${disrupt ? ` (${o.name})` : ''} (${ENGAGE_KIND[o.kind] || o.kind})` },
         h('img.eg-ic', { src: engageIcon(o.id), alt: '' }),
         h('div.eg-main', h('div.eg-nm', h('span.eg-name', name), disrupt ? h('span.eg-was', o.name) : null, h('span.eg-kind', ENGAGE_KIND[o.kind] || o.kind), o.key ? h('span.kbd', o.key) : null),
           h('div.eg-txt', disrupt ? disruptText(v, here, ans) : engageText(data, d.num)), tline, answerTag(ans),
-          dbA.length && !dbSure ? h('div.eg-dbc', dbA.some((a) => a.breaks) ? 'A chance: any damage before its turn wakes it' : 'A chance: it can fail') : null));
+          dbWait ? h('div.eg-dbc.wait', sapWaitText(dbWait))
+            : dbA.length && !dbSure ? h('div.eg-dbc', dbA.some((a) => a.breaks) ? 'A chance: any damage before its turn wakes it' : 'A chance: it can fail') : null));
       if (dbA.length) card.prepend(h('i.eg-dbtag', 'Deathblow'));
       if (disrupt || notHere) tip(card, () => disruptTip(v, o, here ?? cur, disrupt, notHere));
       if (o.spells && !off) {
@@ -24786,6 +24922,8 @@ yield;
 // Deathblow (R.windupView answers: now, or ready by its round) ringed in crimson; the turn prompt names the Deathblow's answer
 // with its key or "No answer ready"; with autoplay on, the engage round says "Autoplay will answer the Deathblow with ..."
 // (R.autoplayEngage); a first meeting's enemy is tagged "New".
+// M2b v14 (docs/specs/changes-m2b-v14.md "UI needs" 1-2): the autoplay hint adds ", then wait a round" (autoplayEngage
+// `wait`, rule H); while Sap holds on every enemy, the Pass button carries the answer ring and the prompt says to wait.
 
 
 
@@ -25427,6 +25565,9 @@ function createHud(root, ctx) {
     els.auto.classList.toggle('on', !!v.autoplay);
     els.auto.setAttribute('aria-checked', v.autoplay ? 'true' : 'false');
     els.pass.disabled = !fight; els.flee.disabled = !fight || !L.flee;
+    // M2b v14 (UI need 2): Pass answers an open Deathblow while every enemy is sapped (windupView's PASS answer): its ring
+    const passDb = !!fight && (c.windups || []).some((w) => w.deathblow && w.answers.some((a) => a.via === 'pass' && a.now));
+    els.pass.classList.toggle('db-now', passDb); els.pass.dataset.db = passDb ? 'now' : '';
     els.flee.firstChild.textContent = ctx.ui.fleeArmed ? 'Confirm?' : 'Flee';
     turnPrompt(v, fight && !v.autoplay, fight && v.autoplay);
   }
@@ -25445,7 +25586,8 @@ function createHud(root, ctx) {
     if (ae) {
       els.turn.querySelector('.tp-k').textContent = `Autoplay · R${c.round}`;
       const tEl = els.turn.querySelector('.tp-t');
-      const t = `Autoplay will answer the ${ae.windup.deathblow ? 'Deathblow' : 'wind-up'} with ${ae.name}`;
+      // M2b v14 (UI need 1): rule H follows a Sap on a lone special enemy (autoplayEngage `wait`)
+      const t = `Autoplay will answer the ${ae.windup.deathblow ? 'Deathblow' : 'wind-up'} with ${ae.name}${ae.wait ? ', then wait a round' : ''}`;
       const sig = `auto:${t}:${ae.enemy}`;
       if (tEl.dataset.sig !== sig) { tEl.dataset.sig = sig; clear(tEl); tEl.append(t, h('span.tp-s', ` (${ae.enemy}'s ${ae.windup.name})`)); }
       els.turn.dataset.kind = ae.windup.deathblow ? 'auto-db' : 'auto';
@@ -25468,6 +25610,8 @@ function createHud(root, ctx) {
       const first = dbSh.list.find((x) => x.key) || null;
       k = 'Deathblow';
       if (!dbw.ready) { parts = [`Deathblow ${when}: `, h('b.tp-no', 'No answer ready'), dbw.inRounds > 0 ? '. Kill it first or brace for it' : '']; dbKind = 'deathblow-no'; }
+      // M2b v14 (UI need 2): waiting is the answer while Sap holds (windupView's PASS answer)
+      else if (first && dbSh.when === 'now' && first.a.via === 'pass') { parts = [`Deathblow ${when}: wait with `, kb('X'), ` Pass: Sap stops it${first.a.stealth ? ', and you stay hidden' : ''}`]; dbKind = 'deathblow'; }
       else if (first && dbSh.when === 'now' && first.a.target != null && first.a.target !== (ctx.ui.target ?? c.target)) { parts = [`Deathblow ${when} on ${dbw.enemy}: `, kb('Tab'), ' to it, then ', kb(first.key), ` ${first.name}`]; dbKind = 'deathblow'; }
       else if (first && dbSh.when === 'now') { parts = [`Deathblow ${when}: answer with `, kb(first.key), ` ${first.name}${first.a.sure ? '' : ' (a chance)'}`]; dbKind = 'deathblow'; }
       else if (first) { parts = [`Deathblow ${when}: keep `, kb(first.key), ` ${first.name} for round ${dbw.round}`]; dbKind = 'deathblow'; }
@@ -25958,7 +26102,7 @@ function buildOaths(v, ctx) {
 
 });
 __bundle.def("src/ui/screens.js", function* (__ns, __link) {
-let h, add, clear, fmtNum, moneyEl, moneyText, clamp; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["moneyText", (v) => { moneyText = v; }], ["clamp", (v) => { clamp = v; }]]); let spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon, deathblowIcon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["roleIcon", (v) => { roleIcon = v; }], ["deathblowIcon", (v) => { deathblowIcon = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }]]); let tip, itemTip, spellTip, hideTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }], ["hide", (v) => { hideTip = v; }]]); let conColor, heroPortrait, travelState; __link.imp("src/ui/hud.js", [["conColor", (v) => { conColor = v; }], ["heroPortrait", (v) => { heroPortrait = v; }], ["travelState", (v) => { travelState = v; }]]); let numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, deathblowKind; __link.imp("src/ui/ui-text.js", [["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["pct1", (v) => { pct1 = v; }], ["ROLE_INFO", (v) => { ROLE_INFO = v; }], ["humanize", (v) => { humanize = v; }], ["tolls", (v) => { tolls = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["deathblowKind", (v) => { deathblowKind = v; }]]); let createMeta, buildOaths, echoAmt; __link.imp("src/ui/meta.js", [["createMeta", (v) => { createMeta = v; }], ["buildOaths", (v) => { buildOaths = v; }], ["echoAmt", (v) => { echoAmt = v; }]]); let heatKey, previewBlock, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME; __link.imp("src/ui/heat.js", [["heatKey", (v) => { heatKey = v; }], ["previewBlock", (v) => { previewBlock = v; }], ["heatBadge", (v) => { heatBadge = v; }], ["buildHeatSummary", (v) => { buildHeatSummary = v; }], ["fmtTime", (v) => { fmtTime = v; }], ["HEAT_NAME", (v) => { HEAT_NAME = v; }]]); let createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon; __link.imp("src/ui/prep.js", [["createPrepScreen", (v) => { createPrepScreen = v; }], ["buildHubOffer", (v) => { buildHubOffer = v; }], ["siteBadge", (v) => { siteBadge = v; }], ["siteLines", (v) => { siteLines = v; }], ["contractTip", (v) => { contractTip = v; }], ["kindIcon", (v) => { kindIcon = v; }]]); let contractTitle; __link.imp("src/ui/ui-text.js", [["contractTitle", (v) => { contractTitle = v; }]]); __link.exp({ "createScreens": () => createScreens, "disarmSpyglass": () => disarmSpyglass, "expiringHere": () => expiringHere, "expiryText": () => expiryText, "buildMap": () => buildMap });
+let h, add, clear, fmtNum, moneyEl, moneyText, clamp; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["moneyText", (v) => { moneyText = v; }], ["clamp", (v) => { clamp = v; }]]); let spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon, deathblowIcon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["roleIcon", (v) => { roleIcon = v; }], ["deathblowIcon", (v) => { deathblowIcon = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }]]); let tip, itemTip, spellTip, hideTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }], ["hide", (v) => { hideTip = v; }]]); let conColor, heroPortrait, travelState; __link.imp("src/ui/hud.js", [["conColor", (v) => { conColor = v; }], ["heroPortrait", (v) => { heroPortrait = v; }], ["travelState", (v) => { travelState = v; }]]); let numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, deathblowKind, deathblowAnswers; __link.imp("src/ui/ui-text.js", [["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["pct1", (v) => { pct1 = v; }], ["ROLE_INFO", (v) => { ROLE_INFO = v; }], ["humanize", (v) => { humanize = v; }], ["tolls", (v) => { tolls = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["deathblowKind", (v) => { deathblowKind = v; }], ["deathblowAnswers", (v) => { deathblowAnswers = v; }]]); let createMeta, buildOaths, echoAmt; __link.imp("src/ui/meta.js", [["createMeta", (v) => { createMeta = v; }], ["buildOaths", (v) => { buildOaths = v; }], ["echoAmt", (v) => { echoAmt = v; }]]); let heatKey, previewBlock, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME; __link.imp("src/ui/heat.js", [["heatKey", (v) => { heatKey = v; }], ["previewBlock", (v) => { previewBlock = v; }], ["heatBadge", (v) => { heatBadge = v; }], ["buildHeatSummary", (v) => { buildHeatSummary = v; }], ["fmtTime", (v) => { fmtTime = v; }], ["HEAT_NAME", (v) => { HEAT_NAME = v; }]]); let createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon; __link.imp("src/ui/prep.js", [["createPrepScreen", (v) => { createPrepScreen = v; }], ["buildHubOffer", (v) => { buildHubOffer = v; }], ["siteBadge", (v) => { siteBadge = v; }], ["siteLines", (v) => { siteLines = v; }], ["contractTip", (v) => { contractTip = v; }], ["kindIcon", (v) => { kindIcon = v; }]]); let contractTitle; __link.imp("src/ui/ui-text.js", [["contractTitle", (v) => { contractTitle = v; }]]); __link.exp({ "createScreens": () => createScreens, "disarmSpyglass": () => disarmSpyglass, "expiringHere": () => expiringHere, "expiryText": () => expiryText, "buildMap": () => buildMap });
 yield;
 // Centre screens by phase: class select, hub/camp, zone map, node dialogs, loot, quest rewards,
 // vendor, trainer, shrine, rest, treasure and the run summary (its Killed by line names the killing blow, never an id).
@@ -25971,6 +26115,8 @@ yield;
 // entered Hot or Scorched and items heat raised carry a badge; the summary has a heat card (heat.js).
 // M2b v13 (docs/specs/changes-m2b-v13.md "UI needs" 7): elite and dungeon node tooltips name the special enemy's Deathblow
 // and its kind (mapView `deathblow`, `bossDeathblow`), so the answer can be planned before entering.
+// M2b v14 ("UI needs" 3): a hidden elite (a rare without Scout's Eye, every expedition elite) shows only its Deathblow's
+// type: "Deathblow: a heavy blow (...)" or "Deathblow: a cast (...)", no name.
 
 
 
@@ -26706,10 +26852,16 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
 }
 /**
  * M2b v13 (UI needs 7): a node's Deathblow line from mapView (`deathblow` of an elite, `bossDeathblow` of a dungeon): its name,
- * kind (heavy blow or cast) and what answers it; null when the view gives none (a hidden rare, an expedition elite).
+ * kind (heavy blow or cast) and what answers it; null when the view gives none. M2b v14 (UI need 3): an elite whose name is
+ * hidden (a rare without Scout's Eye, every expedition elite) gives only `{ type }`: "Deathblow: a heavy blow (...)" or
+ * "Deathblow: a cast (...)", no name.
  */
 function deathblowLine(db, boss) {
   if (!db) return null;
+  if (!db.name) {
+    return h('div.tt-line.tt-db', { dataset: { deathblow: '', type: db.type } }, h('img', { src: deathblowIcon(), alt: '' }),
+      h('b', `Deathblow: ${db.type === 'heavy' ? 'a heavy blow' : 'a cast'}`), ` (${deathblowAnswers(db.type)}). Landed, it maims you.`);
+  }
   return h('div.tt-line.tt-db', { dataset: { deathblow: db.id, type: db.type } }, h('img', { src: deathblowIcon(), alt: '' }),
     h('b', `${boss ? "The boss's Deathblow" : 'Deathblow'}: ${db.name}`), ` (${deathblowKind(db.type)}). Landed, it maims you.`);
 }
