@@ -49,7 +49,7 @@ Count: 8 rows. 5 number rows, 1 mechanic (with two catalogue numbers), 1 bot con
 
 **Row 5, end boss.** BOSS_HP 13066. New constant BOSS_DMG_MULT = 1.17 (rules 13). Every damage dealt by an enemy of the end-boss fight is multiplied by BOSS_DMG_MULT at the point where (1 + asc) is applied today: damage.js snapshot (`x *= 1 + asc` for an enemy with `asc`) becomes `x *= BOSS_DMG_MULT × (1 + asc)` for Oruvath and the Shards, and the Brand tick (combat.js) becomes `BRAND_DMG × stacks × BOSS_DMG_MULT × (1 + asc) × levelMod`. Note the guard: today the multiply runs only when `asc` is non-zero; with BOSS_DMG_MULT it must also run at asc 0 (the scratch engine stored `(1 + asc) × BOSS_DMG_MULT - 1` in the unit's asc field). Shard HP stays `SHARD_HP × (1 + asc)`; Final Dark is unaffected in practice (99 999). Dungeon bosses, Camp waves and Dimmed encounters are not end-boss fights. Intent estimates use the snapshot, so they show the new numbers without other changes.
 
-**Row 6, Rogue HP.** CLASS.rogue: hpBase 100, hpPerLevel 21 (level 1: 121 HP instead of 90; level 20: 520 instead of 470; level 60: 1 360 instead of 1 270, before STA and items).
+**Row 6, Rogue HP.** CLASS.rogue: hpBase 100, hpPerLevel 21 (level 1: 100 HP instead of 70; level 20: 499 instead of 450; level 60: 1 339 instead of 1 250, before STA and items; the formula uses L - 1, rules 4.1).
 
 **Row 7, SAP_TURNS 4.** Constant only: SAPPED for 4 turns (status duration 5, rules 7.10 "n turns" rule), still broken by any damage. Autoplay unchanged (rule E: the Rogue never saps).
 
