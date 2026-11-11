@@ -3,9 +3,11 @@
 // trains each spell with 50 % chance at a trainer; buys nothing; autoplay combat (rules 7.9); manual profile.
 // All draws come from the bot stream (BotRng), so game streams are the same as for every other bot.
 // Expedition map (expedition.md 10.2): uniform over the fog view's legal moves, the Road at 50 %, the Bell at 10 %.
+// Start camp (prep runs): random affordable purchases until no point can be spent; the hub contract at 50 %.
 import { C, R, legal } from '../lib/engine.mjs';
 import { makeBot, randomTalent, learnOrderBar, desiredItemBar, foodAction } from '../lib/policy.mjs';
 import { fogInput } from '../lib/view.mjs';
+import { randomPrep, randomHubContract } from './shared.mjs';
 
 export function createRandomBot({ rng }) {
   let trainerPlan = null; // spells this trainer visit will learn or train (one 50 % draw per class spell)
@@ -68,5 +70,8 @@ export function createRandomBot({ rng }) {
       if (!s.hub.used.trainer) return { type: 'SERVICE', service: 'trainer' };
       return rng.chance(0.5) ? { type: 'FIGHT_BOSS' } : { type: 'CAMP_GRIND' };
     },
+    // Start camp (expedition.md 10.2 random; prep runs): random affordable purchases until none is left; hub contract at 50 %.
+    prep: (s) => randomPrep(s, rng),
+    hubContract: randomHubContract(rng),
   });
 }

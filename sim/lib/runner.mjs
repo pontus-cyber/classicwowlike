@@ -4,7 +4,9 @@
 // record's `xs` holds C_step (cell.oracle: the planner's fog choice against the oracle's at every map decision; the
 // acting bot's action is what is played), C_route (cell.route: `cr` = zones whose realised route equals the oracle's
 // route from the same zone-entry state, played on a copy by oracleRoute) and the close-call zones (B43).
-import { R, newRunFor, hash32 } from './engine.mjs';
+// Start camp and contracts (cell.prep: newRun prep, expedition.md 2-3; cell.prepPolicy: the B40 overrides 'none' and
+// 'random'; cell.expMeta: the expedition meta entries of 8.2 as profile unlocks): the record's `ct` (recorder.mjs).
+import { R, newRunFor, withExpMeta, hash32 } from './engine.mjs';
 import { BAL, SIM } from './params.mjs';
 import { createBot } from '../bots/index.mjs';
 import { Recorder } from './recorder.mjs';
@@ -29,9 +31,9 @@ export function cellPet(cell) {
  * cell.prof, maxActions }. Returns { record, state }.
  */
 export function runWithBot(cell, seed, risk, opts = {}) {
-  const profile = opts.profile || buildProfile(cell.prof, cell.cls);
-  const bot = createBot(cell.bot, { classId: cell.cls, seed, risk, tree: cell.tree, style: cell.style, variant: cell.variant });
-  const s = newRunFor({ classId: cell.cls, petId: cellPet(cell), seed, profile, mapMode: cell.map || null, vision: cell.vision || null, dimming: cell.dimming === false ? false : null });
+  const profile = opts.profile || withExpMeta(buildProfile(cell.prof, cell.cls), cell.expMeta || null);
+  const bot = createBot(cell.bot, { classId: cell.cls, seed, risk, tree: cell.tree, style: cell.style, variant: cell.variant, ...(cell.prepPolicy ? { prepPolicy: cell.prepPolicy } : {}) });
+  const s = newRunFor({ classId: cell.cls, petId: cellPet(cell), seed, profile, mapMode: cell.map || null, vision: cell.vision || null, dimming: cell.dimming === false ? false : null, prep: !!cell.prep });
   // Expedition measures (expedition.md 11.1; MILESTONES 2b.4). cell.oracle: at every map decision of the acting bot,
   // the planner's fog choice and the oracle's full-information choice from the same state (C_step = agree / n, B41);
   // neither changes the run. Close calls (B43): zones in which the front came within one hop of the player.
@@ -138,8 +140,8 @@ export function playRun(cell, seed, risk, opts = {}) {
 
 /** Replay a run from its seed and action log with the pure step; returns the final state hash. */
 export function replayHash(cell, seed, log, profile = null) {
-  const prof = profile || buildProfile(cell.prof, cell.cls);
-  let s = newRunFor({ classId: cell.cls, petId: cellPet(cell), seed, profile: prof, mapMode: cell.map || null, vision: cell.vision || null, dimming: cell.dimming === false ? false : null });
+  const prof = profile || withExpMeta(buildProfile(cell.prof, cell.cls), cell.expMeta || null);
+  let s = newRunFor({ classId: cell.cls, petId: cellPet(cell), seed, profile: prof, mapMode: cell.map || null, vision: cell.vision || null, dimming: cell.dimming === false ? false : null, prep: !!cell.prep });
   for (const a of log) s = R.step(s, a).state;
   return hash32(R.serialize(s));
 }

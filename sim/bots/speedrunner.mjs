@@ -9,11 +9,13 @@
 // Expedition map (expedition.md 10.2; MILESTONES 2b.4): speedExpMap, the planner's belief search on the fog view with
 // the speed style's time weight (PLANNER_TIME_MULT × STYLE_SPEED_TIME_MULT) until the level reaches 10z - 1, then
 // the cheapest Road, or the Bell when that way crosses the Dimming or takes longer than the Bell's channel.
+// Contracts (2b.5, prep): its search values the sites of its Delve contracts (planFog `sites`); start camp speedPrep
+// (Delves, Second Clapper, Field Draughts), a Delve hub contract from Reserve (shared.mjs).
 import { C, R, legal, hpFrac } from '../lib/engine.mjs';
 import { BAL, SIM } from '../lib/params.mjs';
 import { makeCtx, evalNode, copyM, levelPos } from '../lib/model.mjs';
-import { createValueBot, FULL_KIT } from './shared.mjs';
-import { exitLevelOf, planFog, exitStep, expExitLevel } from './planner.mjs';
+import { createValueBot, FULL_KIT, speedPrep, speedHubContract } from './shared.mjs';
+import { exitLevelOf, planFog, exitStep, expExitLevel, contractSites } from './planner.mjs';
 import { fogInput, escapeV } from '../lib/view.mjs';
 import { trainerUseful } from '../lib/policy.mjs';
 
@@ -93,7 +95,7 @@ export function speedExpMap(s, risk) {
     if (view.bell.charges > 0 && (e.dims > 0 || e.time > view.bell.channelTime)) return { type: 'RING_BELL' };
     return exitStep(view).action;
   }
-  return planFog(view, ctx, { exit, leaveNow: true, bellKeep: 0 }).action;
+  return planFog(view, ctx, { exit, leaveNow: true, bellKeep: 0, sites: contractSites(s, view, ctx) }).action;
 }
 
 export function createSpeedrunnerBot({ classId, risk, tree, variant = null }) {
@@ -110,5 +112,7 @@ export function createSpeedrunnerBot({ classId, risk, tree, variant = null }) {
     },
     map: (s) => (s.mapMode === 'expedition' ? speedExpMap(s, risk) : speedMap(s, risk)),
     grindWaves: (s) => speedGrindWaves(s, risk),
+    prep: speedPrep,
+    hubContract: speedHubContract,
   });
 }

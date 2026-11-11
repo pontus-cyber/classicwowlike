@@ -8,7 +8,8 @@
 // OFF_BALANCE, so the bots work on the M2 v5 engine (no track, Rogue stealth round only) and on combat v2.
 // Expedition fog map (expedition.md 5, 10; MILESTONES 2b.4): fogInput (the bots' only zone input: R.mapView), skeleton
 // helpers on that view (hops, Dimming depth, escape route), the belief over unknown nodes, and, separated, the oracle's
-// full-information input (diagnostic only, B41).
+// full-information input (diagnostic only, B41). Contracts (MILESTONES 2b.5; prep): siteKnowledge, the chance that a
+// node is a site of an active contract from the view's site marks and R.contractView only.
 import { R, C, makeRng } from './engine.mjs';
 import { treeClone } from './clone.mjs';
 
@@ -280,6 +281,64 @@ export function typeBelief(view, node) {
     if (x > 0) { w[t] = x; tot += x; }
   }
   return Object.entries(w).map(([t, x]) => [t, x / tot]).sort((a, b) => b[1] - a[1]);
+}
+
+// ---------------- Contract sites on the fog view (expedition.md 3.3, 5.2, 10.2-10.3; prep) ----------------
+/** Tracker's Notes radius of the run (0 without): a perk the player bought or owns, not a zone content. */
+export const trackerRadius = (s) => (s.exp && s.exp.vision && s.exp.vision.tracker) || 0;
+
+const QG = new Set(['quest', 'grind']);
+
+/**
+ * The bots' contract knowledge in the current zone: the active contracts of R.contractView (kind, target region, need,
+ * progress, reward; the tracker never names a site's node) and, per node of the fog view, the chance that it is a site
+ * of each (expedition.md 10.2 planner): 1 where the node shows the contract's mark (mapView `sites`) and on the dungeon
+ * of a Delve contract (a held Delve shows its type); 0 on a done node, on a fully seen node without the mark, inside the
+ * Tracker's radius without it, and for a Delve anywhere else; otherwise the prior: Cull CULL_SITE_IN in the target region
+ * and CULL_SITE_OUT elsewhere (the regions' mean when the node's region is not shown) × the chance the node is a Quest or
+ * Grind (typeBelief); Bounty BOUNTY_PLACED over the ring 2-3 nodes the target region is expected to have (the view's ring
+ * 2-3 nodes / regions), on ring 2-3 nodes that are not a Road or the Shardfall. Returns null without active contracts,
+ * else { act: [contract], perNode: Map(id -> [[index in act, P]]), known: [ids with P = 1] }.
+ */
+export function siteKnowledge(s, view) {
+  if (!view || !s.exp || !s.exp.prep) return null;
+  const cv = R.contractView(s);
+  if (!cv) return null;
+  const act = cv.contracts.filter((k) => k.status === 'active').map((k) => ({ id: k.id, kind: k.kind, z: k.z, region: k.region, family: k.family, need: k.need, progress: k.progress, reward: k.reward, value: 0 }));
+  if (!act.length) return null;
+  const tr = trackerRadius(s);
+  const nReg = view.regions.length || 1;
+  const ring23 = view.nodes.filter((n) => (n.ring === 2 || n.ring === 3) && !n.road && !n.shardfall).length;
+  const pBounty = Math.min(1, (C.BOUNTY_PLACED * nReg) / Math.max(1, ring23));
+  const perNode = new Map();
+  const known = [];
+  for (const n of view.nodes) {
+    if (n.hub || n.done) continue;
+    const regionShown = n.region !== null && n.region !== undefined;
+    let qg = null;
+    for (let i = 0; i < act.length; i++) {
+      const k = act[i];
+      let p = 0;
+      if (n.sites && n.sites.includes(k.id)) p = 1;
+      else if (n.know === 'full' || (tr > 0 && n.hops <= tr)) p = 0;
+      else if (k.kind === 'delve') p = n.know === 'type' && n.type === 'dungeon' ? 1 : 0;
+      else if (k.kind === 'cull') {
+        if (qg === null) qg = n.know === 'type' ? (QG.has(n.type) ? 1 : 0) : typeBelief(view, n).reduce((a, [t, x]) => a + (QG.has(t) ? x : 0), 0);
+        const reg = regionShown ? (n.region === k.region ? C.CULL_SITE_IN : C.CULL_SITE_OUT) : (C.CULL_SITE_IN + (nReg - 1) * C.CULL_SITE_OUT) / nReg;
+        p = reg * qg;
+      } else if (k.kind === 'bounty') {
+        const ok = (n.ring === 2 || n.ring === 3) && !n.road && !n.shardfall && !(n.know === 'type' && n.type !== 'elite');
+        p = ok ? pBounty * (regionShown ? (n.region === k.region ? 1 : 0) : 1 / nReg) : 0;
+      }
+      if (p > 0) {
+        let l = perNode.get(n.id);
+        if (!l) { l = []; perNode.set(n.id, l); }
+        l.push([i, p]);
+        if (p >= 1 && !known.includes(n.id)) known.push(n.id);
+      }
+    }
+  }
+  return { act, perNode, known };
 }
 
 /**

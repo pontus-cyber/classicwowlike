@@ -14,14 +14,15 @@
 // moves on the fog view only (sim/lib/view.mjs fogInput): seen nodes valued exactly, unseen nodes as the expectation
 // over the region kind's weights (zone mean when the region is unknown), the Dimming exactly, Dimmed encounters at
 // SIM.EXP_DIM_DEATH × (1 + depth), leaf = leaving by the cheapest Road (Dimmed steps on the way) or the Bell, leaving
-// valued with an under-level penalty (SIM.EXP_UNDER_LEVEL_VALUE per level under 10z). Contract sites are not valued
-// until contracts exist (2b.5). oracleMap: the same search on the oracle's full-information view (diagnostic only:
-// C_step, B41; never acts in a measured run).
+// valued with an under-level penalty (SIM.EXP_UNDER_LEVEL_VALUE per level under 10z). Contract sites (2b.5, prep;
+// expedition.md 10.3): the site term on every node entered and a leaf that walks to a known site (contractSites). The
+// start camp and the hub contract: plannerPrep, plannerHubContract (shared.mjs). oracleMap: the same search on the
+// oracle's full-information view (diagnostic only: C_step, B41; never acts in a measured run).
 import { C, R, legal, hpFrac } from '../lib/engine.mjs';
 import { BAL, HEAT, SIM, EXP } from '../lib/params.mjs';
-import { makeCtx, evalNode, copyM, levelPos, eatModel } from '../lib/model.mjs';
-import { createValueBot, hubFull, FULL_KIT } from './shared.mjs';
-import { fogInput, oracleInput, dimmedAtV, dimDepthV, enterableV, escapeV, typeBelief, protoCell } from '../lib/view.mjs';
+import { makeCtx, evalNode, copyM, levelPos, eatModel, contractValue, siteTerm } from '../lib/model.mjs';
+import { createValueBot, hubFull, FULL_KIT, plannerPrep, plannerHubContract } from './shared.mjs';
+import { fogInput, oracleInput, dimmedAtV, dimDepthV, enterableV, escapeV, typeBelief, protoCell, siteKnowledge, viewHops } from '../lib/view.mjs';
 
 const ROWS = C.ZONE_CHOICE_ROWS;
 
@@ -131,14 +132,26 @@ function dimCost(ctx, m, d) {
   return v;
 }
 
-/** Value of entering view node id at zone toll zt (exact when seen, belief otherwise); mutates m; returns { value, hours }. */
-function enterValue(view, ctx, m, id, zt, pays) {
+/** Type of a hidden node that is a sure site (a Tracker's mark): Cull 'quest', Bounty 'elite', Delve 'dungeon'; else null. */
+function siteType(sk, id) {
+  const l = sk && sk.perNode.get(id);
+  if (!l) return null;
+  for (const [i, p] of l) if (p >= 1) return { cull: 'quest', bounty: 'elite', delve: 'dungeon' }[sk.act[i].kind];
+  return null;
+}
+
+/**
+ * Value of entering view node id at zone toll zt (exact when seen, belief otherwise), plus its contract site term (sk:
+ * siteKnowledge with values, expedition.md 10.3); mutates m; returns { value, hours }.
+ */
+function enterValue(view, ctx, m, id, zt, pays, sk = null) {
   const n = view.nodes[id];
   if (n.know === 'full') {
     const ev = evalNode(ctx, m, n, { pays: pays || null });
-    return { value: ev.value, hours: ev.hours };
+    return { value: ev.value + siteTerm(sk, m, id), hours: ev.hours };
   }
-  const bel = n.know === 'type' ? [[n.type, 1]] : typeBelief(view, n);
+  const st = n.know === 'none' ? siteType(sk, id) : null;
+  const bel = n.know === 'type' ? [[n.type, 1]] : st ? [[st, 1]] : typeBelief(view, n);
   let value = 0;
   let hours = 0;
   let mBest = null;
@@ -153,16 +166,20 @@ function enterValue(view, ctx, m, id, zt, pays) {
   }
   if (mBest) Object.assign(m, mBest);
   else tollCost(ctx, m, view.walkTime);
+  value += siteTerm(sk, m, id);
   return { value, hours: Math.max(view.walkTime, Math.round(hours)) };
 }
 
 /**
  * The belief search (expedition.md 10.2 planner). view: the fog view (or the oracle's); ctx: makeCtx of the decision;
  * opts: { depth, exit (level), pays ({nodeId: heat state} of the first step, R.heatPreview), bellKeep (value of holding a
- * Bell charge), leaveNow (speedrunner: leave as soon as the level is reached) }. Returns { action, value, options }.
+ * Bell charge), leaveNow (speedrunner: leave as soon as the level is reached), sites (contractSites: the site term of
+ * expedition.md 10.3 on every node entered, and a leaf that walks to a known site beyond the search depth, enters it and
+ * leaves from there) }. Returns { action, value, options }.
  */
 export function planFog(view, ctx, opts = {}) {
   const depthMax = opts.depth ?? EXP.PLANNER_FOG_DEPTH;
+  const sk = opts.sites || null;
   const exit = opts.exit ?? expExitLevel(view.z);
   const keep = opts.bellKeep ?? (view.z < C.ZONE_COUNT ? EXP.BELL_KEEP_VALUE : 0);
   const under = (m) => -Math.max(0, exit - levelPos(m)) * SIM.EXP_UNDER_LEVEL_VALUE;
@@ -192,8 +209,34 @@ export function planFog(view, ctx, opts = {}) {
     if (dd >= 0) v += dimCost(ctx, m2, dd);
     return v + under(m2);
   };
-  const leaf = (pos, zt, m, bell) => Math.max(leaveRoad(pos, zt, m), leaveBell(pos, zt, m, bell));
   const resolved = new Set();
+  // Known sites (a mark, or a Delve's dungeon) beyond the search: walk there, enter it, then leave by the cheaper way
+  // (expedition.md 10.2-10.3: the fog bots walk to the sites they know of).
+  const siteLeaf = (pos, zt, m, bell) => {
+    let best = -Infinity;
+    for (const t of sk.known) {
+      if (t === pos || resolved.has(t)) continue;
+      const h = viewHops(view, t)[pos];
+      if (!(h >= 1) || h === Infinity) continue;
+      const arrive = zt + (h - 1) * view.walkTime;
+      if (dimmedAtV(view, t, arrive)) continue;
+      const n = view.nodes[t];
+      const m2 = copyM(m);
+      let v = tollCost(ctx, m2, (h - 1) * view.walkTime);
+      const ev = evalNode(ctx, m2, n.know === 'full' ? n : protoCell(view, n, n.know === 'type' ? n.type : siteType(sk, t)));
+      v += ev.value + siteTerm(sk, m2, t);
+      const zt2 = arrive + ev.hours;
+      const dd = dimDepthV(view, t, zt2);
+      if (dd >= 0) v += dimCost(ctx, m2, dd);
+      v += Math.max(leaveRoad(t, zt2, m2), leaveBell(t, zt2, m2, bell));
+      if (v > best) best = v;
+    }
+    return best;
+  };
+  const leaf = (pos, zt, m, bell) => {
+    const v = Math.max(leaveRoad(pos, zt, m), leaveBell(pos, zt, m, bell));
+    return sk && sk.known.length ? Math.max(v, siteLeaf(pos, zt, m, bell)) : v;
+  };
   const rec = (pos, zt, m, d, bell) => {
     let best = leaf(pos, zt, m, bell);
     if (d >= depthMax) return best;
@@ -203,7 +246,7 @@ export function planFog(view, ctx, opts = {}) {
       let v;
       let zt2;
       if (enterableV(view, id, zt, resolved) || (view.nodes[id].know !== 'full' && !view.nodes[id].hub && !resolved.has(id) && !dimmedAtV(view, id, zt))) {
-        const ev = enterValue(view, ctx, m2, id, zt, null);
+        const ev = enterValue(view, ctx, m2, id, zt, null, sk);
         zt2 = zt + ev.hours;
         v = ev.value;
         if (v < -view.walkTime * BAL.VAL_TIME * ctx.hourMult) {
@@ -247,7 +290,7 @@ export function planFog(view, ctx, opts = {}) {
       const id = mv.nodeId;
       if (mv.via === 'enter') {
         const m2 = copyM(m0);
-        const ev = enterValue(view, ctx, m2, id, zt, opts.pays && opts.pays[id]);
+        const ev = enterValue(view, ctx, m2, id, zt, opts.pays && opts.pays[id], sk);
         let v = ev.value;
         const zt2 = zt + mv.time;
         const dd = dimDepthV(view, id, zt2);
@@ -293,7 +336,18 @@ export function firstPays(s, view, heat) {
 export function planExpMap(s, risk, style, hourMult = 1, heat = null, input = fogInput) {
   const view = input(s);
   const ctx = makeCtx(s, risk, { style, hourMult, heat });
-  return planFog(view, ctx, { pays: firstPays(s, view, heat) });
+  return planFog(view, ctx, { pays: firstPays(s, view, heat), sites: contractSites(s, view, ctx) });
+}
+
+/**
+ * Contract sites of the decision (prep; expedition.md 10.3): view.mjs siteKnowledge with each active contract's reward
+ * valued at the decision's model state (contractValue: XP levels, the best item choice against what is equipped, gold);
+ * null without active contracts.
+ */
+export function contractSites(s, view, ctx) {
+  const sk = siteKnowledge(s, view);
+  if (sk) for (const k of sk.act) k.value = contractValue(ctx, k.reward);
+  return sk;
 }
 
 /**
@@ -315,7 +369,7 @@ export function expHub(s, inn) {
  * oracle: true builds the oracle as an acting bot (diagnostic only, B41 C_route): the runner plays it on a copy of the
  * zone-entry state to get the oracle's route; it never plays a measured run.
  */
-export function createPlannerBot({ classId, risk, tree, style = 'balanced', variant = null, combat = null, name = 'planner', oracle = false }) {
+export function createPlannerBot({ classId, risk, tree, style = 'balanced', variant = null, combat = null, name = 'planner', oracle = false, rng = null, prepPolicy = null }) {
   const hm = plannerHourMult(variant);
   const heat = plannerHeat(variant);
   const inn = (x) => innByValue(x, risk, style, hm, heat);
@@ -327,5 +381,9 @@ export function createPlannerBot({ classId, risk, tree, style = 'balanced', vari
     hub: (s) => (s.mapMode === 'expedition' ? expHub(s, inn) : hubFull(s, inn)),
     map: (s) => (s.mapMode === 'expedition' ? expMap(s) : planMap(s, risk, style, hm, heat).action),
     grindWaves: (s) => valueGrindWaves(s, risk, style, hm, heat),
+    // Start camp and hub contract (expedition.md 10.2 planner; prep): plannerPrep, plannerHubContract (shared.mjs).
+    prep: (s) => plannerPrep(s, risk),
+    hubContract: (s) => plannerHubContract(s, risk),
+    prepPolicy, rng,
   });
 }

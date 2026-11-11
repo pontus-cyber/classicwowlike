@@ -26,6 +26,10 @@
 //   ex: expedition runs (rules 1.9; expedition.md 11.1, MILESTONES 2b.4): the summary's expedition block (expRecord);
 //       fight kind 'dim' (Dimmed encounters) is FIGHT_KINDS' last code
 //   xs: expedition measures of the runner (sim/lib/runner.mjs): C_step agree / decisions, close-call zones
+//   ct: start camp and contracts (prep runs only; expedition.md 2-3, 11.1 B39, B40, B42, B46): { c: per contract taken
+//       [zone, kind, from ('b' board, 'h' hub), state ('c' complete, 'e' expired, 'a' abandoned, 'h' held at the end),
+//       progress, need], xpC (XP of contract rewards), xp (all XP gained), bought (prep options), res (Reserve left),
+//       tr (1: Tracker's Notes), ch (1: Region Charts) }
 import { C, R } from './engine.mjs';
 import { TYPE_CODE } from './risk.mjs';
 import { C2 } from './params.mjs';
@@ -63,6 +67,7 @@ export class Recorder {
     this.trainCheck = trainCheck;
     this.f2 = [];
     this.wy = {};
+    this.xpC = 0;
   }
 
   /** State facts before a step; with the action `a`, the combat v2 fields that need the state before it. */
@@ -235,6 +240,7 @@ export class Recorder {
           }
           break;
         case 'travel': this.travelLv.push(b.level); break;
+        case 'xp': if (e.why === 'contract') this.xpC += e.amount; break;
         case 'service':
           if (this.trainCheck && e.service === 'trainer' && e.where !== 'node') {
             const c = trainAllCovered(s);
@@ -284,6 +290,7 @@ export class Recorder {
       ht: sum && sum.heat ? sum.heat.nodesByState : null,
       ...(sum && sum.expedition ? { ex: expRecord(sum.expedition) } : {}),
       ...(meta.xs ? { xs: meta.xs } : {}),
+      ...(s.exp && s.exp.prep ? { ct: this.contractRecord(s) } : {}),
       ...(meta.rep ? { rep: meta.rep } : {}),
       ...(meta.pr ? { pr: meta.pr } : {}),
       ...(meta.bm ? { bm: meta.bm } : {}),
@@ -294,6 +301,17 @@ export class Recorder {
 }
 
 const round2 = (x) => Math.round(x * 100) / 100;
+
+const CT_STATE = { complete: 'c', expired: 'e', abandoned: 'a', held: 'h' };
+/** Contract block of a prep run's record (see the header: `ct`). */
+Recorder.prototype.contractRecord = function contractRecord(s) {
+  const x = s.exp;
+  return {
+    c: x.contracts.map((k) => [k.z, k.kind, k.from === 'hub' ? 'h' : 'b', CT_STATE[k.state] || '?', k.progress, k.need]),
+    xpC: this.xpC, xp: (s.stats && s.stats.xpGained) || 0, bought: s.prep ? s.prep.bought.slice() : [], res: x.reserve || 0,
+    tr: x.vision.tracker > 0 ? 1 : 0, ch: x.vision.regions ? 1 : 0,
+  };
+};
 
 /**
  * Expedition block of a record (engine summary `expedition`, engine-api.md 10.4): walks, passes, Dimmed fights and

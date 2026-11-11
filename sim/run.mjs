@@ -13,6 +13,9 @@
 //            expedition map (expedition.md 10-11, MILESTONES 2b.4): --map expedition   --vision guide,charts,pathfinder
 //            (vision kit, any subset)   --dimming off (B44 diagnostic)   --oracle (record C_step against the oracle, B41)
 //            --route (with --oracle: C_route, the oracle replays every zone from its entry state on a copy, B41)
+//            start camp and contracts (expedition.md 2-3, 10.2; MILESTONES 2b.5): --prep (with --map expedition)
+//            --prep-policy none|random (B40: every point to Reserve, or random purchases; the bot's map play is kept)
+//            --exp-meta quartermaster:2,cartographer:1,old_hand:1 (expedition meta entries of 8.2 as profile unlocks)
 //   campaigns: node sim/run.mjs --campaign N --class <c|all> --out <dir> [--risk-in <risk.json>]
 //
 // Writes <out>/<bot>-<profile>[-style][-variant][-pet]/{runs-<class>.jsonl, summary.json, summary.md, risk.json}.
@@ -36,13 +39,15 @@ function parse(argv) {
     const a = argv[i];
     if (!a.startsWith('--')) throw new Error(`unexpected argument ${a}`);
     const k = a.slice(2);
-    if (k === 'log' || k === 'replay' || k === 'pairs' || k === 'oracle' || k === 'route') { o[k] = true; continue; }
+    if (k === 'log' || k === 'replay' || k === 'pairs' || k === 'oracle' || k === 'route' || k === 'prep') { o[k] = true; continue; }
     o[k] = argv[++i];
   }
   return o;
 }
 
 const args = parse(process.argv.slice(2));
+if (args.prep && args.map !== 'expedition') throw new Error('--prep needs --map expedition');
+if (args['prep-policy'] && !['none', 'random'].includes(args['prep-policy'])) throw new Error('--prep-policy must be none or random');
 const classes = !args.class || args.class === 'all' ? CLASSES : args.class.split(',');
 for (const c of classes) if (!CLASSES.includes(c)) throw new Error(`unknown class ${c}`);
 const workers = Number(args.workers || cpus().length);
@@ -73,6 +78,8 @@ try {
       prof: args.profile || 'fresh', trees, style: args.style || null, variant: args.variant || null, pet: args.pet || null,
       out, warmup: args.warmup !== undefined ? Number(args.warmup) : SIM.WARMUP_RUNS, obsIn, log: !!args.log, workers, replay: !!args.replay, pairs: !!args.pairs,
       map: args.map || null, vision: args.vision ? Object.fromEntries(args.vision.split(',').map((k) => [k, true])) : null, dimming: args.dimming === 'off' ? false : true, oracle: !!args.oracle, route: !!args.route,
+      prep: !!args.prep, prepPolicy: args['prep-policy'] || null,
+      expMeta: args['exp-meta'] ? Object.fromEntries(args['exp-meta'].split(',').map((x) => { const [id, r] = x.split(':'); return [id, Number(r || 1)]; })) : null,
     });
     for (const [cls, x] of Object.entries(r.perClass)) {
       const m = x.metrics;

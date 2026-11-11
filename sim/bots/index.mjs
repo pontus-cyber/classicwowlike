@@ -23,6 +23,7 @@ export function createBot(name, opts) {
   const rng = new BotRng(opts.seed);
   const risk = opts.risk || priorTable();
   const o = { ...opts, rng, risk, tree: opts.tree ?? 0 };
+  // opts.prepPolicy ('none' | 'random'; B40): overrides a value bot's start camp and hub contract (shared.mjs).
   switch (name) {
     case 'random': return createRandomBot(o);
     case 'greedy': return createGreedyBot(o);

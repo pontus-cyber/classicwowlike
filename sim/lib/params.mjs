@@ -244,7 +244,7 @@ export const HEAT = {
 
 /**
  * Expedition map bots and targets (expedition.md 10, 11.1, 13; MILESTONES 2b.4): the bot constants of section 13
- * (PLANNER_FOG_DEPTH, BELL_KEEP_VALUE) and the B41-B47 bands. B39, B40, B46 (contracts, prep) wait for 2b.5.
+ * (PLANNER_FOG_DEPTH, BELL_KEEP_VALUE) and the B41-B47 bands; the contract and prep block (B39, B40, B42, B46) below.
  */
 export const EXP = {
   PLANNER_FOG_DEPTH: 4,
@@ -260,6 +260,39 @@ export const EXP = {
   WALKS_PER_ZONE_MAX: 2.5,
   BELL_USE: [0.4, 0.9],
 };
+
+/**
+ * Start camp and contracts (expedition.md 10.2, 10.3, 11.1, 13; MILESTONES 2b.5): the bot constants of section 13
+ * (SITE_PARTIAL_MULT, EST_COMPLETE) and the B39, B40, B42, B46 bands, same names and values (pp as shares).
+ */
+Object.assign(EXP, {
+  SITE_PARTIAL_MULT: 0.8,
+  EST_COMPLETE: { cull: 0.55, bounty: 0.50, delve: 0.90 },
+  PLAN_GAIN_MIN: 0.03,
+  PLAN_VS_RANDOM_MIN: 0.02,
+  COMPLETION_P0: [0.45, 0.65],
+  COMPLETION_PALL: [0.65, 0.85],
+  COMPLETION_GREEDY_GAP: 0.08,
+  VISION_COMPLETION_MIN: 0.10,
+  CONTRACT_XP_SHARE: [0.08, 0.20],
+});
+
+/** Start camp and contracts: numbers the spec leaves open [assumption: starting values, sim 2026-11-11e]. */
+Object.assign(SIM, {
+  /** Prior completion gain of Tracker's Notes for Cull and Bounty contracts (prototype, expedition.md 12.2: 56 -> 77 %),
+   *  until the planner's completion table has observations of both vision profiles. */
+  EST_TRACKER_GAIN: 0.20,
+  /** Expected best of n item choices as a multiple of one roll's expected gain (index n; the quest choice of 3 is 1.5 in
+   *  sim/lib/model.mjs evalNode). */
+  CONTRACT_CHOICE_GEAR: [0, 1, 1.3, 1.5, 1.65],
+  /** Value units of a preparation point kept as Reserve (it pays hub contracts later): the planner buys at the start camp
+   *  only what is worth more per point, and takes a hub contract from Reserve only above it. */
+  PREP_POINT_VALUE: 60,
+  /** Planner hub contract by swap: the offer must beat the held contract it gives up by this many value units. */
+  HUB_SWAP_MARGIN: 50,
+  /** Shrinkage of the planner's completion table towards its prior (pseudo-contracts per key). */
+  COMPLETION_SHRINK: 20,
+});
 
 /** Expedition map bots: numbers the spec leaves open [assumption: starting values, sim 2026-11-11d]. */
 Object.assign(SIM, {

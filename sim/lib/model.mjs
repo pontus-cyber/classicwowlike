@@ -16,8 +16,11 @@
 // expedition node tolls (EXPED_TIME_*), one Grind wave (EXPED_GRIND_MAX_WAVES), EXPED_DUNGEON_TRASH_FIGHTS and the XP
 // weight XP_WEIGHT_MULT on kills, quest turn-ins, Grind waves and dungeon clears (not on the story XP), as the engine
 // does. Without ctx.exp (rows runs) every term is the rows value.
+// Start camp and contracts (expedition.md 3, 10.3; MILESTONES 2b.5; runs with newRun prep): no story chain (ctx.story),
+// contractValue (a contract's reward in value units), siteValueOf / siteTerm (the site value of 10.3, with the sites a
+// search branch has already counted in m.cp).
 import { C, R, V, xpCurve, diffMod } from './engine.mjs';
-import { BAL, SIM } from './params.mjs';
+import { BAL, SIM, EXP } from './params.mjs';
 import { riskP, riskDh, riskType } from './risk.mjs';
 
 // ---------------- Lookup tables (engine helpers, cached) ----------------
@@ -103,6 +106,8 @@ export function makeCtx(s, risk, opts = {}) {
     style: opts.style || 'balanced', hourMult: (opts.hourMult ?? 1) * (opts.style === 'speed' ? SIM.STYLE_SPEED_TIME_MULT : 1),
     heat: opts.heat ? heatCtx(s, opts.heat) : null,
     exp: s.mapMode === 'expedition' ? EXP_CTX : null,
+    // The story chain is retired in a run with the start camp (expedition.md 3.2; prep): contracts replace it.
+    story: !(s.mapMode === 'expedition' && s.exp && s.exp.prep),
     m: { L: p.level, xp: p.xp, rested: p.rested, hp: p.hp / p.d.maxHp, q: s.zone && !s.zone.camp ? s.zone.questsDone : 0, rations, tAt: 0, dh: 0 },
   };
 }
@@ -275,7 +280,7 @@ export function evalNode(ctx, m, v, opts = {}) {
       event(C.QUEST_TURNIN_XP_FRAC * xw, v.cl);
       g(n * C.MOB_COIN_V * vAt(v.cl) + C.QUEST_GOLD_V * vAt(v.cl));
       gear += n * C.MOB_ITEM_CHANCE * eg('mob', v.cl) + 1.5 * eg('quest', v.cl);
-      if (m.q + 1 === C.STORY_QUESTS) {
+      if (ctx.story && m.q + 1 === C.STORY_QUESTS) {
         event(C.STORY_XP_FRAC, v.cl);
         gear += 1.8 * eg('story', v.cl);
       }
@@ -405,7 +410,76 @@ export function innValue(ctx, m) {
   return evalNode(ctx, m, { type: 'rest' }).value;
 }
 
-export const copyM = (m) => ({ L: m.L, xp: m.xp, rested: m.rested, hp: m.hp, q: m.q, rations: m.rations, tAt: m.tAt, dh: m.dh || 0 });
+export const copyM = (m) => ({ L: m.L, xp: m.xp, rested: m.rested, hp: m.hp, q: m.q, rations: m.rations, tAt: m.tAt, dh: m.dh || 0, cp: m.cp });
+
+// ---------------- Contracts (expedition.md 3.1, 10.3; prep) ----------------
+/**
+ * Mean gain over the slots of one roll on `table` at level cl against an uncommon item of level cl (the start camp's
+ * valuation: what the character will wear when the contract pays is not known yet) [assumption].
+ */
+function refGain(ctx, table, cl) {
+  const key = `ref|${table}|${cl}`;
+  let g = ctx.gainCache.get(key);
+  if (g !== undefined) return g;
+  const w = C.DROP_TABLE[table].weights;
+  const tot = w.reduce((a, b) => a + b, 0);
+  const lvl = Math.max(1, Math.min(C.ILVL_MAX, cl));
+  g = 0;
+  for (let i = 0; i < C.RARITY_ORDER.length; i++) {
+    if (!w[i]) continue;
+    const rar = C.RARITY_ORDER[i];
+    const il = Math.min(C.ILVL_MAX, lvl + C.RARITY_ILVL_BONUS[rar]);
+    let sum = 0;
+    for (const slot of C.SLOT_IDS) sum += Math.max(0, expItemScore(ctx.cls, slot, il, rar) - expItemScore(ctx.cls, slot, lvl, 'uncommon'));
+    g += (w[i] / tot) * (sum / C.SLOT_IDS.length);
+  }
+  ctx.gainCache.set(key, g);
+  return g;
+}
+
+/**
+ * Reward value of a contract (expedition.md 10.3): XP levels of the reward × VAL_XP + item-score gain of the best of its
+ * item choices × VAL_GEAR + gold / V × VAL_GOLD. rw: the `reward` of R.prepView / R.contractView (cl, xpFrac: levels-worth
+ * with XP_WEIGHT_MULT, gold, choices, table). opts.L: the level it is valued at (default: the model's); opts.ref: items
+ * against an uncommon of the contract's level (refGain) instead of what is equipped. The best of n choices is
+ * SIM.CONTRACT_CHOICE_GEAR[n] × one roll's expected gain [assumption].
+ */
+export function contractValue(ctx, rw, opts = {}) {
+  const L = Math.max(1, Math.min(C.MAX_LEVEL, opts.L ?? ctx.m.L));
+  const xpLv = L >= C.MAX_LEVEL ? 0 : evXp(ctx, rw.xpFrac, rw.cl, L) / XN[L];
+  const one = opts.ref ? refGain(ctx, rw.table, rw.cl) : expGain(ctx, rw.table, rw.cl);
+  const gear = (SIM.CONTRACT_CHOICE_GEAR[rw.choices] ?? SIM.CONTRACT_CHOICE_GEAR[SIM.CONTRACT_CHOICE_GEAR.length - 1]) * one;
+  const gold = (rw.gold * (1 + ctx.goldPct)) / vAt(L);
+  return xpLv * BAL.VAL_XP + gear * BAL.VAL_GEAR + gold * BAL.VAL_GOLD;
+}
+
+/**
+ * Site value (expedition.md 10.3) of one site of contract k ({ need, progress, value }) after `extra` sites already
+ * counted in the branch: the contract's value when this site completes it, else value / need × SITE_PARTIAL_MULT.
+ */
+export function siteValueOf(k, extra = 0) {
+  return k.progress + extra + 1 >= k.need ? k.value : (k.value / k.need) * EXP.SITE_PARTIAL_MULT;
+}
+
+/**
+ * Site term of entering view node `id` from model state m (expedition.md 10.3): Σ over the active contracts of P(site) ×
+ * siteValueOf; a sure site (P = 1) is counted in the branch (m.cp, so a second site of the same Cull completes it). sk:
+ * view.mjs siteKnowledge with each contract's `value` set (contractValue). Mutates m.cp; returns value units.
+ */
+export function siteTerm(sk, m, id) {
+  if (!sk) return 0;
+  const list = sk.perNode.get(id);
+  if (!list) return 0;
+  let v = 0;
+  for (const [i, p] of list) {
+    const k = sk.act[i];
+    const extra = (m.cp && m.cp[k.id]) || 0;
+    if (k.progress + extra >= k.need) continue;
+    v += p * siteValueOf(k, extra);
+    if (p >= 1) m.cp = { ...(m.cp || {}), [k.id]: extra + 1 };
+  }
+  return v;
+}
 
 /**
  * XP_in_levels of the value function: the fractional level the model would have with its rested pool added

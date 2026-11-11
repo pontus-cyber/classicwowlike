@@ -8,12 +8,13 @@
 // arrival (for a node entered: of the end of its content) unless leaving; when the front is within one hop: leave if L >= 10z - 2 (Bell if held, else the Road, else
 // walk to the Road farthest from the Shardfall), else retreat to the best neighbour farther from the Shardfall that does
 // not dim within the margin. Leaves at 10z when no adjacent node beats GREEDY_STAY_THRESHOLD; otherwise walks to the
-// nearest unresolved node it may enter.
+// nearest unresolved node it may enter. Contracts (2b.5, prep): the site term of 10.3 on adjacent nodes; walks to the
+// nearest known site first (also at 10z); start camp greedyPrep, hub contract from Reserve (shared.mjs).
 import { C, R, legal } from '../lib/engine.mjs';
 import { BAL, SIM } from '../lib/params.mjs';
-import { makeCtx, evalNode, copyM, levelPos } from '../lib/model.mjs';
-import { createValueBot, hubFull, FULL_KIT } from './shared.mjs';
-import { valueGrindWaves, innByValue, exitStep, expExitLevel, expHub } from './planner.mjs';
+import { makeCtx, evalNode, copyM, levelPos, siteTerm } from '../lib/model.mjs';
+import { createValueBot, hubFull, FULL_KIT, greedyPrep, greedyHubContract } from './shared.mjs';
+import { valueGrindWaves, innByValue, exitStep, expExitLevel, expHub, contractSites } from './planner.mjs';
 import { fogInput, viewHops, enterableV } from '../lib/view.mjs';
 
 const perHour = (ev) => ev.value / Math.max(1, ev.hours);
@@ -68,14 +69,17 @@ export function greedyExpMap(s, risk) {
     return exitStep(view, [far]).action;
   };
   const near = view.nodes[pos].dimmed || view.nodes[pos].nb.some((id) => view.nodes[id].dimmed);
+  // Contract sites (prep; expedition.md 10.2-10.3): the site term on adjacent nodes; the known sites to walk to.
+  const sk = contractSites(s, view, ctx);
   const scored = [];
   for (const mv of view.moves) {
     if (mv.via !== 'enter') continue;
-    const ev = evalNode(ctx, copyM(ctx.m), view.nodes[mv.nodeId]);
+    const m = copyM(ctx.m);
+    const ev = evalNode(ctx, m, view.nodes[mv.nodeId]);
     // "Arrival" read as the end of the node's content, when the player is back on the map and the engine checks the
     // Dimming (rules 1.9.6 settle step): entering at the front's edge is a Dimmed encounter at its end.
     if (!safe(mv.nodeId, zt + ev.hours)) continue;
-    scored.push({ id: mv.nodeId, v: ev.value / Math.max(1, ev.hours) });
+    scored.push({ id: mv.nodeId, v: (ev.value + siteTerm(sk, m, mv.nodeId)) / Math.max(1, ev.hours) });
   }
   scored.sort((a, b) => b.v - a.v);
   if (near) {
@@ -87,9 +91,11 @@ export function greedyExpMap(s, risk) {
     return leave(true);
   }
   const best = scored[0];
-  if (L >= exit && (!best || best.v < BAL.GREEDY_STAY_THRESHOLD)) return leave(false);
+  const sites = sk ? sk.known.filter((id) => id !== pos) : [];
+  if (L >= exit && (!best || best.v < BAL.GREEDY_STAY_THRESHOLD) && !sites.length) return leave(false);
   if (best && best.v > 0) return { type: 'MOVE', nodeId: best.id };
-  // Nothing worth it next door: walk towards the nearest unresolved node it may enter (BFS over safe nodes).
+  // Nothing worth it next door: walk towards the nearest known contract site, else the nearest unresolved node it may
+  // enter (BFS over safe nodes); at the exit level only towards a site.
   const N = view.nodes.length;
   const prev = new Array(N).fill(-2);
   prev[pos] = -1;
@@ -102,7 +108,8 @@ export function greedyExpMap(s, risk) {
       prev[v] = u;
       q.push(v);
       const n = view.nodes[v];
-      const open = n.know !== 'full' ? !n.hub : enterableV(view, v, zt) && !scored.some((x) => x.id === v);
+      const open = sites.length ? sites.includes(v)
+        : n.know !== 'full' ? !n.hub : enterableV(view, v, zt) && !scored.some((x) => x.id === v);
       if (open && v !== pos) {
         let x = v;
         while (prev[x] !== pos) x = prev[x];
@@ -121,5 +128,7 @@ export function createGreedyBot({ classId, risk, tree }) {
     hub: (s) => (s.mapMode === 'expedition' ? expHub(s, inn) : hubFull(s, inn)),
     map: (s) => (s.mapMode === 'expedition' ? greedyExpMap(s, risk) : greedyMap(s, risk)),
     grindWaves: (s) => valueGrindWaves(s, risk, 'balanced', 1),
+    prep: (s) => greedyPrep(s, risk),
+    hubContract: greedyHubContract,
   });
 }

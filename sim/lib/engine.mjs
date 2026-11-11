@@ -15,15 +15,28 @@ if (errors.length) throw new Error(`sim: content is invalid:\n  ${errors.slice(0
 
 /**
  * A run in phase CREATE (content validated once at module load). mapMode 'expedition' (rules 1.9), its vision kit
- * ({ guide, charts, pathfinder }) and dimming (false: B44's diagnostic cell) are passed to the engine only when set,
- * so a rows run is created exactly as before.
+ * ({ guide, charts, pathfinder }), dimming (false: B44's diagnostic cell) and prep (true: the start camp and contracts,
+ * expedition.md 2-3) are passed to the engine only when set, so a rows run is created exactly as before.
  */
-export function newRunFor({ classId, petId = null, seed, profile = null, mapMode = null, vision = null, dimming = null }) {
+export function newRunFor({ classId, petId = null, seed, profile = null, mapMode = null, vision = null, dimming = null, prep = false }) {
   const o = { classId, petId: classId === 'hunter' ? petId : null, seed, profile, content: CONTENT, validate: false };
   if (mapMode) o.mapMode = mapMode;
   if (vision) o.vision = vision;
   if (dimming === false) o.dimming = false;
+  if (prep) o.prep = true;
   return R.newRun(o);
+}
+
+/**
+ * The expedition meta entries the start camp reads (expedition.md 8.2; engine C.META_EXPEDITION: quartermaster,
+ * cartographer, old_hand), added to a profile as unlock ranks: they are not in the rows catalogue (C.META) until the
+ * switch-over, so the PALL profile does not have them. expMeta: { id: rank } or null (profile unchanged).
+ */
+export function withExpMeta(profile, expMeta) {
+  if (!expMeta) return profile;
+  const p = { ...profile, unlocks: { ...profile.unlocks } };
+  for (const [id, r] of Object.entries(expMeta)) if (C.META_EXPEDITION[id]) p.unlocks[id] = Math.min(Number(r) || 1, C.META_EXPEDITION[id].ranks);
+  return p;
 }
 
 /** Pets a profile can pick for the Hunter. */

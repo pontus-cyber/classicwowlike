@@ -48,6 +48,17 @@ export function addEntry(obs, e) {
 
 export function addRecord(obs, rec) {
   if (rec.ne) for (const e of rec.ne) addEntry(obs, e);
+  // Contract completion (prep runs; expedition.md 10.2 planner table): [taken, completed] by `${kind}|${tracker}|${z}`,
+  // abandoned contracts (a swap is the bot's own choice) not counted. Kept only when a run has contracts.
+  if (rec.ct) {
+    const ct = obs.ct || (obs.ct = {});
+    for (const [z, kind, , st] of rec.ct.c) {
+      if (st === 'a') continue;
+      const c = ct[`${kind}|${rec.ct.tr}|${z}`] || (ct[`${kind}|${rec.ct.tr}|${z}`] = [0, 0]);
+      c[0] += 1;
+      if (st === 'c') c[1] += 1;
+    }
+  }
   obs.runs += 1;
 }
 
@@ -61,6 +72,10 @@ export function mergeObs(a, b) {
       }
     }
     out.runs += o.runs;
+    if (o.ct) {
+      out.ct = out.ct || {};
+      for (const [key, c] of Object.entries(o.ct)) { const d = out.ct[key] || (out.ct[key] = [0, 0]); d[0] += c[0]; d[1] += c[1]; }
+    }
   }
   return out;
 }
@@ -107,7 +122,7 @@ export function buildTable(obs) {
       }
     }
   }
-  return { p, dh, runs: obs.runs };
+  return obs.ct ? { p, dh, runs: obs.runs, ct: obs.ct } : { p, dh, runs: obs.runs };
 }
 
 export function priorTable() {

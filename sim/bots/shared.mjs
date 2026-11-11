@@ -1,9 +1,11 @@
 // Shared parts of the greedy, planner, speedrunner and tactician bots (balance.md 1): standard build (1.3),
 // bar template (1.2), consumable kit, trainer and vendor, rewards, node stages, camp. Each bot file adds its map
-// decision, grind waves, hub rule and (tactician) combat search.
+// decision, grind waves, hub rule and (tactician) combat search. Start camp and hub contract (expedition.md 10.2;
+// MILESTONES 2b.5; runs with newRun prep): each bot's prep policy and its hub contract rule, and the B40 overrides.
 import { C, R, SPELL, countCons, hpFrac, manaFrac, legal } from '../lib/engine.mjs';
-import { BAL, SIM } from '../lib/params.mjs';
-import { vAt } from '../lib/model.mjs';
+import { BAL, SIM, EXP } from '../lib/params.mjs';
+import { vAt, makeCtx, contractValue } from '../lib/model.mjs';
+import { trackerRadius } from '../lib/view.mjs';
 import {
   makeBot, standardTalent, templateBar, desiredItemBar, foodAction, trainAllAction, vendorAction, rewardAction,
   betweenAction, campAction, trainerUseful,
@@ -24,7 +26,9 @@ export function excludedSpells(classId, variant) {
 
 /**
  * cfg: { tree, variant, style, campBar (bool), kit: {potions, rations, mana, tonics, elixir, ember, gear},
- *        hub(s, base) -> action, map(s) -> action, grindWaves(s) -> n, combat(s) -> action, trainerNodes (bool) }
+ *        hub(s, base) -> action, map(s) -> action, grindWaves(s) -> n, combat(s) -> action, trainerNodes (bool),
+ *        prep(s) -> action (phase PREP), hubContract(s) -> action | null (prep runs), prepPolicy ('none' | 'random' | null:
+ *        B40 overrides of the start camp and the hub contract), rng (bot stream, for prepPolicy 'random') }
  */
 export function createValueBot(name, cfg) {
   const exclude = excludedSpells(cfg.classId, cfg.variant);
@@ -50,7 +54,155 @@ export function createValueBot(name, cfg) {
     reward: rewardAction,
     between: betweenAction,
     camp: (s) => campAction(s),
+    prep: prepWith(cfg),
+    hubContract: cfg.prepPolicy === 'none' ? () => null : cfg.prepPolicy === 'random' ? randomHubContract(cfg.rng) : cfg.hubContract || null,
   });
+}
+
+/**
+ * The start camp of a value bot: its own policy (cfg.prep), or a measurement override (cfg.prepPolicy, B40): 'none'
+ * sets out at once (every point to Reserve), 'random' buys at random (randomPrep with the bot stream).
+ */
+function prepWith(cfg) {
+  if (cfg.prepPolicy === 'none') return () => ({ type: 'SET_OUT' });
+  if (cfg.prepPolicy === 'random') return (s) => randomPrep(s, cfg.rng);
+  return cfg.prep || null;
+}
+
+// ---------------- Start camp and hub contract (expedition.md 2, 3.6, 10.2; MILESTONES 2b.5; prep) ----------------
+const TRACKED = new Set(['cull', 'bounty']);
+
+/**
+ * Estimated completion of a contract (expedition.md 10.2 planner): the completion table of (kind, Tracker's Notes held,
+ * zone) carried by the risk table (`ct`: [taken, completed] of earlier runs, sim/lib/risk.mjs), shrunk to the prior by
+ * SIM.COMPLETION_SHRINK pseudo-contracts; the prior is EST_COMPLETE, + SIM.EST_TRACKER_GAIN for a Cull or Bounty with
+ * the Tracker [assumption].
+ */
+export function estComplete(risk, kind, tracker, z) {
+  const prior = Math.min(0.98, EXP.EST_COMPLETE[kind] + (tracker && TRACKED.has(kind) ? SIM.EST_TRACKER_GAIN : 0));
+  const c = risk && risk.ct ? risk.ct[`${kind}|${tracker ? 1 : 0}|${z}`] : null;
+  return c ? (c[1] + SIM.COMPLETION_SHRINK * prior) / (c[0] + SIM.COMPLETION_SHRINK) : prior;
+}
+
+/** Reward value of an offer (prepView board entry or contractView contract / hub offer) at its contract level, items
+ *  against an uncommon of that level (model.mjs contractValue, ref). */
+export const offerValue = (ctx, o) => contractValue(ctx, o.reward, { L: o.reward.cl, ref: true });
+
+/** Tracker's Notes owned or bought at the start camp (prepView option). */
+const trackerHeld = (pv) => { const t = pv.options.find((o) => o.id === 'prep_tracker'); return !!(t && (t.owned || t.bought)); };
+const buy = (id) => ({ type: 'BUY_PREP', id });
+
+/**
+ * Planner start camp (expedition.md 10.2): each step buys what is worth most per point: a board contract (estimated
+ * completion × reward value / price, a free slot needed), Tracker's Notes (its completion gain on the held Culls and
+ * Bounties × their value / its price) or the Second Clapper (BELL_KEEP_VALUE / price: the planner keeps Bell charges);
+ * only above SIM.PREP_POINT_VALUE per point (a point kept as Reserve pays hub contracts). Ties: lower zone, board order.
+ * No rerolls. Then SET_OUT.
+ */
+export function plannerPrep(s, risk) {
+  const pv = R.prepView(s);
+  if (!pv) return { type: 'SET_OUT' };
+  const ctx = makeCtx(s, risk);
+  const tracker = trackerHeld(pv);
+  const opt = (id) => pv.options.find((o) => o.id === id);
+  let best = null;
+  const consider = (a, perPoint, z) => { if (!best || perPoint > best.v + 1e-9 || (Math.abs(perPoint - best.v) <= 1e-9 && z < best.z)) best = { a, v: perPoint, z }; };
+  for (const o of pv.board) if (o.canTake) consider({ type: 'TAKE_CONTRACT', index: o.index }, (estComplete(risk, o.kind, tracker, o.z) * offerValue(ctx, o)) / o.price, o.z);
+  const tr = opt('prep_tracker');
+  if (tr && tr.canBuy) {
+    let g = 0;
+    for (const o of pv.board) if (o.taken && TRACKED.has(o.kind)) g += (estComplete(risk, o.kind, true, o.z) - estComplete(risk, o.kind, false, o.z)) * offerValue(ctx, o);
+    consider(buy('prep_tracker'), g / tr.price, 99);
+  }
+  const bell = opt('prep_bell');
+  if (bell && bell.canBuy) consider(buy('prep_bell'), EXP.BELL_KEEP_VALUE / bell.price, 99);
+  return best && best.v > SIM.PREP_POINT_VALUE ? best.a : { type: 'SET_OUT' };
+}
+
+/**
+ * Planner hub contract (expedition.md 3.6): from Reserve when its estimated completion × value per point beats
+ * SIM.PREP_POINT_VALUE; else by a swap when it beats the held contract worth least (estimated) by SIM.HUB_SWAP_MARGIN.
+ */
+export function plannerHubContract(s, risk) {
+  if (!s.exp || !s.exp.prep) return null;
+  const cv = R.contractView(s);
+  const o = cv && cv.hub;
+  if (!o) return null;
+  const ctx = makeCtx(s, risk);
+  const tracker = trackerRadius(s) > 0;
+  const est = (k) => estComplete(risk, k.kind, tracker, k.z) * offerValue(ctx, k);
+  const v = est(o);
+  if (o.reserve && v / o.price > SIM.PREP_POINT_VALUE) return { type: 'TAKE_HUB_CONTRACT', mode: 'reserve' };
+  let worst = null;
+  for (const id of o.swap) {
+    const k = cv.contracts.find((x) => x.id === id);
+    const kv = est(k) * (k.progress > 0 ? 1 + k.progress / k.need : 1);
+    if (!worst || kv < worst.v) worst = { id, v: kv };
+  }
+  if (worst && v - worst.v > SIM.HUB_SWAP_MARGIN) return { type: 'TAKE_HUB_CONTRACT', mode: 'swap', contractId: worst.id };
+  return null;
+}
+
+/**
+ * Greedy start camp (expedition.md 10.2): contracts by reward value / price (no completion estimate) while a slot and
+ * the points allow, then Field Draughts. Then SET_OUT.
+ */
+export function greedyPrep(s, risk) {
+  const pv = R.prepView(s);
+  if (!pv) return { type: 'SET_OUT' };
+  const ctx = makeCtx(s, risk);
+  let best = null;
+  for (const o of pv.board) {
+    if (!o.canTake) continue;
+    const v = offerValue(ctx, o) / o.price;
+    if (!best || v > best.v + 1e-9) best = { a: { type: 'TAKE_CONTRACT', index: o.index }, v };
+  }
+  if (best) return best.a;
+  const d = pv.options.find((o) => o.id === 'prep_draughts');
+  if (d && d.canBuy) return buy('prep_draughts');
+  return { type: 'SET_OUT' };
+}
+
+/** Greedy hub contract: from Reserve whenever it can (no estimate, no swap). */
+export function greedyHubContract(s) {
+  const cv = s.exp && s.exp.prep ? R.contractView(s) : null;
+  return cv && cv.hub && cv.hub.reserve ? { type: 'TAKE_HUB_CONTRACT', mode: 'reserve' } : null;
+}
+
+/** Speedrunner start camp (expedition.md 10.2): Delve contracts (board order), the Second Clapper, Field Draughts. */
+export function speedPrep(s) {
+  const pv = R.prepView(s);
+  if (!pv) return { type: 'SET_OUT' };
+  const d = pv.board.find((o) => o.kind === 'delve' && o.canTake);
+  if (d) return { type: 'TAKE_CONTRACT', index: d.index };
+  for (const id of ['prep_bell', 'prep_draughts']) { const o = pv.options.find((x) => x.id === id); if (o && o.canBuy) return buy(id); }
+  return { type: 'SET_OUT' };
+}
+
+/** Speedrunner hub contract: a Delve from Reserve. */
+export function speedHubContract(s) {
+  const cv = s.exp && s.exp.prep ? R.contractView(s) : null;
+  return cv && cv.hub && cv.hub.kind === 'delve' && cv.hub.reserve ? { type: 'TAKE_HUB_CONTRACT', mode: 'reserve' } : null;
+}
+
+/** Random start camp (expedition.md 10.2): uniform over the affordable purchases (contracts, options) until none is left. */
+export function randomPrep(s, rng) {
+  const opts = R.legalActions(s).filter((a) => a.type === 'TAKE_CONTRACT' || a.type === 'BUY_PREP');
+  return opts.length ? rng.pick(opts) : { type: 'SET_OUT' };
+}
+
+/** Random hub contract: once per zone, at 50 % one of the legal TAKE_HUB_CONTRACT actions (uniform), else none. */
+export function randomHubContract(rng) {
+  let decided = null;
+  return (s) => {
+    if (!s.exp || !s.exp.prep || decided === s.zone.z) return null;
+    const cv = R.contractView(s);
+    if (!cv || !cv.hub) return null;
+    const opts = R.legalActions(s).filter((a) => a.type === 'TAKE_HUB_CONTRACT');
+    if (!opts.length) return null;
+    decided = s.zone.z;
+    return rng.chance(0.5) ? rng.pick(opts) : null;
+  };
 }
 
 /** Hub for greedy, planner and tactician: trainer when useful, vendor, then the Inn when `inn(s)` says so. */

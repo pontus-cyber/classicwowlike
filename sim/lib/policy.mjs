@@ -330,7 +330,8 @@ export function betweenAction(s) {
 /**
  * spec: { name, combat(s), talent(s) -> talentId|null, bar(s) -> bar[7], itemBar(s) -> [3] | null,
  *         food(s) -> action|null, trainer(s), vendor(s), hub(s), map(s), grindWaves(s), reward(s), between(s),
- *         camp(s), pickPet(pets) (optional, Hunter without a preset pet) }
+ *         camp(s), pickPet(pets) (optional, Hunter without a preset pet), prep(s) (optional: phase PREP, default
+ *         autoplay's start camp), hubContract(s) -> action | null (optional: the hub contract in a prep run) }
  */
 export function makeBot(spec) {
   const ooc = (s) => {
@@ -357,12 +358,19 @@ export function makeBot(spec) {
         }
         return { type: 'START_RUN' };
       }
+      // Start camp (expedition.md 2, 10.2; newRun prep): before the out-of-combat actions, which are not legal in PREP.
+      // A bot without a prep policy plays autoplay's start camp.
+      if (s.phase === 'PREP') return spec.prep ? spec.prep(s) : R.autoAction(s);
       if (s.fight) return spec.combat(s);
       if (s.loot.length) return lootAction(s);
       const o = ooc(s);
       if (o) return o;
       if (s.service) return s.service.kind === 'trainer' ? spec.trainer(s) : spec.vendor(s);
-      if (s.phase === 'ZONE_HUB') return spec.hub(s);
+      if (s.phase === 'ZONE_HUB') {
+        // Hub contract (expedition.md 3.6; prep runs only): offered until the zone's first LEAVE_HUB.
+        const hc = spec.hubContract && s.exp && s.exp.prep ? spec.hubContract(s) : null;
+        return hc || spec.hub(s);
+      }
       if (s.phase === 'MAP') return spec.map(s);
       if (s.phase === 'CAMP') return spec.camp(s);
       if (s.phase === 'NODE') {
