@@ -113,7 +113,8 @@ export function createPrepScreen(v, ctx) {
   const cards = h('div.pp-cards');
   const cardEls = pv0.board.map((o, i) => {
     const b = h('button.pp-card', { type: 'button', dataset: { index: String(i) } });
-    b.addEventListener('click', () => boardAct(ctx, i));
+    // a mouse click leaves no focus behind (Enter then sets out); a keyboard press (Tab, then Enter or Space) keeps it
+    b.addEventListener('click', (e) => { if (e.detail) b.blur(); boardAct(ctx, i); });
     tip(b, () => {
       const pv = ctx.view.prep; const x = pv && pv.board[i]; if (!x) return null;
       const why = x.taken || x.canTake ? null : ctx.bridge.why({ type: 'TAKE_CONTRACT', index: i });
@@ -129,7 +130,7 @@ export function createPrepScreen(v, ctx) {
   const optList = (kind) => h('div.pp-opts', pv0.options.filter((o) => o.kind === kind).map((o) => {
     const i = pv0.options.findIndex((x) => x.id === o.id);
     const b = h('button.pp-opt', { type: 'button', dataset: { id: o.id, kind: o.kind } });
-    b.addEventListener('click', () => optionAct(ctx, o.id));
+    b.addEventListener('click', (e) => { if (e.detail) b.blur(); optionAct(ctx, o.id); });
     tip(b, () => { const pv = ctx.view.prep; const x = pv && pv.options.find((y) => y.id === o.id); return x ? optionTip(x, ctx, OPT_KEYS[i], x.why ? cap1(x.why) : null) : null; });
     optEls.set(o.id, { el: b, key: OPT_KEYS[i] });
     return b;

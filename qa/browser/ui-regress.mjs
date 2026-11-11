@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L]
+ *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -100,6 +100,15 @@
  *      has it until W. (4) a Healing Draught pulses at 30 % health, not at 50 % or on cooldown, and is never drunk for the
  *      player. (5) "Killed by" names Crown-Breaker, not its id; every content ability reads by its name. (6) the settings
  *      window shows Animation speed's four choices whole.
+ *   M  the start camp and the contract tracker (docs/specs/expedition.md 9.1, 9.3; engine-api.md 13; M2b 2b.6), real engine
+ *      at Instant speed, ?prep=1, seed 7. Class select's Enter opens the camp and a second Enter at once does not set out;
+ *      the prep screen's numbers (points left, each offer's zone, price and sites, each option's price, bought and owned
+ *      state, the held list, Reserve = N points = M Echoes) equal R.prepView of a Node twin (the page's engine log) after a
+ *      click and the keys 2, A, G, R, a drop, a sell, a buy and key 3; Set out, every card and option fully in view; a contract's
+ *      and an option's tooltip; Enter sets out (contracts and Reserve = R.contractView); on the map the tracker shows this
+ *      zone's contracts (title, "N / M sites") clear of the zone map, site marks on exactly mapView's nodes, hidden ones
+ *      unnamed; the quest log lists every contract; zone 2's hub (Dev menu Start at) shows its offer and Take pays from
+ *      Reserve. No console errors.
  *
  * Seeds were picked with the engine of 3559e0e (M2 v2): seed 30's first quest has two Guardians that last long
  * enough for the potion and Autoplay checks. M2 v3 (77c0ca5): seed 1's autoplay run no longer reaches the camp, so part B
@@ -128,7 +137,7 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -2667,6 +2676,136 @@ async function partL(browser, W, H) {
   }
 }
 
+// ------------------------------------------------------------------ part M: the start camp and the contract tracker
+// docs/specs/expedition.md 9.1, 9.3, engine-api.md 13 (M2b 2b.6): real engine at Instant speed, ?prep=1, seed M_SEED.
+// Every number on the prep screen, the tracker, the map's site marks and the hub offer is compared with a Node twin
+// that replays the page's engine log (R.step; R.debug for the Dev menu's build).
+const M_SEED = 7;
+function mTwin(seed) {
+  return {
+    async sync(page) {
+      const log = await page.evaluate(() => window.__ui.engineLog());
+      let s = null;
+      for (const a of log) {
+        if (a.type === 'DEV' && a.fn === 'build') s = R.debug.build({ ...a.args[0], content: CONTENT }).state;
+        else if (a.type === 'DEV') s = R.debug[a.fn](s, ...a.args).state;
+        else { if (!s) s = R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: 'expedition', prep: true }); s = R.step(s, a).state; }
+      }
+      return s || R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: 'expedition', prep: true });
+    },
+  };
+}
+async function partM(browser, W, H) {
+  const { context, page, errors } = await open(browser, W, H, `seed=${M_SEED}&speed=instant&prep=1`);
+  const twin = mTwin(M_SEED);
+  const T = await import('../../src/ui/ui-text.js');
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const pagePrep = () => page.evaluate(() => window.__ui.view().prep);
+  try {
+    await page.keyboard.press('Enter'); await idle(page);
+    // Enter again at once (the key that started the run): the camp stays open (the guard)
+    await page.keyboard.press('Enter'); await idle(page);
+    let s = await twin.sync(page); let pv = R.prepView(s);
+    const ui0 = await page.evaluate(() => ({ phase: window.__ui.view().phase, bar: document.querySelector('#actionbar').classList.contains('hidden'), n: document.querySelector('#prep .pm-n') && document.querySelector('#prep .pm-n').textContent }));
+    check('M-prep', `class select's Enter opens the start camp (phase ${ui0.phase}); a second Enter at once does not set out; no HUD around it`, ui0.phase === 'PREP' && s.phase === 'PREP' && ui0.bar, JSON.stringify(ui0));
+    const dom = () => page.evaluate(() => ({
+      left: document.querySelector('#prep .pm-n').textContent, reserve: document.querySelector('#prep .pm-rl').textContent,
+      cards: [...document.querySelectorAll('#prep .pp-card')].map((b) => ({ zone: b.querySelector('.pc-zone').textContent, price: b.querySelector('.pc-price').textContent, need: b.querySelector('.pc-need').textContent, taken: b.classList.contains('taken') })),
+      opts: [...document.querySelectorAll('#prep .pp-opt')].map((b) => ({ id: b.dataset.id, price: (b.querySelector('.pc-price') || {}).textContent || null, bought: b.classList.contains('bought'), owned: b.classList.contains('owned') })),
+      held: [...document.querySelectorAll('#prep .pm-held li:not(.empty)')].length,
+    }));
+    const domDiff = (d, x) => {
+      const out = [];
+      if (d.left !== String(x.left)) out.push(`points left ${d.left} (engine ${x.left})`);
+      if (!d.reserve.includes(`${x.reserve.points} ${x.reserve.points === 1 ? 'point' : 'points'} = ${x.reserve.echoes} Echoes`)) out.push(`reserve "${d.reserve}" (engine ${x.reserve.points} = ${x.reserve.echoes})`);
+      x.board.forEach((o, i) => { const c = d.cards[i]; if (!c || c.zone !== `Zone ${o.z} · ${o.zoneName}` || c.price !== String(o.price) || c.need !== `${o.need} ${o.need === 1 ? 'site' : 'sites'}` || c.taken !== o.taken) out.push(`card ${i + 1} ${JSON.stringify(c)} (engine zone ${o.z}, ${o.price}, ${o.need}, taken ${o.taken})`); });
+      x.options.forEach((o) => { const c = d.opts.find((y) => y.id === o.id); if (!c || c.bought !== o.bought || c.owned !== o.owned || (!o.owned && c.price !== String(o.price))) out.push(`option ${o.id} ${JSON.stringify(c)}`); });
+      if (d.held !== x.held) out.push(`held list ${d.held} (engine ${x.held})`);
+      return out;
+    };
+    let d = await dom();
+    check('M-prep', `the screen's numbers = R.prepView: ${pv.left} of ${pv.points} points left, ${pv.board.length} offers (zone, price, sites), ${pv.options.length} options, Reserve ${pv.reserve.points} = ${pv.reserve.echoes} Echoes`, same(await pagePrep(), JSON.parse(JSON.stringify(pv))) && !domDiff(d, pv).length, domDiff(d, pv).join(' | '));
+    // everything in view: Set out at the bottom right, every card and option uncut (BUG-QA-10)
+    const goP = await placement(page.locator('#pp-go'));
+    check('M-prep', 'Set out is in view at the bottom right, on top', fullyShown(goP) && goP.rect[2] > W * 0.8 && goP.rect[3] > H * 0.85, placeText(goP));
+    const cut = [];
+    for (const sel of ['#prep .pp-card', '#prep .pp-opt', '#pp-reroll']) { const n = await page.locator(sel).count(); for (let i = 0; i < n; i++) { const p = await placement(page.locator(sel).nth(i)); if (!p.inside || p.clippedBy) cut.push(`${sel} ${i} ${placeText(p)}`); } }
+    check('M-prep', 'every contract card, option and the reroll button is fully in view (nothing below the fold)', !cut.length, cut.join(' | '));
+    // mouse and keys: take (click), take (key 2), buy (A), buy a vision perk (G), reroll (R), drop (click the taken card)
+    const steps = [['click card 1', () => page.locator('#prep .pp-card').nth(0).click()], ['key 2', () => page.keyboard.press('Digit2')],
+      ['key A', () => page.keyboard.press('KeyA')], ['key G', () => page.keyboard.press('KeyG')], ['key R', () => page.keyboard.press('KeyR')],
+      ['click card 2 (drop)', () => page.locator('#prep .pp-card').nth(1).click()], ['click Field Draughts (sell)', () => page.locator('#prep .pp-opt[data-id="prep_draughts"]').click()],
+      ['click Field Draughts (buy)', () => page.locator('#prep .pp-opt[data-id="prep_draughts"]').click()], ['key 3', () => page.keyboard.press('Digit3')]];
+    const bad = [];
+    for (const [what, fn] of steps) {
+      await fn(); await idle(page);
+      s = await twin.sync(page); pv = R.prepView(s); d = await dom();
+      const diff = domDiff(d, pv);
+      if (!same(await pagePrep(), JSON.parse(JSON.stringify(pv))) || diff.length) bad.push(`${what}: ${diff.join(', ') || 'view differs'}`);
+    }
+    const log = await page.evaluate(() => window.__ui.engineLog().map((a) => a.type));
+    check('M-prep', `mouse and keys send TAKE, DROP, BUY, SELL, REROLL (log ${log.slice(1).join(' ')}); after each the screen = R.prepView (left ${pv.left}, held ${pv.held}, rerolls ${pv.reroll.used})`,
+      !bad.length && ['TAKE_CONTRACT', 'DROP_CONTRACT', 'BUY_PREP', 'SELL_PREP', 'REROLL_BOARD'].every((t) => log.includes(t)), bad.join(' | '));
+    // tooltips: a contract says where its sites are and what it pays; an option says what it does
+    await page.mouse.move(2, 2);
+    const k = pv.board.findIndex((o) => o.kind === 'cull'); const o = pv.board[k >= 0 ? k : 0];
+    await page.locator('#prep .pp-card').nth(k >= 0 ? k : 0).hover(); await page.waitForTimeout(80);
+    const tt1 = await page.evaluate(() => (document.querySelector('.tooltip.on') || {}).innerText || '');
+    const want1 = [T.contractSentence(o, CONTENT), o.kind === 'cull' ? 'Sites: Quest or Grind nodes' : 'site', `${Math.round(o.reward.xpFrac * 10) / 10} levels of XP`];
+    check('M-prep', `a contract's tooltip: its sentence, its sites and its pay (${want1[0]})`, want1.every((x) => tt1.replace(NBSP, ' ').includes(x)), tt1.replace(/\n/g, ' / '));
+    const spy = pv.options.find((x) => x.id === 'prep_spyglass');
+    await page.locator('#prep .pp-opt[data-id="prep_spyglass"]').hover(); await page.waitForTimeout(80);
+    const tt2 = await page.evaluate(() => (document.querySelector('.tooltip.on') || {}).innerText || '');
+    const want2 = T.prepOptionEffect(spy, { vision: R.C.VISION_RADIUS, guide: R.C.GUIDE_RADIUS_BONUS, tracker: R.C.TRACKER_RADIUS, bountyPlaced: R.C.BOUNTY_PLACED, bellMax: R.C.BELL_MAX_CHARGES, emberMax: R.C.EMBER_MAX_CARRIED }, (id) => R.C.CONSUMABLE[id].name);
+    check('M-prep', `an option's tooltip says what it does in one line ("${want2}") and its refund`, tt2.includes(want2) && /full refund/.test(tt2), tt2.replace(/\n/g, ' / '));
+    await page.mouse.move(2, 2);
+    await shot(page, 'M-prep');
+    // Set out (Enter, after the guard): the purchases take effect, Reserve, zone 1's hub
+    await page.waitForTimeout(750);
+    await page.keyboard.press('Enter'); await idle(page);
+    s = await twin.sync(page);
+    const cv = R.contractView(s); const pc = await page.evaluate(() => window.__ui.view().contracts);
+    check('M-track', `Enter sets out (phase ${s.phase}): the contracts and Reserve on screen = R.contractView (held ${cv.held}, Reserve ${cv.reserve})`, s.phase === 'ZONE_HUB' && same(pc, JSON.parse(JSON.stringify(cv))), JSON.stringify(pc && { held: pc.held, reserve: pc.reserve }));
+    // the map: the tracker pins this zone's contracts; site marks exactly where mapView has them; hidden nodes unnamed
+    const got = page.getByRole('button', { name: 'Got it' }); if (await got.count()) await got.first().click();
+    await page.locator('#screens .side .btn.primary').click(); await idle(page);
+    s = await twin.sync(page);
+    const mv = R.mapView(s); const cv2 = R.contractView(s);
+    const here = cv2.contracts.filter((c) => c.z === 1 && c.status !== 'abandoned');
+    const tr = await page.evaluate(() => ({ dimmed: document.querySelector('#tracker').classList.contains('dimmed'), rows: [...document.querySelectorAll('#tracker .tk-c')].map((e) => ({ id: e.dataset.contract, t: e.querySelector('.t').textContent, pr: e.querySelector('.pr').textContent })) }));
+    const trBad = here.filter((c) => { const r = tr.rows.find((x) => x.id === c.id); return !r || r.t !== T.contractTitle(c, CONTENT) || r.pr !== `${c.progress} / ${c.need} ${c.need === 1 ? 'site' : 'sites'}`; });
+    check('M-track', `on the map the tracker shows this zone's ${here.length} ${here.length === 1 ? 'contract' : 'contracts'} with title and progress (= R.contractView), not dimmed`, s.phase === 'MAP' && !tr.dimmed && tr.rows.length === here.length && !trBad.length, JSON.stringify(tr));
+    const trP = await page.locator('#tracker').evaluate((el) => { const r = el.getBoundingClientRect(); const m = document.querySelector('#screens .mapwin').getBoundingClientRect(); return { overlap: r.left < m.right && r.right > m.left && r.top < m.bottom && r.bottom > m.top, r: [r.left, r.right].map(Math.round), m: [m.left, m.right].map(Math.round) }; });
+    check('M-track', 'the tracker on the map stays clear of the zone map', !trP.overlap, JSON.stringify(trP));
+    const marks = await page.evaluate(() => [...document.querySelectorAll('.expmap .mnode')].filter((n) => n.querySelector('.xsite')).map((n) => ({ id: Number(n.dataset.node), sites: n.querySelector('.xsite').dataset.sites, label: n.querySelector('.cl').textContent, aria: n.getAttribute('aria-label') })));
+    const want = mv.nodes.filter((n) => n.sites).map((n) => ({ id: n.id, sites: n.sites.join(','), know: n.know }));
+    const mBad = want.filter((w) => { const m = marks.find((x) => x.id === w.id); return !m || m.sites !== w.sites || (w.know === 'none' && (m.label !== '?' || !/^Unknown/.test(m.aria))); });
+    check('M-track', `site marks on exactly the ${want.length} nodes mapView marks (${want.filter((w) => w.know === 'none').length} hidden: shown as "?", never named)`, marks.length === want.length && !mBad.length, JSON.stringify({ marks, want }));
+    await shot(page, 'M-map');
+    // the quest log is the contract list
+    await page.keyboard.press('KeyL'); await idle(page);
+    const rows = await page.locator('#win-questlog .cl-row').count();
+    check('M-track', `the quest log (L) lists every contract of the run (${cv2.contracts.length})`, rows === cv2.contracts.length, `${rows} rows`);
+    await page.keyboard.press('KeyL'); await idle(page);
+    // the hub contract: a run at zone 2's hub (Dev menu Start at, the start camp left with every point as Reserve)
+    await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 2, mapMode: 'expedition', prep: true })); await idle(page);
+    s = await twin.sync(page);
+    const off = R.contractView(s).hub;
+    const hc = await page.evaluate(() => { const e = document.querySelector('.hubc'); return e ? { s: e.querySelector('.hc-s').textContent, take: e.querySelector('[data-hub="reserve"]').textContent } : null; });
+    check('M-hub', `zone 2's hub shows its contract offer (${off ? T.contractTitle(off, CONTENT) : 'none'}) with its price in Reserve`, !!off && !!hc && hc.s === T.hubOfferSentence(off, CONTENT.zones[1].hubName, CONTENT) && hc.take.includes(`${off.price} Reserve`), JSON.stringify(hc));
+    const res0 = R.contractView(s).reserve;
+    await page.locator('.hubc [data-hub="reserve"]').click(); await idle(page);
+    s = await twin.sync(page);
+    const cv3 = R.contractView(s); const pc3 = await page.evaluate(() => window.__ui.view().contracts);
+    check('M-hub', `Take pays from Reserve (${res0} -> ${cv3.reserve}) and the offer is held from the hub; the page = R.contractView`, cv3.reserve === res0 - off.price && cv3.contracts.some((c) => c.from === 'hub') && !cv3.hub && same(pc3, JSON.parse(JSON.stringify(cv3))) && !(await page.locator('.hubc').count()), JSON.stringify({ reserve: pc3.reserve, hub: pc3.hub }));
+  } catch (e) {
+    await shot(page, 'M-error');
+    check('-', 'part M (start camp and contracts) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
+  }
+  check('-', 'part M: no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+  await context.close();
+}
+
 // ------------------------------------------------------------------ run
 const browser = await chromium.launch({ headless: true });
 for (const [W, H] of SIZES) {
@@ -2683,6 +2822,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('J')) await partJ(browser, W, H);
   if (PARTS.includes('K')) await partK(browser, W, H);
   if (PARTS.includes('L')) await partL(browser, W, H);
+  if (PARTS.includes('M')) await partM(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);
