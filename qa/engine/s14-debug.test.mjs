@@ -67,7 +67,8 @@ describe('engine-api 12 dev tools', () => {
     assert.equal(h.player.pet.hp, h.player.d.petMaxHp);
     const camp = valid(build({ classId: 'hunter', petId: 'duskcat', zone: CAMP }), 'camp');
     assert.deepEqual([camp.phase, camp.player.level, camp.player.pet.id, camp.hours], ['CAMP', C.MAX_LEVEL, 'duskcat', C.BOSS_TIME_PAR]);
-    for (const o of [{ zone: 0 }, { zone: CAMP + 1 }, { level: 61 }, { rarity: 'junk' }, { ilvl: C.ILVL_MAX + 1 }, { talents: 'some' }, { classId: 'paladin' }, { gold: -1 }]) {
+    for (const o of [{ zone: 0 }, { zone: CAMP + 1 }, { level: 61 }, { rarity: 'junk' }, { ilvl: C.ILVL_MAX + 1 }, { talents: 'some' }, { classId: 'paladin' }, { gold: -1 },
+      { classId: 'hunter', petId: 'stormhawk' }, { mapMode: 'hex' }]) {
       assert.throws(() => build(o), (e) => e.code === 'ILLEGAL_ACTION', JSON.stringify(o));
     }
     assert.throws(() => D.build({ zone: 2 }), /content is required/);

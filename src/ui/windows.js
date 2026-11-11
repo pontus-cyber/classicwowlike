@@ -132,6 +132,7 @@ export function createWindows(root, ctx) {
       // reduceMotion shows what is in force (the system's setting until the player chooses)
       const on = (key) => (key === 'reduceMotion' ? settings.reduceMotion : !!s[key]);
       const LABEL = { speedrun: 'Speedrun mode', skipTravel: 'Skip travel scenes', shake: 'Screen shake', reduceMotion: 'Reduce motion', showLog: 'Combat log', devTools: 'Dev tools' };
+      const devRow = flags.dev && ctx.bridge.mode === 'engine';
       const tog = (key) => { const b = h('div.toggle' + (on(key) ? '.on' : ''), { role: 'switch', 'aria-checked': on(key) ? 'true' : 'false', 'aria-label': LABEL[key] || key }, h('div.sw')); b.addEventListener('click', () => { settings.set(key, !on(key)); refresh('settings'); }); return b; };
       const body = h('div.col', { style: { padding: '1rem 1.6rem 1.6rem', gap: 0 } },
         h('div.setrow', h('div', h('div', 'Animation speed'), h('div.muted', 'Space or a click skips to the end of the hit on screen. A key pressed while a round plays is queued as your next action.')), seg('speed', [[1, '1×'], [2, '2×'], [4, '4×'], [0, 'Instant']])),
@@ -141,14 +142,17 @@ export function createWindows(root, ctx) {
         h('div.setrow', h('div', 'Screen shake'), tog('shake')),
         h('div.setrow', h('div', h('div', 'Reduce motion'), h('div.muted', 'No screen shake, smaller recoil, numbers without the slam.')), tog('reduceMotion')),
         h('div.setrow', h('div', 'Combat log'), tog('showLog')),
-        // the Dev menu (dev-menu.js): hidden for good with ?dev=0 and with the mock engine
-        flags.dev && ctx.bridge.mode === 'engine' ? h('div.setrow', h('div', h('div', 'Dev tools'), h('div.muted', 'The DEV button in the corner and the ` key: start anywhere, jump to the boss, any fight.')), tog('devTools')) : null,
+        // the Dev menu (dev-menu.js): one line, so the window keeps clear of the Heat meter (#win-settings.dev); none with
+        // ?dev=0 or the mock engine
+        devRow ? h('div.setrow', h('div', 'Dev tools (the DEV tab and the ` key)'), tog('devTools')) : null,
         h('div', { style: { marginTop: '1.2rem' } }, h('div.title', { style: { fontSize: '1.5rem', marginBottom: '.6rem' } }, 'Keys'),
           h('div.keys', h('span.kbd', '1–7'), 'Spells', h('span.kbd', '8 9 0'), 'Items', h('span.kbd', 'A'), 'Basic attack', h('span.kbd', 'Tab'), 'Next target',
             h('span.kbd', 'Z'), 'Autoplay', h('span.kbd', 'F F'), 'Flee', h('span.kbd', 'X'), 'Pass', h('span.kbd', 'Space'), 'Skip a hit / take loot',
             h('span.kbd', 'C B P'), 'Character, bags, spells', h('span.kbd', 'N L M'), 'Talents, quests, map')),
         h('div.muted', { style: { marginTop: '1.2rem', fontSize: '1.1rem' } }, `Engine: ${ctx.bridge.mode}${globalThis.__BUILD__ ? ` · build ${globalThis.__BUILD__}` : ''}`));
-      return frame('settings', 'Menu and settings', null, body);
+      const win = frame('settings', 'Menu and settings', null, body);
+      if (devRow) win.classList.add('dev');
+      return win;
     },
     map(v) {
       if (!v.zone || !v.zone.rows || !v.zone.rows.length) return frame('map', 'Map', null, h('div.muted', { style: { padding: '2rem' } }, 'No zone map here.'));

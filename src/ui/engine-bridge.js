@@ -1291,7 +1291,8 @@ function engineBackend(seedOpt, runOpts = {}) {
     } catch (err) {
       st = before; local.engineLog.length = Math.min(local.engineLog.length, logLen);
       if (err && err.code === 'ILLEGAL_ACTION') return { ok: false, error: reasonOf(err) };
-      throw err;
+      console.error(err); // not a refusal: a fault of the dev tools, shown and logged
+      return { ok: false, error: `Dev tools: ${(err && err.message) || err}` };
     }
     if (fresh) { local.spoils = null; local.hold = null; local.reward = null; } else afterStep(prev, events);
     const bad = R.debug.validate(st, { steps: false });

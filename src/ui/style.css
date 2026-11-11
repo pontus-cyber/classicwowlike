@@ -531,6 +531,7 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 #win-talents { left: 50%; top: calc(50% - 2rem); transform: translate(-50%, -50%); width: 88rem; max-width: calc(100vw - 2rem); }
 #win-questlog { left: 2rem; top: 17rem; width: 40rem; }
 #win-settings { left: 50%; top: calc(50% - 5.8rem); transform: translate(-50%, -50%); width: 46rem; }
+#win-settings.dev { top: calc(50% - 7.9rem); } /* the Dev tools row: up by half its height, the bottom stays clear of the Heat meter */
 #win-map { right: 21rem; top: 2rem; } /* where the map screen is: clear of the Heat meter */
 .paperdoll { display: grid; grid-template-columns: 4.6rem 1fr 4.6rem; gap: 1rem; padding: 1.2rem 1.4rem; }
 .paperdoll .colslots { display: flex; flex-direction: column; gap: .7rem; }

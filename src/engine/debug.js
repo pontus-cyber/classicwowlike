@@ -200,6 +200,8 @@ export function createDebug(api) {
     for (const [k, v] of [['gold', o.gold], ['potions', o.potions], ['hours', o.hours]]) if (v != null && (!isInt(v) || v < 0)) fail(`debug.build: ${k} must be a whole number >= 0`);
     const profile = o.profile || null;
     const petId = classId === 'hunter' ? o.petId || availablePets(profile || newProfile())[0] : null;
+    if (petId && !availablePets(profile || newProfile()).includes(petId)) fail(`debug.build: the pet ${petId} is not unlocked in the profile`);
+    if (o.mapMode && !MAP_MODES.includes(o.mapMode)) fail(`debug.build: mapMode must be one of ${MAP_MODES.join(', ')}`);
     let s = newRun({ classId, petId, name: o.name || '', seed: o.seed ?? 0, profile, content: o.content, mapMode: o.mapMode || 'rows', vision: o.vision ?? null, dimming: o.dimming ?? true });
     const ev = [];
     for (const oath of o.oaths || []) { const r = step(s, { type: 'SET_OATH', oath, on: true }); s = r.state; ev.push(...r.events); }
