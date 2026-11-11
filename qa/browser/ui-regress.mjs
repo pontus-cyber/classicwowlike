@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K]
+ *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -89,6 +89,17 @@
  *      after each the view says so and the page's state equals a Node twin that replays the page's engine log
  *      (window.__ui.engineLog: R.debug for the dev ops, R.step for the rest; window.__ui.state = R.serialize); god mode
  *      from the World tab; the key closes it; ?dev=0 and the setting hide the button and the key. No console errors.
+ *   L  owner feedback 2026-11-11 (08:03, 08:11, 08:14, 08:31), real engine at Instant speed. (1) the DoT preview: a level-11
+ *      Hunter (Dev menu) casts Barbed Arrow; a set-up state (window.__ui.loadState) with DoTs on both enemies (one lethal),
+ *      the player and the pet: every HP bar (nameplates, target frame, player and pet frames) marks R.pendingTicks of a Node
+ *      twin exactly (data-dot, hatched width), the skull only where lethal, the tooltips' numbers and names; after Pass the
+ *      lethal enemy is dead. (2) talent totals: Silent Footing clicked to 1/3 and 3/3 ("Now: +10 %", "Next rank: +20 %";
+ *      "Now: +30 %", "Max rank"), Toxic Coating's formula, all = R.talentInfo; every one-percentage talent text states the
+ *      engine's number. (3) the first-fight hint: the Rogue's first engage round lists Ambush, Sap, Premeditate on Q, W, E
+ *      beside the panel, covering nothing; "Got it" stores it (tbwcr.hints.v1), a new Rogue run has none, a first Mage run
+ *      has it until W. (4) a Healing Draught pulses at 30 % health, not at 50 % or on cooldown, and is never drunk for the
+ *      player. (5) "Killed by" names Crown-Breaker, not its id; every content ability reads by its name. (6) the settings
+ *      window shows Animation speed's four choices whole.
  *
  * Seeds were picked with the engine of 3559e0e (M2 v2): seed 30's first quest has two Guardians that last long
  * enough for the potion and Autoplay checks. M2 v3 (77c0ca5): seed 1's autoplay run no longer reaches the camp, so part B
@@ -115,7 +126,7 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -2392,6 +2403,251 @@ async function partK(browser, W, H) {
   await off.context.close();
 }
 
+// ------------------------------------------------------------------ part L: DoT preview, talent totals, hints, Killed by
+// Owner feedback 2026-11-11 (08:03, 08:11, 08:14, 08:31). The preview's numbers come from R.pendingTicks of a Node twin of
+// the page's run; set-up states (window.__ui.loadState) put DoTs on every kind of unit at once, a lethal one included.
+import('../../src/ui/engine-bridge.js').then((m) => { L_BRIDGE.actionName = m.actionName; }).catch(() => {});
+import('../../src/ui/ui-text.js').then((m) => { L_BRIDGE.text = m; }).catch(() => {});
+const L_BRIDGE = { actionName: null, text: null };
+/** A dev-built fight (R.debug) past its engage round, edited, serialized for window.__ui.loadState. */
+function lFight(cls, seed, zone, edit) {
+  let s = R.debug.build({ content: CONTENT, classId: cls, seed, zone }).state;
+  const foes = R.debug.enemies(CONTENT).filter((x) => x.zone === zone && x.kind === 'normal').slice(0, 2).map((x) => x.id);
+  s = R.debug.encounter(s, { ids: foes }).state;
+  s = R.step(s, { type: 'PASS' }).state;
+  const o = JSON.parse(R.serialize(s));
+  if (edit) edit(o);
+  return JSON.stringify(o);
+}
+/** Every HP bar of the HUD: where it is, its preview mark (data-dot), the hatched width and the fill's share, the skull. */
+const hpBars = (page) => page.evaluate(() => [...document.querySelectorAll('.bar.hp')].filter((b) => b.offsetParent).map((b) => {
+  const frame = b.closest('#player-frame, #pet-frame, #target-frame, #boss-frame, .np');
+  const dot = b.querySelector('.dot'); const sk = b.querySelector('.skull');
+  // the hatched width as set (share of the bar); its box eases over .3 s when the target frame changes enemy
+  return { where: frame.id || `np${frame.dataset.idx}`, dot: b.dataset.dot || '', w: dot && !dot.classList.contains('hidden') ? parseFloat(dot.style.width) / 100 : 0,
+    skull: !!sk && !sk.classList.contains('hidden') && getComputedStyle(sk).display !== 'none', lethal: !!dot && dot.classList.contains('lethal') };
+}));
+/** The marks R.pendingTicks of state s asks for, per bar ('player-frame', 'pet-frame', 'target-frame', 'np<idx>'). */
+function wantMarks(s, target) {
+  const out = {};
+  const mark = (u, maxHp) => {
+    const x = R.pendingTicks(s, u);
+    if (!x || (!x.amount && !x.absorbed && !x.lethal)) return { dot: '', w: 0 };
+    const loss = Math.min(x.hp, Math.max(0, x.hp - (x.lethal ? 0 : x.hpAfter)));
+    return { dot: `${loss}${x.lethal ? ':lethal' : ''}`, w: loss / maxHp, lethal: x.lethal };
+  };
+  out['player-frame'] = mark('player', s.player.d.maxHp);
+  if (s.player.pet && s.player.pet.alive) out['pet-frame'] = mark('pet', s.player.d.petMaxHp);
+  for (const e of s.fight.enemies) if (e.alive) out[`np${e.idx}`] = mark(e.idx, e.maxHp);
+  if (target != null && s.fight.enemies[target] && s.fight.enemies[target].alive) out['target-frame'] = out[`np${target}`];
+  return out;
+}
+function marksMatch(bars, want) {
+  const bad = [];
+  for (const [where, w] of Object.entries(want)) {
+    const b = bars.find((x) => x.where === where);
+    if (!b) { bad.push(`${where}: no bar`); continue; }
+    if (b.dot !== w.dot || Math.abs(b.w - w.w) > 0.02 || (!!w.lethal !== b.lethal) || (!!w.lethal !== b.skull)) bad.push(`${where}: page ${JSON.stringify(b)}, engine ${JSON.stringify(w)}`);
+  }
+  return bad;
+}
+const tipText = async (page, locator) => { await locator.hover(); await page.waitForTimeout(180); const t = await page.locator('.tooltip.on').innerText().catch(() => ''); await page.mouse.move(2, 2); return t.replace(NBSP, ' '); };
+
+async function partL(browser, W, H) {
+  // ---- (1) DoT preview: a cast that applies a DoT, then a set-up state with DoTs on every unit, one lethal
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=5&speed=instant');
+    try {
+      await page.locator('#create .ccard[data-cls="hunter"]').click(); await idle(page);
+      await page.evaluate(() => window.__ui.dev('build', { classId: 'hunter', zone: 2 })); await idle(page);
+      const foes = R.debug.enemies(CONTENT).filter((x) => x.zone === 2 && x.kind === 'normal').slice(0, 2).map((x) => x.id);
+      await page.evaluate((ids) => window.__ui.dev('fight', { ids }), foes); await idle(page);
+      await page.keyboard.press('KeyX'); await idle(page); // past the engage round
+      let s = devTwin(await page.evaluate(() => window.__ui.engineLog()));
+      const slot = s.player.bar.indexOf('barbed_arrow');
+      const target = await page.evaluate(() => window.__ui.target());
+      if (slot >= 0) {
+        await page.keyboard.press(`Digit${slot + 1}`); await idle(page);
+        s = devTwin(await page.evaluate(() => window.__ui.engineLog()));
+        const tgt = await page.evaluate(() => window.__ui.target());
+        const bad = s.fight && !s.fight.over ? marksMatch(await hpBars(page), wantMarks(s, tgt)) : ['the fight ended'];
+        await shot(page, 'L-barbed');
+        check('OWN-L', 'Barbed Arrow cast: every HP bar marks what R.pendingTicks of the engine state says (hatched width = HP lost / max HP), the target included',
+          !bad.length && R.pendingTicks(s, target) && R.pendingTicks(s, target).amount > 0, bad.join(' | ') || JSON.stringify(R.pendingTicks(s)));
+      } else check('OWN-L', 'Barbed Arrow is on the level-11 Hunter\'s bar', false, JSON.stringify(s.player.bar));
+      // set-up state: DoTs on both enemies (enemy 1 lethal: 3 × 9 Poison on 20 HP), on the player and on the pet
+      const ser = lFight('hunter', 5, 2, (o) => {
+        const [e0, e1] = o.fight.enemies;
+        e0.st.push({ id: 'BLEED', src: 'barbed_arrow', dur: 3, full: 4, tick: Math.round(e0.hp * 0.3), canCrit: false, stacks: 1 });
+        e1.hp = 20; e1.st.push({ id: 'POISON', dur: 3, full: 4, tick: 9, stacks: 3, max: 5, canCrit: false });
+        o.fight.p.st.push({ id: 'BLEED', src: 'rend@1', by: 1, dur: 2, full: 3, tick: 14, canCrit: false });
+        o.fight.pet.st.push({ id: 'BLEED', src: 'rend@0', by: 0, dur: 2, full: 3, tick: 11, canCrit: false });
+        o.player.hp = Math.round(o.player.d.maxHp * 0.6);
+      });
+      await page.evaluate((x) => window.__ui.loadState(x), ser); await idle(page);
+      await page.locator('#nameplates .np[data-idx="1"]').click(); await idle(page); await page.mouse.move(2, 2);
+      s = R.deserialize(ser, CONTENT);
+      const bars = await hpBars(page);
+      let bad = marksMatch(bars, wantMarks(s, 1));
+      await shot(page, 'L-dot-preview');
+      check('OWN-L', 'set-up state: nameplates, target frame, player and pet frames mark R.pendingTicks exactly; the lethal Poison has the skull on its nameplate and the target frame, the others none',
+        !bad.length && bars.filter((b) => b.skull).map((b) => b.where).sort().join(',') === 'np1,target-frame', bad.join(' | ') || JSON.stringify(bars));
+      const tt = await tipText(page, page.locator('#target-frame .bar.hp'));
+      const t1 = R.pendingTicks(s, 1);
+      check('OWN-L', `target frame tooltip: lethal, ${t1.amount} from Poison ×3, "no need to attack it"`, /Lethal/.test(tt) && tt.includes(`Poison ×3: ${t1.amount}`) && /no need to attack/.test(tt), tt);
+      const pt = await tipText(page, page.locator('#player-frame .bar.hp'));
+      const enemy1 = s.fight.enemies[1].name;
+      check('OWN-L', `player frame tooltip: the rend's tick by name and enemy (Rend (${enemy1}): ${R.pendingTicks(s, 'player').amount}), never an id`, pt.includes(`Rend (${enemy1}): ${R.pendingTicks(s, 'player').amount}`) && !/@|_/.test(pt), pt);
+      // the round plays: the poisoned enemy dies at its end, as previewed; the marks follow the new state
+      await page.keyboard.press('KeyX'); await idle(page);
+      const log = await page.evaluate(() => window.__ui.engineLog());
+      let t = R.deserialize(ser, CONTENT); for (const a of log) t = R.step(t, a).state;
+      bad = t.fight && !t.fight.over ? marksMatch(await hpBars(page), wantMarks(t, await page.evaluate(() => window.__ui.target()))) : [];
+      check('OWN-L', 'after Pass: the enemy the preview called lethal is dead (engine), its bar is gone, and the other bars mark the new R.pendingTicks',
+        t.fight && !t.fight.enemies[1].alive && !(await page.locator('#nameplates .np[data-idx="1"]:not(.dead)').count()) && !bad.length, bad.join(' | ') || `enemy 1 alive: ${t.fight && t.fight.enemies[1].alive}`);
+    } catch (e) {
+      await shot(page, 'L-error-dot');
+      check('OWN-L', 'part L (DoT preview) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
+    }
+    check('OWN-L', 'part L (DoT preview): no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- (2) talent totals: Silent Footing and Toxic Coating rank by rank, from R.talentInfo
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=7&speed=instant');
+    try {
+      await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 2, level: 20, talents: 'unspent' })); await idle(page);
+      await page.keyboard.press('KeyN'); await idle(page);
+      const cell = (id) => page.locator(`#win-talents .tal[data-id="${id}"]`);
+      const want = [];
+      for (let r = 1; r <= 3; r++) {
+        await cell('r_b1').click(); await idle(page);
+        const s = devTwin(await page.evaluate(() => window.__ui.engineLog()));
+        const info = R.talentInfo(s, 'r_b1');
+        const txt = await tipText(page, cell('r_b1'));
+        const nowWant = `Now: +${Math.round(info.now.pct * 100)} %`;
+        const nextWant = info.next ? `Next rank: +${Math.round(info.next.pct * 100)} %` : 'Max rank';
+        want.push(`${r}/3 ${nowWant} · ${nextWant}`);
+        if (r === 1 || r === 3) {
+          check('OWN-L', `Silent Footing ${r}/3: the tooltip says "${nowWant}" and "${nextWant}" (R.talentInfo)`, txt.includes(nowWant) && txt.includes(nextWant) && txt.includes(`Rank ${r}/3`), txt);
+          if (r === 3) await shot(page, 'L-talent-max');
+        }
+      }
+      await cell('r_c1').click(); await idle(page);
+      const s = devTwin(await page.evaluate(() => window.__ui.engineLog()));
+      const tc = R.talentInfo(s, 'r_c1');
+      const txt = await tipText(page, cell('r_c1'));
+      check('OWN-L', `Toxic Coating 1/3: "Now: Poison ticks ${tc.now.base} per stack", "Next rank: ... ${tc.next.base}" (the formula with the character's level and Power)`,
+        txt.includes(`Now: Poison ticks ${tc.now.base} per stack`) && txt.includes(`Next rank: Poison ticks ${tc.next.base} per stack`), txt);
+      // every talent text with one per-rank percentage names the engine's number (the texts were behind M2 v2 and v5)
+      const T = L_BRIDGE.text;
+      const PCT = new Set(['pct', 'crit', 'dodge', 'hpPct', 'manaPct', 'powerPct', 'petHpPct', 'petDmgPct', 'chance', 'healPct', 'share', 'marked', 'wardPct', 'strength', 'chill']);
+      const off = Object.keys(R.C.TALENT).filter((id) => { const k = R.C.TALENT_PER_RANK[id]; if (!T || k.length !== 1 || !PCT.has(k[0])) return false; return !T.talentText(id, CONTENT).replace(/\+/g, '').includes(T.pct2(R.C.TALENT[id][k[0]])); });
+      check('OWN-L', 'every talent text with one per-rank percentage states the engine\'s number (C.TALENT)', T && !off.length, off.map((id) => `${id}: "${T.talentText(id, CONTENT)}" vs ${T.pct2(R.C.TALENT[id][R.C.TALENT_PER_RANK[id][0]])}`).join(' | '));
+    } catch (e) {
+      await shot(page, 'L-error-talent');
+      check('OWN-L', 'part L (talent totals) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
+    }
+    check('OWN-L', 'part L (talent totals): no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- (3) the first-fight hint: once per class in this browser's saved game; (4) the low-health potion pulse
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=16&speed=instant');
+    const toFight = async () => { for (let i = 0; i < 200; i++) { const v = await view(page); if (v.round && !v.over && v.step === 'combat') break; await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); } };
+    const newRun = async (cls) => {
+      await page.goto(`${URL}?seed=16&speed=instant`); await page.waitForFunction(() => window.__ui);
+      await page.locator(`#create .ccard[data-cls="${cls}"]`).click(); await idle(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await toFight();
+    };
+    try {
+      const hint = page.locator('#engage-hint');
+      await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await toFight();
+      const twin = makeTwin(16); twin.s.create.classId = 'rogue';
+      const s = await twin.sync(page);
+      const opts = R.engageOptions(s);
+      const items = await page.locator('#engage-hint .eh-opts li').evaluateAll((els) => els.map((e) => ({ opt: e.dataset.opt, key: (e.querySelector('.kbd') || {}).textContent, text: e.textContent })));
+      const hp = await placement(hint);
+      const clear = await page.evaluate(() => {
+        const r = document.getElementById('engage-hint').getBoundingClientRect();
+        const hit = (q) => [...document.querySelectorAll(q)].filter((x) => x.offsetParent).some((x) => { const b = x.getBoundingClientRect(); return b.width && !(b.right <= r.left || b.left >= r.right || b.bottom <= r.top || b.top >= r.bottom); });
+        return { engage: hit('#engage'), target: hit('#target-frame'), np: hit('#nameplates .np'), ruler: hit('#ruler'), bar: hit('#actionbar'), arrowAtPanel: Math.abs(r.left - document.getElementById('engage').getBoundingClientRect().right) < 40 };
+      });
+      await shot(page, 'L-hint');
+      check('OWN-L', `Rogue's first engage round: the hint is in view beside the engage panel and lists ${opts.map((o) => o.name).join(', ')} on keys Q, W, E (R.engageOptions), Sap among them`,
+        R.isEngageRound(s) && fullyShown(hp) && items.map((x) => `${x.opt}:${x.key}`).join(',') === opts.map((o, i) => `${o.id}:${'QWE'[i]}`).join(',') && items.some((x) => /Sap/.test(x.text) && /skips its next/.test(x.text)) && clear.arrowAtPanel,
+        `${placeText(hp)} ${JSON.stringify(items)}`);
+      check('OWN-L', 'the hint covers no engage card, target frame, nameplate, opening ruler or action bar', !clear.engage && !clear.target && !clear.np && !clear.ruler && !clear.bar, JSON.stringify(clear));
+      await page.locator('#engage-hint button').click(); await idle(page);
+      const stored = await page.evaluate((k) => localStorage.getItem(k), 'tbwcr.hints.v1');
+      check('OWN-L', '"Got it" hides it and stores it for the Rogue (localStorage tbwcr.hints.v1)', !(await hint.isVisible()) && JSON.parse(stored || '{}').engage && JSON.parse(stored).engage.rogue === true, stored);
+      await newRun('rogue');
+      check('OWN-L', 'a new Rogue run (page reloaded): its first engage round shows no hint', (await view(page)).round === 1 && !(await hint.isVisible()), '');
+      await newRun('mage');
+      const shownMage = await hint.isVisible();
+      await page.keyboard.press('KeyW'); await idle(page);
+      const st2 = await page.evaluate((k) => localStorage.getItem(k), 'tbwcr.hints.v1');
+      check('OWN-L', 'a first Mage run shows the hint; opening with W ends the engage round and stores it for the Mage too', shownMage && !(await hint.isVisible()) && JSON.parse(st2).engage.mage === true, st2);
+      // (4) the potion: below POTION_HINT_HP with a Healing Draught ready the slot pulses; never drunk for the player
+      const at = (frac, cd) => lFight('hunter', 5, 2, (o) => { o.player.hp = Math.round(o.player.d.maxHp * frac); if (cd) o.fight.p.potionReady = o.fight.round + 2; });
+      const potSlot = async () => page.evaluate(() => { const v = window.__ui.view(); const i = v.player.itemBar.findIndex((x) => x === 'healing_draught'); const b = document.querySelector(`#actionbar .ab[data-islot="${i}"]`); return { i, pulse: !!b && b.classList.contains('pulse'), label: b ? b.getAttribute('aria-label') : '' }; });
+      await page.evaluate((x) => window.__ui.loadState(x), at(0.3)); await idle(page); await page.mouse.move(2, 2);
+      const low = await potSlot();
+      await shot(page, 'L-potion');
+      await page.waitForTimeout(700);
+      const drank = (await page.evaluate(() => window.__ui.engineLog())).some((a) => a.type === 'USE_ITEM');
+      await page.evaluate((x) => window.__ui.loadState(x), at(0.5)); await idle(page);
+      const high = await potSlot();
+      await page.evaluate((x) => window.__ui.loadState(x), at(0.3, true)); await idle(page);
+      const cool = await potSlot();
+      check('OWN-L', 'Healing Draught on the item bar: pulses at 30 % health ("Low health: drink it"), not at 50 %, not while the potion cooldown runs, and is never drunk for the player',
+        low.i >= 0 && low.pulse && /Low health/.test(low.label) && !high.pulse && !cool.pulse && !drank, JSON.stringify({ low, high, cool, drank }));
+    } catch (e) {
+      await shot(page, 'L-error-hint');
+      check('OWN-L', 'part L (hints) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
+    }
+    check('OWN-L', 'part L (hints): no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- (5) Killed by: the killing blow by its display name, never its id; (6) the settings window at this size
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=1&speed=instant');
+    try {
+      const names = L_BRIDGE.actionName ? Object.keys(CONTENT.abilities).filter((id) => L_BRIDGE.actionName(id) !== CONTENT.abilities[id].name) : ['(bridge not loaded)'];
+      check('OWN-L', `every content ability (${Object.keys(CONTENT.abilities).length}) reads by its content name (the bridge's actionName)`, !names.length, names.join(', '));
+      let s = R.newRun({ classId: 'rogue', seed: 1, content: CONTENT });
+      s = R.step(s, { type: 'START_RUN' }).state;
+      for (let i = 0; i < 20000 && s.phase !== 'SUMMARY' && s.phase !== 'ENDED'; i++) s = R.step(s, R.autoAction(s)).state;
+      const o = JSON.parse(R.serialize(s));
+      if (o.phase === 'SUMMARY' && o.death) {
+        o.death.killer = { idx: 0, name: 'Aldrec Barrow-King', ability: 'ab_z3_king_aldrec_heavy_blow' };
+        await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle(page);
+        await page.evaluate((x) => window.__ui.loadState(x), JSON.stringify(o)); await idle(page);
+        const line = await page.locator('.killed').innerText();
+        await shot(page, 'L-killed-by');
+        check('OWN-L', 'the run summary names the killing blow: "Aldrec Barrow-King (Crown-Breaker)", not "Ab Z3 King Aldrec Heavy Blow"', line === `Aldrec Barrow-King (${CONTENT.abilities.ab_z3_king_aldrec_heavy_blow.name})`, line);
+      } else check('OWN-L', 'a Rogue autoplay run (seed 1) ends in a death', false, `${o.phase} ${o.outcome}`);
+      await page.goto(`${URL}?seed=1&speed=instant`); await page.waitForFunction(() => window.__ui);
+      await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await page.evaluate(() => window.__ui.openWin('settings')); await idle(page);
+      const segs = await page.locator('#win-settings .setrow').first().locator('.seg button').all();
+      const ps = []; for (const b of segs) ps.push({ t: await b.innerText(), p: await placement(b) });
+      await shot(page, 'L-settings');
+      check('OWN-L', 'settings window: Animation speed shows all four choices (1×, 2×, 4×, Instant) whole and in view', ps.length === 4 && ps.every((x) => fullyShown(x.p)) && ps.map((x) => x.t).join(',') === '1×,2×,4×,Instant',
+        ps.map((x) => `${x.t} ${placeText(x.p)}`).join(' | '));
+    } catch (e) {
+      await shot(page, 'L-error-summary');
+      check('OWN-L', 'part L (summary, settings) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
+    }
+    check('OWN-L', 'part L (summary, settings): no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+}
+
 // ------------------------------------------------------------------ run
 const browser = await chromium.launch({ headless: true });
 for (const [W, H] of SIZES) {
@@ -2407,6 +2663,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('I')) await partI(browser, W, H);
   if (PARTS.includes('J')) await partJ(browser, W, H);
   if (PARTS.includes('K')) await partK(browser, W, H);
+  if (PARTS.includes('L')) await partL(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);

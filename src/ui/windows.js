@@ -102,7 +102,7 @@ export function createWindows(root, ctx) {
             const st = L[t.id] || { rank: p.talents[t.id] || 0 };
             const rank = p.talents[t.id] || 0;
             const cls2 = rank >= t.ranks ? '.max' : st.canSpend ? '.can' + (rank ? '.some' : '') : st.locked ? '.locked' : rank ? '.some' : '';
-            const el = h('div.tal' + cls2, h('img', { src: talentIcon(t), alt: '' }), h('span.rk', `${rank}/${t.ranks}`));
+            const el = h('div.tal' + cls2, { dataset: { id: t.id } }, h('img', { src: talentIcon(t), alt: '' }), h('span.rk', `${rank}/${t.ranks}`));
             tip(el, () => talentTip(t, L[t.id], ctx));
             el.addEventListener('click', () => { if (st.canSpend) ctx.act({ type: 'SPEND_TALENT', talentId: t.id }); });
             row.appendChild(el);

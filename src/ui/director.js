@@ -1,4 +1,5 @@
 // Plays the events of one engine step as animation, then hands the new view to the HUD.
+// The DoT preview (view `dot`, engine-api.md 6.1) is the next decision's: the views shown while a round plays carry none.
 // Heat (docs/specs/expedition.md H.3): XP and gold lines name the extra from heat (the events' `heat`), loot that heat
 // raised one rarity says so; expedition moves (MOVE, TAKE_ROAD, RING_BELL) travel like map choices and Travel on.
 // Combat v2 (docs/specs/combat-v2.md 10.6): cancelled and replaced track entries, off-balance windows, traps, Signals and
@@ -54,14 +55,15 @@ export function makeInterim(prev, next) {
   if (prev.node) v.node = deepClone(prev.node);
   if (prev.player && v.player) {
     const pp = prev.player;
-    Object.assign(v.player, { hp: pp.hp, maxHp: pp.maxHp, cp: pp.cp, statuses: deepClone(pp.statuses), level: pp.level, xp: pp.xp, xpToNext: pp.xpToNext, rested: pp.rested, gold: pp.gold });
+    // the DoT preview (dot) is the next decision's: none while the round plays (its HP numbers are the previous view's)
+    Object.assign(v.player, { hp: pp.hp, maxHp: pp.maxHp, cp: pp.cp, statuses: deepClone(pp.statuses), level: pp.level, xp: pp.xp, xpToNext: pp.xpToNext, rested: pp.rested, gold: pp.gold, dot: null });
     // resurrect charges change when the 'resurrect' event plays
     if (pp.resurrect) Object.assign(v.player, { resurrect: deepClone(pp.resurrect), resurrectHeld: deepClone(pp.resurrectHeld), resurrectBoss: deepClone(pp.resurrectBoss) });
     v.player.res = { ...v.player.res, cur: pp.res.cur, max: pp.res.max };
-    if (pp.pet && v.player.pet) Object.assign(v.player.pet, { hp: pp.pet.hp, maxHp: pp.pet.maxHp, alive: pp.pet.alive, statuses: deepClone(pp.pet.statuses) });
+    if (pp.pet && v.player.pet) Object.assign(v.player.pet, { hp: pp.pet.hp, maxHp: pp.pet.maxHp, alive: pp.pet.alive, statuses: deepClone(pp.pet.statuses), dot: null });
   }
   if (prev.combat) {
-    if (!v.combat) v.combat = deepClone(prev.combat);
+    if (!v.combat) { v.combat = deepClone(prev.combat); for (const e of v.combat.enemies) e.dot = null; }
     else {
       v.combat.round = prev.combat.round;
       v.combat.over = prev.combat.over;
@@ -69,7 +71,7 @@ export function makeInterim(prev, next) {
       for (const e of v.combat.enemies) {
         const pe = prev.combat.enemies.find((x) => x.idx === e.idx && x.uid === e.uid);
         // combat v2: the track, role and off-balance window change with the round (refreshed at its 'round' event)
-        if (pe) Object.assign(e, { hp: pe.hp, alive: pe.alive, statuses: deepClone(pe.statuses), intent: deepClone(pe.intent), track: deepClone(pe.track), role: deepClone(pe.role), offBalance: deepClone(pe.offBalance) });
+        if (pe) Object.assign(e, { hp: pe.hp, alive: pe.alive, statuses: deepClone(pe.statuses), intent: deepClone(pe.intent), track: deepClone(pe.track), role: deepClone(pe.role), offBalance: deepClone(pe.offBalance), dot: null });
         else e.hidden = true;
       }
     }

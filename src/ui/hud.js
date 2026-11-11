@@ -7,6 +7,10 @@
 // nameplate and the target frame, and the bar spells that can answer a wind-up marked (now: "Answer"; on hover: all).
 // Heat (docs/specs/expedition.md H.4, drawn by heat.js): the Heat meter above the action bar, beside the Autoplay controls;
 // the minimap tooltip and the camp tracker line read the same R.heatView (view.heat).
+// DoT preview (owner feedback 2026-11-11 08:11; engine-api.md 6.1): on every HP bar of a fight (nameplates, the target, boss,
+// player and pet frames) the HP that the ticks at the end of the round will take is a hatched end segment, with a skull
+// when they kill; the bar's tooltip has the numbers (view `dot`, from R.pendingTicks). Low health: a healing potion on the
+// item bar that can be drunk pulses below POTION_HINT_HP (owner playtest 08:03: a run ended with 0 potions used).
 import { h, add, clear, fmtNum, moneyEl, hoursText, clamp, rgba } from './util.js';
 import { spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS } from './art-icons.js';
 import { drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook } from './art-actors.js';
@@ -42,11 +46,22 @@ export function travelState(v) {
   return { kind, need, exit: z ? z.exitLevel : 0, rows, level: lvl, under: z ? z.exitLevel - need : 0 };
 }
 
+/** A healing potion on the item bar pulses while health is below this share in a fight (UI hint only, no auto-drink). */
+export const POTION_HINT_HP = 0.35;
+const SKULL = () => icon('skull', null, { bare: true, tint: '#ffe0d8' });
+
 function bar(cls) {
-  const el = h('div.bar.' + cls.split(' ').join('.'), h('div.ghost'), h('div.fill'), h('div.ward'), h('div.txt'));
+  const hp = cls.split(' ')[0] === 'hp';
+  const el = h('div.bar.' + cls.split(' ').join('.'), h('div.ghost'), h('div.fill'), h('div.ward'),
+    hp ? h('div.dot.hidden', { 'aria-hidden': 'true' }) : null, hp ? h('img.skull.hidden', { alt: '' }) : null, h('div.txt'));
   return el;
 }
-function setBar(el, cur, max, text, wardVal = 0) {
+/**
+ * One bar. wardVal: absorb shown after the fill. dot (HP bars in a fight): the DoT preview of the unit (view `dot`,
+ * engine-bridge.js dotOf): `loss` HP at the end of the fill is hatched (the ticks at the end of the round take it), a skull
+ * when they kill (`lethal`; a faint one when only crits would). data-dot carries "loss" or "loss:lethal" for the checks.
+ */
+function setBar(el, cur, max, text, wardVal = 0, dot = null) {
   const f = max > 0 ? clamp(cur / max, 0, 1) : 0;
   const fill = el.querySelector('.fill'); const ghost = el.querySelector('.ghost'); const ward = el.querySelector('.ward');
   fill.style.transform = `scaleX(${f})`;
@@ -56,8 +71,44 @@ function setBar(el, cur, max, text, wardVal = 0) {
     ghost.style.transform = `scaleX(${f})`; ghost.dataset.f = f;
   }
   if (ward) { const w = max > 0 ? clamp(wardVal / max, 0, 1 - f) : 0; ward.style.left = `${f * 100}%`; ward.style.width = `${w * 100}%`; }
+  const de = el.querySelector('.dot');
+  if (de) {
+    const loss = dot && cur > 0 ? Math.min(cur, dot.loss) : 0;
+    const w = max > 0 ? clamp(loss / max, 0, f) : 0;
+    const on = !!(dot && (w > 0 || dot.lethal));
+    de.classList.toggle('hidden', !on); de.classList.toggle('lethal', !!(dot && dot.lethal));
+    de.style.left = `${(f - w) * 100}%`; de.style.width = `${w * 100}%`;
+    const sk = el.querySelector('.skull'); const maybe = !!(dot && !dot.lethal && dot.crit && dot.crit.lethal);
+    sk.classList.toggle('hidden', !(dot && (dot.lethal || maybe))); sk.classList.toggle('maybe', maybe);
+    if ((dot && (dot.lethal || maybe)) && !sk.getAttribute('src')) sk.src = SKULL();
+    el.dataset.dot = on ? `${loss}${dot.lethal ? ':lethal' : ''}` : '';
+    el.classList.toggle('dot-lethal', !!(dot && dot.lethal));
+  }
   el.querySelector('.txt').textContent = text;
   el.classList.toggle('low', el.classList.contains('hp') && f < 0.3);
+}
+const RESURRECT_NAME = { boon: 'your Boon of Return', second_breath: 'Second Breath', ember: 'an Ember of Return' };
+/**
+ * Tooltip of an HP bar with a DoT preview (engine-api.md 6.1): what the ticks at the end of this round do, tick by tick,
+ * and whether they kill. who: 'player', 'pet' or 'enemy'; name: the unit's name. null without a preview.
+ */
+export function dotTip(dot, who, name) {
+  if (!dot) return null;
+  const n = (x) => fmtNum(x);
+  const head = dot.lethal ? 'Lethal at the end of this round' : 'Damage over time this round';
+  const lines = dot.ticks.map((t) => h('div.tt-line.num', `${t.name}: ${t.immune ? 'no damage (immune)' : t.sidestep ? `avoided (Death's Sidestep, ${n(t.absorbed)})` : n(t.amount)}${t.absorbed && !t.sidestep ? ` (${n(t.absorbed)} absorbed)` : ''}`));
+  let verdict;
+  if (dot.lethal && who === 'player') verdict = dot.resurrect ? `It would kill you; ${RESURRECT_NAME[dot.resurrect] || 'a resurrect'} would bring you back.` : 'It will kill you unless you heal, cleanse or shield first.';
+  else if (dot.lethal && who === 'pet') verdict = `It will kill ${name}.`;
+  else if (dot.lethal) verdict = `It will kill ${name} after its turn: no need to attack it this round.`;
+  else verdict = `Leaves ${name === 'you' ? 'you' : name} at ${n(dot.hpAfter)} health.`;
+  return h('div.tt-spell.tt-dot',
+    h('div.tt-row', h('div.tt-name' + (dot.lethal ? '.bad' : ''), head), h('div.tt-kind.bad', `−${n(dot.loss)} HP`)),
+    lines,
+    dot.heal ? h('div.tt-line.num', { style: { color: '#7fe0a0' } }, `Healed meanwhile: ${n(dot.heal)}`) : null,
+    h(dot.lethal ? 'div.tt-warn' : 'div.tt-line', verdict),
+    dot.crit ? h('div.tt-sub', `With critical ticks: ${n(dot.crit.amount)} damage${dot.crit.lethal && !dot.lethal ? ', enough to kill' : ''}.`) : null,
+    h('div.tt-sub', 'Damage over time ticks at the end of the round, after every action. Hits and heals before then are not counted.'));
 }
 /**
  * Status icons of a unit: buffs first, then debuffs after a divider. A buff has a round green frame, a debuff a square
@@ -120,8 +171,13 @@ export function createHud(root, ctx) {
   els.target = h('div#target-frame.uf.hidden', h('div.portrait'), h('div.lvl', { style: { left: '5.4rem', top: '5.4rem' } }),
     h('div.plate', h('div.name', h('span.rb'), h('span.pn'), h('span.tag')), h('div.obal.hidden'), bar('hp enemy'), h('div.wstk.hidden'), h('div.statuses'), h('div.ttrack')));
   tip(els.target.querySelector('.obal'), () => { const c = ctx.view.combat; const e = c && c.enemies.find((x) => x.idx === ctx.ui.target); return e ? offBalanceTip(e) : null; });
+  // the DoT preview's numbers on each HP bar (engine-api.md 6.1); none without a preview
+  tip(els.target.querySelector('.bar.hp'), () => { const c = ctx.view.combat; const e = c && c.enemies.find((x) => x.idx === ctx.ui.target); return e ? dotTip(e.dot, 'enemy', e.name) : null; });
+  tip(els.player.querySelector('.bar.hp'), () => { const p = ctx.view.player; return p ? dotTip(p.dot, 'player', 'you') : null; });
+  tip(els.pet.querySelector('.bar.hp'), () => { const p = ctx.view.player; return p && p.pet ? dotTip(p.pet.dot, 'pet', p.pet.name) : null; });
   els.bossWarn = h('div.bwarn.hidden');
   els.boss = h('div#boss-frame.panel.hidden', h('div.bname'), h('div', { style: { position: 'relative' } }, bar('hp boss'), h('div.mark', { style: { left: '70%' } }), h('div.mark', { style: { left: '40%' } })), h('div.binfo'), els.bossWarn);
+  tip(els.boss.querySelector('.bar.hp'), () => { const c = ctx.view.combat; const b = c && c.enemies.find((e) => e.rank === 'boss'); return b ? dotTip(b.dot, 'enemy', b.name) : null; });
   els.nameplates = h('div#nameplates');
   // ------------------------------------------------------------ action bar
   els.actionbar = h('div#actionbar.panel');
@@ -259,7 +315,7 @@ export function createHud(root, ctx) {
     pf.querySelector('.cls').textContent = p.className;
     pf.querySelector('.lvl').textContent = p.level;
     const ward = (p.statuses || []).find((s) => s.id === 'WARD');
-    setBar(pf.querySelector('.bar.hp'), p.hp, p.maxHp, `${fmtNum(p.hp)} / ${fmtNum(p.maxHp)}`, ward ? ward.value : 0);
+    setBar(pf.querySelector('.bar.hp'), p.hp, p.maxHp, `${fmtNum(p.hp)} / ${fmtNum(p.maxHp)}`, ward ? ward.value : 0, p.dot);
     const rb = pf.querySelector('.bar.res');
     rb.className = 'bar res ' + p.res.kind;
     setBar(rb, p.res.cur, p.res.max, `${fmtNum(p.res.cur)} / ${fmtNum(p.res.max)}`);
@@ -279,7 +335,7 @@ export function createHud(root, ctx) {
       if (below > 0) els.pet.style.top = `${Math.round(below + parseFloat(getComputedStyle(document.documentElement).fontSize) * 0.5)}px`;
       if (els.pet.dataset.pet !== p.pet.id) { els.pet.dataset.pet = p.pet.id; clear(els.pet.querySelector('.portrait')).appendChild(petPortrait(p.pet.id)); }
       els.pet.querySelector('.pn').textContent = p.pet.name;
-      setBar(els.pet.querySelector('.bar.hp'), p.pet.alive ? p.pet.hp : 0, p.pet.maxHp, p.pet.alive ? `${fmtNum(p.pet.hp)} / ${fmtNum(p.pet.maxHp)}` : 'Dead');
+      setBar(els.pet.querySelector('.bar.hp'), p.pet.alive ? p.pet.hp : 0, p.pet.maxHp, p.pet.alive ? `${fmtNum(p.pet.hp)} / ${fmtNum(p.pet.maxHp)}` : 'Dead', 0, p.pet.alive ? p.pet.dot : null);
       els.pet.style.opacity = p.pet.alive ? 1 : 0.55;
       statusRow(els.pet.querySelector('.statuses'), p.pet.statuses, ctx);
     } else els.pet.classList.add('hidden');
@@ -312,7 +368,7 @@ export function createHud(root, ctx) {
       }
       const lv = els.target.querySelector('.lvl'); lv.textContent = tgt.level; lv.style.color = conColor(tgt.level, p.level);
       const tw = (tgt.statuses || []).find((s) => s.id === 'WARD');
-      setBar(els.target.querySelector('.bar.hp'), tgt.hp, tgt.maxHp, `${fmtNum(tgt.hp)} / ${fmtNum(tgt.maxHp)}  ·  ${Math.ceil((tgt.hp / tgt.maxHp) * 100)} %`, tw ? tw.value : 0);
+      setBar(els.target.querySelector('.bar.hp'), tgt.hp, tgt.maxHp, `${fmtNum(tgt.hp)} / ${fmtNum(tgt.maxHp)}  ·  ${Math.ceil((tgt.hp / tgt.maxHp) * 100)} %`, tw ? tw.value : 0, inFight ? tgt.dot : null);
       stackBadges(els.target.querySelector('.wstk'), tgt, ctx); // combat v2.1: EMPOWERED / STAGGERED, large (their small icons stay out of the row)
       statusRow(els.target.querySelector('.statuses'), (tgt.statuses || []).filter((s) => !WINDUP_STACKS.has(s.id)), ctx);
       // the off-balance marker (combat v2, rules 7.13) and the intent track (rules 7.11)
@@ -326,7 +382,7 @@ export function createHud(root, ctx) {
     if (boss) {
       els.boss.classList.remove('hidden');
       els.boss.querySelector('.bname').textContent = boss.name;
-      setBar(els.boss.querySelector('.bar.hp'), boss.hp, boss.maxHp, `${fmtNum(boss.hp)} / ${fmtNum(boss.maxHp)}  ·  ${Math.ceil((boss.hp / boss.maxHp) * 100)} %`);
+      setBar(els.boss.querySelector('.bar.hp'), boss.hp, boss.maxHp, `${fmtNum(boss.hp)} / ${fmtNum(boss.maxHp)}  ·  ${Math.ceil((boss.hp / boss.maxHp) * 100)} %`, 0, inFight ? boss.dot : null);
       const b = c.boss || {};
       const tg = b.telegraph || {};
       const brand = (p.statuses || []).find((s) => s.id === 'BRAND');
@@ -395,6 +451,7 @@ export function createHud(root, ctx) {
           el.addEventListener('pointerenter', () => { ctx.scene.hover = `enemy:${e.idx}`; });
           el.addEventListener('pointerleave', () => { ctx.scene.hover = null; });
           tip(el.querySelector('.obal'), () => { const x = ctx.view.combat && ctx.view.combat.enemies.find((q) => q.idx === Number(el.dataset.idx)); return x ? offBalanceTip(x) : null; });
+          tip(el.querySelector('.bar'), () => { const x = ctx.view.combat && ctx.view.combat.enemies.find((q) => q.idx === Number(el.dataset.idx)); return x && x.alive ? dotTip(x.dot, 'enemy', x.name) : null; });
           els.nameplates.appendChild(el); npEls.set(String(id), el);
         }
         el.dataset.idx = e.idx;
@@ -404,7 +461,7 @@ export function createHud(root, ctx) {
         el.classList.toggle('shard', e.rank === 'shard' || e.arch === 'shard');
         const lv = el.querySelector('.lv'); lv.textContent = e.rank === 'boss' ? '??' : e.level; lv.style.color = conColor(e.level, v.player.level);
         el.querySelector('.n').textContent = e.name + (e.rank === 'elite' ? ' (Elite)' : e.rank === 'rare' ? ' (Rare)' : e.rank === 'dboss' ? ' (Boss)' : '');
-        setBar(el.querySelector('.bar'), e.hp, e.maxHp, `${Math.ceil((e.hp / e.maxHp) * 100)} %`, ((e.statuses || []).find((s) => s.id === 'WARD') || {}).value || 0);
+        setBar(el.querySelector('.bar'), e.hp, e.maxHp, `${Math.ceil((e.hp / e.maxHp) * 100)} %`, ((e.statuses || []).find((s) => s.id === 'WARD') || {}).value || 0, e.alive && !c.over ? e.dot : null);
         statusRow(el.querySelector('.sts'), (e.statuses || []).filter((s) => !WINDUP_STACKS.has(s.id)), ctx);
         // combat v2.1: the lasting stacks of its wind-ups, and the wind-up line over it (from the round its track shows one)
         stackBadges(el.querySelector('.wstk'), e, ctx);
@@ -535,6 +592,11 @@ export function createHud(root, ctx) {
       const count = p.bag.reduce((a, it) => a + (it && it.id === id ? it.count : 0), 0);
       cnt.textContent = count;
       b.classList.toggle('off', !(s && s.ok) || ctx.ui.playing);
+      // low health (owner playtest 2026-11-11 08:03): a healing potion that can be drunk now pulses; nothing is drunk for you
+      const heals = !!(ctx.data.consumables[id] && ctx.data.consumables[id].heal);
+      const pulse = !!(fight && heals && s && s.ok && count > 0 && p.maxHp > 0 && p.hp / p.maxHp < POTION_HINT_HP);
+      b.classList.toggle('pulse', pulse);
+      if (pulse) b.setAttribute('aria-label', `Item slot ${key}: ${(ctx.data.consumables[id] || { name: id }).name}. Low health: drink it`);
       if (s && s.cd) { cd.style.background = `conic-gradient(rgba(0,0,0,.74) ${clamp(s.cd / ctx.data.rules.potionCd, 0, 1) * 360}deg, rgba(0,0,0,.18) 0)`; cd.textContent = s.cd; } else { cd.style.background = ''; cd.textContent = ''; }
     });
     els.auto.classList.toggle('on', !!v.autoplay);

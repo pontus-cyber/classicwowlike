@@ -6,12 +6,14 @@
 // the enemy (the nameplate's wind-up line, from the first round the track shows it), a tooltip with what answers it and the
 // bar spells that can, the EMPOWERED and STAGGERED stacks as lasting badges with their damage, and Disrupt as the control
 // option's label on a dungeon boss (greyed out with the engine's reason when no wind-up is visible).
+// The first-fight hint (owner playtest 2026-11-11 08:03): beside the engage panel in the first engage round of each class,
+// the three openers on keys Q, W, E; dismissed for good with "Got it" or the end of that round (localStorage HINT_KEY).
 // Presentation only: every entry, target, estimate, option, preview and window comes from the engine through the bridge
 // view (engine-bridge.js convTrack, convRole, engageView, legal.spells[].window, bridge.engagePreview).
 import { h, add, clear, fmtNum } from './util.js';
 import { abilityIcon, roleIcon, engageIcon, controlIcon, statusIcon, spellIcon, windupIcon } from './art-icons.js';
 import { tip, spellTip } from './tooltip.js';
-import { ROLE_INFO, CONTROL_WORD, ENGAGE_KIND, engageText, numWord, plural, windupAnswers, windupStakes } from './ui-text.js';
+import { ROLE_INFO, CONTROL_WORD, ENGAGE_KIND, engageText, engageHint, numWord, plural, windupAnswers, windupStakes } from './ui-text.js';
 
 /** Rounds the opening ruler numbers (combat-v2.md 10.4: rounds 1-5, the first 4-5 moves of the owner's feedback). */
 export const OPENING_ROUNDS = 5;
@@ -498,9 +500,51 @@ export function createRuler(root, ctx) {
  * trap stops; on a target it may not take, the engine's reason (R.whyIllegal); every option and Pre-cast spell whose
  * preview answers a wind-up (R.engagePreview `stagger`, or Send the Pet's pet turns on a heavy one) says so.
  */
+// The first-fight hint (owner playtest 2026-11-11 08:03: he never found Sap): beside the engage panel in the first engage
+// round a class meets, its three openers with their keys; "Got it" or the end of that round puts it away for good. Kept per
+// class in this browser's saved game (localStorage HINT_KEY), like the Heat note.
+export const HINT_KEY = 'tbwcr.hints.v1';
+const loadHints = () => { try { const x = JSON.parse(localStorage.getItem(HINT_KEY) || '{}'); return x && typeof x === 'object' ? x : {}; } catch { return {}; } };
+const saveHints = (x) => { try { localStorage.setItem(HINT_KEY, JSON.stringify(x)); } catch { /* storage blocked: shown again next page */ } };
+
 export function createEngagePanel(root, ctx) {
   const el = h('div#engage.panel.hidden', { 'aria-label': 'Engage' });
   root.appendChild(el);
+  const hintBtn = h('button.btn.small', { type: 'button' }, 'Got it');
+  const hint = h('div#engage-hint.panel.hidden', { role: 'note', 'aria-label': 'Your opening move' }, h('i.eh-arrow'), h('div.eh-t', 'Your opening move'), h('div.eh-b'), h('div.eh-f', h('span.eh-once'), hintBtn));
+  root.appendChild(hint);
+  let hints = loadHints();
+  let hintFor = null; // the class whose hint is on screen
+  const hintSeen = (cls) => !!(hints.engage && hints.engage[cls]);
+  const markSeen = (cls) => { hints = { ...hints, engage: { ...(hints.engage || {}), [cls]: true } }; saveHints(hints); };
+  hintBtn.addEventListener('click', (ev) => { ev.stopPropagation(); if (hintFor) markSeen(hintFor); hintFor = null; hint.classList.add('hidden'); });
+  /** The hint for this engage round, beside the panel (its right edge, its top), or away once the round is over. */
+  function updateHint(v, show, eg) {
+    const cls = v.player && v.player.classId;
+    if (!show || !cls || hintSeen(cls)) {
+      if (hintFor && !show) markSeen(hintFor); // shown, and the engage round is over: done
+      if (!show || (cls && hintSeen(cls))) { hintFor = null; hint.classList.add('hidden'); }
+      return;
+    }
+    if (hintFor !== cls) {
+      hintFor = cls;
+      const d = ctx.data.v2 || { options: {}, num: {} };
+      const cname = (ctx.data.classes[cls] || {}).name || 'hero';
+      const keys = eg.options.map((o) => o.key).filter(Boolean).join(', ');
+      clear(hint.querySelector('.eh-b')).append(
+        h('p', `Before they act, open with one of three moves from the Engage panel${keys ? ` (keys ${keys})` : ''}, on your target:`),
+        h('ul.eh-opts', eg.options.map((o) => h('li', { dataset: { opt: o.id } }, o.key ? h('span.kbd', o.key) : null, h('b', o.name), h('span.eh-k', ` ${ENGAGE_KIND[o.kind] || o.kind}: `), engageHint(d.options[o.id] || o, d.num)))),
+        h('p.dim', 'Hover one to see what it does to their tracks.'));
+      hint.querySelector('.eh-once').textContent = `Shown once for the ${cname}.`;
+    }
+    hint.classList.remove('hidden');
+    // right of the panel, below the target frame (its track rows are read in this round)
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 10;
+    const tf = document.getElementById('target-frame');
+    const below = tf && !tf.classList.contains('hidden') ? tf.offsetTop + tf.offsetHeight + 0.8 * rem : 0;
+    hint.style.left = `${Math.round(el.offsetLeft + el.offsetWidth + 1.4 * rem)}px`;
+    hint.style.top = `${Math.round(Math.max(el.offsetTop, below))}px`;
+  }
   let lastKey = '';
   const nameOf = (v, i) => { const e = v.combat.enemies.find((x) => x.idx === i); return e ? e.name : '?'; };
   /** The target an option would use: the current target if it may, else none (the card says whom to choose). */
@@ -553,6 +597,7 @@ export function createEngagePanel(root, ctx) {
     const show = !!(eg && !ctx.ui.playing && !v.autoplay && !v.loot && v.phase !== 'SUMMARY' && !(v.node && v.node.step === 'intro'));
     el.classList.toggle('hidden', !show);
     document.body.classList.toggle('engage-round', show);
+    updateHint(v, show, eg);
     if (!show) { lastKey = ''; return; }
     const key = JSON.stringify([eg, ctx.ui.target, ctx.ui.precastArmed, v.player.classId]);
     if (key === lastKey) return;

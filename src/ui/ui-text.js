@@ -77,6 +77,25 @@ export function engageText(o, n) {
     default: return '';
   }
 }
+/**
+ * One line per engage option for the first-fight hint (tracks.js): what it is for, numbers from the engine's option
+ * (C.ENGAGE_OPTION through data.v2.options).
+ */
+export function engageHint(o, n) {
+  if (!o) return '';
+  switch (o.id) {
+    case 'ambush': return `big opening damage and +${o.cp} combo points.`;
+    case 'sap': return `one enemy skips its next ${numWord(o.turns)} turns (not bosses; damage wakes it). The answer to a pack.`;
+    case 'premeditate': return `+${o.cp} combo points before the fight starts.`;
+    case 'precast': return 'one bar spell for no mana before they act.';
+    case 'binding_glyph': return `one enemy is frozen for its next ${numWord(o.turns)} turns and takes more damage.`;
+    case 'gather_power': return `your next ${numWord(o.spells)} damaging spells cost no mana and crit more often.`;
+    case 'opening_shot': return `a strong first shot that Marks the target.`;
+    case 'lay_trap': return `stops its first heavy blow or cast in its next ${numWord(n.trackLen || 3)} turns.`;
+    case 'send_pet': return `your pet charges in and taunts for ${numWord(o.turns)} turns.`;
+    default: return '';
+  }
+}
 /** Kind of an engage option in words (strike, control, setup). */
 export const ENGAGE_KIND = { strike: 'Strike', control: 'Control', setup: 'Setup' };
 
@@ -99,6 +118,49 @@ export function bounceText(sp) {
 export function talentText(id, content) {
   const t = content && content.texts && content.texts.talents && content.texts.talents[id];
   return t || (TALENTS[id] && TALENTS[id].text) || '';
+}
+
+// ------------------------------------------------------------------ talent totals (owner feedback 2026-11-11 08:14)
+/** How a per-rank talent field reads (C.TALENT_PER_RANK keys; the values come from R.talentInfo). ctx: { res } of the class. */
+const TALENT_FX = {
+  pct: (v) => `+${pct2(v)}`, crit: (v) => `+${pct2(v)} crit chance`, dodge: (v) => `+${pct2(v)} dodge`,
+  critMult: (v) => `+${Math.round(v * 100) / 100} crit multiplier`,
+  cost: (v, c) => (c.res === 'mana' ? `−${pct2(v)} of base mana in cost` : `−${v} ${c.res}`),
+  cd: (v) => `−${v} ${plural(v, 'round')} cooldown`, cp: (v) => `+${v} combo ${plural(v, 'point')}`,
+  energyPerCp: (v) => `+${v} energy per combo point`, chance: (v) => `${pct2(v)} chance`, healPct: (v) => `heals ${pct2(v)} of max health`,
+  stacks: (v) => `+${v} ${plural(v, 'stack')}`, rounds: (v) => `+${v} ${plural(v, 'round')}`, strength: (v) => `${pct2(v)} strength`,
+  wardPct: (v) => `a ward of ${pct2(v)} of max health`, chill: (v) => `Chilled: a further −${pct2(v)} damage`,
+  hpPct: (v) => `+${pct2(v)} max health`, manaPct: (v) => `+${pct2(v)} max mana`, powerPct: (v) => `+${pct2(v)} Power`,
+  petHpPct: (v) => `+${pct2(v)} pet max health`, petDmgPct: (v) => `+${pct2(v)} pet damage`, share: (v) => `${pct2(v)} of the heal`,
+  petCrit: (v) => `+${pct2(v)} pet crit chance`, focus: (v) => `+${v} focus per pet crit`, revive: (v) => `+${pct2(v)} pet revive health`,
+  petDr: (v) => `pet takes −${pct2(v)} damage`, marked: (v) => `Marked +${pct2(v)}`,
+  base: (v) => (v == null ? null : `${v} damage before modifiers`),
+  dotCrit: (v) => (v ? 'damage over time can crit' : null), dotPct: (v) => (v ? `+${pct2(v)} damage over time` : null),
+};
+/** Talents whose field reads differently from TALENT_FX. */
+const TALENT_FX_ID = {
+  r_c1: { base: (v) => (v == null ? null : `Poison ticks ${v} per stack before modifiers`) },
+  r_c4: { pct: (v) => `poisoned enemies deal −${pct2(v)} damage` },
+  m_c5: { manaPct: (v) => `${pct2(v)} of max mana back per interrupt` },
+  h_c3: { base: (v) => (v == null ? null : `the trap deals ${v} damage before modifiers`) },
+};
+/**
+ * The talent tooltip's totals (rules 6: "/rank" values multiply by the ranks taken) from R.talentInfo (`info`: per, now,
+ * next): { now: 'text' | '', next: 'text' | '', max }. res: the class's resource word (energy, focus, mana).
+ */
+export function talentTotals(info, res) {
+  if (!info) return null;
+  const line = (vals) => {
+    if (!vals) return '';
+    const out = [];
+    for (const [k, v] of Object.entries(vals)) {
+      const f = (TALENT_FX_ID[info.id] && TALENT_FX_ID[info.id][k]) || TALENT_FX[k];
+      const t = f ? f(v, { res }) : null;
+      if (t) out.push(t);
+    }
+    return out.join(', ');
+  };
+  return { now: line(info.now), next: line(info.next), max: info.rank >= info.ranks };
 }
 /**
  * A consumable's text. c: the engine's entry (R.C.CONSUMABLE[id]) in engine mode. A draught that heals (`heal`) states
@@ -143,6 +205,8 @@ export const plural = (n, one, many = `${one}s`) => (n === 1 ? one : many);
 const pct = (x) => `${Math.round(x * 100)} %`;
 /** A share in per cent with up to one decimal ("12.5 %", "25 %"). */
 export const pct1 = (x) => `${Math.round(x * 1000) / 10} %`;
+/** A share in per cent with up to two decimals (talent totals: Pack Leader's 6.25 %). */
+export const pct2 = (x) => `${Math.round(x * 10000) / 100} %`;
 
 /**
  * What a status does, in exact numbers (rules 7.4). s: a view status (engine-bridge.js `statuses`: the engine's status

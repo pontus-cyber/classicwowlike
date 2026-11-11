@@ -1,5 +1,6 @@
 // Centre screens by phase: class select, hub/camp, zone map, node dialogs, loot, quest rewards,
-// vendor, trainer, shrine, rest, treasure and the run summary. Every button sends an action.
+// vendor, trainer, shrine, rest, treasure and the run summary (its Killed by line names the killing blow, never an id).
+// Every button sends an action.
 // Heat (docs/specs/expedition.md H.4): every hour-costing choice (map node, Travel on, hub and camp service, Camp wave,
 // Grind waves, the next wave) shows its hours and the state it ends in from R.heatView's previews (view.heat.next) in its
 // tooltip, colours its hour label when the state changes, and moves a ghost marker on the meter while hovered; nodes
@@ -669,7 +670,8 @@ function buildSummary(v, ctx) {
   const card1 = h('div.card', h('h3', 'The journey'), kv([
     ['Reached', `${s.zone}${s.row ? `, row ${s.row}` : ''}`], ['In-game time', `${s.hours} h`], ['Ascendancy', s.asc ? `+${Math.round(s.asc * 100)} %` : 'none'],
     ['Estimated time', `${s.estMinutes.manual} min manual · ${s.estMinutes.auto} min autoplay`], ['Fights', `${s.fights} (${s.rounds} rounds)`], ['Seed', String(s.seed)],
-    ...(s.death ? [['Killed by', `${s.death.killer} (${s.death.ability})`], ['Where', `${s.death.node}, round ${s.death.round}`]] : []),
+    // the killing blow by its display name (the bridge's actionName; without a name only the killer)
+    ...(s.death ? [['Killed by', h('span.killed', { dataset: { ability: s.death.ability || '' } }, s.death.ability ? `${s.death.killer} (${s.death.ability})` : s.death.killer)], ['Where', `${s.death.node}, round ${s.death.round}`]] : []),
   ]));
   const card2 = h('div.card', h('h3', 'Deeds'), kv([
     ['Kills', `${s.kills.normal} normal · ${s.kills.elite} elite · ${s.kills.rare} rare · ${s.kills.boss} boss`], ['Quests', `${s.quests} (${s.story} stories)`], ['Dungeons cleared', String(s.dungeons)],

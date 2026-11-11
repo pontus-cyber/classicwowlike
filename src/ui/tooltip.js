@@ -1,8 +1,9 @@
 // Hover tooltips for spells, items, talents, statuses and map nodes. Content is built from the
-// view and the bridge's data tables; nothing here decides game rules.
+// view and the bridge's data tables; nothing here decides game rules. Talents show the totals of the ranks taken and the
+// next rank's (owner feedback 2026-11-11 08:14) from R.talentInfo through the bridge.
 import { h, clear, moneyEl, pct, fmtNum } from './util.js';
 import { itemIcon } from './art-icons.js';
-import { statusEffect } from './ui-text.js';
+import { statusEffect, talentTotals } from './ui-text.js';
 
 let el = null;
 let current = null;
@@ -111,10 +112,20 @@ export function basicTip(ctx) {
   return h('div.tt-spell', h('div.tt-name', cls.basic.name), h('div.tt-sub', 'Free · basic attack'), h('div.tt-line.desc', 'Your basic attack. Costs nothing; use it when nothing better is ready.'), h('div.tt-hint', 'Key: A'));
 }
 
+/**
+ * A talent: rank, text, and (owner feedback 2026-11-11 08:14) the totals of the ranks taken from the engine's talent data
+ * (R.talentInfo through the bridge): "Now: +30 %", then "Next rank: +40 %" or "Max rank".
+ */
 export function talentTip(t, st, ctx) {
-  const box = h('div.tt-spell');
+  const box = h('div.tt-spell.tt-talent');
   box.appendChild(h('div.tt-row', h('div.tt-name', t.name), h('div.tt-rank', `Rank ${st ? st.rank : 0}/${t.ranks}`)));
   box.appendChild(h('div.tt-line.desc', t.text));
+  const info = ctx.bridge && ctx.bridge.talentInfo ? ctx.bridge.talentInfo(t.id) : null;
+  const p = ctx.view && ctx.view.player;
+  const tot = info ? talentTotals(info, p && p.res ? p.res.kind : 'energy') : null;
+  if (tot && tot.now) box.appendChild(h('div.tt-line.num.tal-now', h('b', 'Now: '), tot.now));
+  if (tot && tot.max) box.appendChild(h('div.tt-sub.tal-next', 'Max rank'));
+  else if (tot && tot.next) box.appendChild(h('div.tt-line.tal-next', { style: { color: '#9fdcff' } }, h('b', 'Next rank: '), tot.next));
   if (st && st.locked) box.appendChild(h('div.tt-warn', `Requires ${st.need} points in this tree (${st.spentTree} spent)`));
   else if (st && st.canSpend) box.appendChild(h('div.tt-hint', 'Click to learn'));
   else if (st && st.reason && st.reason !== 'Maxed') box.appendChild(h('div.tt-warn', st.reason));

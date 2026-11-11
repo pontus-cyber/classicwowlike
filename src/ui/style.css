@@ -84,6 +84,13 @@ button { font-family: inherit; }
 .bar.enemy .fill { background: linear-gradient(180deg, #ff7a5a, #c0281a 55%, #7a120a); }
 .bar.boss .fill { background: linear-gradient(180deg, #b48aff, #6a2ad0 55%, #3a1080); }
 .bar .ward { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, rgba(190, 220, 255, .85) 0 .4rem, rgba(140, 180, 255, .55) .4rem .8rem); transition: width .3s; }
+/* DoT preview (owner 2026-11-11 08:11): the HP the end-of-round ticks will take, hatched at the end of the fill; a skull when lethal */
+.bar .dot { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, rgba(25, 4, 12, .62) 0 .28rem, rgba(255, 214, 200, .5) .28rem .5rem); box-shadow: inset 0 0 0 1px rgba(255, 232, 220, .75); transition: left .3s, width .3s; pointer-events: none; }
+.bar .dot.lethal { background: repeating-linear-gradient(135deg, rgba(40, 0, 6, .78) 0 .28rem, rgba(255, 96, 70, .72) .28rem .5rem); box-shadow: inset 0 0 0 1px #ffb0a0, 0 0 .5rem rgba(255, 60, 40, .8); }
+.bar .skull { position: absolute; left: .15rem; top: 50%; height: 115%; transform: translateY(-50%); filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 3px #a01000); pointer-events: none; z-index: 1; }
+.bar .skull.maybe { opacity: .55; filter: drop-shadow(0 0 1px #000); }
+.bar.dot-lethal { box-shadow: 0 0 0 1px #ff6a50, 0 0 .7rem rgba(255, 60, 40, .7); }
+.tt-dot .tt-kind { white-space: nowrap; }
 
 /* ---------------------------------------------------------------- unit frames */
 .uf { position: absolute; display: flex; align-items: center; gap: .2rem; }
@@ -632,6 +639,11 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 .mnode.here .ring { box-shadow: 0 0 0 .25rem #3a2a16, 0 0 0 .45rem #ff6a4a, 0 0 1.4rem rgba(255, 90, 60, .8); }
 .mnode .flagm { position: absolute; left: 50%; top: -2.6rem; transform: translateX(-50%); width: 2.4rem; height: 3rem; pointer-events: none; }
 @keyframes pulseop { 0%, 100% { opacity: .15; } 50% { opacity: 1; } }
+/* low health (owner 2026-11-11 08:03): a healing potion that can be drunk pulses green; no auto-drink */
+.ab.pulse { box-shadow: inset 0 0 0 2px #8fffa0, 0 0 0 2px rgba(90, 230, 120, .8), 0 0 1.4rem rgba(80, 230, 110, .8); animation: potpulse 1s ease-in-out infinite; }
+.ab.pulse::after { content: 'Drink'; position: absolute; left: 50%; top: -1.1rem; transform: translateX(-50%); padding: .05rem .4rem; border-radius: .3rem; background: linear-gradient(180deg, #b8ffbf, #3fbf5a); color: #052a0c; font: 800 .85rem var(--font-ui); letter-spacing: .04em; text-transform: uppercase; box-shadow: 0 0 0 1px #000, 0 0 .6rem rgba(90, 230, 120, .8); pointer-events: none; }
+@keyframes potpulse { 50% { box-shadow: inset 0 0 0 2px #d8ffd8, 0 0 0 3px rgba(120, 255, 150, 1), 0 0 2.4rem rgba(90, 255, 130, 1); } }
+@media (prefers-reduced-motion: reduce) { .ab.pulse { animation: none; } }
 .mlegend { display: flex; flex-wrap: wrap; gap: .4rem 1.1rem; font-size: 1.1rem; color: var(--ink-dim); }
 .mlegend span { display: inline-flex; align-items: center; gap: .35rem; }
 .mlegend img { width: 1.8rem; height: 1.8rem; border-radius: 50%; }
@@ -746,6 +758,9 @@ body[data-phase="MAP"]:not(.in-fight) #toasts .toast { white-space: normal; text
 
 /* settings */
 .setrow { display: flex; justify-content: space-between; align-items: center; padding: .7rem 0; border-bottom: 1px solid rgba(208, 170, 96, .12); gap: 1rem; }
+/* the control keeps its full width (Animation speed's 4× and Instant were cut off at 1366x768); the text wraps instead */
+.setrow > div:first-child { flex: 1 1 auto; min-width: 0; }
+.setrow > .seg, .setrow > .toggle { flex: none; }
 .seg { display: flex; border-radius: .4rem; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(208, 170, 96, .4); }
 .seg button { background: #15110c; color: var(--ink-dim); border: 0; padding: .5rem .9rem; font: 700 1.15rem var(--font-ui); cursor: pointer; }
 .seg button.on { background: linear-gradient(180deg, #6a5230, #3a2c18); color: #fff; }
@@ -1041,3 +1056,15 @@ body[data-phase="MAP"]:not(.in-fight) #toasts .toast { white-space: normal; text
 #devmenu .dm-seed { font-size: 1.3rem; color: var(--gold); padding: .2rem .5rem; background: #0e0b08; border-radius: .3rem; user-select: text; -webkit-user-select: text; }
 .summary .devrun { display: inline-block; margin-top: .5rem; padding: .1rem .7rem; border-radius: .3rem; background: #3a2a52; color: #e2d4ff; font: 800 1.05rem var(--font-ui); letter-spacing: .06em; text-transform: uppercase; }
 .summary .echo.devline { color: #d8c8ff; }
+/* the first-fight hint (owner playtest 2026-11-11 08:03): beside the engage panel, pointing at it, once per class */
+#engage-hint { position: absolute; width: 27rem; padding: .9rem 1.1rem .8rem; border-radius: .6rem; background: linear-gradient(180deg, rgba(44, 36, 18, .97), rgba(16, 12, 6, .97)); border: 1px solid #000; box-shadow: inset 0 0 0 1px rgba(255, 210, 110, .7), 0 0 1.4rem rgba(255, 200, 90, .35), 0 .8rem 2rem rgba(0, 0, 0, .7); z-index: 7; }
+#engage-hint .eh-arrow { position: absolute; left: -.95rem; top: 2.2rem; border: .9rem solid transparent; border-right-color: rgba(255, 210, 110, .85); border-left: 0; }
+#engage-hint .eh-t { font: 600 1.6rem var(--font-title); color: var(--gold); margin-bottom: .3rem; }
+#engage-hint .eh-b p { margin: 0 0 .45rem; font-size: 1.15rem; line-height: 1.38; color: var(--ink); }
+#engage-hint .eh-b p.dim { color: var(--ink-dim); font-size: 1.05rem; }
+#engage-hint .eh-opts { list-style: none; margin: 0 0 .5rem; padding: 0; display: flex; flex-direction: column; gap: .35rem; }
+#engage-hint .eh-opts li { font-size: 1.12rem; line-height: 1.32; color: var(--ink); }
+#engage-hint .eh-opts .kbd { margin-right: .4rem; }
+#engage-hint .eh-opts .eh-k { color: var(--ink-dim); }
+#engage-hint .eh-f { display: flex; justify-content: space-between; align-items: center; gap: .8rem; }
+#engage-hint .eh-once { font-size: 1rem; color: var(--ink-dim); }

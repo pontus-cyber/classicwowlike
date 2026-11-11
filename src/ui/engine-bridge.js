@@ -19,7 +19,8 @@
 //              bar: (spellId|null)[7], itemBar: (consumableId|null)[3], talents: { id: rank },
 //              talentPoints, talentSpent: { tree: n }, statuses: [{ id, rounds, stacks, value }],
 //              boons: [{ id, name, nodesLeft }], resurrect: [source], resurrectHeld: { boon, meta, ember }, resurrectBoss: [source],
-//              pet: { id, name, hp, maxHp, alive, statuses } | null }
+//              pet: { id, name, hp, maxHp, alive, statuses, dot } | null, dot }
+//              dot (player, pet, each combat enemy): the DoT preview, R.pendingTicks (engine-api.md 6.1; dotOf below), or null
 //              resurrect: what a death would use now, in order ('boon' | 'meta' (Second Breath) | 'ember'; R.resurrectCharges);
 //              resurrectBoss: the same in the end-boss fight; resurrectHeld (engine only): the charges held
 //   zone:    { idx, id, camp, name, hubName, hubText, theme, band, exitLevel, travelLevel, blurb, rows: node[rows][lanes], pos: { row, lane }, path,
@@ -65,6 +66,9 @@
 //   the run with the result; every op goes into the engine log as { type: 'DEV', fn, args } so a Node twin replays it. A dev
 //   run is left out of the run log (tbwcr.history.v1); its summary carries `dev` { god, tools, withheld }.
 // Events: { t: 'damage'|'heal'|'action'|'status'|'death'|'interrupt'|'skip'|'xp'|'levelUp'|'victory'|'flee'|'resurrect'|'bossPhase'|'summon'|... }
+// Names (owner screenshot 2026-11-11 08:31): actionName gives every damage source and enemy action by its display name (a
+// content ability by its content name), never an id; the summary's Killed by and the combat log use it.
+// bridge.talentInfo(id) = R.talentInfo (talent totals, owner feedback 2026-11-11 08:14); mock: null.
 
 import * as R from '../rules.js';
 import { CONTENT } from '../content/index.js';
@@ -252,6 +256,37 @@ function loadHistory() {
 function saveHistory(h) { try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); } catch { /* storage blocked */ } }
 const randomSeed = () => Math.floor(Math.random() * 0xffffffff) >>> 0;
 
+/**
+ * Display name of a damage source or an enemy action by its engine id (engine-api.md 5: a `damage` event's `spell`, the
+ * death record's `ability`, a status's `src`): a spell or a basic attack, the pet, a consumable, a talent or its proc, an enemy's DoT
+ * ('<ability>@<enemy index>'), a content ability (its content name), an archetype action, the end boss's actions, Brand
+ * and the Shards' strike, a status tick without a source ('poison'), the dev tools. Never an id: null when the id is
+ * unknown, and the caller words the line without it (owner screenshot 2026-11-11 08:31: "Killed by" showed
+ * "Ab Z3 King Aldrec Heavy Blow", the humanized id of Crown-Breaker).
+ */
+export function actionName(id) {
+  if (typeof id !== 'string' || !id) return null;
+  const C = R.C;
+  if (id.includes('@')) return actionName(id.slice(0, id.indexOf('@')));
+  if (C.SPELL[id]) return C.SPELL[id].name;
+  for (const c of Object.values(C.CLASS)) if (c.basic && c.basic.id === id) return c.basic.name; // Strike, Spark, Auto Shot
+  if (id === 'pet') return 'Pet';
+  if (C.CONSUMABLE[id]) return C.CONSUMABLE[id].name;
+  if (C.TALENT[id]) return C.TALENT[id].name;
+  if (SRC_TALENT[id] && C.TALENT[SRC_TALENT[id]]) return C.TALENT[SRC_TALENT[id]].name;
+  if (CONTENT.abilities && CONTENT.abilities[id]) return CONTENT.abilities[id].name || null;
+  for (const a of Object.values(C.ARCHETYPE || {})) for (const x of a.actions || []) if (x.id === id) return x.name || null;
+  const boss = { umbral_strike: 'strike', gravity_crush: 'crush', collapse_litany: 'litany', starless_pulse: 'pulse', final_dark: 'finalDark', brand: 'brand' }[id];
+  if (boss) return C.BOSS_TEXT[boss];
+  if (id === 'shard_hit') return `${C.BOSS_TEXT.shard} Strike`;
+  const st = TXT.STATUS_INFO[id.toUpperCase()];
+  if (st && st.name) return st.name;
+  return SRC_OTHER[id] || null;
+}
+// Engine source ids that name a talent (status sources, heals and shares; rules 6) or something else of the player's.
+const SRC_TALENT = { ignite: 'm_a5', heat_haze: 'm_a8', shared_wounds: 'h_a8', deaths_sidestep: 'r_b9', fire_snare: 'h_c7' };
+const SRC_OTHER = { unique_proc: 'Unique item', unique: 'Unique item', dev_kill: 'Dev tools' };
+
 function engineBackend(seedOpt, runOpts = {}) {
   const C = R.C;
   let profile = loadProfile();
@@ -290,7 +325,8 @@ function engineBackend(seedOpt, runOpts = {}) {
     }])),
     talents: Object.fromEntries(Object.values(C.TALENT).map((t) => [t.id, { id: t.id, tree: treeId(t.cls, t.tree), tier: t.tier, name: t.name, ranks: t.ranks, spell: t.spell || null, text: TXT.talentText(t.id, CONTENT) }])),
     pets: Object.fromEntries(Object.values(C.PET).map((p) => [p.id, { id: p.id, name: p.name, text: TXT.petText(p.id, CONTENT), meta: p.meta || null, locked: !!p.meta && !(profile && profile.unlocks && profile.unlocks[p.meta]) }])),
-    consumables: Object.fromEntries(Object.values(C.CONSUMABLE).map((c) => [c.id, { id: c.id, name: c.name, use: USE_MAP[c.use] || 'both', stack: c.stack, mana: !!c.mana, text: TXT.consumableText(c.id, CONTENT, c) }])),
+    // heal: it restores health (the low-health potion hint, hud.js)
+    consumables: Object.fromEntries(Object.values(C.CONSUMABLE).map((c) => [c.id, { id: c.id, name: c.name, use: USE_MAP[c.use] || 'both', stack: c.stack, mana: !!c.mana, heal: !!c.heal, text: TXT.consumableText(c.id, CONTENT, c) }])),
     // names and texts from the UI table; buff or debuff from the engine's DEBUFFS list (rules 7.4). The combat v2 enemy
     // statuses OFF_BALANCE, SAPPED and TRAP never land on the player, so DEBUFFS (what dispersal removes) leaves them out;
     // on an enemy they work against it and show as debuffs (STATUS_INFO.v2).
@@ -310,9 +346,7 @@ function engineBackend(seedOpt, runOpts = {}) {
   // a damage or heal source: a spell, the pet, or a consumable (potions, Spark Flask)
   // (an enemy's DoT carries 'ability@enemyIdx'; talent procs their engine id; both read as names)
   // an enemy's template ability (a wind-up's hit carries its content id) reads as its content name
-  const spellName = (id) => (C.SPELL[id] ? C.SPELL[id].name : id === 'pet' ? 'Pet' : consName(id)
-    || (typeof id === 'string' && id.includes('@') ? abilityName(id.split('@')[0]) : SRC_TALENT[id] && C.TALENT[SRC_TALENT[id]] ? C.TALENT[SRC_TALENT[id]].name
-      : CONTENT.abilities && CONTENT.abilities[id] ? CONTENT.abilities[id].name : TXT.humanize(id)));
+  const spellName = (id) => actionName(id) || 'an attack';
 
   // ---------------------------------------------------------------- conversions
   const gearKind = (slot, cls) => (slot === 'weapon' ? { rogue: 'dagger', mage: 'staff', hunter: 'bow' }[cls] : slot === 'offhand' ? { rogue: 'dagger', mage: 'tome', hunter: 'quiver' }[cls] : slot);
@@ -343,11 +377,8 @@ function engineBackend(seedOpt, runOpts = {}) {
     if (enraged > 0) out.push({ id: 'ENRAGED', rounds: 99, stacks: 1, value: enraged, srcName: null });
     return out;
   };
-  // Engine status sources that are not spell ids: talents (rules 8) and equipment.
-  const SRC_TALENT = { ignite: 'm_a5', heat_haze: 'm_a8' };
-  /** Name of an enemy action (archetype action or template ability) from its id. */
-  const abilityName = (id) => (CONTENT.abilities && CONTENT.abilities[id] ? CONTENT.abilities[id].name
-    : (Object.values(C.ARCHETYPE || {}).flatMap((a) => a.actions || []).find((a) => a.id === id) || {}).name || TXT.humanize(id));
+  /** Name of an enemy action (archetype action or template ability) from its id; never the id (actionName). */
+  const abilityName = (id) => actionName(id) || 'an attack';
   /** What applied a status: a spell, a talent, equipment, or an enemy's action ('ability@enemyIdx'); null when unknown. */
   function statusSource(x, f) {
     const src = x.src; const foe = (i) => (f && f.enemies[i]) || null;
@@ -357,6 +388,43 @@ function engineBackend(seedOpt, runOpts = {}) {
     if (src === 'unique') return 'your equipment';
     if (typeof x.by === 'number' && foe(x.by)) return foe(x.by).name;
     return null;
+  }
+
+  // ---------------------------------------------------------------- DoT preview (engine-api.md 6.1; owner 2026-11-11 08:11)
+  /** R.pendingTicks of a state, computed once per state (the view asks for each unit). */
+  const ticks = { of: null, list: null };
+  function ticksOf(s) {
+    if (ticks.of !== s) {
+      ticks.of = s; ticks.list = null;
+      if (s.fight && !s.fight.over && R.pendingTicks) { try { ticks.list = R.pendingTicks(s); } catch { ticks.list = null; } }
+    }
+    return ticks.list;
+  }
+  /**
+   * A tick's source for the tooltip: the spell or ability by name with its stacks ("Poison ×3"), an enemy's DoT with the
+   * enemy ("Rend (Cutpurse)"). st: the unit's statuses.
+   */
+  function tickName(spell, f, st) {
+    const nm = spell === 'poison' ? 'Poison' : actionName(spell) || 'A wound';
+    const at = typeof spell === 'string' ? spell.indexOf('@') : -1;
+    const e = at >= 0 && f ? f.enemies[Number(spell.slice(at + 1))] : null;
+    const x = (st || []).find((y) => (spell === 'poison' ? y.id === 'POISON' : y.src === spell) && (y.stacks || 1) > 1);
+    return `${nm}${x ? ` ×${x.stacks}` : ''}${e ? ` (${e.name})` : ''}`;
+  }
+  /**
+   * What the ticks at the end of this round do to a unit if nothing else happens first (R.pendingTicks), or null when they
+   * take no HP and absorb nothing: { amount (damage after absorbs), loss (the HP it ends lower: hp - hpAfter, all of it when
+   * lethal), hpAfter, heal, absorbed, lethal, resurrect (the engine's source a lethal tick would use), ticks: [{ name, amount,
+   * absorbed, immune, sidestep, crit }], crit: { amount, loss, lethal } (every tick that can crit crits) | null }. The HUD
+   * marks `loss` as the hatched end of the HP bar, a skull when lethal.
+   */
+  function dotOf(s, u) {
+    const list = ticksOf(s); const x = list && list.find((t) => t.u === u);
+    if (!x || (!x.amount && !x.absorbed && !x.lethal)) return null;
+    const lossOf = (y) => Math.max(0, x.hp - (y.lethal ? 0 : y.hpAfter));
+    return { amount: x.amount, loss: lossOf(x), hpAfter: x.hpAfter, heal: x.heal, absorbed: x.absorbed, lethal: x.lethal, resurrect: x.resurrect || null,
+      ticks: x.ticks.map((t) => ({ name: tickName(t.spell, s.fight, u === 'player' ? s.fight.p.st : u === 'pet' ? s.fight.pet.st : s.fight.enemies[u].st), amount: t.amount, absorbed: t.absorbed, immune: !!t.immune, sidestep: !!t.sidestep })),
+      crit: x.crit ? { amount: x.crit.amount, loss: lossOf(x.crit), lethal: x.crit.lethal } : null };
   }
 
   function convPlayer(s) {
@@ -382,8 +450,8 @@ function engineBackend(seedOpt, runOpts = {}) {
       gold: p.gold, equip: Object.fromEntries(Object.entries(p.equipped).map(([k, it]) => [k, item(it, p.classId)])), bag,
       spells: (p.spellOrder || Object.keys(p.spells)).map((id) => ({ id, tl: p.spells[id].tl, rank: p.spells[id].rank })),
       bar: [...p.bar], itemBar: [...p.itemBar], talents: { ...p.talents }, talentPoints: R.talentPointsFree(s), talentSpent: spent,
-      statuses: f ? statuses(f.p.st, f) : [], boons, resurrect, resurrectHeld, resurrectBoss,
-      pet: p.pet ? { id: p.pet.id, name: C.PET[p.pet.id].name, hp: p.pet.hp, maxHp: d.petMaxHp, alive: p.pet.alive, statuses: f && f.pet ? statuses(f.pet.st, f) : [] } : null,
+      statuses: f ? statuses(f.p.st, f) : [], boons, resurrect, resurrectHeld, resurrectBoss, dot: f ? dotOf(s, 'player') : null,
+      pet: p.pet ? { id: p.pet.id, name: C.PET[p.pet.id].name, hp: p.pet.hp, maxHp: d.petMaxHp, alive: p.pet.alive, statuses: f && f.pet ? statuses(f.pet.st, f) : [], dot: f && p.pet.alive ? dotOf(s, 'pet') : null } : null,
     };
   }
 
@@ -579,7 +647,8 @@ function engineBackend(seedOpt, runOpts = {}) {
       return { idx: e.idx, uid: `${key}:${e.idx}`, tplId: e.tid, name: e.name, level: e.level, rank: rankOf(e), arch: e.arch || (e.kind === 'boss' ? 'boss' : 'shard'),
         hp: e.hp, maxHp: e.maxHp, alive: e.alive, statuses: statuses(e.st, f, e.shield, e.enraged), intent: e.alive ? convIntent(e.intent, e) : null,
         track, role: e.alive ? convRole(e, f, track) : null, offBalance: ob ? { status: ob.status, taken: ob.taken, crit: ob.crit, rounds: ob.rounds } : null,
-        ccImmune: !!e.ccImmune, turn: e.turn || 0, added: !!(e.summoned || e.noReward || (e.unscripted && e.kind !== 'boss' && e.kind !== 'shard')) };
+        ccImmune: !!e.ccImmune, turn: e.turn || 0, added: !!(e.summoned || e.noReward || (e.unscripted && e.kind !== 'boss' && e.kind !== 'shard')),
+        dot: e.alive ? dotOf(s, e.idx) : null }; // the DoT preview (engine-api.md 6.1)
     });
     const cds = {};
     for (const [id, ready] of Object.entries(f.p.cds || {})) { const left = ready - f.round; if (left > 0) cds[id] = left; }
@@ -751,7 +820,8 @@ function engineBackend(seedOpt, runOpts = {}) {
     if (!sm) return null;
     const z = sm.reached || {};
     const zc = zoneContent(z.zone || 1);
-    const death = sm.death ? { killer: sm.death.killer ? sm.death.killer.name : 'unknown', ability: TXT.humanize(sm.death.killer ? sm.death.killer.ability : ''), node: sm.death.nodeType || '', round: sm.death.round } : null;
+    // the killing blow's name (actionName: a content ability by its content name, never its id; null: unnamed)
+    const death = sm.death ? { killer: sm.death.killer ? sm.death.killer.name : 'unknown', ability: actionName(sm.death.killer ? sm.death.killer.ability : null), node: sm.death.nodeType || '', round: sm.death.round } : null;
     return {
       outcome: sm.outcome, name: sm.name, classId: sm.classId, className: sm.className, petId: sm.petId, level: sm.level, xp: sm.xp,
       zone: z.camp ? ((CONTENT.camp && CONTENT.camp.name) || 'the camp') : zc ? zc.name : '', zoneIdx: z.camp ? 7 : z.zone, row: z.camp ? 0 : z.row,
@@ -1363,6 +1433,11 @@ function engineBackend(seedOpt, runOpts = {}) {
       const a = o.target === 'spell' ? { type: 'ENGAGE', option, spellId, target: target ?? null } : { type: 'ENGAGE', option, target: target ?? null };
       try { return R.engagePreview(st, a); } catch { return null; }
     },
+    /** Talent totals (R.talentInfo, engine-api.md 1; owner feedback 2026-11-11 08:14) for the talent tooltip. */
+    talentInfo(id) {
+      if (!R.talentInfo) return null;
+      try { return R.talentInfo(st, id); } catch { return null; }
+    },
   };
 }
 
@@ -1422,6 +1497,8 @@ export class Bridge {
   engagePreview(option, target, spellId) { return this.backend.engagePreview ? this.backend.engagePreview(option, target, spellId) : null; }
   /** Heat after a UI action (R.heatPreview); null in mock mode, for an action without hours or an illegal one. */
   heatPreview(action) { return this.backend.heatPreview ? this.backend.heatPreview(action) : null; }
+  /** Talent totals (R.talentInfo: per rank, now, next); null in mock mode. */
+  talentInfo(id) { return this.backend.talentInfo ? this.backend.talentInfo(id) : null; }
   subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   get canDebug() { return !!this.backend.canDebug; }
 }
