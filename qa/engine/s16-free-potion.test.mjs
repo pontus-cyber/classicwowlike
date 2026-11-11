@@ -212,20 +212,20 @@ describe('rules 7.5 the free potion at half strength (M2b v8, D77)', () => {
     assert.equal(ev(R.step(s, USE(0)).events, 'heal')[0].amount, want);
   });
 
-  test('potionInfo (engine-api.md 1): what one use restores now, the free potion at FREE_POTION_MULT; the heal event shows the same', () => {
+  test('potionInfo (engine-api.md 1): what one use restores now, the free potion at FREE_POTION_MULT; the heal event shows the same (M2b v13: maim 0 when not MAIMED; MAIMED in s07d-v13)', () => {
     const s = round2(fight('mage', { immortal: true, hurt: 0.1 }));
     const hp = R.potionInfo(s, 'healing_draught');
-    assert.deepEqual(hp, { id: 'healing_draught', free: true, mult: 0.5, heal: Math.round(C.HEAL_DRAUGHT_PCT * s.player.d.maxHp * 0.5), mana: 0 });
-    assert.deepEqual(R.potionInfo(s, 'mana_draught'), { id: 'mana_draught', free: true, mult: 0.5, heal: 0, mana: Math.round(C.MANA_DRAUGHT_PCT * s.player.d.maxMana * 0.5) });
+    assert.deepEqual(hp, { id: 'healing_draught', free: true, mult: 0.5, heal: Math.round(C.HEAL_DRAUGHT_PCT * s.player.d.maxHp * 0.5), mana: 0, maim: 0 });
+    assert.deepEqual(R.potionInfo(s, 'mana_draught'), { id: 'mana_draught', free: true, mult: 0.5, heal: 0, mana: Math.round(C.MANA_DRAUGHT_PCT * s.player.d.maxMana * 0.5), maim: 0 });
     assert.equal(ev(R.step(s, USE(0)).events, 'heal')[0].amount, hp.heal);
     // not potions: never free, nothing restored
-    assert.deepEqual(R.potionInfo(s, 'spark_flask'), { id: 'spark_flask', free: false, mult: 1, heal: 0, mana: 0 });
+    assert.deepEqual(R.potionInfo(s, 'spark_flask'), { id: 'spark_flask', free: false, mult: 1, heal: 0, mana: 0, maim: 0 });
     // once the free potion is used: full amounts
     const t = R.step(s, USE(0)).state;
-    assert.deepEqual(R.potionInfo(t, 'mana_draught'), { id: 'mana_draught', free: false, mult: 1, heal: 0, mana: Math.round(C.MANA_DRAUGHT_PCT * t.player.d.maxMana) });
+    assert.deepEqual(R.potionInfo(t, 'mana_draught'), { id: 'mana_draught', free: false, mult: 1, heal: 0, mana: Math.round(C.MANA_DRAUGHT_PCT * t.player.d.maxMana), maim: 0 });
     // out of combat: never free
     const out = atLevel(started('rogue', { profile: SATCHEL }), 20);
-    assert.deepEqual(R.potionInfo(out, 'healing_draught'), { id: 'healing_draught', free: false, mult: 1, heal: Math.round(C.HEAL_DRAUGHT_PCT * out.player.d.maxHp), mana: 0 });
+    assert.deepEqual(R.potionInfo(out, 'healing_draught'), { id: 'healing_draught', free: false, mult: 1, heal: Math.round(C.HEAL_DRAUGHT_PCT * out.player.d.maxHp), mana: 0, maim: 0 });
     // unknown ids and CREATE: null
     assert.equal(R.potionInfo(s, 'no_such_item'), null);
     assert.equal(R.potionInfo(R.newRun({ content: s.content }), 'healing_draught'), null);

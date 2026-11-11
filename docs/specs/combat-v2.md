@@ -1,6 +1,6 @@
 # Combat v2 spec: the opening matters
 
-Owner: Lead Game Designer (combat). Status: draft for Lead and owner review, 2026-11-10. A change set on top of docs/specs/rules.md section 7 (and 3, 5, 10 where named). Rules in sections 2-8; pacing 9; UI 10; bots 11; balance targets 12; prototype evidence 13; open choices 14; constants 15; combat v2.1 (2026-11-10, after the sim measure docs/reports/balance-2026-11-10d.md) in section 16, changed lines marked "(combat v2.1)", change table docs/specs/changes-combat-v21.md.
+Owner: Lead Game Designer (combat). Status: draft for Lead and owner review, 2026-11-10. A change set on top of docs/specs/rules.md section 7 (and 3, 5, 10 where named). Rules in sections 2-8; pacing 9; UI 10; bots 11; balance targets 12; prototype evidence 13; open choices 14; constants 15; combat v2.1 (2026-11-10, after the sim measure docs/reports/balance-2026-11-10d.md) in section 16, changed lines marked "(combat v2.1)", change table docs/specs/changes-combat-v21.md. M2b v13 "special fights demand thought" (2026-11-11, docs/specs/changes-m2b-v13.md, D105-D110; owner go-ahead 21:26) in section 17, changed lines marked "(M2b v13)"; in the engine since 2026-11-11 (docs/handoffs/engineer-2026-11-11j.md).
 Audience: Core Gameplay Engineer, UI/UX Engineer, Simulation & Balance Engineer, Content Designer, QA.
 
 Sources: owner feedback [stated: docs/feedback/2026-11-10-1043-owner.md]; current combat [source: docs/specs/rules.md 5, 6, 7, 10]; balance state [source: docs/reports/balance-2026-11-10b.md]; playtest [source: docs/handoffs/qa-2026-11-09.md]; scratch prototype on the real engine [source: sim/out/combat2/, git-ignored, section 13]. Every number is a named constant in the table at the end (section 15); all are starting values for the Simulation & Balance Engineer.
@@ -94,6 +94,8 @@ The boss's schedule is already deterministic (Umbral Strike, Gravity Crush every
 Elite, rare and dungeon boss variants: the entry for turn SIGNATURE_TURN is the template ability with the highest `pct` (ties: first listed); a dungeon boss also plays its second template ability on turn SIGNATURE_TURN_2. Abilities with `once` (enrage, summon) keep their HP triggers.
 
 (combat v2.1) These signature entries are **wind-ups** (section 16.2): interruptible like a cast on every enemy, dungeon bosses included; answered, the enemy is STAGGERED for the rest of the fight (-STAGGER_DMG damage dealt); landed, it is EMPOWERED for the rest of the fight (+EMPOWER_DMG). SIGNATURE_TURN_2 moves from turn 5 to turn 4, so a dungeon boss's two wind-ups fall in rounds 3 and 5.
+
+(M2b v13) The SIGNATURE_TURN wind-up (round 3) is the fight's **Deathblow** (17.1): a damaging one hits × DEATHBLOW_MULT on top of its script multiplier; landed, it EMPOWERS the enemy by DEATHBLOW_EMPOWER and MAIMS the player (MAIM_HEAL). A dungeon boss's SIGNATURE_TURN_2 wind-up stays an ordinary wind-up.
 
 ### 4.2 New archetype actions
 | Action | Archetype | Effect | Flags | CD |
@@ -193,6 +195,8 @@ Each line costs something the others do not: tempo (damage now), a control charg
 Before rule 1, in the engage round only:
 - **E. Engage.** If at least 2 enemies are alive and the class's control option is usable on some enemy: the control option on the enemy whose track shows the largest estimated damage on the player over its turns 1..ENGAGE_AUTO_LOOK (ties: rules 7.9 default-target order). Otherwise the strike option on the default target (Mage: precast of the first bar spell whose autoplay condition holds). The Rogue never uses Sap here; Sap stays a manual option (D49).
 
+- **E2. Answer the Deathblow** (M2b v13, D108), before E: the class's control option on the first living elite, rare or dungeon boss (index order) whose track shows a wind-up in turns 1..INTENT_TRACK_LEN, if legal on it (Disrupt on a dungeon boss); a lone special enemy counts and the Rogue may Sap here (E2 supersedes D49 and open choice 9 for this case; rule E keeps them). (M2b v13)
+
 Then rules 1-6 as today. Autoplay reads **only the now-entry** (as today) and never holds a spell for an OFF_BALANCE window. This is deliberate: the track and the window are the manual player's edge; autoplay remains a sound, safe default (it still interrupts, drinks and cleanses).
 
 Default target: priority unchanged (mender > caster > others, lowest HP); SAPPED enemies are skipped like HEXED ones, and an enemy that was sapped is taken only when no other is left (D48).
@@ -223,6 +227,7 @@ A manual round costs 3.1 s and every fight 9 s of overhead (PACE_FIGHT_OVERHEAD_
 7. Map tooltip: enemy count and archetype icons for each fight node (4.3).
 8. Animation at the v2 budget: a manual round is on screen at most PACE_ROUND_ANIM_S (2.1 s); impact feedback per hit (the UI task already assigned).
 9. (combat v2.1) Wind-ups: a distinct "Wind-up" badge on the track entry and on the opening ruler, with what answers it (interrupt, stun, control, Disrupt, or for a heavy one a full dodge, WARD or the pet); EMPOWERED and STAGGERED stacks as large, lasting badges on the enemy frame ("+15 % damage" / "-30 % damage"), and a log line "Wind-up answered: staggered" or "Wind-up landed: empowered". Disrupt shows on the engage panel as the control option's label on a dungeon boss.
+10. (M2b v13) The Deathblow, MAIMED, answers, first meeting, map tooltip and autoplay hint: docs/specs/changes-m2b-v13.md "UI needs" 1-8; the engine's views in engine-api.md 6.2 (windupView, autoplayEngage, potionInfo's MAIMED amount, the map's Deathblow fields).
 
 ---
 
@@ -256,6 +261,8 @@ A manual round costs 3.1 s and every fight 9 s of overhead (PACE_FIGHT_OVERHEAD_
 | B16 (changed) | P1 | Fight length in rounds incl. the engage round | normal 4-6, elite 6-9, dungeon boss 8-12, end boss ROUNDS_BOSS_V2 | full runs |
 
 Kept as they are: B1-B4 (win-rate bands per bot; the engage compensation is tuned so that the planner stays in WR_P0_PLANNER), B21 stage deaths, B24 close fights, B38 tension, B26-B28 mechanic ablations.
+
+(M2b v13) B59-B62 (one-button deaths per special fight kind, the planned opening's caps, autoplay kept playable, the grind kept as it is) are the sim's targets: docs/specs/changes-m2b-v13.md "Targets" (balance.md 3.5). B48 and B55 may move with rule E2 (O12).
 
 If B48-B50 pass but B49's lower bound fails, mashing has become too punishing: lower OFFBAL_TAKEN or the scripted turn-2 multipliers before touching enemy HP.
 
@@ -301,6 +308,8 @@ Expected effect of the parts not built [inference: from the mechanism, not measu
 | 8 | (combat v2.1) Ambush in a fight of 2 or more enemies | keeps STEALTH (unchanged; measured alternative rejected, 16.3) | breaks STEALTH (autoplay Rogue -6 pp reach) |
 | 9 | (combat v2.1) Autoplay answers a visible wind-up in the engage round also in a one-enemy fight | no (rule E only with 2 or more enemies) | yes (autoplay +3.5 pp reach, the opener's edge mostly gone) |
 
+(M2b v13) Choice 9 is reversed for special fights (elites, rares, dungeon bosses): rule E2 (section 8, D108, owner O12 default "on"); normal fights keep the default.
+
 ---
 
 ## 15. Constant table (starting values)
@@ -337,6 +346,10 @@ Expected effect of the parts not built [inference: from the mechanism, not measu
 | ENGAGE_AUTO_LOOK | 2 | enemy turns (autoplay rule E) |
 | EMPOWER_DMG | 0.15 | damage dealt per EMPOWERED stack (wind-up landed) (combat v2.1) |
 | STAGGER_DMG | 0.30 | damage dealt less per STAGGERED stack (wind-up answered) (combat v2.1) |
+| DEATHBLOW_MULT | 2.0 | × the pct of a damaging Deathblow, on top of the script multiplier (M2b v13) |
+| DEATHBLOW_EMPOWER | 1.00 | EMPOWERED value of a landed Deathblow's stack (M2b v13) |
+| MAIM_HEAL | 0.50 | share of every heal on the player removed while MAIMED (M2b v13) |
+| RARE_HP_MULT_Z1 | 3.0 | × HP of a zone-1 rare, gated: only with GATES.rareHpMultZ1 (M2b v13) |
 | PACE_ROUND_ANIM_S | 2.1 | s (was 1.5) |
 | PACE_ROUND_DECIDE_S | 1.0 | s |
 | PACE_ENGAGE_S | 6 | s per fight with an engage round (manual profile) |
@@ -417,3 +430,19 @@ Reproduce: `cd sim/out/combat21 && SCR=v21b X_SIG2=4 X_STAGGER=0.30 X_EMPOWER=0.
 | B54 | 38.0 % | >= 25 % | pass |
 | B55 | opener 78.3 %, masher 7.6 % | >= 70 %; <= 20 % | pass |
 | B16 | 6 / 7 / 9 / 41 rounds | normal 4-6, elite 6-9, dungeon boss 8-12, end boss 30-40 | end boss 41 (reference 41) |
+
+---
+
+## 17. M2b v13: special fights demand thought (2026-11-11)
+Why and the measured package: docs/specs/changes-m2b-v13.md (owner 18:41, 18:46, 20:57; D105-D110; O11-O13 on their defaults). Rules text: rules.md 2.3, 7.2, 7.4, 7.5, 7.9, 7.12 and 13, marked "(M2b v13)".
+
+### 17.1 The Deathblow and MAIMED (D105-D107)
+- The SIGNATURE_TURN wind-up of every elite, rare and dungeon boss is its Deathblow (`deathblow` on the track entry and the intent). A damaging one (hit, rend, cleave) has pct × DEATHBLOW_MULT on top of HEAVY_SCRIPT_MULT or CAST_SCRIPT_MULT (× 3.0 of the ability's pct); a curse, self_heal or self_shield Deathblow keeps its pct and carries its weight through DEATHBLOW_EMPOWER and MAIMED.
+- Answered: as any wind-up (STAGGERED, OFF_BALANCE where 5.1 gives it). Landed: an EMPOWERED stack worth DEATHBLOW_EMPOWER (other wind-ups EMPOWER_DMG; EMPOWERED and STAGGERED are the sums of their stacks' values), and the player is MAIMED for the rest of the fight: every heal received × (1 - MAIM_HEAL), potions and the free potion included; dispersal and a resurrect keep it; one per fight.
+- Every class has a level-1 answer in the engage round: the control option (Sap, Binding Glyph, Lay Trap) on an elite or rare, Disrupt on a dungeon boss; later also interrupts, stun-tagged spells and, for a heavy one, a full dodge, WARD, Mirrorshade or the pet.
+
+### 17.2 Autoplay rule E2 (D108)
+Section 8. Engine reading: Sap on a lone special enemy cancels its turns only while nothing damages it; autoplay's rules 1-6 then attack it (it is the only target), so a lone elite's or rare's Deathblow is answered by the Rogue's E2 only when an add takes the hits first, or later by rule 3 (Throat Jab, Temple Blow). Binding Glyph (FROZEN, not broken by damage), Lay Trap and Disrupt hold. Measured only pooled by the designer; the sim reads it per class (handoff engineer-2026-11-11j).
+
+### 17.3 Gated rows 5-6 (D109)
+Switches in `C.GATES`, off until the sim's gates pass: `rareHpMultZ1` (zone-1 rares with RARE_HP_MULT_Z1, cell 6) and `firstMeetWindup` (FIRST_MEET_WINDUP: the first meeting of a normal enemy type in a quest fight makes its turn-2 scripted action a wind-up at the grind's stakes, cell 7). The engine records the met templates (`state.met`) whatever the switch.

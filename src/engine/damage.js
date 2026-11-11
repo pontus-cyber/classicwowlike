@@ -1,5 +1,7 @@
 // Damage pipeline (rules 7.2), statuses (7.4), OFF_BALANCE (7.13, combat v2), the wind-up stacks EMPOWERED and STAGGERED
-// (7.12, combat v2.1), kills, death and resurrection (9). The end-boss fight's BOSS_DMG_MULT (10.1, M2b v6): bossDmgFactor.
+// (7.12, combat v2.1; M2b v13: their values are summed, a landed Deathblow adds DEATHBLOW_EMPOWER and MAIMS the player,
+// whose healing healUnit then cuts by MAIM_HEAL), kills, death and resurrection (9). The end-boss fight's BOSS_DMG_MULT
+// (10.1, M2b v6): bossDmgFactor.
 // Expedition (rules 1.9.6, 1.9.8): Shardspawn kill rewards, the XP weight, the kill loot weight and dungeon boss rolls
 // (M2b v11), the death location by node id.
 // Dev tools (engine-api.md 12): god mode (state.dev.god) stops all damage to the player in a dev run.
@@ -12,7 +14,7 @@ import {
   ELITE_XP_MULT, RARE_XP_MULT, DUNGEON_BOSS_XP_MULT, DUNGEON_MOB_XP_MULT, MOB_COIN_V, ELITE_GOLD_V,
   EMBER_ELITE_DROP_CHANCE, UNIQUE_HEAL_ON_KILL, ABILITY_TEMPLATE, DODGE_CAP, SPELL,
   SHARD_AOE_TAKEN, OFFBAL_TAKEN, OFFBAL_BOSS_TAKEN, OFFBAL_CRIT, BLOODLUST_STEP, BLOODLUST_MAX, DIM_XP_MULT,
-  EMPOWER_DMG, STAGGER_DMG,
+  EMPOWER_DMG, STAGGER_DMG, DEATHBLOW_EMPOWER, MAIM_HEAL,
 } from '../constants.js';
 import { nextFloat } from '../rng.js';
 import { rnd, clamp } from './util.js';
@@ -193,17 +195,24 @@ export function gainOffBalance(s, ev, u, dur, why, act) {
 
 /**
  * One more stack of a wind-up status on enemy u (rules 7.4, 7.12, combat v2.1): EMPOWERED or STAGGERED, no cap, no
- * expiry (dur null; gone with the fight). value = stacks × per (the damage it deals more or less, 7.2 step 2).
+ * expiry (dur null; gone with the fight). M2b v13 (D106): value = the sum of its stacks' values (the damage it deals more
+ * or less, 7.2 step 2): `per` is this stack's value (DEATHBLOW_EMPOWER for a landed Deathblow, else EMPOWER_DMG or
+ * STAGGER_DMG); `deathblows` and `deathblowValue` count the stacks from Deathblows and their share of `value` (the UI's
+ * "+100 %").
  */
-function windupStack(s, ev, u, id, per) {
+function windupStack(s, ev, u, id, per, deathblow) {
   const st = unitSt(s, u);
   let cur = findSt(st, id);
   if (!cur) {
-    cur = { id, dur: null, stacks: 0, value: 0 };
+    cur = { id, dur: null, stacks: 0, value: 0, deathblows: 0, deathblowValue: 0 };
     st.push(cur);
   }
   cur.stacks += 1;
-  cur.value = cur.stacks * per;
+  cur.value += per;
+  if (deathblow) {
+    cur.deathblows += 1;
+    cur.deathblowValue += per;
+  }
   ev.push({ t: 'status', u, id, on: true, dur: null, stacks: cur.stacks });
   return cur;
 }
@@ -218,8 +227,11 @@ function windupStack(s, ev, u, id, per) {
 export function answerWindup(s, ev, u, x, why, by) {
   const e = s.fight.enemies[u];
   if (!x || !x.windup || !e || !e.alive || s.fight.over) return;
-  const cur = windupStack(s, ev, u, 'STAGGERED', STAGGER_DMG);
-  ev.push({ t: 'stagger', u, id: x.id, name: x.name, turn: x.turn, why, by: by === undefined ? null : by, stacks: cur.stacks, value: cur.value });
+  const db = !!x.deathblow;
+  const cur = windupStack(s, ev, u, 'STAGGERED', STAGGER_DMG, db);
+  const out = { t: 'stagger', u, id: x.id, name: x.name, turn: x.turn, why, by: by === undefined ? null : by, stacks: cur.stacks, value: cur.value };
+  if (db) out.deathblow = true; // M2b v13: "Deathblow answered: staggered"
+  ev.push(out);
 }
 
 /**
@@ -227,12 +239,33 @@ export function answerWindup(s, ev, u, x, why, by) {
  * it (cleave, curse, self_heal and self_shield whenever played). The enemy gains an EMPOWERED stack (+EMPOWER_DMG damage
  * dealt for the rest of the fight). Nothing once the fight is over (the hit killed the player). Sends the status event
  * and an `empower` event.
+ * M2b v13 (D106, D107): a Deathblow's stack is worth DEATHBLOW_EMPOWER, and it MAIMS the player for the rest of the fight
+ * (status MAIMED, dur null, value MAIM_HEAL; one status, no stacks: a second Deathblow in the fight changes nothing; not
+ * a debuff, so dispersal and a resurrect keep it). The `empower` event then has `deathblow: true` and `maimed` (true when
+ * this Deathblow maimed the player).
  */
 export function landWindup(s, ev, u, x) {
   const e = s.fight.enemies[u];
   if (!x || !x.windup || !e || !e.alive || s.fight.over) return;
-  const cur = windupStack(s, ev, u, 'EMPOWERED', EMPOWER_DMG);
-  ev.push({ t: 'empower', u, id: x.id, name: x.name, turn: x.turn, stacks: cur.stacks, value: cur.value });
+  const db = !!x.deathblow;
+  const cur = windupStack(s, ev, u, 'EMPOWERED', db ? DEATHBLOW_EMPOWER : EMPOWER_DMG, db);
+  const out = { t: 'empower', u, id: x.id, name: x.name, turn: x.turn, stacks: cur.stacks, value: cur.value };
+  if (db) {
+    out.deathblow = true;
+    out.maimed = !findSt(s.fight.p.st, 'MAIMED');
+    if (out.maimed) addStatus(s, ev, 'player', { id: 'MAIMED', dur: null, value: MAIM_HEAL, by: u, src: x.id, name: x.name });
+  }
+  ev.push(out);
+}
+
+/**
+ * Healing the player receives while MAIMED (rules 7.4, 7.5, M2b v13, D107): amount × (1 - MAIMED value), rounded once,
+ * before the cap at max HP; the amount itself when not MAIMED or outside a fight. healUnit applies it to every heal on
+ * the player (potions, the free potion, heal spells, HOTs, heal-on-kill); potionInfo shows it.
+ */
+export function maimedHeal(s, amount) {
+  const m = s.fight ? findSt(s.fight.p.st, 'MAIMED') : null;
+  return m ? rnd(amount * (1 - m.value)) : amount;
 }
 
 /** EMPOWERED minus STAGGERED (rules 7.2 step 2, 7.12, combat v2.1): the lasting result of the enemy's wind-ups. */
@@ -556,9 +589,11 @@ function checkEnrage(s, ev, e) {
 export function healUnit(s, ev, u, amount, spell) {
   if (!(amount > 0)) return 0;
   if (u === 'player') {
-    const n = Math.min(amount, s.player.d.maxHp - s.player.hp);
+    // M2b v13 (D107): MAIMED cuts every heal on the player before the cap; the event says so (`maimed`).
+    const maimed = !!(s.fight && findSt(s.fight.p.st, 'MAIMED'));
+    const n = Math.min(maimed ? maimedHeal(s, amount) : amount, s.player.d.maxHp - s.player.hp);
     s.player.hp += n;
-    if (n > 0) ev.push({ t: 'heal', dst: 'player', amount: n, spell });
+    if (n > 0) ev.push(maimed ? { t: 'heal', dst: 'player', amount: n, spell, maimed: true } : { t: 'heal', dst: 'player', amount: n, spell });
     return n;
   }
   if (u === 'pet') {

@@ -388,6 +388,26 @@ export const ENGAGE_AUTO_LOOK = 2;
 export const EMPOWER_DMG = 0.15;
 /** rules 7.12: damage dealt less per STAGGERED stack (a wind-up answered; 7.2 step 2). */
 export const STAGGER_DMG = 0.30;
+// M2b v13 (rules 7.4, 7.5, 7.9, 7.12, marked "(M2b v13)"; docs/specs/changes-m2b-v13.md, D105-D109).
+/**
+ * rules 7.12 (D105): × the pct of a Deathblow, the SIGNATURE_TURN wind-up of an elite, rare or dungeon boss, when it
+ * deals damage (hit, rend, cleave), on top of HEAVY_SCRIPT_MULT / CAST_SCRIPT_MULT (so × 3.0 of the ability's pct).
+ */
+export const DEATHBLOW_MULT = 2.0;
+/** rules 7.4, 7.12 (D106): EMPOWERED value a landed Deathblow adds (other wind-ups add EMPOWER_DMG). */
+export const DEATHBLOW_EMPOWER = 1.0;
+/** rules 7.4, 7.5 (D107): share of the healing the player receives that MAIMED removes (rest of the fight). */
+export const MAIM_HEAL = 0.5;
+/** rules 2.3 (D109, M2b v13 row 5, gated): × HP of a zone-1 rare elite while GATES.rareHpMultZ1 is on (off: RARE_HP_MULT). */
+export const RARE_HP_MULT_Z1 = 3.0;
+/**
+ * Gated rules (M2b v13 rows 5-6, D109): off until the sim's gates pass (changes-m2b-v13.md cells 6 and 7).
+ * rareHpMultZ1 (row 5): a zone-1 rare is made with RARE_HP_MULT_Z1 instead of RARE_HP_MULT (rules 2.3, combat.js makeEnemy).
+ * firstMeetWindup (row 6, FIRST_MEET_WINDUP): the first-meeting wind-up of a new normal enemy type in a quest fight
+ * (rules 7.12). The engine reads the fields when it makes an enemy and when a fight starts; the sim arms an arm by
+ * setting them in every process before a run (as RICOCHET_BOUNCE_FRAC_GATED), a scratch copy by changing them here.
+ */
+export const GATES = { rareHpMultZ1: false, firstMeetWindup: false };
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
 // with mapMode 'expedition'; a run on today's map (mapMode 'rows', the default) never reads them.
 /** rules 1.9.2: nodes per ring (ring 0 = the hub). */

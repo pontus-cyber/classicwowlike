@@ -182,8 +182,8 @@ describe('heatView and heatPreview (engine-api.md 11)', () => {
     const dimFights = { seen: 0 };
     // Rows seeds whose autoplay runs reach the Camp (hubs, travel, Camp services and waves); expedition seeds that meet the Dimming.
     // (Seeds re-picked when the heat step landed in the loot stream, rules 8.4: the runs changed. M2b v8: the real-content
-    // Mage seed 3 -> 1, its run no longer reaches the Camp.)
-    for (const [mapMode, seed, content, cls] of [['rows', 1, CONTENT, 'hunter'], ['rows', 1, REAL, 'mage'], ['expedition', 6, CONTENT, 'hunter'], ['expedition', 1, REAL, 'rogue']]) {
+    // Mage seed 3 -> 1, its run no longer reaches the Camp. M2b v13: 1 -> 6, the same reason.)
+    for (const [mapMode, seed, content, cls] of [['rows', 1, CONTENT, 'hunter'], ['rows', 6, REAL, 'mage'], ['expedition', 6, CONTENT, 'hunter'], ['expedition', 1, REAL, 'rogue']]) {
       let s = R.step(R.newRun({ classId: cls, petId: cls === 'hunter' ? 'ridgewolf' : null, seed, content, mapMode }), { type: 'START_RUN' }).state;
       const kinds = new Set();
       for (let n = 0; s.phase !== 'ENDED' && n < 20000; n++) {

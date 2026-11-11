@@ -97,6 +97,7 @@ export function startRun(s, ev) {
   s.oaths = c.oaths.slice();
   s.nextUid = 1;
   s.time = 0;
+  s.met = []; // normal enemy templates met in the run (rules 7.12, M2b v13 row 6; combat.js startFight)
   s.player = {
     name: c.name || cls.name, classId: c.classId, level: 1, xp: 0, rested: 0, hp: 0, mana: 0, gold: START_GOLD,
     spells: {}, spellOrder: [], bar: new Array(SPELL_BAR_SLOTS).fill(null), itemBar: new Array(ITEM_BAR_SLOTS).fill(null),

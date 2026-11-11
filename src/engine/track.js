@@ -6,11 +6,14 @@
 // ability on SIGNATURE_TURN (and SIGNATURE_TURN_2); combat v2.1: those signature entries are wind-ups (`windup` and
 // `cast`), and a wind-up cancelled at its turn's start (control, a trap, Disrupt's trap) or replaced because SILENCED
 // is answered (STAGGERED, damage.js).
+// M2b v13 (rules 7.12, D105, D109): the SIGNATURE_TURN wind-up of an elite, rare or dungeon boss is its Deathblow
+// (`deathblow`; a damaging one × DEATHBLOW_MULT); with GATES.firstMeetWindup a normal enemy met for the first time in a
+// quest fight (`firstMeet`, combat.js) plays its turn-2 scripted action as a wind-up (no Deathblow).
 // The end boss's entries are made by boss.js (rules 10.3). Every entry shows its target, estimate and (D52) the
 // predicted `cancel`, recomputed each round (refreshTrack).
 import {
   ARCHETYPE, ABILITY_TEMPLATE, PET, INTENT_TRACK_LEN, OPENING_TURNS, SIGNATURE_TURN, SIGNATURE_TURN_2,
-  HEAVY_SCRIPT_MULT, CAST_SCRIPT_MULT, OPENING_SCRIPT, SCRIPT_ACTION, OFFBAL_DURATION,
+  HEAVY_SCRIPT_MULT, CAST_SCRIPT_MULT, OPENING_SCRIPT, SCRIPT_ACTION, OFFBAL_DURATION, DEATHBLOW_MULT,
 } from '../constants.js';
 import { nextFloat, weightedIndex } from '../rng.js';
 import { rnd } from './util.js';
@@ -91,13 +94,34 @@ export function assignWard(f, g) {
  * (ties: first listed), the dungeon boss's other template ability]. Abilities with `once` keep their HP triggers.
  */
 export function signatures(s, e) {
-  if (e.kind !== 'elite' && e.kind !== 'rare' && e.kind !== 'dboss') return [null, null];
-  const abs = e.abilities.filter((id) => !ABILITY_TEMPLATE[s.content.abilities[id].template].once);
+  return signatureIds(s.content, e.kind, e.abilities);
+}
+
+/** signatures() of an enemy of variant `kind` with template abilities `abilities` (also for a template on the map). */
+function signatureIds(content, kind, abilities) {
+  if (kind !== 'elite' && kind !== 'rare' && kind !== 'dboss') return [null, null];
+  const abs = abilities.filter((id) => !ABILITY_TEMPLATE[content.abilities[id].template].once);
   if (!abs.length) return [null, null];
   let best = abs[0];
-  for (const id of abs) if ((s.content.abilities[id].pct || 0) > (s.content.abilities[best].pct || 0)) best = id;
-  const other = e.kind === 'dboss' ? abs.find((id) => id !== best) || null : null;
+  for (const id of abs) if ((content.abilities[id].pct || 0) > (content.abilities[best].pct || 0)) best = id;
+  const other = kind === 'dboss' ? abs.find((id) => id !== best) || null : null;
   return [best, other];
+}
+
+/**
+ * The Deathblow of enemy template tid as variant `variant` (rules 7.12, M2b v13; map tooltips, engine-api.md 6.2): its
+ * signature ability played on SIGNATURE_TURN as a wind-up: { id, name, kind (the ability's kind), heavy, cast (the
+ * ability's own flags), type ('heavy': also answered by a full dodge, WARD, an image or the pet; else 'cast': interrupt
+ * or control it), damaging (hit, rend or cleave: its pct × DEATHBLOW_MULT) }, or null (not an elite, rare or dungeon
+ * boss, or no ability that can be scripted).
+ */
+export function deathblowOf(content, tid, variant) {
+  const t = content.enemies[tid];
+  const [sig] = t ? signatureIds(content, variant, t.abilities) : [null];
+  if (!sig) return null;
+  const ab = content.abilities[sig];
+  const T = ABILITY_TEMPLATE[ab.template];
+  return { id: sig, name: ab.name, kind: T.kind, heavy: !!T.heavy, cast: !!T.cast, type: T.heavy ? 'heavy' : 'cast', damaging: DAMAGING.includes(T.kind) };
 }
 
 /** Id of the scripted action of enemy e on its turn t (rules 7.12), or null for a weighted pick. */
@@ -185,6 +209,18 @@ function makeEntry(s, e, t) {
   if (sid && isWindup(s, e, sid, t)) {
     x.windup = true;
     x.cast = true;
+    // M2b v13 (D105): the SIGNATURE_TURN wind-up is the Deathblow (the dungeon boss's SIGNATURE_TURN_2 one is not); a
+    // damaging one (hit, rend, cleave) × DEATHBLOW_MULT on top of the script multiplier; heals, shields and curses keep
+    // their pct (D60) and are Deathblows all the same (DEATHBLOW_EMPOWER and MAIMED when they land, damage.js).
+    if (t === SIGNATURE_TURN) {
+      x.deathblow = true;
+      if (typeof x.pct === 'number' && DAMAGING.includes(x.kind)) x.pct *= DEATHBLOW_MULT;
+    }
+  } else if (sid && e.firstMeet && t === SIGNATURE_TURN) {
+    // M2b v13 row 6 (gated, D109): a first meeting's turn-2 scripted action is a wind-up, pct unchanged, no Deathblow.
+    x.windup = true;
+    x.cast = true;
+    x.firstMeet = true;
   }
   if (petAlive(s)) x.aggro = nextFloat(f.rng) < PET[s.player.pet.id].aggro ? 'pet' : 'player';
   return x;
@@ -292,6 +328,8 @@ function intentOf(x) {
     scripted: x.scripted, aggro: x.aggro, target: x.target, est: 0,
   };
   if (x.windup) it.windup = true;
+  if (x.deathblow) it.deathblow = true;
+  if (x.firstMeet) it.firstMeet = true;
   if (x.adds) it.adds = x.adds;
   return it;
 }
@@ -322,6 +360,7 @@ export function nowIntent(s, ev, e) {
     const big = !!(head.cast || head.heavy);
     const cancelled = { by: ctl, id: head.id, name: head.name, cast: head.cast, heavy: head.heavy };
     if (head.windup) cancelled.windup = true;
+    if (head.deathblow) cancelled.deathblow = true;
     e.intent = { ...CONTROL_INTENT[ctl], kind: 'none', est: 0, turn: T, cancelled };
     ev.push({ t: 'cancel', u: e.idx, id: head.id, name: head.name, by: ctl, turn: T, offBalance: big });
     if (big) gainOffBalance(s, ev, e.idx, OFFBAL_DURATION - 1, 'control', head);
@@ -344,6 +383,7 @@ export function nowIntent(s, ev, e) {
     it = intentOf(x);
     it.replaced = { id: head.id, name: head.name, reason: why };
     if (head.windup) it.replaced.windup = true;
+    if (head.deathblow) it.replaced.deathblow = true;
     ev.push({ t: 'replace', u: e.idx, turn: T, from: head.id, fromName: head.name, to: b.id, toName: b.name, reason: why });
     if (why === 'silenced') answerWindup(s, ev, e.idx, head, 'silenced', 'SILENCED');
   } else it = intentOf(head);

@@ -23,7 +23,9 @@
 // engine-api.md 6.1) and talentInfo (talent totals, rules 6). M2b v6: freePotion (Packed Satchel's free potion, rules 7.5).
 // M2b v8: potionInfo (what a consumable restores now; the free potion at FREE_POTION_MULT, rules 7.5); zoneDanger's early factor.
 // Start camp and contracts (prep, docs/specs/expedition.md 2-3, task 2b.5): an expedition run starts in phase PREP;
-// prepView (the prep screen) and contractView (the contract tracker).
+// prepView (the prep screen) and contractView (the contract tracker). M2b v13 (docs/specs/changes-m2b-v13.md): windupView
+// (wind-ups and Deathblows with their answers), autoplayEngage (rule E2's engage answer), potionInfo's MAIMED amount and the
+// map's Deathblow fields (engine-api.md 6.2).
 import * as C from './constants.js';
 import { normaliseSeed } from './rng.js';
 import { cloneState, deepClone, deepFreeze, IllegalActionError } from './engine/util.js';
@@ -38,13 +40,15 @@ import { nextLanes } from './engine/map.js';
 import { xpToNext, xpCurve, diffMod, talentPointsFree as freePoints } from './engine/progress.js';
 import { itemScore, V, bagCapacity as bagCap, countConsumable } from './engine/items.js';
 import { spellCost as cost, spellCd, spellAmount, spellTl, fleeChance as flee, castError, itemAmount } from './engine/spells.js';
-import { resurrectOrder, offBalanceOpen, findSt } from './engine/damage.js';
+import { resurrectOrder, offBalanceOpen, findSt, maimedHeal } from './engine/damage.js';
 import { engageOptions as engageList, engagePreview as previewEngage } from './engine/engage.js';
 import { isEngageRound as engageRound } from './engine/track.js';
 import { MAP_MODES, isExpedition, expMapView } from './engine/expedition.js';
 import { heatView as heatMeter, heatPreview as previewHeat } from './engine/heat.js';
 import { prepView as prepScreen, contractView as contractTracker } from './engine/contracts.js';
 import { createDebug } from './engine/debug.js';
+import { windupView as windups, autoplayEngage as autoEngage } from './engine/answers.js';
+import { deathblowOf } from './engine/track.js';
 import { damageView as dmgView } from './engine/damageview.js';
 
 /**
@@ -252,19 +256,42 @@ export function freePotion(state) {
 }
 
 /**
- * What one use of a consumable restores now (rules 8.6; M2b v8, rules 7.5): { id, free, mult, heal, mana }. heal and
+ * What one use of a consumable restores now (rules 8.6; M2b v8, rules 7.5): { id, free, mult, heal, mana, maim }. heal and
  * mana are the amounts before the cap at max HP and max mana (the `heal` and `mana` events show what was restored), 0
  * when it restores none (Purifying Tonic, Spark Flask). free: in a fight, this use would be Packed Satchel's free potion
  * (freePotion(state) and a potion); then mult = FREE_POTION_MULT and the amounts are that share of the normal ones, else
- * mult = 1. The engine's own numbers (spells.js itemAmount): show these, never recompute them. null for an id that is not
- * a consumable, or before START_RUN.
+ * mult = 1. M2b v13 (rules 7.5, D107): while the player is MAIMED, `heal` is the cut amount (× (1 - MAIM_HEAL), rounded
+ * once, as healUnit applies it) and maim = the MAIMED share (0 when not MAIMED); mana is not healing and stays. The
+ * engine's own numbers (spells.js itemAmount, damage.js maimedHeal): show these, never recompute them. null for an id
+ * that is not a consumable, or before START_RUN.
  */
 export function potionInfo(state, itemId) {
   const c = C.CONSUMABLE[itemId];
   if (!c || !state.player || !state.player.d) return null;
   const free = !!(c.potion && freePotion(state));
   const a = itemAmount(state, itemId, free);
-  return { id: itemId, free, mult: a.mult, heal: a.heal, mana: a.mana };
+  const m = state.fight ? findSt(state.fight.p.st, 'MAIMED') : null;
+  return { id: itemId, free, mult: a.mult, heal: a.heal > 0 && m ? maimedHeal(state, a.heal) : a.heal, mana: a.mana, maim: m ? m.value : 0 };
+}
+
+/**
+ * Wind-ups and Deathblows on the enemies' tracks with their answers (M2b v13; engine-api.md 6.2): [{ u, enemy, turn, round,
+ * inRounds, id, name, kind, deathblow, firstMeet, heavy, target, est, empower, maims, maimHeal, stagger, cancel, answers,
+ * ready }], null outside a fight. answers: the player's options that answer it now (engage control or Disrupt in the
+ * engage round, interrupt, stun and control spells off cooldown by its round, defensives for a heavy one); ready: "answers
+ * ready" (false: show "no answer ready").
+ */
+export function windupView(state) {
+  return windups(state);
+}
+
+/**
+ * Autoplay's engage answer (M2b v13, rules 7.9 rule E2): in the engage round, the ENGAGE autoplay plays on a special
+ * enemy's visible wind-up, { action, option, name ('Disrupt' or the option's name), target, enemy, windup: { turn, id, name,
+ * deathblow } }, else null ("Autoplay will answer the Deathblow with <name>").
+ */
+export function autoplayEngage(state) {
+  return autoEngage(state);
 }
 
 /**
@@ -458,12 +485,15 @@ export function mapView(state) {
       v.archetypes = [arch(n.elite), ...(n.add ? [arch(n.add)] : [])];
       v.rare = scout ? n.rare : null;
       v.name = scout || !n.rare ? c.enemies[n.elite].name : null;
+      // M2b v13 (UI list 7): its Deathblow, shown when its name is (a rare's only with Scout's Eye)
+      v.deathblow = v.name !== null ? deathblowOf(c, n.elite, n.rare ? 'rare' : 'elite') : null;
     }
     if (n.type === 'dungeon') {
       v.name = zoneContent(c, s.zone.z).dungeon.name; v.level = n.trashLevel; v.bossLevel = n.bossLevel;
       // Combat v2 (rules 7.14): archetypes of each trash fight and of the boss, so a pull can be planned from the map.
       v.fights = n.trash.map((f) => f.map(arch));
       v.bossArchetype = arch(n.boss);
+      v.bossDeathblow = deathblowOf(c, n.boss, 'dboss'); // M2b v13 (UI list 7)
     }
     if (n.type === 'treasure') { v.guarded = !!n.guard; v.trap = scout ? n.trap : null; v.archetypes = n.guard ? [arch(n.guard)] : []; }
     if (n.type === 'vendor') v.ember = scout ? n.stock.some((e) => e.id === 'ember_of_return') : null;

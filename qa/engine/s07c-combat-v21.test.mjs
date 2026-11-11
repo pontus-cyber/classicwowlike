@@ -54,9 +54,11 @@ describe('rules 7.12 wind-ups (combat v2.1)', () => {
   test('signature entries are wind-ups: `windup` and `cast` on SIGNATURE_TURN (elite, rare, dungeon boss) and a dungeon boss\'s SIGNATURE_TURN_2; the pct takes only the multiplier of its own flag; no other entry is one', () => {
     const at = (s, t) => s.fight.enemies[0].track.find((x) => x.turn === t);
     const flags = (x) => [x.id, !!x.windup, !!x.cast, !!x.heavy, x.pct];
-    assert.deepEqual(flags(at(fight('mage', 20, [], [elite(1)]), C.SIGNATURE_TURN)), ['ab_heavy', true, true, true, 1.9 * C.HEAVY_SCRIPT_MULT], 'heavy: × HEAVY_SCRIPT_MULT');
-    assert.deepEqual(flags(at(fight('mage', 20, [], [elite(2)]), C.SIGNATURE_TURN)), ['ab_dark', true, true, false, 2.1 * C.CAST_SCRIPT_MULT], 'cast: × CAST_SCRIPT_MULT once');
-    assert.deepEqual(flags(at(fight('mage', 20, [], [elite(3)]), C.SIGNATURE_TURN)), ['ab_cleave', true, true, false, 0.85], 'neither: the added cast adds nothing');
+    // M2b v13 (D105): the SIGNATURE_TURN wind-up is the Deathblow: a damaging one also × DEATHBLOW_MULT (s07d-v13).
+    const D = C.DEATHBLOW_MULT;
+    assert.deepEqual(flags(at(fight('mage', 20, [], [elite(1)]), C.SIGNATURE_TURN)), ['ab_heavy', true, true, true, 1.9 * C.HEAVY_SCRIPT_MULT * D], 'heavy: × HEAVY_SCRIPT_MULT');
+    assert.deepEqual(flags(at(fight('mage', 20, [], [elite(2)]), C.SIGNATURE_TURN)), ['ab_dark', true, true, false, 2.1 * C.CAST_SCRIPT_MULT * D], 'cast: × CAST_SCRIPT_MULT once');
+    assert.deepEqual(flags(at(fight('mage', 20, [], [elite(3)]), C.SIGNATURE_TURN)), ['ab_cleave', true, true, false, 0.85 * D], 'neither: the added cast adds nothing');
     assert.deepEqual(flags(at(fight('mage', 20, [], [elite(6)]), C.SIGNATURE_TURN)), ['ab_shield', true, true, false, 0.2], 'a shield: no multiplier (D60)');
     assert.deepEqual(flags(at(fight('mage', 20, [], [rare(1)]), C.SIGNATURE_TURN)).slice(0, 3), ['ab_heavy', true, true], 'rare');
     let b = fight('mage', 20, [], [dboss(1)], { prep: tough });
@@ -162,7 +164,8 @@ describe('rules 7.12 wind-ups (combat v2.1)', () => {
 
   test('landed: an EMPOWERED stack when its hit or rend costs the player or the pet HP (the pet by its own aggro draw too); cleave, curse and self_shield whenever played; self_heal when played; a dungeon boss stacks two', () => {
     let r = passDrawn(toTurn(fight('mage', 20, [], [elite(1)], { prep: tough }), C.SIGNATURE_TURN));
-    assert.deepEqual(results(r.events).map((x) => [x.t, x.u, x.id, x.name, x.stacks, x.value]), [['empower', 0, 'ab_heavy', 'Fixture Heavy Blow', 1, C.EMPOWER_DMG]]);
+    // M2b v13 (D106): the SIGNATURE_TURN wind-up is a Deathblow, its stack worth DEATHBLOW_EMPOWER (s07d-v13).
+    assert.deepEqual(results(r.events).map((x) => [x.t, x.u, x.id, x.name, x.stacks, x.value]), [['empower', 0, 'ab_heavy', 'Fixture Heavy Blow', 1, C.DEATHBLOW_EMPOWER]]);
     assert.ok(!st(r.state.fight.enemies[0].st, 'OFF_BALANCE'));
     assert.ok(ev(r.events, 'status').some((x) => x.u === 0 && x.id === 'EMPOWERED' && x.on && x.stacks === 1 && x.dur === null));
     // The pet by its own aggro draw (no TAUNT): landed.
@@ -194,7 +197,8 @@ describe('rules 7.12 wind-ups (combat v2.1)', () => {
     r = passDrawn(toTurn(r.state, C.SIGNATURE_TURN_2));
     const e = r.state.fight.enemies[0];
     assert.deepEqual(brief(r.events), [['empower', 'ab_heavy']]);
-    assert.deepEqual([stacks(e, 'EMPOWERED'), st(e.st, 'EMPOWERED').value, stacks(e, 'STAGGERED')], [2, 2 * C.EMPOWER_DMG, 0]);
+    // M2b v13 (D106): the stacks' values are summed: the Deathblow's DEATHBLOW_EMPOWER and the second wind-up's EMPOWER_DMG.
+    assert.deepEqual([stacks(e, 'EMPOWERED'), st(e.st, 'EMPOWERED').value, stacks(e, 'STAGGERED')], [2, C.DEATHBLOW_EMPOWER + C.EMPOWER_DMG, 0]);
   });
 
   test('neither: a wind-up replaced for another reason (Self Heal not wounded) or skipped by Chrono Sigil gives no stack', () => {
@@ -239,7 +243,8 @@ describe('rules 7.12 wind-ups (combat v2.1)', () => {
     let b = toTurn(fight('rogue', 20, ['throat_jab', 'vanishing_step'], [dboss(1)], { prep: tough }), C.SIGNATURE_TURN);
     b = R.step(tweak(b, ready), { type: 'CAST', spellId: 'throat_jab', target: 0 }).state;
     b = passDrawn(toTurn(b, C.SIGNATURE_TURN_2)).state;
-    const want = [{ id: 'STAGGERED', dur: null, stacks: 1, value: C.STAGGER_DMG }, { id: 'EMPOWERED', dur: null, stacks: 1, value: C.EMPOWER_DMG }];
+    // M2b v13: deathblows / deathblowValue count the Deathblow's stack (turn 2, answered); turn 4's wind-up is no Deathblow.
+    const want = [{ id: 'STAGGERED', dur: null, stacks: 1, value: C.STAGGER_DMG, deathblows: 1, deathblowValue: C.STAGGER_DMG }, { id: 'EMPOWERED', dur: null, stacks: 1, value: C.EMPOWER_DMG, deathblows: 0, deathblowValue: 0 }];
     const mine = (s) => s.fight.enemies[0].st.filter((x) => x.id === 'STAGGERED' || x.id === 'EMPOWERED');
     assert.deepEqual(mine(b), want);
     b = R.step(tweak(b, ready), { type: 'CAST', spellId: 'vanishing_step', target: null }).state;
@@ -291,7 +296,7 @@ describe('rules 7.10 Disrupt (combat v2.1)', () => {
     assert.ok(st(R.step(ro, engage('sap', 0)).state.fight.p.st, 'STEALTH'));
   });
 
-  test('Disrupt is legal only on a visible wind-up, in the engage round; legalActions and engageOptions list it; its preview is the one entry; autoplay rule E Disrupts the boss when it has adds (not alone; the Rogue never: Ambush)', () => {
+  test('Disrupt is legal only on a visible wind-up, in the engage round; legalActions and engageOptions list it; its preview is the one entry; autoplay rule E2 (M2b v13) Disrupts the boss, alone or with adds, the Rogue too; without a wind-up rule E as before', () => {
     for (const cls of C.CLASS_IDS) {
       const s = boss(cls);
       const a = engage(CONTROL[cls], 0);
@@ -305,15 +310,19 @@ describe('rules 7.10 Disrupt (combat v2.1)', () => {
       assert.equal(R.engagePreview(none, a), null);
       assert.match(R.whyIllegal(pass(s), a), /only in the engage round/, cls);
     }
-    // Rule E (rules 7.9): with 2 or more enemies the control option goes to the enemy with the most track damage on
-    // the player over turns 1..ENGAGE_AUTO_LOOK: the boss and its wind-up.
-    for (const cls of ['mage', 'hunter']) {
-      const s = boss(cls, [mob('z1_brute')]);
-      assert.deepEqual(R.autoAction(s), engage(CONTROL[cls], 0), cls);
+    // M2b v13 rule E2 (rules 7.9, D108): in the engage round every class answers a special enemy's visible wind-up with
+    // its control option, alone or with adds; on a dungeon boss that is Disrupt, the Rogue's Sap included (E2 supersedes
+    // D49 for this case).
+    for (const cls of C.CLASS_IDS) {
+      assert.deepEqual(R.autoAction(boss(cls, [mob('z1_brute')])), engage(CONTROL[cls], 0), `${cls}, with an add`);
+      assert.deepEqual(R.autoAction(boss(cls)), engage(CONTROL[cls], 0), `${cls}, alone`);
     }
-    assert.deepEqual(R.autoAction(boss('rogue', [mob('z1_brute')])), engage('ambush', 0), 'the Rogue: Ambush on the default target');
-    assert.deepEqual(R.autoAction(boss('hunter')), engage('opening_shot', 0), 'alone: the strike option');
-    assert.deepEqual(R.autoAction(boss('mage', [], { spells: ['ember_bolt'] })), engage('precast', 0, 'ember_bolt'), 'alone: Pre-cast');
+    // Without a visible wind-up rule E decides as before (combat v2): alone the strike option (Mage: Pre-cast); the Rogue
+    // never Saps under rule E (D49): Ambush on the default target.
+    const noWind = (x) => { for (const y of x.fight.enemies[0].track) delete y.windup; };
+    assert.deepEqual(R.autoAction(tweak(boss('rogue', [mob('z1_brute')]), noWind)), engage('ambush', 0), 'the Rogue: Ambush on the default target');
+    assert.deepEqual(R.autoAction(tweak(boss('hunter'), noWind)), engage('opening_shot', 0), 'alone: the strike option');
+    assert.deepEqual(R.autoAction(tweak(boss('mage', [], { spells: ['ember_bolt'] }), noWind)), engage('precast', 0, 'ember_bolt'), 'alone: Pre-cast');
   });
 });
 

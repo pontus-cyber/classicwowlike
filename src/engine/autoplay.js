@@ -1,7 +1,8 @@
 // autoAction: the autoplay combat policy (rules 7.9, exact; combat v2 rule E in the engage round) and a
 // deterministic default policy for every other decision so a headless run can go from CREATE to SUMMARY. The
 // simulator's bots (balance.md 1) replace the out-of-combat part with their own policies; the combat part is the
-// spec's. Autoplay reads only the now-intent, except rule E, which reads turns 1..ENGAGE_AUTO_LOOK of the tracks.
+// spec's. Autoplay reads only the now-intent, except rule E, which reads turns 1..ENGAGE_AUTO_LOOK of the tracks, and
+// rule E2 (M2b v13, D108), which answers a visible wind-up of an elite, rare or dungeon boss in the engage round.
 // Expedition map (rules 1.9.9): the default map policy explores what it can leave cleanly and walks to the cheapest
 // Road around the Dimming; it reads only what the player sees (seen nodes, the skeleton, the Dimming).
 // The default talent build, bar and item bar are exported for the dev tools (debug.build, engine-api.md 12).
@@ -15,7 +16,7 @@ import {
 import { hasSt, findSt, debuffStacks, isEliteOrBoss, petAlive } from './damage.js';
 import { defaultTarget, breaksOnHit } from './combat.js';
 import { isEngageRound } from './track.js';
-import { engageAct } from './engage.js';
+import { engageAct, windupTurn } from './engage.js';
 import { castError, itemUsableInCombat } from './spells.js';
 import { itemScore, countConsumable, sellValue, canAdd, V, bagCapacity } from './items.js';
 import { talentPointsFree } from './progress.js';
@@ -159,13 +160,34 @@ function engagePolicy(s) {
   return legal(s, a) ? a : null;
 }
 
+/** Variants whose first wind-up is a Deathblow (rules 7.12, M2b v13): rule E2 answers them. */
+const SPECIAL = ['elite', 'rare', 'dboss'];
+
+/**
+ * Rule E2 (rules 7.9, M2b v13, D108), engage round only, before rule E: for each living elite, rare or dungeon boss in
+ * index order whose track shows a wind-up in turns 1..INTENT_TRACK_LEN, the class's control option on it if that ENGAGE
+ * is legal (on a dungeon boss it is Disrupt). The Rogue may Sap here: E2 supersedes D49 for this case (rule E keeps
+ * D49). A lone elite counts. null: no E2 action (rule E decides). Exported for the UI's engage hint (answers.js).
+ */
+export function engageAnswer(s) {
+  const f = s.fight;
+  if (!isEngageRound(f)) return null;
+  const control = ENGAGE_OPTIONS[s.player.classId].find((id) => ENGAGE_OPTION[id].kind === 'control');
+  for (const e of f.enemies) {
+    if (!e.alive || !SPECIAL.includes(e.kind) || !windupTurn(e)) continue;
+    const a = engageAct(control, e.idx);
+    if (legal(s, a)) return a;
+  }
+  return null;
+}
+
 function combatPolicy(s) {
   const f = s.fight;
   const p = s.player;
   if (f.p.skip) return { type: 'PASS' };
-  // E. Engage (combat v2), before rule 1, in the engage round only.
+  // E2 (M2b v13), then E (combat v2), before rule 1, in the engage round only.
   if (isEngageRound(f)) {
-    const eng = engagePolicy(s);
+    const eng = engageAnswer(s) || engagePolicy(s);
     if (eng) return eng;
   }
   const hpF = p.hp / p.d.maxHp;

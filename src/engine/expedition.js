@@ -21,6 +21,7 @@ import {
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt, weightedIndex } from '../rng.js';
 import { zoneContent } from './content.js';
+import { deathblowOf } from './track.js';
 import { composeEncounter, vendorStock, dungeonLevels, clampCl, pickFrom } from './map.js';
 
 // ---------------- Map modes (rules 1.9) ----------------
@@ -366,9 +367,10 @@ function details(c, z, n) {
   const arch = (tid) => c.enemies[tid].archetype;
   if (n.type === 'quest') return { title: c.quests[n.quest].title, archetypes: n.mobs.map(arch) };
   if (n.type === 'grind') return { archetypes: n.waves[0].map(arch) };
-  if (n.type === 'elite') return { level: n.eliteLevel, archetypes: [null, ...(n.add ? [arch(n.add)] : [])], rare: null, name: null };
+  // M2b v13 (UI list 7): an elite's Deathblow stays hidden with its name (D50); the dungeon boss's shows.
+  if (n.type === 'elite') return { level: n.eliteLevel, archetypes: [null, ...(n.add ? [arch(n.add)] : [])], rare: null, name: null, deathblow: null };
   if (n.type === 'dungeon') {
-    return { name: zoneContent(c, z).dungeon.name, level: n.trashLevel, bossLevel: n.bossLevel, fights: n.trash.map((f) => f.map(arch)), bossArchetype: arch(n.boss) };
+    return { name: zoneContent(c, z).dungeon.name, level: n.trashLevel, bossLevel: n.bossLevel, fights: n.trash.map((f) => f.map(arch)), bossArchetype: arch(n.boss), bossDeathblow: deathblowOf(c, n.boss, 'dboss') };
   }
   if (n.type === 'treasure') return { guarded: !!n.guard, trap: null, archetypes: n.guard ? [arch(n.guard)] : [] };
   if (n.type === 'vendor') return { ember: null };

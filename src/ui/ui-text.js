@@ -35,6 +35,8 @@ export const STATUS_INFO = {
   // combat v2.1 (combat-v2.md 16.2, rules 7.12): the lasting result of an enemy's wind-ups, one stack per wind-up
   EMPOWERED: { name: 'Empowered', debuff: false, text: 'A wind-up landed: it deals more damage for the rest of the fight.' },
   STAGGERED: { name: 'Staggered', debuff: true, v2Debuff: true, text: 'A wind-up was answered: it deals less damage for the rest of the fight.' },
+  // M2b v13 (rules 7.4, D107): a landed Deathblow MAIMS the player for the rest of the fight; dispersal does not remove it.
+  MAIMED: { name: 'Maimed', debuff: true, text: 'A Deathblow landed: the healing you receive is cut for the rest of the fight. Cleansing does not remove it.' },
 };
 
 // ------------------------------------------------------------------ combat v2.1 (docs/specs/combat-v2.md 16.2)
@@ -372,6 +374,8 @@ export function statusEffect(s, r, info = {}) {
     // combat v2.1 (rules 7.12): value = stacks × EMPOWER_DMG or × STAGGER_DMG (engine-api.md 6)
     case 'EMPOWERED': if (s.value) effect = `Deals ${pct(s.value)} more damage: ${s.stacks || 1} ${plural(s.stacks || 1, 'wind-up')} landed.`; break;
     case 'STAGGERED': if (s.value) effect = `Deals ${pct(s.value)} less damage: ${s.stacks || 1} ${plural(s.stacks || 1, 'wind-up')} answered.`; break;
+    // M2b v13 (rules 7.4, 7.5): value = MAIM_HEAL, the share of every heal on you (potions too) that is lost
+    case 'MAIMED': if (s.value) effect = `Healing you receive is ${pct(s.value)} lower, potions included, until the fight ends. Cleansing does not remove it.`; break;
     case 'BRAND':
       if (R.brandDmg != null) {
         effect = `Takes ${R.brandDmg} shadow damage per stack at the end of each round: ${R.brandDmg * (s.stacks || 1)} at ${s.stacks || 1} ${plural(s.stacks || 1, 'stack')}, before level difference and Ascendancy.`;

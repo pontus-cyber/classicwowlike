@@ -99,6 +99,27 @@ describe('change docs M2b v9, v10, v11 and v12: the engine constants equal the "
   });
 });
 
+describe('change doc M2b v13 (docs/specs/changes-m2b-v13.md, D105-D109): the engine constants equal its constant table', () => {
+  const text = readFileSync(fileURLToPath(new URL('../../docs/specs/changes-m2b-v13.md', import.meta.url)), 'utf8');
+  const table = rows(text.slice(text.indexOf('## Constants')));
+  const get = (label) => table.find((r) => r[0] === label || r[0].startsWith(`${label} `));
+  test('rows 1-3: DEATHBLOW_MULT, DEATHBLOW_EMPOWER, MAIM_HEAL are the "New" column; EMPOWER_DMG and STAGGER_DMG unchanged', () => {
+    for (const name of ['DEATHBLOW_MULT', 'DEATHBLOW_EMPOWER', 'MAIM_HEAL']) assert.equal(K[name], Number(get(name)[2]), name);
+    const ws = get('EMPOWER_DMG, STAGGER_DMG');
+    assert.match(ws[2], /^unchanged/);
+    assert.deepEqual([K.EMPOWER_DMG, K.STAGGER_DMG], ws[1].split(',').map((x) => Number(x.trim())));
+  });
+  test('rows 5-6 (gated): RARE_HP_MULT_Z1 is the "New" value, applied only with GATES.rareHpMultZ1 (off: the "Old" RARE_HP_MULT); FIRST_MEET_WINDUP is GATES.firstMeetWindup, "Old" (off) until the sim\'s gate passes', () => {
+    const rare = get('RARE_HP_MULT_Z1');
+    assert.ok(rare && /gated/.test(rare[0]));
+    assert.deepEqual([K.RARE_HP_MULT_Z1, K.RARE_HP_MULT, K.VARIANT.rare.hp], [Number(rare[2]), Number(rare[1].split(/\s/)[0]), K.RARE_HP_MULT]);
+    const fm = get('FIRST_MEET_WINDUP');
+    assert.ok(fm && /gated/.test(fm[0]));
+    assert.deepEqual([fm[1], fm[2]], ['off', 'on']);
+    assert.deepEqual(K.GATES, { rareHpMultZ1: false, firstMeetWindup: false });
+  });
+});
+
 describe('rules data tables', () => {
   test('1.4 node weights', () => {
     for (const r of rows(section('### 1.4 Zone map generation'))) {

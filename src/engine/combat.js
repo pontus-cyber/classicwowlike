@@ -5,12 +5,14 @@
 // (tickPhase) on a copy of the state, without draws, so the UI can mark the HP that the ticks will take.
 // Packed Satchel's free potion (rules 7.5, M2b v6): resolveRound plays it as the player's action and stops the round
 // (M2b v8: at FREE_POTION_MULT strength, spells.js). Zone danger (rules 7.6) with the early factor EARLY_DMG_MULT (M2b v8).
+// M2b v13 (D109, gated): a zone-1 rare's HP with RARE_HP_MULT_Z1 (GATES.rareHpMultZ1, rules 2.3); first meetings
+// (s.met, GATES.firstMeetWindup, rules 7.12) are marked when a fight starts.
 import {
   ARCHETYPE, VARIANT, ENEMY_HP_BASE, ENEMY_HP_PER_LEVEL, ENEMY_DMG_BASE, ENEMY_DMG_PER_LEVEL,
   ENEMY_ARMOR_PER_LEVEL, ENEMY_DODGE, PET, ENERGY_MAX, ENERGY_REGEN, FOCUS_MAX, FOCUS_REGEN,
   MANA_REGEN_ROUND_PCT, PET_REVIVE_PCT, TALENT, UNIQUE_WARD_PCT, BRAND_DMG, BOSS_LEVEL, MIN_HIT_DAMAGE,
   ZONE_DANGER_FROM, ZONE_DANGER_STEP, DUNGEON_DANGER_FRAC, ENGAGE_DMG_COMP, OFFBAL_DURATION, CONSUMABLE,
-  EARLY_DMG_MULT, EARLY_DMG_MAX_LEVEL,
+  EARLY_DMG_MULT, EARLY_DMG_MAX_LEVEL, RARE_HP_MULT_Z1, GATES,
 } from '../constants.js';
 import { nextFloat, nextInt } from '../rng.js';
 import { rnd, deepClone, cloneState } from './util.js';
@@ -61,7 +63,9 @@ export function makeEnemy(s, idx, tid, level, variant) {
   const t = s.content.enemies[tid];
   const a = ARCHETYPE[t.archetype];
   const v = VARIANT[variant] || VARIANT.normal;
-  const hp = Math.max(1, rnd((ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL * level) * a.hp * v.hp * t.hpMult));
+  // M2b v13 row 5 (D109, gated): a rare of zone 1 (both maps) with RARE_HP_MULT_Z1 while GATES.rareHpMultZ1 is on.
+  const vHp = variant === 'rare' && GATES.rareHpMultZ1 && s.fight && s.fight.z === 1 ? RARE_HP_MULT_Z1 : v.hp;
+  const hp = Math.max(1, rnd((ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL * level) * a.hp * vHp * t.hpMult));
   return {
     idx, tid, name: t.name, kind: variant, arch: t.archetype, level, hp, maxHp: hp,
     dmg: (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL * level) * a.dmg * v.dmg * t.dmgMult * zoneDanger(level, variant) * engageComp(s),
@@ -467,6 +471,7 @@ export function startFight(s, ev, spec) {
   f.startCount = f.enemies.length;
   for (const e of f.enemies) e.turn0 = f.engage ? 2 : 1;
   for (const e of f.enemies) if (e.arch === 'guardian') assignWard(f, e);
+  meetEnemies(s, f);
   s.stats.fights += 1;
   if (f.engage) s.stats.engages = (s.stats.engages || 0) + 1;
   ev.push({ t: 'fight', kind: f.kind, k: f.k, engage: f.engage, heat: f.heat, enemies: f.enemies.map((e) => ({ u: e.idx, name: e.name, level: e.level, hp: e.hp, kind: e.kind, arch: e.arch })) });
@@ -474,6 +479,23 @@ export function startFight(s, ev, spec) {
   const wards = hasEffect(s, 'ward');
   if (wards) addStatus(s, ev, 'player', { id: 'WARD', dur: null, amount: rnd(UNIQUE_WARD_PCT * wards * p.d.maxHp), src: 'unique' });
   beginRound(s, ev);
+}
+
+/** Fight kinds that never add to s.met and never play a first meeting (rules 7.12, M2b v13 row 6). */
+const NO_MEET = ['grind', 'trash', 'camp', 'dim', 'boss'];
+
+/**
+ * First meetings (rules 7.12, M2b v13 row 6, D109): s.met holds the normal enemy templates met in the run, added when a
+ * fight starts (enemies present at the start; not grind waves, dungeon trash, Camp waves, Dimmed encounters or the end
+ * boss). With GATES.firstMeetWindup on, in a quest fight every normal enemy whose template was not in s.met at the fight's
+ * start is a first meeting (`firstMeet: true`): its turn-2 scripted action is a wind-up (track.js makeEntry).
+ */
+function meetEnemies(s, f) {
+  if (NO_MEET.includes(f.kind)) return;
+  if (!s.met) s.met = [];
+  const met = s.met;
+  if (f.kind === 'quest' && GATES.firstMeetWindup) for (const e of f.enemies) if (e.kind === 'normal' && !met.includes(e.tid)) e.firstMeet = true;
+  for (const e of f.enemies) if (e.kind === 'normal' && !met.includes(e.tid)) met.push(e.tid);
 }
 
 /** Clean up after a fight (rules 7.1 "Fight end", 4.2 post-fight regen, 5.5 pet revive). Returns the outcome. */
