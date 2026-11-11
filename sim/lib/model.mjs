@@ -1,8 +1,8 @@
 // Node value model of the greedy, planner, speedrunner and tactician bots (balance.md 1.1):
 //   value(node) = XP_in_levels × VAL_XP + expected item-score gain × VAL_GEAR + gold / V(L) × VAL_GOLD
-//                 - hours × VAL_HOUR × hourMult - P(death) × VAL_DEATH
+//                 - hours × VAL_TIME × hourMult - P(death) × VAL_DEATH
 //                 - (projected Ascendancy after the node - before) × VAL_ASC                       (heat: boss term)
-// hourMult (M2 v3): 1 for the greedy, PLANNER_HOUR_MULT for the bots with lookahead, × STYLE_SPEED_HOUR_MULT for the
+// hourMult (M2 v3): 1 for the greedy, PLANNER_TIME_MULT for the bots with lookahead, × STYLE_SPEED_TIME_MULT for the
 // speed route style (makeCtx opts.hourMult).
 // Heat (expedition.md H.3, H.6; rules 1.7.1-1.7.3; makeCtx opts.heat, the planner family only): the XP and gold of a
 // node × (1 + HEAT_GAIN) and its drop-table items with the HEAT_RARITY_UP rarity step, both of the state the node is
@@ -61,7 +61,7 @@ export function expItemScore(cls, slot, ilvl, rarity) {
 
 /**
  * Context of one decision: the character as the model sees it. opts: { style (route style, default 'balanced'),
- * hourMult (bot hour weight, balance.md 1.1: 1 greedy, PLANNER_HOUR_MULT planner/tactician/speedrunner; default 1),
+ * hourMult (bot hour weight, balance.md 1.1: 1 greedy, PLANNER_TIME_MULT planner/tactician/speedrunner; default 1),
  * heat (expedition.md H.6; null = balance.md 1.1 without heat): { rewards (value HEAT_GAIN and HEAT_RARITY_UP of the
  * entry state; default true), ascW (boss term: value units per 1.0 projected Ascendancy; default SIM.VAL_ASC) } }.
  */
@@ -96,7 +96,7 @@ export function makeCtx(s, risk, opts = {}) {
   return {
     cls: p.classId, risk, eq, gainCache: new Map(), xpPct: s.meta.xpPct, goldPct: s.meta.goldPct,
     swift: !!s.meta.swiftBoots, res, potions, train, unknown,
-    style: opts.style || 'balanced', hourMult: (opts.hourMult ?? 1) * (opts.style === 'speed' ? SIM.STYLE_SPEED_HOUR_MULT : 1),
+    style: opts.style || 'balanced', hourMult: (opts.hourMult ?? 1) * (opts.style === 'speed' ? SIM.STYLE_SPEED_TIME_MULT : 1),
     heat: opts.heat ? heatCtx(s, opts.heat) : null,
     m: { L: p.level, xp: p.xp, rested: p.rested, hp: p.hp / p.d.maxHp, q: s.zone && !s.zone.camp ? s.zone.questsDone : 0, rations, tAt: 0, dh: 0 },
   };
@@ -154,11 +154,11 @@ export function heatStateOf(heat) {
 /**
  * Projected boss Ascendancy of a heat value (rules 1.7.1 ascIfPar: the boss Ascendancy if every later zone keeps its
  * line share). SIM.HEAT_ASC_FLOOR 1: the meter's stepped formula; 0 (the bots' default): the same without the floor,
- * ASC_PER_STEP per ASC_STEP_HOURS hours past the line [assumption: the expected step count when the hours of the
+ * ASC_PER_STEP per ASC_STEP_TIME hours past the line [assumption: the expected step count when the hours of the
  * later zones are not known; the stepped form makes a path's value jump at the step boundaries].
  */
 export function ascProjected(heat) {
-  const steps = Math.max(0, heat) / C.ASC_STEP_HOURS;
+  const steps = Math.max(0, heat) / C.ASC_STEP_TIME;
   return Math.min(C.ASC_CAP, C.ASC_PER_STEP * (SIM.HEAT_ASC_FLOOR ? Math.floor(steps + 1e-9) : steps));
 }
 
@@ -266,7 +266,7 @@ export function evalNode(ctx, m, v, opts = {}) {
         gear += 1.8 * eg('story', v.cl);
       }
       m.q += 1;
-      hours = C.HOURS_QUEST;
+      hours = C.TIME_QUEST;
       afterFightHp(ctx, m, rt, dl);
       break;
     }
@@ -286,15 +286,15 @@ export function evalNode(ctx, m, v, opts = {}) {
         gear += C.GRIND_WAVE_SIZE * C.MOB_ITEM_CHANCE * C.GRIND_DROP_MULT * eg('mob', v.cl);
         const sm = styleMult(ctx, 'grind');
         const marginal = ((bankedPos(m) - p0) * BAL.VAL_XP + (gear - ge0) * BAL.VAL_GEAR + ((gold - gd0) / Vl) * BAL.VAL_GOLD) * sm
-          - C.HOURS_GRIND_WAVE * BAL.VAL_HOUR * ctx.hourMult - p * BAL.VAL_DEATH - bossCost(ctx, m.dh, C.HOURS_GRIND_WAVE);
+          - C.TIME_GRIND_WAVE * BAL.VAL_TIME * ctx.hourMult - p * BAL.VAL_DEATH - bossCost(ctx, m.dh, C.TIME_GRIND_WAVE);
         if (!opts.grindWaves && w > 0 && marginal <= 0) {
           gold = gd0; gear = ge0; Object.assign(m, save);
           break;
         }
         value += marginal;
         waves += 1;
-        hours += C.HOURS_GRIND_WAVE;
-        m.dh += C.HOURS_GRIND_WAVE;
+        hours += C.TIME_GRIND_WAVE;
+        m.dh += C.TIME_GRIND_WAVE;
         pDeath = 1 - (1 - pDeath) * (1 - p);
         afterFightHp(ctx, m, 'grind', dl);
         eatModel(m);
@@ -316,7 +316,7 @@ export function evalNode(ctx, m, v, opts = {}) {
         g(C.MOB_COIN_V * vAt(v.cl));
         gear += C.MOB_ITEM_CHANCE * eg('mob', v.cl);
       }
-      hours = C.HOURS_ELITE;
+      hours = C.TIME_ELITE;
       afterFightHp(ctx, m, rt, dl);
       break;
     }
@@ -332,7 +332,7 @@ export function evalNode(ctx, m, v, opts = {}) {
       event(C.DUNGEON_CLEAR_XP_FRAC, B);
       g(nTrash * C.MOB_COIN_V * vAt(T) + C.MOB_COIN_V * vAt(B) + C.DUNGEON_GOLD_V * vAt(B));
       gear += nTrash * C.DUNGEON_ITEM_CHANCE * eg('trash', T) + C.DUNGEON_BOSS_DROPS * eg('dboss', B);
-      hours = C.HOURS_DUNGEON;
+      hours = C.TIME_DUNGEON;
       afterFightHp(ctx, m, 'dungeon', dl);
       break;
     }
@@ -340,7 +340,7 @@ export function evalNode(ctx, m, v, opts = {}) {
       const xn = xpNext(m.L);
       if (xn) m.rested = Math.min(C.RESTED_CAP_FRAC * xn, m.rested + C.REST_RESTED_FRAC * xn);
       m.hp = 1;
-      hours = C.HOURS_REST;
+      hours = C.TIME_REST;
       break;
     }
     case 'treasure': {
@@ -356,23 +356,23 @@ export function evalNode(ctx, m, v, opts = {}) {
       m.hp = Math.max(0.02, m.hp - trapP * C.TREASURE_TRAP_PCT);
       g(C.TREASURE_GOLD_V * vAt(v.cl));
       gear += eg('treasure', v.cl);
-      hours = C.HOURS_TREASURE;
+      hours = C.TIME_TREASURE;
       break;
     }
     case 'shrine': {
-      hours = C.HOURS_SHRINE;
-      const value = BOON_MEAN - hours * BAL.VAL_HOUR * ctx.hourMult - bossCost(ctx, dh0, hours);
+      hours = C.TIME_SHRINE;
+      const value = BOON_MEAN - hours * BAL.VAL_TIME * ctx.hourMult - bossCost(ctx, dh0, hours);
       m.dh = dh0 + hours;
       return { value, hours, pDeath: 0, waves: 0, state };
     }
     case 'vendor': {
-      hours = C.HOURS_VENDOR;
+      hours = C.TIME_VENDOR;
       // Vendor stock is not a drop table: no heat step (rules 1.7.3).
       gear += 1.5 * expGain(ctx, 'vendor', v.cl);
       break;
     }
     case 'trainer':
-      hours = C.HOURS_TRAINER;
+      hours = C.TIME_TRAINER;
       gear += trainerGain(ctx, m);
       break;
     default:
@@ -381,7 +381,7 @@ export function evalNode(ctx, m, v, opts = {}) {
   eatModel(m);
   const sm = styleMult(ctx, type);
   const value = ((bankedPos(m) - pos0) * BAL.VAL_XP + gear * BAL.VAL_GEAR + (gold / Vl) * BAL.VAL_GOLD) * sm
-    - hours * BAL.VAL_HOUR * ctx.hourMult - pDeath * BAL.VAL_DEATH - bossCost(ctx, dh0, hours);
+    - hours * BAL.VAL_TIME * ctx.hourMult - pDeath * BAL.VAL_DEATH - bossCost(ctx, dh0, hours);
   m.dh = dh0 + hours;
   return { value, hours, pDeath, waves, state };
 }

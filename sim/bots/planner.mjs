@@ -2,14 +2,14 @@
 // value function 1.1 over the remaining zone, including rest timing and the travel-on point; standard build of
 // its tree (1.3); bar template 1.2 with the boss bar at the Camp; trains everything at each hub, keeps
 // HEAL_STOCK_TARGET Healing Draughts, buys an Ember of Return when affordable and gold after it >=
-// EMBER_RESERVE_V × V; autoplay combat; manual time profile. Hours weigh VAL_HOUR × PLANNER_HOUR_MULT (M2 v3).
+// EMBER_RESERVE_V × V; autoplay combat; manual time profile. Hours weigh VAL_TIME × PLANNER_TIME_MULT (M2 v3).
 // Heat (expedition.md H.6; sim/lib/model.mjs): the value function prices the rewards of the state a node is entered in
 // (HEAT_GAIN on XP and gold, the HEAT_RARITY_UP step on drop-table items; the first node of a choice from
 // R.heatPreview's `pays`) and the boss term (projected Ascendancy × SIM.VAL_ASC). Policies for B58 (plannerHeat,
-// plannerHourMult): heat-seek (variant 'heatSeek') values the rewards and weighs hours × HEAT_SEEK_HOUR_MULT; heat-avoid
-// ('heatAvoid') values no heat reward (a Hot node is never a reason to go) and weighs hours × HEAT_AVOID_HOUR_MULT; both
+// plannerHourMult): heat-seek (variant 'heatSeek') values the rewards and weighs hours × HEAT_SEEK_TIME_MULT; heat-avoid
+// ('heatAvoid') values no heat reward (a Hot node is never a reason to go) and weighs hours × HEAT_AVOID_TIME_MULT; both
 // pay the boss term. Diagnostics: 'noHeat' (balance.md 1.1 without heat terms, the planner before 2026-11-11) and
-// 'hm<x>' (hour weight x instead of PLANNER_HOUR_MULT, for the hour-weight check).
+// 'hm<x>' (hour weight x instead of PLANNER_TIME_MULT, for the hour-weight check).
 import { C, R, legal, hpFrac } from '../lib/engine.mjs';
 import { BAL, HEAT, SIM } from '../lib/params.mjs';
 import { makeCtx, evalNode, copyM } from '../lib/model.mjs';
@@ -83,15 +83,15 @@ export function innByValue(s, risk, style, hourMult = 1, heat = null) {
 }
 
 /**
- * Hour weight of a planner variant (× VAL_HOUR): heat-seek, heat-avoid (expedition.md H.6), 'hm<x>' (diagnostic: x),
- * else PLANNER_HOUR_MULT.
+ * Hour weight of a planner variant (× VAL_TIME): heat-seek, heat-avoid (expedition.md H.6), 'hm<x>' (diagnostic: x),
+ * else PLANNER_TIME_MULT.
  */
 export function plannerHourMult(variant) {
-  if (variant === 'heatSeek') return HEAT.HEAT_SEEK_HOUR_MULT;
-  if (variant === 'heatAvoid') return HEAT.HEAT_AVOID_HOUR_MULT;
+  if (variant === 'heatSeek') return HEAT.HEAT_SEEK_TIME_MULT;
+  if (variant === 'heatAvoid') return HEAT.HEAT_AVOID_TIME_MULT;
   const m = /^hm(\d+(?:\.\d+)?)$/.exec(variant || '');
   if (m) return Number(m[1]);
-  return BAL.PLANNER_HOUR_MULT;
+  return BAL.PLANNER_TIME_MULT;
 }
 
 /**

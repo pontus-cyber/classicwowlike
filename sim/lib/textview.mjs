@@ -65,7 +65,7 @@ export function describeState(s, { map = true } = {}) {
   }
   const p = s.player;
   const zone = s.zone ? (s.zone.camp ? `Camp: ${s.content.camp.name}` : `Zone ${s.zone.z} ${s.content.zones[s.zone.z - 1].name}`) : '';
-  L.push(`== ${zone} | phase ${s.phase}${s.node ? ` | node ${TYPE[s.node.type]} r${s.node.r} (stage ${s.node.stage})` : ''} | hours ${s.hours}${s.service ? ` | ${s.service.kind} open` : ''}`);
+  L.push(`== ${zone} | phase ${s.phase}${s.node ? ` | node ${TYPE[s.node.type]} r${s.node.r} (stage ${s.node.stage})` : ''} | tolls ${s.time}${s.service ? ` | ${s.service.kind} open` : ''}`);
   const res = p.classId === 'mage' ? `Mana ${p.mana}/${p.d.maxMana}` : s.fight ? (p.classId === 'rogue' ? `Energy ${s.fight.p.energy} CP ${s.fight.p.cp}` : `Focus ${s.fight.p.focus}`) : '';
   L.push(`${C.CLASS[p.classId].name} L${p.level} (XP ${p.xp}/${R.xpToNext(p.level)}, rested ${p.rested}) HP ${p.hp}/${p.d.maxHp} ${res} | Gold ${money(p.gold)}${p.pet ? ` | ${C.PET[p.pet.id].name} ${p.pet.alive ? `${p.pet.hp}/${p.d.petMaxHp}` : 'dead'}` : ''}`);
   L.push(`Bar: ${p.bar.map((id, i) => `${i + 1} ${id ? `${spellName(id)} (tl ${p.spells[id].tl})` : '-'}`).join(' | ')}`);
@@ -168,7 +168,7 @@ export function describeEvents(s, events) {
       case 'train': out.push(`Trained ${spellName(e.spell)} to ${e.tl}`); break;
       case 'buy': out.push(`Bought ${C.CONSUMABLE[e.item] ? consName(e.item) : e.item}`); break;
       case 'travel': out.push(`Travelled on from zone ${e.from}`); break;
-      case 'bossStart': out.push(`Boss fight: Ascendancy ${e.asc} after ${e.hours} h`); break;
+      case 'bossStart': out.push(`Boss fight: Ascendancy ${e.asc} after ${e.time} tolls`); break;
       case 'runEnd': out.push(`RUN OVER: ${e.outcome}`); break;
       case 'echoes': out.push(`Echoes earned: ${e.total}`); break;
       default:

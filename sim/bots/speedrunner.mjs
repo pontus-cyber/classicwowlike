@@ -1,9 +1,9 @@
 // speedrunner bot (balance.md 1): path search minimising hours to reach the zone exit level; TRAVEL_ON as soon
 // as legal; Camp grind only to reach 60; build and bar as the planner (boss bar at the Camp); trains at hubs only;
 // buys Healing Draughts to HEAL_STOCK_TARGET; no vendor nodes; autoplay combat; autoplay time profile.
-// The search cost is in hours: node hours + P(death) × VAL_DEATH / VAL_HOUR, and a zone left under the travel level
-// (exitLevelOf: exit level - TRAVEL_EARLY_LEVELS) after the last row adds the missing levels × VAL_XP / VAL_HOUR (the
-// value function's own exchange rates). Its value calls carry hourMult = PLANNER_HOUR_MULT (balance.md 1.1, M2 v3);
+// The search cost is in hours: node hours + P(death) × VAL_DEATH / VAL_TIME, and a zone left under the travel level
+// (exitLevelOf: exit level - TRAVEL_EARLY_LEVELS) after the last row adds the missing levels × VAL_XP / VAL_TIME (the
+// value function's own exchange rates). Its value calls carry hourMult = PLANNER_TIME_MULT (balance.md 1.1, M2 v3);
 // the search uses only their hours and P(death), so the weight does not change its choices (spec reading, see the
 // sim hand-off of 2026-11-10).
 import { C, R, legal, hpFrac } from '../lib/engine.mjs';
@@ -14,8 +14,8 @@ import { exitLevelOf } from './planner.mjs';
 import { trainerUseful } from '../lib/policy.mjs';
 
 const ROWS = C.ZONE_CHOICE_ROWS;
-const DEATH_H = BAL.VAL_DEATH / BAL.VAL_HOUR;
-const LEVEL_H = BAL.VAL_XP / BAL.VAL_HOUR;
+const DEATH_H = BAL.VAL_DEATH / BAL.VAL_TIME;
+const LEVEL_H = BAL.VAL_XP / BAL.VAL_TIME;
 const AVOID_H = 1000; // vendor and trainer nodes: only when no other lane exists
 
 function nodeOptions(node) {
@@ -44,7 +44,7 @@ function costFrom(ctx, rows, r, l, m, exit) {
   return best;
 }
 
-const speedCtx = (s, risk) => makeCtx(s, risk, { hourMult: BAL.PLANNER_HOUR_MULT });
+const speedCtx = (s, risk) => makeCtx(s, risk, { hourMult: BAL.PLANNER_TIME_MULT });
 
 export function speedMap(s, risk) {
   if (legal(s, { type: 'TRAVEL_ON' })) return { type: 'TRAVEL_ON' };

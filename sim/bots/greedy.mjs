@@ -2,7 +2,7 @@
 // no lookahead; travels on at exit level only if no remaining reachable node beats GREEDY_STAY_THRESHOLD; fixed
 // default build per class (1.3); bar template 1.2 (no boss bar swap); trains everything at each hub; keeps
 // HEAL_STOCK_TARGET Healing Draughts; autoplay combat; manual time profile. Hour weight 1 (balance.md 1.1, M2 v3: no
-// lookahead, so no PLANNER_HOUR_MULT).
+// lookahead, so no PLANNER_TIME_MULT).
 import { C, R, legal } from '../lib/engine.mjs';
 import { BAL } from '../lib/params.mjs';
 import { makeCtx, evalNode, copyM } from '../lib/model.mjs';

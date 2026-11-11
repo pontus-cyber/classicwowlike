@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Heat report tables (docs/specs/expedition.md H.6: B58, B56, B57; the PLANNER_HOUR_MULT check of D61; the Ascendancy
+// Heat report tables (docs/specs/expedition.md H.6: B58, B56, B57; the PLANNER_TIME_MULT check of D61; the Ascendancy
 // calibration of SIM.VAL_ASC; scratch proposals): reads planner P0 cells written by sim/run.mjs and prints the
 // generated block of docs/reports/balance-2026-11-11.md (Markdown) to stdout. Pure reads of the run records.
 //
@@ -75,7 +75,7 @@ if (main.planner) {
   const rows = heatChecks({ planner: flat(main.planner), seek: flat(main.seek), avoid: flat(main.avoid), noHeat: flat(noHeat) });
   L.push('### Heat targets (expedition.md H.6)', '');
   L.push(table(['ID', 'Pri', 'Metric', 'Value (95 % interval)', 'Target', 'Result'], rows.map((r) => [r.id, r.pri, r.metric, r.value, r.target, res(r.ok)])), '');
-  const cells = [[`planner (default: heat valued, hour weight ${BAL.PLANNER_HOUR_MULT})`, main.planner], ['heat-seek', main.seek], ['heat-avoid', main.avoid], ['planner, engine without heat rewards (B57 arm)', noHeat]];
+  const cells = [[`planner (default: heat valued, hour weight ${BAL.PLANNER_TIME_MULT})`, main.planner], ['heat-seek', main.seek], ['heat-avoid', main.avoid], ['planner, engine without heat rewards (B57 arm)', noHeat]];
   L.push('### Heat cells, planner P0', '');
   L.push(table(['Cell', 'Runs', 'rogue: win / boss', 'mage: win / boss', 'hunter: win / boss', 'All: win / boss', 'Win at the boss', 'Hours at the boss (median)', 'Ascendancy (median)', 'Runs with a Hot or Scorched node', 'Nodes Clear / Warm / Hot / Scorched (%)', 'Gear score at the boss (median)', 'Rare or epic slots at the boss'],
     cells.filter(([, c]) => c).map(([label, c]) => {
@@ -93,8 +93,8 @@ if (args.sweep) {
   const names = ['hm1', 'hm2', 'hm3', 'hm4', 'noHeat'].filter((v) => cell(args.sweep, `planner-P0-${v}`));
   const ref = cell(args.sweep, 'planner-P0-hm2');
   const sm = ref.meta;
-  L.push('### Hour weight with heat valued (PLANNER_HOUR_MULT check, D61)', '');
-  L.push(`Planner P0, ${sm.runs} runs per class (seeds ${sm.seedStart}-${sm.seedStart + sm.runs - 1}), each cell from the same starting risk table; hm<x> = the planner with heat terms and hour weight x; noHeat = the planner before 2026-11-11 (no heat terms) at weight 2. Paired against hm2 (PLANNER_HOUR_MULT until M2b v6; now ${BAL.PLANNER_HOUR_MULT}).`, '');
+  L.push('### Hour weight with heat valued (PLANNER_TIME_MULT check, D61)', '');
+  L.push(`Planner P0, ${sm.runs} runs per class (seeds ${sm.seedStart}-${sm.seedStart + sm.runs - 1}), each cell from the same starting risk table; hm<x> = the planner with heat terms and hour weight x; noHeat = the planner before 2026-11-11 (no heat terms) at weight 2. Paired against hm2 (PLANNER_TIME_MULT until M2b v6; now ${BAL.PLANNER_TIME_MULT}).`, '');
   L.push(table(['Cell', 'rogue: win / boss', 'mage: win / boss', 'hunter: win / boss', 'All: win (95 %)', 'Reach', 'Win - hm2, paired', 'Reach - hm2, paired', 'Hours at the boss (median)', 'Ascendancy (median)', 'Runs with a Hot node', 'Gear score at the boss'],
     names.map((v) => {
       const c = cell(args.sweep, `planner-P0-${v}`);

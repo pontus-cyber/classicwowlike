@@ -36,11 +36,11 @@ describe('HEAT equals expedition.md section 13, block "Heat"', () => {
 });
 
 describe('heat-seek and heat-avoid (planner variants)', () => {
-  test('hour weights: seek HEAT_SEEK_HOUR_MULT, avoid HEAT_AVOID_HOUR_MULT, else PLANNER_HOUR_MULT', () => {
-    assert.equal(plannerHourMult('heatSeek'), HEAT.HEAT_SEEK_HOUR_MULT);
-    assert.equal(plannerHourMult('heatAvoid'), HEAT.HEAT_AVOID_HOUR_MULT);
-    assert.equal(plannerHourMult(null), BAL.PLANNER_HOUR_MULT);
-    assert.equal(plannerHourMult('noAoe'), BAL.PLANNER_HOUR_MULT);
+  test('hour weights: seek HEAT_SEEK_TIME_MULT, avoid HEAT_AVOID_TIME_MULT, else PLANNER_TIME_MULT', () => {
+    assert.equal(plannerHourMult('heatSeek'), HEAT.HEAT_SEEK_TIME_MULT);
+    assert.equal(plannerHourMult('heatAvoid'), HEAT.HEAT_AVOID_TIME_MULT);
+    assert.equal(plannerHourMult(null), BAL.PLANNER_TIME_MULT);
+    assert.equal(plannerHourMult('noAoe'), BAL.PLANNER_TIME_MULT);
     assert.equal(plannerHourMult('hm3'), 3);
     assert.equal(plannerHourMult('hm0.5'), 0.5);
   });
@@ -86,7 +86,7 @@ describe('value function heat terms (sim/lib/model.mjs)', () => {
       SIM.HEAT_ASC_FLOOR = 1;
       // The runs (prior risk table) end early and in hand, so each state is also checked moved 15, 35 and 60 h past
       // (the weight-3 planner of M2b v6 stays further in hand than the weight-2 one, so 35 h no longer reaches Scorched).
-      const moved = states.flatMap((x) => [0, 15, 35, 60].map((dh) => { const y = R.deserialize(R.serialize(x), CONTENT); y.hours += dh; return y; }));
+      const moved = states.flatMap((x) => [0, 15, 35, 60].map((dh) => { const y = R.deserialize(R.serialize(x), CONTENT); y.time += dh; return y; }));
       const seen = new Set();
       for (const s of moved) {
         const v = R.heatView(s);

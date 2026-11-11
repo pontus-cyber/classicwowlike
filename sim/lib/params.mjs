@@ -2,8 +2,8 @@
 //
 // BAL: the constant table of docs/specs/balance.md section 6, same names and values (bot parameters and
 //      targets). qa/sim/params.test.mjs parses balance.md and compares every cell, so the two cannot drift.
-//      A report-only cell ("- (report only)") is null. META_TIME_BUDGET_H (B17 time budget, M2 v4) is a rules
-//      constant (rules.md 13), so the report reads it from the engine (C.META_TIME_BUDGET_H), not from BAL.
+//      A report-only cell ("- (report only)") is null. META_TIME_BUDGET (B17 time budget, M2 v4) is a rules
+//      constant (rules.md 13), so the report reads it from the engine (C.META_TIME_BUDGET), not from BAL.
 // SIM: numbers the balance spec leaves open, used by the bots and the batch runner. Each is an [assumption]
 //      of the Simulation & Balance Engineer, listed in docs/handoffs/sim-2026-11-09.md.
 // C2:  the simulator's constants of docs/specs/combat-v2.md section 15 (bots and balance targets B48-B55, the
@@ -30,9 +30,9 @@ export const BAL = {
   VAL_XP: 100,
   VAL_GEAR: 1,
   VAL_GOLD: 5,
-  VAL_HOUR: 6,
+  VAL_TIME: 6,
   VAL_DEATH: 2000,
-  PLANNER_HOUR_MULT: 3,
+  PLANNER_TIME_MULT: 3,
   SIM_RISK_REFRESH: 500,
   RISK_PRIOR: { quest: 0.005, grind: 0.004, elite: 0.03, dungeon: 0.05, treasure: 0.002 },
   WR_P0_RANDOM_MAX: 0.03,
@@ -71,8 +71,8 @@ export const BAL = {
   ROUNDS_ELITE: [6, 10],
   ROUNDS_DBOSS: [8, 13],
   ROUNDS_BOSS: [30, 45],
-  HOURS_NORMAL: [125, 155],
-  HOURS_SPEED: [80, 110],
+  TIME_NORMAL: [125, 155],
+  TIME_SPEED: [80, 110],
   ASC_MEDIAN_MAX: 0.12,
   LVL60_SHARE_MIN: 0.90,
   LVL_SPEED_MEDIAN_MIN: 60,
@@ -141,7 +141,7 @@ export const SIM = {
   /** Route styles (B8): weight on the gain terms (XP, gear, gold) of the favoured node types. */
   STYLE_WEIGHT: 2.0,
   /** Speed style: hour cost multiplier. */
-  STYLE_SPEED_HOUR_MULT: 3.0,
+  STYLE_SPEED_TIME_MULT: 3.0,
   /** Shrine boon values in value-function points (boons are hidden on the map; the bot uses the weighted mean). */
   BOON_VALUE: { return: 150, insight: 35, fury: 25, plenty: 20, mending: 60, clarity: 30 },
   /** Trainer value (balance.md 1.1 has no spell-rank term): see model.mjs trainerGain. Power-equivalent per
@@ -233,8 +233,8 @@ export const C2 = {
  * (heat-seek's wins with a Hot node).
  */
 export const HEAT = {
-  HEAT_SEEK_HOUR_MULT: 0.5,
-  HEAT_AVOID_HOUR_MULT: 4,
+  HEAT_SEEK_TIME_MULT: 0.5,
+  HEAT_AVOID_TIME_MULT: 4,
   HEAT_POLICY_GAP_MAX: 5,
   HEAT_WIN_SHARE: [0.30, 0.85],
   HEAT_POWER_MAX: 4,

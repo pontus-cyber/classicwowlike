@@ -28,21 +28,21 @@ function mapStates(seeds) {
 }
 
 describe('hour weight (balance.md 1.1, M2 v3)', () => {
-  test('makeCtx: hourMult option, times STYLE_SPEED_HOUR_MULT for the speed style; the hour term scales with it', () => {
+  test('makeCtx: hourMult option, times STYLE_SPEED_TIME_MULT for the speed style; the hour term scales with it', () => {
     const s = mapStates([43])[0];
     const risk = priorTable();
     assert.equal(makeCtx(s, risk).hourMult, 1);
-    assert.equal(makeCtx(s, risk, { hourMult: BAL.PLANNER_HOUR_MULT }).hourMult, BAL.PLANNER_HOUR_MULT);
-    assert.equal(makeCtx(s, risk, { hourMult: BAL.PLANNER_HOUR_MULT, style: 'speed' }).hourMult, BAL.PLANNER_HOUR_MULT * SIM.STYLE_SPEED_HOUR_MULT);
+    assert.equal(makeCtx(s, risk, { hourMult: BAL.PLANNER_TIME_MULT }).hourMult, BAL.PLANNER_TIME_MULT);
+    assert.equal(makeCtx(s, risk, { hourMult: BAL.PLANNER_TIME_MULT, style: 'speed' }).hourMult, BAL.PLANNER_TIME_MULT * SIM.STYLE_SPEED_TIME_MULT);
     const rest = { type: 'rest' };
     const c1 = makeCtx(s, risk);
     const v1 = evalNode(c1, copyM(c1.m), rest);
     const c2 = makeCtx(s, risk, { hourMult: 2 });
     const v2 = evalNode(c2, copyM(c2.m), rest);
-    assert.ok(Math.abs(v1.value - v2.value - v1.hours * BAL.VAL_HOUR) < 1e-9, `${v1.value} vs ${v2.value}`);
+    assert.ok(Math.abs(v1.value - v2.value - v1.hours * BAL.VAL_TIME) < 1e-9, `${v1.value} vs ${v2.value}`);
   });
 
-  test('planner and tactician map choices use PLANNER_HOUR_MULT; the greedy uses 1', () => {
+  test('planner and tactician map choices use PLANNER_TIME_MULT; the greedy uses 1', () => {
     const risk = priorTable();
     const mk = (name) => createBot(name, { classId: 'hunter', seed: 43, risk, tree: 1 });
     const [pl, ta, gr] = [mk('planner'), mk('tactician'), mk('greedy')];
@@ -52,7 +52,7 @@ describe('hour weight (balance.md 1.1, M2 v3)', () => {
     // had 0 of 92 after it). Re-pick with a probe over seeds when content changes the sampled maps again.
     for (const s of mapStates([41, 45, 49])) {
       n++;
-      const want = planMap(s, risk, 'balanced', BAL.PLANNER_HOUR_MULT, plannerHeat(null)).action;
+      const want = planMap(s, risk, 'balanced', BAL.PLANNER_TIME_MULT, plannerHeat(null)).action;
       assert.equal(key(pl.spec.map(s)), key(want));
       assert.equal(key(ta.spec.map(s)), key(want));
       assert.equal(key(gr.spec.map(s)), key(greedyMap(s, risk)));

@@ -412,11 +412,11 @@ function buildChecks(S) {
   else unit('B16', 'P1', 'Fight length incl. the engage round', () => req(null));
   unit('B17', 'P2', 'Hours at boss, planner P0 median', () => {
     const pl = P('planner-P0');
-    add('B17', 'P2', 'Hours at boss, planner P0 median', `${num(pl.hoursBoss.v, 0)} h`, `${BAL.HOURS_NORMAL[0]} - ${BAL.HOURS_NORMAL[1]} h`, inBand(pl.hoursBoss.v, BAL.HOURS_NORMAL), { miss: miss(pl.hoursBoss.v, ...BAL.HOURS_NORMAL) });
+    add('B17', 'P2', 'Hours at boss, planner P0 median', `${num(pl.hoursBoss.v, 0)} h`, `${BAL.TIME_NORMAL[0]} - ${BAL.TIME_NORMAL[1]} h`, inBand(pl.hoursBoss.v, BAL.TIME_NORMAL), { miss: miss(pl.hoursBoss.v, ...BAL.TIME_NORMAL) });
   });
   unit('B17', 'P2', 'Hours at boss, speedrunner PALL median', () => {
     const sp = P('speedrunner-PALL');
-    add('B17', 'P2', 'Hours at boss, speedrunner PALL median', `${num(sp.hoursBoss.v, 0)} h`, `${BAL.HOURS_SPEED[0]} - ${BAL.HOURS_SPEED[1]} h`, inBand(sp.hoursBoss.v, BAL.HOURS_SPEED), { miss: miss(sp.hoursBoss.v, ...BAL.HOURS_SPEED) });
+    add('B17', 'P2', 'Hours at boss, speedrunner PALL median', `${num(sp.hoursBoss.v, 0)} h`, `${BAL.TIME_SPEED[0]} - ${BAL.TIME_SPEED[1]} h`, inBand(sp.hoursBoss.v, BAL.TIME_SPEED), { miss: miss(sp.hoursBoss.v, ...BAL.TIME_SPEED) });
   });
   unit('B17', 'P2', 'Ascendancy at boss, planner P0 median', () => {
     const pl = P('planner-P0');
@@ -578,17 +578,17 @@ function b12Check(sp, b11v) {
   };
 }
 /**
- * B17 time budget (M2 v4, rules 11.2): planner P0 median hours at the boss - planner PALL median <= META_TIME_BUDGET_H
+ * B17 time budget (M2 v4, rules 11.2): planner P0 median hours at the boss - planner PALL median <= META_TIME_BUDGET
  * (a rules constant: read from the engine). p0 / pall: run records (all classes pooled).
  */
 function timeBudgetCheck(p0, pall) {
   const d = timeBudget(p0, pall);
-  const budget = C.META_TIME_BUDGET_H;
+  const budget = C.META_TIME_BUDGET;
   const has = typeof budget === 'number';
   return {
     metric: `Time budget: planner P0 median hours at boss - planner PALL median (P0 ${num(d.p0, 0)} h, PALL ${num(d.pall, 0)} h)`,
     value: d.v === null ? 'n/a' : `${num(d.v, 1)} h (${ci(d.ci, (x) => num(x, 1))})`,
-    target: has ? `<= ${budget} h (META_TIME_BUDGET_H)` : 'META_TIME_BUDGET_H (not in this engine)',
+    target: has ? `<= ${budget} h (META_TIME_BUDGET)` : 'META_TIME_BUDGET (not in this engine)',
     ok: has && d.v !== null ? d.v <= budget : null, miss: has ? miss(d.v, null, budget) : 0,
   };
 }
@@ -754,7 +754,7 @@ if (NOW.pooled('heat:seek') || NOW.pooled('heat:avoid')) {
   const hRows = [];
   const pRows = [];
   for (const [label, S] of heatSets) {
-    for (const [cname, name] of [[`planner (hour weight ${label === 'now' ? BAL.PLANNER_HOUR_MULT : 2})`, 'heat:planner'], ['heat-seek', 'heat:seek'], ['heat-avoid', 'heat:avoid'], ['planner, engine without heat rewards (B57 arm)', 'heat:off']]) {
+    for (const [cname, name] of [[`planner (hour weight ${label === 'now' ? BAL.PLANNER_TIME_MULT : 2})`, 'heat:planner'], ['heat-seek', 'heat:seek'], ['heat-avoid', 'heat:avoid'], ['planner, engine without heat rewards (B57 arm)', 'heat:off']]) {
       const byCls = S.cells(name);
       if (!byCls) continue;
       const x = heatCell(Object.values(byCls).flat());

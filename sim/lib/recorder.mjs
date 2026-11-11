@@ -267,7 +267,7 @@ export class Recorder {
       seed: meta.seed, bot: meta.bot, cls: meta.cls, pet: sum ? sum.petId : null, prof: meta.prof, tree: meta.tree,
       style: meta.style || null, variant: meta.variant || null,
       out: meta.err ? 'x' : (sum && sum.outcome === 'victory' ? 'v' : 'd'), err: meta.err || null,
-      lvl: sum ? sum.level : 1, hours: sum ? sum.hours : 0, asc: sum ? sum.ascendancy : null, hb: sum ? sum.hoursAtBoss : null,
+      lvl: sum ? sum.level : 1, hours: sum ? sum.time : 0, asc: sum ? sum.ascendancy : null, hb: sum ? sum.timeAtBoss : null,
       rb: sum && sum.reachedBoss ? 1 : 0, bp: sum ? sum.bossPhase : 0, bhp: sum ? sum.bossHpPct : null, brd: sum ? sum.bossRounds : 0,
       min: sum ? [round2(sum.minutes.manual), round2(sum.minutes.autoplay)] : [0, 0],
       nodes: sum ? sum.nodes.total : 0, nt: sum ? { ...sum.nodes } : {}, fights: sum ? sum.fights : 0, rounds: sum ? sum.rounds : 0,

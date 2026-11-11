@@ -56,7 +56,7 @@ export function heatChecks({ planner, seek, avoid, noHeat }) {
     const d = pairedDiff(seek, avoid, win);
     const s = heatCell(seek);
     const a = heatCell(avoid);
-    add('B58', 'P1', `Heat is a real option (heat, expedition.md H.6): win rate heat-seek minus heat-avoid, planner P0, paired (seek ${pct(s.win.p)}, reach ${pct(s.reach.p)}, ${num(s.hours, 0)} h at the boss; avoid ${pct(a.win.p)}, reach ${pct(a.reach.p)}, ${num(a.hours, 0)} h)`,
+    add('B58', 'P1', `Heat is a real option (heat, expedition.md H.6): win rate heat-seek minus heat-avoid, planner P0, paired (seek ${pct(s.win.p)}, reach ${pct(s.reach.p)}, ${num(s.hours, 0)} tolls at the boss; avoid ${pct(a.win.p)}, reach ${pct(a.reach.p)}, ${num(a.hours, 0)} tolls)`,
       dc(d), `within +-${HEAT.HEAT_POLICY_GAP_MAX} pp`, d.v === null ? null : Math.abs(d.v) <= pp(HEAT.HEAT_POLICY_GAP_MAX));
   }
   if (seek && planner) {

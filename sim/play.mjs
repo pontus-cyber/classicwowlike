@@ -97,7 +97,7 @@ function finish() {
   if (state.result) {
     const s = state.result.summary;
     emit('');
-    emit(`Result: ${s.outcome} at level ${s.level}, zone ${s.reached.zone}, ${s.hours} h, ${s.minutes.manual.toFixed(1)} min (manual estimate), Echoes ${s.echoes.total}${s.death ? `; died in ${s.death.nodeType} (zone ${s.death.zone}) to ${s.death.killer.name} (${s.death.killer.ability})` : ''}`);
+    emit(`Result: ${s.outcome} at level ${s.level}, zone ${s.reached.zone}, ${s.time} tolls, ${s.minutes.manual.toFixed(1)} min (manual estimate), Echoes ${s.echoes.total}${s.death ? `; died in ${s.death.nodeType} (zone ${s.death.zone}) to ${s.death.killer.name} (${s.death.killer.ability})` : ''}`);
   }
 }
 
