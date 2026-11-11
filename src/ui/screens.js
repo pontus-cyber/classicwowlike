@@ -668,6 +668,15 @@ function declutterLabels(disc) {
     const { cand } = spots.get(lab);
     let best = cand[0]; let bestK = cost(lab, best, others);
     for (const c of cand.slice(1)) { if (bestK <= 0) break; const k = cost(lab, c, others); if (k < bestK - 0.5) { best = c; bestK = k; } }
+    // still touching something: nudge it a few pixels (the spots are half a row apart; a sliver often clears)
+    if (bestK > 0) {
+      const base = best;
+      nudge: for (const dy of [-2, 2, -4, 4, -6, 6, -8, 8, 0]) for (const dx of [0, -3, 3, -6, 6, -9, 9]) {
+        if (!dx && !dy) continue;
+        const c = { l: base.l + dx, t: base.t + dy, r: base.r + dx, b: base.b + dy };
+        const k = cost(lab, c, others); if (k < bestK - 0.5) { best = c; bestK = k; if (bestK <= 0) break nudge; }
+      }
+    }
     return { best, k: bestK };
   };
   // greedy in rank order, then two repair passes: a label still on something looks again with every other label placed
