@@ -703,10 +703,13 @@ function engineBackend(seedOpt, runOpts = {}) {
     if (!R.windupView || s.fight.over) return [];
     try { return JSON.parse(JSON.stringify(R.windupView(s) || [])); } catch { return []; }
   }
-  /** Autoplay's engage answer (R.autoplayEngage, rule E2): { option, name, target, enemy, windup } or null; the hint reads it. */
+  /**
+   * Autoplay's engage answer (R.autoplayEngage, rule E2): { option, name, target, enemy, windup, wait } or null; the hint reads
+   * it. M2b v14: `wait` when autoplay will then wait a round (rule H: Sap cancels the Deathblow).
+   */
   function autoEngageOf(s) {
     if (!R.autoplayEngage || s.fight.over) return null;
-    try { const a = R.autoplayEngage(s); return a ? { option: a.option, name: a.name, target: a.target, enemy: a.enemy, windup: { ...a.windup } } : null; } catch { return null; }
+    try { const a = R.autoplayEngage(s); return a ? { option: a.option, name: a.name, target: a.target, enemy: a.enemy, windup: { ...a.windup }, wait: !!a.wait } : null; } catch { return null; }
   }
   /**
    * The engage round (rules 7.10, combat v2) for the engage panel, or null outside it: R.engageOptions in the class order

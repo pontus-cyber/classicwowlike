@@ -61,10 +61,18 @@ export function deathblowStakes(w) {
   if (!w) return '';
   return `Answered: staggered, −${pct(w.stagger)} damage for the rest of the fight. Landed: empowered, +${pct(w.empower)} damage${w.maims ? `, and you are MAIMED: healing you receive −${pct(w.maimHeal)}, potions included` : ''}.`;
 }
-/** How a Deathblow can be answered, by its kind (the map's `type`): 'heavy' or 'cast' (rules 7.12, 7.13 (3)). */
+/** What answers a Deathblow of this type (the map's `type`: 'heavy' or 'cast'; rules 7.12, 7.13 (3)), without its noun. */
+export function deathblowAnswers(type) {
+  return type === 'heavy' ? 'stun, control or interrupt it on its turn; a full dodge, a ward or your pet taking it also answer it'
+    : 'interrupt it or control the caster on its turn';
+}
+/** How a Deathblow can be answered, by its kind (the map's `type`): "heavy blow: ..." or "cast: ...". */
 export function deathblowKind(type) {
-  return type === 'heavy' ? 'heavy blow: stun, control or interrupt it on its turn; a full dodge, a ward or your pet taking it also answer it'
-    : 'cast: interrupt it or control the caster on its turn';
+  return `${type === 'heavy' ? 'heavy blow' : 'cast'}: ${deathblowAnswers(type)}`;
+}
+/** M2b v14 (UI need 2): Sap is sure if the Rogue waits (windupView answer `wait`; `stealth`: the passes keep STEALTH). */
+export function sapWaitText(a) {
+  return `Sure if you wait: press Pass next round${a && a.stealth ? '; you stay hidden' : ''}`;
 }
 /** The lasting result in words, from the engine's EMPOWER_DMG and STAGGER_DMG (data.v2.num); no number written here. */
 export function windupStakes(n) {

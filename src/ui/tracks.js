@@ -12,7 +12,8 @@
 // answers ready now (R.windupView answers: engage options in the engage round, bar spells in its round; "sure" and "now")
 // are named with their keys on that line and the engage panel, and highlighted on the engage cards; "No answer ready" in
 // red when windupView says ready is false; EMPOWERED from a Deathblow is its own "+100 %" badge; a first meeting's
-// enemy is tagged "New".
+// enemy is tagged "New". M2b v14 ("UI needs" 2): Sap on a lone enemy reads "Sure if you wait: press Pass next round; you
+// stay hidden" (answer `wait`, `stealth`) on its card and in the tooltip, and the PASS answer is named with its key X.
 // The first-fight hint (owner playtest 2026-11-11 08:03): beside the engage panel in the first engage round of each class,
 // the three openers on keys Q, W, E; dismissed for good with "Got it" or the end of that round (localStorage HINT_KEY).
 // Presentation only: every entry, target, estimate, option, preview and window comes from the engine through the bridge
@@ -20,7 +21,7 @@
 import { h, add, clear, fmtNum } from './util.js';
 import { abilityIcon, roleIcon, engageIcon, controlIcon, statusIcon, spellIcon, windupIcon, deathblowIcon } from './art-icons.js';
 import { tip, spellTip } from './tooltip.js';
-import { ROLE_INFO, CONTROL_WORD, ENGAGE_KIND, engageText, engageHint, numWord, plural, windupAnswers, windupStakes, deathblowStakes } from './ui-text.js';
+import { ROLE_INFO, CONTROL_WORD, ENGAGE_KIND, engageText, engageHint, numWord, plural, windupAnswers, windupStakes, deathblowStakes, sapWaitText } from './ui-text.js';
 
 /** Rounds the opening ruler numbers (combat-v2.md 10.4: rounds 1-5, the first 4-5 moves of the owner's feedback). */
 export const OPENING_ROUNDS = 5;
@@ -101,8 +102,9 @@ export function windupItem(v, e, x) {
   const c = v && v.combat;
   return c && c.windups ? c.windups.find((w) => w.u === e.idx && w.turn === x.turn) || null : null;
 }
-/** The key of an answer: Q, W or E for an engage option (the panel's order), 1-7 for a bar spell; '' when none. */
+/** The key of an answer: Q, W or E for an engage option (the panel's order), 1-7 for a bar spell, X for Pass (M2b v14); '' when none. */
 export function answerKey(v, a) {
+  if (a.via === 'pass') return 'X';
   if (a.via === 'engage') { const o = v.combat && v.combat.engage ? v.combat.engage.options.find((q) => q.id === a.id) : null; return (o && o.key) || ''; }
   const i = v.player ? v.player.bar.indexOf(a.id) : -1;
   return i >= 0 ? String(i + 1) : '';
@@ -129,9 +131,19 @@ function answerEls(list) {
   const out = [];
   list.forEach((x, i) => {
     if (i) out.push(h('span.sep', ' · '));
-    out.push(h('span.ans-o', { dataset: { via: x.a.via, id: x.a.id, sure: x.a.sure ? '1' : '' } }, x.key ? h('kbd', x.key) : null, ` ${x.name}${x.a.sure ? '' : ' ?'}`));
+    // M2b v14: Sap that is sure if you wait reads "Sap, then wait" (no "?")
+    out.push(h('span.ans-o', { dataset: { via: x.a.via, id: x.a.id, sure: x.a.sure ? '1' : '', wait: x.a.wait ? '1' : '' } }, x.key ? h('kbd', x.key) : null, ` ${x.name}${x.a.sure ? '' : x.a.wait ? ', then wait' : ' ?'}`));
   });
   return out;
+}
+/**
+ * An answer's note in the Deathblow tooltip: a chance and why; M2b v14 (UI need 2): Sap "sure if you wait: press Pass next
+ * round; you stay hidden" (`wait`, `stealth`), and the PASS answer "Sap stops it" while every enemy is sapped.
+ */
+function answerNote(a) {
+  if (a.via === 'pass') return ` (Sap stops it${a.stealth ? '; you stay hidden' : ''})`;
+  if (a.wait) return ` (${sapWaitText(a).replace(/^S/, 's')})`;
+  return `${a.sure ? '' : ' (a chance)'}${a.breaks ? ' (any damage before its turn wakes it)' : ''}`;
 }
 /** What answers it, in the badge's words: "your trap", "Sapped", "your pet". */
 function answeredBy(st) {
@@ -189,7 +201,7 @@ export function windupLines(e, x, ctx, st) {
   if (w && (!st || st.kind === 'open')) {
     const sh = answersToShow(w, v, ctx);
     if (!w.ready) lines.push(h('div.tt-warn.db-no', 'No answer ready: nothing you have now can stop it. Kill it first, or be ready to take it.'));
-    else if (sh.list.length) lines.push(h('div.tt-line.db-a', `${sh.when === 'now' ? 'Answer it now' : `Ready by round ${w.round}`}: ${sh.list.map((q) => `${q.key ? `[${q.key}] ` : ''}${q.name}${q.a.sure ? '' : ' (a chance)'}${q.a.breaks ? ' (any damage before its turn wakes it)' : ''}`).join(', ')}.`));
+    else if (sh.list.length) lines.push(h('div.tt-line.db-a', `${sh.when === 'now' ? 'Answer it now' : `Ready by round ${w.round}`}: ${sh.list.map((q) => `${q.key ? `[${q.key}] ` : ''}${q.name}${answerNote(q.a)}`).join(', ')}.`));
   }
   const bar = answersOnBar(v, ctx, x);
   if (bar.length) {
@@ -248,7 +260,12 @@ export function windupBanner(box, e, ctx) {
         if (!wi.ready) box.append(h('span.db-a.no', 'No answer ready'));
         else if (sh.list.length) box.append(h(`span.db-a${sh.when === 'now' ? '.now' : ''}`, h('span.db-al', sh.when === 'now' ? 'Answer: ' : `${whenText(x)}: `), answerEls(sh.list.slice(0, 3))));
       }
-    } else box.append(h('span.wu-t', msg));
+    } else {
+      // M2b v14 (UI need 2): Sap holds while every enemy is sapped: waiting answers it (windupView's PASS answer, key X)
+      const pass = !stopped && wi ? wi.answers.filter((a) => a.via === 'pass' && a.now) : [];
+      if (pass.length) box.append(h('span.wu-t', `${answeredBy(state)}: answered if you wait`), h('span.db-a.now', h('span.db-al', ' Wait: '), answerEls(pass.map((a) => ({ a, key: answerKey(ctx.view, a), name: answerName(a, ctx) })))));
+      else box.append(h('span.wu-t', msg));
+    }
   } else box.append(h('span.wu-b', h('img', { src: windupIcon(), alt: '' }), stopped ? 'Wind-up stopped' : `Wind-up ${whenText(x)}`), h('span.wu-t', msg));
   tip(box, () => h('div.tt-spell', h('div.tt-row', h('div.tt-name', `${e.name}: ${x.windupOf ? x.windupOf.name : x.name}`), h('div.tt-rank', x.now ? 'This round' : `Round ${x.round}`)), windupLines(e, x, ctx, state)));
   windupHover(box, e, x, ctx);
@@ -737,12 +754,14 @@ export function createEngagePanel(root, ctx) {
       // M2b v13: the card is an answer to a Deathblow (windupView): highlighted; "sure" false (Sap, Rime Burst) marked a chance
       const dbA = dbAns[o.id] || [];
       const dbSure = dbA.some((a) => a.sure);
+      const dbWait = dbSure ? null : dbA.find((a) => a.wait) || null; // M2b v14 (UI need 2): Sap, sure if you wait
       const card = h(`div.eg-opt.k-${o.kind}${off ? '.off' : ''}${notHere ? '.off-here' : ''}${disrupt ? '.disrupt' : ''}${ans.length ? '.answers' : ''}${o.spells && ctx.ui.precastArmed ? '.armed' : ''}${dbA.length ? '.db-ans' : ''}`,
-        { role: o.spells ? null : 'button', tabindex: '-1', dataset: { opt: o.id, disrupt: disrupt ? '1' : '', answers: ans.map((w) => `${w.e.idx}:${w.x.turn}`).join(' '), db: dbA.length ? (dbSure ? 'sure' : 'chance') : '' }, 'aria-label': `${name}${disrupt ? ` (${o.name})` : ''} (${ENGAGE_KIND[o.kind] || o.kind})` },
+        { role: o.spells ? null : 'button', tabindex: '-1', dataset: { opt: o.id, disrupt: disrupt ? '1' : '', answers: ans.map((w) => `${w.e.idx}:${w.x.turn}`).join(' '), db: dbA.length ? (dbSure ? 'sure' : dbWait ? 'wait' : 'chance') : '' }, 'aria-label': `${name}${disrupt ? ` (${o.name})` : ''} (${ENGAGE_KIND[o.kind] || o.kind})` },
         h('img.eg-ic', { src: engageIcon(o.id), alt: '' }),
         h('div.eg-main', h('div.eg-nm', h('span.eg-name', name), disrupt ? h('span.eg-was', o.name) : null, h('span.eg-kind', ENGAGE_KIND[o.kind] || o.kind), o.key ? h('span.kbd', o.key) : null),
           h('div.eg-txt', disrupt ? disruptText(v, here, ans) : engageText(data, d.num)), tline, answerTag(ans),
-          dbA.length && !dbSure ? h('div.eg-dbc', dbA.some((a) => a.breaks) ? 'A chance: any damage before its turn wakes it' : 'A chance: it can fail') : null));
+          dbWait ? h('div.eg-dbc.wait', sapWaitText(dbWait))
+            : dbA.length && !dbSure ? h('div.eg-dbc', dbA.some((a) => a.breaks) ? 'A chance: any damage before its turn wakes it' : 'A chance: it can fail') : null));
       if (dbA.length) card.prepend(h('i.eg-dbtag', 'Deathblow'));
       if (disrupt || notHere) tip(card, () => disruptTip(v, o, here ?? cur, disrupt, notHere));
       if (o.spells && !off) {

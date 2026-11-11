@@ -9,12 +9,14 @@
 // entered Hot or Scorched and items heat raised carry a badge; the summary has a heat card (heat.js).
 // M2b v13 (docs/specs/changes-m2b-v13.md "UI needs" 7): elite and dungeon node tooltips name the special enemy's Deathblow
 // and its kind (mapView `deathblow`, `bossDeathblow`), so the answer can be planned before entering.
+// M2b v14 ("UI needs" 3): a hidden elite (a rare without Scout's Eye, every expedition elite) shows only its Deathblow's
+// type: "Deathblow: a heavy blow (...)" or "Deathblow: a cast (...)", no name.
 import { h, add, clear, fmtNum, moneyEl, moneyText, clamp } from './util.js';
 import { spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon, deathblowIcon } from './art-icons.js';
 import { drawPortrait, HERO_LOOKS, PET_LOOKS } from './art-actors.js';
 import { tip, itemTip, spellTip, hide as hideTip } from './tooltip.js';
 import { conColor, heroPortrait, travelState } from './hud.js';
-import { numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, deathblowKind } from './ui-text.js';
+import { numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, deathblowKind, deathblowAnswers } from './ui-text.js';
 import { createMeta, buildOaths, echoAmt } from './meta.js';
 import { heatKey, previewBlock, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME } from './heat.js';
 import { createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon } from './prep.js';
@@ -744,10 +746,16 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
 }
 /**
  * M2b v13 (UI needs 7): a node's Deathblow line from mapView (`deathblow` of an elite, `bossDeathblow` of a dungeon): its name,
- * kind (heavy blow or cast) and what answers it; null when the view gives none (a hidden rare, an expedition elite).
+ * kind (heavy blow or cast) and what answers it; null when the view gives none. M2b v14 (UI need 3): an elite whose name is
+ * hidden (a rare without Scout's Eye, every expedition elite) gives only `{ type }`: "Deathblow: a heavy blow (...)" or
+ * "Deathblow: a cast (...)", no name.
  */
 function deathblowLine(db, boss) {
   if (!db) return null;
+  if (!db.name) {
+    return h('div.tt-line.tt-db', { dataset: { deathblow: '', type: db.type } }, h('img', { src: deathblowIcon(), alt: '' }),
+      h('b', `Deathblow: ${db.type === 'heavy' ? 'a heavy blow' : 'a cast'}`), ` (${deathblowAnswers(db.type)}). Landed, it maims you.`);
+  }
   return h('div.tt-line.tt-db', { dataset: { deathblow: db.id, type: db.type } }, h('img', { src: deathblowIcon(), alt: '' }),
     h('b', `${boss ? "The boss's Deathblow" : 'Deathblow'}: ${db.name}`), ` (${deathblowKind(db.type)}). Landed, it maims you.`);
 }

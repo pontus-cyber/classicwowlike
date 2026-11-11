@@ -23,6 +23,8 @@
 // Deathblow (R.windupView answers: now, or ready by its round) ringed in crimson; the turn prompt names the Deathblow's answer
 // with its key or "No answer ready"; with autoplay on, the engage round says "Autoplay will answer the Deathblow with ..."
 // (R.autoplayEngage); a first meeting's enemy is tagged "New".
+// M2b v14 (docs/specs/changes-m2b-v14.md "UI needs" 1-2): the autoplay hint adds ", then wait a round" (autoplayEngage
+// `wait`, rule H); while Sap holds on every enemy, the Pass button carries the answer ring and the prompt says to wait.
 import { h, add, clear, fmtNum, moneyEl, clamp, rgba } from './util.js';
 import { spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS } from './art-icons.js';
 import { drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook } from './art-actors.js';
@@ -664,6 +666,9 @@ export function createHud(root, ctx) {
     els.auto.classList.toggle('on', !!v.autoplay);
     els.auto.setAttribute('aria-checked', v.autoplay ? 'true' : 'false');
     els.pass.disabled = !fight; els.flee.disabled = !fight || !L.flee;
+    // M2b v14 (UI need 2): Pass answers an open Deathblow while every enemy is sapped (windupView's PASS answer): its ring
+    const passDb = !!fight && (c.windups || []).some((w) => w.deathblow && w.answers.some((a) => a.via === 'pass' && a.now));
+    els.pass.classList.toggle('db-now', passDb); els.pass.dataset.db = passDb ? 'now' : '';
     els.flee.firstChild.textContent = ctx.ui.fleeArmed ? 'Confirm?' : 'Flee';
     turnPrompt(v, fight && !v.autoplay, fight && v.autoplay);
   }
@@ -682,7 +687,8 @@ export function createHud(root, ctx) {
     if (ae) {
       els.turn.querySelector('.tp-k').textContent = `Autoplay · R${c.round}`;
       const tEl = els.turn.querySelector('.tp-t');
-      const t = `Autoplay will answer the ${ae.windup.deathblow ? 'Deathblow' : 'wind-up'} with ${ae.name}`;
+      // M2b v14 (UI need 1): rule H follows a Sap on a lone special enemy (autoplayEngage `wait`)
+      const t = `Autoplay will answer the ${ae.windup.deathblow ? 'Deathblow' : 'wind-up'} with ${ae.name}${ae.wait ? ', then wait a round' : ''}`;
       const sig = `auto:${t}:${ae.enemy}`;
       if (tEl.dataset.sig !== sig) { tEl.dataset.sig = sig; clear(tEl); tEl.append(t, h('span.tp-s', ` (${ae.enemy}'s ${ae.windup.name})`)); }
       els.turn.dataset.kind = ae.windup.deathblow ? 'auto-db' : 'auto';
@@ -705,6 +711,8 @@ export function createHud(root, ctx) {
       const first = dbSh.list.find((x) => x.key) || null;
       k = 'Deathblow';
       if (!dbw.ready) { parts = [`Deathblow ${when}: `, h('b.tp-no', 'No answer ready'), dbw.inRounds > 0 ? '. Kill it first or brace for it' : '']; dbKind = 'deathblow-no'; }
+      // M2b v14 (UI need 2): waiting is the answer while Sap holds (windupView's PASS answer)
+      else if (first && dbSh.when === 'now' && first.a.via === 'pass') { parts = [`Deathblow ${when}: wait with `, kb('X'), ` Pass: Sap stops it${first.a.stealth ? ', and you stay hidden' : ''}`]; dbKind = 'deathblow'; }
       else if (first && dbSh.when === 'now' && first.a.target != null && first.a.target !== (ctx.ui.target ?? c.target)) { parts = [`Deathblow ${when} on ${dbw.enemy}: `, kb('Tab'), ' to it, then ', kb(first.key), ` ${first.name}`]; dbKind = 'deathblow'; }
       else if (first && dbSh.when === 'now') { parts = [`Deathblow ${when}: answer with `, kb(first.key), ` ${first.name}${first.a.sure ? '' : ' (a chance)'}`]; dbKind = 'deathblow'; }
       else if (first) { parts = [`Deathblow ${when}: keep `, kb(first.key), ` ${first.name} for round ${dbw.round}`]; dbKind = 'deathblow'; }

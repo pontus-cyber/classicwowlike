@@ -125,7 +125,10 @@
  *      tooltip = R.potionInfo (half the amount before), "Deathblow +100 % dmg" on the nameplate and target frame, the log line.
  *      Rogue: Sap marked a chance, Throat Jab kept for round 3 ("R3"), then answering now; its key answers it ("Deathblow
  *      answered"). The map tooltips of elite and dungeon nodes name the Deathblow and its kind = mapView. A loaded state with
- *      a first meeting shows "New" on that enemy only.
+ *      a first meeting shows "New" on that enemy only. M2b v14 (changes-m2b-v14.md "UI needs" 1-3): against the lone elite
+ *      Sap's card reads "Sure if you wait: ..." (windupView `wait`); the Rogue's autoplay hint "..., then wait a round"
+ *      (autoplayEngage `wait`); after Sap, round 2's Pass button has the answer ring, the line names "X Pass" and the prompt
+ *      says to wait; X: Sap cancels the Deathblow and the Rogue stays in STEALTH; a hidden elite's map line has its type only.
  *
  * Seeds were picked with the engine of 3559e0e (M2 v2): seed 30's first quest has two Guardians that last long
  * enough for the potion and Autoplay checks. M2 v3 (77c0ca5): seed 1's autoplay run no longer reaches the camp, so part B
@@ -147,7 +150,7 @@ import { pathToFileURL } from 'node:url';
 import * as R from '../../src/rules.js';
 import { CONTENT } from '../../src/content/index.js';
 // the Furnace's player-facing words (changes-m2b-v7.md table D: names, states, whole tolls; UX pass 2026-11-11)
-import { HEAT_WORDS, tolls, ECHO_LINE, deathblowKind } from '../../src/ui/ui-text.js';
+import { HEAT_WORDS, tolls, ECHO_LINE, deathblowKind, deathblowAnswers, sapWaitText } from '../../src/ui/ui-text.js';
 
 const args = process.argv.slice(2);
 const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
@@ -3279,12 +3282,14 @@ async function partP(browser, W, H) {
         await page.locator(`#screens button.mnode[data-row="${r}"][data-lane="${l}"]`).hover(); await page.waitForTimeout(160);
         const t = (await page.getByRole('tooltip').innerText().catch(() => '')).replace(NBSP, ' ');
         const db = n.type === 'elite' ? n.deathblow : n.bossDeathblow;
-        const want = db ? `${n.type === 'dungeon' ? "The boss's Deathblow" : 'Deathblow'}: ${db.name} (${deathblowKind(db.type)})` : null;
+        // M2b v14 (UI need 3): a hidden elite's view gives { type } only: "Deathblow: a heavy blow (...)", no name
+        const want = !db ? null : db.name ? `${n.type === 'dungeon' ? "The boss's Deathblow" : 'Deathblow'}: ${db.name} (${deathblowKind(db.type)})`
+          : `Deathblow: ${db.type === 'heavy' ? 'a heavy blow' : 'a cast'} (${deathblowAnswers(db.type)})`;
         if (want ? !t.includes(want) : /Deathblow:/.test(t)) badMap.push(`${n.type} r${r} l${l}: want ${want || 'no Deathblow line'}; saw ${t.replace(/\n/g, ' / ').slice(0, 160)}`);
         if (want) named++;
         await page.mouse.move(2, 2);
       }
-      check('M2b-v13', `map: every elite and dungeon node's tooltip names its Deathblow and kind exactly as mapView gives it (${nodes.length} nodes, ${named} named)`, nodes.length > 0 && named > 0 && !badMap.length, badMap.join(' | ') || `${nodes.length} nodes`);
+      check('M2b-v13', `map: every elite and dungeon node's tooltip names its Deathblow and kind exactly as mapView gives it; a hidden elite its type only (M2b v14) (${nodes.length} nodes, ${named} lines)`, nodes.length > 0 && named > 0 && !badMap.length, badMap.join(' | ') || `${nodes.length} nodes`);
       // the fight: Bargh the Drowned King, its engage round
       await page.evaluate((id) => window.__ui.dev('fight', { ids: [id] }), P_ELITE); await idle(page); await page.mouse.move(2, 2);
       s = await twin();
@@ -3369,8 +3374,10 @@ async function partP(browser, W, H) {
       const sap = w && w.answers.find((a) => a.via === 'engage' && a.id === 'sap');
       const slot = spell ? s.player.bar.indexOf(spell.id) : -1;
       const b1 = d.bar.find((x) => x.slot === slot);
-      check('M2b-v13', `Rogue, engage round: Sap answers it as a chance (sure ${sap && sap.sure}): its card "chance"; ${spell && spell.name} (not now) kept for round ${w && w.round}: "R${w && w.round}" on key ${slot + 1}`,
-        !!sap && !sap.sure && d.cards.some((c) => c.opt === 'sap' && c.db === 'chance') && !!spell && !spell.now && !!b1 && b1.soon && !b1.now && b1.tag === `R${w.round}`, `cards ${JSON.stringify(d.cards)}; bar ${JSON.stringify(b1)}`);
+      // M2b v14 (UI need 2): a lone elite: Sap is sure if you wait (windupView `wait`): its card "wait" with the engine's words
+      const sapCard = await page.evaluate(() => { const c = document.querySelector('#engage .eg-opt[data-opt="sap"] .eg-dbc'); return c ? c.textContent : ''; });
+      check('M2b-v14', `Rogue, engage round: Sap answers it (sure ${sap && sap.sure}, wait ${sap && sap.wait}): its card "${sap && sap.wait ? 'wait' : 'chance'}"${sap && sap.wait ? ` and "${sapWaitText(sap)}"` : ''}; ${spell && spell.name} (not now) kept for round ${w && w.round}: "R${w && w.round}" on key ${slot + 1}`,
+        !!sap && !sap.sure && d.cards.some((c) => c.opt === 'sap' && c.db === (sap.wait ? 'wait' : 'chance')) && (!sap.wait || sapCard === sapWaitText(sap)) && !!spell && !spell.now && !!b1 && b1.soon && !b1.now && b1.tag === `R${w.round}`, `cards ${JSON.stringify(d.cards)}; card text "${sapCard}"; bar ${JSON.stringify(b1)}`);
       for (let n = 0; n < 4; n++) { s = await twin(); w = (R.windupView(s) || []).find((x) => x.deathblow); if (!w || w.inRounds === 0) break; await page.keyboard.press('KeyX'); await idle(page); }
       await page.mouse.move(2, 2);
       d = await pDom(page);
@@ -3392,6 +3399,57 @@ async function partP(browser, W, H) {
       check('-', 'part P (Rogue) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
     }
     check('-', 'part P (Rogue): no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- (2b) M2b v14 (UI needs 1-2): the Rogue's autoplay hint "..., then wait a round"; Sap, then Pass rings in round 2 and
+  // the prompt says to wait; X: Sap cancels the Deathblow (STAGGERED), the Rogue still hidden
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=5&speed=instant');
+    const twin = async () => devTwin(await page.evaluate(() => window.__ui.engineLog()));
+    try {
+      await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 2 })); await idle(page);
+      await page.evaluate((id) => window.__ui.dev('fight', { ids: [id] }), P_ELITE); await idle(page); await page.mouse.move(2, 2);
+      await page.evaluate(() => { window.__ui.settings.set('autoDelay', 9000); window.__ui.settings.set('speed', 1); });
+      await page.keyboard.press('KeyZ');
+      await page.waitForFunction(() => window.__ui.view().autoplay === true, null, { timeout: 4000 }); await idle(page); await page.waitForTimeout(150);
+      let s = await twin();
+      const ae = R.autoplayEngage(s);
+      let d = await pDom(page);
+      await shot(page, 'P-rogue-autoplay-wait');
+      await page.keyboard.press('KeyZ');
+      await page.waitForFunction(() => window.__ui.view().autoplay === false, null, { timeout: 4000 }); await idle(page);
+      await page.evaluate(() => { window.__ui.settings.set('speed', 0); window.__ui.settings.set('autoDelay', 350); });
+      check('M2b-v14', `Rogue, autoplay on in the engage round: "Autoplay will answer the Deathblow with Sap, then wait a round" (R.autoplayEngage wait ${ae && ae.wait})`,
+        !!ae && ae.option === 'sap' && ae.wait === true && !!d.prompt && d.prompt.kind === 'auto-db' && d.prompt.text.includes('Autoplay will answer the Deathblow with Sap, then wait a round') && R.isEngageRound(await twin()), `${JSON.stringify(d.prompt)}; autoplayEngage ${JSON.stringify(ae)}`);
+      // Sap (its key on the engage panel), then round 2: Pass is the answer
+      const sapKey = ['Q', 'W', 'E'][(R.engageOptions(s) || []).findIndex((o) => o.id === 'sap')];
+      await page.keyboard.press(`Key${sapKey}`); await idle(page);
+      const t0 = await twin();
+      if (R.isEngageRound(t0)) { await page.locator(`#nameplates .np[data-idx="${ae.target}"]`).click().catch(() => {}); await idle(page); }
+      await page.mouse.move(2, 2);
+      s = await twin();
+      const w = (R.windupView(s) || []).find((x) => x.deathblow);
+      const pa = w && w.answers.find((a) => a.via === 'pass');
+      d = await pDom(page);
+      const passBtn = await page.evaluate(() => { const b = [...document.querySelectorAll('.ctrl .btn')].find((x) => /^Pass/.test(x.textContent)); return b ? { ring: b.classList.contains('db-now'), db: b.dataset.db || '' } : null; });
+      const L = w && d.np.find((x) => x.idx === w.u);
+      await shot(page, 'P-rogue-wait');
+      check('M2b-v14', `Rogue, round ${s.fight && s.fight.round} after Sap: windupView's PASS answer (now ${pa && pa.now}, stealth ${pa && pa.stealth}): the Pass button has the answer ring, the line names "X Pass", the prompt says to wait`,
+        !!pa && pa.now && w.ready && !!passBtn && passBtn.ring && passBtn.db === 'now' && !!L && !!L.wub && L.wub.answers.some((a) => a.via === 'pass' && a.text.startsWith('X Pass'))
+          && !!d.prompt && d.prompt.kind === 'deathblow' && d.prompt.text.includes(`Deathblow in R${w.round}: wait with X Pass: Sap stops it${pa.stealth ? ', and you stay hidden' : ''}`),
+        `pass ${JSON.stringify(passBtn)}; line ${JSON.stringify(L && L.wub && L.wub.answers)}; prompt ${JSON.stringify(d.prompt)}; answer ${JSON.stringify(pa)}`);
+      await page.keyboard.press('KeyX'); await idle(page);
+      s = await twin();
+      const e = s.fight && s.fight.enemies[w.u];
+      const stg = e && e.st.find((x) => x.id === 'STAGGERED');
+      const passB2 = await page.evaluate(() => { const b = [...document.querySelectorAll('.ctrl .btn')].find((x) => /^Pass/.test(x.textContent)); return b ? b.classList.contains('db-now') : null; });
+      check('M2b-v14', 'X: Sap cancels the Deathblow at its turn (STAGGERED, no MAIMED), the Rogue is still in STEALTH, and the Pass ring is gone',
+        !!stg && stg.deathblows === 1 && !s.fight.p.st.some((x) => x.id === 'MAIMED') && s.fight.p.st.some((x) => x.id === 'STEALTH') && passB2 === false, `${JSON.stringify(stg)}; player ${JSON.stringify(s.fight && s.fight.p.st.map((x) => x.id))}; ring ${passB2}`);
+    } catch (e) {
+      await shot(page, 'P-error-rogue-wait');
+      check('-', 'part P (Rogue wait) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
+    }
+    check('-', 'part P (Rogue wait): no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
     await context.close();
   }
   // ---- (3) a first meeting (gated, rules 7.12): "New" on that enemy's nameplate and the target frame, no other

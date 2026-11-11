@@ -1460,6 +1460,9 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .eg-sp.db { box-shadow: inset 0 0 0 2px #ff3a4a, 0 0 .9rem rgba(255, 40, 60, .8); }
 /* the bar: a Deathblow's answer now (a crimson pulse) or kept for its round (a dashed crimson ring and "R3") */
 .ab.db-now { box-shadow: inset 0 0 0 2px #ff6a76, 0 0 0 2px rgba(255, 40, 60, .85), 0 0 2rem rgba(255, 30, 50, 1); animation: dbabpulse .7s ease-in-out infinite; }
+/* M2b v14 (UI need 2): Pass answers the Deathblow (Sap holds while you wait): the same crimson answer ring */
+.btn.db-now { box-shadow: inset 0 0 0 2px #ff6a76, 0 0 0 2px rgba(255, 40, 60, .85), 0 0 1.4rem rgba(255, 30, 50, .9); animation: dbabpulse .7s ease-in-out infinite; }
+.eg-dbc.wait { color: #b8e8ff; }
 .ab.db-soon::after { content: ''; position: absolute; inset: -.3rem; border-radius: .7rem; border: 2px dashed #ff4a5a; box-shadow: 0 0 .8rem rgba(255, 40, 60, .6); pointer-events: none; }
 .ab .atag.db { background: linear-gradient(180deg, #ffe4e4, #ff4a5a 55%, #b00818); color: #26000a; box-shadow: 0 0 0 1px #000, 0 0 .8rem rgba(255, 40, 60, 1); }
 .ab .atag.db.soon { background: rgba(50, 2, 8, .95); color: #ff9aa4; box-shadow: 0 0 0 1px #ff4a5a; }
@@ -1494,4 +1497,4 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .tt-line.tt-db { color: #ffb0b8; }
 .tt-line.tt-db b { color: #fff0f0; }
 .tt-line.tt-db img { width: 1.5rem; height: 1.5rem; border-radius: .25rem; border: 1px solid #000; vertical-align: -.35rem; margin-right: .35rem; }
-@media (prefers-reduced-motion: reduce) { .np .wub.db, .np .wub.db.now, .eg-db, .ab.db-now, .uf .maimb.fresh { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .np .wub.db, .np .wub.db.now, .eg-db, .ab.db-now, .btn.db-now, .uf .maimb.fresh { animation: none; } }
