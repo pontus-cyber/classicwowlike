@@ -3,8 +3,9 @@
 # 1-2 (main, engine-2026-11-11i), with the sim rows of v12 (escape pricing, row 4 speedrunner, the gated Ricochet arm).
 # Order is the spec's cut order. Report: docs/reports/balance-2026-11-11h.md; hand-off docs/handoffs/sim-2026-11-11j.md.
 #
-#   bash sim/measure-v12.sh [OUT] [STAGES]      OUT default sim/out/pass-v12; STAGES default "X K H"
-#   stages: X  expedition cells 1-9: table pass; planner P0; planner PALL with row 5 (3) and the hunter without it (3b;
+#   bash sim/measure-v12.sh [OUT] [STAGES]      OUT default sim/out/pass-v12; STAGES default "X1 X2 K H"
+#   stages: X1 expedition cells 1-5, X2 cells 6-9 (X1 writes the row 5 gate's outcome that X2 reads):
+#              table pass; planner P0; planner PALL with row 5 (3) and the hunter without it (3b;
 #              rogue and mage never cast Ricochet Bolt, so cell 3's rogue and mage runs are 3b's); the row 5 gate decides
 #              the Ricochet value of every later PALL cell; speedrunner PALL row 4 (4, extended by EXTRA seeds per class
 #              when it has fewer than B12_MIN_WINS wins); greedy (5); prep none / random (6); B41 oracle (7); arm row 2 off
@@ -15,13 +16,14 @@
 #           H  hash identity against the 11-11g build (REF): classic identical, expedition without prep moves (rows 1-2)
 #           B  campaigns on the expedition with the start camp (B31, B32): CAMPAIGNS per class, the gate's Ricochet value
 # Env: WORKERS (2), REF (65f528a: the 11-11g engine and sim), P11F (sim/out/pass-v9v10: node-risk base of 11-11g),
-#      P11G (sim/out/pass-v11: the 11-11g pass), CAMPAIGNS (20), EXTRA (0: extra speedrunner runs per class, cells 4 and 9).
+#      P11G (sim/out/pass-v11: the 11-11g pass), CAMPAIGNS (20), EXTRA (0: extra speedrunner runs per class, cells 4 and 9),
+#      N6 (300: runs per class of cell 6), N9 (700: runs per class of cell 9, the first seeds of cell 4).
 set -euo pipefail
 W=$(cd "$(dirname "$0")/.." && pwd)
 O=$(mkdir -p "${1:-$W/sim/out/pass-v12}" && cd "${1:-$W/sim/out/pass-v12}" && pwd)
-STAGES=" ${2:-X K H} "
+STAGES=" ${2:-X1 X2 K H} "
 WK=${WORKERS:-2}; REF=${REF:-65f528a}; P11F=${P11F:-$W/sim/out/pass-v9v10}; P11G=${P11G:-$W/sim/out/pass-v11}
-NC=${CAMPAIGNS:-20}; EXTRA=${EXTRA:-0}
+NC=${CAMPAIGNS:-20}; EXTRA=${EXTRA:-0}; N6=${N6:-300}; N9=${N9:-700}
 P11B=$W/sim/out/pass-2026-11-11b                     # warm-up tables of the classic planner cells (as 11-11c to 11-11g)
 P11C=$W/sim/out/pass-2026-11-11c                     # observation tables of the other classic cells (hash stage)
 B0=$P11F/obs-P0.json; BA=$P11F/obs-PALL.json         # node-risk base of the expedition cells (as 11-11g)
@@ -67,8 +69,8 @@ C0="--risk-in $B0 --tables-in $X/table/planner-P0-exp-prep/risk.json"
 CA="--risk-in $BA --tables-in $X/table/planner-PALL-exp-prep/risk.json"
 RCG_FILE=$O/ricochet.flag                            # the row 5 gate's outcome ('--ricochet-gated' or empty)
 
-# ---- X: expedition cells (seeds 1000 on, paired with 11-11g; PALL = --profile all). ----
-if has X; then
+# ---- X1: expedition cells 1-5 (seeds 1000 on, paired with 11-11g; PALL = --profile all). ----
+if has X1; then
   OUTX=$X/table xcell --bot planner --runs 100 --profile fresh --risk-in "$B0"                       # 1  table pass P0
   OUTX=$X/table xcell --bot planner --runs 100 --profile all --risk-in "$BA"                         #    table pass PALL
   xcell --bot planner --runs 300 --profile fresh $C0                                                 # 2  planner P0
@@ -88,17 +90,23 @@ console.log(JSON.stringify({ pall3: win(a), pall3b: win(b), hunter3: win(a.filte
     OUTX=$X/ext xcell --bot speedrunner --runs "$EXTRA" --seed-start 1700 --profile all $CA $RCG       # 4  extension
   fi
   xcell --bot greedy --runs 300 --profile fresh $C0                                                  # 5  greedy
-  xcell --bot planner --runs 300 --profile fresh $C0 --prep-policy none                              # 6  B40
-  xcell --bot planner --runs 300 --profile fresh $C0 --prep-policy random
+  log "X1 done ($(( ($(date +%s) - T0) / 60 )) min)"
+fi
+
+# ---- X2: expedition cells 6-9 (the row 5 gate's Ricochet value from X1). ----
+if has X2; then
+  RCG=$(cat "$RCG_FILE")
+  xcell --bot planner --runs "$N6" --profile fresh $C0 --prep-policy none                            # 6  B40
+  xcell --bot planner --runs "$N6" --profile fresh $C0 --prep-policy random
   xcell --bot planner --runs 50 --profile fresh $C0 --oracle --route                                 # 7  B41
   xcell --bot planner --runs 50 --profile all $CA --oracle --route $RCG
   scratch a_noesc; patch a_noesc src/constants.js "export const TIME_DIM_ESCAPE = 1;" "export const TIME_DIM_ESCAPE = 2;"
   ROOT=$S/a_noesc OUTX=$X/arm-noesc xcell --bot planner --runs 300 --profile fresh $C0                # 8  row 2 off
-  xcell --bot speedrunner --runs 700 --profile all $CA $RCG --variant v11                            # 9  row 4 off
+  xcell --bot speedrunner --runs "$N9" --profile all $CA $RCG --variant v11                          # 9  row 4 off
   if [ "$EXTRA" -gt 0 ]; then
     OUTX=$X/ext xcell --bot speedrunner --runs "$EXTRA" --seed-start 1700 --profile all $CA $RCG --variant v11
   fi
-  log "X done ($(( ($(date +%s) - T0) / 60 )) min)"
+  log "X2 done ($(( ($(date +%s) - T0) / 60 )) min)"
 fi
 
 # ---- K: classic cells (from the 11-11b warm-up tables, as 11-11c to 11-11g; paired by class and seed with them). ----
