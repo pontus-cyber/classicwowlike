@@ -1,6 +1,6 @@
 # Expedition spec: start-camp preparation, contracts, roaming zone maps, the Dimming
 
-Owner: Lead Game Designer. Status: draft for Lead and owner review, 2026-11-10 (milestone M2b). Sections 2 (start camp: points, board, rerolls, supplies, vision perks, Reserve) and 3 (contracts: kinds, rewards, story chain retired, sites, slots, hub contract 3.6) are in the engine behind `newRun({ mapMode: 'expedition', prep: true })` until the simulator and the UI handle PREP (2026-11-11, docs/handoffs/engineer-2026-11-11f.md; engine-api.md 13), with the PREP actions of section 1, `USE_SPYGLASS`, the Tracker's and Delve's vision of 5.2, the summary and Echo lines of 8.1 and the pacing terms of 9.4 (in the engine); not yet: `ASK_LOCALS` and the meta catalogue of 8.2. The engine defaults of engineer-2026-11-11f section 4 are confirmed by the designer (docs/specs/changes-m2b-v10.md, "Engine defaults"; lines marked "(M2b v10)"); the M2b v10 tuning package for the switch-over (draft) changes no line here until it is built. Rules in sections 1-8; UI 9; bots 10; balance targets 11; prototype evidence 12; Heat addendum H (2026-11-10, rows mode and expedition); constants 13. Tuning pass M2b v6 (2026-11-11, docs/specs/changes-m2b-v6.md) changes lines marked "(M2b v6)". M2b v7 (2026-11-11, docs/specs/changes-m2b-v7.md): time is counted in whole **tolls** (1 toll = 1 former hour, every number kept), the meter is called **the Furnace** with the states Calm, Smouldering, Burning and Infernal, and every time constant is renamed from HOURS_* / *_H to TIME_*; rule lines marked "(M2b v7)", lines changed only by the rename are not marked. Prototype and measurement records (sections 9.5, 12, H.7) keep their "h": read 1 h as 1 toll.
+Owner: Lead Game Designer. Status: draft for Lead and owner review, 2026-11-10 (milestone M2b). Sections 2 (start camp: points, board, rerolls, supplies, vision perks, Reserve) and 3 (contracts: kinds, rewards, story chain retired, sites, slots, hub contract 3.6) are in the engine behind `newRun({ mapMode: 'expedition', prep: true })` until the simulator and the UI handle PREP (2026-11-11, docs/handoffs/engineer-2026-11-11f.md; engine-api.md 13), with the PREP actions of section 1, `USE_SPYGLASS`, the Tracker's and Delve's vision of 5.2, the summary and Echo lines of 8.1 and the pacing terms of 9.4 (in the engine); not yet: `ASK_LOCALS` and the meta catalogue of 8.2. The engine defaults of engineer-2026-11-11f section 4 are confirmed by the designer (docs/specs/changes-m2b-v10.md, "Engine defaults"; lines marked "(M2b v10)"); the M2b v10 tuning package for the switch-over (docs/specs/changes-m2b-v10.md, draft, D82-D86) is in the engine with its rows A1-A3, B1-B4 and C1 since 2026-11-11 (docs/handoffs/engineer-2026-11-11g.md; lines in 3.1, 6.2 and 13 marked "(M2b v10)"); its bot rows (C2, D1, D2, the EST_COMPLETE prior) and the B44 target (C3) are the Simulation & Balance Engineer's and the designer's and are not folded here. Rules in sections 1-8; UI 9; bots 10; balance targets 11; prototype evidence 12; Heat addendum H (2026-11-10, rows mode and expedition); constants 13. Tuning pass M2b v6 (2026-11-11, docs/specs/changes-m2b-v6.md) changes lines marked "(M2b v6)". M2b v7 (2026-11-11, docs/specs/changes-m2b-v7.md): time is counted in whole **tolls** (1 toll = 1 former hour, every number kept), the meter is called **the Furnace** with the states Calm, Smouldering, Burning and Infernal, and every time constant is renamed from HOURS_* / *_H to TIME_*; rule lines marked "(M2b v7)", lines changed only by the rename are not marked. Prototype and measurement records (sections 9.5, 12, H.7) keep their "h": read 1 h as 1 toll.
 Audience: Core Gameplay Engineer, UI/UX Engineer, Simulation & Balance Engineer, Content Designer, QA.
 
 Sources: owner feedback [stated: docs/feedback/2026-11-10-1006-owner.md, including the 10:09 follow-up]; current rules [source: docs/specs/rules.md sections 1, 2, 3, 11]; playtest [source: docs/handoffs/qa-2026-11-09.md]; balance state [source: docs/reports/balance-2026-11-10b.md]. Every number is a named constant in the table at the end (section 13); all are starting values for the Simulation & Balance Engineer to tune.
@@ -80,13 +80,13 @@ Unspent points are kept as Reserve. Reserve pays for hub contracts (3.6) and for
 ### 3.1 Kinds
 | Kind | Target | Sites needed | Price | Reward on completion |
 |---|---|---|---|---|
-| Cull | an enemy family in one region ("boars in the Barley Reach") | CULL_SITES | CONTRACT.cull.price | `CULL_XP_FRAC × xpToNext(CL_c) × diffMod`, gold `CULL_GOLD_V × V(CL_c)`, choose 1 of CONTRACT_REWARD_CHOICES items on table "Contract" |
+| Cull | an enemy family in one region ("boars in the Barley Reach") | CULL_SITES | CONTRACT.cull.price | `CULL_XP_FRAC × XP_WEIGHT_MULT × xpToNext(CL_c)` (M2b v10: no diffMod), gold `CULL_GOLD_V × V(CL_c)`, choose 1 of CONTRACT_REWARD_CHOICES items on table "Contract" |
 | Bounty | a named elite of a family, roaming one region | 1 | CONTRACT.bounty.price | `BOUNTY_XP_FRAC × …`, gold `BOUNTY_GOLD_V × V`, choose 1 of CONTRACT_REWARD_CHOICES on table "Bounty" |
 | Delve | clear the zone's dungeon | 1 | CONTRACT.delve.price | `DELVE_XP_FRAC × …`, gold `DELVE_GOLD_V × V`, choose 1 of DELVE_REWARD_CHOICES on table "Contract" |
 
-`CL_c = ZONE_LEVELS × (z - 1) + CONTRACT_CL_OFFSET` (the zone's middle). XP uses the player's level at completion for diffMod. Item level as rules 8.3 with source level CL_c.
+`CL_c = ZONE_LEVELS × (z - 1) + CONTRACT_CL_OFFSET` (M2b v10: the zone's rim level 10z - 2, was the middle 10z - 5; zone 6: 58). Contract XP has no level-difference modifier (M2b v10): `round(xpFrac × XP_WEIGHT_MULT × xpToNext(CL_c) × (1 + Quick Study + Insight))`, as the retired story chain; it is not a kill (no rested XP); heat applies (H.5); nothing at MAX_LEVEL. The prep board and the tracker show this amount (`reward.xp`, engine-api.md 13). Item level as rules 8.3 with source level CL_c: a rare 10z - 1, an epic 10z + 1 (zone 6: 59 and 61). (M2b v10)
 
-New drop tables (rules 8.4): "Contract" C/U/R/E = 0 / 0 / CONTRACT_RARE_W / CONTRACT_EPIC_W; "Bounty" 0 / 0 / BOUNTY_RARE_W / BOUNTY_EPIC_W.
+New drop tables (rules 8.4): "Contract" C/U/R/E = 0 / 0 / CONTRACT_RARE_W / CONTRACT_EPIC_W; "Bounty" 0 / 0 / BOUNTY_RARE_W / BOUNTY_EPIC_W (M2b v10: 65 / 35 and 40 / 60, were 80 / 20 and 60 / 40). Heat's rarity step (H.3) still applies; an epic stays epic.
 
 The reward is paid at once when the last site is won (no walk back to a giver; the zone's runner pays). A contract of zone z that is incomplete when the player leaves zone z expires: no reward, no penalty, the slot frees.
 
@@ -188,7 +188,9 @@ Oruvath, the Unlit Star, is the end boss; its phase 2 summons Dimming Shards [so
 ### 6.2 Spread
 `front(zt) = floor(DIM_FRONT_HOPS × (zt - DIM_GRACE) / DIM_FRONT_TIME)`; a node is **Dimmed** when `front >= 0` and its hop distance from the Shardfall is `<= front`. Distances are on the zone graph (edges as generated). With the starting values (grace 6 tolls, then two hops every five tolls) the first node dims after 6 tolls, the next ring of hops at 9, 11, 14, 16, 19, 21, so the hub (3 hops) dims at 14 and the farthest node (6-7 hops) at 21-24. (M2b v7: DIM_HOURS_PER_HOP 2.5 became DIM_FRONT_HOPS 2 per DIM_FRONT_TIME 5, the same schedule in whole tolls)
 
-The front only moves with tolls, and every action costs tolls, so it advances every step [stated: "advances every step"], and slow actions (Rest 4 tolls, a dungeon 6 tolls) let it advance more. The map shows, on every node, "dims in N tolls". (M2b v7)
+The front only moves with tolls, and every action costs tolls, so it advances every step [stated: "advances every step"], and slow actions (Rest 4 tolls, a dungeon 5 tolls, M2b v10) let it advance more. The map shows, on every node, "dims in N tolls". (M2b v7)
+
+**The dungeon holds out** (M2b v10): the zone's Dungeon node dims DUNGEON_DIM_HOLD tolls later than its hops give, `dimAt(dungeon) = DIM_GRACE + ceil(hops × DIM_FRONT_TIME / DIM_FRONT_HOPS) + DUNGEON_DIM_HOLD` (2 hops from the Shardfall: 14 instead of 11; 4 hops: 19 instead of 16). Its "dims in N" label and the Dimming state (H.5) use this value. The front's spread through other nodes is unchanged (the dungeon is not a gap the front walks around). The Shardfall is never the Dungeon (4.3 step 5). A Delve held on a Dimmed dungeon expires as any contract when the zone is left. Fiction: the dungeon's walls hold the dark out a while. Engine readings (rules 1.9.6): a Dimmed encounter there has depth front - hops, so at least 1 once the hold ends; the map shows the hold only once the player knows the node is the Dungeon (seen, or its type known), since on a hidden node it would tell where the Dungeon is.
 
 ### 6.3 Inside the Dimming
 - Entering a Dimmed node, or ending any action in one (the front reached the player), starts a **Dimmed encounter**: DIM_PACK_SIZE Shardspawn (zone's normal templates with the Shardspawn variant) at level `max(CL, L) + DIM_LEVEL_PER_DEPTH × depth`, depth = `front - distance` (0 at the edge), HP × DIM_HP_MULT, damage × DIM_DMG_MULT; it costs TIME_DIM_FIGHT; XP × DIM_XP_MULT, no loot, no gold. Flee is allowed (rules 7.8) and counts as passing through.
@@ -318,8 +320,8 @@ Plan: about **36 fights per run instead of 50**, each worth more:
 |---|---|---|
 | Grind node: one wave (GRIND_MAX_WAVES) | 3 | 1 |
 | Dungeon trash fights (DUNGEON_TRASH_FIGHTS) | 3 | 2 |
-| Node hours: TIME_QUEST / TIME_ELITE / TIME_GRIND_WAVE / TIME_DUNGEON | 2 / 2 / 1 / 5 | 3 / 3 / 2 / 6 |
-| XP per fight and per node: MOB_XP_FRAC, QUEST_TURNIN_XP_FRAC, GRIND_WAVE_XP_FRAC, DUNGEON_CLEAR_XP_FRAC, contract XP | × 1 | × XP_WEIGHT_MULT (1.6) |
+| Node hours: TIME_QUEST / TIME_ELITE / TIME_GRIND_WAVE / TIME_DUNGEON | 2 / 2 / 1 / 5 | 3 / 3 / 2 / 6 (M2b v10: dungeon 5, EXPED_TIME_DUNGEON) |
+| XP per fight and per node: MOB_XP_FRAC, QUEST_TURNIN_XP_FRAC, GRIND_WAVE_XP_FRAC, DUNGEON_CLEAR_XP_FRAC, contract XP | × 1 | × XP_WEIGHT_MULT (1.6; M2b v10: 1.4) |
 | The Dimming: DIM_HOURS_PER_HOP | 3 | 2.5 |
 | Cull sites in the target region: CULL_SITE_IN | 0.50 | 0.65 (fewer nodes per zone) |
 
@@ -527,19 +529,19 @@ Reproduce: `cd sim/out/heat && HEATP='{"gain":[0,0,0.35,0.5],"up":[0,0,0.25,0.4]
 | REROLL_PRICE | 1 | points |
 | REROLL_MAX | 2 | rerolls |
 | CW_CULL / CW_BOUNTY / CW_DELVE | 55 / 25 / 20 | weight |
-| CONTRACT.cull.price / bounty / delve | 2 / 3 / 1 | points |
+| CONTRACT.cull.price / bounty / delve | 2 / 3 / 2 | points (M2b v10: delve was 1) |
 | CULL_SITES | 2 | sites |
 | CULL_SITE_SPARE | 1 | extra sites guaranteed |
 | CULL_SITE_IN | 0.65 | probability per eligible node in the target region (0.50 with today's node counts, 9.5) |
 | CULL_SITE_OUT | 0.08 | probability per eligible node elsewhere |
 | BOUNTY_PLACED | 2 | nodes |
-| CONTRACT_CL_OFFSET | 5 | levels above the band start (CL_c = 10(z-1) + 5) |
-| CULL_XP_FRAC / BOUNTY_XP_FRAC / DELVE_XP_FRAC | 2.0 / 2.5 / 1.0 | of xpToNext(CL_c) |
+| CONTRACT_CL_OFFSET | 8 | levels above the band start (CL_c = 10(z-1) + 8; M2b v10: was 5) |
+| CULL_XP_FRAC / BOUNTY_XP_FRAC / DELVE_XP_FRAC | 2.0 / 2.5 / 1.5 | of xpToNext(CL_c) (M2b v10: delve was 1.0) |
 | CULL_GOLD_V / BOUNTY_GOLD_V / DELVE_GOLD_V | 4 / 6 / 2 | × V(CL_c) |
 | CONTRACT_REWARD_CHOICES | 3 | items |
 | DELVE_REWARD_CHOICES | 2 | items |
-| CONTRACT_RARE_W / CONTRACT_EPIC_W | 80 / 20 | weight |
-| BOUNTY_RARE_W / BOUNTY_EPIC_W | 60 / 40 | weight |
+| CONTRACT_RARE_W / CONTRACT_EPIC_W | 65 / 35 | weight (M2b v10: was 80 / 20) |
+| BOUNTY_RARE_W / BOUNTY_EPIC_W | 40 / 60 | weight (M2b v10: was 60 / 40) |
 | ECHO_CONTRACT_MULT | 3 | × ECHO_PER_QUEST per contract completed |
 | PRICE_PREP_DRAUGHTS / PREP_DRAUGHT_COUNT | 1 / 2 | points / items |
 | PRICE_PREP_RATIONS / PREP_RATION_COUNT | 1 / 3 | points / items |
@@ -573,6 +575,7 @@ Reproduce: `cd sim/out/heat && HEATP='{"gain":[0,0,0.35,0.5],"up":[0,0,0.25,0.4]
 | DIM_HP_MULT / DIM_DMG_MULT | 1.2 / 1.3 | × (tuned to about 8 % death chance at depth 0 for the planner P0, prototype SI) |
 | DIM_XP_MULT | 0.25 | × normal kill XP |
 | TIME_DIM_FIGHT | 1 | tolls |
+| DUNGEON_DIM_HOLD | 3 | tolls added to the Dungeon node's dimAt (6.2; M2b v10) |
 | BELL_START_CHARGES | 1 | charges per run |
 | BELL_MAX_CHARGES | 2 | charges |
 | BELL_CHANNEL_TIME | 2 | tolls |
@@ -586,7 +589,8 @@ Reproduce: `cd sim/out/heat && HEATP='{"gain":[0,0,0.35,0.5],"up":[0,0,0.25,0.4]
 | PACE_OPENING_ROUNDS | 4 | rounds [assumption] |
 | PACE_OPENING_DECIDE_S | 3.0 | s per opening round [assumption] |
 | PACE_FIGHT_PLAN_S | 6 | s per fight [assumption] |
-| XP_WEIGHT_MULT | 1.6 | × XP per fight and node (9.5; applied to the rules.md XP constants when M2b lands) |
+| XP_WEIGHT_MULT | 1.4 | × XP per fight and node and of contracts (9.5; rules 1.9.8; M2b v10: was 1.6; the sim's arm 1.5) |
+| EXPED_TIME_DUNGEON | 5 | tolls of a Dungeon node (9.5; rules 1.9.8; M2b v10: was 6) |
 | PLANNER_FOG_DEPTH | 4 | moves (bots) |
 | SITE_PARTIAL_MULT | 0.8 | × (bots) |
 | BELL_KEEP_VALUE | 80 | value units (bots) |

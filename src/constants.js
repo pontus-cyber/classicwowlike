@@ -434,6 +434,8 @@ export const DIM_DMG_MULT = 1.3;
 export const DIM_XP_MULT = 0.25;
 /** rules 1.9.6: tolls of a Dimmed encounter. */
 export const TIME_DIM_FIGHT = 1;
+/** rules 1.9.6 (M2b v10, D85; expedition.md 6.2): tolls the zone's Dungeon node stays out of the Dimming after the front reaches it. */
+export const DUNGEON_DIM_HOLD = 3;
 /** rules 1.9.7: Homeward Bell charges at the start of a run, and the most a run can hold. */
 export const BELL_START_CHARGES = 1;
 export const BELL_MAX_CHARGES = 2;
@@ -441,15 +443,15 @@ export const BELL_MAX_CHARGES = 2;
 export const BELL_CHANNEL_TIME = 2;
 /** rules 1.9.8, 3: seconds of the Bell's channel on screen (instead of PACE_ZONE_TRAVEL_S). */
 export const PACE_BELL_S = 6;
-/** rules 1.9.8 (expedition.md 9.5): XP of kills, quest turn-ins, grind waves and dungeon clears × this. */
-export const XP_WEIGHT_MULT = 1.6;
+/** rules 1.9.8 (expedition.md 9.5; M2b v10, D86: 1.6 -> 1.4): XP of kills, quest turn-ins, grind waves, dungeon clears and contracts × this. */
+export const XP_WEIGHT_MULT = 1.4;
 /** rules 1.9.8 (expedition.md 9.5): grind waves, dungeon trash fights and node tolls in an expedition run. */
 export const EXPED_GRIND_MAX_WAVES = 1;
 export const EXPED_DUNGEON_TRASH_FIGHTS = 2;
 export const EXPED_TIME_QUEST = 3;
 export const EXPED_TIME_ELITE = 3;
 export const EXPED_TIME_GRIND_WAVE = 2;
-export const EXPED_TIME_DUNGEON = 6;
+export const EXPED_TIME_DUNGEON = 5; // M2b v10 (D84): 6 -> 5, the rows map's TIME_DUNGEON
 // Start camp and contracts (docs/specs/expedition.md 2, 3 and 13, task M2b 2b.5; "(prep)" in engine-api.md). Used only by
 // an expedition run (mapMode 'expedition'): the PREP phase after START_RUN, the contract board, supplies and vision perks,
 // contracts with their sites and rewards, the hub contract, Reserve.
@@ -479,12 +481,12 @@ export const CULL_SITE_IN = 0.65;
 export const CULL_SITE_OUT = 0.08;
 /** expedition.md 3.3: nodes that carry a Bounty's elite. */
 export const BOUNTY_PLACED = 2;
-/** expedition.md 3.1: the contract level CL_c = ZONE_LEVELS × (z - 1) + CONTRACT_CL_OFFSET. */
-export const CONTRACT_CL_OFFSET = 5;
-/** expedition.md 3.1: contract XP as a share of xpToNext(CL_c) (× diffMod, × XP_WEIGHT_MULT, 9.5). */
+/** expedition.md 3.1 (M2b v10, D83: 5 -> 8, the zone's rim level): the contract level CL_c = ZONE_LEVELS × (z - 1) + CONTRACT_CL_OFFSET. */
+export const CONTRACT_CL_OFFSET = 8;
+/** expedition.md 3.1: contract XP as a share of xpToNext(CL_c) (× XP_WEIGHT_MULT, 9.5; no level-difference modifier, M2b v10). */
 export const CULL_XP_FRAC = 2.0;
 export const BOUNTY_XP_FRAC = 2.5;
-export const DELVE_XP_FRAC = 1.0;
+export const DELVE_XP_FRAC = 1.5; // M2b v10 (D84): 1.0 -> 1.5
 /** expedition.md 3.1: contract gold × V(CL_c). */
 export const CULL_GOLD_V = 4;
 export const BOUNTY_GOLD_V = 6;
@@ -492,11 +494,11 @@ export const DELVE_GOLD_V = 2;
 /** expedition.md 3.1: items to choose from (one is taken). */
 export const CONTRACT_REWARD_CHOICES = 3;
 export const DELVE_REWARD_CHOICES = 2;
-/** expedition.md 3.1: drop tables "Contract" and "Bounty", rare and epic weights (DROP_TABLE.contract, DROP_TABLE.bounty). */
-export const CONTRACT_RARE_W = 80;
-export const CONTRACT_EPIC_W = 20;
-export const BOUNTY_RARE_W = 60;
-export const BOUNTY_EPIC_W = 40;
+/** expedition.md 3.1: drop tables "Contract" and "Bounty", rare and epic weights (DROP_TABLE.contract, DROP_TABLE.bounty; M2b v10, D83: 80 / 20 and 60 / 40). */
+export const CONTRACT_RARE_W = 65;
+export const CONTRACT_EPIC_W = 35;
+export const BOUNTY_RARE_W = 40;
+export const BOUNTY_EPIC_W = 60;
 /** expedition.md 8.1, 11.1: Echoes per contract completed = ECHO_PER_QUEST × this. */
 export const ECHO_CONTRACT_MULT = 3;
 /** expedition.md 2.3: supply prices and amounts. */
@@ -1021,11 +1023,11 @@ export const PREP_OPTION = {
   prep_spyglass: { id: 'prep_spyglass', name: 'Spyglass', kind: 'vision', price: PRICE_SPYGLASS, charges: SPYGLASS_CHARGES },
 };
 export const PREP_OPTION_IDS = Object.keys(PREP_OPTION);
-/** Contract kinds (expedition.md 3.1; prep): price, sites needed, XP share, gold × V, item choices and table, board weight. */
+/** Contract kinds (expedition.md 3.1; prep): price, sites needed, XP share, gold × V, item choices and table, board weight (M2b v10, D84: delve price 1 -> 2). */
 export const CONTRACT = {
   cull: { id: 'cull', price: 2, sites: CULL_SITES, xpFrac: CULL_XP_FRAC, goldV: CULL_GOLD_V, choices: CONTRACT_REWARD_CHOICES, table: 'contract', weight: CW_CULL },
   bounty: { id: 'bounty', price: 3, sites: 1, xpFrac: BOUNTY_XP_FRAC, goldV: BOUNTY_GOLD_V, choices: CONTRACT_REWARD_CHOICES, table: 'bounty', weight: CW_BOUNTY },
-  delve: { id: 'delve', price: 1, sites: 1, xpFrac: DELVE_XP_FRAC, goldV: DELVE_GOLD_V, choices: DELVE_REWARD_CHOICES, table: 'contract', weight: CW_DELVE },
+  delve: { id: 'delve', price: 2, sites: 1, xpFrac: DELVE_XP_FRAC, goldV: DELVE_GOLD_V, choices: DELVE_REWARD_CHOICES, table: 'contract', weight: CW_DELVE },
 };
 export const CONTRACT_KINDS = ['cull', 'bounty', 'delve'];
 /**

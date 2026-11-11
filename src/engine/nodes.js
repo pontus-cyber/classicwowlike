@@ -174,8 +174,9 @@ export function addTime(s, ev, t, why) {
 }
 
 /**
- * Expedition (rules 1.9.6): tolls in a zone move the Dimming. A `dimming` event lists the nodes the front newly covers.
- * Tolls other than a Dimmed encounter's own mark the step for the settle check (settleExpedition).
+ * Expedition (rules 1.9.6): tolls in a zone move the Dimming. A `dimming` event lists the nodes the front newly covers
+ * (the zone's Dungeon among them is Dimmed DUNGEON_DIM_HOLD tolls later, M2b v10: dimAt). Tolls other than a Dimmed
+ * encounter's own mark the step for the settle check (settleExpedition).
  */
 function dimmingAfterTime(s, ev, t, why) {
   if (why === 'travel') return; // on the Road: the zone is left

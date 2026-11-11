@@ -331,7 +331,7 @@ describe('expedition.md 3: contracts in the zone', () => {
     }
   });
 
-  test('3.1 progress and reward: each won site counts; the last pays XP (× diffMod, × XP_WEIGHT_MULT), gold and a choice on table "contract" at once', () => {
+  test('3.1 progress and reward: each won site counts; the last pays XP (× XP_WEIGHT_MULT, no diffMod since M2b v10), gold and a choice on table "contract" at once', () => {
     const regs = zoneRegions(REAL, 1);
     let s = go(holding(atCamp({ seed: 3, classId: 'rogue' }), 0, { z: 1, kind: 'cull', region: 0, family: regs[0].families[0] }), { type: 'SET_OUT' });
     s = R.debug.setGod(s, true).state;
@@ -339,7 +339,6 @@ describe('expedition.md 3: contracts in the zone', () => {
     const cl = contractLevel(1);
     for (const [i, site] of k.sites.slice(0, C.CULL_SITES).entries()) {
       let t = besideNode(s, site);
-      const L = t.player.level;
       const r = R.step(t, { type: 'MOVE', nodeId: site });
       const p = playUntil(r.state, (x) => x.phase === 'MAP' || (x.node && x.node.stage === 'reward' && x.node.rewards.some((set) => set.contract)));
       const all = [...r.events, ...p.all];
@@ -349,14 +348,18 @@ describe('expedition.md 3: contracts in the zone', () => {
       if (i === C.CULL_SITES - 1) {
         assert.ok(ev(all, 'contract').some((e) => e.what === 'complete' && e.id === k.id));
         const xi = all.findIndex((e) => e.t === 'xp' && e.why === 'contract');
-        const lv = L + all.slice(0, xi).filter((e) => e.t === 'levelUp').length;
         const x = all[xi];
-        assert.equal(x.amount - (x.heat || 0), Math.round(C.CULL_XP_FRAC * C.XP_WEIGHT_MULT * R.xpCurve(cl) * R.diffMod(cl - lv)));
+        // M2b v10 (D82): no level-difference modifier, whatever the level at completion (CL_c = 8 in zone 1)
+        assert.equal(cl, 8);
+        assert.equal(x.amount - (x.heat || 0), Math.round(C.CULL_XP_FRAC * C.XP_WEIGHT_MULT * R.xpCurve(cl)));
+        assert.equal(x.rested, 0, 'not a kill: no rested XP');
         const g = all.find((e) => e.t === 'gold' && e.why === 'contract');
         assert.equal(g.amount - (g.heat || 0), C.CULL_GOLD_V * R.V(cl));
         const set = s.node.rewards.find((x0) => x0.contract === k.id);
         assert.equal(set.items.length, C.CONTRACT_REWARD_CHOICES);
         for (const it of set.items) assert.ok(['rare', 'epic'].includes(it.rarity));
+        // M2b v10 (D83): item level as rules 8.3 at CL_c = 10z - 2: a rare 10z - 1, an epic 10z + 1 (heat may step a rarity)
+        for (const it of set.items) assert.equal(it.ilvl, cl + C.RARITY_ILVL_BONUS[it.rarity], `${it.rarity} ilvl`);
         assert.equal(R.contractView(s).contracts[0].status, 'complete');
         assert.equal(R.mapView(s).nodes[k.sites[C.CULL_SITES]].sites, undefined, 'a complete contract shows no marks');
         const sum = R.summary(tweak(s, (x) => { delete x.dev; })); // god mode made it a dev run, which earns no Echoes
@@ -365,6 +368,33 @@ describe('expedition.md 3: contracts in the zone', () => {
         assert.deepEqual([line.count, line.each], [1, C.ECHO_PER_QUEST * C.ECHO_CONTRACT_MULT]);
       }
     }
+  });
+
+  test('M2b v10 (D82-D84): contract level 10z - 2; contract XP without diffMod at any level, 0 at MAX_LEVEL; reward.xp is the amount paid; Delve price 2, XP 1.5', () => {
+    const camp = atCamp({ seed: 4 });
+    for (let z = 1; z <= C.ZONE_COUNT; z++) assert.equal(contractLevel(z), 10 * z - 2);
+    assert.deepEqual([C.CONTRACT.delve.price, C.CONTRACT.delve.xpFrac, C.CONTRACT_CL_OFFSET, C.XP_WEIGHT_MULT], [2, 1.5, 8, 1.4]);
+    for (const b of R.prepView(camp).board) {
+      const want = Math.round(C.CONTRACT[b.kind].xpFrac * C.XP_WEIGHT_MULT * R.xpCurve(contractLevel(b.z)));
+      assert.equal(b.reward.xp, want, `zone ${b.z} ${b.kind}`);
+      assert.equal(b.reward.xpFrac, C.CONTRACT[b.kind].xpFrac * C.XP_WEIGHT_MULT);
+      if (b.kind === 'delve') assert.equal(b.price, 2);
+    }
+    // The pay at completion does not depend on the level: a zone-1 Cull (CL_c 8) completed at level 1, 9 and 30; 0 at MAX_LEVEL.
+    const regs = zoneRegions(REAL, 1);
+    const out = R.debug.setGod(go(holding(atCamp({ seed: 3, classId: 'rogue' }), 0, { z: 1, kind: 'cull', region: 0, family: regs[0].families[0] }), { type: 'SET_OUT' }), true).state;
+    const site = out.exp.contracts[0].sites[0];
+    const pay = (L) => {
+      const t = besideNode(tweak(out, (x) => { x.player.level = L; x.player.xp = 0; x.exp.contracts[0].progress = C.CULL_SITES - 1; }), site);
+      const view = R.contractView(t).contracts[0].reward.xp;
+      const r = R.step(t, { type: 'MOVE', nodeId: site });
+      const p = playUntil(r.state, (x) => x.phase === 'MAP' || (x.node && x.node.stage === 'reward' && x.node.rewards.some((set) => set.contract)));
+      const e = [...r.events, ...p.all].find((x) => x.t === 'xp' && x.why === 'contract');
+      return { xp: e ? e.amount - (e.heat || 0) : 0, view };
+    };
+    const base = Math.round(C.CULL_XP_FRAC * C.XP_WEIGHT_MULT * R.xpCurve(8));
+    for (const L of [1, 9, 30]) assert.deepEqual(pay(L), { xp: base, view: base }, `level ${L}`);
+    assert.deepEqual(pay(C.MAX_LEVEL), { xp: 0, view: 0 });
   });
 
   test('3.1 expiry: leaving the zone expires its held contracts (no reward), the slot frees; later zones stay held', () => {
@@ -440,10 +470,13 @@ describe('expedition.md 3: contracts in the zone', () => {
     assert.ok(!JSON.stringify(v).includes('"sites"'));
     assert.deepEqual(Object.keys(v).sort(), ['contracts', 'held', 'hub', 'reserve', 'slots']);
     const sum = R.summary(s);
+    // M2b v10 (D84): a Delve costs CONTRACT.delve.price 2 (was 1)
+    const left = C.PREP_POINTS - C.CONTRACT.delve.price - C.PRICE_PREP_DRAUGHTS;
+    assert.equal(left, 7);
     assert.deepEqual([sum.expedition.contracts.taken, sum.expedition.contracts.held, sum.expedition.contracts.bought, sum.expedition.contracts.reserve],
-      [1, 1, ['prep_draughts'], C.PREP_POINTS - 1 - 1]);
+      [1, 1, ['prep_draughts'], left]);
     const line = sum.echoes.lines.find((l) => l.id === 'reserve');
-    assert.deepEqual([line.count, line.each, line.echoes], [8, C.PREP_ECHO_PER_POINT, 8 * C.PREP_ECHO_PER_POINT]);
+    assert.deepEqual([line.count, line.each, line.echoes], [left, C.PREP_ECHO_PER_POINT, left * C.PREP_ECHO_PER_POINT]);
   });
 });
 

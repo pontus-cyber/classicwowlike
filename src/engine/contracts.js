@@ -2,9 +2,10 @@
 // engine-api.md). PREP: preparation points (PREP_POINTS + Quartermaster ranks, meta), the contract board (stream prep(k),
 // k = rerolls), supplies and vision perks (each bought once), Reserve, SET_OUT, and prepView for the prep screen.
 // Contracts: sites placed when the zone is generated (stream map(z), continued after the node types, 3.3) and when the
-// hub contract is taken, progress when a site's node is won, the reward paid at once (XP, gold, an item choice on the
-// tables "contract" / "bounty", heat of the node included), expiry when the zone is left, the hub contract (stream
-// hubc(z), 3.6: from Reserve or by a swap), and contractView for the tracker. Pure helpers of the state; nodes.js calls
+// hub contract is taken, progress when a site's node is won, the reward paid at once (XP without the level-difference
+// modifier since M2b v10, gold, an item choice on the tables "contract" / "bounty", heat of the node included), expiry
+// when the zone is left, the hub contract (stream hubc(z), 3.6: from Reserve or by a swap), and contractView for the
+// tracker. Pure helpers of the state; nodes.js calls
 // them from the run flow, actions.js checks legality. Only a run created with newRun({ mapMode: 'expedition', prep: true })
 // uses it; a rows run, or an expedition run without the option, never does.
 import {
@@ -16,7 +17,7 @@ import {
 import { STREAM, nextFloat, nextInt, weightedIndex } from '../rng.js';
 import { zoneContent } from './content.js';
 import { validEncounter, clampCl } from './map.js';
-import { eventXp, gainXp, gainGold } from './progress.js';
+import { flatXp, gainXp, gainGold } from './progress.js';
 import { V, rollDrop, makeConsumable, addToBag, countConsumable } from './items.js';
 import { zoneRegions, setupExpNode, xpWeight } from './expedition.js';
 
@@ -25,7 +26,7 @@ import { zoneRegions, setupExpNode, xpWeight } from './expedition.js';
 const metaRank = (profile, id) => Math.min(((profile && profile.unlocks) || {})[id] || 0, META_EXPEDITION[id].ranks);
 /** prepPoints = PREP_POINTS + PREP_POINTS_PER_QM × Quartermaster ranks (expedition.md 2.1). */
 export const prepPoints = (profile) => PREP_POINTS + PREP_POINTS_PER_QM * metaRank(profile, 'quartermaster');
-/** The contract level CL_c = ZONE_LEVELS × (z - 1) + CONTRACT_CL_OFFSET (the zone's middle, expedition.md 3.1). */
+/** The contract level CL_c = ZONE_LEVELS × (z - 1) + CONTRACT_CL_OFFSET (the zone's rim level 10z - 2, expedition.md 3.1, M2b v10). */
 export const contractLevel = (z) => ZONE_LEVELS * (z - 1) + CONTRACT_CL_OFFSET;
 
 /**
@@ -206,7 +207,10 @@ export function applySetOut(s, ev) {
 const regionName = (c, z, r) => (r === null ? null : zoneRegions(c, z)[r].name);
 const enemyName = (c, t) => (t ? c.enemies[t].name : null);
 
-/** What a contract pays (expedition.md 3.1), before diffMod, Prospector and heat: XP levels-worth, gold, item choice. */
+/**
+ * What a contract pays (expedition.md 3.1), before Quick Study, Insight, Prospector and heat: XP levels-worth at CL_c (no
+ * level-difference modifier since M2b v10, so xpFrac × xpToNext(cl) is the XP paid), gold, item choice.
+ */
 export function rewardInfo(kind, z) {
   const k = CONTRACT[kind];
   const cl = contractLevel(z);
@@ -217,14 +221,19 @@ export function rewardInfo(kind, z) {
   };
 }
 
-/** Offer as the prep screen and the hub show it (expedition.md 2.2, 9.1). */
+/**
+ * Offer as the prep screen and the hub show it (expedition.md 2.2, 9.1). reward.xp (M2b v10): the XP the contract pays
+ * when completed now, before heat (Quick Study and an active Insight included; 0 at MAX_LEVEL).
+ */
 function offerView(s, o) {
   const c = s.content;
   const band = [ZONE_LEVELS * (o.z - 1) + 1, ZONE_LEVELS * o.z];
+  const rw = rewardInfo(o.kind, o.z);
   return {
     z: o.z, zoneName: zoneContent(c, o.z).name, band, kind: o.kind, region: o.region, regionName: regionName(c, o.z, o.region),
     family: o.family, template: o.template, name: enemyName(c, o.template),
-    dungeon: o.kind === 'delve' ? zoneContent(c, o.z).dungeon.name : null, need: o.need, price: o.price, reward: rewardInfo(o.kind, o.z),
+    dungeon: o.kind === 'delve' ? zoneContent(c, o.z).dungeon.name : null, need: o.need, price: o.price,
+    reward: { ...rw, xp: flatXp(s, CONTRACT[o.kind].xpFrac * xpWeight(s), rw.cl) },
   };
 }
 
@@ -457,7 +466,8 @@ function completeContract(s, ev, c) {
   c.state = 'complete';
   clearSites(s, c);
   ev.push({ t: 'contract', what: 'complete', id: c.id, z: c.z, kind: c.kind });
-  gainXp(s, ev, eventXp(s, k.xpFrac * xpWeight(s), cl), 'contract');
+  // M2b v10 (D82): no level-difference modifier (as the retired story chain); not a kill, so no rested; heat in gainXp.
+  gainXp(s, ev, flatXp(s, k.xpFrac * xpWeight(s), cl), 'contract');
   gainGold(s, ev, k.goldV * V(cl), 'contract');
   const items = [];
   for (let i = 0; i < k.choices; i++) items.push(...rollDrop(s, s.lootRng, k.table, clampCl(cl), s.zone.z));

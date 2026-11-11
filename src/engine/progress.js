@@ -1,5 +1,5 @@
 // XP, levels, rested pool, talent points, gold income (rules 2.5, 4.3, 4.4, 6, 8.5); heat's XP and gold multiplier
-// (rules 1.7.3).
+// (rules 1.7.3); contract XP without the level-difference modifier (expedition.md 3.1, M2b v10: flatXp).
 import {
   XP_A, XP_B, XP_C, MAX_LEVEL, XP_DIFF_STEP, XP_DIFF_MAX, XP_DIFF_SOFT_FLOOR, XP_DIFF_FALL, XP_GREY_DIFF,
   XP_GREY_MOD, RESTED_MULT, RESTED_CAP_FRAC, TALENT_FIRST_LEVEL, TALENT_LEVEL_STEP, BOON_XP_PCT, HEAT_GAIN,
@@ -48,6 +48,16 @@ export function eventXp(s, frac, cl) {
   const L = s.player.level;
   if (L >= MAX_LEVEL) return 0;
   return rnd(frac * xpCurve(cl) * diffMod(cl - L) * (1 + xpPct(s)));
+}
+
+/**
+ * XP of an event without the level-difference modifier (expedition.md 3.1, M2b v10: contracts, as the retired story
+ * chain): round(frac × xpToNext(CL) × (1 + xpPctMods)); 0 at MAX_LEVEL. Contract levels are at most 58, where xpToNext
+ * and xpCurve agree.
+ */
+export function flatXp(s, frac, cl) {
+  if (s.player.level >= MAX_LEVEL) return 0;
+  return rnd(frac * xpCurve(cl) * (1 + xpPct(s)));
 }
 
 /**

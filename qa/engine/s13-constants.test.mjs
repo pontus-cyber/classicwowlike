@@ -35,6 +35,38 @@ describe('rules 13 constant table', () => {
   });
 });
 
+describe('change docs M2b v9 and v10: the engine constants equal the "New" column of their constant tables', () => {
+  const doc = (f) => readFileSync(fileURLToPath(new URL(`../../docs/specs/${f}`, import.meta.url)), 'utf8');
+  // [row label as the table starts it, getters in the order of the cell's "a / b" values]; bot, sim and balance rows are not engine constants
+  const WANT = {
+    'changes-m2b-v9.md': [
+      ['TALENT.r_b9 heal', [() => K.TALENT.r_b9.healPct]], ['TALENT.h_a2.petDmgPct', [() => K.TALENT.h_a2.petDmgPct]],
+      ['TALENT.h_a1.petHpPct', [() => K.TALENT.h_a1.petHpPct]], ['ZONE_DANGER_STEP', [() => K.ZONE_DANGER_STEP]], ['ECHO_PER_LEVEL', [() => K.ECHO_PER_LEVEL]],
+    ],
+    'changes-m2b-v10.md': [
+      ['CONTRACT_CL_OFFSET', [() => K.CONTRACT_CL_OFFSET]], ['CONTRACT_RARE_W / CONTRACT_EPIC_W', [() => K.CONTRACT_RARE_W, () => K.CONTRACT_EPIC_W]],
+      ['BOUNTY_RARE_W / BOUNTY_EPIC_W', [() => K.BOUNTY_RARE_W, () => K.BOUNTY_EPIC_W]], ['DELVE_XP_FRAC', [() => K.DELVE_XP_FRAC]],
+      ['CONTRACT.delve.price', [() => K.CONTRACT.delve.price]], ['EXPED_TIME_DUNGEON', [() => K.EXPED_TIME_DUNGEON]],
+      ['DUNGEON_DIM_HOLD', [() => K.DUNGEON_DIM_HOLD]], ['XP_WEIGHT_MULT', [() => K.XP_WEIGHT_MULT]],
+    ],
+  };
+  for (const [file, want] of Object.entries(WANT)) {
+    test(`${file}: ${want.length} engine rows (the main arm where the doc names an arm)`, () => {
+      const text = doc(file);
+      const table = rows(text.slice(text.indexOf('## Constants')));
+      for (const [label, get] of want) {
+        const row = table.find((r) => r[0] === label || r[0].startsWith(`${label} `));
+        assert.ok(row, `${file}: no row ${label}`);
+        const vals = row[2].split('/').map((x) => Number(x.trim().split(/\s/)[0]));
+        assert.deepEqual(get.map((g) => g()), vals.slice(0, get.length), `${file} ${label}: New "${row[2]}"`);
+      }
+      assert.deepEqual(K.DROP_TABLE.contract.weights, [0, 0, K.CONTRACT_RARE_W, K.CONTRACT_EPIC_W]);
+      assert.deepEqual(K.DROP_TABLE.bounty.weights, [0, 0, K.BOUNTY_RARE_W, K.BOUNTY_EPIC_W]);
+      assert.equal(K.CONTRACT.delve.xpFrac, K.DELVE_XP_FRAC);
+    });
+  }
+});
+
 describe('rules data tables', () => {
   test('1.4 node weights', () => {
     for (const r of rows(section('### 1.4 Zone map generation'))) {

@@ -24,7 +24,9 @@ docs/specs/expedition.md 2-3, task 2b.5, expedition runs only: phase PREP, `prep
 `TAKE_HUB_CONTRACT`, `USE_SPYGLASS`, the `prep`, `contract` and `spyglass` events, `mapView` site marks and `spyglass`, the
 summary's `expedition.contracts` and the Echo lines `contracts` and `reserve`; section 13; marked "(prep)"); 2026-11-11g
 (tuning pass M2b v9, docs/specs/changes-m2b-v9.md rows 1-4: new numbers in `C`, `zoneDanger` with ZONE_DANGER_STEP 0.45;
-marked "(M2b v9)").
+marked "(M2b v9)"; tuning pass M2b v10, docs/specs/changes-m2b-v10.md rows A1-A3, B1-B4, C1: contract XP without the
+level-difference modifier and `reward.xp` in `prepView` / `contractView`, new numbers in `C`, the Dungeon's
+DUNGEON_DIM_HOLD in `dimAt`, `mapView` and `heatView`, the engine defaults of 13.4 confirmed; marked "(M2b v10)").
 Units: every time value of the API is a whole number of tolls (1 toll = 1 former in-game hour, D69); there are no hours.
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
@@ -162,7 +164,7 @@ Every action is `{ type, ...fields }`. Indices are 0-based. Enemy targets are in
 | `BUY_PREP` / `SELL_PREP` | `id` (`C.PREP_OPTION_IDS`) | (prep) PREP. Buy: not bought (each option once), not owned (meta or the `vision` option), the price within the points left, the Bell under BELL_MAX_CHARGES, no Ember carried. Sell: bought; refunds |
 | `REROLL_BOARD` | | (prep) PREP; fewer than REROLL_MAX rerolls, REROLL_PRICE within the points left, an offer not taken |
 | `SET_OUT` | | (prep) PREP: purchases take effect, the points left become Reserve, then zone 1's hub (phase ZONE_HUB) |
-| `TAKE_HUB_CONTRACT` | `mode` (`reserve` or `swap`), `contractId` (swap: a held contract's id) | (prep) ZONE_HUB of zones 2-6, no service open, before the zone's first `LEAVE_HUB`, its offer not taken. reserve: its price from Reserve and a free slot; swap: abandons that contract (no refund, progress lost), free |
+| `TAKE_HUB_CONTRACT` | `mode` (`reserve` or `swap`), `contractId` (swap: a held contract's id; ignored with `reserve`) | (prep) ZONE_HUB of zones 2-6, no service open, before the zone's first `LEAVE_HUB`, its offer not taken. reserve: its price from Reserve and a free slot; swap: abandons that contract (no refund, progress lost), free. (M2b v10: `TAKE_HUB_CONTRACT(mode, contractId)` confirmed, D90; expedition.md 1, 3.6) |
 | `USE_SPYGLASS` | `nodeId` (any node of the zone) | (prep) MAP of an expedition zone, a Spyglass charge left: 0 tolls, the node and its neighbours are seen |
 | `ENGAGE` | `option`, `target` (enemy index or null), `spellId` (Pre-cast only) | (combat v2) the engage round only (rules 7.10), so once per fight; `option` one of the class's `C.ENGAGE_OPTIONS[classId]`; target rules in `engageOptions(state)` (control options: on an enemy immune to control only as Disrupt, while its track shows a wind-up in turns 1..INTENT_TRACK_LEN, combat v2.1; Send the Pet: a live pet). Key order as listed: `{ type, option, target }`, Pre-cast `{ type, option, spellId, target }` |
 
@@ -217,7 +219,7 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `time` | `add, total, why` | tolls spent (M2b v7: was the `hours` event) |
 | `node`, `nodeDone`, `quest` | `type, r, l, cl, heat` / ... / `quest` | node entered / completed / quest template id. (expedition) `node`: `type, id, ring, cl, heat`; `nodeDone`: `type, id`. (heat) `heat`: the node's entry state (rules 1.7.3) |
 | `move` | `from, to, via, seen` | (expedition) a step: `via` `enter`, `walk` or `pass`; `seen` = node ids newly in view |
-| `dimming` | `front, dimmed` | (expedition) the Dimming's front advanced; `dimmed` = node ids it newly covers |
+| `dimming` | `front, dimmed` | (expedition) the Dimming's front advanced; `dimmed` = node ids it newly covers (the zone's Dungeon among them is Dimmed DUNGEON_DIM_HOLD tolls later, M2b v10; no event then) |
 | `dim` | `id, depth, level, k` | (expedition) a Dimmed encounter starts at node `id` (its `fight` event follows, `kind: 'dim'`) |
 | `bell` | `charges, node` | (expedition) RING_BELL: the channel starts (`charges` left) |
 | `prep` | `what` (`buy`, `sell`, `reroll`, `setOut`), `id`, `k`, `left`, `reserve`, `bought`, `contracts` | (prep) a start camp action; `left` = points left; `setOut`: `reserve`, the options `bought`, contracts held |
@@ -516,7 +518,9 @@ Scout's Eye, Swift Boots as a Bell charge; Cartographer, Old Hand and Quartermas
   nodes: [node] }
 node (every node): { id, ring, angle (degrees), nb (neighbour ids), hops (from the player), hub, road, shardfall,
   dimmed, dimsIn (tolls from now; 0 = Dimmed), dimAt (zone toll it dims: grace + ceil(hops from the Shardfall ×
-  frontTime / frontHops)), know ('full' | 'type' | 'none'),
+  frontTime / frontHops); (M2b v10) + DUNGEON_DIM_HOLD on the zone's Dungeon once the player knows it is the Dungeon
+  (know 'full' or 'type'): on a hidden node the hold would tell where the Dungeon is, so a hidden Dungeon shows the
+  hops' value and may show as Dimmed before it is), know ('full' | 'type' | 'none'),
   region (content region index, or null when unknown) }
 know 'full' (the hub, or seen) adds: type, cl, done, lost (Dimmed and unresolved), and the details of the rows view:
   quest { title, archetypes }, grind { archetypes }, elite { level, archetypes ([null, the add's archetype]: one
@@ -655,7 +659,9 @@ START_RUN builds the character and opens the start camp; SET_OUT applies the pur
 (the default until the simulator's bots and the UI handle PREP) an expedition run plays exactly as before 2b.5 (no PREP,
 contracts, hub offers or Spyglass; the story chain stays), and a rows run never has any of it (both checked run for run
 against the engine before 2b.5). `debug.build({ mapMode: 'expedition', prep: true })` sets out with nothing bought.
-Turning the default on is one line (`newRun`'s `prep = false`), after sim/lib/policy.mjs `makeBot` answers phase PREP.
+Turning the default on is one line (`newRun`'s `prep = false`); sim/lib/policy.mjs `makeBot` answers phase PREP since
+2b.5's sim slice. (M2b v10) The M2b v10 numbers that are not contract numbers (XP_WEIGHT_MULT 1.4, EXPED_TIME_DUNGEON 5,
+DUNGEON_DIM_HOLD 3) act on every expedition run, with or without `prep`; rows runs are untouched by v10.
 
 ### 13.1 Rules as the engine plays them
 - Points: `PREP_POINTS + PREP_POINTS_PER_QM × min(profile.unlocks.quartermaster, 2)`. Spent on contracts (their price),
@@ -678,8 +684,10 @@ Turning the default on is one line (`newRun`'s `prep = false`), after sim/lib/po
   region's ring 2-3 nodes that are not the Dungeon, a Rest, a Road, the Shardfall, the Trainer or a site; a non-Elite is set
   up again as an Elite on `node(z, id)`; its elite becomes the bounty's rare. Delve: the Dungeon (no draw).
 - Progress: a site counts when its node is won: a Quest's encounter, a Grind's first wave, an Elite's fight, a Dungeon's
-  boss. The last one completes the contract at once: XP `eventXp(xpFrac × XP_WEIGHT_MULT, CL_c)` (diffMod at the player's
-  level then), gold `goldV × V(CL_c)` (`why: 'contract'`; Prospector and the node's heat apply), and an item choice of
+  boss. The last one completes the contract at once: XP `round(xpFrac × XP_WEIGHT_MULT × xpToNext(CL_c) × (1 + Quick
+  Study + Insight))` with no level-difference modifier (M2b v10; was `eventXp`, diffMod at the player's level), not a kill
+  (no rested XP), 0 at MAX_LEVEL, then the node's heat; CL_c = 10z - 2 (CONTRACT_CL_OFFSET 8, M2b v10); gold
+  `goldV × V(CL_c)` (`why: 'contract'`; Prospector and the node's heat apply), and an item choice of
   `choices` items on table `contract` or `bounty` at level CL_c from the node's loot stream (heat's rarity step applies),
   offered after the node's own rewards (`CHOOSE_REWARD`). A completed Bounty's other site gets its own elite back.
 - Expiry: leaving a zone (Road or Bell) expires its held contracts. Story chain: off on the expedition map.
@@ -689,8 +697,9 @@ Turning the default on is one line (`newRun`'s `prep = false`), after sim/lib/po
 ```
 { points, spent, left, slots, held,
   board: [{ index, z, zoneName, band: [min, max], kind, region, regionName, family, template, name (Bounty: the elite's
-    name), dungeon (Delve: its name), need, price, reward: { cl, xpFrac (levels-worth incl. XP_WEIGHT_MULT), gold (copper,
-    before Prospector and heat), choices, table, rarity: { rare, epic } }, taken, canTake, canDrop }],
+    name), dungeon (Delve: its name), need, price, reward: { cl, xpFrac (levels-worth incl. XP_WEIGHT_MULT), xp (M2b v10:
+    the XP it pays if completed now, before heat; 0 at MAX_LEVEL), gold (copper, before Prospector and heat), choices,
+    table, rarity: { rare, epic } }, taken, canTake, canDrop }],
   options: [{ id, name, kind ('supply' | 'vision'), price, owned, bought, canBuy, canSell, why (why it cannot be bought),
     item, qty, bell, slots, charges }],
   reroll: { used, max, price, can }, reserve: { points, echoes } }
@@ -705,9 +714,15 @@ Turning the default on is one line (`newRun`'s `prep = false`), after sim/lib/po
 ```
 Site locations are never in it: the map shows the marks the player sees (`mapView` node `sites`).
 
-### 13.4 Engine defaults (designer or Lead to confirm)
-Each option once per run; a Bounty's elite of another family when the zone has no rare of the target family; the Trainer
-is never a Bounty site; the hub contract only before the zone's first LEAVE_HUB; Cartographer, Old Hand and Quartermaster
-are read from `profile.unlocks` (`C.META_EXPEDITION`) and are not in the catalogue (`C.META`) until the switch-over;
-autoplay's start camp: Field Draughts, then one contract per zone for zones 1-AUTO_PREP_ZONES keeping AUTO_PREP_RESERVE
-points; the hub contract from Reserve when it can.
+### 13.4 Engine defaults (confirmed by the designer, M2b v10, D90)
+Each option once per run (supplies do not stack); a Bounty's elite of another family when the zone has no rare of the
+target family (a fallback: content adds the missing family rares before the flip); the Trainer is never a Bounty site and
+a completed Bounty's other node gets its own elite back; a Cull site without a mob of the family takes a zone normal of
+it, else stays as it is (it still counts); the hub contract only before the zone's first LEAVE_HUB; `swap` names the
+contract it gives up: `TAKE_HUB_CONTRACT(mode, contractId)`, `contractId` for `swap` only (ignored with `reserve`); a
+Delve shows its dungeon's type while held or complete; a Grind site counts at its first wave won; REROLL_BOARD replaces
+slot by slot from `prep(k + 1)`; board draws: kind, region, family (always one draw), the Bounty's elite, extra slots
+their zone first; Cartographer, Old Hand and Quartermaster are read from `profile.unlocks` (`C.META_EXPEDITION`) and
+are not in the catalogue (`C.META`) until the switch-over; autoplay's start camp: Field Draughts, then the board's
+contract for each of zones 1-AUTO_PREP_ZONES whatever its kind (a Delve costs 2 since M2b v10) while AUTO_PREP_RESERVE
+points stay; the hub contract from Reserve when it can; its map policy does not seek sites.

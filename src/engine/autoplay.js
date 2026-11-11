@@ -22,7 +22,7 @@ import { talentPointsFree } from './progress.js';
 import { nextLanes, dungeonLevels } from './map.js';
 import { checkAction } from './actions.js';
 import { canTravel, exitLevel, trainerSpells, learnCost, trainCost, trainable, availablePets, canEnter } from './nodes.js';
-import { isExpedition, grindMaxWaves, nodeTime, zoneTime, dimmedAt } from './expedition.js';
+import { isExpedition, grindMaxWaves, nodeTime, zoneTime, dimmedSeen } from './expedition.js';
 import { takeContractError, buyPrepError, hubContractError, prepLeft } from './contracts.js';
 
 const legal = (s, a) => !checkAction(s, a);
@@ -400,9 +400,11 @@ function nodeScore(s, node) {
 /**
  * Cheapest way from node `from` at zone time zt to a Road: Dijkstra over steps of TIME_WALK; a step onto a node that
  * is Dimmed on arrival also costs TIME_DIM_FIGHT and counts as a Dimmed step. Order: Dimmed steps, tolls, lower id.
+ * The Dimming as the player sees it (dimmedSeen: the Dungeon's hold only when its type is known, M2b v10).
  * Returns { road, path (from `from` to the Road), dims, time }.
  */
-function escapeRoute(zone, from, zt) {
+function escapeRoute(s, from, zt) {
+  const zone = s.zone;
   const N = zone.nodes.length;
   const lab = new Array(N).fill(null);
   const prev = new Array(N).fill(-1);
@@ -417,7 +419,7 @@ function escapeRoute(zone, from, zt) {
     for (const v of zone.nodes[u].nb) {
       if (done[v]) continue;
       let h = lab[u].h + TIME_WALK;
-      const dim = dimmedAt(zone, v, zt + h);
+      const dim = dimmedSeen(s, v, zt + h);
       if (dim) h += TIME_DIM_FIGHT;
       const c = { dims: lab[u].dims + (dim ? 1 : 0), h };
       if (better(c, lab[v])) { lab[v] = c; prev[v] = u; }
@@ -432,7 +434,7 @@ function escapeRoute(zone, from, zt) {
 
 /** Node id is out of the Dimming at zone time zt and a Road can be reached from it without a Dimmed step. */
 function expSafe(s, id, zt) {
-  return !dimmedAt(s.zone, id, zt) && escapeRoute(s.zone, id, zt).dims === 0;
+  return !dimmedSeen(s, id, zt) && escapeRoute(s, id, zt).dims === 0;
 }
 
 /**
@@ -442,7 +444,7 @@ function expSafe(s, id, zt) {
 function expScore(s, id, zt) {
   const zone = s.zone;
   const n = zone.nodes[id];
-  if (!zone.seen[id] || n.done || n.ring === 0 || dimmedAt(zone, id, zt)) return null;
+  if (!zone.seen[id] || n.done || n.ring === 0 || dimmedSeen(s, id, zt)) return null;
   const sc = nodeScore(s, n);
   if (sc <= EA.AUTO_NODE_SCORE.risky) return null;
   return expSafe(s, id, zt + nodeTime(s, n.type)) ? sc : null;
@@ -465,7 +467,7 @@ function exploreStep(s, zt) {
   for (let i = 0; i < q.length; i++) {
     const u = q[i];
     for (const v of zone.nodes[u].nb) {
-      if (dist[v] >= 0 || dimmedAt(zone, v, zt + (dist[u] + 1) * TIME_WALK)) continue;
+      if (dist[v] >= 0 || dimmedSeen(s, v, zt + (dist[u] + 1) * TIME_WALK)) continue;
       dist[v] = dist[u] + 1;
       prev[v] = u;
       q.push(v);
@@ -495,7 +497,7 @@ function expMapPolicy(s) {
   const p = s.player;
   if (p.hp < EA.AUTO_TOPUP_HP * p.d.maxHp && countConsumable(s, 'trail_rations') > 0) return { type: 'USE_ITEM', itemId: 'trail_rations' };
   const zt = zoneTime(s);
-  const esc = escapeRoute(zone, zone.pos, zt);
+  const esc = escapeRoute(s, zone.pos, zt);
   if (p.level < exitLevel(zone.z) && esc.dims === 0) {
     let best = null;
     let bs = -Infinity;

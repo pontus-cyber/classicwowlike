@@ -7,7 +7,7 @@
 // zone under the minimap (HUD), the full list in the quest log (L), each contract's tooltip, the hub's contract offer
 // (take it from Reserve or swap a held one) and the site marks on the expedition map (mapView node `sites`: only the
 // marks the player sees; a hidden node is never named). Presentation only: every click sends one engine action.
-import { h, clear, moneyEl } from './util.js';
+import { h, clear, moneyEl, fmtNum } from './util.js';
 import { icon, consumableIcon } from './art-icons.js';
 import { tip } from './tooltip.js';
 import {
@@ -62,7 +62,9 @@ export function contractTip(c, ctx, opts = {}) {
     h('div.tt-line.desc', contractSentence(c, ctx.data.content)),
     h('div.tt-line', contractSitesText(c, r, opts.has || {})));
   if (rw.choices) {
-    box.appendChild(h('div.tt-line.num', 'Pays at once on its last site: ', h('b', levelsText(rw.xpFrac)), ` at level ${rw.cl} (less when you are above it), `, moneyEl(rw.gold), `, and ${contractItemsText(rw)}.`));
+    // M2b v10 (expedition.md 3.1): contract XP has no level-difference modifier, so the amount is fixed (reward.xp).
+    const xp = typeof rw.xp === 'number' ? ` (${fmtNum(rw.xp)} XP)` : '';
+    box.appendChild(h('div.tt-line.num', 'Pays at once on its last site: ', h('b', levelsText(rw.xpFrac)), ` at level ${rw.cl}${xp}, `, moneyEl(rw.gold), `, and ${contractItemsText(rw)}.`));
   }
   if (opts.progress) box.appendChild(h('div.tt-line', opts.progress));
   if (opts.status) box.appendChild(h('div.tt-sub', opts.status));
@@ -340,7 +342,7 @@ export function buildHubOffer(v, ctx, state = { swap: false }) {
   }));
   swapBtn.addEventListener('click', () => { if (!o.swap.length) return; state.swap = !state.swap; list.classList.toggle('hidden', !state.swap); swapBtn.textContent = state.swap ? 'Keep my contracts' : 'Swap…'; });
   const pay = h('div.hc-rw', h('span.xp', levelsText(rw.xpFrac)), moneyEl(rw.gold), h('span.it', h('i.r-rare', '◆'), h('i.r-epic', '◆'), ` 1 of ${rw.choices}`));
-  tip(pay, () => h('div', h('div.tt-name', 'Pays at once on its last site'), h('div.tt-line', `${levelsText(rw.xpFrac)} at level ${rw.cl}, gold, and ${contractItemsText(rw)}.`)));
+  tip(pay, () => h('div', h('div.tt-name', 'Pays at once on its last site'), h('div.tt-line', `${levelsText(rw.xpFrac)} at level ${rw.cl}${typeof rw.xp === 'number' ? ` (${fmtNum(rw.xp)} XP)` : ''}, gold, and ${contractItemsText(rw)}.`)));
   box.append(head, h('div.hc-row', pay, h('div.hc-acts', take, swapBtn)), list);
   return box;
 }

@@ -8,7 +8,7 @@ import { CONTENT as REAL } from '../../src/content/index.js';
 import { nextInt, weightedIndex } from '../../src/rng.js';
 import { dungeonLevels, validEncounter, composeEncounter } from '../../src/engine/map.js';
 import {
-  generateExpZone, setupExpNode, zoneRegions, hops, frontAt, dimAt, zoneTime, RING_START, NODE_COUNT, xpWeight,
+  generateExpZone, setupExpNode, zoneRegions, hops, frontAt, dimAt, dimAtHops, zoneTime, RING_START, NODE_COUNT, xpWeight,
   nodeTime, grindMaxWaves,
 } from '../../src/engine/expedition.js';
 
@@ -571,10 +571,13 @@ describe('rules 1.9 expedition map: the Dimming (1.9.6)', () => {
       assert.equal(v.dim.front, f);
       for (const n of v.nodes) {
         const d = s.zone.shardDist[n.id];
-        assert.equal(n.dimmed, f >= 0 && d <= f, `zt ${zt} node ${n.id}`);
-        assert.equal(n.dimAt, dimAt(s.zone, n.id));
+        // M2b v10 (D85): the Dungeon holds out DUNGEON_DIM_HOLD tolls; the view shows the hold once its type is known.
+        const hold = s.zone.nodes[n.id].type === 'dungeon' && n.know !== 'none' ? C.DUNGEON_DIM_HOLD : 0;
+        assert.equal(n.dimmed, f >= 0 && d <= f && zt >= dimAtHops(d) + hold, `zt ${zt} node ${n.id}`);
+        assert.equal(n.dimAt, dimAtHops(d) + hold);
+        if (s.zone.nodes[n.id].type !== 'dungeon') assert.equal(n.dimAt, dimAt(s.zone, n.id));
         assert.equal(n.dimsIn, Math.max(0, n.dimAt - zt));
-        assert.equal(frontAt(n.dimAt) >= d && frontAt(n.dimAt - 1) < d, true, 'dimAt is the first toll it is Dimmed');
+        assert.equal(frontAt(n.dimAt - hold) >= d && frontAt(n.dimAt - hold - 1) < d, true, 'dimAt is the first toll it is Dimmed');
       }
     }
     // With the starting values: the Shardfall at 6 h, the hub (3 hops) at 14 h (expedition.md 6.2).
@@ -592,6 +595,40 @@ describe('rules 1.9 expedition map: the Dimming (1.9.6)', () => {
     assert.equal(d.length, 1);
     assert.equal(d[0].front, 0);
     assert.deepEqual(d[0].dimmed, [s.zone.shardfall]);
+  });
+
+  test('1.9.6 the dungeon holds out (M2b v10, D85): the Dungeon dims DUNGEON_DIM_HOLD tolls after its hops give; front and other nodes unchanged; the map shows the hold once its type is known', () => {
+    assert.equal(C.DUNGEON_DIM_HOLD, 3);
+    let checked = 0;
+    for (const seed of [2, 5, 9]) {
+      const s0 = onMap(expRun('mage', { seed, content: REAL }));
+      const zone = s0.zone;
+      const dg = zone.nodes.find((n) => n.type === 'dungeon').id;
+      const h = zone.shardDist[dg];
+      assert.notEqual(dg, zone.shardfall, 'the Shardfall is never the Dungeon');
+      for (const n of zone.nodes) assert.equal(dimAt(zone, n.id), dimAtHops(zone.shardDist[n.id]) + (n.id === dg ? C.DUNGEON_DIM_HOLD : 0), `seed ${seed} node ${n.id}`);
+      const nb = zone.nodes[dg].nb[0];
+      // Standing next to it (so it is seen), when the front has just reached it and when the hold ends.
+      const at = (zt) => tweak(s0, (x) => { x.zone.pos = nb; x.zone.seen[dg] = true; x.zone.seen[nb] = true; atZoneTime(x, zt); });
+      const reached = at(dimAtHops(h));
+      assert.ok(frontAt(dimAtHops(h)) >= h, 'the front covers the Dungeon on time');
+      const v = R.mapView(reached).nodes[dg];
+      assert.deepEqual([v.dimmed, v.dimsIn, v.dimAt, v.lost], [false, C.DUNGEON_DIM_HOLD, dimAtHops(h) + C.DUNGEON_DIM_HOLD, false]);
+      assert.equal(R.mapView(reached).moves.find((m) => m.nodeId === dg).via, 'enter', 'its content can still be entered');
+      assert.equal(R.heatView(tweak(reached, (x) => { x.zone.pos = dg; })).dimIn, C.DUNGEON_DIM_HOLD, 'the Dimming clock on the Dungeon counts the hold');
+      const ended = at(dimAtHops(h) + C.DUNGEON_DIM_HOLD);
+      const w = R.mapView(ended).nodes[dg];
+      assert.deepEqual([w.dimmed, w.dimsIn, w.lost], [true, 0, true]);
+      assert.equal(R.mapView(ended).moves.find((m) => m.nodeId === dg).via, 'walk', 'Dimmed: a walk, not an entry');
+      // Hidden (not seen, type unknown): the hops' value, so the skeleton does not tell where the Dungeon is.
+      const hid = tweak(s0, (x) => { x.zone.seen[dg] = false; x.zone.typed[dg] = false; });
+      const hv = R.mapView(hid).nodes[dg];
+      if (hv.know === 'none') { assert.equal(hv.dimAt, dimAtHops(h)); checked++; }
+      // Region Charts show the dungeon's type: then its hold.
+      const charted = tweak(hid, (x) => { x.exp.vision.regions = true; });
+      assert.deepEqual([R.mapView(charted).nodes[dg].know, R.mapView(charted).nodes[dg].dimAt], ['type', dimAtHops(h) + C.DUNGEON_DIM_HOLD]);
+    }
+    assert.ok(checked > 0, 'a hidden Dungeon was checked');
   });
 
   /** A mage at level L standing next to node `target` (Dimmed at zone toll zt) on zone 1's map. */
@@ -820,7 +857,7 @@ describe('rules 1.9 expedition map: leaving a zone (1.9.7)', () => {
 });
 
 describe('rules 1.9 expedition map: pacing, determinism and full runs (1.9.8, 1.9.9)', () => {
-  test('1.9.8 node tolls 3 / 3 / 2 per wave / 6 (quest, elite, grind, dungeon); a Grind of one wave starts on entry; two dungeon trash fights', () => {
+  test('1.9.8 node tolls 3 / 3 / 2 per wave / 5 (quest, elite, grind, dungeon; M2b v10: dungeon 6 -> 5); a Grind of one wave starts on entry; two dungeon trash fights', () => {
     const base = onMap(atLevel(expRun('mage', { seed: 31 }), 30));
     const id = base.zone.nodes[0].nb[0];
     const want = { quest: C.EXPED_TIME_QUEST, elite: C.EXPED_TIME_ELITE, grind: C.EXPED_TIME_GRIND_WAVE, dungeon: C.EXPED_TIME_DUNGEON, rest: C.TIME_REST, vendor: C.TIME_VENDOR, trainer: C.TIME_TRAINER, treasure: C.TIME_TREASURE, shrine: C.TIME_SHRINE };
@@ -831,7 +868,7 @@ describe('rules 1.9 expedition map: pacing, determinism and full runs (1.9.8, 1.
       assert.equal(R.mapView(s).moves.find((m) => m.nodeId === id).time, h, `${type}: tolls in the map view`);
       if (type === 'grind') { assert.equal(r.state.node.planned, 1); assert.ok(r.state.fight, 'the wave starts on entry'); }
     }
-    assert.deepEqual([C.EXPED_TIME_QUEST, C.EXPED_TIME_ELITE, C.EXPED_TIME_GRIND_WAVE, C.EXPED_TIME_DUNGEON], [3, 3, 2, 6]);
+    assert.deepEqual([C.EXPED_TIME_QUEST, C.EXPED_TIME_ELITE, C.EXPED_TIME_GRIND_WAVE, C.EXPED_TIME_DUNGEON], [3, 3, 2, 5]);
     // Dungeon: trash, trash, boss.
     let d = R.step(tweak(base, (x) => makeType(x, id, 'dungeon')), { type: 'MOVE', nodeId: id }).state;
     const kinds = [];
