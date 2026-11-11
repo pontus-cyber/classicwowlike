@@ -1,6 +1,6 @@
 // M2 v5 simulator changes (docs/specs/changes-m2-v5.md row 1, balance.md 1.3 "Default tree" and "B5 fallback"):
 // the switch rule with TREE_SWITCH_Z, the recorded incumbents per profile group, the B5 fallback's best point
-// estimate; and the bar-template follow-up (changes-m2-v5.md Notes): a finisher's template damage scales only its
+// estimate (the recorded incumbents follow each pass's switches: P0 group since 2026-11-11b); and the bar-template follow-up (changes-m2-v5.md Notes): a finisher's template damage scales only its
 // per-combo-point part, so a high weapon damage no longer moves Severing Flourish ahead of Open Vein on the boss bar.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -15,7 +15,8 @@ const cells = (wins, n = 2000, boss = [0.5, 0.5, 0.5]) => wins.map((p, t) => ({ 
 describe('default tree per profile group (balance.md 1.3, M2 v5)', () => {
   test('TREE_SWITCH_Z and the recorded incumbents', () => {
     assert.equal(BAL.TREE_SWITCH_Z, 1.96);
-    assert.deepEqual(SIM.DEFAULT_TREE, { rogue: 2, mage: 2, hunter: 1 });
+    // P0 group switched in the 2026-11-11b pass (rogue Shadowcraft, hunter Wildcraft; docs/reports/balance-2026-11-11b.md).
+    assert.deepEqual(SIM.DEFAULT_TREE, { rogue: 1, mage: 2, hunter: 2 });
     assert.deepEqual(SIM.DEFAULT_TREE_PALL, { rogue: 1, mage: 2, hunter: 0 });
     assert.deepEqual(defaultTrees('P0'), SIM.DEFAULT_TREE);
     assert.deepEqual(defaultTrees('PALL'), SIM.DEFAULT_TREE_PALL);

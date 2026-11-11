@@ -320,7 +320,7 @@ function buildChecks(S) {
     const d = pairedDiff(t, pl, win);
     b5gap = d.v;
     const full = diffRate(winRate(t), P('planner-P0').win);
-    add('B5', 'P1', `Tactician - planner win rate, P0, paired on the tactician's seeds (tactician ${pct(winRate(t).p)}, planner on the same seeds ${pct(winRate(pl).p)}; against the whole planner cell ${pct(full.v)})`, dcell(d),
+    add('B5', 'P1', `Tactician - planner win rate, P0, paired on the tactician's seeds (tactician ${pct(winRate(t).p)}, planner on the same seeds ${pct(winRate(pl).p)}; against the whole planner cell ${full.v >= 0 ? '+' : ''}${num(full.v * 100, 1)} pp)`, dcell(d),
       `${C2.MANUAL_GAP_V2[0]} - ${C2.MANUAL_GAP_V2[1]} pp (MANUAL_GAP_V2, combat-v2.md 12)`, d.v === null ? null : inBand(d.v, gapBand), { miss: miss(d.v, ...gapBand), note: b5Note });
   });
   unit('B5', 'diag', 'Opener - planner win rate, P0, paired; share of the tactician\'s gap', () => {
