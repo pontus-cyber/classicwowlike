@@ -102,6 +102,20 @@ export function replayThink(snap, seed, fxIndex, own) {
 }
 
 /**
+ * Rotation replays of one fight (cell.thinkMash, the mash report's rotation column): [fx index, fight kind code, HP at the
+ * start in per mille, then for own (the acting bot's policy throughout) and the masher (throughout): outcome code, HP at
+ * the end in per mille, potions used, resurrects used]. Cheap (no search), so it runs on more seeds than replayThink.
+ */
+export function replayMash(snap, fxIndex, own) {
+  const out = [fxIndex, FK[snap.fight.kind], Math.round((snap.player.hp / snap.player.d.maxHp) * 1000)];
+  for (const x of [own, mashChoice]) {
+    const r = replayFight(snap, x, x);
+    out.push(r.outcome, Math.round(r.hp * 1000), r.pot, r.res);
+  }
+  return out;
+}
+
+/**
  * B50 replays of one masher death: [fx index, fight kind code, opener-then-masher, autoplay-then-masher,
  * masher-then-masher] (outcome codes).
  */

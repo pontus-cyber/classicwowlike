@@ -14,7 +14,7 @@ import { BAL, SIM } from './params.mjs';
 import { createBot } from '../bots/index.mjs';
 import { Recorder } from './recorder.mjs';
 import { buildProfile, withoutMeta } from './profiles.mjs';
-import { snapshot, replayDeath, replayOpenings, replayThink } from './replay.mjs';
+import { snapshot, replayDeath, replayOpenings, replayThink, replayMash } from './replay.mjs';
 import { oracleMap, planExpMap, plannerHourMult, plannerHeat, createPlannerBot } from '../bots/planner.mjs';
 import { CONTENT } from './engine.mjs';
 import { priorTable } from './risk.mjs';
@@ -31,7 +31,8 @@ export function cellPet(cell) {
  * fight ends the run in death, replay it (sim/lib/replay.mjs); the record gets `rep`. cell.pairs (diagnostic): replay
  * every non-boss fight with autoplay's, the opener's and the masher's opening (replayOpenings); the record gets `pr`.
  * cell.think (mash report): replay every non-boss fight with the bot's own combat policy, the opener's opening then
- * autoplay, and autoplay (replayThink); the record gets `tk`.
+ * autoplay, and autoplay (replayThink); the record gets `tk`. cell.thinkMash: the same fights with the bot's own policy
+ * and the masher (replayMash); the record gets `tm`.
  * opts: { log: keep the action log, hash: store the final state hash, profile: profile object instead of
  * cell.prof, maxActions }. Returns { record, state }.
  */
@@ -70,14 +71,16 @@ export function runWithBot(cell, seed, risk, opts = {}) {
   const rep = cell.replay ? [] : null;
   const pr = cell.pairs ? [] : null;
   const tk = cell.think ? [] : null;
-  const own = tk ? bot.spec.combat : null;
+  const tm = cell.thinkMash ? [] : null;
+  const own = tk || tm ? bot.spec.combat : null;
   while (s.phase !== 'ENDED') {
     if (n >= max) { err = `stuck: ${max} actions without END_RUN (phase ${s.phase})`; break; }
-    if ((rep || pr || tk) && s.fight && s.fight.kind !== 'boss' && s.stats.fights !== snapFight) {
+    if ((rep || pr || tk || tm) && s.fight && s.fight.kind !== 'boss' && s.stats.fights !== snapFight) {
       snap = snapshot(s);
       snapFight = s.stats.fights;
       if (pr) { try { pr.push(replayOpenings(snap, seed, rec.fx.length)); } catch (e) { err = `pairs: ${e.message}`; break; } }
       if (tk) { try { tk.push(replayThink(snap, seed, rec.fx.length, own)); } catch (e) { err = `think: ${e.message}`; break; } }
+      if (tm) { try { tm.push(replayMash(snap, rec.fx.length, own)); } catch (e) { err = `think mash: ${e.message}`; break; } }
     }
     let a;
     try { a = bot.choose(s); } catch (e) { err = `bot ${cell.bot}: ${e.message}`; break; }
@@ -116,7 +119,7 @@ export function runWithBot(cell, seed, risk, opts = {}) {
   const ms = performance.now() - t0;
   const bm = bot.memory ? { plans: bot.memory.plans || 0, replans: bot.memory.replans || 0, auto: bot.memory.autoPlans || 0, evals: bot.memory.evals || 0 } : null;
   const record = rec.finish(s, {
-    ...cell, seed, steps: n, err, ms: Math.round(ms * 10) / 10, log, rep, pr, tk, bm, xs,
+    ...cell, seed, steps: n, err, ms: Math.round(ms * 10) / 10, log, rep, pr, tk, tm, bm, xs,
     hash: opts.hash ? hash32(R.serialize(s)) : undefined,
   });
   return { record, state: s };

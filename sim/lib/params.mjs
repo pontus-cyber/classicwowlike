@@ -188,6 +188,12 @@ export const SIM = {
   /** Bootstrap resamples for median intervals and its seed. */
   BOOT_N: 1000,
   BOOT_SEED: 7,
+  /**
+   * Mash report (docs/reports/mash-2026-11-11.md, sim/mashreport.mjs): a "think fight" is a non-boss fight in which, replayed
+   * on the same state and fight stream, onebutton dies where the opener's line survives, or ends at least this share of
+   * max HP lower [assumption: "clearly more HP", owner follow-up 2026-11-11 18:46; the report shows 0.10 and 0.30 too].
+   */
+  THINK_HP_GAP: 0.20,
 };
 
 export const C2 = {

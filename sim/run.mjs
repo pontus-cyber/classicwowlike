@@ -11,7 +11,8 @@
 //            --replay (B50, combat-v2.md 11: replay every non-boss fight that ends a run in death; used with the masher)
 //            --pairs (diagnostic: replay every non-boss fight with autoplay's, the opener's and the masher's opening)
 //            --think (mash report: replay every non-boss fight with the bot's own combat policy, the opener's opening
-//            then autoplay, and autoplay; the record's `tk`, sim/lib/replay.mjs replayThink)
+//            then autoplay, and autoplay; the record's `tk`, sim/lib/replay.mjs replayThink)   --think-mash (the same
+//            fights with the bot's own policy and the masher; `tm`, replayMash)
 //            onebutton: --variant nopot (no healing items in fights); default trees: the slot-1 trees
 //            expedition map (expedition.md 10-11, MILESTONES 2b.4): --map expedition   --vision guide,charts,pathfinder
 //            (vision kit, any subset)   --dimming off (B44 diagnostic)   --oracle (record C_step against the oracle, B41)
@@ -52,7 +53,7 @@ function parse(argv) {
     const a = argv[i];
     if (!a.startsWith('--')) throw new Error(`unexpected argument ${a}`);
     const k = a.slice(2);
-    if (k === 'log' || k === 'replay' || k === 'pairs' || k === 'think' || k === 'oracle' || k === 'route' || k === 'prep' || k === 'beastcall-gated') { o[k] = true; continue; }
+    if (k === 'log' || k === 'replay' || k === 'pairs' || k === 'think' || k === 'think-mash' || k === 'oracle' || k === 'route' || k === 'prep' || k === 'beastcall-gated') { o[k] = true; continue; }
     o[k] = argv[++i];
   }
   return o;
@@ -115,7 +116,7 @@ try {
     const r = await runBatch({
       pool, bot: args.bot, classes, runs: Number(args.runs || BAL.N_RUNS_PER_CELL), seedStart: Number(args['seed-start'] || BAL.SEED_BASE),
       prof: args.profile || 'fresh', trees, style: args.style || null, variant: args.variant || null, pet: args.pet || null,
-      out, warmup: args.warmup !== undefined ? Number(args.warmup) : SIM.WARMUP_RUNS, obsIn, log: !!args.log, workers, replay: !!args.replay, pairs: !!args.pairs, think: !!args.think,
+      out, warmup: args.warmup !== undefined ? Number(args.warmup) : SIM.WARMUP_RUNS, obsIn, log: !!args.log, workers, replay: !!args.replay, pairs: !!args.pairs, think: !!args.think, thinkMash: !!args['think-mash'],
       map: args.map || null, vision: args.vision ? Object.fromEntries(args.vision.split(',').map((k) => [k, true])) : null, dimming: args.dimming === 'off' ? false : true, oracle: !!args.oracle, route: !!args.route,
       prep: !!args.prep, prepPolicy: args['prep-policy'] || null, prepForce, prepBan, tablesIn: args['tables-in'] || null, metaDrop, beastcallGated: !!args['beastcall-gated'],
       expMeta: args['exp-meta'] ? Object.fromEntries(args['exp-meta'].split(',').map((x) => { const [id, r] = x.split(':'); return [id, Number(r || 1)]; })) : null,

@@ -21,7 +21,8 @@
 //       event: interrupt, control, trap, disrupt, silenced, avoided)
 //   fc: per fight, aligned with fx (mash report, docs/reports/mash-2026-11-11.md): [HP % at the fight's start, nodes
 //       entered before it in the run (engine `node` events), enemies at the start as 'tid:k' joined by ',' (k: n normal,
-//       e elite, r rare, d dungeon boss, b end boss)]
+//       t dungeon trash, e elite, r rare, d dungeon boss, s shardspawn, b end boss; '?' an unknown variant, as the
+//       measure at 3e16499 wrote for trash and shardspawn)]
 //   ht: heat (expedition.md H.6, rules 9): nodes entered per heat state [clear, warm, hot, scorched] (summary
 //       heat.nodesByState; B56)
 //   boss: at FIGHT_BOSS { lvl, ilvl (mean equipped), rare (share of slots rare or epic), empty, ember, gs (sum of the
@@ -41,8 +42,8 @@ import { C2 } from './params.mjs';
 import { isEngageRound, isOffBalanceId, actionTarget, actionLabel, defaultTarget } from './view.mjs';
 
 export const FIGHT_KINDS = ['quest', 'grind', 'elite', 'trash', 'dboss', 'treasure', 'camp', 'boss', 'dim'];
-/** Enemy variant codes of the fc composition (combat.js makeEnemy `kind`). */
-export const ENEMY_KIND_CODE = { normal: 'n', elite: 'e', rare: 'r', dboss: 'd', boss: 'b' };
+/** Enemy variant codes of the fc composition (combat.js makeEnemy `kind`, C.VARIANT; the end boss 'boss'). */
+export const ENEMY_KIND_CODE = { normal: 'n', trash: 't', elite: 'e', rare: 'r', dboss: 'd', shardspawn: 's', boss: 'b' };
 export const FK = Object.fromEntries(FIGHT_KINDS.map((k, i) => [k, i]));
 const pct = (x) => Math.max(0, Math.min(100, Math.round(x * 100)));
 const permille = (x) => Math.max(0, Math.min(1000, Math.floor(x * 1000 + 1e-9)));
@@ -313,6 +314,7 @@ export class Recorder {
       ...(meta.rep ? { rep: meta.rep } : {}),
       ...(meta.pr ? { pr: meta.pr } : {}),
       ...(meta.tk ? { tk: meta.tk } : {}),
+      ...(meta.tm ? { tm: meta.tm } : {}),
       ...(meta.bm ? { bm: meta.bm } : {}),
       ...(meta.log ? { log: meta.log } : {}),
       ...(meta.hash !== undefined ? { hash: meta.hash } : {}),
