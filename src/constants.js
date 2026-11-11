@@ -354,8 +354,8 @@ export const OFFBAL_DURATION = 2;
 export const ENGAGE_DMG_COMP = 1.15;
 /** rules 7.10: Ambush = Gutting Jab × this before Shadowstep Strike is learned. */
 export const AMBUSH_MULT = 1.5;
-/** rules 7.10: Sap, enemy turns SAPPED. */
-export const SAP_TURNS = 3;
+/** rules 7.10: Sap, enemy turns SAPPED (M2b v6, D65: was 3). */
+export const SAP_TURNS = 4;
 /** rules 7.10: Premeditate, combo points (combat v2.1, D57: was 3). */
 export const PREMED_CP = 5;
 /** rules 7.10: Binding Glyph, enemy turns FROZEN. */

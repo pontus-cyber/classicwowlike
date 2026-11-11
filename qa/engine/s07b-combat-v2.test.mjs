@@ -593,14 +593,16 @@ describe('rules 7.10 engage round (combat v2)', () => {
     let t = R.step(s, engage('sap', 0)).state;
     assert.ok(st(t.fight.p.st, 'STEALTH'));
     assert.equal(t.fight.enemies[0].intent.id, 'sapped');
-    let cancelled = 0;
-    for (let i = 0; i < 3; i++) {
+    assert.equal(C.SAP_TURNS, 4, 'M2b v6 (D65): was 3');
+    assert.equal(st(t.fight.enemies[0].st, 'SAPPED').dur, 4, 'status rounds left on its turn 1: turns 1-4 (5 from the engage round)');
+    const acted = [];
+    for (let i = 0; i < C.SAP_TURNS + 1; i++) {
       const r = R.step(tweak(t, (x) => { x.fight.enemies[1].st.push({ id: 'STUN', dur: 1 }); }), { type: 'PASS' });
-      cancelled += ev(r.events, 'enemyAction').filter((x) => x.u === 0).length === 0 ? 1 : 0;
+      acted.push(ev(r.events, 'enemyAction').some((x) => x.u === 0));
       t = r.state;
+      if (i === C.SAP_TURNS - 1) assert.ok(!st(t.fight.enemies[0].st, 'SAPPED'), 'gone after SAP_TURNS turns');
     }
-    assert.equal(cancelled, C.SAP_TURNS);
-    assert.ok(!st(t.fight.enemies[0].st, 'SAPPED'), 'gone after SAP_TURNS turns');
+    assert.deepEqual(acted, [false, false, false, false, true], 'turns 1-4 cancelled, it acts on turn 5');
     // Broken by damage (a DOT tick counts).
     const b = R.step(s, engage('sap', 0)).state;
     const dot = tweak(b, (x) => { x.fight.enemies[0].st.push({ id: 'BLEED', src: 'test', dur: 3, tick: 5 }); });
@@ -722,18 +724,21 @@ describe('rules 7.10 engage round (combat v2)', () => {
       const before = R.serialize(s);
       const p = R.engagePreview(s, a);
       assert.equal(R.serialize(s), before, 'no draw, no change');
-      // Play it out with PASS (no damage on the enemies) and read what the tracks did on turns 1..INTENT_TRACK_LEN.
+      // Play it out with PASS (no damage on the enemies) and read what the tracks did on turns 1..INTENT_TRACK_LEN, and
+      // the cancelled turns up to SAP_TURNS (M2b v6: Sap covers 4 turns, one more than the engage round's track shows;
+      // OFF_BALANCE and STAGGERED need the entry, so they are compared on the visible turns only).
       const seen = new Map();
       const at = (u) => { if (!seen.has(u)) seen.set(u, { u, cancelled: [], offBalance: [], window: [], pet: [], stagger: [], disrupt: false }); return seen.get(u); };
       let r = R.step(s, a);
       for (const x of ev(r.events, 'action')) if (x.disrupt) at(x.target).disrupt = true;
-      for (let k = 0; k < C.INTENT_TRACK_LEN; k++) {
+      const vis = (t) => t <= C.INTENT_TRACK_LEN;
+      for (let k = 0; k < Math.max(C.INTENT_TRACK_LEN, C.SAP_TURNS); k++) {
         for (const x of ev(r.events, 'cancel')) {
           at(x.u).cancelled.push(x.turn);
-          if (x.offBalance) at(x.u).offBalance.push(x.turn);
+          if (x.offBalance && vis(x.turn)) at(x.u).offBalance.push(x.turn);
           if (x.by === 'FROZEN') at(x.u).window.push(x.turn);
         }
-        for (const x of ev(r.events, 'stagger')) at(x.u).stagger.push(x.turn);
+        for (const x of ev(r.events, 'stagger')) if (vis(x.turn)) at(x.u).stagger.push(x.turn);
         for (const e of r.state.fight.enemies) if (e.alive && e.intent.target === 'pet' && e.turn <= C.PET_LEAD_TURNS) at(e.idx).pet.push(e.turn);
         r = R.step(r.state, { type: 'PASS' });
       }
