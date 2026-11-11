@@ -152,17 +152,18 @@ describe('rules data tables', () => {
       assert.ok(Math.abs(K.TALENT[id][field] - spec) < 1e-12, `${id}.${field}: spec ${spec}, constants.js ${K.TALENT[id][field]}`);
     }
     assert.equal(K.TALENT.h_a9.spell, effect.h_a9.match(/new spell `(\w+)`/)[1]);
-    // D44 itself, as numbers: 0.10 -> 0.125, 0.05 -> 0.0625, 0.10 -> 0.125; M2b v8 (D75): Ferocity 0.125 -> 0.15625, Thick Hide 0.08 -> 0.10
-    assert.deepEqual([K.TALENT.h_a2.petDmgPct, K.TALENT.h_a6.pct, K.TALENT.h_a7.pct], [0.15625, 0.0625, 0.125]);
-    assert.equal(K.TALENT.h_a1.petHpPct, 0.10);
+    // D44 itself, as numbers: 0.10 -> 0.125, 0.05 -> 0.0625, 0.10 -> 0.125; M2b v8 (D75): Ferocity 0.125 -> 0.15625, Thick Hide 0.08 -> 0.10;
+    // M2b v9 (D79, changes-m2b-v9.md row 2, × 1.15): Ferocity 0.15625 -> 0.18, Thick Hide 0.10 -> 0.115
+    assert.deepEqual([K.TALENT.h_a2.petDmgPct, K.TALENT.h_a6.pct, K.TALENT.h_a7.pct], [0.18, 0.0625, 0.125]);
+    assert.equal(K.TALENT.h_a1.petHpPct, 0.115);
   });
 
-  test('6.1 and 6.3 survival-tree trims (M2b v8, D76): Shadowcraft and Wildcraft numbers match the spec', () => {
-    // [section, talent, field, pattern in the Effect cell, scale, v8 value]
+  test('6.1 and 6.3 survival-tree trims (M2b v8, D76; Death\'s Sidestep M2b v9, D78): Shadowcraft and Wildcraft numbers match the spec', () => {
+    // [section, talent, field, pattern in the Effect cell, scale, value now (v8; r_b9 v9)]
     const want = [
       ['### 6.1 Rogue', 'r_b4', 'healPct', /heal ([\d.]+) % max HP per round/, 0.01, 0.02],
       ['### 6.1 Rogue', 'r_b7', 'healPct', /heals ([\d.]+) % max HP \/rank/, 0.01, 0.05],
-      ['### 6.1 Rogue', 'r_b9', 'healPct', /heal ([\d.]+) % max HP/, 0.01, 0.10],
+      ['### 6.1 Rogue', 'r_b9', 'healPct', /heal ([\d.]+) % max HP/, 0.01, 0.15],
       ['### 6.3 Hunter', 'h_c1', 'hpPct', /max HP \+([\d.]+) %/, 0.01, 0.03],
       ['### 6.3 Hunter', 'h_c4', 'pct', /Field Dressing \+([\d.]+) %/, 0.01, 0.10],
       ['### 6.3 Hunter', 'h_c5', 'dodge', /\+([\d.]+) dodge/, 1, 0.02],
@@ -172,7 +173,7 @@ describe('rules data tables', () => {
       const m = row && row[4].match(re);
       assert.ok(m, `${id}: "${row && row[4]}" does not match ${re}`);
       assert.ok(Math.abs(K.TALENT[id][field] - Number(m[1]) * scale) < 1e-12, `${id}.${field}: spec ${Number(m[1]) * scale}, constants.js ${K.TALENT[id][field]}`);
-      assert.equal(K.TALENT[id][field], v8, `${id}.${field} is the v8 value`);
+      assert.equal(K.TALENT[id][field], v8, `${id}.${field} is the v8 (r_b9: v9) value`);
     }
   });
 

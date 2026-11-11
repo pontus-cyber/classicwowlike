@@ -159,7 +159,7 @@ describe('rules 6 talents: stats, resources and mechanics', () => {
       const r = act(fightWith('hunter', 40, [], talents), { type: 'PASS' }, (x) => x[0] > 0.9 && x[1] > 0.97 && Math.abs(x[2] - 0.5) < 0.05);
       return r.events.find((e) => e.t === 'damage' && e.src === 'pet').amount;
     };
-    near(petHit({ h_a2: 3 }) / petHit({}), 1.46875, 'Ferocity 3 (pet damage +15.625 %/rank; M2 v5 12.5 %, M2b v8 D75)');
+    near(petHit({ h_a2: 3 }) / petHit({}), 1.54, 'Ferocity 3 (pet damage +18 %/rank, M2b v9 D79; M2 v5 12.5 %, M2b v8 15.625 %)');
     // Frenzy Link: a pet crit on a draw between the base pet crit and +0.10 (2 ranks)
     const s = fightWith('hunter', 40, [], { h_a4: 2 });
     const petCrit = s.player.d.crit + C.PET[s.player.pet.id].critBonus;

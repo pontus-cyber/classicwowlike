@@ -169,8 +169,8 @@ export const ENEMY_HP_PER_LEVEL = 12;
 export const ENEMY_DMG_BASE = 4;
 export const ENEMY_DMG_PER_LEVEL = 2.6;
 export const ZONE_DANGER_FROM = 20;
-/** rules 7.6 (M2b v8, D72: was 0.25): zone danger × per 10 levels above ZONE_DANGER_FROM. */
-export const ZONE_DANGER_STEP = 0.375;
+/** rules 7.6 (M2b v8, D72: was 0.25; M2b v9, D80: 0.375 -> 0.45): zone danger × per 10 levels above ZONE_DANGER_FROM. */
+export const ZONE_DANGER_STEP = 0.45;
 export const DUNGEON_DANGER_FRAC = 0.5;
 /** rules 7.6 (M2b v8, D72): × the damage of every template enemy of level <= EARLY_DMG_MAX_LEVEL (zone danger's early factor). */
 export const EARLY_DMG_MULT = 0.80;
@@ -276,7 +276,8 @@ export const PULSE_DMG = 280;
 export const PULSE_EVERY = 3;
 export const BOSS_ENRAGE_ROUND = 57;
 export const FINAL_DARK_DMG = 99999;
-export const ECHO_PER_LEVEL = 1.5;
+/** rules 11.1 (M2b v9, D81: was 1.5): Echoes per level gained. */
+export const ECHO_PER_LEVEL = 1.0;
 export const ECHO_PER_ZONE = 7.5;
 export const ECHO_PER_DUNGEON = 8;
 export const ECHO_PER_ELITE = 3;
@@ -705,7 +706,7 @@ export const TALENT = {
   r_b6: { id: 'r_b6', cls: 'rogue', tree: 1, tier: 3, name: "Ambusher's Patience", ranks: 2, pct: 0.20 },
   r_b7: { id: 'r_b7', cls: 'rogue', tree: 1, tier: 4, name: 'Shroudwalk', ranks: 2, cd: 3, healPct: 0.05 }, // M2b v8 (D76): heal was 0.10
   r_b8: { id: 'r_b8', cls: 'rogue', tree: 1, tier: 4, name: 'Night Instinct', ranks: 3, pct: 0.05 },
-  r_b9: { id: 'r_b9', cls: 'rogue', tree: 1, tier: 5, name: "Death's Sidestep", ranks: 1, below: 0.20, healPct: 0.10 }, // M2b v8 (D76): heal was 0.20
+  r_b9: { id: 'r_b9', cls: 'rogue', tree: 1, tier: 5, name: "Death's Sidestep", ranks: 1, below: 0.20, healPct: 0.15 }, // M2b v8 (D76): heal 0.20 -> 0.10; M2b v9 (D78): 0.10 -> 0.15
   // Rogue: Venomcraft
   r_c1: { id: 'r_c1', cls: 'rogue', tree: 2, tier: 1, name: 'Toxic Coating', ranks: 3, rounds: 4, maxStacks: 5, b: 0.5, l: 0.15, p: 0.04, spells: ['strike', 'gutting_jab', 'shadowstep_strike', 'whirling_edges'] },
   r_c2: { id: 'r_c2', cls: 'rogue', tree: 2, tier: 1, name: 'Deep Wounds', ranks: 3, pct: 0.09 },
@@ -747,8 +748,8 @@ export const TALENT = {
   m_c8: { id: 'm_c8', cls: 'mage', tree: 2, tier: 4, name: 'Arcane Momentum', ranks: 3, pct: 0.01, maxStacks: 5 },
   m_c9: { id: 'm_c9', cls: 'mage', tree: 2, tier: 5, name: 'Hourglass Reversal', ranks: 1, spell: 'hourglass_reversal' },
   // Hunter: Beastbond
-  h_a1: { id: 'h_a1', cls: 'hunter', tree: 0, tier: 1, name: 'Thick Hide', ranks: 3, petHpPct: 0.10 }, // M2b v8 (D75): was 0.08
-  h_a2: { id: 'h_a2', cls: 'hunter', tree: 0, tier: 1, name: 'Ferocity', ranks: 3, petDmgPct: 0.15625 }, // M2b v8 (D75): was 0.125
+  h_a1: { id: 'h_a1', cls: 'hunter', tree: 0, tier: 1, name: 'Thick Hide', ranks: 3, petHpPct: 0.115 }, // M2b v8 (D75): 0.08 -> 0.10; M2b v9 (D79): 0.10 -> 0.115
+  h_a2: { id: 'h_a2', cls: 'hunter', tree: 0, tier: 1, name: 'Ferocity', ranks: 3, petDmgPct: 0.18 }, // M2b v8 (D75): 0.125 -> 0.15625; M2b v9 (D79): 0.15625 -> 0.18
   h_a3: { id: 'h_a3', cls: 'hunter', tree: 0, tier: 2, name: 'Bonded Spirit', ranks: 2, share: 0.30 },
   h_a4: { id: 'h_a4', cls: 'hunter', tree: 0, tier: 2, name: 'Frenzy Link', ranks: 2, petCrit: 0.05, focus: 5 },
   h_a5: { id: 'h_a5', cls: 'hunter', tree: 0, tier: 3, name: 'Unbreakable Bond', ranks: 2, revive: 0.25, petDr: 0.05 },

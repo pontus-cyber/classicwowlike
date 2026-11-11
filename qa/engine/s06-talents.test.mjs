@@ -75,9 +75,9 @@ describe('rules 6 talents', () => {
     assert.equal(withTalents(base('mage'), { m_c1: 3 }).player.d.maxMana, Math.round(m.maxMana * 1.15));
     assert.ok(Math.abs(withTalents(base('mage'), { m_c2: 3 }).player.d.power - m.power * 1.09) < 1e-9);
     const h = base('hunter').player.d;
-    // M2b v8: Hardy 0.03 per rank (D76, was 0.04), Thick Hide 0.10 per rank (D75, was 0.08)
+    // M2b v8: Hardy 0.03 per rank (D76, was 0.04); M2b v9: Thick Hide 0.115 per rank (D79; v8 0.10, was 0.08)
     assert.equal(withTalents(base('hunter'), { h_c1: 3 }).player.d.maxHp, Math.round(rawHp('hunter', h) * 1.09));
-    assert.equal(withTalents(base('hunter'), { h_a1: 3 }).player.d.petMaxHp, Math.round(C.PET.ridgewolf.hpPct * h.maxHp * 1.30));
+    assert.equal(withTalents(base('hunter'), { h_a1: 3 }).player.d.petMaxHp, Math.round(C.PET.ridgewolf.hpPct * h.maxHp * 1.345));
     assert.ok(Math.abs(delta('rogue', 'r_a5', 2, (d) => d.critMult) - 0.4) < 1e-9);
     assert.ok(Math.abs(delta('hunter', 'h_b4', 2, (d) => d.critMult) - 0.3) < 1e-9, 'Mortal Shots 0.15 per rank (M2 v2)');
   });
@@ -149,7 +149,7 @@ describe('rules 6 talents', () => {
     r = act(g, { type: 'PASS' }, (d) => d[0] > 0.9, 3);
     assert.ok(r.events.some((e) => e.t === 'damage' && e.sidestep));
     assert.ok(st(r.state.fight.p.st, 'STEALTH'));
-    assert.equal(r.state.player.hp, 5 + Math.round(0.1 * g.player.d.maxHp), "Death's Sidestep heals 10 % (M2b v8, D76: was 20 %)");
+    assert.equal(r.state.player.hp, 5 + Math.round(0.15 * g.player.d.maxHp), "Death's Sidestep heals 15 % (M2b v9, D78; M2b v8 10 %, was 20 %)");
     assert.ok(r.state.fight.p.sidestepUsed);
   });
 

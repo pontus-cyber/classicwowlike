@@ -246,12 +246,12 @@ describe('rules 7.6 enemy AI and intents', () => {
     }
   });
 
-  test('zone danger (M2 v3, dungeons M2 v4, M2b v8): damage × zd(M) = early(M) × (1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10); dungeon trash and bosses early(M) × (1 + DUNGEON_DANGER_FRAC × (zd0 - 1)); early(M) = EARLY_DMG_MULT at M <= EARLY_DMG_MAX_LEVEL; HP, armor, XP unchanged', () => {
-    // M -> zd0 without the early factor (rules 7.6, M2b v8: level 30 ×1.375, 40 ×1.75, 50 ×2.125, 60 ×2.5; nothing at or
-    // below 20), and early(M): × 0.80 at levels 1-20 (D72)
-    const want = [[1, 1], [10, 1], [20, 1], [21, 1.0375], [25, 1.1875], [30, 1.375], [40, 1.75], [50, 2.125], [58, 2.425], [60, 2.5]];
+  test('zone danger (M2 v3, dungeons M2 v4, M2b v8, M2b v9): damage × zd(M) = early(M) × (1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10); dungeon trash and bosses early(M) × (1 + DUNGEON_DANGER_FRAC × (zd0 - 1)); early(M) = EARLY_DMG_MULT at M <= EARLY_DMG_MAX_LEVEL; HP, armor, XP unchanged', () => {
+    // M -> zd0 without the early factor (rules 7.6, M2b v9 step 0.45: level 30 ×1.45, 40 ×1.9, 50 ×2.35, 60 ×2.8; nothing at
+    // or below 20), and early(M): × 0.80 at levels 1-20 (D72)
+    const want = [[1, 1], [10, 1], [20, 1], [21, 1.045], [25, 1.225], [30, 1.45], [40, 1.9], [50, 2.35], [58, 2.71], [60, 2.8]];
     assert.equal(C.ZONE_DANGER_FROM, 20);
-    assert.equal(C.ZONE_DANGER_STEP, 0.375);
+    assert.equal(C.ZONE_DANGER_STEP, 0.45); // M2b v9 (D80): was 0.375
     assert.equal(C.DUNGEON_DANGER_FRAC, 0.5);
     assert.deepEqual([C.EARLY_DMG_MULT, C.EARLY_DMG_MAX_LEVEL], [0.8, 20]);
     for (const [M, zd] of want) {
@@ -267,17 +267,17 @@ describe('rules 7.6 enemy AI and intents', () => {
         assert.ok(Math.abs(e.dmg - old * mult) < 1e-9, `${tid} ${variant} level ${M}: ${e.dmg} vs ${old} × ${mult}`);
         assert.equal(e.maxHp, Math.round((C.ENEMY_HP_BASE + C.ENEMY_HP_PER_LEVEL * M) * A.hp * V.hp));
         assert.equal(e.armor, C.ENEMY_ARMOR_PER_LEVEL * M * A.armor);
-        if (M === 60) assert.ok(Math.abs(e.dmg / old - (dungeon ? 1.75 : 2.5)) < 1e-12, `level 60 ${variant}: ${e.dmg / old}`);
+        if (M === 60) assert.ok(Math.abs(e.dmg / old - (dungeon ? 1.9 : 2.8)) < 1e-12, `level 60 ${variant}: ${e.dmg / old}`);
         if (M === 20) assert.ok(Math.abs(e.dmg / old - 0.8) < 1e-12, `level 20 ${variant}: ${e.dmg / old}`);
       }
     }
-    // Hits use the scaled damage: same draws, level 50 (×2.125, M2b v8) vs a copy holding the old value.
+    // Hits use the scaled damage: same draws, level 50 (×2.35, M2b v9) vs a copy holding the old value.
     const s = setup('mage', 50, [], [mob('z1_brute', 50)], (x) => { x.player.d.maxHp = x.player.hp = 1e6; x.fight.enemies[0].intent = HITI('hit', { pct: 1 }); });
     const scaled = s.fight.enemies[0].dmg;
-    const oldCopy = tweak(s, (x) => { x.fight.enemies[0].dmg = scaled / 2.125; });
+    const oldCopy = tweak(s, (x) => { x.fight.enemies[0].dmg = scaled / 2.35; });
     const draws = (d) => d[0] > 0.9 && d[1] > 0.1;
     const hit = (t) => { const c = cloneState(t); forceDraws(c, 3, draws); return R.step(c, { type: 'PASS' }).events.find((e) => e.t === 'damage' && e.dst === 'player').amount; };
-    assert.ok(Math.abs(hit(s) / hit(oldCopy) - 2.125) < 0.01, `${hit(s)} vs ${hit(oldCopy)}`);
+    assert.ok(Math.abs(hit(s) / hit(oldCopy) - 2.35) < 0.01, `${hit(s)} vs ${hit(oldCopy)}`);
     // Kill rewards do not depend on damage: same XP and coin with the old value.
     const kill = (t) => {
       const c = tweak(t, (x) => { x.fight.enemies[0].hp = 1; x.fight.enemies[0].dodge = 0; });
@@ -289,8 +289,8 @@ describe('rules 7.6 enemy AI and intents', () => {
     assert.deepEqual(kill(s), kill(oldCopy));
   });
 
-  test('zone danger in dungeons (M2 v4; M2b v8 step 0.375): a level-60 dungeon trash hit is 1.75 × the zone-danger-free formula, a quest hit 2.5 ×', () => {
-    for (const [kind, variant, ratio] of [['trash', 'trash', 1.75], ['quest', 'normal', 2.5], ['dboss', 'dboss', 1.75], ['elite', 'elite', 2.5]]) {
+  test('zone danger in dungeons (M2 v4; M2b v9 step 0.45): a level-60 dungeon trash hit is 1.9 × the zone-danger-free formula, a quest hit 2.8 ×', () => {
+    for (const [kind, variant, ratio] of [['trash', 'trash', 1.9], ['quest', 'normal', 2.8], ['dboss', 'dboss', 1.9], ['elite', 'elite', 2.8]]) {
       const s = setup('mage', 60, [], [mob(variant === 'dboss' ? 'z1_dboss' : variant === 'elite' ? 'z1_elite' : 'z1_brute', 60, variant)], (x) => { x.player.d.maxHp = x.player.hp = 1e6; x.fight.enemies[0].intent = HITI('hit', { pct: 1 }); }, { kind });
       const e = s.fight.enemies[0];
       const free = (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * 60) * C.ARCHETYPE[e.arch].dmg * C.VARIANT[variant].dmg * C.ENGAGE_DMG_COMP; // fixture dmgMult 1
@@ -343,7 +343,7 @@ describe('rules 7.6 enemy AI and intents', () => {
     const add = r.state.fight.enemies[1];
     assert.equal(add.level, 40);
     const old = (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * 40) * C.ARCHETYPE[add.arch].dmg * C.ENGAGE_DMG_COMP;
-    assert.ok(Math.abs(add.dmg - old * 1.75) < 1e-9, `${add.dmg} vs ${old} × 1.75 (M2b v8: level 40)`);
+    assert.ok(Math.abs(add.dmg - old * 1.9) < 1e-9, `${add.dmg} vs ${old} × 1.9 (M2b v9: level 40)`);
   });
 
   test('intents: eligible actions by cooldown, SILENCED removes casts, Mend only when an ally < 70 %; picks follow weights', () => {

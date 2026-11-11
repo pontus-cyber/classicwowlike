@@ -1,6 +1,6 @@
 # Rules spec (M0 task 0.2)
 
-Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)"); M2 v5 changes 2026-11-10 (marked "(M2 v5)"); combat v2 (docs/specs/combat-v2.md, on its defaults) folded into sections 3, 7 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(combat v2)"); the expedition map (docs/specs/expedition.md 1, 4-7, 9.5; a run option until the switch-over) folded into 1.9 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(expedition)"); heat (docs/specs/expedition.md section H, on its defaults, both map modes) folded into 1.7.1-1.7.4, 1.9.10, 8.4, 9, 11.1 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(heat)"); combat v2.1 (docs/specs/combat-v2.md 16, docs/specs/changes-combat-v21.md) in section 7 and 13 by the Lead Game Designer, 2026-11-10 (marked "(combat v2.1)"), in the engine since 2026-11-10 (Core Gameplay Engineer, docs/handoffs/engineer-2026-11-10g.md; its clarifications in 7.11 and 7.12 are marked "(combat v2.1, engine)"); tuning pass M2b v6 by the Lead Game Designer, 2026-11-11 (docs/specs/changes-m2b-v6.md; marked "(M2b v6)"); time in tolls and the Furnace, M2b v7 by the Lead Game Designer, 2026-11-11 (docs/specs/changes-m2b-v7.md; rule lines marked "(M2b v7)"; in the engine since 2026-11-11, docs/handoffs/engineer-2026-11-11d.md). M2b v7 renamed every time constant from HOURS_* / *_H to TIME_* (values unchanged, list in changes-m2b-v7.md); lines changed only by that rename are not marked. Tuning pass M2b v8 by the Lead Game Designer, 2026-11-11 (docs/specs/changes-m2b-v8.md rows 1-9, D72-D77; status draft as that file: BOSS_DMG_MULT 1.30 until the sim's ladder confirms it, D77 open to the owner's veto), folded into 5.1, 6.1, 6.3, 7.5, 7.6, 10.1, 11.2 and 13 by the Core Gameplay Engineer with the engine, 2026-11-11 (docs/handoffs/engineer-2026-11-11e.md; marked "(M2b v8)").
+Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)"); M2 v5 changes 2026-11-10 (marked "(M2 v5)"); combat v2 (docs/specs/combat-v2.md, on its defaults) folded into sections 3, 7 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(combat v2)"); the expedition map (docs/specs/expedition.md 1, 4-7, 9.5; a run option until the switch-over) folded into 1.9 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(expedition)"); heat (docs/specs/expedition.md section H, on its defaults, both map modes) folded into 1.7.1-1.7.4, 1.9.10, 8.4, 9, 11.1 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(heat)"); combat v2.1 (docs/specs/combat-v2.md 16, docs/specs/changes-combat-v21.md) in section 7 and 13 by the Lead Game Designer, 2026-11-10 (marked "(combat v2.1)"), in the engine since 2026-11-10 (Core Gameplay Engineer, docs/handoffs/engineer-2026-11-10g.md; its clarifications in 7.11 and 7.12 are marked "(combat v2.1, engine)"); tuning pass M2b v6 by the Lead Game Designer, 2026-11-11 (docs/specs/changes-m2b-v6.md; marked "(M2b v6)"); time in tolls and the Furnace, M2b v7 by the Lead Game Designer, 2026-11-11 (docs/specs/changes-m2b-v7.md; rule lines marked "(M2b v7)"; in the engine since 2026-11-11, docs/handoffs/engineer-2026-11-11d.md). M2b v7 renamed every time constant from HOURS_* / *_H to TIME_* (values unchanged, list in changes-m2b-v7.md); lines changed only by that rename are not marked. Tuning pass M2b v8 by the Lead Game Designer, 2026-11-11 (docs/specs/changes-m2b-v8.md rows 1-9, D72-D77; status draft as that file: BOSS_DMG_MULT 1.30 until the sim's ladder confirms it, D77 open to the owner's veto), folded into 5.1, 6.1, 6.3, 7.5, 7.6, 10.1, 11.2 and 13 by the Core Gameplay Engineer with the engine, 2026-11-11 (docs/handoffs/engineer-2026-11-11e.md; marked "(M2b v8)"). Tuning pass M2b v9 by the Lead Game Designer, 2026-11-11 (docs/specs/changes-m2b-v9.md rows 1-4, D78-D81; status draft as that file; row 2's Beastbond values are the main arm, the sim's arm B may replace them (D79); row 5 is a balance.md target under owner review, O4), folded into 6.1, 6.3, 7.6, 11.1 and 13 by the Core Gameplay Engineer with the engine, 2026-11-11 (docs/handoffs/engineer-2026-11-11g.md; marked "(M2b v9)").
 Audience: Core Gameplay Engineer (src/rules.js), Simulation & Balance Engineer, UI/UX Engineer, Content Designer.
 
 Every global number is a named constant (UPPER_SNAKE_CASE) in section 13. The data tables (classes, spells, pets, talents, archetypes, boss, meta catalogue) are named constant groups: each cell is addressed as `TABLE.id.field` (e.g. `SPELL.ember_bolt.cost`) and is exported as data from src/. Values are starting values; the Simulation & Balance Engineer tunes them within the limits in balance.md.
@@ -535,7 +535,7 @@ Pets: chosen at creation, level = hunter level. Pet acts after the hunter each r
 | r_b6 | Shadowcraft 3 | Ambusher's Patience | 2 | first finisher each fight +20 % damage /rank |
 | r_b7 | Shadowcraft 4 | Shroudwalk | 2 | Vanishing Step -3 CD /rank and heals 5 % max HP /rank | (M2b v8: heal 10 -> 5 %)
 | r_b8 | Shadowcraft 4 | Night Instinct | 3 | +5 % damage /rank while in STEALTH and on the action right after leaving it |
-| r_b9 | Shadowcraft 5 | Death's Sidestep | 1 | passive, once per fight: when a hit would drop you below 20 % HP, take no damage from it, dispersal, gain STEALTH, heal 10 % max HP | (M2b v8: heal 20 -> 10 %)
+| r_b9 | Shadowcraft 5 | Death's Sidestep | 1 | passive, once per fight: when a hit would drop you below 20 % HP, take no damage from it, dispersal, gain STEALTH, heal 15 % max HP | (M2b v8: heal 20 -> 10 %; M2b v9: 10 -> 15 %)
 | r_c1 | Venomcraft 1 | Toxic Coating | 3 | Strike, Gutting Jab, Shadowstep Strike and Whirling Edges apply 1 POISON stack (4 rounds, max 5 stacks); tick per stack (0.5 + 0.15L + 0.04P) × rank |
 | r_c2 | Venomcraft 1 | Deep Wounds | 3 | Open Vein +9 % /rank | (M2 v2: 12 -> 9 %)
 | r_c3 | Venomcraft 2 | Lethal Mixture | 2 | POISON max stacks +2 /rank |
@@ -580,8 +580,8 @@ Pets: chosen at creation, level = hunter level. Pet acts after the hunter each r
 ### 6.3 Hunter
 | id | Tree / tier | Name | Ranks | Effect |
 |---|---|---|---|---|
-| h_a1 | Beastbond 1 | Thick Hide | 3 | pet max HP +10 % /rank | (M2b v8: 8 -> 10 %)
-| h_a2 | Beastbond 1 | Ferocity | 3 | pet damage +15.625 % /rank | (M2 v2: 6 -> 10 %; M2 v5: 10 -> 12.5 %; M2b v8: 12.5 -> 15.625 %, × 1.25)
+| h_a1 | Beastbond 1 | Thick Hide | 3 | pet max HP +11.5 % /rank | (M2b v8: 8 -> 10 %; M2b v9: 10 -> 11.5 %, × 1.15)
+| h_a2 | Beastbond 1 | Ferocity | 3 | pet damage +18 % /rank | (M2 v2: 6 -> 10 %; M2 v5: 10 -> 12.5 %; M2b v8: 12.5 -> 15.625 %, × 1.25; M2b v9: 15.625 -> 18 %, × 1.15)
 | h_a3 | Beastbond 2 | Bonded Spirit | 2 | Mend Companion also heals you for 30 % /rank of the amount |
 | h_a4 | Beastbond 2 | Frenzy Link | 2 | pet crit +0.05 /rank; each pet crit gives you 5 focus /rank |
 | h_a5 | Beastbond 3 | Unbreakable Bond | 2 | pet revives after fights at +0.25 /rank; pet takes -5 % damage /rank |
@@ -697,7 +697,7 @@ Each enemy has an archetype (table) plus up to 2 template abilities (12.4). Its 
 
 Normal enemy at level M: `HP = (ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL × M) × archetype × variant`, `dmg (100 %) = (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL × M) × archetype × variant` (× zone danger below, × ENGAGE_DMG_COMP for every template enemy: the price of the engage round, 7.10 (combat v2); not in the Rogue's fights except its dungeon-boss fights (D48, D49)), `armor = ENEMY_ARMOR_PER_LEVEL × M × archetype`. Variants: normal 1/1, dungeon trash DUNGEON_TRASH_HP_MULT/DUNGEON_TRASH_DMG_MULT, elite ELITE_HP_MULT/ELITE_DMG_MULT, rare RARE_HP_MULT/RARE_DMG_MULT, dungeon boss DUNGEON_BOSS_HP_MULT/DUNGEON_BOSS_DMG_MULT.
 
-Zone danger (M2 v3): every enemy made from an enemy template (normal, quest, grind, elite, rare, dungeon trash and boss, Camp waves, summoned adds) has its damage multiplied by `zd(M) = early(M) × (1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10)` (level 30 ×1.375, 40 ×1.75, 50 ×2.125, 60 ×2.5) (M2b v8: ZONE_DANGER_STEP 0.25 -> 0.375; were ×1.25, 1.5, 1.75, 2.0). Dungeon trash and dungeon bosses use `early(M) × (1 + DUNGEON_DANGER_FRAC × (zd0(M) - 1))` instead, zd0 being zd without the early factor (level 60 ×1.75; M2b v8, was ×1.5) (M2 v4). Early enemies: `early(M) = EARLY_DMG_MULT` if `M <= EARLY_DMG_MAX_LEVEL`, else 1, so every template enemy of level 20 or lower deals × 0.80; at level 21 the factor is 1 (a level-20 enemy's 100 % damage is (4 + 2.6 × 20) × 0.80 = 44.8, a level-21 enemy's (4 + 2.6 × 21) × 1.0375 = 60.8, before archetype, variant and ENGAGE_DMG_COMP) (M2b v8). HP, armor and XP are unchanged. The end boss and the Dimming Shards use their own constants (section 10) and are not affected. Purpose: same-level content stays about as threatening in zones 3-6 as in zone 2; the player's power growth (talents, ranks, rarity) otherwise outpaces the linear damage curve. (M2 v3)
+Zone danger (M2 v3): every enemy made from an enemy template (normal, quest, grind, elite, rare, dungeon trash and boss, Camp waves, summoned adds) has its damage multiplied by `zd(M) = early(M) × (1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10)` (level 30 ×1.45, 40 ×1.9, 50 ×2.35, 60 ×2.8) (M2b v8: ZONE_DANGER_STEP 0.25 -> 0.375; M2b v9: 0.375 -> 0.45, were ×1.375, 1.75, 2.125, 2.5). Dungeon trash and dungeon bosses use `early(M) × (1 + DUNGEON_DANGER_FRAC × (zd0(M) - 1))` instead, zd0 being zd without the early factor (level 60 ×1.9; M2b v8 ×1.75, M2b v9) (M2 v4). Early enemies: `early(M) = EARLY_DMG_MULT` if `M <= EARLY_DMG_MAX_LEVEL`, else 1, so every template enemy of level 20 or lower deals × 0.80; at level 21 the factor is 1 (a level-20 enemy's 100 % damage is (4 + 2.6 × 20) × 0.80 = 44.8, a level-21 enemy's (4 + 2.6 × 21) × 1.045 = 61.2, before archetype, variant and ENGAGE_DMG_COMP) (M2b v8; M2b v9: × 1.045). HP, armor and XP are unchanged. The end boss and the Dimming Shards use their own constants (section 10) and are not affected. Purpose: same-level content stays about as threatening in zones 3-6 as in zone 2; the player's power growth (talents, ranks, rarity) otherwise outpaces the linear damage curve. (M2 v3)
 
 Soft enrage (non-boss fights): from round FIGHT_SOFT_ENRAGE_ROUND, enemies deal +FIGHT_SOFT_ENRAGE_STEP more damage per round (additive). Prevents endless fights.
 
@@ -911,7 +911,7 @@ The channel shows "Collapse Litany 1/2" then "2/2 - resolves". Gravity Crush sho
 ### 11.1 Echoes (meta currency) per run
 | Line | Echoes |
 |---|---|
-| Per level gained (L - 1) | round(ECHO_PER_LEVEL × (L - 1)) | (M2 v3)
+| Per level gained (L - 1) | round(ECHO_PER_LEVEL × (L - 1)) (level 60: 59 Echoes) | (M2 v3; M2b v9: ECHO_PER_LEVEL 1.5 -> 1.0)
 | Per zone left by TRAVEL_ON | round(ECHO_PER_ZONE × zones left) | (M2 v3)
 | Per dungeon cleared | ECHO_PER_DUNGEON |
 | Per elite / rare killed | ECHO_PER_ELITE / ECHO_PER_RARE |
@@ -1185,7 +1185,7 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | ENEMY_DMG_BASE | 4 | damage |
 | ENEMY_DMG_PER_LEVEL | 2.6 | damage |
 | ZONE_DANGER_FROM | 20 | level | (M2 v3)
-| ZONE_DANGER_STEP | 0.375 | × per 10 levels above ZONE_DANGER_FROM | (M2 v3; M2b v8: was 0.25)
+| ZONE_DANGER_STEP | 0.45 | × per 10 levels above ZONE_DANGER_FROM | (M2 v3; M2b v8: was 0.25; M2b v9: was 0.375)
 | DUNGEON_DANGER_FRAC | 0.5 | share of the zone-danger bonus for dungeon trash and dungeon bosses | (M2 v4)
 | EARLY_DMG_MULT | 0.80 | × the damage of every template enemy of level <= EARLY_DMG_MAX_LEVEL (7.6) | (M2b v8)
 | EARLY_DMG_MAX_LEVEL | 20 | enemy level | (M2b v8)
@@ -1288,7 +1288,7 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | PULSE_EVERY | 3 | rounds |
 | BOSS_ENRAGE_ROUND | 57 | round | (M2 v4: was 55)
 | FINAL_DARK_DMG | 99999 | damage |
-| ECHO_PER_LEVEL | 1.5 | Echoes | (M2 v3)
+| ECHO_PER_LEVEL | 1.0 | Echoes | (M2 v3; M2b v9: was 1.5)
 | ECHO_PER_ZONE | 7.5 | Echoes | (M2 v3)
 | ECHO_PER_DUNGEON | 8 | Echoes |
 | ECHO_PER_ELITE | 3 | Echoes |
