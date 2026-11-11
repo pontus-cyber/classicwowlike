@@ -6,8 +6,8 @@ Updated by the Lead at the end of every session. One page; older detail goes in 
 M2 done 2026-11-10 (P1 45/45). Active: M2b, expedition map and combat v2 (docs/specs/expedition.md, docs/specs/combat-v2.md). M3 Hall of Echoes built early.
 
 ## Next tasks
-1. In progress: tuning v6 full measure (Sim, resumed after restart); v7 rename hours -> tolls (Engine + UI).
-2. Waiting on the owner: comments on the meta v2 proposal (docs/specs/meta-v2.md, draft).
+1. Done 12:00-13:50: v7 tolls in engine, UI and sim; tuning v8 in engine (945e460), game.html a9d5fec; v8 measured (report balance-2026-11-11c, P1 25 of 38 run). Next: v8 follow-up for B3 speedrunner PALL 19.2 %, B6 PALL spread 11.4, B7 Beastbond 0.57, B30 Echoes 276, B1 greedy 18.7; B11/B12/B53 belong to the expedition default.
+2. Waiting on the owner: free potion at the end boss (half strength is the default, D77), pet revive (v8 appendix A), comments on the meta v2 proposal (docs/specs/meta-v2.md, draft).
 3. Next: 2b.5 prep points and contracts (engine + content); fog map UI; 2b.4 fog-only bots; switch default map; UX open items 5, 6, 9, 10.
 
 ## Waiting on the owner
