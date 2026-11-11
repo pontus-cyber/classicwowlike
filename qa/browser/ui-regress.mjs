@@ -2054,11 +2054,12 @@ function jStacksMatch(d, s, target) {
   const bad = [];
   const want = (e) => ['EMPOWERED', 'STAGGERED'].map((id) => jStack(e, id)).filter(Boolean);
   // M2b v13: EMPOWERED's Deathblow share is its own badge ("Deathblow +100 % dmg"): per status, the badges' stacks and values
-  // add up to the engine's, each badge states its own share, and a Deathblow badge exactly when the engine has deathblows
+  // add up to the engine's, each badge states its own share, and a Deathblow badge exactly when EMPOWERED has deathblows (the
+  // engine counts them on STAGGERED too; an answered one is a plain Staggered badge)
   const same = (page, w) => w.length === new Set(page.map((p) => p.id)).size && w.every((x) => {
     const mine = page.filter((p) => p.id === x.id);
     return mine.length && mine.reduce((a, p) => a + p.stacks, 0) === x.stacks && Math.abs(mine.reduce((a, p) => a + p.value, 0) - x.value) < 1e-6
-      && mine.every((p) => p.text.includes(`${x.id === 'EMPOWERED' ? '+' : '−'}${jPct(p.value)} dmg`)) && mine.some((p) => p.part === 'deathblow') === (x.deathblows > 0);
+      && mine.every((p) => p.text.includes(`${x.id === 'EMPOWERED' ? '+' : '−'}${jPct(p.value)} dmg`)) && mine.some((p) => p.part === 'deathblow') === (x.id === 'EMPOWERED' && x.deathblows > 0);
   });
   for (const e of s.fight.enemies.filter((x) => x.alive)) {
     const np = d.np.find((x) => x.idx === e.idx); if (!np) continue;
