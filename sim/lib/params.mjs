@@ -303,11 +303,14 @@ Object.assign(SIM, {
  * Planner start camp by value per point (M2b v10 rows D1, D2; changes-m2b-v10.md): bot values of the supplies (value units
  * per option bought; draughts = qty × POTION_VALUE, ember = EMBER_VALUE, rations and mule from PREP_VALUE) and the
  * value of a second contract of a zone that already has one held. [assumption: designer starting values, calibrated by
- * the forced-option cells (cell 9).] SPYGLASS_USED 0: no bot has a USE_SPYGLASS policy, so the planner does not value the
+ * cell 9.] POTION_VALUE 45 -> 30 by the D2 rule (balance-2026-11-11f): planner P0 without Field Draughts won +3.7 pp
+ * (0.8 - 6.5, paired, 900 runs) against the start camp that bought them in every run; at 30 a pair is worth 60 per point,
+ * never above PREP_POINT_VALUE, which is the measured arm. The Ember's forced arm stayed inside its interval (keep 320).
+ * SPYGLASS_USED 0: no bot has a USE_SPYGLASS policy, so the planner does not value the
  * Spyglass (EST_SPYGLASS_GAIN applies once a policy uses it).
  */
 Object.assign(SIM, {
-  POTION_VALUE: 45,
+  POTION_VALUE: 30,
   EMBER_VALUE: 320,
   PREP_VALUE: { rations: 45, mule: 20 },
   PREP_SAME_ZONE_MULT: 0.6,

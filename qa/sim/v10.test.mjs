@@ -100,15 +100,15 @@ describe('C2: Dimmed encounter table by depth', () => {
 });
 
 describe('D1/D2: planner start camp by value per point', () => {
-  test('bot values: draughts 2 × 45, ember 320, rations 45, mule 20; per point 90 / 80 / 45 / 20 at today\'s prices', () => {
+  test('bot values: draughts 2 × 30 (D2 calibration, was 2 × 45), ember 320, rations 45, mule 20; per point 60 / 80 / 45 / 20', () => {
     assert.equal(supplyValue('prep_draughts'), C.PREP_OPTION.prep_draughts.qty * SIM.POTION_VALUE);
-    assert.equal(supplyValue('prep_draughts'), 90);
+    assert.equal(supplyValue('prep_draughts'), 60);
     assert.equal(supplyValue('prep_ember'), 320);
     assert.equal(supplyValue('prep_rations'), 45);
     assert.equal(supplyValue('prep_mule'), 20);
     assert.equal(supplyValue('prep_bell'), null);
     const per = (id) => supplyValue(id) / C.PREP_OPTION[id].price;
-    assert.deepEqual([per('prep_draughts'), per('prep_ember'), per('prep_rations'), per('prep_mule')], [90, 80, 45, 20]);
+    assert.deepEqual([per('prep_draughts'), per('prep_ember'), per('prep_rations'), per('prep_mule')], [60, 80, 45, 20]);
     assert.deepEqual(EXP.EST_COMPLETE, { cull: 0.55, bounty: 0.45, delve: 0.35 });
     assert.equal(SIM.PREP_SAME_ZONE_MULT, 0.6);
   });
@@ -127,13 +127,14 @@ describe('D1/D2: planner start camp by value per point', () => {
           const o = pv.board.find((x) => x.index === a.index);
           if (pv.board.some((x) => x.taken && x.z === o.z)) {
             seconds++;
-            const v = (estComplete(risk, o.kind, false, o.z) * offerValue(makeCtx(s, risk), o) * SIM.PREP_SAME_ZONE_MULT) / o.price;
+            const t = pv.options.find((x) => x.id === 'prep_tracker');
+            const v = (estComplete(risk, o.kind, !!(t && (t.owned || t.bought)), o.z) * offerValue(makeCtx(s, risk), o) * SIM.PREP_SAME_ZONE_MULT) / o.price;
             assert.ok(v > SIM.PREP_POINT_VALUE, `second contract of zone ${o.z} at ${v.toFixed(1)} per point`);
           }
         }
         if (a.type === 'BUY_PREP' && a.id === 'prep_draughts') draughts++;
         if (a.type === 'SET_OUT') {
-          // Nothing worth more than PREP_POINT_VALUE per point is left to buy: draughts (90) and the Ember (80).
+          // Nothing worth more than PREP_POINT_VALUE per point is left to buy (the Ember, 80 per point).
           for (const o of R.prepView(s).options) {
             const v = supplyValue(o.id);
             if (v !== null && v / o.price > SIM.PREP_POINT_VALUE) assert.ok(!o.canBuy, `${cls} ${seed}: set out with ${o.id} affordable`);
@@ -143,7 +144,7 @@ describe('D1/D2: planner start camp by value per point', () => {
       }
       assert.notEqual(s.phase, 'PREP', `${cls} ${seed}: the camp ends`);
     }
-    assert.ok(draughts >= 4, `Field Draughts (90 per point) bought in most runs (${draughts} of 6)`);
+    assert.equal(draughts, 0, 'Field Draughts (60 per point, not above PREP_POINT_VALUE) are never bought');
     assert.ok(seconds >= 0);
   });
 
