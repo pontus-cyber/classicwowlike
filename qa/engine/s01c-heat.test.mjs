@@ -104,7 +104,7 @@ describe('rules 1.7.2 heat states', () => {
       }
     }
     assert.deepEqual(C.HEAT_GAIN, { clear: 0, warm: 0, hot: 0.35, scorched: 0.5 });
-    assert.deepEqual(C.HEAT_RARITY_UP, { clear: 0, warm: 0, hot: 0.25, scorched: 0.4 });
+    assert.deepEqual(C.HEAT_RARITY_UP, { clear: 0, warm: 0, hot: 0.5, scorched: 0.7 }); // M2b v6 (D62): was 0.25 / 0.40
     assert.equal(hotter('warm', null), 'warm');
     assert.equal(hotter('clear', 'hot'), 'hot');
     assert.equal(hotter('scorched', 'warm'), 'scorched');
@@ -399,6 +399,8 @@ describe('rules 8.4 the heat step on drops', () => {
       }
     }
     assert.ok(Math.abs(ups / n - C.HEAT_RARITY_UP.hot) < 0.04, `step share ${ups / n}`);
+    // M2b v6 (D62): about 1 in 2 items rolled in a Hot node and 7 in 10 in a Scorched one go one rarity up
+    assert.ok(Math.abs(ups / n - 0.5) < 0.04, `Hot step share ${ups / n}, spec 0.50`);
     // With Cache of the Wanderer and Relics of the Deep the unique draw is made for every elite, rare, treasure and
     // dungeon boss drop, whatever the rarity: the draws still match across states (a stepped-up rare may become the unique).
     const uq = { ...R.newProfile(), unlocks: { cache: 1, relics: 1 } };

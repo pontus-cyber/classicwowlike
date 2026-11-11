@@ -499,7 +499,7 @@ computes everything the meter shows, so the UI never re-implements the line, the
 - `node`: inside a node, `{ state, gain, rarityUp }` of the state the node was entered in, which is what it pays (it
   can differ from `state` once the node's hours are spent); null elsewhere (map, hub, Camp, boss, Dimmed encounter).
 - `gain`, `rarityUp`: `C.HEAT_GAIN[state]` and `C.HEAT_RARITY_UP[state]`, the rewards of the state (rules 1.7.3):
-  "+35 % XP and gold, 1 in 4 drops a rarity up".
+  "+35 % XP and gold, 1 in 2 drops a rarity up" (Hot; Scorched "+50 % XP and gold, 7 in 10 drops a rarity up", M2b v6).
 - `bar`: `min` = HEAT_BAR_MIN, `max` = HEAT_BAR_MAX, `marker` = heat clamped to the bar, `beyond` = -1 / 1 when the
   heat is off the bar (draw the arrow), else 0. The line is the mark at heat 0.
 - `next`: the legal choices of the current phase that cost hours, each with its preview: map moves (rows:

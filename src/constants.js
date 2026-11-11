@@ -453,8 +453,8 @@ export const HEAT_DIM_WARM_H = 4;
 export const HEAT_DIM_HOT_H = 2;
 /** rules 1.7.3: extra XP and gold of a node by the state it was entered in (× (1 + this)). */
 export const HEAT_GAIN = { clear: 0, warm: 0, hot: 0.35, scorched: 0.50 };
-/** rules 8.4: chance per item rolled in a node that its rarity is one step higher, by the node's entry state. */
-export const HEAT_RARITY_UP = { clear: 0, warm: 0, hot: 0.25, scorched: 0.40 };
+/** rules 8.4: chance per item rolled in a node that its rarity is one step higher, by the node's entry state (M2b v6, D62: hot 0.25 -> 0.50, scorched 0.40 -> 0.70). */
+export const HEAT_RARITY_UP = { clear: 0, warm: 0, hot: 0.50, scorched: 0.70 };
 /** rules 11.1: Echoes per fight won in a node entered Hot or Scorched. */
 export const ECHO_PER_HEAT_FIGHT = 1;
 /** expedition.md H.4: hours of heat shown on the meter, left and right end. */
