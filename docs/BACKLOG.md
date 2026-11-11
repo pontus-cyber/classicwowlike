@@ -5,6 +5,8 @@ Owner ideas and team proposals not yet scheduled. The Lead places each item into
 | Date | Item | Source | Placed in | Status |
 |---|---|---|---|---|
 | 2026-11-10 | Combat v2.1 display | UI hand-off 2026-11-10g | M2b 2b.6 | done (a105328) |
+| 2026-11-11 | HUD/UX readability pass: easier to follow along; first-time-player review of every combat and map screen | Owner 08:31 | after DoT preview | todo |
+| 2026-11-11 | Bug: run summary "Killed by" shows a raw ability id (Ab Z3 King Aldrec Heavy Blow): ability without display name | Owner screenshot 08:31 | with DoT task | todo |
 | 2026-11-11 | Talent tooltip shows the current total (e.g. "Now: +30 %") and the next rank's total | Owner 08:14 | with the DoT-preview task | todo |
 | 2026-11-11 | DoT preview: marked segment on enemy HP bars for damage that pending DoT ticks will deal, lethal marker when they kill (also for the player and pet) | Owner 08:11 | next engine+UI task after Dev menu | todo |
 | 2026-11-11 | Packed Satchel also makes the first potion each fight free (no turn spent), once per fight (owner agreed 08:04); designer + sim check vs meta targets | Owner 08:04 | 2b.7 (meta) | todo |
