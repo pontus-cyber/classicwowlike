@@ -56,8 +56,10 @@ describe('M2b v11 sim rows', () => {
   });
 
   test('row 8 arm: the Beastcall Horn cooldown is the gated value in an armed run and the default otherwise', () => {
+    // M2b v12 (D100) removed the gated switch (BEASTCALL_HORN_CD_GATED): an armed run then keeps BEASTCALL_HORN_CD, and
+    // run.mjs refuses --beastcall-gated.
     runWithBot({ bot: 'planner', cls: 'hunter', prof: 'all', tree: 0, beastcallGated: true }, 1000, null, { maxActions: 50 });
-    assert.equal(C.SPELL.beastcall_horn.cd, C.BEASTCALL_HORN_CD_GATED);
+    assert.equal(C.SPELL.beastcall_horn.cd, C.BEASTCALL_HORN_CD_GATED ?? C.BEASTCALL_HORN_CD);
     runWithBot({ bot: 'planner', cls: 'hunter', prof: 'all', tree: 0 }, 1000, null, { maxActions: 50 });
     assert.equal(C.SPELL.beastcall_horn.cd, C.BEASTCALL_HORN_CD);
   });
