@@ -985,7 +985,7 @@ Each Oath adds +OATH_ECHO_BONUS Echoes: Oath of Haste (BOSS_TIME_PAR - OATH_HAST
 | Zone (name, 1-line theme, hub name) | 1 | 6 |
 | Normal enemy templates | 6-9 | 36-54 |
 | Elite templates | 2-3 | 12-18 |
-| Rare elite templates | 1-2 | 6-12 |
+| Rare elite templates | 1-3 | 6-18 | (M2b: one rare per contract family, Bounties)
 | Dungeon (name, 3-5 trash templates, 1 boss) | 1 | 6 |
 | Quest templates (title, giver, text) | 8-12 | 48-72 |
 | Item base names per slot per zone band | >= 3 | >= 180 |

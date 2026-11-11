@@ -1,8 +1,8 @@
 // Content access and validation (src/content/SCHEMA.md, rules 12; expedition fields: zone regions and Road names,
-// template families, the texts.expedition group, D51).
+// template families, the texts.expedition group, D51; texts.families, texts.prep, texts.contracts, 2b.5).
 import {
   ZONE_COUNT, CONTENT_RANGE as CR, ARCHETYPE, ABILITY_TEMPLATE, SLOT_IDS, CLASS_IDS, SPELL, TALENT, PET,
-  BOON, CONSUMABLE, ENGINE_ASSUMPTION as EA, REGION_COUNT, REGION_W, ROAD_COUNT, EXPEDITION_TEXT_IDS,
+  BOON, CONSUMABLE, ENGINE_ASSUMPTION as EA, REGION_COUNT, REGION_W, ROAD_COUNT, EXPEDITION_TEXT_IDS, PREP_OPTION,
 } from '../constants.js';
 
 export const SUFFIX_KEYS = ['AGI', 'INT', 'STA', 'AGI_STA', 'AGI_SPI', 'INT_STA', 'INT_SPI', 'AGI_STA_SPI', 'INT_STA_SPI'];
@@ -251,7 +251,27 @@ export function validateContent(content, { strict = false } = {}) {
   // Optional texts (D51: the expedition group, ids EXPEDITION_TEXT_IDS)
   const expeditionIds = Object.fromEntries(EXPEDITION_TEXT_IDS.map((id) => [id, true]));
   const known = { spells: SPELL, talents: TALENT, pets: PET, boons: BOON, consumables: CONSUMABLE, expedition: expeditionIds };
+  // Expedition contract and prep texts (2b.5): object-shaped entries.
+  const famIds = {};
+  for (const z of content.zones || []) {
+    for (const k of ['normals', 'elites', 'rares', 'dungeonTrash']) for (const t of z[k] || []) if (t.family) famIds[t.family] = true;
+    for (const r of z.regions || []) for (const f of r.families || []) famIds[f] = true;
+  }
+  const shaped = {
+    families: [famIds, ['singular', 'plural']],
+    prep: [PREP_OPTION, ['name', 'flavour', 'rule']],
+    contracts: [{ cull: 1, bounty: 1, delve: 1, hub: 1 }, null],
+  };
   for (const [group, map] of Object.entries(content.texts || {})) {
+    if (shaped[group]) {
+      const [ids, fields] = shaped[group];
+      for (const [id, t] of Object.entries(map || {})) {
+        if (!ids[id]) e(`texts.${group}.${id}: unknown id`);
+        if (fields) for (const f of fields) str(t && t[f], CR.len.flavour, `texts.${group}.${id}.${f}`);
+        else str(t, CR.len.flavour * 2, `texts.${group}.${id}`);
+      }
+      continue;
+    }
     if (!known[group]) { e(`texts.${group}: unknown group`); continue; }
     for (const [id, t] of Object.entries(map || {})) {
       if (!known[group][id]) e(`texts.${group}.${id}: unknown id`);

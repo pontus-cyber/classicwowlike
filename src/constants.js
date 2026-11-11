@@ -1065,7 +1065,7 @@ export const ABILITY_TEMPLATE = {
 /** Content ranges (rules 12.1-12.5), used by validateContent. */
 export const CONTENT_RANGE = {
   zones: ZONE_COUNT,
-  normals: [6, 9], elites: [2, 3], rares: [1, 2], dungeonTrash: [3, 5], quests: [8, 12],
+  normals: [6, 9], elites: [2, 3], rares: [1, 3], dungeonTrash: [3, 5], quests: [8, 12],
   itemNamesPerSlot: 3, affixWordsPerKey: 2, shrineLines: 2, treasureLines: 2, junkNames: 3,
   uniqueRares: 6, uniqueEpics: 6, uniqueWeapons: 3,
   hpMult: [0.85, 1.20], dmgMult: [0.85, 1.20], hpDmgProduct: [0.90, 1.15],
