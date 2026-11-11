@@ -174,12 +174,14 @@ export const SIM = {
   /** Default talent tree per class and profile group (balance.md 1.3, M2 v5, D43): the incumbents of the switch rule
    *  (sim/lib/trees.mjs). A pass keeps the incumbent unless another tree's planner win rate beats it by more than
    *  TREE_SWITCH_Z standard errors of the difference; a switch is recorded here in the same commit as the report.
-   *  P0 group (P0 and P10 cells, campaigns, P0 route styles and pets, the B5 tactician): Shadowcraft, Arcanism,
-   *  Wildcraft since the 2026-11-11b pass (switch rule: rogue Shadowcraft 43.5 % against Venomcraft 37.6 %, hunter
+   *  P0 group (P0 and P10 cells, campaigns, P0 route styles and pets, the B5 tactician): Venomcraft, Rimecraft,
+   *  Wildcraft since the 2026-11-11c measure on the M2b v8 engine (rogue Venomcraft 36.3 % against Shadowcraft 28.5 %, mage
+   *  Rimecraft 33.5 % against Arcanism 27.0 %, 1 000 runs each; docs/reports/balance-2026-11-11c.md); Shadowcraft, Arcanism,
+   *  Wildcraft from the 2026-11-11b pass (switch rule: rogue Shadowcraft 43.5 % against Venomcraft 37.6 %, hunter
    *  Wildcraft 44.6 % against Marksmanship 36.6 %, 2 000 runs each; docs/reports/balance-2026-11-11b.md); before:
    *  Venomcraft, Arcanism, Marksmanship. PALL group (every PALL cell): Shadowcraft, Arcanism, Beastbond (kept in
    *  2026-11-11b) [source: changes-m2-v5.md row 1]. */
-  DEFAULT_TREE: { rogue: 1, mage: 2, hunter: 2 },
+  DEFAULT_TREE: { rogue: 2, mage: 1, hunter: 2 },
   DEFAULT_TREE_PALL: { rogue: 1, mage: 2, hunter: 0 },
   /** Batch: runs per worker task (a block of SIM_RISK_REFRESH runs is split into tasks of this size). */
   TASK_RUNS: 25,

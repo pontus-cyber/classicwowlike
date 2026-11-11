@@ -15,8 +15,8 @@ const cells = (wins, n = 2000, boss = [0.5, 0.5, 0.5]) => wins.map((p, t) => ({ 
 describe('default tree per profile group (balance.md 1.3, M2 v5)', () => {
   test('TREE_SWITCH_Z and the recorded incumbents', () => {
     assert.equal(BAL.TREE_SWITCH_Z, 1.96);
-    // P0 group switched in the 2026-11-11b pass (rogue Shadowcraft, hunter Wildcraft; docs/reports/balance-2026-11-11b.md).
-    assert.deepEqual(SIM.DEFAULT_TREE, { rogue: 1, mage: 2, hunter: 2 });
+    // P0 group: switched in 2026-11-11b (Shadowcraft, Wildcraft), again in 2026-11-11c on the M2b v8 engine (Venomcraft, Rimecraft).
+    assert.deepEqual(SIM.DEFAULT_TREE, { rogue: 2, mage: 1, hunter: 2 });
     assert.deepEqual(SIM.DEFAULT_TREE_PALL, { rogue: 1, mage: 2, hunter: 0 });
     assert.deepEqual(defaultTrees('P0'), SIM.DEFAULT_TREE);
     assert.deepEqual(defaultTrees('PALL'), SIM.DEFAULT_TREE_PALL);
