@@ -6,15 +6,14 @@ Updated by the Lead at the end of every session. One page; older detail goes in 
 M2 done 2026-11-10 (P1 45/45). Active: M2b, expedition map and combat v2 (docs/specs/expedition.md, docs/specs/combat-v2.md). M3 Hall of Echoes built early.
 
 ## Next tasks
-1. In progress: combat v2.1 1,000-run measure and tuning of EMPOWER/STAGGER (Sim); combat v2.1 display (UI).
-2. Next: 2b.4 fog-only bots and B39-B47; 2b.5 prep points, contracts, hub contract (engine + content); prep screen and fog map UI; switch the default map to expedition.
-3. Then: fold specs (2b.7), QA pass (2b.8), owner playtest (2b.9).
+1. In progress: tuning pass v6 (designer: heat ASC_PER_STEP, PLANNER_HOUR_MULT 3, SAP_TURNS 4, free first potion, end boss); DoT preview, talent totals, class hints, potion hint, ability-name bug (engineer + UI).
+2. Next: HUD/UX readability pass; 2b.5 prep points and contracts; fog map UI; 2b.4 fog-only bots; switch default map to expedition.
 
 ## Waiting on the owner
 Nothing blocking. See docs/OWNER.md.
 
 ## Build
-game.html at f247570 (combat v2.1 + heat meter). Sent to the owner 2026-11-10 17:50. 117/117 UI regression checks at 1366x768, 0 console errors; suites 305/56/3/65 pass.
+game.html at 7958aee (combat v2.1, heat meter, Dev menu). Sent to the owner 2026-11-11 08:53. 322/322 UI regression checks at both sizes.
 
 ## Session log
 | Session | Date | Tasks | Agents (model/effort) | Tokens |
@@ -35,3 +34,4 @@ game.html at f247570 (combat v2.1 + heat meter). Sent to the owner 2026-11-10 17
 | 14 | 2026-11-10 09:56-11:50 | M2 v5 built and measured, M2 closed (P1 45/45); expedition and combat-v2 specs; M2b started; combat feel UI done, build sent | Designer x3 (Opus/high), Engineer, Sim, UI (Opus/max) | about 2.6M |
 | 15 | 2026-11-10 11:50-17:50 | Combat v2 engine, Rogue fixes D48-D49, content, combat v2 UI, heat design+engine+UI, combat v2.1 design+engine, expedition map engine, regions; daily report | Engineer, Sim, UI (Opus/max); designers (Opus/high); content (Sonnet/medium) | about 6.3M |
 | 16 | 2026-11-10 20:47 | Restart recovery (server stopped agents about 18:37): sim resumed; UI restarted fresh on the uncommitted work; three non-original names replaced (lore chat finding) | Sim, UI (Opus/max), Content (Sonnet/medium) | pending |
+| 17 | 2026-11-11 07:41-08:53 | Owner playtests (Rogue x5); Dev menu built; heat value in bots (ASC step finding); tuning pass v6 and DoT/hints task started | Engineer x2, Sim (Opus/max), Designer (Opus/high) | about 1.4M |
