@@ -5,6 +5,7 @@ Owner ideas and team proposals not yet scheduled. The Lead places each item into
 | Date | Item | Source | Placed in | Status |
 |---|---|---|---|---|
 | 2026-11-10 | Combat v2.1 display | UI hand-off 2026-11-10g | M2b 2b.6 | done (a105328) |
+| 2026-11-11 | DoT preview: marked segment on enemy HP bars for damage that pending DoT ticks will deal, lethal marker when they kill (also for the player and pet) | Owner 08:11 | next engine+UI task after Dev menu | todo |
 | 2026-11-11 | Packed Satchel also makes the first potion each fight free (no turn spent), once per fight (owner agreed 08:04); designer + sim check vs meta targets | Owner 08:04 | 2b.7 (meta) | todo |
 | 2026-11-11 | Rogue: Sap exists (W in the engage round) but was not found; first-fight hint per class for the engage panel; measure SAP_TURNS 4 and Rogue zone 1-2 deaths; low-HP potion hint | Owner playtest 08:03 | 2b.6 UI hint + 2b.7 tuning | todo |
 | 2026-11-11 | In-game dev tools menu: jump to zone/level/boss, gear, gold, potions, Echoes, heat hours, reveal map, specific encounters | Owner 07:41 | now | doing |
