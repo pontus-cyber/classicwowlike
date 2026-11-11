@@ -4,7 +4,7 @@
  *
  * Same choices as the browser run (qa/browser/full-run.mjs): manual combat decisions in zone 1, the
  * game's autoplay in combat after that, the player's own choices out of combat everywhere. Prints one
- * line per run and a summary of what the playtest notes use (death places, levels and hours per zone,
+ * line per run and a summary of what the playtest notes use (death places, levels and tolls per zone,
  * empty decisions). With --trace it prints the run as a readable log (one line per decision).
  *
  *   node qa/browser/playtest.mjs [--classes rogue,mage,hunter] [--seeds 1-20] [--trace] [--json out.json]
@@ -33,7 +33,7 @@ export function playRun({ classId, petId = 'ridgewolf', seed, name = 'Qa', manua
     firstNewSpellLevel: null, barAtZ1End: null, hubTrainer: { visits: 0, short: 0 }, fatalFight: null,
   };
   let fightStart = null;
-  let zoneStart = { z: 1, hours: 0, level: 1 };
+  let zoneStart = { z: 1, time: 0, level: 1 };
   let autoplayOn = false;
   let n = 0;
   while (s.phase !== 'SUMMARY' && s.phase !== 'ENDED' && n++ < MAX) {
@@ -80,8 +80,8 @@ export function playRun({ classId, petId = 'ridgewolf', seed, name = 'Qa', manua
       if (e.t === 'interrupt') rec.interrupts++;
       if (e.t === 'victory' && s.player.hp < 0.2 * s.player.d.maxHp) rec.closeCalls++;
       if (e.t === 'travel' || e.t === 'camp') {
-        rec.zones.push({ z: zoneStart.z, hours: before.hours + (C.HOURS_TRAVEL) - zoneStart.hours, levelIn: zoneStart.level, levelOut: before.player.level, row: before.zone.pos.r, quests: before.zone.questsDone });
-        zoneStart = { z: zoneStart.z + 1, hours: s.hours, level: s.player.level };
+        rec.zones.push({ z: zoneStart.z, time: before.time + (C.TIME_TRAVEL) - zoneStart.time, levelIn: zoneStart.level, levelOut: before.player.level, row: before.zone.pos.r, quests: before.zone.questsDone });
+        zoneStart = { z: zoneStart.z + 1, time: s.time, level: s.player.level };
       }
     }
     if (log) log(describe(before, a, r));
@@ -89,7 +89,7 @@ export function playRun({ classId, petId = 'ridgewolf', seed, name = 'Qa', manua
   const sm = R.summary(s);
   rec.outcome = s.outcome;
   rec.level = s.player.level;
-  rec.hours = s.hours;
+  rec.time = s.time;
   rec.minutes = sm.minutes;
   rec.reached = sm.reached;
   rec.summary = sm;
@@ -110,7 +110,7 @@ function describe(s, a, r) {
   else if (a.type === 'CAST') what = `CAST ${a.spellId} -> ${a.target}`;
   else if (a.spellId || a.itemId || a.index != null || a.service || a.n != null) what = `${a.type} ${a.spellId || a.itemId || a.service || a.index || a.n}`;
   const ev = r.events.filter((e) => ['levelUp', 'death', 'victory', 'questComplete', 'story', 'dungeonClear', 'resurrect'].includes(e.t)).map((e) => e.t + (e.level ? e.level : '')).join(',');
-  return `${where.padEnd(10)} L${String(p.level).padEnd(2)} hp ${hp.padEnd(9)} h${String(s.hours).padEnd(4)} ${what}${ev ? '  [' + ev + ']' : ''}`;
+  return `${where.padEnd(10)} L${String(p.level).padEnd(2)} hp ${hp.padEnd(9)} h${String(s.time).padEnd(4)} ${what}${ev ? '  [' + ev + ']' : ''}`;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -121,9 +121,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       const rec = playRun({ classId, seed, log: TRACE ? (l) => lines.push(l) : null });
       if (TRACE) console.log(lines.join('\n'));
       const d = rec.deaths;
-      console.log(`${classId.padEnd(6)} seed ${String(seed).padEnd(4)} ${String(rec.outcome).padEnd(8)} L${rec.level} ${rec.hours} h ~${Math.round(rec.minutes.manual)} min manual` +
+      console.log(`${classId.padEnd(6)} seed ${String(seed).padEnd(4)} ${String(rec.outcome).padEnd(8)} L${rec.level} ${rec.time} h ~${Math.round(rec.minutes.manual)} min manual` +
         `${d ? `  died Z${d.camp ? 'camp' : d.zone} r${d.row} ${d.node} round ${d.round} by ${d.killer ? d.killer.name + ' (' + d.killer.ability + ')' : '?'}` : ''}` +
-        `  zones ${rec.zones.map((z) => `Z${z.z}:L${z.levelOut}/${z.hours}h/r${z.row}`).join(' ')}`);
+        `  zones ${rec.zones.map((z) => `Z${z.z}:L${z.levelOut}/${z.time}h/r${z.row}`).join(' ')}`);
       delete rec.finalState;
       all.push(rec);
     }
@@ -142,7 +142,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const tv = rs.reduce((n, r) => n + r.hubTrainer.visits, 0);
     const ts = rs.reduce((n, r) => n + r.hubTrainer.short, 0);
     const nodes = rs.reduce((m, r) => { for (const [k, v] of Object.entries(r.nodeTypes)) m[k] = (m[k] || 0) + v; return m; }, {});
-    console.log(`${c}: boss ${boss.length}/${rs.length}; boss runs: median ${med(boss.map((r) => r.summary.rounds))} rounds, ${med(boss.map((r) => r.hours))} h, ~${Math.round(med(boss.map((r) => r.minutes.manual)) || 0)} min manual, ~${Math.round(med(boss.map((r) => r.minutes.autoplay)) || 0)} min autoplay`);
+    console.log(`${c}: boss ${boss.length}/${rs.length}; boss runs: median ${med(boss.map((r) => r.summary.rounds))} rounds, ${med(boss.map((r) => r.time))} h, ~${Math.round(med(boss.map((r) => r.minutes.manual)) || 0)} min manual, ~${Math.round(med(boss.map((r) => r.minutes.autoplay)) || 0)} min autoplay`);
     console.log(`   level when leaving zones 1-6: ${lv.join(', ')}; first spell above level 1 learned at level ${med(rs.map((r) => r.firstNewSpellLevel))}; spells on the bar leaving zone 1: ${med(rs.map((r) => r.barAtZ1End))}`);
     console.log(`   trainer visits where gold could not pay for everything: ${ts}/${tv}; elites entered ${nodes.elite || 0}, dungeons ${nodes.dungeon || 0}, trainer nodes ${nodes.trainer || 0}`);
   }

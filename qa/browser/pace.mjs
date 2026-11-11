@@ -43,7 +43,7 @@ for (let i = 0; i < 400 && times.length < ROUNDS; i++) {
     continue;
   }
   if (s.step === 'intro') {
-    const g = page.getByRole('button', { name: '3 waves · 3 h' });
+    const g = page.getByRole('button', { name: '3 waves · 3 tolls' });
     if (await g.count()) await g.click(); else await page.locator('#screens .dialog .btn.primary').click();
     await idle(); continue;
   }

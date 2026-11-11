@@ -23,7 +23,7 @@ import { tip, spellTip, basicTip, itemTip, statusTip } from './tooltip.js';
 import { settings } from './settings.js';
 import { linkedText, resurrectText, dangerRule, HEAT_WORDS, tolls } from './ui-text.js';
 import { trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createRuler, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind } from './tracks.js';
-import { createHeatMeter, standText, bossText, fmtH, lineShown } from './heat.js';
+import { createHeatMeter, standText, bossText, fmtTime, lineShown } from './heat.js';
 
 const RES_NAME = { energy: 'Energy', mana: 'Mana', focus: 'Focus' };
 /** Combat v2.1: the wind-up stacks, drawn as large badges (stackBadges) instead of small status icons. */
@@ -294,7 +294,7 @@ export function createHud(root, ctx) {
     const hv = v.heat; const par = hv ? hv.par : v.par;
     return h('div', h('div.tt-name', v.zone.name), h('div.tt-sub', `Levels ${v.zone.band[0]}–${v.zone.band[1]}`),
       hv ? h('div.tt-line', `${HEAT_WORDS.Name}: ${standText(hv)} (the Star's line: ${lineShown(hv.line)}) · ${bossText(hv.ascIfPar)}`) : null,
-      h('div.tt-line.desc', `Oruvath grows stronger for every ${tolls(R.ascStepHours)} past ${fmtH(par)} (Ascendancy).`),
+      h('div.tt-line.desc', `Oruvath grows stronger for every ${tolls(R.ascStepTime)} past ${fmtTime(par)} (Ascendancy).`),
       danger ? h('div.tt-warn.danger', danger) : null, h('div.tt-hint', 'Click or press M for the zone map'));
   });
   tip(els.resc, () => { const v = ctx.view; return v.player ? resurrectTip(v) : null; });
@@ -673,7 +673,7 @@ export function createHud(root, ctx) {
       else if (p.level >= t.need) lines.push(['d', `Level ${t.need}: you may travel on early (exit level ${t.exit})`]);
       else lines.push(['l', `Travel on at level ${t.need} (or after row ${t.rows})`]);
       lines.push(['l', `Row ${z.pos.row} of ${t.rows}`]);
-    } else if (z) { lines.push(['h', z.name]); lines.push(['l', `${HEAT_WORDS.Units}: ${fmtH(v.hours)} (par ${fmtH(v.heat ? v.heat.par : v.par)})`]); } // heatView's par, as the meter
+    } else if (z) { lines.push(['h', z.name]); lines.push(['l', `${HEAT_WORDS.Units}: ${fmtTime(v.time)} (par ${fmtTime(v.heat ? v.heat.par : v.par)})`]); } // heatView's par, as the meter
     const key = JSON.stringify(lines) + nNode;
     if (els.tracker.dataset.key === key) return;
     els.tracker.dataset.key = key; clear(els.tracker);

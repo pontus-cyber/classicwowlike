@@ -168,7 +168,7 @@ async function run(W, H, tag) {
   }
   // boss
   await page.evaluate(() => window.__ui.settings.set('speed', 2));
-  await page.evaluate(() => window.__ui.act({ type: 'DEBUG_JUMP', to: 'camp', level: 60, gear: true, hours: 136 }));
+  await page.evaluate(() => window.__ui.act({ type: 'DEBUG_JUMP', to: 'camp', level: 60, gear: true, time: 136 }));
   await idle(); await sleep(400);
   await shot('17-camp');
   await clickText('button', 'Face Oruvath'); await sleep(1600);

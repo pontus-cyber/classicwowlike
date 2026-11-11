@@ -10,7 +10,7 @@
 //
 // View shape consumed by the UI:
 //   phase: 'CREATE' | 'ZONE_HUB' | 'MAP' | 'NODE' | 'CAMP' | 'BOSS' | 'SUMMARY'      (rules.md 1.1)
-//   hours, autoplay, seed, mode ('engine' | 'mock')
+//   time (the run's tolls, whole; R state.time, M2b v7), autoplay, seed, mode ('engine' | 'mock')
 //   create:  { classId, petId, name, seed }
 //   player:  { name, classId, className, petId, level, xp, xpToNext, rested, hp, maxHp,
 //              res: { kind: 'energy'|'mana'|'focus', cur, max }, cp, cpMax, gold (copper),
@@ -24,8 +24,8 @@
 //              resurrect: what a death would use now, in order ('boon' | 'meta' (Second Breath) | 'ember'; R.resurrectCharges);
 //              resurrectBoss: the same in the end-boss fight; resurrectHeld (engine only): the charges held
 //   zone:    { idx, id, camp, name, hubName, hubText, theme, band, exitLevel, travelLevel, blurb, rows: node[rows][lanes], pos: { row, lane }, path,
-//              questsDone, storyDone, travelHours }   rows and lanes: as many as the engine's map has (mapView); travelLevel: the level
-//              from which TRAVEL_ON is legal before the last row (rules 1.5, R.travelLevel); travelHours: what TRAVEL_ON
+//              questsDone, storyDone, travelTime }   rows and lanes: as many as the engine's map has (mapView); travelLevel: the level
+//              from which TRAVEL_ON is legal before the last row (rules 1.5, R.travelLevel); travelTime: the tolls TRAVEL_ON
 //              costs now (a dry step; null while it is not legal)
 //   hub:     { used: { trainer, vendor, inn } }
 //   node:    { type, step, cl, row, lane, ... }  step: intro|combat|reward|story|between|chest|rest|vendor|trainer|shrine
@@ -42,7 +42,7 @@
 //   data.rules: rule numbers that screens show in text, read from the engine's constants (rulesTable below)
 //   loot:    { kind: 'loot'|'reward'|'story', title, text?, gold, xp, items?, choices? }
 //   summary: run summary (rules.md 9)
-//   par:     the run's boss par in hours (R.bossPar: BOSS_TIME_PAR, shorter under the Oath of Haste); mock: its own
+//   par:     the run's boss par in tolls (R.bossPar: BOSS_TIME_PAR, shorter under the Oath of Haste); mock: its own
 //   camp:    { par, asc } at the camp (asc: the engine's Ascendancy if the boss were faced now), else null
 //   zone.danger, node.danger { lo, hi }: zone danger (rules 7.6) from R.zoneDanger; the zone's at its highest level
 //   legal:   { lanes, travelOn, mustTravel, outOfCombat, spells: { id: { ok, reason, cd, window } }, items: [{ ok, reason, count, cd, free }],
@@ -94,8 +94,8 @@ function rulesTable(K) {
   return {
     zoneCount: K.ZONE_COUNT, maxLevel: K.MAX_LEVEL, storyQuests: K.STORY_QUESTS, dungeonTrashFights: K.DUNGEON_TRASH_FIGHTS,
     grindMaxWaves: K.GRIND_MAX_WAVES, grindWaveSize: K.GRIND_WAVE_SIZE, eliteLevelOffset: K.ELITE_LEVEL_OFFSET,
-    campGrindLevel: K.CAMP_GRIND_LEVEL, ascStepHours: K.ASC_STEP_HOURS, cpMax: K.CP_MAX, potionCd: K.POTION_CD,
-    hours: { trainer: K.HOURS_TRAINER, vendor: K.HOURS_VENDOR, inn: K.HOURS_REST, travel: K.HOURS_TRAVEL, grindWave: K.HOURS_GRIND_WAVE },
+    campGrindLevel: K.CAMP_GRIND_LEVEL, ascStepTime: K.ASC_STEP_TIME, cpMax: K.CP_MAX, potionCd: K.POTION_CD,
+    time: { trainer: K.TIME_TRAINER, vendor: K.TIME_VENDOR, inn: K.TIME_REST, travel: K.TIME_TRAVEL, grindWave: K.TIME_GRIND_WAVE },
     linkPerShard: per ?? null, linkCap: K.LINK_DR, linkDr, shardAoeTaken: K.SHARD_AOE_TAKEN ?? null,
     // Round time budget at the default animation speed (rules 3, M2 v2); null on an engine without it.
     roundAnimMs: K.PACE_ROUND_ANIM_S != null ? K.PACE_ROUND_ANIM_S * 1000 : null,
@@ -112,9 +112,9 @@ function rulesTable(K) {
     // segments use; null on an engine without heat. The meter's state, line, heat and previews come from R.heatView.
     heat: K.HEAT_STATES ? {
       states: [...K.HEAT_STATES], warmAt: K.HEAT_WARM_AT, hotAt: K.HEAT_HOT_AT, scorchAt: K.HEAT_SCORCH_AT,
-      dimWarm: K.HEAT_DIM_WARM_H, dimHot: K.HEAT_DIM_HOT_H, gain: { ...K.HEAT_GAIN }, rarityUp: { ...K.HEAT_RARITY_UP },
+      dimWarm: K.HEAT_DIM_WARM, dimHot: K.HEAT_DIM_HOT, gain: { ...K.HEAT_GAIN }, rarityUp: { ...K.HEAT_RARITY_UP },
       barMin: K.HEAT_BAR_MIN, barMax: K.HEAT_BAR_MAX, echoPerFight: K.ECHO_PER_HEAT_FIGHT ?? null,
-      ascPerStep: K.ASC_PER_STEP, ascStepHours: K.ASC_STEP_HOURS, ascCap: K.ASC_CAP, parBase: K.BOSS_TIME_PAR,
+      ascPerStep: K.ASC_PER_STEP, ascStepTime: K.ASC_STEP_TIME, ascCap: K.ASC_CAP, parBase: K.BOSS_TIME_PAR,
     } : null,
   };
 }
@@ -134,7 +134,7 @@ function metaData(K) {
     entries: Object.fromEntries(Object.values(K.META).map((m) => [m.id, { ...m, costs: [...m.costs], req: [...m.req] }])),
     oathIds: [...(K.OATH_IDS || [])],
     oaths: Object.fromEntries(Object.values(K.OATH || {}).map((o) => [o.id, { ...o }])),
-    num: { maxLevel: K.MAX_LEVEL, zoneCount: K.ZONE_COUNT, firstKill: K.ECHO_FIRST_KILL_CLASS, oathEcho: K.OATH_ECHO_BONUS, oathHaste: K.OATH_HASTE_HOURS, oathThrift: K.OATH_THRIFT_MULT },
+    num: { maxLevel: K.MAX_LEVEL, zoneCount: K.ZONE_COUNT, firstKill: K.ECHO_FIRST_KILL_CLASS, oathEcho: K.OATH_ECHO_BONUS, oathHaste: K.OATH_HASTE_TIME, oathThrift: K.OATH_THRIFT_MULT },
     names: { boon: K.BOON.return.name, ember: K.CONSUMABLE.ember_of_return.name, potion: K.CONSUMABLE.healing_draught.name, greater: K.CONSUMABLE.greater_healing_draught.name, boss: K.BOSS_TEXT.name.split(',')[0], camp: (CONTENT.camp && CONTENT.camp.name) || 'the camp' },
     greaterHeal: K.CONSUMABLE.greater_healing_draught.heal,
     uniques: { rare: byZone('rare'), epic: byZone('epic'), weapon: Object.fromEntries(uniq.filter((u) => u.kind === 'weapon').map((u) => [u.classId, { name: u.name, text: u.text }])) },
@@ -188,11 +188,11 @@ function mockBackend(seed) {
   const MC = mock.data.constants; // the mock's own simplified numbers
   // Screen texts use the rules table; the mock's own par and Ascendancy step replace the engine's (the mock computes
   // Ascendancy itself), and the mock has no zone danger.
-  const data = { ...mock.data, rules: { ...rulesTable(R.C), ascStepHours: MC.ASC_STEP, dangerFrom: null, dangerStep: null, dangerStepDungeon: null } };
+  const data = { ...mock.data, rules: { ...rulesTable(R.C), ascStepTime: MC.ASC_STEP, dangerFrom: null, dangerStep: null, dangerStepDungeon: null } };
   return {
     mode: 'mock', data, canDebug: true,
     view() {
-      const camp = state.phase === 'CAMP' ? { par: MC.BOSS_TIME_PAR, asc: Math.min(MC.ASC_CAP, MC.ASC_PER * Math.floor(Math.max(0, state.hours - MC.BOSS_TIME_PAR) / MC.ASC_STEP)) } : null; // mock rule
+      const camp = state.phase === 'CAMP' ? { par: MC.BOSS_TIME_PAR, asc: Math.min(MC.ASC_CAP, MC.ASC_PER * Math.floor(Math.max(0, state.time - MC.BOSS_TIME_PAR) / MC.ASC_STEP)) } : null; // mock rule
       return { ...state, par: MC.BOSS_TIME_PAR, camp, legal: state.player ? mock.legalInfo(state) : { lanes: [], services: {}, items: [], spells: {} }, mode: 'mock' };
     },
     step(action) {
@@ -335,7 +335,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     statuses: Object.fromEntries(Object.entries(TXT.STATUS_INFO).map(([id, x]) => [id, { ...x, debuff: C.DEBUFFS ? C.DEBUFFS.includes(id) || !!x.v2Debuff : x.debuff }])),
     boons: Object.fromEntries(Object.values(C.BOON).map((b) => [b.id, { id: b.id, name: b.name, text: TXT.boonText(b.id, CONTENT) }])),
     slots: C.SLOT_IDS, zones: CONTENT.zones, camp: CONTENT.camp,
-    nodeHours: Object.fromEntries(Object.values(C.NODE_TYPE).map((t) => [t.id, t.hours])),
+    nodeTime: Object.fromEntries(Object.values(C.NODE_TYPE).map((t) => [t.id, t.time])),
     boss: { name: C.BOSS_TEXT.name, intro: (CONTENT.camp && CONTENT.camp.bossText) || '' },
     rules: rulesTable(C),
     meta: metaData(C),
@@ -502,7 +502,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     return { idx: z, id: `z${z}`, camp: false, name: zc ? zc.name : `Zone ${z}`, hubName: zc ? zc.hubName : 'Hub', hubText: zc ? zc.hubText : '', blurb: zc ? zc.theme : '',
       theme: THEMES[z - 1] || 'farmland', band: [exitLevel - C.ZONE_LEVELS + 1, exitLevel], exitLevel, travelLevel: R.travelLevel(s) ?? exitLevel, rows,
       pos: { row: s.zone.pos.r, lane: s.zone.pos.l }, path, questsDone: s.zone.questsDone || 0, storyDone: !!s.zone.storyDone, next: mv ? mv.next : [],
-      travelHours: travelHours(s), danger: dangerOf(exitLevel, 'normal') };
+      travelTime: travelTime(s), danger: dangerOf(exitLevel, 'normal') };
   }
   /**
    * An expedition zone (rules 1.9; ?expedition=1 only until the fog map, M2b 2b.6): the rows view is empty and `exp` is the
@@ -513,19 +513,19 @@ function engineBackend(seedOpt, runOpts = {}) {
     const nodes = mv.nodes.map((n) => ({ ...n, heat: n.done ? local.nodeHeat.get(`${z}:#${n.id}`) || null : null }));
     return { idx: z, id: `z${z}`, camp: false, name: zc ? zc.name : mv.name || `Zone ${z}`, hubName: zc ? zc.hubName : 'Hub', hubText: zc ? zc.hubText : '', blurb: zc ? zc.theme : '',
       theme: THEMES[z - 1] || 'farmland', band: [exitLevel - C.ZONE_LEVELS + 1, exitLevel], exitLevel, travelLevel: null, rows: [], pos: { row: 0, lane: null }, path: [],
-      questsDone: s.zone.questsDone || 0, storyDone: !!s.zone.storyDone, next: [], travelHours: null, danger: dangerOf(exitLevel, 'normal'),
+      questsDone: s.zone.questsDone || 0, storyDone: !!s.zone.storyDone, next: [], travelTime: null, danger: dangerOf(exitLevel, 'normal'),
       exp: { ...mv, nodes } };
   }
-  /** Hours TRAVEL_ON spends now, from a dry step; null while it is not legal. */
-  function travelHours(s) {
+  /** Tolls TRAVEL_ON spends now, from a dry step; null while it is not legal. */
+  function travelTime(s) {
     if (s.phase !== 'MAP' || !R.isLegal(s, { type: 'TRAVEL_ON' })) return null;
-    try { return R.step(s, { type: 'TRAVEL_ON' }).state.hours - s.hours; } catch { return null; }
+    try { return R.step(s, { type: 'TRAVEL_ON' }).state.time - s.time; } catch { return null; }
   }
 
   // The end boss is kind 'boss'; a dungeon boss is kind 'dboss' (both carry boss: true, engine-api.md 6), so the rank
   // reads the kind: a dungeon boss is drawn and framed as itself, not as the end boss.
   const rankOf = (e) => (e.kind === 'boss' ? 'boss' : e.kind === 'shard' ? 'shard' : e.kind || 'normal');
-  function fightKey(s) { const n = s.node; return `${s.zone ? s.zone.z : 0}:${n ? `${n.r}:${n.l}` : `h${s.hours}`}:${s.fight ? s.fight.k : 0}:${s.fight ? s.fight.kind : ''}`; }
+  function fightKey(s) { const n = s.node; return `${s.zone ? s.zone.z : 0}:${n ? `${n.r}:${n.l}` : `t${s.time}`}:${s.fight ? s.fight.k : 0}:${s.fight ? s.fight.kind : ''}`; }
   const INTENT_LABEL = { curse: 'Curse: you deal less damage', brace: 'Braces: takes less damage', shieldAlly: 'Shields an ally', heal: 'Heals an ally', selfHeal: 'Heals itself',
     selfShield: 'Shields itself', summon: 'Calls for help', cleave: 'Hits you and your pet', rend: 'Hit and bleed', bolster: 'Shields its weakest ally', signal: 'Calls a reinforcement' };
   const SUPPORT = ['selfHeal', 'heal', 'selfShield', 'shieldAlly', 'brace', 'summon', 'bolster', 'signal'];
@@ -830,15 +830,15 @@ function engineBackend(seedOpt, runOpts = {}) {
     return {
       outcome: sm.outcome, name: sm.name, classId: sm.classId, className: sm.className, petId: sm.petId, level: sm.level, xp: sm.xp,
       zone: z.camp ? ((CONTENT.camp && CONTENT.camp.name) || 'the camp') : zc ? zc.name : '', zoneIdx: z.camp ? 7 : z.zone, row: z.camp ? 0 : z.row,
-      hours: sm.hours, asc: sm.ascendancy || 0, seed: sm.seed, death, kills: sm.kills, quests: sm.quests, story: sm.stories, dungeons: sm.dungeons,
+      time: sm.time, asc: sm.ascendancy || 0, seed: sm.seed, death, kills: sm.kills, quests: sm.quests, story: sm.stories, dungeons: sm.dungeons,
       fights: sm.fights, rounds: sm.rounds, goldEarned: sm.gold.earned, goldSpent: sm.gold.spent, potions: sm.potionsUsed, resurrects: sm.resurrectsUsed,
       dealt: sm.damage.dealt, taken: sm.damage.taken, topSpells: (sm.topSpells || []).map((t) => [spellName(t.id), t.dmg]),
       equipped: (sm.equipped || []).map((e) => ({ uid: `sum-${e.slot}`, kind: 'gear', slot: e.slot, name: e.name, rarity: e.rarity, ilvl: e.ilvl, stats: {} })),
       estMinutes: { manual: Math.round(sm.minutes.manual), auto: Math.round(sm.minutes.autoplay) }, bossPhase: sm.bossPhase,
       echoes: ((sm.echoes && sm.echoes.lines) || []).map((l) => [`${TXT.ECHO_LINE[l.id] || TXT.humanize(l.id)}${l.count > 1 ? ` (${l.count})` : ''}`, l.echoes]),
-      // heat (rules 1.7.4, engine-api.md 11.3): the zone track, hours / nodes / fights won by state, the Echo line's
-      // Echoes; par: the run's boss par (R.bossPar) for "hours over par"
-      heat: sm.heat ? { trackPerZone: sm.heat.trackPerZone.map((r) => ({ ...r })), hoursByState: [...sm.heat.hoursByState], nodesByState: [...sm.heat.nodesByState],
+      // heat (rules 1.7.4, engine-api.md 11.3): the zone track, tolls / nodes / fights won by state, the Echo line's
+      // Echoes; par: the run's boss par (R.bossPar) for "tolls over par"
+      heat: sm.heat ? { trackPerZone: sm.heat.trackPerZone.map((r) => ({ ...r })), timeByState: [...sm.heat.timeByState], nodesByState: [...sm.heat.nodesByState],
         fightsByState: [...sm.heat.fightsByState], echoHeat: sm.heat.echoHeat || 0 } : null,
       par: R.bossPar(s), reachedCamp: !!z.camp, reachedBoss: !!sm.reachedBoss,
       echoTotal: sm.echoes ? sm.echoes.total : 0,
@@ -931,7 +931,7 @@ function engineBackend(seedOpt, runOpts = {}) {
 
   function view() {
     const s = st;
-    const v = { hours: s.hours || 0, autoplay: !!s.autoplay, seed: s.create ? s.create.seed : s.seed, mode: 'engine' };
+    const v = { time: s.time || 0, autoplay: !!s.autoplay, seed: s.create ? s.create.seed : s.seed, mode: 'engine' };
     if (s.phase === 'CREATE') {
       return { ...v, phase: 'CREATE', create: { classId: s.create.classId || 'rogue', petId: s.create.petId || 'ridgewolf', name: s.create.name || '', seed: s.create.seed, oaths: (s.create.oaths || []).slice() }, oaths: (s.create.oaths || []).slice(), meta: metaView(s), player: null, zone: null, node: null, combat: null, loot: null, summary: null, dev: null, mapMode: s.mapMode || 'rows', legal: { lanes: [], services: {}, items: [], spells: {} } };
     }
@@ -1146,7 +1146,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     if (!(rate > 0)) return;
     try {
       const alt = R.deserialize(R.serialize(before), before.content);
-      if (alt.node) { alt.node.heat = 'clear'; if (alt.fight) alt.fight.heat = 'clear'; } else alt.hours = Math.min(0, alt.zone && alt.zone.start != null ? alt.zone.start : 0); // a node entered now enters Clear
+      if (alt.node) { alt.node.heat = 'clear'; if (alt.fight) alt.fight.heat = 'clear'; } else alt.time = Math.min(0, alt.zone && alt.zone.start != null ? alt.zone.start : 0); // a node entered now enters Clear
       const ar = R.step(alt, action);
       const altDrops = ar.events.filter((e) => e.t === 'loot' && e.item && e.item.kind === 'gear' && !known.has(e.item.uid));
       if (altDrops.length === drops.length) drops.forEach((e, i) => { if (e.item.rarity !== altDrops[i].item.rarity) local.heatUp.set(e.item.uid, paid); });
@@ -1310,7 +1310,7 @@ function engineBackend(seedOpt, runOpts = {}) {
   /**
    * Dev tools (engine-api.md 12; the Dev menu): op on the run or the profile through R.debug, then the run on screen is the
    * result. Ops: build (Start at), camp, boss { phase }, nextZone, fight { ids, level }, kill { target }, refill, god { on },
-   * give { gold, potions, talentPoints }, hours { hours }, heat { state }, reveal, mapMode { mode }, echoes { n }, catalogue,
+   * give { gold, potions, talentPoints }, time { time } (whole tolls), heat { state }, reveal, mapMode { mode }, echoes { n }, catalogue,
    * seed { seed } (a new run in CREATE on that seed, class and pet kept). Each op on the run goes into the engine log as
    * { type: 'DEV', fn, args } (R.debug.fn(state, ...args); build: R.debug.build({ ...args[0], content })). Jumps start the
    * presentation afresh (no spoils, intros or holds); a kill that ends a fight shows its spoils as a victory would. The
@@ -1343,7 +1343,7 @@ function engineBackend(seedOpt, runOpts = {}) {
         case 'refill': run('refill'); break;
         case 'god': run('setGod', !!args.on); break;
         case 'give': note = run('give', { gold: args.gold || 0, potions: args.potions || 0, talentPoints: args.talentPoints || 0 }).given; break;
-        case 'hours': run('setHours', args.hours); break;
+        case 'time': run('setTime', args.time); break;
         case 'heat': run('setHeat', args.state); break;
         case 'reveal': run('revealMap'); break;
         case 'mapMode':
@@ -1425,7 +1425,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     /** Test hook (qa/browser/ui-regress.mjs part K): the run as R.serialize has it. */
     serialized() { return R.serialize(st); },
     dev,
-    /** Heat after a UI action (R.heatPreview, engine-api.md 11.2; no step), or null when it costs no hours or is not legal. */
+    /** Heat after a UI action (R.heatPreview, engine-api.md 11.2; no step), or null when it costs no time or is not legal. */
     heatPreview(action) {
       if (!R.heatPreview || !st.player) return null;
       const a = action && action.type === 'ENGINE' ? action.action : translate(action);
@@ -1500,7 +1500,7 @@ export class Bridge {
   serialized() { return this.backend.serialized ? this.backend.serialized() : null; }
   /** Engage panel hover preview (combat v2, R.engagePreview); null in mock mode or when the option is not legal. */
   engagePreview(option, target, spellId) { return this.backend.engagePreview ? this.backend.engagePreview(option, target, spellId) : null; }
-  /** Heat after a UI action (R.heatPreview); null in mock mode, for an action without hours or an illegal one. */
+  /** Heat after a UI action (R.heatPreview); null in mock mode, for an action without time or an illegal one. */
   heatPreview(action) { return this.backend.heatPreview ? this.backend.heatPreview(action) : null; }
   /** Talent totals (R.talentInfo: per rank, now, next); null in mock mode. */
   talentInfo(id) { return this.backend.talentInfo ? this.backend.talentInfo(id) : null; }

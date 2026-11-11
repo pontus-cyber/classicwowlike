@@ -1,9 +1,9 @@
 // Centre screens by phase: class select, hub/camp, zone map, node dialogs, loot, quest rewards,
 // vendor, trainer, shrine, rest, treasure and the run summary (its Killed by line names the killing blow, never an id).
 // Every button sends an action.
-// Heat (docs/specs/expedition.md H.4): every hour-costing choice (map node, Travel on, hub and camp service, Camp wave,
-// Grind waves, the next wave) shows its hours and the state it ends in from R.heatView's previews (view.heat.next) in its
-// tooltip, colours its hour label when the state changes, and moves a ghost marker on the meter while hovered; nodes
+// Heat (docs/specs/expedition.md H.4): every time-costing choice (map node, Travel on, hub and camp service, Camp wave,
+// Grind waves, the next wave) shows its tolls and the state it ends in from R.heatView's previews (view.heat.next) in its
+// tooltip, colours its toll label when the state changes, and moves a ghost marker on the meter while hovered; nodes
 // entered Hot or Scorched and items heat raised carry a badge; the summary has a heat card (heat.js).
 import { h, add, clear, fmtNum, moneyEl, moneyText, clamp } from './util.js';
 import { spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon } from './art-icons.js';
@@ -12,9 +12,9 @@ import { tip, itemTip, spellTip } from './tooltip.js';
 import { conColor, heroPortrait, travelState } from './hud.js';
 import { numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS } from './ui-text.js';
 import { createMeta, buildOaths, echoAmt } from './meta.js';
-import { heatKey, previewBlock, heatBadge, buildHeatSummary, fmtH, HEAT_NAME } from './heat.js';
+import { heatKey, previewBlock, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME } from './heat.js';
 
-/** The heat preview of an hour-costing engine action now (view.heat.next, R.heatView), or null. */
+/** The heat preview of a time-costing engine action now (view.heat.next, R.heatView), or null. */
 const heatOf = (v, action) => (v.heat && v.heat.next ? v.heat.next[heatKey(action)] || null : null);
 /** While the element is hovered the meter shows where the action leaves the player (a ghost marker). */
 function ghostOn(el, ctx, action) {
@@ -22,8 +22,8 @@ function ghostOn(el, ctx, action) {
   el.addEventListener('pointerleave', () => { if (ctx.hud && ctx.hud.heat) ctx.hud.heat.setGhost(null); });
   return el;
 }
-/** An hour label coloured by the state the action ends in when that is a new state (H.4). */
-function hourLabel(el, p) {
+/** A toll label coloured by the state the action ends in when that is a new state (H.4). */
+function tollLabel(el, p) {
   if (!el) return el;
   if (p && p.change) { el.dataset.hs = p.state; el.classList.add('heat-chg'); }
   return el;
@@ -87,7 +87,7 @@ export function createScreens(root, ctx) {
     const n = v.node;
     if ((v.phase === 'ZONE_HUB' || v.phase === 'CAMP') && n && n.origin === 'hub') { mount(`svc:${n.type}:${svcKey(v)}`, () => (n.type === 'trainer' ? buildTrainer(v, ctx) : buildVendor(v, ctx))); return; }
     if (v.phase === 'ZONE_HUB') { mount('hub:' + JSON.stringify(v.hub) + (p && p.talentPoints), () => buildHub(v, ctx)); return; }
-    if (v.phase === 'CAMP') { mount('camp:' + JSON.stringify(v.hub) + v.hours + (p && p.level), () => buildCamp(v, ctx)); return; }
+    if (v.phase === 'CAMP') { mount('camp:' + JSON.stringify(v.hub) + v.time + (p && p.level), () => buildCamp(v, ctx)); return; }
     if (v.phase === 'MAP') { mount('map:' + mapKey(v), () => buildMap(v, ctx, false)); return; }
     if (v.phase === 'NODE' && n) {
       if (n.step === 'combat' || (v.combat && !v.combat.over)) { mount('combat', () => null); return; }
@@ -103,7 +103,7 @@ export function createScreens(root, ctx) {
 
 const lootKey = (v) => `${v.loot.kind}|${v.loot.title}|${(v.loot.items || v.loot.choices || []).map((i) => i.uid).join(',')}|${v.player.bag.filter(Boolean).length}`;
 const svcKey = (v) => `${v.player.gold}|${v.player.bag.map((s) => (s ? s.uid + ':' + (s.count || 1) : '-')).join(',')}|${v.player.spells.map((s) => s.id + s.tl).join(',')}|${v.player.talentPoints}|${(v.node.stock || []).length}`;
-const mapKey = (v) => `${v.zone.idx}|${v.zone.pos.row}|${v.zone.pos.lane}|${v.zone.exp ? v.zone.exp.pos : ''}|${v.player.level}|${v.legal.travelOn}|${v.hours}`;
+const mapKey = (v) => `${v.zone.idx}|${v.zone.pos.row}|${v.zone.pos.lane}|${v.zone.exp ? v.zone.exp.pos : ''}|${v.player.level}|${v.legal.travelOn}|${v.time}`;
 
 // ------------------------------------------------------------------ class select
 function buildCreate(ctx) {
@@ -194,12 +194,12 @@ function updateCreate(root, v, ctx) {
 
 // ------------------------------------------------------------------ hub & camp
 /**
- * A service card. heat: { ctx, action, v } adds the heat preview of the engine action (R.heatView next): the hours label
- * coloured by a new state, a tooltip with "1 h · ends Warm" and the ghost marker on the meter while hovered.
+ * A service card. heat: { ctx, action, v } adds the heat preview of the engine action (R.heatView next): the toll label
+ * coloured by a new state, a tooltip with "1 toll, ends Smouldering" and the ghost marker on the meter while hovered.
  */
-function svcCard(glyph, bg, name, meta, hours, used, onClick, heat = null) {
+function svcCard(glyph, bg, name, meta, cost, used, onClick, heat = null) {
   const p = heat && !used ? heatOf(heat.v, heat.action) : null;
-  const hrs = hourLabel(h('div.hrs', p ? tolls(p.hours) : hours), p);
+  const hrs = tollLabel(h('div.hrs', p ? tolls(p.time) : cost), p);
   const el = h('div.svc-card' + (used ? '.used' : ''), h('img', { src: icon(glyph, bg), alt: '' }), h('div', h('div.nm', name), h('div.meta', used ? 'Used this visit' : meta)), hrs);
   if (!used) el.addEventListener('click', onClick);
   if (p) {
@@ -210,7 +210,7 @@ function svcCard(glyph, bg, name, meta, hours, used, onClick, heat = null) {
 }
 
 function buildHub(v, ctx) {
-  const z = v.zone; const p = v.player; const used = (v.hub && v.hub.used) || {}; const hr = ctx.data.rules.hours;
+  const z = v.zone; const p = v.player; const used = (v.hub && v.hub.used) || {}; const hr = ctx.data.rules.time;
   const el = h('div.side.panel');
   el.append(h('div.wtitle', h('div', h('div.title', { style: { fontSize: '2.4rem' } }, z.hubName), h('div.subtitle', `${z.name} · levels ${z.band[0]}–${z.band[1]}`))));
   const body = h('div.body.col', { style: { padding: '1.2rem 1.6rem 1.6rem', gap: '.8rem' } });
@@ -223,12 +223,12 @@ function buildHub(v, ctx) {
   if (p.talentPoints) body.appendChild(h('div.warn', { style: { fontSize: '1.25rem' } }, `You have ${p.talentPoints} unspent talent point${p.talentPoints > 1 ? 's' : ''}. Press N.`));
   const go = h('button.btn.primary.big', 'Set out');
   go.addEventListener('click', () => ctx.act({ type: 'LEAVE_HUB' }));
-  el.append(body, h('div.sfoot', h('span.muted', `${HEAT_WORDS.Units} so far: ${fmtH(v.hours)}`), go));
+  el.append(body, h('div.sfoot', h('span.muted', `${HEAT_WORDS.Units} so far: ${fmtTime(v.time)}`), go));
   return el;
 }
 
 function buildCamp(v, ctx) {
-  const z = v.zone; const used = (v.hub && v.hub.used) || {}; const R = ctx.data.rules; const hr = R.hours;
+  const z = v.zone; const used = (v.hub && v.hub.used) || {}; const R = ctx.data.rules; const hr = R.time;
   const asc = v.camp ? v.camp.asc : null; // the engine's Ascendancy if the boss were faced now
   const el = h('div.side.panel');
   el.append(h('div.wtitle', h('div', h('div.title', { style: { fontSize: '2.4rem' } }, z.hubName), h('div.subtitle', `${z.name} · the final camp`))));
@@ -241,8 +241,8 @@ function buildCamp(v, ctx) {
     svcCard('rest', 'fire', 'Campfire', 'Full rest before the fight', tolls(hr.inn), used.inn, () => ctx.act({ type: 'HUB_SERVICE', service: 'inn' }), svc('inn')),
     svcCard('grind', 'steel', 'Camp wave', `Fight a wave of level ${R.campGrindLevel} enemies`, `${tolls(hr.grindWave)} a wave`, false, () => ctx.act({ type: 'CAMP_GRIND' }), { ctx, v, action: { type: 'CAMP_GRIND' } }));
   // the par and the Ascendancy: R.heatView's (the bridge's v.camp: at the Camp the line is the par, ascIfPar the boss's)
-  const par = v.camp && v.camp.par ? ` (par ${fmtH(v.camp.par)})` : '';
-  const kv = h('dl.kv', h('dt', HEAT_WORDS.Units), h('dd', `${fmtH(v.hours)}${par}`), h('dt', 'Ascendancy'),
+  const par = v.camp && v.camp.par ? ` (par ${fmtTime(v.camp.par)})` : '';
+  const kv = h('dl.kv', h('dt', HEAT_WORDS.Units), h('dd', `${fmtTime(v.time)}${par}`), h('dt', 'Ascendancy'),
     asc == null ? h('dd.muted', 'Unknown') : h('dd', { class: asc > 0 ? 'bad' : 'good' }, asc > 0 ? `+${Math.round(asc * 100)} % health and damage` : 'None: you are on time'));
   const go = h('button.btn.primary.big', 'Face Oruvath');
   go.addEventListener('click', () => ctx.act({ type: 'FIGHT_BOSS' }));
@@ -262,7 +262,7 @@ export function buildMap(v, ctx, readOnly) {
   travel.disabled = !L.travelOn || readOnly;
   travel.addEventListener('click', () => ctx.act({ type: 'TRAVEL_ON' }));
   tip(travel, () => h('div', h('div.tt-name', 'Travel on'),
-    h('div.tt-line.desc', `Leave ${z.name} for ${nextName}.${travelCost(z, ctx)} Leaving early skips the remaining rows: fewer hours, but less loot and gold.`),
+    h('div.tt-line.desc', `Leave ${z.name} for ${nextName}.${travelCost(z, ctx)} Leaving early skips the remaining rows: fewer tolls, but less loot and gold.`),
     h('div.tt-line', ts.under > 0 ? `Open from level ${ts.need}, ${numWord(ts.under)} ${plural(ts.under, 'level')} below the exit level ${ts.exit}, or after row ${ts.rows}.` : `Open from level ${ts.exit}, or after row ${ts.rows}.`),
     ts.kind === 'locked' ? h('div.tt-warn', `Reach level ${ts.need} or finish row ${ts.rows} first (you are level ${p.level}).`) : null,
     ts.kind === 'early' ? h('div.tt-warn', `You are under the exit level (${ts.exit}): the next zone starts above your level. More risk, more experience.`) : null,
@@ -308,11 +308,11 @@ export function buildMap(v, ctx, readOnly) {
     const el = h('button.mnode' + (reach ? '.reach' : '') + (n.visited ? '.visited' : '') + (here ? '.here' : '') + (closed ? '.closed' : ''), { style: { left: `${PX(r) / 10}%`, top: `${PY(l) / 10}%` }, 'aria-label': `${NODE_NAME[n.type]} level ${n.cl}`, dataset: { row: r, lane: l } },
       h('div.ring', h('img', { src: nodeIcon(n.type), alt: '' })), h('div.cl', { style: { color: NO_FIGHT.has(n.type) ? NEUTRAL : conColor(n.cl, p.level) } }, NO_FIGHT.has(n.type) ? NODE_NAME[n.type] : `${NODE_NAME[n.type]} ${n.cl}`));
     if (here) el.appendChild(flagSvg());
-    // heat (H.4): a reachable node's hours, in the colour of the state it ends in when that is a new one; a visited node
+    // heat (H.4): a reachable node's tolls, in the colour of the state it ends in when that is a new one; a visited node
     // entered Hot or Scorched keeps a mark of what it paid
     const act = { type: 'CHOOSE_NODE', lane: l };
     const hp = reach && !readOnly ? heatOf(v, act) : null;
-    if (hp) el.appendChild(hourLabel(h('div.mhrs', `${tolls(hp.hours)}${hp.perWave ? '/wave' : ''}`), hp));
+    if (hp) el.appendChild(tollLabel(h('div.mhrs', `${tolls(hp.time)}${hp.perWave ? '/wave' : ''}`), hp));
     if (n.visited && n.heat && ctx.data.rules.heat && (ctx.data.rules.heat.gain[n.heat] > 0 || ctx.data.rules.heat.rarityUp[n.heat] > 0)) el.appendChild(h('div.mheat', { dataset: { hs: n.heat } }));
     if (reach) el.addEventListener('click', () => ctx.act(act));
     tip(el, () => nodeTip(n, v, ctx, reach, reach && !readOnly ? heatOf(ctx.view, act) : null));
@@ -375,7 +375,7 @@ function buildExpMap(v, ctx, readOnly) {
     if (n.shardfall) el.appendChild(h('div.xtag.shard', 'Shardfall'));
     const act = { type: 'MOVE', nodeId: n.id };
     const hp = m ? heatOf(v, act) : null;
-    if (hp) el.appendChild(hourLabel(h('div.mhrs', tolls(hp.hours)), hp));
+    if (hp) el.appendChild(tollLabel(h('div.mhrs', tolls(hp.time)), hp));
     if (n.done && n.heat && ctx.data.rules.heat && (ctx.data.rules.heat.gain[n.heat] > 0 || ctx.data.rules.heat.rarityUp[n.heat] > 0)) el.appendChild(h('div.mheat', { dataset: { hs: n.heat } }));
     if (m) { el.addEventListener('click', () => ctx.act(act)); ghostOn(el, ctx, act); }
     tip(el, () => {
@@ -383,19 +383,19 @@ function buildExpMap(v, ctx, readOnly) {
       if (m) {
         box.appendChild(h('div.tt-line', m.via === 'enter' ? 'Click to enter' : 'Click to walk here'));
         box.appendChild(previewBlock(heatOf(ctx.view, act), ctx));
-        if (m.passHours != null) box.appendChild(h('div.tt-hint', 'Pass through it from the list of moves.'));
+        if (m.passTime != null) box.appendChild(h('div.tt-hint', 'Pass through it from the list of moves.'));
       } else if (!here) box.appendChild(h('div.tt-warn', 'Not next to you'));
       return box;
     });
     body.appendChild(el);
   }
-  // the moves: enter or walk (MOVE) and pass through (PASS_THROUGH), each with its hours and heat
+  // the moves: enter or walk (MOVE) and pass through (PASS_THROUGH), each with its tolls and heat
   const list = h('div.expmoves', readOnly ? null : mv.moves.map((m) => {
     const n = mv.nodes[m.nodeId]; const name = n.hub ? 'Hub' : n.know !== 'none' && n.type ? NODE_NAME[n.type] || n.type : 'Unknown';
     const go = { type: 'MOVE', nodeId: m.nodeId }; const pass = { type: 'PASS_THROUGH', nodeId: m.nodeId };
-    const b1 = ghostOn(btn(`${m.via === 'enter' ? 'Enter' : 'Walk to'} ${name} · ${tolls(m.hours)}`, () => ctx.act(go), '.small'), ctx, go);
+    const b1 = ghostOn(btn(`${m.via === 'enter' ? 'Enter' : 'Walk to'} ${name} · ${tolls(m.time)}`, () => ctx.act(go), '.small'), ctx, go);
     tip(b1, () => previewBlock(heatOf(ctx.view, go), ctx));
-    const b2 = m.passHours != null ? ghostOn(btn(`Pass · ${tolls(m.passHours)}`, () => ctx.act(pass), '.small'), ctx, pass) : null;
+    const b2 = m.passTime != null ? ghostOn(btn(`Pass · ${tolls(m.passTime)}`, () => ctx.act(pass), '.small'), ctx, pass) : null;
     if (b2) tip(b2, () => h('div', h('div.tt-line', 'Walk through without resolving it.'), previewBlock(heatOf(ctx.view, pass), ctx)));
     return h('div.em', b1, b2);
   }));
@@ -403,9 +403,9 @@ function buildExpMap(v, ctx, readOnly) {
   if (readOnly) win.id = 'win-map';
   return win;
 }
-/** The hours Travel on costs now, from the engine (a dry TRAVEL_ON); the mock's own number in mock mode. */
+/** The tolls Travel on costs now, from the engine (a dry TRAVEL_ON); the mock's own number in mock mode. */
 function travelCost(z, ctx) {
-  const hrs = z.travelHours !== undefined ? z.travelHours : ctx.data.rules.hours.travel;
+  const hrs = z.travelTime !== undefined ? z.travelTime : ctx.data.rules.time.travel;
   return hrs == null ? '' : hrs > 0 ? ` Costs ${tolls(hrs)}.` : ' Costs no time.';
 }
 function flagSvg() {
@@ -443,9 +443,9 @@ function nodeTip(n, v, ctx, reach, hp = null) {
   box.appendChild(h('div.tt-line.desc', nodeDesc(n.type, ctx.data.rules)));
   const danger = nodeDanger(n, ctx.data.rules);
   if (danger) box.appendChild(h('div.tt-warn.danger', danger));
-  // the hours: from the heat preview when the node can be entered now (R.heatView, the engine's hours and the state the
-  // node ends in, H.4), else the node type's hours
-  const hrs = ctx.data.nodeHours ? ctx.data.nodeHours[n.type] : null;
+  // the tolls: from the heat preview when the node can be entered now (R.heatView, the engine's tolls and the state the
+  // node ends in, H.4), else the node type's tolls
+  const hrs = ctx.data.nodeTime ? ctx.data.nodeTime[n.type] : null;
   if (hp) box.appendChild(previewBlock(hp, ctx));
   else if (hrs != null) box.appendChild(h('div.tt-sub', n.type === 'grind' ? `Takes ${tolls(hrs)} per wave` : `Takes ${tolls(hrs)}`));
   const H = ctx.data.rules.heat;
@@ -486,14 +486,14 @@ function buildNode(v, ctx) {
   }
   if (n.type === 'grind' && n.step === 'intro') {
     const R = ctx.data.rules;
-    // the waves on offer are the engine's (heatView lists GRIND_SET_WAVES per legal n) with their hours and the state they
+    // the waves on offer are the engine's (heatView lists GRIND_SET_WAVES per legal n) with their tolls and the state they
     // end in; without heat (mock) the rules table's
     const offered = v.heat ? (v.heat.list || []).filter((x) => x.action.type === 'GRIND_SET_WAVES').map((x) => x.action.n) : [];
     const ks = offered.length ? offered : Array.from({ length: R.grindMaxWaves }, (_, i) => i + 1);
     const w = (k) => {
       const a = { type: 'GRIND_SET_WAVES', n: k }; const hp = heatOf(v, a);
       const b = btn('', () => ctx.act(a), k === Math.min(2, ks.length) ? '.primary' : '');
-      b.append(`${k} wave${k > 1 ? 's' : ''} · `, hourLabel(h('span.bh', tolls(hp ? hp.hours : k * R.hours.grindWave)), hp));
+      b.append(`${k} wave${k > 1 ? 's' : ''} · `, tollLabel(h('span.bh', tolls(hp ? hp.time : k * R.time.grindWave)), hp));
       if (hp) { tip(b, () => previewBlock(heatOf(ctx.view, a), ctx)); ghostOn(b, ctx, a); }
       return b;
     };
@@ -523,7 +523,7 @@ function buildNode(v, ctx) {
     const hpTxt = `Health ${fmtNum(p.hp)} / ${fmtNum(p.maxHp)}${p.res.kind === 'mana' ? ` · Mana ${fmtNum(p.res.cur)} / ${fmtNum(p.res.max)}` : ''}`;
     const rations = p.bag.find((s) => s && s.id === 'trail_rations');
     const eat = rations ? btn(`Eat Trail Rations (${rations.count})`, () => ctx.act({ type: 'USE_ITEM', uid: rations.uid })) : null;
-    // the next fight: a Grind wave costs hours (heatView's NEXT_FIGHT); the dungeon's fights cost none
+    // the next fight: a Grind wave costs tolls (heatView's NEXT_FIGHT); the dungeon's fights cost none
     const next = (label) => { const b = btn(label, () => ctx.act({ type: 'CONTINUE' }), '.primary'); const hp = heatOf(v, { type: 'NEXT_FIGHT' }); if (hp) { tip(b, () => previewBlock(heatOf(ctx.view, { type: 'NEXT_FIGHT' }), ctx)); ghostOn(b, ctx, { type: 'NEXT_FIGHT' }); } return b; };
     if (n.type === 'grind') return dialog('Grind', `Wave ${n.waves} of ${n.wavesChosen} done`, [h('div.dim', hpTxt)], [eat, btn('Stop here', () => ctx.act({ type: 'GRIND_STOP' })), next('Next wave')].filter(Boolean), { left, badge: hb });
     const trash = ctx.data.rules.dungeonTrashFights; // the boss is fight trash + 1
@@ -668,7 +668,7 @@ function buildSummary(v, ctx) {
     s.dev ? h('div.devrun', `Dev run${s.dev.god ? ' · god mode' : ''}`) : null));
   const kv = (pairs) => h('dl.kv', pairs.flatMap(([k, val]) => [h('dt', k), h('dd', val)]));
   const card1 = h('div.card', h('h3', 'The journey'), kv([
-    ['Reached', `${s.zone}${s.row ? `, row ${s.row}` : ''}`], [HEAT_WORDS.Units, `${fmtH(s.hours)}${s.par ? ` (par ${fmtH(s.par)})` : ''}`], ['Ascendancy', s.asc ? `+${Math.round(s.asc * 100)} %` : 'none'],
+    ['Reached', `${s.zone}${s.row ? `, row ${s.row}` : ''}`], [HEAT_WORDS.Units, `${fmtTime(s.time)}${s.par ? ` (par ${fmtTime(s.par)})` : ''}`], ['Ascendancy', s.asc ? `+${Math.round(s.asc * 100)} %` : 'none'],
     ['Estimated time', `${s.estMinutes.manual} min manual · ${s.estMinutes.auto} min autoplay`], ['Fights', `${s.fights} (${s.rounds} rounds)`], ['Seed', String(s.seed)],
     // the killing blow by its display name (the bridge's actionName; without a name only the killer)
     ...(s.death ? [['Killed by', h('span.killed', { dataset: { ability: s.death.ability || '' } }, s.death.ability ? `${s.death.killer} (${s.death.ability})` : s.death.killer)], ['Where', `${s.death.node}, round ${s.death.round}`]] : []),
@@ -687,7 +687,7 @@ function buildSummary(v, ctx) {
     h('div.muted', { style: { marginTop: '.8rem', fontSize: '1.1rem' } }, after
       ? (after.affordable ? `Echoes buy lasting unlocks between runs. ${cap(numWord(after.affordable))} ${plural(after.affordable, 'unlock')} within reach.` : 'Echoes buy lasting unlocks between runs. Keep them for the next one.')
       : 'Echoes buy lasting unlocks between runs.'));
-  // heat (H.4, engine-api.md 11.3): the hours-vs-line track per zone, hours by state, the end against the line or the par
+  // heat (H.4, engine-api.md 11.3): the tolls-against-the-line track per zone, tolls by state, the end against the line or the par
   win.appendChild(h('div.sbody', card1, card2, card3, s.heat ? buildHeatSummary(s, ctx) : null));
   const again = btn('Begin a new run', () => ctx.act({ type: 'END_RUN' }), v.meta ? '.big' : '.primary.big');
   // Spend Echoes: END_RUN stores the profile, then the Hall of Echoes opens over class select

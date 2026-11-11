@@ -20,7 +20,7 @@ const questCt = (id) => (CT.quests && CT.quests[id]) || null;
 const C = {
   MAX_LEVEL: 60, ZONE_LEVELS: 10, ROWS: 8, LANES: 3, BAG_SLOTS: 16, BAR: 7, ITEM_BAR: 3,
   W: { quest: 38, grind: 14, elite: 14, rest: 12, vendor: 6, trainer: 4, treasure: 6, shrine: 6 },
-  HOURS: { quest: 2, grind: 1, elite: 2, dungeon: 5, rest: 4, vendor: 1, trainer: 1, treasure: 1, shrine: 1, travel: 2, inn: 4 },
+  TIME: { quest: 2, grind: 1, elite: 2, dungeon: 5, rest: 4, vendor: 1, trainer: 1, treasure: 1, shrine: 1, travel: 2, inn: 4 }, // tolls (M2b v7)
   BOSS_TIME_PAR: 130, ASC_STEP: 10, ASC_PER: 0.04, ASC_CAP: 0.4,
   ENERGY_REGEN: 30, FOCUS_REGEN: 25, MANA_REGEN: 0.02, POTION_CD: 4,
   MOB_XP_FRAC: 0.2, QUEST_XP: 0.8, STORY_XP: 0.8, GRIND_WAVE_XP: 0.1, DUNGEON_CLEAR_XP: 0.6,
@@ -62,7 +62,7 @@ const uid = (st) => `i${st._uid++}`;
 export function createState(opts = {}) {
   const seed = opts.seed ?? Math.floor(Math.random() * 1e9);
   return {
-    phase: 'CREATE', hours: 0, autoplay: false, seed, _rng: hashSeed(seed), _uid: 1,
+    phase: 'CREATE', time: 0, autoplay: false, seed, _rng: hashSeed(seed), _uid: 1,
     create: { classId: 'rogue', petId: 'ridgewolf', name: '', seed: null },
     player: null, zone: null, node: null, combat: null, loot: null, summary: null, hub: null,
     run: { kills: { normal: 0, elite: 0, rare: 0, boss: 0 }, quests: 0, story: 0, dungeons: 0, nodes: {}, fights: 0, rounds: 0,
@@ -913,7 +913,7 @@ function victory(st) {
 // ------------------------------------------------------------------ nodes
 function enterNode(st, n) {
   const z = st.zone; const p = st.player;
-  st.hours += C.HOURS[n.type] || 0;
+  st.time += C.TIME[n.type] || 0;
   st.run.nodes[n.type] = (st.run.nodes[n.type] || 0) + 1;
   z.pos = { row: n.row, lane: n.lane };
   z.path.push({ row: n.row, lane: n.lane });
@@ -962,7 +962,7 @@ function startNodeFight(st) {
   const n = st.node; const z = st.zone;
   n.fightNo++;
   if (n.type === 'quest') startFight(st, n.mobs.map((t, i) => makeEnemy(st, i, t, n.cl, 'normal')), { kind: 'quest', title: n.title });
-  else if (n.type === 'grind') { n.waves++; st.hours += n.waves > 1 ? C.HOURS.grind : 0; startFight(st, n.mobs.map((t, i) => makeEnemy(st, i, t, n.cl, 'normal')), { kind: 'grind', title: `Wave ${n.waves} of ${n.wavesChosen}`, fightNo: n.waves, fights: n.wavesChosen }); }
+  else if (n.type === 'grind') { n.waves++; st.time += n.waves > 1 ? C.TIME.grind : 0; startFight(st, n.mobs.map((t, i) => makeEnemy(st, i, t, n.cl, 'normal')), { kind: 'grind', title: `Wave ${n.waves} of ${n.wavesChosen}`, fightNo: n.waves, fights: n.wavesChosen }); }
   else if (n.type === 'elite') {
     const es = [makeEnemy(st, 0, n.elite, n.cl, n.rare ? 'rare' : 'elite')];
     if (n.add) es.push(makeEnemy(st, 1, n.add, n.cl - 2, 'normal'));
@@ -1027,18 +1027,18 @@ function finishNode(st) {
 
 function toSummary(st, outcome) {
   const p = st.player; const r = st.run;
-  const asc = ascendancy(st.hours);
+  const asc = ascendancy(st.time);
   const echoes = [
     ['Levels gained', (p.level - 1) * 2], ['Zones completed', r.zonesLeft * 10], ['Dungeons cleared', r.dungeons * 8],
     ['Elites slain', r.kills.elite * 3], ['Rares slain', r.kills.rare * 6], ['Quests completed', r.quests],
   ];
   if (st.zone.idx === 7) echoes.push(['Reached the boss', 20]);
   if (r.bossPhase > 1) echoes.push(['Boss phases reached', (r.bossPhase - 1) * 15]);
-  if (outcome === 'victory') { echoes.push(['Oruvath defeated', 120]); if (st.hours <= C.BOSS_TIME_PAR) echoes.push(['Swift victory', 40]); }
+  if (outcome === 'victory') { echoes.push(['Oruvath defeated', 120]); if (st.time <= C.BOSS_TIME_PAR) echoes.push(['Swift victory', 40]); }
   const top = Object.entries(r.bySpell).sort((a, b) => b[1] - a[1]).slice(0, 3);
   st.summary = {
     outcome, name: p.name, classId: p.classId, className: p.className, petId: p.petId, level: p.level, xp: p.xp, xpToNext: p.xpToNext,
-    zone: st.zone.name, zoneIdx: st.zone.idx, row: st.zone.pos.row, hours: st.hours, asc, seed: st.seed,
+    zone: st.zone.name, zoneIdx: st.zone.idx, row: st.zone.pos.row, time: st.time, asc, seed: st.seed,
     death: st.deathInfo || null, talents: { ...p.talentSpent }, kills: { ...r.kills }, quests: r.quests, story: r.story, dungeons: r.dungeons,
     fights: r.fights, rounds: r.rounds, goldEarned: r.goldEarned, goldSpent: r.goldSpent, potions: r.potions, resurrects: r.resurrects,
     dealt: r.dealt, taken: r.taken, topSpells: top, equipped: D.SLOTS.map((s) => p.equip[s]).filter(Boolean),
@@ -1078,8 +1078,8 @@ H.HUB_SERVICE = (st, a) => {
   if (!['trainer', 'vendor', 'inn'].includes(a.service)) return 'Unknown service';
   if (st.hub.used[a.service]) return 'Already used this visit';
   st.hub.used[a.service] = true;
-  if (a.service === 'inn') { st.hours += C.HOURS.inn; doRest(st); return; }
-  st.hours += 1;
+  if (a.service === 'inn') { st.time += C.TIME.inn; doRest(st); return; }
+  st.time += 1;
   const cl = st.zone.idx > 6 ? 60 : st.zone.band[0];
   st.node = { type: a.service, cl, step: a.service, origin: 'hub', stock: a.service === 'vendor' ? vendorStock(st, cl) : null };
 };
@@ -1095,7 +1095,7 @@ H.CHOOSE_NODE = (st, a) => {
 H.TRAVEL_ON = (st) => {
   if (st.phase !== 'MAP') return 'Not on the map';
   if (!legalInfo(st).travelOn) return `Reach level ${st.zone.exitLevel} or finish the zone first`;
-  st.hours += C.HOURS.travel; st.run.zonesLeft++;
+  st.time += C.TIME.travel; st.run.zonesLeft++;
   enterZone(st, st.zone.idx + 1);
 };
 
@@ -1118,7 +1118,7 @@ H.CONTINUE = (st) => {
   startNodeFight(st);
 };
 H.GRIND_STOP = (st) => { const n = st.node; if (!n || n.type !== 'grind' || n.step !== 'between') return 'Not now'; gainXp(st, Math.round(C.GRIND_WAVE_XP * xpToNext(Math.min(59, n.cl)) * n.waves), false); finishNode(st); };
-H.DUNGEON_LEAVE = (st) => { const n = st.node; if (!n || n.type !== 'dungeon' || n.step !== 'between') return 'Not now'; st.hours += 0; finishNode(st); };
+H.DUNGEON_LEAVE = (st) => { const n = st.node; if (!n || n.type !== 'dungeon' || n.step !== 'between') return 'Not now'; st.time += 0; finishNode(st); };
 H.OPEN_CHEST = (st) => {
   const n = st.node; const p = st.player;
   if (!n || n.type !== 'treasure' || n.step !== 'chest') return 'Not now';
@@ -1387,14 +1387,14 @@ H.SET_AUTOPLAY = (st, a) => { st.autoplay = !!a.on; };
 
 H.CAMP_GRIND = (st) => {
   if (st.phase !== 'CAMP' || st.node) return 'Not now';
-  st.hours += 1;
+  st.time += 1;
   st.phase = 'NODE';
   st.node = { type: 'camp_grind', cl: 58, step: 'intro', fightNo: 0, origin: 'camp' };
   startNodeFight(st);
 };
 H.FIGHT_BOSS = (st) => {
   if (st.phase !== 'CAMP' || st.node) return 'Not now';
-  const asc = ascendancy(st.hours);
+  const asc = ascendancy(st.time);
   st.phase = 'BOSS';
   st.run.bossPhase = 1;
   const boss = { idx: 0, uid: uid(st), name: D.BOSS.name, arch: 'boss', level: 62, rank: 'boss', hp: Math.round(D.BOSS.hp * (1 + asc)), maxHp: Math.round(D.BOSS.hp * (1 + asc)), armor: D.BOSS.armor, dmg: 200, dodge: 0.05, statuses: [], cds: {}, intent: null, alive: true, abilities: [] };
@@ -1427,7 +1427,7 @@ H.DEBUG_JUMP = (st, a) => {
   p.gold += a.gold || 0;
   recalc(p); p.hp = p.maxHp; p.res.cur = p.res.max; if (p.pet) { p.pet.alive = true; p.pet.hp = p.pet.maxHp; }
   st.node = null; st.combat = null; st.loot = null;
-  if (a.to === 'camp' || a.to === 'boss') { st.hours = a.hours ?? 128; enterZone(st, 7); if (a.to === 'boss') H.FIGHT_BOSS(st); }
+  if (a.to === 'camp' || a.to === 'boss') { st.time = a.time ?? 128; enterZone(st, 7); if (a.to === 'boss') H.FIGHT_BOSS(st); }
   else if (a.to === 'zone') { enterZone(st, clamp(a.zone || 1, 1, 6)); if (a.map) st.phase = 'MAP'; }
 };
 
@@ -1559,7 +1559,7 @@ const schoolName = (s) => ({ phys: 'physical', fire: 'fire', frost: 'frost', arc
 export const data = {
   classes: D.CLASSES, spells: D.SPELLS, talents: D.TALENTS, pets: D.PETS, consumables: D.CONSUMABLES,
   statuses: D.STATUS_INFO, boons: D.BOONS, slots: D.SLOTS, slotNames: D.SLOT_NAME, zones: D.ZONES, camp: D.CAMP, boss: D.BOSS,
-  nodeHours: { ...C.HOURS },
+  nodeTime: { ...C.TIME },
   constants: { ...C, xpToNext },
 };
 export { itemScore };

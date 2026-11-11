@@ -7,7 +7,7 @@ import { SPELLS, TALENTS, STATUS_INFO as BASE_STATUS, CONSUMABLES, BOONS, CLASSE
  * Player-facing words for the run's time pressure (docs/specs/changes-m2b-v7.md table D, draft; owner 2026-11-11 10:12):
  * the meter is the Furnace, its states Calm, Smouldering, Burning and Infernal (engine ids clear, warm, hot, scorched),
  * time is counted in tolls, whole numbers only, no "h" and no day clock. Every heat and time text of the UI takes its
- * words from here, so a rename is one edit. Until the engine's own rename, 1 toll = 1 engine hour (view.hours).
+ * words from here, so a rename is one edit. The engine counts tolls itself (M2b v7: view.time, heatView.time; whole numbers).
  */
 export const HEAT_WORDS = {
   name: 'the Furnace', Name: 'The Furnace', // in a sentence / as a title

@@ -971,7 +971,7 @@ body[data-phase="MAP"]:not(.in-fight) #toasts .toast { white-space: normal; text
 .tt-heatstates .hs.on > * { text-decoration: underline; text-decoration-color: var(--hc); text-underline-offset: .25rem; }
 .tt-line.dimline { color: #c9b2ff; }
 .tt-line.heatup { color: var(--hc-tx); font-weight: 700; }
-/* hour labels that move the player into a new state, nodes entered Hot or Scorched, items heat raised */
+/* toll labels that move the player into a new state, nodes entered Hot or Scorched, items heat raised */
 .heat-chg[data-hs] { padding: 0 .4rem; border-radius: .3rem; background: var(--hc) !important; color: var(--hc-ink) !important; text-shadow: none !important; box-shadow: 0 0 0 1px #000, 0 0 .7rem color-mix(in srgb, var(--hc) 65%, transparent); }
 .mnode .mhrs { position: absolute; left: 50%; bottom: 100%; transform: translate(-50%, -.35rem); padding: 0 .4rem; border-radius: .3rem; background: rgba(40, 28, 12, .88); font: 800 1rem/1.45rem var(--font-num); color: #f0e0c0; white-space: nowrap; pointer-events: none; box-shadow: 0 0 0 1px rgba(0, 0, 0, .6); }
 
@@ -999,7 +999,7 @@ body[data-phase="MAP"]:not(.in-fight) #toasts .toast { white-space: normal; text
 .hc-chart .dot { fill: #efe6d0; stroke: #17120c; stroke-width: 2; }
 .hc-chart .hit { fill: transparent; cursor: help; }
 .hc-chart .pt:hover .dot, .hc-chart .pt:focus .dot { fill: #fff; r: 6; }
-.heatcard .hc-hours { display: flex; align-items: center; gap: .8rem; font-size: 1.12rem; }
+.heatcard .hc-time { display: flex; align-items: center; gap: .8rem; font-size: 1.12rem; }
 
 .heatcard .hc-strip { flex: 0 0 14rem; display: flex; gap: 2px; height: .8rem; border-radius: .4rem; overflow: hidden; background: #0b0907; }
 .heatcard .hc-strip i { display: block; background: var(--hc); }

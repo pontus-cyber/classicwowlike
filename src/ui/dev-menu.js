@@ -2,7 +2,7 @@
 // through"; docs/specs/engine-api.md 12). A corner button and the backquote key (`) open a panel with six tabs: Start at
 // (class, pet, zone, level, item level, rarity, map mode, talents), Jump (the Camp, the end-boss fight in phase 1, 2 or 3,
 // the next zone), Fight (a searchable list of every enemy template by zone and type, the target killed, health and
-// resources refilled), Give (gold, potions, talent points, Echoes, the full catalogue), World (hours and heat, the map
+// resources refilled), Give (gold, potions, talent points, Echoes, the full catalogue), World (the run's tolls and heat, the map
 // revealed, god mode, the map mode) and Seed (the seed, copy it, a new run on a seed). On by default; ?dev=0 or the
 // settings hide it. Presentation only: every button sends one dev op through the bridge (ctx.dev -> engine-bridge.js dev
 // -> R.debug); the numbers it shows (levels, limits, kinds) come from the bridge's data.dev.
@@ -31,7 +31,7 @@ export function createDevMenu(root, ctx, { allowed }) {
   let built = null; // the tab on screen: { tab, refresh(view) }
   // form values kept while the menu is open and between tabs
   const form = { classId: null, petId: null, zone: null, level: '', ilvl: '', rarity: D.defaults.RARITY, mapMode: null, talents: 'auto',
-    q: '', fzone: 'all', fkind: 'all', flevel: '', gold: '10000', potions: String(D.defaults.POTIONS), points: '1', echoes: '1000', hours: '', seed: '' };
+    q: '', fzone: 'all', fkind: 'all', flevel: '', gold: '10000', potions: String(D.defaults.POTIONS), points: '1', echoes: '1000', time: '', seed: '' };
 
   const enabled = () => allowed() && ctx.settings.get('devTools') !== false;
   const isOpen = () => !panel.classList.contains('hidden');
@@ -106,7 +106,7 @@ export function createDevMenu(root, ctx, { allowed }) {
       const why = h('div.dm-note');
       return {
         el: h('div', h('div.dm-acts', btns), h('div.dm-sub', 'End-boss fight'), h('div.dm-acts', boss), why,
-          h('div.dm-note', 'Leaves whatever is open (a fight, a node, a service, the loot window). The character and the hours stay; Next zone costs the travel hours.')),
+          h('div.dm-note', 'Leaves whatever is open (a fight, a node, a service, the loot window). The character and the time so far stay; Next zone costs the travel tolls.')),
         refresh(vv) {
           const ok = inRun(vv);
           for (const b of all) b.disabled = !ok;
@@ -180,9 +180,9 @@ export function createDevMenu(root, ctx, { allowed }) {
       };
     },
     world(v) {
-      const hours = number('hours', { min: 0, placeholder: v.hours ?? 0 });
+      const time = number('time', { min: 0, placeholder: v.time ?? 0 });
       const now = h('span.dm-h');
-      const set = opBtn('Set', 'hours', () => { const n = whole('hours', 'Hours', 0); return n === null ? null : { hours: n }; });
+      const set = opBtn('Set', 'time', () => { const n = whole('time', HEAT_WORDS.Units, 0); return n === null ? null : { time: n }; });
       const heat = D.heatStates.map((st) => { const b = opBtn(HEAT_LABEL[st] || cap(st), 'heat', { state: st }); b.dataset.heat = st; return b; });
       const reveal = opBtn('Reveal the map', 'reveal');
       const god = h('div.toggle', { role: 'switch', 'aria-label': 'God mode', tabindex: '0' }, h('div.sw'), 'God mode');
@@ -190,7 +190,7 @@ export function createDevMenu(root, ctx, { allowed }) {
       const modes = [['rows', 'Rows'], ['expedition', 'Expedition']].map(([m, label]) => { const b = h('button', { type: 'button' }, label); b.dataset.mode = m; b.addEventListener('click', () => { b.blur(); ctx.dev('mapMode', { mode: m }); }); return b; });
       return {
         el: h('div',
-          h('div.dm-line', field(HEAT_WORDS.Units, hours, null), set, now),
+          h('div.dm-line', field(HEAT_WORDS.Units, time, null), set, now),
           h('div.dm-sub', `${HEAT_WORDS.Name} (the run's own clock)`), h('div.dm-acts', heat),
           h('div.dm-acts', reveal, god),
           h('div.dm-sub', 'Map'), h('div.seg.dm-seg', modes),
@@ -202,8 +202,8 @@ export function createDevMenu(root, ctx, { allowed }) {
           const on = !!(vv.dev && vv.dev.god);
           god.classList.toggle('on', on); god.setAttribute('aria-checked', on ? 'true' : 'false'); god.classList.toggle('disabled', !ok);
           for (const b of modes) b.classList.toggle('on', (vv.mapMode || 'rows') === b.dataset.mode);
-          hours.placeholder = String(vv.hours ?? 0);
-          now.textContent = vv.heat ? `now ${tolls(vv.hours)} · ${HEAT_LABEL[vv.heat.state] || vv.heat.state}` : '';
+          time.placeholder = String(vv.time ?? 0);
+          now.textContent = vv.heat ? `now ${tolls(vv.time)} · ${HEAT_LABEL[vv.heat.state] || vv.heat.state}` : '';
         },
       };
     },

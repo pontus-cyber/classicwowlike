@@ -14,7 +14,7 @@
  * toggle on the action bar). window.__ui is used only to read the view and to wait for animations.
  *
  * The choices come from qa/browser/policy.mjs. A Node twin of the run (src/rules.js, same seed, same
- * choices) is stepped alongside: after every action the UI must show the twin's state (hours, level, XP,
+ * choices) is stepped alongside: after every action the UI must show the twin's state (time in tolls, level, XP,
  * HP, mana, gold, bags, equipment, bars, talents, zone position, fight round and enemy HP), and at the end
  * the summary screen must show the twin's summary. What the UI sends on its own (a newly bought or looted potion
  * put on a free item slot, window.__ui.ownActions) is applied to the twin too. Combat v2: the engage round's
@@ -67,7 +67,7 @@ function slimView() {
   const v = window.__ui.view();
   const p = v.player;
   return {
-    phase: v.phase, hours: v.hours, autoplay: v.autoplay,
+    phase: v.phase, time: v.time, autoplay: v.autoplay,
     player: p && {
       level: p.level, xp: p.xp, hp: p.hp, maxHp: p.maxHp, gold: p.gold, res: p.res, cp: p.cp, talentPoints: p.talentPoints,
       bag: p.bag.filter(Boolean).map((b) => `${b.uid}:${b.count || 1}`),
@@ -79,7 +79,7 @@ function slimView() {
     node: v.node && { type: v.node.type, step: v.node.step, origin: v.node.origin || null, fightNo: v.node.fightNo },
     combat: v.combat && { round: v.combat.round, over: v.combat.over || null, enemies: v.combat.enemies.map((e) => `${e.idx}:${e.hp}:${e.alive ? 1 : 0}`) },
     loot: v.loot && { kind: v.loot.kind, gold: v.loot.gold || 0, xp: v.loot.xp || 0, trap: !!v.loot.trap, items: (v.loot.items || []).map((it) => ({ uid: it.uid, pending: !!it.pending })), choices: (v.loot.choices || []).length },
-    summary: v.summary && { outcome: v.summary.outcome, level: v.summary.level, hours: v.summary.hours, fights: v.summary.fights, rounds: v.summary.rounds, quests: v.summary.quests, dungeons: v.summary.dungeons, kills: v.summary.kills, echoTotal: v.summary.echoTotal, seed: v.summary.seed },
+    summary: v.summary && { outcome: v.summary.outcome, level: v.summary.level, time: v.summary.time, fights: v.summary.fights, rounds: v.summary.rounds, quests: v.summary.quests, dungeons: v.summary.dungeons, kills: v.summary.kills, echoTotal: v.summary.echoTotal, seed: v.summary.seed },
     legal: v.legal && { lanes: v.legal.lanes, travelOn: v.legal.travelOn, flee: v.legal.flee },
   };
 }
@@ -90,7 +90,7 @@ function slimTwin(s) {
   const f = s.fight;
   const kind = C.CLASS[p.classId].resource;
   return {
-    hours: s.hours,
+    time: s.time,
     player: {
       level: p.level, xp: p.xp, hp: p.hp, maxHp: p.d.maxHp, gold: p.gold,
       res: kind === 'mana' ? { kind, cur: p.mana, max: p.d.maxMana } : f ? { kind, cur: f.p[kind], max: f.p[`${kind}Max`] } : null,
@@ -119,10 +119,10 @@ function diff(a, b, pre = '') {
 /** Compare the UI view with the twin. Fight fields only while the UI shows the live fight. */
 function compare(v, s) {
   const t = slimTwin(s);
-  const ui = { hours: v.hours, player: { ...v.player }, zone: v.zone && v.zone.idx <= 6 ? v.zone : null };
+  const ui = { time: v.time, player: { ...v.player }, zone: v.zone && v.zone.idx <= 6 ? v.zone : null };
   delete ui.player.cp; delete ui.player.talentPoints;
   if (!s.fight) { if (t.player.res && t.player.res.kind !== 'mana') t.player.res = null; if (ui.player.res && ui.player.res.kind !== 'mana') ui.player.res = null; }
-  const out = diff(ui, { hours: t.hours, player: t.player, zone: t.zone });
+  const out = diff(ui, { time: t.time, player: t.player, zone: t.zone });
   if (s.fight && v.combat && !v.combat.over && !v.loot) out.push(...diff(v.combat.round, t.combat.round, 'combat.round'), ...diff(v.combat.enemies, t.combat.enemies, 'combat.enemies'));
   return out;
 }
@@ -498,7 +498,7 @@ async function playOne(browser, W, H, cls) {
       await checkLayout('summary');
       await shot('summary');
       const twin = R.summary(s);
-      res.twinSummary = { outcome: twin.outcome, level: twin.level, hours: twin.hours, fights: twin.fights, rounds: twin.rounds, quests: twin.quests, dungeons: twin.dungeons, kills: twin.kills, echoTotal: twin.echoes ? twin.echoes.total : null, seed: twin.seed };
+      res.twinSummary = { outcome: twin.outcome, level: twin.level, time: twin.time, fights: twin.fights, rounds: twin.rounds, quests: twin.quests, dungeons: twin.dungeons, kills: twin.kills, echoTotal: twin.echoes ? twin.echoes.total : null, seed: twin.seed };
       res.summary = v.summary;
       res.outcome = v.summary && v.summary.outcome;
       res.reached = twin.reached;

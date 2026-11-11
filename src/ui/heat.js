@@ -4,28 +4,29 @@
 // R.heatPreview through the bridge (view.heat, bridge.heatPreview); the thresholds and rewards the texts name come from
 // the engine's constants (data.rules.heat). Nothing here computes a state, a line or a reward.
 // Owner 2026-11-11 10:12 (draft): the meter is named the Furnace (changes-m2b-v7.md table D: Calm, Smouldering, Burning,
-// Infernal; whole tolls, 1 toll = 1 engine hour until the engine's rename) and sits at the top centre, calm water on the
-// cool side and embers on the hot side; its name and time unit come from ui-text.js HEAT_WORDS (a rename is one edit).
+// Infernal; whole tolls) and sits at the top centre, calm water on the cool side and embers on the hot side; its name and
+// time unit come from ui-text.js HEAT_WORDS (a rename is one edit). The engine counts tolls (M2b v7: heatView.time,
+// heatPreview.time, the summary's time and heat.timeByState, all whole numbers); nothing here rounds or converts them.
 //
 //   createHeatMeter(root, ctx)  the HUD meter, on every screen of a run but the summary: the four states (Clear, Warm,
-//                               Hot, Scorched) as segments of one bar over HEAT_BAR_MIN..HEAT_BAR_MAX hours past the
+//                               Hot, Scorched) as segments of one bar over HEAT_BAR_MIN..HEAT_BAR_MAX tolls past the
 //                               line, the Star's line (red) at heat 0, the player's marker (bar.marker, an arrow when
 //                               bar.beyond), in an expedition zone the Dimming's marker, a ghost marker for the hovered
 //                               choice, the numbers ("12 tolls in hand" / "8 tolls past the line", "Boss +4 %"), what the state
 //                               or the node the player is in pays, a first-time note; noteStep: a toast on every change of
 //                               state, after the step that made it has played.
-//   heatKey(action)             the key of an hour-costing engine action in view.heat.next
-//   heatTip(ctx), previewBlock  tooltip contents: the meter's explanation; "2 h · ends Warm" for a choice (map nodes,
+//   heatKey(action)             the key of a time-costing engine action in view.heat.next
+//   heatTip(ctx), previewBlock  tooltip contents: the meter's explanation; "3 tolls, ends Smouldering" for a choice (map nodes,
 //                               services, Grind waves, Travel on, expedition moves)
-//   buildHeatSummary(sum, ctx)  the run summary's heat card: the hours-vs-line track per zone, hours by state, over par
+//   buildHeatSummary(sum, ctx)  the run summary's heat card: the tolls-against-the-line track per zone, tolls by state, over par
 //
 // Colours (state = a fixed four-step scale, always named on the bar): Clear blue, Warm gold, Hot orange, Scorched crimson.
 // Checked with the dataviz palette validator on the panel surface #17120c: adjacent CVD ΔE >= 14 (deutan), normal-vision
 // ΔE >= 17, contrast >= 3:1; its categorical lightness band is not met on purpose (Warm -> Hot -> Scorched step down in
 // lightness so the order survives colour blindness).
 //
-// The Dimming's marker (H.5) sits in the segment of its own state (stateDim, from the engine): left of the line one hour
-// of the clock is one hour of the bar (the hours before the Dimming turns Warm), inside Warm and Hot the clock's
+// The Dimming's marker (H.5) sits in the segment of its own state (stateDim, from the engine): left of the line one toll
+// of the clock is one toll of the bar (the tolls before the Dimming turns Warm), inside Warm and Hot the clock's
 // HEAT_DIM thresholds are spread over the segment, and a Dimmed node sits in Scorched. Only the place inside the segment
 // is drawn here; the state is the engine's.
 import { h, clear, clamp } from './util.js';
@@ -37,7 +38,7 @@ export const HEAT_COLOR = { clear: '#3f9bd6', warm: '#f0c75a', hot: '#ec7a2c', s
 const INTRO_KEY = 'tbwcr.heatIntro.v1'; // the first-time note was shown (localStorage)
 const STATES = ['clear', 'warm', 'hot', 'scorched'];
 
-/** Key of an hour-costing engine action in view.heat.next (the bridge keys heatView.next with it). */
+/** Key of a time-costing engine action in view.heat.next (the bridge keys heatView.next with it). */
 export function heatKey(a) {
   if (!a) return '';
   switch (a.type) {
@@ -50,18 +51,17 @@ export function heatKey(a) {
   }
 }
 
-/** A time value as a whole number (M2b v7: no decimals; 1 toll = 1 engine hour until the engine's rename). */
-export const fmtH = (x) => String(Math.round(Math.abs(x)));
-/** The Star's line as shown: rounded up per zone (changes-m2b-v7.md A row 2; the states are the same either way). */
-export const lineShown = (line) => Math.ceil(line - 1e-9);
+/** A time value in tolls, written as its whole number (the engine's values are whole, M2b v7). */
+export const fmtTime = (x) => String(Math.abs(x));
+/** The Star's line as shown: the engine's line, whole tolls rounded up per zone (changes-m2b-v7.md A row 2, D70). */
+export const lineShown = (line) => line;
 /**
  * Where the player stands against this zone's line (the meter's main number): "12 tolls in hand", "On the line",
- * "8 tolls past the line". Whole tolls against the line rounded up: past = floor(heat), in hand = ceil(-heat).
+ * "8 tolls past the line"; heat is the engine's whole number of tolls past the line.
  */
 export function standText(x) {
-  const past = Math.floor(x.heat + 1e-9); const hand = Math.ceil(-x.heat - 1e-9);
-  if (x.heat > 0 && past > 0) return `${tolls(past)} past the line`;
-  if (x.heat < 0 && hand > 0) return `${tolls(hand)} in hand`;
+  if (x.heat > 0) return `${tolls(x.heat)} past the line`;
+  if (x.heat < 0) return `${tolls(-x.heat)} in hand`;
   return 'On the line';
 }
 export const bossText = (asc) => `Boss +${Math.round((asc || 0) * 100)} %`;
@@ -98,9 +98,9 @@ export function heatToast(hv, camp = false) {
   }
 }
 
-/** Per cent across the bar of a value in hours past the line. */
+/** Per cent across the bar of a value in tolls past the line. */
 const pctOf = (x, bar) => (100 * (clamp(x, bar.min, bar.max) - bar.min)) / Math.max(1e-9, bar.max - bar.min);
-/** The four segments over the bar: [state, from, to] in hours past the line (HEAT_WARM_AT, HEAT_HOT_AT, HEAT_SCORCH_AT). */
+/** The four segments over the bar: [state, from, to] in tolls past the line (HEAT_WARM_AT, HEAT_HOT_AT, HEAT_SCORCH_AT). */
 function segments(H, bar) {
   return [['clear', bar.min, H.warmAt], ['warm', H.warmAt, H.hotAt], ['hot', H.hotAt, H.scorchAt], ['scorched', H.scorchAt, bar.max]];
 }
@@ -130,7 +130,7 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
   els.segs = {};
   els.bar = h('div.ht-bar');
   els.line = h('div.ht-line', { 'aria-hidden': 'true' });
-  els.span = h('div.ht-span.hidden'); // the hours a hovered choice spends: from the marker to the ghost
+  els.span = h('div.ht-span.hidden'); // the tolls a hovered choice spends: from the marker to the ghost
   els.ghost = h('div.ht-mark.ghost.hidden', h('i'));
   els.mark = h('div.ht-mark.run', h('i'), h('b.ht-arrow.hidden'));
   els.dmark = h('div.ht-mark.dim.hidden', h('i'));
@@ -151,7 +151,7 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
 
   let built = false;
   let ghost = null; // the hovered choice's preview (engine-api.md 11.2), or null
-  let ghostAt = null; // the phase and hours it was hovered at: a step clears it (the hovered element may be gone)
+  let ghostAt = null; // the phase and run time it was hovered at: a step clears it (the hovered element may be gone)
 
   function build() {
     if (built || !H) return;
@@ -174,7 +174,7 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
     els.el.classList.toggle('hidden', !show);
     if (!show) { els.intro.classList.add('hidden'); ghost = null; return; }
     build();
-    if (ghost && ghostAt !== `${v.phase}|${hv.hours}|${hv.z}`) { ghost = null; ghostAt = null; }
+    if (ghost && ghostAt !== `${v.phase}|${hv.time}|${hv.z}`) { ghost = null; ghostAt = null; }
     const bar = hv.bar;
     els.el.dataset.state = hv.state; els.el.dataset.by = hv.by;
     for (const s of STATES) els.segs[s].classList.toggle('on', s === hv.state);
@@ -188,7 +188,7 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
     arrow.classList.toggle('hidden', !bar.beyond); arrow.textContent = bar.beyond < 0 ? '◀' : bar.beyond > 0 ? '▶' : '';
     els.mark.classList.toggle('beyond', !!bar.beyond);
     els.mark.classList.toggle('sets', hv.by === 'run');
-    // the Dimming's clock (expedition zones): its marker in its state's segment and "Dimming 3 h"
+    // the Dimming's clock (expedition zones): its marker in its state's segment and "Dimming: 3 tolls"
     const dp = hv.dimIn !== null && hv.dimIn !== undefined && hv.stateDim ? dimBarPos(hv.dimIn, hv.stateDim, H, bar) : null;
     els.dmark.classList.toggle('hidden', !dp);
     els.dimTxt.classList.toggle('hidden', !dp);
@@ -231,7 +231,7 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
     }
   }
 
-  /** The ghost marker and the hours a hovered choice spends; the text row shows "→ 2 h · ends Warm" meanwhile. */
+  /** The ghost marker and the tolls a hovered choice spends; the text row shows "→ 3 tolls, ends Smouldering" meanwhile. */
   function drawGhost(hv, payLine) {
     const p = ghost; const bar = hv.bar;
     els.ghost.classList.toggle('hidden', !p);
@@ -243,7 +243,7 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
       const a = pctOf(bar.marker, bar); const b = pctOf(gx, bar);
       els.span.style.left = `${Math.min(a, b)}%`; els.span.style.width = `${Math.abs(b - a)}%`;
       els.span.classList.toggle('back', b < a); // leaving the zone: the line moves ahead, the heat drops
-      clear(els.pay).append(h('i.ht-dot', { dataset: { hs: p.state } }), `→ ${tolls(p.hours)}${p.perWave ? ' a wave' : ''}${p.dimFight ? ' + Dimmed fight' : ''}, ends ${HEAT_NAME[p.state]}`);
+      clear(els.pay).append(h('i.ht-dot', { dataset: { hs: p.state } }), `→ ${tolls(p.time)}${p.perWave ? ' a wave' : ''}${p.dimFight ? ' + Dimmed fight' : ''}, ends ${HEAT_NAME[p.state]}`);
       els.pay.classList.add('pv');
     } else {
       els.pay.classList.remove('pv');
@@ -268,7 +268,7 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
   function setGhost(p) {
     const v = ctx.view;
     ghost = p && v && v.heat ? p : null;
-    ghostAt = ghost ? `${v.phase}|${v.heat.hours}|${v.heat.z}` : null;
+    ghostAt = ghost ? `${v.phase}|${v.heat.time}|${v.heat.z}` : null;
     if (v) update(v);
   }
 
@@ -283,10 +283,10 @@ export function heatTip(ctx) {
   const box = h('div.tt-heatbox');
   box.appendChild(h('div.tt-name', HW.Name));
   box.appendChild(h('div.tt-line', `${standText(hv)} in this zone.`));
-  box.appendChild(h('div.tt-line', `${HW.Units} so far: ${fmtH(hv.hours)} · the Star's line: ${lineShown(hv.line)}`));
-  box.appendChild(h('div.tt-line.desc', `Oruvath grows stronger for every ${tolls(H.ascStepHours)} past ${fmtH(hv.par)} (Ascendancy): +${Math.round(H.ascPerStep * 100)} % health and damage each, at most +${Math.round(H.ascCap * 100)} %. ${bossText(hv.ascIfPar)} if you keep the line from here.`));
+  box.appendChild(h('div.tt-line', `${HW.Units} so far: ${fmtTime(hv.time)} · the Star's line: ${lineShown(hv.line)}`));
+  box.appendChild(h('div.tt-line.desc', `Oruvath grows stronger for every ${tolls(H.ascStepTime)} past ${fmtTime(hv.par)} (Ascendancy): +${Math.round(H.ascPerStep * 100)} % health and damage each, at most +${Math.round(H.ascCap * 100)} %. ${bossText(hv.ascIfPar)} if you keep the line from here.`));
   const rows = [
-    ['clear', 'ahead of the line'], ['warm', `${fmtH(H.warmAt)} to ${tolls(H.hotAt)} past`], ['hot', `${fmtH(H.hotAt)} to ${tolls(H.scorchAt)} past`], ['scorched', `${tolls(H.scorchAt)} or more past`],
+    ['clear', 'ahead of the line'], ['warm', `${fmtTime(H.warmAt)} to ${tolls(H.hotAt)} past`], ['hot', `${fmtTime(H.hotAt)} to ${tolls(H.scorchAt)} past`], ['scorched', `${tolls(H.scorchAt)} or more past`],
   ];
   box.appendChild(h('div.tt-heatstates', rows.map(([s, when]) => h('div.hs' + (s === hv.state ? '.on' : ''), { dataset: { hs: s } }, h('i.ht-dot', { dataset: { hs: s } }), h('b', HEAT_NAME[s]), h('span.w', when), h('span.p', payText(s, H) || 'no reward')))));
   box.appendChild(h('div.tt-sub', 'A node pays the state you enter it in.'));
@@ -300,14 +300,14 @@ export function heatTip(ctx) {
 }
 
 /**
- * Tooltip block of an hour-costing choice (engine-api.md 11.2): "Heat  2 h · ends Warm", what a node entered now pays
+ * Tooltip block of a time-costing choice (engine-api.md 11.2): "3 tolls, ends Smouldering", what a node entered now pays
  * (`pays`), and where the player then stands. p: a heatView.next entry or an R.heatPreview result.
  */
 export function previewBlock(p, ctx, opts = {}) {
   const H = ctx.data.rules.heat;
   if (!p || !H) return null;
   const box = h('div.tt-heat', { dataset: { hs: p.state } });
-  const hrs = `${tolls(p.hours)}${p.perWave ? ' a wave' : ''}`;
+  const hrs = `${tolls(p.time)}${p.perWave ? ' a wave' : ''}`;
   box.appendChild(h('div.th-l', h('span.k', HW.Name), h('i.ht-dot', { dataset: { hs: p.state } }), `${hrs}, ends `, h('b', { dataset: { hs: p.state } }, HEAT_NAME[p.state]), p.change ? h('span.chg', ' (a new state)') : null));
   if (p.dimFight) box.appendChild(h('div.th-w', `It ends in the Dimming: a Dimmed encounter follows (its ${HW.unit} included).`));
   if (p.pays) {
@@ -331,9 +331,9 @@ export function heatBadge(state, ctx, kind = 'node') {
 
 // ------------------------------------------------------------------ run summary
 /**
- * The summary's heat card (H.4, engine-api.md 11.3): the hours-vs-line track as a chart (per zone the heat on arrival
- * and when left, over the four state bands and the Star's line), the hours spent in each state, and the end against the
- * line or the par. sum: the bridge's summary (sum.heat, sum.hours, sum.par).
+ * The summary's heat card (H.4, engine-api.md 11.3): the tolls-against-the-line track as a chart (per zone the heat on
+ * arrival and when left, over the four state bands and the Star's line), the tolls spent in each state, and the end against the
+ * line or the par. sum: the bridge's summary (sum.heat, sum.time, sum.par).
  */
 export function buildHeatSummary(sum, ctx) {
   const H = ctx.data.rules.heat; const ht = sum.heat;
@@ -341,17 +341,17 @@ export function buildHeatSummary(sum, ctx) {
   const zc = ctx.data.rules.zoneCount;
   const recs = ht.trackPerZone.map((r) => ({ ...r, a: r.entry - r.line, b: r.exit - r.line }));
   const last = recs[recs.length - 1];
-  const over = sum.hours - sum.par;
+  const over = sum.time - sum.par;
   const card = h('div.card.heatcard');
   const endLine = sum.reachedCamp
-    ? `${HW.Units}: ${fmtH(sum.hours)} (par ${fmtH(sum.par)}) · ${over > 0 ? `${tolls(over)} over par` : over < 0 ? `${tolls(over)} under par` : 'on par'}${sum.asc ? ` · Ascendancy +${Math.round(sum.asc * 100)} %` : ''}`
-    : `${HW.Units}: ${fmtH(sum.hours)} · the Star's line: ${lineShown(last.line)} · ${standText({ heat: last.b })}`;
-  // hours by state: a thin bar of the run's hours with the figures beside it, in the card's head next to the end line
-  const tot = ht.hoursByState.reduce((a, b) => a + b, 0) || 1;
-  const strip = h('div.hc-strip', { role: 'img', 'aria-label': `${HW.Units} in each state: ${STATES.map((s, i) => `${HEAT_NAME[s]} ${fmtH(ht.hoursByState[i])}`).join(' · ')}` },
-    STATES.map((s, i) => (ht.hoursByState[i] > 0 ? h('i', { dataset: { hs: s }, style: { flexGrow: String(ht.hoursByState[i] / tot) } }) : null)));
-  card.appendChild(h('div.hc-head', h('h3', HW.Name), h('div.hc-hours', strip,
-    h('span.hc-leg', `${HW.Units} in each state: `, STATES.map((s, i) => h('span', h('i.ht-dot', { dataset: { hs: s } }), `${HEAT_NAME[s]} ${fmtH(ht.hoursByState[i])}`)))), h('span.hc-end', endLine)));
+    ? `${HW.Units}: ${fmtTime(sum.time)} (par ${fmtTime(sum.par)}) · ${over > 0 ? `${tolls(over)} over par` : over < 0 ? `${tolls(over)} under par` : 'on par'}${sum.asc ? ` · Ascendancy +${Math.round(sum.asc * 100)} %` : ''}`
+    : `${HW.Units}: ${fmtTime(sum.time)} · the Star's line: ${lineShown(last.line)} · ${standText({ heat: last.b })}`;
+  // tolls by state: a thin bar of the run's tolls with the figures beside it, in the card's head next to the end line
+  const tot = ht.timeByState.reduce((a, b) => a + b, 0) || 1;
+  const strip = h('div.hc-strip', { role: 'img', 'aria-label': `${HW.Units} in each state: ${STATES.map((s, i) => `${HEAT_NAME[s]} ${fmtTime(ht.timeByState[i])}`).join(' · ')}` },
+    STATES.map((s, i) => (ht.timeByState[i] > 0 ? h('i', { dataset: { hs: s }, style: { flexGrow: String(ht.timeByState[i] / tot) } }) : null)));
+  card.appendChild(h('div.hc-head', h('h3', HW.Name), h('div.hc-time', strip,
+    h('span.hc-leg', `${HW.Units} in each state: `, STATES.map((s, i) => h('span', h('i.ht-dot', { dataset: { hs: s } }), `${HEAT_NAME[s]} ${fmtTime(ht.timeByState[i])}`)))), h('span.hc-end', endLine)));
   card.appendChild(h('div.hc-cap', `${HW.Units} against the Star's line`));
   card.appendChild(heatChart(recs, H, zc));
   const hotNodes = ht.nodesByState[2] + ht.nodesByState[3];
@@ -360,7 +360,7 @@ export function buildHeatSummary(sum, ctx) {
   return card;
 }
 
-/** The hours-vs-line chart (inline SVG): state bands, the Star's line at 0, per zone arrival -> leaving, and the step down
+/** The tolls-against-the-line chart (inline SVG): state bands, the Star's line at 0, per zone arrival -> leaving, and the step down
  * at each new zone (the line moves ahead). Hover a point for its numbers; the last value is labelled at its end. */
 function heatChart(recs, H, zc) {
   const NS = 'http://www.w3.org/2000/svg';
@@ -398,7 +398,7 @@ function heatChart(recs, H, zc) {
     const v = k === 'a' ? r.a : r.b;
     const g = el('g', { class: 'pt', tabindex: '0' }, el('circle', { cx: px, cy: py, r: 12, class: 'hit' }), el('circle', { cx: px, cy: py, r: 4.5, class: 'dot' }));
     const zoneName = r.z > zc ? 'Camp' : `Zone ${r.z}`;
-    tip(g, () => h('div', h('div.tt-name', `${zoneName}, ${k === 'a' ? 'arrival' : 'leaving'}`), h('div.tt-line', `${HW.Units} so far: ${fmtH(k === 'a' ? r.entry : r.exit)} · the Star's line: ${lineShown(r.line)}`),
+    tip(g, () => h('div', h('div.tt-name', `${zoneName}, ${k === 'a' ? 'arrival' : 'leaving'}`), h('div.tt-line', `${HW.Units} so far: ${fmtTime(k === 'a' ? r.entry : r.exit)} · the Star's line: ${lineShown(r.line)}`),
       h('div.tt-line', { style: { fontWeight: 700 } }, standText({ heat: v }))));
     svg.appendChild(g);
   }

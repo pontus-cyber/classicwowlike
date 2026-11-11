@@ -41,10 +41,10 @@
  *      Oaths bought for 0, the Oath switches on class select (SET_OATH), the Echo multiplier and the run's Oaths.
  *   G  M2 v4, real engine at Instant speed. A stored profile from the older catalogue (Wayfinder, removed in M2 v4) that
  *      owns the Oaths; class select with the Oath of Haste sworn; the run on the engine's autoplay choices: the first
- *      Travel on (tooltip cost and the hours spent = HOURS_TRAVEL, as a Node run), then the camp: the par on the camp
+ *      Travel on (tooltip cost and the tolls spent = TIME_TRAVEL, as a Node run), then the camp: the par on the camp
  *      panel, the tracker and the minimap tooltip is the engine's bossPar (Oath of Haste included), and the Ascendancy
  *      line is the engine's. The seed is chosen at run time (seeds 1-60 whose Node run reaches the camp; preferably one
- *      whose Ascendancy comes from the Oath alone: at least ASC_STEP_HOURS past bossPar, less than that past BOSS_TIME_PAR).
+ *      whose Ascendancy comes from the Oath alone: at least ASC_STEP_TIME past bossPar, less than that past BOSS_TIME_PAR).
  *   H  combat v2 display (docs/specs/combat-v2.md 10, M2b 2b.6), real engine at Instant speed. Hunter seed 16: the engage
  *      panel in round 1 only (the class's options from R.engageOptions and "any bar spell"), the opening ruler, every
  *      nameplate's and the target frame's track (INTENT_TRACK_LEN entries as the engine has them: a Node twin replays the
@@ -52,15 +52,15 @@
  *      off-balance window: the marker and the bar's window highlight exactly where R.offBalance and R.spellInfo(...).window
  *      say. Mage seed 30: Pre-cast's spells, and Binding Glyph's FROZEN window (frost marker, bar highlight).
  *   I  the Heat meter (docs/specs/expedition.md H.4, H.5; engine-api.md 11; M2b 2b.6), real engine at Instant speed. A
- *      Hunter on a slow policy (every hub service, the reachable node that is no elite or dungeon with the most hours, the
+ *      Hunter on a slow policy (every hub service, the reachable node that is no elite or dungeon with the most tolls, the
  *      most Grind waves; the engine's autoplay otherwise) to the summary. At the first hub and at the first map step in Warm, Hot and
  *      Scorched the meter (state, "N h in hand" / "N h past the line", "Boss +N %", the marker and the Star's line, the pay
  *      line) equals R.heatView of a Node twin (window.__ui.engineLog), and every service card and reachable node (and Travel
- *      on) shows R.heatPreview in its hour label, its tooltip and the meter's ghost; a node entered Hot has its badge and
+ *      on) shows R.heatPreview in its toll label, its tooltip and the meter's ghost; a node entered Hot has its badge and
  *      "This node pays Hot"; a toast and a log line come with every change of state; with every window open over the map
  *      and on every kind of screen met (hub, services, map, dialogs, fights, loot, camp, boss) the meter is in view and on
  *      top; the camp panel, tracker and minimap name heatView's par and Ascendancy; the boss frame's Ascendancy is the
- *      meter's "Boss +N %"; the summary's heat card (track points per zone record, hours by state, over par) and the Echo
+ *      meter's "Boss +N %"; the summary's heat card (track points per zone record, tolls by state, over par) and the Echo
  *      line "Fights won in heat" match the engine's summary; loot marked "raised by heat" came from Hot or Scorched nodes.
  *      Then an expedition run (?expedition=1): the Dimming's marker and "Dimming: N tolls" at the hub, a move's preview, and
  *      a map step where the Dimming sets the state (marker, "· Dimming", the meter's tooltip) = heatView. Both seeds are
@@ -178,7 +178,7 @@ const idle = (page) => page.evaluate(async () => { await window.__ui.idle(); awa
 const view = (page) => page.evaluate(() => {
   const v = window.__ui.view();
   return {
-    phase: v.phase, hours: v.hours, autoplay: v.autoplay, step: v.node && v.node.step, round: v.combat ? v.combat.round : null, over: v.combat ? v.combat.over : null,
+    phase: v.phase, time: v.time, autoplay: v.autoplay, step: v.node && v.node.step, round: v.combat ? v.combat.round : null, over: v.combat ? v.combat.over : null,
     hp: v.player && v.player.hp, maxHp: v.player && v.player.maxHp, itemBar: v.player && v.player.itemBar, outcome: v.summary && v.summary.outcome,
     bag: v.player ? v.player.bag.map((b) => (b ? { uid: b.uid, id: b.id, kind: b.kind, name: b.name, count: b.count } : null)) : [],
   };
@@ -187,7 +187,7 @@ const logLines = async (page) => (await page.locator('#combatlog .lines').innerT
 const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: path.join(SHOTS, `${SIZE}-${name}.png`) }); };
 // M2b v7 (changes-m2b-v7.md A row 10): no day clock; the minimap's clock is empty and hidden at every reading
 const clockLabel = () => '';
-/** Time labels on screen (hour chips, service and wave labels, the Furnace, the minimap, footers, the tracker): none says "Day N", "N h" or a decimal time. */
+/** Time labels on screen (toll chips, service and wave labels, the Furnace, the minimap, footers, the tracker): none says "Day N", "N h" or a decimal time. */
 const timeLabelsBad = (page) => page.evaluate(() => [...document.querySelectorAll('#heat, #minimap, #tracker, .hrs, .mhrs, .bh, .sfoot, .mfoot, .mhead')].map((el) => el.innerText || '').join(' | ')
   .split(' | ').filter((t) => /\bDay \d|\d h\b|\d\.\d+ tolls?\b|\bhours?\b/i.test(t)));
 /** Wait until the fight's round passes `r` (or the fight is over); false on timeout. */
@@ -378,7 +378,7 @@ async function partA(browser, W, H) {
       await closeBags(page);
     } else check('BUG-QA-03', 'log names the item equipped from the bags', false, 'no quest reward reached the bags');
     v = await view(page);
-    check('BUG-QA-09', `no day clock at ${v.hours} tolls (M2b v7)`, (await page.locator('#minimap .clock').textContent()) === clockLabel(v.hours), await page.locator('#minimap .clock').textContent());
+    check('BUG-QA-09', `no day clock at ${v.time} tolls (M2b v7)`, (await page.locator('#minimap .clock').textContent()) === clockLabel(v.time), await page.locator('#minimap .clock').textContent());
     { const bad = await timeLabelsBad(page); check('M2b-v7', 'map: no time label says "Day N", "N h", hours or a decimal (tolls in whole numbers)', !bad.length, bad.join(' | ') || 'none'); }
   } catch (e) {
     check('-', 'part A ran to the end', false, e.message.split('\n')[0]);
@@ -391,7 +391,7 @@ async function partA(browser, W, H) {
 /**
  * Setup steps in the page: the engine's autoplay choices (AUTO) until the camp or the run's end. A TRAVEL_ON choice on
  * the map is sent as the UI's TRAVEL_ON action (what the Travel on button sends), so the zone travel and its banner play
- * as for a player. The clock is read after every hour change, the travel button at every map step and the zone banner
+ * as for a player. The clock is read after every change of the run's time, the travel button at every map step and the zone banner
  * after every change of zone.
  * stop.early: stop at the first map step where travelling on is legal under the exit level (the button's data-travel
  * is "early"); stop.zone: stop at the first map step in that zone or later; stop.travel: stop at the first map step where
@@ -419,8 +419,8 @@ const autoRun = (page, stop = {}) => page.evaluate(async (opt) => {
     await ui.idle();
     const nv = ui.view();
     if (nv.zone && nv.zone.idx !== zone) { zone = nv.zone.idx; out.banners.push({ z: zone, b1: document.querySelector('#banner .b1').textContent, b2: document.querySelector('#banner .b2').textContent }); }
-    const h = nv.hours;
-    if (h !== last && nv.phase !== 'SUMMARY') { last = h; await frame(); out.clock.push([nv.hours, document.querySelector('#minimap .clock').textContent]); }
+    const h = nv.time;
+    if (h !== last && nv.phase !== 'SUMMARY') { last = h; await frame(); out.clock.push([nv.time, document.querySelector('#minimap .clock').textContent]); }
   }
   await ui.idle();
   return out;
@@ -494,7 +494,7 @@ async function partB(browser, W, H) {
     if (v.phase !== 'CAMP') throw new Error(`setup did not reach the camp (phase ${v.phase})`);
     const wrong = samples.filter(([h, txt]) => txt !== clockLabel(h));
     const midnight = samples.find(([h]) => h >= 18);
-    check('BUG-QA-09', `no day clock at ${samples.length} readings (0 to ${v.hours} tolls, M2b v7)`, !wrong.length && !!midnight,
+    check('BUG-QA-09', `no day clock at ${samples.length} readings (0 to ${v.time} tolls, M2b v7)`, !wrong.length && !!midnight,
       wrong.length ? wrong.slice(0, 3).map(([h, t]) => `${h} tolls: "${t}"`).join(' | ') : `none past 17 tolls shows a clock`);
 
     // ---- the camp panel
@@ -1105,7 +1105,7 @@ async function partFOaths(browser, W, H) {
     for (const id of R.C.OATH_IDS) texts[id] = (await sw(id).innerText()).replace(/\n/g, ' ');
     check('M3-3', `Oaths (cost ${R.C.META.oaths.costs[0]}, needs a victory): no switches before; bought in the Hall (${card && card.state} -> ${owned && owned.state}); then a switch per Oath on class select with its effect`,
       before === 0 && card && card.state === 'affordable' && /^Buy\s*Free$/.test(card.buy) && owned && owned.state === 'owned'
-        && texts.haste.includes(`${tolls(R.C.OATH_HASTE_HOURS)} sooner`) && texts.thrift.includes(`×${R.C.OATH_THRIFT_MULT}`) && texts.frailty.includes('No resurrections'),
+        && texts.haste.includes(`${tolls(R.C.OATH_HASTE_TIME)} sooner`) && texts.thrift.includes(`×${R.C.OATH_THRIFT_MULT}`) && texts.frailty.includes('No resurrections'),
       `before ${before}, card ${JSON.stringify(card)} -> ${JSON.stringify(owned)} | ${JSON.stringify(texts)}`);
     const tHaste = await tipOf(page, sw('haste'));
     await sw('haste').click(); await idle(page);
@@ -1148,18 +1148,18 @@ function gRun(seed, profile) {
   for (let n = 0; n < 20000 && s.phase !== 'CAMP' && s.phase !== 'ENDED' && s.phase !== 'SUMMARY'; n++) {
     const a = R.autoAction(s);
     const r = R.step(s, a);
-    if (!travel && a.type === 'TRAVEL_ON') travel = { z: s.zone.z, before: s.hours, spent: r.state.hours - s.hours };
+    if (!travel && a.type === 'TRAVEL_ON') travel = { z: s.zone.z, before: s.time, spent: r.state.time - s.time };
     s = r.state;
   }
   if (s.phase !== 'CAMP') return null;
   const f = R.step(s, { type: 'FIGHT_BOSS' }).state.fight;
-  return { seed, travel, hours: s.hours, par: R.bossPar(s), asc: f.boss.asc };
+  return { seed, travel, time: s.time, par: R.bossPar(s), asc: f.boss.asc };
 }
 function gTwin() {
   if (G_TWIN) return G_TWIN;
   const profile = gProfile(); const runs = [];
-  // preferred: Ascendancy only because of the Oath (at least one ASC_STEP_HOURS past bossPar, less than one past BOSS_TIME_PAR)
-  const onlyOath = (r) => r.hours >= r.par + R.C.ASC_STEP_HOURS && r.hours < R.C.BOSS_TIME_PAR + R.C.ASC_STEP_HOURS;
+  // preferred: Ascendancy only because of the Oath (at least one ASC_STEP_TIME past bossPar, less than one past BOSS_TIME_PAR)
+  const onlyOath = (r) => r.time >= r.par + R.C.ASC_STEP_TIME && r.time < R.C.BOSS_TIME_PAR + R.C.ASC_STEP_TIME;
   for (let seed = 1; seed <= 60 && !runs.some(onlyOath); seed++) { const r = gRun(seed, profile); if (r && r.travel) runs.push(r); }
   if (!runs.length) throw new Error('no seed of 1-60 reaches the camp');
   const pick = runs.find(onlyOath) || runs[0];
@@ -1171,7 +1171,7 @@ async function partG(browser, W, H) {
   const twin = gTwin();
   const { context, page, errors } = await open(browser, W, H, `seed=${twin.seed}&speed=instant`, twin.profile);
   try {
-    const PAR = R.C.BOSS_TIME_PAR - R.C.OATH_HASTE_HOURS; // rules 1.7 with the Oath of Haste: what bossPar must give
+    const PAR = R.C.BOSS_TIME_PAR - R.C.OATH_HASTE_TIME; // rules 1.7 with the Oath of Haste: what bossPar must give
     await page.locator('#create .ccard[data-cls="hunter"]').click(); await idle(page);
     const sw = page.getByRole('switch', { name: R.C.OATH.haste.name });
     await sw.click(); await idle(page);
@@ -1181,17 +1181,17 @@ async function partG(browser, W, H) {
     check('M2v4-7', `class select with a profile holding ${F_OLD.id} (older catalogue) and the Oaths: Oath of Haste sworn (${JSON.stringify(create)}), the run starts (seed ${twin.seed})`,
       JSON.stringify(create) === '["haste"]' && v.phase === 'ZONE_HUB' && JSON.stringify(v.oaths) === '["haste"]', JSON.stringify({ create, ...v }));
 
-    // ---- the first Travel on: its tooltip and the hours it spends
+    // ---- the first Travel on: its tooltip and the tolls it spends
     const r1 = await autoRun(page, { travel: true });
     if (!r1.at) throw new Error('setup: no Travel on choice before the camp');
     await page.waitForTimeout(300);
     const btn = page.locator('#screens .mhead button[data-travel]');
     const tTip = await tipOf(page, btn, 'G-travel');
-    const h0 = (await view(page)).hours;
+    const h0 = (await view(page)).time;
     await btn.click(); await idle(page);
-    const h1 = (await view(page)).hours;
-    check('M2v4-7', `Travel on with ${F_OLD.id} in the profile (zone ${r1.at.z}): the tooltip says "Costs ${tolls(R.C.HOURS_TRAVEL)}.", the time moves ${h0} -> ${h1} tolls (Node run: +${twin.travel.spent} at ${twin.travel.before})`,
-      tTip.includes(`Costs ${tolls(R.C.HOURS_TRAVEL)}.`) && !/no time/i.test(tTip) && h1 - h0 === R.C.HOURS_TRAVEL && twin.travel.spent === R.C.HOURS_TRAVEL && h0 === twin.travel.before,
+    const h1 = (await view(page)).time;
+    check('M2v4-7', `Travel on with ${F_OLD.id} in the profile (zone ${r1.at.z}): the tooltip says "Costs ${tolls(R.C.TIME_TRAVEL)}.", the time moves ${h0} -> ${h1} tolls (Node run: +${twin.travel.spent} at ${twin.travel.before})`,
+      tTip.includes(`Costs ${tolls(R.C.TIME_TRAVEL)}.`) && !/no time/i.test(tTip) && h1 - h0 === R.C.TIME_TRAVEL && twin.travel.spent === R.C.TIME_TRAVEL && h0 === twin.travel.before,
       tTip);
 
     // ---- the camp: par from bossPar with the Oath of Haste, and the engine's Ascendancy
@@ -1204,8 +1204,8 @@ async function partG(browser, W, H) {
     const mm = await tipOf(page, page.locator('#minimap .disc'));
     await shot(page, 'G-camp-haste');
     const ascText = twin.asc > 0 ? `+${Math.round(twin.asc * 100)} % health and damage` : 'None: you are on time';
-    check('M2v4-par', `camp with the Oath of Haste at ${v.hours} tolls: panel "${v.hours} (par ${twin.par})", tracker "Tolls: ${v.hours} (par ${twin.par})", minimap "past ${twin.par} (Ascendancy)" = bossPar (${R.C.BOSS_TIME_PAR} - ${R.C.OATH_HASTE_HOURS}), Ascendancy "${ascText}" (the engine's)`,
-      twin.par === PAR && v.hours === twin.hours && foot.includes(`${v.hours} (par ${twin.par})`) && foot.includes(ascText) && track.includes(`${HEAT_WORDS.Units}: ${v.hours} (par ${twin.par})`)
+    check('M2v4-par', `camp with the Oath of Haste at ${v.time} tolls: panel "${v.time} (par ${twin.par})", tracker "Tolls: ${v.time} (par ${twin.par})", minimap "past ${twin.par} (Ascendancy)" = bossPar (${R.C.BOSS_TIME_PAR} - ${R.C.OATH_HASTE_TIME}), Ascendancy "${ascText}" (the engine's)`,
+      twin.par === PAR && v.time === twin.time && foot.includes(`${v.time} (par ${twin.par})`) && foot.includes(ascText) && track.includes(`${HEAT_WORDS.Units}: ${v.time} (par ${twin.par})`)
         && mm.includes(`past ${twin.par} (Ascendancy)`) && !foot.includes(`par ${R.C.BOSS_TIME_PAR})`),
       `panel "${foot}" | tracker "${track}" | minimap "${mm}"`);
   } catch (e) {
@@ -1398,7 +1398,7 @@ async function partH(browser, W, H) {
 // the slow policy, iExpPick for the expedition run (?expedition=1) on the engine's autoplay choices.
 const HNAME = HEAT_WORDS.state; // Calm, Smouldering, Burning, Infernal (M2b v7)
 const fh = (x) => String(Math.round(Math.abs(x))); // whole tolls (M2b v7: no decimals)
-const lineS = (l) => Math.ceil(l - 1e-9); // the Star's line as shown: rounded up (changes-m2b-v7.md A row 2)
+const lineS = (l) => Math.ceil(l - 1e-9); // the Star's line as shown: the engine's, whole and rounded up (changes-m2b-v7.md A row 2)
 const stand = (x) => { const past = Math.floor(x.heat + 1e-9); const hand = Math.ceil(-x.heat - 1e-9); return x.heat > 0 && past > 0 ? `${tolls(past)} past the line` : x.heat < 0 && hand > 0 ? `${tolls(hand)} in hand` : 'On the line'; };
 const bossTxt = (a) => `Boss +${Math.round((a || 0) * 100)} %`;
 const barPct = (x) => (100 * (Math.min(R.C.HEAT_BAR_MAX, Math.max(R.C.HEAT_BAR_MIN, x)) - R.C.HEAT_BAR_MIN)) / (R.C.HEAT_BAR_MAX - R.C.HEAT_BAR_MIN);
@@ -1477,7 +1477,7 @@ async function hoverHeat(page, locator) {
 function previewDiff(r, p, opts = {}) {
   const out = [];
   if (!r.tip) return ['no heat block in the tooltip'];
-  const hrs = `${tolls(p.hours)}${p.perWave ? ' a wave' : ''}`;
+  const hrs = `${tolls(p.time)}${p.perWave ? ' a wave' : ''}`;
   const head = r.tip[0];
   if (!head.includes(`${hrs}, ends ${HNAME[p.state]}`)) out.push(`head "${head}" (want "${hrs}, ends ${HNAME[p.state]}")`);
   if (head.includes('(a new state)') !== !!p.change) out.push(`"(a new state)" ${head.includes('(a new state)')} (change ${p.change})`);
@@ -1492,21 +1492,21 @@ function previewDiff(r, p, opts = {}) {
   if (r.pay !== wantGhost) out.push(`meter "${r.pay}" (want "${wantGhost}")`);
   if (!r.after) out.push('the ghost stays after the hover');
   if (opts.chip !== undefined) {
-    const want = `${tolls(p.hours)}${p.perWave ? '/wave' : ''}`;
-    if (!opts.chip || opts.chip.text !== want || (opts.chip.hs || null) !== (p.change ? p.state : null)) out.push(`hour label ${JSON.stringify(opts.chip)} (want "${want}"${p.change ? ` in ${p.state}` : ''})`);
+    const want = `${tolls(p.time)}${p.perWave ? '/wave' : ''}`;
+    if (!opts.chip || opts.chip.text !== want || (opts.chip.hs || null) !== (p.change ? p.state : null)) out.push(`toll label ${JSON.stringify(opts.chip)} (want "${want}"${p.change ? ` in ${p.state}` : ''})`);
   }
   return out;
 }
 /**
  * The slow policy, one pure function for the page (slowRun) and the Node seed pick (iPick): every hub service, the
- * reachable node that is no elite or dungeon with the most hours (a Grind counts its most waves), the most Grind waves;
- * null: the engine's autoplay choice. x: { phase, svcOpen, services, mapChoices: [{ lane, hours, perWave, type }], waves,
+ * reachable node that is no elite or dungeon with the most tolls (a Grind counts its most waves), the most Grind waves;
+ * null: the engine's autoplay choice. x: { phase, svcOpen, services, mapChoices: [{ lane, time, perWave, type }], waves,
  * maxWaves }. Returns a UI action (HUB_SERVICE, CHOOSE_NODE, GRIND_SET_WAVES) or null.
  */
 function iSlowChoice(x) {
   if (x.phase === 'ZONE_HUB' && !x.svcOpen) { for (const s of ['trainer', 'vendor', 'inn']) if (x.services[s]) return { type: 'HUB_SERVICE', service: s }; }
   const safe = x.mapChoices.filter((c) => c.type !== 'elite' && c.type !== 'dungeon'); const pool = safe.length ? safe : x.mapChoices;
-  if (pool.length) { const val = (c) => c.hours * (c.perWave ? x.maxWaves : 1); return { type: 'CHOOSE_NODE', lane: [...pool].sort((a, b) => val(b) - val(a) || a.lane - b.lane)[0].lane }; }
+  if (pool.length) { const val = (c) => c.time * (c.perWave ? x.maxWaves : 1); return { type: 'CHOOSE_NODE', lane: [...pool].sort((a, b) => val(b) - val(a) || a.lane - b.lane)[0].lane }; }
   if (x.waves.length) return { type: 'GRIND_SET_WAVES', n: Math.max(...x.waves) };
   return null;
 }
@@ -1541,14 +1541,14 @@ function iPick() {
     for (let n = 0; n < 6000 && s.phase !== 'ENDED'; n++) {
       const hv = R.heatView(s);
       const onMap = s.phase === 'MAP' && hv && !s.zone.camp && !(s.loot && s.loot.length);
-      if (onMap && hv.next.some((c) => c.action.type === 'CHOOSE_NODE')) met[hv.state] = met[hv.state] ?? s.hours;
-      if (s.node && s.node.heat === 'hot' && ((INTRO.has(s.node.type) && s.fight && !(s.node.k || 0) && s.fight.round <= 1) || s.node.stage === 'grindSetup')) met.hotNode = met.hotNode ?? s.hours;
-      if (s.node && s.node.type === 'grind' && s.node.stage === 'grindSetup') met.grind = met.grind ?? s.hours;
-      if (s.phase === 'CAMP') met.camp = met.camp ?? s.hours;
-      if (s.fight && s.fight.boss) met.boss = met.boss ?? s.hours;
+      if (onMap && hv.next.some((c) => c.action.type === 'CHOOSE_NODE')) met[hv.state] = met[hv.state] ?? s.time;
+      if (s.node && s.node.heat === 'hot' && ((INTRO.has(s.node.type) && s.fight && !(s.node.k || 0) && s.fight.round <= 1) || s.node.stage === 'grindSetup')) met.hotNode = met.hotNode ?? s.time;
+      if (s.node && s.node.type === 'grind' && s.node.stage === 'grindSetup') met.grind = met.grind ?? s.time;
+      if (s.phase === 'CAMP') met.camp = met.camp ?? s.time;
+      if (s.fight && s.fight.boss) met.boss = met.boss ?? s.time;
       const x = { phase: s.phase, svcOpen: !!s.service, services: {}, mapChoices: [], waves: [], maxWaves: R.C.GRIND_MAX_WAVES };
       for (const sv of ['trainer', 'vendor', 'inn']) x.services[sv] = R.isLegal(s, { type: 'SERVICE', service: sv });
-      if (onMap && s.zone.rows) { const row = R.mapView(s).rows[s.zone.pos.r]; x.mapChoices = hv.next.filter((c) => c.action.type === 'CHOOSE_NODE').map((c) => ({ lane: c.action.lane, hours: c.hours, perWave: c.perWave, type: row[c.action.lane].type })); }
+      if (onMap && s.zone.rows) { const row = R.mapView(s).rows[s.zone.pos.r]; x.mapChoices = hv.next.filter((c) => c.action.type === 'CHOOSE_NODE').map((c) => ({ lane: c.action.lane, time: c.time, perWave: c.perWave, type: row[c.action.lane].type })); }
       if (s.node && s.node.type === 'grind' && s.node.stage === 'grindSetup' && hv) x.waves = hv.next.filter((c) => c.action.type === 'GRIND_SET_WAVES').map((c) => c.action.n);
       const c = iSlowChoice(x);
       const prev = s; s = R.step(s, !c ? R.autoAction(s) : c.type === 'HUB_SERVICE' ? { type: 'SERVICE', service: c.service } : c).state;
@@ -1567,7 +1567,7 @@ function iExpPick() {
     for (const a of [{ type: 'SELECT_CLASS', classId: 'hunter' }, { type: 'SELECT_PET', petId: 'ridgewolf' }, { type: 'START_RUN' }]) s = R.step(s, a).state;
     for (let n = 0; n < 3000 && s.phase !== 'ENDED'; n++) {
       const hv = R.heatView(s);
-      if (s.phase === 'MAP' && hv && hv.by === 'dim' && !(s.loot && s.loot.length)) { I_EXP_PICK = { seed, hours: s.hours, z: s.zone.z }; return I_EXP_PICK; }
+      if (s.phase === 'MAP' && hv && hv.by === 'dim' && !(s.loot && s.loot.length)) { I_EXP_PICK = { seed, time: s.time, z: s.zone.z }; return I_EXP_PICK; }
       const prev = s; s = R.step(s, R.autoAction(s)).state;
       for (const o of iUiOwn(prev, s)) s = R.step(s, o).state;
     }
@@ -1604,7 +1604,7 @@ const slowRun = (page, stopSrc) => page.evaluate(async ([src, choiceSrc, maxWave
   const slow = (v) => {
     const onMap = v.phase === 'MAP' && v.heat && v.zone.rows.length && !v.loot;
     const x = { phase: v.phase, svcOpen: !!(v.node && v.node.origin === 'hub'), services: v.legal.services || {}, mapChoices: [], waves: [], maxWaves };
-    if (onMap) { const row = v.zone.rows[v.zone.pos.row]; x.mapChoices = v.heat.list.filter((c) => c.action.type === 'CHOOSE_NODE').map((c) => ({ lane: c.action.lane, hours: c.hours, perWave: c.perWave, type: row[c.action.lane].type })); }
+    if (onMap) { const row = v.zone.rows[v.zone.pos.row]; x.mapChoices = v.heat.list.filter((c) => c.action.type === 'CHOOSE_NODE').map((c) => ({ lane: c.action.lane, time: c.time, perWave: c.perWave, type: row[c.action.lane].type })); }
     if (v.phase === 'NODE' && v.node && v.node.type === 'grind' && v.node.step === 'intro' && v.heat) x.waves = v.heat.list.filter((c) => c.action.type === 'GRIND_SET_WAVES').map((c) => c.action.n);
     return choose(x) || { type: 'AUTO' };
   };
@@ -1615,8 +1615,8 @@ const slowRun = (page, stopSrc) => page.evaluate(async ([src, choiceSrc, maxWave
     if (k && !rec.kinds[k]) { await frame(); rec.kinds[k] = cover(); }
     if (v.loot && v.loot.items) for (const it of v.loot.items) if (it.heatUp && !rec.raised.some((x) => x.uid === it.uid)) rec.raised.push({ uid: it.uid, name: it.name, heatUp: it.heatUp, node: v.node ? v.node.heat : null, badge: !!document.querySelector('#screens .loot .heat-badge') });
     const hit = stop(v);
-    if (hit) { await frame(); return { stopped: true, key: hit, phase: v.phase, hours: v.hours }; }
-    if (v.phase === 'SUMMARY') return { stopped: false, phase: v.phase, hours: v.hours };
+    if (hit) { await frame(); return { stopped: true, key: hit, phase: v.phase, time: v.time }; }
+    if (v.phase === 'SUMMARY') return { stopped: false, phase: v.phase, time: v.time };
     await ui.act(slow(v)); await ui.idle();
   }
   return { stopped: false, phase: ui.view().phase };
@@ -1635,7 +1635,7 @@ async function partI(browser, W, H) {
     const note = await page.locator('#heat-intro').evaluate((el) => ({ shown: !el.classList.contains('hidden'), text: el.textContent, role: el.getAttribute('role') }));
     await shot(page, 'I-hub');
     let d = await meterDom(page); let diff = meterDiff(d, hv, false);
-    check('M2b-heat', `hub (${s.hours} tolls): the meter shows R.heatView: ${HNAME[hv.state]}, "${stand(hv)}", "${bossTxt(hv.ascIfPar)}", the marker at ${hv.bar.marker} and the Star's line at 0 on a ${R.C.HEAT_BAR_MIN} to ${R.C.HEAT_BAR_MAX} toll bar`, !diff.length, diff.join(' | ') || JSON.stringify(d));
+    check('M2b-heat', `hub (${s.time} tolls): the meter shows R.heatView: ${HNAME[hv.state]}, "${stand(hv)}", "${bossTxt(hv.ascIfPar)}", the marker at ${hv.bar.marker} and the Star's line at 0 on a ${R.C.HEAT_BAR_MIN} to ${R.C.HEAT_BAR_MAX} toll bar`, !diff.length, diff.join(' | ') || JSON.stringify(d));
     check('M2b-heat', 'first-time note on the first hub: "Heat", the Star\'s line, what heat pays (role note, not a tooltip)', note.shown && note.role === 'note' && /Star's line/.test(note.text) && note.text.includes(payTxt(FIRST_PAYING, false)), note.text.slice(0, 160));
     const svc = [];
     for (const service of ['trainer', 'vendor', 'inn']) {
@@ -1645,7 +1645,7 @@ async function partI(browser, W, H) {
       const r = await hoverHeat(page, card);
       svc.push(`${service}: ${previewDiff(r, p, { chip }).join(', ') || 'ok'}`);
     }
-    check('M2b-heat', 'hub: each service card\'s hours label, tooltip ("1 h · ends Clear", what follows) and the ghost on the meter equal R.heatPreview(SERVICE)', svc.every((x) => x.endsWith('ok')), svc.join(' | '));
+    check('M2b-heat', 'hub: each service card\'s toll label, tooltip ("1 toll, ends Calm", what follows) and the ghost on the meter equal R.heatPreview(SERVICE)', svc.every((x) => x.endsWith('ok')), svc.join(' | '));
     await page.getByRole('button', { name: 'Got it' }).click();
     check('M2b-heat', '"Got it" closes the first-time note', await page.locator('#heat-intro').evaluate((el) => el.classList.contains('hidden')), '');
     // ---- the run on the slow policy: checkpoints in the order the run meets them (the first map step in Warm, Hot and
@@ -1662,12 +1662,12 @@ async function partI(browser, W, H) {
         const r = await hoverHeat(page, b);
         out.push(`${label}: ${p ? previewDiff(r, p, { chip }).join(', ') || 'ok' : 'no preview'}`);
       }
-      check('M2b-heat', `Grind (${s.hours} tolls): each wave button's hours, tooltip and the meter's ghost equal R.heatPreview(GRIND_SET_WAVES n)`, out.length > 0 && out.every((x) => x.endsWith('ok')), out.join(' | '));
+      check('M2b-heat', `Grind (${s.time} tolls): each wave button's tolls, tooltip and the meter's ghost equal R.heatPreview(GRIND_SET_WAVES n)`, out.length > 0 && out.every((x) => x.endsWith('ok')), out.join(' | '));
     };
     const mapCheck = async (label) => {
       s = await twin.sync(page); hv = R.heatView(s);
       d = await meterDom(page); diff = meterDiff(d, hv, false);
-      check('M2b-heat', `${label} (zone ${s.zone.z}, ${s.hours} tolls): the meter equals R.heatView (${HNAME[hv.state]}, "${stand(hv)}", "${bossTxt(hv.ascIfPar)}", pay line "${wantPay(hv, false)}")`, !diff.length, diff.join(' | ') || `${d.state} ${d.num} ${d.boss} marker ${d.mark}`);
+      check('M2b-heat', `${label} (zone ${s.zone.z}, ${s.time} tolls): the meter equals R.heatView (${HNAME[hv.state]}, "${stand(hv)}", "${bossTxt(hv.ascIfPar)}", pay line "${wantPay(hv, false)}")`, !diff.length, diff.join(' | ') || `${d.state} ${d.num} ${d.boss} marker ${d.mark}`);
       const nodes = page.locator('#screens button.mnode.reach');
       const out = [];
       for (let i = 0; i < await nodes.count(); i++) {
@@ -1675,11 +1675,11 @@ async function partI(browser, W, H) {
         const p = R.heatPreview(s, { type: 'CHOOSE_NODE', lane });
         const chip = await el.locator('.mhrs').evaluate((x) => ({ text: x.textContent, hs: x.dataset.hs || null })).catch(() => null);
         const r = await hoverHeat(page, el);
-        out.push(`lane ${lane} (${fh(p.hours)} tolls, ${p.state}${p.change ? ', new' : ''}): ${previewDiff(r, p, { chip }).join(', ') || 'ok'}`);
+        out.push(`lane ${lane} (${fh(p.time)} tolls, ${p.state}${p.change ? ', new' : ''}): ${previewDiff(r, p, { chip }).join(', ') || 'ok'}`);
       }
       const tb = page.locator('#screens .mhead button[data-travel]');
-      if (!(await tb.isDisabled())) { const p = R.heatPreview(s, { type: 'TRAVEL_ON' }); const r = await hoverHeat(page, tb); out.push(`Travel on (${fh(p.hours)} tolls, ${p.state}): ${previewDiff(r, p).join(', ') || 'ok'}`); }
-      check('M2b-heat', `${label}: every reachable node's hour label, tooltip and the meter's ghost (and Travel on's) equal R.heatPreview`, out.length > 0 && out.every((x) => x.endsWith('ok')), out.join(' | '));
+      if (!(await tb.isDisabled())) { const p = R.heatPreview(s, { type: 'TRAVEL_ON' }); const r = await hoverHeat(page, tb); out.push(`Travel on (${fh(p.time)} tolls, ${p.state}): ${previewDiff(r, p).join(', ') || 'ok'}`); }
+      check('M2b-heat', `${label}: every reachable node's toll label, tooltip and the meter's ghost (and Travel on's) equal R.heatPreview`, out.length > 0 && out.every((x) => x.endsWith('ok')), out.join(' | '));
     };
     const mapIn = (st) => `(v) => v.phase === 'MAP' && v.heat && v.heat.state === '${st}' && v.heat.list.some((x) => x.action.type === 'CHOOSE_NODE')`;
     const todo = { warm: mapIn('warm'), hot: mapIn('hot'), scorched: mapIn('scorched'), hotNode: "(v) => v.phase === 'NODE' && v.node && v.node.heat === 'hot' && v.node.step === 'intro'",
@@ -1735,9 +1735,9 @@ async function partI(browser, W, H) {
     const mm = await tipOf(page, page.locator('#minimap .disc'));
     const ascText = hv.ascIfPar > 0 ? `+${Math.round(hv.ascIfPar * 100)} % health and damage` : 'None: you are on time';
     await shot(page, 'I-camp');
-    check('M2b-heat', `camp (${s.hours} tolls): the meter (line = par ${fh(hv.par)}, ${HNAME[hv.state]}, "${bossTxt(hv.ascIfPar)}", "At the camp the Furnace pays nothing") equals R.heatView`, !diff.length, diff.join(' | '));
+    check('M2b-heat', `camp (${s.time} tolls): the meter (line = par ${fh(hv.par)}, ${HNAME[hv.state]}, "${bossTxt(hv.ascIfPar)}", "At the camp the Furnace pays nothing") equals R.heatView`, !diff.length, diff.join(' | '));
     check('M2b-heat', `camp: the panel "(par ${fh(hv.par)})" and "${ascText}", the tracker "Tolls: ... (par ${fh(hv.par)})", the minimap "${HEAT_WORDS.Name}: ${stand(hv)} ... · ${bossTxt(hv.ascIfPar)}" read heatView like the meter`,
-      foot.includes(`${s.hours} (par ${fh(hv.par)})`) && foot.includes(ascText) && track.includes(`${HEAT_WORDS.Units}: ${s.hours} (par ${fh(hv.par)})`) && mm.includes(`${HEAT_WORDS.Name}: ${stand(hv)} (the Star's line: ${lineS(hv.line)}) · ${bossTxt(hv.ascIfPar)}`) && mm.includes(`past ${fh(hv.par)} (Ascendancy)`),
+      foot.includes(`${s.time} (par ${fh(hv.par)})`) && foot.includes(ascText) && track.includes(`${HEAT_WORDS.Units}: ${s.time} (par ${fh(hv.par)})`) && mm.includes(`${HEAT_WORDS.Name}: ${stand(hv)} (the Star's line: ${lineS(hv.line)}) · ${bossTxt(hv.ascIfPar)}`) && mm.includes(`past ${fh(hv.par)} (Ascendancy)`),
       `panel "${foot}" | tracker "${track}" | minimap "${mm}"`);
     // ---- the boss fight: the meter's "Boss +N %" is the boss frame's Ascendancy
     const rb = await slowRun(page, "(v) => !!(v.combat && v.combat.isBoss && !v.combat.over)");
@@ -1755,13 +1755,13 @@ async function partI(browser, W, H) {
     const sm = s.result ? s.result.summary : R.summary(s);
     const card = await page.locator('#screens .summary .heatcard').evaluate((el) => ({ end: el.querySelector('.hc-end').textContent, leg: el.querySelector('.hc-leg').textContent, dots: el.querySelectorAll('.hc-chart .dot').length,
       xv: [...el.querySelectorAll('.hc-chart .xv')].map((x) => x.textContent), foot: el.querySelector('.hc-foot').textContent, strip: el.querySelector('.hc-strip').getAttribute('aria-label') }));
-    const recs = sm.heat.trackPerZone; const par = R.bossPar(s); const over = sm.hours - par;
+    const recs = sm.heat.trackPerZone; const par = R.bossPar(s); const over = sm.time - par;
     const signedH = (v) => { const k = v > 0 ? Math.floor(v + 1e-9) : Math.ceil(-v - 1e-9); return v > 0 && k ? `+${k}` : v < 0 && k ? `−${k}` : '0'; };
-    const wantEnd = sm.reached && sm.reached.camp ? `${HEAT_WORDS.Units}: ${fh(sm.hours)} (par ${fh(par)}) · ${over > 0 ? `${tolls(over)} over par` : over < 0 ? `${tolls(over)} under par` : 'on par'}${sm.ascendancy ? ` · Ascendancy +${Math.round(sm.ascendancy * 100)} %` : ''}` : null; // the bridge's summary.asc = R.summary ascendancy
-    const hoursOk = card.leg.startsWith(`${HEAT_WORDS.Units} in each state: `) && R.C.HEAT_STATES.every((st, i) => card.leg.includes(`${HNAME[st]} ${fh(sm.heat.hoursByState[i])}`));
+    const wantEnd = sm.reached && sm.reached.camp ? `${HEAT_WORDS.Units}: ${fh(sm.time)} (par ${fh(par)}) · ${over > 0 ? `${tolls(over)} over par` : over < 0 ? `${tolls(over)} under par` : 'on par'}${sm.ascendancy ? ` · Ascendancy +${Math.round(sm.ascendancy * 100)} %` : ''}` : null; // the bridge's summary.asc = R.summary ascendancy
+    const timeOk = card.leg.startsWith(`${HEAT_WORDS.Units} in each state: `) && R.C.HEAT_STATES.every((st, i) => card.leg.includes(`${HNAME[st]} ${fh(sm.heat.timeByState[i])}`));
     await shot(page, 'I-summary');
-    check('M2b-heat', `summary: the heat card's track has ${recs.length} zone records (${recs.length * 2} points, each zone's heat when left under it), hours by state ${sm.heat.hoursByState.join('/')} and "${wantEnd}" (hours - bossPar)`,
-      rs.phase === 'SUMMARY' && card.dots === recs.length * 2 && card.xv.join(',') === recs.map((r) => signedH(r.exit - r.line)).join(',') && hoursOk && (!wantEnd || card.end === wantEnd),
+    check('M2b-heat', `summary: the heat card's track has ${recs.length} zone records (${recs.length * 2} points, each zone's heat when left under it), tolls by state ${sm.heat.timeByState.join('/')} and "${wantEnd}" (time - bossPar)`,
+      rs.phase === 'SUMMARY' && card.dots === recs.length * 2 && card.xv.join(',') === recs.map((r) => signedH(r.exit - r.line)).join(',') && timeOk && (!wantEnd || card.end === wantEnd),
       JSON.stringify(card));
     const echo = await page.locator('#screens .summary .card').nth(2).innerText();
     const line = sm.echoes.lines.find((l) => l.id === 'heat');
@@ -1808,7 +1808,7 @@ async function partIExp(browser, W, H) {
       const r = await hoverHeat(page, el);
       out.push(`node ${m.nodeId}: ${previewDiff(r, p).join(', ') || 'ok'}`);
     }
-    check('M2b-heat-exp', 'expedition map (preview): a move\'s tooltip and the ghost equal R.heatPreview(MOVE), the Dimming hours after it included', out.length > 0 && out.every((x) => x.endsWith('ok')), out.join(' | '));
+    check('M2b-heat-exp', 'expedition map (preview): a move\'s tooltip and the ghost equal R.heatPreview(MOVE), the Dimming tolls after it included', out.length > 0 && out.every((x) => x.endsWith('ok')), out.join(' | '));
     const r = await page.evaluate(async () => {
       const ui = window.__ui;
       for (let n = 0; n < 2000; n++) { const v = ui.view(); if (v.phase === 'SUMMARY') return { ok: false }; if (v.phase === 'MAP' && v.heat && v.heat.by === 'dim') { await new Promise((q) => requestAnimationFrame(() => requestAnimationFrame(q))); return { ok: true, n }; } await ui.act({ type: 'AUTO' }); await ui.idle(); }
@@ -1819,7 +1819,7 @@ async function partIExp(browser, W, H) {
     d = await meterDom(page); diff = meterDiff(d, hv, false);
     await shot(page, 'I-exp-dim');
     const tip = await tipOf(page, page.locator('#heat'));
-    check('M2b-heat-exp', `the Dimming sets the state (zone toll ${s.hours - s.zone.start}: ${HNAME[hv.stateDim]} by the Dimming, ${HNAME[hv.stateRun]} by the line): "${HNAME[hv.state]} · Dimming", "Dimming: ${tolls(hv.dimIn)}", its marker in ${hv.stateDim} and marked as the clock that sets it`,
+    check('M2b-heat-exp', `the Dimming sets the state (zone toll ${s.time - s.zone.start}: ${HNAME[hv.stateDim]} by the Dimming, ${HNAME[hv.stateRun]} by the line): "${HNAME[hv.state]} · Dimming", "Dimming: ${tolls(hv.dimIn)}", its marker in ${hv.stateDim} and marked as the clock that sets it`,
       !diff.length && hv.by === 'dim' && d.by === 'dim', diff.join(' | ') || JSON.stringify(d));
     check('M2b-heat-exp', 'the meter\'s tooltip names the clock that sets the state', tip.includes(`The hotter clock sets the state: now the Dimming (${HNAME[hv.stateDim]}).`), tip);
   } catch (e) {
