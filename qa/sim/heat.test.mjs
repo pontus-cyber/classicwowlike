@@ -1,14 +1,18 @@
-// Heat in the simulator (docs/specs/expedition.md H.6; B55-B57 of section H): HEAT equals the bot and target constants
-// of section 13 block "Heat"; the planner's heat-seek and heat-avoid variants use their hour weights; the recorder
-// keeps the summary's nodes per heat state; the heat checks on synthetic records.
+// Heat in the simulator (docs/specs/expedition.md H.6; B58, B56, B57): HEAT equals the bot and target constants of
+// section 13 block "Heat"; the planner's heat-seek and heat-avoid variants (hour weights and heat terms); the value
+// function's heat terms (entry state as R.heatPreview says, rarity step, XP and gold multiplier, boss term from
+// projected Ascendancy); the recorder keeps the summary's nodes per heat state; the heat checks on synthetic records.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { R, newRunFor } from '../../sim/lib/engine.mjs';
-import { BAL, HEAT } from '../../sim/lib/params.mjs';
-import { plannerHourMult } from '../../sim/bots/planner.mjs';
+import { C, R, CONTENT, newRunFor } from '../../sim/lib/engine.mjs';
+import { BAL, HEAT, SIM } from '../../sim/lib/params.mjs';
+import { plannerHourMult, plannerHeat } from '../../sim/bots/planner.mjs';
+import { makeCtx, evalNode, copyM, expGain, heatStateOf, ascProjected, bankedPos } from '../../sim/lib/model.mjs';
+import { createBot } from '../../sim/bots/index.mjs';
 import { runWithBot } from '../../sim/lib/runner.mjs';
 import { heatChecks, hotRun } from '../../sim/lib/heatchecks.mjs';
+import { priorTable } from '../../sim/lib/risk.mjs';
 
 describe('HEAT equals expedition.md section 13, block "Heat"', () => {
   test('every HEAT key has the spec value', () => {
@@ -36,6 +40,15 @@ describe('heat-seek and heat-avoid (planner variants)', () => {
     assert.equal(plannerHourMult('heatAvoid'), HEAT.HEAT_AVOID_HOUR_MULT);
     assert.equal(plannerHourMult(null), BAL.PLANNER_HOUR_MULT);
     assert.equal(plannerHourMult('noAoe'), BAL.PLANNER_HOUR_MULT);
+    assert.equal(plannerHourMult('hm3'), 3);
+    assert.equal(plannerHourMult('hm0.5'), 0.5);
+  });
+
+  test('heat terms: seek and the default value the rewards, avoid does not, all pay the boss term; noHeat has none', () => {
+    assert.deepEqual(plannerHeat(null), { rewards: true, ascW: SIM.VAL_ASC });
+    assert.deepEqual(plannerHeat('heatSeek'), { rewards: true, ascW: SIM.VAL_ASC });
+    assert.deepEqual(plannerHeat('heatAvoid'), { rewards: false, ascW: SIM.VAL_ASC });
+    assert.equal(plannerHeat('noHeat'), null);
   });
 
   test('a short run per variant is legal; the record has the nodes per heat state of the summary', () => {
@@ -49,9 +62,95 @@ describe('heat-seek and heat-avoid (planner variants)', () => {
   });
 });
 
+/** States at the planner's map decisions of runs from `seed` on (prior risk table), at least n of them. */
+function mapStates(seed, n) {
+  const out = [];
+  for (let sd = seed; out.length < n && sd < seed + 50; sd++) {
+    const bot = createBot('planner', { classId: 'hunter', seed: sd, tree: 1, variant: null });
+    const s = newRunFor({ classId: 'hunter', petId: SIM.DEFAULT_PET, seed: sd });
+    for (let i = 0; i < 20000 && s.phase !== 'ENDED' && out.length < n; i++) {
+      if (s.phase === 'MAP' && !s.zone.camp) out.push(R.deserialize(R.serialize(s), CONTENT));
+      R.stepInPlace(s, bot.choose(s));
+    }
+  }
+  return out;
+}
+
+describe('value function heat terms (sim/lib/model.mjs)', () => {
+  test('the model\'s entry state and projected Ascendancy equal the engine\'s (heatPreview pays, heatView ascIfPar)', () => {
+    const states = mapStates(1001, 40);
+    assert.ok(states.length >= 20);
+    const floor = SIM.HEAT_ASC_FLOOR;
+    try {
+      SIM.HEAT_ASC_FLOOR = 1;
+      // The runs (prior risk table) end early and in hand, so each state is also checked moved 15 and 35 h past.
+      const moved = states.flatMap((x) => [0, 15, 35].map((dh) => { const y = R.deserialize(R.serialize(x), CONTENT); y.hours += dh; return y; }));
+      const seen = new Set();
+      for (const s of moved) {
+        const v = R.heatView(s);
+        seen.add(v.state);
+        assert.equal(ascProjected(v.heat), v.ascIfPar);
+        for (const lane of R.mapView(s).next) {
+          const pv = R.heatPreview(s, { type: 'CHOOSE_NODE', lane });
+          assert.equal(heatStateOf(v.heat), pv.pays);
+          assert.equal(ascProjected(pv.heat), pv.ascIfPar);
+        }
+      }
+      assert.deepEqual([...seen].sort(), ['clear', 'hot', 'scorched', 'warm']);
+    } finally { SIM.HEAT_ASC_FLOOR = floor; }
+    // Without the floor: linear in the hours past the line, 0 in hand, capped.
+    assert.equal(ascProjected(-5), 0);
+    assert.ok(Math.abs(ascProjected(5) - C.ASC_PER_STEP / 2) < 1e-12);
+    assert.equal(ascProjected(1e6), C.ASC_CAP);
+  });
+
+  test('rarity step: up 0 is the plain gain, up 1 the gain one rarity higher (epic stays), monotone between', () => {
+    const s = mapStates(1002, 3)[2];
+    const ctx = makeCtx(s, priorTable(), {});
+    const L = s.player.level;
+    for (const table of ['mob', 'quest', 'elite', 'dboss', 'treasure']) {
+      const g0 = expGain(ctx, table, L);
+      const gHalf = expGain(ctx, table, L, 0.5);
+      const g1 = expGain(ctx, table, L, 1);
+      assert.ok(gHalf >= g0 - 1e-9 && g1 >= gHalf - 1e-9, table);
+      assert.ok(Math.abs(gHalf - (g0 + g1) / 2) < 1e-9, `${table}: linear in up`);
+    }
+  });
+
+  test('a node entered Hot pays × (1 + HEAT_GAIN.hot) XP and the boss term charges hours past the line only', () => {
+    const s = mapStates(1003, 2)[1];
+    const v = R.mapView(s);
+    const node = v.rows[v.pos.r][v.next[0]];
+    const val = (heat, pays) => {
+      const ctx = makeCtx(s, priorTable(), { hourMult: 2, heat });
+      const m = copyM(ctx.m);
+      const p0 = bankedPos(m);
+      const ev = evalNode(ctx, m, node, { pays });
+      return { ev, dl: bankedPos(m) - p0, dh: m.dh, ctx };
+    };
+    const clear = val({ rewards: true, ascW: 0 }, 'clear');
+    const hot = val({ rewards: true, ascW: 0 }, 'hot');
+    const off = val(null, null);
+    assert.equal(clear.ev.state, 'clear');
+    assert.equal(hot.ev.state, 'hot');
+    assert.equal(off.ev.state, null);
+    assert.ok(Math.abs(clear.ev.value - off.ev.value) < 1e-9, 'Clear pays nothing extra');
+    assert.ok(hot.ev.value > clear.ev.value, 'Hot pays more');
+    assert.equal(clear.dh, clear.ev.hours);
+    if (node.type === 'quest' && s.player.level + 1 < C.MAX_LEVEL) assert.ok(hot.dl > clear.dl * 1.2, 'XP × 1.35');
+    // Boss term: in hand (h0 < 0 by more than the node's hours) costs nothing; past the line ascW × hours × step rate.
+    const ascW = 8000;
+    const withBoss = val({ rewards: false, ascW }, 'clear');
+    const h0 = withBoss.ctx.heat.h0;
+    const expect = (ascProjected(h0 + withBoss.ev.hours) - ascProjected(h0)) * ascW;
+    assert.ok(Math.abs(off.ev.value - withBoss.ev.value - expect) < 1e-6);
+    if (h0 + withBoss.ev.hours <= 0) assert.equal(expect, 0);
+  });
+});
+
 describe('heat checks (synthetic records)', () => {
   const rec = (seed, out, ht) => ({ seed, cls: 'rogue', out, rb: out === 'v' ? 1 : 0, ht, hb: 130, asc: 0.04 });
-  test('B55h paired win gap within the band, B56 share of winning runs with a Hot node, B57 power gap', () => {
+  test('B58 paired win gap within the band, B56 share of winning runs with a Hot node, B57 power gap', () => {
     const seek = [rec(1, 'v', [5, 3, 2, 0]), rec(2, 'v', [5, 3, 1, 0]), rec(3, 'd', [5, 3, 0, 0]), rec(4, 'v', [9, 0, 0, 0])];
     const avoid = [rec(1, 'v', [9, 0, 0, 0]), rec(2, 'd', [9, 0, 0, 0]), rec(3, 'd', [9, 0, 0, 0]), rec(4, 'v', [9, 0, 0, 0])];
     const planner = [rec(1, 'v', [6, 2, 1, 0]), rec(2, 'v', [8, 1, 0, 0]), rec(3, 'd', [6, 2, 1, 0]), rec(4, 'v', [5, 3, 0, 1])];
@@ -59,9 +158,9 @@ describe('heat checks (synthetic records)', () => {
     assert.equal(hotRun(planner[0]), true);
     assert.equal(hotRun(planner[1]), false);
     const rows = heatChecks({ planner, seek, avoid, noHeat });
-    const b55 = rows.find((r) => r.id === 'B55h');
-    assert.match(b55.value, /^\+25\.0 pp/);
-    assert.equal(b55.ok, false, '+25 pp is outside +-5 pp');
+    const b58 = rows.find((r) => r.id === 'B58');
+    assert.match(b58.value, /^\+25\.0 pp/);
+    assert.equal(b58.ok, false, '+25 pp is outside +-5 pp');
     const b56 = rows.find((r) => r.id === 'B56');
     assert.match(b56.value, /^66\.7 %/);
     assert.equal(b56.ok, true);
@@ -69,6 +168,6 @@ describe('heat checks (synthetic records)', () => {
     assert.match(b57.value, /^\+25\.0 pp/);
     assert.equal(b57.ok, false);
     const same = heatChecks({ seek: avoid, avoid });
-    assert.equal(same.find((r) => r.id === 'B55h').ok, true);
+    assert.equal(same.find((r) => r.id === 'B58').ok, true);
   });
 });

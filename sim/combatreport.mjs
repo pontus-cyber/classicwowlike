@@ -4,7 +4,7 @@
 // against before: either the 11-10c pass directory (--before-pass, re-measured with today's definitions, plus
 // optional masher and opener cells on the same engine, --before-cells) or an earlier combatpass directory
 // (--before-combat). With combatpass stage H (and --heat-off: a planner-P0 cell on an engine without the heat
-// rewards) also the heat targets of expedition.md H.6 (B55h, B56, B57). Combat v2.1 tables: wind-ups answered,
+// rewards) also the heat targets of expedition.md H.6 (B58, B56, B57). Combat v2.1 tables: wind-ups answered,
 // landed and killing per bot and fight kind, how they were answered, Disrupts. Writes the generated part between
 // <!-- generated:start --> and <!-- generated:end --> of the report file, so hand-written analysis outside the markers
 // survives a regeneration.
@@ -137,7 +137,7 @@ const bcount = {};
 for (const r of beforeRows) { bcount[r.id] = (bcount[r.id] || 0) + 1; bmap.set(`${r.id}#${bcount[r.id]}#${r.pri}`, r); }
 const ncount = {};
 const rows = nowRows.map((r) => { ncount[r.id] = (ncount[r.id] || 0) + 1; return { ...r, before: bmap.get(`${r.id}#${ncount[r.id]}#${r.pri}`) || null }; });
-const order = ['B48', 'B49', 'B50', 'B51', 'B52', 'B53', 'B54', 'B55', 'B5', 'B15', 'B16', 'B1', 'B3', 'B4', 'B6', 'B21', 'B55h', 'B56', 'B57'];
+const order = ['B48', 'B49', 'B50', 'B51', 'B52', 'B53', 'B54', 'B55', 'B5', 'B15', 'B16', 'B1', 'B3', 'B4', 'B6', 'B21', 'B58', 'B56', 'B57'];
 rows.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
 
 // ---------------- Rendering ----------------
@@ -208,7 +208,7 @@ if (wuBots.length) {
 
 // Heat cells (expedition.md H.6).
 if (HEATC.seek || HEATC.avoid || HEATC.planner) {
-  L.push('### Heat policies, planner P0 (expedition.md H.6; heat-seek / heat-avoid = hour weight × 0.5 / × 4, the value function does not price heat rewards yet)', '');
+  L.push('### Heat policies, planner P0 (expedition.md H.6; heat-seek / heat-avoid: sim/bots/planner.mjs plannerHeat and plannerHourMult)', '');
   const hRows = [];
   for (const [label, byCls] of [['planner (default, re-run)', HEATC.planner], ['heat-seek', HEATC.seek], ['heat-avoid', HEATC.avoid], ['planner, engine without heat rewards', HEATC.noHeat]]) {
     if (!byCls) continue;

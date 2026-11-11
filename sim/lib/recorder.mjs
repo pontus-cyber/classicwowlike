@@ -21,6 +21,8 @@
 //       event: interrupt, control, trap, disrupt, silenced, avoided)
 //   ht: heat (expedition.md H.6, rules 9): nodes entered per heat state [clear, warm, hot, scorched] (summary
 //       heat.nodesByState; B56)
+//   boss: at FIGHT_BOSS { lvl, ilvl (mean equipped), rare (share of slots rare or epic), empty, ember, gs (sum of the
+//       equipped items' itemScore; heat report, balance-2026-11-11) }
 import { C, R } from './engine.mjs';
 import { TYPE_CODE } from './risk.mjs';
 import { C2 } from './params.mjs';
@@ -244,6 +246,7 @@ export class Recorder {
             ilvl: eq.length ? eq.reduce((n, it) => n + it.ilvl, 0) / eq.length : 0,
             rare: eq.filter((it) => it.rarity === 'rare' || it.rarity === 'epic').length / C.SLOT_IDS.length,
             empty: C.SLOT_IDS.length - eq.length,
+            gs: Math.round(eq.reduce((n, it) => n + R.itemScore(it, p.classId), 0)),
             ember: this.ember,
           };
           break;

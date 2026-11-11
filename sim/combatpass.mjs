@@ -15,7 +15,7 @@
 //   X  random, greedy, speedrunner P0 (B1, B4); planner PALL (PALL-group trees, warm-up from obs-P0; B3, B6)
 //   R  diagnostic: planner P0 with opening pairs (cell.pairs: every non-boss fight replayed with autoplay's, the
 //      opener's and the masher's first OPEN_ROUNDS rounds), the first --pair-runs seeds
-//   H  heat (expedition.md H.6; B55-B57 of section H): planner P0 again (planner-P0-heat: same runs as planner-P0,
+//   H  heat (expedition.md H.6; B58, B56, B57): planner P0 again (planner-P0-heat: same runs as planner-P0,
 //      for the heat fields of the records) and the heat-seek and heat-avoid variants, all from the warm-up
 //      observations, so the three are paired with planner-P0 (the B57 arm without heat rewards runs in a scratch copy)
 import { cpus } from 'node:os';

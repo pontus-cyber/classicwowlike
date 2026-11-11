@@ -3,18 +3,22 @@
 // its tree (1.3); bar template 1.2 with the boss bar at the Camp; trains everything at each hub, keeps
 // HEAL_STOCK_TARGET Healing Draughts, buys an Ember of Return when affordable and gold after it >=
 // EMBER_RESERVE_V × V; autoplay combat; manual time profile. Hours weigh VAL_HOUR × PLANNER_HOUR_MULT (M2 v3).
-// Heat policies (expedition.md H.6, B55-B57 of section H): variant 'heatSeek' weighs hours × HEAT_SEEK_HOUR_MULT,
-// 'heatAvoid' × HEAT_AVOID_HOUR_MULT, instead of PLANNER_HOUR_MULT. [assumption: approximation] The value function does
-// not yet price the heat rewards (H.6's added XP, gold and gear terms), so heat-seek is a planner that values time
-// less, as in the designer's prototype (H.7).
+// Heat (expedition.md H.6; sim/lib/model.mjs): the value function prices the rewards of the state a node is entered in
+// (HEAT_GAIN on XP and gold, the HEAT_RARITY_UP step on drop-table items; the first node of a choice from
+// R.heatPreview's `pays`) and the boss term (projected Ascendancy × SIM.VAL_ASC). Policies for B58 (plannerHeat,
+// plannerHourMult): heat-seek (variant 'heatSeek') values the rewards and weighs hours × HEAT_SEEK_HOUR_MULT; heat-avoid
+// ('heatAvoid') values no heat reward (a Hot node is never a reason to go) and weighs hours × HEAT_AVOID_HOUR_MULT; both
+// pay the boss term. Diagnostics: 'noHeat' (balance.md 1.1 without heat terms, the planner before 2026-11-11) and
+// 'hm<x>' (hour weight x instead of PLANNER_HOUR_MULT, for the hour-weight check).
 import { C, R, legal, hpFrac } from '../lib/engine.mjs';
-import { BAL, HEAT } from '../lib/params.mjs';
+import { BAL, HEAT, SIM } from '../lib/params.mjs';
 import { makeCtx, evalNode, copyM } from '../lib/model.mjs';
 import { createValueBot, hubFull, FULL_KIT } from './shared.mjs';
 
 const ROWS = C.ZONE_CHOICE_ROWS;
 
-/** Best value obtainable after node (r, l) (1-based row r) from model state m: travel when allowed, else go on. */
+/** Best value obtainable after node (r, l) (1-based row r) from model state m: travel when allowed, else go on. Nodes
+ *  beyond the first are valued in the model's heat state (model hours since the decision). */
 function bestFrom(ctx, rows, r, l, m, exit) {
   let best = m.L >= exit ? 0 : -Infinity;
   if (r >= ROWS) return 0;
@@ -37,55 +41,77 @@ export function exitLevelOf(s) {
   return R.travelLevel(s);
 }
 
-/** Path search from the current map position (hourMult: balance.md 1.1). Returns { action, value, options }. */
-export function planMap(s, risk, style, hourMult = 1) {
+/**
+ * Path search from the current map position (hourMult: balance.md 1.1; heat: makeCtx opts.heat, null = no heat terms).
+ * The first node of each option is valued in the state it would be entered in (R.heatPreview `pays`). Returns
+ * { action, value, options }.
+ */
+export function planMap(s, risk, style, hourMult = 1, heat = null) {
   const view = R.mapView(s);
-  const ctx = makeCtx(s, risk, { style, hourMult });
+  const ctx = makeCtx(s, risk, { style, hourMult, heat });
   const exit = exitLevelOf(s);
   const options = [];
   if (legal(s, { type: 'TRAVEL_ON' })) options.push({ action: { type: 'TRAVEL_ON' }, value: 0 });
   const r = view.pos.r + 1;
   for (const lane of view.next) {
     const m = copyM(ctx.m);
-    const ev = evalNode(ctx, m, view.rows[r - 1][lane]);
-    options.push({ action: { type: 'CHOOSE_NODE', lane }, value: ev.value + bestFrom(ctx, view.rows, r, lane, m, exit) });
+    const action = { type: 'CHOOSE_NODE', lane };
+    const pv = heat ? R.heatPreview(s, action) : null;
+    const ev = evalNode(ctx, m, view.rows[r - 1][lane], { pays: pv ? pv.pays : null });
+    options.push({ action, value: ev.value + bestFrom(ctx, view.rows, r, lane, m, exit) });
   }
   let best = options[0];
   for (const o of options) if (o.value > best.value) best = o;
   return { action: best.action, value: best.value, options };
 }
 
-/** Grind waves for the current grind node: as many as have positive marginal value (at least 1). */
-export function valueGrindWaves(s, risk, style, hourMult = 1) {
-  const ctx = makeCtx(s, risk, { style, hourMult });
+/** Grind waves for the current grind node: as many as have positive marginal value (at least 1). The node pays the
+ *  state it was entered in (state.node.heat). */
+export function valueGrindWaves(s, risk, style, hourMult = 1, heat = null) {
+  const ctx = makeCtx(s, risk, { style, hourMult, heat });
   const view = R.mapView(s);
   const v = view.rows[s.node.r - 1][s.node.l];
-  const ev = evalNode(ctx, copyM(ctx.m), v);
+  const ev = evalNode(ctx, copyM(ctx.m), v, { pays: heat ? s.node.heat || null : null });
   return Math.max(1, Math.min(C.GRIND_MAX_WAVES, ev.waves || 1));
 }
 
-/** Inn when its value (banked rested XP, minus hours) is positive or HP is low. */
-export function innByValue(s, risk, style, hourMult = 1) {
+/** Inn when its value (banked rested XP, minus hours and, with heat, the boss term) is positive or HP is low. */
+export function innByValue(s, risk, style, hourMult = 1, heat = null) {
   if (hpFrac(s) < 0.7 || (s.player.d.maxMana && s.player.mana < 0.5 * s.player.d.maxMana)) return true;
-  const ctx = makeCtx(s, risk, { style, hourMult });
+  const ctx = makeCtx(s, risk, { style, hourMult, heat });
   return evalNode(ctx, copyM(ctx.m), { type: 'rest' }).value > 0;
 }
 
-/** Hour weight of a planner variant (× VAL_HOUR): heat-seek, heat-avoid (expedition.md H.6), else PLANNER_HOUR_MULT. */
+/**
+ * Hour weight of a planner variant (× VAL_HOUR): heat-seek, heat-avoid (expedition.md H.6), 'hm<x>' (diagnostic: x),
+ * else PLANNER_HOUR_MULT.
+ */
 export function plannerHourMult(variant) {
   if (variant === 'heatSeek') return HEAT.HEAT_SEEK_HOUR_MULT;
   if (variant === 'heatAvoid') return HEAT.HEAT_AVOID_HOUR_MULT;
+  const m = /^hm(\d+(?:\.\d+)?)$/.exec(variant || '');
+  if (m) return Number(m[1]);
   return BAL.PLANNER_HOUR_MULT;
+}
+
+/**
+ * Heat terms of a planner variant (makeCtx opts.heat; expedition.md H.6): heat-avoid values no reward and pays the boss
+ * term; 'noHeat' (diagnostic) has no heat terms; every other variant values the rewards and pays the boss term.
+ */
+export function plannerHeat(variant) {
+  if (variant === 'noHeat') return null;
+  return { rewards: variant !== 'heatAvoid', ascW: SIM.VAL_ASC };
 }
 
 export function createPlannerBot({ classId, risk, tree, style = 'balanced', variant = null, combat = null, name = 'planner' }) {
   const hm = plannerHourMult(variant);
+  const heat = plannerHeat(variant);
   return createValueBot(name, {
     classId, tree, variant, style, campBar: true,
     kit: { ...FULL_KIT, ember: true },
     combat,
-    hub: (s) => hubFull(s, (x) => innByValue(x, risk, style, hm)),
-    map: (s) => planMap(s, risk, style, hm).action,
-    grindWaves: (s) => valueGrindWaves(s, risk, style, hm),
+    hub: (s) => hubFull(s, (x) => innByValue(x, risk, style, hm, heat)),
+    map: (s) => planMap(s, risk, style, hm, heat).action,
+    grindWaves: (s) => valueGrindWaves(s, risk, style, hm, heat),
   });
 }

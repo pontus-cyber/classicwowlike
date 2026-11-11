@@ -6,7 +6,7 @@ import { R, C, newRunFor, countCons } from '../../sim/lib/engine.mjs';
 import { BAL, SIM } from '../../sim/lib/params.mjs';
 import { buildProfile } from '../../sim/lib/profiles.mjs';
 import { createBot } from '../../sim/bots/index.mjs';
-import { planMap, valueGrindWaves } from '../../sim/bots/planner.mjs';
+import { planMap, valueGrindWaves, plannerHeat } from '../../sim/bots/planner.mjs';
 import { greedyMap } from '../../sim/bots/greedy.mjs';
 import { makeCtx, evalNode, copyM, vAt } from '../../sim/lib/model.mjs';
 import { bestBoonIndex, bossResurrects, vendorAction, desiredItemBar } from '../../sim/lib/policy.mjs';
@@ -52,11 +52,11 @@ describe('hour weight (balance.md 1.1, M2 v3)', () => {
     // had 0 of 92 after it). Re-pick with a probe over seeds when content changes the sampled maps again.
     for (const s of mapStates([41, 45, 49])) {
       n++;
-      const want = planMap(s, risk, 'balanced', BAL.PLANNER_HOUR_MULT).action;
+      const want = planMap(s, risk, 'balanced', BAL.PLANNER_HOUR_MULT, plannerHeat(null)).action;
       assert.equal(key(pl.spec.map(s)), key(want));
       assert.equal(key(ta.spec.map(s)), key(want));
       assert.equal(key(gr.spec.map(s)), key(greedyMap(s, risk)));
-      if (key(planMap(s, risk, 'balanced', 1).action) !== key(want)) differ++;
+      if (key(planMap(s, risk, 'balanced', 1, plannerHeat(null)).action) !== key(want)) differ++;
     }
     assert.ok(n > 100 && differ > 0, `${differ} of ${n} map choices change with the weight`);
     void valueGrindWaves;

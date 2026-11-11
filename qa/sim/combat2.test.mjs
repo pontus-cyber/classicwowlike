@@ -173,7 +173,9 @@ describe('fight replay harness (B50)', () => {
 
   test('opening pairs: the autoplay replay of each fight of a planner run is the live fight', () => {
     let checked = 0;
-    for (const [cls, seed] of [['mage', 1001], ['rogue', 1002]]) {
+    // Planner runs on the prior risk table end early, so take seeds until at least 10 fights are checked.
+    for (const [cls, seed] of [['mage', 1001], ['rogue', 1002], ['mage', 1003], ['rogue', 1004], ['mage', 1005], ['rogue', 1006]]) {
+      if (checked >= 10) break;
       const { record } = runWithBot({ bot: 'planner', cls, prof: 'fresh', tree: 0, style: null, variant: null, pet: null, pairs: true }, seed, null, { maxActions: 4000 });
       assert.ok(!record.err || record.err.startsWith('stuck'), record.err);
       for (const p of record.pr) {

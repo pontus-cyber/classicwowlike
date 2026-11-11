@@ -1,9 +1,8 @@
-// Heat targets (docs/specs/expedition.md H.6: B55-B57 of section H) from run records of planner P0 cells: the default
-// planner, heat-seek and heat-avoid (sim/bots/planner.mjs variants) and the planner on an engine without the H.3
-// rewards (a scratch copy). Pure functions of the records (out, seed, cls, ht); used by sim/combatreport.mjs. The
-// IDs B55-B57 of section H collide with combat-v2.md's B55, so rows carry the id 'B55h' and the metric says "heat".
-// [assumption: approximation] heat-seek and heat-avoid differ from the planner only in the hour weight: the value
-// function does not yet price the heat rewards (H.6), so B55h measures the hour-weight styles on today's rewards.
+// Heat targets (docs/specs/expedition.md H.6: B58, B56, B57; B58 was B55 of section H before D61) from run records of
+// planner P0 cells: the default planner, heat-seek and heat-avoid (sim/bots/planner.mjs variants: the value function
+// prices the heat rewards and the boss term, 2026-11-11) and the planner on an engine without the H.3 rewards (a
+// scratch copy). Pure functions of the records (out, seed, cls, ht, rb, hb, asc); used by sim/combatreport.mjs and
+// sim/heatreport.mjs.
 import { HEAT } from './params.mjs';
 import { pairedDiff } from './combatchecks.mjs';
 import { rate, median } from './stats.mjs';
@@ -30,7 +29,7 @@ export function heatCell(records) {
   };
 }
 
-/** Rows { id, pri, metric, value, target, ok, note } for B55h, B56, B57 from cells { planner, seek, avoid, noHeat }. */
+/** Rows { id, pri, metric, value, target, ok, note } for B58, B56, B57 from cells { planner, seek, avoid, noHeat }. */
 export function heatChecks({ planner, seek, avoid, noHeat }) {
   const rows = [];
   const add = (id, pri, metric, value, target, okv, note = '') => rows.push({ id, pri, metric, value, target, ok: okv, note });
@@ -38,8 +37,8 @@ export function heatChecks({ planner, seek, avoid, noHeat }) {
     const d = pairedDiff(seek, avoid, win);
     const s = heatCell(seek);
     const a = heatCell(avoid);
-    add('B55h', 'P1', `Heat is a real option (heat, expedition.md H.6): win rate heat-seek minus heat-avoid, planner P0, paired (seek ${pct(s.win.p)}, reach ${pct(s.reach.p)}, ${num(s.hours, 0)} h at the boss; avoid ${pct(a.win.p)}, reach ${pct(a.reach.p)}, ${num(a.hours, 0)} h)`,
-      dc(d), `within +-${HEAT.HEAT_POLICY_GAP_MAX} pp`, d.v === null ? null : Math.abs(d.v) <= pp(HEAT.HEAT_POLICY_GAP_MAX), 'hour-weight approximation: the value function does not price heat rewards yet');
+    add('B58', 'P1', `Heat is a real option (heat, expedition.md H.6): win rate heat-seek minus heat-avoid, planner P0, paired (seek ${pct(s.win.p)}, reach ${pct(s.reach.p)}, ${num(s.hours, 0)} h at the boss; avoid ${pct(a.win.p)}, reach ${pct(a.reach.p)}, ${num(a.hours, 0)} h)`,
+      dc(d), `within +-${HEAT.HEAT_POLICY_GAP_MAX} pp`, d.v === null ? null : Math.abs(d.v) <= pp(HEAT.HEAT_POLICY_GAP_MAX));
   }
   if (planner) {
     const wins = planner.filter((r) => ok(r) && r.out === 'v' && r.ht);

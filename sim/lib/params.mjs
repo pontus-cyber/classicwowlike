@@ -224,7 +224,7 @@ export const C2 = {
 
 /**
  * HEAT: the simulator's constants of docs/specs/expedition.md section 13, block "Heat" (bots and targets of H.6:
- * heat-seek / heat-avoid hour weights, B55-B57 of section H), same names and values (pp as pp). Rules constants of
+ * heat-seek / heat-avoid hour weights, B58 (was B55 of section H, D61), B56, B57), same names and values (pp as pp). Rules constants of
  * that block (HEAT_GAIN, HEAT_RARITY_UP, ...) are read from the engine (C). qa/sim/heat.test.mjs compares them.
  */
 export const HEAT = {
@@ -234,6 +234,16 @@ export const HEAT = {
   HEAT_WIN_SHARE: [0.30, 0.85],
   HEAT_POWER_MAX: 4,
 };
+
+/** Heat in the planner's value function (expedition.md H.6 leaves the exchange rates open) [assumption]. */
+Object.assign(SIM, {
+  /** Boss term (sim/lib/model.mjs): value units per 1.0 of projected boss Ascendancy (320 per ASC_PER_STEP step, 32 per
+   *  hour past the line). VAL_DEATH (a run lost) × 3.9, the win probability a planner P0 run that reaches the boss loses
+   *  per 1.0 of Ascendancy (paired measure ASC_CAP 0.40 vs 0, docs/reports/balance-2026-11-11.md), rounded. */
+  VAL_ASC: 8000,
+  /** 1 = the boss term uses the meter's stepped ascIfPar; 0 = without the floor (expected steps; the bots' default). */
+  HEAT_ASC_FLOOR: 0,
+});
 
 /** Opener and replay harness numbers the combat v2 spec leaves open [assumption: compute budget]. */
 Object.assign(SIM, {
