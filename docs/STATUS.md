@@ -22,6 +22,10 @@ M2 done 2026-11-10 (P1 45/45). Active: M2b, expedition map and combat v2 (docs/s
 ## Flip status (report balance-2026-11-11h, v12)
 - Flip: no. B12 speedrun 32.3 min from SET_OUT on 71 wins (cap 30; O10 allows 0.5) and planner P0 19.3 % (floor 20 %). Ricochet gate passed (0.30 default, engineer). The v12 speedrunner policy (row 4) prices a level at 16.7 tolls and plays much worse; next pass: re-price it. Combat v13 (owner-approved 21:26) changes all win rates, so the next flip measure runs after v13 is in.
 
+## v13 measure (report balance-2026-11-12)
+- B59 passes both maps (one-button elite 50.6 %, rare 84.0 %, dungeon boss 79.4 %, zone 1 55.8 %); B60 rares pass with row 5; B61 autoplay held (Rogue zone 1 +6-9 pp: Sap breaks in round 2, no interrupt before level 6); B62 grind held. Gates: row 5 on, row 6 on (engineer to set).
+- Flip: no, on B12 only (speedrun 31.3 min from SET_OUT with the v11 policy; spec policy too few wins). Owner question raised 2026-11-11 22:5x.
+
 ## Waiting on the owner
 Nothing blocking. See docs/OWNER.md.
 
