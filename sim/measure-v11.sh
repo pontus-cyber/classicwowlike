@@ -7,7 +7,10 @@
 #   stages: H  hash identity against the 11-11f build (REF, git ref with src and sim of 11-11f): classic runs identical,
 #              expedition runs without prep move by design (rows 1-2 change `loot`)
 #           X  expedition cells 1-10 (cell 10 only if cell 2 P0 < 20 % or cell 3 PALL < 50 %)
-#           K  classic cells 11 (hunter trees, row 8 gate and attribution) and 12 (regression against 11-11f)
+#           K  classic cells 11 (hunter trees, row 8 gate and attribution) and 12 (regression against 11-11f); K2 the
+#              attribution by entry (sp_h1) and cell 12 only
+#           G  row 3 guard arm: Delve price 2, planner P0 and PALL (run when cell 2 abandons > 0.25 Delves per run)
+#           L  cell 10 at the guard's price: EXPED_DROP_MULT 1.9 with the Delve price 2 (when PALL at price 2 is < 50 %)
 #           B  campaigns on the expedition with the start camp (B31, B32 on the 8.2 catalogue): CAMPAIGNS per class
 # Env: WORKERS (2), REF (19df854: the 11-11f engine and sim with the D2 value), P11F (sim/out/pass-v9v10: the 11-11f
 #      pass, whose v9 observations are the node-risk base), CAMPAIGNS (20).
@@ -135,11 +138,15 @@ if has K; then
   for t in 0 1 2; do cell planner-P0-hunter-tree$t planner fresh hunter hunter=$t 3000 "$P11B/warmup-P0.json"; done   # 11 B7
   cell planner-PALL-hunter-bcg planner all hunter hunter=0 1000 "$P11B/warmup-PALL.json" --beastcall-gated            #    row 8 gate
   cell planner-PALL-hunter-nosph2 planner all hunter hunter=0 1000 "$P11B/warmup-PALL.json" --meta-drop sp_h2          #    attribution
+fi
+if has K || has K2; then
+  # Row 8 void (the bots never slot Beastcall Horn): the hunter's PALL win by entry removed (sp_h1 as well).
+  cell planner-PALL-hunter-nosph1 planner all hunter hunter=0 1000 "$P11B/warmup-PALL.json" --meta-drop sp_h1
   for t in 0 1 2; do                                                                                                  # 12 regression
-    cls=$(for c in rogue mage hunter; do d=$(echo "$TR" | tr ',' '\n' | grep "^$c=" | cut -d= -f2); [ "$d" = "$t" ] && echo -n "$c,"; done); cls=${cls%,}
-    [ -n "$cls" ] && cell planner-P0-tree$t planner fresh "$cls" "$TR" 1000 "$P11B/warmup-P0.json"
-    cls=$(for c in rogue mage hunter; do d=$(echo "$TA" | tr ',' '\n' | grep "^$c=" | cut -d= -f2); [ "$d" = "$t" ] && echo -n "$c,"; done); cls=${cls%,}
-    [ -n "$cls" ] && cell planner-PALL-tree$t planner all "$cls" "$TA" 1000 "$P11B/warmup-PALL.json"
+    cls=$(for c in rogue mage hunter; do d=$(echo "$TR" | tr ',' '\n' | grep "^$c=" | cut -d= -f2); if [ "$d" = "$t" ]; then echo -n "$c,"; fi; done); cls=${cls%,}
+    if [ -n "$cls" ]; then cell planner-P0-tree$t planner fresh "$cls" "$TR" 1000 "$P11B/warmup-P0.json"; fi
+    cls=$(for c in rogue mage hunter; do d=$(echo "$TA" | tr ',' '\n' | grep "^$c=" | cut -d= -f2); if [ "$d" = "$t" ]; then echo -n "$c,"; fi; done); cls=${cls%,}
+    if [ -n "$cls" ]; then cell planner-PALL-tree$t planner all "$cls" "$TA" 1000 "$P11B/warmup-PALL.json"; fi
   done
   # Run-by-run comparison with 11-11f's cells (outcome, level, minutes, fights, rounds, death per seed).
   (cd "$W" && node --input-type=module -e "
@@ -151,6 +158,28 @@ for (const d of fs.readdirSync(O).filter((x) => /^planner-(P0|PALL)-tree\d$/.tes
   for (const r of readJsonl(a)) { const o = B.get(r.seed); if (!o) continue; if (k(r) === k(o)) same++; else diff++; } }
 console.log('classic regression against 11-11f: ' + same + ' runs identical, ' + diff + ' different');" "$O" "$P11F" | tee -a "$O/measure.log")
   log "K done ($(( ($(date +%s) - T0) / 60 )) min)"
+fi
+
+# ---- G: row 3 guard arm (Delve price back to 2), planner P0 and PALL, paired with cells 2-3. ----
+if has G; then
+  C0="--risk-in $B0 --tables-in $X/table/planner-P0-exp-prep/risk.json"
+  CA="--risk-in $BA --tables-in $X/table/planner-PALL-exp-prep/risk.json"
+  scratch f_price2; patch f_price2 src/constants.js "delve: { id: 'delve', price: 1," "delve: { id: 'delve', price: 2,"
+  ROOT=$S/f_price2 OUTX=$X/arm-price2 xcell --bot planner --runs 300 --profile fresh $C0
+  ROOT=$S/f_price2 OUTX=$X/arm-price2 xcell --bot planner --runs 300 --profile all $CA
+  log "G done ($(( ($(date +%s) - T0) / 60 )) min)"
+fi
+
+# ---- L: cell 10 at the guard's price (when the guard trips and PALL at price 2 is under 50 %): EXPED_DROP_MULT 1.9 with
+#      the Delve price 2, planner P0 and PALL, paired with cells 2-3. ----
+if has L; then
+  C0="--risk-in $B0 --tables-in $X/table/planner-P0-exp-prep/risk.json"
+  CA="--risk-in $BA --tables-in $X/table/planner-PALL-exp-prep/risk.json"
+  scratch h_loot19p2; patch h_loot19p2 src/constants.js "delve: { id: 'delve', price: 1," "delve: { id: 'delve', price: 2,"
+  patch h_loot19p2 src/constants.js "export const EXPED_DROP_MULT = 1.6;" "export const EXPED_DROP_MULT = 1.9;"
+  ROOT=$S/h_loot19p2 OUTX=$X/arm-loot19-price2 xcell --bot planner --runs 300 --profile fresh $C0
+  ROOT=$S/h_loot19p2 OUTX=$X/arm-loot19-price2 xcell --bot planner --runs 300 --profile all $CA
+  log "L done ($(( ($(date +%s) - T0) / 60 )) min)"
 fi
 
 # ---- B: campaigns on the expedition with the start camp (8.2 catalogue): B31, B32. ----
