@@ -1541,11 +1541,31 @@ function iUiOwn(prev, next) {
   const free = p.itemBar.map((id, i) => (id ? -1 : i)).filter((i) => i >= 0);
   return fresh.slice(0, free.length).map((id, k) => ({ type: 'SET_ITEM_BAR', slot: free[k], itemId: id }));
 }
+/**
+ * True when this step put into the loot window a gear drop that heat raised one rarity: the bridge's heatSteps test (the
+ * same step with the node entered in Clear rolls the same items; an item whose rarity differs was raised), limited to the
+ * drops the loot window shows, since part I records raised items from the loot window.
+ */
+function iRaised(before, action, r) {
+  const paid = before.node ? before.node.heat : null;
+  if (!paid || !((R.C.HEAT_RARITY_UP || {})[paid] > 0)) return false;
+  const p0 = before.player;
+  const known = new Set([...(p0 ? [...(p0.bag || []), ...Object.values(p0.equipped || {})] : []), ...(before.loot || [])].filter(Boolean).map((it) => it.uid));
+  const shown = new Set((r.state.loot || []).map((it) => it.uid));
+  const drops = r.events.filter((e) => e.t === 'loot' && e.item && e.item.kind === 'gear' && !known.has(e.item.uid));
+  if (!drops.some((e) => shown.has(e.item.uid))) return false;
+  try {
+    const alt = R.deserialize(R.serialize(before), before.content);
+    alt.node.heat = 'clear'; if (alt.fight) alt.fight.heat = 'clear';
+    const altDrops = R.step(alt, action).events.filter((e) => e.t === 'loot' && e.item && e.item.kind === 'gear' && !known.has(e.item.uid));
+    return altDrops.length === drops.length && drops.some((e, i) => shown.has(e.item.uid) && e.item.rarity !== altDrops[i].item.rarity);
+  } catch { return false; }
+}
 let I_PICK = null;
 /**
  * The seed for part I, chosen at run time (the engine changes): the first Hunter seed of 1-80 whose run on the slow policy
  * (a Node run of the same choices, with the UI's own item-bar actions) meets a map step in Warm and in Hot, a node entered
- * Hot, a Grind's wave choice, the camp and the boss fight.
+ * Hot, a Grind's wave choice, the camp, the boss fight and a loot window with an item that heat raised (iRaised).
  */
 function iPick() {
   if (I_PICK) return I_PICK;
@@ -1567,10 +1587,12 @@ function iPick() {
       if (onMap && s.zone.rows) { const row = R.mapView(s).rows[s.zone.pos.r]; x.mapChoices = hv.next.filter((c) => c.action.type === 'CHOOSE_NODE').map((c) => ({ lane: c.action.lane, time: c.time, perWave: c.perWave, type: row[c.action.lane].type })); }
       if (s.node && s.node.type === 'grind' && s.node.stage === 'grindSetup' && hv) x.waves = hv.next.filter((c) => c.action.type === 'GRIND_SET_WAVES').map((c) => c.action.n);
       const c = iSlowChoice(x);
-      const prev = s; s = R.step(s, !c ? R.autoAction(s) : c.type === 'HUB_SERVICE' ? { type: 'SERVICE', service: c.service } : c).state;
+      const act = !c ? R.autoAction(s) : c.type === 'HUB_SERVICE' ? { type: 'SERVICE', service: c.service } : c;
+      const prev = s; const r = R.step(s, act); s = r.state;
+      if (met.raised === undefined && iRaised(prev, act, r)) met.raised = s.time;
       for (const o of iUiOwn(prev, s)) s = R.step(s, o).state;
     }
-    if (['warm', 'hot', 'hotNode', 'grind', 'camp', 'boss'].every((k) => met[k] !== undefined)) { I_PICK = { seed, met }; return I_PICK; }
+    if (['warm', 'hot', 'hotNode', 'grind', 'camp', 'boss', 'raised'].every((k) => met[k] !== undefined)) { I_PICK = { seed, met }; return I_PICK; }
   }
   throw new Error('no Hunter seed of 1-80 meets part I\'s conditions on the slow policy');
 }
@@ -1629,7 +1651,11 @@ const slowRun = (page, stopSrc) => page.evaluate(async ([src, choiceSrc, maxWave
     if (v.heat && rec.states[rec.states.length - 1] !== v.heat.state) rec.states.push(v.heat.state);
     const k = kindOf(v);
     if (k && !rec.kinds[k]) { await frame(); rec.kinds[k] = cover(); }
-    if (v.loot && v.loot.items) for (const it of v.loot.items) if (it.heatUp && !rec.raised.some((x) => x.uid === it.uid)) rec.raised.push({ uid: it.uid, name: it.name, heatUp: it.heatUp, node: v.node ? v.node.heat : null, badge: !!document.querySelector('#screens .loot .heat-badge') });
+    if (v.loot && v.loot.items && v.loot.items.some((it) => it.heatUp && !rec.raised.some((x) => x.uid === it.uid))) {
+      await frame();
+      const rows = [...document.querySelectorAll('#screens .loot .lrow')].map((r) => ({ nm: r.querySelector('.nm') ? r.querySelector('.nm').firstChild.textContent : '', badge: !!r.querySelector('.heat-badge') }));
+      for (const it of v.loot.items) if (it.heatUp && !rec.raised.some((x) => x.uid === it.uid)) rec.raised.push({ uid: it.uid, name: it.name, heatUp: it.heatUp, node: v.node ? v.node.heat : null, lootShown: !!document.querySelector('#screens .loot'), badge: rows.some((r) => r.nm.startsWith(it.name) && r.badge) });
+    }
     const hit = stop(v);
     if (hit) { await frame(); return { stopped: true, key: hit, phase: v.phase, time: v.time }; }
     if (v.phase === 'SUMMARY') return { stopped: false, phase: v.phase, time: v.time };
@@ -1785,7 +1811,7 @@ async function partI(browser, W, H) {
       !!line && new RegExp(`${ECHO_LINE.heat}${line.count > 1 ? ` \\(${line.count}\\)` : ''}\\s*\\+${line.echoes}\\b`).test(echo) && !/Heat \(\d+\)/.test(echo), echo.replace(/\n/g, ' / '));
     // ---- loot heat raised: badges only on items found in a node entered Hot or Scorched
     rec = await page.evaluate(() => window.__heat);
-    const raisedOk = rec.raised.length > 0 && rec.raised.every((x) => (x.heatUp === 'hot' || x.heatUp === 'scorched') && x.node === x.heatUp && R_UP_OK(x.heatUp));
+    const raisedOk = rec.raised.length > 0 && rec.raised.every((x) => x.badge && (x.heatUp === 'hot' || x.heatUp === 'scorched') && x.node === x.heatUp && R_UP_OK(x.heatUp));
     check('M2b-heat', `loot heat raised a rarity is marked "▲ Heat" (${rec.raised.length} items), only in nodes entered Hot or Scorched`, raisedOk, JSON.stringify(rec.raised.slice(0, 4)));
     // ---- coverage: the meter is in view and on top on every kind of screen met
     const kinds = Object.entries(rec.kinds);
