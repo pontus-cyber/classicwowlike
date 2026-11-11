@@ -19,6 +19,9 @@ M2 done 2026-11-10 (P1 45/45). Active: M2b, expedition map and combat v2 (docs/s
 - Running: one-button study (owner 18:41/18:46), report docs/reports/mash-2026-11-11.md.
 - UI: playtest items in BACKLOG (contract expiry warning, duplicate offers, card labels, heat toast flapping).
 
+## Flip status (report balance-2026-11-11h, v12)
+- Flip: no. B12 speedrun 32.3 min from SET_OUT on 71 wins (cap 30; O10 allows 0.5) and planner P0 19.3 % (floor 20 %). Ricochet gate passed (0.30 default, engineer). The v12 speedrunner policy (row 4) prices a level at 16.7 tolls and plays much worse; next pass: re-price it. Combat v13 (owner-approved 21:26) changes all win rates, so the next flip measure runs after v13 is in.
+
 ## Waiting on the owner
 Nothing blocking. See docs/OWNER.md.
 
