@@ -14,7 +14,7 @@ export const CLASSES = ['rogue', 'mage', 'hunter'];
 /**
  * opts: { pool, bot, classes, runs, seedStart, prof, trees: {cls: tree}, style, variant, pet, out,
  *         warmup (runs, 0 = none), obsIn: {cls: obs}, log, quiet, workers, name, replay (B50 replays, combat-v2.md 11),
- *         map ('expedition'), vision ({ guide, charts, pathfinder }), dimming (false: no Dimming), oracle (C_step) }
+ *         map ('expedition'), vision ({ guide, charts, pathfinder }), dimming (false: no Dimming), oracle (C_step), route (C_route) }
  * Returns { name, dir, perClass: { cls: { records, metrics, obs, table } } }.
  */
 export async function runBatch(opts) {
@@ -23,7 +23,7 @@ export async function runBatch(opts) {
   const cellBase = {
     bot: opts.bot, prof: opts.prof, style: opts.style || null, variant: opts.variant || null, pet: opts.pet || null, ...(opts.replay ? { replay: true } : {}), ...(opts.pairs ? { pairs: true } : {}),
     // Expedition cells (MILESTONES 2b.4): map mode, vision kit, Dimming off (B44), oracle C_step (B41).
-    ...(opts.map ? { map: opts.map } : {}), ...(opts.vision ? { vision: opts.vision } : {}), ...(opts.dimming === false ? { dimming: false } : {}), ...(opts.oracle ? { oracle: true } : {}),
+    ...(opts.map ? { map: opts.map } : {}), ...(opts.vision ? { vision: opts.vision } : {}), ...(opts.dimming === false ? { dimming: false } : {}), ...(opts.oracle ? { oracle: true } : {}), ...(opts.route ? { route: true } : {}),
   };
   const name = opts.name || cellName({ ...cellBase, tree: null });
   const dir = opts.out ? ensureDir(join(opts.out, name)) : null;
@@ -57,7 +57,7 @@ export async function runBatch(opts) {
     name, commit, date, runs: opts.runs, seedStart: opts.seedStart, workers: opts.workers || 1, wallMs, totalRuns: total,
     warmupNote: notes.join('; '), bot: opts.bot, prof: opts.prof, trees: opts.trees, style: opts.style || 'balanced', variant: opts.variant || null, pet: opts.pet || null,
     replay: !!opts.replay, pairs: !!opts.pairs, simOverride: process.env.SIM_OVERRIDE || null,
-    map: opts.map || 'rows', vision: opts.vision || null, dimming: opts.dimming !== false, oracle: !!opts.oracle,
+    map: opts.map || 'rows', vision: opts.vision || null, dimming: opts.dimming !== false, oracle: !!opts.oracle, route: !!opts.route,
   };
   if (dir) {
     writeJson(join(dir, 'summary.json'), { meta, classes: Object.fromEntries(Object.entries(perClass).map(([c, x]) => [c, { tree: x.tree, metrics: x.metrics }])) });

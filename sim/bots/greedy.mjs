@@ -5,7 +5,7 @@
 // lookahead, so no PLANNER_TIME_MULT).
 // Expedition map (expedition.md 10.2; MILESTONES 2b.4): greedyExpMap on the fog view only (sim/lib/view.mjs): the best
 // adjacent node by value per toll; threat rule: never step into a node that dims within EXP_GREEDY_DIM_MARGIN tolls of
-// arrival unless leaving; when the front is within one hop: leave if L >= 10z - 2 (Bell if held, else the Road, else
+// arrival (for a node entered: of the end of its content) unless leaving; when the front is within one hop: leave if L >= 10z - 2 (Bell if held, else the Road, else
 // walk to the Road farthest from the Shardfall), else retreat to the best neighbour farther from the Shardfall that does
 // not dim within the margin. Leaves at 10z when no adjacent node beats GREEDY_STAY_THRESHOLD; otherwise walks to the
 // nearest unresolved node it may enter.
@@ -70,8 +70,11 @@ export function greedyExpMap(s, risk) {
   const near = view.nodes[pos].dimmed || view.nodes[pos].nb.some((id) => view.nodes[id].dimmed);
   const scored = [];
   for (const mv of view.moves) {
-    if (mv.via !== 'enter' || !safe(mv.nodeId, zt)) continue;
+    if (mv.via !== 'enter') continue;
     const ev = evalNode(ctx, copyM(ctx.m), view.nodes[mv.nodeId]);
+    // "Arrival" read as the end of the node's content, when the player is back on the map and the engine checks the
+    // Dimming (rules 1.9.6 settle step): entering at the front's edge is a Dimmed encounter at its end.
+    if (!safe(mv.nodeId, zt + ev.hours)) continue;
     scored.push({ id: mv.nodeId, v: ev.value / Math.max(1, ev.hours) });
   }
   scored.sort((a, b) => b.v - a.v);

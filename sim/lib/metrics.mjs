@@ -1,4 +1,5 @@
-// Metrics of one cell (class × bot × profile [× variant]) from run records (balance.md 3). Pure functions of
+// Metrics of one cell (class × bot × profile [× variant]) from run records (balance.md 3; expedition map B41-B47 and
+// run length: expMetrics, runLength, expedition.md 11.1). Pure functions of
 // the records, so a fixed sample gives fixed numbers (qa/sim/metrics.test.mjs checks them by hand).
 import { C } from './engine.mjs';
 import { BAL } from './params.mjs';
@@ -156,4 +157,63 @@ export function cellMetrics(records, { enrageRound = C.BOSS_ENRAGE_ROUND, timePr
   m.msPerRun = avg(records.map((r) => r.ms));
   m.zoneReached = avg(ok.map((r) => r.zone));
   return m;
+}
+
+// ---------------- Expedition map (expedition.md 11.1, B41-B47; MILESTONES 2b.4) ----------------
+/**
+ * Expedition metrics of run records (all classes pooled; records with `ex`, sim/lib/recorder.mjs): zones played and
+ * left, Dimmed encounters, close calls, walk-throughs, Bells, C_step, zone tolls, exit levels, run length.
+ * Returns plain numbers (rates with Wilson intervals, medians with bootstrap intervals).
+ */
+export function expMetrics(records) {
+  const rs = records.filter((r) => !r.err);
+  const zones = [];
+  for (const r of rs) if (r.ex) for (const z of r.ex.zones) zones.push(z);
+  const left = zones.filter((z) => z[6] !== '');
+  const nonBossDeaths = rs.filter((r) => r.death && r.death.type !== 'boss');
+  let cs0 = 0;
+  let cs1 = 0;
+  let close = 0;
+  for (const r of rs) {
+    if (r.xs) { cs0 += r.xs.cs[0]; cs1 += r.xs.cs[1]; close += r.xs.cz.length; }
+  }
+  const exitLv = {};
+  for (const r of rs) (r.travelLv || []).forEach((lv, i) => { (exitLv[i + 1] || (exitLv[i + 1] = [])).push(lv); });
+  return {
+    runs: rs.length,
+    zones: zones.length,
+    caught: rate(zones.filter((z) => z[5] > 0).length, zones.length),
+    dimDeathShare: rate(nonBossDeaths.filter((r) => r.death.type === 'dim').length, nonBossDeaths.length),
+    closeCalls: rate(close, zones.length),
+    walksPerZone: zones.length ? zones.reduce((a, z) => a + z[3], 0) / zones.length : null,
+    passesPerZone: zones.length ? zones.reduce((a, z) => a + z[4], 0) / zones.length : null,
+    nodesPerZone: zones.length ? zones.reduce((a, z) => a + z[2], 0) / zones.length : null,
+    zoneTolls: avg(left.map((z) => z[1])),
+    zoneTollsMed: med(left.map((z) => z[1])),
+    bellsPerRun: avg(rs.map((r) => (r.ex ? r.ex.bells : 0))),
+    bellExits: left.filter((z) => z[6] === 'b').length,
+    roadExits: left.filter((z) => z[6] === 'r').length,
+    cStep: cs1 ? { k: cs0, n: cs1, p: cs0 / cs1 } : null,
+    exitLevel: Object.fromEntries(Object.entries(exitLv).map(([z, xs]) => [z, med(xs).v])),
+  };
+}
+
+/** Run-length terms of a cell (balance.md 3.3; combat minutes from sim/lib/combatchecks.mjs combatMinutes). */
+export function runLength(records, combatMinutes) {
+  const rs = records.filter((r) => !r.err);
+  const reach = rs.filter((r) => r.rb);
+  const wins = rs.filter((r) => r.out === 'v');
+  return {
+    runs: rs.length,
+    win: rate(wins.length, rs.length),
+    reach: rate(reach.length, rs.length),
+    manualReach: med(reach.map((r) => r.min[0])),
+    autoWins: med(wins.map((r) => r.min[1])),
+    combatReach: med(reach.map((r) => combatMinutes(r))),
+    nodes: med(rs.map((r) => r.nodes)),
+    nodesReach: med(reach.map((r) => r.nodes)),
+    fightsReach: med(reach.map((r) => r.fights)),
+    tollsAtBoss: med(reach.map((r) => r.hb).filter((x) => x !== null && x !== undefined)),
+    lvlAtBoss: med(reach.map((r) => (r.boss ? r.boss.lvl : r.lvl))),
+  };
 }

@@ -28,6 +28,7 @@ export function cellName(cell) {
   if (cell.vision) parts.push('vis');
   if (cell.dimming === false) parts.push('nodim');
   if (cell.oracle) parts.push('oracle');
+  if (cell.route) parts.push('route');
   return parts.join('-');
 }
 

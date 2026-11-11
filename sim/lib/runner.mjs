@@ -2,14 +2,16 @@
 // (stepInPlace on a state the runner owns) applies. Errors and stuck runs are recorded (B36), never thrown.
 // Expedition cells (cell.map 'expedition', cell.vision, cell.dimming; expedition.md 10-11, MILESTONES 2b.4): the
 // record's `xs` holds C_step (cell.oracle: the planner's fog choice against the oracle's at every map decision; the
-// acting bot's action is what is played) and the close-call zones (B43).
+// acting bot's action is what is played), C_route (cell.route: `cr` = zones whose realised route equals the oracle's
+// route from the same zone-entry state, played on a copy by oracleRoute) and the close-call zones (B43).
 import { R, newRunFor, hash32 } from './engine.mjs';
 import { BAL, SIM } from './params.mjs';
 import { createBot } from '../bots/index.mjs';
 import { Recorder } from './recorder.mjs';
 import { buildProfile } from './profiles.mjs';
 import { snapshot, replayDeath, replayOpenings } from './replay.mjs';
-import { oracleMap, planExpMap, plannerHourMult, plannerHeat } from '../bots/planner.mjs';
+import { oracleMap, planExpMap, plannerHourMult, plannerHeat, createPlannerBot } from '../bots/planner.mjs';
+import { CONTENT } from './engine.mjs';
 import { priorTable } from './risk.mjs';
 
 /** Hunter pet a cell starts with: preset for every bot but random (random picks with SELECT_PET). */
@@ -37,6 +39,16 @@ export function runWithBot(cell, seed, risk, opts = {}) {
   const oHm = plannerHourMult(cell.variant);
   const oHeat = plannerHeat(cell.variant);
   const oRisk = risk || priorTable();
+  // C_route (B41, cell.route): at each zone's arrival the oracle plays the zone on a copy (oracleRoute); the planner's
+  // realised route in the zone (nodes entered, exit) is compared with it when the zone ends.
+  let zr = null;
+  if (xs && cell.route) xs.cr = [0, 0];
+  const endZone = () => {
+    if (!zr) return;
+    xs.cr[1] += 1;
+    if (zr.exit === zr.o.exit && zr.nodes.join(',') === zr.o.nodes.join(',')) xs.cr[0] += 1;
+    zr = null;
+  };
   const rec = new Recorder({ trainCheck: opts.trainCheck !== false });
   const log = opts.log ? [] : null;
   const max = opts.maxActions || BAL.MAX_ACTIONS_PER_RUN;
@@ -73,6 +85,16 @@ export function runWithBot(cell, seed, risk, opts = {}) {
     try { events = R.stepInPlace(s, a); } catch (e) { err = `engine rejected ${JSON.stringify(a)} in ${s.phase}: ${e.message}`; break; }
     if (log) log.push(a);
     rec.after(s, a, events, b);
+    if (xs && cell.route) {
+      for (const e of events) {
+        if (e.t === 'node' && zr && typeof e.id === 'number') zr.nodes.push(e.id);
+        if (e.t === 'travel' && zr) zr.exit = e.by === 'bell' ? 'bell' : `road${e.node}`;
+      }
+      if (events.some((e) => e.t === 'zone' || e.t === 'camp') || s.phase === 'ENDED' || s.phase === 'SUMMARY') endZone();
+      if (events.some((e) => e.t === 'zone') && s.mapMode === 'expedition') {
+        try { zr = { nodes: [], exit: null, o: oracleRoute(s, cell, oRisk) }; } catch (e) { err = `oracle route: ${e.message}`; break; }
+      }
+    }
     if (rep && snap && events.some((e) => e.t === 'runEnd' && e.outcome === 'death') && snap.stats.fights === snapFight && s.death && s.death.nodeType !== 'boss') {
       try { rep.push(replayDeath(snap, seed, rec.fx.length - 1)); } catch (e) { err = `replay: ${e.message}`; break; }
     }
@@ -85,6 +107,29 @@ export function runWithBot(cell, seed, risk, opts = {}) {
     hash: opts.hash ? hash32(R.serialize(s)) : undefined,
   });
   return { record, state: s };
+}
+
+/**
+ * The oracle's route through the current zone from state s (just arrived at the hub), played on a copy with the
+ * oracle as the acting bot (diagnostic only, B41 C_route): nodes entered in order and the exit ('road<id>' or 'bell';
+ * null when the run ends in the zone).
+ */
+export function oracleRoute(s0, cell, risk) {
+  const s = R.deserialize(R.serialize(s0), CONTENT);
+  const bot = createPlannerBot({ classId: cell.cls, risk, tree: cell.tree, style: cell.style || 'balanced', variant: cell.variant || null, oracle: true });
+  const nodes = [];
+  let exit = null;
+  for (let i = 0; i < BAL.MAX_ACTIONS_PER_RUN && s.phase !== 'ENDED' && s.phase !== 'SUMMARY'; i++) {
+    const events = R.stepInPlace(s, bot.choose(s));
+    let left = false;
+    for (const e of events) {
+      if (e.t === 'node' && typeof e.id === 'number') nodes.push(e.id);
+      if (e.t === 'travel') exit = e.by === 'bell' ? 'bell' : `road${e.node}`;
+      if (e.t === 'zone' || e.t === 'camp') left = true;
+    }
+    if (left) break;
+  }
+  return { nodes, exit };
 }
 
 export function playRun(cell, seed, risk, opts = {}) {

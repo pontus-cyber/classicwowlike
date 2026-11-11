@@ -76,7 +76,7 @@ function leakCheck(botName, cls, seed, prof = 'fresh', maxDecisions = 400) {
   return { decisions, oracleChanged };
 }
 
-test('leak test: the fog planner decides the same when hidden nodes are scrambled; the oracle does not', () => {
+test('leak test: the fog planner decides the same when hidden nodes are scrambled; the oracle does not', (t) => {
   let oracle = 0;
   let dec = 0;
   for (const [cls, seed] of [['rogue', 1000], ['mage', 1001], ['hunter', 1002], ['mage', 1015]]) {
@@ -84,6 +84,7 @@ test('leak test: the fog planner decides the same when hidden nodes are scramble
     dec += r.decisions;
     oracle += r.oracleChanged;
   }
+  t.diagnostic(`planner: ${dec} map decisions checked against two scrambles each; the oracle changed its choice on ${oracle}`);
   assert.ok(dec >= 40, `enough map decisions checked (${dec})`);
   assert.ok(oracle > 0, `the oracle reads hidden contents, so scrambling changes some of its decisions (${oracle} of ${dec})`);
 });
@@ -108,14 +109,18 @@ test('expedition runs end without errors for every fog bot; rows runs are not ma
   assert.equal(record.xs, undefined);
 });
 
-test('C_step: with cell.oracle the runner counts the planner\'s map decisions and its agreements with the oracle', () => {
+test('C_step and C_route: with cell.oracle (and cell.route) the runner counts agreements with the oracle', () => {
   let agree = 0;
   let n = 0;
+  let zones = 0;
   for (const [cls, seed] of [['rogue', 1011], ['mage', 1012], ['hunter', 1013]]) {
-    const { record } = runWithBot({ bot: 'planner', cls, prof: 'fresh', tree: 0, map: 'expedition', oracle: true }, seed, null, {});
+    const { record } = runWithBot({ bot: 'planner', cls, prof: 'fresh', tree: 0, map: 'expedition', oracle: true, route: true }, seed, null, {});
     assert.equal(record.err, null);
     agree += record.xs.cs[0];
     n += record.xs.cs[1];
+    assert.ok(record.xs.cr[0] <= record.xs.cr[1]);
+    zones += record.xs.cr[1];
   }
   assert.ok(n >= 10 && agree <= n && agree >= 0, `C_step counts ${agree}/${n}`);
+  assert.ok(zones >= 3, `C_route compares every zone played (${zones})`);
 });

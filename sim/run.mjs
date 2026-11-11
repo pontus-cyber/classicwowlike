@@ -12,6 +12,7 @@
 //            --pairs (diagnostic: replay every non-boss fight with autoplay's, the opener's and the masher's opening)
 //            expedition map (expedition.md 10-11, MILESTONES 2b.4): --map expedition   --vision guide,charts,pathfinder
 //            (vision kit, any subset)   --dimming off (B44 diagnostic)   --oracle (record C_step against the oracle, B41)
+//            --route (with --oracle: C_route, the oracle replays every zone from its entry state on a copy, B41)
 //   campaigns: node sim/run.mjs --campaign N --class <c|all> --out <dir> [--risk-in <risk.json>]
 //
 // Writes <out>/<bot>-<profile>[-style][-variant][-pet]/{runs-<class>.jsonl, summary.json, summary.md, risk.json}.
@@ -35,7 +36,7 @@ function parse(argv) {
     const a = argv[i];
     if (!a.startsWith('--')) throw new Error(`unexpected argument ${a}`);
     const k = a.slice(2);
-    if (k === 'log' || k === 'replay' || k === 'pairs' || k === 'oracle') { o[k] = true; continue; }
+    if (k === 'log' || k === 'replay' || k === 'pairs' || k === 'oracle' || k === 'route') { o[k] = true; continue; }
     o[k] = argv[++i];
   }
   return o;
@@ -71,7 +72,7 @@ try {
       pool, bot: args.bot, classes, runs: Number(args.runs || BAL.N_RUNS_PER_CELL), seedStart: Number(args['seed-start'] || BAL.SEED_BASE),
       prof: args.profile || 'fresh', trees, style: args.style || null, variant: args.variant || null, pet: args.pet || null,
       out, warmup: args.warmup !== undefined ? Number(args.warmup) : SIM.WARMUP_RUNS, obsIn, log: !!args.log, workers, replay: !!args.replay, pairs: !!args.pairs,
-      map: args.map || null, vision: args.vision ? Object.fromEntries(args.vision.split(',').map((k) => [k, true])) : null, dimming: args.dimming === 'off' ? false : true, oracle: !!args.oracle,
+      map: args.map || null, vision: args.vision ? Object.fromEntries(args.vision.split(',').map((k) => [k, true])) : null, dimming: args.dimming === 'off' ? false : true, oracle: !!args.oracle, route: !!args.route,
     });
     for (const [cls, x] of Object.entries(r.perClass)) {
       const m = x.metrics;

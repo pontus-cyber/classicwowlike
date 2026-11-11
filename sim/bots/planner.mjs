@@ -311,16 +311,21 @@ export function expHub(s, inn) {
   return a.type === 'SERVICE' && !legal(s, a) ? { type: 'LEAVE_HUB' } : a;
 }
 
-export function createPlannerBot({ classId, risk, tree, style = 'balanced', variant = null, combat = null, name = 'planner' }) {
+/**
+ * oracle: true builds the oracle as an acting bot (diagnostic only, B41 C_route): the runner plays it on a copy of the
+ * zone-entry state to get the oracle's route; it never plays a measured run.
+ */
+export function createPlannerBot({ classId, risk, tree, style = 'balanced', variant = null, combat = null, name = 'planner', oracle = false }) {
   const hm = plannerHourMult(variant);
   const heat = plannerHeat(variant);
   const inn = (x) => innByValue(x, risk, style, hm, heat);
-  return createValueBot(name, {
+  const expMap = oracle ? (s) => oracleMap(s, risk, style, hm, heat).action : (s) => planExpMap(s, risk, style, hm, heat).action;
+  return createValueBot(oracle ? 'oracle' : name, {
     classId, tree, variant, style, campBar: true,
     kit: { ...FULL_KIT, ember: true },
     combat,
     hub: (s) => (s.mapMode === 'expedition' ? expHub(s, inn) : hubFull(s, inn)),
-    map: (s) => (s.mapMode === 'expedition' ? planExpMap(s, risk, style, hm, heat).action : planMap(s, risk, style, hm, heat).action),
+    map: (s) => (s.mapMode === 'expedition' ? expMap(s) : planMap(s, risk, style, hm, heat).action),
     grindWaves: (s) => valueGrindWaves(s, risk, style, hm, heat),
   });
 }
