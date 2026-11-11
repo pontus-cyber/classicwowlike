@@ -98,8 +98,8 @@ describe('C.GATES of a cell (rows 5-6) and the cell name', () => {
 });
 
 describe('speedrunner level price and planner Dimmed clock (params)', () => {
-  test('defaults: SPEED_LEVEL_TOLLS 30 tolls (calibrated, balance-2026-11-12; null is the v12 price); PLANNER_DIM_CLOCK is 1', () => {
-    assert.equal(SIM.SPEED_LEVEL_TOLLS, 30);
+  test('defaults: SPEED_LEVEL_TOLLS null (balance.md 1 rate; the calibration found no price that reaches the v11 policy, balance-2026-11-12); PLANNER_DIM_CLOCK is 1', () => {
+    assert.equal(SIM.SPEED_LEVEL_TOLLS, null);
     assert.equal(SIM.PLANNER_DIM_CLOCK, 1);
   });
 });
