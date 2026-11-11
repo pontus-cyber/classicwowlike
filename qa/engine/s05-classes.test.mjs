@@ -389,7 +389,7 @@ describe('rules 5.6 meta-unlock spells', () => {
     assert.ok(r.events.some((e) => e.t === 'damage' && e.dst === 'player' && e.spell === 'bloodprice_gambit' && e.amount === Math.round(0.1 * s.player.hp)));
   });
 
-  test('ricochet_bolt: full hit on the target, then SPELL.ricochet_bolt.bounces other enemies at bounceFrac (40 %, M2 v3)', () => {
+  test('ricochet_bolt: full hit on the target, then SPELL.ricochet_bolt.bounces other enemies at bounceFrac (30 %, M2b v12 row 5 gate passed; M2 v3: 40 %)', () => {
     let h = setup('hunter', 40, ['ricochet_bolt'], [mob('z1_brute', 40), mob('z1_brute', 40), mob('z1_brute', 40), mob('z1_brute', 40)]);
     h = tweak(h, (x) => { for (const e of x.fight.enemies) e.maxHp = e.hp = 1e6; x.player.pet.alive = false; });
     const r = act(h, { type: 'CAST', spellId: 'ricochet_bolt', target: 1 }, (d) => [0, 3, 6].every((i) => d[i] > 0.9), 9);
@@ -403,10 +403,10 @@ describe('rules 5.6 meta-unlock spells', () => {
       const want = pipeline({ base: base * (i === 0 ? 1 : sp.bounceFrac), attL: 40, tgtL: 40, phys: true, dodge: t.dodge, crit: d.crit, armor: t.armor, draws: r.draws.slice(3 * i, 3 * i + 3) });
       assert.equal(e.amount, want.amount, `hit ${i}`);
     });
-    assert.equal(sp.bounceFrac, 0.4);
+    assert.equal(sp.bounceFrac, 0.3);
     // Tooltip data: spellInfo gives the bounce rule, so no front end copies 40 %.
     const a = R.spellInfo(h, 'ricochet_bolt', 1).amount;
-    assert.deepEqual(a, { kind: 'damage', amount: Math.round(base), hits: 1, school: 'phys', perCp: false, bounces: 2, bounceFrac: 0.4, bounceAmount: Math.round(base * 0.4) });
+    assert.deepEqual(a, { kind: 'damage', amount: Math.round(base), hits: 1, school: 'phys', perCp: false, bounces: 2, bounceFrac: 0.3, bounceAmount: Math.round(base * 0.3) });
     assert.equal(R.spellInfo(h, 'keen_shot', 1).amount.bounces, undefined);
   });
 

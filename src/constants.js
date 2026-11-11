@@ -636,13 +636,12 @@ export const CLASS_IDS = ['rogue', 'mage', 'hunter'];
  */
 export const BEASTCALL_HORN_CD = 12;
 /**
- * rules 5.6 (M2b v12 row 5, D104, gated): Ricochet Bolt's bounce, × the main hit per bounce (SPELL.ricochet_bolt.bounceFrac).
- * It stays 0.40 until the sim's gate passes (changes-m2b-v12.md cell 3 against 3b: expedition planner PALL >= 50 % with
- * it); the gated value is RICOCHET_BOUNCE_FRAC_GATED. The sim arms it at run time by setting
- * C.SPELL.ricochet_bolt.bounceFrac = C.RICOCHET_BOUNCE_FRAC_GATED in every process (the engine reads the field at each
- * cast and in spellInfo), or in a scratch copy by changing this line.
+ * rules 5.6 (M2b v12 row 5, D104): Ricochet Bolt's bounce, × the main hit per bounce (SPELL.ricochet_bolt.bounceFrac).
+ * The sim's gate passed (docs/reports/balance-2026-11-11h.md: cell 3, expedition planner PALL 50.1 % >= 50 %), so the
+ * default is the gated value 0.30 (was 0.40). RICOCHET_BOUNCE_FRAC_GATED stays, equal to it, for the sim's
+ * --ricochet-gated arm (the engine reads the field at each cast and in spellInfo).
  */
-export const RICOCHET_BOUNCE_FRAC = 0.4;
+export const RICOCHET_BOUNCE_FRAC = 0.3;
 export const RICOCHET_BOUNCE_FRAC_GATED = 0.3;
 
 /**

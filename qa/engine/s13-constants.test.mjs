@@ -84,7 +84,7 @@ describe('change docs M2b v9, v10, v11 and v12: the engine constants equal the "
     assert.equal('BEASTCALL_HORN_CD_GATED' in K, false);
   });
 
-  test('changes-m2b-v12.md: DUNGEON_DIM_HOLD "removed"; TIME_DIM_ESCAPE\'s "Old" is TIME_DIM_FIGHT 2; row 5 (gated, not applied): bounceFrac keeps the "Old" value, the "New" value is RICOCHET_BOUNCE_FRAC_GATED', () => {
+  test('changes-m2b-v12.md: DUNGEON_DIM_HOLD "removed"; TIME_DIM_ESCAPE\'s "Old" is TIME_DIM_FIGHT 2; row 5 (gate passed, balance-2026-11-11h): bounceFrac, RICOCHET_BOUNCE_FRAC and RICOCHET_BOUNCE_FRAC_GATED are the "New" value', () => {
     const text = doc('changes-m2b-v12.md');
     const table = rows(text.slice(text.indexOf('## Constants')));
     const get = (label) => table.find((r) => r[0] === label || r[0].startsWith(`${label} `));
@@ -94,7 +94,8 @@ describe('change docs M2b v9, v10, v11 and v12: the engine constants equal the "
     assert.equal(K.TIME_DIM_FIGHT, 2);
     const ric = get('SPELL.ricochet_bolt.bounceFrac');
     assert.ok(ric && /gated/.test(ric[0]));
-    assert.deepEqual([K.SPELL.ricochet_bolt.bounceFrac, K.RICOCHET_BOUNCE_FRAC, K.RICOCHET_BOUNCE_FRAC_GATED], [Number(ric[1]), Number(ric[1]), Number(ric[2])]);
+    assert.deepEqual([K.SPELL.ricochet_bolt.bounceFrac, K.RICOCHET_BOUNCE_FRAC, K.RICOCHET_BOUNCE_FRAC_GATED], [Number(ric[2]), Number(ric[2]), Number(ric[2])]);
+    assert.notEqual(Number(ric[1]), Number(ric[2]), 'Old 0.40 is no longer the default');
   });
 });
 

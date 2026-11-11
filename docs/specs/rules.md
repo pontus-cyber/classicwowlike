@@ -509,7 +509,7 @@ Pets: chosen at creation, level = hunter level. Pet acts after the hunter each r
 | bloodprice_gambit | Rogue | Bloodprice Gambit | 40 | 0 | 12 | lose 10 % current HP; +5 CP; +50 energy | HP > 60 % and target elite/boss |
 | chrono_sigil | Mage | Chrono Sigil | 20 | 10%M | 8 | target skips its action this round (bosses too; a channel is paused, not cancelled) | target intent is a heavy ability or cast and no interrupt ready |
 | mirrorshade | Mage | Mirrorshade | 40 | 15%M | 10 | 3 rounds: each enemy attack on you has 0.5 chance to hit an image (no damage) | HP < 60 % |
-| ricochet_bolt | Hunter | Ricochet Bolt | 20 | 35F | 0 | phys 5 + 1.1tl + 0.5P + 0.9WD on target, then 2 other enemies at 40 % | >= 2 enemies | (M2 v3: bounce 70 % -> 40 %; M2b v12 row 5, D104, gated: bounceFrac is RICOCHET_BOUNCE_FRAC; RICOCHET_BOUNCE_FRAC_GATED 0.30 only if the sim's gate passes, then the text reads "at 30 %")
+| ricochet_bolt | Hunter | Ricochet Bolt | 20 | 35F | 0 | phys 5 + 1.1tl + 0.5P + 0.9WD on target, then 2 other enemies at 30 % | >= 2 enemies | (M2 v3: bounce 70 % -> 40 %; M2b v12 row 5, D104: bounceFrac is RICOCHET_BOUNCE_FRAC, 40 % -> 30 % since the sim's gate passed, balance-2026-11-11h)
 | beastcall_horn | Hunter | Beastcall Horn | 40 | 0 | 12 | pet healed to full (revived if dead); pet TAUNT 2 rounds | HP < 40 % | (M2b v11 row 8, D98: CD is BEASTCALL_HORN_CD; M2b v12, D100: row 8 void, stays 12, the gated switch removed)
 
 ---
@@ -1411,8 +1411,8 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | EXPED_DROP_MULT | 1.9 | × item and junk chance of normal and dungeon-trash kills, expedition runs (1.9.8, 8.4) | (M2b v11; M2b v12, D100: was 1.6)
 | EXPED_DUNGEON_BOSS_DROPS | 3 | rolls on "Dungeon boss" at a dungeon clear, expedition runs (1.9.8, 8.4) | (M2b v11)
 | BEASTCALL_HORN_CD | 12 | rounds (SPELL.beastcall_horn.cd, 5.6) | (M2b v11 row 8; M2b v12, D100: row 8 void, the gated value 15 removed)
-| RICOCHET_BOUNCE_FRAC | 0.4 | × the main hit per bounce (SPELL.ricochet_bolt.bounceFrac, 5.6) | (M2b v12 row 5, gated)
-| RICOCHET_BOUNCE_FRAC_GATED | 0.3 | × per bounce, applied only if the sim's gate passes (changes-m2b-v12.md row 5) | (M2b v12 row 5)
+| RICOCHET_BOUNCE_FRAC | 0.3 | × the main hit per bounce (SPELL.ricochet_bolt.bounceFrac, 5.6) | (M2b v12 row 5: was 0.4; the gate passed, balance-2026-11-11h)
+| RICOCHET_BOUNCE_FRAC_GATED | 0.3 | × per bounce, the gated value (changes-m2b-v12.md row 5); equal to RICOCHET_BOUNCE_FRAC since the gate passed | (M2b v12 row 5)
 | HEAT_WARM_AT | 0 | tolls past the line: Warm (Smouldering) from here (1.7.2) | (heat)
 | HEAT_HOT_AT | 10 | tolls past the line: Hot (Burning) from here (= ASC_STEP_TIME) | (heat)
 | HEAT_SCORCH_AT | 30 | tolls past the line: Scorched (Infernal) from here | (heat)

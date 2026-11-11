@@ -174,9 +174,9 @@ describe('M2b v12 row 2 (D101): TIME_DIM_ESCAPE, rules 1.9.6', () => {
   });
 });
 
-describe('M2b v12 row 5 (D104, gated): Ricochet Bolt bounce RICOCHET_BOUNCE_FRAC', () => {
-  test('0.40 by default (gated: not applied); RICOCHET_BOUNCE_FRAC_GATED 0.30; arming the field at run time sets the bounce a cast and spellInfo use', () => {
-    assert.deepEqual([C.RICOCHET_BOUNCE_FRAC, C.RICOCHET_BOUNCE_FRAC_GATED, C.SPELL.ricochet_bolt.bounceFrac], [0.4, 0.3, 0.4]);
+describe('M2b v12 row 5 (D104; the gate passed, balance-2026-11-11h): Ricochet Bolt bounce RICOCHET_BOUNCE_FRAC', () => {
+  test('0.30 by default (= RICOCHET_BOUNCE_FRAC_GATED); the field set at run time (the old 0.40) is the bounce a cast and spellInfo use', () => {
+    assert.deepEqual([C.RICOCHET_BOUNCE_FRAC, C.RICOCHET_BOUNCE_FRAC_GATED, C.SPELL.ricochet_bolt.bounceFrac], [0.3, 0.3, 0.3]);
     let s = startedRun('rows', { classId: 'hunter', seed: 4 });
     s = tweak(s, (x) => { x.player.level = 40; x.player.spells.ricochet_bolt = { tl: 40, rank: 1 }; x.player.spellOrder.push('ricochet_bolt'); x.player.bar[5] = 'ricochet_bolt'; });
     const z1 = REAL.zones[0].normals;
@@ -188,15 +188,15 @@ describe('M2b v12 row 5 (D104, gated): Ricochet Bolt bounce RICOCHET_BOUNCE_FRAC
       return ev(q.events, 'damage').filter((e) => e.spell === 'ricochet_bolt').map((e) => [e.dst, e.amount]);
     };
     const info = () => R.spellInfo(s, 'ricochet_bolt', 0).amount;
-    const at40 = cast();
-    const i40 = info();
-    assert.equal(i40.bounceFrac, 0.4);
+    const at30 = cast();
+    const i30 = info();
+    assert.equal(i30.bounceFrac, 0.3);
+    assert.ok(Math.abs(i30.bounceAmount - i30.amount * 0.3) <= 1, `bounceAmount ${i30.bounceAmount} for a main hit of ${i30.amount}`);
     try {
-      C.SPELL.ricochet_bolt.bounceFrac = C.RICOCHET_BOUNCE_FRAC_GATED;
-      const at30 = cast();
-      const i30 = info();
-      assert.deepEqual([i30.bounceFrac, i30.amount], [0.3, i40.amount]);
-      assert.ok(Math.abs(i30.bounceAmount - i40.amount * 0.3) <= 1, `bounceAmount ${i30.bounceAmount} for a main hit of ${i40.amount}`);
+      C.SPELL.ricochet_bolt.bounceFrac = 0.4;
+      const at40 = cast();
+      const i40 = info();
+      assert.deepEqual([i40.bounceFrac, i40.amount], [0.4, i30.amount]);
       assert.deepEqual(at30.map((h) => h[0]), at40.map((h) => h[0]), 'same targets (same draws)');
       let bounces = 0;
       at40.forEach(([dst, amt], i) => {
@@ -207,6 +207,6 @@ describe('M2b v12 row 5 (D104, gated): Ricochet Bolt bounce RICOCHET_BOUNCE_FRAC
     } finally {
       C.SPELL.ricochet_bolt.bounceFrac = C.RICOCHET_BOUNCE_FRAC;
     }
-    assert.deepEqual(cast(), at40, 'restored');
+    assert.deepEqual(cast(), at30, 'restored');
   });
 });
