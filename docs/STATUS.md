@@ -6,14 +6,15 @@ Updated by the Lead at the end of every session. One page; older detail goes in 
 M2 done 2026-11-10 (P1 45/45). Active: M2b, expedition map and combat v2 (docs/specs/expedition.md, docs/specs/combat-v2.md). M3 Hall of Echoes built early.
 
 ## Next tasks
-1. In progress: tuning pass v6 (designer: heat ASC_PER_STEP, PLANNER_HOUR_MULT 3, SAP_TURNS 4, free first potion, end boss); DoT preview, talent totals, class hints, potion hint, ability-name bug (engineer + UI).
-2. Next: HUD/UX readability pass; 2b.5 prep points and contracts; fog map UI; 2b.4 fog-only bots; switch default map to expedition.
+1. In progress: tuning v6 full measure (Sim, resumed after restart); v7 rename hours -> tolls (Engine + UI).
+2. Waiting on the owner: comments on the meta v2 proposal (docs/specs/meta-v2.md, draft).
+3. Next: 2b.5 prep points and contracts (engine + content); fog map UI; 2b.4 fog-only bots; switch default map; UX open items 5, 6, 9, 10.
 
 ## Waiting on the owner
 Nothing blocking. See docs/OWNER.md.
 
 ## Build
-game.html at 7958aee (combat v2.1, heat meter, Dev menu). Sent to the owner 2026-11-11 08:53. 322/322 UI regression checks at both sizes.
+game.html at 91f9290 (tuning v6 engine, UX pass, the Furnace). Sent to the owner 2026-11-11 11:40.
 
 ## Session log
 | Session | Date | Tasks | Agents (model/effort) | Tokens |
@@ -35,3 +36,4 @@ game.html at 7958aee (combat v2.1, heat meter, Dev menu). Sent to the owner 2026
 | 15 | 2026-11-10 11:50-17:50 | Combat v2 engine, Rogue fixes D48-D49, content, combat v2 UI, heat design+engine+UI, combat v2.1 design+engine, expedition map engine, regions; daily report | Engineer, Sim, UI (Opus/max); designers (Opus/high); content (Sonnet/medium) | about 6.3M |
 | 16 | 2026-11-10 20:47 | Restart recovery (server stopped agents about 18:37): sim resumed; UI restarted fresh on the uncommitted work; three non-original names replaced (lore chat finding) | Sim, UI (Opus/max), Content (Sonnet/medium) | pending |
 | 17 | 2026-11-11 07:41-08:53 | Owner playtests (Rogue x5); Dev menu built; heat value in bots (ASC step finding); tuning pass v6 and DoT/hints task started | Engineer x2, Sim (Opus/max), Designer (Opus/high) | about 1.4M |
+| 18 | 2026-11-11 08:53-11:48 | DoT preview, talent totals, hints; tuning v6 design+engine; v7 names (the Furnace, tolls); meta v2 proposal; UX pass; restart recovery | Engineer x3, UI, Sim (Opus/max); designers x3 (Opus/high) | about 2.9M |
