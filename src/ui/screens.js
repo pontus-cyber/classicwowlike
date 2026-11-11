@@ -109,13 +109,25 @@ export function createScreens(root, ctx) {
 
 const lootKey = (v) => `${v.loot.kind}|${v.loot.title}|${(v.loot.items || v.loot.choices || []).map((i) => i.uid).join(',')}|${v.player.bag.filter(Boolean).length}`;
 const svcKey = (v) => `${v.player.gold}|${v.player.bag.map((s) => (s ? s.uid + ':' + (s.count || 1) : '-')).join(',')}|${v.player.spells.map((s) => s.id + s.tl).join(',')}|${v.player.talentPoints}|${(v.node.stock || []).length}`;
-const mapKey = (v) => `${v.zone.idx}|${v.zone.pos.row}|${v.zone.pos.lane}|${v.zone.exp ? `${v.zone.exp.pos}|${v.zone.exp.spyglass}|${spy.armed}` : ''}|${v.player.level}|${v.legal.travelOn}|${v.time}`;
+const mapKey = (v) => `${v.zone.idx}|${v.zone.pos.row}|${v.zone.pos.lane}|${v.zone.exp ? `${v.zone.exp.pos}|${v.zone.exp.spyglass}|${spy.armed}|${leave.armed}` : ''}|${v.player.level}|${v.legal.travelOn}|${v.time}`;
 /** The hub's contract state in the hub screen's key (prep): the offer, Reserve and the held contracts. */
 const hubContractKey = (v) => (v.contracts ? `|${v.contracts.reserve}|${v.contracts.held}|${v.contracts.hub ? `${v.contracts.hub.kind}${v.contracts.hub.reserve}${v.contracts.hub.swap.join(',')}` : '-'}` : '');
 /** The Spyglass (expedition.md 2.4; prep): armed from the map's button, the next node clicked is looked at (USE_SPYGLASS). */
 const spy = { armed: false };
-/** Esc or a new screen disarms the Spyglass; true when it was armed. */
-export function disarmSpyglass() { const was = spy.armed; spy.armed = false; return was; }
+/**
+ * Leaving a zone with held contracts of it (expedition.md 3.1: they expire; QA playtest 2026-11-11 finding 3): the Road or
+ * the Bell first asks, naming them; armed holds the action type waiting for the answer.
+ */
+const leave = { armed: null };
+/** Esc or a new screen disarms the Spyglass and puts away the leave prompt; true when either was armed. */
+export function disarmSpyglass() { const was = spy.armed || !!leave.armed; spy.armed = false; leave.armed = null; return was; }
+/** The held contracts of this zone that leaving it expires (contractView status 'active'). */
+export function expiringHere(v) { return v.contracts ? v.contracts.contracts.filter((c) => c.status === 'active') : []; }
+/** "2 contracts here will expire: Cull reedfolk (1 / 3 sites); Delve: The Harrow Cellars (0 / 1 site)". */
+export function expiryText(list, content) {
+  const n = list.length;
+  return `${n === 1 ? '1 contract' : `${n} contracts`} here will expire: ${list.map((c) => `${contractTitle(c, content)} (${c.progress} / ${c.need} ${plural(c.need, 'site')})`).join('; ')}`;
+}
 
 // ------------------------------------------------------------------ class select
 function buildCreate(ctx) {
@@ -401,9 +413,14 @@ function buildExpMap(v, ctx, readOnly) {
   const acts = [];
   if (!readOnly && mv.onRoad) acts.push(['Take the Road', { type: 'TAKE_ROAD' }]);
   if (!readOnly && mv.bell && mv.bell.charges > 0) acts.push([`Ring the Bell (${mv.bell.charges})`, { type: 'RING_BELL' }]);
+  const expiring = readOnly ? [] : expiringHere(v);
+  if (leave.armed && (readOnly || !expiring.length || !acts.some(([, a]) => a.type === leave.armed))) leave.armed = null;
   const btns = acts.map(([label, a]) => {
-    const b = btn(label, () => ctx.act(a), a.type === 'TAKE_ROAD' ? '.primary' : '');
-    tip(b, () => h('div', h('div.tt-name', label), a.type === 'RING_BELL' ? h('div.tt-line', `${mv.texts && mv.texts.homeward_bell ? mv.texts.homeward_bell + ' ' : ''}Rung on the map: ${tolls(mv.bell.channelTime)} to ring, then the next zone's hub.`) : h('div.tt-line', `Leave for ${roadTo(v, ctx)}.`), previewBlock(heatOf(ctx.view, a), ctx, { leaves: true })));
+    const b = btn(label, () => { if (expiring.length && leave.armed !== a.type) { leave.armed = a.type; ctx.ui.refreshScreens(); return; } leave.armed = null; ctx.act(a); }, a.type === 'TAKE_ROAD' ? '.primary' : '');
+    b.dataset.leave = a.type;
+    tip(b, () => h('div', h('div.tt-name', label), a.type === 'RING_BELL' ? h('div.tt-line', `${mv.texts && mv.texts.homeward_bell ? mv.texts.homeward_bell + ' ' : ''}Rung on the map: ${tolls(mv.bell.channelTime)} to ring, then the next zone's hub.`) : h('div.tt-line', `Leave for ${roadTo(v, ctx)}.`),
+      expiring.length ? h('div.tt-warn', `${expiryText(expiring, ctx.data.content)}. No reward.`) : null, previewBlock(heatOf(ctx.view, a), ctx, { leaves: true }),
+      expiring.length ? h('div.tt-hint', 'Click, then confirm') : null));
     return ghostOn(b, ctx, a);
   });
   // the Spyglass (expedition.md 2.4; prep): arm it, then click any node: it and its neighbours come into full view, no tolls
@@ -416,6 +433,14 @@ function buildExpMap(v, ctx, readOnly) {
   } else if (spy.armed) spy.armed = false;
   const dm = mv.dim || {}; const off = !!dm.off;
   win.appendChild(h('div.mhead', h('div', h('div.title', z.name), h('div.subtitle', `Levels ${z.band[0]}–${z.band[1]} · zone toll ${mv.zt}`)), h('div.row', readOnly ? closeBtn(ctx, 'map') : null, ...btns)));
+  if (leave.armed) {
+    const a = { type: leave.armed }; const road = a.type === 'TAKE_ROAD';
+    const go = btn(road ? 'Take the Road anyway' : 'Ring the Bell anyway', () => { leave.armed = null; ctx.act(a); }, '.danger');
+    const stay = btn('Stay', () => { leave.armed = null; ctx.ui.refreshScreens(); }, '.primary');
+    win.appendChild(h('div.leavewarn', { role: 'alertdialog', 'aria-label': `Leave ${z.name}?` },
+      h('div.lw-t', `Leave ${z.name}?`), h('div.lw-l', `${expiryText(expiring, ctx.data.content)}. They pay nothing once expired.`),
+      h('div.row.lw-b', go, stay, h('span.muted', 'Esc: stay'))));
+  }
 
   // ---- the disc
   const disc = h('div.xdisc');
@@ -529,7 +554,7 @@ function buildExpMap(v, ctx, readOnly) {
     if (hp) el.appendChild(tollLabel(h('div.mhrs', tolls(hp.time)), hp));
     if (n.done && n.heat && ctx.data.rules.heat && (ctx.data.rules.heat.gain[n.heat] > 0 || ctx.data.rules.heat.rarityUp[n.heat] > 0)) el.appendChild(h('div.mheat', { dataset: { hs: n.heat } }));
     const look = { type: 'USE_SPYGLASS', nodeId: n.id };
-    if (!readOnly) el.addEventListener('click', () => { if (spy.armed) { spy.armed = false; ctx.act(look); } else if (m) ctx.act(act); });
+    if (!readOnly) el.addEventListener('click', () => { leave.armed = null; if (spy.armed) { spy.armed = false; ctx.act(look); } else if (m) ctx.act(act); });
     if (m) ghostOn(el, ctx, act);
     tip(el, () => expNodeTip(n, mv, v, ctx, m, here, readOnly, act));
     disc.appendChild(el);
@@ -610,8 +635,10 @@ function declutterLabels(disc) {
   const fixed = nodes.flatMap((n) => [...n.querySelectorAll(':scope > .xfoes, :scope > .xsite')].map((x) => ({ n, b: box(x.getBoundingClientRect()) })));
   const rank = ({ el }) => (el.classList.contains('cl') ? 0 : el.classList.contains('urgent') ? 1 : el.classList.contains('mhrs') ? 2 : 3);
   shown.sort((a, b) => rank(a) - rank(b));
-  const placed = [];
   const area = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l)) * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t));
+  // candidate spots of each label: around its own node first, then any spot near it, nearest first (at most one and a half
+  // label widths sideways and four rows up or down)
+  const spots = new Map();
   for (const lab of shown) {
     const nat = box(lab.el.getBoundingClientRect()); const w = nat.r - nat.l; const ht = nat.b - nat.t;
     const R = ring.get(lab.n); const cx = (R.l + R.r) / 2; const cy = (R.t + R.b) / 2; const g = 2;
@@ -621,24 +648,41 @@ function declutterLabels(disc) {
       at(cx - w / 2, R.t - 2 * (g + ht)), at(cx - w / 2, R.b + 2 * g + ht), at(nat.l, nat.b + g), at(nat.l, nat.t - g - ht),
       at(R.r + g, R.t - 2 * ht - g), at(R.l - g - w, R.t - 2 * ht - g), at(R.r + g, R.b + ht + g), at(R.l - g - w, R.b + ht + g),
       at(nat.l, nat.b + ht + 2 * g), at(nat.l, nat.t - 2 * (g + ht))];
-    // then any spot near the node, nearest first (at most a label's width sideways and three rows up or down)
     const near = [];
-    for (let dx = -w; dx <= w + 0.1; dx += w / 4) for (let dy = -3 * ht; dy <= 3 * ht + 0.1; dy += ht / 2) near.push(at(cx - w / 2 + dx, (lab.el.classList.contains('mhrs') ? R.t - g - ht : R.b + g) + dy));
+    for (let dx = -1.5 * w; dx <= 1.5 * w + 0.1; dx += w / 4) for (let dy = -4 * ht; dy <= 4 * ht + 0.1; dy += ht / 2) near.push(at(cx - w / 2 + dx, (lab.el.classList.contains('mhrs') ? R.t - g - ht : R.b + g) + dy));
     const d2 = (c) => (c.l - nat.l) ** 2 + (c.t - nat.t) ** 2;
     cand.push(...near.sort((a, b) => d2(a) - d2(b)));
-    // text on text is the worst, then a label on a node's icon; a small "?" marker of an unknown node may be touched
-    const cost = (c) => {
-      let k = 0;
-      for (const [n, b] of ring) if (n !== lab.n) k += area(c, b) * (n.classList.contains('x-unknown') ? 0.3 : 2);
-      if (lab.el.classList.contains('cl')) { /* its own ring is fine to touch */ } else k += 2 * area(c, R);
-      for (const f of fixed) k += 2 * area(c, f.b);
-      for (const p of placed) k += 4 * area(c, p);
-      return k;
-    };
-    let best = cand[0]; let bestK = cost(best);
-    for (const c of cand.slice(1)) { if (bestK <= 0) break; const k = cost(c); if (k < bestK - 0.5) { best = c; bestK = k; } }
-    if (best !== cand[0]) lab.el.style.translate = `${(best.l - nat.l).toFixed(1)}px ${(best.t - nat.t).toFixed(1)}px`;
-    placed.push(best);
+    spots.set(lab, { nat, R, cand });
+  }
+  // text on text costs most, then a label on a node's icon, an unknown node's "?" marker included (after the Dimming
+  // spreads, clocks crowd the outer rings: QA playtest 2026-11-11 finding 9), the enemy count or site marks
+  const cost = (lab, c, others) => {
+    const { R } = spots.get(lab); let k = 0;
+    for (const [n, b] of ring) if (n !== lab.n) k += 8 * area(c, b);
+    if (!lab.el.classList.contains('cl')) k += 2 * area(c, R); // a level may touch its own ring
+    for (const f of fixed) k += 8 * area(c, f.b);
+    for (const p of others) k += 50 * area(c, p);
+    return k;
+  };
+  const pick = (lab, others) => {
+    const { cand } = spots.get(lab);
+    let best = cand[0]; let bestK = cost(lab, best, others);
+    for (const c of cand.slice(1)) { if (bestK <= 0) break; const k = cost(lab, c, others); if (k < bestK - 0.5) { best = c; bestK = k; } }
+    return { best, k: bestK };
+  };
+  // greedy in rank order, then two repair passes: a label still on something looks again with every other label placed
+  const at = new Map();
+  for (const lab of shown) { const { best, k } = pick(lab, [...at.values()].map((x) => x.best)); at.set(lab, { best, k }); }
+  for (let pass = 0; pass < 2; pass++) {
+    for (const lab of shown) {
+      if (at.get(lab).k <= 0) continue;
+      const others = shown.filter((x) => x !== lab).map((x) => at.get(x).best);
+      const r = pick(lab, others); if (r.k < at.get(lab).k - 0.5) at.set(lab, r);
+    }
+  }
+  for (const lab of shown) {
+    const { best } = at.get(lab); const { nat } = spots.get(lab);
+    if (best !== spots.get(lab).cand[0]) lab.el.style.translate = `${(best.l - nat.l).toFixed(1)}px ${(best.t - nat.t).toFixed(1)}px`;
   }
   // a node's labels are drawn inside its own layer (the node's transform): nodes with toll labels or clocks sit over
   // plain nodes, the player's own urgent clock over all, so no label hides under a neighbour's ring
@@ -862,8 +906,18 @@ function buildLoot(v, ctx) {
   const full = p.bag.every(Boolean) && (L.items || []).some((it) => it.kind === 'gear' && !it.inBag);
   const take = btn(pending ? 'Take all' : 'Continue', () => ctx.act({ type: 'LOOT_TAKE_ALL' }), '.primary');
   take.appendChild(h('span.k', 'Space'));
+  const nx = nextStrip(L); if (nx) win.appendChild(nx);
   win.appendChild(h('div.foot', full ? h('span.warn', 'Bags full: discard (B)') : h('span.muted.nowrap', `Bags ${p.bag.filter(Boolean).length}/${p.bag.length}`), h('div.row', { style: { gap: '.6rem' } }, pending ? btn('Leave', () => ctx.act({ type: 'LOOT_CLOSE' })) : null, take)));
   return win;
+}
+/**
+ * The reward windows that follow the one on screen (the bridge's loot.next), in one line: "Next  Quest complete: The Lost
+ * Ledger, then Contract complete: Cull reedfolk" (QA playtest 2026-11-11 finding 8: the windows come one after the other).
+ */
+function nextStrip(L) {
+  const list = L.next || []; if (!list.length) return null;
+  const word = (x) => (x.kind === 'contract' ? `Contract complete: ${x.title}` : x.kind === 'story' ? `Story complete: ${x.title}` : `Quest complete: ${x.title}`);
+  return h('div.lnext', { dataset: { next: list.map((x) => x.kind).join(',') } }, h('span.nx', 'Next'), h('span.nt', list.map(word).join(', then ')));
 }
 function miniBtn(label, fn) { const b = h('button.btn.small', label); b.addEventListener('click', (e) => { e.stopPropagation(); fn(); }); return b; }
 function closeLootBtn(ctx) { const b = h('button.xbtn', '×'); b.addEventListener('click', () => ctx.act({ type: 'LOOT_CLOSE' })); return b; }
@@ -887,7 +941,7 @@ function buildReward(v, ctx) {
     return dialog('Contract complete', c ? `Zone ${c.z} · ${c.zoneName}` : '', [head,
       h('div.row', { style: { gap: '2rem' } }, L.xp ? h('span', { style: { color: '#d0a8ff', fontWeight: 700, fontSize: '1.35rem' } }, `+${fmtNum(L.xp)} XP`) : null, L.gold ? h('span', moneyEl(L.gold)) : null),
       h('div.subtitle', 'Choose one reward'), cards,
-      p.bag.every(Boolean) ? h('div.warn', 'Your bags are full: discard something first (B).') : null,
+      p.bag.every(Boolean) ? h('div.warn', 'Your bags are full: discard something first (B).') : null, nextStrip(L),
     ], [], { style: { width: '60rem' }, cls: 'contract-reward' });
   }
   const story = L.kind === 'story';
@@ -895,7 +949,7 @@ function buildReward(v, ctx) {
     h('div.qtext.parchment', L.giver ? h('div.giver', `${L.giver} says:`) : null, h('div.turnin', `“${L.text}”`)),
     h('div.row', { style: { gap: '2rem' } }, L.xp ? h('span', { style: { color: '#d0a8ff', fontWeight: 700, fontSize: '1.35rem' } }, `+${fmtNum(L.xp)} XP`) : null, L.gold ? h('span', moneyEl(L.gold)) : null),
     h('div.subtitle', story ? 'Choose one rare reward' : 'Choose your reward'), cards,
-    p.bag.every(Boolean) ? h('div.warn', 'Your bags are full: discard something first (B).') : null,
+    p.bag.every(Boolean) ? h('div.warn', 'Your bags are full: discard something first (B).') : null, nextStrip(L),
   ], [], { style: { width: '60rem' } });
 }
 
@@ -954,9 +1008,11 @@ function buildSummary(v, ctx) {
   const s = v.summary; if (!s) return null;
   const win = h('div.summary.panel.center');
   const won = s.outcome === 'victory';
+  // a hero without a name of its own carries the class name: say it once (QA playtest 2026-11-11 finding 10)
+  const named = s.name && s.name.toLowerCase() !== String(s.className).toLowerCase() ? s.name : null;
   win.appendChild(h('div.shead', h('div.t1.subtitle', { style: { letterSpacing: '.4em', textTransform: 'uppercase' } }, won ? 'Victory' : 'The run has ended'),
-    h('div.t2', { style: { color: won ? '#ffe08a' : '#e8a090' } }, won ? 'Oruvath has fallen' : `${s.name} has fallen`),
-    h('div.subtitle', `${s.name} · level ${s.level} ${s.className}${s.petId ? ' with ' + ctx.data.pets[s.petId].name : ''} · ${s.zone}`),
+    h('div.t2', { style: { color: won ? '#ffe08a' : '#e8a090' } }, won ? 'Oruvath has fallen' : named ? `${named} has fallen` : `Your ${s.className} has fallen`),
+    h('div.subtitle.s-who', `${named ? `${named} · level` : 'Level'} ${s.level} ${s.className}${s.petId ? ' with ' + ctx.data.pets[s.petId].name : ''} · ${s.zone}`),
     // a dev run (engine-api.md 12): the dev tools changed it, so it earns no Echoes
     s.dev ? h('div.devrun', `Dev run${s.dev.god ? ' · god mode' : ''}`) : null));
   const kv = (pairs) => h('dl.kv', pairs.flatMap(([k, val]) => [h('dt', k), h('dd', val)]));

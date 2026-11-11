@@ -1004,11 +1004,19 @@ function engineBackend(seedOpt, runOpts = {}) {
     if (v.phase === 'CAMP' && s.fight) v.phase = 'NODE';
     if (v.node && v.node.step === 'intro' && s.fight) v.combat = null; // the intro dialog is read before the fight is shown
     const win = (s.loot || []).map((it) => item(it, s.player.classId, { pending: true }));
+    // the reward windows still to come after the one on screen, in order (QA playtest 2026-11-11 finding 8: the spoils,
+    // then a quest's or a contract's choice, say what follows): { kind: 'quest' | 'story' | 'contract', title }
+    const pend = s.node && s.node.stage === 'reward' ? s.node.rewards.filter((r) => r.kind === 'items') : [];
+    const nextOf = (list) => list.map((r) => {
+      if (r.contract) { const c = v.contracts ? v.contracts.contracts.find((x) => x.id === r.contract) : null; return { kind: 'contract', title: c ? TXT.contractTitle(c, CONTENT) : 'a contract' }; }
+      if (r.story) return { kind: 'story', title: v.zone ? `${v.zone.name}: the story` : 'the story' };
+      return { kind: 'quest', title: (CONTENT.quests[s.node.quest] || {}).title || 'the quest' };
+    });
     if (local.hold) { v.phase = 'NODE'; v.node = local.hold.node; v.combat = null; }
     if (local.spoils) {
       const sp = local.spoils;
       v.phase = sp.phase || 'NODE'; v.node = sp.node; v.combat = sp.combat;
-      v.loot = { kind: 'loot', title: sp.title, gold: sp.gold, xp: sp.xp, trap: sp.trap, items: [...win, ...sp.items.filter((it) => it.inBag)] };
+      v.loot = { kind: 'loot', title: sp.title, gold: sp.gold, xp: sp.xp, trap: sp.trap, items: [...win, ...sp.items.filter((it) => it.inBag)], next: nextOf(pend) };
     } else if (win.length) {
       v.loot = { kind: 'loot', title: 'Items waiting', gold: 0, xp: 0, items: win, windowOnly: true };
     } else if (s.node && s.node.stage === 'reward' && s.node.rewards[0].kind === 'items') {
@@ -1021,6 +1029,7 @@ function engineBackend(seedOpt, runOpts = {}) {
       else v.loot = r0.story
         ? { kind: 'story', title: `${v.zone.name}: the story is told`, text: 'Three tasks done; the people of this land will remember your name.', xp: rw.storyXp || 0, gold: 0, choices: r0.items.map((it) => item(it, s.player.classId)) }
         : { kind: 'reward', title: q.title || 'Quest', giver: q.giver, text: q.turnIn || '', xp: rw.xp || 0, gold: rw.gold || 0, choices: r0.items.map((it) => item(it, s.player.classId)) };
+      v.loot.next = nextOf(pend.slice(1));
     }
     v.legal = convLegal(s);
     if (local.hold || local.spoils) { v.legal = { ...v.legal, lanes: [], travelOn: false, attack: false, flee: false }; }

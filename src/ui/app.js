@@ -430,9 +430,12 @@ export class App {
    * too), so a burst (quests turned in at speed, a level, a heat change) never stacks over the map or the frames.
    */
   toast(text, kind = '') {
-    // a change of the heat state (heat.js, expedition.md H.4) shows at once and never merges: one toast per change
+    // a change of the heat state (heat.js, expedition.md H.4) shows at once and never merges. Only one heat toast is on
+    // screen: a later change replaces it, so a burst (a zone change: Burning, Smouldering, Calm, ...) ends on the final
+    // state and the stack keeps TOAST_MAX (QA playtest 2026-11-11 finding 1)
     const first = /^heat-/.test(kind);
     const key = `${kind}|${text}`;
+    if (first) for (const t of [...this.toasts.children]) if (/\bheat-/.test(t.className)) { clearTimeout(t._toastT); t.remove(); }
     if (!first) {
       const live = [...this.toasts.children].find((t) => t.dataset.key === key);
       if (live) {

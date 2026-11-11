@@ -1622,9 +1622,13 @@ const slowRun = (page, stopSrc) => page.evaluate(async ([src, choiceSrc, maxWave
   const ui = window.__ui;
   const conds = Object.entries(typeof src === 'string' ? { stop: src } : src).map(([k, c]) => [k, new Function('v', `return (${c})(v)`)]);
   const stop = (v) => { const hit = conds.find(([, f]) => f(v)); return hit ? hit[0] : null; };
-  const rec = window.__heat || (window.__heat = { states: [], toasts: [], logs: [], kinds: {}, raised: [] });
+  const rec = window.__heat || (window.__heat = { states: [], toasts: [], logs: [], kinds: {}, raised: [], maxHeat: 0, maxAll: 0 });
   if (!window.__heatObs) {
-    window.__heatObs = new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.classList && [...n.classList].some((c) => c.startsWith('heat-'))) rec.toasts.push({ text: n.textContent, cls: n.className }); });
+    window.__heatObs = new MutationObserver((ms) => {
+      for (const m of ms) for (const n of m.addedNodes) if (n.classList && [...n.classList].some((c) => c.startsWith('heat-'))) rec.toasts.push({ text: n.textContent, cls: n.className });
+      const all = [...document.querySelectorAll('#toasts .toast')];
+      rec.maxAll = Math.max(rec.maxAll, all.length); rec.maxHeat = Math.max(rec.maxHeat, all.filter((t) => /\bheat-/.test(t.className)).length);
+    });
     window.__heatObs.observe(document.querySelector('#toasts'), { childList: true });
     const states = new RegExp(`^(${stateNames.join('|')}): `); // the Furnace's state names (passed in: HEAT_WORDS.state)
     new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.textContent && states.test(n.textContent)) rec.logs.push(n.textContent); }).observe(document.querySelector('#combatlog .lines'), { childList: true });
@@ -1763,8 +1767,12 @@ async function partI(browser, W, H) {
     const okToasts = changes.length >= 3 && toastStates.length === changes.length && changes.every((c, i) => toastStates[i] === c.to && rec.toasts[i].text.startsWith(`${HNAME[c.to]}:`));
     check('M2b-heat', `a toast on each change of state (${changes.length} so far: ${rec.states.join(' > ')}), named and coloured by the new state`, okToasts,
       `toasts: ${rec.toasts.map((t) => t.text).join(' | ')}`);
-    check('M2b-heat', 'the combat log has a line for each change of state, the toast\'s text', rec.logs.length === rec.toasts.length && rec.logs.every((l, i) => l === `${rec.toasts[i].text}.`),
+    // QA playtest 2026-11-11 finding 6: the log line is the toast's sentence with one full stop, never ".."
+    const sentence = (t) => (/[.!?]$/.test(t) ? t : `${t}.`);
+    check('M2b-heat', 'the combat log has a line for each change of state, the toast\'s sentence with one full stop (no "..")', rec.logs.length === rec.toasts.length && rec.logs.every((l, i) => l === sentence(rec.toasts[i].text) && !/\.\.$/.test(l)),
       rec.logs.slice(0, 6).join(' | '));
+    // QA playtest 2026-11-11 finding 1: one heat toast at a time (a later change replaces it), the stack within its limit
+    check('M2b-heat', `heat toasts never stack: at most one on screen and at most 2 toasts in all during the run (seen: ${rec.maxHeat} heat, ${rec.maxAll} in all)`, rec.maxHeat === 1 && rec.maxAll <= 2, '');
 
     // ---- the camp: panel, tracker and minimap read heatView, as the meter
     const rc = await slowRun(page, "(v) => v.phase === 'CAMP' && !(v.node && v.node.origin === 'hub') && !v.combat");
@@ -2798,6 +2806,37 @@ async function partM(browser, W, H) {
     const tt2 = await page.evaluate(() => (document.querySelector('.tooltip.on') || {}).innerText || '');
     const want2 = T.prepOptionEffect(spy, { vision: R.C.VISION_RADIUS, guide: R.C.GUIDE_RADIUS_BONUS, tracker: R.C.TRACKER_RADIUS, bountyPlaced: R.C.BOUNTY_PLACED, bellMax: R.C.BELL_MAX_CHARGES, emberMax: R.C.EMBER_MAX_CARRIED }, (id) => R.C.CONSUMABLE[id].name);
     check('M-prep', `an option's tooltip says what it does in one line ("${want2}") and its refund`, tt2.includes(want2) && /full refund/.test(tt2), tt2.replace(/\n/g, ' / '));
+    // QA playtest 2026-11-11 finding 5: every number on a card has its word (levels, price, sites, XP, gold, the item choice)
+    const lab = await page.evaluate(() => [...document.querySelectorAll('#prep .pp-card')].map((b) => ({ band: b.querySelector('.pc-band').textContent, price: b.querySelector('.pc-price').textContent,
+      pl: (b.querySelector('.pc-pl') || {}).textContent, need: b.querySelector('.pc-need').textContent, pay: b.querySelector('.pc-reward').innerText.replace(/\s+/g, ' '), it: (b.querySelector('.pc-act .it') || {}).textContent })));
+    const lBad = pv.board.map((o, i) => { const c = lab[i] || {}; const bad = [];
+      if (c.band !== `levels ${o.band[0]}–${o.band[1]}`) bad.push(`band "${c.band}"`);
+      if (c.price !== String(o.price) || c.pl !== (o.price === 1 ? 'pt' : 'pts')) bad.push(`price "${c.price} ${c.pl}"`);
+      if (c.need !== `${o.need} ${o.need === 1 ? 'site' : 'sites'}`) bad.push(`sites "${c.need}"`);
+      if (!/^Pays /.test(c.pay || '') || !(c.pay || '').includes(`${Math.round(o.reward.xpFrac * 10) / 10} levels of XP`) || !/ gold /.test(c.pay || '')) bad.push(`pay "${c.pay}"`);
+      if (!(c.it || '').startsWith(`choose 1 of ${o.reward.choices}`)) bad.push(`items "${c.it}"`);
+      return bad.length ? `card ${i + 1}: ${bad.join(', ')}` : null; }).filter(Boolean);
+    check('M-prep', 'every number on a contract card has its word: "levels 1–10", "2 pts", "2 sites", "Pays 2.8 levels of XP", "gold", "choose 1 of 3" (QA 2026-11-11 finding 5)', !lBad.length, lBad.slice(0, 3).join(' | '));
+    // QA playtest 2026-11-11 finding 4 (an engine fix, contracts.js drawBoard): no two cards are the same contract
+    const keys = pv.board.map((o) => [o.z, o.kind, o.region, o.family, o.template].join('|'));
+    const shown = await page.evaluate(() => [...document.querySelectorAll('#prep .pp-card')].map((b) => [b.querySelector('.pc-zone').textContent, b.querySelector('.pc-kind').textContent, b.querySelector('.pc-target').textContent, b.querySelector('.pc-where').textContent].join(' / ')));
+    check('M-prep', `the board's ${keys.length} cards are ${new Set(shown).size} different offers (no two the same contract)`, new Set(keys).size === keys.length && new Set(shown).size === shown.length, shown.join(' | '));
+    // QA playtest 2026-11-11 finding 7: a card's tooltip covers no other card and not Set out; an option's no other option
+    const tipHits = (sel, i, avoid) => page.evaluate(([s, k, av]) => {
+      const t = document.querySelector('.tooltip.on'); if (!t) return ['no tooltip'];
+      const a = t.getBoundingClientRect(); const own = document.querySelectorAll(s)[k];
+      return [...document.querySelectorAll(av)].filter((e) => e !== own && !e.contains(own) && e.offsetParent).filter((e) => { const r = e.getBoundingClientRect(); return r.left < a.right - 1 && r.right > a.left + 1 && r.top < a.bottom - 1 && r.bottom > a.top + 1; })
+        .map((e) => e.id || `${e.className.split(' ')[0]} ${e.dataset.index || e.dataset.id || ''}`.trim());
+    }, [sel, i, avoid]);
+    const tBad = [];
+    for (const [sel, n] of [['#prep .pp-card', pv.board.length], ['#prep .pp-opt', pv.options.length]]) {
+      for (let i = 0; i < n; i++) {
+        await page.mouse.move(2, 2); await page.locator(sel).nth(i).hover(); await page.waitForTimeout(50);
+        const hit = await tipHits(sel, i, `${sel}, #pp-go, .btn.primary`);
+        if (hit.length) tBad.push(`${sel} ${i + 1}: over ${hit.join(', ')}`);
+      }
+    }
+    check('M-prep', 'a card\'s tooltip covers no other card and not Set out; an option\'s no other option (QA 2026-11-11 finding 7)', !tBad.length, tBad.slice(0, 4).join(' | '));
     await page.mouse.move(2, 2);
     await shot(page, 'M-prep');
     // Set out (Enter, after the guard): the purchases take effect, Reserve, zone 1's hub
@@ -2806,8 +2845,21 @@ async function partM(browser, W, H) {
     s = await twin.sync(page);
     const cv = R.contractView(s); const pc = await page.evaluate(() => window.__ui.view().contracts);
     check('M-track', `Enter sets out (phase ${s.phase}): the contracts and Reserve on screen = R.contractView (held ${cv.held}, Reserve ${cv.reserve})`, s.phase === 'ZONE_HUB' && same(pc, JSON.parse(JSON.stringify(cv))), JSON.stringify(pc && { held: pc.held, reserve: pc.reserve }));
-    // the map: the tracker pins this zone's contracts; site marks exactly where mapView has them; hidden nodes unnamed
+    // QA playtest 2026-11-11 finding 7: a hub service's tooltip never covers Set out (or another primary button)
     const got = page.getByRole('button', { name: 'Got it' }); if (await got.count()) await got.first().click();
+    const svcBad = [];
+    const nSvc = await page.locator('#screens .svc-card').count();
+    for (let i = 0; i < nSvc; i++) {
+      const bx = await page.locator('#screens .svc-card').nth(i).boundingBox();
+      for (const [fx, fy] of [[0.5, 0.5], [0.95, 0.9], [0.05, 0.9], [0.95, 0.1]]) {
+        await page.mouse.move(bx.x + bx.width * fx, bx.y + bx.height * fy); await page.waitForTimeout(40);
+        const hit = await tipHits('#screens .svc-card', i, '.btn.primary');
+        if (hit.length) svcBad.push(`service ${i + 1} at ${fx},${fy}: over ${hit.join(', ')}`);
+      }
+    }
+    await page.mouse.move(2, 2);
+    check('M-track', `the hub's ${nSvc} service tooltips never cover Set out, wherever the pointer is on the card (QA 2026-11-11 finding 7)`, nSvc >= 3 && !svcBad.length, svcBad.slice(0, 4).join(' | '));
+    // the map: the tracker pins this zone's contracts; site marks exactly where mapView has them; hidden nodes unnamed
     await page.locator('#screens .side .btn.primary').click(); await idle(page);
     s = await twin.sync(page);
     const mv = R.mapView(s); const cv2 = R.contractView(s);
@@ -2815,6 +2867,27 @@ async function partM(browser, W, H) {
     const tr = await page.evaluate(() => ({ dimmed: document.querySelector('#tracker').classList.contains('dimmed'), rows: [...document.querySelectorAll('#tracker .tk-c')].map((e) => ({ id: e.dataset.contract, t: e.querySelector('.t').textContent, pr: e.querySelector('.pr').textContent })) }));
     const trBad = here.filter((c) => { const r = tr.rows.find((x) => x.id === c.id); return !r || r.t !== T.contractTitle(c, CONTENT) || r.pr !== `${c.progress} / ${c.need} ${c.need === 1 ? 'site' : 'sites'}`; });
     check('M-track', `on the map the tracker shows this zone's ${here.length} ${here.length === 1 ? 'contract' : 'contracts'} with title and progress (= R.contractView), not dimmed`, s.phase === 'MAP' && !tr.dimmed && tr.rows.length === here.length && !trBad.length, JSON.stringify(tr));
+    // QA playtest 2026-11-11 finding 3: the tracker says this zone's contracts expire on leaving; the Bell asks first
+    const act1 = here.filter((c) => c.status === 'active');
+    const expL = await page.evaluate(() => { const e = document.querySelector('#tracker .tk-exp'); return e ? e.textContent : null; });
+    check('M-track', `the tracker says this zone's ${act1.length} held ${act1.length === 1 ? 'contract expires' : 'contracts expire'} on leaving ("${expL}")`, act1.length > 0 && expL === (act1.length === 1 ? 'Expires when you leave this zone' : `${act1.length === 2 ? 'Both' : `All ${act1.length}`} expire when you leave this zone`), expL);
+    const nLog = () => page.evaluate(() => window.__ui.engineLog().length);
+    const n0 = await nLog();
+    const wantWarn = `${act1.length === 1 ? '1 contract' : `${act1.length} contracts`} here will expire: ${act1.map((c) => `${T.contractTitle(c, CONTENT)} (${c.progress} / ${c.need} ${c.need === 1 ? 'site' : 'sites'})`).join('; ')}`;
+    await page.locator('.expmap [data-leave="RING_BELL"]').hover(); await page.waitForTimeout(80);
+    const bellTip = await page.evaluate(() => ((document.querySelector('.tooltip.on') || {}).innerText || '').replace(/\s+/g, ' '));
+    await page.locator('.expmap [data-leave="RING_BELL"]').click(); await idle(page);
+    const warnTxt = (await page.locator('.expmap .leavewarn').innerText().catch(() => '')).replace(/\s+/g, ' ');
+    const n1 = await nLog();
+    await shot(page, 'M-leave');
+    await page.locator('.expmap .leavewarn').getByRole('button', { name: 'Stay' }).click(); await idle(page);
+    const gone1 = !(await page.locator('.expmap .leavewarn').count()); const n2 = await nLog();
+    await page.locator('.expmap [data-leave="RING_BELL"]').click(); await idle(page);
+    const again = await page.locator('.expmap .leavewarn').count();
+    await page.keyboard.press('Escape'); await idle(page);
+    const gone2 = !(await page.locator('.expmap .leavewarn').count()); const n3 = await nLog();
+    check('M-track', `Ring the Bell holding a contract of this zone: the tooltip warns and a prompt names what expires ("${wantWarn}") before anything is sent; Stay and Esc send nothing`,
+      bellTip.includes(wantWarn) && warnTxt.includes(wantWarn) && n1 === n0 && gone1 && n2 === n0 && again === 1 && gone2 && n3 === n0, JSON.stringify({ bellTip, warnTxt, n: [n0, n1, n2, n3], gone1, again, gone2 }));
     const trP = await page.locator('#tracker').evaluate((el) => { const r = el.getBoundingClientRect(); const m = document.querySelector('#screens .mapwin').getBoundingClientRect(); return { overlap: r.left < m.right && r.right > m.left && r.top < m.bottom && r.bottom > m.top, r: [r.left, r.right].map(Math.round), m: [m.left, m.right].map(Math.round) }; });
     check('M-track', 'the tracker on the map stays clear of the zone map', !trP.overlap, JSON.stringify(trP));
     const marks = await page.evaluate(() => [...document.querySelectorAll('.expmap .mnode')].filter((n) => n.querySelector('.xsite')).map((n) => ({ id: Number(n.dataset.node), sites: n.querySelector('.xsite').dataset.sites, label: n.querySelector('.cl').textContent, aria: n.getAttribute('aria-label') })));
@@ -2827,12 +2900,20 @@ async function partM(browser, W, H) {
     const rows = await page.locator('#win-questlog .cl-row').count();
     check('M-track', `the quest log (L) lists every contract of the run (${cv2.contracts.length})`, rows === cv2.contracts.length, `${rows} rows`);
     await page.keyboard.press('KeyL'); await idle(page);
+    // the prompt's "anyway" rings the Bell: the zone's held contracts expire (the engine's rule)
+    await page.locator('.expmap [data-leave="RING_BELL"]').click(); await idle(page);
+    await page.locator('.expmap .leavewarn').getByRole('button', { name: 'Ring the Bell anyway' }).click(); await idle(page);
+    s = await twin.sync(page);
+    const lastA = await page.evaluate(() => window.__ui.engineLog().slice(-1)[0].type);
+    const expd = R.contractView(s).contracts.filter((c) => act1.some((x) => x.id === c.id)).map((c) => c.status);
+    check('M-track', `"Ring the Bell anyway" sends RING_BELL (${lastA}); the zone's contracts then expire (${expd.join(', ')})`, lastA === 'RING_BELL' && expd.length === act1.length && expd.every((x) => x === 'expired'), JSON.stringify({ lastA, expd }));
     // the hub contract: a run at zone 2's hub (Dev menu Start at, the start camp left with every point as Reserve)
     await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 2, mapMode: 'expedition', prep: true })); await idle(page);
     s = await twin.sync(page);
     const off = R.contractView(s).hub;
-    const hc = await page.evaluate(() => { const e = document.querySelector('.hubc'); return e ? { s: e.querySelector('.hc-s').textContent, take: e.querySelector('[data-hub="reserve"]').textContent } : null; });
-    check('M-hub', `zone 2's hub shows its contract offer (${off ? T.contractTitle(off, CONTENT) : 'none'}) with its price in Reserve`, !!off && !!hc && hc.s === T.hubOfferSentence(off, CONTENT.zones[1].hubName, CONTENT) && hc.take.includes(`${off.price} Reserve`), JSON.stringify(hc));
+    const hc = await page.evaluate(() => { const e = document.querySelector('.hubc'); return e ? { s: e.querySelector('.hc-s').textContent, take: e.querySelector('[data-hub="reserve"]').textContent, pay: e.querySelector('.hc-rw').innerText.replace(/\s+/g, ' ') } : null; });
+    check('M-hub', `zone 2's hub shows its contract offer (${off ? T.contractTitle(off, CONTENT) : 'none'}) with its price in Reserve and its pay with words ("${hc && hc.pay}")`, !!off && !!hc && hc.s === T.hubOfferSentence(off, CONTENT.zones[1].hubName, CONTENT) && hc.take.includes(`${off.price} Reserve`)
+      && /^Pays /.test(hc.pay) && hc.pay.includes(`${Math.round(off.reward.xpFrac * 10) / 10} levels of XP`) && / gold /.test(hc.pay) && hc.pay.includes(`choose 1 of ${off.reward.choices}`), JSON.stringify(hc));
     const res0 = R.contractView(s).reserve;
     await page.locator('.hubc [data-hub="reserve"]').click(); await idle(page);
     s = await twin.sync(page);
@@ -2955,8 +3036,8 @@ function fogLayout(d, W, H) {
   for (const s of d.roads) for (const p of d.sides) if (s.rect[0] < p[2] && s.rect[2] > p[0] && s.rect[1] < p[3] && s.rect[3] > p[1]) out.push(`signpost ${s.text} ${s.rect} over a side panel ${p}`);
   return out;
 }
-/** Labels of the fog map (level, toll label, clock) that overlap another label, or the icon of another node that is not
- * an unknown "?" marker, by more than 2 px. */
+/** Labels of the fog map (level, toll label, clock) that overlap another label, or the icon of another node (a "?" marker
+ * of an unknown node included since QA playtest 2026-11-11), by more than 2 px. */
 const fogOverlaps = (page) => page.evaluate(() => {
   const nodes = [...document.querySelectorAll('#screens .expmap .xdisc > .mnode')];
   const labs = nodes.flatMap((n) => [...n.querySelectorAll(':scope > .mhrs, :scope > .xclock, :scope > .cl')].filter((e) => e.getClientRects().length).map((e) => ({ n: n.dataset.node, c: e.className.split(' ')[0], t: e.textContent, r: e.getBoundingClientRect() })));
@@ -2965,7 +3046,7 @@ const fogOverlaps = (page) => page.evaluate(() => {
   const out = [];
   labs.forEach((a, i) => {
     for (const b of labs.slice(i + 1)) if (ov(a.r, b.r)) out.push(`${a.c} "${a.t}" of node ${a.n} on ${b.c} "${b.t}" of node ${b.n}`);
-    for (const g of rings) if (g.n !== a.n && !g.unknown && ov(a.r, g.r)) out.push(`${a.c} "${a.t}" of node ${a.n} on node ${g.n}`);
+    for (const g of rings) if (g.n !== a.n && ov(a.r, g.r)) out.push(`${a.c} "${a.t}" of node ${a.n} on ${g.unknown ? 'the "?" of ' : ''}node ${g.n}`);
   });
   return out;
 });
@@ -2987,7 +3068,7 @@ async function partN(browser, W, H) {
     check('N-fog', `zone 1 after setting out with Region Charts: every node's fog state (${fogs(d)}), level, enemy count, site marks and moves = R.mapView; hidden nodes show "?" only`, s.phase === 'MAP' && !diff.length, diff.slice(0, 6).join(' | '));
     check('N-fog', `regions: a tint on the ${d.tints.length} nodes whose region the view gives, ${d.names.length} names on the rim, the legend; ${d.roads.length} Roads signposted to ${nextZone}; the Shardfall's star; "your node dims in ${d.mine}"`, mv.vision.regions && d.names.length === mv.regions.length && !diff.length, JSON.stringify({ names: d.names, roads: d.roads.map((r) => r.text) }));
     const ovl = await fogOverlaps(page);
-    check('N-fog', `around the hub at ${W}x${H}: no level, toll label or Dimming clock overlaps another label or a known node's icon (screens.js declutterLabels)`, !ovl.length, ovl.slice(0, 6).join(' | '));
+    check('N-fog', `around the hub at ${W}x${H}: no level, toll label or Dimming clock overlaps another label, a node's icon or a "?" marker (screens.js declutterLabels)`, !ovl.length, ovl.slice(0, 6).join(' | '));
     const lay = fogLayout(d, W, H);
     check('N-fog', `readable at ${W}x${H}: the disc round and in view (${d.disc && d.disc[2] - d.disc[0]} px), every node inside it and at least 24 px, no signpost over a side panel`, !lay.length, lay.slice(0, 5).join(' | '));
     // a hover: the move's tooltip names the node and its tolls; a hidden node's names nothing
@@ -3007,6 +3088,9 @@ async function partN(browser, W, H) {
     d = await fogDom(page); diff = fogDiff(d, mv, nextZone);
     check('N-fog', `the Dimming spread (front ${mv.dim.front}, zone toll ${mv.zt}): its wash on the ${d.wash} Dimmed nodes, "dims in N" on the ${d.nodes.filter((n) => n.clock !== null).length} nodes within two hops of the front, the rest as R.mapView`, mv.dim.front >= 1 && d.wash > 0 && !diff.length, diff.slice(0, 6).join(' | '));
     await page.waitForTimeout(2500); await shot(page, 'N-fog-dim');
+    // QA playtest 2026-11-11 finding 9: after the spread the outer rings' clocks and labels sit on no label, icon or "?"
+    const ovl2 = await fogOverlaps(page);
+    check('N-fog', `after the Dimming spread at ${W}x${H}: no level, toll label or clock overlaps another label, a node's icon or a "?" marker`, !ovl2.length, ovl2.slice(0, 6).join(' | '));
     // M on the map screen: the map is already the screen, a toast says so and no second map opens
     await page.keyboard.press('KeyM'); await page.waitForTimeout(120);
     const mToast = await page.locator('#toasts .toast').allInnerTexts();
@@ -3032,6 +3116,16 @@ async function partN(browser, W, H) {
     }
     await page.evaluate(() => window.__ui.closeWins());
     check('N-fog', 'toasts never cover an open window (bags + quest log, character + bags, talents, settings): they move aside or go under', tw.every((x) => / 0 over a window/.test(x)), tw.join(' | '));
+    // QA playtest 2026-11-11 finding 1: five heat changes at once (a zone change) leave one heat toast, the final state
+    await page.waitForFunction(() => !document.querySelector('#toasts .toast'), null, { timeout: 12000 }).catch(() => {});
+    const flap = await page.evaluate(async () => {
+      const ui = window.__ui; ui.toast('Test toast before the burst', 'info');
+      for (const [k, t] of [['hot', 'Burning: one.'], ['warm', 'Smouldering: two.'], ['clear', 'Calm: three.'], ['warm', 'Smouldering: four.'], ['clear', 'Calm: you are ahead of the Star.']]) ui.toast(t, `heat-${k}`);
+      await new Promise((r) => requestAnimationFrame(r));
+      const ts = [...document.querySelectorAll('#toasts .toast')];
+      return { n: ts.length, heat: ts.filter((t) => /\bheat-/.test(t.className)).map((t) => t.textContent) };
+    });
+    check('N-fog', `five heat changes at once leave one heat toast with the final state and at most 2 toasts in all (saw ${flap.n}: ${flap.heat.join(' | ')})`, flap.n <= 2 && flap.heat.length === 1 && flap.heat[0] === 'Calm: you are ahead of the Star.', JSON.stringify(flap));
     // M in a node of an expedition run: the fog map, read-only, in a window
     const left = await page.evaluate(async () => { const ui = window.__ui; for (let n = 0; n < 40; n++) { const v = ui.view(); if (v.phase !== 'MAP' && v.phase !== 'SUMMARY' && v.zone && v.zone.exp) return v.phase; await ui.act({ type: 'AUTO' }); await ui.idle(); } return null; });
     await idle(page); await page.keyboard.press('KeyM'); await page.waitForTimeout(150);

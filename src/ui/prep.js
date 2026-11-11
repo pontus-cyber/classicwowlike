@@ -122,7 +122,7 @@ export function createPrepScreen(v, ctx) {
       const why = x.taken || x.canTake ? null : ctx.bridge.why({ type: 'TAKE_CONTRACT', index: i });
       return contractTip(x, ctx, { has: hasPerks(pv), price: `${pts(x.price)} · refunded if you drop it before you set out`, warn: why,
         hint: x.taken ? `Click or press ${BOARD_KEYS[i]} to drop it (+${pts(x.price)})` : `Click or press ${BOARD_KEYS[i]} to take it` });
-    });
+    }, { avoid: '#prep .pp-card' });
     cards.appendChild(b);
     return b;
   });
@@ -133,7 +133,7 @@ export function createPrepScreen(v, ctx) {
     const i = pv0.options.findIndex((x) => x.id === o.id);
     const b = h('button.pp-opt', { type: 'button', dataset: { id: o.id, kind: o.kind } });
     b.addEventListener('click', (e) => { if (e.detail) b.blur(); optionAct(ctx, o.id); });
-    tip(b, () => { const pv = ctx.view.prep; const x = pv && pv.options.find((y) => y.id === o.id); return x ? optionTip(x, ctx, OPT_KEYS[i], x.why ? cap1(x.why) : null) : null; });
+    tip(b, () => { const pv = ctx.view.prep; const x = pv && pv.options.find((y) => y.id === o.id); return x ? optionTip(x, ctx, OPT_KEYS[i], x.why ? cap1(x.why) : null) : null; }, { avoid: '#prep .pp-opt' });
     optEls.set(o.id, { el: b, key: OPT_KEYS[i] });
     return b;
   }));
@@ -181,13 +181,15 @@ export function createPrepScreen(v, ctx) {
       b.style.setProperty('--cc', held1 ? colors.get(held1.id) || OFF_COLOR : 'transparent');
       b.setAttribute('aria-label', `${contractTitle(o, ctx.data.content)}, zone ${o.z}, ${pts(o.price)}${o.taken ? ', taken' : ''}`);
       clear(b).append(
-        h('div.pc-top', h('span.kbd', BOARD_KEYS[i]), h('span.pc-zone', `Zone ${o.z} · ${o.zoneName}`), h('span.pc-band', `${o.band[0]}–${o.band[1]}`), h('span.pc-price', { title: '' }, String(o.price))),
+        // every number carries its word (QA playtest 2026-11-11 finding 5): levels, sites, pay, items, price
+        h('div.pc-top', h('span.kbd', BOARD_KEYS[i]), h('span.pc-zone', `Zone ${o.z} · ${o.zoneName}`), h('span.pc-band', `levels ${o.band[0]}–${o.band[1]}`), priceTag(o.price)),
         h('div.pc-kind', h('img', { src: kindIcon(o.kind), alt: '' }), h('b', CONTRACT_KIND[o.kind] || o.kind), h('span.pc-need', `${o.need} ${plural(o.need, 'site')}`)),
         // the target on one line, where it is on the next (a long Bounty never runs into the pay line)
         h('div.pc-target', o.kind === 'delve' ? o.dungeon || "the zone's dungeon" : o.kind === 'bounty' ? o.name || 'a named elite' : familyName(o.family, ctx.data.content)),
         h('div.pc-where', o.kind === 'delve' ? `the dungeon of ${o.zoneName}` : `${o.kind === 'bounty' ? 'roaming' : 'in'} ${o.regionName || 'its region'}`),
-        h('div.pc-reward', h('span.xp', levelsText(o.reward.xpFrac)), moneyEl(o.reward.gold), h('span.it', h('i.r-rare', '◆'), h('i.r-epic', '◆'), ` 1 of ${o.reward.choices}`)),
-        h('div.pc-act', o.taken ? [h('span.seal', h('img', { src: icon('seal', 'blood'), alt: '' }), 'Taken'), h('span.pc-btn', 'Drop')] : h('span.pc-btn', 'Take')));
+        payLine(o.reward, 'div.pc-reward', false),
+        // the item choice on the button row (the pay line stays one line at 1366x768); a taken card adds its seal
+        h('div.pc-act', o.taken ? h('span.seal', { title: 'Taken' }, h('img', { src: icon('seal', 'blood'), alt: 'Taken' })) : null, itemsChip(o.reward), h('span.pc-btn', o.taken ? 'Drop' : 'Take')));
       if (o.taken && !was && prev) { b.classList.remove('stamp'); void b.offsetWidth; b.classList.add('stamp'); }
     });
     for (const o of pv.options) {
@@ -222,6 +224,20 @@ export function createPrepScreen(v, ctx) {
   return root;
 }
 const cap1 = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+/** A price in preparation points: the number on its seal and the word next to it. */
+const priceTag = (n) => h('span.pc-cost', { 'aria-label': pts(n) }, h('span.pc-price', String(n)), h('span.pc-pl', plural(n, 'pt')));
+/**
+ * What a contract pays, every number with its word (QA playtest 2026-11-11 finding 5): "Pays 1.5 levels of XP · gold 9 56
+ * (coins) · choose 1 of 3 ◆◆" (rarity marks: the reward table's rare and epic). rw: an offer's reward (R.prepView).
+ */
+function payLine(rw, tag, items = true) {
+  return h(tag, h('span.pl', 'Pays'), h('span.xp', levelsText(rw.xpFrac)), h('span.gd', h('span.pl', 'gold'), moneyEl(rw.gold)), items ? itemsChip(rw) : null);
+}
+/** "choose 1 of 3 ◆◆": the item choice and the rarities it can be (the reward table's rare and epic). */
+function itemsChip(rw) {
+  const marks = ['rare', 'epic'].filter((r) => !rw.rarity || rw.rarity[r] > 0).map((r) => h(`i.r-${r}`, '◆'));
+  return h('span.it', `choose 1 of ${rw.choices}`, h('span.mk', marks));
+}
 
 /** Take or drop board contract i (the engine says why when it cannot). */
 function boardAct(ctx, i) {
@@ -285,9 +301,13 @@ export function trackerContracts(v, ctx) {
   for (const c of here) {
     const el = h('div.tk-c' + (c.status === 'complete' ? '.done' : c.status === 'expired' ? '.gone' : ''), { dataset: { contract: c.id, status: c.status }, style: { '--cc': colors.get(c.id) || OFF_COLOR } },
       h('span.t', h('i.dot'), contractTitle(c, ctx.data.content)), h('span.pr', progressText(c)));
-    tip(el, () => contractTip(c, ctx, { status: STATUS_WORD[c.status], progress: c.status === 'active' ? `Sites won: ${c.progress} of ${c.need}. The map marks the sites you see.` : null }));
+    tip(el, () => contractTip(c, ctx, { status: STATUS_WORD[c.status], progress: c.status === 'active' ? `Sites won: ${c.progress} of ${c.need}. The map marks the sites you see.` : null,
+      warn: c.status === 'active' ? 'Expires when you leave this zone (a Road or the Bell): no reward.' : null }));
     out.push(el);
   }
+  // held contracts of this zone expire when the player leaves it (expedition.md 3.1; QA playtest 2026-11-11 finding 3)
+  const active = here.filter((c) => c.status === 'active').length;
+  if (active) out.push(h('div.tk-l.tk-exp', { dataset: { expire: String(active) } }, active === 1 ? 'Expires when you leave this zone' : `${active === 2 ? 'Both' : `All ${active}`} expire when you leave this zone`));
   if (later.length) out.push(h('div.tk-l.tk-later', `Later: ${later.length} ${plural(later.length, 'contract')} (zone ${[...new Set(later.map((c) => c.z))].join(', ')}) · L`));
   return out;
 }
@@ -341,7 +361,7 @@ export function buildHubOffer(v, ctx, state = { swap: false }) {
     return b;
   }));
   swapBtn.addEventListener('click', () => { if (!o.swap.length) return; state.swap = !state.swap; list.classList.toggle('hidden', !state.swap); swapBtn.textContent = state.swap ? 'Keep my contracts' : 'Swap…'; });
-  const pay = h('div.hc-rw', h('span.xp', levelsText(rw.xpFrac)), moneyEl(rw.gold), h('span.it', h('i.r-rare', '◆'), h('i.r-epic', '◆'), ` 1 of ${rw.choices}`));
+  const pay = payLine(rw, 'div.hc-rw');
   tip(pay, () => h('div', h('div.tt-name', 'Pays at once on its last site'), h('div.tt-line', `${levelsText(rw.xpFrac)} at level ${rw.cl}${typeof rw.xp === 'number' ? ` (${fmtNum(rw.xp)} XP)` : ''}, gold, and ${contractItemsText(rw)}.`)));
   box.append(head, h('div.hc-row', pay, h('div.hc-acts', take, swapBtn)), list);
   return box;

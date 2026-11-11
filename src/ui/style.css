@@ -1196,7 +1196,7 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .pp-card .pc-top { display: flex; align-items: center; gap: .5rem; font-size: 1.08rem; color: #6a5032; }
 .pp-card .pc-top .kbd { background: #3a2a16; color: #f6e2b0; box-shadow: none; min-width: 1.8rem; font-size: 1rem; }
 .pp-card .pc-zone { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; }
-.pp-card .pc-band { font: 700 1.05rem var(--font-num); color: #7a5a30; }
+.pp-card .pc-band { flex: none; white-space: nowrap; font: 700 1.05rem var(--font-num); color: #7a5a30; }
 .pc-price, .pp-opt .pc-price { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 2.4rem; height: 2.4rem; padding: 0 .4rem; border-radius: 50%; font: 800 1.35rem var(--font-num); color: #fff3d0; background: radial-gradient(circle at 35% 30%, #e8b850, #9a6a14 60%, #5a3a08); box-shadow: 0 0 0 1px #2a1a04, 0 .1rem .3rem rgba(0, 0, 0, .5); text-shadow: 0 1px 1px #000; }
 .pp-card .pc-kind { display: flex; align-items: center; gap: .5rem; font: 700 1.4rem var(--font-title); }
 .pp-card .pc-kind img { width: 2.2rem; height: 2.2rem; border-radius: .3rem; box-shadow: 0 0 0 1px rgba(0, 0, 0, .6); }
@@ -1208,11 +1208,18 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .pp-card .pc-reward .xp { color: #6a2fa0; font-weight: 700; }
 .pp-card .pc-reward .money { text-shadow: none; }
 .pp-card .pc-reward .it { font-weight: 700; } .pp-card .pc-reward .it i { font-style: normal; } .pp-card .r-rare { color: #2a64c8; } .pp-card .r-epic { color: #8a3ec8; }
+.pc-reward .pl, .hc-rw .pl { font-weight: 400; font-style: italic; opacity: .8; margin-right: .25rem; } /* the words on a contract's numbers (QA 2026-11-11) */
+.pc-reward .gd, .hc-rw .gd { display: inline-flex; align-items: baseline; }
+.pc-reward .it .mk, .hc-rw .it .mk { margin-left: .3rem; letter-spacing: .05em; }
+.pc-cost { flex: none; display: inline-flex; align-items: center; gap: .25rem; }
+.pc-cost .pc-pl { font: 700 1rem var(--font-ui); color: #6a5032; }
 .pp-card .pc-act { display: flex; align-items: center; justify-content: flex-end; gap: .6rem; min-height: 2.4rem; }
+.pp-card .pc-act .it { margin-right: auto; font: 700 1.1rem var(--font-ui); color: #4a3820; white-space: nowrap; } .pp-card .pc-act .it i { font-style: normal; }
+.pp-card .pc-reward { flex-wrap: nowrap; white-space: nowrap; overflow: hidden; }
 .pp-card .pc-btn { font: 700 1.15rem var(--font-ui); padding: .25rem 1.1rem; border-radius: .35rem; color: #ffeac0; background: linear-gradient(180deg, #a83c2a, #6a1c12); box-shadow: inset 0 1px 0 rgba(255, 200, 160, .35), 0 0 0 1px #2a0a04; }
 .pp-card.taken .pc-btn { color: #3a2a16; background: linear-gradient(180deg, #e8d6a8, #c4a670); box-shadow: inset 0 0 0 1px rgba(90, 60, 20, .6); }
 .pp-card.cant .pc-btn { filter: grayscale(.7); }
-.pp-card .seal { display: inline-flex; align-items: center; gap: .3rem; margin-right: auto; font: 700 1.1rem var(--font-title); color: #7a1a10; letter-spacing: .06em; text-transform: uppercase; }
+.pp-card .seal { display: inline-flex; align-items: center; gap: .3rem; font: 700 1.1rem var(--font-title); color: #7a1a10; letter-spacing: .06em; text-transform: uppercase; }
 .pp-card .seal img { width: 2.6rem; height: 2.6rem; transform: rotate(-12deg); border-radius: 50%; filter: drop-shadow(0 .1rem .2rem rgba(0, 0, 0, .55)); }
 /* supplies and sight */
 #prep .pp-shop { overflow: hidden; }
@@ -1269,6 +1276,7 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 #tracker .tk-c .t { line-height: 1.25; } #tracker .tk-c .pr { font: 800 1.1rem var(--font-num); color: var(--gold); }
 #tracker .tk-c.done .pr { color: #9fe09a; } #tracker .tk-c.gone { opacity: .6; }
 #tracker .tk-later, #tracker .tk-none { color: var(--ink-dim); font-size: 1.1rem; }
+#tracker .tk-exp { color: #ffb08a; font-size: 1.1rem; font-style: italic; } /* held contracts here expire on leaving (QA 2026-11-11) */
 /* the hub's contract offer */
 .hubc { margin-top: .3rem; padding: .9rem 1rem .8rem; border-radius: .5rem; background: linear-gradient(180deg, rgba(70, 52, 28, .92), rgba(32, 24, 14, .92)); box-shadow: inset 0 0 0 1px rgba(236, 198, 110, .5), 0 0 1.4rem rgba(236, 198, 110, .14); }
 .hubc .hc-head { display: flex; align-items: flex-start; gap: .8rem; }
@@ -1309,6 +1317,16 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 /* ---- the fog map (expedition.md 9.2, M2b 2b.6): the disc between two side columns; everything from mapView */
 #screens .mapwin.expmap, #win-map.expmap { width: min(104rem, calc(100vw - 54rem)); height: min(74rem, calc(100vh - 19.8rem - var(--furnace-h))); }
 .expmap .mhead { padding: .8rem 1.6rem .5rem; }
+/* the reward windows that follow (QA playtest 2026-11-11 finding 8): one line above the loot window's foot or in a reward dialog */
+.lnext { display: flex; align-items: baseline; gap: .7rem; margin: .4rem 1.2rem .2rem; padding: .5rem .8rem; border-radius: .35rem; background: rgba(208, 168, 255, .1); box-shadow: inset 0 0 0 1px rgba(208, 168, 255, .35); font-size: 1.15rem; color: var(--ink); }
+.lnext .nx { flex: none; font: 700 1rem var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: #d0a8ff; }
+/* leaving a zone with held contracts of it (QA playtest 2026-11-11 finding 3): the Road or the Bell asks first, over the disc */
+.expmap .leavewarn { position: absolute; left: 50%; top: 6.4rem; transform: translateX(-50%); z-index: 25; width: min(48rem, 92%); padding: 1rem 1.4rem 1.1rem; border-radius: .5rem;
+  background: linear-gradient(180deg, rgba(52, 22, 14, .97), rgba(30, 12, 8, .97)); box-shadow: 0 0 0 1px #c0563a, 0 .6rem 1.6rem rgba(0, 0, 0, .7); }
+.leavewarn .lw-t { font: 700 1.55rem var(--font-title); color: #ffd0a0; }
+.leavewarn .lw-l { margin: .35rem 0 .8rem; font-size: 1.2rem; line-height: 1.4; color: #f2dcc4; }
+.leavewarn .lw-b { gap: .8rem; align-items: center; }
+.btn.danger { background: linear-gradient(180deg, #4a2a20, #2a1410); color: #ffc0a8; box-shadow: inset 0 0 0 1px #c0563a, 0 .2rem .5rem rgba(0, 0, 0, .5); }
 .expmap .xbody { display: flex; align-items: stretch; justify-content: space-between; gap: .8rem; margin: 0 1rem 1rem; padding: .6rem; background: radial-gradient(ellipse at 50% 45%, #3a2a18, #1c140c 75%); box-shadow: inset 0 0 2.4rem rgba(0, 0, 0, .7); }
 .expmap .xdisc { position: relative; height: 100%; aspect-ratio: 1 / 1; flex: none; max-width: 62%; margin: 0 4.6rem; }
 .expmap .xdisc .xsvg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }

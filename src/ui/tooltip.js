@@ -1,12 +1,18 @@
 // Hover tooltips for spells, items, talents, statuses and map nodes. Content is built from the
 // view and the bridge's data tables; nothing here decides game rules. Talents show the totals of the ranks taken and the
 // next rank's (owner feedback 2026-11-11 08:14) from R.talentInfo through the bridge.
+// Placement (QA playtest 2026-11-11 finding 7): a tooltip never covers the next action. It takes the first spot (below
+// right of the pointer, below left, above right, above left, beside the hovered element, then for a tip with `avoid`
+// beside that whole group) that covers no primary button (and, with `avoid`, none of those elements but the hovered
+// one); with none free, the spot that covers least. Never under the pointer; it keeps its spot while that stays free.
 import { h, clear, moneyEl, pct, fmtNum } from './util.js';
 import { itemIcon } from './art-icons.js';
 import { statusEffect, talentTotals, HEAT_WORDS } from './ui-text.js';
 
 let el = null;
 let current = null;
+let hover = null; // { target, avoid }: the hovered element and the selector of what else its tip must not cover
+let spot = -1; // the spot the tip took last (kept while it stays free)
 
 export function initTooltip(root) {
   el = h('div.tooltip', { role: 'tooltip' });
@@ -14,30 +20,67 @@ export function initTooltip(root) {
   document.addEventListener('pointermove', (e) => { if (current) place(e.clientX, e.clientY); }, { passive: true });
 }
 
+/** The next action on screen: primary buttons (Set out, Take the Road, Continue, ...), wherever they are. */
+const PRIMARY = '.btn.primary, #pp-go';
+/** Rects the tip must not cover: visible primary buttons and the tip's own `avoid` elements, never the hovered one. */
+function keepClear() {
+  const t = hover && hover.target;
+  const els = [...document.querySelectorAll(PRIMARY + (hover && hover.avoid ? `, ${hover.avoid}` : ''))];
+  return els.filter((b) => !(t && (b === t || b.contains(t) || t.contains(b))) && !b.closest('.tooltip'))
+    .map((b) => b.getBoundingClientRect()).filter((q) => q.width > 0 && q.height > 0 && q.bottom > 0 && q.right > 0 && q.top < innerHeight && q.left < innerWidth);
+}
 function place(x, y) {
-  const r = el.getBoundingClientRect();
-  let tx = x + 18; let ty = y + 18;
-  if (tx + r.width > window.innerWidth - 8) tx = x - r.width - 14;
-  if (ty + r.height > window.innerHeight - 8) ty = Math.max(8, y - r.height - 14);
+  const r = el.getBoundingClientRect(); const w = r.width; const ht = r.height; const pad = 8;
+  const W = window.innerWidth; const H = window.innerHeight;
+  const fit = ([tx, ty]) => [Math.max(pad, Math.min(tx, W - w - pad)), Math.max(pad, Math.min(ty, H - ht - pad))];
+  const tr = hover && hover.target && hover.target.isConnected ? hover.target.getBoundingClientRect() : null;
+  const spots = [[x + 18, y + 18], [x - w - 14, y + 18], [x + 18, y - ht - 14], [x - w - 14, y - ht - 14]];
+  if (tr) spots.push([tr.right + 10, tr.top], [tr.left - w - 10, tr.top], [tr.left, tr.bottom + 10], [tr.left, tr.top - ht - 10]);
+  // a tip with `avoid` (a group of cards): also beside the whole group, level with the hovered card
+  if (tr && hover.avoid) {
+    const g = [...document.querySelectorAll(hover.avoid)].map((b) => b.getBoundingClientRect()).filter((q) => q.width > 0);
+    if (g.length) spots.push([Math.max(...g.map((q) => q.right)) + 12, tr.top], [Math.min(...g.map((q) => q.left)) - w - 12, tr.top]);
+  }
+  const clearOf = keepClear();
+  const area = (a, b) => Math.max(0, Math.min(a[2], b.right) - Math.max(a[0], b.left)) * Math.max(0, Math.min(a[3], b.bottom) - Math.max(a[1], b.top));
+  const cost = (p) => {
+    const [tx, ty] = fit(p); const box = [tx, ty, tx + w, ty + ht];
+    let k = 0; for (const q of clearOf) k += area(box, q);
+    // never under the pointer itself
+    if (x >= box[0] - 4 && x <= box[2] + 4 && y >= box[1] - 4 && y <= box[3] + 4) k += 1e7;
+    return k;
+  };
+  let best = spot >= 0 && spot < spots.length && cost(spots[spot]) === 0 ? spot : -1;
+  if (best < 0) {
+    let bestK = Infinity;
+    spots.forEach((p, i) => { const k = cost(p); if (k < bestK - 0.5) { best = i; bestK = k; } });
+  }
+  spot = best;
+  const [tx, ty] = fit(spots[best]);
   el.style.transform = `translate(${Math.round(tx)}px, ${Math.round(ty)}px)`;
 }
 
-/** Attach a tooltip to an element; build() returns DOM content (called on hover). */
-export function tip(target, build) {
-  target.addEventListener('pointerenter', (e) => show(build, e.clientX, e.clientY));
+/**
+ * Attach a tooltip to an element; build() returns DOM content (called on hover). opts.avoid: a selector of elements the
+ * tip must not cover besides the primary buttons (the start camp's cards: their neighbours).
+ */
+export function tip(target, build, opts = null) {
+  target.addEventListener('pointerenter', (e) => { hover = { target, avoid: opts && opts.avoid }; show(build, e.clientX, e.clientY, true); });
   target.addEventListener('pointerleave', hide);
   target.addEventListener('pointerdown', hide);
   return target;
 }
-export function show(build, x, y) {
+export function show(build, x, y, keepHover = false) {
   const content = typeof build === 'function' ? build() : build;
   if (!content) return;
+  if (!keepHover) hover = null;
   clear(el).appendChild(content);
   el.classList.add('on');
   current = build;
+  spot = -1;
   place(x, y);
 }
-export function hide() { current = null; if (el) el.classList.remove('on'); }
+export function hide() { current = null; hover = null; spot = -1; if (el) el.classList.remove('on'); }
 
 // ------------------------------------------------------------------ builders
 const STAT_NAMES = { sta: 'Stamina', agi: 'Agility', int: 'Intellect', spi: 'Spirit', power: 'Power', crit: 'Critical strike', armor: 'Armor', wd: 'Weapon damage' };

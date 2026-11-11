@@ -260,7 +260,8 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
     if (!a || !b || a.state === b.state || !prev.player || !next.player || prev.seed !== next.seed) return;
     const msg = heatToast(b, !!(next.zone && next.zone.camp));
     ctx.ui.toast(msg, `heat-${b.state}`);
-    if (ctx.hud) ctx.hud.log(`${msg}.`, b.state === 'clear' ? 'lg-sys' : 'lg-warn');
+    // the log line is the toast's sentence (it ends in its own full stop; QA playtest 2026-11-11 finding 6: not "..")
+    if (ctx.hud) ctx.hud.log(/[.!?]$/.test(msg) ? msg : `${msg}.`, b.state === 'clear' ? 'lg-sys' : 'lg-warn');
     els.el.classList.remove('flash'); void els.el.offsetWidth; els.el.classList.add('flash');
   }
 
