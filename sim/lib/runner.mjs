@@ -6,12 +6,14 @@
 // route from the same zone-entry state, played on a copy by oracleRoute) and the close-call zones (B43).
 // Start camp and contracts (cell.prep: newRun prep, expedition.md 2-3; cell.prepPolicy: the B40 overrides 'none' and
 // 'random'; cell.expMeta: the expedition meta entries of 8.2 as profile unlocks; cell.prepForce / prepBan: start-camp
-// options the planner family buys first / never, M2b v10 cell 9): the record's `ct` (recorder.mjs).
-import { R, newRunFor, withExpMeta, hash32 } from './engine.mjs';
+// options the planner family buys first / never, M2b v10 cell 9): the record's `ct` (recorder.mjs). M2b v11: cell.metaDrop
+// (catalogue entries removed from the profile: B42's no-vision cell, the row 8 attribution arm), cell.beastcallGated
+// (row 8 arm: Beastcall Horn cooldown BEASTCALL_HORN_CD_GATED).
+import { C, R, newRunFor, withExpMeta, hash32 } from './engine.mjs';
 import { BAL, SIM } from './params.mjs';
 import { createBot } from '../bots/index.mjs';
 import { Recorder } from './recorder.mjs';
-import { buildProfile } from './profiles.mjs';
+import { buildProfile, withoutMeta } from './profiles.mjs';
 import { snapshot, replayDeath, replayOpenings } from './replay.mjs';
 import { oracleMap, planExpMap, plannerHourMult, plannerHeat, createPlannerBot } from '../bots/planner.mjs';
 import { CONTENT } from './engine.mjs';
@@ -32,7 +34,10 @@ export function cellPet(cell) {
  * cell.prof, maxActions }. Returns { record, state }.
  */
 export function runWithBot(cell, seed, risk, opts = {}) {
-  const profile = opts.profile || withExpMeta(buildProfile(cell.prof, cell.cls), cell.expMeta || null);
+  const profile = opts.profile || withoutMeta(withExpMeta(buildProfile(cell.prof, cell.cls), cell.expMeta || null), cell.metaDrop || null);
+  // M2b v11 row 8 (gated): the Beastcall Horn cooldown of the arm; the engine reads the field at each cast, so it is set
+  // for every run (a worker plays runs of several cells).
+  if (C.SPELL.beastcall_horn && C.BEASTCALL_HORN_CD_GATED !== undefined) C.SPELL.beastcall_horn.cd = cell.beastcallGated ? C.BEASTCALL_HORN_CD_GATED : C.BEASTCALL_HORN_CD;
   const bot = createBot(cell.bot, { classId: cell.cls, seed, risk, tree: cell.tree, style: cell.style, variant: cell.variant, ...(cell.prepPolicy ? { prepPolicy: cell.prepPolicy } : {}), ...(cell.prepForce ? { prepForce: cell.prepForce } : {}), ...(cell.prepBan ? { prepBan: cell.prepBan } : {}) });
   const s = newRunFor({ classId: cell.cls, petId: cellPet(cell), seed, profile, mapMode: cell.map || null, vision: cell.vision || null, dimming: cell.dimming === false ? false : null, prep: !!cell.prep });
   // Expedition measures (expedition.md 11.1; MILESTONES 2b.4). cell.oracle: at every map decision of the acting bot,
@@ -141,7 +146,7 @@ export function playRun(cell, seed, risk, opts = {}) {
 
 /** Replay a run from its seed and action log with the pure step; returns the final state hash. */
 export function replayHash(cell, seed, log, profile = null) {
-  const prof = profile || withExpMeta(buildProfile(cell.prof, cell.cls), cell.expMeta || null);
+  const prof = profile || withoutMeta(withExpMeta(buildProfile(cell.prof, cell.cls), cell.expMeta || null), cell.metaDrop || null);
   let s = newRunFor({ classId: cell.cls, petId: cellPet(cell), seed, profile: prof, mapMode: cell.map || null, vision: cell.vision || null, dimming: cell.dimming === false ? false : null, prep: !!cell.prep });
   for (const a of log) s = R.step(s, a).state;
   return hash32(R.serialize(s));

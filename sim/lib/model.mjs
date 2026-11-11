@@ -116,6 +116,9 @@ export function makeCtx(s, risk, opts = {}) {
 /** Expedition terms of the value model (rules 1.9; expedition.md 9.5). */
 const EXP_CTX = Object.freeze({
   xpw: C.XP_WEIGHT_MULT, grindMax: C.EXPED_GRIND_MAX_WAVES, trash: C.EXPED_DUNGEON_TRASH_FIGHTS,
+  // M2b v11 rows 1-2 (D91, D92): kill loot × EXPED_DROP_MULT (normal and dungeon-trash kills, chance capped at 1) and
+  // EXPED_DUNGEON_BOSS_DROPS rolls at a dungeon clear; an engine without them keeps the classic values.
+  dropMult: C.EXPED_DROP_MULT ?? 1, bossDrops: C.EXPED_DUNGEON_BOSS_DROPS ?? C.DUNGEON_BOSS_DROPS,
   time: { quest: C.EXPED_TIME_QUEST, grind: C.EXPED_TIME_GRIND_WAVE, elite: C.EXPED_TIME_ELITE, dungeon: C.EXPED_TIME_DUNGEON },
 });
 const ROWS_TIME = Object.freeze({ quest: C.TIME_QUEST, grind: C.TIME_GRIND_WAVE, elite: C.TIME_ELITE, dungeon: C.TIME_DUNGEON });
@@ -271,6 +274,9 @@ export function evalNode(ctx, m, v, opts = {}) {
   const eg = (table, level) => expGain(ctx, table, level, up);
   const NT = ctx.exp ? ctx.exp.time : ROWS_TIME; // node tolls (the dungeon case has its own T)
   const xw = ctx.exp ? ctx.exp.xpw : 1;
+  // Item chance of a normal or dungeon-trash kill (rules 8.4; M2b v11 row 1 in expedition runs), capped at 1.
+  const dmult = ctx.exp ? ctx.exp.dropMult : 1;
+  const mobP = Math.min(1, C.MOB_ITEM_CHANCE * dmult);
   switch (type) {
     case 'quest': {
       const n = v.archetypes ? v.archetypes.length : 2;
@@ -280,7 +286,7 @@ export function evalNode(ctx, m, v, opts = {}) {
       kill(v.cl, 1, n);
       event(C.QUEST_TURNIN_XP_FRAC * xw, v.cl);
       g(n * C.MOB_COIN_V * vAt(v.cl) + C.QUEST_GOLD_V * vAt(v.cl));
-      gear += n * C.MOB_ITEM_CHANCE * eg('mob', v.cl) + 1.5 * eg('quest', v.cl);
+      gear += n * mobP * eg('mob', v.cl) + 1.5 * eg('quest', v.cl);
       if (ctx.story && m.q + 1 === C.STORY_QUESTS) {
         event(C.STORY_XP_FRAC, v.cl);
         gear += 1.8 * eg('story', v.cl);
@@ -303,7 +309,7 @@ export function evalNode(ctx, m, v, opts = {}) {
         kill(v.cl, 1, C.GRIND_WAVE_SIZE);
         event(C.GRIND_WAVE_XP_FRAC * xw, v.cl);
         g(C.GRIND_WAVE_SIZE * C.MOB_COIN_V * vAt(v.cl));
-        gear += C.GRIND_WAVE_SIZE * C.MOB_ITEM_CHANCE * C.GRIND_DROP_MULT * eg('mob', v.cl);
+        gear += C.GRIND_WAVE_SIZE * Math.min(1, C.MOB_ITEM_CHANCE * C.GRIND_DROP_MULT * dmult) * eg('mob', v.cl);
         const sm = styleMult(ctx, 'grind');
         const marginal = ((bankedPos(m) - p0) * BAL.VAL_XP + (gear - ge0) * BAL.VAL_GEAR + ((gold - gd0) / Vl) * BAL.VAL_GOLD) * sm
           - NT.grind * BAL.VAL_TIME * ctx.hourMult - p * BAL.VAL_DEATH - bossCost(ctx, m.dh, NT.grind);
@@ -334,7 +340,7 @@ export function evalNode(ctx, m, v, opts = {}) {
       if (v.archetypes && v.archetypes.length > 1) {
         kill(v.cl, 1, 1);
         g(C.MOB_COIN_V * vAt(v.cl));
-        gear += C.MOB_ITEM_CHANCE * eg('mob', v.cl);
+        gear += mobP * eg('mob', v.cl);
       }
       hours = NT.elite;
       afterFightHp(ctx, m, rt, dl);
@@ -351,7 +357,7 @@ export function evalNode(ctx, m, v, opts = {}) {
       kill(B, C.DUNGEON_BOSS_XP_MULT, 1);
       event(C.DUNGEON_CLEAR_XP_FRAC * xw, B);
       g(nTrash * C.MOB_COIN_V * vAt(T) + C.MOB_COIN_V * vAt(B) + C.DUNGEON_GOLD_V * vAt(B));
-      gear += nTrash * C.DUNGEON_ITEM_CHANCE * eg('trash', T) + C.DUNGEON_BOSS_DROPS * eg('dboss', B);
+      gear += nTrash * Math.min(1, C.DUNGEON_ITEM_CHANCE * dmult) * eg('trash', T) + (ctx.exp ? ctx.exp.bossDrops : C.DUNGEON_BOSS_DROPS) * eg('dboss', B);
       hours = NT.dungeon;
       afterFightHp(ctx, m, 'dungeon', dl);
       break;
@@ -369,7 +375,7 @@ export function evalNode(ctx, m, v, opts = {}) {
         pDeath = riskP(ctx.risk, 'treasure', dl, m.hp);
         kill(v.cl, 1, 1);
         g(C.MOB_COIN_V * vAt(v.cl));
-        gear += C.MOB_ITEM_CHANCE * eg('mob', v.cl);
+        gear += mobP * eg('mob', v.cl);
         afterFightHp(ctx, m, 'treasure', dl);
       }
       const trapP = v.trap === true ? 1 : v.trap === false ? 0 : C.TREASURE_TRAP_CHANCE;

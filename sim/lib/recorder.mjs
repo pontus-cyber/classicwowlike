@@ -31,7 +31,7 @@
 //   ct: start camp and contracts (prep runs only; expedition.md 2-3, 11.1 B39, B40, B42, B46): { c: per contract taken
 //       [zone, kind, from ('b' board, 'h' hub), state ('c' complete, 'e' expired, 'a' abandoned, 'h' held at the end),
 //       progress, need], xpC (XP of contract rewards), xp (all XP gained), bought (prep options), res (Reserve left),
-//       tr (1: Tracker's Notes), ch (1: Region Charts) }
+//       tr (1: Tracker's Notes), ch (1: Region Charts), ps (start-camp seconds in the run's minutes, PACE_PREP_S each) }
 import { C, R } from './engine.mjs';
 import { TYPE_CODE } from './risk.mjs';
 import { C2 } from './params.mjs';
@@ -318,6 +318,8 @@ Recorder.prototype.contractRecord = function contractRecord(s) {
     c: x.contracts.map((k) => [k.z, k.kind, k.from === 'hub' ? 'h' : 'b', CT_STATE[k.state] || '?', k.progress, k.need]),
     xpC: this.xpC, xp: (s.stats && s.stats.xpGained) || 0, bought: s.prep ? s.prep.bought.slice() : [], res: x.reserve || 0,
     tr: x.vision.tracker > 0 ? 1 : 0, ch: x.vision.regions ? 1 : 0,
+    // Seconds of the start camp in the run's minutes (PACE_PREP_S per start camp; B12 from SET_OUT, M2b v11 row 7).
+    ps: ((s.stats && s.stats.exp && s.stats.exp.preps) || 0) * C.PACE_PREP_S,
   };
 };
 

@@ -6,16 +6,29 @@ const CLASS_SKILL = { rogue: 'sp_r1', mage: 'sp_m1', hunter: 'sp_h1' };
 
 /**
  * Standard purchase order (balance.md 1.4): satchel, vigor 1, edge 1, quick_study 1, pockets 1, ledger, scout,
- * vigor 2, edge 2, sp_(class)1, cache, keen 1, quick_study 2, second_breath (when its requirement is met), then
- * cheapest remaining first. Entries are [id, rank]. (M2 v4: wayfinder left the catalogue and the order; P10 is
- * unchanged, Wayfinder was entry 13.)
+ * cartographer, vigor 2, edge 2, sp_(class)1, cache, old_hand, keen 1, quartermaster 1, quartermaster 2,
+ * quick_study 2, second_breath (when its requirement is met), then cheapest remaining first. Entries are [id, rank].
+ * (M2 v4: wayfinder left the catalogue and the order. expedition.md 8.2, M2b v11: cartographer after scout, old_hand
+ * after cache, the quartermaster ranks after keen 1; so P10 now holds cartographer and no class skill. Entries this
+ * engine's catalogue lacks are skipped by nextPurchase.)
  */
 export function standardOrder(classId) {
   return [
     ['satchel', 1], ['vigor', 1], ['edge', 1], ['quick_study', 1], ['pockets', 1], ['ledger', 1], ['scout', 1],
-    ['vigor', 2], ['edge', 2], [CLASS_SKILL[classId], 1], ['cache', 1], ['keen', 1],
-    ['quick_study', 2], ['second_breath', 1],
+    ['cartographer', 1], ['vigor', 2], ['edge', 2], [CLASS_SKILL[classId], 1], ['cache', 1], ['old_hand', 1], ['keen', 1],
+    ['quartermaster', 1], ['quartermaster', 2], ['quick_study', 2], ['second_breath', 1],
   ];
+}
+
+/**
+ * A profile without some catalogue entries (B42's no-vision cell, v11 row 6; the row 8 attribution arm): the ids'
+ * unlocks removed. ids: array or null (profile unchanged).
+ */
+export function withoutMeta(profile, ids) {
+  if (!ids || !ids.length) return profile;
+  const p = { ...profile, unlocks: { ...profile.unlocks } };
+  for (const id of ids) delete p.unlocks[id];
+  return p;
 }
 
 /** Profile by name: fresh | p0 (no unlocks), metaN | pN (first N entries of the standard order), all | pall. */

@@ -20,6 +20,10 @@
 //            first / never; cell 9 calibration)
 //            --tables-in <risk.json> (the contract completion `ct` and Dimmed encounter `dim` observations of each class
 //            are taken from this file, replacing those of --risk-in: the table pass of changes-m2b-v10.md cell 1)
+//            M2b v11: --meta-drop scout,cartographer,old_hand (catalogue entries removed from the profile: B42's no-vision
+//            cell, row 8's attribution arm)   --beastcall-gated (row 8 arm: Beastcall Horn cooldown BEASTCALL_HORN_CD_GATED)
+//            PALL (--profile all) holds the expedition entries of 8.2 since the M2b v11 engine: no --exp-meta stand-in needed
+//   campaigns: --map expedition --prep also apply (B31 / B32 on the expedition with the start camp)
 //   campaigns: node sim/run.mjs --campaign N --class <c|all> --out <dir> [--risk-in <risk.json>]
 //
 // Writes <out>/<bot>-<profile>[-style][-variant][-pet]/{runs-<class>.jsonl, summary.json, summary.md, risk.json}.
@@ -44,7 +48,7 @@ function parse(argv) {
     const a = argv[i];
     if (!a.startsWith('--')) throw new Error(`unexpected argument ${a}`);
     const k = a.slice(2);
-    if (k === 'log' || k === 'replay' || k === 'pairs' || k === 'oracle' || k === 'route' || k === 'prep') { o[k] = true; continue; }
+    if (k === 'log' || k === 'replay' || k === 'pairs' || k === 'oracle' || k === 'route' || k === 'prep' || k === 'beastcall-gated') { o[k] = true; continue; }
     o[k] = argv[++i];
   }
   return o;
@@ -82,6 +86,9 @@ const prepIds = (k) => {
 };
 const prepForce = prepIds('prep-force');
 const prepBan = prepIds('prep-ban');
+const metaDrop = args['meta-drop'] ? args['meta-drop'].split(',') : null;
+if (metaDrop) for (const id of metaDrop) if (!C.META[id]) throw new Error(`--meta-drop: unknown catalogue entry ${id}`);
+if (args['beastcall-gated'] && C.BEASTCALL_HORN_CD_GATED === undefined) throw new Error('--beastcall-gated needs an engine with BEASTCALL_HORN_CD_GATED');
 const pool = new Pool(workers);
 try {
   if (args.campaign) {
@@ -89,11 +96,12 @@ try {
     const res = {};
     for (const cls of classes) {
       const table = buildTable(obsIn && obsIn[cls] ? obsIn[cls] : { full: {}, td: {}, t: {}, runs: 0 });
-      res[cls] = await runCampaigns(pool, { bot: 'planner', cls, tree: trees[cls] }, { count: n, seedStart: Number(args['seed-start'] || SIM.CAMPAIGN_SEED_BASE), maxRuns: BAL.CAMPAIGN_MAX_RUNS, table });
+      const ccell = { bot: 'planner', cls, tree: trees[cls], ...(args.map ? { map: args.map } : {}), ...(args.prep ? { prep: true } : {}), ...(args.vision ? { vision: Object.fromEntries(args.vision.split(',').map((k) => [k, true])) } : {}) };
+      res[cls] = await runCampaigns(pool, ccell, { count: n, seedStart: Number(args['seed-start'] || SIM.CAMPAIGN_SEED_BASE), maxRuns: BAL.CAMPAIGN_MAX_RUNS, table });
       process.stderr.write(`campaigns ${cls}: ${n} done in ${(res[cls].wallMs / 1000).toFixed(1)} s\n`);
     }
     const dir = ensureDir(join(out, 'campaigns'));
-    const meta = { commit: commitInfo(), date: new Date().toISOString().slice(0, 10), count: n, seedStart: Number(args['seed-start'] || SIM.CAMPAIGN_SEED_BASE), maxRuns: BAL.CAMPAIGN_MAX_RUNS, trees, riskIn: args['risk-in'] || null };
+    const meta = { commit: commitInfo(), date: new Date().toISOString().slice(0, 10), count: n, seedStart: Number(args['seed-start'] || SIM.CAMPAIGN_SEED_BASE), maxRuns: BAL.CAMPAIGN_MAX_RUNS, trees, riskIn: args['risk-in'] || null, map: args.map || 'rows', prep: !!args.prep, tablesIn: args['tables-in'] || null };
     writeJson(join(dir, 'campaigns.json'), { meta, classes: Object.fromEntries(Object.entries(res).map(([c, r]) => [c, r.campaigns])) });
     writeFileSync(join(dir, 'summary.md'), campaignMarkdown(meta, Object.fromEntries(Object.entries(res).map(([c, r]) => [c, r.campaigns]))));
     console.log(`wrote ${dir}`);
@@ -104,7 +112,7 @@ try {
       prof: args.profile || 'fresh', trees, style: args.style || null, variant: args.variant || null, pet: args.pet || null,
       out, warmup: args.warmup !== undefined ? Number(args.warmup) : SIM.WARMUP_RUNS, obsIn, log: !!args.log, workers, replay: !!args.replay, pairs: !!args.pairs,
       map: args.map || null, vision: args.vision ? Object.fromEntries(args.vision.split(',').map((k) => [k, true])) : null, dimming: args.dimming === 'off' ? false : true, oracle: !!args.oracle, route: !!args.route,
-      prep: !!args.prep, prepPolicy: args['prep-policy'] || null, prepForce, prepBan, tablesIn: args['tables-in'] || null,
+      prep: !!args.prep, prepPolicy: args['prep-policy'] || null, prepForce, prepBan, tablesIn: args['tables-in'] || null, metaDrop, beastcallGated: !!args['beastcall-gated'],
       expMeta: args['exp-meta'] ? Object.fromEntries(args['exp-meta'].split(',').map((x) => { const [id, r] = x.split(':'); return [id, Number(r || 1)]; })) : null,
     });
     for (const [cls, x] of Object.entries(r.perClass)) {

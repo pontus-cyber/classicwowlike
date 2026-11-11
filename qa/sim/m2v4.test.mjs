@@ -7,15 +7,15 @@ import { BAL } from '../../sim/lib/params.mjs';
 import { standardOrder, buildProfile, campaignBuy, nextPurchase } from '../../sim/lib/profiles.mjs';
 
 describe('meta profiles (balance.md 1.4, M2 v4)', () => {
-  test('the standard order has no Wayfinder; P10 is the same ten entries as before', () => {
+  test('the standard order has no Wayfinder; the expedition entries of 8.2 in their places (M2b v11; P10 holds cartographer)', () => {
     for (const cls of ['rogue', 'mage', 'hunter']) {
       const order = standardOrder(cls);
       assert.ok(!order.some(([id]) => id === 'wayfinder'));
-      assert.deepEqual(order.map(([id, k]) => `${id} ${k}`).slice(0, 10), ['satchel 1', 'vigor 1', 'edge 1', 'quick_study 1', 'pockets 1', 'ledger 1', 'scout 1', 'vigor 2', 'edge 2', `sp_${cls[0]}1 1`]);
-      assert.deepEqual(order.slice(10).map(([id, k]) => `${id} ${k}`), ['cache 1', 'keen 1', 'quick_study 2', 'second_breath 1']);
+      assert.deepEqual(order.map(([id, k]) => `${id} ${k}`).slice(0, 10), ['satchel 1', 'vigor 1', 'edge 1', 'quick_study 1', 'pockets 1', 'ledger 1', 'scout 1', 'cartographer 1', 'vigor 2', 'edge 2']);
+      assert.deepEqual(order.slice(10).map(([id, k]) => `${id} ${k}`), [`sp_${cls[0]}1 1`, 'cache 1', 'old_hand 1', 'keen 1', 'quartermaster 1', 'quartermaster 2', 'quick_study 2', 'second_breath 1']);
       for (const [id, k] of order) assert.ok(C.META[id] && C.META[id].ranks >= k, `${id} ${k} is in the engine's catalogue`);
       const p10 = buildProfile('p10', cls);
-      assert.deepEqual(Object.keys(p10.unlocks).filter((id) => p10.unlocks[id] > 0).sort(), ['edge', 'ledger', 'pockets', 'quick_study', 'satchel', 'scout', `sp_${cls[0]}1`, 'vigor'].sort());
+      assert.deepEqual(Object.keys(p10.unlocks).filter((id) => p10.unlocks[id] > 0).sort(), ['cartographer', 'edge', 'ledger', 'pockets', 'quick_study', 'satchel', 'scout', 'vigor'].sort());
     }
   });
 

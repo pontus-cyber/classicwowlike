@@ -17,7 +17,7 @@ export const CLASSES = ['rogue', 'mage', 'hunter'];
  *         map ('expedition'), vision ({ guide, charts, pathfinder }), dimming (false: no Dimming), oracle (C_step), route (C_route),
  *         prep (start camp and contracts), prepPolicy ('none' | 'random', B40), expMeta ({ quartermaster, cartographer, old_hand }),
  *         prepForce / prepBan ([option id]: bought first / never by the planner family, M2b v10 cell 9), tablesIn (file name,
- *         for meta only) }
+ *         for meta only), metaDrop ([catalogue id] removed from the profile), beastcallGated (M2b v11 row 8 arm) }
  * Returns { name, dir, perClass: { cls: { records, metrics, obs, table } } }.
  */
 export async function runBatch(opts) {
@@ -31,6 +31,8 @@ export async function runBatch(opts) {
     ...(opts.prep ? { prep: true } : {}), ...(opts.prepPolicy ? { prepPolicy: opts.prepPolicy } : {}), ...(opts.expMeta ? { expMeta: opts.expMeta } : {}),
     // M2b v10 cell 9: start-camp options the planner family buys first / never.
     ...(opts.prepForce ? { prepForce: opts.prepForce } : {}), ...(opts.prepBan ? { prepBan: opts.prepBan } : {}),
+    // M2b v11: catalogue entries removed from the profile (B42 no-vision cell, row 8 attribution); row 8 arm.
+    ...(opts.metaDrop ? { metaDrop: opts.metaDrop } : {}), ...(opts.beastcallGated ? { beastcallGated: true } : {}),
   };
   const name = opts.name || cellName({ ...cellBase, tree: null });
   const dir = opts.out ? ensureDir(join(opts.out, name)) : null;
@@ -67,6 +69,7 @@ export async function runBatch(opts) {
     map: opts.map || 'rows', vision: opts.vision || null, dimming: opts.dimming !== false, oracle: !!opts.oracle, route: !!opts.route,
     ...(opts.prep ? { prep: true, prepPolicy: opts.prepPolicy || null, expMeta: opts.expMeta || null, prepForce: opts.prepForce || null, prepBan: opts.prepBan || null } : {}),
     ...(opts.tablesIn ? { tablesIn: opts.tablesIn } : {}),
+    ...(opts.metaDrop ? { metaDrop: opts.metaDrop } : {}), ...(opts.beastcallGated ? { beastcallGated: true } : {}),
   };
   if (dir) {
     writeJson(join(dir, 'summary.json'), { meta, classes: Object.fromEntries(Object.entries(perClass).map(([c, x]) => [c, { tree: x.tree, metrics: x.metrics }])) });

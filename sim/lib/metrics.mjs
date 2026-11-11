@@ -209,6 +209,9 @@ export function runLength(records, combatMinutes) {
     reach: rate(reach.length, rs.length),
     manualReach: med(reach.map((r) => r.min[0])),
     autoWins: med(wins.map((r) => r.min[1])),
+    // M2b v11 row 7 (B12 on expedition runs): the autoplay minutes counted from SET_OUT (the start camp's PACE_PREP_S
+    // per start camp left out; records before the field: one start camp per prep run).
+    autoWinsSetOut: med(wins.map((r) => r.min[1] - (r.ct ? (r.ct.ps ?? C.PACE_PREP_S) / 60 : 0))),
     combatReach: med(reach.map((r) => combatMinutes(r))),
     nodes: med(rs.map((r) => r.nodes)),
     nodesReach: med(reach.map((r) => r.nodes)),

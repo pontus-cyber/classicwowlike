@@ -282,6 +282,22 @@ Object.assign(EXP, {
   CONTRACT_XP_SHARE: [0.08, 0.20],
 });
 
+/**
+ * M2b v11 target rows 5-7 (changes-m2b-v11.md; D95-D97, pending the Lead's acceptance, so reports show the old and the
+ * new reading side by side). Row 5: B41 C_step PALL band C_STEP_PALL_V11 and at least C_step P0 + C_STEP_PALL_OVER_P0
+ * (old: C_STEP_PALL). Row 6: B42's no-vision cell removes B42_VISION_ENTRIES from the profile and makes the start camp's
+ * B42_VISION_PERKS unavailable (the planner never buys them; old: entries removed only). Row 7: on expedition runs B12's
+ * MIN_SPEED_MAX counts from SET_OUT (the start camp's minute left out; the ratio clause keeps the whole run), on at
+ * least B12_MIN_WINS speedrunner wins.
+ */
+Object.assign(EXP, {
+  C_STEP_PALL_V11: [0.70, 0.92],
+  C_STEP_PALL_OVER_P0: 0.05,
+  B42_VISION_ENTRIES: ['scout', 'cartographer', 'old_hand'],
+  B42_VISION_PERKS: ['prep_charts', 'prep_tracker', 'prep_guide', 'prep_spyglass'],
+  B12_MIN_WINS: 200,
+});
+
 /** Start camp and contracts: numbers the spec leaves open [assumption: starting values, sim 2026-11-11e]. */
 Object.assign(SIM, {
   /** Prior completion gain of Tracker's Notes for Cull and Bounty contracts (prototype, expedition.md 12.2: 56 -> 77 %),
