@@ -41,10 +41,11 @@ At PREP the board shows CONTRACT_BOARD_SIZE contracts drawn on stream `prep(k)` 
 - kind by weight: Cull CW_CULL, Bounty CW_BOUNTY, Delve CW_DELVE (section 3);
 - target region: uniform over the zone's REGION_COUNT regions (Delve: the zone's dungeon); target family: one of the region's families (Content, 12.2);
 - every contract shows: zone and level band, kind, target ("Cull boars in the Barley Reach, Amberfold Downs, levels 1-10"), sites needed, reward summary, price.
+- no two offers on one board are the same contract (same zone, kind, target region and family, and a Bounty's elite): a slot whose offer equals one already on the board (an earlier slot, or after a reroll an offer kept because it is taken) takes instead one weighted draw, on the same stream, over the offers that slot can draw (a zone's own slot: that zone; an extra slot: every zone) that are not on the board, each with its chance in the normal draw, so the odds are those of drawing again until it differs; with none left the offer stays. A board without a repeat is drawn as before this rule (QA playtest 2026-11-11 finding 4: offers 2 and 7 were the same; 2026-11-11, UI/UX & Visual Engineer, docs/handoffs/ui-2026-11-11d.md).
 
 `TAKE_CONTRACT(i)` costs `CONTRACT.kind.price` points; at most CONTRACT_SLOTS contracts may be held at once (whole run, PREP and hubs). `DROP_CONTRACT(i)` at PREP refunds the price.
 
-`REROLL_BOARD` costs REROLL_PRICE points, at most REROLL_MAX times; it redraws every contract not taken (stream `prep(k+1)`).
+`REROLL_BOARD` costs REROLL_PRICE points, at most REROLL_MAX times; it redraws every contract not taken (stream `prep(k+1)`; a taken slot still makes its draws and keeps its offer, and the no-repeat rule above counts the taken offers).
 
 ### 2.3 Supplies
 | id | Name | Price | Effect |

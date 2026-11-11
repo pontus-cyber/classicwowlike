@@ -48,6 +48,59 @@ function offerOf(c, rng, z) {
   return o;
 }
 const pick = (o) => ({ z: o.z, kind: o.kind, region: o.region, family: o.family, template: o.template });
+const sameAs = (a, b) => a.z === b.z && a.kind === b.kind && a.region === b.region && a.family === b.family && a.template === b.template;
+/** Every offer a slot can draw over zones zs with its chance (expedition.md 2.2: zone, kind, region, family, elite order). */
+function oddsOf(c, zs) {
+  const kw = C.CONTRACT_KINDS.map((k) => C.CONTRACT[k].weight);
+  const sum = kw.reduce((a, b) => a + b, 0);
+  const out = [];
+  for (const z of zs) {
+    C.CONTRACT_KINDS.forEach((kind, ki) => {
+      const pk = kw[ki] / sum / zs.length;
+      if (kind === 'delve') return void out.push({ o: { z, kind, region: null, family: null, template: null }, p: pk });
+      const regs = zoneRegions(c, z);
+      regs.forEach((reg, region) => {
+        const fams = reg.families.length ? reg.families : [null];
+        for (const family of fams) {
+          const p = pk / regs.length / fams.length;
+          if (kind !== 'bounty') { out.push({ o: { z, kind, region, family, template: null }, p }); continue; }
+          const own = c.zones[z - 1].rares.filter((t) => c.enemies[t].family === family);
+          const list = own.length ? own : c.zones[z - 1].rares;
+          for (const template of list) out.push({ o: { z, kind, region, family, template }, p: p / list.length });
+        }
+      });
+    });
+  }
+  return out;
+}
+/**
+ * The documented board of prep(k) (expedition.md 2.2): slot by slot, zone then offer; a kept (taken) slot draws and keeps
+ * its offer; an offer equal to one on the board is replaced by one weighted draw over the slot's offers not on the board.
+ */
+function boardOf(seed, k, kept = []) {
+  const rng = STREAM.prep(seed, k);
+  const out = [];
+  for (let i = 0; i < C.CONTRACT_BOARD_SIZE; i++) {
+    const z = i < C.ZONE_COUNT ? i + 1 : 1 + nextInt(rng, C.ZONE_COUNT);
+    let o = offerOf(REAL, rng, z);
+    if (kept[i]) { out.push(pick(kept[i])); continue; }
+    const board = [...out, ...kept.slice(i + 1).filter(Boolean).map(pick)];
+    if (board.some((b) => sameAs(b, o))) {
+      const zs = i < C.ZONE_COUNT ? [z] : [1, 2, 3, 4, 5, 6].slice(0, C.ZONE_COUNT);
+      const free = oddsOf(REAL, zs).filter((x) => !board.some((b) => sameAs(b, x.o)));
+      if (free.length) o = free[weightedIndex(rng, free.map((x) => x.p))].o;
+    }
+    out.push(o);
+  }
+  return out;
+}
+/** The board as drawn before the no-repeat rule (2026-11-11): every slot's plain draw. */
+function plainBoard(seed, k) {
+  const rng = STREAM.prep(seed, k);
+  const out = [];
+  for (let i = 0; i < C.CONTRACT_BOARD_SIZE; i++) out.push(offerOf(REAL, rng, i < C.ZONE_COUNT ? i + 1 : 1 + nextInt(rng, C.ZONE_COUNT)));
+  return out;
+}
 /** Play autoplay until pred; collect the events. */
 function playUntil(s, pred, max = 3000) {
   const all = [];
@@ -153,10 +206,7 @@ describe('expedition.md 1, 2: the start camp (PREP)', () => {
   test('2.2 the board: stream prep(0), one contract per zone then CONTRACT_BOARD_EXTRA drawn zones; draws as documented; deterministic', () => {
     for (const seed of [1, 2, 3, 77]) {
       const s = atCamp({ seed });
-      const rng = STREAM.prep(s.seed, 0);
-      const want = [];
-      for (let i = 0; i < C.CONTRACT_BOARD_SIZE; i++) want.push(offerOf(REAL, rng, i < C.ZONE_COUNT ? i + 1 : 1 + nextInt(rng, C.ZONE_COUNT)));
-      assert.deepEqual(s.prep.board.map(pick), want, `seed ${seed}`);
+      assert.deepEqual(s.prep.board.map(pick), boardOf(s.seed, 0), `seed ${seed}`);
       assert.deepEqual(atCamp({ seed }).prep.board, s.prep.board);
       for (const o of s.prep.board) {
         assert.equal(o.price, C.CONTRACT[o.kind].price);
@@ -220,12 +270,38 @@ describe('expedition.md 1, 2: the start camp (PREP)', () => {
     for (let k = 1; k <= C.REROLL_MAX; k++) {
       const before = R.prepView(s).left;
       s = go(s, { type: 'REROLL_BOARD' });
-      const fresh = (() => { const rng = STREAM.prep(s.seed, k); const out = []; for (let i = 0; i < C.CONTRACT_BOARD_SIZE; i++) out.push(offerOf(REAL, rng, i < C.ZONE_COUNT ? i + 1 : 1 + nextInt(rng, C.ZONE_COUNT))); return out; })();
+      const fresh = boardOf(s.seed, k, [keep]);
       assert.deepEqual(s.prep.board[0], keep);
       assert.deepEqual(s.prep.board.slice(1).map(pick), fresh.slice(1));
       assert.equal(R.prepView(s).left, before - C.REROLL_PRICE);
     }
     assert.match(R.whyIllegal(s, { type: 'REROLL_BOARD' }), /at most/);
+  });
+
+  test('2.2 no repeats (2026-11-11): no two offers on one board are the same contract, rerolls and taken offers included; a board without a repeat is drawn as before', () => {
+    let replaced = 0;
+    let plainSame = 0;
+    for (let seed = 1; seed <= 150; seed++) {
+      let s = atCamp({ seed });
+      const plain = plainBoard(seed, 0);
+      const hadRepeat = plain.some((o, i) => plain.slice(0, i).some((p) => sameAs(p, o)));
+      if (hadRepeat) replaced++;
+      else { plainSame++; assert.deepEqual(s.prep.board.map(pick), plain, `seed ${seed}: a board without a repeat is unchanged`); }
+      // The zone slots of prep(0) never change (each its own zone; the extra slots draw after them).
+      assert.deepEqual(s.prep.board.slice(0, C.ZONE_COUNT).map(pick), plain.slice(0, C.ZONE_COUNT));
+      for (const i of [1, C.ZONE_COUNT]) if (!R.whyIllegal(s, { type: 'TAKE_CONTRACT', index: i })) s = go(s, { type: 'TAKE_CONTRACT', index: i });
+      for (let k = 0; k <= C.REROLL_MAX; k++) {
+        const b = s.prep.board;
+        b.forEach((o, i) => assert.ok(!b.slice(0, i).some((p) => sameAs(p, o)), `seed ${seed}, prep(${k}): slot ${i + 1} repeats an offer`));
+        b.forEach((o) => { assert.equal(o.price, C.CONTRACT[o.kind].price); assert.equal(o.need, C.CONTRACT[o.kind].sites); });
+        if (k > 0) assert.deepEqual(b.map(pick), boardOf(seed, k, b.map((o) => (o.taken ? o : null))), `seed ${seed}, prep(${k}) as documented`);
+        if (k < C.REROLL_MAX && !R.whyIllegal(s, { type: 'REROLL_BOARD' })) s = go(s, { type: 'REROLL_BOARD' });
+      }
+    }
+    assert.ok(replaced > 10 && plainSame > 50, `${replaced} boards had a repeat, ${plainSame} did not`);
+    // The playtest's board (seed 4, QA 2026-11-11): offers 2 and 7 were the same Cull, 6 and 8 the same; now 8 distinct.
+    const b4 = atCamp({ seed: 4, classId: 'rogue' }).prep.board;
+    assert.equal(new Set(b4.map((o) => [o.z, o.kind, o.region, o.family, o.template].join('|'))).size, C.CONTRACT_BOARD_SIZE);
   });
 
   test('2.3 / 2.4 options: each bought once and sold back; owned perks (meta Cartographer and Old Hand, the vision option) are not for sale; Bell cap', () => {

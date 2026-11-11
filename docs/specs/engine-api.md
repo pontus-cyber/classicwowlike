@@ -694,7 +694,13 @@ DUNGEON_DIM_HOLD 3 until M2b v12 removed it) act on every expedition run, with o
 - Board (`prep(k)`): slot i < ZONE_COUNT is zone i + 1, the others draw a zone (1 draw). Each offer: kind by weight CW_* (1
   draw); Cull and Bounty: region (1 draw, uniform over the zone's regions in content order), family (1 draw over the
   region's families; null without), Bounty: its elite (1 draw over the zone's rares of that family, else over all its
-  rares); Delve: the zone's dungeon. REROLL_BOARD replaces every offer not taken by the same slot of `prep(k + 1)`.
+  rares); Delve: the zone's dungeon. REROLL_BOARD replaces every offer not taken by the same slot of `prep(k + 1)`; a
+  taken slot still makes its draws and keeps its offer. No repeats (2026-11-11): a slot whose offer equals one already on
+  the board (same zone, kind, region, family and elite; an earlier slot or a taken offer) takes instead one `weightedIndex`
+  draw over the offers it can draw (a zone slot: its zone; an extra slot: every zone, each 1 / ZONE_COUNT) that are not on
+  the board, each weighted by its chance in the normal draw (kind weight, then 1 / regions, 1 / families, 1 / the elite
+  list), in the order zone, kind (CONTRACT_KINDS), region, family, elite; with none left the offer stays. A board without
+  a repeat is drawn as before; the zone slots of `prep(0)` never change. `contracts.js sameOffer` is the comparison.
 - Slots: at most CONTRACT_SLOTS contracts held at once (taken and not complete, expired or abandoned).
 - SET_OUT: Field Draughts, Trail Pack and the Ember go into the bag (what does not fit: the loot window); Second Clapper
   +1 Bell charge (at most BELL_MAX_CHARGES); Pack Mule +PREP_MULE_SLOTS bag slots for the run (`bagCapacity`); Region

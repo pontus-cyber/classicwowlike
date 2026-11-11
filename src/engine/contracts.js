@@ -53,13 +53,64 @@ export function drawOffer(c, rng, z) {
   return o;
 }
 
-/** The board after k rerolls (stream prep(k)): one contract for each zone 1..ZONE_COUNT, then drawn zones (2.2). */
-export function drawBoard(s, k) {
+/** Two offers are the same contract: zone, kind, target region and family, and a Bounty's elite (expedition.md 2.2). */
+export const sameOffer = (a, b) => a.z === b.z && a.kind === b.kind && a.region === b.region && a.family === b.family && a.template === b.template;
+
+/**
+ * Every offer a board slot can draw over zones `zs` (each 1 / zs.length), with its chance in drawOffer: kind by weight,
+ * region uniform, family uniform (null without), a Bounty's elite uniform over its list. Order: zone, kind
+ * (CONTRACT_KINDS), region (content order), family (region order), elite (list order). Used only to replace a repeat.
+ */
+function offerOdds(c, zs) {
+  const kw = CONTRACT_KINDS.map((k) => CONTRACT[k].weight);
+  const sum = kw.reduce((a, b) => a + b, 0);
+  const out = [];
+  for (const z of zs) {
+    CONTRACT_KINDS.forEach((kind, ki) => {
+      const pk = kw[ki] / sum / zs.length;
+      if (kind === 'delve') { out.push({ o: { z, kind, region: null, family: null, template: null }, p: pk }); return; }
+      const regs = zoneRegions(c, z);
+      regs.forEach((reg, region) => {
+        const fams = reg.families.length ? reg.families : [null];
+        for (const family of fams) {
+          const p = pk / regs.length / fams.length;
+          if (kind !== 'bounty') { out.push({ o: { z, kind, region, family, template: null }, p }); continue; }
+          const rares = zoneContent(c, z).rares;
+          const own = rares.filter((t) => c.enemies[t].family === family);
+          const list = own.length ? own : rares;
+          for (const template of list) out.push({ o: { z, kind, region, family, template }, p: p / list.length });
+        }
+      });
+    });
+  }
+  return out;
+}
+
+/**
+ * The board after k rerolls (stream prep(k), 2.2): one contract for each zone 1..ZONE_COUNT, then drawn zones. `kept`
+ * (REROLL_BOARD): the taken offers by slot; such a slot still makes its draws and keeps its offer. No two offers on a
+ * board are the same contract: a slot whose offer equals one already on the board (an earlier slot or a kept offer) takes
+ * instead one weighted draw over the offers it can draw (a zone slot: its zone; an extra slot: every zone) that are not on
+ * the board, each with its chance in the normal draw (offerOdds); with none left the offer stays. A board without a
+ * repeat is drawn as before this rule (2026-11-11).
+ */
+export function drawBoard(s, k, kept = []) {
   const rng = STREAM.prep(s.seed, k);
   const out = [];
   for (let i = 0; i < CONTRACT_BOARD_SIZE; i++) {
     const z = i < ZONE_COUNT ? i + 1 : 1 + nextInt(rng, ZONE_COUNT);
-    out.push({ index: i, ...drawOffer(s.content, rng, z), taken: false });
+    let o = drawOffer(s.content, rng, z);
+    if (kept[i]) { out.push(kept[i]); continue; }
+    const board = [...out, ...kept.slice(i + 1).filter(Boolean)];
+    if (board.some((b) => sameOffer(b, o))) {
+      const zs = i < ZONE_COUNT ? [z] : Array.from({ length: ZONE_COUNT }, (_, j) => j + 1);
+      const free = offerOdds(s.content, zs).filter((x) => !board.some((b) => sameOffer(b, x.o)));
+      if (free.length) {
+        const pick = free[weightedIndex(rng, free.map((x) => x.p))].o;
+        o = { ...pick, need: CONTRACT[pick.kind].sites, price: CONTRACT[pick.kind].price };
+      }
+    }
+    out.push({ index: i, ...o, taken: false });
   }
   return out;
 }
@@ -166,11 +217,10 @@ export function sellPrep(s, ev, id) {
   s.prep.bought = s.prep.bought.filter((x) => x !== id);
   ev.push({ t: 'prep', what: 'sell', id, left: prepLeft(s) });
 }
-/** REROLL_BOARD: every offer not taken is replaced by the same slot of the board of prep(k + 1). */
+/** REROLL_BOARD: every offer not taken is replaced by the same slot of the board of prep(k + 1), drawn around the taken ones. */
 export function rerollBoard(s, ev) {
   s.prep.rerolls += 1;
-  const fresh = drawBoard(s, s.prep.rerolls);
-  s.prep.board = s.prep.board.map((o, i) => (o.taken ? o : fresh[i]));
+  s.prep.board = drawBoard(s, s.prep.rerolls, s.prep.board.map((o) => (o.taken ? o : null)));
   ev.push({ t: 'prep', what: 'reroll', k: s.prep.rerolls, left: prepLeft(s) });
 }
 
