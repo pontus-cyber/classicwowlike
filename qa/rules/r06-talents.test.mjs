@@ -121,7 +121,7 @@ describe('rules 6 talents: DOTs, heals, wards and statuses', () => {
       const r = act(fightWith('hunter', 30, ['field_dressing'], talents, { prep: (x) => { x.player.pet = null; x.player.hp = 1; } }), cast('field_dressing', null), () => true, 1);
       return ev(r.events, 'heal')[0].amount;
     };
-    near(fd({ h_c4: 2 }) / fd({}), 1.4, 'Field Medic 2 (+20 %/rank)');
+    near(fd({ h_c4: 2 }) / fd({}), 1.2, 'Field Medic 2 (+10 %/rank; M2b v8, D76: was 20 %)');
     const ward = (talents) => st(act(fightWith('mage', 30, ['arcane_ward'], talents), cast('arcane_ward', null), () => true, 1).state.fight.p.st, 'WARD').amount;
     const w0 = ward({});
     near(ward({ m_b7: 2 }) / w0, 1.3, 'Lattice Ward 2 (+15 %/rank)', 0.03);
@@ -154,12 +154,12 @@ describe('rules 6 talents: stats, resources and mechanics', () => {
     const base = (c) => atLevel(started(c), 40);
     const d = (talents) => withTalents(base('hunter'), talents).player.d;
     near(d({ h_b2: 3 }).crit - d({}).crit, 0.06, 'Lethal Shots 3', 1e-9);
-    near(d({ h_c5: 2 }).dodge - d({}).dodge, 0.06, 'Survivalist 2', 1e-9);
+    near(d({ h_c5: 2 }).dodge - d({}).dodge, 0.04, 'Survivalist 2 (+0.02/rank; M2b v8, D76: was 0.03)', 1e-9);
     const petHit = (talents) => {
       const r = act(fightWith('hunter', 40, [], talents), { type: 'PASS' }, (x) => x[0] > 0.9 && x[1] > 0.97 && Math.abs(x[2] - 0.5) < 0.05);
       return r.events.find((e) => e.t === 'damage' && e.src === 'pet').amount;
     };
-    near(petHit({ h_a2: 3 }) / petHit({}), 1.375, 'Ferocity 3 (pet damage +12.5 %/rank; M2 v5)');
+    near(petHit({ h_a2: 3 }) / petHit({}), 1.46875, 'Ferocity 3 (pet damage +15.625 %/rank; M2 v5 12.5 %, M2b v8 D75)');
     // Frenzy Link: a pet crit on a draw between the base pet crit and +0.10 (2 ranks)
     const s = fightWith('hunter', 40, [], { h_a4: 2 });
     const petCrit = s.player.d.crit + C.PET[s.player.pet.id].critBonus;
@@ -193,9 +193,9 @@ describe('rules 6 talents: stats, resources and mechanics', () => {
     forceDraws(b, 3, (d) => d.join() === a.draws.join());
     const g = (r) => r.events.find((e) => e.t === 'damage' && e.spell === 'gutting_jab').amount;
     near(g(a) / g(R.step(b, cast('gutting_jab'))), 1.5, 'Riposte Stance 2 (+25 %/rank)', 0.03);
-    // Veiled Recovery: 3 % max HP per round per rank while EVASION is active
+    // Veiled Recovery: 2 % max HP per round per rank while EVASION is active (M2b v8, D76: was 3 %)
     const v = act(fightWith('rogue', 30, [], { r_b4: 2 }, { prep: (x) => { x.player.hp = 100; x.fight.p.st.push({ id: 'EVASION', dur: 3, value: 0.45 }); } }), { type: 'PASS' }, () => true, 1);
-    assert.ok(ev(v.events, 'heal').some((e) => e.dst === 'player' && e.amount === Math.round(0.06 * v.state.player.d.maxHp)), 'Veiled Recovery 2');
+    assert.ok(ev(v.events, 'heal').some((e) => e.dst === 'player' && e.amount === Math.round(0.04 * v.state.player.d.maxHp)), 'Veiled Recovery 2');
   });
 
   test('Twin Fangs strikes again for 50 %; Crippling Toxin lowers the poisoned enemy\'s damage; Rupture Venom +15 % per POISON stack', () => {

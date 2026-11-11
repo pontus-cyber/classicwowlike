@@ -1,6 +1,6 @@
 # Rules spec (M0 task 0.2)
 
-Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)"); M2 v5 changes 2026-11-10 (marked "(M2 v5)"); combat v2 (docs/specs/combat-v2.md, on its defaults) folded into sections 3, 7 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(combat v2)"); the expedition map (docs/specs/expedition.md 1, 4-7, 9.5; a run option until the switch-over) folded into 1.9 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(expedition)"); heat (docs/specs/expedition.md section H, on its defaults, both map modes) folded into 1.7.1-1.7.4, 1.9.10, 8.4, 9, 11.1 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(heat)"); combat v2.1 (docs/specs/combat-v2.md 16, docs/specs/changes-combat-v21.md) in section 7 and 13 by the Lead Game Designer, 2026-11-10 (marked "(combat v2.1)"), in the engine since 2026-11-10 (Core Gameplay Engineer, docs/handoffs/engineer-2026-11-10g.md; its clarifications in 7.11 and 7.12 are marked "(combat v2.1, engine)"); tuning pass M2b v6 by the Lead Game Designer, 2026-11-11 (docs/specs/changes-m2b-v6.md; marked "(M2b v6)"); time in tolls and the Furnace, M2b v7 by the Lead Game Designer, 2026-11-11 (docs/specs/changes-m2b-v7.md; rule lines marked "(M2b v7)"; in the engine since 2026-11-11, docs/handoffs/engineer-2026-11-11d.md). M2b v7 renamed every time constant from HOURS_* / *_H to TIME_* (values unchanged, list in changes-m2b-v7.md); lines changed only by that rename are not marked.
+Owner: Lead Game Designer. Status: draft for Lead review, 2026-11-09; M2 v4 changes 2026-11-10 (marked "(M2 v4)"); M2 v5 changes 2026-11-10 (marked "(M2 v5)"); combat v2 (docs/specs/combat-v2.md, on its defaults) folded into sections 3, 7 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(combat v2)"); the expedition map (docs/specs/expedition.md 1, 4-7, 9.5; a run option until the switch-over) folded into 1.9 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(expedition)"); heat (docs/specs/expedition.md section H, on its defaults, both map modes) folded into 1.7.1-1.7.4, 1.9.10, 8.4, 9, 11.1 and 13 by the Core Gameplay Engineer, 2026-11-10 (marked "(heat)"); combat v2.1 (docs/specs/combat-v2.md 16, docs/specs/changes-combat-v21.md) in section 7 and 13 by the Lead Game Designer, 2026-11-10 (marked "(combat v2.1)"), in the engine since 2026-11-10 (Core Gameplay Engineer, docs/handoffs/engineer-2026-11-10g.md; its clarifications in 7.11 and 7.12 are marked "(combat v2.1, engine)"); tuning pass M2b v6 by the Lead Game Designer, 2026-11-11 (docs/specs/changes-m2b-v6.md; marked "(M2b v6)"); time in tolls and the Furnace, M2b v7 by the Lead Game Designer, 2026-11-11 (docs/specs/changes-m2b-v7.md; rule lines marked "(M2b v7)"; in the engine since 2026-11-11, docs/handoffs/engineer-2026-11-11d.md). M2b v7 renamed every time constant from HOURS_* / *_H to TIME_* (values unchanged, list in changes-m2b-v7.md); lines changed only by that rename are not marked. Tuning pass M2b v8 by the Lead Game Designer, 2026-11-11 (docs/specs/changes-m2b-v8.md rows 1-9, D72-D77; status draft as that file: BOSS_DMG_MULT 1.30 until the sim's ladder confirms it, D77 open to the owner's veto), folded into 5.1, 6.1, 6.3, 7.5, 7.6, 10.1, 11.2 and 13 by the Core Gameplay Engineer with the engine, 2026-11-11 (docs/handoffs/engineer-2026-11-11e.md; marked "(M2b v8)").
 Audience: Core Gameplay Engineer (src/rules.js), Simulation & Balance Engineer, UI/UX Engineer, Content Designer.
 
 Every global number is a named constant (UPPER_SNAKE_CASE) in section 13. The data tables (classes, spells, pets, talents, archetypes, boss, meta catalogue) are named constant groups: each cell is addressed as `TABLE.id.field` (e.g. `SPELL.ember_bolt.cost`) and is exported as data from src/. Values are starting values; the Simulation & Balance Engineer tunes them within the limits in balance.md.
@@ -416,7 +416,7 @@ Expected XP per node at d = 0, in levels: Quest (2 mobs) 1.7; Grind wave 0.7; El
 ### 5.1 Base stats and growth
 | Field | Rogue | Mage | Hunter |
 |---|---|---|---|
-| hpBase / hpPerLevel | 100 / 21 | 50 / 19.5 | 60 / 15.5 | (M2 v3: mage 17.5 -> 19.5, hunter 17 -> 15.5; M2b v6: rogue 70 / 20 -> 100 / 21)
+| hpBase / hpPerLevel | 100 / 21 | 62 / 21.06 | 60 / 15.5 | (M2 v3: mage 17.5 -> 19.5, hunter 17 -> 15.5; M2b v6: rogue 70 / 20 -> 100 / 21; M2b v8: mage 50 / 19.5 -> 62 / 21.06)
 | STA base / growth | 10 / 1.4 | 8 / 1.25 | 9 / 1.2 | (M2 v2: mage 1.0 -> 1.25)
 | AGI base / growth | 20 / 2.0 | 8 / 0.5 | 18 / 1.8 |
 | INT base / growth | 6 / 0.3 | 22 / 2.2 | 10 / 0.8 |
@@ -530,12 +530,12 @@ Pets: chosen at creation, level = hunter level. Pet acts after the hunter each r
 | r_b1 | Shadowcraft 1 | Silent Footing | 3 | openers +10 % damage /rank |
 | r_b2 | Shadowcraft 1 | Slippery | 3 | +0.02 dodge /rank |
 | r_b3 | Shadowcraft 2 | Lingering Shade | 2 | openers grant +1 CP /rank |
-| r_b4 | Shadowcraft 2 | Veiled Recovery | 2 | while EVASION is active, heal 3 % max HP per round /rank |
+| r_b4 | Shadowcraft 2 | Veiled Recovery | 2 | while EVASION is active, heal 2 % max HP per round /rank | (M2b v8: 3 -> 2 %)
 | r_b5 | Shadowcraft 3 | Cheap Trick | 2 | Temple Blow -10 energy and -1 CD /rank |
 | r_b6 | Shadowcraft 3 | Ambusher's Patience | 2 | first finisher each fight +20 % damage /rank |
-| r_b7 | Shadowcraft 4 | Shroudwalk | 2 | Vanishing Step -3 CD /rank and heals 10 % max HP /rank |
+| r_b7 | Shadowcraft 4 | Shroudwalk | 2 | Vanishing Step -3 CD /rank and heals 5 % max HP /rank | (M2b v8: heal 10 -> 5 %)
 | r_b8 | Shadowcraft 4 | Night Instinct | 3 | +5 % damage /rank while in STEALTH and on the action right after leaving it |
-| r_b9 | Shadowcraft 5 | Death's Sidestep | 1 | passive, once per fight: when a hit would drop you below 20 % HP, take no damage from it, dispersal, gain STEALTH, heal 20 % max HP |
+| r_b9 | Shadowcraft 5 | Death's Sidestep | 1 | passive, once per fight: when a hit would drop you below 20 % HP, take no damage from it, dispersal, gain STEALTH, heal 10 % max HP | (M2b v8: heal 20 -> 10 %)
 | r_c1 | Venomcraft 1 | Toxic Coating | 3 | Strike, Gutting Jab, Shadowstep Strike and Whirling Edges apply 1 POISON stack (4 rounds, max 5 stacks); tick per stack (0.5 + 0.15L + 0.04P) × rank |
 | r_c2 | Venomcraft 1 | Deep Wounds | 3 | Open Vein +9 % /rank | (M2 v2: 12 -> 9 %)
 | r_c3 | Venomcraft 2 | Lethal Mixture | 2 | POISON max stacks +2 /rank |
@@ -580,8 +580,8 @@ Pets: chosen at creation, level = hunter level. Pet acts after the hunter each r
 ### 6.3 Hunter
 | id | Tree / tier | Name | Ranks | Effect |
 |---|---|---|---|---|
-| h_a1 | Beastbond 1 | Thick Hide | 3 | pet max HP +8 % /rank |
-| h_a2 | Beastbond 1 | Ferocity | 3 | pet damage +12.5 % /rank | (M2 v2: 6 -> 10 %; M2 v5: 10 -> 12.5 %)
+| h_a1 | Beastbond 1 | Thick Hide | 3 | pet max HP +10 % /rank | (M2b v8: 8 -> 10 %)
+| h_a2 | Beastbond 1 | Ferocity | 3 | pet damage +15.625 % /rank | (M2 v2: 6 -> 10 %; M2 v5: 10 -> 12.5 %; M2b v8: 12.5 -> 15.625 %, × 1.25)
 | h_a3 | Beastbond 2 | Bonded Spirit | 2 | Mend Companion also heals you for 30 % /rank of the amount |
 | h_a4 | Beastbond 2 | Frenzy Link | 2 | pet crit +0.05 /rank; each pet crit gives you 5 focus /rank |
 | h_a5 | Beastbond 3 | Unbreakable Bond | 2 | pet revives after fights at +0.25 /rank; pet takes -5 % damage /rank |
@@ -598,11 +598,11 @@ Pets: chosen at creation, level = hunter level. Pet acts after the hunter each r
 | h_b7 | Marksmanship 4 | Trueshot Focus | 2 | Rapid Volley CD -2 and its bonus +10 % /rank |
 | h_b8 | Marksmanship 4 | Concussive Precision | 1 | Muzzle Shot also STUN 1 (non-boss) |
 | h_b9 | Marksmanship 5 | Starfall Arrow | 1 | new spell `starfall_arrow`: 50F, CD 5, phys 20 + 4.0L + 1.8P + 2.0WD; refund 50F if it kills |
-| h_c1 | Wildcraft 1 | Hardy | 3 | max HP +4 % /rank |
+| h_c1 | Wildcraft 1 | Hardy | 3 | max HP +3 % /rank | (M2b v8: 4 -> 3 %)
 | h_c2 | Wildcraft 1 | Barbed Mastery | 3 | Barbed Arrow +20 % /rank | (M2 v2: 10 -> 20 %)
 | h_c3 | Wildcraft 2 | Trapper | 2 | Snare Trap CD -1 /rank and deals phys (4 + 1.0tl + 0.4P) × rank |
-| h_c4 | Wildcraft 2 | Field Medic | 2 | Field Dressing +20 % /rank |
-| h_c5 | Wildcraft 3 | Survivalist | 2 | +0.03 dodge /rank |
+| h_c4 | Wildcraft 2 | Field Medic | 2 | Field Dressing +10 % /rank | (M2b v8: 20 -> 10 %)
+| h_c5 | Wildcraft 3 | Survivalist | 2 | +0.02 dodge /rank | (M2b v8: 0.03 -> 0.02)
 | h_c6 | Wildcraft 3 | Venom Barbs | 2 | Barbed Arrow stacks to 1 + rank (each stack a full tick) |
 | h_c7 | Wildcraft 4 | Fire Snare | 1 | Snare Trap also applies BURN 3 rounds to all enemies, tick 3 + 0.6tl + 0.25P |
 | h_c8 | Wildcraft 4 | Cornered Beast | 3 | +8 % damage /rank while HP < 50 % | (M2 v2: 4 -> 8 %)
@@ -680,7 +680,8 @@ Only items on the 3 item-bar slots, one item per action. Healing and Mana Draugh
 - The first legal `USE_ITEM` of a potion in a fight (any round, the end-boss fight included) resolves as a normal player action (its effect, POTION_CD starts, and every side effect of a player action: STEALTH is removed (7.4), Arcane Momentum resets), and then the round does not go on: no pet action, no enemy actions, no end of round, the round number stays. The player chooses an action again in the same round (autoplay runs its policy again, 7.9). The fight's free potion is then used.
 - Every later potion in the fight costs the turn as before. Without Packed Satchel nothing changes. Other items (Tonic, Spark Flask) are never free.
 - It is legal only when the player could act in that round (not while the player's action is skipped).
-- Event: the item-use event carries `free: true` so the UI can say "Free action (Packed Satchel)"; the run summary's potions count includes free potions.
+- It restores FREE_POTION_MULT × its normal amount: Healing Draught 0.35 -> 0.175 of max HP, Mana Draught 0.35 -> 0.175 of max mana, Greater Healing Draught 0.375 -> 0.1875 of max HP. The normal amount includes a potion unique's +UNIQUE_POTION_PCT (11.3); the result is rounded once, at the end. Later potions in the fight cost the turn and restore their full amount. The first potion of a fight is always the free one: the player does not choose between a free half potion and a full paid one. (M2b v8)
+- Event: the item-use event carries `free: true` and `mult` (FREE_POTION_MULT; M2b v8) so the UI can say "Free action, half strength (Packed Satchel)"; the run summary's potions count includes free potions.
 
 ### 7.6 Enemy AI and intents
 Each enemy has an archetype (table) plus up to 2 template abilities (12.4). Its intents come from its intent track (7.11, combat v2; it replaces the per-round intent roll): each entry is an opening-script action (7.12) or a weighted pick (1 draw) among the basic attack and the abilities eligible for that turn (off cooldown, condition holds), by the weights below, then 1 draw for the target while a live pet exists. Conditions and SILENCED are checked again when the entry becomes now (7.11).
@@ -696,7 +697,7 @@ Each enemy has an archetype (table) plus up to 2 template abilities (12.4). Its 
 
 Normal enemy at level M: `HP = (ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL × M) × archetype × variant`, `dmg (100 %) = (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL × M) × archetype × variant` (× zone danger below, × ENGAGE_DMG_COMP for every template enemy: the price of the engage round, 7.10 (combat v2); not in the Rogue's fights except its dungeon-boss fights (D48, D49)), `armor = ENEMY_ARMOR_PER_LEVEL × M × archetype`. Variants: normal 1/1, dungeon trash DUNGEON_TRASH_HP_MULT/DUNGEON_TRASH_DMG_MULT, elite ELITE_HP_MULT/ELITE_DMG_MULT, rare RARE_HP_MULT/RARE_DMG_MULT, dungeon boss DUNGEON_BOSS_HP_MULT/DUNGEON_BOSS_DMG_MULT.
 
-Zone danger (M2 v3): every enemy made from an enemy template (normal, quest, grind, elite, rare, dungeon trash and boss, Camp waves, summoned adds) has its damage multiplied by `zd(M) = 1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10` (level 30 ×1.25, 40 ×1.5, 50 ×1.75, 60 ×2.0). Dungeon trash and dungeon bosses use `1 + DUNGEON_DANGER_FRAC × (zd(M) - 1)` instead (level 60 ×1.5) (M2 v4). HP, armor and XP are unchanged. The end boss and the Dimming Shards use their own constants (section 10) and are not affected. Purpose: same-level content stays about as threatening in zones 3-6 as in zone 2; the player's power growth (talents, ranks, rarity) otherwise outpaces the linear damage curve. (M2 v3)
+Zone danger (M2 v3): every enemy made from an enemy template (normal, quest, grind, elite, rare, dungeon trash and boss, Camp waves, summoned adds) has its damage multiplied by `zd(M) = early(M) × (1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10)` (level 30 ×1.375, 40 ×1.75, 50 ×2.125, 60 ×2.5) (M2b v8: ZONE_DANGER_STEP 0.25 -> 0.375; were ×1.25, 1.5, 1.75, 2.0). Dungeon trash and dungeon bosses use `early(M) × (1 + DUNGEON_DANGER_FRAC × (zd0(M) - 1))` instead, zd0 being zd without the early factor (level 60 ×1.75; M2b v8, was ×1.5) (M2 v4). Early enemies: `early(M) = EARLY_DMG_MULT` if `M <= EARLY_DMG_MAX_LEVEL`, else 1, so every template enemy of level 20 or lower deals × 0.80; at level 21 the factor is 1 (a level-20 enemy's 100 % damage is (4 + 2.6 × 20) × 0.80 = 44.8, a level-21 enemy's (4 + 2.6 × 21) × 1.0375 = 60.8, before archetype, variant and ENGAGE_DMG_COMP) (M2b v8). HP, armor and XP are unchanged. The end boss and the Dimming Shards use their own constants (section 10) and are not affected. Purpose: same-level content stays about as threatening in zones 3-6 as in zone 2; the player's power growth (talents, ranks, rarity) otherwise outpaces the linear damage curve. (M2 v3)
 
 Soft enrage (non-boss fights): from round FIGHT_SOFT_ENRAGE_ROUND, enemies deal +FIGHT_SOFT_ENRAGE_STEP more damage per round (additive). Prevents endless fights.
 
@@ -888,7 +889,7 @@ Run summary (SUMMARY phase): class, pet, talents (per tree), seed, outcome (vict
 ## 10. End boss: Oruvath, the Unlit Star
 
 ### 10.1 Setup
-Fought once at the end of the Camp in the Sunken Observatory. Level BOSS_LEVEL. HP `BOSS_HP × (1 + asc)`, armor BOSS_ARMOR, crit ENEMY_CRIT. Every damage the boss fight's enemies deal (Oruvath's attacks, the Shards' hits, the Brand's ticks; 10.2) is × BOSS_DMG_MULT × (1 + asc), at the same step as (1 + asc) today (7.2 step 2 and the Brand tick); Shard HP stays `SHARD_HP × (1 + asc)`. (M2b v6) Immune to STUN, FROZEN, HEXED (they interrupt casts instead). No flee. The boss always targets the player except when a pet has TAUNT, feign is active, or a single-target attack rolls pet aggro.
+Fought once at the end of the Camp in the Sunken Observatory. Level BOSS_LEVEL. HP `BOSS_HP × (1 + asc)`, armor BOSS_ARMOR, crit ENEMY_CRIT. Every damage the boss fight's enemies deal (Oruvath's attacks, the Shards' hits, the Brand's ticks; 10.2) is × BOSS_DMG_MULT × (1 + asc), at the same step as (1 + asc) today (7.2 step 2 and the Brand tick); Shard HP stays `SHARD_HP × (1 + asc)`. (M2b v6) BOSS_HP 13066 -> 12282 and BOSS_DMG_MULT 1.17 -> 1.30 (the sim's ladder may set 1.32 or 1.34, never more; D74): Umbral Strike at Ascendancy 0 is 260 × 1.30 = 338 before the level modifier and armor (was 304). (M2b v8) Immune to STUN, FROZEN, HEXED (they interrupt casts instead). No flee. The boss always targets the player except when a pet has TAUNT, feign is active, or a single-target attack rolls pet aggro.
 
 ### 10.2 Phases and mechanics
 | Phase | HP band | Mechanics | What it tests |
@@ -935,7 +936,7 @@ Bought between runs on the profile screen. Ranked entries: cost listed per rank.
 | keen | Keen Lineage | stat | 2 | 150/250 | crit +0.0075 /rank | - | (M2 v4: 0.01 -> 0.0075)
 | quick_study | Quick Study | stat | 3 | 100/180/280 | XP +0.0375 /rank | - | (M2 v4: 0.05 -> 0.0375)
 | prospector | Prospector | stat | 3 | 60/110/170 | gold +0.06 /rank | - | (M2 v4: 0.08 -> 0.06)
-| satchel | Packed Satchel | start kit | 1 | 60 | start with 3 Healing Draughts; the first potion each fight costs no turn (7.5) | - | (M2b v6: free potion)
+| satchel | Packed Satchel | start kit | 1 | 60 | start with 3 Healing Draughts; the first potion each fight costs no turn and works at half strength (7.5) | - | (M2b v6: free potion; M2b v8: half strength)
 | heirloom_blade | Heirloom Blade | start kit | 1 | 80 | starting weapon is uncommon ilvl 3 | - |
 | pockets | Deeper Pockets | start kit | 2 | 50/100 | +4 bag slots /rank | - |
 | ledger | Trainer's Ledger | economy | 1 | 120 | first LEARN or TRAIN at each hub is free | - |
@@ -957,7 +958,7 @@ Removed (M2 v4): Wayfinder (80 Echoes, TRAVEL_ON cost 0 hours). Its 12 hours per
 
 Removed (M2 v5): Starforged Arms (450 Echoes; required Relics of the Deep and a first boss kill): each class's unique epic weapon (ilvl 62) sold at the Camp vendor for the normal gear price (35 400 copper). Its price made it a hunter item: on the 11-10b full catalogue the hunter, whose dungeon clears give it about 40 % more gold, bought it in 72 % of runs, the rogue in 18 %, the mage in 9 %, and a hunter holding it won 91 % of its boss fights against 50 % without. It was the cause of the class spread at full catalogue (hunter 77.6 % against 63 %), and Prospector mattered to the hunter mostly because it tipped this purchase. A saved profile that owns it keeps the Echoes spent and gets no effect, as Wayfinder (D42). The three class weapons stay in the content tables (12.1) for a later reward that does not depend on run gold. (M2 v5)
 
-**Meta power budget (M2 v3, revised M2 v4 and M2b v6).** The full catalogue may add at most: one free potion action per fight (Packed Satchel, 7.5; M2b v6), max HP +0.02, Power +0.02 (M2b v6: were +0.04 each; Vigor and Edge pay for the free potion), crit +0.015, potion healing +0.025 of max HP per healing potion (Alchemist's Notes: Greater Healing Draught 0.375 against the Healing Draught's 0.35), +1 talent point, the unique items (normal rarity budget plus one 11.3 effect), and no resurrect in the end-boss fight. (M2 v4; M2 v5: the Starforged weapon is no longer in the catalogue)
+**Meta power budget (M2 v3, revised M2 v4 and M2b v6).** The full catalogue may add at most: one free potion action per fight (Packed Satchel, 7.5; M2b v6) at FREE_POTION_MULT strength (M2b v8), max HP +0.02, Power +0.02 (M2b v6: were +0.04 each; Vigor and Edge pay for the free potion), crit +0.015, potion healing +0.025 of max HP per healing potion (Alchemist's Notes: Greater Healing Draught 0.375 against the Healing Draught's 0.35), +1 talent point, the unique items (normal rarity budget plus one 11.3 effect), and no resurrect in the end-boss fight. (M2 v4; M2 v5: the Starforged weapon is no longer in the catalogue)
 
 Time is budgeted too (M2 v4): tolls saved before the boss lower boss Ascendancy (1.7), which is boss HP and damage, so the time entries together (Quick Study, Swift Boots) may save at most META_TIME_BUDGET on the planner's median route (measured: planner median tolls at the boss on PALL against P0, balance.md B17). (M2 v4)
 
@@ -1174,6 +1175,7 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | CURSE_PCT | 0.15 | fraction |
 | STEALTH_MISS_BONUS | 0.50 | fraction |
 | POTION_CD | 4 | rounds |
+| FREE_POTION_MULT | 0.5 | × the normal amount of Packed Satchel's free potion (7.5) | (M2b v8)
 | FLEE_BASE | 0.60 | probability |
 | FLEE_PER_EXTRA_ENEMY | 0.05 | probability |
 | FIGHT_SOFT_ENRAGE_ROUND | 20 | round |
@@ -1183,8 +1185,10 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | ENEMY_DMG_BASE | 4 | damage |
 | ENEMY_DMG_PER_LEVEL | 2.6 | damage |
 | ZONE_DANGER_FROM | 20 | level | (M2 v3)
-| ZONE_DANGER_STEP | 0.25 | × per 10 levels above ZONE_DANGER_FROM | (M2 v3)
+| ZONE_DANGER_STEP | 0.375 | × per 10 levels above ZONE_DANGER_FROM | (M2 v3; M2b v8: was 0.25)
 | DUNGEON_DANGER_FRAC | 0.5 | share of the zone-danger bonus for dungeon trash and dungeon bosses | (M2 v4)
+| EARLY_DMG_MULT | 0.80 | × the damage of every template enemy of level <= EARLY_DMG_MAX_LEVEL (7.6) | (M2b v8)
+| EARLY_DMG_MAX_LEVEL | 20 | enemy level | (M2b v8)
 | ENEMY_ARMOR_PER_LEVEL | 15 | armor |
 | DUNGEON_TRASH_HP_MULT | 1.2 | × |
 | DUNGEON_TRASH_DMG_MULT | 1.1 | × |
@@ -1257,8 +1261,8 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | RES_MANA_PCT | 0.40 | of max mana |
 | RES_META_CHARGES | 1 | charges |
 | BOSS_LEVEL | 62 | level |
-| BOSS_HP | 13066 | HP | (M2 v4: was 13500; M2b v6: 13900 -> 13066, × 0.94)
-| BOSS_DMG_MULT | 1.17 | × every damage of the end-boss fight's enemies (10.1) | (M2b v6)
+| BOSS_HP | 12282 | HP | (M2 v4: was 13500; M2b v6: 13900 -> 13066, × 0.94; M2b v8: 13066 -> 12282, × 0.94)
+| BOSS_DMG_MULT | 1.30 | × every damage of the end-boss fight's enemies (10.1); ladder 1.32, 1.34 by sim result, never above 1.34 (D74) | (M2b v6; M2b v8: was 1.17)
 | BOSS_ARMOR | 1200 | armor |
 | BOSS_MELEE | 260 | damage | (M2 v2)
 | BOSS_CRUSH | 380 | damage |

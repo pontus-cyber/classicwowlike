@@ -221,6 +221,14 @@ const pct = (x) => `${Math.round(x * 100)} %`;
 export const pct1 = (x) => `${Math.round(x * 1000) / 10} %`;
 /** A share in per cent with up to two decimals (talent totals: Pack Leader's 6.25 %). */
 export const pct2 = (x) => `${Math.round(x * 10000) / 100} %`;
+/**
+ * The free potion's strength in words (rules 7.5, M2b v8): from the engine's FREE_POTION_MULT (the event's `mult`, the
+ * bridge's `items[].mult` or data.meta.freePotionMult): 0.5 "half strength", another share "40 % strength"; null at full
+ * strength or without a value (an engine before M2b v8, the mock).
+ */
+export const strengthText = (mult) => (mult == null || mult >= 1 ? null : mult === 0.5 ? 'half strength' : `${pct1(mult)} strength`);
+/** "Free action (Packed Satchel)" with the strength when it is not full: "Free action, half strength (Packed Satchel)". */
+export const freeActionText = (mult) => `Free action${strengthText(mult) ? `, ${strengthText(mult)}` : ''} (Packed Satchel)`;
 
 /**
  * What a status does, in exact numbers (rules 7.4). s: a view status (engine-bridge.js `statuses`: the engine's status
@@ -345,8 +353,13 @@ export function metaEffect(m, D, d) {
     case 'quick_study': return { short: `+${pct1(m.xpPct)} experience per rank`, long: `Every hero earns ${pct1(m.xpPct)} more experience for each rank: levels come sooner.` };
     case 'prospector': return { short: `+${pct1(m.goldPct)} gold per rank`, long: `Every hero finds ${pct1(m.goldPct)} more gold for each rank.` };
     case 'talent_pt': return { short: `+${m.points} talent ${plural(m.points, 'point')} at level ${N.maxLevel}`, long: `At level ${N.maxLevel} you get ${numWord(m.points)} more talent ${plural(m.points, 'point')} to spend.` };
-    // M2b v6 (rules 7.5, 11.2): also the free potion, the first potion each fight costs no turn
-    case 'satchel': return { short: `Start with ${m.potions} ${plurName(m.potions, NM.potion)}; first potion each fight is free`, long: `Every run begins with ${numWord(m.potions)} ${plurName(m.potions, NM.potion)} in your bags, and the first potion you drink in each fight is a free action: you act again in the same round.` };
+    // M2b v6 (rules 7.5, 11.2): also the free potion, the first potion each fight costs no turn; M2b v8: at FREE_POTION_MULT
+    // strength (D.freePotionMult from the engine; "half strength")
+    case 'satchel': {
+      const str = strengthText(D.freePotionMult);
+      return { short: `Start with ${m.potions} ${plurName(m.potions, NM.potion)}; first potion each fight is free${str ? `, at ${str}` : ''}`,
+        long: `Every run begins with ${numWord(m.potions)} ${plurName(m.potions, NM.potion)} in your bags, and the first potion you drink in each fight is a free action${str ? ` at ${str} (it restores ${pct1(D.freePotionMult)} of its normal amount)` : ''}: you act again in the same round.` };
+    }
     case 'heirloom_blade': return { short: `${humanize(m.rarity)} starting weapon, item level ${m.ilvl}`, long: `Your starting weapon is ${m.rarity} quality, item level ${m.ilvl}, instead of a common one.` };
     case 'pockets': return { short: `+${m.slots} bag slots per rank`, long: `Your bags hold ${m.slots} more items for each rank.` };
     case 'ledger': return { short: 'First lesson at each trainer visit is free', long: 'At the trainer of every zone hub and of the camp, the first spell you learn or train costs no gold.' };

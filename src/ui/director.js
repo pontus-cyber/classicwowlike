@@ -12,7 +12,7 @@
 // step, or Instant speed, finishes at once. Waits go through skip tokens.
 import { wait, SkipToken, fmtNum, deepClone } from './util.js';
 import { settings } from './settings.js';
-import { linkedText, dangerBanner, CONTROL_WORD as CONTROL_LOG, HEAT_WORDS } from './ui-text.js';
+import { linkedText, dangerBanner, CONTROL_WORD as CONTROL_LOG, HEAT_WORDS, freeActionText } from './ui-text.js';
 import { timeline, roundPace, hitShare, STATUS_LABEL } from './combat-feel.js';
 
 const SCHOOL_PROJ = { fire: 'fire', frost: 'frost', arcane: 'arcane', shadow: 'shadow', nature: 'nature' };
@@ -188,8 +188,9 @@ export class Director {
               if (e.kind === 'pass') { scene.float('player', 'Pass', { color: '#cfc6b0', size: 16, small: true }); await W(tm.wait); break; }
               if (e.kind === 'item') {
                 scene.act('player', 'item', D(tm.act || 420)); hud.log(`You use ${e.name}.`, 'lg-you');
-                // M2b v6 (rules 7.5): Packed Satchel's free potion costs no turn; the player acts again this round
-                if (e.free) { scene.float('player', 'Free action', { color: '#ffe08a', size: 16, small: true }); hud.log('Free action (Packed Satchel).', 'lg-sys'); }
+                // M2b v6 (rules 7.5): Packed Satchel's free potion costs no turn; the player acts again this round. M2b v8: at the
+                // event's strength (mult, FREE_POTION_MULT): "Free action, half strength (Packed Satchel)."; the heal line is the engine's
+                if (e.free) { scene.float('player', 'Free action', { color: '#ffe08a', size: 16, small: true }); hud.log(`${freeActionText(e.mult)}.`, 'lg-sys'); }
                 await W(tm.wait); break;
               }
               // combat v2: the engage round's opening (an engage option, or a bar spell cast free by Pre-cast); combat v2.1: a

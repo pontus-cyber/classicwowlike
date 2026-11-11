@@ -1,10 +1,11 @@
 // Player combat actions (rules 5, 6, 7.1 step 2, 7.3, 7.5, 7.7, 7.8) and the pet action (5.5). Combat v2: an
 // interrupt or control that stops a cast or heavy now-entry leaves the enemy OFF_BALANCE (7.13); Gathered Power
 // (7.10); ENGAGE actions are resolved in engage.js. Combat v2.1: an interrupted wind-up is answered (STAGGERED, 7.12).
+// M2b v8 (rules 7.5): itemAmount, what a consumable restores; Packed Satchel's free potion at FREE_POTION_MULT.
 import {
   SPELL, CLASS, TALENT, PET, CP_MAX, ENGINE_ASSUMPTION as EA, CHILL_PCT, CONSUMABLE, POTION_CD,
   UNIQUE_PROC_CHANCE, UNIQUE_PROC_BASE, UNIQUE_PROC_PER_LEVEL, UNIQUE_POTION_PCT, FLEE_BASE,
-  FLEE_PER_EXTRA_ENEMY, MIN_HIT_DAMAGE, OFFBAL_DURATION,
+  FLEE_PER_EXTRA_ENEMY, MIN_HIT_DAMAGE, OFFBAL_DURATION, FREE_POTION_MULT,
 } from '../constants.js';
 import { nextFloat } from '../rng.js';
 import { rnd } from './util.js';
@@ -611,20 +612,39 @@ export function fleeChance(s) {
 }
 
 // ---------------- Items ----------------
+/**
+ * What one use of consumable `id` restores now (rules 8.6), before the cap at max HP and max mana: heal =
+ * round(heal × max HP × (1 + UNIQUE_POTION_PCT × potion uniques) × mult), mana = round(mana × max mana × mult); 0 when it
+ * restores none. mult: FREE_POTION_MULT for Packed Satchel's free potion (rules 7.5, M2b v8, D77), else 1 (then the
+ * numbers are exactly the normal ones). useItem and the API's potionInfo (rules.js) read it.
+ */
+export function itemAmount(s, id, free = false) {
+  const c = CONSUMABLE[id];
+  const p = s.player;
+  const mult = free ? FREE_POTION_MULT : 1;
+  return {
+    mult,
+    heal: c.heal ? rnd(c.heal * p.d.maxHp * (1 + UNIQUE_POTION_PCT * hasEffect(s, 'potion')) * mult) : 0,
+    mana: c.mana && p.d.maxMana ? rnd(c.mana * p.d.maxMana * mult) : 0,
+  };
+}
+
 function useItem(s, ev, id, free) {
   const f = s.fight;
   const p = s.player;
   const c = CONSUMABLE[id];
   takeConsumable(s, id, 1);
-  // free: Packed Satchel's free potion (rules 7.5, M2b v6): the event says so, the round goes on (combat.js)
-  ev.push(free ? { t: 'action', kind: 'item', item: id, free: true } : { t: 'action', kind: 'item', item: id });
+  const amt = itemAmount(s, id, free);
+  // free: Packed Satchel's free potion (rules 7.5, M2b v6): the event says so, the round goes on (combat.js); M2b v8: it
+  // restores FREE_POTION_MULT × its normal amount, and the event carries that `mult`
+  ev.push(free ? { t: 'action', kind: 'item', item: id, free: true, mult: amt.mult } : { t: 'action', kind: 'item', item: id });
   if (c.potion) {
     f.p.potionReady = f.round + POTION_CD;
     s.stats.potionsUsed += 1;
   }
-  if (c.heal) healUnit(s, ev, 'player', rnd(c.heal * p.d.maxHp * (1 + UNIQUE_POTION_PCT * hasEffect(s, 'potion'))), id);
+  if (c.heal) healUnit(s, ev, 'player', amt.heal, id);
   if (c.mana && p.d.maxMana) {
-    const gain = Math.min(p.d.maxMana - p.mana, rnd(c.mana * p.d.maxMana));
+    const gain = Math.min(p.d.maxMana - p.mana, amt.mana);
     p.mana += gain;
     if (gain > 0) ev.push({ t: 'mana', amount: gain, spell: id });
   }

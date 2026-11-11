@@ -3,12 +3,14 @@
 // (EMPOWERED) or, a heavy one that cost the player 0 HP, is answered (STAGGERED).
 // DoT preview (owner feedback 2026-11-11 08:11; engine-api.md 6.1): pendingTicks plays the end-of-round tick phase
 // (tickPhase) on a copy of the state, without draws, so the UI can mark the HP that the ticks will take.
-// Packed Satchel's free potion (rules 7.5, M2b v6): resolveRound plays it as the player's action and stops the round.
+// Packed Satchel's free potion (rules 7.5, M2b v6): resolveRound plays it as the player's action and stops the round
+// (M2b v8: at FREE_POTION_MULT strength, spells.js). Zone danger (rules 7.6) with the early factor EARLY_DMG_MULT (M2b v8).
 import {
   ARCHETYPE, VARIANT, ENEMY_HP_BASE, ENEMY_HP_PER_LEVEL, ENEMY_DMG_BASE, ENEMY_DMG_PER_LEVEL,
   ENEMY_ARMOR_PER_LEVEL, ENEMY_DODGE, PET, ENERGY_MAX, ENERGY_REGEN, FOCUS_MAX, FOCUS_REGEN,
   MANA_REGEN_ROUND_PCT, PET_REVIVE_PCT, TALENT, UNIQUE_WARD_PCT, BRAND_DMG, BOSS_LEVEL, MIN_HIT_DAMAGE,
   ZONE_DANGER_FROM, ZONE_DANGER_STEP, DUNGEON_DANGER_FRAC, ENGAGE_DMG_COMP, OFFBAL_DURATION, CONSUMABLE,
+  EARLY_DMG_MULT, EARLY_DMG_MAX_LEVEL,
 } from '../constants.js';
 import { nextFloat, nextInt } from '../rng.js';
 import { rnd, deepClone, cloneState } from './util.js';
@@ -27,14 +29,17 @@ import {
 // ---------------- Enemies ----------------
 /**
  * Zone danger (rules 7.6): damage multiplier of an enemy made from an enemy template, by its level M and variant.
- * zd(M) = 1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10 (M2 v3: level 30 ×1.25, 60 ×2.0). Dungeon trash
- * and dungeon bosses ('trash', 'dboss') take DUNGEON_DANGER_FRAC of the bonus, 1 + DUNGEON_DANGER_FRAC × (zd(M) - 1)
- * (M2 v4: level 60 ×1.5). Every other variant (normal, elite, rare; Camp waves and summoned adds are built as
- * normal) takes zd(M). The end boss and the Dimming Shards (boss.js) are not made here and keep their own constants.
+ * zd(M) = early(M) × (1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10) (M2b v8: level 30 ×1.375, 60 ×2.5).
+ * Dungeon trash and dungeon bosses ('trash', 'dboss') take DUNGEON_DANGER_FRAC of the bonus, early(M) × (1 +
+ * DUNGEON_DANGER_FRAC × bonus) (M2 v4; M2b v8: level 60 ×1.75). early(M) = EARLY_DMG_MULT at M <= EARLY_DMG_MAX_LEVEL,
+ * else 1 (M2b v8, D72: level 20 ×0.80). Every other variant (normal, elite, rare, shardspawn; Camp waves and summoned
+ * adds are built as normal) takes zd(M). The end boss and the Dimming Shards (boss.js) are not made here and keep
+ * their own constants.
  */
 export function zoneDanger(level, variant = 'normal') {
   const bonus = (ZONE_DANGER_STEP * Math.max(0, level - ZONE_DANGER_FROM)) / 10;
-  return 1 + (variant === 'trash' || variant === 'dboss' ? DUNGEON_DANGER_FRAC * bonus : bonus);
+  const early = level <= EARLY_DMG_MAX_LEVEL ? EARLY_DMG_MULT : 1;
+  return early * (1 + (variant === 'trash' || variant === 'dboss' ? DUNGEON_DANGER_FRAC * bonus : bonus));
 }
 
 /**

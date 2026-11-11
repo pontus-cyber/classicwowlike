@@ -49,7 +49,9 @@
 //              attack, flee, fleeChance?, services, talents, trainer }   window (combat v2): the enemies on which the spell
 //              lands in an OFF_BALANCE window (R.spellInfo(...).window per enemy; 'all' for an area spell), else null;
 //              items[].free (M2b v6): a potion that Packed Satchel's free potion would make a free action now (R.freePotion);
-//              the `action` event of that potion carries free: true
+//              the `action` event of that potion carries free: true. M2b v8: items[].mult (FREE_POTION_MULT when free, else
+//              1), items[].heal and items[].mana: what one use restores now, the engine's numbers (R.potionInfo; null on an
+//              engine without it); the free potion's `action` event carries `mult`
 //   oaths:   Oaths of the run (rules 11.5); create.oaths in CREATE
 //   meta:    engine mode, CREATE and SUMMARY only (rules 11): the profile between runs, see metaView() below.
 //   data.meta: the catalogue (R.C.META), Oaths (R.C.OATH) and the names and numbers its texts use.
@@ -137,6 +139,7 @@ function metaData(K) {
     num: { maxLevel: K.MAX_LEVEL, zoneCount: K.ZONE_COUNT, firstKill: K.ECHO_FIRST_KILL_CLASS, oathEcho: K.OATH_ECHO_BONUS, oathHaste: K.OATH_HASTE_TIME, oathThrift: K.OATH_THRIFT_MULT },
     names: { boon: K.BOON.return.name, ember: K.CONSUMABLE.ember_of_return.name, potion: K.CONSUMABLE.healing_draught.name, greater: K.CONSUMABLE.greater_healing_draught.name, boss: K.BOSS_TEXT.name.split(',')[0], camp: (CONTENT.camp && CONTENT.camp.name) || 'the camp' },
     greaterHeal: K.CONSUMABLE.greater_healing_draught.heal,
+    freePotionMult: K.FREE_POTION_MULT ?? null, // M2b v8 (rules 7.5): the free potion's share of its normal amount
     uniques: { rare: byZone('rare'), epic: byZone('epic'), weapon: Object.fromEntries(uniq.filter((u) => u.kind === 'weapon').map((u) => [u.classId, { name: u.name, text: u.text }])) },
     zones: zones.map((z) => z.name),
   };
@@ -769,7 +772,9 @@ function engineBackend(seedOpt, runOpts = {}) {
       // free (M2b v6, rules 7.5): Packed Satchel's free potion of this fight is unused (R.freePotion) and this is a potion
       const potion = !!(C.CONSUMABLE[id] && C.CONSUMABLE[id].potion);
       const free = !!(f && potion && R.freePotion && (() => { try { return R.freePotion(s); } catch { return false; } })());
-      return { ok, reason, count, cd: potion ? cd : 0, free };
+      // M2b v8 (rules 7.5): what one use restores now, from the engine (the free potion at FREE_POTION_MULT); never computed here
+      const info = R.potionInfo ? (() => { try { return R.potionInfo(s, id); } catch { return null; } })() : null;
+      return { ok, reason, count, cd: potion ? cd : 0, free, mult: info ? info.mult : null, heal: info ? info.heal : null, mana: info ? info.mana : null };
     });
     const cls = p.classId;
     for (const t of Object.values(C.TALENT)) {
@@ -1029,7 +1034,7 @@ function engineBackend(seedOpt, runOpts = {}) {
           const kind = e.kind === 'cast' ? 'spell' : e.kind;
           out.push({ t: 'action', src: ref('player'), kind, id: e.spell || e.item, name: sp ? sp.name : e.item ? (C.CONSUMABLE[e.item] || {}).name || e.item : C.CLASS[s.player.classId].basic.name,
             school: sp ? sp.school || 'arcane' : C.CLASS[s.player.classId].basic.school, dst: e.target != null ? ref(e.target) : null, aoe: !!(sp && sp.tags && sp.tags.includes('aoe')), tags: sp ? sp.tags : [], resAfter: kind === 'spell' ? res : undefined,
-            engage: e.engage || null, free: !!e.free }); // free (M2b v6): Packed Satchel's free potion, the round goes on
+            engage: e.engage || null, free: !!e.free, mult: e.free ? e.mult ?? null : null }); // free (M2b v6): Packed Satchel's free potion, the round goes on; mult (M2b v8): its strength
           break;
         }
         case 'petAction': out.push({ t: 'action', src: ref('pet'), kind: 'attack', name: 'Pet attack', dst: ref(e.target) }); break;

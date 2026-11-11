@@ -166,11 +166,15 @@ describe('rules 11 meta progression', () => {
         x.player.itemBar = ['greater_healing_draught', 'healing_draught', null];
         for (const e of x.fight.enemies) e.st.push({ id: 'STUN', dur: 3 });
       });
-      const heal = (slot) => R.step(base, { type: 'USE_ITEM', slot, target: null }).events.find((e) => e.t === 'heal' && e.dst === 'player').amount;
+      // the full catalogue has Packed Satchel: the fight's first potion is free at FREE_POTION_MULT strength (M2b v8, D77),
+      // so the normal amounts are read with the free potion already used
+      const used = tweak(base, (x) => { x.fight.p.freePotion = false; });
+      const heal = (slot, s = used) => R.step(s, { type: 'USE_ITEM', slot, target: null }).events.find((e) => e.t === 'heal' && e.dst === 'player').amount;
       const max = base.player.d.maxHp;
       assert.equal(heal(0), Math.round(C.GREATER_HEAL_PCT * max), `${c} Greater draught`);
       assert.equal(heal(1), Math.round(C.HEAL_DRAUGHT_PCT * max), `${c} Healing Draught`);
       assert.ok(heal(0) - heal(1) <= 0.025 * max + 1, `${c}: +${heal(0) - heal(1)} of ${max}`);
+      assert.equal(heal(0, base), Math.round(C.GREATER_HEAL_PCT * max * C.FREE_POTION_MULT), `${c} Greater draught as the free potion`);
     }
     // Time line: META_TIME_BUDGET is half an Ascendancy step; the catalogue saves time only through the route
     // (Quick Study XP, Swift Boots one level earlier), which balance.md B17 measures. Every time event of a full-catalogue

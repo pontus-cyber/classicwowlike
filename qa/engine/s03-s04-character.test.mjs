@@ -35,8 +35,24 @@ describe('rules 5.1 Rogue health (M2b v6, D65)', () => {
       assert.equal(p.d.maxHp, Math.round(100 + 21 * (L - 1) + C.HP_PER_STA * STA), `level ${L}`);
       if (L === 1) assert.equal(p.hp, p.d.maxHp, 'a new Rogue starts at full health');
     }
-    // the other classes are unchanged
-    assert.deepEqual([C.CLASS.mage.hpBase, C.CLASS.mage.hpPerLevel, C.CLASS.hunter.hpBase, C.CLASS.hunter.hpPerLevel], [50, 19.5, 60, 15.5]);
+    // the Hunter is unchanged (the Mage: M2b v8, below)
+    assert.deepEqual([C.CLASS.hunter.hpBase, C.CLASS.hunter.hpPerLevel], [60, 15.5]);
+  });
+});
+
+describe('rules 5.1 Mage health (M2b v8, D73)', () => {
+  // rules 4.1: hpBase + hpPerLevel × (L - 1) + HP_PER_STA × STA, rounded (changes-m2b-v8.md row 3: 62 / 462 / 1 305)
+  test('CLASS.mage hpBase 62, hpPerLevel 21.06 (was 50 / 19.5): before STA and items 62 HP at level 1, 462 at level 20, 1 305 at level 60', () => {
+    assert.deepEqual([C.CLASS.mage.hpBase, C.CLASS.mage.hpPerLevel], [62, 21.06]);
+    const raw = (L) => Math.round(C.CLASS.mage.hpBase + C.CLASS.mage.hpPerLevel * (L - 1));
+    assert.deepEqual([raw(1), raw(20), raw(60)], [62, 462, 1305]);
+    for (const L of [1, 20, 60]) {
+      const s = L === 1 ? started('mage') : atLevel(started('mage'), L, { learnAll: false });
+      const p = s.player;
+      const STA = C.CLASS.mage.stats.STA[0] + C.CLASS.mage.stats.STA[1] * (L - 1) + Object.values(p.equipped).reduce((a, it) => a + (it ? it.stats.STA || 0 : 0), 0);
+      assert.equal(p.d.maxHp, Math.round(62 + 21.06 * (L - 1) + C.HP_PER_STA * STA), `level ${L}`);
+      if (L === 1) assert.equal(p.hp, p.d.maxHp, 'a new Mage starts at full health');
+    }
   });
 });
 

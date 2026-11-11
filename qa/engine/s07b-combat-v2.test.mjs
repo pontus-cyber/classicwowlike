@@ -390,7 +390,7 @@ describe('rules 7.12 opening scripts and pack roles (combat v2)', () => {
   });
 
   test('ENGAGE_DMG_COMP: every template enemy deals × ENGAGE_DMG_COMP, except in the Rogue\'s fights (D48) other than its dungeon-boss fights (D49); the end boss and the Shards do not', () => {
-    const free = (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * 15) * C.ARCHETYPE.brute.dmg;
+    const free = (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * 15) * C.ARCHETYPE.brute.dmg * R.zoneDanger(15); // M2b v8: × EARLY_DMG_MULT at level 15
     for (const [cls, petId] of [['mage'], ['hunter', 'ridgewolf']]) {
       const e = fight(cls, 20, [], [mob('z1_brute', 15)], { petId }).fight.enemies[0];
       assert.ok(Math.abs(e.dmg - free * C.ENGAGE_DMG_COMP) < 1e-9, cls);
@@ -400,7 +400,7 @@ describe('rules 7.12 opening scripts and pack roles (combat v2)', () => {
     assert.ok(Math.abs(r.fight.enemies[0].dmg - free) < 1e-9, 'rogue');
     const sig = tweak(r, (x) => { x.fight.signalPending = { by: 1, level: 15, adds: 1 }; x.fight.signalled = true; });
     const add = R.step(sig, { type: 'PASS' }).state.fight.enemies[2];
-    assert.ok(Math.abs(add.dmg - (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * 15) * C.ARCHETYPE[add.arch].dmg * sig.content.enemies[add.tid].dmgMult) < 1e-9, 'rogue: Signal add');
+    assert.ok(Math.abs(add.dmg - (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * 15) * C.ARCHETYPE[add.arch].dmg * sig.content.enemies[add.tid].dmgMult * R.zoneDanger(15)) < 1e-9, 'rogue: Signal add');
     // The Rogue's dungeon-boss fight pays it (no STEALTH start there, rules 5.3; D49): the boss and an add it summons.
     const db = fight('rogue', 20, [], [mob('z1_dboss', 15, 'dboss')], { kind: 'dboss', prep: (x) => { x.player.d.maxHp = x.player.hp = 1e6; } });
     const boss = db.fight.enemies[0];

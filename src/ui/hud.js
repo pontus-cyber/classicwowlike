@@ -21,7 +21,7 @@ import { drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook } from './art
 import { THEMES } from './art-world.js';
 import { tip, spellTip, basicTip, itemTip, statusTip } from './tooltip.js';
 import { settings } from './settings.js';
-import { linkedText, resurrectText, dangerRule, HEAT_WORDS, tolls } from './ui-text.js';
+import { linkedText, resurrectText, dangerRule, HEAT_WORDS, tolls, freeActionText } from './ui-text.js';
 import { trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createRuler, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind } from './tracks.js';
 import { createHeatMeter, standText, bossText, fmtTime, lineShown } from './heat.js';
 
@@ -275,8 +275,10 @@ export function createHud(root, ctx) {
       if (!id) return h('div', h('div.tt-name', `Empty item slot ${['8', '9', '0'][i]}`), h('div.tt-hint', 'Drag a potion or flask here from your bags (B).'));
       const it = p.bag.find((s) => s && s.id === id) || { kind: 'consumable', id, name: ctx.data.consumables[id].name, rarity: 'common' };
       const L = ctx.view.legal.items && ctx.view.legal.items[i];
-      // M2b v6 (rules 7.5): the fight's first potion is a free action with Packed Satchel
-      return itemTip(it, ctx, { hint: L && !L.ok ? L.reason : L && L.free ? 'Free action (Packed Satchel): your first potion this fight costs no turn. Right-click to clear' : 'Right-click to clear' });
+      // M2b v6 (rules 7.5): the fight's first potion is a free action with Packed Satchel; M2b v8: at FREE_POTION_MULT strength,
+      // and what it restores now is the engine's number (R.potionInfo through the bridge: L.heal, L.mana)
+      const restores = L && L.free ? [L.heal ? `${fmtNum(L.heal)} health` : null, L.mana ? `${fmtNum(L.mana)} mana` : null].filter(Boolean).join(' and ') : '';
+      return itemTip(it, ctx, { hint: L && !L.ok ? L.reason : L && L.free ? `${freeActionText(L.mult)}: your first potion this fight costs no turn${restores ? ` and restores ${restores} now` : ''}. Right-click to clear` : 'Right-click to clear' });
     });
     dropTarget(b, ctx, (d) => { if (d.kind === 'item' && d.item.kind === 'consumable') ctx.act({ type: 'SET_ITEM_BAR', slot: i, itemId: d.item.id }); });
   });
@@ -611,7 +613,7 @@ export function createHud(root, ctx) {
       const free = !!(fight && s && s.free && count > 0);
       let ft = b.querySelector('.ftag');
       if (free && !ft) { ft = h('span.ftag', 'Free'); b.appendChild(ft); } else if (!free && ft) ft.remove();
-      if (free) b.setAttribute('aria-label', `${b.getAttribute('aria-label')}. Free action (Packed Satchel)`);
+      if (free) b.setAttribute('aria-label', `${b.getAttribute('aria-label')}. ${freeActionText(s.mult)}`); // M2b v8: "Free action, half strength (Packed Satchel)"
       if (s && s.cd) { cd.style.background = `conic-gradient(rgba(0,0,0,.74) ${clamp(s.cd / ctx.data.rules.potionCd, 0, 1) * 360}deg, rgba(0,0,0,.18) 0)`; cd.textContent = s.cd; } else { cd.style.background = ''; cd.textContent = ''; }
     });
     els.auto.classList.toggle('on', !!v.autoplay);

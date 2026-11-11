@@ -1,5 +1,7 @@
 // rules.md 7.5 and 11.2 (M2b v6, D66; docs/specs/changes-m2b-v6.md row 8): Packed Satchel's free potion (the first
 // potion each fight costs no turn) and Vigor and Edge at 0.005 per rank. engine-api.md 1 (freePotion), 5 (`free`).
+// M2b v8 (D77; changes-m2b-v8.md row 9): the free potion restores FREE_POTION_MULT × its normal amount; the event carries
+// `mult`; engine-api.md 1 (potionInfo).
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { R, C, started, atLevel, withSpells, inFight, tweak, ev, st } from './helpers.mjs';
@@ -36,8 +38,9 @@ describe('rules 7.5 Packed Satchel: the first potion each fight costs no turn (M
     const hp0 = s.player.hp; const n0 = countConsumable(s, 'healing_draught'); const rounds0 = s.stats.rounds; const used0 = s.stats.potionsUsed;
     const r = R.step(s, USE(0));
     const t = r.state;
-    assert.deepEqual(ev(r.events, 'action'), [{ t: 'action', kind: 'item', item: 'healing_draught', free: true }]);
+    assert.deepEqual(ev(r.events, 'action'), [{ t: 'action', kind: 'item', item: 'healing_draught', free: true, mult: C.FREE_POTION_MULT }]);
     assert.ok(ev(r.events, 'heal').length === 1 && t.player.hp > hp0, 'healed');
+    assert.equal(ev(r.events, 'heal')[0].amount, Math.round(C.HEAL_DRAUGHT_PCT * s.player.d.maxHp * C.FREE_POTION_MULT), 'at half strength (M2b v8)');
     for (const k of ['round', 'intent', 'petAction', 'enemyAction', 'damage', 'miss']) assert.equal(ev(r.events, k).length, 0, `no ${k} event`);
     assert.equal(t.fight.round, 2, 'same round');
     assert.equal(t.stats.rounds, rounds0, 'rounds not counted');
@@ -172,5 +175,59 @@ describe('rules 11.2 Vigor and Edge 0.005 per rank (M2b v6, D66)', () => {
     assert.ok(Math.abs(s.meta.hpPct - 0.02) < 1e-12 && Math.abs(s.meta.powerPct - 0.02) < 1e-12, JSON.stringify(s.meta));
     assert.equal(s.player.d.maxHp, Math.round((C.CLASS.mage.hpBase + C.HP_PER_STA * b.player.d.STA) * 1.02));
     assert.ok(Math.abs(s.player.d.power - b.player.d.power * 1.02) < 1e-9);
+  });
+});
+
+describe('rules 7.5 the free potion at half strength (M2b v8, D77)', () => {
+  test('FREE_POTION_MULT 0.5: the free Healing, Mana and Greater Healing Draught restore half their normal amount; later potions the full amount', () => {
+    assert.equal(C.FREE_POTION_MULT, 0.5);
+    // Healing Draught 0.35 -> 0.175 of max HP; Mana Draught 0.35 -> 0.175 of max mana (the Mage at 10 % so nothing caps)
+    const m = round2(fight('mage', { immortal: true, hurt: 0.1 }));
+    const h = R.step(m, USE(0));
+    assert.equal(ev(h.events, 'heal')[0].amount, Math.round(C.HEAL_DRAUGHT_PCT * m.player.d.maxHp * 0.5));
+    const mm = R.step(m, USE(1));
+    assert.equal(ev(mm.events, 'action')[0].mult, 0.5);
+    assert.equal(ev(mm.events, 'mana')[0].amount, Math.round(C.MANA_DRAUGHT_PCT * m.player.d.maxMana * 0.5));
+    // the next potion of the fight costs the turn and restores its full amount
+    let t = h.state;
+    for (let i = 0; i < C.POTION_CD; i++) t = pass(t);
+    const full = R.step(t, USE(0));
+    assert.deepEqual(ev(full.events, 'action'), [{ t: 'action', kind: 'item', item: 'healing_draught' }]);
+    assert.equal(ev(full.events, 'heal')[0].amount, Math.round(C.HEAL_DRAUGHT_PCT * t.player.d.maxHp));
+    // Greater Healing Draught 0.375 -> 0.1875
+    const g = tweak(round2(fight('rogue', { immortal: true, hurt: 0.1 })), (x) => { addToBag(x, makeConsumable(x, 'greater_healing_draught', 1)); x.player.itemBar[1] = 'greater_healing_draught'; });
+    const gr = R.step(g, USE(1));
+    assert.equal(ev(gr.events, 'action')[0].free, true);
+    assert.equal(ev(gr.events, 'heal')[0].amount, Math.round(C.GREATER_HEAL_PCT * g.player.d.maxHp * 0.5));
+    // without the unlock the first potion is a normal one
+    const no = round2(fight('rogue', { satchel: false, immortal: true, hurt: 0.1 }));
+    assert.equal(ev(R.step(no, USE(0)).events, 'heal')[0].amount, Math.round(C.HEAL_DRAUGHT_PCT * no.player.d.maxHp));
+  });
+
+  test('the half applies to the whole normal amount, a potion unique included (rules 11.3); one rounding at the end', () => {
+    // a unique with the potion effect (+UNIQUE_POTION_PCT potion healing) in the derived effects
+    const s = tweak(round2(fight('hunter', { immortal: true, hurt: 0.1 })), (x) => { x.player.d.effects = [...x.player.d.effects, 'potion']; });
+    const want = Math.round(C.HEAL_DRAUGHT_PCT * s.player.d.maxHp * (1 + C.UNIQUE_POTION_PCT) * C.FREE_POTION_MULT);
+    assert.equal(R.potionInfo(s, 'healing_draught').heal, want);
+    assert.equal(ev(R.step(s, USE(0)).events, 'heal')[0].amount, want);
+  });
+
+  test('potionInfo (engine-api.md 1): what one use restores now, the free potion at FREE_POTION_MULT; the heal event shows the same', () => {
+    const s = round2(fight('mage', { immortal: true, hurt: 0.1 }));
+    const hp = R.potionInfo(s, 'healing_draught');
+    assert.deepEqual(hp, { id: 'healing_draught', free: true, mult: 0.5, heal: Math.round(C.HEAL_DRAUGHT_PCT * s.player.d.maxHp * 0.5), mana: 0 });
+    assert.deepEqual(R.potionInfo(s, 'mana_draught'), { id: 'mana_draught', free: true, mult: 0.5, heal: 0, mana: Math.round(C.MANA_DRAUGHT_PCT * s.player.d.maxMana * 0.5) });
+    assert.equal(ev(R.step(s, USE(0)).events, 'heal')[0].amount, hp.heal);
+    // not potions: never free, nothing restored
+    assert.deepEqual(R.potionInfo(s, 'spark_flask'), { id: 'spark_flask', free: false, mult: 1, heal: 0, mana: 0 });
+    // once the free potion is used: full amounts
+    const t = R.step(s, USE(0)).state;
+    assert.deepEqual(R.potionInfo(t, 'mana_draught'), { id: 'mana_draught', free: false, mult: 1, heal: 0, mana: Math.round(C.MANA_DRAUGHT_PCT * t.player.d.maxMana) });
+    // out of combat: never free
+    const out = atLevel(started('rogue', { profile: SATCHEL }), 20);
+    assert.deepEqual(R.potionInfo(out, 'healing_draught'), { id: 'healing_draught', free: false, mult: 1, heal: Math.round(C.HEAL_DRAUGHT_PCT * out.player.d.maxHp), mana: 0 });
+    // unknown ids and CREATE: null
+    assert.equal(R.potionInfo(s, 'no_such_item'), null);
+    assert.equal(R.potionInfo(R.newRun({ content: s.content }), 'healing_draught'), null);
   });
 });

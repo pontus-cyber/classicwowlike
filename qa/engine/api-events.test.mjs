@@ -76,12 +76,15 @@ describe('bossPar and zoneDanger on the API (engine-api.md 1, M2 v4)', () => {
   });
 
   test('zoneDanger(level, variant) is the multiplier makeEnemy applies, for every variant and level', () => {
-    assert.equal(R.zoneDanger(20), 1);
-    assert.equal(R.zoneDanger(60), 2);
-    assert.equal(R.zoneDanger(60, 'normal'), 2);
-    assert.equal(R.zoneDanger(60, 'elite'), 2);
-    assert.equal(R.zoneDanger(60, 'trash'), 1.5);
-    assert.equal(R.zoneDanger(60, 'dboss'), 1.5);
+    // M2b v8 (D72): × EARLY_DMG_MULT 0.80 at level <= EARLY_DMG_MAX_LEVEL 20; ZONE_DANGER_STEP 0.375 (level 60 ×2.5, dungeons ×1.75)
+    assert.equal(R.zoneDanger(20), 0.8);
+    assert.equal(R.zoneDanger(21), 1.0375);
+    assert.equal(R.zoneDanger(60), 2.5);
+    assert.equal(R.zoneDanger(60, 'normal'), 2.5);
+    assert.equal(R.zoneDanger(60, 'elite'), 2.5);
+    assert.equal(R.zoneDanger(60, 'trash'), 1.75);
+    assert.equal(R.zoneDanger(60, 'dboss'), 1.75);
+    assert.equal(R.zoneDanger(20, 'dboss'), 0.8);
     for (const [tid, variant] of [['z1_brute', 'normal'], ['z1_caster', 'trash'], ['z1_elite', 'elite'], ['z1_rare', 'rare'], ['z1_dboss', 'dboss']]) {
       for (const L of [1, 20, 21, 33, 47, 55, 57, 60]) {
         const s = inFight(atLevel(started('mage'), 20), [{ tid, level: L, variant }], { noStealth: true }).state;

@@ -43,7 +43,7 @@ File keys. Engine: E00 s00-s01-structure, E01b s01b-expedition, E01c s01c-heat, 
 | 4.1-4.2 Stats and derived values | E03 formulas and caps; E06 stat talents | - |
 | 4.3 Levelling | E03 curve, carry-over, HP rise, talent points | Q04 mana rises with max mana |
 | 4.4 XP per event | E03 diffMod table, eventXp with Insight and Quick Study; E02 rested | - |
-| 5.1 Classes | E13 base stats; E05 basic attacks | - |
+| 5.1 Classes | E13 base stats; E05 basic attacks; E03 Rogue HP (M2b v6) and Mage HP 62 / 21.06 at levels 1, 20, 60 (M2b v8) | - |
 | 5.2 Learning, ranks, bars | E05 bar only, tl strength; E02 trainer | Q04 talent spells follow L; bar and item-bar edits out of combat. Todo: spellInfo.tl of talent spells (BUG-QA-06) |
 | 5.3 Rogue spells | E05 every spell; E13 level/cost/CD; E07 autoplay rules | - |
 | 5.4 Mage spells | E05 every spell | - |
@@ -54,8 +54,8 @@ File keys. Engine: E00 s00-s01-structure, E01b s01b-expedition, E01c s01c-heat, 
 | 7.2 Damage pipeline | E07 independent re-implementation, 3 draws per event, MIN_HIT, WARD, IMMUNE, level clamp, CHILLED/CURSED, DOT snapshot; E07c EMPOWERED and STAGGERED in the enemy's step 2 sum, hits and estimates (combat v2.1) | Q04 heals draw nothing and never crit |
 | 7.3 Resources | E07 costs, mana rounding, focus regen | Q04 energy regen and cap, cost on a miss |
 | 7.4 Status effects | E07 durations, refresh, per-source BLEED, dispersal, BRAND, POISON, WARD, EXPOSED/MARKED, EVASION cap, TAUNT; E05 STUN, FROZEN, HEXED, SILENCED, STEALTH, IMMUNE, HOT; E07c EMPOWERED, STAGGERED (+1 stack per wind-up, no expiry, value, status events; combat v2.1) | Q04 STEALTH gained mid-fight lasts one round |
-| 7.5 Items in combat | E07 item bar, shared POTION_CD, Tonic, Spark | Q04 Spark and Tonic have no cooldown, Spark formula |
-| 7.6 Enemy AI and intents | E07 stats (× ENGAGE_DMG_COMP; none in the Rogue's fights except dungeon-boss fights, D48, D49), weights (turn-5 picks), SILENCED, Mend, cooldowns, soft enrage, templates; E13 archetypes; E07b ENGAGE_DMG_COMP not on the end boss | - |
+| 7.5 Items in combat | E07 item bar, shared POTION_CD, Tonic, Spark; E16 Packed Satchel's free potion (M2b v6) at FREE_POTION_MULT: Healing, Mana and Greater Healing Draught at half, a potion unique included, later potions full, the event's `mult`, potionInfo (M2b v8) | Q04 Spark and Tonic have no cooldown, Spark formula |
+| 7.6 Enemy AI and intents | E07 stats (× ENGAGE_DMG_COMP; none in the Rogue's fights except dungeon-boss fights, D48, D49), weights (turn-5 picks), SILENCED, Mend, cooldowns, soft enrage, templates; E13 archetypes; E07b ENGAGE_DMG_COMP not on the end boss; E07 and E-api zone danger with EARLY_DMG_MULT at levels <= 20 and ZONE_DANGER_STEP 0.375 for every variant (M2b v8) | - |
 | 7.7 Interrupts | E07; E05; E10 boss channel in either round; E07b OFF_BALANCE after an interrupt (also the end boss's Litany); E07c a wind-up is stopped by an interrupt, a stun-tagged spell on a dungeon boss, or control; its cooldown starts; autoplay rule 3 interrupts it (combat v2.1) | - |
 | 7.8 Flee | E07 chance, stealth, bosses; E02 quest flee; E07b legal in the engage round | Q04 flee from a dungeon fight |
 | 7.9 Autoplay policy | E07 rules 1-6, default target; E07b rule E (control on the most damaging track, strike, Mage Pre-cast, ties), SAPPED skipped by the default target; D49: the Rogue's rule E never uses Sap; D48: no switch back to a sapped enemy while another lives | Q04 ">= N enemies" ignores HEXED and SAPPED; rations between fights |

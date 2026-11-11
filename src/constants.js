@@ -158,6 +158,8 @@ export const CHILL_PCT = 0.20;
 export const CURSE_PCT = 0.15;
 export const STEALTH_MISS_BONUS = 0.50;
 export const POTION_CD = 4;
+/** rules 7.5 (M2b v8, D77): Packed Satchel's free potion restores this × its normal amount (it still costs no turn). */
+export const FREE_POTION_MULT = 0.5;
 export const FLEE_BASE = 0.60;
 export const FLEE_PER_EXTRA_ENEMY = 0.05;
 export const FIGHT_SOFT_ENRAGE_ROUND = 20;
@@ -167,8 +169,12 @@ export const ENEMY_HP_PER_LEVEL = 12;
 export const ENEMY_DMG_BASE = 4;
 export const ENEMY_DMG_PER_LEVEL = 2.6;
 export const ZONE_DANGER_FROM = 20;
-export const ZONE_DANGER_STEP = 0.25;
+/** rules 7.6 (M2b v8, D72: was 0.25): zone danger × per 10 levels above ZONE_DANGER_FROM. */
+export const ZONE_DANGER_STEP = 0.375;
 export const DUNGEON_DANGER_FRAC = 0.5;
+/** rules 7.6 (M2b v8, D72): × the damage of every template enemy of level <= EARLY_DMG_MAX_LEVEL (zone danger's early factor). */
+export const EARLY_DMG_MULT = 0.80;
+export const EARLY_DMG_MAX_LEVEL = 20;
 export const ENEMY_ARMOR_PER_LEVEL = 15;
 export const DUNGEON_TRASH_HP_MULT = 1.2;
 export const DUNGEON_TRASH_DMG_MULT = 1.1;
@@ -241,10 +247,10 @@ export const RES_HP_PCT = 0.40;
 export const RES_MANA_PCT = 0.40;
 export const RES_META_CHARGES = 1;
 export const BOSS_LEVEL = 62;
-/** rules 10.1 (M2b v6, D64: 13900 -> 13066, × 0.94). */
-export const BOSS_HP = 13066;
-/** rules 10.1 (M2b v6, D64): every damage the end-boss fight's enemies deal (Oruvath, the Shards, the Brand's ticks) × this, with (1 + asc). */
-export const BOSS_DMG_MULT = 1.17;
+/** rules 10.1 (M2b v6, D64: 13900 -> 13066, × 0.94; M2b v8, D74: 13066 -> 12282, × 0.94). */
+export const BOSS_HP = 12282;
+/** rules 10.1 (M2b v6, D64; M2b v8, D74: 1.17 -> 1.30, ladder 1.32 / 1.34 by sim result): every damage the end-boss fight's enemies deal (Oruvath, the Shards, the Brand's ticks) × this, with (1 + asc). */
+export const BOSS_DMG_MULT = 1.30;
 export const BOSS_ARMOR = 1200;
 export const BOSS_MELEE = 260;
 export const BOSS_CRUSH = 380;
@@ -517,7 +523,7 @@ export const CLASS = {
   },
   mage: {
     id: 'mage', name: 'Mage', primary: 'INT', resource: 'mana',
-    hpBase: 50, hpPerLevel: 19.5,
+    hpBase: 62, hpPerLevel: 21.06, // M2b v8 (D73): was 50 / 19.5
     stats: { STA: [8, 1.25], AGI: [8, 0.5], INT: [22, 2.2], SPI: [12, 1.0] },
     armorBase: 10, armorPerLevel: 3, armorMult: 0.5, dodgeBase: 0.03, dodgeFromAgi: 0,
     basic: { id: 'spark', name: 'Spark', school: 'arcane', b: 2, l: 0.6, p: 0.35, w: 0 },
@@ -626,12 +632,12 @@ export const TALENT = {
   r_b1: { id: 'r_b1', cls: 'rogue', tree: 1, tier: 1, name: 'Silent Footing', ranks: 3, pct: 0.10 },
   r_b2: { id: 'r_b2', cls: 'rogue', tree: 1, tier: 1, name: 'Slippery', ranks: 3, dodge: 0.02 },
   r_b3: { id: 'r_b3', cls: 'rogue', tree: 1, tier: 2, name: 'Lingering Shade', ranks: 2, cp: 1 },
-  r_b4: { id: 'r_b4', cls: 'rogue', tree: 1, tier: 2, name: 'Veiled Recovery', ranks: 2, healPct: 0.03 },
+  r_b4: { id: 'r_b4', cls: 'rogue', tree: 1, tier: 2, name: 'Veiled Recovery', ranks: 2, healPct: 0.02 }, // M2b v8 (D76): was 0.03
   r_b5: { id: 'r_b5', cls: 'rogue', tree: 1, tier: 3, name: 'Cheap Trick', ranks: 2, cost: 10, cd: 1 },
   r_b6: { id: 'r_b6', cls: 'rogue', tree: 1, tier: 3, name: "Ambusher's Patience", ranks: 2, pct: 0.20 },
-  r_b7: { id: 'r_b7', cls: 'rogue', tree: 1, tier: 4, name: 'Shroudwalk', ranks: 2, cd: 3, healPct: 0.10 },
+  r_b7: { id: 'r_b7', cls: 'rogue', tree: 1, tier: 4, name: 'Shroudwalk', ranks: 2, cd: 3, healPct: 0.05 }, // M2b v8 (D76): heal was 0.10
   r_b8: { id: 'r_b8', cls: 'rogue', tree: 1, tier: 4, name: 'Night Instinct', ranks: 3, pct: 0.05 },
-  r_b9: { id: 'r_b9', cls: 'rogue', tree: 1, tier: 5, name: "Death's Sidestep", ranks: 1, below: 0.20, healPct: 0.20 },
+  r_b9: { id: 'r_b9', cls: 'rogue', tree: 1, tier: 5, name: "Death's Sidestep", ranks: 1, below: 0.20, healPct: 0.10 }, // M2b v8 (D76): heal was 0.20
   // Rogue: Venomcraft
   r_c1: { id: 'r_c1', cls: 'rogue', tree: 2, tier: 1, name: 'Toxic Coating', ranks: 3, rounds: 4, maxStacks: 5, b: 0.5, l: 0.15, p: 0.04, spells: ['strike', 'gutting_jab', 'shadowstep_strike', 'whirling_edges'] },
   r_c2: { id: 'r_c2', cls: 'rogue', tree: 2, tier: 1, name: 'Deep Wounds', ranks: 3, pct: 0.09 },
@@ -673,8 +679,8 @@ export const TALENT = {
   m_c8: { id: 'm_c8', cls: 'mage', tree: 2, tier: 4, name: 'Arcane Momentum', ranks: 3, pct: 0.01, maxStacks: 5 },
   m_c9: { id: 'm_c9', cls: 'mage', tree: 2, tier: 5, name: 'Hourglass Reversal', ranks: 1, spell: 'hourglass_reversal' },
   // Hunter: Beastbond
-  h_a1: { id: 'h_a1', cls: 'hunter', tree: 0, tier: 1, name: 'Thick Hide', ranks: 3, petHpPct: 0.08 },
-  h_a2: { id: 'h_a2', cls: 'hunter', tree: 0, tier: 1, name: 'Ferocity', ranks: 3, petDmgPct: 0.125 },
+  h_a1: { id: 'h_a1', cls: 'hunter', tree: 0, tier: 1, name: 'Thick Hide', ranks: 3, petHpPct: 0.10 }, // M2b v8 (D75): was 0.08
+  h_a2: { id: 'h_a2', cls: 'hunter', tree: 0, tier: 1, name: 'Ferocity', ranks: 3, petDmgPct: 0.15625 }, // M2b v8 (D75): was 0.125
   h_a3: { id: 'h_a3', cls: 'hunter', tree: 0, tier: 2, name: 'Bonded Spirit', ranks: 2, share: 0.30 },
   h_a4: { id: 'h_a4', cls: 'hunter', tree: 0, tier: 2, name: 'Frenzy Link', ranks: 2, petCrit: 0.05, focus: 5 },
   h_a5: { id: 'h_a5', cls: 'hunter', tree: 0, tier: 3, name: 'Unbreakable Bond', ranks: 2, revive: 0.25, petDr: 0.05 },
@@ -693,11 +699,11 @@ export const TALENT = {
   h_b8: { id: 'h_b8', cls: 'hunter', tree: 1, tier: 4, name: 'Concussive Precision', ranks: 1, stun: 1 },
   h_b9: { id: 'h_b9', cls: 'hunter', tree: 1, tier: 5, name: 'Starfall Arrow', ranks: 1, spell: 'starfall_arrow' },
   // Hunter: Wildcraft
-  h_c1: { id: 'h_c1', cls: 'hunter', tree: 2, tier: 1, name: 'Hardy', ranks: 3, hpPct: 0.04 },
+  h_c1: { id: 'h_c1', cls: 'hunter', tree: 2, tier: 1, name: 'Hardy', ranks: 3, hpPct: 0.03 }, // M2b v8 (D76): was 0.04
   h_c2: { id: 'h_c2', cls: 'hunter', tree: 2, tier: 1, name: 'Barbed Mastery', ranks: 3, pct: 0.20 },
   h_c3: { id: 'h_c3', cls: 'hunter', tree: 2, tier: 2, name: 'Trapper', ranks: 2, cd: 1, b: 4, l: 1.0, p: 0.4 },
-  h_c4: { id: 'h_c4', cls: 'hunter', tree: 2, tier: 2, name: 'Field Medic', ranks: 2, pct: 0.20 },
-  h_c5: { id: 'h_c5', cls: 'hunter', tree: 2, tier: 3, name: 'Survivalist', ranks: 2, dodge: 0.03 },
+  h_c4: { id: 'h_c4', cls: 'hunter', tree: 2, tier: 2, name: 'Field Medic', ranks: 2, pct: 0.10 }, // M2b v8 (D76): was 0.20
+  h_c5: { id: 'h_c5', cls: 'hunter', tree: 2, tier: 3, name: 'Survivalist', ranks: 2, dodge: 0.02 }, // M2b v8 (D76): was 0.03
   h_c6: { id: 'h_c6', cls: 'hunter', tree: 2, tier: 3, name: 'Venom Barbs', ranks: 2, stacks: 1 },
   h_c7: { id: 'h_c7', cls: 'hunter', tree: 2, tier: 4, name: 'Fire Snare', ranks: 1, rounds: 3, b: 3, l: 0.6, p: 0.25 },
   h_c8: { id: 'h_c8', cls: 'hunter', tree: 2, tier: 4, name: 'Cornered Beast', ranks: 3, pct: 0.08, below: 0.50 },

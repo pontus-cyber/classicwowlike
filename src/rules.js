@@ -21,6 +21,7 @@
 // rules 1.7.1-1.7.2, 1.9.10), rule helpers (V, xpCurve, diffMod, zoneDanger), every constant via `C`, and the dev tools
 // `debug` (engine-api.md 12, dev only: src/engine/debug.js). Owner feedback 2026-11-11: pendingTicks (the DoT preview,
 // engine-api.md 6.1) and talentInfo (talent totals, rules 6). M2b v6: freePotion (Packed Satchel's free potion, rules 7.5).
+// M2b v8: potionInfo (what a consumable restores now; the free potion at FREE_POTION_MULT, rules 7.5); zoneDanger's early factor.
 import * as C from './constants.js';
 import { normaliseSeed } from './rng.js';
 import { cloneState, deepClone, deepFreeze, IllegalActionError } from './engine/util.js';
@@ -34,7 +35,7 @@ import { availablePets, metaFromProfile, travelLevel as travelAt } from './engin
 import { nextLanes } from './engine/map.js';
 import { xpToNext, xpCurve, diffMod, talentPointsFree as freePoints } from './engine/progress.js';
 import { itemScore, V, bagCapacity as bagCap, countConsumable } from './engine/items.js';
-import { spellCost as cost, spellCd, spellAmount, spellTl, fleeChance as flee, castError } from './engine/spells.js';
+import { spellCost as cost, spellCd, spellAmount, spellTl, fleeChance as flee, castError, itemAmount } from './engine/spells.js';
 import { resurrectOrder, offBalanceOpen, findSt } from './engine/damage.js';
 import { engageOptions as engageList, engagePreview as previewEngage } from './engine/engage.js';
 import { isEngageRound as engageRound } from './engine/track.js';
@@ -57,6 +58,7 @@ export { C, validateContent, newProfile, metaOffers, buyMeta, applyRunToProfile,
  *   zoneDanger(level, variant = 'normal')  damage multiplier of an enemy built from a template (rules 7.6): 1 at or
  *               below ZONE_DANGER_FROM; 'trash' and 'dboss' (dungeon) take DUNGEON_DANGER_FRAC of the bonus (M2 v4);
  *               'normal' (quest, grind, Camp waves, summoned adds), 'elite', 'rare' the full bonus. Not the end boss.
+ *               M2b v8: × EARLY_DMG_MULT (0.80) at level <= EARLY_DMG_MAX_LEVEL, so below 1 there.
  */
 export { V, xpCurve, diffMod, zoneDanger };
 
@@ -223,6 +225,22 @@ export function fleeChance(state) {
 export function freePotion(state) {
   const f = state.fight;
   return !!(f && !f.over && f.p.freePotion && !f.p.skip);
+}
+
+/**
+ * What one use of a consumable restores now (rules 8.6; M2b v8, rules 7.5): { id, free, mult, heal, mana }. heal and
+ * mana are the amounts before the cap at max HP and max mana (the `heal` and `mana` events show what was restored), 0
+ * when it restores none (Purifying Tonic, Spark Flask). free: in a fight, this use would be Packed Satchel's free potion
+ * (freePotion(state) and a potion); then mult = FREE_POTION_MULT and the amounts are that share of the normal ones, else
+ * mult = 1. The engine's own numbers (spells.js itemAmount): show these, never recompute them. null for an id that is not
+ * a consumable, or before START_RUN.
+ */
+export function potionInfo(state, itemId) {
+  const c = C.CONSUMABLE[itemId];
+  if (!c || !state.player || !state.player.d) return null;
+  const free = !!(c.potion && freePotion(state));
+  const a = itemAmount(state, itemId, free);
+  return { id: itemId, free, mult: a.mult, heal: a.heal, mana: a.mana };
 }
 
 /**
