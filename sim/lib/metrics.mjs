@@ -217,3 +217,39 @@ export function runLength(records, combatMinutes) {
     lvlAtBoss: med(reach.map((r) => (r.boss ? r.boss.lvl : r.lvl))),
   };
 }
+
+/**
+ * Start camp and contracts of prep runs (expedition.md 11.1 B39, B42, B46; records' `ct`, recorder.mjs): completion
+ * (completed / taken; abandoned by a swap not counted), by kind, by zone and by source (board, hub); contract XP share
+ * of all XP (B46, summed over runs); contracts per run, board and hub; purchases per run (share of runs buying each
+ * option); Reserve left at the end of the run (mean).
+ */
+export function contractMetrics(records) {
+  const rs = records.filter((r) => !r.err && r.ct);
+  const all = [];
+  for (const r of rs) for (const k of r.ct.c) all.push(k);
+  const done = (list) => { const l = list.filter((k) => k[3] !== 'a'); return rate(l.filter((k) => k[3] === 'c').length, l.length); };
+  const by = (f) => {
+    const g = {};
+    for (const k of all) (g[f(k)] || (g[f(k)] = [])).push(k);
+    return Object.fromEntries(Object.entries(g).sort().map(([key, l]) => [key, { ...done(l), taken: l.length }]));
+  };
+  const bought = {};
+  for (const r of rs) for (const id of r.ct.bought) bought[id] = (bought[id] || 0) + 1;
+  const xpC = rs.reduce((a, r) => a + r.ct.xpC, 0);
+  const xp = rs.reduce((a, r) => a + r.ct.xp, 0);
+  return {
+    runs: rs.length,
+    completion: done(all),
+    byKind: by((k) => k[1]),
+    byZone: by((k) => k[0]),
+    bySource: by((k) => (k[2] === 'h' ? 'hub' : 'board')),
+    abandoned: all.filter((k) => k[3] === 'a').length,
+    xpShare: xp ? xpC / xp : null,
+    perRun: rs.length ? all.length / rs.length : null,
+    hubPerRun: rs.length ? all.filter((k) => k[2] === 'h').length / rs.length : null,
+    bought: Object.fromEntries(Object.entries(bought).sort().map(([id, n]) => [id, n / rs.length])),
+    reserve: rs.length ? rs.reduce((a, r) => a + r.ct.res, 0) / rs.length : null,
+    tracker: rs.length ? rs.filter((r) => r.ct.tr).length / rs.length : null,
+  };
+}
