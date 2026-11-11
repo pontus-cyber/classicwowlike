@@ -432,8 +432,8 @@ export const DIM_HP_MULT = 1.2;
 export const DIM_DMG_MULT = 1.3;
 /** rules 1.9.6: Shardspawn kill XP × this. */
 export const DIM_XP_MULT = 0.25;
-/** rules 1.9.6: tolls of a Dimmed encounter. */
-export const TIME_DIM_FIGHT = 1;
+/** rules 1.9.6 (M2b v11, D94: 1 -> 2; the arm is 1 with DIM_DMG_MULT 1.6): tolls of a Dimmed encounter. */
+export const TIME_DIM_FIGHT = 2;
 /** rules 1.9.6 (M2b v10, D85; expedition.md 6.2): tolls the zone's Dungeon node stays out of the Dimming after the front reaches it. */
 export const DUNGEON_DIM_HOLD = 3;
 /** rules 1.9.7: Homeward Bell charges at the start of a run, and the most a run can hold. */
@@ -452,12 +452,25 @@ export const EXPED_TIME_QUEST = 3;
 export const EXPED_TIME_ELITE = 3;
 export const EXPED_TIME_GRIND_WAVE = 2;
 export const EXPED_TIME_DUNGEON = 5; // M2b v10 (D84): 6 -> 5, the rows map's TIME_DUNGEON
+/**
+ * rules 1.9.8, 8.4 (M2b v11, D91; expedition.md 9.5, 13): × the item and junk chance of a normal or dungeon-trash kill in an
+ * expedition run (× GRIND_DROP_MULT as well on a Grind node or a Camp wave; a chance is capped at 1). Not elites, rares,
+ * dungeon bosses, treasure or rewards; Dimmed encounters drop nothing. The conditional arm is 1.9.
+ */
+export const EXPED_DROP_MULT = 1.6;
+/** rules 1.9.8, 8.4 (M2b v11, D92): rolls on "Dungeon boss" at a dungeon clear in an expedition run (rows: DUNGEON_BOSS_DROPS). */
+export const EXPED_DUNGEON_BOSS_DROPS = 3;
 // Start camp and contracts (docs/specs/expedition.md 2, 3 and 13, task M2b 2b.5; "(prep)" in engine-api.md). Used only by
 // an expedition run (mapMode 'expedition'): the PREP phase after START_RUN, the contract board, supplies and vision perks,
 // contracts with their sites and rewards, the hub contract, Reserve.
 /** expedition.md 2.1: preparation points of a fresh profile, and per Quartermaster rank (meta). */
 export const PREP_POINTS = 10;
 export const PREP_POINTS_PER_QM = 2;
+/** expedition.md 8.2, 13 (meta, M2b v11 build): costs of the expedition catalogue entries Cartographer, Old Hand and Quartermaster's two ranks. */
+export const META_COST_CARTOGRAPHER = 100;
+export const META_COST_OLD_HAND = 150;
+export const META_COST_QM_1 = 120;
+export const META_COST_QM_2 = 200;
 /** expedition.md 2.6, 11.1: Echoes per Reserve point left at SUMMARY. */
 export const PREP_ECHO_PER_POINT = 2;
 /** expedition.md 2.2: contracts on the board, of which one per zone and this many more for drawn zones. */
@@ -614,6 +627,15 @@ export const CLASS = {
 export const CLASS_IDS = ['rogue', 'mage', 'hunter'];
 
 /**
+ * rules 5.6 (M2b v11 row 8, D98, gated): Beastcall Horn's cooldown in rounds (SPELL.beastcall_horn.cd). It stays 12 until
+ * the sim's gate passes (changes-m2b-v11.md cell 9 / 11); the gated value is BEASTCALL_HORN_CD_GATED. The sim arms it at
+ * run time by setting C.SPELL.beastcall_horn.cd = C.BEASTCALL_HORN_CD_GATED in every process (the engine reads the
+ * field when the spell is cast), or in a scratch copy by changing this line.
+ */
+export const BEASTCALL_HORN_CD = 12;
+export const BEASTCALL_HORN_CD_GATED = 15;
+
+/**
  * Spells (rules 5.3-5.6, talent spells 6.x).
  * cost: energy/focus points, or fraction of base mana for the Mage (rules 7.3).
  * Damage = b + l×tl + p×P + w×WD (talent spells use tl = L). perCp: the b/l/p part is × CP.
@@ -673,7 +695,7 @@ export const SPELL = {
   starfall_arrow: { id: 'starfall_arrow', cls: 'hunter', name: 'Starfall Arrow', lvl: 1, cost: 50, cd: 5, school: 'phys', b: 20, l: 4.0, p: 1.8, w: 2.0, refundOnKill: 50, tags: ['nuke'], target: 'enemy', source: 'talent' },
   deadfall_trap: { id: 'deadfall_trap', cls: 'hunter', name: 'Deadfall Trap', lvl: 1, cost: 30, cd: 8, school: 'phys', b: 10, l: 2.4, p: 1.0, stun: 1, tags: ['aoe', 'stun'], target: 'all', source: 'talent' },
   ricochet_bolt: { id: 'ricochet_bolt', cls: 'hunter', name: 'Ricochet Bolt', lvl: 20, cost: 35, cd: 0, school: 'phys', b: 5, l: 1.1, p: 0.5, w: 0.9, bounces: 2, bounceFrac: 0.4, tags: ['aoe'], target: 'enemy', source: 'meta', meta: 'sp_h1', autoEnemies: 2 },
-  beastcall_horn: { id: 'beastcall_horn', cls: 'hunter', name: 'Beastcall Horn', lvl: 40, cost: 0, cd: 12, taunt: 2, tags: ['pet', 'defensive'], target: 'self', source: 'meta', meta: 'sp_h2', autoHp: 0.40 },
+  beastcall_horn: { id: 'beastcall_horn', cls: 'hunter', name: 'Beastcall Horn', lvl: 40, cost: 0, cd: BEASTCALL_HORN_CD, taunt: 2, tags: ['pet', 'defensive'], target: 'self', source: 'meta', meta: 'sp_h2', autoHp: 0.40 },
 };
 
 /** Pets (rules 5.5). Specials: doubleEvery (every Nth pet action hits twice), tauntEvery (TAUNT in round 1 and every N rounds after, tauntRounds long), cleave (attack also hits a second enemy). */
@@ -989,9 +1011,18 @@ export const META = {
   satchel: { id: 'satchel', name: 'Packed Satchel', kind: 'start kit', ranks: 1, costs: [60], potions: 3, req: [] },
   heirloom_blade: { id: 'heirloom_blade', name: 'Heirloom Blade', kind: 'start kit', ranks: 1, costs: [80], rarity: 'uncommon', ilvl: 3, req: [] },
   pockets: { id: 'pockets', name: 'Deeper Pockets', kind: 'start kit', ranks: 2, costs: [50, 100], slots: 4, req: [] },
+  // expedition.md 2.1, 8.2 (M2b v11 build): +PREP_POINTS_PER_QM preparation points per rank at the start camp; expedition only
+  quartermaster: { id: 'quartermaster', name: 'Quartermaster', kind: 'start kit', ranks: 2, costs: [META_COST_QM_1, META_COST_QM_2], req: [], mapMode: 'expedition', points: PREP_POINTS_PER_QM },
   ledger: { id: 'ledger', name: "Trainer's Ledger", kind: 'economy', ranks: 1, costs: [120], req: [] },
-  scout: { id: 'scout', name: "Scout's Eye", kind: 'map', ranks: 1, costs: [100], req: [] },
-  swift_boots: { id: 'swift_boots', name: 'Swift Boots', kind: 'map', ranks: 1, costs: [200], levels: 1, req: [] },
+  // expedition.md 8.2 (M2b v11 build): in an expedition run with the start camp Scout's Eye is replaced by Pathfinder (node
+  // types only within PATHFINDER_RADIUS hops) and Swift Boots is +1 Homeward Bell charge (no level gate to lower); `expedition`
+  // holds that effect, the other fields the rows map's (rules 11.2)
+  scout: { id: 'scout', name: "Scout's Eye", kind: 'map', ranks: 1, costs: [100], req: [], expedition: { name: 'Pathfinder', typeRadius: PATHFINDER_RADIUS } },
+  swift_boots: { id: 'swift_boots', name: 'Swift Boots', kind: 'map', ranks: 1, costs: [200], levels: 1, req: [], expedition: { bell: 1 } },
+  // expedition.md 8.2 (M2b v11 build): entries that act only in an expedition run with the start camp (mapMode 'expedition';
+  // on the rows map they do nothing, and the UI labels them): Cartographer owns Region Charts, Old Hand Tracker's Notes
+  cartographer: { id: 'cartographer', name: 'Cartographer', kind: 'map', ranks: 1, costs: [META_COST_CARTOGRAPHER], req: [], mapMode: 'expedition', perk: 'prep_charts' },
+  old_hand: { id: 'old_hand', name: 'Old Hand', kind: 'map', ranks: 1, costs: [META_COST_OLD_HAND], req: [], mapMode: 'expedition', perk: 'prep_tracker' },
   alchemist: { id: 'alchemist', name: "Alchemist's Notes", kind: 'items', ranks: 1, costs: [150], req: ['satchel'] },
   cache: { id: 'cache', name: 'Cache of the Wanderer', kind: 'items', ranks: 1, costs: [200], req: [] },
   relics: { id: 'relics', name: 'Relics of the Deep', kind: 'items', ranks: 1, costs: [400], req: ['cache'] },
@@ -1023,23 +1054,19 @@ export const PREP_OPTION = {
   prep_spyglass: { id: 'prep_spyglass', name: 'Spyglass', kind: 'vision', price: PRICE_SPYGLASS, charges: SPYGLASS_CHARGES },
 };
 export const PREP_OPTION_IDS = Object.keys(PREP_OPTION);
-/** Contract kinds (expedition.md 3.1; prep): price, sites needed, XP share, gold × V, item choices and table, board weight (M2b v10, D84: delve price 1 -> 2). */
+/** Contract kinds (expedition.md 3.1; prep): price, sites needed, XP share, gold × V, item choices and table, board weight (M2b v10, D84: delve price 1 -> 2; M2b v11, D93: 2 -> 1). */
 export const CONTRACT = {
   cull: { id: 'cull', price: 2, sites: CULL_SITES, xpFrac: CULL_XP_FRAC, goldV: CULL_GOLD_V, choices: CONTRACT_REWARD_CHOICES, table: 'contract', weight: CW_CULL },
   bounty: { id: 'bounty', price: 3, sites: 1, xpFrac: BOUNTY_XP_FRAC, goldV: BOUNTY_GOLD_V, choices: CONTRACT_REWARD_CHOICES, table: 'bounty', weight: CW_BOUNTY },
-  delve: { id: 'delve', price: 2, sites: 1, xpFrac: DELVE_XP_FRAC, goldV: DELVE_GOLD_V, choices: DELVE_REWARD_CHOICES, table: 'contract', weight: CW_DELVE },
+  delve: { id: 'delve', price: 1, sites: 1, xpFrac: DELVE_XP_FRAC, goldV: DELVE_GOLD_V, choices: DELVE_REWARD_CHOICES, table: 'contract', weight: CW_DELVE },
 };
 export const CONTRACT_KINDS = ['cull', 'bounty', 'delve'];
 /**
- * Meta entries of expedition.md 8.2 the start camp reads (prep): Quartermaster ranks add PREP_POINTS_PER_QM points each,
- * Cartographer owns Region Charts, Old Hand owns Tracker's Notes. Not in META (the catalogue) until the switch-over to
- * the expedition map (engine default, Lead to confirm): the engine reads `profile.unlocks[id]` (ranks capped here).
+ * The expedition-only catalogue entries of expedition.md 8.2 (META entries with mapMode 'expedition', the same objects):
+ * Quartermaster ranks add PREP_POINTS_PER_QM points each, Cartographer owns Region Charts, Old Hand owns Tracker's Notes.
+ * In META since the M2b v11 build (they were read from `profile.unlocks` before); kept as a name for the simulator.
  */
-export const META_EXPEDITION = {
-  quartermaster: { id: 'quartermaster', name: 'Quartermaster', ranks: 2, costs: [120, 200], points: PREP_POINTS_PER_QM },
-  cartographer: { id: 'cartographer', name: 'Cartographer', ranks: 1, costs: [100], perk: 'prep_charts' },
-  old_hand: { id: 'old_hand', name: 'Old Hand', ranks: 1, costs: [150], perk: 'prep_tracker' },
-};
+export const META_EXPEDITION = Object.fromEntries(Object.values(META).filter((m) => m.mapMode === 'expedition').map((m) => [m.id, m]));
 
 /** Oaths (rules 11.5). */
 export const OATH = {

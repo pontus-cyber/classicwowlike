@@ -1,6 +1,7 @@
 // Damage pipeline (rules 7.2), statuses (7.4), OFF_BALANCE (7.13, combat v2), the wind-up stacks EMPOWERED and STAGGERED
 // (7.12, combat v2.1), kills, death and resurrection (9). The end-boss fight's BOSS_DMG_MULT (10.1, M2b v6): bossDmgFactor.
-// Expedition (rules 1.9.6, 1.9.8): Shardspawn kill rewards, the XP weight, the death location by node id.
+// Expedition (rules 1.9.6, 1.9.8): Shardspawn kill rewards, the XP weight, the kill loot weight and dungeon boss rolls
+// (M2b v11), the death location by node id.
 // Dev tools (engine-api.md 12): god mode (state.dev.god) stops all damage to the player in a dev run.
 // Units: 'player', 'pet', or an enemy index (number) into s.fight.enemies.
 import {
@@ -9,7 +10,7 @@ import {
   TALENT, BOON_DMG_PCT, ELIXIR_DMG_PCT, UNIQUE_ELITE_DMG, LINK_DR, LINK_DR_PER_SHARD, FIGHT_SOFT_ENRAGE_ROUND,
   FIGHT_SOFT_ENRAGE_STEP, ECLIPSE_STEP, BRAND_MAX, BOSS_DMG_MULT, DEBUFFS, RES_HP_PCT, RES_MANA_PCT, MOB_XP_FRAC,
   ELITE_XP_MULT, RARE_XP_MULT, DUNGEON_BOSS_XP_MULT, DUNGEON_MOB_XP_MULT, MOB_COIN_V, ELITE_GOLD_V,
-  EMBER_ELITE_DROP_CHANCE, DUNGEON_BOSS_DROPS, UNIQUE_HEAL_ON_KILL, ABILITY_TEMPLATE, DODGE_CAP, SPELL,
+  EMBER_ELITE_DROP_CHANCE, UNIQUE_HEAL_ON_KILL, ABILITY_TEMPLATE, DODGE_CAP, SPELL,
   SHARD_AOE_TAKEN, OFFBAL_TAKEN, OFFBAL_BOSS_TAKEN, OFFBAL_CRIT, BLOODLUST_STEP, BLOODLUST_MAX, DIM_XP_MULT,
   EMPOWER_DMG, STAGGER_DMG,
 } from '../constants.js';
@@ -19,7 +20,7 @@ import { tr, hasEffect } from './stats.js';
 import { eventXp, gainXp, gainGold } from './progress.js';
 import { rollDrop, V, makeConsumable, countConsumable, takeConsumable } from './items.js';
 import { onBossDamaged } from './boss.js';
-import { xpWeight, isExpedition } from './expedition.js';
+import { xpWeight, isExpedition, killDropMult, bossDropRolls } from './expedition.js';
 
 // ---------------- Units ----------------
 export function unitSt(s, u) {
@@ -609,7 +610,8 @@ function enemyDeath(s, ev, idx) {
     return;
   }
   // Kill rewards (rules 2.0, 4.4, 8.4, 8.5): XP, coin, drops. Expedition (1.9.8): XP × XP_WEIGHT_MULT; a Shardspawn
-  // (1.9.6) gives XP × DIM_XP_MULT and no coin or loot.
+  // (1.9.6) gives XP × DIM_XP_MULT and no coin or loot. M2b v11 (D91, D92): a normal or trash kill's item and junk chance
+  // × EXPED_DROP_MULT (with the node's GRIND_DROP_MULT), a dungeon boss EXPED_DUNGEON_BOSS_DROPS rolls.
   const xp = eventXp(s, MOB_XP_FRAC * killXpMult(e) * xpWeight(s), e.level);
   gainXp(s, ev, xp, 'kill', true);
   if (e.kind === 'elite' || e.kind === 'rare') gainGold(s, ev, ELITE_GOLD_V * V(e.level), 'kill');
@@ -623,10 +625,10 @@ function enemyDeath(s, ev, idx) {
     if (nextFloat(lr) < EMBER_ELITE_DROP_CHANCE) f.drops.push(makeConsumable(s, 'ember_of_return'));
     s.stats.kills[e.kind] += 1;
   } else if (e.kind === 'dboss') {
-    for (let i = 0; i < DUNGEON_BOSS_DROPS; i++) f.drops.push(...rollDrop(s, lr, 'dboss', e.level, z));
+    for (let i = 0, n = bossDropRolls(s); i < n; i++) f.drops.push(...rollDrop(s, lr, 'dboss', e.level, z));
     s.stats.kills.boss += 1;
   } else {
-    f.drops.push(...rollDrop(s, lr, e.kind === 'trash' ? 'trash' : 'mob', e.level, z, f.dropMult || 1));
+    f.drops.push(...rollDrop(s, lr, e.kind === 'trash' ? 'trash' : 'mob', e.level, z, (f.dropMult || 1) * killDropMult(s)));
     s.stats.kills.normal += 1;
   }
   const heal = hasEffect(s, 'healOnKill');

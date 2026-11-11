@@ -3,7 +3,8 @@
 // in a run created with dimming: false, D50), vision and the player-visible map view (Road names, expedition texts and
 // region families from content, D51; elites without their name or own archetype, D50). Pure helpers of the state; the
 // run flow (moves, Dimmed encounters, Roads, the Homeward Bell) is in nodes.js. Only a run created with mapMode
-// 'expedition' uses the map; the mode helpers (node time, grind waves, XP weight) answer for both maps. Time is counted in
+// 'expedition' uses the map; the mode helpers (node time, grind waves, XP weight, kill loot weight and dungeon boss rolls,
+// M2b v11) answer for both maps. Time is counted in
 // whole tolls (M2b v7, docs/specs/changes-m2b-v7.md A-C); the Dimming's front is computed in integers (D70). Start camp
 // and contracts (prep, expedition.md 2-3; contracts.js): the zone keeps the map(z) stream after the node types for the
 // contract sites (siteRng), a Delve contract shows its dungeon, and the view shows the site marks the player sees.
@@ -16,7 +17,7 @@ import {
   EDGE_DIAG_R23, REGION_COUNT, REGION_FAMILY_SHARE, REGION_W, REGION_KINDS, RING1_FORBIDDEN, ROAD_COUNT, VISION_RADIUS,
   VISION_RADIUS_MAX, GUIDE_RADIUS_BONUS, PATHFINDER_RADIUS, DIM_GRACE, DIM_FRONT_HOPS, DIM_FRONT_TIME, DUNGEON_DIM_HOLD, BELL_CHANNEL_TIME,
   XP_WEIGHT_MULT, EXPED_GRIND_MAX_WAVES, EXPED_DUNGEON_TRASH_FIGHTS, EXPED_TIME_QUEST, EXPED_TIME_ELITE,
-  EXPED_TIME_GRIND_WAVE, EXPED_TIME_DUNGEON, EXPEDITION_TEXT_IDS,
+  EXPED_TIME_GRIND_WAVE, EXPED_TIME_DUNGEON, EXPEDITION_TEXT_IDS, EXPED_DROP_MULT, EXPED_DUNGEON_BOSS_DROPS, DUNGEON_BOSS_DROPS,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt, weightedIndex } from '../rng.js';
 import { zoneContent } from './content.js';
@@ -30,6 +31,13 @@ export const isExpedition = (s) => s.mapMode === 'expedition';
 export const grindMaxWaves = (s) => (isExpedition(s) ? EXPED_GRIND_MAX_WAVES : GRIND_MAX_WAVES);
 /** × the XP of kills, quest turn-ins, grind waves and dungeon clears (rules 1.9.8: XP_WEIGHT_MULT; rows: 1). */
 export const xpWeight = (s) => (isExpedition(s) ? XP_WEIGHT_MULT : 1);
+/**
+ * × the item and junk chance of a normal or dungeon-trash kill (rules 8.4, 1.9.8; M2b v11, D91): EXPED_DROP_MULT in an
+ * expedition run (Camp waves included, as the XP weight), 1 on the rows map. It multiplies GRIND_DROP_MULT on a Grind node.
+ */
+export const killDropMult = (s) => (isExpedition(s) ? EXPED_DROP_MULT : 1);
+/** Rolls on "Dungeon boss" at a dungeon clear (rules 2.4, 8.4; M2b v11, D92): EXPED_DUNGEON_BOSS_DROPS in an expedition run. */
+export const bossDropRolls = (s) => (isExpedition(s) ? EXPED_DUNGEON_BOSS_DROPS : DUNGEON_BOSS_DROPS);
 const ROWS_TIME = {
   quest: TIME_QUEST, grind: TIME_GRIND_WAVE, elite: TIME_ELITE, dungeon: TIME_DUNGEON, rest: TIME_REST,
   vendor: TIME_VENDOR, trainer: TIME_TRAINER, treasure: TIME_TREASURE, shrine: TIME_SHRINE,

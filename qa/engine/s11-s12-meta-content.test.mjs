@@ -79,7 +79,7 @@ describe('rules 11 meta progression', () => {
     assert.equal(full.unlocks.edge, 4, 'Edge of the Line: 4 ranks (M2 v4)');
     assert.throws(() => R.buyMeta(full, 'edge'), /not available/);
     const total = Object.values(C.META).reduce((n, m) => n + m.costs.reduce((a, b) => a + b, 0), 0);
-    assert.equal(total, 6560, 'catalogue total 6 560 Echoes (rules 11.2, M2 v5: Starforged Arms removed)');
+    assert.equal(total, 7130, 'catalogue total 7 130 Echoes (rules 11.2, M2 v5: Starforged Arms removed, 6 560; M2b v11: + the expedition entries of expedition.md 8.2, 570)');
     const offers = R.metaOffers(prof({}, { echoes: 100 }));
     assert.equal(offers.find((o) => o.id === 'scout').affordable, true);
     assert.equal(offers.find((o) => o.id === 'relics').available, false);

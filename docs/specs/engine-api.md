@@ -26,7 +26,11 @@ summary's `expedition.contracts` and the Echo lines `contracts` and `reserve`; s
 (tuning pass M2b v9, docs/specs/changes-m2b-v9.md rows 1-4: new numbers in `C`, `zoneDanger` with ZONE_DANGER_STEP 0.45;
 marked "(M2b v9)"; tuning pass M2b v10, docs/specs/changes-m2b-v10.md rows A1-A3, B1-B4, C1: contract XP without the
 level-difference modifier and `reward.xp` in `prepView` / `contractView`, new numbers in `C`, the Dungeon's
-DUNGEON_DIM_HOLD in `dimAt`, `mapView` and `heatView`, the engine defaults of 13.4 confirmed; marked "(M2b v10)").
+DUNGEON_DIM_HOLD in `dimAt`, `mapView` and `heatView`, the engine defaults of 13.4 confirmed; marked "(M2b v10)");
+2026-11-11h (the flip package M2b v11, docs/specs/changes-m2b-v11.md rows 1-4 and 8: new numbers in `C` (EXPED_DROP_MULT,
+EXPED_DUNGEON_BOSS_DROPS, TIME_DIM_FIGHT 2, the Delve's price 1, BEASTCALL_HORN_CD and its gated value); the meta catalogue
+of expedition.md 8.2 in `C.META` (Cartographer, Old Hand, Quartermaster with `mapMode: 'expedition'`; Scout's Eye and
+Swift Boots with an `expedition` effect) and its effects in runs with the start camp; marked "(M2b v11)").
 Units: every time value of the API is a whole number of tolls (1 toll = 1 former in-game hour, D69); there are no hours.
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
@@ -49,7 +53,7 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 
 | Function | Returns | Notes |
 |---|---|---|
-| `newRun({classId, petId, name, seed, profile, content, mapMode, vision, dimming, prep})` | state (phase CREATE) | All fields but `content` optional. `seed`: integer, normalised to uint32; the front end draws a random seed (the engine never does). `profile`: meta profile (`newProfile()` if omitted). `content` is validated (structural) and deep-frozen. (expedition) `mapMode`: `'rows'` (today's map, rules 1.4; the default) or `'expedition'` (rules 1.9, section 10); `state.mapMode` keeps it. `vision`: expedition only, `{ guide, charts, pathfinder }` booleans (Local Guide, Region Charts, Pathfinder, rules 1.9.5) until the start camp and meta buy them (2b.5). `dimming` (D50): expedition only, `false` plays the run without the Dimming (rules 1.9.6; a measurement option for B44), default `true`. (prep) `prep`: expedition only, `true` starts the run at the start camp (phase PREP) and plays contracts (section 13); default `false` until the simulator's bots and the UI handle PREP: the expedition map then plays exactly as before task 2b.5. Throws on invalid content/class/pet/mapMode/vision/dimming/prep. |
+| `newRun({classId, petId, name, seed, profile, content, mapMode, vision, dimming, prep})` | state (phase CREATE) | All fields but `content` optional. `seed`: integer, normalised to uint32; the front end draws a random seed (the engine never does). `profile`: meta profile (`newProfile()` if omitted). `content` is validated (structural) and deep-frozen. (expedition) `mapMode`: `'rows'` (today's map, rules 1.4; the default) or `'expedition'` (rules 1.9, section 10); `state.mapMode` keeps it. `vision`: expedition only, `{ guide, charts, pathfinder }` booleans (Local Guide, Region Charts, Pathfinder, rules 1.9.5); a test and measurement option beside the start camp and the catalogue, which give them too (M2b v11). `dimming` (D50): expedition only, `false` plays the run without the Dimming (rules 1.9.6; a measurement option for B44), default `true`. (prep) `prep`: expedition only, `true` starts the run at the start camp (phase PREP) and plays contracts (section 13); default `false` until the simulator's bots and the UI handle PREP: the expedition map then plays exactly as before task 2b.5. Throws on invalid content/class/pet/mapMode/vision/dimming/prep. |
 | `legalActions(state)` | action[] | Every concrete legal action. `SET_NAME` and `SET_SEED` take free values and are not listed (they are legal in CREATE). |
 | `step(state, action)` | `{ state, events }` | Pure: the input is never changed. Throws `IllegalActionError` (`err.code === 'ILLEGAL_ACTION'`, message names the reason) on an illegal action. |
 | `stepInPlace(state, action)` | events | Same, but changes `state` in place (no copy). For simulators that own their state. |
@@ -59,7 +63,7 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 | `serialize(state)` / `deserialize(str, content)` | string / state | The content tables are not saved; pass the same `CONTENT` (version is checked). |
 | `mapView(state)` | object or null | What the player may see of the zone map (rules 1.4). Rare elites, traps and vendor Embers are `null` unless the profile owns Scout's Eye. Use this, not `state.zone.rows`, to draw the map. Fight nodes list one archetype per enemy: quest and elite `archetypes`, grind `archetypes` (first wave), treasure `archetypes` (the guard; `[]` unguarded, combat v2), dungeon `fights` (one archetype list per trash fight) and `bossArchetype` (combat v2). (expedition) In an expedition run: the zone graph as the player sees it (section 10.3). null outside a zone. |
 | `validateContent(content, {strict})` | string[] | Content checks (src/content/SCHEMA.md). |
-| `newProfile()`, `metaOffers(profile)`, `buyMeta(profile, id)` | profile / offers / profile | Meta catalogue between runs (rules 11.2). `buyMeta` throws `IllegalActionError` when not allowed. |
+| `newProfile()`, `metaOffers(profile)`, `buyMeta(profile, id)` | profile / offers / profile | Meta catalogue between runs (rules 11.2). `buyMeta` throws `IllegalActionError` when not allowed. (M2b v11) The expedition entries are offered and bought as any entry; read `C.META[id].mapMode` (`'expedition'`: no effect on the rows map) and `C.META[id].expedition` (Scout's Eye, Swift Boots: the effect in an expedition run) to label them. |
 | `xpToNext(L)`, `talentPointsFree(state)`, `itemScore(item, classId)`, `spellCost(state, id)`, `spellCooldown(state, id)`, `fleeChance(state)` | number | Display helpers so the UI never re-implements a rule. |
 | `bagCapacity(state)` | number | Bag slots: `BAG_SLOTS` + meta Deeper Pockets (rules 8.7, 11.2). In CREATE it reads the profile. |
 | `travelLevel(state)` | number or null | Level from which `TRAVEL_ON` is legal in the current zone (rules 1.5): exit level - TRAVEL_EARLY_LEVELS, one lower with Swift Boots ("Travel on at level N"). After the last row TRAVEL_ON is legal at any level. null outside a zone (CREATE, Camp, run over) and in an expedition run (no level gate, rules 1.9.7). |
@@ -470,11 +474,24 @@ M2 v5: Starforged Arms is removed (D45), catalogue total 6 560. A stored `starfo
 weapon), it is not listed by `metaOffers`, `buyMeta` throws "unknown meta unlock", no Echoes are refunded, and the id
 stays stored. The class weapons stay in `CONTENT.uniques` (kind `weapon`); no rule puts them in a run.
 
+M2b v11 (expedition.md 8.2, rules 11.2): the catalogue holds the expedition entries `cartographer` (100), `old_hand` (150)
+and `quartermaster` (2 ranks, 120 / 200), catalogue total 7 130. They carry `mapMode: 'expedition'`: on the rows map they
+do nothing and `state.meta` has no flag for them (a rows run is unchanged, its state too). In an expedition run with the
+start camp (`prep: true`, section 13) Cartographer owns Region Charts, Old Hand Tracker's Notes (`prepView` options
+`owned`), and each Quartermaster rank adds PREP_POINTS_PER_QM points. `scout` and `swift_boots` keep their rows effect
+(`state.meta.scout`, `state.meta.swiftBoots`) and carry `expedition`: with the start camp Scout's Eye is Pathfinder
+(`mapView.vision.typeRadius` = PATHFINDER_RADIUS) and Swift Boots adds `expedition.bell` Homeward Bell charges at
+START_RUN (`mapView.bell.charges`, at most BELL_MAX_CHARGES; the Second Clapper is then refused at the start camp when the
+Bell is full). Without the start camp none of the expedition effects apply, as before. `C.META_EXPEDITION` stays: the
+three expedition entries, the same objects as in `C.META`.
+
 ## 10. Expedition map (expedition; rules 1.9)
 A run created with `newRun({ mapMode: 'expedition' })` plays the roamable zone graph (rules 1.9). Until the
 switch-over the default stays `'rows'`; nothing of a rows run changes. (prep) The start camp, contracts, the hub contract and
-the Spyglass are in the engine behind `newRun`'s `prep: true` (section 13). Not yet: Ask the Locals, the meta changes of expedition.md 8.2 (Pathfinder for
-Scout's Eye, Swift Boots as a Bell charge; Cartographer, Old Hand and Quartermaster are read from the profile, section 13.4).
+the Spyglass are in the engine behind `newRun`'s `prep: true` (section 13), and so are the catalogue's expedition effects of
+expedition.md 8.2 (section 9, M2b v11). Not yet: Ask the Locals. (M2b v11) An expedition run's kills drop more: a normal
+or trash kill's item and junk chance × EXPED_DROP_MULT, a dungeon clear EXPED_DUNGEON_BOSS_DROPS rolls (rules 1.9.8, 8.4);
+a Dimmed encounter costs TIME_DIM_FIGHT 2 tolls.
 
 ### 10.1 Flow
 - START_RUN: phase ZONE_HUB on the hub (node 0) of zone 1. `LEAVE_HUB` puts the player on the map, standing on the
@@ -722,7 +739,7 @@ it, else stays as it is (it still counts); the hub contract only before the zone
 contract it gives up: `TAKE_HUB_CONTRACT(mode, contractId)`, `contractId` for `swap` only (ignored with `reserve`); a
 Delve shows its dungeon's type while held or complete; a Grind site counts at its first wave won; REROLL_BOARD replaces
 slot by slot from `prep(k + 1)`; board draws: kind, region, family (always one draw), the Bounty's elite, extra slots
-their zone first; Cartographer, Old Hand and Quartermaster are read from `profile.unlocks` (`C.META_EXPEDITION`) and
-are not in the catalogue (`C.META`) until the switch-over; autoplay's start camp: Field Draughts, then the board's
-contract for each of zones 1-AUTO_PREP_ZONES whatever its kind (a Delve costs 2 since M2b v10) while AUTO_PREP_RESERVE
+their zone first; Cartographer, Old Hand and Quartermaster are read from `profile.unlocks` (catalogue entries in `C.META`
+since the M2b v11 build, section 9; `C.META_EXPEDITION` names the three); autoplay's start camp: Field Draughts, then the board's
+contract for each of zones 1-AUTO_PREP_ZONES whatever its kind (a Delve costs 1 again since M2b v11) while AUTO_PREP_RESERVE
 points stay; the hub contract from Reserve when it can; its map policy does not seek sites.

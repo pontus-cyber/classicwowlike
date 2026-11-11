@@ -160,6 +160,10 @@ export function startExpedition(s) {
   const owned = s.exp.prep ? ownedPerks(s) : [];
   if (owned.includes('prep_charts')) s.exp.vision.regions = true;
   if (owned.includes('prep_tracker')) s.exp.vision.tracker = TRACKER_RADIUS;
+  // The catalogue's expedition effects (expedition.md 8.2, M2b v11 build), with the start camp as the entries above:
+  // Scout's Eye is Pathfinder (node types within PATHFINDER_RADIUS hops), Swift Boots +1 Bell charge (at most BELL_MAX_CHARGES).
+  if (s.exp.prep && s.meta.scout) s.exp.vision.typeRadius = Math.max(s.exp.vision.typeRadius, META.scout.expedition.typeRadius);
+  if (s.exp.prep && s.meta.swiftBoots) s.exp.bell = Math.min(BELL_MAX_CHARGES, s.exp.bell + META.swift_boots.expedition.bell);
   s.stats.exp = { walks: 0, passes: 0, dimFights: 0, bells: 0, bellExits: 0, roads: 0, maxRing: 0, zones: [], preps: 0, hubOffers: 0 };
 }
 

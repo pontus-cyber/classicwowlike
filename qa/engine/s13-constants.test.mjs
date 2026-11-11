@@ -35,7 +35,7 @@ describe('rules 13 constant table', () => {
   });
 });
 
-describe('change docs M2b v9 and v10: the engine constants equal the "New" column of their constant tables', () => {
+describe('change docs M2b v9, v10 and v11: the engine constants equal the "New" column of their constant tables', () => {
   const doc = (f) => readFileSync(fileURLToPath(new URL(`../../docs/specs/${f}`, import.meta.url)), 'utf8');
   // [row label as the table starts it, getters in the order of the cell's "a / b" values]; bot, sim and balance rows are not engine constants
   const WANT = {
@@ -46,8 +46,13 @@ describe('change docs M2b v9 and v10: the engine constants equal the "New" colum
     'changes-m2b-v10.md': [
       ['CONTRACT_CL_OFFSET', [() => K.CONTRACT_CL_OFFSET]], ['CONTRACT_RARE_W / CONTRACT_EPIC_W', [() => K.CONTRACT_RARE_W, () => K.CONTRACT_EPIC_W]],
       ['BOUNTY_RARE_W / BOUNTY_EPIC_W', [() => K.BOUNTY_RARE_W, () => K.BOUNTY_EPIC_W]], ['DELVE_XP_FRAC', [() => K.DELVE_XP_FRAC]],
-      ['CONTRACT.delve.price', [() => K.CONTRACT.delve.price]], ['EXPED_TIME_DUNGEON', [() => K.EXPED_TIME_DUNGEON]],
-      ['DUNGEON_DIM_HOLD', [() => K.DUNGEON_DIM_HOLD]], ['XP_WEIGHT_MULT', [() => K.XP_WEIGHT_MULT]],
+      // CONTRACT.delve.price: 2 in v10, back to 1 in v11 (D93), checked against the v11 table below
+      ['EXPED_TIME_DUNGEON', [() => K.EXPED_TIME_DUNGEON]], ['DUNGEON_DIM_HOLD', [() => K.DUNGEON_DIM_HOLD]], ['XP_WEIGHT_MULT', [() => K.XP_WEIGHT_MULT]],
+    ],
+    // M2b v11 engine rows 1-4 (D91-D94); row 8 is gated (below); rows 5-7 are targets
+    'changes-m2b-v11.md': [
+      ['EXPED_DROP_MULT', [() => K.EXPED_DROP_MULT]], ['EXPED_DUNGEON_BOSS_DROPS', [() => K.EXPED_DUNGEON_BOSS_DROPS]],
+      ['CONTRACT.delve.price', [() => K.CONTRACT.delve.price]], ['TIME_DIM_FIGHT', [() => K.TIME_DIM_FIGHT]], ['XP_WEIGHT_MULT', [() => K.XP_WEIGHT_MULT]],
     ],
   };
   for (const [file, want] of Object.entries(WANT)) {
@@ -65,6 +70,12 @@ describe('change docs M2b v9 and v10: the engine constants equal the "New" colum
       assert.equal(K.CONTRACT.delve.xpFrac, K.DELVE_XP_FRAC);
     });
   }
+  test('changes-m2b-v11.md row 8 (gated, not applied): SPELL.beastcall_horn.cd keeps the "Old" value, the "New" value is BEASTCALL_HORN_CD_GATED', () => {
+    const text = doc('changes-m2b-v11.md');
+    const row = rows(text.slice(text.indexOf('## Constants'))).find((r) => r[0].startsWith('SPELL.beastcall_horn.cd'));
+    assert.ok(row && /gated/.test(row[0]));
+    assert.deepEqual([K.SPELL.beastcall_horn.cd, K.BEASTCALL_HORN_CD, K.BEASTCALL_HORN_CD_GATED], [Number(row[1]), Number(row[1]), Number(row[2])]);
+  });
 });
 
 describe('rules data tables', () => {

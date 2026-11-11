@@ -11,7 +11,7 @@
 import {
   ZONE_COUNT, ZONE_LEVELS, PREP_POINTS, PREP_POINTS_PER_QM, PREP_ECHO_PER_POINT, CONTRACT_BOARD_SIZE, CONTRACT_SLOTS,
   REROLL_PRICE, REROLL_MAX, CULL_SITES, CULL_SITE_SPARE, CULL_SITE_IN, CULL_SITE_OUT, BOUNTY_PLACED,
-  CONTRACT_CL_OFFSET, PREP_OPTION, PREP_OPTION_IDS, CONTRACT, CONTRACT_KINDS, META_EXPEDITION, BELL_MAX_CHARGES,
+  CONTRACT_CL_OFFSET, PREP_OPTION, PREP_OPTION_IDS, CONTRACT, CONTRACT_KINDS, META, BELL_MAX_CHARGES,
   GUIDE_RADIUS_BONUS, TRACKER_RADIUS, EMBER_MAX_CARRIED, XP_WEIGHT_MULT, DROP_TABLE, RARITY_ORDER,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt, weightedIndex } from '../rng.js';
@@ -22,8 +22,8 @@ import { V, rollDrop, makeConsumable, addToBag, countConsumable } from './items.
 import { zoneRegions, setupExpNode, xpWeight } from './expedition.js';
 
 // ---------------- Preparation points and the board (expedition.md 2.1, 2.2) ----------------
-/** Quartermaster ranks of the profile (META_EXPEDITION, capped at its ranks). */
-const metaRank = (profile, id) => Math.min(((profile && profile.unlocks) || {})[id] || 0, META_EXPEDITION[id].ranks);
+/** Ranks of an expedition catalogue entry the profile owns (META, mapMode 'expedition'; capped at its ranks). */
+const metaRank = (profile, id) => Math.min(((profile && profile.unlocks) || {})[id] || 0, META[id].ranks);
 /** prepPoints = PREP_POINTS + PREP_POINTS_PER_QM × Quartermaster ranks (expedition.md 2.1). */
 export const prepPoints = (profile) => PREP_POINTS + PREP_POINTS_PER_QM * metaRank(profile, 'quartermaster');
 /** The contract level CL_c = ZONE_LEVELS × (z - 1) + CONTRACT_CL_OFFSET (the zone's rim level 10z - 2, expedition.md 3.1, M2b v10). */
@@ -66,7 +66,8 @@ export function drawBoard(s, k) {
 
 /**
  * Vision perks the run owns without buying them (expedition.md 2.4): from meta (Cartographer: Region Charts, Old Hand:
- * Tracker's Notes; META_EXPEDITION) or from newRun's `vision` option (charts, guide; a test and measurement option).
+ * Tracker's Notes; catalogue entries since the M2b v11 build) or from newRun's `vision` option (charts, guide; a test and
+ * measurement option).
  */
 export function ownedPerks(s) {
   const out = [];

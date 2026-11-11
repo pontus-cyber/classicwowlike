@@ -79,7 +79,9 @@ describe('expedition.md 13: the start camp and contract constants (prep)', () =>
       'CULL_XP_FRAC', 'BOUNTY_XP_FRAC', 'DELVE_XP_FRAC', 'CULL_GOLD_V', 'BOUNTY_GOLD_V', 'DELVE_GOLD_V', 'CONTRACT_REWARD_CHOICES', 'DELVE_REWARD_CHOICES',
       'CONTRACT_RARE_W', 'CONTRACT_EPIC_W', 'BOUNTY_RARE_W', 'BOUNTY_EPIC_W', 'ECHO_CONTRACT_MULT', 'PRICE_PREP_DRAUGHTS', 'PREP_DRAUGHT_COUNT',
       'PRICE_PREP_RATIONS', 'PREP_RATION_COUNT', 'PRICE_PREP_EMBER', 'PRICE_PREP_BELL', 'PRICE_PREP_MULE', 'PREP_MULE_SLOTS', 'PRICE_CHARTS',
-      'PRICE_TRACKER', 'PRICE_GUIDE', 'PRICE_SPYGLASS', 'SPYGLASS_CHARGES', 'TRACKER_RADIUS', 'PACE_PREP_S', 'PACE_HUB_CONTRACT_S'];
+      'PRICE_TRACKER', 'PRICE_GUIDE', 'PRICE_SPYGLASS', 'SPYGLASS_CHARGES', 'TRACKER_RADIUS', 'PACE_PREP_S', 'PACE_HUB_CONTRACT_S',
+      // M2b v11: the Dimmed encounter's tolls, the expedition kill loot weight and boss rolls, the catalogue costs of 8.2
+      'TIME_DIM_FIGHT', 'EXPED_DROP_MULT', 'EXPED_DUNGEON_BOSS_DROPS', 'META_COST_CARTOGRAPHER', 'META_COST_OLD_HAND', 'META_COST_QM_1', 'META_COST_QM_2'];
     const seen = new Set();
     for (const [nameCell, valueCell] of rows) {
       const ns = nameCell.split('/').map((x) => x.trim());
@@ -370,15 +372,15 @@ describe('expedition.md 3: contracts in the zone', () => {
     }
   });
 
-  test('M2b v10 (D82-D84): contract level 10z - 2; contract XP without diffMod at any level, 0 at MAX_LEVEL; reward.xp is the amount paid; Delve price 2, XP 1.5', () => {
+  test('M2b v10 (D82-D84): contract level 10z - 2; contract XP without diffMod at any level, 0 at MAX_LEVEL; reward.xp is the amount paid; Delve XP 1.5 (price 1 again since M2b v11, D93)', () => {
     const camp = atCamp({ seed: 4 });
     for (let z = 1; z <= C.ZONE_COUNT; z++) assert.equal(contractLevel(z), 10 * z - 2);
-    assert.deepEqual([C.CONTRACT.delve.price, C.CONTRACT.delve.xpFrac, C.CONTRACT_CL_OFFSET, C.XP_WEIGHT_MULT], [2, 1.5, 8, 1.4]);
+    assert.deepEqual([C.CONTRACT.delve.price, C.CONTRACT.delve.xpFrac, C.CONTRACT_CL_OFFSET, C.XP_WEIGHT_MULT], [1, 1.5, 8, 1.4]);
     for (const b of R.prepView(camp).board) {
       const want = Math.round(C.CONTRACT[b.kind].xpFrac * C.XP_WEIGHT_MULT * R.xpCurve(contractLevel(b.z)));
       assert.equal(b.reward.xp, want, `zone ${b.z} ${b.kind}`);
       assert.equal(b.reward.xpFrac, C.CONTRACT[b.kind].xpFrac * C.XP_WEIGHT_MULT);
-      if (b.kind === 'delve') assert.equal(b.price, 2);
+      if (b.kind === 'delve') assert.equal(b.price, 1); // M2b v11 (D93)
     }
     // The pay at completion does not depend on the level: a zone-1 Cull (CL_c 8) completed at level 1, 9 and 30; 0 at MAX_LEVEL.
     const regs = zoneRegions(REAL, 1);
@@ -470,9 +472,9 @@ describe('expedition.md 3: contracts in the zone', () => {
     assert.ok(!JSON.stringify(v).includes('"sites"'));
     assert.deepEqual(Object.keys(v).sort(), ['contracts', 'held', 'hub', 'reserve', 'slots']);
     const sum = R.summary(s);
-    // M2b v10 (D84): a Delve costs CONTRACT.delve.price 2 (was 1)
+    // M2b v10 (D84): a Delve cost CONTRACT.delve.price 2; M2b v11 (D93): 1 again
     const left = C.PREP_POINTS - C.CONTRACT.delve.price - C.PRICE_PREP_DRAUGHTS;
-    assert.equal(left, 7);
+    assert.equal(left, 8);
     assert.deepEqual([sum.expedition.contracts.taken, sum.expedition.contracts.held, sum.expedition.contracts.bought, sum.expedition.contracts.reserve],
       [1, 1, ['prep_draughts'], left]);
     const line = sum.echoes.lines.find((l) => l.id === 'reserve');
