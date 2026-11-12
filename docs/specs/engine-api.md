@@ -49,7 +49,8 @@ rows 1, 2 and 4, D123-D125: the Swift passage of a Road (rules 1.9.7: the `swift
 `mapView.swift`, `heatPreview`'s `swift`, `stats.exp.swift` and the summary's `swift` counts), `C.ROAD_SWIFT_TOLLS`,
 `C.ROAD_SWIFT_XP_FRAC`, the switch `C.GATES.swiftRoad` (off since D126, report 2026-11-12c; the rule stays),
 `debug.nextZone` without the Swift passage; marked "(M2b v15)"; D126: `C.GATES.mawgrimHp` and content `gated` removed,
-Mawgrim's hpMult 0.95 is its content value).
+Mawgrim's hpMult 0.95 is its content value); 2026-11-12e (D132: the start camp's board drawn across the run,
+`C.CONTRACT_BOARD_BANDS` and the switch `C.GATES.boardAcrossRun`, on; section 13.1; marked "(D132)").
 Units: every time value of the API is a whole number of tolls (1 toll = 1 former in-game hour, D69); there are no hours.
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
@@ -766,16 +767,23 @@ DUNGEON_DIM_HOLD 3 until M2b v12 removed it) act on every expedition run, with o
   below holds. BUY_PREP refuses an option not in `C.PREP_CAMP_OPTIONS` ("not offered at the start camp"): the camp sells
   Field Draughts, Ember of Return, Region Charts and Tracker's Notes; the other options keep their SET_OUT effects.
   `contracts.js drawBoard(s, k, kept, size)` draws a board of `size` slots (default CONTRACT_BOARD_SIZE; tests draw 8).
-- Board (`prep(k)`): slot i < ZONE_COUNT is zone i + 1, the others draw a zone (1 draw). Each offer: kind by weight CW_* (1
+- (D132, the board across the run) With `C.GATES.boardAcrossRun` on (the default), slot i draws its zone from
+  `C.CONTRACT_BOARD_BANDS[i]` = [[1,2],[3,4],[5,6]]: the board is one offer each from zones 1-2, 3-4 and 5-6. Off: the
+  D128 board (zones 1, 2, 3; the stream as D128 drew it). `contracts.js boardBand(i)` gives a slot's band [lo, hi] under
+  the switch. prepView's `z`, `zoneName`, `band` and `reward` follow the drawn zone (no new fields).
+- Board (`prep(k)`): slot i takes its zone from its band `boardBand(i)` (D132, switch on: CONTRACT_BOARD_BANDS[i]; off:
+  zone i + 1 while i < ZONE_COUNT; past those: 1..ZONE_COUNT): 1 draw `lo + nextInt(hi - lo + 1)` when lo < hi, none for
+  a band of one zone. Each offer: kind by weight CW_* (1
   draw); Cull and Bounty: region (1 draw, uniform over the zone's regions in content order), family (1 draw over the
   region's families; null without), Bounty: its elite (1 draw over the zone's rares of that family, else over all its
   rares); Delve: the zone's dungeon. REROLL_BOARD replaces every offer not taken by the same slot of `prep(k + 1)`; a
   taken slot still makes its draws and keeps its offer. No repeats (2026-11-11): a slot whose offer equals one already on
   the board (same zone, kind, region, family and elite; an earlier slot or a taken offer) takes instead one `weightedIndex`
-  draw over the offers it can draw (a zone slot: its zone; an extra slot: every zone, each 1 / ZONE_COUNT) that are not on
+  draw over the offers it can draw (its band's zones, each 1 / band size: a zone slot its zone, a band slot its band, an
+  extra slot every zone) that are not on
   the board, each weighted by its chance in the normal draw (kind weight, then 1 / regions, 1 / families, 1 / the elite
   list), in the order zone, kind (CONTRACT_KINDS), region, family, elite; with none left the offer stays. A board without
-  a repeat is drawn as before; the zone slots of `prep(0)` never change. `contracts.js sameOffer` is the comparison.
+  a repeat is drawn as before; the zone and band slots of `prep(0)` never change. `contracts.js sameOffer` is the comparison.
 - Slots: at most CONTRACT_SLOTS contracts held at once (taken and not complete, expired or abandoned).
 - SET_OUT: Field Draughts, Trail Pack and the Ember go into the bag (what does not fit: the loot window); Second Clapper
   +1 Bell charge (at most BELL_MAX_CHARGES); Pack Mule +PREP_MULE_SLOTS bag slots for the run (`bagCapacity`); Region
@@ -831,5 +839,6 @@ Delve shows its dungeon's type while held or complete; a Grind site counts at it
 slot by slot from `prep(k + 1)` (with `GATES.campReroll` on; off since D128); board draws: kind, region, family (always one draw), the Bounty's elite, extra slots
 their zone first; Cartographer, Old Hand and Quartermaster are read from `profile.unlocks` (catalogue entries in `C.META`
 since the M2b v11 build, section 9; `C.META_EXPEDITION` names the three); autoplay's start camp: Field Draughts, then the board's
-contract for each of zones 1-AUTO_PREP_ZONES whatever its kind (a Delve costs 2 again since M2b v12) while AUTO_PREP_RESERVE
+contract for each of zones 1-AUTO_PREP_ZONES whatever its kind (D132: on the board across the run that is the zone 1-2
+offer, and the middle offer only when it is zone 3; unchanged by D132) (a Delve costs 2 again since M2b v12) while AUTO_PREP_RESERVE
 points stay; the hub contract from Reserve when it can; its map policy does not seek sites.

@@ -37,11 +37,11 @@ Real time: PREP is one screen, about PACE_PREP_S seconds. The run otherwise keep
 
 ### 2.2 The contract board
 At PREP the board shows CONTRACT_BOARD_SIZE contracts drawn on stream `prep(k)` = hash(runSeed, "prep", k), k = number of rerolls so far:
-- slot i (from 0) is a contract of zone i + 1 while i < ZONE_COUNT; a slot past ZONE_COUNT would draw its zone uniformly from 1..ZONE_COUNT. (D128: CONTRACT_BOARD_SIZE 3, so the board is one contract each for zones 1, 2 and 3, the first three slots of the board drawn before; it was 8, one per zone and CONTRACT_BOARD_EXTRA 2 drawn zones, a constant now retired. Owner playtest 2026-11-12 20:19: "lower the contracts to maybe 3 choices". Zones 4-6 offer their contract at the hub, 3.6.);
+- (D132) slot i (from 0) first takes its zone from its band, CONTRACT_BOARD_BANDS[i]: one uniform draw over the band's zones (a band of one zone makes no draw). The bands are zones 1-2, 3-4 and 5-6, so the three offers span the run: one early, one middle, one late contract (report 2026-11-12d: with the board on zones 1-3 the zone 4-6 contracts left the start camp and the hubs did not replace them; PALL 48.2 % < 50 %, B46 5.1 % < 8 %). The switch `GATES.boardAcrossRun` is **on**; off, slot i is a contract of zone i + 1 while i < ZONE_COUNT with no zone draw (the D128 board: zones 1, 2 and 3), kept so the simulator can arm the old board. A slot past the bands (or past ZONE_COUNT when off) would draw its zone uniformly from 1..ZONE_COUNT. (D128: CONTRACT_BOARD_SIZE 3; it was 8, one per zone and CONTRACT_BOARD_EXTRA 2 drawn zones, a constant now retired. Owner playtest 2026-11-12 20:19: "lower the contracts to maybe 3 choices". Each zone 2-6 also offers a contract at its hub, 3.6.);
 - kind by weight: Cull CW_CULL, Bounty CW_BOUNTY, Delve CW_DELVE (section 3);
 - target region: uniform over the zone's REGION_COUNT regions (Delve: the zone's dungeon); target family: one of the region's families (Content, 12.2);
 - every contract shows: zone and level band, kind, target ("Cull boars in the Barley Reach, Amberfold Downs, levels 1-10"), sites needed, reward summary, price.
-- no two offers on one board are the same contract (same zone, kind, target region and family, and a Bounty's elite; D128: a board whose slots all have their own zone never draws a repeat, so the rule acts only on a larger board or a meta unlock): a slot whose offer equals one already on the board (an earlier slot, or after a reroll an offer kept because it is taken) takes instead one weighted draw, on the same stream, over the offers that slot can draw (a zone's own slot: that zone; an extra slot: every zone) that are not on the board, each with its chance in the normal draw, so the odds are those of drawing again until it differs; with none left the offer stays. A board without a repeat is drawn as before this rule (QA playtest 2026-11-11 finding 4: offers 2 and 7 were the same; 2026-11-11, UI/UX & Visual Engineer, docs/handoffs/ui-2026-11-11d.md).
+- no two offers on one board are the same contract (same zone, kind, target region and family, and a Bounty's elite; D128, D132: a board whose slots all have their own zone or band never draws a repeat, so the rule acts only on a larger board or a meta unlock): a slot whose offer equals one already on the board (an earlier slot, or after a reroll an offer kept because it is taken) takes instead one weighted draw, on the same stream, over the offers that slot can draw (its band's zones, each 1 / band size: a zone's own slot that zone, a band slot its band, an extra slot every zone) that are not on the board, each with its chance in the normal draw, so the odds are those of drawing again until it differs; with none left the offer stays. A board without a repeat is drawn as before this rule (QA playtest 2026-11-11 finding 4: offers 2 and 7 were the same; 2026-11-11, UI/UX & Visual Engineer, docs/handoffs/ui-2026-11-11d.md).
 
 `TAKE_CONTRACT(i)` costs `CONTRACT.kind.price` points; at most CONTRACT_SLOTS contracts may be held at once (whole run, PREP and hubs). `DROP_CONTRACT(i)` at PREP refunds the price.
 
@@ -115,7 +115,7 @@ Progress: a site counts when its node is won (Quest: encounter won; Grind: at le
 The player knows the target region of each contract but, with a fresh profile, not which nodes are sites or where the region lies: both are discovered by walking (section 5). Region Charts show where to go; the Tracker shows the sites; the Guide shows more of everything. This is the owner's "finding the boars is partly chance" [stated], and the prep perks are how a player buys that chance down.
 
 ### 3.5 Slots and the plan
-CONTRACT_SLOTS limits held contracts (PREP and hubs together). The board covers zones 1-3 (D128; it covered all six zones before), so the start camp sets the early goals; the hub offers one contract per zone from zone 2 on, the only offer for zones 4-6.
+CONTRACT_SLOTS limits held contracts (PREP and hubs together). The board offers one contract from each of zones 1-2, 3-4 and 5-6 (D132; D128 had zones 1-3, and the board covered all six zones before), so the start camp sets an early, a middle and a late goal; the hub offers one contract per zone from zone 2 on.
 
 ### 3.6 Hub contract
 Each zone hub (zones 2..6; zone 1's hub follows PREP directly) offers one contract of that zone (stream hash(runSeed, "hubc", z); kind and target as 2.2), open until the zone's first `LEAVE_HUB` (a later hub visit does not offer it; M2b v10). `TAKE_HUB_CONTRACT(mode, contractId)`:
@@ -539,6 +539,7 @@ Reproduce: `cd sim/out/heat && HEATP='{"gain":[0,0,0.35,0.5],"up":[0,0,0.25,0.4]
 | PREP_POINTS_PER_QM | 2 | points per Quartermaster rank |
 | PREP_ECHO_PER_POINT | 2 | Echoes per Reserve point at SUMMARY |
 | CONTRACT_BOARD_SIZE | 3 | contracts (D128: was 8; CONTRACT_BOARD_EXTRA 2 retired) |
+| CONTRACT_BOARD_BANDS | [[1,2],[3,4],[5,6]] | zone band of each board slot (D132; only with `GATES.boardAcrossRun`, on; off: zones 1, 2, 3) |
 | CONTRACT_SLOTS | 4 | contracts held |
 | REROLL_PRICE | 1 | points (only with `GATES.campReroll`, off since D128) |
 | REROLL_MAX | 2 | rerolls (only with `GATES.campReroll`, off since D128) |

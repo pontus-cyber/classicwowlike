@@ -417,8 +417,10 @@ export const RARE_HP_MULT_Z1 = 3.0;
  * mechanism are removed.
  * D128 (owner playtest 2026-11-12 20:19, a lean start camp): campReroll: REROLL_BOARD at the start camp (expedition.md
  * 2.2). **Off**: no reroll on the first screen; the rule stays for a later meta unlock.
+ * D132 (report 2026-11-12d: zone 4-6 contracts left the board): boardAcrossRun: the camp's offers are drawn one from each
+ * band of CONTRACT_BOARD_BANDS (zones 1-2, 3-4, 5-6; expedition.md 2.2). **On**; off plays the D128 board (zones 1, 2, 3).
  */
-export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false };
+export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true };
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
 // with mapMode 'expedition'; a run on today's map (mapMode 'rows', the default) never reads them.
 /** rules 1.9.2: nodes per ring (ring 0 = the hub). */
@@ -516,11 +518,18 @@ export const META_COST_QM_2 = 200;
 /** expedition.md 2.6, 11.1: Echoes per Reserve point left at SUMMARY. */
 export const PREP_ECHO_PER_POINT = 2;
 /**
- * expedition.md 2.2: contracts on the board; slot i is zone i + 1 (a slot past ZONE_COUNT would draw its zone). D128
- * (owner playtest 2026-11-12 20:19, a lean start camp): 3, one each for zones 1-3 (was 8: one per zone and
- * CONTRACT_BOARD_EXTRA 2 drawn zones; that constant is retired). Later zones offer theirs at the hub (3.6).
+ * expedition.md 2.2: contracts on the board. D128 (owner playtest 2026-11-12 20:19, a lean start camp): 3 (was 8: one
+ * per zone and CONTRACT_BOARD_EXTRA 2 drawn zones; that constant is retired). D132: one from each band of
+ * CONTRACT_BOARD_BANDS (GATES.boardAcrossRun, on); off, one each for zones 1-3. Every zone 2-6 also offers one at its
+ * hub (3.6).
  */
 export const CONTRACT_BOARD_SIZE = 3;
+/**
+ * expedition.md 2.2 (D132, report 2026-11-12d): the zone band of each board slot while GATES.boardAcrossRun is on: slot i
+ * draws its zone uniformly from CONTRACT_BOARD_BANDS[i] (one draw; a band of one zone makes none), so the three offers
+ * span the run. Off: slot i is zone i + 1 (D128). A slot past the bands draws from 1..ZONE_COUNT.
+ */
+export const CONTRACT_BOARD_BANDS = [[1, 2], [3, 4], [5, 6]];
 /** expedition.md 2.2, 3.5: contracts held at once (PREP and hubs together). */
 export const CONTRACT_SLOTS = 4;
 /** expedition.md 2.2: price of REROLL_BOARD and the most rerolls per run; legal only with GATES.campReroll (off since D128). */

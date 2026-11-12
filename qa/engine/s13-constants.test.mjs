@@ -164,9 +164,11 @@ describe('change doc M2b v15 (docs/specs/changes-m2b-v15.md, D123-D125): the eng
     assert.equal(value(maw[1]), 0.95);
     assert.deepEqual(Object.keys(ENEMIES).filter((id) => 'gated' in ENEMIES[id]), []);
   });
-  test('C.GATES: the v14 switches, the v15 swiftRoad (off since D126) and campReroll (D128, off), nothing else (mawgrimHp removed)', () => {
-    assert.deepEqual(Object.keys(K.GATES).sort(), ['campReroll', 'firstMeetWindup', 'passStealth', 'rareHpMultZ1', 'sapHold', 'swiftRoad']);
+  test('C.GATES: the v14 switches, the v15 swiftRoad (off since D126), campReroll (D128, off) and boardAcrossRun (D132, on), nothing else (mawgrimHp removed)', () => {
+    assert.deepEqual(Object.keys(K.GATES).sort(), ['boardAcrossRun', 'campReroll', 'firstMeetWindup', 'passStealth', 'rareHpMultZ1', 'sapHold', 'swiftRoad']);
     assert.equal(K.GATES.campReroll, false);
+    assert.equal(K.GATES.boardAcrossRun, true);
+    assert.deepEqual(K.CONTRACT_BOARD_BANDS, [[1, 2], [3, 4], [5, 6]]);
   });
 });
 

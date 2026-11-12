@@ -5,7 +5,8 @@
 // Every draw order is replayed here from the spec's own description; the rows map never sees any of it. D128 (a lean
 // start camp): a 3-offer board, no reroll (GATES.campReroll off), only PREP_CAMP_OPTIONS for sale; the reroll, the
 // no-repeat rule (8-slot boards drawn directly) and the other options' effects are still checked here (withGate,
-// withCamp).
+// withCamp). D132: the three offers are drawn across the run, one from each band of CONTRACT_BOARD_BANDS (zones 1-2, 3-4,
+// 5-6) while GATES.boardAcrossRun is on (the default); off, the D128 board (zones 1-3) is checked too.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -88,19 +89,27 @@ function oddsOf(c, zs) {
   return out;
 }
 /**
- * The documented board of prep(k) (expedition.md 2.2): slot by slot, zone then offer; a kept (taken) slot draws and keeps
+ * The zone band of board slot i (expedition.md 2.2): D132 (GATES.boardAcrossRun on) CONTRACT_BOARD_BANDS[i]; off (D128)
+ * zone i + 1 alone while i < ZONE_COUNT; a slot past those: 1..ZONE_COUNT.
+ */
+const bandOf = (i) => (C.GATES.boardAcrossRun ? C.CONTRACT_BOARD_BANDS[i] || [1, C.ZONE_COUNT] : i < C.ZONE_COUNT ? [i + 1, i + 1] : [1, C.ZONE_COUNT]);
+/** The slot's zone: one uniform draw over its band, none for a band of one zone. */
+const zoneOf = (rng, [lo, hi]) => (lo === hi ? lo : lo + nextInt(rng, hi - lo + 1));
+const range = ([lo, hi]) => Array.from({ length: hi - lo + 1 }, (_, j) => lo + j);
+/**
+ * The documented board of prep(k) (expedition.md 2.2): slot by slot, zone (its band) then offer; a kept (taken) slot draws and keeps
  * its offer; an offer equal to one on the board is replaced by one weighted draw over the slot's offers not on the board.
  */
 function boardOf(seed, k, kept = [], size = C.CONTRACT_BOARD_SIZE) {
   const rng = STREAM.prep(seed, k);
   const out = [];
   for (let i = 0; i < size; i++) {
-    const z = i < C.ZONE_COUNT ? i + 1 : 1 + nextInt(rng, C.ZONE_COUNT);
+    const z = zoneOf(rng, bandOf(i));
     let o = offerOf(REAL, rng, z);
     if (kept[i]) { out.push(pick(kept[i])); continue; }
     const board = [...out, ...kept.slice(i + 1).filter(Boolean).map(pick)];
     if (board.some((b) => sameAs(b, o))) {
-      const zs = i < C.ZONE_COUNT ? [z] : [1, 2, 3, 4, 5, 6].slice(0, C.ZONE_COUNT);
+      const zs = range(bandOf(i));
       const free = oddsOf(REAL, zs).filter((x) => !board.some((b) => sameAs(b, x.o)));
       if (free.length) o = free[weightedIndex(rng, free.map((x) => x.p))].o;
     }
@@ -112,7 +121,7 @@ function boardOf(seed, k, kept = [], size = C.CONTRACT_BOARD_SIZE) {
 function plainBoard(seed, k, size = C.CONTRACT_BOARD_SIZE) {
   const rng = STREAM.prep(seed, k);
   const out = [];
-  for (let i = 0; i < size; i++) out.push(offerOf(REAL, rng, i < C.ZONE_COUNT ? i + 1 : 1 + nextInt(rng, C.ZONE_COUNT)));
+  for (let i = 0; i < size; i++) out.push(offerOf(REAL, rng, zoneOf(rng, bandOf(i))));
   return out;
 }
 /** Play autoplay until pred; collect the events. */
@@ -165,9 +174,17 @@ describe('expedition.md 13: the start camp and contract constants (prep)', () =>
       });
     }
     assert.deepEqual([...seen].sort(), names.slice().sort(), 'every name found in the table');
-    // D128: 3 offers, one per zone 1-3 (CONTRACT_BOARD_EXTRA retired); no reroll at the camp; the camp's four options
+    // D128: 3 offers (CONTRACT_BOARD_EXTRA retired); no reroll at the camp; the camp's four options
     assert.deepEqual([C.CONTRACT_BOARD_SIZE, 'CONTRACT_BOARD_EXTRA' in C, C.GATES.campReroll], [3, false, false]);
     assert.ok(C.CONTRACT_BOARD_SIZE <= C.ZONE_COUNT);
+    // D132: one band per slot, the bands in order, touching, covering zones 1..ZONE_COUNT; the switch on by default
+    assert.deepEqual(C.CONTRACT_BOARD_BANDS, [[1, 2], [3, 4], [5, 6]]);
+    assert.equal(C.CONTRACT_BOARD_BANDS.length, C.CONTRACT_BOARD_SIZE);
+    assert.deepEqual(C.CONTRACT_BOARD_BANDS.flatMap(range), Array.from({ length: C.ZONE_COUNT }, (_, j) => j + 1));
+    assert.equal(C.GATES.boardAcrossRun, true);
+    const bands = rows.find((r) => r[0] === 'CONTRACT_BOARD_BANDS');
+    assert.ok(bands, 'CONTRACT_BOARD_BANDS row');
+    assert.deepEqual(JSON.parse(bands[1].split(/\s/)[0]), C.CONTRACT_BOARD_BANDS);
     const camp = rows.find((r) => r[0] === 'PREP_CAMP_OPTIONS');
     assert.ok(camp, 'PREP_CAMP_OPTIONS row');
     assert.deepEqual(C.PREP_CAMP_OPTIONS, camp[1].split(',').map((x) => x.trim()));
@@ -230,11 +247,11 @@ describe('expedition.md 1, 2: the start camp (PREP)', () => {
     }
   });
 
-  test('2.2 the board: stream prep(0), one contract for each of zones 1-CONTRACT_BOARD_SIZE (D128: 3); draws as documented; deterministic', () => {
+  test('2.2 the board: stream prep(0), CONTRACT_BOARD_SIZE offers (D128: 3), one from each band of CONTRACT_BOARD_BANDS (D132: zones 1-2, 3-4, 5-6); draws as documented; deterministic', () => {
     for (const seed of [1, 2, 3, 77]) {
       const s = atCamp({ seed });
       assert.deepEqual(s.prep.board.map(pick), boardOf(s.seed, 0), `seed ${seed}`);
-      assert.deepEqual(s.prep.board.map((o) => o.z), [1, 2, 3], `seed ${seed}: zones 1-3`);
+      s.prep.board.forEach((o, i) => assert.ok(o.z >= C.CONTRACT_BOARD_BANDS[i][0] && o.z <= C.CONTRACT_BOARD_BANDS[i][1], `seed ${seed}: slot ${i} in its band`));
       assert.deepEqual(atCamp({ seed }).prep.board, s.prep.board);
       for (const o of s.prep.board) {
         assert.equal(o.price, C.CONTRACT[o.kind].price);
@@ -260,6 +277,29 @@ describe('expedition.md 1, 2: the start camp (PREP)', () => {
       }
     }
     assert.ok(bounties > 10);
+  });
+
+  test('2.2 D132 board across the run: every zone of a band comes up (about evenly, one draw on prep(k)); GATES.boardAcrossRun off plays the D128 board (zones 1, 2, 3, no zone draw)', () => {
+    const count = {};
+    for (let seed = 1; seed <= 300; seed++) {
+      const s = atCamp({ seed });
+      for (const o of s.prep.board) count[o.z] = (count[o.z] || 0) + 1;
+      // the zone is the first draw of each slot: the same stream with the zone draw skipped gives the offer
+      const rng = STREAM.prep(seed, 0);
+      s.prep.board.forEach((o, i) => {
+        const [lo, hi] = C.CONTRACT_BOARD_BANDS[i];
+        assert.equal(o.z, lo + nextInt(rng, hi - lo + 1));
+        assert.deepEqual(pick(o), offerOf(REAL, rng, o.z), `seed ${seed}: slot ${i}`);
+      });
+      const off = withGate('boardAcrossRun', false, () => atCamp({ seed }));
+      assert.deepEqual(off.prep.board.map((o) => o.z), [1, 2, 3], `seed ${seed}: off, zones 1-3`);
+      assert.deepEqual(off.prep.board.map(pick), withGate('boardAcrossRun', false, () => boardOf(seed, 0)), `seed ${seed}: off, as D128`);
+      assert.deepEqual(off.prep.board.map(pick), withGate('boardAcrossRun', false, () => plainBoard(seed, 0)), `seed ${seed}: off, the plain zone slots`);
+    }
+    for (let z = 1; z <= C.ZONE_COUNT; z++) assert.ok(count[z] > 110 && count[z] < 190, `zone ${z}: ${count[z]} of 300`);
+    // the views carry the drawn zone (the card's zone, band and reward level follow it)
+    const v = R.prepView(atCamp({ seed: 1 }));
+    for (const b of v.board) assert.deepEqual([b.band, b.reward.cl, b.zoneName], [[10 * (b.z - 1) + 1, 10 * b.z], contractLevel(b.z), REAL.zones[b.z - 1].name]);
   });
 
   test('2.2 TAKE_CONTRACT costs its price, at most CONTRACT_SLOTS held; DROP_CONTRACT refunds; not twice; not past the points', () => {
@@ -314,8 +354,9 @@ describe('expedition.md 1, 2: the start camp (PREP)', () => {
     assert.match(R.whyIllegal(s, { type: 'REROLL_BOARD' }), /at most/);
   }));
 
-  test('2.2 no repeats (2026-11-11): no two offers on one board are the same contract, rerolls and taken offers included; a board without a repeat is drawn as before (D128: the 3-slot board, one zone per slot, never repeats; the rule is checked on 8-slot boards)', () => {
+  for (const across of [true, false]) test(`2.2 no repeats (2026-11-11): no two offers on one board are the same contract, rerolls and taken offers included; a board without a repeat is drawn as before (D128: the 3-slot board, one zone or band per slot, never repeats; the rule is checked on 8-slot boards; GATES.boardAcrossRun ${across ? 'on, D132' : 'off, D128'})`, () => withGate('boardAcrossRun', across, () => {
     const BIG = 8;
+    const fixed = across ? C.CONTRACT_BOARD_BANDS.length : C.ZONE_COUNT; // slots with their own zone or band
     let replaced = 0;
     let plainSame = 0;
     for (let seed = 1; seed <= 150; seed++) {
@@ -327,8 +368,8 @@ describe('expedition.md 1, 2: the start camp (PREP)', () => {
       const hadRepeat = plain.some((o, i) => plain.slice(0, i).some((p) => sameAs(p, o)));
       if (hadRepeat) replaced++;
       else { plainSame++; assert.deepEqual(b.map(pick), plain, `seed ${seed}: a board without a repeat is unchanged`); }
-      // The zone slots of prep(0) never change (each its own zone; the extra slots draw after them).
-      assert.deepEqual(b.slice(0, C.ZONE_COUNT).map(pick), plain.slice(0, C.ZONE_COUNT));
+      // The zone (or band) slots of prep(0) never change (no two share a zone; the extra slots draw after them).
+      assert.deepEqual(b.slice(0, fixed).map(pick), plain.slice(0, fixed));
       assert.deepEqual(b.slice(0, C.CONTRACT_BOARD_SIZE).map(pick), s.prep.board.map(pick), `seed ${seed}: the camp's board is the 8-slot board's start`);
       for (let k = 0; k <= C.REROLL_MAX; k++) {
         b.forEach((o, i) => assert.ok(!b.slice(0, i).some((p) => sameAs(p, o)), `seed ${seed}, prep(${k}): slot ${i + 1} repeats an offer`));
@@ -344,7 +385,7 @@ describe('expedition.md 1, 2: the start camp (PREP)', () => {
     // The playtest's board (seed 4, QA 2026-11-11): offers 2 and 7 were the same Cull, 6 and 8 the same; now 8 distinct.
     const b4 = drawBoard(atCamp({ seed: 4, classId: 'rogue' }), 0, [], BIG);
     assert.equal(new Set(b4.map((o) => [o.z, o.kind, o.region, o.family, o.template].join('|'))).size, BIG);
-  });
+  }));
 
   test('2.3 / 2.4 the camp offers PREP_CAMP_OPTIONS only (D128): prepView lists them in PREP_OPTION order; BUY_PREP refuses the others', () => {
     const s = atCamp();
