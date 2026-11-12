@@ -55,7 +55,7 @@ Plan: docs/reviews/ui-architecture-2026-11-12.md. Each step one session, behavio
 | R2 | Colour tokens and theme layer (src/ui/tokens.css) | UI/UX Engineer | done: 2366eb9; style snapshot identical, ui-regress 270/270 at 1366x768 (docs/handoffs/ui-2026-11-12b.md) |
 | R3 | One palette for JS and canvas (src/ui/theme.js) | UI/UX Engineer | done: c1b8b82; JS colour literals 808 to 703, style snapshot and canvas pixels identical in the default theme (docs/handoffs/ui-2026-11-12c.md) |
 | R4 | Type, spacing, radius, z-index, duration tokens | UI/UX Engineer | done: 62ec529; 193 scale tokens in tokens.css (190 new, 3 font families moved; z-index as named layers), 1 755 literals in style.css replaced by exact value; style snapshot (with image sources) and canvas pixels identical; danger icon background (docs/handoffs/ui-2026-11-12d.md) |
-| R5 | Art module boundary (art-props.js, art-fx.js, art contact sheet) | UI/UX Engineer | todo |
+| R5 | Art module boundary (art-props.js, art-fx.js, art contact sheet) | UI/UX Engineer | done: 61052ac; drawing moved out of scene.js (955 to 680 lines) into art-props.js and art-fx.js, art modules import only util.js and theme.js (qa/docs/ui-rules.test.mjs), canvas font weights on --fw-* tokens, tools/art-sheet.mjs with docs/art/sheet-current.png; style snapshot and canvas pixels identical, ui-regress 270/270 at 1366x768 (docs/handoffs/ui-2026-11-12e.md) |
 | R6-R15 | style.css split, bridge golden test, texts out of the mock, retire the mock engine, split the bridge, engine view requests, stale-proof keys, closures, ui-regress hooks, rules U1-U14 | UI/UX Engineer, Core Engineer | todo |
 
 ## M3. Meta progression and onboarding
