@@ -1,9 +1,9 @@
 // Sound (docs/specs/audio.md; src/ui/audio.js): the pure event-to-cue table, the decision view's cues (Deathblow telegraph
-// once, its first show, the Furnace), the Instant rule, and the player's rules on a recording fake AudioContext: nothing is
+// once, its first show, the Furnace, the Dimming spreading near the player), the Instant rule, and the player's rules on a recording fake AudioContext: nothing is
 // built before the first trusted gesture, every cue renders, the voice limit and priority, the Deathblow never dropped.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cuesFor, viewCues, newMemo, keepOfStep, actionCues, createAudio, RANK, META, PROTECTED, CUE_NAMES, MAX_VOICES } from '../../src/ui/audio.js';
+import { cuesFor, viewCues, newMemo, keepOfStep, actionCues, createAudio, dimmingNear, RANK, META, PROTECTED, CUE_NAMES, MAX_VOICES, DIM_NEAR, GLASS } from '../../src/ui/audio.js';
 
 const names = (list) => list.map((c) => c.cue);
 const P = { side: 'player' }; const E = { side: 'enemy', idx: 0 }; const PET = { side: 'pet' };
@@ -69,6 +69,24 @@ test('viewCues: the Furnace up a state (ticks by state) or back to Calm, nothing
   assert.deepEqual(viewCues(v('clear'), v('hot', 2), newMemo()), []);
 });
 
+// a map view: a line of nodes 0-1-2-3-4-5 (the player on `pos`), each { dimmed, dimsIn }; z the zone, seed the run
+const mapV = (pos, dim, o = {}) => ({ seed: o.seed ?? 1, player: {}, zone: { idx: o.z ?? 1, exp: { z: o.z ?? 1, pos, edges: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
+  nodes: dim.map((d, i) => ({ id: i, dimmed: d === 'D', dimsIn: d === 'D' ? null : d })) } } });
+test('viewCues: the Dimming (cue 10) when the front reached new nodes and stands near the player; silent far away, on no spread, across zones', () => {
+  const v = (prev, next) => names(viewCues(prev, next, newMemo()));
+  // the front moves from node 0 to node 1; the player on node 4
+  assert.deepEqual(v(mapV(4, ['D', 3, 6, 9, 12, 15]), mapV(4, ['D', 'D', 2, 5, DIM_NEAR, 11])), ['dimmingSpread'], 'his node dims in DIM_NEAR');
+  assert.deepEqual(v(mapV(4, ['D', 3, 6, 9, 12, 15]), mapV(4, ['D', 'D', 2, 5, DIM_NEAR + 1, 11])), [], 'a spread far from him');
+  assert.deepEqual(v(mapV(2, ['D', 3, 6, 9, 12, 15]), mapV(2, ['D', 'D', 5, 8, 11, 14])), ['dimmingSpread'], 'a node next to his was just Dimmed');
+  assert.deepEqual(v(mapV(1, ['D', 3, 6, 9, 12, 15]), mapV(1, ['D', 'D', 5, 8, 11, 14])), ['dimmingSpread'], 'his own node was Dimmed');
+  assert.deepEqual(v(mapV(4, ['D', 'D', 2, 5, 1, 11]), mapV(4, ['D', 'D', 2, 5, 1, 11])), [], 'no new Dimmed node: no cue, however close');
+  assert.deepEqual(v(mapV(4, ['D', 3, 6, 9, 12, 15]), mapV(4, ['D', 'D', 2, 5, 1, 11], { z: 2 })), [], 'another zone');
+  assert.deepEqual(v(mapV(4, ['D', 3, 6, 9, 12, 15]), mapV(4, ['D', 'D', 2, 5, 1, 11], { seed: 2 })), [], 'another run');
+  assert.deepEqual(v(null, mapV(4, ['D', 'D', 2, 5, 1, 11])), [], 'no view before');
+  assert.equal(dimmingNear({ zone: { exp: null } }, mapV(4, ['D', 'D', 2, 5, 1, 11])), false, 'not on the expedition map before');
+  assert.ok(RANK.dimmingSpread < RANK.levelUp && RANK.dimmingSpread > RANK.kill && RANK.dimmingSpread > RANK.furnaceUp, 'ranks under level-up, over kills, hits and the Furnace');
+});
+
 test('keepOfStep: Instant keeps the top-ranked cue and every protected one', () => {
   const k = (list) => [...keepOfStep(list.map((cue) => ({ cue })))].map((i) => list[i]).sort();
   assert.deepEqual(k(['hitLight', 'hitHeavy', 'kill', 'tick']), ['kill']);
@@ -127,6 +145,14 @@ test('player: the reserved gong (×1.414 partial on D2 or the tritone below) sou
   for (const n of CUE_NAMES) {
     made.oscFreqs.length = 0; const b = createAudio(stub()); b.unlock(); b.cue(n, { level: 3, rarity: 'epic', big: true });
     assert.equal(gongs(made.oscFreqs), ['deathblowTelegraph', 'deathblowFirstShow', 'deathblowLanded'].includes(n), n);
+  }
+}));
+
+test('player: the reserved glass voice (two sines GLASS Hz apart, beating) sounds only in the Dimming cue', () => withFake(async (made) => {
+  const glass = (fs) => fs.some((f) => fs.some((g) => g !== f && Math.abs(g / f - GLASS[1] / GLASS[0]) < 1e-6) && f > 1000);
+  for (const n of CUE_NAMES) {
+    made.oscFreqs.length = 0; const b = createAudio(stub()); b.unlock(); b.cue(n, { level: 3, rarity: 'epic', big: true, heatUp: true, maimed: true });
+    assert.equal(glass(made.oscFreqs), n === 'dimmingSpread', n);
   }
 }));
 

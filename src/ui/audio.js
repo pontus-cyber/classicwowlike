@@ -1,9 +1,9 @@
 // Sound (docs/specs/audio.md from docs/audio/README.md; D127). Every cue is synthesised with Web Audio (oscillators, noise,
 // envelopes, filters) as in the approved preview, docs/audio/preview.html; no file is ever loaded. Pure, Node-tested part
-// (qa/ui/audio.test.mjs): cuesFor (a director event), viewCues (the decision view: Deathblow telegraph, Furnace),
-// actionCues, keepOfStep (the Instant rule), META/RANK/PROTECTED. createAudio(settings): master -> sfx, ui, music
-// (reserved, M4) -> compressor; nothing before the first trusted pointer or key press; voice limit and priority; speed
-// tails; the log for testApi().audio(). Spec sections: audio.md 2 (cues), 3 (mixer, unlock, voices, speed), 5 (constants).
+// (qa/ui/audio.test.mjs): cuesFor (a director event), viewCues (the decision view: Deathblow telegraph, Furnace, the
+// Dimming near the player), actionCues, keepOfStep (the Instant rule), META/RANK/PROTECTED. createAudio(settings): master
+// -> sfx, ui, music (reserved, M4) -> compressor; nothing before the first trusted pointer or key press; voice limit and
+// priority; speed tails; the log for testApi().audio(). Spec sections: audio.md 2 (cues), 3 (mixer, unlock, voices, speed), 5 (constants).
 const N = { D2: 73.42, D3: 146.83, Eb3: 155.56, A3: 220, D4: 293.66, E4: 329.63, Eb4: 311.13, Fs4: 369.99, A4: 440, B4: 493.88,
   D5: 587.33, Fs5: 739.99, A5: 880, D6: 1174.66, E6: 1318.51, B6: 1975.53 };
 export const MAX_VOICES = 8;
@@ -13,10 +13,11 @@ export const FADE_S = 0.02;
 export const HEAVY_POWER = 0.6; // combat-feel.js hitPower at or above: a heavy hit
 export const HEAVY_SHARE = 0.15; // or this share of the target's maximum health
 export const TAIL = { 0: 0.4, 1: 1, 2: 0.6, 4: 0.4 }; // release tails by speed (0: Instant)
+export const DIM_NEAR = 2; // the Dimming's cue: the player's node dims in this many tolls or fewer (README cue 10)
 const SFX_TRIM = 0.9; // the preview's effects bus under the effects slider
 /** Cue: [rank (higher wins a voice and the Instant step), length at 1x in s (voice count)]. */
 export const META = { deathblowTelegraph: [100, 2], deathblowLanded: [99, 2.2], deathblowAnswered: [98, 1.4], maimed: [97, 1.8],
-  deathblowFirstShow: [96, 2], playerDeath: [95, 1.6], levelUp: [90, 1.7], kill: [70, 1], windupLanded: [66, 1], windupAnswered: [65, 1],
+  deathblowFirstShow: [96, 2], playerDeath: [95, 1.6], levelUp: [90, 1.7], dimmingSpread: [80, 1.6], kill: [70, 1], windupLanded: [66, 1], windupAnswered: [65, 1],
   crit: [60, 0.55], homewardBell: [58, 3.4], arrive: [57, 1.3], loot: [55, 1], furnaceUp: [52, 0.6], furnaceCalm: [51, 1], interrupt: [45, 0.25],
   hitHeavy: [40, 0.32], potion: [36, 0.35], heal: [32, 0.6], dodge: [28, 0.15], error: [26, 0.15], hitLight: [20, 0.15], uiClick: [18, 0.05],
   winOpen: [14, 0.15], winClose: [13, 0.1], tick: [10, 0.1] };
@@ -24,6 +25,8 @@ export const RANK = Object.fromEntries(Object.entries(META).map(([k, v]) => [k, 
 /** Never stolen or dropped: the Deathblow's cues and the player's death. */
 export const PROTECTED = new Set(['deathblowTelegraph', 'deathblowFirstShow', 'deathblowAnswered', 'deathblowLanded', 'maimed', 'playerDeath']);
 const UI_CUES = new Set(['uiClick', 'error', 'winOpen', 'winClose']);
+/** The reserved glass voice (README rule 1: the Dimming and the Unlit Star only): two sines a few Hz apart, beating. */
+export const GLASS = [1760, 1767];
 const TONAL = new Set(['levelUp', 'deathblowAnswered', 'windupAnswered', 'loot', 'heal', 'arrive', 'homewardBell', 'furnaceCalm']);
 const BIG = new Set(['elite', 'rare', 'dboss', 'boss']);
 const BELLS = { uncommon: 1, rare: 2, epic: 3, legendary: 3 };
@@ -88,7 +91,19 @@ export function viewCues(prev, next, memo) {
     const i = HEAT_ORDER.indexOf(b.state);
     if (i > HEAT_ORDER.indexOf(a.state)) out.push({ cue: 'furnaceUp', level: i }); else if (i === 0) out.push({ cue: 'furnaceCalm' });
   }
+  if (dimmingNear(prev, next)) out.push({ cue: 'dimmingSpread' });
   return out;
+}
+/** Cue 10 (README 2): in a step of one zone the Dimming reached new nodes (map view diff), and now the player's node is
+ * Dimmed, dims in DIM_NEAR tolls or fewer, or a node next to it was just Dimmed. A spread far from him is silent. */
+export function dimmingNear(prev, next) {
+  const a = prev && prev.zone && prev.zone.exp; const b = next && next.zone && next.zone.exp;
+  if (!a || !b || a.z !== b.z || prev.seed !== next.seed || !Array.isArray(a.nodes) || !Array.isArray(b.nodes) || a.nodes.length !== b.nodes.length) return false;
+  const fresh = new Set(b.nodes.map((n, i) => (n.dimmed && !a.nodes[i].dimmed ? i : -1)).filter((i) => i >= 0));
+  const me = b.nodes[b.pos];
+  if (!fresh.size || !me) return false;
+  if (me.dimmed || (Number.isFinite(me.dimsIn) && me.dimsIn <= DIM_NEAR)) return true;
+  return (b.edges || []).some(([x, y]) => (x === b.pos && fresh.has(y)) || (y === b.pos && fresh.has(x)));
 }
 /** Cues an action starts itself (the Homeward Bell's channel). */
 export const actionCues = (type) => (type === 'RING_BELL' ? [{ cue: 'homewardBell' }] : []);
@@ -205,6 +220,11 @@ const CUE = {
   winClose(I) { noise(I, { a: 0.02, d: 0.06, p: 0.2, f: 1600, to: 400, q: 1.2 }); },
   arrive(I) { bell(I, N.A4, { p: 0.12, d: 1 }); bell(I, N.D5, { t: 0.12, p: 0.11, d: 1.2 }); },
   homewardBell(I) { bell(I, N.D5, { p: 0.14, d: 2.5, w: 0.8 }); bell(I, N.D5, { t: 0.9, p: 0.12, d: 2.5, w: 0.8 }); },
+  dimmingSpread(I) { // the reserved glass voice: a cold swell sinking, glass beating at 7 Hz, a low swell, a lantern puffed out
+    noise(I, { a: 0.7, d: 0.9, p: 0.3, f: 3000, to: 350, q: 8, w: 0.7 });
+    for (const f of GLASS) tone(I, { f, a: 0.6, d: 1, p: 0.05, w: 0.8 });
+    tone(I, { f: 55, a: 0.6, d: 0.8, p: 0.25 }); noise(I, { t: 1.25, d: 0.25, p: 0.2, ty: LP, f: 900, to: 200 });
+  },
 };
 export const CUE_NAMES = Object.keys(CUE);
 

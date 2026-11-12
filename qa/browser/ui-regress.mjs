@@ -146,7 +146,9 @@
  *      no AudioContext, every entry sound false. Then a click: the context exists, uiClick sounds. A Rogue answers the
  *      Deathblow (deathblowAnswered); in god mode at 4x, attacks until a crit and a kill (hitLight or hitHeavy, crit, kill,
  *      all sounding); a Mage passes until it dies (playerDeath). Every Instant step keeps at most one cue that is not a
- *      Deathblow cue or the death. No console errors.
+ *      Deathblow cue or the death. The Dimming (cue 10): a Rogue's expedition run in zone 1 logs dimmingSpread in exactly
+ *      the steps where the front reached new nodes near the player (the rule worked out from the two map views), and it
+ *      sounds unless a higher-ranked cue of the same Instant step won. No console errors.
  *
  * D116 (the flip): new runs start on the expedition map with the start camp. The parts written for the classic map (A-L, O,
  * P) open the page with ?classic=1 (open() adds it unless the query names a map) and their Node twins pass mapMode 'rows';
@@ -173,6 +175,7 @@ import * as R from '../../src/rules.js';
 import { CONTENT } from '../../src/content/index.js';
 // the Furnace's player-facing words (changes-m2b-v7.md table D: names, states, whole tolls; UX pass 2026-11-11)
 import { HEAT_WORDS, tolls, ECHO_LINE, deathblowKind, deathblowAnswers, sapWaitText } from '../../src/ui/ui-text.js';
+import { RANK as Q_RANK, DIM_NEAR as Q_DIM_NEAR } from '../../src/ui/audio.js';
 
 const args = process.argv.slice(2);
 const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
@@ -3665,6 +3668,7 @@ async function partP(browser, W, H) {
 }
 
 // ------------------------------------------------------------------ part Q: sound (docs/specs/audio.md; D127)
+const Q_DIM_SEED = 1; // a dev-built expedition run whose zone 1 brings the Dimming near the player within about 30 steps
 const Q_PROTECTED = new Set(['deathblowTelegraph', 'deathblowFirstShow', 'deathblowAnswered', 'deathblowLanded', 'maimed', 'playerDeath']);
 async function partQ(browser, W, H) {
   const context = await browser.newContext({ viewport: { width: W, height: H } });
@@ -3747,6 +3751,39 @@ async function partQ(browser, W, H) {
     const instantSteps = [...a.log.slice(from5).map((x) => x.step)];
     const over = [...bySteps.entries()].filter(([st, list]) => instantSteps.includes(st) && list.length > 1);
     check('SOUND', 'Instant: each step keeps at most one cue besides the Deathblow cues and the death', over.length === 0, over.map(([st, l]) => `step ${st}: ${l.join(' ')}`).join(' | ') || `${plays} steps played`);
+    // (6) the Dimming (README cue 10, the reserved glass voice): a Rogue on the expedition map in zone 1 (god mode, the
+    // engine's autoplay choices, Instant). After every step the rule is worked out here from the two map views: the front
+    // reached new nodes and now the player's node is Dimmed, dims in Q_DIM_NEAR tolls or fewer, or a node next to it was
+    // just Dimmed. The cue is logged in exactly those steps (never on a spread far away), kept unless a higher-ranked cue
+    // of the same Instant step won, and it sounds (the page is unlocked since (2)).
+    await page.evaluate((seed) => window.__ui.dev('build', { classId: 'rogue', zone: 1, mapMode: 'expedition', prep: true, seed }), Q_DIM_SEED); await idle(page);
+    await page.evaluate(() => window.__ui.dev('god', { on: true })); await idle(page);
+    const dimSteps = await page.evaluate(async (near) => {
+      const ui = window.__ui; const out = [];
+      const rule = (a, b) => {
+        const x = a && a.zone && a.zone.exp; const y = b && b.zone && b.zone.exp;
+        if (!x || !y || x.z !== y.z || a.seed !== b.seed || x.nodes.length !== y.nodes.length) return { fresh: 0, want: false };
+        const fresh = y.nodes.map((n, i) => (n.dimmed && !x.nodes[i].dimmed ? i : -1)).filter((i) => i >= 0);
+        const me = y.nodes[y.pos]; const next = new Set(y.edges.filter((e) => e.includes(y.pos)).map(([p, q]) => (p === y.pos ? q : p)));
+        return { fresh: fresh.length, want: fresh.length > 0 && (!!me.dimmed || (Number.isFinite(me.dimsIn) && me.dimsIn <= near) || fresh.some((i) => next.has(i))) };
+      };
+      for (let n = 0; n < 200; n++) {
+        const a = ui.view(); if (a.phase === 'SUMMARY' || (a.zone && a.zone.exp && a.zone.exp.z > 1)) break;
+        const from = ui.audio().log.length;
+        await ui.act({ type: 'AUTO' }); await ui.idle();
+        const b = ui.view(); const r = rule(a, b); const L = ui.audio().log.slice(from);
+        const dim = L.filter((x) => x.cue === 'dimmingSpread');
+        out.push({ n, ...r, got: dim.length, kept: dim.some((x) => x.kept), sound: dim.some((x) => x.sound), others: L.filter((x) => x.kept && x.cue !== 'dimmingSpread').map((x) => x.cue), me: b.zone && b.zone.exp ? b.zone.exp.nodes[b.zone.exp.pos].dimsIn : null });
+        if (out.filter((x) => x.want).length >= 2) break;
+      }
+      return out;
+    }, Q_DIM_NEAR);
+    const wants = dimSteps.filter((x) => x.want); const spreads = dimSteps.filter((x) => x.fresh > 0);
+    const wrong = dimSteps.filter((x) => x.got !== (x.want ? 1 : 0));
+    check('SOUND', `the Dimming near the player logs dimmingSpread in exactly the steps the rule names (${spreads.length} spread steps in ${dimSteps.length}, ${wants.length} near the player)`, wants.length >= 1 && !wrong.length,
+      wrong.map((x) => `step ${x.n}: fresh ${x.fresh}, dims in ${x.me}, want ${x.want}, got ${x.got}`).join(' | ') || wants.map((x) => `step ${x.n}: dims in ${x.me}`).join(' | ') || 'the run never brought the Dimming near the player');
+    const lost = wants.filter((x) => !(x.kept ? x.sound : x.others.some((c) => (Q_RANK[c] || 0) > Q_RANK.dimmingSpread)));
+    check('SOUND', 'dimmingSpread sounds when kept; at Instant only a higher-ranked cue of the same step drops it', wants.length >= 1 && !lost.length, lost.map((x) => `step ${x.n}: kept ${x.kept}, sound ${x.sound}, with ${x.others.join(' ')}`).join(' | ') || wants.map((x) => `step ${x.n}: ${x.kept ? 'kept, sounded' : `dropped for ${x.others.join(' ')}`}`).join(' | '));
   } catch (e) {
     await shot(page, 'Q-error');
     check('-', 'part Q ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
