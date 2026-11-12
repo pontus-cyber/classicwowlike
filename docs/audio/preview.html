@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TBWCR sound proposal: preview (draft)</title>
+<!--
+  Sound proposal preview (draft, docs/audio/README.md section 4; D121: the owner steers before the full build).
+  Self-contained: every sound is made in the browser with Web Audio oscillators, noise, envelopes and filters. No files,
+  no samples, no network. The synth code here is a sketch for listening; the game's src/ui/audio.js would be written
+  fresh from the cue table in the README, not copied from this page.
+  Test hook: window.__audio.log lists every cue played ({ cue, t }); window.__audio.render(cue) renders one cue offline
+  and returns its peak and length, so a headless check can confirm each cue makes sound without anyone listening.
+-->
+<style>
+  :root {
+    --dusk: #27313b; --board: #3d2c20; --paper: #f1e3c0; --ink: #2b2118; --ochre: #d9a441; --lantern: #f2c56b;
+    --fen: #5d7a5a; --madder: #b8432f; --violet: #6b4fa0; --water: #4f8a8b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: radial-gradient(ellipse at 50% 120%, #6b4a2a 0%, var(--dusk) 60%); color: var(--paper);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; display: flex; justify-content: center; padding: 32px 16px; }
+  main { width: 100%; max-width: 860px; }
+  h1 { font: 600 26px/1.2 Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif; margin: 0 0 4px; color: var(--lantern); }
+  .sub { margin: 0 0 20px; color: #d8c9a6; }
+  .draft { display: inline-block; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; background: var(--board);
+    border: 1px solid var(--ochre); color: var(--ochre); padding: 1px 8px; border-radius: 3px; margin-left: 8px; vertical-align: middle; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+  button.cue { text-align: left; cursor: pointer; background: var(--paper); color: var(--ink); border: 0; padding: 12px 14px 12px 16px;
+    border-radius: 4px 7px 5px 6px; box-shadow: inset 0 0 0 1px #b99d6a, 0 3px 0 #1a130d; font: inherit; position: relative; }
+  button.cue:hover { background: #f7ecd2; }
+  button.cue:active { transform: translateY(2px); box-shadow: inset 0 0 0 1px #b99d6a, 0 1px 0 #1a130d; }
+  button.cue b { display: block; font: 600 16px/1.3 Palatino, "Palatino Linotype", Georgia, serif; }
+  button.cue span { display: block; font-size: 13px; color: #5a4a36; margin-top: 3px; }
+  button.cue i { position: absolute; left: 0; top: 8px; bottom: 8px; width: 4px; border-radius: 2px; background: var(--ochre); }
+  button.cue.danger i { background: var(--madder); }
+  button.cue.dim i { background: var(--violet); }
+  button.cue.good i { background: var(--water); }
+  .bar { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; background: var(--board); border: 1px solid #6a5238;
+    border-radius: 5px; padding: 10px 14px; margin: 0 0 16px; }
+  .bar label { display: flex; gap: 8px; align-items: center; }
+  .bar input[type=range] { width: 140px; accent-color: var(--ochre); }
+  .log { margin-top: 18px; background: rgba(0,0,0,.25); border-radius: 5px; padding: 10px 14px; font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace;
+    color: #cdbf9f; min-height: 3.2em; }
+  .note { font-size: 13px; color: #cdbf9f; margin-top: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>How the game could sound <span class="draft">draft</span></h1>
+  <p class="sub">Eight proposed cues, all made in the browser with no sound files. Direction A (Lantern Gouache): warm wood, cloth, felt and small brass bells at dusk.
+    One cold, glassy voice is kept for the Dimming, and one low, hollow voice for the Deathblow. Use headphones or decent speakers; laptop speakers lose the low end.</p>
+
+  <div class="bar">
+    <label>Volume <input id="vol" type="range" min="0" max="1" step="0.05" value="0.7"></label>
+    <label><input id="mute" type="checkbox"> Mute</label>
+    <span id="state" style="color:#cdbf9f;font-size:13px">Sound starts on your first click (browser rule).</span>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="log" id="log">Cue log (the test hook): nothing played yet.</div>
+  <p class="note">This page is about character, not mix: volumes, lengths and pitches are first guesses. Tell us "warmer", "shorter", "more metal", "less" for any cue and the table in docs/audio/README.md changes before anything goes into the game.</p>
+</main>
+
+<script>
+'use strict';
+// ------------------------------------------------------------------ cue catalogue shown on the page
+const CUES = [
+  { id: 'uiClick', name: 'UI click', note: 'A dry wooden tick, like a token set on a board.', cls: '' },
+  { id: 'hits', name: 'Hit: light, then heavy', note: 'Cloth-and-wood thump; the heavy one adds weight below.', cls: '' },
+  { id: 'crit', name: 'Critical hit', note: 'The heavy thump plus a small brass ring.', cls: 'good' },
+  { id: 'deathblowTelegraph', name: 'Deathblow telegraph', note: 'A breath in, then a low gong with a sour interval. Used for nothing else.', cls: 'danger' },
+  { id: 'deathblowAnswered', name: 'Deathblow answered', note: 'A parry clack, then the sour interval resolves into rising bells.', cls: 'good' },
+  { id: 'deathblowLanded', name: 'Deathblow landed + Maimed', note: 'The blow, the gong sinking, then a muffled heartbeat and a falling sigh.', cls: 'danger' },
+  { id: 'levelUp', name: 'Level up', note: 'Rising bells over a warm fifth; the fullest "good" sound.', cls: 'good' },
+  { id: 'dimmingSpread', name: 'Dimming spreads', note: 'A cold glassy swell, then a lantern puffed out.', cls: 'dim' },
+];
+
+// ------------------------------------------------------------------ synth (one context, three buses, a generated room)
+const NOTE = { D2: 73.42, D3: 146.83, Eb3: 155.56, A3: 220.0, D4: 293.66, E4: 329.63, Eb4: 311.13, Fs4: 369.99, A4: 440.0,
+  B4: 493.88, D5: 587.33, Fs5: 739.99, A5: 880.0, D6: 1174.66, E6: 1318.51, B6: 1975.53 };
+
+/** Builds the graph on a context (a live AudioContext, or an OfflineAudioContext for the test hook). */
+function makeSynth(ac) {
+  const comp = ac.createDynamicsCompressor();
+  comp.threshold.value = -12; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.25;
+  comp.connect(ac.destination);
+  const master = ac.createGain(); master.gain.value = 0.7; master.connect(comp);
+  const bus = { sfx: ac.createGain(), ui: ac.createGain() };
+  bus.sfx.gain.value = 0.9; bus.ui.gain.value = 0.6;
+  bus.sfx.connect(master); bus.ui.connect(master);
+  // a small timber room: decaying, slightly low-passed stereo noise, built once
+  const verb = ac.createConvolver(); verb.buffer = impulse(ac, 1.6, 3.2);
+  const verbIn = ac.createGain(); verbIn.gain.value = 0.5; verbIn.connect(verb); verb.connect(master);
+  const nb = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
+  { const d = nb.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+
+  function voice(b, wet) {
+    const g = ac.createGain(); g.gain.value = 0; g.connect(bus[b]);
+    if (wet) { const s = ac.createGain(); s.gain.value = wet; g.connect(s); s.connect(verbIn); }
+    return g;
+  }
+  function env(g, t, a, peak, d) {
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + a);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + a + d);
+  }
+  /** One oscillator through an optional low-pass, with a pitch glide. */
+  function tone({ b = 'sfx', type = 'sine', f, t, a = 0.005, d = 0.2, peak = 0.3, to, toT, wet = 0, lp, detune = 0 }) {
+    const g = voice(b, wet); env(g, t, a, peak, d);
+    const o = ac.createOscillator(); o.type = type; o.detune.value = detune;
+    o.frequency.setValueAtTime(f, t); if (to) o.frequency.exponentialRampToValueAtTime(to, t + (toT || a + d));
+    if (lp) { const fl = ac.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = lp; o.connect(fl); fl.connect(g); } else o.connect(g);
+    o.start(t); o.stop(t + a + d + 0.05);
+  }
+  /** Filtered noise with a filter sweep. */
+  function noise({ b = 'sfx', t, a = 0.002, d = 0.1, peak = 0.3, type = 'bandpass', f = 1000, q = 1, fTo, wet = 0 }) {
+    const s = ac.createBufferSource(); s.buffer = nb; s.loop = true;
+    const fl = ac.createBiquadFilter(); fl.type = type; fl.Q.value = q;
+    fl.frequency.setValueAtTime(f, t); if (fTo) fl.frequency.exponentialRampToValueAtTime(fTo, t + a + d);
+    const g = voice(b, wet); env(g, t, a, peak, d);
+    s.connect(fl); fl.connect(g); s.start(t, Math.random() * 1.5); s.stop(t + a + d + 0.05);
+  }
+  /** A small warm bell: a few sine partials, upper ones die first. */
+  function bell(f, t, { peak = 0.14, d = 1.2, wet = 0.5, b = 'sfx' } = {}) {
+    [[1, 1, 1], [2, 0.42, 0.6], [3.01, 0.2, 0.4], [4.2, 0.08, 0.25]].forEach(([m, amp, dk]) =>
+      tone({ b, f: f * m, t, a: 0.004, d: d * dk, peak: peak * amp, wet }));
+  }
+  /** The Deathblow's voice: inharmonic partials on a tritone, a hollow gong. Reserved for the Deathblow. */
+  function gong(f, t, { peak = 0.3, d = 2.0, glide = 1, wet = 0.5 } = {}) {
+    [[1, 1, 1], [1.414, 0.6, 0.75], [2.0, 0.35, 0.55], [2.83, 0.2, 0.4], [4.07, 0.1, 0.25]].forEach(([m, amp, dk]) =>
+      tone({ f: f * m, to: glide !== 1 ? f * m * glide : undefined, t, a: 0.012, d: d * dk, peak: peak * amp, wet, lp: 1800 }));
+  }
+
+  // ------------------------------------------------------------------ the cues
+  const cue = {
+    uiClick(t) {
+      noise({ b: 'ui', t, d: 0.035, peak: 1.4, f: 2400, q: 3 });
+      tone({ b: 'ui', type: 'triangle', f: 1100, to: 800, t, d: 0.04, peak: 0.12 });
+    },
+    hitLight(t) {
+      noise({ t, d: 0.09, peak: 0.35, type: 'lowpass', f: 2500, fTo: 600 });
+      tone({ f: 180, to: 90, t, d: 0.1, peak: 0.35 });
+    },
+    hitHeavy(t, w = 1) {
+      noise({ t, d: 0.015, peak: 0.2 * w, type: 'highpass', f: 3000 });
+      tone({ f: 120, to: 42, t, a: 0.003, d: 0.28, peak: 0.7 * w });
+      tone({ type: 'triangle', f: 70, to: 40, t, d: 0.2, peak: 0.3 * w, lp: 300 });
+      noise({ t, d: 0.22, peak: 0.5 * w, type: 'lowpass', f: 1500, fTo: 300, wet: 0.1 });
+    },
+    hits(t) { cue.hitLight(t); cue.hitHeavy(t + 0.45); },
+    crit(t) {
+      cue.hitHeavy(t);
+      tone({ type: 'triangle', f: 660, to: 1320, t, d: 0.06, peak: 0.08 });
+      bell(NOTE.E6, t + 0.01, { peak: 0.09, d: 0.5, wet: 0.4 });
+      bell(NOTE.B6, t + 0.03, { peak: 0.05, d: 0.4, wet: 0.4 });
+      noise({ t, d: 0.06, peak: 0.12, type: 'highpass', f: 5000 });
+    },
+    deathblowTelegraph(t) {
+      noise({ t, a: 0.45, d: 0.2, peak: 0.25, type: 'lowpass', f: 150, fTo: 900 }); // breath in
+      const s = t + 0.45;
+      tone({ f: 90, to: 50, t: s, d: 0.4, peak: 0.6 }); // drum under the strike
+      gong(NOTE.D2, s, { peak: 0.35, d: 2.2 });
+      tone({ f: NOTE.D3, t: s, a: 0.05, d: 1.4, peak: 0.12, wet: 0.3 }); // minor second, beating
+      tone({ f: NOTE.Eb3, t: s, a: 0.05, d: 1.4, peak: 0.12, wet: 0.3 });
+    },
+    deathblowAnswered(t) {
+      noise({ t, d: 0.05, peak: 0.5, f: 1800, q: 3 }); // parry clack
+      tone({ type: 'triangle', f: 900, to: 600, t, d: 0.06, peak: 0.15 });
+      [NOTE.D5, NOTE.Fs5, NOTE.A5, NOTE.D6].forEach((f, i) => bell(f, t + 0.08 + i * 0.08, { peak: 0.2 - i * 0.03, d: 1.0, wet: 0.6 }));
+      tone({ f: NOTE.D3, t: t + 0.08, a: 0.1, d: 1.0, peak: 0.08, wet: 0.4 }); // the sour second resolves to a fifth
+      tone({ f: NOTE.A3, t: t + 0.08, a: 0.1, d: 1.0, peak: 0.08, wet: 0.4 });
+    },
+    deathblowLanded(t) {
+      cue.hitHeavy(t, 1.3);
+      gong(NOTE.D2 * 0.707, t + 0.02, { peak: 0.4, d: 2.5, glide: 0.88, wet: 0.6 }); // the gong on the tritone, sinking
+      noise({ t, d: 1.2, peak: 0.25, type: 'lowpass', f: 400, fTo: 120 });
+      // Maimed: two muffled heartbeats and a falling sigh
+      tone({ f: 62, to: 45, t: t + 0.7, d: 0.18, peak: 0.55 });
+      tone({ f: 62, to: 45, t: t + 0.95, d: 0.18, peak: 0.45 });
+      tone({ type: 'triangle', f: NOTE.E4, to: NOTE.Eb4, toT: 0.7, t: t + 1.0, a: 0.08, d: 0.7, peak: 0.1, lp: 900, wet: 0.3 });
+    },
+    levelUp(t) {
+      [NOTE.D4, NOTE.E4, NOTE.Fs4, NOTE.A4, NOTE.B4, NOTE.D5].forEach((f, i) => bell(f, t + i * 0.07, { peak: 0.14, d: 1.2, wet: 0.6 }));
+      [-7, 7].forEach((dt) => tone({ type: 'sawtooth', f: NOTE.D3, t, a: 0.25, d: 1.4, peak: 0.05, lp: 900, detune: dt, wet: 0.5 }));
+      tone({ type: 'sawtooth', f: NOTE.A3, t, a: 0.25, d: 1.4, peak: 0.04, lp: 900, wet: 0.5 });
+      noise({ t: t + 0.3, a: 0.3, d: 0.6, peak: 0.04, type: 'highpass', f: 6000, wet: 0.5 });
+    },
+    dimmingSpread(t) {
+      noise({ t, a: 0.7, d: 0.9, peak: 0.3, f: 3000, fTo: 350, q: 8, wet: 0.7 }); // cold swell sinking
+      tone({ f: 1760, t, a: 0.6, d: 1.0, peak: 0.05, wet: 0.8 }); // glass, beating at 7 Hz
+      tone({ f: 1767, t, a: 0.6, d: 1.0, peak: 0.05, wet: 0.8 });
+      tone({ f: 55, t, a: 0.6, d: 0.8, peak: 0.25 });
+      noise({ t: t + 1.25, d: 0.25, peak: 0.2, type: 'lowpass', f: 900, fTo: 200 }); // a lantern puffed out
+    },
+  };
+  return { cue, master, bus };
+}
+
+function impulse(ac, secs, decay) {
+  const n = Math.floor(ac.sampleRate * secs); const buf = ac.createBuffer(2, n, ac.sampleRate);
+  for (let c = 0; c < 2; c++) {
+    const d = buf.getChannelData(c); let lp = 0;
+    for (let i = 0; i < n; i++) { lp = lp * 0.6 + (Math.random() * 2 - 1) * 0.4; d[i] = lp * Math.pow(1 - i / n, decay); }
+  }
+  return buf;
+}
+
+// ------------------------------------------------------------------ page wiring: no audio until the first gesture
+let ac = null; let synth = null;
+const log = [];
+const $ = (id) => document.getElementById(id);
+function unlock() {
+  if (!ac) { ac = new (window.AudioContext || window.webkitAudioContext)(); synth = makeSynth(ac); applyVolume(); $('state').textContent = 'Sound on.'; }
+  if (ac.state === 'suspended') ac.resume();
+}
+function applyVolume() { if (synth) synth.master.gain.value = $('mute').checked ? 0 : Number($('vol').value); }
+function play(id) {
+  log.push({ cue: id, t: Math.round(performance.now()) });
+  $('log').textContent = 'Cue log (the test hook): ' + log.slice(-8).map((x) => x.cue).join(' · ');
+  const fresh = !ac; unlock();
+  synth.cue[id](ac.currentTime + (fresh ? 0.1 : 0.03)); // a new context gets a moment to start
+}
+for (const c of CUES) {
+  const b = document.createElement('button'); b.className = 'cue ' + c.cls; b.dataset.cue = c.id;
+  b.innerHTML = `<i></i><b>${c.name}</b><span>${c.note}</span>`;
+  b.addEventListener('click', () => play(c.id));
+  $('grid').appendChild(b);
+}
+$('vol').addEventListener('input', applyVolume);
+$('mute').addEventListener('change', applyVolume);
+
+// ------------------------------------------------------------------ test hook (headless checks; no listening needed)
+window.__audio = {
+  cues: CUES.map((c) => c.id),
+  log,
+  /** Renders one cue in an OfflineAudioContext; resolves to { cue, peak, rms, audibleMs }. */
+  async render(id, secs = 3.5) {
+    const oac = new OfflineAudioContext(2, 44100 * secs, 44100);
+    const s = makeSynth(oac); s.cue[id](0.5); // 0.5 s in: the compressor settles first
+    const buf = await oac.startRendering(); const d = buf.getChannelData(0);
+    let peak = 0, sum = 0, last = 0;
+    for (let i = 0; i < d.length; i++) { const v = Math.abs(d[i]); if (v > peak) peak = v; sum += d[i] * d[i]; if (v > 0.003) last = i; }
+    return { cue: id, peak: +peak.toFixed(3), rms: +Math.sqrt(sum / d.length).toFixed(4), audibleMs: Math.max(0, Math.round(last / 44.1) - 500) };
+  },
+};
+</script>
+</body>
+</html>
