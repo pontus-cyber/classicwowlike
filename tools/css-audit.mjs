@@ -18,6 +18,8 @@
  *                                                  set the same values everywhere, including hover states, scrollbars
  *                                                  and keyframes no screenshot reaches:
  *     diff <(node tools/css-audit.mjs --expand old/style.css) <(node tools/css-audit.mjs --expand src/ui/tokens.css src/ui/style.css)
+ *   node tools/css-audit.mjs --js-tokens           every token name read from src/ui/*.js (theme.js, Track R3) is
+ *                                                  defined in tokens.css; exit 1 when one is not
  *   --files a,b,...                                audit these files instead of src/ui/*.css and src/ui/*.js
  *
  * WHAT COUNTS AS A LITERAL
@@ -181,10 +183,39 @@ function expand(fileList) {
   return lines.join('\n') + '\n';
 }
 
+// ------------------------------------------------------------------ --js-tokens
+/**
+ * Every token name the JavaScript reads (token('--name') in src/ui/*.js, every '--name' string in theme.js and its
+ * ICON_KEYS as --icon-k and --icon-k-deep) must be defined in the current theme's root block of tokens.css; and every token of another theme block
+ * must exist there too. Prints what is missing; exit 1 when anything is.
+ */
+function jsTokens() {
+  const tokFile = path.join(UI, 'tokens.css');
+  const decls = declarations(fs.readFileSync(tokFile, 'utf8'));
+  const root = new Set(decls.filter((d) => d.prop.startsWith('--') && isRootCtx(d.ctx)).map((d) => d.prop));
+  const themed = decls.filter((d) => d.prop.startsWith('--') && isOtherThemeCtx(d.ctx)).map((d) => d.prop);
+  const used = new Map();
+  for (const f of fs.readdirSync(UI).filter((x) => x.endsWith('.js'))) {
+    const js = fs.readFileSync(path.join(UI, f), 'utf8');
+    // token('--x') anywhere; in theme.js also every '--x' string (the family tables)
+    const re = f === 'theme.js' ? /['"`](--[a-z][\w-]*)['"`]/g : /\btoken\(\s*['"`](--[a-z][\w-]*)['"`]/g;
+    for (const m of js.matchAll(re)) { if (!used.has(m[1])) used.set(m[1], new Set()); used.get(m[1]).add(f); }
+    const keys = /ICON_KEYS\s*=\s*\[([^\]]*)\]/.exec(js);
+    if (keys) for (const k of keys[1].match(/'[\w-]+'/g) || []) for (const n of [`--icon-${k.slice(1, -1)}`, `--icon-${k.slice(1, -1)}-deep`]) { if (!used.has(n)) used.set(n, new Set()); used.get(n).add(f); }
+  }
+  const miss = [...used].filter(([n]) => !root.has(n)).map(([n, fs2]) => `${n} (read in ${[...fs2].join(', ')})`);
+  const lg = [...new Set(themed)].filter((n) => !root.has(n) && !n.startsWith('--lg-'));
+  for (const m of miss) console.log(`not in tokens.css: ${m}`);
+  for (const n of lg) console.log(`set by a theme but not in the root block: ${n}`);
+  console.error(`${used.size} token names read from JavaScript, ${miss.length} missing; ${lg.length} theme-only names`);
+  process.exitCode = miss.length || lg.length ? 1 : 0;
+}
+
 // ------------------------------------------------------------------ main
 let cssResults = [];
 // Output is written once; no process.exit() after it, so a pipe (diff <(...)) receives all of it.
 function main() {
+if (has('--js-tokens')) { jsTokens(); return; }
 if (has('--expand')) {
   const list = argv.filter((a) => !a.startsWith('--'));
   if (!list.length) { console.error('usage: node tools/css-audit.mjs --expand a.css [b.css ...]'); process.exitCode = 2; return; }

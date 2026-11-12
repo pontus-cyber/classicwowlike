@@ -35,6 +35,7 @@ import { linkedText, resurrectText, dangerRule, HEAT_WORDS, tolls, freeActionTex
 import { trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createRuler, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind, answersToShow, isLethal, SAP_BREAK_WARN } from './tracks.js';
 import { createHeatMeter, standText, bossText, fmtTime, lineShown } from './heat.js';
 import { trackerContracts } from './prep.js';
+import { CON, token } from './theme.js';
 
 const RES_NAME = { energy: 'Energy', mana: 'Mana', focus: 'Focus' };
 /** Combat v2.1: the wind-up stacks, drawn as large badges (stackBadges) instead of small status icons. */
@@ -43,11 +44,11 @@ const WINDUP_STACKS = new Set(['EMPOWERED', 'STAGGERED']);
 const PLAYER_BADGES = new Set(['MAIMED']);
 export function conColor(cl, level) {
   const d = cl - level;
-  if (d <= -6) return '#9d9d9d';
-  if (d <= -3) return '#4fe05a';
-  if (d <= 2) return '#ffe04a';
-  if (d <= 4) return '#ff9a3a';
-  return '#ff4a3a';
+  if (d <= -6) return CON.trivial;
+  if (d <= -3) return CON.easy;
+  if (d <= 2) return CON.even;
+  if (d <= 4) return CON.hard;
+  return CON.deadly;
 }
 
 /**
@@ -876,7 +877,7 @@ function drawMinimap(cv, v, th) {
   c.beginPath(); c.moveTo(0, -16); c.lineTo(11, 12); c.lineTo(0, 6); c.lineTo(-11, 12); c.closePath(); c.fill(); c.stroke(); c.restore();
   // rim shading
   const rim = c.createRadialGradient(S / 2, S / 2, S * 0.36, S / 2, S / 2, S * 0.5);
-  rim.addColorStop(0, 'rgba(0,0,0,0)'); rim.addColorStop(1, 'rgba(0,0,0,0.6)');
+  rim.addColorStop(0, 'rgba(0,0,0,0)'); rim.addColorStop(1, token('--shade-60'));
   c.fillStyle = rim; c.fillRect(0, 0, S, S);
 }
 

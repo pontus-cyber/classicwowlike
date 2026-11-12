@@ -110,6 +110,34 @@
   --tele-answer-pale: #dff6ff;
   --tele-answer-ink: #04202e;
   --tele-window: #ffb030;
+
+  /* JavaScript and canvas (R3; read through src/ui/theme.js, never written there). The values are the literals the
+     code used before R3; where a colour had the exact value and role of a token above, the code reads that token. */
+  /* heat: the tooltip line of a node entered Infernal (heat.js) */
+  --heat-scorched-tip: #ff8a96;
+  /* level difference: an enemy's level against the player's, on its name (hud.js conColor) */
+  --con-trivial: #9d9d9d; --con-easy: #4fe05a; --con-even: #ffe04a; --con-hard: #ff9a3a; --con-deadly: #ff4a3a;
+  /* danger in the scene: the float of a Deathblow that landed, the MAIMED screen flash (director.js) */
+  --danger-float: #ff4a4a;
+  --danger-flash: #a8000a;
+  /* canvas effects by school (theme.js CAST, BOLT, IMPACT); frost reads --school-frost-text and --school-frost */
+  --fx-cast-fire: #ff9a4a; --fx-cast-arcane: #c79bff; --fx-cast-shadow: #a07aff; --fx-cast-nature: #9be07a;
+  --fx-cast-magic: #c79bff; --fx-cast-phys: #ffe9a8;
+  --fx-bolt-fire: #ff8a3a; --fx-bolt-arcane: #c79bff; --fx-bolt-shadow: #9a6aff; --fx-bolt-nature: #9be07a;
+  --fx-bolt-comet: #ffb05a; --fx-bolt-phys: #ffffff; --fx-bolt-arrow: #ffd27a; --fx-bolt-arrow-light: #fff1d0;
+  --fx-impact-phys: #f4ead6; --fx-impact-fire: #ff8a3a; --fx-impact-arcane: #c79bff; --fx-impact-shadow: #a07aff;
+  --fx-impact-nature: #8fe07a; --fx-impact-heal: #7fffa0;
+  /* icon backgrounds (art-icons.js; theme.js ICON_BG): the light and the deep end of the fill, by school, material
+     and rarity. "blood" is both damage and danger (the Deathblow, MAIMED, EMPOWERED icons) */
+  --icon-steel: #9aa3ad; --icon-steel-deep: #3a3f48; --icon-blood: #c0473f; --icon-blood-deep: #4a1414;
+  --icon-shadow: #6a5a8a; --icon-shadow-deep: #1c1628; --icon-gold: #e8c45a; --icon-gold-deep: #6a4a12;
+  --icon-fire: #f08a3a; --icon-fire-deep: #6a1e0a; --icon-frost: #7cc4f0; --icon-frost-deep: #173a5c;
+  --icon-arcane: #b07af0; --icon-arcane-deep: #2a1650; --icon-nature: #8fc46a; --icon-nature-deep: #22401a;
+  --icon-heal: #7fe0a0; --icon-heal-deep: #145a32; --icon-poison: #9fd65a; --icon-poison-deep: #2a4a12;
+  --icon-earth: #c4a06a; --icon-earth-deep: #4a3216; --icon-dark: #5a5a6a; --icon-dark-deep: #141418;
+  --icon-parchment: #e8d6a8; --icon-parchment-deep: #8a6a3a; --icon-junk: #8a8a8a; --icon-junk-deep: #2a2a2a;
+  --icon-common: #c8c8c8; --icon-common-deep: #3a3a3a; --icon-uncommon: #5fd06a; --icon-uncommon-deep: #14401a;
+  --icon-rare: #4f9cff; --icon-rare-deep: #102a5a; --icon-epic: #b86cff; --icon-epic-deep: #2e1250;
 }
 
 /* Lantern Gouache (docs/art/README.md direction A, D120): PROPOSAL 1, draft, for the owner to steer (D121;
@@ -211,6 +239,10 @@
   --tele-answer-pale: #e2f4f0;
   --tele-answer-ink: #0b2526;
   --tele-window: #eeb244;
+
+  /* JavaScript and canvas (R3): only what proposal 1 implies; every other R3 token keeps its current value.
+     The Infernal tooltip line follows the Furnace strip: burnt sienna text, not red */
+  --heat-scorched-tip: #e8956a;
 
   /* used only by the lantern rule block below */
   --lg-board-1: #49362a; --lg-board-2: #33251b; --lg-board-3: #2a1e15;

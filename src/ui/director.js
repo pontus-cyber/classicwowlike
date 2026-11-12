@@ -17,9 +17,10 @@ import { wait, SkipToken, fmtNum, deepClone } from './util.js';
 import { settings } from './settings.js';
 import { linkedText, dangerBanner, CONTROL_WORD as CONTROL_LOG, HEAT_WORDS, freeActionText } from './ui-text.js';
 import { timeline, roundPace, hitShare, STATUS_LABEL } from './combat-feel.js';
+import { CAST, token as themeToken } from './theme.js'; // not `token`: play() has its own SkipToken of that name
 
 const SCHOOL_PROJ = { fire: 'fire', frost: 'frost', arcane: 'arcane', shadow: 'shadow', nature: 'nature' };
-const SCHOOL_GLOW = { fire: '#ff9a4a', frost: '#9fdcff', arcane: '#c79bff', shadow: '#a07aff', nature: '#9be07a', magic: '#c79bff', phys: '#ffe9a8' };
+const SCHOOL_GLOW = CAST; // theme.js: the --fx-cast-* tokens (frost: --school-frost-text)
 const ref = (r) => (r.side === 'player' ? 'player' : r.side === 'pet' ? 'pet' : r.side === 'enemy' ? `enemy:${r.idx}` : null);
 
 /** Combat v2.1: an enemy's wind-up stacks (rules 7.12), shown when their own status event plays. */
@@ -152,7 +153,7 @@ export class Director {
       if (t === 'START_RUN' || t === 'SET_OUT') {
         // the hub panel shows at once; the world fades in behind it. A run with the start camp (expedition.md 2) opens
         // the camp first (no zone yet); SET_OUT leaves it for zone 1's hub
-        scene.screenFlash('#000000', 1, 1.1);
+        scene.screenFlash(themeToken('--shade'), 1, 1.1);
         ctx.syncScene(next, { instant: true });
         Object.assign(shown, next); push();
         hud.clearLog();
@@ -196,7 +197,7 @@ export class Director {
                 scene.act('player', 'item', D(tm.act || 420)); hud.log(`You use ${e.name}.`, 'lg-you');
                 // M2b v6 (rules 7.5): Packed Satchel's free potion costs no turn; the player acts again this round. M2b v8: at the
                 // event's strength (mult, FREE_POTION_MULT): "Free action, half strength (Packed Satchel)."; the heal line is the engine's
-                if (e.free) { scene.float('player', 'Free action', { color: '#ffe08a', size: 16, small: true }); hud.log(`${freeActionText(e.mult)}.`, 'lg-sys'); }
+                if (e.free) { scene.float('player', 'Free action', { color: themeToken('--accent-pale'), size: 16, small: true }); hud.log(`${freeActionText(e.mult)}.`, 'lg-sys'); }
                 await W(tm.wait); break;
               }
               // combat v2: the engage round's opening (an engage option, or a bar spell cast free by Pre-cast); combat v2.1: a
@@ -204,12 +205,12 @@ export class Director {
               if (e.kind === 'engage' && e.disrupt) hud.log(`Disrupt (${e.name}): ${cap(name(e.target))} will miss ${e.disrupt.name || 'its wind-up'}${e.disrupt.round ? ` in round ${e.disrupt.round}` : ''}.`, 'lg-you');
               else if (e.kind === 'engage') hud.log(`You open with ${e.name}${e.target ? ` on ${name(e.target)}` : ''}.`, 'lg-you');
               if (e.engage === 'precast') hud.log(`Pre-cast: ${e.name}, no mana.`, 'lg-you');
-              const glow = SCHOOL_GLOW[e.school] || '#ffe9a8';
+              const glow = SCHOOL_GLOW[e.school] || CAST.phys;
               if (tm.style === 'self') {
                 scene.act('player', 'cast', D(tm.act), { contact: tm.windup / tm.act });
                 await W(tm.windup);
                 const onPet = e.dst && e.dst.side === 'pet';
-                scene.aura(onPet ? 'pet' : 'player', e.tags && e.tags.includes('defensive') ? '#9fc4ff' : '#ffe08a');
+                scene.aura(onPet ? 'pet' : 'player', e.tags && e.tags.includes('defensive') ? '#9fc4ff' : themeToken('--accent-pale'));
                 await W(tm.aura);
               } else if (tm.style === 'melee') {
                 { const hero = scene.actors.get('player'); const ta = dst ? scene.anchor(dst) : null; const pa = scene.anchor('player'); if (hero) hero.lungeDist = Math.max(60, ta && pa ? ta.x - pa.x - 70 * scene.u : 120); }
@@ -233,7 +234,7 @@ export class Director {
               const en = enemy(e.src.idx); const actor = scene.actors.get(src);
               hitCtx = { side: 'enemy', heavy: !!e.heavy };
               this.striker = actor || null; // its telegraph stays up through the wind-up and goes at contact
-              const glow = e.heavy && tm.style !== 'cast' ? '#ff4a2a' : SCHOOL_GLOW[e.school] || '#c79bff';
+              const glow = e.heavy && tm.style !== 'cast' ? '#ff4a2a' : SCHOOL_GLOW[e.school] || CAST.magic;
               if (tm.style === 'melee') {
                 const kind = e.heavy && actor && actor.kind === 'humanoid' ? 'smash' : 'melee';
                 scene.act(src, kind, D(tm.act), { contact: tm.windup / tm.act, from: actor && actor.tele ? 0.26 : 0, heavy: !!e.heavy });
@@ -302,7 +303,7 @@ export class Director {
             if (u && nu) { u.statuses = withStacks(u.statuses, nu.statuses, e.id); if (e.dst.side === 'enemy') u.offBalance = deepClone(nu.offBalance); push(); }
             const dst = ref(e.dst);
             const label = e.id === 'BRAND' ? `Brand ×${e.stacks || 1}` : STATUS_LABEL[e.id];
-            if (e.op === 'add' && label) scene.float(dst, label, { color: ['BRAND', 'CURSED', 'ENRAGED'].includes(e.id) ? '#ff9a8a' : '#ffe08a', size: 17, dy: -16 * scene.u, small: true });
+            if (e.op === 'add' && label) scene.float(dst, label, { color: ['BRAND', 'CURSED', 'ENRAGED'].includes(e.id) ? '#ff9a8a' : themeToken('--accent-pale'), size: 17, dy: -16 * scene.u, small: true });
             if (e.op === 'add' && e.id === 'WARD') scene.aura(dst, '#9fc4ff');
             if (e.op === 'add' && e.id === 'STEALTH') scene.aura(dst, '#7a6aa0');
             if (e.op === 'add' && label) await W(tm.wait);
@@ -311,7 +312,7 @@ export class Director {
           case 'interrupt': scene.float(ref(e.dst), 'Interrupted!', { color: '#d0b0ff', size: 24, crit: true }); scene.impact(ref(e.dst), 'arcane', true); { const en = enemy(e.dst.idx); if (en && en.intent) en.intent.interrupted = true; } push(); hud.log(`You interrupt ${name(e.dst)}: ${e.name} is cancelled.`, 'lg-you'); await W(tm.wait); break;
           case 'immune': scene.float(ref(e.dst), 'Immune', { color: '#cfe4ff', size: 18, small: true }); await W(tm.wait); break;
           case 'skip': if (e.reason && e.reason !== 'Unaware') scene.float(ref(e.src), e.reason, { color: '#c8c0b0', size: 16, small: true }); await W(tm.wait); break;
-          case 'cleanse': scene.aura(ref(e.dst), '#ffffff'); scene.float(ref(e.dst), 'Cleansed', { color: '#ffffff', size: 18 }); { const u = unit(e.dst); const nu = statusSource(next, e.dst); if (u && nu) u.statuses = deepClone(nu.statuses); push(); } await W(tm.wait); break;
+          case 'cleanse': scene.aura(ref(e.dst), themeToken('--ink-bright')); scene.float(ref(e.dst), 'Cleansed', { color: themeToken('--ink-bright'), size: 18 }); { const u = unit(e.dst); const nu = statusSource(next, e.dst); if (u && nu) u.statuses = deepClone(nu.statuses); push(); } await W(tm.wait); break;
           case 'resource': p().res.cur = e.after; push(); scene.float('player', `+${fmtNum(e.amount)} ${p().res.kind}`, { color: '#8fc4ff', size: 16, small: true }); break;
           case 'cp': p().cp = e.after; push(); break;
           case 'death': {
@@ -325,7 +326,7 @@ export class Director {
             if (e.dst.side === 'player') await WM(M.playerDeath); else await W(tm.wait);
             break;
           }
-          case 'resurrect': scene.revive('player'); scene.aura('player', '#ffd36a', 1.4); scene.levelUp('player'); p().hp = e.hpAfter;
+          case 'resurrect': scene.revive('player'); scene.aura('player', themeToken('--accent-hi'), 1.4); scene.levelUp('player'); p().hp = e.hpAfter;
             if (next.player) Object.assign(p(), { resurrect: deepClone(next.player.resurrect), resurrectHeld: deepClone(next.player.resurrectHeld), resurrectBoss: deepClone(next.player.resurrectBoss) });
             push(); ctx.ui.banner('Resurrected', `${e.source} returns you to the fight`, 'phase', 1800); hud.log(`${e.source} flares: you return to the fight!`, 'lg-loot'); await WM(M.resurrect); break;
           case 'round': {
@@ -354,7 +355,7 @@ export class Director {
           }
           case 'victory': hud.log('Victory!', 'lg-sys'); scene.act('player', 'cheer', settings.dur(900)); await WM(M.victory); break;
           case 'defeat': break;
-          case 'flee': if (e.ok) { scene.float('player', 'Escaped!', { color: '#ffe08a', size: 22 }); hud.log('You flee from the fight.', 'lg-warn'); scene.setMode('map'); scene.clearEnemies(); await W(tm.wait); } else { scene.float('player', 'Flee failed', { color: '#ff9a8a', size: 20 }); hud.log('You fail to escape!', 'lg-warn'); await W(tm.wait); } break;
+          case 'flee': if (e.ok) { scene.float('player', 'Escaped!', { color: themeToken('--accent-pale'), size: 22 }); hud.log('You flee from the fight.', 'lg-warn'); scene.setMode('map'); scene.clearEnemies(); await W(tm.wait); } else { scene.float('player', 'Flee failed', { color: '#ff9a8a', size: 20 }); hud.log('You fail to escape!', 'lg-warn'); await W(tm.wait); } break;
           case 'bossPhase': scene.bossPhase = e.phase; scene.screenFlash(e.phase === 3 ? '#ff5a2a' : '#8a6aff', 0.35, 0.8); scene.shake(14); ctx.ui.banner(`Phase ${e.phase}: ${e.name}`, e.text, 'phase', 2400); hud.log(`${e.name}: ${e.text}`, 'lg-warn'); await WM(M.bossPhase); break;
           case 'summon': if (!shown.combat) break; for (const idx of e.idxs) { const en = shown.combat.enemies.find((x) => x.idx === idx); if (en) en.hidden = false; } ctx.syncScene(shown, { enter: true }); push(); hud.log(e.signal ? `${e.names[0]} answers the signal!` : `${e.names.length} ${e.names[0]}s appear!`, 'lg-warn'); await W(tm.wait); break;
           // combat v2 (engine-api.md 5): what control, traps, Signal and Bolster do to the tracks, in the log (no extra wait)
@@ -367,7 +368,7 @@ export class Director {
             hud.log(`${cap(e.who)} is off-balance (${why}): ${ob ? `+${Math.round(ob.taken * 100)} % damage taken, +${Math.round(ob.crit * 100)} % crit` : 'hit it now'} for your next action.`, 'lg-loot');
             break;
           }
-          case 'trapSprung': scene.float(ref(e.dst), e.disrupt ? 'Disrupted!' : 'Trap!', { color: '#ffe08a', size: 22, crit: true }); hud.log(e.disrupt ? `Your Disrupt springs on ${e.who}!` : `Your trap springs on ${e.who}!`, 'lg-you'); break;
+          case 'trapSprung': scene.float(ref(e.dst), e.disrupt ? 'Disrupted!' : 'Trap!', { color: themeToken('--accent-pale'), size: 22, crit: true }); hud.log(e.disrupt ? `Your Disrupt springs on ${e.who}!` : `Your trap springs on ${e.who}!`, 'lg-you'); break;
           // combat v2.1 (rules 7.12): the moment a wind-up is answered (STAGGERED) or lands (EMPOWERED). The stack's status
           // event came first, so the frame's badge is already up; the float, the burst and the log line say what happened,
           // in a beat of the round's own timeline (combat-feel.js BEAT.windup, inside the D47 round budget)
@@ -385,8 +386,8 @@ export class Director {
               const add = Math.round((answered ? 0 : n.deathblowEmpower ?? 0) * 100); // this stack's share; value is the sum
               const maim = Math.round(((((next.player && next.player.statuses) || []).find((x) => x.id === 'MAIMED') || {}).value || 0) * 100);
               // QA 2026-11-12: both in the headline lane (scene.headline), clear of the numbers, the pet's numbers and Dodge
-              scene.float(dst, answered ? 'Deathblow answered: staggered' : 'Deathblow landed: empowered', { color: answered ? '#9fdcff' : '#ff4a4a', size: 24, crit: true, life: 2.2, lane: 'head' });
-              if (!answered && e.maimed) { scene.float('player', maim ? `Maimed: healing −${maim} %` : 'Maimed', { color: '#ff6a6a', size: 22, crit: true, life: 2.4, lane: 'head' }); if (live()) scene.screenFlash('#a8000a', 0.3, 0.6); }
+              scene.float(dst, answered ? 'Deathblow answered: staggered' : 'Deathblow landed: empowered', { color: answered ? '#9fdcff' : themeToken('--danger-float'), size: 24, crit: true, life: 2.2, lane: 'head' });
+              if (!answered && e.maimed) { scene.float('player', maim ? `Maimed: healing −${maim} %` : 'Maimed', { color: themeToken('--danger-lethal'), size: 22, crit: true, life: 2.4, lane: 'head' }); if (live()) scene.screenFlash(themeToken('--danger-flash'), 0.3, 0.6); }
               hud.log(answered ? `Deathblow answered: ${cap(e.who)}'s ${e.name} ${how}. Staggered${e.stacks > 1 ? ` ×${e.stacks}` : ''}: −${pct} % damage for the rest of the fight.`
                 : `Deathblow landed: ${cap(e.who)}'s ${e.name}. Empowered: +${add || pct} % damage for the rest of the fight${e.maimed ? `; you are maimed: healing you receive −${maim} % until the fight ends` : ''}.`, answered ? 'lg-loot' : 'lg-warn');
               await W(tm.wait);
@@ -406,20 +407,20 @@ export class Director {
             // n: living Shards when the wave came (engine event); the strength from the rules table
             const R = ctx.data.rules; const dr = e.on && e.n ? R.linkDr[Math.min(e.n, R.linkDr.length - 1)] : 0;
             const b = shown.combat && shown.combat.enemies.find((x) => x.rank === 'boss');
-            if (b) scene.float(`enemy:${b.idx}`, e.on ? (dr ? `Linked −${Math.round(dr * 100)} %` : 'Linked') : 'Link broken', { color: e.on ? '#c8a8ff' : '#ffe08a', size: 20 });
+            if (b) scene.float(`enemy:${b.idx}`, e.on ? (dr ? `Linked −${Math.round(dr * 100)} %` : 'Linked') : 'Link broken', { color: e.on ? '#c8a8ff' : themeToken('--accent-pale'), size: 20 });
             hud.log(e.on ? linkedText(R, 'log') : 'The link is broken.', 'lg-warn'); await W(tm.wait); break;
           }
           case 'gold': hud.log(`You receive ${fmtNum(e.amount)} copper${e.heat ? ` (+${fmtNum(e.heat)} from heat)` : ''}.`, 'lg-loot'); break;
           case 'msg': ctx.ui.toast(e.text, e.kind === 'warn' ? 'err' : e.kind || 'info'); hud.log(e.text, e.kind === 'warn' ? 'lg-warn' : 'lg-sys'); break;
           case 'rest': scene.aura('player', '#ffd8a0', 1.4); scene.float('player', 'Rested', { color: '#9fb8ff', size: 22 }); hud.log('You rest. Health and mana restored; you feel rested.', 'lg-sys'); await W(500); break;
-          case 'chest': ctx.ui.chestOpen = true; ctx.syncScene(next); scene.burst(scene.W * 0.62, scene.groundY - 40 * scene.u, '#ffe08a', 30, 160, { up: 80 }); await W(500); break;
+          case 'chest': ctx.ui.chestOpen = true; ctx.syncScene(next); scene.burst(scene.W * 0.62, scene.groundY - 40 * scene.u, themeToken('--accent-pale'), 30, 160, { up: 80 }); await W(500); break;
           case 'trap': break;
           case 'buy': hud.log(`You buy ${e.name}.`, 'lg-loot'); break;
           case 'sell': hud.log(`You sell ${e.name} for ${fmtNum(e.gold)} copper.`, 'lg-loot'); break;
           case 'learn': scene.aura('player', '#c8a8ff'); ctx.ui.toast(`Learned ${e.name}`, 'good'); hud.log(`You learn ${e.name}.`, 'lg-sys'); break;
           case 'train': hud.log(`${e.name} trained to rank ${e.rank}.`, 'lg-sys'); break;
           case 'equip': hud.log(`Equipped ${e.name}.`, 'lg-sys'); break;
-          case 'talent': scene.aura('player', '#ffd36a'); hud.log(`Talent learned: ${e.name} (rank ${e.rank}).`, 'lg-sys'); break;
+          case 'talent': scene.aura('player', themeToken('--accent-hi')); hud.log(`Talent learned: ${e.name} (rank ${e.rank}).`, 'lg-sys'); break;
           case 'used': hud.log(`You use ${e.name}.`, 'lg-sys'); break;
           case 'boon': scene.aura('player', '#9fe0b0', 1.2); ctx.ui.toast(e.name, 'good'); hud.log(`The shrine grants ${e.name}.`, 'lg-sys'); break;
           case 'zone': break;

@@ -1,15 +1,11 @@
 // Icons drawn in code and cached as data URLs (no image files, no requests).
+// Backgrounds and frame colours are the --icon-* and shade/glint tokens of tokens.css, read through theme.js (Track R3);
+// the cache is dropped when the theme changes, so the next icon drawn takes the new colours.
 import { rgba, shade } from './util.js';
-
-const BG = {
-  steel: ['#9aa3ad', '#3a3f48'], blood: ['#c0473f', '#4a1414'], shadow: ['#6a5a8a', '#1c1628'], gold: ['#e8c45a', '#6a4a12'],
-  fire: ['#f08a3a', '#6a1e0a'], frost: ['#7cc4f0', '#173a5c'], arcane: ['#b07af0', '#2a1650'], nature: ['#8fc46a', '#22401a'],
-  heal: ['#7fe0a0', '#145a32'], poison: ['#9fd65a', '#2a4a12'], earth: ['#c4a06a', '#4a3216'], dark: ['#5a5a6a', '#141418'],
-  parchment: ['#e8d6a8', '#8a6a3a'], junk: ['#8a8a8a', '#2a2a2a'], common: ['#c8c8c8', '#3a3a3a'], uncommon: ['#5fd06a', '#14401a'],
-  rare: ['#4f9cff', '#102a5a'], epic: ['#b86cff', '#2e1250'],
-};
+import { ICON_BG as BG, token, onTheme } from './theme.js';
 
 const cache = new Map();
+onTheme(() => cache.clear());
 const S = 64;
 
 // ------------------------------------------------------------------ glyphs (drawn in a 64x64 box)
@@ -121,13 +117,13 @@ function render(glyph, bg, opts = {}) {
     g.addColorStop(0, c1); g.addColorStop(1, c2);
     c.fillStyle = g; c.fillRect(0, 0, S, S);
     // painterly sheen
-    c.fillStyle = 'rgba(255,255,255,0.08)';
+    c.fillStyle = token('--glint-08');
     c.beginPath(); c.moveTo(0, 0); c.lineTo(S, 0); c.lineTo(0, S * 0.6); c.fill();
   }
   const fn = G[glyph] || G.spark;
   const fg = opts.fg || '#fbf1d6';
   // shadow pass
-  c.save(); c.translate(2, 3); c.fillStyle = 'rgba(0,0,0,0.55)'; c.strokeStyle = 'rgba(0,0,0,0.55)'; fn(c); c.restore();
+  c.save(); c.translate(2, 3); c.fillStyle = token('--shade-55'); c.strokeStyle = token('--shade-55'); fn(c); c.restore();
   c.save(); c.translate(32, 32); c.scale(0.86, 0.86); c.translate(-32, -32);
   const fg2 = c.createLinearGradient(0, 8, 0, 56);
   fg2.addColorStop(0, '#ffffff'); fg2.addColorStop(1, fg);
@@ -135,7 +131,7 @@ function render(glyph, bg, opts = {}) {
   fn(c);
   c.restore();
   if (!opts.bare) {
-    c.strokeStyle = 'rgba(0,0,0,0.6)'; c.lineWidth = 3; c.strokeRect(1.5, 1.5, S - 3, S - 3);
+    c.strokeStyle = token('--shade-60'); c.lineWidth = 3; c.strokeRect(1.5, 1.5, S - 3, S - 3);
     c.strokeStyle = rgba(c1, 0.6); c.lineWidth = 1; c.strokeRect(3.5, 3.5, S - 7, S - 7);
   }
   return cv.toDataURL();

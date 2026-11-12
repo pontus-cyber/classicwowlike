@@ -16,6 +16,7 @@ import { buildBackdrop, drawBackdrop, drawForeground, THEMES, GROUND_Y, oak, pin
 import { drawHumanoid, drawBeast, drawBoss, drawShard, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook, glowBall } from './art-actors.js';
 import { clamp, lerp, ease, rgba, shade, mix, prng } from './util.js';
 import { settings } from './settings.js';
+import { BOLT, IMPACT, token } from './theme.js';
 
 // floating text lanes (UX pass 2026-11-11): a damage or heal number (NUM_RE) slams in on the body and rises; every other
 // float is a word in its own lane under the number: WORD_ROWS rows from WORD_DY0, WORD_ROW apart (px at 768 high), a
@@ -26,7 +27,7 @@ const WORD_ROWS = 2; const WORD_DY0 = 34; const WORD_ROW = 27; const WORD_HOLD =
 // headline lane (QA 2026-11-12): HEAD_ROWS rows per actor, HEAD_ROW px apart; over the hero or pet the first row's middle
 // is HEAD_DY0 px above the head; under an enemy it is HEAD_GAP px below the word lane's last row (px at 768 high)
 const HEAD_ROWS = 2; const HEAD_DY0 = 18; const HEAD_ROW = 28; const HEAD_GAP = 30; const FLOG_MAX = 240;
-const SCHOOL_COL = { phys: '#f4ead6', fire: '#ff8a3a', frost: '#8fd6ff', arcane: '#c79bff', shadow: '#a07aff', nature: '#8fe07a', heal: '#7fffa0' };
+const SCHOOL_COL = IMPACT; // theme.js: the --fx-impact-* tokens (frost: --school-frost)
 
 export class Scene {
   constructor(canvas) {
@@ -221,7 +222,7 @@ export class Scene {
     const an = this.anchor(id); if (!an) return;
     if (style.under) { // a note under the number just shown on this actor (absorbed damage)
       const last = [...this.texts].reverse().find((f) => f.id === id && !f.small && !f.word);
-      if (last) { this.texts.push({ ...last, text, color: style.color || '#ffffff', size: (style.size || 14) * this.u, small: true, crit: false, slam: false, weight: 0, y: last.y + (style.dy || 20 * this.u) }); return; }
+      if (last) { this.texts.push({ ...last, text, color: style.color || token('--ink-bright'), size: (style.size || 14) * this.u, small: true, crit: false, slam: false, weight: 0, y: last.y + (style.dy || 20 * this.u) }); return; }
     }
     const now = this.time;
     if (style.lane === 'head') { this.headline(id, an, text, style); return; }
@@ -233,7 +234,7 @@ export class Scene {
     const jitter = (Math.random() - 0.5) * 16 * this.u;
     const w = clamp(style.weight || 0, 0, 1);
     const crit = !!style.crit; const small = !!style.small;
-    const f = { id, x: an.x + jitter + side + (style.dx || 0), y: an.cy - (an.cy - an.top) * 0.15 + (style.dy || 0) - n * 6 * this.u, text, color: style.color || '#ffffff',
+    const f = { id, x: an.x + jitter + side + (style.dx || 0), y: an.cy - (an.cy - an.top) * 0.15 + (style.dy || 0) - n * 6 * this.u, text, color: style.color || token('--ink-bright'),
       size: (style.size || 22) * this.u * (small ? 1 : 1 + 0.4 * w), t0: now, life: style.life || (crit ? 2.0 : small ? 1.3 : 1.55), crit, small,
       weight: w, slam: !small && style.slam !== false && !settings.reduceMotion, rise: (crit ? 18 : small ? 34 : 28 - 10 * w) * this.u, outline: style.outline || 'rgba(0,0,0,0.85)' };
     this.texts.push(f); this.logFloat(f);
@@ -253,7 +254,7 @@ export class Scene {
     const above = !String(id).startsWith('enemy:');
     const numY = an.cy - (an.cy - an.top) * 0.15;
     const y = above ? an.top - (HEAD_DY0 + r * HEAD_ROW) * u : numY + (WORD_DY0 + (WORD_ROWS - 1) * WORD_ROW + HEAD_GAP + r * HEAD_ROW) * u;
-    const f = { id, x: an.x + (style.dx || 0), y, text, color: style.color || '#ffffff', size: (style.size || 22) * u, t0: now, life, crit: true, small: false,
+    const f = { id, x: an.x + (style.dx || 0), y, text, color: style.color || token('--ink-bright'), size: (style.size || 22) * u, t0: now, life, crit: true, small: false,
       word: true, head: true, weight: 0, slam: false, rise: (above ? 6 : 0) * u, outline: style.outline || 'rgba(0,0,0,0.85)' };
     const half = this.textWidth(f) / 2 + 8 * u;
     f.x = clamp(f.x, half, Math.max(half, this.W - half));
@@ -297,14 +298,14 @@ export class Scene {
     const old = rows[r].f; if (old && this.texts.includes(old)) old.cut = start; // the word before it in this row makes room
     const numY = an.cy - (an.cy - an.top) * 0.15;
     const crit = !!style.crit;
-    const f = { id, x: an.x + (style.dx || 0), y: numY + (WORD_DY0 + r * WORD_ROW) * u, text, color: style.color || '#ffffff',
+    const f = { id, x: an.x + (style.dx || 0), y: numY + (WORD_DY0 + r * WORD_ROW) * u, text, color: style.color || token('--ink-bright'),
       size: Math.min(style.size || 20, WORD_MAX) * u, t0: start, life: style.life || (crit ? 1.9 : 1.5), crit, small: !crit, word: true,
       weight: 0, slam: crit && !settings.reduceMotion, rise: WORD_RISE * u, outline: style.outline || 'rgba(0,0,0,0.85)' };
     rows[r] = { free: start + WORD_HOLD, f };
     this.texts.push(f); this.logFloat(f);
   }
   floatAt(x, y, text, style = {}) {
-    this.texts.push({ x, y, text, color: style.color || '#fff', size: (style.size || 22) * this.u, t0: this.time, life: style.life || 1.4, crit: !!style.crit, weight: 0, slam: false, rise: 40 * this.u, outline: 'rgba(0,0,0,0.85)' });
+    this.texts.push({ x, y, text, color: style.color || token('--ink-bright'), size: (style.size || 22) * this.u, t0: this.time, life: style.life || 1.4, crit: !!style.crit, weight: 0, slam: false, rise: 40 * this.u, outline: 'rgba(0,0,0,0.85)' });
   }
 
   burst(x, y, color, n = 14, spread = 160, opts = {}) {
@@ -388,7 +389,7 @@ export class Scene {
     const an = this.anchor(id); if (!an) return;
     this.pillar = { x: an.x, feet: an.feet, t0: this.time, life: 2.2 };
     this.screenFlash('#ffe8a0', 0.25, 0.6);
-    for (let i = 0; i < 60; i++) this.particles.push({ x: an.x + (Math.random() - 0.5) * 90 * this.u, y: an.feet - Math.random() * 30 * this.u, vx: (Math.random() - 0.5) * 40 * this.u, vy: -(120 + Math.random() * 220) * this.u, life: 1 + Math.random() * 1.2, t0: this.time, size: 3 * this.u, color: Math.random() < 0.5 ? '#ffe08a' : '#fff6d6', g: 30, glow: true });
+    for (let i = 0; i < 60; i++) this.particles.push({ x: an.x + (Math.random() - 0.5) * 90 * this.u, y: an.feet - Math.random() * 30 * this.u, vx: (Math.random() - 0.5) * 40 * this.u, vy: -(120 + Math.random() * 220) * this.u, life: 1 + Math.random() * 1.2, t0: this.time, size: 3 * this.u, color: Math.random() < 0.5 ? token('--accent-pale') : '#fff6d6', g: 30, glow: true });
   }
 
   /**
@@ -475,7 +476,7 @@ export class Scene {
     const th = THEMES[this.theme] || THEMES.farmland;
     ctx.fillStyle = th.grade; ctx.fillRect(0, 0, W, H);
     const vg = ctx.createRadialGradient(W / 2, H * 0.55, H * 0.35, W / 2, H * 0.55, H * 1.05);
-    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.55)');
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, token('--shade-55'));
     ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
     if (this.desat > 0) { ctx.fillStyle = `rgba(20,16,24,${0.55 * this.desat})`; ctx.fillRect(0, 0, W, H); }
     if (this.dim > 0.01) { ctx.fillStyle = `rgba(8,6,4,${this.dim})`; ctx.fillRect(0, 0, W, H); }
@@ -587,7 +588,7 @@ export class Scene {
     const g = ctx.createRadialGradient(an.x, an.cy, 4 * u, an.x, an.cy, (an.feet - an.top) * 0.85);
     g.addColorStop(0, `rgba(255,190,70,${0.16 + 0.12 * pulse})`); g.addColorStop(1, 'rgba(255,170,40,0)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(an.x, an.cy, (an.feet - an.top) * 0.85, 0, Math.PI * 2); ctx.fill();
-    ctx.shadowColor = '#ffb030'; ctx.shadowBlur = 14 * u; ctx.lineCap = 'round';
+    ctx.shadowColor = token('--tele-window'); ctx.shadowBlur = 14 * u; ctx.lineCap = 'round';
     const segs = 8; const rot = t * 0.9;
     for (let i = 0; i < segs; i++) {
       const a0 = rot + (i / segs) * Math.PI * 2; const a1 = a0 + (Math.PI * 2 / segs) * 0.62;
@@ -705,7 +706,7 @@ export class Scene {
       const ease1 = (q) => (p.kind === 'arrow' ? q : ease.in(q));
       const at = (q) => { const e = ease1(clamp(q, 0, 1)); return [lerp(p.from.x, p.to.x, e), lerp(p.from.y, p.to.y, e) - Math.sin(e * Math.PI) * p.arc]; };
       const [x, y] = at(k);
-      const col = { fire: '#ff8a3a', frost: '#9fdcff', arcane: '#c79bff', shadow: '#9a6aff', nature: '#9be07a', comet: '#ffb05a', phys: '#ffffff', arrow: p.w > 0.5 ? '#ffd27a' : '#fff1d0' }[p.kind] || '#ffffff';
+      const col = p.kind === 'arrow' ? (p.w > 0.5 ? BOLT.arrow : BOLT.arrowLight) : BOLT[p.kind] || BOLT.phys; // theme.js BOLT
       // trail: a tapering streak along the flight path behind the shot (sampled from the path, so smooth at any frame rate)
       const len = (p.kind === 'arrow' ? 0.16 : 0.2) + 0.16 * p.w; const N = 10;
       ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';

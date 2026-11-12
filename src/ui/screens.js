@@ -21,6 +21,7 @@ import { createMeta, buildOaths, echoAmt } from './meta.js';
 import { heatKey, previewBlock, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME } from './heat.js';
 import { createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon } from './prep.js';
 import { contractTitle } from './ui-text.js';
+import { token } from './theme.js';
 
 /** The heat preview of a time-costing engine action now (view.heat.next, R.heatView), or null. */
 const heatOf = (v, action) => (v.heat && v.heat.next ? v.heat.next[heatKey(action)] || null : null);
@@ -462,7 +463,7 @@ function buildExpMap(v, ctx, readOnly) {
   // land: the painted parchment disc, a grain over it, the rim
   svgEl('circle', { cx: 500, cy: 500, r: 482, fill: '#3a2814', opacity: 0.55, filter: 'url(#xf-soft)' }, svg);
   svgEl('circle', { cx: 500, cy: 500, r: 468, fill: 'url(#xg-land)' }, svg);
-  svgEl('circle', { cx: 500, cy: 500, r: 468, fill: '#000', filter: 'url(#xf-ink)' }, svg);
+  svgEl('circle', { cx: 500, cy: 500, r: 468, fill: token('--shade'), filter: 'url(#xf-ink)' }, svg);
   const per = {}; for (const n of mv.nodes) per[n.ring] = (per[n.ring] || 0) + 1;
   const step = (ring) => 360 / Math.max(1, per[ring] || 1);
   // regions: a soft tint on every node whose region the view gives (seen, or Region Charts); names on the rim
@@ -476,7 +477,7 @@ function buildExpMap(v, ctx, readOnly) {
   // rings and the rim
   for (const r of XR.slice(1)) svgEl('circle', { cx: 500, cy: 500, r, fill: 'none', stroke: '#6a4a26', 'stroke-width': 1.6, 'stroke-dasharray': '3 9', opacity: 0.45 }, svg);
   svgEl('circle', { cx: 500, cy: 500, r: 468, fill: 'none', stroke: '#4a3018', 'stroke-width': 5, opacity: 0.8 }, svg);
-  svgEl('circle', { cx: 500, cy: 500, r: 458, fill: 'none', stroke: '#8a6a3a', 'stroke-width': 1.2, opacity: 0.6 }, svg);
+  svgEl('circle', { cx: 500, cy: 500, r: 458, fill: 'none', stroke: token('--map-ring-edge'), 'stroke-width': 1.2, opacity: 0.6 }, svg);
   // region names along the rim, at the middle of the region's known nodes
   for (const [ri, angs] of regAngles) {
     const reg = mv.regions[ri]; if (!reg || !reg.name) continue;
@@ -719,7 +720,7 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
   else if (fog === 'typed') box.appendChild(h('div.tt-line.muted', 'Known from afar: its type only.'));
   else if (fog === 'remembered') box.appendChild(h('div.tt-line.muted', 'Remembered: seen before, out of sight now.'));
   if (full && !n.hub) {
-    if (n.type === 'quest' && n.title) box.appendChild(h('div.tt-line', { style: { color: '#ffd88a', fontWeight: 700 } }, n.title));
+    if (n.type === 'quest' && n.title) box.appendChild(h('div.tt-line', { style: { color: token('--accent-cream'), fontWeight: 700 } }, n.title));
     if (n.type === 'dungeon' && n.name) box.appendChild(h('div.tt-line', { style: { color: '#c8a8ff', fontWeight: 700 } }, n.name));
     const dbl = deathblowLine(n.type === 'elite' ? n.deathblow : n.type === 'dungeon' ? n.bossDeathblow : null, n.type === 'dungeon'); // M2b v13 (UI needs 7)
     if (dbl) box.appendChild(dbl);
@@ -788,7 +789,7 @@ function nodeTip(n, v, ctx, reach, hp = null) {
   const p = v.player;
   const box = h('div.tt-node');
   box.appendChild(h('div.tt-row', h('div.tt-name', NODE_NAME[n.type] + (n.type === 'elite' && n.rare && n.rareVisible ? ' (rare)' : '')), h('div', { style: { color: NO_FIGHT.has(n.type) ? NEUTRAL : conColor(n.cl, p.level), fontWeight: 800 } }, `Level ${n.cl}`)));
-  if (n.type === 'quest') add(box, h('div.tt-line', { style: { color: '#ffd88a', fontWeight: 700 } }, n.title), h('div.tt-sub', `From ${n.giver}`));
+  if (n.type === 'quest') add(box, h('div.tt-line', { style: { color: token('--accent-cream'), fontWeight: 700 } }, n.title), h('div.tt-sub', `From ${n.giver}`));
   if (n.type === 'elite') add(box, h('div.tt-line', { style: { color: '#ffb08a', fontWeight: 700 } }, n.eliteName || 'An elite'), n.level ? h('div.tt-sub', `Elite level ${n.level}`) : null);
   if (n.type === 'dungeon') add(box, h('div.tt-line', { style: { color: '#c8a8ff', fontWeight: 700 } }, n.dungeon), h('div.tt-sub', `Boss: ${n.bossName}`));
   // M2b v13 (UI needs 7): the special enemy's Deathblow and its kind (mapView `deathblow`, `bossDeathblow`), to plan the answer
@@ -1047,7 +1048,7 @@ function buildSummary(v, ctx) {
   // a hero without a name of its own carries the class name: say it once (QA playtest 2026-11-11 finding 10)
   const named = s.name && s.name.toLowerCase() !== String(s.className).toLowerCase() ? s.name : null;
   win.appendChild(h('div.shead', h('div.t1.subtitle', { style: { letterSpacing: '.4em', textTransform: 'uppercase' } }, won ? 'Victory' : 'The run has ended'),
-    h('div.t2', { style: { color: won ? '#ffe08a' : '#e8a090' } }, won ? 'Oruvath has fallen' : named ? `${named} has fallen` : `Your ${s.className} has fallen`),
+    h('div.t2', { style: { color: won ? token('--accent-pale') : '#e8a090' } }, won ? 'Oruvath has fallen' : named ? `${named} has fallen` : `Your ${s.className} has fallen`),
     h('div.subtitle.s-who', `${named ? `${named} · level` : 'Level'} ${s.level} ${s.className}${s.petId ? ' with ' + ctx.data.pets[s.petId].name : ''} · ${s.zone}`),
     // a dev run (engine-api.md 12): the dev tools changed it, so it earns no Echoes
     s.dev ? h('div.devrun', `Dev run${s.dev.god ? ' · god mode' : ''}`) : null));

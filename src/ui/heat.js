@@ -32,9 +32,10 @@
 import { h, clear, clamp } from './util.js';
 import { tip } from './tooltip.js';
 import { HEAT_WORDS as HW, tolls } from './ui-text.js';
+import { HEAT, token } from './theme.js';
 
 export const HEAT_NAME = HW.state; // Calm, Smouldering, Burning, Infernal (ui-text.js HEAT_WORDS)
-export const HEAT_COLOR = { clear: '#3f9bd6', warm: '#f0c75a', hot: '#ec7a2c', scorched: '#b8263f' };
+export const HEAT_COLOR = HEAT; // the --heat-* tokens of tokens.css (theme.js), read when used
 const INTRO_KEY = 'tbwcr.heatIntro.v1'; // the first-time note was shown (localStorage)
 const STATES = ['clear', 'warm', 'hot', 'scorched'];
 
@@ -291,7 +292,7 @@ export function heatTip(ctx) {
   ];
   box.appendChild(h('div.tt-heatstates', rows.map(([s, when]) => h('div.hs' + (s === hv.state ? '.on' : ''), { dataset: { hs: s } }, h('i.ht-dot', { dataset: { hs: s } }), h('b', HEAT_NAME[s]), h('span.w', when), h('span.p', payText(s, H) || 'no reward')))));
   box.appendChild(h('div.tt-sub', 'A node pays the state you enter it in.'));
-  if (hv.node) box.appendChild(h('div.tt-line', { style: { color: HEAT_COLOR[hv.node.state] === HEAT_COLOR.scorched ? '#ff8a96' : HEAT_COLOR[hv.node.state] } }, `This node was entered ${HEAT_NAME[hv.node.state]}: ${payText(hv.node.state, H) || 'no reward'}.`));
+  if (hv.node) box.appendChild(h('div.tt-line', { style: { color: hv.node.state === 'scorched' ? token('--heat-scorched-tip') : HEAT_COLOR[hv.node.state] } }, `This node was entered ${HEAT_NAME[hv.node.state]}: ${payText(hv.node.state, H) || 'no reward'}.`));
   if (hv.dimIn !== null && hv.dimIn !== undefined) {
     box.appendChild(h('div.tt-line.dimline', hv.dimIn <= 0 ? `Dimming: your node is Dimmed (${HEAT_NAME.scorched}).` : `Dimming: your node dims in ${tolls(hv.dimIn)} (${HEAT_NAME.warm} at ${tolls(H.dimWarm)} or less, ${HEAT_NAME.hot} at ${tolls(H.dimHot)} or less, ${HEAT_NAME.scorched} once Dimmed).`));
     box.appendChild(h('div.tt-line', `The hotter clock sets the state: now ${hv.by === 'dim' ? `the Dimming (${HEAT_NAME[hv.stateDim]})` : `the line (${HEAT_NAME[hv.stateRun]})`}.`));
