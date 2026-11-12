@@ -15,7 +15,7 @@ import { R, C, CONTENT, tweak, ev, STREAM, nextFloat } from './helpers.mjs';
 import { CONTENT as REAL } from '../../src/content/index.js';
 import { nextInt, weightedIndex } from '../../src/rng.js';
 import { generateExpZone, zoneRegions } from '../../src/engine/expedition.js';
-import { contractLevel, prepPoints, drawBoard } from '../../src/engine/contracts.js';
+import { contractLevel, prepPoints, drawBoard, prepLeft } from '../../src/engine/contracts.js';
 import { validEncounter } from '../../src/engine/map.js';
 
 const SPEC = readFileSync(fileURLToPath(new URL('../../docs/specs/expedition.md', import.meta.url)), 'utf8');
@@ -673,6 +673,56 @@ describe('expedition.md 3.2, autoplay and the dev tools', () => {
       if (sum.reachedBoss) boss++;
     }
     assert.ok(boss >= 1, `reached the boss in ${boss} runs`);
+  });
+
+  /** autoAction at the start camp until SET_OUT: the actions and the camp state just before SET_OUT. */
+  function autoCamp(s) {
+    const acts = [];
+    for (let n = 0; n < 20 && s.phase === 'PREP'; n++) {
+      const a = R.autoAction(s);
+      acts.push(a);
+      if (a.type === 'SET_OUT') return { acts, last: s };
+      s = go(s, a);
+    }
+    throw new Error('autoplay did not set out');
+  }
+  const kinds = (acts) => acts.map((a) => (a.type === 'BUY_PREP' ? a.id : a.type));
+  const zonesOk = (s) => s.prep.board.filter((o) => o.taken).every((o) => o.z <= C.ENGINE_ASSUMPTION.AUTO_PREP_ZONES);
+
+  test('D133 (GATES.autoEmberFirst, on): autoplay\'s camp buys the Ember of Return first, then its contracts (zones 1-AUTO_PREP_ZONES, Reserve kept), then Field Draughts only if the Reserve still holds', () => {
+    assert.equal(C.GATES.autoEmberFirst, true);
+    const EA = C.ENGINE_ASSUMPTION;
+    let draughts = 0;
+    for (const cls of ['mage', 'rogue', 'hunter']) for (let seed = 1; seed <= 12; seed++) {
+      const { acts, last } = autoCamp(atCamp({ classId: cls, seed }));
+      const k = kinds(acts);
+      assert.equal(k[0], 'prep_ember', `${cls} ${seed}: ${k}`);
+      assert.equal(k.at(-1), 'SET_OUT');
+      const d = k.indexOf('prep_draughts');
+      if (d >= 0) {
+        draughts++;
+        assert.ok(k.slice(d + 1).every((x) => x === 'SET_OUT'), `${cls} ${seed}: Field Draughts after every contract: ${k}`);
+      }
+      assert.ok(zonesOk(last));
+      const left = prepLeft(last);
+      assert.ok(left >= EA.AUTO_PREP_RESERVE, `${cls} ${seed}: Reserve ${left}`);
+      // Field Draughts are skipped only when they would break the Reserve.
+      if (d < 0) assert.ok(left - C.PREP_OPTION.prep_draughts.price < EA.AUTO_PREP_RESERVE, `${cls} ${seed}: Draughts affordable above the Reserve (${left})`);
+    }
+    assert.ok(draughts > 0, 'some camps still afford Field Draughts above the Reserve');
+  });
+
+  test('D133: an Ember that is not affordable is skipped (contracts and Draughts as before); GATES.autoEmberFirst off plays the order before D133 (Field Draughts first, no Ember)', () => {
+    const poor = tweak(atCamp({ seed: 3 }), (x) => { x.prep.points = C.PRICE_PREP_EMBER - 1; });
+    const k = kinds(autoCamp(poor).acts);
+    assert.ok(!k.includes('prep_ember'), `${k}`);
+    for (let seed = 1; seed <= 8; seed++) withGate('autoEmberFirst', false, () => {
+      const { acts, last } = autoCamp(atCamp({ seed }));
+      const k2 = kinds(acts);
+      assert.equal(k2[0], 'prep_draughts', `seed ${seed}: ${k2}`);
+      assert.ok(!k2.includes('prep_ember'));
+      assert.ok(zonesOk(last));
+    });
   });
 
   test('debug.build of an expedition run skips the camp (every point Reserve); validate accepts PREP; same seed, same camp', () => {

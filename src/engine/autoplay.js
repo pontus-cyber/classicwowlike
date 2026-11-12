@@ -7,12 +7,13 @@
 // Expedition map (rules 1.9.9): the default map policy explores what it can leave cleanly and walks to the cheapest
 // Road around the Dimming; it reads only what the player sees (seen nodes, the skeleton, the Dimming).
 // The default talent build, bar and item bar are exported for the dev tools (debug.build, engine-api.md 12).
-// Start camp and contracts (prep, expedition.md 2-3): a fixed default at PREP (Field Draughts, then one contract per zone
-// for zones 1-3 by board order while points and slots last, the rest kept as Reserve) and the hub contract from Reserve.
+// Start camp and contracts (prep, expedition.md 2-3): a fixed default at PREP (the Ember of Return (D133,
+// GATES.autoEmberFirst), then one contract per zone for zones 1-3 by board order while points and slots last, then Field
+// Draughts if the Reserve still holds; the rest kept as Reserve) and the hub contract from Reserve.
 import {
   SPELL, TALENT, CONSUMABLE, AUTO_POTION_HP, AUTO_TONIC_STACKS, AUTO_MANA_POTION, AUTO_FOOD_HP,
   ENGINE_ASSUMPTION as EA, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, MAX_LEVEL, PET, ENGAGE_OPTION, ENGAGE_OPTIONS,
-  ENGAGE_AUTO_LOOK, TIME_WALK, TIME_REST, TIME_VENDOR, TIME_TRAINER, EXPED_TIME_QUEST, GATES,
+  ENGAGE_AUTO_LOOK, TIME_WALK, TIME_REST, TIME_VENDOR, TIME_TRAINER, EXPED_TIME_QUEST, GATES, PREP_OPTION,
 } from '../constants.js';
 import { hasSt, findSt, debuffStacks, isEliteOrBoss, petAlive } from './damage.js';
 import { defaultTarget, breaksOnHit, allSapped } from './combat.js';
@@ -391,17 +392,24 @@ function trainerUseful(s) {
 }
 
 /**
- * Default start camp (prep, expedition.md 2; engine default, not a bot): Field Draughts; then, in board order, one
- * contract for each of zones 1..EA.AUTO_PREP_ZONES not yet covered, while points last with EA.AUTO_PREP_RESERVE points kept
- * back for a hub contract; then SET_OUT.
+ * Default start camp (prep, expedition.md 2; engine default, not a bot). With GATES.autoEmberFirst on (D133): the Ember of
+ * Return when affordable; then, in board order, one contract for each of zones 1..EA.AUTO_PREP_ZONES not yet covered,
+ * while points last with EA.AUTO_PREP_RESERVE points kept back for a hub contract; then Field Draughts when the Reserve
+ * still holds after it; then SET_OUT. Off: the order before D133, Field Draughts first, then the contracts.
  */
 function prepPolicy(s) {
-  if (!buyPrepError(s, 'prep_draughts')) return { type: 'BUY_PREP', id: 'prep_draughts' };
+  const emberFirst = GATES.autoEmberFirst;
+  if (emberFirst) {
+    if (!buyPrepError(s, 'prep_ember')) return { type: 'BUY_PREP', id: 'prep_ember' };
+  } else if (!buyPrepError(s, 'prep_draughts')) return { type: 'BUY_PREP', id: 'prep_draughts' };
   const left = prepLeft(s);
   const covered = new Set(s.prep.board.filter((o) => o.taken).map((o) => o.z));
   for (const o of s.prep.board) {
     if (o.z > EA.AUTO_PREP_ZONES || covered.has(o.z) || left - o.price < EA.AUTO_PREP_RESERVE) continue;
     if (!takeContractError(s, o.index)) return { type: 'TAKE_CONTRACT', index: o.index };
+  }
+  if (emberFirst && !buyPrepError(s, 'prep_draughts') && left - PREP_OPTION.prep_draughts.price >= EA.AUTO_PREP_RESERVE) {
+    return { type: 'BUY_PREP', id: 'prep_draughts' };
   }
   return { type: 'SET_OUT' };
 }

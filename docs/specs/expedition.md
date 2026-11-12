@@ -361,6 +361,8 @@ No bot may read the zone state. The Sim Engineer adds a QA check that the planne
 | tactician | as planner | as planner (combat as today) |
 | oracle (diagnostic only) | n/a | the planner's search with full information of the current zone; never acts in a measured run; used for B41 |
 
+(D133) Autoplay's start camp (the engine default of `autoAction`, not a bot; engine-api.md 13.4): the Ember of Return when affordable, then one board contract for each of zones 1-AUTO_PREP_ZONES while AUTO_PREP_RESERVE points stay, then Field Draughts when AUTO_PREP_RESERVE points still stay after them; the rest is Reserve. Switch `GATES.autoEmberFirst`, on; off plays the order before D133 (Field Draughts, then the contracts). Reason: on the same seeds the planner's camp (the Ember in every run) wins +11.5 pp (7.4 - 15.6) over autoplay's (Field Draughts in every run) [source: docs/reports/balance-2026-11-13.md, stage A]; the engine change itself is unmeasured.
+
 ### 10.3 Site value in the value function
 `siteValue = P(site) × (progress + 1 >= need ? contractValue : contractValue / need × SITE_PARTIAL_MULT)`, `contractValue = (XP levels of the reward × VAL_XP + rarity-weighted item score gain × VAL_GEAR + gold / V × VAL_GOLD)`. Holding a Bell charge is worth BELL_KEEP_VALUE value units until zone 6.
 

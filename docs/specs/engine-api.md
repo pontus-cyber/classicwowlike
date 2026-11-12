@@ -50,7 +50,8 @@ rows 1, 2 and 4, D123-D125: the Swift passage of a Road (rules 1.9.7: the `swift
 `C.ROAD_SWIFT_XP_FRAC`, the switch `C.GATES.swiftRoad` (off since D126, report 2026-11-12c; the rule stays),
 `debug.nextZone` without the Swift passage; marked "(M2b v15)"; D126: `C.GATES.mawgrimHp` and content `gated` removed,
 Mawgrim's hpMult 0.95 is its content value); 2026-11-12e (D132: the start camp's board drawn across the run,
-`C.CONTRACT_BOARD_BANDS` and the switch `C.GATES.boardAcrossRun`, on; section 13.1; marked "(D132)").
+`C.CONTRACT_BOARD_BANDS` and the switch `C.GATES.boardAcrossRun`, on; section 13.1; marked "(D132)"); 2026-11-13 (D133:
+autoplay's start camp buys the Ember of Return first, the switch `C.GATES.autoEmberFirst`, on; section 13.4; marked "(D133)").
 Units: every time value of the API is a whole number of tolls (1 toll = 1 former in-game hour, D69); there are no hours.
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
@@ -838,7 +839,10 @@ contract it gives up: `TAKE_HUB_CONTRACT(mode, contractId)`, `contractId` for `s
 Delve shows its dungeon's type while held or complete; a Grind site counts at its first wave won; REROLL_BOARD replaces
 slot by slot from `prep(k + 1)` (with `GATES.campReroll` on; off since D128); board draws: kind, region, family (always one draw), the Bounty's elite, extra slots
 their zone first; Cartographer, Old Hand and Quartermaster are read from `profile.unlocks` (catalogue entries in `C.META`
-since the M2b v11 build, section 9; `C.META_EXPEDITION` names the three); autoplay's start camp: Field Draughts, then the board's
+since the M2b v11 build, section 9; `C.META_EXPEDITION` names the three); autoplay's start camp: (D133, `C.GATES.autoEmberFirst`
+on) the Ember of Return when affordable (`BUY_PREP` legal: points, EMBER_MAX_CARRIED), then the board's
 contract for each of zones 1-AUTO_PREP_ZONES whatever its kind (D132: on the board across the run that is the zone 1-2
 offer, and the middle offer only when it is zone 3; unchanged by D132) (a Delve costs 2 again since M2b v12) while AUTO_PREP_RESERVE
-points stay; the hub contract from Reserve when it can; its map policy does not seek sites.
+points stay, then (D133) Field Draughts when AUTO_PREP_RESERVE points still stay after them; with the switch off, the order
+before D133: Field Draughts first, then the contracts, no Ember; the hub contract from Reserve when it can; its map policy
+does not seek sites.

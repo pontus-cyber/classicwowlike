@@ -419,8 +419,11 @@ export const RARE_HP_MULT_Z1 = 3.0;
  * 2.2). **Off**: no reroll on the first screen; the rule stays for a later meta unlock.
  * D132 (report 2026-11-12d: zone 4-6 contracts left the board): boardAcrossRun: the camp's offers are drawn one from each
  * band of CONTRACT_BOARD_BANDS (zones 1-2, 3-4, 5-6; expedition.md 2.2). **On**; off plays the D128 board (zones 1, 2, 3).
+ * D133 (report 2026-11-13: the planner's camp, the Ember in every run, wins +11.5 pp over autoplay's on the same seeds):
+ * autoEmberFirst: autoplay's start camp buys the Ember of Return first, then its contracts, then Field Draughts if the
+ * Reserve holds (engine-api.md 13.4, expedition.md 10.2). **On**; off plays the order before D133 (Field Draughts, then the contracts).
  */
-export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true };
+export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true };
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
 // with mapMode 'expedition'; a run on today's map (mapMode 'rows', the default) never reads them.
 /** rules 1.9.2: nodes per ring (ring 0 = the hub). */
