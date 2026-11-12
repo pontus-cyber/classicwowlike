@@ -3,7 +3,7 @@
 Status: **built** (UI/UX & Visual Engineer, 2026-11-12; D127: the owner approved docs/audio/README.md with its defaults). Code: `src/ui/audio.js` (hooks in `app.js`, `director.js`, `settings.js`, `windows.js`). Tests: `qa/ui/audio.test.mjs`, `qa/browser/ui-regress.mjs` part Q. The listening reference is `docs/audio/preview.html`; the cues reuse its synthesis.
 
 ## 1. Direction (D127)
-Warm wood, cloth, felt and small brass bells (art direction A). Positive cues are bells on D major pentatonic. Reserved voices: the gong on a tritone with a beating minor second only for the Deathblow (cues 1-3); the cold glass voice only for the Dimming and the Unlit Star (not built yet); the full pentatonic run only for level-up. Every sound is synthesised in the browser; no file is ever loaded (no fetch, no decodeAudioData, no `<audio>`). Sound never carries information that is not also on screen. No music until M4 (the `music` bus is reserved and empty).
+Warm wood, cloth, felt and small brass bells (art direction A). Positive cues are bells on D major pentatonic. Reserved voices: the gong on a tritone with a beating minor second only for the Deathblow (cues 1-3); the cold glass voice only for the Dimming and the Unlit Star (built for the Dimming; the Unlit Star not yet); the full pentatonic run only for level-up. Every sound is synthesised in the browser; no file is ever loaded (no fetch, no decodeAudioData, no `<audio>`). Sound never carries information that is not also on screen. No music until M4 (the `music` bus is reserved and empty).
 
 ## 2. Cues
 Numbers are the README's (section 2). Source: director events (`ctx.audio.event`), the decision view after a step (`viewCues`), the action (`actionCues`), or app.js.
@@ -19,7 +19,7 @@ Numbers are the README's (section 2). Source: director events (`ctx.audio.event`
 | 7 | `kill` | `death` of an enemy (not `despawn`); elite, rare, dungeon boss and boss kills add the room and a second bell | must, built |
 | 8 | `playerDeath` | `death` of the player: the rest ducks to 30 % over 0.8 s, then silence through the death screen until the next step or click | must, built |
 | 9 | `levelUp` | `levelUp` | must, built |
-| 10 | Dimming spreads | Map diff after a step | should, **not built** |
+| 10 | `dimmingSpread` (the reserved glass voice) | The decision view after a step (`dimmingNear`): the Dimming reached new nodes of the same zone in the step and now the player's node is Dimmed, dims in DIM_NEAR tolls or fewer, or a node next to it was just Dimmed; a spread far from the player is silent | should, built (ui-2026-11-13) |
 | 11 | `uiClick` (UI bus) | A click on a button, card, slot, toggle or map node (one document-level listener, `CLICKABLE`) | must, built |
 | 12 | `maimed`; muffled heal | Tail of #3; a heal cut by MAIMED plays `heal` through a 700 Hz low-pass | must (tail), should (heal): built |
 | 13 | `windupAnswered`, `windupLanded` | `windup` without `deathblow` | must, built |

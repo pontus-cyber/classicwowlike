@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="1a3af69 2026-11-12T20:40:19Z">
+<meta name="build" content="a0cc916 2026-11-12T23:23:21Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -139,6 +139,18 @@
   --fx-bolt-comet: #ffb05a; --fx-bolt-phys: #ffffff; --fx-bolt-arrow: #ffd27a; --fx-bolt-arrow-light: #fff1d0;
   --fx-impact-phys: #f4ead6; --fx-impact-fire: #ff8a3a; --fx-impact-arcane: #c79bff; --fx-impact-shadow: #a07aff;
   --fx-impact-nature: #8fe07a; --fx-impact-heal: #7fffa0;
+  /* an enemy's held telegraph in the scene (theme.js TELE, TELE_CAST; app.js): a heavy blow, a wind-up, a cast by school
+     (frost reads --school-frost); the values app.js wrote before (HEAVY_COL, WINDUP_COL, TELE_COL) */
+  --fx-tele-heavy: #ff9a1f; --fx-tele-windup: #ff5a2a;
+  --fx-tele-fire: #ff8a3a; --fx-tele-arcane: #c79bff; --fx-tele-shadow: #a07aff; --fx-tele-nature: #8fe07a;
+  --fx-tele-magic: #b48aff; --fx-tele-phys: #ffb08a;
+  /* scene.js's effect spawners, the values they wrote before: white light (impact and answer sparks, the physical slash,
+     the hit flash), the heal's plus signs, a wind-up answered (frost-white sparks and core; a landed one is the wind-up's
+     ember, --fx-tele-windup, with its own core and gold sparks, --accent-hi), the level-up's flash and motes, floats' outline */
+  --fx-light: #ffffff; --fx-heal-plus: #9dffb8;
+  --fx-answer: #9fdcff; --fx-answer-core: #e8f8ff; --fx-ember-core: #ffb07a;
+  --fx-levelup-flash: #ffe8a0; --fx-levelup-mote: #fff6d6;
+  --fx-float-outline: rgba(0, 0, 0, .85);
   /* icon backgrounds (art-icons.js; theme.js ICON_BG): the light and the deep end of the fill, by school, material
      and rarity. "danger" is the Deathblow, MAIMED and EMPOWERED icons (R4), apart from "blood" (damage spells, the
      potion); in the current look the two have the same values */
@@ -236,6 +248,36 @@
   --dur-long-1: 1.4s; --dur-long-2: 1.5s; --dur-long-3: 1.6s; --dur-long-4: 1.8s; --dur-long-5: 2s;
   --dur-long-6: 2.2s; --dur-long-7: 2.4s; --dur-long-8: 2.6s; --dur-long-9: 2.8s; --dur-long-10: 3.7s;
   --dur-long-11: 5.1s; --dur-long-12: 7s;
+}
+
+/* The zone map on the Lantern paper chart, for every theme (owner steer D129, 2026-11-12 20:32, on art proposal 1: "2nd
+   map image is good"; docs/art/proposal-1/3-fogmap-lantern-1366.jpg). Inside the expedition map (.expmap: the map screen
+   and the M window) the map tokens take the proposal's Lantern values: ink rings on paper, "you are here" lantern-white, the
+   Dimming violet (its urgent clock too: red stays the Deathblow's, D120). style.css paints the chart (.xbody) with the paper
+   below and keeps the side panels near-opaque on it, so their text keeps its contrast. The window's frame and head, the HUD
+   and every other window keep the theme on <html> (D129: today's dark panels); the Lantern switch still changes the rest. */
+.expmap {
+  --ink-paper: #2b2118;
+  --map-ring: #2b2118;
+  --map-ring-edge: #9a7d4c;
+  --map-lit: #fff3c4;
+  --map-here: #fff6dc;
+  --map-remembered: #94805c;
+  --map-unknown: #63594c;
+  --map-unknown-deep: #2e2720;
+  --map-unknown-text: #dccfb6;
+  --map-fog: #31281d;
+  --map-dimmed: #9078cc;
+  --map-dimmed-deep: #1d1436;
+  --map-dimmed-glow: rgba(107, 79, 160, .75);
+  --map-shard: #3d2d6c;
+  --map-shard-text: #e4d8fb;
+  --map-road: #5f4826;
+  --map-road-text: #f6dfae;
+  --map-spy: rgba(127, 196, 192, .55);
+  --map-spy-soft: rgba(79, 138, 139, .28);
+  /* the paper (the proposal's paper card) */
+  --chart-paper-1: #f4e8c9; --chart-paper-2: #ead9b0; --chart-ink-edge: rgba(43, 33, 24, .7);
 }
 
 /* Lantern Gouache (docs/art/README.md direction A, D120): PROPOSAL 1, draft, for the owner to steer (D121;
@@ -368,13 +410,13 @@
 :root[data-theme="lantern"] .pp-card { background: linear-gradient(175deg, var(--lg-paper-1), var(--lg-paper-2)); box-shadow: inset 0 0 0 1px var(--lg-ink-edge), .15rem .25rem 0 var(--shade-35); }
 :root[data-theme="lantern"] .pp-card.taken { background: linear-gradient(175deg, #fbf3dc, #f1e3c0); box-shadow: inset 0 0 0 2px var(--gold-2), .15rem .25rem 0 var(--shade-35); }
 /* 3. Red is danger's alone: the primary button and Take become lantern ochre with ink text, the close button timber,
-      the enemy health bar brick with an ink edge, the map's urgent Dimming clock violet */
+      the enemy health bar brick with an ink edge (the map's urgent Dimming clock is violet in every theme: the .expmap
+      block above and style.css, D129) */
 :root[data-theme="lantern"] .btn.primary,
 :root[data-theme="lantern"] .pp-card .pc-btn { background: linear-gradient(180deg, #f2c56b, #d9a441 65%, #c18d33); color: var(--ink-paper); text-shadow: none; box-shadow: inset 0 1px 0 rgba(255, 244, 214, .5), inset 0 0 0 1px var(--lg-ink-edge), 0 .2rem .5rem var(--shade-55); }
 :root[data-theme="lantern"] .pp-card.taken .pc-btn { background: linear-gradient(180deg, #e9dbb4, #d3c08e); }
 :root[data-theme="lantern"] .xbtn { background: var(--lg-board-1); color: var(--ink); box-shadow: inset 0 0 0 1px var(--edge-hi-45); }
 :root[data-theme="lantern"] .bar.enemy .fill { background: linear-gradient(180deg, var(--lg-brick-1), var(--lg-brick-2) 55%, var(--lg-brick-3)); box-shadow: inset 0 0 0 1px var(--lg-ink-edge); }
-:root[data-theme="lantern"] .expmap .mnode .xclock.urgent { background: var(--map-dimmed-deep); box-shadow: 0 0 0 2px var(--map-dimmed), 0 0 1.2rem var(--map-dimmed-glow); }
 /* 3b. The Deathblow in the world, on its owner: a flat madder banner with an ink edge and a cream line, no glow and
       no pulse (flat on painted is what makes it jump; docs/art/README.md section 4) */
 :root[data-theme="lantern"] .np .wub.db:not(.ans) { background: #a53a26; box-shadow: 0 0 0 2px var(--ink-paper), inset 0 0 0 1px rgba(255, 242, 232, .55), .2rem .3rem 0 var(--shade-50); }
@@ -1689,12 +1731,13 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .leavewarn .lw-l { margin: var(--sp-35) 0 var(--sp-80); font-size: var(--fs-body-3); line-height: var(--lh-normal-4); color: #f2dcc4; }
 .leavewarn .lw-b { gap: var(--sp-80); align-items: center; }
 .btn.danger { background: linear-gradient(180deg, #4a2a20, #2a1410); color: #ffc0a8; box-shadow: inset 0 0 0 1px #c0563a, 0 .2rem .5rem var(--shade-50); }
-.expmap .xbody { display: flex; align-items: stretch; justify-content: space-between; gap: var(--sp-80); margin: 0 var(--sp-100) var(--sp-100); padding: var(--sp-60); background: radial-gradient(ellipse at 50% 45%, #3a2a18, #1c140c 75%); box-shadow: inset 0 0 2.4rem var(--shade-70); }
+/* the chart: the Lantern paper chart for every theme (D129; tokens.css, the .expmap block): flat paper with an ink edge */
+.expmap .xbody { display: flex; align-items: stretch; justify-content: space-between; gap: var(--sp-80); margin: 0 var(--sp-100) var(--sp-100); padding: var(--sp-60); background: linear-gradient(175deg, var(--chart-paper-1), var(--chart-paper-2)); box-shadow: inset 0 0 0 1px var(--chart-ink-edge), .15rem .25rem 0 var(--shade-35); }
 .expmap .xdisc { position: relative; height: 100%; aspect-ratio: 1 / 1; flex: none; max-width: 62%; margin: 0 4.6rem; }
 .expmap .xdisc .xsvg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .expmap .xrname { font: var(--fw-bold) 21px var(--font-title); fill: #3e2a12; letter-spacing: .14em; text-transform: uppercase; paint-order: stroke; stroke: rgba(240, 222, 178, .75); stroke-width: 4px; pointer-events: none; }
 .expmap .xside { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-70); overflow: hidden; }
-.expmap .xpanel { color: var(--ink); padding: var(--sp-60) var(--sp-80) var(--sp-70); border-radius: var(--radius-md-2); background: rgba(20, 14, 8, .72); box-shadow: inset 0 0 0 1px var(--edge-hi-22); font-size: var(--fs-small-8); }
+.expmap .xpanel { color: var(--ink); padding: var(--sp-60) var(--sp-80) var(--sp-70); border-radius: var(--radius-md-2); background: rgba(20, 14, 8, .96); box-shadow: inset 0 0 0 1px var(--edge-hi-22); font-size: var(--fs-small-8); }
 .expmap .xph { font: var(--fw-bold) var(--fs-body-3) var(--font-title); color: var(--accent-cream); letter-spacing: .06em; margin-bottom: var(--sp-35); }
 .expmap .xpl { line-height: var(--lh-box-10); color: var(--ink); } .expmap .xpl.muted { color: var(--ink-mute); font-size: var(--fs-small-5); }
 .expmap .xdimp { box-shadow: inset 0 0 0 1px rgba(150, 110, 240, .45), inset 0 0 1.6rem rgba(90, 50, 180, .25); }
@@ -1748,7 +1791,7 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .expmap .mnode .xfoes { position: absolute; right: -.7rem; bottom: -.35rem; padding: 0 var(--sp-30); border-radius: var(--radius-md-4); background: #5a1a12; color: #ffd6c8; font: var(--fw-heavy) var(--fs-micro-3)/var(--lh-box-5) var(--font-num); box-shadow: 0 0 0 1px #1a0804; pointer-events: none; }
 .expmap .mnode .xclock { position: absolute; left: 50%; top: calc(100% + 1.45rem); transform: translateX(-50%); padding: 0 var(--sp-35); border-radius: var(--radius-sm-1); background: rgba(26, 14, 52, .92); color: #d8ccff; font: var(--fw-bold) var(--fs-micro-12)/var(--lh-box-6) var(--font-ui); white-space: nowrap; box-shadow: 0 0 0 1px rgba(140, 110, 230, .7); pointer-events: none; }
 .expmap .mnode .xclock.soon { color: #ffd0c8; box-shadow: 0 0 0 1px rgba(255, 120, 110, .9), 0 0 .6rem rgba(160, 80, 255, .7); }
-.expmap .mnode .xclock.urgent { top: auto; bottom: calc(100% + 2rem); font-size: var(--fs-body-1); line-height: var(--lh-box-12); padding: 0 var(--sp-60); background: #3a0c2a; color: var(--ink-bright); box-shadow: 0 0 0 2px var(--danger-lethal), 0 0 1.2rem rgba(255, 80, 120, .9); animation: xurgent var(--dur-slow-7) ease-in-out infinite; }
+.expmap .mnode .xclock.urgent { top: auto; bottom: calc(100% + 2rem); font-size: var(--fs-body-1); line-height: var(--lh-box-12); padding: 0 var(--sp-60); background: var(--map-dimmed-deep); color: var(--ink-bright); box-shadow: 0 0 0 2px var(--map-dimmed), 0 0 1.2rem var(--map-dimmed-glow); animation: xurgent var(--dur-slow-7) ease-in-out infinite; }
 .expmap .mnode.here .mhrs { display: none; }
 /* D128: away from the player and his moves a Dimming clock is its number alone, at the node's lower right */
 .expmap .mnode .xclock.mini { top: calc(100% - .5rem); left: calc(100% - .3rem); transform: none; min-width: 1.3rem; padding: 0 var(--sp-20); text-align: center; border-radius: var(--radius-lg-4); font-size: var(--fs-micro-3); }
@@ -1905,8 +1948,8 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (1a3af69 2026-11-12T20:40:19Z) from 64 modules.
-const __BUILD__ = "1a3af69 2026-11-12T20:40:19Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (a0cc916 2026-11-12T23:23:21Z) from 64 modules.
+const __BUILD__ = "a0cc916 2026-11-12T23:23:21Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -2388,8 +2431,11 @@ const RARE_HP_MULT_Z1 = 3.0;
  * 2.2). **Off**: no reroll on the first screen; the rule stays for a later meta unlock.
  * D132 (report 2026-11-12d: zone 4-6 contracts left the board): boardAcrossRun: the camp's offers are drawn one from each
  * band of CONTRACT_BOARD_BANDS (zones 1-2, 3-4, 5-6; expedition.md 2.2). **On**; off plays the D128 board (zones 1, 2, 3).
+ * D133 (report 2026-11-13: the planner's camp, the Ember in every run, wins +11.5 pp over autoplay's on the same seeds):
+ * autoEmberFirst: autoplay's start camp buys the Ember of Return first, then its contracts, then Field Draughts if the
+ * Reserve holds (engine-api.md 13.4, expedition.md 10.2). **On**; off plays the order before D133 (Field Draughts, then the contracts).
  */
-const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true };
+const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true };
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
 // with mapMode 'expedition'; a run on today's map (mapMode 'rows', the default) never reads them.
 /** rules 1.9.2: nodes per ring (ring 0 = the hub). */
@@ -10770,7 +10816,7 @@ function legalActions(s) {
 
 });
 __bundle.def("src/engine/autoplay.js", function* (__ns, __link) {
-let SPELL, TALENT, CONSUMABLE, AUTO_POTION_HP, AUTO_TONIC_STACKS, AUTO_MANA_POTION, AUTO_FOOD_HP, EA, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, MAX_LEVEL, PET, ENGAGE_OPTION, ENGAGE_OPTIONS, ENGAGE_AUTO_LOOK, TIME_WALK, TIME_REST, TIME_VENDOR, TIME_TRAINER, EXPED_TIME_QUEST, GATES; __link.imp("src/constants.js", [["SPELL", (v) => { SPELL = v; }], ["TALENT", (v) => { TALENT = v; }], ["CONSUMABLE", (v) => { CONSUMABLE = v; }], ["AUTO_POTION_HP", (v) => { AUTO_POTION_HP = v; }], ["AUTO_TONIC_STACKS", (v) => { AUTO_TONIC_STACKS = v; }], ["AUTO_MANA_POTION", (v) => { AUTO_MANA_POTION = v; }], ["AUTO_FOOD_HP", (v) => { AUTO_FOOD_HP = v; }], ["ENGINE_ASSUMPTION", (v) => { EA = v; }], ["SPELL_BAR_SLOTS", (v) => { SPELL_BAR_SLOTS = v; }], ["ITEM_BAR_SLOTS", (v) => { ITEM_BAR_SLOTS = v; }], ["MAX_LEVEL", (v) => { MAX_LEVEL = v; }], ["PET", (v) => { PET = v; }], ["ENGAGE_OPTION", (v) => { ENGAGE_OPTION = v; }], ["ENGAGE_OPTIONS", (v) => { ENGAGE_OPTIONS = v; }], ["ENGAGE_AUTO_LOOK", (v) => { ENGAGE_AUTO_LOOK = v; }], ["TIME_WALK", (v) => { TIME_WALK = v; }], ["TIME_REST", (v) => { TIME_REST = v; }], ["TIME_VENDOR", (v) => { TIME_VENDOR = v; }], ["TIME_TRAINER", (v) => { TIME_TRAINER = v; }], ["EXPED_TIME_QUEST", (v) => { EXPED_TIME_QUEST = v; }], ["GATES", (v) => { GATES = v; }]]); let hasSt, findSt, debuffStacks, isEliteOrBoss, petAlive; __link.imp("src/engine/damage.js", [["hasSt", (v) => { hasSt = v; }], ["findSt", (v) => { findSt = v; }], ["debuffStacks", (v) => { debuffStacks = v; }], ["isEliteOrBoss", (v) => { isEliteOrBoss = v; }], ["petAlive", (v) => { petAlive = v; }]]); let defaultTarget, breaksOnHit, allSapped; __link.imp("src/engine/combat.js", [["defaultTarget", (v) => { defaultTarget = v; }], ["breaksOnHit", (v) => { breaksOnHit = v; }], ["allSapped", (v) => { allSapped = v; }]]); let isEngageRound, turnOf; __link.imp("src/engine/track.js", [["isEngageRound", (v) => { isEngageRound = v; }], ["turnOf", (v) => { turnOf = v; }]]); let engageAct, windupTurn; __link.imp("src/engine/engage.js", [["engageAct", (v) => { engageAct = v; }], ["windupTurn", (v) => { windupTurn = v; }]]); let castError, itemUsableInCombat; __link.imp("src/engine/spells.js", [["castError", (v) => { castError = v; }], ["itemUsableInCombat", (v) => { itemUsableInCombat = v; }]]); let itemScore, countConsumable, sellValue, canAdd, V, bagCapacity; __link.imp("src/engine/items.js", [["itemScore", (v) => { itemScore = v; }], ["countConsumable", (v) => { countConsumable = v; }], ["sellValue", (v) => { sellValue = v; }], ["canAdd", (v) => { canAdd = v; }], ["V", (v) => { V = v; }], ["bagCapacity", (v) => { bagCapacity = v; }]]); let talentPointsFree; __link.imp("src/engine/progress.js", [["talentPointsFree", (v) => { talentPointsFree = v; }]]); let nextLanes, dungeonLevels; __link.imp("src/engine/map.js", [["nextLanes", (v) => { nextLanes = v; }], ["dungeonLevels", (v) => { dungeonLevels = v; }]]); let checkAction; __link.imp("src/engine/actions.js", [["checkAction", (v) => { checkAction = v; }]]); let canTravel, exitLevel, trainerSpells, learnCost, trainCost, trainable, availablePets, canEnter; __link.imp("src/engine/nodes.js", [["canTravel", (v) => { canTravel = v; }], ["exitLevel", (v) => { exitLevel = v; }], ["trainerSpells", (v) => { trainerSpells = v; }], ["learnCost", (v) => { learnCost = v; }], ["trainCost", (v) => { trainCost = v; }], ["trainable", (v) => { trainable = v; }], ["availablePets", (v) => { availablePets = v; }], ["canEnter", (v) => { canEnter = v; }]]); let isExpedition, grindMaxWaves, nodeTime, zoneTime, dimmedAt, outwardStep, dimFightTime; __link.imp("src/engine/expedition.js", [["isExpedition", (v) => { isExpedition = v; }], ["grindMaxWaves", (v) => { grindMaxWaves = v; }], ["nodeTime", (v) => { nodeTime = v; }], ["zoneTime", (v) => { zoneTime = v; }], ["dimmedAt", (v) => { dimmedAt = v; }], ["outwardStep", (v) => { outwardStep = v; }], ["dimFightTime", (v) => { dimFightTime = v; }]]); let takeContractError, buyPrepError, hubContractError, prepLeft; __link.imp("src/engine/contracts.js", [["takeContractError", (v) => { takeContractError = v; }], ["buyPrepError", (v) => { buyPrepError = v; }], ["hubContractError", (v) => { hubContractError = v; }], ["prepLeft", (v) => { prepLeft = v; }]]); __link.exp({ "engageAnswer": () => engageAnswer, "sapWait": () => sapWait, "autoAction": () => autoAction, "autoTarget": () => autoTarget, "nextTalent": () => nextTalent, "desiredBar": () => desiredBar, "desiredItemBar": () => desiredItemBar });
+let SPELL, TALENT, CONSUMABLE, AUTO_POTION_HP, AUTO_TONIC_STACKS, AUTO_MANA_POTION, AUTO_FOOD_HP, EA, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, MAX_LEVEL, PET, ENGAGE_OPTION, ENGAGE_OPTIONS, ENGAGE_AUTO_LOOK, TIME_WALK, TIME_REST, TIME_VENDOR, TIME_TRAINER, EXPED_TIME_QUEST, GATES, PREP_OPTION; __link.imp("src/constants.js", [["SPELL", (v) => { SPELL = v; }], ["TALENT", (v) => { TALENT = v; }], ["CONSUMABLE", (v) => { CONSUMABLE = v; }], ["AUTO_POTION_HP", (v) => { AUTO_POTION_HP = v; }], ["AUTO_TONIC_STACKS", (v) => { AUTO_TONIC_STACKS = v; }], ["AUTO_MANA_POTION", (v) => { AUTO_MANA_POTION = v; }], ["AUTO_FOOD_HP", (v) => { AUTO_FOOD_HP = v; }], ["ENGINE_ASSUMPTION", (v) => { EA = v; }], ["SPELL_BAR_SLOTS", (v) => { SPELL_BAR_SLOTS = v; }], ["ITEM_BAR_SLOTS", (v) => { ITEM_BAR_SLOTS = v; }], ["MAX_LEVEL", (v) => { MAX_LEVEL = v; }], ["PET", (v) => { PET = v; }], ["ENGAGE_OPTION", (v) => { ENGAGE_OPTION = v; }], ["ENGAGE_OPTIONS", (v) => { ENGAGE_OPTIONS = v; }], ["ENGAGE_AUTO_LOOK", (v) => { ENGAGE_AUTO_LOOK = v; }], ["TIME_WALK", (v) => { TIME_WALK = v; }], ["TIME_REST", (v) => { TIME_REST = v; }], ["TIME_VENDOR", (v) => { TIME_VENDOR = v; }], ["TIME_TRAINER", (v) => { TIME_TRAINER = v; }], ["EXPED_TIME_QUEST", (v) => { EXPED_TIME_QUEST = v; }], ["GATES", (v) => { GATES = v; }], ["PREP_OPTION", (v) => { PREP_OPTION = v; }]]); let hasSt, findSt, debuffStacks, isEliteOrBoss, petAlive; __link.imp("src/engine/damage.js", [["hasSt", (v) => { hasSt = v; }], ["findSt", (v) => { findSt = v; }], ["debuffStacks", (v) => { debuffStacks = v; }], ["isEliteOrBoss", (v) => { isEliteOrBoss = v; }], ["petAlive", (v) => { petAlive = v; }]]); let defaultTarget, breaksOnHit, allSapped; __link.imp("src/engine/combat.js", [["defaultTarget", (v) => { defaultTarget = v; }], ["breaksOnHit", (v) => { breaksOnHit = v; }], ["allSapped", (v) => { allSapped = v; }]]); let isEngageRound, turnOf; __link.imp("src/engine/track.js", [["isEngageRound", (v) => { isEngageRound = v; }], ["turnOf", (v) => { turnOf = v; }]]); let engageAct, windupTurn; __link.imp("src/engine/engage.js", [["engageAct", (v) => { engageAct = v; }], ["windupTurn", (v) => { windupTurn = v; }]]); let castError, itemUsableInCombat; __link.imp("src/engine/spells.js", [["castError", (v) => { castError = v; }], ["itemUsableInCombat", (v) => { itemUsableInCombat = v; }]]); let itemScore, countConsumable, sellValue, canAdd, V, bagCapacity; __link.imp("src/engine/items.js", [["itemScore", (v) => { itemScore = v; }], ["countConsumable", (v) => { countConsumable = v; }], ["sellValue", (v) => { sellValue = v; }], ["canAdd", (v) => { canAdd = v; }], ["V", (v) => { V = v; }], ["bagCapacity", (v) => { bagCapacity = v; }]]); let talentPointsFree; __link.imp("src/engine/progress.js", [["talentPointsFree", (v) => { talentPointsFree = v; }]]); let nextLanes, dungeonLevels; __link.imp("src/engine/map.js", [["nextLanes", (v) => { nextLanes = v; }], ["dungeonLevels", (v) => { dungeonLevels = v; }]]); let checkAction; __link.imp("src/engine/actions.js", [["checkAction", (v) => { checkAction = v; }]]); let canTravel, exitLevel, trainerSpells, learnCost, trainCost, trainable, availablePets, canEnter; __link.imp("src/engine/nodes.js", [["canTravel", (v) => { canTravel = v; }], ["exitLevel", (v) => { exitLevel = v; }], ["trainerSpells", (v) => { trainerSpells = v; }], ["learnCost", (v) => { learnCost = v; }], ["trainCost", (v) => { trainCost = v; }], ["trainable", (v) => { trainable = v; }], ["availablePets", (v) => { availablePets = v; }], ["canEnter", (v) => { canEnter = v; }]]); let isExpedition, grindMaxWaves, nodeTime, zoneTime, dimmedAt, outwardStep, dimFightTime; __link.imp("src/engine/expedition.js", [["isExpedition", (v) => { isExpedition = v; }], ["grindMaxWaves", (v) => { grindMaxWaves = v; }], ["nodeTime", (v) => { nodeTime = v; }], ["zoneTime", (v) => { zoneTime = v; }], ["dimmedAt", (v) => { dimmedAt = v; }], ["outwardStep", (v) => { outwardStep = v; }], ["dimFightTime", (v) => { dimFightTime = v; }]]); let takeContractError, buyPrepError, hubContractError, prepLeft; __link.imp("src/engine/contracts.js", [["takeContractError", (v) => { takeContractError = v; }], ["buyPrepError", (v) => { buyPrepError = v; }], ["hubContractError", (v) => { hubContractError = v; }], ["prepLeft", (v) => { prepLeft = v; }]]); __link.exp({ "engageAnswer": () => engageAnswer, "sapWait": () => sapWait, "autoAction": () => autoAction, "autoTarget": () => autoTarget, "nextTalent": () => nextTalent, "desiredBar": () => desiredBar, "desiredItemBar": () => desiredItemBar });
 yield;
 // autoAction: the autoplay combat policy (rules 7.9, exact; combat v2 rule E in the engage round) and a
 // deterministic default policy for every other decision so a headless run can go from CREATE to SUMMARY. The
@@ -10781,8 +10827,9 @@ yield;
 // Expedition map (rules 1.9.9): the default map policy explores what it can leave cleanly and walks to the cheapest
 // Road around the Dimming; it reads only what the player sees (seen nodes, the skeleton, the Dimming).
 // The default talent build, bar and item bar are exported for the dev tools (debug.build, engine-api.md 12).
-// Start camp and contracts (prep, expedition.md 2-3): a fixed default at PREP (Field Draughts, then one contract per zone
-// for zones 1-3 by board order while points and slots last, the rest kept as Reserve) and the hub contract from Reserve.
+// Start camp and contracts (prep, expedition.md 2-3): a fixed default at PREP (the Ember of Return (D133,
+// GATES.autoEmberFirst), then one contract per zone for zones 1-3 by board order while points and slots last, then Field
+// Draughts if the Reserve still holds; the rest kept as Reserve) and the hub contract from Reserve.
 
 
 
@@ -11165,17 +11212,24 @@ function trainerUseful(s) {
 }
 
 /**
- * Default start camp (prep, expedition.md 2; engine default, not a bot): Field Draughts; then, in board order, one
- * contract for each of zones 1..EA.AUTO_PREP_ZONES not yet covered, while points last with EA.AUTO_PREP_RESERVE points kept
- * back for a hub contract; then SET_OUT.
+ * Default start camp (prep, expedition.md 2; engine default, not a bot). With GATES.autoEmberFirst on (D133): the Ember of
+ * Return when affordable; then, in board order, one contract for each of zones 1..EA.AUTO_PREP_ZONES not yet covered,
+ * while points last with EA.AUTO_PREP_RESERVE points kept back for a hub contract; then Field Draughts when the Reserve
+ * still holds after it; then SET_OUT. Off: the order before D133, Field Draughts first, then the contracts.
  */
 function prepPolicy(s) {
-  if (!buyPrepError(s, 'prep_draughts')) return { type: 'BUY_PREP', id: 'prep_draughts' };
+  const emberFirst = GATES.autoEmberFirst;
+  if (emberFirst) {
+    if (!buyPrepError(s, 'prep_ember')) return { type: 'BUY_PREP', id: 'prep_ember' };
+  } else if (!buyPrepError(s, 'prep_draughts')) return { type: 'BUY_PREP', id: 'prep_draughts' };
   const left = prepLeft(s);
   const covered = new Set(s.prep.board.filter((o) => o.taken).map((o) => o.z));
   for (const o of s.prep.board) {
     if (o.z > EA.AUTO_PREP_ZONES || covered.has(o.z) || left - o.price < EA.AUTO_PREP_RESERVE) continue;
     if (!takeContractError(s, o.index)) return { type: 'TAKE_CONTRACT', index: o.index };
+  }
+  if (emberFirst && !buyPrepError(s, 'prep_draughts') && left - PREP_OPTION.prep_draughts.price >= EA.AUTO_PREP_RESERVE) {
+    return { type: 'BUY_PREP', id: 'prep_draughts' };
   }
   return { type: 'SET_OUT' };
 }
@@ -19394,7 +19448,7 @@ const deepClone = (o) => (o === undefined ? o : structuredClone(o));
 
 });
 __bundle.def("src/ui/theme.js", function* (__ns, __link) {
-__link.exp({ "token": () => token, "family": () => family, "onTheme": () => onTheme, "themeVersion": () => themeVersion, "HEAT": () => HEAT, "CON": () => CON, "RARITY": () => RARITY, "CAST": () => CAST, "BOLT": () => BOLT, "IMPACT": () => IMPACT, "ICON_BG": () => ICON_BG });
+__link.exp({ "token": () => token, "family": () => family, "onTheme": () => onTheme, "themeVersion": () => themeVersion, "HEAT": () => HEAT, "CON": () => CON, "RARITY": () => RARITY, "CAST": () => CAST, "BOLT": () => BOLT, "IMPACT": () => IMPACT, "TELE": () => TELE, "TELE_CAST": () => TELE_CAST, "ICON_BG": () => ICON_BG });
 yield;
 // theme.js - one palette for JavaScript and canvas: the colour tokens of tokens.css, read from the page. Track R step R3
 // (docs/reviews/ui-architecture-2026-11-12.md, section 3; D119). tokens.css is the only place a token's value is written;
@@ -19415,6 +19469,7 @@ yield;
 //   CAST       a spell's glow while it is cast and on its target, by school (director.js)
 //   BOLT       projectiles by kind (scene.js)
 //   IMPACT     the core and sparks of a hit, by school (scene.js)
+//   TELE       an enemy's held telegraph in the scene: a heavy blow, a wind-up (app.js); TELE_CAST: a cast's, by school
 //   ICON_BG    icon backgrounds, [light, deep] by school, material, rarity and danger (art-icons.js)
 // Where a member has the exact value and the role of an older token it reads that token (frost: --school-frost-text,
 // --school-frost); every other member has its own token in tokens.css with the value the code had before R3.
@@ -19477,6 +19532,11 @@ const BOLT = family({
 const IMPACT = family({
   phys: '--fx-impact-phys', fire: '--fx-impact-fire', frost: '--school-frost', arcane: '--fx-impact-arcane',
   shadow: '--fx-impact-shadow', nature: '--fx-impact-nature', heal: '--fx-impact-heal',
+});
+const TELE = family({ heavy: '--fx-tele-heavy', windup: '--fx-tele-windup' });
+const TELE_CAST = family({
+  fire: '--fx-tele-fire', frost: '--school-frost', arcane: '--fx-tele-arcane', shadow: '--fx-tele-shadow',
+  nature: '--fx-tele-nature', magic: '--fx-tele-magic', phys: '--fx-tele-phys',
 });
 // 'danger' is the Deathblow, MAIMED and EMPOWERED (R4), apart from 'blood' (damage); same values in the current look
 const ICON_KEYS = ['steel', 'blood', 'danger', 'shadow', 'gold', 'fire', 'frost', 'arcane', 'nature', 'heal', 'poison', 'earth', 'dark',
@@ -23205,9 +23265,10 @@ function leg(ctx, x, y, L, ang, col, k) {
   ctx.fillStyle = shade(col, -0.35); ctx.beginPath(); ctx.ellipse(foot[0] + 2, foot[1] - 1, w * 0.6, 2.2, 0, 0, Math.PI * 2); ctx.fill();
 }
 
+/** The hawk flies 70 units above its feet (x, y), bobbing; anim.portrait: its body at (x, y) itself, still (drawPortrait). */
 function drawHawk(ctx, x, y, s, look, anim) {
   const t = anim.t || 0; const flap = Math.sin(t * (anim.walk ? 11 : 7)) ;
-  ctx.save(); ctx.translate(x, y - 70 * s + Math.sin(t * 2) * 4 * s); ctx.scale((anim.flip ? -1 : 1) * s * (look.size || 1), s * (look.size || 1));
+  ctx.save(); ctx.translate(x, anim.portrait ? y : y - 70 * s + Math.sin(t * 2) * 4 * s); ctx.scale((anim.flip ? -1 : 1) * s * (look.size || 1), s * (look.size || 1));
   if (anim.act && anim.act.kind !== 'hit') { const p = clamp(anim.act.p, 0, 1); ctx.translate(Math.sin(p * Math.PI) * 30, Math.sin(p * Math.PI) * 30); }
   const wing = (dir) => { ctx.fillStyle = dir > 0 ? look.fur : shade(look.fur, -0.3); ctx.beginPath(); ctx.moveTo(-4, -2); ctx.quadraticCurveTo(-14, -26 * flap * dir - 6, -34, -18 * flap * dir - 2); ctx.quadraticCurveTo(-18, 2, -4, 4); ctx.fill(); };
   wing(-1);
@@ -23308,7 +23369,9 @@ function drawPortrait(ctx, size, look, kind = 'humanoid', extra = {}) {
   const bg = ctx.createRadialGradient(size * 0.5, size * 0.35, size * 0.1, size * 0.5, size * 0.5, size * 0.75);
   bg.addColorStop(0, extra.bg1 || '#3a3328'); bg.addColorStop(1, extra.bg2 || '#0d0b09');
   ctx.fillStyle = bg; ctx.fillRect(0, 0, size, size);
-  if (kind === 'beast') drawBeast(ctx, size * 0.28, size * 1.02, size / 52, look, { t: 1 });
+  // the hawk flies above its feet: in a portrait its body sits in the frame, head and raised wing in view (BACKLOG 2026-11-12)
+  if (kind === 'beast' && look && look.kind === 'hawk') drawHawk(ctx, size * 0.4, size * 0.6, size / 52, look, { t: 1, portrait: true });
+  else if (kind === 'beast') drawBeast(ctx, size * 0.28, size * 1.02, size / 52, look, { t: 1 });
   else if (kind === 'boss') { ctx.save(); drawBoss(ctx, size * 0.55, size * 1.25, size / 300, { t: 1, bossPhase: 1 }); ctx.restore(); }
   else if (kind === 'shard') drawShard(ctx, size * 0.5, size * 1.15, size / 90, { t: 1 });
   else drawHumanoid(ctx, size * 0.44, size * 2.05, size / 50, look, { t: 1.3 });
@@ -24085,7 +24148,7 @@ class Scene {
     const crit = !!style.crit; const small = !!style.small;
     const f = { id, x: an.x + jitter + side + (style.dx || 0), y: an.cy - (an.cy - an.top) * 0.15 + (style.dy || 0) - n * 6 * this.u, text, color: style.color || token('--ink-bright'),
       size: (style.size || 22) * this.u * (small ? 1 : 1 + 0.4 * w), t0: now, life: style.life || (crit ? 2.0 : small ? 1.3 : 1.55), crit, small,
-      weight: w, slam: !small && style.slam !== false && !settings.reduceMotion, rise: (crit ? 18 : small ? 34 : 28 - 10 * w) * this.u, outline: style.outline || 'rgba(0,0,0,0.85)' };
+      weight: w, slam: !small && style.slam !== false && !settings.reduceMotion, rise: (crit ? 18 : small ? 34 : 28 - 10 * w) * this.u, outline: style.outline || token('--fx-float-outline') };
     this.texts.push(f); this.logFloat(f);
   }
   /**
@@ -24104,7 +24167,7 @@ class Scene {
     const numY = an.cy - (an.cy - an.top) * 0.15;
     const y = above ? an.top - (HEAD_DY0 + r * HEAD_ROW) * u : numY + (WORD_DY0 + (WORD_ROWS - 1) * WORD_ROW + HEAD_GAP + r * HEAD_ROW) * u;
     const f = { id, x: an.x + (style.dx || 0), y, text, color: style.color || token('--ink-bright'), size: (style.size || 22) * u, t0: now, life, crit: true, small: false,
-      word: true, head: true, weight: 0, slam: false, rise: (above ? 6 : 0) * u, outline: style.outline || 'rgba(0,0,0,0.85)' };
+      word: true, head: true, weight: 0, slam: false, rise: (above ? 6 : 0) * u, outline: style.outline || token('--fx-float-outline') };
     const half = this.textWidth(f) / 2 + 8 * u;
     f.x = clamp(f.x, half, Math.max(half, this.W - half));
     rows[r] = now + life * 0.85;
@@ -24149,12 +24212,12 @@ class Scene {
     const crit = !!style.crit;
     const f = { id, x: an.x + (style.dx || 0), y: numY + (WORD_DY0 + r * WORD_ROW) * u, text, color: style.color || token('--ink-bright'),
       size: Math.min(style.size || 20, WORD_MAX) * u, t0: start, life: style.life || (crit ? 1.9 : 1.5), crit, small: !crit, word: true,
-      weight: 0, slam: crit && !settings.reduceMotion, rise: WORD_RISE * u, outline: style.outline || 'rgba(0,0,0,0.85)' };
+      weight: 0, slam: crit && !settings.reduceMotion, rise: WORD_RISE * u, outline: style.outline || token('--fx-float-outline') };
     rows[r] = { free: start + WORD_HOLD, f };
     this.texts.push(f); this.logFloat(f);
   }
   floatAt(x, y, text, style = {}) {
-    this.texts.push({ x, y, text, color: style.color || token('--ink-bright'), size: (style.size || 22) * this.u, t0: this.time, life: style.life || 1.4, crit: !!style.crit, weight: 0, slam: false, rise: 40 * this.u, outline: 'rgba(0,0,0,0.85)' });
+    this.texts.push({ x, y, text, color: style.color || token('--ink-bright'), size: (style.size || 22) * this.u, t0: this.time, life: style.life || 1.4, crit: !!style.crit, weight: 0, slam: false, rise: 40 * this.u, outline: token('--fx-float-outline') });
   }
 
   burst(x, y, color, n = 14, spread = 160, opts = {}) {
@@ -24173,7 +24236,7 @@ class Scene {
     const opts = typeof o === 'object' && o ? o : { crit: !!o };
     const an = this.anchor(id); if (!an) return;
     const crit = !!opts.crit; const power = clamp(opts.power ?? (crit ? 0.7 : 0.35), 0, 1); const dir = opts.dir || 0; const u = this.u;
-    const col = SCHOOL_COL[school] || '#fff';
+    const col = SCHOOL_COL[school] || token('--fx-light');
     const x = an.x - dir * an.w * 0.3; const y = an.cy;
     this.cores.push({ x, y, t0: this.time, life: 0.14 + 0.12 * power + (crit ? 0.06 : 0), r: (22 + 34 * power + (crit ? 22 : 0)) * u, color: col });
     const n = Math.round(8 + 16 * power + (crit ? 12 : 0));
@@ -24181,10 +24244,10 @@ class Scene {
       const ang = (dir ? (dir > 0 ? 0 : Math.PI) : Math.random() * Math.PI * 2) + (Math.random() - 0.5) * 2.3;
       const sp = (110 + Math.random() * 250 * (0.6 + power)) * u;
       this.particles.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 50 * u, life: 0.22 + Math.random() * 0.3, t0: this.time,
-        size: (1.4 + Math.random() * 1.8) * u, color: Math.random() < 0.3 ? '#ffffff' : col, g: 520, glow: true, streak: true });
+        size: (1.4 + Math.random() * 1.8) * u, color: Math.random() < 0.3 ? token('--fx-light') : col, g: 520, glow: true, streak: true });
     }
     this.rings.push({ x, y, t0: this.time, life: 0.28 + 0.12 * power, r0: 6 * u, r1: (32 + 46 * power + (crit ? 24 : 0)) * u, color: col, width: (2 + 2.6 * power) * u });
-    if (school === 'phys') this.beams.push({ kind: 'slash', x, y, t0: this.time, life: 0.2 + 0.08 * power, color: '#ffffff', crit, size: 1 + 0.45 * power + (crit ? 0.25 : 0), dir });
+    if (school === 'phys') this.beams.push({ kind: 'slash', x, y, t0: this.time, life: 0.2 + 0.08 * power, color: token('--fx-light'), crit, size: 1 + 0.45 * power + (crit ? 0.25 : 0), dir });
     if (crit) this.rays.push({ x, y, t0: this.time, life: 0.34, r: (64 + 46 * power) * u, color: col, rot: Math.random() * Math.PI });
     this.hitFlash(id, opts.hold || 0);
   }
@@ -24207,7 +24270,7 @@ class Scene {
   screenFlash(color, alpha = 0.35, life = 0.35) { this.flash = { color, alpha, t0: this.time, life }; }
   heal(id) {
     const an = this.anchor(id); if (!an) return;
-    for (let i = 0; i < 16; i++) this.particles.push({ x: an.x + (Math.random() - 0.5) * an.w * 1.4, y: an.feet - Math.random() * 40 * this.u, vx: 0, vy: -(40 + Math.random() * 70) * this.u, life: 0.9 + Math.random() * 0.5, t0: this.time, size: 2.5 * this.u, color: '#9dffb8', g: 0, glow: true, plus: true });
+    for (let i = 0; i < 16; i++) this.particles.push({ x: an.x + (Math.random() - 0.5) * an.w * 1.4, y: an.feet - Math.random() * 40 * this.u, vx: 0, vy: -(40 + Math.random() * 70) * this.u, life: 0.9 + Math.random() * 0.5, t0: this.time, size: 2.5 * this.u, color: token('--fx-heal-plus'), g: 0, glow: true, plus: true });
   }
   /**
    * Combat v2.1: the moment a wind-up is answered (a frost-white shatter: core, starburst, a wide ring and shards thrown
@@ -24215,16 +24278,16 @@ class Scene {
    */
   windupResult(id, answered) {
     const an = this.anchor(id); if (!an) return;
-    const u = this.u; const col = answered ? '#9fdcff' : '#ff5a2a'; const x = an.x; const y = an.cy;
-    this.cores.push({ x, y, t0: this.time, life: 0.3, r: 64 * u, color: answered ? '#e8f8ff' : '#ffb07a' });
+    const u = this.u; const col = answered ? token('--fx-answer') : token('--fx-tele-windup'); const x = an.x; const y = an.cy;
+    this.cores.push({ x, y, t0: this.time, life: 0.3, r: 64 * u, color: answered ? token('--fx-answer-core') : token('--fx-ember-core') });
     this.rings.push({ x, y, t0: this.time, life: 0.55, r0: 12 * u, r1: 120 * u, color: col, width: 4 * u });
     if (answered) {
       this.rays.push({ x, y, t0: this.time, life: 0.45, r: 110 * u, color: col, rot: Math.random() * Math.PI });
-      for (let i = 0; i < 26; i++) { const a = Math.random() * Math.PI * 2; const sp = (160 + Math.random() * 260) * u; this.particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40 * u, life: 0.35 + Math.random() * 0.35, t0: this.time, size: (1.6 + Math.random() * 2) * u, color: Math.random() < 0.35 ? '#ffffff' : col, g: 420, glow: true, streak: true }); }
+      for (let i = 0; i < 26; i++) { const a = Math.random() * Math.PI * 2; const sp = (160 + Math.random() * 260) * u; this.particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40 * u, life: 0.35 + Math.random() * 0.35, t0: this.time, size: (1.6 + Math.random() * 2) * u, color: Math.random() < 0.35 ? token('--fx-light') : col, g: 420, glow: true, streak: true }); }
       this.shake(5);
     } else {
       this.rings.push({ x, y: an.feet, t0: this.time, life: 0.8, r0: 10 * u, r1: 80 * u, color: col, width: 3.5 * u, flat: true });
-      for (let i = 0; i < 24; i++) this.particles.push({ x: x + (Math.random() - 0.5) * an.w * 1.2, y: an.feet - Math.random() * 30 * u, vx: (Math.random() - 0.5) * 30 * u, vy: -(120 + Math.random() * 140) * u, life: 0.6 + Math.random() * 0.4, t0: this.time, size: (2 + Math.random() * 1.6) * u, color: Math.random() < 0.4 ? '#ffd36a' : col, g: 0, glow: true });
+      for (let i = 0; i < 24; i++) this.particles.push({ x: x + (Math.random() - 0.5) * an.w * 1.2, y: an.feet - Math.random() * 30 * u, vx: (Math.random() - 0.5) * 30 * u, vy: -(120 + Math.random() * 140) * u, life: 0.6 + Math.random() * 0.4, t0: this.time, size: (2 + Math.random() * 1.6) * u, color: Math.random() < 0.4 ? token('--accent-hi') : col, g: 0, glow: true });
       this.shake(4);
     }
     this.hitFlash(id, 0, answered ? 0.7 : 0.5);
@@ -24237,8 +24300,8 @@ class Scene {
   levelUp(id = 'player') {
     const an = this.anchor(id); if (!an) return;
     this.pillar = { x: an.x, feet: an.feet, t0: this.time, life: 2.2 };
-    this.screenFlash('#ffe8a0', 0.25, 0.6);
-    for (let i = 0; i < 60; i++) this.particles.push({ x: an.x + (Math.random() - 0.5) * 90 * this.u, y: an.feet - Math.random() * 30 * this.u, vx: (Math.random() - 0.5) * 40 * this.u, vy: -(120 + Math.random() * 220) * this.u, life: 1 + Math.random() * 1.2, t0: this.time, size: 3 * this.u, color: Math.random() < 0.5 ? token('--accent-pale') : '#fff6d6', g: 30, glow: true });
+    this.screenFlash(token('--fx-levelup-flash'), 0.25, 0.6);
+    for (let i = 0; i < 60; i++) this.particles.push({ x: an.x + (Math.random() - 0.5) * 90 * this.u, y: an.feet - Math.random() * 30 * this.u, vx: (Math.random() - 0.5) * 40 * this.u, vy: -(120 + Math.random() * 220) * this.u, life: 1 + Math.random() * 1.2, t0: this.time, size: 3 * this.u, color: Math.random() < 0.5 ? token('--accent-pale') : token('--fx-levelup-mote'), g: 30, glow: true });
   }
 
   /**
@@ -24403,7 +24466,7 @@ class Scene {
     o.setTransform(dpr, 0, 0, dpr, -left * dpr, -top * dpr);
     draw(o);
     o.setTransform(1, 0, 0, 1, 0, 0); o.globalCompositeOperation = 'source-atop';
-    o.fillStyle = rgba('#ffffff', 0.85 * clamp(flash, 0, 1)); o.fillRect(0, 0, pw, ph);
+    o.fillStyle = rgba(token('--fx-light'), 0.85 * clamp(flash, 0, 1)); o.fillRect(0, 0, pw, ph);
     o.globalCompositeOperation = 'source-over';
     ctx.drawImage(oc, 0, 0, pw, ph, left, top, bw, bh);
   }
@@ -27521,7 +27584,7 @@ function buildExpMap(v, ctx, readOnly) {
   // rings and the rim
   for (const r of XR.slice(1)) svgEl('circle', { cx: 500, cy: 500, r, fill: 'none', stroke: '#6a4a26', 'stroke-width': 1.6, 'stroke-dasharray': '3 9', opacity: 0.45 }, svg);
   svgEl('circle', { cx: 500, cy: 500, r: 468, fill: 'none', stroke: '#4a3018', 'stroke-width': 5, opacity: 0.8 }, svg);
-  svgEl('circle', { cx: 500, cy: 500, r: 458, fill: 'none', stroke: token('--map-ring-edge'), 'stroke-width': 1.2, opacity: 0.6 }, svg);
+  svgEl('circle', { cx: 500, cy: 500, r: 458, fill: 'none', style: 'stroke: var(--map-ring-edge)', 'stroke-width': 1.2, opacity: 0.6 }, svg); // the map's own token (tokens.css .expmap)
   // region names along the rim, at the middle of the region's known nodes
   for (const [ri, angs] of regAngles) {
     const reg = mv.regions[ri]; if (!reg || !reg.name) continue;
@@ -29446,14 +29509,14 @@ function createDevMenu(root, ctx, { allowed }) {
 
 });
 __bundle.def("src/ui/audio.js", function* (__ns, __link) {
-__link.exp({ "MAX_VOICES": () => MAX_VOICES, "SAME_MAX": () => SAME_MAX, "RETRIGGER_S": () => RETRIGGER_S, "FADE_S": () => FADE_S, "HEAVY_POWER": () => HEAVY_POWER, "HEAVY_SHARE": () => HEAVY_SHARE, "TAIL": () => TAIL, "META": () => META, "RANK": () => RANK, "PROTECTED": () => PROTECTED, "CLICKABLE": () => CLICKABLE, "cuesFor": () => cuesFor, "newMemo": () => newMemo, "viewCues": () => viewCues, "actionCues": () => actionCues, "keepOfStep": () => keepOfStep, "CUE_NAMES": () => CUE_NAMES, "createAudio": () => createAudio });
+__link.exp({ "MAX_VOICES": () => MAX_VOICES, "SAME_MAX": () => SAME_MAX, "RETRIGGER_S": () => RETRIGGER_S, "FADE_S": () => FADE_S, "HEAVY_POWER": () => HEAVY_POWER, "HEAVY_SHARE": () => HEAVY_SHARE, "TAIL": () => TAIL, "DIM_NEAR": () => DIM_NEAR, "META": () => META, "RANK": () => RANK, "PROTECTED": () => PROTECTED, "GLASS": () => GLASS, "CLICKABLE": () => CLICKABLE, "cuesFor": () => cuesFor, "newMemo": () => newMemo, "viewCues": () => viewCues, "dimmingNear": () => dimmingNear, "actionCues": () => actionCues, "keepOfStep": () => keepOfStep, "CUE_NAMES": () => CUE_NAMES, "createAudio": () => createAudio });
 yield;
 // Sound (docs/specs/audio.md from docs/audio/README.md; D127). Every cue is synthesised with Web Audio (oscillators, noise,
 // envelopes, filters) as in the approved preview, docs/audio/preview.html; no file is ever loaded. Pure, Node-tested part
-// (qa/ui/audio.test.mjs): cuesFor (a director event), viewCues (the decision view: Deathblow telegraph, Furnace),
-// actionCues, keepOfStep (the Instant rule), META/RANK/PROTECTED. createAudio(settings): master -> sfx, ui, music
-// (reserved, M4) -> compressor; nothing before the first trusted pointer or key press; voice limit and priority; speed
-// tails; the log for testApi().audio(). Spec sections: audio.md 2 (cues), 3 (mixer, unlock, voices, speed), 5 (constants).
+// (qa/ui/audio.test.mjs): cuesFor (a director event), viewCues (the decision view: Deathblow telegraph, Furnace, the
+// Dimming near the player), actionCues, keepOfStep (the Instant rule), META/RANK/PROTECTED. createAudio(settings): master
+// -> sfx, ui, music (reserved, M4) -> compressor; nothing before the first trusted pointer or key press; voice limit and
+// priority; speed tails; the log for testApi().audio(). Spec sections: audio.md 2 (cues), 3 (mixer, unlock, voices, speed), 5 (constants).
 const N = { D2: 73.42, D3: 146.83, Eb3: 155.56, A3: 220, D4: 293.66, E4: 329.63, Eb4: 311.13, Fs4: 369.99, A4: 440, B4: 493.88,
   D5: 587.33, Fs5: 739.99, A5: 880, D6: 1174.66, E6: 1318.51, B6: 1975.53 };
 const MAX_VOICES = 8;
@@ -29463,10 +29526,11 @@ const FADE_S = 0.02;
 const HEAVY_POWER = 0.6; // combat-feel.js hitPower at or above: a heavy hit
 const HEAVY_SHARE = 0.15; // or this share of the target's maximum health
 const TAIL = { 0: 0.4, 1: 1, 2: 0.6, 4: 0.4 }; // release tails by speed (0: Instant)
+const DIM_NEAR = 2; // the Dimming's cue: the player's node dims in this many tolls or fewer (README cue 10)
 const SFX_TRIM = 0.9; // the preview's effects bus under the effects slider
 /** Cue: [rank (higher wins a voice and the Instant step), length at 1x in s (voice count)]. */
 const META = { deathblowTelegraph: [100, 2], deathblowLanded: [99, 2.2], deathblowAnswered: [98, 1.4], maimed: [97, 1.8],
-  deathblowFirstShow: [96, 2], playerDeath: [95, 1.6], levelUp: [90, 1.7], kill: [70, 1], windupLanded: [66, 1], windupAnswered: [65, 1],
+  deathblowFirstShow: [96, 2], playerDeath: [95, 1.6], levelUp: [90, 1.7], dimmingSpread: [80, 1.6], kill: [70, 1], windupLanded: [66, 1], windupAnswered: [65, 1],
   crit: [60, 0.55], homewardBell: [58, 3.4], arrive: [57, 1.3], loot: [55, 1], furnaceUp: [52, 0.6], furnaceCalm: [51, 1], interrupt: [45, 0.25],
   hitHeavy: [40, 0.32], potion: [36, 0.35], heal: [32, 0.6], dodge: [28, 0.15], error: [26, 0.15], hitLight: [20, 0.15], uiClick: [18, 0.05],
   winOpen: [14, 0.15], winClose: [13, 0.1], tick: [10, 0.1] };
@@ -29474,6 +29538,8 @@ const RANK = Object.fromEntries(Object.entries(META).map(([k, v]) => [k, v[0]]))
 /** Never stolen or dropped: the Deathblow's cues and the player's death. */
 const PROTECTED = new Set(['deathblowTelegraph', 'deathblowFirstShow', 'deathblowAnswered', 'deathblowLanded', 'maimed', 'playerDeath']);
 const UI_CUES = new Set(['uiClick', 'error', 'winOpen', 'winClose']);
+/** The reserved glass voice (README rule 1: the Dimming and the Unlit Star only): two sines a few Hz apart, beating. */
+const GLASS = [1760, 1767];
 const TONAL = new Set(['levelUp', 'deathblowAnswered', 'windupAnswered', 'loot', 'heal', 'arrive', 'homewardBell', 'furnaceCalm']);
 const BIG = new Set(['elite', 'rare', 'dboss', 'boss']);
 const BELLS = { uncommon: 1, rare: 2, epic: 3, legendary: 3 };
@@ -29538,7 +29604,19 @@ function viewCues(prev, next, memo) {
     const i = HEAT_ORDER.indexOf(b.state);
     if (i > HEAT_ORDER.indexOf(a.state)) out.push({ cue: 'furnaceUp', level: i }); else if (i === 0) out.push({ cue: 'furnaceCalm' });
   }
+  if (dimmingNear(prev, next)) out.push({ cue: 'dimmingSpread' });
   return out;
+}
+/** Cue 10 (README 2): in a step of one zone the Dimming reached new nodes (map view diff), and now the player's node is
+ * Dimmed, dims in DIM_NEAR tolls or fewer, or a node next to it was just Dimmed. A spread far from him is silent. */
+function dimmingNear(prev, next) {
+  const a = prev && prev.zone && prev.zone.exp; const b = next && next.zone && next.zone.exp;
+  if (!a || !b || a.z !== b.z || prev.seed !== next.seed || !Array.isArray(a.nodes) || !Array.isArray(b.nodes) || a.nodes.length !== b.nodes.length) return false;
+  const fresh = new Set(b.nodes.map((n, i) => (n.dimmed && !a.nodes[i].dimmed ? i : -1)).filter((i) => i >= 0));
+  const me = b.nodes[b.pos];
+  if (!fresh.size || !me) return false;
+  if (me.dimmed || (Number.isFinite(me.dimsIn) && me.dimsIn <= DIM_NEAR)) return true;
+  return (b.edges || []).some(([x, y]) => (x === b.pos && fresh.has(y)) || (y === b.pos && fresh.has(x)));
 }
 /** Cues an action starts itself (the Homeward Bell's channel). */
 const actionCues = (type) => (type === 'RING_BELL' ? [{ cue: 'homewardBell' }] : []);
@@ -29655,6 +29733,11 @@ const CUE = {
   winClose(I) { noise(I, { a: 0.02, d: 0.06, p: 0.2, f: 1600, to: 400, q: 1.2 }); },
   arrive(I) { bell(I, N.A4, { p: 0.12, d: 1 }); bell(I, N.D5, { t: 0.12, p: 0.11, d: 1.2 }); },
   homewardBell(I) { bell(I, N.D5, { p: 0.14, d: 2.5, w: 0.8 }); bell(I, N.D5, { t: 0.9, p: 0.12, d: 2.5, w: 0.8 }); },
+  dimmingSpread(I) { // the reserved glass voice: a cold swell sinking, glass beating at 7 Hz, a low swell, a lantern puffed out
+    noise(I, { a: 0.7, d: 0.9, p: 0.3, f: 3000, to: 350, q: 8, w: 0.7 });
+    for (const f of GLASS) tone(I, { f, a: 0.6, d: 1, p: 0.05, w: 0.8 });
+    tone(I, { f: 55, a: 0.6, d: 0.8, p: 0.25 }); noise(I, { t: 1.25, d: 0.25, p: 0.2, ty: LP, f: 900, to: 200 });
+  },
 };
 const CUE_NAMES = Object.keys(CUE);
 
@@ -29750,7 +29833,7 @@ function createAudio(settings) {
 
 });
 __bundle.def("src/ui/app.js", function* (__ns, __link) {
-let createBridge, flags; __link.imp("src/ui/engine-bridge.js", [["createBridge", (v) => { createBridge = v; }], ["flags", (v) => { flags = v; }]]); let Scene; __link.imp("src/ui/scene.js", [["Scene", (v) => { Scene = v; }]]); let createHud; __link.imp("src/ui/hud.js", [["createHud", (v) => { createHud = v; }]]); let createScreens, disarmSpyglass; __link.imp("src/ui/screens.js", [["createScreens", (v) => { createScreens = v; }], ["disarmSpyglass", (v) => { disarmSpyglass = v; }]]); let prepKey; __link.imp("src/ui/prep.js", [["prepKey", (v) => { prepKey = v; }]]); let createWindows; __link.imp("src/ui/windows.js", [["createWindows", (v) => { createWindows = v; }]]); let Director; __link.imp("src/ui/director.js", [["Director", (v) => { Director = v; }]]); let initTooltip, hideTip; __link.imp("src/ui/tooltip.js", [["initTooltip", (v) => { initTooltip = v; }], ["hide", (v) => { hideTip = v; }]]); let createDevMenu; __link.imp("src/ui/dev-menu.js", [["createDevMenu", (v) => { createDevMenu = v; }]]); let createAudio, CLICKABLE; __link.imp("src/ui/audio.js", [["createAudio", (v) => { createAudio = v; }], ["CLICKABLE", (v) => { CLICKABLE = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let h, clear; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }]]); let enemyLook; __link.imp("src/ui/art-actors.js", [["enemyLook", (v) => { enemyLook = v; }]]); let HEAT_WORDS, tolls; __link.imp("src/ui/ui-text.js", [["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["tolls", (v) => { tolls = v; }]]); __link.exp({ "App": () => App, "flags": () => flags });
+let createBridge, flags; __link.imp("src/ui/engine-bridge.js", [["createBridge", (v) => { createBridge = v; }], ["flags", (v) => { flags = v; }]]); let Scene; __link.imp("src/ui/scene.js", [["Scene", (v) => { Scene = v; }]]); let createHud; __link.imp("src/ui/hud.js", [["createHud", (v) => { createHud = v; }]]); let createScreens, disarmSpyglass; __link.imp("src/ui/screens.js", [["createScreens", (v) => { createScreens = v; }], ["disarmSpyglass", (v) => { disarmSpyglass = v; }]]); let prepKey; __link.imp("src/ui/prep.js", [["prepKey", (v) => { prepKey = v; }]]); let createWindows; __link.imp("src/ui/windows.js", [["createWindows", (v) => { createWindows = v; }]]); let Director; __link.imp("src/ui/director.js", [["Director", (v) => { Director = v; }]]); let initTooltip, hideTip; __link.imp("src/ui/tooltip.js", [["initTooltip", (v) => { initTooltip = v; }], ["hide", (v) => { hideTip = v; }]]); let createDevMenu; __link.imp("src/ui/dev-menu.js", [["createDevMenu", (v) => { createDevMenu = v; }]]); let createAudio, CLICKABLE; __link.imp("src/ui/audio.js", [["createAudio", (v) => { createAudio = v; }], ["CLICKABLE", (v) => { CLICKABLE = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let h, clear; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }]]); let enemyLook; __link.imp("src/ui/art-actors.js", [["enemyLook", (v) => { enemyLook = v; }]]); let TELE, TELE_CAST; __link.imp("src/ui/theme.js", [["TELE", (v) => { TELE = v; }], ["TELE_CAST", (v) => { TELE_CAST = v; }]]); let HEAT_WORDS, tolls; __link.imp("src/ui/ui-text.js", [["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["tolls", (v) => { tolls = v; }]]); __link.exp({ "App": () => App, "flags": () => flags });
 yield;
 // App orchestrator: owns the bridge, scene, HUD, screens and windows; turns input into actions and
 // plays each step through the director. Presentation only.
@@ -29783,6 +29866,9 @@ yield;
 
 
 
+
+// telegraph colours (tokens.css --fx-tele-*): a heavy blow in orange (the target ring is red), a cast in its school's colour
+// (an unknown school: magic's), a wind-up in ember red
 
 
 
@@ -30175,7 +30261,7 @@ class App {
       // (rules 7.12) of any kind gets its own, hotter telegraph
       const it = e.intent;
       const tele = e.alive && !v.combat.over && it && !it.interrupted && !(it.support && !it.windup) && (it.heavy || it.cast) && it.id !== 'none' && it.id !== 'unaware';
-      a.tele = tele ? (it.windup ? { kind: 'windup', color: WINDUP_COL } : { kind: it.heavy && !it.cast ? 'heavy' : 'cast', color: it.heavy && !it.cast ? HEAVY_COL : TELE_COL[it.school] || '#b48aff' }) : null;
+      a.tele = tele ? (it.windup ? { kind: 'windup', color: TELE.windup } : { kind: it.heavy && !it.cast ? 'heavy' : 'cast', color: it.heavy && !it.cast ? TELE.heavy : TELE_CAST[it.school] || TELE_CAST.magic }) : null;
     }
   }
 
@@ -30459,10 +30545,6 @@ const AUTO_HINT_MS = 1600;
 const TOAST_MAX = 2;
 const TOAST_MS = 2700;
 const TOAST_QUEUE = 6;
-// telegraph colours: a heavy blow in orange (the target ring is red), a cast in its school's colour, a wind-up in ember red
-const HEAVY_COL = '#ff9a1f';
-const WINDUP_COL = '#ff5a2a';
-const TELE_COL = { fire: '#ff8a3a', frost: '#8fd6ff', arcane: '#c79bff', shadow: '#a07aff', nature: '#8fe07a', magic: '#b48aff', phys: '#ffb08a' };
 
 function npcLook(theme, kind) {
   const base = enemyLook(kind === 'merchant' ? 'mender' : kind === 'trainer' ? 'caster' : 'mender', theme, 'normal');
