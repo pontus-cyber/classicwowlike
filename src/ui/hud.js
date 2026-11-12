@@ -714,7 +714,8 @@ export function createHud(root, ctx) {
       // M2b v14 (UI need 2): waiting is the answer while Sap holds (windupView's PASS answer)
       else if (first && dbSh.when === 'now' && first.a.via === 'pass') { parts = [`Deathblow ${when}: wait with `, kb('X'), ` Pass: Sap stops it${first.a.stealth ? ', and you stay hidden' : ''}`]; dbKind = 'deathblow'; }
       else if (first && dbSh.when === 'now' && first.a.target != null && first.a.target !== (ctx.ui.target ?? c.target)) { parts = [`Deathblow ${when} on ${dbw.enemy}: `, kb('Tab'), ' to it, then ', kb(first.key), ` ${first.name}`]; dbKind = 'deathblow'; }
-      else if (first && dbSh.when === 'now') { parts = [`Deathblow ${when}: answer with `, kb(first.key), ` ${first.name}${first.a.sure ? '' : ' (a chance)'}`]; dbKind = 'deathblow'; }
+      // M2b v14: Sap that is sure if you wait says so, as the line and the card do (QA 2026-11-12), not "(a chance)"
+      else if (first && dbSh.when === 'now') { parts = [`Deathblow ${when}: answer with `, kb(first.key), ` ${first.name}${first.a.sure ? '' : first.a.wait ? ', then wait (Pass next round)' : ' (a chance)'}`]; dbKind = 'deathblow'; }
       else if (first) { parts = [`Deathblow ${when}: keep `, kb(first.key), ` ${first.name} for round ${dbw.round}`]; dbKind = 'deathblow'; }
     }
     if (dbKind) { /* the Deathblow's line above */ }

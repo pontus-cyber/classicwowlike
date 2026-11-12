@@ -3423,6 +3423,12 @@ async function partP(browser, W, H) {
         !!ae && ae.option === 'sap' && ae.wait === true && !!d.prompt && d.prompt.kind === 'auto-db' && d.prompt.text.includes('Autoplay will answer the Deathblow with Sap, then wait a round') && R.isEngageRound(await twin()), `${JSON.stringify(d.prompt)}; autoplayEngage ${JSON.stringify(ae)}`);
       // Sap (its key on the engage panel), then round 2: Pass is the answer
       const sapKey = ['Q', 'W', 'E'][(R.engageOptions(s) || []).findIndex((o) => o.id === 'sap')];
+      // QA 2026-11-12: the manual prompt in the engage round says Sap is sure if you wait, as the line and the card do (not "(a chance)")
+      await page.mouse.move(2, 2); await page.waitForTimeout(100);
+      d = await pDom(page);
+      const sapW = ((R.windupView(s) || []).find((x) => x.deathblow) || { answers: [] }).answers.find((a) => a.id === 'sap');
+      check('M2b-v14', `Rogue, engage round, autoplay off: the turn prompt reads "answer with ${sapKey} Sap, then wait (Pass next round)", no "(a chance)" (windupView Sap wait ${sapW && sapW.wait})`,
+        !!sapW && sapW.wait && !!d.prompt && d.prompt.kind === 'deathblow' && d.prompt.text.includes(`answer with ${sapKey} Sap, then wait (Pass next round)`) && !d.prompt.text.includes('a chance'), JSON.stringify(d.prompt));
       await page.keyboard.press(`Key${sapKey}`); await idle(page);
       const t0 = await twin();
       if (R.isEngageRound(t0)) { await page.locator(`#nameplates .np[data-idx="${ae.target}"]`).click().catch(() => {}); await idle(page); }

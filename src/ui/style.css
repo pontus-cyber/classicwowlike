@@ -1430,7 +1430,12 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 /* its chip, row, ruler round and ribbon */
 .tk.db { box-shadow: inset 0 0 0 2px #ff3a4a, 0 0 1.4rem rgba(255, 30, 50, .95); background: linear-gradient(180deg, rgba(110, 6, 14, .98), rgba(34, 2, 6, .98)); }
 .tk.db.wu-answered, .tk.db.wu-preview { box-shadow: inset 0 0 0 2px #7fd8ff, 0 0 1rem rgba(110, 200, 255, .7); background: linear-gradient(180deg, rgba(10, 40, 60, .97), rgba(4, 18, 28, .97)); }
+/* QA 2026-11-12: a ribbon wider than its chip is drawn over the next chip's round badge, not cut by it; on a small chip it is compact */
+.tk .b-wu, .tk .b-ob { z-index: 2; }
+.tk.sm .b-wu, .tk.sm .b-ob { left: calc(50% + .55rem); font-size: .64rem; letter-spacing: .01em; padding: 0 .22rem; }
 .tk .b-wu.db { background: linear-gradient(180deg, #ffe4e4, #ff4a5a 55%, #b00818); color: #26000a; box-shadow: 0 0 0 1px #000, 0 0 .8rem rgba(255, 40, 60, 1); }
+/* an answered (or previewed) Deathblow's ribbon is frost blue like its chip, not crimson (QA 2026-11-12) */
+.tk .b-wu.db.ans { background: linear-gradient(180deg, #dff6ff, #5ab4e8); color: #04202e; box-shadow: 0 0 0 1px #000, 0 0 .7rem rgba(110, 200, 255, .9); }
 .tk.db .tv b { color: #fff0f0; }
 .tr.db { box-shadow: inset .35rem 0 0 #ff3a4a; background: rgba(120, 6, 16, .42); }
 .tr.db.wu-answered, .tr.db.wu-preview { box-shadow: inset .3rem 0 0 #7fd8ff; background: rgba(10, 60, 90, .32); }
