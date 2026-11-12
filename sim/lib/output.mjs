@@ -17,7 +17,7 @@ export const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
  * the start camp's reroll (D128, campReroll; off by default, so the reroll-on arm is '-rr'); the camp board across the run (D132, boardAcrossRun; on by default, so the old board arm is '-noba'); a switch without a tag is
  * marked by its key. (M2b v15's mawgrimHp switch and its 'maw' tag are gone: D126 put Mawgrim's 0.95 in content.)
  */
-export const GATE_TAG = { rareHpMultZ1: 'g5', firstMeetWindup: 'g6', sapHold: 'sap', passStealth: 'pst', swiftRoad: 'swift', campReroll: 'rr', boardAcrossRun: 'ba' };
+export const GATE_TAG = { rareHpMultZ1: 'g5', firstMeetWindup: 'g6', sapHold: 'sap', passStealth: 'pst', swiftRoad: 'swift', campReroll: 'rr', boardAcrossRun: 'ba', autoEmberFirst: 'ae' };
 
 /**
  * Cell-name mark of the start camp's options (D128, cell.campOptions): none when the cell plays the engine's list

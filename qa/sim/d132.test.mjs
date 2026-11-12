@@ -41,12 +41,12 @@ describe('D132 board across the run in the sim', () => {
     assert.ok(late > 0, 'the planner takes a zone 4-6 camp contract on the board across the run');
   });
 
-  test("--prep-policy auto plays autoplay's camp: Field Draughts first, camp contracts of zones 1..AUTO_PREP_ZONES only", () => {
+  test("--prep-policy auto plays autoplay's camp: the Ember of Return first (D133), camp contracts of zones 1..AUTO_PREP_ZONES only", () => {
     const EA = C.ENGINE_ASSUMPTION;
     assert.equal(cellName({ bot: 'planner', prof: 'fresh', map: 'expedition', prep: true, prepPolicy: 'auto' }), 'planner-P0-exp-prepauto');
     for (const seed of [1000, 1001, 1002, 1003]) {
       const r = camp({ bot: 'planner', cls: 'mage', tree: 1, prepPolicy: 'auto' }, seed);
-      assert.equal(r.ct.bought[0], 'prep_draughts', `auto ${seed}: ${r.ct.bought}`);
+      assert.equal(r.ct.bought[0], C.GATES.autoEmberFirst ? 'prep_ember' : 'prep_draughts', `auto ${seed}: ${r.ct.bought}`);
       for (const z of boardZones(r)) assert.ok(z <= EA.AUTO_PREP_ZONES, `auto ${seed}: a camp contract of zone ${z}`);
     }
   });
