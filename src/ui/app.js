@@ -631,6 +631,8 @@ export class App {
       metaOpen: () => app.ui.metaOpen,
       /** The engine actions applied to this run, in order (engine mode; a Node twin replays them). */
       engineLog: () => app.bridge.engineLog(),
+      /** The recent floats with their boxes (scene.floatBoxes; QA 2026-11-12: the Deathblow's floats do not overlap). */
+      floats: () => app.scene.floatBoxes(),
       /** Actions the UI sent on its own since the page loaded (copies), e.g. a new potion put on the item bar. */
       ownActions: () => app.ownActions.map((a) => ({ ...a })),
       /** The engage hover preview now shown on the tracks (combat v2), or null. */

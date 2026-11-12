@@ -110,6 +110,34 @@ describe('rules 7.4, 7.12 a landed Deathblow: DEATHBLOW_EMPOWER and MAIMED (M2b 
     assert.deepEqual(ev(w.events, 'stagger').map((x) => [x.why, x.deathblow]), [['avoided', true]]);
     assert.equal(st(w.state.fight.p.st, 'MAIMED'), null);
   });
+
+  // QA 2026-11-12 (playtest finding 8): a heavy Deathblow aimed at the pet. The UI's text says what this test pins.
+  test('aimed at the pet by its own aggro draw: a hit the pet loses HP to lands it (EMPOWERED, the player MAIMED though the player lost 0 HP: 7.13 (3) does not count the pet\'s own draw), a miss is neither; sent to the pet by TAUNT (Send the Pet) it is answered (STAGGERED, no MAIMED) though the pet loses HP', () => {
+    const atPet = (x) => { tough(x); x.fight.pet.maxHp = x.fight.pet.hp = 1e6; for (const t of x.fight.enemies[0].track) if (t.deathblow) { t.aggro = 'pet'; t.target = 'pet'; } };
+    const dbOf = (r) => r.events.filter((x) => x.t === 'damage' && x.src === 0 && x.spell === 'ab_heavy');
+    let landedSeen = 0;
+    for (const seed of [71, 72, 73, 74, 75, 76]) {
+      const s = fight('hunter', 20, [], [elite(1)], { seed, prep: atPet });
+      const w = R.windupView(s).find((x) => x.deathblow);
+      assert.deepEqual([w.target, w.heavy, w.maims], ['pet', true, true], 'the view: aimed at the pet, MAIMS if it lands');
+      assert.ok(w.answers.some((a) => a.id === 'send_pet' && a.how === 'pet'), 'Send the Pet answers it');
+      const r = R.step(toTurn(s, C.SIGNATURE_TURN), { type: 'PASS' });
+      const hits = dbOf(r);
+      assert.ok(hits.every((x) => x.dst === 'pet'), 'the pet takes it');
+      if (hits.some((x) => x.hpLost > 0)) {
+        landedSeen++;
+        assert.deepEqual(ev(r.events, 'empower').map((x) => [x.deathblow, x.maimed]), [[true, true]], `seed ${seed}: landed`);
+        assert.ok(st(r.state.fight.p.st, 'MAIMED'), `seed ${seed}: the player is MAIMED`);
+      } else assert.equal(ev(r.events, 'empower').length + ev(r.events, 'stagger').length, 0, `seed ${seed}: a miss on the pet is neither`);
+      assert.equal(ev(r.events, 'stagger').length, 0, `seed ${seed}: never answered by the pet's own draw`);
+      // Send the Pet in the engage round: TAUNT sends it to the pet on purpose (7.13 (3)): answered
+      const rt = R.step(toTurn(R.step(s, engage('send_pet', 0)).state, C.SIGNATURE_TURN), { type: 'PASS' });
+      assert.ok(dbOf(rt).every((x) => x.dst === 'pet'));
+      assert.deepEqual(ev(rt.events, 'stagger').map((x) => [x.why, x.deathblow]), [['avoided', true]], `seed ${seed}: TAUNT answers it`);
+      assert.equal(st(rt.state.fight.p.st, 'MAIMED'), null);
+    }
+    assert.ok(landedSeen > 0, 'at least one seed lands it on the pet');
+  });
 });
 
 describe('rules 7.4, 7.5 MAIMED (M2b v13 row 3, D107)', () => {

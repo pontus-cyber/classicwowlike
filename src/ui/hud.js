@@ -32,7 +32,7 @@ import { THEMES } from './art-world.js';
 import { tip, spellTip, basicTip, itemTip, statusTip } from './tooltip.js';
 import { settings } from './settings.js';
 import { linkedText, resurrectText, dangerRule, HEAT_WORDS, tolls, freeActionText } from './ui-text.js';
-import { trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createRuler, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind, answersToShow } from './tracks.js';
+import { trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createRuler, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind, answersToShow, isLethal, SAP_BREAK_WARN } from './tracks.js';
 import { createHeatMeter, standText, bossText, fmtTime, lineShown } from './heat.js';
 import { trackerContracts } from './prep.js';
 
@@ -570,12 +570,25 @@ export function createHud(root, ctx) {
     // M2b v13: the bar spells that answer an open Deathblow (R.windupView answers via 'spell'): now, or ready by its round
     const dbSp = {};
     if (fight) for (const w of (c.windups || []).filter((q) => q.deathblow && !(q.cancel && q.cancel.stagger && !q.cancel.breaks))) for (const a of w.answers) if (a.via === 'spell') { const o = dbSp[a.id]; if (!o || (a.now && !o.now)) dbSp[a.id] = { now: a.now, sure: a.sure, round: w.round, inRounds: w.inRounds }; }
+    // QA 2026-11-12 (finding 2): while waiting answers a Deathblow (windupView's PASS answer: every enemy sapped), the attack
+    // and every bar spell that would damage the sapped enemy are marked: attacking breaks Sap and the Deathblow lands
+    const sapW = fight ? (c.windups || []).find((w) => w.deathblow && w.answers.some((a) => a.via === 'pass' && a.now)) || null : null;
+    const tgtNow = ctx.ui.target ?? (c ? c.target : null);
+    const harms = (raw) => !!raw && (raw.target === 'all' || (raw.target === 'enemy' && tgtNow === sapW.u)) && !!(raw.b || raw.hits || raw.dot || raw.gjFrac);
+    const sapMark = (b, on, label) => {
+      let t = b.querySelector('.sapw');
+      b.classList.toggle('breaks-sap', on);
+      if (on && !t) { t = h('span.sapw', 'Breaks Sap'); b.appendChild(t); } else if (!on && t) t.remove();
+      if (on) b.setAttribute('aria-label', `${label}. ${SAP_BREAK_WARN}`);
+    };
+    sapMark(els.basic, !!(sapW && tgtNow === sapW.u), 'Attack');
+    if (!els.basic.classList.contains('breaks-sap')) els.basic.removeAttribute('aria-label');
     const hv = ctx.ui.wuHover; const hvE = hv && c ? c.enemies.find((e) => e.idx === hv.idx) : null;
     const hvX = hvE ? entriesOf(hvE).find((x) => x.turn === hv.turn && x.windup) || null : null;
     p.bar.forEach((id, i) => {
       const b = els.spells[i];
       const img = b.querySelector('img'); const cost = b.querySelector('.cost'); const cd = b.querySelector('.cd');
-      if (!id) { b.classList.add('empty'); b.setAttribute('aria-label', `Empty slot ${i + 1}`); img.removeAttribute('src'); img.style.visibility = 'hidden'; cost.textContent = ''; cd.textContent = ''; cd.style.background = ''; b.classList.remove('off', 'nores', 'hint'); return; }
+      if (!id) { b.classList.add('empty'); b.setAttribute('aria-label', `Empty slot ${i + 1}`); img.removeAttribute('src'); img.style.visibility = 'hidden'; cost.textContent = ''; cd.textContent = ''; cd.style.background = ''; b.classList.remove('off', 'nores', 'hint', 'breaks-sap'); const t = b.querySelector('.sapw'); if (t) t.remove(); return; }
       b.classList.remove('empty'); img.style.visibility = '';
       const sp = ctx.data.spells[id];
       b.setAttribute('aria-label', `Slot ${i + 1}: ${sp.name}`);
@@ -616,6 +629,7 @@ export function createHud(root, ctx) {
       const stop = usable && kinds.some((z) => z.k === 'stop'); const avoid = usable && !stop;
       b.classList.toggle('wu-ans', stop && onTgt); b.classList.toggle('wu-else', stop && !onTgt); b.classList.toggle('wu-avoid', avoid);
       b.classList.toggle('wu-hl', !!(hvX && answerKind(sp.raw, hvX)));
+      sapMark(b, !!(sapW && ok && harms(sp.raw)), `Slot ${i + 1}: ${sp.name}`);
       const db = dbSp[id] || null;
       b.classList.toggle('db-now', !!(db && db.now)); b.classList.toggle('db-soon', !!(db && !db.now));
       b.dataset.db = db ? `${db.now ? 'now' : `r${db.round}`}${db.sure ? '' : '?'}` : '';
@@ -701,18 +715,36 @@ export function createHud(root, ctx) {
     const first = (cls) => [...els.spells, ...els.items].find((b) => b.classList.contains(cls) && !b.classList.contains('empty'));
     let k = 'Your turn'; let parts;
     const ans = first('wu-ans'); const els2 = first('wu-else'); const avoid = first('wu-avoid'); const pot = first('pulse'); const win = first('window');
+    // QA 2026-11-12 (finding 3): a usable healing potion and what it restores now (the engine's amount: cut while MAIMED)
+    const L = v.legal || {}; const p = v.player;
+    const healSlot = p ? p.itemBar.findIndex((id, i) => id && ctx.data.consumables[id] && ctx.data.consumables[id].heal && L.items && L.items[i] && L.items[i].ok && L.items[i].heal > 0) : -1;
+    const healHint = (lead) => { if (healSlot < 0) return []; const it = L.items[healSlot]; const b = els.items[healSlot]; return [lead, kb(key(b)), ` ${name(b)} +${fmtNum(it.heal)}${it.maim > 0 ? ' (maimed)' : ''}`]; };
+    // a lethal hit (its estimate at least your health) this round or the next, from the tracks (not one a hard cancel stops)
+    let lethalHit = null;
+    for (const e of c.enemies) {
+      if (!e.alive || e.hidden) continue;
+      for (const x of entriesOf(e)) {
+        if (!(x.now || x.round === c.round + 1) || (x.cancel && !x.cancel.breaks) || (x.now && e.intent && (e.intent.interrupted || e.intent.cancelled))) continue;
+        const w = x.deathblow ? (c.windups || []).find((q) => q.u === e.idx && q.turn === x.turn) : null;
+        const est = w ? w.est : x.est;
+        if (isLethal(v, x, est) && (!lethalHit || est > lethalHit.est)) lethalHit = { e, x, est };
+      }
+    }
+    const lethalB = () => h('b.tp-lethal', 'LETHAL');
     const wuLive = c.enemies.some((e) => e.alive && !e.hidden && e.intent && e.intent.windup && !e.intent.interrupted && !e.intent.cancelled);
     // M2b v13: an open Deathblow in view comes first: its answer now with its key, or "no answer ready" (R.windupView)
     const dbw = (c.windups || []).find((w) => w.deathblow && !(w.cancel && w.cancel.stagger && !w.cancel.breaks));
     const dbSh = dbw ? answersToShow(dbw, v, ctx) : null;
     let dbKind = null;
+    let dbLethal = false;
     if (dbw && (c.engage || dbw.inRounds <= 1)) {
       const when = dbw.inRounds === 0 ? 'now' : `in R${dbw.round}`;
       const first = dbSh.list.find((x) => x.key) || null;
       k = 'Deathblow';
-      if (!dbw.ready) { parts = [`Deathblow ${when}: `, h('b.tp-no', 'No answer ready'), dbw.inRounds > 0 ? '. Kill it first or brace for it' : '']; dbKind = 'deathblow-no'; }
-      // M2b v14 (UI need 2): waiting is the answer while Sap holds (windupView's PASS answer)
-      else if (first && dbSh.when === 'now' && first.a.via === 'pass') { parts = [`Deathblow ${when}: wait with `, kb('X'), ` Pass: Sap stops it${first.a.stealth ? ', and you stay hidden' : ''}`]; dbKind = 'deathblow'; }
+      dbLethal = isLethal(v, { kind: dbw.kind, target: dbw.target, est: dbw.est }, dbw.est);
+      if (!dbw.ready) { parts = [`Deathblow ${when}: `, h('b.tp-no', 'No answer ready'), dbw.inRounds > 0 ? '. Kill it first or brace for it' : '', ...(dbLethal ? healHint('; heal: ') : [])]; dbKind = 'deathblow-no'; }
+      // M2b v14 (UI need 2): waiting is the answer while Sap holds (windupView's PASS answer); QA 2026-11-12: and attacking breaks it
+      else if (first && dbSh.when === 'now' && first.a.via === 'pass') { parts = [`Deathblow ${when}: wait with `, kb('X'), ` Pass: Sap stops it${first.a.stealth ? ', and you stay hidden' : ''}`, h('span.tp-w', `${SAP_BREAK_WARN}${dbLethal ? ' and kill you' : ''}.`)]; dbKind = 'deathblow'; }
       else if (first && dbSh.when === 'now' && first.a.target != null && first.a.target !== (ctx.ui.target ?? c.target)) { parts = [`Deathblow ${when} on ${dbw.enemy}: `, kb('Tab'), ' to it, then ', kb(first.key), ` ${first.name}`]; dbKind = 'deathblow'; }
       // M2b v14: Sap that is sure if you wait says so, as the line and the card do (QA 2026-11-12), not "(a chance)"
       else if (first && dbSh.when === 'now') { parts = [`Deathblow ${when}: answer with `, kb(first.key), ` ${first.name}${first.a.sure ? '' : first.a.wait ? ', then wait (Pass next round)' : ' (a chance)'}`]; dbKind = 'deathblow'; }
@@ -724,14 +756,19 @@ export function createHud(root, ctx) {
     else if (els2) parts = ['Wind-up on another enemy: ', kb('Tab'), ' to it, then ', kb(key(els2)), ` ${name(els2)}`];
     else if (avoid) parts = ['Heavy wind-up now: ', kb(key(avoid)), ` ${name(avoid)} can blunt it`];
     else if (wuLive) parts = ['Wind-up now: nothing on your bar can stop it this round'];
-    else if (pot) parts = ['Low health: ', kb(key(pot)), ` ${name(pot)}`];
+    else if (lethalHit && !lethalHit.x.deathblow) { k = 'Lethal'; parts = [`${lethalHit.e.name}'s ${lethalHit.x.name} ${lethalHit.x.now ? 'this round' : `in R${lethalHit.x.round}`}: ≈ ${fmtNum(lethalHit.est)} on your ${fmtNum(p.hp)} health`, ...healHint('. Heal: ')]; }
+    else if (pot) { const pi = els.items.indexOf(pot); const it = L.items && L.items[pi]; parts = ['Low health: ', kb(key(pot)), ` ${name(pot)}${it && it.heal > 0 ? ` +${fmtNum(it.heal)}${it.maim > 0 ? ' (maimed)' : ''}` : ''}`]; }
     else if (win) parts = ['Off-balance: ', kb(key(win)), ` ${name(win)} hits ${(win.querySelector('.wtag') || {}).textContent || 'harder'}`];
     else parts = ['Choose ', kb('1'), '–', kb('7'), ', ', kb('A'), ' attack or ', kb('X'), ' pass'];
+    // QA 2026-11-12 (finding 3): LETHAL first when the Deathblow, or another hit this round or the next, would kill you
+    const lethal = dbKind ? dbLethal : !!(lethalHit && !c.engage);
+    if (lethal && k !== 'Lethal') parts = [lethalB(), ' ', ...parts];
+    els.turn.dataset.lethal = lethal ? '1' : '';
     const kEl = els.turn.querySelector('.tp-k'); const tEl = els.turn.querySelector('.tp-t');
     kEl.textContent = `${k} · R${c.round}`;
     const sig = parts.map((x) => (typeof x === 'string' ? x : `[${x.textContent}]`)).join('');
     if (tEl.dataset.sig !== sig) { tEl.dataset.sig = sig; clear(tEl); tEl.append(...parts); }
-    els.turn.dataset.kind = dbKind || (c.engage ? 'engage' : ans || els2 || avoid || wuLive ? 'windup' : pot ? 'potion' : win ? 'window' : 'plain');
+    els.turn.dataset.kind = dbKind || (c.engage ? 'engage' : ans || els2 || avoid || wuLive ? 'windup' : k === 'Lethal' ? 'lethal' : pot ? 'potion' : win ? 'window' : 'plain');
   }
 
   function updateTracker(v) {

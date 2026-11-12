@@ -129,6 +129,14 @@
  *      Sap's card reads "Sure if you wait: ..." (windupView `wait`); the Rogue's autoplay hint "..., then wait a round"
  *      (autoplayEngage `wait`); after Sap, round 2's Pass button has the answer ring, the line names "X Pass" and the prompt
  *      says to wait; X: Sap cancels the Deathblow and the Rogue stays in STEALTH; a hidden elite's map line has its type only.
+ *      QA 2026-11-12 (playtest findings 2, 3, 4, 8): in that waiting round the chip, the row and the ruler say "If you wait"
+ *      (the row "answered if you wait"), not ANSWERED, the line and the prompt warn "Attacking breaks Sap: the Deathblow will
+ *      land", the attack button is marked "Breaks Sap"; once Sap cancels it, no "If you wait". A loaded state with health
+ *      under the Deathblow's estimate and MAIMED: LETHAL on the line, the chip, the row and the prompt, whose heal hint names
+ *      the potion's cut amount (R.potionInfo); none when the estimate is under health. A Deathblow aimed at the pet (loaded
+ *      state): "MAIMS you if it hits your pet" on the line, the row and the alert (the engine lands it on a pet hit, s07d).
+ *      At speed 1, a landed Deathblow's "Deathblow landed: empowered" and "Maimed: healing −50 %" sit in their own lane and
+ *      overlap no damage number, pet number, Dodge or other float shown at the same time (window.__ui.floats()).
  *
  * D116 (the flip): new runs start on the expedition map with the start camp. The parts written for the classic map (A-L, O,
  * P) open the page with ?classic=1 (open() adds it unless the query names a map) and their Node twins pass mapMode 'rows';
@@ -3242,11 +3250,11 @@ const pDom = (page) => page.evaluate(() => {
     np: [...document.querySelectorAll('#nameplates .np')].filter((el) => !el.classList.contains('dead')).map((el) => {
       const wub = el.querySelector('.wub'); const no = wub && wub.querySelector('.db-a.no');
       return { idx: Number(el.dataset.idx), newTag: vis(el.querySelector('.newtag')), wst: wst(el),
-        chips: [...el.querySelectorAll('.trk .tk')].map((c) => ({ turn: Number(c.dataset.turn), db: c.classList.contains('db'), ribbon: (c.querySelector('.b-wu') || {}).textContent || '' })),
-        wub: vis(wub) ? { text: wub.textContent, turn: Number(wub.dataset.turn), db: wub.dataset.deathblow === '1', est: Number(wub.dataset.est), ready: wub.dataset.ready, state: wub.dataset.state,
+        chips: [...el.querySelectorAll('.trk .tk')].map((c) => ({ turn: Number(c.dataset.turn), db: c.classList.contains('db'), ribbon: (c.querySelector('.b-wu') || {}).textContent || '', soft: c.dataset.soft || '', lethal: c.dataset.lethal || '' })),
+        wub: vis(wub) ? { text: wub.textContent, turn: Number(wub.dataset.turn), db: wub.dataset.deathblow === '1', est: Number(wub.dataset.est), ready: wub.dataset.ready, state: wub.dataset.state, lethal: wub.dataset.lethal || '', warn: (wub.querySelector('.db-warn') || {}).textContent || '',
           no: vis(no) ? getComputedStyle(no).color : null, answers: [...wub.querySelectorAll('.ans-o')].map((a) => ({ via: a.dataset.via, id: a.dataset.id, text: a.textContent.trim() })) } : null };
     }),
-    rows: vis(tf) ? [...tf.querySelectorAll('.ttrack .tr')].map((r) => ({ turn: Number(r.dataset.turn), db: r.classList.contains('db'), text: r.textContent })) : [],
+    rows: vis(tf) ? [...tf.querySelectorAll('.ttrack .tr')].map((r) => ({ turn: Number(r.dataset.turn), db: r.classList.contains('db'), text: r.textContent, soft: r.dataset.soft || '', lethal: r.dataset.lethal || '', flag: (r.querySelector('.flag.wu') || {}).textContent || '' })) : [],
     twst: vis(tf) ? wst(tf) : [], tnew: vis(tf) && !!tf.querySelector('.rank-tag.new'),
     ruler: vis(document.querySelector('#ruler')) ? [...document.querySelectorAll('#ruler .rl-c')].map((c) => ({ round: Number(c.dataset.round), wu: (c.querySelector('.rl-wu') || {}).textContent || '' })) : [],
     cards: [...document.querySelectorAll('#engage .eg-opt')].map((c) => ({ opt: c.dataset.opt, db: c.dataset.db || '', tag: !!c.querySelector('.eg-dbtag') })),
@@ -3254,12 +3262,17 @@ const pDom = (page) => page.evaluate(() => {
     bar: [...document.querySelectorAll('#actionbar .ab[data-slot]')].map((b) => ({ slot: Number(b.dataset.slot), db: b.dataset.db || '', now: b.classList.contains('db-now'), soon: b.classList.contains('db-soon'), tag: (b.querySelector('.atag') || {}).textContent || '' })),
     items: [...document.querySelectorAll('#actionbar .ab[data-islot]')].map((b) => ({ slot: Number(b.dataset.islot), mtag: (b.querySelector('.mtag') || {}).textContent || '' })),
     maim: vis(mb) ? { text: mb.textContent, value: Number(mb.dataset.value) } : null,
-    prompt: vis(tp) ? { kind: tp.dataset.kind, text: tp.textContent.replace(/\s+/g, ' ').trim() } : null,
+    prompt: vis(tp) ? { kind: tp.dataset.kind, text: tp.textContent.replace(/\s+/g, ' ').trim(), lethal: tp.dataset.lethal || '' } : null,
+    attack: (() => { const b = document.querySelector('#actionbar .ab.basic'); return b ? { sap: b.classList.contains('breaks-sap'), tag: (b.querySelector('.sapw') || {}).textContent || '' } : null; })(),
+    alertText: [...document.querySelectorAll('#engage .eg-db')].map((a) => a.textContent).join(' | '),
   };
 });
 /** The key the page names for a windupView answer: Q, W, E by R.engageOptions' order; a bar spell's slot + 1. */
 const pKey = (s, a) => (a.via === 'engage' ? ['Q', 'W', 'E'][(R.engageOptions(s) || []).findIndex((o) => o.id === a.id)] || '' : String(s.player.bar.indexOf(a.id) + 1));
 const pDigits = (t) => (t || '').replace(/\D/g, '');
+/** "MAIMS if it lands"; aimed at the pet: "MAIMS you if it hits your pet" (QA 2026-11-12; the engine lands it on a pet hit). */
+const pMaims = (w) => (w.target === 'pet' ? 'MAIMS you if it hits your pet' : 'MAIMS if it lands');
+const P_WARN = 'Attacking breaks Sap: the Deathblow will land'; // src/ui/tracks.js SAP_BREAK_WARN
 /** The Deathblow's telegraph on the page against windupView item w (enemy e): the line, the chip, the row, the ruler. */
 function pTelegraph(d, w, opts = {}) {
   const bad = [];
@@ -3267,10 +3280,10 @@ function pTelegraph(d, w, opts = {}) {
   if (!np || !np.wub) return [`no line over enemy ${w.u}`];
   const L = np.wub;
   if (!L.db || L.turn !== w.turn || L.est !== w.est) bad.push(`line ${JSON.stringify(L)} vs turn ${w.turn} est ${w.est}`);
-  if (!L.text.includes(`Deathblow ${w.inRounds === 0 ? 'now' : `R${w.round}`}`) || !L.text.includes(`≈ ${w.est}`) || !L.text.includes(w.maims ? 'MAIMS if it lands' : '')) bad.push(`line text "${L.text}"`);
+  if (!L.text.includes(`Deathblow ${w.inRounds === 0 ? 'now' : `R${w.round}`}`) || !L.text.includes(`≈ ${w.est}`) || !L.text.includes(w.maims ? pMaims(w) : '')) bad.push(`line text "${L.text}"`);
   const chip = np.chips.find((c) => c.turn === w.turn);
   if (!chip || !chip.db || chip.ribbon !== 'DEATHBLOW' || np.chips.some((c) => c.db && c.turn !== w.turn)) bad.push(`chips ${JSON.stringify(np.chips)}`);
-  if (opts.target) { const row = d.rows.find((r) => r.turn === w.turn); if (!row || !row.db || !row.text.includes('MAIMS if it lands') || d.rows.some((r) => r.db && r.turn !== w.turn)) bad.push(`rows ${JSON.stringify(d.rows)}`); }
+  if (opts.target) { const row = d.rows.find((r) => r.turn === w.turn); if (!row || !row.db || !row.text.includes(pMaims(w)) || d.rows.some((r) => r.db && r.turn !== w.turn)) bad.push(`rows ${JSON.stringify(d.rows)}`); }
   if (w.round <= 5) { const col = d.ruler.find((c) => c.round === w.round); if (!col || col.wu !== 'Deathblow') bad.push(`ruler ${JSON.stringify(d.ruler)}`); }
   return bad;
 }
@@ -3316,7 +3329,7 @@ async function partP(browser, W, H) {
       const sawNames = L.answers.map((a) => a.text.replace(/\s+/g, ' '));
       const alert = d.alert.find((a) => a.u === w.u && a.turn === w.turn);
       check('M2b-v13', `answers: the engage cards marked "Deathblow" (${wantCards}) and the answers on the line (${wantNames.join(', ')}) = windupView's engage answers; ready ${w.ready}, the panel's alert says so`,
-        eng.length > 0 && sawCards === wantCards && wantNames.every((n) => sawNames.includes(n)) && w.ready && L.ready === '1' && !L.no && alert && alert.ready === '1' && alert.text.includes('MAIMS if it lands') && alert.text.includes(`≈ ${w.est}`),
+        eng.length > 0 && sawCards === wantCards && wantNames.every((n) => sawNames.includes(n)) && w.ready && L.ready === '1' && !L.no && alert && alert.ready === '1' && alert.text.includes(pMaims(w)) && alert.text.includes(`≈ ${w.est}`),
         `cards ${sawCards} | line ${JSON.stringify(sawNames)} | alert ${JSON.stringify(alert)}`);
       check('M2b-v13', 'engage round: the turn prompt names the Deathblow and its first answer with its key', !!d.prompt && d.prompt.kind === 'deathblow' && d.prompt.text.includes(`Deathblow in R${w.round}: answer with ${pKey(s, eng.find((a) => a.now && a.sure) || eng[0])}`), JSON.stringify(d.prompt));
       // the autoplay hint (rule E2): Z on, the line, Z off before autoplay acts (its delay held long for the reading)
@@ -3453,6 +3466,12 @@ async function partP(browser, W, H) {
         !!pa && pa.now && w.ready && !!passBtn && passBtn.ring && passBtn.db === 'now' && !!L && !!L.wub && L.wub.answers.some((a) => a.via === 'pass' && a.text.startsWith('X Pass'))
           && !!d.prompt && d.prompt.kind === 'deathblow' && d.prompt.text.includes(`Deathblow in R${w.round}: wait with X Pass: Sap stops it${pa.stealth ? ', and you stay hidden' : ''}`),
         `pass ${JSON.stringify(passBtn)}; line ${JSON.stringify(L && L.wub && L.wub.answers)}; prompt ${JSON.stringify(d.prompt)}; answer ${JSON.stringify(pa)}`);
+      // QA 2026-11-12 (finding 2): until Sap cancels it, "If you wait" (not ANSWERED) on its chip, its row and the ruler; attacking warned
+      const wChip = L && L.chips.find((c) => c.turn === w.turn); const wRow = d.rows.find((r) => r.turn === w.turn); const wCol = d.ruler.find((c) => c.round === w.round);
+      check('QA-2026-11-12', `Rogue, waiting round: the Deathblow's chip, target row and ruler say "If you wait" (the row "Sapped: answered if you wait"), not ANSWERED; the line and the prompt warn "${P_WARN}"; the attack button is marked "Breaks Sap"`,
+        !!wChip && wChip.ribbon === 'IF YOU WAIT' && wChip.soft === 'wait' && !!wRow && wRow.soft === 'wait' && wRow.flag === 'If you wait' && wRow.text.includes('answered if you wait') && !/Answered/.test(wRow.flag)
+          && (w.round > 5 || (!!wCol && wCol.wu === 'If you wait')) && L.wub.warn.includes(P_WARN) && d.prompt.text.includes(P_WARN) && !!d.attack && d.attack.sap && d.attack.tag === 'Breaks Sap',
+        `chip ${JSON.stringify(wChip)}; row ${JSON.stringify(wRow)}; ruler ${JSON.stringify(wCol)}; warn "${L && L.wub && L.wub.warn}"; prompt ${JSON.stringify(d.prompt)}; attack ${JSON.stringify(d.attack)}`);
       await page.keyboard.press('KeyX'); await idle(page);
       s = await twin();
       const e = s.fight && s.fight.enemies[w.u];
@@ -3460,6 +3479,11 @@ async function partP(browser, W, H) {
       const passB2 = await page.evaluate(() => { const b = [...document.querySelectorAll('.ctrl .btn')].find((x) => /^Pass/.test(x.textContent)); return b ? b.classList.contains('db-now') : null; });
       check('M2b-v14', 'X: Sap cancels the Deathblow at its turn (STAGGERED, no MAIMED), the Rogue is still in STEALTH, and the Pass ring is gone',
         !!stg && stg.deathblows === 1 && !s.fight.p.st.some((x) => x.id === 'MAIMED') && s.fight.p.st.some((x) => x.id === 'STEALTH') && passB2 === false, `${JSON.stringify(stg)}; player ${JSON.stringify(s.fight && s.fight.p.st.map((x) => x.id))}; ring ${passB2}`);
+      await page.mouse.move(2, 2);
+      const d3 = await pDom(page); const L3 = d3.np.find((x) => x.idx === w.u);
+      check('QA-2026-11-12', 'once Sap has cancelled it: no "If you wait" on the chips or rows, no warning on the line or the prompt, the attack button unmarked',
+        !!L3 && !L3.chips.some((c) => c.soft) && !d3.rows.some((r) => r.soft) && !(L3.wub && L3.wub.warn) && !(d3.prompt && d3.prompt.text.includes(P_WARN)) && !!d3.attack && !d3.attack.sap,
+        `chips ${JSON.stringify(L3 && L3.chips)}; rows ${JSON.stringify(d3.rows)}; line ${JSON.stringify(L3 && L3.wub)}; prompt ${JSON.stringify(d3.prompt)}; attack ${JSON.stringify(d3.attack)}`);
     } catch (e) {
       await shot(page, 'P-error-rogue-wait');
       check('-', 'part P (Rogue wait) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
@@ -3496,6 +3520,108 @@ async function partP(browser, W, H) {
       check('-', 'part P (Disrupt) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
     }
     check('-', 'part P (Disrupt): no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- (5) QA 2026-11-12 (finding 3): LETHAL when the Deathblow's estimate is at least your health; MAIMED: the heal hint's cut amount
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=5&speed=instant');
+    try {
+      let s0 = R.debug.build({ content: CONTENT, classId: 'hunter', seed: 5, zone: 2, mapMode: 'rows' }).state;
+      s0 = R.debug.encounter(s0, { ids: [P_ELITE] }).state;
+      s0 = R.step(s0, { type: 'PASS' }).state; // round 2: nothing on the bar answers it by round 3 (as in (1))
+      const w0 = R.windupView(s0).find((x) => x.deathblow);
+      const load = async (edit) => {
+        const o = JSON.parse(R.serialize(s0));
+        for (const x of o.fight.enemies[w0.u].track) if (x.deathblow) { x.aggro = 'player'; x.target = 'player'; }
+        edit(o);
+        const ser = JSON.stringify(o);
+        await page.evaluate((x) => window.__ui.loadState(x), ser); await idle(page);
+        await page.locator(`#nameplates .np[data-idx="${w0.u}"]`).click(); await idle(page); await page.mouse.move(2, 2);
+        return R.deserialize(ser, CONTENT);
+      };
+      // full health: no LETHAL anywhere
+      let t = await load((o) => { o.player.hp = Math.max(o.player.hp, w0.est + 50); o.player.d.maxHp = Math.max(o.player.d.maxHp, o.player.hp); });
+      let d = await pDom(page);
+      const wF = R.windupView(t).find((x) => x.deathblow);
+      const noL = (dd, w) => { const np = dd.np.find((x) => x.idx === w.u); return !!np && !!np.wub && !np.wub.lethal && !np.chips.some((c) => c.lethal) && !dd.rows.some((r) => r.lethal) && !!dd.prompt && !dd.prompt.lethal && !/LETHAL/.test(dd.prompt.text); };
+      check('QA-2026-11-12', `health ${t.player.hp} above the Deathblow's estimate ${wF.est}: no LETHAL on the line, the chips, the rows or the prompt`, wF.est < t.player.hp && noL(d, wF), JSON.stringify({ np: d.np.find((x) => x.idx === wF.u), rows: d.rows, prompt: d.prompt }));
+      // health under it, MAIMED: LETHAL on the line, its chip, its row, the prompt; the heal hint names the potion's cut amount
+      t = await load((o) => { o.player.hp = Math.max(1, Math.floor(w0.est * 0.6)); o.fight.p.st.push({ id: 'MAIMED', dur: null, value: R.C.MAIM_HEAL, by: w0.u, src: w0.id, name: w0.name }); });
+      d = await pDom(page);
+      await shot(page, 'P-lethal-maimed');
+      const w = R.windupView(t).find((x) => x.deathblow);
+      const pot = R.potionInfo(t, 'healing_draught');
+      const slot = t.player.itemBar.indexOf('healing_draught');
+      const np = d.np.find((x) => x.idx === w.u); const chip = np && np.chips.find((c) => c.turn === w.turn); const row = d.rows.find((r) => r.turn === w.turn);
+      check('QA-2026-11-12', `health ${t.player.hp} under the Deathblow's estimate ${w.est}: LETHAL on the line, its chip, its row and the prompt; MAIMED: the prompt's heal hint "+${pot && pot.heal} (maimed)" = R.potionInfo (maim ${pot && pot.maim})`,
+        w.est >= t.player.hp && !!np && !!np.wub && np.wub.lethal === '1' && np.wub.text.includes('LETHAL') && !!chip && chip.lethal === '1' && !!row && row.lethal === '1' && row.text.includes('Lethal')
+          && !!d.prompt && d.prompt.lethal === '1' && d.prompt.text.includes('LETHAL Deathblow in R') && !!pot && pot.maim > 0 && slot >= 0 && d.prompt.text.includes(`${['8', '9', '0'][slot]} Healing Draught +${pot.heal} (maimed)`),
+        JSON.stringify({ wub: np && np.wub, chip, row, prompt: d.prompt, pot, slot }));
+    } catch (e) {
+      await shot(page, 'P-error-lethal');
+      check('-', 'part P (LETHAL) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
+    }
+    check('-', 'part P (LETHAL): no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- (6) QA 2026-11-12 (finding 8): a Deathblow aimed at the pet says what the engine does (lands, and MAIMS you, if it hits your pet)
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=5&speed=instant');
+    try {
+      let s0 = R.debug.build({ content: CONTENT, classId: 'hunter', seed: 5, zone: 2, mapMode: 'rows' }).state;
+      s0 = R.debug.encounter(s0, { ids: [P_ELITE] }).state; // the engage round
+      const o = JSON.parse(R.serialize(s0));
+      const u = R.windupView(s0).find((x) => x.deathblow).u;
+      for (const x of o.fight.enemies[u].track) if (x.deathblow) { x.aggro = 'pet'; x.target = 'pet'; }
+      const ser = JSON.stringify(o);
+      await page.evaluate((x) => window.__ui.loadState(x), ser); await idle(page);
+      await page.locator(`#nameplates .np[data-idx="${u}"]`).click(); await idle(page); await page.mouse.move(2, 2);
+      const t = R.deserialize(ser, CONTENT);
+      const w = R.windupView(t).find((x) => x.deathblow);
+      const d = await pDom(page);
+      await shot(page, 'P-pet-deathblow');
+      const np = d.np.find((x) => x.idx === u); const row = d.rows.find((r) => r.turn === w.turn);
+      check('QA-2026-11-12', `a Deathblow aimed at the pet (windupView target ${w.target}, maims ${w.maims}, Send the Pet an answer): the line, the row and the alert say "MAIMS you if it hits your pet" and "≈ ${w.est} to your pet"; no LETHAL`,
+        w.target === 'pet' && w.maims && w.answers.some((a) => a.id === 'send_pet') && !!np && !!np.wub && np.wub.text.includes('MAIMS you if it hits your pet') && np.wub.text.includes('your pet') && !np.wub.lethal
+          && !!row && row.text.includes('MAIMS you if it hits your pet') && d.alertText.includes(`≈ ${w.est} to your pet`) && d.alertText.includes('MAIMS you if it hits your pet'),
+        JSON.stringify({ wub: np && np.wub, row, alert: d.alertText }));
+    } catch (e) {
+      await shot(page, 'P-error-pet');
+      check('-', 'part P (pet Deathblow) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
+    }
+    check('-', 'part P (pet Deathblow): no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- (7) QA 2026-11-12 (finding 4): at speed 1 a landed Deathblow's floats overlap nothing shown at the same time
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=5&speed=instant');
+    try {
+      await page.evaluate(() => window.__ui.dev('build', { classId: 'hunter', zone: 2 })); await idle(page);
+      await page.evaluate((id) => window.__ui.dev('fight', { ids: [id] }), P_ELITE); await idle(page); await page.mouse.move(2, 2);
+      const twin = async () => devTwin(await page.evaluate(() => window.__ui.engineLog()));
+      for (let n = 0; n < 3; n++) { const w = (R.windupView(await twin()) || []).find((x) => x.deathblow); if (!w || w.inRounds === 0) break; await page.keyboard.press('KeyX'); await idle(page); }
+      await page.evaluate(() => window.__ui.settings.set('speed', 1));
+      await page.keyboard.press('KeyX'); await idle(page);
+      await page.waitForTimeout(400);
+      const fl = await page.evaluate(() => window.__ui.floats());
+      await page.evaluate(() => window.__ui.settings.set('speed', 0));
+      const maim = fl.floats.find((f) => /^Maimed/.test(f.text)); const land = fl.floats.find((f) => /^Deathblow landed/.test(f.text));
+      const t0 = maim ? maim.t0 : 0;
+      const near = fl.floats.filter((f) => f.t0 >= t0 - 1.2 && f.t0 <= t0 + 2.5);
+      const hit = (a, b) => a.t0 < b.t1 && b.t0 < a.t1 && a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+      const bad = [];
+      for (let i = 0; i < near.length; i++) for (let j = i + 1; j < near.length; j++) {
+        const a = near[i]; const b = near[j];
+        const care = a.lane === 'head' || b.lane === 'head' || (a.lane === 'num') !== (b.lane === 'num') || (a.lane === 'num' && b.lane === 'num' && a.id !== b.id);
+        if (care && hit(a, b)) bad.push(`"${a.text}" (${a.id}, ${a.lane}) x "${b.text}" (${b.id}, ${b.lane})`);
+      }
+      check('QA-2026-11-12', `landed Deathblow at speed 1: "Deathblow landed: empowered" and "Maimed: ..." in the headline lane, and no float shown with them overlaps another (${near.length} floats: numbers, pet numbers, Dodge, words)`,
+        !!maim && !!land && maim.lane === 'head' && land.lane === 'head' && !bad.length, bad.join(' | ') || JSON.stringify(near.map((f) => [f.text, f.id, f.lane])));
+    } catch (e) {
+      await shot(page, 'P-error-floats');
+      check('-', 'part P (floats) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
+    }
+    check('-', 'part P (floats): no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
     await context.close();
   }
 }

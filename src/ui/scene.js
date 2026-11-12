@@ -8,6 +8,10 @@
 // (a frost shatter) or lands (an ember flare) has its effect (windupResult).
 // UX pass 2026-11-11: floating words (Interrupted!, Off-balance!, Staggered!, statuses) have their own lane under the
 // damage numbers and take turns in it (word()), so the words and the number of one moment never cover each other.
+// QA 2026-11-12 (playtest finding 4): the Deathblow's headlines ("Deathblow landed: empowered", "Maimed: healing -50 %")
+// have a lane of their own per actor (headline()): above the head of the hero or the pet (no nameplate there), under the
+// word lane of an enemy (its nameplate is above), so they never cover a damage number, a pet's number or a Dodge.
+// floatBoxes() lists the recent floats with their boxes for the browser checks.
 import { buildBackdrop, drawBackdrop, drawForeground, THEMES, GROUND_Y, oak, pine } from './art-world.js';
 import { drawHumanoid, drawBeast, drawBoss, drawShard, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook, glowBall } from './art-actors.js';
 import { clamp, lerp, ease, rgba, shade, mix, prng } from './util.js';
@@ -19,6 +23,9 @@ import { settings } from './settings.js';
 // WORD_MAX px and rising WORD_RISE px
 const NUM_RE = /^[-+\u2212]?[\d\s\u00a0\u2009\u202f.,]+!?$/;
 const WORD_ROWS = 2; const WORD_DY0 = 34; const WORD_ROW = 27; const WORD_HOLD = 0.55; const WORD_CUT = 0.16; const WORD_MAX = 22; const WORD_RISE = 8;
+// headline lane (QA 2026-11-12): HEAD_ROWS rows per actor, HEAD_ROW px apart; over the hero or pet the first row's middle
+// is HEAD_DY0 px above the head; under an enemy it is HEAD_GAP px below the word lane's last row (px at 768 high)
+const HEAD_ROWS = 2; const HEAD_DY0 = 18; const HEAD_ROW = 28; const HEAD_GAP = 30; const FLOG_MAX = 240;
 const SCHOOL_COL = { phys: '#f4ead6', fire: '#ff8a3a', frost: '#8fd6ff', arcane: '#c79bff', shadow: '#a07aff', nature: '#8fe07a', heal: '#7fffa0' };
 
 export class Scene {
@@ -35,6 +42,7 @@ export class Scene {
     this.props = [];
     this.particles = []; this.texts = []; this.projectiles = []; this.rings = []; this.beams = [];
     this.wrows = new Map(); // word lanes per actor (word())
+    this.hrows = new Map(); this.flog = []; // headline lanes per actor (headline()); recent floats (floatBoxes())
     this.ambient = []; this.shakeAmt = 0; this.flash = null; this.pillar = null; this.dim = 0; this.targetDim = 0;
     this.atime = 0; this.freeze = 0; // actor clock and hit-stop (s left)
     this.charges = []; this.cores = []; this.rays = []; this.fstack = new Map();
@@ -216,6 +224,7 @@ export class Scene {
       if (last) { this.texts.push({ ...last, text, color: style.color || '#ffffff', size: (style.size || 14) * this.u, small: true, crit: false, slam: false, weight: 0, y: last.y + (style.dy || 20 * this.u) }); return; }
     }
     const now = this.time;
+    if (style.lane === 'head') { this.headline(id, an, text, style); return; }
     if (!NUM_RE.test(text)) { this.word(id, an, text, style); return; }
     const st = this.fstack.get(id);
     const n = st && now - st.t < 0.6 ? Math.min(4, st.n + 1) : 0; this.fstack.set(id, { t: now, n });
@@ -224,9 +233,52 @@ export class Scene {
     const jitter = (Math.random() - 0.5) * 16 * this.u;
     const w = clamp(style.weight || 0, 0, 1);
     const crit = !!style.crit; const small = !!style.small;
-    this.texts.push({ id, x: an.x + jitter + side + (style.dx || 0), y: an.cy - (an.cy - an.top) * 0.15 + (style.dy || 0) - n * 6 * this.u, text, color: style.color || '#ffffff',
+    const f = { id, x: an.x + jitter + side + (style.dx || 0), y: an.cy - (an.cy - an.top) * 0.15 + (style.dy || 0) - n * 6 * this.u, text, color: style.color || '#ffffff',
       size: (style.size || 22) * this.u * (small ? 1 : 1 + 0.4 * w), t0: now, life: style.life || (crit ? 2.0 : small ? 1.3 : 1.55), crit, small,
-      weight: w, slam: !small && style.slam !== false && !settings.reduceMotion, rise: (crit ? 18 : small ? 34 : 28 - 10 * w) * this.u, outline: style.outline || 'rgba(0,0,0,0.85)' });
+      weight: w, slam: !small && style.slam !== false && !settings.reduceMotion, rise: (crit ? 18 : small ? 34 : 28 - 10 * w) * this.u, outline: style.outline || 'rgba(0,0,0,0.85)' };
+    this.texts.push(f); this.logFloat(f);
+  }
+  /**
+   * A headline over an actor (QA 2026-11-12): "Deathblow landed: empowered", "Deathblow answered: staggered", "Maimed:
+   * healing -50 %". Its own lane: HEAD_ROWS rows above the head of the hero or the pet, under the word lane of an enemy; a
+   * second headline on the same actor takes the next row. No slam (it pops from smaller), kept inside the canvas.
+   */
+  headline(id, an, text, style) {
+    const u = this.u; const now = this.time;
+    const rows = this.hrows.get(id) || Array.from({ length: HEAD_ROWS }, () => 0);
+    this.hrows.set(id, rows);
+    let r = rows.findIndex((t) => t <= now);
+    if (r < 0) r = rows.indexOf(Math.min(...rows));
+    const life = style.life || 2.2;
+    const above = !String(id).startsWith('enemy:');
+    const numY = an.cy - (an.cy - an.top) * 0.15;
+    const y = above ? an.top - (HEAD_DY0 + r * HEAD_ROW) * u : numY + (WORD_DY0 + (WORD_ROWS - 1) * WORD_ROW + HEAD_GAP + r * HEAD_ROW) * u;
+    const f = { id, x: an.x + (style.dx || 0), y, text, color: style.color || '#ffffff', size: (style.size || 22) * u, t0: now, life, crit: true, small: false,
+      word: true, head: true, weight: 0, slam: false, rise: (above ? 6 : 0) * u, outline: style.outline || 'rgba(0,0,0,0.85)' };
+    const half = this.textWidth(f) / 2 + 8 * u;
+    f.x = clamp(f.x, half, Math.max(half, this.W - half));
+    rows[r] = now + life * 0.85;
+    this.texts.push(f); this.logFloat(f);
+  }
+  /** The width of a float's text at rest (its font as drawn). */
+  textWidth(f) {
+    const c = this.ctx; c.save(); c.font = `${f.small ? 700 : 800} ${f.size}px ${FCT_FONT}`;
+    const w = c.measureText(f.text).width; c.restore();
+    return w + Math.max(2, f.size * (f.crit ? 0.2 : 0.16));
+  }
+  logFloat(f) { this.flog.push(f); if (this.flog.length > FLOG_MAX) this.flog.splice(0, this.flog.length - FLOG_MAX); }
+  /**
+   * The recent floats with their boxes at rest, for the browser checks (QA 2026-11-12): { id, text, x, y (top and bottom of
+   * the path it rises along), w, t0, t1 (the end of its opaque time, or when the next word took its row), lane ('num',
+   * 'word', 'head') }, and the scene clock.
+   */
+  floatBoxes() {
+    const out = this.flog.map((f) => {
+      const w = this.textWidth(f); const h = f.size;
+      const t1 = Math.min(f.t0 + f.life * 0.72, f.cut != null ? f.cut : Infinity);
+      return { id: f.id, text: f.text, x0: f.x - w / 2, x1: f.x + w / 2, y0: f.y - f.rise - h / 2, y1: f.y + h / 2, t0: f.t0, t1, lane: f.head ? 'head' : f.word ? 'word' : 'num' };
+    });
+    return { now: this.time, floats: out };
   }
   /**
    * A word over an actor (Interrupted!, Off-balance!, Staggered!, Dodge, a status...; UX pass 2026-11-11): words have
@@ -249,7 +301,7 @@ export class Scene {
       size: Math.min(style.size || 20, WORD_MAX) * u, t0: start, life: style.life || (crit ? 1.9 : 1.5), crit, small: !crit, word: true,
       weight: 0, slam: crit && !settings.reduceMotion, rise: WORD_RISE * u, outline: style.outline || 'rgba(0,0,0,0.85)' };
     rows[r] = { free: start + WORD_HOLD, f };
-    this.texts.push(f);
+    this.texts.push(f); this.logFloat(f);
   }
   floatAt(x, y, text, style = {}) {
     this.texts.push({ x, y, text, color: style.color || '#fff', size: (style.size || 22) * this.u, t0: this.time, life: style.life || 1.4, crit: !!style.crit, weight: 0, slam: false, rise: 40 * this.u, outline: 'rgba(0,0,0,0.85)' });
@@ -364,7 +416,7 @@ export class Scene {
     for (const a of this.actors.values()) { a.act = null; a.kb = null; if (a.deadT0) a.dead = 1; }
   }
   /** Drop floating text, rings, beams and sparks left from a fight (e.g. behind the run summary). */
-  clearFx() { this.finishAll(); this.texts = []; this.wrows.clear(); this.rings = []; this.beams = []; this.particles = []; this.cores = []; this.rays = []; this.pillar = null; }
+  clearFx() { this.finishAll(); this.texts = []; this.wrows.clear(); this.hrows.clear(); this.flog = []; this.rings = []; this.beams = []; this.particles = []; this.cores = []; this.rays = []; this.pillar = null; }
 
   seedAmbient() {
     const kind = (THEMES[this.theme] || {}).particles;

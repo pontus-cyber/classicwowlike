@@ -14,6 +14,11 @@
 // red when windupView says ready is false; EMPOWERED from a Deathblow is its own "+100 %" badge; a first meeting's
 // enemy is tagged "New". M2b v14 ("UI needs" 2): Sap on a lone enemy reads "Sure if you wait: press Pass next round; you
 // stay hidden" (answer `wait`, `stealth`) on its card and in the tooltip, and the PASS answer is named with its key X.
+// QA 2026-11-12 (playtest findings 2, 3, 8): a soft cancel (Sap, Hex: any damage breaks it) that has not cancelled yet reads
+// "If you wait" (every enemy sapped: windupView's PASS answer) or "If not hit" on the chip, the row and the ruler, not
+// ANSWERED, and the line over the enemy warns "Attacking breaks Sap: the Deathblow will land"; a damaging entry whose
+// estimate is at least your health is marked LETHAL (line, row, chip, engage alert); a Deathblow aimed at your pet says
+// what the engine does: it lands (MAIMED) if it hits your pet, Send the Pet makes the pet take it on purpose (answered).
 // The first-fight hint (owner playtest 2026-11-11 08:03): beside the engage panel in the first engage round of each class,
 // the three openers on keys Q, W, E; dismissed for good with "Got it" or the end of that round (localStorage HINT_KEY).
 // Presentation only: every entry, target, estimate, option, preview and window comes from the engine through the bridge
@@ -96,6 +101,38 @@ export function firstWindup(e, ctx) {
 }
 /** When a wind-up plays, in words: "now" or "R3". */
 const whenText = (x) => (x.now ? 'now' : x.round != null ? `R${x.round}` : '');
+/**
+ * QA 2026-11-12 (finding 2): a wind-up answered by a soft cancel (Sap, Hex: any damage breaks it) that has not cancelled
+ * it yet: 'wait' when waiting is the answer (windupView's PASS answer: every living enemy is sapped), 'nohit' otherwise
+ * (it holds while that enemy takes no damage); null when the state is not such an answer.
+ */
+export function softPending(v, e, x, st) {
+  if (!st || st.kind !== 'answered' || !st.soft || x.now) return null;
+  const w = windupItem(v, e, x);
+  return w && w.answers.some((a) => a.via === 'pass') ? 'wait' : 'nohit';
+}
+/** The wind-ups that waiting answers now (windupView's PASS answers), as a key for the redraw checks. */
+const waitKey = (v) => ((v && v.combat && v.combat.windups) || []).filter((w) => w.answers.some((a) => a.via === 'pass')).map((w) => `${w.u}:${w.turn}`).join(',');
+/** The short label of a pending soft answer: "If you wait" / "If not hit" (the chip, the row's flag, the ruler). */
+export const SOFT_TAG = { wait: 'If you wait', nohit: 'If not hit' };
+/** Its words: "answered if you wait" / "answered if not hit". */
+export const SOFT_WORDS = { wait: 'answered if you wait', nohit: 'answered if not hit' };
+/** The warning while waiting answers a Deathblow (QA 2026-11-12): attacking breaks Sap and the Deathblow lands. */
+export const SAP_BREAK_WARN = 'Attacking breaks Sap: the Deathblow will land';
+/**
+ * QA 2026-11-12 (finding 3): an entry that deals damage to you (target you, or you and your pet) whose estimate (est, the
+ * windupView's for a Deathblow) is at least your current health: LETHAL.
+ */
+export function isLethal(v, x, est = x.est) {
+  const hp = v && v.player ? v.player.hp : 0;
+  return !!(hp > 0 && est && est >= hp && isDamage(x) && (x.target === 'player' || x.target === 'both'));
+}
+/** A hard cancel (not soft, not a preview) stops the entry: it cannot be lethal. */
+const hardCancel = (c) => !!(c && !c.breaks && !c.preview);
+/** "MAIMS if it lands"; a Deathblow aimed at your pet lands when it hits your pet, and still maims you (rules 7.12, 7.13 (3)). */
+export const maimsText = (target) => (target === 'pet' ? 'MAIMS you if it hits your pet' : 'MAIMS if it lands');
+/** The LETHAL badge (a skull and the word). */
+const lethalBadge = (tag = 'span.db-lethal') => h(tag, { title: 'Its estimate is at least your health: it kills you if it lands' }, h('img', { src: deathblowIcon(), alt: '' }), 'LETHAL');
 
 // ------------------------------------------------------------------ M2b v13: Deathblows (rules 7.12; engine-api.md 6.2)
 /** The engine's windupView item (estimate, stakes, answers, ready) of wind-up x of enemy e, or null (view.combat.windups). */
@@ -209,7 +246,11 @@ export function windupLines(e, x, ctx, st) {
     const word = (b) => `${b.name}${b.kind === 'avoid' ? ' (avoid)' : ''}${b.cd ? ` (${b.late ? `cooldown ${b.cd}: not ready by then` : `ready in ${b.cd}`})` : ''}`;
     lines.push(h('div.tt-line', { style: { color: '#ffd36a' } }, `On your bar: ${bar.map(word).join(', ')}.`));
   } else if (!x.now) lines.push(h('div.tt-sub', 'Nothing on your bar answers it: plan your engage round, or kill it first.'));
-  if (st && st.kind === 'answered') lines.push(h('div.tt-hint.ans', st.by === 'SILENCED' ? 'Silenced: it cannot cast it. Answered: staggered.' : `${answeredBy(st)[0].toUpperCase()}${answeredBy(st).slice(1)}: answered${st.soft ? ' while it takes no damage' : ''}; it will be staggered.`));
+  if (x.deathblow && x.target === 'pet' && isDamage(x)) lines.push(h('div.tt-warn', 'Aimed at your pet: if it hits your pet it lands all the same (empowered, and you are maimed). Send the Pet makes your pet take it on purpose: answered.'));
+  if (isLethal(v, x, w ? w.est : x.est) && !(st && st.kind === 'answered' && !st.soft)) lines.push(h('div.tt-warn.lethal', `LETHAL: about ${fmtNum(w ? w.est : x.est)} against your ${fmtNum(v.player.hp)} health.`));
+  const soft = softPending(v, e, x, st);
+  if (soft === 'wait') lines.push(h('div.tt-hint.ans', `${cap(answeredBy(st))}: ${SOFT_WORDS.wait} (press Pass); it will be staggered. ${SAP_BREAK_WARN}.`));
+  else if (st && st.kind === 'answered') lines.push(h('div.tt-hint.ans', st.by === 'SILENCED' ? 'Silenced: it cannot cast it. Answered: staggered.' : `${answeredBy(st)[0].toUpperCase()}${answeredBy(st).slice(1)}: answered${st.soft ? ' while it takes no damage' : ''}; it will be staggered.`));
   if (st && st.kind === 'preview') lines.push(h('div.tt-hint.ans', st.by === 'PET' ? 'With this opening your pet takes it: answered while the pet lives.' : 'With this opening it is answered: staggered.'));
   if (st && st.kind === 'void') lines.push(h('div.tt-sub', `Replaced (${st.why}): neither answered nor landed.`));
   return lines;
@@ -231,6 +272,7 @@ export function windupBanner(box, e, ctx) {
   const w = e.alive ? firstWindup(e, ctx) : null;
   const wi = w && w.x.deathblow ? windupItem(ctx.view, e, w.x) : null;
   const key = w ? JSON.stringify([e.idx, w.x.turn, w.x.round, w.x.now, w.state, w.x.name, !!(w.cancel && w.cancel.done), w.cancel && w.cancel.by, w.x.deathblow, wi && [wi.est, wi.ready, wi.maims, wi.answers.map((a) => [a.id, a.now, a.sure])],
+    w.x.target, w.x.est, isLethal(ctx.view, w.x, wi ? wi.est : w.x.est),
     wi && ctx.view.combat.engage ? ctx.view.combat.engage.options.map((o) => o.key) : null]) : '';
   if (box.dataset.key === key) return;
   box.dataset.key = key; clear(box);
@@ -251,9 +293,13 @@ export function windupBanner(box, e, ctx) {
     const est = wi ? wi.est : x.est;
     box.classList.add('db'); box.dataset.deathblow = '1'; box.dataset.est = est || 0;
     box.append(h('span.wu-b', h('img', { src: deathblowIcon(), alt: '' }), stopped ? 'Deathblow stopped' : `Deathblow ${whenText(x)}`));
+    const lethal = isLethal(ctx.view, x, est) && (state.kind === 'open' || !!softPending(ctx.view, e, x, state));
+    box.dataset.lethal = lethal ? '1' : '';
     if (state.kind === 'open') {
       if (est && isDamage(x)) box.append(h('span.db-est', `≈ ${fmtNum(est)}`));
-      if (!wi || wi.maims) box.append(h('span.db-m', 'MAIMS if it lands'));
+      if (lethal) box.append(lethalBadge());
+      if (x.target === 'pet' && isDamage(x)) box.append(h('span.db-pet', '▸ your pet'));
+      if (!wi || wi.maims) box.append(h('span.db-m', maimsText(x.target)));
       else box.append(h('span.db-m', `+${Math.round((wi.empower || 0) * 100)} % if it lands`));
       if (wi) {
         box.dataset.ready = wi.ready ? '1' : '';
@@ -264,10 +310,17 @@ export function windupBanner(box, e, ctx) {
     } else {
       // M2b v14 (UI need 2): Sap holds while every enemy is sapped: waiting answers it (windupView's PASS answer, key X)
       const pass = !stopped && wi ? wi.answers.filter((a) => a.via === 'pass' && a.now) : [];
-      if (pass.length) box.append(h('span.wu-t', `${answeredBy(state)}: answered if you wait`), h('span.db-a.now', h('span.db-al', ' Wait: '), answerEls(pass.map((a) => ({ a, key: answerKey(ctx.view, a), name: answerName(a, ctx) })))));
-      else box.append(h('span.wu-t', msg));
+      if (pass.length) {
+        box.append(h('span.wu-t', `${answeredBy(state)}: answered if you wait`), h('span.db-a.now', h('span.db-al', ' Wait: '), answerEls(pass.map((a) => ({ a, key: answerKey(ctx.view, a), name: answerName(a, ctx) })))));
+        // QA 2026-11-12 (finding 2): until Sap cancels it, attacking breaks Sap and the Deathblow lands
+        box.append(h('span.db-warn', lethal ? lethalBadge('b.db-lethal') : null, `${SAP_BREAK_WARN}${lethal ? ' and kill you' : ''}`));
+      } else box.append(h('span.wu-t', msg));
     }
-  } else box.append(h('span.wu-b', h('img', { src: windupIcon(), alt: '' }), stopped ? 'Wind-up stopped' : `Wind-up ${whenText(x)}`), h('span.wu-t', msg));
+  } else {
+    const lethal = state.kind === 'open' && isLethal(ctx.view, x);
+    box.dataset.lethal = lethal ? '1' : '';
+    box.append(h('span.wu-b', h('img', { src: windupIcon(), alt: '' }), stopped ? 'Wind-up stopped' : `Wind-up ${whenText(x)}`), lethal ? lethalBadge() : null, h('span.wu-t', msg));
+  }
   tip(box, () => h('div.tt-spell', h('div.tt-row', h('div.tt-name', `${e.name}: ${x.windupOf ? x.windupOf.name : x.name}`), h('div.tt-rank', x.now ? 'This round' : `Round ${x.round}`)), windupLines(e, x, ctx, state)));
   windupHover(box, e, x, ctx);
 }
@@ -345,7 +398,7 @@ function amountText(x) {
 export function trackChips(box, e, ctx, opts = {}) {
   const v = ctx.view; const list = entriesOf(e);
   const pv = ctx.ui.preview && ctx.ui.preview.data;
-  const key = `${JSON.stringify(list.map((x) => [x.turn, x.id, x.est, x.target, x.allyIdx, x.cancel && x.cancel.by, x.cancel && x.cancel.stagger, x.replaced && x.replaced.reason, x.now, x.windup, x.deathblow]))}|${pv ? JSON.stringify(pv.enemies.find((q) => q.u === e.idx) || null) : ''}|${opts.allSmall ? 1 : 0}|${e.intent && e.intent.interrupted ? 'I' : ''}`;
+  const key = `${JSON.stringify(list.map((x) => [x.turn, x.id, x.est, x.target, x.allyIdx, x.cancel && x.cancel.by, x.cancel && x.cancel.stagger, x.replaced && x.replaced.reason, x.now, x.windup, x.deathblow]))}|${pv ? JSON.stringify(pv.enemies.find((q) => q.u === e.idx) || null) : ''}|${opts.allSmall ? 1 : 0}|${e.intent && e.intent.interrupted ? 'I' : ''}|${v.player ? v.player.hp : ''}|${waitKey(v)}`;
   if (box.dataset.key === key) return;
   box.dataset.key = key; clear(box);
   list.forEach((x, i) => {
@@ -357,12 +410,15 @@ export function trackChips(box, e, ctx, opts = {}) {
     const tgt = petHit ? 'pet' : x.target;
     // combat v2.1: a wind-up's ribbon says WIND-UP, ANSWERED (a cancel answers it) or ANSWERS IT (the opening previewed)
     const wu = windupState(e, x, cancel, p);
-    const wuRib = wu && wu.kind === 'open' ? (x.deathblow ? 'DEATHBLOW' : 'WIND-UP') : wu && wu.kind === 'answered' ? 'ANSWERED' : wu && wu.kind === 'preview' ? 'ANSWERS IT' : null;
+    // QA 2026-11-12: a soft answer not yet made says so ("IF YOU WAIT" / "IF NOT HIT"), not ANSWERED
+    const soft = softPending(v, e, x, wu);
+    const wuRib = wu && wu.kind === 'open' ? (x.deathblow ? 'DEATHBLOW' : 'WIND-UP') : soft ? SOFT_TAG[soft].toUpperCase() : wu && wu.kind === 'answered' ? 'ANSWERED' : wu && wu.kind === 'preview' ? 'ANSWERS IT' : null;
+    const lethal = !hardCancel(cancel) && !(wu && wu.kind === 'answered' && !soft) && isLethal(v, x, x.deathblow ? (windupItem(v, e, x) || x).est : x.est);
     const cls = ['tk', big ? 'big' : 'sm', x.now ? 'now' : '', x.heavy ? 'heavy' : '', x.cast ? 'cast' : '', x.signature && !x.windup ? 'sig' : '', cancel ? 'cancel' : '',
       cancel && (cancel.breaks || cancel.preview) ? 'soft' : '', ob ? 'ob' : '', p ? 'pv' : '', p && p.window ? 'pvwin' : '', isHeal(x) || x.support ? 'sup' : '',
-      wu && wu.kind !== 'void' ? 'wu' : '', wu ? `wu-${wu.kind}` : '', x.deathblow && wu && wu.kind !== 'void' ? 'db' : '', x.firstMeet && wu ? 'fm' : ''].filter(Boolean);
+      wu && wu.kind !== 'void' ? 'wu' : '', wu ? `wu-${wu.kind}` : '', x.deathblow && wu && wu.kind !== 'void' ? 'db' : '', x.firstMeet && wu ? 'fm' : '', lethal ? 'lethal' : ''].filter(Boolean);
     const amt = amountText(x);
-    const el = h(`div.${cls.join('.')}`, { dataset: { turn: x.turn, round: x.round ?? '', id: x.id, est: x.est || 0, windup: wu ? wu.kind : '', deathblow: x.deathblow ? '1' : '' } },
+    const el = h(`div.${cls.join('.')}`, { dataset: { turn: x.turn, round: x.round ?? '', id: x.id, est: x.est || 0, windup: wu ? wu.kind : '', deathblow: x.deathblow ? '1' : '', soft: soft || '', lethal: lethal ? '1' : '' } },
       x.round != null ? h('span.r', String(x.round)) : null,
       h('img', { src: abilityIcon(x), alt: '' }),
       big ? h('span.tx', h('span.tn', x.name), h('span.tv', amt ? h('b', amt) : null, tgt && tgt !== 'self' && (amt || tgt !== 'player') ? h('i', `▸ ${TGT_SHORT[tgt] || tgt}`) : null))
@@ -370,7 +426,7 @@ export function trackChips(box, e, ctx, opts = {}) {
       x.signature && !x.windup ? h('i.b-sig', '★') : null,
       x.replaced && !cancel ? h('i.b-rep', '↺') : null,
       cancel ? h('img.b-ctl', { src: cancel.by === 'PREVIEW' ? statusIcon('STUN') : controlIcon(cancel.by), alt: '' }) : null,
-      wuRib ? h(`i.b-wu${wu.kind !== 'open' ? '.ans' : ''}${x.deathblow ? '.db' : ''}`, wuRib) : null,
+      wuRib ? h(`i.b-wu${wu.kind !== 'open' ? '.ans' : ''}${soft ? '.soft' : ''}${x.deathblow ? '.db' : ''}`, soft ? { title: cap(SOFT_WORDS[soft]) } : {}, wuRib) : null,
       ob && !wuRib ? h('i.b-ob', 'OFF-BAL') : null,
       p && p.window && !ob && !wuRib ? h('i.b-ob.frost', 'WINDOW') : null);
     tip(el, () => entryTip(e, x, ctx, { cancel, ob, petHit, preview: p, wu }));
@@ -387,7 +443,7 @@ export function trackRows(box, e, ctx) {
   const v = ctx.view; const list = entriesOf(e);
   const pv = ctx.ui.preview && ctx.ui.preview.data;
   const unaware = e.intent && e.intent.id === 'unaware';
-  const key = `${JSON.stringify(list.map((x) => [x.turn, x.id, x.est, x.target, x.allyIdx, x.cancel && x.cancel.by, x.cancel && x.cancel.stagger, x.replaced && x.replaced.reason, x.now, x.windup, x.deathblow]))}|${unaware}|${e.intent && e.intent.interrupted ? 'I' : ''}|${pv ? JSON.stringify(pv.enemies.find((q) => q.u === e.idx) || null) : ''}|${(e.role && JSON.stringify(e.role)) || ''}`;
+  const key = `${JSON.stringify(list.map((x) => [x.turn, x.id, x.est, x.target, x.allyIdx, x.cancel && x.cancel.by, x.cancel && x.cancel.stagger, x.replaced && x.replaced.reason, x.now, x.windup, x.deathblow]))}|${unaware}|${e.intent && e.intent.interrupted ? 'I' : ''}|${pv ? JSON.stringify(pv.enemies.find((q) => q.u === e.idx) || null) : ''}|${(e.role && JSON.stringify(e.role)) || ''}|${v.player ? v.player.hp : ''}|${waitKey(v)}`;
   if (box.dataset.key === key) return;
   box.dataset.key = key; clear(box);
   if (!list.length && !unaware) { box.classList.add('hidden'); return; }
@@ -400,22 +456,26 @@ export function trackRows(box, e, ctx) {
     const petHit = !!(p && p.pet);
     const tgt = petHit ? 'pet' : x.target;
     const wu = windupState(e, x, cancel, p);
+    const soft = softPending(v, e, x, wu); // QA 2026-11-12: "If you wait" until Sap cancels it
+    const lethal = !hardCancel(cancel) && !(wu && wu.kind === 'answered' && !soft) && isLethal(v, x, x.deathblow ? (windupItem(v, e, x) || x).est : x.est);
     // combat v2.1: a wind-up shows one flag (it is always a cast; "heavy" goes to the line below), so its name keeps its room
-    const flags = wu ? [h(`span.flag.wu${wu.kind !== 'open' ? '.ans' : ''}${x.deathblow && wu.kind === 'open' ? '.db' : ''}`, wu.kind === 'open' ? (x.deathblow ? 'Deathblow' : 'Wind-up') : wu.kind === 'void' ? 'Wind-up ↺' : 'Answered')]
+    const flags = wu ? [h(`span.flag.wu${wu.kind !== 'open' ? '.ans' : ''}${soft ? '.soft' : ''}${x.deathblow && wu.kind === 'open' ? '.db' : ''}`, soft ? { title: cap(SOFT_WORDS[soft]) } : {}, wu.kind === 'open' ? (x.deathblow ? 'Deathblow' : 'Wind-up') : wu.kind === 'void' ? 'Wind-up ↺' : soft ? SOFT_TAG[soft] : 'Answered')]
       : [x.heavy ? h('span.flag.heavy', 'Heavy') : null, x.cast ? h('span.flag.cast', 'Cast') : null, x.signature ? h('span.flag.sig', '★ Signature') : null];
+    if (lethal) flags.push(h('span.flag.lethal', 'Lethal'));
     let sub = '';
-    if (cancel) sub = `${cap(CONTROL_WORD[cancel.by] || 'controlled')}${cancel.offBalance || (wu && wu.kind !== 'open') ? '' : ': skipped'}`;
+    if (cancel && soft) sub = `${cap(CONTROL_WORD[cancel.by] || 'controlled')}: ${SOFT_WORDS[soft]}`;
+    else if (cancel) sub = `${cap(CONTROL_WORD[cancel.by] || 'controlled')}${cancel.offBalance || (wu && wu.kind !== 'open') ? '' : ': skipped'}`;
     else if (x.replaced) sub = `${x.replaced.from} → ${x.name}: ${x.replaced.reason}`;
     else if (petHit) sub = 'Your pet takes it (Send the Pet)';
     else { const w = targetWord({ ...x, target: tgt }, v); sub = isDamage(x) ? `Hits ${w}` : w && w !== 'itself' && x.kind !== 'curse' ? `On ${w}` : supportWord(x); }
     if (wu && x.heavy && !cancel && !x.replaced) sub = `Heavy · ${sub ? sub[0].toLowerCase() + sub.slice(1) : ''}`;
     const amt = amountText(x);
-    const row = h(`div.tr${x.now ? '.now' : ''}${x.heavy ? '.heavy' : ''}${x.cast ? '.cast' : ''}${cancel ? '.cancel' : ''}${cancel && (cancel.breaks || cancel.preview) ? '.soft' : ''}${ob ? '.ob' : ''}${p ? '.pv' : ''}${wu ? `${wu.kind !== 'void' ? '.wu' : ''}.wu-${wu.kind}` : ''}${x.deathblow && wu && wu.kind !== 'void' ? '.db' : ''}`,
-      { dataset: { turn: x.turn, round: x.round ?? '', id: x.id, windup: wu ? wu.kind : '', deathblow: x.deathblow ? '1' : '' } },
+    const row = h(`div.tr${x.now ? '.now' : ''}${x.heavy ? '.heavy' : ''}${x.cast ? '.cast' : ''}${cancel ? '.cancel' : ''}${cancel && (cancel.breaks || cancel.preview) ? '.soft' : ''}${ob ? '.ob' : ''}${p ? '.pv' : ''}${wu ? `${wu.kind !== 'void' ? '.wu' : ''}.wu-${wu.kind}` : ''}${x.deathblow && wu && wu.kind !== 'void' ? '.db' : ''}${lethal ? '.lethal' : ''}`,
+      { dataset: { turn: x.turn, round: x.round ?? '', id: x.id, windup: wu ? wu.kind : '', deathblow: x.deathblow ? '1' : '', soft: soft || '', lethal: lethal ? '1' : '' } },
       h('span.rt', x.now ? 'Now' : x.round != null ? `R${x.round}` : ''),
       h('img', { src: abilityIcon(x), alt: '' }),
       h('div.tm', h('div.tn', h('span.nm', x.name), flags), h('div.ts', sub,
-        wu && (wu.kind === 'answered' || wu.kind === 'preview') ? h('b.wut', ' → staggered') : wu && wu.kind === 'open' && !x.replaced ? h(`b.wuo${x.deathblow ? '.db' : ''}`, x.deathblow ? ' · MAIMS if it lands' : ' · answer it') : null,
+        wu && (wu.kind === 'answered' || wu.kind === 'preview') ? h('b.wut', ' → staggered') : wu && wu.kind === 'open' && !x.replaced ? h(`b.wuo${x.deathblow ? '.db' : ''}`, x.deathblow ? ` · ${rowStake(v, e, x)}` : ' · answer it') : null,
         ob ? h('b.obt', ' → off-balance') : null, p && p.window && !ob ? h('b.obt.frost', ' → frozen window') : null)),
       amt ? h(`div.td${isHeal(x) ? '.heal' : ''}`, amt) : null);
     tip(row, () => entryTip(e, x, ctx, { cancel, ob, petHit, preview: p, wu }));
@@ -423,6 +483,8 @@ export function trackRows(box, e, ctx) {
     box.appendChild(row);
   }
 }
+/** A Deathblow row's stakes, as the line over the enemy: "MAIMS if it lands", or "+100 % if it lands" once you are MAIMED. */
+const rowStake = (v, e, x) => { const w = windupItem(v, e, x); return !w || w.maims ? maimsText(x.target) : `+${Math.round((w.empower || 0) * 100)} % if it lands`; };
 const supportWord = (x) => ({ brace: 'Braces itself', selfShield: 'Shields itself', selfHeal: 'Heals itself', heal: 'Mends itself', bolster: 'Shields itself', signal: 'Calls a reinforcement', summon: 'Calls for help', curse: 'Curses you' }[x.kind] || '');
 
 /** Tooltip of a track entry: what, when, to whom, how hard, its marks, and what control or a preview does to it. */
@@ -548,11 +610,11 @@ export function createRuler(root, ctx) {
         if (!cancelled && isDamage(x) && (x.target === 'player' || x.target === 'both') && !(p && p.pet)) col.dmg += x.est || 0;
         // combat v2.1: a wind-up is marked on its round, answered when a cancel (or the previewed opening) answers it
         const wu = windupState(e, x, cancelOf(e, x, p, ctx), p);
-        if (notable(x)) col.threats.push({ e, x, cancelled, ob: !!((x.cancel && x.cancel.offBalance) || (p && p.ob)), wu: wu ? wu.kind : null, wuState: wu, db: !!x.deathblow });
+        if (notable(x)) col.threats.push({ e, x, cancelled, ob: !!((x.cancel && x.cancel.offBalance) || (p && p.ob)), wu: wu ? wu.kind : null, wuState: wu, db: !!x.deathblow, soft: softPending(v, e, x, wu) });
       }
     }
     for (const k of cols) k.threats.sort((a, b) => (b.db ? 2 : b.wu ? 1 : 0) - (a.db ? 2 : a.wu ? 1 : 0)); // Deathblows, then wind-ups first: they are what the opening is about
-    const key = JSON.stringify([c.round, cols.map((k) => [k.known, k.dmg, k.threats.map((t) => [t.e.idx, t.x.turn, t.x.id, t.cancelled, t.ob, t.wu, t.db])])]);
+    const key = JSON.stringify([c.round, cols.map((k) => [k.known, k.dmg, k.threats.map((t) => [t.e.idx, t.x.turn, t.x.id, t.cancelled, t.ob, t.wu, t.db, t.soft])])]);
     if (key === lastKey) return;
     lastKey = key; clear(el);
     el.appendChild(h('div.rl-h', h('span.rl-t', 'Opening'), h('span.rl-s', c.round === 1 ? 'Plan your first moves' : `Round ${c.round} of ${OPENING_ROUNDS}`)));
@@ -562,8 +624,10 @@ export function createRuler(root, ctx) {
       const engage = k.r === 1;
       const wuOpen = k.threats.some((t) => t.wu === 'open'); const wuAns = !wuOpen && k.threats.some((t) => t.wu === 'answered' || t.wu === 'preview');
       const dbOpen = k.threats.some((t) => t.wu === 'open' && t.db);
+      // QA 2026-11-12: a soft answer not yet made reads "If you wait" / "If not hit" (any hard answer in that round: Answered)
+      const softT = wuAns && !k.threats.some((t) => (t.wu === 'answered' && !t.soft) || t.wu === 'preview') ? (k.threats.find((t) => t.soft) || {}).soft : null;
       const head = h('div.rl-n', engage ? h('span', '1 · Engage') : h('span', `Round ${k.r}`),
-        wuOpen || wuAns ? h(`b.rl-wu${wuAns ? '.ans' : ''}${dbOpen ? '.db' : ''}`, wuAns ? 'Answered' : dbOpen ? 'Deathblow' : 'Wind-up') : state === 'cur' ? h('b.rl-now', 'Now') : null);
+        wuOpen || wuAns ? h(`b.rl-wu${wuAns ? '.ans' : ''}${softT ? '.soft' : ''}${dbOpen ? '.db' : ''}`, softT ? { title: cap(SOFT_WORDS[softT]) } : {}, softT ? SOFT_TAG[softT] : wuAns ? 'Answered' : dbOpen ? 'Deathblow' : 'Wind-up') : state === 'cur' ? h('b.rl-now', 'Now') : null);
       const body = h('div.rl-b');
       if (engage) body.appendChild(h('div.rl-q', 'They do not act'));
       else if (!k.known) body.appendChild(h('div.rl-q', '?'));
@@ -687,7 +751,8 @@ export function createEngagePanel(root, ctx) {
       const sh = answersToShow(w, v, ctx);
       return h('div.eg-db', { dataset: { u: w.u, turn: w.turn, ready: w.ready ? '1' : '' } },
         h('img.eg-dbi', { src: deathblowIcon(), alt: '' }),
-        h('div.eg-dbm', h('div.eg-dbt', h('b', `Deathblow, round ${w.round}`), `: ${w.enemy}'s ${w.name}${w.est && DAMAGE_KINDS.has(w.kind) ? `, ≈ ${fmtNum(w.est)} to ${w.target === 'pet' ? 'your pet' : 'you'}` : ''}. `, h('b.eg-dbmaim', w.maims ? 'MAIMS if it lands.' : `+${Math.round(w.empower * 100)} % if it lands.`)),
+        h('div.eg-dbm', h('div.eg-dbt', h('b', `Deathblow, round ${w.round}`), `: ${w.enemy}'s ${w.name}${w.est && DAMAGE_KINDS.has(w.kind) ? `, ≈ ${fmtNum(w.est)} to ${w.target === 'pet' ? 'your pet' : 'you'}` : ''}. `,
+          isLethal(v, { kind: w.kind, target: w.target, est: w.est }, w.est) ? lethalBadge('b.db-lethal') : null, h('b.eg-dbmaim', w.maims ? `${maimsText(w.target)}.` : `+${Math.round(w.empower * 100)} % if it lands.`)),
           !w.ready ? h('div.eg-dba.no', 'No answer ready')
             : h('div.eg-dba', sh.when === 'now' ? 'Answer it now: ' : `Ready by round ${w.round}: `, answerEls(sh.list.slice(0, 4)))));
     });

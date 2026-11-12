@@ -7,8 +7,8 @@
 // Combat v2.1 (combat-v2.md 10.9): a wind-up answered or landed gets its moment (a float, a burst and a log line in a beat
 // of the round's timeline); its stack badge appears with its own status event; a Disrupt names the wind-up it stops.
 // M2b v13 (docs/specs/changes-m2b-v13.md "UI needs" 5): a Deathblow answered or landed floats "Deathblow answered: staggered"
-// or "Deathblow landed: empowered" (and "Maimed: healing −50 %" on the hero) in the word lane, its log line says the same;
-// a heal that MAIMED cut floats "Healing halved".
+// or "Deathblow landed: empowered" (and "Maimed: healing −50 %" on the hero), its log line says the same; a heal that
+// MAIMED cut floats "Healing halved". QA 2026-11-12: these two go to the headline lane (scene.headline), clear of the rest.
 // Combat rounds play as beats from src/ui/combat-feel.js (owner feedback 2026-11-10): each action winds up, its hits land
 // with a hit-stop, recoil, a weighted number and screen shake, and enemies' telegraphed blows get a readable pause.
 // Skipping: Space or a click in a round skips to the end of the hit on screen (the next hit plays normally); any other
@@ -384,8 +384,9 @@ export class Director {
               const n = (ctx.data.v2 && ctx.data.v2.num) || {};
               const add = Math.round((answered ? 0 : n.deathblowEmpower ?? 0) * 100); // this stack's share; value is the sum
               const maim = Math.round(((((next.player && next.player.statuses) || []).find((x) => x.id === 'MAIMED') || {}).value || 0) * 100);
-              scene.float(dst, answered ? 'Deathblow answered: staggered' : 'Deathblow landed: empowered', { color: answered ? '#9fdcff' : '#ff4a4a', size: 24, crit: true, life: 2.2 });
-              if (!answered && e.maimed) { scene.float('player', maim ? `Maimed: healing −${maim} %` : 'Maimed', { color: '#ff6a6a', size: 22, crit: true, life: 2.4 }); if (live()) scene.screenFlash('#a8000a', 0.3, 0.6); }
+              // QA 2026-11-12: both in the headline lane (scene.headline), clear of the numbers, the pet's numbers and Dodge
+              scene.float(dst, answered ? 'Deathblow answered: staggered' : 'Deathblow landed: empowered', { color: answered ? '#9fdcff' : '#ff4a4a', size: 24, crit: true, life: 2.2, lane: 'head' });
+              if (!answered && e.maimed) { scene.float('player', maim ? `Maimed: healing −${maim} %` : 'Maimed', { color: '#ff6a6a', size: 22, crit: true, life: 2.4, lane: 'head' }); if (live()) scene.screenFlash('#a8000a', 0.3, 0.6); }
               hud.log(answered ? `Deathblow answered: ${cap(e.who)}'s ${e.name} ${how}. Staggered${e.stacks > 1 ? ` ×${e.stacks}` : ''}: −${pct} % damage for the rest of the fight.`
                 : `Deathblow landed: ${cap(e.who)}'s ${e.name}. Empowered: +${add || pct} % damage for the rest of the fight${e.maimed ? `; you are maimed: healing you receive −${maim} % until the fight ends` : ''}.`, answered ? 'lg-loot' : 'lg-warn');
               await W(tm.wait);
