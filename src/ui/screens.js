@@ -739,7 +739,8 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
   if (m) {
     box.appendChild(h('div.tt-line', m.via === 'enter' ? 'Click to enter' : 'Click to walk here'));
     box.appendChild(previewBlock(heatOf(ctx.view, act), ctx));
-    if (m.passTime != null) box.appendChild(h('div.tt-hint', 'Pass through it from the list of moves.'));
+    // QA 2026-11-12: read with "Click to enter" above, the hint says it is the other way through (no fight), and its toll
+    if (m.passTime != null) box.appendChild(h('div.tt-hint', `Or walk through it without doing it (${tolls(m.passTime)}): Pass in the list of moves.`));
   } else if (here) box.appendChild(h('div.tt-hint', 'You are here'));
   else if (!readOnly) box.appendChild(h('div.tt-warn', 'Not next to you'));
   return box;

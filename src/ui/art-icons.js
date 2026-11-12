@@ -240,8 +240,9 @@ export const abilityIcon = (intent) => {
   if (intent.selfHeal || intent.mend || k === 'heal' || k === 'selfHeal') return icon('cross', 'heal');
   if (intent.brace || intent.shieldAlly || intent.shield || k === 'brace' || k === 'shieldAlly' || k === 'selfShield') return icon('shield', 'steel');
   if (intent.curse || k === 'curse') return icon('skull', 'shadow');
-  if (intent.cast) return icon('rune', 'arcane');
+  // QA 2026-11-12: a wind-up is a cast too (rules 7.12), so a heavy one (a heavy Deathblow) keeps the heavy blow's icon, not the rune
   if (intent.heavy) return icon('bolt', 'blood');
+  if (intent.cast) return icon('rune', 'arcane');
   if (intent.id === 'unaware' || intent.id === 'none') return icon('eye', 'dark');
   if (k === 'rend') return icon('drop', 'blood');
   if (k === 'cleave') return icon('whirl', 'blood');
