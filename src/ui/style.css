@@ -524,6 +524,10 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 .loot { width: 38rem; }
 .loot .foot { display: flex; justify-content: space-between; align-items: center; padding: .9rem 1.2rem 1.1rem; border-top: 1px solid rgba(208, 170, 96, .2); gap: .8rem; }
 .loot .rows { display: flex; flex-direction: column; gap: .5rem; padding: 1rem 1.2rem; max-height: 46rem; overflow-y: auto; }
+/* QA 2026-11-12: in the right-side slot (max-height of .rightside) only the rows scroll; the title, the next strip and Continue stay in view */
+.loot.rightside { display: flex; flex-direction: column; overflow: hidden; }
+.loot.rightside > :not(.rows) { flex: none; }
+.loot.rightside .rows { flex: 1 1 auto; min-height: 4rem; }
 .lrow { display: flex; align-items: center; gap: .9rem; padding: .4rem; border-radius: .45rem; cursor: pointer; background: rgba(0, 0, 0, .3); transition: background .12s; }
 .lrow:hover { background: rgba(80, 60, 30, .45); }
 .lrow img { width: 4.2rem; height: 4.2rem; border-radius: .35rem; border: 1px solid #000; }

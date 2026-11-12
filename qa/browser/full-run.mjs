@@ -312,7 +312,8 @@ async function playOne(browser, W, H, cls) {
       case 'LEAVE_HUB': return click(button('Set out'), 'Set out');
       case 'CHOOSE_NODE': return click(page.locator(`#screens button.mnode.reach[data-row="${s.zone.pos.r + 1}"][data-lane="${a.lane}"]`), `map node row ${s.zone.pos.r + 1} lane ${a.lane}`);
       case 'TRAVEL_ON': return click(button(/^Travel on/), 'Travel on');
-      case 'GRIND_SET_WAVES': return click(button(`${a.n} wave${a.n > 1 ? 's' : ''} · ${a.n} h`), `grind ${a.n}`);
+      // M2b v7: the label counts tolls ("2 waves · 2 tolls"), no hours; match the wave count only (QA 2026-11-12)
+      case 'GRIND_SET_WAVES': return click(button(new RegExp(`^${a.n} waves? · `)), `grind ${a.n}`);
       case 'NEXT_FIGHT': return click(button(s.node.type === 'grind' ? 'Next wave' : s.node.k === C.DUNGEON_TRASH_FIGHTS - 1 ? 'Face the boss' : 'Press on'), 'next fight');
       case 'GRIND_STOP': return click(button('Stop here'), 'Stop here');
       case 'DUNGEON_LEAVE': return click(button('Leave the dungeon'), 'Leave the dungeon');

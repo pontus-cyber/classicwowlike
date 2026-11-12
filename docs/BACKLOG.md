@@ -4,6 +4,10 @@ Owner ideas and team proposals not yet scheduled. The Lead places each item into
 
 | Date | Item | Source | Placed in | Status |
 |---|---|---|---|---|
+| 2026-11-12 | Rogue's wait after Sap: chip ribbon, target-frame row and Opening ruler say ANSWERED in round 2 although attacking breaks Sap and the Deathblow lands; show soft cancels (`breaks`) as "IF YOU WAIT" or dashed | QA playtest 2026-11-12 #2 | | todo |
+| 2026-11-12 | Lethal Deathblow mark: "LETHAL" on the line and the alert when the estimate is at least current HP (a level-3 Mage met ≈ 359 at 209 HP with no warning) | QA playtest 2026-11-12 #3 | | todo |
+| 2026-11-12 | Floats on a landed Deathblow: "Maimed: healing −50 %" overlaps the pet's damage number and Dodge; "Deathblow landed: empowered" overlaps enemy damage numbers | QA playtest 2026-11-12 #4 | | todo |
+| 2026-11-12 | Deathblow aimed at the pet (Gorrak's Threshing Blow vs a Hunter): the alert says "to your pet. MAIMS if it lands"; rules 7.13 (3) may count it answered when the player loses 0 HP. Engineer to confirm, then the text | QA playtest 2026-11-12 #8 | | todo |
 | 2026-11-12 | Rogue lands 33 % of its zone 1 Deathblows on autoplay: E2's Sap breaks in round 2, no interrupt before level 6 (engine reading 2; Rogue zone 1 specials +6.1 / +8.8 pp) | Sim 11-12, engineer 11-11j | M2b v14 | draft: changes-m2b-v14.md row 1 (autoplay waits a round; PASS keeps STEALTH while every enemy is sapped) |
 | 2026-11-12 | Expedition elites show no Deathblow on the map (D50); content invariant: each zone's elite pool keeps a heavy and a cast Deathblow, so the type never tells a rare | Engineer reading 4, UI 11-11e | M2b v14 | draft: changes-m2b-v14.md row 2 |
 | 2026-11-11 | Zone 1 rare (Mother Thistlewick) kills every policy (one button 70 %, autoplay 55 %, opener 70 % of 10): 23-round fights past the soft enrage; v13 row 5 gates RARE_HP_MULT_Z1 3.0, else Content looks at her kit (Self Heal + Mend on a mender) | Designer v13 | v13 measure (cell 6) | done: gate opened (opener line 80 -> 20 %); on by default in changes-m2b-v14.md row 4 |
