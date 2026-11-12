@@ -16,7 +16,7 @@ import {
 import { frac6 } from './util.js';
 import { parTime } from './meta.js';
 import { nextLanes } from './map.js';
-import { isExpedition, zoneTime, dimAt, dimmedAt, nodeTime, grindMaxWaves, canEnter, outwardStep, dimFightTime } from './expedition.js';
+import { isExpedition, zoneTime, dimAt, dimmedAt, nodeTime, grindMaxWaves, canEnter, outwardStep, dimFightTime, swiftXp } from './expedition.js';
 
 const IDX = Object.fromEntries(HEAT_STATES.map((k, i) => [k, i]));
 /** Index of a heat state in HEAT_STATES (0 = Clear ... 3 = Scorched). */
@@ -153,7 +153,8 @@ function costOf(s, a) {
  * (state differs from now), `dimFight` (a Dimmed encounter follows; its toll is included), `perWave` (a Grind whose
  * waves are chosen inside: one wave's tolls) and, for an action that enters a node (CHOOSE_NODE, MOVE into an
  * unresolved node), `pays`: the state the node is entered in (now, with the Dimming clock of the node entered), which
- * fixes its rewards (rules 1.7.3); null for other actions. All numbers are whole tolls.
+ * fixes its rewards (rules 1.7.3); null for other actions. All numbers are whole tolls. `swift` (M2b v15 row 2, D124): for a
+ * TAKE_ROAD the Swift passage XP the Road grants now (rules 1.9.7), null when it grants none and for every other action.
  */
 export function heatPreview(s, a) {
   if (!s.player || !s.zone) return null;
@@ -167,6 +168,7 @@ export function heatPreview(s, a) {
   return {
     time: c.time, timeAfter: f.time, line: f.line, heat: f.heat, stateRun: f.stateRun, dimIn: f.dimIn, stateDim: f.stateDim,
     state: f.state, by: f.by, ascIfPar: f.ascIfPar, change: f.state !== now.state, dimFight: c.dimFight, perWave: c.perWave, pays,
+    swift: a.type === 'TAKE_ROAD' ? swiftXp(s) || null : null,
   };
 }
 

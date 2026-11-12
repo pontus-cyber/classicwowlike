@@ -401,8 +401,8 @@ export const MAIM_HEAL = 0.5;
 /** rules 2.3 (D109, M2b v13 row 5; on by default since M2b v14, D113): × HP of a zone-1 rare elite while GATES.rareHpMultZ1 is on (off: RARE_HP_MULT). */
 export const RARE_HP_MULT_Z1 = 3.0;
 /**
- * Rule switches, every one on by default; kept so the sim can play an arm without a rule (it sets them in every process
- * before a run, as RICOCHET_BOUNCE_FRAC_GATED; a scratch copy changes them here).
+ * Rule switches, on by default unless marked off; kept so the sim can play an arm with or without a rule (it sets them in
+ * every process before a run, as RICOCHET_BOUNCE_FRAC_GATED; a scratch copy changes them here).
  * M2b v13 rows 5-6 (D109), on since M2b v14 row 4 (D113, the sim's decision rules of the v13 measure):
  * rareHpMultZ1 (row 5): a zone-1 rare is made with RARE_HP_MULT_Z1 instead of RARE_HP_MULT (rules 2.3, combat.js makeEnemy).
  * firstMeetWindup (row 6, FIRST_MEET_WINDUP): the first-meeting wind-up of a new normal enemy type in a quest fight
@@ -410,8 +410,11 @@ export const RARE_HP_MULT_Z1 = 3.0;
  * M2b v14 row 1 (D111, changes-m2b-v14.md "What the sim must run"): sapHold (row 1 (a)): autoplay rule H, wait while every
  * living enemy is SAPPED and Sap will cancel a wind-up (rules 7.9, autoplay.js); passStealth (row 1 (b)): a PASS keeps
  * STEALTH while every living enemy is SAPPED (rules 7.4, spells.js playerAction).
+ * M2b v15 (D124, changes-m2b-v15.md "What the sim must run"): swiftRoad (row 2, on): the Swift passage of a Road
+ * (ROAD_SWIFT_TOLLS, rules 1.9.7; nodes.js takeRoad, expedition.js swiftView); mawgrimHp (row 4, **off**): enemy templates
+ * are made with their content `gated.mawgrimHp` fields (z2_mawgrim hpMult 0.95 instead of 1.1; combat.js tplMult).
  */
-export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true };
+export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: true, mawgrimHp: false };
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
 // with mapMode 'expedition'; a run on today's map (mapMode 'rows', the default) never reads them.
 /** rules 1.9.2: nodes per ring (ring 0 = the hub). */
@@ -471,6 +474,13 @@ export const BELL_MAX_CHARGES = 2;
 export const BELL_CHANNEL_TIME = 2;
 /** rules 1.9.8, 3: seconds of the Bell's channel on screen (instead of PACE_ZONE_TRAVEL_S). */
 export const PACE_BELL_S = 6;
+/**
+ * Swift passage (rules 1.9.7, expedition.md 7.1; M2b v15 row 2, D124; on while GATES.swiftRoad): a TAKE_ROAD at zone time
+ * <= ROAD_SWIFT_TOLLS (tolls since arrival at the zone's hub, checked before TIME_TRAVEL) grants
+ * round(ROAD_SWIFT_XP_FRAC × xpToNext(L)) XP. Not by the Homeward Bell.
+ */
+export const ROAD_SWIFT_TOLLS = 15;
+export const ROAD_SWIFT_XP_FRAC = 0.75;
 /** rules 1.9.8 (expedition.md 9.5; M2b v10, D86: 1.6 -> 1.4): XP of kills, quest turn-ins, grind waves, dungeon clears and contracts × this. */
 export const XP_WEIGHT_MULT = 1.4;
 /** rules 1.9.8 (expedition.md 9.5): grind waves, dungeon trash fights and node tolls in an expedition run. */

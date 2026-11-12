@@ -6,7 +6,8 @@
 // Dev tools (engine-api.md 12): a fight a dev tool starts (node type `dev`) ends back where it was started.
 // Start camp and contracts (prep, expedition.md 2-3; contracts.js): an expedition run starts in PREP, SET_OUT enters zone 1,
 // a zone's generation places the hub contract and the sites, won sites count, leaving a zone expires its contracts, and
-// the story chain is retired on the expedition map.
+// the story chain is retired on the expedition map. M2b v15 (D124): a Road taken within ROAD_SWIFT_TOLLS of the zone's hub
+// grants the Swift passage XP (takeRoad).
 import {
   CLASS, PET, SPELL, META, SLOT_IDS, START_GOLD, START_RATIONS, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, ZONE_COUNT,
   ZONE_LEVELS, ZONE_CHOICE_ROWS, TIME_REST, TIME_VENDOR, TIME_TRAINER, TIME_TRAVEL, QUEST_TURNIN_XP_FRAC, QUEST_GOLD_V,
@@ -15,7 +16,7 @@ import {
   TREASURE_TRAP_CHANCE, TREASURE_TRAP_PCT, REST_RESTED_FRAC, BOON, BOON_GOLD_V, BOON_NODES, CAMP_GRIND_LEVEL,
   MAX_LEVEL, TRAIN_NEW_V, TRAIN_RANK_V, TRAVEL_EARLY_LEVELS,
   RESPEC_V, CONSUMABLE, ELIXIR_NODES, RES_META_CHARGES, BOSS_LEVEL, UNIQUE_POTION_PCT, TIME_WALK, DIM_PACK_SIZE,
-  DIM_LEVEL_PER_DEPTH, BELL_START_CHARGES, BELL_MAX_CHARGES, BELL_CHANNEL_TIME, TRACKER_RADIUS,
+  DIM_LEVEL_PER_DEPTH, BELL_START_CHARGES, BELL_MAX_CHARGES, BELL_CHANNEL_TIME, TRACKER_RADIUS, ROAD_SWIFT_TOLLS,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt } from '../rng.js';
 import { rnd, frac6, deepClone } from './util.js';
@@ -32,7 +33,7 @@ import { makeBoss } from './boss.js';
 import { ascOver, newHeatStats, heatTime, heatZoneEntered, heatNodeEntered, heatFightWon } from './heat.js';
 import {
   isExpedition, grindMaxWaves, xpWeight, nodeTime, generateExpZone, refreshVision, zoneTime, frontAt, dimmedNow,
-  visionKit, canEnter, roadNameOf, outwardStep, dimFightTime,
+  visionKit, canEnter, roadNameOf, outwardStep, dimFightTime, swiftXp,
 } from './expedition.js';
 import { newPrep, applySetOut, contractsAtZone, siteWon, expireContracts, ownedPerks } from './contracts.js';
 
@@ -167,7 +168,7 @@ export function startExpedition(s) {
   // Scout's Eye is Pathfinder (node types within PATHFINDER_RADIUS hops), Swift Boots +1 Bell charge (at most BELL_MAX_CHARGES).
   if (s.exp.prep && s.meta.scout) s.exp.vision.typeRadius = Math.max(s.exp.vision.typeRadius, META.scout.expedition.typeRadius);
   if (s.exp.prep && s.meta.swiftBoots) s.exp.bell = Math.min(BELL_MAX_CHARGES, s.exp.bell + META.swift_boots.expedition.bell);
-  s.stats.exp = { walks: 0, passes: 0, dimFights: 0, bells: 0, bellExits: 0, roads: 0, maxRing: 0, zones: [], preps: 0, hubOffers: 0 };
+  s.stats.exp = { walks: 0, passes: 0, dimFights: 0, bells: 0, bellExits: 0, roads: 0, swift: 0, maxRing: 0, zones: [], preps: 0, hubOffers: 0 };
 }
 
 // ---------------- Zones, hub, camp ----------------
@@ -217,7 +218,7 @@ export function enterZone(s, ev, z, { again = false } = {}) {
     s.exp.bellPending = false;
     if (s.exp.prep) contractsAtZone(s); // prep (expedition.md 3.3, 3.6): the hub contract on offer, the sites of held contracts
     refreshVision(s);
-    s.stats.exp.zones.push({ z, time: 0, nodes: 0, walks: 0, passes: 0, dimFights: 0, exit: null });
+    s.stats.exp.zones.push({ z, time: 0, nodes: 0, walks: 0, passes: 0, dimFights: 0, exit: null, swift: 0 });
   } else {
     s.zone = generateZone(s, z);
   }
@@ -595,12 +596,24 @@ function leaveZone(s, ev, by) {
   enterZone(s, ev, from + 1);
 }
 
-/** TAKE_ROAD (rules 1.9.7): on a Road node, TIME_TRAVEL, then the next zone's hub. */
-export function takeRoad(s, ev) {
+/**
+ * TAKE_ROAD (rules 1.9.7): on a Road node, TIME_TRAVEL, then the next zone's hub. Swift passage (M2b v15 row 2, D124;
+ * GATES.swiftRoad): taken at zone time <= ROAD_SWIFT_TOLLS, checked before TIME_TRAVEL is paid, the Road first grants
+ * swiftXp (event `swift`, then its `xp` and any `levelUp` events, why 'swift'). Once per zone (the Road leaves it); zone
+ * 6's Road to the Camp too; never the Bell. `swift: false`: a dev jump (debug.nextZone) takes the Road without it.
+ */
+export function takeRoad(s, ev, { swift = true } = {}) {
   const rec = zoneRecord(s);
   rec.time = zoneTime(s);
   rec.exit = 'road';
   s.stats.exp.roads += 1;
+  const xp = swift ? swiftXp(s) : 0;
+  if (xp > 0) {
+    rec.swift = xp;
+    s.stats.exp.swift = (s.stats.exp.swift || 0) + 1;
+    ev.push({ t: 'swift', xp, zt: rec.time, tolls: ROAD_SWIFT_TOLLS, node: s.zone.pos });
+    gainXp(s, ev, xp, 'swift');
+  }
   addTime(s, ev, TIME_TRAVEL, 'travel');
   leaveZone(s, ev, 'road');
 }

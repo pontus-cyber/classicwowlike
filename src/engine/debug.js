@@ -279,14 +279,17 @@ export function createDebug(api) {
     return { state: s, events: ev };
   }
 
-  /** On to the next zone's hub as by Travel on (a Road on the expedition map): TIME_TRAVEL, no level gate. Zone 6: the Camp. */
+  /**
+   * On to the next zone's hub as by Travel on (a Road on the expedition map): TIME_TRAVEL, no level gate. Zone 6: the Camp.
+   * A dev jump never pays the Swift passage XP (M2b v15, D124): the level stays as built.
+   */
   function nextZone(state) {
     const s = runCopy(state, 'debug.nextZone');
     if (s.zone.camp) fail('debug.nextZone: the Camp is the last stop (debug.toBoss)');
     const ev = [];
     mark(s, 'nextZone');
     leaveAll(s, ev);
-    if (isExpedition(s)) takeRoad(s, ev);
+    if (isExpedition(s)) takeRoad(s, ev, { swift: false });
     else travelOn(s, ev);
     return { state: s, events: ev };
   }

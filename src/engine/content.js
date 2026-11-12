@@ -1,9 +1,10 @@
 // Content access and validation (src/content/SCHEMA.md, rules 12; expedition fields: zone regions and Road names,
 // template families, the texts.expedition group, D51; texts.families, texts.prep, texts.contracts, 2b.5). M2b v14 (D112,
-// rules 12.4): in strict mode every zone's elite pool keeps a heavy and a cast Deathblow.
+// rules 12.4): in strict mode every zone's elite pool keeps a heavy and a cast Deathblow. M2b v15 row 4 (D123-D125): a
+// template's optional `gated` values (hpMult, dmgMult per C.GATES switch) are checked as the template's own.
 import {
   ZONE_COUNT, CONTENT_RANGE as CR, ARCHETYPE, ABILITY_TEMPLATE, SLOT_IDS, CLASS_IDS, SPELL, TALENT, PET,
-  BOON, CONSUMABLE, ENGINE_ASSUMPTION as EA, REGION_COUNT, REGION_W, ROAD_COUNT, EXPEDITION_TEXT_IDS, PREP_OPTION,
+  BOON, CONSUMABLE, ENGINE_ASSUMPTION as EA, REGION_COUNT, REGION_W, ROAD_COUNT, EXPEDITION_TEXT_IDS, PREP_OPTION, GATES,
 } from '../constants.js';
 
 export const SUFFIX_KEYS = ['AGI', 'INT', 'STA', 'AGI_STA', 'AGI_SPI', 'INT_STA', 'INT_SPI', 'AGI_STA_SPI', 'INT_STA_SPI'];
@@ -88,6 +89,24 @@ export function validateContent(content, { strict = false } = {}) {
     inRange(en.hpMult, CR.hpMult, `${w}.hpMult`);
     inRange(en.dmgMult, CR.dmgMult, `${w}.dmgMult`);
     if (typeof en.hpMult === 'number' && typeof en.dmgMult === 'number') inRange(en.hpMult * en.dmgMult, CR.hpDmgProduct, `${w}: hpMult × dmgMult`);
+    // Optional gated values (M2b v15 row 4; combat.js tplMult): { <C.GATES switch>: { hpMult?, dmgMult? } }, played while
+    // the switch is on; each value in the template ranges, and the product of the values the switch plays too.
+    if (en.gated !== undefined) {
+      if (!en.gated || typeof en.gated !== 'object' || Array.isArray(en.gated)) e(`${w}.gated: not an object`);
+      else {
+        for (const [g, o] of Object.entries(en.gated)) {
+          const wg = `${w}.gated.${g}`;
+          if (!Object.prototype.hasOwnProperty.call(GATES, g)) e(`${wg}: unknown switch (C.GATES)`);
+          if (!o || typeof o !== 'object' || Array.isArray(o) || !Object.keys(o).length) { e(`${wg}: needs hpMult or dmgMult`); continue; }
+          for (const k of Object.keys(o)) if (k !== 'hpMult' && k !== 'dmgMult') e(`${wg}.${k}: only hpMult and dmgMult can be gated`);
+          if (o.hpMult !== undefined) inRange(o.hpMult, CR.hpMult, `${wg}.hpMult`);
+          if (o.dmgMult !== undefined) inRange(o.dmgMult, CR.dmgMult, `${wg}.dmgMult`);
+          const hm = o.hpMult !== undefined ? o.hpMult : en.hpMult;
+          const dm = o.dmgMult !== undefined ? o.dmgMult : en.dmgMult;
+          if (typeof hm === 'number' && typeof dm === 'number') inRange(hm * dm, CR.hpDmgProduct, `${wg}: hpMult × dmgMult`);
+        }
+      }
+    }
     // Optional family tag (rules 1.9.3, expedition): regions draw part of their encounters from their families.
     if (en.family !== undefined) str(en.family, CR.len.enemyName, `${w}.family`);
     if (!Array.isArray(en.abilities)) e(`${w}.abilities: not a list`);

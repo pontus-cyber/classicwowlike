@@ -8,6 +8,8 @@
 // whole tolls (M2b v7, docs/specs/changes-m2b-v7.md A-C); the Dimming's front is computed in integers (D70). Start camp
 // and contracts (prep, expedition.md 2-3; contracts.js): the zone keeps the map(z) stream after the node types for the
 // contract sites (siteRng), a Delve contract shows its dungeon, and the view shows the site marks the player sees.
+// Swift passage (rules 1.9.7, expedition.md 7.1; M2b v15 row 2, D124): swiftXp is what a Road taken now grants (nodes.js
+// takeRoad pays it), swiftView the view's `swift` block (mapView; heat.js heatPreview of a TAKE_ROAD uses swiftXp).
 import {
   ZONE_LEVELS, NODE_DRAW_ORDER, QUEST_LEVEL_OFFSETS, ELITE_LEVEL_OFFSET, RARE_CHANCE, QUEST_SIZE_W1, QUEST_SIZE_W2,
   QUEST_SIZE_W3, QUEST_MAX_SIZE_Z1, GRIND_WAVE_SIZE, ELITE_ADD_CHANCE, DUNGEON_SIZE_W2, DUNGEON_SIZE_W3,
@@ -18,8 +20,11 @@ import {
   VISION_RADIUS_MAX, GUIDE_RADIUS_BONUS, PATHFINDER_RADIUS, DIM_GRACE, DIM_FRONT_HOPS, DIM_FRONT_TIME, TIME_DIM_FIGHT, TIME_DIM_ESCAPE, BELL_CHANNEL_TIME,
   XP_WEIGHT_MULT, EXPED_GRIND_MAX_WAVES, EXPED_DUNGEON_TRASH_FIGHTS, EXPED_TIME_QUEST, EXPED_TIME_ELITE,
   EXPED_TIME_GRIND_WAVE, EXPED_TIME_DUNGEON, EXPEDITION_TEXT_IDS, EXPED_DROP_MULT, EXPED_DUNGEON_BOSS_DROPS, DUNGEON_BOSS_DROPS,
+  ROAD_SWIFT_TOLLS, ROAD_SWIFT_XP_FRAC, GATES,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt, weightedIndex } from '../rng.js';
+import { rnd } from './util.js';
+import { xpToNext } from './progress.js';
 import { zoneContent } from './content.js';
 import { deathblowOf, deathblowType } from './track.js';
 import { composeEncounter, vendorStock, dungeonLevels, clampCl, pickFrom } from './map.js';
@@ -305,6 +310,28 @@ export function frontNextIn(zt) {
 export function dimmedIds(zone, zt) {
   return zone.nodes.filter((n) => dimmedAt(zone, n.id, zt)).map((n) => n.id);
 }
+// ---------------- Swift passage (rules 1.9.7; M2b v15 row 2, D124) ----------------
+/**
+ * XP a Road taken now grants (rules 1.9.7, expedition.md 7.1): round(ROAD_SWIFT_XP_FRAC × xpToNext(L)) while the zone time
+ * is <= ROAD_SWIFT_TOLLS and GATES.swiftRoad is on; no level-difference modifier, XP_WEIGHT_MULT, Quick Study, Insight,
+ * rested or heat. 0 otherwise (also at MAX_LEVEL, where xpToNext is 0). Read before TIME_TRAVEL is paid.
+ */
+export function swiftXp(s) {
+  if (!GATES.swiftRoad || !isExpedition(s) || !s.zone || s.zone.camp || !s.player || zoneTime(s) > ROAD_SWIFT_TOLLS) return 0;
+  return rnd(ROAD_SWIFT_XP_FRAC * xpToNext(s.player.level));
+}
+/**
+ * The view's Swift passage block (mapView `swift`; null while GATES.swiftRoad is off): `tolls` ROAD_SWIFT_TOLLS, `frac`
+ * ROAD_SWIFT_XP_FRAC, `left` (tolls left in the window, ROAD_SWIFT_TOLLS - zt: 0 = a Road taken now still counts; null
+ * once passed), `xp` (what a Road taken now grants; 0 once passed or at MAX_LEVEL), `eligible` (xp > 0).
+ */
+export function swiftView(s) {
+  if (!GATES.swiftRoad || !isExpedition(s) || !s.zone || s.zone.camp) return null;
+  const zt = zoneTime(s);
+  const xp = swiftXp(s);
+  return { tolls: ROAD_SWIFT_TOLLS, frac: ROAD_SWIFT_XP_FRAC, left: zt <= ROAD_SWIFT_TOLLS ? ROAD_SWIFT_TOLLS - zt : null, xp, eligible: xp > 0 };
+}
+
 /** Can MOVE enter node id's content (rules 1.9.4): unresolved, not the hub, not Dimmed now? */
 export const canEnter = (s, id) => {
   const n = s.zone.nodes[id];
@@ -435,6 +462,7 @@ export function expMapView(s) {
     roadNames: zone.roads.map((id) => roadNameOf(s, id)), texts: expeditionTexts(c),
     shardfall: zone.shardfall, onRoad: zone.nodes[zone.pos].road, walkTime: TIME_WALK, travelTime: TIME_TRAVEL,
     bell: { charges: s.exp.bell, channelTime: BELL_CHANNEL_TIME }, ...(s.exp.prep ? { spyglass: s.exp.spyglass } : {}),
+    swift: swiftView(s), // M2b v15 row 2 (D124): Swift passage; null while GATES.swiftRoad is off
     vision: { radius: visionRadius(s), regions: showRegions, typeRadius: s.exp.vision.typeRadius },
     dim: { grace: DIM_GRACE, frontHops: DIM_FRONT_HOPS, frontTime: DIM_FRONT_TIME, front, nextIn: zone.dimOff ? Infinity : frontNextIn(zt), off: !!zone.dimOff },
     regions: regs.map((r, i) => ({ id: i, name: r.name, kind: r.kind, families: r.families.slice() })),

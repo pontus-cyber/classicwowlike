@@ -3,7 +3,7 @@
 // 1.7.4: the `heat` block and the Echo line of fights won in heat; M2b v7: time in whole tolls, `time`, `timeAtBoss`,
 // `heat.timeByState`). Dev tools (engine-api.md 12): a dev run's summary has a `dev` block and no Echoes. Start camp and
 // contracts (prep, expedition.md 8.1, 9.4): the `expedition.contracts` lines, the prep screen and hub decisions in the
-// estimate, the Echo lines of contracts completed and Reserve left.
+// estimate, the Echo lines of contracts completed and Reserve left. M2b v15 (D124): Swift passage counts in `expedition`.
 import {
   PACE_CREATE_S, PACE_DECIDE_S, PACE_TRAVEL_NODE_S, PACE_ZONE_TRAVEL_S, PACE_QUEST_TEXT_S, PACE_FIGHT_OVERHEAD_S,
   PACE_MANUAL_ROUND_S, PACE_AUTO_ROUND_S, PACE_LOOT_S, PACE_LEVELUP_S, PACE_TALENT_S, PACE_REST_S, PACE_SHRINE_S,
@@ -90,14 +90,15 @@ export function summary(s) {
 /**
  * Expedition lines of the summary (rules 1.9, 9): walks (steps to resolved nodes, the hub or Dimmed nodes), passes
  * (PASS_THROUGH), Dimmed encounters and the zones that had one, Bell charges rung and left, Roads taken, the furthest
- * ring, and per zone { z, time (zone tolls; the current zone so far), nodes, walks, passes, dimFights, exit }.
+ * ring, and per zone { z, time (zone tolls; the current zone so far), nodes, walks, passes, dimFights, exit, swift }.
+ * M2b v15 (D124): `swift` = Roads taken with the Swift passage; a zone's `swift` = the XP its Road paid (0 without).
  */
 function expeditionSummary(s) {
   const x = s.stats.exp;
   const zones = x.zones.map((r, i) => ({ ...r, time: r.exit === null && i === x.zones.length - 1 && s.zone && !s.zone.camp ? s.time - s.zone.start : r.time }));
   return {
     walks: x.walks, passes: x.passes, dimFights: x.dimFights, dimZones: zones.filter((r) => r.dimFights > 0).length,
-    bellsRung: x.bells, bellCharges: s.exp.bell, roads: x.roads, maxRing: x.maxRing, zones, dimming: s.exp.dimming !== false,
+    bellsRung: x.bells, bellCharges: s.exp.bell, roads: x.roads, swift: x.swift || 0, maxRing: x.maxRing, zones, dimming: s.exp.dimming !== false,
     ...(s.exp.prep ? { contracts: contractSummary(s) } : {}),
   };
 }

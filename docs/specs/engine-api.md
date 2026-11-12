@@ -44,7 +44,11 @@ docs/specs/changes-m2b-v14.md rows 1, 2 and 4: autoplay rule H, the PASS that ke
 `wait`, and in `windupView` the Sap answer's `wait` / `stealth` and the PASS answer; marked "(M2b v14)"); 2026-11-12b (D116,
 the flip: `newRun`'s defaults are `mapMode: 'expedition'` and, on the expedition map, `prep: true`, so a new run starts at
 the start camp; the rows map is an option (`mapMode: 'rows'`) for the simulator and the Dev menu; `debug.build` follows;
-default since D116; docs/handoffs/engineer-2026-11-12b.md; marked "(D116)").
+default since D116; docs/handoffs/engineer-2026-11-12b.md; marked "(D116)"); 2026-11-12c (M2b v15, docs/specs/changes-m2b-v15.md
+rows 1, 2 and 4, D123-D125: the Swift passage of a Road (rules 1.9.7: the `swift` event and the `xp` event's `why: 'swift'`,
+`mapView.swift`, `heatPreview`'s `swift`, `stats.exp.swift` and the summary's `swift` counts), `C.ROAD_SWIFT_TOLLS`,
+`C.ROAD_SWIFT_XP_FRAC`, the switches `C.GATES.swiftRoad` (on) and `C.GATES.mawgrimHp` (off: a template's content `gated`
+values), `debug.nextZone` without the Swift passage; marked "(M2b v15)").
 Units: every time value of the API is a whole number of tolls (1 toll = 1 former in-game hour, D69); there are no hours.
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
@@ -244,6 +248,7 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `dimming` | `front, dimmed` | (expedition) the Dimming's front advanced; `dimmed` = node ids it newly covers (M2b v12: the zone's Dungeon too, by its hops; M2b v10's DUNGEON_DIM_HOLD removed; no event then) |
 | `dim` | `id, depth, level, k` | (expedition) a Dimmed encounter starts at node `id` (its `fight` event follows, `kind: 'dim'`) |
 | `bell` | `charges, node` | (expedition) RING_BELL: the channel starts (`charges` left) |
+| `swift` | `xp, zt, tolls, node` | (M2b v15) TAKE_ROAD with the Swift passage (rules 1.9.7): the Road was taken at zone time `zt` <= `tolls` (ROAD_SWIFT_TOLLS) from Road `node`; its `xp` event (`why: 'swift'`) and any `levelUp` follow, then the travel's `time`, `travel` and `zone`. Log "Swift passage: +N XP" |
 | `prep` | `what` (`buy`, `sell`, `reroll`, `setOut`), `id`, `k`, `left`, `reserve`, `bought`, `contracts` | (prep) a start camp action; `left` = points left; `setOut`: `reserve`, the options `bought`, contracts held |
 | `contract` | `what` (`take`, `drop`, `site`, `complete`, `expire`, `abandon`), `id, z, kind, from, node, progress, need` | (prep) a contract changed: taken (`from` `board` or `hub`), dropped at PREP, a site won (`node`, `progress` of `need`), complete (its `xp` and `gold` events with `why: 'contract'` follow; the item choice is a reward set of the node), expired when the zone was left, abandoned by a swap |
 | `spyglass` | `node, seen, charges` | (prep) USE_SPYGLASS: the node ids newly seen, charges left |
@@ -273,7 +278,7 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `phaseChange` | `phase` | boss phase 2 or 3 |
 | `death` | `u, name` | enemy, pet or player died |
 | `resurrect` | `source` (`boon` `second_breath` `ember`), `hp, mana` | `hp`, `mana`: the player's values after the resurrect (RES_HP_PCT, RES_MANA_PCT). Never `second_breath` in the end-boss fight (M2 v3) |
-| `xp` | `amount, rested, why, heat` | (heat) `heat` (only when > 0): the part of `amount` that heat added (rules 1.7.3) |
+| `xp` | `amount, rested, why, heat` | (heat) `heat` (only when > 0): the part of `amount` that heat added (rules 1.7.3). (M2b v15) `why: 'swift'`: the Swift passage of a Road (after its `swift` event) |
 | `levelUp` | `level, talentPoint, hpGain, manaGain, petHpGain, maxHp, maxMana, petMaxHp` | one per level gained. Current HP, mana and pet HP (live pet) rise by the max gains (rules 4.3); `*Gain` = what was added, `max*` = the new maxima (`maxMana` 0 without mana, `petMaxHp` 0 without a pet) |
 | `gold` | `amount, why, heat` | negative when spent. (heat) `heat` (only when > 0): the part of `amount` that heat added |
 | `loot` | `item, to` (`bag` or `window`) | |
@@ -569,7 +574,8 @@ costs TIME_DIM_ESCAPE 1 toll (rules 1.9.6), every other one TIME_DIM_FIGHT.
   service or loot window), tolls spent since the last check make the engine check the Dimming: if the player's node is
   Dimmed, a Dimmed encounter starts (phase NODE, `state.node.type === 'dim'`, `state.fight.kind === 'dim'`). After it
   (won or fled) the player is back on the map on the same node. Then a ringing Bell completes (next zone).
-- Leaving: `TAKE_ROAD` (on a Road) or the Bell; either goes to the next zone's hub, zone 6's to the Camp.
+- Leaving: `TAKE_ROAD` (on a Road) or the Bell; either goes to the next zone's hub, zone 6's to the Camp. (M2b v15) A Road
+  taken at zone time <= ROAD_SWIFT_TOLLS first pays the Swift passage XP (`swift` event; `mapView.swift` shows the window).
 
 ### 10.2 State fields (expedition)
 | Path | Meaning |
@@ -579,7 +585,7 @@ costs TIME_DIM_ESCAPE 1 toll (rules 1.9.6), every other one TIME_DIM_FIGHT.
 | `prep` | (prep) `{ points, board, rerolls, bought, done }`: the start camp; kept after SET_OUT (`done`). Read it with `prepView` |
 | `zone` | `{ z, mode: 'expedition', nodes[], hub: 0, roads[], shardfall, shardDist[], pos, start (run tolls at arrival), seen[], typed[], dimN[], hubStock, path[], questsDone, storyDone, dimOff? }`: the full zone (hidden contents included; `dimOff` true in a run without the Dimming). Draw the map with `mapView`, never from here |
 | `node` | `{ type, id, cl, stage, k, ... }`; a Dimmed encounter: `{ type: 'dim', id, cl (its level), stage, k, depth }` |
-| `stats.exp` | `{ walks, passes, dimFights, bells, bellExits, roads, maxRing, zones[] }` (the summary's `expedition` block) |
+| `stats.exp` | `{ walks, passes, dimFights, bells, bellExits, roads, swift, maxRing, zones[] }` (the summary's `expedition` block; (M2b v15) `swift`: Roads taken with the Swift passage, a zone record's `swift`: the XP its Road paid) |
 | `death` | adds `node`, `ring` and `depth` (Dimmed encounters); `row` and `lane` are null |
 
 ### 10.3 `mapView(state)` in an expedition run
@@ -589,6 +595,9 @@ costs TIME_DIM_ESCAPE 1 toll (rules 1.9.6), every other one TIME_DIM_FIGHT.
   texts: { shardfall, shardspawn, dimming, homeward_bell } (D51: content texts.expedition; each null when missing),
   onRoad (TAKE_ROAD legal here), walkTime (TIME_WALK), travelTime (TIME_TRAVEL), bell: { charges, channelTime (BELL_CHANNEL_TIME) },
   spyglass (prep: Spyglass charges left),
+  swift: (M2b v15, rules 1.9.7; null while C.GATES.swiftRoad is off) { tolls (ROAD_SWIFT_TOLLS), frac (ROAD_SWIFT_XP_FRAC),
+    left (tolls left in the window: tolls - zt; 0 = a Road taken now still pays; null once passed), xp (what a Road taken
+    now pays: round(frac × xpToNext(L)); 0 once passed or at MAX_LEVEL), eligible (xp > 0) }; shown on the hub too,
   vision: { radius (full, capped), regions (Region Charts), typeRadius (Pathfinder) },
   dim: { grace (DIM_GRACE), frontHops (DIM_FRONT_HOPS), frontTime (DIM_FRONT_TIME), front (-1 before the grace ends;
     then floor(frontHops × (zt - grace) / frontTime)), nextIn (tolls until the front moves: dimAt(front + 1) - zt, at
@@ -617,8 +626,8 @@ Nothing else of a hidden node is read: qa/engine/s01b checks that a hidden node 
 
 ### 10.4 Summary (expedition)
 `summary(state)` adds `mapMode: 'expedition'` and `expedition = { walks, passes, dimFights, dimZones, bellsRung,
-bellCharges (left), roads, maxRing, zones: [{ z, time, nodes, walks, passes, dimFights, exit ('road' | 'bell' |
-null) }], dimming (false in a run without the Dimming, D50), contracts (prep: { taken, completed, expired, abandoned, held, bought (option ids), reserve }) }` (`time`: the zone's tolls; the current zone's so far). (prep) Echo lines `contracts` (completed × ECHO_PER_QUEST × ECHO_CONTRACT_MULT) and `reserve` (Reserve × PREP_ECHO_PER_POINT); `minutes` adds PACE_PREP_S once and PACE_HUB_CONTRACT_S per hub with an offer. `minutes` adds the walk and pass terms and the Bell
+bellCharges (left), roads, swift, maxRing, zones: [{ z, time, nodes, walks, passes, dimFights, exit ('road' | 'bell' |
+null), swift }], dimming (false in a run without the Dimming, D50), contracts (prep: { taken, completed, expired, abandoned, held, bought (option ids), reserve }) }` (`time`: the zone's tolls; the current zone's so far). (M2b v15) `swift`: Roads taken with the Swift passage; a zone's `swift`: the XP its Road paid (0 without). (prep) Echo lines `contracts` (completed × ECHO_PER_QUEST × ECHO_CONTRACT_MULT) and `reserve` (Reserve × PREP_ECHO_PER_POINT); `minutes` adds PACE_PREP_S once and PACE_HUB_CONTRACT_S per hub with an offer. `minutes` adds the walk and pass terms and the Bell
 (rules 1.9.8). `death` as 10.2.
 
 ## 11. Heat (heat; rules 1.7.1-1.7.2, 1.9.10)
@@ -655,8 +664,10 @@ clock. Every time value is a whole number of tolls (M2b v7): the line is rounded
 ### 11.2 `heatPreview(state, action)`
 ```
 { time, timeAfter, line, heat, stateRun, dimIn, stateDim, state, by, ascIfPar,   (as heatView, after the action)
-  change (state differs from now), dimFight, perWave, pays }
+  change (state differs from now), dimFight, perWave, pays, swift }
 ```
+- `swift` (M2b v15, rules 1.9.7): for `TAKE_ROAD`, the Swift passage XP the Road pays now (as `mapView.swift.xp`); null
+  when it pays none and for every other action.
 - `time`: the tolls the action costs (`timeAfter` = run time then), as the engine spends it: node tolls (rules 2.0, 1.9.8), a walk or a pass
   (TIME_WALK), TRAVEL_ON and TAKE_ROAD (TIME_TRAVEL), the Bell's channel (BELL_CHANNEL_TIME), a service, a Camp wave,
   n Grind waves. `dimFight`: the step, node, service or channel ends on a node that is Dimmed by then, so a Dimmed
@@ -706,7 +717,7 @@ would have earned); `END_RUN` returns the profile as it was (no Echoes, no run c
 | `build({ content, classId, petId, name, seed, profile, oaths, mapMode, vision, dimming, prep, zone, level, rarity, ilvl, talents, gold, potions, time })` | `{ state, events }` | A run at zone `zone` (1..ZONE_COUNT; ZONE_COUNT + 1 = the Camp), phase ZONE_HUB (CAMP). Defaults: classId `rogue`, a Hunter's first pet the profile has, seed 0, `oaths` [] (sworn in CREATE; the profile must own them), mapMode and prep as `newRun` (D116: `expedition` with the start camp, left with nothing bought, every point Reserve; `rows` the classic map), level the zone's first (the Camp MAX_LEVEL), rarity DEV.RARITY, ilvl level + the rarity's `ilvlBonus` (at most ILVL_MAX), talents `'auto'` (autoplay's default build, one SPEND_TALENT at a time) or `'unspent'`, gold DEV.GOLD_V × V(level) copper, potions DEV.POTIONS Healing Draughts (a Mage as many Mana Draughts too), time (whole tolls) the line of zone - 1 (on schedule; whole since M2b v7; the expedition zone's clock starts there); the old option `hours` throws. Every slot holds fixed-stat gear of that ilvl and rarity (as starting gear: the class's primary, STA, the power affix; generated names). Every spell the trainer teaches up to the level is learned and trained to it; the bars are autoplay's; full HP and mana. The heat records (summary `heat`) and the expedition zone records start at this zone; zones left = zone - 1 |
 | `toCamp(state)` | `{ state, events }` | To the Camp (phase CAMP), leaving whatever is open (below); the run's time stays; zones left at least ZONE_COUNT |
 | `toBoss(state, { phase })` | `{ state, events }` | The end-boss fight (phase BOSS, round 1), from anywhere (the Camp first). `phase` 2: the boss at floor(P2_AT × HP), 3: ceil(P3_AT × HP) - 1, each reached by the engine's own phase change (rules 10.2: Shards come with phase 2, go with phase 3); its intent and track are then shown for the new phase. Ascendancy from the run's time (rules 1.7) |
-| `nextZone(state)` | `{ state, events }` | The next zone's hub as by TRAVEL_ON (a Road, TAKE_ROAD, on the expedition map): TIME_TRAVEL, no level gate; from zone ZONE_COUNT the Camp. Throws at the Camp |
+| `nextZone(state)` | `{ state, events }` | The next zone's hub as by TRAVEL_ON (a Road, TAKE_ROAD, on the expedition map): TIME_TRAVEL, no level gate; from zone ZONE_COUNT the Camp. Throws at the Camp. (M2b v15) Never the Swift passage: the level stays as built |
 | `encounter(state, { ids, level })` | `{ state, events }` | A fight against one or more enemy templates by id, any kind, each as its template's `kind` (normal, elite, rare, trash, dboss) at `level` (default: the player's level). Fight kind: `dboss`, `elite` (elite or rare), `trash` or `grind`, by the strongest; an engage round as every fight; no flight from a dungeon boss; no heat. Played in phase NODE as node `{ type: 'dev', cl, stage, k, heat: null, from, enemies, id (expedition: the player's node) }` on the dev stream (`STREAM.dev(seed, n, 0)` the fight, `(seed, n, 1)` its loot). Won or fled, the player is back at `from` (`MAP`, `ZONE_HUB` or `CAMP`); kills pay their XP, coin and loot; no map node is resolved |
 | `killTarget(state, target)` | `{ state, events }` | Kill a living enemy of the current fight (default: `defaultTarget`) through the damage pipeline (`damage` event `src: 'dev'`): kill rewards, a boss's phase changes. The last one ends the fight as a victory (a boss kill ends the run). Then the settle step (expedition) |
 | `refill(state)` | `{ state, events }` | Full HP and mana, the pet alive at full HP; in a fight also full energy and focus, no cooldowns, potions ready |

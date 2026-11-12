@@ -7,7 +7,8 @@
 // (M2b v8: at FREE_POTION_MULT strength, spells.js). Zone danger (rules 7.6) with the early factor EARLY_DMG_MULT (M2b v8).
 // M2b v13 (D109; on by default since M2b v14, D113): a zone-1 rare's HP with RARE_HP_MULT_Z1 (GATES.rareHpMultZ1, rules
 // 2.3); first meetings (s.met, GATES.firstMeetWindup, rules 7.12) are marked when a fight starts. M2b v14 (D111):
-// allSapped, read by autoplay rule H and the PASS that keeps STEALTH.
+// allSapped, read by autoplay rule H and the PASS that keeps STEALTH. M2b v15 row 4 (D123-D125): a template's hpMult and
+// dmgMult come from its content `gated` entry while that switch of C.GATES is on (tplMult; z2_mawgrim, GATES.mawgrimHp).
 import {
   ARCHETYPE, VARIANT, ENEMY_HP_BASE, ENEMY_HP_PER_LEVEL, ENEMY_DMG_BASE, ENEMY_DMG_PER_LEVEL,
   ENEMY_ARMOR_PER_LEVEL, ENEMY_DODGE, PET, ENERGY_MAX, ENERGY_REGEN, FOCUS_MAX, FOCUS_REGEN,
@@ -54,6 +55,16 @@ export function zoneDanger(level, variant = 'normal') {
 const engageComp = (s) => (s.player.classId === 'rogue' && !(s.fight && s.fight.kind === 'dboss') ? 1 : ENGAGE_DMG_COMP);
 
 /**
+ * A template's `hpMult` or `dmgMult` (rules 7.6, 12.2): the content value, or the value of its `gated` entry for a switch of
+ * C.GATES that is on (M2b v15 row 4: z2_mawgrim `gated: { mawgrimHp: { hpMult: 0.95 } }`; the first such entry in content
+ * order). Content validation keeps every gated value in the template ranges.
+ */
+export function tplMult(t, field) {
+  if (t.gated) for (const [g, o] of Object.entries(t.gated)) if (GATES[g] && o && typeof o[field] === 'number') return o[field];
+  return t[field];
+}
+
+/**
  * Enemy from a template (rules 7.6): every quest, grind, elite, rare, dungeon, Camp, summoned and Signal enemy. No
  * draws. Damage includes zone danger and the engage-round price (engageComp; combat v2, D48). Combat v2
  * fields: turn0 (round of its turn 1; set by the caller), turn (current turn), track, acted (turns it has acted;
@@ -66,10 +77,10 @@ export function makeEnemy(s, idx, tid, level, variant) {
   const v = VARIANT[variant] || VARIANT.normal;
   // M2b v13 row 5 (D109, gated): a rare of zone 1 (both maps) with RARE_HP_MULT_Z1 while GATES.rareHpMultZ1 is on.
   const vHp = variant === 'rare' && GATES.rareHpMultZ1 && s.fight && s.fight.z === 1 ? RARE_HP_MULT_Z1 : v.hp;
-  const hp = Math.max(1, rnd((ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL * level) * a.hp * vHp * t.hpMult));
+  const hp = Math.max(1, rnd((ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL * level) * a.hp * vHp * tplMult(t, 'hpMult')));
   return {
     idx, tid, name: t.name, kind: variant, arch: t.archetype, level, hp, maxHp: hp,
-    dmg: (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL * level) * a.dmg * v.dmg * t.dmgMult * zoneDanger(level, variant) * engageComp(s),
+    dmg: (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL * level) * a.dmg * v.dmg * tplMult(t, 'dmgMult') * zoneDanger(level, variant) * engageComp(s),
     armor: ENEMY_ARMOR_PER_LEVEL * level * a.armor, dodge: ENEMY_DODGE + a.dodge,
     abilities: t.abilities.slice(), cds: {}, st: [], intent: null, alive: true,
     elite: variant === 'elite' || variant === 'rare', boss: variant === 'dboss', ccImmune: variant === 'dboss',

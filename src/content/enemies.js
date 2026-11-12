@@ -1,4 +1,6 @@
 // Content table: enemy templates per zone: normals, elites, rares, dungeon trash and bosses (rules.md 2, 12). Plain data only (Content Designer).
+// M2b v15 (docs/specs/changes-m2b-v15.md, D123-D125): z1_belk hpMult 1.05 -> 0.9 (row 1); z2_mawgrim's gated arm hpMult 0.95
+// (row 4, `gated.mawgrimHp`, played only while C.GATES.mawgrimHp is on; SCHEMA.md 2.3).
 export const ENEMIES = {
  "z1_hedge_ogre": {
   "id": "z1_hedge_ogre",
@@ -162,7 +164,7 @@ export const ENEMIES = {
   "name": "Warden Belk of Harrow",
   "kind": "dboss",
   "archetype": "brute",
-  "hpMult": 1.05,
+  "hpMult": 0.9,
   "dmgMult": 1.05,
   "abilities": [
    "ab_z1_belk_heavy_blow",
@@ -334,6 +336,11 @@ export const ENEMIES = {
   "archetype": "brute",
   "hpMult": 1.1,
   "dmgMult": 1,
+  "gated": {
+   "mawgrimHp": {
+    "hpMult": 0.95
+   }
+  },
   "abilities": [
    "ab_z2_mawgrim_heavy_blow",
    "ab_z2_mawgrim_self_heal"
