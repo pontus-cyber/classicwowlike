@@ -156,7 +156,7 @@ export function createPrepScreen(v, ctx) {
   tip(points, () => {
     const pv = ctx.view.prep; if (!pv) return null;
     return h('div', h('div.tt-name', 'Preparation points'), h('div.tt-line', `${pv.points} to spend on contracts and supplies${pv.spent ? `; ${pv.spent} spent` : ''}.`),
-      h('div.tt-line.num', `Unspent points become Reserve: it pays for a hub contract on the way, and each point left at the end of the run is worth ${pv.reserve.points ? pv.reserve.echoes / pv.reserve.points : 2} Echoes.`),
+      h('div.tt-line.num', `Unspent points become Reserve: it pays for a hub contract on the way, and what is left at the end of the run becomes Echoes${pv.reserve.points ? ` (${pv.reserve.echoes} for the ${pts(pv.reserve.points)} left now)` : ''}.`),
       h('div.tt-sub', `${pv.held} of ${pv.slots} contract slots used`));
   });
   const go = h('button.btn.primary.big#pp-go', { type: 'button' }, 'Set out', h('span.k', 'Enter'));
