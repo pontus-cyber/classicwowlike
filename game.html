@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="b1a399f 2026-11-12T07:29:38Z">
+<meta name="build" content="0dd4ece 2026-11-12T08:15:03Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -1515,6 +1515,26 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .tt-line.tt-db b { color: #fff0f0; }
 .tt-line.tt-db img { width: 1.5rem; height: 1.5rem; border-radius: .25rem; border: 1px solid #000; vertical-align: -.35rem; margin-right: .35rem; }
 @media (prefers-reduced-motion: reduce) { .np .wub.db, .np .wub.db.now, .eg-db, .ab.db-now, .btn.db-now, .uf .maimb.fresh { animation: none; } }
+/* QA 2026-11-12 (findings 2, 3): a soft answer not yet made ("If you wait" / "If not hit": dashed, frost on dark, not the
+   solid ANSWERED); the Sap warning; LETHAL (a skull and the word) on the line, the chip, the row, the alert, the prompt;
+   attack and spells that break Sap while waiting answers a Deathblow */
+.tk .b-wu.soft, .tk .b-wu.db.soft, .flag.wu.soft, .rl-wu.soft { background: rgba(4, 26, 40, .95); color: #bfe9ff; box-shadow: 0 0 0 1px #000; outline: 1px dashed #7fd8ff; outline-offset: -2px; }
+.np .wub .db-warn { flex-basis: 100%; display: flex; align-items: center; justify-content: center; gap: .3rem; text-align: center; font: 900 .9rem/1.35 var(--font-ui); color: #ff7a7a; text-shadow: 0 1px 1px #000; }
+.np .wub .db-lethal, .np .wub .db-warn .db-lethal, .eg-db .db-lethal, #turnprompt .tp-lethal { display: inline-flex; align-items: center; gap: .2rem; padding: 0 .35rem .02rem .15rem; border-radius: .25rem;
+  font: 900 .9rem/1.35rem var(--font-ui); letter-spacing: .07em; color: #fff4f4; background: linear-gradient(180deg, #ff6a6a, #b00010); box-shadow: 0 0 0 1px #000, 0 0 .8rem rgba(255, 30, 40, .9); white-space: nowrap; }
+.np .wub .db-lethal img, .eg-db .db-lethal img { width: 1.15rem; height: 1.15rem; border-radius: .2rem; }
+.eg-db .db-lethal { margin-right: .3rem; }
+.np .wub .db-pet { font: 800 .9rem var(--font-ui); color: #ffd0d4; white-space: nowrap; text-shadow: 0 1px 1px #000; }
+.tk.lethal { box-shadow: 0 0 0 2px #ff2a3a, 0 0 .8rem rgba(255, 30, 40, .8); }
+.flag.lethal { background: linear-gradient(180deg, #ff6a6a, #b00010); color: #fff4f4; box-shadow: 0 0 .6rem rgba(255, 30, 40, .8); letter-spacing: .04em; }
+.tr.lethal .td { color: #ff5a5a; }
+.tt-warn.lethal { color: #ff5a5a; font-weight: 900; }
+#turnprompt .tp-w { display: block; font: 800 .98rem/1.3 var(--font-ui); color: #ff7a7a; }
+#turnprompt[data-kind="lethal"] { box-shadow: inset 0 0 0 2px #ff3a4a, 0 0 1.6rem rgba(255, 30, 50, .55); background: linear-gradient(180deg, rgba(70, 6, 12, .95), rgba(24, 2, 6, .95)); }
+#turnprompt[data-kind="lethal"] .tp-k { background: linear-gradient(180deg, #ff6a6a, #b00010); color: #fff4f4; }
+.ab .sapw { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: .05rem 0; text-align: center; font: 900 .62rem/1rem var(--font-ui); letter-spacing: .02em; text-transform: uppercase;
+  white-space: nowrap; color: #fff0f0; background: rgba(150, 0, 16, .9); border-radius: 0 0 .3rem .3rem; pointer-events: none; }
+.ab.breaks-sap { box-shadow: inset 0 0 0 2px rgba(255, 70, 70, .95), 0 0 .6rem rgba(255, 40, 40, .5); }
 
 </style>
 </head>
@@ -1527,8 +1547,8 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (b1a399f 2026-11-12T07:29:38Z) from 60 modules.
-const __BUILD__ = "b1a399f 2026-11-12T07:29:38Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (0dd4ece 2026-11-12T08:15:03Z) from 60 modules.
+const __BUILD__ = "0dd4ece 2026-11-12T08:15:03Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -22815,6 +22835,10 @@ yield;
 // (a frost shatter) or lands (an ember flare) has its effect (windupResult).
 // UX pass 2026-11-11: floating words (Interrupted!, Off-balance!, Staggered!, statuses) have their own lane under the
 // damage numbers and take turns in it (word()), so the words and the number of one moment never cover each other.
+// QA 2026-11-12 (playtest finding 4): the Deathblow's headlines ("Deathblow landed: empowered", "Maimed: healing -50 %")
+// have a lane of their own per actor (headline()): above the head of the hero or the pet (no nameplate there), under the
+// word lane of an enemy (its nameplate is above), so they never cover a damage number, a pet's number or a Dodge.
+// floatBoxes() lists the recent floats with their boxes for the browser checks.
 
 
 
@@ -22826,6 +22850,9 @@ yield;
 // WORD_MAX px and rising WORD_RISE px
 const NUM_RE = /^[-+\u2212]?[\d\s\u00a0\u2009\u202f.,]+!?$/;
 const WORD_ROWS = 2; const WORD_DY0 = 34; const WORD_ROW = 27; const WORD_HOLD = 0.55; const WORD_CUT = 0.16; const WORD_MAX = 22; const WORD_RISE = 8;
+// headline lane (QA 2026-11-12): HEAD_ROWS rows per actor, HEAD_ROW px apart; over the hero or pet the first row's middle
+// is HEAD_DY0 px above the head; under an enemy it is HEAD_GAP px below the word lane's last row (px at 768 high)
+const HEAD_ROWS = 2; const HEAD_DY0 = 18; const HEAD_ROW = 28; const HEAD_GAP = 30; const FLOG_MAX = 240;
 const SCHOOL_COL = { phys: '#f4ead6', fire: '#ff8a3a', frost: '#8fd6ff', arcane: '#c79bff', shadow: '#a07aff', nature: '#8fe07a', heal: '#7fffa0' };
 
 class Scene {
@@ -22842,6 +22869,7 @@ class Scene {
     this.props = [];
     this.particles = []; this.texts = []; this.projectiles = []; this.rings = []; this.beams = [];
     this.wrows = new Map(); // word lanes per actor (word())
+    this.hrows = new Map(); this.flog = []; // headline lanes per actor (headline()); recent floats (floatBoxes())
     this.ambient = []; this.shakeAmt = 0; this.flash = null; this.pillar = null; this.dim = 0; this.targetDim = 0;
     this.atime = 0; this.freeze = 0; // actor clock and hit-stop (s left)
     this.charges = []; this.cores = []; this.rays = []; this.fstack = new Map();
@@ -23023,6 +23051,7 @@ class Scene {
       if (last) { this.texts.push({ ...last, text, color: style.color || '#ffffff', size: (style.size || 14) * this.u, small: true, crit: false, slam: false, weight: 0, y: last.y + (style.dy || 20 * this.u) }); return; }
     }
     const now = this.time;
+    if (style.lane === 'head') { this.headline(id, an, text, style); return; }
     if (!NUM_RE.test(text)) { this.word(id, an, text, style); return; }
     const st = this.fstack.get(id);
     const n = st && now - st.t < 0.6 ? Math.min(4, st.n + 1) : 0; this.fstack.set(id, { t: now, n });
@@ -23031,9 +23060,52 @@ class Scene {
     const jitter = (Math.random() - 0.5) * 16 * this.u;
     const w = clamp(style.weight || 0, 0, 1);
     const crit = !!style.crit; const small = !!style.small;
-    this.texts.push({ id, x: an.x + jitter + side + (style.dx || 0), y: an.cy - (an.cy - an.top) * 0.15 + (style.dy || 0) - n * 6 * this.u, text, color: style.color || '#ffffff',
+    const f = { id, x: an.x + jitter + side + (style.dx || 0), y: an.cy - (an.cy - an.top) * 0.15 + (style.dy || 0) - n * 6 * this.u, text, color: style.color || '#ffffff',
       size: (style.size || 22) * this.u * (small ? 1 : 1 + 0.4 * w), t0: now, life: style.life || (crit ? 2.0 : small ? 1.3 : 1.55), crit, small,
-      weight: w, slam: !small && style.slam !== false && !settings.reduceMotion, rise: (crit ? 18 : small ? 34 : 28 - 10 * w) * this.u, outline: style.outline || 'rgba(0,0,0,0.85)' });
+      weight: w, slam: !small && style.slam !== false && !settings.reduceMotion, rise: (crit ? 18 : small ? 34 : 28 - 10 * w) * this.u, outline: style.outline || 'rgba(0,0,0,0.85)' };
+    this.texts.push(f); this.logFloat(f);
+  }
+  /**
+   * A headline over an actor (QA 2026-11-12): "Deathblow landed: empowered", "Deathblow answered: staggered", "Maimed:
+   * healing -50 %". Its own lane: HEAD_ROWS rows above the head of the hero or the pet, under the word lane of an enemy; a
+   * second headline on the same actor takes the next row. No slam (it pops from smaller), kept inside the canvas.
+   */
+  headline(id, an, text, style) {
+    const u = this.u; const now = this.time;
+    const rows = this.hrows.get(id) || Array.from({ length: HEAD_ROWS }, () => 0);
+    this.hrows.set(id, rows);
+    let r = rows.findIndex((t) => t <= now);
+    if (r < 0) r = rows.indexOf(Math.min(...rows));
+    const life = style.life || 2.2;
+    const above = !String(id).startsWith('enemy:');
+    const numY = an.cy - (an.cy - an.top) * 0.15;
+    const y = above ? an.top - (HEAD_DY0 + r * HEAD_ROW) * u : numY + (WORD_DY0 + (WORD_ROWS - 1) * WORD_ROW + HEAD_GAP + r * HEAD_ROW) * u;
+    const f = { id, x: an.x + (style.dx || 0), y, text, color: style.color || '#ffffff', size: (style.size || 22) * u, t0: now, life, crit: true, small: false,
+      word: true, head: true, weight: 0, slam: false, rise: (above ? 6 : 0) * u, outline: style.outline || 'rgba(0,0,0,0.85)' };
+    const half = this.textWidth(f) / 2 + 8 * u;
+    f.x = clamp(f.x, half, Math.max(half, this.W - half));
+    rows[r] = now + life * 0.85;
+    this.texts.push(f); this.logFloat(f);
+  }
+  /** The width of a float's text at rest (its font as drawn). */
+  textWidth(f) {
+    const c = this.ctx; c.save(); c.font = `${f.small ? 700 : 800} ${f.size}px ${FCT_FONT}`;
+    const w = c.measureText(f.text).width; c.restore();
+    return w + Math.max(2, f.size * (f.crit ? 0.2 : 0.16));
+  }
+  logFloat(f) { this.flog.push(f); if (this.flog.length > FLOG_MAX) this.flog.splice(0, this.flog.length - FLOG_MAX); }
+  /**
+   * The recent floats with their boxes at rest, for the browser checks (QA 2026-11-12): { id, text, x, y (top and bottom of
+   * the path it rises along), w, t0, t1 (the end of its opaque time, or when the next word took its row), lane ('num',
+   * 'word', 'head') }, and the scene clock.
+   */
+  floatBoxes() {
+    const out = this.flog.map((f) => {
+      const w = this.textWidth(f); const h = f.size;
+      const t1 = Math.min(f.t0 + f.life * 0.72, f.cut != null ? f.cut : Infinity);
+      return { id: f.id, text: f.text, x0: f.x - w / 2, x1: f.x + w / 2, y0: f.y - f.rise - h / 2, y1: f.y + h / 2, t0: f.t0, t1, lane: f.head ? 'head' : f.word ? 'word' : 'num' };
+    });
+    return { now: this.time, floats: out };
   }
   /**
    * A word over an actor (Interrupted!, Off-balance!, Staggered!, Dodge, a status...; UX pass 2026-11-11): words have
@@ -23056,7 +23128,7 @@ class Scene {
       size: Math.min(style.size || 20, WORD_MAX) * u, t0: start, life: style.life || (crit ? 1.9 : 1.5), crit, small: !crit, word: true,
       weight: 0, slam: crit && !settings.reduceMotion, rise: WORD_RISE * u, outline: style.outline || 'rgba(0,0,0,0.85)' };
     rows[r] = { free: start + WORD_HOLD, f };
-    this.texts.push(f);
+    this.texts.push(f); this.logFloat(f);
   }
   floatAt(x, y, text, style = {}) {
     this.texts.push({ x, y, text, color: style.color || '#fff', size: (style.size || 22) * this.u, t0: this.time, life: style.life || 1.4, crit: !!style.crit, weight: 0, slam: false, rise: 40 * this.u, outline: 'rgba(0,0,0,0.85)' });
@@ -23171,7 +23243,7 @@ class Scene {
     for (const a of this.actors.values()) { a.act = null; a.kb = null; if (a.deadT0) a.dead = 1; }
   }
   /** Drop floating text, rings, beams and sparks left from a fight (e.g. behind the run summary). */
-  clearFx() { this.finishAll(); this.texts = []; this.wrows.clear(); this.rings = []; this.beams = []; this.particles = []; this.cores = []; this.rays = []; this.pillar = null; }
+  clearFx() { this.finishAll(); this.texts = []; this.wrows.clear(); this.hrows.clear(); this.flog = []; this.rings = []; this.beams = []; this.particles = []; this.cores = []; this.rays = []; this.pillar = null; }
 
   seedAmbient() {
     const kind = (THEMES[this.theme] || {}).particles;
@@ -23709,7 +23781,7 @@ function banner(ctx, x, y, u, t, col) {
 
 });
 __bundle.def("src/ui/tracks.js", function* (__ns, __link) {
-let h, add, clear, fmtNum; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }]]); let abilityIcon, roleIcon, engageIcon, controlIcon, statusIcon, spellIcon, windupIcon, deathblowIcon; __link.imp("src/ui/art-icons.js", [["abilityIcon", (v) => { abilityIcon = v; }], ["roleIcon", (v) => { roleIcon = v; }], ["engageIcon", (v) => { engageIcon = v; }], ["controlIcon", (v) => { controlIcon = v; }], ["statusIcon", (v) => { statusIcon = v; }], ["spellIcon", (v) => { spellIcon = v; }], ["windupIcon", (v) => { windupIcon = v; }], ["deathblowIcon", (v) => { deathblowIcon = v; }]]); let tip, spellTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["spellTip", (v) => { spellTip = v; }]]); let ROLE_INFO, CONTROL_WORD, ENGAGE_KIND, engageText, engageHint, numWord, plural, windupAnswers, windupStakes, deathblowStakes, sapWaitText; __link.imp("src/ui/ui-text.js", [["ROLE_INFO", (v) => { ROLE_INFO = v; }], ["CONTROL_WORD", (v) => { CONTROL_WORD = v; }], ["ENGAGE_KIND", (v) => { ENGAGE_KIND = v; }], ["engageText", (v) => { engageText = v; }], ["engageHint", (v) => { engageHint = v; }], ["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["windupAnswers", (v) => { windupAnswers = v; }], ["windupStakes", (v) => { windupStakes = v; }], ["deathblowStakes", (v) => { deathblowStakes = v; }], ["sapWaitText", (v) => { sapWaitText = v; }]]); __link.exp({ "OPENING_ROUNDS": () => OPENING_ROUNDS, "targetWord": () => targetWord, "windupState": () => windupState, "firstWindup": () => firstWindup, "windupItem": () => windupItem, "answerKey": () => answerKey, "answerName": () => answerName, "answersToShow": () => answersToShow, "answerKind": () => answerKind, "answersOnBar": () => answersOnBar, "windupLines": () => windupLines, "windupBanner": () => windupBanner, "stackBadges": () => stackBadges, "stackTip": () => stackTip, "entriesOf": () => entriesOf, "trackChips": () => trackChips, "trackRows": () => trackRows, "entryTip": () => entryTip, "roleBadge": () => roleBadge, "roleTags": () => roleTags, "roleTip": () => roleTip, "offBalanceText": () => offBalanceText, "offBalanceTip": () => offBalanceTip, "createRuler": () => createRuler, "HINT_KEY": () => HINT_KEY, "createEngagePanel": () => createEngagePanel });
+let h, add, clear, fmtNum; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }]]); let abilityIcon, roleIcon, engageIcon, controlIcon, statusIcon, spellIcon, windupIcon, deathblowIcon; __link.imp("src/ui/art-icons.js", [["abilityIcon", (v) => { abilityIcon = v; }], ["roleIcon", (v) => { roleIcon = v; }], ["engageIcon", (v) => { engageIcon = v; }], ["controlIcon", (v) => { controlIcon = v; }], ["statusIcon", (v) => { statusIcon = v; }], ["spellIcon", (v) => { spellIcon = v; }], ["windupIcon", (v) => { windupIcon = v; }], ["deathblowIcon", (v) => { deathblowIcon = v; }]]); let tip, spellTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["spellTip", (v) => { spellTip = v; }]]); let ROLE_INFO, CONTROL_WORD, ENGAGE_KIND, engageText, engageHint, numWord, plural, windupAnswers, windupStakes, deathblowStakes, sapWaitText; __link.imp("src/ui/ui-text.js", [["ROLE_INFO", (v) => { ROLE_INFO = v; }], ["CONTROL_WORD", (v) => { CONTROL_WORD = v; }], ["ENGAGE_KIND", (v) => { ENGAGE_KIND = v; }], ["engageText", (v) => { engageText = v; }], ["engageHint", (v) => { engageHint = v; }], ["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["windupAnswers", (v) => { windupAnswers = v; }], ["windupStakes", (v) => { windupStakes = v; }], ["deathblowStakes", (v) => { deathblowStakes = v; }], ["sapWaitText", (v) => { sapWaitText = v; }]]); __link.exp({ "OPENING_ROUNDS": () => OPENING_ROUNDS, "targetWord": () => targetWord, "windupState": () => windupState, "firstWindup": () => firstWindup, "softPending": () => softPending, "SOFT_TAG": () => SOFT_TAG, "SOFT_WORDS": () => SOFT_WORDS, "SAP_BREAK_WARN": () => SAP_BREAK_WARN, "isLethal": () => isLethal, "maimsText": () => maimsText, "windupItem": () => windupItem, "answerKey": () => answerKey, "answerName": () => answerName, "answersToShow": () => answersToShow, "answerKind": () => answerKind, "answersOnBar": () => answersOnBar, "windupLines": () => windupLines, "windupBanner": () => windupBanner, "stackBadges": () => stackBadges, "stackTip": () => stackTip, "entriesOf": () => entriesOf, "trackChips": () => trackChips, "trackRows": () => trackRows, "entryTip": () => entryTip, "roleBadge": () => roleBadge, "roleTags": () => roleTags, "roleTip": () => roleTip, "offBalanceText": () => offBalanceText, "offBalanceTip": () => offBalanceTip, "createRuler": () => createRuler, "HINT_KEY": () => HINT_KEY, "createEngagePanel": () => createEngagePanel });
 yield;
 // tracks.js - the combat v2 display (docs/specs/combat-v2.md 10; engine-api.md 1, 6): each enemy's intent track on its
 // nameplate (chips, the next action largest) and in the target frame (rows), role badges with their pack role, the
@@ -23727,6 +23799,11 @@ yield;
 // red when windupView says ready is false; EMPOWERED from a Deathblow is its own "+100 %" badge; a first meeting's
 // enemy is tagged "New". M2b v14 ("UI needs" 2): Sap on a lone enemy reads "Sure if you wait: press Pass next round; you
 // stay hidden" (answer `wait`, `stealth`) on its card and in the tooltip, and the PASS answer is named with its key X.
+// QA 2026-11-12 (playtest findings 2, 3, 8): a soft cancel (Sap, Hex: any damage breaks it) that has not cancelled yet reads
+// "If you wait" (every enemy sapped: windupView's PASS answer) or "If not hit" on the chip, the row and the ruler, not
+// ANSWERED, and the line over the enemy warns "Attacking breaks Sap: the Deathblow will land"; a damaging entry whose
+// estimate is at least your health is marked LETHAL (line, row, chip, engage alert); a Deathblow aimed at your pet says
+// what the engine does: it lands (MAIMED) if it hits your pet, Send the Pet makes the pet take it on purpose (answered).
 // The first-fight hint (owner playtest 2026-11-11 08:03): beside the engage panel in the first engage round of each class,
 // the three openers on keys Q, W, E; dismissed for good with "Got it" or the end of that round (localStorage HINT_KEY).
 // Presentation only: every entry, target, estimate, option, preview and window comes from the engine through the bridge
@@ -23809,6 +23886,38 @@ function firstWindup(e, ctx) {
 }
 /** When a wind-up plays, in words: "now" or "R3". */
 const whenText = (x) => (x.now ? 'now' : x.round != null ? `R${x.round}` : '');
+/**
+ * QA 2026-11-12 (finding 2): a wind-up answered by a soft cancel (Sap, Hex: any damage breaks it) that has not cancelled
+ * it yet: 'wait' when waiting is the answer (windupView's PASS answer: every living enemy is sapped), 'nohit' otherwise
+ * (it holds while that enemy takes no damage); null when the state is not such an answer.
+ */
+function softPending(v, e, x, st) {
+  if (!st || st.kind !== 'answered' || !st.soft || x.now) return null;
+  const w = windupItem(v, e, x);
+  return w && w.answers.some((a) => a.via === 'pass') ? 'wait' : 'nohit';
+}
+/** The wind-ups that waiting answers now (windupView's PASS answers), as a key for the redraw checks. */
+const waitKey = (v) => ((v && v.combat && v.combat.windups) || []).filter((w) => w.answers.some((a) => a.via === 'pass')).map((w) => `${w.u}:${w.turn}`).join(',');
+/** The short label of a pending soft answer: "If you wait" / "If not hit" (the chip, the row's flag, the ruler). */
+const SOFT_TAG = { wait: 'If you wait', nohit: 'If not hit' };
+/** Its words: "answered if you wait" / "answered if not hit". */
+const SOFT_WORDS = { wait: 'answered if you wait', nohit: 'answered if not hit' };
+/** The warning while waiting answers a Deathblow (QA 2026-11-12): attacking breaks Sap and the Deathblow lands. */
+const SAP_BREAK_WARN = 'Attacking breaks Sap: the Deathblow will land';
+/**
+ * QA 2026-11-12 (finding 3): an entry that deals damage to you (target you, or you and your pet) whose estimate (est, the
+ * windupView's for a Deathblow) is at least your current health: LETHAL.
+ */
+function isLethal(v, x, est = x.est) {
+  const hp = v && v.player ? v.player.hp : 0;
+  return !!(hp > 0 && est && est >= hp && isDamage(x) && (x.target === 'player' || x.target === 'both'));
+}
+/** A hard cancel (not soft, not a preview) stops the entry: it cannot be lethal. */
+const hardCancel = (c) => !!(c && !c.breaks && !c.preview);
+/** "MAIMS if it lands"; a Deathblow aimed at your pet lands when it hits your pet, and still maims you (rules 7.12, 7.13 (3)). */
+const maimsText = (target) => (target === 'pet' ? 'MAIMS you if it hits your pet' : 'MAIMS if it lands');
+/** The LETHAL badge (a skull and the word). */
+const lethalBadge = (tag = 'span.db-lethal') => h(tag, { title: 'Its estimate is at least your health: it kills you if it lands' }, h('img', { src: deathblowIcon(), alt: '' }), 'LETHAL');
 
 // ------------------------------------------------------------------ M2b v13: Deathblows (rules 7.12; engine-api.md 6.2)
 /** The engine's windupView item (estimate, stakes, answers, ready) of wind-up x of enemy e, or null (view.combat.windups). */
@@ -23922,7 +24031,11 @@ function windupLines(e, x, ctx, st) {
     const word = (b) => `${b.name}${b.kind === 'avoid' ? ' (avoid)' : ''}${b.cd ? ` (${b.late ? `cooldown ${b.cd}: not ready by then` : `ready in ${b.cd}`})` : ''}`;
     lines.push(h('div.tt-line', { style: { color: '#ffd36a' } }, `On your bar: ${bar.map(word).join(', ')}.`));
   } else if (!x.now) lines.push(h('div.tt-sub', 'Nothing on your bar answers it: plan your engage round, or kill it first.'));
-  if (st && st.kind === 'answered') lines.push(h('div.tt-hint.ans', st.by === 'SILENCED' ? 'Silenced: it cannot cast it. Answered: staggered.' : `${answeredBy(st)[0].toUpperCase()}${answeredBy(st).slice(1)}: answered${st.soft ? ' while it takes no damage' : ''}; it will be staggered.`));
+  if (x.deathblow && x.target === 'pet' && isDamage(x)) lines.push(h('div.tt-warn', 'Aimed at your pet: if it hits your pet it lands all the same (empowered, and you are maimed). Send the Pet makes your pet take it on purpose: answered.'));
+  if (isLethal(v, x, w ? w.est : x.est) && !(st && st.kind === 'answered' && !st.soft)) lines.push(h('div.tt-warn.lethal', `LETHAL: about ${fmtNum(w ? w.est : x.est)} against your ${fmtNum(v.player.hp)} health.`));
+  const soft = softPending(v, e, x, st);
+  if (soft === 'wait') lines.push(h('div.tt-hint.ans', `${cap(answeredBy(st))}: ${SOFT_WORDS.wait} (press Pass); it will be staggered. ${SAP_BREAK_WARN}.`));
+  else if (st && st.kind === 'answered') lines.push(h('div.tt-hint.ans', st.by === 'SILENCED' ? 'Silenced: it cannot cast it. Answered: staggered.' : `${answeredBy(st)[0].toUpperCase()}${answeredBy(st).slice(1)}: answered${st.soft ? ' while it takes no damage' : ''}; it will be staggered.`));
   if (st && st.kind === 'preview') lines.push(h('div.tt-hint.ans', st.by === 'PET' ? 'With this opening your pet takes it: answered while the pet lives.' : 'With this opening it is answered: staggered.'));
   if (st && st.kind === 'void') lines.push(h('div.tt-sub', `Replaced (${st.why}): neither answered nor landed.`));
   return lines;
@@ -23944,6 +24057,7 @@ function windupBanner(box, e, ctx) {
   const w = e.alive ? firstWindup(e, ctx) : null;
   const wi = w && w.x.deathblow ? windupItem(ctx.view, e, w.x) : null;
   const key = w ? JSON.stringify([e.idx, w.x.turn, w.x.round, w.x.now, w.state, w.x.name, !!(w.cancel && w.cancel.done), w.cancel && w.cancel.by, w.x.deathblow, wi && [wi.est, wi.ready, wi.maims, wi.answers.map((a) => [a.id, a.now, a.sure])],
+    w.x.target, w.x.est, isLethal(ctx.view, w.x, wi ? wi.est : w.x.est),
     wi && ctx.view.combat.engage ? ctx.view.combat.engage.options.map((o) => o.key) : null]) : '';
   if (box.dataset.key === key) return;
   box.dataset.key = key; clear(box);
@@ -23964,9 +24078,13 @@ function windupBanner(box, e, ctx) {
     const est = wi ? wi.est : x.est;
     box.classList.add('db'); box.dataset.deathblow = '1'; box.dataset.est = est || 0;
     box.append(h('span.wu-b', h('img', { src: deathblowIcon(), alt: '' }), stopped ? 'Deathblow stopped' : `Deathblow ${whenText(x)}`));
+    const lethal = isLethal(ctx.view, x, est) && (state.kind === 'open' || !!softPending(ctx.view, e, x, state));
+    box.dataset.lethal = lethal ? '1' : '';
     if (state.kind === 'open') {
       if (est && isDamage(x)) box.append(h('span.db-est', `≈ ${fmtNum(est)}`));
-      if (!wi || wi.maims) box.append(h('span.db-m', 'MAIMS if it lands'));
+      if (lethal) box.append(lethalBadge());
+      if (x.target === 'pet' && isDamage(x)) box.append(h('span.db-pet', '▸ your pet'));
+      if (!wi || wi.maims) box.append(h('span.db-m', maimsText(x.target)));
       else box.append(h('span.db-m', `+${Math.round((wi.empower || 0) * 100)} % if it lands`));
       if (wi) {
         box.dataset.ready = wi.ready ? '1' : '';
@@ -23977,10 +24095,17 @@ function windupBanner(box, e, ctx) {
     } else {
       // M2b v14 (UI need 2): Sap holds while every enemy is sapped: waiting answers it (windupView's PASS answer, key X)
       const pass = !stopped && wi ? wi.answers.filter((a) => a.via === 'pass' && a.now) : [];
-      if (pass.length) box.append(h('span.wu-t', `${answeredBy(state)}: answered if you wait`), h('span.db-a.now', h('span.db-al', ' Wait: '), answerEls(pass.map((a) => ({ a, key: answerKey(ctx.view, a), name: answerName(a, ctx) })))));
-      else box.append(h('span.wu-t', msg));
+      if (pass.length) {
+        box.append(h('span.wu-t', `${answeredBy(state)}: answered if you wait`), h('span.db-a.now', h('span.db-al', ' Wait: '), answerEls(pass.map((a) => ({ a, key: answerKey(ctx.view, a), name: answerName(a, ctx) })))));
+        // QA 2026-11-12 (finding 2): until Sap cancels it, attacking breaks Sap and the Deathblow lands
+        box.append(h('span.db-warn', lethal ? lethalBadge('b.db-lethal') : null, `${SAP_BREAK_WARN}${lethal ? ' and kill you' : ''}`));
+      } else box.append(h('span.wu-t', msg));
     }
-  } else box.append(h('span.wu-b', h('img', { src: windupIcon(), alt: '' }), stopped ? 'Wind-up stopped' : `Wind-up ${whenText(x)}`), h('span.wu-t', msg));
+  } else {
+    const lethal = state.kind === 'open' && isLethal(ctx.view, x);
+    box.dataset.lethal = lethal ? '1' : '';
+    box.append(h('span.wu-b', h('img', { src: windupIcon(), alt: '' }), stopped ? 'Wind-up stopped' : `Wind-up ${whenText(x)}`), lethal ? lethalBadge() : null, h('span.wu-t', msg));
+  }
   tip(box, () => h('div.tt-spell', h('div.tt-row', h('div.tt-name', `${e.name}: ${x.windupOf ? x.windupOf.name : x.name}`), h('div.tt-rank', x.now ? 'This round' : `Round ${x.round}`)), windupLines(e, x, ctx, state)));
   windupHover(box, e, x, ctx);
 }
@@ -24058,7 +24183,7 @@ function amountText(x) {
 function trackChips(box, e, ctx, opts = {}) {
   const v = ctx.view; const list = entriesOf(e);
   const pv = ctx.ui.preview && ctx.ui.preview.data;
-  const key = `${JSON.stringify(list.map((x) => [x.turn, x.id, x.est, x.target, x.allyIdx, x.cancel && x.cancel.by, x.cancel && x.cancel.stagger, x.replaced && x.replaced.reason, x.now, x.windup, x.deathblow]))}|${pv ? JSON.stringify(pv.enemies.find((q) => q.u === e.idx) || null) : ''}|${opts.allSmall ? 1 : 0}|${e.intent && e.intent.interrupted ? 'I' : ''}`;
+  const key = `${JSON.stringify(list.map((x) => [x.turn, x.id, x.est, x.target, x.allyIdx, x.cancel && x.cancel.by, x.cancel && x.cancel.stagger, x.replaced && x.replaced.reason, x.now, x.windup, x.deathblow]))}|${pv ? JSON.stringify(pv.enemies.find((q) => q.u === e.idx) || null) : ''}|${opts.allSmall ? 1 : 0}|${e.intent && e.intent.interrupted ? 'I' : ''}|${v.player ? v.player.hp : ''}|${waitKey(v)}`;
   if (box.dataset.key === key) return;
   box.dataset.key = key; clear(box);
   list.forEach((x, i) => {
@@ -24070,12 +24195,15 @@ function trackChips(box, e, ctx, opts = {}) {
     const tgt = petHit ? 'pet' : x.target;
     // combat v2.1: a wind-up's ribbon says WIND-UP, ANSWERED (a cancel answers it) or ANSWERS IT (the opening previewed)
     const wu = windupState(e, x, cancel, p);
-    const wuRib = wu && wu.kind === 'open' ? (x.deathblow ? 'DEATHBLOW' : 'WIND-UP') : wu && wu.kind === 'answered' ? 'ANSWERED' : wu && wu.kind === 'preview' ? 'ANSWERS IT' : null;
+    // QA 2026-11-12: a soft answer not yet made says so ("IF YOU WAIT" / "IF NOT HIT"), not ANSWERED
+    const soft = softPending(v, e, x, wu);
+    const wuRib = wu && wu.kind === 'open' ? (x.deathblow ? 'DEATHBLOW' : 'WIND-UP') : soft ? SOFT_TAG[soft].toUpperCase() : wu && wu.kind === 'answered' ? 'ANSWERED' : wu && wu.kind === 'preview' ? 'ANSWERS IT' : null;
+    const lethal = !hardCancel(cancel) && !(wu && wu.kind === 'answered' && !soft) && isLethal(v, x, x.deathblow ? (windupItem(v, e, x) || x).est : x.est);
     const cls = ['tk', big ? 'big' : 'sm', x.now ? 'now' : '', x.heavy ? 'heavy' : '', x.cast ? 'cast' : '', x.signature && !x.windup ? 'sig' : '', cancel ? 'cancel' : '',
       cancel && (cancel.breaks || cancel.preview) ? 'soft' : '', ob ? 'ob' : '', p ? 'pv' : '', p && p.window ? 'pvwin' : '', isHeal(x) || x.support ? 'sup' : '',
-      wu && wu.kind !== 'void' ? 'wu' : '', wu ? `wu-${wu.kind}` : '', x.deathblow && wu && wu.kind !== 'void' ? 'db' : '', x.firstMeet && wu ? 'fm' : ''].filter(Boolean);
+      wu && wu.kind !== 'void' ? 'wu' : '', wu ? `wu-${wu.kind}` : '', x.deathblow && wu && wu.kind !== 'void' ? 'db' : '', x.firstMeet && wu ? 'fm' : '', lethal ? 'lethal' : ''].filter(Boolean);
     const amt = amountText(x);
-    const el = h(`div.${cls.join('.')}`, { dataset: { turn: x.turn, round: x.round ?? '', id: x.id, est: x.est || 0, windup: wu ? wu.kind : '', deathblow: x.deathblow ? '1' : '' } },
+    const el = h(`div.${cls.join('.')}`, { dataset: { turn: x.turn, round: x.round ?? '', id: x.id, est: x.est || 0, windup: wu ? wu.kind : '', deathblow: x.deathblow ? '1' : '', soft: soft || '', lethal: lethal ? '1' : '' } },
       x.round != null ? h('span.r', String(x.round)) : null,
       h('img', { src: abilityIcon(x), alt: '' }),
       big ? h('span.tx', h('span.tn', x.name), h('span.tv', amt ? h('b', amt) : null, tgt && tgt !== 'self' && (amt || tgt !== 'player') ? h('i', `▸ ${TGT_SHORT[tgt] || tgt}`) : null))
@@ -24083,7 +24211,7 @@ function trackChips(box, e, ctx, opts = {}) {
       x.signature && !x.windup ? h('i.b-sig', '★') : null,
       x.replaced && !cancel ? h('i.b-rep', '↺') : null,
       cancel ? h('img.b-ctl', { src: cancel.by === 'PREVIEW' ? statusIcon('STUN') : controlIcon(cancel.by), alt: '' }) : null,
-      wuRib ? h(`i.b-wu${wu.kind !== 'open' ? '.ans' : ''}${x.deathblow ? '.db' : ''}`, wuRib) : null,
+      wuRib ? h(`i.b-wu${wu.kind !== 'open' ? '.ans' : ''}${soft ? '.soft' : ''}${x.deathblow ? '.db' : ''}`, soft ? { title: cap(SOFT_WORDS[soft]) } : {}, wuRib) : null,
       ob && !wuRib ? h('i.b-ob', 'OFF-BAL') : null,
       p && p.window && !ob && !wuRib ? h('i.b-ob.frost', 'WINDOW') : null);
     tip(el, () => entryTip(e, x, ctx, { cancel, ob, petHit, preview: p, wu }));
@@ -24100,7 +24228,7 @@ function trackRows(box, e, ctx) {
   const v = ctx.view; const list = entriesOf(e);
   const pv = ctx.ui.preview && ctx.ui.preview.data;
   const unaware = e.intent && e.intent.id === 'unaware';
-  const key = `${JSON.stringify(list.map((x) => [x.turn, x.id, x.est, x.target, x.allyIdx, x.cancel && x.cancel.by, x.cancel && x.cancel.stagger, x.replaced && x.replaced.reason, x.now, x.windup, x.deathblow]))}|${unaware}|${e.intent && e.intent.interrupted ? 'I' : ''}|${pv ? JSON.stringify(pv.enemies.find((q) => q.u === e.idx) || null) : ''}|${(e.role && JSON.stringify(e.role)) || ''}`;
+  const key = `${JSON.stringify(list.map((x) => [x.turn, x.id, x.est, x.target, x.allyIdx, x.cancel && x.cancel.by, x.cancel && x.cancel.stagger, x.replaced && x.replaced.reason, x.now, x.windup, x.deathblow]))}|${unaware}|${e.intent && e.intent.interrupted ? 'I' : ''}|${pv ? JSON.stringify(pv.enemies.find((q) => q.u === e.idx) || null) : ''}|${(e.role && JSON.stringify(e.role)) || ''}|${v.player ? v.player.hp : ''}|${waitKey(v)}`;
   if (box.dataset.key === key) return;
   box.dataset.key = key; clear(box);
   if (!list.length && !unaware) { box.classList.add('hidden'); return; }
@@ -24113,22 +24241,26 @@ function trackRows(box, e, ctx) {
     const petHit = !!(p && p.pet);
     const tgt = petHit ? 'pet' : x.target;
     const wu = windupState(e, x, cancel, p);
+    const soft = softPending(v, e, x, wu); // QA 2026-11-12: "If you wait" until Sap cancels it
+    const lethal = !hardCancel(cancel) && !(wu && wu.kind === 'answered' && !soft) && isLethal(v, x, x.deathblow ? (windupItem(v, e, x) || x).est : x.est);
     // combat v2.1: a wind-up shows one flag (it is always a cast; "heavy" goes to the line below), so its name keeps its room
-    const flags = wu ? [h(`span.flag.wu${wu.kind !== 'open' ? '.ans' : ''}${x.deathblow && wu.kind === 'open' ? '.db' : ''}`, wu.kind === 'open' ? (x.deathblow ? 'Deathblow' : 'Wind-up') : wu.kind === 'void' ? 'Wind-up ↺' : 'Answered')]
+    const flags = wu ? [h(`span.flag.wu${wu.kind !== 'open' ? '.ans' : ''}${soft ? '.soft' : ''}${x.deathblow && wu.kind === 'open' ? '.db' : ''}`, soft ? { title: cap(SOFT_WORDS[soft]) } : {}, wu.kind === 'open' ? (x.deathblow ? 'Deathblow' : 'Wind-up') : wu.kind === 'void' ? 'Wind-up ↺' : soft ? SOFT_TAG[soft] : 'Answered')]
       : [x.heavy ? h('span.flag.heavy', 'Heavy') : null, x.cast ? h('span.flag.cast', 'Cast') : null, x.signature ? h('span.flag.sig', '★ Signature') : null];
+    if (lethal) flags.push(h('span.flag.lethal', 'Lethal'));
     let sub = '';
-    if (cancel) sub = `${cap(CONTROL_WORD[cancel.by] || 'controlled')}${cancel.offBalance || (wu && wu.kind !== 'open') ? '' : ': skipped'}`;
+    if (cancel && soft) sub = `${cap(CONTROL_WORD[cancel.by] || 'controlled')}: ${SOFT_WORDS[soft]}`;
+    else if (cancel) sub = `${cap(CONTROL_WORD[cancel.by] || 'controlled')}${cancel.offBalance || (wu && wu.kind !== 'open') ? '' : ': skipped'}`;
     else if (x.replaced) sub = `${x.replaced.from} → ${x.name}: ${x.replaced.reason}`;
     else if (petHit) sub = 'Your pet takes it (Send the Pet)';
     else { const w = targetWord({ ...x, target: tgt }, v); sub = isDamage(x) ? `Hits ${w}` : w && w !== 'itself' && x.kind !== 'curse' ? `On ${w}` : supportWord(x); }
     if (wu && x.heavy && !cancel && !x.replaced) sub = `Heavy · ${sub ? sub[0].toLowerCase() + sub.slice(1) : ''}`;
     const amt = amountText(x);
-    const row = h(`div.tr${x.now ? '.now' : ''}${x.heavy ? '.heavy' : ''}${x.cast ? '.cast' : ''}${cancel ? '.cancel' : ''}${cancel && (cancel.breaks || cancel.preview) ? '.soft' : ''}${ob ? '.ob' : ''}${p ? '.pv' : ''}${wu ? `${wu.kind !== 'void' ? '.wu' : ''}.wu-${wu.kind}` : ''}${x.deathblow && wu && wu.kind !== 'void' ? '.db' : ''}`,
-      { dataset: { turn: x.turn, round: x.round ?? '', id: x.id, windup: wu ? wu.kind : '', deathblow: x.deathblow ? '1' : '' } },
+    const row = h(`div.tr${x.now ? '.now' : ''}${x.heavy ? '.heavy' : ''}${x.cast ? '.cast' : ''}${cancel ? '.cancel' : ''}${cancel && (cancel.breaks || cancel.preview) ? '.soft' : ''}${ob ? '.ob' : ''}${p ? '.pv' : ''}${wu ? `${wu.kind !== 'void' ? '.wu' : ''}.wu-${wu.kind}` : ''}${x.deathblow && wu && wu.kind !== 'void' ? '.db' : ''}${lethal ? '.lethal' : ''}`,
+      { dataset: { turn: x.turn, round: x.round ?? '', id: x.id, windup: wu ? wu.kind : '', deathblow: x.deathblow ? '1' : '', soft: soft || '', lethal: lethal ? '1' : '' } },
       h('span.rt', x.now ? 'Now' : x.round != null ? `R${x.round}` : ''),
       h('img', { src: abilityIcon(x), alt: '' }),
       h('div.tm', h('div.tn', h('span.nm', x.name), flags), h('div.ts', sub,
-        wu && (wu.kind === 'answered' || wu.kind === 'preview') ? h('b.wut', ' → staggered') : wu && wu.kind === 'open' && !x.replaced ? h(`b.wuo${x.deathblow ? '.db' : ''}`, x.deathblow ? ' · MAIMS if it lands' : ' · answer it') : null,
+        wu && (wu.kind === 'answered' || wu.kind === 'preview') ? h('b.wut', ' → staggered') : wu && wu.kind === 'open' && !x.replaced ? h(`b.wuo${x.deathblow ? '.db' : ''}`, x.deathblow ? ` · ${rowStake(v, e, x)}` : ' · answer it') : null,
         ob ? h('b.obt', ' → off-balance') : null, p && p.window && !ob ? h('b.obt.frost', ' → frozen window') : null)),
       amt ? h(`div.td${isHeal(x) ? '.heal' : ''}`, amt) : null);
     tip(row, () => entryTip(e, x, ctx, { cancel, ob, petHit, preview: p, wu }));
@@ -24136,6 +24268,8 @@ function trackRows(box, e, ctx) {
     box.appendChild(row);
   }
 }
+/** A Deathblow row's stakes, as the line over the enemy: "MAIMS if it lands", or "+100 % if it lands" once you are MAIMED. */
+const rowStake = (v, e, x) => { const w = windupItem(v, e, x); return !w || w.maims ? maimsText(x.target) : `+${Math.round((w.empower || 0) * 100)} % if it lands`; };
 const supportWord = (x) => ({ brace: 'Braces itself', selfShield: 'Shields itself', selfHeal: 'Heals itself', heal: 'Mends itself', bolster: 'Shields itself', signal: 'Calls a reinforcement', summon: 'Calls for help', curse: 'Curses you' }[x.kind] || '');
 
 /** Tooltip of a track entry: what, when, to whom, how hard, its marks, and what control or a preview does to it. */
@@ -24261,11 +24395,11 @@ function createRuler(root, ctx) {
         if (!cancelled && isDamage(x) && (x.target === 'player' || x.target === 'both') && !(p && p.pet)) col.dmg += x.est || 0;
         // combat v2.1: a wind-up is marked on its round, answered when a cancel (or the previewed opening) answers it
         const wu = windupState(e, x, cancelOf(e, x, p, ctx), p);
-        if (notable(x)) col.threats.push({ e, x, cancelled, ob: !!((x.cancel && x.cancel.offBalance) || (p && p.ob)), wu: wu ? wu.kind : null, wuState: wu, db: !!x.deathblow });
+        if (notable(x)) col.threats.push({ e, x, cancelled, ob: !!((x.cancel && x.cancel.offBalance) || (p && p.ob)), wu: wu ? wu.kind : null, wuState: wu, db: !!x.deathblow, soft: softPending(v, e, x, wu) });
       }
     }
     for (const k of cols) k.threats.sort((a, b) => (b.db ? 2 : b.wu ? 1 : 0) - (a.db ? 2 : a.wu ? 1 : 0)); // Deathblows, then wind-ups first: they are what the opening is about
-    const key = JSON.stringify([c.round, cols.map((k) => [k.known, k.dmg, k.threats.map((t) => [t.e.idx, t.x.turn, t.x.id, t.cancelled, t.ob, t.wu, t.db])])]);
+    const key = JSON.stringify([c.round, cols.map((k) => [k.known, k.dmg, k.threats.map((t) => [t.e.idx, t.x.turn, t.x.id, t.cancelled, t.ob, t.wu, t.db, t.soft])])]);
     if (key === lastKey) return;
     lastKey = key; clear(el);
     el.appendChild(h('div.rl-h', h('span.rl-t', 'Opening'), h('span.rl-s', c.round === 1 ? 'Plan your first moves' : `Round ${c.round} of ${OPENING_ROUNDS}`)));
@@ -24275,8 +24409,10 @@ function createRuler(root, ctx) {
       const engage = k.r === 1;
       const wuOpen = k.threats.some((t) => t.wu === 'open'); const wuAns = !wuOpen && k.threats.some((t) => t.wu === 'answered' || t.wu === 'preview');
       const dbOpen = k.threats.some((t) => t.wu === 'open' && t.db);
+      // QA 2026-11-12: a soft answer not yet made reads "If you wait" / "If not hit" (any hard answer in that round: Answered)
+      const softT = wuAns && !k.threats.some((t) => (t.wu === 'answered' && !t.soft) || t.wu === 'preview') ? (k.threats.find((t) => t.soft) || {}).soft : null;
       const head = h('div.rl-n', engage ? h('span', '1 · Engage') : h('span', `Round ${k.r}`),
-        wuOpen || wuAns ? h(`b.rl-wu${wuAns ? '.ans' : ''}${dbOpen ? '.db' : ''}`, wuAns ? 'Answered' : dbOpen ? 'Deathblow' : 'Wind-up') : state === 'cur' ? h('b.rl-now', 'Now') : null);
+        wuOpen || wuAns ? h(`b.rl-wu${wuAns ? '.ans' : ''}${softT ? '.soft' : ''}${dbOpen ? '.db' : ''}`, softT ? { title: cap(SOFT_WORDS[softT]) } : {}, softT ? SOFT_TAG[softT] : wuAns ? 'Answered' : dbOpen ? 'Deathblow' : 'Wind-up') : state === 'cur' ? h('b.rl-now', 'Now') : null);
       const body = h('div.rl-b');
       if (engage) body.appendChild(h('div.rl-q', 'They do not act'));
       else if (!k.known) body.appendChild(h('div.rl-q', '?'));
@@ -24400,7 +24536,8 @@ function createEngagePanel(root, ctx) {
       const sh = answersToShow(w, v, ctx);
       return h('div.eg-db', { dataset: { u: w.u, turn: w.turn, ready: w.ready ? '1' : '' } },
         h('img.eg-dbi', { src: deathblowIcon(), alt: '' }),
-        h('div.eg-dbm', h('div.eg-dbt', h('b', `Deathblow, round ${w.round}`), `: ${w.enemy}'s ${w.name}${w.est && DAMAGE_KINDS.has(w.kind) ? `, ≈ ${fmtNum(w.est)} to ${w.target === 'pet' ? 'your pet' : 'you'}` : ''}. `, h('b.eg-dbmaim', w.maims ? 'MAIMS if it lands.' : `+${Math.round(w.empower * 100)} % if it lands.`)),
+        h('div.eg-dbm', h('div.eg-dbt', h('b', `Deathblow, round ${w.round}`), `: ${w.enemy}'s ${w.name}${w.est && DAMAGE_KINDS.has(w.kind) ? `, ≈ ${fmtNum(w.est)} to ${w.target === 'pet' ? 'your pet' : 'you'}` : ''}. `,
+          isLethal(v, { kind: w.kind, target: w.target, est: w.est }, w.est) ? lethalBadge('b.db-lethal') : null, h('b.eg-dbmaim', w.maims ? `${maimsText(w.target)}.` : `+${Math.round(w.empower * 100)} % if it lands.`)),
           !w.ready ? h('div.eg-dba.no', 'No answer ready')
             : h('div.eg-dba', sh.when === 'now' ? 'Answer it now: ' : `Ready by round ${w.round}: `, answerEls(sh.list.slice(0, 4)))));
     });
@@ -24919,7 +25056,7 @@ function siteLines(n, v, ctx) {
 
 });
 __bundle.def("src/ui/hud.js", function* (__ns, __link) {
-let h, add, clear, fmtNum, moneyEl, clamp, rgba; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["clamp", (v) => { clamp = v; }], ["rgba", (v) => { rgba = v; }]]); let spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["basicIcon", (v) => { basicIcon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["statusIcon", (v) => { statusIcon = v; }], ["abilityIcon", (v) => { abilityIcon = v; }], ["icon", (v) => { icon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["NODE_COLORS", (v) => { NODE_COLORS = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }], ["enemyLook", (v) => { enemyLook = v; }], ["beastLook", (v) => { beastLook = v; }]]); let THEMES; __link.imp("src/ui/art-world.js", [["THEMES", (v) => { THEMES = v; }]]); let tip, spellTip, basicTip, itemTip, statusTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["spellTip", (v) => { spellTip = v; }], ["basicTip", (v) => { basicTip = v; }], ["itemTip", (v) => { itemTip = v; }], ["statusTip", (v) => { statusTip = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let linkedText, resurrectText, dangerRule, HEAT_WORDS, tolls, freeActionText; __link.imp("src/ui/ui-text.js", [["linkedText", (v) => { linkedText = v; }], ["resurrectText", (v) => { resurrectText = v; }], ["dangerRule", (v) => { dangerRule = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["tolls", (v) => { tolls = v; }], ["freeActionText", (v) => { freeActionText = v; }]]); let trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createRuler, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind, answersToShow; __link.imp("src/ui/tracks.js", [["trackChips", (v) => { trackChips = v; }], ["trackRows", (v) => { trackRows = v; }], ["roleBadge", (v) => { roleBadge = v; }], ["roleTags", (v) => { roleTags = v; }], ["offBalanceText", (v) => { offBalanceText = v; }], ["offBalanceTip", (v) => { offBalanceTip = v; }], ["createRuler", (v) => { createRuler = v; }], ["createEngagePanel", (v) => { createEngagePanel = v; }], ["windupBanner", (v) => { windupBanner = v; }], ["stackBadges", (v) => { stackBadges = v; }], ["entriesOf", (v) => { entriesOf = v; }], ["answerKind", (v) => { answerKind = v; }], ["answersToShow", (v) => { answersToShow = v; }]]); let createHeatMeter, standText, bossText, fmtTime, lineShown; __link.imp("src/ui/heat.js", [["createHeatMeter", (v) => { createHeatMeter = v; }], ["standText", (v) => { standText = v; }], ["bossText", (v) => { bossText = v; }], ["fmtTime", (v) => { fmtTime = v; }], ["lineShown", (v) => { lineShown = v; }]]); let trackerContracts; __link.imp("src/ui/prep.js", [["trackerContracts", (v) => { trackerContracts = v; }]]); __link.exp({ "conColor": () => conColor, "travelState": () => travelState, "POTION_HINT_HP": () => POTION_HINT_HP, "dotTip": () => dotTip, "heroPortrait": () => heroPortrait, "petPortrait": () => petPortrait, "createHud": () => createHud, "resurrectTip": () => resurrectTip, "dragSource": () => dragSource, "dropTarget": () => dropTarget, "NODE_COLORS": () => NODE_COLORS, "nodeIcon": () => nodeIcon });
+let h, add, clear, fmtNum, moneyEl, clamp, rgba; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["clamp", (v) => { clamp = v; }], ["rgba", (v) => { rgba = v; }]]); let spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["basicIcon", (v) => { basicIcon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["statusIcon", (v) => { statusIcon = v; }], ["abilityIcon", (v) => { abilityIcon = v; }], ["icon", (v) => { icon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["NODE_COLORS", (v) => { NODE_COLORS = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }], ["enemyLook", (v) => { enemyLook = v; }], ["beastLook", (v) => { beastLook = v; }]]); let THEMES; __link.imp("src/ui/art-world.js", [["THEMES", (v) => { THEMES = v; }]]); let tip, spellTip, basicTip, itemTip, statusTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["spellTip", (v) => { spellTip = v; }], ["basicTip", (v) => { basicTip = v; }], ["itemTip", (v) => { itemTip = v; }], ["statusTip", (v) => { statusTip = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let linkedText, resurrectText, dangerRule, HEAT_WORDS, tolls, freeActionText; __link.imp("src/ui/ui-text.js", [["linkedText", (v) => { linkedText = v; }], ["resurrectText", (v) => { resurrectText = v; }], ["dangerRule", (v) => { dangerRule = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["tolls", (v) => { tolls = v; }], ["freeActionText", (v) => { freeActionText = v; }]]); let trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createRuler, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind, answersToShow, isLethal, SAP_BREAK_WARN; __link.imp("src/ui/tracks.js", [["trackChips", (v) => { trackChips = v; }], ["trackRows", (v) => { trackRows = v; }], ["roleBadge", (v) => { roleBadge = v; }], ["roleTags", (v) => { roleTags = v; }], ["offBalanceText", (v) => { offBalanceText = v; }], ["offBalanceTip", (v) => { offBalanceTip = v; }], ["createRuler", (v) => { createRuler = v; }], ["createEngagePanel", (v) => { createEngagePanel = v; }], ["windupBanner", (v) => { windupBanner = v; }], ["stackBadges", (v) => { stackBadges = v; }], ["entriesOf", (v) => { entriesOf = v; }], ["answerKind", (v) => { answerKind = v; }], ["answersToShow", (v) => { answersToShow = v; }], ["isLethal", (v) => { isLethal = v; }], ["SAP_BREAK_WARN", (v) => { SAP_BREAK_WARN = v; }]]); let createHeatMeter, standText, bossText, fmtTime, lineShown; __link.imp("src/ui/heat.js", [["createHeatMeter", (v) => { createHeatMeter = v; }], ["standText", (v) => { standText = v; }], ["bossText", (v) => { bossText = v; }], ["fmtTime", (v) => { fmtTime = v; }], ["lineShown", (v) => { lineShown = v; }]]); let trackerContracts; __link.imp("src/ui/prep.js", [["trackerContracts", (v) => { trackerContracts = v; }]]); __link.exp({ "conColor": () => conColor, "travelState": () => travelState, "POTION_HINT_HP": () => POTION_HINT_HP, "dotTip": () => dotTip, "heroPortrait": () => heroPortrait, "petPortrait": () => petPortrait, "createHud": () => createHud, "resurrectTip": () => resurrectTip, "dragSource": () => dragSource, "dropTarget": () => dropTarget, "NODE_COLORS": () => NODE_COLORS, "nodeIcon": () => nodeIcon });
 yield;
 // Persistent classic-MMO HUD: unit frames, enemy nameplates with intents, action bar, XP bar,
 // minimap, micro menu, objective tracker, combat log and the raid-boss frame. It renders the view
@@ -25493,12 +25630,25 @@ function createHud(root, ctx) {
     // M2b v13: the bar spells that answer an open Deathblow (R.windupView answers via 'spell'): now, or ready by its round
     const dbSp = {};
     if (fight) for (const w of (c.windups || []).filter((q) => q.deathblow && !(q.cancel && q.cancel.stagger && !q.cancel.breaks))) for (const a of w.answers) if (a.via === 'spell') { const o = dbSp[a.id]; if (!o || (a.now && !o.now)) dbSp[a.id] = { now: a.now, sure: a.sure, round: w.round, inRounds: w.inRounds }; }
+    // QA 2026-11-12 (finding 2): while waiting answers a Deathblow (windupView's PASS answer: every enemy sapped), the attack
+    // and every bar spell that would damage the sapped enemy are marked: attacking breaks Sap and the Deathblow lands
+    const sapW = fight ? (c.windups || []).find((w) => w.deathblow && w.answers.some((a) => a.via === 'pass' && a.now)) || null : null;
+    const tgtNow = ctx.ui.target ?? (c ? c.target : null);
+    const harms = (raw) => !!raw && (raw.target === 'all' || (raw.target === 'enemy' && tgtNow === sapW.u)) && !!(raw.b || raw.hits || raw.dot || raw.gjFrac);
+    const sapMark = (b, on, label) => {
+      let t = b.querySelector('.sapw');
+      b.classList.toggle('breaks-sap', on);
+      if (on && !t) { t = h('span.sapw', 'Breaks Sap'); b.appendChild(t); } else if (!on && t) t.remove();
+      if (on) b.setAttribute('aria-label', `${label}. ${SAP_BREAK_WARN}`);
+    };
+    sapMark(els.basic, !!(sapW && tgtNow === sapW.u), 'Attack');
+    if (!els.basic.classList.contains('breaks-sap')) els.basic.removeAttribute('aria-label');
     const hv = ctx.ui.wuHover; const hvE = hv && c ? c.enemies.find((e) => e.idx === hv.idx) : null;
     const hvX = hvE ? entriesOf(hvE).find((x) => x.turn === hv.turn && x.windup) || null : null;
     p.bar.forEach((id, i) => {
       const b = els.spells[i];
       const img = b.querySelector('img'); const cost = b.querySelector('.cost'); const cd = b.querySelector('.cd');
-      if (!id) { b.classList.add('empty'); b.setAttribute('aria-label', `Empty slot ${i + 1}`); img.removeAttribute('src'); img.style.visibility = 'hidden'; cost.textContent = ''; cd.textContent = ''; cd.style.background = ''; b.classList.remove('off', 'nores', 'hint'); return; }
+      if (!id) { b.classList.add('empty'); b.setAttribute('aria-label', `Empty slot ${i + 1}`); img.removeAttribute('src'); img.style.visibility = 'hidden'; cost.textContent = ''; cd.textContent = ''; cd.style.background = ''; b.classList.remove('off', 'nores', 'hint', 'breaks-sap'); const t = b.querySelector('.sapw'); if (t) t.remove(); return; }
       b.classList.remove('empty'); img.style.visibility = '';
       const sp = ctx.data.spells[id];
       b.setAttribute('aria-label', `Slot ${i + 1}: ${sp.name}`);
@@ -25539,6 +25689,7 @@ function createHud(root, ctx) {
       const stop = usable && kinds.some((z) => z.k === 'stop'); const avoid = usable && !stop;
       b.classList.toggle('wu-ans', stop && onTgt); b.classList.toggle('wu-else', stop && !onTgt); b.classList.toggle('wu-avoid', avoid);
       b.classList.toggle('wu-hl', !!(hvX && answerKind(sp.raw, hvX)));
+      sapMark(b, !!(sapW && ok && harms(sp.raw)), `Slot ${i + 1}: ${sp.name}`);
       const db = dbSp[id] || null;
       b.classList.toggle('db-now', !!(db && db.now)); b.classList.toggle('db-soon', !!(db && !db.now));
       b.dataset.db = db ? `${db.now ? 'now' : `r${db.round}`}${db.sure ? '' : '?'}` : '';
@@ -25624,18 +25775,36 @@ function createHud(root, ctx) {
     const first = (cls) => [...els.spells, ...els.items].find((b) => b.classList.contains(cls) && !b.classList.contains('empty'));
     let k = 'Your turn'; let parts;
     const ans = first('wu-ans'); const els2 = first('wu-else'); const avoid = first('wu-avoid'); const pot = first('pulse'); const win = first('window');
+    // QA 2026-11-12 (finding 3): a usable healing potion and what it restores now (the engine's amount: cut while MAIMED)
+    const L = v.legal || {}; const p = v.player;
+    const healSlot = p ? p.itemBar.findIndex((id, i) => id && ctx.data.consumables[id] && ctx.data.consumables[id].heal && L.items && L.items[i] && L.items[i].ok && L.items[i].heal > 0) : -1;
+    const healHint = (lead) => { if (healSlot < 0) return []; const it = L.items[healSlot]; const b = els.items[healSlot]; return [lead, kb(key(b)), ` ${name(b)} +${fmtNum(it.heal)}${it.maim > 0 ? ' (maimed)' : ''}`]; };
+    // a lethal hit (its estimate at least your health) this round or the next, from the tracks (not one a hard cancel stops)
+    let lethalHit = null;
+    for (const e of c.enemies) {
+      if (!e.alive || e.hidden) continue;
+      for (const x of entriesOf(e)) {
+        if (!(x.now || x.round === c.round + 1) || (x.cancel && !x.cancel.breaks) || (x.now && e.intent && (e.intent.interrupted || e.intent.cancelled))) continue;
+        const w = x.deathblow ? (c.windups || []).find((q) => q.u === e.idx && q.turn === x.turn) : null;
+        const est = w ? w.est : x.est;
+        if (isLethal(v, x, est) && (!lethalHit || est > lethalHit.est)) lethalHit = { e, x, est };
+      }
+    }
+    const lethalB = () => h('b.tp-lethal', 'LETHAL');
     const wuLive = c.enemies.some((e) => e.alive && !e.hidden && e.intent && e.intent.windup && !e.intent.interrupted && !e.intent.cancelled);
     // M2b v13: an open Deathblow in view comes first: its answer now with its key, or "no answer ready" (R.windupView)
     const dbw = (c.windups || []).find((w) => w.deathblow && !(w.cancel && w.cancel.stagger && !w.cancel.breaks));
     const dbSh = dbw ? answersToShow(dbw, v, ctx) : null;
     let dbKind = null;
+    let dbLethal = false;
     if (dbw && (c.engage || dbw.inRounds <= 1)) {
       const when = dbw.inRounds === 0 ? 'now' : `in R${dbw.round}`;
       const first = dbSh.list.find((x) => x.key) || null;
       k = 'Deathblow';
-      if (!dbw.ready) { parts = [`Deathblow ${when}: `, h('b.tp-no', 'No answer ready'), dbw.inRounds > 0 ? '. Kill it first or brace for it' : '']; dbKind = 'deathblow-no'; }
-      // M2b v14 (UI need 2): waiting is the answer while Sap holds (windupView's PASS answer)
-      else if (first && dbSh.when === 'now' && first.a.via === 'pass') { parts = [`Deathblow ${when}: wait with `, kb('X'), ` Pass: Sap stops it${first.a.stealth ? ', and you stay hidden' : ''}`]; dbKind = 'deathblow'; }
+      dbLethal = isLethal(v, { kind: dbw.kind, target: dbw.target, est: dbw.est }, dbw.est);
+      if (!dbw.ready) { parts = [`Deathblow ${when}: `, h('b.tp-no', 'No answer ready'), dbw.inRounds > 0 ? '. Kill it first or brace for it' : '', ...(dbLethal ? healHint('; heal: ') : [])]; dbKind = 'deathblow-no'; }
+      // M2b v14 (UI need 2): waiting is the answer while Sap holds (windupView's PASS answer); QA 2026-11-12: and attacking breaks it
+      else if (first && dbSh.when === 'now' && first.a.via === 'pass') { parts = [`Deathblow ${when}: wait with `, kb('X'), ` Pass: Sap stops it${first.a.stealth ? ', and you stay hidden' : ''}`, h('span.tp-w', `${SAP_BREAK_WARN}${dbLethal ? ' and kill you' : ''}.`)]; dbKind = 'deathblow'; }
       else if (first && dbSh.when === 'now' && first.a.target != null && first.a.target !== (ctx.ui.target ?? c.target)) { parts = [`Deathblow ${when} on ${dbw.enemy}: `, kb('Tab'), ' to it, then ', kb(first.key), ` ${first.name}`]; dbKind = 'deathblow'; }
       // M2b v14: Sap that is sure if you wait says so, as the line and the card do (QA 2026-11-12), not "(a chance)"
       else if (first && dbSh.when === 'now') { parts = [`Deathblow ${when}: answer with `, kb(first.key), ` ${first.name}${first.a.sure ? '' : first.a.wait ? ', then wait (Pass next round)' : ' (a chance)'}`]; dbKind = 'deathblow'; }
@@ -25647,14 +25816,19 @@ function createHud(root, ctx) {
     else if (els2) parts = ['Wind-up on another enemy: ', kb('Tab'), ' to it, then ', kb(key(els2)), ` ${name(els2)}`];
     else if (avoid) parts = ['Heavy wind-up now: ', kb(key(avoid)), ` ${name(avoid)} can blunt it`];
     else if (wuLive) parts = ['Wind-up now: nothing on your bar can stop it this round'];
-    else if (pot) parts = ['Low health: ', kb(key(pot)), ` ${name(pot)}`];
+    else if (lethalHit && !lethalHit.x.deathblow) { k = 'Lethal'; parts = [`${lethalHit.e.name}'s ${lethalHit.x.name} ${lethalHit.x.now ? 'this round' : `in R${lethalHit.x.round}`}: ≈ ${fmtNum(lethalHit.est)} on your ${fmtNum(p.hp)} health`, ...healHint('. Heal: ')]; }
+    else if (pot) { const pi = els.items.indexOf(pot); const it = L.items && L.items[pi]; parts = ['Low health: ', kb(key(pot)), ` ${name(pot)}${it && it.heal > 0 ? ` +${fmtNum(it.heal)}${it.maim > 0 ? ' (maimed)' : ''}` : ''}`]; }
     else if (win) parts = ['Off-balance: ', kb(key(win)), ` ${name(win)} hits ${(win.querySelector('.wtag') || {}).textContent || 'harder'}`];
     else parts = ['Choose ', kb('1'), '–', kb('7'), ', ', kb('A'), ' attack or ', kb('X'), ' pass'];
+    // QA 2026-11-12 (finding 3): LETHAL first when the Deathblow, or another hit this round or the next, would kill you
+    const lethal = dbKind ? dbLethal : !!(lethalHit && !c.engage);
+    if (lethal && k !== 'Lethal') parts = [lethalB(), ' ', ...parts];
+    els.turn.dataset.lethal = lethal ? '1' : '';
     const kEl = els.turn.querySelector('.tp-k'); const tEl = els.turn.querySelector('.tp-t');
     kEl.textContent = `${k} · R${c.round}`;
     const sig = parts.map((x) => (typeof x === 'string' ? x : `[${x.textContent}]`)).join('');
     if (tEl.dataset.sig !== sig) { tEl.dataset.sig = sig; clear(tEl); tEl.append(...parts); }
-    els.turn.dataset.kind = dbKind || (c.engage ? 'engage' : ans || els2 || avoid || wuLive ? 'windup' : pot ? 'potion' : win ? 'window' : 'plain');
+    els.turn.dataset.kind = dbKind || (c.engage ? 'engage' : ans || els2 || avoid || wuLive ? 'windup' : k === 'Lethal' ? 'lethal' : pot ? 'potion' : win ? 'window' : 'plain');
   }
 
   function updateTracker(v) {
@@ -27677,8 +27851,8 @@ yield;
 // Combat v2.1 (combat-v2.md 10.9): a wind-up answered or landed gets its moment (a float, a burst and a log line in a beat
 // of the round's timeline); its stack badge appears with its own status event; a Disrupt names the wind-up it stops.
 // M2b v13 (docs/specs/changes-m2b-v13.md "UI needs" 5): a Deathblow answered or landed floats "Deathblow answered: staggered"
-// or "Deathblow landed: empowered" (and "Maimed: healing −50 %" on the hero) in the word lane, its log line says the same;
-// a heal that MAIMED cut floats "Healing halved".
+// or "Deathblow landed: empowered" (and "Maimed: healing −50 %" on the hero), its log line says the same; a heal that
+// MAIMED cut floats "Healing halved". QA 2026-11-12: these two go to the headline lane (scene.headline), clear of the rest.
 // Combat rounds play as beats from src/ui/combat-feel.js (owner feedback 2026-11-10): each action winds up, its hits land
 // with a hit-stop, recoil, a weighted number and screen shake, and enemies' telegraphed blows get a readable pause.
 // Skipping: Space or a click in a round skips to the end of the hit on screen (the next hit plays normally); any other
@@ -28054,8 +28228,9 @@ class Director {
               const n = (ctx.data.v2 && ctx.data.v2.num) || {};
               const add = Math.round((answered ? 0 : n.deathblowEmpower ?? 0) * 100); // this stack's share; value is the sum
               const maim = Math.round(((((next.player && next.player.statuses) || []).find((x) => x.id === 'MAIMED') || {}).value || 0) * 100);
-              scene.float(dst, answered ? 'Deathblow answered: staggered' : 'Deathblow landed: empowered', { color: answered ? '#9fdcff' : '#ff4a4a', size: 24, crit: true, life: 2.2 });
-              if (!answered && e.maimed) { scene.float('player', maim ? `Maimed: healing −${maim} %` : 'Maimed', { color: '#ff6a6a', size: 22, crit: true, life: 2.4 }); if (live()) scene.screenFlash('#a8000a', 0.3, 0.6); }
+              // QA 2026-11-12: both in the headline lane (scene.headline), clear of the numbers, the pet's numbers and Dodge
+              scene.float(dst, answered ? 'Deathblow answered: staggered' : 'Deathblow landed: empowered', { color: answered ? '#9fdcff' : '#ff4a4a', size: 24, crit: true, life: 2.2, lane: 'head' });
+              if (!answered && e.maimed) { scene.float('player', maim ? `Maimed: healing −${maim} %` : 'Maimed', { color: '#ff6a6a', size: 22, crit: true, life: 2.4, lane: 'head' }); if (live()) scene.screenFlash('#a8000a', 0.3, 0.6); }
               hud.log(answered ? `Deathblow answered: ${cap(e.who)}'s ${e.name} ${how}. Staggered${e.stacks > 1 ? ` ×${e.stacks}` : ''}: −${pct} % damage for the rest of the fight.`
                 : `Deathblow landed: ${cap(e.who)}'s ${e.name}. Empowered: +${add || pct} % damage for the rest of the fight${e.maimed ? `; you are maimed: healing you receive −${maim} % until the fight ends` : ''}.`, answered ? 'lg-loot' : 'lg-warn');
               await W(tm.wait);
@@ -29142,6 +29317,8 @@ class App {
       metaOpen: () => app.ui.metaOpen,
       /** The engine actions applied to this run, in order (engine mode; a Node twin replays them). */
       engineLog: () => app.bridge.engineLog(),
+      /** The recent floats with their boxes (scene.floatBoxes; QA 2026-11-12: the Deathblow's floats do not overlap). */
+      floats: () => app.scene.floatBoxes(),
       /** Actions the UI sent on its own since the page loaded (copies), e.g. a new potion put on the item bar. */
       ownActions: () => app.ownActions.map((a) => ({ ...a })),
       /** The engage hover preview now shown on the tracks (combat v2), or null. */
