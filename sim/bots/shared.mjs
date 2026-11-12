@@ -29,8 +29,8 @@ export function excludedSpells(classId, variant) {
  * cfg: { tree, talent(s) -> talentId|null (optional: default the standard build of `tree`; the onebutton bot's slot-1
  *        talents), variant, style, campBar (bool), kit: {potions, rations, mana, tonics, elixir, ember, gear},
  *        hub(s, base) -> action, map(s) -> action, grindWaves(s) -> n, combat(s) -> action, trainerNodes (bool),
- *        prep(s) -> action (phase PREP), hubContract(s) -> action | null (prep runs), prepPolicy ('none' | 'random' | null:
- *        B40 overrides of the start camp and the hub contract), rng (bot stream, for prepPolicy 'random') }
+ *        prep(s) -> action (phase PREP), hubContract(s) -> action | null (prep runs), prepPolicy ('none' | 'random' | 'auto' | null:
+ *        B40 overrides of the start camp and the hub contract; 'auto': autoplay's camp, D132), rng (bot stream, for prepPolicy 'random') }
  */
 export function createValueBot(name, cfg) {
   const exclude = excludedSpells(cfg.classId, cfg.variant);
@@ -63,11 +63,14 @@ export function createValueBot(name, cfg) {
 
 /**
  * The start camp of a value bot: its own policy (cfg.prep), or a measurement override (cfg.prepPolicy, B40): 'none'
- * sets out at once (every point to Reserve), 'random' buys at random (randomPrep with the bot stream).
+ * sets out at once (every point to Reserve), 'random' buys at random (randomPrep with the bot stream), 'auto' (D132,
+ * report 2026-11-13) plays autoplay's start camp (the engine's R.autoAction: Field Draughts, then the board's contracts
+ * for zones 1..ENGINE_ASSUMPTION.AUTO_PREP_ZONES with AUTO_PREP_RESERVE points kept); the bot's hub contract is kept.
  */
 function prepWith(cfg) {
   if (cfg.prepPolicy === 'none') return () => ({ type: 'SET_OUT' });
   if (cfg.prepPolicy === 'random') return (s) => randomPrep(s, cfg.rng);
+  if (cfg.prepPolicy === 'auto') return (s) => R.autoAction(s);
   return cfg.prep || null;
 }
 

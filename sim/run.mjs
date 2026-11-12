@@ -18,7 +18,8 @@
 //            (vision kit, any subset)   --dimming off (B44 diagnostic)   --oracle (record C_step against the oracle, B41)
 //            --route (with --oracle: C_route, the oracle replays every zone from its entry state on a copy, B41)
 //            start camp and contracts (expedition.md 2-3, 10.2; MILESTONES 2b.5): --prep (with --map expedition)
-//            --prep-policy none|random (B40: every point to Reserve, or random purchases; the bot's map play is kept)
+//            --prep-policy none|random|auto (B40: every point to Reserve, or random purchases; D132: auto = autoplay's
+//            start camp, the engine's R.autoAction; the bot's map play and hub contract are kept)
 //            --exp-meta quartermaster:2,cartographer:1,old_hand:1 (expedition meta entries of 8.2 as profile unlocks)
 //            M2b v10: --prep-force ember,draughts / --prep-ban draughts (start-camp options the planner family buys
 //            first / never; cell 9 calibration)
@@ -72,7 +73,7 @@ function parse(argv) {
 
 const args = parse(process.argv.slice(2));
 if (args.prep && args.map !== 'expedition') throw new Error('--prep needs --map expedition');
-if (args['prep-policy'] && !['none', 'random'].includes(args['prep-policy'])) throw new Error('--prep-policy must be none or random');
+if (args['prep-policy'] && !['none', 'random', 'auto'].includes(args['prep-policy'])) throw new Error('--prep-policy must be none, random or auto');
 const classes = !args.class || args.class === 'all' ? CLASSES : args.class.split(',');
 for (const c of classes) if (!CLASSES.includes(c)) throw new Error(`unknown class ${c}`);
 const workers = Number(args.workers || cpus().length);
