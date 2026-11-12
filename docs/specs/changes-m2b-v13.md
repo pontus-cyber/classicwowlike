@@ -1,6 +1,6 @@
 # Spec changes M2b v13: special fights demand thought (Deathblow)
 
-Owner: Lead Game Designer (combat and balance), 2026-11-11. For: Core Gameplay Engineer (src/), Simulation & Balance Engineer (sim/), UI/UX Engineer, Content Designer, Lead. **Status: draft** (owner asked for it, 20:57; not approved). Proposed decisions D105-D110 (team) and owner items O11-O13; hand-off docs/handoffs/designer-2026-11-11h.md.
+Owner: Lead Game Designer (combat and balance), 2026-11-11. For: Core Gameplay Engineer (src/), Simulation & Balance Engineer (sim/), UI/UX Engineer, Content Designer, Lead. **Status: implemented (d7b2776, approved by the owner 2026-11-11 21:26); folded into the main specs with "(M2b v13)" marks; this file is kept as the change record
 
 Input: owner feedback 18:41, 18:46 and 20:57 [stated: docs/feedback/2026-11-11-1841-owner.md]; the mash report [source: docs/reports/mash-2026-11-11.md, docs/handoffs/sim-2026-11-11i.md]; combat-v2.md (4.1, 7.9, 16), rules.md 7.6-7.12, 12.4. Scratch evidence: a git-ignored copy of main 9fe4eea (src/ and sim/ in /tmp, env switches for the rows below; nothing committed), classic map, seeds 1000 onward, paired with the mash cells; the mash cells' per-run records were read with a scratch script. v12 (changes-m2b-v12.md) is untouched: its rows are pending measure and none of this package's rows depend on them.
 

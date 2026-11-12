@@ -1,6 +1,6 @@
 # Spec changes M2b v8 (M2b task 2b.7, tuning pass, second part)
 
-Owner: Lead Game Designer, 2026-11-11. For: Core Gameplay Engineer (src/), Simulation & Balance Engineer (sim/), UI/UX Engineer, QA. **Status: draft.** Proposed decisions D72-D77 (team) for the Lead to log; owner decisions in section "Owner decisions"; hand-off docs/handoffs/designer-2026-11-11c.md.
+Owner: Lead Game Designer, 2026-11-11. For: Core Gameplay Engineer (src/), Simulation & Balance Engineer (sim/), UI/UX Engineer, QA. **Status: implemented (945e460); folded into the main specs with "(M2b v8)" marks; this file is kept as the change record
 
 Input: the full pass on M2b v6, P1 33 of 52 [source: docs/reports/balance-2026-11-11b.md, docs/handoffs/sim-2026-11-11b.md], and its measured proposals (scratch copy sim/out/v6b/var/x of the sim worktree, environment switches X_EARLY, X_ZS, X_MHP, X_MHPL, X_BH, X_BD, X_FER, X_HIDE, X_FPBOSS, X_EHP). Every "measured" figure below is from that report's "P1 misses and measured proposals" table and its package line, planner P0 1 000 runs per class unless stated, paired by class and seed with the pass. The engine is now M2b v7 (time in tolls, a5468b5); v7 changed no balance (changes-m2b-v7.md, Summary 5), so the v6b measurements carry over [inference: v7 is a rename with an exact-equivalence proof for the line and the Dimming].
 

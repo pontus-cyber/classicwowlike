@@ -1,6 +1,6 @@
 # Spec changes M2b v9 (M2b task 2b.7, tuning pass, third part)
 
-Owner: Lead Game Designer, 2026-11-11. For: Core Gameplay Engineer (src/), Simulation & Balance Engineer (sim/), Lead. **Status: draft.** Proposed decisions D78-D81 (team) and one owner review item; hand-off docs/handoffs/designer-2026-11-11d.md.
+Owner: Lead Game Designer, 2026-11-11. For: Core Gameplay Engineer (src/), Simulation & Balance Engineer (sim/), Lead. **Status: implemented (b17e86b); folded into the main specs with "(M2b v9)" marks; this file is kept as the change record
 
 Input: the v8 measure, P1 25 of 38 [source: docs/reports/balance-2026-11-11c.md, docs/handoffs/sim-2026-11-11c.md], the v6 pass and its proposal arms [source: docs/reports/balance-2026-11-11b.md; arm logs in the sim worktree sim/out/v6b/q5.log, q6.log], the owner's notes of 14:01 [source: docs/feedback/2026-11-11-1401-owner.md]. Where a figure below says "v8 run records", the designer read the per-run files of the 11-11c pass (sim/out/pass-2026-11-11c/*/runs-*.jsonl in the sim worktree); nothing was re-simulated.
 

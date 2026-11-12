@@ -1,6 +1,6 @@
 # Spec changes M2b v7: time in tolls, the Furnace
 
-Owner: Lead Game Designer, 2026-11-11. For: Core Gameplay Engineer (src/), UI/UX Engineer, Simulation & Balance Engineer (sim/), QA, Content Designer. Status: draft; decisions D68-D71 (team; the names are owner review), pitch and alternatives in docs/handoffs/designer-2026-11-11b.md.
+Owner: Lead Game Designer, 2026-11-11. For: Core Gameplay Engineer (src/), UI/UX Engineer, Simulation & Balance Engineer (sim/), QA, Content Designer. Status: implemented (a5468b5); folded into the main specs with "(M2b v7)" marks; this file is kept as the change record
 
 Owner request [stated: docs/feedback/2026-11-11-1012-owner.md]: heat needs its own name; remove the idea of hours: time is spent in a different, much smaller measure (1, 2, ...), never with decimals; the meter sits at the top centre, its hot side like the core of hell, its cool side calm, with a pointer moving between them on a central bar.
 

@@ -1,6 +1,6 @@
 # Spec changes M2b v14: the Rogue's zone 1 Deathblow, the expedition elite tooltip, the v13 gates
 
-Owner: Lead Game Designer (combat), 2026-11-12. For: Core Gameplay Engineer (src/), Simulation & Balance Engineer (sim/), UI/UX Engineer, Lead. **Status: draft** (not approved). Proposed decisions D111-D113 (team) and owner item O14; hand-off docs/handoffs/designer-2026-11-12.md.
+Owner: Lead Game Designer (combat), 2026-11-12. For: Core Gameplay Engineer (src/), Simulation & Balance Engineer (sim/), UI/UX Engineer, Lead. **Status: implemented (5a6ee16); folded into the main specs with "(M2b v14)" marks; this file is kept as the change record
 
 Input: the v13 measure [source: docs/reports/balance-2026-11-12.md, docs/handoffs/sim-2026-11-12.md]; engine readings 2 and 4 [source: docs/handoffs/engineer-2026-11-11j.md]; the Deathblow display [source: docs/handoffs/ui-2026-11-11e.md]; changes-m2b-v13.md; rules.md 5.3, 7.1, 7.4, 7.9, 7.10, 7.11, 1.9.5; combat-v2.md 6.2, 8, 16.2. No scratch runs for this package: every expected effect below is from the v13 measure or marked [inference].
 

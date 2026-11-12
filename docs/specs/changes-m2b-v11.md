@@ -1,6 +1,6 @@
 # Spec changes M2b v11: the flip package (expedition loot, the Dimming's price, Delves back, target readings)
 
-Owner: Lead Game Designer, 2026-11-11. For: Core Gameplay Engineer (src/), Simulation & Balance Engineer (sim/), Lead. **Status: draft.** Proposed decisions D91-D98 (team) and owner items O7-O8; hand-off docs/handoffs/designer-2026-11-11f.md.
+Owner: Lead Game Designer, 2026-11-11. For: Core Gameplay Engineer (src/), Simulation & Balance Engineer (sim/), Lead. **Status: implemented (7b56d8e); folded into the main specs with "(M2b v11)" marks; this file is kept as the change record
 
 Input: the merged v9 + v10 measure [source: docs/reports/balance-2026-11-11f.md, docs/handoffs/sim-2026-11-11g.md], changes-m2b-v9.md, changes-m2b-v10.md (appendix P, owner default O5), DECISIONS D78-D90. Where a figure says "11-11f run records", the designer read the per-run files of that pass (sim/out/pass-v9v10 in the sim worktree: the expedition cells under exp/, the classic default-tree cells planner-P0-tree*, planner-PALL-tree*) with a scratch script; nothing was re-simulated.
 

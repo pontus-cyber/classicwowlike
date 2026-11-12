@@ -1,6 +1,6 @@
 # Spec changes M2b v10: expedition tuning for the switch-over (start camp, contracts, the Dimming)
 
-Owner: Lead Game Designer, 2026-11-11. For: Core Gameplay Engineer (src/), Simulation & Balance Engineer (sim/), Lead. **Status: draft.** Proposed decisions D82-D90 (team) and owner items O5-O6; hand-off docs/handoffs/designer-2026-11-11e.md.
+Owner: Lead Game Designer, 2026-11-11. For: Core Gameplay Engineer (src/), Simulation & Balance Engineer (sim/), Lead. **Status: implemented (d0aa76a); folded into the main specs with "(M2b v10)" marks; this file is kept as the change record
 
 Scope: expedition runs with the start camp (`newRun({ mapMode: 'expedition', prep: true })`). No row changes the classic map, the free potion, the pet revive or the v9 package (changes-m2b-v9.md stays pending as written; the two packages touch different constants and can be built together).
 

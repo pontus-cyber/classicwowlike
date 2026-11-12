@@ -1,6 +1,6 @@
 # Spec changes M2b v12: the last package before the flip (v11 outcomes, the way out of the dark, the rusher, Ricochet Bolt)
 
-Owner: Lead Game Designer, 2026-11-11. For: Core Gameplay Engineer (src/), Simulation & Balance Engineer (sim/), Lead. **Status: draft.** Proposed decisions D100-D104 (team) and owner items O9-O10; hand-off docs/handoffs/designer-2026-11-11g.md.
+Owner: Lead Game Designer, 2026-11-11. For: Core Gameplay Engineer (src/), Simulation & Balance Engineer (sim/), Lead. **Status: implemented (c0ab802); folded into the main specs with "(M2b v12)" marks; this file is kept as the change record
 
 Input: the v11 measure [source: docs/reports/balance-2026-11-11g.md, docs/handoffs/sim-2026-11-11h.md], changes-m2b-v11.md, DECISIONS D91-D98, STATUS "Next". Where a figure says "v11 run records", the designer read the per-run files of that pass (sim worktree, sim/out/pass-v11/exp: planner-P0-exp-prep, greedy-P0-exp-prep, planner-PALL-exp-prep, speedrunner-PALL-exp-prep, arm-loot19-price2; and pass-v9v10 for the 11-11f speedrunner) with a scratch script; nothing was re-simulated.
 

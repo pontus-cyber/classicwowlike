@@ -1,6 +1,6 @@
 # Spec changes M2b v6 (M2b task 2b.7, tuning pass, first part)
 
-Owner: Lead Game Designer, 2026-11-11. For: Core Gameplay Engineer (src/), Simulation & Balance Engineer (sim/), UI/UX Engineer, QA. Status: draft; decisions D62-D67 (team), owner-review items in docs/handoffs/designer-2026-11-11.md.
+Owner: Lead Game Designer, 2026-11-11. For: Core Gameplay Engineer (src/), Simulation & Balance Engineer (sim/), UI/UX Engineer, QA. Status: implemented (5b4f548); folded into the main specs with "(M2b v6)" marks; this file is kept as the change record
 Every changed line in docs/specs/rules.md, balance.md and expedition.md is marked "(M2b v6)". Problems: 1 heat is not a real choice (B58 -9.6 pp, B56 6.8 %; docs/reports/balance-2026-11-11.md), 2 the Rogue is the weak class (B6 P0 spread 15.4 pp; Z1-Z2 deaths; owner playtest docs/feedback/2026-11-11-0803-owner.md), 3 Packed Satchel's free potion (owner idea, agreed once per fight), 4 the end boss lasts 42 rounds (B16 30-40).
 
 Type: **number** = src/constants.js only; **mechanic** = engine code (exact behaviour below); **bot** = sim/ change; **target** = a balance target or its definition.
