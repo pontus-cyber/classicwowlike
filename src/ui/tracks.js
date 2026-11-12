@@ -82,7 +82,8 @@ function cancelOf(e, x, p, ctx) {
 export function windupState(e, x, cancel, p) {
   if (!x.windup) return null;
   if (x.replaced && !cancel) return x.replaced.reason === 'silenced' ? { kind: 'answered', by: 'SILENCED' } : { kind: 'void', why: x.replaced.reason };
-  if (cancel && cancel.stagger) return cancel.preview ? { kind: 'preview', by: cancel.by, disrupt: !!cancel.disrupt } : { kind: 'answered', by: cancel.by, soft: !!cancel.breaks };
+  // QA 2026-11-12: a TRAP on an enemy immune to control is Disrupt (any class): the answered line says "Disrupt", not "your trap"
+  if (cancel && cancel.stagger) return cancel.preview ? { kind: 'preview', by: cancel.by, disrupt: !!cancel.disrupt } : { kind: 'answered', by: cancel.by, soft: !!cancel.breaks, disrupt: cancel.by === 'TRAP' && !!(cancel.disrupt || (e && e.ccImmune)) };
   if (p && p.pet && x.heavy) return { kind: 'preview', by: 'PET' };
   return { kind: 'open' };
 }

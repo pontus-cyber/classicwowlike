@@ -3473,6 +3473,22 @@ async function partP(browser, W, H) {
     check('-', 'part P (first meeting): no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
     await context.close();
   }
+  // ---- (4) QA 2026-11-12: a Mage's Disrupt on the zone 1 dungeon boss answers its Deathblow: the line says "Disrupt: answered" (not "your trap")
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=5&speed=instant');
+    try {
+      await page.evaluate(() => window.__ui.dev('build', { classId: 'mage', zone: 1 })); await idle(page);
+      await page.evaluate(() => window.__ui.dev('fight', { ids: ['z1_belk'] })); await idle(page); await page.mouse.move(2, 2);
+      await page.keyboard.press('KeyW'); await idle(page); await page.mouse.move(2, 2);
+      const d = await pDom(page);
+      const L = d.np.map((x) => x.wub).find((w) => w && w.db);
+      check('M2b-v13', 'dungeon boss, Disrupt (key W) answers the Deathblow: the line over it reads "Disrupt: answered"', !!L && L.text.includes('Disrupt: answered') && !L.text.includes('your trap'), JSON.stringify(L));
+    } catch (e) {
+      check('-', 'part P (Disrupt) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
+    }
+    check('-', 'part P (Disrupt): no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
 }
 
 // ------------------------------------------------------------------ run
