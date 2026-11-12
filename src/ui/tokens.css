@@ -128,6 +128,18 @@
   --fx-bolt-comet: #ffb05a; --fx-bolt-phys: #ffffff; --fx-bolt-arrow: #ffd27a; --fx-bolt-arrow-light: #fff1d0;
   --fx-impact-phys: #f4ead6; --fx-impact-fire: #ff8a3a; --fx-impact-arcane: #c79bff; --fx-impact-shadow: #a07aff;
   --fx-impact-nature: #8fe07a; --fx-impact-heal: #7fffa0;
+  /* an enemy's held telegraph in the scene (theme.js TELE, TELE_CAST; app.js): a heavy blow, a wind-up, a cast by school
+     (frost reads --school-frost); the values app.js wrote before (HEAVY_COL, WINDUP_COL, TELE_COL) */
+  --fx-tele-heavy: #ff9a1f; --fx-tele-windup: #ff5a2a;
+  --fx-tele-fire: #ff8a3a; --fx-tele-arcane: #c79bff; --fx-tele-shadow: #a07aff; --fx-tele-nature: #8fe07a;
+  --fx-tele-magic: #b48aff; --fx-tele-phys: #ffb08a;
+  /* scene.js's effect spawners, the values they wrote before: white light (impact and answer sparks, the physical slash,
+     the hit flash), the heal's plus signs, a wind-up answered (frost-white sparks and core; a landed one is the wind-up's
+     ember, --fx-tele-windup, with its own core and gold sparks, --accent-hi), the level-up's flash and motes, floats' outline */
+  --fx-light: #ffffff; --fx-heal-plus: #9dffb8;
+  --fx-answer: #9fdcff; --fx-answer-core: #e8f8ff; --fx-ember-core: #ffb07a;
+  --fx-levelup-flash: #ffe8a0; --fx-levelup-mote: #fff6d6;
+  --fx-float-outline: rgba(0, 0, 0, .85);
   /* icon backgrounds (art-icons.js; theme.js ICON_BG): the light and the deep end of the fill, by school, material
      and rarity. "danger" is the Deathblow, MAIMED and EMPOWERED icons (R4), apart from "blood" (damage spells, the
      potion); in the current look the two have the same values */

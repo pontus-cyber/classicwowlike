@@ -59,8 +59,8 @@ async function drawSheet(cfg) {
   const LABEL_FONT = '11px sans-serif'; const TITLE_FONT = 'bold 13px sans-serif';
   const ZONES = ['farmland', 'wetlands', 'highlands', 'ruins', 'haunted', 'scorched', 'observatory'];
   const ARCH = ['brute', 'skulker', 'caster', 'guardian', 'mender', 'other'];
-  // telegraph colours as app.js gives them to the scene (HEAVY_COL, WINDUP_COL, TELE_COL.arcane); not tokens yet
-  const TELE = { heavy: '#ff9a1f', windup: '#ff5a2a', cast: '#c79bff' };
+  // telegraph colours as app.js gives them to the scene (theme.js TELE, TELE_CAST: tokens.css --fx-tele-*)
+  const TELE = { heavy: T.TELE.heavy, windup: T.TELE.windup, cast: T.TELE_CAST.arcane };
   const sections = [];
   const section = (title, cw, ch, cells) => sections.push({ title, cw, ch, cells });
   const cell = (label, draw) => ({ label, draw });

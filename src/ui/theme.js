@@ -17,6 +17,7 @@
 //   CAST       a spell's glow while it is cast and on its target, by school (director.js)
 //   BOLT       projectiles by kind (scene.js)
 //   IMPACT     the core and sparks of a hit, by school (scene.js)
+//   TELE       an enemy's held telegraph in the scene: a heavy blow, a wind-up (app.js); TELE_CAST: a cast's, by school
 //   ICON_BG    icon backgrounds, [light, deep] by school, material, rarity and danger (art-icons.js)
 // Where a member has the exact value and the role of an older token it reads that token (frost: --school-frost-text,
 // --school-frost); every other member has its own token in tokens.css with the value the code had before R3.
@@ -79,6 +80,11 @@ export const BOLT = family({
 export const IMPACT = family({
   phys: '--fx-impact-phys', fire: '--fx-impact-fire', frost: '--school-frost', arcane: '--fx-impact-arcane',
   shadow: '--fx-impact-shadow', nature: '--fx-impact-nature', heal: '--fx-impact-heal',
+});
+export const TELE = family({ heavy: '--fx-tele-heavy', windup: '--fx-tele-windup' });
+export const TELE_CAST = family({
+  fire: '--fx-tele-fire', frost: '--school-frost', arcane: '--fx-tele-arcane', shadow: '--fx-tele-shadow',
+  nature: '--fx-tele-nature', magic: '--fx-tele-magic', phys: '--fx-tele-phys',
 });
 // 'danger' is the Deathblow, MAIMED and EMPOWERED (R4), apart from 'blood' (damage); same values in the current look
 const ICON_KEYS = ['steel', 'blood', 'danger', 'shadow', 'gold', 'fire', 'frost', 'arcane', 'nature', 'heal', 'poison', 'earth', 'dark',

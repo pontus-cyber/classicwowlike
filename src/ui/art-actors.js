@@ -473,9 +473,10 @@ function leg(ctx, x, y, L, ang, col, k) {
   ctx.fillStyle = shade(col, -0.35); ctx.beginPath(); ctx.ellipse(foot[0] + 2, foot[1] - 1, w * 0.6, 2.2, 0, 0, Math.PI * 2); ctx.fill();
 }
 
+/** The hawk flies 70 units above its feet (x, y), bobbing; anim.portrait: its body at (x, y) itself, still (drawPortrait). */
 export function drawHawk(ctx, x, y, s, look, anim) {
   const t = anim.t || 0; const flap = Math.sin(t * (anim.walk ? 11 : 7)) ;
-  ctx.save(); ctx.translate(x, y - 70 * s + Math.sin(t * 2) * 4 * s); ctx.scale((anim.flip ? -1 : 1) * s * (look.size || 1), s * (look.size || 1));
+  ctx.save(); ctx.translate(x, anim.portrait ? y : y - 70 * s + Math.sin(t * 2) * 4 * s); ctx.scale((anim.flip ? -1 : 1) * s * (look.size || 1), s * (look.size || 1));
   if (anim.act && anim.act.kind !== 'hit') { const p = clamp(anim.act.p, 0, 1); ctx.translate(Math.sin(p * Math.PI) * 30, Math.sin(p * Math.PI) * 30); }
   const wing = (dir) => { ctx.fillStyle = dir > 0 ? look.fur : shade(look.fur, -0.3); ctx.beginPath(); ctx.moveTo(-4, -2); ctx.quadraticCurveTo(-14, -26 * flap * dir - 6, -34, -18 * flap * dir - 2); ctx.quadraticCurveTo(-18, 2, -4, 4); ctx.fill(); };
   wing(-1);
@@ -576,7 +577,9 @@ export function drawPortrait(ctx, size, look, kind = 'humanoid', extra = {}) {
   const bg = ctx.createRadialGradient(size * 0.5, size * 0.35, size * 0.1, size * 0.5, size * 0.5, size * 0.75);
   bg.addColorStop(0, extra.bg1 || '#3a3328'); bg.addColorStop(1, extra.bg2 || '#0d0b09');
   ctx.fillStyle = bg; ctx.fillRect(0, 0, size, size);
-  if (kind === 'beast') drawBeast(ctx, size * 0.28, size * 1.02, size / 52, look, { t: 1 });
+  // the hawk flies above its feet: in a portrait its body sits in the frame, head and raised wing in view (BACKLOG 2026-11-12)
+  if (kind === 'beast' && look && look.kind === 'hawk') drawHawk(ctx, size * 0.4, size * 0.6, size / 52, look, { t: 1, portrait: true });
+  else if (kind === 'beast') drawBeast(ctx, size * 0.28, size * 1.02, size / 52, look, { t: 1 });
   else if (kind === 'boss') { ctx.save(); drawBoss(ctx, size * 0.55, size * 1.25, size / 300, { t: 1, bossPhase: 1 }); ctx.restore(); }
   else if (kind === 'shard') drawShard(ctx, size * 0.5, size * 1.15, size / 90, { t: 1 });
   else drawHumanoid(ctx, size * 0.44, size * 2.05, size / 50, look, { t: 1.3 });

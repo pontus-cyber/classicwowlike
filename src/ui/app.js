@@ -30,6 +30,9 @@ import { createAudio, CLICKABLE } from './audio.js';
 import { settings } from './settings.js';
 import { h, clear } from './util.js';
 import { enemyLook } from './art-actors.js';
+// telegraph colours (tokens.css --fx-tele-*): a heavy blow in orange (the target ring is red), a cast in its school's colour
+// (an unknown school: magic's), a wind-up in ember red
+import { TELE, TELE_CAST } from './theme.js';
 import { HEAT_WORDS, tolls } from './ui-text.js';
 
 export class App {
@@ -421,7 +424,7 @@ export class App {
       // (rules 7.12) of any kind gets its own, hotter telegraph
       const it = e.intent;
       const tele = e.alive && !v.combat.over && it && !it.interrupted && !(it.support && !it.windup) && (it.heavy || it.cast) && it.id !== 'none' && it.id !== 'unaware';
-      a.tele = tele ? (it.windup ? { kind: 'windup', color: WINDUP_COL } : { kind: it.heavy && !it.cast ? 'heavy' : 'cast', color: it.heavy && !it.cast ? HEAVY_COL : TELE_COL[it.school] || '#b48aff' }) : null;
+      a.tele = tele ? (it.windup ? { kind: 'windup', color: TELE.windup } : { kind: it.heavy && !it.cast ? 'heavy' : 'cast', color: it.heavy && !it.cast ? TELE.heavy : TELE_CAST[it.school] || TELE_CAST.magic }) : null;
     }
   }
 
@@ -705,10 +708,6 @@ const AUTO_HINT_MS = 1600;
 const TOAST_MAX = 2;
 const TOAST_MS = 2700;
 const TOAST_QUEUE = 6;
-// telegraph colours: a heavy blow in orange (the target ring is red), a cast in its school's colour, a wind-up in ember red
-const HEAVY_COL = '#ff9a1f';
-const WINDUP_COL = '#ff5a2a';
-const TELE_COL = { fire: '#ff8a3a', frost: '#8fd6ff', arcane: '#c79bff', shadow: '#a07aff', nature: '#8fe07a', magic: '#b48aff', phys: '#ffb08a' };
 
 function npcLook(theme, kind) {
   const base = enemyLook(kind === 'merchant' ? 'mender' : kind === 'trainer' ? 'caster' : 'mender', theme, 'normal');

@@ -244,7 +244,7 @@ export class Scene {
     const crit = !!style.crit; const small = !!style.small;
     const f = { id, x: an.x + jitter + side + (style.dx || 0), y: an.cy - (an.cy - an.top) * 0.15 + (style.dy || 0) - n * 6 * this.u, text, color: style.color || token('--ink-bright'),
       size: (style.size || 22) * this.u * (small ? 1 : 1 + 0.4 * w), t0: now, life: style.life || (crit ? 2.0 : small ? 1.3 : 1.55), crit, small,
-      weight: w, slam: !small && style.slam !== false && !settings.reduceMotion, rise: (crit ? 18 : small ? 34 : 28 - 10 * w) * this.u, outline: style.outline || 'rgba(0,0,0,0.85)' };
+      weight: w, slam: !small && style.slam !== false && !settings.reduceMotion, rise: (crit ? 18 : small ? 34 : 28 - 10 * w) * this.u, outline: style.outline || token('--fx-float-outline') };
     this.texts.push(f); this.logFloat(f);
   }
   /**
@@ -263,7 +263,7 @@ export class Scene {
     const numY = an.cy - (an.cy - an.top) * 0.15;
     const y = above ? an.top - (HEAD_DY0 + r * HEAD_ROW) * u : numY + (WORD_DY0 + (WORD_ROWS - 1) * WORD_ROW + HEAD_GAP + r * HEAD_ROW) * u;
     const f = { id, x: an.x + (style.dx || 0), y, text, color: style.color || token('--ink-bright'), size: (style.size || 22) * u, t0: now, life, crit: true, small: false,
-      word: true, head: true, weight: 0, slam: false, rise: (above ? 6 : 0) * u, outline: style.outline || 'rgba(0,0,0,0.85)' };
+      word: true, head: true, weight: 0, slam: false, rise: (above ? 6 : 0) * u, outline: style.outline || token('--fx-float-outline') };
     const half = this.textWidth(f) / 2 + 8 * u;
     f.x = clamp(f.x, half, Math.max(half, this.W - half));
     rows[r] = now + life * 0.85;
@@ -308,12 +308,12 @@ export class Scene {
     const crit = !!style.crit;
     const f = { id, x: an.x + (style.dx || 0), y: numY + (WORD_DY0 + r * WORD_ROW) * u, text, color: style.color || token('--ink-bright'),
       size: Math.min(style.size || 20, WORD_MAX) * u, t0: start, life: style.life || (crit ? 1.9 : 1.5), crit, small: !crit, word: true,
-      weight: 0, slam: crit && !settings.reduceMotion, rise: WORD_RISE * u, outline: style.outline || 'rgba(0,0,0,0.85)' };
+      weight: 0, slam: crit && !settings.reduceMotion, rise: WORD_RISE * u, outline: style.outline || token('--fx-float-outline') };
     rows[r] = { free: start + WORD_HOLD, f };
     this.texts.push(f); this.logFloat(f);
   }
   floatAt(x, y, text, style = {}) {
-    this.texts.push({ x, y, text, color: style.color || token('--ink-bright'), size: (style.size || 22) * this.u, t0: this.time, life: style.life || 1.4, crit: !!style.crit, weight: 0, slam: false, rise: 40 * this.u, outline: 'rgba(0,0,0,0.85)' });
+    this.texts.push({ x, y, text, color: style.color || token('--ink-bright'), size: (style.size || 22) * this.u, t0: this.time, life: style.life || 1.4, crit: !!style.crit, weight: 0, slam: false, rise: 40 * this.u, outline: token('--fx-float-outline') });
   }
 
   burst(x, y, color, n = 14, spread = 160, opts = {}) {
@@ -332,7 +332,7 @@ export class Scene {
     const opts = typeof o === 'object' && o ? o : { crit: !!o };
     const an = this.anchor(id); if (!an) return;
     const crit = !!opts.crit; const power = clamp(opts.power ?? (crit ? 0.7 : 0.35), 0, 1); const dir = opts.dir || 0; const u = this.u;
-    const col = SCHOOL_COL[school] || '#fff';
+    const col = SCHOOL_COL[school] || token('--fx-light');
     const x = an.x - dir * an.w * 0.3; const y = an.cy;
     this.cores.push({ x, y, t0: this.time, life: 0.14 + 0.12 * power + (crit ? 0.06 : 0), r: (22 + 34 * power + (crit ? 22 : 0)) * u, color: col });
     const n = Math.round(8 + 16 * power + (crit ? 12 : 0));
@@ -340,10 +340,10 @@ export class Scene {
       const ang = (dir ? (dir > 0 ? 0 : Math.PI) : Math.random() * Math.PI * 2) + (Math.random() - 0.5) * 2.3;
       const sp = (110 + Math.random() * 250 * (0.6 + power)) * u;
       this.particles.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 50 * u, life: 0.22 + Math.random() * 0.3, t0: this.time,
-        size: (1.4 + Math.random() * 1.8) * u, color: Math.random() < 0.3 ? '#ffffff' : col, g: 520, glow: true, streak: true });
+        size: (1.4 + Math.random() * 1.8) * u, color: Math.random() < 0.3 ? token('--fx-light') : col, g: 520, glow: true, streak: true });
     }
     this.rings.push({ x, y, t0: this.time, life: 0.28 + 0.12 * power, r0: 6 * u, r1: (32 + 46 * power + (crit ? 24 : 0)) * u, color: col, width: (2 + 2.6 * power) * u });
-    if (school === 'phys') this.beams.push({ kind: 'slash', x, y, t0: this.time, life: 0.2 + 0.08 * power, color: '#ffffff', crit, size: 1 + 0.45 * power + (crit ? 0.25 : 0), dir });
+    if (school === 'phys') this.beams.push({ kind: 'slash', x, y, t0: this.time, life: 0.2 + 0.08 * power, color: token('--fx-light'), crit, size: 1 + 0.45 * power + (crit ? 0.25 : 0), dir });
     if (crit) this.rays.push({ x, y, t0: this.time, life: 0.34, r: (64 + 46 * power) * u, color: col, rot: Math.random() * Math.PI });
     this.hitFlash(id, opts.hold || 0);
   }
@@ -366,7 +366,7 @@ export class Scene {
   screenFlash(color, alpha = 0.35, life = 0.35) { this.flash = { color, alpha, t0: this.time, life }; }
   heal(id) {
     const an = this.anchor(id); if (!an) return;
-    for (let i = 0; i < 16; i++) this.particles.push({ x: an.x + (Math.random() - 0.5) * an.w * 1.4, y: an.feet - Math.random() * 40 * this.u, vx: 0, vy: -(40 + Math.random() * 70) * this.u, life: 0.9 + Math.random() * 0.5, t0: this.time, size: 2.5 * this.u, color: '#9dffb8', g: 0, glow: true, plus: true });
+    for (let i = 0; i < 16; i++) this.particles.push({ x: an.x + (Math.random() - 0.5) * an.w * 1.4, y: an.feet - Math.random() * 40 * this.u, vx: 0, vy: -(40 + Math.random() * 70) * this.u, life: 0.9 + Math.random() * 0.5, t0: this.time, size: 2.5 * this.u, color: token('--fx-heal-plus'), g: 0, glow: true, plus: true });
   }
   /**
    * Combat v2.1: the moment a wind-up is answered (a frost-white shatter: core, starburst, a wide ring and shards thrown
@@ -374,16 +374,16 @@ export class Scene {
    */
   windupResult(id, answered) {
     const an = this.anchor(id); if (!an) return;
-    const u = this.u; const col = answered ? '#9fdcff' : '#ff5a2a'; const x = an.x; const y = an.cy;
-    this.cores.push({ x, y, t0: this.time, life: 0.3, r: 64 * u, color: answered ? '#e8f8ff' : '#ffb07a' });
+    const u = this.u; const col = answered ? token('--fx-answer') : token('--fx-tele-windup'); const x = an.x; const y = an.cy;
+    this.cores.push({ x, y, t0: this.time, life: 0.3, r: 64 * u, color: answered ? token('--fx-answer-core') : token('--fx-ember-core') });
     this.rings.push({ x, y, t0: this.time, life: 0.55, r0: 12 * u, r1: 120 * u, color: col, width: 4 * u });
     if (answered) {
       this.rays.push({ x, y, t0: this.time, life: 0.45, r: 110 * u, color: col, rot: Math.random() * Math.PI });
-      for (let i = 0; i < 26; i++) { const a = Math.random() * Math.PI * 2; const sp = (160 + Math.random() * 260) * u; this.particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40 * u, life: 0.35 + Math.random() * 0.35, t0: this.time, size: (1.6 + Math.random() * 2) * u, color: Math.random() < 0.35 ? '#ffffff' : col, g: 420, glow: true, streak: true }); }
+      for (let i = 0; i < 26; i++) { const a = Math.random() * Math.PI * 2; const sp = (160 + Math.random() * 260) * u; this.particles.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40 * u, life: 0.35 + Math.random() * 0.35, t0: this.time, size: (1.6 + Math.random() * 2) * u, color: Math.random() < 0.35 ? token('--fx-light') : col, g: 420, glow: true, streak: true }); }
       this.shake(5);
     } else {
       this.rings.push({ x, y: an.feet, t0: this.time, life: 0.8, r0: 10 * u, r1: 80 * u, color: col, width: 3.5 * u, flat: true });
-      for (let i = 0; i < 24; i++) this.particles.push({ x: x + (Math.random() - 0.5) * an.w * 1.2, y: an.feet - Math.random() * 30 * u, vx: (Math.random() - 0.5) * 30 * u, vy: -(120 + Math.random() * 140) * u, life: 0.6 + Math.random() * 0.4, t0: this.time, size: (2 + Math.random() * 1.6) * u, color: Math.random() < 0.4 ? '#ffd36a' : col, g: 0, glow: true });
+      for (let i = 0; i < 24; i++) this.particles.push({ x: x + (Math.random() - 0.5) * an.w * 1.2, y: an.feet - Math.random() * 30 * u, vx: (Math.random() - 0.5) * 30 * u, vy: -(120 + Math.random() * 140) * u, life: 0.6 + Math.random() * 0.4, t0: this.time, size: (2 + Math.random() * 1.6) * u, color: Math.random() < 0.4 ? token('--accent-hi') : col, g: 0, glow: true });
       this.shake(4);
     }
     this.hitFlash(id, 0, answered ? 0.7 : 0.5);
@@ -396,8 +396,8 @@ export class Scene {
   levelUp(id = 'player') {
     const an = this.anchor(id); if (!an) return;
     this.pillar = { x: an.x, feet: an.feet, t0: this.time, life: 2.2 };
-    this.screenFlash('#ffe8a0', 0.25, 0.6);
-    for (let i = 0; i < 60; i++) this.particles.push({ x: an.x + (Math.random() - 0.5) * 90 * this.u, y: an.feet - Math.random() * 30 * this.u, vx: (Math.random() - 0.5) * 40 * this.u, vy: -(120 + Math.random() * 220) * this.u, life: 1 + Math.random() * 1.2, t0: this.time, size: 3 * this.u, color: Math.random() < 0.5 ? token('--accent-pale') : '#fff6d6', g: 30, glow: true });
+    this.screenFlash(token('--fx-levelup-flash'), 0.25, 0.6);
+    for (let i = 0; i < 60; i++) this.particles.push({ x: an.x + (Math.random() - 0.5) * 90 * this.u, y: an.feet - Math.random() * 30 * this.u, vx: (Math.random() - 0.5) * 40 * this.u, vy: -(120 + Math.random() * 220) * this.u, life: 1 + Math.random() * 1.2, t0: this.time, size: 3 * this.u, color: Math.random() < 0.5 ? token('--accent-pale') : token('--fx-levelup-mote'), g: 30, glow: true });
   }
 
   /**
@@ -562,7 +562,7 @@ export class Scene {
     o.setTransform(dpr, 0, 0, dpr, -left * dpr, -top * dpr);
     draw(o);
     o.setTransform(1, 0, 0, 1, 0, 0); o.globalCompositeOperation = 'source-atop';
-    o.fillStyle = rgba('#ffffff', 0.85 * clamp(flash, 0, 1)); o.fillRect(0, 0, pw, ph);
+    o.fillStyle = rgba(token('--fx-light'), 0.85 * clamp(flash, 0, 1)); o.fillRect(0, 0, pw, ph);
     o.globalCompositeOperation = 'source-over';
     ctx.drawImage(oc, 0, 0, pw, ph, left, top, bw, bh);
   }
