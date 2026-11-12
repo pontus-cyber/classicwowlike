@@ -51,8 +51,8 @@ Plan: docs/reviews/ui-architecture-2026-11-12.md. Each step one session, behavio
 
 | # | Task | Owner | Status |
 |---|---|---|---|
-| R1 | Style snapshot (qa/browser/style-snapshot.mjs) and CSS audit (tools/css-audit.mjs) | UI/UX Engineer | todo |
-| R2 | Colour tokens and theme layer (src/ui/tokens.css) | UI/UX Engineer | todo |
+| R1 | Style snapshot (qa/browser/style-snapshot.mjs) and CSS audit (tools/css-audit.mjs) | UI/UX Engineer | done: a7845a2, d3d6656 (docs/handoffs/ui-2026-11-12b.md) |
+| R2 | Colour tokens and theme layer (src/ui/tokens.css) | UI/UX Engineer | done: 2366eb9; style snapshot identical, ui-regress 270/270 at 1366x768 (docs/handoffs/ui-2026-11-12b.md) |
 | R3 | One palette for JS and canvas (src/ui/theme.js) | UI/UX Engineer | todo |
 | R4 | Type, spacing, radius, z-index, duration tokens | UI/UX Engineer | todo |
 | R5 | Art module boundary (art-props.js, art-fx.js, art contact sheet) | UI/UX Engineer | todo |
