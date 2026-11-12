@@ -146,7 +146,8 @@
      literal became var(--token) only where it was exactly equal, so nothing on screen moved. Near-values are not merged
      (1.15rem and 1.18rem stay two tokens): merging is an art decision for the slice. Bands are by size; the number
      after a band is the step inside it, smallest first */
-  /* type: families (moved from style.css), weights, sizes, line heights. Canvas text (scene.js) still names its fonts */
+  /* type: families (moved from style.css), weights, sizes, line heights. Canvas text (art-fx.js, art-props.js; R5) takes its
+     weights from --fw-*; its families ("Trebuchet MS" ... with -apple-system, and Georgia, serif) match no token here */
   --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Liberation Sans", sans-serif;
   --font-title: "Palatino Linotype", "Book Antiqua", Palatino, "TeX Gyre Pagella", "URW Palladio L", Georgia, "DejaVu Serif", serif;
   --font-num: "Trebuchet MS", "Segoe UI", system-ui, "Liberation Sans", sans-serif;

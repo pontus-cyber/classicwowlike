@@ -1,7 +1,7 @@
 // Characters drawn in code: a small 2D rig for humanoids (heroes, humanoid enemies, NPCs), a
 // quadruped rig (pets, beasts), the hawk, the end boss and its shards. Facing right; feet at (0,0);
 // about 100 units tall before scaling.
-import { shade, rgba, mix, clamp, ease } from './util.js';
+import { shade, rgba, mix, clamp, ease, glowBall } from './util.js';
 
 const SKIN = '#d9a77f';
 
@@ -389,11 +389,7 @@ function bow(ctx, hf, hn, C, anim) {
   if (pull > 0.05) { ctx.strokeStyle = '#d8c8a0'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(16, 0); ctx.stroke(); ctx.fillStyle = '#cfd6de'; ctx.beginPath(); ctx.moveTo(16, -2); ctx.lineTo(21, 0); ctx.lineTo(16, 2); ctx.fill(); }
   ctx.restore();
 }
-export function glowBall(ctx, x, y, r, col) {
-  const g = ctx.createRadialGradient(x, y, 0, x, y, r * 3.2);
-  g.addColorStop(0, rgba('#ffffff', 0.95)); g.addColorStop(0.25, rgba(col, 0.85)); g.addColorStop(1, rgba(col, 0));
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 3.2, 0, Math.PI * 2); ctx.fill();
-}
+// glowBall (hand glow, staff orb) is in util.js since R5: art-fx.js draws charge-ups and bolts with it too
 
 // ------------------------------------------------------------------ quadrupeds
 /** anim: { t, walk, phase, act, flash, dead, flip } */

@@ -137,6 +137,9 @@ function render(glyph, bg, opts = {}) {
   return cv.toDataURL();
 }
 
+/** Every glyph name, in table order (tools/art-sheet.mjs draws them all; R5). */
+export const GLYPHS = Object.freeze(Object.keys(G));
+
 export function icon(glyph, bg, opts = {}) {
   const key = `${glyph}|${bg}|${opts.fg || ''}|${opts.bare ? 1 : 0}|${opts.tint || ''}`;
   if (!cache.has(key)) {

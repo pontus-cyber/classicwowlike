@@ -42,6 +42,17 @@ export function mix(a, b, t) {
 export const shade = (hex, amt) => (amt >= 0 ? mix(hex, '#ffffff', amt) : mix(hex, '#000000', -amt));
 export function rgba(hex, a) { const [r, g, b] = hexToRgb(hex); return `rgba(${r},${g},${b},${a})`; }
 
+// ------------------------------------------------------------------ canvas
+/**
+ * A glowing ball at (x, y): a white core fading out through col (hex) to r * 3.2. Shared by the art modules, which may
+ * import only this file and theme.js (rule U6): art-actors.js (hand glow, staff orb), art-fx.js (charge-ups, bolts).
+ */
+export function glowBall(ctx, x, y, r, col) {
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r * 3.2);
+  g.addColorStop(0, rgba('#ffffff', 0.95)); g.addColorStop(0.25, rgba(col, 0.85)); g.addColorStop(1, rgba(col, 0));
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 3.2, 0, Math.PI * 2); ctx.fill();
+}
+
 // ------------------------------------------------------------------ DOM
 /** h('div.cls#id', { attr, on: { click } , style: {} }, children...) */
 export function h(tag, props, ...children) {
