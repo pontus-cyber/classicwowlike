@@ -17,7 +17,12 @@
 #     R   reference arm: planner P0 and PALL, speedrunner v11 PALL on a scratch copy of the engine at RENG (the camp before
 #         D128) with this sim (D128 alone, paired)
 #     RX  reference arm, the rest: greedy P0, planner P0 none and random on RENG (B40 and B39 greedy, D128 alone)
+#     S   speedrunner v11 PALL at SPEEDRUNS on the engine as built and on RENG, into exp/ and ref/ (run with SPEEDRUNS=700
+#         as report 12c, so B12 has >= EXP.B12_MIN_WINS wins; it replaces the M / R speedrunner cells with a superset of
+#         their seeds, each run being the same for the same seed)
 # Env: WORKERS (2), REF (9c0bf77: the sim before this change), RENG (61052ac), XRUNS (300), SPEEDRUNS (300).
+# As measured (report 2026-11-12d): bash sim/measure-d128.sh sim/out/pass-d128 "H M R", then
+# SPEEDRUNS=700 bash sim/measure-d128.sh sim/out/pass-d128 "RX S".
 set -euo pipefail
 W=$(cd "$(dirname "$0")/.." && pwd)
 O=$(mkdir -p "${1:-$W/sim/out/pass-d128}" && cd "${1:-$W/sim/out/pass-d128}" && pwd)
@@ -73,5 +78,11 @@ if has RX; then
   runIn "$S" "$O/ref" --bot planner --class all --runs "$XRUNS" --profile fresh $X0 --prep-policy random
   runIn "$S" "$O/ref" --bot greedy --class all --runs "$XRUNS" --profile fresh $X0
   log "RX done ($(( ($(date +%s) - T0) / 60 )) min)"
+fi
+if has S; then
+  run "$O/exp" --bot speedrunner --variant v11 --class all --runs "$SPEEDRUNS" --profile all $XA
+  S=$O/scratch/ref-engine; [ -d "$S/src" ] || S=$(refEngine)
+  runIn "$S" "$O/ref" --bot speedrunner --variant v11 --class all --runs "$SPEEDRUNS" --profile all $XA
+  log "S done ($(( ($(date +%s) - T0) / 60 )) min)"
 fi
 log "measure done in $(( ($(date +%s) - T0) / 60 )) min"
