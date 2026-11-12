@@ -29,11 +29,15 @@
 //            PALL (--profile all) holds the expedition entries of 8.2 since the M2b v11 engine: no --exp-meta stand-in needed
 //            M2b v12: --ricochet-gated (row 5 arm: Ricochet Bolt bounce RICOCHET_BOUNCE_FRAC_GATED; campaigns too)
 //            speedrunner --variant v11 (row 4 off: the v11 expedition map policy, arm 9)
+//            D128: --camp-options all|draughts,ember,... (the options the start camp offers: default the engine's
+//            C.PREP_CAMP_OPTIONS; 'all' = every option, the camp before D128; cell mark 'campall' / 'camp<ids>');
+//            --prep-force / --prep-ban refuse an option the cell's camp does not offer
 //            M2b v13: --gates rareHpMultZ1,firstMeetWindup (the named C.GATES switches on, every other off)
 //            M2b v14: without --gates a cell plays the engine's C.GATES defaults (the game as built); the cell name marks
 //            every switch played at another value than its default ('g5', 'g6', 'sap', 'pst'; 'no<tag>' when off)
 //            M2b v15: tag 'swift' (swiftRoad; off by default since D126, so the passage-on arm is '-swift':
 //            --gates rareHpMultZ1,firstMeetWindup,sapHold,passStealth,swiftRoad); an arm names every switch that stays on
+//            D128: tag 'rr' (campReroll, the start camp's reroll; off by default; the bots never reroll)
 //   campaigns: --map expedition --prep also apply (B31 / B32 on the expedition with the start camp)
 //   campaigns: node sim/run.mjs --campaign N --class <c|all> --out <dir> [--risk-in <risk.json>]
 //
@@ -49,7 +53,7 @@ import { runCampaigns } from './lib/batch.mjs';
 import { buildTable } from './lib/risk.mjs';
 import { BOT_NAMES } from './bots/index.mjs';
 import { readJson, writeJson, commitInfo, ensureDir } from './lib/output.mjs';
-import { C } from './lib/engine.mjs';
+import { C, CAMP_LIST, campRefusal } from './lib/engine.mjs';
 import { campaignMarkdown } from './lib/campaignreport.mjs';
 import { defaultTrees, profileGroup } from './lib/trees.mjs';
 import { oneButtonTrees } from './bots/onebutton.mjs';
@@ -90,11 +94,25 @@ if (args['tables-in']) {
     if (t[c].dim) obsIn[c].dim = t[c].dim;
   }
 }
+// D128: --camp-options all | <ids> (the options the start camp offers; default the engine's C.PREP_CAMP_OPTIONS).
+const prepList = (k) => args[k].split(',').map((x) => (x.startsWith('prep_') ? x : `prep_${x}`));
+const campOptions = (() => {
+  if (!args['camp-options']) return null;
+  if (!args.prep) throw new Error('--camp-options needs --prep');
+  if (args['camp-options'] === 'all') return 'all';
+  const ids = prepList('camp-options');
+  for (const id of ids) if (!C.PREP_OPTION[id]) throw new Error(`--camp-options: unknown option ${id}`);
+  if (!CAMP_LIST) throw new Error('--camp-options <ids> needs an engine with C.PREP_CAMP_OPTIONS (D128); before it the camp offered every option');
+  return ids;
+})();
 const prepIds = (k) => {
   if (!args[k]) return null;
-  const ids = args[k].split(',').map((x) => (x.startsWith('prep_') ? x : `prep_${x}`));
+  const ids = prepList(k);
   for (const id of ids) if (!C.PREP_OPTION[id]) throw new Error(`--${k}: unknown option ${id}`);
   if (!args.prep) throw new Error(`--${k} needs --prep`);
+  // D128: an option the camp does not offer is never bought (BUY_PREP refuses it), so forcing or banning it is refused.
+  const why = campRefusal(`--${k}`, ids, campOptions);
+  if (why) throw new Error(why);
   return ids;
 };
 const prepForce = prepIds('prep-force');
@@ -128,7 +146,7 @@ try {
       prof: args.profile || 'fresh', trees, style: args.style || null, variant: args.variant || null, pet: args.pet || null,
       out, warmup: args.warmup !== undefined ? Number(args.warmup) : SIM.WARMUP_RUNS, obsIn, log: !!args.log, workers, replay: !!args.replay, pairs: !!args.pairs, think: !!args.think, thinkMash: !!args['think-mash'],
       map: args.map || null, vision: args.vision ? Object.fromEntries(args.vision.split(',').map((k) => [k, true])) : null, dimming: args.dimming === 'off' ? false : true, oracle: !!args.oracle, route: !!args.route,
-      prep: !!args.prep, prepPolicy: args['prep-policy'] || null, prepForce, prepBan, tablesIn: args['tables-in'] || null, metaDrop, beastcallGated: !!args['beastcall-gated'], ricochetGated: !!args['ricochet-gated'], gates,
+      prep: !!args.prep, prepPolicy: args['prep-policy'] || null, prepForce, prepBan, campOptions, tablesIn: args['tables-in'] || null, metaDrop, beastcallGated: !!args['beastcall-gated'], ricochetGated: !!args['ricochet-gated'], gates,
       expMeta: args['exp-meta'] ? Object.fromEntries(args['exp-meta'].split(',').map((x) => { const [id, r] = x.split(':'); return [id, Number(r || 1)]; })) : null,
     });
     for (const [cls, x] of Object.entries(r.perClass)) {

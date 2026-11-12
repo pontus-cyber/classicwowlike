@@ -90,12 +90,24 @@ export function estComplete(risk, kind, tracker, z) {
  *  against an uncommon of that level (model.mjs contractValue, ref). */
 export const offerValue = (ctx, o) => contractValue(ctx, o.reward, { L: o.reward.cl, ref: true });
 
+/**
+ * The options the start camp offers (D128, D130): R.prepView's options that are in C.PREP_CAMP_OPTIONS (the list a cell
+ * plays, sim/lib/runner.mjs setCampOptions; an engine before D128 has no list and offers every option). Every prep policy
+ * reads options only through this, so an option outside the camp (the Second Clapper, the Local Guide, the Spyglass, the
+ * Trail Pack, the Pack Mule as built) is never looked up, forced or valued.
+ */
+export function campOffers(pv) {
+  const camp = Array.isArray(C.PREP_CAMP_OPTIONS) ? C.PREP_CAMP_OPTIONS : null;
+  return pv.options.filter((o) => !camp || camp.includes(o.id));
+}
+
 /** Tracker's Notes owned or bought at the start camp (prepView option). */
-const trackerHeld = (pv) => { const t = pv.options.find((o) => o.id === 'prep_tracker'); return !!(t && (t.owned || t.bought)); };
+const trackerHeld = (pv) => { const t = campOffers(pv).find((o) => o.id === 'prep_tracker'); return !!(t && (t.owned || t.bought)); };
 const buy = (id) => ({ type: 'BUY_PREP', id });
 
 /** Vision perks valued by their completion gain on the held contracts' value (M2b v10 D2; the Spyglass only when a bot
- *  policy uses it, SIM.SPYGLASS_USED). */
+ *  policy uses it, SIM.SPYGLASS_USED). Only those the camp offers are looked up (D128: Region Charts; the Local Guide and
+ *  the Spyglass only in a cell that offers them). */
 const VISION_GAIN = () => ({ prep_charts: EXP.EST_CHARTS_GAIN, prep_guide: EXP.EST_GUIDE_GAIN, ...(SIM.SPYGLASS_USED ? { prep_spyglass: EXP.EST_SPYGLASS_GAIN } : {}) });
 
 /** Bot value of a supply option (M2b v10 D2): Field Draughts qty × SIM.POTION_VALUE, the Ember SIM.EMBER_VALUE, the Trail
@@ -117,12 +129,14 @@ export function supplyValue(id) {
  * and Region Charts and the Local Guide at EST_CHARTS_GAIN / EST_GUIDE_GAIN × the held contracts' value (the Spyglass
  * only with SIM.SPYGLASS_USED). Ties: lower zone, board order, then the order above. No rerolls. Then SET_OUT.
  * force / ban (cell 9 calibration, --prep-force / --prep-ban): option ids bought first, each as soon as it can be bought /
- * never bought.
+ * never bought. D128: only the options the camp offers are considered (campOffers): as built the Second Clapper and Local
+ * Guide terms find no option and drop out, and a forced id outside the camp is skipped (sim/run.mjs refuses it).
  */
 export function plannerPrep(s, risk, force = null, ban = null) {
   const pv = R.prepView(s);
   if (!pv) return { type: 'SET_OUT' };
-  const opt = (id) => pv.options.find((o) => o.id === id);
+  const offers = campOffers(pv);
+  const opt = (id) => offers.find((o) => o.id === id);
   if (force) for (const id of force) { const o = opt(id); if (o && o.canBuy) return buy(id); }
   const ctx = makeCtx(s, risk);
   const tracker = trackerHeld(pv);
@@ -145,7 +159,7 @@ export function plannerPrep(s, risk, force = null, ban = null) {
   }
   const bell = opt('prep_bell');
   if (ok(bell)) consider(buy('prep_bell'), EXP.BELL_KEEP_VALUE / bell.price, 99);
-  for (const o of pv.options) {
+  for (const o of offers) {
     if (!o.canBuy || (ban && ban.includes(o.id))) continue;
     const v = supplyValue(o.id);
     if (v !== null) consider(buy(o.id), v / o.price, 99);
@@ -183,7 +197,7 @@ export function plannerHubContract(s, risk) {
 
 /**
  * Greedy start camp (expedition.md 10.2): contracts by reward value / price (no completion estimate) while a slot and
- * the points allow, then Field Draughts. Then SET_OUT.
+ * the points allow, then Field Draughts (when the camp offers them). Then SET_OUT.
  */
 export function greedyPrep(s, risk) {
   const pv = R.prepView(s);
@@ -196,7 +210,7 @@ export function greedyPrep(s, risk) {
     if (!best || v > best.v + 1e-9) best = { a: { type: 'TAKE_CONTRACT', index: o.index }, v };
   }
   if (best) return best.a;
-  const d = pv.options.find((o) => o.id === 'prep_draughts');
+  const d = campOffers(pv).find((o) => o.id === 'prep_draughts');
   if (d && d.canBuy) return buy('prep_draughts');
   return { type: 'SET_OUT' };
 }
@@ -207,13 +221,18 @@ export function greedyHubContract(s) {
   return cv && cv.hub && cv.hub.reserve ? { type: 'TAKE_HUB_CONTRACT', mode: 'reserve' } : null;
 }
 
-/** Speedrunner start camp (expedition.md 10.2): Delve contracts (board order), the Second Clapper, Field Draughts. */
+/**
+ * Speedrunner start camp (expedition.md 10.2): Delve contracts (board order), the Second Clapper, Field Draughts, each
+ * only when the camp offers it (campOffers). D128 policy change: the camp as built has no Second Clapper, so the
+ * speedrunner buys Field Draughts (it bought the Clapper first before; --camp-options all restores that camp).
+ */
 export function speedPrep(s) {
   const pv = R.prepView(s);
   if (!pv) return { type: 'SET_OUT' };
   const d = pv.board.find((o) => o.kind === 'delve' && o.canTake);
   if (d) return { type: 'TAKE_CONTRACT', index: d.index };
-  for (const id of ['prep_bell', 'prep_draughts']) { const o = pv.options.find((x) => x.id === id); if (o && o.canBuy) return buy(id); }
+  const offers = campOffers(pv);
+  for (const id of ['prep_bell', 'prep_draughts']) { const o = offers.find((x) => x.id === id); if (o && o.canBuy) return buy(id); }
   return { type: 'SET_OUT' };
 }
 
@@ -223,9 +242,13 @@ export function speedHubContract(s) {
   return cv && cv.hub && cv.hub.kind === 'delve' && cv.hub.reserve ? { type: 'TAKE_HUB_CONTRACT', mode: 'reserve' } : null;
 }
 
-/** Random start camp (expedition.md 10.2): uniform over the affordable purchases (contracts, options) until none is left. */
+/**
+ * Random start camp (expedition.md 10.2): uniform over the affordable purchases (contracts, the options the camp offers)
+ * until none is left. D128: the engine's legal actions hold only the camp's options already; the filter keeps it so.
+ */
 export function randomPrep(s, rng) {
-  const opts = R.legalActions(s).filter((a) => a.type === 'TAKE_CONTRACT' || a.type === 'BUY_PREP');
+  const camp = Array.isArray(C.PREP_CAMP_OPTIONS) ? C.PREP_CAMP_OPTIONS : null;
+  const opts = R.legalActions(s).filter((a) => a.type === 'TAKE_CONTRACT' || (a.type === 'BUY_PREP' && (!camp || camp.includes(a.id))));
   return opts.length ? rng.pick(opts) : { type: 'SET_OUT' };
 }
 

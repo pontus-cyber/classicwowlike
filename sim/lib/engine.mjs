@@ -25,6 +25,39 @@ export function gatesFor(gates = null) {
   if (!gates) return { ...GATE_DEFAULTS };
   return Object.fromEntries(Object.keys(GATE_DEFAULTS).map((k) => [k, !!gates[k]]));
 }
+/**
+ * The start camp's options (D128, D130; expedition.md 2.3-2.4): C.PREP_CAMP_OPTIONS as built (Field Draughts, Ember of
+ * Return, Region Charts, Tracker's Notes), read once at load like GATE_DEFAULTS. An engine before D128 has no such list:
+ * its camp offered every C.PREP_OPTION, so that is its default. CAMP_LIST: the engine has the list (it can be set per cell).
+ */
+export const CAMP_LIST = Array.isArray(C.PREP_CAMP_OPTIONS);
+export const CAMP_DEFAULTS = Object.freeze([...(CAMP_LIST ? C.PREP_CAMP_OPTIONS : Object.keys(C.PREP_OPTION || {}))]);
+
+/**
+ * The options a cell's start camp offers, in C.PREP_OPTION order: the engine's defaults (null), every option ('all', the
+ * camp before D128; --camp-options all), or the named ids (a later meta unlock that puts an option back).
+ */
+export function campOptionsFor(campOptions = null) {
+  const ids = Object.keys(C.PREP_OPTION || {});
+  if (!campOptions) return [...CAMP_DEFAULTS];
+  if (campOptions === 'all') return ids;
+  for (const id of campOptions) if (!C.PREP_OPTION[id]) throw new Error(`campOptions: unknown option ${id}`);
+  return ids.filter((id) => campOptions.includes(id));
+}
+
+/**
+ * --prep-force / --prep-ban against the cell's camp (D128): the message refusing ids the camp does not offer (the engine's
+ * BUY_PREP refuses them and R.prepView does not list them, so a forced id would never be bought and a ban would measure
+ * nothing), or null when every id is offered.
+ */
+export function campRefusal(flag, ids, campOptions = null) {
+  const offered = campOptionsFor(campOptions);
+  const out = (ids || []).filter((id) => !offered.includes(id));
+  if (!out.length) return null;
+  return `${flag}: ${out.join(', ')} not offered at the start camp (it offers ${offered.join(', ')}; D128). `
+    + 'Use --camp-options all (every option, the camp before D128) or --camp-options <ids> to offer it';
+}
+
 // M2b v12 (D101; engine-api.md 10): the engine's own escape rule helpers, so the bots price a Dimmed encounter after a
 // walk as the engine spends it: outwardStep(zone-like { shardDist }, from, to), dimFightTime(escape) -> tolls.
 export { outwardStep, dimFightTime } from '../../src/engine/expedition.js';

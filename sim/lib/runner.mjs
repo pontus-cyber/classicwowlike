@@ -9,8 +9,9 @@
 // options the planner family buys first / never, M2b v10 cell 9): the record's `ct` (recorder.mjs). M2b v11: cell.metaDrop
 // (catalogue entries removed from the profile: B42's no-vision cell, the row 8 attribution arm), cell.beastcallGated
 // (row 8 arm: Beastcall Horn cooldown BEASTCALL_HORN_CD_GATED). M2b v12: cell.ricochetGated (row 5 arm, D104: Ricochet
-// Bolt's bounce RICOCHET_BOUNCE_FRAC_GATED).
-import { C, R, newRunFor, withExpMeta, hash32, gatesFor } from './engine.mjs';
+// Bolt's bounce RICOCHET_BOUNCE_FRAC_GATED). D128: cell.campOptions (the start camp's options: null = the engine's
+// C.PREP_CAMP_OPTIONS as built, 'all' = every option as before D128, or a list of ids; setCampOptions).
+import { C, R, newRunFor, withExpMeta, hash32, gatesFor, campOptionsFor, CAMP_LIST } from './engine.mjs';
 import { BAL, SIM } from './params.mjs';
 import { createBot } from '../bots/index.mjs';
 import { Recorder } from './recorder.mjs';
@@ -46,6 +47,7 @@ export function runWithBot(cell, seed, risk, opts = {}) {
   // reason (the engine and sim/lib/policy.mjs read SPELL.ricochet_bolt.bounceFrac at each use).
   if (C.SPELL.ricochet_bolt && C.RICOCHET_BOUNCE_FRAC_GATED !== undefined) C.SPELL.ricochet_bolt.bounceFrac = cell.ricochetGated ? C.RICOCHET_BOUNCE_FRAC_GATED : C.RICOCHET_BOUNCE_FRAC;
   setGates(cell.gates);
+  setCampOptions(cell.campOptions);
   const bot = createBot(cell.bot, { classId: cell.cls, seed, risk, tree: cell.tree, style: cell.style, variant: cell.variant, ...(cell.prepPolicy ? { prepPolicy: cell.prepPolicy } : {}), ...(cell.prepForce ? { prepForce: cell.prepForce } : {}), ...(cell.prepBan ? { prepBan: cell.prepBan } : {}) });
   const s = newRunFor({ classId: cell.cls, petId: cellPet(cell), seed, profile, mapMode: cell.map || null, vision: cell.vision || null, dimming: cell.dimming === false ? false : null, prep: !!cell.prep });
   // Expedition measures (expedition.md 11.1; MILESTONES 2b.4). cell.oracle: at every map decision of the acting bot,
@@ -168,6 +170,20 @@ export function setGates(gates = null) {
   Object.assign(C.GATES, gatesFor(gates));
 }
 
+/**
+ * The start camp's options (D128: C.PREP_CAMP_OPTIONS) as the cell asks (engine.mjs campOptionsFor): null = the engine's
+ * list as built, 'all' = every C.PREP_OPTION (the camp before D128), or the named ids. Set in place for every run (the
+ * engine's BUY_PREP and R.prepView read the array at each call; a worker plays runs of several cells). An engine without
+ * the list (before D128) offers every option: only null or 'all' are accepted there.
+ */
+export function setCampOptions(campOptions = null) {
+  if (!CAMP_LIST) {
+    if (campOptions && campOptions !== 'all') throw new Error('cell.campOptions needs an engine with C.PREP_CAMP_OPTIONS (D128)');
+    return;
+  }
+  C.PREP_CAMP_OPTIONS.splice(0, C.PREP_CAMP_OPTIONS.length, ...campOptionsFor(campOptions));
+}
+
 export function playRun(cell, seed, risk, opts = {}) {
   return runWithBot(cell, seed, risk, opts).record;
 }
@@ -176,6 +192,7 @@ export function playRun(cell, seed, risk, opts = {}) {
 export function replayHash(cell, seed, log, profile = null) {
   const prof = profile || withoutMeta(withExpMeta(buildProfile(cell.prof, cell.cls), cell.expMeta || null), cell.metaDrop || null);
   setGates(cell.gates);
+  setCampOptions(cell.campOptions);
   let s = newRunFor({ classId: cell.cls, petId: cellPet(cell), seed, profile: prof, mapMode: cell.map || null, vision: cell.vision || null, dimming: cell.dimming === false ? false : null, prep: !!cell.prep });
   for (const a of log) s = R.step(s, a).state;
   return hash32(R.serialize(s));

@@ -310,7 +310,7 @@ Object.assign(EXP, {
  * M2b v11 target rows 5-7 (changes-m2b-v11.md; D95-D97, pending the Lead's acceptance, so reports show the old and the
  * new reading side by side). Row 5: B41 C_step PALL band C_STEP_PALL_V11 and at least C_step P0 + C_STEP_PALL_OVER_P0
  * (old: C_STEP_PALL). Row 6: B42's no-vision cell removes B42_VISION_ENTRIES from the profile and makes the start camp's
- * B42_VISION_PERKS unavailable (the planner never buys them; old: entries removed only). Row 7: on expedition runs B12's
+ * B42_VISION_PERKS unavailable (the planner never buys them; old: entries removed only; D128: the perks are the camp's two). Row 7: on expedition runs B12's
  * MIN_SPEED_MAX counts from SET_OUT (the start camp's minute left out; the ratio clause keeps the whole run), on at
  * least B12_MIN_WINS speedrunner wins.
  */
@@ -318,7 +318,9 @@ Object.assign(EXP, {
   C_STEP_PALL_V11: [0.70, 0.92],
   C_STEP_PALL_OVER_P0: 0.05,
   B42_VISION_ENTRIES: ['scout', 'cartographer', 'old_hand'],
-  B42_VISION_PERKS: ['prep_charts', 'prep_tracker', 'prep_guide', 'prep_spyglass'],
+  /** D128 (D130): the camp's two sight perks, C.PREP_CAMP_OPTIONS of kind 'vision' (qa/sim camp.test.mjs checks it). The
+   *  Local Guide and the Spyglass are not offered at the camp, so the no-vision cell bans only these (was the four). */
+  B42_VISION_PERKS: ['prep_charts', 'prep_tracker'],
   B12_MIN_WINS: 200,
 });
 

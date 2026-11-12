@@ -7,7 +7,7 @@ import { cellMetrics } from './metrics.mjs';
 import { cellMarkdown } from './cellreport.mjs';
 import { TIME_PROFILE } from '../bots/index.mjs';
 import { commitInfo, cellName, writeJson, writeJsonl, ensureDir } from './output.mjs';
-import { gatesFor } from './engine.mjs';
+import { gatesFor, campOptionsFor } from './engine.mjs';
 import { writeFileSync } from 'node:fs';
 
 export const CLASSES = ['rogue', 'mage', 'hunter'];
@@ -21,7 +21,8 @@ export const CLASSES = ['rogue', 'mage', 'hunter'];
  *         prepForce / prepBan ([option id]: bought first / never by the planner family, M2b v10 cell 9), tablesIn (file name,
  *         for meta only), metaDrop ([catalogue id] removed from the profile), beastcallGated (M2b v11 row 8 arm), ricochetGated
  *         (M2b v12 row 5 arm), gates ({ key: true }: the C.GATES switches on, every other off; none: the engine's defaults,
- *         M2b v14; the meta's gatesPlayed holds the switches played) }
+ *         M2b v14; the meta's gatesPlayed holds the switches played), campOptions ('all' or [option id]: the start camp's
+         options, D128; none: the engine's C.PREP_CAMP_OPTIONS; the meta's campPlayed holds the list played) }
  * Returns { name, dir, perClass: { cls: { records, metrics, obs, table } } }.
  */
 export async function runBatch(opts) {
@@ -41,6 +42,8 @@ export async function runBatch(opts) {
     ...(opts.ricochetGated ? { ricochetGated: true } : {}),
     // M2b v13 gated rows 5-6 (C.GATES.rareHpMultZ1, C.GATES.firstMeetWindup; cells 6-7).
     ...(opts.gates ? { gates: opts.gates } : {}),
+    // D128: the start camp's options ('all' or ids; none: the engine's C.PREP_CAMP_OPTIONS).
+    ...(opts.campOptions ? { campOptions: opts.campOptions } : {}),
   };
   const name = opts.name || cellName({ ...cellBase, tree: null });
   const dir = opts.out ? ensureDir(join(opts.out, name)) : null;
@@ -82,6 +85,8 @@ export async function runBatch(opts) {
     ...(opts.gates ? { gates: opts.gates } : {}),
     // M2b v14: the C.GATES switches the cell played (the engine's defaults when it names none).
     gatesPlayed: gatesFor(opts.gates || null),
+    // D128: the options the start camp offered (the engine's list when the cell names none).
+    ...(opts.prep ? { campOptions: opts.campOptions || null, campPlayed: campOptionsFor(opts.campOptions || null) } : {}),
   };
   if (dir) {
     writeJson(join(dir, 'summary.json'), { meta, classes: Object.fromEntries(Object.entries(perClass).map(([c, x]) => [c, { tree: x.tree, metrics: x.metrics }])) });
