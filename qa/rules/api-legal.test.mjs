@@ -55,7 +55,7 @@ describe('engine API: legalActions', () => {
     const missing = new Map();
     let checked = 0;
     for (const content of [CONTENT, REAL]) for (const cls of C.CLASS_IDS) for (let seed = 1; seed <= 4; seed++) {
-      let s = R.newRun({ classId: cls, petId: cls === 'hunter' ? 'ridgewolf' : null, seed, content });
+      let s = R.newRun({ classId: cls, petId: cls === 'hunter' ? 'ridgewolf' : null, seed, content, mapMode: 'rows' });
       for (let n = 0; s.phase !== 'ENDED' && n < 4000; n++) {
         if (n % 4 === 0) {
           const listed = new Set(R.legalActions(s).map(canon));
@@ -74,7 +74,7 @@ describe('engine API: legalActions', () => {
   });
 
   test('CAST actions in legalActions carry an enemy index for enemy spells and null for self and area spells', () => {
-    let s = R.newRun({ classId: 'mage', seed: 3, content: CONTENT });
+    let s = R.newRun({ classId: 'mage', seed: 3, content: CONTENT, mapMode: 'rows' });
     s = R.step(s, { type: 'START_RUN' }).state;
     for (let n = 0; n < 400 && !s.fight; n++) s = R.step(s, R.autoAction(s)).state;
     assert.ok(s.fight, 'a fight');

@@ -10,9 +10,8 @@ import { killDropMult, dimAt, dimAtHops, frontAt, zoneTime, outwardStep, dimFigh
 
 const pet = (cls) => (cls === 'hunter' ? 'ridgewolf' : null);
 function startedRun(mode, { seed = 1, classId = 'mage', prep = false } = {}) {
-  const o = { classId, petId: pet(classId), seed, content: REAL };
-  if (mode === 'expedition') o.mapMode = 'expedition';
-  if (prep) o.prep = true;
+  const o = { classId, petId: pet(classId), seed, content: REAL, mapMode: mode === 'expedition' ? 'expedition' : 'rows' };
+  if (mode === 'expedition') o.prep = !!prep; // D116: prep is newRun's default on the expedition map
   return R.step(R.newRun(o), { type: 'START_RUN' }).state;
 }
 const onMap = (s) => R.step(s, { type: 'LEAVE_HUB' }).state;

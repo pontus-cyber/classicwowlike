@@ -17,13 +17,16 @@ const band = (z) => C.ZONE_LEVELS * (z - 1) + 1;
 const norm = (a) => ((a % 360) + 360) % 360;
 const angDist = (a, b) => Math.min(norm(a - b), 360 - norm(a - b));
 
-/** A started expedition run (phase ZONE_HUB of zone 1). */
+/**
+ * A started expedition run (phase ZONE_HUB of zone 1). The start camp is newRun's default on the expedition map (D116):
+ * START_RUN opens it and SET_OUT, with nothing bought, enters zone 1 (expedition.md 2; the camp is tested in s01d).
+ */
 function expRun(classId = 'mage', opts = {}) {
   const s = R.newRun({
     classId, petId: classId === 'hunter' ? 'ridgewolf' : null, seed: opts.seed ?? 1, content: opts.content || CONTENT,
     profile: opts.profile || null, mapMode: 'expedition', vision: opts.vision || null,
   });
-  return R.step(s, { type: 'START_RUN' }).state;
+  return R.step(R.step(s, { type: 'START_RUN' }).state, { type: 'SET_OUT' }).state;
 }
 const onMap = (s) => R.step(s, { type: 'LEAVE_HUB' }).state;
 const timeOf = (events) => ev(events, 'time').reduce((n, e) => n + e.add, 0);
@@ -320,17 +323,20 @@ describe('rules 1.9 expedition map: generation (1.9.2, 1.9.3)', () => {
 });
 
 describe('rules 1.9 expedition map: moving, the hub and the actions (1.9.1, 1.9.4)', () => {
-  test('1.9.1 a run is created on the rows map unless mapMode is expedition; bad options throw', () => {
-    const rows = R.step(R.newRun({ classId: 'mage', seed: 1, content: CONTENT }), { type: 'START_RUN' }).state;
+  test('1.9.1 a run is created on the expedition map with the start camp unless mapMode is rows (D116); bad options throw', () => {
+    const rows = R.step(R.newRun({ classId: 'mage', seed: 1, content: CONTENT, mapMode: 'rows' }), { type: 'START_RUN' }).state;
     assert.equal(rows.mapMode, 'rows');
     assert.ok(rows.zone.rows && !rows.exp);
+    const d = R.newRun({ classId: 'mage', seed: 1, content: CONTENT });
+    assert.deepEqual([d.mapMode, d.create.prep], ['expedition', true], 'the default: the expedition map with the start camp');
+    assert.equal(R.step(d, { type: 'START_RUN' }).state.phase, 'PREP');
     const s = expRun();
     assert.equal(s.mapMode, 'expedition');
     assert.equal(s.zone.mode, 'expedition');
     assert.equal(s.phase, 'ZONE_HUB');
     assert.equal(s.zone.pos, 0);
     assert.throws(() => R.newRun({ classId: 'mage', content: CONTENT, mapMode: 'hex' }), /mapMode/);
-    assert.throws(() => R.newRun({ classId: 'mage', content: CONTENT, vision: { guide: true } }), /expedition option/);
+    assert.throws(() => R.newRun({ classId: 'mage', content: CONTENT, mapMode: 'rows', vision: { guide: true } }), /expedition option/);
     assert.throws(() => R.newRun({ classId: 'mage', content: CONTENT, mapMode: 'expedition', vision: { eagle: true } }), /expedition option/);
   });
 
@@ -351,7 +357,7 @@ describe('rules 1.9 expedition map: moving, the hub and the actions (1.9.1, 1.9.
     assert.match(R.whyIllegal(s, { type: 'MOVE', nodeId: 99 }), /no node/);
     assert.match(R.whyIllegal(s, { type: 'TAKE_ROAD' }), /Road/);
     // Rows-map actions of an expedition run, and expedition actions of a rows run.
-    const rows = R.step(R.step(R.newRun({ classId: 'mage', seed: 1, content: CONTENT }), { type: 'START_RUN' }).state, { type: 'LEAVE_HUB' }).state;
+    const rows = R.step(R.step(R.newRun({ classId: 'mage', seed: 1, content: CONTENT, mapMode: 'rows' }), { type: 'START_RUN' }).state, { type: 'LEAVE_HUB' }).state;
     assert.match(R.whyIllegal(rows, { type: 'MOVE', nodeId: 1 }), /expedition-map action/);
     assert.ok(!R.legalActions(rows).some((a) => ['MOVE', 'PASS_THROUGH', 'TAKE_ROAD', 'RING_BELL'].includes(a.type)));
   });
@@ -909,7 +915,7 @@ describe('rules 1.9 expedition map: pacing, determinism and full runs (1.9.8, 1.
     const clearXp = ev(d.all, 'xp').find((e) => e.why === 'dungeon');
     assert.equal(clearXp.amount, want(C.DUNGEON_CLEAR_XP_FRAC, dungeonLevels(1).boss, levelAt(d.all, clearXp, 20)), 'dungeon clear');
     // The rows map keeps rules 2.0 (weight 1; its XP values are tested in s02).
-    const rows = R.step(R.newRun({ classId: 'mage', seed: 33, content: CONTENT }), { type: 'START_RUN' }).state;
+    const rows = R.step(R.newRun({ classId: 'mage', seed: 33, content: CONTENT, mapMode: 'rows' }), { type: 'START_RUN' }).state;
     assert.equal(xpWeight(rows), 1);
     assert.equal(xpWeight(base), C.XP_WEIGHT_MULT);
     assert.equal(nodeTime(rows, 'quest'), C.TIME_QUEST);
@@ -927,7 +933,9 @@ describe('rules 1.9 expedition map: pacing, determinism and full runs (1.9.8, 1.
     assert.equal(after.expedition.walks, 1);
     assert.equal(after.expedition.passes, 1);
     const rung = R.step(onMap(s), { type: 'RING_BELL' }).state;
-    assert.ok(Math.abs((R.summary(rung).minutes.manual - after.minutes.manual) * 60 - C.PACE_BELL_S) < 1e-6, 'a Bell: PACE_BELL_S, no PACE_ZONE_TRAVEL_S');
+    // With the start camp (the default since D116) the next zone's hub may offer a contract: PACE_HUB_CONTRACT_S (expedition.md 9.4).
+    const offers = rung.stats.exp.hubOffers - s.stats.exp.hubOffers;
+    assert.ok(Math.abs((R.summary(rung).minutes.manual - after.minutes.manual) * 60 - C.PACE_BELL_S - offers * C.PACE_HUB_CONTRACT_S) < 1e-6, 'a Bell: PACE_BELL_S, no PACE_ZONE_TRAVEL_S');
   });
 
   test('1.9.2 / 0 determinism: the same seed and actions give the same state; a save mid-zone resumes exactly', () => {
@@ -1030,7 +1038,7 @@ describe('expedition content and options (D50, D51)', () => {
   test('D50 dimming: false plays an expedition run without the Dimming: no front, no Dimmed nodes or encounters, hub services at any hour; rows runs refuse it', () => {
     let s = onMap(expRun('hunter', { seed: 6 }));
     const off = R.newRun({ classId: 'hunter', petId: 'ridgewolf', seed: 6, content: CONTENT, mapMode: 'expedition', dimming: false });
-    let o = R.step(R.step(off, { type: 'START_RUN' }).state, { type: 'LEAVE_HUB' }).state;
+    let o = R.step(R.step(R.step(off, { type: 'START_RUN' }).state, { type: 'SET_OUT' }).state, { type: 'LEAVE_HUB' }).state;
     assert.deepEqual(o.zone.nodes, s.zone.nodes, 'the same zone graph');
     o = tweak(o, (x) => { x.time = x.zone.start + 60; });
     const v = R.mapView(o);
@@ -1049,7 +1057,7 @@ describe('expedition content and options (D50, D51)', () => {
     assert.equal(full.phase, 'ENDED');
     assert.equal(full.result.summary.expedition.dimFights, 0);
     assert.equal(full.result.summary.expedition.dimming, false);
-    assert.throws(() => R.newRun({ content: CONTENT, dimming: false }), /expedition option/);
+    assert.throws(() => R.newRun({ content: CONTENT, mapMode: 'rows', dimming: false }), /expedition option/);
     assert.throws(() => R.newRun({ content: CONTENT, mapMode: 'expedition', dimming: 'no' }), /expedition option/);
   });
 });

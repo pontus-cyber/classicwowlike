@@ -13,9 +13,8 @@ const pet = (cls) => (cls === 'hunter' ? 'ridgewolf' : null);
 const prof = (unlocks) => ({ ...R.newProfile(), unlocks });
 /** A started run (after START_RUN): rows, expedition, or expedition at the start camp (prep). */
 function startedRun(mode, { seed = 1, classId = 'rogue', profile = null, prep = false } = {}) {
-  const o = { classId, petId: pet(classId), seed, content: REAL, profile };
-  if (mode === 'expedition') o.mapMode = 'expedition';
-  if (prep) o.prep = true;
+  const o = { classId, petId: pet(classId), seed, content: REAL, profile, mapMode: mode === 'expedition' ? 'expedition' : 'rows' };
+  if (mode === 'expedition') o.prep = !!prep; // D116: prep is newRun's default on the expedition map
   return R.step(R.newRun(o), { type: 'START_RUN' }).state;
 }
 /** Kill one enemy by template id in a dev fight (engine-api.md 12: loot on STREAM.dev(seed, 0, 1)); the loot events. */

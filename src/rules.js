@@ -12,7 +12,8 @@
 // and serialize() leaves out. ES modules; runs in Node and in the browser (D13).
 //
 // Expedition map (rules 1.9): newRun({ mapMode: 'expedition' }) plays the roamable zone graph with vision, the Dimming,
-// Roads and the Homeward Bell; mapView then returns the player-visible zone graph (engine-api.md 10).
+// Roads and the Homeward Bell; mapView then returns the player-visible zone graph (engine-api.md 10). D116 (the flip): it is
+// newRun's default, with the start camp (prep); mapMode 'rows' plays the classic map (rules 1.4), an option.
 //
 // Also exported: validateContent, newProfile, metaOffers, buyMeta, mapView, isLegal, whyIllegal, stepInPlace,
 // IllegalActionError, display helpers (xpToNext, talentPointsFree, itemScore, spellCost, spellCooldown,
@@ -350,22 +351,24 @@ export function talentInfo(state, talentId) {
  * Create a run in phase CREATE. Any of classId, petId, name and seed may be preset; the player confirms with
  * START_RUN. seed: integer (the front end draws a random one; the engine never does). profile: meta profile
  * (newProfile() when omitted). content: the CONTENT object (src/content/index.js); it is validated
- * (structural check) and frozen. mapMode: 'rows' (today's map, rules 1.4; the default) or 'expedition' (rules 1.9).
- * vision (expedition only, until the start camp and meta buy it, task 2b.5): { guide, charts, pathfinder } booleans
- * for Local Guide, Region Charts and Pathfinder (rules 1.9.5). dimming (expedition only, D50): false plays the run without
- * the Dimming (no front, no Dimmed nodes or encounters), a measurement option for the simulator (balance.md B44). prep
- * (expedition only; prep, expedition.md 2-3): true starts the run at the start camp (phase PREP) and plays contracts, the
- * hub contract and the Spyglass, with the story chain retired; false (the default until the simulator's bots and the UI
- * handle PREP) plays the expedition map as before task 2b.5.
+ * (structural check) and frozen. mapMode: 'expedition' (rules 1.9; the default since D116) or 'rows' (the classic
+ * map, rules 1.4; an option for the simulator and the Dev menu).
+ * vision (expedition only): { guide, charts, pathfinder } booleans for Local Guide, Region Charts and Pathfinder
+ * (rules 1.9.5), owned from the start. dimming (expedition only, D50): false plays the run without the Dimming (no front,
+ * no Dimmed nodes or encounters), a measurement option for the simulator (balance.md B44). prep (expedition only; prep,
+ * expedition.md 2-3): true (the default on the expedition map since D116) starts the run at the start camp (phase PREP)
+ * and plays contracts, the hub contract and the Spyglass, with the story chain retired; false plays the expedition map
+ * without the start camp, as before task 2b.5. Left out (null), prep is true on the expedition map and false on the rows map.
  */
-export function newRun({ classId = null, petId = null, name = '', seed = 0, profile = null, content, validate = true, mapMode = 'rows', vision = null, dimming = true, prep = false } = {}) {
+export function newRun({ classId = null, petId = null, name = '', seed = 0, profile = null, content, validate = true, mapMode = 'expedition', vision = null, dimming = true, prep = null } = {}) {
   if (!content) throw new Error('newRun: content is required (import { CONTENT } from src/content/index.js)');
   if (!MAP_MODES.includes(mapMode)) throw new Error(`newRun: mapMode must be one of ${MAP_MODES.join(', ')}`);
   if (vision !== null && (mapMode !== 'expedition' || typeof vision !== 'object' || Object.keys(vision).some((k) => !['guide', 'charts', 'pathfinder'].includes(k)))) {
     throw new Error('newRun: vision is an expedition option: { guide, charts, pathfinder }');
   }
   if (typeof dimming !== 'boolean' || (!dimming && mapMode !== 'expedition')) throw new Error('newRun: dimming is an expedition option: true (default) or false');
-  if (typeof prep !== 'boolean' || (prep && mapMode !== 'expedition')) throw new Error('newRun: prep is an expedition option: true or false (default)');
+  if (prep !== null && (typeof prep !== 'boolean' || (prep && mapMode !== 'expedition'))) throw new Error('newRun: prep is an expedition option: true (default) or false');
+  if (prep === null) prep = mapMode === 'expedition'; // D116: the start camp comes with the expedition map unless turned off
   if (validate) {
     const errors = validateContent(content);
     if (errors.length) throw new Error(`newRun: content is invalid:\n  ${errors.slice(0, 20).join('\n  ')}`);

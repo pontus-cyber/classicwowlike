@@ -321,7 +321,7 @@ describe('rules 11 meta progression', () => {
   test('11.5 Oaths: only with the unlock; Thrift raises vendor prices × 1.5; Haste lowers the par', () => {
     const s = R.newRun({ classId: 'rogue', seed: 1, content: CONTENT });
     assert.match(R.whyIllegal(s, { type: 'SET_OATH', oath: 'thrift', on: true }), /not unlocked/);
-    let o = R.newRun({ classId: 'rogue', seed: 1, content: CONTENT, profile: prof({ oaths: 1 }, { bossKills: 1 }) });
+    let o = R.newRun({ classId: 'rogue', seed: 1, content: CONTENT, profile: prof({ oaths: 1 }, { bossKills: 1 }), mapMode: 'rows' });
     o = play(o, [{ type: 'SET_OATH', oath: 'thrift', on: true }, { type: 'START_RUN' }, { type: 'SERVICE', service: 'vendor' }]).state;
     const p = play(started('rogue', { seed: 1 }), [{ type: 'SERVICE', service: 'vendor' }]).state;
     assert.equal(o.service.stock[0].price, Math.round(C.PRICE_HEAL_V * V(1) * C.OATH_THRIFT_MULT));

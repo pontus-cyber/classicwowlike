@@ -34,7 +34,7 @@ function autoUntil(s, pred = () => false, max = MAX_ACTIONS_PER_RUN) {
   }
   return s;
 }
-const build = (o = {}) => D.build({ content: CONTENT, seed: 11, ...o }).state;
+const build = (o = {}) => D.build({ content: CONTENT, seed: 11, mapMode: 'rows', ...o }).state; // the classic map unless a test names one (D116)
 const enemyOf = (kind, zone = 1, content = CONTENT) => D.enemies(content).find((x) => x.kind === kind && x.zone === zone).id;
 
 describe('engine-api 12 dev tools', () => {
@@ -323,7 +323,7 @@ describe('engine-api 12 dev tools', () => {
 
   test('validate: passes every state of autoplay runs, catches broken states', () => {
     for (const c of C.CLASS_IDS) {
-      let s = R.newRun({ classId: c, petId: c === 'hunter' ? 'ridgewolf' : null, seed: 77, content: CONTENT });
+      let s = R.newRun({ classId: c, petId: c === 'hunter' ? 'ridgewolf' : null, seed: 77, content: CONTENT, mapMode: 'rows' });
       for (let i = 0; s.phase !== 'ENDED' && i < MAX_ACTIONS_PER_RUN; i++) {
         assert.deepEqual(D.validate(s, { steps: i % 40 === 0 }), [], `${c} step ${i} ${s.phase}`);
         s = R.step(s, R.autoAction(s)).state;
@@ -348,7 +348,7 @@ describe('engine-api 12 dev tools', () => {
   });
 
   test('real content: zone 4 level 35 Mage, boss phase 2, an elite by id (the Dev menu check, qa/browser part K)', { skip: !realContent && 'no src/content/index.js' }, () => {
-    const s = valid(D.build({ content: realContent, classId: 'mage', zone: 4, level: 35, seed: 4 }).state, 'build');
+    const s = valid(D.build({ content: realContent, classId: 'mage', zone: 4, level: 35, seed: 4, mapMode: 'rows' }).state, 'build');
     const b = valid(run(D.toBoss, s, { phase: 2 }), 'boss');
     const id = enemyOf('elite', 4, realContent);
     const f = valid(run(D.encounter, b, { ids: id }), 'elite');
@@ -360,6 +360,6 @@ describe('engine-api 12 dev tools', () => {
 test('dev tools never touch the fixture states of other tests (cloneState sanity)', () => {
   const s = started('rogue');
   const c = cloneState(s);
-  D.build({ content: CONTENT, zone: 2 });
+  D.build({ content: CONTENT, zone: 2, mapMode: 'rows' });
   assert.equal(R.serialize(s), R.serialize(c));
 });

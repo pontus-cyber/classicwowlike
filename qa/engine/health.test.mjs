@@ -11,7 +11,7 @@ const realContent = existsSync(REAL) ? (await import(REAL)).CONTENT : null;
 const NO_LIST = new Set(['SET_NAME', 'SET_SEED']);
 
 function newRun(classId, seed, content = CONTENT) {
-  return R.newRun({ classId, petId: classId === 'hunter' ? 'ridgewolf' : null, seed, content });
+  return R.newRun({ classId, petId: classId === 'hunter' ? 'ridgewolf' : null, seed, content, mapMode: 'rows' });
 }
 
 /** Autoplay a run; returns { state, actions, steps }. */

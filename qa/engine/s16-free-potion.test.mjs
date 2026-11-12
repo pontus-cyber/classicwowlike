@@ -149,7 +149,7 @@ describe('rules 7.5 Packed Satchel: the first potion each fight costs no turn (M
     assert.ok(next.type !== 'USE_ITEM' && R.isLegal(t, next), JSON.stringify(next));
     assert.equal(R.step(t, next).state.fight.round, s.fight.round + 1);
     for (const cls of C.CLASS_IDS) {
-      let r = R.newRun({ classId: cls, petId: cls === 'hunter' ? 'ridgewolf' : null, seed: 11, content: started(cls).content, profile: SATCHEL });
+      let r = R.newRun({ classId: cls, petId: cls === 'hunter' ? 'ridgewolf' : null, seed: 11, content: started(cls).content, profile: SATCHEL, mapMode: 'rows' });
       r = R.step(r, { type: 'START_RUN' }).state;
       let free = 0; let steps = 0;
       while (r.phase !== 'ENDED' && steps < 20000) {

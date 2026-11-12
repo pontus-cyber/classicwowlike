@@ -25,7 +25,7 @@ const die = (s) => { const c = cloneState(s); forceDraws(c, 3, (d) => d[0] > 0.3
 
 describe('rules 9 death and the run summary', () => {
   test('9 the run summary carries every field rules 9 lists', () => {
-    let s = R.newRun({ classId: 'hunter', petId: 'duskcat', seed: 12, content: CONTENT });
+    let s = R.newRun({ classId: 'hunter', petId: 'duskcat', seed: 12, content: CONTENT, mapMode: 'rows' });
     s = R.step(s, { type: 'START_RUN' }).state;
     for (let n = 0; s.phase !== 'SUMMARY' && n < 20000; n++) s = R.step(s, R.autoAction(s)).state;
     assert.equal(s.phase, 'SUMMARY');
@@ -93,7 +93,7 @@ describe('rules 11 Echoes', () => {
   });
 
   test('11.4 END_RUN adds the run\'s Echoes to the profile, and the next run starts with that profile', () => {
-    let s = R.newRun({ classId: 'rogue', seed: 4, content: CONTENT });
+    let s = R.newRun({ classId: 'rogue', seed: 4, content: CONTENT, mapMode: 'rows' });
     s = R.step(s, { type: 'START_RUN' }).state;
     for (let n = 0; s.phase !== 'SUMMARY' && n < 20000; n++) s = R.step(s, R.autoAction(s)).state;
     const total = R.summary(s).echoes.total;

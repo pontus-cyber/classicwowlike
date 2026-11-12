@@ -263,7 +263,7 @@ describe('rules 9 death and resurrection', () => {
   });
 
   test('9 / 11.5 Oath of Frailty: no resurrect charges at all', () => {
-    let s = R.newRun({ classId: 'mage', seed: 5, content: CONTENT, profile: { ...R.newProfile(), unlocks: { oaths: 1 }, bossKills: 1 } });
+    let s = R.newRun({ classId: 'mage', seed: 5, content: CONTENT, profile: { ...R.newProfile(), unlocks: { oaths: 1 }, bossKills: 1 }, mapMode: 'rows' });
     s = play(s, [{ type: 'SET_OATH', oath: 'frailty', on: true }, { type: 'START_RUN' }]).state;
     s = withSpells(atLevel(s, 20), []);
     s = lethal(tweak(inFight(s, [mob('z1_brute', 20)]).state, (x) => { x.player.res.boon = 1; }));

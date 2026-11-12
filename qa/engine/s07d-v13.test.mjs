@@ -244,7 +244,8 @@ describe('views for the UI (M2b v13 UI list; engine-api.md 6.2)', () => {
     let seen = 0;
     for (const mapMode of ['rows', 'expedition']) {
       for (let seed = 1; seed <= 6; seed++) {
-        const s = R.step(R.newRun({ classId: 'mage', seed, content: REAL, mapMode }), { type: 'START_RUN' }).state;
+        let s = R.step(R.newRun({ classId: 'mage', seed, content: REAL, mapMode }), { type: 'START_RUN' }).state;
+        if (s.phase === 'PREP') s = R.step(s, { type: 'SET_OUT' }).state; // the start camp (expedition default, D116)
         const v = R.mapView(s);
         const nodes = mapMode === 'rows' ? v.rows.flat() : v.nodes.filter((n) => n.know === 'full');
         for (const n of nodes) {

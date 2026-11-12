@@ -13,13 +13,13 @@ import { vendorStock } from '../../src/engine/map.js';
 import { echoes } from '../../src/engine/meta.js';
 import { makeRng } from '../../src/rng.js';
 
-/** A started expedition run (phase ZONE_HUB of zone 1). */
+/** A started expedition run (phase ZONE_HUB of zone 1): the start camp (newRun's default since D116) left by SET_OUT. */
 function expRun(classId = 'mage', opts = {}) {
   const s = R.newRun({
     classId, petId: classId === 'hunter' ? 'ridgewolf' : null, seed: opts.seed ?? 1, content: opts.content || CONTENT,
     profile: opts.profile || null, mapMode: 'expedition',
   });
-  return R.step(s, { type: 'START_RUN' }).state;
+  return R.step(R.step(s, { type: 'START_RUN' }).state, { type: 'SET_OUT' }).state;
 }
 const onMap = (s) => R.step(s, { type: 'LEAVE_HUB' }).state;
 const OATHS = { ...R.newProfile(), unlocks: { oaths: 1 }, bossKills: 1 };
@@ -51,7 +51,7 @@ describe('rules 1.7.1 the line and the heat', () => {
     v = R.heatView(s);
     assert.deepEqual([v.heat, v.inHand, v.past], [7, 0, 7]);
     // Haste: the line of zone 1 is 100 / 6 rounded up, 17 (M2b v7: was 16.666667); the heat is a whole number.
-    let h = R.newRun({ classId: 'rogue', seed: 1, content: CONTENT, profile: OATHS });
+    let h = R.newRun({ classId: 'rogue', seed: 1, content: CONTENT, profile: OATHS, mapMode: 'rows' });
     h = R.step(R.step(h, { type: 'SET_OATH', oath: 'haste', on: true }).state, { type: 'START_RUN' }).state;
     v = R.heatView(tweak(h, (x) => { x.time = 17; }));
     assert.equal(v.par, par);
@@ -159,7 +159,7 @@ describe('rules 1.9.10 heat in an expedition zone', () => {
 });
 
 describe('heatView and heatPreview (engine-api.md 11)', () => {
-  test('null before START_RUN; defined in every later phase of full autoplay runs; reading it changes nothing', () => {
+  test('null before START_RUN and at the start camp; defined in every later phase of full autoplay runs; reading it changes nothing', () => {
     assert.equal(R.heatView(R.newRun({ classId: 'mage', seed: 1, content: CONTENT })), null);
     for (const mapMode of ['rows', 'expedition']) {
       let s = R.step(R.newRun({ classId: 'hunter', petId: 'ridgewolf', seed: 9, content: REAL, mapMode }), { type: 'START_RUN' }).state;
@@ -167,13 +167,16 @@ describe('heatView and heatPreview (engine-api.md 11)', () => {
       for (let n = 0; s.phase !== 'ENDED' && n < 20000; n++) {
         const before = R.serialize(s);
         const v = R.heatView(s);
-        assert.ok(v && C.HEAT_STATES.includes(v.state), `${mapMode} ${s.phase}`);
+        // The start camp (the expedition default since D116; engine-api.md 13) has no zone and no meter yet.
+        if (s.phase === 'PREP') assert.equal(v, null, `${mapMode} PREP`);
+        else assert.ok(v && C.HEAT_STATES.includes(v.state), `${mapMode} ${s.phase}`);
         if (s.fight) assert.deepEqual(v.next, []);
         assert.equal(R.serialize(s), before);
         phases.add(s.phase);
         s = R.step(s, R.autoAction(s)).state;
       }
       assert.ok(phases.has('MAP') && phases.has('NODE') && phases.has('ZONE_HUB'));
+      assert.equal(phases.has('PREP'), mapMode === 'expedition', 'the start camp on the expedition map only');
     }
   });
 
@@ -182,12 +185,15 @@ describe('heatView and heatPreview (engine-api.md 11)', () => {
     const dimFights = { seen: 0 };
     // Rows seeds whose autoplay runs reach the Camp (hubs, travel, Camp services and waves); expedition seeds that meet the Dimming.
     // (Seeds re-picked when the heat step landed in the loot stream, rules 8.4: the runs changed. M2b v8: the real-content
-    // Mage seed 3 -> 1, its run no longer reaches the Camp. M2b v13: 1 -> 6, the same reason.)
-    for (const [mapMode, seed, content, cls] of [['rows', 1, CONTENT, 'hunter'], ['rows', 6, REAL, 'mage'], ['expedition', 6, CONTENT, 'hunter'], ['expedition', 1, REAL, 'rogue']]) {
+    // Mage seed 3 -> 1, its run no longer reaches the Camp. M2b v13: 1 -> 6, the same reason. D116: the expedition runs start
+    // at the start camp, so the expedition seeds were re-picked for long runs: fixture 6 -> 1, real 1 -> 4.)
+    for (const [mapMode, seed, content, cls] of [['rows', 1, CONTENT, 'hunter'], ['rows', 6, REAL, 'mage'], ['expedition', 1, CONTENT, 'hunter'], ['expedition', 4, REAL, 'rogue']]) {
       let s = R.step(R.newRun({ classId: cls, petId: cls === 'hunter' ? 'ridgewolf' : null, seed, content, mapMode }), { type: 'START_RUN' }).state;
       const kinds = new Set();
       for (let n = 0; s.phase !== 'ENDED' && n < 20000; n++) {
         const v = R.heatView(s);
+        // The start camp (expedition default since D116): no meter; autoplay buys and sets out (engine-api.md 13).
+        if (s.phase === 'PREP') { assert.equal(v, null); s = R.step(s, R.autoAction(s)).state; continue; }
         for (const p of v.next) {
           assert.deepEqual(R.heatPreview(s, p.action), (({ action, ...rest }) => rest)(p));
           if (!sameStep(p)) continue;

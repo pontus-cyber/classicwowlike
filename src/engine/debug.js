@@ -174,7 +174,8 @@ export function createDebug(api) {
   /**
    * A run at a zone and level (phase ZONE_HUB of zone `zone`, or CAMP for zone ZONE_COUNT + 1). opts: content (required),
    * classId ('rogue'), petId (Hunter: the first pet the profile has), name, seed (0), profile, oaths ([]: Oaths sworn in
-   * CREATE, the profile must own them), mapMode ('rows'), vision, dimming (newRun options), zone (1), level (the zone's
+   * CREATE, the profile must own them), mapMode ('expedition'; 'rows' the classic map), vision, dimming, prep (newRun
+   * options and defaults: the start camp on the expedition map, left with nothing bought), zone (1), level (the zone's
    * first level; the Camp MAX_LEVEL), rarity (DEV.RARITY) and ilvl (level + the rarity's ilvlBonus, at most ILVL_MAX) of
    * the gear in every slot (fixed stats as starting gear: the class's primary, STA, the power affix), talents ('auto':
    * the default build of autoplay; 'unspent'), gold (DEV.GOLD_V × V(level) copper), potions (DEV.POTIONS Healing
@@ -203,7 +204,7 @@ export function createDebug(api) {
     const petId = classId === 'hunter' ? o.petId || availablePets(profile || newProfile())[0] : null;
     if (petId && !availablePets(profile || newProfile()).includes(petId)) fail(`debug.build: the pet ${petId} is not unlocked in the profile`);
     if (o.mapMode && !MAP_MODES.includes(o.mapMode)) fail(`debug.build: mapMode must be one of ${MAP_MODES.join(', ')}`);
-    let s = newRun({ classId, petId, name: o.name || '', seed: o.seed ?? 0, profile, content: o.content, mapMode: o.mapMode || 'rows', vision: o.vision ?? null, dimming: o.dimming ?? true, prep: o.prep ?? false });
+    let s = newRun({ classId, petId, name: o.name || '', seed: o.seed ?? 0, profile, content: o.content, mapMode: o.mapMode || 'expedition', vision: o.vision ?? null, dimming: o.dimming ?? true, prep: o.prep ?? null });
     const ev = [];
     for (const oath of o.oaths || []) { const r = step(s, { type: 'SET_OATH', oath, on: true }); s = r.state; ev.push(...r.events); }
     const r0 = step(s, { type: 'START_RUN' });

@@ -161,9 +161,15 @@ describe('expedition.md 13: the start camp and contract constants (prep)', () =>
   });
 });
 
-describe('the newRun option prep (until the simulator and the UI handle PREP)', () => {
-  test('without it an expedition run plays as before 2b.5: no PREP, no contracts or hub offers, the story chain kept; with it on rows: refused', () => {
-    let s = R.step(R.newRun({ classId: 'hunter', petId: 'ridgewolf', seed: 2, content: REAL, mapMode: 'expedition' }), { type: 'START_RUN' }).state;
+describe('the newRun option prep (the default on the expedition map since D116)', () => {
+  test('on by default on the expedition map, off on the rows map; prep: false plays the expedition as before 2b.5: no PREP, no contracts or hub offers, the story chain kept; true on rows: refused', () => {
+    const d = R.newRun({ classId: 'hunter', petId: 'ridgewolf', seed: 2, content: REAL });
+    assert.deepEqual([d.mapMode, d.create.prep, go(d, { type: 'START_RUN' }).phase], ['expedition', true, 'PREP'], 'the default run starts at the start camp');
+    assert.equal(R.newRun({ classId: 'hunter', petId: 'ridgewolf', seed: 2, content: REAL, mapMode: 'expedition' }).create.prep, true, 'expedition: on unless turned off');
+    const rows0 = R.newRun({ classId: 'hunter', petId: 'ridgewolf', seed: 2, content: REAL, mapMode: 'rows' });
+    assert.deepEqual([rows0.mapMode, rows0.create.prep], ['rows', undefined], 'rows: no start camp');
+    assert.equal(go(R.newRun({ classId: 'mage', seed: 1, content: REAL, mapMode: 'rows', prep: false }), { type: 'START_RUN' }).phase, 'ZONE_HUB', 'rows with prep: false is accepted');
+    let s = R.step(R.newRun({ classId: 'hunter', petId: 'ridgewolf', seed: 2, content: REAL, mapMode: 'expedition', prep: false }), { type: 'START_RUN' }).state;
     assert.deepEqual([s.phase, s.prep, s.exp.prep, R.contractView(s), R.mapView(s).spyglass], ['ZONE_HUB', undefined, false, null, undefined]);
     let stories = 0;
     for (let n = 0; n < 30000 && s.phase !== 'ENDED'; n++) {
@@ -175,7 +181,7 @@ describe('the newRun option prep (until the simulator and the UI handle PREP)', 
     }
     assert.ok(stories > 0, 'the story chain stays without the start camp');
     assert.equal(s.result.summary.expedition.contracts, undefined);
-    assert.throws(() => R.newRun({ content: REAL, prep: true }), /expedition option/);
+    assert.throws(() => R.newRun({ content: REAL, mapMode: 'rows', prep: true }), /expedition option/);
     assert.throws(() => R.newRun({ content: REAL, mapMode: 'expedition', prep: 'yes' }), /expedition option/);
   });
 });
@@ -189,7 +195,7 @@ describe('expedition.md 1, 2: the start camp (PREP)', () => {
     const types = new Set(R.legalActions(s).map((a) => a.type));
     assert.deepEqual([...types].sort(), ['BUY_PREP', 'REROLL_BOARD', 'SET_AUTOPLAY', 'SET_OUT', 'TAKE_CONTRACT']);
     for (const a of [{ type: 'LEAVE_HUB' }, { type: 'SERVICE', service: 'inn' }, { type: 'USE_ITEM', itemId: 'trail_rations' }]) assert.ok(R.whyIllegal(s, a), a.type);
-    const rows = go(R.newRun({ classId: 'mage', seed: 1, content: REAL }), { type: 'START_RUN' });
+    const rows = go(R.newRun({ classId: 'mage', seed: 1, content: REAL, mapMode: 'rows' }), { type: 'START_RUN' });
     assert.deepEqual([rows.phase, rows.prep, rows.exp, R.prepView(rows), R.contractView(rows)], ['ZONE_HUB', undefined, undefined, null, null]);
     assert.ok(R.whyIllegal(rows, { type: 'SET_OUT' }));
     assert.ok(R.whyIllegal(rows, { type: 'TAKE_HUB_CONTRACT', mode: 'reserve' }));

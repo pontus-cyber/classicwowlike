@@ -85,7 +85,7 @@ function checkStep(S0, action, tally) {
 
 /** A run built at a zone (R.debug.build), with a talent build set directly (the tier gates do not matter here). */
 function built(classId, seed, zone, talents = null) {
-  let s = R.debug.build({ content: CONTENT, classId, seed, zone, talents: talents ? 'unspent' : 'auto', potions: 0 }).state;
+  let s = R.debug.build({ content: CONTENT, classId, seed, zone, talents: talents ? 'unspent' : 'auto', potions: 0, mapMode: 'rows' }).state;
   if (talents) {
     s = cloneState(s);
     s.player.talents = { ...talents };
@@ -117,7 +117,7 @@ describe('R.pendingTicks equals the ticks of the end of the round (rules 7.1 ste
     const lazy = (s, i) => (s.fight && i % 3 === 0 && R.isLegal(s, { type: 'PASS' }) ? { type: 'PASS' } : R.autoAction(s));
     for (const cls of ['rogue', 'mage', 'hunter']) {
       for (const seed of [3, 11, 17]) {
-        let s = R.newRun({ classId: cls, petId: cls === 'hunter' ? 'ridgewolf' : null, seed, content: CONTENT });
+        let s = R.newRun({ classId: cls, petId: cls === 'hunter' ? 'ridgewolf' : null, seed, content: CONTENT, mapMode: 'rows' });
         s = R.step(s, { type: 'START_RUN' }).state;
         play(s, 1500, seed === 11 ? lazy : auto);
       }

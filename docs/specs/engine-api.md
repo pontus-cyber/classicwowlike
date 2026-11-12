@@ -41,7 +41,10 @@ the `empower` / `stagger` / `heal` event fields, autoplay rule E2, `state.met` a
 `windupView`, `autoplayEngage` and the map's Deathblow fields (section 6.2); marked "(M2b v13)"); 2026-11-12 (M2b v14,
 docs/specs/changes-m2b-v14.md rows 1, 2 and 4: autoplay rule H, the PASS that keeps STEALTH while every living enemy is SAPPED,
 `C.GATES` on by default with the new `sapHold` and `passStealth`, a hidden elite's `deathblow: { type }`, `autoplayEngage`'s
-`wait`, and in `windupView` the Sap answer's `wait` / `stealth` and the PASS answer; marked "(M2b v14)").
+`wait`, and in `windupView` the Sap answer's `wait` / `stealth` and the PASS answer; marked "(M2b v14)"); 2026-11-12b (D116,
+the flip: `newRun`'s defaults are `mapMode: 'expedition'` and, on the expedition map, `prep: true`, so a new run starts at
+the start camp; the rows map is an option (`mapMode: 'rows'`) for the simulator and the Dev menu; `debug.build` follows;
+default since D116; docs/handoffs/engineer-2026-11-12b.md; marked "(D116)").
 Units: every time value of the API is a whole number of tolls (1 toll = 1 former in-game hour, D69); there are no hours.
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
@@ -64,7 +67,7 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 
 | Function | Returns | Notes |
 |---|---|---|
-| `newRun({classId, petId, name, seed, profile, content, mapMode, vision, dimming, prep})` | state (phase CREATE) | All fields but `content` optional. `seed`: integer, normalised to uint32; the front end draws a random seed (the engine never does). `profile`: meta profile (`newProfile()` if omitted). `content` is validated (structural) and deep-frozen. (expedition) `mapMode`: `'rows'` (today's map, rules 1.4; the default) or `'expedition'` (rules 1.9, section 10); `state.mapMode` keeps it. `vision`: expedition only, `{ guide, charts, pathfinder }` booleans (Local Guide, Region Charts, Pathfinder, rules 1.9.5); a test and measurement option beside the start camp and the catalogue, which give them too (M2b v11). `dimming` (D50): expedition only, `false` plays the run without the Dimming (rules 1.9.6; a measurement option for B44), default `true`. (prep) `prep`: expedition only, `true` starts the run at the start camp (phase PREP) and plays contracts (section 13); default `false` until the simulator's bots and the UI handle PREP: the expedition map then plays exactly as before task 2b.5. Throws on invalid content/class/pet/mapMode/vision/dimming/prep. |
+| `newRun({classId, petId, name, seed, profile, content, mapMode, vision, dimming, prep})` | state (phase CREATE) | All fields but `content` optional. `seed`: integer, normalised to uint32; the front end draws a random seed (the engine never does). `profile`: meta profile (`newProfile()` if omitted). `content` is validated (structural) and deep-frozen. (expedition) `mapMode`: `'expedition'` (rules 1.9, section 10; the default since D116) or `'rows'` (the classic map, rules 1.4; an option for the simulator and the Dev menu); `state.mapMode` keeps it. `vision`: expedition only, `{ guide, charts, pathfinder }` booleans (Local Guide, Region Charts, Pathfinder, rules 1.9.5); a test and measurement option beside the start camp and the catalogue, which give them too (M2b v11). `dimming` (D50): expedition only, `false` plays the run without the Dimming (rules 1.9.6; a measurement option for B44), default `true`. (prep) `prep`: expedition only, `true` starts the run at the start camp (phase PREP) and plays contracts (section 13); (D116) left out, it is `true` on the expedition map (the default since D116) and off on the rows map; `false` plays the expedition map exactly as before task 2b.5; `true` with `mapMode: 'rows'` throws. Throws on invalid content/class/pet/mapMode/vision/dimming/prep. |
 | `legalActions(state)` | action[] | Every concrete legal action. `SET_NAME` and `SET_SEED` take free values and are not listed (they are legal in CREATE). |
 | `step(state, action)` | `{ state, events }` | Pure: the input is never changed. Throws `IllegalActionError` (`err.code === 'ILLEGAL_ACTION'`, message names the reason) on an illegal action. |
 | `stepInPlace(state, action)` | events | Same, but changes `state` in place (no copy). For simulators that own their state. |
@@ -115,7 +118,7 @@ never a run. (M2b v7)
 | Phase | What is going on | Typical actions |
 |---|---|---|
 | CREATE | class, pet, name, seed, oaths | `SELECT_CLASS`, `SELECT_PET`, `SET_NAME`, `SET_SEED`, `SET_OATH`, `START_RUN` |
-| PREP | (prep) the start camp of an expedition run created with `prep: true`, after START_RUN: no zone yet; `mapView` and `heatView` are null | `TAKE_CONTRACT`, `DROP_CONTRACT`, `BUY_PREP`, `SELL_PREP`, `REROLL_BOARD`, `SET_OUT`, `SET_AUTOPLAY` |
+| PREP | (prep) the start camp of an expedition run created with `prep: true` (the default since D116), after START_RUN: no zone yet; `mapView` and `heatView` are null | `TAKE_CONTRACT`, `DROP_CONTRACT`, `BUY_PREP`, `SELL_PREP`, `REROLL_BOARD`, `SET_OUT`, `SET_AUTOPLAY` |
 | ZONE_HUB | zone hub; `state.service` may be open | `SERVICE`, service actions, `LEAVE_HUB`, out-of-combat |
 | MAP | choose the next node | `CHOOSE_NODE`, `TRAVEL_ON`, out-of-combat; (expedition) `MOVE`, `PASS_THROUGH`, `TAKE_ROAD`, `RING_BELL` (section 10) |
 | NODE | inside a node; `state.node.stage` = `fight`, `between`, `grindSetup`, `reward` or `service` | per stage |
@@ -543,9 +546,10 @@ Bell is full). Without the start camp none of the expedition effects apply, as b
 three expedition entries, the same objects as in `C.META`.
 
 ## 10. Expedition map (expedition; rules 1.9)
-A run created with `newRun({ mapMode: 'expedition' })` plays the roamable zone graph (rules 1.9). Until the
-switch-over the default stays `'rows'`; nothing of a rows run changes. (prep) The start camp, contracts, the hub contract and
-the Spyglass are in the engine behind `newRun`'s `prep: true` (section 13), and so are the catalogue's expedition effects of
+A run created with `newRun({ mapMode: 'expedition' })` plays the roamable zone graph (rules 1.9). (D116) It is the default
+since D116 (with the start camp); `mapMode: 'rows'` plays the classic map, and nothing of a rows run changes. (prep) The start
+camp, contracts, the hub contract and the Spyglass come with `newRun`'s `prep` (section 13; on by default on the expedition
+map since D116), and so are the catalogue's expedition effects of
 expedition.md 8.2 (section 9, M2b v11). Not yet: Ask the Locals. (M2b v11) An expedition run's kills drop more: a normal
 or trash kill's item and junk chance × EXPED_DROP_MULT, a dungeon clear EXPED_DUNGEON_BOSS_DROPS rolls (rules 1.9.8, 8.4);
 a Dimmed encounter costs TIME_DIM_FIGHT 2 tolls. (M2b v12) EXPED_DROP_MULT is 1.9; the Dungeon dims by its hops as every node
@@ -553,7 +557,8 @@ a Dimmed encounter costs TIME_DIM_FIGHT 2 tolls. (M2b v12) EXPED_DROP_MULT is 1.
 costs TIME_DIM_ESCAPE 1 toll (rules 1.9.6), every other one TIME_DIM_FIGHT.
 
 ### 10.1 Flow
-- START_RUN: phase ZONE_HUB on the hub (node 0) of zone 1. `LEAVE_HUB` puts the player on the map, standing on the
+- START_RUN: phase ZONE_HUB on the hub (node 0) of zone 1 (with the start camp, the default since D116: phase PREP first,
+  and SET_OUT enters zone 1's hub; section 13). `LEAVE_HUB` puts the player on the map, standing on the
   hub. `MOVE` back onto the hub (out of the Dimming) is a new hub visit: phase ZONE_HUB, services once each again; the
   hub vendor's stock is drawn once per zone and keeps what was sold.
 - MAP: `MOVE(nodeId)`, `PASS_THROUGH(nodeId)`, `TAKE_ROAD`, `RING_BELL`, out-of-combat actions. `mapView(state).moves`
@@ -698,7 +703,7 @@ would have earned); `END_RUN` returns the profile as it was (no Echoes, no run c
 
 | Function | Returns | Notes |
 |---|---|---|
-| `build({ content, classId, petId, name, seed, profile, oaths, mapMode, vision, dimming, zone, level, rarity, ilvl, talents, gold, potions, time })` | `{ state, events }` | A run at zone `zone` (1..ZONE_COUNT; ZONE_COUNT + 1 = the Camp), phase ZONE_HUB (CAMP). Defaults: classId `rogue`, a Hunter's first pet the profile has, seed 0, `oaths` [] (sworn in CREATE; the profile must own them), mapMode `rows`, level the zone's first (the Camp MAX_LEVEL), rarity DEV.RARITY, ilvl level + the rarity's `ilvlBonus` (at most ILVL_MAX), talents `'auto'` (autoplay's default build, one SPEND_TALENT at a time) or `'unspent'`, gold DEV.GOLD_V × V(level) copper, potions DEV.POTIONS Healing Draughts (a Mage as many Mana Draughts too), time (whole tolls) the line of zone - 1 (on schedule; whole since M2b v7; the expedition zone's clock starts there); the old option `hours` throws. Every slot holds fixed-stat gear of that ilvl and rarity (as starting gear: the class's primary, STA, the power affix; generated names). Every spell the trainer teaches up to the level is learned and trained to it; the bars are autoplay's; full HP and mana. The heat records (summary `heat`) and the expedition zone records start at this zone; zones left = zone - 1 |
+| `build({ content, classId, petId, name, seed, profile, oaths, mapMode, vision, dimming, prep, zone, level, rarity, ilvl, talents, gold, potions, time })` | `{ state, events }` | A run at zone `zone` (1..ZONE_COUNT; ZONE_COUNT + 1 = the Camp), phase ZONE_HUB (CAMP). Defaults: classId `rogue`, a Hunter's first pet the profile has, seed 0, `oaths` [] (sworn in CREATE; the profile must own them), mapMode and prep as `newRun` (D116: `expedition` with the start camp, left with nothing bought, every point Reserve; `rows` the classic map), level the zone's first (the Camp MAX_LEVEL), rarity DEV.RARITY, ilvl level + the rarity's `ilvlBonus` (at most ILVL_MAX), talents `'auto'` (autoplay's default build, one SPEND_TALENT at a time) or `'unspent'`, gold DEV.GOLD_V × V(level) copper, potions DEV.POTIONS Healing Draughts (a Mage as many Mana Draughts too), time (whole tolls) the line of zone - 1 (on schedule; whole since M2b v7; the expedition zone's clock starts there); the old option `hours` throws. Every slot holds fixed-stat gear of that ilvl and rarity (as starting gear: the class's primary, STA, the power affix; generated names). Every spell the trainer teaches up to the level is learned and trained to it; the bars are autoplay's; full HP and mana. The heat records (summary `heat`) and the expedition zone records start at this zone; zones left = zone - 1 |
 | `toCamp(state)` | `{ state, events }` | To the Camp (phase CAMP), leaving whatever is open (below); the run's time stays; zones left at least ZONE_COUNT |
 | `toBoss(state, { phase })` | `{ state, events }` | The end-boss fight (phase BOSS, round 1), from anywhere (the Camp first). `phase` 2: the boss at floor(P2_AT × HP), 3: ceil(P3_AT × HP) - 1, each reached by the engine's own phase change (rules 10.2: Shards come with phase 2, go with phase 3); its intent and track are then shown for the new phase. Ascendancy from the run's time (rules 1.7) |
 | `nextZone(state)` | `{ state, events }` | The next zone's hub as by TRAVEL_ON (a Road, TAKE_ROAD, on the expedition map): TIME_TRAVEL, no level gate; from zone ZONE_COUNT the Camp. Throws at the Camp |
@@ -732,12 +737,12 @@ Constants (src/constants.js `DEV`, dev tools only):
 
 ## 13. Start camp and contracts (prep; docs/specs/expedition.md 2-3, task 2b.5)
 An expedition run created with `newRun({ mapMode: 'expedition', prep: true })` goes `CREATE -> PREP -> ZONE_HUB -> ...`:
-START_RUN builds the character and opens the start camp; SET_OUT applies the purchases and enters zone 1. Without `prep`
-(the default until the simulator's bots and the UI handle PREP) an expedition run plays exactly as before 2b.5 (no PREP,
-contracts, hub offers or Spyglass; the story chain stays), and a rows run never has any of it (both checked run for run
-against the engine before 2b.5). `debug.build({ mapMode: 'expedition', prep: true })` sets out with nothing bought.
-Turning the default on is one line (`newRun`'s `prep = false`); sim/lib/policy.mjs `makeBot` answers phase PREP since
-2b.5's sim slice. (M2b v10) The M2b v10 numbers that are not contract numbers (XP_WEIGHT_MULT 1.4, EXPED_TIME_DUNGEON 5;
+START_RUN builds the character and opens the start camp; SET_OUT applies the purchases and enters zone 1. (D116) This is
+`newRun`'s default since D116: `newRun({})` is `{ mapMode: 'expedition', prep: true }`. With `prep: false` an expedition run
+plays exactly as before 2b.5 (no PREP, contracts, hub offers or Spyglass; the story chain stays), and a rows run
+(`mapMode: 'rows'`) never has any of it (both checked run for run against the engine before 2b.5).
+`debug.build({ mapMode: 'expedition' })` (its default too) sets out with nothing bought. sim/lib/policy.mjs `makeBot`
+answers phase PREP since 2b.5's sim slice. (M2b v10) The M2b v10 numbers that are not contract numbers (XP_WEIGHT_MULT 1.4, EXPED_TIME_DUNGEON 5;
 DUNGEON_DIM_HOLD 3 until M2b v12 removed it) act on every expedition run, with or without `prep`; rows runs are untouched by v10.
 (M2b v12) The same holds for EXPED_DROP_MULT 1.9 and TIME_DIM_ESCAPE; the Delve's price 2 acts with `prep`.
 

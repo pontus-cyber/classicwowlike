@@ -21,11 +21,14 @@ export function gates(values) {
   after(() => { Object.assign(C.GATES, saved); });
 }
 
-/** A started run (phase ZONE_HUB). */
+/**
+ * A started run (phase ZONE_HUB) on the classic map (mapMode 'rows', rules 1.4): the rule suites written for it pass it
+ * explicitly since the expedition map with the start camp became newRun's default (D116).
+ */
 export function started(classId = 'rogue', opts = {}) {
   const s = R.newRun({
     classId, petId: classId === 'hunter' ? (opts.petId || 'ridgewolf') : null, seed: opts.seed ?? 1,
-    content: opts.content || CONTENT, profile: opts.profile || null,
+    content: opts.content || CONTENT, profile: opts.profile || null, mapMode: 'rows',
   });
   return R.step(s, { type: 'START_RUN' }).state;
 }

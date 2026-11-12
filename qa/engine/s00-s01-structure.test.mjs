@@ -62,7 +62,7 @@ describe('rules 0 conventions', () => {
 
 describe('rules 1 run structure', () => {
   test('1.1 phases: CREATE -> ZONE_HUB -> MAP -> NODE -> MAP', () => {
-    let s = R.newRun({ content: CONTENT, seed: 3 });
+    let s = R.newRun({ content: CONTENT, seed: 3, mapMode: 'rows' });
     assert.equal(s.phase, 'CREATE');
     s = play(s, [{ type: 'SELECT_CLASS', classId: 'rogue' }, { type: 'SET_NAME', name: 'Ash' }, { type: 'SET_SEED', seed: 77 }, { type: 'START_RUN' }]).state;
     assert.equal(s.phase, 'ZONE_HUB');

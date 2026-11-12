@@ -131,8 +131,9 @@ describe('rules 1.9.5 a hidden elite\'s Deathblow type on the map, rules 12.4 th
   test('expedition: every elite node shows `deathblow: { type }` only, the type of its own Deathblow (rare or not); no name', () => {
     let seen = 0;
     for (let seed = 1; seed <= 8; seed++) {
-      // Every node seen (a test tweak), so each elite node is fully visible.
-      const s = tweak(R.step(R.newRun({ classId: 'mage', seed, content: REAL, mapMode: 'expedition' }), { type: 'START_RUN' }).state, (x) => { x.zone.seen = x.zone.seen.map(() => true); });
+      // Every node seen (a test tweak), so each elite node is fully visible; the start camp (default, D116) left by SET_OUT.
+      const out = R.step(R.step(R.newRun({ classId: 'mage', seed, content: REAL, mapMode: 'expedition' }), { type: 'START_RUN' }).state, { type: 'SET_OUT' }).state;
+      const s = tweak(out, (x) => { x.zone.seen = x.zone.seen.map(() => true); });
       for (const n of R.mapView(s).nodes) {
         if (n.know !== 'full' || n.type !== 'elite') continue;
         const z = s.zone.nodes[n.id];
@@ -148,7 +149,7 @@ describe('rules 1.9.5 a hidden elite\'s Deathblow type on the map, rules 12.4 th
     let hidden = 0;
     let named = 0;
     for (let seed = 1; seed <= 40 && (hidden < 1 || named < 1); seed++) {
-      let s = R.step(R.newRun({ classId: 'mage', seed, content: REAL }), { type: 'START_RUN' }).state;
+      let s = R.step(R.newRun({ classId: 'mage', seed, content: REAL, mapMode: 'rows' }), { type: 'START_RUN' }).state;
       for (let z = 0; z < 3 && s.zone; z++) {
         const v = R.mapView(s);
         if (!v) break;
@@ -196,7 +197,7 @@ describe('full autoplay Rogue runs (M2b v14)', () => {
   test('every rule-H wait is followed by Sap cancelling the Deathblow at its turn (STAGGERED), STEALTH kept; the runs end (classic, real content)', () => {
     const tally = { waits: 0, sapAnswered: 0, landedAfterWait: 0 };
     for (const seed of [11, 23, 35, 47]) {
-      let s = R.step(R.newRun({ classId: 'rogue', seed, content: REAL }), { type: 'START_RUN' }).state;
+      let s = R.step(R.newRun({ classId: 'rogue', seed, content: REAL, mapMode: 'rows' }), { type: 'START_RUN' }).state;
       for (let n = 0; s.phase !== 'ENDED' && n < 20000; n++) {
         const a = R.autoAction(s);
         const wait = a.type === 'PASS' && !!s.fight && !s.fight.p.skip && s.fight.enemies.filter((e) => e.alive).every((e) => st(e.st, 'SAPPED'));

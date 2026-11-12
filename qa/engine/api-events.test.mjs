@@ -40,7 +40,7 @@ describe('public rule helpers (engine-api.md 1)', () => {
 
   test('bagCapacity: BAG_SLOTS plus Deeper Pockets, in CREATE (from the profile) and during the run', () => {
     const prof = { ...R.newProfile(), unlocks: { pockets: 2 } };
-    const create = R.newRun({ classId: 'mage', seed: 1, content: CONTENT, profile: prof });
+    const create = R.newRun({ classId: 'mage', seed: 1, content: CONTENT, profile: prof, mapMode: 'rows' });
     assert.equal(R.bagCapacity(create), C.BAG_SLOTS + 2 * C.META.pockets.slots);
     assert.equal(R.bagCapacity(R.newRun({ seed: 1, content: CONTENT })), C.BAG_SLOTS, 'no class chosen, fresh profile');
     const run = R.step(create, { type: 'START_RUN' }).state;
@@ -53,12 +53,12 @@ describe('public rule helpers (engine-api.md 1)', () => {
 describe('bossPar and zoneDanger on the API (engine-api.md 1, M2 v4)', () => {
   test('bossPar: BOSS_TIME_PAR, OATH_HASTE_TIME less under Haste, in CREATE and in a run; Ascendancy and the speed bonus use it', () => {
     const prof = { ...R.newProfile(), unlocks: { oaths: 1 }, bossKills: 1 };
-    let c = R.newRun({ classId: 'rogue', seed: 3, content: CONTENT, profile: prof });
+    let c = R.newRun({ classId: 'rogue', seed: 3, content: CONTENT, profile: prof, mapMode: 'rows' });
     assert.equal(R.bossPar(c), C.BOSS_TIME_PAR);
     c = R.step(c, { type: 'SET_OATH', oath: 'haste', on: true }).state;
     assert.equal(R.bossPar(c), C.BOSS_TIME_PAR - C.OATH_HASTE_TIME, 'CREATE: Oaths chosen so far');
     for (const haste of [false, true]) {
-      let s = R.newRun({ classId: 'rogue', seed: 3, content: CONTENT, profile: prof });
+      let s = R.newRun({ classId: 'rogue', seed: 3, content: CONTENT, profile: prof, mapMode: 'rows' });
       if (haste) s = R.step(s, { type: 'SET_OATH', oath: 'haste', on: true }).state;
       s = R.step(R.step(s, { type: 'START_RUN' }).state, { type: 'LEAVE_HUB' }).state;
       const par = R.bossPar(s);
@@ -241,7 +241,7 @@ describe('heal, regen, level-up and resurrect events (engine-api.md 5)', () => {
       if (realContent) for (let seed = 21; seed <= 23; seed++) runs.push([cls, seed, realContent]);
     }
     for (const [cls, seed, content] of runs) {
-      let s = R.newRun({ classId: cls, petId: cls === 'hunter' ? 'ridgewolf' : null, seed, content });
+      let s = R.newRun({ classId: cls, petId: cls === 'hunter' ? 'ridgewolf' : null, seed, content, mapMode: 'rows' });
       for (let n = 0; n < MAX_ACTIONS_PER_RUN && s.phase !== 'ENDED'; n++) {
         const a = R.autoAction(s);
         const fight = !!s.fight;

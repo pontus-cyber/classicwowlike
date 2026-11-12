@@ -434,7 +434,7 @@ describe('combat v2.1: determinism and full runs', () => {
     const content = REAL || CONTENT;
     const log = [];
     const { state } = checkedRun('mage', 31, content, 'rows', disruptPolicy, log);
-    let c = R.newRun({ classId: 'mage', seed: 31, content });
+    let c = R.newRun({ classId: 'mage', seed: 31, content, mapMode: 'rows' });
     for (const x of log) c = R.step(c, x).state;
     assert.equal(R.serialize(c), R.serialize(state));
   });

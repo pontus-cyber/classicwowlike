@@ -837,7 +837,7 @@ describe('combat v2: determinism, state version, full runs', () => {
   test('full autoplay runs per class complete; every fight but the end boss opens with an engage round and an ENGAGE or a bar action', () => {
     for (const cls of C.CLASS_IDS) {
       for (const seed of [3, 4]) {
-        let s = R.newRun({ classId: cls, petId: cls === 'hunter' ? 'ridgewolf' : null, seed, content: CONTENT });
+        let s = R.newRun({ classId: cls, petId: cls === 'hunter' ? 'ridgewolf' : null, seed, content: CONTENT, mapMode: 'rows' });
         let fights = 0;
         let engageRounds = 0;
         let engages = 0;
