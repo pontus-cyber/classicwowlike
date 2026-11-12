@@ -162,12 +162,16 @@ describe('expedition.md 8.2 (rules 11.2): the expedition entries of the catalogu
   test('with the start camp: Quartermaster points, Cartographer and Old Hand owned, Scout\'s Eye as Pathfinder, Swift Boots +1 Bell charge (the Second Clapper then refused)', () => {
     const all = prof({ scout: 1, swift_boots: 1, cartographer: 1, old_hand: 1, quartermaster: 2 });
     let s = startedRun('expedition', { seed: 2, profile: all, prep: true });
-    const v = R.prepView(s);
+    // D128: the camp offers C.PREP_CAMP_OPTIONS only; the Guide and the Second Clapper are read with every option offered
+    const camp = C.PREP_CAMP_OPTIONS.splice(0, C.PREP_CAMP_OPTIONS.length, ...C.PREP_OPTION_IDS);
+    let v;
+    try { v = R.prepView(s); } finally { C.PREP_CAMP_OPTIONS.splice(0, C.PREP_CAMP_OPTIONS.length, ...camp); }
     assert.equal(v.points, C.PREP_POINTS + 2 * C.PREP_POINTS_PER_QM);
     const opt = (id) => v.options.find((o) => o.id === id);
     assert.deepEqual([opt('prep_charts').owned, opt('prep_tracker').owned, opt('prep_guide').owned], [true, true, false]);
     assert.equal(opt('prep_bell').canBuy, false);
     assert.match(opt('prep_bell').why, /at most 2/);
+    assert.deepEqual(R.prepView(s).options.filter((o) => o.owned).map((o) => o.id), ['prep_charts', 'prep_tracker'], 'the camp shows both owned');
     s = R.step(s, { type: 'SET_OUT' }).state;
     const mv = R.mapView(s);
     assert.equal(mv.vision.typeRadius, C.PATHFINDER_RADIUS);

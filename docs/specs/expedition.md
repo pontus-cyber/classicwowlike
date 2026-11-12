@@ -22,7 +22,7 @@ Kept [stated: docs/BRIEF.md]: about 45 minutes, manual combat, the end boss and 
 | Phase | Player actions (new or changed in bold) |
 |---|---|
 | CREATE | as rules 1.1 |
-| **PREP** | **`TAKE_CONTRACT(i)`, `DROP_CONTRACT(i)`, `BUY_PREP(id)`, `SELL_PREP(id)`, `REROLL_BOARD`, `SET_OUT`** (section 2) |
+| **PREP** | **`TAKE_CONTRACT(i)`, `DROP_CONTRACT(i)`, `BUY_PREP(id)`, `SELL_PREP(id)`, `REROLL_BOARD`, `SET_OUT`** (section 2; `REROLL_BOARD` only with `GATES.campReroll`, off since D128) |
 | ZONE_HUB | hub services (rules 1.4), **`TAKE_HUB_CONTRACT(mode, contractId)`** (3.6; `contractId` for `swap` only, M2b v10), **`ASK_LOCALS`** (5.3), `LEAVE_HUB` |
 | MAP | **`MOVE(nodeId)`** (adjacent node only), **`TAKE_ROAD`** (on a Road node), **`RING_BELL`** (Homeward Bell, 7.2), **`USE_SPYGLASS(nodeId)`**, out-of-combat actions. `CHOOSE_NODE(lane)` and `TRAVEL_ON` are removed. |
 | NODE | node actions as rules 2, plus **`PASS`** (leave the node unresolved, 4.6) |
@@ -37,15 +37,17 @@ Real time: PREP is one screen, about PACE_PREP_S seconds. The run otherwise keep
 
 ### 2.2 The contract board
 At PREP the board shows CONTRACT_BOARD_SIZE contracts drawn on stream `prep(k)` = hash(runSeed, "prep", k), k = number of rerolls so far:
-- one contract for each zone 1..ZONE_COUNT, then CONTRACT_BOARD_EXTRA more for zones drawn uniformly from 1..ZONE_COUNT;
+- slot i (from 0) is a contract of zone i + 1 while i < ZONE_COUNT; a slot past ZONE_COUNT would draw its zone uniformly from 1..ZONE_COUNT. (D128: CONTRACT_BOARD_SIZE 3, so the board is one contract each for zones 1, 2 and 3, the first three slots of the board drawn before; it was 8, one per zone and CONTRACT_BOARD_EXTRA 2 drawn zones, a constant now retired. Owner playtest 2026-11-12 20:19: "lower the contracts to maybe 3 choices". Zones 4-6 offer their contract at the hub, 3.6.);
 - kind by weight: Cull CW_CULL, Bounty CW_BOUNTY, Delve CW_DELVE (section 3);
 - target region: uniform over the zone's REGION_COUNT regions (Delve: the zone's dungeon); target family: one of the region's families (Content, 12.2);
 - every contract shows: zone and level band, kind, target ("Cull boars in the Barley Reach, Amberfold Downs, levels 1-10"), sites needed, reward summary, price.
-- no two offers on one board are the same contract (same zone, kind, target region and family, and a Bounty's elite): a slot whose offer equals one already on the board (an earlier slot, or after a reroll an offer kept because it is taken) takes instead one weighted draw, on the same stream, over the offers that slot can draw (a zone's own slot: that zone; an extra slot: every zone) that are not on the board, each with its chance in the normal draw, so the odds are those of drawing again until it differs; with none left the offer stays. A board without a repeat is drawn as before this rule (QA playtest 2026-11-11 finding 4: offers 2 and 7 were the same; 2026-11-11, UI/UX & Visual Engineer, docs/handoffs/ui-2026-11-11d.md).
+- no two offers on one board are the same contract (same zone, kind, target region and family, and a Bounty's elite; D128: a board whose slots all have their own zone never draws a repeat, so the rule acts only on a larger board or a meta unlock): a slot whose offer equals one already on the board (an earlier slot, or after a reroll an offer kept because it is taken) takes instead one weighted draw, on the same stream, over the offers that slot can draw (a zone's own slot: that zone; an extra slot: every zone) that are not on the board, each with its chance in the normal draw, so the odds are those of drawing again until it differs; with none left the offer stays. A board without a repeat is drawn as before this rule (QA playtest 2026-11-11 finding 4: offers 2 and 7 were the same; 2026-11-11, UI/UX & Visual Engineer, docs/handoffs/ui-2026-11-11d.md).
 
 `TAKE_CONTRACT(i)` costs `CONTRACT.kind.price` points; at most CONTRACT_SLOTS contracts may be held at once (whole run, PREP and hubs). `DROP_CONTRACT(i)` at PREP refunds the price.
 
-`REROLL_BOARD` costs REROLL_PRICE points, at most REROLL_MAX times; it redraws every contract not taken (stream `prep(k+1)`; a taken slot still makes its draws and keeps its offer, and the no-repeat rule above counts the taken offers).
+`REROLL_BOARD` costs REROLL_PRICE points, at most REROLL_MAX times; it redraws every contract not taken (stream `prep(k+1)`; a taken slot still makes its draws and keeps its offer, and the no-repeat rule above counts the taken offers). (D128) The reroll is legal only while the switch `GATES.campReroll` is on; it is **off**: the first screen has no reroll. The rule stays for a later meta unlock.
+
+`CONTRACT_SLOTS` is unchanged by D128 (4): the three board offers can all be held, and the fourth slot serves a hub contract (3.6).
 
 ### 2.3 Supplies
 | id | Name | Price | Effect |
@@ -58,6 +60,8 @@ At PREP the board shows CONTRACT_BOARD_SIZE contracts drawn on stream `prep(k)` 
 
 Each supply and each vision perk can be bought once per run; supplies do not stack (engine default, confirmed M2b v10).
 
+(D128) The start camp offers only the options in PREP_CAMP_OPTIONS: **Field Draughts** and **Ember of Return** (supplies), **Region Charts** and **Tracker's Notes** (vision, 2.4), at most four on the screen. These are the four the planner bot valued (balance 2026-11-11f, P0: Field Draughts in 100 % of runs, Region Charts 54 %, the Ember 30 %, Tracker's Notes 9 %; the Local Guide and the Second Clapper were never bought) [source: docs/reports/balance-2026-11-11f.md, 2026-11-11e.md]. The Trail Pack, the Second Clapper, the Pack Mule, the Local Guide and the Spyglass keep their rules and SET_OUT effects in the engine but are not offered: `BUY_PREP` refuses them ("not offered at the start camp"). A later meta unlock can add an option to the list.
+
 ### 2.4 Vision perks (owner decision 1)
 Vision is a resource. A fresh profile sees adjacent nodes only (section 5). Perks bought here last the whole run:
 
@@ -68,10 +72,10 @@ Vision is a resource. A fresh profile sees adjacent nodes only (section 5). Perk
 | prep_guide | Local Guide | PRICE_GUIDE | full vision radius +GUIDE_RADIUS_BONUS (capped at VISION_RADIUS_MAX) |
 | prep_spyglass | Spyglass | PRICE_SPYGLASS | SPYGLASS_CHARGES uses of `USE_SPYGLASS(nodeId)` (0 tolls): reveals that node and its neighbours fully, any distance |
 
-A perk the profile already has from meta (11) is shown as owned and cannot be bought.
+A perk the profile already has from meta (11) is shown as owned and cannot be bought. (D128) Of these four, Region Charts and Tracker's Notes are offered at the camp (2.3); the Local Guide and the Spyglass are not.
 
 ### 2.5 Prices are the design lever
-The points cannot buy everything: with PREP_POINTS = 10 a fresh player chooses between, for example, four cheap contracts; two contracts and the Tracker; one contract, an Ember and the Guide. The prototype (section 12) measured what the main choices are worth.
+The points cannot buy everything: with PREP_POINTS = 10 a fresh player chooses between, for example, four cheap contracts; two contracts and the Tracker; one contract, an Ember and the Guide. The prototype (section 12) measured what the main choices are worth. (D128) With three offers and four options: all three contracts (6-8 points) leave 2-4 points for the Draughts, the Charts or the Tracker; the Ember (4) costs one or two contracts. The board and the four options together cost 14-16 points, so the choice stays.
 
 ### 2.6 Reserve (unspent points)
 Unspent points are kept as Reserve. Reserve pays for hub contracts (3.6) and for `ASK_LOCALS` (no point cost; it is listed here because the hub screen shows Reserve next to it). At SUMMARY each Reserve point left is worth PREP_ECHO_PER_POINT Echoes (11.1 new line). So spending is a real choice: a point kept is flexibility in the run and a small Echo value; a point spent is power or information now.
@@ -111,7 +115,7 @@ Progress: a site counts when its node is won (Quest: encounter won; Grind: at le
 The player knows the target region of each contract but, with a fresh profile, not which nodes are sites or where the region lies: both are discovered by walking (section 5). Region Charts show where to go; the Tracker shows the sites; the Guide shows more of everything. This is the owner's "finding the boars is partly chance" [stated], and the prep perks are how a player buys that chance down.
 
 ### 3.5 Slots and the plan
-CONTRACT_SLOTS limits held contracts (PREP and hubs together). The board covers all six zones, so the start camp sets most of the run's goals; the hub offers one change per zone.
+CONTRACT_SLOTS limits held contracts (PREP and hubs together). The board covers zones 1-3 (D128; it covered all six zones before), so the start camp sets the early goals; the hub offers one contract per zone from zone 2 on, the only offer for zones 4-6.
 
 ### 3.6 Hub contract
 Each zone hub (zones 2..6; zone 1's hub follows PREP directly) offers one contract of that zone (stream hash(runSeed, "hubc", z); kind and target as 2.2), open until the zone's first `LEAVE_HUB` (a later hub visit does not offer it; M2b v10). `TAKE_HUB_CONTRACT(mode, contractId)`:
@@ -288,10 +292,11 @@ The Tracker buys contract steering without making the whole route computable; th
 ## 9. UI the player needs
 
 ### 9.1 Prep screen (start camp)
-One screen, landscape, three columns: **Contract board** (8 cards: zone and band, kind icon, target region and family, sites needed, reward line with rarity colours, price; Take / Drop; Reroll button with its price and uses left), **Supplies and Vision** (cards with price, owned state from meta greyed as "Owned"), **Your expedition** (points left in large type, held contracts in slot order with their zones, purchases, Reserve preview "Unspent: N points = N × PREP_ECHO_PER_POINT Echoes, usable at hubs"). `Set out` is always visible bottom-right (QA finding BUG-QA-10: never below the fold). Hover on a contract shows "Sites: Quest or Grind nodes in the Barley Reach; with your vision you will see them when adjacent / within 2 hops".
+(D128, owner playtest 2026-11-12 20:19: "strip it as much as possible ... 3 simple choices".) One lean screen, landscape: the title and one line, then **three contract cards side by side** (keys 1-3), each with only its title (kind icon, kind and target, e.g. "Cull boars"), one line of what to do ("Win 2 sites in the Barley Reach, Amberfold Downs"), the pay in one line ("2.8 levels of XP · gold · choose 1 of 3"), its price and Take / Drop. Below them **up to four small option cards** (keys A-D: name, icon, price, Buy / Sell or Owned), the **points left** in large type with "N contracts held", and `Set out` (Enter), always in view bottom-right (QA finding BUG-QA-10: never below the fold). Everything else moves into tooltips: zone and level band, sites needed and where they lie ("Sites: Quest or Grind nodes in the Barley Reach; with your vision you will see them when adjacent / within 2 hops"), the exact XP, gold and rarities, an option's full effect and refund, and the Reserve preview ("Unspent: N points = N × PREP_ECHO_PER_POINT Echoes, usable at hubs", on the points and on `Set out`). No reroll button while `GATES.campReroll` is off (2.2). Before D128 the screen had three columns: an 8-card board with reroll, nine supplies and perks, and an expedition column with slots and purchases.
 
 ### 9.2 Fog map
 - The zone disc fills the map panel: hub in the centre, rings as faint circles, edges as paths, nodes as markers. Unseen nodes: dim marker with "?" and the ring's level range on hover. Seen nodes: type icon, level coloured against the player (as today), enemy count (BUG-QA-02), contract-site badge in the contract's colour.
+- (D128, owner playtest 2026-11-12 20:19: "make the icons smaller on the map ... it's a bit cluttered".) Node markers are about 70 % of their earlier size. Text labels show only where the player acts: the player's node, the reachable nodes (level and tolls) and contract sites (level). Every other node shows its icon only, with its level as a small coloured pip; levels, enemy counts, level ranges and tolls of the rest are on hover. The Dimming's "dims in N" clock stays on the player's node and the reachable nodes; nodes farther out show a small clock mark (number on hover). No label overlaps another at 1366x768.
 - Regions (when known): soft tint per wedge with the region name on the rim.
 - Landmarks: Roads as signposts on the rim with the next zone's name; the Shardfall as a cracked star; the Dimming as a dark wash over Dimmed nodes, and on every node within 2 hops of the front a small mark "dims in N tolls". The player's node shows its own count prominently when N <= 2. (M2b v7)
 - Legal moves highlight on hover with their tolls; a resolved node shows "walk 1 toll". Taking a Road and ringing the Bell are buttons on the map panel with their tolls and, for the Bell, charges left.
@@ -533,11 +538,11 @@ Reproduce: `cd sim/out/heat && HEATP='{"gain":[0,0,0.35,0.5],"up":[0,0,0.25,0.4]
 | PREP_POINTS | 10 | points |
 | PREP_POINTS_PER_QM | 2 | points per Quartermaster rank |
 | PREP_ECHO_PER_POINT | 2 | Echoes per Reserve point at SUMMARY |
-| CONTRACT_BOARD_SIZE | 8 | contracts |
-| CONTRACT_BOARD_EXTRA | 2 | contracts beyond one per zone |
+| CONTRACT_BOARD_SIZE | 3 | contracts (D128: was 8; CONTRACT_BOARD_EXTRA 2 retired) |
 | CONTRACT_SLOTS | 4 | contracts held |
-| REROLL_PRICE | 1 | points |
-| REROLL_MAX | 2 | rerolls |
+| REROLL_PRICE | 1 | points (only with `GATES.campReroll`, off since D128) |
+| REROLL_MAX | 2 | rerolls (only with `GATES.campReroll`, off since D128) |
+| PREP_CAMP_OPTIONS | prep_draughts, prep_ember, prep_charts, prep_tracker | options offered at the start camp (D128; the other five stay in the engine, not offered) |
 | CW_CULL / CW_BOUNTY / CW_DELVE | 55 / 25 / 20 | weight |
 | CONTRACT.cull.price / bounty / delve | 2 / 3 / 2 | points (M2b v10: delve 1 -> 2; M2b v11: back to 1, D93; M2b v12: 2 again, D100, the D93 guard) |
 | CULL_SITES | 2 | sites |

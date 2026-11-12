@@ -761,6 +761,11 @@ DUNGEON_DIM_HOLD 3 until M2b v12 removed it) act on every expedition run, with o
 ### 13.1 Rules as the engine plays them
 - Points: `PREP_POINTS + PREP_POINTS_PER_QM × min(profile.unlocks.quartermaster, 2)`. Spent on contracts (their price),
   options (each bought once) and rerolls (REROLL_PRICE each, not refunded); DROP and SELL refund. Left at SET_OUT: Reserve.
+- (D128, a lean start camp) CONTRACT_BOARD_SIZE 3: the board is zones 1, 2, 3 (was 8; CONTRACT_BOARD_EXTRA retired).
+  REROLL_BOARD is refused ("no reroll at the start camp") while `C.GATES.campReroll` is off, its default; on, the rule
+  below holds. BUY_PREP refuses an option not in `C.PREP_CAMP_OPTIONS` ("not offered at the start camp"): the camp sells
+  Field Draughts, Ember of Return, Region Charts and Tracker's Notes; the other options keep their SET_OUT effects.
+  `contracts.js drawBoard(s, k, kept, size)` draws a board of `size` slots (default CONTRACT_BOARD_SIZE; tests draw 8).
 - Board (`prep(k)`): slot i < ZONE_COUNT is zone i + 1, the others draw a zone (1 draw). Each offer: kind by weight CW_* (1
   draw); Cull and Bounty: region (1 draw, uniform over the zone's regions in content order), family (1 draw over the
   region's families; null without), Bounty: its elite (1 draw over the zone's rares of that family, else over all its
@@ -802,8 +807,9 @@ DUNGEON_DIM_HOLD 3 until M2b v12 removed it) act on every expedition run, with o
     the XP it pays if completed now, before heat; 0 at MAX_LEVEL), gold (copper, before Prospector and heat), choices,
     table, rarity: { rare, epic } }, taken, canTake, canDrop }],
   options: [{ id, name, kind ('supply' | 'vision'), price, owned, bought, canBuy, canSell, why (why it cannot be bought),
-    item, qty, bell, slots, charges }],
-  reroll: { used, max, price, can }, reserve: { points, echoes } }
+    item, qty, bell, slots, charges }]   (D128: only the ids of C.PREP_CAMP_OPTIONS, in PREP_OPTION order),
+  reroll: { open (D128: C.GATES.campReroll; the screen shows no reroll while false), used, max, price, can },
+  reserve: { points, echoes } }
 ```
 
 ### 13.3 `contractView(state)`
@@ -822,7 +828,7 @@ a completed Bounty's other node gets its own elite back; a Cull site without a m
 it, else stays as it is (it still counts); the hub contract only before the zone's first LEAVE_HUB; `swap` names the
 contract it gives up: `TAKE_HUB_CONTRACT(mode, contractId)`, `contractId` for `swap` only (ignored with `reserve`); a
 Delve shows its dungeon's type while held or complete; a Grind site counts at its first wave won; REROLL_BOARD replaces
-slot by slot from `prep(k + 1)`; board draws: kind, region, family (always one draw), the Bounty's elite, extra slots
+slot by slot from `prep(k + 1)` (with `GATES.campReroll` on; off since D128); board draws: kind, region, family (always one draw), the Bounty's elite, extra slots
 their zone first; Cartographer, Old Hand and Quartermaster are read from `profile.unlocks` (catalogue entries in `C.META`
 since the M2b v11 build, section 9; `C.META_EXPEDITION` names the three); autoplay's start camp: Field Draughts, then the board's
 contract for each of zones 1-AUTO_PREP_ZONES whatever its kind (a Delve costs 2 again since M2b v12) while AUTO_PREP_RESERVE

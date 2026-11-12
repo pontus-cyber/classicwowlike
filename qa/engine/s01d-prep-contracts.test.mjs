@@ -2,7 +2,10 @@
 // and their meta source, the contract board on stream prep(k), rerolls, supplies and vision perks, Reserve, SET_OUT,
 // prepView) and contracts (sites on the continued map(z) stream, progress, rewards, expiry, the hub contract on stream
 // hubc(z), the Spyglass, Tracker's Notes, contractView, the Echo lines, the story chain retired on the expedition map).
-// Every draw order is replayed here from the spec's own description; the rows map never sees any of it.
+// Every draw order is replayed here from the spec's own description; the rows map never sees any of it. D128 (a lean
+// start camp): a 3-offer board, no reroll (GATES.campReroll off), only PREP_CAMP_OPTIONS for sale; the reroll, the
+// no-repeat rule (8-slot boards drawn directly) and the other options' effects are still checked here (withGate,
+// withCamp).
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -11,7 +14,7 @@ import { R, C, CONTENT, tweak, ev, STREAM, nextFloat } from './helpers.mjs';
 import { CONTENT as REAL } from '../../src/content/index.js';
 import { nextInt, weightedIndex } from '../../src/rng.js';
 import { generateExpZone, zoneRegions } from '../../src/engine/expedition.js';
-import { contractLevel, prepPoints } from '../../src/engine/contracts.js';
+import { contractLevel, prepPoints, drawBoard } from '../../src/engine/contracts.js';
 import { validEncounter } from '../../src/engine/map.js';
 
 const SPEC = readFileSync(fileURLToPath(new URL('../../docs/specs/expedition.md', import.meta.url)), 'utf8');
@@ -24,6 +27,17 @@ function atCamp(opts = {}) {
 }
 const go = (s, a) => R.step(s, a).state;
 const prof = (unlocks) => ({ ...R.newProfile(), unlocks });
+/** Run fn with GATES[key] = value (restored after). */
+function withGate(key, value, fn) {
+  const old = C.GATES[key];
+  C.GATES[key] = value;
+  try { return fn(); } finally { C.GATES[key] = old; }
+}
+/** Run fn with the start camp offering `ids` (C.PREP_CAMP_OPTIONS, D128; restored after). */
+function withCamp(ids, fn) {
+  const old = C.PREP_CAMP_OPTIONS.splice(0, C.PREP_CAMP_OPTIONS.length, ...ids);
+  try { return fn(); } finally { C.PREP_CAMP_OPTIONS.splice(0, C.PREP_CAMP_OPTIONS.length, ...old); }
+}
 /** Put a chosen offer on board slot i (test set-up), then take it. */
 function holding(s, i, offer) {
   const t = tweak(s, (x) => { x.prep.board[i] = { index: i, taken: false, template: null, family: null, region: null, ...offer, need: C.CONTRACT[offer.kind].sites, price: C.CONTRACT[offer.kind].price }; });
@@ -77,10 +91,10 @@ function oddsOf(c, zs) {
  * The documented board of prep(k) (expedition.md 2.2): slot by slot, zone then offer; a kept (taken) slot draws and keeps
  * its offer; an offer equal to one on the board is replaced by one weighted draw over the slot's offers not on the board.
  */
-function boardOf(seed, k, kept = []) {
+function boardOf(seed, k, kept = [], size = C.CONTRACT_BOARD_SIZE) {
   const rng = STREAM.prep(seed, k);
   const out = [];
-  for (let i = 0; i < C.CONTRACT_BOARD_SIZE; i++) {
+  for (let i = 0; i < size; i++) {
     const z = i < C.ZONE_COUNT ? i + 1 : 1 + nextInt(rng, C.ZONE_COUNT);
     let o = offerOf(REAL, rng, z);
     if (kept[i]) { out.push(pick(kept[i])); continue; }
@@ -95,10 +109,10 @@ function boardOf(seed, k, kept = []) {
   return out;
 }
 /** The board as drawn before the no-repeat rule (2026-11-11): every slot's plain draw. */
-function plainBoard(seed, k) {
+function plainBoard(seed, k, size = C.CONTRACT_BOARD_SIZE) {
   const rng = STREAM.prep(seed, k);
   const out = [];
-  for (let i = 0; i < C.CONTRACT_BOARD_SIZE; i++) out.push(offerOf(REAL, rng, i < C.ZONE_COUNT ? i + 1 : 1 + nextInt(rng, C.ZONE_COUNT)));
+  for (let i = 0; i < size; i++) out.push(offerOf(REAL, rng, i < C.ZONE_COUNT ? i + 1 : 1 + nextInt(rng, C.ZONE_COUNT)));
   return out;
 }
 /** Play autoplay until pred; collect the events. */
@@ -127,7 +141,7 @@ describe('expedition.md 13: the start camp and contract constants (prep)', () =>
   test('each implemented constant of the table equals src/constants.js', () => {
     const i = SPEC.indexOf('## 13. Constant table');
     const rows = SPEC.slice(i).split('\n').filter((l) => l.startsWith('| ')).map((l) => l.split('|').slice(1, -1).map((c) => c.trim()));
-    const names = ['PREP_POINTS', 'PREP_POINTS_PER_QM', 'PREP_ECHO_PER_POINT', 'CONTRACT_BOARD_SIZE', 'CONTRACT_BOARD_EXTRA', 'CONTRACT_SLOTS', 'REROLL_PRICE',
+    const names = ['PREP_POINTS', 'PREP_POINTS_PER_QM', 'PREP_ECHO_PER_POINT', 'CONTRACT_BOARD_SIZE', 'CONTRACT_SLOTS', 'REROLL_PRICE',
       'REROLL_MAX', 'CW_CULL', 'CW_BOUNTY', 'CW_DELVE', 'CULL_SITES', 'CULL_SITE_SPARE', 'CULL_SITE_IN', 'CULL_SITE_OUT', 'BOUNTY_PLACED', 'CONTRACT_CL_OFFSET',
       'CULL_XP_FRAC', 'BOUNTY_XP_FRAC', 'DELVE_XP_FRAC', 'CULL_GOLD_V', 'BOUNTY_GOLD_V', 'DELVE_GOLD_V', 'CONTRACT_REWARD_CHOICES', 'DELVE_REWARD_CHOICES',
       'CONTRACT_RARE_W', 'CONTRACT_EPIC_W', 'BOUNTY_RARE_W', 'BOUNTY_EPIC_W', 'ECHO_CONTRACT_MULT', 'PRICE_PREP_DRAUGHTS', 'PREP_DRAUGHT_COUNT',
@@ -151,7 +165,14 @@ describe('expedition.md 13: the start camp and contract constants (prep)', () =>
       });
     }
     assert.deepEqual([...seen].sort(), names.slice().sort(), 'every name found in the table');
-    assert.equal(C.CONTRACT_BOARD_SIZE, C.ZONE_COUNT + C.CONTRACT_BOARD_EXTRA);
+    // D128: 3 offers, one per zone 1-3 (CONTRACT_BOARD_EXTRA retired); no reroll at the camp; the camp's four options
+    assert.deepEqual([C.CONTRACT_BOARD_SIZE, 'CONTRACT_BOARD_EXTRA' in C, C.GATES.campReroll], [3, false, false]);
+    assert.ok(C.CONTRACT_BOARD_SIZE <= C.ZONE_COUNT);
+    const camp = rows.find((r) => r[0] === 'PREP_CAMP_OPTIONS');
+    assert.ok(camp, 'PREP_CAMP_OPTIONS row');
+    assert.deepEqual(C.PREP_CAMP_OPTIONS, camp[1].split(',').map((x) => x.trim()));
+    assert.deepEqual(C.PREP_CAMP_OPTIONS, ['prep_draughts', 'prep_ember', 'prep_charts', 'prep_tracker']);
+    assert.ok(C.PREP_CAMP_OPTIONS.every((id) => C.PREP_OPTION[id]));
     assert.deepEqual([C.DROP_TABLE.contract.weights, C.DROP_TABLE.bounty.weights], [[0, 0, C.CONTRACT_RARE_W, C.CONTRACT_EPIC_W], [0, 0, C.BOUNTY_RARE_W, C.BOUNTY_EPIC_W]]);
     assert.deepEqual(C.CONTRACT_KINDS.map((k) => [C.CONTRACT[k].sites, C.CONTRACT[k].weight, C.CONTRACT[k].xpFrac, C.CONTRACT[k].goldV, C.CONTRACT[k].choices]),
       [[C.CULL_SITES, C.CW_CULL, C.CULL_XP_FRAC, C.CULL_GOLD_V, C.CONTRACT_REWARD_CHOICES], [1, C.CW_BOUNTY, C.BOUNTY_XP_FRAC, C.BOUNTY_GOLD_V, C.CONTRACT_REWARD_CHOICES],
@@ -193,7 +214,7 @@ describe('expedition.md 1, 2: the start camp (PREP)', () => {
     assert.equal(s.zone, undefined);
     assert.deepEqual([R.heatView(s), R.mapView(s)], [null, null]);
     const types = new Set(R.legalActions(s).map((a) => a.type));
-    assert.deepEqual([...types].sort(), ['BUY_PREP', 'REROLL_BOARD', 'SET_AUTOPLAY', 'SET_OUT', 'TAKE_CONTRACT']);
+    assert.deepEqual([...types].sort(), ['BUY_PREP', 'SET_AUTOPLAY', 'SET_OUT', 'TAKE_CONTRACT']); // no REROLL_BOARD (D128)
     for (const a of [{ type: 'LEAVE_HUB' }, { type: 'SERVICE', service: 'inn' }, { type: 'USE_ITEM', itemId: 'trail_rations' }]) assert.ok(R.whyIllegal(s, a), a.type);
     const rows = go(R.newRun({ classId: 'mage', seed: 1, content: REAL, mapMode: 'rows' }), { type: 'START_RUN' });
     assert.deepEqual([rows.phase, rows.prep, rows.exp, R.prepView(rows), R.contractView(rows)], ['ZONE_HUB', undefined, undefined, null, null]);
@@ -209,10 +230,11 @@ describe('expedition.md 1, 2: the start camp (PREP)', () => {
     }
   });
 
-  test('2.2 the board: stream prep(0), one contract per zone then CONTRACT_BOARD_EXTRA drawn zones; draws as documented; deterministic', () => {
+  test('2.2 the board: stream prep(0), one contract for each of zones 1-CONTRACT_BOARD_SIZE (D128: 3); draws as documented; deterministic', () => {
     for (const seed of [1, 2, 3, 77]) {
       const s = atCamp({ seed });
       assert.deepEqual(s.prep.board.map(pick), boardOf(s.seed, 0), `seed ${seed}`);
+      assert.deepEqual(s.prep.board.map((o) => o.z), [1, 2, 3], `seed ${seed}: zones 1-3`);
       assert.deepEqual(atCamp({ seed }).prep.board, s.prep.board);
       for (const o of s.prep.board) {
         assert.equal(o.price, C.CONTRACT[o.kind].price);
@@ -269,7 +291,15 @@ describe('expedition.md 1, 2: the start camp (PREP)', () => {
     assert.match(R.whyIllegal(f, { type: 'TAKE_CONTRACT', index: 4 }), /at most 4/);
   });
 
-  test('2.2 REROLL_BOARD: REROLL_PRICE, at most REROLL_MAX; taken offers stay, the others are the same slots of prep(k + 1)', () => {
+  test('2.2 REROLL_BOARD (D128): refused at the camp while GATES.campReroll is off (the default); prepView reroll.open false', () => {
+    const s = go(atCamp({ seed: 9 }), { type: 'TAKE_CONTRACT', index: 0 });
+    assert.equal(R.whyIllegal(s, { type: 'REROLL_BOARD' }), 'no reroll at the start camp');
+    assert.ok(!R.legalActions(s).some((a) => a.type === 'REROLL_BOARD'));
+    assert.deepEqual(R.prepView(s).reroll, { open: false, used: 0, max: C.REROLL_MAX, price: C.REROLL_PRICE, can: false });
+    withGate('campReroll', true, () => assert.deepEqual([R.whyIllegal(s, { type: 'REROLL_BOARD' }), R.prepView(s).reroll.open], [null, true]));
+  });
+
+  test('2.2 REROLL_BOARD with GATES.campReroll on: REROLL_PRICE, at most REROLL_MAX; taken offers stay, the others are the same slots of prep(k + 1)', () => withGate('campReroll', true, () => {
     let s = atCamp({ seed: 9 });
     s = go(s, { type: 'TAKE_CONTRACT', index: 0 });
     const keep = s.prep.board[0];
@@ -282,35 +312,52 @@ describe('expedition.md 1, 2: the start camp (PREP)', () => {
       assert.equal(R.prepView(s).left, before - C.REROLL_PRICE);
     }
     assert.match(R.whyIllegal(s, { type: 'REROLL_BOARD' }), /at most/);
-  });
+  }));
 
-  test('2.2 no repeats (2026-11-11): no two offers on one board are the same contract, rerolls and taken offers included; a board without a repeat is drawn as before', () => {
+  test('2.2 no repeats (2026-11-11): no two offers on one board are the same contract, rerolls and taken offers included; a board without a repeat is drawn as before (D128: the 3-slot board, one zone per slot, never repeats; the rule is checked on 8-slot boards)', () => {
+    const BIG = 8;
     let replaced = 0;
     let plainSame = 0;
     for (let seed = 1; seed <= 150; seed++) {
-      let s = atCamp({ seed });
-      const plain = plainBoard(seed, 0);
+      const s = atCamp({ seed });
+      // D128: the camp's board is the plain draw of its zone slots, always (no two slots share a zone)
+      assert.deepEqual(s.prep.board.map(pick), plainBoard(seed, 0), `seed ${seed}: the 3-slot board`);
+      const plain = plainBoard(seed, 0, BIG);
+      let b = drawBoard(s, 0, [], BIG);
       const hadRepeat = plain.some((o, i) => plain.slice(0, i).some((p) => sameAs(p, o)));
       if (hadRepeat) replaced++;
-      else { plainSame++; assert.deepEqual(s.prep.board.map(pick), plain, `seed ${seed}: a board without a repeat is unchanged`); }
+      else { plainSame++; assert.deepEqual(b.map(pick), plain, `seed ${seed}: a board without a repeat is unchanged`); }
       // The zone slots of prep(0) never change (each its own zone; the extra slots draw after them).
-      assert.deepEqual(s.prep.board.slice(0, C.ZONE_COUNT).map(pick), plain.slice(0, C.ZONE_COUNT));
-      for (const i of [1, C.ZONE_COUNT]) if (!R.whyIllegal(s, { type: 'TAKE_CONTRACT', index: i })) s = go(s, { type: 'TAKE_CONTRACT', index: i });
+      assert.deepEqual(b.slice(0, C.ZONE_COUNT).map(pick), plain.slice(0, C.ZONE_COUNT));
+      assert.deepEqual(b.slice(0, C.CONTRACT_BOARD_SIZE).map(pick), s.prep.board.map(pick), `seed ${seed}: the camp's board is the 8-slot board's start`);
       for (let k = 0; k <= C.REROLL_MAX; k++) {
-        const b = s.prep.board;
         b.forEach((o, i) => assert.ok(!b.slice(0, i).some((p) => sameAs(p, o)), `seed ${seed}, prep(${k}): slot ${i + 1} repeats an offer`));
         b.forEach((o) => { assert.equal(o.price, C.CONTRACT[o.kind].price); assert.equal(o.need, C.CONTRACT[o.kind].sites); });
-        if (k > 0) assert.deepEqual(b.map(pick), boardOf(seed, k, b.map((o) => (o.taken ? o : null))), `seed ${seed}, prep(${k}) as documented`);
-        if (k < C.REROLL_MAX && !R.whyIllegal(s, { type: 'REROLL_BOARD' })) s = go(s, { type: 'REROLL_BOARD' });
+        if (k === C.REROLL_MAX) break;
+        // offers 2 and ZONE_COUNT + 1 taken, then a reroll: they stay, the others are the same slots of prep(k + 1)
+        const kept = b.map((o, i) => (i === 1 || i === C.ZONE_COUNT ? o : null));
+        b = drawBoard(s, k + 1, kept, BIG);
+        assert.deepEqual(b.map(pick), boardOf(seed, k + 1, kept, BIG), `seed ${seed}, prep(${k + 1}) as documented`);
       }
     }
     assert.ok(replaced > 10 && plainSame > 50, `${replaced} boards had a repeat, ${plainSame} did not`);
     // The playtest's board (seed 4, QA 2026-11-11): offers 2 and 7 were the same Cull, 6 and 8 the same; now 8 distinct.
-    const b4 = atCamp({ seed: 4, classId: 'rogue' }).prep.board;
-    assert.equal(new Set(b4.map((o) => [o.z, o.kind, o.region, o.family, o.template].join('|'))).size, C.CONTRACT_BOARD_SIZE);
+    const b4 = drawBoard(atCamp({ seed: 4, classId: 'rogue' }), 0, [], BIG);
+    assert.equal(new Set(b4.map((o) => [o.z, o.kind, o.region, o.family, o.template].join('|'))).size, BIG);
   });
 
-  test('2.3 / 2.4 options: each bought once and sold back; owned perks (meta Cartographer and Old Hand, the vision option) are not for sale; Bell cap', () => {
+  test('2.3 / 2.4 the camp offers PREP_CAMP_OPTIONS only (D128): prepView lists them in PREP_OPTION order; BUY_PREP refuses the others', () => {
+    const s = atCamp();
+    assert.deepEqual(R.prepView(s).options.map((o) => o.id), C.PREP_CAMP_OPTIONS);
+    for (const id of C.PREP_OPTION_IDS) {
+      if (C.PREP_CAMP_OPTIONS.includes(id)) assert.equal(R.whyIllegal(s, { type: 'BUY_PREP', id }), null, id);
+      else assert.equal(R.whyIllegal(s, { type: 'BUY_PREP', id }), 'not offered at the start camp', id);
+    }
+    assert.deepEqual(R.legalActions(s).filter((a) => a.type === 'BUY_PREP').map((a) => a.id), C.PREP_CAMP_OPTIONS);
+    assert.deepEqual(withCamp(C.PREP_OPTION_IDS, () => R.prepView(s).options.map((o) => o.id)), C.PREP_OPTION_IDS, 'withCamp: every option');
+  });
+
+  test('2.3 / 2.4 options (every option offered, withCamp): each bought once and sold back; owned perks (meta Cartographer and Old Hand, the vision option) are not for sale; Bell cap', () => withCamp(C.PREP_OPTION_IDS, () => {
     let s = atCamp();
     for (const id of C.PREP_OPTION_IDS) assert.equal(R.whyIllegal(s, { type: 'SELL_PREP', id }), `${id} is not bought`);
     s = go(s, { type: 'BUY_PREP', id: 'prep_guide' });
@@ -333,9 +380,9 @@ describe('expedition.md 1, 2: the start camp (PREP)', () => {
     assert.match(R.whyIllegal(atCamp({ vision: { guide: true } }), { type: 'BUY_PREP', id: 'prep_guide' }), /owned/);
     const full = tweak(atCamp(), (x) => { x.exp.bell = C.BELL_MAX_CHARGES; });
     assert.match(R.whyIllegal(full, { type: 'BUY_PREP', id: 'prep_bell' }), /at most/);
-  });
+  }));
 
-  test('2.3-2.6 SET_OUT: supplies in the bag, Bell +1, Pack Mule slots, vision perks for the run, Spyglass charges, Reserve = points left; zone 1', () => {
+  test('2.3-2.6 SET_OUT (every option offered, withCamp): supplies in the bag, Bell +1, Pack Mule slots, vision perks for the run, Spyglass charges, Reserve = points left; zone 1', () => withCamp(C.PREP_OPTION_IDS, () => {
     let s = atCamp({ seed: 4 });
     const bag0 = { d: 0, r: 0 };
     for (const it of s.player.bag) if (it.kind === 'cons') { if (it.id === 'healing_draught') bag0.d += it.qty; if (it.id === 'trail_rations') bag0.r += it.qty; }
@@ -359,7 +406,7 @@ describe('expedition.md 1, 2: the start camp (PREP)', () => {
     assert.equal(R.mapView(g).vision.radius, Math.min(C.VISION_RADIUS_MAX, C.VISION_RADIUS + C.GUIDE_RADIUS_BONUS));
     g = go(go(atCamp({ seed: 4 }), { type: 'BUY_PREP', id: 'prep_ember' }), { type: 'SET_OUT' });
     assert.equal(g.player.bag.filter((x) => x.id === 'ember_of_return').length, 1);
-  });
+  }));
 });
 
 describe('expedition.md 3: contracts in the zone', () => {
@@ -525,7 +572,7 @@ describe('expedition.md 3: contracts in the zone', () => {
     assert.match(R.whyIllegal(poor, { type: 'TAKE_HUB_CONTRACT', mode: 'reserve' }), /Reserve/);
   });
 
-  test('2.4 Spyglass: 0 tolls, the node and its neighbours seen, one charge; Tracker\'s Notes: site marks within TRACKER_RADIUS on hidden nodes', () => {
+  test('2.4 Spyglass: 0 tolls, the node and its neighbours seen, one charge; Tracker\'s Notes: site marks within TRACKER_RADIUS on hidden nodes (the Spyglass offered, withCamp)', () => withCamp(C.PREP_OPTION_IDS, () => {
     let s = go(go(go(atCamp({ seed: 21 }), { type: 'BUY_PREP', id: 'prep_spyglass' }), { type: 'SET_OUT' }), { type: 'LEAVE_HUB' });
     const far = s.zone.nodes.find((n) => n.ring === 3 && !s.zone.seen[n.id]).id;
     const r = R.step(s, { type: 'USE_SPYGLASS', nodeId: far });
@@ -546,7 +593,7 @@ describe('expedition.md 3: contracts in the zone', () => {
         assert.deepEqual(n.sites, shows && real ? real : undefined, `tracker ${tracker} node ${n.id}`);
       }
     }
-  });
+  }));
 
   test('contractView names no site node; statuses; the summary lines; the Reserve Echo line', () => {
     let s = holding(atCamp({ seed: 30 }), 0, { z: 1, kind: 'delve' });

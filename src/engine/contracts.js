@@ -5,14 +5,16 @@
 // hub contract is taken, progress when a site's node is won, the reward paid at once (XP without the level-difference
 // modifier since M2b v10, gold, an item choice on the tables "contract" / "bounty", heat of the node included), expiry
 // when the zone is left, the hub contract (stream hubc(z), 3.6: from Reserve or by a swap), and contractView for the
-// tracker. Pure helpers of the state; nodes.js calls
+// tracker. D128 (owner playtest 2026-11-12 20:19, a lean start camp): the board holds CONTRACT_BOARD_SIZE 3 offers (zones
+// 1-3), REROLL_BOARD only with GATES.campReroll (off), and the camp offers only PREP_CAMP_OPTIONS (the other options
+// keep their rules but cannot be bought). Pure helpers of the state; nodes.js calls
 // them from the run flow, actions.js checks legality. Only a run created with newRun({ mapMode: 'expedition', prep: true })
 // uses it; a rows run, or an expedition run without the option, never does.
 import {
   ZONE_COUNT, ZONE_LEVELS, PREP_POINTS, PREP_POINTS_PER_QM, PREP_ECHO_PER_POINT, CONTRACT_BOARD_SIZE, CONTRACT_SLOTS,
   REROLL_PRICE, REROLL_MAX, CULL_SITES, CULL_SITE_SPARE, CULL_SITE_IN, CULL_SITE_OUT, BOUNTY_PLACED,
-  CONTRACT_CL_OFFSET, PREP_OPTION, PREP_OPTION_IDS, CONTRACT, CONTRACT_KINDS, META, BELL_MAX_CHARGES,
-  GUIDE_RADIUS_BONUS, TRACKER_RADIUS, EMBER_MAX_CARRIED, XP_WEIGHT_MULT, DROP_TABLE, RARITY_ORDER,
+  CONTRACT_CL_OFFSET, PREP_OPTION, PREP_OPTION_IDS, PREP_CAMP_OPTIONS, CONTRACT, CONTRACT_KINDS, META, BELL_MAX_CHARGES,
+  GUIDE_RADIUS_BONUS, TRACKER_RADIUS, EMBER_MAX_CARRIED, XP_WEIGHT_MULT, DROP_TABLE, RARITY_ORDER, GATES,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt, weightedIndex } from '../rng.js';
 import { zoneContent } from './content.js';
@@ -87,17 +89,18 @@ function offerOdds(c, zs) {
 }
 
 /**
- * The board after k rerolls (stream prep(k), 2.2): one contract for each zone 1..ZONE_COUNT, then drawn zones. `kept`
+ * The board after k rerolls (stream prep(k), 2.2): `size` slots (CONTRACT_BOARD_SIZE: 3 since D128), slot i of zone i + 1
+ * while i < ZONE_COUNT, then drawn zones (no such slot with today's size; `size` is a parameter for the tests). `kept`
  * (REROLL_BOARD): the taken offers by slot; such a slot still makes its draws and keeps its offer. No two offers on a
  * board are the same contract: a slot whose offer equals one already on the board (an earlier slot or a kept offer) takes
  * instead one weighted draw over the offers it can draw (a zone slot: its zone; an extra slot: every zone) that are not on
  * the board, each with its chance in the normal draw (offerOdds); with none left the offer stays. A board without a
  * repeat is drawn as before this rule (2026-11-11).
  */
-export function drawBoard(s, k, kept = []) {
+export function drawBoard(s, k, kept = [], size = CONTRACT_BOARD_SIZE) {
   const rng = STREAM.prep(s.seed, k);
   const out = [];
-  for (let i = 0; i < CONTRACT_BOARD_SIZE; i++) {
+  for (let i = 0; i < size; i++) {
     const z = i < ZONE_COUNT ? i + 1 : 1 + nextInt(rng, ZONE_COUNT);
     let o = drawOffer(s.content, rng, z);
     if (kept[i]) { out.push(kept[i]); continue; }
@@ -167,6 +170,7 @@ export function buyPrepError(s, id) {
   if (e) return e;
   const o = PREP_OPTION[id];
   if (!o) return `unknown option ${id}`;
+  if (!PREP_CAMP_OPTIONS.includes(id)) return 'not offered at the start camp'; // D128
   if (ownedPerks(s).includes(id)) return 'already owned';
   if (s.prep.bought.includes(id)) return 'already bought';
   if (id === 'prep_bell' && s.exp.bell >= BELL_MAX_CHARGES) return `the Homeward Bell holds at most ${BELL_MAX_CHARGES} charges`;
@@ -179,6 +183,7 @@ export function sellPrepError(s, id) {
 export function rerollError(s) {
   const e = inPrep(s);
   if (e) return e;
+  if (!GATES.campReroll) return 'no reroll at the start camp'; // D128
   if (s.prep.rerolls >= REROLL_MAX) return `at most ${REROLL_MAX} rerolls`;
   if (s.prep.board.every((o) => o.taken)) return 'every contract is taken';
   return REROLL_PRICE > prepLeft(s) ? 'not enough preparation points' : null;
@@ -290,8 +295,9 @@ function offerView(s, o) {
 
 /**
  * The prep screen (expedition.md 2, 9.1), null outside PREP: points (budget, spent, left), slots, the board (each offer
- * with take / drop legality), the options (supplies and vision perks with price, owned, bought, buy / sell legality),
- * rerolls, and Reserve (points left and their Echo value at SUMMARY).
+ * with take / drop legality), the options the camp offers (PREP_CAMP_OPTIONS since D128: supplies and vision perks with
+ * price, owned, bought, buy / sell legality), rerolls (`open`: GATES.campReroll, off since D128), and Reserve (points left
+ * and their Echo value at SUMMARY).
  */
 export function prepView(s) {
   if (s.phase !== 'PREP' || !s.prep || s.prep.done) return null;
@@ -301,7 +307,7 @@ export function prepView(s) {
   return {
     points: p.points, spent: prepSpent(s), left, slots: CONTRACT_SLOTS, held: heldCount(s),
     board: p.board.map((o, i) => ({ index: i, ...offerView(s, o), taken: o.taken, canTake: !takeContractError(s, i), canDrop: !dropContractError(s, i) })),
-    options: PREP_OPTION_IDS.map((id) => {
+    options: PREP_OPTION_IDS.filter((id) => PREP_CAMP_OPTIONS.includes(id)).map((id) => {
       const o = PREP_OPTION[id];
       return {
         id, name: o.name, kind: o.kind, price: o.price, owned: owned.includes(id), bought: p.bought.includes(id),
@@ -310,7 +316,7 @@ export function prepView(s) {
         ...(o.charges ? { charges: o.charges } : {}),
       };
     }),
-    reroll: { used: p.rerolls, max: REROLL_MAX, price: REROLL_PRICE, can: !rerollError(s) },
+    reroll: { open: !!GATES.campReroll, used: p.rerolls, max: REROLL_MAX, price: REROLL_PRICE, can: !rerollError(s) },
     reserve: { points: left, echoes: left * PREP_ECHO_PER_POINT },
   };
 }

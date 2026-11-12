@@ -164,8 +164,9 @@ describe('change doc M2b v15 (docs/specs/changes-m2b-v15.md, D123-D125): the eng
     assert.equal(value(maw[1]), 0.95);
     assert.deepEqual(Object.keys(ENEMIES).filter((id) => 'gated' in ENEMIES[id]), []);
   });
-  test('C.GATES: the v14 switches and the v15 swiftRoad (off since D126), nothing else (mawgrimHp removed)', () => {
-    assert.deepEqual(Object.keys(K.GATES).sort(), ['firstMeetWindup', 'passStealth', 'rareHpMultZ1', 'sapHold', 'swiftRoad']);
+  test('C.GATES: the v14 switches, the v15 swiftRoad (off since D126) and campReroll (D128, off), nothing else (mawgrimHp removed)', () => {
+    assert.deepEqual(Object.keys(K.GATES).sort(), ['campReroll', 'firstMeetWindup', 'passStealth', 'rareHpMultZ1', 'sapHold', 'swiftRoad']);
+    assert.equal(K.GATES.campReroll, false);
   });
 });
 

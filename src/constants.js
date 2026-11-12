@@ -415,8 +415,10 @@ export const RARE_HP_MULT_Z1 = 3.0;
  * the planner's win falls 3.2 pp on PALL and P0 is under 20 % with it on); the rule and the switch stay.
  * Mawgrim's HP arm (row 4) applied by D126: z2_mawgrim hpMult 0.95 in content; its switch and the gated-template
  * mechanism are removed.
+ * D128 (owner playtest 2026-11-12 20:19, a lean start camp): campReroll: REROLL_BOARD at the start camp (expedition.md
+ * 2.2). **Off**: no reroll on the first screen; the rule stays for a later meta unlock.
  */
-export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false };
+export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false };
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
 // with mapMode 'expedition'; a run on today's map (mapMode 'rows', the default) never reads them.
 /** rules 1.9.2: nodes per ring (ring 0 = the hub). */
@@ -513,12 +515,15 @@ export const META_COST_QM_1 = 120;
 export const META_COST_QM_2 = 200;
 /** expedition.md 2.6, 11.1: Echoes per Reserve point left at SUMMARY. */
 export const PREP_ECHO_PER_POINT = 2;
-/** expedition.md 2.2: contracts on the board, of which one per zone and this many more for drawn zones. */
-export const CONTRACT_BOARD_SIZE = 8;
-export const CONTRACT_BOARD_EXTRA = 2;
+/**
+ * expedition.md 2.2: contracts on the board; slot i is zone i + 1 (a slot past ZONE_COUNT would draw its zone). D128
+ * (owner playtest 2026-11-12 20:19, a lean start camp): 3, one each for zones 1-3 (was 8: one per zone and
+ * CONTRACT_BOARD_EXTRA 2 drawn zones; that constant is retired). Later zones offer theirs at the hub (3.6).
+ */
+export const CONTRACT_BOARD_SIZE = 3;
 /** expedition.md 2.2, 3.5: contracts held at once (PREP and hubs together). */
 export const CONTRACT_SLOTS = 4;
-/** expedition.md 2.2: price of REROLL_BOARD and the most rerolls per run. */
+/** expedition.md 2.2: price of REROLL_BOARD and the most rerolls per run; legal only with GATES.campReroll (off since D128). */
 export const REROLL_PRICE = 1;
 export const REROLL_MAX = 2;
 /** expedition.md 2.2: weight of each contract kind on the board. */
@@ -1099,6 +1104,13 @@ export const PREP_OPTION = {
   prep_spyglass: { id: 'prep_spyglass', name: 'Spyglass', kind: 'vision', price: PRICE_SPYGLASS, charges: SPYGLASS_CHARGES },
 };
 export const PREP_OPTION_IDS = Object.keys(PREP_OPTION);
+/**
+ * expedition.md 2.3, 2.4 (D128, owner playtest 2026-11-12 20:19): the options the start camp offers, in PREP_OPTION
+ * order: the two supplies and the two vision perks the planner valued most (balance 2026-11-11f: Field Draughts in 100 %
+ * of runs, Region Charts 54 %, the Ember 30 %, Tracker's Notes 9 %; the Local Guide and the Second Clapper never). The
+ * other options stay in PREP_OPTION (their rules and SET_OUT effects unchanged) but BUY_PREP refuses them.
+ */
+export const PREP_CAMP_OPTIONS = ['prep_draughts', 'prep_ember', 'prep_charts', 'prep_tracker'];
 /** Contract kinds (expedition.md 3.1; prep): price, sites needed, XP share, gold × V, item choices and table, board weight (M2b v10, D84: delve price 1 -> 2; M2b v11, D93: 2 -> 1; M2b v12, D100: 2 again, the D93 guard). */
 export const CONTRACT = {
   cull: { id: 'cull', price: 2, sites: CULL_SITES, xpFrac: CULL_XP_FRAC, goldV: CULL_GOLD_V, choices: CONTRACT_REWARD_CHOICES, table: 'contract', weight: CW_CULL },
