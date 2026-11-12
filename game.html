@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="a38aca2 2026-11-12T11:15:12Z">
+<meta name="build" content="7cfc3a1 2026-11-12T12:01:40Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -1829,8 +1829,8 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (a38aca2 2026-11-12T11:15:12Z) from 61 modules.
-const __BUILD__ = "a38aca2 2026-11-12T11:15:12Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (7cfc3a1 2026-11-12T12:01:40Z) from 61 modules.
+const __BUILD__ = "7cfc3a1 2026-11-12T12:01:40Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -2303,11 +2303,13 @@ const RARE_HP_MULT_Z1 = 3.0;
  * M2b v14 row 1 (D111, changes-m2b-v14.md "What the sim must run"): sapHold (row 1 (a)): autoplay rule H, wait while every
  * living enemy is SAPPED and Sap will cancel a wind-up (rules 7.9, autoplay.js); passStealth (row 1 (b)): a PASS keeps
  * STEALTH while every living enemy is SAPPED (rules 7.4, spells.js playerAction).
- * M2b v15 (D124, changes-m2b-v15.md "What the sim must run"): swiftRoad (row 2, on): the Swift passage of a Road
- * (ROAD_SWIFT_TOLLS, rules 1.9.7; nodes.js takeRoad, expedition.js swiftView); mawgrimHp (row 4, **off**): enemy templates
- * are made with their content `gated.mawgrimHp` fields (z2_mawgrim hpMult 0.95 instead of 1.1; combat.js tplMult).
+ * M2b v15 (D124, changes-m2b-v15.md "What the sim must run"): swiftRoad (row 2): the Swift passage of a Road
+ * (ROAD_SWIFT_TOLLS, rules 1.9.7; nodes.js takeRoad, expedition.js swiftView). **Off** since D126 (report 2026-11-12c:
+ * the planner's win falls 3.2 pp on PALL and P0 is under 20 % with it on); the rule and the switch stay.
+ * Mawgrim's HP arm (row 4) applied by D126: z2_mawgrim hpMult 0.95 in content; its switch and the gated-template
+ * mechanism are removed.
  */
-const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: true, mawgrimHp: false };
+const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false };
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
 // with mapMode 'expedition'; a run on today's map (mapMode 'rows', the default) never reads them.
 /** rules 1.9.2: nodes per ring (ring 0 = the hub). */
@@ -2368,7 +2370,7 @@ const BELL_CHANNEL_TIME = 2;
 /** rules 1.9.8, 3: seconds of the Bell's channel on screen (instead of PACE_ZONE_TRAVEL_S). */
 const PACE_BELL_S = 6;
 /**
- * Swift passage (rules 1.9.7, expedition.md 7.1; M2b v15 row 2, D124; on while GATES.swiftRoad): a TAKE_ROAD at zone time
+ * Swift passage (rules 1.9.7, expedition.md 7.1; M2b v15 row 2, D124; played only while GATES.swiftRoad, off since D126): a TAKE_ROAD at zone time
  * <= ROAD_SWIFT_TOLLS (tolls since arrival at the zone's hub, checked before TIME_TRAVEL) grants
  * round(ROAD_SWIFT_XP_FRAC × xpToNext(L)) XP. Not by the Homeward Bell.
  */
@@ -3314,12 +3316,11 @@ function fail(msg) {
 
 });
 __bundle.def("src/engine/content.js", function* (__ns, __link) {
-let ZONE_COUNT, CR, ARCHETYPE, ABILITY_TEMPLATE, SLOT_IDS, CLASS_IDS, SPELL, TALENT, PET, BOON, CONSUMABLE, EA, REGION_COUNT, REGION_W, ROAD_COUNT, EXPEDITION_TEXT_IDS, PREP_OPTION, GATES; __link.imp("src/constants.js", [["ZONE_COUNT", (v) => { ZONE_COUNT = v; }], ["CONTENT_RANGE", (v) => { CR = v; }], ["ARCHETYPE", (v) => { ARCHETYPE = v; }], ["ABILITY_TEMPLATE", (v) => { ABILITY_TEMPLATE = v; }], ["SLOT_IDS", (v) => { SLOT_IDS = v; }], ["CLASS_IDS", (v) => { CLASS_IDS = v; }], ["SPELL", (v) => { SPELL = v; }], ["TALENT", (v) => { TALENT = v; }], ["PET", (v) => { PET = v; }], ["BOON", (v) => { BOON = v; }], ["CONSUMABLE", (v) => { CONSUMABLE = v; }], ["ENGINE_ASSUMPTION", (v) => { EA = v; }], ["REGION_COUNT", (v) => { REGION_COUNT = v; }], ["REGION_W", (v) => { REGION_W = v; }], ["ROAD_COUNT", (v) => { ROAD_COUNT = v; }], ["EXPEDITION_TEXT_IDS", (v) => { EXPEDITION_TEXT_IDS = v; }], ["PREP_OPTION", (v) => { PREP_OPTION = v; }], ["GATES", (v) => { GATES = v; }]]); __link.exp({ "SUFFIX_KEYS": () => SUFFIX_KEYS, "zoneContent": () => zoneContent, "campEnemies": () => campEnemies, "CAMP_Z": () => CAMP_Z, "validateContent": () => validateContent });
+let ZONE_COUNT, CR, ARCHETYPE, ABILITY_TEMPLATE, SLOT_IDS, CLASS_IDS, SPELL, TALENT, PET, BOON, CONSUMABLE, EA, REGION_COUNT, REGION_W, ROAD_COUNT, EXPEDITION_TEXT_IDS, PREP_OPTION; __link.imp("src/constants.js", [["ZONE_COUNT", (v) => { ZONE_COUNT = v; }], ["CONTENT_RANGE", (v) => { CR = v; }], ["ARCHETYPE", (v) => { ARCHETYPE = v; }], ["ABILITY_TEMPLATE", (v) => { ABILITY_TEMPLATE = v; }], ["SLOT_IDS", (v) => { SLOT_IDS = v; }], ["CLASS_IDS", (v) => { CLASS_IDS = v; }], ["SPELL", (v) => { SPELL = v; }], ["TALENT", (v) => { TALENT = v; }], ["PET", (v) => { PET = v; }], ["BOON", (v) => { BOON = v; }], ["CONSUMABLE", (v) => { CONSUMABLE = v; }], ["ENGINE_ASSUMPTION", (v) => { EA = v; }], ["REGION_COUNT", (v) => { REGION_COUNT = v; }], ["REGION_W", (v) => { REGION_W = v; }], ["ROAD_COUNT", (v) => { ROAD_COUNT = v; }], ["EXPEDITION_TEXT_IDS", (v) => { EXPEDITION_TEXT_IDS = v; }], ["PREP_OPTION", (v) => { PREP_OPTION = v; }]]); __link.exp({ "SUFFIX_KEYS": () => SUFFIX_KEYS, "zoneContent": () => zoneContent, "campEnemies": () => campEnemies, "CAMP_Z": () => CAMP_Z, "validateContent": () => validateContent });
 yield;
 // Content access and validation (src/content/SCHEMA.md, rules 12; expedition fields: zone regions and Road names,
 // template families, the texts.expedition group, D51; texts.families, texts.prep, texts.contracts, 2b.5). M2b v14 (D112,
-// rules 12.4): in strict mode every zone's elite pool keeps a heavy and a cast Deathblow. M2b v15 row 4 (D123-D125): a
-// template's optional `gated` values (hpMult, dmgMult per C.GATES switch) are checked as the template's own.
+// rules 12.4): in strict mode every zone's elite pool keeps a heavy and a cast Deathblow.
 
 
 
@@ -3407,24 +3408,6 @@ function validateContent(content, { strict = false } = {}) {
     inRange(en.hpMult, CR.hpMult, `${w}.hpMult`);
     inRange(en.dmgMult, CR.dmgMult, `${w}.dmgMult`);
     if (typeof en.hpMult === 'number' && typeof en.dmgMult === 'number') inRange(en.hpMult * en.dmgMult, CR.hpDmgProduct, `${w}: hpMult × dmgMult`);
-    // Optional gated values (M2b v15 row 4; combat.js tplMult): { <C.GATES switch>: { hpMult?, dmgMult? } }, played while
-    // the switch is on; each value in the template ranges, and the product of the values the switch plays too.
-    if (en.gated !== undefined) {
-      if (!en.gated || typeof en.gated !== 'object' || Array.isArray(en.gated)) e(`${w}.gated: not an object`);
-      else {
-        for (const [g, o] of Object.entries(en.gated)) {
-          const wg = `${w}.gated.${g}`;
-          if (!Object.prototype.hasOwnProperty.call(GATES, g)) e(`${wg}: unknown switch (C.GATES)`);
-          if (!o || typeof o !== 'object' || Array.isArray(o) || !Object.keys(o).length) { e(`${wg}: needs hpMult or dmgMult`); continue; }
-          for (const k of Object.keys(o)) if (k !== 'hpMult' && k !== 'dmgMult') e(`${wg}.${k}: only hpMult and dmgMult can be gated`);
-          if (o.hpMult !== undefined) inRange(o.hpMult, CR.hpMult, `${wg}.hpMult`);
-          if (o.dmgMult !== undefined) inRange(o.dmgMult, CR.dmgMult, `${wg}.dmgMult`);
-          const hm = o.hpMult !== undefined ? o.hpMult : en.hpMult;
-          const dm = o.dmgMult !== undefined ? o.dmgMult : en.dmgMult;
-          if (typeof hm === 'number' && typeof dm === 'number') inRange(hm * dm, CR.hpDmgProduct, `${wg}: hpMult × dmgMult`);
-        }
-      }
-    }
     // Optional family tag (rules 1.9.3, expedition): regions draw part of their encounters from their families.
     if (en.family !== undefined) str(en.family, CR.len.enemyName, `${w}.family`);
     if (!Array.isArray(en.abilities)) e(`${w}.abilities: not a list`);
@@ -6430,7 +6413,7 @@ function playerDeath(s, ev, killer, spell) {
 
 });
 __bundle.def("src/engine/combat.js", function* (__ns, __link) {
-let ARCHETYPE, VARIANT, ENEMY_HP_BASE, ENEMY_HP_PER_LEVEL, ENEMY_DMG_BASE, ENEMY_DMG_PER_LEVEL, ENEMY_ARMOR_PER_LEVEL, ENEMY_DODGE, PET, ENERGY_MAX, ENERGY_REGEN, FOCUS_MAX, FOCUS_REGEN, MANA_REGEN_ROUND_PCT, PET_REVIVE_PCT, TALENT, UNIQUE_WARD_PCT, BRAND_DMG, BOSS_LEVEL, MIN_HIT_DAMAGE, ZONE_DANGER_FROM, ZONE_DANGER_STEP, DUNGEON_DANGER_FRAC, ENGAGE_DMG_COMP, OFFBAL_DURATION, CONSUMABLE, EARLY_DMG_MULT, EARLY_DMG_MAX_LEVEL, RARE_HP_MULT_Z1, GATES; __link.imp("src/constants.js", [["ARCHETYPE", (v) => { ARCHETYPE = v; }], ["VARIANT", (v) => { VARIANT = v; }], ["ENEMY_HP_BASE", (v) => { ENEMY_HP_BASE = v; }], ["ENEMY_HP_PER_LEVEL", (v) => { ENEMY_HP_PER_LEVEL = v; }], ["ENEMY_DMG_BASE", (v) => { ENEMY_DMG_BASE = v; }], ["ENEMY_DMG_PER_LEVEL", (v) => { ENEMY_DMG_PER_LEVEL = v; }], ["ENEMY_ARMOR_PER_LEVEL", (v) => { ENEMY_ARMOR_PER_LEVEL = v; }], ["ENEMY_DODGE", (v) => { ENEMY_DODGE = v; }], ["PET", (v) => { PET = v; }], ["ENERGY_MAX", (v) => { ENERGY_MAX = v; }], ["ENERGY_REGEN", (v) => { ENERGY_REGEN = v; }], ["FOCUS_MAX", (v) => { FOCUS_MAX = v; }], ["FOCUS_REGEN", (v) => { FOCUS_REGEN = v; }], ["MANA_REGEN_ROUND_PCT", (v) => { MANA_REGEN_ROUND_PCT = v; }], ["PET_REVIVE_PCT", (v) => { PET_REVIVE_PCT = v; }], ["TALENT", (v) => { TALENT = v; }], ["UNIQUE_WARD_PCT", (v) => { UNIQUE_WARD_PCT = v; }], ["BRAND_DMG", (v) => { BRAND_DMG = v; }], ["BOSS_LEVEL", (v) => { BOSS_LEVEL = v; }], ["MIN_HIT_DAMAGE", (v) => { MIN_HIT_DAMAGE = v; }], ["ZONE_DANGER_FROM", (v) => { ZONE_DANGER_FROM = v; }], ["ZONE_DANGER_STEP", (v) => { ZONE_DANGER_STEP = v; }], ["DUNGEON_DANGER_FRAC", (v) => { DUNGEON_DANGER_FRAC = v; }], ["ENGAGE_DMG_COMP", (v) => { ENGAGE_DMG_COMP = v; }], ["OFFBAL_DURATION", (v) => { OFFBAL_DURATION = v; }], ["CONSUMABLE", (v) => { CONSUMABLE = v; }], ["EARLY_DMG_MULT", (v) => { EARLY_DMG_MULT = v; }], ["EARLY_DMG_MAX_LEVEL", (v) => { EARLY_DMG_MAX_LEVEL = v; }], ["RARE_HP_MULT_Z1", (v) => { RARE_HP_MULT_Z1 = v; }], ["GATES", (v) => { GATES = v; }]]); let nextFloat, nextInt; __link.imp("src/rng.js", [["nextFloat", (v) => { nextFloat = v; }], ["nextInt", (v) => { nextInt = v; }]]); let rnd, deepClone, cloneState; __link.imp("src/engine/util.js", [["rnd", (v) => { rnd = v; }], ["deepClone", (v) => { deepClone = v; }], ["cloneState", (v) => { cloneState = v; }]]); let tr, hasEffect; __link.imp("src/engine/stats.js", [["tr", (v) => { tr = v; }], ["hasEffect", (v) => { hasEffect = v; }]]); let damage, snapshot, addStatus, findSt, hasSt, petAlive, healUnit, applyDamage, levelMod, gainStealth, gainOffBalance, answerWindup, landWindup, bossDmgFactor; __link.imp("src/engine/damage.js", [["damage", (v) => { damage = v; }], ["snapshot", (v) => { snapshot = v; }], ["addStatus", (v) => { addStatus = v; }], ["findSt", (v) => { findSt = v; }], ["hasSt", (v) => { hasSt = v; }], ["petAlive", (v) => { petAlive = v; }], ["healUnit", (v) => { healUnit = v; }], ["applyDamage", (v) => { applyDamage = v; }], ["levelMod", (v) => { levelMod = v; }], ["gainStealth", (v) => { gainStealth = v; }], ["gainOffBalance", (v) => { gainOffBalance = v; }], ["answerWindup", (v) => { answerWindup = v; }], ["landWindup", (v) => { landWindup = v; }], ["bossDmgFactor", (v) => { bossDmgFactor = v; }]]); let bossIntent, bossAct, bossStartRound, bossEndOfRound, mirrorImage, bossTrackView; __link.imp("src/engine/boss.js", [["bossIntent", (v) => { bossIntent = v; }], ["bossAct", (v) => { bossAct = v; }], ["bossStartRound", (v) => { bossStartRound = v; }], ["bossEndOfRound", (v) => { bossEndOfRound = v; }], ["mirrorImage", (v) => { mirrorImage = v; }], ["bossTrackView", (v) => { bossTrackView = v; }]]); let playerAction, petAction; __link.imp("src/engine/spells.js", [["playerAction", (v) => { playerAction = v; }], ["petAction", (v) => { petAction = v; }]]); let isEngageRound, updateTracks, fillTrack, nowIntent, refreshTrack, controlOf, lowestHpAlly, wardOf, assignWard, isSingle; __link.imp("src/engine/track.js", [["isEngageRound", (v) => { isEngageRound = v; }], ["updateTracks", (v) => { updateTracks = v; }], ["fillTrack", (v) => { fillTrack = v; }], ["nowIntent", (v) => { nowIntent = v; }], ["refreshTrack", (v) => { refreshTrack = v; }], ["controlOf", (v) => { controlOf = v; }], ["lowestHpAlly", (v) => { lowestHpAlly = v; }], ["wardOf", (v) => { wardOf = v; }], ["assignWard", (v) => { assignWard = v; }], ["isSingle", (v) => { isSingle = v; }]]); __link.exp({ "zoneDanger": () => zoneDanger, "tplMult": () => tplMult, "makeEnemy": () => makeEnemy, "breaksOnHit": () => breaksOnHit, "allSapped": () => allSapped, "defaultTarget": () => defaultTarget, "beginRound": () => beginRound, "tickPhase": () => tickPhase, "roundActions": () => roundActions, "isFreePotion": () => isFreePotion, "resolveRound": () => resolveRound, "pendingTicks": () => pendingTicks, "startFight": () => startFight, "endFight": () => endFight });
+let ARCHETYPE, VARIANT, ENEMY_HP_BASE, ENEMY_HP_PER_LEVEL, ENEMY_DMG_BASE, ENEMY_DMG_PER_LEVEL, ENEMY_ARMOR_PER_LEVEL, ENEMY_DODGE, PET, ENERGY_MAX, ENERGY_REGEN, FOCUS_MAX, FOCUS_REGEN, MANA_REGEN_ROUND_PCT, PET_REVIVE_PCT, TALENT, UNIQUE_WARD_PCT, BRAND_DMG, BOSS_LEVEL, MIN_HIT_DAMAGE, ZONE_DANGER_FROM, ZONE_DANGER_STEP, DUNGEON_DANGER_FRAC, ENGAGE_DMG_COMP, OFFBAL_DURATION, CONSUMABLE, EARLY_DMG_MULT, EARLY_DMG_MAX_LEVEL, RARE_HP_MULT_Z1, GATES; __link.imp("src/constants.js", [["ARCHETYPE", (v) => { ARCHETYPE = v; }], ["VARIANT", (v) => { VARIANT = v; }], ["ENEMY_HP_BASE", (v) => { ENEMY_HP_BASE = v; }], ["ENEMY_HP_PER_LEVEL", (v) => { ENEMY_HP_PER_LEVEL = v; }], ["ENEMY_DMG_BASE", (v) => { ENEMY_DMG_BASE = v; }], ["ENEMY_DMG_PER_LEVEL", (v) => { ENEMY_DMG_PER_LEVEL = v; }], ["ENEMY_ARMOR_PER_LEVEL", (v) => { ENEMY_ARMOR_PER_LEVEL = v; }], ["ENEMY_DODGE", (v) => { ENEMY_DODGE = v; }], ["PET", (v) => { PET = v; }], ["ENERGY_MAX", (v) => { ENERGY_MAX = v; }], ["ENERGY_REGEN", (v) => { ENERGY_REGEN = v; }], ["FOCUS_MAX", (v) => { FOCUS_MAX = v; }], ["FOCUS_REGEN", (v) => { FOCUS_REGEN = v; }], ["MANA_REGEN_ROUND_PCT", (v) => { MANA_REGEN_ROUND_PCT = v; }], ["PET_REVIVE_PCT", (v) => { PET_REVIVE_PCT = v; }], ["TALENT", (v) => { TALENT = v; }], ["UNIQUE_WARD_PCT", (v) => { UNIQUE_WARD_PCT = v; }], ["BRAND_DMG", (v) => { BRAND_DMG = v; }], ["BOSS_LEVEL", (v) => { BOSS_LEVEL = v; }], ["MIN_HIT_DAMAGE", (v) => { MIN_HIT_DAMAGE = v; }], ["ZONE_DANGER_FROM", (v) => { ZONE_DANGER_FROM = v; }], ["ZONE_DANGER_STEP", (v) => { ZONE_DANGER_STEP = v; }], ["DUNGEON_DANGER_FRAC", (v) => { DUNGEON_DANGER_FRAC = v; }], ["ENGAGE_DMG_COMP", (v) => { ENGAGE_DMG_COMP = v; }], ["OFFBAL_DURATION", (v) => { OFFBAL_DURATION = v; }], ["CONSUMABLE", (v) => { CONSUMABLE = v; }], ["EARLY_DMG_MULT", (v) => { EARLY_DMG_MULT = v; }], ["EARLY_DMG_MAX_LEVEL", (v) => { EARLY_DMG_MAX_LEVEL = v; }], ["RARE_HP_MULT_Z1", (v) => { RARE_HP_MULT_Z1 = v; }], ["GATES", (v) => { GATES = v; }]]); let nextFloat, nextInt; __link.imp("src/rng.js", [["nextFloat", (v) => { nextFloat = v; }], ["nextInt", (v) => { nextInt = v; }]]); let rnd, deepClone, cloneState; __link.imp("src/engine/util.js", [["rnd", (v) => { rnd = v; }], ["deepClone", (v) => { deepClone = v; }], ["cloneState", (v) => { cloneState = v; }]]); let tr, hasEffect; __link.imp("src/engine/stats.js", [["tr", (v) => { tr = v; }], ["hasEffect", (v) => { hasEffect = v; }]]); let damage, snapshot, addStatus, findSt, hasSt, petAlive, healUnit, applyDamage, levelMod, gainStealth, gainOffBalance, answerWindup, landWindup, bossDmgFactor; __link.imp("src/engine/damage.js", [["damage", (v) => { damage = v; }], ["snapshot", (v) => { snapshot = v; }], ["addStatus", (v) => { addStatus = v; }], ["findSt", (v) => { findSt = v; }], ["hasSt", (v) => { hasSt = v; }], ["petAlive", (v) => { petAlive = v; }], ["healUnit", (v) => { healUnit = v; }], ["applyDamage", (v) => { applyDamage = v; }], ["levelMod", (v) => { levelMod = v; }], ["gainStealth", (v) => { gainStealth = v; }], ["gainOffBalance", (v) => { gainOffBalance = v; }], ["answerWindup", (v) => { answerWindup = v; }], ["landWindup", (v) => { landWindup = v; }], ["bossDmgFactor", (v) => { bossDmgFactor = v; }]]); let bossIntent, bossAct, bossStartRound, bossEndOfRound, mirrorImage, bossTrackView; __link.imp("src/engine/boss.js", [["bossIntent", (v) => { bossIntent = v; }], ["bossAct", (v) => { bossAct = v; }], ["bossStartRound", (v) => { bossStartRound = v; }], ["bossEndOfRound", (v) => { bossEndOfRound = v; }], ["mirrorImage", (v) => { mirrorImage = v; }], ["bossTrackView", (v) => { bossTrackView = v; }]]); let playerAction, petAction; __link.imp("src/engine/spells.js", [["playerAction", (v) => { playerAction = v; }], ["petAction", (v) => { petAction = v; }]]); let isEngageRound, updateTracks, fillTrack, nowIntent, refreshTrack, controlOf, lowestHpAlly, wardOf, assignWard, isSingle; __link.imp("src/engine/track.js", [["isEngageRound", (v) => { isEngageRound = v; }], ["updateTracks", (v) => { updateTracks = v; }], ["fillTrack", (v) => { fillTrack = v; }], ["nowIntent", (v) => { nowIntent = v; }], ["refreshTrack", (v) => { refreshTrack = v; }], ["controlOf", (v) => { controlOf = v; }], ["lowestHpAlly", (v) => { lowestHpAlly = v; }], ["wardOf", (v) => { wardOf = v; }], ["assignWard", (v) => { assignWard = v; }], ["isSingle", (v) => { isSingle = v; }]]); __link.exp({ "zoneDanger": () => zoneDanger, "makeEnemy": () => makeEnemy, "breaksOnHit": () => breaksOnHit, "allSapped": () => allSapped, "defaultTarget": () => defaultTarget, "beginRound": () => beginRound, "tickPhase": () => tickPhase, "roundActions": () => roundActions, "isFreePotion": () => isFreePotion, "resolveRound": () => resolveRound, "pendingTicks": () => pendingTicks, "startFight": () => startFight, "endFight": () => endFight });
 yield;
 // Fight lifecycle and enemy actions (rules 7.1, 7.4, 7.6, 7.10, 7.12, 7.13). The intent track is in track.js, player
 // actions in spells.js and engage.js, the end boss in boss.js. Combat v2.1 (rules 7.12): a played wind-up lands
@@ -6441,8 +6424,7 @@ yield;
 // (M2b v8: at FREE_POTION_MULT strength, spells.js). Zone danger (rules 7.6) with the early factor EARLY_DMG_MULT (M2b v8).
 // M2b v13 (D109; on by default since M2b v14, D113): a zone-1 rare's HP with RARE_HP_MULT_Z1 (GATES.rareHpMultZ1, rules
 // 2.3); first meetings (s.met, GATES.firstMeetWindup, rules 7.12) are marked when a fight starts. M2b v14 (D111):
-// allSapped, read by autoplay rule H and the PASS that keeps STEALTH. M2b v15 row 4 (D123-D125): a template's hpMult and
-// dmgMult come from its content `gated` entry while that switch of C.GATES is on (tplMult; z2_mawgrim, GATES.mawgrimHp).
+// allSapped, read by autoplay rule H and the PASS that keeps STEALTH.
 
 
 
@@ -6489,16 +6471,6 @@ function zoneDanger(level, variant = 'normal') {
 const engageComp = (s) => (s.player.classId === 'rogue' && !(s.fight && s.fight.kind === 'dboss') ? 1 : ENGAGE_DMG_COMP);
 
 /**
- * A template's `hpMult` or `dmgMult` (rules 7.6, 12.2): the content value, or the value of its `gated` entry for a switch of
- * C.GATES that is on (M2b v15 row 4: z2_mawgrim `gated: { mawgrimHp: { hpMult: 0.95 } }`; the first such entry in content
- * order). Content validation keeps every gated value in the template ranges.
- */
-function tplMult(t, field) {
-  if (t.gated) for (const [g, o] of Object.entries(t.gated)) if (GATES[g] && o && typeof o[field] === 'number') return o[field];
-  return t[field];
-}
-
-/**
  * Enemy from a template (rules 7.6): every quest, grind, elite, rare, dungeon, Camp, summoned and Signal enemy. No
  * draws. Damage includes zone danger and the engage-round price (engageComp; combat v2, D48). Combat v2
  * fields: turn0 (round of its turn 1; set by the caller), turn (current turn), track, acted (turns it has acted;
@@ -6511,10 +6483,10 @@ function makeEnemy(s, idx, tid, level, variant) {
   const v = VARIANT[variant] || VARIANT.normal;
   // M2b v13 row 5 (D109, gated): a rare of zone 1 (both maps) with RARE_HP_MULT_Z1 while GATES.rareHpMultZ1 is on.
   const vHp = variant === 'rare' && GATES.rareHpMultZ1 && s.fight && s.fight.z === 1 ? RARE_HP_MULT_Z1 : v.hp;
-  const hp = Math.max(1, rnd((ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL * level) * a.hp * vHp * tplMult(t, 'hpMult')));
+  const hp = Math.max(1, rnd((ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL * level) * a.hp * vHp * t.hpMult));
   return {
     idx, tid, name: t.name, kind: variant, arch: t.archetype, level, hp, maxHp: hp,
-    dmg: (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL * level) * a.dmg * v.dmg * tplMult(t, 'dmgMult') * zoneDanger(level, variant) * engageComp(s),
+    dmg: (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL * level) * a.dmg * v.dmg * t.dmgMult * zoneDanger(level, variant) * engageComp(s),
     armor: ENEMY_ARMOR_PER_LEVEL * level * a.armor, dodge: ENEMY_DODGE + a.dodge,
     abilities: t.abilities.slice(), cds: {}, st: [], intent: null, alive: true,
     elite: variant === 'elite' || variant === 'rare', boss: variant === 'dboss', ccImmune: variant === 'dboss',
@@ -13304,8 +13276,8 @@ __bundle.def("src/content/enemies.js", function* (__ns, __link) {
 __link.exp({ "ENEMIES": () => ENEMIES });
 yield;
 // Content table: enemy templates per zone: normals, elites, rares, dungeon trash and bosses (rules.md 2, 12). Plain data only (Content Designer).
-// M2b v15 (docs/specs/changes-m2b-v15.md, D123-D125): z1_belk hpMult 1.05 -> 0.9 (row 1); z2_mawgrim's gated arm hpMult 0.95
-// (row 4, `gated.mawgrimHp`, played only while C.GATES.mawgrimHp is on; SCHEMA.md 2.3).
+// M2b v15 (docs/specs/changes-m2b-v15.md, D123-D126): z1_belk hpMult 1.05 -> 0.9 (row 1); z2_mawgrim hpMult 1.1 -> 0.95
+// (row 4, applied by D126).
 const ENEMIES = {
  "z1_hedge_ogre": {
   "id": "z1_hedge_ogre",
@@ -13639,13 +13611,8 @@ const ENEMIES = {
   "name": "Mawgrim of the Locks",
   "kind": "dboss",
   "archetype": "brute",
-  "hpMult": 1.1,
+  "hpMult": 0.95,
   "dmgMult": 1,
-  "gated": {
-   "mawgrimHp": {
-    "hpMult": 0.95
-   }
-  },
   "abilities": [
    "ab_z2_mawgrim_heavy_blow",
    "ab_z2_mawgrim_self_heal"
