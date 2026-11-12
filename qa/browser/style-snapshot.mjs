@@ -11,7 +11,8 @@
  * Dev menu's ops (window.__ui.dev), the mouse parked in the corner and focus cleared. Then every CSS animation is
  * frozen (finite ones finished, infinite ones paused at 0 ms) and, for every element under <body> and its ::before and
  * ::after, the computed colour, background, border, outline, shadow, filter, font and text properties and the box
- * (getBoundingClientRect, 0.01 px) are written to JSON, keyed by the element's path (tag#id.classes:nth-child).
+ * (getBoundingClientRect, 0.01 px) and, for an <img>, a hash of its source (the icons are data URLs drawn in code) are
+ * written to JSON, keyed by the element's path (tag#id.classes:nth-child).
  * The page is read twice, SAMPLE_GAP_MS apart: a value that changes between the two reads is moved by the frame loop
  * (nameplates follow the canvas actors) and is stored as unstable; compare skips it.
  *
@@ -197,6 +198,8 @@ function readStyles(props) {
     const o = read(getComputedStyle(el));
     const r = el.getBoundingClientRect();
     o.box = [r.x, r.y, r.width, r.height].map((n) => Math.round(n * 100) / 100).join(',');
+    // an image's source (icons are drawn in code into data URLs, art-icons.js): length and an FNV-1a hash (R4)
+    if (el.tagName === 'IMG') { const s = el.getAttribute('src') || ''; let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } o.src = `${s.length}:${h.toString(16)}`; }
     out[k] = o;
     for (const pseudo of ['::before', '::after']) {
       const ps = getComputedStyle(el, pseudo);

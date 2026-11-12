@@ -216,14 +216,14 @@ const STATUS_ICON = {
   // combat v2
   OFF_BALANCE: ['broken', 'gold'], SAPPED: ['zzz', 'shadow'], TRAP: ['trap', 'steel'], GATHER: ['swirl', 'arcane'], PET_LEAD: ['paw', 'gold'],
   // combat v2.1: the lasting result of a wind-up
-  EMPOWERED: ['up', 'blood'], STAGGERED: ['down', 'frost'],
-  // M2b v13: MAIMED (a blood-red cross: the healing you receive is cut)
-  MAIMED: ['cross', 'blood'],
+  EMPOWERED: ['up', 'danger'], STAGGERED: ['down', 'frost'],
+  // M2b v13: MAIMED (a blood-red cross: the healing you receive is cut); on the danger background (R4)
+  MAIMED: ['cross', 'danger'],
 };
 /** The wind-up mark (combat v2.1, rules 7.12) on track entries, the ruler and the engage panel. */
 export function windupIcon() { return icon('coil', 'fire'); }
-/** The Deathblow mark (M2b v13, rules 7.12): a skull on blood, apart from the wind-up's coil. */
-export function deathblowIcon() { return icon('skull', 'blood', { fg: '#fff1e8' }); }
+/** The Deathblow mark (M2b v13, rules 7.12): a skull on the danger background, apart from the wind-up's coil. */
+export function deathblowIcon() { return icon('skull', 'danger', { fg: '#fff1e8' }); }
 export function statusIcon(id) { const m = STATUS_ICON[id] || ['spark', 'steel']; return icon(m[0], m[1]); }
 export const schoolBg = (school) => ({ fire: 'fire', frost: 'frost', arcane: 'arcane', shadow: 'shadow', nature: 'nature', phys: 'steel' }[school] || 'steel');
 /** Icon of an enemy action (an intent or a track entry; kind and flags as the bridge gives them). */

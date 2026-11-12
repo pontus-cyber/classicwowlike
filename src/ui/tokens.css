@@ -1,5 +1,6 @@
-/* src/ui/tokens.css - colour tokens of the visual client, one block per theme. Track R step R2
-   (docs/reviews/ui-architecture-2026-11-12.md, section 3; D119, D120). Imported first by style.css.
+/* src/ui/tokens.css - the design tokens of the visual client, one block per theme: colour (Track R steps R2, R3) and
+   type, spacing, radius, z-index layers and durations (R4) (docs/reviews/ui-architecture-2026-11-12.md, section 3;
+   D119, D120). Imported first by style.css.
 
    "current" is the look the game has now; it is also the default (plain :root), so the page needs no attribute.
    Every value here is the exact literal style.css used before R2: replacing a literal by its token changed no
@@ -128,7 +129,8 @@
   --fx-impact-phys: #f4ead6; --fx-impact-fire: #ff8a3a; --fx-impact-arcane: #c79bff; --fx-impact-shadow: #a07aff;
   --fx-impact-nature: #8fe07a; --fx-impact-heal: #7fffa0;
   /* icon backgrounds (art-icons.js; theme.js ICON_BG): the light and the deep end of the fill, by school, material
-     and rarity. "blood" is both damage and danger (the Deathblow, MAIMED, EMPOWERED icons) */
+     and rarity. "danger" is the Deathblow, MAIMED and EMPOWERED icons (R4), apart from "blood" (damage spells, the
+     potion); in the current look the two have the same values */
   --icon-steel: #9aa3ad; --icon-steel-deep: #3a3f48; --icon-blood: #c0473f; --icon-blood-deep: #4a1414;
   --icon-shadow: #6a5a8a; --icon-shadow-deep: #1c1628; --icon-gold: #e8c45a; --icon-gold-deep: #6a4a12;
   --icon-fire: #f08a3a; --icon-fire-deep: #6a1e0a; --icon-frost: #7cc4f0; --icon-frost-deep: #173a5c;
@@ -138,6 +140,90 @@
   --icon-parchment: #e8d6a8; --icon-parchment-deep: #8a6a3a; --icon-junk: #8a8a8a; --icon-junk-deep: #2a2a2a;
   --icon-common: #c8c8c8; --icon-common-deep: #3a3a3a; --icon-uncommon: #5fd06a; --icon-uncommon-deep: #14401a;
   --icon-rare: #4f9cff; --icon-rare-deep: #102a5a; --icon-epic: #b86cff; --icon-epic-deep: #2e1250;
+  --icon-danger: #c0473f; --icon-danger-deep: #4a1414;
+
+  /* ---- type, spacing, shape, layers and time (R4). Every value is the exact literal style.css used before R4; a
+     literal became var(--token) only where it was exactly equal, so nothing on screen moved. Near-values are not merged
+     (1.15rem and 1.18rem stay two tokens): merging is an art decision for the slice. Bands are by size; the number
+     after a band is the step inside it, smallest first */
+  /* type: families (moved from style.css), weights, sizes, line heights. Canvas text (scene.js) still names its fonts */
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Liberation Sans", sans-serif;
+  --font-title: "Palatino Linotype", "Book Antiqua", Palatino, "TeX Gyre Pagella", "URW Palladio L", Georgia, "DejaVu Serif", serif;
+  --font-num: "Trebuchet MS", "Segoe UI", system-ui, "Liberation Sans", sans-serif;
+  --font-mono: ui-monospace, Menlo, Consolas, monospace;
+  --fw-regular: 400; --fw-medium: 500; --fw-semibold: 600; --fw-bold: 700; --fw-heavy: 800; --fw-black: 900;
+  /* font sizes (1rem = 10px at 1366x768): micro under 1rem (tags, keys, badges on icons), small 1 to 1.12rem (meta
+     lines, labels), body 1.15 to 1.3rem (running text, the log, tooltips, the HUD's base), label 1.32 to 1.55rem
+     (names, buttons, sub-heads), title 1.6 to 2.4rem (window and panel titles), display above (banners, the class
+     screen). The px sizes of the root (10px) and of SVG text
+     (the hub chart's labels, the map's region names) stay literal */
+  --fs-micro-1: .62rem; --fs-micro-2: .64rem; --fs-micro-3: .72rem; --fs-micro-4: .74rem; --fs-micro-5: .75rem;
+  --fs-micro-6: .78rem; --fs-micro-7: .8rem; --fs-micro-8: .82rem; --fs-micro-9: .85rem; --fs-micro-10: .86rem;
+  --fs-micro-11: .88rem; --fs-micro-12: .9rem; --fs-micro-13: .92rem; --fs-micro-14: .95rem; --fs-micro-15: .98rem;
+  --fs-small-1: 1rem; --fs-small-2: 1.02rem; --fs-small-3: 1.03rem; --fs-small-4: 1.04rem; --fs-small-5: 1.05rem;
+  --fs-small-6: 1.08rem; --fs-small-7: 1.1rem; --fs-small-8: 1.12rem;
+  --fs-body-1: 1.15rem; --fs-body-2: 1.18rem; --fs-body-3: 1.2rem; --fs-body-4: 1.24rem; --fs-body-5: 1.25rem;
+  --fs-body-6: 1.3rem;
+  --fs-label-1: 1.32rem; --fs-label-2: 1.35rem; --fs-label-3: 1.36rem; --fs-label-4: 1.38rem; --fs-label-5: 1.4rem;
+  --fs-label-6: 1.45rem; --fs-label-7: 1.5rem; --fs-label-8: 1.55rem;
+  --fs-title-1: 1.6rem; --fs-title-2: 1.7rem; --fs-title-3: 1.8rem; --fs-title-4: 2rem; --fs-title-5: 2.2rem;
+  --fs-title-6: 2.4rem;
+  --fs-display-1: 2.7rem; --fs-display-2: 3rem; --fs-display-3: 3.1rem; --fs-display-4: 3.8rem; --fs-display-5: 4rem;
+  --fs-display-6: 4.2rem; --fs-display-7: 4.6rem; --fs-display-8: 5.6rem; --fs-display-9: 6rem;
+  /* line heights: unitless (solid 1, tight, snug, normal, loose) and fixed line boxes in rem (lh-box) */
+  --lh-solid: 1;
+  --lh-tight-1: 1.05; --lh-tight-2: 1.12;
+  --lh-snug-1: 1.2; --lh-snug-2: 1.25; --lh-snug-3: 1.3;
+  --lh-normal-1: 1.32; --lh-normal-2: 1.35; --lh-normal-3: 1.38; --lh-normal-4: 1.4;
+  --lh-loose-1: 1.45; --lh-loose-2: 1.5;
+  --lh-box-1: 1rem; --lh-box-2: 1.05rem; --lh-box-3: 1.1rem; --lh-box-4: 1.15rem; --lh-box-5: 1.25rem;
+  --lh-box-6: 1.3rem; --lh-box-7: 1.35rem; --lh-box-8: 1.4rem; --lh-box-9: 1.45rem; --lh-box-10: 1.5rem;
+  --lh-box-11: 1.6rem; --lh-box-12: 1.7rem;
+  /* spacing (padding, margin, gap): every length used at least twice; the number is the value in hundredths of a rem
+     (--sp-35 = .35rem). Lengths used once and negative offsets stay literal */
+  --sp-2: .02rem; --sp-5: .05rem; --sp-8: .08rem; --sp-10: .1rem; --sp-12: .12rem; --sp-15: .15rem; --sp-18: .18rem;
+  --sp-20: .2rem; --sp-22: .22rem; --sp-25: .25rem; --sp-28: .28rem; --sp-30: .3rem; --sp-32: .32rem;
+  --sp-35: .35rem; --sp-40: .4rem; --sp-45: .45rem; --sp-50: .5rem; --sp-55: .55rem; --sp-60: .6rem; --sp-65: .65rem;
+  --sp-70: .7rem; --sp-75: .75rem; --sp-80: .8rem; --sp-90: .9rem; --sp-100: 1rem; --sp-110: 1.1rem;
+  --sp-120: 1.2rem; --sp-140: 1.4rem; --sp-160: 1.6rem; --sp-180: 1.8rem; --sp-200: 2rem;
+  /* radius: hair under .2rem, xs to .28, sm .3 to .4, md to .6, lg to .9, xl from 1rem; round is 50% */
+  --radius-hair-1: .1rem; --radius-hair-2: .12rem; --radius-hair-3: .15rem;
+  --radius-xs-1: .2rem; --radius-xs-2: .22rem; --radius-xs-3: .25rem; --radius-xs-4: .28rem;
+  --radius-sm-1: .3rem; --radius-sm-2: .35rem; --radius-sm-3: .4rem;
+  --radius-md-1: .45rem; --radius-md-2: .5rem; --radius-md-3: .55rem; --radius-md-4: .6rem;
+  --radius-lg-1: .65rem; --radius-lg-2: .7rem; --radius-lg-3: .75rem; --radius-lg-4: .8rem; --radius-lg-5: .85rem;
+  --radius-lg-6: .9rem;
+  --radius-xl-1: 1rem; --radius-xl-2: 1.2rem;
+  --radius-round: 50%;
+  /* z-index layers, bottom to top. A new overlay takes a layer here, never a bare number */
+  --z-scene: 0;           /* the scene canvas (#world); set on nothing today: it is first in the page */
+  --z-hud: 6;             /* HUD panels over the frames: the engage panel */
+  --z-hud-hint: 7;        /* the engage hint, over the engage panel */
+  --z-hud-callout: 12;    /* the Furnace intro callout */
+  --z-panel: 20;          /* full-screen panels: the meta screen (#meta) */
+  --z-toast-under: 29;    /* toasts while a window is open: under the windows */
+  --z-window: 30;         /* windows (.win) */
+  --z-window-top: 32;     /* over the windows: the Furnace strip (#heat) */
+  --z-toast: 45;          /* toasts */
+  --z-modal: 60;          /* menus over everything in play: the context menu */
+  --z-dev: 80;            /* the Dev menu */
+  --z-dev-btn: 81;        /* the Dev button, over the Dev menu */
+  --z-tooltip-drag: 100;  /* what follows the pointer: the drag ghost */
+  --z-tooltip: 200;       /* the tooltip, top of everything */
+  /* z-index inside one component's own stacking context (map nodes, tracker badges, the Furnace strip's marks):
+     order within the box, not a layer. The number is the value */
+  --z-local-0: 0; --z-local-1: 1; --z-local-2: 2; --z-local-3: 3; --z-local-4: 4; --z-local-5: 5; --z-local-6: 6;
+  --z-local-25: 25;
+  /* durations: fast under .2s (press, hover), base .2 to .45s (state changes), slow .55 to 1.2s (one-shot attention),
+     long from 1.4s (pulses and loops). Negative delays (phase offsets) stay literal */
+  --dur-fast-1: .05s; --dur-fast-2: .08s; --dur-fast-3: .12s; --dur-fast-4: .15s;
+  --dur-base-1: .2s; --dur-base-2: .25s; --dur-base-3: .3s; --dur-base-4: .35s; --dur-base-5: .4s;
+  --dur-base-6: .42s; --dur-base-7: .45s;
+  --dur-slow-1: .55s; --dur-slow-2: .6s; --dur-slow-3: .7s; --dur-slow-4: .8s; --dur-slow-5: .9s; --dur-slow-6: 1s;
+  --dur-slow-7: 1.1s; --dur-slow-8: 1.2s;
+  --dur-long-1: 1.4s; --dur-long-2: 1.5s; --dur-long-3: 1.6s; --dur-long-4: 1.8s; --dur-long-5: 2s;
+  --dur-long-6: 2.2s; --dur-long-7: 2.4s; --dur-long-8: 2.6s; --dur-long-9: 2.8s; --dur-long-10: 3.7s;
+  --dur-long-11: 5.1s; --dur-long-12: 7s;
 }
 
 /* Lantern Gouache (docs/art/README.md direction A, D120): PROPOSAL 1, draft, for the owner to steer (D121;

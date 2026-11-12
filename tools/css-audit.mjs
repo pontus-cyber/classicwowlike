@@ -20,6 +20,11 @@
  *     diff <(node tools/css-audit.mjs --expand old/style.css) <(node tools/css-audit.mjs --expand src/ui/tokens.css src/ui/style.css)
  *   node tools/css-audit.mjs --js-tokens           every token name read from src/ui/*.js (theme.js, Track R3) is
  *                                                  defined in tokens.css; exit 1 when one is not
+ *   node tools/css-audit.mjs --scales [f.css ...]  type, shape, layer, time and spacing values (Track R4): per scale the
+ *                                                  distinct literal values, literal uses and var() uses of its tokens
+ *                                                  (font sizes are counted in font-size and in the font shorthand;
+ *                                                  "font-size property" alone is the review's count). Default files:
+ *                                                  src/ui/*.css. Root token definitions and @keyframes are not counted
  *   --files a,b,...                                audit these files instead of src/ui/*.css and src/ui/*.js
  *
  * WHAT COUNTS AS A LITERAL
@@ -212,11 +217,90 @@ function jsTokens() {
   process.exitCode = miss.length || lg.length ? 1 : 0;
 }
 
+// ------------------------------------------------------------------ --scales
+const SPACING_PROPS = /^(?:padding|margin)(?:-(?:top|right|bottom|left|inline|block)(?:-(?:start|end))?)?$|^(?:row-|column-)?gap$/;
+const RADIUS_PROPS = /^border(?:-(?:top|bottom)-(?:left|right))?-radius$/;
+const LEN = /^-?\d*\.?\d+(?:rem|px|em|%|vh|vw|ch)$/;
+const TIME_RE = /^-?\d*\.?\d+m?s$/;
+/** Top-level components of a value with their offsets: split on spaces, commas and "/" (kept), parentheses kept whole. */
+function components(v) {
+  const out = []; let depth = 0; let start = -1;
+  for (let i = 0; i <= v.length; i++) {
+    const c = v[i];
+    if (c === '(') depth++; else if (c === ')') depth--;
+    const sep = i === v.length || (depth === 0 && /[\s,/]/.test(c));
+    if (sep) { if (start >= 0) { out.push({ text: v.slice(start, i), index: start }); start = -1; } if (c === '/') out.push({ text: '/', index: i }); } else if (start < 0) start = i;
+  }
+  return out;
+}
+const SCALES = ['font-size', 'font-weight', 'line-height', 'font-family', 'radius', 'z-index', 'duration', 'spacing'];
+const SCALE_TOKEN = { 'font-size': '--fs-', 'font-weight': '--fw-', 'line-height': '--lh-', 'font-family': '--font-', radius: '--radius-', 'z-index': '--z-', duration: '--dur-', spacing: '--sp-' };
+/** The scale values in one declaration: [{ cat, text, index }] (literals only; a var() is a token use). */
+function scaleParts(prop, value) {
+  const p = prop.toLowerCase(); const out = []; const comps = components(value);
+  const push = (cat, c) => out.push({ cat, text: c.text, index: c.index });
+  if (p === 'font-size') for (const c of comps) { if (LEN.test(c.text)) push('font-size', c); }
+  if (p === 'font-weight') for (const c of comps) { if (/^[1-9]00$/.test(c.text)) push('font-weight', c); }
+  if (p === 'line-height') for (const c of comps) { if (/^\d*\.?\d+(?:rem|px|em|%)?$/.test(c.text)) push('line-height', c); }
+  if (p === 'font-family' && !/^(?:inherit|var\(--[\w-]+\))(?:\s*!important)?$/.test(value.trim())) out.push({ cat: 'font-family', text: value.trim(), index: 0 });
+  if (p === 'font') {
+    for (let i = 0; i < comps.length; i++) {
+      const t = comps[i].text;
+      if (/^(?:italic|oblique|normal|small-caps)$/.test(t) || /^var\(--fw-/.test(t)) continue;
+      if (/^[1-9]00$/.test(t)) { push('font-weight', comps[i]); continue; }
+      if (LEN.test(t) || /^var\(--fs-/.test(t)) {
+        if (LEN.test(t)) push('font-size', comps[i]);
+        let k = i + 1;
+        if (comps[k] && comps[k].text === '/') { if (comps[k + 1] && !comps[k + 1].text.startsWith('var(')) push('line-height', comps[k + 1]); k += 2; }
+        const fam = value.slice(comps[k] ? comps[k].index : value.length).trim();
+        if (fam && !/^var\(--[\w-]+\)(?:\s*!important)?$/.test(fam)) out.push({ cat: 'font-family', text: fam, index: comps[k].index });
+      }
+      break;
+    }
+  }
+  if (RADIUS_PROPS.test(p)) for (const c of comps) { if (LEN.test(c.text) && !/^-?0+(?:\.0+)?[a-z%]*$/.test(c.text)) push('radius', c); }
+  if (p === 'z-index') for (const c of comps) { if (/^-?\d+$/.test(c.text)) push('z-index', c); }
+  if (/^(?:transition|animation)(?:-duration|-delay)?$/.test(p)) for (const c of comps) { if (TIME_RE.test(c.text)) push('duration', c); }
+  if (SPACING_PROPS.test(p)) for (const c of comps) { if (LEN.test(c.text)) push('spacing', c); }
+  return out;
+}
+const inKeyframes = (ctx) => ctx.some((c) => /^@(?:-webkit-)?keyframes\b/.test(c));
+
+function scales(fileList) {
+  const res = Object.fromEntries(SCALES.map((k) => [k, { values: new Map(), uses: 0, varUses: 0, tokens: 0 }]));
+  let fsProp = new Set();
+  for (const f of fileList) {
+    for (const d of declarations(fs.readFileSync(f, 'utf8'))) {
+      if (isOtherThemeCtx(d.ctx) || inKeyframes(d.ctx)) continue;
+      if (d.prop.startsWith('--')) {
+        if (isRootCtx(d.ctx)) for (const k of SCALES) if (d.prop.startsWith(SCALE_TOKEN[k])) res[k].tokens++;
+        continue;
+      }
+      if (d.ctx.some((c) => /^:root\[data-theme=/.test(c))) continue; // theme-only rules (the lantern block in tokens.css)
+      for (const s of scaleParts(d.prop, d.value)) { const r = res[s.cat]; r.uses++; r.values.set(s.text, (r.values.get(s.text) || 0) + 1); if (s.cat === 'font-size' && d.prop === 'font-size') fsProp.add(s.text); }
+      for (const m of d.value.matchAll(/var\(\s*(--[\w-]+)/g)) for (const k of SCALES) if (m[1].startsWith(SCALE_TOKEN[k])) res[k].varUses++;
+    }
+  }
+  return { res, fsProp };
+}
+
 // ------------------------------------------------------------------ main
 let cssResults = [];
 // Output is written once; no process.exit() after it, so a pipe (diff <(...)) receives all of it.
 function main() {
 if (has('--js-tokens')) { jsTokens(); return; }
+if (has('--scales')) {
+  const list = argv.filter((a) => !a.startsWith('--'));
+  const fl = list.length ? list.map((f) => path.resolve(f)) : fs.readdirSync(UI).filter((f) => f.endsWith('.css')).sort().map((f) => path.join(UI, f));
+  const { res, fsProp } = scales(fl);
+  if (has('--json')) { console.log(JSON.stringify(Object.fromEntries(SCALES.map((k) => [k, { distinct: res[k].values.size, uses: res[k].uses, varUses: res[k].varUses, tokens: res[k].tokens, values: Object.fromEntries(res[k].values) }])), null, 1)); return; }
+  console.log(`Scales of ${fl.map(rel).join(', ')} (literals outside root token definitions and @keyframes)`);
+  console.log('scale          distinct literals   literal uses   var() uses   tokens defined');
+  for (const k of SCALES) { const r = res[k]; console.log(`${k.padEnd(14)} ${String(r.values.size).padStart(17)} ${String(r.uses).padStart(14)} ${String(r.varUses).padStart(12)} ${String(r.tokens).padStart(16)}`); }
+  console.log(`font-size property alone: ${fsProp.size} distinct literals`);
+  if (has('--values')) for (const k of SCALES) if (res[k].values.size) console.log(`${k}: ${[...res[k].values].sort((a, b) => b[1] - a[1]).map(([v, n]) => `${v}×${n}`).join('  ')}`);
+  return;
+}
 if (has('--expand')) {
   const list = argv.filter((a) => !a.startsWith('--'));
   if (!list.length) { console.error('usage: node tools/css-audit.mjs --expand a.css [b.css ...]'); process.exitCode = 2; return; }

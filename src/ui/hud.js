@@ -85,7 +85,7 @@ function setBar(el, cur, max, text, wardVal = 0, dot = null) {
   fill.style.transform = `scaleX(${f})`;
   if (ghost) {
     const prev = Number(ghost.dataset.f || 1);
-    if (f < prev) { ghost.style.transition = 'transform .9s .25s ease-in'; } else ghost.style.transition = 'none';
+    if (f < prev) { ghost.style.transition = 'transform var(--dur-slow-5) var(--dur-base-2) ease-in'; } else ghost.style.transition = 'none'; // as .bar .ghost
     ghost.style.transform = `scaleX(${f})`; ghost.dataset.f = f;
   }
   if (ward) { const w = max > 0 ? clamp(wardVal / max, 0, 1 - f) : 0; ward.style.left = `${f * 100}%`; ward.style.width = `${w * 100}%`; }

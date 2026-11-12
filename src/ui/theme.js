@@ -17,7 +17,7 @@
 //   CAST       a spell's glow while it is cast and on its target, by school (director.js)
 //   BOLT       projectiles by kind (scene.js)
 //   IMPACT     the core and sparks of a hit, by school (scene.js)
-//   ICON_BG    icon backgrounds, [light, deep] by school, material and rarity (art-icons.js)
+//   ICON_BG    icon backgrounds, [light, deep] by school, material, rarity and danger (art-icons.js)
 // Where a member has the exact value and the role of an older token it reads that token (frost: --school-frost-text,
 // --school-frost); every other member has its own token in tokens.css with the value the code had before R3.
 
@@ -80,6 +80,7 @@ export const IMPACT = family({
   phys: '--fx-impact-phys', fire: '--fx-impact-fire', frost: '--school-frost', arcane: '--fx-impact-arcane',
   shadow: '--fx-impact-shadow', nature: '--fx-impact-nature', heal: '--fx-impact-heal',
 });
-const ICON_KEYS = ['steel', 'blood', 'shadow', 'gold', 'fire', 'frost', 'arcane', 'nature', 'heal', 'poison', 'earth', 'dark',
+// 'danger' is the Deathblow, MAIMED and EMPOWERED (R4), apart from 'blood' (damage); same values in the current look
+const ICON_KEYS = ['steel', 'blood', 'danger', 'shadow', 'gold', 'fire', 'frost', 'arcane', 'nature', 'heal', 'poison', 'earth', 'dark',
   'parchment', 'junk', 'common', 'uncommon', 'rare', 'epic'];
 export const ICON_BG = family(Object.fromEntries(ICON_KEYS.map((k) => [k, [`--icon-${k}`, `--icon-${k}-deep`]])));
