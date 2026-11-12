@@ -543,10 +543,15 @@ function buildExpMap(v, ctx, readOnly) {
     const full = n.know === 'full';
     const band = mv.bands && mv.bands[n.ring] ? mv.bands[n.ring] : null;
     const label = n.hub ? 'Hub' : full && n.cl ? String(n.cl) : n.know === 'type' && band ? `${band[0]}–${band[1]}` : '?';
-    const el = h(`button.mnode.x-${fog}` + (m ? '.reach' : '') + (n.done && !n.hub ? '.visited' : '') + (here ? '.here' : '') + (n.dimmed ? '.dimmed' : '') + (n.lost ? '.lost' : '') + (type ? '' : '.fog') + (n.hub ? '.xhub' : '') + (n.shardfall ? '.xsf' : '') + (n.road ? '.xrd' : ''),
+    // D128 (owner playtest 2026-11-12 20:19: smaller icons, less clutter): text labels only where the player acts: his
+    // node, the reachable nodes and contract sites. Every other node is "quiet": its level a small coloured pip, its band
+    // and enemy count on hover (the tooltip), its Dimming clock a number only.
+    const loud = here || !!m || !!(n.sites && n.sites.length);
+    const fightLvl = full && n.cl && !n.hub && !NO_FIGHT.has(n.type);
+    const el = h(`button.mnode.x-${fog}` + (m ? '.reach' : '') + (n.done && !n.hub ? '.visited' : '') + (here ? '.here' : '') + (n.dimmed ? '.dimmed' : '') + (n.lost ? '.lost' : '') + (type ? '' : '.fog') + (n.hub ? '.xhub' : '') + (n.shardfall ? '.xsf' : '') + (n.road ? '.xrd' : '') + (loud ? '' : '.quiet'),
       { style: { left: `${x / 10}%`, top: `${y / 10}%` }, 'aria-label': `${type ? NODE_NAME[type] || 'Hub' : 'Unknown'} node ${n.id}`, dataset: { node: n.id, fog } },
       h('div.ring', type ? h('img', { src: nodeIcon(type), alt: '' }) : h('span.fogq', '?')),
-      h('div.cl' + (n.know === 'type' ? '.band' : ''), { style: { color: full && n.cl && !n.hub && !NO_FIGHT.has(n.type) ? conColor(n.cl, p.level) : NEUTRAL } }, label));
+      h('div.cl' + (n.know === 'type' ? '.band' : '') + (fightLvl ? '.lvl' : ''), { style: { color: fightLvl ? conColor(n.cl, p.level) : NEUTRAL } }, label));
     if (here) el.appendChild(flagSvg());
     // enemy count on a seen fight node (BUG-QA-02)
     const foes = full && !n.hub && !n.done ? (n.type === 'dungeon' ? null : n.archetypes && n.archetypes.length ? n.archetypes.length : null) : null;
@@ -554,8 +559,10 @@ function buildExpMap(v, ctx, readOnly) {
     const marks = siteBadge(n, v); // contract site marks (prep): only the ones the player sees; a hidden node stays unnamed
     if (marks) el.appendChild(marks);
     // the Dimming's clock: "dims in N" on every node within two hops of its front; the player's own count stands out at 2 or less
+    // D128: the full "dims in N" on the player's node and the reachable ones; elsewhere the number alone (hover: the tolls)
     const near = !off && !n.dimmed && finite(n.dimsIn) && sfHops[n.id] <= front + 2;
-    if (near || (here && !off && !n.dimmed && finite(n.dimsIn) && n.dimsIn <= 2)) el.appendChild(h('div.xclock' + (here && n.dimsIn <= 2 ? '.urgent' : '') + (n.dimsIn <= 2 ? '.soon' : ''), { dataset: { dimsIn: n.dimsIn } }, here && n.dimsIn <= 2 ? `Dims in ${n.dimsIn}!` : `dims in ${n.dimsIn}`));
+    const fullClock = here || !!m;
+    if (near || (here && !off && !n.dimmed && finite(n.dimsIn) && n.dimsIn <= 2)) el.appendChild(h('div.xclock' + (here && n.dimsIn <= 2 ? '.urgent' : '') + (n.dimsIn <= 2 ? '.soon' : '') + (fullClock ? '' : '.mini'), { dataset: { dimsIn: n.dimsIn } }, here && n.dimsIn <= 2 ? `Dims in ${n.dimsIn}!` : fullClock ? `dims in ${n.dimsIn}` : String(n.dimsIn)));
     const act = { type: 'MOVE', nodeId: n.id };
     const hp = m ? heatOf(v, act) : null;
     if (hp) el.appendChild(tollLabel(h('div.mhrs', tolls(hp.time)), hp));

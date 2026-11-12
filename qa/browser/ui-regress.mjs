@@ -104,13 +104,16 @@
  *      at Instant speed, ?prep=1, seed 7. Class select's Enter opens the camp and a second Enter at once does not set out;
  *      the prep screen's numbers (points left, each offer's zone, price and sites, each option's price, bought and owned
  *      state, the held list, Reserve = N points = M Echoes) equal R.prepView of a Node twin (the page's engine log) after a
- *      click and the keys 2, A, G, R, a drop, a sell, a buy and key 3; Set out, every card and option fully in view; a contract's
+ *      click and the keys 2, A, C, R (no reroll: D128), a drop, a sell, a buy and key 3; D128 (a lean camp): 3 cards side by side
+ *      and at most 4 options, no reroll button, a card's headline, one line of what to do and the pay in one line; Set out,
+ *      every card and option fully in view; a contract's
  *      and an option's tooltip; Enter sets out (contracts and Reserve = R.contractView); on the map the tracker shows this
  *      zone's contracts (title, "N / M sites") clear of the zone map, site marks on exactly mapView's nodes, hidden ones
  *      unnamed; the quest log lists every contract; zone 2's hub (Dev menu Start at) shows its offer and Take pays from
  *      Reserve. Then seed 1 on the engine's autoplay choices to a completed contract: its reward window (title, +XP and gold
  *      = the engine's events, the item cards) and the choice. No console errors.
- *   N  the fog map (docs/specs/expedition.md 4-6, 9.2; M2b 2b.6), real engine at Instant speed, ?prep=1, seed M_SEED with
+ *   N  the fog map (docs/specs/expedition.md 4-6, 9.2; M2b 2b.6; D128: icons about 70 %, text labels only on the player's
+ *      node, the reachable nodes and contract sites, a quiet node's clock as its number), real engine at Instant speed, ?prep=1, seed M_SEED with
  *      Region Charts: every node's fog state (seen, remembered, type known, unknown), level, enemy count, site marks and moves,
  *      the region tints and rim names, the Roads' signposts, the Shardfall, the Dimming's wash and "dims in N" clocks = R.mapView
  *      of a Node twin (nothing the view hides is drawn); the disc round, in view and readable; again once the Dimming spread.
@@ -2799,15 +2802,19 @@ async function partM(browser, W, H) {
     check('M-prep', `class select's Enter opens the start camp (phase ${ui0.phase}); a second Enter ${Math.round(age)} ms after it opened does not set out; no HUD around it`, ui0.phase === 'PREP' && s.phase === 'PREP' && ui0.bar && age != null && age < 700, JSON.stringify({ ...ui0, age }));
     const dom = () => page.evaluate(() => ({
       left: document.querySelector('#prep .pm-n').textContent, reserve: document.querySelector('#prep .pm-rl').textContent,
-      cards: [...document.querySelectorAll('#prep .pp-card')].map((b) => ({ zone: b.querySelector('.pc-zone').textContent, price: b.querySelector('.pc-price').textContent, need: b.querySelector('.pc-need').textContent, taken: b.classList.contains('taken') })),
+      cards: [...document.querySelectorAll('#prep .pp-card')].map((b) => ({ zone: b.querySelector('.pc-zone').textContent, price: b.querySelector('.pc-price').textContent, do: b.querySelector('.pc-do').textContent, taken: b.classList.contains('taken') })),
       opts: [...document.querySelectorAll('#prep .pp-opt')].map((b) => ({ id: b.dataset.id, price: (b.querySelector('.pc-price') || {}).textContent || null, bought: b.classList.contains('bought'), owned: b.classList.contains('owned') })),
-      held: [...document.querySelectorAll('#prep .pm-held li:not(.empty)')].length,
+      held: document.querySelectorAll('#prep .pp-card.taken').length,
     }));
+    // D128: what to do in one line: "Win 2 sites in <region>", "Hunt it down in <region>", the dungeon cleared
+    const doWant = (o) => (o.kind === 'delve' ? 'Clear the dungeon, its boss included' : o.kind === 'bounty' ? `Hunt it down in ${o.regionName}` : `Win ${o.need} ${o.need === 1 ? 'site' : 'sites'} in ${o.regionName}`);
     const domDiff = (d, x) => {
       const out = [];
       if (d.left !== String(x.left)) out.push(`points left ${d.left} (engine ${x.left})`);
       if (!d.reserve.includes(`${x.reserve.points} ${x.reserve.points === 1 ? 'point' : 'points'} = ${x.reserve.echoes} Echoes`)) out.push(`reserve "${d.reserve}" (engine ${x.reserve.points} = ${x.reserve.echoes})`);
-      x.board.forEach((o, i) => { const c = d.cards[i]; if (!c || c.zone !== `Zone ${o.z} · ${o.zoneName}` || c.price !== String(o.price) || c.need !== `${o.need} ${o.need === 1 ? 'site' : 'sites'}` || c.taken !== o.taken) out.push(`card ${i + 1} ${JSON.stringify(c)} (engine zone ${o.z}, ${o.price}, ${o.need}, taken ${o.taken})`); });
+      if (d.cards.length !== x.board.length) out.push(`${d.cards.length} cards (engine ${x.board.length})`);
+      if (d.opts.length !== x.options.length) out.push(`${d.opts.length} options (engine ${x.options.length})`);
+      x.board.forEach((o, i) => { const c = d.cards[i]; if (!c || c.zone !== `Zone ${o.z}` || c.price !== String(o.price) || c.do !== doWant(o) || c.taken !== o.taken) out.push(`card ${i + 1} ${JSON.stringify(c)} (engine zone ${o.z}, ${o.price}, ${o.need}, taken ${o.taken})`); });
       x.options.forEach((o) => { const c = d.opts.find((y) => y.id === o.id); if (!c || c.bought !== o.bought || c.owned !== o.owned || (!o.owned && c.price !== String(o.price))) out.push(`option ${o.id} ${JSON.stringify(c)}`); });
       if (d.held !== x.held) out.push(`held list ${d.held} (engine ${x.held})`);
       return out;
@@ -2818,11 +2825,23 @@ async function partM(browser, W, H) {
     const goP = await placement(page.locator('#pp-go'));
     check('M-prep', 'Set out is in view at the bottom right, on top', fullyShown(goP) && goP.rect[2] > W * 0.8 && goP.rect[3] > H * 0.85, placeText(goP));
     const cut = [];
-    for (const sel of ['#prep .pp-card', '#prep .pp-opt', '#pp-reroll']) { const n = await page.locator(sel).count(); for (let i = 0; i < n; i++) { const p = await placement(page.locator(sel).nth(i)); if (!p.inside || p.clippedBy) cut.push(`${sel} ${i} ${placeText(p)}`); } }
-    check('M-prep', 'every contract card, option and the reroll button is fully in view (nothing below the fold)', !cut.length, cut.join(' | '));
-    // mouse and keys: take (click), take (key 2), buy (A), buy a vision perk (G), reroll (R), drop (click the taken card)
+    for (const sel of ['#prep .pp-card', '#prep .pp-opt']) { const n = await page.locator(sel).count(); for (let i = 0; i < n; i++) { const p = await placement(page.locator(sel).nth(i)); if (!p.inside || p.clippedBy) cut.push(`${sel} ${i} ${placeText(p)}`); } }
+    check('M-prep', 'every contract card and option is fully in view (nothing below the fold)', !cut.length, cut.join(' | '));
+    // D128 (owner playtest 2026-11-12 20:19): a lean camp: CONTRACT_BOARD_SIZE cards side by side, the camp's options (at
+    // most 4) in one row, no reroll button while R.prepView's reroll is closed
+    const lean = await page.evaluate(() => {
+      const r = (e) => e.getBoundingClientRect();
+      const cards = [...document.querySelectorAll('#prep .pp-card')].map(r); const opts = [...document.querySelectorAll('#prep .pp-opt')].map(r);
+      const rr = document.getElementById('pp-reroll');
+      return { cards: cards.length, row: cards.every((c, i) => Math.abs(c.top - cards[0].top) < 4 && (i === 0 || c.left >= cards[i - 1].right - 1)),
+        opts: opts.length, optRow: opts.every((c, i) => Math.abs(c.top - opts[0].top) < 4 && (i === 0 || c.left >= opts[i - 1].right - 1)), below: opts.length ? opts[0].top >= Math.max(...cards.map((c) => c.bottom)) : true,
+        reroll: !!rr && rr.getClientRects().length > 0 };
+    });
+    check('M-prep', `D128 lean camp: ${lean.cards} contract cards side by side (R.prepView ${pv.board.length} = CONTRACT_BOARD_SIZE ${R.C.CONTRACT_BOARD_SIZE}), ${lean.opts} options in one row under them (at most 4), no reroll button (reroll.open ${pv.reroll.open})`,
+      lean.cards === pv.board.length && pv.board.length === R.C.CONTRACT_BOARD_SIZE && lean.row && lean.opts === pv.options.length && lean.opts <= 4 && lean.optRow && lean.below && !lean.reroll && !pv.reroll.open, JSON.stringify(lean));
+    // mouse and keys: take (click), take (key 2), buy (A), buy a vision perk (C), R (no reroll since D128), drop (click the taken card)
     const steps = [['click card 1', () => page.locator('#prep .pp-card').nth(0).click()], ['key 2', () => page.keyboard.press('Digit2')],
-      ['key A', () => page.keyboard.press('KeyA')], ['key G', () => page.keyboard.press('KeyG')], ['key R', () => page.keyboard.press('KeyR')],
+      ['key A', () => page.keyboard.press('KeyA')], ['key C', () => page.keyboard.press('KeyC')], ['key R', () => page.keyboard.press('KeyR')],
       ['click card 2 (drop)', () => page.locator('#prep .pp-card').nth(1).click()], ['click Field Draughts (sell)', () => page.locator('#prep .pp-opt[data-id="prep_draughts"]').click()],
       ['click Field Draughts (buy)', () => page.locator('#prep .pp-opt[data-id="prep_draughts"]').click()], ['key 3', () => page.keyboard.press('Digit3')]];
     const bad = [];
@@ -2833,8 +2852,8 @@ async function partM(browser, W, H) {
       if (!same(await pagePrep(), JSON.parse(JSON.stringify(pv))) || diff.length) bad.push(`${what}: ${diff.join(', ') || 'view differs'}`);
     }
     const log = await page.evaluate(() => window.__ui.engineLog().map((a) => a.type));
-    check('M-prep', `mouse and keys send TAKE, DROP, BUY, SELL, REROLL (log ${log.slice(1).join(' ')}); after each the screen = R.prepView (left ${pv.left}, held ${pv.held}, rerolls ${pv.reroll.used})`,
-      !bad.length && ['TAKE_CONTRACT', 'DROP_CONTRACT', 'BUY_PREP', 'SELL_PREP', 'REROLL_BOARD'].every((t) => log.includes(t)), bad.join(' | '));
+    check('M-prep', `mouse and keys send TAKE, DROP, BUY, SELL and no REROLL (D128; log ${log.slice(1).join(' ')}); after each the screen = R.prepView (left ${pv.left}, held ${pv.held}, rerolls ${pv.reroll.used})`,
+      !bad.length && ['TAKE_CONTRACT', 'DROP_CONTRACT', 'BUY_PREP', 'SELL_PREP'].every((t) => log.includes(t)) && !log.includes('REROLL_BOARD'), bad.join(' | '));
     // tooltips: a contract says where its sites are and what it pays; an option says what it does
     await page.mouse.move(2, 2);
     const k = pv.board.findIndex((o) => o.kind === 'cull'); const o = pv.board[k >= 0 ? k : 0];
@@ -2842,25 +2861,26 @@ async function partM(browser, W, H) {
     const tt1 = await page.evaluate(() => (document.querySelector('.tooltip.on') || {}).innerText || '');
     const want1 = [T.contractSentence(o, CONTENT), o.kind === 'cull' ? 'Sites: Quest or Grind nodes' : 'site', `${Math.round(o.reward.xpFrac * 10) / 10} levels of XP`];
     check('M-prep', `a contract's tooltip: its sentence, its sites and its pay (${want1[0]})`, want1.every((x) => tt1.replace(NBSP, ' ').includes(x)), tt1.replace(/\n/g, ' / '));
-    const spy = pv.options.find((x) => x.id === 'prep_spyglass');
-    await page.locator('#prep .pp-opt[data-id="prep_spyglass"]').hover(); await page.waitForTimeout(80);
+    const spy = pv.options.find((x) => x.id === 'prep_tracker');
+    await page.locator('#prep .pp-opt[data-id="prep_tracker"]').hover(); await page.waitForTimeout(80);
     const tt2 = await page.evaluate(() => (document.querySelector('.tooltip.on') || {}).innerText || '');
     const want2 = T.prepOptionEffect(spy, { vision: R.C.VISION_RADIUS, guide: R.C.GUIDE_RADIUS_BONUS, tracker: R.C.TRACKER_RADIUS, bountyPlaced: R.C.BOUNTY_PLACED, bellMax: R.C.BELL_MAX_CHARGES, emberMax: R.C.EMBER_MAX_CARRIED }, (id) => R.C.CONSUMABLE[id].name);
     check('M-prep', `an option's tooltip says what it does in one line ("${want2}") and its refund`, tt2.includes(want2) && /full refund/.test(tt2), tt2.replace(/\n/g, ' / '));
     // QA playtest 2026-11-11 finding 5: every number on a card has its word (levels, price, sites, XP, gold, the item choice)
-    const lab = await page.evaluate(() => [...document.querySelectorAll('#prep .pp-card')].map((b) => ({ band: b.querySelector('.pc-band').textContent, price: b.querySelector('.pc-price').textContent,
-      pl: (b.querySelector('.pc-pl') || {}).textContent, need: b.querySelector('.pc-need').textContent, pay: b.querySelector('.pc-reward').innerText.replace(/\s+/g, ' '), it: (b.querySelector('.pc-act .it') || {}).textContent })));
+    const lab = await page.evaluate(() => [...document.querySelectorAll('#prep .pp-card')].map((b) => { const pay = b.querySelector('.pc-reward'); return { zone: b.querySelector('.pc-zone').textContent, price: b.querySelector('.pc-price').textContent,
+      pl: (b.querySelector('.pc-pl') || {}).textContent, do: b.querySelector('.pc-do').textContent, pay: pay.innerText.replace(/\s+/g, ' '), it: (b.querySelector('.pc-reward .it') || {}).textContent, one: pay.scrollWidth <= pay.clientWidth + 1 && pay.getClientRects().length === 1 }; }));
     const lBad = pv.board.map((o, i) => { const c = lab[i] || {}; const bad = [];
-      if (c.band !== `levels ${o.band[0]}–${o.band[1]}`) bad.push(`band "${c.band}"`);
+      if (c.zone !== `Zone ${o.z}`) bad.push(`zone "${c.zone}"`);
       if (c.price !== String(o.price) || c.pl !== (o.price === 1 ? 'pt' : 'pts')) bad.push(`price "${c.price} ${c.pl}"`);
-      if (c.need !== `${o.need} ${o.need === 1 ? 'site' : 'sites'}`) bad.push(`sites "${c.need}"`);
+      if (o.kind === 'cull' && !(c.do || '').startsWith(`Win ${o.need} ${o.need === 1 ? 'site' : 'sites'} in `)) bad.push(`sites "${c.do}"`);
       if (!/^Pays /.test(c.pay || '') || !(c.pay || '').includes(`${Math.round(o.reward.xpFrac * 10) / 10} levels of XP`) || !/ gold /.test(c.pay || '')) bad.push(`pay "${c.pay}"`);
       if (!(c.it || '').startsWith(`choose 1 of ${o.reward.choices}`)) bad.push(`items "${c.it}"`);
+      if (!c.one) bad.push('the pay line is cut or wraps');
       return bad.length ? `card ${i + 1}: ${bad.join(', ')}` : null; }).filter(Boolean);
-    check('M-prep', 'every number on a contract card has its word: "levels 1–10", "2 pts", "2 sites", "Pays 2.8 levels of XP", "gold", "choose 1 of 3" (QA 2026-11-11 finding 5)', !lBad.length, lBad.slice(0, 3).join(' | '));
+    check('M-prep', 'every number on a contract card has its word: "Zone 1", "2 pts", "Win 2 sites in ...", "Pays 2.8 levels of XP", "gold", "choose 1 of 3", the pay on one uncut line (QA 2026-11-11 finding 5; D128)', !lBad.length, lBad.slice(0, 3).join(' | '));
     // QA playtest 2026-11-11 finding 4 (an engine fix, contracts.js drawBoard): no two cards are the same contract
     const keys = pv.board.map((o) => [o.z, o.kind, o.region, o.family, o.template].join('|'));
-    const shown = await page.evaluate(() => [...document.querySelectorAll('#prep .pp-card')].map((b) => [b.querySelector('.pc-zone').textContent, b.querySelector('.pc-kind').textContent, b.querySelector('.pc-target').textContent, b.querySelector('.pc-where').textContent].join(' / ')));
+    const shown = await page.evaluate(() => [...document.querySelectorAll('#prep .pp-card')].map((b) => [b.querySelector('.pc-zone').textContent, b.querySelector('.pc-kind').textContent, b.querySelector('.pc-target').textContent, b.querySelector('.pc-do').textContent].join(' / ')));
     check('M-prep', `the board's ${keys.length} cards are ${new Set(shown).size} different offers (no two the same contract)`, new Set(keys).size === keys.length && new Set(shown).size === shown.length, shown.join(' | '));
     // QA playtest 2026-11-11 finding 7: a card's tooltip covers no other card and not Set out; an option's no other option
     const tipHits = (sel, i, avoid) => page.evaluate(([s, k, av]) => {
@@ -3015,6 +3035,8 @@ const fogDom = (page) => page.evaluate(() => {
   return {
     disc: disc ? r(disc) : null,
     nodes: [...document.querySelectorAll('#screens .expmap .mnode')].map((n) => ({ id: Number(n.dataset.node), fog: n.dataset.fog, img: !!n.querySelector('.ring img'), label: n.querySelector('.cl').textContent,
+      quiet: n.classList.contains('quiet'), text: (() => { const c = n.querySelector('.cl'); const cs = getComputedStyle(c); return cs.display !== 'none' && parseFloat(cs.fontSize) > 0; })(),
+      clockText: n.querySelector('.xclock') ? n.querySelector('.xclock').textContent : null, foesShown: !!n.querySelector('.xfoes') && n.querySelector('.xfoes').getClientRects().length > 0,
       aria: n.getAttribute('aria-label'), foes: n.querySelector('.xfoes') ? Number(n.querySelector('.xfoes').dataset.foes) : null, clock: n.querySelector('.xclock') ? Number(n.querySelector('.xclock').dataset.dimsIn) : null,
       reach: n.classList.contains('reach'), here: n.classList.contains('here'), dimmed: n.classList.contains('dimmed'), sites: n.querySelector('.xsite') ? n.querySelector('.xsite').dataset.sites : null, rect: r(n), size: n.getBoundingClientRect().width })),
     tints: [...document.querySelectorAll('#screens .expmap .xregions path')].map((x) => Number(x.dataset.region)),
@@ -3054,6 +3076,14 @@ function fogDiff(d, mv, nextZone) {
     if (e.here !== (n.id === mv.pos)) out.push(`node ${n.id} here ${e.here}`);
     if (e.dimmed !== !!n.dimmed) out.push(`node ${n.id} dimmed ${e.dimmed}`);
     if ((e.sites || null) !== (n.sites ? n.sites.join(',') : null)) out.push(`node ${n.id} sites ${e.sites} (view ${n.sites})`);
+    // D128: text labels only on the player's node, the reachable nodes and contract sites; a clock in full ("dims in N")
+    // on the player's node and the reachable ones, its number alone elsewhere; an enemy count only where labels show
+    const loud = n.id === mv.pos || moves.has(n.id) || !!(n.sites && n.sites.length);
+    if (e.quiet === loud || (!loud && e.text) || (!loud && e.foesShown)) out.push(`node ${n.id} labels: quiet ${e.quiet}, text ${e.text}, foes shown ${e.foesShown} (loud ${loud})`);
+    if (clock !== null) {
+      const want = n.id === mv.pos && n.dimsIn <= 2 ? `Dims in ${n.dimsIn}!` : n.id === mv.pos || moves.has(n.id) ? `dims in ${n.dimsIn}` : String(n.dimsIn);
+      if (e.clockText !== want) out.push(`node ${n.id} clock "${e.clockText}" (want "${want}")`);
+    }
   }
   const tintWant = mv.nodes.filter((n) => !n.hub && n.region != null).map((n) => n.region).sort();
   if (JSON.stringify([...d.tints].sort()) !== JSON.stringify(tintWant)) out.push(`region tints on ${d.tints.length} nodes (view gives ${tintWant.length} regions)`);
@@ -3067,13 +3097,14 @@ function fogDiff(d, mv, nextZone) {
   if (d.moves !== mv.moves.length) out.push(`${d.moves} moves listed (view ${mv.moves.length})`);
   return out;
 }
-/** The disc is round and in view, every node inside it and big enough to read, no signpost on a side panel. */
+/** The disc is round and in view, every node inside it and big enough to read (D128: smaller icons), no signpost on a side panel. */
 function fogLayout(d, W, H) {
   const out = [];
   const [l, t, r, b] = d.disc || [0, 0, 0, 0];
   if (!d.disc || Math.abs((r - l) - (b - t)) > 2 || l < 0 || t < 0 || r > W || b > H) out.push(`disc ${d.disc}`);
   if ((r - l) < 0.45 * H) out.push(`disc ${r - l} px high, under 45 % of the window`);
-  for (const n of d.nodes) { const [nl, nt, nr, nb] = n.rect; if (nl < l - 4 || nt < t - 4 || nr > r + 4 || nb > b + 4) out.push(`node ${n.id} outside the disc ${n.rect}`); if (n.size < 24) out.push(`node ${n.id} ${n.size} px`); }
+  // D128: icons about 70 % of before: at least 24 px (an unknown "?" marker 18 px)
+  for (const n of d.nodes) { const [nl, nt, nr, nb] = n.rect; if (nl < l - 4 || nt < t - 4 || nr > r + 4 || nb > b + 4) out.push(`node ${n.id} outside the disc ${n.rect}`); if (n.size < (n.fog === 'unknown' ? 18 : 24)) out.push(`node ${n.id} ${n.size} px`); }
   for (const s of d.roads) for (const p of d.sides) if (s.rect[0] < p[2] && s.rect[2] > p[0] && s.rect[1] < p[3] && s.rect[3] > p[1]) out.push(`signpost ${s.text} ${s.rect} over a side panel ${p}`);
   return out;
 }
@@ -3111,7 +3142,7 @@ async function partN(browser, W, H) {
     const ovl = await fogOverlaps(page);
     check('N-fog', `around the hub at ${W}x${H}: no level, toll label or Dimming clock overlaps another label, a node's icon or a "?" marker (screens.js declutterLabels)`, !ovl.length, ovl.slice(0, 6).join(' | '));
     const lay = fogLayout(d, W, H);
-    check('N-fog', `readable at ${W}x${H}: the disc round and in view (${d.disc && d.disc[2] - d.disc[0]} px), every node inside it and at least 24 px, no signpost over a side panel`, !lay.length, lay.slice(0, 5).join(' | '));
+    check('N-fog', `readable at ${W}x${H}: the disc round and in view (${d.disc && d.disc[2] - d.disc[0]} px), every node inside it and at least 24 px (an unknown marker 18 px, D128), no signpost over a side panel`, !lay.length, lay.slice(0, 5).join(' | '));
     // a hover: the move's tooltip names the node and its tolls; a hidden node's names nothing
     const hid = mv.nodes.find((n) => n.know === 'none' && !n.shardfall && !n.road);
     const t1 = await tipOf(page, page.locator(`#screens .expmap .mnode[data-node="${hid.id}"]`));

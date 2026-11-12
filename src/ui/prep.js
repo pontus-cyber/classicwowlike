@@ -1,12 +1,14 @@
 // prep.js - the start camp and the contracts on screen (docs/specs/expedition.md 2, 3, 9.1, 9.3; engine-api.md 13; M2b
-// 2b.6). The prep screen of an expedition run with the start camp (phase PREP): the points left in large type, the
-// contract board (take, drop, reroll), supplies and vision perks with their prices and refunds, what the expedition holds
-// and the Reserve preview, and Set out, always in view at the bottom right. Every number comes from R.prepView (the
-// bridge's view.prep); radii and limits from the rules table (data.rules.prep). Mouse: click a card. Keys: 1-8 a contract,
-// A-I an option, R reroll, Enter set out; Tab moves between the cards. The contract tracker: one line per contract of the
-// zone under the minimap (HUD), the full list in the quest log (L), each contract's tooltip, the hub's contract offer
-// (take it from Reserve or swap a held one) and the site marks on the expedition map (mapView node `sites`: only the
-// marks the player sees; a hidden node is never named). Presentation only: every click sends one engine action.
+// 2b.6; D128 lean camp). The prep screen of an expedition run with the start camp (phase PREP): one lean screen (D128,
+// owner playtest 2026-11-12 20:19): the board's contracts as cards side by side (headline, one line of what to do, the
+// pay in one line, Take / Drop), the camp's supplies and sight as small cards, the points left with the Reserve they make,
+// and Set out, always in view at the bottom right; the rest (zone band, sites, exact XP, effects, refunds) in tooltips.
+// Every number comes from R.prepView (the bridge's view.prep); radii and limits from the rules table (data.rules.prep).
+// Mouse: click a card. Keys: 1-3 a contract, A-D an option, R reroll (only while the reroll is open), Enter set out; Tab
+// moves between the cards. The contract tracker: one line per contract of the zone under the minimap (HUD), the full
+// list in the quest log (L), each contract's tooltip, the hub's contract offer (take it from Reserve or swap a held one)
+// and the site marks on the expedition map (mapView node `sites`: only the marks the player sees; a hidden node is never
+// named). Presentation only: every click sends one engine action.
 import { h, clear, moneyEl, fmtNum } from './util.js';
 import { icon, consumableIcon } from './art-icons.js';
 import { tip } from './tooltip.js';
@@ -92,18 +94,30 @@ const hasPerks = (pv) => {
   return { guide: on('prep_guide'), tracker: on('prep_tracker') };
 };
 
+/** The contract's headline: the family (Cull), the elite (Bounty) or the dungeon (Delve), capitalised. */
+const cardTitle = (o, content) => cap1(o.kind === 'delve' ? o.dungeon || "the zone's dungeon" : o.kind === 'bounty' ? o.name || 'a named elite' : familyName(o.family, content));
+/** What to do, one line (D128): "Win 2 sites in Millbrook Steadings", "Hunt it in ...", "Clear it, boss included". */
+const doLine = (o) => (o.kind === 'delve' ? 'Clear the dungeon, its boss included'
+  : o.kind === 'bounty' ? `Hunt it down in ${o.regionName || 'its region'}` : `Win ${o.need} ${plural(o.need, 'site')} in ${o.regionName || 'its region'}`);
+
 /**
- * The start camp screen (expedition.md 9.1): built once per run's PREP, then patched on every view (update), so focus and
- * hover stay on the card the player is using. Returns the root with root.update(v).
+ * The start camp screen (expedition.md 9.1; D128, owner playtest 2026-11-12 20:19: "strip it ... 3 simple choices"): one
+ * lean screen. The board's offers as cards side by side (key, kind, zone, price; the headline; one line of what to do;
+ * the pay in one line; Take / Drop), the camp's options as small cards (icon, name, key, price, Buy / Sell or Owned), the
+ * points left with the Reserve they make, and Set out at the bottom right. Zone band, sites, exact XP, an option's effect
+ * and refunds are in the tooltips. A reroll button only while R.prepView says the reroll is open (GATES.campReroll).
+ * Built once per run's PREP, then patched on every view (update), so focus and hover stay on the card in use. Returns the
+ * root with root.update(v).
  */
 export function createPrepScreen(v, ctx) {
   const root = h('div#prep', { dataset: { mounted: String(performance.now()) } });
   const pv0 = v.prep;
   const zone1 = (pv0.board.find((o) => o.z === 1) || pv0.board[0] || {}).zoneName || 'the first zone';
+  const nB = pv0.board.length; const nO = pv0.options.length;
   root.appendChild(h('div.pp-head',
-    h('div', h('div.pp-t1', 'The start camp'), h('div.pp-t2', `Before the road to ${zone1}: choose your contracts, supplies and sight. Points you keep become Reserve.`)),
-    h('div.pp-keys', h('span.kbd', '1–8'), 'contracts', h('span.kbd', 'A–I'), 'supplies and sight', h('span.kbd', 'R'), 'reroll', h('span.kbd', 'Enter'), 'set out')));
-  // column 1: the contract board
+    h('div', h('div.pp-t1', 'The start camp'), h('div.pp-t2', `Pick your contracts and supplies for the road to ${zone1}.`)),
+    h('div.pp-keys', h('span.kbd', nB > 1 ? `1–${nB}` : '1'), 'contracts', nO ? [h('span.kbd', nO > 1 ? `A–${OPT_KEYS[nO - 1]}` : 'A'), 'supplies'] : null, h('span.kbd', 'Enter'), 'set out')));
+  // the contracts: cards side by side
   const reroll = h('button.btn.small#pp-reroll', { type: 'button' });
   reroll.addEventListener('click', () => { reroll.blur(); ctx.act({ type: 'REROLL_BOARD' }); });
   tip(reroll, () => {
@@ -111,8 +125,7 @@ export function createPrepScreen(v, ctx) {
     return h('div', h('div.tt-name', 'Reroll the board'), h('div.tt-line', `New offers for every contract you have not taken. ${pts(pv.reroll.price)}, not refunded.`),
       h('div.tt-sub', `${pv.reroll.max - pv.reroll.used} of ${pv.reroll.max} rerolls left`), why ? h('div.tt-warn', why) : h('div.tt-hint', 'Click or press R'));
   });
-  const slotsEl = h('span.pp-slots');
-  const cards = h('div.pp-cards');
+  const cards = h('div.pp-cards', { style: { '--n': String(Math.max(1, nB)) } });
   const cardEls = pv0.board.map((o, i) => {
     const b = h('button.pp-card', { type: 'button', dataset: { index: String(i) } });
     // a mouse click leaves no focus behind (Enter then sets out); a keyboard press (Tab, then Enter or Space) keeps it
@@ -120,35 +133,32 @@ export function createPrepScreen(v, ctx) {
     tip(b, () => {
       const pv = ctx.view.prep; const x = pv && pv.board[i]; if (!x) return null;
       const why = x.taken || x.canTake ? null : ctx.bridge.why({ type: 'TAKE_CONTRACT', index: i });
-      return contractTip(x, ctx, { has: hasPerks(pv), price: `${pts(x.price)} · refunded if you drop it before you set out`, warn: why,
+      return contractTip(x, ctx, { has: hasPerks(pv), price: `${pts(x.price)} · refunded if you drop it before you set out · ${pv.held} of ${pv.slots} contract slots used`, warn: why,
         hint: x.taken ? `Click or press ${BOARD_KEYS[i]} to drop it (+${pts(x.price)})` : `Click or press ${BOARD_KEYS[i]} to take it` });
     }, { avoid: '#prep .pp-card' });
     cards.appendChild(b);
     return b;
   });
-  const board = h('section.pp-board.panel', h('div.pp-sh', h('div', h('div.title', 'Contract board'), h('div.pp-sub', slotsEl)), reroll), cards);
-  // column 2: supplies and vision perks
+  const board = h('section.pp-board', h('div.pp-sh', h('div.pp-lab', 'Contracts'), h('div.pp-sub', 'One per zone. Each pays at once when its last site is won.'), reroll), cards);
+  // the options: small cards in one row
   const optEls = new Map();
-  const optList = (kind) => h('div.pp-opts', pv0.options.filter((o) => o.kind === kind).map((o) => {
-    const i = pv0.options.findIndex((x) => x.id === o.id);
+  const opts = h('div.pp-opts', { style: { '--n': String(Math.max(1, nO)) } }, pv0.options.map((o, i) => {
     const b = h('button.pp-opt', { type: 'button', dataset: { id: o.id, kind: o.kind } });
     b.addEventListener('click', (e) => { if (e.detail) b.blur(); optionAct(ctx, o.id); });
     tip(b, () => { const pv = ctx.view.prep; const x = pv && pv.options.find((y) => y.id === o.id); return x ? optionTip(x, ctx, OPT_KEYS[i], x.why ? cap1(x.why) : null) : null; }, { avoid: '#prep .pp-opt' });
     optEls.set(o.id, { el: b, key: OPT_KEYS[i] });
     return b;
   }));
-  const shop = h('section.pp-shop.panel',
-    h('div.pp-sh', h('div', h('div.title', 'Supplies'), h('div.pp-sub', 'Into your bags when you set out'))), optList('supply'),
-    h('div.pp-sh', h('div', h('div.title', 'Sight'), h('div.pp-sub', 'Vision perks for the whole run'))), optList('vision'));
-  // column 3: your expedition
-  const big = h('b.pm-n'); const of = h('span.pm-of'); const pips = h('div.pm-pips');
-  const held = h('ol.pm-held'); const bought = h('div.pm-bought'); const reserve = h('div.pm-reserve');
-  const mine = h('section.pp-mine.panel',
-    h('div.pp-sh', h('div.title', 'Your expedition')),
-    h('div.pm-points', big, h('div', h('div.pm-l', 'points left'), of)), pips,
-    h('div.pm-h', 'Contracts'), held, h('div.pm-h', 'Supplies and sight'), bought, reserve);
-  root.appendChild(h('div.pp-cols', board, shop, mine));
-  // Set out: always in view, bottom right (QA finding BUG-QA-10)
+  const shop = nO ? h('section.pp-shop', h('div.pp-sh', h('div.pp-lab', 'Supplies and sight'), h('div.pp-sub', 'Supplies go into your bags; sight lasts the whole run.')), opts) : null;
+  // the points left and Set out: always in view, bottom right (QA finding BUG-QA-10)
+  const big = h('b.pm-n'); const rl = h('div.pm-rl');
+  const points = h('div.pm-points', big, h('div', h('div.pm-l', 'points left'), rl));
+  tip(points, () => {
+    const pv = ctx.view.prep; if (!pv) return null;
+    return h('div', h('div.tt-name', 'Preparation points'), h('div.tt-line', `${pv.points} to spend on contracts and supplies${pv.spent ? `; ${pv.spent} spent` : ''}.`),
+      h('div.tt-line.num', `Unspent points become Reserve: it pays for a hub contract on the way, and each point left at the end of the run is worth ${pv.reserve.points ? pv.reserve.echoes / pv.reserve.points : 2} Echoes.`),
+      h('div.tt-sub', `${pv.held} of ${pv.slots} contract slots used`));
+  });
   const go = h('button.btn.primary.big#pp-go', { type: 'button' }, 'Set out', h('span.k', 'Enter'));
   go.addEventListener('click', () => { go.blur(); ctx.act({ type: 'SET_OUT' }); });
   tip(go, () => {
@@ -157,18 +167,19 @@ export function createPrepScreen(v, ctx) {
       h('div.tt-line.num', pv.left ? `${pts(pv.left)} unspent become Reserve: ${pv.reserve.echoes} Echoes at the end of the run, or hub contracts on the way.` : 'Every point is spent: no Reserve.'),
       pv.held ? null : h('div.tt-warn', 'You hold no contract: the zones then pay only what you find.'));
   });
-  root.appendChild(h('div.pp-foot', go));
+  root.append(h('div.pp-main', board, shop), h('div.pp-foot', points, go));
 
   let last = null;
   root.update = (vv) => {
     const pv = vv.prep; if (!pv) return;
     const prev = last; last = pv;
     if (!prev || prev.left !== pv.left) { big.textContent = String(pv.left); if (prev) { big.classList.remove('pop'); void big.offsetWidth; big.classList.add('pop'); } }
-    of.textContent = `of ${pv.points}${pv.spent ? ` · ${pv.spent} spent` : ''}`;
-    clear(pips); for (let k = 0; k < pv.points; k++) pips.appendChild(h('i' + (k < pv.left ? '.on' : '')));
-    slotsEl.textContent = `${pv.held} of ${pv.slots} contract slots used · one offer per zone, the rest for any zone`;
-    reroll.textContent = ''; reroll.append(`Reroll · ${pts(pv.reroll.price)}`, h('span.pp-left', `${pv.reroll.max - pv.reroll.used} left`), h('span.k', 'R'));
-    reroll.disabled = false; reroll.classList.toggle('disabled', !pv.reroll.can);
+    rl.textContent = `Unspent: ${pts(pv.reserve.points)} = ${pv.reserve.echoes} Echoes, usable at hubs`;
+    reroll.classList.toggle('hidden', !pv.reroll.open);
+    if (pv.reroll.open) {
+      reroll.textContent = ''; reroll.append(`Reroll · ${pts(pv.reroll.price)}`, h('span.pp-left', `${pv.reroll.max - pv.reroll.used} left`), h('span.k', 'R'));
+      reroll.classList.toggle('disabled', !pv.reroll.can);
+    }
     const colors = contractColors(vv.contracts);
     pv.board.forEach((o, i) => {
       const b = cardEls[i]; if (!b) return;
@@ -181,15 +192,12 @@ export function createPrepScreen(v, ctx) {
       b.style.setProperty('--cc', held1 ? colors.get(held1.id) || OFF_COLOR : 'transparent');
       b.setAttribute('aria-label', `${contractTitle(o, ctx.data.content)}, zone ${o.z}, ${pts(o.price)}${o.taken ? ', taken' : ''}`);
       clear(b).append(
-        // every number carries its word (QA playtest 2026-11-11 finding 5): levels, sites, pay, items, price
-        h('div.pc-top', h('span.kbd', BOARD_KEYS[i]), h('span.pc-zone', `Zone ${o.z} · ${o.zoneName}`), h('span.pc-band', `levels ${o.band[0]}–${o.band[1]}`), priceTag(o.price)),
-        h('div.pc-kind', h('img', { src: kindIcon(o.kind), alt: '' }), h('b', CONTRACT_KIND[o.kind] || o.kind), h('span.pc-need', `${o.need} ${plural(o.need, 'site')}`)),
-        // the target on one line, where it is on the next (a long Bounty never runs into the pay line)
-        h('div.pc-target', o.kind === 'delve' ? o.dungeon || "the zone's dungeon" : o.kind === 'bounty' ? o.name || 'a named elite' : familyName(o.family, ctx.data.content)),
-        h('div.pc-where', o.kind === 'delve' ? `the dungeon of ${o.zoneName}` : `${o.kind === 'bounty' ? 'roaming' : 'in'} ${o.regionName || 'its region'}`),
-        payLine(o.reward, 'div.pc-reward', false),
-        // the item choice on the button row (the pay line stays one line at 1366x768); a taken card adds its seal
-        h('div.pc-act', o.taken ? h('span.seal', { title: 'Taken' }, h('img', { src: icon('seal', 'blood'), alt: 'Taken' })) : null, itemsChip(o.reward), h('span.pc-btn', o.taken ? 'Drop' : 'Take')));
+        h('div.pc-top', h('span.kbd', BOARD_KEYS[i]), h('img', { src: kindIcon(o.kind), alt: '' }), h('b.pc-kind', CONTRACT_KIND[o.kind] || o.kind), h('span.pc-zone', `Zone ${o.z}`), priceTag(o.price)),
+        h('div.pc-target', cardTitle(o, ctx.data.content)),
+        h('div.pc-do', doLine(o)),
+        // the pay in one line, every number with its word (QA playtest 2026-11-11 finding 5)
+        payLine(o.reward, 'div.pc-reward'),
+        h('div.pc-act', o.taken ? h('span.seal', h('img', { src: icon('seal', 'blood'), alt: 'Taken' }), 'Taken') : null, h('span.pc-btn', o.taken ? 'Drop' : 'Take')));
       if (o.taken && !was && prev) { b.classList.remove('stamp'); void b.offsetWidth; b.classList.add('stamp'); }
     });
     for (const o of pv.options) {
@@ -200,25 +208,9 @@ export function createPrepScreen(v, ctx) {
       x.el.disabled = o.owned;
       x.el.setAttribute('aria-label', `${o.name}, ${o.owned ? 'owned' : o.bought ? 'bought' : pts(o.price)}`);
       clear(x.el).append(h('img', { src: optIcon(o.id), alt: '' }),
-        h('div.po-txt', h('div.po-nm', o.name, h('span.kbd', x.key)), h('div.po-fx', prepOptionEffect(o, ctx.data.rules.prep, consName(ctx), ctx.data.content))),
+        h('div.po-txt', h('div.po-nm', h('span.kbd', x.key), h('span.po-name', o.name)), h('div.po-kd', o.kind === 'vision' ? 'Sight' : 'Supply')),
         h('div.po-right', o.owned ? h('span.po-own', 'Owned') : [h('span.pc-price', String(o.price)), h('span.po-act', o.bought ? 'Sell' : 'Buy')]));
     }
-    // your expedition: held contracts in slot order, empty slots, purchases, the Reserve preview
-    clear(held);
-    const list = (vv.contracts ? vv.contracts.contracts : []).filter((c) => c.status === 'active' || c.status === 'later');
-    for (let k = 0; k < pv.slots; k++) {
-      const c = list[k];
-      if (!c) { held.appendChild(h('li.empty', 'Empty slot')); continue; }
-      const li = h('li', { style: { '--cc': colors.get(c.id) || OFF_COLOR }, dataset: { contract: c.id } }, h('i.dot'), h('span.z', `Zone ${c.z}`), h('span.t', contractTitle(c, ctx.data.content)));
-      tip(li, () => contractTip(c, ctx, { has: hasPerks(ctx.view.prep || pv) }));
-      held.appendChild(li);
-    }
-    clear(bought);
-    const got = pv.options.filter((o) => o.bought || o.owned);
-    if (!got.length) bought.appendChild(h('div.muted', 'Nothing yet.'));
-    for (const o of got) bought.appendChild(h('span.pm-chip' + (o.owned ? '.own' : ''), h('img', { src: optIcon(o.id), alt: '' }), o.name, o.owned ? h('i', ' (owned)') : null));
-    clear(reserve).append(h('div.pm-rl', `Unspent: ${pts(pv.reserve.points)} = ${pv.reserve.echoes} Echoes, usable at hubs`),
-      h('div.muted', 'Reserve pays for a hub contract on the way; what is left at the end of the run becomes Echoes.'));
   };
   root.update(v);
   return root;
@@ -252,9 +244,10 @@ function optionAct(ctx, id) {
 }
 
 /**
- * Keys on the prep screen (expedition.md 9.1): 1-8 take or drop a contract, A-I buy or sell an option, R reroll, Enter
- * set out (not within PREP_ENTER_GUARD_MS of the screen opening, never on a held key, so the Enter that started the run
- * cannot also end the camp). Tab, Space and Enter on a focused card work as the browser's own. Returns true when handled.
+ * Keys on the prep screen (expedition.md 9.1; D128): 1-3 take or drop a contract (one key per offer), A-D buy or sell
+ * an option (one letter per option shown), R reroll only while the reroll is open, Enter set out (not within
+ * PREP_ENTER_GUARD_MS of the screen opening, never on a held key, so the Enter that started the run cannot also end the
+ * camp). Tab, Space and Enter on a focused card work as the browser's own. Returns true when handled.
  */
 export function prepKey(e, ctx) {
   const v = ctx.view; const pv = v.prep; if (!pv) return false;
@@ -262,10 +255,11 @@ export function prepKey(e, ctx) {
   const focused = document.activeElement && document.activeElement.closest && document.activeElement.closest('#prep button');
   if (code === 'Tab') return 'native';
   if ((code === 'Space' || code === 'Enter') && focused) return 'native';
-  if (/^Digit[1-8]$/.test(code)) { e.preventDefault(); boardAct(ctx, Number(code[5]) - 1); return true; }
+  const digit = /^(?:Digit|Numpad)([1-9])$/.exec(code);
+  if (digit) { e.preventDefault(); const i = Number(digit[1]) - 1; if (i < pv.board.length) boardAct(ctx, i); return true; }
   const letter = /^Key([A-Z])$/.exec(code);
-  if (letter && OPT_KEYS.includes(letter[1])) { e.preventDefault(); const o = pv.options[OPT_KEYS.indexOf(letter[1])]; if (o) optionAct(ctx, o.id); return true; }
-  if (code === 'KeyR') { e.preventDefault(); ctx.act({ type: 'REROLL_BOARD' }); return true; }
+  if (letter && code === 'KeyR' && pv.reroll.open) { e.preventDefault(); ctx.act({ type: 'REROLL_BOARD' }); return true; }
+  if (letter && OPT_KEYS.indexOf(letter[1]) >= 0 && OPT_KEYS.indexOf(letter[1]) < pv.options.length) { e.preventDefault(); optionAct(ctx, pv.options[OPT_KEYS.indexOf(letter[1])].id); return true; }
   if (code === 'Enter' || code === 'NumpadEnter') {
     e.preventDefault();
     const el = document.getElementById('prep');
