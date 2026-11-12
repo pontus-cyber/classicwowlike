@@ -239,6 +239,36 @@
   --dur-long-11: 5.1s; --dur-long-12: 7s;
 }
 
+/* The zone map on the Lantern paper chart, for every theme (owner steer D129, 2026-11-12 20:32, on art proposal 1: "2nd
+   map image is good"; docs/art/proposal-1/3-fogmap-lantern-1366.jpg). Inside the expedition map (.expmap: the map screen
+   and the M window) the map tokens take the proposal's Lantern values: ink rings on paper, "you are here" lantern-white, the
+   Dimming violet (its urgent clock too: red stays the Deathblow's, D120). style.css paints the chart (.xbody) with the paper
+   below and keeps the side panels near-opaque on it, so their text keeps its contrast. The window's frame and head, the HUD
+   and every other window keep the theme on <html> (D129: today's dark panels); the Lantern switch still changes the rest. */
+.expmap {
+  --ink-paper: #2b2118;
+  --map-ring: #2b2118;
+  --map-ring-edge: #9a7d4c;
+  --map-lit: #fff3c4;
+  --map-here: #fff6dc;
+  --map-remembered: #94805c;
+  --map-unknown: #63594c;
+  --map-unknown-deep: #2e2720;
+  --map-unknown-text: #dccfb6;
+  --map-fog: #31281d;
+  --map-dimmed: #9078cc;
+  --map-dimmed-deep: #1d1436;
+  --map-dimmed-glow: rgba(107, 79, 160, .75);
+  --map-shard: #3d2d6c;
+  --map-shard-text: #e4d8fb;
+  --map-road: #5f4826;
+  --map-road-text: #f6dfae;
+  --map-spy: rgba(127, 196, 192, .55);
+  --map-spy-soft: rgba(79, 138, 139, .28);
+  /* the paper (the proposal's paper card) */
+  --chart-paper-1: #f4e8c9; --chart-paper-2: #ead9b0; --chart-ink-edge: rgba(43, 33, 24, .7);
+}
+
 /* Lantern Gouache (docs/art/README.md direction A, D120): PROPOSAL 1, draft, for the owner to steer (D121;
    docs/art/proposal-1/README.md). Colours only. On behind the Dev menu's "Theme: Lantern (proposal)" switch or
    ?theme=lantern, which put data-theme="lantern" on <html>; a token not set here keeps its current value.
@@ -369,13 +399,13 @@
 :root[data-theme="lantern"] .pp-card { background: linear-gradient(175deg, var(--lg-paper-1), var(--lg-paper-2)); box-shadow: inset 0 0 0 1px var(--lg-ink-edge), .15rem .25rem 0 var(--shade-35); }
 :root[data-theme="lantern"] .pp-card.taken { background: linear-gradient(175deg, #fbf3dc, #f1e3c0); box-shadow: inset 0 0 0 2px var(--gold-2), .15rem .25rem 0 var(--shade-35); }
 /* 3. Red is danger's alone: the primary button and Take become lantern ochre with ink text, the close button timber,
-      the enemy health bar brick with an ink edge, the map's urgent Dimming clock violet */
+      the enemy health bar brick with an ink edge (the map's urgent Dimming clock is violet in every theme: the .expmap
+      block above and style.css, D129) */
 :root[data-theme="lantern"] .btn.primary,
 :root[data-theme="lantern"] .pp-card .pc-btn { background: linear-gradient(180deg, #f2c56b, #d9a441 65%, #c18d33); color: var(--ink-paper); text-shadow: none; box-shadow: inset 0 1px 0 rgba(255, 244, 214, .5), inset 0 0 0 1px var(--lg-ink-edge), 0 .2rem .5rem var(--shade-55); }
 :root[data-theme="lantern"] .pp-card.taken .pc-btn { background: linear-gradient(180deg, #e9dbb4, #d3c08e); }
 :root[data-theme="lantern"] .xbtn { background: var(--lg-board-1); color: var(--ink); box-shadow: inset 0 0 0 1px var(--edge-hi-45); }
 :root[data-theme="lantern"] .bar.enemy .fill { background: linear-gradient(180deg, var(--lg-brick-1), var(--lg-brick-2) 55%, var(--lg-brick-3)); box-shadow: inset 0 0 0 1px var(--lg-ink-edge); }
-:root[data-theme="lantern"] .expmap .mnode .xclock.urgent { background: var(--map-dimmed-deep); box-shadow: 0 0 0 2px var(--map-dimmed), 0 0 1.2rem var(--map-dimmed-glow); }
 /* 3b. The Deathblow in the world, on its owner: a flat madder banner with an ink edge and a cream line, no glow and
       no pulse (flat on painted is what makes it jump; docs/art/README.md section 4) */
 :root[data-theme="lantern"] .np .wub.db:not(.ans) { background: #a53a26; box-shadow: 0 0 0 2px var(--ink-paper), inset 0 0 0 1px rgba(255, 242, 232, .55), .2rem .3rem 0 var(--shade-50); }

@@ -477,7 +477,7 @@ function buildExpMap(v, ctx, readOnly) {
   // rings and the rim
   for (const r of XR.slice(1)) svgEl('circle', { cx: 500, cy: 500, r, fill: 'none', stroke: '#6a4a26', 'stroke-width': 1.6, 'stroke-dasharray': '3 9', opacity: 0.45 }, svg);
   svgEl('circle', { cx: 500, cy: 500, r: 468, fill: 'none', stroke: '#4a3018', 'stroke-width': 5, opacity: 0.8 }, svg);
-  svgEl('circle', { cx: 500, cy: 500, r: 458, fill: 'none', stroke: token('--map-ring-edge'), 'stroke-width': 1.2, opacity: 0.6 }, svg);
+  svgEl('circle', { cx: 500, cy: 500, r: 458, fill: 'none', style: 'stroke: var(--map-ring-edge)', 'stroke-width': 1.2, opacity: 0.6 }, svg); // the map's own token (tokens.css .expmap)
   // region names along the rim, at the middle of the region's known nodes
   for (const [ri, angs] of regAngles) {
     const reg = mv.regions[ri]; if (!reg || !reg.name) continue;

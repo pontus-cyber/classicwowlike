@@ -1305,12 +1305,13 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .leavewarn .lw-l { margin: var(--sp-35) 0 var(--sp-80); font-size: var(--fs-body-3); line-height: var(--lh-normal-4); color: #f2dcc4; }
 .leavewarn .lw-b { gap: var(--sp-80); align-items: center; }
 .btn.danger { background: linear-gradient(180deg, #4a2a20, #2a1410); color: #ffc0a8; box-shadow: inset 0 0 0 1px #c0563a, 0 .2rem .5rem var(--shade-50); }
-.expmap .xbody { display: flex; align-items: stretch; justify-content: space-between; gap: var(--sp-80); margin: 0 var(--sp-100) var(--sp-100); padding: var(--sp-60); background: radial-gradient(ellipse at 50% 45%, #3a2a18, #1c140c 75%); box-shadow: inset 0 0 2.4rem var(--shade-70); }
+/* the chart: the Lantern paper chart for every theme (D129; tokens.css, the .expmap block): flat paper with an ink edge */
+.expmap .xbody { display: flex; align-items: stretch; justify-content: space-between; gap: var(--sp-80); margin: 0 var(--sp-100) var(--sp-100); padding: var(--sp-60); background: linear-gradient(175deg, var(--chart-paper-1), var(--chart-paper-2)); box-shadow: inset 0 0 0 1px var(--chart-ink-edge), .15rem .25rem 0 var(--shade-35); }
 .expmap .xdisc { position: relative; height: 100%; aspect-ratio: 1 / 1; flex: none; max-width: 62%; margin: 0 4.6rem; }
 .expmap .xdisc .xsvg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .expmap .xrname { font: var(--fw-bold) 21px var(--font-title); fill: #3e2a12; letter-spacing: .14em; text-transform: uppercase; paint-order: stroke; stroke: rgba(240, 222, 178, .75); stroke-width: 4px; pointer-events: none; }
 .expmap .xside { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-70); overflow: hidden; }
-.expmap .xpanel { color: var(--ink); padding: var(--sp-60) var(--sp-80) var(--sp-70); border-radius: var(--radius-md-2); background: rgba(20, 14, 8, .72); box-shadow: inset 0 0 0 1px var(--edge-hi-22); font-size: var(--fs-small-8); }
+.expmap .xpanel { color: var(--ink); padding: var(--sp-60) var(--sp-80) var(--sp-70); border-radius: var(--radius-md-2); background: rgba(20, 14, 8, .96); box-shadow: inset 0 0 0 1px var(--edge-hi-22); font-size: var(--fs-small-8); }
 .expmap .xph { font: var(--fw-bold) var(--fs-body-3) var(--font-title); color: var(--accent-cream); letter-spacing: .06em; margin-bottom: var(--sp-35); }
 .expmap .xpl { line-height: var(--lh-box-10); color: var(--ink); } .expmap .xpl.muted { color: var(--ink-mute); font-size: var(--fs-small-5); }
 .expmap .xdimp { box-shadow: inset 0 0 0 1px rgba(150, 110, 240, .45), inset 0 0 1.6rem rgba(90, 50, 180, .25); }
@@ -1364,7 +1365,7 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .expmap .mnode .xfoes { position: absolute; right: -.7rem; bottom: -.35rem; padding: 0 var(--sp-30); border-radius: var(--radius-md-4); background: #5a1a12; color: #ffd6c8; font: var(--fw-heavy) var(--fs-micro-3)/var(--lh-box-5) var(--font-num); box-shadow: 0 0 0 1px #1a0804; pointer-events: none; }
 .expmap .mnode .xclock { position: absolute; left: 50%; top: calc(100% + 1.45rem); transform: translateX(-50%); padding: 0 var(--sp-35); border-radius: var(--radius-sm-1); background: rgba(26, 14, 52, .92); color: #d8ccff; font: var(--fw-bold) var(--fs-micro-12)/var(--lh-box-6) var(--font-ui); white-space: nowrap; box-shadow: 0 0 0 1px rgba(140, 110, 230, .7); pointer-events: none; }
 .expmap .mnode .xclock.soon { color: #ffd0c8; box-shadow: 0 0 0 1px rgba(255, 120, 110, .9), 0 0 .6rem rgba(160, 80, 255, .7); }
-.expmap .mnode .xclock.urgent { top: auto; bottom: calc(100% + 2rem); font-size: var(--fs-body-1); line-height: var(--lh-box-12); padding: 0 var(--sp-60); background: #3a0c2a; color: var(--ink-bright); box-shadow: 0 0 0 2px var(--danger-lethal), 0 0 1.2rem rgba(255, 80, 120, .9); animation: xurgent var(--dur-slow-7) ease-in-out infinite; }
+.expmap .mnode .xclock.urgent { top: auto; bottom: calc(100% + 2rem); font-size: var(--fs-body-1); line-height: var(--lh-box-12); padding: 0 var(--sp-60); background: var(--map-dimmed-deep); color: var(--ink-bright); box-shadow: 0 0 0 2px var(--map-dimmed), 0 0 1.2rem var(--map-dimmed-glow); animation: xurgent var(--dur-slow-7) ease-in-out infinite; }
 .expmap .mnode.here .mhrs { display: none; }
 /* D128: away from the player and his moves a Dimming clock is its number alone, at the node's lower right */
 .expmap .mnode .xclock.mini { top: calc(100% - .5rem); left: calc(100% - .3rem); transform: none; min-width: 1.3rem; padding: 0 var(--sp-20); text-align: center; border-radius: var(--radius-lg-4); font-size: var(--fs-micro-3); }

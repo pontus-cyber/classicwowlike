@@ -19,8 +19,8 @@
  * Compare: prints one line per difference (state, path, property, before -> after) and nothing when the two snapshots
  * are equal; a summary goes to stderr. Exit 0 when equal, 1 when not, 2 on a usage error.
  *
- * States (STATES below): class select, the start camp, the fog map, a Deathblow fight's engage round, MAIMED after
- * the Deathblow lands, loot, the character sheet, the Hall of Echoes, the death summary, the settings window.
+ * States (STATES below): class select, the start camp, the zone hub, the fog map, the fog map with the Dimming two tolls
+ * from the player, a Deathblow fight's engage round, MAIMED after the Deathblow lands, loot, the character sheet, the Hall of Echoes, the death summary, the settings window.
  * Playwright comes from /home/claude/tools-ui, a local install or /opt/npm-tools/node_modules.
  */
 import fs from 'node:fs';
@@ -121,12 +121,45 @@ const STATES = {
       await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
     },
   },
+  // the zone hub after the camp (this was 'fog-map' until the hub came between the camp and the map, D128)
+  'zone-hub': {
+    query: 'prep=1&seed=7',
+    go: async (page) => {
+      await page.locator('#create .ccard[data-cls="hunter"]').click();
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await page.getByRole('button', { name: 'Set out' }).click(); await idle(page);
+    },
+  },
+  // the fog map on setting out from the hub
   'fog-map': {
     query: 'prep=1&seed=7',
     go: async (page) => {
       await page.locator('#create .ccard[data-cls="hunter"]').click();
       await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
       await page.getByRole('button', { name: 'Set out' }).click(); await idle(page);
+      const got = page.getByRole('button', { name: 'Got it' }); if (await got.count()) { await got.first().click(); await idle(page); }
+      await page.getByRole('button', { name: 'Set out' }).click(); await idle(page);
+      await until(page, () => !!document.querySelector('#screens .expmap'));
+    },
+  },
+  // the fog map with the Dimming two tolls from the player (its wash, Dimmed nodes, the urgent clock): a Rogue's dev-built
+  // expedition run in zone 1 on the engine's autoplay choices, god mode on
+  'fog-map-dim': {
+    query: 'seed=1',
+    go: async (page) => {
+      await dev(page, 'build', { classId: 'rogue', zone: 1, mapMode: 'expedition', prep: true, seed: 1 });
+      await dev(page, 'god', { on: true });
+      const ok = await page.evaluate(async () => {
+        const ui = window.__ui;
+        for (let n = 0; n < 200; n++) {
+          const v = ui.view();
+          if (v.phase === 'MAP' && v.zone && v.zone.exp) { const me = v.zone.exp.nodes[v.zone.exp.pos]; if (Number.isFinite(me.dimsIn) && me.dimsIn <= 2 && !me.dimmed) return true; }
+          await ui.act({ type: 'AUTO' }); await ui.idle();
+        }
+        return false;
+      });
+      if (!ok) throw new Error('the Dimming never came within 2 tolls of the player');
+      await idle(page); await until(page, () => !!document.querySelector('#screens .expmap .xclock.urgent'));
     },
   },
   'engage-deathblow': { query: 'seed=5&classic=1', go: async (page) => { await toFight(page, 'hunter'); } },
