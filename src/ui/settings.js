@@ -1,7 +1,8 @@
 // Player-facing presentation settings (animation speed, fast mode, screen shake, reduce motion, the Dev menu) and the Dev
 // menu's "Classic map (old)": the map new runs get. Since D116 new runs start on the expedition map with the start camp
 // (expedition.md 2, 9.1); the classic map is kept for testing, in the Dev menu only. Persisted in localStorage when
-// available. Nothing here changes game rules: the map mode is a newRun option the engine already has.
+// available. Nothing here changes game rules: the map mode is a newRun option the engine already has. Sound (audio.js,
+// docs/specs/audio.md; D127): master, effects and interface volumes and mute, on at 70 % / 60 % UI after the first gesture.
 import { emitter } from './util.js';
 
 const KEY = 'tbwcr.ui.settings.v1';
@@ -16,6 +17,10 @@ const DEFAULTS = {
   devTools: true,      // the Dev menu (dev-menu.js, engine-api.md 12): its corner button and the backquote key
   classicMap: false,   // Dev menu: new runs on the classic map (old, rules 1.4); off: the expedition map with the start camp (D116)
   lanternTheme: false, // Dev menu: the Lantern colour theme, a proposal (docs/art/proposal-1; D120, D121); off: the current look
+  soundMaster: 0.7,    // sound (audio.js): master volume 0..1
+  soundSfx: 1,         // effects bus
+  soundUi: 0.6,        // interface bus: clicks, windows, errors
+  soundMuted: false,
 };
 
 function load() {

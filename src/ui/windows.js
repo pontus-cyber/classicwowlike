@@ -1,6 +1,7 @@
 // Toggleable windows: character sheet, bags, spellbook, talents, quest log, settings, zone map. In a run with the start
 // camp the quest log is the contract tracker (docs/specs/expedition.md 9.3; prep.js); the settings hold "Expedition map
-// with start camp" (the map new runs get).
+// with start camp" (the map new runs get). Sound (audio.js, docs/specs/audio.md): mute and the master, effects and interface
+// volumes, saved like every setting.
 import { h, clear, fmtNum, moneyEl, pct } from './util.js';
 import { spellIcon, itemIcon, slotIcon, talentIcon, icon } from './art-icons.js';
 import { drawHumanoid, HERO_LOOKS } from './art-actors.js';
@@ -165,8 +166,15 @@ export function createWindows(root, ctx) {
       };
       // reduceMotion shows what is in force (the system's setting until the player chooses)
       const on = (key) => (key === 'reduceMotion' ? settings.reduceMotion : !!s[key]);
-      const LABEL = { speedrun: 'Speedrun mode', skipTravel: 'Skip travel scenes', shake: 'Screen shake', reduceMotion: 'Reduce motion', showLog: 'Combat log', devTools: 'Dev tools' };
+      const LABEL = { speedrun: 'Speedrun mode', skipTravel: 'Skip travel scenes', shake: 'Screen shake', reduceMotion: 'Reduce motion', showLog: 'Combat log', devTools: 'Dev tools', soundMuted: 'Mute sound' };
       const devRow = flags.dev && ctx.bridge.mode === 'engine';
+      // a volume slider (0-100 %): sets the setting as it moves; the window is not rebuilt while it is dragged
+      const vol = (key, label) => {
+        const cap = h('span', `${label} ${Math.round(s[key] * 100)} %`);
+        const inp = h('input', { type: 'range', min: '0', max: '100', step: '5', value: String(Math.round(s[key] * 100)), 'aria-label': `${label} volume`, dataset: { sound: key }, style: { width: '8.6rem', accentColor: '#d9a441' } });
+        inp.addEventListener('input', () => { settings.set(key, Number(inp.value) / 100); cap.textContent = `${label} ${inp.value} %`; });
+        return h('label', { style: { display: 'flex', flexDirection: 'column', gap: '.2rem', fontSize: '1.2rem' } }, cap, inp);
+      };
       const tog = (key) => { const b = h('div.toggle' + (on(key) ? '.on' : ''), { role: 'switch', 'aria-checked': on(key) ? 'true' : 'false', 'aria-label': LABEL[key] || key }, h('div.sw')); b.addEventListener('click', () => { settings.set(key, !on(key)); refresh('settings'); }); return b; };
       const body = h('div.col', { style: { padding: '1rem 1.6rem 1.6rem', gap: 0 } },
         h('div.setrow', h('div', h('div', 'Animation speed'), h('div.muted', 'Space or a click skips to the end of the hit on screen. A key pressed while a round plays is queued as your next action.')), seg('speed', [[1, '1×'], [2, '2×'], [4, '4×'], [0, 'Instant']])),
@@ -176,6 +184,8 @@ export function createWindows(root, ctx) {
         h('div.setrow', h('div', 'Screen shake'), tog('shake')),
         h('div.setrow', h('div', h('div', 'Reduce motion'), h('div.muted', 'No screen shake, smaller recoil, numbers without the slam.')), tog('reduceMotion')),
         h('div.setrow', h('div', 'Combat log'), tog('showLog')),
+        h('div.setrow', h('div', h('div', 'Mute sound'), h('div.muted', 'Sound starts with your first click or key. Everything it tells you is also on screen.')), tog('soundMuted')),
+        h('div.setrow', h('div', 'Volume'), h('div', { style: { display: 'flex', gap: '1.2rem' } }, vol('soundMaster', 'Master'), vol('soundSfx', 'Effects'), vol('soundUi', 'Interface'))),
         // the Dev menu (dev-menu.js): one line, so the window keeps clear of the Heat meter (#win-settings.dev); none with
         // ?dev=0 or the mock engine
         devRow ? h('div.setrow', h('div', 'Dev tools (the DEV tab and the ` key)'), tog('devTools')) : null,

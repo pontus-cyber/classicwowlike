@@ -13,6 +13,8 @@
 // with a hit-stop, recoil, a weighted number and screen shake, and enemies' telegraphed blows get a readable pause.
 // Skipping: Space or a click in a round skips to the end of the hit on screen (the next hit plays normally); any other
 // step, or Instant speed, finishes at once. Waits go through skip tokens.
+// Sound (docs/specs/audio.md, D127): each event goes to ctx.audio.event at its moment (audio.js maps it to cues); a zone
+// arrival rings its bell pair with the banner.
 import { wait, SkipToken, fmtNum, deepClone } from './util.js';
 import { settings } from './settings.js';
 import { linkedText, dangerBanner, CONTROL_WORD as CONTROL_LOG, HEAT_WORDS, freeActionText } from './ui-text.js';
@@ -184,6 +186,8 @@ export class Director {
         const tick = e.t === 'damage' && e.tick;
         if (round && i > 0 && (e.t === 'action' || e.t === 'round' || (tick && !inTicks))) newBeat();
         inTicks = tick || (inTicks && e.t !== 'action' && e.t !== 'round');
+        // sound (audio.js): the event's cues at its moment; a skipped or Instant step plays only its top cue
+        if (ctx.audio) ctx.audio.event(e, { power: tm.power, heavy: !!(hitCtx && hitCtx.heavy), rank: e.dst && e.dst.side === 'enemy' ? (enemy(e.dst.idx) || {}).rank : null, beat: this.beatNo, fast: token.skipped || settings.instant });
         switch (e.t) {
           case 'fightStart': hud.log(`Combat: ${e.enemies.join(', ')}.`, 'lg-sys'); break;
           case 'action': {
@@ -477,6 +481,7 @@ export class Director {
       scene.targetSpeed = 0;
     } else ctx.syncScene(next, { instant: true });
     const z = next.zone;
+    if (ctx.audio) ctx.audio.cue('arrive'); // a bell pair with the zone banner (audio.js)
     ctx.ui.banner(z.name, z.camp || z.idx > ctx.data.rules.zoneCount ? 'The last camp before the Sunken Observatory' : zoneLine(z, ctx.data.rules), 'zone', 2600);
     ctx.hud.log(`You arrive in ${z.name}.`, 'lg-sys');
     await wait(settings.dur(900), token);

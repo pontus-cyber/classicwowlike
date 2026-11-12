@@ -15,6 +15,8 @@
 // to prepKey (1-8, A-I, R, Enter). Since D116 new runs start on the expedition map with the start camp; the Dev menu's
 // setting "Classic map (old)" sets the map new runs get (the bridge's setRunMode; at class select at once). Esc also puts
 // the map's armed Spyglass away.
+// Sound (audio.js, docs/specs/audio.md; D127): each step is one audio step (the decision view's Deathblow telegraph and
+// Furnace cues after it); a click on a button or card, an error toast and a window opening or closing have their cues.
 import { createBridge, flags } from './engine-bridge.js';
 import { Scene } from './scene.js';
 import { createHud } from './hud.js';
@@ -24,6 +26,7 @@ import { createWindows } from './windows.js';
 import { Director } from './director.js';
 import { initTooltip, hide as hideTip } from './tooltip.js';
 import { createDevMenu } from './dev-menu.js';
+import { createAudio, CLICKABLE } from './audio.js';
 import { settings } from './settings.js';
 import { h, clear } from './util.js';
 import { enemyLook } from './art-actors.js';
@@ -44,6 +47,7 @@ export class App {
     this.ownActions = []; // test hook: actions the UI sent on its own, not from input (a new potion put on the item bar)
     this.renderQueued = false;
     this.autoTimer = null;
+    this.audio = createAudio(settings); // no sound before the first gesture (audio.js)
     const app = this;
     const ui = {
       target: null, overlay: false, dragging: false, fleeArmed: false, chestOpen: false,
@@ -88,7 +92,7 @@ export class App {
     };
     this.ui = ui;
     this.ctx = {
-      bridge: this.bridge, data: this.data, scene: this.scene, ui, settings,
+      bridge: this.bridge, data: this.data, scene: this.scene, ui, settings, audio: this.audio,
       get view() { return app.shown; },
       act: (a) => app.act(a),
       // the Dev menu (dev-menu.js): one dev op through the bridge (engine-api.md 12), and its messages
@@ -103,7 +107,9 @@ export class App {
     this.screens = createScreens(this.root, this.ctx);
     this.windows = createWindows(this.root, this.ctx);
     // toasts step aside when a window opens, closes or re-renders (placeToasts)
-    new MutationObserver(() => this.placeToasts()).observe(this.root.querySelector('#windows'), { childList: true });
+    // ... and a window opening or closing has its sound (a re-render replaces one window: no change in the count)
+    this.winCount = 0;
+    new MutationObserver(() => { this.placeToasts(); const n = this.root.querySelectorAll('#windows > .win').length; if (n !== this.winCount) this.audio.cue(n > this.winCount ? 'winOpen' : 'winClose'); this.winCount = n; }).observe(this.root.querySelector('#windows'), { childList: true });
     this.devMenu = createDevMenu(this.root, this.ctx, { allowed: () => flags.dev && this.bridge.mode === 'engine' });
     this.director = new Director(this.ctx);
     this.bannerEl = h('div#banner', h('div.b0'), h('div.b1'), h('div.b2'));
@@ -165,9 +171,11 @@ export class App {
         this.playStart = performance.now();
         const rec = { type: action.type === 'ENGINE' ? action.action.type : action.type, input: tIn, t0, events: res.events.map((e) => e.t), round: null, end: null, skippedAt: null, hitSkips: [], queued: null };
         this.plays.push(rec); if (this.plays.length > 200) this.plays.shift();
+        this.audio.beginStep(rec.type);
         const playing = this.director.play(prev, res.view, res.events, action, { t0 });
         rec.round = this.director.round ? { budget: this.director.round.budget, avg: this.director.round.avg, plan: this.director.round.plan, tempo: this.director.round.tempo, speed: this.director.round.speed } : null;
         await playing;
+        this.audio.view(prev, res.view); this.audio.endStep(); // the decision view's cues (Deathblow telegraph, Furnace)
         rec.end = performance.now();
         this.hud.heat.noteStep(prev, res.view); // heat (expedition.md H.4): a toast when the step changed the meter's state
         this.afterPlay();
@@ -434,6 +442,7 @@ export class App {
    * too), so a burst (quests turned in at speed, a level, a heat change) never stacks over the map or the frames.
    */
   toast(text, kind = '') {
+    if (kind === 'err') this.audio.cue('error');
     // a change of the heat state (heat.js, expedition.md H.4) shows at once and never merges. Only one heat toast is on
     // screen: a later change replaces it, so a burst (a zone change: Burning, Smouldering, Calm, ...) ends on the final
     // state and the stack keeps TOAST_MAX (QA playtest 2026-11-11 finding 1)
@@ -522,6 +531,8 @@ export class App {
     // combat v2.1: a hovered wind-up whose element was redrawn (the round moved on) gives no pointerleave; drop it here
     window.addEventListener('pointerover', (e) => { if (this.ui.wuHover && !(e.target.closest && e.target.closest('.tk.wu, .tr.wu, .wub, .rl-x.wu'))) this.ui.setWindupHover(null); });
     window.addEventListener('keydown', (e) => this.onKey(e));
+    // sound: one document-level listener clicks for every button, card, slot or map node pressed (audio.js CLICKABLE)
+    document.addEventListener('click', (e) => { if (e.isTrusted && e.target.closest && e.target.closest(CLICKABLE)) this.audio.cue('uiClick'); }, true);
   }
 
   onKey(e) {
@@ -658,6 +669,8 @@ export class App {
       /** Dev menu (engine-api.md 12): whether it is open; a dev op as the menu sends it. */
       devOpen: () => app.devMenu.isOpen(),
       dev: (op, args) => app.devAct(op, args),
+      /** Sound (audio.js): { unlocked, state, muted, log: [{ cue, step, t, kept, sound }] }; the log is written locked or muted too. */
+      audio: () => app.audio.info(),
     };
   }
 }
