@@ -1,14 +1,15 @@
 // docs/specs/changes-m2b-v15.md engine and content rows (D123-D125): the Swift passage (row 2; rules 1.9.7, expedition.md
 // 7.1: a Road taken within ROAD_SWIFT_TOLLS of arriving at the zone's hub grants round(ROAD_SWIFT_XP_FRAC × xpToNext(L))
-// XP, before TIME_TRAVEL; the `swift` event, mapView `swift`, heatPreview `swift`, the summary's counts; GATES.swiftRoad),
-// Warden Belk's HP (row 1, content) and Mawgrim's gated HP arm (row 4: the template's content `gated` entry,
-// GATES.mawgrimHp, combat.js tplMult; content validation of `gated`).
+// XP, before TIME_TRAVEL; the `swift` event, mapView `swift`, heatPreview `swift`, the summary's counts; GATES.swiftRoad,
+// off by default since D126: the rule's tests set it on), Warden Belk's HP (row 1, content) and Mawgrim's HP (row 4,
+// applied by D126 as its content value 0.95; the switch GATES.mawgrimHp and the content `gated` entry are removed).
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { R, C, ev, tweak, gates, atLevel } from './helpers.mjs';
 import { CONTENT as REAL } from '../../src/content/index.js';
 import { zoneTime, swiftXp, swiftView } from '../../src/engine/expedition.js';
-import { makeEnemy, tplMult } from '../../src/engine/combat.js';
+import * as combat from '../../src/engine/combat.js';
+const { makeEnemy } = combat;
 
 const pet = (cls) => (cls === 'hunter' ? 'ridgewolf' : null);
 /** An expedition run in zone 1's hub (without the start camp unless `prep`: then after SET_OUT). */
@@ -22,10 +23,23 @@ const onRoad = (s, zt, k = 0) => tweak(s, (x) => { x.zone.pos = x.zone.roads[k];
 const swiftOf = (s) => Math.round(C.ROAD_SWIFT_XP_FRAC * R.xpToNext(s.player.level));
 const road = { type: 'TAKE_ROAD' };
 
-describe('M2b v15 row 2 (D124): the Swift passage, rules 1.9.7', () => {
-  test('constants and switch: ROAD_SWIFT_TOLLS 15, ROAD_SWIFT_XP_FRAC 0.75, GATES.swiftRoad on', () => {
-    assert.deepEqual([C.ROAD_SWIFT_TOLLS, C.ROAD_SWIFT_XP_FRAC, C.GATES.swiftRoad], [15, 0.75, true]);
+test('constants and switch: ROAD_SWIFT_TOLLS 15, ROAD_SWIFT_XP_FRAC 0.75, GATES.swiftRoad off by default (D126)', () => {
+  assert.deepEqual([C.ROAD_SWIFT_TOLLS, C.ROAD_SWIFT_XP_FRAC, C.GATES.swiftRoad], [15, 0.75, false]);
+});
+
+describe('the default run (D126: GATES.swiftRoad off): no Road pays the Swift passage', () => {
+  test('a Road taken at zone time 0: no `swift`, no XP; mapView and heatPreview `swift` null; the summary counts none', () => {
+    const s = onRoad(expRun({ seed: 3 }), 0);
+    assert.equal(R.mapView(s).swift, null);
+    assert.equal(R.heatPreview(s, road).swift, null);
+    const r = R.step(s, road);
+    assert.deepEqual([ev(r.events, 'swift').length, ev(r.events, 'xp').length, r.state.player.xp, r.state.zone.z], [0, 0, s.player.xp, 2]);
+    assert.deepEqual([R.summary(r.state).expedition.swift, R.summary(r.state).expedition.zones[0].swift], [0, 0]);
   });
+});
+
+describe('M2b v15 row 2 (D124): the Swift passage, rules 1.9.7 (GATES.swiftRoad on; off by default since D126)', () => {
+  gates({ swiftRoad: true });
 
   test('a Road taken at zone time <= ROAD_SWIFT_TOLLS pays round(ROAD_SWIFT_XP_FRAC × xpToNext(L)) before the travel: `swift`, then its `xp` (why swift), then TIME_TRAVEL and the next hub; one more toll and it pays nothing', () => {
     for (const [seed, zt] of [[3, 0], [3, 7], [5, C.ROAD_SWIFT_TOLLS]]) {
@@ -154,7 +168,7 @@ describe('M2b v15 row 2 (D124): the Swift passage, rules 1.9.7', () => {
   });
 });
 
-describe('M2b v15 rows 1 and 4 (D123, content): Warden Belk\'s HP; Mawgrim\'s HP arm behind GATES.mawgrimHp', () => {
+describe('M2b v15 rows 1 and 4 (D123, D126, content): Warden Belk\'s HP; Mawgrim\'s HP 0.95', () => {
   const s = R.step(R.newRun({ classId: 'rogue', seed: 1, content: REAL, mapMode: 'rows' }), { type: 'START_RUN' }).state;
   const hpOf = (tid, level) => makeEnemy(s, 0, tid, level, 'dboss').maxHp;
   const base = (level) => (C.ENEMY_HP_BASE + C.ENEMY_HP_PER_LEVEL * level) * C.ARCHETYPE.brute.hp * C.VARIANT.dboss.hp;
@@ -164,34 +178,23 @@ describe('M2b v15 rows 1 and 4 (D123, content): Warden Belk\'s HP; Mawgrim\'s HP
     assert.deepEqual([hpOf('z1_belk', 7), Math.round(base(7) * 1.05)], [629, 734]);
   });
 
-  test('row 4: z2_mawgrim is made with hpMult 1.1 while GATES.mawgrimHp is off (the default) and with its gated 0.95 while on; damage and every other template unchanged', () => {
-    assert.equal(C.GATES.mawgrimHp, false);
+  test('row 4 (D126): z2_mawgrim.hpMult 0.95 (was 1.1), dmgMult 1: made with 0.95 at level 17; no `gated` field, no GATES.mawgrimHp', () => {
+    assert.deepEqual([REAL.enemies.z2_mawgrim.hpMult, REAL.enemies.z2_mawgrim.dmgMult], [0.95, 1]);
     const lv = 17;
-    const off = makeEnemy(s, 0, 'z2_mawgrim', lv, 'dboss');
-    const others = Object.keys(REAL.enemies).filter((t) => t !== 'z2_mawgrim').map((t) => makeEnemy(s, 0, t, lv, 'normal'));
-    assert.equal(off.maxHp, Math.max(1, Math.round(base(lv) * 1.1)));
-    C.GATES.mawgrimHp = true;
-    try {
-      const on = makeEnemy(s, 0, 'z2_mawgrim', lv, 'dboss');
-      assert.equal(on.maxHp, Math.max(1, Math.round(base(lv) * 0.95)));
-      assert.equal(on.dmg, off.dmg);
-      assert.deepEqual(Object.keys(REAL.enemies).filter((t) => t !== 'z2_mawgrim').map((t) => makeEnemy(s, 0, t, lv, 'normal')), others);
-      assert.deepEqual([tplMult(REAL.enemies.z2_mawgrim, 'hpMult'), tplMult(REAL.enemies.z2_mawgrim, 'dmgMult'), tplMult(REAL.enemies.z1_belk, 'hpMult')], [0.95, 1, 0.9]);
-    } finally { C.GATES.mawgrimHp = false; }
-    assert.equal(tplMult(REAL.enemies.z2_mawgrim, 'hpMult'), 1.1);
+    assert.equal(hpOf('z2_mawgrim', lv), Math.max(1, Math.round(base(lv) * 0.95)));
+    assert.equal('mawgrimHp' in C.GATES, false);
+    assert.deepEqual(Object.keys(REAL.enemies).filter((t) => 'gated' in REAL.enemies[t]), []);
   });
 
-  test('content validation of `gated`: a C.GATES switch, only hpMult / dmgMult, each in its range, the product too; the real content passes (strict)', () => {
+  test('the gated-template mechanism is removed (D126): makeEnemy reads hpMult and dmgMult only; a stray `gated` entry changes nothing; tplMult is gone; the real content passes (strict)', () => {
+    assert.equal(combat.tplMult, undefined);
     assert.deepEqual(R.validateContent(REAL, { strict: true }), []);
-    const withGated = (gated) => ({ ...REAL, enemies: { ...REAL.enemies, z2_mawgrim: { ...REAL.enemies.z2_mawgrim, gated } } });
-    const errs = (gated) => R.validateContent(withGated(gated));
-    assert.deepEqual(errs({ mawgrimHp: { hpMult: 0.95 }, swiftRoad: { dmgMult: 0.95 } }), []);
-    assert.match(errs({ swiftRoad: { dmgMult: 1.1 } }).join(), /gated\.swiftRoad: hpMult × dmgMult: 1\.21/, 'the template\'s hpMult 1.1 with the gated dmgMult');
-    assert.match(errs({ nope: { hpMult: 0.95 } }).join(), /gated\.nope: unknown switch/);
-    assert.match(errs({ mawgrimHp: { armor: 2 } }).join(), /gated\.mawgrimHp\.armor: only hpMult and dmgMult/);
-    assert.match(errs({ mawgrimHp: { hpMult: 0.5 } }).join(), /gated\.mawgrimHp\.hpMult: 0\.5 outside/);
-    assert.match(errs({ mawgrimHp: { hpMult: 0.85, dmgMult: 0.9 } }).join(), /gated\.mawgrimHp: hpMult × dmgMult/);
-    assert.match(errs({ mawgrimHp: {} }).join(), /gated\.mawgrimHp: needs hpMult or dmgMult/);
-    assert.match(errs([0.95]).join(), /gated: not an object/);
+    const lv = 17;
+    const plain = makeEnemy(s, 0, 'z2_mawgrim', lv, 'dboss');
+    const st = tweak(s, (x) => { x.content = { ...x.content, enemies: { ...x.content.enemies, z2_mawgrim: { ...x.content.enemies.z2_mawgrim, gated: { swiftRoad: { hpMult: 1.2, dmgMult: 0.9 } } } } }; });
+    C.GATES.swiftRoad = true;
+    try {
+      assert.deepEqual(makeEnemy(st, 0, 'z2_mawgrim', lv, 'dboss'), plain);
+    } finally { C.GATES.swiftRoad = false; }
   });
 });

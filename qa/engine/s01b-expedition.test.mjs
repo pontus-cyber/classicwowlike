@@ -765,19 +765,20 @@ describe('rules 1.9 expedition map: the Dimming (1.9.6)', () => {
 });
 
 describe('rules 1.9 expedition map: leaving a zone (1.9.7)', () => {
-  test('1.9.7 TAKE_ROAD: only on a Road, TIME_TRAVEL, the next zone\'s hub; no level gate; zone 6 leads to the Camp and the boss; (M2b v15) each Road taken within ROAD_SWIFT_TOLLS pays the Swift passage', () => {
+  test('1.9.7 TAKE_ROAD: only on a Road, TIME_TRAVEL, the next zone\'s hub; no level gate; zone 6 leads to the Camp and the boss; (M2b v15, D126) the Swift passage is off by default: a Road taken within ROAD_SWIFT_TOLLS pays nothing (its rule: s01g-v15)', () => {
+    assert.equal(C.GATES.swiftRoad, false, 'D126');
     let s = onMap(expRun('hunter', { seed: 17 }));
     for (let z = 1; z <= C.ZONE_COUNT; z++) {
       if (z > 1) s = onMap(s);
       const road = s.zone.roads[0];
       s = walk(s, pathTo(s.zone, s.zone.pos, road)).state;
       assert.equal(R.mapView(s).onRoad, true);
-      assert.ok(s.player.level <= z, 'no level gate (M2b v15: the Swift passage XP of the Roads before)');
+      assert.ok(s.player.level <= z, 'no level gate');
       assert.ok(zoneTime(s) <= C.ROAD_SWIFT_TOLLS, 'a quick walk to the rim');
       const h = s.time;
-      const want = Math.round(C.ROAD_SWIFT_XP_FRAC * R.xpToNext(s.player.level));
+      const xp0 = s.player.xp;
       const r = R.step(s, { type: 'TAKE_ROAD' });
-      assert.deepEqual(ev(r.events, 'swift').map((e) => e.xp), [want], 'M2b v15: the Swift passage, before the travel');
+      assert.deepEqual([ev(r.events, 'swift').length, ev(r.events, 'xp').length, r.state.player.xp], [0, 0, xp0], 'D126: no Swift passage by default');
       assert.deepEqual(ev(r.events, 'time').map((e) => [e.add, e.why]), [[C.TIME_TRAVEL, 'travel']]);
       assert.deepEqual(ev(r.events, 'travel')[0], { t: 'travel', from: z, by: 'road', node: road, road: null }, 'fixture content: no Road names (D51)');
       s = r.state;

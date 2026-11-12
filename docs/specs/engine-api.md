@@ -47,8 +47,9 @@ the start camp; the rows map is an option (`mapMode: 'rows'`) for the simulator 
 default since D116; docs/handoffs/engineer-2026-11-12b.md; marked "(D116)"); 2026-11-12c (M2b v15, docs/specs/changes-m2b-v15.md
 rows 1, 2 and 4, D123-D125: the Swift passage of a Road (rules 1.9.7: the `swift` event and the `xp` event's `why: 'swift'`,
 `mapView.swift`, `heatPreview`'s `swift`, `stats.exp.swift` and the summary's `swift` counts), `C.ROAD_SWIFT_TOLLS`,
-`C.ROAD_SWIFT_XP_FRAC`, the switches `C.GATES.swiftRoad` (on) and `C.GATES.mawgrimHp` (off: a template's content `gated`
-values), `debug.nextZone` without the Swift passage; marked "(M2b v15)").
+`C.ROAD_SWIFT_XP_FRAC`, the switch `C.GATES.swiftRoad` (off since D126, report 2026-11-12c; the rule stays),
+`debug.nextZone` without the Swift passage; marked "(M2b v15)"; D126: `C.GATES.mawgrimHp` and content `gated` removed,
+Mawgrim's hpMult 0.95 is its content value).
 Units: every time value of the API is a whole number of tolls (1 toll = 1 former in-game hour, D69); there are no hours.
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).

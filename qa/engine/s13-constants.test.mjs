@@ -134,7 +134,7 @@ describe('change doc M2b v14 (docs/specs/changes-m2b-v14.md, D111-D113): the eng
       assert.equal(K.GATES[key], on(r[2]), `${label}: New ${r[2]}`);
       assert.notEqual(on(r[1]), on(r[2]), `${label}: Old ${r[1]} differs`);
     }
-    // M2b v15 adds swiftRoad and mawgrimHp (checked with its table below)
+    // M2b v15 adds swiftRoad (checked with its table below; mawgrimHp was removed by D126)
     for (const [, key] of rows4) assert.ok(key in K.GATES, key);
   });
 });
@@ -145,21 +145,27 @@ describe('change doc M2b v15 (docs/specs/changes-m2b-v15.md, D123-D125): the eng
   const get = (label) => table.find((r) => r[0] === label || r[0].startsWith(`${label} `));
   const value = (cell) => Number(cell.split(/\s/)[0]);
   const was = (cell) => Number(cell.match(/\(was ([\d.]+)\)/)[1]);
-  test('row 2: ROAD_SWIFT_TOLLS and ROAD_SWIFT_XP_FRAC are the table\'s values; the Swift passage switch GATES.swiftRoad is on', () => {
+  const outcome = (r) => r[4];
+  test('row 2: ROAD_SWIFT_TOLLS and ROAD_SWIFT_XP_FRAC are the table\'s values; GATES.swiftRoad is the "v15 outcome (D126)" column (off)', () => {
+    assert.ok(/v15 outcome \(D126\)/.test(text.slice(text.indexOf('## Constants'))));
     for (const name of ['ROAD_SWIFT_TOLLS', 'ROAD_SWIFT_XP_FRAC']) assert.equal(K[name], value(get(name)[1]), name);
-    assert.equal(K.GATES.swiftRoad, true);
+    const sw = get('`C.GATES.swiftRoad`');
+    assert.ok(sw);
+    assert.deepEqual([sw[1], outcome(sw)], ['on', 'off']);
+    assert.equal(K.GATES.swiftRoad, outcome(sw) === 'on');
+    assert.equal(K.GATES.swiftRoad, false);
   });
-  test('row 1: z1_belk.hpMult is the table\'s value (was 1.05); row 4: z2_mawgrim keeps hpMult at its "was" value and holds the gated arm in gated.mawgrimHp, off by default', () => {
+  test('row 1: z1_belk.hpMult is the table\'s value (was 1.05); row 4 applied (D126): z2_mawgrim.hpMult is the table\'s value (was 1.1), no `gated` field anywhere in content', () => {
     const belk = get('z1_belk.hpMult');
     assert.deepEqual([ENEMIES.z1_belk.hpMult, was(belk[1])], [value(belk[1]), 1.05]);
-    assert.equal(ENEMIES.z1_belk.gated, undefined);
     const maw = get('z2_mawgrim.hpMult');
-    assert.ok(maw && /gated/.test(maw[0]) && /mawgrimHp/.test(maw[3]));
-    assert.deepEqual([ENEMIES.z2_mawgrim.hpMult, ENEMIES.z2_mawgrim.gated], [was(maw[1]), { mawgrimHp: { hpMult: value(maw[1]) } }]);
-    assert.equal(K.GATES.mawgrimHp, false);
+    assert.ok(maw && /^applies/.test(outcome(maw)));
+    assert.deepEqual([ENEMIES.z2_mawgrim.hpMult, was(maw[1])], [value(maw[1]), 1.1]);
+    assert.equal(value(maw[1]), 0.95);
+    assert.deepEqual(Object.keys(ENEMIES).filter((id) => 'gated' in ENEMIES[id]), []);
   });
-  test('C.GATES: the v14 switches and the v15 swiftRoad (on) and mawgrimHp (off), nothing else', () => {
-    assert.deepEqual(Object.keys(K.GATES).sort(), ['firstMeetWindup', 'mawgrimHp', 'passStealth', 'rareHpMultZ1', 'sapHold', 'swiftRoad']);
+  test('C.GATES: the v14 switches and the v15 swiftRoad (off since D126), nothing else (mawgrimHp removed)', () => {
+    assert.deepEqual(Object.keys(K.GATES).sort(), ['firstMeetWindup', 'passStealth', 'rareHpMultZ1', 'sapHold', 'swiftRoad']);
   });
 });
 

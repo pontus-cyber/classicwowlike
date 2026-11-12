@@ -410,11 +410,13 @@ export const RARE_HP_MULT_Z1 = 3.0;
  * M2b v14 row 1 (D111, changes-m2b-v14.md "What the sim must run"): sapHold (row 1 (a)): autoplay rule H, wait while every
  * living enemy is SAPPED and Sap will cancel a wind-up (rules 7.9, autoplay.js); passStealth (row 1 (b)): a PASS keeps
  * STEALTH while every living enemy is SAPPED (rules 7.4, spells.js playerAction).
- * M2b v15 (D124, changes-m2b-v15.md "What the sim must run"): swiftRoad (row 2, on): the Swift passage of a Road
- * (ROAD_SWIFT_TOLLS, rules 1.9.7; nodes.js takeRoad, expedition.js swiftView); mawgrimHp (row 4, **off**): enemy templates
- * are made with their content `gated.mawgrimHp` fields (z2_mawgrim hpMult 0.95 instead of 1.1; combat.js tplMult).
+ * M2b v15 (D124, changes-m2b-v15.md "What the sim must run"): swiftRoad (row 2): the Swift passage of a Road
+ * (ROAD_SWIFT_TOLLS, rules 1.9.7; nodes.js takeRoad, expedition.js swiftView). **Off** since D126 (report 2026-11-12c:
+ * the planner's win falls 3.2 pp on PALL and P0 is under 20 % with it on); the rule and the switch stay.
+ * Mawgrim's HP arm (row 4) applied by D126: z2_mawgrim hpMult 0.95 in content; its switch and the gated-template
+ * mechanism are removed.
  */
-export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: true, mawgrimHp: false };
+export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false };
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
 // with mapMode 'expedition'; a run on today's map (mapMode 'rows', the default) never reads them.
 /** rules 1.9.2: nodes per ring (ring 0 = the hub). */
@@ -475,7 +477,7 @@ export const BELL_CHANNEL_TIME = 2;
 /** rules 1.9.8, 3: seconds of the Bell's channel on screen (instead of PACE_ZONE_TRAVEL_S). */
 export const PACE_BELL_S = 6;
 /**
- * Swift passage (rules 1.9.7, expedition.md 7.1; M2b v15 row 2, D124; on while GATES.swiftRoad): a TAKE_ROAD at zone time
+ * Swift passage (rules 1.9.7, expedition.md 7.1; M2b v15 row 2, D124; played only while GATES.swiftRoad, off since D126): a TAKE_ROAD at zone time
  * <= ROAD_SWIFT_TOLLS (tolls since arrival at the zone's hub, checked before TIME_TRAVEL) grants
  * round(ROAD_SWIFT_XP_FRAC × xpToNext(L)) XP. Not by the Homeward Bell.
  */

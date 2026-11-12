@@ -1,6 +1,6 @@
 # Spec changes M2b v15: Warden Belk's long fight, the rush path (B12), Mawgrim's long fight
 
-Owner: Game Designer (balance), 2026-11-12. For: Content Designer and Core Gameplay Engineer (src/), Simulation & Balance Engineer (sim/), UI/UX Engineer, Lead. **Status: draft** (not approved).
+Owner: Game Designer (balance), 2026-11-12. For: Content Designer and Core Gameplay Engineer (src/), Simulation & Balance Engineer (sim/), UI/UX Engineer, Lead. **Status: draft** (not approved). Outcomes by the decision rules logged as D126 (report 2026-11-12c): row 1 stays, row 2 off, row 3 the v11 policy reads B12, row 4 applies (Constants, last column).
 
 Input: the v13 and v14 measures [source: docs/reports/balance-2026-11-12.md, -12b.md; docs/handoffs/sim-2026-11-12.md, -12b.md]; D105-D118 (D114 logs the Belk miss for the next combat pass, D116 logs B12 as a known miss, D118 makes `--map expedition --prep` the main cell); BACKLOG B12 row; rules.md 7.6 (soft enrage), 12.4, 13; expedition.md 7.1; balance.md B11, B12. Run records read: sim/out/pass-v14 and pass-v13 (main d7b2776 / 30d565a), with scratch fight replays (below). Every other expected effect is marked [inference] or unmeasured.
 
@@ -70,9 +70,12 @@ Decision rules:
 | D125 | B12 and B3 speed are read on the v11 speedrunner policy (takes a dungeon on its way); the v12 policy is reported (row 3) | team |
 
 ## Constants
-| Name | Value | Unit | Where |
-|---|---|---|---|
-| ROAD_SWIFT_TOLLS | 15 | tolls of zone time | expedition.md 7.1, constants (M2b v15) |
-| ROAD_SWIFT_XP_FRAC | 0.75 | × xpToNext(L) | expedition.md 7.1, constants (M2b v15) |
-| z1_belk.hpMult | 0.90 (was 1.05) | × | content enemies.js |
-| z2_mawgrim.hpMult (gated arm) | 0.95 (was 1.1) | × | content enemies.js, `C.GATES.mawgrimHp` |
+v15 outcomes (D126, docs/reports/balance-2026-11-12c.md): each row by its decision rule. The last column is the engine as built after D126; qa/engine s13 reads it.
+
+| Name | Value | Unit | Where | v15 outcome (D126) |
+|---|---|---|---|---|
+| ROAD_SWIFT_TOLLS | 15 | tolls of zone time | expedition.md 7.1, constants (M2b v15) | kept; the Swift passage is off (`C.GATES.swiftRoad`) |
+| ROAD_SWIFT_XP_FRAC | 0.75 | × xpToNext(L) | expedition.md 7.1, constants (M2b v15) | kept; the Swift passage is off (`C.GATES.swiftRoad`) |
+| `C.GATES.swiftRoad` | on | switch | constants (M2b v15 row 2) | off |
+| z1_belk.hpMult | 0.90 (was 1.05) | × | content enemies.js | stays |
+| z2_mawgrim.hpMult | 0.95 (was 1.1) | × | content enemies.js (row 4; measured as the gated arm `C.GATES.mawgrimHp`) | applies: the content value; the switch and content `gated` are removed |

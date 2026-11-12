@@ -101,7 +101,6 @@ the two template multipliers below.
 | `dmgMult` | number | 0.85-1.20, and `hpMult × dmgMult` in 0.90-1.15 |
 | `abilities` | id[] | Ability ids. normal and trash: `[]`; elite: exactly 1; rare: exactly 2; dboss: exactly 2 |
 | `family` | string | optional tag (<= 28 chars, lowercase word) on normal, elite and rare templates (expedition regions and contracts). Every family used in a zone needs 2+ normal templates of different archetypes there, and not only guardian plus mender (rules 7.14) |
-| `gated` | object | optional (M2b v15): `{ <switch>: { hpMult?, dmgMult? } }`, switch a key of `C.GATES`. While that switch is on the template is made with these values (the first such entry wins); each in the ranges above, and `hpMult × dmgMult` with them too. A tuning arm the simulator measures before it becomes the template's value (z2_mawgrim: `gated: { mawgrimHp: { hpMult: 0.95 } }`) |
 | `text` | string | <= 140 chars |
 
 ```js
