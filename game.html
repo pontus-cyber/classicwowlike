@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="3167a65 2026-11-12T17:10:50Z">
+<meta name="build" content="122d8f4 2026-11-12T19:55:32Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -1545,22 +1545,25 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 /* ---------------------------------------------------------------- start camp and contracts (expedition.md 9.1, 9.3; prep.js)
    Kind colours: Cull blood red, Bounty ember orange, Delve arcane violet. A held contract's own colour (--cc: amber, teal,
    violet, rose) marks it everywhere: the board card's band, the held list, the tracker, the quest log and the map's site marks. */
-#prep { position: absolute; inset: 0; padding: var(--sp-160) var(--sp-200) 8.4rem; display: flex; flex-direction: column; gap: var(--sp-100); background: radial-gradient(ellipse at 50% 120%, rgba(0, 0, 0, 0), rgba(6, 4, 2, .55) 70%); }
-#prep .pp-head { flex: none; display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-200); padding: 0 var(--sp-40); }
+/* D128 (owner playtest 2026-11-12 20:19): one lean screen. The contracts as cards side by side on the wood board, the
+   supplies and sight as small cards in one row, the points left and Set out at the bottom. */
+#prep { position: absolute; inset: 0; padding: var(--sp-200) 5vw var(--sp-180); display: flex; flex-direction: column; gap: var(--sp-120); background: radial-gradient(ellipse at 50% 120%, rgba(0, 0, 0, 0), rgba(6, 4, 2, .55) 70%); }
+#prep .pp-head { flex: none; width: min(124rem, 100%); margin: 0 auto; display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-200); padding: 0 var(--sp-40); }
 #prep .pp-t1 { font: var(--fw-semibold) var(--fs-display-2) var(--font-title); color: var(--gold); letter-spacing: .04em; text-shadow: 0 2px 0 var(--shade), 0 0 1.6rem var(--gold-35); }
 #prep .pp-t2 { font: italic var(--fs-label-5) var(--font-title); color: var(--ink); text-shadow: 0 1px 2px var(--shade), 0 0 .6rem var(--shade); }
 #prep .pp-keys { display: flex; align-items: center; gap: var(--sp-45); font-size: var(--fs-body-1); color: var(--ink-dim); text-shadow: 0 1px 2px var(--shade); white-space: nowrap; }
 #prep .pp-keys .kbd { margin-left: var(--sp-50); }
-#prep .pp-cols { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 1.95fr 1.08fr 1fr; gap: var(--sp-140); }
-#prep .pp-cols > .panel { min-height: 0; display: flex; flex-direction: column; padding: 0 var(--sp-120) var(--sp-120); }
-#prep .pp-sh { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-100); padding: var(--sp-100) var(--sp-20) var(--sp-70); }
-#prep .pp-sh .title { font-size: var(--fs-title-3); }
-#prep .pp-sub { font-size: var(--fs-small-7); color: var(--ink-dim); }
+#prep .pp-main { flex: 1 1 auto; min-height: 0; width: min(124rem, 100%); margin: 0 auto; display: flex; flex-direction: column; justify-content: center; gap: var(--sp-180); }
+#prep .pp-sh { flex: none; display: flex; align-items: baseline; gap: var(--sp-100); padding: 0 var(--sp-40) var(--sp-80); }
+#prep .pp-lab { font: var(--fw-semibold) var(--fs-title-3) var(--font-title); color: var(--accent-cream); letter-spacing: .04em; text-shadow: 0 1px 2px var(--shade); }
+#prep .pp-sub { font-size: var(--fs-small-7); color: var(--ink-dim); text-shadow: 0 1px 2px var(--shade); }
+#prep .pp-sh #pp-reroll { margin-left: auto; }
 #prep .pp-left { margin-left: var(--sp-60); font-size: var(--fs-small-5); color: var(--ink-dim); }
-/* the contract board: dark wood, parchment notices pinned to it */
-#prep .pp-board { background: repeating-linear-gradient(92deg, rgba(0, 0, 0, .0) 0 2.2rem, rgba(0, 0, 0, .1) 2.2rem 2.3rem), linear-gradient(180deg, #4a3220, #2a1b10 60%, #22160c); }
-#prep .pp-cards { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: minmax(0, 1fr); gap: var(--sp-80); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--edge-scroll) transparent; padding: var(--sp-20); }
-.pp-card { position: relative; text-align: left; display: flex; flex-direction: column; justify-content: space-between; gap: var(--sp-15); padding: var(--sp-70) var(--sp-90) var(--sp-60) var(--sp-110); border: 0; border-radius: var(--radius-sm-2); cursor: pointer;
+/* the contract board: dark wood, three parchment notices pinned to it */
+#prep .pp-board { padding: var(--sp-120) var(--sp-160) var(--sp-160); border-radius: var(--radius-md-2); box-shadow: inset 0 0 0 1px rgba(255, 220, 160, .12), 0 .6rem 1.6rem var(--shade-60);
+  background: repeating-linear-gradient(92deg, rgba(0, 0, 0, .0) 0 2.2rem, rgba(0, 0, 0, .1) 2.2rem 2.3rem), linear-gradient(180deg, #4a3220, #2a1b10 60%, #22160c); }
+#prep .pp-cards { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: var(--sp-160); padding: var(--sp-40) var(--sp-20) 0; }
+.pp-card { position: relative; min-width: 0; text-align: left; display: flex; flex-direction: column; gap: var(--sp-60); padding: var(--sp-120) var(--sp-140) var(--sp-110) var(--sp-160); border: 0; border-radius: var(--radius-sm-2); cursor: pointer;
   background: radial-gradient(ellipse at 30% 15%, #f6e9c8, #e4cf9c 60%, #ccb07a); color: var(--ink-paper); font: var(--fs-body-3) var(--font-ui);
   box-shadow: inset 0 0 1.6rem rgba(120, 80, 30, .38), inset 0 0 0 1px rgba(90, 60, 20, .55), inset .45rem 0 0 var(--cc, transparent), 0 .35rem .8rem var(--shade-55); transition: transform var(--dur-fast-3), box-shadow var(--dur-fast-3), filter var(--dur-fast-3); }
 .pp-card::before { content: ''; position: absolute; left: 50%; top: -.35rem; width: 1rem; height: 1rem; transform: translateX(-50%); border-radius: var(--radius-round); background: radial-gradient(circle at 35% 30%, #ffd9a0, #a0461e 55%, #4a1a08); box-shadow: 0 .15rem .3rem var(--shade-60); }
@@ -1570,76 +1573,58 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .pp-card.taken { background: radial-gradient(ellipse at 30% 15%, #fbf1d8, #ead8aa 60%, #d4b984); }
 .pp-card.stamp .seal img { animation: pp-stamp var(--dur-base-6) cubic-bezier(.2, 1.6, .4, 1); }
 @keyframes pp-stamp { 0% { transform: scale(2.2) rotate(-25deg); opacity: 0; } 100% { transform: scale(1) rotate(-12deg); opacity: 1; } }
-.pp-card .pc-top { display: flex; align-items: center; gap: var(--sp-50); font-size: var(--fs-small-6); color: #6a5032; }
+.pp-card .pc-top { display: flex; align-items: center; gap: var(--sp-60); font-size: var(--fs-small-6); color: #6a5032; }
 .pp-card .pc-top .kbd { background: var(--ink-paper); color: #f6e2b0; box-shadow: none; min-width: 1.8rem; font-size: var(--fs-small-1); }
-.pp-card .pc-zone { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: var(--fw-bold); }
-.pp-card .pc-band { flex: none; white-space: nowrap; font: var(--fw-bold) var(--fs-small-5) var(--font-num); color: #7a5a30; }
+.pp-card .pc-top img { width: 2.4rem; height: 2.4rem; border-radius: var(--radius-sm-1); box-shadow: 0 0 0 1px var(--shade-60); }
+.pp-card .pc-kind { font: var(--fw-bold) var(--fs-label-5) var(--font-title); }
+.pp-card[data-kind="cull"] .pc-kind { color: #9a2e1e; } .pp-card[data-kind="bounty"] .pc-kind { color: #a8541a; } .pp-card[data-kind="delve"] .pc-kind { color: #5e3aa8; }
+.pp-card .pc-zone { margin-left: auto; white-space: nowrap; font: var(--fw-bold) var(--fs-small-5) var(--font-ui); color: #6a5032; padding: 0 var(--sp-50); border-radius: var(--radius-lg-4); background: rgba(90, 60, 20, .14); }
 .pc-price, .pp-opt .pc-price { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 2.4rem; height: 2.4rem; padding: 0 var(--sp-40); border-radius: var(--radius-round); font: var(--fw-heavy) var(--fs-label-2) var(--font-num); color: #fff3d0; background: radial-gradient(circle at 35% 30%, #e8b850, #9a6a14 60%, #5a3a08); box-shadow: 0 0 0 1px #2a1a04, 0 .1rem .3rem var(--shade-50); text-shadow: 0 1px 1px var(--shade); }
-.pp-card .pc-kind { display: flex; align-items: center; gap: var(--sp-50); font: var(--fw-bold) var(--fs-label-5) var(--font-title); }
-.pp-card .pc-kind img { width: 2.2rem; height: 2.2rem; border-radius: var(--radius-sm-1); box-shadow: 0 0 0 1px var(--shade-60); }
-.pp-card[data-kind="cull"] .pc-kind b { color: #9a2e1e; } .pp-card[data-kind="bounty"] .pc-kind b { color: #a8541a; } .pp-card[data-kind="delve"] .pc-kind b { color: #5e3aa8; }
-.pp-card .pc-need { margin-left: auto; font: var(--fw-bold) var(--fs-small-5) var(--font-ui); color: #6a5032; padding: 0 var(--sp-45); border-radius: var(--radius-lg-4); background: rgba(90, 60, 20, .14); }
-.pp-card .pc-target { font: var(--fw-semibold) var(--fs-label-3)/var(--lh-snug-2) var(--font-title); color: #2a1c0c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pp-card .pc-where { margin-top: -.15rem; font: italic var(--fs-small-8)/var(--lh-snug-1) var(--font-title); color: #5a4428; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pp-card .pc-reward { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-10) var(--sp-70); font-size: var(--fs-small-8); color: #4a3820; }
+.pc-cost { flex: none; display: inline-flex; align-items: center; gap: var(--sp-25); }
+.pc-cost .pc-pl { font: var(--fw-bold) var(--fs-small-1) var(--font-ui); color: #6a5032; }
+.pp-card .pc-target { margin-top: var(--sp-20); font: var(--fw-semibold) var(--fs-title-5)/var(--lh-snug-2) var(--font-title); color: #2a1c0c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pp-card .pc-do { font: var(--fs-body-6)/var(--lh-snug-3) var(--font-ui); color: #4a3820; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pp-card .pc-reward { display: flex; align-items: center; gap: var(--sp-10) var(--sp-70); flex-wrap: nowrap; white-space: nowrap; overflow: hidden; font-size: var(--fs-small-8); color: #4a3820; padding-top: var(--sp-50); border-top: 1px dashed rgba(90, 60, 20, .35); }
 .pp-card .pc-reward .xp { color: #6a2fa0; font-weight: var(--fw-bold); }
 .pp-card .pc-reward .money { text-shadow: none; }
 .pp-card .pc-reward .it { font-weight: var(--fw-bold); } .pp-card .pc-reward .it i { font-style: normal; } .pp-card .r-rare { color: #2a64c8; } .pp-card .r-epic { color: var(--xp-2); }
 .pc-reward .pl, .hc-rw .pl { font-weight: var(--fw-regular); font-style: italic; opacity: .8; margin-right: var(--sp-25); } /* the words on a contract's numbers (QA 2026-11-11) */
 .pc-reward .gd, .hc-rw .gd { display: inline-flex; align-items: baseline; }
 .pc-reward .it .mk, .hc-rw .it .mk { margin-left: var(--sp-30); letter-spacing: .05em; }
-.pc-cost { flex: none; display: inline-flex; align-items: center; gap: var(--sp-25); }
-.pc-cost .pc-pl { font: var(--fw-bold) var(--fs-small-1) var(--font-ui); color: #6a5032; }
-.pp-card .pc-act { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-60); min-height: 2.4rem; }
-.pp-card .pc-act .it { margin-right: auto; font: var(--fw-bold) var(--fs-small-7) var(--font-ui); color: #4a3820; white-space: nowrap; } .pp-card .pc-act .it i { font-style: normal; }
-.pp-card .pc-reward { flex-wrap: nowrap; white-space: nowrap; overflow: hidden; }
-.pp-card .pc-btn { font: var(--fw-bold) var(--fs-body-1) var(--font-ui); padding: var(--sp-25) var(--sp-110); border-radius: var(--radius-sm-2); color: #ffeac0; background: linear-gradient(180deg, #a83c2a, #6a1c12); box-shadow: inset 0 1px 0 rgba(255, 200, 160, .35), 0 0 0 1px #2a0a04; }
+.pp-card .pc-act { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-60); min-height: 2.6rem; margin-top: auto; }
+.pp-card .pc-btn { font: var(--fw-bold) var(--fs-body-3) var(--font-ui); padding: var(--sp-30) var(--sp-160); border-radius: var(--radius-sm-2); color: #ffeac0; background: linear-gradient(180deg, #a83c2a, #6a1c12); box-shadow: inset 0 1px 0 rgba(255, 200, 160, .35), 0 0 0 1px #2a0a04; }
 .pp-card.taken .pc-btn { color: var(--ink-paper); background: linear-gradient(180deg, #e8d6a8, #c4a670); box-shadow: inset 0 0 0 1px rgba(90, 60, 20, .6); }
 .pp-card.cant .pc-btn { filter: grayscale(.7); }
-.pp-card .seal { display: inline-flex; align-items: center; gap: var(--sp-30); font: var(--fw-bold) var(--fs-small-7) var(--font-title); color: #7a1a10; letter-spacing: .06em; text-transform: uppercase; }
+.pp-card .seal { margin-right: auto; display: inline-flex; align-items: center; gap: var(--sp-30); font: var(--fw-bold) var(--fs-small-7) var(--font-title); color: #7a1a10; letter-spacing: .06em; text-transform: uppercase; }
 .pp-card .seal img { width: 2.6rem; height: 2.6rem; transform: rotate(-12deg); border-radius: var(--radius-round); filter: drop-shadow(0 .1rem .2rem var(--shade-55)); }
-/* supplies and sight */
-#prep .pp-shop { overflow: hidden; }
-#prep .pp-opts { display: flex; flex-direction: column; gap: var(--sp-45); }
-.pp-opt { display: flex; align-items: center; gap: var(--sp-80); padding: var(--sp-50) var(--sp-70); text-align: left; border: 0; border-radius: var(--radius-md-1); cursor: pointer; color: var(--ink); font: var(--fs-body-3) var(--font-ui);
+/* supplies and sight: small cards in one row */
+#prep .pp-opts { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); gap: var(--sp-120); }
+.pp-opt { min-width: 0; display: flex; align-items: center; gap: var(--sp-70); padding: var(--sp-60) var(--sp-80); text-align: left; border: 0; border-radius: var(--radius-md-1); cursor: pointer; color: var(--ink); font: var(--fs-body-3) var(--font-ui);
   background: linear-gradient(180deg, rgba(58, 46, 32, .95), rgba(30, 24, 17, .95)); box-shadow: inset 0 0 0 1px var(--edge-hi-25); transition: box-shadow var(--dur-fast-3), filter var(--dur-fast-3); }
 .pp-opt:hover, .pp-opt:focus-visible { outline: none; box-shadow: inset 0 0 0 1px rgba(255, 224, 150, .8), 0 0 1rem var(--gold-25); }
-.pp-opt img { flex: none; width: 3.4rem; height: 3.4rem; border-radius: var(--radius-sm-3); box-shadow: 0 0 0 1px var(--shade); }
+.pp-opt img { flex: none; width: 3.2rem; height: 3.2rem; border-radius: var(--radius-sm-3); box-shadow: 0 0 0 1px var(--shade); }
 .pp-opt .po-txt { flex: 1 1 auto; min-width: 0; }
 .pp-opt .po-nm { display: flex; align-items: center; gap: var(--sp-50); font: var(--fw-bold) var(--fs-body-6) var(--font-ui); color: #fff1d0; }
-.pp-opt .po-nm .kbd { min-width: 1.7rem; font-size: var(--fs-micro-14); }
-.pp-opt .po-fx { font-size: var(--fs-small-7); line-height: var(--lh-snug-3); color: var(--ink-dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.pp-opt .po-right { flex: none; display: flex; flex-direction: column; align-items: center; gap: var(--sp-20); min-width: 4.2rem; }
-.pp-opt .po-act { font: var(--fw-bold) var(--fs-small-5) var(--font-ui); color: var(--gold); }
+.pp-opt .po-nm .kbd { flex: none; min-width: 1.7rem; font-size: var(--fs-micro-14); }
+.pp-opt .po-name { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pp-opt .po-kd { font-size: var(--fs-small-5); color: var(--ink-dim); }
+.pp-opt .po-right { flex: none; display: flex; align-items: center; gap: var(--sp-50); }
+.pp-opt .po-act { font: var(--fw-bold) var(--fs-small-5) var(--font-ui); color: var(--gold); min-width: 2.6rem; }
 .pp-opt.bought { background: linear-gradient(180deg, rgba(38, 66, 36, .95), rgba(20, 36, 18, .95)); box-shadow: inset 0 0 0 1px rgba(140, 230, 130, .55), 0 0 .8rem rgba(120, 220, 110, .18); }
 .pp-opt.bought .po-act { color: #b8f0b0; }
 .pp-opt.owned { cursor: default; filter: saturate(.6); opacity: .8; }
 .pp-opt.owned .po-own { font: var(--fw-heavy) var(--fs-small-1) var(--font-ui); text-transform: uppercase; letter-spacing: .06em; color: #1a1206; background: var(--gold); padding: var(--sp-15) var(--sp-50); border-radius: var(--radius-sm-1); }
 .pp-opt.cant { filter: grayscale(.6) brightness(.72); }
 .pp-opt[data-kind="vision"] .po-nm { color: #d8ecff; }
-/* your expedition */
-#prep .pp-mine { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--edge-scroll) transparent; }
-#prep .pm-points { display: flex; align-items: center; gap: var(--sp-100); padding: var(--sp-20) var(--sp-40) var(--sp-50); }
+/* the points left and Set out */
+#prep .pp-foot { flex: none; width: min(124rem, 100%); margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-200); padding: 0 var(--sp-40); }
+#prep .pm-points { display: flex; align-items: center; gap: var(--sp-100); }
 #prep .pm-n { font: var(--fw-bold) var(--fs-display-8)/var(--lh-solid) var(--font-title); color: var(--gold); text-shadow: 0 2px 0 var(--shade), 0 0 2rem var(--gold-45); min-width: 4.6rem; text-align: center; }
 #prep .pm-n.pop { animation: pp-pop var(--dur-base-4) ease-out; }
 @keyframes pp-pop { 0% { transform: scale(1.35); color: #fff6d8; } 100% { transform: scale(1); } }
-#prep .pm-l { font: var(--fw-semibold) var(--fs-label-7) var(--font-title); color: var(--ink); } #prep .pm-of { font-size: var(--fs-body-1); color: var(--ink-dim); }
-#prep .pm-pips { display: flex; flex-wrap: wrap; gap: var(--sp-30); padding: 0 var(--sp-40) var(--sp-60); }
-#prep .pm-pips i { width: 1.6rem; height: .8rem; border-radius: var(--radius-sm-1); background: #2a2018; box-shadow: inset 0 0 0 1px var(--edge-hi-30); }
-#prep .pm-pips i.on { background: linear-gradient(180deg, var(--accent-pale), #c08a28); box-shadow: 0 0 .5rem rgba(255, 210, 110, .55); }
-#prep .pm-h { font: var(--fw-semibold) var(--fs-body-6) var(--font-title); color: var(--gold); margin: var(--sp-50) var(--sp-20) var(--sp-30); padding-top: var(--sp-50); border-top: 1px solid var(--edge-hi-20); }
-#prep .pm-held { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-30); }
-#prep .pm-held li { display: flex; align-items: baseline; gap: var(--sp-50); padding: var(--sp-30) var(--sp-50); border-radius: var(--radius-sm-2); font-size: var(--fs-body-1); background: var(--shade-25); box-shadow: inset .3rem 0 0 var(--cc); }
-#prep .pm-held li .z { flex: none; font: var(--fw-bold) var(--fs-small-1) var(--font-num); color: var(--ink-dim); } #prep .pm-held li .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#prep .pm-held li.empty { color: var(--ink-mute); font-style: italic; box-shadow: inset 0 0 0 1px dashed; border: 1px dashed var(--edge-hi-20); background: none; }
-#prep .pm-bought { display: flex; flex-wrap: wrap; gap: var(--sp-35); font-size: var(--fs-small-7); }
-#prep .pm-chip { display: inline-flex; align-items: center; gap: var(--sp-35); padding: var(--sp-15) var(--sp-50) var(--sp-15) var(--sp-20); border-radius: var(--radius-xl-1); background: rgba(60, 100, 50, .35); box-shadow: inset 0 0 0 1px rgba(140, 230, 130, .4); }
-#prep .pm-chip.own { background: rgba(120, 90, 30, .35); box-shadow: inset 0 0 0 1px var(--gold-45); } #prep .pm-chip i { font-style: normal; color: var(--ink-dim); }
-#prep .pm-chip img { width: 1.8rem; height: 1.8rem; border-radius: var(--radius-round); }
-#prep .pm-reserve { margin-top: var(--sp-80); padding: var(--sp-70) var(--sp-80); border-radius: var(--radius-md-1); background: linear-gradient(180deg, rgba(70, 54, 24, .6), rgba(36, 26, 12, .6)); box-shadow: inset 0 0 0 1px rgba(236, 198, 110, .4); }
-#prep .pm-rl { font: var(--fw-bold) var(--fs-body-6) var(--font-ui); color: #ffe7b0; margin-bottom: var(--sp-25); } #prep .pm-reserve .muted { font-size: var(--fs-small-6); }
+#prep .pm-l { font: var(--fw-semibold) var(--fs-label-7) var(--font-title); color: var(--ink); }
+#prep .pm-rl { font-size: var(--fs-small-7); color: var(--ink-dim); }
 .i.dot, i.dot { display: inline-block; flex: none; width: .85rem; height: .85rem; border-radius: var(--radius-round); background: var(--cc, #8a7c66); box-shadow: 0 0 .45rem var(--cc, transparent), 0 0 0 1px var(--shade-60); margin-right: var(--sp-45); vertical-align: .05rem; }
-#prep .pp-foot { position: absolute; right: 2rem; bottom: 1.8rem; display: flex; align-items: center; gap: var(--sp-100); }
 #pp-go { box-shadow: inset 0 1px 0 rgba(255, 200, 160, .35), inset 0 0 0 1px rgba(255, 190, 120, .55), 0 0 2.2rem rgba(255, 150, 80, .35), 0 .4rem 1rem var(--shade-60); }
 #pp-reroll.disabled { filter: grayscale(.85) brightness(.6); }
 .tt-contract { max-width: 42rem; } .tt-contract .tt-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-100); }
@@ -1678,8 +1663,8 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .clog .cl-st { flex: none; display: flex; flex-direction: column; align-items: flex-end; font-size: var(--fs-small-5); color: var(--ink-dim); } .clog .cl-st b { font: var(--fw-heavy) var(--fs-body-1) var(--font-num); color: var(--ink); }
 .clog .cl-row[data-status="complete"] .cl-st b { color: var(--ink-good); } .clog .cl-row[data-status="expired"], .clog .cl-row[data-status="abandoned"] { opacity: .6; }
 /* the map: contract site marks, the Spyglass */
-.expmap .mnode .xsite { position: absolute; left: -.7rem; top: -.7rem; display: flex; gap: var(--sp-15); padding: var(--sp-20); border-radius: var(--radius-xl-1); background: rgba(20, 14, 8, .9); box-shadow: 0 0 0 1px var(--shade), 0 0 .8rem rgba(255, 220, 140, .35); pointer-events: none; }
-.expmap .mnode .xsite i { width: 1.35rem; height: 1.35rem; border-radius: var(--radius-round) var(--radius-round) var(--radius-round) 0; transform: rotate(-45deg); box-shadow: 0 0 0 1px rgba(0, 0, 0, .75), 0 0 .7rem rgba(255, 230, 160, .55); animation: sitepulse var(--dur-long-6) ease-in-out infinite; }
+.expmap .mnode .xsite { position: absolute; left: -.65rem; top: -.65rem; display: flex; gap: var(--sp-15); padding: var(--sp-20); border-radius: var(--radius-xl-1); background: rgba(20, 14, 8, .9); box-shadow: 0 0 0 1px var(--shade), 0 0 .8rem rgba(255, 220, 140, .35); pointer-events: none; }
+.expmap .mnode .xsite i { width: 1rem; height: 1rem; border-radius: var(--radius-round) var(--radius-round) var(--radius-round) 0; transform: rotate(-45deg); box-shadow: 0 0 0 1px rgba(0, 0, 0, .75), 0 0 .7rem rgba(255, 230, 160, .55); animation: sitepulse var(--dur-long-6) ease-in-out infinite; }
 @keyframes sitepulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.45) drop-shadow(0 0 .35rem rgba(255, 236, 170, .9)); } }
 .tt-line.site { color: var(--ink); }
 .expmap.spying .mbody { cursor: crosshair; box-shadow: inset 0 0 0 .25rem var(--map-spy), inset 0 0 3rem var(--map-spy-soft); }
@@ -1734,31 +1719,39 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .expmap .expmoves .em .btn.small { font-size: var(--fs-small-5); padding: var(--sp-25) var(--sp-60); }
 .expmap .expmoves .em.dimmed .btn { box-shadow: inset 0 0 0 1px var(--map-dimmed); }
 /* nodes on the disc: smaller markers; fog states read at a glance */
-.expmap .mnode { width: 3.7rem; height: 3.7rem; z-index: var(--z-local-2); }
-.expmap .mnode .cl { font-size: var(--fs-small-1); transform: translate(-50%, .25rem); }
+.expmap .mnode { width: 2.6rem; height: 2.6rem; z-index: var(--z-local-2); } /* D128: about 70 % of 3.7rem */
+.expmap .mnode .cl { font-size: var(--fs-micro-12); padding: 0 var(--sp-30); transform: translate(-50%, .2rem); }
+.expmap .mnode .mhrs { font-size: var(--fs-micro-9); padding: 0 var(--sp-30); }
+.expmap .mnode.reach::after { inset: -.35rem; }
+/* D128: a quiet node (not the player's, not reachable, no contract site) shows no text: a fight's level is a pip in its
+   colour, the band, "Hub" and the enemy count are on hover */
+.expmap .mnode.quiet .cl:not(.lvl), .expmap .mnode.quiet .xfoes { display: none; }
+.expmap .mnode.quiet .cl.lvl { width: .7rem; height: .7rem; padding: 0; font-size: 0; line-height: 0; border-radius: var(--radius-round); background: currentColor; box-shadow: 0 0 0 1px var(--shade), 0 0 .3rem var(--shade-60); transform: translate(-50%, .25rem); }
 .expmap .mnode .cl.band { font-style: italic; color: #cfc6b4 !important; background: rgba(40, 34, 28, .8); }
 .expmap .mnode.x-remembered .ring { box-shadow: 0 0 0 .22rem var(--ink-paper), 0 0 0 .32rem var(--map-remembered), 0 .3rem .7rem var(--shade-50); }
 .expmap .mnode.x-remembered img { filter: saturate(.55) brightness(.85); }
 .expmap .mnode.x-typed .ring { box-shadow: 0 0 0 .22rem #2e2820, 0 .2rem .6rem rgba(0, 0, 0, .4); outline: .15rem dashed rgba(230, 220, 200, .75); outline-offset: .15rem; }
 .expmap .mnode.x-typed img { filter: grayscale(.9) sepia(.35) brightness(.8) contrast(.9); opacity: .85; }
-.expmap .mnode.x-unknown { width: 2.8rem; height: 2.8rem; }
+.expmap .mnode.x-unknown { width: 2rem; height: 2rem; }
 .expmap .mnode.x-unknown .ring { background: radial-gradient(circle at 40% 35%, var(--map-unknown), var(--map-unknown-deep)); box-shadow: 0 0 0 .18rem rgba(30, 24, 18, .8), 0 0 1rem rgba(220, 214, 200, .35); opacity: .85; }
-.expmap .mnode.x-unknown .fogq { font-size: var(--fs-label-7); color: var(--map-unknown-text); }
+.expmap .mnode.x-unknown .fogq { font-size: var(--fs-small-6); color: var(--map-unknown-text); }
 .expmap .mnode.x-unknown .cl { display: none; }
 .expmap .mnode.xsf .ring { background: transparent; box-shadow: 0 0 0 .18rem rgba(170, 140, 255, .85), 0 0 1.6rem rgba(140, 100, 255, .85); }
 .expmap .mnode.xsf .fogq { display: none; }
-.expmap .mnode.xsf.x-unknown { width: 3.4rem; height: 3.4rem; }
-.expmap .mnode.xhub { width: 4.6rem; height: 4.6rem; }
+.expmap .mnode.xsf.x-unknown { width: 2.4rem; height: 2.4rem; }
+.expmap .mnode.xhub { width: 3.2rem; height: 3.2rem; }
 .expmap .mnode.lost .ring { opacity: .55; } .expmap .mnode.lost img { filter: grayscale(1) brightness(.4) hue-rotate(220deg); }
 .expmap .mnode.lit .ring { box-shadow: 0 0 0 .25rem var(--ink-paper), 0 0 0 .5rem var(--map-lit), 0 0 2.4rem rgba(255, 230, 150, 1); }
 .expmap .mnode.lit { transform: translate(-50%, -50%) scale(1.12); z-index: var(--z-local-3); }
 .expmap .mnode.here { z-index: var(--z-local-4); }
-.expmap .mnode .flagm { top: -2.3rem; width: 2rem; height: 2.5rem; }
-.expmap .mnode .xfoes { position: absolute; right: -.75rem; bottom: -.2rem; padding: 0 var(--sp-30); border-radius: var(--radius-md-4); background: #5a1a12; color: #ffd6c8; font: var(--fw-heavy) var(--fs-micro-12)/var(--lh-box-6) var(--font-num); box-shadow: 0 0 0 1px #1a0804; pointer-events: none; }
-.expmap .mnode .xclock { position: absolute; left: 50%; top: calc(100% + 1.75rem); transform: translateX(-50%); padding: 0 var(--sp-35); border-radius: var(--radius-sm-1); background: rgba(26, 14, 52, .92); color: #d8ccff; font: var(--fw-bold) var(--fs-micro-12)/var(--lh-box-6) var(--font-ui); white-space: nowrap; box-shadow: 0 0 0 1px rgba(140, 110, 230, .7); pointer-events: none; }
+.expmap .mnode .flagm { top: -1.7rem; width: 1.5rem; height: 1.9rem; }
+.expmap .mnode .xfoes { position: absolute; right: -.7rem; bottom: -.35rem; padding: 0 var(--sp-30); border-radius: var(--radius-md-4); background: #5a1a12; color: #ffd6c8; font: var(--fw-heavy) var(--fs-micro-3)/var(--lh-box-5) var(--font-num); box-shadow: 0 0 0 1px #1a0804; pointer-events: none; }
+.expmap .mnode .xclock { position: absolute; left: 50%; top: calc(100% + 1.45rem); transform: translateX(-50%); padding: 0 var(--sp-35); border-radius: var(--radius-sm-1); background: rgba(26, 14, 52, .92); color: #d8ccff; font: var(--fw-bold) var(--fs-micro-12)/var(--lh-box-6) var(--font-ui); white-space: nowrap; box-shadow: 0 0 0 1px rgba(140, 110, 230, .7); pointer-events: none; }
 .expmap .mnode .xclock.soon { color: #ffd0c8; box-shadow: 0 0 0 1px rgba(255, 120, 110, .9), 0 0 .6rem rgba(160, 80, 255, .7); }
-.expmap .mnode .xclock.urgent { top: auto; bottom: calc(100% + 2.6rem); font-size: var(--fs-body-1); line-height: var(--lh-box-12); padding: 0 var(--sp-60); background: #3a0c2a; color: var(--ink-bright); box-shadow: 0 0 0 2px var(--danger-lethal), 0 0 1.2rem rgba(255, 80, 120, .9); animation: xurgent var(--dur-slow-7) ease-in-out infinite; }
+.expmap .mnode .xclock.urgent { top: auto; bottom: calc(100% + 2rem); font-size: var(--fs-body-1); line-height: var(--lh-box-12); padding: 0 var(--sp-60); background: #3a0c2a; color: var(--ink-bright); box-shadow: 0 0 0 2px var(--danger-lethal), 0 0 1.2rem rgba(255, 80, 120, .9); animation: xurgent var(--dur-slow-7) ease-in-out infinite; }
 .expmap .mnode.here .mhrs { display: none; }
+/* D128: away from the player and his moves a Dimming clock is its number alone, at the node's lower right */
+.expmap .mnode .xclock.mini { top: calc(100% - .5rem); left: calc(100% - .3rem); transform: none; min-width: 1.3rem; padding: 0 var(--sp-20); text-align: center; border-radius: var(--radius-lg-4); font-size: var(--fs-micro-3); }
 /* Roads: a signpost on the rim with the zone it leads to */
 .expmap .xroad { position: absolute; z-index: var(--z-local-1); width: max-content; display: flex; align-items: center; gap: var(--sp-20); transform: translate(0, -50%); pointer-events: auto; cursor: default; }
 .expmap .xroad.l { flex-direction: row-reverse; transform: translate(-100%, -50%); }
@@ -1912,8 +1905,8 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (3167a65 2026-11-12T17:10:50Z) from 63 modules.
-const __BUILD__ = "3167a65 2026-11-12T17:10:50Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (122d8f4 2026-11-12T19:55:32Z) from 64 modules.
+const __BUILD__ = "122d8f4 2026-11-12T19:55:32Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -1972,7 +1965,7 @@ const __bundle = (() => {
   };
 })();
 __bundle.def("src/constants.js", function* (__ns, __link) {
-__link.exp({ "MAX_LEVEL": () => MAX_LEVEL, "ZONE_COUNT": () => ZONE_COUNT, "ZONE_LEVELS": () => ZONE_LEVELS, "ZONE_CHOICE_ROWS": () => ZONE_CHOICE_ROWS, "LANES": () => LANES, "DUNGEON_ROW_MIN": () => DUNGEON_ROW_MIN, "DUNGEON_ROW_MAX": () => DUNGEON_ROW_MAX, "REST_ROW_MIN": () => REST_ROW_MIN, "REST_ROW_MAX": () => REST_ROW_MAX, "TRAINER_ROW_MIN": () => TRAINER_ROW_MIN, "TRAINER_ROW_MAX": () => TRAINER_ROW_MAX, "MAX_SAME_TYPE_PER_ROW": () => MAX_SAME_TYPE_PER_ROW, "W_QUEST": () => W_QUEST, "W_GRIND": () => W_GRIND, "W_ELITE": () => W_ELITE, "W_REST": () => W_REST, "W_VENDOR": () => W_VENDOR, "W_TRAINER": () => W_TRAINER, "W_TREASURE": () => W_TREASURE, "W_SHRINE": () => W_SHRINE, "QUEST_LEVEL_OFFSETS": () => QUEST_LEVEL_OFFSETS, "ELITE_LEVEL_OFFSET": () => ELITE_LEVEL_OFFSET, "DUNGEON_LEVEL_OFFSET": () => DUNGEON_LEVEL_OFFSET, "DUNGEON_BOSS_LEVEL_OFFSET": () => DUNGEON_BOSS_LEVEL_OFFSET, "RARE_CHANCE": () => RARE_CHANCE, "CAMP_GRIND_LEVEL": () => CAMP_GRIND_LEVEL, "TIME_QUEST": () => TIME_QUEST, "TIME_GRIND_WAVE": () => TIME_GRIND_WAVE, "TIME_ELITE": () => TIME_ELITE, "TIME_DUNGEON": () => TIME_DUNGEON, "TIME_REST": () => TIME_REST, "TIME_VENDOR": () => TIME_VENDOR, "TIME_TRAINER": () => TIME_TRAINER, "TIME_TREASURE": () => TIME_TREASURE, "TIME_SHRINE": () => TIME_SHRINE, "TIME_TRAVEL": () => TIME_TRAVEL, "TRAVEL_EARLY_LEVELS": () => TRAVEL_EARLY_LEVELS, "BOSS_TIME_PAR": () => BOSS_TIME_PAR, "ASC_STEP_TIME": () => ASC_STEP_TIME, "ASC_PER_STEP": () => ASC_PER_STEP, "ASC_CAP": () => ASC_CAP, "META_TIME_BUDGET": () => META_TIME_BUDGET, "QUEST_SIZE_W1": () => QUEST_SIZE_W1, "QUEST_SIZE_W2": () => QUEST_SIZE_W2, "QUEST_SIZE_W3": () => QUEST_SIZE_W3, "QUEST_MAX_SIZE_Z1": () => QUEST_MAX_SIZE_Z1, "QUEST_TURNIN_XP_FRAC": () => QUEST_TURNIN_XP_FRAC, "QUEST_GOLD_V": () => QUEST_GOLD_V, "QUEST_REWARD_CHOICES": () => QUEST_REWARD_CHOICES, "STORY_QUESTS": () => STORY_QUESTS, "STORY_XP_FRAC": () => STORY_XP_FRAC, "STORY_REWARD_CHOICES": () => STORY_REWARD_CHOICES, "GRIND_MAX_WAVES": () => GRIND_MAX_WAVES, "GRIND_WAVE_SIZE": () => GRIND_WAVE_SIZE, "GRIND_WAVE_XP_FRAC": () => GRIND_WAVE_XP_FRAC, "GRIND_DROP_MULT": () => GRIND_DROP_MULT, "ELITE_ADD_CHANCE": () => ELITE_ADD_CHANCE, "ELITE_GOLD_V": () => ELITE_GOLD_V, "DUNGEON_TRASH_FIGHTS": () => DUNGEON_TRASH_FIGHTS, "DUNGEON_SIZE_W2": () => DUNGEON_SIZE_W2, "DUNGEON_SIZE_W3": () => DUNGEON_SIZE_W3, "DUNGEON_CLEAR_XP_FRAC": () => DUNGEON_CLEAR_XP_FRAC, "DUNGEON_GOLD_V": () => DUNGEON_GOLD_V, "DUNGEON_BOSS_DROPS": () => DUNGEON_BOSS_DROPS, "TREASURE_GUARD_CHANCE": () => TREASURE_GUARD_CHANCE, "TREASURE_GOLD_V": () => TREASURE_GOLD_V, "TREASURE_TRAP_CHANCE": () => TREASURE_TRAP_CHANCE, "TREASURE_TRAP_PCT": () => TREASURE_TRAP_PCT, "BOON_W_RETURN": () => BOON_W_RETURN, "BOON_W_INSIGHT": () => BOON_W_INSIGHT, "BOON_W_FURY": () => BOON_W_FURY, "BOON_W_PLENTY": () => BOON_W_PLENTY, "BOON_W_MENDING": () => BOON_W_MENDING, "BOON_W_CLARITY": () => BOON_W_CLARITY, "BOON_XP_PCT": () => BOON_XP_PCT, "BOON_DMG_PCT": () => BOON_DMG_PCT, "BOON_NODES": () => BOON_NODES, "BOON_GOLD_V": () => BOON_GOLD_V, "MOB_XP_FRAC": () => MOB_XP_FRAC, "DUNGEON_MOB_XP_MULT": () => DUNGEON_MOB_XP_MULT, "ELITE_XP_MULT": () => ELITE_XP_MULT, "RARE_XP_MULT": () => RARE_XP_MULT, "DUNGEON_BOSS_XP_MULT": () => DUNGEON_BOSS_XP_MULT, "XP_A": () => XP_A, "XP_B": () => XP_B, "XP_C": () => XP_C, "XP_DIFF_STEP": () => XP_DIFF_STEP, "XP_DIFF_MAX": () => XP_DIFF_MAX, "XP_DIFF_SOFT_FLOOR": () => XP_DIFF_SOFT_FLOOR, "XP_DIFF_FALL": () => XP_DIFF_FALL, "XP_GREY_DIFF": () => XP_GREY_DIFF, "XP_GREY_MOD": () => XP_GREY_MOD, "REST_RESTED_FRAC": () => REST_RESTED_FRAC, "RESTED_CAP_FRAC": () => RESTED_CAP_FRAC, "RESTED_MULT": () => RESTED_MULT, "TALENT_FIRST_LEVEL": () => TALENT_FIRST_LEVEL, "TALENT_LEVEL_STEP": () => TALENT_LEVEL_STEP, "TALENT_TIER_GATE": () => TALENT_TIER_GATE, "START_GOLD": () => START_GOLD, "START_RATIONS": () => START_RATIONS, "HP_PER_STA": () => HP_PER_STA, "POWER_PER_PRIMARY": () => POWER_PER_PRIMARY, "RATING_K": () => RATING_K, "RATING_C": () => RATING_C, "CRIT_BASE": () => CRIT_BASE, "CRIT_FROM_PRIMARY": () => CRIT_FROM_PRIMARY, "CRIT_CAP": () => CRIT_CAP, "CRIT_MULT": () => CRIT_MULT, "DODGE_CAP": () => DODGE_CAP, "ARMOR_K": () => ARMOR_K, "ARMOR_C": () => ARMOR_C, "ARMOR_MIT_CAP": () => ARMOR_MIT_CAP, "MANA_BASE": () => MANA_BASE, "MANA_PER_LEVEL": () => MANA_PER_LEVEL, "MANA_PER_INT": () => MANA_PER_INT, "MANA_REGEN_ROUND_PCT": () => MANA_REGEN_ROUND_PCT, "ENERGY_MAX": () => ENERGY_MAX, "ENERGY_REGEN": () => ENERGY_REGEN, "FOCUS_MAX": () => FOCUS_MAX, "FOCUS_REGEN": () => FOCUS_REGEN, "CP_MAX": () => CP_MAX, "POST_FIGHT_REGEN_BASE": () => POST_FIGHT_REGEN_BASE, "POST_FIGHT_REGEN_SPI": () => POST_FIGHT_REGEN_SPI, "REGEN_SPI_K": () => REGEN_SPI_K, "REGEN_SPI_C": () => REGEN_SPI_C, "SPELL_BAR_SLOTS": () => SPELL_BAR_SLOTS, "ITEM_BAR_SLOTS": () => ITEM_BAR_SLOTS, "PET_DMG_BASE": () => PET_DMG_BASE, "PET_DMG_PER_LEVEL": () => PET_DMG_PER_LEVEL, "PET_DMG_POWER": () => PET_DMG_POWER, "PET_REVIVE_PCT": () => PET_REVIVE_PCT, "MISS_BASE": () => MISS_BASE, "MISS_PER_LEVEL": () => MISS_PER_LEVEL, "MISS_CAP": () => MISS_CAP, "LVL_DMG_STEP": () => LVL_DMG_STEP, "LVL_DMG_MIN": () => LVL_DMG_MIN, "LVL_DMG_MAX": () => LVL_DMG_MAX, "DMG_VARIANCE": () => DMG_VARIANCE, "ENEMY_CRIT": () => ENEMY_CRIT, "ENEMY_DODGE": () => ENEMY_DODGE, "CHILL_PCT": () => CHILL_PCT, "CURSE_PCT": () => CURSE_PCT, "STEALTH_MISS_BONUS": () => STEALTH_MISS_BONUS, "POTION_CD": () => POTION_CD, "FREE_POTION_MULT": () => FREE_POTION_MULT, "FLEE_BASE": () => FLEE_BASE, "FLEE_PER_EXTRA_ENEMY": () => FLEE_PER_EXTRA_ENEMY, "FIGHT_SOFT_ENRAGE_ROUND": () => FIGHT_SOFT_ENRAGE_ROUND, "FIGHT_SOFT_ENRAGE_STEP": () => FIGHT_SOFT_ENRAGE_STEP, "ENEMY_HP_BASE": () => ENEMY_HP_BASE, "ENEMY_HP_PER_LEVEL": () => ENEMY_HP_PER_LEVEL, "ENEMY_DMG_BASE": () => ENEMY_DMG_BASE, "ENEMY_DMG_PER_LEVEL": () => ENEMY_DMG_PER_LEVEL, "ZONE_DANGER_FROM": () => ZONE_DANGER_FROM, "ZONE_DANGER_STEP": () => ZONE_DANGER_STEP, "DUNGEON_DANGER_FRAC": () => DUNGEON_DANGER_FRAC, "EARLY_DMG_MULT": () => EARLY_DMG_MULT, "EARLY_DMG_MAX_LEVEL": () => EARLY_DMG_MAX_LEVEL, "ENEMY_ARMOR_PER_LEVEL": () => ENEMY_ARMOR_PER_LEVEL, "DUNGEON_TRASH_HP_MULT": () => DUNGEON_TRASH_HP_MULT, "DUNGEON_TRASH_DMG_MULT": () => DUNGEON_TRASH_DMG_MULT, "ELITE_HP_MULT": () => ELITE_HP_MULT, "ELITE_DMG_MULT": () => ELITE_DMG_MULT, "RARE_HP_MULT": () => RARE_HP_MULT, "RARE_DMG_MULT": () => RARE_DMG_MULT, "DUNGEON_BOSS_HP_MULT": () => DUNGEON_BOSS_HP_MULT, "DUNGEON_BOSS_DMG_MULT": () => DUNGEON_BOSS_DMG_MULT, "AUTO_POTION_HP": () => AUTO_POTION_HP, "AUTO_MANA_POTION": () => AUTO_MANA_POTION, "AUTO_TONIC_STACKS": () => AUTO_TONIC_STACKS, "AUTO_FOOD_HP": () => AUTO_FOOD_HP, "BUDGET_PER_ILVL": () => BUDGET_PER_ILVL, "ILVL_MAX": () => ILVL_MAX, "MIN_HIT_DAMAGE": () => MIN_HIT_DAMAGE, "RARITY_ILVL_BONUS": () => RARITY_ILVL_BONUS, "AFFIX_SHARE": () => AFFIX_SHARE, "AFFIX_CRIT_PCT": () => AFFIX_CRIT_PCT, "AFFIX_EPIC_MULT": () => AFFIX_EPIC_MULT, "AFFIX_POWER_PER_PT": () => AFFIX_POWER_PER_PT, "AFFIX_ARMOR_PER_PT": () => AFFIX_ARMOR_PER_PT, "SPLIT2_MAIN": () => SPLIT2_MAIN, "SPLIT3_MAIN": () => SPLIT3_MAIN, "SPLIT3_SECOND": () => SPLIT3_SECOND, "DROP_CLASS_BIAS": () => DROP_CLASS_BIAS, "WEAPON_DMG_BASE": () => WEAPON_DMG_BASE, "WEAPON_DMG_PER_ILVL": () => WEAPON_DMG_PER_ILVL, "ARMOR_PER_ILVL": () => ARMOR_PER_ILVL, "MOB_ITEM_CHANCE": () => MOB_ITEM_CHANCE, "DUNGEON_ITEM_CHANCE": () => DUNGEON_ITEM_CHANCE, "MOB_JUNK_CHANCE": () => MOB_JUNK_CHANCE, "EMBER_ELITE_DROP_CHANCE": () => EMBER_ELITE_DROP_CHANCE, "UNIQUE_DROP_CHANCE": () => UNIQUE_DROP_CHANCE, "VALUE_BASE": () => VALUE_BASE, "VALUE_COEF": () => VALUE_COEF, "VALUE_EXP": () => VALUE_EXP, "MOB_COIN_V": () => MOB_COIN_V, "JUNK_V": () => JUNK_V, "BUY_MULT": () => BUY_MULT, "TRAIN_NEW_V": () => TRAIN_NEW_V, "TRAIN_RANK_V": () => TRAIN_RANK_V, "RESPEC_V": () => RESPEC_V, "VENDOR_CONSUMABLES": () => VENDOR_CONSUMABLES, "VENDOR_GEAR_STOCK": () => VENDOR_GEAR_STOCK, "EMBER_STOCK_CHANCE": () => EMBER_STOCK_CHANCE, "EMBER_V": () => EMBER_V, "EMBER_MAX_CARRIED": () => EMBER_MAX_CARRIED, "HEAL_DRAUGHT_PCT": () => HEAL_DRAUGHT_PCT, "MANA_DRAUGHT_PCT": () => MANA_DRAUGHT_PCT, "RATION_PCT": () => RATION_PCT, "GREATER_HEAL_PCT": () => GREATER_HEAL_PCT, "SPARK_BASE": () => SPARK_BASE, "SPARK_PER_LEVEL": () => SPARK_PER_LEVEL, "ELIXIR_DMG_PCT": () => ELIXIR_DMG_PCT, "ELIXIR_NODES": () => ELIXIR_NODES, "PRICE_HEAL_V": () => PRICE_HEAL_V, "PRICE_MANA_V": () => PRICE_MANA_V, "PRICE_RATION_V": () => PRICE_RATION_V, "PRICE_TONIC_V": () => PRICE_TONIC_V, "PRICE_SPARK_V": () => PRICE_SPARK_V, "PRICE_ELIXIR_V": () => PRICE_ELIXIR_V, "PRICE_GHEAL_V": () => PRICE_GHEAL_V, "STACK_POTION": () => STACK_POTION, "STACK_FOOD": () => STACK_FOOD, "STACK_ELIXIR": () => STACK_ELIXIR, "STACK_JUNK": () => STACK_JUNK, "BAG_SLOTS": () => BAG_SLOTS, "RES_HP_PCT": () => RES_HP_PCT, "RES_MANA_PCT": () => RES_MANA_PCT, "RES_META_CHARGES": () => RES_META_CHARGES, "BOSS_LEVEL": () => BOSS_LEVEL, "BOSS_HP": () => BOSS_HP, "BOSS_DMG_MULT": () => BOSS_DMG_MULT, "BOSS_ARMOR": () => BOSS_ARMOR, "BOSS_MELEE": () => BOSS_MELEE, "BOSS_CRUSH": () => BOSS_CRUSH, "BOSS_CRUSH_EVERY": () => BOSS_CRUSH_EVERY, "BOSS_LITANY_DMG": () => BOSS_LITANY_DMG, "LITANY_FIRST": () => LITANY_FIRST, "LITANY_EVERY": () => LITANY_EVERY, "BRAND_EVERY": () => BRAND_EVERY, "BRAND_DMG": () => BRAND_DMG, "BRAND_MAX": () => BRAND_MAX, "P2_AT": () => P2_AT, "P3_AT": () => P3_AT, "SHARD_HP": () => SHARD_HP, "SHARD_DMG": () => SHARD_DMG, "SHARD_COUNT": () => SHARD_COUNT, "SHARD_EVERY": () => SHARD_EVERY, "SHARD_MAX": () => SHARD_MAX, "LINK_DR": () => LINK_DR, "LINK_DR_PER_SHARD": () => LINK_DR_PER_SHARD, "SHARD_AOE_TAKEN": () => SHARD_AOE_TAKEN, "ECLIPSE_STEP": () => ECLIPSE_STEP, "PULSE_DMG": () => PULSE_DMG, "PULSE_EVERY": () => PULSE_EVERY, "BOSS_ENRAGE_ROUND": () => BOSS_ENRAGE_ROUND, "FINAL_DARK_DMG": () => FINAL_DARK_DMG, "ECHO_PER_LEVEL": () => ECHO_PER_LEVEL, "ECHO_PER_ZONE": () => ECHO_PER_ZONE, "ECHO_PER_DUNGEON": () => ECHO_PER_DUNGEON, "ECHO_PER_ELITE": () => ECHO_PER_ELITE, "ECHO_PER_RARE": () => ECHO_PER_RARE, "ECHO_PER_QUEST": () => ECHO_PER_QUEST, "ECHO_BOSS_REACHED": () => ECHO_BOSS_REACHED, "ECHO_BOSS_PHASE": () => ECHO_BOSS_PHASE, "ECHO_BOSS_KILL": () => ECHO_BOSS_KILL, "ECHO_SPEED_BONUS": () => ECHO_SPEED_BONUS, "ECHO_FIRST_KILL_CLASS": () => ECHO_FIRST_KILL_CLASS, "OATH_ECHO_BONUS": () => OATH_ECHO_BONUS, "OATH_HASTE_TIME": () => OATH_HASTE_TIME, "OATH_THRIFT_MULT": () => OATH_THRIFT_MULT, "UNIQUE_PROC_CHANCE": () => UNIQUE_PROC_CHANCE, "UNIQUE_PROC_BASE": () => UNIQUE_PROC_BASE, "UNIQUE_PROC_PER_LEVEL": () => UNIQUE_PROC_PER_LEVEL, "UNIQUE_HEAL_ON_KILL": () => UNIQUE_HEAL_ON_KILL, "UNIQUE_ELITE_DMG": () => UNIQUE_ELITE_DMG, "UNIQUE_POTION_PCT": () => UNIQUE_POTION_PCT, "UNIQUE_WARD_PCT": () => UNIQUE_WARD_PCT, "PACE_CREATE_S": () => PACE_CREATE_S, "PACE_DECIDE_S": () => PACE_DECIDE_S, "PACE_TRAVEL_NODE_S": () => PACE_TRAVEL_NODE_S, "PACE_ZONE_TRAVEL_S": () => PACE_ZONE_TRAVEL_S, "PACE_QUEST_TEXT_S": () => PACE_QUEST_TEXT_S, "PACE_FIGHT_OVERHEAD_S": () => PACE_FIGHT_OVERHEAD_S, "PACE_ROUND_ANIM_S": () => PACE_ROUND_ANIM_S, "PACE_ROUND_DECIDE_S": () => PACE_ROUND_DECIDE_S, "PACE_MANUAL_ROUND_S": () => PACE_MANUAL_ROUND_S, "PACE_AUTO_ROUND_S": () => PACE_AUTO_ROUND_S, "PACE_ENGAGE_S": () => PACE_ENGAGE_S, "PACE_LOOT_S": () => PACE_LOOT_S, "PACE_LEVELUP_S": () => PACE_LEVELUP_S, "PACE_TALENT_S": () => PACE_TALENT_S, "PACE_REST_S": () => PACE_REST_S, "PACE_SHRINE_S": () => PACE_SHRINE_S, "PACE_TREASURE_S": () => PACE_TREASURE_S, "PACE_VENDOR_S": () => PACE_VENDOR_S, "PACE_VENDOR_TX_S": () => PACE_VENDOR_TX_S, "PACE_TRAINER_S": () => PACE_TRAINER_S, "PACE_TRAINER_TX_S": () => PACE_TRAINER_TX_S, "PACE_BOSS_INTRO_S": () => PACE_BOSS_INTRO_S, "INTENT_TRACK_LEN": () => INTENT_TRACK_LEN, "OPENING_TURNS": () => OPENING_TURNS, "SIGNATURE_TURN": () => SIGNATURE_TURN, "SIGNATURE_TURN_2": () => SIGNATURE_TURN_2, "HEAVY_SCRIPT_MULT": () => HEAVY_SCRIPT_MULT, "CAST_SCRIPT_MULT": () => CAST_SCRIPT_MULT, "MEND_BELOW": () => MEND_BELOW, "SIGNAL_ADDS": () => SIGNAL_ADDS, "BOLSTER_PCT": () => BOLSTER_PCT, "BOLSTER_CD": () => BOLSTER_CD, "BLOODLUST_STEP": () => BLOODLUST_STEP, "BLOODLUST_MAX": () => BLOODLUST_MAX, "OFFBAL_TAKEN": () => OFFBAL_TAKEN, "OFFBAL_BOSS_TAKEN": () => OFFBAL_BOSS_TAKEN, "OFFBAL_CRIT": () => OFFBAL_CRIT, "OFFBAL_DURATION": () => OFFBAL_DURATION, "ENGAGE_DMG_COMP": () => ENGAGE_DMG_COMP, "AMBUSH_MULT": () => AMBUSH_MULT, "SAP_TURNS": () => SAP_TURNS, "PREMED_CP": () => PREMED_CP, "GLYPH_TURNS": () => GLYPH_TURNS, "GATHER_SPELLS": () => GATHER_SPELLS, "GATHER_CRIT": () => GATHER_CRIT, "OPENING_SHOT_MULT": () => OPENING_SHOT_MULT, "OPENING_MARK_ROUNDS": () => OPENING_MARK_ROUNDS, "TRAP_STUN": () => TRAP_STUN, "PET_LEAD_TURNS": () => PET_LEAD_TURNS, "PET_LEAD_DR": () => PET_LEAD_DR, "ENGAGE_AUTO_LOOK": () => ENGAGE_AUTO_LOOK, "EMPOWER_DMG": () => EMPOWER_DMG, "STAGGER_DMG": () => STAGGER_DMG, "DEATHBLOW_MULT": () => DEATHBLOW_MULT, "DEATHBLOW_EMPOWER": () => DEATHBLOW_EMPOWER, "MAIM_HEAL": () => MAIM_HEAL, "RARE_HP_MULT_Z1": () => RARE_HP_MULT_Z1, "GATES": () => GATES, "RING_NODES": () => RING_NODES, "RING_CL_BASE": () => RING_CL_BASE, "RING_CL_SPREAD": () => RING_CL_SPREAD, "EDGE_KEEP_R1": () => EDGE_KEEP_R1, "EDGE_KEEP_R2": () => EDGE_KEEP_R2, "EDGE_KEEP_R3": () => EDGE_KEEP_R3, "EDGE_DIAG_R23": () => EDGE_DIAG_R23, "REGION_COUNT": () => REGION_COUNT, "REGION_FAMILY_SHARE": () => REGION_FAMILY_SHARE, "TIME_WALK": () => TIME_WALK, "ROAD_COUNT": () => ROAD_COUNT, "VISION_RADIUS": () => VISION_RADIUS, "VISION_RADIUS_MAX": () => VISION_RADIUS_MAX, "GUIDE_RADIUS_BONUS": () => GUIDE_RADIUS_BONUS, "PATHFINDER_RADIUS": () => PATHFINDER_RADIUS, "DIM_GRACE": () => DIM_GRACE, "DIM_FRONT_HOPS": () => DIM_FRONT_HOPS, "DIM_FRONT_TIME": () => DIM_FRONT_TIME, "DIM_PACK_SIZE": () => DIM_PACK_SIZE, "DIM_LEVEL_PER_DEPTH": () => DIM_LEVEL_PER_DEPTH, "DIM_HP_MULT": () => DIM_HP_MULT, "DIM_DMG_MULT": () => DIM_DMG_MULT, "DIM_XP_MULT": () => DIM_XP_MULT, "TIME_DIM_FIGHT": () => TIME_DIM_FIGHT, "TIME_DIM_ESCAPE": () => TIME_DIM_ESCAPE, "BELL_START_CHARGES": () => BELL_START_CHARGES, "BELL_MAX_CHARGES": () => BELL_MAX_CHARGES, "BELL_CHANNEL_TIME": () => BELL_CHANNEL_TIME, "PACE_BELL_S": () => PACE_BELL_S, "ROAD_SWIFT_TOLLS": () => ROAD_SWIFT_TOLLS, "ROAD_SWIFT_XP_FRAC": () => ROAD_SWIFT_XP_FRAC, "XP_WEIGHT_MULT": () => XP_WEIGHT_MULT, "EXPED_GRIND_MAX_WAVES": () => EXPED_GRIND_MAX_WAVES, "EXPED_DUNGEON_TRASH_FIGHTS": () => EXPED_DUNGEON_TRASH_FIGHTS, "EXPED_TIME_QUEST": () => EXPED_TIME_QUEST, "EXPED_TIME_ELITE": () => EXPED_TIME_ELITE, "EXPED_TIME_GRIND_WAVE": () => EXPED_TIME_GRIND_WAVE, "EXPED_TIME_DUNGEON": () => EXPED_TIME_DUNGEON, "EXPED_DROP_MULT": () => EXPED_DROP_MULT, "EXPED_DUNGEON_BOSS_DROPS": () => EXPED_DUNGEON_BOSS_DROPS, "PREP_POINTS": () => PREP_POINTS, "PREP_POINTS_PER_QM": () => PREP_POINTS_PER_QM, "META_COST_CARTOGRAPHER": () => META_COST_CARTOGRAPHER, "META_COST_OLD_HAND": () => META_COST_OLD_HAND, "META_COST_QM_1": () => META_COST_QM_1, "META_COST_QM_2": () => META_COST_QM_2, "PREP_ECHO_PER_POINT": () => PREP_ECHO_PER_POINT, "CONTRACT_BOARD_SIZE": () => CONTRACT_BOARD_SIZE, "CONTRACT_BOARD_EXTRA": () => CONTRACT_BOARD_EXTRA, "CONTRACT_SLOTS": () => CONTRACT_SLOTS, "REROLL_PRICE": () => REROLL_PRICE, "REROLL_MAX": () => REROLL_MAX, "CW_CULL": () => CW_CULL, "CW_BOUNTY": () => CW_BOUNTY, "CW_DELVE": () => CW_DELVE, "CULL_SITES": () => CULL_SITES, "CULL_SITE_SPARE": () => CULL_SITE_SPARE, "CULL_SITE_IN": () => CULL_SITE_IN, "CULL_SITE_OUT": () => CULL_SITE_OUT, "BOUNTY_PLACED": () => BOUNTY_PLACED, "CONTRACT_CL_OFFSET": () => CONTRACT_CL_OFFSET, "CULL_XP_FRAC": () => CULL_XP_FRAC, "BOUNTY_XP_FRAC": () => BOUNTY_XP_FRAC, "DELVE_XP_FRAC": () => DELVE_XP_FRAC, "CULL_GOLD_V": () => CULL_GOLD_V, "BOUNTY_GOLD_V": () => BOUNTY_GOLD_V, "DELVE_GOLD_V": () => DELVE_GOLD_V, "CONTRACT_REWARD_CHOICES": () => CONTRACT_REWARD_CHOICES, "DELVE_REWARD_CHOICES": () => DELVE_REWARD_CHOICES, "CONTRACT_RARE_W": () => CONTRACT_RARE_W, "CONTRACT_EPIC_W": () => CONTRACT_EPIC_W, "BOUNTY_RARE_W": () => BOUNTY_RARE_W, "BOUNTY_EPIC_W": () => BOUNTY_EPIC_W, "ECHO_CONTRACT_MULT": () => ECHO_CONTRACT_MULT, "PRICE_PREP_DRAUGHTS": () => PRICE_PREP_DRAUGHTS, "PREP_DRAUGHT_COUNT": () => PREP_DRAUGHT_COUNT, "PRICE_PREP_RATIONS": () => PRICE_PREP_RATIONS, "PREP_RATION_COUNT": () => PREP_RATION_COUNT, "PRICE_PREP_EMBER": () => PRICE_PREP_EMBER, "PRICE_PREP_BELL": () => PRICE_PREP_BELL, "PRICE_PREP_MULE": () => PRICE_PREP_MULE, "PREP_MULE_SLOTS": () => PREP_MULE_SLOTS, "PRICE_CHARTS": () => PRICE_CHARTS, "PRICE_TRACKER": () => PRICE_TRACKER, "PRICE_GUIDE": () => PRICE_GUIDE, "PRICE_SPYGLASS": () => PRICE_SPYGLASS, "SPYGLASS_CHARGES": () => SPYGLASS_CHARGES, "TRACKER_RADIUS": () => TRACKER_RADIUS, "PACE_PREP_S": () => PACE_PREP_S, "PACE_HUB_CONTRACT_S": () => PACE_HUB_CONTRACT_S, "HEAT_STATES": () => HEAT_STATES, "HEAT_WARM_AT": () => HEAT_WARM_AT, "HEAT_HOT_AT": () => HEAT_HOT_AT, "HEAT_SCORCH_AT": () => HEAT_SCORCH_AT, "HEAT_DIM_WARM": () => HEAT_DIM_WARM, "HEAT_DIM_HOT": () => HEAT_DIM_HOT, "HEAT_GAIN": () => HEAT_GAIN, "HEAT_RARITY_UP": () => HEAT_RARITY_UP, "ECHO_PER_HEAT_FIGHT": () => ECHO_PER_HEAT_FIGHT, "HEAT_BAR_MIN": () => HEAT_BAR_MIN, "HEAT_BAR_MAX": () => HEAT_BAR_MAX, "NODE_TYPE": () => NODE_TYPE, "NODE_DRAW_ORDER": () => NODE_DRAW_ORDER, "ROW1_FORBIDDEN": () => ROW1_FORBIDDEN, "MAP_REDRAW_TRIES": () => MAP_REDRAW_TRIES, "REGION_W": () => REGION_W, "REGION_KINDS": () => REGION_KINDS, "EXPEDITION_TEXT_IDS": () => EXPEDITION_TEXT_IDS, "RING1_FORBIDDEN": () => RING1_FORBIDDEN, "CLASS": () => CLASS, "CLASS_IDS": () => CLASS_IDS, "BEASTCALL_HORN_CD": () => BEASTCALL_HORN_CD, "RICOCHET_BOUNCE_FRAC": () => RICOCHET_BOUNCE_FRAC, "RICOCHET_BOUNCE_FRAC_GATED": () => RICOCHET_BOUNCE_FRAC_GATED, "SPELL": () => SPELL, "PET": () => PET, "TALENT": () => TALENT, "TALENT_PER_RANK": () => TALENT_PER_RANK, "ARCHETYPE": () => ARCHETYPE, "OPENING_SCRIPT": () => OPENING_SCRIPT, "SCRIPT_ACTION": () => SCRIPT_ACTION, "ENGAGE_OPTION": () => ENGAGE_OPTION, "ENGAGE_OPTIONS": () => ENGAGE_OPTIONS, "VARIANT": () => VARIANT, "SLOT": () => SLOT, "SLOT_IDS": () => SLOT_IDS, "RARITY": () => RARITY, "RARITY_ORDER": () => RARITY_ORDER, "STAT1_PRIMARY_CHANCE": () => STAT1_PRIMARY_CHANCE, "STAT2_STA_CHANCE": () => STAT2_STA_CHANCE, "AFFIX_KINDS": () => AFFIX_KINDS, "DROP_TABLE": () => DROP_TABLE, "ITEM_SCORE": () => ITEM_SCORE, "ITEM_SCORE_CRIT_UNIT": () => ITEM_SCORE_CRIT_UNIT, "CONSUMABLE": () => CONSUMABLE, "VENDOR_STOCK_CONSUMABLES": () => VENDOR_STOCK_CONSUMABLES, "BOON": () => BOON, "BOON_IDS": () => BOON_IDS, "SHRINE_BOON_COUNT": () => SHRINE_BOON_COUNT, "META": () => META, "PREP_OPTION": () => PREP_OPTION, "PREP_OPTION_IDS": () => PREP_OPTION_IDS, "CONTRACT": () => CONTRACT, "CONTRACT_KINDS": () => CONTRACT_KINDS, "META_EXPEDITION": () => META_EXPEDITION, "OATH": () => OATH, "OATH_IDS": () => OATH_IDS, "ABILITY_TEMPLATE": () => ABILITY_TEMPLATE, "CONTENT_RANGE": () => CONTENT_RANGE, "BOSS_TEXT": () => BOSS_TEXT, "DEBUFFS": () => DEBUFFS, "ENGINE_ASSUMPTION": () => ENGINE_ASSUMPTION, "DEV": () => DEV });
+__link.exp({ "MAX_LEVEL": () => MAX_LEVEL, "ZONE_COUNT": () => ZONE_COUNT, "ZONE_LEVELS": () => ZONE_LEVELS, "ZONE_CHOICE_ROWS": () => ZONE_CHOICE_ROWS, "LANES": () => LANES, "DUNGEON_ROW_MIN": () => DUNGEON_ROW_MIN, "DUNGEON_ROW_MAX": () => DUNGEON_ROW_MAX, "REST_ROW_MIN": () => REST_ROW_MIN, "REST_ROW_MAX": () => REST_ROW_MAX, "TRAINER_ROW_MIN": () => TRAINER_ROW_MIN, "TRAINER_ROW_MAX": () => TRAINER_ROW_MAX, "MAX_SAME_TYPE_PER_ROW": () => MAX_SAME_TYPE_PER_ROW, "W_QUEST": () => W_QUEST, "W_GRIND": () => W_GRIND, "W_ELITE": () => W_ELITE, "W_REST": () => W_REST, "W_VENDOR": () => W_VENDOR, "W_TRAINER": () => W_TRAINER, "W_TREASURE": () => W_TREASURE, "W_SHRINE": () => W_SHRINE, "QUEST_LEVEL_OFFSETS": () => QUEST_LEVEL_OFFSETS, "ELITE_LEVEL_OFFSET": () => ELITE_LEVEL_OFFSET, "DUNGEON_LEVEL_OFFSET": () => DUNGEON_LEVEL_OFFSET, "DUNGEON_BOSS_LEVEL_OFFSET": () => DUNGEON_BOSS_LEVEL_OFFSET, "RARE_CHANCE": () => RARE_CHANCE, "CAMP_GRIND_LEVEL": () => CAMP_GRIND_LEVEL, "TIME_QUEST": () => TIME_QUEST, "TIME_GRIND_WAVE": () => TIME_GRIND_WAVE, "TIME_ELITE": () => TIME_ELITE, "TIME_DUNGEON": () => TIME_DUNGEON, "TIME_REST": () => TIME_REST, "TIME_VENDOR": () => TIME_VENDOR, "TIME_TRAINER": () => TIME_TRAINER, "TIME_TREASURE": () => TIME_TREASURE, "TIME_SHRINE": () => TIME_SHRINE, "TIME_TRAVEL": () => TIME_TRAVEL, "TRAVEL_EARLY_LEVELS": () => TRAVEL_EARLY_LEVELS, "BOSS_TIME_PAR": () => BOSS_TIME_PAR, "ASC_STEP_TIME": () => ASC_STEP_TIME, "ASC_PER_STEP": () => ASC_PER_STEP, "ASC_CAP": () => ASC_CAP, "META_TIME_BUDGET": () => META_TIME_BUDGET, "QUEST_SIZE_W1": () => QUEST_SIZE_W1, "QUEST_SIZE_W2": () => QUEST_SIZE_W2, "QUEST_SIZE_W3": () => QUEST_SIZE_W3, "QUEST_MAX_SIZE_Z1": () => QUEST_MAX_SIZE_Z1, "QUEST_TURNIN_XP_FRAC": () => QUEST_TURNIN_XP_FRAC, "QUEST_GOLD_V": () => QUEST_GOLD_V, "QUEST_REWARD_CHOICES": () => QUEST_REWARD_CHOICES, "STORY_QUESTS": () => STORY_QUESTS, "STORY_XP_FRAC": () => STORY_XP_FRAC, "STORY_REWARD_CHOICES": () => STORY_REWARD_CHOICES, "GRIND_MAX_WAVES": () => GRIND_MAX_WAVES, "GRIND_WAVE_SIZE": () => GRIND_WAVE_SIZE, "GRIND_WAVE_XP_FRAC": () => GRIND_WAVE_XP_FRAC, "GRIND_DROP_MULT": () => GRIND_DROP_MULT, "ELITE_ADD_CHANCE": () => ELITE_ADD_CHANCE, "ELITE_GOLD_V": () => ELITE_GOLD_V, "DUNGEON_TRASH_FIGHTS": () => DUNGEON_TRASH_FIGHTS, "DUNGEON_SIZE_W2": () => DUNGEON_SIZE_W2, "DUNGEON_SIZE_W3": () => DUNGEON_SIZE_W3, "DUNGEON_CLEAR_XP_FRAC": () => DUNGEON_CLEAR_XP_FRAC, "DUNGEON_GOLD_V": () => DUNGEON_GOLD_V, "DUNGEON_BOSS_DROPS": () => DUNGEON_BOSS_DROPS, "TREASURE_GUARD_CHANCE": () => TREASURE_GUARD_CHANCE, "TREASURE_GOLD_V": () => TREASURE_GOLD_V, "TREASURE_TRAP_CHANCE": () => TREASURE_TRAP_CHANCE, "TREASURE_TRAP_PCT": () => TREASURE_TRAP_PCT, "BOON_W_RETURN": () => BOON_W_RETURN, "BOON_W_INSIGHT": () => BOON_W_INSIGHT, "BOON_W_FURY": () => BOON_W_FURY, "BOON_W_PLENTY": () => BOON_W_PLENTY, "BOON_W_MENDING": () => BOON_W_MENDING, "BOON_W_CLARITY": () => BOON_W_CLARITY, "BOON_XP_PCT": () => BOON_XP_PCT, "BOON_DMG_PCT": () => BOON_DMG_PCT, "BOON_NODES": () => BOON_NODES, "BOON_GOLD_V": () => BOON_GOLD_V, "MOB_XP_FRAC": () => MOB_XP_FRAC, "DUNGEON_MOB_XP_MULT": () => DUNGEON_MOB_XP_MULT, "ELITE_XP_MULT": () => ELITE_XP_MULT, "RARE_XP_MULT": () => RARE_XP_MULT, "DUNGEON_BOSS_XP_MULT": () => DUNGEON_BOSS_XP_MULT, "XP_A": () => XP_A, "XP_B": () => XP_B, "XP_C": () => XP_C, "XP_DIFF_STEP": () => XP_DIFF_STEP, "XP_DIFF_MAX": () => XP_DIFF_MAX, "XP_DIFF_SOFT_FLOOR": () => XP_DIFF_SOFT_FLOOR, "XP_DIFF_FALL": () => XP_DIFF_FALL, "XP_GREY_DIFF": () => XP_GREY_DIFF, "XP_GREY_MOD": () => XP_GREY_MOD, "REST_RESTED_FRAC": () => REST_RESTED_FRAC, "RESTED_CAP_FRAC": () => RESTED_CAP_FRAC, "RESTED_MULT": () => RESTED_MULT, "TALENT_FIRST_LEVEL": () => TALENT_FIRST_LEVEL, "TALENT_LEVEL_STEP": () => TALENT_LEVEL_STEP, "TALENT_TIER_GATE": () => TALENT_TIER_GATE, "START_GOLD": () => START_GOLD, "START_RATIONS": () => START_RATIONS, "HP_PER_STA": () => HP_PER_STA, "POWER_PER_PRIMARY": () => POWER_PER_PRIMARY, "RATING_K": () => RATING_K, "RATING_C": () => RATING_C, "CRIT_BASE": () => CRIT_BASE, "CRIT_FROM_PRIMARY": () => CRIT_FROM_PRIMARY, "CRIT_CAP": () => CRIT_CAP, "CRIT_MULT": () => CRIT_MULT, "DODGE_CAP": () => DODGE_CAP, "ARMOR_K": () => ARMOR_K, "ARMOR_C": () => ARMOR_C, "ARMOR_MIT_CAP": () => ARMOR_MIT_CAP, "MANA_BASE": () => MANA_BASE, "MANA_PER_LEVEL": () => MANA_PER_LEVEL, "MANA_PER_INT": () => MANA_PER_INT, "MANA_REGEN_ROUND_PCT": () => MANA_REGEN_ROUND_PCT, "ENERGY_MAX": () => ENERGY_MAX, "ENERGY_REGEN": () => ENERGY_REGEN, "FOCUS_MAX": () => FOCUS_MAX, "FOCUS_REGEN": () => FOCUS_REGEN, "CP_MAX": () => CP_MAX, "POST_FIGHT_REGEN_BASE": () => POST_FIGHT_REGEN_BASE, "POST_FIGHT_REGEN_SPI": () => POST_FIGHT_REGEN_SPI, "REGEN_SPI_K": () => REGEN_SPI_K, "REGEN_SPI_C": () => REGEN_SPI_C, "SPELL_BAR_SLOTS": () => SPELL_BAR_SLOTS, "ITEM_BAR_SLOTS": () => ITEM_BAR_SLOTS, "PET_DMG_BASE": () => PET_DMG_BASE, "PET_DMG_PER_LEVEL": () => PET_DMG_PER_LEVEL, "PET_DMG_POWER": () => PET_DMG_POWER, "PET_REVIVE_PCT": () => PET_REVIVE_PCT, "MISS_BASE": () => MISS_BASE, "MISS_PER_LEVEL": () => MISS_PER_LEVEL, "MISS_CAP": () => MISS_CAP, "LVL_DMG_STEP": () => LVL_DMG_STEP, "LVL_DMG_MIN": () => LVL_DMG_MIN, "LVL_DMG_MAX": () => LVL_DMG_MAX, "DMG_VARIANCE": () => DMG_VARIANCE, "ENEMY_CRIT": () => ENEMY_CRIT, "ENEMY_DODGE": () => ENEMY_DODGE, "CHILL_PCT": () => CHILL_PCT, "CURSE_PCT": () => CURSE_PCT, "STEALTH_MISS_BONUS": () => STEALTH_MISS_BONUS, "POTION_CD": () => POTION_CD, "FREE_POTION_MULT": () => FREE_POTION_MULT, "FLEE_BASE": () => FLEE_BASE, "FLEE_PER_EXTRA_ENEMY": () => FLEE_PER_EXTRA_ENEMY, "FIGHT_SOFT_ENRAGE_ROUND": () => FIGHT_SOFT_ENRAGE_ROUND, "FIGHT_SOFT_ENRAGE_STEP": () => FIGHT_SOFT_ENRAGE_STEP, "ENEMY_HP_BASE": () => ENEMY_HP_BASE, "ENEMY_HP_PER_LEVEL": () => ENEMY_HP_PER_LEVEL, "ENEMY_DMG_BASE": () => ENEMY_DMG_BASE, "ENEMY_DMG_PER_LEVEL": () => ENEMY_DMG_PER_LEVEL, "ZONE_DANGER_FROM": () => ZONE_DANGER_FROM, "ZONE_DANGER_STEP": () => ZONE_DANGER_STEP, "DUNGEON_DANGER_FRAC": () => DUNGEON_DANGER_FRAC, "EARLY_DMG_MULT": () => EARLY_DMG_MULT, "EARLY_DMG_MAX_LEVEL": () => EARLY_DMG_MAX_LEVEL, "ENEMY_ARMOR_PER_LEVEL": () => ENEMY_ARMOR_PER_LEVEL, "DUNGEON_TRASH_HP_MULT": () => DUNGEON_TRASH_HP_MULT, "DUNGEON_TRASH_DMG_MULT": () => DUNGEON_TRASH_DMG_MULT, "ELITE_HP_MULT": () => ELITE_HP_MULT, "ELITE_DMG_MULT": () => ELITE_DMG_MULT, "RARE_HP_MULT": () => RARE_HP_MULT, "RARE_DMG_MULT": () => RARE_DMG_MULT, "DUNGEON_BOSS_HP_MULT": () => DUNGEON_BOSS_HP_MULT, "DUNGEON_BOSS_DMG_MULT": () => DUNGEON_BOSS_DMG_MULT, "AUTO_POTION_HP": () => AUTO_POTION_HP, "AUTO_MANA_POTION": () => AUTO_MANA_POTION, "AUTO_TONIC_STACKS": () => AUTO_TONIC_STACKS, "AUTO_FOOD_HP": () => AUTO_FOOD_HP, "BUDGET_PER_ILVL": () => BUDGET_PER_ILVL, "ILVL_MAX": () => ILVL_MAX, "MIN_HIT_DAMAGE": () => MIN_HIT_DAMAGE, "RARITY_ILVL_BONUS": () => RARITY_ILVL_BONUS, "AFFIX_SHARE": () => AFFIX_SHARE, "AFFIX_CRIT_PCT": () => AFFIX_CRIT_PCT, "AFFIX_EPIC_MULT": () => AFFIX_EPIC_MULT, "AFFIX_POWER_PER_PT": () => AFFIX_POWER_PER_PT, "AFFIX_ARMOR_PER_PT": () => AFFIX_ARMOR_PER_PT, "SPLIT2_MAIN": () => SPLIT2_MAIN, "SPLIT3_MAIN": () => SPLIT3_MAIN, "SPLIT3_SECOND": () => SPLIT3_SECOND, "DROP_CLASS_BIAS": () => DROP_CLASS_BIAS, "WEAPON_DMG_BASE": () => WEAPON_DMG_BASE, "WEAPON_DMG_PER_ILVL": () => WEAPON_DMG_PER_ILVL, "ARMOR_PER_ILVL": () => ARMOR_PER_ILVL, "MOB_ITEM_CHANCE": () => MOB_ITEM_CHANCE, "DUNGEON_ITEM_CHANCE": () => DUNGEON_ITEM_CHANCE, "MOB_JUNK_CHANCE": () => MOB_JUNK_CHANCE, "EMBER_ELITE_DROP_CHANCE": () => EMBER_ELITE_DROP_CHANCE, "UNIQUE_DROP_CHANCE": () => UNIQUE_DROP_CHANCE, "VALUE_BASE": () => VALUE_BASE, "VALUE_COEF": () => VALUE_COEF, "VALUE_EXP": () => VALUE_EXP, "MOB_COIN_V": () => MOB_COIN_V, "JUNK_V": () => JUNK_V, "BUY_MULT": () => BUY_MULT, "TRAIN_NEW_V": () => TRAIN_NEW_V, "TRAIN_RANK_V": () => TRAIN_RANK_V, "RESPEC_V": () => RESPEC_V, "VENDOR_CONSUMABLES": () => VENDOR_CONSUMABLES, "VENDOR_GEAR_STOCK": () => VENDOR_GEAR_STOCK, "EMBER_STOCK_CHANCE": () => EMBER_STOCK_CHANCE, "EMBER_V": () => EMBER_V, "EMBER_MAX_CARRIED": () => EMBER_MAX_CARRIED, "HEAL_DRAUGHT_PCT": () => HEAL_DRAUGHT_PCT, "MANA_DRAUGHT_PCT": () => MANA_DRAUGHT_PCT, "RATION_PCT": () => RATION_PCT, "GREATER_HEAL_PCT": () => GREATER_HEAL_PCT, "SPARK_BASE": () => SPARK_BASE, "SPARK_PER_LEVEL": () => SPARK_PER_LEVEL, "ELIXIR_DMG_PCT": () => ELIXIR_DMG_PCT, "ELIXIR_NODES": () => ELIXIR_NODES, "PRICE_HEAL_V": () => PRICE_HEAL_V, "PRICE_MANA_V": () => PRICE_MANA_V, "PRICE_RATION_V": () => PRICE_RATION_V, "PRICE_TONIC_V": () => PRICE_TONIC_V, "PRICE_SPARK_V": () => PRICE_SPARK_V, "PRICE_ELIXIR_V": () => PRICE_ELIXIR_V, "PRICE_GHEAL_V": () => PRICE_GHEAL_V, "STACK_POTION": () => STACK_POTION, "STACK_FOOD": () => STACK_FOOD, "STACK_ELIXIR": () => STACK_ELIXIR, "STACK_JUNK": () => STACK_JUNK, "BAG_SLOTS": () => BAG_SLOTS, "RES_HP_PCT": () => RES_HP_PCT, "RES_MANA_PCT": () => RES_MANA_PCT, "RES_META_CHARGES": () => RES_META_CHARGES, "BOSS_LEVEL": () => BOSS_LEVEL, "BOSS_HP": () => BOSS_HP, "BOSS_DMG_MULT": () => BOSS_DMG_MULT, "BOSS_ARMOR": () => BOSS_ARMOR, "BOSS_MELEE": () => BOSS_MELEE, "BOSS_CRUSH": () => BOSS_CRUSH, "BOSS_CRUSH_EVERY": () => BOSS_CRUSH_EVERY, "BOSS_LITANY_DMG": () => BOSS_LITANY_DMG, "LITANY_FIRST": () => LITANY_FIRST, "LITANY_EVERY": () => LITANY_EVERY, "BRAND_EVERY": () => BRAND_EVERY, "BRAND_DMG": () => BRAND_DMG, "BRAND_MAX": () => BRAND_MAX, "P2_AT": () => P2_AT, "P3_AT": () => P3_AT, "SHARD_HP": () => SHARD_HP, "SHARD_DMG": () => SHARD_DMG, "SHARD_COUNT": () => SHARD_COUNT, "SHARD_EVERY": () => SHARD_EVERY, "SHARD_MAX": () => SHARD_MAX, "LINK_DR": () => LINK_DR, "LINK_DR_PER_SHARD": () => LINK_DR_PER_SHARD, "SHARD_AOE_TAKEN": () => SHARD_AOE_TAKEN, "ECLIPSE_STEP": () => ECLIPSE_STEP, "PULSE_DMG": () => PULSE_DMG, "PULSE_EVERY": () => PULSE_EVERY, "BOSS_ENRAGE_ROUND": () => BOSS_ENRAGE_ROUND, "FINAL_DARK_DMG": () => FINAL_DARK_DMG, "ECHO_PER_LEVEL": () => ECHO_PER_LEVEL, "ECHO_PER_ZONE": () => ECHO_PER_ZONE, "ECHO_PER_DUNGEON": () => ECHO_PER_DUNGEON, "ECHO_PER_ELITE": () => ECHO_PER_ELITE, "ECHO_PER_RARE": () => ECHO_PER_RARE, "ECHO_PER_QUEST": () => ECHO_PER_QUEST, "ECHO_BOSS_REACHED": () => ECHO_BOSS_REACHED, "ECHO_BOSS_PHASE": () => ECHO_BOSS_PHASE, "ECHO_BOSS_KILL": () => ECHO_BOSS_KILL, "ECHO_SPEED_BONUS": () => ECHO_SPEED_BONUS, "ECHO_FIRST_KILL_CLASS": () => ECHO_FIRST_KILL_CLASS, "OATH_ECHO_BONUS": () => OATH_ECHO_BONUS, "OATH_HASTE_TIME": () => OATH_HASTE_TIME, "OATH_THRIFT_MULT": () => OATH_THRIFT_MULT, "UNIQUE_PROC_CHANCE": () => UNIQUE_PROC_CHANCE, "UNIQUE_PROC_BASE": () => UNIQUE_PROC_BASE, "UNIQUE_PROC_PER_LEVEL": () => UNIQUE_PROC_PER_LEVEL, "UNIQUE_HEAL_ON_KILL": () => UNIQUE_HEAL_ON_KILL, "UNIQUE_ELITE_DMG": () => UNIQUE_ELITE_DMG, "UNIQUE_POTION_PCT": () => UNIQUE_POTION_PCT, "UNIQUE_WARD_PCT": () => UNIQUE_WARD_PCT, "PACE_CREATE_S": () => PACE_CREATE_S, "PACE_DECIDE_S": () => PACE_DECIDE_S, "PACE_TRAVEL_NODE_S": () => PACE_TRAVEL_NODE_S, "PACE_ZONE_TRAVEL_S": () => PACE_ZONE_TRAVEL_S, "PACE_QUEST_TEXT_S": () => PACE_QUEST_TEXT_S, "PACE_FIGHT_OVERHEAD_S": () => PACE_FIGHT_OVERHEAD_S, "PACE_ROUND_ANIM_S": () => PACE_ROUND_ANIM_S, "PACE_ROUND_DECIDE_S": () => PACE_ROUND_DECIDE_S, "PACE_MANUAL_ROUND_S": () => PACE_MANUAL_ROUND_S, "PACE_AUTO_ROUND_S": () => PACE_AUTO_ROUND_S, "PACE_ENGAGE_S": () => PACE_ENGAGE_S, "PACE_LOOT_S": () => PACE_LOOT_S, "PACE_LEVELUP_S": () => PACE_LEVELUP_S, "PACE_TALENT_S": () => PACE_TALENT_S, "PACE_REST_S": () => PACE_REST_S, "PACE_SHRINE_S": () => PACE_SHRINE_S, "PACE_TREASURE_S": () => PACE_TREASURE_S, "PACE_VENDOR_S": () => PACE_VENDOR_S, "PACE_VENDOR_TX_S": () => PACE_VENDOR_TX_S, "PACE_TRAINER_S": () => PACE_TRAINER_S, "PACE_TRAINER_TX_S": () => PACE_TRAINER_TX_S, "PACE_BOSS_INTRO_S": () => PACE_BOSS_INTRO_S, "INTENT_TRACK_LEN": () => INTENT_TRACK_LEN, "OPENING_TURNS": () => OPENING_TURNS, "SIGNATURE_TURN": () => SIGNATURE_TURN, "SIGNATURE_TURN_2": () => SIGNATURE_TURN_2, "HEAVY_SCRIPT_MULT": () => HEAVY_SCRIPT_MULT, "CAST_SCRIPT_MULT": () => CAST_SCRIPT_MULT, "MEND_BELOW": () => MEND_BELOW, "SIGNAL_ADDS": () => SIGNAL_ADDS, "BOLSTER_PCT": () => BOLSTER_PCT, "BOLSTER_CD": () => BOLSTER_CD, "BLOODLUST_STEP": () => BLOODLUST_STEP, "BLOODLUST_MAX": () => BLOODLUST_MAX, "OFFBAL_TAKEN": () => OFFBAL_TAKEN, "OFFBAL_BOSS_TAKEN": () => OFFBAL_BOSS_TAKEN, "OFFBAL_CRIT": () => OFFBAL_CRIT, "OFFBAL_DURATION": () => OFFBAL_DURATION, "ENGAGE_DMG_COMP": () => ENGAGE_DMG_COMP, "AMBUSH_MULT": () => AMBUSH_MULT, "SAP_TURNS": () => SAP_TURNS, "PREMED_CP": () => PREMED_CP, "GLYPH_TURNS": () => GLYPH_TURNS, "GATHER_SPELLS": () => GATHER_SPELLS, "GATHER_CRIT": () => GATHER_CRIT, "OPENING_SHOT_MULT": () => OPENING_SHOT_MULT, "OPENING_MARK_ROUNDS": () => OPENING_MARK_ROUNDS, "TRAP_STUN": () => TRAP_STUN, "PET_LEAD_TURNS": () => PET_LEAD_TURNS, "PET_LEAD_DR": () => PET_LEAD_DR, "ENGAGE_AUTO_LOOK": () => ENGAGE_AUTO_LOOK, "EMPOWER_DMG": () => EMPOWER_DMG, "STAGGER_DMG": () => STAGGER_DMG, "DEATHBLOW_MULT": () => DEATHBLOW_MULT, "DEATHBLOW_EMPOWER": () => DEATHBLOW_EMPOWER, "MAIM_HEAL": () => MAIM_HEAL, "RARE_HP_MULT_Z1": () => RARE_HP_MULT_Z1, "GATES": () => GATES, "RING_NODES": () => RING_NODES, "RING_CL_BASE": () => RING_CL_BASE, "RING_CL_SPREAD": () => RING_CL_SPREAD, "EDGE_KEEP_R1": () => EDGE_KEEP_R1, "EDGE_KEEP_R2": () => EDGE_KEEP_R2, "EDGE_KEEP_R3": () => EDGE_KEEP_R3, "EDGE_DIAG_R23": () => EDGE_DIAG_R23, "REGION_COUNT": () => REGION_COUNT, "REGION_FAMILY_SHARE": () => REGION_FAMILY_SHARE, "TIME_WALK": () => TIME_WALK, "ROAD_COUNT": () => ROAD_COUNT, "VISION_RADIUS": () => VISION_RADIUS, "VISION_RADIUS_MAX": () => VISION_RADIUS_MAX, "GUIDE_RADIUS_BONUS": () => GUIDE_RADIUS_BONUS, "PATHFINDER_RADIUS": () => PATHFINDER_RADIUS, "DIM_GRACE": () => DIM_GRACE, "DIM_FRONT_HOPS": () => DIM_FRONT_HOPS, "DIM_FRONT_TIME": () => DIM_FRONT_TIME, "DIM_PACK_SIZE": () => DIM_PACK_SIZE, "DIM_LEVEL_PER_DEPTH": () => DIM_LEVEL_PER_DEPTH, "DIM_HP_MULT": () => DIM_HP_MULT, "DIM_DMG_MULT": () => DIM_DMG_MULT, "DIM_XP_MULT": () => DIM_XP_MULT, "TIME_DIM_FIGHT": () => TIME_DIM_FIGHT, "TIME_DIM_ESCAPE": () => TIME_DIM_ESCAPE, "BELL_START_CHARGES": () => BELL_START_CHARGES, "BELL_MAX_CHARGES": () => BELL_MAX_CHARGES, "BELL_CHANNEL_TIME": () => BELL_CHANNEL_TIME, "PACE_BELL_S": () => PACE_BELL_S, "ROAD_SWIFT_TOLLS": () => ROAD_SWIFT_TOLLS, "ROAD_SWIFT_XP_FRAC": () => ROAD_SWIFT_XP_FRAC, "XP_WEIGHT_MULT": () => XP_WEIGHT_MULT, "EXPED_GRIND_MAX_WAVES": () => EXPED_GRIND_MAX_WAVES, "EXPED_DUNGEON_TRASH_FIGHTS": () => EXPED_DUNGEON_TRASH_FIGHTS, "EXPED_TIME_QUEST": () => EXPED_TIME_QUEST, "EXPED_TIME_ELITE": () => EXPED_TIME_ELITE, "EXPED_TIME_GRIND_WAVE": () => EXPED_TIME_GRIND_WAVE, "EXPED_TIME_DUNGEON": () => EXPED_TIME_DUNGEON, "EXPED_DROP_MULT": () => EXPED_DROP_MULT, "EXPED_DUNGEON_BOSS_DROPS": () => EXPED_DUNGEON_BOSS_DROPS, "PREP_POINTS": () => PREP_POINTS, "PREP_POINTS_PER_QM": () => PREP_POINTS_PER_QM, "META_COST_CARTOGRAPHER": () => META_COST_CARTOGRAPHER, "META_COST_OLD_HAND": () => META_COST_OLD_HAND, "META_COST_QM_1": () => META_COST_QM_1, "META_COST_QM_2": () => META_COST_QM_2, "PREP_ECHO_PER_POINT": () => PREP_ECHO_PER_POINT, "CONTRACT_BOARD_SIZE": () => CONTRACT_BOARD_SIZE, "CONTRACT_SLOTS": () => CONTRACT_SLOTS, "REROLL_PRICE": () => REROLL_PRICE, "REROLL_MAX": () => REROLL_MAX, "CW_CULL": () => CW_CULL, "CW_BOUNTY": () => CW_BOUNTY, "CW_DELVE": () => CW_DELVE, "CULL_SITES": () => CULL_SITES, "CULL_SITE_SPARE": () => CULL_SITE_SPARE, "CULL_SITE_IN": () => CULL_SITE_IN, "CULL_SITE_OUT": () => CULL_SITE_OUT, "BOUNTY_PLACED": () => BOUNTY_PLACED, "CONTRACT_CL_OFFSET": () => CONTRACT_CL_OFFSET, "CULL_XP_FRAC": () => CULL_XP_FRAC, "BOUNTY_XP_FRAC": () => BOUNTY_XP_FRAC, "DELVE_XP_FRAC": () => DELVE_XP_FRAC, "CULL_GOLD_V": () => CULL_GOLD_V, "BOUNTY_GOLD_V": () => BOUNTY_GOLD_V, "DELVE_GOLD_V": () => DELVE_GOLD_V, "CONTRACT_REWARD_CHOICES": () => CONTRACT_REWARD_CHOICES, "DELVE_REWARD_CHOICES": () => DELVE_REWARD_CHOICES, "CONTRACT_RARE_W": () => CONTRACT_RARE_W, "CONTRACT_EPIC_W": () => CONTRACT_EPIC_W, "BOUNTY_RARE_W": () => BOUNTY_RARE_W, "BOUNTY_EPIC_W": () => BOUNTY_EPIC_W, "ECHO_CONTRACT_MULT": () => ECHO_CONTRACT_MULT, "PRICE_PREP_DRAUGHTS": () => PRICE_PREP_DRAUGHTS, "PREP_DRAUGHT_COUNT": () => PREP_DRAUGHT_COUNT, "PRICE_PREP_RATIONS": () => PRICE_PREP_RATIONS, "PREP_RATION_COUNT": () => PREP_RATION_COUNT, "PRICE_PREP_EMBER": () => PRICE_PREP_EMBER, "PRICE_PREP_BELL": () => PRICE_PREP_BELL, "PRICE_PREP_MULE": () => PRICE_PREP_MULE, "PREP_MULE_SLOTS": () => PREP_MULE_SLOTS, "PRICE_CHARTS": () => PRICE_CHARTS, "PRICE_TRACKER": () => PRICE_TRACKER, "PRICE_GUIDE": () => PRICE_GUIDE, "PRICE_SPYGLASS": () => PRICE_SPYGLASS, "SPYGLASS_CHARGES": () => SPYGLASS_CHARGES, "TRACKER_RADIUS": () => TRACKER_RADIUS, "PACE_PREP_S": () => PACE_PREP_S, "PACE_HUB_CONTRACT_S": () => PACE_HUB_CONTRACT_S, "HEAT_STATES": () => HEAT_STATES, "HEAT_WARM_AT": () => HEAT_WARM_AT, "HEAT_HOT_AT": () => HEAT_HOT_AT, "HEAT_SCORCH_AT": () => HEAT_SCORCH_AT, "HEAT_DIM_WARM": () => HEAT_DIM_WARM, "HEAT_DIM_HOT": () => HEAT_DIM_HOT, "HEAT_GAIN": () => HEAT_GAIN, "HEAT_RARITY_UP": () => HEAT_RARITY_UP, "ECHO_PER_HEAT_FIGHT": () => ECHO_PER_HEAT_FIGHT, "HEAT_BAR_MIN": () => HEAT_BAR_MIN, "HEAT_BAR_MAX": () => HEAT_BAR_MAX, "NODE_TYPE": () => NODE_TYPE, "NODE_DRAW_ORDER": () => NODE_DRAW_ORDER, "ROW1_FORBIDDEN": () => ROW1_FORBIDDEN, "MAP_REDRAW_TRIES": () => MAP_REDRAW_TRIES, "REGION_W": () => REGION_W, "REGION_KINDS": () => REGION_KINDS, "EXPEDITION_TEXT_IDS": () => EXPEDITION_TEXT_IDS, "RING1_FORBIDDEN": () => RING1_FORBIDDEN, "CLASS": () => CLASS, "CLASS_IDS": () => CLASS_IDS, "BEASTCALL_HORN_CD": () => BEASTCALL_HORN_CD, "RICOCHET_BOUNCE_FRAC": () => RICOCHET_BOUNCE_FRAC, "RICOCHET_BOUNCE_FRAC_GATED": () => RICOCHET_BOUNCE_FRAC_GATED, "SPELL": () => SPELL, "PET": () => PET, "TALENT": () => TALENT, "TALENT_PER_RANK": () => TALENT_PER_RANK, "ARCHETYPE": () => ARCHETYPE, "OPENING_SCRIPT": () => OPENING_SCRIPT, "SCRIPT_ACTION": () => SCRIPT_ACTION, "ENGAGE_OPTION": () => ENGAGE_OPTION, "ENGAGE_OPTIONS": () => ENGAGE_OPTIONS, "VARIANT": () => VARIANT, "SLOT": () => SLOT, "SLOT_IDS": () => SLOT_IDS, "RARITY": () => RARITY, "RARITY_ORDER": () => RARITY_ORDER, "STAT1_PRIMARY_CHANCE": () => STAT1_PRIMARY_CHANCE, "STAT2_STA_CHANCE": () => STAT2_STA_CHANCE, "AFFIX_KINDS": () => AFFIX_KINDS, "DROP_TABLE": () => DROP_TABLE, "ITEM_SCORE": () => ITEM_SCORE, "ITEM_SCORE_CRIT_UNIT": () => ITEM_SCORE_CRIT_UNIT, "CONSUMABLE": () => CONSUMABLE, "VENDOR_STOCK_CONSUMABLES": () => VENDOR_STOCK_CONSUMABLES, "BOON": () => BOON, "BOON_IDS": () => BOON_IDS, "SHRINE_BOON_COUNT": () => SHRINE_BOON_COUNT, "META": () => META, "PREP_OPTION": () => PREP_OPTION, "PREP_OPTION_IDS": () => PREP_OPTION_IDS, "PREP_CAMP_OPTIONS": () => PREP_CAMP_OPTIONS, "CONTRACT": () => CONTRACT, "CONTRACT_KINDS": () => CONTRACT_KINDS, "META_EXPEDITION": () => META_EXPEDITION, "OATH": () => OATH, "OATH_IDS": () => OATH_IDS, "ABILITY_TEMPLATE": () => ABILITY_TEMPLATE, "CONTENT_RANGE": () => CONTENT_RANGE, "BOSS_TEXT": () => BOSS_TEXT, "DEBUFFS": () => DEBUFFS, "ENGINE_ASSUMPTION": () => ENGINE_ASSUMPTION, "DEV": () => DEV });
 yield;
 // Rules constants (docs/specs/rules.md). Single source of every number the engine uses.
 //
@@ -2391,8 +2384,10 @@ const RARE_HP_MULT_Z1 = 3.0;
  * the planner's win falls 3.2 pp on PALL and P0 is under 20 % with it on); the rule and the switch stay.
  * Mawgrim's HP arm (row 4) applied by D126: z2_mawgrim hpMult 0.95 in content; its switch and the gated-template
  * mechanism are removed.
+ * D128 (owner playtest 2026-11-12 20:19, a lean start camp): campReroll: REROLL_BOARD at the start camp (expedition.md
+ * 2.2). **Off**: no reroll on the first screen; the rule stays for a later meta unlock.
  */
-const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false };
+const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false };
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
 // with mapMode 'expedition'; a run on today's map (mapMode 'rows', the default) never reads them.
 /** rules 1.9.2: nodes per ring (ring 0 = the hub). */
@@ -2489,12 +2484,15 @@ const META_COST_QM_1 = 120;
 const META_COST_QM_2 = 200;
 /** expedition.md 2.6, 11.1: Echoes per Reserve point left at SUMMARY. */
 const PREP_ECHO_PER_POINT = 2;
-/** expedition.md 2.2: contracts on the board, of which one per zone and this many more for drawn zones. */
-const CONTRACT_BOARD_SIZE = 8;
-const CONTRACT_BOARD_EXTRA = 2;
+/**
+ * expedition.md 2.2: contracts on the board; slot i is zone i + 1 (a slot past ZONE_COUNT would draw its zone). D128
+ * (owner playtest 2026-11-12 20:19, a lean start camp): 3, one each for zones 1-3 (was 8: one per zone and
+ * CONTRACT_BOARD_EXTRA 2 drawn zones; that constant is retired). Later zones offer theirs at the hub (3.6).
+ */
+const CONTRACT_BOARD_SIZE = 3;
 /** expedition.md 2.2, 3.5: contracts held at once (PREP and hubs together). */
 const CONTRACT_SLOTS = 4;
-/** expedition.md 2.2: price of REROLL_BOARD and the most rerolls per run. */
+/** expedition.md 2.2: price of REROLL_BOARD and the most rerolls per run; legal only with GATES.campReroll (off since D128). */
 const REROLL_PRICE = 1;
 const REROLL_MAX = 2;
 /** expedition.md 2.2: weight of each contract kind on the board. */
@@ -3075,6 +3073,13 @@ const PREP_OPTION = {
   prep_spyglass: { id: 'prep_spyglass', name: 'Spyglass', kind: 'vision', price: PRICE_SPYGLASS, charges: SPYGLASS_CHARGES },
 };
 const PREP_OPTION_IDS = Object.keys(PREP_OPTION);
+/**
+ * expedition.md 2.3, 2.4 (D128, owner playtest 2026-11-12 20:19): the options the start camp offers, in PREP_OPTION
+ * order: the two supplies and the two vision perks the planner valued most (balance 2026-11-11f: Field Draughts in 100 %
+ * of runs, Region Charts 54 %, the Ember 30 %, Tracker's Notes 9 %; the Local Guide and the Second Clapper never). The
+ * other options stay in PREP_OPTION (their rules and SET_OUT effects unchanged) but BUY_PREP refuses them.
+ */
+const PREP_CAMP_OPTIONS = ['prep_draughts', 'prep_ember', 'prep_charts', 'prep_tracker'];
 /** Contract kinds (expedition.md 3.1; prep): price, sites needed, XP share, gold × V, item choices and table, board weight (M2b v10, D84: delve price 1 -> 2; M2b v11, D93: 2 -> 1; M2b v12, D100: 2 again, the D93 guard). */
 const CONTRACT = {
   cull: { id: 'cull', price: 2, sites: CULL_SITES, xpFrac: CULL_XP_FRAC, goldV: CULL_GOLD_V, choices: CONTRACT_REWARD_CHOICES, table: 'contract', weight: CW_CULL },
@@ -8458,7 +8463,7 @@ function heatView(s, legal = () => true) {
 
 });
 __bundle.def("src/engine/contracts.js", function* (__ns, __link) {
-let ZONE_COUNT, ZONE_LEVELS, PREP_POINTS, PREP_POINTS_PER_QM, PREP_ECHO_PER_POINT, CONTRACT_BOARD_SIZE, CONTRACT_SLOTS, REROLL_PRICE, REROLL_MAX, CULL_SITES, CULL_SITE_SPARE, CULL_SITE_IN, CULL_SITE_OUT, BOUNTY_PLACED, CONTRACT_CL_OFFSET, PREP_OPTION, PREP_OPTION_IDS, CONTRACT, CONTRACT_KINDS, META, BELL_MAX_CHARGES, GUIDE_RADIUS_BONUS, TRACKER_RADIUS, EMBER_MAX_CARRIED, XP_WEIGHT_MULT, DROP_TABLE, RARITY_ORDER; __link.imp("src/constants.js", [["ZONE_COUNT", (v) => { ZONE_COUNT = v; }], ["ZONE_LEVELS", (v) => { ZONE_LEVELS = v; }], ["PREP_POINTS", (v) => { PREP_POINTS = v; }], ["PREP_POINTS_PER_QM", (v) => { PREP_POINTS_PER_QM = v; }], ["PREP_ECHO_PER_POINT", (v) => { PREP_ECHO_PER_POINT = v; }], ["CONTRACT_BOARD_SIZE", (v) => { CONTRACT_BOARD_SIZE = v; }], ["CONTRACT_SLOTS", (v) => { CONTRACT_SLOTS = v; }], ["REROLL_PRICE", (v) => { REROLL_PRICE = v; }], ["REROLL_MAX", (v) => { REROLL_MAX = v; }], ["CULL_SITES", (v) => { CULL_SITES = v; }], ["CULL_SITE_SPARE", (v) => { CULL_SITE_SPARE = v; }], ["CULL_SITE_IN", (v) => { CULL_SITE_IN = v; }], ["CULL_SITE_OUT", (v) => { CULL_SITE_OUT = v; }], ["BOUNTY_PLACED", (v) => { BOUNTY_PLACED = v; }], ["CONTRACT_CL_OFFSET", (v) => { CONTRACT_CL_OFFSET = v; }], ["PREP_OPTION", (v) => { PREP_OPTION = v; }], ["PREP_OPTION_IDS", (v) => { PREP_OPTION_IDS = v; }], ["CONTRACT", (v) => { CONTRACT = v; }], ["CONTRACT_KINDS", (v) => { CONTRACT_KINDS = v; }], ["META", (v) => { META = v; }], ["BELL_MAX_CHARGES", (v) => { BELL_MAX_CHARGES = v; }], ["GUIDE_RADIUS_BONUS", (v) => { GUIDE_RADIUS_BONUS = v; }], ["TRACKER_RADIUS", (v) => { TRACKER_RADIUS = v; }], ["EMBER_MAX_CARRIED", (v) => { EMBER_MAX_CARRIED = v; }], ["XP_WEIGHT_MULT", (v) => { XP_WEIGHT_MULT = v; }], ["DROP_TABLE", (v) => { DROP_TABLE = v; }], ["RARITY_ORDER", (v) => { RARITY_ORDER = v; }]]); let STREAM, nextFloat, nextInt, weightedIndex; __link.imp("src/rng.js", [["STREAM", (v) => { STREAM = v; }], ["nextFloat", (v) => { nextFloat = v; }], ["nextInt", (v) => { nextInt = v; }], ["weightedIndex", (v) => { weightedIndex = v; }]]); let zoneContent; __link.imp("src/engine/content.js", [["zoneContent", (v) => { zoneContent = v; }]]); let validEncounter, clampCl; __link.imp("src/engine/map.js", [["validEncounter", (v) => { validEncounter = v; }], ["clampCl", (v) => { clampCl = v; }]]); let flatXp, gainXp, gainGold; __link.imp("src/engine/progress.js", [["flatXp", (v) => { flatXp = v; }], ["gainXp", (v) => { gainXp = v; }], ["gainGold", (v) => { gainGold = v; }]]); let V, rollDrop, makeConsumable, addToBag, countConsumable; __link.imp("src/engine/items.js", [["V", (v) => { V = v; }], ["rollDrop", (v) => { rollDrop = v; }], ["makeConsumable", (v) => { makeConsumable = v; }], ["addToBag", (v) => { addToBag = v; }], ["countConsumable", (v) => { countConsumable = v; }]]); let zoneRegions, setupExpNode, xpWeight; __link.imp("src/engine/expedition.js", [["zoneRegions", (v) => { zoneRegions = v; }], ["setupExpNode", (v) => { setupExpNode = v; }], ["xpWeight", (v) => { xpWeight = v; }]]); __link.exp({ "prepPoints": () => prepPoints, "contractLevel": () => contractLevel, "drawOffer": () => drawOffer, "sameOffer": () => sameOffer, "drawBoard": () => drawBoard, "ownedPerks": () => ownedPerks, "newPrep": () => newPrep, "heldCount": () => heldCount, "prepSpent": () => prepSpent, "prepLeft": () => prepLeft, "takeContractError": () => takeContractError, "dropContractError": () => dropContractError, "buyPrepError": () => buyPrepError, "sellPrepError": () => sellPrepError, "rerollError": () => rerollError, "takeContract": () => takeContract, "dropContract": () => dropContract, "buyPrep": () => buyPrep, "sellPrep": () => sellPrep, "rerollBoard": () => rerollBoard, "applySetOut": () => applySetOut, "rewardInfo": () => rewardInfo, "prepView": () => prepView, "contractView": () => contractView, "placeSites": () => placeSites, "contractsAtZone": () => contractsAtZone, "hubContractError": () => hubContractError, "takeHubContract": () => takeHubContract, "siteWon": () => siteWon, "expireContracts": () => expireContracts, "siteMarks": () => siteMarks, "trackerShows": () => trackerShows, "delveKnown": () => delveKnown, "spyglassError": () => spyglassError, "useSpyglass": () => useSpyglass, "contractSummary": () => contractSummary });
+let ZONE_COUNT, ZONE_LEVELS, PREP_POINTS, PREP_POINTS_PER_QM, PREP_ECHO_PER_POINT, CONTRACT_BOARD_SIZE, CONTRACT_SLOTS, REROLL_PRICE, REROLL_MAX, CULL_SITES, CULL_SITE_SPARE, CULL_SITE_IN, CULL_SITE_OUT, BOUNTY_PLACED, CONTRACT_CL_OFFSET, PREP_OPTION, PREP_OPTION_IDS, PREP_CAMP_OPTIONS, CONTRACT, CONTRACT_KINDS, META, BELL_MAX_CHARGES, GUIDE_RADIUS_BONUS, TRACKER_RADIUS, EMBER_MAX_CARRIED, XP_WEIGHT_MULT, DROP_TABLE, RARITY_ORDER, GATES; __link.imp("src/constants.js", [["ZONE_COUNT", (v) => { ZONE_COUNT = v; }], ["ZONE_LEVELS", (v) => { ZONE_LEVELS = v; }], ["PREP_POINTS", (v) => { PREP_POINTS = v; }], ["PREP_POINTS_PER_QM", (v) => { PREP_POINTS_PER_QM = v; }], ["PREP_ECHO_PER_POINT", (v) => { PREP_ECHO_PER_POINT = v; }], ["CONTRACT_BOARD_SIZE", (v) => { CONTRACT_BOARD_SIZE = v; }], ["CONTRACT_SLOTS", (v) => { CONTRACT_SLOTS = v; }], ["REROLL_PRICE", (v) => { REROLL_PRICE = v; }], ["REROLL_MAX", (v) => { REROLL_MAX = v; }], ["CULL_SITES", (v) => { CULL_SITES = v; }], ["CULL_SITE_SPARE", (v) => { CULL_SITE_SPARE = v; }], ["CULL_SITE_IN", (v) => { CULL_SITE_IN = v; }], ["CULL_SITE_OUT", (v) => { CULL_SITE_OUT = v; }], ["BOUNTY_PLACED", (v) => { BOUNTY_PLACED = v; }], ["CONTRACT_CL_OFFSET", (v) => { CONTRACT_CL_OFFSET = v; }], ["PREP_OPTION", (v) => { PREP_OPTION = v; }], ["PREP_OPTION_IDS", (v) => { PREP_OPTION_IDS = v; }], ["PREP_CAMP_OPTIONS", (v) => { PREP_CAMP_OPTIONS = v; }], ["CONTRACT", (v) => { CONTRACT = v; }], ["CONTRACT_KINDS", (v) => { CONTRACT_KINDS = v; }], ["META", (v) => { META = v; }], ["BELL_MAX_CHARGES", (v) => { BELL_MAX_CHARGES = v; }], ["GUIDE_RADIUS_BONUS", (v) => { GUIDE_RADIUS_BONUS = v; }], ["TRACKER_RADIUS", (v) => { TRACKER_RADIUS = v; }], ["EMBER_MAX_CARRIED", (v) => { EMBER_MAX_CARRIED = v; }], ["XP_WEIGHT_MULT", (v) => { XP_WEIGHT_MULT = v; }], ["DROP_TABLE", (v) => { DROP_TABLE = v; }], ["RARITY_ORDER", (v) => { RARITY_ORDER = v; }], ["GATES", (v) => { GATES = v; }]]); let STREAM, nextFloat, nextInt, weightedIndex; __link.imp("src/rng.js", [["STREAM", (v) => { STREAM = v; }], ["nextFloat", (v) => { nextFloat = v; }], ["nextInt", (v) => { nextInt = v; }], ["weightedIndex", (v) => { weightedIndex = v; }]]); let zoneContent; __link.imp("src/engine/content.js", [["zoneContent", (v) => { zoneContent = v; }]]); let validEncounter, clampCl; __link.imp("src/engine/map.js", [["validEncounter", (v) => { validEncounter = v; }], ["clampCl", (v) => { clampCl = v; }]]); let flatXp, gainXp, gainGold; __link.imp("src/engine/progress.js", [["flatXp", (v) => { flatXp = v; }], ["gainXp", (v) => { gainXp = v; }], ["gainGold", (v) => { gainGold = v; }]]); let V, rollDrop, makeConsumable, addToBag, countConsumable; __link.imp("src/engine/items.js", [["V", (v) => { V = v; }], ["rollDrop", (v) => { rollDrop = v; }], ["makeConsumable", (v) => { makeConsumable = v; }], ["addToBag", (v) => { addToBag = v; }], ["countConsumable", (v) => { countConsumable = v; }]]); let zoneRegions, setupExpNode, xpWeight; __link.imp("src/engine/expedition.js", [["zoneRegions", (v) => { zoneRegions = v; }], ["setupExpNode", (v) => { setupExpNode = v; }], ["xpWeight", (v) => { xpWeight = v; }]]); __link.exp({ "prepPoints": () => prepPoints, "contractLevel": () => contractLevel, "drawOffer": () => drawOffer, "sameOffer": () => sameOffer, "drawBoard": () => drawBoard, "ownedPerks": () => ownedPerks, "newPrep": () => newPrep, "heldCount": () => heldCount, "prepSpent": () => prepSpent, "prepLeft": () => prepLeft, "takeContractError": () => takeContractError, "dropContractError": () => dropContractError, "buyPrepError": () => buyPrepError, "sellPrepError": () => sellPrepError, "rerollError": () => rerollError, "takeContract": () => takeContract, "dropContract": () => dropContract, "buyPrep": () => buyPrep, "sellPrep": () => sellPrep, "rerollBoard": () => rerollBoard, "applySetOut": () => applySetOut, "rewardInfo": () => rewardInfo, "prepView": () => prepView, "contractView": () => contractView, "placeSites": () => placeSites, "contractsAtZone": () => contractsAtZone, "hubContractError": () => hubContractError, "takeHubContract": () => takeHubContract, "siteWon": () => siteWon, "expireContracts": () => expireContracts, "siteMarks": () => siteMarks, "trackerShows": () => trackerShows, "delveKnown": () => delveKnown, "spyglassError": () => spyglassError, "useSpyglass": () => useSpyglass, "contractSummary": () => contractSummary });
 yield;
 // Start camp and contracts of an expedition run (docs/specs/expedition.md 2 and 3, task M2b 2b.5; marked "(prep)" in
 // engine-api.md). PREP: preparation points (PREP_POINTS + Quartermaster ranks, meta), the contract board (stream prep(k),
@@ -8467,7 +8472,9 @@ yield;
 // hub contract is taken, progress when a site's node is won, the reward paid at once (XP without the level-difference
 // modifier since M2b v10, gold, an item choice on the tables "contract" / "bounty", heat of the node included), expiry
 // when the zone is left, the hub contract (stream hubc(z), 3.6: from Reserve or by a swap), and contractView for the
-// tracker. Pure helpers of the state; nodes.js calls
+// tracker. D128 (owner playtest 2026-11-12 20:19, a lean start camp): the board holds CONTRACT_BOARD_SIZE 3 offers (zones
+// 1-3), REROLL_BOARD only with GATES.campReroll (off), and the camp offers only PREP_CAMP_OPTIONS (the other options
+// keep their rules but cannot be bought). Pure helpers of the state; nodes.js calls
 // them from the run flow, actions.js checks legality. Only a run created with newRun({ mapMode: 'expedition', prep: true })
 // uses it; a rows run, or an expedition run without the option, never does.
 
@@ -8549,17 +8556,18 @@ function offerOdds(c, zs) {
 }
 
 /**
- * The board after k rerolls (stream prep(k), 2.2): one contract for each zone 1..ZONE_COUNT, then drawn zones. `kept`
+ * The board after k rerolls (stream prep(k), 2.2): `size` slots (CONTRACT_BOARD_SIZE: 3 since D128), slot i of zone i + 1
+ * while i < ZONE_COUNT, then drawn zones (no such slot with today's size; `size` is a parameter for the tests). `kept`
  * (REROLL_BOARD): the taken offers by slot; such a slot still makes its draws and keeps its offer. No two offers on a
  * board are the same contract: a slot whose offer equals one already on the board (an earlier slot or a kept offer) takes
  * instead one weighted draw over the offers it can draw (a zone slot: its zone; an extra slot: every zone) that are not on
  * the board, each with its chance in the normal draw (offerOdds); with none left the offer stays. A board without a
  * repeat is drawn as before this rule (2026-11-11).
  */
-function drawBoard(s, k, kept = []) {
+function drawBoard(s, k, kept = [], size = CONTRACT_BOARD_SIZE) {
   const rng = STREAM.prep(s.seed, k);
   const out = [];
-  for (let i = 0; i < CONTRACT_BOARD_SIZE; i++) {
+  for (let i = 0; i < size; i++) {
     const z = i < ZONE_COUNT ? i + 1 : 1 + nextInt(rng, ZONE_COUNT);
     let o = drawOffer(s.content, rng, z);
     if (kept[i]) { out.push(kept[i]); continue; }
@@ -8629,6 +8637,7 @@ function buyPrepError(s, id) {
   if (e) return e;
   const o = PREP_OPTION[id];
   if (!o) return `unknown option ${id}`;
+  if (!PREP_CAMP_OPTIONS.includes(id)) return 'not offered at the start camp'; // D128
   if (ownedPerks(s).includes(id)) return 'already owned';
   if (s.prep.bought.includes(id)) return 'already bought';
   if (id === 'prep_bell' && s.exp.bell >= BELL_MAX_CHARGES) return `the Homeward Bell holds at most ${BELL_MAX_CHARGES} charges`;
@@ -8641,6 +8650,7 @@ function sellPrepError(s, id) {
 function rerollError(s) {
   const e = inPrep(s);
   if (e) return e;
+  if (!GATES.campReroll) return 'no reroll at the start camp'; // D128
   if (s.prep.rerolls >= REROLL_MAX) return `at most ${REROLL_MAX} rerolls`;
   if (s.prep.board.every((o) => o.taken)) return 'every contract is taken';
   return REROLL_PRICE > prepLeft(s) ? 'not enough preparation points' : null;
@@ -8752,8 +8762,9 @@ function offerView(s, o) {
 
 /**
  * The prep screen (expedition.md 2, 9.1), null outside PREP: points (budget, spent, left), slots, the board (each offer
- * with take / drop legality), the options (supplies and vision perks with price, owned, bought, buy / sell legality),
- * rerolls, and Reserve (points left and their Echo value at SUMMARY).
+ * with take / drop legality), the options the camp offers (PREP_CAMP_OPTIONS since D128: supplies and vision perks with
+ * price, owned, bought, buy / sell legality), rerolls (`open`: GATES.campReroll, off since D128), and Reserve (points left
+ * and their Echo value at SUMMARY).
  */
 function prepView(s) {
   if (s.phase !== 'PREP' || !s.prep || s.prep.done) return null;
@@ -8763,7 +8774,7 @@ function prepView(s) {
   return {
     points: p.points, spent: prepSpent(s), left, slots: CONTRACT_SLOTS, held: heldCount(s),
     board: p.board.map((o, i) => ({ index: i, ...offerView(s, o), taken: o.taken, canTake: !takeContractError(s, i), canDrop: !dropContractError(s, i) })),
-    options: PREP_OPTION_IDS.map((id) => {
+    options: PREP_OPTION_IDS.filter((id) => PREP_CAMP_OPTIONS.includes(id)).map((id) => {
       const o = PREP_OPTION[id];
       return {
         id, name: o.name, kind: o.kind, price: o.price, owned: owned.includes(id), bought: p.bought.includes(id),
@@ -8772,7 +8783,7 @@ function prepView(s) {
         ...(o.charges ? { charges: o.charges } : {}),
       };
     }),
-    reroll: { used: p.rerolls, max: REROLL_MAX, price: REROLL_PRICE, can: !rerollError(s) },
+    reroll: { open: !!GATES.campReroll, used: p.rerolls, max: REROLL_MAX, price: REROLL_PRICE, can: !rerollError(s) },
     reserve: { points: left, echoes: left * PREP_ECHO_PER_POINT },
   };
 }
@@ -23730,7 +23741,8 @@ yield;
 // Player-facing presentation settings (animation speed, fast mode, screen shake, reduce motion, the Dev menu) and the Dev
 // menu's "Classic map (old)": the map new runs get. Since D116 new runs start on the expedition map with the start camp
 // (expedition.md 2, 9.1); the classic map is kept for testing, in the Dev menu only. Persisted in localStorage when
-// available. Nothing here changes game rules: the map mode is a newRun option the engine already has.
+// available. Nothing here changes game rules: the map mode is a newRun option the engine already has. Sound (audio.js,
+// docs/specs/audio.md; D127): master, effects and interface volumes and mute, on at 70 % / 60 % UI after the first gesture.
 
 
 const KEY = 'tbwcr.ui.settings.v1';
@@ -23745,6 +23757,10 @@ const DEFAULTS = {
   devTools: true,      // the Dev menu (dev-menu.js, engine-api.md 12): its corner button and the backquote key
   classicMap: false,   // Dev menu: new runs on the classic map (old, rules 1.4); off: the expedition map with the start camp (D116)
   lanternTheme: false, // Dev menu: the Lantern colour theme, a proposal (docs/art/proposal-1; D120, D121); off: the current look
+  soundMaster: 0.7,    // sound (audio.js): master volume 0..1
+  soundSfx: 1,         // effects bus
+  soundUi: 0.6,        // interface bus: clicks, windows, errors
+  soundMuted: false,
 };
 
 function load() {
@@ -25370,14 +25386,16 @@ __bundle.def("src/ui/prep.js", function* (__ns, __link) {
 let h, clear, moneyEl, fmtNum; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["fmtNum", (v) => { fmtNum = v; }]]); let icon, consumableIcon; __link.imp("src/ui/art-icons.js", [["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }]]); let tip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }]]); let CONTRACT_KIND, contractTitle, contractSentence, familyName, hubOfferSentence, contractKindText, contractSitesText, contractItemsText, levelsText, prepOptionEffect, prepFlavour, bandText, numWord, plural; __link.imp("src/ui/ui-text.js", [["CONTRACT_KIND", (v) => { CONTRACT_KIND = v; }], ["contractTitle", (v) => { contractTitle = v; }], ["contractSentence", (v) => { contractSentence = v; }], ["familyName", (v) => { familyName = v; }], ["hubOfferSentence", (v) => { hubOfferSentence = v; }], ["contractKindText", (v) => { contractKindText = v; }], ["contractSitesText", (v) => { contractSitesText = v; }], ["contractItemsText", (v) => { contractItemsText = v; }], ["levelsText", (v) => { levelsText = v; }], ["prepOptionEffect", (v) => { prepOptionEffect = v; }], ["prepFlavour", (v) => { prepFlavour = v; }], ["bandText", (v) => { bandText = v; }], ["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }]]); __link.exp({ "CONTRACT_COLORS": () => CONTRACT_COLORS, "contractColors": () => contractColors, "kindIcon": () => kindIcon, "contractTip": () => contractTip, "createPrepScreen": () => createPrepScreen, "prepKey": () => prepKey, "progressText": () => progressText, "trackerContracts": () => trackerContracts, "buildContractLog": () => buildContractLog, "buildHubOffer": () => buildHubOffer, "siteBadge": () => siteBadge, "siteLines": () => siteLines, "numWord": () => numWord });
 yield;
 // prep.js - the start camp and the contracts on screen (docs/specs/expedition.md 2, 3, 9.1, 9.3; engine-api.md 13; M2b
-// 2b.6). The prep screen of an expedition run with the start camp (phase PREP): the points left in large type, the
-// contract board (take, drop, reroll), supplies and vision perks with their prices and refunds, what the expedition holds
-// and the Reserve preview, and Set out, always in view at the bottom right. Every number comes from R.prepView (the
-// bridge's view.prep); radii and limits from the rules table (data.rules.prep). Mouse: click a card. Keys: 1-8 a contract,
-// A-I an option, R reroll, Enter set out; Tab moves between the cards. The contract tracker: one line per contract of the
-// zone under the minimap (HUD), the full list in the quest log (L), each contract's tooltip, the hub's contract offer
-// (take it from Reserve or swap a held one) and the site marks on the expedition map (mapView node `sites`: only the
-// marks the player sees; a hidden node is never named). Presentation only: every click sends one engine action.
+// 2b.6; D128 lean camp). The prep screen of an expedition run with the start camp (phase PREP): one lean screen (D128,
+// owner playtest 2026-11-12 20:19): the board's contracts as cards side by side (headline, one line of what to do, the
+// pay in one line, Take / Drop), the camp's supplies and sight as small cards, the points left with the Reserve they make,
+// and Set out, always in view at the bottom right; the rest (zone band, sites, exact XP, effects, refunds) in tooltips.
+// Every number comes from R.prepView (the bridge's view.prep); radii and limits from the rules table (data.rules.prep).
+// Mouse: click a card. Keys: 1-3 a contract, A-D an option, R reroll (only while the reroll is open), Enter set out; Tab
+// moves between the cards. The contract tracker: one line per contract of the zone under the minimap (HUD), the full
+// list in the quest log (L), each contract's tooltip, the hub's contract offer (take it from Reserve or swap a held one)
+// and the site marks on the expedition map (mapView node `sites`: only the marks the player sees; a hidden node is never
+// named). Presentation only: every click sends one engine action.
 
 
 
@@ -25463,18 +25481,30 @@ const hasPerks = (pv) => {
   return { guide: on('prep_guide'), tracker: on('prep_tracker') };
 };
 
+/** The contract's headline: the family (Cull), the elite (Bounty) or the dungeon (Delve), capitalised. */
+const cardTitle = (o, content) => cap1(o.kind === 'delve' ? o.dungeon || "the zone's dungeon" : o.kind === 'bounty' ? o.name || 'a named elite' : familyName(o.family, content));
+/** What to do, one line (D128): "Win 2 sites in Millbrook Steadings", "Hunt it in ...", "Clear it, boss included". */
+const doLine = (o) => (o.kind === 'delve' ? 'Clear the dungeon, its boss included'
+  : o.kind === 'bounty' ? `Hunt it down in ${o.regionName || 'its region'}` : `Win ${o.need} ${plural(o.need, 'site')} in ${o.regionName || 'its region'}`);
+
 /**
- * The start camp screen (expedition.md 9.1): built once per run's PREP, then patched on every view (update), so focus and
- * hover stay on the card the player is using. Returns the root with root.update(v).
+ * The start camp screen (expedition.md 9.1; D128, owner playtest 2026-11-12 20:19: "strip it ... 3 simple choices"): one
+ * lean screen. The board's offers as cards side by side (key, kind, zone, price; the headline; one line of what to do;
+ * the pay in one line; Take / Drop), the camp's options as small cards (icon, name, key, price, Buy / Sell or Owned), the
+ * points left with the Reserve they make, and Set out at the bottom right. Zone band, sites, exact XP, an option's effect
+ * and refunds are in the tooltips. A reroll button only while R.prepView says the reroll is open (GATES.campReroll).
+ * Built once per run's PREP, then patched on every view (update), so focus and hover stay on the card in use. Returns the
+ * root with root.update(v).
  */
 function createPrepScreen(v, ctx) {
   const root = h('div#prep', { dataset: { mounted: String(performance.now()) } });
   const pv0 = v.prep;
   const zone1 = (pv0.board.find((o) => o.z === 1) || pv0.board[0] || {}).zoneName || 'the first zone';
+  const nB = pv0.board.length; const nO = pv0.options.length;
   root.appendChild(h('div.pp-head',
-    h('div', h('div.pp-t1', 'The start camp'), h('div.pp-t2', `Before the road to ${zone1}: choose your contracts, supplies and sight. Points you keep become Reserve.`)),
-    h('div.pp-keys', h('span.kbd', '1–8'), 'contracts', h('span.kbd', 'A–I'), 'supplies and sight', h('span.kbd', 'R'), 'reroll', h('span.kbd', 'Enter'), 'set out')));
-  // column 1: the contract board
+    h('div', h('div.pp-t1', 'The start camp'), h('div.pp-t2', `Pick your contracts and supplies for the road to ${zone1}.`)),
+    h('div.pp-keys', h('span.kbd', nB > 1 ? `1–${nB}` : '1'), 'contracts', nO ? [h('span.kbd', nO > 1 ? `A–${OPT_KEYS[nO - 1]}` : 'A'), 'supplies'] : null, h('span.kbd', 'Enter'), 'set out')));
+  // the contracts: cards side by side
   const reroll = h('button.btn.small#pp-reroll', { type: 'button' });
   reroll.addEventListener('click', () => { reroll.blur(); ctx.act({ type: 'REROLL_BOARD' }); });
   tip(reroll, () => {
@@ -25482,8 +25512,7 @@ function createPrepScreen(v, ctx) {
     return h('div', h('div.tt-name', 'Reroll the board'), h('div.tt-line', `New offers for every contract you have not taken. ${pts(pv.reroll.price)}, not refunded.`),
       h('div.tt-sub', `${pv.reroll.max - pv.reroll.used} of ${pv.reroll.max} rerolls left`), why ? h('div.tt-warn', why) : h('div.tt-hint', 'Click or press R'));
   });
-  const slotsEl = h('span.pp-slots');
-  const cards = h('div.pp-cards');
+  const cards = h('div.pp-cards', { style: { '--n': String(Math.max(1, nB)) } });
   const cardEls = pv0.board.map((o, i) => {
     const b = h('button.pp-card', { type: 'button', dataset: { index: String(i) } });
     // a mouse click leaves no focus behind (Enter then sets out); a keyboard press (Tab, then Enter or Space) keeps it
@@ -25491,35 +25520,32 @@ function createPrepScreen(v, ctx) {
     tip(b, () => {
       const pv = ctx.view.prep; const x = pv && pv.board[i]; if (!x) return null;
       const why = x.taken || x.canTake ? null : ctx.bridge.why({ type: 'TAKE_CONTRACT', index: i });
-      return contractTip(x, ctx, { has: hasPerks(pv), price: `${pts(x.price)} · refunded if you drop it before you set out`, warn: why,
+      return contractTip(x, ctx, { has: hasPerks(pv), price: `${pts(x.price)} · refunded if you drop it before you set out · ${pv.held} of ${pv.slots} contract slots used`, warn: why,
         hint: x.taken ? `Click or press ${BOARD_KEYS[i]} to drop it (+${pts(x.price)})` : `Click or press ${BOARD_KEYS[i]} to take it` });
     }, { avoid: '#prep .pp-card' });
     cards.appendChild(b);
     return b;
   });
-  const board = h('section.pp-board.panel', h('div.pp-sh', h('div', h('div.title', 'Contract board'), h('div.pp-sub', slotsEl)), reroll), cards);
-  // column 2: supplies and vision perks
+  const board = h('section.pp-board', h('div.pp-sh', h('div.pp-lab', 'Contracts'), h('div.pp-sub', 'One per zone. Each pays at once when its last site is won.'), reroll), cards);
+  // the options: small cards in one row
   const optEls = new Map();
-  const optList = (kind) => h('div.pp-opts', pv0.options.filter((o) => o.kind === kind).map((o) => {
-    const i = pv0.options.findIndex((x) => x.id === o.id);
+  const opts = h('div.pp-opts', { style: { '--n': String(Math.max(1, nO)) } }, pv0.options.map((o, i) => {
     const b = h('button.pp-opt', { type: 'button', dataset: { id: o.id, kind: o.kind } });
     b.addEventListener('click', (e) => { if (e.detail) b.blur(); optionAct(ctx, o.id); });
     tip(b, () => { const pv = ctx.view.prep; const x = pv && pv.options.find((y) => y.id === o.id); return x ? optionTip(x, ctx, OPT_KEYS[i], x.why ? cap1(x.why) : null) : null; }, { avoid: '#prep .pp-opt' });
     optEls.set(o.id, { el: b, key: OPT_KEYS[i] });
     return b;
   }));
-  const shop = h('section.pp-shop.panel',
-    h('div.pp-sh', h('div', h('div.title', 'Supplies'), h('div.pp-sub', 'Into your bags when you set out'))), optList('supply'),
-    h('div.pp-sh', h('div', h('div.title', 'Sight'), h('div.pp-sub', 'Vision perks for the whole run'))), optList('vision'));
-  // column 3: your expedition
-  const big = h('b.pm-n'); const of = h('span.pm-of'); const pips = h('div.pm-pips');
-  const held = h('ol.pm-held'); const bought = h('div.pm-bought'); const reserve = h('div.pm-reserve');
-  const mine = h('section.pp-mine.panel',
-    h('div.pp-sh', h('div.title', 'Your expedition')),
-    h('div.pm-points', big, h('div', h('div.pm-l', 'points left'), of)), pips,
-    h('div.pm-h', 'Contracts'), held, h('div.pm-h', 'Supplies and sight'), bought, reserve);
-  root.appendChild(h('div.pp-cols', board, shop, mine));
-  // Set out: always in view, bottom right (QA finding BUG-QA-10)
+  const shop = nO ? h('section.pp-shop', h('div.pp-sh', h('div.pp-lab', 'Supplies and sight'), h('div.pp-sub', 'Supplies go into your bags; sight lasts the whole run.')), opts) : null;
+  // the points left and Set out: always in view, bottom right (QA finding BUG-QA-10)
+  const big = h('b.pm-n'); const rl = h('div.pm-rl');
+  const points = h('div.pm-points', big, h('div', h('div.pm-l', 'points left'), rl));
+  tip(points, () => {
+    const pv = ctx.view.prep; if (!pv) return null;
+    return h('div', h('div.tt-name', 'Preparation points'), h('div.tt-line', `${pv.points} to spend on contracts and supplies${pv.spent ? `; ${pv.spent} spent` : ''}.`),
+      h('div.tt-line.num', `Unspent points become Reserve: it pays for a hub contract on the way, and what is left at the end of the run becomes Echoes${pv.reserve.points ? ` (${pv.reserve.echoes} for the ${pts(pv.reserve.points)} left now)` : ''}.`),
+      h('div.tt-sub', `${pv.held} of ${pv.slots} contract slots used`));
+  });
   const go = h('button.btn.primary.big#pp-go', { type: 'button' }, 'Set out', h('span.k', 'Enter'));
   go.addEventListener('click', () => { go.blur(); ctx.act({ type: 'SET_OUT' }); });
   tip(go, () => {
@@ -25528,18 +25554,19 @@ function createPrepScreen(v, ctx) {
       h('div.tt-line.num', pv.left ? `${pts(pv.left)} unspent become Reserve: ${pv.reserve.echoes} Echoes at the end of the run, or hub contracts on the way.` : 'Every point is spent: no Reserve.'),
       pv.held ? null : h('div.tt-warn', 'You hold no contract: the zones then pay only what you find.'));
   });
-  root.appendChild(h('div.pp-foot', go));
+  root.append(h('div.pp-main', board, shop), h('div.pp-foot', points, go));
 
   let last = null;
   root.update = (vv) => {
     const pv = vv.prep; if (!pv) return;
     const prev = last; last = pv;
     if (!prev || prev.left !== pv.left) { big.textContent = String(pv.left); if (prev) { big.classList.remove('pop'); void big.offsetWidth; big.classList.add('pop'); } }
-    of.textContent = `of ${pv.points}${pv.spent ? ` · ${pv.spent} spent` : ''}`;
-    clear(pips); for (let k = 0; k < pv.points; k++) pips.appendChild(h('i' + (k < pv.left ? '.on' : '')));
-    slotsEl.textContent = `${pv.held} of ${pv.slots} contract slots used · one offer per zone, the rest for any zone`;
-    reroll.textContent = ''; reroll.append(`Reroll · ${pts(pv.reroll.price)}`, h('span.pp-left', `${pv.reroll.max - pv.reroll.used} left`), h('span.k', 'R'));
-    reroll.disabled = false; reroll.classList.toggle('disabled', !pv.reroll.can);
+    rl.textContent = `Unspent: ${pts(pv.reserve.points)} = ${pv.reserve.echoes} Echoes, usable at hubs`;
+    reroll.classList.toggle('hidden', !pv.reroll.open);
+    if (pv.reroll.open) {
+      reroll.textContent = ''; reroll.append(`Reroll · ${pts(pv.reroll.price)}`, h('span.pp-left', `${pv.reroll.max - pv.reroll.used} left`), h('span.k', 'R'));
+      reroll.classList.toggle('disabled', !pv.reroll.can);
+    }
     const colors = contractColors(vv.contracts);
     pv.board.forEach((o, i) => {
       const b = cardEls[i]; if (!b) return;
@@ -25552,15 +25579,12 @@ function createPrepScreen(v, ctx) {
       b.style.setProperty('--cc', held1 ? colors.get(held1.id) || OFF_COLOR : 'transparent');
       b.setAttribute('aria-label', `${contractTitle(o, ctx.data.content)}, zone ${o.z}, ${pts(o.price)}${o.taken ? ', taken' : ''}`);
       clear(b).append(
-        // every number carries its word (QA playtest 2026-11-11 finding 5): levels, sites, pay, items, price
-        h('div.pc-top', h('span.kbd', BOARD_KEYS[i]), h('span.pc-zone', `Zone ${o.z} · ${o.zoneName}`), h('span.pc-band', `levels ${o.band[0]}–${o.band[1]}`), priceTag(o.price)),
-        h('div.pc-kind', h('img', { src: kindIcon(o.kind), alt: '' }), h('b', CONTRACT_KIND[o.kind] || o.kind), h('span.pc-need', `${o.need} ${plural(o.need, 'site')}`)),
-        // the target on one line, where it is on the next (a long Bounty never runs into the pay line)
-        h('div.pc-target', o.kind === 'delve' ? o.dungeon || "the zone's dungeon" : o.kind === 'bounty' ? o.name || 'a named elite' : familyName(o.family, ctx.data.content)),
-        h('div.pc-where', o.kind === 'delve' ? `the dungeon of ${o.zoneName}` : `${o.kind === 'bounty' ? 'roaming' : 'in'} ${o.regionName || 'its region'}`),
-        payLine(o.reward, 'div.pc-reward', false),
-        // the item choice on the button row (the pay line stays one line at 1366x768); a taken card adds its seal
-        h('div.pc-act', o.taken ? h('span.seal', { title: 'Taken' }, h('img', { src: icon('seal', 'blood'), alt: 'Taken' })) : null, itemsChip(o.reward), h('span.pc-btn', o.taken ? 'Drop' : 'Take')));
+        h('div.pc-top', h('span.kbd', BOARD_KEYS[i]), h('img', { src: kindIcon(o.kind), alt: '' }), h('b.pc-kind', CONTRACT_KIND[o.kind] || o.kind), h('span.pc-zone', `Zone ${o.z}`), priceTag(o.price)),
+        h('div.pc-target', cardTitle(o, ctx.data.content)),
+        h('div.pc-do', doLine(o)),
+        // the pay in one line, every number with its word (QA playtest 2026-11-11 finding 5)
+        payLine(o.reward, 'div.pc-reward'),
+        h('div.pc-act', o.taken ? h('span.seal', h('img', { src: icon('seal', 'blood'), alt: 'Taken' }), 'Taken') : null, h('span.pc-btn', o.taken ? 'Drop' : 'Take')));
       if (o.taken && !was && prev) { b.classList.remove('stamp'); void b.offsetWidth; b.classList.add('stamp'); }
     });
     for (const o of pv.options) {
@@ -25571,25 +25595,9 @@ function createPrepScreen(v, ctx) {
       x.el.disabled = o.owned;
       x.el.setAttribute('aria-label', `${o.name}, ${o.owned ? 'owned' : o.bought ? 'bought' : pts(o.price)}`);
       clear(x.el).append(h('img', { src: optIcon(o.id), alt: '' }),
-        h('div.po-txt', h('div.po-nm', o.name, h('span.kbd', x.key)), h('div.po-fx', prepOptionEffect(o, ctx.data.rules.prep, consName(ctx), ctx.data.content))),
+        h('div.po-txt', h('div.po-nm', h('span.kbd', x.key), h('span.po-name', o.name)), h('div.po-kd', o.kind === 'vision' ? 'Sight' : 'Supply')),
         h('div.po-right', o.owned ? h('span.po-own', 'Owned') : [h('span.pc-price', String(o.price)), h('span.po-act', o.bought ? 'Sell' : 'Buy')]));
     }
-    // your expedition: held contracts in slot order, empty slots, purchases, the Reserve preview
-    clear(held);
-    const list = (vv.contracts ? vv.contracts.contracts : []).filter((c) => c.status === 'active' || c.status === 'later');
-    for (let k = 0; k < pv.slots; k++) {
-      const c = list[k];
-      if (!c) { held.appendChild(h('li.empty', 'Empty slot')); continue; }
-      const li = h('li', { style: { '--cc': colors.get(c.id) || OFF_COLOR }, dataset: { contract: c.id } }, h('i.dot'), h('span.z', `Zone ${c.z}`), h('span.t', contractTitle(c, ctx.data.content)));
-      tip(li, () => contractTip(c, ctx, { has: hasPerks(ctx.view.prep || pv) }));
-      held.appendChild(li);
-    }
-    clear(bought);
-    const got = pv.options.filter((o) => o.bought || o.owned);
-    if (!got.length) bought.appendChild(h('div.muted', 'Nothing yet.'));
-    for (const o of got) bought.appendChild(h('span.pm-chip' + (o.owned ? '.own' : ''), h('img', { src: optIcon(o.id), alt: '' }), o.name, o.owned ? h('i', ' (owned)') : null));
-    clear(reserve).append(h('div.pm-rl', `Unspent: ${pts(pv.reserve.points)} = ${pv.reserve.echoes} Echoes, usable at hubs`),
-      h('div.muted', 'Reserve pays for a hub contract on the way; what is left at the end of the run becomes Echoes.'));
   };
   root.update(v);
   return root;
@@ -25623,9 +25631,10 @@ function optionAct(ctx, id) {
 }
 
 /**
- * Keys on the prep screen (expedition.md 9.1): 1-8 take or drop a contract, A-I buy or sell an option, R reroll, Enter
- * set out (not within PREP_ENTER_GUARD_MS of the screen opening, never on a held key, so the Enter that started the run
- * cannot also end the camp). Tab, Space and Enter on a focused card work as the browser's own. Returns true when handled.
+ * Keys on the prep screen (expedition.md 9.1; D128): 1-3 take or drop a contract (one key per offer), A-D buy or sell
+ * an option (one letter per option shown), R reroll only while the reroll is open, Enter set out (not within
+ * PREP_ENTER_GUARD_MS of the screen opening, never on a held key, so the Enter that started the run cannot also end the
+ * camp). Tab, Space and Enter on a focused card work as the browser's own. Returns true when handled.
  */
 function prepKey(e, ctx) {
   const v = ctx.view; const pv = v.prep; if (!pv) return false;
@@ -25633,10 +25642,11 @@ function prepKey(e, ctx) {
   const focused = document.activeElement && document.activeElement.closest && document.activeElement.closest('#prep button');
   if (code === 'Tab') return 'native';
   if ((code === 'Space' || code === 'Enter') && focused) return 'native';
-  if (/^Digit[1-8]$/.test(code)) { e.preventDefault(); boardAct(ctx, Number(code[5]) - 1); return true; }
+  const digit = /^(?:Digit|Numpad)([1-9])$/.exec(code);
+  if (digit) { e.preventDefault(); const i = Number(digit[1]) - 1; if (i < pv.board.length) boardAct(ctx, i); return true; }
   const letter = /^Key([A-Z])$/.exec(code);
-  if (letter && OPT_KEYS.includes(letter[1])) { e.preventDefault(); const o = pv.options[OPT_KEYS.indexOf(letter[1])]; if (o) optionAct(ctx, o.id); return true; }
-  if (code === 'KeyR') { e.preventDefault(); ctx.act({ type: 'REROLL_BOARD' }); return true; }
+  if (letter && code === 'KeyR' && pv.reroll.open) { e.preventDefault(); ctx.act({ type: 'REROLL_BOARD' }); return true; }
+  if (letter && OPT_KEYS.indexOf(letter[1]) >= 0 && OPT_KEYS.indexOf(letter[1]) < pv.options.length) { e.preventDefault(); optionAct(ctx, pv.options[OPT_KEYS.indexOf(letter[1])].id); return true; }
   if (code === 'Enter' || code === 'NumpadEnter') {
     e.preventDefault();
     const el = document.getElementById('prep');
@@ -27556,10 +27566,15 @@ function buildExpMap(v, ctx, readOnly) {
     const full = n.know === 'full';
     const band = mv.bands && mv.bands[n.ring] ? mv.bands[n.ring] : null;
     const label = n.hub ? 'Hub' : full && n.cl ? String(n.cl) : n.know === 'type' && band ? `${band[0]}–${band[1]}` : '?';
-    const el = h(`button.mnode.x-${fog}` + (m ? '.reach' : '') + (n.done && !n.hub ? '.visited' : '') + (here ? '.here' : '') + (n.dimmed ? '.dimmed' : '') + (n.lost ? '.lost' : '') + (type ? '' : '.fog') + (n.hub ? '.xhub' : '') + (n.shardfall ? '.xsf' : '') + (n.road ? '.xrd' : ''),
+    // D128 (owner playtest 2026-11-12 20:19: smaller icons, less clutter): text labels only where the player acts: his
+    // node, the reachable nodes and contract sites. Every other node is "quiet": its level a small coloured pip, its band
+    // and enemy count on hover (the tooltip), its Dimming clock a number only.
+    const loud = here || !!m || !!(n.sites && n.sites.length);
+    const fightLvl = full && n.cl && !n.hub && !NO_FIGHT.has(n.type);
+    const el = h(`button.mnode.x-${fog}` + (m ? '.reach' : '') + (n.done && !n.hub ? '.visited' : '') + (here ? '.here' : '') + (n.dimmed ? '.dimmed' : '') + (n.lost ? '.lost' : '') + (type ? '' : '.fog') + (n.hub ? '.xhub' : '') + (n.shardfall ? '.xsf' : '') + (n.road ? '.xrd' : '') + (loud ? '' : '.quiet'),
       { style: { left: `${x / 10}%`, top: `${y / 10}%` }, 'aria-label': `${type ? NODE_NAME[type] || 'Hub' : 'Unknown'} node ${n.id}`, dataset: { node: n.id, fog } },
       h('div.ring', type ? h('img', { src: nodeIcon(type), alt: '' }) : h('span.fogq', '?')),
-      h('div.cl' + (n.know === 'type' ? '.band' : ''), { style: { color: full && n.cl && !n.hub && !NO_FIGHT.has(n.type) ? conColor(n.cl, p.level) : NEUTRAL } }, label));
+      h('div.cl' + (n.know === 'type' ? '.band' : '') + (fightLvl ? '.lvl' : ''), { style: { color: fightLvl ? conColor(n.cl, p.level) : NEUTRAL } }, label));
     if (here) el.appendChild(flagSvg());
     // enemy count on a seen fight node (BUG-QA-02)
     const foes = full && !n.hub && !n.done ? (n.type === 'dungeon' ? null : n.archetypes && n.archetypes.length ? n.archetypes.length : null) : null;
@@ -27567,8 +27582,10 @@ function buildExpMap(v, ctx, readOnly) {
     const marks = siteBadge(n, v); // contract site marks (prep): only the ones the player sees; a hidden node stays unnamed
     if (marks) el.appendChild(marks);
     // the Dimming's clock: "dims in N" on every node within two hops of its front; the player's own count stands out at 2 or less
+    // D128: the full "dims in N" on the player's node and the reachable ones; elsewhere the number alone (hover: the tolls)
     const near = !off && !n.dimmed && finite(n.dimsIn) && sfHops[n.id] <= front + 2;
-    if (near || (here && !off && !n.dimmed && finite(n.dimsIn) && n.dimsIn <= 2)) el.appendChild(h('div.xclock' + (here && n.dimsIn <= 2 ? '.urgent' : '') + (n.dimsIn <= 2 ? '.soon' : ''), { dataset: { dimsIn: n.dimsIn } }, here && n.dimsIn <= 2 ? `Dims in ${n.dimsIn}!` : `dims in ${n.dimsIn}`));
+    const fullClock = here || !!m;
+    if (near || (here && !off && !n.dimmed && finite(n.dimsIn) && n.dimsIn <= 2)) el.appendChild(h('div.xclock' + (here && n.dimsIn <= 2 ? '.urgent' : '') + (n.dimsIn <= 2 ? '.soon' : '') + (fullClock ? '' : '.mini'), { dataset: { dimsIn: n.dimsIn } }, here && n.dimsIn <= 2 ? `Dims in ${n.dimsIn}!` : fullClock ? `dims in ${n.dimsIn}` : String(n.dimsIn)));
     const act = { type: 'MOVE', nodeId: n.id };
     const hp = m ? heatOf(v, act) : null;
     if (hp) el.appendChild(tollLabel(h('div.mhrs', tolls(hp.time)), hp));
@@ -28108,7 +28125,8 @@ let h, clear, fmtNum, moneyEl, pct; __link.imp("src/ui/util.js", [["h", (v) => {
 yield;
 // Toggleable windows: character sheet, bags, spellbook, talents, quest log, settings, zone map. In a run with the start
 // camp the quest log is the contract tracker (docs/specs/expedition.md 9.3; prep.js); the settings hold "Expedition map
-// with start camp" (the map new runs get).
+// with start camp" (the map new runs get). Sound (audio.js, docs/specs/audio.md): mute and the master, effects and interface
+// volumes, saved like every setting.
 
 
 
@@ -28273,8 +28291,15 @@ function createWindows(root, ctx) {
       };
       // reduceMotion shows what is in force (the system's setting until the player chooses)
       const on = (key) => (key === 'reduceMotion' ? settings.reduceMotion : !!s[key]);
-      const LABEL = { speedrun: 'Speedrun mode', skipTravel: 'Skip travel scenes', shake: 'Screen shake', reduceMotion: 'Reduce motion', showLog: 'Combat log', devTools: 'Dev tools' };
+      const LABEL = { speedrun: 'Speedrun mode', skipTravel: 'Skip travel scenes', shake: 'Screen shake', reduceMotion: 'Reduce motion', showLog: 'Combat log', devTools: 'Dev tools', soundMuted: 'Mute sound' };
       const devRow = flags.dev && ctx.bridge.mode === 'engine';
+      // a volume slider (0-100 %): sets the setting as it moves; the window is not rebuilt while it is dragged
+      const vol = (key, label) => {
+        const cap = h('span', `${label} ${Math.round(s[key] * 100)} %`);
+        const inp = h('input', { type: 'range', min: '0', max: '100', step: '5', value: String(Math.round(s[key] * 100)), 'aria-label': `${label} volume`, dataset: { sound: key }, style: { width: '8.6rem', accentColor: '#d9a441' } });
+        inp.addEventListener('input', () => { settings.set(key, Number(inp.value) / 100); cap.textContent = `${label} ${inp.value} %`; });
+        return h('label', { style: { display: 'flex', flexDirection: 'column', gap: '.2rem', fontSize: '1.2rem' } }, cap, inp);
+      };
       const tog = (key) => { const b = h('div.toggle' + (on(key) ? '.on' : ''), { role: 'switch', 'aria-checked': on(key) ? 'true' : 'false', 'aria-label': LABEL[key] || key }, h('div.sw')); b.addEventListener('click', () => { settings.set(key, !on(key)); refresh('settings'); }); return b; };
       const body = h('div.col', { style: { padding: '1rem 1.6rem 1.6rem', gap: 0 } },
         h('div.setrow', h('div', h('div', 'Animation speed'), h('div.muted', 'Space or a click skips to the end of the hit on screen. A key pressed while a round plays is queued as your next action.')), seg('speed', [[1, '1×'], [2, '2×'], [4, '4×'], [0, 'Instant']])),
@@ -28284,6 +28309,8 @@ function createWindows(root, ctx) {
         h('div.setrow', h('div', 'Screen shake'), tog('shake')),
         h('div.setrow', h('div', h('div', 'Reduce motion'), h('div.muted', 'No screen shake, smaller recoil, numbers without the slam.')), tog('reduceMotion')),
         h('div.setrow', h('div', 'Combat log'), tog('showLog')),
+        h('div.setrow', h('div', h('div', 'Mute sound'), h('div.muted', 'Sound starts with your first click or key. Everything it tells you is also on screen.')), tog('soundMuted')),
+        h('div.setrow', h('div', 'Volume'), h('div', { style: { display: 'flex', gap: '1.2rem' } }, vol('soundMaster', 'Master'), vol('soundSfx', 'Effects'), vol('soundUi', 'Interface'))),
         // the Dev menu (dev-menu.js): one line, so the window keeps clear of the Heat meter (#win-settings.dev); none with
         // ?dev=0 or the mock engine
         devRow ? h('div.setrow', h('div', 'Dev tools (the DEV tab and the ` key)'), tog('devTools')) : null,
@@ -28562,6 +28589,8 @@ yield;
 // with a hit-stop, recoil, a weighted number and screen shake, and enemies' telegraphed blows get a readable pause.
 // Skipping: Space or a click in a round skips to the end of the hit on screen (the next hit plays normally); any other
 // step, or Instant speed, finishes at once. Waits go through skip tokens.
+// Sound (docs/specs/audio.md, D127): each event goes to ctx.audio.event at its moment (audio.js maps it to cues); a zone
+// arrival rings its bell pair with the banner.
 
 
 
@@ -28733,6 +28762,8 @@ class Director {
         const tick = e.t === 'damage' && e.tick;
         if (round && i > 0 && (e.t === 'action' || e.t === 'round' || (tick && !inTicks))) newBeat();
         inTicks = tick || (inTicks && e.t !== 'action' && e.t !== 'round');
+        // sound (audio.js): the event's cues at its moment; a skipped or Instant step plays only its top cue
+        if (ctx.audio) ctx.audio.event(e, { power: tm.power, heavy: !!(hitCtx && hitCtx.heavy), rank: e.dst && e.dst.side === 'enemy' ? (enemy(e.dst.idx) || {}).rank : null, beat: this.beatNo, fast: token.skipped || settings.instant });
         switch (e.t) {
           case 'fightStart': hud.log(`Combat: ${e.enemies.join(', ')}.`, 'lg-sys'); break;
           case 'action': {
@@ -29026,6 +29057,7 @@ class Director {
       scene.targetSpeed = 0;
     } else ctx.syncScene(next, { instant: true });
     const z = next.zone;
+    if (ctx.audio) ctx.audio.cue('arrive'); // a bell pair with the zone banner (audio.js)
     ctx.ui.banner(z.name, z.camp || z.idx > ctx.data.rules.zoneCount ? 'The last camp before the Sunken Observatory' : zoneLine(z, ctx.data.rules), 'zone', 2600);
     ctx.hud.log(`You arrive in ${z.name}.`, 'lg-sys');
     await wait(settings.dur(900), token);
@@ -29392,8 +29424,312 @@ function createDevMenu(root, ctx, { allowed }) {
 }
 
 });
+__bundle.def("src/ui/audio.js", function* (__ns, __link) {
+__link.exp({ "MAX_VOICES": () => MAX_VOICES, "SAME_MAX": () => SAME_MAX, "RETRIGGER_S": () => RETRIGGER_S, "FADE_S": () => FADE_S, "HEAVY_POWER": () => HEAVY_POWER, "HEAVY_SHARE": () => HEAVY_SHARE, "TAIL": () => TAIL, "META": () => META, "RANK": () => RANK, "PROTECTED": () => PROTECTED, "CLICKABLE": () => CLICKABLE, "cuesFor": () => cuesFor, "newMemo": () => newMemo, "viewCues": () => viewCues, "actionCues": () => actionCues, "keepOfStep": () => keepOfStep, "CUE_NAMES": () => CUE_NAMES, "createAudio": () => createAudio });
+yield;
+// Sound (docs/specs/audio.md from docs/audio/README.md; D127). Every cue is synthesised with Web Audio (oscillators, noise,
+// envelopes, filters) as in the approved preview, docs/audio/preview.html; no file is ever loaded. Pure, Node-tested part
+// (qa/ui/audio.test.mjs): cuesFor (a director event), viewCues (the decision view: Deathblow telegraph, Furnace),
+// actionCues, keepOfStep (the Instant rule), META/RANK/PROTECTED. createAudio(settings): master -> sfx, ui, music
+// (reserved, M4) -> compressor; nothing before the first trusted pointer or key press; voice limit and priority; speed
+// tails; the log for testApi().audio(). Spec sections: audio.md 2 (cues), 3 (mixer, unlock, voices, speed), 5 (constants).
+const N = { D2: 73.42, D3: 146.83, Eb3: 155.56, A3: 220, D4: 293.66, E4: 329.63, Eb4: 311.13, Fs4: 369.99, A4: 440, B4: 493.88,
+  D5: 587.33, Fs5: 739.99, A5: 880, D6: 1174.66, E6: 1318.51, B6: 1975.53 };
+const MAX_VOICES = 8;
+const SAME_MAX = 2;
+const RETRIGGER_S = 0.05;
+const FADE_S = 0.02;
+const HEAVY_POWER = 0.6; // combat-feel.js hitPower at or above: a heavy hit
+const HEAVY_SHARE = 0.15; // or this share of the target's maximum health
+const TAIL = { 0: 0.4, 1: 1, 2: 0.6, 4: 0.4 }; // release tails by speed (0: Instant)
+const SFX_TRIM = 0.9; // the preview's effects bus under the effects slider
+/** Cue: [rank (higher wins a voice and the Instant step), length at 1x in s (voice count)]. */
+const META = { deathblowTelegraph: [100, 2], deathblowLanded: [99, 2.2], deathblowAnswered: [98, 1.4], maimed: [97, 1.8],
+  deathblowFirstShow: [96, 2], playerDeath: [95, 1.6], levelUp: [90, 1.7], kill: [70, 1], windupLanded: [66, 1], windupAnswered: [65, 1],
+  crit: [60, 0.55], homewardBell: [58, 3.4], arrive: [57, 1.3], loot: [55, 1], furnaceUp: [52, 0.6], furnaceCalm: [51, 1], interrupt: [45, 0.25],
+  hitHeavy: [40, 0.32], potion: [36, 0.35], heal: [32, 0.6], dodge: [28, 0.15], error: [26, 0.15], hitLight: [20, 0.15], uiClick: [18, 0.05],
+  winOpen: [14, 0.15], winClose: [13, 0.1], tick: [10, 0.1] };
+const RANK = Object.fromEntries(Object.entries(META).map(([k, v]) => [k, v[0]]));
+/** Never stolen or dropped: the Deathblow's cues and the player's death. */
+const PROTECTED = new Set(['deathblowTelegraph', 'deathblowFirstShow', 'deathblowAnswered', 'deathblowLanded', 'maimed', 'playerDeath']);
+const UI_CUES = new Set(['uiClick', 'error', 'winOpen', 'winClose']);
+const TONAL = new Set(['levelUp', 'deathblowAnswered', 'windupAnswered', 'loot', 'heal', 'arrive', 'homewardBell', 'furnaceCalm']);
+const BIG = new Set(['elite', 'rare', 'dboss', 'boss']);
+const BELLS = { uncommon: 1, rare: 2, epic: 3, legendary: 3 };
+const HEAT_ORDER = ['clear', 'warm', 'hot', 'scorched'];
+/** What a click sounds on (one document-level listener in app.js). */
+const CLICKABLE = 'button, [role="button"], [role="switch"], .card, .icard, .svc-card, .ccard, .slot, .oathslot, .mnode, .toggle';
+
+// ------------------------------------------------------------------ pure: events and views to cues
+/** Cues of one director event. info: { power (tm.power), heavy (a heavy blow), rank (the enemy's) }. */
+function cuesFor(e, info = {}) {
+  const one = (cue, o) => [{ cue, ...o }];
+  switch (e && e.t) {
+    case 'damage': {
+      if (e.immune) return [];
+      if (e.miss) return one('dodge');
+      const taken = !!e.dst && (e.dst.side === 'player' || e.dst.side === 'pet');
+      if (e.tick) return one('tick', { taken });
+      const share = e.maxHp ? Math.min(1, (e.amount || 0) / e.maxHp) : 0;
+      const w = Math.min(1.25, 0.8 + share * 1.5); // a big hit is heard as big
+      if (e.crit) return one('crit', { taken, w });
+      const heavy = !(e.src && e.src.side === 'pet') && (!!info.heavy || (info.power || 0) >= HEAVY_POWER || share >= HEAVY_SHARE);
+      return one(heavy ? 'hitHeavy' : 'hitLight', { taken, w });
+    }
+    case 'death':
+      if (!e.dst || e.despawn) return [];
+      return e.dst.side === 'player' ? one('playerDeath') : e.dst.side === 'enemy' ? one('kill', { big: BIG.has(info.rank) }) : [];
+    case 'levelUp': return one('levelUp');
+    case 'windup': {
+      const ok = e.result === 'answered';
+      if (!e.deathblow) return one(ok ? 'windupAnswered' : 'windupLanded');
+      return ok ? one('deathblowAnswered') : [{ cue: 'deathblowLanded' }, ...(e.maimed ? [{ cue: 'maimed' }] : [])];
+    }
+    case 'heal': return (e.amount || 0) > 0 ? one('heal', { enemy: !!e.dst && e.dst.side === 'enemy', maimed: !!e.maimed }) : [];
+    case 'interrupt': case 'trapSprung': return one('interrupt');
+    case 'action': return e.kind === 'item' ? one('potion') : [];
+    case 'gotItem': return one('loot', { rarity: e.rarity, heatUp: !!e.heatUp });
+    default: return [];
+  }
+}
+const newMemo = () => ({ told: new Set(), seen: new Set() });
+/**
+ * The decision view after a step (memo: newMemo(), one per page). The telegraph once per Deathblow (enemy uid, turn) when
+ * an enemy's now-entry is one nothing answers yet (a SAPPED cancel breaks on damage: still a threat); else the quieter
+ * first show the first time a track shows one in the engage round. The Furnace: up a state, or back to Calm.
+ */
+function viewCues(prev, next, memo) {
+  const out = [];
+  const f = next && next.combat;
+  if (f && !f.over) {
+    let tele = false; let first = false;
+    for (const en of f.enemies || []) {
+      if (!en.alive || !Array.isArray(en.track)) continue;
+      const now = en.track.find((x) => x.now && x.deathblow);
+      const key = `${en.uid}:${now ? now.turn : ''}`;
+      if (now && (!now.cancel || now.cancel.breaks) && !memo.told.has(key)) { memo.told.add(key); tele = true; }
+      if (f.engage && en.track.some((x) => x.deathblow) && !memo.seen.has(en.uid)) { memo.seen.add(en.uid); first = true; }
+    }
+    if (tele) out.push({ cue: 'deathblowTelegraph' }); else if (first) out.push({ cue: 'deathblowFirstShow' });
+  }
+  const a = prev && prev.heat; const b = next && next.heat;
+  if (a && b && a.state !== b.state && prev.player && next.player && prev.seed === next.seed) {
+    const i = HEAT_ORDER.indexOf(b.state);
+    if (i > HEAT_ORDER.indexOf(a.state)) out.push({ cue: 'furnaceUp', level: i }); else if (i === 0) out.push({ cue: 'furnaceCalm' });
+  }
+  return out;
+}
+/** Cues an action starts itself (the Homeward Bell's channel). */
+const actionCues = (type) => (type === 'RING_BELL' ? [{ cue: 'homewardBell' }] : []);
+/** Instant or a skipped step: indices kept, the top-ranked cue and every protected one. */
+function keepOfStep(list) {
+  let top = -1;
+  list.forEach((c, i) => { if (top < 0 || (RANK[c.cue] || 0) > (RANK[list[top].cue] || 0)) top = i; });
+  return new Set(list.map((c, i) => (i === top || PROTECTED.has(c.cue) ? i : -1)).filter((i) => i >= 0));
+}
+
+// ------------------------------------------------------------------ synthesis: the preview's building blocks
+const LP = 'lowpass'; const HP = 'highpass'; const BP = 'bandpass'; const TRI = 'triangle';
+const gain = (ac, v, to) => { const g = ac.createGain(); g.gain.value = v; if (to) g.connect(to); return g; };
+function build(ac) {
+  const comp = ac.createDynamicsCompressor();
+  comp.threshold.value = -12; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.25; comp.connect(ac.destination);
+  const master = gain(ac, 0.7, comp); const duck = gain(ac, 1, master); // the player's death ducks all but itself
+  const bus = { sfx: gain(ac, SFX_TRIM, duck), ui: gain(ac, 0.6, duck), music: gain(ac, 1, duck), over: gain(ac, SFX_TRIM, master) };
+  const verb = ac.createConvolver(); verb.connect(duck); // one small timber room: 1.6 s of decaying, low-passed noise
+  const n = Math.floor(ac.sampleRate * 1.6); const ir = ac.createBuffer(2, n, ac.sampleRate);
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); let lp = 0; for (let i = 0; i < n; i++) { lp = lp * 0.6 + (Math.random() * 2 - 1) * 0.4; d[i] = lp * Math.pow(1 - i / n, 3.2); } }
+  verb.buffer = ir;
+  const nb = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
+  { const d = nb.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+  return { ac, master, duck, bus, verbIn: gain(ac, 0.5, verb), nb, fresh: true, ducked: false, release: false };
+}
+// I: a cue instance { ac, G, t0, T (tail), pv (pitch), lv (level), ig (dry), iw (wet send) }. Params: t start, a attack,
+// d decay (× T), p peak, f Hz (× pv), to glide or sweep target, w room send, lp low-pass (lpTo: closing), ty type, q.
+function voice(I, w) { const g = gain(I.ac, 0, I.ig); if (w) g.connect(gain(I.ac, w, I.iw)); return g; }
+function env(g, t, a, p, d) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, p), t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); }
+function tone(I, { ty = 'sine', f, t = 0, a = 0.005, d = 0.2, p = 0.3, to, toT, w = 0, lp, lpTo, dt = 0 }) {
+  const ac = I.ac; const s = I.t0 + t; d *= I.T;
+  const g = voice(I, w); env(g, s, a, p * I.lv, d);
+  const o = ac.createOscillator(); o.type = ty; o.detune.value = dt;
+  o.frequency.setValueAtTime(f * I.pv, s); if (to) o.frequency.exponentialRampToValueAtTime(to * I.pv, s + (toT ? toT * I.T : a + d));
+  if (lp) { const fl = ac.createBiquadFilter(); fl.type = LP; fl.frequency.setValueAtTime(lp, s); if (lpTo) fl.frequency.exponentialRampToValueAtTime(lpTo, s + a + d); o.connect(fl); fl.connect(g); } else o.connect(g);
+  o.start(s); o.stop(s + a + d + 0.05);
+}
+function noise(I, { t = 0, a = 0.002, d = 0.1, p = 0.3, ty = BP, f = 1000, q = 1, to, w = 0 }) {
+  const ac = I.ac; const s = I.t0 + t; d *= I.T;
+  const src = ac.createBufferSource(); src.buffer = I.G.nb; src.loop = true;
+  const fl = ac.createBiquadFilter(); fl.type = ty; fl.Q.value = q;
+  fl.frequency.setValueAtTime(f * I.pv, s); if (to) fl.frequency.exponentialRampToValueAtTime(to * I.pv, s + a + d);
+  const g = voice(I, w); env(g, s, a, p * I.lv, d);
+  src.connect(fl); fl.connect(g); src.start(s, Math.random() * 1.5); src.stop(s + a + d + 0.05);
+}
+/** A small warm bell: sine partials, the upper ones die first. */
+const bell = (I, f, { t = 0, p = 0.14, d = 1.2, w = 0.5 } = {}) => { for (const [m, k, dk] of [[1, 1, 1], [2, 0.42, 0.6], [3.01, 0.2, 0.4], [4.2, 0.08, 0.25]]) tone(I, { f: f * m, t, a: 0.004, d: d * dk, p: p * k, w }); };
+/** The Deathblow's reserved voice: inharmonic partials through a low-pass, a hollow gong. */
+function gong(I, f, { t = 0, p = 0.3, d = 2, glide = 1, w = 0.5 } = {}) {
+  for (const [m, k, dk] of [[1, 1, 1], [1.414, 0.6, 0.75], [2, 0.35, 0.55], [2.83, 0.2, 0.4], [4.07, 0.1, 0.25]]) tone(I, { f: f * m, to: glide !== 1 ? f * m * glide : 0, t, a: 0.012, d: d * dk, p: p * k, w, lp: 1800 });
+}
+const CUE = {
+  uiClick(I) { noise(I, { d: 0.035, p: 1.4, f: 2400, q: 3 }); tone(I, { ty: TRI, f: 1100, to: 800, d: 0.04, p: 0.12 }); },
+  hitLight(I) { noise(I, { d: 0.09, p: 0.35, ty: LP, f: 2500, to: 600 }); tone(I, { f: 180, to: 90, d: 0.1, p: 0.35 }); },
+  tick(I) { noise(I, { d: 0.06, p: 0.125, ty: LP, f: 2500, to: 600 }); tone(I, { f: 180, to: 90, d: 0.07, p: 0.125 }); }, // -9 dB
+  hitHeavy(I, o = {}) {
+    const k = o.w || 1;
+    noise(I, { d: 0.015, p: 0.2 * k, ty: HP, f: 3000 }); tone(I, { f: 120, to: 42, a: 0.003, d: 0.28, p: 0.7 * k });
+    tone(I, { ty: TRI, f: 70, to: 40, d: 0.2, p: 0.3 * k, lp: 300 }); noise(I, { d: 0.22, p: 0.5 * k, ty: LP, f: 1500, to: 300, w: o.taken ? 0 : 0.1 });
+  },
+  crit(I, o) {
+    CUE.hitHeavy(I, o); tone(I, { ty: TRI, f: 660, to: 1320, d: 0.06, p: 0.08 });
+    bell(I, N.E6, { t: 0.01, p: 0.09, d: 0.5, w: 0.4 }); bell(I, N.B6, { t: 0.03, p: 0.05, d: 0.4, w: 0.4 }); noise(I, { d: 0.06, p: 0.12, ty: HP, f: 5000 });
+  },
+  kill(I, o) {
+    tone(I, { f: 80, to: 40, d: 0.3, p: 0.5 }); noise(I, { d: 0.4, p: 0.3, ty: LP, f: 800, to: 150, w: o.big ? 0.4 : 0 });
+    bell(I, N.A3, { t: 0.05, p: 0.07, d: 0.9, w: o.big ? 0.6 : 0.2 }); if (o.big) bell(I, N.D4, { t: 0.22, p: 0.07, d: 1.2, w: 0.6 });
+  },
+  playerDeath(I) { CUE.hitHeavy(I, { w: 1.1 }); tone(I, { ty: TRI, f: N.D4, to: N.A3, t: 0.15, a: 0.05, d: 1.3, p: 0.14, lp: 1800, lpTo: 260, w: 0.4 }); },
+  levelUp(I) { // the full pentatonic run belongs to level-up alone
+    [N.D4, N.E4, N.Fs4, N.A4, N.B4, N.D5].forEach((f, i) => bell(I, f, { t: i * 0.07, p: 0.14, d: 1.2, w: 0.6 }));
+    for (const dt of [-7, 7]) tone(I, { ty: 'sawtooth', f: N.D3, a: 0.25, d: 1.4, p: 0.05, lp: 900, dt, w: 0.5 });
+    tone(I, { ty: 'sawtooth', f: N.A3, a: 0.25, d: 1.4, p: 0.04, lp: 900, w: 0.5 }); noise(I, { t: 0.3, a: 0.3, d: 0.6, p: 0.04, ty: HP, f: 6000, w: 0.5 });
+  },
+  deathblowTelegraph(I, o = {}) { // a breath in, the drum (not on the first show), the gong, a beating minor second
+    const k = o.quiet ? 0.5 : 1;
+    noise(I, { a: 0.45, d: 0.2, p: 0.25 * k, ty: LP, f: 150, to: 900 }); if (!o.quiet) tone(I, { f: 90, to: 50, t: 0.45, d: 0.4, p: 0.6 });
+    gong(I, N.D2, { t: 0.45, p: 0.35 * k, d: 2.2 });
+    for (const f of [N.D3, N.Eb3]) tone(I, { f, t: 0.45, a: 0.05, d: 1.4, p: 0.12 * k, w: 0.3 });
+  },
+  deathblowFirstShow(I) { CUE.deathblowTelegraph(I, { quiet: true }); },
+  deathblowAnswered(I) { // a parry clack, rising bells, the second resolved to a fifth
+    noise(I, { d: 0.05, p: 0.5, f: 1800, q: 3 }); tone(I, { ty: TRI, f: 900, to: 600, d: 0.06, p: 0.15 });
+    [N.D5, N.Fs5, N.A5, N.D6].forEach((f, i) => bell(I, f, { t: 0.08 + i * 0.08, p: 0.2 - i * 0.03, d: 1, w: 0.6 }));
+    for (const f of [N.D3, N.A3]) tone(I, { f, t: 0.08, a: 0.1, d: 1, p: 0.08, w: 0.4 });
+  },
+  deathblowLanded(I) { CUE.hitHeavy(I, { w: 1.3 }); gong(I, N.D2 * 0.707, { t: 0.02, p: 0.4, d: 2.5, glide: 0.88, w: 0.6 }); noise(I, { d: 1.2, p: 0.25, ty: LP, f: 400, to: 120 }); },
+  maimed(I) { // two muffled heartbeats, a falling sigh
+    tone(I, { f: 62, to: 45, t: 0.7, d: 0.18, p: 0.55 }); tone(I, { f: 62, to: 45, t: 0.95, d: 0.18, p: 0.45 });
+    tone(I, { ty: TRI, f: N.E4, to: N.Eb4, toT: 0.7, t: 1, a: 0.08, d: 0.7, p: 0.1, lp: 900, w: 0.3 });
+  },
+  windupAnswered(I) { noise(I, { d: 0.05, p: 0.45, f: 1800, q: 3 }); bell(I, N.D5, { t: 0.06, p: 0.16, d: 0.9 }); bell(I, N.A5, { t: 0.14, p: 0.12, d: 0.9 }); },
+  windupLanded(I) { CUE.hitHeavy(I, { w: 1.1 }); bell(I, N.D3, { t: 0.02, p: 0.2, d: 0.9, w: 0.3 }); }, // a low dong: no gong, no tritone
+  interrupt(I) { noise(I, { a: 0.1, d: 0.02, p: 0.3, f: 600, to: 2400, q: 2 }); tone(I, { ty: TRI, f: 600, to: 300, t: 0.1, d: 0.12, p: 0.12 }); },
+  heal(I, o) { // a fifth; an enemy's quieter and lower; cut by MAIMED: muffled
+    const f = o.enemy ? N.A3 : N.D4;
+    for (const [m, p] of [[1, 0.12], [1.5, 0.08]]) tone(I, { f: f * m, to: f * m * 1.03, a: 0.06, d: 0.5, p: p * (o.enemy ? 0.6 : 1), w: 0.5, lp: o.maimed ? 700 : 0 });
+  },
+  potion(I) { noise(I, { d: 0.03, p: 0.5, f: 900, q: 4 }); for (let i = 0; i < 3; i++) noise(I, { t: 0.09 + i * 0.07, d: 0.05, p: 0.2, ty: LP, f: 450 + i * 120, q: 6 }); },
+  dodge(I) { noise(I, { a: 0.03, d: 0.09, p: 0.3, f: 600, to: 2500, q: 1.5 }); },
+  loot(I, o) { // cloth, or bells by rarity; heat raised it: embers first
+    let t = 0;
+    if (o.heatUp) { for (let i = 0; i < 4; i++) noise(I, { t: i * 0.04, d: 0.012, p: 0.15, ty: HP, f: 3500 }); t = 0.18; }
+    const n = BELLS[o.rarity] || 0;
+    if (!n) { tone(I, { f: 140, to: 90, t, d: 0.12, p: 0.25 }); noise(I, { t, d: 0.08, p: 0.15, ty: LP, f: 900 }); return; }
+    [N.A4, N.D5, N.Fs5].slice(0, n).forEach((f, i) => bell(I, f, { t: t + i * 0.09, p: 0.1, d: 0.9 }));
+    if (n >= 3) tone(I, { f: N.D3, t, a: 0.2, d: 0.9, p: 0.06, w: 0.5 });
+  },
+  furnaceUp(I, o) { noise(I, { a: 0.12, d: 0.35, p: 0.3, ty: LP, f: 200, to: 1200 }); for (let i = 0; i < 2 * (o.level || 1); i++) noise(I, { t: 0.15 + i * 0.07, d: 0.012, p: 0.12, ty: HP, f: 3000 }); },
+  furnaceCalm(I) { for (const m of [1, 1.004]) tone(I, { f: N.D4 * m, a: 0.12, d: 0.9, p: 0.06, w: 0.5 }); },
+  error(I) { tone(I, { f: 160, to: 120, d: 0.06, p: 0.3 }); tone(I, { f: 160, to: 120, t: 0.07, d: 0.06, p: 0.25 }); },
+  winOpen(I) { noise(I, { a: 0.04, d: 0.08, p: 0.25, f: 400, to: 1600, q: 1.2 }); },
+  winClose(I) { noise(I, { a: 0.02, d: 0.06, p: 0.2, f: 1600, to: 400, q: 1.2 }); },
+  arrive(I) { bell(I, N.A4, { p: 0.12, d: 1 }); bell(I, N.D5, { t: 0.12, p: 0.11, d: 1.2 }); },
+  homewardBell(I) { bell(I, N.D5, { p: 0.14, d: 2.5, w: 0.8 }); bell(I, N.D5, { t: 0.9, p: 0.12, d: 2.5, w: 0.8 }); },
+};
+const CUE_NAMES = Object.keys(CUE);
+
+// ------------------------------------------------------------------ the player
+/** { beginStep, endStep, event, view, cue, unlock, info }; settings: settings.js (a stub in Node). */
+function createAudio(settings) {
+  let G = null; let stepNo = 0; let step = null; let lightBeat = null;
+  const log = []; const live = []; const last = new Map(); const memo = newMemo();
+  const now = () => performance.now() / 1000;
+  const speed = () => (settings.instant ? 0 : settings.get('speed') || 1);
+  const vol = (k) => Math.max(0, Math.min(1, Number(settings.get(k)) || 0));
+  const busOf = (name) => (UI_CUES.has(name) ? 'ui' : name === 'playerDeath' ? 'over' : 'sfx');
+  const audible = (name) => !!G && !settings.get('soundMuted') && vol('soundMaster') > 0 && vol(busOf(name) === 'ui' ? 'soundUi' : 'soundSfx') > 0;
+  const ramp = (prm, v, s = 0.02) => { const t = G.ac.currentTime; prm.cancelScheduledValues(t); prm.setValueAtTime(prm.value, t); prm.linearRampToValueAtTime(v, t + s); };
+  function apply() {
+    if (!G) return;
+    ramp(G.master.gain, settings.get('soundMuted') ? 0 : vol('soundMaster')); ramp(G.bus.ui.gain, vol('soundUi'));
+    for (const b of [G.bus.sfx, G.bus.over]) ramp(b.gain, SFX_TRIM * vol('soundSfx'));
+  }
+  /** The first trusted pointer or key press builds the context (the browser's autoplay rule); later ones resume it. */
+  function unlock(ev) {
+    if (ev && ev.isTrusted === false) return;
+    if (!G) { const AC = globalThis.AudioContext || globalThis.webkitAudioContext; if (!AC) return; try { G = build(new AC()); } catch { return; } apply(); }
+    if (G.ac.state === 'suspended' && !(globalThis.document && document.hidden)) G.ac.resume().catch(() => {});
+  }
+  if (typeof globalThis.addEventListener === 'function') for (const t of ['pointerdown', 'keydown']) globalThis.addEventListener(t, unlock, true);
+  if (globalThis.document) document.addEventListener('visibilitychange', () => { if (G) (document.hidden ? G.ac.suspend() : G.ac.resume()).catch(() => {}); });
+  if (settings.on) settings.on('change', (k) => { if (/^sound/.test(k)) apply(); });
+
+  function unduck() { if (G && G.ducked && G.release) { ramp(G.duck.gain, 1, 0.3); G.ducked = false; G.release = false; } }
+  function steal(v) { live.splice(live.indexOf(v), 1); if (v.I) for (const n of [v.I.ig, v.I.iw]) ramp(n.gain, 0, FADE_S); }
+  function render(name, c, T) {
+    const ac = G.ac; const t0 = ac.currentTime + (G.fresh ? 0.1 : 0.02); G.fresh = false; // a new context gets a moment
+    const jit = TONAL.has(name) ? 0.004 : 0.03; // pitch ±3 % (bells ±0.4 %, so they stay on the scale), level ±1.5 dB
+    const I = { ac, G, t0, T, pv: (1 + (Math.random() * 2 - 1) * jit) * (c.taken ? 0.92 : 1), lv: Math.pow(10, ((Math.random() * 2 - 1) * 1.5) / 20),
+      ig: gain(ac, 1, G.bus[busOf(name)]), iw: gain(ac, 1, G.verbIn) };
+    CUE[name](I, c);
+    if (name === 'playerDeath') { // all but the death itself: to 30 % over 0.8 s, then silence for the death screen
+      const p = G.duck.gain; p.cancelScheduledValues(t0); p.setValueAtTime(p.value, t0); p.linearRampToValueAtTime(0.3, t0 + 0.8); p.linearRampToValueAtTime(0.0001, t0 + 2.4);
+      G.ducked = true; G.release = false;
+    }
+    return I;
+  }
+  /** The voice rules, then the sound when unlocked and not muted; e: the cue's log entry. */
+  function play(c, e) {
+    const name = c.cue; const t = now(); const sp = speed(); const rank = RANK[name] || 0; const prot = PROTECTED.has(name);
+    const drop = () => { e.kept = false; return e; };
+    if (!CUE[name]) return drop();
+    if (sp === 4 && (name === 'hitLight' || name === 'tick') && c.beat != null) { if (c.beat === lightBeat) return drop(); lightBeat = c.beat; }
+    if (!prot && t - (last.has(name) ? last.get(name) : -1) < RETRIGGER_S) return drop();
+    for (let i = live.length - 1; i >= 0; i--) if (live[i].end <= t) live.splice(i, 1);
+    const same = live.filter((v) => v.name === name);
+    if (same.length >= SAME_MAX && !prot) steal(same[0]);
+    if (live.length >= MAX_VOICES) {
+      const v = live.filter((x) => !x.prot).sort((a, b) => a.rank - b.rank || a.t0 - b.t0)[0];
+      if (v && (prot || v.rank <= rank)) steal(v); else if (!prot) return drop();
+    }
+    last.set(name, t); e.kept = true;
+    const vc = { name, rank, prot, t0: t, end: t + META[name][1] * TAIL[sp], I: null };
+    live.push(vc);
+    if (audible(name)) { unduck(); vc.I = render(name, c, TAIL[sp]); e.sound = true; }
+    return e;
+  }
+  /** Ask for a cue: always logged; a step's cue in a fast step (Instant, skipped) waits for endStep's choice. */
+  function ask(c, direct = false) {
+    const e = { cue: c.cue, step: stepNo, t: Math.round(now() * 1000), kept: false, sound: false };
+    log.push(e); if (log.length > 2000) log.shift();
+    if (step && step.fast && !direct) step.pending.push([c, e]); else play(c, e);
+    return e;
+  }
+  function endStep() {
+    if (!step) return;
+    const s = step; step = null;
+    const keep = keepOfStep(s.pending.map(([c]) => c));
+    s.pending.forEach(([c, e], i) => { if (keep.has(i)) play(c, e); });
+    if (G && G.ducked) G.release = true; // the death screen stays silent until the next step or click
+  }
+  return {
+    /** A step starts (app.js act): fast at Instant; the action's own cues. */
+    beginStep(type) { endStep(); stepNo += 1; unduck(); step = { fast: !!settings.instant, pending: [] }; for (const c of actionCues(type)) ask(c); },
+    endStep,
+    /** One director event; info.fast: the step was skipped or is Instant (only its top cue will play). */
+    event(e, info = {}) { if (step && info.fast) step.fast = true; for (const c of cuesFor(e, info)) ask({ ...c, beat: info.beat }); },
+    /** The decision view after a step. */
+    view(prev, next) { for (const c of viewCues(prev, next, memo)) ask(c); },
+    /** A cue from outside the event loop (click, error, windows, arrival): never held by the Instant rule. */
+    cue(name, o = {}) { return ask({ cue: name, ...o }, true); },
+    unlock,
+    /** Test hook (testApi().audio()): { unlocked, state, muted, log: [{ cue, step, t, kept, sound }] }. */
+    info: () => ({ unlocked: !!G, state: G ? G.ac.state : null, muted: !!settings.get('soundMuted'), log: log.map((x) => ({ ...x })) }),
+  };
+}
+
+});
 __bundle.def("src/ui/app.js", function* (__ns, __link) {
-let createBridge, flags; __link.imp("src/ui/engine-bridge.js", [["createBridge", (v) => { createBridge = v; }], ["flags", (v) => { flags = v; }]]); let Scene; __link.imp("src/ui/scene.js", [["Scene", (v) => { Scene = v; }]]); let createHud; __link.imp("src/ui/hud.js", [["createHud", (v) => { createHud = v; }]]); let createScreens, disarmSpyglass; __link.imp("src/ui/screens.js", [["createScreens", (v) => { createScreens = v; }], ["disarmSpyglass", (v) => { disarmSpyglass = v; }]]); let prepKey; __link.imp("src/ui/prep.js", [["prepKey", (v) => { prepKey = v; }]]); let createWindows; __link.imp("src/ui/windows.js", [["createWindows", (v) => { createWindows = v; }]]); let Director; __link.imp("src/ui/director.js", [["Director", (v) => { Director = v; }]]); let initTooltip, hideTip; __link.imp("src/ui/tooltip.js", [["initTooltip", (v) => { initTooltip = v; }], ["hide", (v) => { hideTip = v; }]]); let createDevMenu; __link.imp("src/ui/dev-menu.js", [["createDevMenu", (v) => { createDevMenu = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let h, clear; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }]]); let enemyLook; __link.imp("src/ui/art-actors.js", [["enemyLook", (v) => { enemyLook = v; }]]); let HEAT_WORDS, tolls; __link.imp("src/ui/ui-text.js", [["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["tolls", (v) => { tolls = v; }]]); __link.exp({ "App": () => App, "flags": () => flags });
+let createBridge, flags; __link.imp("src/ui/engine-bridge.js", [["createBridge", (v) => { createBridge = v; }], ["flags", (v) => { flags = v; }]]); let Scene; __link.imp("src/ui/scene.js", [["Scene", (v) => { Scene = v; }]]); let createHud; __link.imp("src/ui/hud.js", [["createHud", (v) => { createHud = v; }]]); let createScreens, disarmSpyglass; __link.imp("src/ui/screens.js", [["createScreens", (v) => { createScreens = v; }], ["disarmSpyglass", (v) => { disarmSpyglass = v; }]]); let prepKey; __link.imp("src/ui/prep.js", [["prepKey", (v) => { prepKey = v; }]]); let createWindows; __link.imp("src/ui/windows.js", [["createWindows", (v) => { createWindows = v; }]]); let Director; __link.imp("src/ui/director.js", [["Director", (v) => { Director = v; }]]); let initTooltip, hideTip; __link.imp("src/ui/tooltip.js", [["initTooltip", (v) => { initTooltip = v; }], ["hide", (v) => { hideTip = v; }]]); let createDevMenu; __link.imp("src/ui/dev-menu.js", [["createDevMenu", (v) => { createDevMenu = v; }]]); let createAudio, CLICKABLE; __link.imp("src/ui/audio.js", [["createAudio", (v) => { createAudio = v; }], ["CLICKABLE", (v) => { CLICKABLE = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let h, clear; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }]]); let enemyLook; __link.imp("src/ui/art-actors.js", [["enemyLook", (v) => { enemyLook = v; }]]); let HEAT_WORDS, tolls; __link.imp("src/ui/ui-text.js", [["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["tolls", (v) => { tolls = v; }]]); __link.exp({ "App": () => App, "flags": () => flags });
 yield;
 // App orchestrator: owns the bridge, scene, HUD, screens and windows; turns input into actions and
 // plays each step through the director. Presentation only.
@@ -29412,6 +29748,9 @@ yield;
 // to prepKey (1-8, A-I, R, Enter). Since D116 new runs start on the expedition map with the start camp; the Dev menu's
 // setting "Classic map (old)" sets the map new runs get (the bridge's setRunMode; at class select at once). Esc also puts
 // the map's armed Spyglass away.
+// Sound (audio.js, docs/specs/audio.md; D127): each step is one audio step (the decision view's Deathblow telegraph and
+// Furnace cues after it); a click on a button or card, an error toast and a window opening or closing have their cues.
+
 
 
 
@@ -29441,6 +29780,7 @@ class App {
     this.ownActions = []; // test hook: actions the UI sent on its own, not from input (a new potion put on the item bar)
     this.renderQueued = false;
     this.autoTimer = null;
+    this.audio = createAudio(settings); // no sound before the first gesture (audio.js)
     const app = this;
     const ui = {
       target: null, overlay: false, dragging: false, fleeArmed: false, chestOpen: false,
@@ -29485,7 +29825,7 @@ class App {
     };
     this.ui = ui;
     this.ctx = {
-      bridge: this.bridge, data: this.data, scene: this.scene, ui, settings,
+      bridge: this.bridge, data: this.data, scene: this.scene, ui, settings, audio: this.audio,
       get view() { return app.shown; },
       act: (a) => app.act(a),
       // the Dev menu (dev-menu.js): one dev op through the bridge (engine-api.md 12), and its messages
@@ -29500,7 +29840,9 @@ class App {
     this.screens = createScreens(this.root, this.ctx);
     this.windows = createWindows(this.root, this.ctx);
     // toasts step aside when a window opens, closes or re-renders (placeToasts)
-    new MutationObserver(() => this.placeToasts()).observe(this.root.querySelector('#windows'), { childList: true });
+    // ... and a window opening or closing has its sound (a re-render replaces one window: no change in the count)
+    this.winCount = 0;
+    new MutationObserver(() => { this.placeToasts(); const n = this.root.querySelectorAll('#windows > .win').length; if (n !== this.winCount) this.audio.cue(n > this.winCount ? 'winOpen' : 'winClose'); this.winCount = n; }).observe(this.root.querySelector('#windows'), { childList: true });
     this.devMenu = createDevMenu(this.root, this.ctx, { allowed: () => flags.dev && this.bridge.mode === 'engine' });
     this.director = new Director(this.ctx);
     this.bannerEl = h('div#banner', h('div.b0'), h('div.b1'), h('div.b2'));
@@ -29562,9 +29904,11 @@ class App {
         this.playStart = performance.now();
         const rec = { type: action.type === 'ENGINE' ? action.action.type : action.type, input: tIn, t0, events: res.events.map((e) => e.t), round: null, end: null, skippedAt: null, hitSkips: [], queued: null };
         this.plays.push(rec); if (this.plays.length > 200) this.plays.shift();
+        this.audio.beginStep(rec.type);
         const playing = this.director.play(prev, res.view, res.events, action, { t0 });
         rec.round = this.director.round ? { budget: this.director.round.budget, avg: this.director.round.avg, plan: this.director.round.plan, tempo: this.director.round.tempo, speed: this.director.round.speed } : null;
         await playing;
+        this.audio.view(prev, res.view); this.audio.endStep(); // the decision view's cues (Deathblow telegraph, Furnace)
         rec.end = performance.now();
         this.hud.heat.noteStep(prev, res.view); // heat (expedition.md H.4): a toast when the step changed the meter's state
         this.afterPlay();
@@ -29831,6 +30175,7 @@ class App {
    * too), so a burst (quests turned in at speed, a level, a heat change) never stacks over the map or the frames.
    */
   toast(text, kind = '') {
+    if (kind === 'err') this.audio.cue('error');
     // a change of the heat state (heat.js, expedition.md H.4) shows at once and never merges. Only one heat toast is on
     // screen: a later change replaces it, so a burst (a zone change: Burning, Smouldering, Calm, ...) ends on the final
     // state and the stack keeps TOAST_MAX (QA playtest 2026-11-11 finding 1)
@@ -29919,6 +30264,8 @@ class App {
     // combat v2.1: a hovered wind-up whose element was redrawn (the round moved on) gives no pointerleave; drop it here
     window.addEventListener('pointerover', (e) => { if (this.ui.wuHover && !(e.target.closest && e.target.closest('.tk.wu, .tr.wu, .wub, .rl-x.wu'))) this.ui.setWindupHover(null); });
     window.addEventListener('keydown', (e) => this.onKey(e));
+    // sound: one document-level listener clicks for every button, card, slot or map node pressed (audio.js CLICKABLE)
+    document.addEventListener('click', (e) => { if (e.isTrusted && e.target.closest && e.target.closest(CLICKABLE)) this.audio.cue('uiClick'); }, true);
   }
 
   onKey(e) {
@@ -30055,6 +30402,8 @@ class App {
       /** Dev menu (engine-api.md 12): whether it is open; a dev op as the menu sends it. */
       devOpen: () => app.devMenu.isOpen(),
       dev: (op, args) => app.devAct(op, args),
+      /** Sound (audio.js): { unlocked, state, muted, log: [{ cue, step, t, kept, sound }] }; the log is written locked or muted too. */
+      audio: () => app.audio.info(),
     };
   }
 }
