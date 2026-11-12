@@ -12,3 +12,4 @@ Everything only the owner can do. The Lead adds tasks here as they appear, each 
 - The Lead decides. Only the most crucial things go to the owner.
 - The owner playtests and sends feedback; feedback is ideas unless he says otherwise.
 - Parked ideas live in docs/EXPERIMENTS.md.
+- Art is the exception (D121): the owner leads it. Each art stage starts with a proposal he steers before work goes in full.
