@@ -37,3 +37,6 @@ Try this: the build file, and 2 things to look at.
 Need from you (we continue on the default): at most 3, each with its default.
 Cost this session: agents, model/effort, tokens if visible.
 ```
+
+## Owner visibility (owner 2026-11-12 10:14)
+- Keep the app's task list widget current: one task per running agent and per waiting owner item, set in progress when started and completed when done, with model and start time in the description. The owner reads it instead of asking for status.
