@@ -24,7 +24,7 @@ The game is a turn-based classic-MMO-feel roguelike. All rules live in a pure, s
    screens.js / windows.js / meta.js               (run log),          ► batch.mjs + pool.mjs + worker.mjs
    tbwcr.ui.settings.v1 (settings.js)                                  ► metrics.mjs ► sim/pass.mjs ► sim/report.mjs
                                                                          ► docs/reports/balance-*.md
-   Build:  src/index.html + src/ui/style.css + all imported modules
+   Build:  src/index.html + src/ui/style.css (with its @import tokens.css) + all imported modules
            ──► tools/build.mjs ──► dist/game.html  (or --out game.html, the Lead's release build)
 ```
 
@@ -76,7 +76,7 @@ Role names are those of docs/README.md. "Spec" is the rules.md section (or other
 | `src/content/uniques.js` | Generated table: unique items | `UNIQUES` | rules 11.3; Content Designer |
 | `src/content/zones.js` | Generated table: zones, hubs, themes, regions, Road names (D51) | `ZONES` | rules 1.3, 12.1, 1.9; Content Designer |
 
-Other files in src/ that are not .js: `src/index.html` (HTML shell, the build entry), `src/ui/style.css` (all client styles, UI/UX & Visual Engineer), `src/content/SCHEMA.md` (content shape and validation rules).
+Other files in src/ that are not .js: `src/index.html` (HTML shell, the build entry), `src/ui/style.css` (all client styles, UI/UX & Visual Engineer; imports `tokens.css` first), `src/ui/tokens.css` (colour tokens by role: surface, ink, accent, edge and shade, bars, danger, heat, rarity, school, map, telegraph; one block per theme, `current` the default and an empty `lantern` hook for the art proof slice; Track R, R2), `src/content/SCHEMA.md` (content shape and validation rules).
 
 ### 2.2 src/ui/ (visual client, presentation only)
 

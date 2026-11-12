@@ -12,7 +12,8 @@
  *   node tools/build.mjs --src <dir>         use another source folder (tests of the builder)
  *
  * WHAT IT DOES
- *   1. Reads src/index.html. Every <link rel="stylesheet" href="local.css"> becomes an inline <style>.
+ *   1. Reads src/index.html. Every <link rel="stylesheet" href="local.css"> becomes an inline <style>, with the
+ *      local files it @imports (e.g. src/ui/tokens.css) put in place of the @import lines.
  *   2. Every <script type="module" src="..."> is an entry. The builder follows all static imports,
  *      `export ... from` and `import('literal')` inside src/ (src/ui/, src/content/, src/rules.js, ...).
  *   3. It writes one self-contained HTML file: no network requests, opens from disk (file://).
@@ -55,7 +56,7 @@ for (let i = 0; i < argv.length; i++) {
     opt.serve = true;
     if (argv[i + 1] && /^\d+$/.test(argv[i + 1])) opt.port = Number(argv[++i]);
   } else if (a === '--help' || a === '-h') {
-    const head = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 33).join('\n');
+    const head = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 34).join('\n');
     console.log(head.replace(/^ \* ?/gm, '').replace(/^\/\*\*|\*\/$/gm, ''));
     process.exit(0);
   } else {
@@ -548,6 +549,21 @@ function gitStamp() {
   try { return execSync('git rev-parse --short HEAD', { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return 'nogit'; }
 }
 
+/**
+ * A local stylesheet with each `@import "./x.css";` / `@import url("./x.css");` replaced in place by that file
+ * (relative to the importing file, inside src/, recursively; Track R R2: style.css imports tokens.css first).
+ */
+function inlineCss(file, seen = new Set()) {
+  if (seen.has(file)) fail(`${rel(file)}: @import cycle`);
+  seen.add(file);
+  return fs.readFileSync(file, 'utf8').replace(/@import\s+(?:url\(\s*)?(['"])([^'"]+)\1\s*\)?\s*;/g, (m, q, href) => {
+    if (/^[a-z]+:|^\/\//i.test(href)) fail(`${rel(file)}: @import "${href}" is not a local file`);
+    const abs = path.resolve(path.dirname(file), href);
+    if (!abs.startsWith(SRC + path.sep) || !fs.existsSync(abs)) fail(`${rel(file)}: @import "${href}" not found inside src/`);
+    return inlineCss(abs, seen);
+  });
+}
+
 function build() {
   const t0 = Date.now();
   const htmlPath = path.join(SRC, 'index.html');
@@ -558,7 +574,7 @@ function build() {
   html = html.replace(/<link\b[^>]*rel=["']stylesheet["'][^>]*>/gi, (tag) => {
     const href = (tag.match(/href=["']([^"']+)["']/) || [])[1];
     if (!href || /^[a-z]+:|^\/\//i.test(href)) fail(`index.html: stylesheet "${href}" is not a local file`);
-    const css = fs.readFileSync(path.resolve(SRC, href), 'utf8');
+    const css = inlineCss(path.resolve(SRC, href));
     if (/@import|url\(\s*['"]?(?!data:)[^)'"]+/i.test(css.replace(/\/\*[\s\S]*?\*\//g, ''))) fail(`${href}: external url() or @import found; the build must not make requests`);
     return `<style>\n${css}\n</style>`;
   });

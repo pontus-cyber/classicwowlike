@@ -1,0 +1,118 @@
+/* src/ui/tokens.css - colour tokens of the visual client, one block per theme. Track R step R2
+   (docs/reviews/ui-architecture-2026-11-12.md, section 3; D119, D120). Imported first by style.css.
+
+   "current" is the look the game has now; it is also the default (plain :root), so the page needs no attribute.
+   Every value here is the exact literal style.css used before R2: replacing a literal by its token changed no
+   colour (proof: qa/browser/style-snapshot.mjs --compare, tools/css-audit.mjs --expand). Near-duplicates are not
+   merged; that is an art decision for the proof slice (D120, D121).
+   A role token (danger, telegraph, heat, school, map) stands only where style.css uses that value for that role;
+   the same value elsewhere stays a literal.
+   Names: --x-NN with a number is that colour at NN % alpha (--shade-60 = black at .6). */
+
+:root, :root[data-theme="current"] {
+  /* surface: page, wells and deep backgrounds */
+  --surface-page: #0b0a09;
+  --surface-well: #0b0907;
+  --surface-deep: #120e0a;
+
+  /* ink: text */
+  --ink: #efe6d0; --ink-dim: #bfb299; --ink-mute: #857a68;
+  --ink-bright: #fff;
+  --ink-paper: #3a2a16;
+  --ink-good: #9fe09a;
+  --ink-bad: #ff7a6a;
+  --good: #7fe07a;
+
+  /* accent: gold */
+  --gold: #ecc66e; --gold-2: #c09440; --gold-dim: #8a6a35;
+  --accent-hi: #ffd36a;
+  --accent-pale: #ffe08a;
+  --accent-cream: #ffd88a;
+  --gold-25: rgba(236, 198, 110, .25); --gold-35: rgba(236, 198, 110, .35); --gold-45: rgba(236, 198, 110, .45);
+  --gold-50: rgba(236, 198, 110, .5); --gold-70: rgba(236, 198, 110, .7); --gold-90: rgba(236, 198, 110, .9);
+
+  /* edge and shade: frame lines, black lines and shadows, white glints */
+  --edge: #6e5532; --edge-hi: #d0aa60; --edge-lo: #150f09;
+  --edge-hi-15: rgba(208, 170, 96, .15); --edge-hi-20: rgba(208, 170, 96, .2); --edge-hi-22: rgba(208, 170, 96, .22);
+  --edge-hi-25: rgba(208, 170, 96, .25); --edge-hi-28: rgba(208, 170, 96, .28); --edge-hi-30: rgba(208, 170, 96, .3);
+  --edge-hi-35: rgba(208, 170, 96, .35); --edge-hi-38: rgba(208, 170, 96, .38); --edge-hi-40: rgba(208, 170, 96, .4);
+  --edge-hi-45: rgba(208, 170, 96, .45); --edge-hi-50: rgba(208, 170, 96, .5);
+  --edge-scroll: #5a4628;
+  --shade: #000;
+  --shade-25: rgba(0, 0, 0, .25); --shade-30: rgba(0, 0, 0, .3); --shade-35: rgba(0, 0, 0, .35);
+  --shade-50: rgba(0, 0, 0, .5); --shade-55: rgba(0, 0, 0, .55); --shade-60: rgba(0, 0, 0, .6);
+  --shade-65: rgba(0, 0, 0, .65); --shade-70: rgba(0, 0, 0, .7); --shade-90: rgba(0, 0, 0, .9);
+  --glint-06: rgba(255, 255, 255, .06); --glint-08: rgba(255, 255, 255, .08); --glint-10: rgba(255, 255, 255, .1);
+
+  /* resource bars */
+  --hp-1: #78e06a; --hp-2: #2e9a35; --hp-3: #1b6322;
+  --mana-1: #6aa8ff; --mana-2: #2c66d0; --mana-3: #183e8a;
+  --energy-1: #ffe86a; --energy-2: #d9b21e; --energy-3: #8a6a0a;
+  --focus-1: #ffb466; --focus-2: #d9762a; --focus-3: #8a4410;
+  --xp-1: #c27af0; --xp-2: #8a3ec8; --rested: #4f7fe8;
+
+  /* danger: the Deathblow, LETHAL and MAIMED */
+  --danger: #ff3a4a;
+  --danger-fill: #ff4a5a;
+  --danger-deep: #b00818;
+  --danger-pale: #ffe4e4;
+  --danger-ink: #26000a;
+  --danger-text: #ffb0b8;
+  --danger-text-hi: #fff0f0;
+  --danger-key: #ff9aa4;
+  --danger-lethal: #ff6a6a;
+  --danger-soft: #ffd0d4;
+
+  /* heat states (the Furnace): colour, ink on the colour, text */
+  --heat-clear: #3f9bd6; --heat-clear-ink: #0b1620; --heat-clear-text: #8fd0f5;
+  --heat-warm: #f0c75a; --heat-warm-ink: #231803; --heat-warm-text: #f6d983;
+  --heat-hot: #ec7a2c; --heat-hot-ink: #230e02; --heat-hot-text: #ffab70;
+  --heat-scorched: #b8263f; --heat-scorched-ink: #fff1f1; --heat-scorched-text: #ff8496;
+
+  /* rarity */
+  --r-junk: #9d9d9d; --r-common: #f2f2f2; --r-uncommon: #4fe05a; --r-rare: #5aa0ff; --r-epic: #c27aff;
+
+  /* school: frost (the FROZEN off-balance window) */
+  --school-frost: #8fd6ff;
+  --school-frost-hi: #e2f6ff;
+  --school-frost-mid: #6ab8f0;
+  --school-frost-ink: #06223a;
+  --school-frost-text: #9fdcff;
+  --school-frost-glow: rgba(120, 200, 255, .9);
+
+  /* map: node rings and fog states */
+  --map-ring: #1a140e;
+  --map-ring-edge: #8a6a3a;
+  --map-lit: #fff0b0;
+  --map-here: #ff6a4a;
+  --map-remembered: #8a7656;
+  --map-unknown: #5a5248;
+  --map-unknown-deep: #2a2420;
+  --map-unknown-text: #d8cfc0;
+  --map-fog: #2a2218;
+  --map-dimmed: #8a6ad8;
+  --map-dimmed-deep: #1a1030;
+  --map-dimmed-glow: rgba(120, 80, 220, .7);
+  --map-shard: #3a2a6a;
+  --map-shard-text: #e2d4ff;
+  --map-road: #5a4220;
+  --map-road-text: #ffe2a8;
+  --map-spy: rgba(140, 200, 255, .55);
+  --map-spy-soft: rgba(120, 180, 255, .25);
+
+  /* telegraph: wind-ups, answers, the off-balance window */
+  --tele-windup: #e0461a;
+  --tele-windup-ring: #ff7a3a;
+  --tele-windup-hi: #ffb070;
+  --tele-windup-ink: #2a0800;
+  --tele-answer: #7fd8ff;
+  --tele-answer-fill: #5ab4e8;
+  --tele-answer-pale: #dff6ff;
+  --tele-answer-ink: #04202e;
+  --tele-window: #ffb030;
+}
+
+/* Lantern Gouache (docs/art/README.md direction A, D120): draft, empty. The art proof slice sets its values here,
+   behind a Dev switch that puts data-theme="lantern" on <html>; a token not set here keeps its current value. */
+:root[data-theme="lantern"] {
+}
