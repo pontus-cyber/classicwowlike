@@ -197,8 +197,9 @@ function jsTokens() {
   const used = new Map();
   for (const f of fs.readdirSync(UI).filter((x) => x.endsWith('.js'))) {
     const js = fs.readFileSync(path.join(UI, f), 'utf8');
-    // token('--x') anywhere; in theme.js also every '--x' string (the family tables)
-    const re = f === 'theme.js' ? /['"`](--[a-z][\w-]*)['"`]/g : /\btoken\(\s*['"`](--[a-z][\w-]*)['"`]/g;
+    // token('--x') anywhere (also imported under another name ending in Token, as director.js's themeToken); in
+    // theme.js also every '--x' string (the family tables)
+    const re = f === 'theme.js' ? /['"`](--[a-z][\w-]*)['"`]/g : /(?:\btoken|Token)\(\s*['"`](--[a-z][\w-]*)['"`]/g;
     for (const m of js.matchAll(re)) { if (!used.has(m[1])) used.set(m[1], new Set()); used.get(m[1]).add(f); }
     const keys = /ICON_KEYS\s*=\s*\[([^\]]*)\]/.exec(js);
     if (keys) for (const k of keys[1].match(/'[\w-]+'/g) || []) for (const n of [`--icon-${k.slice(1, -1)}`, `--icon-${k.slice(1, -1)}-deep`]) { if (!used.has(n)) used.set(n, new Set()); used.get(n).add(f); }
