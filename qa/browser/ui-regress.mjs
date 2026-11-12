@@ -130,6 +130,10 @@
  *      (autoplayEngage `wait`); after Sap, round 2's Pass button has the answer ring, the line names "X Pass" and the prompt
  *      says to wait; X: Sap cancels the Deathblow and the Rogue stays in STEALTH; a hidden elite's map line has its type only.
  *
+ * D116 (the flip): new runs start on the expedition map with the start camp. The parts written for the classic map (A-L, O,
+ * P) open the page with ?classic=1 (open() adds it unless the query names a map) and their Node twins pass mapMode 'rows';
+ * part I's expedition run (?expedition=1) is the expedition without the start camp (twin prep: false); M and N use ?prep=1.
+ *
  * Seeds were picked with the engine of 3559e0e (M2 v2): seed 30's first quest has two Guardians that last long
  * enough for the potion and Autoplay checks. M2 v3 (77c0ca5): seed 1's autoplay run no longer reaches the camp, so part B
  * moved to seed 51, whose engine autoplay run reached the camp hurt, with Trail Rations, could leave zone 1 early at level 9,
@@ -190,8 +194,13 @@ const check = (bug, name, ok, saw) => {
 };
 
 // ------------------------------------------------------------------ page helpers
-/** A page of the build. profile: a meta profile stored where the game reads it (localStorage) before it loads. */
+/**
+ * A page of the build. profile: a meta profile stored where the game reads it (localStorage) before it loads. D116: new
+ * runs start on the expedition map with the start camp; the parts written for the classic map get ?classic=1 here unless
+ * the query names a map (prep=1, expedition=1, classic=) or the mock engine.
+ */
 async function open(browser, W, H, query, profile = null) {
+  if (!/(^|&)(prep|expedition|classic|mock)=/.test(query)) query += '&classic=1';
   const context = await browser.newContext({ viewport: { width: W, height: H } });
   if (profile) await context.addInitScript(([key, json]) => { try { localStorage.setItem(key, json); } catch { /* storage blocked */ } }, [PROFILE_KEY, JSON.stringify(profile)]);
   const page = await context.newPage();
@@ -256,7 +265,7 @@ const closeBags = async (page) => { if (await page.locator('#win-bags').count())
 async function partA(browser, W, H) {
   const SEED = 30;
   // The same run in Node, for the map facts the map and the tooltip must show.
-  let twin = R.newRun({ classId: 'rogue', seed: SEED, content: CONTENT });
+  let twin = R.newRun({ classId: 'rogue', seed: SEED, content: CONTENT, mapMode: 'rows' });
   for (const a of [{ type: 'SELECT_CLASS', classId: 'hunter' }, { type: 'SELECT_PET', petId: 'ridgewolf' }, { type: 'START_RUN' }]) twin = R.step(twin, a).state;
   const mv = R.mapView(twin);
   const ROWS = mv.rows.length; const LANES = mv.rows[0].length;
@@ -469,7 +478,7 @@ function bPick() {
   if (B_PICK) return B_PICK;
   const run = (s, a) => { const prev = s; let t = R.step(s, a).state; for (const o of iUiOwn(prev, t)) t = R.step(t, o).state; return t; };
   for (let seed = 1; seed <= 60; seed++) {
-    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT });
+    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: 'rows' });
     for (const a of [{ type: 'SELECT_CLASS', classId: 'hunter' }, { type: 'SELECT_PET', petId: 'ridgewolf' }, { type: 'START_RUN' }]) s = R.step(s, a).state;
     let early = null;
     for (let n = 0; n < 6000 && s.phase !== 'CAMP' && s.phase !== 'ENDED'; n++) {
@@ -758,7 +767,7 @@ let E_TWIN = null;
 /** The same run in Node (the engine's autoplay choices, as the AUTO helper): facts at the start, in zone 3, at the camp, at the boss, at the end. */
 function eTwin(profile) {
   if (E_TWIN) return E_TWIN;
-  let s = R.newRun({ classId: 'rogue', seed: E_SEED, content: CONTENT, profile });
+  let s = R.newRun({ classId: 'rogue', seed: E_SEED, content: CONTENT, profile, mapMode: 'rows' });
   for (const a of [{ type: 'SELECT_CLASS', classId: 'hunter' }, { type: 'SELECT_PET', petId: 'ridgewolf' }, { type: 'START_RUN' }]) s = R.step(s, a).state;
   const start = R.resurrectCharges(s);
   let map3 = null;
@@ -954,7 +963,7 @@ function fProfile() {
 }
 /** A Hunter (Ridgewolf) run on the engine's autoplay choices with this profile, to SUMMARY; null if it reaches the camp. */
 function fRun(seed, profile) {
-  let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, profile });
+  let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, profile, mapMode: 'rows' });
   for (const a of [{ type: 'SELECT_CLASS', classId: 'hunter' }, { type: 'SELECT_PET', petId: 'ridgewolf' }, { type: 'START_RUN' }]) s = R.step(s, a).state;
   let n = 0;
   for (; n < 5000 && s.phase !== 'SUMMARY' && s.phase !== 'CAMP'; n++) s = R.step(s, R.autoAction(s)).state;
@@ -971,7 +980,7 @@ function fTwin() {
   const sum = R.summary(best.s);
   const ended = R.step(best.s, { type: 'END_RUN' }).state.result; // what END_RUN stores
   const bought = R.buyMeta(ended.profile, F_BUY);
-  let next = R.newRun({ classId: 'hunter', petId: 'ridgewolf', seed: F_NEXT_SEED, content: CONTENT, profile: bought });
+  let next = R.newRun({ classId: 'hunter', petId: 'ridgewolf', seed: F_NEXT_SEED, content: CONTENT, profile: bought, mapMode: 'rows' });
   next = R.step(next, { type: 'START_RUN' }).state;
   F_TWIN = { seed: best.seed, steps: best.n, profile, sum, ended, bought, next };
   return F_TWIN;
@@ -1141,7 +1150,7 @@ async function partFOaths(browser, W, H) {
     await sw('thrift').click(); await idle(page);
     const v = await page.evaluate(() => window.__ui.view().create.oaths);
     // the engine's multiplier for these Oaths: a Node START_RUN with them sworn
-    let tw = R.newRun({ classId: 'hunter', petId: 'ridgewolf', seed: 11, content: CONTENT, profile: R.buyMeta(p, 'oaths') });
+    let tw = R.newRun({ classId: 'hunter', petId: 'ridgewolf', seed: 11, content: CONTENT, profile: R.buyMeta(p, 'oaths'), mapMode: 'rows' });
     for (const o of ['haste', 'thrift']) tw = R.step(tw, { type: 'SET_OATH', oath: o, on: true }).state;
     const mult = R.summary(R.step(tw, { type: 'START_RUN' }).state).echoes.oathMult;
     const foot = (await page.locator('#create .oaths .of').innerText()).trim();
@@ -1171,7 +1180,7 @@ function gProfile() {
 let G_TWIN = null;
 /** The Node run of a seed (Hunter, Ridgewolf, Oath of Haste, the engine's autoplay choices): the first travel and the camp. */
 function gRun(seed, profile) {
-  let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, profile });
+  let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, profile, mapMode: 'rows' });
   for (const a of [{ type: 'SELECT_CLASS', classId: 'hunter' }, { type: 'SELECT_PET', petId: 'ridgewolf' }, { type: 'SET_OATH', oath: 'haste', on: true }, { type: 'START_RUN' }]) s = R.step(s, a).state;
   let travel = null;
   for (let n = 0; n < 20000 && s.phase !== 'CAMP' && s.phase !== 'ENDED' && s.phase !== 'SUMMARY'; n++) {
@@ -1252,7 +1261,7 @@ const H_MAGE_SEED = 30;
 
 /** A Node twin of the page's run: the same seed, then every engine action the page applied (window.__ui.engineLog). */
 function makeTwin(seed) {
-  let s = R.newRun({ classId: 'rogue', seed, content: CONTENT }); let n = 0;
+  let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: 'rows' }); let n = 0;
   return {
     get s() { return s; },
     async sync(page) {
@@ -1487,7 +1496,7 @@ function meterDiff(d, hv, camp) {
 }
 /** A Node twin like makeTwin, with newRun options (mapMode). */
 function makeTwinOpts(seed, opts) {
-  let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, ...opts }); let n = 0;
+  let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: 'rows', ...opts }); let n = 0;
   return { get s() { return s; }, async sync(page) { const log = await page.evaluate(() => window.__ui.engineLog()); for (const a of log.slice(n)) s = R.step(s, a).state; n = log.length; return s; } };
 }
 /** The tooltip's heat block (.tt-heat) and the meter's ghost while an element is hovered. */
@@ -1584,7 +1593,7 @@ function iPick() {
   if (I_PICK) return I_PICK;
   const INTRO = new Set(['quest', 'elite', 'dungeon', 'treasure']);
   for (let seed = 1; seed <= 80; seed++) {
-    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT });
+    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: 'rows' });
     for (const a of [{ type: 'SELECT_CLASS', classId: 'hunter' }, { type: 'SELECT_PET', petId: 'ridgewolf' }, { type: 'START_RUN' }]) s = R.step(s, a).state;
     const met = {};
     for (let n = 0; n < 6000 && s.phase !== 'ENDED'; n++) {
@@ -1614,7 +1623,7 @@ let I_EXP_PICK = null;
 function iExpPick() {
   if (I_EXP_PICK) return I_EXP_PICK;
   for (let seed = 1; seed <= 40; seed++) {
-    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: 'expedition' });
+    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: 'expedition', prep: false });
     for (const a of [{ type: 'SELECT_CLASS', classId: 'hunter' }, { type: 'SELECT_PET', petId: 'ridgewolf' }, { type: 'START_RUN' }]) s = R.step(s, a).state;
     for (let n = 0; n < 3000 && s.phase !== 'ENDED'; n++) {
       const hv = R.heatView(s);
@@ -1852,7 +1861,7 @@ const R_UP_OK = (st) => (R.C.HEAT_RARITY_UP[st] || 0) > 0;
 /** Part I, expedition runs (?expedition=1): the Dimming's marker and the clock that sets the state. */
 async function partIExp(browser, W, H) {
   const I_EXP_SEED = iExpPick().seed;
-  const twin = makeTwinOpts(I_EXP_SEED, { mapMode: 'expedition' });
+  const twin = makeTwinOpts(I_EXP_SEED, { mapMode: 'expedition', prep: false });
   const { context, page, errors } = await open(browser, W, H, `seed=${I_EXP_SEED}&speed=instant&expedition=1`);
   try {
     await page.locator('#create .ccard[data-cls="hunter"]').click();
@@ -1937,7 +1946,7 @@ let J_BOSS = null;
 function jBossState() {
   if (J_BOSS) return J_BOSS;
   for (let seed = 1; seed <= 60; seed++) {
-    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT });
+    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: 'rows' });
     for (const a of [{ type: 'SELECT_CLASS', classId: 'hunter' }, { type: 'SELECT_PET', petId: 'ridgewolf' }, { type: 'START_RUN' }]) s = R.step(s, a).state;
     for (let n = 0; n < 6000 && s.phase !== 'SUMMARY' && s.phase !== 'ENDED'; n++) {
       const f = s.fight; const shards = f && !f.over && f.kind === 'boss' ? f.enemies.filter((e) => e.alive && e.kind === 'shard') : [];
@@ -1956,7 +1965,7 @@ let J_ROGUE = null;
 function jPickRogue() {
   if (J_ROGUE) return J_ROGUE;
   for (let seed = 1; seed <= 40; seed++) {
-    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT });
+    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: 'rows' });
     for (const a of [{ type: 'SELECT_CLASS', classId: 'rogue' }, { type: 'START_RUN' }]) s = R.step(s, a).state;
     for (let n = 0; n < 4000 && s.phase !== 'SUMMARY' && s.phase !== 'ENDED'; n++) {
       const w = jStopNow(s);
@@ -1984,7 +1993,7 @@ let J_PICK = null;
 function jPick() {
   if (J_PICK) return J_PICK;
   for (let seed = 1; seed <= 40; seed++) {
-    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT });
+    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: 'rows' });
     for (const a of [{ type: 'SELECT_CLASS', classId: 'hunter' }, { type: 'SELECT_PET', petId: 'ridgewolf' }, { type: 'START_RUN' }]) s = R.step(s, a).state;
     const step = (a) => { const prev = s; const r = R.step(s, a); s = r.state; const ev = [...r.events]; for (const o of iUiOwn(prev, s)) { const r2 = R.step(s, o); s = r2.state; ev.push(...r2.events); } return ev; };
     const over = () => s.phase === 'SUMMARY' || s.phase === 'ENDED';
@@ -2711,7 +2720,7 @@ async function partL(browser, W, H) {
     try {
       const names = L_BRIDGE.actionName ? Object.keys(CONTENT.abilities).filter((id) => L_BRIDGE.actionName(id) !== CONTENT.abilities[id].name) : ['(bridge not loaded)'];
       check('OWN-L', `every content ability (${Object.keys(CONTENT.abilities).length}) reads by its content name (the bridge's actionName)`, !names.length, names.join(', '));
-      let s = R.newRun({ classId: 'rogue', seed: 1, content: CONTENT });
+      let s = R.newRun({ classId: 'rogue', seed: 1, content: CONTENT, mapMode: 'rows' });
       s = R.step(s, { type: 'START_RUN' }).state;
       for (let i = 0; i < 20000 && s.phase !== 'SUMMARY' && s.phase !== 'ENDED'; i++) s = R.step(s, R.autoAction(s)).state;
       const o = JSON.parse(R.serialize(s));

@@ -173,9 +173,10 @@ function buildCreate(ctx) {
         h('div.tt-line.num', `${fmtNum(m.echoes)} Echoes · ${numWord(reach)} ${plural(reach, 'unlock')} within reach`), h('div.tt-hint', 'Click to open'));
     });
   }
-  // the map new runs get (the setting "Expedition map with start camp", ?expedition=1, ?prep=1): said on class select
+  // the map new runs get, said on class select only when it is not the default (D116: the expedition map with the start
+  // camp): the Dev menu's "Classic map (old)" or ?classic=1, the expedition without the start camp (?expedition=1)
   const mode = h('div.modechip.hidden');
-  tip(mode, () => h('div', h('div.tt-name', mode.textContent), h('div.tt-line', 'A preview of the coming expedition map. Switch it in the settings (Esc) or the Dev menu.')));
+  tip(mode, () => h('div', h('div.tt-name', mode.textContent), h('div.tt-line', 'Kept for testing; new runs normally start at the start camp on the expedition map. Switch it in the Dev menu (World).')));
   root.append(classes, details, h('div.bottom.panel', h('div.field', h('label', 'Name'), name), h('div.field', h('label', 'Seed'), seed), mode, echoes, go));
   return root;
 }
@@ -183,7 +184,8 @@ function buildCreate(ctx) {
 function updateCreate(root, v, ctx) {
   const d = ctx.data; const c = v.create; const cls = d.classes[c.classId];
   const mc = root.querySelector('.modechip'); const rm = ctx.bridge.runMode ? ctx.bridge.runMode() : {};
-  if (mc) { mc.textContent = rm.mapMode === 'expedition' ? (rm.prep ? 'Expedition map with start camp (preview)' : 'Expedition map (preview)') : ''; mc.classList.toggle('hidden', rm.mapMode !== 'expedition'); }
+  const odd = rm.mapMode === 'rows' ? 'Classic map (old)' : rm.mapMode === 'expedition' && rm.prep === false ? 'Expedition map without start camp' : '';
+  if (mc) { mc.textContent = odd; mc.classList.toggle('hidden', !odd); }
   root.querySelectorAll('.ccard').forEach((el) => el.classList.toggle('sel', el.dataset.cls === c.classId));
   const m = v.meta;
   // Echoes button: the balance and how many unlocks it can buy (the engine's offers)

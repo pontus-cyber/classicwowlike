@@ -3,7 +3,8 @@
 // (class, pet, zone, level, item level, rarity, map mode, talents), Jump (the Camp, the end-boss fight in phase 1, 2 or 3,
 // the next zone), Fight (a searchable list of every enemy template by zone and type, the target killed, health and
 // resources refilled), Give (gold, potions, talent points, Echoes, the full catalogue), World (the run's tolls and heat, the map
-// revealed, god mode, the map mode, the start camp for new runs) and Seed (the seed, copy it, a new run on a seed). On by default; ?dev=0 or the
+// revealed, god mode, the map mode, "Classic map (old)" for new runs: D116 made the expedition map with the start camp the
+// default, the classic map stays for testing here only) and Seed (the seed, copy it, a new run on a seed). On by default; ?dev=0 or the
 // settings hide it. Presentation only: every button sends one dev op through the bridge (ctx.dev -> engine-bridge.js dev
 // -> R.debug); the numbers it shows (levels, limits, kinds) come from the bridge's data.dev.
 import { h, clear, fmtNum, moneyEl } from './util.js';
@@ -76,7 +77,10 @@ export function createDevMenu(root, ctx, { allowed }) {
       if (!form.classId) form.classId = cur.classId || 'rogue';
       if (!form.petId) form.petId = (v.player && v.player.petId) || (v.create && v.create.petId) || Object.keys(d.pets)[0];
       if (form.zone === null) form.zone = v.zone && !v.zone.camp ? v.zone.idx : v.zone && v.zone.camp ? D.zoneCount + 1 : 1;
-      if (!form.mapMode) form.mapMode = v.contracts ? 'expedition-camp' : v.mapMode || 'rows';
+      // the map of the run on screen; at class select the map new runs get (D116: the expedition with the start camp)
+      const rm = ctx.bridge.runMode ? ctx.bridge.runMode() : {};
+      const createKey = rm.mapMode === 'rows' ? 'rows' : rm.prep === false ? 'expedition' : 'expedition-camp';
+      if (!form.mapMode) form.mapMode = v.phase === 'CREATE' ? createKey : v.contracts ? 'expedition-camp' : v.mapMode || 'rows';
       const zones = Array.from({ length: D.zoneCount }, (_, i) => [i + 1, `${i + 1} · ${(d.zones[i] || {}).name || `Zone ${i + 1}`}`]);
       const lvl = number('level', { min: 1, max: D.maxLevel, placeholder: D.firstLevel[form.zone - 1] });
       const pet = select('petId', Object.values(d.pets).map((p) => [p.id, `${p.name}${p.locked ? ' (locked)' : ''}`]));
@@ -88,16 +92,17 @@ export function createDevMenu(root, ctx, { allowed }) {
         const level = whole('level', 'Level', 1, D.maxLevel, true);
         const ilvl = whole('ilvl', 'Item level', 1, D.ilvlMax, true);
         if (level === null || ilvl === null) return null;
-        // "Expedition with start camp": newRun prep (engine-api.md 13), set out with nothing bought, every point Reserve
+        // "Expedition with start camp": newRun prep (engine-api.md 13), set out with nothing bought, every point Reserve;
+        // "Expedition without start camp": prep false (D116: debug.build's default is the camp)
         const camp = form.mapMode === 'expedition-camp';
-        return { classId: form.classId, petId: form.classId === 'hunter' ? form.petId : null, zone: Number(form.zone), level, ilvl, rarity: form.rarity, mapMode: camp ? 'expedition' : form.mapMode, ...(camp ? { prep: true } : {}), talents: form.talents };
+        return { classId: form.classId, petId: form.classId === 'hunter' ? form.petId : null, zone: Number(form.zone), level, ilvl, rarity: form.rarity, mapMode: camp ? 'expedition' : form.mapMode, ...(form.mapMode === 'rows' ? {} : { prep: camp }), talents: form.talents };
       }, '.primary');
       go.dataset.dev = 'start';
       const body = h('div.dm-grid',
         field('Class', cls), field('Pet', pet), field('Zone', zone), field('Level', lvl, 'blank: the zone\'s first'),
         field('Item level', number('ilvl', { min: 1, max: D.ilvlMax, placeholder: 'level' }), 'blank: the level'),
         field('Rarity', select('rarity', D.rarities.map((r) => [r, cap(r)]))),
-        field('Map', select('mapMode', [['rows', 'Rows'], ['expedition', 'Expedition'], ['expedition-camp', 'Expedition with start camp']])),
+        field('Map', select('mapMode', [['expedition-camp', 'Expedition with start camp'], ['expedition', 'Expedition without start camp'], ['rows', 'Classic map (old)']])),
         field('Talents', select('talents', [['auto', 'Spent (default build)'], ['unspent', 'Unspent']])));
       return { el: h('div', body, h('div.dm-acts', go), h('div.dm-note', 'A new run in the zone\'s hub (the Camp: at the Camp), gear in every slot, every spell trained, potions and gold. The seed is the Seed tab\'s.')), refresh() {} };
     },
@@ -189,17 +194,17 @@ export function createDevMenu(root, ctx, { allowed }) {
       const reveal = opBtn('Reveal the map', 'reveal');
       const god = h('div.toggle', { role: 'switch', 'aria-label': 'God mode', tabindex: '0' }, h('div.sw'), 'God mode');
       god.addEventListener('click', () => ctx.dev('god', { on: !(ctx.bridge.view.dev && ctx.bridge.view.dev.god) }));
-      const modes = [['rows', 'Rows'], ['expedition', 'Expedition']].map(([m, label]) => { const b = h('button', { type: 'button' }, label); b.dataset.mode = m; b.addEventListener('click', () => { b.blur(); ctx.dev('mapMode', { mode: m }); }); return b; });
-      // the map new runs get (the setting of the same name): the expedition map with the start camp (expedition.md 2, 9.1)
-      const camp = h('div.toggle', { role: 'switch', 'aria-label': 'Expedition map with start camp', tabindex: '0', dataset: { dev: 'camp' } }, h('div.sw'), 'Expedition map with start camp (new runs)');
-      camp.addEventListener('click', () => ctx.settings.set('expeditionCamp', !ctx.settings.get('expeditionCamp')));
+      const modes = [['expedition', 'Expedition'], ['rows', 'Classic (old)']].map(([m, label]) => { const b = h('button', { type: 'button' }, label); b.dataset.mode = m; b.addEventListener('click', () => { b.blur(); ctx.dev('mapMode', { mode: m }); }); return b; });
+      // the map new runs get (the setting of the same name, D116): off, the expedition map with the start camp (the default)
+      const camp = h('div.toggle', { role: 'switch', 'aria-label': 'Classic map (old)', tabindex: '0', dataset: { dev: 'classic' } }, h('div.sw'), 'Classic map (old) for new runs');
+      camp.addEventListener('click', () => ctx.settings.set('classicMap', !ctx.settings.get('classicMap')));
       return {
         el: h('div',
           h('div.dm-line', field(HEAT_WORDS.Units, time, null), set, now),
           h('div.dm-sub', `${HEAT_WORDS.Name} (the run's own clock)`), h('div.dm-acts', heat),
           h('div.dm-acts', reveal, god),
           h('div.dm-sub', 'Map'), h('div.seg.dm-seg', modes), h('div.dm-acts', camp),
-          h('div.dm-note', 'God mode: you take no damage (a heavy blow counts as avoided). A run with it, or with any tool here, is a dev run: no Echoes. Map: the zone is drawn again in that mode, you at its hub. The start camp comes before zone 1, so it applies from class select (at once there) or the next run.')),
+          h('div.dm-note', 'God mode: you take no damage (a heavy blow counts as avoided). A run with it, or with any tool here, is a dev run: no Echoes. Map: the zone is drawn again in that mode, you at its hub. New runs start at the start camp on the expedition map; Classic map (old) starts them on the classic map instead, from class select (at once there) or the next run.')),
         refresh(vv) {
           const ok = inRun(vv);
           set.disabled = !ok; for (const b of heat) b.disabled = !ok;
@@ -207,7 +212,7 @@ export function createDevMenu(root, ctx, { allowed }) {
           const on = !!(vv.dev && vv.dev.god);
           god.classList.toggle('on', on); god.setAttribute('aria-checked', on ? 'true' : 'false'); god.classList.toggle('disabled', !ok);
           for (const b of modes) b.classList.toggle('on', (vv.mapMode || 'rows') === b.dataset.mode);
-          const co = !!ctx.settings.get('expeditionCamp'); camp.classList.toggle('on', co); camp.setAttribute('aria-checked', co ? 'true' : 'false');
+          const co = !!ctx.settings.get('classicMap'); camp.classList.toggle('on', co); camp.setAttribute('aria-checked', co ? 'true' : 'false');
           time.placeholder = String(vv.time ?? 0);
           now.textContent = vv.heat ? `now ${tolls(vv.time)} · ${HEAT_LABEL[vv.heat.state] || vv.heat.state}` : '';
         },
@@ -273,7 +278,7 @@ export function createDevMenu(root, ctx, { allowed }) {
     if (!en && isOpen()) setOpen(false);
     if (isOpen()) refresh(v);
   }
-  ctx.settings.on('change', (k) => { if (k === 'devTools') update(ctx.bridge.view); if (k === 'expeditionCamp' && isOpen()) refresh(ctx.bridge.view); });
+  ctx.settings.on('change', (k) => { if (k === 'devTools') update(ctx.bridge.view); if (k === 'classicMap' && isOpen()) refresh(ctx.bridge.view); });
   update(ctx.bridge.view);
   return { el: panel, button, open: () => setOpen(true), close: () => setOpen(false), toggle: () => setOpen(!isOpen()), isOpen, enabled, update, tab: (id) => { if (builders[id]) { tab = id; if (isOpen()) build(); } } };
 }

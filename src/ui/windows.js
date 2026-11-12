@@ -165,7 +165,7 @@ export function createWindows(root, ctx) {
       };
       // reduceMotion shows what is in force (the system's setting until the player chooses)
       const on = (key) => (key === 'reduceMotion' ? settings.reduceMotion : !!s[key]);
-      const LABEL = { speedrun: 'Speedrun mode', skipTravel: 'Skip travel scenes', shake: 'Screen shake', reduceMotion: 'Reduce motion', showLog: 'Combat log', devTools: 'Dev tools', expeditionCamp: 'Expedition map with start camp' };
+      const LABEL = { speedrun: 'Speedrun mode', skipTravel: 'Skip travel scenes', shake: 'Screen shake', reduceMotion: 'Reduce motion', showLog: 'Combat log', devTools: 'Dev tools' };
       const devRow = flags.dev && ctx.bridge.mode === 'engine';
       const tog = (key) => { const b = h('div.toggle' + (on(key) ? '.on' : ''), { role: 'switch', 'aria-checked': on(key) ? 'true' : 'false', 'aria-label': LABEL[key] || key }, h('div.sw')); b.addEventListener('click', () => { settings.set(key, !on(key)); refresh('settings'); }); return b; };
       const body = h('div.col', { style: { padding: '1rem 1.6rem 1.6rem', gap: 0 } },
@@ -179,8 +179,7 @@ export function createWindows(root, ctx) {
         // the Dev menu (dev-menu.js): one line, so the window keeps clear of the Heat meter (#win-settings.dev); none with
         // ?dev=0 or the mock engine
         devRow ? h('div.setrow', h('div', 'Dev tools (the DEV tab and the ` key)'), tog('devTools')) : null,
-        // the coming expedition map with its start camp (expedition.md 2, 9.1), a preview until it is the default
-        ctx.bridge.mode === 'engine' ? h('div.setrow', h('div', h('div', 'Expedition map with start camp (preview)'), h('div.muted', 'New runs start at the start camp on the expedition map. Off: the classic map.')), tog('expeditionCamp')) : null,
+        // D116: new runs start at the start camp on the expedition map; the classic map (old) is in the Dev menu only (World)
         h('div', { style: { marginTop: '1.2rem' } }, h('div.title', { style: { fontSize: '1.5rem', marginBottom: '.6rem' } }, 'Keys'),
           h('div.keys', h('span.kbd', '1–7'), 'Spells', h('span.kbd', '8 9 0'), 'Items', h('span.kbd', 'A'), 'Basic attack', h('span.kbd', 'Tab'), 'Next target',
             h('span.kbd', 'Z'), 'Autoplay', h('span.kbd', 'F F'), 'Flee', h('span.kbd', 'X'), 'Pass', h('span.kbd', 'Space'), 'Skip a hit / take loot',

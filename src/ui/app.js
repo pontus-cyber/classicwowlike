@@ -12,8 +12,9 @@
 // corner button; each of its ops runs through devAct (the bridge's dev, R.debug) and the result is shown at once, as a
 // loaded state (no animation). ?dev=0 or the settings hide it.
 // Start camp (docs/specs/expedition.md 2, 9.1; prep.js): phase PREP shows the prep screen over the camp scene, its keys go
-// to prepKey (1-8, A-I, R, Enter); the setting "Expedition map with start camp" sets the map new runs get (the bridge's
-// setRunMode; at class select at once). Esc also puts the map's armed Spyglass away.
+// to prepKey (1-8, A-I, R, Enter). Since D116 new runs start on the expedition map with the start camp; the Dev menu's
+// setting "Classic map (old)" sets the map new runs get (the bridge's setRunMode; at class select at once). Esc also puts
+// the map's armed Spyglass away.
 import { createBridge, flags } from './engine-bridge.js';
 import { Scene } from './scene.js';
 import { createHud } from './hud.js';
@@ -30,8 +31,9 @@ import { HEAT_WORDS, tolls } from './ui-text.js';
 
 export class App {
   constructor() {
-    // the map new runs get: the setting "Expedition map with start camp" (prep), else ?expedition=1 / ?prep=1, else classic
-    this.bridge = createBridge(settings.get('expeditionCamp') ? { prep: true } : {});
+    // the map new runs get (D116): the expedition map with the start camp; the Dev menu's "Classic map (old)" or ?classic=1:
+    // the classic map; ?expedition=1: the expedition without the start camp (a test switch)
+    this.bridge = createBridge(settings.get('classicMap') ? { classic: true } : {});
     this.data = this.bridge.data;
     this.scene = new Scene(document.getElementById('world'));
     this.root = document.getElementById('hud');
@@ -112,13 +114,13 @@ export class App {
     this.deathEl = h('div.hidden', h('div.overlay-dark'), h('div.deathmsg', h('div.d1', 'You have died'), h('div.d2', 'No resurrection remains. Your journey ends here.')));
     this.root.append(this.bannerEl, this.toasts, this.skipHint, this.deathEl);
     this.bindInput();
-    // "Expedition map with start camp" (settings window, Dev menu): the map of new runs; at class select the run changes now
+    // "Classic map (old)" (Dev menu, World): the map of new runs; at class select the run changes now (D116: off by default)
     settings.on('change', (k) => {
-      if (k !== 'expeditionCamp') return;
-      const on = !!settings.get('expeditionCamp');
-      const r = this.bridge.setRunMode(on ? { mapMode: 'expedition', prep: true } : {});
+      if (k !== 'classicMap') return;
+      const classic = !!settings.get('classicMap');
+      const r = this.bridge.setRunMode(classic ? { mapMode: 'rows' } : { mapMode: 'expedition', prep: true });
       if (r.now) { this.shown = this.bridge.view; this.syncScene(this.shown, { instant: true }); this.queueRender(); }
-      if (r.ok) this.toast(on ? `Expedition map with start camp${r.now ? '' : ': from the next run'}` : `Classic map${r.now ? '' : ': from the next run'}`, 'info');
+      if (r.ok) this.toast(classic ? `Classic map (old)${r.now ? '' : ': from the next run'}` : `Expedition map with start camp${r.now ? '' : ': from the next run'}`, 'info');
     });
     window.addEventListener('resize', () => { this.scene.resize(); this.applyScale(); this.syncScene(this.shown, { instant: true }); this.queueRender(); });
     this.applyScale();
@@ -674,7 +676,7 @@ function devText(op, args, r, v) {
     case 'give': { const g = r.note || {}; return [g.gold ? `${g.gold} copper` : '', g.potions ? `${g.potions} potions` : '', g.talentPoints ? `${g.talentPoints} talent points` : ''].filter(Boolean).join(', ') + (g.gold || g.potions || g.talentPoints ? ' given' : 'Nothing fits in the bags'); }
     case 'time': case 'heat': return `${tolls(v.time)}${v.heat ? `, ${HEAT_WORDS.state[v.heat.state] || v.heat.state}` : ''}`;
     case 'reveal': return 'Map revealed';
-    case 'mapMode': return `${args.mode === 'expedition' ? 'Expedition' : 'Rows'} map`;
+    case 'mapMode': return args.mode === 'expedition' ? 'Expedition map' : 'Classic map (old)';
     case 'echoes': return `${args.n} Echoes given`;
     case 'catalogue': return 'Every unlock in the catalogue';
     case 'seed': return `New run on seed ${args.seed}`;

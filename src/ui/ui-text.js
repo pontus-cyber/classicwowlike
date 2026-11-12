@@ -470,7 +470,7 @@ export function metaEffect(m, D, d, mode = 'rows') {
   const N = D.num; const NM = D.names;
   const sp = m.spell && d.spells[m.spell];
   const exp = mode === 'expedition';
-  const onlyExp = 'No effect on the classic map.';
+  const onlyExp = exp ? '' : ' No effect on the classic map.'; // D116: said only while new runs are classic (Dev menu)
   switch (m.id) {
     case 'vigor': return { short: `+${pct1(m.hpPct)} max health per rank`, long: `Every hero starts with ${pct1(m.hpPct)} more maximum health for each rank.` };
     case 'edge': return { short: `+${pct1(m.powerPct)} Power per rank`, long: `Every hero has ${pct1(m.powerPct)} more Power for each rank: more damage from every attack and spell.` };
@@ -500,10 +500,10 @@ export function metaEffect(m, D, d, mode = 'rows') {
       if (exp && x) return { short: `+${x.bell} Homeward Bell ${plural(x.bell, 'charge')} each run`, long: `On the expedition map you set out with ${bell}.`, more: [`Classic map: ${rows}`] };
       return { short: `Travel on opens ${numWord(m.levels)} ${plural(m.levels, 'level')} earlier`, long: rows, more: bell ? [`Expedition map: ${bell}.`] : undefined };
     }
-    // expedition.md 8.2 (M2b v11): entries of the expedition map only (m.mapMode 'expedition'; the card shows a tag)
-    case 'cartographer': return { short: `${NM.charts} every run, free`, long: `On the expedition map the start camp's ${NM.charts} are yours every run, free: every node's region and the dungeon's place show on the map. ${onlyExp}` };
-    case 'old_hand': return { short: `${NM.tracker} every run, free`, long: `On the expedition map the start camp's ${NM.tracker} are yours every run, free: contract sites show within ${numWord(N.trackerRadius)} hops, hidden nodes too. ${onlyExp}` };
-    case 'quartermaster': return { short: `+${m.points} preparation points per rank`, long: `On the expedition map you have ${numWord(m.points)} more preparation points to spend at the start camp for each rank. ${onlyExp}` };
+    // expedition.md 8.2 (M2b v11): entries of the expedition map only (m.mapMode 'expedition'; a tag on classic runs, D116)
+    case 'cartographer': return { short: `${NM.charts} every run, free`, long: `On the expedition map the start camp's ${NM.charts} are yours every run, free: every node's region and the dungeon's place show on the map.${onlyExp}` };
+    case 'old_hand': return { short: `${NM.tracker} every run, free`, long: `On the expedition map the start camp's ${NM.tracker} are yours every run, free: contract sites show within ${numWord(N.trackerRadius)} hops, hidden nodes too.${onlyExp}` };
+    case 'quartermaster': return { short: `+${m.points} preparation points per rank`, long: `On the expedition map you have ${numWord(m.points)} more preparation points to spend at the start camp for each rank.${onlyExp}` };
     case 'alchemist': return { short: `Vendors sell ${plurName(2, NM.greater)}`, long: `Every vendor also sells ${plurName(2, NM.greater)}: each restores ${pct1(D.greaterHeal)} of your maximum health.` };
     case 'cache': {
       const u = D.uniques.rare;

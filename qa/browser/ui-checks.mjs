@@ -43,7 +43,7 @@ const logText = () => page.locator('#combatlog .lines').innerText();
 const shot = async (n) => { if (SHOTS) { fs.mkdirSync(SHOTS, { recursive: true }); await page.screenshot({ path: path.join(SHOTS, `ui-${n}.jpg`), type: 'jpeg', quality: 60 }); } };
 
 try {
-  await page.goto(`${pathToFileURL(FILE).href}?seed=${SEED}`);
+  await page.goto(`${pathToFileURL(FILE).href}?seed=${SEED}&classic=1`); // its checks are of the classic map (D116: no longer the default)
   await page.waitForFunction(() => window.__ui);
   // Escape on the class screen opens the settings window.
   await page.keyboard.press('Escape');
@@ -73,7 +73,7 @@ try {
 
   // Map: the tooltip of a quest node should tell how many enemies wait there.
   await page.getByRole('button', { name: 'Set out' }).click(); await idle();
-  let twin = R.newRun({ classId: 'rogue', seed: SEED, content: CONTENT });
+  let twin = R.newRun({ classId: 'rogue', seed: SEED, content: CONTENT, mapMode: 'rows' });
   for (const a of [{ type: 'SELECT_CLASS', classId: 'hunter' }, { type: 'SELECT_PET', petId: 'ridgewolf' }, { type: 'START_RUN' }]) twin = R.step(twin, a).state;
   const mv = R.mapView(twin);
   let target = null;

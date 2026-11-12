@@ -1,5 +1,6 @@
-// Player-facing presentation settings (animation speed, fast mode, screen shake, reduce motion, the Dev menu, the map new
-// runs get: "Expedition map with start camp", a preview of expedition.md 2 and 9.1). Persisted in localStorage when
+// Player-facing presentation settings (animation speed, fast mode, screen shake, reduce motion, the Dev menu) and the Dev
+// menu's "Classic map (old)": the map new runs get. Since D116 new runs start on the expedition map with the start camp
+// (expedition.md 2, 9.1); the classic map is kept for testing, in the Dev menu only. Persisted in localStorage when
 // available. Nothing here changes game rules: the map mode is a newRun option the engine already has.
 import { emitter } from './util.js';
 
@@ -13,13 +14,13 @@ const DEFAULTS = {
   speedrun: false,     // preset: instant animations, no travel, short autoplay delay
   reduceMotion: null,  // no screen shake, small recoil, no number slam; null follows the system's reduced-motion setting
   devTools: true,      // the Dev menu (dev-menu.js, engine-api.md 12): its corner button and the backquote key
-  expeditionCamp: false, // new runs on the expedition map with the start camp (expedition.md 2, 9.1; a preview, off: classic map)
+  classicMap: false,   // Dev menu: new runs on the classic map (old, rules 1.4); off: the expedition map with the start camp (D116)
 };
 
 function load() {
   try {
     const raw = globalThis.localStorage && localStorage.getItem(KEY);
-    if (raw) return { ...DEFAULTS, ...JSON.parse(raw) };
+    if (raw) { const s = { ...DEFAULTS, ...JSON.parse(raw) }; delete s.expeditionCamp; return s; } // the preview setting before D116
   } catch { /* storage blocked (sandbox / file://): use defaults */ }
   return { ...DEFAULTS };
 }

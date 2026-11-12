@@ -1,7 +1,9 @@
 // Hall of Echoes: the meta progression screen between runs (rules 11). Shown over class select, opened from class
 // select or from the run summary ("Spend Echoes"). It reads the profile view of the bridge (view.meta: balance, the
 // engine's offers from R.metaOffers, the run log, the next run from a dry START_RUN) and sends META_BUY. Costs, ranks,
-// states and effects come from the engine; this file only lays them out and animates the changes.
+// states and effects come from the engine; this file only lays them out and animates the changes. D116: new runs start on
+// the expedition map, so its entries (expedition.md 8.2) read as any other; only with the Dev menu's "Classic map (old)"
+// do they carry the "Expedition" tag and "expedition map only".
 import { h, clear, fmtNum } from './util.js';
 import { icon, spellIcon } from './art-icons.js';
 import { tip, hide as hideTip } from './tooltip.js';
@@ -112,8 +114,10 @@ export function createMeta(ctx) {
     idleTicker(m);
   }
 
-  /** The map new runs start on: 'expedition' with the start camp (expedition.md 8.2, M2b v11), else 'rows'. */
+  /** The map new runs start on: 'expedition' with the start camp (expedition.md 8.2, M2b v11; the default since D116), else 'rows'. */
   const runMap = () => { const rm = ctx.bridge && ctx.bridge.runMode ? ctx.bridge.runMode() : {}; return rm.mapMode === 'expedition' && rm.prep ? 'expedition' : 'rows'; };
+  /** An expedition entry is marked only when new runs do not get it (the classic map, or the expedition without its camp). */
+  const marked = (e) => e.mapMode === 'expedition' && runMap() !== 'expedition';
 
   /** One unlock: icon, name, rank, effect, requirement, and the Buy button with its cost (or Owned / Locked). */
   function card(o, m, nowOf) {
@@ -132,7 +136,7 @@ export function createMeta(ctx) {
     const req = state === 'locked' ? h('div.mc-req', `Needs ${o.req.map((r) => metaReqText(r, D, true)).join(' and ')}`) : null;
     const el2 = h('div.mcard', { dataset: { id: o.id, state } }, h('img.ic', { src: metaIcon(e), alt: '' }),
       h('div.mc-t', h('span.nm', o.name), h('span.rk', `${o.rank}/${o.ranks}`), pips), right,
-      h('div.mc-fx', e.mapMode === 'expedition' ? h('span.mexp', 'Expedition') : null, fx.short), req);
+      h('div.mc-fx', marked(e) ? h('span.mexp', 'Expedition') : null, fx.short), req);
     el2.classList.add(state);
     if (o.rank > 0 && state !== 'owned') el2.classList.add('some');
     tip(el2, () => cardTip(o, e, fx, state, m, nowOf));
@@ -144,8 +148,8 @@ export function createMeta(ctx) {
     const [kindName] = META_KIND[o.kind] || [o.kind];
     const box = h('div.tt-spell.tt-meta');
     box.appendChild(h('div.tt-row', h('div.tt-name', o.name), h('div.tt-rank', `Rank ${o.rank}/${o.ranks}`)));
-    // expedition.md 8.2 (M2b v11): an entry of the expedition map only says so under its kind
-    const only = e.mapMode === 'expedition' ? ' · expedition map only' : '';
+    // expedition.md 8.2 (M2b v11): an entry of the expedition map only says so under its kind while new runs are classic (D116)
+    const only = marked(e) ? ' · expedition map only' : '';
     box.appendChild(h('div.tt-sub', `${o.ranks > 1 ? `${kindName} · ${o.ranks} ranks` : kindName}${only}`));
     box.appendChild(h('div.tt-line.desc', fx.long || fx.short));
     for (const line of fx.more || []) box.appendChild(h('div.tt-line.stat', line));
@@ -169,7 +173,7 @@ export function createMeta(ctx) {
     if (o.id === 'oaths') return 'Owned. Swear them on class select, under the class cards.';
     if (e.spell && d.spells[e.spell]) return `Owned. It works on ${cls(d.spells[e.spell].cls)} runs.`;
     if (e.pet) return `Owned. It works on ${cls('hunter')} runs.`;
-    if (e.mapMode === 'expedition') return `Owned${o.ranks > 1 ? `: rank ${o.rank}` : ''}. It works on expedition runs with the start camp.`; // expedition.md 8.2 (M2b v11)
+    if (marked(e)) return `Owned${o.ranks > 1 ? `: rank ${o.rank}` : ''}. It works on expedition runs with the start camp.`; // expedition.md 8.2 (M2b v11)
     return `Owned${o.ranks > 1 ? `: rank ${o.rank}` : ''}.`;
   }
 

@@ -7,6 +7,8 @@
 //
 // Every action it returns can be done with the UI's own controls (no item-bar entries for items that
 // are not in the bag, no unequip), so the browser run and the Node run make the same choices.
+// The expedition map with the start camp (the default since D116): the start camp, the hub (its contract offer, services
+// kept out of the Dimming) and the map moves are the engine's default choices (expAction); the rest as on the classic map.
 import * as R from '../../src/rules.js';
 
 const C = R.C;
@@ -249,14 +251,31 @@ function combatAction(s) {
  * The next action. opts.manual: combat decisions are made here (true) or by the game's autoplay (false:
  * the caller lets autoplay act and this function is not asked in fights).
  */
+/**
+ * The engine's default choice for the expedition's own decisions (autoplay.js prepPolicy, hubPolicy, expMapPolicy). Its
+ * spell and item bars come first in autoplay's order; they are applied to a scratch copy only (the player keeps the bars
+ * housekeeping sets, items carried only), so the action is the one autoplay would take next.
+ */
+function expAction(s) {
+  let c = s;
+  for (let k = 0; k < 2 * (C.SPELL_BAR_SLOTS + C.ITEM_BAR_SLOTS); k++) {
+    const a = R.autoAction(c);
+    if (!a || (a.type !== 'SET_BAR' && a.type !== 'SET_ITEM_BAR')) return a;
+    c = R.step(c, a).state;
+  }
+  return null;
+}
+
 export function playerAction(s, opts = {}) {
   if (s.phase === 'ENDED') return null;
   if (s.phase === 'SUMMARY') return { type: 'END_RUN' };
+  if (s.phase === 'PREP') return expAction(s); // the start camp (expedition.md 2): autoplay's default buys, then Set out
   if (s.fight) return opts.manual === false ? R.autoAction(s) : combatAction(s);
   if (s.loot && s.loot.length) return lootAction(s);
   const hk = housekeeping(s);
   if (hk) return hk;
   if (s.service) return s.service.kind === 'trainer' ? trainerAction(s) : vendorAction(s);
+  if (s.mapMode === 'expedition' && (s.phase === 'ZONE_HUB' || s.phase === 'MAP')) return expAction(s);
   if (s.phase === 'ZONE_HUB') return hubAction(s) || { type: 'LEAVE_HUB' };
   if (s.phase === 'MAP') return mapAction(s);
   if (s.phase === 'NODE') return nodeAction(s);

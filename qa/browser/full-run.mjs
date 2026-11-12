@@ -5,7 +5,13 @@
  *   node tools/build.mjs --out /tmp/qa-game.html   # or test the repository's game.html (default)
  *   node qa/browser/full-run.mjs [--file /tmp/qa-game.html] [--sizes 1366x768,1920x1080]
  *        [--classes rogue,mage,hunter] [--seed 7] [--seeds rogue:7,mage:7,hunter:7] [--manual-zones 1]
- *        [--shots /tmp/qa/shots] [--json /tmp/qa/full-run.json] [--quiet]
+ *        [--map expedition|classic] [--shots /tmp/qa/shots] [--json /tmp/qa/full-run.json] [--quiet]
+ *
+ * --map (D116): expedition (the default) plays the game's default run, the expedition map with the start camp: the
+ * start camp (contract cards, supply and sight cards, Set out), the hub's contract offer, the fog map's nodes and moves
+ * list (enter, walk, pass), the Road and the Bell, all by their controls, on the engine's default choices out of combat
+ * (policy.mjs expAction: autoplay's start camp, hub and map policies), policy.mjs otherwise. classic plays the classic map
+ * (?classic=1, mapMode 'rows') on policy.mjs as before.
  *
  * For every size and class: a fresh browser profile, one full run from class select to the run summary,
  * played only with the game's own controls (mouse clicks, drags and keys on buttons, cards, map nodes,
@@ -45,6 +51,9 @@ const CLASSES = arg('--classes', 'rogue,mage,hunter').split(',');
 const SEED = Number(arg('--seed', '7'));
 const SEEDS = Object.fromEntries((arg('--seeds', '') || '').split(',').filter(Boolean).map((x) => x.split(':')).map(([c, n]) => [c, Number(n)]));
 const MANUAL_ZONES = Number(arg('--manual-zones', '1'));
+const MAP = arg('--map', 'expedition'); // D116: the default run is the expedition map with the start camp
+if (!['expedition', 'classic'].includes(MAP)) { console.error('--map must be expedition or classic'); process.exit(2); }
+const EXP = MAP === 'expedition';
 const SHOTS = arg('--shots', null);
 const JSON_OUT = arg('--json', null);
 const QUIET = args.includes('--quiet');
@@ -79,7 +88,7 @@ function slimView() {
       bar: p.bar, itemBar: p.itemBar, talents: p.talents, spells: p.spells.map((k) => `${k.id}:${k.tl}`),
       pet: p.pet && { hp: p.pet.hp, alive: p.pet.alive },
     },
-    zone: v.zone && { idx: v.zone.idx, row: v.zone.pos.row, lane: v.zone.pos.lane, questsDone: v.zone.questsDone },
+    zone: v.zone && (v.zone.exp ? { idx: v.zone.idx, node: v.zone.exp.pos } : { idx: v.zone.idx, row: v.zone.pos.row, lane: v.zone.pos.lane, questsDone: v.zone.questsDone }),
     node: v.node && { type: v.node.type, step: v.node.step, origin: v.node.origin || null, fightNo: v.node.fightNo },
     combat: v.combat && { round: v.combat.round, over: v.combat.over || null, enemies: v.combat.enemies.map((e) => `${e.idx}:${e.hp}:${e.alive ? 1 : 0}`) },
     loot: v.loot && { kind: v.loot.kind, gold: v.loot.gold || 0, xp: v.loot.xp || 0, trap: !!v.loot.trap, items: (v.loot.items || []).map((it) => ({ uid: it.uid, pending: !!it.pending })), choices: (v.loot.choices || []).length },
@@ -103,7 +112,7 @@ function slimTwin(s) {
       bar: p.bar, itemBar: p.itemBar, talents: p.talents, spells: (p.spellOrder || Object.keys(p.spells)).map((id) => `${id}:${p.spells[id].tl}`),
       pet: p.pet && { hp: p.pet.hp, alive: p.pet.alive },
     },
-    zone: s.zone && !s.zone.camp && s.zone.z <= 6 ? { idx: s.zone.z, row: s.zone.pos.r, lane: s.zone.pos.l, questsDone: s.zone.questsDone || 0 } : null,
+    zone: s.zone && !s.zone.camp && s.zone.z <= 6 ? (s.zone.mode === 'expedition' ? { idx: s.zone.z, node: s.zone.pos } : { idx: s.zone.z, row: s.zone.pos.r, lane: s.zone.pos.l, questsDone: s.zone.questsDone || 0 }) : null,
     combat: f && { round: f.round, enemies: f.enemies.map((e) => `${e.idx}:${e.hp}:${e.alive ? 1 : 0}`) },
   };
 }
@@ -309,7 +318,30 @@ async function playOne(browser, W, H, cls) {
         return click(page.locator('.vendor-cols > div').nth(1).locator('.trow').nth(idx).getByRole('button', { name: 'Sell' }), `Sell ${a.itemId}`);
       }
       case 'SELL_JUNK': return click(button('Sell junk'), 'Sell junk');
-      case 'LEAVE_HUB': return click(button('Set out'), 'Set out');
+      case 'LEAVE_HUB': return click(page.locator('#screens .sfoot').getByRole('button', { name: 'Set out' }), 'Set out');
+      // the start camp (expedition.md 9.1; D116 the default): contract cards, supply and sight cards, Reroll, Set out
+      case 'TAKE_CONTRACT': case 'DROP_CONTRACT': return click(page.locator(`#prep .pp-card[data-index="${a.index}"]`), `contract card ${a.index}`);
+      case 'BUY_PREP': case 'SELL_PREP': return click(page.locator(`#prep .pp-opt[data-id="${a.id}"]`), `prep option ${a.id}`);
+      case 'REROLL_BOARD': return click(page.locator('#pp-reroll'), 'Reroll');
+      case 'SET_OUT': return click(page.locator('#pp-go'), 'Set out (start camp)');
+      // the hub's contract offer (expedition.md 3.6): Take from Reserve, or Swap and the contract given up
+      case 'TAKE_HUB_CONTRACT':
+        if (a.mode === 'reserve') return click(page.locator('.hubc [data-hub="reserve"]'), 'hub contract Take');
+        await click(page.locator('.hubc [data-hub="swap"]'), 'hub contract Swap');
+        return click(page.locator(`.hubc .hc-give[data-contract="${a.contractId}"]`), `hub contract give up ${a.contractId}`);
+      // the fog map (expedition.md 9.2): a node click enters or walks (MOVE); Pass is in the moves list; the Road and the Bell
+      case 'MOVE': return click(page.locator(`#screens .expmap .mnode[data-node="${a.nodeId}"]`), `map node ${a.nodeId}`);
+      case 'PASS_THROUGH': {
+        const i = R.mapView(s).moves.findIndex((m) => m.nodeId === a.nodeId);
+        return click(page.locator('#screens .expmoves .em').nth(i).getByRole('button', { name: /^Pass · / }), `pass through ${a.nodeId}`);
+      }
+      case 'TAKE_ROAD': case 'RING_BELL': {
+        await click(page.locator(`#screens .expmap [data-leave="${a.type}"]`), a.type === 'TAKE_ROAD' ? 'Take the Road' : 'Ring the Bell');
+        // contracts of this zone still held: the leave warning asks first (expedition.md 9.3)
+        const warn = page.locator('#screens .leavewarn');
+        if (await warn.count()) return click(warn.getByRole('button', { name: /anyway$/ }), 'leave anyway');
+        return undefined;
+      }
       case 'CHOOSE_NODE': return click(page.locator(`#screens button.mnode.reach[data-row="${s.zone.pos.r + 1}"][data-lane="${a.lane}"]`), `map node row ${s.zone.pos.r + 1} lane ${a.lane}`);
       case 'TRAVEL_ON': return click(button(/^Travel on/), 'Travel on');
       // M2b v7: the label counts tolls ("2 waves · 2 tolls"), no hours; match the wave count only (QA 2026-11-12)
@@ -384,7 +416,7 @@ async function playOne(browser, W, H, cls) {
   }
 
   try {
-    await page.goto(`${FILE_URL}?seed=${seed}`, { waitUntil: 'load' });
+    await page.goto(`${FILE_URL}?seed=${seed}${EXP ? '' : '&classic=1'}`, { waitUntil: 'load' });
     await page.waitForFunction(() => window.__ui && window.__ui.view, null, { timeout: 15000 });
     res.build = await page.evaluate(() => globalThis.__BUILD__ || null);
     await shotFirst('create');
@@ -399,7 +431,7 @@ async function playOne(browser, W, H, cls) {
     await closeWindow('settings');
 
     // Character creation through the class cards, pet portraits, name and seed fields.
-    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT });
+    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: EXP ? 'expedition' : 'rows' }); // D116: the expedition with the start camp
     await click(page.locator(`#create .ccard[data-cls="${cls}"]`), `class card ${cls}`);
     s = R.step(s, { type: 'SELECT_CLASS', classId: cls }).state;
     if (cls === 'hunter') {
@@ -413,8 +445,8 @@ async function playOne(browser, W, H, cls) {
     await click(button('Enter the world'), 'Enter the world');
     for (const a of [{ type: 'SET_NAME', name }, { type: 'SET_SEED', seed }, { type: 'START_RUN' }]) s = R.step(s, a).state;
     let v = await view();
-    if (v.phase !== 'ZONE_HUB') throw new Error(`after Enter the world the phase is ${v.phase}`);
-    await shotFirst('hub');
+    if (v.phase !== (EXP ? 'PREP' : 'ZONE_HUB')) throw new Error(`after Enter the world the phase is ${v.phase}`);
+    await shotFirst(EXP ? 'prep' : 'hub');
 
     let autoplay = false;
     let autoplayBroken = false;
@@ -476,14 +508,15 @@ async function playOne(browser, W, H, cls) {
         continue;
       }
       // Turn autoplay on after the manual zones (out of combat, with the action bar toggle).
-      const inManual = s.zone && !s.zone.camp && s.zone.z <= MANUAL_ZONES && s.phase !== 'CAMP' && s.phase !== 'BOSS';
+      const inManual = s.phase === 'PREP' || (s.zone && !s.zone.camp && s.zone.z <= MANUAL_ZONES && s.phase !== 'CAMP' && s.phase !== 'BOSS'); // the start camp comes before zone 1
       if (!inManual && !autoplay && !s.fight) {
         await perform({ type: 'SET_AUTOPLAY', on: true }, s, v);
         s = R.step(s, { type: 'SET_AUTOPLAY', on: true }).state;
         autoplay = true;
         continue;
       }
-      // In fights after the manual zones (autoplay broken): click what autoplay would have chosen.
+      // In fights after the manual zones (autoplay broken): click what autoplay would have chosen. The expedition run (D116):
+      // the start camp, the hub and the map moves are the engine's default choices (policy.mjs expAction).
       const a = playerAction(s, { manual: !(s.fight && autoplay) });
       if (!a) throw new Error(`policy has no action in ${s.phase}`);
       if (s.fight && !autoplay) await shotFirst('manual-combat');

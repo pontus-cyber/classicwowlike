@@ -25,7 +25,7 @@ const MAX = 20000;
 
 /** Play one run. Returns a record of what happened. */
 export function playRun({ classId, petId = 'ridgewolf', seed, name = 'Qa', manualZones = 1, log = null }) {
-  let s = R.newRun({ classId: 'rogue', seed, content: CONTENT });
+  let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: 'rows' }); // policy.mjs plays the classic map (D116: no longer the default)
   for (const a of createActions({ classId, petId, name, seed })) s = R.step(s, a).state;
   const rec = {
     classId, seed, zones: [], deaths: null, rewardChoices: 0, emptyRewardChoices: 0, shrines: 0, grindWaves: [], potionsBought: 0,

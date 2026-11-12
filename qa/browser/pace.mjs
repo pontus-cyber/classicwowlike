@@ -27,7 +27,7 @@ const { chromium } = (() => { for (const b of ['/home/claude/tools-ui/package.js
 
 const browser = await chromium.launch({ headless: true });
 const page = await (await browser.newContext({ viewport: { width: 1366, height: 768 } })).newPage();
-await page.goto(`${pathToFileURL(FILE).href}?seed=${SEED}&speed=${SPEED}`);
+await page.goto(`${pathToFileURL(FILE).href}?seed=${SEED}&speed=${SPEED}&classic=1`); // zone 1 of the classic map (D116: no longer the default)
 await page.waitForFunction(() => window.__ui);
 const idle = () => page.evaluate(() => window.__ui.idle());
 const v = () => page.evaluate(() => { const x = window.__ui.view(); return { round: x.combat && x.combat.round, over: x.combat && x.combat.over, step: x.node && x.node.step, phase: x.phase }; });
