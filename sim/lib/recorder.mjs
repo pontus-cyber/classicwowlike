@@ -31,7 +31,8 @@
 //       heat.nodesByState; B56)
 //   boss: at FIGHT_BOSS { lvl, ilvl (mean equipped), rare (share of slots rare or epic), empty, ember, gs (sum of the
 //       equipped items' itemScore; heat report, balance-2026-11-11) }
-//   ex: expedition runs (rules 1.9; expedition.md 11.1, MILESTONES 2b.4): the summary's expedition block (expRecord);
+//   ex: expedition runs (rules 1.9; expedition.md 11.1, MILESTONES 2b.4): the summary's expedition block (expRecord;
+//       M2b v15: `swift` Roads taken with the Swift passage, and per zone the XP its Road paid);
 //       fight kind 'dim' (Dimmed encounters) is FIGHT_KINDS' last code
 //   xs: expedition measures of the runner (sim/lib/runner.mjs): C_step agree / decisions, close-call zones
 //   dm: Dimmed encounters (expedition runs with one; M2b v10 row C2, sim/lib/risk.mjs `dim`): [depth (engine `dim`
@@ -370,10 +371,14 @@ Recorder.prototype.contractRecord = function contractRecord(s) {
 /**
  * Expedition block of a record (engine summary `expedition`, engine-api.md 10.4): walks, passes, Dimmed fights and
  * zones, Bells rung, Roads taken, and per zone [z, tolls, nodes, walks, passes, dimFights, exit ('r' Road, 'b' Bell, '' none)].
+ * M2b v15 (D124; engines with the Swift passage): `swift` = Roads taken with the Swift passage, and each zone's entry has an
+ * eighth element, the XP its Road paid (0 without).
  */
 function expRecord(x) {
+  const sw = x.swift !== undefined;
   return {
     walks: x.walks, passes: x.passes, dim: x.dimFights, dimZ: x.dimZones, bells: x.bellsRung, roads: x.roads,
-    zones: x.zones.map((z) => [z.z, z.time, z.nodes, z.walks, z.passes, z.dimFights, z.exit === 'road' ? 'r' : z.exit === 'bell' ? 'b' : '']),
+    ...(sw ? { swift: x.swift } : {}),
+    zones: x.zones.map((z) => [z.z, z.time, z.nodes, z.walks, z.passes, z.dimFights, z.exit === 'road' ? 'r' : z.exit === 'bell' ? 'b' : '', ...(sw ? [z.swift || 0] : [])]),
   };
 }

@@ -20,10 +20,12 @@
 // valued with an under-level penalty (SIM.EXP_UNDER_LEVEL_VALUE per level under 10z). Contract sites (2b.5, prep;
 // expedition.md 10.3): the site term on every node entered and a leaf that walks to a known site (contractSites). The
 // start camp and the hub contract: plannerPrep, plannerHubContract (shared.mjs). oracleMap: the same search on the
-// oracle's full-information view (diagnostic only: C_step, B41; never acts in a measured run).
+// oracle's full-information view (diagnostic only: C_step, B41; never acts in a measured run). Swift passage (M2b v15
+// row 2, D124): a Road reached at zone time <= the view's swift.tolls pays the passage XP (model.mjs swiftModel), valued
+// as any XP; a Road taken now uses the view's own swift.xp. No view block (GATES.swiftRoad off): the search as before.
 import { C, R, legal, hpFrac, dimFightTime } from '../lib/engine.mjs';
 import { BAL, HEAT, SIM, EXP } from '../lib/params.mjs';
-import { makeCtx, evalNode, copyM, levelPos, eatModel, contractValue, siteTerm } from '../lib/model.mjs';
+import { makeCtx, evalNode, copyM, levelPos, eatModel, contractValue, siteTerm, swiftModel, bankedPos } from '../lib/model.mjs';
 import { dimRisk } from '../lib/risk.mjs';
 import { createValueBot, hubFull, FULL_KIT, plannerPrep, plannerHubContract } from './shared.mjs';
 import { fogInput, oracleInput, dimmedAtV, dimDepthV, enterableV, escapeV, typeBelief, protoCell, siteKnowledge, viewHops, shardZoneV, dimTollsV } from '../lib/view.mjs';
@@ -200,14 +202,22 @@ export function planFog(view, ctx, opts = {}) {
     if (!e) { e = escapeV(view, id, zt); escMemo.set(k, e); }
     return e;
   };
-  // Leaving from (pos, zt): by the Road (walk there, Dimmed steps, TIME_TRAVEL) or by the Bell (channel, a Dimmed
-  // encounter if the node dims during it, the charge's keep value).
+  // M2b v15 row 2 (D124): the Swift passage (view.swift, player-visible; null while GATES.swiftRoad is off). A Road taken
+  // at zone time <= swift.tolls pays its XP before TIME_TRAVEL; valued as any XP (VAL_XP on the banked level position).
+  const sw = view.swift || null;
+  const swiftValue = (m, ztTake) => {
+    const p0 = bankedPos(m);
+    return swiftModel(m, sw, ztTake) ? (bankedPos(m) - p0) * BAL.VAL_XP : 0;
+  };
+  // Leaving from (pos, zt): by the Road (walk there, Dimmed steps, the Swift passage XP when the Road is reached in its
+  // window, TIME_TRAVEL) or by the Bell (channel, a Dimmed encounter if the node dims during it, the charge's keep value).
   const leaveRoad = (pos, zt, m) => {
     const e = esc(pos, zt);
     if (e.road === null) return -Infinity;
     const m2 = copyM(m);
     let v = tollCost(ctx, m2, e.time - e.dimTime);
     for (let i = 0; i < e.dims; i++) v += dimCost(ctx, m2, e.dims ? e.depth / e.dims : 0, dimFightTime(i < e.esc));
+    if (sw) v += swiftValue(m2, zt + e.time);
     v += tollCost(ctx, m2, view.travelTime);
     return v + under(m2);
   };
@@ -293,7 +303,9 @@ export function planFog(view, ctx, opts = {}) {
   const options = [];
   if (view.onRoad) {
     const m2 = copyM(m0);
-    options.push({ action: { type: 'TAKE_ROAD' }, value: tollCost(ctx, m2, view.travelTime) + under(m2) });
+    // The Swift passage of a Road taken now: the view's own figure (mapView swift.xp = heatPreview(TAKE_ROAD).swift).
+    const sv = sw && sw.xp > 0 ? swiftValue(m2, zt) : 0;
+    options.push({ action: { type: 'TAKE_ROAD' }, value: sv + tollCost(ctx, m2, view.travelTime) + under(m2) });
   }
   if (bell > 0) options.push({ action: { type: 'RING_BELL' }, value: leaveBell(pos, zt, m0, bell) });
   if (!(opts.leaveNow && levelPos(m0) >= exit)) {

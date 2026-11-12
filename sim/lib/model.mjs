@@ -19,7 +19,8 @@
 // Start camp and contracts (expedition.md 3, 10.3; MILESTONES 2b.5; runs with newRun prep): no story chain (ctx.story),
 // contractValue (a contract's reward in value units; its XP without the level-difference modifier, M2b v10 row A1, unless
 // SIM.CONTRACT_XP_DIFFMOD), siteValueOf / siteTerm (the site value of 10.3, with the sites a
-// search branch has already counted in m.cp).
+// search branch has already counted in m.cp). Swift passage (M2b v15 row 2, D124): swiftModel, the XP a Road taken in the
+// window pays (the view's `swift` block), for planFog and speedFog.
 import { C, R, V, xpCurve, diffMod } from './engine.mjs';
 import { BAL, SIM, EXP } from './params.mjs';
 import { riskP, riskDh, riskType } from './risk.mjs';
@@ -221,6 +222,19 @@ function giveXp(m, amount, kill, hg = 0) {
   while (m.L < C.MAX_LEVEL && m.xp >= XN[m.L]) { m.xp -= XN[m.L]; m.L += 1; }
   if (m.L >= C.MAX_LEVEL) { m.xp = 0; m.rested = 0; }
   return extra;
+}
+
+/**
+ * Swift passage XP in the model (M2b v15 row 2, D124; rules 1.9.7): a Road taken at zone time ztTake pays
+ * round(swift.frac × xpToNext(L)) XP when ztTake <= swift.tolls (swift: the view's block, R.mapView `swift`, player-visible;
+ * null while GATES.swiftRoad is off). Plain XP (no rested, level-difference modifier or heat), applied to m in place.
+ * Returns the XP paid (0 outside the window).
+ */
+export function swiftModel(m, swift, ztTake) {
+  if (!swift || !(ztTake <= swift.tolls) || m.L >= C.MAX_LEVEL) return 0;
+  const xp = Math.round(swift.frac * xpNext(m.L) + 1e-9);
+  giveXp(m, xp, false);
+  return xp;
 }
 
 function afterFightHp(ctx, m, type, dl) {

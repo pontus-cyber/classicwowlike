@@ -1,5 +1,5 @@
-// Output helpers: commit hash, cell names (M2b v12: 'rcg' for the gated Ricochet Bolt arm), JSON/JSONL/Markdown writers,
-// number formatting.
+// Output helpers: commit hash, cell names (M2b v12: 'rcg' for the gated Ricochet Bolt arm; C.GATES tags, GATE_TAG),
+// JSON/JSONL/Markdown writers, number formatting.
 import { execSync } from 'node:child_process';
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -11,10 +11,11 @@ export const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /**
  * Cell-name tags of the C.GATES switches: 'g5' RARE_HP_MULT_Z1 (M2b v13 row 5), 'g6' first meeting (v13 row 6), 'sap'
- * rule H, the wait after Sap (M2b v14 row 1 (a), sapHold), 'pst' a PASS keeps STEALTH (v14 row 1 (b), passStealth); a
- * switch without a tag is marked by its key.
+ * rule H, the wait after Sap (M2b v14 row 1 (a), sapHold), 'pst' a PASS keeps STEALTH (v14 row 1 (b), passStealth),
+ * 'swift' the Swift passage (M2b v15 row 2, swiftRoad; on by default), 'maw' Mawgrim's gated HP (M2b v15 row 4, mawgrimHp;
+ * off by default); a switch without a tag is marked by its key.
  */
-export const GATE_TAG = { rareHpMultZ1: 'g5', firstMeetWindup: 'g6', sapHold: 'sap', passStealth: 'pst' };
+export const GATE_TAG = { rareHpMultZ1: 'g5', firstMeetWindup: 'g6', sapHold: 'sap', passStealth: 'pst', swiftRoad: 'swift', mawgrimHp: 'maw' };
 
 /** Short commit hash of the repository, with "+dirty" when tracked files under src/ or sim/ have changes. */
 export function commitInfo() {

@@ -16,10 +16,12 @@
 // changes-m2b-v12.md, diagnostic): the v11 policy, the planner's belief search with the full value function at the speed
 // style's time weight (PLANNER_TIME_MULT × STYLE_SPEED_TIME_MULT).
 // Contracts (2b.5, prep): start camp speedPrep (Delves, Second Clapper, Field Draughts), a Delve hub contract from
-// Reserve (shared.mjs).
+// Reserve (shared.mjs). Swift passage (M2b v15 row 2, D124; the view's `swift` block): speedFog books the XP of a Road
+// reached in the window as levels (model.mjs swiftModel, capped at the exit level, × the level price), and the exit rule
+// prefers such a Road to the Bell unless its way is longer than the channel by more than the XP's worth in tolls.
 import { C, R, legal, hpFrac, dimFightTime } from '../lib/engine.mjs';
 import { BAL, SIM, EXP } from '../lib/params.mjs';
-import { makeCtx, evalNode, copyM, levelPos, eatModel, contractValue, siteTerm } from '../lib/model.mjs';
+import { makeCtx, evalNode, copyM, levelPos, eatModel, contractValue, siteTerm, swiftModel } from '../lib/model.mjs';
 import { dimRisk } from '../lib/risk.mjs';
 import { createValueBot, FULL_KIT, speedPrep, speedHubContract } from './shared.mjs';
 import { exitLevelOf, planFog, exitStep, expExitLevel, contractSites, siteType } from './planner.mjs';
@@ -155,12 +157,17 @@ export function speedFog(view, ctx, { exit, sites = null, depth = EXP.PLANNER_FO
     if (!e) { e = escapeV(view, id, zt); escMemo.set(k, e); }
     return e;
   };
+  // M2b v15 row 2 (D124): the Swift passage (view.swift; null while GATES.swiftRoad is off): a Road reached at zone time
+  // <= swift.tolls pays its XP before TIME_TRAVEL, booked as any level the search gains (capped at `exit`, × LEVEL_T).
+  const sw = view.swift || null;
+  const swiftLv = (m, ztTake) => { const p0 = capPos(m); return swiftModel(m, sw, ztTake) ? (capPos(m) - p0) * LEVEL_T : 0; };
   const leaveRoad = (pos, zt, m) => {
     const e = esc(pos, zt);
     if (e.road === null) return Infinity;
     const m2 = copyM(m);
     let c = walk(m2, e.time - e.dimTime);
     for (let i = 0; i < e.dims; i++) c += dim(m2, e.dims ? e.depth / e.dims : 0, dimFightTime(i < e.esc));
+    if (sw) c -= swiftLv(m2, zt + e.time);
     return c + view.travelTime;
   };
   const leaveBell = (pos, zt, m, bell) => {
@@ -241,7 +248,8 @@ export function speedFog(view, ctx, { exit, sites = null, depth = EXP.PLANNER_FO
   const m0 = ctx.m;
   const bell = view.bell.charges;
   const options = [];
-  if (view.onRoad) options.push({ action: { type: 'TAKE_ROAD' }, cost: view.travelTime });
+  // A Road taken now: its Swift passage XP is the view's own figure (swift.xp = heatPreview(TAKE_ROAD).swift).
+  if (view.onRoad) options.push({ action: { type: 'TAKE_ROAD' }, cost: view.travelTime - (sw && sw.xp > 0 ? swiftLv(copyM(m0), zt) : 0) });
   if (bell > 0) options.push({ action: { type: 'RING_BELL' }, cost: leaveBell(pos, zt, m0, bell) });
   for (const mv of view.moves) {
     const id = mv.nodeId;
@@ -280,7 +288,8 @@ export function speedSites(s, view, ctx) {
 
 /**
  * The speedrunner's expedition map decision from the fog view: at 10z - 1 the exit rule (the cheapest Road, or the Bell
- * when that way crosses the Dimming or takes longer than the channel); before it speedFog (M2b v12 row 4), or with
+ * when that way crosses the Dimming or takes longer than the channel, the Swift passage XP of a Road in its window counted
+ * as tolls at the bot's level price, M2b v15); before it speedFog (M2b v12 row 4), or with
  * variant 'v11' the v11 policy (planFog with the full value function at the speed style's time weight; arm 9).
  */
 export function speedExpMap(s, risk, variant = null) {
@@ -291,7 +300,14 @@ export function speedExpMap(s, risk, variant = null) {
   if (levelPos(ctx.m) >= exit) {
     if (view.onRoad) return { type: 'TAKE_ROAD' };
     const e = escapeV(view, view.pos, view.zt);
-    if (view.bell.charges > 0 && (e.dims > 0 || e.time > view.bell.channelTime)) return { type: 'RING_BELL' };
+    // M2b v15 row 2 (D124): a Road reached in the Swift passage window without a Dimmed step pays swift.frac of a level,
+    // worth that many levels at the bot's level price in tolls (the default policy: SIM.SPEED_LEVEL_TOLLS or VAL_XP /
+    // VAL_TIME; the v11 policy: VAL_XP / (VAL_TIME × its hour weight)), so the Bell is rung only when the Road way is longer
+    // than the channel by more than that. No swift block (GATES.swiftRoad off) or outside the window: the rule as before.
+    const sw = view.swift;
+    const levelT = v11 ? BAL.VAL_XP / (BAL.VAL_TIME * ctx.hourMult) : SIM.SPEED_LEVEL_TOLLS ?? LEVEL_H;
+    const swiftT = sw && e.road !== null && e.dims === 0 && view.zt + e.time <= sw.tolls ? sw.frac * levelT : 0;
+    if (view.bell.charges > 0 && (e.dims > 0 || e.time - swiftT > view.bell.channelTime)) return { type: 'RING_BELL' };
     return exitStep(view).action;
   }
   if (v11) return planFog(view, ctx, { exit, leaveNow: true, bellKeep: 0, sites: contractSites(s, view, ctx) }).action;
