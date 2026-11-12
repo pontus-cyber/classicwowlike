@@ -46,6 +46,18 @@ Done when a run plays on the roamable fog map with contracts, the Dimming, Roads
 | 2b.8 | QA: rule tests, leak test, browser checks; playtest | Playtest & QA Lead | doing (QA pass 2026-11-12 on v14: 258/258 browser checks; final pass after the default switch) |
 | 2b.9 | Owner plays the build | Owner | todo |
 
+## Track R: UI layer refactor (runs alongside milestones, D119)
+Plan: docs/reviews/ui-architecture-2026-11-12.md. Each step one session, behaviour-identical, checked by ui-regress and the style snapshot.
+
+| # | Task | Owner | Status |
+|---|---|---|---|
+| R1 | Style snapshot (qa/browser/style-snapshot.mjs) and CSS audit (tools/css-audit.mjs) | UI/UX Engineer | todo |
+| R2 | Colour tokens and theme layer (src/ui/tokens.css) | UI/UX Engineer | todo |
+| R3 | One palette for JS and canvas (src/ui/theme.js) | UI/UX Engineer | todo |
+| R4 | Type, spacing, radius, z-index, duration tokens | UI/UX Engineer | todo |
+| R5 | Art module boundary (art-props.js, art-fx.js, art contact sheet) | UI/UX Engineer | todo |
+| R6-R15 | style.css split, bridge golden test, texts out of the mock, retire the mock engine, split the bridge, engine view requests, stale-proof keys, closures, ui-regress hooks, rules U1-U14 | UI/UX Engineer, Core Engineer | todo |
+
 ## M3. Meta progression and onboarding
 Done when meta points, the unlock screen and permanent unlocks (items in drop pools, skills, stat boosts) work, ten consecutive simulated runs show rising strength, and the owner has played five runs in a row. Includes the meta v2 proposal once agreed (persistent character per class, account quests) and a proper tutorial: a guided first run (fixed seed, zone 1: intent track, engage round, wind-ups, DoT preview, potions, the Furnace, the map), the first-loss-to-first-unlock nudge to the potion upgrade, and skippable first-time hints for every system; checked by QA as a new-player playtest and by the owner.
 
