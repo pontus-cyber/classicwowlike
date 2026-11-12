@@ -112,7 +112,146 @@
   --tele-window: #ffb030;
 }
 
-/* Lantern Gouache (docs/art/README.md direction A, D120): draft, empty. The art proof slice sets its values here,
-   behind a Dev switch that puts data-theme="lantern" on <html>; a token not set here keeps its current value. */
+/* Lantern Gouache (docs/art/README.md direction A, D120): PROPOSAL 1, draft, for the owner to steer (D121;
+   docs/art/proposal-1/README.md). Colours only. On behind the Dev menu's "Theme: Lantern (proposal)" switch or
+   ?theme=lantern, which put data-theme="lantern" on <html>; a token not set here keeps its current value.
+   Palette: dusk slate #27313b, fen green #5d7a5a, moss #8a9a5b, ochre #d9a441, lantern #f2c56b, paper #f1e3c0,
+   umber board #3d2c20, ink #2b2118, water #4f8a8b; reserved: madder red #b8432f (danger only), Dimming violet #6b4fa0.
+   To drop the proposal: empty this block and delete the marked rule block below it. */
 :root[data-theme="lantern"] {
+  /* surface: umber timber instead of near-black */
+  --surface-page: #17110c;
+  --surface-well: #1d150f;
+  --surface-deep: #2a1e15;
+
+  /* ink: paper cream on timber, ink on paper */
+  --ink: #f1e3c0; --ink-dim: #cdbc97; --ink-mute: #9a8b6e;
+  --ink-bright: #fff8e6;
+  --ink-paper: #2b2118;
+  --ink-good: #b5cf8a;
+  --ink-bad: #e8927a;
+  --good: #a3c476;
+
+  /* accent: lantern and ochre */
+  --gold: #f2c56b; --gold-2: #d9a441; --gold-dim: #8f6f33;
+  --accent-hi: #f7d283;
+  --accent-pale: #f9e0a4;
+  --accent-cream: #f3d79a;
+  --gold-25: rgba(242, 197, 107, .25); --gold-35: rgba(242, 197, 107, .35); --gold-45: rgba(242, 197, 107, .45);
+  --gold-50: rgba(242, 197, 107, .5); --gold-70: rgba(242, 197, 107, .7); --gold-90: rgba(242, 197, 107, .9);
+
+  /* edge and shade: the painted cream line; shadows are ink (warm), not black */
+  --edge: #6f5638; --edge-hi: #e6d4a8; --edge-lo: #1c140d;
+  --edge-hi-15: rgba(230, 212, 168, .15); --edge-hi-20: rgba(230, 212, 168, .2); --edge-hi-22: rgba(230, 212, 168, .22);
+  --edge-hi-25: rgba(230, 212, 168, .25); --edge-hi-28: rgba(230, 212, 168, .28); --edge-hi-30: rgba(230, 212, 168, .3);
+  --edge-hi-35: rgba(230, 212, 168, .35); --edge-hi-38: rgba(230, 212, 168, .38); --edge-hi-40: rgba(230, 212, 168, .4);
+  --edge-hi-45: rgba(230, 212, 168, .45); --edge-hi-50: rgba(230, 212, 168, .5);
+  --edge-scroll: #6a5335;
+  --shade: #150f0a;
+  --shade-25: rgba(21, 15, 10, .25); --shade-30: rgba(21, 15, 10, .3); --shade-35: rgba(21, 15, 10, .35);
+  --shade-50: rgba(21, 15, 10, .5); --shade-55: rgba(21, 15, 10, .55); --shade-60: rgba(21, 15, 10, .6);
+  --shade-65: rgba(21, 15, 10, .65); --shade-70: rgba(21, 15, 10, .7); --shade-90: rgba(21, 15, 10, .9);
+  --glint-06: rgba(255, 244, 214, .06); --glint-08: rgba(255, 244, 214, .08); --glint-10: rgba(255, 244, 214, .1);
+
+  /* resource bars: fen green health, water mana, ochre energy, burnt-orange focus, dusk-slate experience */
+  --hp-1: #7f9f62; --hp-2: #5d7a5a; --hp-3: #456046;
+  --mana-1: #62a0a0; --mana-2: #44797b; --mana-3: #2f5a5e;
+  --energy-1: #e6bb5c; --energy-2: #c9952f; --energy-3: #8a6418;
+  --focus-1: #dc9450; --focus-2: #bf7030; --focus-3: #84481a;
+  --xp-1: #8ea2b6; --xp-2: #55697d; --rested: #4f8a8b;
+
+  /* danger: madder red, and only here (D120) */
+  --danger: #d6513a;
+  --danger-fill: #c5472f;
+  --danger-deep: #8a2c1c;
+  --danger-pale: #fbe7d9;
+  --danger-ink: #2a0d07;
+  --danger-text: #f3ab96;
+  --danger-text-hi: #fff2e8;
+  --danger-key: #f0a08c;
+  --danger-lethal: #e06a50;
+  --danger-soft: #f6d2c4;
+
+  /* heat states (the Furnace): a kiln strip, water glaze to burnt sienna. Infernal is not madder: red stays danger's */
+  --heat-clear: #5a9c9a; --heat-clear-ink: #0c1f20; --heat-clear-text: #a3d3cf;
+  --heat-warm: #e0b04c; --heat-warm-ink: #251a05; --heat-warm-text: #f0cf7e;
+  --heat-hot: #d57a2e; --heat-hot-ink: #241003; --heat-hot-text: #f0a868;
+  --heat-scorched: #97431f; --heat-scorched-ink: #fff0e2; --heat-scorched-text: #e8956a;
+
+  /* rarity: the same five steps, in opaque paint */
+  --r-junk: #9c958a; --r-common: #f1e3c0; --r-uncommon: #93c070; --r-rare: #74aacb; --r-epic: #b294dc;
+
+  /* map: ink rings on a paper chart; "you are here" is lantern-white, not red; the Dimming is violet */
+  --map-ring: #2b2118;
+  --map-ring-edge: #9a7d4c;
+  --map-lit: #fff3c4;
+  --map-here: #fff6dc;
+  --map-remembered: #94805c;
+  --map-unknown: #63594c;
+  --map-unknown-deep: #2e2720;
+  --map-unknown-text: #dccfb6;
+  --map-fog: #31281d;
+  --map-dimmed: #9078cc;
+  --map-dimmed-deep: #1d1436;
+  --map-dimmed-glow: rgba(107, 79, 160, .75);
+  --map-shard: #3d2d6c;
+  --map-shard-text: #e4d8fb;
+  --map-road: #5f4826;
+  --map-road-text: #f6dfae;
+  --map-spy: rgba(127, 196, 192, .55);
+  --map-spy-soft: rgba(79, 138, 139, .28);
+
+  /* telegraph: wind-ups in burnt orange (a warning, not yet the Deathblow), answers in water, the window in lantern */
+  --tele-windup: #cf6a26;
+  --tele-windup-ring: #e58d45;
+  --tele-windup-hi: #f3b57a;
+  --tele-windup-ink: #261003;
+  --tele-answer: #8fd0cb;
+  --tele-answer-fill: #5aa3a2;
+  --tele-answer-pale: #e2f4f0;
+  --tele-answer-ink: #0b2526;
+  --tele-window: #eeb244;
+
+  /* used only by the lantern rule block below */
+  --lg-board-1: #49362a; --lg-board-2: #33251b; --lg-board-3: #2a1e15;
+  --lg-paper-1: #f4e8c9; --lg-paper-2: #ead9b0; --lg-ink-edge: rgba(43, 33, 24, .7);
+  --lg-brick-1: #a8674e; --lg-brick-2: #84452f; --lg-brick-3: #5f2f20;
 }
+
+/* ==== LANTERN-ONLY RULES (proposal 1, draft): what tokens alone cannot carry, because style.css still holds these
+   colours as literals. Three frame types (board, paper card, flat warning) and red taken off everything that is not
+   danger. Every selector starts with :root[data-theme="lantern"], so nothing here touches the current look. ==== */
+/* 1. Board: a timber panel with one painted cream line and slightly uneven hand-cut corners; no studs, no glow */
+:root[data-theme="lantern"] .panel,
+:root[data-theme="lantern"] .uf .plate {
+  background:
+    repeating-linear-gradient(91deg, rgba(21, 15, 10, 0) 0 3.1rem, rgba(21, 15, 10, .13) 3.1rem 3.2rem, rgba(255, 244, 214, .025) 3.2rem 3.3rem),
+    linear-gradient(180deg, var(--lg-board-1), var(--lg-board-2) 55%, var(--lg-board-3));
+  border-color: var(--shade);
+  box-shadow: inset 0 0 0 2px var(--lg-board-3), inset 0 0 0 3px var(--edge-hi-45), 0 .5rem 1.4rem var(--shade-60);
+}
+:root[data-theme="lantern"] .panel { border-radius: .9rem .5rem .8rem .4rem / .5rem .9rem .4rem .8rem; }
+:root[data-theme="lantern"] .panel::before, :root[data-theme="lantern"] .panel::after { display: none; }
+:root[data-theme="lantern"] #prep .pp-board { background: repeating-linear-gradient(92deg, rgba(21, 15, 10, 0) 0 2.2rem, rgba(21, 15, 10, .16) 2.2rem 2.3rem), linear-gradient(180deg, #56402f, #3a2a1e 60%, #2f2218); }
+/* 2. Paper card: flat paper with an ink edge for what the player chooses */
+:root[data-theme="lantern"] .parchment,
+:root[data-theme="lantern"] .pp-card { background: linear-gradient(175deg, var(--lg-paper-1), var(--lg-paper-2)); box-shadow: inset 0 0 0 1px var(--lg-ink-edge), .15rem .25rem 0 var(--shade-35); }
+:root[data-theme="lantern"] .pp-card.taken { background: linear-gradient(175deg, #fbf3dc, #f1e3c0); box-shadow: inset 0 0 0 2px var(--gold-2), .15rem .25rem 0 var(--shade-35); }
+/* 3. Red is danger's alone: the primary button and Take become lantern ochre with ink text, the close button timber,
+      the enemy health bar brick with an ink edge, the map's urgent Dimming clock violet */
+:root[data-theme="lantern"] .btn.primary,
+:root[data-theme="lantern"] .pp-card .pc-btn { background: linear-gradient(180deg, #f2c56b, #d9a441 65%, #c18d33); color: var(--ink-paper); text-shadow: none; box-shadow: inset 0 1px 0 rgba(255, 244, 214, .5), inset 0 0 0 1px var(--lg-ink-edge), 0 .2rem .5rem var(--shade-55); }
+:root[data-theme="lantern"] .pp-card.taken .pc-btn { background: linear-gradient(180deg, #e9dbb4, #d3c08e); }
+:root[data-theme="lantern"] .xbtn { background: var(--lg-board-1); color: var(--ink); box-shadow: inset 0 0 0 1px var(--edge-hi-45); }
+:root[data-theme="lantern"] .bar.enemy .fill { background: linear-gradient(180deg, var(--lg-brick-1), var(--lg-brick-2) 55%, var(--lg-brick-3)); box-shadow: inset 0 0 0 1px var(--lg-ink-edge); }
+:root[data-theme="lantern"] .expmap .mnode .xclock.urgent { background: var(--map-dimmed-deep); box-shadow: 0 0 0 2px var(--map-dimmed), 0 0 1.2rem var(--map-dimmed-glow); }
+/* 3b. The Deathblow in the world, on its owner: a flat madder banner with an ink edge and a cream line, no glow and
+      no pulse (flat on painted is what makes it jump; docs/art/README.md section 4) */
+:root[data-theme="lantern"] .np .wub.db:not(.ans) { background: #a53a26; box-shadow: 0 0 0 2px var(--ink-paper), inset 0 0 0 1px rgba(255, 242, 232, .55), .2rem .3rem 0 var(--shade-50); }
+:root[data-theme="lantern"] .np .wub.db.now:not(.ans) { animation: dbin .6s ease-out 1; }
+:root[data-theme="lantern"] .np .wub.db:not(.ans) .db-est { text-shadow: 0 1px 1px var(--shade); }
+:root[data-theme="lantern"] .np .wub.db:not(.ans) .db-m, :root[data-theme="lantern"] .np .wub.db:not(.ans) .db-a .db-al { color: var(--danger-soft); }
+/* 4. Opaque paint: no glass highlight on the bars */
+:root[data-theme="lantern"] .bar { background: var(--surface-well); box-shadow: inset 0 0 0 1px var(--lg-ink-edge); }
+:root[data-theme="lantern"] .bar .fill::after { height: 30%; background: linear-gradient(180deg, rgba(255, 244, 214, .16), rgba(255, 244, 214, 0)); }
+/* ==== end of the lantern-only rules ==== */

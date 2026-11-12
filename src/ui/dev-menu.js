@@ -198,12 +198,16 @@ export function createDevMenu(root, ctx, { allowed }) {
       // the map new runs get (the setting of the same name, D116): off, the expedition map with the start camp (the default)
       const camp = h('div.toggle', { role: 'switch', 'aria-label': 'Classic map (old)', tabindex: '0', dataset: { dev: 'classic' } }, h('div.sw'), 'Classic map (old) for new runs');
       camp.addEventListener('click', () => ctx.settings.set('classicMap', !ctx.settings.get('classicMap')));
+      // the Lantern colour theme, a proposal for the owner (docs/art/proposal-1; D120, D121): data-theme on <html>, colours only
+      const theme = h('div.toggle', { role: 'switch', 'aria-label': 'Theme: Lantern (proposal)', tabindex: '0', dataset: { dev: 'theme' } }, h('div.sw'), 'Theme: Lantern (proposal)');
+      theme.addEventListener('click', () => ctx.settings.set('lanternTheme', ctx.settings.theme !== 'lantern'));
       return {
         el: h('div',
           h('div.dm-line', field(HEAT_WORDS.Units, time, null), set, now),
           h('div.dm-sub', `${HEAT_WORDS.Name} (the run's own clock)`), h('div.dm-acts', heat),
           h('div.dm-acts', reveal, god),
           h('div.dm-sub', 'Map'), h('div.seg.dm-seg', modes), h('div.dm-acts', camp),
+          h('div.dm-sub', 'Look'), h('div.dm-acts', theme),
           h('div.dm-note', 'God mode: you take no damage (a heavy blow counts as avoided). A run with it, or with any tool here, is a dev run: no Echoes. Map: the zone is drawn again in that mode, you at its hub. New runs start at the start camp on the expedition map; Classic map (old) starts them on the classic map instead, from class select (at once there) or the next run.')),
         refresh(vv) {
           const ok = inRun(vv);
@@ -213,6 +217,7 @@ export function createDevMenu(root, ctx, { allowed }) {
           god.classList.toggle('on', on); god.setAttribute('aria-checked', on ? 'true' : 'false'); god.classList.toggle('disabled', !ok);
           for (const b of modes) b.classList.toggle('on', (vv.mapMode || 'rows') === b.dataset.mode);
           const co = !!ctx.settings.get('classicMap'); camp.classList.toggle('on', co); camp.setAttribute('aria-checked', co ? 'true' : 'false');
+          const lo = ctx.settings.theme === 'lantern'; theme.classList.toggle('on', lo); theme.setAttribute('aria-checked', lo ? 'true' : 'false');
           time.placeholder = String(vv.time ?? 0);
           now.textContent = vv.heat ? `now ${tolls(vv.time)} · ${HEAT_LABEL[vv.heat.state] || vv.heat.state}` : '';
         },
@@ -278,7 +283,7 @@ export function createDevMenu(root, ctx, { allowed }) {
     if (!en && isOpen()) setOpen(false);
     if (isOpen()) refresh(v);
   }
-  ctx.settings.on('change', (k) => { if (k === 'devTools') update(ctx.bridge.view); if (k === 'classicMap' && isOpen()) refresh(ctx.bridge.view); });
+  ctx.settings.on('change', (k) => { if (k === 'devTools') update(ctx.bridge.view); if ((k === 'classicMap' || k === 'lanternTheme') && isOpen()) refresh(ctx.bridge.view); });
   update(ctx.bridge.view);
   return { el: panel, button, open: () => setOpen(true), close: () => setOpen(false), toggle: () => setOpen(!isOpen()), isOpen, enabled, update, tab: (id) => { if (builders[id]) { tab = id; if (isOpen()) build(); } } };
 }
