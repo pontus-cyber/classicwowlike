@@ -153,7 +153,7 @@ function audit(file) {
     out.literalsInTokenDefs = decls.filter((d) => d.prop.startsWith('--') && inRoot(d)).reduce((n, d) => n + [...d.value.matchAll(LITERAL)].length, 0);
     out.varUses = [...blankComments(text).matchAll(/var\(\s*--/g)].length;
   }
-  out._lits = lits;
+  out._lits = lits; out._path = file;
   return out;
 }
 
@@ -182,24 +182,33 @@ function expand(fileList) {
 }
 
 // ------------------------------------------------------------------ main
+let cssResults = [];
+// Output is written once; no process.exit() after it, so a pipe (diff <(...)) receives all of it.
+function main() {
 if (has('--expand')) {
   const list = argv.filter((a) => !a.startsWith('--'));
-  if (!list.length) { console.error('usage: node tools/css-audit.mjs --expand a.css [b.css ...]'); process.exit(2); }
+  if (!list.length) { console.error('usage: node tools/css-audit.mjs --expand a.css [b.css ...]'); process.exitCode = 2; return; }
   process.stdout.write(expand(list.map((f) => path.resolve(f))));
-  process.exit(0);
+  return;
 }
 
 const results = files.map(audit);
-const cssResults = results.filter((r) => r.file.endsWith('.css'));
+cssResults = results.filter((r) => r.file.endsWith('.css'));
 
 function palette() {
   const map = new Map();
-  for (const r of cssResults) {
+  // uses through a root token count for the token's colour, written "var(--name)"
+  const decls = cssResults.flatMap((r) => declarations(fs.readFileSync(r._path, 'utf8')).map((d) => ({ ...d, file: r.file })));
+  const tok = new Map(decls.filter((d) => d.prop.startsWith('--') && isRootCtx(d.ctx) && new RegExp(`^(?:${LITERAL.source})$`).test(d.value)).map((d) => [d.prop, d.value]));
+  const viaTokens = decls.filter((d) => !(d.prop.startsWith('--') && (isRootCtx(d.ctx) || isOtherThemeCtx(d.ctx))))
+    .flatMap((d) => [...d.value.matchAll(/var\(\s*(--[\w-]+)\s*\)/g)].filter((m) => tok.has(m[1])).map((m) => ({ text: tok.get(m[1]), form: `var(${m[1]})`, prop: d.prop, file: d.file })));
+  for (const r of [...cssResults, { file: null, _lits: viaTokens }]) {
     for (const l of r._lits) {
       const c = rgba(l.text); const key = c ? canon(c) : l.text;
       const e = map.get(key) || { colour: key, rgba: c, uses: 0, forms: new Map(), props: new Map(), files: new Set() };
-      e.uses++; e.files.add(r.file);
-      e.forms.set(normText(l.text), (e.forms.get(normText(l.text)) || 0) + 1);
+      e.uses++; e.files.add(r.file || l.file);
+      const form = l.form || normText(l.text);
+      e.forms.set(form, (e.forms.get(form) || 0) + 1);
       const p = l.prop.startsWith('--') ? `${l.prop} (definition)` : l.prop;
       e.props.set(p, (e.props.get(p) || 0) + 1);
       map.set(key, e);
@@ -226,23 +235,23 @@ function near(pal, d) {
 if (has('--json')) {
   const pal = palette();
   console.log(JSON.stringify({
-    files: results.map(({ _lits, ...r }) => r),
+    files: results.map(({ _lits, _path, ...r }) => r),
     palette: pal.map((e) => ({ colour: e.colour, uses: e.uses, forms: Object.fromEntries(e.forms), props: Object.fromEntries(e.props), files: [...e.files] })),
   }, null, 1));
-  process.exit(0);
+  return;
 }
 
 if (has('--palette')) {
   const pal = palette(); const top = Number(val('--top', pal.length));
   const total = pal.reduce((n, e) => n + e.uses, 0);
-  console.log(`Palette of ${cssResults.map((r) => r.file).join(', ')}: ${pal.length} distinct colours, ${total} literals (definitions of tokens included)`);
+  console.log(`Palette of ${cssResults.map((r) => r.file).join(', ')}: ${pal.length} distinct colours, ${total} uses (literals, token definitions, and var() uses of a root token)`);
   console.log('uses  colour                       forms                              properties');
   for (const e of pal.slice(0, top)) {
     const forms = [...e.forms].map(([f, n]) => (e.forms.size > 1 ? `${f} ×${n}` : f)).join(', ');
     const props = [...e.props].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([p, n]) => `${p} ${n}`).join(', ');
     console.log(`${String(e.uses).padStart(4)}  ${e.colour.padEnd(28)} ${forms.padEnd(34)} ${props}`);
   }
-  process.exit(0);
+  return;
 }
 
 if (has('--near')) {
@@ -250,7 +259,7 @@ if (has('--near')) {
   const groups = near(pal, d);
   console.log(`Near-duplicate groups in the CSS (every channel within ${d} of a neighbour, alpha within .05): ${groups.length} groups, ${groups.reduce((n, g) => n + g.length, 0)} colours`);
   for (const g of groups) console.log(`  ${g.map((e) => `${e.colour} ×${e.uses}`).join('  ')}`);
-  process.exit(0);
+  return;
 }
 
 const pad = (s, n) => String(s).padStart(n);
@@ -263,3 +272,5 @@ const sum = (rs, k) => rs.reduce((n, r) => n + (r[k] || 0), 0);
 const jsResults = results.filter((r) => !r.file.endsWith('.css'));
 console.log(`CSS total: ${sum(cssResults, 'literals')} literals (${sum(cssResults, 'hex')} hex, ${sum(cssResults, 'rgb')} rgb/hsl), of which ${sum(cssResults, 'literalsInTokenDefs')} in root token definitions; ${sum(cssResults, 'varUses')} var() uses`);
 console.log(`JS total: ${sum(jsResults, 'literals')} literals (${sum(jsResults, 'hex')} hex, ${sum(jsResults, 'rgb')} rgb/hsl)`);
+}
+main();

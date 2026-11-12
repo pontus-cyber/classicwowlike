@@ -83,9 +83,8 @@ if (args.includes('--compare')) {
   }
   if (out.length) console.log(out.join('\n'));
   console.error(`style-snapshot compare: ${names.length} states, ${elements} elements, ${values} values compared, ${skipped} unstable values skipped: ${out.length ? `${out.length} differences` : 'identical'}`);
-  process.exit(out.length ? 1 : 0);
-}
-
+  process.exitCode = out.length ? 1 : 0; // no process.exit(): a long diff into a pipe is written whole
+} else {
 // ------------------------------------------------------------------ snapshot
 const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
 const OUT = path.resolve(arg('--out', '/tmp/style-snapshot.json'));
@@ -260,3 +259,4 @@ await browser.close();
 fs.writeFileSync(OUT, JSON.stringify(result));
 console.log(`wrote ${OUT} (${(fs.statSync(OUT).size / 1e6).toFixed(1)} MB)${bad ? `; ${bad} states with errors` : ''}`);
 process.exit(bad ? 1 : 0);
+}
