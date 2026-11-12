@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="988e370 2026-11-12T05:31:01Z">
+<meta name="build" content="b1a399f 2026-11-12T07:29:38Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -1527,8 +1527,8 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (988e370 2026-11-12T05:31:01Z) from 60 modules.
-const __BUILD__ = "988e370 2026-11-12T05:31:01Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (b1a399f 2026-11-12T07:29:38Z) from 60 modules.
+const __BUILD__ = "b1a399f 2026-11-12T07:29:38Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -11120,7 +11120,8 @@ function createDebug(api) {
   /**
    * A run at a zone and level (phase ZONE_HUB of zone `zone`, or CAMP for zone ZONE_COUNT + 1). opts: content (required),
    * classId ('rogue'), petId (Hunter: the first pet the profile has), name, seed (0), profile, oaths ([]: Oaths sworn in
-   * CREATE, the profile must own them), mapMode ('rows'), vision, dimming (newRun options), zone (1), level (the zone's
+   * CREATE, the profile must own them), mapMode ('expedition'; 'rows' the classic map), vision, dimming, prep (newRun
+   * options and defaults: the start camp on the expedition map, left with nothing bought), zone (1), level (the zone's
    * first level; the Camp MAX_LEVEL), rarity (DEV.RARITY) and ilvl (level + the rarity's ilvlBonus, at most ILVL_MAX) of
    * the gear in every slot (fixed stats as starting gear: the class's primary, STA, the power affix), talents ('auto':
    * the default build of autoplay; 'unspent'), gold (DEV.GOLD_V × V(level) copper), potions (DEV.POTIONS Healing
@@ -11149,7 +11150,7 @@ function createDebug(api) {
     const petId = classId === 'hunter' ? o.petId || availablePets(profile || newProfile())[0] : null;
     if (petId && !availablePets(profile || newProfile()).includes(petId)) fail(`debug.build: the pet ${petId} is not unlocked in the profile`);
     if (o.mapMode && !MAP_MODES.includes(o.mapMode)) fail(`debug.build: mapMode must be one of ${MAP_MODES.join(', ')}`);
-    let s = newRun({ classId, petId, name: o.name || '', seed: o.seed ?? 0, profile, content: o.content, mapMode: o.mapMode || 'rows', vision: o.vision ?? null, dimming: o.dimming ?? true, prep: o.prep ?? false });
+    let s = newRun({ classId, petId, name: o.name || '', seed: o.seed ?? 0, profile, content: o.content, mapMode: o.mapMode || 'expedition', vision: o.vision ?? null, dimming: o.dimming ?? true, prep: o.prep ?? null });
     const ev = [];
     for (const oath of o.oaths || []) { const r = step(s, { type: 'SET_OATH', oath, on: true }); s = r.state; ev.push(...r.events); }
     const r0 = step(s, { type: 'START_RUN' });
@@ -11831,7 +11832,8 @@ yield;
 // and serialize() leaves out. ES modules; runs in Node and in the browser (D13).
 //
 // Expedition map (rules 1.9): newRun({ mapMode: 'expedition' }) plays the roamable zone graph with vision, the Dimming,
-// Roads and the Homeward Bell; mapView then returns the player-visible zone graph (engine-api.md 10).
+// Roads and the Homeward Bell; mapView then returns the player-visible zone graph (engine-api.md 10). D116 (the flip): it is
+// newRun's default, with the start camp (prep); mapMode 'rows' plays the classic map (rules 1.4), an option.
 //
 // Also exported: validateContent, newProfile, metaOffers, buyMeta, mapView, isLegal, whyIllegal, stepInPlace,
 // IllegalActionError, display helpers (xpToNext, talentPointsFree, itemScore, spellCost, spellCooldown,
@@ -12169,22 +12171,24 @@ function talentInfo(state, talentId) {
  * Create a run in phase CREATE. Any of classId, petId, name and seed may be preset; the player confirms with
  * START_RUN. seed: integer (the front end draws a random one; the engine never does). profile: meta profile
  * (newProfile() when omitted). content: the CONTENT object (src/content/index.js); it is validated
- * (structural check) and frozen. mapMode: 'rows' (today's map, rules 1.4; the default) or 'expedition' (rules 1.9).
- * vision (expedition only, until the start camp and meta buy it, task 2b.5): { guide, charts, pathfinder } booleans
- * for Local Guide, Region Charts and Pathfinder (rules 1.9.5). dimming (expedition only, D50): false plays the run without
- * the Dimming (no front, no Dimmed nodes or encounters), a measurement option for the simulator (balance.md B44). prep
- * (expedition only; prep, expedition.md 2-3): true starts the run at the start camp (phase PREP) and plays contracts, the
- * hub contract and the Spyglass, with the story chain retired; false (the default until the simulator's bots and the UI
- * handle PREP) plays the expedition map as before task 2b.5.
+ * (structural check) and frozen. mapMode: 'expedition' (rules 1.9; the default since D116) or 'rows' (the classic
+ * map, rules 1.4; an option for the simulator and the Dev menu).
+ * vision (expedition only): { guide, charts, pathfinder } booleans for Local Guide, Region Charts and Pathfinder
+ * (rules 1.9.5), owned from the start. dimming (expedition only, D50): false plays the run without the Dimming (no front,
+ * no Dimmed nodes or encounters), a measurement option for the simulator (balance.md B44). prep (expedition only; prep,
+ * expedition.md 2-3): true (the default on the expedition map since D116) starts the run at the start camp (phase PREP)
+ * and plays contracts, the hub contract and the Spyglass, with the story chain retired; false plays the expedition map
+ * without the start camp, as before task 2b.5. Left out (null), prep is true on the expedition map and false on the rows map.
  */
-function newRun({ classId = null, petId = null, name = '', seed = 0, profile = null, content, validate = true, mapMode = 'rows', vision = null, dimming = true, prep = false } = {}) {
+function newRun({ classId = null, petId = null, name = '', seed = 0, profile = null, content, validate = true, mapMode = 'expedition', vision = null, dimming = true, prep = null } = {}) {
   if (!content) throw new Error('newRun: content is required (import { CONTENT } from src/content/index.js)');
   if (!MAP_MODES.includes(mapMode)) throw new Error(`newRun: mapMode must be one of ${MAP_MODES.join(', ')}`);
   if (vision !== null && (mapMode !== 'expedition' || typeof vision !== 'object' || Object.keys(vision).some((k) => !['guide', 'charts', 'pathfinder'].includes(k)))) {
     throw new Error('newRun: vision is an expedition option: { guide, charts, pathfinder }');
   }
   if (typeof dimming !== 'boolean' || (!dimming && mapMode !== 'expedition')) throw new Error('newRun: dimming is an expedition option: true (default) or false');
-  if (typeof prep !== 'boolean' || (prep && mapMode !== 'expedition')) throw new Error('newRun: prep is an expedition option: true or false (default)');
+  if (prep !== null && (typeof prep !== 'boolean' || (prep && mapMode !== 'expedition'))) throw new Error('newRun: prep is an expedition option: true (default) or false');
+  if (prep === null) prep = mapMode === 'expedition'; // D116: the start camp comes with the expedition map unless turned off
   if (validate) {
     const errors = validateContent(content);
     if (errors.length) throw new Error(`newRun: content is invalid:\n  ${errors.slice(0, 20).join('\n  ')}`);
@@ -18640,7 +18644,7 @@ function metaEffect(m, D, d, mode = 'rows') {
   const N = D.num; const NM = D.names;
   const sp = m.spell && d.spells[m.spell];
   const exp = mode === 'expedition';
-  const onlyExp = 'No effect on the classic map.';
+  const onlyExp = exp ? '' : ' No effect on the classic map.'; // D116: said only while new runs are classic (Dev menu)
   switch (m.id) {
     case 'vigor': return { short: `+${pct1(m.hpPct)} max health per rank`, long: `Every hero starts with ${pct1(m.hpPct)} more maximum health for each rank.` };
     case 'edge': return { short: `+${pct1(m.powerPct)} Power per rank`, long: `Every hero has ${pct1(m.powerPct)} more Power for each rank: more damage from every attack and spell.` };
@@ -18670,10 +18674,10 @@ function metaEffect(m, D, d, mode = 'rows') {
       if (exp && x) return { short: `+${x.bell} Homeward Bell ${plural(x.bell, 'charge')} each run`, long: `On the expedition map you set out with ${bell}.`, more: [`Classic map: ${rows}`] };
       return { short: `Travel on opens ${numWord(m.levels)} ${plural(m.levels, 'level')} earlier`, long: rows, more: bell ? [`Expedition map: ${bell}.`] : undefined };
     }
-    // expedition.md 8.2 (M2b v11): entries of the expedition map only (m.mapMode 'expedition'; the card shows a tag)
-    case 'cartographer': return { short: `${NM.charts} every run, free`, long: `On the expedition map the start camp's ${NM.charts} are yours every run, free: every node's region and the dungeon's place show on the map. ${onlyExp}` };
-    case 'old_hand': return { short: `${NM.tracker} every run, free`, long: `On the expedition map the start camp's ${NM.tracker} are yours every run, free: contract sites show within ${numWord(N.trackerRadius)} hops, hidden nodes too. ${onlyExp}` };
-    case 'quartermaster': return { short: `+${m.points} preparation points per rank`, long: `On the expedition map you have ${numWord(m.points)} more preparation points to spend at the start camp for each rank. ${onlyExp}` };
+    // expedition.md 8.2 (M2b v11): entries of the expedition map only (m.mapMode 'expedition'; a tag on classic runs, D116)
+    case 'cartographer': return { short: `${NM.charts} every run, free`, long: `On the expedition map the start camp's ${NM.charts} are yours every run, free: every node's region and the dungeon's place show on the map.${onlyExp}` };
+    case 'old_hand': return { short: `${NM.tracker} every run, free`, long: `On the expedition map the start camp's ${NM.tracker} are yours every run, free: contract sites show within ${numWord(N.trackerRadius)} hops, hidden nodes too.${onlyExp}` };
+    case 'quartermaster': return { short: `+${m.points} preparation points per rank`, long: `On the expedition map you have ${numWord(m.points)} more preparation points to spend at the start camp for each rank.${onlyExp}` };
     case 'alchemist': return { short: `Vendors sell ${plurName(2, NM.greater)}`, long: `Every vendor also sells ${plurName(2, NM.greater)}: each restores ${pct1(D.greaterHeal)} of your maximum health.` };
     case 'cache': {
       const u = D.uniques.rare;
@@ -19841,11 +19845,12 @@ yield;
 //            constants the texts name. summary.heat: the summary's heat block (engine-api.md 11.3).
 //   Items carry heatUp ('hot' | 'scorched') when heat raised them one rarity (heatSteps below); map nodes carry heat
 //   (the state a visited node was entered in, from the `node` event); node.heat: the entry state of the node shown.
-//   mapMode: 'rows' or 'expedition'. ?expedition=1 starts expedition runs (rules 1.9; off by default): zone.exp is then
-//   R.mapView (engine-api.md 10.3) and zone.rows is empty.
-//   Start camp and contracts (docs/specs/expedition.md 2, 3, 9.1, 9.3; engine-api.md 13): ?prep=1, or the setting
-//   "Expedition map with start camp" (App: createBridge({ prep }), setRunMode), starts runs with newRun({ mapMode:
-//   'expedition', prep: true }). phase 'PREP' (after START_RUN, no zone): prep = R.prepView; zone, node, combat and heat
+//   mapMode: 'rows' or 'expedition'. Since D116 new runs are expedition runs with the start camp (rules 1.9): zone.exp is
+//   then R.mapView (engine-api.md 10.3) and zone.rows is empty. ?classic=1 or the Dev menu's "Classic map (old)" (App:
+//   createBridge({ classic }), setRunMode) starts classic runs (mapMode 'rows'); ?expedition=1 expedition runs without the
+//   start camp (a test switch; ?prep=1 keeps the camp).
+//   Start camp and contracts (docs/specs/expedition.md 2, 3, 9.1, 9.3; engine-api.md 13): runs start with newRun({ mapMode:
+//   'expedition', prep: true }), the default. phase 'PREP' (after START_RUN, no zone): prep = R.prepView; zone, node, combat and heat
 //   are null. contracts: R.contractView in every phase of such a run (null otherwise): the tracker and the hub offer. The
 //   reward window of a completed contract is loot.kind 'contract' (its contract, XP and gold). Contract, prep and Spyglass
 //   events become log lines and toasts (msg).
@@ -20093,7 +20098,8 @@ const SRC_OTHER = { unique_proc: 'Unique item', unique: 'Unique item', dev_kill:
 function engineBackend(seedOpt, runOpts = {}) {
   const C = R.C;
   let profile = loadProfile();
-  // newRun's map options for this session (?expedition=1, ?dimming=0); the Dev menu can switch the map mode
+  // newRun's map options for this session, always explicit ({ mapMode: 'rows' } or { mapMode: 'expedition', prep, dimming? };
+  // D116: the expedition with the start camp unless ?classic=1, ?expedition=1, the setting); the Dev menu can switch it
   let runMode = { ...runOpts };
   let history = loadHistory();
   /** A run in CREATE. keep: { classId, petId } of the run before (the next run starts on the same class). runOpts: mapMode. */
@@ -20311,7 +20317,7 @@ function engineBackend(seedOpt, runOpts = {}) {
       travelTime: travelTime(s), danger: dangerOf(exitLevel, 'normal') };
   }
   /**
-   * An expedition zone (rules 1.9; ?expedition=1 only until the fog map, M2b 2b.6): the rows view is empty and `exp` is the
+   * An expedition zone (rules 1.9; the default map since D116): the rows view is empty and `exp` is the
    * engine's mapView (engine-api.md 10.3) with each node's entry heat state when it was visited (`node` event).
    */
   function convExpZone(s, z, zc, mv) {
@@ -21227,11 +21233,14 @@ function engineBackend(seedOpt, runOpts = {}) {
     let note = null; let fresh = false;
     const copy = (x) => JSON.parse(JSON.stringify(x));
     const run = (fn, ...a) => { const r = D[fn](st, ...a); st = r.state; events.push(...r.events); local.engineLog.push({ type: 'DEV', fn, args: copy(a) }); return r; };
-    const modeOf = (mode, prep = false) => (mode === 'expedition' ? { mapMode: 'expedition', ...(prep ? { prep: true } : {}) } : {});
+    // the map new runs get, explicit (D116: newRun's default is the expedition with the start camp)
+    const modeOf = (mode, prep = true) => (mode === 'expedition' ? { mapMode: 'expedition', prep: !!prep } : { mapMode: 'rows' });
     try {
       switch (op) {
         case 'build': {
-          const o = { ...args, seed: args.seed ?? (st.create ? st.create.seed : st.seed), profile: profile || null };
+          // a build that names no map gets the map new runs get (D116: the expedition with the start camp; the setting)
+          const map = args.mapMode ? {} : { mapMode: runMode.mapMode || 'expedition', ...(runMode.mapMode === 'rows' ? {} : { prep: runMode.prep !== false, ...(runMode.dimming === false ? { dimming: false } : {}) }) };
+          const o = { ...map, ...args, seed: args.seed ?? (st.create ? st.create.seed : st.seed), profile: profile || null };
           const r = D.build({ ...o, content: CONTENT });
           st = r.state; resetLocal(); fresh = true;
           local.engineLog = [{ type: 'DEV', fn: 'build', args: [copy(o)] }];
@@ -21250,7 +21259,7 @@ function engineBackend(seedOpt, runOpts = {}) {
         case 'heat': run('setHeat', args.state); break;
         case 'reveal': run('revealMap'); break;
         case 'mapMode':
-          runMode = modeOf(args.mode);
+          runMode = modeOf(args.mode); // the next runs: that map (the expedition with its start camp)
           if (st.phase === 'CREATE') { rebuildCreate(); local.engineLog = []; } else { run('setMapMode', args.mode); fresh = true; }
           break;
         case 'echoes': case 'catalogue':
@@ -21329,12 +21338,13 @@ function engineBackend(seedOpt, runOpts = {}) {
     serialized() { return R.serialize(st); },
     dev,
     /**
-     * The map mode of new runs (the setting "Expedition map with start camp"; ?expedition=1, ?prep=1): { mapMode, prep }.
-     * At class select the run being created takes it at once (class, pet, name, seed and Oaths kept); in a run it applies
-     * from the next one. Returns { ok, now } (now: the run on screen changed).
+     * The map mode of new runs (the Dev menu's "Classic map (old)"; ?classic=1, ?expedition=1): { mapMode: 'rows' } or
+     * { mapMode: 'expedition', prep } (prep: the start camp, on unless false; D116). At class select the run being created
+     * takes it at once (class, pet, name, seed and Oaths kept); in a run it applies from the next one. Returns { ok, now }
+     * (now: the run on screen changed).
      */
     setRunMode(m = {}) {
-      const next = m.mapMode === 'expedition' ? { mapMode: 'expedition', ...(m.prep ? { prep: true } : {}), ...(runMode.dimming === false ? { dimming: false } : {}) } : {};
+      const next = m.mapMode === 'rows' ? { mapMode: 'rows' } : { mapMode: 'expedition', prep: m.prep !== false, ...(runMode.dimming === false ? { dimming: false } : {}) };
       if (JSON.stringify(next) === JSON.stringify(runMode)) return { ok: true, now: false };
       runMode = next;
       if (st.phase === 'CREATE') { rebuildCreate(); local.engineLog = []; return { ok: true, now: true }; }
@@ -21431,7 +21441,7 @@ class Bridge {
     if (r.now) { this._view = this.backend.view(); for (const fn of this.listeners) fn(this._view, [], { type: 'RUN_MODE' }); }
     return { ...r, view: this._view };
   }
-  /** The map mode new runs get ({ mapMode, prep }), {} for the classic map or the mock. */
+  /** The map mode new runs get ({ mapMode: 'rows' } or { mapMode: 'expedition', prep }), {} for the mock. */
   runMode() { return this.backend.runMode ? this.backend.runMode() : {}; }
   /** Why an engine action is not legal now (the engine's reason), or null; null in mock mode. */
   why(a) { return this.backend.why ? this.backend.why(a) : null; }
@@ -21448,18 +21458,18 @@ class Bridge {
 }
 
 /**
- * Create the bridge. Flags: ?mock=1 uses the mock engine, ?seed=N fixes the run seed, ?expedition=1 starts expedition runs
- * (newRun mapMode 'expedition', rules 1.9; a test and preview switch until expedition runs are chosen on class select,
- * off by default), with ?dimming=0 a run without the Dimming (D50).
+ * Create the bridge. Flags: ?mock=1 uses the mock engine, ?seed=N fixes the run seed. New runs (D116): the expedition map
+ * with the start camp (newRun mapMode 'expedition', prep; rules 1.9, expedition.md 2); ?classic=1 (or opts.classic: the Dev
+ * menu's "Classic map (old)") the classic map (mapMode 'rows'); ?expedition=1 (opts.expedition) the expedition without the
+ * start camp (a test switch; ?prep=1 or opts.prep keeps it); with ?dimming=0 an expedition run without the Dimming (D50).
  */
 function createBridge(opts = {}) {
   const seedParam = params.get('seed');
   const seed = opts.seed ?? (seedParam !== null && seedParam !== '' ? Number(seedParam) >>> 0 : undefined);
   const useMock = opts.mock ?? params.get('mock') === '1';
-  // ?prep=1 (or opts.prep: the setting "Expedition map with start camp") starts expedition runs at the start camp
-  const prep = !!(opts.prep ?? params.get('prep') === '1');
-  const exp = prep || (opts.expedition ?? params.get('expedition') === '1');
-  const runOpts = exp ? { mapMode: 'expedition', ...(prep ? { prep: true } : {}), ...(params.get('dimming') === '0' ? { dimming: false } : {}) } : {};
+  const classic = !!(opts.classic ?? params.get('classic') === '1');
+  const prep = !!(opts.prep ?? params.get('prep') === '1') || !(opts.expedition ?? params.get('expedition') === '1');
+  const runOpts = classic ? { mapMode: 'rows' } : { mapMode: 'expedition', prep, ...(params.get('dimming') === '0' ? { dimming: false } : {}) };
   return new Bridge(useMock ? mockBackend(seed) : engineBackend(seed, runOpts));
 }
 
@@ -21470,8 +21480,10 @@ const flags = {
   debug: params.get('debug') === '1',
   speed: params.get('speed'),
   expedition: params.get('expedition') === '1',
-  // the start camp on the expedition map (prep): ?prep=1 for this page; the setting keeps it between visits
+  // the start camp on the expedition map (prep): the default since D116; ?prep=1 keeps it with ?expedition=1
   prep: params.get('prep') === '1',
+  // the classic map (old) for this page: ?classic=1; the Dev menu's setting keeps it between visits
+  classic: params.get('classic') === '1',
 };
 
 });
@@ -22731,8 +22743,9 @@ function drawPortrait(ctx, size, look, kind = 'humanoid', extra = {}) {
 __bundle.def("src/ui/settings.js", function* (__ns, __link) {
 let emitter; __link.imp("src/ui/util.js", [["emitter", (v) => { emitter = v; }]]); __link.exp({ "settings": () => settings });
 yield;
-// Player-facing presentation settings (animation speed, fast mode, screen shake, reduce motion, the Dev menu, the map new
-// runs get: "Expedition map with start camp", a preview of expedition.md 2 and 9.1). Persisted in localStorage when
+// Player-facing presentation settings (animation speed, fast mode, screen shake, reduce motion, the Dev menu) and the Dev
+// menu's "Classic map (old)": the map new runs get. Since D116 new runs start on the expedition map with the start camp
+// (expedition.md 2, 9.1); the classic map is kept for testing, in the Dev menu only. Persisted in localStorage when
 // available. Nothing here changes game rules: the map mode is a newRun option the engine already has.
 
 
@@ -22746,13 +22759,13 @@ const DEFAULTS = {
   speedrun: false,     // preset: instant animations, no travel, short autoplay delay
   reduceMotion: null,  // no screen shake, small recoil, no number slam; null follows the system's reduced-motion setting
   devTools: true,      // the Dev menu (dev-menu.js, engine-api.md 12): its corner button and the backquote key
-  expeditionCamp: false, // new runs on the expedition map with the start camp (expedition.md 2, 9.1; a preview, off: classic map)
+  classicMap: false,   // Dev menu: new runs on the classic map (old, rules 1.4); off: the expedition map with the start camp (D116)
 };
 
 function load() {
   try {
     const raw = globalThis.localStorage && localStorage.getItem(KEY);
-    if (raw) return { ...DEFAULTS, ...JSON.parse(raw) };
+    if (raw) { const s = { ...DEFAULTS, ...JSON.parse(raw) }; delete s.expeditionCamp; return s; } // the preview setting before D116
   } catch { /* storage blocked (sandbox / file://): use defaults */ }
   return { ...DEFAULTS };
 }
@@ -25799,7 +25812,9 @@ yield;
 // Hall of Echoes: the meta progression screen between runs (rules 11). Shown over class select, opened from class
 // select or from the run summary ("Spend Echoes"). It reads the profile view of the bridge (view.meta: balance, the
 // engine's offers from R.metaOffers, the run log, the next run from a dry START_RUN) and sends META_BUY. Costs, ranks,
-// states and effects come from the engine; this file only lays them out and animates the changes.
+// states and effects come from the engine; this file only lays them out and animates the changes. D116: new runs start on
+// the expedition map, so its entries (expedition.md 8.2) read as any other; only with the Dev menu's "Classic map (old)"
+// do they carry the "Expedition" tag and "expedition map only".
 
 
 
@@ -25910,8 +25925,10 @@ function createMeta(ctx) {
     idleTicker(m);
   }
 
-  /** The map new runs start on: 'expedition' with the start camp (expedition.md 8.2, M2b v11), else 'rows'. */
+  /** The map new runs start on: 'expedition' with the start camp (expedition.md 8.2, M2b v11; the default since D116), else 'rows'. */
   const runMap = () => { const rm = ctx.bridge && ctx.bridge.runMode ? ctx.bridge.runMode() : {}; return rm.mapMode === 'expedition' && rm.prep ? 'expedition' : 'rows'; };
+  /** An expedition entry is marked only when new runs do not get it (the classic map, or the expedition without its camp). */
+  const marked = (e) => e.mapMode === 'expedition' && runMap() !== 'expedition';
 
   /** One unlock: icon, name, rank, effect, requirement, and the Buy button with its cost (or Owned / Locked). */
   function card(o, m, nowOf) {
@@ -25930,7 +25947,7 @@ function createMeta(ctx) {
     const req = state === 'locked' ? h('div.mc-req', `Needs ${o.req.map((r) => metaReqText(r, D, true)).join(' and ')}`) : null;
     const el2 = h('div.mcard', { dataset: { id: o.id, state } }, h('img.ic', { src: metaIcon(e), alt: '' }),
       h('div.mc-t', h('span.nm', o.name), h('span.rk', `${o.rank}/${o.ranks}`), pips), right,
-      h('div.mc-fx', e.mapMode === 'expedition' ? h('span.mexp', 'Expedition') : null, fx.short), req);
+      h('div.mc-fx', marked(e) ? h('span.mexp', 'Expedition') : null, fx.short), req);
     el2.classList.add(state);
     if (o.rank > 0 && state !== 'owned') el2.classList.add('some');
     tip(el2, () => cardTip(o, e, fx, state, m, nowOf));
@@ -25942,8 +25959,8 @@ function createMeta(ctx) {
     const [kindName] = META_KIND[o.kind] || [o.kind];
     const box = h('div.tt-spell.tt-meta');
     box.appendChild(h('div.tt-row', h('div.tt-name', o.name), h('div.tt-rank', `Rank ${o.rank}/${o.ranks}`)));
-    // expedition.md 8.2 (M2b v11): an entry of the expedition map only says so under its kind
-    const only = e.mapMode === 'expedition' ? ' · expedition map only' : '';
+    // expedition.md 8.2 (M2b v11): an entry of the expedition map only says so under its kind while new runs are classic (D116)
+    const only = marked(e) ? ' · expedition map only' : '';
     box.appendChild(h('div.tt-sub', `${o.ranks > 1 ? `${kindName} · ${o.ranks} ranks` : kindName}${only}`));
     box.appendChild(h('div.tt-line.desc', fx.long || fx.short));
     for (const line of fx.more || []) box.appendChild(h('div.tt-line.stat', line));
@@ -25967,7 +25984,7 @@ function createMeta(ctx) {
     if (o.id === 'oaths') return 'Owned. Swear them on class select, under the class cards.';
     if (e.spell && d.spells[e.spell]) return `Owned. It works on ${cls(d.spells[e.spell].cls)} runs.`;
     if (e.pet) return `Owned. It works on ${cls('hunter')} runs.`;
-    if (e.mapMode === 'expedition') return `Owned${o.ranks > 1 ? `: rank ${o.rank}` : ''}. It works on expedition runs with the start camp.`; // expedition.md 8.2 (M2b v11)
+    if (marked(e)) return `Owned${o.ranks > 1 ? `: rank ${o.rank}` : ''}. It works on expedition runs with the start camp.`; // expedition.md 8.2 (M2b v11)
     return `Owned${o.ranks > 1 ? `: rank ${o.rank}` : ''}.`;
   }
 
@@ -26291,9 +26308,10 @@ function buildCreate(ctx) {
         h('div.tt-line.num', `${fmtNum(m.echoes)} Echoes · ${numWord(reach)} ${plural(reach, 'unlock')} within reach`), h('div.tt-hint', 'Click to open'));
     });
   }
-  // the map new runs get (the setting "Expedition map with start camp", ?expedition=1, ?prep=1): said on class select
+  // the map new runs get, said on class select only when it is not the default (D116: the expedition map with the start
+  // camp): the Dev menu's "Classic map (old)" or ?classic=1, the expedition without the start camp (?expedition=1)
   const mode = h('div.modechip.hidden');
-  tip(mode, () => h('div', h('div.tt-name', mode.textContent), h('div.tt-line', 'A preview of the coming expedition map. Switch it in the settings (Esc) or the Dev menu.')));
+  tip(mode, () => h('div', h('div.tt-name', mode.textContent), h('div.tt-line', 'Kept for testing; new runs normally start at the start camp on the expedition map. Switch it in the Dev menu (World).')));
   root.append(classes, details, h('div.bottom.panel', h('div.field', h('label', 'Name'), name), h('div.field', h('label', 'Seed'), seed), mode, echoes, go));
   return root;
 }
@@ -26301,7 +26319,8 @@ function buildCreate(ctx) {
 function updateCreate(root, v, ctx) {
   const d = ctx.data; const c = v.create; const cls = d.classes[c.classId];
   const mc = root.querySelector('.modechip'); const rm = ctx.bridge.runMode ? ctx.bridge.runMode() : {};
-  if (mc) { mc.textContent = rm.mapMode === 'expedition' ? (rm.prep ? 'Expedition map with start camp (preview)' : 'Expedition map (preview)') : ''; mc.classList.toggle('hidden', rm.mapMode !== 'expedition'); }
+  const odd = rm.mapMode === 'rows' ? 'Classic map (old)' : rm.mapMode === 'expedition' && rm.prep === false ? 'Expedition map without start camp' : '';
+  if (mc) { mc.textContent = odd; mc.classList.toggle('hidden', !odd); }
   root.querySelectorAll('.ccard').forEach((el) => el.classList.toggle('sel', el.dataset.cls === c.classId));
   const m = v.meta;
   // Echoes button: the balance and how many unlocks it can buy (the engine's offers)
@@ -27375,7 +27394,7 @@ function createWindows(root, ctx) {
       };
       // reduceMotion shows what is in force (the system's setting until the player chooses)
       const on = (key) => (key === 'reduceMotion' ? settings.reduceMotion : !!s[key]);
-      const LABEL = { speedrun: 'Speedrun mode', skipTravel: 'Skip travel scenes', shake: 'Screen shake', reduceMotion: 'Reduce motion', showLog: 'Combat log', devTools: 'Dev tools', expeditionCamp: 'Expedition map with start camp' };
+      const LABEL = { speedrun: 'Speedrun mode', skipTravel: 'Skip travel scenes', shake: 'Screen shake', reduceMotion: 'Reduce motion', showLog: 'Combat log', devTools: 'Dev tools' };
       const devRow = flags.dev && ctx.bridge.mode === 'engine';
       const tog = (key) => { const b = h('div.toggle' + (on(key) ? '.on' : ''), { role: 'switch', 'aria-checked': on(key) ? 'true' : 'false', 'aria-label': LABEL[key] || key }, h('div.sw')); b.addEventListener('click', () => { settings.set(key, !on(key)); refresh('settings'); }); return b; };
       const body = h('div.col', { style: { padding: '1rem 1.6rem 1.6rem', gap: 0 } },
@@ -27389,8 +27408,7 @@ function createWindows(root, ctx) {
         // the Dev menu (dev-menu.js): one line, so the window keeps clear of the Heat meter (#win-settings.dev); none with
         // ?dev=0 or the mock engine
         devRow ? h('div.setrow', h('div', 'Dev tools (the DEV tab and the ` key)'), tog('devTools')) : null,
-        // the coming expedition map with its start camp (expedition.md 2, 9.1), a preview until it is the default
-        ctx.bridge.mode === 'engine' ? h('div.setrow', h('div', h('div', 'Expedition map with start camp (preview)'), h('div.muted', 'New runs start at the start camp on the expedition map. Off: the classic map.')), tog('expeditionCamp')) : null,
+        // D116: new runs start at the start camp on the expedition map; the classic map (old) is in the Dev menu only (World)
         h('div', { style: { marginTop: '1.2rem' } }, h('div.title', { style: { fontSize: '1.5rem', marginBottom: '.6rem' } }, 'Keys'),
           h('div.keys', h('span.kbd', '1–7'), 'Spells', h('span.kbd', '8 9 0'), 'Items', h('span.kbd', 'A'), 'Basic attack', h('span.kbd', 'Tab'), 'Next target',
             h('span.kbd', 'Z'), 'Autoplay', h('span.kbd', 'F F'), 'Flee', h('span.kbd', 'X'), 'Pass', h('span.kbd', 'Space'), 'Skip a hit / take loot',
@@ -28207,7 +28225,8 @@ yield;
 // (class, pet, zone, level, item level, rarity, map mode, talents), Jump (the Camp, the end-boss fight in phase 1, 2 or 3,
 // the next zone), Fight (a searchable list of every enemy template by zone and type, the target killed, health and
 // resources refilled), Give (gold, potions, talent points, Echoes, the full catalogue), World (the run's tolls and heat, the map
-// revealed, god mode, the map mode, the start camp for new runs) and Seed (the seed, copy it, a new run on a seed). On by default; ?dev=0 or the
+// revealed, god mode, the map mode, "Classic map (old)" for new runs: D116 made the expedition map with the start camp the
+// default, the classic map stays for testing here only) and Seed (the seed, copy it, a new run on a seed). On by default; ?dev=0 or the
 // settings hide it. Presentation only: every button sends one dev op through the bridge (ctx.dev -> engine-bridge.js dev
 // -> R.debug); the numbers it shows (levels, limits, kinds) come from the bridge's data.dev.
 
@@ -28280,7 +28299,10 @@ function createDevMenu(root, ctx, { allowed }) {
       if (!form.classId) form.classId = cur.classId || 'rogue';
       if (!form.petId) form.petId = (v.player && v.player.petId) || (v.create && v.create.petId) || Object.keys(d.pets)[0];
       if (form.zone === null) form.zone = v.zone && !v.zone.camp ? v.zone.idx : v.zone && v.zone.camp ? D.zoneCount + 1 : 1;
-      if (!form.mapMode) form.mapMode = v.contracts ? 'expedition-camp' : v.mapMode || 'rows';
+      // the map of the run on screen; at class select the map new runs get (D116: the expedition with the start camp)
+      const rm = ctx.bridge.runMode ? ctx.bridge.runMode() : {};
+      const createKey = rm.mapMode === 'rows' ? 'rows' : rm.prep === false ? 'expedition' : 'expedition-camp';
+      if (!form.mapMode) form.mapMode = v.phase === 'CREATE' ? createKey : v.contracts ? 'expedition-camp' : v.mapMode || 'rows';
       const zones = Array.from({ length: D.zoneCount }, (_, i) => [i + 1, `${i + 1} · ${(d.zones[i] || {}).name || `Zone ${i + 1}`}`]);
       const lvl = number('level', { min: 1, max: D.maxLevel, placeholder: D.firstLevel[form.zone - 1] });
       const pet = select('petId', Object.values(d.pets).map((p) => [p.id, `${p.name}${p.locked ? ' (locked)' : ''}`]));
@@ -28292,16 +28314,17 @@ function createDevMenu(root, ctx, { allowed }) {
         const level = whole('level', 'Level', 1, D.maxLevel, true);
         const ilvl = whole('ilvl', 'Item level', 1, D.ilvlMax, true);
         if (level === null || ilvl === null) return null;
-        // "Expedition with start camp": newRun prep (engine-api.md 13), set out with nothing bought, every point Reserve
+        // "Expedition with start camp": newRun prep (engine-api.md 13), set out with nothing bought, every point Reserve;
+        // "Expedition without start camp": prep false (D116: debug.build's default is the camp)
         const camp = form.mapMode === 'expedition-camp';
-        return { classId: form.classId, petId: form.classId === 'hunter' ? form.petId : null, zone: Number(form.zone), level, ilvl, rarity: form.rarity, mapMode: camp ? 'expedition' : form.mapMode, ...(camp ? { prep: true } : {}), talents: form.talents };
+        return { classId: form.classId, petId: form.classId === 'hunter' ? form.petId : null, zone: Number(form.zone), level, ilvl, rarity: form.rarity, mapMode: camp ? 'expedition' : form.mapMode, ...(form.mapMode === 'rows' ? {} : { prep: camp }), talents: form.talents };
       }, '.primary');
       go.dataset.dev = 'start';
       const body = h('div.dm-grid',
         field('Class', cls), field('Pet', pet), field('Zone', zone), field('Level', lvl, 'blank: the zone\'s first'),
         field('Item level', number('ilvl', { min: 1, max: D.ilvlMax, placeholder: 'level' }), 'blank: the level'),
         field('Rarity', select('rarity', D.rarities.map((r) => [r, cap(r)]))),
-        field('Map', select('mapMode', [['rows', 'Rows'], ['expedition', 'Expedition'], ['expedition-camp', 'Expedition with start camp']])),
+        field('Map', select('mapMode', [['expedition-camp', 'Expedition with start camp'], ['expedition', 'Expedition without start camp'], ['rows', 'Classic map (old)']])),
         field('Talents', select('talents', [['auto', 'Spent (default build)'], ['unspent', 'Unspent']])));
       return { el: h('div', body, h('div.dm-acts', go), h('div.dm-note', 'A new run in the zone\'s hub (the Camp: at the Camp), gear in every slot, every spell trained, potions and gold. The seed is the Seed tab\'s.')), refresh() {} };
     },
@@ -28393,17 +28416,17 @@ function createDevMenu(root, ctx, { allowed }) {
       const reveal = opBtn('Reveal the map', 'reveal');
       const god = h('div.toggle', { role: 'switch', 'aria-label': 'God mode', tabindex: '0' }, h('div.sw'), 'God mode');
       god.addEventListener('click', () => ctx.dev('god', { on: !(ctx.bridge.view.dev && ctx.bridge.view.dev.god) }));
-      const modes = [['rows', 'Rows'], ['expedition', 'Expedition']].map(([m, label]) => { const b = h('button', { type: 'button' }, label); b.dataset.mode = m; b.addEventListener('click', () => { b.blur(); ctx.dev('mapMode', { mode: m }); }); return b; });
-      // the map new runs get (the setting of the same name): the expedition map with the start camp (expedition.md 2, 9.1)
-      const camp = h('div.toggle', { role: 'switch', 'aria-label': 'Expedition map with start camp', tabindex: '0', dataset: { dev: 'camp' } }, h('div.sw'), 'Expedition map with start camp (new runs)');
-      camp.addEventListener('click', () => ctx.settings.set('expeditionCamp', !ctx.settings.get('expeditionCamp')));
+      const modes = [['expedition', 'Expedition'], ['rows', 'Classic (old)']].map(([m, label]) => { const b = h('button', { type: 'button' }, label); b.dataset.mode = m; b.addEventListener('click', () => { b.blur(); ctx.dev('mapMode', { mode: m }); }); return b; });
+      // the map new runs get (the setting of the same name, D116): off, the expedition map with the start camp (the default)
+      const camp = h('div.toggle', { role: 'switch', 'aria-label': 'Classic map (old)', tabindex: '0', dataset: { dev: 'classic' } }, h('div.sw'), 'Classic map (old) for new runs');
+      camp.addEventListener('click', () => ctx.settings.set('classicMap', !ctx.settings.get('classicMap')));
       return {
         el: h('div',
           h('div.dm-line', field(HEAT_WORDS.Units, time, null), set, now),
           h('div.dm-sub', `${HEAT_WORDS.Name} (the run's own clock)`), h('div.dm-acts', heat),
           h('div.dm-acts', reveal, god),
           h('div.dm-sub', 'Map'), h('div.seg.dm-seg', modes), h('div.dm-acts', camp),
-          h('div.dm-note', 'God mode: you take no damage (a heavy blow counts as avoided). A run with it, or with any tool here, is a dev run: no Echoes. Map: the zone is drawn again in that mode, you at its hub. The start camp comes before zone 1, so it applies from class select (at once there) or the next run.')),
+          h('div.dm-note', 'God mode: you take no damage (a heavy blow counts as avoided). A run with it, or with any tool here, is a dev run: no Echoes. Map: the zone is drawn again in that mode, you at its hub. New runs start at the start camp on the expedition map; Classic map (old) starts them on the classic map instead, from class select (at once there) or the next run.')),
         refresh(vv) {
           const ok = inRun(vv);
           set.disabled = !ok; for (const b of heat) b.disabled = !ok;
@@ -28411,7 +28434,7 @@ function createDevMenu(root, ctx, { allowed }) {
           const on = !!(vv.dev && vv.dev.god);
           god.classList.toggle('on', on); god.setAttribute('aria-checked', on ? 'true' : 'false'); god.classList.toggle('disabled', !ok);
           for (const b of modes) b.classList.toggle('on', (vv.mapMode || 'rows') === b.dataset.mode);
-          const co = !!ctx.settings.get('expeditionCamp'); camp.classList.toggle('on', co); camp.setAttribute('aria-checked', co ? 'true' : 'false');
+          const co = !!ctx.settings.get('classicMap'); camp.classList.toggle('on', co); camp.setAttribute('aria-checked', co ? 'true' : 'false');
           time.placeholder = String(vv.time ?? 0);
           now.textContent = vv.heat ? `now ${tolls(vv.time)} · ${HEAT_LABEL[vv.heat.state] || vv.heat.state}` : '';
         },
@@ -28477,7 +28500,7 @@ function createDevMenu(root, ctx, { allowed }) {
     if (!en && isOpen()) setOpen(false);
     if (isOpen()) refresh(v);
   }
-  ctx.settings.on('change', (k) => { if (k === 'devTools') update(ctx.bridge.view); if (k === 'expeditionCamp' && isOpen()) refresh(ctx.bridge.view); });
+  ctx.settings.on('change', (k) => { if (k === 'devTools') update(ctx.bridge.view); if (k === 'classicMap' && isOpen()) refresh(ctx.bridge.view); });
   update(ctx.bridge.view);
   return { el: panel, button, open: () => setOpen(true), close: () => setOpen(false), toggle: () => setOpen(!isOpen()), isOpen, enabled, update, tab: (id) => { if (builders[id]) { tab = id; if (isOpen()) build(); } } };
 }
@@ -28500,8 +28523,9 @@ yield;
 // corner button; each of its ops runs through devAct (the bridge's dev, R.debug) and the result is shown at once, as a
 // loaded state (no animation). ?dev=0 or the settings hide it.
 // Start camp (docs/specs/expedition.md 2, 9.1; prep.js): phase PREP shows the prep screen over the camp scene, its keys go
-// to prepKey (1-8, A-I, R, Enter); the setting "Expedition map with start camp" sets the map new runs get (the bridge's
-// setRunMode; at class select at once). Esc also puts the map's armed Spyglass away.
+// to prepKey (1-8, A-I, R, Enter). Since D116 new runs start on the expedition map with the start camp; the Dev menu's
+// setting "Classic map (old)" sets the map new runs get (the bridge's setRunMode; at class select at once). Esc also puts
+// the map's armed Spyglass away.
 
 
 
@@ -28518,8 +28542,9 @@ yield;
 
 class App {
   constructor() {
-    // the map new runs get: the setting "Expedition map with start camp" (prep), else ?expedition=1 / ?prep=1, else classic
-    this.bridge = createBridge(settings.get('expeditionCamp') ? { prep: true } : {});
+    // the map new runs get (D116): the expedition map with the start camp; the Dev menu's "Classic map (old)" or ?classic=1:
+    // the classic map; ?expedition=1: the expedition without the start camp (a test switch)
+    this.bridge = createBridge(settings.get('classicMap') ? { classic: true } : {});
     this.data = this.bridge.data;
     this.scene = new Scene(document.getElementById('world'));
     this.root = document.getElementById('hud');
@@ -28600,13 +28625,13 @@ class App {
     this.deathEl = h('div.hidden', h('div.overlay-dark'), h('div.deathmsg', h('div.d1', 'You have died'), h('div.d2', 'No resurrection remains. Your journey ends here.')));
     this.root.append(this.bannerEl, this.toasts, this.skipHint, this.deathEl);
     this.bindInput();
-    // "Expedition map with start camp" (settings window, Dev menu): the map of new runs; at class select the run changes now
+    // "Classic map (old)" (Dev menu, World): the map of new runs; at class select the run changes now (D116: off by default)
     settings.on('change', (k) => {
-      if (k !== 'expeditionCamp') return;
-      const on = !!settings.get('expeditionCamp');
-      const r = this.bridge.setRunMode(on ? { mapMode: 'expedition', prep: true } : {});
+      if (k !== 'classicMap') return;
+      const classic = !!settings.get('classicMap');
+      const r = this.bridge.setRunMode(classic ? { mapMode: 'rows' } : { mapMode: 'expedition', prep: true });
       if (r.now) { this.shown = this.bridge.view; this.syncScene(this.shown, { instant: true }); this.queueRender(); }
-      if (r.ok) this.toast(on ? `Expedition map with start camp${r.now ? '' : ': from the next run'}` : `Classic map${r.now ? '' : ': from the next run'}`, 'info');
+      if (r.ok) this.toast(classic ? `Classic map (old)${r.now ? '' : ': from the next run'}` : `Expedition map with start camp${r.now ? '' : ': from the next run'}`, 'info');
     });
     window.addEventListener('resize', () => { this.scene.resize(); this.applyScale(); this.syncScene(this.shown, { instant: true }); this.queueRender(); });
     this.applyScale();
@@ -29162,7 +29187,7 @@ function devText(op, args, r, v) {
     case 'give': { const g = r.note || {}; return [g.gold ? `${g.gold} copper` : '', g.potions ? `${g.potions} potions` : '', g.talentPoints ? `${g.talentPoints} talent points` : ''].filter(Boolean).join(', ') + (g.gold || g.potions || g.talentPoints ? ' given' : 'Nothing fits in the bags'); }
     case 'time': case 'heat': return `${tolls(v.time)}${v.heat ? `, ${HEAT_WORDS.state[v.heat.state] || v.heat.state}` : ''}`;
     case 'reveal': return 'Map revealed';
-    case 'mapMode': return `${args.mode === 'expedition' ? 'Expedition' : 'Rows'} map`;
+    case 'mapMode': return args.mode === 'expedition' ? 'Expedition map' : 'Classic map (old)';
     case 'echoes': return `${args.n} Echoes given`;
     case 'catalogue': return 'Every unlock in the catalogue';
     case 'seed': return `New run on seed ${args.seed}`;

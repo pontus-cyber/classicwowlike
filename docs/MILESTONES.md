@@ -41,7 +41,7 @@ Done when a run plays on the roamable fog map with contracts, the Dimming, Roads
 | 2b.3 | Engine: circular zone map, vision, the Dimming, Roads and Bell | Core Gameplay Engineer | done (6d27a78, behind mapMode 'expedition') |
 | 2b.4 | Sim: fog-only bots with a leak test, oracle for measuring; B39-B47 | Simulation & Balance Engineer | done (2a86ad6: fog-only bots, leak test, oracle; B39, B40, B42, B46 wait for 2b.5) |
 | 2b.5 | Engine + content: prep points, contracts, hub contract, regions and enemy families | Core Gameplay Engineer + Content Designer | done (engine d6b74d4, content f3b8eea, meta 8.2 7b56d8e; ASK_LOCALS moved to BACKLOG) |
-| 2b.6 | UI: combat v2 display; prep screen; fog map with regions, landmarks and Dimming clocks; contract tracker | UI/UX & Visual Engineer | doing (all screens built: combat v2, Furnace, prep and tracker, fog map, Deathblow; default switch D116 in progress) |
+| 2b.6 | UI: combat v2 display; prep screen; fog map with regions, landmarks and Dimming clocks; contract tracker | UI/UX & Visual Engineer | done (all screens; default switched to the expedition with the start camp, b1a399f, D116) |
 | 2b.7 | Fold expedition 9.5 and combat-v2 into rules.md and balance.md; tune after first measure | Lead Game Designer | done (tuning v6-v14 folded into rules.md, combat-v2.md, expedition.md, balance.md) |
 | 2b.8 | QA: rule tests, leak test, browser checks; playtest | Playtest & QA Lead | doing (QA pass 2026-11-12 on v14: 258/258 browser checks; final pass after the default switch) |
 | 2b.9 | Owner plays the build | Owner | todo |

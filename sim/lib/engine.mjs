@@ -35,14 +35,16 @@ if (errors.length) throw new Error(`sim: content is invalid:\n  ${errors.slice(0
 /**
  * A run in phase CREATE (content validated once at module load). mapMode 'expedition' (rules 1.9), its vision kit
  * ({ guide, charts, pathfinder }), dimming (false: B44's diagnostic cell) and prep (true: the start camp and contracts,
- * expedition.md 2-3) are passed to the engine only when set, so a rows run is created exactly as before.
+ * expedition.md 2-3). The sim names the map on every run (D118): no mapMode = the rows (classic) map, and an
+ * expedition cell plays the start camp only when prep is set, so cells stay as they were before the game's
+ * default switched to the expedition with the start camp (D116).
  */
 export function newRunFor({ classId, petId = null, seed, profile = null, mapMode = null, vision = null, dimming = null, prep = false }) {
   const o = { classId, petId: classId === 'hunter' ? petId : null, seed, profile, content: CONTENT, validate: false };
-  if (mapMode) o.mapMode = mapMode;
+  o.mapMode = mapMode || 'rows';
   if (vision) o.vision = vision;
   if (dimming === false) o.dimming = false;
-  if (prep) o.prep = true;
+  if (o.mapMode === 'expedition') o.prep = !!prep;
   return R.newRun(o);
 }
 
