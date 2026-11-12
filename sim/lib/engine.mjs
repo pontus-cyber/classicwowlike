@@ -9,6 +9,22 @@ import { STREAM, makeRng, nextFloat, nextU32, hash32 } from '../../src/rng.js';
 const { V, xpCurve, diffMod } = R;
 export const C = R.C;
 export { R, CONTENT, STREAM, makeRng, nextFloat, nextU32, hash32, V, xpCurve, diffMod };
+
+/**
+ * The engine's switches (C.GATES, M2b v13-v14) as built: read once at load, before any cell sets them (runner.mjs
+ * setGates), so a cell that names no gates plays the game as built. null for an engine without C.GATES.
+ */
+export const GATE_DEFAULTS = C.GATES ? Object.freeze({ ...C.GATES }) : null;
+
+/**
+ * The switches a cell plays: the engine's defaults when the cell names no gates (null), else the named switches on and
+ * every other off (the v13 sim's rule, so a cell that names its gates plays as before). null without C.GATES.
+ */
+export function gatesFor(gates = null) {
+  if (!GATE_DEFAULTS) return null;
+  if (!gates) return { ...GATE_DEFAULTS };
+  return Object.fromEntries(Object.keys(GATE_DEFAULTS).map((k) => [k, !!gates[k]]));
+}
 // M2b v12 (D101; engine-api.md 10): the engine's own escape rule helpers, so the bots price a Dimmed encounter after a
 // walk as the engine spends it: outwardStep(zone-like { shardDist }, from, to), dimFightTime(escape) -> tolls.
 export { outwardStep, dimFightTime } from '../../src/engine/expedition.js';

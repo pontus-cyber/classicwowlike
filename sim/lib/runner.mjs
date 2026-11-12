@@ -10,7 +10,7 @@
 // (catalogue entries removed from the profile: B42's no-vision cell, the row 8 attribution arm), cell.beastcallGated
 // (row 8 arm: Beastcall Horn cooldown BEASTCALL_HORN_CD_GATED). M2b v12: cell.ricochetGated (row 5 arm, D104: Ricochet
 // Bolt's bounce RICOCHET_BOUNCE_FRAC_GATED).
-import { C, R, newRunFor, withExpMeta, hash32 } from './engine.mjs';
+import { C, R, newRunFor, withExpMeta, hash32, gatesFor } from './engine.mjs';
 import { BAL, SIM } from './params.mjs';
 import { createBot } from '../bots/index.mjs';
 import { Recorder } from './recorder.mjs';
@@ -154,17 +154,18 @@ export function oracleRoute(s0, cell, risk) {
 }
 
 /**
- * M2b v13 gated rows (engine-2026-11-11j section 4): C.GATES.rareHpMultZ1 (row 5, cell 6) and C.GATES.firstMeetWindup
- * (row 6, cell 7) as the cell asks (cell.gates: { rareHpMultZ1, firstMeetWindup }), every other switch off; set for every
- * run, since a worker plays runs of several cells. Engines without C.GATES are left alone.
+ * The engine's switches (C.GATES: M2b v13 rows 5-6 rareHpMultZ1, firstMeetWindup; M2b v14 row 1 sapHold, passStealth)
+ * as the cell asks (engine.mjs gatesFor): a cell without gates plays the engine's defaults (the game as built, M2b v14);
+ * a cell with gates ({ key: true }) plays the named switches on and every other off. Set for every run, since a worker
+ * plays runs of several cells. Engines without C.GATES are left alone.
  */
 export function setGates(gates = null) {
   if (!C.GATES) {
     if (gates && Object.values(gates).some(Boolean)) throw new Error('cell.gates needs an engine with C.GATES (M2b v13)');
     return;
   }
-  for (const k of Object.keys(C.GATES)) C.GATES[k] = !!(gates && gates[k]);
   if (gates) for (const k of Object.keys(gates)) if (!(k in C.GATES)) throw new Error(`cell.gates: unknown gate ${k}`);
+  Object.assign(C.GATES, gatesFor(gates));
 }
 
 export function playRun(cell, seed, risk, opts = {}) {

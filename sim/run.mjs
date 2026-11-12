@@ -29,7 +29,9 @@
 //            PALL (--profile all) holds the expedition entries of 8.2 since the M2b v11 engine: no --exp-meta stand-in needed
 //            M2b v12: --ricochet-gated (row 5 arm: Ricochet Bolt bounce RICOCHET_BOUNCE_FRAC_GATED; campaigns too)
 //            speedrunner --variant v11 (row 4 off: the v11 expedition map policy, arm 9)
-//            M2b v13: --gates rareHpMultZ1,firstMeetWindup (gated rows 5-6 on: C.GATES, cells 6-7; cell names 'g5', 'g6')
+//            M2b v13: --gates rareHpMultZ1,firstMeetWindup (the named C.GATES switches on, every other off)
+//            M2b v14: without --gates a cell plays the engine's C.GATES defaults (the game as built); the cell name marks
+//            every switch played at another value than its default ('g5', 'g6', 'sap', 'pst'; 'no<tag>' when off)
 //   campaigns: --map expedition --prep also apply (B31 / B32 on the expedition with the start camp)
 //   campaigns: node sim/run.mjs --campaign N --class <c|all> --out <dir> [--risk-in <risk.json>]
 //

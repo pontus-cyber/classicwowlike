@@ -5,8 +5,16 @@ import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { profileLabel } from './profiles.mjs';
+import { GATE_DEFAULTS, gatesFor } from './engine.mjs';
 
 export const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+
+/**
+ * Cell-name tags of the C.GATES switches: 'g5' RARE_HP_MULT_Z1 (M2b v13 row 5), 'g6' first meeting (v13 row 6), 'sap'
+ * rule H, the wait after Sap (M2b v14 row 1 (a), sapHold), 'pst' a PASS keeps STEALTH (v14 row 1 (b), passStealth); a
+ * switch without a tag is marked by its key.
+ */
+export const GATE_TAG = { rareHpMultZ1: 'g5', firstMeetWindup: 'g6', sapHold: 'sap', passStealth: 'pst' };
 
 /** Short commit hash of the repository, with "+dirty" when tracked files under src/ or sim/ have changes. */
 export function commitInfo() {
@@ -32,9 +40,9 @@ export function cellName(cell) {
   if (cell.metaDrop) parts.push(`drop${cell.metaDrop.map((id) => id.replace(/_/g, '').slice(0, 4)).join('')}`);
   if (cell.beastcallGated) parts.push('bcg');
   if (cell.ricochetGated) parts.push('rcg');
-  // M2b v13 gated rows: 'g5' RARE_HP_MULT_Z1 (C.GATES.rareHpMultZ1), 'g6' first meeting (C.GATES.firstMeetWindup).
-  if (cell.gates && cell.gates.rareHpMultZ1) parts.push('g5');
-  if (cell.gates && cell.gates.firstMeetWindup) parts.push('g6');
+  // C.GATES switches (M2b v13-v14): every switch the cell plays at another value than the engine's default, `<tag>` when
+  // on and `no<tag>` when off (GATE_TAG); a cell that names no gates plays the defaults and has no mark.
+  for (const [k, on] of Object.entries(gatesFor(cell.gates) || {})) if (on !== GATE_DEFAULTS[k]) parts.push(`${on ? '' : 'no'}${GATE_TAG[k] || k}`);
   if (cell.expMeta) parts.push(`meta${Object.keys(cell.expMeta).map((k) => k.slice(0, 2)).join('')}`);
   if (cell.vision) parts.push(`vis${Object.keys(cell.vision).map((k) => k[0]).join('')}`);
   if (cell.dimming === false) parts.push('nodim');

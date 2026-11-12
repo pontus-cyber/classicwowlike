@@ -7,6 +7,7 @@ import { cellMetrics } from './metrics.mjs';
 import { cellMarkdown } from './cellreport.mjs';
 import { TIME_PROFILE } from '../bots/index.mjs';
 import { commitInfo, cellName, writeJson, writeJsonl, ensureDir } from './output.mjs';
+import { gatesFor } from './engine.mjs';
 import { writeFileSync } from 'node:fs';
 
 export const CLASSES = ['rogue', 'mage', 'hunter'];
@@ -19,7 +20,8 @@ export const CLASSES = ['rogue', 'mage', 'hunter'];
  *         prep (start camp and contracts), prepPolicy ('none' | 'random', B40), expMeta ({ quartermaster, cartographer, old_hand }),
  *         prepForce / prepBan ([option id]: bought first / never by the planner family, M2b v10 cell 9), tablesIn (file name,
  *         for meta only), metaDrop ([catalogue id] removed from the profile), beastcallGated (M2b v11 row 8 arm), ricochetGated
- *         (M2b v12 row 5 arm), gates ({ rareHpMultZ1, firstMeetWindup }: M2b v13 gated rows 5-6, C.GATES) }
+ *         (M2b v12 row 5 arm), gates ({ key: true }: the C.GATES switches on, every other off; none: the engine's defaults,
+ *         M2b v14; the meta's gatesPlayed holds the switches played) }
  * Returns { name, dir, perClass: { cls: { records, metrics, obs, table } } }.
  */
 export async function runBatch(opts) {
@@ -78,6 +80,8 @@ export async function runBatch(opts) {
     ...(opts.metaDrop ? { metaDrop: opts.metaDrop } : {}), ...(opts.beastcallGated ? { beastcallGated: true } : {}),
     ...(opts.ricochetGated ? { ricochetGated: true } : {}),
     ...(opts.gates ? { gates: opts.gates } : {}),
+    // M2b v14: the C.GATES switches the cell played (the engine's defaults when it names none).
+    gatesPlayed: gatesFor(opts.gates || null),
   };
   if (dir) {
     writeJson(join(dir, 'summary.json'), { meta, classes: Object.fromEntries(Object.entries(perClass).map(([c, x]) => [c, { tree: x.tree, metrics: x.metrics }])) });

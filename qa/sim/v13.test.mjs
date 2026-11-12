@@ -3,7 +3,7 @@
 // speedrunner's level price (SIM.SPEED_LEVEL_TOLLS) and the planner's Dimmed clock (SIM.PLANNER_DIM_CLOCK).
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { R, C, newRunFor } from '../../sim/lib/engine.mjs';
+import { R, C, newRunFor, GATE_DEFAULTS } from '../../sim/lib/engine.mjs';
 import { buildProfile } from '../../sim/lib/profiles.mjs';
 import { createBot } from '../../sim/bots/index.mjs';
 import { Recorder, FIGHT_KINDS } from '../../sim/lib/recorder.mjs';
@@ -75,24 +75,28 @@ describe('deathblowMetrics', () => {
 });
 
 describe('C.GATES of a cell (rows 5-6) and the cell name', () => {
-  test('setGates arms the named switches and turns every other off; unknown gates throw', () => {
+  // M2b v14: C.GATES also holds sapHold and passStealth (row 1), and a cell without gates plays the engine's defaults.
+  const OFF = { rareHpMultZ1: false, firstMeetWindup: false, sapHold: false, passStealth: false };
+  test('setGates arms the named switches and turns every other off; no gates = the engine defaults; unknown gates throw', () => {
     setGates({ rareHpMultZ1: true });
-    assert.deepEqual(C.GATES, { rareHpMultZ1: true, firstMeetWindup: false });
+    assert.deepEqual(C.GATES, { ...OFF, rareHpMultZ1: true });
     setGates({ firstMeetWindup: true });
-    assert.deepEqual(C.GATES, { rareHpMultZ1: false, firstMeetWindup: true });
+    assert.deepEqual(C.GATES, { ...OFF, firstMeetWindup: true });
+    setGates({});
+    assert.deepEqual(C.GATES, OFF);
     setGates(null);
-    assert.deepEqual(C.GATES, { rareHpMultZ1: false, firstMeetWindup: false });
+    assert.deepEqual(C.GATES, { ...GATE_DEFAULTS });
     assert.throws(() => setGates({ nope: true }));
     setGates(null);
-    assert.equal(cellName({ bot: 'planner', prof: 'fresh', gates: { rareHpMultZ1: true, firstMeetWindup: true } }), 'planner-P0-g5-g6');
+    assert.equal(cellName({ bot: 'planner', prof: 'fresh', gates: { rareHpMultZ1: true, firstMeetWindup: true } }), 'planner-P0-nosap-nopst');
   });
 
   test('a run of a gated cell leaves the gates as its cell set them; the next cell resets them', () => {
     const cell = { bot: 'planner', cls: 'rogue', prof: 'fresh', tree: 2, gates: { firstMeetWindup: true } };
     const a = playRun(cell, 1001, null);
-    assert.equal(C.GATES.firstMeetWindup, true);
+    assert.deepEqual(C.GATES, { ...OFF, firstMeetWindup: true });
     playRun({ ...cell, gates: null }, 1001, null);
-    assert.equal(C.GATES.firstMeetWindup, false);
+    assert.deepEqual(C.GATES, { ...GATE_DEFAULTS });
     assert.ok(a.fx.length > 0);
   });
 });
