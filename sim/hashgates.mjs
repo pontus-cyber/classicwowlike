@@ -6,7 +6,8 @@
 // names every switch that is on by default (the engine's defaults, read from C.GATES at load).
 // v15: the gate sets are built from the engine's keys; a set that plays the Swift passage (swiftRoad on) on the expedition
 // map is reported but not required to match (the v15 fog searches value the passage XP, so the planner family's map
-// choices differ there by design). Every other set, and every classic set, must match.
+// choices differ there by design). Every other set, and every classic set, must match. Since D126 the passage is off by
+// default, so its arm is the defaults plus swiftRoad.
 //
 //   node sim/hashgates.mjs <REF root (src/ and sim/)> <NEW root>
 const [REF, NEW] = process.argv.slice(2);
@@ -26,10 +27,11 @@ const keys = Object.keys(now.gates);
 if (Object.keys(ref.gates).join() !== keys.join()) throw new Error(`C.GATES keys differ: ${Object.keys(ref.gates)} / ${keys}`);
 const on = Object.fromEntries(keys.filter((k) => now.gates[k]).map((k) => [k, true]));
 const without = (o, k) => { const x = { ...o }; delete x[k]; return x; };
+// The Swift passage arm against the defaults: off when it is on by default (M2b v15 as measured), on when it is off (D126).
+const swiftArm = !('swiftRoad' in now.gates) ? [] : on.swiftRoad ? [['Swift passage off (swiftRoad not named)', without(on, 'swiftRoad')]] : [['Swift passage on (+ swiftRoad)', { ...on, swiftRoad: true }]];
 const sets = [
   ['every default-on switch named', on],
-  ...(on.swiftRoad ? [['row 2 off (swiftRoad not named)', without(on, 'swiftRoad')]] : []),
-  ...('mawgrimHp' in now.gates ? [['row 4 arm (+ mawgrimHp)', { ...on, mawgrimHp: true }]] : []),
+  ...swiftArm,
   ['row 1 off (rareHpMultZ1, firstMeetWindup)', { rareHpMultZ1: true, firstMeetWindup: true }],
   ['none named ({}: every switch off)', {}],
 ];

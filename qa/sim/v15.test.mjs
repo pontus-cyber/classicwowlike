@@ -1,8 +1,9 @@
 // M2b v15 sim rows (docs/specs/changes-m2b-v15.md "What the sim must run"; report docs/reports/balance-2026-11-12c.md):
-// cell-name tags of the two new C.GATES switches (swiftRoad 'swift', on by default; mawgrimHp 'maw', off by default), the
-// recorder's Swift passage fields (ex.swift, the eighth element of each zone entry), and the fog searches valuing the
-// Swift passage XP from the view's `swift` block (planFog as any XP, VAL_XP; speedFog as levels at its level price), with
-// the search unchanged when the block is null (the switch off).
+// the cell-name tag of the Swift passage switch (swiftRoad 'swift'; off by default since D126, so the passage-on arm is
+// '-swift'), the recorder's Swift passage fields (ex.swift, the eighth element of each zone entry), and the fog searches
+// valuing the Swift passage XP from the view's `swift` block (planFog as any XP, VAL_XP; speedFog as levels at its level
+// price), with the search unchanged when the block is null (the switch off). The recorder and fog suites play the passage
+// on explicitly (SW: the defaults plus swiftRoad).
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { R, C, CONTENT, GATE_DEFAULTS, newRunFor } from '../../sim/lib/engine.mjs';
@@ -17,34 +18,29 @@ import { fogInput } from '../../sim/lib/view.mjs';
 import { priorTable } from '../../sim/lib/risk.mjs';
 import { BAL } from '../../sim/lib/params.mjs';
 
-// Every switch on by default, named (a cell that names them plays the defaults).
+// Every switch on by default, named (a cell that names them plays the defaults); SW: the Swift passage arm.
 const ON = Object.fromEntries(Object.keys(GATE_DEFAULTS).filter((k) => GATE_DEFAULTS[k]).map((k) => [k, true]));
+const SW = { ...ON, swiftRoad: true };
 
-describe('M2b v15 switches in the cell name', () => {
-  test('tags: swiftRoad "swift" (on by default), mawgrimHp "maw" (off by default)', () => {
+describe('M2b v15 Swift passage switch in the cell name', () => {
+  test('tag: swiftRoad "swift", off by default (D126); every tag names a switch of the engine', () => {
     assert.equal(GATE_TAG.swiftRoad, 'swift');
-    assert.equal(GATE_TAG.mawgrimHp, 'maw');
-    assert.equal(GATE_DEFAULTS.swiftRoad, true);
-    assert.equal(GATE_DEFAULTS.mawgrimHp, false);
+    assert.equal(GATE_DEFAULTS.swiftRoad, false);
+    for (const k of Object.keys(GATE_TAG)) assert.ok(k in GATE_DEFAULTS, `GATE_TAG.${k} is not an engine switch`);
   });
 
-  test('row 2 off arm is "-noswift"; row 4 arm is "-maw"; a plain cell has no mark', () => {
-    const name = (gates, extra = {}) => cellName({ bot: 'speedrunner', prof: 'all', variant: 'v11', map: 'expedition', prep: true, ...extra, ...(gates ? { gates } : {}) });
-    const off2 = { ...ON };
-    delete off2.swiftRoad;
+  test('the passage-on arm is "-swift"; a plain cell and the defaults named have no mark', () => {
+    const name = (gates) => cellName({ bot: 'speedrunner', prof: 'all', variant: 'v11', map: 'expedition', prep: true, ...(gates ? { gates } : {}) });
     assert.equal(name(null), 'speedrunner-PALL-v11-exp-prep');
-    assert.equal(name(off2), 'speedrunner-PALL-v11-exp-prep-noswift');
-    assert.equal(cellName({ bot: 'planner', prof: 'fresh', gates: { ...ON, mawgrimHp: true } }), 'planner-P0-maw');
-    assert.equal(cellName({ bot: 'planner', prof: 'fresh', gates: ON }), 'planner-P0');
+    assert.equal(name(ON), 'speedrunner-PALL-v11-exp-prep');
+    assert.equal(name(SW), 'speedrunner-PALL-v11-exp-prep-swift');
+    assert.equal(cellName({ bot: 'planner', prof: 'fresh', gates: SW }), 'planner-P0-swift');
   });
 
-  test('setGates plays the row 4 arm and the row 2 off arm; null restores the defaults', () => {
-    setGates({ ...ON, mawgrimHp: true });
-    assert.equal(C.GATES.mawgrimHp, true);
+  test('setGates plays the passage arm; the defaults named or null play it off', () => {
+    setGates(SW);
     assert.equal(C.GATES.swiftRoad, true);
-    const off2 = { ...ON };
-    delete off2.swiftRoad;
-    setGates(off2);
+    setGates(ON);
     assert.equal(C.GATES.swiftRoad, false);
     setGates(null);
     assert.deepEqual(C.GATES, { ...GATE_DEFAULTS });
@@ -52,10 +48,10 @@ describe('M2b v15 switches in the cell name', () => {
 });
 
 describe('recorder: Swift passage fields', () => {
-  test('ex.swift counts the zones whose Road paid; each zone entry carries the XP its Road paid (0 without)', () => {
+  test('passage on: ex.swift counts the zones whose Road paid; each zone entry carries the XP its Road paid (0 without)', () => {
     let paid = 0;
     for (const [cls, seed] of [['mage', 1000], ['hunter', 1001], ['rogue', 1002]]) {
-      const r = playRun({ bot: 'planner', cls, prof: 'fresh', tree: 1, map: 'expedition', prep: true }, seed, null);
+      const r = playRun({ bot: 'planner', cls, prof: 'fresh', tree: 1, map: 'expedition', prep: true, gates: SW }, seed, null);
       assert.equal(r.err, null);
       assert.ok(r.ex && Number.isInteger(r.ex.swift));
       for (const z of r.ex.zones) assert.equal(z.length, 8);
@@ -64,22 +60,24 @@ describe('recorder: Swift passage fields', () => {
       for (const z of zs) { assert.equal(z[6], 'r'); assert.ok(z[1] <= C.ROAD_SWIFT_TOLLS, `zone time ${z[1]}`); }
       paid += r.ex.swift;
     }
+    setGates(null);
     assert.ok(paid > 0, 'some Road paid the Swift passage');
   });
 
-  test('switch off: no Road pays (ex.swift 0, every zone 0)', () => {
-    const off2 = { ...ON };
-    delete off2.swiftRoad;
-    const r = playRun({ bot: 'planner', cls: 'mage', prof: 'fresh', tree: 1, map: 'expedition', prep: true, gates: off2 }, 1000, null);
-    setGates(null);
+  test('switch off (the default, D126): no Road pays (ex.swift 0, every zone 0)', () => {
+    const r = playRun({ bot: 'planner', cls: 'mage', prof: 'fresh', tree: 1, map: 'expedition', prep: true }, 1000, null);
+    assert.equal(C.GATES.swiftRoad, false);
     assert.equal(r.ex.swift, 0);
     for (const z of r.ex.zones) assert.equal(z[7], 0);
   });
 });
 
-/** The first map decision of zone 1 of a planner expedition run with the start camp (zone time small: in the window). */
+/**
+ * The first map decision of zone 1 of a planner expedition run with the start camp (zone time small: in the window), with
+ * the Swift passage on (SW; it stays set for the view and the searches the tests read).
+ */
 function firstMapState(cls, seed) {
-  setGates(null);
+  setGates(SW);
   const risk = priorTable();
   const s = newRunFor({ classId: cls, petId: null, seed, profile: buildProfile('fresh', cls), mapMode: 'expedition', prep: true });
   const bot = createBot('planner', { classId: cls, seed, risk, tree: 1 });
@@ -153,14 +151,14 @@ describe('fog searches value the Swift passage XP (M2b v15 row 2)', () => {
     assert.ok(ra.cost < rb.cost);
   });
 
-  test('switch off: the view has no block, so the searches play as before', () => {
-    const off2 = { ...ON };
-    delete off2.swiftRoad;
+  test('switch off (the default): the view has no block, so the searches play as before', () => {
     const { s } = firstMapState('mage', 1000);
-    setGates(off2);
+    assert.ok(R.mapView(s).swift);
+    setGates(null);
+    assert.equal(R.mapView(s).swift, null);
+    setGates(ON);
     assert.equal(R.mapView(s).swift, null);
     setGates(null);
-    assert.ok(R.mapView(s).swift);
     assert.ok(CONTENT);
   });
 });

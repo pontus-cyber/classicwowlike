@@ -28,6 +28,14 @@
 #      SPEEDRUNS (700), V12RUNS (300), C4CLASS (mage), FRAC (1.0), TOLLS (13).
 set -euo pipefail
 W=$(cd "$(dirname "$0")/.." && pwd)
+# Retired with the D126 engine (f5682c3: C.GATES.swiftRoad off by default, mawgrimHp and the gated templates removed, so a
+# plain cell no longer plays the passage, C2's and C3B's arms would share a cell name, and ARM4 names an unknown switch). It
+# measures the v15 engine as measured only: run it from a checkout of the report build (git worktree add ../v15 867d629).
+# Its tables stay readable with sim/v15report.mjs on sim/out/pass-v15.
+if ! grep -qF "mawgrimHp: false" "$W/src/constants.js"; then
+  echo "sim/measure-v15.sh: retired (this engine holds D126: the Swift passage off, no mawgrimHp switch; run it from 867d629)" >&2
+  exit 2
+fi
 O=$(mkdir -p "${1:-$W/sim/out/pass-v15}" && cd "${1:-$W/sim/out/pass-v15}" && pwd)
 STAGES=" ${2:-H C1 C2 C3 C4 C3B} "
 WK=${WORKERS:-2}; REF=${REF:-391469b}; RUNS=${RUNS:-1000}; XRUNS=${XRUNS:-300}; XTHINK=${XTHINK:-50}

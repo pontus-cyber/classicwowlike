@@ -11,6 +11,9 @@
 // outcome 0 or a resurrect used (as sim/v13report.mjs, sim/v14report.mjs). B11 = median manual minutes of planner P0 runs
 // that reach the boss; B12 = median autoplay minutes of speedrunner PALL wins, from SET_OUT (start camp left out) and from
 // run start (metrics.mjs runLength). Swift passage: records' ex.swift (Roads that paid) and each zone's eighth element.
+// Cell names are those of the measured engine (391469b: swiftRoad on by default, so '-noswift' is the off arm; '-maw' the
+// mawgrimHp arm). Since D126 (f5682c3) the passage is off by default and mawgrimHp is gone, so the script reads the v15
+// pass as measured; sim/measure-v15.sh is retired on that engine.
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { FIGHT_KINDS } from './lib/recorder.mjs';

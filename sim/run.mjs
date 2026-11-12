@@ -32,8 +32,8 @@
 //            M2b v13: --gates rareHpMultZ1,firstMeetWindup (the named C.GATES switches on, every other off)
 //            M2b v14: without --gates a cell plays the engine's C.GATES defaults (the game as built); the cell name marks
 //            every switch played at another value than its default ('g5', 'g6', 'sap', 'pst'; 'no<tag>' when off)
-//            M2b v15: tags 'swift' (swiftRoad, on by default: row 2 off is '-noswift') and 'maw' (mawgrimHp, off by
-//            default: the row 4 arm is '-maw'); an arm names every switch that stays on
+//            M2b v15: tag 'swift' (swiftRoad; off by default since D126, so the passage-on arm is '-swift':
+//            --gates rareHpMultZ1,firstMeetWindup,sapHold,passStealth,swiftRoad); an arm names every switch that stays on
 //   campaigns: --map expedition --prep also apply (B31 / B32 on the expedition with the start camp)
 //   campaigns: node sim/run.mjs --campaign N --class <c|all> --out <dir> [--risk-in <risk.json>]
 //

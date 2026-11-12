@@ -12,10 +12,11 @@ export const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 /**
  * Cell-name tags of the C.GATES switches: 'g5' RARE_HP_MULT_Z1 (M2b v13 row 5), 'g6' first meeting (v13 row 6), 'sap'
  * rule H, the wait after Sap (M2b v14 row 1 (a), sapHold), 'pst' a PASS keeps STEALTH (v14 row 1 (b), passStealth),
- * 'swift' the Swift passage (M2b v15 row 2, swiftRoad; on by default), 'maw' Mawgrim's gated HP (M2b v15 row 4, mawgrimHp;
- * off by default); a switch without a tag is marked by its key.
+ * 'swift' the Swift passage (M2b v15 row 2, swiftRoad; off by default since D126, so the passage-on arm is '-swift'); a
+ * switch without a tag is marked by its key. (M2b v15's mawgrimHp switch and its 'maw' tag are gone: D126 put Mawgrim's
+ * 0.95 in content.)
  */
-export const GATE_TAG = { rareHpMultZ1: 'g5', firstMeetWindup: 'g6', sapHold: 'sap', passStealth: 'pst', swiftRoad: 'swift', mawgrimHp: 'maw' };
+export const GATE_TAG = { rareHpMultZ1: 'g5', firstMeetWindup: 'g6', sapHold: 'sap', passStealth: 'pst', swiftRoad: 'swift' };
 
 /** Short commit hash of the repository, with "+dirty" when tracked files under src/ or sim/ have changes. */
 export function commitInfo() {
