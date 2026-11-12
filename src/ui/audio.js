@@ -268,11 +268,11 @@ export function createAudio(settings) {
     if (audible(name)) { unduck(); vc.I = render(name, c, TAIL[sp]); e.sound = true; }
     return e;
   }
-  /** Ask for a cue: always logged; in a fast step (Instant, skipped) it waits for endStep's choice. */
-  function ask(c) {
+  /** Ask for a cue: always logged; a step's cue in a fast step (Instant, skipped) waits for endStep's choice. */
+  function ask(c, direct = false) {
     const e = { cue: c.cue, step: stepNo, t: Math.round(now() * 1000), kept: false, sound: false };
     log.push(e); if (log.length > 2000) log.shift();
-    if (step && step.fast) step.pending.push([c, e]); else play(c, e);
+    if (step && step.fast && !direct) step.pending.push([c, e]); else play(c, e);
     return e;
   }
   function endStep() {
@@ -290,8 +290,8 @@ export function createAudio(settings) {
     event(e, info = {}) { if (step && info.fast) step.fast = true; for (const c of cuesFor(e, info)) ask({ ...c, beat: info.beat }); },
     /** The decision view after a step. */
     view(prev, next) { for (const c of viewCues(prev, next, memo)) ask(c); },
-    /** A cue from outside the event loop (click, error, windows, arrival). */
-    cue(name, o = {}) { return ask({ cue: name, ...o }); },
+    /** A cue from outside the event loop (click, error, windows, arrival): never held by the Instant rule. */
+    cue(name, o = {}) { return ask({ cue: name, ...o }, true); },
     unlock,
     /** Test hook (testApi().audio()): { unlocked, state, muted, log: [{ cue, step, t, kept, sound }] }. */
     info: () => ({ unlocked: !!G, state: G ? G.ac.state : null, muted: !!settings.get('soundMuted'), log: log.map((x) => ({ ...x })) }),

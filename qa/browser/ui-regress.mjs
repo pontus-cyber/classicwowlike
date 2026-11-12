@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P]
+ *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -140,6 +140,13 @@
  *      state): "MAIMS you if it hits your pet" on the line, the row and the alert (the engine lands it on a pet hit, s07d).
  *      At speed 1, a landed Deathblow's "Deathblow landed: empowered" and "Maimed: healing −50 %" sit in their own lane and
  *      overlap no damage number, pet number, Dodge or other float shown at the same time (window.__ui.floats()).
+ *   Q  sound (docs/specs/audio.md; D127), real engine, the cue log of window.__ui.audio() and a count of AudioContexts made.
+ *      Before any gesture (steps sent through window.__ui only): a new run to its first level-up and a Deathblow that lands
+ *      on a Hunter log levelUp, deathblowTelegraph (once, before it lands), deathblowLanded and maimed, and nothing sounds:
+ *      no AudioContext, every entry sound false. Then a click: the context exists, uiClick sounds. A Rogue answers the
+ *      Deathblow (deathblowAnswered); in god mode at 4x, attacks until a crit and a kill (hitLight or hitHeavy, crit, kill,
+ *      all sounding); a Mage passes until it dies (playerDeath). Every Instant step keeps at most one cue that is not a
+ *      Deathblow cue or the death. No console errors.
  *
  * D116 (the flip): new runs start on the expedition map with the start camp. The parts written for the classic map (A-L, O,
  * P) open the page with ?classic=1 (open() adds it unless the query names a map) and their Node twins pass mapMode 'rows';
@@ -172,7 +179,7 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -3657,6 +3664,97 @@ async function partP(browser, W, H) {
   }
 }
 
+// ------------------------------------------------------------------ part Q: sound (docs/specs/audio.md; D127)
+const Q_PROTECTED = new Set(['deathblowTelegraph', 'deathblowFirstShow', 'deathblowAnswered', 'deathblowLanded', 'maimed', 'playerDeath']);
+async function partQ(browser, W, H) {
+  const context = await browser.newContext({ viewport: { width: W, height: H } });
+  // count the AudioContexts the page makes (none may exist before the first gesture)
+  await context.addInitScript(() => { const A = window.AudioContext; let n = 0; window.__acMade = () => n; if (A) window.AudioContext = class extends A { constructor(...a) { super(...a); n += 1; } }; });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('request', (r) => { if (!/^(file|data|blob):/.test(r.url())) errors.push(`request ${r.url()}`); });
+  const audio = () => page.evaluate(() => ({ ...window.__ui.audio(), made: window.__acMade() }));
+  const has = (log, cue, from = 0, o = {}) => log.filter((x, i) => i >= from && x.cue === cue && x.kept && (!o.sound || x.sound));
+  const twin = async () => devTwin(await page.evaluate(() => window.__ui.engineLog()));
+  try {
+    await page.goto(`${URL}?seed=5&speed=instant&classic=1`);
+    await page.waitForFunction(() => window.__ui);
+    let a = await audio();
+    check('SOUND', 'page loaded: no AudioContext, sound locked, nothing logged', a.made === 0 && !a.unlocked && a.state === null && a.log.length === 0, JSON.stringify({ made: a.made, unlocked: a.unlocked, n: a.log.length }));
+    // (1) no gesture: a new run on the engine's autoplay choices to its first level-up (steps through window.__ui only)
+    await page.evaluate(async () => {
+      const ui = window.__ui; await ui.act({ type: 'START_RUN' }); await ui.idle();
+      for (let n = 0; n < 400 && !ui.audio().log.some((x) => x.cue === 'levelUp'); n++) { if (ui.view().phase === 'SUMMARY') break; await ui.act({ type: 'AUTO' }); await ui.idle(); }
+    });
+    a = await audio();
+    check('SOUND', 'no gesture: a new run to its first level-up logs levelUp (kept) and hits, with no sound', has(a.log, 'levelUp').length >= 1 && a.log.some((x) => /^hit|^crit|^tick/.test(x.cue)), a.log.slice(-6).map((x) => `${x.cue}${x.kept ? '' : '(dropped)'}`).join(' '));
+    // a Hunter against Bargh passes until the Deathblow lands (dev ops and PASS through window.__ui: still no gesture)
+    await page.evaluate(() => window.__ui.dev('build', { classId: 'hunter', zone: 2 })); await idle(page);
+    await page.evaluate((id) => window.__ui.dev('fight', { ids: [id] }), P_ELITE); await idle(page);
+    const from1 = (await audio()).log.length;
+    for (let n = 0; n < 5; n++) { const s = await twin(); if (s.fight && s.fight.p.st.some((x) => x.id === 'MAIMED')) break; await page.evaluate(() => window.__ui.act({ type: 'PASS' })); await idle(page); }
+    a = await audio();
+    const L1 = a.log.slice(from1); const tel = L1.filter((x) => x.cue === 'deathblowTelegraph'); const land = L1.findIndex((x) => x.cue === 'deathblowLanded' && x.kept);
+    check('SOUND', 'no gesture: the Deathblow logs deathblowTelegraph once at its decision, then deathblowLanded and maimed (kept)',
+      tel.length === 1 && tel[0].kept && land > L1.indexOf(tel[0]) && has(L1, 'maimed').length === 1, L1.map((x) => `${x.cue}@${x.step}${x.kept ? '' : '(dropped)'}`).join(' '));
+    check('SOUND', 'nothing plays before the first gesture: no AudioContext made, every logged cue unsounded', a.made === 0 && !a.unlocked && a.log.length > 0 && a.log.every((x) => !x.sound), `made ${a.made}, unlocked ${a.unlocked}, ${a.log.filter((x) => x.sound).length} of ${a.log.length} sounded`);
+    // (2) the first gesture: a click on a button
+    const from2 = a.log.length;
+    await page.getByRole('button', { name: 'Bags' }).click(); await idle(page);
+    await page.locator('#win-bags').getByRole('button', { name: 'Close' }).click(); await idle(page);
+    a = await audio();
+    check('SOUND', 'first click: one AudioContext, unlocked; uiClick sounds (and the window opens and closes with winOpen, winClose)', a.made === 1 && a.unlocked && has(a.log, 'uiClick', from2, { sound: true }).length >= 2 && has(a.log, 'winOpen', from2).length === 1 && has(a.log, 'winClose', from2).length === 1,
+      `made ${a.made} ${a.state}: ${a.log.slice(from2).map((x) => `${x.cue}${x.sound ? '' : '(silent)'}`).join(' ')}`);
+    // (3) a Rogue answers the Deathblow with its interrupt (keys: gestures)
+    await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 2 })); await idle(page);
+    await page.evaluate((id) => window.__ui.dev('fight', { ids: [id] }), P_ELITE); await idle(page); await page.mouse.move(2, 2);
+    let s = await twin(); let w = null; let spell = null;
+    for (let n = 0; n < 5; n++) { s = await twin(); w = (R.windupView(s) || []).find((x) => x.deathblow); if (!w || w.inRounds === 0) break; await page.keyboard.press('KeyX'); await idle(page); }
+    spell = w && w.answers.find((x) => x.via === 'spell' && x.how === 'interrupt' && x.now);
+    const from3 = (await audio()).log.length;
+    if (spell) { await page.keyboard.press(`Digit${s.player.bar.indexOf(spell.id) + 1}`); await idle(page); }
+    a = await audio();
+    check('SOUND', `Rogue: ${spell ? spell.name : 'an interrupt'} answers the Deathblow: deathblowAnswered sounds`, !!spell && has(a.log, 'deathblowAnswered', from3, { sound: true }).length === 1, a.log.slice(from3).map((x) => `${x.cue}${x.sound ? '' : '(silent)'}`).join(' '));
+    // (4) god mode, 4x: attack until a crit and a kill
+    await page.evaluate(() => window.__ui.dev('god')); await idle(page);
+    await page.evaluate(() => window.__ui.settings.set('speed', 4));
+    const from4 = (await audio()).log.length;
+    for (let n = 0; n < 80; n++) {
+      a = await audio();
+      if (has(a.log, 'crit', from4).length && has(a.log, 'kill', from4).length) break;
+      const v = await view(page);
+      if (v.over || v.round == null) { await page.evaluate((id) => window.__ui.dev('fight', { ids: [id] }), P_ELITE); await idle(page); continue; }
+      await page.keyboard.press('KeyA'); await idle(page);
+    }
+    a = await audio();
+    const L4 = a.log.slice(from4);
+    check('SOUND', 'god mode at 4x, attacks: hits (hitLight or hitHeavy), a crit and a kill sound', L4.some((x) => /^hit(Light|Heavy)$/.test(x.cue) && x.sound) && has(L4, 'crit', 0, { sound: true }).length > 0 && has(L4, 'kill', 0, { sound: true }).length > 0,
+      `${L4.length} cues: ${[...new Set(L4.filter((x) => x.sound).map((x) => x.cue))].join(' ')}`);
+    // (5) a Mage passes against Bargh at Instant until it dies
+    await page.evaluate(() => { window.__ui.settings.set('speed', 0); }); 
+    await page.evaluate(() => window.__ui.dev('build', { classId: 'mage', zone: 2 })); await idle(page);
+    await page.evaluate((id) => window.__ui.dev('fight', { ids: [id] }), P_ELITE); await idle(page);
+    const from5 = (await audio()).log.length;
+    for (let n = 0; n < 40; n++) { const v = await view(page); if (v.phase === 'SUMMARY' || v.round == null) break; await page.keyboard.press('KeyX'); await idle(page); }
+    a = await audio();
+    const v5 = await view(page);
+    check('SOUND', `Mage passes until it dies (phase ${v5.phase}): playerDeath sounds`, has(a.log, 'playerDeath', from5, { sound: true }).length === 1, a.log.slice(from5).slice(-6).map((x) => `${x.cue}${x.kept ? '' : '(dropped)'}`).join(' '));
+    // the Instant rule: no Instant step keeps more than one cue besides the Deathblow cues and the death
+    const plays = await page.evaluate(() => window.__ui.plays().length);
+    const bySteps = new Map(); for (const x of a.log) if (x.kept && !Q_PROTECTED.has(x.cue) && !['uiClick', 'winOpen', 'winClose', 'error', 'arrive'].includes(x.cue)) bySteps.set(x.step, (bySteps.get(x.step) || []).concat(x.cue));
+    const instantSteps = [...a.log.slice(from5).map((x) => x.step)];
+    const over = [...bySteps.entries()].filter(([st, list]) => instantSteps.includes(st) && list.length > 1);
+    check('SOUND', 'Instant: each step keeps at most one cue besides the Deathblow cues and the death', over.length === 0, over.map(([st, l]) => `step ${st}: ${l.join(' ')}`).join(' | ') || `${plays} steps played`);
+  } catch (e) {
+    await shot(page, 'Q-error');
+    check('-', 'part Q ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
+  }
+  check('-', 'part Q: no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
+  await context.close();
+}
+
 // ------------------------------------------------------------------ run
 const browser = await chromium.launch({ headless: true });
 for (const [W, H] of SIZES) {
@@ -3677,6 +3775,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('N')) await partN(browser, W, H);
   if (PARTS.includes('O')) await partO(browser, W, H);
   if (PARTS.includes('P')) await partP(browser, W, H);
+  if (PARTS.includes('Q')) await partQ(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);
