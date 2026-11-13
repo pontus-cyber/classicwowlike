@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R]
+ *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -155,6 +155,8 @@
  *      before R open with the guide off (?guide=0) and the hints off (tbwcr.hints.v2), part L(3) with hints on (H01).
  *      R(6)-(7), D142 (M3 3.7, playtest-2026-11-13 findings 2-5): G3's key, the turn prompt under a coach line, a refused
  *      key's reason, the Mage's "Q then N", a hint seen after two showings.
+ *   S  M3 3.7: the D143 UI to-dos and the blind tester panel of 2026-11-13 (D144; docs/handoffs/ui-2026-11-13d.md items
+ *      1-10): see partS.
  *
  * D116 (the flip): new runs start on the expedition map with the start camp. The parts written for the classic map (A-L, O,
  * P) open the page with ?classic=1 (open() adds it unless the query names a map) and their Node twins pass mapMode 'rows';
@@ -190,7 +192,7 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -4104,6 +4106,417 @@ async function partR(browser, W, H) {
   }
 }
 
+// ------------------------------------------------------------------ part S: D143 and the blind tester panel (UI side)
+/**
+ * Part S (M3 3.7): the D143 UI to-dos (docs/handoffs/engine-2026-11-13c.md section 2) and the findings of the blind tester
+ * panel of 2026-11-13 (docs/feedback/2026-11-13-blind-casual.md, 2026-11-13-blind-tactician.md), items 1-10 of
+ * docs/handoffs/ui-2026-11-13d.md. Real engine; every check drives the game's own keys and clicks; window.__ui reads the
+ * view and, as setup only, steps the engine's autoplay choices (AUTO), runs Dev menu ops or loads a state (R.serialize).
+ *   S1  the guided run (seed 8736, Rogue, Instant): G13.closed on the coach line with its ring on Gorrak's node; every
+ *       closed Road node and signpost marked, its tooltip the closed line; H19 not counted by the closed line; a toast when
+ *       the Roads open; Gorrak's barred node has its tooltip (item 3); a quest reward's "Equip now" (item 9); the Furnace
+ *       header fits when the Dimming sets the state (item 5); no wind-up line prints "null" (item 10).
+ *   S2  at 1x: the camp's Set out, the hub's toasts under the zone banner (item 6); the hub's Set out: no coach line while
+ *       the hero walks out, "Click a lit node" once the map shows (item 2).
+ *   S3  zone 2 and 3 (Dev menu): every elite's tooltip (item 3); the Moves list one column in the map (item 5); a bag
+ *       item's tooltip goes with the bags (item 4); the bag menu beside the grid (item 6); bag slots stay put (item 9); the
+ *       Bell asks first (item 8); the rim names apart on a state where they would meet (item 5).
+ *   S4  the hub (Dev menu, zone 2): all of it in view; Take keeps the cards under it in place; the Inn asks at full health
+ *       and rests at once when hurt (items 5, 8).
+ *   S5  fights at 1x (Dev menu): a refused key answers at once, also while a round plays, in words (energy, mana); the flee
+ *       ask stays until answered, F and the button alike, a refused flee says why (item 7); a level-up banner clear of the
+ *       fight's panels; the enemy's Deathblow headline clear of the coach line; the death screen clear of the panels (item 6).
+ */
+async function partS(browser, W, H) {
+  const T = CONTENT.tutorial;
+  const coach = (page) => page.evaluate(() => window.__ui.coach());
+  const box = (page, sel) => page.evaluate((s) => { const e = document.querySelector(s); if (!e || e.closest('.hidden')) return null; const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 ? { l: r.left, t: r.top, r: r.right, b: r.bottom } : null; }, sel);
+  // the boxes of what shows (an ancestor's opacity counts: the death screen fades #nameplates, not each nameplate)
+  const boxes = (page, sel) => page.evaluate((s) => {
+    const seen = (e) => { if (e.closest('.hidden') || getComputedStyle(e).visibility === 'hidden') return false; let o = 1; for (let a = e; a && a.nodeType === 1; a = a.parentElement) o *= Number(getComputedStyle(a).opacity); return o > 0.05; };
+    return [...document.querySelectorAll(s)].filter(seen).map((e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, id: e.id || e.className.split(' ')[0] }; }).filter((r) => r.r > r.l && r.b > r.t);
+  }, sel);
+  const meet = (a, b, pad = 0.5) => !!a && !!b && a.l < b.r - pad && a.r > b.l + pad && a.t < b.b - pad && a.b > b.t + pad;
+  const fmt = (r) => (r ? [r.l, r.t, r.r, r.b].map(Math.round).join(',') : 'none');
+  const tipOn = (page) => page.evaluate(() => { const t = document.querySelector('.tooltip'); return t && t.classList.contains('on') ? t.innerText.replace(/ /g, ' ') : null; });
+  const engineLen = (page) => page.evaluate(() => window.__ui.engineLog().length);
+  const lastActs = (page, n) => page.evaluate((k) => window.__ui.engineLog().slice(-k), n);
+  const watchToasts = (page) => page.evaluate(() => { window.__sT = []; new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.classList && n.classList.contains('toast')) window.__sT.push(n.textContent); }).observe(document.querySelector('#toasts'), { childList: true }); });
+  const load = async (page, edit) => { const s0 = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT); edit(s0); const ok = await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s0)); await idle(page); return ok; };
+  const auto = async (page) => { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); };
+
+  // ---- S1: the guided run (D143; items 3, 5, 9, 10)
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&fresh=1', null, { guide: true, hints: true });
+    try {
+      await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await watchToasts(page);
+      let closed = null; let roadsOpened = null; let barredTip = null; let furnace = null; let eqNow = null; const wub = []; let zone2 = false;
+      for (let i = 0; i < 280 && !zone2; i++) {
+        const st = await page.evaluate(() => {
+          const v = window.__ui.view(); const mv = v.zone && v.zone.exp; const t = v.tutorial;
+          return { phase: v.phase, z: v.zone ? v.zone.idx : null, onMap: v.phase === 'MAP' && !!mv && !v.node, t: t && { roads: t.roads, elite: t.elite, ended: t.ended },
+            closedRoads: mv ? mv.nodes.filter((n) => n.road && n.closed).map((n) => n.id) : [], by: v.heat ? v.heat.by : null, loot: v.loot ? v.loot.kind : null,
+            // Gorrak's node seen, barred and next to the player (a move mapView lists as barred: its tooltip threw)
+            eliteNext: !!(mv && t && t.elite && t.elite.barred && mv.nodes[t.elite.node].know === 'full' && mv.moves.some((m) => m.nodeId === t.elite.node)),
+            wub: [...document.querySelectorAll('#nameplates .wub:not(.hidden)')].map((e) => e.textContent) };
+        });
+        if (st.z >= 2) { zone2 = true; break; }
+        wub.push(...st.wub);
+        const c = await coach(page);
+        // G13.closed on the map: the ring and arrow at Gorrak's node; the closed Roads marked; H19 not counted
+        if (!closed && st.onMap && c.shown && c.shown.id === 'G13.closed') {
+          await page.mouse.move(2, 2);
+          const ring = await page.evaluate(() => { const r = document.querySelector('.coach-on'); const a = document.querySelector('#coach .co-arrow'); return { node: r && r.matches('.mnode') ? Number(r.dataset.node) : null, arrow: a ? a.className : null }; });
+          const marks = await page.evaluate(() => ({ nodes: [...document.querySelectorAll('#screens .expmap .mnode.rclosed')].map((e) => Number(e.dataset.node)).sort((a, b) => a - b), signs: [...document.querySelectorAll('#screens .expmap .xroad.rclosed')].map((e) => ({ road: Number(e.dataset.road), tag: (e.querySelector('.xshut') || {}).textContent || '' })) }));
+          let roadTip = null;
+          if (st.closedRoads.length) { await page.locator(`#screens .expmap .mnode[data-node="${st.closedRoads[0]}"]`).hover({ force: true }); await page.waitForTimeout(120); roadTip = await tipOn(page); await page.mouse.move(2, 2); }
+          await shot(page, 'S1-g13-closed');
+          await page.locator('#coach .co-ok').click(); await idle(page);
+          const store = (await coach(page)).store;
+          closed = { ring, marks, roadTip, want: st.closedRoads.sort((a, b) => a - b), node: st.t.roads.node, h19: { seen: !!store.seen.H19, shows: store.shows.H19 || 0 } };
+        }
+        // Gorrak's node while barred: a tooltip (it threw before), with the gate line and no "Click to enter"
+        if (!barredTip && st.onMap && st.eliteNext) {
+          const el = page.locator(`#screens .expmap .mnode[data-node="${st.t.elite.node}"]`);
+          if (await el.count()) { const e0 = errors.length; await el.hover({ force: true }); await page.waitForTimeout(150); barredTip = { text: await tipOn(page), errors: errors.length - e0 }; await page.mouse.move(2, 2); }
+        }
+        // the Roads open: their toast (it may wait behind two others, TOAST_MAX, for a few seconds)
+        if (closed && roadsOpened === null && st.t && st.t.roads && !st.t.roads.closed) {
+          await page.waitForFunction((t) => window.__sT.some((x) => x.startsWith(t)), T.guide.roadsOpenLine || ROADS_OPEN_LINE, { timeout: 9000, polling: 100 }).catch(() => null);
+          roadsOpened = await page.evaluate(() => window.__sT.slice());
+        }
+        // the Furnace header when the Dimming sets the state (the longest header)
+        if (!furnace && st.onMap && st.by === 'dim') furnace = await page.evaluate(() => { const h0 = document.getElementById('heat'); const row = h0.querySelector('.ht-row'); const hr = h0.getBoundingClientRect(); const kids = [...row.children].filter((k) => getComputedStyle(k).display !== 'none').map((k) => k.getBoundingClientRect()); return { sw: row.scrollWidth, cw: row.clientWidth, inside: kids.every((k) => k.left >= hr.left - 0.5 && k.right <= hr.right + 0.5), text: row.textContent, cls: h0.className }; });
+        // the first reward window with "Equip now": choose and put on at once
+        if (!eqNow && st.loot && st.loot !== 'loot' && await page.locator('#screens .choice-cards .eqnow').count()) {
+          const uid = await page.locator('#screens .choice-cards .eqnow').first().getAttribute('data-uid');
+          const n0 = await engineLen(page);
+          await page.locator('#screens .choice-cards .eqnow').first().click(); await idle(page);
+          const acts = (await page.evaluate(() => window.__ui.engineLog())).slice(n0);
+          const worn = await page.evaluate((u) => Object.values(window.__ui.view().player.equip).some((x) => x && x.uid === u), uid);
+          eqNow = { uid, acts: acts.map((a) => `${a.type}${a.itemId ? `:${a.itemId}` : ''}`), worn };
+          continue;
+        }
+        await auto(page);
+      }
+      check('D143-1', `G13.closed on the map: its ring on Gorrak's node (${closed && closed.node}), the arrow pointing at it`, !!closed && closed.ring.node === closed.node && closed.ring.arrow && !/none/.test(closed.ring.arrow), JSON.stringify(closed && closed.ring));
+      check('D143-1', 'every closed Road node (mapView closed) has the closed mark, its signpost a Closed tag, its tooltip the closed line',
+        !!closed && closed.want.length > 0 && JSON.stringify(closed.marks.nodes) === JSON.stringify(closed.want) && closed.marks.signs.length === closed.want.length && closed.marks.signs.every((x) => x.tag === 'Closed')
+        && !!closed.roadTip && closed.roadTip.includes(T.beats.find((b) => b.id === 'G13').alt.closed), JSON.stringify(closed && { want: closed.want, marks: closed.marks, tip: closed.roadTip }));
+      check('D143-1', 'the closed line shown and put away does not count for the Bell\'s hint H19 (no showing, not seen)', !!closed && !closed.h19.seen && closed.h19.shows === 0, JSON.stringify(closed && closed.h19));
+      check('D143-1', `a toast when the Roads open ("${T.guide.roadsOpenLine || ROADS_OPEN_LINE}")`, Array.isArray(roadsOpened) && roadsOpened.some((x) => x.startsWith(T.guide.roadsOpenLine || ROADS_OPEN_LINE)), JSON.stringify(roadsOpened));
+      check('S-3', 'Gorrak\'s barred node next to the player has a tooltip: Elite, its Deathblow, the gate line, no "Click to enter", no error', !!barredTip && !!barredTip.text && /^Elite/.test(barredTip.text) && /Deathblow/.test(barredTip.text) && barredTip.text.includes('Gorrak is out on the downs') && !/Click to enter/.test(barredTip.text) && barredTip.errors === 0, JSON.stringify(barredTip));
+      check('S-5', 'the Furnace header fits its frame when the Dimming sets the state ("· Dimming")', !!furnace && furnace.sw <= furnace.cw + 1 && furnace.inside && /Dimming/.test(furnace.text), JSON.stringify(furnace));
+      check('S-9', 'a reward that is an upgrade offers "Equip now": one click sends CHOOSE_REWARD then EQUIP of that item, and it is worn', !!eqNow && eqNow.acts.length === 2 && /^CHOOSE_REWARD/.test(eqNow.acts[0]) && eqNow.acts[1] === `EQUIP:${eqNow.uid}` && eqNow.worn, JSON.stringify(eqNow));
+      check('S-10', `no wind-up line over an enemy prints "null" (${wub.length} seen, ${wub.filter((x) => !/Deathblow/.test(x)).length} not a Deathblow)`, wub.some((x) => !/Deathblow/.test(x)) && !wub.some((x) => /null/.test(x)), [...new Set(wub)].slice(0, 6).join(' | '));
+      check('S-1', 'the guided run reached zone 2', zone2, '');
+    } catch (e) { await shot(page, 'S1-error'); check('S-1', 'part S1 (guided run) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('S-1', 'part S1: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
+  // ---- S2: at 1x, the camp's Set out (toasts under the zone banner) and the hub's Set out (the coach line waits for the map)
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=8736&fresh=1', null, { guide: true, hints: true });
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await page.locator('#prep .pp-card').first().click(); await idle(page);
+      await page.locator('#pp-go').click();
+      const under = [];
+      for (let i = 0; i < 30; i++) {
+        await page.waitForTimeout(60);
+        const r = await page.evaluate(() => { const b = document.getElementById('banner'); if (!b.classList.contains('on')) return null; const q = b.getBoundingClientRect(); return { b: { l: q.left, t: q.top, r: q.right, b: q.bottom }, ts: [...document.querySelectorAll('#toasts .toast')].map((t) => { const x = t.getBoundingClientRect(); return { text: t.textContent, l: x.left, t: x.top, r: x.right, b: x.bottom }; }) }; });
+        if (r) under.push(r);
+      }
+      const hits = under.flatMap((r) => r.ts.filter((t) => meet(t, r.b)).map((t) => t.text));
+      check('S-6', `the zone banner and the toasts at the hub: no toast over the banner (${under.length} looks with the banner on, ${under.reduce((a, r) => a + r.ts.length, 0)} toasts)`, under.length > 0 && under.some((r) => r.ts.length) && !hits.length, hits.join(' | ') || JSON.stringify(under[0]));
+      await idle(page);
+      // the hub's Set out: the walk out plays; no coach line shows until the map does, then G2's
+      await page.locator('#screens .side .btn.primary', { hasText: 'Set out' }).click();
+      const looks = [];
+      for (let i = 0; i < 60; i++) {
+        await page.waitForTimeout(50);
+        looks.push(await page.evaluate(() => { const c = document.getElementById('coach'); const vis = !c.classList.contains('hidden') && getComputedStyle(c).visibility !== 'hidden'; return { coach: vis ? c.dataset.id : null, map: !!document.querySelector('#screens .expmap .xdisc') }; }));
+        if (looks[looks.length - 1].coach && looks[looks.length - 1].map) break;
+      }
+      const early = looks.filter((x) => x.coach && !x.map);
+      check('S-2', `after the hub's Set out no coach line shows before the map (${looks.filter((x) => !x.map).length} looks while walking out); then "${T.beats.find((b) => b.id === 'G2').line}" with the map`,
+        !early.length && looks.some((x) => !x.map) && looks.some((x) => x.coach === 'G2' && x.map), JSON.stringify({ early: early.slice(0, 3), last: looks[looks.length - 1] }));
+      await shot(page, 'S2-map-g2');
+    } catch (e) { await shot(page, 'S2-error'); check('S-2', 'part S2 (Set out at 1x) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('S-2', 'part S2: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
+  // ---- S3: zone 2 and 3 on the map (Dev menu): elites, Moves, bags, the Bell, rim names
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&fresh=1&guide=0', null, {});
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 2, level: 12, mapMode: 'expedition', prep: true })); await idle(page);
+      await page.evaluate(() => window.__ui.act({ type: 'LEAVE_HUB' })); await idle(page);
+      // the Moves list: one column, every button inside it, its foot inside the map; cut rows fade (more below)
+      const mv = await page.evaluate(() => {
+        const l = document.querySelector('#screens .expmoves'); const w = document.querySelector('#screens .mapwin'); const r = l.getBoundingClientRect(); const wr = w.getBoundingClientRect();
+        const bs = [...l.querySelectorAll('button')].map((b) => b.getBoundingClientRect());
+        return { n: l.querySelectorAll('.em').length, wrap: getComputedStyle(l).flexWrap, inX: bs.every((b) => b.left >= r.left - 0.5 && b.right <= r.right + 0.5), bottom: r.bottom <= wr.bottom + 0.5, over: l.scrollHeight > l.clientHeight + 1, more: l.classList.contains('more-below'), sw: l.scrollWidth, cw: l.clientWidth };
+      });
+      check('S-5', `the map's Moves list (${mv.n} moves): one column, no button cut at the right, its foot inside the map; with more below than it shows, it fades there`, mv.n >= 3 && mv.wrap === 'nowrap' && mv.inX && mv.sw <= mv.cw + 1 && mv.bottom && (!mv.over || mv.more), JSON.stringify(mv));
+      await shot(page, 'S3-moves');
+      // every elite of zones 2 and 3 has its tooltip (the map revealed)
+      const eliteTips = [];
+      for (const z of [2, 3]) {
+        if (z === 3) { await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 3, level: 22, mapMode: 'expedition', prep: true })); await idle(page); await page.evaluate(() => window.__ui.act({ type: 'LEAVE_HUB' })); await idle(page); }
+        await page.evaluate(() => window.__ui.dev('reveal')); await idle(page);
+        const ids = await page.evaluate(() => window.__ui.view().zone.exp.nodes.filter((n) => n.type === 'elite').map((n) => n.id));
+        for (const id of ids) { await page.locator(`#screens .expmap .mnode[data-node="${id}"]`).hover({ force: true }); await page.waitForTimeout(120); eliteTips.push({ z, id, tip: await tipOn(page) }); await page.mouse.move(2, 2); }
+      }
+      check('S-3', `every elite node of zones 2 and 3 shows its tooltip (Elite, its Deathblow): ${eliteTips.length} nodes`, eliteTips.length >= 2 && eliteTips.every((x) => x.tip && /^Elite/.test(x.tip) && /Deathblow/.test(x.tip)), JSON.stringify(eliteTips.filter((x) => !x.tip || !/Deathblow/.test(x.tip))));
+      // bags: a bag of gear (set up: two pieces worn now and a second head piece), the item's tooltip goes with the bags
+      await load(page, (s0) => {
+        const p0 = s0.player; const head = JSON.parse(JSON.stringify(p0.equipped.head)); head.uid = 'iS9001';
+        const legs = p0.equipped.legs; p0.equipped.legs = null; const chest = p0.equipped.chest; p0.equipped.chest = null;
+        p0.bag.push(legs, head, chest);
+      });
+      await page.keyboard.press('KeyB'); await idle(page);
+      const slotUids = () => page.evaluate(() => [...document.querySelectorAll('#win-bags .baggrid .slot')].map((e) => e.dataset.uid || null));
+      const first = page.locator('#win-bags .baggrid .slot[data-uid]').first();
+      const name0 = await first.evaluate((e) => e.dataset.uid);
+      const itemName = await page.evaluate((u) => window.__ui.view().player.bag.find((x) => x && x.uid === u).name, name0);
+      await first.hover(); await page.waitForTimeout(150);
+      const t1 = await tipOn(page);
+      await page.keyboard.press('KeyB'); await idle(page);
+      const t2 = await tipOn(page);
+      const node = page.locator('#screens .expmap .mnode.here');
+      await node.hover({ force: true }); await page.waitForTimeout(150);
+      const t3 = await tipOn(page);
+      await page.mouse.move(2, 2);
+      check('S-4', `a bag item's tooltip ("${itemName}") goes when B closes the bags, and a map node's tooltip is its own after`, !!t1 && t1.includes(itemName) && !t2 && !!t3 && !t3.includes(itemName), JSON.stringify({ t1: t1 && t1.slice(0, 40), t2, t3: t3 && t3.slice(0, 40) }));
+      // the bag menu opens beside the grid (it covered the item and its neighbours)
+      await page.keyboard.press('KeyB'); await idle(page);
+      const lay0 = await slotUids();
+      const legsUid = await page.evaluate(() => { const p = window.__ui.view().player; return p.bag.find((x) => x && x.slot === 'legs').uid; });
+      await page.locator(`#win-bags .baggrid .slot[data-uid="${legsUid}"]`).click();
+      const menuR = await box(page, '.ctxmenu');
+      const slotsR = await boxes(page, '#win-bags .baggrid .slot');
+      const covered = slotsR.filter((r) => meet(menuR, r));
+      check('S-6', `the bag item menu opens beside the grid: it covers none of the ${slotsR.length} slots`, !!menuR && !covered.length, `menu ${fmt(menuR)} covers ${covered.length}`);
+      // equip the legs (no legs worn): every other item keeps its slot
+      await page.locator('.ctxmenu').getByRole('button', { name: 'Equip', exact: true }).click(); await idle(page);
+      const lay1 = await slotUids();
+      const moved = lay0.map((u, i) => (u && u !== legsUid && lay1[i] !== u ? `${u}@${i}` : null)).filter(Boolean);
+      check('S-9', 'equipping a bag item leaves its slot empty; every other item keeps its slot', !moved.length && !lay1.includes(legsUid) && lay1[lay0.indexOf(legsUid)] === null, JSON.stringify({ lay0, lay1 }));
+      // equip the second head piece over the worn one: the worn one takes its slot
+      const wornHead = await page.evaluate(() => window.__ui.view().player.equip.head.uid);
+      const at = lay1.indexOf('iS9001');
+      await page.locator('#win-bags .baggrid .slot[data-uid="iS9001"]').click();
+      await page.locator('.ctxmenu').getByRole('button', { name: 'Equip', exact: true }).click(); await idle(page);
+      const lay2 = await slotUids();
+      const moved2 = lay1.map((u, i) => (u && u !== 'iS9001' && lay2[i] !== u ? `${u}@${i}` : null)).filter(Boolean);
+      check('S-9', 'equipping over a worn piece puts the worn piece in the same slot; the rest stay', at >= 0 && lay2[at] === wornHead && !moved2.length, JSON.stringify({ at, wornHead, lay1, lay2 }));
+      await page.keyboard.press('KeyB'); await idle(page);
+      // the Bell asks first: nothing sent until "Ring the Bell"
+      const n0 = await engineLen(page);
+      await page.locator('#screens .expmap [data-leave="RING_BELL"]').click(); await idle(page);
+      const ask = (await page.locator('#screens .expmap .leavewarn').innerText().catch(() => '')).replace(/\s+/g, ' ');
+      const n1 = await engineLen(page);
+      await page.locator('#screens .expmap .leavewarn').getByRole('button', { name: 'Stay' }).click(); await idle(page);
+      const gone = !(await page.locator('#screens .expmap .leavewarn').count()); const n2 = await engineLen(page);
+      await page.locator('#screens .expmap [data-leave="RING_BELL"]').click(); await idle(page);
+      await page.locator('#screens .expmap .leavewarn').getByRole('button', { name: 'Ring the Bell', exact: true }).click(); await idle(page);
+      const last = (await lastActs(page, 1))[0];
+      check('S-8', 'Ring the Bell asks first ("Ring the Homeward Bell?", its charge named); Stay sends nothing; "Ring the Bell" sends RING_BELL',
+        /Ring the Homeward Bell\?/.test(ask) && /only charge|charges left/.test(ask) && n1 === n0 && gone && n2 === n0 && last && last.type === 'RING_BELL', JSON.stringify({ ask, n: [n0, n1, n2], last }));
+      // rim names: zone 2 with only the two ring-2 nodes next to the border of two regions seen: the names would meet
+      await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 2, level: 12, mapMode: 'expedition', prep: true })); await idle(page);
+      await page.evaluate(() => window.__ui.act({ type: 'LEAVE_HUB' })); await idle(page);
+      let pair = null;
+      await load(page, (s0) => {
+        const z = s0.zone; const ns = z.nodes.filter((n) => n.ring === 2); const regs = R.mapView(s0).regions;
+        // the two neighbouring ring-2 nodes of different regions whose names are longest together (they would meet)
+        const sorted = [...ns].sort((a, b) => a.angle - b.angle); let best = -1;
+        for (let i = 0; i < sorted.length; i++) {
+          const a = sorted[i]; const b = sorted[(i + 1) % sorted.length]; if (a.region === b.region) continue;
+          const len = (regs[a.region].name || '').length + (regs[b.region].name || '').length;
+          if (len > best) { best = len; pair = [a.id, b.id]; }
+        }
+        for (const n of z.nodes) if (n.ring >= 2) z.seen[n.id] = pair.includes(n.id);
+      });
+      await page.waitForTimeout(500);
+      const rim = await page.evaluate(() => {
+        const svg = document.querySelector('#screens .expmap svg.xsvg'); const R0 = 437;
+        const labs = [...svg.querySelectorAll('text.xrname')].map((t) => ({ name: t.textContent, mid: Number(t.dataset.mid), at: Number(t.dataset.at || t.dataset.mid), half: (t.getComputedTextLength() / 2 / R0) * (180 / Math.PI) }));
+        const sep = (a, b, k) => Math.abs(((((a[k] - b[k]) % 360) + 540) % 360) - 180) - a.half - b.half;
+        return { labs, raw: labs.length === 2 ? sep(labs[0], labs[1], 'mid') : null, now: labs.length === 2 ? sep(labs[0], labs[1], 'at') : null };
+      });
+      await shot(page, 'S3-rim');
+      check('S-5', `rim names that would meet are moved apart along the rim (${rim.labs.map((x) => x.name).join(' / ')}: ${rim.raw == null ? '?' : rim.raw.toFixed(1)} deg apart before, ${rim.now == null ? '?' : rim.now.toFixed(1)} after)`,
+        rim.labs.length === 2 && rim.raw < 0 && rim.now >= 0, JSON.stringify(rim));
+    } catch (e) { await shot(page, 'S3-error'); check('S-3', 'part S3 (zones 2 and 3) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('S-3', 'part S3: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
+  // ---- S4: the zone 2 hub (Dev menu): in view; Take keeps the cards in place; the Inn asks at full health
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&fresh=1&guide=0', null, {});
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 2, level: 12, mapMode: 'expedition', prep: true })); await idle(page);
+      await page.mouse.move(2, 2);
+      const cards = page.locator('#screens .side .svc-card');
+      const pl = []; for (let i = 0; i < await cards.count(); i++) pl.push(await placement(cards.nth(i)));
+      const foot = await box(page, '#screens .side'); const gold = await box(page, '.goldline'); const micro = await box(page, '#micromenu');
+      const fits = await page.evaluate(() => { const b = document.querySelector('#screens .side > .body'); return { sh: b.scrollHeight, ch: b.clientHeight }; });
+      await shot(page, 'S4-hub');
+      check('S-5', `the zone 2 hub with its contract offer: all ${pl.length} service cards in view, no scrolling needed, the panel clear of the gold line and the micro menu`,
+        pl.length === 3 && pl.every(fullyShown) && fits.sh <= fits.ch + 1 && !meet(foot, gold) && !meet(foot, micro), `${pl.map(placeText).join(' | ')} | body ${fits.sh}/${fits.ch} | panel ${fmt(foot)} gold ${fmt(gold)}`);
+      const trainer0 = await page.locator('#screens .side .svc-card', { hasText: 'Trainer' }).boundingBox();
+      await page.locator('.hubc [data-hub="reserve"]').click(); await idle(page);
+      const trainer1 = await page.locator('#screens .side .svc-card', { hasText: 'Trainer' }).boundingBox();
+      const stub = await page.locator('#screens .side .hubtaken').count();
+      const offerGone = !(await page.locator('#screens .side .hubc').count());
+      check('S-8', 'Take on the hub\'s contract: the offer leaves a note of its height, the Trainer card stays under the pointer', stub === 1 && offerGone && Math.abs(trainer1.y - trainer0.y) <= 1, JSON.stringify({ before: trainer0 && Math.round(trainer0.y), after: trainer1 && Math.round(trainer1.y), stub, offerGone }));
+      // the Inn at full health asks first, in its own place
+      const inn = () => page.locator('#screens .side .svc-card', { has: page.locator('.nm', { hasText: /^(Inn|Rest anyway\?)$/ }) });
+      const innY0 = (await inn().boundingBox()).y;
+      const n0 = await engineLen(page);
+      await inn().click(); await idle(page);
+      const ask = await page.evaluate(() => { const a = document.querySelector('#screens .side .svc-card.ask'); return a ? a.innerText.replace(/\s+/g, ' ') : null; });
+      const innY1 = (await page.locator('#screens .side .svc-card.ask').boundingBox()).y;
+      const n1 = await engineLen(page);
+      await page.locator('#screens .side .svc-card.ask [data-inn="cancel"]').click(); await idle(page);
+      const back = !(await page.locator('#screens .side .svc-card.ask').count()); const n2 = await engineLen(page);
+      await inn().click(); await idle(page);
+      await page.locator('#screens .side .svc-card.ask [data-inn="rest"]').click(); await idle(page);
+      const last = (await lastActs(page, 1))[0];
+      check('S-8', 'the Inn at full health and mana asks first in its own place ("Rest anyway?"); Cancel sends nothing; Rest rests',
+        !!ask && /Rest anyway\?/.test(ask) && Math.abs(innY1 - innY0) <= 1 && n1 === n0 && back && n2 === n0 && last && last.type === 'SERVICE' && last.service === 'inn', JSON.stringify({ ask, y: [innY0, innY1], n: [n0, n1, n2], last }));
+      // hurt: one click rests (zone 3's hub)
+      await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 3, level: 22, mapMode: 'expedition', prep: true })); await idle(page);
+      await load(page, (s0) => { s0.player.hp = Math.round(s0.player.d.maxHp * 0.5); });
+      await inn().click(); await idle(page);
+      const last2 = (await lastActs(page, 1))[0];
+      check('S-8', 'the Inn when hurt rests at once (no ask)', last2 && last2.type === 'SERVICE' && last2.service === 'inn' && !(await page.locator('#screens .side .svc-card.ask').count()), JSON.stringify(last2));
+    } catch (e) { await shot(page, 'S4-error'); check('S-4', 'part S4 (the hub) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('S-4', 'part S4: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
+  // ---- S5: fights at 1x (Dev menu)
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=8736&fresh=1&guide=0', null, { hints: true });
+    try {
+      await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      const clearCoach = async () => { for (let i = 0; i < 4; i++) { if (!(await coach(page)).shown) return; await page.locator('#coach .co-ok').click(); await idle(page); } };
+      await clearCoach();
+      await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 2, level: 12, mapMode: 'expedition', prep: true })); await idle(page);
+      await page.evaluate(() => window.__ui.dev('fight', { ids: ['z2_bargh'] })); await idle(page);
+      await page.mouse.move(2, 2);
+      // the Deathblow hint (H04) on the coach line (hints come with a step: after Sap, W); then Pass (X): its "Deathblow
+      // answered" headline clear of the line
+      await page.keyboard.press('KeyW'); await idle(page);
+      const h04 = (await coach(page)).shown;
+      await page.keyboard.press('KeyX');
+      let head = null; let co = null;
+      for (let i = 0; i < 60 && !head; i++) {
+        await page.waitForTimeout(60);
+        const f = (await page.evaluate(() => window.__ui.floats())).floats.filter((x) => /^Deathblow answered/.test(x.text));
+        if (f.length) { head = f[0]; co = await box(page, '#coach'); }
+      }
+      await idle(page);
+      check('S-6', `the enemy's "Deathblow answered" headline keeps clear of the coach line (${h04 ? h04.id : 'no line'})`, !!h04 && !!head && !!co && !meet({ l: head.x0, t: head.y0, r: head.x1, b: head.y1 }, co), JSON.stringify({ head: head && [head.x0, head.y0, head.x1, head.y1].map(Math.round), coach: fmt(co) }));
+      await clearCoach();
+      // a refused key: energy too low, also while a round plays: the reason at once, in words, nothing queued
+      await load(page, (s0) => { s0.fight.p.energy = 45; s0.fight.p.cds = {}; });
+      const bar = await page.evaluate(() => window.__ui.view().player.bar);
+      const gj = bar.indexOf('gutting_jab') + 1;
+      await watchToasts(page);
+      await page.keyboard.press(`Digit${gj}`); await page.waitForTimeout(150);
+      const s1 = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT);
+      const want = `Not enough energy for ${R.C.SPELL.gutting_jab.name}: it costs ${R.spellCost(s1, 'gutting_jab')}, you have ${Math.floor(s1.fight.p.energy)}`;
+      const playing0 = !!(await page.evaluate(() => window.__ui.playingEvent()));
+      await page.keyboard.press(`Digit${gj}`); await page.waitForTimeout(200);
+      const mid = await page.evaluate(() => ({ playing: !!window.__ui.playingEvent(), queued: window.__ui.queued(), toasts: window.__sT.slice() }));
+      await idle(page);
+      check('S-7', `a spell key with too little energy, pressed while the round plays: "${want}" at once, nothing queued`, playing0 && mid.playing && !mid.queued && mid.toasts.some((t) => t.startsWith(want)), JSON.stringify(mid));
+      // the flee ask: F, the box stays (past the old 2.2 s), Esc puts it away; F then the button runs
+      const ask = () => page.evaluate(() => { const a = document.getElementById('fleeask'); const b = [...document.querySelectorAll('#actionbar .ctrl .btn')].find((x) => /Flee|Confirm/.test(x.textContent)); return { shown: !!a && !a.classList.contains('hidden'), text: a ? a.innerText.replace(/\s+/g, ' ') : '', btn: b ? b.textContent : null }; });
+      const nF = await engineLen(page);
+      await page.keyboard.press('KeyF'); await idle(page);
+      const a1 = await ask(); await page.waitForTimeout(2600); const a2 = await ask();
+      const fa = await box(page, '#fleeask'); const tp = await box(page, '#turnprompt');
+      await shot(page, 'S5-flee-ask');
+      await page.keyboard.press('Escape'); await idle(page);
+      const a3 = await ask(); const nE = await engineLen(page);
+      check('S-7', 'F asks "Flee this fight?" over the control row and the button reads Confirm?; the ask stays until answered (2.6 s on); Esc puts it away, nothing sent',
+        a1.shown && /Flee this fight\?/.test(a1.text) && /^Confirm\?/.test(a1.btn) && a2.shown && !meet(fa, tp) && !a3.shown && /^Flee/.test(a3.btn) && nE === nF, JSON.stringify({ a1, a2: a2.shown, a3, n: [nF, nE] }));
+      await page.keyboard.press('KeyF'); await idle(page);
+      await page.locator('#actionbar .ctrl .btn', { hasText: 'Confirm?' }).click(); await idle(page);
+      const fl = (await page.evaluate(() => window.__ui.engineLog())).slice(nE).map((x) => x.type);
+      check('S-7', 'F then the Confirm? button flees (FLEE sent)', fl.includes('FLEE'), JSON.stringify(fl));
+      // a refused flee says why (a fight that cannot be fled)
+      await page.evaluate(() => window.__ui.dev('fight', { ids: ['z2_bargh'] })); await idle(page);
+      await load(page, (s0) => { s0.fight.canFlee = false; });
+      await watchToasts(page);
+      const nR = await engineLen(page);
+      await page.keyboard.press('KeyF'); await page.waitForTimeout(200);
+      const why = await page.evaluate(() => ({ toasts: window.__sT.slice(), ask: !document.getElementById('fleeask').classList.contains('hidden') }));
+      check('S-7', 'F where fleeing is not allowed: the reason as a toast at once, no ask, nothing sent', why.toasts.some((t) => /flee/i.test(t)) && !why.ask && (await engineLen(page)) === nR, JSON.stringify(why));
+      // a mana spell with no mana: the reason in words at once
+      await page.evaluate(() => window.__ui.dev('build', { classId: 'mage', zone: 2, level: 12, mapMode: 'expedition', prep: true })); await idle(page);
+      await page.evaluate(() => window.__ui.dev('fight', { ids: ['z2_bargh'] })); await idle(page);
+      await page.keyboard.press('KeyX'); await idle(page);
+      await load(page, (s0) => { s0.player.mana = 0; });
+      const mbar = await page.evaluate(() => window.__ui.view().player.bar);
+      const sp = mbar.find((id) => id && R.C.SPELL[id] && R.C.SPELL[id].cost > 0 && R.C.SPELL[id].target === 'enemy');
+      await watchToasts(page);
+      await page.keyboard.press(`Digit${mbar.indexOf(sp) + 1}`); await page.waitForTimeout(150);
+      const s2 = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT);
+      const wantM = `Not enough mana for ${R.C.SPELL[sp].name}: it costs ${R.spellCost(s2, sp)}, you have 0`;
+      const mt = await page.evaluate(() => window.__sT.slice());
+      check('S-7', `a spell key with no mana: "${wantM}" at once`, mt.some((t) => t.startsWith(wantM)), JSON.stringify(mt));
+      // a level-up in the middle of a fight: the banner keeps clear of the fight's panels
+      await page.evaluate(() => window.__ui.dev('fight', { ids: ['z1_furrow_boar', 'z1_furrow_boar'], level: 10 })); await idle(page);
+      await page.keyboard.press('KeyX'); await idle(page);
+      await load(page, (s0) => { s0.player.xp = R.xpToNext(s0.player.level) - 5; s0.player.mana = s0.player.d.maxMana; s0.fight.enemies[0].hp = 1; });
+      const lv0 = await page.evaluate(() => window.__ui.view().player.level);
+      const eb = await page.evaluate(() => window.__ui.view().player.bar.indexOf('ember_bolt') + 1);
+      await page.mouse.move(2, 2);
+      await page.keyboard.press(`Digit${eb}`);
+      let lb = null;
+      for (let i = 0; i < 60 && !lb; i++) { await page.waitForTimeout(50); lb = await page.evaluate(() => { const b = document.getElementById('banner'); return b.classList.contains('on') && b.classList.contains('level') ? (() => { const r = b.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; })() : null; }); }
+      const panels = lb ? await boxes(page, '#target-frame, #ruler, #nameplates .np, #turnprompt, #actionbar, #player-frame, #tracker') : [];
+      await shot(page, 'S5-levelup');
+      await idle(page);
+      const lv1 = await page.evaluate(() => window.__ui.view().player.level);
+      const hitP = panels.filter((p) => meet(lb, p)).map((p) => p.id);
+      check('S-6', `a level-up mid-fight (${lv0} -> ${lv1}): the banner covers none of the fight's panels (${panels.length} in view)`, lv1 > lv0 && !!lb && !hitP.length, `banner ${fmt(lb)} covers ${hitP.join(', ') || 'none'}`);
+      // the death screen: the fight's panels give way to "You have died"
+      await page.evaluate(() => window.__ui.dev('fight', { ids: ['z2_bargh'] })); await idle(page);
+      await load(page, (s0) => { s0.player.hp = 1; s0.player.res.boon = 0; s0.player.res.meta = 0; s0.player.bag = s0.player.bag.filter((x) => !(x.kind === 'cons' && x.id === 'ember_of_return')); });
+      let dead = null;
+      for (let k = 0; k < 12 && !dead; k++) {
+        await page.keyboard.press('KeyX');
+        for (let i = 0; i < 50 && !dead; i++) {
+          await page.waitForTimeout(60);
+          dead = await page.evaluate(() => { const d = document.querySelector('.deathmsg'); if (d.parentElement.classList.contains('hidden')) return null; return { dying: document.body.classList.contains('dying') }; });
+        }
+        if (!dead) await idle(page);
+      }
+      if (dead) { await page.waitForTimeout(450); dead.msg = await box(page, '.deathmsg'); dead.panels = await boxes(page, '#target-frame, #nameplates .np, #ruler, #turnprompt'); }
+      await shot(page, 'S5-death');
+      await idle(page);
+      check('S-6', '"You have died": the fight\'s panels (target frame, nameplates, ruler, turn prompt) give way while it shows', !!dead && dead.dying && !!dead.msg && !dead.panels.some((p) => meet(dead.msg, p)), JSON.stringify(dead));
+    } catch (e) { await shot(page, 'S5-error'); check('S-5', 'part S5 (fights at 1x) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('S-5', 'part S5: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+}
+
 for (const [W, H] of SIZES) {
   SIZE = `${W}x${H}`;
   if (PARTS.includes('A')) await partA(browser, W, H);
@@ -4124,6 +4537,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('P')) await partP(browser, W, H);
   if (PARTS.includes('Q')) await partQ(browser, W, H);
   if (PARTS.includes('R')) await partR(browser, W, H);
+  if (PARTS.includes('S')) await partS(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);
