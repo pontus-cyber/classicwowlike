@@ -69,6 +69,25 @@ function nodeDesc(type, r) {
   }
 }
 
+/** The level a fog-map node's fight is at: an elite's own `level` (its node level + ELITE_LEVEL_OFFSET), else its `cl`. */
+export const nodeLevel = (n) => (n.type === 'elite' && n.level ? n.level : n.cl);
+/**
+ * A fog-map node's description (D144, engine-2026-11-13d UI needs 5 and 8): an elite says its level against the player's
+ * (the casual read "one level higher" for a level 17 elite at level 10); a Grind says the waves this map gives
+ * (mapView `waves`, one on the expedition map), not the classic map's 1 to GRIND_MAX_WAVES of GRIND_WAVE_SIZE.
+ */
+export function expNodeDesc(n, p, rules) {
+  if (n.type === 'elite' && n.level && p) {
+    const gap = n.level - p.level;
+    return `One powerful enemy at level ${n.level}, ${gap > 0 ? `${gap} ${plural(gap, 'level')} above you` : gap < 0 ? `${-gap} ${plural(-gap, 'level')} below you` : 'your level'}. High experience and a guaranteed good item.`;
+  }
+  if (n.type === 'grind' && n.waves) {
+    const foes = n.archetypes && n.archetypes.length ? ` of ${enemies(n.archetypes.length)}` : '';
+    return `${n.waves === 1 ? `One wave${foes}` : `1 to ${n.waves} waves; the first${foes}`}. Steady experience, gold and more drops.`;
+  }
+  return nodeDesc(n.type, rules);
+}
+
 export function createScreens(root, ctx) {
   const layer = h('div#screens');
   root.appendChild(layer);
@@ -596,16 +615,17 @@ function buildExpMap(v, ctx, readOnly) {
     const here = n.id === mv.pos;
     const full = n.know === 'full';
     const band = mv.bands && mv.bands[n.ring] ? mv.bands[n.ring] : null;
-    const label = n.hub ? 'Hub' : full && n.cl ? String(n.cl) : n.know === 'type' && band ? `${band[0]}–${band[1]}` : '?';
+    const label = n.hub ? 'Hub' : full && n.cl ? String(nodeLevel(n)) : n.know === 'type' && band ? `${band[0]}–${band[1]}` : '?';
     // D128 (owner playtest 2026-11-12 20:19: smaller icons, less clutter): text labels only where the player acts: his
     // node, the reachable nodes and contract sites. Every other node is "quiet": its level a small coloured pip, its band
     // and enemy count on hover (the tooltip), its Dimming clock a number only.
     const loud = here || !!m || !!(n.sites && n.sites.length);
     const fightLvl = full && n.cl && !n.hub && !NO_FIGHT.has(n.type);
+    const shownLvl = nodeLevel(n);
     const el = h(`button.mnode.x-${fog}` + (m ? '.reach' : '') + (n.done && !n.hub ? '.visited' : '') + (here ? '.here' : '') + (n.dimmed ? '.dimmed' : '') + (n.lost ? '.lost' : '') + (type ? '' : '.fog') + (n.hub ? '.xhub' : '') + (n.shardfall ? '.xsf' : '') + (n.road ? '.xrd' : '') + (n.barred ? '.barred' : '') + (n.road && n.closed ? '.rclosed' : '') + (loud ? '' : '.quiet'),
       { style: { left: `${x / 10}%`, top: `${y / 10}%` }, 'aria-label': `${type ? NODE_NAME[type] || 'Hub' : 'Unknown'} node ${n.id}`, dataset: { node: n.id, fog } },
       h('div.ring', type ? h('img', { src: nodeIcon(type), alt: '' }) : h('span.fogq', '?')),
-      h('div.cl' + (n.know === 'type' ? '.band' : '') + (fightLvl ? '.lvl' : ''), { style: { color: fightLvl ? conColor(n.cl, p.level) : NEUTRAL } }, label));
+      h('div.cl' + (n.know === 'type' ? '.band' : '') + (fightLvl ? '.lvl' : ''), { style: { color: fightLvl ? conColor(shownLvl, p.level) : NEUTRAL } }, label));
     if (here) el.appendChild(flagSvg());
     // enemy count on a seen fight node (BUG-QA-02)
     const foes = full && !n.hub && !n.done ? (n.type === 'dungeon' ? null : n.archetypes && n.archetypes.length ? n.archetypes.length : null) : null;
@@ -846,11 +866,15 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
   const type = n.hub ? 'hub' : n.know !== 'none' ? n.type : null;
   const full = n.know === 'full';
   const box = h('div.tt-node');
-  const lvl = full && n.cl && !n.hub ? h('div', { style: { color: NO_FIGHT.has(n.type) ? NEUTRAL : conColor(n.cl, p.level), fontWeight: 800 } }, `Level ${n.cl}`) : null;
+  const L = nodeLevel(n); // D144: an elite fights at its own level (mapView `level`), not the node's
+  const lvl = full && L && !n.hub ? h('div', { style: { color: NO_FIGHT.has(n.type) ? NEUTRAL : conColor(L, p.level), fontWeight: 800 } }, `Level ${L}`) : null;
   box.appendChild(h('div.tt-row', h('div.tt-name', n.hub ? z.hubName : type ? NODE_NAME[type] || type : 'Unknown'), lvl));
   const band = mv.bands && mv.bands[n.ring];
   const reg = n.region != null && mv.regions[n.region] ? mv.regions[n.region] : null;
-  box.appendChild(h('div.tt-sub', [n.hub ? 'Zone hub: trainer, vendor and inn' : `Ring ${n.ring}${band ? ` · levels ${band[0]}–${band[1]}` : ''}`, reg && reg.name ? reg.name : null].filter(Boolean).join(' · ')));
+  // D144 (engine-2026-11-13d UI need 9; tactician s0119 "Ring 3 · levels 8-10" and "Level 5"): the ring's band only while the
+  // node's own level is not known; a guided zone's scripted or site fight says so (mapView `guided`)
+  const ringText = `Ring ${n.ring}${n.guided ? ' · guided fight' : band && !(full && L) ? ` · levels ${band[0]}–${band[1]}` : ''}`;
+  box.appendChild(h('div.tt-sub', [n.hub ? 'Zone hub: trainer, vendor and inn' : ringText, reg && reg.name ? reg.name : null].filter(Boolean).join(' · ')));
   const fog = fogState(n, mv);
   if (fog === 'unknown') box.appendChild(h('div.tt-line.muted', 'Unknown: not seen yet. Its ring gives its level range.'));
   else if (fog === 'typed') box.appendChild(h('div.tt-line.muted', 'Known from afar: its type only.'));
@@ -863,9 +887,9 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
     if (n.type === 'dungeon' && n.fights && n.fights.length) {
       n.fights.forEach((f, i) => box.appendChild(h('div.tt-foes', h('span.k', `Fight ${i + 1}: ${enemies(f.length)}`), archChips(f))));
       if (n.bossArchetype) box.appendChild(h('div.tt-foes', h('span.k', 'Boss'), archChips([n.bossArchetype])));
-    } else if (n.archetypes && n.archetypes.length) box.appendChild(h('div.tt-foes', h('span.k', `${n.type === 'grind' ? 'Wave 1' : n.type === 'treasure' ? 'Guard' : 'Foes'}: ${enemies(n.archetypes.length)}`), archChips(n.archetypes)));
+    } else if (n.archetypes && n.archetypes.length) box.appendChild(h('div.tt-foes', h('span.k', `${n.type === 'grind' && n.waves > 1 ? 'Wave 1' : n.type === 'treasure' ? 'Guard' : 'Foes'}: ${enemies(n.archetypes.length)}`), archChips(n.archetypes)));
     else if (n.type === 'treasure' && n.guarded === false) box.appendChild(h('div.tt-line', 'Unguarded'));
-    if (n.type) box.appendChild(h('div.tt-line.desc', nodeDesc(n.type, ctx.data.rules)));
+    if (n.type) box.appendChild(h('div.tt-line.desc', expNodeDesc(n, p, ctx.data.rules)));
     if (n.lost) box.appendChild(h('div.tt-warn', 'Lost to the Dimming: it can no longer be done.'));
     else if (n.done) box.appendChild(h('div.tt-hint', 'Done'));
   }

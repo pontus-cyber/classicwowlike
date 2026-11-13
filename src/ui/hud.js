@@ -177,6 +177,18 @@ function enemyPortrait(e, theme) {
   });
 }
 
+/**
+ * The tracker's Grind line (D144, engine-2026-11-13d UI need 8): "Wave 2 of 3" while a wave is fought (the node's fightNo),
+ * "1 of 3 waves done" between waves (a won wave's spoils carry the node as it was in the fight, so that wave counts), or
+ * "Choose how many waves" before the choice.
+ */
+export function grindLine(n, combat) {
+  if (!n.wavesChosen) return 'Choose how many waves';
+  if (combat && !combat.over) return `Wave ${Math.min(n.fightNo, n.wavesChosen)} of ${n.wavesChosen}`;
+  const done = Math.min(n.wavesChosen, combat && combat.over === 'victory' ? Math.max(n.waves, n.fightNo) : n.waves);
+  return `${done} of ${n.wavesChosen} ${n.wavesChosen === 1 ? 'wave' : 'waves'} done`;
+}
+
 export function createHud(root, ctx) {
   const els = {};
   // ------------------------------------------------------------ player frame
@@ -795,7 +807,9 @@ export function createHud(root, ctx) {
     if (n && v.phase === 'NODE') {
       if (n.type === 'quest') { const k = n.mobs ? n.mobs.length : 1; lines.push(['h', n.title || 'Quest']); lines.push(['l', n.step === 'reward' || n.step === 'story' ? 'Return to ' + (n.giver || 'the quest giver') : `Defeat ${k} ${k === 1 ? 'enemy' : 'enemies'}`]); }
       else if (n.type === 'dungeon') { const all = R.dungeonTrashFights + 1; lines.push(['h', n.dungeon]); lines.push(['l', `Fight ${Math.max(1, n.fightNo)} of ${all}${n.fightNo >= all ? ': ' + n.bossName : ''}`]); }
-      else if (n.type === 'grind') { lines.push(['h', 'Grind']); lines.push(['l', n.wavesChosen ? `Wave ${n.waves} of ${n.wavesChosen}` : 'Choose how many waves']); }
+      // D144 (engine-2026-11-13d UI need 8; tactician: "Wave 0 of 1" in the first wave): the wave being fought (fightNo),
+      // else the waves done (a won wave's spoils show the node as it was in the fight: that wave counts)
+      else if (n.type === 'grind') { lines.push(['h', 'Grind']); lines.push(['l', grindLine(n, v.combat)]); }
       else if (n.type === 'elite') { lines.push(['h', n.rare ? 'Rare elite' : 'Elite']); lines.push(['l', `Defeat ${n.eliteName}`]); }
     }
     const nNode = lines.length;

@@ -291,7 +291,10 @@ export function trackerContracts(v, ctx) {
   const colors = contractColors(cv);
   const here = cv.contracts.filter((c) => c.z === z && c.status !== 'abandoned');
   const later = cv.contracts.filter((c) => c.status === 'later');
-  const out = [h('div.tk-h.tk-ch', `Contracts ${cv.held}/${cv.slots}`, h('span.tk-res', ` · Reserve ${cv.reserve}`))];
+  // D144 (engine-2026-11-13d UI need 10; casual s0079: "Contracts 1/4" became "0/4" on completing one): the slots held,
+  // said as slots, and the contracts done this run
+  const won = cv.contracts.filter((c) => c.status === 'complete').length;
+  const out = [h('div.tk-h.tk-ch', `Contract slots ${cv.held}/${cv.slots}`, won ? h('span.tk-done', ` · ${won} done`) : null, h('span.tk-res', ` · Reserve ${cv.reserve}`))];
   if (!here.length) out.push(h('div.tk-l.tk-none', z ? 'None in this zone' : 'None'));
   for (const c of here) {
     const el = h('div.tk-c' + (c.status === 'complete' ? '.done' : c.status === 'expired' ? '.gone' : ''), { dataset: { contract: c.id, status: c.status }, style: { '--cc': colors.get(c.id) || OFF_COLOR } },
