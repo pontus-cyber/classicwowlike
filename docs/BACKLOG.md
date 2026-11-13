@@ -63,12 +63,12 @@ Owner ideas and team proposals not yet scheduled. The Lead places each item into
 | 2026-11-09 | Owner glance at plain compound names for similarity to existing games (Barrowdeep, Mournwood, Greywater Fens) | Content Designer | M4 | todo |
 | 2026-11-09 | Quest givers, merchants, trainers use a generic figure | UI/UX Engineer | M4 | todo |
 | 2026-11-09 | Phone layout | Brief | after M4 | todo |
-| 2026-11-13 | Guided zone: open Gorrak's gate after S3 (not S4) so zone 1 ends by Road, not in the Dimming; measure on seed 8736, all classes (D143) | Content Designer + Engineer | M3 3.7 | doing |
-| 2026-11-13 | UI: anchor G13.closed on Gorrak's map node, add it to MAP_LINES, closed mark on Road nodes, toast when Roads open; decide G10 in MAP_LINES; ONB_HINT_SHOWS to constants; spec lines from ui-2026-11-13c section 6 (D143) | UI/UX Engineer | M3 3.7 | todo |
+| 2026-11-13 | Guided zone: open Gorrak's gate after S3 (not S4) so zone 1 ends by Road, not in the Dimming; measure on seed 8736, all classes (D143) | Content Designer + Engineer | M3 3.7 | done (6745950) |
+| 2026-11-13 | UI: anchor G13.closed on Gorrak's map node, add it to MAP_LINES, closed mark on Road nodes, toast when Roads open; decide G10 in MAP_LINES; ONB_HINT_SHOWS to constants; spec lines from ui-2026-11-13c section 6 (D143) | UI/UX Engineer | M3 3.7 | done (72b91c0) |
 | 2026-11-13 | Autoplay bar order puts the Rogue finisher in slot 1 (refused at 0 combo points); engine refusal messages use spell ids. Rules call (D143) | Designer + Engineer | M3 | todo |
 | 2026-11-13 | QA tooling: playtest-onboarding presses only the first key on a line ('Q then 1') | QA | M3 | todo |
-| 2026-11-13 | Blind panel findings, UI batch: tips before the map, elite tooltip, stale bag tooltip, overflow and overlaps, refusal and flee feedback, confirms for Bell and Inn, bag reflow, equip-now on rewards (feedback 2026-11-13-blind-*) | UI/UX Engineer | M3 | doing |
-| 2026-11-13 | Blind panel findings, engine/content: trainer advice at level 1, 'spend your big hit' into a shield, text mismatches, class-biased reward stats, AoE freeze miss (feedback 2026-11-13-blind-*) | Engineer | M3 | doing |
+| 2026-11-13 | Blind panel findings, UI batch: tips before the map, elite tooltip, stale bag tooltip, overflow and overlaps, refusal and flee feedback, confirms for Bell and Inn, bag reflow, equip-now on rewards (feedback 2026-11-13-blind-*) | UI/UX Engineer | M3 | done (faa9b7b) |
+| 2026-11-13 | Blind panel findings, engine/content: trainer advice at level 1, 'spend your big hit' into a shield, text mismatches, class-biased reward stats, AoE freeze miss (feedback 2026-11-13-blind-*) | Engineer | M3 | done (1d035ec) |
 | 2026-11-13 | Zone 1 too easy, fast levelling, zone 2 cliff (both blind testers): measure and tune | Sim + Designer | M3 | doing |
 | 2026-11-13 | Blind panel round 2: add explorer (lore), competitive speed player and impatient skipper personas; run at end of each milestone (D144) | Lead | M3 end | todo |
 | 2026-11-13 | Zone 1 too easy: lever other than enemy count (XP pace, guided board contract payout of a third of zone 1 XP); add balance rows for zone 1 difficulty and the zone-entry step; re-set B15 for the expedition map (D146) | Designer + Sim | M3 | todo |
