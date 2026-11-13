@@ -44,6 +44,8 @@ export async function runBatch(opts) {
     ...(opts.gates ? { gates: opts.gates } : {}),
     // D128: the start camp's options ('all' or ids; none: the engine's C.PREP_CAMP_OPTIONS).
     ...(opts.campOptions ? { campOptions: opts.campOptions } : {}),
+    // Report balance-2026-11-13c: the guided first run (newRun tutorial).
+    ...(opts.guided ? { guided: true } : {}),
   };
   const name = opts.name || cellName({ ...cellBase, tree: null });
   const dir = opts.out ? ensureDir(join(opts.out, name)) : null;
@@ -85,6 +87,7 @@ export async function runBatch(opts) {
     ...(opts.gates ? { gates: opts.gates } : {}),
     // M2b v14: the C.GATES switches the cell played (the engine's defaults when it names none).
     gatesPlayed: gatesFor(opts.gates || null),
+    ...(opts.guided ? { guided: true } : {}),
     // D128: the options the start camp offered (the engine's list when the cell names none).
     ...(opts.prep ? { campOptions: opts.campOptions || null, campPlayed: campOptionsFor(opts.campOptions || null) } : {}),
   };

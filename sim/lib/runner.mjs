@@ -49,7 +49,7 @@ export function runWithBot(cell, seed, risk, opts = {}) {
   setGates(cell.gates);
   setCampOptions(cell.campOptions);
   const bot = createBot(cell.bot, { classId: cell.cls, seed, risk, tree: cell.tree, style: cell.style, variant: cell.variant, ...(cell.prepPolicy ? { prepPolicy: cell.prepPolicy } : {}), ...(cell.prepForce ? { prepForce: cell.prepForce } : {}), ...(cell.prepBan ? { prepBan: cell.prepBan } : {}) });
-  const s = newRunFor({ classId: cell.cls, petId: cellPet(cell), seed, profile, mapMode: cell.map || null, vision: cell.vision || null, dimming: cell.dimming === false ? false : null, prep: !!cell.prep });
+  const s = newRunFor({ classId: cell.cls, petId: cellPet(cell), seed, profile, mapMode: cell.map || null, vision: cell.vision || null, dimming: cell.dimming === false ? false : null, prep: !!cell.prep, tutorial: !!cell.guided });
   // Expedition measures (expedition.md 11.1; MILESTONES 2b.4). cell.oracle: at every map decision of the acting bot,
   // the planner's fog choice and the oracle's full-information choice from the same state (C_step = agree / n, B41);
   // neither changes the run. Close calls (B43): zones in which the front came within one hop of the player.
@@ -75,6 +75,7 @@ export function runWithBot(cell, seed, risk, opts = {}) {
   let err = null;
   let snap = null;
   let snapFight = -1;
+  let gfb = 0;
   const rep = cell.replay ? [] : null;
   const pr = cell.pairs ? [] : null;
   const tk = cell.think ? [] : null;
@@ -91,6 +92,9 @@ export function runWithBot(cell, seed, risk, opts = {}) {
     }
     let a;
     try { a = bot.choose(s); } catch (e) { err = `bot ${cell.bot}: ${e.message}`; break; }
+    // Guided run (report balance-2026-11-13c): the sim bots do not read the guide's barred node and closed Roads; an
+    // action the guide refuses is replaced by the engine's autoplay action (which honours them), counted in gfb.
+    if (cell.guided && s.tutorial && !R.isLegal(s, a)) { a = R.autoAction(s); gfb++; }
     if (xs && s.phase === 'MAP' && !s.fight && !s.loot.length && s.mapMode === 'expedition') {
       const v = R.mapView(s);
       if (v && (v.nodes[v.pos].dimmed || v.nodes[v.pos].nb.some((id) => v.nodes[id].dimmed)) && !xs.cz.includes(v.z)) xs.cz.push(v.z);
@@ -126,7 +130,7 @@ export function runWithBot(cell, seed, risk, opts = {}) {
   const ms = performance.now() - t0;
   const bm = bot.memory ? { plans: bot.memory.plans || 0, replans: bot.memory.replans || 0, auto: bot.memory.autoPlans || 0, evals: bot.memory.evals || 0 } : null;
   const record = rec.finish(s, {
-    ...cell, seed, steps: n, err, ms: Math.round(ms * 10) / 10, log, rep, pr, tk, tm, bm, xs,
+    ...cell, seed, steps: n, err, ms: Math.round(ms * 10) / 10, log, rep, pr, tk, tm, bm, xs, gfb,
     hash: opts.hash ? hash32(R.serialize(s)) : undefined,
   });
   return { record, state: s };
@@ -193,7 +197,7 @@ export function replayHash(cell, seed, log, profile = null) {
   const prof = profile || withoutMeta(withExpMeta(buildProfile(cell.prof, cell.cls), cell.expMeta || null), cell.metaDrop || null);
   setGates(cell.gates);
   setCampOptions(cell.campOptions);
-  let s = newRunFor({ classId: cell.cls, petId: cellPet(cell), seed, profile: prof, mapMode: cell.map || null, vision: cell.vision || null, dimming: cell.dimming === false ? false : null, prep: !!cell.prep });
+  let s = newRunFor({ classId: cell.cls, petId: cellPet(cell), seed, profile: prof, mapMode: cell.map || null, vision: cell.vision || null, dimming: cell.dimming === false ? false : null, prep: !!cell.prep, tutorial: !!cell.guided });
   for (const a of log) s = R.step(s, a).state;
   return hash32(R.serialize(s));
 }

@@ -39,6 +39,8 @@
 //            M2b v15: tag 'swift' (swiftRoad; off by default since D126, so the passage-on arm is '-swift':
 //            --gates rareHpMultZ1,firstMeetWindup,sapHold,passStealth,swiftRoad); an arm names every switch that stays on
 //            D128: tag 'rr' (campReroll, the start camp's reroll; off by default; the bots never reroll)
+//            report balance-2026-11-13c: --guided (with --map expedition --prep: the guided first run, newRun tutorial;
+//            zone 1 on TUTORIAL_SEED with the authored overlay; cell mark 'guided')
 //   campaigns: --map expedition --prep also apply (B31 / B32 on the expedition with the start camp)
 //   campaigns: node sim/run.mjs --campaign N --class <c|all> --out <dir> [--risk-in <risk.json>]
 //
@@ -65,7 +67,7 @@ function parse(argv) {
     const a = argv[i];
     if (!a.startsWith('--')) throw new Error(`unexpected argument ${a}`);
     const k = a.slice(2);
-    if (k === 'log' || k === 'replay' || k === 'pairs' || k === 'think' || k === 'think-mash' || k === 'oracle' || k === 'route' || k === 'prep' || k === 'beastcall-gated' || k === 'ricochet-gated') { o[k] = true; continue; }
+    if (k === 'log' || k === 'replay' || k === 'pairs' || k === 'think' || k === 'think-mash' || k === 'oracle' || k === 'route' || k === 'prep' || k === 'beastcall-gated' || k === 'ricochet-gated' || k === 'guided') { o[k] = true; continue; }
     o[k] = argv[++i];
   }
   return o;
@@ -73,6 +75,7 @@ function parse(argv) {
 
 const args = parse(process.argv.slice(2));
 if (args.prep && args.map !== 'expedition') throw new Error('--prep needs --map expedition');
+if (args.guided && !args.prep) throw new Error('--guided needs --map expedition --prep');
 if (args['prep-policy'] && !['none', 'random', 'auto'].includes(args['prep-policy'])) throw new Error('--prep-policy must be none, random or auto');
 const classes = !args.class || args.class === 'all' ? CLASSES : args.class.split(',');
 for (const c of classes) if (!CLASSES.includes(c)) throw new Error(`unknown class ${c}`);
@@ -147,7 +150,7 @@ try {
       prof: args.profile || 'fresh', trees, style: args.style || null, variant: args.variant || null, pet: args.pet || null,
       out, warmup: args.warmup !== undefined ? Number(args.warmup) : SIM.WARMUP_RUNS, obsIn, log: !!args.log, workers, replay: !!args.replay, pairs: !!args.pairs, think: !!args.think, thinkMash: !!args['think-mash'],
       map: args.map || null, vision: args.vision ? Object.fromEntries(args.vision.split(',').map((k) => [k, true])) : null, dimming: args.dimming === 'off' ? false : true, oracle: !!args.oracle, route: !!args.route,
-      prep: !!args.prep, prepPolicy: args['prep-policy'] || null, prepForce, prepBan, campOptions, tablesIn: args['tables-in'] || null, metaDrop, beastcallGated: !!args['beastcall-gated'], ricochetGated: !!args['ricochet-gated'], gates,
+      prep: !!args.prep, prepPolicy: args['prep-policy'] || null, prepForce, prepBan, campOptions, tablesIn: args['tables-in'] || null, metaDrop, beastcallGated: !!args['beastcall-gated'], ricochetGated: !!args['ricochet-gated'], gates, guided: !!args.guided,
       expMeta: args['exp-meta'] ? Object.fromEntries(args['exp-meta'].split(',').map((x) => { const [id, r] = x.split(':'); return [id, Number(r || 1)]; })) : null,
     });
     for (const [cls, x] of Object.entries(r.perClass)) {

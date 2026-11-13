@@ -74,12 +74,15 @@ if (errors.length) throw new Error(`sim: content is invalid:\n  ${errors.slice(0
  * expedition cell plays the start camp only when prep is set, so cells stay as they were before the game's
  * default switched to the expedition with the start camp (D116).
  */
-export function newRunFor({ classId, petId = null, seed, profile = null, mapMode = null, vision = null, dimming = null, prep = false }) {
+export function newRunFor({ classId, petId = null, seed, profile = null, mapMode = null, vision = null, dimming = null, prep = false, tutorial = false }) {
   const o = { classId, petId: classId === 'hunter' ? petId : null, seed, profile, content: CONTENT, validate: false };
   o.mapMode = mapMode || 'rows';
   if (vision) o.vision = vision;
   if (dimming === false) o.dimming = false;
   if (o.mapMode === 'expedition') o.prep = !!prep;
+  // M3 (report balance-2026-11-13c): the guided first run (newRun tutorial: zone 1 on TUTORIAL_SEED with the overlay;
+  // expedition with the start camp only). The bots never press SKIP_GUIDE.
+  if (tutorial) o.tutorial = true;
   return R.newRun(o);
 }
 

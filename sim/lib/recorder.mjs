@@ -40,6 +40,12 @@
 //   dm: Dimmed encounters (expedition runs with one; M2b v10 row C2, sim/lib/risk.mjs `dim`): [depth (engine `dim`
 //       event), died (0/1), HP % at the encounter's start, HP % after it (0 on a death), tolls the encounter cost (its
 //       `time` event: TIME_DIM_ESCAPE after an outward walk, else TIME_DIM_FIGHT; M2b v12)]
+//   lv: per fight, aligned with fx (report balance-2026-11-13c, the zone 1 to 2 cliff): [player level at the fight's start,
+//       highest enemy level at the start, mean enemy level at the start × 10 rounded, levels gained from XP during the
+//       fight (kills, waves) × 1000 rounded, levels from the node's payout after the fight (quest turn-in, wave, dungeon
+//       clear, until the next node) × 1000 rounded]. Levels are fractional: level + xp / xpToNext(level) after minus before.
+//   xz: XP per zone and source in fractional levels × 1000 (same reading): { '<zone>': { kill, wave, quest, contract,
+//       dungeon, story, swift } } (sources the engine's `xp` event names in `why`)
 //   ct: start camp and contracts (prep runs only; expedition.md 2-3, 11.1 B39, B40, B42, B46): { c: per contract taken
 //       [zone, kind, from ('b' board, 'h' hub), state ('c' complete, 'e' expired, 'a' abandoned, 'h' held at the end),
 //       progress, need], xpC (XP of contract rewards), xp (all XP gained), bought (prep options), res (Reserve left),
@@ -90,6 +96,17 @@ export class Recorder {
     this.dimAt = null;
     this.fc = [];
     this.nodeN = 0;
+    this.lv = [];
+    this.xz = {};
+    this.lastLv = null; // the lv entry of the last fight, open for its node's payout until the next node
+  }
+
+  /** Push the lv entry of the fight that just ended (aligned with fx). */
+  closeLv() {
+    const fz = this.fight;
+    const e = [fz.pl, fz.el, fz.em, Math.round(fz.lk * 1000), 0];
+    this.lv.push(e);
+    this.lastLv = e;
   }
 
   /** State facts before a step; with the action `a`, the combat v2 fields that need the state before it. */
@@ -123,7 +140,7 @@ export class Recorder {
         }
       }
     }
-    return { hp: p.hp, maxHp: p.d.maxHp, level: p.level, rounds: s.stats.rounds };
+    return { hp: p.hp, maxHp: p.d.maxHp, level: p.level, xp: p.xp, rounds: s.stats.rounds };
   }
 
   /** Combat v2.1: did a wind-up's hit end the run in this step (the enemy played its wind-up and is the killer)? */
@@ -162,6 +179,10 @@ export class Recorder {
     let hp = b.hp;
     let lvlApplied = false;
     const hpAfter = () => p.hp / p.d.maxHp;
+    // Fractional level before each `xp` event (lv, xz): level + xp / xpToNext(level), rolled forward event by event.
+    let curL = b.level;
+    let curX = b.xp;
+    const fracL = () => (curL >= C.MAX_LEVEL ? curL : curL + curX / R.xpToNext(curL));
     for (const e of events) {
       switch (e.t) {
         case 'damage':
@@ -232,6 +253,7 @@ export class Recorder {
           break;
         case 'node':
           this.nodeN++;
+          this.lastLv = null;
           if (ENTRY_NODE.has(e.type)) this.openEntry(e.type, e.cl - b.level, b.hp / b.maxHp);
           break;
         case 'dim': { const te = events.find((x) => x.t === 'time' && x.why === 'dim'); this.dimAt = { d: e.depth, hp0: pct(hp / b.maxHp), t: te ? te.add : 0 }; break; }
@@ -242,7 +264,10 @@ export class Recorder {
             round: 1, firstOb: 0, opened: 0, used: 0, win: new Map(), signal: 0, hpOpen: null,
             wuA: 0, wuL: 0, wuK: 0, dis: 0, wuNow: null, dbA: 0, dbL: 0, dbK: 0, mm: 0, hm: 0, dbNow: null,
             hp0: pct(hp / b.maxHp), nodeN: this.nodeN, comp: fightComp(s, e),
+            pl: b.level, el: e.enemies.reduce((m, x) => Math.max(m, x.level || 0), 0),
+            em: e.enemies.length ? Math.round((10 * e.enemies.reduce((n, x) => n + (x.level || 0), 0)) / e.enemies.length) : 0, lk: 0,
           };
+          this.lastLv = null;
           const lvl = e.enemies.length ? e.enemies[0].level : b.level;
           if (e.kind === 'grind' || e.kind === 'camp') this.openEntry(e.kind, lvl - b.level, hp / b.maxHp);
           else if (this.entry && this.entry.type === 'quest' && e.kind === 'quest') this.entry.type = `quest${Math.min(3, e.enemies.length)}`;
@@ -259,6 +284,7 @@ export class Recorder {
             const fz = this.fight;
             this.fx.push([FK[fz.kind], rounds, e.t === 'victory' ? 1 : 2, pct(hp / p.d.maxHp), fz.z, permille(fz.min), s.stats.potionsUsed - fz.pot]);
             this.fc.push([fz.hp0, fz.nodeN, fz.comp]);
+            this.closeLv();
             this.closeF2(false, hp / p.d.maxHp);
             const k = this.fight.kind;
             this.fight = null;
@@ -277,6 +303,7 @@ export class Recorder {
               const rounds = this.fight.kind === 'boss' ? s.stats.bossRounds : s.stats.rounds - this.fight.r0;
               this.fx.push([FK[this.fight.kind], rounds, 0, 0, this.fight.z, 0, s.stats.potionsUsed - this.fight.pot]);
               this.fc.push([this.fight.hp0, this.fight.nodeN, this.fight.comp]);
+              this.closeLv();
               this.fight.wuK = this.killedByWindup(s, events);
               this.fight.dbK = this.fight.wuK && this.fight.dbNow && this.fight.dbNow.has(s.death.killer.idx) ? 1 : 0;
               this.closeF2(true, 0);
@@ -287,7 +314,20 @@ export class Recorder {
           }
           break;
         case 'travel': this.travelLv.push(b.level); break;
-        case 'xp': if (e.why === 'contract') this.xpC += e.amount; break;
+        case 'xp': {
+          if (e.why === 'contract') this.xpC += e.amount;
+          const f0 = fracL();
+          curX += e.amount;
+          while (curL < C.MAX_LEVEL && curX >= R.xpToNext(curL)) { curX -= R.xpToNext(curL); curL++; }
+          if (curL >= C.MAX_LEVEL) curX = 0;
+          const dl = fracL() - f0;
+          const z = String(zoneOf(s));
+          const zx = this.xz[z] || (this.xz[z] = {});
+          zx[e.why] = (zx[e.why] || 0) + Math.round(dl * 1000);
+          if (this.fight && (e.why === 'kill' || e.why === 'wave')) this.fight.lk += dl;
+          else if (!this.fight && this.lastLv && e.why !== 'contract') this.lastLv[4] += Math.round(dl * 1000);
+          break;
+        }
         case 'service':
           if (this.trainCheck && e.service === 'trainer' && e.where !== 'node') {
             const c = trainAllCovered(s);
@@ -335,12 +375,13 @@ export class Recorder {
       ech: sum ? sum.echoes.total : 0, echFirst: line('firstKill'), echSpeed: line('speed'),
       rests: st.rests || 0, potions: sum ? sum.potionsUsed : 0, res: sum ? sum.resurrectsUsed : 0,
       gold: sum ? sum.gold : null, travelLv: this.travelLv, train: this.train, ember: this.ember, boss: this.boss,
-      fx: this.fx, f2: this.f2, wy: this.wy, fc: this.fc, ne: this.ne, steps: meta.steps, ms: meta.ms,
+      fx: this.fx, f2: this.f2, wy: this.wy, fc: this.fc, ne: this.ne, lv: this.lv, xz: this.xz, steps: meta.steps, ms: meta.ms,
       ht: sum && sum.heat ? sum.heat.nodesByState : null,
       ...(sum && sum.expedition ? { ex: expRecord(sum.expedition) } : {}),
       ...(this.dm.length ? { dm: this.dm } : {}),
       ...(this.emb.some(Boolean) ? { emb: this.emb } : {}),
       ...(meta.xs ? { xs: meta.xs } : {}),
+      ...(meta.gfb ? { gfb: meta.gfb } : {}),
       ...(s.exp && s.exp.prep ? { ct: this.contractRecord(s) } : {}),
       ...(meta.rep ? { rep: meta.rep } : {}),
       ...(meta.pr ? { pr: meta.pr } : {}),
