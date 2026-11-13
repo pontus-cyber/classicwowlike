@@ -65,7 +65,7 @@ export function setupGuidedZone(s) {
     if (!T.elite.add) el.add = null;
   }
   for (const n of zone.nodes) {
-    if (n.type === 'quest') n.gen = { cl: n.cl, mobs: n.mobs.slice() };
+    if (n.type === 'quest') n.gen = { cl: n.cl, mobs: n.mobs.slice(), quest: n.quest };
     else if (n.type === 'grind') n.gen = { cl: n.cl, mobs: n.waves[0].slice() };
   }
   refreshOverlay(s);
@@ -133,8 +133,9 @@ export function closedRoadsGoal(s) {
  * The overlay laid on zone 1 (after every action of a guided run in zone 1, so the map always shows what a node will
  * play): Gorrak's level clamp(L, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX) and his node's bar; every unresolved Quest
  * and Grind node plays its role's enemies (a site: the site fight of the site fights started so far; else the next
- * script at min(its level, ONB_SCRIPT_LEVEL_MAX)), or its own encounter again once the scripts are used up; the Roads'
- * `closed` mark while roadsClosed (D142).
+ * script at min(its level, ONB_SCRIPT_LEVEL_MAX)), or its own encounter again once the scripts are used up; a Quest node
+ * shows its role's quest (content `quest` of the script or site fight; D144: the text names the enemies it plays), else
+ * its own; the Roads' `closed` mark while roadsClosed (D142).
  */
 export function refreshOverlay(s) {
   if (!inZone1(s) || !s.zone.tut) return;
@@ -154,8 +155,11 @@ export function refreshOverlay(s) {
     let cl = n.gen.cl;
     if (role && role.kind === 'site') mobs = T.siteFights[role.i].enemies.map((e) => e.enemy);
     else if (role) { mobs = T.scripts[role.i].enemies.map((e) => e.enemy); cl = Math.min(n.gen.cl, ONB_SCRIPT_LEVEL_MAX); }
-    if (n.type === 'quest') n.mobs = mobs.slice();
-    else n.waves[0] = mobs.slice();
+    if (n.type === 'quest') {
+      n.mobs = mobs.slice();
+      const def = role ? (role.kind === 'site' ? T.siteFights[role.i] : T.scripts[role.i]) : null;
+      n.quest = (def && def.quest) || n.gen.quest;
+    } else n.waves[0] = mobs.slice();
     n.cl = cl;
     if (role) n.tutRole = role;
     else delete n.tutRole;

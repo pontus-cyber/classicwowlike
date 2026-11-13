@@ -14,25 +14,28 @@ export const TUTORIAL = {
   board: { slot: 1, kind: 'cull', z: 1, region: 'z1_wilds', family: 'wild' },
 
   // Cull site fights, by order of the site fights the player starts in zone 1: the first plays site_1, every later
-  // one site_2. Both stay at the node's level. No wind-ups (see `windup` below).
+  // one site_2. Both stay at the node's level. No wind-ups (see `windup` below). quest (D144, draft): the quest a Quest
+  // node shows while it plays this fight (src/content/quests.js), so its text names these enemies.
   siteFights: [
-    { id: 'site_1', beat: 'G10', enemies: [{ enemy: 'z1_furrow_boar' }] },
-    { id: 'site_2', beat: 'G10', enemies: [{ enemy: 'z1_furrow_boar' }, { enemy: 'z1_barn_wolf' }] },
+    { id: 'site_1', beat: 'G10', quest: 'q_z1_guide_tusks_in_the_verge', enemies: [{ enemy: 'z1_furrow_boar' }] },
+    { id: 'site_2', beat: 'G10', quest: 'q_z1_guide_wolf_at_the_wallow', enemies: [{ enemy: 'z1_furrow_boar' }, { enemy: 'z1_barn_wolf' }] },
   ],
 
   // Scripted fights S1-S4 (spec 2.3): the first ONB_SCRIPTED_FIGHTS fights the player starts in zone 1 on Quest or
   // Grind nodes that are not Cull sites, in this order. Each teaches one thing (beat). In the guided zone an enemy
   // makes its turn-2 action a wind-up only where `windup: true` is set here: FIRST_MEET_WINDUP is off for every other
   // guided-zone fight (S1-S3 and the site fights would otherwise get first-meeting wind-ups before G8 teaches them).
+  // quest (D144, draft): the quest a Quest node shows while it plays this script (the blind testers met S1's boar under a
+  // quest about cutpurses); S3 is zone 1's Lost Lambs, the others are the guided zone's own (src/content/quests.js).
   scripts: [
-    { id: 's1', beat: 'G3', teaches: 'Attack with the bar and win; then loot.',
+    { id: 's1', beat: 'G3', teaches: 'Attack with the bar and win; then loot.', quest: 'q_z1_guide_rooted_rows',
       enemies: [{ enemy: 'z1_furrow_boar' }],
       loot: { upgrade: 'uncommon', consumable: 'healing_draught' } }, // count: ONB_LOOT_POTIONS
-    { id: 's2', beat: 'G6', teaches: 'Read the intent track: Heavy Smash shows two moves ahead.',
+    { id: 's2', beat: 'G6', teaches: 'Read the intent track: Heavy Smash shows two moves ahead.', quest: 'q_z1_guide_hedge_breaker',
       enemies: [{ enemy: 'z1_hedge_ogre' }] },
-    { id: 's3', beat: 'G7', teaches: 'Use the engage round on one of two foes.',
+    { id: 's3', beat: 'G7', teaches: 'Use the engage round on one of two foes.', quest: 'q_z1_lost_lambs',
       enemies: [{ enemy: 'z1_hedge_ogre' }, { enemy: 'z1_barn_wolf' }] },
-    { id: 's4', beat: 'G8', teaches: 'Answer a wind-up: the Hexer winds up Hex Bolt on its turn 2.',
+    { id: 's4', beat: 'G8', teaches: 'Answer a wind-up: the Hexer winds up Hex Bolt on its turn 2.', quest: 'q_z1_guide_straw_and_tusk',
       enemies: [{ enemy: 'z1_scarecrow_hexer', windup: true }, { enemy: 'z1_furrow_boar' }] },
   ],
 
@@ -86,11 +89,13 @@ export const TUTORIAL = {
     { id: 'G8', name: 'Wind-up', hint: 'H03', anchor: 'wind-up badge',
       line: 'Wind-up: stop it with {key_engage2}, an interrupt or a stun, and it is weakened all fight.',
       alt: { landed: 'It landed: that enemy hits harder until it dies.' } },
+    // byClass (D144, draft, Core Gameplay Engineer 2026-11-13): no turn number. "on turn 2" (its own turn) read against
+    // the round labels everywhere else ("Deathblow R3", "round 3"); the badge the line points at shows the round.
     { id: 'G9', name: 'Deathblow', hint: 'H04', anchor: 'Deathblow badge',
       byClass: {
-        rogue: 'Deathblow on turn {deathblowTurn} maims you. Sap it ({key_engage2}), then wait a round ({key_pass}).',
-        mage: 'Deathblow on turn {deathblowTurn} maims you. Freeze it: Binding Glyph ({key_engage2}).',
-        hunter: 'Deathblow on turn {deathblowTurn} maims you. Trap it ({key_engage2}): the trap springs on it.',
+        rogue: 'This Deathblow maims you if it lands. Sap it ({key_engage2}), then wait a round ({key_pass}).',
+        mage: 'This Deathblow maims you if it lands. Freeze it: Binding Glyph ({key_engage2}).',
+        hunter: 'This Deathblow maims you if it lands. Trap it ({key_engage2}): the trap springs on it.',
       },
       alt: { landed: 'Maimed: your healing is halved this fight. Drink early.' } },
     { id: 'G10', name: 'Contract sites', hint: 'H20', anchor: 'site badge',

@@ -242,8 +242,8 @@ counts and every rule number stay constants (ONB_*, spec 12). Beat and hint ids 
 | `seed` | number | the accepted TUTORIAL_SEED (cross-check only; the engine reads `C.TUTORIAL_SEED`) |
 | `zone` | number | 1 (the guided zone) |
 | `board` | object | start camp slot 1: `{ slot: 1, kind: 'cull', z, region (a region id of zone z), family (a family of that region) }` |
-| `siteFights` | object[] | Cull site fights by order of the site fights started (the last repeats): `{ id, beat, enemies: Fight[] }` |
-| `scripts` | object[] | exactly ONB_SCRIPTED_FIGHTS scripted fights in order: `{ id ('s1'..), beat, teaches (designer note), enemies: Fight[], loot? }`; `loot: { upgrade: rarity id, consumable: CONSUMABLE id }` (count ONB_LOOT_POTIONS) |
+| `siteFights` | object[] | Cull site fights by order of the site fights started (the last repeats): `{ id, beat, quest?, enemies: Fight[] }`; (D144) `quest`: a quest id whose enemies are this fight's, shown by a Quest node while it plays the fight |
+| `scripts` | object[] | exactly ONB_SCRIPTED_FIGHTS scripted fights in order: `{ id ('s1'..), beat, teaches (designer note), quest?, enemies: Fight[], loot? }`; `loot: { upgrade: rarity id, consumable: CONSUMABLE id }` (count ONB_LOOT_POTIONS); (D144) `quest` as in `siteFights` |
 | Fight | object | `{ enemy: id of a zone normal, windup?: true }`. In the guided zone only `windup: true` makes an enemy's turn-2 action a wind-up (FIRST_MEET_WINDUP is off for the other guided-zone fights) |
 | `elite` | object | `{ id, beat, enemy (a zone elite), deathblow (an ability id of that enemy), add: false, rare: false, gate }` |
 | `elite.gate` | object | `{ afterScript: a script id, barredLine, openLine }`: the elite's node cannot be entered until that scripted fight has ended (win, flight or rescue); open after SKIP_GUIDE. `{n}` = scripted fights still to come |
@@ -255,7 +255,7 @@ counts and every rule number stay constants (ONB_*, spec 12). Beat and hint ids 
 Lines: one sentence each, at most ONB_HINT_MAX_CHARS (90) after the placeholders are filled; no "hours", "h" or
 decimals. Placeholders the UI fills: keys from its key map `{key_spell1}`, `{key_engage1}`, `{key_engage2}`,
 `{key_engage3}`, `{key_pass}`, `{key_item1}`, `{key_take_all}`, `{key_bags}`, `{key_talents}`, `{key_spellbook}`,
-`{key_autoplay}`, `{key_flee}`; numbers from C `{deathblowTurn}` (SIGNATURE_TURN), `{bellTolls}` (BELL_CHANNEL_TIME),
+`{key_autoplay}`, `{key_flee}`; numbers from C `{deathblowTurn}` (SIGNATURE_TURN; no line uses it since D144), `{bellTolls}` (BELL_CHANNEL_TIME),
 `{offbalPct}` (OFFBAL_TAKEN × 100), `{rescueTolls}` (ONB_RESCUE_TOLLS), `{satchelPotions}` (META.satchel.potions),
 `{n}` (gate); the zone's name `{zone}` (D144, the hub lines). The validator does not check this table yet (engine task E2).
 

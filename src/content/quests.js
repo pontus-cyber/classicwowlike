@@ -153,6 +153,67 @@ export const QUESTS = {
    "z1_scarecrow_hexer"
   ]
  },
+ // The guided zone's quest texts (M3 guided first run, D144; draft, Core Gameplay Engineer 2026-11-13, for the Content
+ // Designer): content tutorial.js names one for each scripted and site fight, and a Quest node that plays that fight shows
+ // it, so the text matches the enemies (the blind testers met a boar under a quest about cutpurses). In no zone's list:
+ // normal runs never draw them. S3 uses Lost Lambs above.
+ "q_z1_guide_rooted_rows": {
+  "id": "q_z1_guide_rooted_rows",
+  "title": "Rooted Rows",
+  "giver": "Goodwife Ennet",
+  "objective": "slay",
+  "text": "A furrow boar is rooting up the seed rows behind the mill. Drive it off before it eats the lot.",
+  "turnIn": "Bless you. Take this, and a draught for the road.",
+  "enemies": [
+   "z1_furrow_boar"
+  ]
+ },
+ "q_z1_guide_hedge_breaker": {
+  "id": "q_z1_guide_hedge_breaker",
+  "title": "The Hedge Breaker",
+  "giver": "Hobb Larrow",
+  "objective": "slay",
+  "text": "An ogre keeps smashing through the hedges on the east lane. He swings slow and heavy. Send him back to the woods.",
+  "turnIn": "The lane is quiet again. Well struck.",
+  "enemies": [
+   "z1_hedge_ogre"
+  ]
+ },
+ "q_z1_guide_straw_and_tusk": {
+  "id": "q_z1_guide_straw_and_tusk",
+  "title": "Straw and Tusk",
+  "giver": "Tamsy Crake",
+  "objective": "slay",
+  "text": "A scarecrow walks the turnip field at night, and a boar trots at its heels. When the straw man starts to chant, stop it.",
+  "turnIn": "No more chanting in my field. Thank you.",
+  "enemies": [
+   "z1_scarecrow_hexer",
+   "z1_furrow_boar"
+  ]
+ },
+ "q_z1_guide_tusks_in_the_verge": {
+  "id": "q_z1_guide_tusks_in_the_verge",
+  "title": "Tusks in the Verge",
+  "giver": "Warden Pell",
+  "objective": "slay",
+  "text": "Boars come down from the Verge and churn every field they cross. Thin them out for us.",
+  "turnIn": "That will keep them off the fields a while.",
+  "enemies": [
+   "z1_furrow_boar"
+  ]
+ },
+ "q_z1_guide_wolf_at_the_wallow": {
+  "id": "q_z1_guide_wolf_at_the_wallow",
+  "title": "The Wolf at the Wallow",
+  "giver": "Swineherd Brannick",
+  "objective": "slay",
+  "text": "A barn wolf stalks the boar wallow by the old fence. Clear out the boar and the wolf together.",
+  "turnIn": "Good. The herd can graze in peace again.",
+  "enemies": [
+   "z1_furrow_boar",
+   "z1_barn_wolf"
+  ]
+ },
  "q_z2_fever_on_the_water": {
   "id": "q_z2_fever_on_the_water",
   "title": "Fever on the Water",

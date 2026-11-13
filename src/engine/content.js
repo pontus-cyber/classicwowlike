@@ -14,7 +14,8 @@ export const ONB_HINT_COUNT = 37;
 /**
  * The guided-run table CONTENT.tutorial (SCHEMA.md 2.11; m3-onboarding.md 2.3, E2): errors as strings. The board slot
  * (a contract kind; region id of its zone; a family of that region), the site fights and ONB_SCRIPTED_FIGHTS scripts
- * (enemies are normals of the zone; windup a boolean; S1's loot a rarity and a consumable), the elite (an elite of the
+ * (enemies are normals of the zone; windup a boolean; S1's loot a rarity and a consumable; D144: a `quest` a quest of the
+ * content), the elite (an elite of the
  * zone with its Deathblow among its abilities; gate.afterScript a script id), the seed equal to C.TUTORIAL_SEED, and
  * with `beats` / `hints` present the 13 beat ids in order and 37 hint ids. Levels are constants, not content.
  */
@@ -42,14 +43,17 @@ export function validateTutorial(content) {
       if (x && x.windup !== undefined && typeof x.windup !== 'boolean') e(`${where}[${i}].windup: true or false`);
     });
   };
+  // D144: a script's or site fight's `quest` (optional) names a quest of the content (its text is shown on the node)
+  const quest = (x, where) => { if (x && x.quest !== undefined && !(content.quests || {})[x.quest]) e(`${where}.quest: unknown quest "${x.quest}"`); };
   if (!Array.isArray(T.siteFights) || !T.siteFights.length) e('.siteFights: at least one');
-  else T.siteFights.forEach((f, i) => fight(f && f.enemies, `.siteFights[${i}].enemies`));
+  else T.siteFights.forEach((f, i) => { fight(f && f.enemies, `.siteFights[${i}].enemies`); quest(f, `.siteFights[${i}]`); });
   if (!Array.isArray(T.scripts) || T.scripts.length !== ONB_SCRIPTED_FIGHTS) e(`.scripts: exactly ${ONB_SCRIPTED_FIGHTS} (ONB_SCRIPTED_FIGHTS)`);
   const ids = [];
   for (const [i, x] of (Array.isArray(T.scripts) ? T.scripts : []).entries()) {
     if (!x || typeof x.id !== 'string' || ids.includes(x.id)) e(`.scripts[${i}].id: a unique id`);
     else ids.push(x.id);
     fight(x && x.enemies, `.scripts[${i}].enemies`);
+    quest(x, `.scripts[${i}]`);
     if (x && x.loot) {
       if (!RARITY[x.loot.upgrade]) e(`.scripts[${i}].loot.upgrade: unknown rarity "${x.loot.upgrade}"`);
       if (x.loot.consumable !== undefined && !CONSUMABLE[x.loot.consumable]) e(`.scripts[${i}].loot.consumable: unknown consumable "${x.loot.consumable}"`);

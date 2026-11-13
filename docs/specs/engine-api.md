@@ -89,7 +89,7 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 | `autoAction(state)` | action or null | Deterministic. In combat: the autoplay policy of rules 7.9. Elsewhere: a simple default policy (talents, gear, bar, hub, map, rewards, camp) so a headless run goes from CREATE to SUMMARY. `null` only in ENDED. |
 | `summary(state)` | object or null | Run summary (rules 9) incl. Echoes breakdown (11.1): `echoes = { lines: [{ id, count, each, echoes }], base, oathMult, total }`; a line's `echoes` is `round(count × each)` (half away from zero, M2 v3; `each` can be fractional), `base` the sum of the lines, `total = round(base × oathMult)`. Show `echoes` per line. (heat) Line `heat`: fights won in heat ("Fights won in heat"); block `heat` (section 11.3). (M2b v7) The run's time is `time` and the time at the end boss `timeAtBoss` (whole tolls; null before the boss; were `hours`, `hoursAtBoss`). Available any time after START_RUN. |
 | `serialize(state)` / `deserialize(str, content)` | string / state | The content tables are not saved; pass the same `CONTENT` (version is checked). |
-| `mapView(state)` | object or null | What the player may see of the zone map (rules 1.4). Rare elites, traps and vendor Embers are `null` unless the profile owns Scout's Eye. Use this, not `state.zone.rows`, to draw the map. Fight nodes list one archetype per enemy: quest and elite `archetypes`, grind `archetypes` (first wave), treasure `archetypes` (the guard; `[]` unguarded, combat v2), dungeon `fights` (one archetype list per trash fight) and `bossArchetype` (combat v2). (M2b v13) Elite nodes add `deathblow` (M2b v14: `{ type }` only while the name is hidden: a rare without Scout's Eye) and dungeon nodes `bossDeathblow` (section 6.2). (expedition) In an expedition run: the zone graph as the player sees it (section 10.3). null outside a zone. |
+| `mapView(state)` | object or null | What the player may see of the zone map (rules 1.4). Rare elites, traps and vendor Embers are `null` unless the profile owns Scout's Eye. Use this, not `state.zone.rows`, to draw the map. Fight nodes list one archetype per enemy: quest and elite `archetypes`, grind `archetypes` (first wave) and (D144) `waves` (GRIND_MAX_WAVES), treasure `archetypes` (the guard; `[]` unguarded, combat v2), dungeon `fights` (one archetype list per trash fight) and `bossArchetype` (combat v2). (M2b v13) Elite nodes add `deathblow` (M2b v14: `{ type }` only while the name is hidden: a rare without Scout's Eye) and dungeon nodes `bossDeathblow` (section 6.2). (expedition) In an expedition run: the zone graph as the player sees it (section 10.3). null outside a zone. |
 | `validateContent(content, {strict})` | string[] | Content checks (src/content/SCHEMA.md). |
 | `migrateProfile(profile)`, `setGuide(profile, value)` | profile | (M3, section 14.5) A stored profile with `guide` and `welcome` (a profile without them and `runs > 0` loads as `'done'` and `true`, else `'todo'` and `false`); `setGuide` sets `guide` (`'todo'`, `'done'`, `'skipped'`; class select and Settings), throws `IllegalActionError` on another value. Pure. Call `migrateProfile` when the profile is loaded |
 | `tutorialView(state)` | object or null | (M3) The guided first run for the UI (section 14.3); null in any other run and before START_RUN. Pure and cheap |
@@ -629,7 +629,8 @@ node (every node): { id, ring, angle (degrees), nb (neighbour ids), hops (from t
   engine's value), know ('full' | 'type' | 'none'),
   region (content region index, or null when unknown) }
 know 'full' (the hub, or seen) adds: type, cl, done, lost (Dimmed and unresolved), and the details of the rows view:
-  quest { title, archetypes }, grind { archetypes }, elite { level, archetypes ([null, the add's archetype]: one
+  quest { title, archetypes }, grind { archetypes (wave 1), waves (D144: its waves in this map mode, EXPED_GRIND_MAX_WAVES) },
+  elite { level, archetypes ([null, the add's archetype]: one
   entry per enemy, the elite's own hidden, D50), rare: null, name: null (D50: neither tells a rare), deathblow: { type }
   (M2b v14, D112: 'heavy' or 'cast' only; M2b v13 hid it with the name) }, dungeon { name, level, bossLevel, fights, bossArchetype, bossDeathblow (M2b v13, 6.2) },
   treasure { guarded, trap: null, archetypes },
@@ -638,7 +639,9 @@ know 'type' (Pathfinder within its radius; the dungeon with Region Charts or a h
 sites (prep; only when the player sees marks there): [ids of held contracts with a site on the node], on a 'full' node,
   and with Tracker's Notes on any node within TRACKER_RADIUS hops (hidden ones too)
 barred (M3, D138; only when true): a guided run's closed node, MOVE and PASS_THROUGH refused (also on its `moves` entry);
-  closed (D142; only when true): a closed Road of a guided run's zone 1, TAKE_ROAD refused there (section 14.1)
+  closed (D142; only when true): a closed Road of a guided run's zone 1, TAKE_ROAD refused there (section 14.1);
+  guided (D144; on a 'full' node only): 'script' or 'site', an unresolved Quest or Grind node of the guided zone that plays
+  the overlay's fight (section 14.1): its `cl` is the script's (capped at ONB_SCRIPT_LEVEL_MAX), not its ring's band
 ```
 Nothing else of a hidden node is read: qa/engine/s01b checks that a hidden node has only the skeleton keys and that
 `mapView` (and `autoAction`) do not change when hidden contents are replaced.
@@ -902,7 +905,10 @@ run. Zones 2-6 and everything after the guide are the normal rules. A run withou
   action (so `mapView` shows it): a node with a held contract's site plays `siteFights[min(sites, last)]` at the node's level;
   any other plays the next script `scripts[script]` (S1-S4, ONB_SCRIPTED_FIGHTS) at `min(its level, ONB_SCRIPT_LEVEL_MAX)`
   (its `cl` too); once the scripts are used up, its own encounter. A Grind plays it as its only wave. `fight.tut = { kind
-  ('script' | 'site'), i, id }`. A scripted fight's end (any outcome) advances `script`.
+  ('script' | 'site'), i, id }`. A scripted fight's end (any outcome) advances `script`. (D144) A Quest node shows the
+  quest of its role (content `quest` of the script or site fight, a quest whose enemies are that fight's; the node's own
+  quest once the role is lifted), so `mapView`'s `title`, the node's `quest` and the `quest` event match the enemies; `mapView`
+  marks such nodes `guided` (10.3).
 - Wind-ups (D138): in an overlay fight only enemies with `windup: true` play their turn-2 scripted action as a wind-up (the
   first-meeting mechanism, any fight kind; S4's Scarecrow Hexer: Hex Bolt); every other quest fight of the guided zone has
   no first-meeting wind-up. Elite, rare and dungeon-boss wind-ups and Deathblows are unchanged.

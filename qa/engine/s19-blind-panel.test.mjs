@@ -154,3 +154,88 @@ describe('blind panel (2b): "spend your big hit now" is not the advice when the 
     assert.deepEqual(R.validateContent(REAL, { strict: true }), []);
   });
 });
+
+describe('blind panel (3): text and data mismatches, engine and content side', () => {
+  const PET = (c) => (c === 'hunter' ? 'ridgewolf' : null);
+  /** A guided run on zone 1's map, the board slot 1 Cull taken (real content). */
+  const guided = (classId = 'mage', seed = 5) => {
+    let s = R.newRun({ classId, petId: PET(classId), seed, content: REAL, tutorial: true });
+    for (const a of [{ type: 'START_RUN' }, { type: 'TAKE_CONTRACT', index: 0 }, { type: 'SET_OUT' }, { type: 'LEAVE_HUB' }]) s = R.step(s, a).state;
+    return s;
+  };
+  /** The state with `script` scripted fights ended, the overlay laid on again by two no-op steps. */
+  const atScript = (s, script) => {
+    const x = tweak(s, (y) => { y.tutorial.script = script; });
+    return R.step(R.step(x, { type: 'SET_AUTOPLAY', on: true }).state, { type: 'SET_AUTOPLAY', on: false }).state;
+  };
+  const sameSet = (a, b) => [...new Set(a)].sort().join() === [...new Set(b)].sort().join();
+
+  test('G9 (and H04, its same line) name no turn: "on turn 2" read against "round 3" everywhere else; the badge they point at gives the round', () => {
+    const T = REAL.tutorial;
+    const g9 = T.beats.find((b) => b.id === 'G9');
+    for (const [cls, line] of Object.entries(g9.byClass)) {
+      assert.ok(!/\bturn\b|\{deathblowTurn\}|round \d/i.test(line), `${cls}: ${line}`);
+      assert.ok(/Deathblow/.test(line) && line.replace(/\{key_[a-z0-9]+\}/g, 'W').length <= C.ONB_HINT_MAX_CHARS, line);
+    }
+    assert.equal(T.hints.find((h) => h.id === 'H04').sameAs, 'G9');
+    // the round: an elite present from the start plays its Deathblow on its turn SIGNATURE_TURN, round SIGNATURE_TURN + 1
+    const s = inFight(atLevel(started('rogue'), 20), [{ tid: 'z1_elite', level: 20, variant: 'elite' }], { kind: 'elite', noStealth: true }).state;
+    const db = R.windupView(s).find((w) => w.deathblow);
+    assert.deepEqual([db.turn, db.round, db.inRounds], [C.SIGNATURE_TURN, C.SIGNATURE_TURN + 1, C.SIGNATURE_TURN]);
+  });
+
+  test('guided zone: a Quest node shows the quest of the fight it plays (its enemies are that fight\'s), the fight carries it, and its own quest comes back once the scripts are used up', () => {
+    const T = REAL.tutorial;
+    const s0 = guided();
+    for (let k = 0; k < T.scripts.length; k++) {
+      const s = atScript(s0, k);
+      const mv = R.mapView(s);
+      let seen = 0;
+      for (const n of s.zone.nodes) {
+        if (n.type !== 'quest' || !n.tutRole) continue;
+        const role = n.tutRole.kind === 'site' ? T.siteFights[n.tutRole.i] : T.scripts[n.tutRole.i];
+        const q = REAL.quests[n.quest];
+        assert.equal(n.quest, role.quest, `node ${n.id}`);
+        assert.ok(sameSet(q.enemies, role.enemies.map((e) => e.enemy)) && sameSet(n.mobs, q.enemies), `node ${n.id}: ${q.title} / ${n.mobs}`);
+        if (mv.nodes[n.id].know === 'full') { assert.equal(mv.nodes[n.id].title, q.title); seen++; }
+      }
+      assert.ok(seen > 0, `script ${k}: a quest node in view`);
+    }
+    // the fight: the first scripted quest fight (S1 on node 3 here) carries the boar's quest, not the node's own
+    const f = R.step(s0, { type: 'MOVE', nodeId: 3 });
+    assert.equal(f.state.fight.tut.id, 's1');
+    assert.equal(f.state.node.quest, 'q_z1_guide_rooted_rows');
+    assert.ok(f.events.some((e) => e.t === 'quest' && e.quest === 'q_z1_guide_rooted_rows'));
+    assert.ok(sameSet(REAL.quests[f.state.node.quest].enemies, f.state.fight.enemies.map((e) => e.tid)));
+    assert.notEqual(s0.zone.nodes[3].gen.quest, 'q_z1_guide_rooted_rows');
+    // scripts used up: every unresolved Quest node without a site plays and shows its own encounter and quest again
+    const used = atScript(s0, C.ONB_SCRIPTED_FIGHTS);
+    for (const n of used.zone.nodes) if (n.type === 'quest' && !n.tutRole) assert.deepEqual([n.quest, n.mobs], [n.gen.quest, n.gen.mobs], `node ${n.id}`);
+    // the guided quests are in no zone's list: normal runs never draw them; the table names existing quests
+    const listed = new Set(REAL.zones.flatMap((z) => z.quests));
+    for (const x of [...T.scripts, ...T.siteFights]) assert.ok(REAL.quests[x.quest], x.id);
+    for (const id of Object.keys(REAL.quests).filter((q) => q.startsWith('q_z1_guide_'))) assert.ok(!listed.has(id), id);
+    // validateContent: a script's or site fight's quest must exist
+    const bad = { ...REAL, tutorial: { ...T, scripts: [{ ...T.scripts[0], quest: 'q_nope' }, ...T.scripts.slice(1)], siteFights: [{ ...T.siteFights[0], quest: 'q_gone' }, ...T.siteFights.slice(1)] } };
+    const errs = R.validateContent(bad).join('\n');
+    assert.ok(errs.includes('tutorial.scripts[0].quest') && errs.includes('tutorial.siteFights[0].quest'), errs);
+  });
+
+  test('mapView: a Grind\'s `waves` (expedition: EXPED_GRIND_MAX_WAVES; rows: GRIND_MAX_WAVES; wave 1 is `archetypes`); `guided` marks only the guided zone\'s overlay fights', () => {
+    const s = guided();
+    const mv = R.mapView(s);
+    const grinds = mv.nodes.filter((n) => n.know === 'full' && n.type === 'grind');
+    assert.ok(grinds.length > 0 && grinds.every((n) => n.waves === C.EXPED_GRIND_MAX_WAVES && n.archetypes.length >= 1));
+    assert.deepEqual([...new Set(mv.nodes.filter((n) => n.guided).map((n) => n.guided))].sort(), ['script', 'site']);
+    for (const n of mv.nodes.filter((x) => x.guided)) assert.equal(n.guided, s.zone.nodes[n.id].tutRole.kind);
+    assert.ok(mv.nodes.filter((n) => n.know === 'full' && (n.type === 'quest' || n.type === 'grind')).every((n) => n.guided));
+    // a normal run: no marks; Grinds the same
+    let p = R.newRun({ classId: 'mage', seed: 5, content: REAL });
+    for (const a of [{ type: 'START_RUN' }, { type: 'SET_OUT' }, { type: 'LEAVE_HUB' }]) p = R.step(p, a).state;
+    const pv = R.mapView(p);
+    assert.ok(pv.nodes.every((n) => n.guided === undefined));
+    assert.ok(pv.nodes.filter((n) => n.know === 'full' && n.type === 'grind').every((n) => n.waves === C.EXPED_GRIND_MAX_WAVES));
+    const rows = R.mapView(started('mage')).rows.flat().filter((n) => n.type === 'grind');
+    assert.ok(rows.length > 0 && rows.every((n) => n.waves === C.GRIND_MAX_WAVES));
+  });
+});

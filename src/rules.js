@@ -48,7 +48,7 @@ import { spellCost as cost, spellCd, spellAmount, spellTl, fleeChance as flee, c
 import { resurrectOrder, offBalanceOpen, findSt, maimedHeal } from './engine/damage.js';
 import { engageOptions as engageList, engagePreview as previewEngage } from './engine/engage.js';
 import { isEngageRound as engageRound } from './engine/track.js';
-import { MAP_MODES, isExpedition, expMapView } from './engine/expedition.js';
+import { MAP_MODES, isExpedition, expMapView, grindMaxWaves } from './engine/expedition.js';
 import { heatView as heatMeter, heatPreview as previewHeat } from './engine/heat.js';
 import { prepView as prepScreen, contractView as contractTracker } from './engine/contracts.js';
 import { createDebug } from './engine/debug.js';
@@ -528,7 +528,7 @@ export function mapView(state) {
   const rows = s.zone.rows.map((row) => row.map((n) => {
     const v = { type: n.type, r: n.r, l: n.l, cl: n.cl, done: n.done };
     if (n.type === 'quest') { v.title = c.quests[n.quest].title; v.archetypes = n.mobs.map(arch); }
-    if (n.type === 'grind') v.archetypes = n.waves[0].map(arch);
+    if (n.type === 'grind') { v.archetypes = n.waves[0].map(arch); v.waves = grindMaxWaves(s); } // D144: its waves (wave 1: archetypes)
     if (n.type === 'elite') {
       v.level = n.eliteLevel;
       v.archetypes = [arch(n.elite), ...(n.add ? [arch(n.add)] : [])];

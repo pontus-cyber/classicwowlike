@@ -455,6 +455,10 @@ export function expMapView(s) {
     };
     if (know === 'type') v.type = n.type;
     if (know === 'full') Object.assign(v, { type: n.type, cl: n.cl, done: n.done, lost: dimmed && !n.done && n.ring > 0 }, details(c, z, n));
+    // D144 (blind tester pilot): a Grind's waves in this map mode (its `archetypes` are wave 1); a guided run's overlay
+    // fight on an unresolved Quest or Grind node ('script' or 'site', tutorial.js), whose level is the script's, not the ring's
+    if (know === 'full' && n.type === 'grind') v.waves = grindMaxWaves(s);
+    if (know === 'full' && n.tutRole && !n.done) v.guided = n.tutRole.kind;
     const sites = siteView(s, n, know, d[n.id]);
     if (sites) v.sites = sites;
     if (n.barred) v.barred = true; // a guided run's closed node (Gorrak's, D138; tutorial.js): MOVE and PASS_THROUGH refused
