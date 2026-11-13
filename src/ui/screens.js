@@ -1094,9 +1094,18 @@ function buildReward(v, ctx) {
   const cards = h('div.choice-cards', (L.choices || []).map((it, i) => {
     const up = ctx.bridge.itemScore(it) - ctx.bridge.itemScore(p.equip[it.slot]);
     const stats = Object.entries(it.stats || {}).filter(([k, val]) => ['sta', 'agi', 'int', 'spi', 'power'].includes(k) && val > 0).map(([k, val]) => `+${val} ${k.toUpperCase()}`).join('  ');
-    const c = h('div.icard', h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name, it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', `${cap(it.slot)} · item level ${it.ilvl}`), h('div.stats', stats || ' '), h('div.upg.' + (up > 0 ? 'good' : 'muted'), up > 0 ? `▲ Upgrade (+${Math.round(up * 10) / 10})` : 'Not an upgrade')));
+    // blind panel 2026-11-13 (item 9): a reward that fills an empty slot or is an upgrade offers "Equip now": it is chosen
+    // and put on at once (CHOOSE_REWARD, then EQUIP of the same item once it is in the bags)
+    const offer = it.kind === 'gear' && (up > 0 || !p.equip[it.slot]);
+    const eq = offer ? h('button.btn.small.eqnow', { type: 'button', dataset: { uid: it.uid } }, 'Equip now') /* not .primary: Space keeps choosing nothing here */ : null;
+    const c = h('div.icard', h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name, it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', `${cap(it.slot)} · item level ${it.ilvl}`), h('div.stats', stats || ' '), h('div.upg.' + (up > 0 || !p.equip[it.slot] ? 'good' : 'muted'), up > 0 ? `▲ Upgrade (+${Math.round(up * 10) / 10})` : !p.equip[it.slot] ? '▲ Empty slot' : 'Not an upgrade'), eq));
     c.addEventListener('click', () => ctx.act({ type: 'CHOOSE_REWARD', i }));
-    tip(c, () => itemTip(it, ctx, { hint: 'Click to choose this reward' }));
+    if (eq) eq.addEventListener('click', (e) => {
+      e.stopPropagation();
+      ctx.act({ type: 'CHOOSE_REWARD', i });
+      ctx.act(() => { const b = ctx.bridge.view.player; return b && b.bag.some((x) => x && x.uid === it.uid) ? { type: 'EQUIP', uid: it.uid } : null; });
+    });
+    tip(c, () => itemTip(it, ctx, { hint: eq ? 'Click to choose this reward · Equip now: choose it and put it on' : 'Click to choose this reward' }));
     return c;
   }));
   if (L.kind === 'contract') {

@@ -45,11 +45,38 @@ function damageBlock(dv) {
     dv.pet ? line('.dmpet', `${dv.pet.name} (pet)`, dv.pet, 'Your pet\'s attack') : null);
 }
 
+/**
+ * Bag slots that stay put (blind panel 2026-11-13, item 9: "bag items move after each equip"; the second click hit another
+ * item). The bags show each item in the slot it had when the window last drew it: one that leaves (equipped, used, sold,
+ * discarded) leaves a gap. A new item that takes the engine's place of one that left (equipping over a worn piece puts the
+ * old piece there) takes that one's slot; any other new item the first free slot. Pure. prev: the last result or null;
+ * bag: the view's bag (items then nulls, the engine's order). Returns { uids (a uid or null per slot), order (the bag's uids) }.
+ */
+export function stableBag(prev, bag) {
+  const cap = bag.length;
+  const order = bag.map((it) => (it ? it.uid : null));
+  const have = new Set(order.filter((u) => u != null));
+  const slots = Array(cap).fill(null);
+  if (prev) prev.uids.forEach((u, i) => { if (u != null && have.has(u) && i < cap) slots[i] = u; });
+  const placed = new Set(slots.filter((u) => u != null));
+  order.forEach((u, j) => {
+    if (u == null || placed.has(u)) return;
+    let at = -1;
+    const gone = prev && prev.order ? prev.order[j] : null;
+    if (gone != null && !have.has(gone)) { const k = prev.uids.indexOf(gone); if (k >= 0 && k < cap && slots[k] == null) at = k; }
+    if (at < 0) at = slots.indexOf(null);
+    if (at < 0) slots.push(u); else slots[at] = u; // more items than slots (never in the engine): none is lost
+    placed.add(u);
+  });
+  return { uids: slots, order };
+}
+
 export function createWindows(root, ctx) {
   const layer = h('div#windows');
   root.appendChild(layer);
   const open = new Map(); // name -> element
   let ctxMenu = null;
+  const bagMem = { key: null, prev: null }; // the bags' slots as last drawn (stableBag), per run
 
   function frame(name, title, sub, body) {
     const el = h('div.win.panel#win-' + name, h('div.wtitle', h('div', h('div.title', title), sub ? h('div.subtitle', sub) : null), closeX(name)), body);
@@ -95,13 +122,19 @@ export function createWindows(root, ctx) {
     bags(v) {
       const p = v.player;
       const grid = h('div.baggrid');
-      p.bag.forEach((it, i) => {
+      // the slots stay put across equips (stableBag); data-uid names the item in each slot (browser checks)
+      const key = `${v.seed}|${p.classId}|${p.name}`;
+      const lay = stableBag(bagMem.key === key ? bagMem.prev : null, p.bag);
+      bagMem.key = key; bagMem.prev = lay;
+      const byUid = new Map(p.bag.filter(Boolean).map((it) => [it.uid, it]));
+      lay.uids.map((u) => (u == null ? null : byUid.get(u) || null)).forEach((it) => {
         if (!it) { grid.appendChild(h('div.slot', { style: { cursor: 'default' } })); return; }
         const up = it.kind === 'gear' && ctx.bridge.itemScore(it) > ctx.bridge.itemScore(p.equip[it.slot]);
-        const el = h('div.slot.q-' + it.rarity, h('img', { src: itemIcon(it), alt: '' }), it.count > 1 ? h('span.cnt', String(it.count)) : null, up ? h('span.upg', '▲') : null);
-        tip(el, () => itemTip(it, ctx, { hint: it.kind === 'gear' ? 'Right-click to equip · click for options' : it.kind === 'consumable' ? 'Right-click to use · drag to the item bar' : 'Click for options' }));
+        const el = h('div.slot.q-' + it.rarity, { dataset: { uid: it.uid } }, h('img', { src: itemIcon(it), alt: '' }), it.count > 1 ? h('span.cnt', String(it.count)) : null, up ? h('span.upg', '▲') : null);
+        // blind panel 2026-11-13: an item's tip goes beside the grid, never over its neighbours
+        tip(el, () => itemTip(it, ctx, { hint: it.kind === 'gear' ? 'Right-click to equip · click for options' : it.kind === 'consumable' ? 'Right-click to use · drag to the item bar' : 'Click for options' }), { avoid: '#win-bags .baggrid .slot' });
         el.addEventListener('contextmenu', (e) => { e.preventDefault(); quick(it); });
-        el.addEventListener('click', (e) => { if (!ctx.ui.dragging) menu(e, it, v); });
+        el.addEventListener('click', (e) => { if (!ctx.ui.dragging) menu(e, it, v, el); });
         if (it.kind === 'consumable') dragSource(el, ctx, () => ({ kind: 'item', item: it, icon: itemIcon(it) }));
         grid.appendChild(el);
       });
@@ -221,7 +254,7 @@ export function createWindows(root, ctx) {
     if (it.kind === 'gear') ctx.act({ type: 'EQUIP', uid: it.uid });
     else if (it.kind === 'consumable') ctx.act({ type: 'USE_ITEM', uid: it.uid });
   }
-  function menu(e, it, v) {
+  function menu(e, it, v, slotEl = null) {
     closeMenu();
     const items = [];
     const ooc = v.legal.outOfCombat;
@@ -237,10 +270,17 @@ export function createWindows(root, ctx) {
     ctxMenu = h('div.ctxmenu.panel', items.map(([label, ok, fn]) => { const b = h('button', label); b.disabled = !ok; b.addEventListener('click', () => { closeMenu(); fn(); }); return b; }));
     ctxMenu.style.left = `${e.clientX}px`; ctxMenu.style.top = `${e.clientY}px`;
     document.body.appendChild(ctxMenu);
-    // keep the whole menu inside the window: its size grows with the UI scale and the number of entries
-    const r = ctxMenu.getBoundingClientRect(); const pad = 6;
-    ctxMenu.style.left = `${Math.max(pad, Math.min(e.clientX, window.innerWidth - r.width - pad))}px`;
-    ctxMenu.style.top = `${Math.max(pad, Math.min(e.clientY, window.innerHeight - r.height - pad))}px`;
+    // keep the whole menu inside the window: its size grows with the UI scale and the number of entries. Blind panel
+    // 2026-11-13: it covered the clicked item and its neighbours; it now opens beside the bag grid, level with the slot
+    // (left of the grid, else right, below, above), and at the pointer only when none of those fits
+    const r = ctxMenu.getBoundingClientRect(); const pad = 6; const W = window.innerWidth; const H = window.innerHeight;
+    const fits = ([x, y]) => x >= pad && y >= pad && x + r.width <= W - pad && y + r.height <= H - pad;
+    const grid = slotEl && slotEl.closest('.baggrid');
+    const g = grid ? grid.getBoundingClientRect() : null; const sr = slotEl ? slotEl.getBoundingClientRect() : null;
+    const yAt = sr ? Math.max(pad, Math.min(sr.top, H - r.height - pad)) : 0;
+    const spots = g && sr ? [[g.left - r.width - 8, yAt], [g.right + 8, yAt], [sr.left, g.bottom + 8], [sr.left, g.top - r.height - 8]] : [];
+    const at = spots.find(fits) || [Math.max(pad, Math.min(e.clientX, W - r.width - pad)), Math.max(pad, Math.min(e.clientY, H - r.height - pad))];
+    ctxMenu.style.left = `${Math.round(at[0])}px`; ctxMenu.style.top = `${Math.round(at[1])}px`;
     setTimeout(() => window.addEventListener('pointerdown', onAway), 0);
   }
   function onAway(e) { if (ctxMenu && !ctxMenu.contains(e.target)) closeMenu(); }
