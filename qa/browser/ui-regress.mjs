@@ -3850,17 +3850,19 @@ async function partR(browser, W, H) {
       check('M3-R', 'the start camp: G1\'s line on the coach line, content text', c.shown && c.shown.id === 'G1' && c.shown.text === lineText('G1'), JSON.stringify(c.shown));
       const engineLines = []; const bad = []; const shownSoFar = new Set(); const layout = []; let gate = null; let gateOpen = null; let reachedZ2 = false; let steps = 0;
       for (; steps < 260; steps++) {
-        const st = await page.evaluate(() => { const v = window.__ui.view(); return { phase: v.phase, z: v.zone ? v.zone.idx : null, t: v.tutorial, cls: v.player ? v.player.classId : 'rogue', fight: !!(v.combat && !v.combat.over && !v.loot) }; });
+        const st = await page.evaluate(() => { const v = window.__ui.view(); return { phase: v.phase, z: v.zone ? v.zone.idx : null, t: v.tutorial, cls: v.player ? v.player.classId : 'rogue', fight: !!(v.combat && !v.combat.over && !v.loot), map: v.phase === 'MAP' && !!(v.zone && v.zone.exp) && !v.node }; });
         const t = st.t;
-        // a fight's beat line waits while the quest's intro dialog is up (no fight on screen yet)
+        // a fight's beat line waits while the quest's intro dialog is up (no fight on screen yet); a map line waits for the
+        // map on screen (QA playtest 2026-11-13); a resting line (D141) waits for its trigger
         const FIGHT = ['G3', 'G6', 'G7', 'G8', 'G9', 'G11'];
-        const open = t && !t.skipped && !t.ended ? (t.open || []).filter((o) => o.line && (st.fight || !FIGHT.includes(o.id))).map((o) => o.line) : [];
+        const MAPL = ['G12', 'G12.caught', 'G13', 'G13.onRoad'];
+        const open = t && !t.skipped && !t.ended ? (t.open || []).filter((o) => o.line && !o.rest && (st.fight || !FIGHT.includes(o.id)) && (st.map || !MAPL.includes(o.line))).map((o) => o.line) : [];
         for (const l of open) if (!engineLines.includes(l)) engineLines.push(l);
         c = await coach(page);
-        // the coach line shows one of the engine's open beat lines (the top one, or the next once it has been read), its content text
+        // the coach line shows one of the engine's open beat lines (tutorialView.line, or the next once the engine rests it, D141), its content text
         for (const x of c.log) if (x.kind === 'beat') shownSoFar.add(x.id);
         const fresh = open.filter((l) => !shownSoFar.has(l));
-        // a line already read may have given way (auto-advance); an open line not yet shown must be on screen now (or one with it)
+        // a line already shown may rest (D141, the engine); an open line not yet shown must be on screen now (or one with it)
         if ((fresh.length || (c.shown && c.shown.kind === 'beat')) && !(c.shown && c.shown.kind === 'beat' && open.includes(c.shown.id) && c.shown.text === lineText(c.shown.id, st.cls))) bad.push(`step ${steps}: engine ${open.join('/')}, coach ${c.shown ? c.shown.id : 'none'}`);
         if (c.shown) { const o = await overlaps(page); if (o.length) layout.push(`${c.shown.id}: ${o.join(',')}`); }
         if (c.shown && c.shown.id === 'G3' && !(await page.evaluate(() => window.__shotG3))) { await page.evaluate(() => { window.__shotG3 = true; }); await shot(page, 'R-coach-fight'); }

@@ -26,7 +26,10 @@ const HINT_OF_BEAT = { G1: 'H23', G2: 'H15', G4: 'H11', G5: 'H16', G6: 'H02', G7
 const PRIO = { G9: 6, H04: 6, G8: 5, H03: 5, H07: 4, G11: 3, H09: 3, H10: 3, G7: 2, H01: 2, H27: 2, NUDGE: 7 };
 const prio = (id) => PRIO[id] || 1;
 const FIGHT_BEATS = new Set(['G3', 'G6', 'G7', 'G8', 'G9', 'G11']); // beats whose line belongs to a fight on screen
-const YIELD_STEPS = 2; // a beat line on screen this many steps gives way to another open beat line
+// beat lines that belong to the expedition map on screen (QA playtest 2026-11-13: G12 showed over a quest dialog, with no
+// Dimming in view): they wait until the map is shown. Only lines the engine brings back on their trigger (D141) can wait; G10
+// opens at the hub and rests before the map is shown (engine follow-up), so it is not in the set
+const MAP_LINES = new Set(['G12', 'G12.caught', 'G13', 'G13.onRoad']);
 const BOTTOM_REM = 14.8; // the coach line's place: its bottom edge over the action bar's control row (1366x768: y 620)
 
 // ------------------------------------------------------------------ the hint store (spec 3.1)
@@ -283,24 +286,26 @@ export function createOnboarding(root, ctx) {
   const safe = (fn) => { try { return fn(); } catch { return null; } };
 
   // ---------------------------------------------------------------- what to show
-  /** The engine's beat line to show now (tutorialView open lines by priority, minus the ones put away), or null. */
+  /**
+   * The engine's beat line to show now, or null: tutorialView.line (D141: the engine rests a line after ONB_LINE_STEPS steps
+   * unlearned and brings it back on its trigger). The open list is read only so that a fight's beat waits until the fight is
+   * on screen (the quest's intro dialog comes first: the bridge shows no combat), a map line until the map is on screen, and
+   * a line put away with "Got it" stays away; resting entries are skipped.
+   */
   function beatNow(v) {
     const t = v && v.tutorial;
     if (!t || !guiding(v) || hints.off || !T) return null;
-    // a fight's beat waits until the fight is on screen (the quest's intro dialog comes first: the bridge shows no combat)
-    const o = (t.open || []).find((x) => x.line && !dismissed.has(x.line) && (!FIGHT_BEATS.has(x.id) || inFight(v)));
+    const ok = (x) => x && x.line && !x.rest && !dismissed.has(x.line) && (!FIGHT_BEATS.has(x.id) || inFight(v)) && (!MAP_LINES.has(x.line) || onMap(v));
+    const top = (t.open || []).find((x) => x.line === t.line);
+    const o = ok(top) ? top : (t.open || []).find(ok);
     if (!o) return null;
     return { id: o.id, lineId: o.line, kind: 'beat', anchorFn: ANCHOR[o.id] || null };
   }
   function advance(v) {
     if (!v) return;
-    // auto-advance (spec 2.5: one at a time, the other waits): a beat line read for YIELD_STEPS steps gives way to the next
-    // open beat line the engine has (G12's line stays open all zone long and would hold G13 back); it comes back when the
-    // engine opens or changes it again
-    if (cur && cur.kind === 'beat' && stepNo - cur.step >= YIELD_STEPS && v.tutorial && (v.tutorial.open || []).some((o) => o.line && o.line !== cur.lineId && !dismissed.has(o.line))) {
-      dismissed.add(cur.lineId);
-      if (performance.now() - cur.at >= r.hintMinMs) { const hid = HINT_OF_BEAT[cur.id]; if (hid) hints.mark(PER_CLASS.has(hid) ? `${hid}:${cls()}` : hid); }
-      hide(false);
+    // D141: a beat line the engine has rested counts its hint seen when it was on screen long enough (spec 3.1)
+    if (cur && cur.kind === 'beat' && v.tutorial && (v.tutorial.open || []).some((o) => o.id === cur.id && o.rest) && performance.now() - cur.at >= r.hintMinMs) {
+      const hid = HINT_OF_BEAT[cur.id]; if (hid) hints.mark(PER_CLASS.has(hid) ? `${hid}:${cls()}` : hid);
     }
     const b = beatNow(v);
     if (b && (!cur || cur.kind === 'hint' || (cur.kind === 'beat' && cur.lineId !== b.lineId)) && !(cur && cur.kind === 'nudge') && !(cur && cur.kind === 'hint' && prio(cur.id) > prio(b.id))) {

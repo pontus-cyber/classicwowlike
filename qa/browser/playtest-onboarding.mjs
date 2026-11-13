@@ -91,7 +91,7 @@ async function session(browser, cls) {
     await page.goto(`${URL}?seed=${SEED}&speed=instant`);
     await page.waitForFunction(() => window.__ui); await idle(page);
     const tg = page.locator('#create .toggle.guide');
-    res.toggle = (await tg.count()) ? await tg.getAttribute('aria-checked') : 'absent';
+    res.toggle = (await tg.isVisible()) ? await tg.getAttribute('aria-checked') : 'hidden';
     await page.locator(`#create .ccard[data-cls="${cls}"]`).click(); await idle(page);
     await shot('00-class-select');
     await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
@@ -159,7 +159,7 @@ async function session(browser, cls) {
       // the second run: no guide toggle, H10 in the first fight
       const back = page.getByRole('button', { name: /^(Back|Close|Done)/ });
       if (await back.count()) { await back.first().click(); await idle(page); } else { await page.keyboard.press('Escape'); await idle(page); }
-      res.toggle2 = (await page.locator('#create .toggle.guide').count()) ? 'shown' : 'absent';
+      res.toggle2 = (await page.locator('#create .toggle.guide').isVisible()) ? 'shown' : 'hidden';
       await page.locator(`#create .ccard[data-cls="${cls}"]`).click(); await idle(page);
       await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
       let h10 = null; let fights = 0;
