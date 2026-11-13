@@ -31,7 +31,8 @@ export const CONTENT = {
   affixWords: { /* AffixWords */ },
   uniques: { /* id -> UniqueItem: 6 rares, 6 epics, 3 class weapons */ },
   classes: { rogue: { /* ClassText */ }, mage: {}, hunter: {} },
-  texts: { /* optional flavour for engine-defined ids (section 2.12) */ },
+  texts: { /* optional flavour for engine-defined ids (section 2.10) */ },
+  tutorial: { /* optional: the guided first run (section 2.11, M3) */ },
 };
 ```
 
@@ -230,6 +231,33 @@ texts: { spells: { ember_bolt: 'A bolt of living ember.' }, talents: { r_a1: '..
          boons: { return: '...' }, consumables: { healing_draught: '...' },
          expedition: { shardfall: '...', shardspawn: '...', dimming: '...', homeward_bell: '...' } }
 ```
+
+### 2.11 Tutorial (M3 guided first run; docs/specs/m3-onboarding.md 2.3-2.7, 3.2, 4.3; draft)
+Optional. `src/content/tutorial.js` (`TUTORIAL`). The engine reads the overlay (E2); the UI reads the lines. Levels,
+counts and every rule number stay constants (ONB_*, spec 12). Beat and hint ids keep the spec's form (`G1`..`G13`,
+`H01`..`H37`), not snake_case, because the UI stores seen hints by them (`tbwcr.hints.v2`).
+
+| Field | Type | Rule |
+|---|---|---|
+| `seed` | number | the accepted TUTORIAL_SEED (cross-check only; the engine reads `C.TUTORIAL_SEED`) |
+| `zone` | number | 1 (the guided zone) |
+| `board` | object | start camp slot 1: `{ slot: 1, kind: 'cull', z, region (a region id of zone z), family (a family of that region) }` |
+| `siteFights` | object[] | Cull site fights by order of the site fights started (the last repeats): `{ id, beat, enemies: Fight[] }` |
+| `scripts` | object[] | exactly ONB_SCRIPTED_FIGHTS scripted fights in order: `{ id ('s1'..), beat, teaches (designer note), enemies: Fight[], loot? }`; `loot: { upgrade: rarity id, consumable: CONSUMABLE id }` (count ONB_LOOT_POTIONS) |
+| Fight | object | `{ enemy: id of a zone normal, windup?: true }`. In the guided zone only `windup: true` makes an enemy's turn-2 action a wind-up (FIRST_MEET_WINDUP is off for the other guided-zone fights) |
+| `elite` | object | `{ id, beat, enemy (a zone elite), deathblow (an ability id of that enemy), add: false, rare: false, gate }` |
+| `elite.gate` | object | `{ afterScript: a script id, barredLine, openLine }`: the elite's node cannot be entered until that scripted fight has ended (win, flight or rescue); open after SKIP_GUIDE. `{n}` = scripted fights still to come |
+| `guide` | object | `{ rescueLine, endLine }` (spec 2.6, 2.7) |
+| `beats` | object[] | exactly 13: `{ id, name, anchor, line \| byClass { rogue, mage, hunter }, alt?: { state: line }, hint?: hint id }` |
+| `hints` | object[] | exactly 37: `{ id, system, line \| sameAs (a beat id), perClass?: true }` |
+| `nudge` | object | `{ unlock (META id), welcomeLabel, summaryLine, hallLine, later }` (spec 4.2-4.3) |
+
+Lines: one sentence each, at most ONB_HINT_MAX_CHARS (90) after the placeholders are filled; no "hours", "h" or
+decimals. Placeholders the UI fills: keys from its key map `{key_spell1}`, `{key_engage1}`, `{key_engage2}`,
+`{key_engage3}`, `{key_pass}`, `{key_item1}`, `{key_take_all}`, `{key_bags}`, `{key_talents}`, `{key_spellbook}`,
+`{key_autoplay}`, `{key_flee}`; numbers from C `{deathblowTurn}` (SIGNATURE_TURN), `{bellTolls}` (BELL_CHANNEL_TIME),
+`{offbalPct}` (OFFBAL_TAKEN × 100), `{rescueTolls}` (ONB_RESCUE_TOLLS), `{satchelPotions}` (META.satchel.potions),
+`{n}` (gate). The validator does not check this table yet (engine task E2).
 
 ## 3. Counts (rules 12.1)
 | Table | Per zone | Total |

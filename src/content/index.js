@@ -9,6 +9,7 @@ import { AFFIX_WORDS } from './affix-words.js';
 import { UNIQUES } from './uniques.js';
 import { CLASSES } from './classes.js';
 import { TEXTS } from './texts.js';
+import { TUTORIAL } from './tutorial.js';
 
 export const CONTENT = {
   version: 'm1-content-1',
@@ -22,4 +23,5 @@ export const CONTENT = {
   uniques: UNIQUES,
   classes: CLASSES,
   texts: TEXTS,
+  tutorial: TUTORIAL,
 };
