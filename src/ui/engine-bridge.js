@@ -247,7 +247,10 @@ const RES_KEY = { boon: 'boon', second_breath: 'meta', ember: 'ember' }; // engi
 const USE_MAP = { any: 'both', both: 'both', out: 'out', combat: 'combat', passive: 'passive' };
 const hash = (str) => { let h = 2166136261 >>> 0; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
-const reasonOf = (err) => { const m = String((err && err.message) || err || ''); const i = m.lastIndexOf(': '); return cap(i >= 0 ? m.slice(i + 2) : m); };
+// a reason names spells by name (QA playtest 2026-11-13, finding 5): the engine's may carry a spell id ("severing_flourish
+// needs a combo point" reads "Severing Flourish needs a combo point")
+const SPELL_IDS = new RegExp(`\\b(${Object.keys(R.C.SPELL).sort((a, b) => b.length - a.length).join('|')})\\b`, 'g');
+const reasonOf = (err) => { const m = String((err && err.message) || err || ''); const i = m.lastIndexOf(': '); return cap((i >= 0 ? m.slice(i + 2) : m).replace(SPELL_IDS, (id) => R.C.SPELL[id].name)); };
 
 /** The stored meta profile, completed with the fields of R.newProfile() a stored copy may lack; null without one. */
 function loadProfile() {

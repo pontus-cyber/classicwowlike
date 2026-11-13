@@ -471,12 +471,15 @@ export class App {
       if (q) { q.n += 1; return; }
     }
     if (this.toasts.children.length >= TOAST_MAX) {
-      if (!first) {
+      // the heat change takes the place of the oldest other toast. QA playtest 2026-11-13 (finding 5): so does a refusal
+      // ('err', why a key or click did nothing), of the oldest toast that is no refusal and no heat change (its line is in
+      // the log); it waited behind two notes before, so a refused key looked as if nothing had happened
+      const old = [...this.toasts.children].find((t) => !/\bheat-/.test(t.className) && (first || !/\berr\b/.test(t.className)));
+      if (!first && !(kind === 'err' && old)) {
         this.toastQueue.push({ key, text, kind, n: 1 });
         if (this.toastQueue.length > TOAST_QUEUE) this.toastQueue.shift(); // a long burst: the oldest waiting message lapses
         return;
       }
-      const old = [...this.toasts.children].find((t) => !/\bheat-/.test(t.className)); // the heat change takes its place
       if (old) { clearTimeout(old._toastT); old.remove(); }
     }
     this.showToast({ key, text, kind, n: 1 });
