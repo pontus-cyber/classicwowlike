@@ -28,7 +28,8 @@
 // (wind-ups and Deathblows with their answers), autoplayEngage (rule E2's engage answer), potionInfo's MAIMED amount and the
 // map's Deathblow fields (engine-api.md 6.2). M3 onboarding (docs/specs/m3-onboarding.md 2, 4.2, 5; engine-api.md 14):
 // newRun's `tutorial` option (the guided first run), tutorialView, SKIP_GUIDE, the rescue, the profile's guide and welcome
-// (migrateProfile, setGuide) and debug.resetOnboarding.
+// (migrateProfile, setGuide) and debug.resetOnboarding. D144 (blind tester pilot, engine-api.md 1): trainerView (what a
+// trainer would teach now), offBalance's `shield` and `absorbs`, spellInfo's `hit` and `hitAll`.
 import * as C from './constants.js';
 import { normaliseSeed } from './rng.js';
 import { cloneState, deepFreeze, IllegalActionError } from './engine/util.js';
@@ -39,11 +40,11 @@ import { summary as sum } from './engine/summary.js';
 import { newProfile, metaOffers, buyMeta, applyRunToProfile, parTime, migrateProfile, setGuide } from './engine/meta.js';
 import { tutorialView as guidedView } from './engine/tutorial.js';
 import { zoneDanger, defaultTarget as defaultTgt, pendingTicks as previewTicks } from './engine/combat.js';
-import { availablePets, metaFromProfile, travelLevel as travelAt } from './engine/nodes.js';
+import { availablePets, metaFromProfile, travelLevel as travelAt, trainerOffer } from './engine/nodes.js';
 import { nextLanes } from './engine/map.js';
 import { xpToNext, xpCurve, diffMod, talentPointsFree as freePoints } from './engine/progress.js';
 import { itemScore, V, bagCapacity as bagCap, countConsumable } from './engine/items.js';
-import { spellCost as cost, spellCd, spellAmount, spellTl, fleeChance as flee, castError, itemAmount, spellHitChance } from './engine/spells.js';
+import { spellCost as cost, spellCd, spellAmount, spellTl, fleeChance as flee, castError, itemAmount, spellHitChance, mainHitEstimate } from './engine/spells.js';
 import { resurrectOrder, offBalanceOpen, findSt, maimedHeal } from './engine/damage.js';
 import { engageOptions as engageList, engagePreview as previewEngage } from './engine/engage.js';
 import { isEngageRound as engageRound } from './engine/track.js';
@@ -214,7 +215,9 @@ export function engagePreview(state, action) {
 /**
  * The OFF_BALANCE window on an enemy (rules 7.13, combat v2), or null: { status ('OFF_BALANCE' or 'FROZEN', which
  * counts as OFF_BALANCE while it lasts), taken (extra damage taken from the player and pet), crit (extra player
- * crit chance), rounds (status rounds left) }.
+ * crit chance), rounds (status rounds left), shield (D144: its enemy shield, Bolster or Self Shield, which takes damage
+ * before its health; 0 when none), absorbs (D144: shield >= the average hit of the class's main attack on it now, window
+ * included: a hit is absorbed whole, so "spend your big hit now" is the wrong advice; break the shield first) }.
  */
 export function offBalance(state, enemyIdx) {
   const e = state.fight && state.fight.enemies[enemyIdx];
@@ -222,7 +225,19 @@ export function offBalance(state, enemyIdx) {
   const ob = findSt(e.st, 'OFF_BALANCE');
   const fr = findSt(e.st, 'FROZEN');
   const x = ob || fr;
-  return { status: ob ? 'OFF_BALANCE' : 'FROZEN', taken: ob ? ob.value : C.OFFBAL_TAKEN, crit: C.OFFBAL_CRIT, rounds: x.dur };
+  const shield = Math.max(0, e.shield || 0);
+  const absorbs = shield > 0 && !!state.player && shield >= mainHitEstimate(state, enemyIdx);
+  return { status: ob ? 'OFF_BALANCE' : 'FROZEN', taken: ob ? ob.value : C.OFFBAL_TAKEN, crit: C.OFFBAL_CRIT, rounds: x.dur, shield, absorbs };
+}
+
+/**
+ * What a trainer would teach the character now (rules 2.7; D144: the hub's "visit the trainer" advice cost a level 1
+ * character a toll with nothing to learn): { learn: [{ id, lvl, cost }], train: [{ id, tl, cost }], next (the level of
+ * the next spell to learn, or null), useful (a lesson or a rank the gold covers: worth the toll; autoplay's own test) };
+ * null before START_RUN. Any phase; prices as the trainer asks them now.
+ */
+export function trainerView(state) {
+  return state.player ? trainerOffer(state) : null;
 }
 
 /**

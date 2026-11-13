@@ -27,7 +27,7 @@ import { itemScore, countConsumable, sellValue, canAdd, V, bagCapacity } from '.
 import { talentPointsFree } from './progress.js';
 import { nextLanes, dungeonLevels } from './map.js';
 import { checkAction } from './actions.js';
-import { canTravel, exitLevel, trainerSpells, learnCost, trainCost, trainable, availablePets, canEnter } from './nodes.js';
+import { canTravel, exitLevel, trainerSpells, learnCost, trainerUseful, availablePets, canEnter } from './nodes.js';
 import { isExpedition, grindMaxWaves, nodeTime, zoneTime, dimmedAt, outwardStep, dimFightTime } from './expedition.js';
 import { takeContractError, buyPrepError, hubContractError, prepLeft } from './contracts.js';
 import { closedRoadsGoal } from './tutorial.js';
@@ -387,12 +387,6 @@ function vendorPolicy(s) {
     if (e.kind === 'gear' && !e.sold && itemScore(e.item, p.classId) > itemScore(p.equipped[e.item.slot], p.classId) && canBuy(i)) return { type: 'BUY', index: i };
   }
   return { type: 'LEAVE' };
-}
-
-function trainerUseful(s) {
-  const p = s.player;
-  const learnable = trainerSpells(s).some((id) => !p.spells[id] && SPELL[id].lvl <= p.level && p.gold >= learnCost(s, id));
-  return learnable || (trainable(s).length > 0 && p.gold >= trainCost(s));
 }
 
 /**

@@ -119,14 +119,14 @@ In the guided zone, while the guide is on, a death does not end the run. **The B
 | H02 | Intent track | first fight | "Above each enemy: its next three moves, in order." | first enemy's track | G6 |
 | H03 | Wind-up | first `windup` entry on a track | "Wind-up: stop it with W, an interrupt or a stun, and it is weakened all fight." | wind-up badge | G8 |
 | H04 | Deathblow | first Deathblow on a track | Class line as G9 | Deathblow badge | G9 |
-| H05 | Off-balance | first OFF_BALANCE window on an enemy | "Off-balance: it takes +{OFFBAL_TAKEN} damage. Spend your big hit now." | the enemy frame | |
+| H05 | Off-balance | first OFF_BALANCE window on an enemy | "Off-balance: it takes +{OFFBAL_TAKEN} damage. Spend your big hit now." While the target's shield absorbs a whole hit (`R.offBalance(...).absorbs`, D144, draft): "Off-balance, but its shield takes your hits first: break it, then spend your big hit." (content H05 `alt.shield`; blind tester report 2026-11-13, casual: a crit for 0 into a shield) | the enemy frame | |
 | H06 | Maimed | first MAIMED on the player | "Maimed: your healing is halved for this fight." | player frame | G9 |
 | H07 | Lethal | first entry marked LETHAL (when the BACKLOG item ships) | "Lethal: this hit kills you. Stop it, heal, or kill first." | the entry | |
 | H08 | DoT preview | first pending-tick segment on an enemy bar | "The marked end of a health bar is what its damage over time will take." | that bar | |
 | H09 | Potions | HP below ONB_POTION_HP in a fight with a healing potion ready | "Low health: drink a Healing Draught (8). It uses your turn." | item slot | G11 |
 | H10 | Free potion | first fight with Packed Satchel | "Packed Satchel: your first potion each fight costs no turn, at half strength." | item slot | |
 | H11 | Loot | first loot window | "Space takes all. A green arrow marks an upgrade: equip it in your bags (B)." | loot window | G4 |
-| H12 | Trainer | first level-up with a spell to learn or train | "New spell ranks: visit the trainer at a hub." | hub marker on the map | |
+| H12 | Trainer | first level-up with a spell to learn or train | "New spell ranks: visit the trainer at a hub." The hub's welcome names the trainer only while `R.trainerView(state).useful` (content `guide.hubTrainerLine`, else `guide.hubLine`; D144, draft: both blind testers paid a toll at level 1 with nothing to learn) | hub marker on the map | |
 | H13 | Spell bar | first spell learned that is not on the bar | "Drag your new spell onto the bar (spellbook, P)." | the bar | |
 | H14 | Talents | first talent point (level TALENT_FIRST_LEVEL) | "Talent point: spend it in Talents (N)." | talents button | |
 | H15 | Fog | first map view | "You see the nodes next to you. Walking shows more." | player's node | G2 |

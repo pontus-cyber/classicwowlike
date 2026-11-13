@@ -952,6 +952,34 @@ export function trainable(s) {
   return order.filter((id) => SPELL[id].source !== 'talent' && p.spells[id] && p.spells[id].tl < p.level);
 }
 
+/** A trainer is worth a visit now (rules 2.7): a spell to learn or a rank to train that the gold covers (autoplay's test). */
+export function trainerUseful(s) {
+  const p = s.player;
+  const learnable = trainerSpells(s).some((id) => !p.spells[id] && SPELL[id].lvl <= p.level && p.gold >= learnCost(s, id));
+  return learnable || (trainable(s).length > 0 && p.gold >= trainCost(s));
+}
+
+/**
+ * What a trainer would teach now (rules 2.7; D144, blind tester pilot: the hub's "visit the trainer" advice cost a level 1
+ * character a toll with nothing to learn): { learn: [{ id, lvl, cost }] (spells the trainer offers up to the character's
+ * level that it does not know, by level), train: [{ id, tl, cost }] (known spells trained below its level, TRAIN_ALL's
+ * order), next (the level of the next spell to learn above it, or null), useful (trainerUseful: a lesson or a rank the gold
+ * covers) }. Prices as the trainer asks them now (the Ledger's free first lesson counts only while a hub's trainer is open).
+ * Read-only.
+ */
+export function trainerOffer(s) {
+  const p = s.player;
+  const spells = trainerSpells(s).filter((id) => !p.spells[id]);
+  const learn = spells.filter((id) => SPELL[id].lvl <= p.level).sort((a, b) => SPELL[a].lvl - SPELL[b].lvl || (a < b ? -1 : 1));
+  const later = spells.map((id) => SPELL[id].lvl).filter((l) => l > p.level);
+  return {
+    learn: learn.map((id) => ({ id, lvl: SPELL[id].lvl, cost: learnCost(s, id) })),
+    train: trainable(s).map((id) => ({ id, tl: p.spells[id].tl, cost: trainCost(s) })),
+    next: later.length ? Math.min(...later) : null,
+    useful: trainerUseful(s),
+  };
+}
+
 export function trainAll(s, ev) {
   for (const id of trainable(s)) {
     if (s.player.gold >= trainCost(s)) trainSpell(s, ev, id);

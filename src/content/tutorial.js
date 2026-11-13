@@ -55,9 +55,14 @@ export const TUTORIAL = {
   },
 
   // Rescue and the end of the guide (spec 2.6, 2.7). {rescueTolls}: ONB_RESCUE_TOLLS.
+  // hubLine / hubTrainerLine (D144, draft, Core Gameplay Engineer 2026-11-13): the welcome at a zone hub, any run; the
+  // trainer line only while R.trainerView(state).useful (a lesson or a rank the gold covers), else the plain line. Both
+  // blind testers paid a toll for "Visit the trainer" at level 1 with nothing to learn. {zone}: the zone's name.
   guide: {
     rescueLine: 'The Bellwrights pull you back ({rescueTolls} tolls).',
     endLine: 'The guide ends here. New things get one hint each.',
+    hubLine: 'Welcome to {zone}. Nothing to learn at the trainer yet: set out when ready.',
+    hubTrainerLine: 'Welcome to {zone}. Visit the trainer for new spells or ranks, then set out.',
   },
 
   // The 13 beats (spec 2.4). line: the coach line; alt: the beat's other one-line states; byClass: the class line
@@ -113,7 +118,10 @@ export const TUTORIAL = {
     { id: 'H02', system: 'Intent track', line: 'Above each enemy: its next three moves, in order.' },
     { id: 'H03', system: 'Wind-up', line: 'Wind-up: stop it with {key_engage2}, an interrupt or a stun, and it is weakened all fight.' },
     { id: 'H04', system: 'Deathblow', perClass: true, sameAs: 'G9' },
-    { id: 'H05', system: 'Off-balance', line: 'Off-balance: it takes +{offbalPct}% damage. Spend your big hit now.' },
+    // alt.shield (D144, draft): the target's shield would absorb a whole hit (R.offBalance(...).absorbs): the big hit goes
+    // into the shield (casual s0193: a crit for 0, 88 absorbed), so the line says to break the shield first
+    { id: 'H05', system: 'Off-balance', line: 'Off-balance: it takes +{offbalPct}% damage. Spend your big hit now.',
+      alt: { shield: 'Off-balance, but its shield takes your hits first: break it, then spend your big hit.' } },
     { id: 'H06', system: 'Maimed', line: 'Maimed: your healing is halved for this fight.' },
     { id: 'H07', system: 'Lethal', line: 'Lethal: this hit kills you. Stop it, heal, or kill first.' },
     { id: 'H08', system: 'DoT preview', line: 'The marked end of a health bar is what damage over time will still take.' },

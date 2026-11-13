@@ -13,7 +13,7 @@ import { rnd } from './util.js';
 import { tr, hasEffect } from './stats.js';
 import {
   damage, snapshot, addStatus, removeStatus, findSt, hasSt, petAlive, healUnit, dispersal, gainStealth,
-  gainResource, livingEnemies, gainOffBalance, answerWindup, hitChance,
+  gainResource, livingEnemies, gainOffBalance, answerWindup, hitChance, critChance, mitigation,
 } from './damage.js';
 import { interruptBoss } from './boss.js';
 import { defaultTarget, allSapped } from './combat.js';
@@ -135,6 +135,23 @@ const alwaysHits = (id) => !!(SPELL[id] && SPELL[id].tags.includes('interrupt'))
 export function spellHitChance(s, id, tgt) {
   const sp = SPELL[id];
   return hitChance(s, 'player', tgt, { school: sp.school || 'magic', noMiss: alwaysHits(id) });
+}
+
+/**
+ * The average damage of one hit of the class's main attack (CLASS.startSpells[0]: Gutting Jab, Ember Bolt, Keen Shot) on
+ * enemy `tgt` now, before any shield (rules 7.2 steps 1-7 without the draws: the snapshot with the target's statuses, so
+ * an OFF_BALANCE window counts; the crit chance and multiplier as an average; a physical hit's armour), rounded.
+ * Read-only. The API's offBalance compares an enemy shield with it (`absorbs`, D144).
+ */
+export function mainHitEstimate(s, tgt) {
+  const p = s.player;
+  const id = CLASS[p.classId].startSpells[0];
+  const sp = SPELL[id];
+  const o = { school: sp.school, spell: id, isSpell: sp.school !== 'phys' };
+  const x = base(s, sp, p.spells[id] ? spellTl(s, id) : p.level) * snapshot(s, 'player', tgt, 1, o);
+  const c = Math.min(1, Math.max(0, critChance(s, 'player', tgt, o)));
+  const mit = sp.school === 'phys' ? 1 - mitigation(s.fight.enemies[tgt].armor, p.level) : 1;
+  return Math.max(MIN_HIT_DAMAGE, rnd(x * (1 + c * (p.d.critMult - 1)) * mit));
 }
 
 /**
