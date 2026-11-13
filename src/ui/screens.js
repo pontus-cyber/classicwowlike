@@ -125,8 +125,16 @@ const spy = { armed: false };
  * the Bell first asks, naming them; armed holds the action type waiting for the answer.
  */
 const leave = { armed: null };
-/** Esc or a new screen disarms the Spyglass and puts away the leave prompt; true when either was armed. */
-export function disarmSpyglass() { const was = spy.armed || !!leave.armed; spy.armed = false; leave.armed = null; return was; }
+/**
+ * Blind panel 2026-11-13 (item 8): resting at the hub's Inn (or the camp's Campfire) with health and mana nearly full asks
+ * first (4 tolls spent by a misclick, no undo). armed: the zone (or camp) where the ask is open.
+ */
+const innAsk = { armed: null };
+/** Health and mana (a mana class) at INN_ASK_SHARE or more of their maximum: a rest would give almost nothing back. */
+export const INN_ASK_SHARE = 0.9;
+export const nearlyFull = (p) => !!p && p.hp >= INN_ASK_SHARE * p.maxHp && (p.res.kind !== 'mana' || p.res.cur >= INN_ASK_SHARE * p.res.max);
+/** Esc or a new screen disarms the Spyglass and puts away the leave prompt and the Inn's ask; true when one was armed. */
+export function disarmSpyglass() { const was = spy.armed || !!leave.armed || innAsk.armed != null; spy.armed = false; leave.armed = null; innAsk.armed = null; return was; }
 /** The held contracts of this zone that leaving it expires (contractView status 'active'). */
 export function expiringHere(v) { return v.contracts ? v.contracts.contracts.filter((c) => c.status === 'active') : []; }
 /** "2 contracts here will expire: Cull reedfolk (1 / 3 sites); Delve: The Harrow Cellars (0 / 1 site)". */
@@ -253,22 +261,46 @@ function svcCard(glyph, bg, name, meta, cost, used, onClick, heat = null) {
   return el;
 }
 
+/**
+ * The Inn (or the camp's Campfire): a service card; with health and mana nearly full (nearlyFull) its first click asks in
+ * the card's own place ("Rest anyway?" with the tolls, Rest and Cancel), so nothing below it moves.
+ */
+function innCard(v, ctx, name, meta, used, heat) {
+  const p = v.player; const hr = ctx.data.rules.time; const where = v.zone ? v.zone.idx : 'camp';
+  const rest = () => { innAsk.armed = null; ctx.act({ type: 'HUB_SERVICE', service: 'inn' }); };
+  if (innAsk.armed !== null && (innAsk.armed !== where || used || !nearlyFull(p))) innAsk.armed = null;
+  if (innAsk.armed === null || used) {
+    return svcCard('rest', 'fire', name, meta, tolls(hr.inn), used, () => { if (nearlyFull(p)) { innAsk.armed = where; ctx.ui.refreshScreens(); } else rest(); }, heat);
+  }
+  const hp = heatOf(v, heat.action); const cost = tolls(hp ? hp.time : hr.inn);
+  const pc = (a, b) => `${Math.floor((100 * a) / Math.max(1, b))} %`;
+  const yes = btn(`Rest · ${cost}`, rest, '.danger'); yes.dataset.inn = 'rest';
+  const no = btn('Cancel', () => { innAsk.armed = null; ctx.ui.refreshScreens(); }, '.primary'); no.dataset.inn = 'cancel';
+  return h('div.svc-card.ask', { role: 'alertdialog', 'aria-label': `Rest at the ${name}?` }, h('img', { src: icon('rest', 'fire'), alt: '' }),
+    h('div', h('div.nm', `Rest anyway?`), h('div.meta', `Health ${pc(p.hp, p.maxHp)}${p.res.kind === 'mana' ? `, mana ${pc(p.res.cur, p.res.max)}` : ''}: nearly full`)),
+    h('div.ask-b', yes, no));
+}
+
 const hubSwap = { swap: false }; // the hub offer's swap list stays open across the hub screen's rebuilds
 function buildHub(v, ctx) {
   const z = v.zone; const p = v.player; const used = (v.hub && v.hub.used) || {}; const hr = ctx.data.rules.time;
   const el = h('div.side.panel');
   el.append(h('div.wtitle', h('div', h('div.title', { style: { fontSize: '2.4rem' } }, z.hubName), h('div.subtitle', `${z.name} · levels ${z.band[0]}–${z.band[1]}`))));
-  const body = h('div.body.col', { style: { padding: '1.2rem 1.6rem 1.6rem', gap: '.8rem' } });
-  if (z.hubText || z.blurb) body.appendChild(h('div', { style: { font: 'italic 1.4rem var(--font-title)', color: 'var(--ink-dim)', marginBottom: '.4rem' } }, z.hubText || z.blurb));
+  // blind panel 2026-11-13 (item 5): a little tighter, so the offer and the three services fit at 1366x768 (style.css .side)
+  const body = h('div.body.col', { style: { padding: '1rem 1.6rem 1.2rem', gap: '.6rem' } });
+  if (z.hubText || z.blurb) body.appendChild(h('div', { style: { font: 'italic 1.4rem var(--font-title)', color: 'var(--ink-dim)', marginBottom: '.2rem' } }, z.hubText || z.blurb));
   // the hub's contract offer (expedition.md 3.6; prep) first: it is only open before leaving the hub
-  if (hubSwap.z !== z.idx) { hubSwap.swap = false; hubSwap.z = z.idx; }
+  if (hubSwap.z !== z.idx) { hubSwap.swap = false; hubSwap.z = z.idx; hubSwap.taken = null; }
   const offer = buildHubOffer(v, ctx, hubSwap);
   if (offer) body.appendChild(offer);
+  // blind panel 2026-11-13 (item 8): the offer just taken leaves a note of the same height, so the cards under it stay where
+  // the pointer is (the next click hit the Inn instead of the Trainer)
+  else if (hubSwap.taken && hubSwap.taken.z === z.idx) body.appendChild(h('div.hubtaken', { style: { minHeight: `${hubSwap.taken.h}px` } }, h('div.hx-t', 'Contract taken'), h('div.hx-s', `${hubSwap.taken.title}: its sites are on the map and in your tracker.`)));
   const svc = (service) => ({ ctx, v, action: { type: 'SERVICE', service } });
   body.append(
     svcCard('tome', 'arcane', 'Trainer', 'Learn and rank up spells', tolls(hr.trainer), used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer')),
     svcCard('vendor', 'earth', 'Vendor', 'Potions, rations and gear', tolls(hr.vendor), used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' }), svc('vendor')),
-    svcCard('rest', 'fire', 'Inn', 'Full rest and rested experience', tolls(hr.inn), used.inn, () => ctx.act({ type: 'HUB_SERVICE', service: 'inn' }), svc('inn')));
+    innCard(v, ctx, 'Inn', 'Full rest and rested experience', used.inn, svc('inn')));
   if (p.talentPoints) body.appendChild(h('div.warn', { style: { fontSize: '1.25rem' } }, `You have ${p.talentPoints} unspent talent point${p.talentPoints > 1 ? 's' : ''}. Press N.`));
   const go = h('button.btn.primary.big', 'Set out');
   go.addEventListener('click', () => ctx.act({ type: 'LEAVE_HUB' }));
@@ -287,7 +319,7 @@ function buildCamp(v, ctx) {
   body.append(
     svcCard('tome', 'arcane', 'Trainer', 'Last chance to train', tolls(hr.trainer), used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer')),
     svcCard('vendor', 'earth', 'Quartermaster', `Level ${R.maxLevel} stock`, tolls(hr.vendor), used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' }), svc('vendor')),
-    svcCard('rest', 'fire', 'Campfire', 'Full rest before the fight', tolls(hr.inn), used.inn, () => ctx.act({ type: 'HUB_SERVICE', service: 'inn' }), svc('inn')),
+    innCard(v, ctx, 'Campfire', 'Full rest before the fight', used.inn, svc('inn')),
     svcCard('grind', 'steel', 'Camp wave', `Fight a wave of level ${R.campGrindLevel} enemies`, `${tolls(hr.grindWave)} a wave`, false, () => ctx.act({ type: 'CAMP_GRIND' }), { ctx, v, action: { type: 'CAMP_GRIND' } }));
   // the par and the Ascendancy: R.heatView's (the bridge's v.camp: at the Camp the line is the par, ascIfPar the boss's)
   const par = v.camp && v.camp.par ? ` (par ${fmtTime(v.camp.par)})` : '';
@@ -429,13 +461,16 @@ function buildExpMap(v, ctx, readOnly) {
   if (!readOnly && mv.onRoad) acts.push(['Take the Road', { type: 'TAKE_ROAD' }]);
   if (!readOnly && mv.bell && mv.bell.charges > 0) acts.push([`Ring the Bell (${mv.bell.charges})`, { type: 'RING_BELL' }]);
   const expiring = readOnly ? [] : expiringHere(v);
-  if (leave.armed && (readOnly || !expiring.length || !acts.some(([, a]) => a.type === leave.armed))) leave.armed = null;
+  // blind panel 2026-11-13 (item 8): the Bell (one charge a run, it leaves the zone) always asks first; a Road asks when
+  // contracts of this zone would expire
+  const asks = (type) => type === 'RING_BELL' || expiring.length > 0;
+  if (leave.armed && (readOnly || !asks(leave.armed) || !acts.some(([, a]) => a.type === leave.armed))) leave.armed = null;
   const btns = acts.map(([label, a]) => {
-    const b = btn(label, () => { if (expiring.length && leave.armed !== a.type) { leave.armed = a.type; ctx.ui.refreshScreens(); return; } leave.armed = null; ctx.act(a); }, a.type === 'TAKE_ROAD' ? '.primary' : '');
+    const b = btn(label, () => { if (asks(a.type) && leave.armed !== a.type) { leave.armed = a.type; ctx.ui.refreshScreens(); return; } leave.armed = null; ctx.act(a); }, a.type === 'TAKE_ROAD' ? '.primary' : '');
     b.dataset.leave = a.type;
     tip(b, () => h('div', h('div.tt-name', label), a.type === 'RING_BELL' ? h('div.tt-line', `${mv.texts && mv.texts.homeward_bell ? mv.texts.homeward_bell + ' ' : ''}Rung on the map: ${tolls(mv.bell.channelTime)} to ring, then the next zone's hub.`) : h('div.tt-line', `Leave for ${roadTo(v, ctx)}.`),
       expiring.length ? h('div.tt-warn', `${expiryText(expiring, ctx.data.content)}. No reward.`) : null, previewBlock(heatOf(ctx.view, a), ctx, { leaves: true }),
-      expiring.length ? h('div.tt-hint', 'Click, then confirm') : null));
+      asks(a.type) ? h('div.tt-hint', 'Click, then confirm') : null));
     return ghostOn(b, ctx, a);
   });
   // the Spyglass (expedition.md 2.4; prep): arm it, then click any node: it and its neighbours come into full view, no tolls
@@ -450,10 +485,12 @@ function buildExpMap(v, ctx, readOnly) {
   win.appendChild(h('div.mhead', h('div', h('div.title', z.name), h('div.subtitle', `Levels ${z.band[0]}–${z.band[1]} · zone toll ${mv.zt}`)), h('div.row', readOnly ? closeBtn(ctx, 'map') : null, ...btns)));
   if (leave.armed) {
     const a = { type: leave.armed }; const road = a.type === 'TAKE_ROAD';
-    const go = btn(road ? 'Take the Road anyway' : 'Ring the Bell anyway', () => { leave.armed = null; ctx.act(a); }, '.danger');
+    const go = btn(road ? 'Take the Road anyway' : expiring.length ? 'Ring the Bell anyway' : 'Ring the Bell', () => { leave.armed = null; ctx.act(a); }, '.danger');
     const stay = btn('Stay', () => { leave.armed = null; ctx.ui.refreshScreens(); }, '.primary');
-    win.appendChild(h('div.leavewarn', { role: 'alertdialog', 'aria-label': `Leave ${z.name}?` },
-      h('div.lw-t', `Leave ${z.name}?`), h('div.lw-l', `${expiryText(expiring, ctx.data.content)}. They pay nothing once expired.`),
+    const bell = !road && mv.bell ? h('div.lw-l.lw-bell', `The Homeward Bell takes you to the hub of ${roadTo(v, ctx)} in ${tolls(mv.bell.channelTime)}. ${mv.bell.charges === 1 ? 'It is your only charge this run.' : `${mv.bell.charges} charges left this run.`} No way back to ${z.name}.`) : null;
+    win.appendChild(h('div.leavewarn', { role: 'alertdialog', 'aria-label': road ? `Leave ${z.name}?` : 'Ring the Homeward Bell?' },
+      h('div.lw-t', road ? `Leave ${z.name}?` : 'Ring the Homeward Bell?'), bell,
+      expiring.length ? h('div.lw-l', `${expiryText(expiring, ctx.data.content)}. They pay nothing once expired.`) : null,
       h('div.row.lw-b', go, stay, h('span.muted', 'Esc: stay'))));
   }
 

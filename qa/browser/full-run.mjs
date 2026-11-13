@@ -337,9 +337,10 @@ async function playOne(browser, W, H, cls) {
       }
       case 'TAKE_ROAD': case 'RING_BELL': {
         await click(page.locator(`#screens .expmap [data-leave="${a.type}"]`), a.type === 'TAKE_ROAD' ? 'Take the Road' : 'Ring the Bell');
-        // contracts of this zone still held: the leave warning asks first (expedition.md 9.3)
+        // contracts of this zone still held: the leave warning asks first (expedition.md 9.3); the Bell always asks (blind
+        // panel 2026-11-13: "Ring the Bell", or "... anyway" with contracts that would expire)
         const warn = page.locator('#screens .leavewarn');
-        if (await warn.count()) return click(warn.getByRole('button', { name: /anyway$/ }), 'leave anyway');
+        if (await warn.count()) return click(warn.getByRole('button', { name: /anyway$|^Ring the Bell$/ }), 'leave anyway');
         return undefined;
       }
       case 'CHOOSE_NODE': return click(page.locator(`#screens button.mnode.reach[data-row="${s.zone.pos.r + 1}"][data-lane="${a.lane}"]`), `map node row ${s.zone.pos.r + 1} lane ${a.lane}`);

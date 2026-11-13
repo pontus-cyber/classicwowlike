@@ -619,6 +619,10 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 .svc-card { display: flex; align-items: center; gap: var(--sp-100); padding: var(--sp-60) var(--sp-80); border-radius: var(--radius-md-2); background: rgba(0, 0, 0, .32); box-shadow: inset 0 0 0 1px var(--glint-06); cursor: pointer; transition: background var(--dur-fast-4), box-shadow var(--dur-fast-4); }
 .svc-card:hover { background: rgba(60, 46, 26, .55); box-shadow: inset 0 0 0 1px var(--gold-70); }
 .svc-card.used { opacity: .45; cursor: default; }
+/* blind panel 2026-11-13 (item 8): the Inn asks in its own place when health and mana are nearly full */
+.svc-card.ask { cursor: default; background: rgba(70, 20, 12, .55); box-shadow: inset 0 0 0 1px rgba(255, 150, 110, .75); }
+.svc-card.ask .ask-b { margin-left: auto; display: flex; gap: var(--sp-50); flex: none; }
+.svc-card.ask .ask-b .btn { padding: var(--sp-30) var(--sp-80); font-size: var(--fs-small-8); white-space: nowrap; }
 .svc-card img { width: 4rem; height: 4rem; border-radius: var(--radius-md-2); border: 1px solid var(--shade); }
 .svc-card .nm { font: var(--fw-bold) var(--fs-label-6) var(--font-ui); }
 .svc-card .meta { font-size: var(--fs-body-1); color: var(--ink-dim); }
@@ -1290,6 +1294,9 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .hubc .hc-give { display: flex; align-items: baseline; gap: var(--sp-20); text-align: left; padding: var(--sp-40) var(--sp-60); border: 0; border-radius: var(--radius-sm-2); cursor: pointer; font: var(--fs-small-8) var(--font-ui); color: var(--ink); background: var(--shade-35); box-shadow: inset .3rem 0 0 var(--cc), inset 0 0 0 1px var(--edge-hi-20); }
 .hubc .hc-give:hover { box-shadow: inset .3rem 0 0 var(--cc), inset 0 0 0 1px rgba(255, 140, 110, .8); color: #ffd8c8; }
 .hubc .hc-note { margin-top: var(--sp-45); font-size: var(--fs-small-5); color: var(--ink-mute); }
+/* the offer just taken (screens.js buildHub): a note of the offer's height, so nothing under it moves (blind panel 2026-11-13) */
+.hubtaken { box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: var(--sp-20); margin-top: var(--sp-30); padding: var(--sp-90) var(--sp-100) var(--sp-80); border-radius: var(--radius-md-2); background: rgba(32, 24, 14, .6); box-shadow: inset 0 0 0 1px var(--gold-50); }
+.hubtaken .hx-t { font: var(--fw-semibold) var(--fs-label-7) var(--font-title); color: var(--gold); } .hubtaken .hx-s { font-size: var(--fs-body-3); line-height: var(--lh-normal-2); color: var(--ink-dim); }
 /* the quest log as the contract tracker */
 .clog .cl-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-100); } .clog .cl-head .title { font-size: var(--fs-title-2); }
 .clog .cl-sub { margin: var(--sp-80) 0 var(--sp-30); font: var(--fw-semibold) var(--fs-body-5) var(--font-title); color: var(--gold); }

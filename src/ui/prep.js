@@ -344,14 +344,16 @@ export function buildHubOffer(v, ctx, state = { swap: false }) {
   tip(head, () => contractTip(o, ctx, { price: `${pts(o.price)} of Reserve (you have ${cv.reserve}) · or a swap` }));
   const rw = o.reward;
   const take = h('button.btn.small' + (o.reserve ? '.primary' : '.disabled'), { type: 'button', dataset: { hub: 'reserve' } }, `Take · ${o.price} Reserve`);
-  take.addEventListener('click', () => ctx.act({ type: 'TAKE_HUB_CONTRACT', mode: 'reserve' }));
+  // blind panel 2026-11-13 (item 8): the hub keeps the offer's height after a take (screens.js buildHub), so nothing moves
+  const taken = () => { state.taken = { z: v.zone.idx, h: Math.round(box.getBoundingClientRect().height), title: contractTitle(o, ctx.data.content) }; };
+  take.addEventListener('click', () => { if (o.reserve) taken(); ctx.act({ type: 'TAKE_HUB_CONTRACT', mode: 'reserve' }); });
   tip(take, () => h('div', h('div.tt-name', 'Take it from Reserve'), h('div.tt-line', `Pay ${pts(o.price)} of your ${cv.reserve} Reserve. It needs a free slot (${cv.held} of ${cv.slots} used). Only before you leave this hub.`),
     o.reserve ? h('div.tt-hint', 'Click to take it') : h('div.tt-warn', ctx.bridge.why({ type: 'TAKE_HUB_CONTRACT', mode: 'reserve' }) || 'Not now')));
   const swapBtn = h('button.btn.small' + (o.swap.length ? '' : '.disabled'), { type: 'button', dataset: { hub: 'swap' } }, state.swap ? 'Keep my contracts' : 'Swap…');
   tip(swapBtn, () => h('div', h('div.tt-name', 'Swap'), h('div.tt-line', 'Give up one contract you hold and take this one for free. No refund; its progress is lost. Only before you leave this hub.')));
   const list = h('div.hc-swap' + (state.swap ? '' : '.hidden'), cv.contracts.filter((c) => o.swap.includes(c.id)).map((c) => {
     const b = h('button.hc-give', { type: 'button', dataset: { contract: c.id }, style: { '--cc': colors.get(c.id) || OFF_COLOR } }, h('i.dot'), h('span', `Give up: ${contractTitle(c, ctx.data.content)}`), h('span.muted', ` · zone ${c.z}, ${progressText(c)}`));
-    b.addEventListener('click', () => ctx.act({ type: 'TAKE_HUB_CONTRACT', mode: 'swap', contractId: c.id }));
+    b.addEventListener('click', () => { taken(); ctx.act({ type: 'TAKE_HUB_CONTRACT', mode: 'swap', contractId: c.id }); });
     tip(b, () => contractTip(c, ctx, { warn: `Given up for the offer: no refund, ${c.progress ? `its ${c.progress} ${plural(c.progress, 'site')} won are lost` : 'nothing won yet'}.` }));
     return b;
   }));
