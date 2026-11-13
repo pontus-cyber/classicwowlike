@@ -34,6 +34,9 @@ export function withoutMeta(profile, ids) {
 /** Profile by name: fresh | p0 (no unlocks), metaN | pN (first N entries of the standard order), all | pall. */
 export function buildProfile(name, classId) {
   const p = R.newProfile();
+  // D139: fixed profiles have had the first-run welcome, so Echo rows stay comparable with reports before M3
+  // (campaigns start from a new profile and keep the welcome, as players do).
+  p.welcome = true;
   const n = String(name || 'fresh').toLowerCase();
   if (n === 'fresh' || n === 'p0' || n === 'meta0') return p;
   if (n === 'all' || n === 'pall' || n === 'metaall') {
