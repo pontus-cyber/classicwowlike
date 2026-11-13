@@ -58,11 +58,14 @@ export const TUTORIAL = {
   },
 
   // Rescue and the end of the guide (spec 2.6, 2.7). {rescueTolls}: ONB_RESCUE_TOLLS.
+  // rescueCapLine (D147, draft, Core Gameplay Engineer 2026-11-14): the ONB_RESCUE_MAX-th rescue ends the guide (event
+  // guideSkipped with why 'rescues'); shown with that rescue's line, in place of the skip line.
   // hubLine / hubTrainerLine (D144, draft, Core Gameplay Engineer 2026-11-13): the welcome at a zone hub, any run; the
   // trainer line only while R.trainerView(state).useful (a lesson or a rank the gold covers), else the plain line. Both
   // blind testers paid a toll for "Visit the trainer" at level 1 with nothing to learn. {zone}: the zone's name.
   guide: {
     rescueLine: 'The Bellwrights pull you back ({rescueTolls} tolls).',
+    rescueCapLine: 'That was the last rescue: the guide ends here, and from now on a death ends the run.',
     endLine: 'The guide ends here. New things get one hint each.',
     hubLine: 'Welcome to {zone}. Nothing to learn at the trainer yet: set out when ready.',
     hubTrainerLine: 'Welcome to {zone}. Visit the trainer for new spells or ranks, then set out.',

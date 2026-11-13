@@ -6,6 +6,8 @@
 // with C.GATES.rewardPrimary (D144) and zone2InnerCap (D146) off; each switch's arm has its own recorded hashes.
 // D142 (M3 3.7): the guided zone's Roads closed until Gorrak's fight has ended (won, fled or rescued), open on a skip, the
 // fallback when he can no longer be fought, G13.closed, the autoplay's way to him; G10 only on the map, G12's return cap.
+// D147: a rescue lands on the map with no fight started (it looped in Dimmed nodes), and ONB_RESCUE_MAX rescues end the
+// guide.
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -244,6 +246,82 @@ describe('M3 guided run: rescue and SKIP_GUIDE (2.2, 2.6, E3, E4)', () => {
     const e2 = R.step(ended, { type: 'SET_AUTOPLAY', on: false });
     assert.ok(e2.events.some((e) => e.t === 'guideEnd'));
     assert.match(R.whyIllegal(e2.state, { type: 'SKIP_GUIDE' }), /ended/);
+  });
+});
+
+describe('M3 D147: a rescue starts no fight; ONB_RESCUE_MAX rescues end the guide (2.6)', () => {
+  /** Guided Hunter at the hub with the zone time at zt (seed 8736: node 4 dims at 11, node 3 and the hub at 14). */
+  const atTime = (zt) => tweak(atHub('hunter', 8), (x) => { x.time = x.zone.start + zt; });
+  const kinds = (ev) => ev.map((e) => e.t);
+
+  test('a death in a Dimmed encounter: back on the map on its Dimmed node with no fight (it started another one at once, for ever); the next step is checked as usual', () => {
+    assert.equal(C.ONB_RESCUE_MAX, 3);
+    const s0 = atTime(11);
+    assert.deepEqual([R.mapView(s0).nodes[4].dimmed, R.mapView(s0).nodes[0].dimmed], [true, false]);
+    let s = R.step(s0, { type: 'MOVE', nodeId: 4 }).state; // a walk onto a Dimmed node: the settle step's encounter
+    assert.equal(s.node.type, 'dim');
+    const ev = [];
+    s = die(s, ev);
+    const r = ev.find((e) => e.t === 'rescue');
+    assert.deepEqual([r.node, r.to], [4, 4]);
+    assert.ok(!kinds(ev.slice(ev.indexOf(r))).includes('dim') && !kinds(ev.slice(ev.indexOf(r))).includes('fight'), 'no encounter after the rescue');
+    assert.deepEqual([s.zone.pos, s.phase, s.node, s.fight, s.exp.pending], [4, 'MAP', null, null, false]);
+    assert.ok(R.mapView(s).nodes[4].dimmed, 'still on a Dimmed node');
+    assert.deepEqual([s.tutorial.rescues, s.tutorial.skipped, R.tutorialView(s).guidedZone], [1, false, true]);
+    assert.ok(R.legalActions(s).some((a) => a.type === 'MOVE') && R.legalActions(s).some((a) => a.type === 'RING_BELL'), 'the player can act');
+    // the next step's tolls are checked as usual: a walk onto Dimmed node 3 starts its encounter
+    const m = R.step(s, { type: 'MOVE', nodeId: 3 });
+    assert.ok(m.events.some((e) => e.t === 'dim' && e.id === 3));
+    assert.equal(m.state.node.type, 'dim');
+  });
+
+  test('a death in a node fight back to a Dimmed node: on the map there with no fight; a Bell that was ringing completes', () => {
+    // through node 3 (a pass) into node 11's fight; node 3 dims (zone toll 14) during it
+    let s = R.step(walkTo(atHub('hunter', 8), 3), { type: 'MOVE', nodeId: 11 }).state;
+    assert.ok(s.fight && s.zone.pos === 11);
+    s = tweak(s, (x) => { x.time = x.zone.start + 14; });
+    const ev = [];
+    s = die(s, ev);
+    assert.deepEqual([ev.find((e) => e.t === 'rescue').to, s.zone.pos, s.phase, s.fight], [3, 3, 'MAP', null]);
+    assert.ok(R.mapView(s).nodes[3].dimmed && !kinds(ev).includes('dim'));
+    assert.equal(s.zone.nodes[11].done, false, 'the node stays unresolved');
+    // the Bell on a Dimmed node: its encounter first (rules 1.9.7); a rescue from it lands with no fight and the Bell completes
+    const b = R.step(s, { type: 'RING_BELL' }).state;
+    assert.deepEqual([b.node.type, b.exp.bellPending], ['dim', true]);
+    const bev = [];
+    const t = die(b, bev);
+    assert.ok(bev.some((e) => e.t === 'rescue') && bev.some((e) => e.t === 'travel' && e.by === 'bell'));
+    assert.deepEqual([t.zone.z, t.phase, t.fight, t.tutorial.rescues, t.tutorial.ended], [2, 'ZONE_HUB', null, 2, true]);
+  });
+
+  test('the ONB_RESCUE_MAX-th rescue ends the guide as SKIP_GUIDE (guideSkipped why rescues; the Roads and Gorrak open); the next death ends the run', () => {
+    let s = atHub('rogue', 8);
+    const evs = [];
+    for (let k = 1; k <= C.ONB_RESCUE_MAX; k++) {
+      if (s.phase === 'ZONE_HUB') s = R.step(s, { type: 'LEAVE_HUB' }).state;
+      s = R.step(s, { type: 'MOVE', nodeId: 2 }).state; // node 2 stays unresolved: each rescue brings the player back
+      assert.ok(s.fight, `fight ${k}`);
+      const ev = [];
+      s = die(s, ev);
+      evs.push(ev);
+      assert.equal(s.tutorial.rescues, k);
+      assert.equal(ev.some((e) => e.t === 'guideSkipped'), k === C.ONB_RESCUE_MAX, `rescue ${k}`);
+    }
+    const last = evs[evs.length - 1];
+    assert.deepEqual(last.find((e) => e.t === 'guideSkipped'), { t: 'guideSkipped', why: 'rescues', rescues: C.ONB_RESCUE_MAX });
+    assert.ok(kinds(last).indexOf('rescue') < kinds(last).indexOf('guideSkipped'), 'the rescue first');
+    const v = R.tutorialView(s);
+    assert.deepEqual([v.skipped, v.guidedZone, v.rescues, v.rescueMax, v.beat, v.open], [true, false, 3, C.ONB_RESCUE_MAX, null, []]);
+    assert.deepEqual([s.zone.nodes[18].barred, roadsOf(s), R.tutorialView(s).roads.closed], [undefined, [false, false, false], false], 'as after SKIP_GUIDE');
+    assert.match(R.whyIllegal(s, { type: 'SKIP_GUIDE' }), /already/);
+    // the fourth death is a normal one
+    if (s.phase === 'ZONE_HUB') s = R.step(s, { type: 'LEAVE_HUB' }).state;
+    s = R.step(s, { type: 'MOVE', nodeId: 2 }).state;
+    assert.ok(s.fight);
+    const d = die(s);
+    assert.deepEqual([d.phase, d.outcome, R.summary(d).tutorial.rescues, R.summary(d).tutorial.skipped], ['SUMMARY', 'death', 3, true]);
+    const end = R.step(d, { type: 'END_RUN' }).state;
+    assert.equal(end.result.profile.guide, 'skipped');
   });
 });
 

@@ -1,6 +1,6 @@
 # M3 onboarding: guided first run, first-time hints, first-run nudge
 
-Owner: Game Designer (onboarding and systems), 2026-11-13. Status: **draft**. Section 5 E1-E8 (in the engine), 2026-11-13 (M3 3.4, engine-api.md 14; D138's gate and wind-up rule included); the UI (section 6) and QA (section 7) are not built. M3 3.7 (D142 items 1 and 5, engine and content side, 2026-11-13): the Roads of the guided zone wait for Gorrak's fight (2.3, G13), G10 opens on the map, G12 comes back at most once (2.4, 2.5, E10); the UI side is open. M3 3.7 (D143, D144; engine and content side, 2026-11-13, docs/handoffs/engine-2026-11-13d.md): Gorrak's gate after S3 (2.3); the G9 lines without a turn number, the guided zone's quest texts, H05's shield line and the hub welcome lines (2.3, 2.4, 3.2; draft); the UI side is open. D145 G8 fix (Designer, 2026-11-13, **draft**, section 2.8): S3 and S4 swap, so the wind-up fight comes before Gorrak's gate; G7 and G8 share S3's engage round in one line.
+Owner: Game Designer (onboarding and systems), 2026-11-13. Status: **draft**. Section 5 E1-E8 (in the engine), 2026-11-13 (M3 3.4, engine-api.md 14; D138's gate and wind-up rule included); the UI (section 6) and QA (section 7) are not built. M3 3.7 (D142 items 1 and 5, engine and content side, 2026-11-13): the Roads of the guided zone wait for Gorrak's fight (2.3, G13), G10 opens on the map, G12 comes back at most once (2.4, 2.5, E10); the UI side is open. M3 3.7 (D143, D144; engine and content side, 2026-11-13, docs/handoffs/engine-2026-11-13d.md): Gorrak's gate after S3 (2.3); the G9 lines without a turn number, the guided zone's quest texts, H05's shield line and the hub welcome lines (2.3, 2.4, 3.2; draft); the UI side is open. D145 G8 fix (Designer, 2026-11-13, **draft**, section 2.8): S3 and S4 swap, so the wind-up fight comes before Gorrak's gate; G7 and G8 share S3's engage round in one line. D147 (engine, 2026-11-14, **draft**, docs/handoffs/engine-2026-11-14.md): a rescue starts no fight, and ONB_RESCUE_MAX rescues end the guide (2.6).
 Audience: Lead, Core Gameplay Engineer, UI/UX Engineer, Content Designer, Simulation & Balance Engineer, QA.
 
 Sources: M3 scope [source: docs/MILESTONES.md M3: "a guided first run (fixed seed, zone 1: intent track, engage round, wind-ups, DoT preview, potions, the Furnace, the map), the first-loss-to-first-unlock nudge to the potion upgrade, and skippable first-time hints for every system"]; owner wishes [stated: docs/feedback/2026-11-11-1026-owner.md: "the first runs very hard", "the first win hard but not that hard", "after the first run the first Echoes, with a tutorial, nudge the player to buy the potion upgrade at once, so losing feels like a win"]; lean screens [stated: docs/feedback/2026-11-12-2019-owner.md: "strip it down, make it more easy"]; Sap not found [stated: docs/feedback/2026-11-11-0803-owner.md]; the game today [source: docs/specs/expedition.md 2-7, H; combat-v2.md 6, 16-17; rules.md 7.5, 11; engine-api.md 1, 9, 12, 13]; the hints that exist today [source: src/ui/tracks.js engage hint, `tbwcr.hints.v1`; src/ui/heat.js first-time note, `tbwcr.heatIntro.v1`; src/ui/hud.js POTION_HINT_HP pulse].
@@ -34,6 +34,7 @@ Every number is a named constant in the table of section 12. Player-facing names
 ### 2.2 Starting and skipping
 - **Before the run:** class select shows one line under `Set out`: "Guided first run [on]". Turning it off starts a normal run, sets `profile.guide` to `skipped`, and leaves first-time hints on.
 - **During the run:** every guide hint carries a small "Skip guide" link. It asks for no confirmation. It sends `SKIP_GUIDE`. The rest of the run is normal: the beats stop, the rescue (2.6) stops, Gorrak's node and the Roads open (2.3, D138, D142), and the zone 1 map stays as it is. Systems that the guide had not taught yet get their first-time hints (section 3).
+- **After ONB_RESCUE_MAX rescues** (D147, draft) the guide ends the same way, by itself (2.6).
 - **Again later:** Settings has "Play the guide again". The next run is a guided run, with normal Echoes. The welcome (4.2) is not paid again.
 - A dev run (engine-api.md 12) is never guided, and Dev menu tools work in a guided run as in any run (they mark it a dev run).
 
@@ -90,9 +91,11 @@ Notes:
 - Reduce motion: no slide-in, no pulse; the strip just appears.
 
 ### 2.6 The rescue (guided zone only)
-In the guided zone, while the guide is on, a death does not end the run. **The Bellwrights pull the player back** (draft line): the fight ends as a flight to the node the player came from, with full HP and mana and a living pet. The node stays unresolved. The rescue costs ONB_RESCUE_TOLLS tolls, so the Dimming keeps moving. The run counts it (`summary.tutorial.rescues`). There is no limit: the Dimming and the tolls are the limit.
+In the guided zone, while the guide is on, a death does not end the run. **The Bellwrights pull the player back** (draft line): the fight ends as a flight to the node the player came from, with full HP and mana and a living pet. The node stays unresolved. The rescue costs ONB_RESCUE_TOLLS tolls, so the Dimming keeps moving. The run counts it (`summary.tutorial.rescues`).
+- **A rescue starts no fight** (D147, engine 2026-11-14, draft): the player lands on the map (on the hub screen when the rescue goes back to the hub, as a walk there) with no fight started, also on a Dimmed node; the next action's tolls are checked as usual, so the player can walk out of the dark, take an open Road or ring the Bell. Before D147 the settle step started a Dimmed encounter where the rescue landed, and a rescue from it led to the next one for ever [source: docs/specs/changes-m3-v1.md, engine finding 1: 259 of 300 guided onebutton Hunter runs with the zone 1 lever].
+- **ONB_RESCUE_MAX rescues end the guide** (D147, draft): the ONB_RESCUE_MAX-th rescue still pulls the player back; then the guide ends as `SKIP_GUIDE` does (the beats stop, Gorrak's node and the Roads open, the zone stays), and a later death is a normal one. The UI shows content `guide.rescueCapLine` (draft) on that rescue (engine event `guideSkipped` with `why: 'rescues'`). `profile.guide` becomes `skipped` at END_RUN. (Was: no limit, "the Dimming and the tolls are the limit"; the Dimming does not end a zone.)
 - An Ember of Return or a boon resurrect is not used in a death that a rescue covers.
-- From zone 2 on, or after `SKIP_GUIDE`, deaths are normal.
+- From zone 2 on, after `SKIP_GUIDE`, or after ONB_RESCUE_MAX rescues, deaths are normal.
 - Why: a new player who dies in the first ten minutes learns little and may quit before the loop starts. The first run stays hard from zone 2 on (principle 5). (Owner question Q2, default.)
 
 ### 2.7 End of the guide
@@ -202,7 +205,7 @@ Status: E1-E8 (in the engine), 2026-11-13: engine-api.md 14, src/engine/tutorial
 |---|---|---|
 | E1 | `newRun({ tutorial: true })` | Legal only with the expedition map and `prep: true` (throws otherwise). `state.tutorial = { on: true, skipped: false, rescues: 0, script: 0 }`. Zone 1 streams on TUTORIAL_SEED (2.3) |
 | E2 | Overlay from `CONTENT.tutorial` | Board slot 1, site fights, scripts S1-S4 by order, S1's fixed loot, the forced wind-up of S4, Gorrak on the nearest Elite node with the level clamp. Validated by `validateContent` (template ids exist, levels in range) |
-| E3 | Rescue (2.6) | In zone 1 with `tutorial.on && !skipped`: a death becomes event `rescue { tolls }`; the player goes back to the previous node with full HP, mana and pet; the node stays unresolved; `time` and zone time + ONB_RESCUE_TOLLS; `rescues` + 1. Resurrect charges are not used |
+| E3 | Rescue (2.6) | In zone 1 with `tutorial.on && !skipped`: a death becomes event `rescue { tolls }`; the player goes back to the previous node with full HP, mana and pet; the node stays unresolved; `time` and zone time + ONB_RESCUE_TOLLS; `rescues` + 1. Resurrect charges are not used. (D147) No fight starts where it lands (no Dimmed encounter from its tolls); the ONB_RESCUE_MAX-th rescue ends the guide as `SKIP_GUIDE` (event `guideSkipped` with `why: 'rescues'`) |
 | E4 | `SKIP_GUIDE` | Legal in any phase of a tutorial run while `!skipped`; sets `skipped`; no other change; event `guideSkipped` |
 | E5 | `tutorialView(state)` | `{ on, skipped, guidedZone (in zone 1 and not skipped), script (fights scripted so far), eliteNodeId, rescues }` or null. Pure and cheap |
 | E6 | Profile | `profile.guide` (`'todo'`, `'done'`, `'skipped'`; END_RUN of a tutorial run sets `done` or `skipped`); `profile.welcome` (4.2); pure helper `setGuide(profile, value)` for class select and Settings; migration (a profile with `runs > 0` loads as `guide: 'done'`, `welcome: true`) |
@@ -231,7 +234,7 @@ Nothing else changes: the beats and hints are presentation and read events and v
 ### 7.1 Automated checks
 1. A headless guided run per class with autoplay reaches zone 2. Beats G1-G4, G6-G8 and G12-G13 fire in order, each once; G7 and G8 fire together in S3's engage round (2.8). G9 fires in the Gorrak fight, after G8.
 2. The guided zone is the same on every run: map hash, scripts and the elite are equal across 5 run seeds; zones 2-6 differ.
-3. Rescue: a forced death in zone 1 (dev `setGod` off, enemy damage raised by a test hook) gives `rescue`, full HP, the node unresolved, +ONB_RESCUE_TOLLS. A death in zone 2 ends the run. After `SKIP_GUIDE` a death in zone 1 ends the run.
+3. Rescue: a forced death in zone 1 (dev `setGod` off, enemy damage raised by a test hook) gives `rescue`, full HP, the node unresolved, +ONB_RESCUE_TOLLS. A death in zone 2 ends the run. After `SKIP_GUIDE` a death in zone 1 ends the run. (D147) A rescue from a Dimmed encounter, or back to a Dimmed node, leaves the player on the map with no fight; the ONB_RESCUE_MAX-th rescue ends the guide and the next death ends the run.
 4. Welcome: paid once (first non-dev run), not in a dev run, not again after "Play the guide again"; a migrated profile with runs gets none.
 5. Hints: each id shows at most once across reloads; per-class ids once per class; Hints off hides all; Reset hints shows them again; the v1 keys migrate.
 6. Layout: at 1366x768 and 1920x1080, no coach line overlaps its anchor, the bar, the engage buttons, the Furnace pointer, the target frame or `Set out` (ui-regress hook per beat). Style snapshot updated once.
@@ -304,6 +307,7 @@ The balance bots never play the tutorial option; balance targets B1-B62 stay mea
 | ONB_LOOT_POTIONS | 1 | Healing Draughts in S1's fixed loot |
 | ONB_ELITE_LEVEL_MIN / MAX | 4 / 6 | Gorrak's level clamp in the guided zone [assumption; checked by ONB2] |
 | ONB_RESCUE_TOLLS | 2 | tolls a rescue costs (2.6) |
+| ONB_RESCUE_MAX | 3 | rescues after which the guide ends (2.6; D147, draft, not measured) [source: docs/specs/changes-m3-v1.md, engine finding 1] |
 | ONB_BEAT_RETRIES | 1 | extra chances for G8 |
 | ONB_POTION_HP | 0.5 | HP share that triggers G11 / H09 |
 | ONB_FLEE_HP | 0.25 | HP share that triggers H32 |

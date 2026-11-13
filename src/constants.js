@@ -1288,6 +1288,11 @@ export const ONB_ELITE_LEVEL_MIN = 4;
 export const ONB_ELITE_LEVEL_MAX = 6;
 /** Tolls a rescue costs (spec 2.6). */
 export const ONB_RESCUE_TOLLS = 2;
+/**
+ * Rescues after which the guide ends (spec 2.6; D147, draft): the ONB_RESCUE_MAX-th rescue still pulls the player back,
+ * then the guide ends as SKIP_GUIDE does, so a later death is a normal one.
+ */
+export const ONB_RESCUE_MAX = 3;
 /** Extra wind-ups G8 stays open for after one lands (spec 2.4). */
 export const ONB_BEAT_RETRIES = 1;
 /** HP share under which G11 / H09 fire (spec 2.4, 3.2). */

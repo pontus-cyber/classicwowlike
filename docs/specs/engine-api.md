@@ -63,7 +63,9 @@ way to Gorrak, G10 on the map only, G12's return cap `C.ONB_LINE_RETURNS`; secti
 `shield` and `absorbs`, `spellInfo`'s `hit` and `hitAll`, `windupView` answers' `chance`, `mapView`'s grind `waves` and the
 guided zone's `guided` marks, a guided Quest node's quest from its role, and the reward choices' class bias with the switch
 `C.GATES.rewardPrimary`, on (rules 8.3); docs/handoffs/engine-2026-11-13d.md; marked "(D144)"); 2026-11-13e (D146: zone 2's
-inner-ring quests keep zone 1's cap, `C.QUEST_CAP_Z2_RINGS` and the switch `C.GATES.zone2InnerCap`, on; rules 1.9.3, 2.1).
+inner-ring quests keep zone 1's cap, `C.QUEST_CAP_Z2_RINGS` and the switch `C.GATES.zone2InnerCap`, on; rules 1.9.3, 2.1);
+2026-11-14 (D147: a guided rescue starts no fight and `C.ONB_RESCUE_MAX` rescues end the guide, `guideSkipped` `why`,
+`tutorialView.rescueMax`, 14.2-14.5; marked "(D147)").
 Units: every time value of the API is a whole number of tolls (1 toll = 1 former in-game hour, D69); there are no hours.
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
@@ -266,7 +268,7 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `move` | `from, to, via, seen` | (expedition) a step: `via` `enter`, `walk` or `pass`; `seen` = node ids newly in view. (M3) `via: 'rescue'`: a rescue's way back (section 14.2) |
 | `rescue` | `tolls, node, to, hp, mana` | (M3) a death in the guided zone is a rescue (section 14.2), sent at the killing blow instead of the player's `death`: the player goes from node `node` back to node `to` (the same node after a Dimmed encounter) with `hp` and `mana` (full; track HP with `= hp`), `tolls` (ONB_RESCUE_TOLLS) follow as a `time` event with `why: 'rescue'`. No `victory` or `fled` event |
 | `beat` | `id, what, line` | (M3) a beat of the guided run (section 14.4): `what` `open` (its trigger; `line` = the coach line id), `line` (its line changed, null = open, waiting for its moment; or a resting line came back, D141, at most ONB_LINE_RETURNS times per zone, D142), `done` (learned), `missed` (its moment passed), `skip` (G10 without a contract) |
-| `guideSkipped`, `guideEnd` | | (M3) SKIP_GUIDE; zone 1 of a guided run was left (the guide's end toast) |
+| `guideSkipped`, `guideEnd` | `why`, `rescues` | (M3) SKIP_GUIDE; zone 1 of a guided run was left (the guide's end toast). (D147) `guideSkipped` with `why: 'rescues'` and `rescues` (ONB_RESCUE_MAX): that many rescues ended the guide (section 14.2; content `guide.rescueCapLine`); SKIP_GUIDE's event has no `why` |
 | `dimming` | `front, dimmed` | (expedition) the Dimming's front advanced; `dimmed` = node ids it newly covers (M2b v12: the zone's Dungeon too, by its hops; M2b v10's DUNGEON_DIM_HOLD removed; no event then) |
 | `dim` | `id, depth, level, k` | (expedition) a Dimmed encounter starts at node `id` (its `fight` event follows, `kind: 'dim'`) |
 | `bell` | `charges, node` | (expedition) RING_BELL: the channel starts (`charges` left) |
@@ -872,7 +874,7 @@ points stay, then (D133) Field Draughts when AUTO_PREP_RESERVE points still stay
 before D133: Field Draughts first, then the contracts, no Ember; the hub contract from Reserve when it can; its map policy
 does not seek sites.
 
-## 14. The guided first run (M3; docs/specs/m3-onboarding.md 2, 4.2, 5 E1-E10; D135, D137, D138, D141, D142)
+## 14. The guided first run (M3; docs/specs/m3-onboarding.md 2, 4.2, 5 E1-E10; D135, D137, D138, D141, D142, D147)
 `newRun({ tutorial: true })` (the expedition map with the start camp; `src/engine/tutorial.js`) plays the profile's guided first
 run. Zones 2-6 and everything after the guide are the normal rules. A run without the option is unchanged run for run
 (qa/engine/s18 golden check). The balance bots never set it. Numbers: `C.TUTORIAL_SEED` and `C.ONB_*` (m3-onboarding.md 12).
@@ -930,8 +932,16 @@ run. Zones 2-6 and everything after the guide are the normal rules. A run withou
   zone 1 never has) is a rescue, before any resurrect source: event `rescue`, the fight ends (no `victory` or `fled`), the
   player goes back to the node it came from (`zone.path`; after a Dimmed encounter or a dev fight: the same node) with full
   HP and mana and a living pet at full HP, the node stays unresolved, ONB_RESCUE_TOLLS tolls (`time` `why: 'rescue'`; the
-  Dimming moves, and the settle step may start a Dimmed encounter), `tutorial.rescues` + 1. Back on the hub out of the
-  Dimming it is a hub visit (phase ZONE_HUB). No limit.
+  Dimming moves), `tutorial.rescues` + 1. Back on the hub out of the Dimming it is a hub visit (phase ZONE_HUB).
+- (D147) A rescue starts no fight: the settle step does not count the rescue's tolls (or the fight's) for a Dimmed
+  encounter, so the player stands in phase MAP (ZONE_HUB on the hub, a dev fight's own phase) with no node or fight open,
+  also on a Dimmed node (before D147 the settle step started a Dimmed encounter there at once, and a rescue from it led to
+  the next one for ever). The next action's tolls are checked as usual (a walk onto a Dimmed node starts its encounter); a
+  Homeward Bell that was ringing completes in the same step.
+- (D147) The `C.ONB_RESCUE_MAX`-th (3) rescue ends the guide as SKIP_GUIDE does, after the rescue: `tutorial.skipped`,
+  event `guideSkipped` with `why: 'rescues'` and `rescues`, so the next death is a normal one (resurrect sources, else the
+  run ends) and END_RUN sets `profile.guide` `'skipped'`. The summary tells it apart from SKIP_GUIDE by `skipped` with
+  `rescues` = ONB_RESCUE_MAX (SKIP_GUIDE is refused once skipped).
 - `SKIP_GUIDE`: `tutorial.skipped`; open beats close as missed; event `guideSkipped`; no rescue from then on; Gorrak's node
   and (D142) the Roads open; the zone, its streams and its overlay stay. Refused after the guide has ended (an engine choice;
   spec E4 says "while not skipped").
@@ -945,7 +955,7 @@ run. Zones 2-6 and everything after the guide are the normal rules. A run withou
   roads: (D142) { closed (TAKE_ROAD refused on every Road of zone 1 now, as mapView's `closed`), why ('elite' while closed,
     else null), node (the node whose fight opens them: Gorrak's, else null), line ('G13.closed', the content line that
     says so, else null) },
-  rescues, rescueTolls (ONB_RESCUE_TOLLS),
+  rescues, rescueTolls (ONB_RESCUE_TOLLS), rescueMax ((D147) ONB_RESCUE_MAX: the rescue that ends the guide),
   beat, line (the open beat with a line that is not resting, by C.ONB_BEAT_PRIORITY; null when none or the guide is off),
   open: [{ id, line, rest }] (by priority; rest: the beat has yielded its line, 14.4), done: [ids closed], learned: [ids learned], skippedBeats: [ids] }
 ```
@@ -983,7 +993,8 @@ whenever no other open beat has a line that is not resting.
 
 ### 14.5 Profile, welcome and summary (E6, E7)
 - `profile.guide`: `'todo'` (new profiles), `'done'` or `'skipped'`: END_RUN of a guided run sets `'done'`, or `'skipped'`
-  after SKIP_GUIDE. `profile.welcome`: false in `newProfile()`; END_RUN of every non-dev run sets it.
+  after SKIP_GUIDE (and (D147) after ONB_RESCUE_MAX rescues ended the guide). `profile.welcome`: false in `newProfile()`;
+  END_RUN of every non-dev run sets it.
 - The Bellwrights' welcome: while the profile's welcome is due, the summary has the Echo line `welcome` (count 1, each
   ONB_WELCOME_ECHOES = Packed Satchel's price, so the Satchel is affordable after the first run). A dev run pays nothing and
   leaves the profile as it was. A profile saved before M3 with `runs > 0` loads with the welcome had (`migrateProfile`).

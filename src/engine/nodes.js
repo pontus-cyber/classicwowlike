@@ -9,7 +9,8 @@
 // the story chain is retired on the expedition map. M2b v15 (D124): a Road taken within ROAD_SWIFT_TOLLS of the zone's hub
 // grants the Swift passage XP (takeRoad). M3 guided run (docs/specs/m3-onboarding.md 2.3, 2.6; tutorial.js): zone 1's
 // streams on TUTORIAL_SEED (zoneSeed), the overlay set up when zone 1 is generated, the overlay's fights and S1's loot,
-// and the rescue (a death in the guided zone: back to the last node, full health, ONB_RESCUE_TOLLS).
+// and the rescue (a death in the guided zone: back to the last node, full health, ONB_RESCUE_TOLLS; D147: no fight
+// started where it lands, and the ONB_RESCUE_MAX-th rescue ends the guide).
 import {
   CLASS, PET, SPELL, META, SLOT_IDS, START_GOLD, START_RATIONS, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, ZONE_COUNT,
   ZONE_LEVELS, ZONE_CHOICE_ROWS, TIME_REST, TIME_VENDOR, TIME_TRAINER, TIME_TRAVEL, QUEST_TURNIN_XP_FRAC, QUEST_GOLD_V,
@@ -39,7 +40,7 @@ import {
   visionKit, canEnter, roadNameOf, outwardStep, dimFightTime, swiftXp, zoneSeed,
 } from './expedition.js';
 import { newPrep, applySetOut, contractsAtZone, siteWon, expireContracts, ownedPerks } from './contracts.js';
-import { newTutorial, setupGuidedZone, fightOverlay, overlayFightEnd, rescueTarget } from './tutorial.js';
+import { newTutorial, setupGuidedZone, fightOverlay, overlayFightEnd, rescueTarget, rescueCap } from './tutorial.js';
 
 // ---------------- Meta at run start (rules 11.4) ----------------
 /**
@@ -768,8 +769,11 @@ export function finishFight(s, ev) {
  * The rescue (M3 guided run, docs/specs/m3-onboarding.md 2.6, E3; damage.js playerDeath sent the `rescue` event): the
  * fight ends as a flight to the node the player came from (tutorial.js rescueTarget; the same node after a Dimmed
  * encounter), full HP and mana, a living pet at full HP; the node stays unresolved; ONB_RESCUE_TOLLS tolls (the Dimming
- * moves; the settle step may then start a Dimmed encounter); state.tutorial.rescues + 1. Back on the hub out of the
- * Dimming it is a hub visit, as a walk there; a dev tool's fight goes back where it was started. A script ends (D138).
+ * moves); state.tutorial.rescues + 1. Back on the hub out of the Dimming it is a hub visit, as a walk there; a dev tool's
+ * fight goes back where it was started. A script ends (D138). D147: a rescue never starts a fight: the settle step does
+ * not count its tolls (or the fight's) for a Dimmed encounter, so the player stands on the map (or the hub screen) with no
+ * fight, even on a Dimmed node, and the next action's tolls are checked as usual (a Bell that was ringing completes);
+ * the ONB_RESCUE_MAX-th rescue ends the guide (tutorial.js rescueCap), so a later death is a normal one.
  */
 function rescueEnd(s, ev, f) {
   const p = s.player;
@@ -791,11 +795,13 @@ function rescueEnd(s, ev, f) {
     ev.push({ t: 'move', from, to, via: 'rescue', seen: refreshVision(s) });
   }
   addTime(s, ev, ONB_RESCUE_TOLLS, 'rescue');
-  if (devFrom) { setPhase(s, ev, devFrom); return; }
-  if (zone.nodes[zone.pos].ring === 0 && !dimmedNow(s, zone.pos)) {
+  s.exp.pending = false; // D147: no Dimmed encounter where the rescue lands (it looped on a Dimmed node before)
+  if (devFrom) setPhase(s, ev, devFrom);
+  else if (zone.nodes[zone.pos].ring === 0 && !dimmedNow(s, zone.pos)) {
     s.hub.used = { trainer: false, vendor: false, inn: false };
     setPhase(s, ev, 'ZONE_HUB');
   } else setPhase(s, ev, 'MAP');
+  rescueCap(s, ev);
 }
 
 function genChoices(s, table, count, cl) {

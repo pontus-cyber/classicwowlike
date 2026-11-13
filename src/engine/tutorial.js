@@ -4,14 +4,15 @@
 // Cull site fights, scripts S1-S4 on the first non-site Quest or Grind fights, S1's fixed loot, only marked enemies wind
 // up (D138), Gorrak on the Elite node nearest the hub with a level clamp, his node barred until the gate's script has
 // ended (D138), and the zone's Roads closed until his fight has ended (D142). While the guide is on (not skipped) zone 1
-// is the guided zone: a death there is a rescue (back to the last node, full health, ONB_RESCUE_TOLLS), and the 13 beats
-// G1-G13 are tracked from the actions, events and state (`beat` events, tutorialView). Leaving zone 1 ends the guide.
+// is the guided zone: a death there is a rescue (back to the last node, full health, ONB_RESCUE_TOLLS; D147: it lands on
+// the map with no fight started, and the ONB_RESCUE_MAX-th rescue ends the guide), and the 13 beats G1-G13 are tracked
+// from the actions, events and state (`beat` events, tutorialView). Leaving zone 1 ends the guide.
 // Pure helpers of the state; nodes.js, combat.js, damage.js, contracts.js, actions.js and autoplay.js call them. A run
 // without the option never reaches any of it.
 import {
   ONB_SCRIPTED_FIGHTS, ONB_SCRIPT_LEVEL_MAX, ONB_LOOT_POTIONS, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX,
-  ONB_RESCUE_TOLLS, ONB_BEAT_RETRIES, ONB_POTION_HP, ONB_BELL_HOPS, ONB_BELL_DIM, ONB_DIM_NEAR_HOPS, ONB_ENGAGE_SHOWS,
-  ONB_BEATS, ONB_BEAT_PRIORITY, ONB_LINE_STEPS, ONB_LINE_RETURNS, CONTRACT, SLOT_IDS, RARITY, ILVL_MAX, CONSUMABLE,
+  ONB_RESCUE_TOLLS, ONB_RESCUE_MAX, ONB_BEAT_RETRIES, ONB_POTION_HP, ONB_BELL_HOPS, ONB_BELL_DIM, ONB_DIM_NEAR_HOPS,
+  ONB_ENGAGE_SHOWS, ONB_BEATS, ONB_BEAT_PRIORITY, ONB_LINE_STEPS, ONB_LINE_RETURNS, CONTRACT, SLOT_IDS, RARITY, ILVL_MAX, CONSUMABLE,
 } from '../constants.js';
 import { zoneRegions, hops, frontAt, zoneTime, dimAt, dimmedNow, knowledge, siteView } from './expedition.js';
 import { itemScore, makeFixedGear, makeConsumable } from './items.js';
@@ -221,8 +222,11 @@ export function overlayFightEnd(s, f, outcome, drops) {
   return out;
 }
 
-// ---------------- Rescue (spec 2.6, E3) ----------------
-/** A death now is a rescue: in the guided zone, outside the Camp and the end boss. Resurrect charges are not used. */
+// ---------------- Rescue (spec 2.6, E3; D147) ----------------
+/**
+ * A death now is a rescue: in the guided zone, outside the Camp and the end boss. Resurrect charges are not used. After
+ * ONB_RESCUE_MAX rescues the guide has ended (rescueCap), so a death is a normal one.
+ */
 export const rescueCovers = (s) => guidedZone(s) && !!s.fight && s.fight.kind !== 'boss' && s.fight.kind !== 'camp';
 /**
  * Where a rescue takes the player: from a node's fight, back to the node the player came from (zone.path); from a
@@ -236,18 +240,31 @@ export function rescueTarget(s) {
   return { node: node.id, to: path.length >= 2 ? path[path.length - 2] : zone.pos };
 }
 
+/**
+ * After a rescue (nodes.js rescueEnd, D147): the ONB_RESCUE_MAX-th rescue ends the guide as SKIP_GUIDE does (no more
+ * rescues, the beats close, Gorrak's node and the Roads open, the zone and its overlay stay), with event `guideSkipped`
+ * why 'rescues'. Rescues are counted only in the guided zone, so the guide is on here.
+ */
+export function rescueCap(s, ev) {
+  if (s.tutorial.rescues >= ONB_RESCUE_MAX && guideOn(s)) skipGuide(s, ev, 'rescues');
+}
+
 // ---------------- SKIP_GUIDE (E4) ----------------
 export function skipGuideError(s) {
   if (!s.tutorial) return 'not a guided run (newRun option tutorial)';
   if (s.tutorial.skipped) return 'the guide is already skipped';
   return s.tutorial.ended ? 'the guide has ended' : null;
 }
-/** SKIP_GUIDE: the guide stops (beats closed, no rescue, Gorrak's node open); the zone and its overlay stay. */
-export function skipGuide(s, ev) {
+/**
+ * SKIP_GUIDE: the guide stops (beats closed, no rescue, Gorrak's node open); the zone and its overlay stay. why: null for
+ * the action (event `guideSkipped`), 'rescues' when ONB_RESCUE_MAX rescues end it (rescueCap; event `guideSkipped` with
+ * `why` and `rescues`).
+ */
+export function skipGuide(s, ev, why = null) {
   const t = s.tutorial;
   t.skipped = true;
   for (const id of ONB_BEATS) if (isOpen(t, id)) close(t, ev, id, false);
-  ev.push({ t: 'guideSkipped' });
+  ev.push(why ? { t: 'guideSkipped', why, rescues: t.rescues } : { t: 'guideSkipped' });
 }
 
 // ---------------- Beats (spec 2.4) ----------------
@@ -448,7 +465,8 @@ function trackBeats(s, ev, a) {
  * elite ({ node, enemy, level, barred, afterScript, left (scripted fights until the node opens), outcome (how his fight in
  * the guided zone ended: null, 'victory', 'fled' or 'rescue'; D142) } or null), roads ({ closed (TAKE_ROAD refused on
  * every Road of zone 1), why ('elite' while closed, else null), node (the node whose fight opens them, else null), line
- * (the content line that says so, 'G13.closed', else null) }; D142), rescues, rescueTolls, beat and line (the open beat
+ * (the content line that says so, 'G13.closed', else null) }; D142), rescues, rescueTolls, rescueMax (ONB_RESCUE_MAX: the
+ * rescue that ends the guide, D147; skipped is then true), beat and line (the open beat
  * with a line that is not resting, highest priority first; spec 2.5, D141), open ([{ id, line, rest }] by priority; rest:
  * it has yielded its line, yieldLines), done (beats closed, spec order), learned (closed by the player doing it),
  * skippedBeats }. Pure and cheap.
@@ -473,7 +491,7 @@ export function tutorialView(s) {
       afterScript: T.elite.gate.afterScript, left: Math.max(0, gate - t.script), outcome: t.elite || null,
     },
     roads: { closed: shut, why: shut ? 'elite' : null, node: shut ? eid : null, line: shut ? 'G13.closed' : null },
-    rescues: t.rescues, rescueTolls: ONB_RESCUE_TOLLS,
+    rescues: t.rescues, rescueTolls: ONB_RESCUE_TOLLS, rescueMax: ONB_RESCUE_MAX,
     beat: cur ? cur.id : null, line: cur ? cur.line : null, open: openList,
     done: ONB_BEATS.filter((id) => st(id) === 'done' || st(id) === 'missed'),
     learned: ONB_BEATS.filter((id) => st(id) === 'done'),
