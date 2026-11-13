@@ -184,9 +184,10 @@ describe('change doc M2b v15 (docs/specs/changes-m2b-v15.md, D123-D125): the eng
     assert.equal(value(maw[1]), 0.95);
     assert.deepEqual(Object.keys(ENEMIES).filter((id) => 'gated' in ENEMIES[id]), []);
   });
-  test('C.GATES: the v14 switches, the v15 swiftRoad (off since D126), campReroll (D128, off), boardAcrossRun (D132, on), autoEmberFirst (D133, on) and rewardPrimary (D144, on), nothing else (mawgrimHp removed)', () => {
-    assert.deepEqual(Object.keys(K.GATES).sort(), ['autoEmberFirst', 'boardAcrossRun', 'campReroll', 'firstMeetWindup', 'passStealth', 'rareHpMultZ1', 'rewardPrimary', 'sapHold', 'swiftRoad']);
+  test('C.GATES: the v14 switches, the v15 swiftRoad (off since D126), campReroll (D128, off), boardAcrossRun (D132, on), autoEmberFirst (D133, on), rewardPrimary (D144, on) and zone2InnerCap (D146, on), nothing else (mawgrimHp removed)', () => {
+    assert.deepEqual(Object.keys(K.GATES).sort(), ['autoEmberFirst', 'boardAcrossRun', 'campReroll', 'firstMeetWindup', 'passStealth', 'rareHpMultZ1', 'rewardPrimary', 'sapHold', 'swiftRoad', 'zone2InnerCap']);
     assert.equal(K.GATES.rewardPrimary, true);
+    assert.equal(K.GATES.zone2InnerCap, true);
     assert.equal(K.GATES.campReroll, false);
     assert.equal(K.GATES.boardAcrossRun, true);
     assert.equal(K.GATES.autoEmberFirst, true);

@@ -11,10 +11,11 @@
 // Swift passage (rules 1.9.7, expedition.md 7.1; M2b v15 row 2, D124): swiftXp is what a Road taken now grants (nodes.js
 // takeRoad pays it), swiftView the view's `swift` block (mapView; heat.js heatPreview of a TAKE_ROAD uses swiftXp).
 // M3 guided run (m3-onboarding.md 2.3; tutorial.js): zone 1 on TUTORIAL_SEED (zoneSeed); the view shows a barred node
-// (D138) and closed Roads (D142: `closed`, and `onRoad` false on one).
+// (D138) and closed Roads (D142: `closed`, and `onRoad` false on one). D146 (GATES.zone2InnerCap): zone 2's inner ring
+// keeps zone 1's quest cap (setupExpNode).
 import {
   ZONE_LEVELS, NODE_DRAW_ORDER, QUEST_LEVEL_OFFSETS, ELITE_LEVEL_OFFSET, RARE_CHANCE, QUEST_SIZE_W1, QUEST_SIZE_W2,
-  QUEST_SIZE_W3, QUEST_MAX_SIZE_Z1, GRIND_WAVE_SIZE, ELITE_ADD_CHANCE, DUNGEON_SIZE_W2, DUNGEON_SIZE_W3,
+  QUEST_SIZE_W3, QUEST_MAX_SIZE_Z1, QUEST_CAP_Z2_RINGS, GRIND_WAVE_SIZE, ELITE_ADD_CHANCE, DUNGEON_SIZE_W2, DUNGEON_SIZE_W3,
   TREASURE_GUARD_CHANCE, TREASURE_TRAP_CHANCE, BOON, BOON_IDS, SHRINE_BOON_COUNT, GRIND_MAX_WAVES, TIME_QUEST,
   TIME_GRIND_WAVE, TIME_ELITE, TIME_DUNGEON, TIME_REST, TIME_VENDOR, TIME_TRAINER, TIME_TREASURE, TIME_SHRINE,
   TIME_WALK, TIME_TRAVEL, RING_NODES, RING_CL_BASE, RING_CL_SPREAD, EDGE_KEEP_R1, EDGE_KEEP_R2, EDGE_KEEP_R3,
@@ -224,7 +225,9 @@ export function setupExpNode(s, z, n, regs) {
     const qid = pickFrom(rng, zn.quests);
     const q = c.quests[qid];
     const drawn = 1 + weightedIndex(rng, q.sizeWeights || [QUEST_SIZE_W1, QUEST_SIZE_W2, QUEST_SIZE_W3]);
-    const size = z === 1 ? Math.min(QUEST_MAX_SIZE_Z1, drawn) : drawn;
+    // zone 1's cap; D146 (GATES.zone2InnerCap): also zone 2's rings 1..QUEST_CAP_Z2_RINGS. The size draw is made either way
+    const capped = z === 1 || (GATES.zone2InnerCap && z === 2 && n.ring <= QUEST_CAP_Z2_RINGS);
+    const size = capped ? Math.min(QUEST_MAX_SIZE_Z1, drawn) : drawn;
     const pool = q.enemies && q.enemies.length ? q.enemies : zn.normals;
     let mobs = [];
     for (let i = 0; i < size; i++) mobs.push(pick(pool));

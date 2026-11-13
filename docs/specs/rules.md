@@ -185,7 +185,7 @@ Each zone is a graph of RING_NODES[0] hub (ring 0, id 0) and rings 1-3 of RING_N
 The weights are `REGION_W.kind.type` (constants: `REGION_W`). Streams by node id: node(z, id) = hash(runSeed, "node", z, id), fight(z, id, k), loot(z, id); the n-th Dimmed encounter at node id uses dim(z, id, n) = hash(runSeed, "dim", z, id, n) for its make-up and then its fight. The hub is id 0: its vendor's stock is drawn on node(z, 0) at the first visit and keeps what was sold for the rest of the zone.
 
 #### 1.9.3 Content level and node setup (stream node(z, id))
-The first draw is u, uniform in 0..RING_CL_SPREAD-1: CL = ZONE_LEVELS × (z - 1) + 1 + RING_CL_BASE[ring] + u (zone 1: ring 1 levels 2-4, ring 2 5-7, ring 3 8-10). The hub is the band minimum. Then as 1.4 step 4 (quest offsets, Elite + ELITE_LEVEL_OFFSET, dungeon levels as 1.4, rare flag, vendor stock, shrine boons, treasure guard) with EXPED_GRIND_MAX_WAVES grind wave(s) and EXPED_DUNGEON_TRASH_FIGHTS dungeon trash fights. Every enemy template pick of a quest, a grind wave, an elite (its elite or rare template and its add) and a treasure guard takes two draws: the first decides the family share (below REGION_FAMILY_SHARE the pick comes from the list's templates whose `family` is one of the region's families, when the list has any), the second picks. Dungeons, the Camp and Dimmed encounters do not use regions. The treasure trap is the first draw of loot(z, id).
+The first draw is u, uniform in 0..RING_CL_SPREAD-1: CL = ZONE_LEVELS × (z - 1) + 1 + RING_CL_BASE[ring] + u (zone 1: ring 1 levels 2-4, ring 2 5-7, ring 3 8-10). The hub is the band minimum. Then as 1.4 step 4 (quest offsets, Elite + ELITE_LEVEL_OFFSET, dungeon levels as 1.4, rare flag, vendor stock, shrine boons, treasure guard) with EXPED_GRIND_MAX_WAVES grind wave(s) and EXPED_DUNGEON_TRASH_FIGHTS dungeon trash fights. Every enemy template pick of a quest, a grind wave, an elite (its elite or rare template and its add) and a treasure guard takes two draws: the first decides the family share (below REGION_FAMILY_SHARE the pick comes from the list's templates whose `family` is one of the region's families, when the list has any), the second picks. Dungeons, the Camp and Dimmed encounters do not use regions. The treasure trap is the first draw of loot(z, id). Quest sizes: zone 1's cap (2.1), and while GATES.zone2InnerCap is on also in zone 2's rings 1..QUEST_CAP_Z2_RINGS (D146).
 
 #### 1.9.4 Moving and tolls
 - `MOVE(id)`, id next to the player's node: when id is unresolved, not the hub and not Dimmed, the player enters it: its content starts and costs its node tolls (1.9.8). Otherwise the step is a walk of TIME_WALK. A walk onto the hub, when it is not Dimmed, starts a new hub visit (phase ZONE_HUB; each service once per visit again).
@@ -278,7 +278,7 @@ Mob kill XP = `MOB_XP_FRAC × mult × xpToNext(enemyLevel) × diffMod`, with mul
 
 ### 2.1 Quest
 - On enter: shows quest title and text (Content), then one encounter. Encounter size weights: the quest template's own weights (12.3), else 1 mob QUEST_SIZE_W1, 2 mobs QUEST_SIZE_W2, 3 mobs QUEST_SIZE_W3. Mob archetypes from the zone's normal templates. (M2 v2)
-- Zone 1 cap: in zone 1 the encounter has at most QUEST_MAX_SIZE_Z1 mobs; a drawn size above the cap becomes the cap. The size draw itself is unchanged (same stream draws), so only zone 1 encounters change. (M2 v2)
+- Zone 1 cap: in zone 1 the encounter has at most QUEST_MAX_SIZE_Z1 mobs; a drawn size above the cap becomes the cap. The size draw itself is unchanged (same stream draws), so only zone 1 encounters change. (M2 v2) On the expedition map (1.9.3) the cap also holds in zone 2's rings 1..QUEST_CAP_Z2_RINGS (ring 1, levels 12-14) while the switch GATES.zone2InnerCap is on (the default; off: zone 2 as before), so three-enemy quests start at zone 2's ring 2; the classic map is unchanged. The size draw is made either way, so only those quests that drew three mobs change, with their own node's later draws (one template pick fewer); every other node's draws are the same (a held Cull's site on such a node may need one more family-repair draw, expedition.md 3.3). (D146: report balance-2026-11-13c option a6, the zone 2 entry cliff)
 - On victory: turn-in XP `QUEST_TURNIN_XP_FRAC × xpToNext(CL) × diffMod`, gold `QUEST_GOLD_V × V(CL)`, and `CHOOSE_REWARD(i)` among QUEST_REWARD_CHOICES generated items (rarity table 8.4 "Quest reward").
 - Story chain: the STORY_QUESTS-th quest completed in a zone also grants `STORY_XP_FRAC × xpToNext(CL)` and a choice of STORY_REWARD_CHOICES rare items at CL + RARITY_ILVL_BONUS.rare.
 - Flee: allowed; no turn-in, quest not counted.
@@ -1106,6 +1106,7 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | QUEST_SIZE_W2 | 50 | weight |
 | QUEST_SIZE_W3 | 25 | weight |
 | QUEST_MAX_SIZE_Z1 | 2 | mobs | (M2 v2)
+| QUEST_CAP_Z2_RINGS | 1 | rings of zone 2 (from ring 1) whose quests keep the zone 1 cap; expedition map, switch GATES.zone2InnerCap (on); 0 = none (1.9.3, 2.1) | (D146)
 | QUEST_TURNIN_XP_FRAC | 1.15 | of xpToNext | (M2 v2)
 | QUEST_GOLD_V | 2 | × V |
 | QUEST_REWARD_CHOICES | 2 | items |

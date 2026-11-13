@@ -62,7 +62,8 @@ way to Gorrak, G10 on the map only, G12's return cap `C.ONB_LINE_RETURNS`; secti
 (D143: Gorrak's gate after S3, 14.1; D144, the blind tester pilot's engine and content follow-ups: `trainerView`, `offBalance`'s
 `shield` and `absorbs`, `spellInfo`'s `hit` and `hitAll`, `windupView` answers' `chance`, `mapView`'s grind `waves` and the
 guided zone's `guided` marks, a guided Quest node's quest from its role, and the reward choices' class bias with the switch
-`C.GATES.rewardPrimary`, on (rules 8.3); docs/handoffs/engine-2026-11-13d.md; marked "(D144)").
+`C.GATES.rewardPrimary`, on (rules 8.3); docs/handoffs/engine-2026-11-13d.md; marked "(D144)"); 2026-11-13e (D146: zone 2's
+inner-ring quests keep zone 1's cap, `C.QUEST_CAP_Z2_RINGS` and the switch `C.GATES.zone2InnerCap`, on; rules 1.9.3, 2.1).
 Units: every time value of the API is a whole number of tolls (1 toll = 1 former in-game hour, D69); there are no hours.
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).

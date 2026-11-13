@@ -2,8 +2,8 @@
 // `tutorial` option, zone 1 on TUTORIAL_SEED with the content's overlay (board slot 1, site fights, scripts S1-S4, S1's
 // loot, the D138 wind-ups, Gorrak and his gate), the rescue, SKIP_GUIDE, the beats and tutorialView, the profile's guide
 // and welcome, the summary's welcome line and tutorial block, debug.resetOnboarding, the table's validation, and the
-// golden check: rows and expedition runs without the option play exactly as before task 3.4 (hashes recorded on 25a8879),
-// and since D144 so with C.GATES.rewardPrimary off (on: the reward choices' class bias changes them, recorded hashes).
+// golden check: rows and expedition runs without the option play exactly as before task 3.4 (hashes recorded on 25a8879)
+// with C.GATES.rewardPrimary (D144) and zone2InnerCap (D146) off; each switch's arm has its own recorded hashes.
 // D142 (M3 3.7): the guided zone's Roads closed until Gorrak's fight has ended (won, fled or rescued), open on a skip, the
 // fallback when he can no longer be fought, G13.closed, the autoplay's way to him; G10 only on the map, G12's return cap.
 import { describe, test } from 'node:test';
@@ -559,9 +559,9 @@ describe('M3 table validation and the golden check (E2, E9)', () => {
     for (const w of ['tutorial.seed', 'tutorial.board.region', 'tutorial.scripts', 'tutorial.siteFights[0].enemies[0]', 'tutorial.elite.gate.afterScript']) assert.ok(errs.includes(w), w);
   });
 
-  test('golden: rows and expedition runs without the option are unchanged run for run (actions, events, states, summaries); D144: only the reward choices\' class bias changes them', () => {
-    // The hashes recorded on 25a8879 (M3 3.4), unchanged through D143: with C.GATES.rewardPrimary off they still hold, so
-    // every later change leaves these runs as they were except the reward choices' primary stat (D144, rules 8.3).
+  test('golden: rows and expedition runs without the option are unchanged run for run (actions, events, states, summaries); only the switched rules change them: D144 reward bias, D146 zone 2 inner-ring cap', () => {
+    // The hashes recorded on 25a8879 (M3 3.4), unchanged through D143: with C.GATES.rewardPrimary and zone2InnerCap off they
+    // still hold, so every later change leaves these runs as they were except the switched rules.
     const PRE_D144 = {
       'rows:rogue:11': '41798041347ce9f8:108', 'rows:rogue:4242': '00886b4b19e73a89:653', 'rows:mage:11': '60aad992e05fee5a:304',
       'rows:mage:4242': '88c9a2eeacfb1665:208', 'rows:hunter:11': 'b7c11055704ada75:719', 'rows:hunter:4242': '168bb8f07d4247bd:599',
@@ -570,14 +570,24 @@ describe('M3 table validation and the golden check (E2, E9)', () => {
       'expPrep:rogue:11': '69d8cbffae60e74b:111', 'expPrep:rogue:4242': 'b6bcb252e1e8744d:88', 'expPrep:mage:11': '1054d25f06e0865a:212',
       'expPrep:mage:4242': '3970be1838c40992:296', 'expPrep:hunter:11': '9b27dda4deba5907:332', 'expPrep:hunter:4242': '084a85890a562b3f:427',
     };
-    // As built (D144: rewardPrimary on), recorded on this change; the two runs that met no other-primary reward are equal.
-    const GOLDEN = {
+    // D144 (rewardPrimary on), zone2InnerCap off: recorded on 24f15c5; the two runs that met no other-primary reward equal PRE_D144.
+    const D144 = {
       'rows:rogue:11': 'c5a158857532e1ca:107', 'rows:rogue:4242': '4f1ab25dc35c0bb2:653', 'rows:mage:11': '4ce667c4cb1926a2:750',
       'rows:mage:4242': 'a650fc06d42688a4:208', 'rows:hunter:11': '558ee96af8d5db26:728', 'rows:hunter:4242': 'e0b62f49405eeaab:604',
       'exp:rogue:11': 'a5c3b69fc6919a9f:102', 'exp:rogue:4242': '4c729a13470c3484:86', 'exp:mage:11': '0a893780ed9954fd:212',
       'exp:mage:4242': '64748813a48ce4bb:289', 'exp:hunter:11': '9657bdf18371e82e:338', 'exp:hunter:4242': '8f8f05d40dd6794f:246',
       'expPrep:rogue:11': 'aafc01e3673b0619:112', 'expPrep:rogue:4242': 'b6bcb252e1e8744d:88', 'expPrep:mage:11': 'c6b946acd71017e2:91',
       'expPrep:mage:4242': '2d024af1865d8309:298', 'expPrep:hunter:11': 'f7311b5ccf3533d5:333', 'expPrep:hunter:4242': '9f572536479438a3:421',
+    };
+    // As built (D146: both switches on), recorded on this change: the classic map is untouched (rows = D144); every expedition
+    // run here reaches zone 2 and changes there.
+    const GOLDEN = {
+      'rows:rogue:11': 'c5a158857532e1ca:107', 'rows:rogue:4242': '4f1ab25dc35c0bb2:653', 'rows:mage:11': '4ce667c4cb1926a2:750',
+      'rows:mage:4242': 'a650fc06d42688a4:208', 'rows:hunter:11': '558ee96af8d5db26:728', 'rows:hunter:4242': 'e0b62f49405eeaab:604',
+      'exp:rogue:11': '693dbff257518487:109', 'exp:rogue:4242': 'a9cec12d96db2386:176', 'exp:mage:11': '22930d7b4a94d665:206',
+      'exp:mage:4242': '46524b45253d2c4e:278', 'exp:hunter:11': 'fac86b9ba91eee7b:410', 'exp:hunter:4242': '71ac5a32016aa4b1:390',
+      'expPrep:rogue:11': '0ad25f31980e8f6c:365', 'expPrep:rogue:4242': 'c737c80af82d3699:266', 'expPrep:mage:11': '5e53e299f3d0e78e:220',
+      'expPrep:mage:4242': 'd4ba93f5b60f0579:464', 'expPrep:hunter:11': 'ea0912e483d8c5db:397', 'expPrep:hunter:4242': 'c6b562785d2a4ad5:421',
     };
     const strip = (s) => { const o = JSON.parse(R.serialize(s)); delete o.profile; if (o.result) delete o.result.profile; return JSON.stringify(o); };
     const hashOf = (key) => {
@@ -592,11 +602,14 @@ describe('M3 table validation and the golden check (E2, E9)', () => {
       h.update(JSON.stringify({ ...s.result.summary }));
       return `${h.digest('hex').slice(0, 16)}:${n}`;
     };
-    assert.equal(C.GATES.rewardPrimary, true);
+    assert.deepEqual([C.GATES.rewardPrimary, C.GATES.zone2InnerCap], [true, true]);
     for (const key of Object.keys(GOLDEN)) assert.equal(hashOf(key), GOLDEN[key], key);
-    C.GATES.rewardPrimary = false;
-    try {
-      for (const key of Object.keys(PRE_D144)) assert.equal(hashOf(key), PRE_D144[key], `${key}, rewardPrimary off`);
-    } finally { C.GATES.rewardPrimary = true; }
+    const arms = [[{ zone2InnerCap: false }, D144, 'zone2InnerCap off'], [{ rewardPrimary: false, zone2InnerCap: false }, PRE_D144, 'both off']];
+    for (const [set, want, label] of arms) {
+      Object.assign(C.GATES, set);
+      try {
+        for (const key of Object.keys(want)) assert.equal(hashOf(key), want[key], `${key}, ${label}`);
+      } finally { Object.assign(C.GATES, { rewardPrimary: true, zone2InnerCap: true }); }
+    }
   });
 });

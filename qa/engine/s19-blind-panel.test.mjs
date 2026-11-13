@@ -4,7 +4,8 @@
 // hit (R.offBalance `shield`, `absorbs`); (5) a hit roll that decides a control is shown (spellInfo `hit`, `hitAll`;
 // windupView answers' `chance`), and the tactician's s0204 (Rime Burst left one of three wind-ups unanswered) is that
 // roll, not a rule or a bug; (3) the text and data mismatches on the engine and content side (G9 lines, the guided zone's
-// quest texts, mapView `waves` and `guided`); (4) reward choices carry the class's primary stat (rules 8.3, D144).
+// quest texts, mapView `waves` and `guided`); (4) reward choices carry the class's primary stat (rules 8.3, D144). D146
+// (report balance-2026-11-13c, option a6): zone 2's inner ring keeps zone 1's quest cap (GATES.zone2InnerCap).
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { R, C, started, atLevel, withSpells, inFight, tweak, forceDraws, ev } from './helpers.mjs';
@@ -302,5 +303,57 @@ describe('blind panel (4): reward choices carry the class\'s primary stat (rules
     const on = draw('quest');
     assert.ok(Math.abs(intShare(off) - C.DROP_CLASS_BIAS) < 0.07, `switch off: ${intShare(off)}`);
     assert.deepEqual(on.map((x) => [x.slot, x.rarity, x.ilvl, x.affix]), off.map((x) => [x.slot, x.rarity, x.ilvl, x.affix]));
+  });
+});
+
+describe('D146: zone 2\'s inner ring keeps zone 1\'s quest cap (rules 1.9.3, 2.1; QUEST_CAP_Z2_RINGS, GATES.zone2InnerCap)', () => {
+  /** Zone `z` of an expedition run (no contract held) as generated: the run's nodes after the dev jumps to it. */
+  const zoneOf = (seed, z, mapMode = 'expedition') => {
+    let s = R.newRun({ classId: 'rogue', seed, content: REAL, mapMode });
+    s = R.step(s, { type: 'START_RUN' }).state;
+    if (s.phase === 'PREP') s = R.step(s, { type: 'SET_OUT' }).state;
+    for (let k = 1; k < z; k++) s = R.debug.nextZone(s).state;
+    return s.zone;
+  };
+  const withSwitch = (on, fn) => { C.GATES.zone2InnerCap = on; try { return fn(); } finally { C.GATES.zone2InnerCap = true; } };
+
+  test('on: every zone 2 ring 1 quest has at most QUEST_MAX_SIZE_Z1 mobs, ring 2 and 3 quests may have three; off: ring 1 as before; nothing else differs', () => {
+    assert.deepEqual([C.QUEST_CAP_Z2_RINGS, C.QUEST_MAX_SIZE_Z1, C.GATES.zone2InnerCap], [1, 2, true]);
+    let capped = 0;
+    let outerThree = 0;
+    let innerQuests = 0;
+    for (let seed = 1; seed <= 30; seed++) {
+      const on = zoneOf(seed, 2);
+      const off = withSwitch(false, () => zoneOf(seed, 2));
+      assert.equal(on.z, 2);
+      for (const n of on.nodes) {
+        const o = off.nodes[n.id];
+        const inner = n.type === 'quest' && n.ring >= 1 && n.ring <= C.QUEST_CAP_Z2_RINGS;
+        if (inner) {
+          innerQuests++;
+          assert.ok(n.mobs.length <= C.QUEST_MAX_SIZE_Z1, `seed ${seed} node ${n.id}: ${n.mobs}`);
+          if (o.mobs.length > C.QUEST_MAX_SIZE_Z1) {
+            capped++;
+            // the same quest, its size drawn the same: cut to the cap, the first picks as drawn
+            assert.deepEqual([n.quest, n.mobs.length], [o.quest, C.QUEST_MAX_SIZE_Z1]);
+            continue;
+          }
+        }
+        if (n.type === 'quest' && n.ring > C.QUEST_CAP_Z2_RINGS && n.mobs.length > C.QUEST_MAX_SIZE_Z1) outerThree++;
+        assert.deepEqual(n, o, `seed ${seed} node ${n.id} (${n.type}, ring ${n.ring})`);
+      }
+    }
+    assert.ok(capped > 0 && outerThree > 0 && innerQuests > capped, `capped ${capped}, outer three-mob quests ${outerThree}, inner quests ${innerQuests}`);
+  });
+
+  test('zone 1, zones 3-6 and the classic map are untouched by the switch', () => {
+    for (const seed of [2, 7, 13]) {
+      for (const z of [1, 3, 6]) assert.deepEqual(zoneOf(seed, z).nodes, withSwitch(false, () => zoneOf(seed, z).nodes), `seed ${seed} zone ${z}`);
+      const rows = (on) => withSwitch(on, () => zoneOf(seed, 2, 'rows'));
+      assert.ok(rows(true).rows, 'a classic-map zone');
+      assert.deepEqual(rows(true), rows(false), `classic map seed ${seed}`);
+    }
+    // zone 1 quests keep the cap whatever the switch
+    for (const seed of [2, 7, 13]) for (const n of withSwitch(false, () => zoneOf(seed, 1)).nodes) if (n.type === 'quest') assert.ok(n.mobs.length <= C.QUEST_MAX_SIZE_Z1);
   });
 });

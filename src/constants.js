@@ -60,6 +60,12 @@ export const QUEST_SIZE_W1 = 25;
 export const QUEST_SIZE_W2 = 50;
 export const QUEST_SIZE_W3 = 25;
 export const QUEST_MAX_SIZE_Z1 = 2;
+/**
+ * rules 1.9.3, 2.1 (D146; report balance-2026-11-13c option a6): the rings of zone 2 (from ring 1) whose quests keep the
+ * zone 1 cap QUEST_MAX_SIZE_Z1, while GATES.zone2InnerCap is on (expedition map; 0 = none). Three-enemy quests then start
+ * at zone 2's ring 2, after the player has gained levels in its inner ring.
+ */
+export const QUEST_CAP_Z2_RINGS = 1;
 export const QUEST_TURNIN_XP_FRAC = 1.15;
 export const QUEST_GOLD_V = 2;
 export const QUEST_REWARD_CHOICES = 2;
@@ -432,8 +438,11 @@ export const RARE_HP_MULT_Z1 = 3.0;
  * Reserve holds (engine-api.md 13.4, expedition.md 10.2). **On**; off plays the order before D133 (Field Draughts, then the contracts).
  * D144 (blind tester pilot, draft): rewardPrimary: a reward choice (REWARD_DROP_TABLES) carries the class's primary stat at
  * REWARD_CLASS_BIAS instead of DROP_CLASS_BIAS (rules 8.3). **On**; off plays the rewards before D144.
+ * D146 (report balance-2026-11-13c, option a6: the zone 2 entry cliff): zone2InnerCap: on the expedition map, zone 2's
+ * rings 1..QUEST_CAP_Z2_RINGS keep zone 1's quest cap QUEST_MAX_SIZE_Z1 (rules 1.9.3, 2.1). **On**; off plays zone 2 as
+ * before D146 (three-enemy quests from its ring 1).
  */
-export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true, rewardPrimary: true };
+export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true, rewardPrimary: true, zone2InnerCap: true };
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
 // with mapMode 'expedition'; a run on today's map (mapMode 'rows', the default) never reads them.
 /** rules 1.9.2: nodes per ring (ring 0 = the hub). */
