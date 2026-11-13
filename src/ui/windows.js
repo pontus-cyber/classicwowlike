@@ -5,7 +5,7 @@
 import { h, clear, fmtNum, moneyEl, pct } from './util.js';
 import { spellIcon, itemIcon, slotIcon, talentIcon, icon } from './art-icons.js';
 import { drawHumanoid, HERO_LOOKS } from './art-actors.js';
-import { tip, itemTip, spellTip, talentTip, SLOT_NAMES } from './tooltip.js';
+import { tip, itemTip, spellTip, talentTip, SLOT_NAMES, hideIn } from './tooltip.js';
 import { dragSource, dropTarget } from './hud.js';
 import { buildMap } from './screens.js';
 import { settings } from './settings.js';
@@ -305,7 +305,8 @@ export function createWindows(root, ctx) {
     if (name === 'character' || name === 'spellbook' || name === 'questlog') for (const n of ['character', 'spellbook', 'questlog']) if (n !== name) close(n);
     render(name);
   }
-  function close(name) { const el = open.get(name); if (el) { el.remove(); open.delete(name); } closeMenu(); }
+  // a tip of something in the window goes with it (blind panel 2026-11-13: a bag item's tip stayed after B closed the bags)
+  function close(name) { const el = open.get(name); if (el) { hideIn(el); el.remove(); open.delete(name); } closeMenu(); }
   function closeAll() { for (const n of [...open.keys()]) close(n); }
   function update() { for (const n of open.keys()) render(n); }
   return { toggle, open: openWin, close, closeAll, update, isOpen: (n) => open.has(n), anyOpen: () => open.size > 0 };

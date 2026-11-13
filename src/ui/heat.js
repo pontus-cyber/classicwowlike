@@ -29,7 +29,7 @@
 // of the clock is one toll of the bar (the tolls before the Dimming turns Warm), inside Warm and Hot the clock's
 // HEAT_DIM thresholds are spread over the segment, and a Dimmed node sits in Scorched. Only the place inside the segment
 // is drawn here; the state is the engine's.
-import { h, clear, clamp } from './util.js';
+import { h, add, clear, clamp } from './util.js';
 import { tip } from './tooltip.js';
 import { HEAT_WORDS as HW, tolls } from './ui-text.js';
 import { HEAT, token } from './theme.js';
@@ -242,7 +242,7 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
       else if (v.phase === 'ZONE_HUB') {
         if (els.intro.classList.contains('hidden')) {
           const fpay = fp ? `${HEAT_NAME[fp]} from ${tolls(fp === 'hot' ? H.hotAt : fp === 'scorched' ? H.scorchAt : H.warmAt)} past it pays ${payText(fp, H)}.` : '';
-          clear(els.intro.querySelector('.hi-b')).append(
+          add(clear(els.intro.querySelector('.hi-b')), // add(): a missing pay line is skipped, never printed as "null"
             h('p', `Every toll counts against the Star's line (red). Left of it ${HW.name} is ${HEAT_NAME.clear}; past it, Oruvath grows stronger before you meet him (${bossText(hv.ascIfPar)} now).`),
             fpay ? h('p', `Running hot pays: ${fpay}`) : null,
             h('p.dim', `Hover ${HW.name}, a node or a service to see its ${HW.units} and where they leave you.`));

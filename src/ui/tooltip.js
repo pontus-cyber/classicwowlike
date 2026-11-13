@@ -17,8 +17,22 @@ let spot = -1; // the spot the tip took last (kept while it stays free)
 export function initTooltip(root) {
   el = h('div.tooltip', { role: 'tooltip' });
   root.appendChild(el);
-  document.addEventListener('pointermove', (e) => { if (current) place(e.clientX, e.clientY); }, { passive: true });
+  document.addEventListener('pointermove', (e) => {
+    if (!current) return;
+    // blind panel 2026-11-13: a tip whose element went away under the pointer (bags closed with B, a re-rendered list)
+    // gets no pointerleave; it stayed and followed the cursor over the map. It goes once the pointer is off its element
+    if (stale(e.target)) { hide(); return; }
+    place(e.clientX, e.clientY);
+  }, { passive: true });
 }
+/** The hovered element is gone from the page, or the pointer (at `at`, the event's target) is no longer over it. */
+function stale(at) {
+  const t = hover && hover.target;
+  if (!t) return false;
+  return !t.isConnected || !(at && (at === t || (t.contains && t.contains(at))));
+}
+/** Hide the tip if its element lies inside `root` (a window or screen that closes). */
+export function hideIn(root) { const t = hover && hover.target; if (current && t && root && (root === t || root.contains(t))) hide(); }
 
 /** The next action on screen: primary buttons (Set out, Take the Road, Continue, ...), wherever they are. */
 const PRIMARY = '.btn.primary, #pp-go';

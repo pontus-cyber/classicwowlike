@@ -319,7 +319,8 @@ export function windupBanner(box, e, ctx) {
   } else {
     const lethal = state.kind === 'open' && isLethal(ctx.view, x);
     box.dataset.lethal = lethal ? '1' : '';
-    box.append(h('span.wu-b', h('img', { src: windupIcon(), alt: '' }), stopped ? 'Wind-up stopped' : `Wind-up ${whenText(x)}`), lethal ? lethalBadge() : null, h('span.wu-t', msg));
+    // blind panel 2026-11-13 ("WIND-UP R3 null"): Element.append prints a null child as the text "null"; add() skips it
+    add(box, h('span.wu-b', h('img', { src: windupIcon(), alt: '' }), stopped ? 'Wind-up stopped' : `Wind-up ${whenText(x)}`), lethal ? lethalBadge() : null, h('span.wu-t', msg));
   }
   tip(box, () => h('div.tt-spell', h('div.tt-row', h('div.tt-name', `${e.name}: ${x.windupOf ? x.windupOf.name : x.name}`), h('div.tt-rank', x.now ? 'This round' : `Round ${x.round}`)), windupLines(e, x, ctx, state)));
   windupHover(box, e, x, ctx);

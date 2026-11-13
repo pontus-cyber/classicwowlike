@@ -868,12 +868,16 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
   else if (n.dimsIn != null && Number.isFinite(n.dimsIn)) box.appendChild(h(n.dimsIn <= 2 ? 'div.tt-warn' : 'div.tt-sub', `Dims in ${tolls(n.dimsIn)}`));
   for (const ln of siteLines(n, ctx.view, ctx)) box.appendChild(ln);
   if (spy.armed && !readOnly) { box.appendChild(h('div.tt-hint', 'Click to look here through the Spyglass')); return box; }
-  if (m) {
+  // blind panel 2026-11-13 (no tooltip on Gorrak's node): a barred node next to the player is a move mapView lists with
+  // `barred` and no heat preview; appending the missing preview threw, so the tooltip never showed. A barred node is no move
+  if (m && !(m.barred || n.barred)) {
     box.appendChild(h('div.tt-line', m.via === 'enter' ? 'Click to enter' : 'Click to walk here'));
-    box.appendChild(previewBlock(heatOf(ctx.view, act), ctx));
+    const pb = previewBlock(heatOf(ctx.view, act), ctx);
+    if (pb) box.appendChild(pb);
     // QA 2026-11-12: read with "Click to enter" above, the hint says it is the other way through (no fight), and its toll
     if (m.passTime != null) box.appendChild(h('div.tt-hint', `Or walk through it without doing it (${tolls(m.passTime)}): Pass in the list of moves.`));
-  } else if (here) box.appendChild(h('div.tt-hint', 'You are here'));
+  } else if (m) box.appendChild(h('div.tt-hint', 'Closed for now: you cannot enter it yet'));
+  else if (here) box.appendChild(h('div.tt-hint', 'You are here'));
   else if (!readOnly) box.appendChild(h('div.tt-warn', 'Not next to you'));
   return box;
 }
@@ -938,7 +942,8 @@ function nodeTip(n, v, ctx, reach, hp = null) {
   // the tolls: from the heat preview when the node can be entered now (R.heatView, the engine's tolls and the state the
   // node ends in, H.4), else the node type's tolls
   const hrs = ctx.data.nodeTime ? ctx.data.nodeTime[n.type] : null;
-  if (hp) box.appendChild(previewBlock(hp, ctx));
+  const pb = hp ? previewBlock(hp, ctx) : null; // null without the heat rules (the mock): never appended
+  if (pb) box.appendChild(pb);
   else if (hrs != null) box.appendChild(h('div.tt-sub', n.type === 'grind' ? `Takes ${tolls(hrs)} per wave` : `Takes ${tolls(hrs)}`));
   const H = ctx.data.rules.heat;
   if (n.visited && n.heat && H) box.appendChild(h('div.tt-sub', `Entered ${HEAT_NAME[n.heat]}${H.gain[n.heat] > 0 || H.rarityUp[n.heat] > 0 ? ': it paid heat spoils' : ''}`));
