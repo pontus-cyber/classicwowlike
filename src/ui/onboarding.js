@@ -10,6 +10,11 @@
 // a higher priority line (Deathblow > wind-up > lethal > potion > engage > the rest) takes the place; a hint that waits
 // more than one step is dropped unseen; at most one new hint per step and ONB_HINTS_PER_FIGHT per fight. A line counts as
 // seen when dismissed, done, or gone after ONB_HINT_MIN_MS on screen. Autoplay and fast mode never wait for a line.
+// D142 (QA playtest 2026-11-13): a hint also counts as seen at its ONB_HINT_SHOWS-th showing, however short each was (a beat
+// line's showing is a showing of the hint it stands in for); while a line is up, body.coach-up hides the turn prompt's
+// "Opening move" line (style.css); the key chips follow the view: G3's key is the first bar spell that can be cast now
+// (a Rogue's finisher in slot 1 cannot open a fight), and an engage option that takes a spell (the Mage's Pre-cast) names
+// both keys, Q then the spell's key.
 import { h } from './util.js';
 import { settings } from './settings.js';
 
@@ -18,6 +23,8 @@ const OLD_ENGAGE_KEY = 'tbwcr.hints.v1'; // the engage hint, per class (retired:
 const OLD_HEAT_KEY = 'tbwcr.heatIntro.v1'; // the Furnace note (retired: H16)
 /** The UI's key map for the content's key placeholders (app.js onKey). */
 export const KEYS = { key_spell1: '1', key_engage1: 'Q', key_engage2: 'W', key_engage3: 'E', key_pass: 'X', key_item1: '8', key_take_all: 'Space', key_bags: 'B', key_talents: 'N', key_spellbook: 'P', key_autoplay: 'Z', key_flee: 'F' };
+/** D142 (3): showings after which a hint counts as seen even if each was on screen under ONB_HINT_MIN_MS (UI number, spec 12). */
+export const ONB_HINT_SHOWS = 2;
 const PER_CLASS = new Set(['H01', 'H04', 'H33', 'H34']);
 // the hints a beat stands in for while the guide runs (spec 3.2 "Beat"), and the hints a beat's line marks seen
 const BEAT_OF = { H01: 'G7', H02: 'G6', H03: 'G8', H04: 'G9', H06: 'G9', H09: 'G11', H11: 'G4', H15: 'G2', H16: 'G5', H18: 'G12', H19: 'G13', H20: 'G10', H21: 'G10', H23: 'G1', H30: 'G9' };
@@ -34,17 +41,20 @@ const BOTTOM_REM = 14.8; // the coach line's place: its bottom edge over the act
 
 // ------------------------------------------------------------------ the hint store (spec 3.1)
 function readJson(k) { try { const x = JSON.parse(localStorage.getItem(k) || 'null'); return x && typeof x === 'object' ? x : null; } catch { return null; } }
-/** The stored hints, with the v1 keys moved over on first load (tbwcr.hints.v1 engage: H01 per class; heatIntro: H16). */
+/**
+ * The stored hints, with the v1 keys moved over on first load (tbwcr.hints.v1 engage: H01 per class; heatIntro: H16):
+ * { off, seen: { key: true }, nudge, shows: { key: showings so far } (D142), stats: { won, auto } (H31) }.
+ */
 export function loadHints() {
   let x = readJson(HINTS_KEY);
   if (!x) {
-    x = { off: false, seen: {}, nudge: { summary: 0, hall: false } };
+    x = { off: false, seen: {}, nudge: { summary: 0, hall: false }, shows: {} };
     const old = readJson(OLD_ENGAGE_KEY);
     for (const [cls, on] of Object.entries((old && old.engage) || {})) if (on) x.seen[`H01:${cls}`] = true;
     try { if (localStorage.getItem(OLD_HEAT_KEY)) x.seen.H16 = true; } catch { /* storage blocked */ }
     saveHints(x);
   }
-  return { off: !!x.off, seen: { ...(x.seen || {}) }, nudge: { summary: 0, hall: false, ...(x.nudge || {}) } };
+  return { off: !!x.off, seen: { ...(x.seen || {}) }, nudge: { summary: 0, hall: false, ...(x.nudge || {}) }, shows: { ...(x.shows || {}) }, stats: { ...(x.stats || {}) } };
 }
 export function saveHints(x) { try { localStorage.setItem(HINTS_KEY, JSON.stringify(x)); } catch { /* storage blocked: kept for this page */ } }
 export const hints = {
@@ -53,10 +63,19 @@ export const hints = {
   save() { saveHints(this.get()); },
   seen(id) { return !!this.get().seen[id]; },
   mark(id) { if (!id || this.get().seen[id]) return; this.get().seen[id] = true; this.save(); },
+  /** D142 (3): one more showing of a hint; at its ONB_HINT_SHOWS-th it counts as seen, however short each showing was. */
+  noteShown(id) {
+    if (!id) return;
+    const s = this.get();
+    if (s.seen[id]) return;
+    s.shows[id] = (s.shows[id] || 0) + 1;
+    if (s.shows[id] >= ONB_HINT_SHOWS) s.seen[id] = true;
+    this.save();
+  },
   get off() { return this.get().off; },
   setOff(on) { this.get().off = !!on; this.save(); },
-  /** Settings "Reset hints": every hint shows again (the nudge too). */
-  reset() { const s = this.get(); s.seen = {}; s.nudge = { summary: 0, hall: false }; this.save(); },
+  /** Settings "Reset hints": every hint shows again (the nudge too; the showings count from zero). */
+  reset() { const s = this.get(); s.seen = {}; s.shows = {}; s.nudge = { summary: 0, hall: false }; this.save(); },
   /** Dev menu "Reset onboarding": the hint store as on a new profile (tbwcr.hints.v2 and the retired v1 keys removed; hints on). */
   clear() {
     for (const k of [HINTS_KEY, OLD_ENGAGE_KEY, OLD_HEAT_KEY]) { try { localStorage.removeItem(k); } catch { /* storage blocked */ } }
@@ -65,18 +84,55 @@ export const hints = {
 };
 
 // ------------------------------------------------------------------ lines
-/** A content line with its placeholders filled: { text, nodes } (keys as key chips). Unknown placeholders stay visible. */
-export function fillLine(raw, num = {}) {
-  const nodes = []; let text = '';
+/**
+ * A content line's parts with its placeholders filled (pure): strings, and { key } for each key chip. keys: the key map
+ * (KEYS with the view's keys over it, lineKeys); a key given as a list is pressed in turn ("Q then 1"). Unknown placeholders
+ * stay visible.
+ */
+export function lineParts(raw, num = {}, keys = KEYS) {
+  const out = [];
   String(raw || '').split(/(\{[a-zA-Z0-9_]+\})/).forEach((part) => {
     const m = /^\{([a-zA-Z0-9_]+)\}$/.exec(part);
-    if (!m) { if (part) { nodes.push(part); text += part; } return; }
-    const k = m[1];
-    if (KEYS[k]) { nodes.push(h('span.kbd', KEYS[k])); text += KEYS[k]; return; }
-    const val = num[k] != null ? String(num[k]) : part;
-    nodes.push(val); text += val;
+    if (!m) { if (part) out.push(part); return; }
+    const k = keys[m[1]] || KEYS[m[1]];
+    if (k) { (Array.isArray(k) ? k : [k]).forEach((x, i) => { if (i) out.push(' then '); out.push({ key: x }); }); return; }
+    out.push(num[m[1]] != null ? String(num[m[1]]) : part);
   });
-  return { text, nodes };
+  return out;
+}
+/** A content line with its placeholders filled: { text, nodes } (keys as key chips). */
+export function fillLine(raw, num = {}, keys = KEYS) {
+  const parts = lineParts(raw, num, keys);
+  return { text: parts.map((x) => (typeof x === 'string' ? x : x.key)).join(''), nodes: parts.map((x) => (typeof x === 'string' ? x : h('span.kbd', x.key))) };
+}
+/**
+ * The bar slot (0-6) of the first spell that can be cast now (`legal.spells` ok), one cast on an enemy first (spells: the
+ * bridge's data.spells, for `target`); -1 outside a fight or with none (pure). QA playtest 2026-11-13 (finding 5): a Rogue
+ * whose slot 1 holds Severing Flourish (a finisher: no combo points in round 1) was told "Press 1" and nothing happened.
+ */
+export function attackSlot(v, spells = null) {
+  const p = v && v.player; const c = v && v.combat;
+  if (!p || !c || c.over) return -1;
+  const L = (v.legal && v.legal.spells) || {};
+  const ok = (id) => !!(id && L[id] && L[id].ok);
+  const i = p.bar.findIndex((id) => ok(id) && (!spells || !spells[id] || spells[id].target === 'enemy'));
+  return i >= 0 ? i : p.bar.findIndex(ok);
+}
+/**
+ * The key placeholders that follow the view (pure; D142 (4)): {key_spell1} names attackSlot's key; {key_engage1} names
+ * two keys when the first engage option takes a spell (the Mage's Pre-cast: Q arms it, then the spell's bar key, app.js).
+ */
+export function lineKeys(v, spells = null) {
+  const out = {};
+  const i = attackSlot(v, spells);
+  if (i >= 0) out.key_spell1 = String(i + 1);
+  const c = v && v.combat && !v.combat.over ? v.combat : null;
+  const o = c && c.engage ? c.engage.options[0] : null;
+  if (o && o.spells && o.spells.length && !o.reason && v.player) {
+    const j = v.player.bar.findIndex((id) => id && o.spells.some((x) => x.spellId === id));
+    if (j >= 0) out.key_engage1 = [KEYS.key_engage1, String(j + 1)];
+  }
+  return out;
 }
 /** The raw content line of a coach line id: G<n> (the beat's line), G<n>.<key> (alt / byClass), H<nn> (the hint). */
 export function rawLine(T, id, cls, alt) {
@@ -99,7 +155,7 @@ const itemSlot = (v, pick) => { const L = (v.legal && v.legal.items) || []; cons
 const nodeEl = (v, pred) => { const mv = v.zone && v.zone.exp; if (!mv) return null; const n = mv.nodes.find((x) => pred(x, mv)); return n ? q(`#screens .mnode[data-node="${n.id}"]`) : null; };
 const entries = (v) => (v.combat && !v.combat.over ? v.combat.enemies.filter((e) => e.alive && !e.hidden).flatMap((e) => (e.track || []).map((x) => ({ e, x }))) : []);
 const ANCHOR = {
-  G1: () => q('#prep .pp-card'), G2: () => q('#screens .mnode.here'), G3: () => q('#actionbar .ab[data-slot="0"]'), G4: () => q('#screens .dialog'),
+  G1: () => q('#prep .pp-card'), G2: () => q('#screens .mnode.here'), G3: (v, d) => q(`#actionbar .ab[data-slot="${Math.max(0, attackSlot(v, d && d.spells))}"]`), G4: () => q('#screens .dialog'),
   G5: () => q('#heat'), G6: npOf((e) => (e.track || []).some((x) => x.heavy || x.cast)), G7: () => q('#engage'),
   G8: () => q('#nameplates .wub:not(.db)') || q('#nameplates .tk.wu'), G9: () => q('#nameplates .wub.db') || q('#engage .eg-db'),
   G10: (v) => (v.loot ? q('#screens .dialog') : q('#screens .mnode .xsite')), G11: (v) => itemSlot(v, (x) => x && x.heal > 0), G12: () => q('#screens .xdimp'),
@@ -185,13 +241,15 @@ export function createOnboarding(root, ctx) {
   const store = () => hints.get();
   const cls = () => (lastV && lastV.player ? lastV.player.classId : lastV && lastV.create ? lastV.create.classId : 'rogue');
   const keyOf = (id) => (PER_CLASS.has(id) ? `${id}:${cls()}` : id);
+  /** The stored key of the hint a beat stands in for (spec 3.2 "Beat"), or null. */
+  const beatHintKey = (id) => (HINT_OF_BEAT[id] ? keyOf(HINT_OF_BEAT[id]) : null);
   const guiding = (v) => !!(v && v.tutorial && v.tutorial.on && !v.tutorial.skipped && !v.tutorial.ended);
   const momentOf = (spec, v) => (spec.ctx === 'fight' ? `f${fightNo}` : spec.ctx === 'map' ? `m${v.zone ? `${v.zone.idx}:${v.zone.exp ? v.zone.exp.pos : ''}` : ''}` : `s${v.phase}:${v.node ? v.node.type : ''}:${v.loot ? v.loot.kind : ''}`);
 
   function lineFor(id, alt) {
     if (id === 'NUDGE') return fillLine(T.nudge.hallLine, num);
     const raw = rawLine(T, id, cls(), alt);
-    return raw ? fillLine(raw, num) : null;
+    return raw ? fillLine(raw, num, { ...KEYS, ...lineKeys(lastV, ctx.data.spells) }) : null;
   }
   function show(x) {
     const line = lineFor(x.lineId || x.id, x.alt);
@@ -202,9 +260,12 @@ export function createOnboarding(root, ctx) {
     textEl.replaceChildren(...line.nodes);
     renderButtons();
     el.classList.remove('hidden');
+    document.body.classList.add('coach-up'); // D142 (2): the turn prompt's "Opening move" line gives way (style.css)
     el.dataset.id = x.lineId || x.id; el.dataset.kind = x.kind;
     el.classList.toggle('instant', !!settings.reduceMotion);
-    log.push({ id: x.lineId || x.id, text: line.text, kind: x.kind, step: stepNo, at: Math.round(performance.now()) });
+    // D142 (3): a showing of a hint, or of the beat line that stands in for it, counts towards ONB_HINT_SHOWS
+    hints.noteShown(x.kind === 'hint' ? x.key : x.kind === 'beat' ? beatHintKey(x.id) : null);
+    log.push({ id: x.lineId || x.id, key: x.key || null, text: line.text, kind: x.kind, step: stepNo, at: Math.round(performance.now()) });
     if (log.length > 400) log.shift();
     place();
   }
@@ -222,12 +283,13 @@ export function createOnboarding(root, ctx) {
     if (cur.anchorEl) cur.anchorEl.classList.remove('coach-on');
     cur = null; confirm = false;
     el.classList.add('hidden');
+    document.body.classList.remove('coach-up');
   }
   okBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     if (confirm) { confirm = false; textEl.replaceChildren(...lineFor(cur.lineId || cur.id, cur.alt).nodes); renderButtons(); place(); return; }
     if (!cur) return;
-    if (cur.kind === 'beat') { dismissed.add(cur.lineId); const hid = HINT_OF_BEAT[cur.id]; if (hid) hints.mark(PER_CLASS.has(hid) ? `${hid}:${cls()}` : hid); }
+    if (cur.kind === 'beat') { dismissed.add(cur.lineId); hints.mark(beatHintKey(cur.id)); }
     if (cur.kind === 'nudge') { store().nudge.hall = true; hints.save(); nudgeHall = false; document.querySelectorAll('#meta .mcard.nudge').forEach((x) => x.classList.remove('nudge')); }
     hide(true);
     advance(lastV);
@@ -255,7 +317,7 @@ export function createOnboarding(root, ctx) {
   const visible = (x) => { const b = x.getBoundingClientRect(); return b.width > 0 && b.height > 0 && !x.closest('.hidden') ? b : null; };
   function place() {
     if (!cur || el.classList.contains('hidden')) return;
-    const anchorEl = cur.anchorFn ? safe(() => cur.anchorFn(lastV)) : null;
+    const anchorEl = cur.anchorFn ? safe(() => cur.anchorFn(lastV, ctx.data)) : null;
     if (cur.anchorEl !== anchorEl) { if (cur.anchorEl) cur.anchorEl.classList.remove('coach-on'); cur.anchorEl = anchorEl; if (anchorEl) anchorEl.classList.add('coach-on'); }
     el.style.left = ''; el.style.top = ''; el.style.bottom = ''; el.style.transform = '';
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 10;
@@ -304,9 +366,7 @@ export function createOnboarding(root, ctx) {
   function advance(v) {
     if (!v) return;
     // D141: a beat line the engine has rested counts its hint seen when it was on screen long enough (spec 3.1)
-    if (cur && cur.kind === 'beat' && v.tutorial && (v.tutorial.open || []).some((o) => o.id === cur.id && o.rest) && performance.now() - cur.at >= r.hintMinMs) {
-      const hid = HINT_OF_BEAT[cur.id]; if (hid) hints.mark(PER_CLASS.has(hid) ? `${hid}:${cls()}` : hid);
-    }
+    if (cur && cur.kind === 'beat' && v.tutorial && (v.tutorial.open || []).some((o) => o.id === cur.id && o.rest) && performance.now() - cur.at >= r.hintMinMs) hints.mark(beatHintKey(cur.id));
     const b = beatNow(v);
     if (b && (!cur || cur.kind === 'hint' || (cur.kind === 'beat' && cur.lineId !== b.lineId)) && !(cur && cur.kind === 'nudge') && !(cur && cur.kind === 'hint' && prio(cur.id) > prio(b.id))) {
       if (cur && cur.kind === 'hint') hide(false);
@@ -348,7 +408,7 @@ export function createOnboarding(root, ctx) {
     for (const e of ev) {
       if (e.t !== 'beat') continue;
       if ((e.what === 'open' || e.what === 'line') && e.line) dismissed.delete(e.line);
-      if (e.what === 'done') { const hid = HINT_OF_BEAT[e.id]; if (hid) hints.mark(PER_CLASS.has(hid) ? `${hid}:${cls()}` : hid); if (e.id === 'G10') hints.mark('H21'); }
+      if (e.what === 'done') { hints.mark(beatHintKey(e.id)); if (e.id === 'G10') hints.mark('H21'); }
     }
     if (has(ev, 'guideSkipped')) { dismissed.clear(); if (cur && cur.kind === 'beat') hide(false); ctx.hud.log('You skip the guide. New things get one hint each.', 'lg-sys'); }
     if (has(ev, 'guideEnd') && T) ctx.toast(T.guide.endLine, 'good');

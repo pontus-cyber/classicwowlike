@@ -1537,6 +1537,9 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .coach-on { outline: 2px solid var(--gold-70); outline-offset: 3px; border-radius: var(--radius-sm-3); animation: coach-ring 1.6s ease-in-out infinite; }
 @keyframes coach-ring { 0%, 100% { outline-color: var(--gold-70); } 50% { outline-color: var(--gold-25); } }
 @media (prefers-reduced-motion: reduce) { #coach { animation: none; } .coach-on, .btn.glow { animation: none; } }
+/* D142 (2): one instruction at a time. While a coach line is up (body.coach-up, onboarding.js) the turn prompt's "Opening
+   move" line gives way; its Deathblow, wind-up and autoplay lines stay */
+body.coach-up #turnprompt[data-kind="engage"] { display: none; }
 /* class select: the "Guided first run" switch (2.2) */
 #create .bottom .toggle.guide { white-space: nowrap; }
 #create .bottom .toggle.guide.hidden { display: none; }

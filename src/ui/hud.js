@@ -691,7 +691,8 @@ export function createHud(root, ctx) {
   /**
    * The turn prompt: shown only while the game waits for the player in a fight. It reads the marks updateBar just set on
    * the bar (no rule of its own): in order, the engage round, a wind-up to answer now (or that nothing on the bar can),
-   * a potion to drink at low health, an off-balance window on the target, else the plain choice.
+   * a potion to drink at low health, an off-balance window on the target, else the plain choice. D142 (2): while a coach
+   * line is up (onboarding.js), the engage round's "Opening move" line (data-kind engage) is hidden by style.css.
    */
   function turnPrompt(v, mine, auto = false) {
     const c = v.combat;
