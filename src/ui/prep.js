@@ -160,7 +160,7 @@ export function createPrepScreen(v, ctx) {
       h('div.tt-sub', `${pv.held} of ${pv.slots} contract slots used`));
   });
   const go = h('button.btn.primary.big#pp-go', { type: 'button' }, 'Set out', h('span.k', 'Enter'));
-  go.addEventListener('click', () => { go.blur(); ctx.act({ type: 'SET_OUT' }); });
+  go.addEventListener('click', () => { go.blur(); if (ctx.coach && ctx.coach.holdSetOut(ctx.view)) return; ctx.act({ type: 'SET_OUT' }); });
   tip(go, () => {
     const pv = ctx.view.prep; if (!pv) return null;
     return h('div', h('div.tt-name', 'Set out'), h('div.tt-line', `Leave the camp for ${zone1}. Supplies go into your bags and the perks last the run.`),
@@ -265,6 +265,7 @@ export function prepKey(e, ctx) {
     const el = document.getElementById('prep');
     const age = el ? performance.now() - Number(el.dataset.mounted || 0) : 0;
     if (e.repeat || age < PREP_ENTER_GUARD_MS) return true;
+    if (ctx.coach && ctx.coach.holdSetOut(ctx.view)) return true; // M3 G1: the first Set out without a contract asks once
     ctx.act({ type: 'SET_OUT' });
     return true;
   }

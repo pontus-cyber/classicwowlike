@@ -255,7 +255,8 @@ function loadProfile() {
     const raw = globalThis.localStorage && localStorage.getItem(PROFILE_KEY);
     if (raw) {
       const p = JSON.parse(raw); const base = R.newProfile();
-      if (p && typeof p === 'object') return { ...base, ...p, unlocks: { ...(p.unlocks || {}) }, firstKill: { ...base.firstKill, ...(p.firstKill || {}) } };
+      // M3 (m3-onboarding.md E6): a profile saved before the guide keys gets them (runs > 0: guide done, welcome had)
+      if (p && typeof p === 'object') return R.migrateProfile({ ...base, ...p, guide: p.guide, welcome: p.welcome, unlocks: { ...(p.unlocks || {}) }, firstKill: { ...base.firstKill, ...(p.firstKill || {}) } });
     }
   } catch { /* storage blocked or bad JSON */ }
   return null;
@@ -318,11 +319,18 @@ function engineBackend(seedOpt, runOpts = {}) {
   // D116: the expedition with the start camp unless ?classic=1, ?expedition=1, the setting); the Dev menu can switch it
   let runMode = { ...runOpts };
   let history = loadHistory();
+  // M3 guided first run (m3-onboarding.md 2.1, 2.2; E1, E6): the run being created is guided while the profile's guide is
+  // 'todo', the class select toggle is on (guideOn; ?guide=0 starts it off, a test switch) and the run is an expedition with
+  // the start camp. START_RUN with the toggle off sets the profile's guide to 'skipped' (a normal run).
+  let guideOn = params.get('guide') !== '0';
+  const guideTodo = () => (profile ? R.migrateProfile(profile).guide : 'todo') === 'todo';
+  const guided = () => !!CONTENT.tutorial && guideOn && guideTodo() && runMode.mapMode === 'expedition' && runMode.prep !== false;
+  const modeNow = () => ({ ...runMode, ...(guided() ? { tutorial: true } : {}) });
   /** A run in CREATE. keep: { classId, petId } of the run before (the next run starts on the same class). runOpts: mapMode. */
   const mkRun = (seed, keep = {}) => {
     const classId = keep.classId || 'rogue'; const petId = classId === 'hunter' ? keep.petId || 'ridgewolf' : null;
-    try { return R.newRun({ classId, petId, seed, content: CONTENT, profile: profile || undefined, ...runMode }); } catch (e) {
-      try { return R.newRun({ classId, petId: classId === 'hunter' ? 'ridgewolf' : null, seed, content: CONTENT, profile: profile || undefined, ...runMode }); } catch (e2) {
+    try { return R.newRun({ classId, petId, seed, content: CONTENT, profile: profile || undefined, ...modeNow() }); } catch (e) {
+      try { return R.newRun({ classId, petId: classId === 'hunter' ? 'ridgewolf' : null, seed, content: CONTENT, profile: profile || undefined, ...modeNow() }); } catch (e2) {
         profile = null; return R.newRun({ classId: 'rogue', seed, content: CONTENT, ...runMode });
       }
     }
@@ -362,6 +370,15 @@ function engineBackend(seedOpt, runOpts = {}) {
     nodeTime: Object.fromEntries(Object.values(C.NODE_TYPE).map((t) => [t.id, t.time])),
     boss: { name: C.BOSS_TEXT.name, intro: (CONTENT.camp && CONTENT.camp.bossText) || '' },
     rules: rulesTable(C),
+    // M3 onboarding (m3-onboarding.md 2.4-4.3; onboarding.js): the content's lines (src/content/tutorial.js) and the numbers
+    // their placeholders and the hint rules name, from C (never typed into a line)
+    tutorial: CONTENT.tutorial ? {
+      table: CONTENT.tutorial,
+      num: { deathblowTurn: C.SIGNATURE_TURN, bellTolls: C.BELL_CHANNEL_TIME, offbalPct: Math.round((C.OFFBAL_TAKEN || 0) * 100), rescueTolls: C.ONB_RESCUE_TOLLS,
+        satchelPotions: C.META.satchel ? C.META.satchel.potions : null, satchelPrice: C.META.satchel ? C.META.satchel.cost || null : null },
+      rules: { hintMinMs: C.ONB_HINT_MIN_MS, hintsPerFight: C.ONB_HINTS_PER_FIGHT, queueMax: C.ONB_QUEUE_MAX, potionHp: C.ONB_POTION_HP, fleeHp: C.ONB_FLEE_HP,
+        autoplayAfter: C.ONB_AUTOPLAY_AFTER, maxChars: C.ONB_HINT_MAX_CHARS, talentFirst: C.TALENT_FIRST_LEVEL || 10, priority: C.ONB_BEAT_PRIORITY },
+    } : null,
     meta: metaData(C),
     v2: v2Data(C),
     dev: devData(C),
@@ -899,7 +916,8 @@ function engineBackend(seedOpt, runOpts = {}) {
       dealt: sm.damage.dealt, taken: sm.damage.taken, topSpells: (sm.topSpells || []).map((t) => [spellName(t.id), t.dmg]),
       equipped: (sm.equipped || []).map((e) => ({ uid: `sum-${e.slot}`, kind: 'gear', slot: e.slot, name: e.name, rarity: e.rarity, ilvl: e.ilvl, stats: {} })),
       estMinutes: { manual: Math.round(sm.minutes.manual), auto: Math.round(sm.minutes.autoplay) }, bossPhase: sm.bossPhase,
-      echoes: ((sm.echoes && sm.echoes.lines) || []).map((l) => [`${TXT.ECHO_LINE[l.id] || TXT.humanize(l.id)}${l.count > 1 ? ` (${l.count})` : ''}`, l.echoes]),
+      // the welcome (M3, m3-onboarding.md 4.2): its label from content (nudge.welcomeLabel); [label, Echoes, line id]
+      echoes: ((sm.echoes && sm.echoes.lines) || []).map((l) => [`${l.id === 'welcome' && CONTENT.tutorial ? CONTENT.tutorial.nudge.welcomeLabel : TXT.ECHO_LINE[l.id] || TXT.humanize(l.id)}${l.count > 1 ? ` (${l.count})` : ''}`, l.echoes, l.id]),
       // heat (rules 1.7.4, engine-api.md 11.3): the zone track, tolls / nodes / fights won by state, the Echo line's
       // Echoes; par: the run's boss par (R.bossPar) for "tolls over par"
       heat: sm.heat ? { trackPerZone: sm.heat.trackPerZone.map((r) => ({ ...r })), timeByState: [...sm.heat.timeByState], nodesByState: [...sm.heat.nodesByState],
@@ -977,7 +995,7 @@ function engineBackend(seedOpt, runOpts = {}) {
   /** After a purchase: the run being created takes the new profile; class, pet, name, seed and Oaths stay. */
   function rebuildCreate() {
     const c = st.create;
-    let s = R.newRun({ classId: c.classId, petId: c.classId === 'hunter' ? c.petId : null, name: c.name || '', seed: c.seed, profile, content: CONTENT, ...runMode });
+    let s = R.newRun({ classId: c.classId, petId: c.classId === 'hunter' ? c.petId : null, name: c.name || '', seed: c.seed, profile, content: CONTENT, ...modeNow() });
     for (const o of c.oaths || []) { const a = { type: 'SET_OATH', oath: o, on: true }; if (R.isLegal(s, a)) s = R.step(s, a).state; }
     st = s;
   }
@@ -992,6 +1010,8 @@ function engineBackend(seedOpt, runOpts = {}) {
     return {
       echoes: p.echoes, earned: p.earned, spent: p.spent, runs: p.runs, bossKills: p.bossKills, reachedBoss: !!p.reachedBoss,
       firstKill: { ...p.firstKill }, unlocks: { ...p.unlocks }, offers: R.metaOffers(p),
+      // M3 (m3-onboarding.md 2.2): the profile's guide; guided: the run being created is the guided run (class select toggle)
+      guide: R.migrateProfile(p).guide, guided: create ? !!(s.create && s.create.tutorial) : null, guideOffer: create ? guideTodo() && runMode.mapMode === 'expedition' && runMode.prep !== false && !!CONTENT.tutorial : null,
       oathsOwned: create ? R.isLegal(s, { type: 'SET_OATH', oath: C.OATH_IDS[0], on: true }) : (p.unlocks.oaths || 0) > 0,
       history: { logged: history.logged || 0, classes: Object.fromEntries(C.CLASS_IDS.map((id) => { const c = history.classes[id] || {}; return [id, { runs: c.runs || 0, kills: c.kills || 0, bestLevel: c.bestLevel || 0, best: stageText(c.bestStage, c.bestPhase), firstKill: !!p.firstKill[id] }]; })) },
       lastRun: local.lastRun,
@@ -1008,6 +1028,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     }
     v.oaths = (s.oaths || []).slice();
     v.phase = s.phase === 'ENDED' ? 'SUMMARY' : s.phase;
+    v.tutorial = R.tutorialView ? R.tutorialView(s) : null; // M3 guided run (engine-api.md 14.3); null in any other run
     v.player = convPlayer(s);
     v.mapMode = s.mapMode || 'rows';
     // the start camp (prep; expedition.md 2, 9.1): no zone yet; the screen reads R.prepView, the tracker R.contractView
@@ -1200,6 +1221,11 @@ function engineBackend(seedOpt, runOpts = {}) {
         case 'prep':
           if (e.what === 'setOut') out.push({ t: 'msg', text: `You set out with ${e.contracts} ${TXT.plural(e.contracts, 'contract')} and ${e.reserve} ${TXT.plural(e.reserve, 'point')} of Reserve.`, kind: 'good' });
           break;
+        // M3 guided run (engine-api.md 14): the beats (onboarding.js reads them), the rescue, the skip and the guide's end
+        case 'beat': out.push({ t: 'beat', id: e.id, what: e.what, line: e.line ?? null }); break;
+        case 'rescue': out.push({ t: 'rescue', tolls: e.tolls, to: e.to, node: e.node }); break;
+        case 'guideSkipped': out.push({ t: 'guideSkipped' }); break;
+        case 'guideEnd': out.push({ t: 'guideEnd' }); break;
         case 'spyglass': out.push({ t: 'msg', text: `Spyglass: ${e.seen.length ? `${e.seen.length} more ${TXT.plural(e.seen.length, 'place')} in view` : 'nothing new in view'} · ${e.charges} ${TXT.plural(e.charges, 'look')} left`, kind: 'good' }); break;
         default: break;
       }
@@ -1370,6 +1396,27 @@ function engineBackend(seedOpt, runOpts = {}) {
           const now = R.metaOffers(profile); const o1 = now.find((o) => o.id === action.id);
           const opened = now.filter((o) => o.available && o.rank === 0 && !was.find((x) => x.id === o.id).available).map((o) => o.id);
           return { ok: true, events: [{ t: 'metaBuy', id: o1.id, name: o1.name, rank: o1.rank, ranks: o1.ranks, cost: o0.nextCost, echoes: profile.echoes, opened }] };
+        }
+        case 'SET_GUIDE': {
+          // class select's "Guided first run" toggle (m3-onboarding.md 2.2): the run being created, rebuilt (class, pet, name,
+          // seed and Oaths kept); the profile's guide changes only when the run starts (START_RUN below)
+          if (st.phase !== 'CREATE') return { ok: false, error: 'The guide is chosen at class select' };
+          guideOn = !!action.on; rebuildCreate();
+          return { ok: true, events: [] };
+        }
+        case 'GUIDE_AGAIN': {
+          // Settings, "Play the guide again" (2.2): the profile's guide back to 'todo'; the next run (at class select: this
+          // one) is guided. The welcome is not paid again (the profile keeps welcome: true).
+          profile = R.setGuide(profile || R.newProfile(), 'todo'); saveProfile(profile); guideOn = true;
+          if (st.phase === 'CREATE') rebuildCreate();
+          return { ok: true, events: [], now: st.phase === 'CREATE' };
+        }
+        case 'START_RUN': {
+          // the toggle off at the start of a new profile's first run: a normal run, and the guide is 'skipped' (2.2)
+          if (st.phase === 'CREATE' && !guideOn && guideTodo() && runMode.mapMode === 'expedition' && runMode.prep !== false) {
+            profile = R.setGuide(profile || R.newProfile(), 'skipped'); saveProfile(profile); rebuildCreate();
+          }
+          apply({ type: 'START_RUN' }, events); break;
         }
         case 'SELECT_CLASS': {
           apply({ type: 'SELECT_CLASS', classId: action.classId }, events);

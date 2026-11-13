@@ -21,6 +21,7 @@ import { createMeta, buildOaths, echoAmt } from './meta.js';
 import { heatKey, previewBlock, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME } from './heat.js';
 import { createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon } from './prep.js';
 import { contractTitle } from './ui-text.js';
+import { gateLine } from './onboarding.js';
 import { token } from './theme.js';
 
 /** The heat preview of a time-costing engine action now (view.heat.next, R.heatView), or null. */
@@ -178,7 +179,12 @@ function buildCreate(ctx) {
   // camp): the Dev menu's "Classic map (old)" or ?classic=1, the expedition without the start camp (?expedition=1)
   const mode = h('div.modechip.hidden');
   tip(mode, () => h('div', h('div.tt-name', mode.textContent), h('div.tt-line', 'Kept for testing; new runs normally start at the start camp on the expedition map. Switch it in the Dev menu (World).')));
-  root.append(classes, details, h('div.bottom.panel', h('div.field', h('label', 'Name'), name), h('div.field', h('label', 'Seed'), seed), mode, echoes, go));
+  // M3 (m3-onboarding.md 2.2): "Guided first run", on by default while the profile's guide is 'todo' (a new profile); off
+  // starts a normal run and the guide counts as skipped (first-time hints stay on)
+  const guide = h('button.toggle.guide.hidden', { type: 'button', role: 'switch', 'aria-checked': 'true', 'aria-label': 'Guided first run' }, h('span.sw'), h('span', 'Guided first run'));
+  guide.addEventListener('click', () => { const m = ctx.view.meta; if (m) ctx.act({ type: 'SET_GUIDE', on: !m.guided }); });
+  tip(guide, () => h('div', h('div.tt-name', 'Guided first run'), h('div.tt-line', 'Zone 1 teaches the game as you play: one short line at a time. Skip it at any point.'), h('div.tt-sub', 'Settings can play it again later.')));
+  root.append(classes, details, h('div.bottom.panel', h('div.field', h('label', 'Name'), name), h('div.field', h('label', 'Seed'), seed), mode, echoes, guide, go));
   return root;
 }
 
@@ -189,6 +195,8 @@ function updateCreate(root, v, ctx) {
   if (mc) { mc.textContent = odd; mc.classList.toggle('hidden', !odd); }
   root.querySelectorAll('.ccard').forEach((el) => el.classList.toggle('sel', el.dataset.cls === c.classId));
   const m = v.meta;
+  const gt = root.querySelector('.bottom .guide');
+  if (gt) { const offer = !!(m && m.guideOffer); gt.classList.toggle('hidden', !offer); gt.classList.toggle('on', !!(m && m.guided)); gt.setAttribute('aria-checked', m && m.guided ? 'true' : 'false'); }
   // Echoes button: the balance and how many unlocks it can buy (the engine's offers)
   const eb = root.querySelector('.bottom .echoes');
   if (eb && m) {
@@ -548,7 +556,7 @@ function buildExpMap(v, ctx, readOnly) {
     // and enemy count on hover (the tooltip), its Dimming clock a number only.
     const loud = here || !!m || !!(n.sites && n.sites.length);
     const fightLvl = full && n.cl && !n.hub && !NO_FIGHT.has(n.type);
-    const el = h(`button.mnode.x-${fog}` + (m ? '.reach' : '') + (n.done && !n.hub ? '.visited' : '') + (here ? '.here' : '') + (n.dimmed ? '.dimmed' : '') + (n.lost ? '.lost' : '') + (type ? '' : '.fog') + (n.hub ? '.xhub' : '') + (n.shardfall ? '.xsf' : '') + (n.road ? '.xrd' : '') + (loud ? '' : '.quiet'),
+    const el = h(`button.mnode.x-${fog}` + (m ? '.reach' : '') + (n.done && !n.hub ? '.visited' : '') + (here ? '.here' : '') + (n.dimmed ? '.dimmed' : '') + (n.lost ? '.lost' : '') + (type ? '' : '.fog') + (n.hub ? '.xhub' : '') + (n.shardfall ? '.xsf' : '') + (n.road ? '.xrd' : '') + (n.barred ? '.barred' : '') + (loud ? '' : '.quiet'),
       { style: { left: `${x / 10}%`, top: `${y / 10}%` }, 'aria-label': `${type ? NODE_NAME[type] || 'Hub' : 'Unknown'} node ${n.id}`, dataset: { node: n.id, fog } },
       h('div.ring', type ? h('img', { src: nodeIcon(type), alt: '' }) : h('span.fogq', '?')),
       h('div.cl' + (n.know === 'type' ? '.band' : '') + (fightLvl ? '.lvl' : ''), { style: { color: fightLvl ? conColor(n.cl, p.level) : NEUTRAL } }, label));
@@ -568,7 +576,7 @@ function buildExpMap(v, ctx, readOnly) {
     if (hp) el.appendChild(tollLabel(h('div.mhrs', tolls(hp.time)), hp));
     if (n.done && n.heat && ctx.data.rules.heat && (ctx.data.rules.heat.gain[n.heat] > 0 || ctx.data.rules.heat.rarityUp[n.heat] > 0)) el.appendChild(h('div.mheat', { dataset: { hs: n.heat } }));
     const look = { type: 'USE_SPYGLASS', nodeId: n.id };
-    if (!readOnly) el.addEventListener('click', () => { leave.armed = null; if (spy.armed) { spy.armed = false; ctx.act(look); } else if (m) ctx.act(act); });
+    if (!readOnly) el.addEventListener('click', () => { leave.armed = null; if (spy.armed) { spy.armed = false; ctx.act(look); } else if (n.barred) { const gl = gateLine(ctx.data, v.tutorial); if (gl) ctx.toast(gl, 'info'); } else if (m) ctx.act(act); });
     if (m) ghostOn(el, ctx, act);
     tip(el, () => expNodeTip(n, mv, v, ctx, m, here, readOnly, act));
     disc.appendChild(el);
@@ -606,6 +614,8 @@ function buildExpMap(v, ctx, readOnly) {
   if (!readOnly) {
     const list = h('div.xpanel.expmoves', h('div.xph', 'Moves'), mv.moves.map((m) => {
       const n = mv.nodes[m.nodeId]; const name = n.hub ? 'Hub' : n.know !== 'none' && n.type ? NODE_NAME[n.type] || n.type : 'Unknown';
+      // M3 guided run (D138): Gorrak's barred node is not a move yet; its row says why (the gate line), nothing to press
+      if (m.barred || n.barred) { const gl = gateLine(ctx.data, v.tutorial); return h('div.em.barred', h('span.muted', gl || `${name}: closed for now`)); }
       const go = { type: 'MOVE', nodeId: m.nodeId }; const pass = { type: 'PASS_THROUGH', nodeId: m.nodeId };
       const b1 = ghostOn(btn(`${m.via === 'enter' ? 'Enter' : 'Walk to'} ${name} · ${tolls(m.time)}`, () => ctx.act(go), '.small'), ctx, go);
       tip(b1, () => previewBlock(heatOf(ctx.view, go), ctx));
@@ -743,6 +753,8 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
   if (n.road) { const i = (mv.roads || []).indexOf(n.id); box.appendChild(h('div.tt-line', `${mv.roadNames && mv.roadNames[i] ? mv.roadNames[i] : 'A Road'}: leads to ${roadTo(v, ctx)}`)); }
   if (n.shardfall) box.appendChild(h('div.tt-line', mv.texts && mv.texts.shardfall ? mv.texts.shardfall : 'The Shardfall: the Dimming starts here.'));
   if (n.dimmed) box.appendChild(h('div.tt-warn', 'Dimmed: entering or staying here starts a fight with Shardspawn.'));
+  // M3 guided run (D138): Gorrak's node is barred until the scripted fights are done; the gate line says how many are left
+  if (n.barred) { const gl = gateLine(ctx.data, v.tutorial); if (gl) box.appendChild(h('div.tt-warn.gate', gl)); }
   else if (n.dimsIn != null && Number.isFinite(n.dimsIn)) box.appendChild(h(n.dimsIn <= 2 ? 'div.tt-warn' : 'div.tt-sub', `Dims in ${tolls(n.dimsIn)}`));
   for (const ln of siteLines(n, ctx.view, ctx)) box.appendChild(ln);
   if (spy.armed && !readOnly) { box.appendChild(h('div.tt-hint', 'Click to look here through the Spyglass')); return box; }
@@ -1078,7 +1090,7 @@ function buildSummary(v, ctx) {
   const after = v.meta && v.meta.after;
   const oathLine = s.echoMult && s.echoMult !== 1 ? h('div.echo', h('span.dim', `${s.oaths.join(', ')}`), h('b', `×${Math.round(s.echoMult * 100) / 100}`)) : null;
   const devLine = s.dev ? h('div.echo.devline', h('span', `A dev run earns no Echoes (${s.dev.withheld} withheld)`)) : null;
-  const card3 = h('div.card', h('h3', 'Echoes earned'), s.echoes.map(([k, n]) => h('div.echo', h('span.dim', k), h('b', `+${n}`))), oathLine, devLine, h('div.echo.total', h('span', 'Total'), h('span', `${s.echoTotal} Echoes`)),
+  const card3 = h('div.card', h('h3', 'Echoes earned'), s.echoes.map(([k, n, id]) => h('div.echo' + (id === 'welcome' ? '.welcome' : ''), { dataset: { line: id || '' } }, h('span.dim', k), h('b', `+${n}`))), oathLine, devLine, h('div.echo.total', h('span', 'Total'), h('span', `${s.echoTotal} Echoes`)),
     after ? h('div.echo.after', h('span.dim', 'Your Echoes after this run'), echoAmt(after.echoes)) : null,
     h('div.muted', { style: { marginTop: '.8rem', fontSize: '1.1rem' } }, after
       ? (after.affordable ? `Echoes buy lasting unlocks between runs. ${cap(numWord(after.affordable))} ${plural(after.affordable, 'unlock')} within reach.` : 'Echoes buy lasting unlocks between runs. Keep them for the next one.')
@@ -1092,6 +1104,16 @@ function buildSummary(v, ctx) {
   if (spend) tip(spend, () => h('div', h('div.tt-name', 'Hall of Echoes'), h('div.tt-line.desc', 'Spend the Echoes of this run and the runs before on lasting unlocks.'),
     after ? h('div.tt-line.num', `${fmtNum(after.echoes)} Echoes · ${numWord(after.affordable)} ${plural(after.affordable, 'unlock')} within reach`) : null, h('div.tt-hint', 'Then choose your next hero.')));
   if (v.meta) tip(again, () => h('div', h('div.tt-name', 'Begin a new run'), h('div.tt-line.desc', 'Back to class select. Your Echoes are kept: the Hall of Echoes is there too.')));
-  win.appendChild(h('div.sfoot', spend, again));
+  // M3 nudge (m3-onboarding.md 4.3 step 1): the first summary (and once more while Packed Satchel is not bought): Spend Echoes
+  // glows, with one line under it; the Hall then highlights the Satchel (onboarding.js). Nothing is disabled.
+  const coach = ctx.coach;
+  let nudge = null;
+  if (spend && coach && coach.summaryNudge(v)) {
+    coach.noteSummary(v);
+    spend.classList.add('glow');
+    spend.addEventListener('click', () => coach.armHall(), true);
+    nudge = h('div.nudgeline', ctx.data.tutorial.table.nudge.summaryLine);
+  }
+  win.appendChild(h('div.sfoot', nudge ? h('div.spendcol', spend, nudge) : spend, again));
   return win;
 }

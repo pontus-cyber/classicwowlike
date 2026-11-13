@@ -1510,3 +1510,46 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .ab .sapw { position: absolute; left: 0; right: 0; bottom: 0; z-index: var(--z-local-2); padding: var(--sp-5) 0; text-align: center; font: var(--fw-black) var(--fs-micro-1)/var(--lh-box-1) var(--font-ui); letter-spacing: .02em; text-transform: uppercase;
   white-space: nowrap; color: var(--danger-text-hi); background: rgba(150, 0, 16, .9); border-radius: 0 0 var(--radius-sm-1) var(--radius-sm-1); pointer-events: none; }
 .ab.breaks-sap { box-shadow: inset 0 0 0 2px rgba(255, 70, 70, .95), 0 0 .6rem rgba(255, 40, 40, .5); }
+
+/* ------------------------------------------------------------------ M3 onboarding (m3-onboarding.md 2.5, 4.3; onboarding.js)
+   The coach line: one parchment strip, one line, an arrow towards its anchor; the anchor gets a soft gold ring. Placed by
+   onboarding.js (bottom centre, above whatever it would cover). Reduce motion: no slide-in, no pulse. */
+#coach { position: fixed; z-index: var(--z-coach); display: flex; align-items: center; gap: var(--sp-80); max-width: min(64rem, calc(100vw - 2rem));
+  padding: var(--sp-55) var(--sp-80) var(--sp-55) var(--sp-120); border-radius: var(--radius-sm-3); color: var(--ink-paper);
+  background: linear-gradient(175deg, var(--coach-paper-1), var(--coach-paper-2)); box-shadow: inset 0 0 0 1px var(--coach-edge), 0 .4rem 1.2rem var(--shade-55);
+  font: var(--fw-semibold) var(--fs-body-4) var(--font-ui); line-height: var(--lh-solid); animation: coach-in var(--dur-fast-3, .18s) ease-out; pointer-events: auto; }
+#coach.hidden { display: none; }
+#coach.instant { animation: none; }
+#coach .co-t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#coach .co-t .kbd { margin: 0 .25rem; font-size: var(--fs-small-6); }
+#coach .co-ok { font: var(--fw-bold) var(--fs-small-6) var(--font-ui); color: var(--ink-paper); background: var(--gold-50); border: 1px solid var(--coach-edge); border-radius: var(--radius-sm-1); padding: var(--sp-25) var(--sp-70); cursor: pointer; white-space: nowrap; }
+#coach .co-ok:hover { background: var(--gold-70); }
+#coach .co-skip { font: var(--fs-small-2) var(--font-ui); color: var(--ink-paper); opacity: .72; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; white-space: nowrap; }
+#coach .co-skip:hover { opacity: 1; }
+#coach .co-skip.hidden { display: none; }
+#coach .co-arrow { position: absolute; width: 0; height: 0; border: .7rem solid transparent; }
+#coach .co-arrow.none { display: none; }
+#coach .co-arrow.up { top: -1.4rem; transform: translateX(-50%); border-bottom-color: var(--coach-paper-1); }
+#coach .co-arrow.down { bottom: -1.4rem; transform: translateX(-50%); border-top-color: var(--coach-paper-2); }
+#coach .co-arrow.left { left: -1.4rem; transform: translateY(-50%); border-right-color: var(--coach-paper-1); }
+#coach .co-arrow.right { right: -1.4rem; transform: translateY(-50%); border-left-color: var(--coach-paper-1); }
+@keyframes coach-in { from { opacity: 0; transform: translateY(.6rem); } to { opacity: 1; transform: none; } }
+.coach-on { outline: 2px solid var(--gold-70); outline-offset: 3px; border-radius: var(--radius-sm-3); animation: coach-ring 1.6s ease-in-out infinite; }
+@keyframes coach-ring { 0%, 100% { outline-color: var(--gold-70); } 50% { outline-color: var(--gold-25); } }
+@media (prefers-reduced-motion: reduce) { #coach { animation: none; } .coach-on, .btn.glow { animation: none; } }
+/* class select: the "Guided first run" switch (2.2) */
+#create .bottom .toggle.guide { white-space: nowrap; }
+#create .bottom .toggle.guide.hidden { display: none; }
+/* Gorrak's barred node (D138): closed for now, the gate line on hover */
+.mnode.barred { filter: grayscale(.7) brightness(.8); }
+.mnode.barred::after { content: ''; position: absolute; inset: -.3rem; border-radius: 50%; border: 2px dashed var(--ink-mute); pointer-events: none; }
+.em.barred { padding: var(--sp-30) var(--sp-40); font-size: var(--fs-small-4); line-height: var(--lh-normal-4, 1.3); }
+.tt-warn.gate { color: var(--gold); }
+/* the summary nudge (4.3 step 1): Spend Echoes glows, one line under it; the welcome line stands out */
+.btn.glow { box-shadow: 0 0 0 2px var(--gold-70), 0 0 1.4rem var(--gold-50); animation: coach-glow 1.8s ease-in-out infinite; }
+@keyframes coach-glow { 0%, 100% { box-shadow: 0 0 0 2px var(--gold-70), 0 0 1.4rem var(--gold-50); } 50% { box-shadow: 0 0 0 2px var(--gold-45), 0 0 .6rem var(--gold-25); } }
+.sfoot .spendcol { display: flex; flex-direction: column; align-items: center; gap: var(--sp-40); }
+.sfoot .nudgeline { font-size: var(--fs-small-6); color: var(--gold); }
+.echo.welcome span { color: var(--gold); }
+/* the Hall (4.3 step 2): the Packed Satchel card highlighted while the nudge's line is at it */
+#meta .mcard.nudge { outline: 2px solid var(--gold-90); outline-offset: 2px; box-shadow: 0 0 1.6rem var(--gold-50); }

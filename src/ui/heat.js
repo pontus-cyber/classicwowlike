@@ -146,7 +146,8 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
   els.introBtn = h('button.btn.small', { type: 'button' }, 'Got it');
   els.intro = h('div#heat-intro.hidden', { role: 'note', 'aria-label': `About ${HW.name}` }, h('div.hi-t', HW.Name), h('div.hi-b'), h('div.hi-f', els.introBtn));
   noteRoot.appendChild(els.intro);
-  let introSeen = (() => { try { return !!localStorage.getItem(INTRO_KEY); } catch { return false; } })();
+  // M3 (m3-onboarding.md 3.3, U4): the first-time note is retired into hint H16 (onboarding.js); its seen state moved over
+  let introSeen = true;
   const closeIntro = () => { introSeen = true; els.intro.classList.add('hidden'); try { localStorage.setItem(INTRO_KEY, '1'); } catch { /* storage blocked */ } };
   els.introBtn.addEventListener('click', closeIntro);
 

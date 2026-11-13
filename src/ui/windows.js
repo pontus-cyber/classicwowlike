@@ -12,6 +12,7 @@ import { settings } from './settings.js';
 import { buildContractLog } from './prep.js';
 import { resurrectText } from './ui-text.js';
 import { flags } from './engine-bridge.js';
+import { hints } from './onboarding.js';
 
 const TREE_BG = {
   bladework: ['#3a3f4a', '#14161c'], shadowcraft: ['#2e2440', '#0e0a16'], venomcraft: ['#24361a', '#0a1208'],
@@ -176,6 +177,11 @@ export function createWindows(root, ctx) {
         return h('label', { style: { display: 'flex', flexDirection: 'column', gap: '.2rem', fontSize: '1.2rem' } }, cap, inp);
       };
       const tog = (key) => { const b = h('div.toggle' + (on(key) ? '.on' : ''), { role: 'switch', 'aria-checked': on(key) ? 'true' : 'false', 'aria-label': LABEL[key] || key }, h('div.sw')); b.addEventListener('click', () => { settings.set(key, !on(key)); refresh('settings'); }); return b; };
+      const hintsSeg = () => h('div.seg.hintseg', [[false, 'On'], [true, 'Off']].map(([off, label]) => { const b = h('button' + (hints.off === off ? '.on' : ''), label); b.addEventListener('click', () => { if (ctx.coach) ctx.coach.setOff(off); else hints.setOff(off); refresh('settings'); }); return b; }));
+      const resetHints = h('button.btn.small', { type: 'button' }, 'Reset hints');
+      resetHints.addEventListener('click', () => { if (ctx.coach) ctx.coach.reset(); else hints.reset(); ctx.toast('Every first-time hint shows again.', 'info'); refresh('settings'); });
+      const guideAgain = h('button.btn.small', { type: 'button' }, 'Play the guide again');
+      guideAgain.addEventListener('click', () => { ctx.act({ type: 'GUIDE_AGAIN' }).then((r) => { if (r && r.ok) ctx.toast(ctx.view.phase === 'CREATE' ? 'This run is the guided run.' : 'Your next run is the guided run.', 'good'); }); });
       const body = h('div.col', { style: { padding: '1rem 1.6rem 1.6rem', gap: 0 } },
         h('div.setrow', h('div', h('div', 'Animation speed'), h('div.muted', 'Space or a click skips to the end of the hit on screen. A key pressed while a round plays is queued as your next action.')), seg('speed', [[1, '1×'], [2, '2×'], [4, '4×'], [0, 'Instant']])),
         h('div.setrow', h('div', h('div', 'Speedrun mode'), h('div.muted', 'Instant animations, no travel scenes, fast autoplay.')), tog('speedrun')),
@@ -184,6 +190,9 @@ export function createWindows(root, ctx) {
         h('div.setrow', h('div', 'Screen shake'), tog('shake')),
         h('div.setrow', h('div', h('div', 'Reduce motion'), h('div.muted', 'No screen shake, smaller recoil, numbers without the slam.')), tog('reduceMotion')),
         h('div.setrow', h('div', 'Combat log'), tog('showLog')),
+        // M3 (m3-onboarding.md 3.1, 2.2): first-time hints on or off, all of them again, and the guided run again
+        h('div.setrow', h('div', h('div', 'Hints'), h('div.muted', 'One short line the first time you meet something new.')), hintsSeg()),
+        h('div.setrow', h('div', 'First-time hints and the guide'), h('div', { style: { display: 'flex', gap: '.6rem' } }, resetHints, guideAgain)),
         h('div.setrow', h('div', h('div', 'Mute sound'), h('div.muted', 'Sound starts with your first click or key. Everything it tells you is also on screen.')), tog('soundMuted')),
         h('div.setrow', h('div', 'Volume'), h('div', { style: { display: 'flex', gap: '1.2rem' } }, vol('soundMaster', 'Master'), vol('soundSfx', 'Effects'), vol('soundUi', 'Interface'))),
         // the Dev menu (dev-menu.js): one line, so the window keeps clear of the Heat meter (#win-settings.dev); none with

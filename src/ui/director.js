@@ -85,6 +85,13 @@ export function makeInterim(prev, next) {
   return v;
 }
 
+/** The rescue banner's line (content guide.rescueLine, {rescueTolls} from the event / C.ONB_RESCUE_TOLLS). */
+function rescueLine(ctx, n) {
+  const t = ctx.data.tutorial;
+  const raw = t && t.table.guide && t.table.guide.rescueLine ? t.table.guide.rescueLine : 'The Bellwrights pull you back ({rescueTolls} tolls).';
+  return raw.replace('{rescueTolls}', String(n ?? (t ? t.num.rescueTolls : 2)));
+}
+
 export class Director {
   constructor(ctx) { this.ctx = ctx; this.token = null; this.beat = null; this.beatNo = 0; this.round = null; }
   get playing() { return !!this.token; }
@@ -359,6 +366,14 @@ export class Director {
           }
           case 'victory': hud.log('Victory!', 'lg-sys'); scene.act('player', 'cheer', settings.dur(900)); await WM(M.victory); break;
           case 'defeat': break;
+          // M3 guided run (m3-onboarding.md 2.6, U5): a death in the guided zone is a rescue; the hero rises, a short banner
+          // says so with its toll cost (the content's line), the log keeps it, and the fight gives way to the map
+          case 'rescue': {
+            const line = rescueLine(ctx, e.tolls);
+            scene.revive('player'); scene.aura('player', themeToken('--accent-hi'), 1.2);
+            ctx.ui.banner(line, '', 'rescue', 2200); hud.log(line, 'lg-loot');
+            scene.setMode('map'); scene.clearEnemies(); await WM(M.resurrect); break;
+          }
           case 'flee': if (e.ok) { scene.float('player', 'Escaped!', { color: themeToken('--accent-pale'), size: 22 }); hud.log('You flee from the fight.', 'lg-warn'); scene.setMode('map'); scene.clearEnemies(); await W(tm.wait); } else { scene.float('player', 'Flee failed', { color: '#ff9a8a', size: 20 }); hud.log('You fail to escape!', 'lg-warn'); await W(tm.wait); } break;
           case 'bossPhase': scene.bossPhase = e.phase; scene.screenFlash(e.phase === 3 ? '#ff5a2a' : '#8a6aff', 0.35, 0.8); scene.shake(14); ctx.ui.banner(`Phase ${e.phase}: ${e.name}`, e.text, 'phase', 2400); hud.log(`${e.name}: ${e.text}`, 'lg-warn'); await WM(M.bossPhase); break;
           case 'summon': if (!shown.combat) break; for (const idx of e.idxs) { const en = shown.combat.enemies.find((x) => x.idx === idx); if (en) en.hidden = false; } ctx.syncScene(shown, { enter: true }); push(); hud.log(e.signal ? `${e.names[0]} answers the signal!` : `${e.names.length} ${e.names[0]}s appear!`, 'lg-warn'); await W(tm.wait); break;

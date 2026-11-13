@@ -26,6 +26,7 @@ import { createWindows } from './windows.js';
 import { Director } from './director.js';
 import { initTooltip, hide as hideTip } from './tooltip.js';
 import { createDevMenu } from './dev-menu.js';
+import { createOnboarding } from './onboarding.js';
 import { createAudio, CLICKABLE } from './audio.js';
 import { settings } from './settings.js';
 import { h, clear } from './util.js';
@@ -104,11 +105,14 @@ export class App {
       setShown: (v) => { app.shown = v; app.queueRender(); },
       syncScene: (v, o) => app.syncScene(v, o),
       get hud() { return app.hud; },
+      get coach() { return app.coach; },
     };
     initTooltip(document.body);
     this.hud = createHud(this.root, this.ctx);
     this.screens = createScreens(this.root, this.ctx);
     this.windows = createWindows(this.root, this.ctx);
+    // M3 onboarding (m3-onboarding.md 2.4-4.3; onboarding.js): the coach line, the beats, the hints and the nudge
+    this.coach = createOnboarding(this.root, this.ctx);
     // toasts step aside when a window opens, closes or re-renders (placeToasts)
     // ... and a window opening or closing has its sound (a re-render replaces one window: no change in the count)
     this.winCount = 0;
@@ -131,7 +135,7 @@ export class App {
       if (r.now) { this.shown = this.bridge.view; this.syncScene(this.shown, { instant: true }); this.queueRender(); }
       if (r.ok) this.toast(classic ? `Classic map (old)${r.now ? '' : ': from the next run'}` : `Expedition map with start camp${r.now ? '' : ': from the next run'}`, 'info');
     });
-    window.addEventListener('resize', () => { this.scene.resize(); this.applyScale(); this.syncScene(this.shown, { instant: true }); this.queueRender(); });
+    window.addEventListener('resize', () => { this.scene.resize(); this.applyScale(); this.syncScene(this.shown, { instant: true }); this.queueRender(); requestAnimationFrame(() => this.coach.place()); });
     this.applyScale();
     this.syncScene(this.shown, { instant: true });
     this.render();
@@ -182,6 +186,7 @@ export class App {
         rec.end = performance.now();
         this.hud.heat.noteStep(prev, res.view); // heat (expedition.md H.4): a toast when the step changed the meter's state
         this.afterPlay();
+        this.coach.onStep(prev, res.view, res.events, action);
         this.placeNewItems(prev, res.view);
         return res;
       } catch (err) { console.error(err); this.shown = this.bridge.view; this.queueRender(); return { ok: false, error: String(err) }; } finally {
@@ -348,6 +353,7 @@ export class App {
     this.hud.update(v);
     this.screens.update(v);
     if (!this.director.playing) this.windows.update();
+    this.coach.update(this.bridge.view);
     this.devMenu.update(this.bridge.view);
     document.body.dataset.phase = v.phase;
     // a fight on screen (the toasts move below the opening ruler, clear of the target frame; in the end-boss fight under the
@@ -630,6 +636,8 @@ export class App {
       idle: async () => { for (let i = 0; i < 400 && (app.pending > 0 || app.director.playing); i++) await new Promise((r) => setTimeout(r, 25)); await app.queue; },
       /** Timing of the last played steps: { type, input, t0, end, skippedAt, events, round: { budget, plan, tempo, speed } }. */
       plays: () => app.plays.map((p) => ({ ...p })),
+      /** M3 onboarding: the coach line on screen, every line shown so far, the hint store (onboarding.js). */
+      coach: () => app.coach.test(),
       /** The action the engine's autoplay policy would choose now (not sent). */
       autoChoice: () => app.bridge.autoAction(),
       /** The event the director is playing now ({ t, side }), or null. */

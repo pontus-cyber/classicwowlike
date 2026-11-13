@@ -20,6 +20,7 @@
   --ink: #efe6d0; --ink-dim: #bfb299; --ink-mute: #857a68;
   --ink-bright: #fff;
   --ink-paper: #3a2a16;
+  --coach-paper-1: #f6e9c8; --coach-paper-2: #e6d2a2; --coach-edge: rgba(90, 60, 20, .55); /* the coach line's strip (M3) */
   --ink-good: #9fe09a;
   --ink-bad: #ff7a6a;
   --good: #7fe07a;
@@ -217,6 +218,7 @@
   --z-toast-under: 29;    /* toasts while a window is open: under the windows */
   --z-window: 30;         /* windows (.win) */
   --z-window-top: 32;     /* over the windows: the Furnace strip (#heat) */
+  --z-coach: 40;          /* the coach line (onboarding.js): over windows and the Hall, under toasts */
   --z-toast: 45;          /* toasts */
   --z-modal: 60;          /* menus over everything in play: the context menu */
   --z-dev: 80;            /* the Dev menu */

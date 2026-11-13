@@ -785,7 +785,8 @@ export function createEngagePanel(root, ctx) {
     const show = !!(eg && !ctx.ui.playing && !v.autoplay && !v.loot && v.phase !== 'SUMMARY' && !(v.node && v.node.step === 'intro'));
     el.classList.toggle('hidden', !show);
     document.body.classList.toggle('engage-round', show);
-    updateHint(v, show, eg);
+    // M3 (m3-onboarding.md 3.3, U4): the engage hint panel is retired into hint H01 (onboarding.js, one line); its
+    // per-option lines live in the options' tooltips (updateHint is no longer called).
     if (!show) { lastKey = ''; return; }
     const key = JSON.stringify([eg, ctx.ui.target, ctx.ui.precastArmed, v.player.classId, (c.windups || []).filter((w) => w.deathblow).map((w) => [w.u, w.turn, w.est, w.ready, w.answers])]);
     if (key === lastKey) return;
