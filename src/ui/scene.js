@@ -52,6 +52,8 @@ export class Scene {
     this.particles = []; this.texts = []; this.projectiles = []; this.rings = []; this.beams = [];
     this.wrows = new Map(); // word lanes per actor (word())
     this.hrows = new Map(); this.flog = []; // headline lanes per actor (headline()); recent floats (floatBoxes())
+    // rects (CSS px, as getBoundingClientRect) a headline keeps clear of: the coach line (onboarding.js sets it while it shows)
+    this.keepOut = [];
     this.ambient = []; this.shakeAmt = 0; this.flash = null; this.pillar = null; this.dim = 0; this.targetDim = 0;
     this.atime = 0; this.freeze = 0; // actor clock and hit-stop (s left)
     this.charges = []; this.cores = []; this.rays = []; this.fstack = new Map();
@@ -266,6 +268,16 @@ export class Scene {
       word: true, head: true, weight: 0, slam: false, rise: (above ? 6 : 0) * u, outline: style.outline || token('--fx-float-outline') };
     const half = this.textWidth(f) / 2 + 8 * u;
     f.x = clamp(f.x, half, Math.max(half, this.W - half));
+    // blind panel 2026-11-13 (item 6): an enemy's headline ("Deathblow answered: staggered") sat under the coach line at the
+    // bottom centre. It moves sideways clear of a keep-out rect (right, else left), else over the enemy's head
+    const box = (x, y) => ({ l: x - half, r: x + half, t: y - f.size / 2 - f.rise, b: y + f.size / 2 });
+    const hit = (b) => this.keepOut.find((k) => b.l < k.right + 6 && b.r > k.left - 6 && b.t < k.bottom + 4 && b.b > k.top - 4);
+    const k = hit(box(f.x, f.y));
+    if (k) {
+      const xs = [k.right + 8 + half, this.W - half, k.left - 8 - half, half].filter((x) => x >= half - 0.5 && x <= this.W - half + 0.5);
+      const x = xs.find((xx) => !hit(box(xx, f.y)));
+      if (x !== undefined) f.x = x; else f.y = an.top - (HEAD_DY0 + r * HEAD_ROW) * u;
+    }
     rows[r] = now + life * 0.85;
     this.texts.push(f); this.logFloat(f);
   }

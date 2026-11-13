@@ -712,6 +712,8 @@ body[data-phase="MAP"]:not(.in-fight) #toasts .toast { white-space: normal; text
 #skiphint.on { opacity: .85; }
 .overlay-dark { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, rgba(30, 0, 0, .3), rgba(0, 0, 0, .78)); }
 .deathmsg { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); text-align: center; }
+/* blind panel 2026-11-13 (item 6): while "You have died" shows, the fight's panels give way (app.js showDeath) */
+body.dying #target-frame, body.dying #boss-frame, body.dying #ruler, body.dying #nameplates, body.dying #engage, body.dying #engage-hint, body.dying #turnprompt, body.dying #fleeask, body.dying #coach, body.dying #toasts { opacity: 0; transition: opacity var(--dur-base-2); }
 .deathmsg .d1 { font: var(--fw-semibold) var(--fs-display-9) var(--font-title); color: #e04a3a; text-shadow: 0 .3rem 0 #200000, 0 0 3rem rgba(220, 40, 20, .7); }
 .deathmsg .d2 { font: var(--fs-title-1) var(--font-ui); color: var(--ink-dim); margin-top: var(--sp-80); text-shadow: 0 1px 2px var(--shade); }
 

@@ -396,6 +396,8 @@ export class App {
     // boss frame, between the target frame and the boss's nameplate; style.css)
     document.body.classList.toggle('in-fight', !!(v.combat && !v.combat.over && !v.loot));
     document.body.classList.toggle('boss-fight', !!(v.combat && !v.combat.over && !v.loot && v.combat.isBoss));
+    // a banner shown as a fight comes on screen (an elite's name) steps aside once its panels are drawn
+    if (this.bannerEl.classList.contains('on') && document.body.classList.contains('in-fight')) this.placeBanner();
   }
 
   syncScene(v, opts = {}) {
@@ -477,10 +479,29 @@ export class App {
     b.querySelector('.b0').textContent = kind === 'level' ? 'Level up' : kind === 'zone' ? 'Entering' : kind === 'boss' ? 'The end of the road' : '';
     b.querySelector('.b1').textContent = title;
     b.querySelector('.b2').textContent = sub || '';
+    this.placeBanner(); this.placeToasts();
     clearTimeout(this.bannerT);
-    this.bannerT = setTimeout(() => { b.className = kind; }, settings.instant ? Math.min(ms, 1200) : ms / Math.max(1, Math.min(2, settings.get('speed'))));
+    this.bannerT = setTimeout(() => { b.className = kind; this.placeToasts(); }, settings.instant ? Math.min(ms, 1200) : ms / Math.max(1, Math.min(2, settings.get('speed'))));
   }
-  hideBanner() { clearTimeout(this.bannerT); this.bannerEl.classList.remove('on'); }
+  hideBanner() { clearTimeout(this.bannerT); this.bannerEl.classList.remove('on'); this.placeToasts(); }
+  /**
+   * Blind panel 2026-11-13 (item 6): in a fight the banner ("Level up" mid-fight, an elite's name, a boss phase) covered the
+   * target frame's Next actions and the action numbers. It takes the first spot, from its own (top 30 %) down over the
+   * field and then off centre, that covers no fight panel (BANNER_KEEP); with none free, the one that covers least. Outside
+   * fights it stays put.
+   */
+  placeBanner() {
+    const b = this.bannerEl; b.style.left = ''; b.style.top = '';
+    if (!b.classList.contains('on') || !document.body.classList.contains('in-fight')) return;
+    const keep = [...document.querySelectorAll(BANNER_KEEP)].filter((x) => !x.closest('.hidden')).map((x) => x.getBoundingClientRect()).filter((q) => q.width > 0 && q.height > 0);
+    const r = b.getBoundingClientRect(); const W = innerWidth; const H = innerHeight;
+    const cost = ([cx, cy]) => keep.reduce((k, q) => k + Math.max(0, Math.min(cx + r.width / 2, q.right) - Math.max(cx - r.width / 2, q.left)) * Math.max(0, Math.min(cy + r.height / 2, q.bottom) - Math.max(cy - r.height / 2, q.top)), 0);
+    const spots = [];
+    for (const fx of [0.5, 0.42, 0.58, 0.36]) for (const fy of [0.3, 0.44, 0.5, 0.56, 0.38]) spots.push([fx * W, Math.max(r.height / 2 + 4, Math.min(H - r.height / 2 - 4, fy * H))]);
+    let best = spots[0]; let bestK = Infinity;
+    for (const p of spots) { const k = cost(p); if (k < bestK - 0.5) { best = p; bestK = k; } if (k <= 0) break; }
+    b.style.left = `${Math.round(best[0])}px`; b.style.top = `${Math.round(best[1])}px`;
+  }
   /**
    * A short message in the toast stack. The same message while it is on screen merges into it ("Quest complete! ×2") and
    * its time starts again; at most TOAST_MAX show at once and the rest wait in a queue (the same message queued merges
@@ -536,6 +557,16 @@ export class App {
     const el = this.toasts;
     el.style.left = ''; el.style.top = ''; el.classList.remove('under-wins');
     if (!el.children.length) return;
+    // blind panel 2026-11-13 (item 6): toasts drew over the centre banner ("Entering ...", "Level up"); while it shows, the
+    // stack sits under it (then clear of the windows as below)
+    const bn = this.bannerEl.classList.contains('on') ? this.bannerEl.getBoundingClientRect() : null;
+    if (bn && bn.width > 0) {
+      const r0 = el.getBoundingClientRect();
+      if (r0.left < bn.right + 8 && r0.right > bn.left - 8 && r0.top < bn.bottom + 8 && r0.bottom > bn.top - 8) {
+        const base0 = (el.offsetParent || document.body).getBoundingClientRect();
+        el.style.left = `${r0.left + r0.width / 2 - base0.left}px`; el.style.top = `${bn.bottom + 10 - base0.top}px`;
+      }
+    }
     const wins = [...document.querySelectorAll('#windows > .win')].map((w) => w.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0);
     if (!wins.length) return;
     const r = el.getBoundingClientRect(); const pad = 8;
@@ -563,6 +594,9 @@ export class App {
   showDeath(on, text) {
     if (on) this.deathEl.querySelector('.d2').textContent = text || 'No resurrection remains. Your journey ends here.';
     this.deathEl.classList.toggle('hidden', !on);
+    // blind panel 2026-11-13 (item 6): "You have died" drew over the target frame's Next actions; the fight's panels give
+    // way while it shows (style.css body.dying)
+    document.body.classList.toggle('dying', !!on);
   }
 
   // ------------------------------------------------------------------ input
@@ -751,6 +785,8 @@ function devText(op, args, r, v) {
   }
 }
 
+/** The fight's panels a banner in a fight keeps clear of (placeBanner). */
+const BANNER_KEEP = '#target-frame, #boss-frame, #ruler, #nameplates .np, #engage, #turnprompt, #actionbar, #player-frame, #pet-frame, #tracker, #coach, #fleeask';
 /** M2b v13: how long autoplay's engage round holds at 1x when it shows "Autoplay will answer the Deathblow with ..." (ms). */
 const AUTO_HINT_MS = 1600;
 // toasts: on screen at most TOAST_MAX at once for TOAST_MS each (the CSS fade is 2.6 s); at most TOAST_QUEUE wait
