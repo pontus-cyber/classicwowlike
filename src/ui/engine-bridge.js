@@ -1596,10 +1596,11 @@ function engineBackend(seedOpt, runOpts = {}) {
     view,
     step,
     autoAction() { const a = st.phase === 'ENDED' ? null : R.autoAction(st); return a ? { type: 'ENGINE', action: a } : { type: 'PASS' }; },
-    describeSpell(id) {
+    describeSpell(id, target = null) {
       const s = st; const sp = C.SPELL[id]; if (!sp || !s.player) return null;
       const f = s.fight;
-      const tgt = f ? (f.enemies.find((e) => e.alive) || { idx: 0 }).idx : null;
+      // the UI's target when it is alive (the hit chance is the target's), else the first living enemy
+      const tgt = f ? (target != null && f.enemies[target] && f.enemies[target].alive ? target : (f.enemies.find((e) => e.alive) || { idx: 0 }).idx) : null;
       let info = null;
       try { info = R.spellInfo(s, id, tgt); } catch { info = null; }
       const resName = { energy: 'energy', mana: 'mana', focus: 'focus' }[C.CLASS[sp.cls].resource];
@@ -1613,6 +1614,11 @@ function engineBackend(seedOpt, runOpts = {}) {
       if (a && a.kind === 'ward') lines.push(`Absorbs about ${a.amount} damage for ${a.rounds} rounds.`);
       if (a && a.kind === 'heal') lines.push(`Heals about ${a.amount}.`);
       if (a) lines.push('Before level difference, crits and the target\'s defences.');
+      // D144 (engine-2026-11-13d UI need 11; tactician: "hit/miss chance shown nowhere"): the hit roll's chance now
+      const pc = (x) => `${Math.round(x * 100)} %`;
+      const enemyName = (u) => (f && f.enemies[u] ? f.enemies[u].name : 'it');
+      if (info && typeof info.hit === 'number') lines.push(`Hit chance on ${enemyName(tgt)}: ${pc(info.hit)}`);
+      else if (info && Array.isArray(info.hitAll) && info.hitAll.length) lines.push(`Hit chance: ${info.hitAll.map((x) => `${enemyName(x.u)} ${pc(x.chance)}`).join(', ')}`);
       const k = s.player.spells[id];
       return {
         cost: info && info.cost ? `${info.cost} ${resName}` : 'No cost', cd: info && info.cd ? `${info.cd} round cooldown` : null, lines,
@@ -1708,7 +1714,7 @@ export class Bridge {
   }
   /** The action the engine's autoplay policy (rules.md 7.9) picks for the current state. */
   autoAction() { return this.backend.autoAction(); }
-  describeSpell(id) { return this.backend.describeSpell(id); }
+  describeSpell(id, target = null) { return this.backend.describeSpell(id, target); }
   itemScore(item) { return this.backend.itemScore(item); }
   /** Test hook: the engine actions applied to the run (engine mode), or [] (mock). */
   engineLog() { return this.backend.engineLog ? this.backend.engineLog() : []; }

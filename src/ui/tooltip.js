@@ -150,7 +150,7 @@ export function itemTip(item, ctx, opts = {}) {
 export function spellTip(id, ctx, opts = {}) {
   const sp = ctx.data.spells[id];
   if (!sp) return null;
-  const info = ctx.bridge.describeSpell(id) || {};
+  const info = ctx.bridge.describeSpell(id, ctx.ui ? ctx.ui.target : null) || {}; // the hit chance is the target's (D144)
   const box = h('div.tt-spell');
   box.appendChild(h('div.tt-row', h('div.tt-name', sp.name), info.rank ? h('div.tt-rank', info.rank) : null));
   box.appendChild(h('div.tt-row', h('div.tt-sub', info.cost || ''), h('div.tt-sub', info.cd || (sp.cd ? `${sp.cd} round cooldown` : 'No cooldown'))));

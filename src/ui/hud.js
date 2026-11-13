@@ -32,7 +32,7 @@ import { THEMES } from './art-world.js';
 import { tip, spellTip, basicTip, itemTip, statusTip } from './tooltip.js';
 import { settings } from './settings.js';
 import { linkedText, resurrectText, dangerRule, HEAT_WORDS, tolls, freeActionText } from './ui-text.js';
-import { trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createRuler, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind, answersToShow, isLethal, SAP_BREAK_WARN } from './tracks.js';
+import { trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createRuler, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind, answersToShow, isLethal, SAP_BREAK_WARN, answerChance } from './tracks.js';
 import { createHeatMeter, standText, bossText, fmtTime, lineShown } from './heat.js';
 import { trackerContracts } from './prep.js';
 import { CON, token } from './theme.js';
@@ -777,7 +777,7 @@ export function createHud(root, ctx) {
       else if (first && dbSh.when === 'now' && first.a.via === 'pass') { parts = [`Deathblow ${when}: wait with `, kb('X'), ` Pass: Sap stops it${first.a.stealth ? ', and you stay hidden' : ''}`, h('span.tp-w', `${SAP_BREAK_WARN}${dbLethal ? ' and kill you' : ''}.`)]; dbKind = 'deathblow'; }
       else if (first && dbSh.when === 'now' && first.a.target != null && first.a.target !== (ctx.ui.target ?? c.target)) { parts = [`Deathblow ${when} on ${dbw.enemy}: `, kb('Tab'), ' to it, then ', kb(first.key), ` ${first.name}`]; dbKind = 'deathblow'; }
       // M2b v14: Sap that is sure if you wait says so, as the line and the card do (QA 2026-11-12), not "(a chance)"
-      else if (first && dbSh.when === 'now') { parts = [`Deathblow ${when}: answer with `, kb(first.key), ` ${first.name}${first.a.sure ? '' : first.a.wait ? ', then wait (Pass next round)' : ' (a chance)'}`]; dbKind = 'deathblow'; }
+      else if (first && dbSh.when === 'now') { parts = [`Deathblow ${when}: answer with `, kb(first.key), ` ${first.name}${first.a.sure ? '' : first.a.wait ? ', then wait (Pass next round)' : answerChance(first.a) ? ` (${answerChance(first.a)} to hit)` : ' (a chance)'}`]; dbKind = 'deathblow'; }
       else if (first) { parts = [`Deathblow ${when}: keep `, kb(first.key), ` ${first.name} for round ${dbw.round}`]; dbKind = 'deathblow'; }
     }
     if (dbKind) { /* the Deathblow's line above */ }

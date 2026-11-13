@@ -164,13 +164,20 @@ export function answersToShow(w, v, ctx) {
   const list = now.length ? now : uniq(order(w.answers));
   return { list: list.map((a) => ({ a, key: answerKey(v, a), name: answerName(a, ctx) })), when: now.length ? 'now' : 'later' };
 }
-/** The answers as inline elements: "W Lay Trap · E Send the Pet" (a chance marked "?"). */
+/**
+ * An answer's hit chance in words, "91 %", when a hit roll decides it (windupView answers' `chance`: Rime Burst, Deadfall
+ * Trap; D144, engine-2026-11-13d UI need 11; tactician s0204: one of three Sentinels was not frozen, with no number shown),
+ * else null.
+ */
+export const answerChance = (a) => (a && typeof a.chance === 'number' ? `${Math.round(a.chance * 100)} %` : null);
+/** The answers as inline elements: "W Lay Trap · E Send the Pet" (a chance marked "?", or its hit chance "91 %"). */
 function answerEls(list) {
   const out = [];
   list.forEach((x, i) => {
     if (i) out.push(h('span.sep', ' · '));
     // M2b v14: Sap that is sure if you wait reads "Sap, then wait" (no "?")
-    out.push(h('span.ans-o', { dataset: { via: x.a.via, id: x.a.id, sure: x.a.sure ? '1' : '', wait: x.a.wait ? '1' : '' } }, x.key ? h('kbd', x.key) : null, ` ${x.name}${x.a.sure ? '' : x.a.wait ? ', then wait' : ' ?'}`));
+    const ch = answerChance(x.a);
+    out.push(h('span.ans-o', { dataset: { via: x.a.via, id: x.a.id, sure: x.a.sure ? '1' : '', wait: x.a.wait ? '1' : '', chance: ch || '' } }, x.key ? h('kbd', x.key) : null, ` ${x.name}${x.a.sure ? '' : x.a.wait ? ', then wait' : ch ? ` ${ch}` : ' ?'}`));
   });
   return out;
 }
@@ -181,7 +188,8 @@ function answerEls(list) {
 function answerNote(a) {
   if (a.via === 'pass') return ` (Sap stops it${a.stealth ? '; you stay hidden' : ''})`;
   if (a.wait) return ` (${sapWaitText(a).replace(/^S/, 's')})`;
-  return `${a.sure ? '' : ' (a chance)'}${a.breaks ? ' (any damage before its turn wakes it)' : ''}`;
+  const ch = answerChance(a);
+  return `${a.sure ? '' : ch ? ` (${ch} to hit)` : ' (a chance)'}${a.breaks ? ' (any damage before its turn wakes it)' : ''}`;
 }
 /** What answers it, in the badge's words: "your trap", "Sapped", "your pet". */
 function answeredBy(st) {
@@ -829,7 +837,7 @@ export function createEngagePanel(root, ctx) {
         h('div.eg-main', h('div.eg-nm', h('span.eg-name', name), disrupt ? h('span.eg-was', o.name) : null, h('span.eg-kind', ENGAGE_KIND[o.kind] || o.kind), o.key ? h('span.kbd', o.key) : null),
           h('div.eg-txt', disrupt ? disruptText(v, here, ans) : engageText(data, d.num)), tline, answerTag(ans),
           dbWait ? h('div.eg-dbc.wait', sapWaitText(dbWait))
-            : dbA.length && !dbSure ? h('div.eg-dbc', dbA.some((a) => a.breaks) ? 'A chance: any damage before its turn wakes it' : 'A chance: it can fail') : null));
+            : dbA.length && !dbSure ? h('div.eg-dbc', dbA.some((a) => a.breaks) ? 'A chance: any damage before its turn wakes it' : dbA.some(answerChance) ? `A chance: it lands ${dbA.map(answerChance).filter(Boolean).join(' / ')}` : 'A chance: it can fail') : null));
       if (dbA.length) card.prepend(h('i.eg-dbtag', 'Deathblow'));
       if (disrupt || notHere) tip(card, () => disruptTip(v, o, here ?? cur, disrupt, notHere));
       if (o.spells && !off) {
