@@ -281,6 +281,16 @@ function innCard(v, ctx, name, meta, used, heat) {
     h('div.ask-b', yes, no));
 }
 
+/**
+ * The hub Trainer card's line (D144, engine-2026-11-13d UI need 1): what it teaches, or that it has nothing new yet and the
+ * level of the next spell (R.trainerView `useful`, `next`, through the bridge's view.trainer).
+ */
+export function trainerMeta(v) {
+  const t = v.trainer;
+  if (!t || t.useful) return 'Learn and rank up spells';
+  return t.next ? `Nothing new to learn yet (next spell at level ${t.next})` : 'Nothing new to learn';
+}
+
 const hubSwap = { swap: false }; // the hub offer's swap list stays open across the hub screen's rebuilds
 function buildHub(v, ctx) {
   const z = v.zone; const p = v.player; const used = (v.hub && v.hub.used) || {}; const hr = ctx.data.rules.time;
@@ -298,7 +308,7 @@ function buildHub(v, ctx) {
   else if (hubSwap.taken && hubSwap.taken.z === z.idx) body.appendChild(h('div.hubtaken', { style: { minHeight: `${hubSwap.taken.h}px` } }, h('div.hx-t', 'Contract taken'), h('div.hx-s', `${hubSwap.taken.title}: its sites are on the map and in your tracker.`)));
   const svc = (service) => ({ ctx, v, action: { type: 'SERVICE', service } });
   body.append(
-    svcCard('tome', 'arcane', 'Trainer', 'Learn and rank up spells', tolls(hr.trainer), used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer')),
+    svcCard('tome', 'arcane', 'Trainer', trainerMeta(v), tolls(hr.trainer), used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer')),
     svcCard('vendor', 'earth', 'Vendor', 'Potions, rations and gear', tolls(hr.vendor), used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' }), svc('vendor')),
     innCard(v, ctx, 'Inn', 'Full rest and rested experience', used.inn, svc('inn')));
   if (p.talentPoints) body.appendChild(h('div.warn', { style: { fontSize: '1.25rem' } }, `You have ${p.talentPoints} unspent talent point${p.talentPoints > 1 ? 's' : ''}. Press N.`));

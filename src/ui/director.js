@@ -20,6 +20,7 @@ import { settings } from './settings.js';
 import { linkedText, dangerBanner, CONTROL_WORD as CONTROL_LOG, HEAT_WORDS, freeActionText } from './ui-text.js';
 import { timeline, roundPace, hitShare, STATUS_LABEL } from './combat-feel.js';
 import { CAST, token as themeToken } from './theme.js'; // not `token`: play() has its own SkipToken of that name
+import { fillLine } from './onboarding.js';
 
 const SCHOOL_PROJ = { fire: 'fire', frost: 'frost', arcane: 'arcane', shadow: 'shadow', nature: 'nature' };
 const SCHOOL_GLOW = CAST; // theme.js: the --fx-cast-* tokens (frost: --school-frost-text)
@@ -168,7 +169,7 @@ export class Director {
         hud.clearLog();
         if (next.zone) {
           ctx.ui.banner(next.zone.name, zoneLine(next.zone, ctx.data.rules), 'zone', 2400);
-          hud.log(`Welcome to ${next.zone.name}. Visit the trainer, then set out.`, 'lg-sys');
+          hud.log(hubWelcome(next, ctx.data), 'lg-sys');
         }
       }
       // an expedition move into a node (MOVE, rules 1.9) travels like a map choice; a Road or the Bell like Travel on
@@ -567,3 +568,14 @@ function logDamage(e, name) {
   return `${who} ${e.crit ? 'crits' : 'hits'} ${dst.side === 'player' ? 'you' : name(dst)} for ${fmtNum(e.amount)}${e.crit ? '!' : '.'}${e.absorbed ? ` (${fmtNum(e.absorbed)} absorbed)` : ''}`;
 }
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+
+/**
+ * The welcome at a zone hub (D144, engine-2026-11-13d UI need 1; both blind testers paid a toll for "Visit the trainer" at
+ * level 1 with nothing to learn): content guide.hubTrainerLine while the trainer has something to teach
+ * (R.trainerView `useful`, the bridge's view.trainer), else guide.hubLine; {zone} the zone's name.
+ */
+export function hubWelcome(v, data) {
+  const G = data.tutorial && data.tutorial.table ? data.tutorial.table.guide : null;
+  const raw = G ? (v.trainer && !v.trainer.useful ? G.hubLine : G.hubTrainerLine) : null;
+  return raw ? fillLine(raw, { zone: v.zone.name }).text : `Welcome to ${v.zone.name}. Visit the trainer, then set out.`;
+}

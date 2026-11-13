@@ -28,6 +28,7 @@
 //              from which TRAVEL_ON is legal before the last row (rules 1.5, R.travelLevel); travelTime: the tolls TRAVEL_ON
 //              costs now (a dry step; null while it is not legal)
 //   hub:     { used: { trainer, vendor, inn } }
+//   trainer: R.trainerView ({ learn, train, next, useful }; D144: the hub's welcome line and Trainer card), or null
 //   node:    { type, step, cl, row, lane, ... }  step: intro|combat|reward|story|between|chest|rest|vendor|trainer|shrine
 //   combat:  { round, enemies: [{ idx, uid, name, level, rank, arch, hp, maxHp, statuses, alive, intent, track, role, offBalance,
 //              ccImmune }], target, cooldowns: { spellId: roundsLeft }, potionCd, kind, isBoss, boss: { phase, asc, telegraph },
@@ -1047,6 +1048,9 @@ function engineBackend(seedOpt, runOpts = {}) {
     v.phase = s.phase === 'ENDED' ? 'SUMMARY' : s.phase;
     v.tutorial = R.tutorialView ? R.tutorialView(s) : null; // M3 guided run (engine-api.md 14.3); null in any other run
     v.player = convPlayer(s);
+    // D144 (engine-2026-11-13d UI need 1): what a trainer would teach now ({ learn, train, next, useful }), for the hub's
+    // welcome line and its Trainer card
+    v.trainer = (() => { try { return R.trainerView ? R.trainerView(s) : null; } catch { return null; } })();
     v.mapMode = s.mapMode || 'rows';
     // the start camp (prep; expedition.md 2, 9.1): no zone yet; the screen reads R.prepView, the tracker R.contractView
     v.contracts = contractsOf(s);
