@@ -5,7 +5,7 @@
 // --strip removed (e.g. '-noba': the board-off arm on this engine against the cells of the D128 engine, whose cells name
 // no gates).
 //
-//   node sim/samerecords.mjs <A> <B> [--strip -noba]
+//   node sim/samerecords.mjs <A> <B> [--strip -noba] [--ignore emb]
 // Prints one line per cell and class, then "identity: pass" or "identity: FAIL" (exit 1 on a difference).
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -14,10 +14,13 @@ const argv = process.argv.slice(2);
 const [A, B] = argv;
 const si = argv.indexOf('--strip');
 const strip = si >= 0 ? argv[si + 1] : '';
+// --ignore a,b: record fields left out of the comparison (fields added to the record after B was written, e.g. 'emb').
+const ii = argv.indexOf('--ignore');
+const ignore = ii >= 0 ? argv[ii + 1].split(',') : [];
 if (!A || !B) throw new Error('usage: node sim/samerecords.mjs <A> <B> [--strip <suffix>]');
 
 const recs = (f) => readFileSync(f, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
-const norm = (r) => { const x = { ...r }; delete x.ms; return JSON.stringify(x); };
+const norm = (r) => { const x = { ...r }; delete x.ms; for (const k of ignore) delete x[k]; return JSON.stringify(x); };
 let bad = 0;
 let n = 0;
 for (const cell of readdirSync(A).sort()) {

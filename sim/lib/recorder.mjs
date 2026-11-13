@@ -35,6 +35,8 @@
 //       M2b v15: `swift` Roads taken with the Swift passage, and per zone the XP its Road paid);
 //       fight kind 'dim' (Dimmed encounters) is FIGHT_KINDS' last code
 //   xs: expedition measures of the runner (sim/lib/runner.mjs): C_step agree / decisions, close-call zones
+//   emb: Ember of Return use (D134; only in a run with one): [resurrects by the Ember, of them in the end-boss fight,
+//       Embers carried at FIGHT_BOSS]
 //   dm: Dimmed encounters (expedition runs with one; M2b v10 row C2, sim/lib/risk.mjs `dim`): [depth (engine `dim`
 //       event), died (0/1), HP % at the encounter's start, HP % after it (0 on a death), tolls the encounter cost (its
 //       `time` event: TIME_DIM_ESCAPE after an outward walk, else TIME_DIM_FIGHT; M2b v12)]
@@ -75,6 +77,8 @@ export class Recorder {
     this.travelLv = [];
     this.train = [];
     this.ember = 0;
+    this.emb = [0, 0, 0]; // D134: [Ember resurrects, of them in the boss fight, Embers carried at FIGHT_BOSS]
+    this.inBoss = false;
     this.boss = null;
     this.fight = null;
     this.entry = null;
@@ -222,7 +226,10 @@ export class Recorder {
           }
           break;
         case 'levelUp': if (!lvlApplied) { hp += p.d.maxHp - b.maxHp; lvlApplied = true; } break;
-        case 'resurrect': hp = Math.max(1, Math.round(C.RES_HP_PCT * p.d.maxHp)); break;
+        case 'resurrect':
+          hp = Math.max(1, Math.round(C.RES_HP_PCT * p.d.maxHp));
+          if (e.source === 'ember') { this.emb[0]++; if (this.inBoss) this.emb[1]++; }
+          break;
         case 'node':
           this.nodeN++;
           if (ENTRY_NODE.has(e.type)) this.openEntry(e.type, e.cl - b.level, b.hp / b.maxHp);
@@ -289,6 +296,8 @@ export class Recorder {
           break;
         case 'buy': if (e.item === 'ember_of_return') this.ember = 1; break;
         case 'bossStart': {
+          this.inBoss = true;
+          this.emb[2] = p.bag.reduce((n, it) => n + (it.kind === 'cons' && it.id === 'ember_of_return' ? it.qty : 0), 0);
           const eq = C.SLOT_IDS.map((k) => p.equipped[k]).filter(Boolean);
           this.boss = {
             lvl: p.level,
@@ -330,6 +339,7 @@ export class Recorder {
       ht: sum && sum.heat ? sum.heat.nodesByState : null,
       ...(sum && sum.expedition ? { ex: expRecord(sum.expedition) } : {}),
       ...(this.dm.length ? { dm: this.dm } : {}),
+      ...(this.emb.some(Boolean) ? { emb: this.emb } : {}),
       ...(meta.xs ? { xs: meta.xs } : {}),
       ...(s.exp && s.exp.prep ? { ct: this.contractRecord(s) } : {}),
       ...(meta.rep ? { rep: meta.rep } : {}),
