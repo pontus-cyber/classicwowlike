@@ -607,6 +607,12 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 .side { position: absolute; right: 2rem; top: 21rem; width: 44rem; max-height: calc(100vh - 36.9rem); display: flex; flex-direction: column; }
 .side > .wtitle { flex: none; }
 .side > .body { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--edge-scroll) transparent; }
+/* blind panel 2026-11-13 (item 5): the zone 2 hub cut the Inn off with no scrollbar to see. The panel reaches down to the gold
+   line (clear of the micro menu), the service cards are a little lower, and the list's scrollbar shows */
+.side { max-height: calc(100vh - 32.6rem); }
+.side > .body { scrollbar-color: var(--gold-70) rgba(255, 255, 255, .08); overscroll-behavior: contain; }
+.side .svc-card { padding: var(--sp-45) var(--sp-80); }
+.side .svc-card img { width: 3.4rem; height: 3.4rem; }
 .side > .sfoot { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-120); padding: var(--sp-80) var(--sp-160) var(--sp-110); border-top: 1px solid var(--edge-hi-25); }
 .side > .sfoot .kv { flex: 1 1 auto; min-width: 0; gap: var(--sp-20) var(--sp-100); font-size: var(--fs-body-3); }
 .side > .sfoot .btn { flex: none; white-space: nowrap; }
@@ -908,6 +914,12 @@ body.dying #target-frame, body.dying #boss-frame, body.dying #ruler, body.dying 
 #heat .ht-state .ht-dot { background: var(--hc); box-shadow: 0 0 0 1px var(--shade), 0 0 .5rem var(--hc); }
 #heat .ht-state b { font: var(--fw-heavy) var(--fs-body-2) var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--hc-tx); }
 #heat .ht-by { font-weight: var(--fw-bold); color: #c9b2ff; }
+/* blind panel 2026-11-13 (item 5): "SMOULDERING · Dimming" pushed the header row past the frame; when it does not fit
+   (heat.js fitHeader) the row tightens, then drops the meter's title (its tooltip names it) */
+#heat.tight .ht-row { gap: var(--sp-30); font-size: var(--fs-small-6); }
+#heat.tight .ht-state, #heat.tight .ht-dim { gap: var(--sp-20); }
+#heat.tight .ht-state b, #heat.tight .ht-title { letter-spacing: 0; }
+#heat.tighter .ht-title { display: none; }
 #heat .ht-num { flex: none; }
 #heat .ht-boss { flex: none; color: var(--ink-dim); }
 #heat[data-state="hot"] .ht-boss, #heat[data-state="scorched"] .ht-boss { color: #ffb8a8; }
@@ -1341,8 +1353,16 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .expmap .xreg i { width: 1.6rem; height: 1rem; border-radius: var(--radius-sm-1); flex: none; box-shadow: 0 0 0 1px var(--shade-60); }
 .expmap .xreg.unseen { opacity: .45; } .expmap .xreg.unseen i { filter: grayscale(.8); }
 .expmap .expmoves { display: flex; flex-direction: column; gap: var(--sp-35); overflow-y: auto; min-height: 0; flex: 0 1 auto; }
+/* blind panel 2026-11-13 (item 5): the list wrapped into a second column that the side column cut off at the right, and its
+   foot was cut at the bottom. One column that scrolls, with a scrollbar that shows; the Regions list gives way first */
+.expmap .expmoves { flex-wrap: nowrap; flex: 1 1 auto; min-height: 7.5rem; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--accent-cream) rgba(255, 255, 255, .08); }
+.expmap .expmoves .xph { position: sticky; top: 0; z-index: var(--z-local-1); background: rgb(20, 14, 8); }
+.expmap .xregp { flex: 0 0 auto; max-height: 48%; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--accent-cream) rgba(255, 255, 255, .08); }
+/* a list with more below than it shows fades at its foot and says so (screens.js scrollCue): where the browser draws no
+   scrollbar until one scrolls, the cut row still reads as "more" */
+.more-below { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 3.2rem), rgba(0, 0, 0, .25)); mask-image: linear-gradient(to bottom, #000 calc(100% - 3.2rem), rgba(0, 0, 0, .25)); }
 .expmap .expmoves .em { display: flex; gap: var(--sp-30); flex-wrap: wrap; }
-.expmap .expmoves .em .btn.small { font-size: var(--fs-small-5); padding: var(--sp-25) var(--sp-60); }
+.expmap .expmoves .em .btn.small { font-size: var(--fs-small-5); padding: var(--sp-25) var(--sp-60); flex: 1 1 auto; text-align: left; }
 .expmap .expmoves .em.dimmed .btn { box-shadow: inset 0 0 0 1px var(--map-dimmed); }
 /* nodes on the disc: smaller markers; fog states read at a glance */
 .expmap .mnode { width: 2.6rem; height: 2.6rem; z-index: var(--z-local-2); } /* D128: about 70 % of 3.7rem */

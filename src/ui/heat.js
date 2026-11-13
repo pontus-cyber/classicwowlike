@@ -170,6 +170,24 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
       els.line, els.span, els.ghost, els.dmark, els.mark);
   }
 
+  /**
+   * The header row fits its frame (blind panel 2026-11-13: "SMOULDERING · Dimming 4 tolls in hand ..." spilled out): when it
+   * overflows, #heat.tight closes the gaps, then #heat.tighter drops the title. Measured again when the row's text changes
+   * and once the web fonts are in.
+   */
+  let fitSig = null;
+  function fitHeader() {
+    const row = els.el.querySelector('.ht-row');
+    if (!row || els.el.classList.contains('hidden')) return;
+    const sig = row.textContent;
+    if (sig === fitSig) return;
+    fitSig = sig;
+    els.el.classList.remove('tight', 'tighter');
+    const over = () => row.scrollWidth > row.clientWidth + 1;
+    if (over()) { els.el.classList.add('tight'); if (over()) els.el.classList.add('tighter'); }
+  }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { fitSig = null; fitHeader(); });
+
   function update(v) {
     const hv = v.heat;
     const show = !!(hv && H && v.player && v.phase !== 'CREATE' && v.phase !== 'SUMMARY');
@@ -182,6 +200,7 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
     for (const s of STATES) els.segs[s].classList.toggle('on', s === hv.state);
     els.state.querySelector('.ht-sname').textContent = HEAT_NAME[hv.state];
     els.state.querySelector('.ht-by').textContent = hv.by === 'dim' ? ' · Dimming' : '';
+    queueMicrotask(fitHeader); // after the texts below are set
     els.num.textContent = standText(hv);
     els.boss.textContent = bossText(hv.ascIfPar);
     // the player's marker; an arrow when the heat is off the bar (bar.beyond)

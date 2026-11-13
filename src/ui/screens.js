@@ -272,7 +272,7 @@ function buildHub(v, ctx) {
   if (p.talentPoints) body.appendChild(h('div.warn', { style: { fontSize: '1.25rem' } }, `You have ${p.talentPoints} unspent talent point${p.talentPoints > 1 ? 's' : ''}. Press N.`));
   const go = h('button.btn.primary.big', 'Set out');
   go.addEventListener('click', () => ctx.act({ type: 'LEAVE_HUB' }));
-  el.append(body, h('div.sfoot', h('span.muted', `${HEAT_WORDS.Units} so far: ${fmtTime(v.time)}`), go));
+  el.append(scrollCue(body), h('div.sfoot', h('span.muted', `${HEAT_WORDS.Units} so far: ${fmtTime(v.time)}`), go));
   return el;
 }
 
@@ -295,7 +295,7 @@ function buildCamp(v, ctx) {
     asc == null ? h('dd.muted', 'Unknown') : h('dd', { class: asc > 0 ? 'bad' : 'good' }, asc > 0 ? `+${Math.round(asc * 100)} % health and damage` : 'None: you are on time'));
   const go = h('button.btn.primary.big', 'Face Oruvath');
   go.addEventListener('click', () => ctx.act({ type: 'FIGHT_BOSS' }));
-  el.append(body, h('div.sfoot', kv, go));
+  el.append(scrollCue(body), h('div.sfoot', kv, go));
   return el;
 }
 
@@ -486,15 +486,13 @@ function buildExpMap(v, ctx, readOnly) {
   for (const r of XR.slice(1)) svgEl('circle', { cx: 500, cy: 500, r, fill: 'none', stroke: '#6a4a26', 'stroke-width': 1.6, 'stroke-dasharray': '3 9', opacity: 0.45 }, svg);
   svgEl('circle', { cx: 500, cy: 500, r: 468, fill: 'none', stroke: '#4a3018', 'stroke-width': 5, opacity: 0.8 }, svg);
   svgEl('circle', { cx: 500, cy: 500, r: 458, fill: 'none', style: 'stroke: var(--map-ring-edge)', 'stroke-width': 1.2, opacity: 0.6 }, svg); // the map's own token (tokens.css .expmap)
-  // region names along the rim, at the middle of the region's known nodes
+  // region names along the rim, at the middle of the region's known nodes (declutterRegionNames moves them apart once drawn)
   for (const [ri, angs] of regAngles) {
     const reg = mv.regions[ri]; if (!reg || !reg.name) continue;
-    const mid = meanAngle(angs); const span = 70; const r = 437;
-    const top = Math.sin((mid * Math.PI) / 180) < 0.05; // upper half: read clockwise; lower half: counter-clockwise, so the text stands upright
-    const [ax, ay] = polar(r, top ? mid - span / 2 : mid + span / 2); const [bx, by] = polar(r, top ? mid + span / 2 : mid - span / 2);
+    const mid = meanAngle(angs);
     const id = `xr-arc-${ri}`;
-    svgEl('path', { id, d: `M${ax.toFixed(1)} ${ay.toFixed(1)} A${r} ${r} 0 0 ${top ? 1 : 0} ${bx.toFixed(1)} ${by.toFixed(1)}`, fill: 'none' }, defs);
-    const t = svgEl('text', { class: 'xrname', 'text-anchor': 'middle', dy: 7, 'data-region': ri }, svg);
+    svgEl('path', { id, d: rimArc(mid), fill: 'none' }, defs);
+    const t = svgEl('text', { class: 'xrname', 'text-anchor': 'middle', dy: 7, 'data-region': ri, 'data-mid': mid.toFixed(2) }, svg);
     const tp = svgEl('textPath', { href: `#${id}`, startOffset: '50%' }, t);
     tp.textContent = reg.name;
   }
@@ -610,7 +608,7 @@ function buildExpMap(v, ctx, readOnly) {
     tip(row, () => h('div', h('div.tt-name', r.name || r.kind), h('div.tt-line', REGION_FEEL[r.kind] || r.kind), h('div.tt-sub', seen ? (mv.vision.regions ? 'Charted' : 'Seen in part') : 'Not yet found')));
     regBox.appendChild(row);
   });
-  right.appendChild(regBox);
+  right.appendChild(scrollCue(regBox));
   // the moves: enter or walk (MOVE) and pass through (PASS_THROUGH), each with its tolls and heat
   if (!readOnly) {
     const list = h('div.xpanel.expmoves', h('div.xph', 'Moves'), mv.moves.map((m) => {
@@ -628,17 +626,90 @@ function buildExpMap(v, ctx, readOnly) {
       row.addEventListener('mouseenter', () => lit(true)); row.addEventListener('mouseleave', () => lit(false));
       return row;
     }));
-    right.appendChild(list);
+    right.appendChild(scrollCue(list));
   }
   const body = h('div.mbody.parchment.xbody', left, disc, right);
   win.append(body);
   if (readOnly) win.id = 'win-map';
   // labels of neighbouring nodes (levels, toll labels, Dimming clocks) step aside once the disc has its size
   // (again when the web fonts are in, which changes the labels' widths, and once the window's opening animation is over)
-  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => declutterLabels(disc)).observe(disc);
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => declutterLabels(disc));
-  setTimeout(() => declutterLabels(disc), 400);
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => { declutterLabels(disc); declutterRegionNames(disc); }).observe(disc);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { declutterLabels(disc); declutterRegionNames(disc); });
+  setTimeout(() => { declutterLabels(disc); declutterRegionNames(disc); }, 400);
   return win;
+}
+/**
+ * A list that scrolls fades at its foot while more lies below (style.css .more-below; blind panel 2026-11-13, item 5: the
+ * Moves and the hub's services were cut with no scrollbar to see). Returns el.
+ */
+function scrollCue(el) {
+  const upd = () => { if (el.isConnected) el.classList.toggle('more-below', el.scrollTop + el.clientHeight < el.scrollHeight - 2); };
+  el.addEventListener('scroll', upd, { passive: true });
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(upd).observe(el);
+  requestAnimationFrame(upd);
+  return el;
+}
+/** The rim path a region's name runs along, centred on angle mid (degrees): RIM_SPAN wide at RIM_R, read upright. */
+const RIM_R = 437; const RIM_SPAN = 70;
+function rimArc(mid) {
+  const top = Math.sin((mid * Math.PI) / 180) < 0.05; // upper half: read clockwise; lower half: counter-clockwise, so the text stands upright
+  const [ax, ay] = polar(RIM_R, top ? mid - RIM_SPAN / 2 : mid + RIM_SPAN / 2); const [bx, by] = polar(RIM_R, top ? mid + RIM_SPAN / 2 : mid - RIM_SPAN / 2);
+  return `M${ax.toFixed(1)} ${ay.toFixed(1)} A${RIM_R} ${RIM_R} 0 0 ${top ? 1 : 0} ${bx.toFixed(1)} ${by.toFixed(1)}`;
+}
+/**
+ * Region names on the rim never overlap (blind panel 2026-11-13: ROTPLANK CAUSEWAY and GLOAMWATER HOLLOW at the bottom of
+ * the zone 2 map). Each name's angle is measured from its drawn length; names closer than their half-angles plus a gap are
+ * moved apart along the rim, each as little as it can be (pure: spreadAngles). Presentation only.
+ */
+function declutterRegionNames(disc) {
+  if (!disc.isConnected) return;
+  const svg = disc.querySelector('svg.xsvg'); if (!svg) return;
+  const labs = [...svg.querySelectorAll('text.xrname')].map((t) => {
+    let len = 0; try { len = t.getComputedTextLength(); } catch { len = 0; }
+    return { t, mid: Number(t.dataset.mid), half: (len / 2 / RIM_R) * (180 / Math.PI) };
+  }).filter((x) => Number.isFinite(x.mid) && x.half > 0);
+  if (labs.length < 2) return;
+  const mids = spreadAngles(labs.map((x) => ({ mid: x.mid, half: x.half })), RIM_GAP_DEG);
+  labs.forEach((x, i) => {
+    const path = svg.querySelector(`#xr-arc-${x.t.dataset.region}`);
+    if (path) path.setAttribute('d', rimArc(mids[i]));
+    x.t.dataset.at = mids[i].toFixed(2);
+  });
+}
+/** Degrees kept between two region names on the rim. */
+const RIM_GAP_DEG = 4;
+/**
+ * Angles (degrees) for labels on a circle so that no two overlap: items { mid, half } (half-widths in degrees), at least
+ * `gap` degrees between neighbours, each moved as little as it can be. The circle is cut at the widest free gap between
+ * neighbours; along that line neighbours that would meet are pooled into a cluster at their least spacing, centred on the
+ * mean of where its labels want to be (pool adjacent violators). Pure; returns the new mids in the items' order, in
+ * [0, 360). When the labels cannot all fit on the circle, they are spread evenly.
+ */
+export function spreadAngles(items, gap = 0) {
+  const n = items.length; const norm = (a) => ((a % 360) + 360) % 360;
+  if (n < 2) return items.map((x) => norm(x.mid));
+  const ord = items.map((x, i) => ({ i, mid: norm(x.mid), half: x.half })).sort((a, b) => a.mid - b.mid);
+  if (items.reduce((a, x) => a + 2 * x.half + gap, 0) >= 360) { const out = []; ord.forEach((o, k) => { out[o.i] = norm(ord[0].mid + (k * 360) / n); }); return out; }
+  let cut = 0; let widest = -Infinity;
+  for (let k = 0; k < n; k++) { const a = ord[k]; const b = ord[(k + 1) % n]; const d = norm(b.mid - a.mid) - a.half - b.half; if (d > widest) { widest = d; cut = (k + 1) % n; } }
+  const line = [];
+  for (let k = 0; k < n; k++) { const o = ord[(cut + k) % n]; let want = o.mid; while (k && want < line[k - 1].want) want += 360; line.push({ ...o, want }); }
+  const need = (a, b) => a.half + b.half + gap;
+  const place = (c) => { c.pos = c.items.reduce((a, o, j) => a + o.want - c.offs[j], 0) / c.items.length; return c; };
+  const clusters = [];
+  for (const o of line) {
+    clusters.push(place({ items: [o], offs: [0] }));
+    while (clusters.length > 1) {
+      const B = clusters[clusters.length - 1]; const A = clusters[clusters.length - 2];
+      const aLast = A.items[A.items.length - 1]; const aOff = A.offs[A.offs.length - 1];
+      if (B.pos - (A.pos + aOff) >= need(aLast, B.items[0]) - 1e-9) break;
+      const base = aOff + need(aLast, B.items[0]);
+      clusters.splice(-2, 2, place({ items: [...A.items, ...B.items], offs: [...A.offs, ...B.offs.map((x) => x + base)] }));
+    }
+  }
+  const out = [];
+  for (const c of clusters) c.items.forEach((o, j) => { out[o.i] = norm(c.pos + c.offs[j]); });
+  return out;
 }
 /**
  * The fog map's node labels never overlap each other or another node (small screens crowd the hub's ring). Greedy, in
