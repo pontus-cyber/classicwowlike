@@ -66,8 +66,8 @@ try {
   // Use an item from the bags (the Healing Draught out of combat) and read the log.
   await page.locator('#micromenu').getByRole('button', { name: 'Bags' }).click(); await idle();
   const v0 = await view();
-  const potIdx = v0.bag.findIndex((b) => b.id === 'healing_draught');
-  await page.locator('#win-bags .baggrid .slot').nth(potIdx).click();
+  const pot = v0.bag.find((b) => b.id === 'healing_draught');
+  await page.locator(`#win-bags .baggrid .slot[data-uid="${pot.uid}"]`).click(); // its own slot (bag slots stay put)
   await page.locator('.ctxmenu').getByRole('button', { name: 'Put on item slot 8' }).click(); await idle();
   await page.locator('#win-bags').getByRole('button', { name: 'Close' }).click();
 
@@ -135,7 +135,7 @@ try {
   const gi = v3.bag.findIndex((b) => b.kind === 'gear');
   if (gi >= 0) {
     await page.locator('#micromenu').getByRole('button', { name: 'Bags' }).click(); await idle();
-    await page.locator('#win-bags .baggrid .slot').nth(gi).click();
+    await page.locator(`#win-bags .baggrid .slot[data-uid="${v3.bag[gi].uid}"]`).click();
     await page.locator('.ctxmenu').getByRole('button', { name: 'Equip' }).click(); await idle();
     log = await logText();
     check('combat log names the item equipped', new RegExp(`Equipped ${v3.bag[gi].name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(log), log.split('\n').filter((l) => /Equipped/.test(l)).join(' | '));

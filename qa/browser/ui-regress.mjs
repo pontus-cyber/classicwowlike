@@ -290,9 +290,8 @@ const fullyShown = (p) => p.inside && !p.clippedBy && p.onTop;
 /** Open the bags with the micro-menu button, click the item with this uid, return the context-menu locator. */
 async function bagMenu(page, uid) {
   if (!(await page.locator('#win-bags').count())) { await page.getByRole('button', { name: 'Bags' }).click(); await idle(page); }
-  const v = await view(page);
-  const i = v.bag.findIndex((b) => b && b.uid === uid);
-  await page.locator('#win-bags .baggrid .slot').nth(i).click();
+  // the item's own slot (blind panel 2026-11-13: bag slots stay put, so the grid's order is not the bag's)
+  await page.locator(`#win-bags .baggrid .slot[data-uid="${uid}"]`).click();
   return page.locator('.ctxmenu');
 }
 const closeBags = async (page) => { if (await page.locator('#win-bags').count()) { await page.locator('#win-bags').getByRole('button', { name: 'Close' }).click(); await idle(page); } };
@@ -590,7 +589,8 @@ async function partB(browser, W, H) {
     // ---- the bag menu at the right edge (BUG-QA-11), and an item used out of combat (BUG-QA-03)
     await page.keyboard.press('KeyB'); await idle(page);
     v = await view(page);
-    const filled = v.bag.map((b, i) => (b ? i : -1)).filter((i) => i >= 0);
+    // the grid's filled slots (bag slots stay put: the grid's order, not the bag's)
+    const filled = await page.evaluate(() => [...document.querySelectorAll('#win-bags .baggrid .slot')].map((e, i) => (e.dataset.uid ? i : -1)).filter((i) => i >= 0));
     const right = filled.filter((i) => i % 4 === 3);
     for (const [label, idx] of [['right column, first row', right[0] ?? filled[filled.length - 1]], ['last row', filled[filled.length - 1]]]) {
       await page.locator('#win-bags .baggrid .slot').nth(idx).click();

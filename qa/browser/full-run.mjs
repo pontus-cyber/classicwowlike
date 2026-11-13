@@ -267,7 +267,8 @@ async function playOne(browser, W, H, cls) {
     const idx = s.player.bag.findIndex((b) => b.uid === uid);
     if (idx < 0) throw new Error(`item ${uid} not in the bag`);
     const w = await openWindow('Bags', 'bags');
-    await click(w.locator('.baggrid .slot').nth(idx), `bag slot ${idx}`);
+    // the item's own slot (blind panel 2026-11-13: bag slots stay put, so the grid's order is not the bag's)
+    await click(w.locator(`.baggrid .slot[data-uid="${uid}"]`), `bag slot of ${uid}`);
     await click(page.locator('.ctxmenu').getByRole('button', { name: item, exact: true }), `bag menu ${item}`);
     await closeWindow('bags');
   }
@@ -304,7 +305,11 @@ async function playOne(browser, W, H, cls) {
     switch (a.type) {
       case 'SERVICE': {
         const name = { trainer: 'Trainer', vendor: camp ? 'Quartermaster' : 'Vendor', inn: camp ? 'Campfire' : 'Inn' }[a.service];
-        return click(page.locator('.svc-card', { has: page.locator('.nm', { hasText: new RegExp(`^${name}$`) }) }), `service ${name}`);
+        await click(page.locator('.svc-card', { has: page.locator('.nm', { hasText: new RegExp(`^${name}$`) }) }), `service ${name}`);
+        // the Inn or Campfire at nearly full health and mana asks first in its card (blind panel 2026-11-13: INN_ASK_SHARE)
+        const rest = page.locator('#screens .svc-card.ask [data-inn="rest"]');
+        if (a.service === 'inn' && await rest.count()) await click(rest, `${name}: Rest anyway`);
+        return;
       }
       case 'CAMP_GRIND': return click(page.locator('.svc-card', { hasText: 'Camp wave' }), 'Camp wave');
       case 'FIGHT_BOSS': return click(button('Face Oruvath'), 'Face Oruvath');
