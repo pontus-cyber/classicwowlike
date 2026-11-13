@@ -4,6 +4,7 @@ Owner ideas and team proposals not yet scheduled. The Lead places each item into
 
 | Date | Item | Source | Placed in | Status |
 |---|---|---|---|---|
+| 2026-11-13 | M3 onboarding: guided first run (zone 1 on a fixed seed, 13 beats, rescue instead of death), 37 one-line first-time hints with Hints off, the welcome grant and Packed Satchel nudge at the first summary; the engage hint panel and the Furnace note fold into the hint system | Designer (M3 scope; owner 2026-11-11 10:26, 2026-11-12 20:19) | M3 | draft: docs/specs/m3-onboarding.md; owner Q1-Q3 on defaults |
 | 2026-11-12 | Warden Belk of Harrow (zone 1 dungeon boss) kills the expedition opener line 2 of 30 (B60 6.7 %, cap 5): fight length past the soft enrage, not the Deathblow (planner Rogue 21-24 rounds, 18-33 % deaths); Mage against Mawgrim the same pattern on classic (23.7 rounds, 33 %) | Designer v15 (D114) | M2b v15 | draft: changes-m2b-v15.md row 1 (z1_belk hpMult 1.05 -> 0.90), row 4 gated (z2_mawgrim 1.1 -> 0.95) |
 | 2026-11-12 | Rogue's wait after Sap: chip ribbon, target-frame row and Opening ruler say ANSWERED in round 2 although attacking breaks Sap and the Deathblow lands; show soft cancels (`breaks`) as "IF YOU WAIT" or dashed | QA playtest 2026-11-12 #2 | | todo |
 | 2026-11-12 | Lethal Deathblow mark: "LETHAL" on the line and the alert when the estimate is at least current HP (a level-3 Mage met ≈ 359 at 209 HP with no warning) | QA playtest 2026-11-12 #3 | | todo |

@@ -1,0 +1,303 @@
+# M3 onboarding: guided first run, first-time hints, first-run nudge
+
+Owner: Game Designer (onboarding and systems), 2026-11-13. Status: **draft**. Nothing here is built. No rules.md, balance.md or engine-api.md text changes until the Lead accepts this spec.
+Audience: Lead, Core Gameplay Engineer, UI/UX Engineer, Content Designer, Simulation & Balance Engineer, QA.
+
+Sources: M3 scope [source: docs/MILESTONES.md M3: "a guided first run (fixed seed, zone 1: intent track, engage round, wind-ups, DoT preview, potions, the Furnace, the map), the first-loss-to-first-unlock nudge to the potion upgrade, and skippable first-time hints for every system"]; owner wishes [stated: docs/feedback/2026-11-11-1026-owner.md: "the first runs very hard", "the first win hard but not that hard", "after the first run the first Echoes, with a tutorial, nudge the player to buy the potion upgrade at once, so losing feels like a win"]; lean screens [stated: docs/feedback/2026-11-12-2019-owner.md: "strip it down, make it more easy"]; Sap not found [stated: docs/feedback/2026-11-11-0803-owner.md]; the game today [source: docs/specs/expedition.md 2-7, H; combat-v2.md 6, 16-17; rules.md 7.5, 11; engine-api.md 1, 9, 12, 13]; the hints that exist today [source: src/ui/tracks.js engage hint, `tbwcr.hints.v1`; src/ui/heat.js first-time note, `tbwcr.heatIntro.v1`; src/ui/hud.js POTION_HINT_HP pulse].
+
+Out of scope: the parked ideas X1-X3 [source: docs/EXPERIMENTS.md] and meta v2 [source: docs/specs/meta-v2.md, draft]. Nothing here needs persistent characters, Peal, Undertakings, talents as meta, Ascension or the dungeon-as-finale structure. Section 4.4 says how this spec and meta v2 6.1 would fit together if the owner later approves meta v2.
+
+Every number is a named constant in the table of section 12. Player-facing names and lines are drafts for the Content Designer and the owner.
+
+---
+
+## 1. Principles
+
+1. **Teach in play.** Each beat teaches one thing at the moment the player needs it. There are no text pages, no slideshow and no modal dialogs.
+2. **One line per hint.** A hint is one sentence of at most ONB_HINT_MAX_CHARS characters, plus a key chip where a key exists. Only one hint is on screen at a time. Detail stays in the tooltips that already exist.
+3. **Never block.** No hint pauses the game or disables a button. A hint goes away on "Got it", or when the player does what it asks, or when its moment passes.
+4. **Skippable at every point.** The guide can be turned off before the run and skipped during it. Hints can be turned off in Settings and in one click from any hint.
+5. **First runs stay hard.** The guide makes zone 1 of the first run forgiving (section 2.6). Zones 2-6 of the first run play exactly as any run, so the first win stays hard [stated: 1026].
+6. **One system.** The two one-off notes that exist today (the engage hint and the Furnace note) become hints of section 3, with the same look and the same once-only rule.
+
+---
+
+## 2. The guided first run
+
+### 2.1 Shape
+- The first run of a profile is the **guided run** (the toggle "Guided first run" at class select is on while `profile.guide` is `todo`).
+- The guided run is a normal expedition run with the start camp (`newRun({ mapMode: 'expedition', prep: true, tutorial: true })`). The player picks any class, as usual.
+- **Zone 1 is the guided zone.** Its map, nodes, node contents and fight draws come from the fixed seed TUTORIAL_SEED, with an authored overlay (2.3). Every new player gets the same zone 1. That makes QA's checks reproducible.
+- **Zones 2-6 are normal.** They use the run's random seed and every rule. The guide ends when the player leaves zone 1 (2.7). The run then goes on to the end boss or a death, and pays its Echoes like any run. (Owner question Q1, default.)
+- Expected length of the guided zone: about 10-13 minutes, against about 7.5 for an unguided zone 1 [inference: 45-minute run / 6 zones, plus about 3-5 minutes of reading]. Target ONB1 (section 8).
+
+### 2.2 Starting and skipping
+- **Before the run:** class select shows one line under `Set out`: "Guided first run [on]". Turning it off starts a normal run, sets `profile.guide` to `skipped`, and leaves first-time hints on.
+- **During the run:** every guide hint carries a small "Skip guide" link. It asks for no confirmation. It sends `SKIP_GUIDE`. The rest of the run is normal: the beats stop, the rescue (2.6) stops, and the zone 1 map stays as it is. Systems that the guide had not taught yet get their first-time hints (section 3).
+- **Again later:** Settings has "Play the guide again". The next run is a guided run, with normal Echoes. The welcome (4.2) is not paid again.
+- A dev run (engine-api.md 12) is never guided, and Dev menu tools work in a guided run as in any run (they mark it a dev run).
+
+### 2.3 The guided zone: seed and overlay
+Content table `src/content/tutorial.js` (Content Designer, numbers from this section):
+
+| Part | Rule |
+|---|---|
+| Map | Zone 1 is generated on TUTORIAL_SEED (streams `map(1)`, `node(1, id)`, `fight(1, id, k)`, `loot(1, id)` take TUTORIAL_SEED in place of the run seed). Before the content is written, the seed is chosen by script so that: (a) the Barleyreach Verge (wilds) holds at least 3 Quest or Grind nodes in rings 1-2; (b) an Elite node lies in ring 2 within 2 hops of a ring 1 node of the Verge; (c) the Shardfall is on the opposite side from the Verge (at least 150 degrees away); (d) a Road lies within 3 hops of that Elite node; (e) the Rest guarantee is in ring 1 or 2. Simulation & Balance Engineer, one scratch script; the chosen value goes into the constant table |
+| Board | At the start camp, board slot 1 is fixed: a **Cull** of the wild family (boars) in the Barleyreach Verge, zone 1. Slots 2 and 3 are drawn as usual (D132 bands; stream `prep` on the run seed). The four camp options are as usual |
+| Cull sites | The Cull's sites are placed by the normal rule (expedition.md 3.3) on the fixed map. Each site plays a site fight from the table: site 1 a lone Furrow Boar, site 2 a Furrow Boar and a Barn Wolf, both at the node's level |
+| Scripted fights | The first ONB_SCRIPTED_FIGHTS fights the player starts in zone 1 on Quest or Grind nodes that are **not** Cull sites play scripts S1-S4 in order, whichever node they are on. A Grind node plays its script as its only wave. Levels are the node's own (ring 1: 2-4, ring 2: 5-7) [source: expedition.md 4.2], capped at ONB_SCRIPT_LEVEL_MAX |
+| S1 | Furrow Boar alone (beast). Fixed loot: one uncommon item for the class's weakest gear slot (an upgrade by `itemScore`), and ONB_LOOT_POTIONS Healing Draught |
+| S2 | Hedge Ogre alone (brute: Strike, Heavy Smash (heavy), Strike [source: combat-v2.md 4.1]) |
+| S3 | Hedge Ogre and Barn Wolf (brute and beast) |
+| S4 | Scarecrow Hexer and Furrow Boar; the Hexer's turn 2 (Hex Bolt, cast) is a **wind-up** at the grind's stakes, using the FIRST_MEET_WINDUP mechanism [source: combat-v2.md 17.3] |
+| Elite | The Elite node nearest the hub (ties: lowest id) holds **Gorrak the Fieldbreaker** (elite brute; Deathblow: Threshing Blow, heavy [source: src/content/abilities.js]) at level clamp(L at entry, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX). Other Elite nodes generate as usual. The Deathblow type shows on the map as it does today (D112) |
+| Everything else | Rest, Vendor, Trainer, Treasure, Shrine, dungeon (the Harrow Cellars), rares, the Dimming, the Roads, the Homeward Bell: as generated on TUTORIAL_SEED, under the normal rules |
+
+The player roams freely. The beats fire on what happens (2.4), not on where the player stands, so any route works. The overlay only makes the first fights simple and in a good order.
+
+### 2.4 The beats
+Each beat fires once, the first time its trigger is met in the guided zone. The beat's line shows in the coach line (2.5) at the anchor given. "Learned" is the check the UI reads from engine events and views. When it passes, the beat is done and its matching first-time hint (section 3) is marked seen. "If not" is what happens when the moment passes without it.
+
+| # | Beat | Trigger | Line (draft) and anchor | Player does | Learned when | If not |
+|---|---|---|---|---|---|---|
+| G1 | Contracts | phase PREP of the guided run | "Take a contract: win its sites for extra XP and a reward." Over the board, arrow at slot 1 | takes a contract | `SET_OUT` with at least 1 contract held | `Set out` with none: the line changes once to "Set out with no contract? Press Set out again." Then done. G10 is skipped |
+| G2 | Moving | first MAP view at the zone 1 hub | "Click a lit node next to you to walk there." Arrow at the player's node | walks | first `MOVE` | none (the player cannot go on without moving) |
+| G3 | First fight | round 1 of the first fight | "Press 1 to attack. Bring their health to zero." Arrow at bar slot 1 | fights | the fight is won | rescue (2.6); the beat repeats in the next fight |
+| G4 | Loot | first loot window (S1's or a site's) | "Space takes all. A green arrow marks an upgrade: equip it in your bags (B)." At the loot window | takes the loot, equips | `EQUIP` of the upgrade before the next fight ends | the bags button keeps its upgrade mark (today's UI); done |
+| G5 | The Furnace | first return to the map after G4 | "The Furnace: each step costs tolls. Stay left of the Star's line." Under the Furnace, top centre | moves on | the next map action (shown beat) | none |
+| G6 | Intents | round 1 of the first fight with a `heavy` or `cast` entry on a track (S2) | "Its next three moves, in order. The big one is marked." Arrow at that enemy's track | reads, plans | hovers a track entry, or loses 0 HP to the heavy | done when the fight ends (QA checks it in 7.2) |
+| G7 | Engage round | round 1 of the first fight with 2 or more enemies (S3) | "Round 1 is yours: they act from round 2. Open with Q, W or E." Arrow at the engage panel | opens | any `ENGAGE` | shown once more in the next fight's round 1, then done |
+| G8 | Wind-up | round 1 of the first fight with a `windup` entry (S4) | "Wind-up: stop it with W, an interrupt or a stun, and it is weakened all fight." Arrow at the wind-up badge | answers it | wind-up answered event (STAGGERED) | it lands: "It landed: that enemy hits harder until it dies." The beat stays open for ONB_BEAT_RETRIES more wind-up |
+| G9 | Deathblow and its answer | engage round of the first fight with a Deathblow on a track (Gorrak) | By class. Rogue: "Deathblow on turn 2 maims you. Sap it (W), then wait a round (X)." Mage: "Deathblow on turn 2 maims you. Freeze it: Binding Glyph (W)." Hunter: "Deathblow on turn 2 maims you. Trap it (W): the trap springs on it." Arrow at the Deathblow badge | answers it | Deathblow answered event | it lands: "Maimed: your healing is halved this fight. Drink early." The next Deathblow in the guided zone shows the line again |
+| G10 | Contract sites | a Cull site first comes into view; then its completion | "Contract site: win this fight to count it." Arrow at the site badge. On completion: "Contract done: choose one reward." At the reward window | wins the sites, picks a reward | contract completed | the contract expires on leaving zone 1 (normal rule); done |
+| G11 | Potions | in a fight, HP below ONB_POTION_HP with a healing potion on the bar, first time | "Low health: drink a Healing Draught (8). It uses your turn." Arrow at the item slot | drinks | potion used (`USE_ITEM`, heal event) | the existing pulse stays; the hint (3.2 H09) stays unseen for later |
+| G12 | The Dimming | the first node dims, or the front is within 2 hops of the player, whichever comes first | "The Dimming spreads from the Shardfall. Leave by a Road before it reaches you." Arrow at the dark wash nearest the player | heads for a Road | zone 1 left with no Dimmed encounter | caught: "In the dark: walk away from the Shardfall." Done when zone 1 is left |
+| G13 | Homeward Bell | the player is ONB_BELL_HOPS or more hops from every Road and their node dims within ONB_BELL_DIM tolls; or else the player first stands on a Road | far: "Far from a Road? Ring the Homeward Bell: home in 2 tolls, once per run." On a Road: "Take the Road on. The Bell works from anywhere, once per run." Arrow at the button | leaves zone 1 | `TAKE_ROAD` or `RING_BELL` | none (the Dimming makes the player leave) |
+
+Notes:
+- G3 and G7 overlap by design: every fight has an engage round (combat-v2.md 6.1). In the first fight G3 only says "Press 1" (a bar spell is legal in the engage round). The engage panel is explained in G7, when there is a choice worth making.
+- G9's Rogue line keeps Sap's wait rule [source: combat-v2.md 6.2, M2b v14: a PASS keeps STEALTH while every enemy is sapped]. The Hunter's line teaches the trap and not Send the Pet, because a Deathblow aimed at the pet is still under review [source: docs/BACKLOG.md, QA playtest 2026-11-12 #8].
+- Key names in lines come from the UI's key map (today: 1-6 spells, 8/9/0 items, Q/W/E engage, X pass, Z autoplay, A attack, B bags, N talents, M map) [source: src/ui/app.js].
+- The beat lines name no numbers that the engine owns, except "2 tolls" (BELL_CHANNEL_TIME) and "turn 2" (SIGNATURE_TURN). Both are read from `C` when the line is built.
+
+### 2.5 The coach line (what the player sees)
+- One line in a small parchment strip with an arrow to its anchor, a key chip where the line names a key, "Got it" (×), and at the right end in small text "Skip guide" (in the guided run) or "Hints off" (elsewhere). There is no title and no second line.
+- It never covers the anchor, the bar, the engage panel's buttons, the Furnace pointer, the target frame or `Set out`. It sits beside them at 1366x768 and 1920x1080.
+- At most one on screen. If two triggers fire together, the higher priority shows and the other waits, at most ONB_QUEUE_MAX deep. Priority: Deathblow > wind-up > lethal > potion > engage > the rest. A waiting line whose moment has passed is dropped, unseen.
+- Autoplay and fast mode do not wait for a line. A line that was on screen less than ONB_HINT_MIN_MS does not count as seen.
+- Reduce motion: no slide-in, no pulse; the strip just appears.
+
+### 2.6 The rescue (guided zone only)
+In the guided zone, while the guide is on, a death does not end the run. **The Bellwrights pull the player back** (draft line): the fight ends as a flight to the node the player came from, with full HP and mana and a living pet. The node stays unresolved. The rescue costs ONB_RESCUE_TOLLS tolls, so the Dimming keeps moving. The run counts it (`summary.tutorial.rescues`). There is no limit: the Dimming and the tolls are the limit.
+- An Ember of Return or a boon resurrect is not used in a death that a rescue covers.
+- From zone 2 on, or after `SKIP_GUIDE`, deaths are normal.
+- Why: a new player who dies in the first ten minutes learns little and may quit before the loop starts. The first run stays hard from zone 2 on (principle 5). (Owner question Q2, default.)
+
+### 2.7 End of the guide
+- Arriving at zone 2's hub shows one toast: "The guide ends here. New things get one hint each." `profile.guide` becomes `done` at END_RUN (or `skipped` if `SKIP_GUIDE` was sent).
+- Beats that never fired (for example G11 for a player who never fell below half health) leave their first-time hints unseen, so they still show later (section 3).
+
+---
+
+## 3. First-time hints (every system outside the guided run)
+
+### 3.1 Rules
+- **Trigger:** the first time the condition in 3.2 is met, in any run (guided or not). In the guided zone a beat takes the place of its matching hint (column "Beat").
+- **Text:** one line, as in the coach line (2.5). Numbers come from the engine (`C` or the views), never typed into the line.
+- **Where:** the coach line, anchored as in 3.2.
+- **Once only:** a hint shows once per profile. It counts as seen when the player dismisses it, does what it asks, or its moment ends after at least ONB_HINT_MIN_MS on screen. Seen ids are stored with the profile in this browser (`tbwcr.hints.v2`: `{ off, seen: { id: true } }`). On first load, the old keys move over: `tbwcr.hints.v1` (engage hint per class) marks H01 seen, and `tbwcr.heatIntro.v1` marks H16 seen.
+- **Per class:** H01, H04, H33 and H34 are per class (`seen['H01:rogue']`), because their answer differs by class. Every other hint is per profile.
+- **Hints off:** Settings, Interface: "Hints: On / Off" (default On), "Reset hints" (clears `seen`), "Play the guide again" (2.2). "Hints off" on any coach line sets Off. Off hides every hint and every beat line, but not the rescue.
+- **Pace:** at most one hint per fight round and one per map step, and at most ONB_HINTS_PER_FIGHT per fight. A hint that has to wait more than one step is dropped and stays unseen.
+
+### 3.2 Hint table
+| Id | System | Trigger | Line (draft) | Anchor | Beat |
+|---|---|---|---|---|---|
+| H01 | Engage round | engage round of the first fight of a class | "Round 1 is yours: they act from round 2. Open with Q, W or E." | engage panel | G7 |
+| H02 | Intent track | first fight | "Above each enemy: its next three moves, in order." | first enemy's track | G6 |
+| H03 | Wind-up | first `windup` entry on a track | "Wind-up: stop it with W, an interrupt or a stun, and it is weakened all fight." | wind-up badge | G8 |
+| H04 | Deathblow | first Deathblow on a track | Class line as G9 | Deathblow badge | G9 |
+| H05 | Off-balance | first OFF_BALANCE window on an enemy | "Off-balance: it takes +{OFFBAL_TAKEN} damage. Spend your big hit now." | the enemy frame | |
+| H06 | Maimed | first MAIMED on the player | "Maimed: your healing is halved for this fight." | player frame | G9 |
+| H07 | Lethal | first entry marked LETHAL (when the BACKLOG item ships) | "Lethal: this hit kills you. Stop it, heal, or kill first." | the entry | |
+| H08 | DoT preview | first pending-tick segment on an enemy bar | "The marked end of a health bar is what its damage over time will take." | that bar | |
+| H09 | Potions | HP below ONB_POTION_HP in a fight with a healing potion ready | "Low health: drink a Healing Draught (8). It uses your turn." | item slot | G11 |
+| H10 | Free potion | first fight with Packed Satchel | "Packed Satchel: your first potion each fight costs no turn, at half strength." | item slot | |
+| H11 | Loot | first loot window | "Space takes all. A green arrow marks an upgrade: equip it in your bags (B)." | loot window | G4 |
+| H12 | Trainer | first level-up with a spell to learn or train | "New spell ranks: visit the trainer at a hub." | hub marker on the map | |
+| H13 | Spell bar | first spell learned that is not on the bar | "Drag your new spell onto the bar (spellbook, P)." | the bar | |
+| H14 | Talents | first talent point (level TALENT_FIRST_LEVEL) | "Talent point: spend it in Talents (N)." | talents button | |
+| H15 | Fog | first map view | "You see the nodes next to you. Walking shows more." | player's node | G2 |
+| H16 | The Furnace | first map view after the first node | "The Furnace: each step costs tolls. Stay left of the Star's line." | the Furnace | G5 |
+| H17 | Heat pays | first node entered Burning | "Burning: more XP, gold and better drops, but the end boss grows stronger." | the Furnace | |
+| H18 | The Dimming | first Dimmed node in view | "The Dimming spreads from the Shardfall. Leave by a Road before it reaches you." | dark wash | G12 |
+| H19 | Homeward Bell | G13's trigger | as G13 | Bell or Road button | G13 |
+| H20 | Contract site | first contract site in view | "Contract site: win this fight to count it." | site badge | G10 |
+| H21 | Contract done | first contract completed | "Contract done: choose one reward." | reward window | G10 |
+| H22 | Hub contract | first hub with a contract on offer | "This hub offers a contract: pay from your Reserve or swap one you hold." | hub contract card | |
+| H23 | Start camp | first PREP without the guide | "Points buy contracts and supplies. Points you keep become Reserve." | points counter | G1 |
+| H24 | Elite | first Elite node in view | "Elite: hover it to see its Deathblow before you go in." | the node | |
+| H25 | Rare | first fight with a rare | "Rare: a named foe with better loot. Read its moves first." | target frame | |
+| H26 | Dungeon | first dungeon node in view | "Dungeon: several fights and a boss in one visit." | the node | |
+| H27 | Disrupt | engage round of the first dungeon boss | "Bosses resist control: W disrupts their first wind-up instead." | engage panel | |
+| H28 | Vendor | first vendor open | "Sell what you do not need. Potions are always in stock." | vendor window | |
+| H29 | Rest | first Rest node in view | "Rest: back to full health and mana, for tolls." | the node | |
+| H30 | Pass | first round in which PASS answers a wind-up (`windupView` PASS answer) | "Waiting (X) keeps them sapped: the wind-up never comes." | pass button | G9 |
+| H31 | Autoplay | first fight after ONB_AUTOPLAY_AFTER fights won, autoplay never used | "Z lets autoplay fight for you. It answers Deathblows too." | autoplay toggle | |
+| H32 | Flee | HP below ONB_FLEE_HP in a non-boss fight where `FLEE` is legal, first time | "You can flee (F). The node stays open for later." | flee button | |
+| H33 | Pet (Hunter) | first fight of a Hunter | "Your pet fights beside you and draws some of the blows." | pet frame | |
+| H34 | Stealth (Rogue) | first fight of a Rogue | "You start hidden: openers work only from stealth." | stealth badge | |
+| H35 | The Camp | first arrival at the Camp | "The Camp: last stop before the Unlit Star. Spend your gold here." | Camp title | |
+| H36 | End boss | first end-boss fight | "No engage round here: read its schedule above it." | boss track | |
+| H37 | Hall of Echoes | first time the Hall opens | "Echoes buy lasting unlocks. They stay when a run ends." | balance | |
+
+The table covers every system the player meets in a run today [source: expedition.md 1-7, H; combat-v2.md 3-6, 16-17; rules.md 7.5, 11]. A system added later gets a row in the same form, in the same commit as its UI.
+
+### 3.3 What is retired
+- The engage hint panel (src/ui/tracks.js: heading, paragraph, list of three options, "Shown once for the ...") becomes H01's one line. The per-option lines move into the options' existing tooltips, so nothing is lost.
+- The Furnace note (src/ui/heat.js `#heat-intro`) becomes H16.
+- The low-health potion pulse (src/ui/hud.js) stays. It is not a hint and it does not count as one.
+- The Furnace's state toasts (expedition.md H.4) stay. They are game feedback, not hints.
+
+---
+
+## 4. The first-run nudge to the potion upgrade
+
+### 4.1 Trigger
+The summary of the profile's first non-dev run, guided or not, whatever the outcome (in practice a loss), when Packed Satchel is not owned.
+
+### 4.2 The welcome
+- That summary pays a one-time line, **"The Bellwrights' welcome"** (draft, lore: docs/lore/world.md 6): ONB_WELCOME_ECHOES Echoes, once per profile. It equals Packed Satchel's price (60) [source: rules.md 11.2], so every first run can buy it at once. (Owner question Q3, default.)
+- Why a grant: a first run that dies in zone 1 or 2 earns about 10-40 Echoes [inference: rules.md 11.1, ECHO_PER_LEVEL 1 × levels gained + ECHO_PER_ZONE 7.5 per zone left + a few quest, elite and contract lines]. Without it the nudge would have nothing to buy.
+- Engine: `profile.welcome` (false in `newProfile()`; a saved profile with `runs > 0` loads as true, so the owner's profile gets nothing). END_RUN of the first non-dev run adds the summary line `welcome` and sets the flag. A dev run neither pays it nor sets it.
+
+### 4.3 What the player sees
+1. Summary: the Echo lines as today, the welcome as its own line. The "Spend Echoes" button glows (no pulse under reduce motion) with one line under it: "Your first unlock is ready: Packed Satchel."
+2. Hall of Echoes (opened from that button): the Packed Satchel card is highlighted, with one coach line at it: "Buy Packed Satchel: 3 potions every run, and your first potion each fight costs no turn." Next to it is "Later".
+3. Nothing is disabled. "Later", Esc or leaving the Hall closes the nudge. It does not come back. If the Satchel is still not bought, the next summary repeats only step 1's line, once.
+4. After the purchase: the Hall shows "Next run: 3 Healing Draughts" in its next-run lines (today's `nextRunLines`), and H10 explains the free potion in the first fight.
+
+### 4.4 Relation to meta v2 (parked)
+Meta v2 6.1 has the same grant (ECHO_FIRST_RUN 60) and the same Satchel highlight [source: docs/specs/meta-v2.md 6.1]. If the owner approves meta v2, its 6.1 uses this spec's grant and screens and pays nothing twice. Meta v2's proposal to keep `Set out` disabled until the player buys or presses "Later" is not taken: principle 3.
+
+---
+
+## 5. What the engine must expose (Core Gameplay Engineer)
+
+| # | Need | Detail |
+|---|---|---|
+| E1 | `newRun({ tutorial: true })` | Legal only with the expedition map and `prep: true` (throws otherwise). `state.tutorial = { on: true, skipped: false, rescues: 0, script: 0 }`. Zone 1 streams on TUTORIAL_SEED (2.3) |
+| E2 | Overlay from `CONTENT.tutorial` | Board slot 1, site fights, scripts S1-S4 by order, S1's fixed loot, the forced wind-up of S4, Gorrak on the nearest Elite node with the level clamp. Validated by `validateContent` (template ids exist, levels in range) |
+| E3 | Rescue (2.6) | In zone 1 with `tutorial.on && !skipped`: a death becomes event `rescue { tolls }`; the player goes back to the previous node with full HP, mana and pet; the node stays unresolved; `time` and zone time + ONB_RESCUE_TOLLS; `rescues` + 1. Resurrect charges are not used |
+| E4 | `SKIP_GUIDE` | Legal in any phase of a tutorial run while `!skipped`; sets `skipped`; no other change; event `guideSkipped` |
+| E5 | `tutorialView(state)` | `{ on, skipped, guidedZone (in zone 1 and not skipped), script (fights scripted so far), eliteNodeId, rescues }` or null. Pure and cheap |
+| E6 | Profile | `profile.guide` (`'todo'`, `'done'`, `'skipped'`; END_RUN of a tutorial run sets `done` or `skipped`); `profile.welcome` (4.2); pure helper `setGuide(profile, value)` for class select and Settings; migration (a profile with `runs > 0` loads as `guide: 'done'`, `welcome: true`) |
+| E7 | Summary | Echo line `welcome`; block `tutorial: { rescues, skipped }` in a tutorial run |
+| E8 | Dev tools | `debug.resetOnboarding(profile)`: guide `todo`, welcome false; the Dev menu's "Reset onboarding" also clears `tbwcr.hints.v2` |
+| E9 | Tests and docs | engine-api.md rows for E1-E8; rules.md 1.2 and 11.1 lines (tutorial option, the welcome); a qa/engine test per row; the code-map row for the new files (D41) |
+
+Nothing else changes: the beats and hints are presentation and read events and views that exist today (`windupView`, `potionInfo`, `pendingTicks`, `offBalance`, `mapView`, `heatView`, `contractView`, the wind-up, item-use and equip events).
+
+## 6. What the UI must build (UI/UX & Visual Engineer)
+
+| # | Need |
+|---|---|
+| U1 | The coach line component (2.5): anchor and arrow, key chip, Got it, Skip guide / Hints off; one at a time; queue and priority; never over the protected elements at 1366x768 and 1920x1080; reduce motion |
+| U2 | `src/ui/onboarding.js`: one table for beats (2.4) and hints (3.2), each row `{ id, trigger(view, events), line(view), anchor, learned(view, events), ifNot }`; state in `tbwcr.hints.v2` with the migration of 3.1; the guided run's beat state is kept per run and ends at zone 2 |
+| U3 | Class select: "Guided first run" toggle while `profile.guide` is `todo`; Settings: Hints On/Off, Reset hints, Play the guide again |
+| U4 | Retire the engage hint panel and the Furnace note into H01 and H16 (3.3) |
+| U5 | Rescue presentation: a float "The Bellwrights pull you back (2 tolls)" and a log line; the travel animation back to the node |
+| U6 | Summary and Hall: the welcome line, the Spend Echoes glow and line, the Satchel highlight with its coach line and "Later" (4.3) |
+| U7 | Guide end toast (2.7); "Skip guide" on guide lines |
+| U8 | Lines in `ui-text.js`, numbers from `C` and the views; the Content Designer checks wording and originality |
+
+## 7. QA (Playtest & QA Lead)
+
+### 7.1 Automated checks
+1. A headless guided run per class with autoplay reaches zone 2. Beats G1-G4, G6-G8 and G12-G13 fire in order, each once. G9 fires in the Gorrak fight.
+2. The guided zone is the same on every run: map hash, scripts and the elite are equal across 5 run seeds; zones 2-6 differ.
+3. Rescue: a forced death in zone 1 (dev `setGod` off, enemy damage raised by a test hook) gives `rescue`, full HP, the node unresolved, +ONB_RESCUE_TOLLS. A death in zone 2 ends the run. After `SKIP_GUIDE` a death in zone 1 ends the run.
+4. Welcome: paid once (first non-dev run), not in a dev run, not again after "Play the guide again"; a migrated profile with runs gets none.
+5. Hints: each id shows at most once across reloads; per-class ids once per class; Hints off hides all; Reset hints shows them again; the v1 keys migrate.
+6. Layout: at 1366x768 and 1920x1080, no coach line overlaps its anchor, the bar, the engage buttons, the Furnace pointer, the target frame or `Set out` (ui-regress hook per beat). Style snapshot updated once.
+7. Lines: every beat and hint line is at most ONB_HINT_MAX_CHARS characters and holds no "hours", "h" or decimal (expedition.md H.4 wording rules).
+
+### 7.2 New-player playtest checklist
+Setup: a fresh browser profile (Dev menu "Reset onboarding" and cleared storage), one run per class, guide on. The tester reads only the screen: no docs, no specs. Record the time, every rescue, every hint dismissed unread, and every moment of confusion, with a screenshot.
+
+Questions after zone 1 (target: 4 of 5 right per class, ONB5):
+1. What do the icons above an enemy show?
+2. What happens in round 1 of a fight, and what are Q, W and E for?
+3. What is a Deathblow, and how does your class stop it?
+4. What does the Furnace measure, and what happens past the Star's line?
+5. What is the Dimming, and what are the two ways to leave a zone?
+
+Observations to log:
+- Did any hint cover something the tester needed? Did any screen feel cluttered (owner 2026-11-12)?
+- Did the tester find the engage options without the hint (the owner did not find Sap, 2026-11-11 08:03)?
+- Time to leave zone 1 (target ONB1); rescues (target ONB2).
+- After the first run ends: did the tester buy Packed Satchel? How many clicks from the summary?
+- Second run: did the tester use the free potion, and say what it does?
+- Skip paths: guide off at class select; "Skip guide" mid-zone; "Hints off" from a line. Nothing breaks, no beat line shows after.
+
+The owner plays the same checklist once on a fresh profile (M3 done-when).
+
+## 8. Targets (proposed; for balance.md after the Lead accepts)
+| Id | What | Target | Measured by |
+|---|---|---|---|
+| ONB1 | Time to leave the guided zone | <= ONB_GUIDE_MAX_MIN minutes for a new player | QA playtest 7.2 |
+| ONB2 | Rescues in the guided zone | autoplay 0 per class; one-button bot <= 2 per class; new player <= 2 | sim tutorial cell (deterministic zone 1: one run per class per policy); QA |
+| ONB3 | The first run is not easier after zone 1 | planner level and gear score at zone 2's hub within B20's zone-1 band and within 1 level of an unguided planner P0 | sim tutorial cell, 300 runs per class |
+| ONB4 | The nudge can be acted on | Packed Satchel affordable at the first summary in 100 % of first runs | by construction (4.2); engine test |
+| ONB5 | Comprehension | 4 of 5 questions right, per class | QA playtest 7.2 |
+
+The balance bots never play the tutorial option; balance targets B1-B62 stay measured without it.
+
+## 9. Cost (rough, in sessions)
+| Role | Sessions | Work |
+|---|---|---|
+| Game Designer | 0.5 | This spec (done); reading the sim and QA results; line edits |
+| Content Designer | 1 | `src/content/tutorial.js`; wording and originality check of all lines |
+| Simulation & Balance Engineer | 0.5 | TUTORIAL_SEED selection script (2.3); tutorial cell for ONB2-ONB3 |
+| Core Gameplay Engineer | 2 | E1-E9 with tests and spec rows |
+| UI/UX & Visual Engineer | 3 | U1-U8: coach line, onboarding table with 13 beats and 37 hints, class select and Settings, summary and Hall nudge, retiring the two old notes, layouts and ui-regress hooks |
+| Playtest & QA Lead | 1.5 | 7.1 checks; the new-player playtest, three classes |
+| Lead | 1 | Review, build, owner report |
+| **Total** | **about 9.5** | Order: Sim seed script and Content table, then Engine, then UI, then QA |
+
+## 10. Open questions for the owner (the team builds on the default)
+| # | Question | Default |
+|---|---|---|
+| Q1 | After the guided zone 1, does the first run go on as a full run (zones 2-6), or stop as a short prologue? | Goes on: one first run, guided in zone 1, then normal and hard |
+| Q2 | In the guided zone 1, is a death a rescue (back to the last node, full health, 2 tolls), so a new player cannot lose in the first ten minutes? | Yes, zone 1 of the guided run only |
+| Q3 | Does the first run pay a one-time welcome of 60 Echoes, so every new player can buy Packed Satchel at once? | Yes, once per profile |
+
+## 11. Proposed decisions (for the Lead to log)
+| # | Decision | Owner |
+|---|---|---|
+| D-a | The first run of a profile is guided in zone 1 on TUTORIAL_SEED with the overlay of 2.3 and continues as a normal run (Q1) | owner (default) |
+| D-b | Rescue instead of death in the guided zone (Q2) | owner (default) |
+| D-c | One-time welcome of ONB_WELCOME_ECHOES at the first summary; Packed Satchel nudge without blocking (Q3, 4) | owner (default) |
+| D-d | One hint system: one-line coach line, once per profile, Hints off; the engage hint and the Furnace note fold into it | team |
+
+## 12. Constant table (starting values)
+| Name | Value | Use |
+|---|---|---|
+| TUTORIAL_SEED | to be chosen (2.3) | zone 1 streams of the guided run |
+| ONB_SCRIPTED_FIGHTS | 4 | fights S1-S4 played in order on non-site Quest or Grind nodes |
+| ONB_SCRIPT_LEVEL_MAX | 5 | level cap of scripted fights [assumption] |
+| ONB_LOOT_POTIONS | 1 | Healing Draughts in S1's fixed loot |
+| ONB_ELITE_LEVEL_MIN / MAX | 4 / 6 | Gorrak's level clamp in the guided zone [assumption; checked by ONB2] |
+| ONB_RESCUE_TOLLS | 2 | tolls a rescue costs (2.6) |
+| ONB_BEAT_RETRIES | 1 | extra chances for G8 |
+| ONB_POTION_HP | 0.5 | HP share that triggers G11 / H09 |
+| ONB_FLEE_HP | 0.25 | HP share that triggers H32 |
+| ONB_BELL_HOPS | 3 | hops from every Road that make G13 / H19 eligible |
+| ONB_BELL_DIM | 4 | tolls until the player's node dims for G13 / H19 (equals HEAT_DIM_WARM) |
+| ONB_AUTOPLAY_AFTER | 5 | fights won before H31 can show |
+| ONB_HINT_MAX_CHARS | 90 | characters per line, key chip excluded |
+| ONB_HINT_MIN_MS | 1500 | ms on screen before a line counts as seen |
+| ONB_HINTS_PER_FIGHT | 2 | hints per fight at most |
+| ONB_QUEUE_MAX | 2 | lines waiting at most |
+| ONB_WELCOME_ECHOES | 60 | the Bellwrights' welcome, once per profile (= Packed Satchel's price) |
+| ONB_GUIDE_MAX_MIN | 15 | minutes, target ONB1 |
