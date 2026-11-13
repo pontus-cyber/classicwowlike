@@ -59,7 +59,7 @@ Plan: docs/reviews/ui-architecture-2026-11-12.md. Each step one session, behavio
 | R6-R15 | style.css split, bridge golden test, texts out of the mock, retire the mock engine, split the bridge, engine view requests, stale-proof keys, closures, ui-regress hooks, rules U1-U14 | UI/UX Engineer, Core Engineer | todo |
 
 ## M3. Meta progression and onboarding (active since 2026-11-13; M2b closed)
-Tasks so far: 3.1 onboarding spec (done, 5c031ee, D135); 3.2 tutorial seed script (done, 78a8303: TUTORIAL_SEED 8736, D137); 3.3 content table; 3.4 engine; 3.5 UI; 3.6 QA new-player playtest; meta v2 waits for the owner (EXPERIMENTS X1-X3).
+Tasks so far: 3.1 onboarding spec (done, 5c031ee, D135); 3.2 tutorial seed script (done, 78a8303: TUTORIAL_SEED 8736, D137); 3.3 content table (doing); 3.4 engine (doing); 3.5 UI; 3.6 QA new-player playtest; meta v2 waits for the owner (EXPERIMENTS X1-X3).
 Done when meta points, the unlock screen and permanent unlocks (items in drop pools, skills, stat boosts) work, ten consecutive simulated runs show rising strength, and the owner has played five runs in a row. Includes the meta v2 proposal once agreed (persistent character per class, account quests) and a proper tutorial: a guided first run (fixed seed, zone 1: intent track, engage round, wind-ups, DoT preview, potions, the Furnace, the map), the first-loss-to-first-unlock nudge to the potion upgrade, and skippable first-time hints for every system; checked by QA as a new-player playtest and by the owner.
 
 ## M4. Content, look and feel
