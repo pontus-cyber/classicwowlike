@@ -431,7 +431,11 @@ async function playOne(browser, W, H, cls) {
     await closeWindow('settings');
 
     // Character creation through the class cards, pet portraits, name and seed fields.
-    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: EXP ? 'expedition' : 'rows' }); // D116: the expedition with the start camp
+    // M3 (m3-onboarding.md 2.1): a fresh profile's first run is the guided run (class select's "Guided first run", on); the
+    // twin plays the same (newRun tutorial: true)
+    const guided = await page.evaluate(() => { const v = window.__ui.view(); return !!(v.meta && v.meta.guided); });
+    res.guided = guided;
+    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: EXP ? 'expedition' : 'rows', ...(guided ? { tutorial: true } : {}) }); // D116: the expedition with the start camp
     await click(page.locator(`#create .ccard[data-cls="${cls}"]`), `class card ${cls}`);
     s = R.step(s, { type: 'SELECT_CLASS', classId: cls }).state;
     if (cls === 'hunter') {

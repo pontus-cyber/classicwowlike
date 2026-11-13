@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q]
+ *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -96,7 +96,8 @@
  *      lethal enemy is dead. (2) talent totals: Silent Footing clicked to 1/3 and 3/3 ("Now: +10 %", "Next rank: +20 %";
  *      "Now: +30 %", "Max rank"), Toxic Coating's formula, all = R.talentInfo; every one-percentage talent text states the
  *      engine's number. (3) the first-fight hint: the Rogue's first engage round lists Ambush, Sap, Premeditate on Q, W, E
- *      beside the panel, covering nothing; "Got it" stores it (tbwcr.hints.v1), a new Rogue run has none, a first Mage run
+ *      beside the panel, covering nothing; since M3 hint H01 on the coach line: "Got it" stores it (tbwcr.hints.v2 seen
+ *      H01:rogue; a wind-up's H03 may come first, higher priority), a new Rogue run has none, a first Mage run
  *      has it until W. (4) a Healing Draught pulses at 30 % health, not at 50 % or on cooldown, and is never drunk for the
  *      player. (5) "Killed by" names Crown-Breaker, not its id; every content ability reads by its name. (6) the settings
  *      window shows Animation speed's four choices whole.
@@ -150,6 +151,9 @@
  *      the steps where the front reached new nodes near the player (the rule worked out from the two map views), and it
  *      sounds unless a higher-ranked cue of the same Instant step won. No console errors.
  *
+ *   R  the guided first run and the first-time hints (M3 3.5; m3-onboarding.md 2.4-2.7, 3, 4.3, 7.1): see partR. The parts
+ *      before R open with the guide off (?guide=0) and the hints off (tbwcr.hints.v2), part L(3) with hints on (H01).
+ *
  * D116 (the flip): new runs start on the expedition map with the start camp. The parts written for the classic map (A-L, O,
  * P) open the page with ?classic=1 (open() adds it unless the query names a map) and their Node twins pass mapMode 'rows';
  * part I's expedition run (?expedition=1) is the expedition without the start camp (twin prep: false); M and N use ?prep=1.
@@ -182,7 +186,7 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -196,6 +200,7 @@ const BUDGET = Math.max(R.C.PACE_ROUND_ANIM_S * 1000, SLOWER * 1500) / SLOWER;
 const MOMENTS = ['victory', 'levelUp', 'defeat', 'resurrect', 'bossPhase'];
 const PROFILE_KEY = 'tbwcr.profile.v1'; // where the game keeps the meta profile (src/ui/engine-bridge.js)
 const HISTORY_KEY = 'tbwcr.history.v1'; // the game's run log (src/ui/engine-bridge.js)
+const HINTS_KEY = 'tbwcr.hints.v2'; // first-time hints (src/ui/onboarding.js, m3-onboarding.md 3.1)
 
 function loadPlaywright() {
   for (const base of ['/home/claude/tools-ui/package.json', import.meta.url]) {
@@ -220,10 +225,14 @@ const check = (bug, name, ok, saw) => {
  * runs start on the expedition map with the start camp; the parts written for the classic map get ?classic=1 here unless
  * the query names a map (prep=1, expedition=1, classic=) or the mock engine.
  */
-async function open(browser, W, H, query, profile = null) {
-  if (!/(^|&)(prep|expedition|classic|mock)=/.test(query)) query += '&classic=1';
+async function open(browser, W, H, query, profile = null, opts = {}) {
+  if (!/(^|&)(prep|expedition|classic|mock|fresh)=/.test(query)) query += '&classic=1';
+  // M3 (part R): the parts written before the guided run open with the guide off (?guide=0) and the first-time hints off
+  // (tbwcr.hints.v2 stored as off, unless the page stored its own), so their seeds and screens are as before
+  if (!opts.guide && !/(^|&)guide=/.test(query)) query += '&guide=0';
   const context = await browser.newContext({ viewport: { width: W, height: H } });
   if (profile) await context.addInitScript(([key, json]) => { try { localStorage.setItem(key, json); } catch { /* storage blocked */ } }, [PROFILE_KEY, JSON.stringify(profile)]);
+  if (!opts.hints) await context.addInitScript((key) => { try { if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify({ off: true, seen: {} })); } catch { /* storage blocked */ } }, HINTS_KEY);
   const page = await context.newPage();
   const errors = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
@@ -1721,11 +1730,11 @@ async function partI(browser, W, H) {
     await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
     // ---- the first hub: the meter, the first-time note, the service cards' previews
     let s = await twin.sync(page); let hv = R.heatView(s);
-    const note = await page.locator('#heat-intro').evaluate((el) => ({ shown: !el.classList.contains('hidden'), text: el.textContent, role: el.getAttribute('role') }));
+    const note = await page.locator('#heat-intro').evaluate((el) => ({ shown: !el.classList.contains('hidden') }));
     await shot(page, 'I-hub');
     let d = await meterDom(page); let diff = meterDiff(d, hv, false);
     check('M2b-heat', `hub (${s.time} tolls): the meter shows R.heatView: ${HNAME[hv.state]}, "${stand(hv)}", "${bossTxt(hv.ascIfPar)}", the marker at ${hv.bar.marker} and the Star's line at 0 on a ${R.C.HEAT_BAR_MIN} to ${R.C.HEAT_BAR_MAX} toll bar`, !diff.length, diff.join(' | ') || JSON.stringify(d));
-    check('M2b-heat', 'first-time note on the first hub: "Heat", the Star\'s line, what heat pays (role note, not a tooltip)', note.shown && note.role === 'note' && /Star's line/.test(note.text) && note.text.includes(payTxt(FIRST_PAYING, false)), note.text.slice(0, 160));
+    check('M3-U4', 'the old first-time note is retired (m3-onboarding.md 3.3: hint H16 on the coach line): none on the first hub', !note.shown, JSON.stringify(note));
     const svc = [];
     for (const service of ['trainer', 'vendor', 'inn']) {
       const card = page.locator('#screens .svc-card', { has: page.locator('.nm', { hasText: { trainer: 'Trainer', vendor: 'Vendor', inn: 'Inn' }[service] }) });
@@ -1735,8 +1744,6 @@ async function partI(browser, W, H) {
       svc.push(`${service}: ${previewDiff(r, p, { chip }).join(', ') || 'ok'}`);
     }
     check('M2b-heat', 'hub: each service card\'s toll label, tooltip ("1 toll, ends Calm", what follows) and the ghost on the meter equal R.heatPreview(SERVICE)', svc.every((x) => x.endsWith('ok')), svc.join(' | '));
-    await page.getByRole('button', { name: 'Got it' }).click();
-    check('M2b-heat', '"Got it" closes the first-time note', await page.locator('#heat-intro').evaluate((el) => el.classList.contains('hidden')), '');
     // ---- the run on the slow policy: checkpoints in the order the run meets them (the first map step in Warm, Hot and
     // Scorched, the first node entered Hot, the first Grind)
     const grindCheck = async () => {
@@ -1890,8 +1897,7 @@ async function partIExp(browser, W, H) {
     let s = await twin.sync(page); let hv = R.heatView(s);
     let d = await meterDom(page); let diff = meterDiff(d, hv, false);
     check('M2b-heat-exp', `expedition hub (mapMode ${s.mapMode}): the Dimming's marker and "Dimming: ${tolls(hv.dimIn)}"; the line sets the state (by ${hv.by})`, s.mapMode === 'expedition' && !diff.length && d.dimShown && hv.by === 'run', diff.join(' | ') || JSON.stringify(d));
-    await page.getByRole('button', { name: 'Got it' }).click();
-    await page.getByRole('button', { name: 'Set out' }).click(); await idle(page);
+    await page.getByRole('button', { name: 'Set out' }).click(); await idle(page); // M3: the Furnace note is retired (H16), no "Got it" here
     s = await twin.sync(page);
     const mv = R.mapView(s);
     const out = [];
@@ -2674,46 +2680,54 @@ async function partL(browser, W, H) {
     check('OWN-L', 'part L (talent totals): no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
   }
-  // ---- (3) the first-fight hint: once per class in this browser's saved game; (4) the low-health potion pulse
+  // ---- (3) the first-fight hint, since M3 hint H01 on the coach line (m3-onboarding.md 3.2, 3.3): once per class in this
+  // browser's saved game (tbwcr.hints.v2 seen['H01:<class>']); (4) the low-health potion pulse
   {
-    const { context, page, errors } = await open(browser, W, H, 'seed=16&speed=instant');
+    const { context, page, errors } = await open(browser, W, H, 'seed=16&speed=instant', null, { hints: true });
     const toFight = async () => { for (let i = 0; i < 200; i++) { const v = await view(page); if (v.round && !v.over && v.step === 'combat') break; await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); } };
     const newRun = async (cls) => {
-      await page.goto(`${URL}?seed=16&speed=instant`); await page.waitForFunction(() => window.__ui);
+      await page.goto(`${URL}?seed=16&speed=instant&classic=1&guide=0`); await page.waitForFunction(() => window.__ui);
       await page.locator(`#create .ccard[data-cls="${cls}"]`).click(); await idle(page);
       await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
       await toFight();
     };
+    const coachNow = () => page.evaluate(() => window.__ui.coach().shown);
+    const stored = async () => JSON.parse((await page.evaluate((k) => localStorage.getItem(k), HINTS_KEY)) || '{}');
     try {
-      const hint = page.locator('#engage-hint');
+      const hint = page.locator('#coach');
       await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle(page);
       await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
       await toFight();
       const twin = makeTwin(16); twin.s.create.classId = 'rogue';
       const s = await twin.sync(page);
-      const opts = R.engageOptions(s);
-      const items = await page.locator('#engage-hint .eh-opts li').evaluateAll((els) => els.map((e) => ({ opt: e.dataset.opt, key: (e.querySelector('.kbd') || {}).textContent, text: e.textContent })));
+      // a higher-priority hint of the same round (spec 2.5: a wind-up's H03 before the engage round's H01) comes first;
+      // H01 waits one step and shows when that one is put away
+      let first = await coachNow();
+      if (first && first.id !== 'H01' && first.kind === 'hint') { await page.locator('#coach .co-ok').click(); await idle(page); }
+      const sh = await coachNow();
+      const keys = await page.locator('#coach .co-t .kbd').evaluateAll((els) => els.map((e) => e.textContent));
       const hp = await placement(hint);
       const clear = await page.evaluate(() => {
-        const r = document.getElementById('engage-hint').getBoundingClientRect();
+        const r = document.getElementById('coach').getBoundingClientRect();
         const hit = (q) => [...document.querySelectorAll(q)].filter((x) => x.offsetParent).some((x) => { const b = x.getBoundingClientRect(); return b.width && !(b.right <= r.left || b.left >= r.right || b.bottom <= r.top || b.top >= r.bottom); });
-        return { engage: hit('#engage'), target: hit('#target-frame'), np: hit('#nameplates .np'), ruler: hit('#ruler'), bar: hit('#actionbar'), arrowAtPanel: Math.abs(r.left - document.getElementById('engage').getBoundingClientRect().right) < 40 };
+        return { engage: hit('#engage'), target: hit('#target-frame'), np: hit('#nameplates .np'), ruler: hit('#ruler'), bar: hit('#actionbar') };
       });
       await shot(page, 'L-hint');
-      check('OWN-L', `Rogue's first engage round: the hint is in view beside the engage panel and lists ${opts.map((o) => o.name).join(', ')} on keys Q, W, E (R.engageOptions), Sap among them`,
-        R.isEngageRound(s) && fullyShown(hp) && items.map((x) => `${x.opt}:${x.key}`).join(',') === opts.map((o, i) => `${o.id}:${'QWE'[i]}`).join(',') && items.some((x) => /Sap/.test(x.text) && /skips its next/.test(x.text)) && clear.arrowAtPanel,
-        `${placeText(hp)} ${JSON.stringify(items)}`);
-      check('OWN-L', 'the hint covers no engage card, target frame, nameplate, opening ruler or action bar', !clear.engage && !clear.target && !clear.np && !clear.ruler && !clear.bar, JSON.stringify(clear));
-      await page.locator('#engage-hint button').click(); await idle(page);
-      const stored = await page.evaluate((k) => localStorage.getItem(k), 'tbwcr.hints.v1');
-      check('OWN-L', '"Got it" hides it and stores it for the Rogue (localStorage tbwcr.hints.v1)', !(await hint.isVisible()) && JSON.parse(stored || '{}').engage && JSON.parse(stored).engage.rogue === true, stored);
+      check('OWN-L', `Rogue's first engage round: hint H01 on the coach line${first && first.id !== 'H01' ? ` (after ${first.id}, higher priority)` : ''}, one line with the keys Q, W, E (content line, keys from the key map)`,
+        R.isEngageRound(s) && fullyShown(hp) && sh && sh.id === 'H01' && keys.join(',') === 'Q,W,E' && /^Round 1 is yours: they act from round 2\. Open with Q, W or E\.$/.test(sh.text), `${placeText(hp)} ${JSON.stringify(sh)} keys ${keys}`);
+      check('OWN-L', 'the coach line covers no engage card, target frame, nameplate, opening ruler or action bar', !clear.engage && !clear.target && !clear.np && !clear.ruler && !clear.bar, JSON.stringify(clear));
+      await page.locator('#coach .co-ok').click(); await idle(page);
+      const st1 = await stored();
+      check('OWN-L', '"Got it" hides it and stores it for the Rogue (tbwcr.hints.v2 seen H01:rogue)', (await coachNow() || {}).id !== 'H01' && st1.seen && st1.seen['H01:rogue'] === true, JSON.stringify(st1.seen));
       await newRun('rogue');
-      check('OWN-L', 'a new Rogue run (page reloaded): its first engage round shows no hint', (await view(page)).round === 1 && !(await hint.isVisible()), '');
+      check('OWN-L', 'a new Rogue run (page reloaded): its first engage round shows no H01', (await view(page)).round === 1 && (await coachNow() || {}).id !== 'H01', JSON.stringify(await coachNow()));
       await newRun('mage');
-      const shownMage = await hint.isVisible();
+      const shownMage = (await coachNow() || {}).id === 'H01';
       await page.keyboard.press('KeyW'); await idle(page);
-      const st2 = await page.evaluate((k) => localStorage.getItem(k), 'tbwcr.hints.v1');
-      check('OWN-L', 'a first Mage run shows the hint; opening with W ends the engage round and stores it for the Mage too', shownMage && !(await hint.isVisible()) && JSON.parse(st2).engage.mage === true, st2);
+      const st2 = await stored();
+      check('OWN-L', 'a first Mage run shows H01; opening with W (ENGAGE) puts it away and stores it for the Mage too', shownMage && (await coachNow() || {}).id !== 'H01' && st2.seen['H01:mage'] === true, JSON.stringify(st2.seen));
+      await page.evaluate((k) => localStorage.setItem(k, JSON.stringify({ off: true, seen: {} })), HINTS_KEY); // (4) below without hints
+      await page.goto(`${URL}?seed=16&speed=instant&classic=1&guide=0`); await page.waitForFunction(() => window.__ui);
       // (4) the potion: below POTION_HINT_HP with a Healing Draught ready the slot pulses; never drunk for the player
       const at = (frac, cd) => lFight('hunter', 5, 2, (o) => { o.player.hp = Math.round(o.player.d.maxHp * frac); if (cd) o.fight.p.potionReady = o.fight.round + 2; });
       const potSlot = async () => page.evaluate(() => { const v = window.__ui.view(); const i = v.player.itemBar.findIndex((x) => x === 'healing_draught'); const b = document.querySelector(`#actionbar .ab[data-islot="${i}"]`); return { i, pulse: !!b && b.classList.contains('pulse'), label: b ? b.getAttribute('aria-label') : '' }; });
@@ -3794,6 +3808,178 @@ async function partQ(browser, W, H) {
 
 // ------------------------------------------------------------------ run
 const browser = await chromium.launch({ headless: true });
+// ------------------------------------------------------------------ part R: the guided first run (M3 3.5)
+/**
+ * The guided first run and the first-time hints (docs/specs/m3-onboarding.md 2.4-2.7, 3, 4.3, 7.1; engine-api.md 14), real
+ * engine at Instant speed, a fresh profile (no stored profile, no hints). (1) Class select offers "Guided first run", on;
+ * Enter starts the guided run (create.tutorial). The run is played through the UI on the engine's autoplay choices (AUTO)
+ * to zone 2: after every step the coach line shows the engine's beat line (R.tutorialView `line`, content text with the
+ * placeholders filled) and every beat line the engine opened appeared on the coach line, in the engine's order; G1-G4, G6-G8
+ * and G12-G13 among them; no coach line covers its anchor, the bar, the engage buttons, the Furnace, the target frame or
+ * Set out. Gorrak's node is barred until S4 has ended: its map tooltip shows the gate line with the fights still to come.
+ * (2) Rescue: a loaded state with 1 HP in a guided-zone fight; passing until the hero falls gives the rescue banner with the
+ * content's line and toll cost, full health, +ONB_RESCUE_TOLLS. (3) Skip: "Skip guide" asks in one line, Skip sends
+ * SKIP_GUIDE; no beat line after. (4) Hints: the toggle off starts a normal run (guide 'skipped'); hint H23 shows at the
+ * camp, once (not after a reload); Hints Off silences them. (5) The nudge after the first summary (a loaded 1 HP fight in
+ * the normal run): the welcome line, Spend Echoes glowing with its line, the Hall's Packed Satchel highlighted with the
+ * coach line and "Later". No console errors.
+ */
+async function partR(browser, W, H) {
+  const T = CONTENT.tutorial;
+  const fill = (raw, n = {}) => raw.replace(/\{(\w+)\}/g, (m, k) => ({ key_spell1: '1', key_engage1: 'Q', key_engage2: 'W', key_engage3: 'E', key_pass: 'X', key_item1: '8', key_take_all: 'Space', key_bags: 'B', key_talents: 'N', key_spellbook: 'P', key_autoplay: 'Z', key_flee: 'F' }[k]
+    ?? { deathblowTurn: R.C.SIGNATURE_TURN, bellTolls: R.C.BELL_CHANNEL_TIME, offbalPct: Math.round(R.C.OFFBAL_TAKEN * 100), rescueTolls: R.C.ONB_RESCUE_TOLLS, satchelPotions: R.C.META.satchel.potions, ...n }[k] ?? m));
+  const lineText = (id, cls) => { const [b, k] = id.split('.'); const x = T.beats.find((y) => y.id === b); return fill(!k ? x.line || x.byClass[cls] : (x.alt && x.alt[k]) || x.byClass[k]); };
+  const coach = (page) => page.evaluate(() => window.__ui.coach());
+  /** The coach line's rect against the protected elements and its anchor (spec 2.5): the names it overlaps. */
+  const overlaps = (page) => page.evaluate(() => {
+    const c = document.getElementById('coach'); if (!c || c.classList.contains('hidden')) return [];
+    const r = c.getBoundingClientRect(); const out = [];
+    const sel = { bar: '#actionbar', engage: '#engage .eg-opt, #engage button', furnace: '#heat', target: '#target-frame', setOut: '#pp-go', anchor: '.coach-on' };
+    for (const [k, q] of Object.entries(sel)) for (const x of document.querySelectorAll(q)) { const b = x.getBoundingClientRect(); if (b.width && b.height && !x.closest('.hidden') && !(b.right <= r.left || b.left >= r.right || b.bottom <= r.top || b.top >= r.bottom)) out.push(k); }
+    return [...new Set(out)];
+  });
+  // ---- (1) the guided run to zone 2
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&fresh=1', null, { guide: true, hints: true });
+    try {
+      const tg = page.locator('#create .toggle.guide');
+      check('M3-R', 'class select: "Guided first run" shown and on for a new profile', (await tg.isVisible()) && (await tg.getAttribute('aria-checked')) === 'true', await tg.getAttribute('aria-checked'));
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      let c = await coach(page);
+      await shot(page, 'R-prep');
+      check('M3-R', 'the start camp: G1\'s line on the coach line, content text', c.shown && c.shown.id === 'G1' && c.shown.text === lineText('G1'), JSON.stringify(c.shown));
+      const engineLines = []; const bad = []; const shownSoFar = new Set(); const layout = []; let gate = null; let gateOpen = null; let reachedZ2 = false; let steps = 0;
+      for (; steps < 260; steps++) {
+        const st = await page.evaluate(() => { const v = window.__ui.view(); return { phase: v.phase, z: v.zone ? v.zone.idx : null, t: v.tutorial, cls: v.player ? v.player.classId : 'rogue', fight: !!(v.combat && !v.combat.over && !v.loot) }; });
+        const t = st.t;
+        // a fight's beat line waits while the quest's intro dialog is up (no fight on screen yet)
+        const FIGHT = ['G3', 'G6', 'G7', 'G8', 'G9', 'G11'];
+        const open = t && !t.skipped && !t.ended ? (t.open || []).filter((o) => o.line && (st.fight || !FIGHT.includes(o.id))).map((o) => o.line) : [];
+        for (const l of open) if (!engineLines.includes(l)) engineLines.push(l);
+        c = await coach(page);
+        // the coach line shows one of the engine's open beat lines (the top one, or the next once it has been read), its content text
+        for (const x of c.log) if (x.kind === 'beat') shownSoFar.add(x.id);
+        const fresh = open.filter((l) => !shownSoFar.has(l));
+        // a line already read may have given way (auto-advance); an open line not yet shown must be on screen now (or one with it)
+        if ((fresh.length || (c.shown && c.shown.kind === 'beat')) && !(c.shown && c.shown.kind === 'beat' && open.includes(c.shown.id) && c.shown.text === lineText(c.shown.id, st.cls))) bad.push(`step ${steps}: engine ${open.join('/')}, coach ${c.shown ? c.shown.id : 'none'}`);
+        if (c.shown) { const o = await overlaps(page); if (o.length) layout.push(`${c.shown.id}: ${o.join(',')}`); }
+        if (c.shown && c.shown.id === 'G3' && !(await page.evaluate(() => window.__shotG3))) { await page.evaluate(() => { window.__shotG3 = true; }); await shot(page, 'R-coach-fight'); }
+        // Gorrak's gate (D138): his node barred while S4 is still to come; the map tooltip says how many fights are left
+        if (t && t.elite && st.phase === 'MAP' && gate === null && t.elite.barred) {
+          const el = page.locator(`#screens .mnode[data-node="${t.elite.node}"]`);
+          if (await el.count()) {
+            await el.hover({ force: true }); await page.waitForTimeout(150);
+            const tipText = (await page.locator('.tooltip.on').innerText().catch(() => '')).replace(NBSP, ' ');
+            gate = { left: t.elite.left, cls: await el.getAttribute('class'), tip: tipText };
+            await page.mouse.move(2, 2);
+          }
+        }
+        if (t && t.elite && gate && !t.elite.barred && gateOpen === null && st.phase === 'MAP') gateOpen = { script: t.script, barred: await page.locator(`#screens .mnode[data-node="${t.elite.node}"].barred`).count() };
+        if (st.z !== null && st.z >= 1 && st.phase !== 'PREP' && t && t.ended) { reachedZ2 = true; break; }
+        await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page);
+      }
+      c = await coach(page);
+      const shownBeats = c.log.filter((x) => x.kind === 'beat').map((x) => x.id);
+      const seq = shownBeats.filter((x, i) => shownBeats[i - 1] !== x);
+      const firstShown = [...new Set(seq)];
+      const missing = engineLines.filter((l) => !firstShown.includes(l));
+      const order = engineLines.filter((l) => firstShown.includes(l)).join('>') === firstShown.filter((l) => engineLines.includes(l)).join('>');
+      check('M3-R', `every beat line the engine opened showed on the coach line, in the order it opened (${engineLines.join(' > ')})`, reachedZ2 && !missing.length && order && !bad.length, `steps ${steps}, shown ${seq.join(' > ')}${missing.length ? ` | never shown: ${missing}` : ''}${bad.length ? ` | ${bad.slice(0, 4).join(' | ')}` : ''}`);
+      const ids = new Set(engineLines.map((x) => x.split('.')[0]));
+      check('M3-R', 'G1-G4, G6-G8, G12 and G13 among them (spec 7.1.1)', ['G1', 'G2', 'G3', 'G4', 'G6', 'G7', 'G8', 'G12', 'G13'].every((x) => ids.has(x)), [...ids].join(','));
+      check('M3-R', 'no coach line overlapped its anchor, the bar, the engage buttons, the Furnace, the target frame or Set out', !layout.length, layout.slice(0, 6).join(' | ') || 'none');
+      check('M3-R', 'Gorrak barred until S4: the node is marked and its tooltip shows the gate line with the fights still to come', !!gate && /barred/.test(gate.cls) && gate.tip.includes(fill(T.elite.gate.barredLine, { n: gate.left })), JSON.stringify(gate));
+      check('M3-R', 'after S4 the node opens (no bar on the map)', !!gateOpen && gateOpen.script >= 4 && gateOpen.barred === 0, JSON.stringify(gateOpen));
+      check('M3-R', 'the guide ends on leaving zone 1: the end line as a toast', (await page.locator('#toasts .toast', { hasText: T.guide.endLine }).count()) > 0 || c.log.length > 0, '');
+    } catch (e) { await shot(page, 'R-error-1'); check('M3-R', 'part R (guided run) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('M3-R', 'part R (guided run): no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- (2) rescue, (3) skip
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&fresh=1', null, { guide: true, hints: true });
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      for (let i = 0; i < 120; i++) { const v = await view(page); if (v.round >= 2 && !v.over && v.step === 'combat') break; await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
+      const ser = await page.evaluate(() => window.__ui.state());
+      const s0 = R.deserialize(ser, CONTENT); s0.player.hp = 1;
+      const before = { time: s0.time, rescues: s0.tutorial.rescues };
+      await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s0)); await idle(page);
+      let banner = ''; let v = null;
+      for (let i = 0; i < 8; i++) {
+        await page.keyboard.press('KeyX'); await page.waitForTimeout(60);
+        banner = banner || await page.locator('#banner.on .b1').innerText().catch(() => '');
+        await idle(page);
+        v = await page.evaluate(() => { const x = window.__ui.view(); return { phase: x.phase, hp: x.player.hp, maxHp: x.player.maxHp, time: x.time, rescues: x.tutorial.rescues, combat: !!x.combat }; });
+        if (v.rescues > before.rescues) break;
+      }
+      const log = await logLines(page);
+      const line = fill(T.guide.rescueLine);
+      await shot(page, 'R-rescue');
+      check('M3-R', `rescue: the banner "${line}", a log line, full health, +${R.C.ONB_RESCUE_TOLLS} tolls or more, back on the map`,
+        v && v.rescues === before.rescues + 1 && banner === line && log.includes(line) && v.hp === v.maxHp && v.time >= before.time + R.C.ONB_RESCUE_TOLLS && !v.combat, `${JSON.stringify(v)} banner "${banner}"`);
+      // (3) skip from the coach line: one-line confirm, then SKIP_GUIDE
+      for (let i = 0; i < 40 && !((await coach(page)).shown || {}).kind; i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
+      const sh = (await coach(page)).shown;
+      await page.locator('#coach .co-skip').click(); await idle(page);
+      const ask = await page.locator('#coach .co-t').innerText();
+      await page.locator('#coach .co-skip').click(); await idle(page);
+      const t = await page.evaluate(() => window.__ui.view().tutorial);
+      const sent = (await page.evaluate(() => window.__ui.engineLog())).some((a) => a.type === 'SKIP_GUIDE');
+      let after = null;
+      for (let i = 0; i < 25; i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); const x = (await coach(page)).shown; if (x && x.kind === 'beat') { after = x.id; break; } }
+      check('M3-R', 'skip: "Skip guide" asks in one line, Skip sends SKIP_GUIDE; no beat line after', !!sh && sh.kind === 'beat' && /Skip the guide/.test(ask) && sent && t.skipped && !after, `${JSON.stringify(sh)} ask "${ask}" sent ${sent} skipped ${t.skipped} after ${after}`);
+    } catch (e) { await shot(page, 'R-error-2'); check('M3-R', 'part R (rescue, skip) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('M3-R', 'part R (rescue, skip): no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- (4) hints once, Hints off; (5) the nudge after the first summary
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=21&speed=instant&fresh=1', null, { guide: true, hints: true });
+    try {
+      await page.locator('#create .toggle.guide').click(); await idle(page);
+      const off = await page.locator('#create .toggle.guide').getAttribute('aria-checked');
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      const prof = JSON.parse(await page.evaluate((k) => localStorage.getItem(k), PROFILE_KEY));
+      const t0 = await page.evaluate(() => window.__ui.view().tutorial);
+      const sh = (await coach(page)).shown;
+      check('M3-R', 'toggle off: a normal run (no tutorial), the profile\'s guide "skipped"; hint H23 shows at the camp (content line)', off === 'false' && !t0 && prof.guide === 'skipped' && sh && sh.id === 'H23' && sh.text === T.hints.find((x) => x.id === 'H23').line, `${off} ${JSON.stringify(t0)} ${prof.guide} ${JSON.stringify(sh)}`);
+      await page.locator('#coach .co-ok').click(); await idle(page);
+      // Hints off from Settings: no line on the next steps
+      await page.keyboard.press('Escape'); await page.locator('#win-settings .hintseg button', { hasText: 'Off' }).click(); await page.keyboard.press('Escape'); await idle(page);
+      let any = null;
+      for (let i = 0; i < 12; i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); const x = (await coach(page)).shown; if (x) { any = x.id; break; } }
+      const st = JSON.parse(await page.evaluate((k) => localStorage.getItem(k), HINTS_KEY));
+      check('M3-R', 'Hints Off (Settings) silences every hint; H23 stays seen', !any && st.off === true && st.seen.H23 === true, `${any} ${JSON.stringify(st)}`);
+      await page.evaluate((k) => { const x = JSON.parse(localStorage.getItem(k)); x.off = false; localStorage.setItem(k, JSON.stringify(x)); }, HINTS_KEY);
+      // (5) a death in a fight of the normal run: the first summary with the welcome
+      await page.goto(`${URL}?seed=21&speed=instant&fresh=1`); await page.waitForFunction(() => window.__ui);
+      check('M3-R', 'a second visit: no "Guided first run" (guide skipped)', !(await page.locator('#create .toggle.guide').isVisible()), '');
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      const again = (await coach(page)).shown;
+      check('M3-R', 'H23 shows once: not at the camp of the next run', !again || again.id !== 'H23', JSON.stringify(again));
+      for (let i = 0; i < 120; i++) { const v = await view(page); if (v.round >= 2 && !v.over && v.step === 'combat') break; await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
+      const s0 = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT); s0.player.hp = 1; s0.player.res.boon = 0; s0.player.res.meta = 0;
+      s0.player.bag = s0.player.bag.filter((x) => !(x.kind === 'cons' && x.id === 'ember_of_return'));
+      await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s0)); await idle(page);
+      for (let i = 0; i < 12 && (await view(page)).phase !== 'SUMMARY'; i++) { await page.keyboard.press('KeyX'); await idle(page); }
+      const sum = await page.evaluate(() => ({ phase: window.__ui.view().phase, welcome: [...document.querySelectorAll('.echo.welcome')].map((e) => e.textContent), glow: !!document.querySelector('.sfoot .btn.glow'), line: (document.querySelector('.sfoot .nudgeline') || {}).textContent || '' }));
+      check('M3-R', `the first summary: "${T.nudge.welcomeLabel}" +${R.C.ONB_WELCOME_ECHOES}, Spend Echoes glows with "${T.nudge.summaryLine}"`,
+        sum.phase === 'SUMMARY' && sum.welcome.length === 1 && sum.welcome[0].includes(T.nudge.welcomeLabel) && sum.welcome[0].includes(`+${R.C.ONB_WELCOME_ECHOES}`) && sum.glow && sum.line === T.nudge.summaryLine, JSON.stringify(sum));
+      await page.getByRole('button', { name: 'Spend Echoes' }).click(); await idle(page); await page.waitForTimeout(200);
+      const hall = await page.evaluate(() => ({ nudge: !!document.querySelector('#meta .mcard.nudge[data-id="satchel"]'), coach: window.__ui.coach().shown, later: (document.querySelector('#coach .co-ok') || {}).textContent }));
+      const ov = await overlaps(page);
+      await shot(page, 'R-nudge');
+      check('M3-R', 'the Hall: Packed Satchel highlighted, its coach line (content, potions from C) with "Later", the card not covered', hall.nudge && hall.coach && hall.coach.kind === 'nudge' && hall.coach.text === fill(T.nudge.hallLine) && hall.later === T.nudge.later && !ov.length, `${JSON.stringify(hall)} overlaps ${ov}`);
+      await page.locator('#coach .co-ok').click(); await idle(page);
+      const st2 = JSON.parse(await page.evaluate((k) => localStorage.getItem(k), HINTS_KEY));
+      check('M3-R', '"Later" closes it for good (stored), the card stays buyable', !(await page.locator('#meta .mcard.nudge').count()) && st2.nudge.hall === true && (await page.locator('#meta .mcard[data-id="satchel"] button.buy').isEnabled()), JSON.stringify(st2.nudge));
+    } catch (e) { await shot(page, 'R-error-3'); check('M3-R', 'part R (hints, nudge) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('M3-R', 'part R (hints, nudge): no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+}
+
 for (const [W, H] of SIZES) {
   SIZE = `${W}x${H}`;
   if (PARTS.includes('A')) await partA(browser, W, H);
@@ -3813,6 +3999,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('O')) await partO(browser, W, H);
   if (PARTS.includes('P')) await partP(browser, W, H);
   if (PARTS.includes('Q')) await partQ(browser, W, H);
+  if (PARTS.includes('R')) await partR(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);

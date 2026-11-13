@@ -25,6 +25,8 @@ const HINT_OF_BEAT = { G1: 'H23', G2: 'H15', G4: 'H11', G5: 'H16', G6: 'H02', G7
 // priority (spec 2.5): Deathblow > wind-up > lethal > potion > engage > the rest
 const PRIO = { G9: 6, H04: 6, G8: 5, H03: 5, H07: 4, G11: 3, H09: 3, H10: 3, G7: 2, H01: 2, H27: 2, NUDGE: 7 };
 const prio = (id) => PRIO[id] || 1;
+const FIGHT_BEATS = new Set(['G3', 'G6', 'G7', 'G8', 'G9', 'G11']); // beats whose line belongs to a fight on screen
+const YIELD_STEPS = 2; // a beat line on screen this many steps gives way to another open beat line
 const BOTTOM_REM = 14.8; // the coach line's place: its bottom edge over the action bar's control row (1366x768: y 620)
 
 // ------------------------------------------------------------------ the hint store (spec 3.1)
@@ -280,12 +282,21 @@ export function createOnboarding(root, ctx) {
   function beatNow(v) {
     const t = v && v.tutorial;
     if (!t || !guiding(v) || hints.off || !T) return null;
-    const o = (t.open || []).find((x) => x.line && !dismissed.has(x.line));
+    // a fight's beat waits until the fight is on screen (the quest's intro dialog comes first: the bridge shows no combat)
+    const o = (t.open || []).find((x) => x.line && !dismissed.has(x.line) && (!FIGHT_BEATS.has(x.id) || inFight(v)));
     if (!o) return null;
     return { id: o.id, lineId: o.line, kind: 'beat', anchorFn: ANCHOR[o.id] || null };
   }
   function advance(v) {
     if (!v) return;
+    // auto-advance (spec 2.5: one at a time, the other waits): a beat line read for YIELD_STEPS steps gives way to the next
+    // open beat line the engine has (G12's line stays open all zone long and would hold G13 back); it comes back when the
+    // engine opens or changes it again
+    if (cur && cur.kind === 'beat' && stepNo - cur.step >= YIELD_STEPS && v.tutorial && (v.tutorial.open || []).some((o) => o.line && o.line !== cur.lineId && !dismissed.has(o.line))) {
+      dismissed.add(cur.lineId);
+      if (performance.now() - cur.at >= r.hintMinMs) { const hid = HINT_OF_BEAT[cur.id]; if (hid) hints.mark(PER_CLASS.has(hid) ? `${hid}:${cls()}` : hid); }
+      hide(false);
+    }
     const b = beatNow(v);
     if (b && (!cur || cur.kind === 'hint' || (cur.kind === 'beat' && cur.lineId !== b.lineId)) && !(cur && cur.kind === 'nudge') && !(cur && cur.kind === 'hint' && prio(cur.id) > prio(b.id))) {
       if (cur && cur.kind === 'hint') hide(false);
