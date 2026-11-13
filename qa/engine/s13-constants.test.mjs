@@ -184,14 +184,29 @@ describe('change doc M2b v15 (docs/specs/changes-m2b-v15.md, D123-D125): the eng
     assert.equal(value(maw[1]), 0.95);
     assert.deepEqual(Object.keys(ENEMIES).filter((id) => 'gated' in ENEMIES[id]), []);
   });
-  test('C.GATES: the v14 switches, the v15 swiftRoad (off since D126), campReroll (D128, off), boardAcrossRun (D132, on), autoEmberFirst (D133, on), rewardPrimary (D144, on) and zone2InnerCap (D146, on), nothing else (mawgrimHp removed)', () => {
-    assert.deepEqual(Object.keys(K.GATES).sort(), ['autoEmberFirst', 'boardAcrossRun', 'campReroll', 'firstMeetWindup', 'passStealth', 'rareHpMultZ1', 'rewardPrimary', 'sapHold', 'swiftRoad', 'zone2InnerCap']);
+  test('C.GATES: the v14 switches, the v15 swiftRoad (off since D126), campReroll (D128, off), boardAcrossRun (D132, on), autoEmberFirst (D133, on), rewardPrimary (D144, on), zone2InnerCap (D146, on) and z1Dmg (D147, on), nothing else (mawgrimHp removed)', () => {
+    assert.deepEqual(Object.keys(K.GATES).sort(), ['autoEmberFirst', 'boardAcrossRun', 'campReroll', 'firstMeetWindup', 'passStealth', 'rareHpMultZ1', 'rewardPrimary', 'sapHold', 'swiftRoad', 'z1Dmg', 'zone2InnerCap']);
     assert.equal(K.GATES.rewardPrimary, true);
     assert.equal(K.GATES.zone2InnerCap, true);
+    assert.equal(K.GATES.z1Dmg, true);
     assert.equal(K.GATES.campReroll, false);
     assert.equal(K.GATES.boardAcrossRun, true);
     assert.equal(K.GATES.autoEmberFirst, true);
     assert.deepEqual(K.CONTRACT_BOARD_BANDS, [[1, 2], [3, 4], [5, 6]]);
+  });
+});
+
+describe('change doc M3 v1 (docs/specs/changes-m3-v1.md, D147): the engine constants equal its constant table', () => {
+  const text = readFileSync(fileURLToPath(new URL('../../docs/specs/changes-m3-v1.md', import.meta.url)), 'utf8');
+  const table = rows(text.slice(text.indexOf('## Constants')));
+  test('row 1 (implemented): Z1_DMG_MULT and Z1_DMG_MAX_LEVEL behind GATES.z1Dmg (on); engine finding 1: ONB_RESCUE_MAX', () => {
+    for (const name of ['Z1_DMG_MULT', 'Z1_DMG_MAX_LEVEL', 'ONB_RESCUE_MAX']) {
+      const r = table.find((x) => x[0] === name);
+      assert.ok(r, `no row ${name}`);
+      assert.equal(K[name], Number(r[1]), name);
+    }
+    assert.equal(K.GATES.z1Dmg, true);
+    assert.match(text, /\*\*implemented\*\* 2026-11-14/);
   });
 });
 

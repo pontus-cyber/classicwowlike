@@ -247,16 +247,17 @@ describe('rules 7.6 enemy AI and intents', () => {
     }
   });
 
-  test('zone danger (M2 v3, dungeons M2 v4, M2b v8, M2b v9): damage × zd(M) = early(M) × (1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10); dungeon trash and bosses early(M) × (1 + DUNGEON_DANGER_FRAC × (zd0 - 1)); early(M) = EARLY_DMG_MULT at M <= EARLY_DMG_MAX_LEVEL; HP, armor, XP unchanged', () => {
+  test('zone danger (M2 v3, dungeons M2 v4, M2b v8, M2b v9, D147): damage × zd(M) = early(M) × (1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10); dungeon trash and bosses early(M) × (1 + DUNGEON_DANGER_FRAC × (zd0 - 1)); early(M) = EARLY_DMG_MULT at M <= EARLY_DMG_MAX_LEVEL, × Z1_DMG_MULT at M <= Z1_DMG_MAX_LEVEL (GATES.z1Dmg); HP, armor, XP unchanged', () => {
     // M -> zd0 without the early factor (rules 7.6, M2b v9 step 0.45: level 30 ×1.45, 40 ×1.9, 50 ×2.35, 60 ×2.8; nothing at
-    // or below 20), and early(M): × 0.80 at levels 1-20 (D72)
+    // or below 20), and early(M): × 0.80 at levels 1-20 (D72), × 1.25 more at levels 1-10 while GATES.z1Dmg is on (D147:
+    // 0.80 × 1.25 = 1; s19 checks the switch off)
     const want = [[1, 1], [10, 1], [20, 1], [21, 1.045], [25, 1.225], [30, 1.45], [40, 1.9], [50, 2.35], [58, 2.71], [60, 2.8]];
     assert.equal(C.ZONE_DANGER_FROM, 20);
     assert.equal(C.ZONE_DANGER_STEP, 0.45); // M2b v9 (D80): was 0.375
     assert.equal(C.DUNGEON_DANGER_FRAC, 0.5);
-    assert.deepEqual([C.EARLY_DMG_MULT, C.EARLY_DMG_MAX_LEVEL], [0.8, 20]);
+    assert.deepEqual([C.EARLY_DMG_MULT, C.EARLY_DMG_MAX_LEVEL, C.Z1_DMG_MULT, C.Z1_DMG_MAX_LEVEL, C.GATES.z1Dmg], [0.8, 20, 1.25, 10, true]);
     for (const [M, zd] of want) {
-      const early = M <= 20 ? 0.8 : 1;
+      const early = M <= 10 ? 0.8 * 1.25 : M <= 20 ? 0.8 : 1;
       for (const [tid, variant] of [['z1_brute', 'normal'], ['z1_caster', 'trash'], ['z1_elite', 'elite'], ['z1_rare', 'rare'], ['z1_dboss', 'dboss']]) {
         const dungeon = variant === 'trash' || variant === 'dboss';
         const mult = early * (dungeon ? 1 + C.DUNGEON_DANGER_FRAC * (zd - 1) : zd);

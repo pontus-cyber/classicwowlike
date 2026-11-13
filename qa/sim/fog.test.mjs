@@ -160,7 +160,8 @@ test('C_step and C_route: with cell.oracle (and cell.route) the runner counts ag
   let agree = 0;
   let n = 0;
   let zones = 0;
-  for (const [cls, seed] of [['rogue', 1011], ['mage', 1012], ['hunter', 1013]]) {
+  // D147 (zone 1 enemy damage, GATES.z1Dmg): seeds 1011-1013 end in zone 1 after 1-3 map decisions; 1014-1016 play 4-6 zones
+  for (const [cls, seed] of [['rogue', 1014], ['mage', 1015], ['hunter', 1016]]) {
     const { record } = runWithBot({ bot: 'planner', cls, prof: 'fresh', tree: 0, map: 'expedition', oracle: true, route: true }, seed, null, {});
     assert.equal(record.err, null);
     agree += record.xs.cs[0];

@@ -5,7 +5,8 @@
 // windupView answers' `chance`), and the tactician's s0204 (Rime Burst left one of three wind-ups unanswered) is that
 // roll, not a rule or a bug; (3) the text and data mismatches on the engine and content side (G9 lines, the guided zone's
 // quest texts, mapView `waves` and `guided`); (4) reward choices carry the class's primary stat (rules 8.3, D144). D146
-// (report balance-2026-11-13c, option a6): zone 2's inner ring keeps zone 1's quest cap (GATES.zone2InnerCap).
+// (report balance-2026-11-13c, option a6): zone 2's inner ring keeps zone 1's quest cap (GATES.zone2InnerCap). D147
+// (changes-m3-v1.md row 1; the testers' "nothing could hurt in zone 1"): zone 1 enemy damage (GATES.z1Dmg).
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { R, C, started, atLevel, withSpells, inFight, tweak, forceDraws, ev } from './helpers.mjs';
@@ -355,5 +356,37 @@ describe('D146: zone 2\'s inner ring keeps zone 1\'s quest cap (rules 1.9.3, 2.1
     }
     // zone 1 quests keep the cap whatever the switch
     for (const seed of [2, 7, 13]) for (const n of withSwitch(false, () => zoneOf(seed, 1)).nodes) if (n.type === 'quest') assert.ok(n.mobs.length <= C.QUEST_MAX_SIZE_Z1);
+  });
+});
+
+describe('D147: zone 1 enemy damage (rules 7.6; Z1_DMG_MULT, Z1_DMG_MAX_LEVEL, GATES.z1Dmg; changes-m3-v1.md row 1)', () => {
+  const withSwitch = (on, fn) => { C.GATES.z1Dmg = on; try { return fn(); } finally { C.GATES.z1Dmg = true; } };
+  const VARIANTS = ['normal', 'elite', 'rare', 'trash', 'dboss', 'shardspawn'];
+
+  test('zoneDanger: levels 1-10 x Z1_DMG_MULT on top of the early factor (1.0), 11-20 keep EARLY_DMG_MULT, 21 up unchanged, every variant; off as before D147', () => {
+    assert.deepEqual([C.Z1_DMG_MULT, C.Z1_DMG_MAX_LEVEL, C.GATES.z1Dmg], [1.25, 10, true]);
+    for (const v of VARIANTS) {
+      for (const L of [1, 2, 5, 10, 11, 12, 20, 21, 30, 45, 60]) {
+        const on = R.zoneDanger(L, v);
+        const off = withSwitch(false, () => R.zoneDanger(L, v));
+        assert.ok(near(on, off * (L <= C.Z1_DMG_MAX_LEVEL ? C.Z1_DMG_MULT : 1)), `${v} level ${L}: ${on} vs ${off}`);
+        if (L > C.Z1_DMG_MAX_LEVEL) assert.equal(on, off, `${v} level ${L} unchanged`);
+      }
+      assert.deepEqual([R.zoneDanger(1, v), R.zoneDanger(10, v), R.zoneDanger(11, v)], [1, 1, C.EARLY_DMG_MULT], v);
+      assert.equal(withSwitch(false, () => R.zoneDanger(10, v)), C.EARLY_DMG_MULT, `${v}: off, level 10`);
+    }
+  });
+
+  test('makeEnemy: a level 10 template enemy (any variant) deals x Z1_DMG_MULT with the switch on, a level 11 one the same; HP and armor unchanged', () => {
+    const s = started('mage', { seed: 4 });
+    for (const variant of ['normal', 'elite', 'rare']) {
+      for (const level of [3, 10, 11]) {
+        const foe = [{ tid: 'z1_brute', level, variant }];
+        const on = inFight(s, foe).state.fight.enemies[0];
+        const off = withSwitch(false, () => inFight(s, foe).state.fight.enemies[0]);
+        assert.ok(near(on.dmg, off.dmg * (level <= C.Z1_DMG_MAX_LEVEL ? C.Z1_DMG_MULT : 1)), `${variant} ${level}: ${on.dmg} vs ${off.dmg}`);
+        assert.deepEqual([on.hp, on.maxHp, on.armor, on.dodge], [off.hp, off.maxHp, off.armor, off.dodge]);
+      }
+    }
   });
 });

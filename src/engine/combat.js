@@ -4,7 +4,8 @@
 // DoT preview (owner feedback 2026-11-11 08:11; engine-api.md 6.1): pendingTicks plays the end-of-round tick phase
 // (tickPhase) on a copy of the state, without draws, so the UI can mark the HP that the ticks will take.
 // Packed Satchel's free potion (rules 7.5, M2b v6): resolveRound plays it as the player's action and stops the round
-// (M2b v8: at FREE_POTION_MULT strength, spells.js). Zone danger (rules 7.6) with the early factor EARLY_DMG_MULT (M2b v8).
+// (M2b v8: at FREE_POTION_MULT strength, spells.js). Zone danger (rules 7.6) with the early factor EARLY_DMG_MULT (M2b v8)
+// and, D147 (changes-m3-v1.md row 1, draft), zone 1's Z1_DMG_MULT up to Z1_DMG_MAX_LEVEL while GATES.z1Dmg is on.
 // M2b v13 (D109; on by default since M2b v14, D113): a zone-1 rare's HP with RARE_HP_MULT_Z1 (GATES.rareHpMultZ1, rules
 // 2.3); first meetings (s.met, GATES.firstMeetWindup, rules 7.12) are marked when a fight starts. M2b v14 (D111):
 // allSapped, read by autoplay rule H and the PASS that keeps STEALTH. M3 guided run (m3-onboarding.md 2.3, D138;
@@ -15,7 +16,7 @@ import {
   ENEMY_ARMOR_PER_LEVEL, ENEMY_DODGE, PET, ENERGY_MAX, ENERGY_REGEN, FOCUS_MAX, FOCUS_REGEN,
   MANA_REGEN_ROUND_PCT, PET_REVIVE_PCT, TALENT, UNIQUE_WARD_PCT, BRAND_DMG, BOSS_LEVEL, MIN_HIT_DAMAGE,
   ZONE_DANGER_FROM, ZONE_DANGER_STEP, DUNGEON_DANGER_FRAC, ENGAGE_DMG_COMP, OFFBAL_DURATION, CONSUMABLE,
-  EARLY_DMG_MULT, EARLY_DMG_MAX_LEVEL, RARE_HP_MULT_Z1, GATES,
+  EARLY_DMG_MULT, EARLY_DMG_MAX_LEVEL, Z1_DMG_MULT, Z1_DMG_MAX_LEVEL, RARE_HP_MULT_Z1, GATES,
 } from '../constants.js';
 import { nextFloat, nextInt } from '../rng.js';
 import { rnd, deepClone, cloneState } from './util.js';
@@ -37,13 +38,15 @@ import {
  * zd(M) = early(M) × (1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10) (M2b v8: level 30 ×1.375, 60 ×2.5).
  * Dungeon trash and dungeon bosses ('trash', 'dboss') take DUNGEON_DANGER_FRAC of the bonus, early(M) × (1 +
  * DUNGEON_DANGER_FRAC × bonus) (M2 v4; M2b v8: level 60 ×1.75). early(M) = EARLY_DMG_MULT at M <= EARLY_DMG_MAX_LEVEL,
- * else 1 (M2b v8, D72: level 20 ×0.80). Every other variant (normal, elite, rare, shardspawn; Camp waves and summoned
- * adds are built as normal) takes zd(M). The end boss and the Dimming Shards (boss.js) are not made here and keep
- * their own constants.
+ * else 1 (M2b v8, D72: level 20 ×0.80); D147 (changes-m3-v1.md row 1, draft): × Z1_DMG_MULT at M <= Z1_DMG_MAX_LEVEL
+ * while GATES.z1Dmg is on (zone 1's levels 1-10: 0.80 × 1.25 = 1). Every other variant (normal, elite, rare, shardspawn;
+ * Camp waves and summoned adds are built as normal) takes zd(M). The end boss and the Dimming Shards (boss.js) are not
+ * made here and keep their own constants.
  */
 export function zoneDanger(level, variant = 'normal') {
   const bonus = (ZONE_DANGER_STEP * Math.max(0, level - ZONE_DANGER_FROM)) / 10;
-  const early = level <= EARLY_DMG_MAX_LEVEL ? EARLY_DMG_MULT : 1;
+  const z1 = GATES.z1Dmg && level <= Z1_DMG_MAX_LEVEL ? Z1_DMG_MULT : 1; // D147: zone 1's levels
+  const early = level <= EARLY_DMG_MAX_LEVEL ? EARLY_DMG_MULT * z1 : 1;
   return early * (1 + (variant === 'trash' || variant === 'dboss' ? DUNGEON_DANGER_FRAC * bonus : bonus));
 }
 

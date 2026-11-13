@@ -181,6 +181,12 @@ export const DUNGEON_DANGER_FRAC = 0.5;
 /** rules 7.6 (M2b v8, D72): × the damage of every template enemy of level <= EARLY_DMG_MAX_LEVEL (zone danger's early factor). */
 export const EARLY_DMG_MULT = 0.80;
 export const EARLY_DMG_MAX_LEVEL = 20;
+/**
+ * rules 7.6 (M3 v1, draft; changes-m3-v1.md row 1, D147): × the damage of every template enemy of level <= Z1_DMG_MAX_LEVEL
+ * (zone 1), on top of EARLY_DMG_MULT, while GATES.z1Dmg is on.
+ */
+export const Z1_DMG_MULT = 1.25;
+export const Z1_DMG_MAX_LEVEL = 10;
 export const ENEMY_ARMOR_PER_LEVEL = 15;
 export const DUNGEON_TRASH_HP_MULT = 1.2;
 export const DUNGEON_TRASH_DMG_MULT = 1.1;
@@ -441,8 +447,10 @@ export const RARE_HP_MULT_Z1 = 3.0;
  * D146 (report balance-2026-11-13c, option a6: the zone 2 entry cliff): zone2InnerCap: on the expedition map, zone 2's
  * rings 1..QUEST_CAP_Z2_RINGS keep zone 1's quest cap QUEST_MAX_SIZE_Z1 (rules 1.9.3, 2.1). **On**; off plays zone 2 as
  * before D146 (three-enemy quests from its ring 1).
+ * D147 (changes-m3-v1.md row 1, draft: zone 1 asks for care): z1Dmg: template enemies of level <= Z1_DMG_MAX_LEVEL deal
+ * × Z1_DMG_MULT on top of the early factor (rules 7.6, both maps). **On**; off plays every enemy as before D147.
  */
-export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true, rewardPrimary: true, zone2InnerCap: true };
+export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true, rewardPrimary: true, zone2InnerCap: true, z1Dmg: true };
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
 // with mapMode 'expedition'; a run on today's map (mapMode 'rows', the default) never reads them.
 /** rules 1.9.2: nodes per ring (ring 0 = the hub). */

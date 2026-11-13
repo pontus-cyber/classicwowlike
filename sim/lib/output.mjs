@@ -16,10 +16,11 @@ export const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
  * 'swift' the Swift passage (M2b v15 row 2, swiftRoad; off by default since D126, so the passage-on arm is '-swift'), 'rr'
  * the start camp's reroll (D128, campReroll; off by default, so the reroll-on arm is '-rr'); the camp board across the run (D132, boardAcrossRun; on by default, so the old board arm is '-noba'); 'rp' the reward choices' class
  * bias (D144, rewardPrimary; on by default, so the arm before D144 is '-norp'); 'z2c' zone 2's inner-ring quest cap (D146,
- * zone2InnerCap; on by default, so the arm before D146 is '-noz2c'); a switch without a tag is
+ * zone2InnerCap; on by default, so the arm before D146 is '-noz2c'); 'z1d' zone 1's enemy damage (D147, z1Dmg; on by
+ * default, so the arm before D147 is '-noz1d'); a switch without a tag is
  * marked by its key. (M2b v15's mawgrimHp switch and its 'maw' tag are gone: D126 put Mawgrim's 0.95 in content.)
  */
-export const GATE_TAG = { rareHpMultZ1: 'g5', firstMeetWindup: 'g6', sapHold: 'sap', passStealth: 'pst', swiftRoad: 'swift', campReroll: 'rr', boardAcrossRun: 'ba', autoEmberFirst: 'ae', rewardPrimary: 'rp', zone2InnerCap: 'z2c' };
+export const GATE_TAG = { rareHpMultZ1: 'g5', firstMeetWindup: 'g6', sapHold: 'sap', passStealth: 'pst', swiftRoad: 'swift', campReroll: 'rr', boardAcrossRun: 'ba', autoEmberFirst: 'ae', rewardPrimary: 'rp', zone2InnerCap: 'z2c', z1Dmg: 'z1d' };
 
 /**
  * Cell-name mark of the start camp's options (D128, cell.campOptions): none when the cell plays the engine's list
