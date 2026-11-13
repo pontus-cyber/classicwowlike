@@ -26,15 +26,18 @@
 // Start camp and contracts (prep, docs/specs/expedition.md 2-3, task 2b.5): an expedition run starts in phase PREP;
 // prepView (the prep screen) and contractView (the contract tracker). M2b v13 (docs/specs/changes-m2b-v13.md): windupView
 // (wind-ups and Deathblows with their answers), autoplayEngage (rule E2's engage answer), potionInfo's MAIMED amount and the
-// map's Deathblow fields (engine-api.md 6.2).
+// map's Deathblow fields (engine-api.md 6.2). M3 onboarding (docs/specs/m3-onboarding.md 2, 4.2, 5; engine-api.md 14):
+// newRun's `tutorial` option (the guided first run), tutorialView, SKIP_GUIDE, the rescue, the profile's guide and welcome
+// (migrateProfile, setGuide) and debug.resetOnboarding.
 import * as C from './constants.js';
 import { normaliseSeed } from './rng.js';
-import { cloneState, deepClone, deepFreeze, IllegalActionError } from './engine/util.js';
+import { cloneState, deepFreeze, IllegalActionError } from './engine/util.js';
 import { validateContent, zoneContent } from './engine/content.js';
 import { checkAction, applyAction, legalActions as legal } from './engine/actions.js';
 import { autoAction as auto } from './engine/autoplay.js';
 import { summary as sum } from './engine/summary.js';
-import { newProfile, metaOffers, buyMeta, applyRunToProfile, parTime } from './engine/meta.js';
+import { newProfile, metaOffers, buyMeta, applyRunToProfile, parTime, migrateProfile, setGuide } from './engine/meta.js';
+import { tutorialView as guidedView } from './engine/tutorial.js';
 import { zoneDanger, defaultTarget as defaultTgt, pendingTicks as previewTicks } from './engine/combat.js';
 import { availablePets, metaFromProfile, travelLevel as travelAt } from './engine/nodes.js';
 import { nextLanes } from './engine/map.js';
@@ -59,6 +62,20 @@ import { damageView as dmgView } from './engine/damageview.js';
  */
 export const STATE_VERSION = 3;
 export { C, validateContent, newProfile, metaOffers, buyMeta, applyRunToProfile, IllegalActionError, xpToNext, itemScore };
+/**
+ * M3 (m3-onboarding.md E6): migrateProfile(profile) fills a stored profile's `guide` and `welcome` (runs > 0: 'done' and
+ * true, else 'todo' and false); setGuide(profile, 'todo' | 'done' | 'skipped') for class select and Settings. Both pure.
+ */
+export { migrateProfile, setGuide };
+
+/**
+ * The guided first run for the UI (m3-onboarding.md 2.4-2.7, E5; engine-api.md 14), null in any other run: { on,
+ * skipped, ended, guidedZone, script, scripts, next, sites, eliteNodeId, elite, rescues, rescueTolls, beat, line, open,
+ * done, learned, skippedBeats }. Pure and cheap.
+ */
+export function tutorialView(state) {
+  return state.player ? guidedView(state) : null;
+}
 /**
  * Read-only rule helpers for front ends and the simulator (never re-implement them):
  *   V(L)        value scale (rules 8.5): prices, gold, sell values are multiples of V
@@ -359,8 +376,10 @@ export function talentInfo(state, talentId) {
  * expedition.md 2-3): true (the default on the expedition map since D116) starts the run at the start camp (phase PREP)
  * and plays contracts, the hub contract and the Spyglass, with the story chain retired; false plays the expedition map
  * without the start camp, as before task 2b.5. Left out (null), prep is true on the expedition map and false on the rows map.
+ * tutorial (M3, m3-onboarding.md 2, E1): true plays the guided first run (expedition with the start camp only; needs
+ * CONTENT.tutorial): zone 1 on TUTORIAL_SEED with the content's overlay, the rescue, the beats, SKIP_GUIDE; default false.
  */
-export function newRun({ classId = null, petId = null, name = '', seed = 0, profile = null, content, validate = true, mapMode = 'expedition', vision = null, dimming = true, prep = null } = {}) {
+export function newRun({ classId = null, petId = null, name = '', seed = 0, profile = null, content, validate = true, mapMode = 'expedition', vision = null, dimming = true, prep = null, tutorial = false } = {}) {
   if (!content) throw new Error('newRun: content is required (import { CONTENT } from src/content/index.js)');
   if (!MAP_MODES.includes(mapMode)) throw new Error(`newRun: mapMode must be one of ${MAP_MODES.join(', ')}`);
   if (vision !== null && (mapMode !== 'expedition' || typeof vision !== 'object' || Object.keys(vision).some((k) => !['guide', 'charts', 'pathfinder'].includes(k)))) {
@@ -369,12 +388,15 @@ export function newRun({ classId = null, petId = null, name = '', seed = 0, prof
   if (typeof dimming !== 'boolean' || (!dimming && mapMode !== 'expedition')) throw new Error('newRun: dimming is an expedition option: true (default) or false');
   if (prep !== null && (typeof prep !== 'boolean' || (prep && mapMode !== 'expedition'))) throw new Error('newRun: prep is an expedition option: true (default) or false');
   if (prep === null) prep = mapMode === 'expedition'; // D116: the start camp comes with the expedition map unless turned off
+  // M3 (m3-onboarding.md 2.1, E1): the guided first run needs the expedition map, the start camp and CONTENT.tutorial.
+  if (typeof tutorial !== 'boolean' || (tutorial && (mapMode !== 'expedition' || !prep))) throw new Error('newRun: tutorial is an expedition option with the start camp (prep): true or false (default)');
+  if (tutorial && !content.tutorial) throw new Error('newRun: tutorial needs the guided-run table CONTENT.tutorial (src/content/tutorial.js)');
   if (validate) {
     const errors = validateContent(content);
     if (errors.length) throw new Error(`newRun: content is invalid:\n  ${errors.slice(0, 20).join('\n  ')}`);
   }
   deepFreeze(content);
-  const prof = deepClone(profile || newProfile());
+  const prof = migrateProfile(profile || newProfile()); // M3 (E6): a stored profile gets its guide and welcome keys
   if (classId !== null && !C.CLASS[classId]) throw new Error(`newRun: unknown class ${classId}`);
   if (petId !== null && (classId !== 'hunter' || !availablePets(prof).includes(petId))) throw new Error(`newRun: pet ${petId} is not available for ${classId}`);
   return {
@@ -386,6 +408,7 @@ export function newRun({ classId = null, petId = null, name = '', seed = 0, prof
     create: {
       classId, petId, name: typeof name === 'string' ? name.trim().slice(0, 24) : '', seed: normaliseSeed(seed), oaths: [],
       ...(mapMode === 'expedition' ? { vision: { guide: !!(vision && vision.guide), charts: !!(vision && vision.charts), pathfinder: !!(vision && vision.pathfinder) }, dimming, prep } : {}),
+      ...(tutorial ? { tutorial: true } : {}), // M3: the guided first run (state.tutorial from START_RUN)
     },
     profile: prof,
     autoplay: false,

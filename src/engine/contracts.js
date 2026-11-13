@@ -9,7 +9,7 @@
 // REROLL_BOARD only with GATES.campReroll (off), and the camp offers only PREP_CAMP_OPTIONS (the other options keep their
 // rules but cannot be bought). D132: the offers are drawn across the run, one from each band of CONTRACT_BOARD_BANDS
 // (zones 1-2, 3-4, 5-6) while GATES.boardAcrossRun is on (the default); off, zones 1-3 (D128). Pure helpers of the state; nodes.js calls
-// them from the run flow, actions.js checks legality. Only a run created with newRun({ mapMode: 'expedition', prep: true })
+// them from the run flow, actions.js checks legality. M3 guided run (tutorial.js fixBoard): board slot 1 is fixed. Only a run created with newRun({ mapMode: 'expedition', prep: true })
 // uses it; a rows run, or an expedition run without the option, never does.
 import {
   ZONE_COUNT, ZONE_LEVELS, PREP_POINTS, PREP_POINTS_PER_QM, PREP_ECHO_PER_POINT, CONTRACT_BOARD_SIZE, CONTRACT_BOARD_BANDS,
@@ -23,6 +23,7 @@ import { validEncounter, clampCl } from './map.js';
 import { flatXp, gainXp, gainGold } from './progress.js';
 import { V, rollDrop, makeConsumable, addToBag, countConsumable } from './items.js';
 import { zoneRegions, setupExpNode, xpWeight } from './expedition.js';
+import { fixBoard } from './tutorial.js';
 
 // ---------------- Preparation points and the board (expedition.md 2.1, 2.2) ----------------
 /** Ranks of an expedition catalogue entry the profile owns (META, mapMode 'expedition'; capped at its ranks). */
@@ -147,6 +148,7 @@ export function ownedPerks(s) {
 /** PREP at START_RUN of an expedition run: the budget, the board of prep(0), nothing bought. */
 export function newPrep(s) {
   s.prep = { points: prepPoints(s.profile), board: drawBoard(s, 0), rerolls: 0, bought: [], done: false };
+  fixBoard(s); // M3 guided run (m3-onboarding.md 2.3 "Board"): slot 1 is the content's Cull; the board's draws stay
 }
 
 /** Held contracts (taken, not complete, expired or abandoned), PREP and hubs together (expedition.md 3.5). */
@@ -238,6 +240,7 @@ export function sellPrep(s, ev, id) {
 export function rerollBoard(s, ev) {
   s.prep.rerolls += 1;
   s.prep.board = drawBoard(s, s.prep.rerolls, s.prep.board.map((o) => (o.taken ? o : null)));
+  fixBoard(s);
   ev.push({ t: 'prep', what: 'reroll', k: s.prep.rerolls, left: prepLeft(s) });
 }
 

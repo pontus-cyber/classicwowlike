@@ -1249,3 +1249,51 @@ export const DEV = {
   /** debug.build: the rarity of every equipped item when none is given. */
   RARITY: 'uncommon',
 };
+
+// ---------------------------------------------------------------------------------------------
+// Part 5. M3 onboarding (docs/specs/m3-onboarding.md 12; D135, D137, D138): the guided first run (newRun option
+// `tutorial`), its rescue, beats and the first-run welcome. Only a run created with tutorial: true reads the run rules;
+// ONB_WELCOME_ECHOES is paid once per profile by the first non-dev run (meta.js). The UI-only numbers (hint pace,
+// queue, line length) are here too so the UI reads them from C.
+// ---------------------------------------------------------------------------------------------
+/** Seed of zone 1's streams map(1), node(1, id), fight(1, id, k), loot(1, id), dim(1, id, n) in a guided run (D137). */
+export const TUTORIAL_SEED = 8736;
+/** Scripted fights S1-S4 on non-site Quest or Grind nodes of the guided zone (spec 2.3). */
+export const ONB_SCRIPTED_FIGHTS = 4;
+/** Level cap of the scripted fights (spec 2.3; the node's own level below it). */
+export const ONB_SCRIPT_LEVEL_MAX = 5;
+/** Healing Draughts in S1's fixed loot (spec 2.3). */
+export const ONB_LOOT_POTIONS = 1;
+/** Gorrak's level in the guided zone: clamp(L at entry, MIN, MAX) (spec 2.3). */
+export const ONB_ELITE_LEVEL_MIN = 4;
+export const ONB_ELITE_LEVEL_MAX = 6;
+/** Tolls a rescue costs (spec 2.6). */
+export const ONB_RESCUE_TOLLS = 2;
+/** Extra wind-ups G8 stays open for after one lands (spec 2.4). */
+export const ONB_BEAT_RETRIES = 1;
+/** HP share under which G11 / H09 fire (spec 2.4, 3.2). */
+export const ONB_POTION_HP = 0.5;
+/** HP share under which H32 fires (spec 3.2; UI). */
+export const ONB_FLEE_HP = 0.25;
+/** G13 / H19: hops from every Road, and tolls until the player's node dims (spec 2.4). */
+export const ONB_BELL_HOPS = 3;
+export const ONB_BELL_DIM = 4;
+/** G12: the Dimming's front this many hops from the player's node opens the beat (spec 2.4 "within 2 hops"; engine name). */
+export const ONB_DIM_NEAR_HOPS = 2;
+/** G7: fights whose engage round shows the line ("shown once more in the next fight's round 1", spec 2.4; engine name). */
+export const ONB_ENGAGE_SHOWS = 2;
+/** UI numbers (spec 3.1-3.2, 2.5): H31's fights won, line length, time on screen, pace, queue. */
+export const ONB_AUTOPLAY_AFTER = 5;
+export const ONB_HINT_MAX_CHARS = 90;
+export const ONB_HINT_MIN_MS = 1500;
+export const ONB_HINTS_PER_FIGHT = 2;
+export const ONB_QUEUE_MAX = 2;
+/** The Bellwrights' welcome: Echoes once per profile, at the first non-dev run's summary (spec 4.2; = Packed Satchel). */
+export const ONB_WELCOME_ECHOES = 60;
+/** Target ONB1, minutes to leave the guided zone (spec 8). */
+export const ONB_GUIDE_MAX_MIN = 15;
+/** The beats in spec order (2.4) and the coach line's priority (2.5: Deathblow > wind-up > potion > engage > the rest). */
+export const ONB_BEATS = ['G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8', 'G9', 'G10', 'G11', 'G12', 'G13'];
+export const ONB_BEAT_PRIORITY = ['G9', 'G8', 'G11', 'G7', 'G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G10', 'G12', 'G13'];
+/** Profile values of `guide` (spec E6). */
+export const ONB_GUIDE_STATES = ['todo', 'done', 'skipped'];

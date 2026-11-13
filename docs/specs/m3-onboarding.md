@@ -1,6 +1,6 @@
 # M3 onboarding: guided first run, first-time hints, first-run nudge
 
-Owner: Game Designer (onboarding and systems), 2026-11-13. Status: **draft**. Nothing here is built. No rules.md, balance.md or engine-api.md text changes until the Lead accepts this spec.
+Owner: Game Designer (onboarding and systems), 2026-11-13. Status: **draft**. Section 5 E1-E8 (in the engine), 2026-11-13 (M3 3.4, engine-api.md 14; D138's gate and wind-up rule included); the UI (section 6) and QA (section 7) are not built.
 Audience: Lead, Core Gameplay Engineer, UI/UX Engineer, Content Designer, Simulation & Balance Engineer, QA.
 
 Sources: M3 scope [source: docs/MILESTONES.md M3: "a guided first run (fixed seed, zone 1: intent track, engage round, wind-ups, DoT preview, potions, the Furnace, the map), the first-loss-to-first-unlock nudge to the potion upgrade, and skippable first-time hints for every system"]; owner wishes [stated: docs/feedback/2026-11-11-1026-owner.md: "the first runs very hard", "the first win hard but not that hard", "after the first run the first Echoes, with a tutorial, nudge the player to buy the potion upgrade at once, so losing feels like a win"]; lean screens [stated: docs/feedback/2026-11-12-2019-owner.md: "strip it down, make it more easy"]; Sap not found [stated: docs/feedback/2026-11-11-0803-owner.md]; the game today [source: docs/specs/expedition.md 2-7, H; combat-v2.md 6, 16-17; rules.md 7.5, 11; engine-api.md 1, 9, 12, 13]; the hints that exist today [source: src/ui/tracks.js engage hint, `tbwcr.hints.v1`; src/ui/heat.js first-time note, `tbwcr.heatIntro.v1`; src/ui/hud.js POTION_HINT_HP pulse].
@@ -183,6 +183,7 @@ Meta v2 6.1 has the same grant (ECHO_FIRST_RUN 60) and the same Satchel highligh
 ---
 
 ## 5. What the engine must expose (Core Gameplay Engineer)
+Status: E1-E8 (in the engine), 2026-11-13: engine-api.md 14, src/engine/tutorial.js, qa/engine/s18-tutorial.test.mjs. E9's rules.md lines are not written (outside the engineer's files).
 
 | # | Need | Detail |
 |---|---|---|

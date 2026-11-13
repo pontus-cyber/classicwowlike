@@ -2,7 +2,9 @@
 // Combat v2: ENGAGE (rules 7.10) is legal and listed only in the engage round. Expedition map (rules 1.9): MOVE,
 // PASS_THROUGH, TAKE_ROAD and RING_BELL replace CHOOSE_NODE and TRAVEL_ON, and every action ends with the settle step.
 // Start camp and contracts (prep, expedition.md 1-3): TAKE_CONTRACT, DROP_CONTRACT, BUY_PREP, SELL_PREP, REROLL_BOARD and
-// SET_OUT in phase PREP; TAKE_HUB_CONTRACT in a hub before LEAVE_HUB; USE_SPYGLASS on the map.
+// SET_OUT in phase PREP; TAKE_HUB_CONTRACT in a hub before LEAVE_HUB; USE_SPYGLASS on the map. M3 guided run
+// (m3-onboarding.md 2.2, 2.3, E4; tutorial.js): SKIP_GUIDE (in any phase, fights and the loot window included), MOVE and
+// PASS_THROUGH refused onto a barred node (Gorrak's, D138), and the guided run's bookkeeping after every action.
 import {
   CLASS, CLASS_IDS, PET, SPELL, TALENT, TALENT_TIER_GATE, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, CONSUMABLE, OATH_IDS,
   SLOT_IDS, ENGAGE_OPTION, ENGAGE_OPTIONS, PREP_OPTION_IDS,
@@ -29,9 +31,10 @@ import {
 import { isExpedition, grindMaxWaves, dimmedNow } from './expedition.js';
 import { summary } from './summary.js';
 import { applyRunToProfile } from './meta.js';
+import { skipGuideError, skipGuide, tutorialAfter } from './tutorial.js';
 
 const OOC = new Set(['EQUIP', 'UNEQUIP', 'DISCARD', 'USE_ITEM', 'SET_BAR', 'SET_ITEM_BAR', 'SPEND_TALENT']);
-const LOOT_OK = new Set(['LOOT_TAKE', 'LOOT_DROP', 'SET_AUTOPLAY', ...OOC]);
+const LOOT_OK = new Set(['LOOT_TAKE', 'LOOT_DROP', 'SET_AUTOPLAY', 'SKIP_GUIDE', ...OOC]);
 const COMBAT = new Set(['CAST', 'ATTACK', 'USE_ITEM', 'FLEE', 'PASS', 'ENGAGE']);
 export const NAME_MAX = 24;
 
@@ -95,6 +98,8 @@ const A = {
     check: (s, a) => (typeof a.on !== 'boolean' ? 'on must be true or false' : null),
     apply: (s, ev, a) => { s.autoplay = a.on; ev.push({ t: 'autoplay', on: a.on }); },
   },
+  // M3 guided run (m3-onboarding.md 2.2, E4): any phase of a guided run until the guide ends; no other change.
+  SKIP_GUIDE: { check: (s) => skipGuideError(s), apply: (s, ev) => skipGuide(s, ev) },
   // ---------------- Hub, camp, services ----------------
   SERVICE: {
     check: (s, a) => (!['ZONE_HUB', 'CAMP'].includes(s.phase) || s.fight ? 'services are in the hub or camp' : s.service ? 'a service is already open'
@@ -200,11 +205,11 @@ const A = {
   },
   // ---------------- Expedition map (rules 1.9) ----------------
   MOVE: {
-    check: (s, a) => expMapGate(s) || stepGate(s, a.nodeId),
+    check: (s, a) => expMapGate(s) || stepGate(s, a.nodeId) || barredGate(s, a.nodeId),
     apply: (s, ev, a) => moveTo(s, ev, a.nodeId),
   },
   PASS_THROUGH: {
-    check: (s, a) => expMapGate(s) || stepGate(s, a.nodeId)
+    check: (s, a) => expMapGate(s) || stepGate(s, a.nodeId) || barredGate(s, a.nodeId)
       || (!canEnter(s, a.nodeId) ? `node ${a.nodeId} is resolved, the hub or Dimmed: MOVE walks there` : null),
     apply: (s, ev, a) => passThrough(s, ev, a.nodeId),
   },
@@ -432,6 +437,9 @@ function stepGate(s, id) {
   return s.zone.nodes[s.zone.pos].nb.includes(id) ? null : `node ${id} is not next to node ${s.zone.pos}`;
 }
 
+/** M3 guided run (D138): Gorrak's node is closed until the gate's script has ended (tutorial.js refreshOverlay). */
+const barredGate = (s, id) => (s.zone.nodes[id].barred ? `node ${id} is closed for now (the guide opens it after its fights)` : null);
+
 function combatGate(s, a) {
   if (!s.fight) return 'not in a fight';
   if (s.fight.p.skip && a.type !== 'PASS') return 'your action is skipped this round (PASS)';
@@ -449,7 +457,7 @@ export function checkAction(s, a) {
   const def = A[a.type];
   if (!def) return `unknown action type "${a.type}"`;
   if (s.phase === 'ENDED') return 'the run has ended';
-  if (s.fight && !COMBAT.has(a.type) && a.type !== 'SET_AUTOPLAY') return `${a.type} is not allowed during a fight`;
+  if (s.fight && !COMBAT.has(a.type) && a.type !== 'SET_AUTOPLAY' && a.type !== 'SKIP_GUIDE') return `${a.type} is not allowed during a fight`;
   if (!s.fight && lootOpen(s) && !LOOT_OK.has(a.type)) return 'resolve the loot window first (LOOT_TAKE, LOOT_DROP, DISCARD or EQUIP)';
   if (OOC.has(a.type) && a.type !== 'USE_ITEM' && !oocAllowed(s)) return `${a.type} is only allowed out of combat`;
   return def.check(s, a) || null;
@@ -459,6 +467,7 @@ export function applyAction(s, ev, a) {
   A[a.type].apply(s, ev, a);
   // Expedition (rules 1.9.6, 1.9.7): the Dimming check and the Bell's arrival once the player is free again.
   if (isExpedition(s)) settleExpedition(s, ev);
+  if (s.tutorial) tutorialAfter(s, ev, a); // M3 guided run: the overlay, the beats, the end of the guide
 }
 
 /** Every concrete legal action. SET_NAME and SET_SEED take free values and are not listed. */
@@ -573,6 +582,7 @@ export function legalActions(s) {
     }
     for (const id of Object.keys(TALENT)) if (TALENT[id].cls === p.classId) push({ type: 'SPEND_TALENT', talentId: id });
   }
+  push({ type: 'SKIP_GUIDE' }); // M3: legal only in a guided run before the guide ends
   push({ type: 'SET_AUTOPLAY', on: !s.autoplay });
   return out;
 }

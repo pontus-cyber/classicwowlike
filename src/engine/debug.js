@@ -8,6 +8,7 @@
 //   killTarget(s, idx), refill(s), setGod(s, on), give(s, {gold, potions, talentPoints})
 //   setTime(s, time), setHeat(s, state), revealMap(s), setMapMode(s, mode)       (time in whole tolls, M2b v7)
 //   grantEchoes(profile, n), fullCatalogue(profile), setProfile(s, profile)      the meta profile
+//   resetOnboarding(profile)          M3 (m3-onboarding.md E8): guide 'todo', welcome false (the UI also clears tbwcr.hints.v2)
 //   enemies(content)                  every enemy template with its zone and kind (the Dev menu's list)
 //   validate(s, {steps})              the state checks every helper's result passes (string[]; empty = valid)
 //
@@ -38,7 +39,7 @@ import { refreshTrack } from './track.js';
 import { lineAt, newHeatStats } from './heat.js';
 import { isExpedition, MAP_MODES } from './expedition.js';
 import { zoneContent } from './content.js';
-import { newProfile } from './meta.js';
+import { newProfile, migrateProfile } from './meta.js';
 
 const RUN_PHASES = ['ZONE_HUB', 'MAP', 'NODE', 'CAMP', 'BOSS'];
 const PHASES = ['CREATE', 'PREP', ...RUN_PHASES, 'SUMMARY', 'ENDED'];
@@ -460,6 +461,17 @@ export function createDebug(api) {
     return p;
   }
 
+  /**
+   * M3 (m3-onboarding.md 2.2, E8): the profile as before its first run for onboarding: guide 'todo' (the next run is
+   * offered guided), welcome false (the next non-dev run's summary pays it). Unlocks, Echoes and runs stay.
+   */
+  function resetOnboarding(profile) {
+    const p = migrateProfile(profile || newProfile());
+    p.guide = 'todo';
+    p.welcome = false;
+    return p;
+  }
+
   /** The profile with every catalogue entry at its highest rank (rules 11.2; no Echoes spent). */
   function fullCatalogue(profile) {
     const p = deepClone(profile || newProfile());
@@ -614,6 +626,6 @@ export function createDebug(api) {
 
   return Object.freeze({
     build, toCamp, toBoss, nextZone, encounter, killTarget, refill, setGod, give, setTime, setHeat, revealMap, setMapMode,
-    grantEchoes, fullCatalogue, setProfile, enemies, validate,
+    grantEchoes, fullCatalogue, setProfile, resetOnboarding, enemies, validate,
   });
 }

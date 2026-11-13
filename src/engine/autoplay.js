@@ -468,7 +468,7 @@ function escapeRoute(s, from, zt) {
     if (u < 0) break;
     done[u] = true;
     for (const v of zone.nodes[u].nb) {
-      if (done[v]) continue;
+      if (done[v] || zone.nodes[v].barred) continue; // M3: a barred node (Gorrak's in a guided run, D138) is closed
       const t0 = zt + lab[u].h;
       let h = lab[u].h + TIME_WALK;
       const dim = dimmedAt(zone, v, zt + h);
@@ -500,7 +500,7 @@ function expSafe(s, id, zt) {
 function expScore(s, id, zt) {
   const zone = s.zone;
   const n = zone.nodes[id];
-  if (!zone.seen[id] || n.done || n.ring === 0 || dimmedAt(zone, id, zt)) return null;
+  if (!zone.seen[id] || n.done || n.ring === 0 || n.barred || dimmedAt(zone, id, zt)) return null;
   const sc = nodeScore(s, n);
   if (sc <= EA.AUTO_NODE_SCORE.risky) return null;
   return expSafe(s, id, zt + nodeTime(s, n.type)) ? sc : null;
@@ -523,7 +523,7 @@ function exploreStep(s, zt) {
   for (let i = 0; i < q.length; i++) {
     const u = q[i];
     for (const v of zone.nodes[u].nb) {
-      if (dist[v] >= 0 || dimmedAt(zone, v, zt + (dist[u] + 1) * TIME_WALK)) continue;
+      if (dist[v] >= 0 || zone.nodes[v].barred || dimmedAt(zone, v, zt + (dist[u] + 1) * TIME_WALK)) continue;
       dist[v] = dist[u] + 1;
       prev[v] = u;
       q.push(v);

@@ -51,7 +51,11 @@ rows 1, 2 and 4, D123-D125: the Swift passage of a Road (rules 1.9.7: the `swift
 `debug.nextZone` without the Swift passage; marked "(M2b v15)"; D126: `C.GATES.mawgrimHp` and content `gated` removed,
 Mawgrim's hpMult 0.95 is its content value); 2026-11-12e (D132: the start camp's board drawn across the run,
 `C.CONTRACT_BOARD_BANDS` and the switch `C.GATES.boardAcrossRun`, on; section 13.1; marked "(D132)"); 2026-11-13 (D133:
-autoplay's start camp buys the Ember of Return first, the switch `C.GATES.autoEmberFirst`, on; section 13.4; marked "(D133)").
+autoplay's start camp buys the Ember of Return first, the switch `C.GATES.autoEmberFirst`, on; section 13.4; marked "(D133)");
+2026-11-13b (M3 3.4, docs/specs/m3-onboarding.md 5 E1-E8, D135, D137, D138: `newRun`'s `tutorial` option, the guided first run on
+TUTORIAL_SEED with the overlay of CONTENT.tutorial, the rescue, `SKIP_GUIDE`, the beats and `tutorialView`, the profile's `guide`
+and `welcome` with `migrateProfile` and `setGuide`, the Echo line `welcome`, the summary's `tutorial` block, `debug.resetOnboarding`;
+section 14; marked "(M3)"; runs without the option are unchanged, checked run for run in qa/engine/s18).
 Units: every time value of the API is a whole number of tolls (1 toll = 1 former in-game hour, D69); there are no hours.
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
@@ -74,7 +78,7 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 
 | Function | Returns | Notes |
 |---|---|---|
-| `newRun({classId, petId, name, seed, profile, content, mapMode, vision, dimming, prep})` | state (phase CREATE) | All fields but `content` optional. `seed`: integer, normalised to uint32; the front end draws a random seed (the engine never does). `profile`: meta profile (`newProfile()` if omitted). `content` is validated (structural) and deep-frozen. (expedition) `mapMode`: `'expedition'` (rules 1.9, section 10; the default since D116) or `'rows'` (the classic map, rules 1.4; an option for the simulator and the Dev menu); `state.mapMode` keeps it. `vision`: expedition only, `{ guide, charts, pathfinder }` booleans (Local Guide, Region Charts, Pathfinder, rules 1.9.5); a test and measurement option beside the start camp and the catalogue, which give them too (M2b v11). `dimming` (D50): expedition only, `false` plays the run without the Dimming (rules 1.9.6; a measurement option for B44), default `true`. (prep) `prep`: expedition only, `true` starts the run at the start camp (phase PREP) and plays contracts (section 13); (D116) left out, it is `true` on the expedition map (the default since D116) and off on the rows map; `false` plays the expedition map exactly as before task 2b.5; `true` with `mapMode: 'rows'` throws. Throws on invalid content/class/pet/mapMode/vision/dimming/prep. |
+| `newRun({classId, petId, name, seed, profile, content, mapMode, vision, dimming, prep, tutorial})` | state (phase CREATE) | All fields but `content` optional. `seed`: integer, normalised to uint32; the front end draws a random seed (the engine never does). `profile`: meta profile (`newProfile()` if omitted). `content` is validated (structural) and deep-frozen. (expedition) `mapMode`: `'expedition'` (rules 1.9, section 10; the default since D116) or `'rows'` (the classic map, rules 1.4; an option for the simulator and the Dev menu); `state.mapMode` keeps it. `vision`: expedition only, `{ guide, charts, pathfinder }` booleans (Local Guide, Region Charts, Pathfinder, rules 1.9.5); a test and measurement option beside the start camp and the catalogue, which give them too (M2b v11). `dimming` (D50): expedition only, `false` plays the run without the Dimming (rules 1.9.6; a measurement option for B44), default `true`. (prep) `prep`: expedition only, `true` starts the run at the start camp (phase PREP) and plays contracts (section 13); (D116) left out, it is `true` on the expedition map (the default since D116) and off on the rows map; `false` plays the expedition map exactly as before task 2b.5; `true` with `mapMode: 'rows'` throws. (M3) `tutorial`: `true` plays the guided first run (section 14; the expedition map with the start camp only, and CONTENT.tutorial is needed; else it throws), default `false`. (M3) The profile is read through `migrateProfile` (it gains `guide` and `welcome`). Throws on invalid content/class/pet/mapMode/vision/dimming/prep/tutorial. |
 | `legalActions(state)` | action[] | Every concrete legal action. `SET_NAME` and `SET_SEED` take free values and are not listed (they are legal in CREATE). |
 | `step(state, action)` | `{ state, events }` | Pure: the input is never changed. Throws `IllegalActionError` (`err.code === 'ILLEGAL_ACTION'`, message names the reason) on an illegal action. |
 | `stepInPlace(state, action)` | events | Same, but changes `state` in place (no copy). For simulators that own their state. |
@@ -84,6 +88,8 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 | `serialize(state)` / `deserialize(str, content)` | string / state | The content tables are not saved; pass the same `CONTENT` (version is checked). |
 | `mapView(state)` | object or null | What the player may see of the zone map (rules 1.4). Rare elites, traps and vendor Embers are `null` unless the profile owns Scout's Eye. Use this, not `state.zone.rows`, to draw the map. Fight nodes list one archetype per enemy: quest and elite `archetypes`, grind `archetypes` (first wave), treasure `archetypes` (the guard; `[]` unguarded, combat v2), dungeon `fights` (one archetype list per trash fight) and `bossArchetype` (combat v2). (M2b v13) Elite nodes add `deathblow` (M2b v14: `{ type }` only while the name is hidden: a rare without Scout's Eye) and dungeon nodes `bossDeathblow` (section 6.2). (expedition) In an expedition run: the zone graph as the player sees it (section 10.3). null outside a zone. |
 | `validateContent(content, {strict})` | string[] | Content checks (src/content/SCHEMA.md). |
+| `migrateProfile(profile)`, `setGuide(profile, value)` | profile | (M3, section 14.5) A stored profile with `guide` and `welcome` (a profile without them and `runs > 0` loads as `'done'` and `true`, else `'todo'` and `false`); `setGuide` sets `guide` (`'todo'`, `'done'`, `'skipped'`; class select and Settings), throws `IllegalActionError` on another value. Pure. Call `migrateProfile` when the profile is loaded |
+| `tutorialView(state)` | object or null | (M3) The guided first run for the UI (section 14.3); null in any other run and before START_RUN. Pure and cheap |
 | `newProfile()`, `metaOffers(profile)`, `buyMeta(profile, id)` | profile / offers / profile | Meta catalogue between runs (rules 11.2). `buyMeta` throws `IllegalActionError` when not allowed. (M2b v11) The expedition entries are offered and bought as any entry; read `C.META[id].mapMode` (`'expedition'`: no effect on the rows map) and `C.META[id].expedition` (Scout's Eye, Swift Boots: the effect in an expedition run) to label them. |
 | `xpToNext(L)`, `talentPointsFree(state)`, `itemScore(item, classId)`, `spellCost(state, id)`, `spellCooldown(state, id)`, `fleeChance(state)` | number | Display helpers so the UI never re-implements a rule. |
 | `bagCapacity(state)` | number | Bag slots: `BAG_SLOTS` + meta Deeper Pockets (rules 8.7, 11.2). In CREATE it reads the profile. |
@@ -194,6 +200,7 @@ Every action is `{ type, ...fields }`. Indices are 0-based. Enemy targets are in
 | `SET_OUT` | | (prep) PREP: purchases take effect, the points left become Reserve, then zone 1's hub (phase ZONE_HUB) |
 | `TAKE_HUB_CONTRACT` | `mode` (`reserve` or `swap`), `contractId` (swap: a held contract's id; ignored with `reserve`) | (prep) ZONE_HUB of zones 2-6, no service open, before the zone's first `LEAVE_HUB`, its offer not taken. reserve: its price from Reserve and a free slot; swap: abandons that contract (no refund, progress lost), free. (M2b v10: `TAKE_HUB_CONTRACT(mode, contractId)` confirmed, D90; expedition.md 1, 3.6) |
 | `USE_SPYGLASS` | `nodeId` (any node of the zone) | (prep) MAP of an expedition zone, a Spyglass charge left: 0 tolls, the node and its neighbours are seen |
+| `SKIP_GUIDE` | | (M3) a guided run (newRun `tutorial`) whose guide is neither skipped nor ended, in any phase (a fight and the loot window too): the guide stops (section 14.2) |
 | `ENGAGE` | `option`, `target` (enemy index or null), `spellId` (Pre-cast only) | (combat v2) the engage round only (rules 7.10), so once per fight; `option` one of the class's `C.ENGAGE_OPTIONS[classId]`; target rules in `engageOptions(state)` (control options: on an enemy immune to control only as Disrupt, while its track shows a wind-up in turns 1..INTENT_TRACK_LEN, combat v2.1; Send the Pet: a live pet). Key order as listed: `{ type, option, target }`, Pre-cast `{ type, option, spellId, target }` |
 
 One combat action resolves one full round (rules 7.1): player action, pet, enemies in index order, end of
@@ -247,7 +254,10 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `zone`, `camp`, `travel` | `z, name` / `name` / `from` | zone hub entered / camp / TRAVEL_ON. (expedition) `travel` adds `by` (`road` or `bell`), `node` and `road` (D51: the Road's content name, null by the Bell or without names) |
 | `time` | `add, total, why` | tolls spent (M2b v7: was the `hours` event) |
 | `node`, `nodeDone`, `quest` | `type, r, l, cl, heat` / ... / `quest` | node entered / completed / quest template id. (expedition) `node`: `type, id, ring, cl, heat`; `nodeDone`: `type, id`. (heat) `heat`: the node's entry state (rules 1.7.3) |
-| `move` | `from, to, via, seen` | (expedition) a step: `via` `enter`, `walk` or `pass`; `seen` = node ids newly in view |
+| `move` | `from, to, via, seen` | (expedition) a step: `via` `enter`, `walk` or `pass`; `seen` = node ids newly in view. (M3) `via: 'rescue'`: a rescue's way back (section 14.2) |
+| `rescue` | `tolls, node, to, hp, mana` | (M3) a death in the guided zone is a rescue (section 14.2), sent at the killing blow instead of the player's `death`: the player goes from node `node` back to node `to` (the same node after a Dimmed encounter) with `hp` and `mana` (full; track HP with `= hp`), `tolls` (ONB_RESCUE_TOLLS) follow as a `time` event with `why: 'rescue'`. No `victory` or `fled` event |
+| `beat` | `id, what, line` | (M3) a beat of the guided run (section 14.4): `what` `open` (its trigger; `line` = the coach line id), `line` (its line changed; null = open, waiting for its moment), `done` (learned), `missed` (its moment passed), `skip` (G10 without a contract) |
+| `guideSkipped`, `guideEnd` | | (M3) SKIP_GUIDE; zone 1 of a guided run was left (the guide's end toast) |
 | `dimming` | `front, dimmed` | (expedition) the Dimming's front advanced; `dimmed` = node ids it newly covers (M2b v12: the zone's Dungeon too, by its hops; M2b v10's DUNGEON_DIM_HOLD removed; no event then) |
 | `dim` | `id, depth, level, k` | (expedition) a Dimmed encounter starts at node `id` (its `fight` event follows, `kind: 'dim'`) |
 | `bell` | `charges, node` | (expedition) RING_BELL: the channel starts (`charges` left) |
@@ -518,7 +528,7 @@ every decision or replaces the out-of-combat part with its bots.
 
 ## 9. Meta profile
 `profile = { v, echoes, earned, spent, unlocks: {id: rank}, reachedBoss, bossKills, firstKill: {rogue, mage,
-hunter}, runs }`. Unlocks apply at START_RUN (rules 11.4). `END_RUN` puts the updated profile in
+hunter}, runs, guide, welcome }` ((M3) `guide` and `welcome`, section 14.5). Unlocks apply at START_RUN (rules 11.4). `END_RUN` puts the updated profile in
 `state.result.profile`; the front end stores it. Buy between runs with `buyMeta(profile, id)`.
 
 Catalogue numbers (ranks, costs per rank, effect per rank such as `C.META.vigor.hpPct`) are in `C.META`; show
@@ -731,6 +741,7 @@ would have earned); `END_RUN` returns the profile as it was (no Echoes, no run c
 | `revealMap(state)` | `{ state, events }` | Expedition: every node of the zone seen (`know: 'full'`). Today's map hides only rare elites, traps and vendor Embers: Scout's Eye is on for the rest of the run (`state.meta.scout`). Throws at the Camp |
 | `setMapMode(state, mode)` | `{ state, events }` | Play on with the other map: the current zone is drawn again in that mode and the player is at its hub (services again; its heat record stays); at the Camp only the mode changes. An expedition starts without vision unlocks, with the Dimming and BELL_START_CHARGES. The same mode changes nothing |
 | `grantEchoes(profile, n)` | profile | n more Echoes to spend (not counted in `earned`) |
+| `resetOnboarding(profile)` | profile | (M3, m3-onboarding.md E8) `guide` `'todo'`, `welcome` false; unlocks, Echoes and runs stay. The Dev menu's "Reset onboarding" also clears the UI's `tbwcr.hints.v2` |
 | `fullCatalogue(profile)` | profile | Every `C.META` entry at its highest rank (no Echoes spent) |
 | `setProfile(state, profile)` | `{ state, events }` | The state with another profile: in CREATE the one START_RUN reads (pets, Oaths, unlocks); in a run the one END_RUN updates (the run's `state.meta` stays as START_RUN made it). Not after ENDED |
 | `enemies(content)` | `[{ id, name, kind, archetype, family, zone }]` | Every enemy template once, with its home zone (the first zone that lists it; null if none) |
@@ -846,3 +857,87 @@ offer, and the middle offer only when it is zone 3; unchanged by D132) (a Delve 
 points stay, then (D133) Field Draughts when AUTO_PREP_RESERVE points still stay after them; with the switch off, the order
 before D133: Field Draughts first, then the contracts, no Ember; the hub contract from Reserve when it can; its map policy
 does not seek sites.
+
+## 14. The guided first run (M3; docs/specs/m3-onboarding.md 2, 4.2, 5 E1-E8; D135, D137, D138)
+`newRun({ tutorial: true })` (the expedition map with the start camp; `src/engine/tutorial.js`) plays the profile's guided first
+run. Zones 2-6 and everything after the guide are the normal rules. A run without the option is unchanged run for run
+(qa/engine/s18 golden check). The balance bots never set it. Numbers: `C.TUTORIAL_SEED` and `C.ONB_*` (m3-onboarding.md 12).
+
+### 14.1 Seed and overlay (E1, E2)
+- `state.tutorial = { on, skipped, ended, rescues, script, sites, beats }` from START_RUN (`script`: scripted fights ended;
+  `sites`: Cull site fights started; `beats`: engine bookkeeping, read `tutorialView`). `create.tutorial` is true.
+- Zone 1's streams `map(1)`, `node(1, id)`, `fight(1, id, k)`, `loot(1, id)`, `dim(1, id, n)` and the hub vendor take
+  `C.TUTORIAL_SEED` (8736, D137) in place of the run seed (`expedition.js zoneSeed`), skipped or not, so every guided run
+  gets the same zone 1 (Cull sites 1, 4, 7; Gorrak on node 18; Roads 23, 27, 19; Shardfall 25). Item names keep the run seed.
+- Board slot `CONTENT.tutorial.board.slot` (1) is the content's contract (a Cull of `wild` in region `z1_wilds`, zone 1)
+  after the board's own draws, so slots 2-3 are those of the run seed; a reroll keeps it.
+- Gorrak: the Elite node nearest the hub (ties: lowest id) holds `elite.enemy`, alone unless `elite.add`, never the rare
+  unless `elite.rare`, at `clamp(L, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX)` (the map's elite `level` follows L).
+- Gate (D138): while the guide runs, his node is barred until script `elite.gate.afterScript` (`s4`) has ended (won, fled
+  or rescued): `MOVE` and `PASS_THROUGH` onto it are illegal, `mapView` marks the node and its move `barred: true`, the
+  autoplay map policy treats it as closed. SKIP_GUIDE (and leaving zone 1) opens it.
+- Scripts and sites: every unresolved Quest and Grind node of zone 1 plays its role, laid on its encounter after every
+  action (so `mapView` shows it): a node with a held contract's site plays `siteFights[min(sites, last)]` at the node's level;
+  any other plays the next script `scripts[script]` (S1-S4, ONB_SCRIPTED_FIGHTS) at `min(its level, ONB_SCRIPT_LEVEL_MAX)`
+  (its `cl` too); once the scripts are used up, its own encounter. A Grind plays it as its only wave. `fight.tut = { kind
+  ('script' | 'site'), i, id }`. A scripted fight's end (any outcome) advances `script`.
+- Wind-ups (D138): in an overlay fight only enemies with `windup: true` play their turn-2 scripted action as a wind-up (the
+  first-meeting mechanism, any fight kind; S4's Scarecrow Hexer: Hex Bolt); every other quest fight of the guided zone has
+  no first-meeting wind-up. Elite, rare and dungeon-boss wind-ups and Deathblows are unchanged.
+- S1's loot (`scripts[0].loot`), on a win, replaces its drops: one item of rarity `loot.upgrade` for the class's weakest slot
+  by `itemScore` (fixed stats as starting gear, ilvl = the node's level + the rarity's bonus; an upgrade), and
+  ONB_LOOT_POTIONS of `loot.consumable`.
+- `validateContent` checks the table (content.js `validateTutorial`): seed = C.TUTORIAL_SEED, board kind / zone / region id /
+  family, site fights and exactly ONB_SCRIPTED_FIGHTS scripts of the zone's normals, `windup` booleans, the loot's rarity and
+  consumable, the elite among the zone's elites with its Deathblow among its abilities, `gate.afterScript` a script id, 13
+  beats G1-G13 and 37 hints H01-H37 in order.
+
+### 14.2 Rescue and SKIP_GUIDE (E3, E4)
+- The guided zone: zone 1 while the guide is neither skipped nor ended. A death there (not the Camp or the end boss, which
+  zone 1 never has) is a rescue, before any resurrect source: event `rescue`, the fight ends (no `victory` or `fled`), the
+  player goes back to the node it came from (`zone.path`; after a Dimmed encounter or a dev fight: the same node) with full
+  HP and mana and a living pet at full HP, the node stays unresolved, ONB_RESCUE_TOLLS tolls (`time` `why: 'rescue'`; the
+  Dimming moves, and the settle step may start a Dimmed encounter), `tutorial.rescues` + 1. Back on the hub out of the
+  Dimming it is a hub visit (phase ZONE_HUB). No limit.
+- `SKIP_GUIDE`: `tutorial.skipped`; open beats close as missed; event `guideSkipped`; no rescue from then on; Gorrak's node
+  opens; the zone, its streams and its overlay stay. Refused after the guide has ended (an engine choice; spec E4 says "while
+  not skipped").
+- Leaving zone 1 (a Road or the Bell; after a dev jump, at the next action) ends the guide: `tutorial.ended`, event `guideEnd`.
+
+### 14.3 `tutorialView(state)` (E5)
+```
+{ on, skipped, ended, guidedZone, script, scripts (ONB_SCRIPTED_FIGHTS), next (the next script id or null), sites,
+  eliteNodeId, elite: { node, enemy, level, barred, afterScript, left (scripted fights until the node opens) } (null outside zone 1),
+  rescues, rescueTolls (ONB_RESCUE_TOLLS),
+  beat, line (the open beat with a line, by C.ONB_BEAT_PRIORITY; null when none or the guide is off),
+  open: [{ id, line }] (by priority), done: [ids closed], learned: [ids learned], skippedBeats: [ids] }
+```
+
+### 14.4 Beats (spec 2.4; content `beats`)
+The engine opens and closes G1-G13 from the action, its events and the state, while the guide runs; the UI shows `line`
+(content: `<id>` = the beat's `line`, `<id>.<key>` = `alt[key]` or `byClass[key]`) and adds its own queue, pace and "Got it".
+| Beat | Opens (line) | Closes |
+|---|---|---|
+| G1 | START_RUN (`G1`) | SET_OUT: learned with a contract held; else missed and G10 `skip` (the "press again" line `G1.noContract` is the UI's) |
+| G2 | first MAP at zone 1's hub | learned on MOVE or PASS_THROUGH |
+| G3 | the first fight's round 1; again at the next fight while open | learned on a won fight; a rescue or flight leaves it open (line null) |
+| G4 | the first gear loot in the guided zone | learned on EQUIP; missed when the next fight ends |
+| G5 | the first map step after G4's | learned on the next map action (MOVE, PASS_THROUGH, TAKE_ROAD, RING_BELL, USE_SPYGLASS) |
+| G6 | the first fight with a heavy or cast entry on a track | at its end: learned if a heavy cost 0 HP (`offBalance` `avoided`), else missed (hovering is the UI's) |
+| G7 | the first engage fight with 2 or more enemies | learned on ENGAGE; shown again at the next engage fight (ONB_ENGAGE_SHOWS), then missed |
+| G8 | the first fight with a non-Deathblow wind-up | learned on its `stagger`; landed: `G8.landed`, open for ONB_BEAT_RETRIES more, then missed |
+| G9 | the first fight with a Deathblow (`G9.<class>`) | learned on a Deathblow's `stagger`; landed: `G9.landed`, the class line again at the next Deathblow fight |
+| G10 | a held contract's site seen (`G10`) | first site won: line null; complete: `G10.done`; learned at the CHOOSE_REWARD that takes its reward |
+| G11 | in a fight, HP < ONB_POTION_HP of max with a healing potion on the item bar | learned on USE_ITEM of it; missed when the fight ends |
+| G12 | the first node dims, or the front within ONB_DIM_NEAR_HOPS of the player | `G12.caught` at a Dimmed encounter; at the guide's end learned if zone 1 had none |
+| G13 | on the map: on a Road (`G13.onRoad`), or ONB_BELL_HOPS+ hops from every Road with the node dimming within ONB_BELL_DIM tolls (`G13`) | learned on TAKE_ROAD or RING_BELL |
+Beats still open when the guide ends close (G12, G13 as above; the rest missed); SKIP_GUIDE closes them as missed.
+
+### 14.5 Profile, welcome and summary (E6, E7)
+- `profile.guide`: `'todo'` (new profiles), `'done'` or `'skipped'`: END_RUN of a guided run sets `'done'`, or `'skipped'`
+  after SKIP_GUIDE. `profile.welcome`: false in `newProfile()`; END_RUN of every non-dev run sets it.
+- The Bellwrights' welcome: while the profile's welcome is due, the summary has the Echo line `welcome` (count 1, each
+  ONB_WELCOME_ECHOES = Packed Satchel's price, so the Satchel is affordable after the first run). A dev run pays nothing and
+  leaves the profile as it was. A profile saved before M3 with `runs > 0` loads with the welcome had (`migrateProfile`).
+- The summary of a guided run has `tutorial: { rescues, skipped, learned }`.
+- Not in the engine (spec 3.1, U2): the first-time hints' seen ids and Hints On / Off (`tbwcr.hints.v2`, the UI's).

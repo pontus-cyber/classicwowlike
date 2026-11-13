@@ -5,6 +5,7 @@
 // Expedition (rules 1.9.6, 1.9.8): Shardspawn kill rewards, the XP weight, the kill loot weight and dungeon boss rolls
 // (M2b v11), the death location by node id.
 // Dev tools (engine-api.md 12): god mode (state.dev.god) stops all damage to the player in a dev run.
+// M3 guided run (m3-onboarding.md 2.6, E3): in the guided zone a death is a rescue (tutorial.js; nodes.js rescueEnd).
 // Units: 'player', 'pet', or an enemy index (number) into s.fight.enemies.
 import {
   LVL_DMG_STEP, LVL_DMG_MIN, LVL_DMG_MAX, MISS_BASE, MISS_PER_LEVEL, MISS_CAP, DMG_VARIANCE, ENEMY_CRIT,
@@ -14,7 +15,7 @@ import {
   ELITE_XP_MULT, RARE_XP_MULT, DUNGEON_BOSS_XP_MULT, DUNGEON_MOB_XP_MULT, MOB_COIN_V, ELITE_GOLD_V,
   EMBER_ELITE_DROP_CHANCE, UNIQUE_HEAL_ON_KILL, ABILITY_TEMPLATE, DODGE_CAP, SPELL,
   SHARD_AOE_TAKEN, OFFBAL_TAKEN, OFFBAL_BOSS_TAKEN, OFFBAL_CRIT, BLOODLUST_STEP, BLOODLUST_MAX, DIM_XP_MULT,
-  EMPOWER_DMG, STAGGER_DMG, DEATHBLOW_EMPOWER, MAIM_HEAL,
+  EMPOWER_DMG, STAGGER_DMG, DEATHBLOW_EMPOWER, MAIM_HEAL, ONB_RESCUE_TOLLS,
 } from '../constants.js';
 import { nextFloat } from '../rng.js';
 import { rnd, clamp } from './util.js';
@@ -23,6 +24,7 @@ import { eventXp, gainXp, gainGold } from './progress.js';
 import { rollDrop, V, makeConsumable, countConsumable, takeConsumable } from './items.js';
 import { onBossDamaged } from './boss.js';
 import { xpWeight, isExpedition, killDropMult, bossDropRolls } from './expedition.js';
+import { rescueCovers, rescueTarget } from './tutorial.js';
 
 // ---------------- Units ----------------
 export function unitSt(s, u) {
@@ -709,6 +711,13 @@ export function resurrectOrder(s, endBoss) {
 function playerDeath(s, ev, killer, spell) {
   const f = s.fight;
   const p = s.player;
+  // M3 guided run (m3-onboarding.md 2.6, E3): in the guided zone a death is a rescue, before any resurrect charge.
+  if (rescueCovers(s)) {
+    f.over = 'rescue';
+    const r = rescueTarget(s);
+    ev.push({ t: 'rescue', tolls: ONB_RESCUE_TOLLS, node: r.node, to: r.to, hp: p.d.maxHp, mana: p.d.maxMana });
+    return;
+  }
   // In the end-boss fight Second Breath is skipped; it stays unused (M2 v3).
   const source = resurrectOrder(s, f.kind === 'boss')[0] || null;
   if (source === 'boon') p.res.boon -= 1;

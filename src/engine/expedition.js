@@ -20,7 +20,7 @@ import {
   VISION_RADIUS_MAX, GUIDE_RADIUS_BONUS, PATHFINDER_RADIUS, DIM_GRACE, DIM_FRONT_HOPS, DIM_FRONT_TIME, TIME_DIM_FIGHT, TIME_DIM_ESCAPE, BELL_CHANNEL_TIME,
   XP_WEIGHT_MULT, EXPED_GRIND_MAX_WAVES, EXPED_DUNGEON_TRASH_FIGHTS, EXPED_TIME_QUEST, EXPED_TIME_ELITE,
   EXPED_TIME_GRIND_WAVE, EXPED_TIME_DUNGEON, EXPEDITION_TEXT_IDS, EXPED_DROP_MULT, EXPED_DUNGEON_BOSS_DROPS, DUNGEON_BOSS_DROPS,
-  ROAD_SWIFT_TOLLS, ROAD_SWIFT_XP_FRAC, GATES,
+  ROAD_SWIFT_TOLLS, ROAD_SWIFT_XP_FRAC, GATES, TUTORIAL_SEED,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt, weightedIndex } from '../rng.js';
 import { rnd } from './util.js';
@@ -33,6 +33,11 @@ import { composeEncounter, vendorStock, dungeonLevels, clampCl, pickFrom } from 
 /** Map modes of newRun: 'rows' (rules 1.4, the default until the switch-over) and 'expedition' (rules 1.9). */
 export const MAP_MODES = ['rows', 'expedition'];
 export const isExpedition = (s) => s.mapMode === 'expedition';
+/**
+ * Seed of zone z's streams map(z), node(z, id), fight(z, id, k), loot(z, id), dim(z, id, n) and the hub vendor: TUTORIAL_SEED
+ * in zone 1 of a guided run (docs/specs/m3-onboarding.md 2.3, E1; tutorial.js), else the run seed.
+ */
+export const zoneSeed = (s, z) => (s.tutorial && z === 1 ? TUTORIAL_SEED : s.seed);
 /** Grind waves a Grind node allows (rules 2.2; 1.9.8). */
 export const grindMaxWaves = (s) => (isExpedition(s) ? EXPED_GRIND_MAX_WAVES : GRIND_MAX_WAVES);
 /** × the XP of kills, quest turn-ins, grind waves and dungeon clears (rules 1.9.8: XP_WEIGHT_MULT; rows: 1). */
@@ -104,7 +109,7 @@ export function zoneRegions(content, z) {
 export function generateExpZone(s, z) {
   const c = s.content;
   const regs = zoneRegions(c, z);
-  const rng = STREAM.map(s.seed, z);
+  const rng = STREAM.map(zoneSeed(s, z), z);
   const [, n1, n2, n3] = RING_NODES;
   const id = (ring, i) => RING_START[ring] + (((i % RING_NODES[ring]) + RING_NODES[ring]) % RING_NODES[ring]);
   // 1. Angles
@@ -203,7 +208,7 @@ export function setupExpNode(s, z, n, regs) {
     n.done = true;
     return n;
   }
-  const rng = STREAM.nodeId(s.seed, z, n.id);
+  const rng = STREAM.nodeId(zoneSeed(s, z), z, n.id);
   const cl = clampCl(band + RING_CL_BASE[n.ring] + nextInt(rng, RING_CL_SPREAD));
   n.cl = cl;
   n.done = false;
@@ -264,7 +269,7 @@ export function setupExpNode(s, z, n, regs) {
   } else if (n.type === 'treasure') {
     n.guard = nextFloat(rng) < TREASURE_GUARD_CHANCE ? pick(zn.normals) : null;
     // The trap is the first draw of loot(z, id) (rules 2.8), computed here as on today's map.
-    n.trap = nextFloat(STREAM.lootId(s.seed, z, n.id)) < TREASURE_TRAP_CHANCE;
+    n.trap = nextFloat(STREAM.lootId(zoneSeed(s, z), z, n.id)) < TREASURE_TRAP_CHANCE;
   }
   return n;
 }
@@ -447,6 +452,7 @@ export function expMapView(s) {
     if (know === 'full') Object.assign(v, { type: n.type, cl: n.cl, done: n.done, lost: dimmed && !n.done && n.ring > 0 }, details(c, z, n));
     const sites = siteView(s, n, know, d[n.id]);
     if (sites) v.sites = sites;
+    if (n.barred) v.barred = true; // a guided run's closed node (Gorrak's, D138; tutorial.js): MOVE and PASS_THROUGH refused
     return v;
   });
   const edges = [];
@@ -454,7 +460,7 @@ export function expMapView(s) {
   const moves = zone.nodes[zone.pos].nb.map((id) => {
     const v = nodes[id];
     const enter = v.know === 'full' && !v.dimmed && !v.done && !v.hub;
-    return { nodeId: id, via: enter ? 'enter' : 'walk', time: enter ? nodeTime(s, v.type) : TIME_WALK, passTime: enter ? TIME_WALK : null, dimmed: v.dimmed };
+    return { nodeId: id, via: enter ? 'enter' : 'walk', time: enter ? nodeTime(s, v.type) : TIME_WALK, passTime: enter ? TIME_WALK : null, dimmed: v.dimmed, ...(v.barred ? { barred: true } : {}) };
   });
   const front = zone.dimOff ? -1 : frontAt(zt);
   return {

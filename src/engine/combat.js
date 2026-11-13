@@ -7,7 +7,9 @@
 // (M2b v8: at FREE_POTION_MULT strength, spells.js). Zone danger (rules 7.6) with the early factor EARLY_DMG_MULT (M2b v8).
 // M2b v13 (D109; on by default since M2b v14, D113): a zone-1 rare's HP with RARE_HP_MULT_Z1 (GATES.rareHpMultZ1, rules
 // 2.3); first meetings (s.met, GATES.firstMeetWindup, rules 7.12) are marked when a fight starts. M2b v14 (D111):
-// allSapped, read by autoplay rule H and the PASS that keeps STEALTH.
+// allSapped, read by autoplay rule H and the PASS that keeps STEALTH. M3 guided run (m3-onboarding.md 2.3, D138;
+// tutorial.js): a node fight of zone 1 carries its overlay role (`tut`) and its own wind-up marks (`windups`); a rescue
+// ends the fight like a death (no flight or victory events; nodes.js moves the player back).
 import {
   ARCHETYPE, VARIANT, ENEMY_HP_BASE, ENEMY_HP_PER_LEVEL, ENEMY_DMG_BASE, ENEMY_DMG_PER_LEVEL,
   ENEMY_ARMOR_PER_LEVEL, ENEMY_DODGE, PET, ENERGY_MAX, ENERGY_REGEN, FOCUS_MAX, FOCUS_REGEN,
@@ -409,6 +411,7 @@ function simulateTicks(s, crits) {
     } else if (e.t === 'heal') rec(e.dst).heal += e.amount;
     else if (e.t === 'death') rec(e.u).lethal = true;
     else if (e.t === 'resurrect') Object.assign(rec('player'), { lethal: true, resurrect: e.source });
+    else if (e.t === 'rescue') rec('player').lethal = true; // M3: a death the guided zone's rescue covers
   }
   const hpOf = (u) => (u === 'player' ? c.player.hp : u === 'pet' ? (c.player.pet && c.player.pet.alive ? c.player.pet.hp : 0) : c.fight.enemies[u].alive ? c.fight.enemies[u].hp : 0);
   for (const r of out.values()) r.hpAfter = hpOf(r.u);
@@ -466,6 +469,7 @@ export function startFight(s, ev, spec) {
     drops: [], boss: spec.boss || null, engage: spec.engage !== undefined ? !!spec.engage : spec.kind !== 'boss',
     heat: spec.heat || null, startCount: 0, signalled: false,
     signalPending: null,
+    ...(spec.tut ? { tut: spec.tut } : {}), // M3: a scripted or site fight of the guided run (tutorial.js)
     p: {
       st: [], cds: {}, cp: 0, energy: ENERGY_MAX, energyMax: ENERGY_MAX, focus: FOCUS_MAX, focusMax: FOCUS_MAX,
       potionReady: 0, skip: false, target: null, stealthPrev: false, niBonus: 0, momentum: 0, momBonus: 0,
@@ -481,6 +485,8 @@ export function startFight(s, ev, spec) {
   for (const e of f.enemies) e.turn0 = f.engage ? 2 : 1;
   for (const e of f.enemies) if (e.arch === 'guardian') assignWard(f, e);
   meetEnemies(s, f);
+  // M3 (D138): in zone 1 of a guided run only the enemies the overlay marks get the first-meeting wind-up on turn 2.
+  if (spec.windups) for (const e of f.enemies) { if (spec.windups[e.idx]) e.firstMeet = true; else delete e.firstMeet; }
   s.stats.fights += 1;
   if (f.engage) s.stats.engages = (s.stats.engages || 0) + 1;
   ev.push({ t: 'fight', kind: f.kind, k: f.k, engage: f.engage, heat: f.heat, enemies: f.enemies.map((e) => ({ u: e.idx, name: e.name, level: e.level, hp: e.hp, kind: e.kind, arch: e.arch })) });
@@ -513,7 +519,7 @@ export function endFight(s, ev) {
   const p = s.player;
   const outcome = f.over;
   s.fight = null;
-  if (outcome === 'death') return { outcome, drops: f.drops };
+  if (outcome === 'death' || outcome === 'rescue') return { outcome, drops: f.drops };
   if (p.pet && !p.pet.alive) {
     p.pet.alive = true;
     p.pet.hp = Math.max(1, rnd((PET_REVIVE_PCT + tr(s, 'h_a5') * TALENT.h_a5.revive) * p.d.petMaxHp));

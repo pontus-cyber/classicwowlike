@@ -4,14 +4,15 @@
 // `heat.timeByState`). Dev tools (engine-api.md 12): a dev run's summary has a `dev` block and no Echoes. Start camp and
 // contracts (prep, expedition.md 8.1, 9.4): the `expedition.contracts` lines, the prep screen and hub decisions in the
 // estimate, the Echo lines of contracts completed and Reserve left. M2b v15 (D124): Swift passage counts in `expedition`.
+// M3 (m3-onboarding.md 4.2, E7): the Echo line `welcome` (once per profile) and a guided run's `tutorial` block.
 import {
   PACE_CREATE_S, PACE_DECIDE_S, PACE_TRAVEL_NODE_S, PACE_ZONE_TRAVEL_S, PACE_QUEST_TEXT_S, PACE_FIGHT_OVERHEAD_S,
   PACE_MANUAL_ROUND_S, PACE_AUTO_ROUND_S, PACE_LOOT_S, PACE_LEVELUP_S, PACE_TALENT_S, PACE_REST_S, PACE_SHRINE_S,
   PACE_TREASURE_S, PACE_VENDOR_S, PACE_VENDOR_TX_S, PACE_TRAINER_S, PACE_TRAINER_TX_S, PACE_BOSS_INTRO_S,
-  PACE_ENGAGE_S, PACE_BELL_S, PACE_PREP_S, PACE_HUB_CONTRACT_S, SLOT_IDS, TALENT, CLASS,
+  PACE_ENGAGE_S, PACE_BELL_S, PACE_PREP_S, PACE_HUB_CONTRACT_S, SLOT_IDS, TALENT, CLASS, ONB_BEATS,
 } from '../constants.js';
 import { contractSummary } from './contracts.js';
-import { echoes, profileHash } from './meta.js';
+import { echoes, profileHash, welcomeDue } from './meta.js';
 import { deepClone } from './util.js';
 import { heatSummary } from './heat.js';
 
@@ -57,6 +58,8 @@ export function summary(s) {
     timeAtBoss: st.timeAtBoss, oaths: s.oaths, heatFights: heat.heatFights,
     // prep (expedition.md 2.6, 8.1, 11.1): contracts completed and Reserve left
     ...(s.exp && s.exp.prep ? { contracts: contractSummary(s).completed, reserve: s.exp.reserve || 0 } : {}),
+    // M3 (m3-onboarding.md 4.2): the welcome line until the profile has had it
+    ...(welcomeDue(s.profile) ? { welcome: true } : {}),
   };
   // Dev tools (engine-api.md 12): a dev run earns no Echoes; `withheld` is what the run would have earned.
   const dev = s.dev ? { god: !!s.dev.godUsed, tools: s.dev.tools.slice() } : null;
@@ -84,6 +87,8 @@ export function summary(s) {
     },
     ...(st.exp ? { mapMode: 'expedition', expedition: expeditionSummary(s) } : {}),
     ...(dev ? { dev } : {}),
+    // M3 guided run (m3-onboarding.md E7): rescues, SKIP_GUIDE, the beats the player learned
+    ...(s.tutorial ? { tutorial: { rescues: s.tutorial.rescues, skipped: s.tutorial.skipped, learned: ONB_BEATS.filter((id) => s.tutorial.beats[id] && s.tutorial.beats[id].st === 'done') } } : {}),
   });
 }
 

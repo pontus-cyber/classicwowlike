@@ -1,10 +1,71 @@
 // Content access and validation (src/content/SCHEMA.md, rules 12; expedition fields: zone regions and Road names,
 // template families, the texts.expedition group, D51; texts.families, texts.prep, texts.contracts, 2b.5). M2b v14 (D112,
-// rules 12.4): in strict mode every zone's elite pool keeps a heavy and a cast Deathblow.
+// rules 12.4): in strict mode every zone's elite pool keeps a heavy and a cast Deathblow. M3 (m3-onboarding.md 2.3, E2;
+// SCHEMA.md 2.11): the optional guided-run table `tutorial` (validateTutorial).
 import {
   ZONE_COUNT, CONTENT_RANGE as CR, ARCHETYPE, ABILITY_TEMPLATE, SLOT_IDS, CLASS_IDS, SPELL, TALENT, PET,
   BOON, CONSUMABLE, ENGINE_ASSUMPTION as EA, REGION_COUNT, REGION_W, ROAD_COUNT, EXPEDITION_TEXT_IDS, PREP_OPTION,
+  TUTORIAL_SEED, ONB_SCRIPTED_FIGHTS, ONB_BEATS, CONTRACT, CONTRACT_KINDS, CONTRACT_BOARD_SIZE, RARITY,
 } from '../constants.js';
+
+/** Hints of the guided-run table (m3-onboarding.md 3.2: H01-H37). */
+export const ONB_HINT_COUNT = 37;
+
+/**
+ * The guided-run table CONTENT.tutorial (SCHEMA.md 2.11; m3-onboarding.md 2.3, E2): errors as strings. The board slot
+ * (a contract kind; region id of its zone; a family of that region), the site fights and ONB_SCRIPTED_FIGHTS scripts
+ * (enemies are normals of the zone; windup a boolean; S1's loot a rarity and a consumable), the elite (an elite of the
+ * zone with its Deathblow among its abilities; gate.afterScript a script id), the seed equal to C.TUTORIAL_SEED, and
+ * with `beats` / `hints` present the 13 beat ids in order and 37 hint ids. Levels are constants, not content.
+ */
+export function validateTutorial(content) {
+  const T = content.tutorial;
+  const err = [];
+  const e = (m) => err.push(`tutorial${m}`);
+  if (!T || typeof T !== 'object') return ['tutorial: not an object'];
+  const zone = Number.isInteger(T.zone) ? T.zone : 1;
+  const zn = content.zones && content.zones[zone - 1];
+  if (!zn) return [`tutorial.zone: no zone ${zone}`];
+  const enemies = content.enemies || {};
+  if (T.seed !== undefined && T.seed !== TUTORIAL_SEED) e(`.seed: ${T.seed}, the engine plays C.TUTORIAL_SEED ${TUTORIAL_SEED}`);
+  const b = T.board || {};
+  if (!Number.isInteger(b.slot) || b.slot < 1 || b.slot > CONTRACT_BOARD_SIZE) e(`.board.slot: 1-${CONTRACT_BOARD_SIZE}`);
+  if (!CONTRACT_KINDS.includes(b.kind) || !CONTRACT[b.kind]) e(`.board.kind: unknown contract kind "${b.kind}"`);
+  if (b.z !== zone) e(`.board.z: ${b.z}, expected the guided zone ${zone}`);
+  const reg = (zn.regions || []).find((r) => r.id === b.region);
+  if (!reg) e(`.board.region: "${b.region}" is not a region id of zone ${zone}`);
+  else if (b.family !== null && b.family !== undefined && !(reg.families || []).includes(b.family)) e(`.board.family: "${b.family}" is not a family of ${b.region}`);
+  const fight = (list, where) => {
+    if (!Array.isArray(list) || !list.length) { e(`${where}: no enemies`); return; }
+    list.forEach((x, i) => {
+      if (!x || !(zn.normals || []).includes(x.enemy)) e(`${where}[${i}].enemy: "${x && x.enemy}" is not a normal of zone ${zone}`);
+      if (x && x.windup !== undefined && typeof x.windup !== 'boolean') e(`${where}[${i}].windup: true or false`);
+    });
+  };
+  if (!Array.isArray(T.siteFights) || !T.siteFights.length) e('.siteFights: at least one');
+  else T.siteFights.forEach((f, i) => fight(f && f.enemies, `.siteFights[${i}].enemies`));
+  if (!Array.isArray(T.scripts) || T.scripts.length !== ONB_SCRIPTED_FIGHTS) e(`.scripts: exactly ${ONB_SCRIPTED_FIGHTS} (ONB_SCRIPTED_FIGHTS)`);
+  const ids = [];
+  for (const [i, x] of (Array.isArray(T.scripts) ? T.scripts : []).entries()) {
+    if (!x || typeof x.id !== 'string' || ids.includes(x.id)) e(`.scripts[${i}].id: a unique id`);
+    else ids.push(x.id);
+    fight(x && x.enemies, `.scripts[${i}].enemies`);
+    if (x && x.loot) {
+      if (!RARITY[x.loot.upgrade]) e(`.scripts[${i}].loot.upgrade: unknown rarity "${x.loot.upgrade}"`);
+      if (x.loot.consumable !== undefined && !CONSUMABLE[x.loot.consumable]) e(`.scripts[${i}].loot.consumable: unknown consumable "${x.loot.consumable}"`);
+    }
+  }
+  const el = T.elite || {};
+  if (!(zn.elites || []).includes(el.enemy)) e(`.elite.enemy: "${el.enemy}" is not an elite of zone ${zone}`);
+  else if (el.deathblow !== undefined && !((enemies[el.enemy] && enemies[el.enemy].abilities) || []).includes(el.deathblow)) e(`.elite.deathblow: "${el.deathblow}" is not an ability of ${el.enemy}`);
+  if (!el.gate || !ids.includes(el.gate.afterScript)) e(`.elite.gate.afterScript: "${el.gate && el.gate.afterScript}" is not a script id`);
+  if (T.beats !== undefined && (!Array.isArray(T.beats) || T.beats.map((x) => x && x.id).join() !== ONB_BEATS.join())) e(`.beats: the ${ONB_BEATS.length} beats ${ONB_BEATS[0]}-${ONB_BEATS[ONB_BEATS.length - 1]} in order`);
+  if (T.hints !== undefined) {
+    const want = Array.from({ length: ONB_HINT_COUNT }, (_, i) => `H${String(i + 1).padStart(2, '0')}`);
+    if (!Array.isArray(T.hints) || T.hints.map((x) => x && x.id).join() !== want.join()) e(`.hints: the ${ONB_HINT_COUNT} hints H01-H${ONB_HINT_COUNT} in order`);
+  }
+  return err;
+}
 
 export const SUFFIX_KEYS = ['AGI', 'INT', 'STA', 'AGI_STA', 'AGI_SPI', 'INT_STA', 'INT_SPI', 'AGI_STA_SPI', 'INT_STA_SPI'];
 const KINDS = ['normal', 'elite', 'rare', 'trash', 'dboss'];
@@ -295,5 +356,7 @@ export function validateContent(content, { strict = false } = {}) {
       str(t, CR.len.flavour, `texts.${group}.${id}`);
     }
   }
+  // M3 (E2): the guided-run table, when present
+  if (content.tutorial !== undefined) err.push(...validateTutorial(content));
   return err;
 }

@@ -7,7 +7,9 @@
 // Start camp and contracts (prep, expedition.md 2-3; contracts.js): an expedition run starts in PREP, SET_OUT enters zone 1,
 // a zone's generation places the hub contract and the sites, won sites count, leaving a zone expires its contracts, and
 // the story chain is retired on the expedition map. M2b v15 (D124): a Road taken within ROAD_SWIFT_TOLLS of the zone's hub
-// grants the Swift passage XP (takeRoad).
+// grants the Swift passage XP (takeRoad). M3 guided run (docs/specs/m3-onboarding.md 2.3, 2.6; tutorial.js): zone 1's
+// streams on TUTORIAL_SEED (zoneSeed), the overlay set up when zone 1 is generated, the overlay's fights and S1's loot,
+// and the rescue (a death in the guided zone: back to the last node, full health, ONB_RESCUE_TOLLS).
 import {
   CLASS, PET, SPELL, META, SLOT_IDS, START_GOLD, START_RATIONS, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, ZONE_COUNT,
   ZONE_LEVELS, ZONE_CHOICE_ROWS, TIME_REST, TIME_VENDOR, TIME_TRAINER, TIME_TRAVEL, QUEST_TURNIN_XP_FRAC, QUEST_GOLD_V,
@@ -17,6 +19,7 @@ import {
   MAX_LEVEL, TRAIN_NEW_V, TRAIN_RANK_V, TRAVEL_EARLY_LEVELS,
   RESPEC_V, CONSUMABLE, ELIXIR_NODES, RES_META_CHARGES, BOSS_LEVEL, UNIQUE_POTION_PCT, TIME_WALK, DIM_PACK_SIZE,
   DIM_LEVEL_PER_DEPTH, BELL_START_CHARGES, BELL_MAX_CHARGES, BELL_CHANNEL_TIME, TRACKER_RADIUS, ROAD_SWIFT_TOLLS,
+  ONB_RESCUE_TOLLS,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt } from '../rng.js';
 import { rnd, frac6, deepClone } from './util.js';
@@ -33,9 +36,10 @@ import { makeBoss } from './boss.js';
 import { ascOver, newHeatStats, heatTime, heatZoneEntered, heatNodeEntered, heatFightWon } from './heat.js';
 import {
   isExpedition, grindMaxWaves, xpWeight, nodeTime, generateExpZone, refreshVision, zoneTime, frontAt, dimmedNow,
-  visionKit, canEnter, roadNameOf, outwardStep, dimFightTime, swiftXp,
+  visionKit, canEnter, roadNameOf, outwardStep, dimFightTime, swiftXp, zoneSeed,
 } from './expedition.js';
 import { newPrep, applySetOut, contractsAtZone, siteWon, expireContracts, ownedPerks } from './contracts.js';
+import { newTutorial, setupGuidedZone, fightOverlay, overlayFightEnd, rescueTarget } from './tutorial.js';
 
 // ---------------- Meta at run start (rules 11.4) ----------------
 /**
@@ -99,6 +103,7 @@ export function startRun(s, ev) {
   s.nextUid = 1;
   s.time = 0;
   s.met = []; // normal enemy templates met in the run (rules 7.12, M2b v13 row 6; combat.js startFight)
+  if (c.tutorial) s.tutorial = newTutorial(); // M3 guided run (m3-onboarding.md 2, E1): only with newRun's tutorial option
   s.player = {
     name: c.name || cls.name, classId: c.classId, level: 1, xp: 0, rested: 0, hp: 0, mana: 0, gold: START_GOLD,
     spells: {}, spellOrder: [], bar: new Array(SPELL_BAR_SLOTS).fill(null), itemBar: new Array(ITEM_BAR_SLOTS).fill(null),
@@ -217,6 +222,7 @@ export function enterZone(s, ev, z, { again = false } = {}) {
     s.exp.pending = false;
     s.exp.bellPending = false;
     if (s.exp.prep) contractsAtZone(s); // prep (expedition.md 3.3, 3.6): the hub contract on offer, the sites of held contracts
+    if (s.tutorial && z === 1) setupGuidedZone(s); // M3 (m3-onboarding.md 2.3): Gorrak, the scripts and site fights
     refreshVision(s);
     s.stats.exp.zones.push({ z, time: 0, nodes: 0, walks: 0, passes: 0, dimFights: 0, exit: null, swift: 0 });
   } else {
@@ -290,7 +296,7 @@ export function openService(s, ev, kind) {
     let stock;
     if (!camp && isExpedition(s)) {
       // Expedition (rules 1.9.2): the hub vendor's stock is drawn once per zone (nodeId(z, 0)) and keeps what was sold.
-      if (!s.zone.hubStock) s.zone.hubStock = vendorStock(s, STREAM.nodeId(s.seed, z, 0), cl);
+      if (!s.zone.hubStock) s.zone.hubStock = vendorStock(s, STREAM.nodeId(zoneSeed(s, z), z, 0), cl);
       stock = deepClone(s.zone.hubStock);
     } else stock = vendorStock(s, STREAM.node(s.seed, z, 0, 0), cl);
     s.service = { kind: 'vendor', where: camp ? 'camp' : 'hub', cl, stock };
@@ -321,7 +327,7 @@ function advanceBuffs(s, ev) {
 /** Fight stream of the current node: fight(z,r,l,k), or fightId(z,id,k) on the expedition map (rules 1.9.2). */
 function fightRng(s, k) {
   const n = s.node;
-  return n.id !== undefined ? STREAM.fightId(s.seed, s.zone.z, n.id, k) : STREAM.fight(s.seed, s.zone.z, n.r, n.l, k);
+  return n.id !== undefined ? STREAM.fightId(zoneSeed(s, s.zone.z), s.zone.z, n.id, k) : STREAM.fight(s.seed, s.zone.z, n.r, n.l, k);
 }
 
 /** The map definition of the current node. */
@@ -336,9 +342,11 @@ export const zoneAddPool = (zn) => (Array.isArray(zn.addPool) && zn.addPool.leng
 function nodeFight(s, ev, kind, k, enemies, extra = {}) {
   const n = s.node;
   const zn = zoneContent(s.content, s.zone.z);
+  const ov = s.tutorial ? fightOverlay(s, kind) : null; // M3 guided run: the overlay's role and wind-ups (D138)
   startFight(s, ev, {
     kind, k, z: s.zone.z, rng: fightRng(s, k), enemies, addLevel: extra.addLevel || n.cl, addPool: zoneAddPool(zn),
     dropMult: extra.dropMult || 1, canFlee: kind !== 'dboss', noStealth: kind === 'dboss', heat: n.heat || null,
+    ...(ov || {}),
   });
 }
 
@@ -366,7 +374,7 @@ function beginNode(s, ev, def, r, lane) {
   s.stats.nodes[def.type] += 1;
   s.stats.nodesTotal += 1;
   if (exp) zoneRecord(s).nodes += 1;
-  s.lootRng = exp ? STREAM.lootId(s.seed, zone.z, def.id) : STREAM.loot(s.seed, zone.z, r, lane);
+  s.lootRng = exp ? STREAM.lootId(zoneSeed(s, zone.z), zone.z, def.id) : STREAM.loot(s.seed, zone.z, r, lane);
   s.node = exp ? { type: def.type, id: def.id, cl: def.cl, stage: 'fight', k: 0, heat } : { type: def.type, r, l: lane, cl: def.cl, stage: 'fight', k: 0, heat };
   const n = s.node;
   setPhase(s, ev, 'NODE');
@@ -546,7 +554,7 @@ export function startDimEncounter(s, ev, id, escape = false) {
   const k = zone.dimN[id];
   zone.dimN[id] = k + 1;
   const zn = zoneContent(s.content, z);
-  const rng = STREAM.dim(s.seed, z, id, k);
+  const rng = STREAM.dim(zoneSeed(s, z), z, id, k);
   let tids = [];
   for (let i = 0; i < DIM_PACK_SIZE; i++) tids.push(pickFrom(rng, zn.normals));
   tids = composeEncounter(s.content, rng, tids, zn.normals);
@@ -694,8 +702,10 @@ export function finishFight(s, ev) {
   if (kind === 'boss') {
     s.stats.bossHpPct = frac6(f.enemies[0].hp / f.enemies[0].maxHp);
   }
-  const { outcome, drops } = endFight(s, ev);
+  const { outcome, drops: lost } = endFight(s, ev);
   if (outcome === 'death') { endRun(s, ev, 'death'); return; }
+  if (outcome === 'rescue') { rescueEnd(s, ev, f); return; }
+  const drops = f.tut ? overlayFightEnd(s, f, outcome, lost) : lost; // M3: a script ended; S1's fixed loot
   if (outcome === 'victory') heatFightWon(s, f.heat); // rules 1.7.4, 11.1: fights won by the node's entry state
   receiveItems(s, ev, drops);
   if (kind === 'boss') { endRun(s, ev, 'victory'); return; }
@@ -752,6 +762,40 @@ export function finishFight(s, ev) {
     openChest(s, ev);
     completeNode(s, ev);
   }
+}
+
+/**
+ * The rescue (M3 guided run, docs/specs/m3-onboarding.md 2.6, E3; damage.js playerDeath sent the `rescue` event): the
+ * fight ends as a flight to the node the player came from (tutorial.js rescueTarget; the same node after a Dimmed
+ * encounter), full HP and mana, a living pet at full HP; the node stays unresolved; ONB_RESCUE_TOLLS tolls (the Dimming
+ * moves; the settle step may then start a Dimmed encounter); state.tutorial.rescues + 1. Back on the hub out of the
+ * Dimming it is a hub visit, as a walk there; a dev tool's fight goes back where it was started. A script ends (D138).
+ */
+function rescueEnd(s, ev, f) {
+  const p = s.player;
+  const zone = s.zone;
+  const { to } = rescueTarget(s);
+  const devFrom = s.node && s.node.type === 'dev' ? s.node.from : null;
+  overlayFightEnd(s, f, 'rescue', []);
+  p.hp = p.d.maxHp;
+  p.mana = p.d.maxMana;
+  if (p.pet) { p.pet.alive = true; p.pet.hp = p.d.petMaxHp; }
+  s.tutorial.rescues += 1;
+  s.node = null;
+  s.lootRng = null;
+  s.service = null;
+  if (to !== zone.pos) {
+    const from = zone.pos;
+    zone.pos = to;
+    zone.path.push(to);
+    ev.push({ t: 'move', from, to, via: 'rescue', seen: refreshVision(s) });
+  }
+  addTime(s, ev, ONB_RESCUE_TOLLS, 'rescue');
+  if (devFrom) { setPhase(s, ev, devFrom); return; }
+  if (zone.nodes[zone.pos].ring === 0 && !dimmedNow(s, zone.pos)) {
+    s.hub.used = { trainer: false, vendor: false, inn: false };
+    setPhase(s, ev, 'ZONE_HUB');
+  } else setPhase(s, ev, 'MAP');
 }
 
 function genChoices(s, table, count, cl) {

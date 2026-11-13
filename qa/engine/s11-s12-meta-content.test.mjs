@@ -49,8 +49,8 @@ describe('rules 11 meta progression', () => {
     // Oath multiplier on the sum of the rounded lines, rounded once: 3 levels (3) + 1 zone (7.5 -> 8) = 11; × 1.25 = 13.75 -> 14
     const o = echoes(facts({ level: 4, zonesLeft: 1, oaths: ['thrift'] }), R.newProfile());
     assert.deepEqual([o.base, o.oathMult, o.total], [3 + 8, 1 + C.OATH_ECHO_BONUS, Math.round(11 * (1 + C.OATH_ECHO_BONUS))]);
-    // The run summary carries the same rounded lines (the UI shows them).
-    const s = tweak(started('mage'), (x) => { x.player.level = 2; x.stats.zonesLeft = 3; });
+    // The run summary carries the same rounded lines (the UI shows them). M3: a profile that has had its welcome (s18).
+    const s = tweak(started('mage', { profile: { ...R.newProfile(), welcome: true } }), (x) => { x.player.level = 2; x.stats.zonesLeft = 3; });
     const sum = R.summary(s);
     assert.deepEqual(sum.echoes.lines.map((l) => [l.id, l.echoes]), [['levels', 1], ['zones', 23]]);
     assert.equal(sum.echoes.total, 24);

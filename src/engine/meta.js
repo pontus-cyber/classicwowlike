@@ -1,9 +1,11 @@
 // Meta progression (rules 11): profile, catalogue purchases, Echoes per run (a dev run leaves the profile as it was,
-// engine-api.md 12; prep, expedition.md 8.1: the lines of contracts completed and Reserve left).
+// engine-api.md 12; prep, expedition.md 8.1: the lines of contracts completed and Reserve left). M3 onboarding
+// (m3-onboarding.md 4.2, E6): the profile's `guide` and `welcome`, their migration, setGuide, and the welcome line.
 import {
   META, CLASS_IDS, ECHO_PER_LEVEL, ECHO_PER_ZONE, ECHO_PER_DUNGEON, ECHO_PER_ELITE, ECHO_PER_RARE, ECHO_PER_QUEST,
   ECHO_BOSS_REACHED, ECHO_BOSS_PHASE, ECHO_BOSS_KILL, ECHO_SPEED_BONUS, ECHO_FIRST_KILL_CLASS, OATH_ECHO_BONUS,
-  BOSS_TIME_PAR, OATH_HASTE_TIME, ECHO_PER_HEAT_FIGHT, ECHO_CONTRACT_MULT, PREP_ECHO_PER_POINT,
+  BOSS_TIME_PAR, OATH_HASTE_TIME, ECHO_PER_HEAT_FIGHT, ECHO_CONTRACT_MULT, PREP_ECHO_PER_POINT, ONB_WELCOME_ECHOES,
+  ONB_GUIDE_STATES,
 } from '../constants.js';
 import { IllegalActionError, deepClone, rnd } from './util.js';
 import { hash32 } from '../rng.js';
@@ -16,13 +18,39 @@ export function parTime(oaths) {
   return BOSS_TIME_PAR - (oaths && oaths.includes('haste') ? OATH_HASTE_TIME : 0);
 }
 
-/** A fresh profile (no unlocks). Plain JSON; the front end stores it. */
+/**
+ * A fresh profile (no unlocks). Plain JSON; the front end stores it. M3 (m3-onboarding.md E6): `guide` 'todo' (the next
+ * run is offered as the guided run), `welcome` false (the first non-dev run's summary pays ONB_WELCOME_ECHOES).
+ */
 export function newProfile() {
   return {
     v: 1, echoes: 0, earned: 0, spent: 0, unlocks: {}, reachedBoss: false, bossKills: 0,
-    firstKill: { rogue: false, mage: false, hunter: false }, runs: 0,
+    firstKill: { rogue: false, mage: false, hunter: false }, runs: 0, guide: 'todo', welcome: false,
   };
 }
+
+/**
+ * A stored profile with the M3 keys (m3-onboarding.md E6): a profile saved before them loads with `guide` 'done' and
+ * `welcome` true when it has played a run (runs > 0; the owner's profile gets no welcome and no guide), else 'todo' and
+ * false. Returns a new profile; newRun and applyRunToProfile apply it; the front end calls it when it loads a profile.
+ */
+export function migrateProfile(profile) {
+  const p = deepClone(profile);
+  if (!ONB_GUIDE_STATES.includes(p.guide)) p.guide = p.runs > 0 ? 'done' : 'todo';
+  if (typeof p.welcome !== 'boolean') p.welcome = p.runs > 0;
+  return p;
+}
+
+/** The profile with guide = value ('todo', 'done', 'skipped'): class select's toggle and Settings (E6). Pure. */
+export function setGuide(profile, value) {
+  if (!ONB_GUIDE_STATES.includes(value)) throw new IllegalActionError(`guide must be one of ${ONB_GUIDE_STATES.join(', ')}`);
+  const p = migrateProfile(profile);
+  p.guide = value;
+  return p;
+}
+
+/** The welcome is still to be paid (m3-onboarding.md 4.2): `welcome` false, or a profile without the key and no run. */
+export const welcomeDue = (profile) => !!profile && (typeof profile.welcome === 'boolean' ? !profile.welcome : !(profile.runs > 0));
 
 function reqMet(profile, req) {
   if (req === 'flag:bossKill') return profile.bossKills > 0;
@@ -87,6 +115,8 @@ export function echoes(facts, profile) {
   // prep (expedition.md 8.1, 2.6): contracts completed × ECHO_PER_QUEST × ECHO_CONTRACT_MULT; Reserve × PREP_ECHO_PER_POINT
   add('contracts', facts.contracts || 0, ECHO_PER_QUEST * ECHO_CONTRACT_MULT);
   add('reserve', facts.reserve || 0, PREP_ECHO_PER_POINT);
+  // M3 (m3-onboarding.md 4.2): the Bellwrights' welcome, once per profile, in the first non-dev run's summary
+  if (facts.welcome) add('welcome', 1, ONB_WELCOME_ECHOES);
   if (facts.reachedBoss) {
     add('bossReached', 1, ECHO_BOSS_REACHED);
     add('bossPhases', Math.max(0, facts.bossPhase - 1), ECHO_BOSS_PHASE);
@@ -104,11 +134,15 @@ export function echoes(facts, profile) {
 
 /**
  * Profile after a run (END_RUN): Echoes added, flags updated. Returns a new profile. A dev run (summary `dev`, engine-api.md
- * 12) leaves the profile as it was: no Echoes, no run counted, no boss flags.
+ * 12) leaves the profile as it was: no Echoes, no run counted, no boss flags, no welcome, no guide. M3: `welcome` true after
+ * any other run; a guided run's `guide` 'done', or 'skipped' after SKIP_GUIDE.
  */
 export function applyRunToProfile(profile, sum) {
-  const p = deepClone(profile);
-  if (sum.dev) return p;
+  if (sum.dev) return deepClone(profile);
+  const p = migrateProfile(profile);
+  // M3 (m3-onboarding.md 4.2, E6): every non-dev run sets the welcome (paid or not); a guided run sets the guide.
+  p.welcome = true;
+  if (sum.tutorial) p.guide = sum.tutorial.skipped ? 'skipped' : 'done';
   p.echoes += sum.echoes.total;
   p.earned += sum.echoes.total;
   p.runs += 1;
