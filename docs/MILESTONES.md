@@ -32,7 +32,7 @@ Done when the bots play at least 10,000 runs per class and the results meet docs
 | 2.3 | Tune numbers until targets are met; log each change in DECISIONS.md | Lead Game Designer + Simulation & Balance Engineer | done (v2-v5, D16-D46) |
 | 2.4 | Playtest pass on the balanced build | Playtest & QA Lead | moved to M2b 2b.8 (the design changes there) |
 
-## M2b. Expedition and combat v2 (owner feedback 2026-11-10)
+## M2b. Expedition and combat v2 (owner feedback 2026-11-10) (done 2026-11-13)
 Done when a run plays on the roamable fog map with contracts, the Dimming, Roads and the Homeward Bell (docs/specs/expedition.md) and with combat v2 (docs/specs/combat-v2.md: intent track, off-balance windows, engage round); the bots read only what the player sees; B39-B54 and the M2 P1 targets are measured and met or re-banded with the owner's agreement; the owner has played it.
 | # | Task | Owner | Status |
 |---|---|---|---|
@@ -44,7 +44,7 @@ Done when a run plays on the roamable fog map with contracts, the Dimming, Roads
 | 2b.6 | UI: combat v2 display; prep screen; fog map with regions, landmarks and Dimming clocks; contract tracker | UI/UX & Visual Engineer | done (all screens; default switched to the expedition with the start camp, b1a399f, D116) |
 | 2b.7 | Fold expedition 9.5 and combat-v2 into rules.md and balance.md; tune after first measure | Lead Game Designer | done (tuning v6-v14 folded into rules.md, combat-v2.md, expedition.md, balance.md) |
 | 2b.8 | QA: rule tests, leak test, browser checks; playtest | Playtest & QA Lead | done (QA 2026-11-12: 258/258, then 270/270 after the default switch and fixes) |
-| 2b.9 | Owner plays the build | Owner | todo |
+| 2b.9 | Owner plays the build | Owner | done (playtest 2026-11-12 20:19; feedback applied: D127-D133) |
 
 ## Track R: UI layer refactor (runs alongside milestones, D119)
 Plan: docs/reviews/ui-architecture-2026-11-12.md. Each step one session, behaviour-identical, checked by ui-regress and the style snapshot.
@@ -58,7 +58,8 @@ Plan: docs/reviews/ui-architecture-2026-11-12.md. Each step one session, behavio
 | R5 | Art module boundary (art-props.js, art-fx.js, art contact sheet) | UI/UX Engineer | done: 61052ac; drawing moved out of scene.js (955 to 680 lines) into art-props.js and art-fx.js, art modules import only util.js and theme.js (qa/docs/ui-rules.test.mjs), canvas font weights on --fw-* tokens, tools/art-sheet.mjs with docs/art/sheet-current.png; style snapshot and canvas pixels identical, ui-regress 270/270 at 1366x768 (docs/handoffs/ui-2026-11-12e.md) |
 | R6-R15 | style.css split, bridge golden test, texts out of the mock, retire the mock engine, split the bridge, engine view requests, stale-proof keys, closures, ui-regress hooks, rules U1-U14 | UI/UX Engineer, Core Engineer | todo |
 
-## M3. Meta progression and onboarding
+## M3. Meta progression and onboarding (active since 2026-11-13; M2b closed)
+Tasks so far: 3.1 onboarding spec (done, 5c031ee, D135); 3.2 tutorial seed script (doing); 3.3 content table; 3.4 engine; 3.5 UI; 3.6 QA new-player playtest; meta v2 waits for the owner (EXPERIMENTS X1-X3).
 Done when meta points, the unlock screen and permanent unlocks (items in drop pools, skills, stat boosts) work, ten consecutive simulated runs show rising strength, and the owner has played five runs in a row. Includes the meta v2 proposal once agreed (persistent character per class, account quests) and a proper tutorial: a guided first run (fixed seed, zone 1: intent track, engage round, wind-ups, DoT preview, potions, the Furnace, the map), the first-loss-to-first-unlock nudge to the potion upgrade, and skippable first-time hints for every system; checked by QA as a new-player playtest and by the owner.
 
 ## M4. Content, look and feel
