@@ -54,11 +54,24 @@ describe('rules 8 items', () => {
     assert.ok(seen.common && seen.uncommon && seen.rare);
   });
 
-  test('8.3 primary stat leans to the class (DROP_CLASS_BIAS); item score weights', () => {
-    const { items } = rolls('mage', 'quest', 40, 1500);
-    const two = items.filter((x) => x.kind === 'gear');
-    const share = two.filter((x) => x.stats.INT > x.stats.AGI).length / two.length;
-    assert.ok(Math.abs(share - C.DROP_CLASS_BIAS) < 0.06, `share ${share}`);
+  test('8.3 primary stat leans to the class (DROP_CLASS_BIAS); a reward choice carries it at REWARD_CLASS_BIAS (D144, GATES.rewardPrimary); item score weights', () => {
+    const shareOf = (table, cls = 'mage') => {
+      const two = rolls(cls, table, 40, 1500).items.filter((x) => x.kind === 'gear' && x.stats.INT + x.stats.AGI > 0);
+      const mine = C.CLASS[cls].primary;
+      return two.filter((x) => x.stats[mine] > x.stats[mine === 'INT' ? 'AGI' : 'INT']).length / two.length;
+    };
+    for (const table of ['treasure', 'elite']) assert.ok(Math.abs(shareOf(table) - C.DROP_CLASS_BIAS) < 0.06, `${table}: ${shareOf(table)}`);
+    assert.deepEqual(C.REWARD_DROP_TABLES, ['quest', 'story', 'contract', 'bounty']);
+    assert.equal(C.GATES.rewardPrimary, true);
+    for (const table of C.REWARD_DROP_TABLES) for (const cls of ['mage', 'rogue']) assert.equal(shareOf(table, cls), C.REWARD_CLASS_BIAS, `${table} ${cls}`);
+    // the switch off: rewards as before D144 (DROP_CLASS_BIAS), and the stream is the same either way (the draw is made)
+    const on = rolls('mage', 'quest', 40, 300);
+    C.GATES.rewardPrimary = false;
+    let share;
+    let off;
+    try { share = shareOf('quest'); off = rolls('mage', 'quest', 40, 300); } finally { C.GATES.rewardPrimary = true; }
+    assert.ok(Math.abs(share - C.DROP_CLASS_BIAS) < 0.06, `quest, switch off: ${share}`);
+    assert.deepEqual(on.items.map((x) => [x.slot, x.rarity, x.ilvl]), off.items.map((x) => [x.slot, x.rarity, x.ilvl]), 'same draws: only the primary differs');
     const it = { kind: 'gear', stats: { AGI: 10, INT: 5, STA: 4, SPI: 2 }, power: 3, crit: 0.02, armor: 50, bonusArmor: 10, wd: 7 };
     assert.ok(Math.abs(itemScore(it, 'rogue') - (10 + 4 * 0.6 + 2 * 0.3 + 3 * 1.1 + 2 * 1.5 + 60 * 0.02 + 7 * 2)) < 1e-9);
     assert.ok(Math.abs(itemScore(it, 'mage') - (5 + 4 * 0.6 + 2 * 0.3 + 3 * 1.1 + 2 * 1.5 + 60 * 0.02)) < 1e-9, 'Mage: WD scores 0, wrong primary scores 0');

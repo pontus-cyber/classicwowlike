@@ -2,7 +2,8 @@
 // `tutorial` option, zone 1 on TUTORIAL_SEED with the content's overlay (board slot 1, site fights, scripts S1-S4, S1's
 // loot, the D138 wind-ups, Gorrak and his gate), the rescue, SKIP_GUIDE, the beats and tutorialView, the profile's guide
 // and welcome, the summary's welcome line and tutorial block, debug.resetOnboarding, the table's validation, and the
-// golden check: rows and expedition runs without the option play exactly as before task 3.4 (hashes recorded on 25a8879).
+// golden check: rows and expedition runs without the option play exactly as before task 3.4 (hashes recorded on 25a8879),
+// and since D144 so with C.GATES.rewardPrimary off (on: the reward choices' class bias changes them, recorded hashes).
 // D142 (M3 3.7): the guided zone's Roads closed until Gorrak's fight has ended (won, fled or rescued), open on a skip, the
 // fallback when he can no longer be fought, G13.closed, the autoplay's way to him; G10 only on the map, G12's return cap.
 import { describe, test } from 'node:test';
@@ -558,8 +559,10 @@ describe('M3 table validation and the golden check (E2, E9)', () => {
     for (const w of ['tutorial.seed', 'tutorial.board.region', 'tutorial.scripts', 'tutorial.siteFights[0].enemies[0]', 'tutorial.elite.gate.afterScript']) assert.ok(errs.includes(w), w);
   });
 
-  test('golden: rows and expedition runs without the option are unchanged run for run (actions, events, states, summaries)', () => {
-    const GOLDEN = {
+  test('golden: rows and expedition runs without the option are unchanged run for run (actions, events, states, summaries); D144: only the reward choices\' class bias changes them', () => {
+    // The hashes recorded on 25a8879 (M3 3.4), unchanged through D143: with C.GATES.rewardPrimary off they still hold, so
+    // every later change leaves these runs as they were except the reward choices' primary stat (D144, rules 8.3).
+    const PRE_D144 = {
       'rows:rogue:11': '41798041347ce9f8:108', 'rows:rogue:4242': '00886b4b19e73a89:653', 'rows:mage:11': '60aad992e05fee5a:304',
       'rows:mage:4242': '88c9a2eeacfb1665:208', 'rows:hunter:11': 'b7c11055704ada75:719', 'rows:hunter:4242': '168bb8f07d4247bd:599',
       'exp:rogue:11': 'ace46bd9e084ae03:101', 'exp:rogue:4242': '4c729a13470c3484:86', 'exp:mage:11': '89d14027e228430a:208',
@@ -567,8 +570,17 @@ describe('M3 table validation and the golden check (E2, E9)', () => {
       'expPrep:rogue:11': '69d8cbffae60e74b:111', 'expPrep:rogue:4242': 'b6bcb252e1e8744d:88', 'expPrep:mage:11': '1054d25f06e0865a:212',
       'expPrep:mage:4242': '3970be1838c40992:296', 'expPrep:hunter:11': '9b27dda4deba5907:332', 'expPrep:hunter:4242': '084a85890a562b3f:427',
     };
+    // As built (D144: rewardPrimary on), recorded on this change; the two runs that met no other-primary reward are equal.
+    const GOLDEN = {
+      'rows:rogue:11': 'c5a158857532e1ca:107', 'rows:rogue:4242': '4f1ab25dc35c0bb2:653', 'rows:mage:11': '4ce667c4cb1926a2:750',
+      'rows:mage:4242': 'a650fc06d42688a4:208', 'rows:hunter:11': '558ee96af8d5db26:728', 'rows:hunter:4242': 'e0b62f49405eeaab:604',
+      'exp:rogue:11': 'a5c3b69fc6919a9f:102', 'exp:rogue:4242': '4c729a13470c3484:86', 'exp:mage:11': '0a893780ed9954fd:212',
+      'exp:mage:4242': '64748813a48ce4bb:289', 'exp:hunter:11': '9657bdf18371e82e:338', 'exp:hunter:4242': '8f8f05d40dd6794f:246',
+      'expPrep:rogue:11': 'aafc01e3673b0619:112', 'expPrep:rogue:4242': 'b6bcb252e1e8744d:88', 'expPrep:mage:11': 'c6b946acd71017e2:91',
+      'expPrep:mage:4242': '2d024af1865d8309:298', 'expPrep:hunter:11': 'f7311b5ccf3533d5:333', 'expPrep:hunter:4242': '9f572536479438a3:421',
+    };
     const strip = (s) => { const o = JSON.parse(R.serialize(s)); delete o.profile; if (o.result) delete o.result.profile; return JSON.stringify(o); };
-    for (const key of Object.keys(GOLDEN)) {
+    const hashOf = (key) => {
       const [mode, classId, seed] = key.split(':');
       // A profile that had its welcome (its keys are not hashed): the runs are compared, not the M3 profile keys.
       let s = R.newRun({ classId, petId: PET(classId), seed: Number(seed), content: CONTENT, profile: { ...R.newProfile(), runs: 1, welcome: true },
@@ -578,7 +590,13 @@ describe('M3 table validation and the golden check (E2, E9)', () => {
       while (s.phase !== 'ENDED' && n < 20000) { const a = R.autoAction(s); const r = R.step(s, a); s = r.state; h.update(JSON.stringify(a)); h.update(JSON.stringify(r.events)); n++; }
       h.update(strip(s));
       h.update(JSON.stringify({ ...s.result.summary }));
-      assert.equal(`${h.digest('hex').slice(0, 16)}:${n}`, GOLDEN[key], key);
-    }
+      return `${h.digest('hex').slice(0, 16)}:${n}`;
+    };
+    assert.equal(C.GATES.rewardPrimary, true);
+    for (const key of Object.keys(GOLDEN)) assert.equal(hashOf(key), GOLDEN[key], key);
+    C.GATES.rewardPrimary = false;
+    try {
+      for (const key of Object.keys(PRE_D144)) assert.equal(hashOf(key), PRE_D144[key], `${key}, rewardPrimary off`);
+    } finally { C.GATES.rewardPrimary = true; }
   });
 });

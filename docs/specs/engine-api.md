@@ -58,7 +58,11 @@ and `welcome` with `migrateProfile` and `setGuide`, the Echo line `welcome`, the
 section 14; marked "(M3)"; runs without the option are unchanged, checked run for run in qa/engine/s18); 2026-11-13c (M3 3.7, D142
 items 1 and 5: the guided zone's Roads closed until Gorrak's fight has ended, `TAKE_ROAD` refused on a closed Road, `mapView`
 Road nodes `closed` and `onRoad` false there, `tutorialView.roads` and `elite.outcome`, G13's line `G13.closed`, the autoplay's
-way to Gorrak, G10 on the map only, G12's return cap `C.ONB_LINE_RETURNS`; sections 14.1-14.4; marked "(D142)").
+way to Gorrak, G10 on the map only, G12's return cap `C.ONB_LINE_RETURNS`; sections 14.1-14.4; marked "(D142)"); 2026-11-13d
+(D143: Gorrak's gate after S3, 14.1; D144, the blind tester pilot's engine and content follow-ups: `trainerView`, `offBalance`'s
+`shield` and `absorbs`, `spellInfo`'s `hit` and `hitAll`, `windupView` answers' `chance`, `mapView`'s grind `waves` and the
+guided zone's `guided` marks, a guided Quest node's quest from its role, and the reward choices' class bias with the switch
+`C.GATES.rewardPrimary`, on (rules 8.3); docs/handoffs/engine-2026-11-13d.md; marked "(D144)").
 Units: every time value of the API is a whole number of tolls (1 toll = 1 former in-game hour, D69); there are no hours.
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).

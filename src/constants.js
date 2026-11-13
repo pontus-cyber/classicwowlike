@@ -201,6 +201,14 @@ export const SPLIT2_MAIN = 0.60;
 export const SPLIT3_MAIN = 0.45;
 export const SPLIT3_SECOND = 0.35;
 export const DROP_CLASS_BIAS = 0.70;
+/**
+ * rules 8.3 (D144, draft; blind tester pilot: zone 1 rewards offered Agility rings to a Mage and Intellect items to a
+ * Rogue): the chance that a reward choice's primary stat is the class's, on the tables of REWARD_DROP_TABLES while
+ * GATES.rewardPrimary is on (1: always; the primary draw is made all the same, so the stream does not move).
+ */
+export const REWARD_CLASS_BIAS = 1.0;
+/** rules 8.3-8.4 (D144): the drop tables whose items are a "choose one" reward: quest, story, contract and bounty. */
+export const REWARD_DROP_TABLES = ['quest', 'story', 'contract', 'bounty'];
 export const WEAPON_DMG_BASE = 4;
 export const WEAPON_DMG_PER_ILVL = 1.8;
 export const ARMOR_PER_ILVL = 5;
@@ -422,8 +430,10 @@ export const RARE_HP_MULT_Z1 = 3.0;
  * D133 (report 2026-11-13: the planner's camp, the Ember in every run, wins +11.5 pp over autoplay's on the same seeds):
  * autoEmberFirst: autoplay's start camp buys the Ember of Return first, then its contracts, then Field Draughts if the
  * Reserve holds (engine-api.md 13.4, expedition.md 10.2). **On**; off plays the order before D133 (Field Draughts, then the contracts).
+ * D144 (blind tester pilot, draft): rewardPrimary: a reward choice (REWARD_DROP_TABLES) carries the class's primary stat at
+ * REWARD_CLASS_BIAS instead of DROP_CLASS_BIAS (rules 8.3). **On**; off plays the rewards before D144.
  */
-export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true };
+export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true, rewardPrimary: true };
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
 // with mapMode 'expedition'; a run on today's map (mapMode 'rows', the default) never reads them.
 /** rules 1.9.2: nodes per ring (ring 0 = the hub). */

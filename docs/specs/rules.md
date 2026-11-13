@@ -845,7 +845,7 @@ No armor types and no durability: any class can equip any item; drops lean to th
 - Budget `B = round(ilvl × BUDGET_PER_ILVL × slotW × rarityMult)`.
 - Affix share (rare, epic): `A = round(AFFIX_SHARE × B)`; stats get `B - A`.
 - Stat split of `B - A`: 1 stat: primary or STA (50/50) all points; 2 stats: primary SPLIT2_MAIN, second (STA or SPI, 70/30) the rest; 3 stats: primary SPLIT3_MAIN, STA SPLIT3_SECOND, SPI the rest. Draws: split (1-2 stat items), primary, affix (rare, epic); an item rolled on a drop table makes all three draws (8.4, heat).
-- Primary on generated items: current class's primary at DROP_CLASS_BIAS, else the other primary (AGI or INT).
+- Primary on generated items: current class's primary at DROP_CLASS_BIAS, else the other primary (AGI or INT). (D144, draft; blind tester pilot 2026-11-13: zone 1 quest rewards offered Agility rings to a Mage and Intellect items to a Rogue.) A reward choice (an item rolled on a table of REWARD_DROP_TABLES: Quest reward, Story reward, contract and bounty, 8.4) takes the class's primary at REWARD_CLASS_BIAS (1: always) while the switch GATES.rewardPrimary is on (the default; off: DROP_CLASS_BIAS as before). The primary draw is made either way, so no later draw moves; only the reward items' stats (and so their names) change.
 - Affix (uniform): Crit `+AFFIX_CRIT_PCT × slotW × (epic ? AFFIX_EPIC_MULT : 1)`; Power `+AFFIX_POWER_PER_PT × A`; Armor `+AFFIX_ARMOR_PER_PT × A`.
 - Weapon damage `WD = round((WEAPON_DMG_BASE + WEAPON_DMG_PER_ILVL × ilvl) × rarityMult)`. Item armor (armor slots) `= round(ARMOR_PER_ILVL × ilvl × slotW × rarityMult)`.
 - Item score (UI upgrade arrow, bots): `Σ stat × ITEM_SCORE.weight` with weights primary 1.0, STA 0.6, SPI 0.3, Power 1.1, crit (per 0.01) 1.5, armor 0.02, WD 2.0 (Mage: WD 0); the wrong primary scores 0.
@@ -1244,6 +1244,8 @@ Data tables (`CLASS`, `SPELL`, `PET`, `TALENT`, `ARCHETYPE`, `SLOT`, `RARITY`, `
 | SPLIT3_MAIN | 0.45 | fraction |
 | SPLIT3_SECOND | 0.35 | fraction |
 | DROP_CLASS_BIAS | 0.70 | probability |
+| REWARD_CLASS_BIAS | 1.0 | probability: a reward choice's primary is the class's (8.3; tables REWARD_DROP_TABLES; switch GATES.rewardPrimary, on) | (D144, draft)
+| REWARD_DROP_TABLES | ["quest","story","contract","bounty"] | the "choose one" reward tables of 8.4 (8.3) | (D144, draft)
 | WEAPON_DMG_BASE | 4 | damage |
 | WEAPON_DMG_PER_ILVL | 1.8 | damage |
 | ARMOR_PER_ILVL | 5 | armor |

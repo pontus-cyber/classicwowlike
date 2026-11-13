@@ -1,8 +1,9 @@
-// Items, drops (heat: the rarity step, rules 8.4), gold values, bag (rules 8).
+// Items, drops (heat: the rarity step, rules 8.4; D144: a reward choice's primary at REWARD_CLASS_BIAS), gold values, bag
+// (rules 8).
 import {
   VALUE_BASE, VALUE_COEF, VALUE_EXP, RARITY, RARITY_ORDER, SLOT, SLOT_IDS, DROP_TABLE, ILVL_MAX,
   BUDGET_PER_ILVL, AFFIX_SHARE, AFFIX_CRIT_PCT, AFFIX_EPIC_MULT, AFFIX_POWER_PER_PT, AFFIX_ARMOR_PER_PT,
-  SPLIT2_MAIN, SPLIT3_MAIN, SPLIT3_SECOND, DROP_CLASS_BIAS, WEAPON_DMG_BASE, WEAPON_DMG_PER_ILVL,
+  SPLIT2_MAIN, SPLIT3_MAIN, SPLIT3_SECOND, DROP_CLASS_BIAS, REWARD_CLASS_BIAS, REWARD_DROP_TABLES, GATES, WEAPON_DMG_BASE, WEAPON_DMG_PER_ILVL,
   ARMOR_PER_ILVL, STAT1_PRIMARY_CHANCE, STAT2_STA_CHANCE, AFFIX_KINDS, ITEM_SCORE, ITEM_SCORE_CRIT_UNIT,
   CLASS, CONSUMABLE, STACK_JUNK, BAG_SLOTS, PREP_MULE_SLOTS, JUNK_V, BUY_MULT, UNIQUE_DROP_CHANCE, ZONE_COUNT, ZONE_LEVELS,
   OATH_THRIFT_MULT, MAX_LEVEL, HEAT_RARITY_UP,
@@ -28,9 +29,10 @@ const otherPrimary = (p) => (p === 'AGI' ? 'INT' : 'AGI');
  * Stats of a gear item (rules 8.3). Draw order: split (1 or 2 stats), primary, affix (rare/epic).
  * fixed: { primary, second, affix } skips the draws (uniques, starting gear). pad (items rolled on a drop table, rules
  * 8.4 heat): all three draws are made for every rarity, each used only when the rarity needs it, so the draws that
- * follow do not depend on the rarity (a heat rarity step changes no later draw).
+ * follow do not depend on the rarity (a heat rarity step changes no later draw). bias: the chance that the primary is
+ * the class's (DROP_CLASS_BIAS; a reward choice REWARD_CLASS_BIAS, D144); the primary draw is made whatever it is.
  */
-function rollStats(rng, ilvl, rarity, slot, clsPrimary, fixed, pad = false) {
+function rollStats(rng, ilvl, rarity, slot, clsPrimary, fixed, pad = false, bias = DROP_CLASS_BIAS) {
   const R = RARITY[rarity];
   const sw = SLOT[slot].slotW;
   const B = rnd(ilvl * BUDGET_PER_ILVL * sw * R.mult);
@@ -38,7 +40,7 @@ function rollStats(rng, ilvl, rarity, slot, clsPrimary, fixed, pad = false) {
   const S = B - A;
   let split = null;
   if (!fixed && (pad || R.stats === 1 || R.stats === 2)) split = nextFloat(rng);
-  const primary = fixed ? fixed.primary : (nextFloat(rng) < DROP_CLASS_BIAS ? clsPrimary : otherPrimary(clsPrimary));
+  const primary = fixed ? fixed.primary : (nextFloat(rng) < bias ? clsPrimary : otherPrimary(clsPrimary));
   const st = { AGI: 0, INT: 0, STA: 0, SPI: 0 };
   if (R.stats === 1) {
     if (fixed || split < STAT1_PRIMARY_CHANCE) st[primary] = S; else st.STA = S;
@@ -96,9 +98,9 @@ function gearName(s, item) {
   return name;
 }
 
-function buildGear(s, rng, { level, rarity, slot, fixed, ilvl, pad = false }) {
+function buildGear(s, rng, { level, rarity, slot, fixed, ilvl, pad = false, bias }) {
   const il = ilvl !== undefined ? ilvl : Math.min(ILVL_MAX, Math.max(1, level) + RARITY[rarity].ilvlBonus);
-  const r = rollStats(rng, il, rarity, slot, CLASS[s.player.classId].primary, fixed, pad);
+  const r = rollStats(rng, il, rarity, slot, CLASS[s.player.classId].primary, fixed, pad, bias);
   const item = {
     uid: newUid(s), kind: 'gear', slot, rarity, ilvl: il, name: '',
     stats: r.stats, power: r.power, crit: r.crit, armor: r.armor, bonusArmor: r.bonusArmor, wd: r.wd,
@@ -168,12 +170,19 @@ function uniqueFor(s, source, z, rarity) {
 export const rarityUpChance = (s) => (s.node && s.node.heat ? HEAT_RARITY_UP[s.node.heat] : 0);
 
 /**
+ * The chance that an item rolled on drop table `table` has the class's primary stat (rules 8.3): REWARD_CLASS_BIAS for a
+ * reward choice (REWARD_DROP_TABLES: quest, story, contract, bounty) while GATES.rewardPrimary is on (D144), else
+ * DROP_CLASS_BIAS.
+ */
+export const classBias = (table) => (GATES.rewardPrimary && REWARD_DROP_TABLES.includes(table) ? REWARD_CLASS_BIAS : DROP_CLASS_BIAS);
+
+/**
  * One roll on a drop table (rules 8.4). Draw order: item chance, junk chance; when an item is rolled: rarity, the heat
  * step (always drawn; below rarityUpChance the rarity is one step higher, epic stays), slot, stats (padded: always the
- * three draws, rules 8.3), then the unique draw whenever the profile makes this source a unique source (uniqueSource),
- * applied only when an eligible unique of the final rarity exists. So the number of draws never depends on heat or on
- * the rarity drawn (heat, rules 8.4). dropMult multiplies item and junk chances (Grind). Returns the items (gear, then
- * junk).
+ * three draws, rules 8.3; the primary at classBias(table), D144), then the unique draw whenever the profile makes this
+ * source a unique source (uniqueSource), applied only when an eligible unique of the final rarity exists. So the number
+ * of draws never depends on heat, on the rarity drawn or on the table's class bias (heat, rules 8.4). dropMult
+ * multiplies item and junk chances (Grind). Returns the items (gear, then junk).
  */
 export function rollDrop(s, rng, table, level, z, dropMult = 1) {
   const t = DROP_TABLE[table];
@@ -185,7 +194,7 @@ export function rollDrop(s, rng, table, level, z, dropMult = 1) {
     if (nextFloat(rng) < rarityUpChance(s)) ri = Math.min(RARITY_ORDER.length - 1, ri + 1);
     const rarity = RARITY_ORDER[ri];
     const slot = SLOT_IDS[nextInt(rng, SLOT_IDS.length)];
-    let item = buildGear(s, rng, { level, rarity, slot, pad: true });
+    let item = buildGear(s, rng, { level, rarity, slot, pad: true, bias: classBias(table) });
     if (uniqueSource(s, table)) {
       const u = nextFloat(rng);
       const uq = uniqueFor(s, table, z, rarity);

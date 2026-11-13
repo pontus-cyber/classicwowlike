@@ -3,12 +3,18 @@
 // at level 1), and the off-balance hint's "spend your big hit" has a shield line when the target's shield absorbs a whole
 // hit (R.offBalance `shield`, `absorbs`); (5) a hit roll that decides a control is shown (spellInfo `hit`, `hitAll`;
 // windupView answers' `chance`), and the tactician's s0204 (Rime Burst left one of three wind-ups unanswered) is that
-// roll, not a rule or a bug.
+// roll, not a rule or a bug; (3) the text and data mismatches on the engine and content side (G9 lines, the guided zone's
+// quest texts, mapView `waves` and `guided`); (4) reward choices carry the class's primary stat (rules 8.3, D144).
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { R, C, started, atLevel, withSpells, inFight, tweak, forceDraws, ev } from './helpers.mjs';
 import { CONTENT as REAL } from '../../src/content/index.js';
 import { mainHitEstimate } from '../../src/engine/spells.js';
+import { rollDrop } from '../../src/engine/items.js';
+import { makeRng } from '../../src/rng.js';
+
+/** One roll on a drop table at level 20, zone 1 (rules 8.4). */
+const rollDropOf = (s, g, table) => rollDrop(s, g, table, 20, 1);
 
 const near = (a, b) => Math.abs(a - b) < 1e-12;
 
@@ -237,5 +243,64 @@ describe('blind panel (3): text and data mismatches, engine and content side', (
     assert.ok(pv.nodes.filter((n) => n.know === 'full' && n.type === 'grind').every((n) => n.waves === C.EXPED_GRIND_MAX_WAVES));
     const rows = R.mapView(started('mage')).rows.flat().filter((n) => n.type === 'grind');
     assert.ok(rows.length > 0 && rows.every((n) => n.waves === C.GRIND_MAX_WAVES));
+  });
+});
+
+describe('blind panel (4): reward choices carry the class\'s primary stat (rules 8.3, REWARD_CLASS_BIAS, GATES.rewardPrimary)', () => {
+  const PET = (c) => (c === 'hunter' ? 'ridgewolf' : null);
+  /** Every reward choice set (quest and contract rewards) an autoplay run meets before zone 3: [{ table, items }]. */
+  const rewardSets = (classId, seed, mapMode = 'expedition') => {
+    let s = R.newRun({ classId, petId: PET(classId), seed, content: REAL, mapMode });
+    const out = [];
+    const seen = new Set();
+    for (let n = 0; s.phase !== 'ENDED' && !(s.zone && s.zone.z >= 3) && n < 4000; n++) {
+      for (const set of (s.node && s.node.rewards) || []) {
+        if (set.kind !== 'items' || seen.has(set)) continue;
+        seen.add(set);
+        out.push({ contract: !!set.contract, items: set.items });
+      }
+      s = R.step(s, R.autoAction(s)).state;
+    }
+    return out;
+  };
+
+  test('every quest and contract reward choice of autoplay runs has the class\'s primary (Agility for a Rogue or Hunter, Intellect for a Mage), on both maps', () => {
+    for (const classId of ['rogue', 'mage', 'hunter']) {
+      const mine = C.CLASS[classId].primary;
+      const other = mine === 'INT' ? 'AGI' : 'INT';
+      let items = 0;
+      let contracts = 0;
+      for (const [seed, mapMode] of [[3, 'expedition'], [8, 'expedition'], [3, 'rows']]) {
+        for (const set of rewardSets(classId, seed, mapMode)) {
+          if (set.contract) contracts++;
+          for (const it of set.items) {
+            if (it.kind !== 'gear') continue;
+            items++;
+            assert.ok(it.stats[mine] > 0 && it.stats[other] === 0, `${classId} ${mapMode} ${seed}: ${it.name} ${JSON.stringify(it.stats)}`);
+          }
+        }
+      }
+      assert.ok(items >= 10 && contracts >= 1, `${classId}: ${items} reward items, ${contracts} contract rewards`);
+    }
+  });
+
+  test('kill drops keep DROP_CLASS_BIAS; with the switch off a reward is drawn as before D144 (the same draws, only its primary differs)', () => {
+    const s = started('mage', { content: REAL, seed: 4 });
+    const draw = (table, n = 400) => {
+      const g = makeRng(91);
+      const c = tweak(s, () => {});
+      const out = [];
+      for (let i = 0; i < n; i++) out.push(...rollDropOf(c, g, table));
+      return out.filter((x) => x.kind === 'gear');
+    };
+    const intShare = (xs) => xs.filter((x) => x.stats.INT > 0).length / xs.length;
+    assert.ok(Math.abs(intShare(draw('elite')) - C.DROP_CLASS_BIAS) < 0.07, 'elite drops');
+    assert.equal(intShare(draw('quest')), 1);
+    C.GATES.rewardPrimary = false;
+    let off;
+    try { off = draw('quest'); } finally { C.GATES.rewardPrimary = true; }
+    const on = draw('quest');
+    assert.ok(Math.abs(intShare(off) - C.DROP_CLASS_BIAS) < 0.07, `switch off: ${intShare(off)}`);
+    assert.deepEqual(on.map((x) => [x.slot, x.rarity, x.ilvl, x.affix]), off.map((x) => [x.slot, x.rarity, x.ilvl, x.affix]));
   });
 });
