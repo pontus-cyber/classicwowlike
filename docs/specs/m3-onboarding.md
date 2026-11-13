@@ -1,6 +1,6 @@
 # M3 onboarding: guided first run, first-time hints, first-run nudge
 
-Owner: Game Designer (onboarding and systems), 2026-11-13. Status: **draft**. Section 5 E1-E8 (in the engine), 2026-11-13 (M3 3.4, engine-api.md 14; D138's gate and wind-up rule included); the UI (section 6) and QA (section 7) are not built.
+Owner: Game Designer (onboarding and systems), 2026-11-13. Status: **draft**. Section 5 E1-E8 (in the engine), 2026-11-13 (M3 3.4, engine-api.md 14; D138's gate and wind-up rule included); the UI (section 6) and QA (section 7) are not built. M3 3.7 (D142 item 5, engine side, 2026-11-13): G10 opens on the map, G12 comes back at most once (2.4, 2.5, E10); the UI side is open.
 Audience: Lead, Core Gameplay Engineer, UI/UX Engineer, Content Designer, Simulation & Balance Engineer, QA.
 
 Sources: M3 scope [source: docs/MILESTONES.md M3: "a guided first run (fixed seed, zone 1: intent track, engage round, wind-ups, DoT preview, potions, the Furnace, the map), the first-loss-to-first-unlock nudge to the potion upgrade, and skippable first-time hints for every system"]; owner wishes [stated: docs/feedback/2026-11-11-1026-owner.md: "the first runs very hard", "the first win hard but not that hard", "after the first run the first Echoes, with a tutorial, nudge the player to buy the potion upgrade at once, so losing feels like a win"]; lean screens [stated: docs/feedback/2026-11-12-2019-owner.md: "strip it down, make it more easy"]; Sap not found [stated: docs/feedback/2026-11-11-0803-owner.md]; the game today [source: docs/specs/expedition.md 2-7, H; combat-v2.md 6, 16-17; rules.md 7.5, 11; engine-api.md 1, 9, 12, 13]; the hints that exist today [source: src/ui/tracks.js engage hint, `tbwcr.hints.v1`; src/ui/heat.js first-time note, `tbwcr.heatIntro.v1`; src/ui/hud.js POTION_HINT_HP pulse].
@@ -69,9 +69,9 @@ Each beat fires once, the first time its trigger is met in the guided zone. The 
 | G7 | Engage round | round 1 of the first fight with 2 or more enemies (S3) | "Round 1 is yours: they act from round 2. Open with Q, W or E." Arrow at the engage panel | opens | any `ENGAGE` | shown once more in the next fight's round 1, then done |
 | G8 | Wind-up | round 1 of the first fight with a `windup` entry (S4) | "Wind-up: stop it with W, an interrupt or a stun, and it is weakened all fight." Arrow at the wind-up badge | answers it | wind-up answered event (STAGGERED) | it lands: "It landed: that enemy hits harder until it dies." The beat stays open for ONB_BEAT_RETRIES more wind-up |
 | G9 | Deathblow and its answer | engage round of the first fight with a Deathblow on a track (Gorrak) | By class. Rogue: "Deathblow on turn 2 maims you. Sap it (W), then wait a round (X)." Mage: "Deathblow on turn 2 maims you. Freeze it: Binding Glyph (W)." Hunter: "Deathblow on turn 2 maims you. Trap it (W): the trap springs on it." Arrow at the Deathblow badge | answers it | Deathblow answered event | it lands: "Maimed: your healing is halved this fight. Drink early." The next Deathblow in the guided zone shows the line again |
-| G10 | Contract sites | a Cull site first comes into view; then its completion | "Contract site: win this fight to count it." Arrow at the site badge. On completion: "Contract done: choose one reward." At the reward window | wins the sites, picks a reward | contract completed | the contract expires on leaving zone 1 (normal rule); done |
+| G10 | Contract sites | a Cull site first comes into view on the map (its site mark shown; never at the hub screen, D142); then its completion | "Contract site: win this fight to count it." Arrow at the site badge. On completion: "Contract done: choose one reward." At the reward window | wins the sites, picks a reward | contract completed | the contract expires on leaving zone 1 (normal rule); done |
 | G11 | Potions | in a fight, HP below ONB_POTION_HP with a healing potion on the bar, first time | "Low health: drink a Healing Draught (8). It uses your turn." Arrow at the item slot | drinks | potion used (`USE_ITEM`, heal event) | the existing pulse stays; the hint (3.2 H09) stays unseen for later |
-| G12 | The Dimming | the first node dims, or the front is within 2 hops of the player, whichever comes first | "The Dimming spreads from the Shardfall. Leave by a Road before it reaches you." Arrow at the dark wash nearest the player | heads for a Road | zone 1 left with no Dimmed encounter | caught: "In the dark: walk away from the Shardfall." Done when zone 1 is left |
+| G12 | The Dimming | the first node dims, or the front is within 2 hops of the player, whichever comes first | "The Dimming spreads from the Shardfall. Leave by a Road before it reaches you." Arrow at the dark wash nearest the player | heads for a Road | zone 1 left with no Dimmed encounter | caught: "In the dark: walk away from the Shardfall." Done when zone 1 is left. Its line comes back at most ONB_LINE_RETURNS times (2.5, D142) |
 | G13 | Homeward Bell | the player is ONB_BELL_HOPS or more hops from every Road and their node dims within ONB_BELL_DIM tolls; or else the player first stands on a Road | far: "Far from a Road? Ring the Homeward Bell: home in 2 tolls, once per run." On a Road: "Take the Road on. The Bell works from anywhere, once per run." Arrow at the button | leaves zone 1 | `TAKE_ROAD` or `RING_BELL` | none (the Dimming makes the player leave) |
 
 Notes:
@@ -84,7 +84,7 @@ Notes:
 - One line in a small parchment strip with an arrow to its anchor, a key chip where the line names a key, "Got it" (×), and at the right end in small text "Skip guide" (in the guided run) or "Hints off" (elsewhere). There is no title and no second line.
 - It never covers the anchor, the bar, the engage panel's buttons, the Furnace pointer, the target frame or `Set out`. It sits beside them at 1366x768 and 1920x1080.
 - At most one on screen. If two triggers fire together, the higher priority shows and the other waits, at most ONB_QUEUE_MAX deep. Priority: Deathblow > wind-up > lethal > potion > engage > the rest. A waiting line whose moment has passed is dropped, unseen.
-- A beat's line that has been the top line for ONB_LINE_STEPS steps without being learned yields to the next open beat with a line. The beat stays open and can still be learned; its line comes back when its trigger fires again (G12: the Dimming comes within 2 hops again) or the line changes. With no other open beat line it stays (D141).
+- A beat's line that has been the top line for ONB_LINE_STEPS steps without being learned yields to the next open beat with a line. The beat stays open and can still be learned; its line comes back when its trigger fires again (G12: the Dimming comes within 2 hops again), at most ONB_LINE_RETURNS times per zone (D142), or when the line changes. With no other open beat line it stays (D141).
 - Autoplay and fast mode do not wait for a line. A line that was on screen less than ONB_HINT_MIN_MS does not count as seen.
 - Reduce motion: no slide-in, no pulse; the strip just appears.
 
@@ -184,7 +184,7 @@ Meta v2 6.1 has the same grant (ECHO_FIRST_RUN 60) and the same Satchel highligh
 ---
 
 ## 5. What the engine must expose (Core Gameplay Engineer)
-Status: E1-E8 (in the engine), 2026-11-13: engine-api.md 14, src/engine/tutorial.js, qa/engine/s18-tutorial.test.mjs. E9's rules.md lines are not written (outside the engineer's files).
+Status: E1-E8 (in the engine), 2026-11-13: engine-api.md 14, src/engine/tutorial.js, qa/engine/s18-tutorial.test.mjs. E9's rules.md lines are not written (outside the engineer's files). E10 (D142) in the engine, 2026-11-13 (M3 3.7).
 
 | # | Need | Detail |
 |---|---|---|
@@ -197,6 +197,7 @@ Status: E1-E8 (in the engine), 2026-11-13: engine-api.md 14, src/engine/tutorial
 | E7 | Summary | Echo line `welcome`; block `tutorial: { rescues, skipped }` in a tutorial run |
 | E8 | Dev tools | `debug.resetOnboarding(profile)`: guide `todo`, welcome false; the Dev menu's "Reset onboarding" also clears `tbwcr.hints.v2` |
 | E9 | Tests and docs | engine-api.md rows for E1-E8; rules.md 1.2 and 11.1 lines (tutorial option, the welcome); a qa/engine test per row; the code-map row for the new files (D41) |
+| E10 | D142 (M3 3.7, in the engine) | G10 opens on the map only; G12's return cap ONB_LINE_RETURNS (engine-api.md 14) |
 
 Nothing else changes: the beats and hints are presentation and read events and views that exist today (`windupView`, `potionInfo`, `pendingTicks`, `offBalance`, `mapView`, `heatView`, `contractView`, the wind-up, item-use and equip events).
 
@@ -302,5 +303,6 @@ The balance bots never play the tutorial option; balance targets B1-B62 stay mea
 | ONB_HINTS_PER_FIGHT | 2 | hints per fight at most |
 | ONB_QUEUE_MAX | 2 | lines waiting at most |
 | ONB_LINE_STEPS | 2 | steps a beat's line stays the top line before it yields to the next open beat with a line (2.5, D141) |
+| ONB_LINE_RETURNS | 1 | times a resting line comes back when its trigger fires again, per zone (2.5, G12; D142) |
 | ONB_WELCOME_ECHOES | 60 | the Bellwrights' welcome, once per profile (= Packed Satchel's price) |
 | ONB_GUIDE_MAX_MIN | 15 | minutes, target ONB1 |

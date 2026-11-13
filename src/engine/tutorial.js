@@ -10,9 +10,9 @@
 import {
   ONB_SCRIPTED_FIGHTS, ONB_SCRIPT_LEVEL_MAX, ONB_LOOT_POTIONS, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX,
   ONB_RESCUE_TOLLS, ONB_BEAT_RETRIES, ONB_POTION_HP, ONB_BELL_HOPS, ONB_BELL_DIM, ONB_DIM_NEAR_HOPS, ONB_ENGAGE_SHOWS,
-  ONB_BEATS, ONB_BEAT_PRIORITY, ONB_LINE_STEPS, CONTRACT, SLOT_IDS, RARITY, ILVL_MAX, CONSUMABLE,
+  ONB_BEATS, ONB_BEAT_PRIORITY, ONB_LINE_STEPS, ONB_LINE_RETURNS, CONTRACT, SLOT_IDS, RARITY, ILVL_MAX, CONSUMABLE,
 } from '../constants.js';
-import { zoneRegions, hops, frontAt, zoneTime, dimAt } from './expedition.js';
+import { zoneRegions, hops, frontAt, zoneTime, dimAt, knowledge, siteView } from './expedition.js';
 import { itemScore, makeFixedGear, makeConsumable } from './items.js';
 
 // ---------------- Run and zone state ----------------
@@ -197,7 +197,7 @@ export function skipGuide(s, ev) {
 const isOpen = (t, id) => !!t.beats[id] && t.beats[id].st === 'open';
 const fired = (t, id) => !!t.beats[id];
 function open(t, ev, id, line, n = 0) {
-  t.beats[id] = { st: 'open', line, n, shown: 0, rest: false };
+  t.beats[id] = { st: 'open', line, n, shown: 0, rest: false, back: 0 };
   ev.push({ t: 'beat', id, what: 'open', line });
 }
 function setLine(t, ev, id, line) {
@@ -208,12 +208,17 @@ function setLine(t, ev, id, line) {
   b.rest = false;
   ev.push({ t: 'beat', id, what: 'line', line });
 }
-/** A resting beat's trigger fired again (D141): its line comes back as a new moment (event `beat` what 'line'). */
+/**
+ * A beat's trigger fired again (D141): a resting line comes back as a new moment (event `beat` what 'line'), at most
+ * ONB_LINE_RETURNS times per zone (D142, `back` counts them); once they are used the trigger does nothing.
+ */
 function again(t, ev, id) {
   const b = t.beats[id];
+  if ((b.back || 0) >= ONB_LINE_RETURNS) return;
   b.shown = 0;
   if (!b.rest) return;
   b.rest = false;
+  b.back = (b.back || 0) + 1;
   if (b.line) ev.push({ t: 'beat', id, what: 'line', line: b.line });
 }
 /**
@@ -345,10 +350,9 @@ function trackBeats(s, ev, a) {
   // G11: low health with a healing potion on the item bar, in a fight
   if (f && !fired(t, 'G11') && s.player.hp < ONB_POTION_HP * s.player.d.maxHp && s.player.itemBar.some((id) => healPotion(id) && s.player.bag.some((x) => x.kind === 'cons' && x.id === id))) op('G11', 'G11');
   const zone = s.zone;
-  // G10: a held contract's site comes into view
-  if (!fired(t, 'G10') && zone.nodes.some((n) => zone.seen[n.id] && heldSite(s, n))) op('G10', 'G10');
   // G12: the first node dims, or the front is within ONB_DIM_NEAR_HOPS of the player; caught by a Dimmed encounter. While
-  // open, the front coming within ONB_DIM_NEAR_HOPS again (it was not on the last step) is its trigger again (D141)
+  // open, the front coming within ONB_DIM_NEAR_HOPS again (it was not on the last step) is its trigger again (D141), which
+  // brings a resting line back at most ONB_LINE_RETURNS times (D142, `again`)
   if (!zone.dimOff && (!fired(t, 'G12') || isOpen(t, 'G12'))) {
     const front = frontAt(zoneTime(s));
     const near = front >= 0 && front >= zone.shardDist[zone.pos] - ONB_DIM_NEAR_HOPS;
@@ -361,15 +365,16 @@ function trackBeats(s, ev, a) {
   }
   if (isOpen(t, 'G12') && has('dim')) setLine(t, ev, 'G12', 'G12.caught');
   if (s.phase !== 'MAP' || s.node || s.fight) return;
-  // On the map: G2 (first map view at the hub), G5 (first return to the map after G4), G13 (far from a Road, or on one)
+  // On the map: G2 (first map view at the hub), G5 (first return to the map after G4), G10 (a site in view), G13 (far from
+  // a Road, or on one)
   if (!fired(t, 'G2') && zone.pos === 0) op('G2', 'G2');
   if (!fired(t, 'G5') && fired(t, 'G4') && !now.has('G4') && !(s.loot && s.loot.length)) op('G5', 'G5');
+  const d = hops(zone.nodes, zone.pos);
+  // G10 (D142): a held contract's site first in view on the map (its mark as mapView shows it), never at the hub screen
+  if (!fired(t, 'G10') && !(s.loot && s.loot.length) && zone.nodes.some((n) => siteView(s, n, knowledge(s, n), d[n.id]))) op('G10', 'G10');
   if (!fired(t, 'G13')) {
     if (zone.nodes[zone.pos].road) op('G13', 'G13.onRoad');
-    else {
-      const d = hops(zone.nodes, zone.pos);
-      if (Math.min(...zone.roads.map((r) => d[r])) >= ONB_BELL_HOPS && dimAt(zone, zone.pos) - zoneTime(s) <= ONB_BELL_DIM) op('G13', 'G13');
-    }
+    else if (Math.min(...zone.roads.map((r) => d[r])) >= ONB_BELL_HOPS && dimAt(zone, zone.pos) - zoneTime(s) <= ONB_BELL_DIM) op('G13', 'G13');
   } else if (isOpen(t, 'G13') && zone.nodes[zone.pos].road) setLine(t, ev, 'G13', 'G13.onRoad');
 }
 

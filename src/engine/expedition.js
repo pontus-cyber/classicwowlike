@@ -373,8 +373,11 @@ export function refreshVision(s) {
 /** A held or completed Delve contract of this zone shows its dungeon's location (expedition.md 3.3, 5.2; prep). */
 const delveHeld = (s) => !!(s.exp.contracts && s.exp.contracts.some((c) => c.kind === 'delve' && c.z === s.zone.z && (c.state === 'held' || c.state === 'complete')));
 
-/** Contract site marks the player sees on node id (expedition.md 5.1, 5.2; prep): held contracts' ids, or null. */
-function siteView(s, n, know, d) {
+/**
+ * Contract site marks the player sees on node n (expedition.md 5.1, 5.2; prep): held contracts' ids, or null. `know` is
+ * knowledge(s, n), `d` its hops from the player. The view's `sites`; tutorial.js reads it for beat G10 (D142).
+ */
+export function siteView(s, n, know, d) {
   if (!n.sites || !s.exp.contracts) return null;
   const tr = s.exp.vision.tracker || 0;
   if (know !== 'full' && !(tr > 0 && d <= tr)) return null;

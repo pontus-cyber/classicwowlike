@@ -55,7 +55,8 @@ autoplay's start camp buys the Ember of Return first, the switch `C.GATES.autoEm
 2026-11-13b (M3 3.4, docs/specs/m3-onboarding.md 5 E1-E8, D135, D137, D138: `newRun`'s `tutorial` option, the guided first run on
 TUTORIAL_SEED with the overlay of CONTENT.tutorial, the rescue, `SKIP_GUIDE`, the beats and `tutorialView`, the profile's `guide`
 and `welcome` with `migrateProfile` and `setGuide`, the Echo line `welcome`, the summary's `tutorial` block, `debug.resetOnboarding`;
-section 14; marked "(M3)"; runs without the option are unchanged, checked run for run in qa/engine/s18).
+section 14; marked "(M3)"; runs without the option are unchanged, checked run for run in qa/engine/s18); 2026-11-13c (M3 3.7, D142
+item 5: G10 on the map only, G12's return cap `C.ONB_LINE_RETURNS`; section 14.4; marked "(D142)").
 Units: every time value of the API is a whole number of tolls (1 toll = 1 former in-game hour, D69); there are no hours.
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
@@ -256,7 +257,7 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `node`, `nodeDone`, `quest` | `type, r, l, cl, heat` / ... / `quest` | node entered / completed / quest template id. (expedition) `node`: `type, id, ring, cl, heat`; `nodeDone`: `type, id`. (heat) `heat`: the node's entry state (rules 1.7.3) |
 | `move` | `from, to, via, seen` | (expedition) a step: `via` `enter`, `walk` or `pass`; `seen` = node ids newly in view. (M3) `via: 'rescue'`: a rescue's way back (section 14.2) |
 | `rescue` | `tolls, node, to, hp, mana` | (M3) a death in the guided zone is a rescue (section 14.2), sent at the killing blow instead of the player's `death`: the player goes from node `node` back to node `to` (the same node after a Dimmed encounter) with `hp` and `mana` (full; track HP with `= hp`), `tolls` (ONB_RESCUE_TOLLS) follow as a `time` event with `why: 'rescue'`. No `victory` or `fled` event |
-| `beat` | `id, what, line` | (M3) a beat of the guided run (section 14.4): `what` `open` (its trigger; `line` = the coach line id), `line` (its line changed, null = open, waiting for its moment; or a resting line came back, D141), `done` (learned), `missed` (its moment passed), `skip` (G10 without a contract) |
+| `beat` | `id, what, line` | (M3) a beat of the guided run (section 14.4): `what` `open` (its trigger; `line` = the coach line id), `line` (its line changed, null = open, waiting for its moment; or a resting line came back, D141, at most ONB_LINE_RETURNS times per zone, D142), `done` (learned), `missed` (its moment passed), `skip` (G10 without a contract) |
 | `guideSkipped`, `guideEnd` | | (M3) SKIP_GUIDE; zone 1 of a guided run was left (the guide's end toast) |
 | `dimming` | `front, dimmed` | (expedition) the Dimming's front advanced; `dimmed` = node ids it newly covers (M2b v12: the zone's Dungeon too, by its hops; M2b v10's DUNGEON_DIM_HOLD removed; no event then) |
 | `dim` | `id, depth, level, k` | (expedition) a Dimmed encounter starts at node `id` (its `fight` event follows, `kind: 'dim'`) |
@@ -858,7 +859,7 @@ points stay, then (D133) Field Draughts when AUTO_PREP_RESERVE points still stay
 before D133: Field Draughts first, then the contracts, no Ember; the hub contract from Reserve when it can; its map policy
 does not seek sites.
 
-## 14. The guided first run (M3; docs/specs/m3-onboarding.md 2, 4.2, 5 E1-E8; D135, D137, D138)
+## 14. The guided first run (M3; docs/specs/m3-onboarding.md 2, 4.2, 5 E1-E10; D135, D137, D138, D141, D142)
 `newRun({ tutorial: true })` (the expedition map with the start camp; `src/engine/tutorial.js`) plays the profile's guided first
 run. Zones 2-6 and everything after the guide are the normal rules. A run without the option is unchanged run for run
 (qa/engine/s18 golden check). The balance bots never set it. Numbers: `C.TUTORIAL_SEED` and `C.ONB_*` (m3-onboarding.md 12).
@@ -927,7 +928,7 @@ The engine opens and closes G1-G13 from the action, its events and the state, wh
 | G7 | the first engage fight with 2 or more enemies | learned on ENGAGE; shown again at the next engage fight (ONB_ENGAGE_SHOWS), then missed |
 | G8 | the first fight with a non-Deathblow wind-up | learned on its `stagger`; landed: `G8.landed`, open for ONB_BEAT_RETRIES more, then missed |
 | G9 | the first fight with a Deathblow (`G9.<class>`) | learned on a Deathblow's `stagger`; landed: `G9.landed`, the class line again at the next Deathblow fight |
-| G10 | a held contract's site seen (`G10`) | first site won: line null; complete: `G10.done`; learned at the CHOOSE_REWARD that takes its reward |
+| G10 | (D142) on the map with nothing open, a held contract's site mark first in view (as `mapView` shows it: `sites`), never at the hub screen (`G10`) | first site won: line null; complete: `G10.done`; learned at the CHOOSE_REWARD that takes its reward |
 | G11 | in a fight, HP < ONB_POTION_HP of max with a healing potion on the item bar | learned on USE_ITEM of it; missed when the fight ends |
 | G12 | the first node dims, or the front within ONB_DIM_NEAR_HOPS of the player | `G12.caught` at a Dimmed encounter; at the guide's end learned if zone 1 had none |
 | G13 | on the map: on a Road (`G13.onRoad`), or ONB_BELL_HOPS+ hops from every Road with the node dimming within ONB_BELL_DIM tolls (`G13`) | learned on TAKE_ROAD or RING_BELL |
@@ -939,8 +940,9 @@ been shown C.ONB_LINE_STEPS (2) steps, unlearned, rests when another open beat h
 (so G13 becomes the line after G12 has shown for 2 steps; seed 8736, qa/engine/s18). With no other open beat line it stays.
 A resting beat stays open and can still be learned or closed; its line comes back (count from 0) when the beat's line
 changes (`beat` what `line`), or when its trigger fires again: G12 when the front comes within ONB_DIM_NEAR_HOPS of the
-player after a step on which it was not (`beat` what `line` with the same line). The UI shows `line` and needs no step
-rule of its own.
+player after a step on which it was not (`beat` what `line` with the same line). (D142) A trigger brings a resting line
+back at most C.ONB_LINE_RETURNS (1) times per zone; after that it does nothing (no event, the count is not reset). The
+UI shows `line` and needs no step rule of its own.
 
 ### 14.5 Profile, welcome and summary (E6, E7)
 - `profile.guide`: `'todo'` (new profiles), `'done'` or `'skipped'`: END_RUN of a guided run sets `'done'`, or `'skipped'`

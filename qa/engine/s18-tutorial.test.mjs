@@ -3,6 +3,7 @@
 // loot, the D138 wind-ups, Gorrak and his gate), the rescue, SKIP_GUIDE, the beats and tutorialView, the profile's guide
 // and welcome, the summary's welcome line and tutorial block, debug.resetOnboarding, the table's validation, and the
 // golden check: rows and expedition runs without the option play exactly as before task 3.4 (hashes recorded on 25a8879).
+// D142 (M3 3.7): G10 only on the map, G12's return cap.
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -33,6 +34,28 @@ function withScript(s, script) {
   s = JSON.parse(R.serialize(s)); s.content = CONTENT;
   s.tutorial.script = script;
   return steps(s, [{ type: 'SET_AUTOPLAY', on: true }, { type: 'SET_AUTOPLAY', on: false }]).state;
+}
+/** A copy changed by fn, refreshed by a no-op action (two SET_AUTOPLAY; no tolls, so no settle step). */
+function tweak(s, fn, events = []) {
+  s = JSON.parse(R.serialize(s)); s.content = CONTENT;
+  fn(s);
+  const r = steps(s, [{ type: 'SET_AUTOPLAY', on: true }, { type: 'SET_AUTOPLAY', on: false }]);
+  events.push(...r.events);
+  return r.state;
+}
+/** Walk to node `to` by the fewest hops around barred nodes: PASS_THROUGH where legal, else MOVE (a walk). */
+function walkTo(s, to, events = []) {
+  const nodes = s.zone.nodes;
+  const prev = nodes.map(() => -1);
+  const q = [s.zone.pos];
+  for (let i = 0; i < q.length; i++) for (const v of nodes[q[i]].nb) if (prev[v] < 0 && v !== s.zone.pos && !nodes[v].barred) { prev[v] = q[i]; q.push(v); }
+  const path = [];
+  for (let x = to; x !== s.zone.pos; x = prev[x]) path.unshift(x);
+  for (const id of path) {
+    const a = R.whyIllegal(s, { type: 'PASS_THROUGH', nodeId: id }) ? { type: 'MOVE', nodeId: id } : { type: 'PASS_THROUGH', nodeId: id };
+    const r = R.step(s, a); s = r.state; events.push(...r.events);
+  }
+  return s;
 }
 
 describe('M3 guided run: newRun, seed and overlay (m3-onboarding 2.1-2.3, E1, E2)', () => {
@@ -208,6 +231,7 @@ describe('M3 guided run: beats and tutorialView (2.4-2.7, E5)', () => {
       for (const id of ['G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8', 'G12', 'G13']) assert.ok(opened.includes(id), `${classId} ${id}`);
       const v = R.tutorialView(s);
       for (const id of ['G1', 'G2', 'G3', 'G4', 'G5']) assert.ok(v.learned.includes(id), `${classId} learned ${id}`);
+      assert.ok(ev.filter((e) => e.t === 'beat' && e.id === 'G12' && e.what === 'line' && e.line === 'G12').length <= C.ONB_LINE_RETURNS, 'G12 returns at most once');
       assert.deepEqual([v.ended, v.guidedZone, v.beat, v.open], [true, false, null, []]);
       assert.equal(ev.filter((e) => e.t === 'guideEnd').length, 1);
       assert.ok(ev.some((e) => e.t === 'beat' && e.id === 'G13' && e.what === 'done'));
@@ -255,6 +279,47 @@ describe('M3 coach lines yield after showing (2.5, D141)', () => {
     let s = steps(run('mage', 11), [{ type: 'START_RUN' }, { type: 'TAKE_CONTRACT', index: 0 }, { type: 'DROP_CONTRACT', index: 0 }, { type: 'TAKE_CONTRACT', index: 0 }]).state;
     const v = R.tutorialView(s);
     assert.deepEqual([v.beat, v.line, v.open], ['G1', 'G1', [{ id: 'G1', line: 'G1', rest: false }]]);
+  });
+});
+
+describe('M3 D142: coach-line returns (G10, G12)', () => {
+  test('G10 opens on the map when a held contract\'s site is first in view, never at the hub screen', () => {
+    const p = steps(run('mage', 5), [{ type: 'START_RUN' }, { type: 'TAKE_CONTRACT', index: 0 }, { type: 'SET_OUT' }, { type: 'SERVICE', service: 'vendor' }, { type: 'LEAVE' }]);
+    assert.equal(p.state.phase, 'ZONE_HUB');
+    assert.ok(p.state.zone.seen[1] && p.state.zone.nodes[1].sites, 'a site next to the hub is already seen');
+    assert.ok(!p.events.some((e) => e.t === 'beat' && e.id === 'G10'));
+    assert.ok(!R.tutorialView(p.state).open.some((o) => o.id === 'G10'));
+    const r = R.step(p.state, { type: 'LEAVE_HUB' });
+    assert.ok(r.events.some((e) => e.t === 'beat' && e.id === 'G10' && e.what === 'open' && e.line === 'G10'));
+    assert.ok(R.mapView(r.state).nodes.some((n) => n.sites));
+    // back to the hub screen by a walk: nothing new
+    const back = R.step(walkTo(r.state, 3), { type: 'MOVE', nodeId: 0 });
+    assert.equal(back.state.phase, 'ZONE_HUB');
+    assert.ok(!back.events.some((e) => e.t === 'beat' && e.id === 'G10' && e.what === 'open'));
+  });
+
+  test('G12 comes back on its trigger at most ONB_LINE_RETURNS (1) times per zone', () => {
+    assert.equal(C.ONB_LINE_RETURNS, 1);
+    let s = run('rogue', 8736);
+    for (let n = 0; n < 3000; n++) {
+      const r = R.step(s, R.autoAction(s));
+      s = r.state;
+      if (s.tutorial.beats.G12 && s.tutorial.beats.G12.st === 'open' && s.tutorial.beats.G12.rest) break;
+    }
+    assert.ok(s.tutorial.beats.G12.rest, 'G12 open and resting');
+    const nudge = (x) => { x.tutorial.beats.G12.near = false; };
+    const isBack = (ev) => ev.some((e) => e.t === 'beat' && e.id === 'G12' && e.what === 'line' && e.line === 'G12');
+    const near = (x) => R.mapView(x).dim.front >= x.zone.shardDist[x.zone.pos] - C.ONB_DIM_NEAR_HOPS;
+    assert.ok(near(s), 'the front is within ONB_DIM_NEAR_HOPS of the player');
+    const ev1 = [];
+    const once = tweak(s, nudge, ev1);
+    assert.ok(isBack(ev1), 'the first return');
+    assert.equal(once.tutorial.beats.G12.rest, false);
+    const ev2 = [];
+    const twice = tweak(once, (x) => { x.tutorial.beats.G12.rest = true; nudge(x); }, ev2);
+    assert.ok(!isBack(ev2), 'no second return');
+    assert.equal(twice.tutorial.beats.G12.rest, true);
+    assert.ok(!R.tutorialView(twice).open.find((o) => o.id === 'G12').line || R.tutorialView(twice).beat !== 'G12');
   });
 });
 
