@@ -1140,7 +1140,8 @@ function engineBackend(seedOpt, runOpts = {}) {
         case 'fight': local.fightNo++; out.push({ t: 'fightStart', kind: e.kind, enemies: e.enemies.map((x) => x.name) }); for (const x of e.enemies) { hp.set(`e${x.u}`, x.hp); max.set(`e${x.u}`, x.hp); } break;
         case 'round': out.push({ t: 'round', round: e.n }); break;
         case 'action': {
-          if (e.kind === 'flee') { out.push({ t: 'flee', ok: !!e.success }); break; }
+          // a flight that works also gives `fled` (below): the action says only a failed one (D144 UI need 7: logged twice)
+          if (e.kind === 'flee') { if (!e.success) out.push({ t: 'flee', ok: false }); break; }
           if (e.kind === 'skip') { out.push({ t: 'skip', src: ref('player'), reason: 'Frozen in time' }); break; }
           if (e.kind === 'engage') {
             // an engage option (rules 7.10): strike and control options play at the target, setup options on the hero (the pet
@@ -1366,6 +1367,8 @@ function engineBackend(seedOpt, runOpts = {}) {
           local.spoils = { title: 'Treasure chest', node: { ...h.node, step: 'opened' }, combat: null, gold: h.gold, xp: 0, trap: h.trap > 0, items: h.items };
           const evs = [{ t: 'chest', gold: h.gold }];
           if (h.trap > 0) evs.push({ t: 'damage', src: { side: 'env', idx: 0 }, dst: { side: 'player', idx: 0 }, amount: h.trap, name: 'Needle trap', school: 'phys', hpAfter: st.player.hp, maxHp: st.player.d.maxHp });
+          // the chest's gold and loot as the log says them, now that it is open (held back on entry, above)
+          evs.push(...convEvents(view(), (h.held || []).filter((e) => e.t !== 'trap'), st));
           return { ok: true, events: evs };
         }
         case 'LEAVE':
@@ -1457,7 +1460,15 @@ function engineBackend(seedOpt, runOpts = {}) {
       if (err && err.code === 'ILLEGAL_ACTION') return { ok: false, error: castReason(st, err) };
       throw err;
     }
+    const hold0 = local.hold;
     afterStep(prev, events);
+    // D144 (engine-2026-11-13d UI need 6): an unguarded chest is opened by the engine on entry, but the screen holds it
+    // until "Open the chest": its gold, loot and trap wait for OPEN_CHEST (they were in the log before it was opened)
+    if (local.hold && local.hold !== hold0 && local.hold.node.step === 'chest') {
+      const inChest = (e) => e.t === 'loot' || e.t === 'trap' || (e.t === 'gold' && e.why === 'treasure');
+      local.hold.held = events.filter(inChest);
+      return { ok: true, events: convEvents(prev, events.filter((e) => !inChest(e)), st) };
+    }
     return { ok: true, events: convEvents(prev, events, st) };
   }
 
