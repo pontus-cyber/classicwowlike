@@ -42,6 +42,7 @@ test('need 1: at the first hub every class gets useful false (R.trainerView); th
   assert.equal(trainerMeta({ trainer: { useful: true, next: 6 } }), 'Learn and rank up spells');
   assert.equal(trainerMeta({ trainer: null }), 'Learn and rank up spells', 'no view (an older engine): as before');
   assert.equal(trainerMeta({ trainer: { useful: false, next: null } }), 'Nothing new to learn');
+  assert.equal(trainerMeta({ trainer: { learn: [{ id: 'x', lvl: 4, cost: 900 }], train: [], next: 6, useful: false } }), 'Its lessons cost more gold than you have', 'a lesson the gold does not cover');
 });
 
 test('need 2: H05 reads its shield line by alt or as H05.shield; its own line otherwise', () => {

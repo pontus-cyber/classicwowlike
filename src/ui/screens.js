@@ -301,12 +301,14 @@ function innCard(v, ctx, name, meta, used, heat) {
 }
 
 /**
- * The hub Trainer card's line (D144, engine-2026-11-13d UI need 1): what it teaches, or that it has nothing new yet and the
- * level of the next spell (R.trainerView `useful`, `next`, through the bridge's view.trainer).
+ * The hub Trainer card's line (D144, engine-2026-11-13d UI need 1): what it teaches; that its lessons cost more gold than
+ * the hero has (lessons or ranks offered, none the gold covers); or that it has nothing new yet and the level of the next
+ * spell (R.trainerView `learn`, `train`, `next`, `useful`, through the bridge's view.trainer).
  */
 export function trainerMeta(v) {
   const t = v.trainer;
   if (!t || t.useful) return 'Learn and rank up spells';
+  if ((t.learn && t.learn.length) || (t.train && t.train.length)) return 'Its lessons cost more gold than you have';
   return t.next ? `Nothing new to learn yet (next spell at level ${t.next})` : 'Nothing new to learn';
 }
 
