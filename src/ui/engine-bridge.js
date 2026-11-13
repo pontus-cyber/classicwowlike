@@ -1531,6 +1531,14 @@ function engineBackend(seedOpt, runOpts = {}) {
           if (st.phase === 'CREATE') rebuildCreate();
           else if (st.phase !== 'ENDED') run('setProfile', profile);
           break;
+        case 'resetOnboarding':
+          // M3 (m3-onboarding.md E8, 7.2 setup): the profile's guide back to 'todo' and the welcome unpaid (R.debug); the class
+          // select toggle on again. In a run the run takes the profile (a dev run, so its END_RUN keeps both) and the next run
+          // is the guided one. The Dev menu clears the hint store (tbwcr.hints.v2) itself
+          profile = D.resetOnboarding(profile || R.newProfile()); saveProfile(profile); refreshPets(); guideOn = true;
+          if (st.phase === 'CREATE') rebuildCreate();
+          else if (st.phase !== 'ENDED') run('setProfile', profile);
+          break;
         case 'seed': {
           const keep = st.create ? { classId: st.create.classId, petId: st.create.petId } : { classId: st.player.classId, petId: st.player.pet ? st.player.pet.id : null };
           st = mkRun(Number(args.seed) >>> 0, keep); resetLocal(); fresh = true;

@@ -54,6 +54,11 @@ export const hints = {
   setOff(on) { this.get().off = !!on; this.save(); },
   /** Settings "Reset hints": every hint shows again (the nudge too). */
   reset() { const s = this.get(); s.seen = {}; s.nudge = { summary: 0, hall: false }; this.save(); },
+  /** Dev menu "Reset onboarding": the hint store as on a new profile (tbwcr.hints.v2 and the retired v1 keys removed; hints on). */
+  clear() {
+    for (const k of [HINTS_KEY, OLD_ENGAGE_KEY, OLD_HEAT_KEY]) { try { localStorage.removeItem(k); } catch { /* storage blocked */ } }
+    this.state = null; this.get();
+  },
 };
 
 // ------------------------------------------------------------------ lines
@@ -447,6 +452,8 @@ export function createOnboarding(root, ctx) {
     el, onStep, update, place, summaryNudge, noteSummary, armHall, closeNudge, holdSetOut,
     /** Settings "Reset hints" / "Hints" / "Play the guide again". */
     reset() { hints.reset(); dismissed.clear(); cool.clear(); queue = []; hide(false); },
+    /** Dev menu "Reset onboarding": the hint store cleared as on a new profile (hints on, nothing seen, no nudge). */
+    clear() { hints.clear(); dismissed.clear(); cool.clear(); queue = []; hide(false); },
     setOff(on) { hints.setOff(on); if (on) { hide(false); queue = []; } },
     /** Test hook: the line on screen and every line shown so far. */
     test() { return { shown: cur ? { id: cur.lineId || cur.id, kind: cur.kind, text: el.querySelector('.co-t').textContent } : null, log: log.map((x) => ({ ...x })), store: JSON.parse(JSON.stringify(store())), queue: queue.map((x) => x.id) }; },

@@ -2,7 +2,7 @@
 // through"; docs/specs/engine-api.md 12). A corner button and the backquote key (`) open a panel with six tabs: Start at
 // (class, pet, zone, level, item level, rarity, map mode, talents), Jump (the Camp, the end-boss fight in phase 1, 2 or 3,
 // the next zone), Fight (a searchable list of every enemy template by zone and type, the target killed, health and
-// resources refilled), Give (gold, potions, talent points, Echoes, the full catalogue), World (the run's tolls and heat, the map
+// resources refilled), Give (gold, potions, talent points, Echoes, the full catalogue, Reset onboarding), World (the run's tolls and heat, the map
 // revealed, god mode, the map mode, "Classic map (old)" for new runs: D116 made the expedition map with the start camp the
 // default, the classic map stays for testing here only) and Seed (the seed, copy it, a new run on a seed). On by default; ?dev=0 or the
 // settings hide it. Presentation only: every button sends one dev op through the bridge (ctx.dev -> engine-bridge.js dev
@@ -174,6 +174,14 @@ export function createDevMenu(root, ctx, { allowed }) {
       ];
       const ech = opBtn('Give', 'echoes', () => { const n = whole('echoes', 'Echoes', 1); return n === null ? null : { n }; });
       const full = opBtn('Unlock the full catalogue', 'catalogue');
+      // M3 (m3-onboarding.md E8, 7.2 setup): the guide back to 'todo', the welcome unpaid, every first-time hint unseen
+      const onb = h('button.btn.small', { type: 'button', dataset: { dev: 'reset-onboarding' } }, 'Reset onboarding');
+      onb.addEventListener('click', async () => {
+        onb.blur();
+        const r = await ctx.dev('resetOnboarding', {});
+        if (r && r.ok === false) return;
+        if (ctx.coach) ctx.coach.clear();
+      });
       return {
         el: h('div',
           h('div.dm-line', field('Gold (copper)', gold, null), preview, runOnly[0]),
@@ -181,8 +189,8 @@ export function createDevMenu(root, ctx, { allowed }) {
           h('div.dm-line', field('Talent points', number('points', { min: 1, max: 100 }), null), runOnly[2]),
           h('div.dm-sub', 'Profile (kept between runs)'),
           h('div.dm-line', field('Echoes', number('echoes', { min: 1 }), null), ech),
-          h('div.dm-acts', full),
-          h('div.dm-note', 'Potions: Healing Draughts while the bags take them (a Mage gets Mana Draughts too). Echoes and the catalogue go to your saved profile.')),
+          h('div.dm-acts', full, onb),
+          h('div.dm-note', 'Potions: Healing Draughts while the bags take them (a Mage gets Mana Draughts too). Echoes, the catalogue and Reset onboarding go to your saved profile.')),
         refresh(vv) { for (const b of runOnly) b.disabled = !inRun(vv); },
       };
     },

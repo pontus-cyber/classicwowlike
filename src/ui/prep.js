@@ -339,7 +339,7 @@ export function buildContractLog(v, ctx) {
 export function buildHubOffer(v, ctx, state = { swap: false }) {
   const cv = v.contracts; const o = cv && cv.hub; if (!o) return null;
   const colors = contractColors(cv);
-  const box = h('div.hubc', { dataset: { kind: o.kind } });
+  const box = h('div.hubc', { dataset: { kind: o.kind, hubOffer: o.id || o.kind } }); // data-hub-offer: hint H22's anchor (onboarding.js)
   const head = h('div.hc-head', h('img', { src: kindIcon(o.kind), alt: '' }), h('div', h('div.hc-t', 'Contract on offer'), h('div.hc-s', hubOfferSentence(o, v.zone.hubName, ctx.data.content))));
   tip(head, () => contractTip(o, ctx, { price: `${pts(o.price)} of Reserve (you have ${cv.reserve}) · or a swap` }));
   const rw = o.reward;

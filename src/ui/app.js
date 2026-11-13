@@ -705,6 +705,7 @@ function devText(op, args, r, v) {
     case 'mapMode': return args.mode === 'expedition' ? 'Expedition map' : 'Classic map (old)';
     case 'echoes': return `${args.n} Echoes given`;
     case 'catalogue': return 'Every unlock in the catalogue';
+    case 'resetOnboarding': return 'Onboarding reset: the next run is guided, the welcome is paid again, every hint shows again';
     case 'seed': return `New run on seed ${args.seed}`;
     default: return `Dev: ${op}`;
   }

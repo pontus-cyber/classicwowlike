@@ -21,6 +21,9 @@
  *
  * States (STATES below): class select, the start camp, the zone hub, the fog map, the fog map with the Dimming two tolls
  * from the player, a Deathblow fight's engage round, MAIMED after the Deathblow lands, loot, the character sheet, the Hall of Echoes, the death summary, the settings window.
+ * M3 (m3-onboarding.md 7.1.6): those states open with the guided first run off (?guide=0) and the first-time hints off
+ * (tbwcr.hints.v2 stored as off), so they show what they showed before M3. Two states show the guided run on a fresh
+ * profile (guide on, hints on): the start camp with beat G1 on the coach line, and the first fight's round 1 with beat G3.
  * Playwright comes from /home/claude/tools-ui, a local install or /opt/npm-tools/node_modules.
  */
 import fs from 'node:fs';
@@ -34,6 +37,7 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const SAMPLE_GAP_MS = 300;
 const PROFILE_KEY = 'tbwcr.profile.v1'; // where the game keeps the meta profile (src/ui/engine-bridge.js)
 const ELITE = 'z2_bargh'; // zone 2 elite with a heavy Deathblow (as ui-regress part P)
+const HINTS_KEY = 'tbwcr.hints.v2'; // first-time hints (src/ui/onboarding.js): stored as off for the states without the guide
 
 // computed properties read for every element and pseudo-element
 const PROPS = [
@@ -205,6 +209,33 @@ const STATES = {
     query: 'seed=5&classic=1',
     go: async (page) => { await dev(page, 'build', { classId: 'hunter', zone: 2 }); await page.evaluate(() => window.__ui.openWin('settings')); await idle(page); },
   },
+  // M3: the guided first run on a fresh profile (guide on, hints on). The start camp with G1 ("Take a contract") on the coach line
+  'guided-camp': {
+    query: 'seed=7', guide: true,
+    go: async (page) => {
+      await page.locator('#create .ccard[data-cls="hunter"]').click();
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await until(page, () => { const c = window.__ui.coach(); return !!(c.shown && c.shown.id === 'G1'); }, null, 8000);
+    },
+  },
+  // the guided run's first fight, round 1, G3 ("Press 1 to attack") on the coach line: steps on the engine's choices (AUTO)
+  'guided-fight': {
+    query: 'seed=7', guide: true,
+    go: async (page) => {
+      await page.locator('#create .ccard[data-cls="hunter"]').click();
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      const ok = await page.evaluate(async () => {
+        const ui = window.__ui;
+        for (let n = 0; n < 60; n++) {
+          const v = ui.view(); const c = ui.coach();
+          if (c.shown && c.shown.id === 'G3' && v.combat && !v.combat.over) return true;
+          await ui.act({ type: 'AUTO' }); await ui.idle();
+        }
+        return false;
+      });
+      if (!ok) throw new Error('G3 never showed in the first fight');
+    },
+  },
 };
 
 /** In the page: freeze CSS animations and read the computed styles of every element. */
@@ -245,13 +276,15 @@ function readStyles(props) {
 
 async function snapshot(browser, name, st) {
   const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, reducedMotion: 'no-preference' });
+  // M3: the states written before the guided run: the guide off and the hints off (a fresh store), as ui-regress open()
+  if (!st.guide) await context.addInitScript((key) => { try { if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify({ off: true, seen: {} })); } catch { /* storage blocked */ } }, HINTS_KEY);
   if (st.profile) await context.addInitScript(([key, json]) => { try { localStorage.setItem(key, json); } catch { /* storage blocked */ } }, [PROFILE_KEY, JSON.stringify(st.profile())]);
   const page = await context.newPage();
   const errors = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(e.message));
   try {
-    await page.goto(`${URL}?${st.query}&speed=instant`);
+    await page.goto(`${URL}?${st.query}${st.guide ? '' : '&guide=0'}&speed=instant`);
     await page.waitForFunction(() => window.__ui);
     await idle(page);
     await st.go(page);
