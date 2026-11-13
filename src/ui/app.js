@@ -688,6 +688,7 @@ export class App {
         this.ui.target = null; this.ui.preview = null; this.ui.precastArmed = false; this.ui.wuHover = null; this.ui.fleeArmed = false;
         this.scene.clearFx(); this.showDeath(false); hideTip();
         this.shown = this.bridge.view; this.syncScene(this.shown, { instant: true, enter: true }); this.retarget(this.shown);
+        this.screens.refresh(); // the screen is built again from the result (a revealed map shows its nodes at once)
         this.windows.update(); this.queueRender();
         const text = devText(op, args, r, this.shown);
         this.toast(text, 'good'); this.hud.log(`Dev: ${text}`, 'lg-sys');
@@ -745,7 +746,7 @@ export class App {
         if (app.busy() || !app.bridge.testLoad(serialized)) return false;
         app.ui.target = null; app.ui.preview = null; app.ui.precastArmed = false; app.ui.wuHover = null;
         app.scene.clearFx(); app.hud.clearLog();
-        app.shown = app.bridge.view; app.syncScene(app.shown, { instant: true, enter: true }); app.retarget(app.shown); app.queueRender();
+        app.shown = app.bridge.view; app.syncScene(app.shown, { instant: true, enter: true }); app.retarget(app.shown); app.screens.refresh(); app.queueRender();
         return true;
       },
       canDebug: app.bridge.canDebug,
