@@ -46,6 +46,9 @@ const FIGHT_BEATS = new Set(['G3', 'G6', 'G7', 'G8', 'G9', 'G11']); // beats who
 export const MAP_LINES = new Set(['G2', 'G12', 'G12.caught', 'G13', 'G13.onRoad', 'G13.closed']);
 /** Beat lines that stand for no hint (D143: the closed line is about Gorrak, not the Bell, so it does not make H19 seen). */
 const NO_HINT_LINES = new Set(['G13.closed']);
+/** Hint lines that leave their hint unseen (D144: H05's shield line; the plain line is still to be taught). */
+const UNSEEN_ALT = { H05: new Set(['shield']) };
+const leavesUnseen = (x) => !!(x && x.kind === 'hint' && UNSEEN_ALT[x.id] && UNSEEN_ALT[x.id].has(x.alt));
 const BOTTOM_REM = 14.8; // the coach line's place: its bottom edge over the action bar's control row (1366x768: y 620)
 /** D143, draft (no content line yet): the toast when the guided zone's Roads open. */
 export const ROADS_OPEN_LINE = 'The Roads are open: take one on to the next zone.';
@@ -158,7 +161,9 @@ export function rawLine(T, id, cls, alt) {
   }
   const x = T.hints.find((y) => y.id === base); if (!x) return null;
   if (x.sameAs) return rawLine(T, alt ? `${x.sameAs}.${alt}` : x.sameAs === 'G9' ? `G9.${cls}` : x.sameAs, cls);
-  return x.line || null;
+  // a hint's own other line (D144: H05 alt.shield), by `alt` or as H05.shield
+  const k = alt || key;
+  return (k && x.alt && x.alt[k]) || x.line || null;
 }
 
 // ------------------------------------------------------------------ anchors
@@ -202,7 +207,10 @@ const HINTS = {
   H02: { ctx: 'fight', when: (c) => inFight(c.v) && entries(c.v).length > 0, anchor: npOf(() => true) },
   H03: { ctx: 'fight', when: (c) => entries(c.v).some(({ x }) => x.windup && !x.deathblow), anchor: ANCHOR.G8, done: (c) => has(c.ev, 'windup', (e) => e.result === 'answered' && !e.deathblow) },
   H04: { ctx: 'fight', when: (c) => entries(c.v).some(({ x }) => x.deathblow), anchor: ANCHOR.G9, done: (c) => has(c.ev, 'windup', (e) => e.result === 'answered' && e.deathblow) },
-  H05: { ctx: 'fight', when: (c) => inFight(c.v) && c.v.combat.enemies.some((e) => e.alive && e.offBalance), anchor: () => q('#target-frame .obal') || q('#target-frame') },
+  // D144 (engine-2026-11-13d UI need 2): the off-balance enemy's shield would take the whole hit (offBalance.absorbs): the
+  // shield line ("break it, then spend your big hit"), and H05 stays unseen so the plain line is taught in a later window
+  H05: { ctx: 'fight', when: (c) => inFight(c.v) && c.v.combat.enemies.some((e) => e.alive && e.offBalance), anchor: () => q('#target-frame .obal') || q('#target-frame'),
+    alt: (c) => (c.v.combat.enemies.some((e) => e.alive && e.offBalance && e.offBalance.absorbs) ? 'shield' : undefined) },
   H06: { ctx: 'fight', when: (c) => inFight(c.v) && status(c.v.player, 'MAIMED'), anchor: () => q('#player-frame .maimb') || q('#player-frame') },
   H07: { ctx: 'fight', when: (c) => inFight(c.v) && !!q('#nameplates .db-lethal, #engage .db-lethal'), anchor: () => q('#nameplates .db-lethal') || q('#engage .db-lethal') },
   H08: { ctx: 'fight', when: (c) => inFight(c.v) && c.v.combat.enemies.some((e) => e.alive && e.dot && (e.dot.total || e.dot.amount || e.dot.ticks)), anchor: () => q('#target-frame .bar.hp') },
@@ -293,7 +301,7 @@ export function createOnboarding(root, ctx) {
     el.dataset.id = x.lineId || x.id; el.dataset.kind = x.kind;
     el.classList.toggle('instant', !!settings.reduceMotion);
     // D142 (3): a showing of a hint, or of the beat line that stands in for it, counts towards ONB_HINT_SHOWS
-    hints.noteShown(x.kind === 'hint' ? x.key : x.kind === 'beat' ? beatHintKey(x.id, x.lineId) : null);
+    hints.noteShown(x.kind === 'hint' && !leavesUnseen(x) ? x.key : x.kind === 'beat' ? beatHintKey(x.id, x.lineId) : null);
     log.push({ id: x.lineId || x.id, key: x.key || null, text: line.text, kind: x.kind, step: stepNo, at: Math.round(performance.now()) });
     if (log.length > 400) log.shift();
     place();
@@ -308,7 +316,8 @@ export function createOnboarding(root, ctx) {
   function hide(seenNow) {
     if (!cur) return;
     const long = performance.now() - cur.at >= r.hintMinMs;
-    if (cur.kind === 'hint' && (seenNow || long)) hints.mark(cur.key);
+    if (leavesUnseen(cur)) cool.set(cur.key, cur.moment); // not seen, and not again in this fight
+    else if (cur.kind === 'hint' && (seenNow || long)) hints.mark(cur.key);
     if (cur.anchorEl) cur.anchorEl.classList.remove('coach-on');
     cur = null; confirm = false;
     el.classList.add('hidden');

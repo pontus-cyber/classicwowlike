@@ -34,7 +34,8 @@
 //              ccImmune }], target, cooldowns: { spellId: roundsLeft }, potionCd, kind, isBoss, boss: { phase, asc, telegraph },
 //              over, title, fightNo, fights, engage }
 //              combat v2 (docs/specs/combat-v2.md 10, engine-api.md 6): track = the enemy's intent track (convTrack), role =
-//              its archetype and pack role (convRole), offBalance = R.offBalance, engage = the engage round's options
+//              its archetype and pack role (convRole), offBalance = R.offBalance (D144: with `shield` and `absorbs`, the
+//              enemy shield takes the main attack's whole hit), engage = the engage round's options
 //              (R.isEngageRound, R.engageOptions) or null; bridge.engagePreview(option, target, spellId) = R.engagePreview
 //              combat v2.1 (combat-v2.md 16, engine-api.md 5, 6): track entries and intents carry `windup` (cancel.stagger:
 //              the predicted cancel answers it), statuses hold EMPOWERED and STAGGERED ({ stacks, value }), engage options
@@ -713,7 +714,7 @@ function engineBackend(seedOpt, runOpts = {}) {
       if (e.alive && R.offBalance) { try { ob = R.offBalance(s, e.idx); } catch { ob = null; } }
       return { idx: e.idx, uid: `${key}:${e.idx}`, tplId: e.tid, name: e.name, level: e.level, rank: rankOf(e), arch: e.arch || (e.kind === 'boss' ? 'boss' : 'shard'),
         hp: e.hp, maxHp: e.maxHp, alive: e.alive, statuses: statuses(e.st, f, e.shield, e.enraged), intent: e.alive ? convIntent(e.intent, e) : null,
-        track, role: e.alive ? convRole(e, f, track) : null, offBalance: ob ? { status: ob.status, taken: ob.taken, crit: ob.crit, rounds: ob.rounds } : null,
+        track, role: e.alive ? convRole(e, f, track) : null, offBalance: ob ? { status: ob.status, taken: ob.taken, crit: ob.crit, rounds: ob.rounds, shield: ob.shield || 0, absorbs: !!ob.absorbs } : null,
         ccImmune: !!e.ccImmune, firstMeet: !!e.firstMeet, turn: e.turn || 0, added: !!(e.summoned || e.noReward || (e.unscripted && e.kind !== 'boss' && e.kind !== 'shard')),
         dot: e.alive ? dotOf(s, e.idx) : null }; // the DoT preview (engine-api.md 6.1)
     });
