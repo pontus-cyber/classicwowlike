@@ -906,7 +906,8 @@ run. Zones 2-6 and everything after the guide are the normal rules. A run withou
   fewest Dimmed steps, then tolls; MOVE onto his node), before exploring further; while his node is barred, where it would
   leave it goes to the nearest node that plays the next script. Seed 8736, every class, 20 run seeds each, with the gate
   after S3 (D143): he is entered at zone toll 13 right after S3 and won, G9 learned, zone 1 left by Road 19 at toll 19 with
-  0 Dimmed encounters, the Bell kept, 0 rescues; S4 is not played on that route [source: docs/handoffs/engine-2026-11-13d.md
+  0 Dimmed encounters, the Bell kept, 0 rescues; S4 is not played on that route (D147: the same route with S3 the wind-up
+  fight, G8 open before G9 [source: docs/handoffs/engine-2026-11-14.md]) [source: docs/handoffs/engine-2026-11-13d.md
   1]. With the gate after S4 (D142 as first built) he was fought at zone toll 17-20 and zone 1 left by the Bell at toll 26
   after 2 Dimmed encounters [source: docs/handoffs/engine-2026-11-13c.md 4].
 - Scripts and sites: every unresolved Quest and Grind node of zone 1 plays its role, laid on its encounter after every
@@ -918,7 +919,7 @@ run. Zones 2-6 and everything after the guide are the normal rules. A run withou
   quest once the role is lifted), so `mapView`'s `title`, the node's `quest` and the `quest` event match the enemies; `mapView`
   marks such nodes `guided` (10.3).
 - Wind-ups (D138): in an overlay fight only enemies with `windup: true` play their turn-2 scripted action as a wind-up (the
-  first-meeting mechanism, any fight kind; S4's Scarecrow Hexer: Hex Bolt); every other quest fight of the guided zone has
+  first-meeting mechanism, any fight kind; S3's Scarecrow Hexer: Hex Bolt, since D147 (was S4)); every other quest fight of the guided zone has
   no first-meeting wind-up. Elite, rare and dungeon-boss wind-ups and Deathblows are unchanged.
 - S1's loot (`scripts[0].loot`), on a win, replaces its drops: one item of rarity `loot.upgrade` for the class's weakest slot
   by `itemScore` (fixed stats as starting gear, ilvl = the node's level + the rarity's bonus; an upgrade), and
@@ -972,8 +973,8 @@ The engine opens and closes G1-G13 from the action, its events and the state, wh
 | G4 | the first gear loot in the guided zone | learned on EQUIP; missed when the next fight ends |
 | G5 | the first map step after G4's | learned on the next map action (MOVE, PASS_THROUGH, TAKE_ROAD, RING_BELL, USE_SPYGLASS) |
 | G6 | the first fight with a heavy or cast entry on a track | at its end: learned if a heavy cost 0 HP (`offBalance` `avoided`), else missed (hovering is the UI's) |
-| G7 | the first engage fight with 2 or more enemies | learned on ENGAGE; shown again at the next engage fight (ONB_ENGAGE_SHOWS), then missed |
-| G8 | the first fight with a non-Deathblow wind-up | learned on its `stagger`; landed: `G8.landed`, open for ONB_BEAT_RETRIES more, then missed |
+| G7 | the first engage fight with 2 or more enemies; (D147) opening in the same engage round as G8 (S3): line null, G8 carries the joint line | learned on ENGAGE; shown again at the next engage fight (ONB_ENGAGE_SHOWS), then missed |
+| G8 | the first fight with a non-Deathblow wind-up; (D147) `G8.withEngage` when G7 opens in the same engage round (content `alt.withEngage`, spec 2.8) | learned on its `stagger`; landed: `G8.landed`, open for ONB_BEAT_RETRIES more, then missed; the enemy dead before its wind-up: open (line null), missed at the guide's end |
 | G9 | the first fight with a Deathblow (`G9.<class>`) | learned on a Deathblow's `stagger`; landed: `G9.landed`, the class line again at the next Deathblow fight |
 | G10 | (D142) on the map with nothing open, a held contract's site mark first in view (as `mapView` shows it: `sites`), never at the hub screen (`G10`) | first site won: line null; complete: `G10.done`; learned at the CHOOSE_REWARD that takes its reward |
 | G11 | in a fight, HP < ONB_POTION_HP of max with a healing potion on the item bar | learned on USE_ITEM of it; missed when the fight ends |

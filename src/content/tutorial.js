@@ -1,10 +1,10 @@
 // Content table: the guided first run (docs/specs/m3-onboarding.md 2.3 overlay, 2.4 beats, 2.6-2.7 guide lines, 3.2
 // first-time hints, 4.3 nudge; D135, D137). The authored overlay for zone 1 on TUTORIAL_SEED 8736 (board slot 1, Cull
-// site fights, scripted fights S1-S4, Gorrak's encounter and the gate that holds him back until S3 has been fought, D143),
-// the 13 coach lines (D142: G13.closed while the Roads wait for Gorrak's fight), the 37 hint lines and the Packed
-// Satchel nudge. Status: draft (owner approval pending). Shape:
-// src/content/SCHEMA.md 2.11. Plain data only; levels, counts and every rule number are constants (spec section 12).
-// Lines hold {placeholders} the UI fills (SCHEMA.md 2.11): key names from its key map, numbers from C.
+// site fights, scripted fights S1-S4 with the wind-up fight third (D145 fix, D147), Gorrak's encounter and the gate that
+// holds him back until S3 has been fought, D143), the 13 coach lines (D142: G13.closed while the Roads wait for Gorrak's
+// fight; D147: G8's joint line with G7), the 37 hint lines and the Packed Satchel nudge. Status: draft (owner approval
+// pending). Shape: src/content/SCHEMA.md 2.11. Plain data only; levels, counts and every rule number are constants (spec
+// section 12). Lines hold {placeholders} the UI fills (SCHEMA.md 2.11): key names from its key map, numbers from C.
 
 export const TUTORIAL = {
   seed: 8736, // TUTORIAL_SEED as accepted in D137; the engine reads C.TUTORIAL_SEED, this is a cross-check only
@@ -26,17 +26,19 @@ export const TUTORIAL = {
   // makes its turn-2 action a wind-up only where `windup: true` is set here: FIRST_MEET_WINDUP is off for every other
   // guided-zone fight (S1-S3 and the site fights would otherwise get first-meeting wind-ups before G8 teaches them).
   // quest (D144, draft): the quest a Quest node shows while it plays this script (the blind testers met S1's boar under a
-  // quest about cutpurses); S3 is zone 1's Lost Lambs, the others are the guided zone's own (src/content/quests.js).
+  // quest about cutpurses); S4 is zone 1's Lost Lambs, the others are the guided zone's own (src/content/quests.js).
+  // D145 fix (m3-onboarding.md 2.8, draft; D147): S3 and S4 swapped, so the wind-up fight comes before Gorrak's gate (after
+  // s3): G7 and G8 come in S3, before Gorrak; S4 (the Ogre and the Wolf) has no beat of its own (G7's "If not" may show).
   scripts: [
     { id: 's1', beat: 'G3', teaches: 'Attack with the bar and win; then loot.', quest: 'q_z1_guide_rooted_rows',
       enemies: [{ enemy: 'z1_furrow_boar' }],
       loot: { upgrade: 'uncommon', consumable: 'healing_draught' } }, // count: ONB_LOOT_POTIONS
     { id: 's2', beat: 'G6', teaches: 'Read the intent track: Heavy Smash shows two moves ahead.', quest: 'q_z1_guide_hedge_breaker',
       enemies: [{ enemy: 'z1_hedge_ogre' }] },
-    { id: 's3', beat: 'G7', teaches: 'Use the engage round on one of two foes.', quest: 'q_z1_lost_lambs',
-      enemies: [{ enemy: 'z1_hedge_ogre' }, { enemy: 'z1_barn_wolf' }] },
-    { id: 's4', beat: 'G8', teaches: 'Answer a wind-up: the Hexer winds up Hex Bolt on its turn 2.', quest: 'q_z1_guide_straw_and_tusk',
+    { id: 's3', beat: 'G8', teaches: 'Open on the wind-up: the Hexer winds up Hex Bolt on its turn 2.', quest: 'q_z1_guide_straw_and_tusk',
       enemies: [{ enemy: 'z1_scarecrow_hexer', windup: true }, { enemy: 'z1_furrow_boar' }] },
+    { id: 's4', beat: 'G7', teaches: 'Use the engage round on one of two foes.', quest: 'q_z1_lost_lambs',
+      enemies: [{ enemy: 'z1_hedge_ogre' }, { enemy: 'z1_barn_wolf' }] },
   ],
 
   // Gorrak's encounter (spec 2.3 "Elite"; D137): the Elite node nearest the hub (seed 8736: node 18), Gorrak alone
@@ -46,8 +48,8 @@ export const TUTORIAL = {
     // Gate (D137): the node is barred (MOVE onto it is illegal) until scripted fight `afterScript` has ended, by a
     // win, a flight or a rescue, so G6 (intents) and G7 (engage round) have had their fights first. D143 (draft,
     // Core Gameplay Engineer 2026-11-13): after S3, not S4, so the guided zone ends by a Road before the Dimming (S4 at
-    // toll 17 left 2 tolls before his node dimmed); G8 (wind-ups) may then come after Gorrak, whose G9 line names its
-    // own answer. The gate is open at once after SKIP_GUIDE and outside the guided zone. Barring the node cuts no route
+    // toll 17 left 2 tolls before his node dimmed); G7 and G8 come in S3, before Gorrak (D145 fix). The gate is open at
+    // once after SKIP_GUIDE and outside the guided zone. Barring the node cuts no route
     // on seed 8736 (its neighbours 1, 7, 17 and 30 stay linked through 7 and 17). {n}: scripted fights still to come
     // before the gate opens (tutorialView.elite.left).
     gate: {
@@ -89,9 +91,15 @@ export const TUTORIAL = {
       line: 'Its next three moves, in order. The big one is marked.' },
     { id: 'G7', name: 'Engage round', hint: 'H01', anchor: 'engage panel',
       line: 'Round 1 is yours: they act from round 2. Open with {key_engage1}, {key_engage2} or {key_engage3}.' },
+    // withEngage (D145 fix, m3-onboarding.md 2.8, draft): S3 is the first fight with two enemies and the first with a
+    // wind-up, so G7 and G8 open in the same engage round; the engine gives G8 this joint line (G7's waits) and the UI
+    // points it at the engage panel's W button, with a second marker on the wind-up badge.
     { id: 'G8', name: 'Wind-up', hint: 'H03', anchor: 'wind-up badge',
       line: 'Wind-up: stop it with {key_engage2}, an interrupt or a stun, and it is weakened all fight.',
-      alt: { landed: 'It landed: that enemy hits harder until it dies.' } },
+      alt: {
+        landed: 'It landed: that enemy hits harder until it dies.',
+        withEngage: 'Round 1 is yours: open with {key_engage2} on the wind-up and it is weakened all fight.',
+      } },
     // byClass (D144, draft, Core Gameplay Engineer 2026-11-13): no turn number. "on turn 2" (its own turn) read against
     // the round labels everywhere else ("Deathblow R3", "round 3"); the badge the line points at shows the round.
     { id: 'G9', name: 'Deathblow', hint: 'H04', anchor: 'Deathblow badge',

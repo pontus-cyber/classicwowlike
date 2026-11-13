@@ -248,7 +248,7 @@ counts and every rule number stay constants (ONB_*, spec 12). Beat and hint ids 
 | `elite` | object | `{ id, beat, enemy (a zone elite), deathblow (an ability id of that enemy), add: false, rare: false, gate }` |
 | `elite.gate` | object | `{ afterScript: a script id, barredLine, openLine }`: the elite's node cannot be entered until that scripted fight has ended (win, flight or rescue); open after SKIP_GUIDE. `{n}` = scripted fights still to come |
 | `guide` | object | `{ rescueLine, endLine }` (spec 2.6, 2.7); (D147) `rescueCapLine`: the ONB_RESCUE_MAX-th rescue ends the guide (event `guideSkipped` with `why: 'rescues'`); (D144) `hubLine`, `hubTrainerLine`: the welcome at a zone hub in any run, the trainer line only while `R.trainerView(state).useful`; `{zone}` = the zone's name |
-| `beats` | object[] | exactly 13: `{ id, name, anchor, line \| byClass { rogue, mage, hunter }, alt?: { state: line }, hint?: hint id }` |
+| `beats` | object[] | exactly 13: `{ id, name, anchor, line \| byClass { rogue, mage, hunter }, alt?: { state: line }, hint?: hint id }`; (D147) G8 `alt.withEngage`: the joint line of G7 and G8 in one engage round (spec 2.8) |
 | `hints` | object[] | exactly 37: `{ id, system, line \| sameAs (a beat id), perClass?: true, alt?: { state: line } }`; (D144) H05 `alt.shield`: the off-balance target's shield absorbs a whole hit (`R.offBalance(...).absorbs`) |
 | `nudge` | object | `{ unlock (META id), welcomeLabel, summaryLine, hallLine, later }` (spec 4.2-4.3) |
 

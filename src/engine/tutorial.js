@@ -6,7 +6,8 @@
 // ended (D138), and the zone's Roads closed until his fight has ended (D142). While the guide is on (not skipped) zone 1
 // is the guided zone: a death there is a rescue (back to the last node, full health, ONB_RESCUE_TOLLS; D147: it lands on
 // the map with no fight started, and the ONB_RESCUE_MAX-th rescue ends the guide), and the 13 beats G1-G13 are tracked
-// from the actions, events and state (`beat` events, tutorialView). Leaving zone 1 ends the guide.
+// from the actions, events and state (`beat` events, tutorialView; D147: G7 and G8 opening in one engage round share
+// G8's joint line). Leaving zone 1 ends the guide.
 // Pure helpers of the state; nodes.js, combat.js, damage.js, contracts.js, actions.js and autoplay.js call them. A run
 // without the option never reaches any of it.
 import {
@@ -341,8 +342,9 @@ export function tutorialAfter(s, ev, a) {
 /**
  * The beats of spec 2.4 as the engine sees them: a beat opens (`beat` event what 'open', with its coach line id) on its
  * trigger, can change its line ('line'), and closes learned ('done') or not ('missed'). Line ids: the beat id for its
- * line, `<id>.<key>` for content's `alt` / `byClass` lines (G8.landed, G9.<class>, G9.landed, G10.done, G12.caught,
- * G13.onRoad, G13.closed); a line of null: open, waiting for its moment. A beat's hover-only learning (G6) is the UI's.
+ * line, `<id>.<key>` for content's `alt` / `byClass` lines (G8.landed, G8.withEngage, G9.<class>, G9.landed, G10.done,
+ * G12.caught, G13.onRoad, G13.closed); a line of null: open, waiting for its moment. A beat's hover-only learning (G6) is
+ * the UI's.
  */
 function trackBeats(s, ev, a) {
   const t = s.tutorial;
@@ -407,12 +409,18 @@ function trackBeats(s, ev, a) {
     if (!fired(t, 'G3')) op('G3', 'G3');
     else if (isOpen(t, 'G3')) setLine(t, ev, 'G3', 'G3');
     if (!fired(t, 'G6') && entries.some((x) => x.heavy || x.cast)) op('G6', 'G6');
+    const windup = entries.some((x) => x.windup && !x.deathblow);
+    const g7 = !!f.engage && !fired(t, 'G7') && f.enemies.length >= 2;
+    // D147 (spec 2.8, the D145 fix): G7 and G8 opening in one engage round (S3) share G8's joint line 'G8.withEngage';
+    // G7 opens with its line waiting (null): the joint line is its first showing, its own line comes at the next engage
+    // fight (ONB_ENGAGE_SHOWS). Each is learned as before (any ENGAGE; the wind-up answered)
+    const joint = g7 && windup && !fired(t, 'G8');
     if (f.engage) {
-      if (!fired(t, 'G7') && f.enemies.length >= 2) op('G7', 'G7', 1);
+      if (g7) op('G7', joint ? null : 'G7', 1);
       else if (isOpen(t, 'G7') && !t.beats.G7.line && !now.has('G7')) { t.beats.G7.n += 1; setLine(t, ev, 'G7', 'G7'); }
     }
-    if (entries.some((x) => x.windup && !x.deathblow)) {
-      if (!fired(t, 'G8')) op('G8', 'G8');
+    if (windup) {
+      if (!fired(t, 'G8')) op('G8', joint ? 'G8.withEngage' : 'G8');
       else if (isOpen(t, 'G8')) setLine(t, ev, 'G8', 'G8');
     }
     if (entries.some((x) => x.deathblow)) {
