@@ -67,6 +67,8 @@ export const BAL = {
   NODES_NORMAL: [38, 47],
   NODES_SPEED: [28, 37],
   FIGHTS_NORMAL: [48, 66],
+  FIGHTS_EXP: [26, 36], // M3 v1, draft (B15 on the expedition map)
+  NODES_EXP: [27, 38], // M3 v1, draft (B14 on the expedition map, sim-2026-11-14)
   ROUNDS_NORMAL: [4, 6],
   ROUNDS_ELITE: [6, 10],
   ROUNDS_DBOSS: [8, 13],
@@ -91,6 +93,12 @@ export const BAL = {
   CLOSE_FIGHT_HP: 0.35,
   TENSION_SPREAD_MAX: 0.10,
   TENSION_Z6_MAX: 0.85,
+  // M3 v1, draft (B63-B65; balance.md section 6, design-2026-11-13e)
+  Z1_LOW_HP: [0.60, 0.68],
+  Z1_HALF_SHARE_MIN: 0.22,
+  Z1_LVL_PER_FIGHT_MAX: 2.1,
+  ZONE_STEP_RATIO_MAX: 1.5,
+  ZONE_STEP_FLOOR: 0.010,
   REST_COUNT: [6, 12],
   POTION_COUNT: [8, 20],
   MECH_RATIO_MAX: 0.60,
