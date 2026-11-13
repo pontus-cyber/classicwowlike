@@ -21,7 +21,7 @@ import { createMeta, buildOaths, echoAmt } from './meta.js';
 import { heatKey, previewBlock, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME } from './heat.js';
 import { createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon } from './prep.js';
 import { contractTitle } from './ui-text.js';
-import { gateLine } from './onboarding.js';
+import { gateLine, closedRoadLine } from './onboarding.js';
 import { token } from './theme.js';
 
 /** The heat preview of a time-costing engine action now (view.heat.next, R.heatView), or null. */
@@ -532,9 +532,10 @@ function buildExpMap(v, ctx, readOnly) {
     const side = Math.abs(Math.cos((n.angle * Math.PI) / 180)) > 0.6; // at the left or right edge: the board stands above its post
     const [x, y] = polar(side ? 484 : 478, n.angle); const right = Math.cos((n.angle * Math.PI) / 180) >= 0;
     const name = mv.roadNames && mv.roadNames[i] ? mv.roadNames[i] : 'Road';
-    const sign = h('div.xroad' + (side ? '.side' : right ? '.r' : '.l') + (n.dimmed ? '.dimmed' : '') + (n.id === mv.pos ? '.on' : ''), { style: { left: `${x / 10}%`, top: `${y / 10}%` }, dataset: { road: rid } },
-      h('span.xpost'), h('span.xsign', h('b', side ? to : `${right ? '' : '« '}${to}${right ? ' »' : ''}`)));
-    tip(sign, () => h('div', h('div.tt-name', name), h('div.tt-line', `A Road out of the zone, to ${to}.`), h('div.tt-sub', `Standing on it: Take the Road · ${tolls(mv.travelTime)}`), n.dimmed ? h('div.tt-warn', 'Dimmed: a fight with Shardspawn first, then the Road can still be taken.') : null));
+    // D143: a closed Road of the guided zone (mapView `closed`, D142) carries a Closed tag and the coach's closed line
+    const sign = h('div.xroad' + (side ? '.side' : right ? '.r' : '.l') + (n.dimmed ? '.dimmed' : '') + (n.id === mv.pos ? '.on' : '') + (n.closed ? '.rclosed' : ''), { style: { left: `${x / 10}%`, top: `${y / 10}%` }, dataset: { road: rid } },
+      h('span.xpost'), h('span.xsign', h('b', side ? to : `${right ? '' : '« '}${to}${right ? ' »' : ''}`), n.closed ? h('i.xshut', 'Closed') : null));
+    tip(sign, () => h('div', h('div.tt-name', name), h('div.tt-line', `A Road out of the zone, to ${to}.`), n.closed ? h('div.tt-warn.rclosed', closedRoadLine(ctx.data) || 'Closed for now.') : h('div.tt-sub', `Standing on it: Take the Road · ${tolls(mv.travelTime)}`), n.dimmed ? h('div.tt-warn', 'Dimmed: a fight with Shardspawn first, then the Road can still be taken.') : null));
     disc.appendChild(sign);
   });
 
@@ -556,7 +557,7 @@ function buildExpMap(v, ctx, readOnly) {
     // and enemy count on hover (the tooltip), its Dimming clock a number only.
     const loud = here || !!m || !!(n.sites && n.sites.length);
     const fightLvl = full && n.cl && !n.hub && !NO_FIGHT.has(n.type);
-    const el = h(`button.mnode.x-${fog}` + (m ? '.reach' : '') + (n.done && !n.hub ? '.visited' : '') + (here ? '.here' : '') + (n.dimmed ? '.dimmed' : '') + (n.lost ? '.lost' : '') + (type ? '' : '.fog') + (n.hub ? '.xhub' : '') + (n.shardfall ? '.xsf' : '') + (n.road ? '.xrd' : '') + (n.barred ? '.barred' : '') + (loud ? '' : '.quiet'),
+    const el = h(`button.mnode.x-${fog}` + (m ? '.reach' : '') + (n.done && !n.hub ? '.visited' : '') + (here ? '.here' : '') + (n.dimmed ? '.dimmed' : '') + (n.lost ? '.lost' : '') + (type ? '' : '.fog') + (n.hub ? '.xhub' : '') + (n.shardfall ? '.xsf' : '') + (n.road ? '.xrd' : '') + (n.barred ? '.barred' : '') + (n.road && n.closed ? '.rclosed' : '') + (loud ? '' : '.quiet'),
       { style: { left: `${x / 10}%`, top: `${y / 10}%` }, 'aria-label': `${type ? NODE_NAME[type] || 'Hub' : 'Unknown'} node ${n.id}`, dataset: { node: n.id, fog } },
       h('div.ring', type ? h('img', { src: nodeIcon(type), alt: '' }) : h('span.fogq', '?')),
       h('div.cl' + (n.know === 'type' ? '.band' : '') + (fightLvl ? '.lvl' : ''), { style: { color: fightLvl ? conColor(n.cl, p.level) : NEUTRAL } }, label));
@@ -751,6 +752,7 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
     else if (n.done) box.appendChild(h('div.tt-hint', 'Done'));
   }
   if (n.road) { const i = (mv.roads || []).indexOf(n.id); box.appendChild(h('div.tt-line', `${mv.roadNames && mv.roadNames[i] ? mv.roadNames[i] : 'A Road'}: leads to ${roadTo(v, ctx)}`)); }
+  if (n.road && n.closed) box.appendChild(h('div.tt-warn.rclosed', closedRoadLine(ctx.data) || 'Closed for now.')); // D143
   if (n.shardfall) box.appendChild(h('div.tt-line', mv.texts && mv.texts.shardfall ? mv.texts.shardfall : 'The Shardfall: the Dimming starts here.'));
   if (n.dimmed) box.appendChild(h('div.tt-warn', 'Dimmed: entering or staying here starts a fight with Shardspawn.'));
   // M3 guided run (D138): Gorrak's node is barred until the scripted fights are done; the gate line says how many are left

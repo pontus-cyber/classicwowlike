@@ -1311,6 +1311,8 @@ export const ONB_HINT_MAX_CHARS = 90;
 export const ONB_HINT_MIN_MS = 1500;
 export const ONB_HINTS_PER_FIGHT = 2;
 export const ONB_QUEUE_MAX = 2;
+/** UI number (D142 (3), spec 3.1 draft): showings after which a hint counts as seen, however short each showing was. */
+export const ONB_HINT_SHOWS = 2;
 /** The Bellwrights' welcome: Echoes once per profile, at the first non-dev run's summary (spec 4.2; = Packed Satchel). */
 export const ONB_WELCOME_ECHOES = 60;
 /** Target ONB1, minutes to leave the guided zone (spec 8). */

@@ -182,7 +182,8 @@ import { CONTENT } from '../../src/content/index.js';
 // the Furnace's player-facing words (changes-m2b-v7.md table D: names, states, whole tolls; UX pass 2026-11-11)
 import { HEAT_WORDS, tolls, ECHO_LINE, deathblowKind, deathblowAnswers, sapWaitText } from '../../src/ui/ui-text.js';
 import { RANK as Q_RANK, DIM_NEAR as Q_DIM_NEAR } from '../../src/ui/audio.js';
-import { ONB_HINT_SHOWS } from '../../src/ui/onboarding.js'; // D142 (3): showings after which a hint counts as seen
+import { MAP_LINES, ROADS_OPEN_LINE } from '../../src/ui/onboarding.js'; // D143: the beat lines that wait for the map on screen; the Roads' toast
+const ONB_HINT_SHOWS = R.C.ONB_HINT_SHOWS; // D142 (3): showings after which a hint counts as seen (src/constants.js since D143)
 
 const args = process.argv.slice(2);
 const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
@@ -3882,7 +3883,7 @@ async function partR(browser, W, H) {
         // a fight's beat line waits while the quest's intro dialog is up (no fight on screen yet); a map line waits for the
         // map on screen (QA playtest 2026-11-13); a resting line (D141) waits for its trigger
         const FIGHT = ['G3', 'G6', 'G7', 'G8', 'G9', 'G11'];
-        const MAPL = ['G12', 'G12.caught', 'G13', 'G13.onRoad'];
+        const MAPL = [...MAP_LINES]; // D143: G2 and G13.closed too (onboarding.js)
         const open = t && !t.skipped && !t.ended ? (t.open || []).filter((o) => o.line && !o.rest && (st.fight || !FIGHT.includes(o.id)) && (st.map || !MAPL.includes(o.line))).map((o) => o.line) : [];
         for (const l of open) if (!engineLines.includes(l)) engineLines.push(l);
         c = await coach(page);

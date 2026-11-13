@@ -379,7 +379,7 @@ function engineBackend(seedOpt, runOpts = {}) {
       table: CONTENT.tutorial,
       num: { deathblowTurn: C.SIGNATURE_TURN, bellTolls: C.BELL_CHANNEL_TIME, offbalPct: Math.round((C.OFFBAL_TAKEN || 0) * 100), rescueTolls: C.ONB_RESCUE_TOLLS,
         satchelPotions: C.META.satchel ? C.META.satchel.potions : null, satchelPrice: C.META.satchel ? C.META.satchel.cost || null : null },
-      rules: { hintMinMs: C.ONB_HINT_MIN_MS, hintsPerFight: C.ONB_HINTS_PER_FIGHT, queueMax: C.ONB_QUEUE_MAX, potionHp: C.ONB_POTION_HP, fleeHp: C.ONB_FLEE_HP,
+      rules: { hintMinMs: C.ONB_HINT_MIN_MS, hintShows: C.ONB_HINT_SHOWS, hintsPerFight: C.ONB_HINTS_PER_FIGHT, queueMax: C.ONB_QUEUE_MAX, potionHp: C.ONB_POTION_HP, fleeHp: C.ONB_FLEE_HP,
         autoplayAfter: C.ONB_AUTOPLAY_AFTER, maxChars: C.ONB_HINT_MAX_CHARS, talentFirst: C.TALENT_FIRST_LEVEL || 10, priority: C.ONB_BEAT_PRIORITY },
     } : null,
     meta: metaData(C),

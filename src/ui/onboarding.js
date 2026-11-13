@@ -15,6 +15,13 @@
 // "Opening move" line (style.css); the key chips follow the view: G3's key is the first bar spell that can be cast now
 // (a Rogue's finisher in slot 1 cannot open a fight), and an engage option that takes a spell (the Mage's Pre-cast) names
 // both keys, Q then the spell's key.
+// D143 (M3 3.7, the Roads wait for Gorrak's fight; engine-2026-11-13c section 2) and the blind panel of 2026-11-13: while a
+// walk, a travel or a fight's entry plays (ui.overlay) the coach line holds (no new line, the one up is out of sight); a map
+// line (MAP_LINES: G2, G12, G13, G13.closed) waits until the map is the screen shown (after Set out, "Click a lit node" came
+// during the walk out, before the map showed); G13.closed points at Gorrak's node (tutorialView.roads.node); G10 points at
+// what its screen shows (the nearest site node on the map, the contract's tracker row in a fight); the closed line does not
+// count for the Bell's hint H19; a toast says when the Roads open. ONB_HINT_SHOWS lives in src/constants.js (the bridge's
+// data.tutorial.rules.hintShows).
 import { h } from './util.js';
 import { settings } from './settings.js';
 
@@ -23,8 +30,6 @@ const OLD_ENGAGE_KEY = 'tbwcr.hints.v1'; // the engage hint, per class (retired:
 const OLD_HEAT_KEY = 'tbwcr.heatIntro.v1'; // the Furnace note (retired: H16)
 /** The UI's key map for the content's key placeholders (app.js onKey). */
 export const KEYS = { key_spell1: '1', key_engage1: 'Q', key_engage2: 'W', key_engage3: 'E', key_pass: 'X', key_item1: '8', key_take_all: 'Space', key_bags: 'B', key_talents: 'N', key_spellbook: 'P', key_autoplay: 'Z', key_flee: 'F' };
-/** D142 (3): showings after which a hint counts as seen even if each was on screen under ONB_HINT_MIN_MS (UI number, spec 12). */
-export const ONB_HINT_SHOWS = 2;
 const PER_CLASS = new Set(['H01', 'H04', 'H33', 'H34']);
 // the hints a beat stands in for while the guide runs (spec 3.2 "Beat"), and the hints a beat's line marks seen
 const BEAT_OF = { H01: 'G7', H02: 'G6', H03: 'G8', H04: 'G9', H06: 'G9', H09: 'G11', H11: 'G4', H15: 'G2', H16: 'G5', H18: 'G12', H19: 'G13', H20: 'G10', H21: 'G10', H23: 'G1', H30: 'G9' };
@@ -34,10 +39,16 @@ const PRIO = { G9: 6, H04: 6, G8: 5, H03: 5, H07: 4, G11: 3, H09: 3, H10: 3, G7:
 const prio = (id) => PRIO[id] || 1;
 const FIGHT_BEATS = new Set(['G3', 'G6', 'G7', 'G8', 'G9', 'G11']); // beats whose line belongs to a fight on screen
 // beat lines that belong to the expedition map on screen (QA playtest 2026-11-13: G12 showed over a quest dialog, with no
-// Dimming in view): they wait until the map is shown. Only lines the engine brings back on their trigger (D141) can wait; G10
-// opens at the hub and rests before the map is shown (engine follow-up), so it is not in the set
-const MAP_LINES = new Set(['G12', 'G12.caught', 'G13', 'G13.onRoad']);
+// Dimming in view): they wait until the map is the screen shown (mapShown). Blind panel 2026-11-13: G2 ("Click a lit node")
+// came while the hero walked out of the hub, before the map showed. D143: G13.closed (it points at Gorrak's node). G10 is
+// no map line (engine-2026-11-13c finding 2: as one it is never the top line on the autoplay route, whose first move enters
+// a site): it shows where the engine has it, at the site's dialog or in its fight, its arrow at the contract's tracker row
+export const MAP_LINES = new Set(['G2', 'G12', 'G12.caught', 'G13', 'G13.onRoad', 'G13.closed']);
+/** Beat lines that stand for no hint (D143: the closed line is about Gorrak, not the Bell, so it does not make H19 seen). */
+const NO_HINT_LINES = new Set(['G13.closed']);
 const BOTTOM_REM = 14.8; // the coach line's place: its bottom edge over the action bar's control row (1366x768: y 620)
+/** D143, draft (no content line yet): the toast when the guided zone's Roads open. */
+export const ROADS_OPEN_LINE = 'The Roads are open: take one on to the next zone.';
 
 // ------------------------------------------------------------------ the hint store (spec 3.1)
 function readJson(k) { try { const x = JSON.parse(localStorage.getItem(k) || 'null'); return x && typeof x === 'object' ? x : null; } catch { return null; } }
@@ -59,17 +70,19 @@ export function loadHints() {
 export function saveHints(x) { try { localStorage.setItem(HINTS_KEY, JSON.stringify(x)); } catch { /* storage blocked: kept for this page */ } }
 export const hints = {
   state: null,
+  /** Showings after which a hint counts as seen (ONB_HINT_SHOWS, src/constants.js, through the bridge; set by createOnboarding). */
+  need: null,
   get() { if (!this.state) this.state = loadHints(); return this.state; },
   save() { saveHints(this.get()); },
   seen(id) { return !!this.get().seen[id]; },
   mark(id) { if (!id || this.get().seen[id]) return; this.get().seen[id] = true; this.save(); },
   /** D142 (3): one more showing of a hint; at its ONB_HINT_SHOWS-th it counts as seen, however short each showing was. */
-  noteShown(id) {
+  noteShown(id, need = this.need) {
     if (!id) return;
     const s = this.get();
     if (s.seen[id]) return;
     s.shows[id] = (s.shows[id] || 0) + 1;
-    if (s.shows[id] >= ONB_HINT_SHOWS) s.seen[id] = true;
+    if (need > 0 && s.shows[id] >= need) s.seen[id] = true;
     this.save();
   },
   get off() { return this.get().off; },
@@ -153,13 +166,28 @@ const q = (sel) => { for (const el of document.querySelectorAll(sel)) { const r 
 const npOf = (pred) => (v) => { const c = v.combat; if (!c) return null; const e = c.enemies.find((x) => x.alive && !x.hidden && pred(x)); return e ? q(`#nameplates .np[data-idx="${e.idx}"] .trk`) || q('#nameplates .np .trk') : null; };
 const itemSlot = (v, pick) => { const L = (v.legal && v.legal.items) || []; const i = L.findIndex(pick); return i >= 0 ? q(`#actionbar .ab[data-islot="${i}"]`) : q('#actionbar .ab[data-islot="0"]'); };
 const nodeEl = (v, pred) => { const mv = v.zone && v.zone.exp; if (!mv) return null; const n = mv.nodes.find((x) => pred(x, mv)); return n ? q(`#screens .mnode[data-node="${n.id}"]`) : null; };
+/** The zone map is the screen shown (shown: the view on screen, app.shown) and no walk, travel or fight entry plays over it. */
+const mapShown = (ui, shown) => !(ui && ui.overlay) && !!shown && onMap(shown);
+/** D143: the map node of the nearest contract site with a mark in view (a reachable one first, then fewest hops). */
+const siteNodeEl = (v) => {
+  const mv = v.zone && v.zone.exp; if (!mv) return null;
+  const reach = new Set((mv.moves || []).map((m) => m.nodeId));
+  const sites = mv.nodes.filter((n) => n.sites && n.sites.length && !n.done).sort((a, b) => (reach.has(b.id) - reach.has(a.id)) || ((a.hops ?? 99) - (b.hops ?? 99)));
+  for (const n of sites) { const el = q(`#screens .mnode[data-node="${n.id}"]`); if (el) return el; }
+  return q('#screens .mnode .xsite');
+};
 const entries = (v) => (v.combat && !v.combat.over ? v.combat.enemies.filter((e) => e.alive && !e.hidden).flatMap((e) => (e.track || []).map((x) => ({ e, x }))) : []);
 const ANCHOR = {
   G1: () => q('#prep .pp-card'), G2: () => q('#screens .mnode.here'), G3: (v, d) => q(`#actionbar .ab[data-slot="${Math.max(0, attackSlot(v, d && d.spells))}"]`), G4: () => q('#screens .dialog'),
   G5: () => q('#heat'), G6: npOf((e) => (e.track || []).some((x) => x.heavy || x.cast)), G7: () => q('#engage'),
   G8: () => q('#nameplates .wub:not(.db)') || q('#nameplates .tk.wu'), G9: () => q('#nameplates .wub.db') || q('#engage .eg-db'),
-  G10: (v) => (v.loot ? q('#screens .dialog') : q('#screens .mnode .xsite')), G11: (v) => itemSlot(v, (x) => x && x.heal > 0), G12: () => q('#screens .xdimp'),
-  G13: () => q('#screens .mhead .btn') || q('#screens .mnode.here'),
+  G10: (v) => (v.loot ? q('#screens .dialog') : inFight(v) ? (document.body.classList.contains('engage-round') ? null : q('#tracker .tk-c[data-status="active"]')) : onMap(v) ? siteNodeEl(v) : q('#screens .dialog')), G11: (v) => itemSlot(v, (x) => x && x.heal > 0), G12: () => q('#screens .xdimp'),
+  // the Road's button on a Road, else the Bell's (the header's first button can be the Spyglass)
+  G13: (v) => (v.zone && v.zone.exp && v.zone.exp.onRoad ? q('#screens .mhead .btn[data-leave="TAKE_ROAD"]') : null) || q('#screens .mhead .btn[data-leave="RING_BELL"]') || q('#screens .mhead .btn') || q('#screens .mnode.here'),
+};
+/** Anchors of single lines of a beat (D143): G13.closed at Gorrak's node, whose fight opens the Roads (tutorialView.roads.node). */
+const LINE_ANCHOR = {
+  'G13.closed': (v) => { const t = v.tutorial; const id = t && t.roads && t.roads.node != null ? t.roads.node : t && t.elite ? t.elite.node : null; return id == null ? null : q(`#screens .mnode[data-node="${id}"]`); },
 };
 // ------------------------------------------------------------------ the 37 hints (spec 3.2): trigger, anchor, moment, done
 // ctx: 'fight' (gone when the fight ends or two rounds on), 'map' (gone at the next map step), else 'screen' (gone when
@@ -242,7 +270,8 @@ export function createOnboarding(root, ctx) {
   const cls = () => (lastV && lastV.player ? lastV.player.classId : lastV && lastV.create ? lastV.create.classId : 'rogue');
   const keyOf = (id) => (PER_CLASS.has(id) ? `${id}:${cls()}` : id);
   /** The stored key of the hint a beat stands in for (spec 3.2 "Beat"), or null. */
-  const beatHintKey = (id) => (HINT_OF_BEAT[id] ? keyOf(HINT_OF_BEAT[id]) : null);
+  const beatHintKey = (id, line = null) => (HINT_OF_BEAT[id] && !NO_HINT_LINES.has(line) ? keyOf(HINT_OF_BEAT[id]) : null);
+  hints.need = r.hintShows || null; // ONB_HINT_SHOWS (src/constants.js) through the bridge
   const guiding = (v) => !!(v && v.tutorial && v.tutorial.on && !v.tutorial.skipped && !v.tutorial.ended);
   const momentOf = (spec, v) => (spec.ctx === 'fight' ? `f${fightNo}` : spec.ctx === 'map' ? `m${v.zone ? `${v.zone.idx}:${v.zone.exp ? v.zone.exp.pos : ''}` : ''}` : `s${v.phase}:${v.node ? v.node.type : ''}:${v.loot ? v.loot.kind : ''}`);
 
@@ -264,7 +293,7 @@ export function createOnboarding(root, ctx) {
     el.dataset.id = x.lineId || x.id; el.dataset.kind = x.kind;
     el.classList.toggle('instant', !!settings.reduceMotion);
     // D142 (3): a showing of a hint, or of the beat line that stands in for it, counts towards ONB_HINT_SHOWS
-    hints.noteShown(x.kind === 'hint' ? x.key : x.kind === 'beat' ? beatHintKey(x.id) : null);
+    hints.noteShown(x.kind === 'hint' ? x.key : x.kind === 'beat' ? beatHintKey(x.id, x.lineId) : null);
     log.push({ id: x.lineId || x.id, key: x.key || null, text: line.text, kind: x.kind, step: stepNo, at: Math.round(performance.now()) });
     if (log.length > 400) log.shift();
     place();
@@ -284,12 +313,13 @@ export function createOnboarding(root, ctx) {
     cur = null; confirm = false;
     el.classList.add('hidden');
     document.body.classList.remove('coach-up');
+    if (ctx.scene) ctx.scene.keepOut = []; // the scene's headlines need not keep clear of it any more
   }
   okBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     if (confirm) { confirm = false; textEl.replaceChildren(...lineFor(cur.lineId || cur.id, cur.alt).nodes); renderButtons(); place(); return; }
     if (!cur) return;
-    if (cur.kind === 'beat') { dismissed.add(cur.lineId); hints.mark(beatHintKey(cur.id)); }
+    if (cur.kind === 'beat') { dismissed.add(cur.lineId); hints.mark(beatHintKey(cur.id, cur.lineId)); }
     if (cur.kind === 'nudge') { store().nudge.hall = true; hints.save(); nudgeHall = false; document.querySelectorAll('#meta .mcard.nudge').forEach((x) => x.classList.remove('nudge')); }
     hide(true);
     advance(lastV);
@@ -337,6 +367,8 @@ export function createOnboarding(root, ctx) {
     el.style.left = `${Math.round(x)}px`; el.style.top = `${Math.round(y)}px`; el.style.bottom = 'auto';
     // the arrow towards the anchor
     b = el.getBoundingClientRect();
+    // blind panel 2026-11-13 (item 6): the scene's headlines over an enemy keep clear of the line (scene.js headline)
+    if (ctx.scene) ctx.scene.keepOut = [{ left: b.left, top: b.top, right: b.right, bottom: b.bottom }];
     arrow.className = 'co-arrow';
     if (!ar) { arrow.classList.add('none'); return; }
     const cx = ar.left + ar.width / 2; const cy = ar.top + ar.height / 2;
@@ -357,16 +389,16 @@ export function createOnboarding(root, ctx) {
   function beatNow(v) {
     const t = v && v.tutorial;
     if (!t || !guiding(v) || hints.off || !T) return null;
-    const ok = (x) => x && x.line && !x.rest && !dismissed.has(x.line) && (!FIGHT_BEATS.has(x.id) || inFight(v)) && (!MAP_LINES.has(x.line) || onMap(v));
+    const ok = (x) => x && x.line && !x.rest && !dismissed.has(x.line) && (!FIGHT_BEATS.has(x.id) || inFight(v)) && (!MAP_LINES.has(x.line) || (onMap(v) && mapShown(ctx.ui, ctx.view)));
     const top = (t.open || []).find((x) => x.line === t.line);
     const o = ok(top) ? top : (t.open || []).find(ok);
     if (!o) return null;
-    return { id: o.id, lineId: o.line, kind: 'beat', anchorFn: ANCHOR[o.id] || null };
+    return { id: o.id, lineId: o.line, kind: 'beat', anchorFn: LINE_ANCHOR[o.line] || ANCHOR[o.id] || null };
   }
   function advance(v) {
     if (!v) return;
     // D141: a beat line the engine has rested counts its hint seen when it was on screen long enough (spec 3.1)
-    if (cur && cur.kind === 'beat' && v.tutorial && (v.tutorial.open || []).some((o) => o.id === cur.id && o.rest) && performance.now() - cur.at >= r.hintMinMs) hints.mark(beatHintKey(cur.id));
+    if (cur && cur.kind === 'beat' && v.tutorial && (v.tutorial.open || []).some((o) => o.id === cur.id && o.rest) && performance.now() - cur.at >= r.hintMinMs) hints.mark(beatHintKey(cur.id, cur.lineId));
     const b = beatNow(v);
     if (b && (!cur || cur.kind === 'hint' || (cur.kind === 'beat' && cur.lineId !== b.lineId)) && !(cur && cur.kind === 'nudge') && !(cur && cur.kind === 'hint' && prio(cur.id) > prio(b.id))) {
       if (cur && cur.kind === 'hint') hide(false);
@@ -412,6 +444,10 @@ export function createOnboarding(root, ctx) {
     }
     if (has(ev, 'guideSkipped')) { dismissed.clear(); if (cur && cur.kind === 'beat') hide(false); ctx.hud.log('You skip the guide. New things get one hint each.', 'lg-sys'); }
     if (has(ev, 'guideEnd') && T) ctx.toast(T.guide.endLine, 'good');
+    // D143: the guided zone's Roads open (Gorrak's fight over, or he can no longer be fought): say so once. Draft text (no
+    // content line yet: T.guide.roadsOpenLine when the Content Designer adds one)
+    const shut = (x) => !!(x && x.tutorial && x.tutorial.roads && x.tutorial.roads.closed);
+    if (T && shut(prev) && !shut(v) && v.zone && prev.zone && v.zone.idx === prev.zone.idx && v.phase !== 'SUMMARY') ctx.toast(T.guide.roadsOpenLine || ROADS_OPEN_LINE, 'good');
     const c = ctxOf(v, ev, a);
     // the line on screen: done, or its moment over
     if (cur && cur.kind === 'hint') {
@@ -476,6 +512,10 @@ export function createOnboarding(root, ctx) {
   /** Every render: the Hall nudge, placement, and the hints of screens that open without a step (the Hall, a window). */
   function update(v) {
     lastV = v;
+    // a walk, a travel or a fight's entry plays (D143, blind panel 2026-11-13): no line comes or goes; the one up waits out of sight
+    const held = !!ctx.ui.overlay;
+    el.classList.toggle('held', held);
+    if (held) return;
     if (nudgeHall && ctx.ui.metaOpen && v.phase === 'CREATE' && T) {
       const card = document.querySelector(`#meta .mcard[data-id="${T.nudge.unlock}"]`);
       const owned = v.meta && (v.meta.unlocks[T.nudge.unlock] || 0) > 0;
@@ -491,7 +531,7 @@ export function createOnboarding(root, ctx) {
     if (cur && cur.kind === 'hint' && HINTS[cur.id].ctx === 'screen' && HINTS[cur.id] !== HINTS.H37 && !safe(() => HINTS[cur.id].when(ctxOf(v, [], null)))) hide(false);
     if (cur && hints.off && cur.kind !== 'nudge') hide(false);
     if (cur && cur.kind === 'beat' && !beatNow(v)) hide(false);
-    if (!cur) advance(v);
+    if (!cur || cur.kind === 'hint') advance(v); // a beat line that waited for its screen takes a hint's place once it shows
     place();
   }
 
@@ -525,6 +565,12 @@ export function createOnboarding(root, ctx) {
   };
 }
 
+/** D143: the line of a closed Road (mapView Road nodes `closed`): G13's closed line (content beat G13 alt.closed), or null. */
+export function closedRoadLine(data) {
+  const T = data.tutorial && data.tutorial.table;
+  const raw = T ? rawLine(T, 'G13.closed') : null;
+  return raw ? fillLine(raw, data.tutorial.num || {}).text : null;
+}
 /** The gate line of Gorrak's barred node (D138): content elite.gate.barredLine with {n} = the scripted fights still to come. */
 export function gateLine(data, tv) {
   const T = data.tutorial && data.tutorial.table;

@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 // a localStorage for Node: the store reads and writes tbwcr.hints.v2
 const mem = new Map();
 globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => { mem.set(k, String(v)); }, removeItem: (k) => { mem.delete(k); } };
-const { hints, HINTS_KEY, ONB_HINT_SHOWS, KEYS, lineParts, lineKeys, attackSlot, rawLine } = await import('../../src/ui/onboarding.js');
+const { hints, HINTS_KEY, KEYS, lineParts, lineKeys, attackSlot, rawLine } = await import('../../src/ui/onboarding.js');
 const { CONTENT } = await import('../../src/content/index.js');
 const C = await import('../../src/constants.js');
 
@@ -25,10 +25,11 @@ const fightView = (bar, okIds, engage = null) => ({
   combat: { round: 1, over: null, enemies: [{ idx: 0, alive: true }], engage },
 });
 
-beforeEach(() => { mem.clear(); hints.state = null; });
+// D143: ONB_HINT_SHOWS lives in src/constants.js; createOnboarding passes it to the store (the bridge's rules.hintShows)
+beforeEach(() => { mem.clear(); hints.state = null; hints.need = C.ONB_HINT_SHOWS; });
 
 test('D142 (3): a hint counts as seen at its second showing, however short each was', () => {
-  assert.equal(ONB_HINT_SHOWS, 2);
+  assert.equal(C.ONB_HINT_SHOWS, 2);
   hints.noteShown('H02');
   assert.equal(hints.seen('H02'), false, 'one short showing: not seen yet (spec 3.1, ONB_HINT_MIN_MS)');
   assert.equal(stored().shows.H02, 1);
