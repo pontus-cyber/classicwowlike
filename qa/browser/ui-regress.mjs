@@ -156,7 +156,7 @@
  *      R(6)-(7), D142 (M3 3.7, playtest-2026-11-13 findings 2-5): G3's key, the turn prompt under a coach line, a refused
  *      key's reason, the Mage's "Q then N", a hint seen after two showings.
  *   S  M3 3.7: the D143 UI to-dos and the blind tester panel of 2026-11-13 (D144; docs/handoffs/ui-2026-11-13d.md items
- *      1-10): see partS.
+ *      1-10) and the UI needs of docs/handoffs/engine-2026-11-13d.md (checks D144-n): see partS.
  *
  * D116 (the flip): new runs start on the expedition map with the start camp. The parts written for the classic map (A-L, O,
  * P) open the page with ?classic=1 (open() adds it unless the query names a map) and their Node twins pass mapMode 'rows';
@@ -184,7 +184,7 @@ import { CONTENT } from '../../src/content/index.js';
 // the Furnace's player-facing words (changes-m2b-v7.md table D: names, states, whole tolls; UX pass 2026-11-11)
 import { HEAT_WORDS, tolls, ECHO_LINE, deathblowKind, deathblowAnswers, sapWaitText } from '../../src/ui/ui-text.js';
 import { RANK as Q_RANK, DIM_NEAR as Q_DIM_NEAR } from '../../src/ui/audio.js';
-import { MAP_LINES, ROADS_OPEN_LINE } from '../../src/ui/onboarding.js'; // D143: the beat lines that wait for the map on screen; the Roads' toast
+import { MAP_LINES, ROADS_OPEN_LINE, fillLine } from '../../src/ui/onboarding.js'; // D143: the beat lines that wait for the map on screen; the Roads' toast
 const ONB_HINT_SHOWS = R.C.ONB_HINT_SHOWS; // D142 (3): showings after which a hint counts as seen (src/constants.js since D143)
 
 const args = process.argv.slice(2);
@@ -3045,6 +3045,10 @@ async function partMReward(browser, W, H) {
     await page.locator('.dialog.contract-reward .choice-cards .icard').first().click(); await idle(page);
     const after = await page.evaluate(() => { const x = window.__ui.view(); return { loot: x.loot && x.loot.kind, log: window.__ui.engineLog().slice(-1)[0] }; });
     check('M-reward', 'choosing a card sends CHOOSE_REWARD and closes the window', after.log.type === 'CHOOSE_REWARD' && after.loot !== 'contract', JSON.stringify(after));
+    // D144 (engine-2026-11-13d UI need 10; casual s0079: "Contracts 1/4" read "0/4" after one was done): the header says slots
+    // (held of CONTRACT_SLOTS, R.contractView) and the contracts done
+    const hd = await page.evaluate(() => { const e = document.querySelector('#tracker .tk-ch'); const cv = window.__ui.view().contracts; return { text: e ? e.textContent : null, held: cv.held, slots: cv.slots, reserve: cv.reserve, done: cv.contracts.filter((c) => c.status === 'complete').length }; });
+    check('D144-10', `the tracker's contract header after one is done: "Contract slots ${hd.held}/${hd.slots} · ${hd.done} done · Reserve ${hd.reserve}" (R.contractView)`, hd.done >= 1 && hd.text === `Contract slots ${hd.held}/${hd.slots} · ${hd.done} done · Reserve ${hd.reserve}`, JSON.stringify(hd));
   } catch (e) {
     await shot(page, 'M-reward-error');
     check('-', 'part M (contract reward) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
@@ -3097,7 +3101,9 @@ function fogDiff(d, mv, nextZone) {
     if (e.fog !== f) out.push(`node ${n.id} fog ${e.fog} (view ${f})`);
     if (n.know === 'none' && !n.hub && (e.img || e.label !== '?' || !/^Unknown/.test(e.aria) || e.foes !== null)) out.push(`hidden node ${n.id} shows more than the view: ${JSON.stringify(e)}`);
     if (n.know === 'type' && (e.label !== `${mv.bands[n.ring][0]}–${mv.bands[n.ring][1]}` || e.foes !== null || !e.img)) out.push(`type-known node ${n.id}: label ${e.label}, foes ${e.foes}`);
-    if (n.know === 'full' && !n.hub && n.cl && e.label !== String(n.cl)) out.push(`seen node ${n.id} level ${e.label} (view ${n.cl})`);
+    // D144 (engine-2026-11-13d UI need 5): an elite's label is its own level (mapView `level`), not the node's
+    const lvl = n.type === 'elite' && n.level ? n.level : n.cl;
+    if (n.know === 'full' && !n.hub && n.cl && e.label !== String(lvl)) out.push(`seen node ${n.id} level ${e.label} (view ${lvl})`);
     const foes = n.know === 'full' && !n.hub && !n.done && n.type !== 'dungeon' && n.archetypes && n.archetypes.length ? n.archetypes.length : null;
     if (e.foes !== foes) out.push(`node ${n.id} enemy count ${e.foes} (view ${foes})`);
     const clock = !mv.dim.off && !n.dimmed && Number.isFinite(n.dimsIn) && (hs[n.id] <= front + 2 || (n.id === mv.pos && n.dimsIn <= 2)) ? n.dimsIn : null;
@@ -3820,9 +3826,10 @@ const browser = await chromium.launch({ headless: true });
  * engine at Instant speed, a fresh profile (no stored profile, no hints). (1) Class select offers "Guided first run", on;
  * Enter starts the guided run (create.tutorial). The run is played through the UI on the engine's autoplay choices (AUTO)
  * to zone 2: after every step the coach line shows the engine's beat line (R.tutorialView `line`, content text with the
- * placeholders filled) and every beat line the engine opened appeared on the coach line, in the engine's order; G1-G4, G6-G8
- * and G12-G13 among them; no coach line covers its anchor, the bar, the engage buttons, the Furnace, the target frame or
- * Set out. Gorrak's node is barred until S4 has ended: its map tooltip shows the gate line with the fights still to come.
+ * placeholders filled) and every beat line the engine opened appeared on the coach line, in the engine's order; G1-G4, G6, G7
+ * and G12-G13 among them (D143: no S4 on this route, so no G8); no coach line covers its anchor, the bar, the engage buttons,
+ * the Furnace, the target frame or Set out. Gorrak's node is barred until its script (content elite.gate.afterScript, S3
+ * since D143) has ended: its map tooltip shows the gate line with the fights still to come.
  * (2) Rescue: a loaded state with 1 HP in a guided-zone fight; passing until the hero falls gives the rescue banner with the
  * content's line and toll cost, full health, +ONB_RESCUE_TOLLS. (3) Skip: "Skip guide" asks in one line, Skip sends
  * SKIP_GUIDE; no beat line after. (4) Hints: the toggle off starts a normal run (guide 'skipped'); hint H23 shows at the
@@ -3901,7 +3908,7 @@ async function partR(browser, W, H) {
         if ((fresh.length || (c.shown && c.shown.kind === 'beat')) && !(c.shown && c.shown.kind === 'beat' && open.includes(c.shown.id) && c.shown.text === lineText(c.shown.id, st.cls, shownKeys))) bad.push(`step ${steps}: engine ${open.join('/')}, coach ${c.shown ? `${c.shown.id} "${c.shown.text}"` : 'none'}`);
         if (c.shown) { const o = await overlaps(page); if (o.length) layout.push(`${c.shown.id}: ${o.join(',')}`); }
         if (c.shown && c.shown.id === 'G3' && !(await page.evaluate(() => window.__shotG3))) { await page.evaluate(() => { window.__shotG3 = true; }); await shot(page, 'R-coach-fight'); }
-        // Gorrak's gate (D138): his node barred while S4 is still to come; the map tooltip says how many fights are left
+        // Gorrak's gate (D138; D143: after S3): his node barred while its script is still to come; the map tooltip says how many fights are left
         if (t && t.elite && st.phase === 'MAP' && gate === null && t.elite.barred) {
           const el = page.locator(`#screens .mnode[data-node="${t.elite.node}"]`);
           if (await el.count()) {
@@ -3923,10 +3930,13 @@ async function partR(browser, W, H) {
       const order = engineLines.filter((l) => firstShown.includes(l)).join('>') === firstShown.filter((l) => engineLines.includes(l)).join('>');
       check('M3-R', `every beat line the engine opened showed on the coach line, in the order it opened (${engineLines.join(' > ')})`, reachedZ2 && !missing.length && order && !bad.length, `steps ${steps}, shown ${seq.join(' > ')}${missing.length ? ` | never shown: ${missing}` : ''}${bad.length ? ` | ${bad.slice(0, 4).join(' | ')}` : ''}`);
       const ids = new Set(engineLines.map((x) => x.split('.')[0]));
-      check('M3-R', 'G1-G4, G6-G8, G12 and G13 among them (spec 7.1.1)', ['G1', 'G2', 'G3', 'G4', 'G6', 'G7', 'G8', 'G12', 'G13'].every((x) => ids.has(x)), [...ids].join(','));
+      // D143 (engine-2026-11-13d section 2): Gorrak's gate opens after S3, so the autoplay route plays no S4 and G8 (the
+      // wind-up beat) does not open before zone 2: G1-G4, G6, G7, G12 and G13
+      check('M3-R', 'G1-G4, G6, G7, G12 and G13 among them (spec 7.1.1; G8 not on this route since D143)', ['G1', 'G2', 'G3', 'G4', 'G6', 'G7', 'G12', 'G13'].every((x) => ids.has(x)), [...ids].join(','));
       check('M3-R', 'no coach line overlapped its anchor, the bar, the engage buttons, the Furnace, the target frame or Set out', !layout.length, layout.slice(0, 6).join(' | ') || 'none');
-      check('M3-R', 'Gorrak barred until S4: the node is marked and its tooltip shows the gate line with the fights still to come', !!gate && /barred/.test(gate.cls) && gate.tip.includes(fill(T.elite.gate.barredLine, { n: gate.left })), JSON.stringify(gate));
-      check('M3-R', 'after S4 the node opens (no bar on the map)', !!gateOpen && gateOpen.script >= 4 && gateOpen.barred === 0, JSON.stringify(gateOpen));
+      const gateAt = Number(String(T.elite.gate.afterScript).replace(/\D/g, '')); // D143: 's3'
+      check('M3-R', `Gorrak barred until S${gateAt}: the node is marked and its tooltip shows the gate line with the fights still to come`, !!gate && /barred/.test(gate.cls) && gate.tip.includes(fill(T.elite.gate.barredLine, { n: gate.left })), JSON.stringify(gate));
+      check('M3-R', `after S${gateAt} the node opens (no bar on the map)`, !!gateOpen && gateOpen.script >= gateAt && gateOpen.barred === 0, JSON.stringify(gateOpen));
       check('M3-R', 'the guide ends on leaving zone 1: the end line as a toast', (await page.locator('#toasts .toast', { hasText: T.guide.endLine }).count()) > 0 || c.log.length > 0, '');
     } catch (e) { await shot(page, 'R-error-1'); check('M3-R', 'part R (guided run) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('M3-R', 'part R (guided run): no console errors', errors.length === 0, errors.join(' | '));
@@ -4115,17 +4125,28 @@ async function partR(browser, W, H) {
  *   S1  the guided run (seed 8736, Rogue, Instant): G13.closed on the coach line with its ring on Gorrak's node; every
  *       closed Road node and signpost marked, its tooltip the closed line; H19 not counted by the closed line; a toast when
  *       the Roads open; Gorrak's barred node has its tooltip (item 3); a quest reward's "Equip now" (item 9); the Furnace
- *       header fits when the Dimming sets the state (item 5); no wind-up line prints "null" (item 10).
+ *       header fits when the Dimming sets the state (item 5); no wind-up line prints "null" (item 10; the run goes on into
+ *       zone 2 until a normal wind-up has shown). D144-1: the first hub's welcome and Trainer card by R.trainerView;
+ *       D144-9: a guided fight's node says so, not the ring's band.
  *   S2  at 1x: the camp's Set out, the hub's toasts under the zone banner (item 6); the hub's Set out: no coach line while
  *       the hero walks out, "Click a lit node" once the map shows (item 2).
  *   S3  zone 2 and 3 (Dev menu): every elite's tooltip (item 3); the Moves list one column in the map (item 5); a bag
  *       item's tooltip goes with the bags (item 4); the bag menu beside the grid (item 6); bag slots stay put (item 9); the
- *       Bell asks first (item 8); the rim names apart on a state where they would meet (item 5).
+ *       Bell asks first (item 8); the rim names apart on a state where they would meet (item 5). D144-5: every elite at its
+ *       own level, with its gap to the player's.
  *   S4  the hub (Dev menu, zone 2): all of it in view; Take keeps the cards under it in place; the Inn asks at full health
  *       and rests at once when hurt (items 5, 8).
  *   S5  fights at 1x (Dev menu): a refused key answers at once, also while a round plays, in words (energy, mana); the flee
  *       ask stays until answered, F and the button alike, a refused flee says why (item 7); a level-up banner clear of the
  *       fight's panels; the enemy's Deathblow headline clear of the coach line; the death screen clear of the panels (item 6).
+ *       D144-7: one flight, one log line; D144-11: Rime Burst's answer gives its hit chance over the enemy, its tooltip the
+ *       chance on each enemy.
+ * The D144-n checks are the UI needs n of docs/handoffs/engine-2026-11-13d.md section 4 (D144-10 is in part M's reward):
+ *   S6  a zone 2 map (Dev menu, seed 8748): a Grind's tooltip on the expedition map (one wave), the ring's band only for a
+ *       node of unknown level, an unguarded chest's gold and loot in the log only after "Open the chest", the tracker's
+ *       wave in a Grind ("Wave 1 of 1", then "1 of 1 wave done"), Gutting Jab's tooltip with its hit chance.
+ *   S7  hints on, every hint but H05 seen: an off-balance elite whose shield takes the whole hit gives H05's shield line and
+ *       leaves H05 unseen; a later window without a shield gives the plain line.
  */
 async function partS(browser, W, H) {
   const T = CONTENT.tutorial;
@@ -4153,17 +4174,36 @@ async function partS(browser, W, H) {
       await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
       await watchToasts(page);
       let closed = null; let roadsOpened = null; let barredTip = null; let furnace = null; let eqNow = null; const wub = []; let zone2 = false;
-      for (let i = 0; i < 280 && !zone2; i++) {
+      let hub1 = null; let guidedTip = null; let z2Steps = 0;
+      const plainWu = () => wub.some((x) => !/Deathblow/.test(x));
+      // to zone 2; then on in zone 2 until a wind-up that is not a Deathblow has shown (D143: the guided route no longer
+      // plays S4, the zone's wind-up fight, so the first normal wind-up comes after the guide)
+      for (let i = 0; i < 440; i++) {
         const st = await page.evaluate(() => {
           const v = window.__ui.view(); const mv = v.zone && v.zone.exp; const t = v.tutorial;
           return { phase: v.phase, z: v.zone ? v.zone.idx : null, onMap: v.phase === 'MAP' && !!mv && !v.node, t: t && { roads: t.roads, elite: t.elite, ended: t.ended },
             closedRoads: mv ? mv.nodes.filter((n) => n.road && n.closed).map((n) => n.id) : [], by: v.heat ? v.heat.by : null, loot: v.loot ? v.loot.kind : null,
             // Gorrak's node seen, barred and next to the player (a move mapView lists as barred: its tooltip threw)
             eliteNext: !!(mv && t && t.elite && t.elite.barred && mv.nodes[t.elite.node].know === 'full' && mv.moves.some((m) => m.nodeId === t.elite.node)),
+            // a guided fight's node (mapView `guided`, D144) with its level known
+            guided: mv ? (mv.nodes.find((n) => n.guided && n.know === 'full' && n.cl && !n.done) || {}).id ?? null : null,
             wub: [...document.querySelectorAll('#nameplates .wub:not(.hidden)')].map((e) => e.textContent) };
         });
-        if (st.z >= 2) { zone2 = true; break; }
         wub.push(...st.wub);
+        if (st.z >= 2) zone2 = true;
+        if (zone2) { if (plainWu() || ++z2Steps > 160) break; await auto(page); continue; }
+        // the first hub (D144, engine-2026-11-13d UI need 1): the welcome line and the Trainer card by R.trainerView
+        if (!hub1 && st.phase === 'ZONE_HUB' && st.z === 1) {
+          hub1 = await page.evaluate(() => {
+            const v = window.__ui.view(); const card = [...document.querySelectorAll('#screens .svc-card')].find((e) => e.querySelector('.nm').textContent === 'Trainer');
+            return { zone: v.zone.name, tv: v.trainer, log: [...document.querySelectorAll('#combatlog .lines .lg-sys')].map((e) => e.textContent), card: card ? card.querySelector('.meta').textContent : null };
+          });
+        }
+        // a guided fight's node (D144, UI need 9): "guided fight", not the ring's band, once its level is known
+        if (!guidedTip && st.onMap && st.guided != null) {
+          const el = page.locator(`#screens .expmap .mnode[data-node="${st.guided}"]`);
+          if (await el.count()) { await el.hover({ force: true }); await page.waitForTimeout(120); guidedTip = { id: st.guided, tip: await tipOn(page) }; await page.mouse.move(2, 2); }
+        }
         const c = await coach(page);
         // G13.closed on the map: the ring and arrow at Gorrak's node; the closed Roads marked; H19 not counted
         if (!closed && st.onMap && c.shown && c.shown.id === 'G13.closed') {
@@ -4199,6 +4239,9 @@ async function partS(browser, W, H) {
           eqNow = { uid, acts: acts.map((a) => `${a.type}${a.itemId ? `:${a.itemId}` : ''}`), worn };
           continue;
         }
+        // the camp's Set out as its button sends it (AUTO sends autoplay's choice inside its own step, which the hub's
+        // arrival, its banner and welcome line, do not play for)
+        if (st.phase === 'PREP' && await page.evaluate(() => { const a = window.__ui.autoChoice(); return !!(a && a.action && a.action.type === 'SET_OUT'); })) { await page.evaluate(() => window.__ui.act({ type: 'SET_OUT' })); await idle(page); continue; }
         await auto(page);
       }
       check('D143-1', `G13.closed on the map: its ring on Gorrak's node (${closed && closed.node}), the arrow pointing at it`, !!closed && closed.ring.node === closed.node && closed.ring.arrow && !/none/.test(closed.ring.arrow), JSON.stringify(closed && closed.ring));
@@ -4210,8 +4253,15 @@ async function partS(browser, W, H) {
       check('S-3', 'Gorrak\'s barred node next to the player has a tooltip: Elite, its Deathblow, the gate line, no "Click to enter", no error', !!barredTip && !!barredTip.text && /^Elite/.test(barredTip.text) && /Deathblow/.test(barredTip.text) && barredTip.text.includes('Gorrak is out on the downs') && !/Click to enter/.test(barredTip.text) && barredTip.errors === 0, JSON.stringify(barredTip));
       check('S-5', 'the Furnace header fits its frame when the Dimming sets the state ("· Dimming")', !!furnace && furnace.sw <= furnace.cw + 1 && furnace.inside && /Dimming/.test(furnace.text), JSON.stringify(furnace));
       check('S-9', 'a reward that is an upgrade offers "Equip now": one click sends CHOOSE_REWARD then EQUIP of that item, and it is worn', !!eqNow && eqNow.acts.length === 2 && /^CHOOSE_REWARD/.test(eqNow.acts[0]) && eqNow.acts[1] === `EQUIP:${eqNow.uid}` && eqNow.worn, JSON.stringify(eqNow));
-      check('S-10', `no wind-up line over an enemy prints "null" (${wub.length} seen, ${wub.filter((x) => !/Deathblow/.test(x)).length} not a Deathblow)`, wub.some((x) => !/Deathblow/.test(x)) && !wub.some((x) => /null/.test(x)), [...new Set(wub)].slice(0, 6).join(' | '));
+      check('S-10', `no wind-up line over an enemy prints "null" (${wub.length} seen, ${wub.filter((x) => !/Deathblow/.test(x)).length} not a Deathblow, to ${z2Steps} steps into zone 2)`, plainWu() && !wub.some((x) => /null/.test(x)), [...new Set(wub)].slice(0, 6).join(' | '));
       check('S-1', 'the guided run reached zone 2', zone2, '');
+      // D144 (engine-2026-11-13d UI need 1): at level 1 the trainer has nothing to teach (R.trainerView useful false), so the
+      // welcome is content guide.hubLine, not "Visit the trainer"; the Trainer card says when its next spell comes
+      const hubWant = hub1 ? fillLine(hub1.tv && !hub1.tv.useful ? T.guide.hubLine : T.guide.hubTrainerLine, { zone: hub1.zone }).text : null;
+      check('D144-1', `the first hub's welcome line follows R.trainerView (useful ${hub1 && hub1.tv ? hub1.tv.useful : '?'}): "${hubWant}"; no "Visit the trainer" with nothing to learn`,
+        !!hub1 && !!hub1.tv && hub1.tv.useful === false && hub1.log.includes(hubWant) && !hub1.log.some((x) => /Visit the trainer/.test(x)), JSON.stringify(hub1));
+      check('D144-1', `the first hub's Trainer card: "Nothing new to learn yet (next spell at level ${hub1 && hub1.tv ? hub1.tv.next : '?'})"`, !!hub1 && !!hub1.tv && hub1.card === `Nothing new to learn yet (next spell at level ${hub1.tv.next})`, JSON.stringify(hub1 && hub1.card));
+      check('D144-9', 'a guided fight\'s node with its level known: its tooltip says "guided fight", not the ring\'s level band', !!guidedTip && !!guidedTip.tip && /guided fight/.test(guidedTip.tip) && !/levels \d/.test(guidedTip.tip), JSON.stringify(guidedTip));
     } catch (e) { await shot(page, 'S1-error'); check('S-1', 'part S1 (guided run) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('S-1', 'part S1: no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
@@ -4270,10 +4320,15 @@ async function partS(browser, W, H) {
       for (const z of [2, 3]) {
         if (z === 3) { await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 3, level: 22, mapMode: 'expedition', prep: true })); await idle(page); await page.evaluate(() => window.__ui.act({ type: 'LEAVE_HUB' })); await idle(page); }
         await page.evaluate(() => window.__ui.dev('reveal')); await idle(page);
-        const ids = await page.evaluate(() => window.__ui.view().zone.exp.nodes.filter((n) => n.type === 'elite').map((n) => n.id));
-        for (const id of ids) { await page.locator(`#screens .expmap .mnode[data-node="${id}"]`).hover({ force: true }); await page.waitForTimeout(120); eliteTips.push({ z, id, tip: await tipOn(page) }); await page.mouse.move(2, 2); }
+        const els = await page.evaluate(() => { const v = window.__ui.view(); return v.zone.exp.nodes.filter((n) => n.type === 'elite').map((n) => ({ id: n.id, level: n.level, cl: n.cl, pl: v.player.level, label: document.querySelector(`#screens .expmap .mnode[data-node="${n.id}"] .cl`).textContent })); });
+        for (const x of els) { await page.locator(`#screens .expmap .mnode[data-node="${x.id}"]`).hover({ force: true }); await page.waitForTimeout(120); eliteTips.push({ z, ...x, tip: await tipOn(page) }); await page.mouse.move(2, 2); }
       }
       check('S-3', `every elite node of zones 2 and 3 shows its tooltip (Elite, its Deathblow): ${eliteTips.length} nodes`, eliteTips.length >= 2 && eliteTips.every((x) => x.tip && /^Elite/.test(x.tip) && /Deathblow/.test(x.tip)), JSON.stringify(eliteTips.filter((x) => !x.tip || !/Deathblow/.test(x.tip))));
+      // D144 (engine-2026-11-13d UI need 5; casual: "one level higher" for a level 17 elite at level 10): the elite's own level
+      // (mapView `level`, above the node's cl) on the node, in the tooltip, and its gap to the player's level in words
+      const gapText = (x) => { const g = x.level - x.pl; return g > 0 ? `${g} level${g === 1 ? '' : 's'} above you` : g < 0 ? `${-g} level${g === -1 ? '' : 's'} below you` : 'your level'; };
+      const badElite = eliteTips.filter((x) => !(x.level > x.cl && x.label === String(x.level) && x.tip && x.tip.includes(`Level ${x.level}`) && x.tip.includes(`One powerful enemy at level ${x.level}, ${gapText(x)}.`)));
+      check('D144-5', `every elite node says its own level (${eliteTips.map((x) => `${x.level} vs node ${x.cl}`).join(', ')}) on the map and in its tooltip, with the gap to the player's level in words`, eliteTips.length >= 2 && !badElite.length, JSON.stringify(badElite.map((x) => ({ id: x.id, level: x.level, cl: x.cl, pl: x.pl, label: x.label, tip: x.tip && x.tip.slice(0, 160) }))));
       // bags: a bag of gear (set up: two pieces worn now and a second head piece), the item's tooltip goes with the bags
       await load(page, (s0) => {
         const p0 = s0.player; const head = JSON.parse(JSON.stringify(p0.equipped.head)); head.uid = 'iS9001';
@@ -4454,10 +4509,15 @@ async function partS(browser, W, H) {
       const a3 = await ask(); const nE = await engineLen(page);
       check('S-7', 'F asks "Flee this fight?" over the control row and the button reads Confirm?; the ask stays until answered (2.6 s on); Esc puts it away, nothing sent',
         a1.shown && /Flee this fight\?/.test(a1.text) && /^Confirm\?/.test(a1.btn) && a2.shown && !meet(fa, tp) && !a3.shown && /^Flee/.test(a3.btn) && nE === nF, JSON.stringify({ a1, a2: a2.shown, a3, n: [nF, nE] }));
+      const fleeLines = () => page.evaluate(() => [...document.querySelectorAll('#combatlog .lines > div')].map((e) => e.textContent).filter((x) => x === 'You flee from the fight.' || x === 'You fail to escape!'));
+      const fl0 = await fleeLines();
       await page.keyboard.press('KeyF'); await idle(page);
       await page.locator('#actionbar .ctrl .btn', { hasText: 'Confirm?' }).click(); await idle(page);
       const fl = (await page.evaluate(() => window.__ui.engineLog())).slice(nE).map((x) => x.type);
       check('S-7', 'F then the Confirm? button flees (FLEE sent)', fl.includes('FLEE'), JSON.stringify(fl));
+      // D144 (engine-2026-11-13d UI need 7): one flight, one line (the engine's action and `fled` were both logged)
+      const fl1 = (await fleeLines()).slice(fl0.length);
+      check('D144-7', `one flee, one line in the log ("${fl1.join('" / "')}")`, fl1.length === 1, JSON.stringify(fl1));
       // a refused flee says why (a fight that cannot be fled)
       await page.evaluate(() => window.__ui.dev('fight', { ids: ['z2_bargh'] })); await idle(page);
       await load(page, (s0) => { s0.fight.canFlee = false; });
@@ -4470,6 +4530,18 @@ async function partS(browser, W, H) {
       await page.evaluate(() => window.__ui.dev('build', { classId: 'mage', zone: 2, level: 12, mapMode: 'expedition', prep: true })); await idle(page);
       await page.evaluate(() => window.__ui.dev('fight', { ids: ['z2_bargh'] })); await idle(page);
       await page.keyboard.press('KeyX'); await idle(page);
+      // D144 (engine-2026-11-13d UI need 11): an answer that lands only on a hit roll (Rime Burst) shows its chance over the
+      // enemy (windupView answers' `chance`), not "?"; Rime Burst's tooltip gives its chance on every enemy (spellInfo hitAll)
+      const rb = await page.evaluate(() => { const v = window.__ui.view(); const a = (v.combat.windups || []).flatMap((w) => w.answers).find((x) => x.id === 'rime_burst' && typeof x.chance === 'number'); return { chance: a ? a.chance : null, els: [...document.querySelectorAll('#nameplates .ans-o[data-id="rime_burst"]')].map((e) => ({ text: e.textContent, ch: e.dataset.chance })) }; });
+      const rbPc = rb.chance == null ? null : `${Math.round(rb.chance * 100)} %`;
+      check('D144-11', `a wind-up's answer that lands on a hit roll shows its chance over the enemy: "Rime Burst ${rbPc}" (windupView answers' chance), not "?"`, !!rbPc && rb.els.length > 0 && rb.els.every((x) => x.ch === rbPc && x.text.includes(`Rime Burst ${rbPc}`) && !/\?/.test(x.text)), JSON.stringify(rb));
+      const sM = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT);
+      const hitAll = R.spellInfo(sM, 'rime_burst', null).hitAll || [];
+      const rbSlot = (await page.evaluate(() => window.__ui.view().player.bar)).indexOf('rime_burst');
+      let rbTip = null;
+      if (rbSlot >= 0) { await page.locator(`#actionbar button.ab[data-slot="${rbSlot}"]`).hover(); await page.waitForTimeout(150); rbTip = await tipOn(page); await page.mouse.move(2, 2); }
+      const wantAll = `Hit chance: ${hitAll.map((x) => `${sM.fight.enemies[x.u].name} ${Math.round(x.chance * 100)} %`).join(', ')}`;
+      check('D144-11', `an AoE spell's tooltip gives its hit chance on each enemy: "${wantAll}" (R.spellInfo hitAll)`, hitAll.length > 0 && !!rbTip && rbTip.includes(wantAll), JSON.stringify({ slot: rbSlot, tip: rbTip }));
       await load(page, (s0) => { s0.player.mana = 0; });
       const mbar = await page.evaluate(() => window.__ui.view().player.bar);
       const sp = mbar.find((id) => id && R.C.SPELL[id] && R.C.SPELL[id].cost > 0 && R.C.SPELL[id].target === 'enemy');
@@ -4513,6 +4585,116 @@ async function partS(browser, W, H) {
       check('S-6', '"You have died": the fight\'s panels (target frame, nameplates, ruler, turn prompt) give way while it shows', !!dead && dead.dying && !!dead.msg && !dead.panels.some((p) => meet(dead.msg, p)), JSON.stringify(dead));
     } catch (e) { await shot(page, 'S5-error'); check('S-5', 'part S5 (fights at 1x) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('S-5', 'part S5: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
+  // ---- S6: the engine hand-off's UI needs (engine-2026-11-13d section 4) on a zone 2 map (Dev menu, seed 8748: an
+  // unguarded chest and a Grind next to the hub, the Grind next to the chest)
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&fresh=1&guide=0', null, {});
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 2, level: 10, mapMode: 'expedition', prep: true, seed: 8748 })); await idle(page);
+      await page.evaluate(() => window.__ui.act({ type: 'LEAVE_HUB' })); await idle(page);
+      const mv0 = await page.evaluate(() => window.__ui.view().zone.exp);
+      const reach = new Set(mv0.moves.map((m) => m.nodeId));
+      const chest = mv0.nodes.find((n) => n.type === 'treasure' && n.know === 'full' && n.guarded === false && reach.has(n.id) && n.nb.some((j) => mv0.nodes[j].type === 'grind'));
+      if (!chest) throw new Error('seed 8748: no unguarded chest with a Grind next to it in reach');
+      const grind = mv0.nodes[chest.nb.find((j) => mv0.nodes[j].type === 'grind')];
+      const hoverTip = async (id) => { await page.locator(`#screens .expmap .mnode[data-node="${id}"]`).hover({ force: true }); await page.waitForTimeout(120); const t = await tipOn(page); await page.mouse.move(2, 2); return t; };
+      // need 8: a Grind on the expedition map is one wave (mapView `waves`): no "Wave 1" or "1 to 3 waves"
+      const k = grind.archetypes.length; const foes = `${k} ${k === 1 ? 'enemy' : 'enemies'}`;
+      const gTip = await hoverTip(grind.id);
+      check('D144-8', `a Grind's tooltip on the expedition map (mapView waves ${grind.waves}): "Foes: ${foes}" and "One wave of ${foes}", no "Wave 1" or "1 to N waves"`,
+        grind.waves === 1 && !!gTip && gTip.includes(`Foes: ${foes}`) && gTip.includes(`One wave of ${foes}.`) && !/Wave 1|1 to \d+ waves/.test(gTip), JSON.stringify(gTip));
+      // need 9: the ring's level band only while a node's own level is unknown
+      const far = mv0.nodes.find((n) => !n.hub && n.know === 'none');
+      const band = far ? mv0.bands[far.ring] : null;
+      const fTip = far ? await hoverTip(far.id) : null;
+      check('D144-9', `a node whose level is known gives its level, not the ring's band; an unknown node gives the band (levels ${band ? band.join('–') : '?'})`,
+        !!gTip && gTip.includes(`Level ${grind.cl}`) && !/levels \d/.test(gTip) && !!fTip && fTip.includes(`levels ${band[0]}–${band[1]}`), JSON.stringify({ grind: gTip && gTip.split('\n').slice(0, 2), far: fTip && fTip.split('\n').slice(0, 2) }));
+      // need 6: the unguarded chest: nothing of it in the log before "Open the chest"; its gold and loot after, once
+      const logLines = () => page.evaluate(() => [...document.querySelectorAll('#combatlog .lines > div')].map((e) => e.textContent));
+      const fmtN = (x) => String(Math.round(x)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); // util.js fmtNum (part S's fmt is for boxes)
+      const inChest = (x) => /^You receive [\d\s\u202f\u00a0,.]+ copper/.test(x) || /^You receive loot:/.test(x) || /Needle trap/.test(x);
+      const n0 = (await logLines()).length;
+      await page.evaluate((id) => window.__ui.act({ type: 'MOVE', nodeId: id }), chest.id); await idle(page);
+      const held = await page.evaluate(() => { const v = window.__ui.view(); return { phase: v.phase, step: v.node && v.node.step }; });
+      const before = (await logLines()).slice(n0);
+      await page.getByRole('button', { name: 'Open the chest' }).click(); await idle(page);
+      const all = (await logLines()).slice(n0);
+      const after = all.slice(before.length);
+      const spoils = await page.evaluate(() => { const l = window.__ui.view().loot; return l ? { title: l.title, gold: l.gold, items: l.items.length } : null; });
+      check('D144-6', `an unguarded chest: no gold, loot or trap in the log while it waits for "Open the chest" (${before.length} lines); after it, its gold once and one line per item (${spoils ? spoils.items : '?'})`,
+        held.phase === 'NODE' && held.step === 'chest' && !before.some(inChest) && !!spoils && spoils.title === 'Treasure chest'
+        && after.filter((x) => x === `You receive ${fmtN(spoils.gold)} copper.`).length === 1 && after.filter((x) => /^You receive loot:/.test(x)).length === spoils.items && after.filter((x) => /Needle trap/.test(x)).length <= 1,
+        JSON.stringify({ held, before, after, spoils }));
+      await auto(page);
+      // need 8: the Grind's fight: the tracker says the wave being fought ("Wave 1 of 1", not "Wave 0 of 1"); its spoils, the wave done
+      await page.evaluate((id) => window.__ui.act({ type: 'MOVE', nodeId: id }), grind.id); await idle(page);
+      const trk = () => page.evaluate(() => document.querySelector('#tracker').innerText.replace(/\s+/g, ' '));
+      const tr1 = await trk();
+      // need 11: a spell's tooltip gives its hit chance on the target (R.spellInfo hit)
+      const bar = await page.evaluate(() => window.__ui.view().player.bar);
+      const gj = bar.indexOf('gutting_jab');
+      const s1 = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT);
+      const t0 = await page.evaluate(() => window.__ui.target());
+      const ti = t0 != null && s1.fight.enemies[t0] && s1.fight.enemies[t0].alive ? t0 : s1.fight.enemies.find((e) => e.alive).idx;
+      const hit = R.spellInfo(s1, 'gutting_jab', ti).hit;
+      await page.locator(`#actionbar button.ab[data-slot="${gj}"]`).hover(); await page.waitForTimeout(150);
+      const jTip = await tipOn(page); await page.mouse.move(2, 2);
+      const wantHit = `Hit chance on ${s1.fight.enemies[ti].name}: ${Math.round(hit * 100)} %`;
+      check('D144-11', `a spell's tooltip gives its hit chance on the target: "${wantHit}" (R.spellInfo hit)`, typeof hit === 'number' && !!jTip && jTip.includes(wantHit), JSON.stringify(jTip));
+      let tr2 = null;
+      for (let i = 0; i < 60 && !tr2; i++) {
+        await auto(page);
+        const v = await page.evaluate(() => { const x = window.__ui.view(); return { over: x.combat ? x.combat.over : null, loot: !!x.loot, phase: x.phase }; });
+        if (v.over === 'victory' && v.loot) tr2 = await trk();
+        if (v.phase === 'MAP') break;
+      }
+      check('D144-8', `the tracker in a Grind: "Wave 1 of 1" while the wave is fought, "1 of 1 wave done" with its spoils (never "Wave 0")`,
+        /Grind Wave 1 of 1/.test(tr1) && !!tr2 && /1 of 1 wave done/.test(tr2) && !/Wave 0/.test(tr1 + tr2), JSON.stringify({ tr1, tr2 }));
+    } catch (e) { await shot(page, 'S6-error'); check('S-6', 'part S6 (the engine hand-off\'s UI needs) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('S-6', 'part S6: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+
+  // ---- S7: H05's shield line (D144, engine-2026-11-13d UI need 2): hints on, every hint but H05 seen
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&fresh=1&guide=0', null, { hints: true });
+    try {
+      const seen = {};
+      for (const x of T.hints) if (x.id !== 'H05') { seen[x.id] = true; for (const c of ['rogue', 'mage', 'hunter']) seen[`${x.id}:${c}`] = true; }
+      await page.evaluate(([key, json]) => localStorage.setItem(key, json), [HINTS_KEY, JSON.stringify({ off: false, seen, nudge: { summary: 0, hall: false }, shows: {} })]);
+      await page.reload(); await page.waitForFunction(() => window.__ui);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 2, level: 10, mapMode: 'expedition', prep: true })); await idle(page);
+      const H05 = T.hints.find((x) => x.id === 'H05');
+      // the casual's case: an elite 8 levels up with a Bolster's shield (BOLSTER_PCT of its health) while it is off-balance
+      await page.evaluate(() => window.__ui.dev('fight', { ids: ['z2_bargh'], level: 18 })); await idle(page);
+      await load(page, (s0) => { const e = s0.fight.enemies[0]; e.st.push({ id: 'OFF_BALANCE', dur: 3, value: R.C.OFFBAL_TAKEN }); e.shield = Math.round(R.C.BOLSTER_PCT * e.maxHp); s0.player.hp = s0.player.d.maxHp; });
+      await page.keyboard.press('KeyX'); await idle(page);
+      const ob = await page.evaluate(() => window.__ui.view().combat.enemies[0].offBalance);
+      const c1 = await coach(page);
+      await shot(page, 'S7-h05-shield');
+      if (c1.shown) { await page.locator('#coach .co-ok').click(); await idle(page); }
+      const st1 = (await coach(page)).store;
+      check('D144-2', `an off-balance enemy whose shield takes the whole hit (offBalance shield ${ob && ob.shield}, absorbs ${ob && ob.absorbs}): H05's shield line "${H05.alt.shield}"; H05 stays unseen`,
+        !!ob && ob.absorbs && !!c1.shown && c1.shown.id === 'H05' && c1.shown.text === fillLine(H05.alt.shield, {}).text && !st1.seen.H05 && !st1.shows.H05, JSON.stringify({ ob, shown: c1.shown, seen: st1.seen.H05, shows: st1.shows.H05 }));
+      // a later window with no shield: the plain line ("Spend your big hit now"), and then H05 is seen. A new page: a Dev
+      // menu fight is no new fight for the coach (no fightStart event), and H05's try in this one is spent
+      await page.reload(); await page.waitForFunction(() => window.__ui);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 2, level: 10, mapMode: 'expedition', prep: true })); await idle(page);
+      await page.evaluate(() => window.__ui.dev('fight', { ids: ['z1_furrow_boar'], level: 10 })); await idle(page);
+      await load(page, (s0) => { const e = s0.fight.enemies[0]; e.st.push({ id: 'OFF_BALANCE', dur: 3, value: R.C.OFFBAL_TAKEN }); e.shield = 0; });
+      await page.keyboard.press('KeyX'); await idle(page);
+      const c2 = await coach(page);
+      if (c2.shown) { await page.locator('#coach .co-ok').click(); await idle(page); }
+      const st2 = (await coach(page)).store;
+      check('D144-2', 'a later off-balance window without a shield: H05\'s own line ("Spend your big hit now"); seen once put away', !!c2.shown && c2.shown.id === 'H05' && /^Off-balance: it takes \+\d+% damage\. Spend your big hit now\.$/.test(c2.shown.text) && !!st2.seen.H05, JSON.stringify({ shown: c2.shown, seen: st2.seen.H05 }));
+    } catch (e) { await shot(page, 'S7-error'); check('S-7', 'part S7 (H05\'s shield line) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('S-7', 'part S7: no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
   }
 }
