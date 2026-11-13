@@ -153,6 +153,8 @@
  *
  *   R  the guided first run and the first-time hints (M3 3.5; m3-onboarding.md 2.4-2.7, 3, 4.3, 7.1): see partR. The parts
  *      before R open with the guide off (?guide=0) and the hints off (tbwcr.hints.v2), part L(3) with hints on (H01).
+ *      R(6)-(7), D142 (M3 3.7, playtest-2026-11-13 findings 2-5): G3's key, the turn prompt under a coach line, a refused
+ *      key's reason, the Mage's "Q then N", a hint seen after two showings.
  *
  * D116 (the flip): new runs start on the expedition map with the start camp. The parts written for the classic map (A-L, O,
  * P) open the page with ?classic=1 (open() adds it unless the query names a map) and their Node twins pass mapMode 'rows';
@@ -180,6 +182,7 @@ import { CONTENT } from '../../src/content/index.js';
 // the Furnace's player-facing words (changes-m2b-v7.md table D: names, states, whole tolls; UX pass 2026-11-11)
 import { HEAT_WORDS, tolls, ECHO_LINE, deathblowKind, deathblowAnswers, sapWaitText } from '../../src/ui/ui-text.js';
 import { RANK as Q_RANK, DIM_NEAR as Q_DIM_NEAR } from '../../src/ui/audio.js';
+import { ONB_HINT_SHOWS } from '../../src/ui/onboarding.js'; // D142 (3): showings after which a hint counts as seen
 
 const args = process.argv.slice(2);
 const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
@@ -3822,13 +3825,36 @@ const browser = await chromium.launch({ headless: true });
  * SKIP_GUIDE; no beat line after. (4) Hints: the toggle off starts a normal run (guide 'skipped'); hint H23 shows at the
  * camp, once (not after a reload); Hints Off silences them. (5) The nudge after the first summary (a loaded 1 HP fight in
  * the normal run): the welcome line, Spend Echoes glowing with its line, the Hall's Packed Satchel highlighted with the
- * coach line and "Later". No console errors.
+ * coach line and "Later". D142 (M3 3.7; playtest-2026-11-13 findings 2-5): (6) a Rogue's first guided fight on the
+ * route the engine's autoplay plays (its bar order puts Severing Flourish, a finisher, in slot 1): G3 names the first bar
+ * spell the view says can be cast now, with its key chip and the ring on that slot; the turn prompt's "Opening move" line
+ * is hidden while the coach line is up and back once none is; a refused key shows its reason at once, by the spell's name,
+ * with two notes on screen; G3's key plays the round. (7) a Mage's first engage round (normal run, hints on): H01 says
+ * "Open with Q then N, W or E" (N: the bar key of the first Pre-cast spell), the turn prompt hidden, Q then N pre-casts it;
+ * then on to the fifth fight won: no hint shows a third time, each shown twice is stored seen with ONB_HINT_SHOWS
+ * showings. Every expected key is worked out from the engine's view (viewKeys). No console errors.
  */
 async function partR(browser, W, H) {
   const T = CONTENT.tutorial;
-  const fill = (raw, n = {}) => raw.replace(/\{(\w+)\}/g, (m, k) => ({ key_spell1: '1', key_engage1: 'Q', key_engage2: 'W', key_engage3: 'E', key_pass: 'X', key_item1: '8', key_take_all: 'Space', key_bags: 'B', key_talents: 'N', key_spellbook: 'P', key_autoplay: 'Z', key_flee: 'F' }[k]
+  // keys: the view's own key chips (D142 (4): G3's key is the first bar spell castable now; the Mage's Pre-cast is "Q then N")
+  const fill = (raw, n = {}, keys = {}) => raw.replace(/\{(\w+)\}/g, (m, k) => ({ key_spell1: '1', key_engage1: 'Q', key_engage2: 'W', key_engage3: 'E', key_pass: 'X', key_item1: '8', key_take_all: 'Space', key_bags: 'B', key_talents: 'N', key_spellbook: 'P', key_autoplay: 'Z', key_flee: 'F', ...keys }[k]
     ?? { deathblowTurn: R.C.SIGNATURE_TURN, bellTolls: R.C.BELL_CHANNEL_TIME, offbalPct: Math.round(R.C.OFFBAL_TAKEN * 100), rescueTolls: R.C.ONB_RESCUE_TOLLS, satchelPotions: R.C.META.satchel.potions, ...n }[k] ?? m));
-  const lineText = (id, cls) => { const [b, k] = id.split('.'); const x = T.beats.find((y) => y.id === b); return fill(!k ? x.line || x.byClass[cls] : (x.alt && x.alt[k]) || x.byClass[k]); };
+  const lineText = (id, cls, keys = {}) => { const [b, k] = id.split('.'); const x = T.beats.find((y) => y.id === b); return fill(!k ? x.line || x.byClass[cls] : (x.alt && x.alt[k]) || x.byClass[k], {}, keys); };
+  /**
+   * The view's keys, worked out here from the engine's view (D142 (4)): key_spell1 = the bar slot of the first spell the
+   * view says can be cast now (one cast on an enemy first, R.C.SPELL target); key_engage1 = "Q then N" when the first
+   * engage option takes a spell (Pre-cast), N the bar key of the first of its spells on the bar.
+   */
+  const viewKeys = (page) => page.evaluate((tgt) => {
+    const v = window.__ui.view(); const out = {}; const p = v.player; const c = v.combat;
+    if (!p || !c || c.over) return out;
+    const L = (v.legal && v.legal.spells) || {}; const ok = (id) => !!(id && L[id] && L[id].ok);
+    let i = p.bar.findIndex((id) => ok(id) && tgt[id] === 'enemy'); if (i < 0) i = p.bar.findIndex(ok);
+    if (i >= 0) out.key_spell1 = String(i + 1);
+    const o = c.engage && c.engage.options[0];
+    if (o && o.spells && o.spells.length && !o.reason) { const j = p.bar.findIndex((id) => id && o.spells.some((x) => x.spellId === id)); if (j >= 0) out.key_engage1 = `Q then ${j + 1}`; }
+    return out;
+  }, Object.fromEntries(Object.values(R.C.SPELL).map((s) => [s.id, s.target])));
   const coach = (page) => page.evaluate(() => window.__ui.coach());
   /** The coach line's rect against the protected elements and its anchor (spec 2.5): the names it overlaps. */
   const overlaps = (page) => page.evaluate(() => {
@@ -3849,6 +3875,7 @@ async function partR(browser, W, H) {
       await shot(page, 'R-prep');
       check('M3-R', 'the start camp: G1\'s line on the coach line, content text', c.shown && c.shown.id === 'G1' && c.shown.text === lineText('G1'), JSON.stringify(c.shown));
       const engineLines = []; const bad = []; const shownSoFar = new Set(); const layout = []; let gate = null; let gateOpen = null; let reachedZ2 = false; let steps = 0;
+      let shownSig = null; let shownKeys = {};
       for (; steps < 260; steps++) {
         const st = await page.evaluate(() => { const v = window.__ui.view(); return { phase: v.phase, z: v.zone ? v.zone.idx : null, t: v.tutorial, cls: v.player ? v.player.classId : 'rogue', fight: !!(v.combat && !v.combat.over && !v.loot), map: v.phase === 'MAP' && !!(v.zone && v.zone.exp) && !v.node }; });
         const t = st.t;
@@ -3862,8 +3889,13 @@ async function partR(browser, W, H) {
         // the coach line shows one of the engine's open beat lines (tutorialView.line, or the next once the engine rests it, D141), its content text
         for (const x of c.log) if (x.kind === 'beat') shownSoFar.add(x.id);
         const fresh = open.filter((l) => !shownSoFar.has(l));
+        // the view's keys when the line came up (its text stays while it is up: after G3's "Press 2" a combo point makes slot 1
+        // castable, and the line keeps its key)
+        const last = c.log[c.log.length - 1];
+        const sig = c.shown && last ? `${c.shown.id}@${last.step}@${last.at}` : null;
+        if (sig !== shownSig) { shownSig = sig; shownKeys = c.shown && c.shown.kind === 'beat' ? await viewKeys(page) : {}; }
         // a line already shown may rest (D141, the engine); an open line not yet shown must be on screen now (or one with it)
-        if ((fresh.length || (c.shown && c.shown.kind === 'beat')) && !(c.shown && c.shown.kind === 'beat' && open.includes(c.shown.id) && c.shown.text === lineText(c.shown.id, st.cls))) bad.push(`step ${steps}: engine ${open.join('/')}, coach ${c.shown ? c.shown.id : 'none'}`);
+        if ((fresh.length || (c.shown && c.shown.kind === 'beat')) && !(c.shown && c.shown.kind === 'beat' && open.includes(c.shown.id) && c.shown.text === lineText(c.shown.id, st.cls, shownKeys))) bad.push(`step ${steps}: engine ${open.join('/')}, coach ${c.shown ? `${c.shown.id} "${c.shown.text}"` : 'none'}`);
         if (c.shown) { const o = await overlaps(page); if (o.length) layout.push(`${c.shown.id}: ${o.join(',')}`); }
         if (c.shown && c.shown.id === 'G3' && !(await page.evaluate(() => window.__shotG3))) { await page.evaluate(() => { window.__shotG3 = true; }); await shot(page, 'R-coach-fight'); }
         // Gorrak's gate (D138): his node barred while S4 is still to come; the map tooltip says how many fights are left
@@ -3978,6 +4010,95 @@ async function partR(browser, W, H) {
       check('M3-R', '"Later" closes it for good (stored), the card stays buyable', !(await page.locator('#meta .mcard.nudge').count()) && st2.nudge.hall === true && (await page.locator('#meta .mcard[data-id="satchel"] button.buy').isEnabled()), JSON.stringify(st2.nudge));
     } catch (e) { await shot(page, 'R-error-3'); check('M3-R', 'part R (hints, nudge) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('M3-R', 'part R (hints, nudge): no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- (6) D142 (playtest-2026-11-13 findings 2-5): the Rogue's first guided fight (G3's key, the turn prompt, a refused key)
+  const tp = (page) => page.evaluate(() => { const t = document.getElementById('turnprompt'); const c = document.getElementById('coach'); return { kind: t.dataset.kind, shown: getComputedStyle(t).display !== 'none' && !t.classList.contains('hidden'), text: t.textContent, coach: !!c && !c.classList.contains('hidden') }; });
+  const chips = (page) => page.locator('#coach .co-t .kbd').evaluateAll((els) => els.map((e) => e.textContent));
+  /** "Got it" until no coach line is up (a queued hint may follow the one put away); true when none is left. */
+  const clearCoach = async (page) => { for (let i = 0; i < 6; i++) { if (!(await coach(page)).shown) return true; await page.locator('#coach .co-ok').click(); await idle(page); } return !(await coach(page)).shown; };
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=7&speed=instant&fresh=1', null, { guide: true, hints: true });
+    try {
+      await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      let c = null;
+      for (let i = 0; i < 160; i++) { c = await coach(page); const v = await view(page); if (v.step === 'combat' && v.round === 1 && c.shown && c.shown.id === 'G3') break; await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
+      await page.mouse.move(2, 2);
+      const fv = await page.evaluate(() => { const v = window.__ui.view(); return { round: v.combat && v.combat.round, bar: v.player.bar, legal: Object.fromEntries(Object.entries(v.legal.spells).map(([id, x]) => [id, { ok: x.ok, reason: x.reason || null }])) }; });
+      const vk = await viewKeys(page); const key = vk.key_spell1;
+      const ring = await page.evaluate(() => { const r = document.querySelector('.coach-on'); return r ? `${r.id || r.className.split(' ')[0]}:${r.dataset.slot ?? ''}` : null; });
+      const k1 = await chips(page);
+      await shot(page, 'R-d142-rogue-g3');
+      check('D142-4b', `the Rogue's first guided fight: G3 names the first bar spell that can be cast now ("Press ${key}"; bar ${fv.bar.slice(0, 2).join(', ')}), its key chip and the ring on that slot`,
+        c.shown && c.shown.id === 'G3' && !!key && c.shown.text === lineText('G3', 'rogue', vk) && k1.join(',') === key && ring === `ab:${Number(key) - 1}` && fv.legal[fv.bar[Number(key) - 1]].ok,
+        `${JSON.stringify(c.shown)} chips ${k1} ring ${ring} legal ${JSON.stringify(fv.legal)}`);
+      const p1 = await tp(page);
+      check('D142-2', 'while the coach line is up, the turn prompt\'s "Opening move" line is hidden (no second instruction)', p1.coach && p1.kind === 'engage' && !p1.shown, JSON.stringify(p1));
+      // a key that is refused (the finisher: no combo point in round 1) answers at once with the engine's reason, by the spell's
+      // name, even with two notes on screen (QA: the refusal waited behind two toasts and the key seemed to do nothing)
+      const badSlot = fv.bar.findIndex((id) => id && !fv.legal[id].ok);
+      await page.evaluate(() => { window.__ui.toast('Test note one', 'info'); window.__ui.toast('Test note two', 'good'); });
+      let refused = null;
+      if (badSlot >= 0) {
+        await page.keyboard.press(`Digit${badSlot + 1}`); await page.waitForTimeout(150);
+        refused = await page.evaluate(() => ({ toasts: [...document.querySelectorAll('#toasts .toast')].map((t) => t.textContent), round: window.__ui.view().combat.round }));
+      }
+      const why = badSlot >= 0 ? fv.legal[fv.bar[badSlot]].reason : '';
+      check('D142-4b', `a refused key (${badSlot + 1}: ${fv.bar[badSlot]}) shows its reason at once, by the spell's name ("${why}"), in place of a note; the round does not move`,
+        badSlot >= 0 && refused.toasts.length <= 2 && refused.toasts.includes(why) && !/_/.test(why) && why.includes(R.C.SPELL[fv.bar[badSlot]].name) && refused.round === 1, JSON.stringify(refused));
+      const cleared = await clearCoach(page);
+      const p2 = await tp(page);
+      check('D142-2', 'with no coach line up, the turn prompt shows "Opening move" again', cleared && p2.kind === 'engage' && p2.shown && /Opening move/.test(p2.text), JSON.stringify(p2));
+      await page.keyboard.press(`Digit${key}`); await idle(page);
+      const after = await page.evaluate(() => { const v = window.__ui.view(); const log = window.__ui.engineLog(); return { round: v.combat ? v.combat.round : null, over: v.combat ? v.combat.over : null, last: log[log.length - 1] }; });
+      check('D142-4b', `the key G3 names (${key}) plays the round: CAST ${fv.bar[Number(key) - 1]}`, after.last && after.last.type === 'CAST' && after.last.spellId === fv.bar[Number(key) - 1] && (after.round > 1 || !!after.over), JSON.stringify(after));
+    } catch (e) { await shot(page, 'R-error-6'); check('D142', 'part R (6, Rogue) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('D142', 'part R (6, Rogue): no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- (7) D142: the Mage's first engage round in a normal run (H01 names Q then the spell key), then a hint is seen after
+  // two showings: the run played on to its fifth fight won, no hint shows a third time
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&fresh=1&guide=0', null, { hints: true });
+    try {
+      await page.locator('#create .ccard[data-cls="mage"]').click(); await idle(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      for (let i = 0; i < 160; i++) { const v = await view(page); if (v.step === 'combat' && v.round === 1) break; await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
+      // a higher-priority hint of the same round (a wind-up's H03) comes first; H01 shows when it is put away
+      for (let i = 0; i < 3; i++) { const x = (await coach(page)).shown; if (!x || x.id === 'H01' || x.kind !== 'hint') break; await page.locator('#coach .co-ok').click(); await idle(page); }
+      await page.mouse.move(2, 2);
+      const sh = (await coach(page)).shown;
+      const vk = await viewKeys(page); const n = (vk.key_engage1 || '').replace('Q then ', '');
+      const k = await chips(page);
+      const p1 = await tp(page);
+      await shot(page, 'R-d142-mage-h01');
+      check('D142-4a', `the Mage's first engage round: H01 names Q, then the Pre-cast spell's key ("Open with Q then ${n}, W or E"), key chips Q, ${n}, W, E`,
+        sh && sh.id === 'H01' && !!n && sh.text === fill(T.hints.find((x) => x.id === 'H01').line, {}, vk) && k.join(',') === `Q,${n},W,E`, `${JSON.stringify(sh)} chips ${k} keys ${JSON.stringify(vk)}`);
+      check('D142-2', 'the Mage\'s H01 on screen: the turn prompt\'s "Opening move" line is hidden', p1.coach && p1.kind === 'engage' && !p1.shown, JSON.stringify(p1));
+      const spell = await page.evaluate((i) => window.__ui.view().player.bar[i], Number(n) - 1);
+      await page.keyboard.press('KeyQ'); await idle(page);
+      await page.keyboard.press(`Digit${n}`); await idle(page);
+      const after = await page.evaluate(() => { const v = window.__ui.view(); const log = window.__ui.engineLog(); return { round: v.combat ? v.combat.round : null, last: log[log.length - 1] }; });
+      check('D142-4a', `Q then ${n} pre-casts ${spell} (ENGAGE precast) and the round moves on`, after.last && after.last.type === 'ENGAGE' && after.last.option === 'precast' && after.last.spellId === spell && after.round === 2, JSON.stringify(after));
+      // (3) the run on AUTO to its fifth fight won (the hints come and go at Instant speed, most under ONB_HINT_MIN_MS)
+      let won = 0;
+      for (let i = 0; i < 400 && won < 5; i++) {
+        const r0 = await page.evaluate(async () => { const r = await window.__ui.act({ type: 'AUTO' }); return r && r.events ? r.events.map((e) => e.t) : []; });
+        if (r0.includes('victory')) won += 1;
+        await idle(page);
+        if ((await view(page)).phase === 'SUMMARY') break;
+      }
+      const co = await coach(page);
+      const shows = {};
+      co.log.forEach((x, i) => { if (x.kind !== 'hint') return; (shows[x.key] = shows[x.key] || []).push(co.log[i + 1] ? co.log[i + 1].at - x.at : null); });
+      const twice = Object.entries(shows).filter(([, a]) => a.length >= 2);
+      const over = Object.entries(shows).filter(([, a]) => a.length > ONB_HINT_SHOWS);
+      const notSeen = twice.filter(([key]) => !(co.store.seen[key] === true && co.store.shows[key] === ONB_HINT_SHOWS));
+      check('D142-3', `a hint counts as seen after two showings: after ${won} fights won no hint showed a third time; each one shown twice is stored seen with 2 showings (${twice.map(([key, a]) => `${key} ${a.map((ms) => (ms == null ? '?' : `<${ms} ms`)).join('/')}`).join(', ') || 'none'})`,
+        won >= 3 && twice.length >= 1 && !over.length && !notSeen.length, `over ${JSON.stringify(over)} not seen ${JSON.stringify(notSeen)} store ${JSON.stringify(co.store.shows)}`);
+    } catch (e) { await shot(page, 'R-error-7'); check('D142', 'part R (7, Mage, hints) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('D142', 'part R (7, Mage, hints): no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
   }
 }
