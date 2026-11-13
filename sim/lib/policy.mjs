@@ -328,12 +328,44 @@ export function betweenAction(s) {
 
 // ---------------- The bot shell ----------------
 /**
+ * Fingerprint of a state for the bar guard: everything but the spell and item bars, the content tables and the guide's
+ * hint bookkeeping (state.tutorial.beats: its display counters move on every action, rules or no rules).
+ */
+export function barFingerprint(s) {
+  return JSON.stringify(s, function (k, v) {
+    if (k === 'content' || k === 'bar' || k === 'itemBar') return undefined;
+    if (k === 'beats' && this === s.tutorial) return undefined;
+    return v;
+  });
+}
+
+/**
+ * The bar guard (sim-2026-11-14; design-2026-11-13e finding 2): a SET_BAR / SET_ITEM_BAR edit `b` is passed on unless
+ * the bot already made the same edit since the state last changed (bar and item bar aside), in which case null (keep the
+ * bar). A bar edit never repeats without a state change, so a bar swap cannot loop. Converging to a wanted bar never
+ * repeats an edit (barAction fixes slots in order and a fixed slot stays fixed), so the guard changes nothing else.
+ */
+export function barGuard(log, s, b) {
+  if (!b) return null;
+  const fp = barFingerprint(s);
+  if (fp !== log.fp) { log.fp = fp; log.edits.clear(); }
+  const k = `${b.type}|${b.slot}|${b.type === 'SET_BAR' ? b.spellId : b.itemId}`;
+  if (log.edits.has(k)) { log.held = (log.held || 0) + 1; return null; }
+  log.edits.add(k);
+  return b;
+}
+
+/**
  * spec: { name, combat(s), talent(s) -> talentId|null, bar(s) -> bar[7], itemBar(s) -> [3] | null,
  *         food(s) -> action|null, trainer(s), vendor(s), hub(s), map(s), grindWaves(s), reward(s), between(s),
  *         camp(s), pickPet(pets) (optional, Hunter without a preset pet), prep(s) (optional: phase PREP, default
  *         autoplay's start camp), hubContract(s) -> action | null (optional: the hub contract in a prep run) }
  */
 export function makeBot(spec) {
+  // Bar edits made since the state last changed (barGuard). Repeating one with no state change in between means
+  // something else set the bar back (the guided runner's autoplay fallback, sim-2026-11-14): the bot then keeps the
+  // bar as it is until the state changes, so the run goes on.
+  const barLog = { fp: null, edits: new Set() };
   const ooc = (s) => {
     if (R.talentPointsFree(s) > 0) {
       const t = spec.talent(s);
@@ -341,13 +373,14 @@ export function makeBot(spec) {
     }
     const eq = equipAction(s);
     if (eq) return eq;
-    const b = barAction(s, spec.bar(s), spec.itemBar ? spec.itemBar(s) : null);
+    const b = barGuard(barLog, s, barAction(s, spec.bar(s), spec.itemBar ? spec.itemBar(s) : null));
     if (b) return b;
     return spec.food ? spec.food(s) : null;
   };
   return {
     name: spec.name,
     spec,
+    barLog,
     choose(s) {
       if (s.phase === 'ENDED') return null;
       if (s.phase === 'SUMMARY') return { type: 'END_RUN' };
