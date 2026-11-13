@@ -251,6 +251,20 @@ const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 // needs a combo point" reads "Severing Flourish needs a combo point")
 const SPELL_IDS = new RegExp(`\\b(${Object.keys(R.C.SPELL).sort((a, b) => b.length - a.length).join('|')})\\b`, 'g');
 const reasonOf = (err) => { const m = String((err && err.message) || err || ''); const i = m.lastIndexOf(': '); return cap((i >= 0 ? m.slice(i + 2) : m).replace(SPELL_IDS, (id) => R.C.SPELL[id].name)); };
+/**
+ * A cast refused for its cost, in the player's words (blind panel 2026-11-13: "Not enough resource for X" read as nothing):
+ * "Not enough energy for Gutting Jab: it costs 40, you have 30" (the engine's cost, R.spellCost, and the fight's resource).
+ * Any other reason: reasonOf's.
+ */
+const castReason = (s, err) => {
+  const m = /not enough resource for (\w+)/.exec(String((err && err.message) || err || ''));
+  if (!m || !R.C.SPELL[m[1]] || !s || !s.player) return reasonOf(err);
+  const kind = R.C.CLASS[s.player.classId].resource;
+  const have = kind === 'mana' ? s.player.mana : s.fight && s.fight.p ? s.fight.p[kind] : null;
+  let cost = null; try { cost = R.spellCost(s, m[1]); } catch { cost = null; }
+  const name = R.C.SPELL[m[1]].name;
+  return cost == null || have == null ? `Not enough ${kind} for ${name}` : `Not enough ${kind} for ${name}: it costs ${Math.round(cost)}, you have ${Math.floor(have)}`;
+};
 
 /** The stored meta profile, completed with the fields of R.newProfile() a stored copy may lack; null without one. */
 function loadProfile() {
@@ -825,7 +839,7 @@ function engineBackend(seedOpt, runOpts = {}) {
       if (ok) L.spells[id] = { ok: true, cd, window: windowOf(id) };
       else {
         const target = C.SPELL[id] && C.SPELL[id].target === 'enemy' ? tgt : null;
-        L.spells[id] = { ok: false, cd, window: null, reason: p.bar.includes(id) ? reasonOf(R.whyIllegal(s, { type: 'CAST', spellId: id, target }) || 'Not usable now') : 'Not on the action bar' };
+        L.spells[id] = { ok: false, cd, window: null, reason: p.bar.includes(id) ? castReason(s, R.whyIllegal(s, { type: 'CAST', spellId: id, target }) || 'Not usable now') : 'Not on the action bar' };
       }
     }
     L.items = p.itemBar.map((id, slot) => {
@@ -1435,7 +1449,7 @@ function engineBackend(seedOpt, runOpts = {}) {
         }
       }
     } catch (err) {
-      if (err && err.code === 'ILLEGAL_ACTION') return { ok: false, error: reasonOf(err) };
+      if (err && err.code === 'ILLEGAL_ACTION') return { ok: false, error: castReason(st, err) };
       throw err;
     }
     afterStep(prev, events);

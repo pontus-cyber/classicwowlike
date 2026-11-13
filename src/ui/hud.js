@@ -207,6 +207,9 @@ export function createHud(root, ctx) {
   els.auto = h('button.toggle', { type: 'button', role: 'switch', 'aria-checked': 'false', 'aria-label': 'Autoplay' }, h('span.sw'), h('span', 'Autoplay'), h('span.kbd', 'Z'));
   els.pass = h('button.btn.small', 'Pass', h('span.k', 'X'));
   els.flee = h('button.btn.small', 'Flee', h('span.k', 'F'));
+  // the flee ask (blind panel 2026-11-13, app.js ui.flee): over the control row while armed, until F, the button, another
+  // action or Esc answers it; never a fading toast
+  els.fleeAsk = h('div#fleeask.hidden', { role: 'alertdialog', 'aria-live': 'assertive', 'aria-label': 'Flee?' });
   // the queued next action during a combat round (app.combatAct): a tag over the bar, the button ringed
   els.qtag = h('div.qtag.hidden', { 'aria-live': 'polite' });
   // "what to do now" on the player's turn in a fight (UX pass 2026-11-11): one line over the action bar that names the
@@ -214,7 +217,7 @@ export function createHud(root, ctx) {
   els.turn = h('div#turnprompt.hidden', { 'aria-live': 'polite' }, h('span.tp-k'), h('span.tp-t'));
   els.actionbar.append(
     h('div.grp', els.basic), h('div.sep'), h('div.grp', els.spells), h('div.sep'), h('div.grp', els.items),
-    h('div.ctrl.panel', els.auto, els.pass, els.flee), els.qtag, els.turn);
+    h('div.ctrl.panel', els.auto, els.pass, els.flee), els.qtag, els.turn, els.fleeAsk);
   // ------------------------------------------------------------ xp bar
   els.xp = h('div#xpbar', h('div.rested'), h('div.fill'), h('div.ticks'), h('div.txt'));
   // ------------------------------------------------------------ minimap
@@ -685,7 +688,20 @@ export function createHud(root, ctx) {
     const passDb = !!fight && (c.windups || []).some((w) => w.deathblow && w.answers.some((a) => a.via === 'pass' && a.now));
     els.pass.classList.toggle('db-now', passDb); els.pass.dataset.db = passDb ? 'now' : '';
     els.flee.firstChild.textContent = ctx.ui.fleeArmed ? 'Confirm?' : 'Flee';
+    els.flee.classList.toggle('armed', !!(fight && ctx.ui.fleeArmed));
+    fleeAsk(v, !!(fight && ctx.ui.fleeArmed && L.flee));
     turnPrompt(v, fight && !v.autoplay, fight && v.autoplay);
+  }
+
+  /** The flee ask over the control row (app.js ui.flee): the chance, how to run, how to stay. */
+  function fleeAsk(v, on) {
+    els.fleeAsk.classList.toggle('hidden', !on);
+    if (!on) return;
+    const ch = v.legal && v.legal.fleeChance != null ? ` (${Math.round(v.legal.fleeChance * 100)} % chance)` : '';
+    const sig = `flee${ch}`;
+    if (els.fleeAsk.dataset.sig === sig) return;
+    els.fleeAsk.dataset.sig = sig;
+    clear(els.fleeAsk).append(h('b.fa-t', `Flee this fight?${ch}`), h('span.fa-l', 'Press ', h('span.kbd', 'F'), ' again or Confirm to run · ', h('span.kbd', 'Esc'), ' or any action to stay'));
   }
 
   /**

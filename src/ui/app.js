@@ -60,21 +60,39 @@ export class App {
       retarget: (v) => app.retarget(v),
       toast: (t, k) => app.toast(t, k), banner: (a, b, k, ms) => app.banner(a, b, k, ms), hideBanner: () => app.hideBanner(),
       toggleWin: (n) => app.windows.toggle(n), closeWin: (n) => app.windows.close(n), openWin: (n) => app.windows.open(n),
-      attack: () => app.combatAct((t) => ({ type: 'ATTACK', target: t }), 'attack', 'Attack'),
+      attack: () => { if (app.refused(app.bridge.view.legal && app.bridge.view.legal.attack ? null : { type: 'ATTACK', target: app.validTarget(app.bridge.view) })) return; ui.fleeArmed = false; app.combatAct((t) => ({ type: 'ATTACK', target: t }), 'attack', 'Attack'); },
       castSlot: (i) => {
         const id = app.shown.player && app.shown.player.bar[i]; if (!id) return;
         if (ui.precastArmed && app.bridge.view.combat && app.bridge.view.combat.engage) { app.hud.flashSlot(i); app.engageAct('precast', id); return; }
+        // blind panel 2026-11-13: a key the engine refuses (energy, mana, a combo point, a cooldown) says why at once, also
+        // while a round plays (it used to be queued and refused only when the round ended)
+        if (app.refused(app.spellRefusal(id))) return;
+        ui.fleeArmed = false;
         app.combatAct((t) => ({ type: 'CAST', spellId: id, target: t }), `spell${i}`, (app.data.spells[id] || {}).name || id, () => app.hud.flashSlot(i));
       },
-      useItemSlot: (i) => { const v = app.shown; if (!v.player || !v.player.itemBar[i]) return; if (v.combat && !v.combat.over) app.combatAct((t) => ({ type: 'USE_ITEM', slot: i, target: t }), `item${i}`, (app.data.consumables[v.player.itemBar[i]] || {}).name || 'Item', () => app.hud.flashSlot(7 + i)); else { app.hud.flashSlot(7 + i); const it = v.player.bag.find((s) => s && s.id === v.player.itemBar[i]); if (it) app.act({ type: 'USE_ITEM', uid: it.uid }); } },
+      useItemSlot: (i) => {
+        const v = app.shown; if (!v.player || !v.player.itemBar[i]) return;
+        if (v.combat && !v.combat.over) {
+          const L = app.bridge.view.legal && app.bridge.view.legal.items ? app.bridge.view.legal.items[i] : null;
+          if (app.refused(L && !L.ok && app.inFight() ? L.reason || 'Not usable now' : null)) return;
+          ui.fleeArmed = false;
+          app.combatAct((t) => ({ type: 'USE_ITEM', slot: i, target: t }), `item${i}`, (app.data.consumables[v.player.itemBar[i]] || {}).name || 'Item', () => app.hud.flashSlot(7 + i));
+        } else { app.hud.flashSlot(7 + i); const it = v.player.bag.find((s) => s && s.id === v.player.itemBar[i]); if (it) app.act({ type: 'USE_ITEM', uid: it.uid }); }
+      },
       // read the state when the action runs, so two quick presses (Z Z) turn it on and off again
       toggleAuto: () => app.act(() => ({ type: 'SET_AUTOPLAY', on: !app.bridge.view.autoplay })),
-      pass: () => app.combatAct(() => ({ type: 'PASS' }), 'pass', 'Pass'),
+      pass: () => { ui.fleeArmed = false; app.combatAct(() => ({ type: 'PASS' }), 'pass', 'Pass'); },
+      // Flee asks first (key F or the button: the same path). Blind panel 2026-11-13: F seemed to do nothing (its "press again"
+      // toast waited behind others, faded, and the arming lapsed after 2.2 s). Now the ask is a box over the button (hud.js
+      // #fleeask) that stays until acted on: F or the button again flees, any other action or Esc puts it away. A refused
+      // flee says why (the button is greyed then)
       flee: () => {
-        if (!app.bridge.view.legal || !app.bridge.view.legal.flee) return;
-        if (!ui.fleeArmed) { ui.fleeArmed = true; app.queueRender(); app.toast('Press Flee again to run', 'info'); clearTimeout(app.fleeT); app.fleeT = setTimeout(() => { ui.fleeArmed = false; app.queueRender(); }, 2200); return; }
-        ui.fleeArmed = false; app.combatAct(() => ({ type: 'FLEE' }), 'flee', 'Flee');
+        if (!app.inFight()) return;
+        if (!app.bridge.view.legal || !app.bridge.view.legal.flee) { app.refused({ type: 'FLEE' }); return; }
+        if (!ui.fleeArmed) { ui.fleeArmed = true; app.queueRender(); return; }
+        ui.fleeArmed = false; app.queueRender(); app.combatAct(() => ({ type: 'FLEE' }), 'flee', 'Flee');
       },
+      cancelFlee: () => { if (!ui.fleeArmed) return false; ui.fleeArmed = false; app.queueRender(); return true; },
       /** The queued next action ({ key, label }) or null. */
       get queued() { return app.next ? { key: app.next.key, label: app.next.label } : null; },
       // combat v2 engage round (docs/specs/combat-v2.md 10.3): the hovered option's preview on the tracks
@@ -268,7 +286,7 @@ export class App {
       this.toast(`${o.name}: not on ${(v.combat.enemies.find((e) => e.idx === cur) || {}).name || 'that target'}. Choose ${names.join(' or ')}.`, 'err');
       return;
     }
-    this.ui.precastArmed = false; this.ui.preview = null;
+    this.ui.precastArmed = false; this.ui.preview = null; this.ui.fleeArmed = false;
     const label = spellId ? `${o.name}: ${(this.data.spells[spellId] || {}).name || spellId}` : o.name;
     this.combatAct(() => ({ type: 'ENGAGE', option: id, spellId: spellId || undefined, target: none ? null : cur }), `engage-${id}`, label);
   }
@@ -278,6 +296,24 @@ export class App {
     if (cur) return cur.idx;
     const t = c.enemies.find((e) => e.idx === c.target && e.alive) || c.enemies.find((e) => e.alive && !e.hidden);
     return t ? t.idx : 0;
+  }
+  /** A fight is on in the engine's view (a round may still be playing on screen). */
+  inFight() { const v = this.bridge.view; return !!(v.combat && !v.combat.over); }
+  /** Why the engine would refuse this bar spell now, or null (bridge legal.spells: not castable on any target). */
+  spellRefusal(id) {
+    if (!this.inFight()) return null;
+    const L = this.bridge.view.legal && this.bridge.view.legal.spells ? this.bridge.view.legal.spells[id] : null;
+    return L && !L.ok ? L.reason || 'Not usable now' : null;
+  }
+  /**
+   * Refuse a combat key at once (blind panel 2026-11-13, item 7): why (a reason, or an action whose reason the engine gives)
+   * as a refusal toast, nothing queued or sent. False when there is nothing to refuse.
+   */
+  refused(why) {
+    if (!why || !this.inFight()) return false;
+    const text = typeof why === 'string' ? why : this.bridge.why(why) || 'Not now';
+    this.toast(text, 'err'); console.info(`[ui] refused at once: ${text}`);
+    return true;
   }
   retarget(v) {
     const c = v.combat;
@@ -290,7 +326,7 @@ export class App {
     const v = this.bridge.view;
     // the engage round is over: no preview, Pre-cast no longer armed
     if (!(v.combat && v.combat.engage)) { this.ui.precastArmed = false; this.ui.preview = null; document.body.classList.remove('eg-bar-hint'); }
-    if (!(v.combat && !v.combat.over)) this.ui.wuHover = null; // the hovered wind-up's fight is over
+    if (!(v.combat && !v.combat.over)) { this.ui.wuHover = null; this.ui.fleeArmed = false; } // the fight is over: no hover, no ask
     this.ui.chestOpen = v.node && v.node.type === 'treasure' && v.node.step === 'opened' ? true : v.node && v.node.type === 'treasure' ? this.ui.chestOpen : false;
     if (v.combat && !v.combat.over) this.retarget(v); else if (!v.combat) this.ui.setTarget(null);
     this.windows.update();
@@ -563,6 +599,7 @@ export class App {
     }
     if (code === 'Escape') {
       if (this.ui.precastArmed) { this.ui.precastArmed = false; this.queueRender(); return; }
+      if (this.ui.cancelFlee()) return; // the flee ask: Esc stays
       if (disarmSpyglass()) { this.ui.refreshScreens(); return; }
       if (this.windows.anyOpen()) this.windows.closeAll();
       else if (this.ui.metaOpen) this.ui.closeMeta();
