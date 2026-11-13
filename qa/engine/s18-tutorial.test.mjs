@@ -224,6 +224,40 @@ describe('M3 guided run: beats and tutorialView (2.4-2.7, E5)', () => {
   });
 });
 
+describe('M3 coach lines yield after showing (2.5, D141)', () => {
+  test('seed 8736: G12 is the line for ONB_LINE_STEPS steps or more, then G13 becomes the line while G12 stays open; G12 comes back when its trigger fires again', () => {
+    assert.equal(C.ONB_LINE_STEPS, 2);
+    let s = run('rogue', 8736);
+    let g12Steps = 0;
+    let at = null;
+    for (let n = 0; !(s.zone && s.zone.z === 2) && s.phase !== 'ENDED' && n < 3000; n++) {
+      const r = R.step(s, R.autoAction(s));
+      const v = R.tutorialView(r.state);
+      if (v.open.some((o) => o.id === 'G13') && v.open.some((o) => o.id === 'G12')) { at = r; break; }
+      s = r.state;
+      if (v.beat === 'G12') g12Steps += 1;
+    }
+    assert.ok(at, 'G13 opens while G12 is open');
+    assert.ok(g12Steps >= C.ONB_LINE_STEPS, `G12 was the line for ${g12Steps} steps`);
+    const v = R.tutorialView(at.state);
+    assert.deepEqual([v.beat, v.line], ['G13', 'G13.onRoad']);
+    assert.deepEqual(v.open.find((o) => o.id === 'G12'), { id: 'G12', line: 'G12', rest: true });
+    assert.ok(!at.events.some((e) => e.t === 'beat' && e.id === 'G12'), 'G12 stays open, no event');
+    // its trigger again: the front was not within ONB_DIM_NEAR_HOPS on the last step and is now
+    s = at.state;
+    s.tutorial.beats.G12.near = false;
+    const back = R.step(s, R.legalActions(s).find((x) => x.type === 'SET_AUTOPLAY'));
+    assert.ok(back.events.some((e) => e.t === 'beat' && e.id === 'G12' && e.what === 'line' && e.line === 'G12'));
+    assert.deepEqual([R.tutorialView(back.state).beat, R.tutorialView(back.state).line], ['G12', 'G12']);
+  });
+
+  test('a line with no other open beat line to yield to stays the line (G1 at the start camp after 3 steps)', () => {
+    let s = steps(run('mage', 11), [{ type: 'START_RUN' }, { type: 'TAKE_CONTRACT', index: 0 }, { type: 'DROP_CONTRACT', index: 0 }, { type: 'TAKE_CONTRACT', index: 0 }]).state;
+    const v = R.tutorialView(s);
+    assert.deepEqual([v.beat, v.line, v.open], ['G1', 'G1', [{ id: 'G1', line: 'G1', rest: false }]]);
+  });
+});
+
 describe('M3 profile, welcome and summary (4.2, E6-E8)', () => {
   const finish = (s) => { while (s.phase !== 'SUMMARY') s = R.step(s, R.autoAction(s)).state; return R.step(s, { type: 'END_RUN' }).state; };
   test('E6 newProfile and migrateProfile: guide and welcome; setGuide', () => {

@@ -256,7 +256,7 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `node`, `nodeDone`, `quest` | `type, r, l, cl, heat` / ... / `quest` | node entered / completed / quest template id. (expedition) `node`: `type, id, ring, cl, heat`; `nodeDone`: `type, id`. (heat) `heat`: the node's entry state (rules 1.7.3) |
 | `move` | `from, to, via, seen` | (expedition) a step: `via` `enter`, `walk` or `pass`; `seen` = node ids newly in view. (M3) `via: 'rescue'`: a rescue's way back (section 14.2) |
 | `rescue` | `tolls, node, to, hp, mana` | (M3) a death in the guided zone is a rescue (section 14.2), sent at the killing blow instead of the player's `death`: the player goes from node `node` back to node `to` (the same node after a Dimmed encounter) with `hp` and `mana` (full; track HP with `= hp`), `tolls` (ONB_RESCUE_TOLLS) follow as a `time` event with `why: 'rescue'`. No `victory` or `fled` event |
-| `beat` | `id, what, line` | (M3) a beat of the guided run (section 14.4): `what` `open` (its trigger; `line` = the coach line id), `line` (its line changed; null = open, waiting for its moment), `done` (learned), `missed` (its moment passed), `skip` (G10 without a contract) |
+| `beat` | `id, what, line` | (M3) a beat of the guided run (section 14.4): `what` `open` (its trigger; `line` = the coach line id), `line` (its line changed, null = open, waiting for its moment; or a resting line came back, D141), `done` (learned), `missed` (its moment passed), `skip` (G10 without a contract) |
 | `guideSkipped`, `guideEnd` | | (M3) SKIP_GUIDE; zone 1 of a guided run was left (the guide's end toast) |
 | `dimming` | `front, dimmed` | (expedition) the Dimming's front advanced; `dimmed` = node ids it newly covers (M2b v12: the zone's Dungeon too, by its hops; M2b v10's DUNGEON_DIM_HOLD removed; no event then) |
 | `dim` | `id, depth, level, k` | (expedition) a Dimmed encounter starts at node `id` (its `fight` event follows, `kind: 'dim'`) |
@@ -909,8 +909,8 @@ run. Zones 2-6 and everything after the guide are the normal rules. A run withou
 { on, skipped, ended, guidedZone, script, scripts (ONB_SCRIPTED_FIGHTS), next (the next script id or null), sites,
   eliteNodeId, elite: { node, enemy, level, barred, afterScript, left (scripted fights until the node opens) } (null outside zone 1),
   rescues, rescueTolls (ONB_RESCUE_TOLLS),
-  beat, line (the open beat with a line, by C.ONB_BEAT_PRIORITY; null when none or the guide is off),
-  open: [{ id, line }] (by priority), done: [ids closed], learned: [ids learned], skippedBeats: [ids] }
+  beat, line (the open beat with a line that is not resting, by C.ONB_BEAT_PRIORITY; null when none or the guide is off),
+  open: [{ id, line, rest }] (by priority; rest: the beat has yielded its line, 14.4), done: [ids closed], learned: [ids learned], skippedBeats: [ids] }
 ```
 
 ### 14.4 Beats (spec 2.4; content `beats`)
@@ -932,6 +932,15 @@ The engine opens and closes G1-G13 from the action, its events and the state, wh
 | G12 | the first node dims, or the front within ONB_DIM_NEAR_HOPS of the player | `G12.caught` at a Dimmed encounter; at the guide's end learned if zone 1 had none |
 | G13 | on the map: on a Road (`G13.onRoad`), or ONB_BELL_HOPS+ hops from every Road with the node dimming within ONB_BELL_DIM tolls (`G13`) | learned on TAKE_ROAD or RING_BELL |
 Beats still open when the guide ends close (G12, G13 as above; the rest missed); SKIP_GUIDE closes them as missed.
+
+Coach lines yield (spec 2.5, D141). A step is one action of the guided run while the guide runs. After each step the top
+line (the open beat with a line, not resting, by C.ONB_BEAT_PRIORITY) counts one step shown; a top line that has already
+been shown C.ONB_LINE_STEPS (2) steps, unlearned, rests when another open beat has a line, and the next one is `line`
+(so G13 becomes the line after G12 has shown for 2 steps; seed 8736, qa/engine/s18). With no other open beat line it stays.
+A resting beat stays open and can still be learned or closed; its line comes back (count from 0) when the beat's line
+changes (`beat` what `line`), or when its trigger fires again: G12 when the front comes within ONB_DIM_NEAR_HOPS of the
+player after a step on which it was not (`beat` what `line` with the same line). The UI shows `line` and needs no step
+rule of its own.
 
 ### 14.5 Profile, welcome and summary (E6, E7)
 - `profile.guide`: `'todo'` (new profiles), `'done'` or `'skipped'`: END_RUN of a guided run sets `'done'`, or `'skipped'`

@@ -1282,6 +1282,8 @@ export const ONB_BELL_DIM = 4;
 export const ONB_DIM_NEAR_HOPS = 2;
 /** G7: fights whose engage round shows the line ("shown once more in the next fight's round 1", spec 2.4; engine name). */
 export const ONB_ENGAGE_SHOWS = 2;
+/** Coach line: steps a beat's line stays the top line before it yields to the next open beat with a line (spec 2.5, D141). */
+export const ONB_LINE_STEPS = 2;
 /** UI numbers (spec 3.1-3.2, 2.5): H31's fights won, line length, time on screen, pace, queue. */
 export const ONB_AUTOPLAY_AFTER = 5;
 export const ONB_HINT_MAX_CHARS = 90;

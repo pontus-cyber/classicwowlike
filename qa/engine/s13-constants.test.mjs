@@ -36,6 +36,26 @@ describe('rules 13 constant table', () => {
   });
 });
 
+describe('m3-onboarding.md 12 constant table (M3)', () => {
+  const doc = readFileSync(fileURLToPath(new URL('../../docs/specs/m3-onboarding.md', import.meta.url)), 'utf8');
+  const i = doc.indexOf('## 12. Constant table');
+  const text = doc.slice(i, doc.indexOf('\n## ', i + 1));
+  test('every numeric row is exported with the same value ("A / B" rows: NAME_A / B); ONB_LINE_STEPS 2 (D141)', () => {
+    const table = rows(text).filter((r) => /^[A-Z][A-Z0-9_]+( \/ [A-Z0-9_]+)?$/.test(r[0]));
+    let n = 0;
+    for (const [label, raw] of table) {
+      const vals = raw.split('/').map((x) => Number(x.trim().split(/\s/)[0]));
+      if (vals.some((x) => Number.isNaN(x))) continue;
+      const [first, ...rest] = label.split(' / ');
+      const names = [first, ...rest.map((x) => first.slice(0, first.lastIndexOf('_') + 1) + x)];
+      assert.equal(names.length, vals.length, label);
+      names.forEach((name, k) => { assert.ok(name in K, `${name} missing from src/constants.js`); assert.equal(K[name], vals[k], name); n += 1; });
+    }
+    assert.ok(n >= 17, `checked ${n}`);
+    assert.equal(K.ONB_LINE_STEPS, 2);
+  });
+});
+
 describe('change docs M2b v9, v10, v11 and v12: the engine constants equal the "New" column of their constant tables', () => {
   const doc = (f) => readFileSync(fileURLToPath(new URL(`../../docs/specs/${f}`, import.meta.url)), 'utf8');
   // [row label as the table starts it, getters in the order of the cell's "a / b" values]; bot, sim and balance rows are not engine constants

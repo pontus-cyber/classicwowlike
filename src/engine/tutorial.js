@@ -10,7 +10,7 @@
 import {
   ONB_SCRIPTED_FIGHTS, ONB_SCRIPT_LEVEL_MAX, ONB_LOOT_POTIONS, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX,
   ONB_RESCUE_TOLLS, ONB_BEAT_RETRIES, ONB_POTION_HP, ONB_BELL_HOPS, ONB_BELL_DIM, ONB_DIM_NEAR_HOPS, ONB_ENGAGE_SHOWS,
-  ONB_BEATS, ONB_BEAT_PRIORITY, CONTRACT, SLOT_IDS, RARITY, ILVL_MAX, CONSUMABLE,
+  ONB_BEATS, ONB_BEAT_PRIORITY, ONB_LINE_STEPS, CONTRACT, SLOT_IDS, RARITY, ILVL_MAX, CONSUMABLE,
 } from '../constants.js';
 import { zoneRegions, hops, frontAt, zoneTime, dimAt } from './expedition.js';
 import { itemScore, makeFixedGear, makeConsumable } from './items.js';
@@ -197,14 +197,35 @@ export function skipGuide(s, ev) {
 const isOpen = (t, id) => !!t.beats[id] && t.beats[id].st === 'open';
 const fired = (t, id) => !!t.beats[id];
 function open(t, ev, id, line, n = 0) {
-  t.beats[id] = { st: 'open', line, n };
+  t.beats[id] = { st: 'open', line, n, shown: 0, rest: false };
   ev.push({ t: 'beat', id, what: 'open', line });
 }
 function setLine(t, ev, id, line) {
   const b = t.beats[id];
   if (b.line === line) return;
   b.line = line;
+  b.shown = 0;
+  b.rest = false;
   ev.push({ t: 'beat', id, what: 'line', line });
+}
+/** A resting beat's trigger fired again (D141): its line comes back as a new moment (event `beat` what 'line'). */
+function again(t, ev, id) {
+  const b = t.beats[id];
+  b.shown = 0;
+  if (!b.rest) return;
+  b.rest = false;
+  if (b.line) ev.push({ t: 'beat', id, what: 'line', line: b.line });
+}
+/**
+ * The coach line yields (spec 2.5, D141), after every action while the guide runs: the top line (the open beat with a line,
+ * not resting, by ONB_BEAT_PRIORITY) that has already been the top line for ONB_LINE_STEPS steps rests when another open
+ * beat has a line, and the next one is the top line; the top line counts this step. A resting beat stays open (it can
+ * still be learned) and its line comes back when the engine opens it anew, changes its line or its trigger fires again.
+ */
+function yieldLines(t) {
+  const cands = ONB_BEAT_PRIORITY.filter((id) => isOpen(t, id) && t.beats[id].line && !t.beats[id].rest);
+  while (cands.length > 1 && t.beats[cands[0]].shown >= ONB_LINE_STEPS) t.beats[cands.shift()].rest = true;
+  if (cands.length) t.beats[cands[0]].shown += 1;
 }
 function close(t, ev, id, learned) {
   const b = t.beats[id];
@@ -224,7 +245,7 @@ export function tutorialAfter(s, ev, a) {
   const t = s.tutorial;
   if (!t) return;
   refreshOverlay(s);
-  if (!t.skipped && !t.ended) trackBeats(s, ev, a);
+  if (!t.skipped && !t.ended) { trackBeats(s, ev, a); yieldLines(t); }
   if (!t.ended && s.zone && (s.zone.camp || s.zone.z > 1)) {
     t.ended = true;
     const rec = s.stats.exp ? s.stats.exp.zones.find((r) => r.z === 1) : null;
@@ -326,10 +347,17 @@ function trackBeats(s, ev, a) {
   const zone = s.zone;
   // G10: a held contract's site comes into view
   if (!fired(t, 'G10') && zone.nodes.some((n) => zone.seen[n.id] && heldSite(s, n))) op('G10', 'G10');
-  // G12: the first node dims, or the front is within ONB_DIM_NEAR_HOPS of the player; caught by a Dimmed encounter
-  if (!fired(t, 'G12') && !zone.dimOff) {
+  // G12: the first node dims, or the front is within ONB_DIM_NEAR_HOPS of the player; caught by a Dimmed encounter. While
+  // open, the front coming within ONB_DIM_NEAR_HOPS again (it was not on the last step) is its trigger again (D141)
+  if (!zone.dimOff && (!fired(t, 'G12') || isOpen(t, 'G12'))) {
     const front = frontAt(zoneTime(s));
-    if (has('dimming', (e) => e.dimmed.length > 0) || (front >= 0 && front >= zone.shardDist[zone.pos] - ONB_DIM_NEAR_HOPS)) op('G12', 'G12');
+    const near = front >= 0 && front >= zone.shardDist[zone.pos] - ONB_DIM_NEAR_HOPS;
+    if (!fired(t, 'G12')) {
+      if (has('dimming', (e) => e.dimmed.length > 0) || near) { op('G12', 'G12'); t.beats.G12.near = near; }
+    } else {
+      if (near && !t.beats.G12.near) again(t, ev, 'G12');
+      t.beats.G12.near = near;
+    }
   }
   if (isOpen(t, 'G12') && has('dim')) setLine(t, ev, 'G12', 'G12.caught');
   if (s.phase !== 'MAP' || s.node || s.fight) return;
@@ -350,8 +378,8 @@ function trackBeats(s, ev, a) {
  * The guided run for the UI, or null in any other run: { on, skipped, ended, guidedZone, script (scripted fights ended),
  * scripts (ONB_SCRIPTED_FIGHTS), next (the next script's id or null), sites (Cull site fights started), eliteNodeId,
  * elite ({ node, enemy, level, barred, afterScript, left (scripted fights until the node opens) } or null), rescues,
- * rescueTolls, beat and line (the open beat with a line, highest priority first; spec 2.5), open ([{ id, line }] by
- * priority), done (beats closed, spec order), learned (closed by the player doing it), skippedBeats }. Pure and cheap.
+ * rescueTolls, beat and line (the open beat with a line that is not resting, highest priority first; spec 2.5, D141), open
+ * ([{ id, line, rest }] by priority; rest: it has yielded its line, yieldLines), done (beats closed, spec order), learned (closed by the player doing it), skippedBeats }. Pure and cheap.
  */
 export function tutorialView(s) {
   const t = s.tutorial;
@@ -360,8 +388,8 @@ export function tutorialView(s) {
   const zone = inZone1(s) && s.zone.tut ? s.zone : null;
   const eid = zone ? zone.tut.elite : null;
   const gate = scriptIndex(T, T.elite.gate.afterScript) + 1;
-  const openList = ONB_BEAT_PRIORITY.filter((id) => isOpen(t, id)).map((id) => ({ id, line: t.beats[id].line }));
-  const cur = guideOn(s) ? openList.find((o) => o.line) || null : null;
+  const openList = ONB_BEAT_PRIORITY.filter((id) => isOpen(t, id)).map((id) => ({ id, line: t.beats[id].line, rest: !!t.beats[id].rest }));
+  const cur = guideOn(s) ? openList.find((o) => o.line && !o.rest) || null : null;
   const st = (id) => (t.beats[id] ? t.beats[id].st : null);
   return {
     on: t.on, skipped: t.skipped, ended: t.ended, guidedZone: guidedZone(s),

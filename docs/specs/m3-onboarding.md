@@ -84,6 +84,7 @@ Notes:
 - One line in a small parchment strip with an arrow to its anchor, a key chip where the line names a key, "Got it" (×), and at the right end in small text "Skip guide" (in the guided run) or "Hints off" (elsewhere). There is no title and no second line.
 - It never covers the anchor, the bar, the engage panel's buttons, the Furnace pointer, the target frame or `Set out`. It sits beside them at 1366x768 and 1920x1080.
 - At most one on screen. If two triggers fire together, the higher priority shows and the other waits, at most ONB_QUEUE_MAX deep. Priority: Deathblow > wind-up > lethal > potion > engage > the rest. A waiting line whose moment has passed is dropped, unseen.
+- A beat's line that has been the top line for ONB_LINE_STEPS steps without being learned yields to the next open beat with a line. The beat stays open and can still be learned; its line comes back when its trigger fires again (G12: the Dimming comes within 2 hops again) or the line changes. With no other open beat line it stays (D141).
 - Autoplay and fast mode do not wait for a line. A line that was on screen less than ONB_HINT_MIN_MS does not count as seen.
 - Reduce motion: no slide-in, no pulse; the strip just appears.
 
@@ -300,5 +301,6 @@ The balance bots never play the tutorial option; balance targets B1-B62 stay mea
 | ONB_HINT_MIN_MS | 1500 | ms on screen before a line counts as seen |
 | ONB_HINTS_PER_FIGHT | 2 | hints per fight at most |
 | ONB_QUEUE_MAX | 2 | lines waiting at most |
+| ONB_LINE_STEPS | 2 | steps a beat's line stays the top line before it yields to the next open beat with a line (2.5, D141) |
 | ONB_WELCOME_ECHOES | 60 | the Bellwrights' welcome, once per profile (= Packed Satchel's price) |
 | ONB_GUIDE_MAX_MIN | 15 | minutes, target ONB1 |
