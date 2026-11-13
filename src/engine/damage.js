@@ -6,6 +6,7 @@
 // (M2b v11), the death location by node id.
 // Dev tools (engine-api.md 12): god mode (state.dev.god) stops all damage to the player in a dev run.
 // M3 guided run (m3-onboarding.md 2.6, E3): in the guided zone a death is a rescue (tutorial.js; nodes.js rescueEnd).
+// D144 (blind tester pilot): missParts and hitChance, the miss roll of 7.2 step 3 for the views (damage uses the same parts).
 // Units: 'player', 'pet', or an enemy index (number) into s.fight.enemies.
 import {
   LVL_DMG_STEP, LVL_DMG_MIN, LVL_DMG_MAX, MISS_BASE, MISS_PER_LEVEL, MISS_CAP, DMG_VARIANCE, ENEMY_CRIT,
@@ -404,6 +405,32 @@ function armorOf(s, u) {
 }
 
 /**
+ * The miss chance of one damage event of src on dst now (rules 7.2 step 3), in its parts: `base` = min(MISS_CAP, MISS_BASE
+ * + MISS_PER_LEVEL × the levels the target is above the attacker), `dodge` (a physical hit only: the target's dodge) and
+ * `stealth` (STEALTH_MISS_BONUS: an enemy's hit on the player in STEALTH). damage() misses when its draw r1 < base + dodge
+ * + stealth, and r1 in [base, base + dodge) is a dodge. Read-only, no draw; o: { school }.
+ */
+export function missParts(s, src, dst, o) {
+  const f = s.fight;
+  const attL = unitLevel(s, src);
+  const tgtL = unitLevel(s, dst);
+  const base = Math.min(MISS_CAP, MISS_BASE + MISS_PER_LEVEL * Math.max(0, tgtL - attL));
+  const dodge = o.school === 'phys' ? dodgeOf(s, dst) : 0;
+  const stealth = typeof src === 'number' && dst === 'player' && hasSt(f.p.st, 'STEALTH') ? STEALTH_MISS_BONUS : 0;
+  return { base, dodge, stealth };
+}
+
+/**
+ * The chance that one damage event of src on dst hits now (rules 7.2 step 3): 1 with o.noMiss, else 1 - (base + dodge +
+ * stealth) of missParts, within 0..1. Read-only, no draw (blind tester report 2026-11-13: a hidden roll is shown).
+ */
+export function hitChance(s, src, dst, o = {}) {
+  if (o.noMiss) return 1;
+  const m = missParts(s, src, dst, o);
+  return Math.min(1, Math.max(0, 1 - (m.base + m.dodge + m.stealth)));
+}
+
+/**
  * One damage event (rules 7.2). Exactly 3 draws (r1 miss, r2 crit, r3 variance), also on a miss.
  * o: { base, school ('phys' or a magic school), spell (log id), pct (extra attacker %), critBonus,
  *      isSpell, noMiss, ignoreWard, ignoreImmune, multi (base multiplier before mods) }
@@ -414,18 +441,15 @@ export function damage(s, ev, src, dst, o) {
   const rng = f.rng;
   const phys = o.school === 'phys';
   const attL = unitLevel(s, src);
-  const tgtL = unitLevel(s, dst);
   const base = o.base * (o.multi || 1);
   const pre = snapshot(s, src, dst, 1, o); // multiplier from steps 2 and 6 (applied below in pipeline order)
-  // Step 3: miss
+  // Step 3: miss (missParts: the level step, a physical hit's dodge, STEALTH)
   const r1 = nextFloat(rng);
-  const baseMiss = Math.min(MISS_CAP, MISS_BASE + MISS_PER_LEVEL * Math.max(0, tgtL - attL));
-  const dodge = phys ? dodgeOf(s, dst) : 0;
-  const stealth = typeof src === 'number' && dst === 'player' && hasSt(f.p.st, 'STEALTH') ? STEALTH_MISS_BONUS : 0;
+  const m = missParts(s, src, dst, o);
   const r2 = nextFloat(rng);
   const r3 = nextFloat(rng);
-  if (!o.noMiss && r1 < baseMiss + dodge + stealth) {
-    const dodged = r1 >= baseMiss && r1 < baseMiss + dodge;
+  if (!o.noMiss && r1 < m.base + m.dodge + m.stealth) {
+    const dodged = r1 >= m.base && r1 < m.base + m.dodge;
     ev.push({ t: 'miss', src, dst, spell: o.spell, dodge: dodged });
     if (dodged && dst === 'player' && tr(s, 'r_a4')) f.p.riposte = true;
     return { hit: false, dodged, crit: false, raw: 0, amount: 0, absorbed: 0, killed: false };

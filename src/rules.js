@@ -43,7 +43,7 @@ import { availablePets, metaFromProfile, travelLevel as travelAt } from './engin
 import { nextLanes } from './engine/map.js';
 import { xpToNext, xpCurve, diffMod, talentPointsFree as freePoints } from './engine/progress.js';
 import { itemScore, V, bagCapacity as bagCap, countConsumable } from './engine/items.js';
-import { spellCost as cost, spellCd, spellAmount, spellTl, fleeChance as flee, castError, itemAmount } from './engine/spells.js';
+import { spellCost as cost, spellCd, spellAmount, spellTl, fleeChance as flee, castError, itemAmount, spellHitChance } from './engine/spells.js';
 import { resurrectOrder, offBalanceOpen, findSt, maimedHeal } from './engine/damage.js';
 import { engageOptions as engageList, engagePreview as previewEngage } from './engine/engage.js';
 import { isEngageRound as engageRound } from './engine/track.js';
@@ -147,6 +147,10 @@ export function spellCooldown(state, spellId) {
  * Tooltip data for a class spell: names, numbers and, in a fight, whether it can be cast on `target`.
  * amount = base amount (before level, target, crit and variance modifiers); null for pure utility spells.
  * window (combat v2): the spell deals damage and `target` is in an OFF_BALANCE window (rules 7.13).
+ * hit (blind tester report 2026-11-13): in a fight, the chance that its direct hit lands on `target` now (rules 7.2 step
+ * 3: the level step, a physical hit's dodge; 1 for an interrupt), else null; hitAll: for a spell on every enemy, [{ u,
+ * chance }] per living enemy (each has its own roll; Rime Burst and Deadfall Trap control only the enemies they hit),
+ * else null.
  */
 export function spellInfo(state, spellId, target = null) {
   const sp = C.SPELL[spellId];
@@ -157,8 +161,12 @@ export function spellInfo(state, spellId, target = null) {
   const hits = !!amount && (amount.kind === 'damage' || amount.kind === 'dot');
   const open = (i) => !!(f && f.enemies[i] && f.enemies[i].alive && offBalanceOpen(f.enemies[i]));
   const window = hits && (sp.target === 'all' ? !!f && f.enemies.some((e, i) => open(i)) : typeof target === 'number' && open(target));
+  const direct = !!(f && amount && amount.kind === 'damage');
+  const live = (i) => !!(f && f.enemies[i] && f.enemies[i].alive);
   return {
     window,
+    hit: direct && sp.target === 'enemy' && typeof target === 'number' && live(target) ? spellHitChance(state, spellId, target) : null,
+    hitAll: direct && sp.target === 'all' ? f.enemies.filter((e) => e.alive).map((e) => ({ u: e.idx, chance: spellHitChance(state, spellId, e.idx) })) : null,
     id: sp.id, name: sp.name, lvl: sp.lvl, tags: sp.tags.slice(), target: sp.target, source: sp.source,
     resource: C.CLASS[sp.cls].resource, cost: cost(state, spellId), cd: spellCd(state, spellId),
     cdLeft: f ? Math.max(0, (f.p.cds[spellId] || 0) - f.round) : 0,

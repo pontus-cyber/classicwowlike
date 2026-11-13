@@ -4,16 +4,21 @@
 // no draw, no state change; engine-api.md 6.2.
 // M2b v14 (docs/specs/changes-m2b-v14.md row 1 and "UI needs" 1-2, D111): Sap is sure if the Rogue waits while no other
 // enemy can be hit (`wait`), a PASS that waits for it is an answer (`via` 'pass'), and the hint says autoplay will wait.
+// Blind tester report 2026-11-13 (tactician s0204: Rime Burst left one of three wind-ups unanswered, a missed hit): an
+// answer that lands only on a hit carries that hit roll's chance (`chance`).
 
 import { SPELL, ENGAGE_OPTION, ENGAGE_OPTIONS, DEATHBLOW_EMPOWER, EMPOWER_DMG, STAGGER_DMG, MAIM_HEAL, GATES } from '../constants.js';
 import { findSt, hasSt, petAlive } from './damage.js';
 import { isEngageRound, isSingle, turnOf } from './track.js';
 import { engageAct, engageError, engagePreview, isDisrupt, windupTurn } from './engage.js';
-import { castError, passKeepsStealth } from './spells.js';
+import { castError, passKeepsStealth, spellHitChance } from './spells.js';
 import { allSapped } from './combat.js';
 import { engageAnswer } from './autoplay.js';
 
-/** Bar spells whose control lands only on a hit (spells.js: Rime Burst, Deadfall Trap); every other answer is sure. */
+/**
+ * Bar spells whose control lands only on a hit (spells.js: Rime Burst, Deadfall Trap, each enemy's own hit roll); every
+ * other answer is sure. Their answers carry `chance`, the hit roll's chance on that enemy now (spells.js spellHitChance).
+ */
 const NEEDS_HIT = ['rime_burst', 'deadfall_trap'];
 /** Bar spells that cancel the wind-up when it is now (rules 7.7, 7.11): interrupts, stun-tagged spells, Hexbind (HEXED). */
 const stops = (sp) => sp.tags.includes('interrupt') || sp.tags.includes('stun') || sp.id === 'hexbind';
@@ -64,7 +69,8 @@ function engageAnswers(s, e, x, acts) {
     const wait = a.option === 'sap' && !disrupt && x.turn > 1 && f.enemies.every((y) => !y.alive || y.idx === a.target || hasSt(y.st, 'SAPPED'));
     out.push({
       via: 'engage', id: a.option, name: disrupt ? 'Disrupt' : o.name, target: a.target, ...(a.spellId ? { spellId: a.spellId } : {}),
-      how, sure: !breaks && a.spellId !== 'rime_burst', now: true, ...(breaks ? { breaks: true } : {}),
+      how, sure: !breaks && !NEEDS_HIT.includes(a.spellId), now: true, ...(breaks ? { breaks: true } : {}),
+      ...(NEEDS_HIT.includes(a.spellId) ? { chance: spellHitChance(s, a.spellId, e.idx) } : {}),
       ...(wait ? { wait: true, stealth: !!GATES.passStealth && hasSt(f.p.st, 'STEALTH') } : {}),
     });
   }
@@ -93,7 +99,9 @@ function barAnswers(s, e, x, R) {
     }
     if (!how || (f.p.cds[id] || 0) > R) continue;
     const t = sp.target === 'enemy' ? e.idx : null;
-    out.push({ via: 'spell', id, name: sp.name, target: t, how, sure, now: R === f.round && !castError(s, id, t) });
+    // a control that lands only on a hit: the hit roll's chance on this enemy now (blind tester report 2026-11-13)
+    const roll = NEEDS_HIT.includes(id) ? { chance: spellHitChance(s, id, e.idx) } : {};
+    out.push({ via: 'spell', id, name: sp.name, target: t, how, sure, now: R === f.round && !castError(s, id, t), ...roll });
   }
   return out;
 }
@@ -118,7 +126,8 @@ function passAnswer(s, e, x) {
  * MAIM the player (a Deathblow while the player is not MAIMED); stagger: STAGGER_DMG if answered. cancel: the track's
  * prediction (D52) that it will be cancelled. answers: [{ via ('engage' | 'spell'), id (option or spell id), name ('Disrupt'
  * on a CC-immune enemy), target, spellId (Pre-cast), how ('disrupt', 'control', 'pet', 'interrupt', 'stun', 'immune',
- * 'ward', 'image', 'dodge', 'stealth', 'wait'), sure (false: a chance, an amount or a hit roll), now (usable this round),
+ * 'ward', 'image', 'dodge', 'stealth', 'wait'), sure (false: a chance, an amount or a hit roll), chance (0-1, only on an
+ * answer that lands on a hit, Rime Burst or Deadfall Trap: the hit roll's chance on this enemy now), now (usable this round),
  * breaks (Sap, Hexbind: any damage ends it before the wind-up's turn), wait and stealth (M2b v14: Sap, sure if the player
  * then passes; the passes keep STEALTH) }]: engage answers only in the engage round; the PASS answer (`via` 'pass', how
  * 'wait'; M2b v14) while every living enemy is SAPPED and Sap will cancel it; bar answers whose cooldown is over by the

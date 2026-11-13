@@ -13,7 +13,7 @@ import { rnd } from './util.js';
 import { tr, hasEffect } from './stats.js';
 import {
   damage, snapshot, addStatus, removeStatus, findSt, hasSt, petAlive, healUnit, dispersal, gainStealth,
-  gainResource, livingEnemies, gainOffBalance, answerWindup,
+  gainResource, livingEnemies, gainOffBalance, answerWindup, hitChance,
 } from './damage.js';
 import { interruptBoss } from './boss.js';
 import { defaultTarget, allSapped } from './combat.js';
@@ -125,6 +125,17 @@ const poisonStacks = (e) => {
 
 /** Interrupt-tagged spells (Throat Jab, Spellsnap, Muzzle Shot) never miss and cannot be dodged (rules 7.2 step 3, M2 v2). */
 const alwaysHits = (id) => !!(SPELL[id] && SPELL[id].tags.includes('interrupt'));
+
+/**
+ * The chance that the player's spell `id` hits enemy `tgt` now (rules 7.2 step 3; read-only, no draw): 1 for a spell that
+ * never misses (interrupt-tagged), else damage.js hitChance with the spell's school (a physical one can be dodged). A
+ * control that lands only on a hit (Rime Burst, Deadfall Trap: per enemy) lands with this chance (blind tester report
+ * 2026-11-13, tactician s0204: the roll was hidden).
+ */
+export function spellHitChance(s, id, tgt) {
+  const sp = SPELL[id];
+  return hitChance(s, 'player', tgt, { school: sp.school || 'magic', noMiss: alwaysHits(id) });
+}
 
 /**
  * One direct player hit plus on-hit effects (Toxic Coating, unique procs). A spell cast under Gathered Power adds
