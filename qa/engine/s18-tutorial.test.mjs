@@ -65,6 +65,17 @@ function win(s, events = []) {
   return settle(s, events);
 }
 const roadsOf = (s) => s.zone.roads.map((r) => !!s.zone.nodes[r].closed);
+/** The Dimming's front at zone toll zt (expedition.js frontAt, from C). */
+const frontAt = (zt) => (zt < C.DIM_GRACE ? -1 : Math.floor((C.DIM_FRONT_HOPS * (zt - C.DIM_GRACE)) / C.DIM_FRONT_TIME));
+/**
+ * G12's trigger anew (D141): the zone time moved to the first toll at which the front is within ONB_DIM_NEAR_HOPS of the
+ * player, its `near` mark cleared, refreshed by tweak's no-op steps (which see the trigger; their events go to `events`).
+ */
+function frontNear(s, events = []) {
+  let zt = s.time - s.zone.start;
+  while (frontAt(zt) < s.zone.shardDist[s.zone.pos] - C.ONB_DIM_NEAR_HOPS) zt++;
+  return tweak(s, (x) => { x.time = x.zone.start + zt; x.tutorial.beats.G12.near = false; }, events);
+}
 /** On node 1 next to Gorrak (node 18), his gate open: the scripts counted as ended. */
 const nextToGorrak = (classId = 'mage') => withScript(walkTo(atHub(classId, 5), 1), 4);
 
@@ -146,7 +157,7 @@ describe('M3 guided run: newRun, seed and overlay (m3-onboarding 2.1-2.3, E1, E2
     assert.ok(q.enemies.every((e) => !e.firstMeet && !e.track.some((x) => x.windup)));
   });
 
-  test('2.3 Gorrak: the nearest Elite, alone, never rare, level clamp; barred until s4 ended (D138), open after SKIP_GUIDE', () => {
+  test('2.3 Gorrak: the nearest Elite, alone, never rare, level clamp; barred until s3 ended (D138, D143), open after SKIP_GUIDE', () => {
     let s = steps(atHub('rogue', 3), [{ type: 'MOVE', nodeId: 1 }]).state;
     s = settle(s);
     const n = s.zone.nodes[18];
@@ -157,10 +168,16 @@ describe('M3 guided run: newRun, seed and overlay (m3-onboarding 2.1-2.3, E1, E2
     const mv = R.mapView(s);
     assert.equal(mv.nodes[18].barred, true);
     assert.equal(mv.moves.find((m) => m.nodeId === 18).barred, true);
-    assert.deepEqual([R.tutorialView(s).elite.barred, R.tutorialView(s).elite.left], [true, 4 - s.tutorial.script]);
+    // D143: the gate is S3 (the third scripted fight), so `left` counts down from 3
+    assert.equal(CONTENT.tutorial.elite.gate.afterScript, 's3');
+    assert.deepEqual([R.tutorialView(s).elite.barred, R.tutorialView(s).elite.left], [true, 3 - s.tutorial.script]);
     assert.ok(!R.legalActions(s).some((a) => a.nodeId === 18 && (a.type === 'MOVE' || a.type === 'PASS_THROUGH')));
-    const open = withScript(s, 4);
-    assert.equal(R.whyIllegal(open, { type: 'MOVE', nodeId: 18 }), null);
+    const two = withScript(s, 2);
+    assert.match(R.whyIllegal(two, { type: 'MOVE', nodeId: 18 }), /closed/, 'barred after S2');
+    assert.deepEqual([R.tutorialView(two).elite.barred, R.tutorialView(two).elite.left], [true, 1]);
+    const open = withScript(s, 3);
+    assert.equal(R.whyIllegal(open, { type: 'MOVE', nodeId: 18 }), null, 'open once S3 has ended');
+    assert.deepEqual([R.tutorialView(open).elite.barred, R.tutorialView(open).elite.left], [false, 0]);
     const skipped = R.step(s, { type: 'SKIP_GUIDE' }).state;
     assert.equal(R.whyIllegal(skipped, { type: 'MOVE', nodeId: 18 }), null);
     assert.equal(skipped.zone.nodes[18].barred, undefined);
@@ -239,7 +256,8 @@ describe('M3 guided run: beats and tutorialView (2.4-2.7, E5)', () => {
       assert.equal(s.zone.z, 2, `${classId} reaches zone 2`);
       const opened = ev.filter((e) => e.t === 'beat' && e.what === 'open').map((e) => e.id);
       assert.equal(new Set(opened).size, opened.length, 'each beat opens once');
-      for (const id of ['G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8', 'G9', 'G12', 'G13']) assert.ok(opened.includes(id), `${classId} ${id}`);
+      // D143: Gorrak opens after S3, so the autoplay route fights him and leaves by a Road without S4 (G8, the wind-up)
+      for (const id of ['G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G9', 'G12', 'G13']) assert.ok(opened.includes(id), `${classId} ${id}`);
       // D142: the autoplay goes to Gorrak while the Roads are closed, so the Deathblow beat happens on its route
       assert.ok(['victory', 'fled', 'rescue'].includes(s.tutorial.elite), `${classId} fought Gorrak`);
       const v = R.tutorialView(s);
@@ -280,12 +298,12 @@ describe('M3 coach lines yield after showing (2.5, D141)', () => {
     assert.deepEqual([v.beat, v.line, v.elite.barred, v.roads.closed], ['G13', 'G13.closed', false, true]);
     assert.deepEqual(v.open.find((o) => o.id === 'G12'), { id: 'G12', line: 'G12', rest: true });
     assert.ok(!at.events.some((e) => e.t === 'beat' && e.id === 'G12'), 'G12 stays open, no event');
-    // its trigger again: the front was not within ONB_DIM_NEAR_HOPS on the last step and is now
-    s = at.state;
-    s.tutorial.beats.G12.near = false;
-    const back = R.step(s, R.legalActions(s).find((x) => x.type === 'SET_AUTOPLAY'));
-    assert.ok(back.events.some((e) => e.t === 'beat' && e.id === 'G12' && e.what === 'line' && e.line === 'G12'));
-    assert.deepEqual([R.tutorialView(back.state).beat, R.tutorialView(back.state).line], ['G12', 'G12']);
+    // its trigger again: the front was not within ONB_DIM_NEAR_HOPS on the last step and is now (D143: on this route the
+    // front is still 3 hops off when G13 takes over, so the test moves the zone time to the trigger)
+    const evs = [];
+    const back = frontNear(at.state, evs);
+    assert.ok(evs.some((e) => e.t === 'beat' && e.id === 'G12' && e.what === 'line' && e.line === 'G12'));
+    assert.deepEqual([R.tutorialView(back).beat, R.tutorialView(back).line], ['G12', 'G12']);
   });
 
   test('a line with no other open beat line to yield to stays the line (G1 at the start camp after 3 steps)', () => {
@@ -416,6 +434,33 @@ describe('M3 D142: the Roads open after Gorrak\'s fight (2.3, 2.4 G13)', () => {
   });
 });
 
+describe('M3 D143: Gorrak\'s gate after S3; the guided zone ends by a Road', () => {
+  test('seed 8736, autoplay, 20 run seeds per class: Gorrak fought and won after S3, G9 learned, zone 1 left by a Road with no Dimmed encounter, the Bell kept, no rescue; one route per class', () => {
+    for (const classId of ['rogue', 'mage', 'hunter']) {
+      const routes = new Set();
+      for (let k = 0; k < 20; k++) {
+        let s = steps(run(classId, 1000 + 7919 * k), [{ type: 'START_RUN' }, { type: 'TAKE_CONTRACT', index: 0 }]).state;
+        const fights = [];
+        for (let n = 0; !(s.zone && s.zone.z === 2) && n < 3000; n++) {
+          const r = R.step(s, R.autoAction(s));
+          if (r.state.fight && !s.fight && r.state.fight.tut) fights.push(`${r.state.fight.tut.id}@${r.state.zone.pos}:${r.state.time - r.state.zone.start}`);
+          s = r.state;
+        }
+        const z1 = s.stats.exp.zones.find((x) => x.z === 1);
+        const v = R.tutorialView(s);
+        const seen = { exit: z1.exit, dimFights: z1.dimFights, bell: s.exp.bell, elite: s.tutorial.elite, rescues: s.tutorial.rescues, script: s.tutorial.script };
+        assert.deepEqual(seen, { exit: 'road', dimFights: 0, bell: C.BELL_START_CHARGES, elite: 'victory', rescues: 0, script: 3 }, `${classId} seed ${1000 + 7919 * k}`);
+        for (const id of ['G9', 'G12', 'G13']) assert.ok(v.learned.includes(id), `${classId}: ${id} learned`);
+        // Gorrak right after S3 (the third scripted fight), before any later script
+        const i = fights.findIndex((x) => x.startsWith('gorrak@'));
+        assert.ok(i > 0 && fights[i - 1].startsWith('s3@'), `${classId}: ${fights.join(' ')}`);
+        routes.add(JSON.stringify([fights, z1.time, s.player.level]));
+      }
+      assert.equal(routes.size, 1, `${classId}: one route for every run seed`);
+    }
+  });
+});
+
 describe('M3 D142: coach-line returns (G10, G12)', () => {
   test('G10 opens on the map when a held contract\'s site is first in view, never at the hub screen', () => {
     const p = steps(run('mage', 5), [{ type: 'START_RUN' }, { type: 'TAKE_CONTRACT', index: 0 }, { type: 'SET_OUT' }, { type: 'SERVICE', service: 'vendor' }, { type: 'LEAVE' }]);
@@ -444,9 +489,11 @@ describe('M3 D142: coach-line returns (G10, G12)', () => {
     const nudge = (x) => { x.tutorial.beats.G12.near = false; };
     const isBack = (ev) => ev.some((e) => e.t === 'beat' && e.id === 'G12' && e.what === 'line' && e.line === 'G12');
     const near = (x) => R.mapView(x).dim.front >= x.zone.shardDist[x.zone.pos] - C.ONB_DIM_NEAR_HOPS;
-    assert.ok(near(s), 'the front is within ONB_DIM_NEAR_HOPS of the player');
+    // its trigger: the front comes within ONB_DIM_NEAR_HOPS of the player (D143: moved to that toll; on this route G12
+    // rests while the front is still farther off)
     const ev1 = [];
-    const once = tweak(s, nudge, ev1);
+    const once = frontNear(s, ev1);
+    assert.ok(near(once), 'the front is within ONB_DIM_NEAR_HOPS of the player');
     assert.ok(isBack(ev1), 'the first return');
     assert.equal(once.tutorial.beats.G12.rest, false);
     const ev2 = [];

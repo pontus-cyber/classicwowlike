@@ -879,9 +879,9 @@ run. Zones 2-6 and everything after the guide are the normal rules. A run withou
   after the board's own draws, so slots 2-3 are those of the run seed; a reroll keeps it.
 - Gorrak: the Elite node nearest the hub (ties: lowest id) holds `elite.enemy`, alone unless `elite.add`, never the rare
   unless `elite.rare`, at `clamp(L, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX)` (the map's elite `level` follows L).
-- Gate (D138): while the guide runs, his node is barred until script `elite.gate.afterScript` (`s4`) has ended (won, fled
-  or rescued): `MOVE` and `PASS_THROUGH` onto it are illegal, `mapView` marks the node and its move `barred: true`, the
-  autoplay map policy treats it as closed. SKIP_GUIDE (and leaving zone 1) opens it.
+- Gate (D138): while the guide runs, his node is barred until script `elite.gate.afterScript` (`s3` since D143, was `s4`)
+  has ended (won, fled or rescued): `MOVE` and `PASS_THROUGH` onto it are illegal, `mapView` marks the node and its move
+  `barred: true`, the autoplay map policy treats it as closed. SKIP_GUIDE (and leaving zone 1) opens it.
 - Roads (D142): while the guide runs, the zone's Roads are closed until Gorrak's fight has ended (won, fled or rescued;
   his fight carries `fight.tut = { kind: 'elite', i: 0, id }` and its end sets `state.tutorial.elite`): `TAKE_ROAD` is
   illegal ("the Roads are closed for now ..."), `mapView` marks every Road `closed: true` and `onRoad` is false on one, so
@@ -892,9 +892,11 @@ run. Zones 2-6 and everything after the guide are the normal rules. A run withou
   roadsClosed` is the rule, written on the Road nodes after every action (`refreshOverlay`), which `TAKE_ROAD` and `mapView`
   read. The autoplay map policy, while they are closed: once his node is open it walks to him first (the cheapest way:
   fewest Dimmed steps, then tolls; MOVE onto his node), before exploring further; while his node is barred, where it would
-  leave it goes to the nearest node that plays the next script. Seed 8736, every class: he is fought at zone toll 17-20 and
-  won, G9 learned, zone 1 left by the Bell at toll 26 after 2 Dimmed encounters, 0 rescues (before D142: by Road at toll 19)
-  [source: docs/handoffs/engine-2026-11-13c.md 4].
+  leave it goes to the nearest node that plays the next script. Seed 8736, every class, 20 run seeds each, with the gate
+  after S3 (D143): he is entered at zone toll 13 right after S3 and won, G9 learned, zone 1 left by Road 19 at toll 19 with
+  0 Dimmed encounters, the Bell kept, 0 rescues; S4 is not played on that route [source: docs/handoffs/engine-2026-11-13d.md
+  1]. With the gate after S4 (D142 as first built) he was fought at zone toll 17-20 and zone 1 left by the Bell at toll 26
+  after 2 Dimmed encounters [source: docs/handoffs/engine-2026-11-13c.md 4].
 - Scripts and sites: every unresolved Quest and Grind node of zone 1 plays its role, laid on its encounter after every
   action (so `mapView` shows it): a node with a held contract's site plays `siteFights[min(sites, last)]` at the node's level;
   any other plays the next script `scripts[script]` (S1-S4, ONB_SCRIPTED_FIGHTS) at `min(its level, ONB_SCRIPT_LEVEL_MAX)`

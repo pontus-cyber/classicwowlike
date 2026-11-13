@@ -1,6 +1,6 @@
 // Content table: the guided first run (docs/specs/m3-onboarding.md 2.3 overlay, 2.4 beats, 2.6-2.7 guide lines, 3.2
 // first-time hints, 4.3 nudge; D135, D137). The authored overlay for zone 1 on TUTORIAL_SEED 8736 (board slot 1, Cull
-// site fights, scripted fights S1-S4, Gorrak's encounter and the gate that holds him back until S4 has been fought),
+// site fights, scripted fights S1-S4, Gorrak's encounter and the gate that holds him back until S3 has been fought, D143),
 // the 13 coach lines (D142: G13.closed while the Roads wait for Gorrak's fight), the 37 hint lines and the Packed
 // Satchel nudge. Status: draft (owner approval pending). Shape:
 // src/content/SCHEMA.md 2.11. Plain data only; levels, counts and every rule number are constants (spec section 12).
@@ -41,12 +41,14 @@ export const TUTORIAL = {
   elite: {
     id: 'gorrak', beat: 'G9', enemy: 'z1_gorrak', deathblow: 'ab_z1_gorrak_heavy_blow', add: false, rare: false,
     // Gate (D137): the node is barred (MOVE onto it is illegal) until scripted fight `afterScript` has ended, by a
-    // win, a flight or a rescue, so G6 (intents), G7 (engage round) and G8 (wind-ups) have had their fights first.
-    // The gate is open at once after SKIP_GUIDE and outside the guided zone. Barring the node cuts no route on seed
-    // 8736 (its neighbours 1, 7, 17 and 30 stay linked through 7 and 17). {n}: scripted fights still to come
-    // (ONB_SCRIPTED_FIGHTS - tutorialView.script).
+    // win, a flight or a rescue, so G6 (intents) and G7 (engage round) have had their fights first. D143 (draft,
+    // Core Gameplay Engineer 2026-11-13): after S3, not S4, so the guided zone ends by a Road before the Dimming (S4 at
+    // toll 17 left 2 tolls before his node dimmed); G8 (wind-ups) may then come after Gorrak, whose G9 line names its
+    // own answer. The gate is open at once after SKIP_GUIDE and outside the guided zone. Barring the node cuts no route
+    // on seed 8736 (its neighbours 1, 7, 17 and 30 stay linked through 7 and 17). {n}: scripted fights still to come
+    // before the gate opens (tutorialView.elite.left).
     gate: {
-      afterScript: 's4',
+      afterScript: 's3',
       barredLine: 'Gorrak is out on the downs. He comes back after {n} more fights.',
       openLine: 'Gorrak is back on his threshing floor.',
     },
