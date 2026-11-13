@@ -1,7 +1,8 @@
 // Content table: the guided first run (docs/specs/m3-onboarding.md 2.3 overlay, 2.4 beats, 2.6-2.7 guide lines, 3.2
 // first-time hints, 4.3 nudge; D135, D137). The authored overlay for zone 1 on TUTORIAL_SEED 8736 (board slot 1, Cull
 // site fights, scripted fights S1-S4, Gorrak's encounter and the gate that holds him back until S4 has been fought),
-// the 13 coach lines, the 37 hint lines and the Packed Satchel nudge. Status: draft (owner approval pending). Shape:
+// the 13 coach lines (D142: G13.closed while the Roads wait for Gorrak's fight), the 37 hint lines and the Packed
+// Satchel nudge. Status: draft (owner approval pending). Shape:
 // src/content/SCHEMA.md 2.11. Plain data only; levels, counts and every rule number are constants (spec section 12).
 // Lines hold {placeholders} the UI fills (SCHEMA.md 2.11): key names from its key map, numbers from C.
 
@@ -93,9 +94,14 @@ export const TUTORIAL = {
     { id: 'G12', name: 'The Dimming', hint: 'H18', anchor: 'dark wash nearest the player',
       line: 'The Dimming spreads from the Shardfall. Leave by a Road before it reaches you.',
       alt: { caught: 'In the dark: walk away from the Shardfall.' } },
+    // closed (D142, draft, Core Gameplay Engineer 2026-11-13): while the guided zone's Roads stay closed until Gorrak's
+    // fight has ended; anchor: Gorrak's node (tutorialView.roads.node).
     { id: 'G13', name: 'Homeward Bell', hint: 'H19', anchor: 'Bell or Road button',
       line: 'Far from a Road? Ring the Homeward Bell: it takes you to the next hub in {bellTolls} tolls.',
-      alt: { onRoad: 'On a Road: take it to the next zone. Keep the Bell for when no Road is near.' } },
+      alt: {
+        onRoad: 'On a Road: take it to the next zone. Keep the Bell for when no Road is near.',
+        closed: 'Face Gorrak first: the Roads open once his fight is over.',
+      } },
   ],
 
   // The 37 first-time hints (spec 3.2). perClass: seen per class (spec 3.1). sameAs: the line is that beat's line

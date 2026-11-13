@@ -3,22 +3,26 @@
 // zoneSeed) with the authored overlay of CONTENT.tutorial (src/content/tutorial.js): board slot 1 fixed (a Cull), the
 // Cull site fights, scripts S1-S4 on the first non-site Quest or Grind fights, S1's fixed loot, only marked enemies wind
 // up (D138), Gorrak on the Elite node nearest the hub with a level clamp, his node barred until the gate's script has
-// ended (D138). While the guide is on (not skipped) zone 1 is the guided zone: a death there is a rescue (back to the
-// last node, full health, ONB_RESCUE_TOLLS), and the 13 beats G1-G13 are tracked from the actions, events and state
-// (`beat` events, tutorialView). Leaving zone 1 ends the guide. Pure helpers of the state; nodes.js, combat.js,
-// damage.js, contracts.js and actions.js call them. A run without the option never reaches any of it.
+// ended (D138), and the zone's Roads closed until his fight has ended (D142). While the guide is on (not skipped) zone 1
+// is the guided zone: a death there is a rescue (back to the last node, full health, ONB_RESCUE_TOLLS), and the 13 beats
+// G1-G13 are tracked from the actions, events and state (`beat` events, tutorialView). Leaving zone 1 ends the guide.
+// Pure helpers of the state; nodes.js, combat.js, damage.js, contracts.js, actions.js and autoplay.js call them. A run
+// without the option never reaches any of it.
 import {
   ONB_SCRIPTED_FIGHTS, ONB_SCRIPT_LEVEL_MAX, ONB_LOOT_POTIONS, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX,
   ONB_RESCUE_TOLLS, ONB_BEAT_RETRIES, ONB_POTION_HP, ONB_BELL_HOPS, ONB_BELL_DIM, ONB_DIM_NEAR_HOPS, ONB_ENGAGE_SHOWS,
   ONB_BEATS, ONB_BEAT_PRIORITY, ONB_LINE_STEPS, ONB_LINE_RETURNS, CONTRACT, SLOT_IDS, RARITY, ILVL_MAX, CONSUMABLE,
 } from '../constants.js';
-import { zoneRegions, hops, frontAt, zoneTime, dimAt, knowledge, siteView } from './expedition.js';
+import { zoneRegions, hops, frontAt, zoneTime, dimAt, dimmedNow, knowledge, siteView } from './expedition.js';
 import { itemScore, makeFixedGear, makeConsumable } from './items.js';
 
 // ---------------- Run and zone state ----------------
-/** state.tutorial at START_RUN of a guided run (E1): script = scripted fights ended, sites = Cull site fights started. */
+/**
+ * state.tutorial at START_RUN of a guided run (E1): script = scripted fights ended, sites = Cull site fights started,
+ * elite = how the elite's fight ended in the guided zone (null, 'victory', 'fled' or 'rescue'; D142).
+ */
 export function newTutorial() {
-  return { on: true, skipped: false, ended: false, rescues: 0, script: 0, sites: 0, beats: {} };
+  return { on: true, skipped: false, ended: false, rescues: 0, script: 0, sites: 0, elite: null, beats: {} };
 }
 /** The guide runs: a guided run, not skipped, zone 1 not left. */
 export const guideOn = (s) => !!(s.tutorial && s.tutorial.on && !s.tutorial.skipped && !s.tutorial.ended);
@@ -89,11 +93,48 @@ export function eliteBarred(s) {
   return s.tutorial.script < scriptIndex(T, T.elite.gate.afterScript) + 1;
 }
 
+/** The Quest and Grind nodes of zone 1 that can play the next script now: unresolved, no held contract's site, not Dimmed. */
+export function scriptNodes(s) {
+  return s.zone.nodes.filter((n) => (n.type === 'quest' || n.type === 'grind') && !n.done && !heldSite(s, n) && !dimmedNow(s, n.id)).map((n) => n.id);
+}
+
+/**
+ * The guided zone's Roads are closed (D142): TAKE_ROAD is refused until Gorrak's fight has ended (won, fled or rescued:
+ * state.tutorial.elite). They open too when he can no longer be fought: his node resolved or Dimmed, or still barred with
+ * no Quest or Grind node left to play the scripts that open it (so the zone never locks); not while his fight is on (his
+ * node may dim during it). Open outside the guided zone (SKIP_GUIDE, zone 2 on). refreshOverlay writes it on the Road
+ * nodes (`closed`), which TAKE_ROAD and mapView read.
+ */
+export function roadsClosed(s) {
+  if (!guidedZone(s) || !s.zone.tut || s.zone.tut.elite === null || s.tutorial.elite) return false;
+  if (s.fight && s.fight.tut && s.fight.tut.kind === 'elite') return true;
+  const id = s.zone.tut.elite;
+  if (s.zone.nodes[id].done || dimmedNow(s, id)) return false;
+  return !eliteBarred(s) || scriptNodes(s).length > 0;
+}
+/** The Roads of zone 1 are closed now, as TAKE_ROAD and mapView see it (the Road nodes' `closed`, D142). */
+export const roadsShut = (s) => !!(inZone1(s) && s.zone.roads.some((r) => s.zone.nodes[r].closed));
+
+/**
+ * The autoplay's way out of the guided zone while its Roads are closed (D142; autoplay.js): `{ elite: true, nodes:
+ * [Gorrak's node] }` once his node is open (the map and the coach line show it), else `{ elite: false, nodes }`: the
+ * scriptNodes whose type the player knows (all of them when none is known yet). null while the Roads are open.
+ */
+export function closedRoadsGoal(s) {
+  if (!roadsShut(s)) return null;
+  const el = s.zone.tut.elite;
+  if (!s.zone.nodes[el].barred) return { elite: true, nodes: [el] };
+  const all = scriptNodes(s);
+  const known = all.filter((id) => knowledge(s, s.zone.nodes[id]) !== 'none');
+  return { elite: false, nodes: known.length ? known : all };
+}
+
 /**
  * The overlay laid on zone 1 (after every action of a guided run in zone 1, so the map always shows what a node will
  * play): Gorrak's level clamp(L, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX) and his node's bar; every unresolved Quest
  * and Grind node plays its role's enemies (a site: the site fight of the site fights started so far; else the next
- * script at min(its level, ONB_SCRIPT_LEVEL_MAX)), or its own encounter again once the scripts are used up.
+ * script at min(its level, ONB_SCRIPT_LEVEL_MAX)), or its own encounter again once the scripts are used up; the Roads'
+ * `closed` mark while roadsClosed (D142).
  */
 export function refreshOverlay(s) {
   if (!inZone1(s) || !s.zone.tut) return;
@@ -119,13 +160,19 @@ export function refreshOverlay(s) {
     if (role) n.tutRole = role;
     else delete n.tutRole;
   }
+  const shut = roadsClosed(s);
+  for (const r of zone.roads) {
+    if (shut) zone.nodes[r].closed = true;
+    else delete zone.nodes[r].closed;
+  }
 }
 
 // ---------------- Fights ----------------
 /**
  * startFight's overlay for a node fight (nodes.js nodeFight): `tut` (the role: script or site) and `windups` (D138: in
  * zone 1 of a guided run only enemies marked `windup` get the first-meeting wind-up on turn 2; every other quest fight
- * of the guided zone has none). A site fight counts as started. null: the fight plays by the normal rules.
+ * of the guided zone has none). A site fight counts as started. Gorrak's fight in the guided zone carries `tut` kind
+ * 'elite' (D142: its end opens the Roads) and plays by the normal rules. null: the fight plays by the normal rules.
  */
 export function fightOverlay(s, kind) {
   if (!inZone1(s) || !s.node || s.node.id === undefined || s.node.type === 'dim' || s.node.type === 'dev') return null;
@@ -137,16 +184,22 @@ export function fightOverlay(s, kind) {
     if (r.kind === 'site') s.tutorial.sites += 1;
     return { tut: { kind: r.kind, i: r.i, id: r.id }, windups: list.map((e) => !!e.windup) };
   }
+  if (kind === 'elite' && guidedZone(s) && s.zone.tut && def.id === s.zone.tut.elite) return { tut: { kind: 'elite', i: 0, id: T.elite.id } };
   return kind === 'quest' && guidedZone(s) ? { windups: [] } : null;
 }
 
 /**
- * A fight with an overlay role ended (nodes.js finishFight): a script has ended (D138: won, fled or rescued), so the next
- * fight plays the next one; S1's fixed loot (on a win) replaces its drops: one item of the table's rarity for the
- * class's weakest slot by itemScore (an upgrade; fixed stats, no draw) at the node's level, and ONB_LOOT_POTIONS of its
- * consumable. Returns the drops.
+ * A fight with an overlay role ended (nodes.js finishFight, rescueEnd): Gorrak's fight records its outcome ('victory',
+ * 'fled' or 'rescue'; D142: the Roads open); a script has ended (D138: won, fled or rescued), so the next fight plays the
+ * next one; S1's fixed loot (on a win) replaces its drops: one item of the table's rarity for the class's weakest slot by
+ * itemScore (an upgrade; fixed stats, no draw) at the node's level, and ONB_LOOT_POTIONS of its consumable. Returns the
+ * drops.
  */
 export function overlayFightEnd(s, f, outcome, drops) {
+  if (f.tut && f.tut.kind === 'elite') {
+    if (!s.tutorial.elite) s.tutorial.elite = outcome;
+    return drops;
+  }
   if (!f.tut || f.tut.kind !== 'script') return drops;
   s.tutorial.script += 1;
   const loot = table(s).scripts[f.tut.i].loot;
@@ -268,7 +321,7 @@ export function tutorialAfter(s, ev, a) {
  * The beats of spec 2.4 as the engine sees them: a beat opens (`beat` event what 'open', with its coach line id) on its
  * trigger, can change its line ('line'), and closes learned ('done') or not ('missed'). Line ids: the beat id for its
  * line, `<id>.<key>` for content's `alt` / `byClass` lines (G8.landed, G9.<class>, G9.landed, G10.done, G12.caught,
- * G13.onRoad); a line of null: open, waiting for its moment. A beat's hover-only learning (G6) is the UI's.
+ * G13.onRoad, G13.closed); a line of null: open, waiting for its moment. A beat's hover-only learning (G6) is the UI's.
  */
 function trackBeats(s, ev, a) {
   const t = s.tutorial;
@@ -364,27 +417,37 @@ function trackBeats(s, ev, a) {
     }
   }
   if (isOpen(t, 'G12') && has('dim')) setLine(t, ev, 'G12', 'G12.caught');
+  // G13 while the Roads are closed (D142) shows G13.closed; from the start of Gorrak's fight (G9 keeps the line: nothing to
+  // yield to) and once they open (at any step) its line waits (null) for its own moment on the map
+  const shut = roadsShut(s);
+  const facing = !!(f && f.tut && f.tut.kind === 'elite');
+  if (isOpen(t, 'G13') && t.beats.G13.line === 'G13.closed' && (!shut || facing)) setLine(t, ev, 'G13', null);
   if (s.phase !== 'MAP' || s.node || s.fight) return;
   // On the map: G2 (first map view at the hub), G5 (first return to the map after G4), G10 (a site in view), G13 (far from
-  // a Road, or on one)
+  // a Road, or on one; while the Roads are closed, also once Gorrak's node is open)
   if (!fired(t, 'G2') && zone.pos === 0) op('G2', 'G2');
   if (!fired(t, 'G5') && fired(t, 'G4') && !now.has('G4') && !(s.loot && s.loot.length)) op('G5', 'G5');
   const d = hops(zone.nodes, zone.pos);
   // G10 (D142): a held contract's site first in view on the map (its mark as mapView shows it), never at the hub screen
   if (!fired(t, 'G10') && !(s.loot && s.loot.length) && zone.nodes.some((n) => siteView(s, n, knowledge(s, n), d[n.id]))) op('G10', 'G10');
-  if (!fired(t, 'G13')) {
-    if (zone.nodes[zone.pos].road) op('G13', 'G13.onRoad');
-    else if (Math.min(...zone.roads.map((r) => d[r])) >= ONB_BELL_HOPS && dimAt(zone, zone.pos) - zoneTime(s) <= ONB_BELL_DIM) op('G13', 'G13');
-  } else if (isOpen(t, 'G13') && zone.nodes[zone.pos].road) setLine(t, ev, 'G13', 'G13.onRoad');
+  const onRoad = zone.nodes[zone.pos].road;
+  const far = !onRoad && Math.min(...zone.roads.map((r) => d[r])) >= ONB_BELL_HOPS && dimAt(zone, zone.pos) - zoneTime(s) <= ONB_BELL_DIM;
+  const line = shut ? (onRoad || far || !zone.nodes[zone.tut.elite].barred ? 'G13.closed' : null) : onRoad ? 'G13.onRoad' : far ? 'G13' : null;
+  if (!fired(t, 'G13')) { if (line) op('G13', line); }
+  else if (isOpen(t, 'G13') && line && (shut || onRoad || !t.beats.G13.line)) setLine(t, ev, 'G13', line);
 }
 
 // ---------------- View (E5) ----------------
 /**
  * The guided run for the UI, or null in any other run: { on, skipped, ended, guidedZone, script (scripted fights ended),
  * scripts (ONB_SCRIPTED_FIGHTS), next (the next script's id or null), sites (Cull site fights started), eliteNodeId,
- * elite ({ node, enemy, level, barred, afterScript, left (scripted fights until the node opens) } or null), rescues,
- * rescueTolls, beat and line (the open beat with a line that is not resting, highest priority first; spec 2.5, D141), open
- * ([{ id, line, rest }] by priority; rest: it has yielded its line, yieldLines), done (beats closed, spec order), learned (closed by the player doing it), skippedBeats }. Pure and cheap.
+ * elite ({ node, enemy, level, barred, afterScript, left (scripted fights until the node opens), outcome (how his fight in
+ * the guided zone ended: null, 'victory', 'fled' or 'rescue'; D142) } or null), roads ({ closed (TAKE_ROAD refused on
+ * every Road of zone 1), why ('elite' while closed, else null), node (the node whose fight opens them, else null), line
+ * (the content line that says so, 'G13.closed', else null) }; D142), rescues, rescueTolls, beat and line (the open beat
+ * with a line that is not resting, highest priority first; spec 2.5, D141), open ([{ id, line, rest }] by priority; rest:
+ * it has yielded its line, yieldLines), done (beats closed, spec order), learned (closed by the player doing it),
+ * skippedBeats }. Pure and cheap.
  */
 export function tutorialView(s) {
   const t = s.tutorial;
@@ -396,14 +459,16 @@ export function tutorialView(s) {
   const openList = ONB_BEAT_PRIORITY.filter((id) => isOpen(t, id)).map((id) => ({ id, line: t.beats[id].line, rest: !!t.beats[id].rest }));
   const cur = guideOn(s) ? openList.find((o) => o.line && !o.rest) || null : null;
   const st = (id) => (t.beats[id] ? t.beats[id].st : null);
+  const shut = roadsShut(s);
   return {
     on: t.on, skipped: t.skipped, ended: t.ended, guidedZone: guidedZone(s),
     script: t.script, scripts: ONB_SCRIPTED_FIGHTS, next: t.script < T.scripts.length ? T.scripts[t.script].id : null, sites: t.sites,
     eliteNodeId: eid,
     elite: eid === null ? null : {
       node: eid, enemy: T.elite.enemy, level: zone.nodes[eid].eliteLevel, barred: !!zone.nodes[eid].barred,
-      afterScript: T.elite.gate.afterScript, left: Math.max(0, gate - t.script),
+      afterScript: T.elite.gate.afterScript, left: Math.max(0, gate - t.script), outcome: t.elite || null,
     },
+    roads: { closed: shut, why: shut ? 'elite' : null, node: shut ? eid : null, line: shut ? 'G13.closed' : null },
     rescues: t.rescues, rescueTolls: ONB_RESCUE_TOLLS,
     beat: cur ? cur.id : null, line: cur ? cur.line : null, open: openList,
     done: ONB_BEATS.filter((id) => st(id) === 'done' || st(id) === 'missed'),

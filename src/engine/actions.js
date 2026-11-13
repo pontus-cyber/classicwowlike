@@ -4,7 +4,8 @@
 // Start camp and contracts (prep, expedition.md 1-3): TAKE_CONTRACT, DROP_CONTRACT, BUY_PREP, SELL_PREP, REROLL_BOARD and
 // SET_OUT in phase PREP; TAKE_HUB_CONTRACT in a hub before LEAVE_HUB; USE_SPYGLASS on the map. M3 guided run
 // (m3-onboarding.md 2.2, 2.3, E4; tutorial.js): SKIP_GUIDE (in any phase, fights and the loot window included), MOVE and
-// PASS_THROUGH refused onto a barred node (Gorrak's, D138), and the guided run's bookkeeping after every action.
+// PASS_THROUGH refused onto a barred node (Gorrak's, D138), TAKE_ROAD refused on a closed Road (until the elite's fight
+// has ended, D142), and the guided run's bookkeeping after every action.
 import {
   CLASS, CLASS_IDS, PET, SPELL, TALENT, TALENT_TIER_GATE, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, CONSUMABLE, OATH_IDS,
   SLOT_IDS, ENGAGE_OPTION, ENGAGE_OPTIONS, PREP_OPTION_IDS,
@@ -214,7 +215,7 @@ const A = {
     apply: (s, ev, a) => passThrough(s, ev, a.nodeId),
   },
   TAKE_ROAD: {
-    check: (s) => expMapGate(s) || (!s.zone.nodes[s.zone.pos].road ? 'stand on a Road to take it' : null),
+    check: (s) => expMapGate(s) || (!s.zone.nodes[s.zone.pos].road ? 'stand on a Road to take it' : null) || closedGate(s),
     apply: (s, ev) => takeRoad(s, ev),
   },
   RING_BELL: {
@@ -439,6 +440,8 @@ function stepGate(s, id) {
 
 /** M3 guided run (D138): Gorrak's node is closed until the gate's script has ended (tutorial.js refreshOverlay). */
 const barredGate = (s, id) => (s.zone.nodes[id].barred ? `node ${id} is closed for now (the guide opens it after its fights)` : null);
+/** M3 guided run (D142): the guided zone's Roads are closed until the elite's fight has ended (tutorial.js refreshOverlay). */
+const closedGate = (s) => (s.zone.nodes[s.zone.pos].closed ? 'the Roads are closed for now (the guide opens them after the elite\'s fight)' : null);
 
 function combatGate(s, a) {
   if (!s.fight) return 'not in a fight';

@@ -10,6 +10,8 @@
 // contract sites (siteRng), a Delve contract shows its dungeon, and the view shows the site marks the player sees.
 // Swift passage (rules 1.9.7, expedition.md 7.1; M2b v15 row 2, D124): swiftXp is what a Road taken now grants (nodes.js
 // takeRoad pays it), swiftView the view's `swift` block (mapView; heat.js heatPreview of a TAKE_ROAD uses swiftXp).
+// M3 guided run (m3-onboarding.md 2.3; tutorial.js): zone 1 on TUTORIAL_SEED (zoneSeed); the view shows a barred node
+// (D138) and closed Roads (D142: `closed`, and `onRoad` false on one).
 import {
   ZONE_LEVELS, NODE_DRAW_ORDER, QUEST_LEVEL_OFFSETS, ELITE_LEVEL_OFFSET, RARE_CHANCE, QUEST_SIZE_W1, QUEST_SIZE_W2,
   QUEST_SIZE_W3, QUEST_MAX_SIZE_Z1, GRIND_WAVE_SIZE, ELITE_ADD_CHANCE, DUNGEON_SIZE_W2, DUNGEON_SIZE_W3,
@@ -456,6 +458,7 @@ export function expMapView(s) {
     const sites = siteView(s, n, know, d[n.id]);
     if (sites) v.sites = sites;
     if (n.barred) v.barred = true; // a guided run's closed node (Gorrak's, D138; tutorial.js): MOVE and PASS_THROUGH refused
+    if (n.closed) v.closed = true; // a guided run's closed Road (D142; tutorial.js): TAKE_ROAD refused until the elite's fight
     return v;
   });
   const edges = [];
@@ -469,7 +472,8 @@ export function expMapView(s) {
   return {
     mode: 'expedition', z, name: zoneContent(c, z).name, zt, pos: zone.pos, hub: 0, roads: zone.roads.slice(),
     roadNames: zone.roads.map((id) => roadNameOf(s, id)), texts: expeditionTexts(c),
-    shardfall: zone.shardfall, onRoad: zone.nodes[zone.pos].road, walkTime: TIME_WALK, travelTime: TIME_TRAVEL,
+    // onRoad: TAKE_ROAD is legal here (a Road, not closed: D142)
+    shardfall: zone.shardfall, onRoad: zone.nodes[zone.pos].road && !zone.nodes[zone.pos].closed, walkTime: TIME_WALK, travelTime: TIME_TRAVEL,
     bell: { charges: s.exp.bell, channelTime: BELL_CHANNEL_TIME }, ...(s.exp.prep ? { spyglass: s.exp.spyglass } : {}),
     swift: swiftView(s), // M2b v15 row 2 (D124): Swift passage; null while GATES.swiftRoad is off
     vision: { radius: visionRadius(s), regions: showRegions, typeRadius: s.exp.vision.typeRadius },

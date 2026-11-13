@@ -10,6 +10,9 @@
 // Start camp and contracts (prep, expedition.md 2-3): a fixed default at PREP (the Ember of Return (D133,
 // GATES.autoEmberFirst), then one contract per zone for zones 1-3 by board order while points and slots last, then Field
 // Draughts if the Reserve still holds; the rest kept as Reserve) and the hub contract from Reserve.
+// M3 guided run (tutorial.js): a barred node is closed to the map policy (D138); while the guided zone's Roads are closed
+// (D142) it walks to Gorrak once his node is open, before exploring further, and where it would leave while his node is
+// still barred, to the nearest Quest or Grind node that plays the next script.
 import {
   SPELL, TALENT, CONSUMABLE, AUTO_POTION_HP, AUTO_TONIC_STACKS, AUTO_MANA_POTION, AUTO_FOOD_HP,
   ENGINE_ASSUMPTION as EA, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, MAX_LEVEL, PET, ENGAGE_OPTION, ENGAGE_OPTIONS,
@@ -27,6 +30,7 @@ import { checkAction } from './actions.js';
 import { canTravel, exitLevel, trainerSpells, learnCost, trainCost, trainable, availablePets, canEnter } from './nodes.js';
 import { isExpedition, grindMaxWaves, nodeTime, zoneTime, dimmedAt, outwardStep, dimFightTime } from './expedition.js';
 import { takeContractError, buyPrepError, hubContractError, prepLeft } from './contracts.js';
+import { closedRoadsGoal } from './tutorial.js';
 
 const legal = (s, a) => !checkAction(s, a);
 
@@ -452,9 +456,10 @@ function nodeScore(s, node) {
  * The encounter's tolls as the engine spends them (M2b v12, D101): TIME_DIM_ESCAPE when the step is a walk (MOVE: the
  * node is resolved, the hub or Dimmed when the step starts; the policy passes through every other node) farther from
  * the Shardfall, else TIME_DIM_FIGHT. Every node dims by its hops (M2b v12: the Dungeon's hold removed), which the
- * player sees. Returns { road, path (from `from` to the Road), dims, time }.
+ * player sees. Returns { road, path (from `from` to the Road), dims, time }. `targets` (M3 guided run, D142): other
+ * nodes to reach in place of the Roads; `road` is then the target reached, and the result null when none can be.
  */
-function escapeRoute(s, from, zt) {
+function escapeRoute(s, from, zt, targets = s.zone.roads) {
   const zone = s.zone;
   const N = zone.nodes.length;
   const lab = new Array(N).fill(null);
@@ -482,7 +487,8 @@ function escapeRoute(s, from, zt) {
     }
   }
   let road = null;
-  for (const r of zone.roads) if (road === null || better(lab[r], lab[road]) || (!better(lab[road], lab[r]) && r < road)) road = r;
+  for (const r of targets) if (lab[r] && (road === null || better(lab[r], lab[road]) || (!better(lab[road], lab[r]) && r < road))) road = r;
+  if (road === null) return null;
   const path = [];
   for (let x = road; x !== -1; x = prev[x]) path.unshift(x);
   return { road, path, dims: lab[road].dims, time: lab[road].h };
@@ -543,16 +549,32 @@ function exploreStep(s, zt) {
 }
 
 /**
+ * M3 guided run (D142): one step towards the nearest of `nodes` (escapeRoute over them: fewest Dimmed steps, then tolls),
+ * MOVE onto it at the end (entering it: Gorrak's fight or a scripted fight). Standing on the only one (passed through):
+ * step off to a neighbour that is not barred, to come back.
+ */
+function goalStep(s, zt, nodes) {
+  const zone = s.zone;
+  const go = escapeRoute(s, zone.pos, zt, nodes.filter((id) => id !== zone.pos));
+  if (!go) return stepAction(s, zone.nodes[zone.pos].nb.find((id) => !zone.nodes[id].barred));
+  return go.path.length === 2 ? { type: 'MOVE', nodeId: go.path[1] } : stepAction(s, go.path[1]);
+}
+
+/**
  * Default map policy of an expedition run (rules 1.9.9). Leave when the level reaches the zone's exit level or the
  * cheapest way to a Road already crosses the Dimming; otherwise enter the best adjacent node that scores, else step
  * towards the nearest node worth exploring, else leave. Leaving: TAKE_ROAD on the Road; the Bell when the way out
- * crosses the Dimming and a charge is left; else the next step of the cheapest way.
+ * crosses the Dimming and a charge is left; else the next step of the cheapest way. M3 guided run (D142): while the
+ * guided zone's Roads are closed, Gorrak's open node comes first (goalStep, before exploring), and where the policy
+ * would leave while his node is still barred it goes to the nearest node that plays the next script instead.
  */
 function expMapPolicy(s) {
   const zone = s.zone;
   const p = s.player;
   if (p.hp < EA.AUTO_TOPUP_HP * p.d.maxHp && countConsumable(s, 'trail_rations') > 0) return { type: 'USE_ITEM', itemId: 'trail_rations' };
   const zt = zoneTime(s);
+  const goal = closedRoadsGoal(s);
+  if (goal && goal.elite) return goalStep(s, zt, goal.nodes);
   const esc = escapeRoute(s, zone.pos, zt);
   if (p.level < exitLevel(zone.z) && esc.dims === 0) {
     let best = null;
@@ -565,6 +587,7 @@ function expMapPolicy(s) {
     const next = exploreStep(s, zt);
     if (next !== null) return stepAction(s, next);
   }
+  if (goal) return goalStep(s, zt, goal.nodes);
   if (esc.path.length === 1) return { type: 'TAKE_ROAD' };
   if (esc.dims > 0 && s.exp.bell > 0) return { type: 'RING_BELL' };
   return stepAction(s, esc.path[1]);

@@ -56,7 +56,9 @@ autoplay's start camp buys the Ember of Return first, the switch `C.GATES.autoEm
 TUTORIAL_SEED with the overlay of CONTENT.tutorial, the rescue, `SKIP_GUIDE`, the beats and `tutorialView`, the profile's `guide`
 and `welcome` with `migrateProfile` and `setGuide`, the Echo line `welcome`, the summary's `tutorial` block, `debug.resetOnboarding`;
 section 14; marked "(M3)"; runs without the option are unchanged, checked run for run in qa/engine/s18); 2026-11-13c (M3 3.7, D142
-item 5: G10 on the map only, G12's return cap `C.ONB_LINE_RETURNS`; section 14.4; marked "(D142)").
+items 1 and 5: the guided zone's Roads closed until Gorrak's fight has ended, `TAKE_ROAD` refused on a closed Road, `mapView`
+Road nodes `closed` and `onRoad` false there, `tutorialView.roads` and `elite.outcome`, G13's line `G13.closed`, the autoplay's
+way to Gorrak, G10 on the map only, G12's return cap `C.ONB_LINE_RETURNS`; sections 14.1-14.4; marked "(D142)").
 Units: every time value of the API is a whole number of tolls (1 toll = 1 former in-game hour, D69); there are no hours.
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
@@ -193,7 +195,7 @@ Every action is `{ type, ...fields }`. Indices are 0-based. Enemy targets are in
 | `PASS` | | fight (the only legal combat action while Glacial Tomb skips your turn, `state.fight.p.skip`) |
 | `MOVE` | `nodeId` | (expedition) MAP; a node next to the player's (`mapView(state).moves`). Enters an unresolved, non-hub, non-Dimmed node (its content and tolls); else a walk of TIME_WALK; a walk onto the hub out of the Dimming starts a hub visit (rules 1.9.4) |
 | `PASS_THROUGH` | `nodeId` | (expedition) MAP; a neighbour that MOVE would enter: walk through it for TIME_WALK, it stays unresolved |
-| `TAKE_ROAD` | | (expedition) MAP, standing on a Road (`mapView(state).onRoad`): TIME_TRAVEL, next zone's hub (zone 6: the Camp); no level gate |
+| `TAKE_ROAD` | | (expedition) MAP, standing on a Road (`mapView(state).onRoad`): TIME_TRAVEL, next zone's hub (zone 6: the Camp); no level gate. (D142) Refused on a closed Road of a guided run's zone 1 (section 14.1) |
 | `RING_BELL` | | (expedition) MAP (not in a node, the hub screen, the Camp or at the boss), a Bell charge left: BELL_CHANNEL_TIME, then (after a Dimmed encounter if the node is Dimmed then) the next zone's hub; no TIME_TRAVEL |
 | `TAKE_CONTRACT` / `DROP_CONTRACT` | `index` (board slot, 0-based) | (prep) PREP. Take: not taken, its price within the points left, fewer than CONTRACT_SLOTS held. Drop: taken; refunds the price |
 | `BUY_PREP` / `SELL_PREP` | `id` (`C.PREP_OPTION_IDS`) | (prep) PREP. Buy: not bought (each option once), not owned (meta or the `vision` option), the price within the points left, the Bell under BELL_MAX_CHARGES, no Ember carried. Sell: bought; refunds |
@@ -607,7 +609,7 @@ costs TIME_DIM_ESCAPE 1 toll (rules 1.9.6), every other one TIME_DIM_FIGHT.
 { mode: 'expedition', z, name, zt (zone time: tolls since arrival at the hub), pos (player's node), hub: 0, roads: [ids], shardfall: id,
   roadNames: [name per Road, in the order of roads] (D51; null without content names),
   texts: { shardfall, shardspawn, dimming, homeward_bell } (D51: content texts.expedition; each null when missing),
-  onRoad (TAKE_ROAD legal here), walkTime (TIME_WALK), travelTime (TIME_TRAVEL), bell: { charges, channelTime (BELL_CHANNEL_TIME) },
+  onRoad (TAKE_ROAD legal here; (D142) false on a closed Road, section 14.1), walkTime (TIME_WALK), travelTime (TIME_TRAVEL), bell: { charges, channelTime (BELL_CHANNEL_TIME) },
   spyglass (prep: Spyglass charges left),
   swift: (M2b v15, rules 1.9.7; null while C.GATES.swiftRoad is off) { tolls (ROAD_SWIFT_TOLLS), frac (ROAD_SWIFT_XP_FRAC),
     left (tolls left in the window: tolls - zt; 0 = a Road taken now still pays; null once passed), xp (what a Road taken
@@ -634,6 +636,8 @@ know 'full' (the hub, or seen) adds: type, cl, done, lost (Dimmed and unresolved
 know 'type' (Pathfinder within its radius; the dungeon with Region Charts or a held Delve contract of the zone, prep) adds: type
 sites (prep; only when the player sees marks there): [ids of held contracts with a site on the node], on a 'full' node,
   and with Tracker's Notes on any node within TRACKER_RADIUS hops (hidden ones too)
+barred (M3, D138; only when true): a guided run's closed node, MOVE and PASS_THROUGH refused (also on its `moves` entry);
+  closed (D142; only when true): a closed Road of a guided run's zone 1, TAKE_ROAD refused there (section 14.1)
 ```
 Nothing else of a hidden node is read: qa/engine/s01b checks that a hidden node has only the skeleton keys and that
 `mapView` (and `autoAction`) do not change when hidden contents are replaced.
@@ -865,8 +869,9 @@ run. Zones 2-6 and everything after the guide are the normal rules. A run withou
 (qa/engine/s18 golden check). The balance bots never set it. Numbers: `C.TUTORIAL_SEED` and `C.ONB_*` (m3-onboarding.md 12).
 
 ### 14.1 Seed and overlay (E1, E2)
-- `state.tutorial = { on, skipped, ended, rescues, script, sites, beats }` from START_RUN (`script`: scripted fights ended;
-  `sites`: Cull site fights started; `beats`: engine bookkeeping, read `tutorialView`). `create.tutorial` is true.
+- `state.tutorial = { on, skipped, ended, rescues, script, sites, elite, beats }` from START_RUN (`script`: scripted fights
+  ended; `sites`: Cull site fights started; `elite` (D142): how Gorrak's fight in the guided zone ended, null, `'victory'`,
+  `'fled'` or `'rescue'`; `beats`: engine bookkeeping, read `tutorialView`). `create.tutorial` is true.
 - Zone 1's streams `map(1)`, `node(1, id)`, `fight(1, id, k)`, `loot(1, id)`, `dim(1, id, n)` and the hub vendor take
   `C.TUTORIAL_SEED` (8736, D137) in place of the run seed (`expedition.js zoneSeed`), skipped or not, so every guided run
   gets the same zone 1 (Cull sites 1, 4, 7; Gorrak on node 18; Roads 23, 27, 19; Shardfall 25). Item names keep the run seed.
@@ -877,6 +882,19 @@ run. Zones 2-6 and everything after the guide are the normal rules. A run withou
 - Gate (D138): while the guide runs, his node is barred until script `elite.gate.afterScript` (`s4`) has ended (won, fled
   or rescued): `MOVE` and `PASS_THROUGH` onto it are illegal, `mapView` marks the node and its move `barred: true`, the
   autoplay map policy treats it as closed. SKIP_GUIDE (and leaving zone 1) opens it.
+- Roads (D142): while the guide runs, the zone's Roads are closed until Gorrak's fight has ended (won, fled or rescued;
+  his fight carries `fight.tut = { kind: 'elite', i: 0, id }` and its end sets `state.tutorial.elite`): `TAKE_ROAD` is
+  illegal ("the Roads are closed for now ..."), `mapView` marks every Road `closed: true` and `onRoad` is false on one, so
+  `legalActions` and `heatView.next` leave it out. They open as well when he can no longer be fought: his node resolved or
+  Dimmed, or still barred with no unresolved, undimmed Quest or Grind node outside a held contract's sites left to play the
+  scripts (so zone 1 never locks); never while his fight is on (his own tolls may dim his node during it). Engine choice
+  (draft): `RING_BELL` stays legal, the emergency exit. SKIP_GUIDE (and leaving zone 1) opens them; `tutorial.js
+  roadsClosed` is the rule, written on the Road nodes after every action (`refreshOverlay`), which `TAKE_ROAD` and `mapView`
+  read. The autoplay map policy, while they are closed: once his node is open it walks to him first (the cheapest way:
+  fewest Dimmed steps, then tolls; MOVE onto his node), before exploring further; while his node is barred, where it would
+  leave it goes to the nearest node that plays the next script. Seed 8736, every class: he is fought at zone toll 17-20 and
+  won, G9 learned, zone 1 left by the Bell at toll 26 after 2 Dimmed encounters, 0 rescues (before D142: by Road at toll 19)
+  [source: docs/handoffs/engine-2026-11-13c.md 4].
 - Scripts and sites: every unresolved Quest and Grind node of zone 1 plays its role, laid on its encounter after every
   action (so `mapView` shows it): a node with a held contract's site plays `siteFights[min(sites, last)]` at the node's level;
   any other plays the next script `scripts[script]` (S1-S4, ONB_SCRIPTED_FIGHTS) at `min(its level, ONB_SCRIPT_LEVEL_MAX)`
@@ -901,14 +919,18 @@ run. Zones 2-6 and everything after the guide are the normal rules. A run withou
   Dimming moves, and the settle step may start a Dimmed encounter), `tutorial.rescues` + 1. Back on the hub out of the
   Dimming it is a hub visit (phase ZONE_HUB). No limit.
 - `SKIP_GUIDE`: `tutorial.skipped`; open beats close as missed; event `guideSkipped`; no rescue from then on; Gorrak's node
-  opens; the zone, its streams and its overlay stay. Refused after the guide has ended (an engine choice; spec E4 says "while
-  not skipped").
+  and (D142) the Roads open; the zone, its streams and its overlay stay. Refused after the guide has ended (an engine choice;
+  spec E4 says "while not skipped").
 - Leaving zone 1 (a Road or the Bell; after a dev jump, at the next action) ends the guide: `tutorial.ended`, event `guideEnd`.
 
 ### 14.3 `tutorialView(state)` (E5)
 ```
 { on, skipped, ended, guidedZone, script, scripts (ONB_SCRIPTED_FIGHTS), next (the next script id or null), sites,
-  eliteNodeId, elite: { node, enemy, level, barred, afterScript, left (scripted fights until the node opens) } (null outside zone 1),
+  eliteNodeId, elite: { node, enemy, level, barred, afterScript, left (scripted fights until the node opens),
+    outcome ((D142) how his fight in the guided zone ended: null, 'victory', 'fled' or 'rescue') } (null outside zone 1),
+  roads: (D142) { closed (TAKE_ROAD refused on every Road of zone 1 now, as mapView's `closed`), why ('elite' while closed,
+    else null), node (the node whose fight opens them: Gorrak's, else null), line ('G13.closed', the content line that
+    says so, else null) },
   rescues, rescueTolls (ONB_RESCUE_TOLLS),
   beat, line (the open beat with a line that is not resting, by C.ONB_BEAT_PRIORITY; null when none or the guide is off),
   open: [{ id, line, rest }] (by priority; rest: the beat has yielded its line, 14.4), done: [ids closed], learned: [ids learned], skippedBeats: [ids] }
@@ -931,7 +953,7 @@ The engine opens and closes G1-G13 from the action, its events and the state, wh
 | G10 | (D142) on the map with nothing open, a held contract's site mark first in view (as `mapView` shows it: `sites`), never at the hub screen (`G10`) | first site won: line null; complete: `G10.done`; learned at the CHOOSE_REWARD that takes its reward |
 | G11 | in a fight, HP < ONB_POTION_HP of max with a healing potion on the item bar | learned on USE_ITEM of it; missed when the fight ends |
 | G12 | the first node dims, or the front within ONB_DIM_NEAR_HOPS of the player | `G12.caught` at a Dimmed encounter; at the guide's end learned if zone 1 had none |
-| G13 | on the map: on a Road (`G13.onRoad`), or ONB_BELL_HOPS+ hops from every Road with the node dimming within ONB_BELL_DIM tolls (`G13`) | learned on TAKE_ROAD or RING_BELL |
+| G13 | on the map: on a Road (`G13.onRoad`), or ONB_BELL_HOPS+ hops from every Road with the node dimming within ONB_BELL_DIM tolls (`G13`); (D142) while the Roads are closed: at either moment or once Gorrak's node is open, `G13.closed` | learned on TAKE_ROAD or RING_BELL; (D142) when the Roads open (any phase: the fight that opens them ends in a node) `G13.closed` becomes null, then the moments above set their line (the far line only while the line is null) |
 Beats still open when the guide ends close (G12, G13 as above; the rest missed); SKIP_GUIDE closes them as missed.
 
 Coach lines yield (spec 2.5, D141). A step is one action of the guided run while the guide runs. After each step the top
@@ -942,7 +964,8 @@ A resting beat stays open and can still be learned or closed; its line comes bac
 changes (`beat` what `line`), or when its trigger fires again: G12 when the front comes within ONB_DIM_NEAR_HOPS of the
 player after a step on which it was not (`beat` what `line` with the same line). (D142) A trigger brings a resting line
 back at most C.ONB_LINE_RETURNS (1) times per zone; after that it does nothing (no event, the count is not reset). The
-UI shows `line` and needs no step rule of its own.
+UI shows `line` and needs no step rule of its own. G13 is last by priority, so it never rests: `G13.closed` is the line
+whenever no other open beat has a line that is not resting.
 
 ### 14.5 Profile, welcome and summary (E6, E7)
 - `profile.guide`: `'todo'` (new profiles), `'done'` or `'skipped'`: END_RUN of a guided run sets `'done'`, or `'skipped'`
