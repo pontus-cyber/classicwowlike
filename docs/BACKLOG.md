@@ -75,3 +75,4 @@ Owner ideas and team proposals not yet scheduled. The Lead places each item into
 | 2026-11-13 | Guided autoplay route skips S4 and its wind-up beat G8 after the S3 gate (D145); choose a fix | Content Designer | M3 3.7 | spec done (49e5f27) |
 | 2026-11-13 | Engine: guided rescue loop fix (ONB_RESCUE_MAX 3, rescue lands on the map), then zone 1 damage lever (Z1_DMG_MULT 1.25, GATES.z1Dmg) and the S3/S4 swap per changes-m3-v1 and m3-onboarding 2.8 (D147) | Engineer + Content | M3 3.7 | todo |
 | 2026-11-13 | Sim: planner bar template swaps slot 0 forever on some guided Hunter runs (seed 1003); B14 band still classic-map | Sim | M3 | todo |
+| 2026-11-14 | sim/report.mjs: check expedition cells against NODES_EXP 27-38 and FIGHTS_EXP 26-36 once approved; ARCHITECTURE note for barGuard (sim-2026-11-14) | Sim | M3 | todo |
