@@ -163,6 +163,49 @@ describe('blind panel (2b): "spend your big hit now" is not the advice when the 
   });
 });
 
+describe('D150 (owner text pass, wrong texts): offBalance bigHit, spellInfo est, a finisher\'s amount.cp', () => {
+  /** A class at level L with these bar spells in a quest fight's engage round with one tough enemy of its level. */
+  const fightOf = (cls, L, spells, { cp = 0, ob = true } = {}) => {
+    let s = withSpells(atLevel(started(cls, { content: REAL, seed: 7 }), L), spells);
+    s = inFight(s, [{ tid: 'z1_hedge_ogre', level: L }], { kind: 'quest', noStealth: true }).state;
+    return tweak(s, (x) => {
+      x.fight.enemies[0].maxHp = x.fight.enemies[0].hp = 1e7; x.player.d.maxHp = x.player.hp = 1e7; x.fight.p.cp = cp;
+      if (ob) x.fight.enemies[0].st.push({ id: 'OFF_BALANCE', dur: 2, value: C.OFFBAL_TAKEN });
+    });
+  };
+
+  test('bigHit: only with a big hit castable now: a Rogue\'s finisher with combo points (0: none, the blind tester\'s case), a Mage\'s cooldown nuke off cooldown', () => {
+    assert.equal(R.offBalance(fightOf('rogue', 10, ['gutting_jab', 'severing_flourish']), 0).bigHit, false, '0 combo points');
+    assert.equal(R.offBalance(fightOf('rogue', 10, ['gutting_jab', 'severing_flourish'], { cp: 2 }), 0).bigHit, true, '2 combo points');
+    assert.equal(R.offBalance(fightOf('rogue', 10, ['gutting_jab'], { cp: 2 }), 0).bigHit, false, 'no finisher on the bar');
+    assert.equal(R.offBalance(fightOf('mage', 40, ['ember_bolt', 'frost_lance']), 0).bigHit, false, 'the main attack is no big hit');
+    const pc = fightOf('mage', 40, ['ember_bolt', 'pyre_comet']);
+    assert.equal(R.offBalance(pc, 0).bigHit, true, 'Pyre Comet ready');
+    assert.equal(R.offBalance(tweak(pc, (x) => { x.fight.p.cds.pyre_comet = x.fight.round + 2; }), 0).bigHit, false, 'on cooldown');
+    assert.equal(R.offBalance(fightOf('rogue', 10, ['severing_flourish'], { cp: 2, ob: false }), 0), null, 'no window: null as before');
+  });
+
+  test('est: the direct hit after level, crits and armour, a finisher at the fight\'s combo points; amount is a total at amount.cp, not per point; the average of the casts\' hits; mainHitEstimate unchanged', () => {
+    const s = fightOf('rogue', 10, ['gutting_jab', 'severing_flourish'], { cp: 2, ob: false });
+    const info = R.spellInfo(s, 'severing_flourish', 0);
+    assert.deepEqual([info.amount.kind, info.amount.perCp, info.amount.cp], ['damage', true, 2]);
+    assert.ok(info.est > 0 && info.est < info.amount.amount, `a physical hit after armour: est ${info.est}, amount ${info.amount.amount}`);
+    assert.equal(R.spellInfo(fightOf('rogue', 10, ['severing_flourish'], { cp: 4, ob: false }), 'severing_flourish', 0).amount.cp, 4);
+    assert.equal(R.spellInfo(s, 'gutting_jab', 0).est, mainHitEstimate(s, 0), 'the main attack: mainHitEstimate');
+    assert.equal(R.spellInfo(s, 'gutting_jab', 0).amount.cp, undefined, 'not a finisher: no cp');
+    // the average of 300 casts at 2 combo points (hits only), each from its own draws
+    let sum = 0; let n = 0;
+    for (let k = 0; k < 300; k++) {
+      const x = tweak(s, (y) => { y.fight.rng = makeRng(1000 + k); y.fight.p.cp = 2; });
+      const r = R.step(x, { type: 'CAST', spellId: 'severing_flourish', target: 0 });
+      const d = r.events.find((e) => e.t === 'damage' && e.src === 'player' && e.dst === 0 && !e.miss && e.spell === 'severing_flourish');
+      if (d) { sum += d.amount; n += 1; }
+    }
+    assert.ok(n > 200 && Math.abs(sum / n - info.est) / info.est < 0.08, `average ${Math.round(sum / n)} over ${n} hits, est ${info.est}`);
+    assert.equal(R.spellInfo(atLevel(started('rogue', { content: REAL, seed: 7 }), 10), 'severing_flourish').est, null, 'no fight: null');
+  });
+});
+
 describe('blind panel (3): text and data mismatches, engine and content side', () => {
   const PET = (c) => (c === 'hunter' ? 'ridgewolf' : null);
   /** A guided run on zone 1's map, the board slot 1 Cull taken (real content). */

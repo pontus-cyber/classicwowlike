@@ -3,6 +3,8 @@
 // (7.10); ENGAGE actions are resolved in engage.js. Combat v2.1: an interrupted wind-up is answered (STAGGERED, 7.12).
 // M2b v8 (rules 7.5): itemAmount, what a consumable restores; Packed Satchel's free potion at FREE_POTION_MULT.
 // M2b v14 (rules 7.4, D111): a PASS keeps STEALTH while every living enemy is SAPPED (GATES.passStealth).
+// D150 (owner text pass, wrong texts): spellHitEstimate (a spell's average direct hit on a target, spellInfo `est`;
+// spellAmount `cp`: a finisher's amount is a total at that many combo points) and bigHitReady (offBalance `bigHit`).
 import {
   SPELL, CLASS, TALENT, PET, CP_MAX, ENGINE_ASSUMPTION as EA, CHILL_PCT, CONSUMABLE, POTION_CD,
   UNIQUE_PROC_CHANCE, UNIQUE_PROC_BASE, UNIQUE_PROC_PER_LEVEL, UNIQUE_POTION_PCT, FLEE_BASE,
@@ -138,20 +140,55 @@ export function spellHitChance(s, id, tgt) {
 }
 
 /**
+ * The average damage of one direct hit of the player's spell `id` on enemy `tgt` now, before any shield (rules 7.2 steps
+ * 1-7 without the draws: the snapshot with the target's statuses, so an OFF_BALANCE window counts; the crit chance and
+ * multiplier as an average; a physical hit's armour), rounded; a finisher at the fight's combo points (at least 1), Final
+ * Reckoning's execute and Rupture Venom's poison bonus included, single-spell talent bonuses not. null without a fight,
+ * that enemy, or direct damage (spellAmount kind 'damage'). Read-only. D150 (wrong-text list): Severing Flourish's
+ * tooltip said "about 24 per combo point" and it hit for 17 at 2 points: the 24 was its total before armour. The API's
+ * spellInfo `est`.
+ */
+export function spellHitEstimate(s, id, tgt) {
+  const p = s.player;
+  const sp = SPELL[id];
+  const e = s.fight && typeof tgt === 'number' ? s.fight.enemies[tgt] : null;
+  const a = sp && e ? spellAmount(s, id) : null;
+  if (!a || a.kind !== 'damage') return null;
+  const o = { school: a.school, spell: id, isSpell: a.school !== 'phys', pct: sp.perPoison ? sp.perPoison * poisonStacks(e) : 0 };
+  const b = sp.gjFrac ? sp.gjFrac * gjAmount(s) : base(s, sp, p.spells[id] ? spellTl(s, id) : p.level, Math.max(1, s.fight.p.cp));
+  const exec = sp.executeBelow && hpFrac(e) < sp.executeBelow ? sp.executeMult : 1;
+  const x = b * snapshot(s, 'player', tgt, 1, o) * exec;
+  const c = Math.min(1, Math.max(0, critChance(s, 'player', tgt, o)));
+  const mit = a.school === 'phys' ? 1 - mitigation(e.armor, p.level) : 1;
+  return Math.max(MIN_HIT_DAMAGE, rnd(x * (1 + c * (p.d.critMult - 1)) * mit));
+}
+
+/**
  * The average damage of one hit of the class's main attack (CLASS.startSpells[0]: Gutting Jab, Ember Bolt, Keen Shot) on
- * enemy `tgt` now, before any shield (rules 7.2 steps 1-7 without the draws: the snapshot with the target's statuses, so
- * an OFF_BALANCE window counts; the crit chance and multiplier as an average; a physical hit's armour), rounded.
- * Read-only. The API's offBalance compares an enemy shield with it (`absorbs`, D144).
+ * enemy `tgt` now (spellHitEstimate; none of them is a finisher). Read-only. The API's offBalance compares an enemy shield
+ * with it (`absorbs`, D144).
  */
 export function mainHitEstimate(s, tgt) {
-  const p = s.player;
-  const id = CLASS[p.classId].startSpells[0];
-  const sp = SPELL[id];
-  const o = { school: sp.school, spell: id, isSpell: sp.school !== 'phys' };
-  const x = base(s, sp, p.spells[id] ? spellTl(s, id) : p.level) * snapshot(s, 'player', tgt, 1, o);
-  const c = Math.min(1, Math.max(0, critChance(s, 'player', tgt, o)));
-  const mit = sp.school === 'phys' ? 1 - mitigation(s.fight.enemies[tgt].armor, p.level) : 1;
-  return Math.max(MIN_HIT_DAMAGE, rnd(x * (1 + c * (p.d.critMult - 1)) * mit));
+  return spellHitEstimate(s, CLASS[s.player.classId].startSpells[0], tgt);
+}
+
+/**
+ * A big hit for an OFF_BALANCE window (rules 7.13; combat-v2.md 6: "a held finisher, Pyre Comet, Starlance Barrage,
+ * Heartseeker Shot, Savage Order or a cooldown burst"): a spell on the bar that can be cast now (on enemy `tgt` when it
+ * takes one) and is a damage or DoT finisher (so combo points are held), a burst, a nuke or builder with a cooldown, or a
+ * pet attack with one. D150 (wrong-text list): the hint "Spend your big hit now" showed at 0 combo points. Read-only.
+ */
+export function bigHitReady(s, tgt) {
+  if (!s.fight || !s.player) return false;
+  return s.player.bar.some((id) => {
+    const sp = id && SPELL[id];
+    if (!sp) return false;
+    const tags = sp.tags || [];
+    const a = spellAmount(s, id);
+    const strong = (tags.includes('finisher') && !!a && (a.kind === 'damage' || a.kind === 'dot')) || tags.includes('burst')
+      || (sp.cd > 0 && (tags.includes('nuke') || tags.includes('builder'))) || (sp.cd > 0 && tags.includes('pet') && sp.target === 'enemy');
+    return strong && !castError(s, id, sp.target === 'enemy' ? tgt : null);
+  });
 }
 
 /**
@@ -625,6 +662,8 @@ export function spellAmount(s, id) {
   if (sp.gjFrac) return { kind: 'damage', amount: rnd(sp.gjFrac * gjAmount(s)), hits: sp.hits, school: 'phys' };
   if (sp.school && (sp.b || sp.p || sp.w)) {
     const a = { kind: 'damage', amount: rnd(base(s, sp, tl, cp)), hits: sp.hits || 1, school: sp.school, perCp: !!sp.perCp };
+    // D150 (wrong-text list): a finisher's amount is its total at `cp` combo points (the fight's, at least 1), not per point
+    if (sp.perCp) a.cp = cp;
     // Ricochet Bolt: the target takes `amount`, then up to `bounces` other enemies take bounceFrac of it.
     if (sp.bounces) Object.assign(a, { bounces: sp.bounces, bounceFrac: sp.bounceFrac, bounceAmount: rnd(base(s, sp, tl, cp) * sp.bounceFrac) });
     return a;

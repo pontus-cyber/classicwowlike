@@ -44,7 +44,7 @@ import { availablePets, metaFromProfile, travelLevel as travelAt, trainerOffer }
 import { nextLanes } from './engine/map.js';
 import { xpToNext, xpCurve, diffMod, talentPointsFree as freePoints } from './engine/progress.js';
 import { itemScore, V, bagCapacity as bagCap, countConsumable } from './engine/items.js';
-import { spellCost as cost, spellCd, spellAmount, spellTl, fleeChance as flee, castError, itemAmount, spellHitChance, mainHitEstimate } from './engine/spells.js';
+import { spellCost as cost, spellCd, spellAmount, spellTl, fleeChance as flee, castError, itemAmount, spellHitChance, mainHitEstimate, spellHitEstimate, bigHitReady } from './engine/spells.js';
 import { resurrectOrder, offBalanceOpen, findSt, maimedHeal } from './engine/damage.js';
 import { engageOptions as engageList, engagePreview as previewEngage } from './engine/engage.js';
 import { isEngageRound as engageRound } from './engine/track.js';
@@ -151,7 +151,9 @@ export function spellCooldown(state, spellId) {
  * hit (blind tester report 2026-11-13): in a fight, the chance that its direct hit lands on `target` now (rules 7.2 step
  * 3: the level step, a physical hit's dodge; 1 for an interrupt), else null; hitAll: for a spell on every enemy, [{ u,
  * chance }] per living enemy (each has its own roll; Rime Burst and Deadfall Trap control only the enemies they hit),
- * else null.
+ * else null. est (D150, wrong-text list): in a fight, the average damage of its direct hit on `target` now, after the
+ * level difference, crits as an average and the target's armour (spells.js spellHitEstimate; a finisher at the fight's
+ * combo points), else null; amount.cp: the combo points a finisher's amount counts (it is a total, not per point).
  */
 export function spellInfo(state, spellId, target = null) {
   const sp = C.SPELL[spellId];
@@ -167,6 +169,7 @@ export function spellInfo(state, spellId, target = null) {
   return {
     window,
     hit: direct && sp.target === 'enemy' && typeof target === 'number' && live(target) ? spellHitChance(state, spellId, target) : null,
+    est: direct && sp.target === 'enemy' && typeof target === 'number' && live(target) ? spellHitEstimate(state, spellId, target) : null,
     hitAll: direct && sp.target === 'all' ? f.enemies.filter((e) => e.alive).map((e) => ({ u: e.idx, chance: spellHitChance(state, spellId, e.idx) })) : null,
     id: sp.id, name: sp.name, lvl: sp.lvl, tags: sp.tags.slice(), target: sp.target, source: sp.source,
     resource: C.CLASS[sp.cls].resource, cost: cost(state, spellId), cd: spellCd(state, spellId),
@@ -217,7 +220,9 @@ export function engagePreview(state, action) {
  * counts as OFF_BALANCE while it lasts), taken (extra damage taken from the player and pet), crit (extra player
  * crit chance), rounds (status rounds left), shield (D144: its enemy shield, Bolster or Self Shield, which takes damage
  * before its health; 0 when none), absorbs (D144: shield >= the average hit of the class's main attack on it now, window
- * included: a hit is absorbed whole, so "spend your big hit now" is the wrong advice; break the shield first) }.
+ * included: a hit is absorbed whole, so "spend your big hit now" is the wrong advice; break the shield first), bigHit (D150:
+ * a big hit can be cast on it now, spells.js bigHitReady: a finisher with combo points, a burst, a cooldown nuke or builder,
+ * a pet attack; without one "Spend your big hit now" is wrong advice, the blind tester had 0 combo points) }.
  */
 export function offBalance(state, enemyIdx) {
   const e = state.fight && state.fight.enemies[enemyIdx];
@@ -227,7 +232,7 @@ export function offBalance(state, enemyIdx) {
   const x = ob || fr;
   const shield = Math.max(0, e.shield || 0);
   const absorbs = shield > 0 && !!state.player && shield >= mainHitEstimate(state, enemyIdx);
-  return { status: ob ? 'OFF_BALANCE' : 'FROZEN', taken: ob ? ob.value : C.OFFBAL_TAKEN, crit: C.OFFBAL_CRIT, rounds: x.dur, shield, absorbs };
+  return { status: ob ? 'OFF_BALANCE' : 'FROZEN', taken: ob ? ob.value : C.OFFBAL_TAKEN, crit: C.OFFBAL_CRIT, rounds: x.dur, shield, absorbs, bigHit: !!state.player && bigHitReady(state, enemyIdx) };
 }
 
 /**
