@@ -2,9 +2,10 @@
 // first-time hints, 4.3 nudge; D135, D137). The authored overlay for zone 1 on TUTORIAL_SEED 8736 (board slot 1, Cull
 // site fights, scripted fights S1-S4 with the wind-up fight third (D145 fix, D147), Gorrak's encounter and the gate that
 // holds him back until S3 has been fought, D143), the 13 coach lines (D142: G13.closed while the Roads wait for Gorrak's
-// fight; D147: G8's joint line with G7), the 37 hint lines and the Packed Satchel nudge. Status: draft (owner approval
-// pending). Shape: src/content/SCHEMA.md 2.11. Plain data only; levels, counts and every rule number are constants (spec
-// section 12). Lines hold {placeholders} the UI fills (SCHEMA.md 2.11): key names from its key map, numbers from C.
+// fight; D147: G8's joint line with G7), the guide's lines (rescue, rescues left, skip, end, hub welcome), the 37 hint
+// lines and the Packed Satchel nudge. Status: draft (owner approval pending). Shape: src/content/SCHEMA.md 2.11. Plain
+// data only; levels, counts and every rule number are constants (spec section 12). Lines hold {placeholders} the UI
+// fills (SCHEMA.md 2.11): key names from its key map, numbers from C.
 
 export const TUTORIAL = {
   seed: 8736, // TUTORIAL_SEED as accepted in D137; the engine reads C.TUTORIAL_SEED, this is a cross-check only
@@ -63,12 +64,18 @@ export const TUTORIAL = {
   // Rescue and the end of the guide (spec 2.6, 2.7). {rescueTolls}: ONB_RESCUE_TOLLS.
   // rescueCapLine (D147, draft, Core Gameplay Engineer 2026-11-14): the ONB_RESCUE_MAX-th rescue ends the guide (event
   // guideSkipped with why 'rescues'); shown with that rescue's line, in place of the skip line.
+  // rescueLeftLine (draft, Core Gameplay Engineer 2026-11-14; ui-2026-11-14 finding 3): with the rescue's line on a rescue
+  // that leaves the guide on; {rescuesLeft}: tutorialView rescueMax - rescues after that rescue (1 to ONB_RESCUE_MAX - 1;
+  // the ONB_RESCUE_MAX-th rescue shows rescueCapLine instead). skipLine (draft, same date; ui-2026-11-14 finding 4):
+  // SKIP_GUIDE ended the guide (event guideSkipped without why); it replaces the UI's own SKIP_LINE.
   // hubLine / hubTrainerLine (D144, draft, Core Gameplay Engineer 2026-11-13): the welcome at a zone hub, any run; the
   // trainer line only while R.trainerView(state).useful (a lesson or a rank the gold covers), else the plain line. Both
   // blind testers paid a toll for "Visit the trainer" at level 1 with nothing to learn. {zone}: the zone's name.
   guide: {
     rescueLine: 'The Bellwrights pull you back ({rescueTolls} tolls).',
     rescueCapLine: 'That was the last rescue: the guide ends here, and from now on a death ends the run.',
+    rescueLeftLine: 'Rescues left before the guide ends: {rescuesLeft}.',
+    skipLine: 'You skip the guide: new things get one hint each.',
     endLine: 'The guide ends here. New things get one hint each.',
     hubLine: 'Welcome to {zone}. Nothing to learn at the trainer yet: set out when ready.',
     hubTrainerLine: 'Welcome to {zone}. Visit the trainer for new spells or ranks, then set out.',

@@ -9,7 +9,7 @@
 // D147: a rescue lands on the map with no fight started (it looped in Dimmed nodes), and ONB_RESCUE_MAX rescues end the
 // guide. D149: S3's Hexer winds up on its turn ONB_WINDUP_TURN (1), so W in the engage round answers it in that step
 // (the route measure per class, autoplay and following the joint line); ui-2026-11-14 finding 1 (draft): the joint line
-// gives way after the engage round.
+// gives way after the engage round; the content lines guide.rescueLeftLine and guide.skipLine (draft).
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -338,6 +338,47 @@ describe('M3 D147: a rescue starts no fight; ONB_RESCUE_MAX rescues end the guid
     assert.deepEqual([d.phase, d.outcome, R.summary(d).tutorial.rescues, R.summary(d).tutorial.skipped], ['SUMMARY', 'death', 3, true]);
     const end = R.step(d, { type: 'END_RUN' }).state;
     assert.equal(end.result.profile.guide, 'skipped');
+  });
+});
+
+describe('M3 content lines for the UI (draft, engine-2026-11-14b: ui-2026-11-14 findings 3 and 4)', () => {
+  /** A line as the UI fills it (placeholders from `num`), and the checks of spec 7.1.7 and SCHEMA 2.11. */
+  const fill = (raw, num) => raw.replace(/\{(\w+)\}/g, (m, k) => (k in num ? String(num[k]) : m));
+  const plain = (line) => {
+    assert.ok(line.length <= C.ONB_HINT_MAX_CHARS, `${line.length} characters: ${line}`);
+    assert.ok(!/[{}]/.test(line), `every placeholder filled: ${line}`);
+    assert.ok(/\.$/.test(line) && !/[.!?]\s/.test(line), `one sentence: ${line}`);
+    assert.ok(!/\bhours?\b|\bh\b|\d\.\d/.test(line), `no hours or decimals: ${line}`);
+  };
+
+  test('guide.rescueLeftLine: after each rescue that leaves the guide on, {rescuesLeft} = tutorialView rescueMax - rescues; the ONB_RESCUE_MAX-th shows rescueCapLine instead', () => {
+    const G = CONTENT.tutorial.guide;
+    assert.ok(G.rescueLeftLine.includes('{rescuesLeft}'), G.rescueLeftLine);
+    let s = atHub('rogue', 8);
+    const left = [];
+    for (let k = 1; k <= C.ONB_RESCUE_MAX; k++) {
+      if (s.phase === 'ZONE_HUB') s = R.step(s, { type: 'LEAVE_HUB' }).state;
+      s = R.step(s, { type: 'MOVE', nodeId: 2 }).state;
+      const ev = [];
+      s = die(s, ev);
+      const v = R.tutorialView(s);
+      assert.ok(ev.some((e) => e.t === 'rescue'), `rescue ${k}`);
+      if (ev.some((e) => e.t === 'guideSkipped' && e.why === 'rescues')) { left.push('cap'); continue; }
+      const line = fill(G.rescueLeftLine, { rescuesLeft: v.rescueMax - v.rescues });
+      plain(line);
+      left.push(line);
+    }
+    assert.deepEqual(left, [...Array.from({ length: C.ONB_RESCUE_MAX - 1 }, (_, i) => fill(G.rescueLeftLine, { rescuesLeft: C.ONB_RESCUE_MAX - 1 - i })), 'cap']);
+    assert.equal(left[0], 'Rescues left before the guide ends: 2.');
+  });
+
+  test('guide.skipLine: the line of SKIP_GUIDE (guideSkipped without why), one sentence; the end and cap lines stay', () => {
+    const G = CONTENT.tutorial.guide;
+    const r = R.step(atHub('mage', 5), { type: 'SKIP_GUIDE' });
+    assert.deepEqual(r.events.find((e) => e.t === 'guideSkipped'), { t: 'guideSkipped' });
+    plain(G.skipLine);
+    assert.ok(G.skipLine !== G.endLine && G.skipLine !== G.rescueCapLine && /skip the guide/i.test(G.skipLine));
+    for (const k of ['rescueLine', 'rescueCapLine', 'endLine', 'hubLine', 'hubTrainerLine']) assert.equal(typeof G[k], 'string', k);
   });
 });
 

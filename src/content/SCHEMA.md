@@ -247,7 +247,7 @@ counts and every rule number stay constants (ONB_*, spec 12). Beat and hint ids 
 | Fight | object | `{ enemy: id of a zone normal, windup?: true }`. In the guided zone only `windup: true` makes an enemy's turn-ONB_WINDUP_TURN action (1, m3-onboarding.md 2.8 item 6; D149, draft) a wind-up (FIRST_MEET_WINDUP is off for the other guided-zone fights) |
 | `elite` | object | `{ id, beat, enemy (a zone elite), deathblow (an ability id of that enemy), add: false, rare: false, gate }` |
 | `elite.gate` | object | `{ afterScript: a script id, barredLine, openLine }`: the elite's node cannot be entered until that scripted fight has ended (win, flight or rescue); open after SKIP_GUIDE. `{n}` = scripted fights still to come |
-| `guide` | object | `{ rescueLine, endLine }` (spec 2.6, 2.7); (D147) `rescueCapLine`: the ONB_RESCUE_MAX-th rescue ends the guide (event `guideSkipped` with `why: 'rescues'`); (D144) `hubLine`, `hubTrainerLine`: the welcome at a zone hub in any run, the trainer line only while `R.trainerView(state).useful`; `{zone}` = the zone's name |
+| `guide` | object | `{ rescueLine, endLine }` (spec 2.6, 2.7); (D147) `rescueCapLine`: the ONB_RESCUE_MAX-th rescue ends the guide (event `guideSkipped` with `why: 'rescues'`); (draft, engine-2026-11-14b) `rescueLeftLine`: with the rescue's line on a rescue that leaves the guide on, `{rescuesLeft}` = rescues still to come (spec 2.6), and `skipLine`: SKIP_GUIDE ended the guide (event `guideSkipped` without `why`); (D144) `hubLine`, `hubTrainerLine`: the welcome at a zone hub in any run, the trainer line only while `R.trainerView(state).useful`; `{zone}` = the zone's name |
 | `beats` | object[] | exactly 13: `{ id, name, anchor, line \| byClass { rogue, mage, hunter }, alt?: { state: line }, hint?: hint id }`; (D147) G8 `alt.withEngage`: the joint line of G7 and G8 in one engage round (spec 2.8) |
 | `hints` | object[] | exactly 37: `{ id, system, line \| sameAs (a beat id), perClass?: true, alt?: { state: line } }`; (D144) H05 `alt.shield`: the off-balance target's shield absorbs a whole hit (`R.offBalance(...).absorbs`) |
 | `nudge` | object | `{ unlock (META id), welcomeLabel, summaryLine, hallLine, later }` (spec 4.2-4.3) |
@@ -257,7 +257,8 @@ decimals. Placeholders the UI fills: keys from its key map `{key_spell1}`, `{key
 `{key_engage3}`, `{key_pass}`, `{key_item1}`, `{key_take_all}`, `{key_bags}`, `{key_talents}`, `{key_spellbook}`,
 `{key_autoplay}`, `{key_flee}`; numbers from C `{deathblowTurn}` (SIGNATURE_TURN; no line uses it since D144), `{bellTolls}` (BELL_CHANNEL_TIME),
 `{offbalPct}` (OFFBAL_TAKEN × 100), `{rescueTolls}` (ONB_RESCUE_TOLLS), `{satchelPotions}` (META.satchel.potions),
-`{n}` (gate); the zone's name `{zone}` (D144, the hub lines). The validator does not check this table yet (engine task E2).
+`{n}` (gate); the zone's name `{zone}` (D144, the hub lines); `{rescuesLeft}` (draft: `tutorialView` `rescueMax` -
+`rescues` after the rescue, ONB_RESCUE_MAX - rescues). The validator does not check this table yet (engine task E2).
 
 ## 3. Counts (rules 12.1)
 | Table | Per zone | Total |

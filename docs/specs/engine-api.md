@@ -68,7 +68,7 @@ inner-ring quests keep zone 1's cap, `C.QUEST_CAP_Z2_RINGS` and the switch `C.GA
 `tutorialView.rescueMax`, 14.2-14.5; zone 1 enemy damage `C.Z1_DMG_MULT` up to `C.Z1_DMG_MAX_LEVEL` in `zoneDanger`, the
 switch `C.GATES.z1Dmg`, on (rules 7.6); marked "(D147)"); 2026-11-14b (D149: the guided zone's marked wind-up on the enemy's
 turn `C.ONB_WINDUP_TURN` (1), 14.1, marked "(D149)"; draft, docs/handoffs/engine-2026-11-14b.md: G8's joint line gives way
-after the engage round (ui-2026-11-14 finding 1), 14.4).
+after the engage round (ui-2026-11-14 finding 1), 14.4; content `guide.rescueLeftLine` and `guide.skipLine` for the UI, 14.2).
 Units: every time value of the API is a whole number of tolls (1 toll = 1 former in-game hour, D69); there are no hours.
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
@@ -950,6 +950,9 @@ run. Zones 2-6 and everything after the guide are the normal rules. A run withou
   event `guideSkipped` with `why: 'rescues'` and `rescues`, so the next death is a normal one (resurrect sources, else the
   run ends) and END_RUN sets `profile.guide` `'skipped'`. The summary tells it apart from SKIP_GUIDE by `skipped` with
   `rescues` = ONB_RESCUE_MAX (SKIP_GUIDE is refused once skipped).
+- (draft, engine-2026-11-14b) Content lines for the UI: `guide.rescueLeftLine` with a rescue that leaves the guide on,
+  `{rescuesLeft}` = `tutorialView` `rescueMax` - `rescues` after it (the ONB_RESCUE_MAX-th rescue shows `guide.rescueCapLine`
+  instead); `guide.skipLine` on `guideSkipped` without `why` (SKIP_GUIDE).
 - `SKIP_GUIDE`: `tutorial.skipped`; open beats close as missed; event `guideSkipped`; no rescue from then on; Gorrak's node
   and (D142) the Roads open; the zone, its streams and its overlay stay. Refused after the guide has ended (an engine choice;
   spec E4 says "while not skipped").
