@@ -1247,7 +1247,8 @@ function engineBackend(seedOpt, runOpts = {}) {
         // M3 guided run (engine-api.md 14): the beats (onboarding.js reads them), the rescue, the skip and the guide's end
         case 'beat': out.push({ t: 'beat', id: e.id, what: e.what, line: e.line ?? null }); break;
         case 'rescue': out.push({ t: 'rescue', tolls: e.tolls, to: e.to, node: e.node }); break;
-        case 'guideSkipped': out.push({ t: 'guideSkipped' }); break;
+        // D147 (engine-2026-11-14, UI need 1): why 'rescues' when ONB_RESCUE_MAX rescues ended the guide, with the count
+        case 'guideSkipped': out.push({ t: 'guideSkipped', why: e.why || null, rescues: e.rescues ?? null }); break;
         case 'guideEnd': out.push({ t: 'guideEnd' }); break;
         case 'spyglass': out.push({ t: 'msg', text: `Spyglass: ${e.seen.length ? `${e.seen.length} more ${TXT.plural(e.seen.length, 'place')} in view` : 'nothing new in view'} · ${e.charges} ${TXT.plural(e.charges, 'look')} left`, kind: 'good' }); break;
         default: break;

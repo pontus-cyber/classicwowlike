@@ -22,6 +22,8 @@
 // what its screen shows (the nearest site node on the map, the contract's tracker row in a fight); the closed line does not
 // count for the Bell's hint H19; a toast says when the Roads open. ONB_HINT_SHOWS lives in src/constants.js (the bridge's
 // data.tutorial.rules.hintShows).
+// D147 (engine-2026-11-14 UI need 1; m3-onboarding.md 2.6): when ONB_RESCUE_MAX rescues end the guide (event guideSkipped,
+// why 'rescues') a toast and the log say content guide.rescueCapLine, not the skip line.
 import { h } from './util.js';
 import { settings } from './settings.js';
 
@@ -46,6 +48,16 @@ const FIGHT_BEATS = new Set(['G3', 'G6', 'G7', 'G8', 'G9', 'G11']); // beats who
 export const MAP_LINES = new Set(['G2', 'G12', 'G12.caught', 'G13', 'G13.onRoad', 'G13.closed']);
 /** Beat lines that stand for no hint (D143: the closed line is about Gorrak, not the Bell, so it does not make H19 seen). */
 const NO_HINT_LINES = new Set(['G13.closed']);
+/** The log line when the guide is skipped (draft; content has none): the Skip guide link, or a skip from Settings. */
+export const SKIP_LINE = 'You skip the guide. New things get one hint each.';
+/**
+ * What the game says when the guide ends early (pure; event `guideSkipped`): content guide.rescueCapLine when the
+ * ONB_RESCUE_MAX-th rescue ended it (D147: why 'rescues'), else SKIP_LINE.
+ */
+export function guideSkippedLine(e, T, num = {}) {
+  const raw = e && e.why === 'rescues' && T && T.guide ? T.guide.rescueCapLine : null;
+  return raw ? lineParts(raw, num).map((x) => (typeof x === 'string' ? x : x.key)).join('') : SKIP_LINE;
+}
 /** Hint lines that leave their hint unseen (D144: H05's shield line; the plain line is still to be taught). */
 const UNSEEN_ALT = { H05: new Set(['shield']) };
 const leavesUnseen = (x) => !!(x && x.kind === 'hint' && UNSEEN_ALT[x.id] && UNSEEN_ALT[x.id].has(x.alt));
@@ -451,7 +463,16 @@ export function createOnboarding(root, ctx) {
       if ((e.what === 'open' || e.what === 'line') && e.line) dismissed.delete(e.line);
       if (e.what === 'done') { hints.mark(beatHintKey(e.id)); if (e.id === 'G10') hints.mark('H21'); }
     }
-    if (has(ev, 'guideSkipped')) { dismissed.clear(); if (cur && cur.kind === 'beat') hide(false); ctx.hud.log('You skip the guide. New things get one hint each.', 'lg-sys'); }
+    // the guide ends early: Skip guide, or (D147) the ONB_RESCUE_MAX-th rescue, whose line (content guide.rescueCapLine)
+    // also shows as a toast next to the rescue's banner: from now on a death ends the run
+    const skipped = ev.find((e) => e.t === 'guideSkipped');
+    if (skipped) {
+      dismissed.clear(); if (cur && cur.kind === 'beat') hide(false);
+      const cap = skipped.why === 'rescues';
+      const line = guideSkippedLine(skipped, T, num);
+      if (cap) ctx.toast(line, 'long'); // style.css .toast.long: two lines, clear of the hub's panel
+      ctx.hud.log(line, cap ? 'lg-warn' : 'lg-sys');
+    }
     if (has(ev, 'guideEnd') && T) ctx.toast(T.guide.endLine, 'good');
     // D143: the guided zone's Roads open (Gorrak's fight over, or he can no longer be fought): say so once. Draft text (no
     // content line yet: T.guide.roadsOpenLine when the Content Designer adds one)
