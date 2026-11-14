@@ -9,8 +9,9 @@ import { CONTENT as REAL } from '../../src/content/index.js';
 import { killDropMult, dimAt, dimAtHops, frontAt, zoneTime, outwardStep, dimFightTime, nodeTime } from '../../src/engine/expedition.js';
 
 const pet = (cls) => (cls === 'hunter' ? 'ridgewolf' : null);
+// D152 (changes-m3-v2.md 1): a profile's third run (a first run is lean: no Bell in zone 1, s20)
 function startedRun(mode, { seed = 1, classId = 'mage', prep = false } = {}) {
-  const o = { classId, petId: pet(classId), seed, content: REAL, mapMode: mode === 'expedition' ? 'expedition' : 'rows' };
+  const o = { classId, petId: pet(classId), seed, content: REAL, mapMode: mode === 'expedition' ? 'expedition' : 'rows', profile: { ...R.newProfile(), runs: 2 } };
   if (mode === 'expedition') o.prep = !!prep; // D116: prep is newRun's default on the expedition map
   return R.step(R.newRun(o), { type: 'START_RUN' }).state;
 }
@@ -37,8 +38,14 @@ describe('M2b v12 row 1 (D100): v11 outcomes in the engine', () => {
     assert.equal('DUNGEON_DIM_HOLD' in C, false);
     assert.equal('BEASTCALL_HORN_CD_GATED' in C, false);
     assert.deepEqual([C.SPELL.beastcall_horn.cd, C.BEASTCALL_HORN_CD], [12, 12]);
-    const s = onMap(startedRun('expedition', { seed: 4 }));
-    for (const n of s.zone.nodes) assert.equal(dimAt(s.zone, n.id), dimAtHops(s.zone.shardDist[n.id]), `node ${n.id} (${n.type})`);
+    // D152: every node by its hops with GATES.steadyDim off (the rule before D151); with it on every node, the Dungeon too,
+    // by the steady schedule (s20)
+    const old = C.GATES.steadyDim;
+    C.GATES.steadyDim = false;
+    try {
+      const s = onMap(startedRun('expedition', { seed: 4 }));
+      for (const n of s.zone.nodes) assert.equal(dimAt(s.zone, n.id), dimAtHops(s.zone.shardDist[n.id]), `node ${n.id} (${n.type})`);
+    } finally { C.GATES.steadyDim = old; }
   });
 });
 
@@ -65,7 +72,8 @@ describe('M2b v12 row 2 (D101): TIME_DIM_ESCAPE, rules 1.9.6', () => {
         assert.deepEqual(tolls(r.events), [[C.TIME_WALK, 'walk'], [want, 'dim']], `seed ${seed} ${f.p} -> ${to}`);
         const st = r.state;
         assert.equal(st.node.type, 'dim');
-        assert.equal(st.node.depth, frontAt(40 + C.TIME_WALK) - st.zone.shardDist[to], 'depth: the front at the walk\'s end');
+        // D152 (changes-m3-v2.md 3.3): the depth is the node's time in the dark at the walk's end
+        assert.equal(st.node.depth, Math.max(0, Math.floor((C.DIM_FRONT_HOPS * (40 + C.TIME_WALK - dimAt(st.zone, to))) / C.DIM_FRONT_TIME)), 'depth: the time in the dark at the walk\'s end');
         assert.equal(st.fight.enemies.length >= C.DIM_PACK_SIZE, true);
         assert.equal(st.exp.outward, false, 'cleared by the settle step');
         assert.equal(zoneTime(st), 40 + C.TIME_WALK + want);

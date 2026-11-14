@@ -206,16 +206,23 @@ export function viewHops(view, from) {
 /** Is view node id Dimmed at zone toll zt? (dimAt is on every node of the view; Infinity without the Dimming.) */
 export const dimmedAtV = (view, id, zt) => zt >= view.nodes[id].dimAt;
 
-/** Front at zone toll zt (rules 1.9.6, from the view's dim block). */
+/** Front at zone toll zt (rules 1.9.6, from the view's dim block; D152: on the Dimming's clock, zt - dim.shift). */
 export function frontAtV(view, zt) {
   const d = view.dim;
-  if (d.off || zt < d.grace) return -1;
-  return Math.floor((d.frontHops * (zt - d.grace)) / d.frontTime);
+  const c = zt - (d.shift || 0);
+  if (d.off || c < d.grace) return -1;
+  return Math.floor((d.frontHops * (c - d.grace)) / d.frontTime);
 }
 
-/** Depth of a Dimmed encounter at node id at zone toll zt (front - hops from the Shardfall), -1 when not Dimmed. */
+/**
+ * Depth of a Dimmed encounter at node id at zone toll zt, -1 when not Dimmed. D152 (changes-m3-v2.md 3.3; the view's
+ * dim.steady, GATES.steadyDim): the node's time in the dark, max(0, floor(frontHops × (zt - dimAt) / frontTime)), as the
+ * engine; before (dim.steady false or absent) the front less the node's hops from the Shardfall.
+ */
 export function dimDepthV(view, id, zt) {
   if (!dimmedAtV(view, id, zt)) return -1;
+  const d = view.dim;
+  if (d.steady) return Math.max(0, Math.floor((d.frontHops * (zt - view.nodes[id].dimAt)) / d.frontTime));
   return Math.max(0, frontAtV(view, zt) - viewHops(view, view.shardfall)[id]);
 }
 

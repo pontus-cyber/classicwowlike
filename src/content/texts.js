@@ -3,7 +3,8 @@
 // (docs/handoffs/content-2026-11-10b.md). The families, prep and contracts groups (docs/handoffs/content-2026-11-11.md)
 // hold the contract and start-camp text of docs/specs/expedition.md 2-3. Plain data only. D150 (naming rule, owner
 // 2026-11-14): the final boss is Oruvath, "hidden" is not used for fogged nodes (Stealth is the hidden state), and the
-// Homeward Bell's line says where it takes you (the next zone's hub, not home).
+// Homeward Bell's line says where it takes you (the next zone's hub, not home). D152 (docs/specs/changes-m3-v2.md 3.3,
+// draft): dimming_pace, the Dimming panel's tooltip line for the steady Dimming ({maxPerToll}, {grace}: mapView.dim).
 export const TEXTS = {
   // Display names of the enemy family ids (zones.js regions, enemies.js family), used in contract texts.
   families: {
@@ -53,5 +54,6 @@ export const TEXTS = {
     shardspawn: "Things that walked into the Dimming and came out hollow, lit only by the shard's cold glow.",
     dimming: 'Darkness that spreads from the Shardfall. It takes the land hop by hop, and whoever stands in it.',
     homeward_bell: 'A small brass bell. Rung, it carries you on to the next zone\'s hub.',
+    dimming_pace: 'It takes at most {maxPerToll} places a toll, nearest the purple star first, from toll {grace} in the zone.',
   },
 };

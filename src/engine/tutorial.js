@@ -10,16 +10,23 @@
 // and G8 opening in one engage round share G8's joint line, which gives way after the engage round, draft; spec 2.8
 // item 8, draft: from round 2 G8's own line only while windupView lists an answer; D150, the owner's text pass, draft
 // where new: G7 at fight 1, G3 and G9 without a line, G1, G4, G5, G10 and G12 at one moment each, G12.road). Leaving zone 1
-// ends the guide.
+// ends the guide. D152 (docs/specs/changes-m3-v2.md 2, D151; GATES.guidedHold): every fight of the guided zone counts
+// towards Gorrak's return (state.tutorial.fights; his node opens after ONB_ELITE_FIGHTS, or when no Quest or Grind node
+// outside the Dimming is left, and stays open), and the corridor (the hub, Gorrak, the Road nearest him and one shortest
+// path to each) is held from the Dimming until his fight or the guide ends, then released one node a toll (zone.hold).
+// A lean first run (1.2, GATES.firstRunLean) skips G1 and G10 and, with no Bell in zone 1, G13's far line (G13.onRoadFirst
+// on a Road).
 // Pure helpers of the state; nodes.js, combat.js, damage.js, contracts.js, actions.js and autoplay.js call them. A run
 // without the option never reaches any of it.
 import {
   ONB_SCRIPTED_FIGHTS, ONB_SCRIPT_LEVEL_MAX, ONB_LOOT_POTIONS, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX,
   ONB_RESCUE_TOLLS, ONB_RESCUE_MAX, ONB_BEAT_RETRIES, ONB_POTION_HP, ONB_BELL_HOPS, ONB_BELL_DIM, ONB_DIM_NEAR_HOPS,
   ONB_ENGAGE_SHOWS, ONB_BEATS, ONB_BEAT_PRIORITY, ONB_LINE_STEPS, ONB_LINE_RETURNS, ONB_LINES_PER_FIGHT, CONTRACT, SLOT_IDS, RARITY, ILVL_MAX, CONSUMABLE,
-  SPELL,
+  SPELL, GATES, ONB_ELITE_FIGHTS, ONB_GATE_SCRIPTS, ONB_HOLD_RELEASE,
 } from '../constants.js';
-import { zoneRegions, hops, frontAt, zoneTime, dimAt, dimmedNow, knowledge } from './expedition.js';
+import {
+  zoneRegions, hops, frontAt, zoneTime, dimAt, dimmedNow, knowledge, dimSchedule, dimAtHops, dimClock, bellHidden, leanFirst,
+} from './expedition.js';
 import { itemScore, makeFixedGear, makeConsumable } from './items.js';
 import { windupView } from './answers.js';
 import { castError } from './spells.js';
@@ -27,10 +34,11 @@ import { castError } from './spells.js';
 // ---------------- Run and zone state ----------------
 /**
  * state.tutorial at START_RUN of a guided run (E1): script = scripted fights ended, sites = Cull site fights started,
- * elite = how the elite's fight ended in the guided zone (null, 'victory', 'fled' or 'rescue'; D142).
+ * elite = how the elite's fight ended in the guided zone (null, 'victory', 'fled' or 'rescue'; D142), fights (D152,
+ * changes-m3-v2.md 2.1) = fights ended in the guided zone, Gorrak's own excepted (nodes.js finishFight; GATES.guidedHold).
  */
 export function newTutorial() {
-  return { on: true, skipped: false, ended: false, rescues: 0, script: 0, sites: 0, elite: null, beats: {} };
+  return { on: true, skipped: false, ended: false, rescues: 0, script: 0, sites: 0, elite: null, beats: {}, ...(GATES.guidedHold ? { fights: 0 } : {}) };
 }
 /** The guide runs: a guided run, not skipped, zone 1 not left. */
 export const guideOn = (s) => !!(s.tutorial && s.tutorial.on && !s.tutorial.skipped && !s.tutorial.ended);
@@ -39,7 +47,6 @@ export const inZone1 = (s) => !!(s.tutorial && s.zone && !s.zone.camp && s.zone.
 /** The guided zone (spec 2.3, E5): zone 1 while the guide is on. */
 export const guidedZone = (s) => guideOn(s) && inZone1(s);
 const table = (s) => s.content.tutorial;
-const scriptIndex = (T, id) => T.scripts.findIndex((x) => x.id === id);
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
 /** Board slot `board.slot` of the guided run (spec 2.3 "Board"): the content's contract, as drawOffer would make it. */
@@ -56,9 +63,37 @@ export function fixBoard(s) {
 }
 
 /**
+ * One shortest path on the zone graph from node `from` to node `to` (hops), as the ids from `to` back to `from`: at each
+ * step back the neighbour one hop nearer `from` with the lowest id (D152, changes-m3-v2.md 2.2; neighbour lists are in id
+ * order).
+ */
+export function shortestPath(zone, from, to) {
+  const d = hops(zone.nodes, from);
+  const out = [to];
+  for (let c = to; c !== from;) {
+    c = zone.nodes[c].nb.find((v) => d[v] === d[c] - 1);
+    out.push(c);
+  }
+  return out;
+}
+
+/**
+ * The guided zone's corridor (D152, changes-m3-v2.md 2.2): the hub, Gorrak's node `el` and one shortest path between them;
+ * the Road nearest `el` (hops; ties: lowest id) and one shortest path from `el` to it. Ids in order. On TUTORIAL_SEED:
+ * 0, 1, 7, 18, 19.
+ */
+export function corridorOf(zone, el) {
+  const d = hops(zone.nodes, el);
+  const road = zone.roads.slice().sort((a, b) => d[a] - d[b] || a - b)[0];
+  return [...new Set([...shortestPath(zone, 0, el), ...shortestPath(zone, el, road)])].sort((a, b) => a - b);
+}
+
+/**
  * Zone 1 of a guided run was generated (nodes.js enterZone, after the contract sites): Gorrak on the Elite node nearest
  * the hub (hops, ties lowest id; alone and never the rare unless the table says so), each Quest and Grind node's own
- * encounter kept (`gen`) so the overlay can be laid on and lifted, then the overlay (refreshOverlay).
+ * encounter kept (`gen`) so the overlay can be laid on and lifted, then the overlay (refreshOverlay). D152 (changes-m3-v2.md
+ * 2.2; GATES.guidedHold): while the guide is on, the corridor is held (zone.hold { ids, release: null, at }) and the
+ * Dimming's schedule is drawn up again without it (the other nodes dim in its place, so the cap counts only them).
  */
 export function setupGuidedZone(s) {
   const zone = s.zone;
@@ -75,6 +110,11 @@ export function setupGuidedZone(s) {
   for (const n of zone.nodes) {
     if (n.type === 'quest') n.gen = { cl: n.cl, mobs: n.mobs.slice(), quest: n.quest };
     else if (n.type === 'grind') n.gen = { cl: n.cl, mobs: n.waves[0].slice() };
+  }
+  if (GATES.guidedHold && el && guideOn(s) && !zone.dimOff) {
+    const ids = corridorOf(zone, el.id);
+    zone.hold = { ids, release: null, at: {} };
+    if (zone.dimBase) zone.dimBase = dimSchedule(zone, new Set(ids));
   }
   refreshOverlay(s);
 }
@@ -94,11 +134,19 @@ function roleOf(s, n) {
   return null;
 }
 
-/** Gorrak's node is barred (D138): in the guided zone until the gate's script has ended (won, fled or rescued). */
+/** Quest and Grind nodes of the zone that are unresolved and not Dimmed now (D152, changes-m3-v2.md 2.1). */
+export const fightNodes = (s) => s.zone.nodes.filter((n) => (n.type === 'quest' || n.type === 'grind') && !n.done && !dimmedNow(s, n.id)).map((n) => n.id);
+/**
+ * Gorrak's node is barred (D138), in the guided zone only. D152 (changes-m3-v2.md 2.1; GATES.guidedHold): until
+ * ONB_ELITE_FIGHTS fights of any kind have ended there (state.tutorial.fights), or no unresolved Quest or Grind node
+ * outside the Dimming is left; once open it stays open (zone.tut.open, refreshOverlay: a rescue's fall-back of the Dimming,
+ * 3.4, never closes it again). Switch off: until ONB_GATE_SCRIPTS scripted fights have ended (won, fled or rescued; D143).
+ */
 export function eliteBarred(s) {
   if (!guidedZone(s)) return false;
-  const T = table(s);
-  return s.tutorial.script < scriptIndex(T, T.elite.gate.afterScript) + 1;
+  if (!GATES.guidedHold) return s.tutorial.script < ONB_GATE_SCRIPTS;
+  if (s.zone.tut && s.zone.tut.open) return false;
+  return (s.tutorial.fights || 0) < ONB_ELITE_FIGHTS && fightNodes(s).length > 0;
 }
 
 /** The Quest and Grind nodes of zone 1 that can play the next script now: unresolved, no held contract's site, not Dimmed. */
@@ -118,7 +166,9 @@ export function roadsClosed(s) {
   if (s.fight && s.fight.tut && s.fight.tut.kind === 'elite') return true;
   const id = s.zone.tut.elite;
   if (s.zone.nodes[id].done || dimmedNow(s, id)) return false;
-  return !eliteBarred(s) || scriptNodes(s).length > 0;
+  // D152 (GATES.guidedHold): a barred node means a Quest or Grind node outside the Dimming is left, and every fight counts,
+  // so the clause reduces to "his node resolved" (changes-m3-v2.md 2.3); it stays as the fallback with the switch off
+  return !eliteBarred(s) || GATES.guidedHold || scriptNodes(s).length > 0;
 }
 /** The Roads of zone 1 are closed now, as TAKE_ROAD and mapView see it (the Road nodes' `closed`, D142). */
 export const roadsShut = (s) => !!(inZone1(s) && s.zone.roads.some((r) => s.zone.nodes[r].closed));
@@ -132,7 +182,9 @@ export function closedRoadsGoal(s) {
   if (!roadsShut(s)) return null;
   const el = s.zone.tut.elite;
   if (!s.zone.nodes[el].barred) return { elite: true, nodes: [el] };
-  const all = scriptNodes(s);
+  // D152 (GATES.guidedHold): any fight counts, so with no script node left (a replayed guide's Cull sites) any Quest or Grind
+  let all = scriptNodes(s);
+  if (!all.length && GATES.guidedHold) all = fightNodes(s);
   const known = all.filter((id) => knowledge(s, s.zone.nodes[id]) !== 'none');
   return { elite: false, nodes: known.length ? known : all };
 }
@@ -150,11 +202,26 @@ export function refreshOverlay(s) {
   const zone = s.zone;
   const T = table(s);
   const el = zone.tut.elite;
+  // D152 (changes-m3-v2.md 2.2): the corridor is released when Gorrak's fight has ended (won, fled or rescued) or the
+  // guide has ended (SKIP_GUIDE, ONB_RESCUE_MAX rescues): node i of the corridor in order of hops from the Shardfall (ties:
+  // lowest id) dims at max(dimAtHops(its hops), tRelease + ONB_HOLD_RELEASE + i) on the Dimming's clock, so the side
+  // nearest the dark goes first and the Road last
+  const H = zone.hold;
+  if (H && H.release === null && (s.tutorial.elite || !guidedZone(s))) {
+    const zt = zoneTime(s);
+    const c = dimClock(zone, zt);
+    H.release = zt;
+    H.ids.slice().sort((a, b) => zone.shardDist[a] - zone.shardDist[b] || a - b)
+      .forEach((id, i) => { H.at[id] = Math.max(dimAtHops(zone.shardDist[id]), c + ONB_HOLD_RELEASE + i); });
+  }
   if (el !== null) {
     const n = zone.nodes[el];
     if (!n.done) n.eliteLevel = clamp(s.player.level, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX);
     if (eliteBarred(s)) n.barred = true;
-    else delete n.barred;
+    else {
+      delete n.barred;
+      if (GATES.guidedHold && guidedZone(s)) zone.tut.open = true; // D152 (2.1, 3.4): open for good
+    }
   }
   for (const n of zone.nodes) {
     if (!n.gen || n.done) continue;
@@ -454,8 +521,12 @@ function trackBeats(s, ev, a) {
   const has = (type, fn) => ev.some((e) => e.t === type && (!fn || fn(e)));
   const now = new Set();
   const op = (id, line, n) => { open(t, ev, id, line, n); now.add(id); };
-  // G1: the start camp; D150 (verdict "stays after the action"): its line waits (null) while a contract is held
-  if (a.type === 'START_RUN' && s.phase === 'PREP') op('G1', 'G1');
+  // G1: the start camp; D150 (verdict "stays after the action"): its line waits (null) while a contract is held. D152
+  // (changes-m3-v2.md 1.2): a lean first run has no board, so G1 and G10 do not fire (closed 'skip')
+  if (a.type === 'START_RUN' && s.phase === 'PREP') {
+    if (!leanFirst(s)) op('G1', 'G1');
+    else for (const id of ['G1', 'G10']) { t.beats[id] = { st: 'skip', line: null, n: 0 }; ev.push({ t: 'beat', id, what: 'skip', line: null }); }
+  }
   if (s.phase === 'PREP' && isOpen(t, 'G1') && !now.has('G1')) setLine(t, ev, 'G1', s.exp.contracts.some((c) => c.state === 'held') ? null : 'G1');
   if (a.type === 'SET_OUT' && isOpen(t, 'G1')) {
     const held = s.exp.contracts.filter((c) => c.state === 'held').length;
@@ -583,7 +654,7 @@ function trackBeats(s, ev, a) {
   // encounter (G12.caught is gone: there was nowhere to walk); once its line has rested and the Roads are open, its line is
   // G12.road (shown once too)
   if (!zone.dimOff && (!fired(t, 'G12') || isOpen(t, 'G12'))) {
-    const front = frontAt(zoneTime(s));
+    const front = frontAt(dimClock(zone, zoneTime(s)));
     const near = front >= 0 && front >= zone.shardDist[zone.pos] - ONB_DIM_NEAR_HOPS;
     if (!fired(t, 'G12')) {
       if (has('dimming', (e) => e.dimmed.length > 0) || near) { op('G12', 'G12'); t.beats.G12.near = near; }
@@ -604,8 +675,11 @@ function trackBeats(s, ev, a) {
   if (!fired(t, 'G2') && zone.pos === 0) op('G2', 'G2');
   const d = hops(zone.nodes, zone.pos);
   const onRoad = zone.nodes[zone.pos].road;
-  const far = !onRoad && Math.min(...zone.roads.map((r) => d[r])) >= ONB_BELL_HOPS && dimAt(zone, zone.pos) - zoneTime(s) <= ONB_BELL_DIM;
-  const line = shut ? (onRoad || far || !zone.nodes[zone.tut.elite].barred ? 'G13.closed' : null) : onRoad ? 'G13.onRoad' : far ? 'G13' : null;
+  // D152 (changes-m3-v2.md 1.2): with the Bell not in hand (bellHidden) the far moment is none and the Road line is
+  // G13.onRoadFirst ("On a Road: take it to the next zone.")
+  const noBell = bellHidden(s);
+  const far = !noBell && !onRoad && Math.min(...zone.roads.map((r) => d[r])) >= ONB_BELL_HOPS && dimAt(zone, zone.pos) - zoneTime(s) <= ONB_BELL_DIM;
+  const line = shut ? (onRoad || far || !zone.nodes[zone.tut.elite].barred ? 'G13.closed' : null) : onRoad ? (noBell ? 'G13.onRoadFirst' : 'G13.onRoad') : far ? 'G13' : null;
   if (!fired(t, 'G13')) { if (line) op('G13', line); }
   else if (isOpen(t, 'G13') && line && (shut || onRoad || !t.beats.G13.line)) setLine(t, ev, 'G13', line);
 }
@@ -614,8 +688,11 @@ function trackBeats(s, ev, a) {
 /**
  * The guided run for the UI, or null in any other run: { on, skipped, ended, guidedZone, script (scripted fights ended),
  * scripts (ONB_SCRIPTED_FIGHTS), next (the next script's id or null), sites (Cull site fights started), eliteNodeId,
- * elite ({ node, enemy, level, barred, afterScript, left (scripted fights until the node opens), outcome (how his fight in
- * the guided zone ended: null, 'victory', 'fled' or 'rescue'; D142) } or null), roads ({ closed (TAKE_ROAD refused on
+ * elite ({ node, enemy, level, barred, fights (D152: fights ended in the guided zone, his own excepted), left (fights until
+ * the node opens: ONB_ELITE_FIGHTS - fights, at least 0; GATES.guidedHold off: ONB_GATE_SCRIPTS - scripted fights; the
+ * barred line's {n}), outcome (how his fight in
+ * the guided zone ended: null, 'victory', 'fled' or 'rescue'; D142) } or null), hold (D152, changes-m3-v2.md 2.2: { ids
+ * (the corridor), released (false while held), release (the zone toll of the release, else null) } or null), roads ({ closed (TAKE_ROAD refused on
  * every Road of zone 1), why ('elite' while closed, else null), node (the node whose fight opens them, else null), line
  * (the content line that says so, 'G13.closed', else null) }; D142), rescues, rescueTolls, rescueMax (ONB_RESCUE_MAX: the
  * rescue that ends the guide, D147; skipped is then true), beat and line (the open beat
@@ -629,7 +706,7 @@ export function tutorialView(s) {
   const T = table(s);
   const zone = inZone1(s) && s.zone.tut ? s.zone : null;
   const eid = zone ? zone.tut.elite : null;
-  const gate = scriptIndex(T, T.elite.gate.afterScript) + 1;
+  const left = GATES.guidedHold ? Math.max(0, ONB_ELITE_FIGHTS - (t.fights || 0)) : Math.max(0, ONB_GATE_SCRIPTS - t.script);
   // a beat the fight's cap holds back shows no line now (held: true), so the UI's fallback cannot show it either
   const openList = ONB_BEAT_PRIORITY.filter((id) => isOpen(t, id)).map((id) => (t.beats[id].line && capped(s, t, id)
     ? { id, line: null, rest: !!t.beats[id].rest, held: true } : { id, line: t.beats[id].line, rest: !!t.beats[id].rest }));
@@ -642,8 +719,9 @@ export function tutorialView(s) {
     eliteNodeId: eid,
     elite: eid === null ? null : {
       node: eid, enemy: T.elite.enemy, level: zone.nodes[eid].eliteLevel, barred: !!zone.nodes[eid].barred,
-      afterScript: T.elite.gate.afterScript, left: Math.max(0, gate - t.script), outcome: t.elite || null,
+      fights: t.fights || 0, left, outcome: t.elite || null,
     },
+    hold: zone && zone.hold ? { ids: zone.hold.ids.slice(), released: zone.hold.release !== null, release: zone.hold.release } : null,
     roads: { closed: shut, why: shut ? 'elite' : null, node: shut ? eid : null, line: shut ? 'G13.closed' : null },
     rescues: t.rescues, rescueTolls: ONB_RESCUE_TOLLS, rescueMax: ONB_RESCUE_MAX,
     beat: cur ? cur.id : null, line: cur ? cur.line : null, open: openList,

@@ -45,7 +45,8 @@
 //       fight (kills, waves) × 1000 rounded, levels from the node's payout after the fight (quest turn-in, wave, dungeon
 //       clear, until the next node) × 1000 rounded]. Levels are fractional: level + xp / xpToNext(level) after minus before.
 //   xz: XP per zone and source in fractional levels × 1000 (same reading): { '<zone>': { kill, wave, quest, contract,
-//       dungeon, story, swift } } (sources the engine's `xp` event names in `why`)
+//       dungeon, story, swift, bounty } } (sources the engine's `xp` event names in `why`; D152: `bounty`, Gorrak's bounty on
+//       a guided first run, which lv counts as his node's payout and ct.xpC leaves out, as it is no contract)
 //   ct: start camp and contracts (prep runs only; expedition.md 2-3, 11.1 B39, B40, B42, B46): { c: per contract taken
 //       [zone, kind, from ('b' board, 'h' hub), state ('c' complete, 'e' expired, 'a' abandoned, 'h' held at the end),
 //       progress, need], xpC (XP of contract rewards), xp (all XP gained), bought (prep options), res (Reserve left),

@@ -9,6 +9,7 @@ import { R, newRunFor } from '../../sim/lib/engine.mjs';
 import { buildProfile } from '../../sim/lib/profiles.mjs';
 import { createBot } from '../../sim/bots/index.mjs';
 import { barGuard, barFingerprint } from '../../sim/lib/policy.mjs';
+import { followsGuide } from '../../sim/lib/runner.mjs';
 
 // D150 (cut list item 15): a profile's first run offers one camp contract; the scenario below was found with the three-offer
 // board, so the run's profile has one run behind it (the board only; the guide is the newRun option)
@@ -82,7 +83,9 @@ describe('bar guard: a bar swap never repeats without a state change', () => {
       const b = createBot('planner', { classId: cls, seed: 1003 });
       for (let n = 0; n < 20000 && s.phase !== 'ENDED'; n++) {
         let a = b.choose(s);
-        if (guided && s.tutorial && !R.isLegal(s, a)) a = R.autoAction(s);
+        // the runner's guided harness (D152, changes-m3-v2.md 5.1: follow the coach line to Gorrak while the Roads are
+        // closed and his node is open; an action the guide refuses is autoplay's)
+        if (guided && s.tutorial && ((s.phase === 'MAP' && followsGuide(s)) || !R.isLegal(s, a))) a = R.autoAction(s);
         R.stepInPlace(s, a);
       }
       assert.equal(s.phase, 'ENDED');

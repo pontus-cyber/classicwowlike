@@ -15,8 +15,9 @@ import { buildProfile } from '../../sim/lib/profiles.mjs';
 
 const on = Object.fromEntries(Object.keys(GATE_DEFAULTS).filter((k) => GATE_DEFAULTS[k]).map((k) => [k, true]));
 const noba = Object.fromEntries(Object.keys(on).filter((k) => k !== 'boardAcrossRun').map((k) => [k, true]));
-// D150 (cut list item 15): a profile's first run offers one camp contract (zone 1); the board across the run is a later run's
-const later = (cls) => ({ ...buildProfile('fresh', cls), runs: 1 });
+// D150 (cut list item 15) and D152 (changes-m3-v2.md 1.2): a profile's first run has no board and its second one zone 1
+// offer; the board across the run is from the third run on
+const later = (cls) => ({ ...buildProfile('fresh', cls), runs: 2 });
 const camp = (cell, seed, max = 400) => runWithBot({ map: 'expedition', prep: true, prof: 'fresh', ...cell }, seed, null, { maxActions: max, hash: true, profile: later(cell.cls) }).record;
 const boardZones = (r) => r.ct.c.filter((k) => k[2] !== 'h').map((k) => k[0]);
 

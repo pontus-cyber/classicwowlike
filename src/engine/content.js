@@ -16,7 +16,8 @@ export const ONB_HINT_COUNT = 37;
  * (a contract kind; region id of its zone; a family of that region), the site fights and ONB_SCRIPTED_FIGHTS scripts
  * (enemies are normals of the zone; windup a boolean; S1's loot a rarity and a consumable; D144: a `quest` a quest of the
  * content), the elite (an elite of the
- * zone with its Deathblow among its abilities; gate.afterScript a script id), the seed equal to C.TUTORIAL_SEED, and
+ * zone with its Deathblow among its abilities; a `gate` object: D152, changes-m3-v2.md 2.1, gate.afterScript is retired
+ * and not read, the node opens after ONB_ELITE_FIGHTS fights), the seed equal to C.TUTORIAL_SEED, and
  * with `beats` / `hints` present the beat ids of ONB_BEATS in order (17 since the D150 follow-up) and 37 hint ids. Levels
  * are constants, not content.
  */
@@ -63,7 +64,7 @@ export function validateTutorial(content) {
   const el = T.elite || {};
   if (!(zn.elites || []).includes(el.enemy)) e(`.elite.enemy: "${el.enemy}" is not an elite of zone ${zone}`);
   else if (el.deathblow !== undefined && !((enemies[el.enemy] && enemies[el.enemy].abilities) || []).includes(el.deathblow)) e(`.elite.deathblow: "${el.deathblow}" is not an ability of ${el.enemy}`);
-  if (!el.gate || !ids.includes(el.gate.afterScript)) e(`.elite.gate.afterScript: "${el.gate && el.gate.afterScript}" is not a script id`);
+  if (!el.gate || typeof el.gate !== 'object') e('.elite.gate: an object { barredLine, openLine }');
   if (T.beats !== undefined && (!Array.isArray(T.beats) || T.beats.map((x) => x && x.id).join() !== ONB_BEATS.join())) e(`.beats: the ${ONB_BEATS.length} beats ${ONB_BEATS[0]}-${ONB_BEATS[ONB_BEATS.length - 1]} in order`);
   if (T.hints !== undefined) {
     const want = Array.from({ length: ONB_HINT_COUNT }, (_, i) => `H${String(i + 1).padStart(2, '0')}`);

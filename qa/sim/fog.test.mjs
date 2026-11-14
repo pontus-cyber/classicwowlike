@@ -9,7 +9,7 @@
 // are scrambled like map decisions.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { R, CONTENT } from '../../sim/lib/engine.mjs';
+import { R, C, CONTENT } from '../../sim/lib/engine.mjs';
 import { createBot } from '../../sim/bots/index.mjs';
 import { oracleMap, plannerHourMult, plannerHeat } from '../../sim/bots/planner.mjs';
 import { runWithBot } from '../../sim/lib/runner.mjs';
@@ -75,13 +75,15 @@ const EXP_META = { quartermaster: 2, cartographer: 1, old_hand: 1 };
 /**
  * Plays one expedition run with `bot` and, at every map decision (and, in a prep run, every start-camp decision and
  * every hub decision while a hub contract is on offer), compares the bot's choice on the state and on scrambled
- * copies. opts: { prep, expMeta (profile unlocks of expedition.md 8.2), vision, profile }. Returns { decisions,
- * oracleChanged, prepDecisions, hubDecisions, hiddenSites (scrambles that moved an unseen site mark), siteStates }.
+ * copies. opts: { prep, expMeta (profile unlocks of expedition.md 8.2), vision, profile, runs (the profile's runs played;
+ * D152: a first run has no contracts, so the prep cases play a later run) }. Returns { decisions, oracleChanged,
+ * prepDecisions, hubDecisions, hiddenSites (scrambles that moved an unseen site mark), siteStates }.
  */
 function leakCheck(botName, cls, seed, prof = 'fresh', maxDecisions = 400, opts = {}) {
   const mk = () => createBot(botName, { classId: cls, seed, risk, tree: 0 });
   const bot = mk();
   const profile = withExpMeta(buildProfile(prof, cls), opts.expMeta || null);
+  if (opts.runs !== undefined) profile.runs = opts.runs;
   const s = newRunFor({ classId: cls, petId: cls === 'hunter' ? SIM.DEFAULT_PET : null, seed, mapMode: 'expedition', profile, prep: !!opts.prep, vision: opts.vision || null });
   const r = { decisions: 0, oracleChanged: 0, prepDecisions: 0, hubDecisions: 0, hiddenSites: 0, siteStates: 0 };
   let steps = 0;
@@ -185,7 +187,8 @@ test('leak test with the start camp and contracts: prep, hub and map decisions o
   ];
   const per = {};
   for (const [bot, cls, seed, prof, max, o] of cases) {
-    const r = leakCheck(bot, cls, seed, prof, max, { ...o, prep: true });
+    // D152 (changes-m3-v2.md 1.2): a profile's first run has no board, hub contract or vision perk: a third run here
+    const r = leakCheck(bot, cls, seed, prof, max, { runs: 2, ...o, prep: true });
     per[bot] = (per[bot] || 0) + r.decisions + r.prepDecisions + r.hubDecisions;
     for (const k of Object.keys(tot)) tot[k] += r[k];
   }
@@ -205,7 +208,8 @@ test('site value: the planner steers by the site marks it sees (power check of t
   let changed = 0;
   for (const [cls, seed] of [['rogue', 1000], ['mage', 1001], ['hunter', 1006]]) {
     const bot = createBot('planner', { classId: cls, seed, risk, tree: 0 });
-    const s = newRunFor({ classId: cls, petId: cls === 'hunter' ? SIM.DEFAULT_PET : null, seed, mapMode: 'expedition', prep: true });
+    // D152: a profile's third run (a first run has no board)
+    const s = newRunFor({ classId: cls, petId: cls === 'hunter' ? SIM.DEFAULT_PET : null, seed, mapMode: 'expedition', prep: true, profile: { ...buildProfile('fresh', cls), runs: 2 } });
     if (cls === 'hunter') R.stepInPlace(s, { type: 'SELECT_PET', petId: SIM.DEFAULT_PET });
     R.stepInPlace(s, { type: 'START_RUN' });
     // A start camp with contracts in zones 1-2 (the planner's own prep may hold later zones), so zone 1 has sites.
@@ -230,14 +234,19 @@ test('site value: the planner steers by the site marks it sees (power check of t
   assert.ok(changed > 0, `the site term changes decisions (${changed} of ${n})`);
 });
 
-test('prep runs end without errors for every bot and record the contracts; --prep-policy none keeps every point', () => {
+test('prep runs end without errors for every bot and record the contracts; --prep-policy none keeps every point; D152: P0 plays the lean first run', () => {
+  const third = (cls) => ({ profile: { ...buildProfile('fresh', cls), runs: 2 } });
   for (const bot of ['random', 'greedy', 'planner', 'speedrunner']) {
-    const { record } = runWithBot({ bot, cls: 'hunter', prof: 'fresh', tree: 0, map: 'expedition', prep: true }, 1010, null, {});
+    const { record } = runWithBot({ bot, cls: 'hunter', prof: 'fresh', tree: 0, map: 'expedition', prep: true }, 1010, null, third('hunter'));
     assert.equal(record.err, null, `${bot}: ${record.err}`);
     assert.ok(record.ct && Array.isArray(record.ct.c), `${bot}: contract block recorded`);
     assert.ok(record.ct.xp >= record.ct.xpC, `${bot}: contract XP within all XP`);
+    // P0 (runs 0): the first run, no contract, only supplies; every point spent or worth Echoes
+    const first = runWithBot({ bot, cls: 'hunter', prof: 'fresh', tree: 0, map: 'expedition', prep: true }, 1010, null, {}).record;
+    assert.equal(first.err, null, `${bot} first run: ${first.err}`);
+    assert.deepEqual([first.ct.c.length, first.ct.bought.every((id) => C.PREP_OPTION[id].kind === 'supply')], [0, true], `${bot}: the first run's camp`);
   }
-  const none = runWithBot({ bot: 'planner', cls: 'mage', prof: 'fresh', tree: 0, map: 'expedition', prep: true, prepPolicy: 'none' }, 1010, null, {}).record;
+  const none = runWithBot({ bot: 'planner', cls: 'mage', prof: 'fresh', tree: 0, map: 'expedition', prep: true, prepPolicy: 'none' }, 1010, null, third('mage')).record;
   assert.equal(none.err, null);
   assert.equal(none.ct.c.filter((k) => k[2] === 'b').length, 0, 'no board contract with prep none');
   assert.deepEqual(none.ct.bought, []);

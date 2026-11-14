@@ -4,22 +4,30 @@
 // with the contract and Dimmed-encounter tables of sim/out/pass-v12/exp/table/planner-P0-exp-prep/risk.json, merged as
 // sim/run.mjs --risk-in --tables-in does). Before D147 the run stayed in phase NODE until the action cap: a rescue landed
 // on a Dimmed node, the settle step started a Dimmed encounter at once, and a death there was a rescue to the same node.
-// Now the run ends, and every rescue lands with no fight started, one of them on a Dimmed node.
-import { test } from 'node:test';
+// Now the run ends, and every rescue lands with no fight started, one of them on a Dimmed node. D152 (changes-m3-v2.md):
+// the lean first run, the guided hold and the steady Dimming change this run (no rescue at all on it), so the regression
+// plays the five D152 switches off (cell gates), the game the case was found in.
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { R, C, newRunFor } from '../../sim/lib/engine.mjs';
+import { R, C, newRunFor, GATE_DEFAULTS } from '../../sim/lib/engine.mjs';
 import { buildProfile } from '../../sim/lib/profiles.mjs';
-import { runWithBot, cellPet } from '../../sim/lib/runner.mjs';
+import { runWithBot, cellPet, setGates } from '../../sim/lib/runner.mjs';
 import { buildTable } from '../../sim/lib/risk.mjs';
 import { slot1Tree } from '../../sim/bots/onebutton.mjs';
+
+// the cell's gates stay set after runWithBot: back to the engine's defaults for the files that run after this one
+after(() => setGates(null));
 
 const OBS = JSON.parse(readFileSync(new URL('../fixtures/x0-hunter.json', import.meta.url), 'utf8'));
 
 test('D147: guided onebutton Hunter, seed 1000, zone 1 lever, X0 tables: the run ends; each rescue starts no fight, one lands on a Dimmed node', () => {
-  const cell = { bot: 'onebutton', prof: 'fresh', cls: 'hunter', tree: slot1Tree('hunter'), map: 'expedition', prep: true, guided: true };
+  const D152 = ['firstRunLean', 'gorrakBounty', 'guidedHold', 'steadyDim', 'rescueDim'];
+  const gates = Object.fromEntries(Object.keys(GATE_DEFAULTS).filter((k) => GATE_DEFAULTS[k] && !D152.includes(k)).map((k) => [k, true]));
+  const cell = { bot: 'onebutton', prof: 'fresh', cls: 'hunter', tree: slot1Tree('hunter'), map: 'expedition', prep: true, guided: true, gates };
   const { record, state } = runWithBot(cell, 1000, buildTable(structuredClone(OBS)), { log: true });
-  assert.equal(C.GATES.z1Dmg, true, 'the lever is on (the cell plays the engine defaults)');
+  assert.equal(C.GATES.z1Dmg, true, 'the lever is on');
+  assert.deepEqual(D152.map((k) => C.GATES[k]), D152.map(() => false), 'the D152 switches off');
   assert.equal(record.err, null);
   assert.equal(state.phase, 'ENDED');
   assert.ok(record.steps < 2000, `${record.steps} actions`);

@@ -10,7 +10,11 @@
 // grants the Swift passage XP (takeRoad). M3 guided run (docs/specs/m3-onboarding.md 2.3, 2.6; tutorial.js): zone 1's
 // streams on TUTORIAL_SEED (zoneSeed), the overlay set up when zone 1 is generated, the overlay's fights and S1's loot,
 // and the rescue (a death in the guided zone: back to the last node, full health, ONB_RESCUE_TOLLS; D147: no fight
-// started where it lands, and the ONB_RESCUE_MAX-th rescue ends the guide).
+// started where it lands, and the ONB_RESCUE_MAX-th rescue ends the guide). D152 (docs/specs/changes-m3-v2.md, D151): the
+// `dimming` event from the node's dimAt (the steady Dimming and the held corridor, 3.2, 2.2), the rescue's pause and
+// fall-back of the Dimming (3.4, GATES.rescueDim: event `dimBack`), the depth of a Dimmed encounter by its time in the dark
+// (3.3), every fight of the guided zone counted for Gorrak's return (2.1, GATES.guidedHold) and Gorrak's bounty on a lean
+// first run (1.4, GATES.gorrakBounty: event `bounty`).
 import {
   CLASS, PET, SPELL, META, SLOT_IDS, START_GOLD, START_RATIONS, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, ZONE_COUNT,
   ZONE_LEVELS, ZONE_CHOICE_ROWS, TIME_REST, TIME_VENDOR, TIME_TRAINER, TIME_TRAVEL, QUEST_TURNIN_XP_FRAC, QUEST_GOLD_V,
@@ -20,7 +24,7 @@ import {
   MAX_LEVEL, TRAIN_NEW_V, TRAIN_RANK_V, TRAVEL_EARLY_LEVELS,
   RESPEC_V, CONSUMABLE, ELIXIR_NODES, RES_META_CHARGES, BOSS_LEVEL, UNIQUE_POTION_PCT, TIME_WALK, DIM_PACK_SIZE,
   DIM_LEVEL_PER_DEPTH, BELL_START_CHARGES, BELL_MAX_CHARGES, BELL_CHANNEL_TIME, TRACKER_RADIUS, ROAD_SWIFT_TOLLS,
-  ONB_RESCUE_TOLLS,
+  ONB_RESCUE_TOLLS, GATES, DIM_FRONT_HOPS, DIM_RESCUE_MAX_SHARE,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt } from '../rng.js';
 import { rnd, frac6, deepClone } from './util.js';
@@ -37,10 +41,11 @@ import { makeBoss } from './boss.js';
 import { ascOver, newHeatStats, heatTime, heatZoneEntered, heatNodeEntered, heatFightWon } from './heat.js';
 import {
   isExpedition, grindMaxWaves, xpWeight, nodeTime, generateExpZone, refreshVision, zoneTime, frontAt, dimmedNow,
-  visionKit, canEnter, roadNameOf, outwardStep, dimFightTime, swiftXp, zoneSeed,
+  visionKit, canEnter, roadNameOf, outwardStep, dimFightTime, swiftXp, zoneSeed, dimAt, dimmedAt, dimClock, frontTime,
+  leanFirst,
 } from './expedition.js';
-import { newPrep, applySetOut, contractsAtZone, siteWon, expireContracts, ownedPerks } from './contracts.js';
-import { newTutorial, setupGuidedZone, fightOverlay, overlayFightEnd, rescueTarget, rescueCap } from './tutorial.js';
+import { newPrep, applySetOut, contractsAtZone, siteWon, expireContracts, ownedPerks, bountyReward } from './contracts.js';
+import { newTutorial, setupGuidedZone, fightOverlay, overlayFightEnd, rescueTarget, rescueCap, guidedZone } from './tutorial.js';
 
 // ---------------- Meta at run start (rules 11.4) ----------------
 /**
@@ -190,7 +195,10 @@ export function addTime(s, ev, t, why) {
 /**
  * Expedition (rules 1.9.6): tolls in a zone move the Dimming. A `dimming` event lists the nodes the front newly covers
  * (every node by its hops, the Dungeon too since M2b v12). Tolls other than a Dimmed encounter's own mark the step for
- * the settle check (settleExpedition).
+ * the settle check (settleExpedition). D152 (changes-m3-v2.md): with a schedule or a held corridor (zone.dimBase,
+ * zone.hold; 3.2, 2.2) the event lists the nodes whose dimAt falls in (zt - t, zt], when there are any. A guided rescue's
+ * tolls (why 'rescue', GATES.rescueDim; 3.4) do not move the Dimming: zone.dimShift grows by them, then by one toll at a
+ * time while more than DIM_RESCUE_MAX_SHARE of the zone's nodes are Dimmed (event `dimBack` { tolls } when it fell back).
  */
 function dimmingAfterTime(s, ev, t, why) {
   if (why === 'travel') return; // on the Road: the zone is left
@@ -198,8 +206,22 @@ function dimmingAfterTime(s, ev, t, why) {
   const zt = zoneTime(s);
   if (why !== 'dim') s.exp.pending = true;
   if (zone.dimOff) return; // a run without the Dimming (newRun option dimming: false, D50)
-  const before = frontAt(zt - t);
-  const now = frontAt(zt);
+  if (why === 'rescue' && GATES.rescueDim) {
+    zone.dimShift = (zone.dimShift || 0) + t;
+    const cap = Math.floor(DIM_RESCUE_MAX_SHARE * zone.nodes.length);
+    let back = 0;
+    while (zone.nodes.filter((n) => dimmedAt(zone, n.id, zt)).length > cap) { zone.dimShift += 1; back += 1; }
+    if (back) ev.push({ t: 'dimBack', tolls: back });
+    return;
+  }
+  if (zone.dimBase || zone.hold) {
+    const dimmed = zone.nodes.filter((n) => { const at = dimAt(zone, n.id); return at > zt - t && at <= zt; }).map((n) => n.id);
+    if (dimmed.length) ev.push({ t: 'dimming', front: frontAt(dimClock(zone, zt)), dimmed });
+    return;
+  }
+  const c = dimClock(zone, zt);
+  const before = frontAt(c - t);
+  const now = frontAt(c);
   if (now > before) {
     const dimmed = zone.nodes.filter((n) => zone.shardDist[n.id] > before && zone.shardDist[n.id] <= now).map((n) => n.id);
     ev.push({ t: 'dimming', front: now, dimmed });
@@ -540,17 +562,30 @@ export function passThrough(s, ev, id) {
 }
 
 /**
+ * Depth of a Dimmed encounter at node id now (rules 1.9.6). D152 (changes-m3-v2.md 3.3; GATES.steadyDim, and a corridor
+ * node of the guided zone in any arm): the time since the node dimmed, max(0, floor(DIM_FRONT_HOPS × (zt - dimAt) /
+ * DIM_FRONT_TIME)): 0 at the edge, +1 every 2 tolls (with the cap a node can dim later than its hops say). Otherwise the
+ * front less the hops from the Shardfall, on the Dimming's clock (dimClock).
+ */
+export function dimDepth(s, id) {
+  const zone = s.zone;
+  const zt = zoneTime(s);
+  if (GATES.steadyDim || (zone.hold && zone.hold.ids.includes(id))) return Math.max(0, Math.floor((DIM_FRONT_HOPS * (zt - dimAt(zone, id))) / frontTime()));
+  return frontAt(dimClock(zone, zt)) - zone.shardDist[id];
+}
+
+/**
  * Dimmed encounter (rules 1.9.6) at node id: DIM_PACK_SIZE of the zone's normal templates (stream dim(z, id, n), n =
  * Dimmed encounters at this node so far; composition repair 7.14), variant shardspawn, level min(MAX_LEVEL, max(CL, L)
- * + DIM_LEVEL_PER_DEPTH × depth), depth = front - hops from the Shardfall. TIME_DIM_FIGHT, or TIME_DIM_ESCAPE when
- * `escape` (the settle step after a MOVE that walked farther from the Shardfall, M2b v12, D101); fought in phase NODE as
- * node type `dim`; the node is not resolved by it.
+ * + DIM_LEVEL_PER_DEPTH × depth), depth by dimDepth (D152: by the node's time in the dark; before, front - hops from the
+ * Shardfall). TIME_DIM_FIGHT, or TIME_DIM_ESCAPE when `escape` (the settle step after a MOVE that walked farther from the
+ * Shardfall, M2b v12, D101); fought in phase NODE as node type `dim`; the node is not resolved by it.
  */
 export function startDimEncounter(s, ev, id, escape = false) {
   const zone = s.zone;
   const z = zone.z;
   const def = zone.nodes[id];
-  const depth = frontAt(zoneTime(s)) - zone.shardDist[id];
+  const depth = dimDepth(s, id);
   const level = Math.min(MAX_LEVEL, Math.max(def.cl, s.player.level) + DIM_LEVEL_PER_DEPTH * depth);
   const k = zone.dimN[id];
   zone.dimN[id] = k + 1;
@@ -704,6 +739,10 @@ export function finishFight(s, ev) {
     s.stats.bossHpPct = frac6(f.enemies[0].hp / f.enemies[0].maxHp);
   }
   const { outcome, drops: lost } = endFight(s, ev);
+  // D152 (changes-m3-v2.md 2.1; GATES.guidedHold): every fight that ends in the guided zone (won, fled or rescued), Gorrak's
+  // own excepted, counts towards his return (tutorial.js eliteBarred); a dev tool's fight does not
+  if (GATES.guidedHold && s.tutorial && outcome !== 'death' && kind !== 'boss' && kind !== 'camp' && guidedZone(s)
+    && !(f.tut && f.tut.kind === 'elite') && !(s.node && s.node.type === 'dev')) s.tutorial.fights = (s.tutorial.fights || 0) + 1;
   if (outcome === 'death') { endRun(s, ev, 'death'); return; }
   if (outcome === 'rescue') { rescueEnd(s, ev, f); return; }
   const drops = f.tut ? overlayFightEnd(s, f, outcome, lost) : lost; // M3: a script ended; S1's fixed loot
@@ -750,7 +789,10 @@ export function finishFight(s, ev) {
     if (!sets.length && n.wavesDone < n.planned) n.stage = 'between';
     else done(sets);
   } else if (kind === 'elite') {
-    done(sites());
+    // D152 (changes-m3-v2.md 1.4; GATES.gorrakBounty): Gorrak's victory in the guided zone of a lean first run pays the
+    // reward the guided Cull paid (contracts.js bountyReward: XP, gold, the item choice first in the reward stage)
+    const bounty = GATES.gorrakBounty && leanFirst(s) && f.tut && f.tut.kind === 'elite' && guidedZone(s) ? [bountyReward(s, ev)] : [];
+    done([...bounty, ...sites()]);
   } else if (kind === 'trash') {
     n.stage = 'between';
   } else if (kind === 'dboss') {
@@ -776,6 +818,8 @@ export function finishFight(s, ev) {
  * the ONB_RESCUE_MAX-th rescue ends the guide (tutorial.js rescueCap), so a later death is a normal one.
  */
 function rescueEnd(s, ev, f) {
+  // D152 (changes-m3-v2.md 3.4; GATES.rescueDim): the rescue's tolls below do not move the Dimming and it may fall back
+  // (dimmingAfterTime, why 'rescue')
   const p = s.player;
   const zone = s.zone;
   const { to } = rescueTarget(s);

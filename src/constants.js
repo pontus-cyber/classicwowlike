@@ -449,8 +449,21 @@ export const RARE_HP_MULT_Z1 = 3.0;
  * before D146 (three-enemy quests from its ring 1).
  * D147 (changes-m3-v1.md row 1, draft: zone 1 asks for care): z1Dmg: template enemies of level <= Z1_DMG_MAX_LEVEL deal
  * × Z1_DMG_MULT on top of the early factor (rules 7.6, both maps). **On**; off plays every enemy as before D147.
+ * D152 (changes-m3-v2.md, D151; each **on**, off plays the rule before D151):
+ * - firstRunLean (1.2-1.3): a profile's first run with the start camp (profile.runs 0) has no contracts, Reserve, hub
+ *   offers or vision perks, PREP_POINTS_FIRST points and, in zone 1, no Homeward Bell; the second run's board is
+ *   CONTRACT_BOARD_FIRST_BANDS, later boards CONTRACT_BOARD_SIZE. Off: the D150 first-run board (one zone 1 offer).
+ * - gorrakBounty (1.4): on such a first run, Gorrak's victory in the guided zone pays the guided Cull's reward (needs
+ *   firstRunLean: the bounty stands in for the Cull that the lean first run removes).
+ * - guidedHold (2.1-2.2): Gorrak's node opens after ONB_ELITE_FIGHTS fights of any kind (or when no Quest or Grind node
+ *   outside the Dimming is left), and the corridor (hub, Gorrak, the Road nearest him and the paths) is held from the
+ *   Dimming until his fight or the guide ends. Off: the D143 gate after ONB_GATE_SCRIPTS scripted fights, no corridor.
+ * - steadyDim (3.2-3.3): the Dimming's fixed order with at most DIM_MAX_PER_TOLL nodes a toll, the front's pace
+ *   DIM_FRONT_TIME (off: DIM_FRONT_TIME_NOCAP), the depth of a Dimmed encounter by its time in the dark, the panel data.
+ * - rescueDim (3.4): a guided rescue's tolls do not move the Dimming, and it falls back to at most DIM_RESCUE_MAX_SHARE
+ *   of the zone Dimmed.
  */
-export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true, rewardPrimary: true, zone2InnerCap: true, z1Dmg: true };
+export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true, rewardPrimary: true, zone2InnerCap: true, z1Dmg: true, firstRunLean: true, gorrakBounty: true, guidedHold: true, steadyDim: true, rescueDim: true };
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
 // with mapMode 'expedition'; a run on today's map (mapMode 'rows', the default) never reads them.
 /** rules 1.9.2: nodes per ring (ring 0 = the hub). */
@@ -483,9 +496,25 @@ export const GUIDE_RADIUS_BONUS = 1;
 export const PATHFINDER_RADIUS = 2;
 /** rules 1.9.6: zone tolls before the Dimming starts. */
 export const DIM_GRACE = 6;
-/** rules 1.9.6 (M2b v7, D70: replaces DIM_HOURS_PER_HOP 2.5): the Dimming's front advances DIM_FRONT_HOPS hops every DIM_FRONT_TIME zone tolls. */
+/**
+ * rules 1.9.6 (M2b v7, D70: replaces DIM_HOURS_PER_HOP 2.5): the Dimming's front advances DIM_FRONT_HOPS hops every
+ * DIM_FRONT_TIME zone tolls, the earliest pace a node can dim at (D152, changes-m3-v2.md 3.2: 4, was 5, so the capped
+ * Dimming keeps the clock's length; also the depth step of 3.3). DIM_FRONT_TIME_NOCAP: the pace while GATES.steadyDim is
+ * off (the front before D151, no cap).
+ */
 export const DIM_FRONT_HOPS = 2;
-export const DIM_FRONT_TIME = 5;
+export const DIM_FRONT_TIME = 4;
+export const DIM_FRONT_TIME_NOCAP = 5;
+/**
+ * rules 1.9.6 (D152, changes-m3-v2.md 3.2; GATES.steadyDim): nodes that dim in one toll, at most (the corridor's release
+ * can add one, 2.2). The Dimming takes the zone's nodes in a fixed order (hops from the Shardfall, angle from it, id).
+ */
+export const DIM_MAX_PER_TOLL = 2;
+/**
+ * rules 1.9.6 (D152, changes-m3-v2.md 3.4; GATES.rescueDim): share of the zone's nodes Dimmed, at most, after a guided
+ * rescue (the Dimming falls back toll by toll to floor(share × nodes): 15 of 31).
+ */
+export const DIM_RESCUE_MAX_SHARE = 0.5;
 /** rules 1.9.6: enemies in a Dimmed encounter. */
 export const DIM_PACK_SIZE = 2;
 /** rules 1.9.6: levels per hop of depth in the Dimming. */
@@ -540,6 +569,11 @@ export const EXPED_DUNGEON_BOSS_DROPS = 3;
 /** expedition.md 2.1: preparation points of a fresh profile, and per Quartermaster rank (meta). */
 export const PREP_POINTS = 10;
 export const PREP_POINTS_PER_QM = 2;
+/**
+ * expedition.md 2.1 (D152, changes-m3-v2.md 1.3; GATES.firstRunLean): preparation points of a profile's first run (=
+ * PRICE_PREP_DRAUGHTS + PRICE_PREP_EMBER: both supplies spend every point). Points left pay PREP_ECHO_PER_POINT Echoes.
+ */
+export const PREP_POINTS_FIRST = 5;
 /** expedition.md 8.2, 13 (meta, M2b v11 build): costs of the expedition catalogue entries Cartographer, Old Hand and Quartermaster's two ranks. */
 export const META_COST_CARTOGRAPHER = 100;
 export const META_COST_OLD_HAND = 150;
@@ -561,9 +595,10 @@ export const CONTRACT_BOARD_SIZE = 3;
  */
 export const CONTRACT_BOARD_BANDS = [[1, 2], [3, 4], [5, 6]];
 /**
- * expedition.md 2.2 (D150, cut list item 15, owner-approved; draft until measured): the board on a profile's first run (no
- * run completed on it: profile.runs 0): one offer per band here, so one contract of zone 1. Later runs keep
- * CONTRACT_BOARD_SIZE offers from CONTRACT_BOARD_BANDS.
+ * expedition.md 2.2 (D150, cut list item 15, owner-approved): one offer per band here, so one contract of zone 1. D152
+ * (changes-m3-v2.md 1.2; GATES.firstRunLean): the board of a profile's second run (profile.runs 1); the first run has no
+ * board, from the third run (runs >= 2) the board is CONTRACT_BOARD_SIZE offers from CONTRACT_BOARD_BANDS. Switch off: the
+ * board of the first run (runs 0), as D150 built it.
  */
 export const CONTRACT_BOARD_FIRST_BANDS = [[1, 1]];
 /** expedition.md 2.2, 3.5: contracts held at once (PREP and hubs together). */
@@ -679,8 +714,8 @@ export const REGION_W = {
 };
 /** Region kinds in order: a zone without content regions has one region of each kind, in this order (rules 1.9.2). */
 export const REGION_KINDS = ['wilds', 'road', 'haunt', 'steads'];
-/** Text ids of the content group texts.expedition (D51; rules 1.9.5-1.9.7): the Shardfall, Shardspawn, the Dimming, the Bell. */
-export const EXPEDITION_TEXT_IDS = ['shardfall', 'shardspawn', 'dimming', 'homeward_bell'];
+/** Text ids of the content group texts.expedition (D51; rules 1.9.5-1.9.7): the Shardfall, Shardspawn, the Dimming, the Bell; D152 (changes-m3-v2.md 3.3): the steady Dimming's pace line. */
+export const EXPEDITION_TEXT_IDS = ['shardfall', 'shardspawn', 'dimming', 'homeward_bell', 'dimming_pace'];
 /** rules 1.9.2: no Elite, Vendor or Trainer in ring 1. */
 export const RING1_FORBIDDEN = ['elite', 'vendor', 'trainer'];
 
@@ -1302,6 +1337,21 @@ export const ONB_ELITE_LEVEL_MIN = 4;
 export const ONB_ELITE_LEVEL_MAX = 6;
 /** Tolls a rescue costs (spec 2.6). */
 export const ONB_RESCUE_TOLLS = 2;
+/**
+ * Fights of any kind in the guided zone (won, fled or rescued; Gorrak's own excepted) before Gorrak's node opens (D152,
+ * changes-m3-v2.md 2.1; GATES.guidedHold). It opens at once when no Quest or Grind node outside the Dimming is left.
+ */
+export const ONB_ELITE_FIGHTS = 3;
+/**
+ * Scripted fights (S1-S3) that open Gorrak's node while GATES.guidedHold is off: the D143 gate (content
+ * elite.gate.afterScript 's3', retired by D152).
+ */
+export const ONB_GATE_SCRIPTS = 3;
+/**
+ * Tolls after Gorrak's fight (or the guide's end) before the first corridor node can dim; then one node a toll, nearest
+ * the Shardfall first (D152, changes-m3-v2.md 2.2; GATES.guidedHold).
+ */
+export const ONB_HOLD_RELEASE = 3;
 /**
  * Rescues after which the guide ends (spec 2.6; D147, draft): the ONB_RESCUE_MAX-th rescue still pulls the player back,
  * then the guide ends as SKIP_GUIDE does, so a later death is a normal one.

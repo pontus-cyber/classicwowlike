@@ -184,8 +184,8 @@ describe('change doc M2b v15 (docs/specs/changes-m2b-v15.md, D123-D125): the eng
     assert.equal(value(maw[1]), 0.95);
     assert.deepEqual(Object.keys(ENEMIES).filter((id) => 'gated' in ENEMIES[id]), []);
   });
-  test('C.GATES: the v14 switches, the v15 swiftRoad (off since D126), campReroll (D128, off), boardAcrossRun (D132, on), autoEmberFirst (D133, on), rewardPrimary (D144, on), zone2InnerCap (D146, on) and z1Dmg (D147, on), nothing else (mawgrimHp removed)', () => {
-    assert.deepEqual(Object.keys(K.GATES).sort(), ['autoEmberFirst', 'boardAcrossRun', 'campReroll', 'firstMeetWindup', 'passStealth', 'rareHpMultZ1', 'rewardPrimary', 'sapHold', 'swiftRoad', 'z1Dmg', 'zone2InnerCap']);
+  test('C.GATES: the v14 switches, the v15 swiftRoad (off since D126), campReroll (D128, off), boardAcrossRun (D132, on), autoEmberFirst (D133, on), rewardPrimary (D144, on), zone2InnerCap (D146, on), z1Dmg (D147, on) and the five of D152 (on), nothing else (mawgrimHp removed)', () => {
+    assert.deepEqual(Object.keys(K.GATES).sort(), ['autoEmberFirst', 'boardAcrossRun', 'campReroll', 'firstMeetWindup', 'firstRunLean', 'gorrakBounty', 'guidedHold', 'passStealth', 'rareHpMultZ1', 'rescueDim', 'rewardPrimary', 'sapHold', 'steadyDim', 'swiftRoad', 'z1Dmg', 'zone2InnerCap']);
     assert.equal(K.GATES.rewardPrimary, true);
     assert.equal(K.GATES.zone2InnerCap, true);
     assert.equal(K.GATES.z1Dmg, true);
@@ -207,6 +207,24 @@ describe('change doc M3 v1 (docs/specs/changes-m3-v1.md, D147): the engine const
     }
     assert.equal(K.GATES.z1Dmg, true);
     assert.match(text, /\*\*implemented\*\* 2026-11-14/);
+  });
+});
+
+describe('change doc M3 v2 (docs/specs/changes-m3-v2.md, D151, D152): the engine constants equal its constant table', () => {
+  const text = readFileSync(fileURLToPath(new URL('../../docs/specs/changes-m3-v2.md', import.meta.url)), 'utf8');
+  const table = rows(text.slice(text.indexOf('## 8. Constant table')));
+  test('section 8: PREP_POINTS_FIRST, ONB_ELITE_FIGHTS, ONB_HOLD_RELEASE, DIM_MAX_PER_TOLL, DIM_FRONT_TIME (4, was 5: DIM_FRONT_TIME_NOCAP), DIM_RESCUE_MAX_SHARE, CONTRACT_BOARD_FIRST_BANDS; elite.gate.afterScript retired; the five switches of D152 on', () => {
+    for (const name of ['PREP_POINTS_FIRST', 'ONB_ELITE_FIGHTS', 'ONB_HOLD_RELEASE', 'DIM_MAX_PER_TOLL', 'DIM_FRONT_TIME', 'DIM_RESCUE_MAX_SHARE']) {
+      const r = table.find((x) => x[0] === name);
+      assert.ok(r, `no row ${name}`);
+      assert.equal(K[name], Number(r[1].split(/\s/)[0]), name);
+    }
+    assert.match(table.find((x) => x[0] === 'DIM_FRONT_TIME')[1], /was 5/);
+    assert.equal(K.DIM_FRONT_TIME_NOCAP, 5);
+    assert.deepEqual(K.CONTRACT_BOARD_FIRST_BANDS, JSON.parse(table.find((x) => x[0] === 'CONTRACT_BOARD_FIRST_BANDS')[1].split(' (')[0]));
+    assert.equal(table.find((x) => x[0] === '`elite.gate.afterScript`')[1], 'retired');
+    assert.equal(K.PREP_POINTS_FIRST, K.PRICE_PREP_DRAUGHTS + K.PRICE_PREP_EMBER, '= Field Draughts + Ember of Return');
+    for (const g of ['firstRunLean', 'gorrakBounty', 'guidedHold', 'steadyDim', 'rescueDim']) assert.equal(K.GATES[g], true, g);
   });
 });
 

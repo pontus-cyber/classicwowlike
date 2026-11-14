@@ -9,20 +9,25 @@
 // REROLL_BOARD only with GATES.campReroll (off), and the camp offers only PREP_CAMP_OPTIONS (the other options keep their
 // rules but cannot be bought). D132: the offers are drawn across the run, one from each band of CONTRACT_BOARD_BANDS
 // (zones 1-2, 3-4, 5-6) while GATES.boardAcrossRun is on (the default); off, zones 1-3 (D128). Pure helpers of the state; nodes.js calls
-// them from the run flow, actions.js checks legality. M3 guided run (tutorial.js fixBoard): board slot 1 is fixed. Only a run created with newRun({ mapMode: 'expedition', prep: true })
-// uses it; a rows run, or an expedition run without the option, never does.
+// them from the run flow, actions.js checks legality. M3 guided run (tutorial.js fixBoard): board slot 1 is fixed. D152
+// (docs/specs/changes-m3-v2.md 1, D151; GATES.firstRunLean): a profile's first run is lean (expedition.js leanFirst): no
+// board, Reserve, hub contract, contract tracker or vision perk, PREP_POINTS_FIRST points, the unspent ones worth Echoes
+// (prepView `first`, `unspent`); the second run's board is CONTRACT_BOARD_FIRST_BANDS (one zone 1 offer), from the third
+// run CONTRACT_BOARD_SIZE; and (1.4, GATES.gorrakBounty) Gorrak's bounty pays the guided Cull's reward (bountyReward).
+// Only a run created with newRun({ mapMode: 'expedition', prep: true }) uses it; a rows run, or an expedition run without
+// the option, never does.
 import {
   ZONE_COUNT, ZONE_LEVELS, PREP_POINTS, PREP_POINTS_PER_QM, PREP_ECHO_PER_POINT, CONTRACT_BOARD_SIZE, CONTRACT_BOARD_BANDS, CONTRACT_BOARD_FIRST_BANDS,
   CONTRACT_SLOTS,  REROLL_PRICE, REROLL_MAX, CULL_SITES, CULL_SITE_SPARE, CULL_SITE_IN, CULL_SITE_OUT, BOUNTY_PLACED,
   CONTRACT_CL_OFFSET, PREP_OPTION, PREP_OPTION_IDS, PREP_CAMP_OPTIONS, CONTRACT, CONTRACT_KINDS, META, BELL_MAX_CHARGES,
-  GUIDE_RADIUS_BONUS, TRACKER_RADIUS, EMBER_MAX_CARRIED, XP_WEIGHT_MULT, DROP_TABLE, RARITY_ORDER, GATES,
+  GUIDE_RADIUS_BONUS, TRACKER_RADIUS, EMBER_MAX_CARRIED, XP_WEIGHT_MULT, DROP_TABLE, RARITY_ORDER, GATES, PREP_POINTS_FIRST,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt, weightedIndex } from '../rng.js';
 import { zoneContent } from './content.js';
 import { validEncounter, clampCl } from './map.js';
 import { flatXp, gainXp, gainGold } from './progress.js';
 import { V, rollDrop, makeConsumable, addToBag, countConsumable } from './items.js';
-import { zoneRegions, setupExpNode, xpWeight } from './expedition.js';
+import { zoneRegions, setupExpNode, xpWeight, firstRun, leanFirst } from './expedition.js';
 import { fixBoard } from './tutorial.js';
 
 // ---------------- Preparation points and the board (expedition.md 2.1, 2.2) ----------------
@@ -101,13 +106,18 @@ export function boardBand(i, first = false) {
   return i < ZONE_COUNT ? [i + 1, i + 1] : [1, ZONE_COUNT];
 }
 
+/** A profile's first run (D150; expedition.js), and a lean one (D152, GATES.firstRunLean). */
+export { firstRun, leanFirst };
 /**
- * A profile's first run (D150, cut list item 15): no run completed on the profile (`runs` 0; a dev run does not count,
- * meta.js applyRunToProfile). Its start camp offers only CONTRACT_BOARD_FIRST_BANDS (one zone 1 contract).
+ * The run's board is the small one of CONTRACT_BOARD_FIRST_BANDS (one zone 1 offer): D152 (changes-m3-v2.md 1.2;
+ * GATES.firstRunLean) the second run of a profile (`runs` 1); with the switch off the first run (D150, cut list item 15).
  */
-export const firstRun = (s) => !(s.profile && s.profile.runs > 0);
-/** Offers on the board of this run (D150): CONTRACT_BOARD_FIRST_BANDS.length on a first run, else CONTRACT_BOARD_SIZE. */
-export const boardSize = (s) => (firstRun(s) ? CONTRACT_BOARD_FIRST_BANDS.length : CONTRACT_BOARD_SIZE);
+const smallBoard = (s) => (GATES.firstRunLean ? !!(s.profile && s.profile.runs === 1) : firstRun(s));
+/**
+ * Offers on the board of this run: none on a lean first run (D152), CONTRACT_BOARD_FIRST_BANDS.length on the run of the
+ * small board (smallBoard: the second run; D150 off: the first), else CONTRACT_BOARD_SIZE.
+ */
+export const boardSize = (s) => (leanFirst(s) ? 0 : smallBoard(s) ? CONTRACT_BOARD_FIRST_BANDS.length : CONTRACT_BOARD_SIZE);
 
 /**
  * The board after k rerolls (stream prep(k), 2.2): `size` slots (boardSize: CONTRACT_BOARD_SIZE, 3 since D128; D150: one,
@@ -122,7 +132,7 @@ export const boardSize = (s) => (firstRun(s) ? CONTRACT_BOARD_FIRST_BANDS.length
  */
 export function drawBoard(s, k, kept = [], size = boardSize(s)) {
   const rng = STREAM.prep(s.seed, k);
-  const first = firstRun(s);
+  const first = smallBoard(s);
   const out = [];
   for (let i = 0; i < size; i++) {
     const [lo, hi] = boardBand(i, first);
@@ -157,9 +167,12 @@ export function ownedPerks(s) {
   return out;
 }
 
-/** PREP at START_RUN of an expedition run: the budget, the board of prep(0), nothing bought. */
+/**
+ * PREP at START_RUN of an expedition run: the budget (D152, changes-m3-v2.md 1.3: PREP_POINTS_FIRST on a lean first run),
+ * the board of prep(0) (none on a lean first run), nothing bought.
+ */
 export function newPrep(s) {
-  s.prep = { points: prepPoints(s.profile), board: drawBoard(s, 0), rerolls: 0, bought: [], done: false };
+  s.prep = { points: leanFirst(s) ? PREP_POINTS_FIRST : prepPoints(s.profile), board: drawBoard(s, 0), rerolls: 0, bought: [], done: false };
   fixBoard(s); // M3 guided run (m3-onboarding.md 2.3 "Board"): slot 1 is the content's Cull; the board's draws stay
 }
 
@@ -179,6 +192,7 @@ const inPrep = (s) => (s.phase !== 'PREP' || !s.prep || s.prep.done ? 'only at t
 export function takeContractError(s, i) {
   const e = inPrep(s);
   if (e) return e;
+  if (leanFirst(s)) return 'no contract on the board'; // D152 (changes-m3-v2.md 1.2): a lean first run has no board
   const o = Number.isInteger(i) ? s.prep.board[i] : null;
   if (!o) return `no contract ${i} on the board`;
   if (o.taken) return 'already taken';
@@ -188,6 +202,7 @@ export function takeContractError(s, i) {
 export function dropContractError(s, i) {
   const e = inPrep(s);
   if (e) return e;
+  if (leanFirst(s)) return 'no contract on the board'; // D152 (changes-m3-v2.md 1.2)
   const o = Number.isInteger(i) ? s.prep.board[i] : null;
   return !o ? `no contract ${i} on the board` : !o.taken ? 'not taken' : null;
 }
@@ -197,6 +212,7 @@ export function buyPrepError(s, id) {
   const o = PREP_OPTION[id];
   if (!o) return `unknown option ${id}`;
   if (!PREP_CAMP_OPTIONS.includes(id)) return 'not offered at the start camp'; // D128
+  if (leanFirst(s) && o.kind !== 'supply') return 'not offered on a first run'; // D152 (changes-m3-v2.md 1.2): supplies only
   if (ownedPerks(s).includes(id)) return 'already owned';
   if (s.prep.bought.includes(id)) return 'already bought';
   if (id === 'prep_bell' && s.exp.bell >= BELL_MAX_CHARGES) return `the Homeward Bell holds at most ${BELL_MAX_CHARGES} charges`;
@@ -283,7 +299,8 @@ export function applySetOut(s, ev) {
   x.reserve = prepLeft(s);
   p.done = true;
   s.stats.exp.preps = 1;
-  ev.push({ t: 'prep', what: 'setOut', reserve: x.reserve, bought: p.bought.slice(), contracts: heldCount(s) });
+  // D152 (changes-m3-v2.md 1.3): on a lean first run the points left have no use but their Echoes (`first`: not Reserve)
+  ev.push({ t: 'prep', what: 'setOut', reserve: x.reserve, bought: p.bought.slice(), contracts: heldCount(s), ...(leanFirst(s) ? { first: true } : {}) });
 }
 
 // ---------------- Views ----------------
@@ -324,17 +341,19 @@ function offerView(s, o) {
  * The prep screen (expedition.md 2, 9.1), null outside PREP: points (budget, spent, left), slots, the board (each offer
  * with take / drop legality), the options the camp offers (PREP_CAMP_OPTIONS since D128: supplies and vision perks with
  * price, owned, bought, buy / sell legality), rerolls (`open`: GATES.campReroll, off since D128), and Reserve (points left
- * and their Echo value at SUMMARY).
+ * and their Echo value at SUMMARY). D152 (changes-m3-v2.md 1.2-1.3): `first` (a lean first run: no board, only the
+ * supplies, and `unspent` { points, echoes } in place of `reserve`: points left and the Echoes they pay at SUMMARY).
  */
 export function prepView(s) {
   if (s.phase !== 'PREP' || !s.prep || s.prep.done) return null;
   const p = s.prep;
   const owned = ownedPerks(s);
   const left = prepLeft(s);
+  const first = leanFirst(s);
   return {
-    points: p.points, spent: prepSpent(s), left, slots: CONTRACT_SLOTS, held: heldCount(s),
+    points: p.points, spent: prepSpent(s), left, slots: CONTRACT_SLOTS, held: heldCount(s), first,
     board: p.board.map((o, i) => ({ index: i, ...offerView(s, o), taken: o.taken, canTake: !takeContractError(s, i), canDrop: !dropContractError(s, i) })),
-    options: PREP_OPTION_IDS.filter((id) => PREP_CAMP_OPTIONS.includes(id)).map((id) => {
+    options: PREP_OPTION_IDS.filter((id) => PREP_CAMP_OPTIONS.includes(id) && !(first && PREP_OPTION[id].kind !== 'supply')).map((id) => {
       const o = PREP_OPTION[id];
       return {
         id, name: o.name, kind: o.kind, price: o.price, owned: owned.includes(id), bought: p.bought.includes(id),
@@ -344,7 +363,7 @@ export function prepView(s) {
       };
     }),
     reroll: { open: !!GATES.campReroll, used: p.rerolls, max: REROLL_MAX, price: REROLL_PRICE, can: !rerollError(s) },
-    reserve: { points: left, echoes: left * PREP_ECHO_PER_POINT },
+    ...(first ? { unspent: { points: left, echoes: left * PREP_ECHO_PER_POINT } } : { reserve: { points: left, echoes: left * PREP_ECHO_PER_POINT } }),
   };
 }
 
@@ -352,10 +371,11 @@ export function prepView(s) {
  * The contract tracker (expedition.md 9.3): every contract taken this run in the order taken, with zone, kind, target,
  * progress and status ('active': held, this zone; 'later': held, a later zone; 'complete', 'expired', 'abandoned'), and
  * the hub contract on offer (with the modes legal now). No site locations: those are on the map (mapView). null in a
- * rows run or before START_RUN.
+ * rows run or before START_RUN, and (D152, changes-m3-v2.md 1.2) for the whole of a lean first run (no tracker, slots or
+ * Reserve).
  */
 export function contractView(s, legal = () => false) {
-  if (!s.exp || !s.exp.prep) return null;
+  if (!s.exp || !s.exp.prep || leanFirst(s)) return null;
   const z = s.zone && !s.zone.camp ? s.zone.z : null;
   const list = s.exp.contracts.map((k) => ({
     id: k.id, ...offerView(s, k), from: k.from, progress: k.progress,
@@ -480,10 +500,13 @@ function clearSites(s, c) {
   }
 }
 
-/** At zone generation (nodes.js enterZone): the hub contract offer (zones 2..ZONE_COUNT) and the sites of held contracts. */
+/**
+ * At zone generation (nodes.js enterZone): the hub contract offer (zones 2..ZONE_COUNT; D152, changes-m3-v2.md 1.2: none
+ * on a lean first run, the hubc(z) stream untouched) and the sites of held contracts.
+ */
 export function contractsAtZone(s) {
   const zone = s.zone;
-  zone.hubOffer = zone.z >= 2 ? { ...drawOffer(s.content, STREAM.hubc(s.seed, zone.z), zone.z), taken: false } : null;
+  zone.hubOffer = zone.z >= 2 && !leanFirst(s) ? { ...drawOffer(s.content, STREAM.hubc(s.seed, zone.z), zone.z), taken: false } : null;
   if (zone.hubOffer) s.stats.exp.hubOffers = (s.stats.exp.hubOffers || 0) + 1;
   for (const c of s.exp.contracts) if (c.state === 'held' && c.z === zone.z) placeSites(s, c);
 }
@@ -544,18 +567,41 @@ export function siteWon(s, ev) {
   return sets;
 }
 
+/**
+ * What a contract of `kind` and zone z pays when completed (expedition.md 3.1): XP (no level-difference modifier since
+ * M2b v10, D82, as the retired story chain; not a kill, so no rested; heat in gainXp), gold, and the item choice rolled on
+ * the node's loot stream. `why`: the XP and gold events' why. Returns the items.
+ */
+function contractPay(s, ev, kind, z, why) {
+  const k = CONTRACT[kind];
+  const cl = contractLevel(z);
+  gainXp(s, ev, flatXp(s, k.xpFrac * xpWeight(s), cl), why);
+  gainGold(s, ev, k.goldV * V(cl), why);
+  const items = [];
+  for (let i = 0; i < k.choices; i++) items.push(...rollDrop(s, s.lootRng, k.table, clampCl(cl), s.zone.z));
+  return items;
+}
+
 function completeContract(s, ev, c) {
-  const k = CONTRACT[c.kind];
-  const cl = contractLevel(c.z);
   c.state = 'complete';
   clearSites(s, c);
   ev.push({ t: 'contract', what: 'complete', id: c.id, z: c.z, kind: c.kind });
-  // M2b v10 (D82): no level-difference modifier (as the retired story chain); not a kill, so no rested; heat in gainXp.
-  gainXp(s, ev, flatXp(s, k.xpFrac * xpWeight(s), cl), 'contract');
-  gainGold(s, ev, k.goldV * V(cl), 'contract');
-  const items = [];
-  for (let i = 0; i < k.choices; i++) items.push(...rollDrop(s, s.lootRng, k.table, clampCl(cl), s.zone.z));
-  return { kind: 'items', items, contract: c.id };
+  return { kind: 'items', items: contractPay(s, ev, c.kind, c.z, 'contract'), contract: c.id };
+}
+
+/**
+ * Gorrak's bounty (D152, changes-m3-v2.md 1.4; GATES.gorrakBounty; nodes.js finishFight on his victory in the guided zone
+ * of a lean first run): the reward the guided Cull paid, as a contract completion does, without a contract: XP
+ * CULL_XP_FRAC × XP_WEIGHT_MULT × xpToNext(CL_c) of zone 1 (no level-difference modifier, heat applies), gold CULL_GOLD_V
+ * × V(CL_c), and a choice of CONTRACT_REWARD_CHOICES items on table "Contract". The XP and gold events have why 'bounty';
+ * event `bounty` { xp, gold } (what was paid). No new constant. Returns the reward set ({ kind 'items', items, bounty: true }).
+ */
+export function bountyReward(s, ev) {
+  const at = ev.length;
+  const items = contractPay(s, ev, 'cull', 1, 'bounty');
+  const paid = (t) => ev.slice(at).filter((e) => e.t === t && e.why === 'bounty').reduce((n, e) => n + e.amount, 0);
+  ev.push({ t: 'bounty', xp: paid('xp'), gold: paid('gold') });
+  return { kind: 'items', items, bounty: true };
 }
 
 /** Leaving zone z (Road or Bell): its held contracts expire (no reward, no penalty; the slot frees). */

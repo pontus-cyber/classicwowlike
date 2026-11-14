@@ -68,7 +68,7 @@ inner-ring quests keep zone 1's cap, `C.QUEST_CAP_Z2_RINGS` and the switch `C.GA
 `tutorialView.rescueMax`, 14.2-14.5; zone 1 enemy damage `C.Z1_DMG_MULT` up to `C.Z1_DMG_MAX_LEVEL` in `zoneDanger`, the
 switch `C.GATES.z1Dmg`, on (rules 7.6); marked "(D147)"); 2026-11-14b (D149: the guided zone's marked wind-up on the enemy's
 turn `C.ONB_WINDUP_TURN` (1), 14.1, marked "(D149)"; draft, docs/handoffs/engine-2026-11-14b.md: G8's joint line gives way
-after the engage round (ui-2026-11-14 finding 1), 14.4; content `guide.rescueLeftLine` and `guide.skipLine` for the UI, 14.2); 2026-11-14c (draft, docs/handoffs/engine-2026-11-14c.md: from round 2 G8's own line only while `windupView` lists an answer, 14.4; content `guide.roadsOpenLine`, 14.2).
+after the engage round (ui-2026-11-14 finding 1), 14.4; content `guide.rescueLeftLine` and `guide.skipLine` for the UI, 14.2); 2026-11-14c (draft, docs/handoffs/engine-2026-11-14c.md: from round 2 G8's own line only while `windupView` lists an answer, 14.4; content `guide.roadsOpenLine`, 14.2); 2026-11-14f (D152, docs/specs/changes-m3-v2.md, docs/handoffs/engine-2026-11-14f.md: the lean first run, `prepView.first` and `unspent`, `contractView` null, no hub offer, `mapView.bell.hidden`, summary `firstRun`, 13.1-13.4, 10.3-10.4; Gorrak's bounty and event `bounty`, every fight counts (`tutorial.fights`, `tutorialView.elite.fights` and `left`), the held corridor (`mapView` node `held`, `tutorialView.hold`), 14.1-14.4; the steady Dimming (`mapView.dim` `steady`, `maxPerToll`, `nextIn`, `nextCount`, `count`, `total`, `shift`, texts `dimming_pace`) and the rescue's pause and fall-back (event `dimBack`), section 5; switches `C.GATES.firstRunLean`, `gorrakBounty`, `guidedHold`, `steadyDim`, `rescueDim`, all on; marked "(M3 v2)").
 Units: every time value of the API is a whole number of tolls (1 toll = 1 former in-game hour, D69); there are no hours.
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
@@ -272,11 +272,13 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `rescue` | `tolls, node, to, hp, mana` | (M3) a death in the guided zone is a rescue (section 14.2), sent at the killing blow instead of the player's `death`: the player goes from node `node` back to node `to` (the same node after a Dimmed encounter) with `hp` and `mana` (full; track HP with `= hp`), `tolls` (ONB_RESCUE_TOLLS) follow as a `time` event with `why: 'rescue'`. No `victory` or `fled` event |
 | `beat` | `id, what, line` | (M3) a beat of the guided run (section 14.4): `what` `open` (its trigger; `line` = the coach line id), `line` (its line changed, null = open, waiting for its moment; or a resting line came back, D141, at most ONB_LINE_RETURNS times per zone, D142), `done` (learned), `missed` (its moment passed), `skip` (G10 without a contract) |
 | `guideSkipped`, `guideEnd` | `why`, `rescues` | (M3) SKIP_GUIDE; zone 1 of a guided run was left (the guide's end toast). (D147) `guideSkipped` with `why: 'rescues'` and `rescues` (ONB_RESCUE_MAX): that many rescues ended the guide (section 14.2; content `guide.rescueCapLine`); SKIP_GUIDE's event has no `why` |
-| `dimming` | `front, dimmed` | (expedition) the Dimming's front advanced; `dimmed` = node ids it newly covers (M2b v12: the zone's Dungeon too, by its hops; M2b v10's DUNGEON_DIM_HOLD removed; no event then) |
+| `dimming` | `front, dimmed` | (expedition) the Dimming's front advanced; `dimmed` = node ids it newly covers (M2b v12: the zone's Dungeon too, by its hops; M2b v10's DUNGEON_DIM_HOLD removed; no event then). (M3 v2, D152; `C.GATES.steadyDim` on, or a held corridor) `dimmed` = the nodes whose `dimAt` falls in the tolls just spent, `(zt - t, zt]` (at most DIM_MAX_PER_TOLL per toll; 3 at a corridor release); `front` the display front (`mapView.dim.front`); sent only when `dimmed` is not empty |
+| `dimBack` | `tolls` | (M3 v2, D152; `C.GATES.rescueDim` on) after a guided rescue, the Dimming fell back `tolls` tolls so that at most floor(DIM_RESCUE_MAX_SHARE × nodes) are Dimmed (the nodes it leaves come back with their content; rules 1.9.6). Log line content `guide.dimBackLine` (draft). The rescue's own tolls never move the Dimming (`zone.dimShift`) |
+| `bounty` | `xp, gold` | (M3 v2, D152; `C.GATES.gorrakBounty` on) Gorrak's victory on a first run paid the guided Cull's reward (section 14.1): its `xp` and `gold` events (`why: 'bounty'`) come first, the item choice is a reward set of his node (`bounty: true`). Line content `guide.bountyLine` (draft) |
 | `dim` | `id, depth, level, k` | (expedition) a Dimmed encounter starts at node `id` (its `fight` event follows, `kind: 'dim'`) |
 | `bell` | `charges, node` | (expedition) RING_BELL: the channel starts (`charges` left) |
 | `swift` | `xp, zt, tolls, node` | (M2b v15) TAKE_ROAD with the Swift passage (rules 1.9.7): the Road was taken at zone time `zt` <= `tolls` (ROAD_SWIFT_TOLLS) from Road `node`; its `xp` event (`why: 'swift'`) and any `levelUp` follow, then the travel's `time`, `travel` and `zone`. Log "Swift passage: +N XP" |
-| `prep` | `what` (`buy`, `sell`, `reroll`, `setOut`), `id`, `k`, `left`, `reserve`, `bought`, `contracts` | (prep) a start camp action; `left` = points left; `setOut`: `reserve`, the options `bought`, contracts held |
+| `prep` | `what` (`buy`, `sell`, `reroll`, `setOut`), `id`, `k`, `left`, `reserve`, `bought`, `contracts` | (prep) a start camp action; `left` = points left; `setOut`: `reserve`, the options `bought`, contracts held. (M3 v2, D152) `setOut` of a first run adds `first: true` (its `reserve` is the unspent points, section 13.2) |
 | `contract` | `what` (`take`, `drop`, `site`, `complete`, `expire`, `abandon`), `id, z, kind, from, node, progress, need` | (prep) a contract changed: taken (`from` `board` or `hub`), dropped at PREP, a site won (`node`, `progress` of `need`), complete (its `xp` and `gold` events with `why: 'contract'` follow; the item choice is a reward set of the node), expired when the zone was left, abandoned by a swap |
 | `spyglass` | `node, seen, charges` | (prep) USE_SPYGLASS: the node ids newly seen, charges left |
 | `service`, `serviceClosed` | `service, where` | |
@@ -619,8 +621,11 @@ costs TIME_DIM_ESCAPE 1 toll (rules 1.9.6), every other one TIME_DIM_FIGHT.
 ```
 { mode: 'expedition', z, name, zt (zone time: tolls since arrival at the hub), pos (player's node), hub: 0, roads: [ids], shardfall: id,
   roadNames: [name per Road, in the order of roads] (D51; null without content names),
-  texts: { shardfall, shardspawn, dimming, homeward_bell } (D51: content texts.expedition; each null when missing),
-  onRoad (TAKE_ROAD legal here; (D142) false on a closed Road, section 14.1), walkTime (TIME_WALK), travelTime (TIME_TRAVEL), bell: { charges, channelTime (BELL_CHANNEL_TIME) },
+  texts: { shardfall, shardspawn, dimming, homeward_bell, dimming_pace } (D51: content texts.expedition; each null when missing;
+    (M3 v2) dimming_pace, draft: the Dimming tooltip line with {maxPerToll} and {grace}),
+  onRoad (TAKE_ROAD legal here; (D142) false on a closed Road, section 14.1), walkTime (TIME_WALK), travelTime (TIME_TRAVEL), bell: { charges, channelTime (BELL_CHANNEL_TIME),
+    hidden ((M3 v2, D152) true in zone 1 of a first run: no Bell button, RING_BELL refused, charges 0; the charge is kept
+    and shows from zone 2's hub; false otherwise) },
   spyglass (prep: Spyglass charges left),
   swift: (M2b v15, rules 1.9.7; null while C.GATES.swiftRoad is off) { tolls (ROAD_SWIFT_TOLLS), frac (ROAD_SWIFT_XP_FRAC),
     left (tolls left in the window: tolls - zt; 0 = a Road taken now still pays; null once passed), xp (what a Road taken
@@ -628,7 +633,12 @@ costs TIME_DIM_ESCAPE 1 toll (rules 1.9.6), every other one TIME_DIM_FIGHT.
   vision: { radius (full, capped), regions (Region Charts), typeRadius (Pathfinder) },
   dim: { grace (DIM_GRACE), frontHops (DIM_FRONT_HOPS), frontTime (DIM_FRONT_TIME), front (-1 before the grace ends;
     then floor(frontHops × (zt - grace) / frontTime)), nextIn (tolls until the front moves: dimAt(front + 1) - zt, at
-    least 1), off (D50: a run without the Dimming; then front -1 and nextIn, every node's dimsIn and dimAt are Infinity) },
+    least 1), off (D50: a run without the Dimming; then front -1 and nextIn, every node's dimsIn and dimAt are Infinity),
+    (M3 v2, D152) steady (C.GATES.steadyDim: the schedule of rules 1.9.6), maxPerToll (DIM_MAX_PER_TOLL; null when steady
+    is off), nextIn (steady: tolls until the next node dims, the smallest dimAt - zt above 0, Infinity when none), nextCount
+    (nodes that dim then; 0 when none), count (nodes Dimmed now), total (the zone's nodes), shift (zone.dimShift: tolls the
+    guided rescues paused or pushed back the Dimming; 0 elsewhere); front and frontTime (DIM_FRONT_TIME 4; DIM_FRONT_TIME_NOCAP
+    5 with the switch off) are for display and the tooltip. The panel reads "Spreads in {nextIn} tolls: {nextCount} places" },
   regions: [{ id, name, kind, families }]  (the zone's regions in content order; name null and families [] without
     content regions; D51: families so contract text can name them),
   bands: [[min, max] per ring], edges: [[a, b]], moves: [{ nodeId, via, time, passTime, dimmed }],
@@ -636,7 +646,10 @@ costs TIME_DIM_ESCAPE 1 toll (rules 1.9.6), every other one TIME_DIM_FIGHT.
 node (every node): { id, ring, angle (degrees), nb (neighbour ids), hops (from the player), hub, road, shardfall,
   dimmed, dimsIn (tolls from now; 0 = Dimmed), dimAt (zone toll it dims: grace + ceil(hops from the Shardfall ×
   frontTime / frontHops), the zone's Dungeon too (M2b v12: M2b v10's DUNGEON_DIM_HOLD removed, so every node shows the
-  engine's value), know ('full' | 'type' | 'none'),
+  engine's value); (M3 v2) with the steady Dimming its place in the schedule plus zone.dimShift, rules 1.9.6),
+  held ((M3 v2, D152; only when true) a node of the guided zone's corridor while it is held: never Dimmed, dimAt Infinity,
+  dimsIn null, so no "dims in" chip; the UI shows the held mark, tooltip content `guide.holdLine`),
+  know ('full' | 'type' | 'none'),
   region (content region index, or null when unknown) }
 know 'full' (the hub, or seen) adds: type, cl, done, lost (Dimmed and unresolved), and the details of the rows view:
   quest { title, archetypes }, grind { archetypes (wave 1), waves (D144: its waves in this map mode, EXPED_GRIND_MAX_WAVES) },
@@ -659,7 +672,7 @@ Nothing else of a hidden node is read: qa/engine/s01b checks that a hidden node 
 ### 10.4 Summary (expedition)
 `summary(state)` adds `mapMode: 'expedition'` and `expedition = { walks, passes, dimFights, dimZones, bellsRung,
 bellCharges (left), roads, swift, maxRing, zones: [{ z, time, nodes, walks, passes, dimFights, exit ('road' | 'bell' |
-null), swift }], dimming (false in a run without the Dimming, D50), contracts (prep: { taken, completed, expired, abandoned, held, bought (option ids), reserve }) }` (`time`: the zone's tolls; the current zone's so far). (M2b v15) `swift`: Roads taken with the Swift passage; a zone's `swift`: the XP its Road paid (0 without). (prep) Echo lines `contracts` (completed × ECHO_PER_QUEST × ECHO_CONTRACT_MULT) and `reserve` (Reserve × PREP_ECHO_PER_POINT); `minutes` adds PACE_PREP_S once and PACE_HUB_CONTRACT_S per hub with an offer. `minutes` adds the walk and pass terms and the Bell
+null), swift }], dimming (false in a run without the Dimming, D50), contracts (prep: { taken, completed, expired, abandoned, held, bought (option ids), reserve }) }` (`time`: the zone's tolls; the current zone's so far). (M2b v15) `swift`: Roads taken with the Swift passage; a zone's `swift`: the XP its Road paid (0 without). (prep) Echo lines `contracts` (completed × ECHO_PER_QUEST × ECHO_CONTRACT_MULT) and `reserve` (Reserve × PREP_ECHO_PER_POINT; (M3 v2, D152) on a first run the summary has `firstRun: true` and this line is the unspent camp points, labelled "Unspent camp points", content `prep.unspentLabel`, draft); `minutes` adds PACE_PREP_S once and PACE_HUB_CONTRACT_S per hub with an offer. `minutes` adds the walk and pass terms and the Bell
 (rules 1.9.8). `death` as 10.2.
 
 ## 11. Heat (heat; rules 1.7.1-1.7.2, 1.9.10)
@@ -802,7 +815,17 @@ DUNGEON_DIM_HOLD 3 until M2b v12 removed it) act on every expedition run, with o
   unchanged) draws `C.CONTRACT_BOARD_FIRST_BANDS.length` (1) slot with the bands of `C.CONTRACT_BOARD_FIRST_BANDS`
   ([[1,1]]: zone 1, no zone draw), whatever `GATES.boardAcrossRun`; `boardBand(i, first)`, `boardSize(s)`; a reroll keeps
   it. prepView's `board` has that one entry; a later run is unchanged run for run. The sim's fixed profiles (P0, P10, PALL;
-  sim/lib/profiles.mjs) have `runs` 0, so they play the first-run board.
+  sim/lib/profiles.mjs) have `runs` 0, so they play the first-run board. (M3 v2, D152) With `C.GATES.firstRunLean` on this
+  is the **second** run's board (`profile.runs` 1; `contracts.js smallBoard`); the sim's PN (N >= 1) and PALL have `runs`
+  2 (FIXED_PROFILE_RUNS), P0 `runs` 0.
+- (M3 v2, D152; changes-m3-v2.md 1; `C.GATES.firstRunLean`, on) **A lean first run**: `expedition.js leanFirst(s)` = the
+  switch on, a run with the start camp and `firstRun(s)` (`profile.runs` 0). Then: points PREP_POINTS_FIRST (5); no board
+  (`boardSize` 0; TAKE_CONTRACT and DROP_CONTRACT refused, "no contract on the board"); BUY_PREP refuses an option whose
+  kind is not `supply` ("not offered on a first run"); no hub offer in any zone (`zone.hubOffer` null, stream `hubc` not
+  drawn); `contractView` null all run; the Homeward Bell not in hand in zone 1 (`expedition.js bellHidden`: RING_BELL
+  refused, "the Homeward Bell is not in hand yet"; section 10.3 `bell.hidden`); the points left at SET_OUT are kept in
+  `exp.reserve` and pay the Echo line `reserve`; summary `firstRun: true`. An expedition run without the camp, or the
+  switch off, has none of this (the first run of D150 above).
 - (D132, the board across the run) With `C.GATES.boardAcrossRun` on (the default), slot i draws its zone from
   `C.CONTRACT_BOARD_BANDS[i]` = [[1,2],[3,4],[5,6]]: the board is one offer each from zones 1-2, 3-4 and 5-6. Off: the
   D128 board (zones 1, 2, 3; the stream as D128 drew it). `contracts.js boardBand(i)` gives a slot's band [lo, hi] under
@@ -853,8 +876,13 @@ DUNGEON_DIM_HOLD 3 until M2b v12 removed it) act on every expedition run, with o
   options: [{ id, name, kind ('supply' | 'vision'), price, owned, bought, canBuy, canSell, why (why it cannot be bought),
     item, qty, bell, slots, charges }]   (D128: only the ids of C.PREP_CAMP_OPTIONS, in PREP_OPTION order),
   reroll: { open (D128: C.GATES.campReroll; the screen shows no reroll while false), used, max, price, can },
-  reserve: { points, echoes } }
+  reserve: { points, echoes },
+  first ((M3 v2, D152) true on a lean first run, else false) }
 ```
+(M3 v2, D152) On a lean first run (13.1) `board` is `[]`, `options` lists the two supplies only (Field Draughts, the Ember
+of Return), `points` is PREP_POINTS_FIRST, and `unspent: { points, echoes }` (points left, × PREP_ECHO_PER_POINT) replaces
+`reserve` (absent then): the camp's line content `prep.unspentFirst` (draft), "Points you do not spend: +{echoes} Echoes
+at the end of the run."
 
 ### 13.3 `contractView(state)`
 ```
@@ -863,7 +891,8 @@ DUNGEON_DIM_HOLD 3 until M2b v12 removed it) act on every expedition run, with o
     from ('board' | 'hub'), progress, status ('active' | 'later' | 'complete' | 'expired' | 'abandoned') }],
   hub: null or { ...the offer as above, reserve (TAKE_HUB_CONTRACT reserve legal), swap: [contract ids a swap may give up] } }
 ```
-Site locations are never in it: the map shows the marks the player sees (`mapView` node `sites`).
+Site locations are never in it: the map shows the marks the player sees (`mapView` node `sites`). (M3 v2, D152) `null` for
+the whole of a lean first run (13.1): no tracker, no slots or Reserve line, no hub contract card.
 
 ### 13.4 Engine defaults (confirmed by the designer, M2b v10, D90)
 Each option once per run (supplies do not stack); a Bounty's elite of another family when the zone has no rare of the
@@ -880,7 +909,8 @@ contract for each of zones 1-AUTO_PREP_ZONES whatever its kind (D132: on the boa
 offer, and the middle offer only when it is zone 3; unchanged by D132) (a Delve costs 2 again since M2b v12) while AUTO_PREP_RESERVE
 points stay, then (D133) Field Draughts when AUTO_PREP_RESERVE points still stay after them; with the switch off, the order
 before D133: Field Draughts first, then the contracts, no Ember; the hub contract from Reserve when it can; its map policy
-does not seek sites.
+does not seek sites. (M3 v2, D152, draft engine choice) On a lean first run it keeps no Reserve (AUTO_PREP_RESERVE is for a
+hub contract): the Ember of Return, then Field Draughts, all PREP_POINTS_FIRST points; it never rings a hidden Bell.
 
 ## 14. The guided first run (M3; docs/specs/m3-onboarding.md 2, 4.2, 5 E1-E10; D135, D137, D138, D141, D142, D147, D149, D150)
 `newRun({ tutorial: true })` (the expedition map with the start camp; `src/engine/tutorial.js`) plays the profile's guided first
@@ -896,12 +926,32 @@ run. Zones 2-6 and everything after the guide are the normal rules. A run withou
   `C.TUTORIAL_SEED` (8736, D137) in place of the run seed (`expedition.js zoneSeed`), skipped or not, so every guided run
   gets the same zone 1 (Cull sites 1, 4, 7; Gorrak on node 18; Roads 23, 27, 19; Shardfall 25). Item names keep the run seed.
 - Board slot `CONTENT.tutorial.board.slot` (1) is the content's contract (a Cull of `wild` in region `z1_wilds`, zone 1)
-  after the board's own draws, so slots 2-3 are those of the run seed; a reroll keeps it.
+  after the board's own draws, so slots 2-3 are those of the run seed; a reroll keeps it. (M3 v2, D152) A first run has
+  no board (13.1): no Cull, so its first three Quest or Grind fights are S1-S3; "Play the guide again" keeps the Cull.
+- (M3 v2, D152; `C.GATES.gorrakBounty`, on) **Gorrak's bounty**: on a lean first run (13.1), his victory in the guided zone
+  pays the guided Cull's reward on his node's reward stage (`contracts.js bountyReward`): XP CULL_XP_FRAC × XP_WEIGHT_MULT
+  × xpToNext(CL_c) of zone 1 (CL_c 8; no level-difference modifier; heat applies; `xp` `why: 'bounty'`), gold CULL_GOLD_V ×
+  V(CL_c) (`gold` `why: 'bounty'`), then event `bounty { xp, gold }`, and a choice of CONTRACT_REWARD_CHOICES items on table
+  "Contract" (a reward set `{ kind: 'items', items, bounty: true }` before the node's own rewards). Not on a flight or a
+  rescue, not on a later run.
 - Gorrak: the Elite node nearest the hub (ties: lowest id) holds `elite.enemy`, alone unless `elite.add`, never the rare
   unless `elite.rare`, at `clamp(L, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX)` (the map's elite `level` follows L).
 - Gate (D138): while the guide runs, his node is barred until script `elite.gate.afterScript` (`s3` since D143, was `s4`)
   has ended (won, fled or rescued): `MOVE` and `PASS_THROUGH` onto it are illegal, `mapView` marks the node and its move
-  `barred: true`, the autoplay map policy treats it as closed. SKIP_GUIDE (and leaving zone 1) opens it.
+  `barred: true`, the autoplay map policy treats it as closed. SKIP_GUIDE (and leaving zone 1) opens it. (M3 v2, D152;
+  `C.GATES.guidedHold`, on) The gate is **every fight**: `state.tutorial.fights` (0 at START_RUN; only with the switch on)
+  counts each fight that ends in the guided zone (won, fled or rescued; any kind but the end boss and the Camp, a dev fight
+  not), Gorrak's own excepted; his node opens when `fights >= C.ONB_ELITE_FIGHTS` (3) or when no unresolved, undimmed Quest
+  or Grind node is left (`tutorial.js fightNodes`), and stays open (`zone.tut.open`). `elite.gate.afterScript` is retired
+  (no longer validated); with the switch off the gate is after `C.ONB_GATE_SCRIPTS` (3) scripts, as D143.
+- (M3 v2, D152; `C.GATES.guidedHold`) **The corridor**: `setupGuidedZone` holds the hub, Gorrak's node, one shortest path
+  between them, the Road nearest him and one shortest path to it (`tutorial.js corridorOf`, `shortestPath`: the neighbour one
+  hop nearer with the lowest id; TUTORIAL_SEED: 0, 1, 7, 18, 19) while the guide is on: `zone.hold = { ids, release: null,
+  at }`, and the Dimming's schedule is drawn without them (`dimSchedule(zone, held)`; their `zone.dimBase` entries are null).
+  A held node never dims (`dimAt` Infinity; `mapView` node `held`). `refreshOverlay` releases it when his fight has ended or
+  the guide has ended (SKIP_GUIDE, ONB_RESCUE_MAX rescues, a skip at the camp: then no corridor is held at all):
+  `hold.release` = the zone toll, and corridor node i in order of hops from the Shardfall (ties: lowest id) gets `hold.at[id]
+  = max(dimAtHops(hops), c + ONB_HOLD_RELEASE + i)` on the Dimming's clock c (zone toll minus `zone.dimShift`).
 - Roads (D142): while the guide runs, the zone's Roads are closed until Gorrak's fight has ended (won, fled or rescued;
   his fight carries `fight.tut = { kind: 'elite', i: 0, id }` and its end sets `state.tutorial.elite`): `TAKE_ROAD` is
   illegal ("the Roads are closed for now ..."), `mapView` marks every Road `closed: true` and `onRoad` is false on one, so
@@ -938,15 +988,18 @@ run. Zones 2-6 and everything after the guide are the normal rules. A run withou
   ONB_LOOT_POTIONS of `loot.consumable`.
 - `validateContent` checks the table (content.js `validateTutorial`): seed = C.TUTORIAL_SEED, board kind / zone / region id /
   family, site fights and exactly ONB_SCRIPTED_FIGHTS scripts of the zone's normals, `windup` booleans, the loot's rarity and
-  consumable, the elite among the zone's elites with its Deathblow among its abilities, `gate.afterScript` a script id, the
-  beats of `C.ONB_BEATS` (17 since the D150 follow-up: G1-G17) and 37 hints H01-H37 in order.
+  consumable, the elite among the zone's elites with its Deathblow among its abilities, `gate.afterScript` a script id ((M3
+  v2, D152) retired: only a `gate` object is required), the beats of `C.ONB_BEATS` (17 since the D150 follow-up: G1-G17)
+  and 37 hints H01-H37 in order.
 
 ### 14.2 Rescue and SKIP_GUIDE (E3, E4)
 - The guided zone: zone 1 while the guide is neither skipped nor ended. A death there (not the Camp or the end boss, which
   zone 1 never has) is a rescue, before any resurrect source: event `rescue`, the fight ends (no `victory` or `fled`), the
   player goes back to the node it came from (`zone.path`; after a Dimmed encounter or a dev fight: the same node) with full
   HP and mana and a living pet at full HP, the node stays unresolved, ONB_RESCUE_TOLLS tolls (`time` `why: 'rescue'`; the
-  Dimming moves), `tutorial.rescues` + 1. Back on the hub out of the Dimming it is a hub visit (phase ZONE_HUB).
+  Dimming moves), `tutorial.rescues` + 1. Back on the hub out of the Dimming it is a hub visit (phase ZONE_HUB). (M3 v2,
+  D152; `C.GATES.rescueDim`, on) The rescue's tolls do not move the Dimming (`zone.dimShift` += them), then it falls back
+  one toll at a time while more than floor(DIM_RESCUE_MAX_SHARE × nodes) are Dimmed (event `dimBack`), rules 1.9.6.
 - (D147) A rescue starts no fight: the settle step does not count the rescue's tolls (or the fight's) for a Dimmed
   encounter, so the player stands in phase MAP (ZONE_HUB on the hub, a dev fight's own phase) with no node or fight open,
   also on a Dimmed node (before D147 the settle step started a Dimmed encounter there at once, and a rescue from it led to
@@ -970,8 +1023,12 @@ run. Zones 2-6 and everything after the guide are the normal rules. A run withou
 ### 14.3 `tutorialView(state)` (E5)
 ```
 { on, skipped, ended, guidedZone, script, scripts (ONB_SCRIPTED_FIGHTS), next (the next script id or null), sites,
-  eliteNodeId, elite: { node, enemy, level, barred, afterScript, left (scripted fights until the node opens),
-    outcome ((D142) how his fight in the guided zone ended: null, 'victory', 'fled' or 'rescue') } (null outside zone 1),
+  eliteNodeId, elite: { node, enemy, level, barred, fights ((M3 v2, D152) state.tutorial.fights; 0 with
+    C.GATES.guidedHold off), left (fights until the node opens: max(0, ONB_ELITE_FIGHTS - fights), the barred line's {n};
+    switch off: scripted fights until it opens), outcome ((D142) how his fight in the guided zone ended: null, 'victory',
+    'fled' or 'rescue') } (null outside zone 1; (M3 v2) `afterScript` removed),
+  hold: ((M3 v2, D152) the corridor, 14.1) { ids, released (false while held), release (the zone toll of the release, else
+    null) } or null,
   roads: (D142) { closed (TAKE_ROAD refused on every Road of zone 1 now, as mapView's `closed`), why ('elite' while closed,
     else null), node (the node whose fight opens them: Gorrak's, else null), line ('G13.closed', the content line that
     says so, else null) },
@@ -986,7 +1043,7 @@ The engine opens and closes G1-G17 from the action, its events and the state, wh
 queue, pace and "Got it". D150 (owner text pass; the moments are draft engine choices): the rows marked (D150).
 | Beat | Opens (line) | Closes |
 |---|---|---|
-| G1 | START_RUN (`G1`); (D150) after each PREP step its line is null while a contract is held, `G1` while none is | SET_OUT: learned with a contract held; else missed and G10 `skip` (the "press again" line `G1.noContract` is the UI's) |
+| G1 | START_RUN (`G1`); (D150) after each PREP step its line is null while a contract is held, `G1` while none is | SET_OUT: learned with a contract held; else missed and G10 `skip` (the "press again" line `G1.noContract` is the UI's). (M3 v2, D152) On a lean first run (no board) G1 and G10 are closed `skip` at START_RUN (`beat` what `skip`; no line) |
 | G2 | first MAP at zone 1's hub | learned on MOVE or PASS_THROUGH |
 | G3 | the first fight's round 1; (D150) line null always (fight 1 shows G7's line) | learned on a won fight; a rescue or flight leaves it open |
 | G4 | (D150) the first `loot` of a gear upgrade (`itemScore` above the equipped item's in its slot: the UI's green arrow) in a step that is not CHOOSE_REWARD, LOOT_TAKE, LOOT_TAKE_ALL, LOOT_EQUIP, BUY or SET_OUT (a fight's or a chest's spoils, never a reward screen) | learned on EQUIP; missed when the next fight ends |
@@ -998,7 +1055,7 @@ queue, pace and "Got it". D150 (owner text pass; the moments are draft engine ch
 | G10 | (D150, draft) the first fight on a held contract's site (`fight.tut.kind` 'site'), line null; from round 2 of a site fight to its end `G10`, once: a site fight in which it was the top line ends it (null for good; one it never topped leaves the next site fight its turn) | the contract complete (`contract` what 'complete', zone 1) and its reward set the current one (`node.rewards[0].contract`): `G10.done`; learned at the CHOOSE_REWARD that takes its reward |
 | G11 | in a fight, HP < ONB_POTION_HP of max with a healing potion on the item bar | learned on USE_ITEM of it; missed when the fight ends |
 | G12 | the first node dims, or the front within ONB_DIM_NEAR_HOPS of the player (`G12`); (D150, draft) once that line rests and the zone's Roads are open (`roadsShut` false): `G12.road` | (D150) no line at a Dimmed encounter (`G12.caught` went); at the guide's end learned if zone 1 had none |
-| G13 | on the map: on a Road (`G13.onRoad`), or ONB_BELL_HOPS+ hops from every Road with the node dimming within ONB_BELL_DIM tolls (`G13`); (D142) while the Roads are closed: at either moment or once Gorrak's node is open, `G13.closed` | learned on TAKE_ROAD or RING_BELL; (D142) when the Roads open (any phase: the fight that opens them ends in a node) `G13.closed` becomes null, then the moments above set their line (the far line only while the line is null) |
+| G13 | on the map: on a Road (`G13.onRoad`), or ONB_BELL_HOPS+ hops from every Road with the node dimming within ONB_BELL_DIM tolls (`G13`); (D142) while the Roads are closed: at either moment or once Gorrak's node is open, `G13.closed` | learned on TAKE_ROAD or RING_BELL; (D142) when the Roads open (any phase: the fight that opens them ends in a node) `G13.closed` becomes null, then the moments above set their line (the far line only while the line is null). (M3 v2, D152) While the Bell is not in hand (`expedition.js bellHidden`: zone 1 of a lean first run) the far moment does not open it, and on a Road the line is `G13.onRoadFirst` (content `alt.onRoadFirst`, draft) |
 | G14 | (D150 follow-up, draft) from round 2 of a fight (not over), the first step a bar finisher can be cast on a living enemy (`castError` null; combo points held) (`G14`) | learned on a CAST of a finisher; else, as G15-G17, closed learned once it has been the top line and its moment is over or it has rested (`moment`) |
 | G15 | (draft) from round 2 of a fight, the first step a bar spell is refused only for lack of resource (`castError` 'not enough resource for <id>', and none with `{ free: true }`) (`G15.<class>`, content `byClass`) | as G14's second rule |
 | G16 | (draft) from round 2 of a fight, the first step a living, visible beast has acted (`acted` > 0: its Bloodlust shows) (`G16`) | as G14's second rule |

@@ -21,10 +21,11 @@ import { validEncounter } from '../../src/engine/map.js';
 const SPEC = readFileSync(fileURLToPath(new URL('../../docs/specs/expedition.md', import.meta.url)), 'utf8');
 const pet = (cls) => (cls === 'hunter' ? 'ridgewolf' : null);
 /**
- * An expedition run at the start camp (phase PREP). D150 (cut list item 15): a profile's first run offers one zone 1
- * contract, so these tests play a later run (a profile with one run) unless they pass their own profile.
+ * An expedition run at the start camp (phase PREP). D150 (cut list item 15) and D152 (changes-m3-v2.md 1.2): a profile's
+ * first run has no board (lean, s20) and its second one zone 1 contract, so these tests play a third run or later (a
+ * profile with two runs) unless they pass their own profile.
  */
-const LATER = () => ({ ...R.newProfile(), runs: 1, welcome: true });
+const LATER = () => ({ ...R.newProfile(), runs: 2, welcome: true });
 function atCamp(opts = {}) {
   const cls = opts.classId || 'mage';
   const s = R.newRun({ classId: cls, petId: pet(cls), seed: opts.seed ?? 1, content: opts.content || REAL, profile: opts.profile || LATER(), mapMode: 'expedition', vision: opts.vision || null, prep: true });
@@ -228,29 +229,41 @@ describe('the newRun option prep (the default on the expedition map since D116)'
   });
 });
 
-describe('D150 (cut list item 15): a profile\'s first run offers one contract, of zone 1; later runs keep three', () => {
-  test('runs 0: one offer, zone 1 (CONTRACT_BOARD_FIRST_BANDS), whatever GATES.boardAcrossRun; the guided first run: its Cull; runs 1: CONTRACT_BOARD_SIZE as before; a reroll keeps the size', () => {
+describe('D150 (cut list item 15) and D152 (changes-m3-v2.md 1.2): the small board of one zone 1 contract, then three', () => {
+  const runs = (n) => ({ ...R.newProfile(), runs: n, welcome: true });
+  test('GATES.firstRunLean on (D152): runs 0 no board (lean, s20); runs 1 one offer, zone 1 (CONTRACT_BOARD_FIRST_BANDS), whatever GATES.boardAcrossRun; "Play the guide again" on runs 1: its Cull; runs 2: CONTRACT_BOARD_SIZE; a reroll keeps the size', () => {
+    assert.equal(C.GATES.firstRunLean, true);
     assert.deepEqual([C.CONTRACT_BOARD_FIRST_BANDS, C.CONTRACT_BOARD_SIZE], [[[1, 1]], 3]);
     for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+      assert.deepEqual(R.prepView(atCamp({ seed, profile: runs(0) })).board, [], `seed ${seed}: a first run has no board`);
       for (const ba of [true, false]) {
-        const first = withGate('boardAcrossRun', ba, () => R.prepView(atCamp({ seed, profile: R.newProfile() })));
-        assert.deepEqual(first.board.map((o) => [o.index, o.z]), [[0, 1]], `seed ${seed}, boardAcrossRun ${ba}`);
-        assert.ok(first.board[0].canTake, 'it can be taken');
+        const second = withGate('boardAcrossRun', ba, () => R.prepView(atCamp({ seed, profile: runs(1) })));
+        assert.deepEqual(second.board.map((o) => [o.index, o.z]), [[0, 1]], `seed ${seed}, boardAcrossRun ${ba}`);
+        assert.ok(second.board[0].canTake, 'it can be taken');
       }
-      const later = R.prepView(atCamp({ seed }));
-      assert.equal(later.board.length, C.CONTRACT_BOARD_SIZE, `seed ${seed}: a later run`);
+      for (const n of [2, 5]) assert.equal(R.prepView(atCamp({ seed, profile: runs(n) })).board.length, C.CONTRACT_BOARD_SIZE, `seed ${seed}: run ${n + 1}`);
     }
-    const g = R.step(R.newRun({ classId: 'mage', seed: 5, content: REAL, tutorial: true }), { type: 'START_RUN' }).state;
+    const g = R.step(R.newRun({ classId: 'mage', seed: 5, content: REAL, tutorial: true, profile: runs(1) }), { type: 'START_RUN' }).state;
     assert.deepEqual(R.prepView(g).board.map((o) => [o.z, o.kind, o.region]), [[1, 'cull', R.prepView(g).board[0].region]]);
     withGate('campReroll', true, () => {
-      const s = go(atCamp({ seed: 3, profile: R.newProfile() }), { type: 'REROLL_BOARD' });
+      const s = go(atCamp({ seed: 3, profile: runs(1) }), { type: 'REROLL_BOARD' });
       assert.deepEqual(R.prepView(s).board.map((o) => o.z), [1], 'a reroll draws one offer again');
     });
     // autoplay's camp takes it and sets out
-    let a = atCamp({ seed: 4, profile: R.newProfile() });
+    let a = atCamp({ seed: 4, profile: runs(1) });
     for (let n = 0; a.phase === 'PREP' && n < 20; n++) a = go(a, R.autoAction(a));
     assert.equal(a.exp.contracts.filter((c) => c.state === 'held' && c.from === 'board').length, 1);
   });
+  test('GATES.firstRunLean off (D150 as built): runs 0 one offer of zone 1 with the full camp, runs 1 CONTRACT_BOARD_SIZE', () => withGate('firstRunLean', false, () => {
+    for (const seed of [1, 2, 3]) {
+      const first = R.prepView(atCamp({ seed, profile: runs(0) }));
+      assert.deepEqual(first.board.map((o) => [o.index, o.z]), [[0, 1]], `seed ${seed}`);
+      assert.deepEqual([first.first, first.points, first.reserve.points, first.options.length], [false, C.PREP_POINTS, C.PREP_POINTS, C.PREP_CAMP_OPTIONS.length]);
+      assert.equal(R.prepView(atCamp({ seed, profile: runs(1) })).board.length, C.CONTRACT_BOARD_SIZE);
+    }
+    const g = R.step(R.newRun({ classId: 'mage', seed: 5, content: REAL, tutorial: true }), { type: 'START_RUN' }).state;
+    assert.deepEqual(R.prepView(g).board.map((o) => [o.z, o.kind]), [[1, 'cull']], 'the guided first run: its Cull');
+  }));
 });
 
 describe('expedition.md 1, 2: the start camp (PREP)', () => {
@@ -686,7 +699,7 @@ describe('expedition.md 3.2, autoplay and the dev tools', () => {
   test('the story chain is retired on the expedition map (no story event); full autoplay runs pass PREP and some reach the boss', () => {
     let boss = 0;
     for (const [cls, seed] of [['hunter', 2], ['hunter', 6], ['hunter', 7], ['mage', 1], ['rogue', 4], ['mage', 6]]) {
-      let s = R.newRun({ classId: cls, petId: pet(cls), seed, content: REAL, mapMode: 'expedition', prep: true });
+      let s = R.newRun({ classId: cls, petId: pet(cls), seed, content: REAL, mapMode: 'expedition', prep: true, profile: LATER() });
       let stories = 0;
       let n = 0;
       while (s.phase !== 'ENDED' && n++ < 30000) {
@@ -755,8 +768,11 @@ describe('expedition.md 3.2, autoplay and the dev tools', () => {
   });
 
   test('debug.build of an expedition run skips the camp (every point Reserve); validate accepts PREP; same seed, same camp', () => {
-    const b = R.debug.build({ content: REAL, mapMode: 'expedition', zone: 2, prep: true }).state;
+    const b = R.debug.build({ content: REAL, mapMode: 'expedition', zone: 2, prep: true, profile: LATER() }).state;
     assert.deepEqual([b.phase, b.prep.done, b.exp.reserve, b.zone.z], ['ZONE_HUB', true, C.PREP_POINTS, 2]);
+    // D152 (changes-m3-v2.md 1.3): a fresh profile's build is a lean first run, PREP_POINTS_FIRST points kept
+    const f = R.debug.build({ content: REAL, mapMode: 'expedition', zone: 2, prep: true }).state;
+    assert.deepEqual([f.exp.reserve, f.zone.hubOffer, R.contractView(f)], [C.PREP_POINTS_FIRST, null, null]);
     assert.deepEqual(R.debug.validate(b), []);
     const s = atCamp({ seed: 5 });
     assert.deepEqual(R.debug.validate(s), []);

@@ -550,7 +550,15 @@ describe('M2b v7 (D70): whole tolls; the rounded-up line and the integer front k
     assert.equal(n, 2 * (C.ZONE_COUNT + 1) * 251);
   });
 
-  test('zone time 0-60, hops 0-8: front, dimAt, nextIn and the Dimming state equal the old 2.5-per-hop values', () => {
+  // D152 (changes-m3-v2.md 3.2): DIM_FRONT_TIME is 4 with the steady Dimming; the M2b v7 front (5, DIM_FRONT_TIME_NOCAP)
+  // is the rule with GATES.steadyDim off, checked here as before; the new pace is checked in s20
+  test('zone time 0-60, hops 0-8 (GATES.steadyDim off: DIM_FRONT_TIME_NOCAP): front, dimAt, nextIn and the Dimming state equal the old 2.5-per-hop values', () => {
+    const old = C.GATES.steadyDim;
+    C.GATES.steadyDim = false;
+    try { m2bv7Front(); } finally { C.GATES.steadyDim = old; }
+  });
+  function m2bv7Front() {
+    assert.equal(C.DIM_FRONT_TIME_NOCAP, 5);
     assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7].map(dimAtHops), [6, 9, 11, 14, 16, 19, 21, 24], 'changes-m2b-v7.md A row 4');
     for (let hops = 0; hops <= 8; hops++) assert.equal(dimAtHops(hops), oldDimAt(hops), `dimAt hops ${hops}`);
     for (let zt = 0; zt <= 60; zt++) {
@@ -562,7 +570,7 @@ describe('M2b v7 (D70): whole tolls; the rounded-up line and the integer front k
         assert.equal(zt >= dimAtHops(hops), frontAt(zt) >= hops, `Dimmed at zt ${zt} hops ${hops} exactly when the front covers it`);
       }
     }
-  });
+  }
 
   test('every time value the meter, its previews, the map view and the summary show is a whole number (Oath of Haste, both map modes)', () => {
     const whole = (x, what) => assert.ok(x === null || x === Infinity || Number.isInteger(x), `${what}: ${x}`);

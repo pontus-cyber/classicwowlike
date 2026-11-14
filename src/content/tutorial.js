@@ -1,7 +1,9 @@
 // Content table: the guided first run (docs/specs/m3-onboarding.md 2.3 overlay, 2.4 beats, 2.6-2.7 guide lines, 3.2
 // first-time hints, 4.3 nudge; D135, D137). The authored overlay for zone 1 on TUTORIAL_SEED 8736 (board slot 1, Cull
-// site fights, scripted fights S1-S4 with the wind-up fight third (D145 fix, D147), Gorrak's encounter and the gate that
-// holds him back until S3 has been fought, D143), the 17 beats' coach lines (D142: G13.closed while the Roads wait for
+// site fights, scripted fights S1-S4 with the wind-up fight third (D145 fix, D147), Gorrak's encounter and the gate's
+// lines; D152, docs/specs/changes-m3-v2.md 2.1: his node opens after ONB_ELITE_FIGHTS fights of any kind, the gate's
+// `afterScript` is retired), the lean first run's lines (D152, draft: the camp's unspent points, the held corridor, the
+// Dimming's fall-back, Gorrak's bounty, G13 on a Road with no Bell), the 17 beats' coach lines (D142: G13.closed while the Roads wait for
 // Gorrak's fight; D147: G8's joint line with G7; D150: G3 and G9 have none before a landed Deathblow; G14-G17, D150
 // follow-up, draft: combo points, resource, Bloodlust, targets), the guide's lines
 // (rescue, rescues left, skip, Roads open, end, hub welcome), the 37 hints (D150: H04, H12 and H34 retired, line null) and
@@ -50,15 +52,14 @@ export const TUTORIAL = {
   // (no add, never the rare variant), level clamp ONB_ELITE_LEVEL_MIN/MAX. His Deathblow is Threshing Blow (heavy).
   elite: {
     id: 'gorrak', beat: 'G9', enemy: 'z1_gorrak', deathblow: 'ab_z1_gorrak_heavy_blow', add: false, rare: false,
-    // Gate (D137): the node is barred (MOVE onto it is illegal) until scripted fight `afterScript` has ended, by a
-    // win, a flight or a rescue, so G6 (intents) and G7 (engage round) have had their fights first. D143 (draft,
-    // Core Gameplay Engineer 2026-11-13): after S3, not S4, so the guided zone ends by a Road before the Dimming (S4 at
-    // toll 17 left 2 tolls before his node dimmed); G7 and G8 come in S3, before Gorrak (D145 fix). The gate is open at
-    // once after SKIP_GUIDE and outside the guided zone. Barring the node cuts no route
-    // on seed 8736 (its neighbours 1, 7, 17 and 30 stay linked through 7 and 17). {n}: scripted fights still to come
-    // before the gate opens (tutorialView.elite.left).
+    // Gate (D137): the node is barred (MOVE onto it is illegal) until it opens. D152 (changes-m3-v2.md 2.1, draft):
+    // after ONB_ELITE_FIGHTS fights of any kind in the guided zone (won, fled or rescued), or at once when no Quest or
+    // Grind node outside the Dimming is left; on a first run (no Cull) the first three Quest or Grind fights are S1-S3,
+    // so the route stays S1, S2, S3, Gorrak. `afterScript` is retired (D143-D150: the node opened after script S3; the
+    // engine's ONB_GATE_SCRIPTS keeps that rule for GATES.guidedHold off). The gate is open at once after SKIP_GUIDE
+    // and outside the guided zone. Barring the node cuts no route on seed 8736 (its neighbours 1, 7, 17 and 30 stay
+    // linked through 7 and 17). {n}: fights still to come before the gate opens (tutorialView.elite.left).
     gate: {
-      afterScript: 's3',
       barredLine: 'Gorrak is out on the downs. He comes back after {n} more fights.',
       openLine: 'Gorrak is back on his threshing floor.',
     },
@@ -79,6 +80,9 @@ export const TUTORIAL = {
   // blind testers paid a toll for "Visit the trainer" at level 1 with nothing to learn. {zone}: the zone's name. D150 (cut
   // list item 22, draft): neither repeats the trainer card ("Next spell at level 4") or the Set out button.
   // roadsOpenLine (D150, draft): the fact only; G12.road ("Take a Road to leave.") is the instruction at that moment.
+  // D152 (changes-m3-v2.md 2.4, 3.4, 1.4; draft): holdLine, the map tooltip of a corridor node held from the Dimming
+  // (mapView node `held`); dimBackLine, the log line of a rescue's fall-back of the Dimming (event `dimBack`); bountyLine,
+  // the line of Gorrak's bounty on a first run (event `bounty`, his victory pays the guided Cull's reward).
   guide: {
     rescueLine: 'The Bellwrights pull you back ({rescueTolls} tolls).',
     rescueCapLine: 'That was the last rescue: the guide ends here, and from now on a death ends the run.',
@@ -88,6 +92,17 @@ export const TUTORIAL = {
     endLine: 'The guide ends here. New things get one hint each.',
     hubLine: 'Welcome to {zone}.',
     hubTrainerLine: 'Welcome to {zone}. The trainer has something new for you.',
+    holdLine: 'The Bellwrights keep the dark off this road until Gorrak\'s fight is over.',
+    dimBackLine: 'The Bellwrights ring the dark back.',
+    bountyLine: 'Gorrak\'s bounty: the Bellwrights pay for the Fieldbreaker.',
+  },
+
+  // The start camp of a lean first run (D152, changes-m3-v2.md 1.3, draft; prepView `first`): unspentFirst, over Set out
+  // in place of the Reserve line, {echoes} = prepView.unspent.echoes (points left × PREP_ECHO_PER_POINT); unspentLabel,
+  // the summary's Echo line `reserve` on such a run (summary `firstRun`).
+  prep: {
+    unspentFirst: 'Points you do not spend: +{echoes} Echoes at the end of the run.',
+    unspentLabel: 'Unspent camp points',
   },
 
   // The 17 beats (spec 2.4). line: the coach line (null: none); byClass: the class's line (G15); alt: the beat's other
@@ -140,11 +155,14 @@ export const TUTORIAL = {
     // fight has ended; anchor: Gorrak's node (tutorialView.roads.node).
     // G13: D150 (section 7, the Bell's cost): no toll count; a Dimmed node adds a fight and its tolls, so the Bell's own
     // tooltip says what it costs
+    // onRoadFirst (D152, changes-m3-v2.md 2.4 `G13.road.first`, draft): on a Road in zone 1 of a first run, which has no
+    // Bell yet (the engine's line id G13.onRoadFirst; the far line does not show then)
     { id: 'G13', name: 'Homeward Bell', hint: 'H19', anchor: 'Bell or Road button',
       line: 'Far from a Road? Ring the Homeward Bell to reach the next hub.',
       alt: {
         onRoad: 'On a Road: take it to the next zone. Keep the Bell for when no Road is near.',
         closed: 'Face Gorrak first: the Roads open once his fight is over.',
+        onRoadFirst: 'On a Road: take it to the next zone.',
       } },
     // G14-G17 (D150 follow-up, Lead 2026-11-14, draft): fight moments the blind testers met with no line (feedback
     // 2026-11-14-blind-wording.md 2, last sentence). Each shows once, from round 2 of a fight. G14 only for a class with

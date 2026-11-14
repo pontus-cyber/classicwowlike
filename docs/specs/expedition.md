@@ -35,8 +35,10 @@ Real time: PREP is one screen, about PACE_PREP_S seconds. The run otherwise keep
 ### 2.1 Preparation points
 `prepPoints = PREP_POINTS + PREP_POINTS_PER_QM × (Quartermaster ranks)` (meta, 11). Everything on the prep screen is bought with these points. Points not spent at `SET_OUT` become **Reserve** (2.6).
 
+(M3 v2, D152; changes-m3-v2.md 1; switch `GATES.firstRunLean`, on) **A lean first run.** A profile's first run (`profile.runs` 0; a dev run does not count; the guided first run included, "Play the guide again" on a later profile not) shows only tolls and the Dimming in zone 1: no contract board (2.2), no vision perk (2.4), no Reserve (2.6), no hub contract or contract tracker (3.6), and no Homeward Bell in zone 1 (7.2). Its camp has **PREP_POINTS_FIRST** points (5: Field Draughts 1 + the Ember of Return 4, so both can be bought) and offers the two supplies only (2.3). Off: the first run of D150 (2.2). The expedition map without the start camp (a simulator option) has no first-run change.
+
 ### 2.2 The contract board
-At PREP the board shows CONTRACT_BOARD_SIZE contracts drawn on stream `prep(k)` = hash(runSeed, "prep", k), k = number of rerolls so far. (D150, cut list item 15, owner-approved; measured in docs/handoffs/engine-2026-11-14d.md) On a profile's first run (no run completed on the profile: `profile.runs` 0; a dev run does not count) the board holds only the slots of CONTRACT_BOARD_FIRST_BANDS, one offer of zone 1, drawn by the same rules on the same stream (a reroll keeps the size); the guided first run's slot 1 is its Cull (m3-onboarding.md 2.3). Later runs keep the board below:
+At PREP the board shows CONTRACT_BOARD_SIZE contracts drawn on stream `prep(k)` = hash(runSeed, "prep", k), k = number of rerolls so far. (D150, cut list item 15, owner-approved; measured in docs/handoffs/engine-2026-11-14d.md) On a profile's first run (no run completed on the profile: `profile.runs` 0; a dev run does not count) the board holds only the slots of CONTRACT_BOARD_FIRST_BANDS, one offer of zone 1, drawn by the same rules on the same stream (a reroll keeps the size); the guided first run's slot 1 is its Cull (m3-onboarding.md 2.3). (M3 v2, D152; `GATES.firstRunLean` on) A first run has **no board**: `prepView.board` is `[]`, and `TAKE_CONTRACT` and `DROP_CONTRACT` are refused ("no contract on the board"); the one-offer board of CONTRACT_BOARD_FIRST_BANDS is the **second** run's (`profile.runs` 1; "Play the guide again" there has the Cull in slot 1), and CONTRACT_BOARD_SIZE offers come from the third run (`runs` >= 2). With the switch off, the D150 board above on the first run. Later runs keep the board below:
 - (D132) slot i (from 0) first takes its zone from its band, CONTRACT_BOARD_BANDS[i]: one uniform draw over the band's zones (a band of one zone makes no draw). The bands are zones 1-2, 3-4 and 5-6, so the three offers span the run: one early, one middle, one late contract (report 2026-11-12d: with the board on zones 1-3 the zone 4-6 contracts left the start camp and the hubs did not replace them; PALL 48.2 % < 50 %, B46 5.1 % < 8 %). The switch `GATES.boardAcrossRun` is **on**; off, slot i is a contract of zone i + 1 while i < ZONE_COUNT with no zone draw (the D128 board: zones 1, 2 and 3), kept so the simulator can arm the old board. A slot past the bands (or past ZONE_COUNT when off) would draw its zone uniformly from 1..ZONE_COUNT. (D128: CONTRACT_BOARD_SIZE 3; it was 8, one per zone and CONTRACT_BOARD_EXTRA 2 drawn zones, a constant now retired. Owner playtest 2026-11-12 20:19: "lower the contracts to maybe 3 choices". Each zone 2-6 also offers a contract at its hub, 3.6.);
 - kind by weight: Cull CW_CULL, Bounty CW_BOUNTY, Delve CW_DELVE (section 3);
 - target region: uniform over the zone's REGION_COUNT regions (Delve: the zone's dungeon); target family: one of the region's families (Content, 12.2);
@@ -62,6 +64,8 @@ Each supply and each vision perk can be bought once per run; supplies do not sta
 
 (D128) The start camp offers only the options in PREP_CAMP_OPTIONS: **Field Draughts** and **Ember of Return** (supplies), **Region Charts** and **Tracker's Notes** (vision, 2.4), at most four on the screen. These are the four the planner bot valued (balance 2026-11-11f, P0: Field Draughts in 100 % of runs, Region Charts 54 %, the Ember 30 %, Tracker's Notes 9 %; the Local Guide and the Second Clapper were never bought) [source: docs/reports/balance-2026-11-11f.md, 2026-11-11e.md]. The Trail Pack, the Second Clapper, the Pack Mule, the Local Guide and the Spyglass keep their rules and SET_OUT effects in the engine but are not offered: `BUY_PREP` refuses them ("not offered at the start camp"). A later meta unlock can add an option to the list.
 
+(M3 v2, D152) A first run (2.1) offers only the supplies of the list, Field Draughts and the Ember of Return: `BUY_PREP` refuses an option whose kind is not `supply` ("not offered on a first run"), and `prepView.options` lists only those two (`prepView.first` true). Autoplay's camp (10.2) then buys the Ember and Field Draughts and keeps no point (draft engine choice: a first run has no use for Reserve).
+
 ### 2.4 Vision perks (owner decision 1)
 Vision is a resource. A fresh profile sees adjacent nodes only (section 5). Perks bought here last the whole run:
 
@@ -72,13 +76,15 @@ Vision is a resource. A fresh profile sees adjacent nodes only (section 5). Perk
 | prep_guide | Local Guide | PRICE_GUIDE | full vision radius +GUIDE_RADIUS_BONUS (capped at VISION_RADIUS_MAX) |
 | prep_spyglass | Spyglass | PRICE_SPYGLASS | SPYGLASS_CHARGES uses of `USE_SPYGLASS(nodeId)` (0 tolls): reveals that node and its neighbours fully, any distance |
 
-A perk the profile already has from meta (11) is shown as owned and cannot be bought. (D128) Of these four, Region Charts and Tracker's Notes are offered at the camp (2.3); the Local Guide and the Spyglass are not.
+A perk the profile already has from meta (11) is shown as owned and cannot be bought. (D128) Of these four, Region Charts and Tracker's Notes are offered at the camp (2.3); the Local Guide and the Spyglass are not. (M3 v2, D152) Not on a first run (2.3): Region Charts and Tracker's Notes are offered from the second run.
 
 ### 2.5 Prices are the design lever
 The points cannot buy everything: with PREP_POINTS = 10 a fresh player chooses between, for example, four cheap contracts; two contracts and the Tracker; one contract, an Ember and the Guide. The prototype (section 12) measured what the main choices are worth. (D128) With three offers and four options: all three contracts (6-8 points) leave 2-4 points for the Draughts, the Charts or the Tracker; the Ember (4) costs one or two contracts. The board and the four options together cost 14-16 points, so the choice stays.
 
 ### 2.6 Reserve (unspent points)
 Unspent points are kept as Reserve. Reserve pays for hub contracts (3.6) and for `ASK_LOCALS` (no point cost; it is listed here because the hub screen shows Reserve next to it). At SUMMARY each Reserve point left is worth PREP_ECHO_PER_POINT Echoes (11.1 new line). So spending is a real choice: a point kept is flexibility in the run and a small Echo value; a point spent is power or information now.
+
+(M3 v2, D152) **A first run has no Reserve** (2.1). The points left at `SET_OUT` are still kept (`s.exp.reserve`; event `prep { what: 'setOut', first: true }`) but have no use, since no hub contract is offered (3.6), and pay PREP_ECHO_PER_POINT Echoes each at SUMMARY (the same Echo line `reserve`; the summary carries `firstRun: true`, so the UI labels the line "Unspent camp points", content `prep.unspentLabel`, draft). The camp says so before Set out: `prepView.unspent = { points, echoes }` replaces `prepView.reserve` (content `prep.unspentFirst`, draft: "Points you do not spend: +{echoes} Echoes at the end of the run."). Nothing bought or kept at a first run's camp can lock the player out of anything later in the run.
 
 ## 3. Contracts (replaces the story chain of rules 2.1 and 1.8)
 
@@ -122,6 +128,8 @@ Each zone hub (zones 2..6; zone 1's hub follows PREP directly) offers one contra
 - `reserve`: pay its price from Reserve; needs a free slot;
 - `swap`: abandon the held contract `contractId` (any zone; no refund, progress lost) and take this one for free.
 Taken before `LEAVE_HUB`, its sites are placed with the zone (3.3).
+
+(M3 v2, D152) **None on a first run** (2.1): `zone.hubOffer` is `null` in every zone and `TAKE_HUB_CONTRACT` is refused ("no hub contract on offer"); `R.contractView` returns `null` for the whole run (no tracker, no slots or Reserve line). The hub offer and the tracker come back with the board, on the second run (2.2). The stream "hubc" is not drawn on a first run.
 
 ## 4. Zone map: a roamable disc (replaces rules 1.4)
 
@@ -198,8 +206,11 @@ The front only moves with tolls, and every action costs tolls, so it advances ev
 
 The Dungeon dims by its hops as every node (M2b v12, D100: M2b v10's "the dungeon holds out", DUNGEON_DIM_HOLD 3 tolls added to the Dungeon's dimAt, is struck; it added 4.3 pp of Delve completion against the 8 pp it had to earn). Its "dims in N" label and the Dimming state (H.5) use the hops formula. A Delve held on a Dimmed dungeon expires as any contract when the zone is left.
 
+(M3 v2, D152; changes-m3-v2.md 3; switch `GATES.steadyDim`, on) **The steady Dimming.** The front by hops jumped by up to 11 of 31 nodes in one toll (a disc holds many nodes in its middle rings). Now the zone's nodes dim **in a fixed order, at most DIM_MAX_PER_TOLL (2) a toll**: at zone generation the nodes are ordered by hops from the Shardfall, then by angular distance from the Shardfall's angle, then by id, and node k of the order dims at `dimAt_k = max(dimAtHops(h_k), dimAt_(k-1), dimAt_(k-DIM_MAX_PER_TOLL) + 1)`, with `dimAtHops(h) = DIM_GRACE + ceil(h × DIM_FRONT_TIME / DIM_FRONT_HOPS)` the earliest a node can dim. **DIM_FRONT_TIME is 4** (2 hops every 4 tolls; DIM_FRONT_TIME_NOCAP 5 with the switch off), so the clock keeps its length: the first node at 6, the hub at about 14, half the zone at 15, all of it by 23-26 (measured, changes-m3-v2.md 3.2). The schedule is stored on the zone (`zone.dimBase`, one zone toll per node; `zone.dimShift`, 0, the rescue's pause, 6.3); `dimAt = dimBase + dimShift`, and every reader of dimAt is unchanged. In the guided zone the held corridor (m3-onboarding.md 2.3) takes no place in the order. The front (above) stays as a display value (`mapView.dim.front`) and for G12. The map's Dimming panel reads "Spreads in N tolls: K places" (`mapView.dim.nextIn`, `nextCount`). Off: the front by hops above.
+
 ### 6.3 Inside the Dimming
-- Entering a Dimmed node, or ending any action in one (the front reached the player), starts a **Dimmed encounter**: DIM_PACK_SIZE Shardspawn (zone's normal templates with the Shardspawn variant) at level `max(CL, L) + DIM_LEVEL_PER_DEPTH × depth`, depth = `front - distance` (0 at the edge), HP × DIM_HP_MULT, damage × DIM_DMG_MULT; it costs TIME_DIM_FIGHT (M2b v11: 2 tolls, was 1; the front check after it uses the new zone time); XP × DIM_XP_MULT, no loot, no gold. Flee is allowed (rules 7.8) and counts as passing through.
+- Entering a Dimmed node, or ending any action in one (the front reached the player), starts a **Dimmed encounter**: DIM_PACK_SIZE Shardspawn (zone's normal templates with the Shardspawn variant) at level `max(CL, L) + DIM_LEVEL_PER_DEPTH × depth`, depth = `front - distance` (0 at the edge), HP × DIM_HP_MULT, damage × DIM_DMG_MULT; it costs TIME_DIM_FIGHT (M2b v11: 2 tolls, was 1; the front check after it uses the new zone time); XP × DIM_XP_MULT, no loot, no gold. Flee is allowed (rules 7.8) and counts as passing through. (M3 v2, D152; `GATES.steadyDim` on) The depth is the time since the node dimmed: `depth = max(0, floor(DIM_FRONT_HOPS × (zt - dimAt(id)) / DIM_FRONT_TIME))` (0 at the edge, +1 every 2 tolls), since with the cap a node can dim later than its hops say and `front - distance` would start it deep; a held corridor node released in the guided zone uses the same rule.
+- (M3 v2, D152; switch `GATES.rescueDim`, on) **A rescue never lands in a mostly dark zone** (the guided zone, the only rescue; m3-onboarding.md 2.6): its ONB_RESCUE_TOLLS count on the run clock (the Furnace) but not on the Dimming (`zone.dimShift += ONB_RESCUE_TOLLS`: no node dims during a rescue); then, while more than `floor(DIM_RESCUE_MAX_SHARE × nodes)` (15 of 31) nodes are Dimmed, `zone.dimShift` grows one toll at a time, and the nodes it leaves come back with their content (event `dimBack { tolls }`; content `guide.dimBackLine`, draft). A rescue never moves the Furnace back and never changes the Roads or Gorrak's gate. Off: the rescue's tolls move the Dimming as any tolls.
 - A Dimmed node's content is lost (it cannot be resolved; Rest, Vendor, Trainer and hub services do not work there). Sites in it are lost.
 - Fights deeper in the dark are higher level, so standing still or walking deeper kills; the way out is to leave (section 7).
 - **Walking out** (M2b v12, D101): a Dimmed encounter that a `MOVE` farther from the Shardfall started (a walk to a node with more hops from the Shardfall than the one left, `shardDist[to] > shardDist[from]` on the zone graph, as 6.2) costs TIME_DIM_ESCAPE (1 toll) instead of TIME_DIM_FIGHT. Every other Dimmed encounter keeps TIME_DIM_FIGHT: the first one when the front reaches the player after a node's content, and those after a PASS, the Bell's channel, a hub service, or a walk sideways or inward. Depth, level, pack and rewards are unchanged. An outward step in the dark then costs TIME_WALK + TIME_DIM_ESCAPE = 2 tolls, the front moves 0.8 hop and the step adds 1 hop, so depth falls 0.2 per outward step (with TIME_DIM_FIGHT on every step it rose 0.2: no way out on foot). Fiction: the Shardspawn come for what stands still in the dark; a bearer walking out of it fights them off on the move. The map's tolls previews count it (rules 1.9.6, 1.9.10).
@@ -219,6 +230,7 @@ ROAD_COUNT Roads on the rim. On a Road node, `TAKE_ROAD` leaves the zone: TIME_T
 An original item: a small brass bell that, rung, calls its bearer home along the road it was cast for. Every run starts with BELL_START_CHARGES charge (prep 2.3 and meta 11.2 add more, max BELL_MAX_CHARGES).
 - `RING_BELL` on the map: channel of BELL_CHANNEL_TIME tolls (the Dimming advances; if the player's node dims during the channel, a Dimmed encounter happens first, then the bell completes), then the player arrives at the next zone's hub (Z6: the Camp). No TIME_TRAVEL.
 - Not usable in a node (only on the map), in the Camp or at the boss.
+- (M3 v2, D152; `GATES.firstRunLean` on) **Not in hand in zone 1 of a first run** (2.1): `RING_BELL` is refused ("the Homeward Bell is not in hand yet"), autoplay does not ring it, and `mapView.bell` is `{ charges: 0, hidden: true, channelTime }` (no Bell button). Its charge (BELL_START_CHARGES) is kept, not spent: from zone 2's hub the button and the charge are there (`hidden: false`), and the Bell's first-time hint H19 shows at its trigger. Zone 1 of a first run is left by a Road; the guided zone's corridor keeps a Road's path free of the Dimming until Gorrak's fight ends (m3-onboarding.md 2.3).
 
 ### 7.3 Recommendation and why
 Prototype numbers are from the scratch model (section 12; planner and greedy bots, fresh profile P0, 300 runs each; "threat share" = Dimmed encounters' share of the model's expected non-boss deaths).
@@ -362,6 +374,8 @@ No bot may read the zone state. The Sim Engineer adds a QA check that the planne
 | oracle (diagnostic only) | n/a | the planner's search with full information of the current zone; never acts in a measured run; used for B41 |
 
 (D133) Autoplay's start camp (the engine default of `autoAction`, not a bot; engine-api.md 13.4): the Ember of Return when affordable, then one board contract for each of zones 1-AUTO_PREP_ZONES while AUTO_PREP_RESERVE points stay, then Field Draughts when AUTO_PREP_RESERVE points still stay after them; the rest is Reserve. Switch `GATES.autoEmberFirst`, on; off plays the order before D133 (Field Draughts, then the contracts). Reason: on the same seeds the planner's camp (the Ember in every run) wins +11.5 pp (7.4 - 15.6) over autoplay's (Field Draughts in every run) [source: docs/reports/balance-2026-11-13.md, stage A]; the engine change itself is unmeasured.
+
+(M3 v2, D152; draft engine choice) On a first run (2.1) autoplay's camp keeps no point back (AUTO_PREP_RESERVE is for a hub contract, which a first run has not): the Ember of Return, then Field Draughts, which spends all PREP_POINTS_FIRST points. Its map policy never rings the Bell while it is not in hand (7.2). The simulator's fixed profiles: P0 is a first run; PN (N >= 1) and PALL have played FIXED_PROFILE_RUNS (2) runs (sim/lib/profiles.mjs), so they play later runs. Guided cells follow the coach line to Gorrak (the harness rule of changes-m3-v2.md 5.1, sim/lib/runner.mjs `followsGuide`): on the guided zone's map, while the Roads are closed and his node is open, the bot plays autoplay's action.
 
 ### 10.3 Site value in the value function
 `siteValue = P(site) × (progress + 1 >= need ? contractValue : contractValue / need × SITE_PARTIAL_MULT)`, `contractValue = (XP levels of the reward × VAL_XP + rarity-weighted item score gain × VAL_GEAR + gold / V × VAL_GOLD)`. Holding a Bell charge is worth BELL_KEEP_VALUE value units until zone 6.
@@ -539,10 +553,11 @@ Reproduce: `cd sim/out/heat && HEATP='{"gain":[0,0,0.35,0.5],"up":[0,0,0.25,0.4]
 |---|---|---|
 | PREP_POINTS | 10 | points |
 | PREP_POINTS_PER_QM | 2 | points per Quartermaster rank |
+| PREP_POINTS_FIRST | 5 | points of a profile's first run (= PRICE_PREP_DRAUGHTS + PRICE_PREP_EMBER; 2.1, M3 v2, D152; `GATES.firstRunLean`) |
 | PREP_ECHO_PER_POINT | 2 | Echoes per Reserve point at SUMMARY |
 | CONTRACT_BOARD_SIZE | 3 | contracts (D128: was 8; CONTRACT_BOARD_EXTRA 2 retired) |
 | CONTRACT_BOARD_BANDS | [[1,2],[3,4],[5,6]] | zone band of each board slot (D132; only with `GATES.boardAcrossRun`, on; off: zones 1, 2, 3) |
-| CONTRACT_BOARD_FIRST_BANDS | [[1,1]] | the board on a profile's first run (`profile.runs` 0): one slot, zone 1, whatever `GATES.boardAcrossRun` (D150, cut list item 15) |
+| CONTRACT_BOARD_FIRST_BANDS | [[1,1]] | the board of a profile's second run (`profile.runs` 1; M3 v2, D152: a first run has no board): one slot, zone 1, whatever `GATES.boardAcrossRun` (D150, cut list item 15: was the first run's board; `GATES.firstRunLean` off plays that) |
 | CONTRACT_SLOTS | 4 | contracts held |
 | REROLL_PRICE | 1 | points (only with `GATES.campReroll`, off since D128) |
 | REROLL_MAX | 2 | rerolls (only with `GATES.campReroll`, off since D128) |
@@ -588,7 +603,9 @@ Reproduce: `cd sim/out/heat && HEATP='{"gain":[0,0,0.35,0.5],"up":[0,0,0.25,0.4]
 | TIME_WALK | 1 | tolls |
 | ROAD_COUNT | 3 | Roads per zone |
 | DIM_GRACE | 6 | zone tolls |
-| DIM_FRONT_HOPS / DIM_FRONT_TIME | 2 / 5 | hops per zone tolls: 2.5 tolls per hop in whole tolls (M2b v7: was DIM_HOURS_PER_HOP 2.5; 3 with today's node counts, 9.5) |
+| DIM_FRONT_HOPS / DIM_FRONT_TIME | 2 / 4 | hops per zone tolls: the steady Dimming's earliest pace (M3 v2, D152: DIM_FRONT_TIME was 5, 2.5 tolls per hop, now DIM_FRONT_TIME_NOCAP for `GATES.steadyDim` off; M2b v7: was DIM_HOURS_PER_HOP 2.5; 3 with today's node counts, 9.5) |
+| DIM_MAX_PER_TOLL | 2 | nodes that dim in one toll, at most (6.2; M3 v2, D152) |
+| DIM_RESCUE_MAX_SHARE | 0.5 | share of the zone's nodes Dimmed, at most, after a guided rescue (6.2; M3 v2, D152) |
 | DIM_PACK_SIZE | 2 | mobs |
 | DIM_LEVEL_PER_DEPTH | 2 | levels per hop of depth |
 | DIM_HP_MULT / DIM_DMG_MULT | 1.2 / 1.3 | × (tuned to about 8 % death chance at depth 0 for the planner P0, prototype SI) |

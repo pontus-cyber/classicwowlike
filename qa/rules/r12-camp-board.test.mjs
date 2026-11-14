@@ -7,8 +7,9 @@ import assert from 'node:assert/strict';
 import { R, C } from './helpers.mjs';
 import { CONTENT as REAL } from '../../src/content/index.js';
 
-// D150 (cut list item 15): a profile's first run offers one zone 1 contract; the board across the run is a later run's
-const atCamp = (seed) => R.step(R.newRun({ classId: 'mage', seed, content: REAL, mapMode: 'expedition', prep: true, profile: { ...R.newProfile(), runs: 1, welcome: true } }), { type: 'START_RUN' }).state;
+// D150 (cut list item 15) and D152 (changes-m3-v2.md 1.2): a profile's first run has no board and its second one zone 1
+// contract; the board across the run is from the third run on (runs >= 2)
+const atCamp = (seed) => R.step(R.newRun({ classId: 'mage', seed, content: REAL, mapMode: 'expedition', prep: true, profile: { ...R.newProfile(), runs: 2, welcome: true } }), { type: 'START_RUN' }).state;
 const go = (s, a) => R.step(s, a).state;
 function withGate(key, value, fn) {
   const old = C.GATES[key];

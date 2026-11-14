@@ -1,6 +1,9 @@
 // rules.md 1.9 (expedition): the roamable zone map behind newRun({ mapMode: 'expedition' }): graph generation and node
 // setup by region, moves, vision and the player-visible map view (with leak tests), the Dimming, Roads and the Homeward
 // Bell, the expedition pacing values, determinism and full autoplay runs. The rows map (rules 1.4) is tested in s00-s01.
+// D152 (docs/specs/changes-m3-v2.md): the runs here are a profile's third run or later (LATER: a first run is lean, with no
+// Bell in zone 1; tested in s20); the front rule before D151 is tested with GATES.steadyDim off, the steady Dimming in s20;
+// the depth of a Dimmed encounter follows the switch (depthAt).
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { R, C, CONTENT, tweak, atLevel, autoUntil, ev, STREAM, nextFloat, forceDraws } from './helpers.mjs';
@@ -17,6 +20,21 @@ const band = (z) => C.ZONE_LEVELS * (z - 1) + 1;
 const norm = (a) => ((a % 360) + 360) % 360;
 const angDist = (a, b) => Math.min(norm(a - b), 360 - norm(a - b));
 
+/** A profile with two runs played: its runs are not lean first runs (D152, changes-m3-v2.md 1). */
+const LATER = () => ({ ...R.newProfile(), runs: 2 });
+/** Run fn with C.GATES[key] = value (restored after). */
+function withGate(key, value, fn) {
+  const old = C.GATES[key];
+  C.GATES[key] = value;
+  try { return fn(); } finally { C.GATES[key] = old; }
+}
+/**
+ * Depth of a Dimmed encounter at node id at zone toll zt (rules 1.9.6): D152 (changes-m3-v2.md 3.3, GATES.steadyDim) the
+ * time since the node dimmed, max(0, floor(DIM_FRONT_HOPS × (zt - dimAt) / DIM_FRONT_TIME)); switch off, the front less
+ * the node's hops from the Shardfall.
+ */
+const depthAt = (zone, id, zt) => (C.GATES.steadyDim ? Math.max(0, Math.floor((C.DIM_FRONT_HOPS * (zt - dimAt(zone, id))) / C.DIM_FRONT_TIME)) : frontAt(zt) - zone.shardDist[id]);
+
 /**
  * A started expedition run (phase ZONE_HUB of zone 1). The start camp is newRun's default on the expedition map (D116):
  * START_RUN opens it and SET_OUT, with nothing bought, enters zone 1 (expedition.md 2; the camp is tested in s01d).
@@ -24,7 +42,7 @@ const angDist = (a, b) => Math.min(norm(a - b), 360 - norm(a - b));
 function expRun(classId = 'mage', opts = {}) {
   const s = R.newRun({
     classId, petId: classId === 'hunter' ? 'ridgewolf' : null, seed: opts.seed ?? 1, content: opts.content || CONTENT,
-    profile: opts.profile || null, mapMode: 'expedition', vision: opts.vision || null,
+    profile: opts.profile || LATER(), mapMode: 'expedition', vision: opts.vision || null,
   });
   return R.step(R.step(s, { type: 'START_RUN' }).state, { type: 'SET_OUT' }).state;
 }
@@ -564,12 +582,13 @@ describe('rules 1.9 expedition map: vision and the map view (1.9.5)', () => {
 });
 
 describe('rules 1.9 expedition map: the Dimming (1.9.6)', () => {
-  test('1.9.6 front (M2b v7): -1 before DIM_GRACE, then DIM_FRONT_HOPS hops per DIM_FRONT_TIME tolls; Dimmed = hops from the Shardfall <= front', () => {
+  test('1.9.6 front (M2b v7): -1 before DIM_GRACE, then DIM_FRONT_HOPS hops per DIM_FRONT_TIME tolls; with GATES.steadyDim off (the rule before D151, DIM_FRONT_TIME_NOCAP) Dimmed = hops from the Shardfall <= front', () => withGate('steadyDim', false, () => {
     assert.equal(frontAt(0), -1);
     assert.equal(frontAt(C.DIM_GRACE - 1), -1);
     assert.equal(frontAt(C.DIM_GRACE), 0);
-    for (let zt = C.DIM_GRACE; zt < 40; zt++) assert.equal(frontAt(zt), Math.floor((C.DIM_FRONT_HOPS * (zt - C.DIM_GRACE)) / C.DIM_FRONT_TIME));
+    for (let zt = C.DIM_GRACE; zt < 40; zt++) assert.equal(frontAt(zt), Math.floor((C.DIM_FRONT_HOPS * (zt - C.DIM_GRACE)) / C.DIM_FRONT_TIME_NOCAP));
     const s0 = onMap(expRun('mage', { seed: 2 }));
+    assert.equal(s0.zone.dimBase, undefined, 'no schedule with the switch off');
     for (const zt of [0, 5, 6, 8, 9, 13, 14, 20, 30]) {
       const s = tweak(s0, (x) => atZoneTime(x, zt));
       const v = R.mapView(s);
@@ -588,8 +607,8 @@ describe('rules 1.9 expedition map: the Dimming (1.9.6)', () => {
     // With the starting values: the Shardfall at 6 h, the hub (3 hops) at 14 h (expedition.md 6.2).
     const hub = s0.zone.shardDist[0];
     assert.equal(dimAt(s0.zone, s0.zone.shardfall), C.DIM_GRACE);
-    assert.equal(dimAt(s0.zone, 0), C.DIM_GRACE + Math.ceil((hub * C.DIM_FRONT_TIME) / C.DIM_FRONT_HOPS));
-  });
+    assert.equal(dimAt(s0.zone, 0), C.DIM_GRACE + Math.ceil((hub * C.DIM_FRONT_TIME_NOCAP) / C.DIM_FRONT_HOPS));
+  }));
 
   test('1.9.6 the front moves with tolls: a dimming event lists the nodes it newly covers', () => {
     let s = onMap(expRun('mage', { seed: 2 }));
@@ -602,7 +621,7 @@ describe('rules 1.9 expedition map: the Dimming (1.9.6)', () => {
     assert.deepEqual(d[0].dimmed, [s.zone.shardfall]);
   });
 
-  test('1.9.6 the Dungeon dims by its hops (M2b v12, D100: DUNGEON_DIM_HOLD removed): dimAt, the map, the Dimming clock and entry follow the front', () => {
+  test('1.9.6 the Dungeon dims by its hops (M2b v12, D100: DUNGEON_DIM_HOLD removed; GATES.steadyDim off, the rule before D151; with it on the Dungeon takes its place in the order as any node, s20): dimAt, the map, the Dimming clock and entry follow the front', () => withGate('steadyDim', false, () => {
     assert.equal('DUNGEON_DIM_HOLD' in C, false);
     for (const seed of [2, 5, 9]) {
       const s0 = onMap(expRun('mage', { seed, content: REAL }));
@@ -627,7 +646,7 @@ describe('rules 1.9 expedition map: the Dimming (1.9.6)', () => {
       assert.equal(R.mapView(hid).nodes[dg].dimAt, dimAtHops(h));
       assert.equal(R.mapView(tweak(hid, (x) => { x.exp.vision.regions = true; })).nodes[dg].dimAt, dimAtHops(h));
     }
-  });
+  }));
 
   /** A mage at level L standing next to node `target` (Dimmed at zone toll zt) on zone 1's map. */
   function nextToDimmed(seed, L, depth) {
@@ -655,7 +674,8 @@ describe('rules 1.9 expedition map: the Dimming (1.9.6)', () => {
       assert.equal(st.fight.kind, 'dim');
       assert.ok(st.fight.engage, 'an engage round, as every fight but the end boss');
       const zt = zoneTime(s) + C.TIME_WALK;
-      const dep = frontAt(zt) - s.zone.shardDist[target];
+      const dep = depthAt(s.zone, target, zt);
+      assert.ok(dep >= depth, `depth ${dep} >= ${depth}`);
       assert.equal(st.node.depth, dep);
       const level = Math.min(C.MAX_LEVEL, Math.max(node.cl, L) + C.DIM_LEVEL_PER_DEPTH * dep);
       assert.equal(ev(r.events, 'dim')[0].level, level);
@@ -756,7 +776,7 @@ describe('rules 1.9 expedition map: the Dimming (1.9.6)', () => {
     assert.equal(st.death.nodeType, 'dim');
     assert.equal(st.death.node, target);
     assert.equal(st.death.ring, s.zone.nodes[target].ring);
-    assert.equal(st.death.depth, frontAt(zoneTime(s) + C.TIME_WALK) - s.zone.shardDist[target]);
+    assert.equal(st.death.depth, depthAt(s.zone, target, zoneTime(s) + C.TIME_WALK));
     assert.equal(st.death.row, null);
     const sum = R.summary(st);
     assert.equal(sum.expedition.dimFights, 1);
@@ -1001,7 +1021,7 @@ describe('expedition content and options (D50, D51)', () => {
     // Fixture content has none: nulls, and regions without families.
     const f = R.mapView(onMap(expRun('rogue', { seed: 5 })));
     assert.deepEqual(f.roadNames, [null, null, null]);
-    assert.deepEqual(Object.values(f.texts), [null, null, null, null]);
+    assert.deepEqual(Object.values(f.texts), C.EXPEDITION_TEXT_IDS.map(() => null)); // D152: five ids (dimming_pace)
     assert.ok(f.regions.every((r) => Array.isArray(r.families) && r.families.length === 0));
     // TAKE_ROAD on Road k: the travel event's road is name k.
     for (let k = 0; k < C.ROAD_COUNT; k++) {

@@ -10,10 +10,12 @@ import { CONTENT as REAL } from '../../src/content/index.js';
 import { killDropMult, bossDropRolls } from '../../src/engine/expedition.js';
 
 const pet = (cls) => (cls === 'hunter' ? 'ridgewolf' : null);
-const prof = (unlocks) => ({ ...R.newProfile(), unlocks });
+// D152 (changes-m3-v2.md 1): a profile with meta has played runs, and a first run (runs 0) is lean (no board, no vision
+// perks, no Bell in zone 1; s20), so these profiles have two runs
+const prof = (unlocks) => ({ ...R.newProfile(), runs: 2, unlocks });
 /** A started run (after START_RUN): rows, expedition, or expedition at the start camp (prep). */
 function startedRun(mode, { seed = 1, classId = 'rogue', profile = null, prep = false } = {}) {
-  const o = { classId, petId: pet(classId), seed, content: REAL, profile, mapMode: mode === 'expedition' ? 'expedition' : 'rows' };
+  const o = { classId, petId: pet(classId), seed, content: REAL, profile: profile || prof({}), mapMode: mode === 'expedition' ? 'expedition' : 'rows' };
   if (mode === 'expedition') o.prep = !!prep; // D116: prep is newRun's default on the expedition map
   return R.step(R.newRun(o), { type: 'START_RUN' }).state;
 }

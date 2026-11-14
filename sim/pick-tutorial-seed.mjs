@@ -18,10 +18,12 @@ const inner = (n) => n.ring === 1 || n.ring === 2;
 
 /**
  * Zone 1 of a guided run on `seed`, as the engine generates it: START_RUN, board slot 1 set to the guided run's Cull
- * (spec 2.3 "Board"; the engine's tutorial overlay will hold it), TAKE_CONTRACT 0, SET_OUT. Returns the run state.
+ * (spec 2.3 "Board"; the engine's tutorial overlay will hold it), TAKE_CONTRACT 0, SET_OUT. Returns the run state. D152
+ * (docs/specs/changes-m3-v2.md 1.2): a profile's first run has no board, so the scan plays a profile's second run (one zone
+ * 1 offer in slot 1); the zone and its sites are drawn as before (the board is on its own stream).
  */
 export function tutorialZone(seed) {
-  const s = newRunFor({ classId: 'rogue', seed, mapMode: 'expedition', prep: true });
+  const s = newRunFor({ classId: 'rogue', seed, mapMode: 'expedition', prep: true, profile: { ...R.newProfile(), runs: 1 } });
   R.stepInPlace(s, { type: 'START_RUN' });
   const verge = vergeIndex(s);
   s.prep.board[0] = { ...s.prep.board[0], z: 1, kind: 'cull', region: verge, family: 'wild', template: null };

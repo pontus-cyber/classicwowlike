@@ -4,7 +4,9 @@
 // `heat.timeByState`). Dev tools (engine-api.md 12): a dev run's summary has a `dev` block and no Echoes. Start camp and
 // contracts (prep, expedition.md 8.1, 9.4): the `expedition.contracts` lines, the prep screen and hub decisions in the
 // estimate, the Echo lines of contracts completed and Reserve left. M2b v15 (D124): Swift passage counts in `expedition`.
-// M3 (m3-onboarding.md 4.2, E7): the Echo line `welcome` (once per profile) and a guided run's `tutorial` block.
+// M3 (m3-onboarding.md 4.2, E7): the Echo line `welcome` (once per profile) and a guided run's `tutorial` block. D152
+// (changes-m3-v2.md 1.3; GATES.firstRunLean): `firstRun` on a lean first run, whose Echo line `reserve` is the camp points
+// left unspent (the UI's label "Unspent camp points"; no Reserve is named on a first run).
 import {
   PACE_CREATE_S, PACE_DECIDE_S, PACE_TRAVEL_NODE_S, PACE_ZONE_TRAVEL_S, PACE_QUEST_TEXT_S, PACE_FIGHT_OVERHEAD_S,
   PACE_MANUAL_ROUND_S, PACE_AUTO_ROUND_S, PACE_LOOT_S, PACE_LEVELUP_S, PACE_TALENT_S, PACE_REST_S, PACE_SHRINE_S,
@@ -12,6 +14,7 @@ import {
   PACE_ENGAGE_S, PACE_BELL_S, PACE_PREP_S, PACE_HUB_CONTRACT_S, SLOT_IDS, TALENT, CLASS, ONB_BEATS,
 } from '../constants.js';
 import { contractSummary } from './contracts.js';
+import { leanFirst } from './expedition.js';
 import { echoes, profileHash, welcomeDue } from './meta.js';
 import { deepClone } from './util.js';
 import { heatSummary } from './heat.js';
@@ -89,6 +92,8 @@ export function summary(s) {
     ...(dev ? { dev } : {}),
     // M3 guided run (m3-onboarding.md E7): rescues, SKIP_GUIDE, the beats the player learned
     ...(s.tutorial ? { tutorial: { rescues: s.tutorial.rescues, skipped: s.tutorial.skipped, learned: ONB_BEATS.filter((id) => s.tutorial.beats[id] && s.tutorial.beats[id].st === 'done') } } : {}),
+    // D152 (changes-m3-v2.md 1.3): a lean first run (no contracts, no Reserve: its `reserve` Echo line is the unspent points)
+    ...(leanFirst(s) ? { firstRun: true } : {}),
   });
 }
 

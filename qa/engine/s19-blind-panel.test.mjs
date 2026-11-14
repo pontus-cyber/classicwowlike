@@ -208,9 +208,12 @@ describe('D150 (owner text pass, wrong texts): offBalance bigHit, spellInfo est,
 
 describe('blind panel (3): text and data mismatches, engine and content side', () => {
   const PET = (c) => (c === 'hunter' ? 'ridgewolf' : null);
-  /** A guided run on zone 1's map, the board slot 1 Cull taken (real content). */
+  /**
+   * A guided run on zone 1's map, the board slot 1 Cull taken (real content). D152 (changes-m3-v2.md 1.1): a first run has
+   * no board, so this is "Play the guide again" on a profile with one run (its board slot 1 is the guided Cull).
+   */
   const guided = (classId = 'mage', seed = 5) => {
-    let s = R.newRun({ classId, petId: PET(classId), seed, content: REAL, tutorial: true });
+    let s = R.newRun({ classId, petId: PET(classId), seed, content: REAL, tutorial: true, profile: { ...R.newProfile(), runs: 1 } });
     for (const a of [{ type: 'START_RUN' }, { type: 'TAKE_CONTRACT', index: 0 }, { type: 'SET_OUT' }, { type: 'LEAVE_HUB' }]) s = R.step(s, a).state;
     return s;
   };
@@ -294,7 +297,8 @@ describe('blind panel (4): reward choices carry the class\'s primary stat (rules
   const PET = (c) => (c === 'hunter' ? 'ridgewolf' : null);
   /** Every reward choice set (quest and contract rewards) an autoplay run meets before zone 3: [{ table, items }]. */
   const rewardSets = (classId, seed, mapMode = 'expedition') => {
-    let s = R.newRun({ classId, petId: PET(classId), seed, content: REAL, mapMode });
+    // D152: a profile's third run (a first run has no contracts, changes-m3-v2.md 1.2)
+    let s = R.newRun({ classId, petId: PET(classId), seed, content: REAL, mapMode, profile: { ...R.newProfile(), runs: 2 } });
     const out = [];
     const seen = new Set();
     for (let n = 0; s.phase !== 'ENDED' && !(s.zone && s.zone.z >= 3) && n < 4000; n++) {

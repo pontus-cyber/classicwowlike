@@ -10,7 +10,9 @@
 // (catalogue entries removed from the profile: B42's no-vision cell, the row 8 attribution arm), cell.beastcallGated
 // (row 8 arm: Beastcall Horn cooldown BEASTCALL_HORN_CD_GATED). M2b v12: cell.ricochetGated (row 5 arm, D104: Ricochet
 // Bolt's bounce RICOCHET_BOUNCE_FRAC_GATED). D128: cell.campOptions (the start camp's options: null = the engine's
-// C.PREP_CAMP_OPTIONS as built, 'all' = every option as before D128, or a list of ids; setCampOptions).
+// C.PREP_CAMP_OPTIONS as built, 'all' = every option as before D128, or a list of ids; setCampOptions). D152
+// (docs/specs/changes-m3-v2.md 5.1, 7.4): in a guided cell, while the guided zone's Roads are closed and Gorrak's node is
+// open, the bot follows the coach line ("Face Gorrak first"): the engine's autoplay action is played (counted in gfb).
 import { C, R, newRunFor, withExpMeta, hash32, gatesFor, campOptionsFor, CAMP_LIST } from './engine.mjs';
 import { BAL, SIM } from './params.mjs';
 import { createBot } from '../bots/index.mjs';
@@ -92,9 +94,13 @@ export function runWithBot(cell, seed, risk, opts = {}) {
     }
     let a;
     try { a = bot.choose(s); } catch (e) { err = `bot ${cell.bot}: ${e.message}`; break; }
+    // D152 (changes-m3-v2.md 5.1, the harness rule of every guided cell): on the map of the guided zone with its Roads closed
+    // and Gorrak's node open, the bot takes the engine's autoplay action (it follows the coach line to him); without it the
+    // planner walked between a closed Road and the held corridor once only Gorrak was left (the bots do not read the guide).
+    if (cell.guided && s.tutorial && s.phase === 'MAP' && followsGuide(s)) { a = R.autoAction(s); gfb++; }
     // Guided run (report balance-2026-11-13c): the sim bots do not read the guide's barred node and closed Roads; an
     // action the guide refuses is replaced by the engine's autoplay action (which honours them), counted in gfb.
-    if (cell.guided && s.tutorial && !R.isLegal(s, a)) { a = R.autoAction(s); gfb++; }
+    else if (cell.guided && s.tutorial && !R.isLegal(s, a)) { a = R.autoAction(s); gfb++; }
     if (xs && s.phase === 'MAP' && !s.fight && !s.loot.length && s.mapMode === 'expedition') {
       const v = R.mapView(s);
       if (v && (v.nodes[v.pos].dimmed || v.nodes[v.pos].nb.some((id) => v.nodes[id].dimmed)) && !xs.cz.includes(v.z)) xs.cz.push(v.z);
@@ -134,6 +140,15 @@ export function runWithBot(cell, seed, risk, opts = {}) {
     hash: opts.hash ? hash32(R.serialize(s)) : undefined,
   });
   return { record, state: s };
+}
+
+/**
+ * The guided harness rule's test (D152, changes-m3-v2.md 5.1): in the guided zone (tutorialView) the Roads are closed and
+ * Gorrak's node is open (not barred; his fight not yet ended, or the Roads would be open).
+ */
+export function followsGuide(s) {
+  const v = R.tutorialView(s);
+  return !!(v && v.guidedZone && v.roads.closed && v.elite && !v.elite.barred);
 }
 
 /**

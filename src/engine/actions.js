@@ -29,7 +29,7 @@ import {
   takeContractError, dropContractError, buyPrepError, sellPrepError, rerollError, takeContract, dropContract, buyPrep,
   sellPrep, rerollBoard, hubContractError, takeHubContract, spyglassError, useSpyglass,
 } from './contracts.js';
-import { isExpedition, grindMaxWaves, dimmedNow } from './expedition.js';
+import { isExpedition, grindMaxWaves, dimmedNow, bellHidden } from './expedition.js';
 import { summary } from './summary.js';
 import { applyRunToProfile } from './meta.js';
 import { skipGuideError, skipGuide, tutorialAfter } from './tutorial.js';
@@ -226,7 +226,8 @@ const A = {
     apply: (s, ev) => takeRoad(s, ev),
   },
   RING_BELL: {
-    check: (s) => expMapGate(s) || (s.exp.bell < 1 ? 'no Homeward Bell charge left' : null),
+    // D152 (changes-m3-v2.md 1.2): not in zone 1 of a lean first run (the charge is kept for zone 2 on)
+    check: (s) => expMapGate(s) || (bellHidden(s) ? 'the Homeward Bell is not in hand yet' : null) || (s.exp.bell < 1 ? 'no Homeward Bell charge left' : null),
     apply: (s, ev) => ringBell(s, ev),
   },
   // ---------------- Node ----------------

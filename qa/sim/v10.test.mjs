@@ -198,7 +198,8 @@ describe('A1: contract XP in the bots\' model follows the engine', () => {
   const seen = [];
   for (const cls of ['rogue', 'mage', 'hunter']) {
     for (let seed = 1000; seed < 1060 && seen.length < 12; seed++) {
-      const s = newRunFor({ classId: cls, petId: cls === 'hunter' ? SIM.DEFAULT_PET : null, seed, mapMode: 'expedition', prep: true });
+      // D152: a profile's third run (a first run has no contracts)
+      const s = newRunFor({ classId: cls, petId: cls === 'hunter' ? SIM.DEFAULT_PET : null, seed, mapMode: 'expedition', prep: true, profile: { ...R.newProfile(), runs: 2 } });
       for (let i = 0; i < 30000 && s.phase !== 'ENDED'; i++) {
         const L0 = s.player ? s.player.level : 1;
         const p = s.player;

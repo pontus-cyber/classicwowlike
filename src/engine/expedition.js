@@ -12,7 +12,11 @@
 // takeRoad pays it), swiftView the view's `swift` block (mapView; heat.js heatPreview of a TAKE_ROAD uses swiftXp).
 // M3 guided run (m3-onboarding.md 2.3; tutorial.js): zone 1 on TUTORIAL_SEED (zoneSeed); the view shows a barred node
 // (D138) and closed Roads (D142: `closed`, and `onRoad` false on one). D146 (GATES.zone2InnerCap): zone 2's inner ring
-// keeps zone 1's quest cap (setupExpNode).
+// keeps zone 1's quest cap (setupExpNode). D152 (docs/specs/changes-m3-v2.md, D151): a steady Dimming (GATES.steadyDim:
+// dimSchedule, the order and the cap of 3.2, zone.dimBase; the panel data of 3.3), the Dimming's clock (zone.dimShift:
+// a guided rescue's tolls, GATES.rescueDim, 3.4), the guided zone's held corridor (zone.hold, tutorial.js; GATES.guidedHold,
+// 2.2), and a profile's lean first run (firstRun, leanFirst; GATES.firstRunLean, 1.2): no Homeward Bell in its zone 1
+// (bellHidden).
 import {
   ZONE_LEVELS, NODE_DRAW_ORDER, QUEST_LEVEL_OFFSETS, ELITE_LEVEL_OFFSET, RARE_CHANCE, QUEST_SIZE_W1, QUEST_SIZE_W2,
   QUEST_SIZE_W3, QUEST_MAX_SIZE_Z1, QUEST_CAP_Z2_RINGS, GRIND_WAVE_SIZE, ELITE_ADD_CHANCE, DUNGEON_SIZE_W2, DUNGEON_SIZE_W3,
@@ -23,7 +27,7 @@ import {
   VISION_RADIUS_MAX, GUIDE_RADIUS_BONUS, PATHFINDER_RADIUS, DIM_GRACE, DIM_FRONT_HOPS, DIM_FRONT_TIME, TIME_DIM_FIGHT, TIME_DIM_ESCAPE, BELL_CHANNEL_TIME,
   XP_WEIGHT_MULT, EXPED_GRIND_MAX_WAVES, EXPED_DUNGEON_TRASH_FIGHTS, EXPED_TIME_QUEST, EXPED_TIME_ELITE,
   EXPED_TIME_GRIND_WAVE, EXPED_TIME_DUNGEON, EXPEDITION_TEXT_IDS, EXPED_DROP_MULT, EXPED_DUNGEON_BOSS_DROPS, DUNGEON_BOSS_DROPS,
-  ROAD_SWIFT_TOLLS, ROAD_SWIFT_XP_FRAC, GATES, TUTORIAL_SEED,
+  ROAD_SWIFT_TOLLS, ROAD_SWIFT_XP_FRAC, GATES, TUTORIAL_SEED, DIM_FRONT_TIME_NOCAP, DIM_MAX_PER_TOLL,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt, weightedIndex } from '../rng.js';
 import { rnd } from './util.js';
@@ -36,6 +40,23 @@ import { composeEncounter, vendorStock, dungeonLevels, clampCl, pickFrom } from 
 /** Map modes of newRun: 'rows' (rules 1.4, the default until the switch-over) and 'expedition' (rules 1.9). */
 export const MAP_MODES = ['rows', 'expedition'];
 export const isExpedition = (s) => s.mapMode === 'expedition';
+/**
+ * A profile's first run (D150, cut list item 15): no run completed on the profile (`runs` 0; a dev run does not count,
+ * meta.js applyRunToProfile).
+ */
+export const firstRun = (s) => !(s.profile && s.profile.runs > 0);
+/**
+ * A lean first run (D152, changes-m3-v2.md 1.1-1.2; GATES.firstRunLean): a profile's first run with the start camp (the
+ * guided first run, or one with the guide turned off). It has no contract board, Reserve, hub contracts or vision perks,
+ * PREP_POINTS_FIRST points, and no Homeward Bell in zone 1 (bellHidden). "Play the guide again" on a later profile is not
+ * one. The expedition map without the start camp (a simulator option) keeps every system.
+ */
+export const leanFirst = (s) => !!(GATES.firstRunLean && s.exp && s.exp.prep && firstRun(s));
+/**
+ * The Homeward Bell is not in hand yet (D152, changes-m3-v2.md 1.2): zone 1 of a lean first run. RING_BELL is refused, the
+ * view shows no charge (`bell.hidden`); the charge (BELL_START_CHARGES) is kept and is there from zone 2's hub on.
+ */
+export const bellHidden = (s) => !!(leanFirst(s) && s.zone && !s.zone.camp && s.zone.z === 1 && s.zone.mode === 'expedition');
 /**
  * Seed of zone z's streams map(z), node(z, id), fight(z, id, k), loot(z, id), dim(z, id, n) and the hub vendor: TUTORIAL_SEED
  * in zone 1 of a guided run (docs/specs/m3-onboarding.md 2.3, E1; tutorial.js), else the run seed.
@@ -186,13 +207,17 @@ export function generateExpZone(s, z) {
   }
   // 6. Node setup; the contract sites (expedition.md 3.3, contracts.js) continue the map(z) stream from here (siteRng).
   for (const n of nodes) setupExpNode(s, z, n, regs);
-  return {
+  const zone = {
     z, mode: 'expedition', nodes, hub: 0, roads, shardfall, shardDist: hops(nodes, shardfall), siteRng: rng,
     pos: 0, start: s.time, seen: nodes.map(() => false), typed: nodes.map(() => false), dimN: nodes.map(() => 0),
     hubStock: null, path: [0], questsDone: 0, storyDone: false,
     // D50: newRun({ dimming: false }) plays the zone without the Dimming (every node dims at zone time Infinity).
     ...(s.exp && s.exp.dimming === false ? { dimOff: true } : {}),
   };
+  // D152 (changes-m3-v2.md 3.2; GATES.steadyDim): the Dimming's schedule, fixed with the zone (no draw); the clock's
+  // shift starts at 0 (3.4). Without the switch the zone keeps the hop rule and has neither field.
+  if (GATES.steadyDim && !zone.dimOff) Object.assign(zone, { dimBase: dimSchedule(zone), dimShift: 0 });
+  return zone;
 }
 
 /**
@@ -283,24 +308,70 @@ export function setupExpNode(s, z, n, regs) {
 /** Zone time zt: run tolls since arrival at the zone's hub, hub services included. */
 export const zoneTime = (s) => s.time - s.zone.start;
 /**
+ * Tolls per DIM_FRONT_HOPS hops of the front (rules 1.9.6): DIM_FRONT_TIME (4) while GATES.steadyDim is on (D152,
+ * changes-m3-v2.md 3.2 step 3), else DIM_FRONT_TIME_NOCAP (5, the front before D151).
+ */
+export const frontTime = () => (GATES.steadyDim ? DIM_FRONT_TIME : DIM_FRONT_TIME_NOCAP);
+/**
  * The front at zone time zt (rules 1.9.6, M2b v7 / D70): -1 before DIM_GRACE, then
- * floor(DIM_FRONT_HOPS × (zt - DIM_GRACE) / DIM_FRONT_TIME), in integers.
+ * floor(DIM_FRONT_HOPS × (zt - DIM_GRACE) / frontTime()), in integers. With the steady Dimming (D152) it is the earliest
+ * pace only: the mapView's `dim.front` and G12's trigger (tutorial.js); a node dims at its dimAt.
  */
 export function frontAt(zt) {
-  return zt < DIM_GRACE ? -1 : Math.floor((DIM_FRONT_HOPS * (zt - DIM_GRACE)) / DIM_FRONT_TIME);
+  return zt < DIM_GRACE ? -1 : Math.floor((DIM_FRONT_HOPS * (zt - DIM_GRACE)) / frontTime());
 }
-/** First zone toll at which a node `hops` from the Shardfall is Dimmed: DIM_GRACE + ceil(hops × DIM_FRONT_TIME / DIM_FRONT_HOPS), in integers. */
+/** First zone toll at which a node `hops` from the Shardfall can dim: DIM_GRACE + ceil(hops × frontTime() / DIM_FRONT_HOPS), in integers. */
 export function dimAtHops(hops) {
-  return DIM_GRACE + Math.floor((hops * DIM_FRONT_TIME + DIM_FRONT_HOPS - 1) / DIM_FRONT_HOPS);
+  const ft = frontTime();
+  return DIM_GRACE + Math.floor((hops * ft + DIM_FRONT_HOPS - 1) / DIM_FRONT_HOPS);
 }
 /**
- * First zone toll at which node id is Dimmed: dimAtHops(hops from the Shardfall), for every node (M2b v12, D100: the
- * Dungeon's DUNGEON_DIM_HOLD of M2b v10 is removed, so what the player sees and the engine's test are the same value).
- * Infinity in a zone played without the Dimming (dimOff, newRun option dimming: false, D50).
+ * The Dimming's order and schedule (D152, changes-m3-v2.md 3.2 steps 1-2; GATES.steadyDim): every node of the zone not in
+ * `held` (a Set of ids: the guided zone's corridor, tutorial.js setupGuidedZone) ordered by hops from the Shardfall, then
+ * by angular distance from the Shardfall's angle (angDist), then by id, so the dark grows as one patch from the star,
+ * nearest first; node k of the order dims at dimAt_k = max(dimAtHops(h_k), dimAt_(k-1), dimAt_(k-DIM_MAX_PER_TOLL) + 1):
+ * the hop pace is the earliest, and at most DIM_MAX_PER_TOLL nodes dim in any one toll. Returns the base toll of every
+ * node by id (zone.dimBase; dimAt adds zone.dimShift), null for a held node (it takes no place in the order). No draw.
+ */
+export function dimSchedule(zone, held = null) {
+  const a0 = zone.nodes[zone.shardfall].angle;
+  const order = zone.nodes.map((n) => n.id).filter((id) => !(held && held.has(id)))
+    .sort((a, b) => zone.shardDist[a] - zone.shardDist[b] || angDist(zone.nodes[a].angle, a0) - angDist(zone.nodes[b].angle, a0) || a - b);
+  const base = zone.nodes.map(() => null);
+  const at = [];
+  order.forEach((id, k) => {
+    let t = dimAtHops(zone.shardDist[id]);
+    if (k > 0) t = Math.max(t, at[k - 1]);
+    if (k >= DIM_MAX_PER_TOLL) t = Math.max(t, at[k - DIM_MAX_PER_TOLL] + 1);
+    at.push(t);
+    base[id] = t;
+  });
+  return base;
+}
+/**
+ * The guided zone's corridor holds node id now (D152, changes-m3-v2.md 2.2; tutorial.js): it never dims until the
+ * corridor is released (Gorrak's fight or the guide ended).
+ */
+export const heldNow = (zone, id) => !!(zone.hold && zone.hold.release === null && zone.hold.ids.includes(id));
+/**
+ * The Dimming's own clock at zone time zt (D152, changes-m3-v2.md 3.4; GATES.rescueDim): zt less zone.dimShift, the
+ * tolls of guided rescues and the rescue's fall-back, which the Dimming does not count. 0 without a rescue.
+ */
+export const dimClock = (zone, zt) => zt - (zone.dimShift || 0);
+/**
+ * First zone toll at which node id is Dimmed. D152 (changes-m3-v2.md 3.2 step 4): a corridor node while held never
+ * (Infinity), after its release its release toll (zone.hold.at); with the steady Dimming (zone.dimBase, GATES.steadyDim)
+ * its scheduled toll; else dimAtHops(hops from the Shardfall), for every node (M2b v12, D100: the Dungeon's
+ * DUNGEON_DIM_HOLD of M2b v10 is removed). Every value but a held node's is shifted by zone.dimShift (3.4: the Dimming
+ * pauses for a guided rescue). Infinity in a zone played without the Dimming (dimOff, newRun option dimming: false, D50).
  */
 export function dimAt(zone, id) {
   if (zone.dimOff) return Infinity;
-  return dimAtHops(zone.shardDist[id]);
+  const sh = zone.dimShift || 0;
+  const H = zone.hold;
+  if (H && H.ids.includes(id)) return H.release === null ? Infinity : H.at[id] + sh;
+  if (zone.dimBase) return zone.dimBase[id] === null ? Infinity : zone.dimBase[id] + sh;
+  return dimAtHops(zone.shardDist[id]) + sh;
 }
 export const dimmedAt = (zone, id, zt) => zt >= dimAt(zone, id);
 /** A step from node `from` to node `to` goes farther from the Shardfall (rules 1.9.6, M2b v12; hops on the zone graph). */
@@ -312,13 +383,27 @@ export const outwardStep = (zone, from, to) => zone.shardDist[to] > zone.shardDi
 export const dimFightTime = (escape) => (escape ? TIME_DIM_ESCAPE : TIME_DIM_FIGHT);
 /** Is node id (default: the player's) Dimmed now? */
 export const dimmedNow = (s, id = s.zone.pos) => dimmedAt(s.zone, id, zoneTime(s));
-/** Tolls until the front advances again: dimAtHops(front + 1) - zt, at least 1. */
+/** Tolls until the front advances again: dimAtHops(front + 1) - zt, at least 1 (zt on the Dimming's clock, dimClock). */
 export function frontNextIn(zt) {
   return Math.max(1, dimAtHops(frontAt(zt) + 1) - zt);
 }
 /** Nodes the front covers at zone time zt. */
 export function dimmedIds(zone, zt) {
   return zone.nodes.filter((n) => dimmedAt(zone, n.id, zt)).map((n) => n.id);
+}
+/**
+ * The next nodes to dim after zone time zt (D152, changes-m3-v2.md 3.3): { nextIn (the smallest dimAt - zt above 0;
+ * Infinity when none), nextCount (nodes that dim then; 0 when none) }. A held corridor node has none.
+ */
+export function nextDim(zone, zt) {
+  let nextIn = Infinity;
+  let nextCount = 0;
+  for (const n of zone.nodes) {
+    const d = dimAt(zone, n.id) - zt;
+    if (!(d > 0) || d === Infinity) continue;
+    if (d < nextIn) { nextIn = d; nextCount = 1; } else if (d === nextIn) nextCount += 1;
+  }
+  return { nextIn, nextCount };
 }
 // ---------------- Swift passage (rules 1.9.7; M2b v15 row 2, D124) ----------------
 /**
@@ -451,10 +536,12 @@ export function expMapView(s) {
     const know = knowledge(s, n);
     const at = dimAt(zone, n.id); // M2b v12: every node by its hops (the Dungeon's hold of M2b v10 removed)
     const dimmed = zt >= at;
+    const held = heldNow(zone, n.id); // D152 (changes-m3-v2.md 2.2): the guided zone's corridor, no "dims in" chip
     const v = {
       id: n.id, ring: n.ring, angle: n.angle, nb: n.nb.slice(), hops: d[n.id], hub: n.ring === 0, road: n.road,
-      shardfall: n.shardfall, dimmed, dimsIn: Math.max(0, at - zt), dimAt: at, know,
+      shardfall: n.shardfall, dimmed, dimsIn: held ? null : Math.max(0, at - zt), dimAt: at, know,
       region: n.ring > 0 && (know === 'full' || showRegions) ? n.region : null,
+      ...(held ? { held: true } : {}),
     };
     if (know === 'type') v.type = n.type;
     if (know === 'full') Object.assign(v, { type: n.type, cl: n.cl, done: n.done, lost: dimmed && !n.done && n.ring > 0 }, details(c, z, n));
@@ -475,16 +562,29 @@ export function expMapView(s) {
     const enter = v.know === 'full' && !v.dimmed && !v.done && !v.hub;
     return { nodeId: id, via: enter ? 'enter' : 'walk', time: enter ? nodeTime(s, v.type) : TIME_WALK, passTime: enter ? TIME_WALK : null, dimmed: v.dimmed, ...(v.barred ? { barred: true } : {}) };
   });
-  const front = zone.dimOff ? -1 : frontAt(zt);
+  const clock = dimClock(zone, zt);
+  const front = zone.dimOff ? -1 : frontAt(clock);
+  // D152 (changes-m3-v2.md 3.3): the panel's data; with GATES.steadyDim off `nextIn` keeps the front's next step
+  const next = zone.dimOff ? { nextIn: Infinity, nextCount: 0 } : nextDim(zone, zt);
+  const nextIn = zone.dimOff ? Infinity : GATES.steadyDim ? next.nextIn : frontNextIn(clock);
+  const nextCount = GATES.steadyDim || zone.dimOff ? next.nextCount : nodes.filter((x) => x.dimAt === zt + nextIn).length;
+  const hide = bellHidden(s); // D152 (changes-m3-v2.md 1.2): zone 1 of a lean first run, the charge kept
   return {
     mode: 'expedition', z, name: zoneContent(c, z).name, zt, pos: zone.pos, hub: 0, roads: zone.roads.slice(),
     roadNames: zone.roads.map((id) => roadNameOf(s, id)), texts: expeditionTexts(c),
     // onRoad: TAKE_ROAD is legal here (a Road, not closed: D142)
     shardfall: zone.shardfall, onRoad: zone.nodes[zone.pos].road && !zone.nodes[zone.pos].closed, walkTime: TIME_WALK, travelTime: TIME_TRAVEL,
-    bell: { charges: s.exp.bell, channelTime: BELL_CHANNEL_TIME }, ...(s.exp.prep ? { spyglass: s.exp.spyglass } : {}),
+    bell: { charges: hide ? 0 : s.exp.bell, hidden: hide, channelTime: BELL_CHANNEL_TIME }, ...(s.exp.prep ? { spyglass: s.exp.spyglass } : {}),
     swift: swiftView(s), // M2b v15 row 2 (D124): Swift passage; null while GATES.swiftRoad is off
     vision: { radius: visionRadius(s), regions: showRegions, typeRadius: s.exp.vision.typeRadius },
-    dim: { grace: DIM_GRACE, frontHops: DIM_FRONT_HOPS, frontTime: DIM_FRONT_TIME, front, nextIn: zone.dimOff ? Infinity : frontNextIn(zt), off: !!zone.dimOff },
+    dim: {
+      grace: DIM_GRACE, frontHops: DIM_FRONT_HOPS, frontTime: frontTime(), front, nextIn, off: !!zone.dimOff,
+      // D152 (changes-m3-v2.md 3.3): steady (GATES.steadyDim: the order, the cap and the depth by time), maxPerToll
+      // (DIM_MAX_PER_TOLL; null without the cap), nextCount (nodes that dim in nextIn tolls), count (Dimmed now), total
+      // (nodes of the zone), shift (zone.dimShift: tolls of guided rescues the Dimming did not count, 3.4)
+      steady: !!GATES.steadyDim, maxPerToll: GATES.steadyDim ? DIM_MAX_PER_TOLL : null, nextCount,
+      count: nodes.filter((x) => x.dimmed).length, total: nodes.length, shift: zone.dimShift || 0,
+    },
     regions: regs.map((r, i) => ({ id: i, name: r.name, kind: r.kind, families: r.families.slice() })),
     bands: RING_NODES.map((_, r) => (r === 0 ? [band, band] : [clampCl(band + RING_CL_BASE[r]), clampCl(band + RING_CL_BASE[r] + RING_CL_SPREAD - 1)])),
     edges, moves, nodes,

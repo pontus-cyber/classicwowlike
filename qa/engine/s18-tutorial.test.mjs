@@ -20,9 +20,15 @@ import { CONTENT } from '../../src/content/index.js';
 const C = R.C;
 const PET = (c) => (c === 'hunter' ? 'ridgewolf' : null);
 const run = (classId = 'mage', seed = 5, opts = {}) => R.newRun({ classId, petId: PET(classId), seed, content: CONTENT, tutorial: true, ...opts });
+/**
+ * D152 (docs/specs/changes-m3-v2.md 1.1): a profile's first run (runs 0) has no contract board, so the guided zone's Cull
+ * and its sites are tested on "Play the guide again" of a profile with one run (REPLAY): its board slot 1 is the guided
+ * Cull, the Bell is in hand, the corridor is held as on a first run.
+ */
+const REPLAY = () => ({ ...R.newProfile(), runs: 1 });
 const steps = (s, list) => { const events = []; for (const a of list) { const r = R.step(s, a); s = r.state; events.push(...r.events); } return { state: s, events }; };
-/** A guided run on the map at zone 1's hub, the board slot 1 Cull taken. */
-const atHub = (classId = 'mage', seed = 5, take = true) => steps(run(classId, seed), [{ type: 'START_RUN' }, ...(take ? [{ type: 'TAKE_CONTRACT', index: 0 }] : []), { type: 'SET_OUT' }, { type: 'LEAVE_HUB' }]).state;
+/** A guided run on the map at zone 1's hub: the board slot 1 Cull taken (REPLAY), or (take false) a first run. */
+const atHub = (classId = 'mage', seed = 5, take = true) => steps(run(classId, seed, take ? { profile: REPLAY() } : {}), [{ type: 'START_RUN' }, ...(take ? [{ type: 'TAKE_CONTRACT', index: 0 }] : []), { type: 'SET_OUT' }, { type: 'LEAVE_HUB' }]).state;
 /** Autoplay until no fight, node, reward or loot window is open. */
 function settle(s, events = []) {
   for (let n = 0; (s.fight || s.phase === 'NODE' || (s.loot && s.loot.length)) && n < 400; n++) { const r = R.step(s, R.autoAction(s)); s = r.state; events.push(...r.events); }
@@ -36,10 +42,15 @@ function die(s, events = []) {
   for (let n = 0; s.fight && n < 10; n++) { const r = R.step(s, { type: 'PASS' }); s = r.state; events.push(...r.events); }
   return s;
 }
-/** The state with a changed tutorial counter, refreshed by a no-op action (the overlay is laid on after each action). */
+/**
+ * The state with a changed tutorial counter, refreshed by a no-op action (the overlay is laid on after each action). The
+ * scripted fights ended are fights ended too (D152, changes-m3-v2.md 2.1: `fights` opens Gorrak's node), so `fights` is
+ * at least `script`.
+ */
 function withScript(s, script) {
   s = JSON.parse(R.serialize(s)); s.content = CONTENT;
   s.tutorial.script = script;
+  s.tutorial.fights = Math.max(s.tutorial.fights || 0, script);
   return steps(s, [{ type: 'SET_AUTOPLAY', on: true }, { type: 'SET_AUTOPLAY', on: false }]).state;
 }
 /** A copy changed by fn, refreshed by a no-op action (two SET_AUTOPLAY; no tolls, so no settle step). */
@@ -71,6 +82,12 @@ function win(s, events = []) {
   return settle(s, events);
 }
 const roadsOf = (s) => s.zone.roads.map((r) => !!s.zone.nodes[r].closed);
+/** Run fn with C.GATES[key] = value (restored after). */
+function withGateT(key, value, fn) {
+  const old = C.GATES[key];
+  C.GATES[key] = value;
+  try { return fn(); } finally { C.GATES[key] = old; }
+}
 /** The Dimming's front at zone toll zt (expedition.js frontAt, from C). */
 const frontAt = (zt) => (zt < C.DIM_GRACE ? -1 : Math.floor((C.DIM_FRONT_HOPS * (zt - C.DIM_GRACE)) / C.DIM_FRONT_TIME));
 /**
@@ -84,6 +101,11 @@ function frontNear(s, events = []) {
 }
 /** On node 1 next to Gorrak (node 18), his gate open: the scripts counted as ended. */
 const nextToGorrak = (classId = 'mage') => withScript(walkTo(atHub(classId, 5), 1), 4);
+/**
+ * The Dimming held off for a test that walks the zone at length (D152: the steady Dimming reaches some of the guided
+ * zone's nodes sooner than the front did): its clock set back `by` tolls (zone.dimShift, changes-m3-v2.md 3.4).
+ */
+const noDim = (s, by = 100) => tweak(s, (x) => { x.zone.dimShift = (x.zone.dimShift || 0) + by; });
 
 describe('M3 guided run: newRun, seed and overlay (m3-onboarding 2.1-2.3, E1, E2)', () => {
   test('E1 tutorial is an expedition option with the start camp; state.tutorial from START_RUN; never in a normal run', () => {
@@ -93,9 +115,13 @@ describe('M3 guided run: newRun, seed and overlay (m3-onboarding 2.1-2.3, E1, E2
     assert.throws(() => R.newRun({ classId: 'mage', content: { ...CONTENT, tutorial: undefined }, tutorial: true, validate: false }), /CONTENT.tutorial/);
     const s = steps(run(), [{ type: 'START_RUN' }]).state;
     assert.equal(s.phase, 'PREP');
-    // beats, top (the last top line) and fl (the fight's capped lines, from its first fight) are the engine's bookkeeping
-    assert.deepEqual({ ...s.tutorial, beats: undefined, top: undefined }, { on: true, skipped: false, ended: false, rescues: 0, script: 0, sites: 0, elite: null, beats: undefined, top: undefined });
-    assert.equal(s.tutorial.top, 'G1');
+    // beats, top (the last top line) and fl (the fight's capped lines, from its first fight) are the engine's bookkeeping;
+    // D152: fights (changes-m3-v2.md 2.1)
+    assert.deepEqual({ ...s.tutorial, beats: undefined, top: undefined }, { on: true, skipped: false, ended: false, rescues: 0, script: 0, sites: 0, elite: null, beats: undefined, top: undefined, fights: 0 });
+    // D152 (changes-m3-v2.md 1.2): a first run has no board, so G1 and G10 do not fire; "Play the guide again" opens G1
+    assert.deepEqual([s.tutorial.top, s.tutorial.beats.G1.st, s.tutorial.beats.G10.st], [null, 'skip', 'skip']);
+    assert.deepEqual(R.tutorialView(s).skippedBeats, ['G1', 'G10']);
+    assert.equal(steps(run('mage', 5, { profile: REPLAY() }), [{ type: 'START_RUN' }]).state.tutorial.top, 'G1');
     const n = steps(R.newRun({ classId: 'mage', seed: 5, content: CONTENT }), [{ type: 'START_RUN' }]).state;
     assert.equal(n.tutorial, undefined);
     assert.equal(n.create.tutorial, undefined);
@@ -121,15 +147,18 @@ describe('M3 guided run: newRun, seed and overlay (m3-onboarding 2.1-2.3, E1, E2
     assert.equal(C.TUTORIAL_SEED, CONTENT.tutorial.seed);
   });
 
-  test('2.3 board slot 1 is the content Cull; the other slots are those of the same seed without the option', () => {
-    const g = R.prepView(steps(run('rogue', 77), [{ type: 'START_RUN' }]).state);
-    const n = R.prepView(steps(R.newRun({ classId: 'rogue', seed: 77, content: CONTENT }), [{ type: 'START_RUN' }]).state);
+  test('2.3 board slot 1 is the content Cull; the other slots are those of the same seed without the option (D152: "Play the guide again", a profile\'s third run; a first run has no board)', () => {
+    const third = { ...R.newProfile(), runs: 2 };
+    const g = R.prepView(steps(run('rogue', 77, { profile: third }), [{ type: 'START_RUN' }]).state);
+    const n = R.prepView(steps(R.newRun({ classId: 'rogue', seed: 77, content: CONTENT, profile: third }), [{ type: 'START_RUN' }]).state);
+    assert.equal(g.board.length, C.CONTRACT_BOARD_SIZE);
+    assert.deepEqual(R.prepView(steps(run('rogue', 77), [{ type: 'START_RUN' }]).state).board, [], 'the guided first run: no board');
     assert.deepEqual([g.board[0].z, g.board[0].kind, g.board[0].regionName, g.board[0].family, g.board[0].need], [1, 'cull', 'Barleyreach Verge', 'wild', C.CONTRACT.cull.sites]);
     assert.deepEqual(g.board.slice(1), n.board.slice(1));
   });
 
   test('2.3 scripts S1-S4 play by order on non-site Quest or Grind nodes, sites play site_1 then site_2; levels; D138 wind-ups; S1 loot', () => {
-    let s = atHub('mage', 5);
+    let s = noDim(atHub('mage', 5)); // D152: the walk below reaches node 4 after the steady Dimming would (zone toll 10)
     assert.equal(s.zone.nodes[9].cl, Math.min(s.zone.nodes[9].gen.cl, C.ONB_SCRIPT_LEVEL_MAX), 'a script node shows the capped level');
     const seen = [];
     for (const id of [2, 1, 6, 5, 4]) {
@@ -179,7 +208,7 @@ describe('M3 guided run: newRun, seed and overlay (m3-onboarding 2.1-2.3, E1, E2
     assert.ok(q.enemies.every((e) => !e.firstMeet && !e.track.some((x) => x.windup)));
   });
 
-  test('2.3 Gorrak: the nearest Elite, alone, never rare, level clamp; barred until s3 ended (D138, D143), open after SKIP_GUIDE', () => {
+  test('2.3 Gorrak: the nearest Elite, alone, never rare, level clamp; barred until ONB_ELITE_FIGHTS fights have ended (D152; D138, D143: after s3), open after SKIP_GUIDE', () => {
     let s = steps(atHub('rogue', 3), [{ type: 'MOVE', nodeId: 1 }]).state;
     s = settle(s);
     const n = s.zone.nodes[18];
@@ -190,15 +219,17 @@ describe('M3 guided run: newRun, seed and overlay (m3-onboarding 2.1-2.3, E1, E2
     const mv = R.mapView(s);
     assert.equal(mv.nodes[18].barred, true);
     assert.equal(mv.moves.find((m) => m.nodeId === 18).barred, true);
-    // D143: the gate is S3 (the third scripted fight), so `left` counts down from 3
-    assert.equal(CONTENT.tutorial.elite.gate.afterScript, 's3');
-    assert.deepEqual([R.tutorialView(s).elite.barred, R.tutorialView(s).elite.left], [true, 3 - s.tutorial.script]);
+    // D152 (changes-m3-v2.md 2.1): every fight counts (here site 1), `left` counts down from ONB_ELITE_FIGHTS; afterScript
+    // is retired
+    assert.equal(CONTENT.tutorial.elite.gate.afterScript, undefined);
+    assert.deepEqual([s.tutorial.fights, s.tutorial.script], [1, 0], 'site 1 counts, though not a script');
+    assert.deepEqual([R.tutorialView(s).elite.barred, R.tutorialView(s).elite.left, R.tutorialView(s).elite.fights], [true, C.ONB_ELITE_FIGHTS - 1, 1]);
     assert.ok(!R.legalActions(s).some((a) => a.nodeId === 18 && (a.type === 'MOVE' || a.type === 'PASS_THROUGH')));
     const two = withScript(s, 2);
-    assert.match(R.whyIllegal(two, { type: 'MOVE', nodeId: 18 }), /closed/, 'barred after S2');
+    assert.match(R.whyIllegal(two, { type: 'MOVE', nodeId: 18 }), /closed/, 'barred after two fights');
     assert.deepEqual([R.tutorialView(two).elite.barred, R.tutorialView(two).elite.left], [true, 1]);
     const open = withScript(s, 3);
-    assert.equal(R.whyIllegal(open, { type: 'MOVE', nodeId: 18 }), null, 'open once S3 has ended');
+    assert.equal(R.whyIllegal(open, { type: 'MOVE', nodeId: 18 }), null, 'open once three fights have ended');
     assert.deepEqual([R.tutorialView(open).elite.barred, R.tutorialView(open).elite.left], [false, 0]);
     const skipped = R.step(s, { type: 'SKIP_GUIDE' }).state;
     assert.equal(R.whyIllegal(skipped, { type: 'MOVE', nodeId: 18 }), null);
@@ -389,8 +420,8 @@ describe('M3 content lines for the UI (draft, engine-2026-11-14b: ui-2026-11-14 
     plain(G.roadsOpenLine);
     assert.ok(G.roadsOpenLine.length <= C.ONB_HINT_MAX_CHARS && /\bRoads\b/.test(G.roadsOpenLine) && !/Gorrak/.test(G.roadsOpenLine), G.roadsOpenLine);
     assert.ok(![G.skipLine, G.endLine, G.rescueCapLine].includes(G.roadsOpenLine));
-    // its moment on the route (seed 8736): the step that ends Gorrak's fight opens the Roads, in zone 1
-    let s = steps(run('mage', 8736), [{ type: 'START_RUN' }, { type: 'TAKE_CONTRACT', index: 0 }]).state;
+    // its moment on the route (seed 8736; D152: a first run, no Cull): the step that ends Gorrak's fight opens the Roads, in zone 1
+    let s = steps(run('mage', 8736), [{ type: 'START_RUN' }]).state;
     let opened = null;
     for (let n = 0; !opened && n < 3000 && !(s.zone && s.zone.z === 2); n++) {
       const was = R.tutorialView(s).roads;
@@ -408,21 +439,26 @@ describe('M3 content lines for the UI (draft, engine-2026-11-14b: ui-2026-11-14 
 });
 
 describe('M3 guided run: beats and tutorialView (2.4-2.7, E5)', () => {
-  test('autoplay guided runs reach zone 2 for every class; beats open once each, G1-G5 and G7 learned, the guide ends at zone 2', () => {
+  test('autoplay guided first runs reach zone 2 for every class; D152: G1 and G10 skipped (no board); beats open once each, G2-G5, G7 and G9 learned, the guide ends at zone 2; "Play the guide again": G1 at the camp', () => {
+    // "Play the guide again" (a profile with a run): G1 is the camp's line; D150 (verdict "stays after the action"): with a
+    // contract held G1's line waits
+    let p = steps(run('mage', 11, { profile: REPLAY() }), [{ type: 'START_RUN' }]).state;
+    assert.deepEqual([R.tutorialView(p).beat, R.tutorialView(p).line], ['G1', 'G1']);
+    p = R.step(p, { type: 'TAKE_CONTRACT', index: 0 }).state;
+    assert.deepEqual([R.tutorialView(p).beat, R.tutorialView(p).line, R.tutorialView(p).open], [null, null, [{ id: 'G1', line: null, rest: false }]]);
     for (const classId of ['rogue', 'mage', 'hunter']) {
       let s = steps(run(classId, 11), [{ type: 'START_RUN' }]).state;
-      assert.deepEqual([R.tutorialView(s).beat, R.tutorialView(s).line], ['G1', 'G1']);
-      // D150 (verdict "stays after the action"): with a contract held G1's line waits
-      s = R.step(s, { type: 'TAKE_CONTRACT', index: 0 }).state;
-      assert.deepEqual([R.tutorialView(s).beat, R.tutorialView(s).line, R.tutorialView(s).open], [null, null, [{ id: 'G1', line: null, rest: false }]]);
+      // D152 (changes-m3-v2.md 1.2): a first run has no board, so no G1 or G10
+      assert.deepEqual([R.tutorialView(s).beat, R.tutorialView(s).line, R.tutorialView(s).skippedBeats], [null, null, ['G1', 'G10']]);
       const ev = [];
       for (let n = 0; !(s.zone && s.zone.z === 2) && s.phase !== 'ENDED' && n < 3000; n++) { const r = R.step(s, R.autoAction(s)); s = r.state; ev.push(...r.events); }
       assert.equal(s.zone.z, 2, `${classId} reaches zone 2`);
       const opened = ev.filter((e) => e.t === 'beat' && e.what === 'open').map((e) => e.id);
       assert.equal(new Set(opened).size, opened.length, 'each beat opens once');
-      // D143: Gorrak opens after S3, so the autoplay route fights him and leaves by a Road without S4; D147 (the D145 fix):
-      // S3 is the wind-up fight, so G8 opens there too, before G9
-      for (const id of ['G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8', 'G9', 'G10', 'G12', 'G13']) assert.ok(opened.includes(id), `${classId} ${id}`);
+      // D152: Gorrak opens after three fights, on a first run S1-S3, so the autoplay route fights him and leaves by a Road
+      // without S4; D147 (the D145 fix): S3 is the wind-up fight, so G8 opens there too, before G9
+      for (const id of ['G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8', 'G9', 'G12', 'G13']) assert.ok(opened.includes(id), `${classId} ${id}`);
+      assert.ok(!opened.includes('G1') && !opened.includes('G10'), `${classId}: no contract beats`);
       assert.ok(opened.indexOf('G8') < opened.indexOf('G9'), `${classId}: G8 before G9`);
       // D150: G5 at the first hub, before G2 (the map) and G7 (fight 1); G3 and G9 open with no line
       assert.ok(opened.indexOf('G5') < opened.indexOf('G2') && opened.indexOf('G2') < opened.indexOf('G7'), `${classId}: ${opened.join(' ')}`);
@@ -430,7 +466,8 @@ describe('M3 guided run: beats and tutorialView (2.4-2.7, E5)', () => {
       // D142: the autoplay goes to Gorrak while the Roads are closed, so the Deathblow beat happens on its route
       assert.ok(['victory', 'fled', 'rescue'].includes(s.tutorial.elite), `${classId} fought Gorrak`);
       const v = R.tutorialView(s);
-      for (const id of ['G1', 'G2', 'G3', 'G4', 'G5', 'G7', 'G9']) assert.ok(v.learned.includes(id), `${classId} learned ${id}`);
+      for (const id of ['G2', 'G3', 'G4', 'G5', 'G7', 'G9']) assert.ok(v.learned.includes(id), `${classId} learned ${id}`);
+      assert.deepEqual(v.skippedBeats, ['G1', 'G10']);
       // D150: the Dimming line once (ONB_LINE_RETURNS 0), then G12.road once the Roads are open; no G12.caught
       assert.equal(C.ONB_LINE_RETURNS, 0);
       assert.deepEqual(ev.filter((e) => e.t === 'beat' && e.id === 'G12' && e.line).map((e) => [e.what, e.line]), [['open', 'G12'], ['line', 'G12.road']], `${classId}: G12's lines`);
@@ -440,8 +477,8 @@ describe('M3 guided run: beats and tutorialView (2.4-2.7, E5)', () => {
     }
   });
 
-  test('G1 without a contract: missed and G10 skipped; G9 opens in the Gorrak fight with no line (D150: the UI\'s prompt bar gives its answer); a landed Deathblow: G9.landed', () => {
-    const s = steps(run('hunter', 4), [{ type: 'START_RUN' }, { type: 'SET_OUT' }]).state;
+  test('G1 without a contract ("Play the guide again", D152): missed and G10 skipped; G9 opens in the Gorrak fight with no line (D150: the UI\'s prompt bar gives its answer); a landed Deathblow: G9.landed', () => {
+    const s = steps(run('hunter', 4, { profile: REPLAY() }), [{ type: 'START_RUN' }, { type: 'SET_OUT' }]).state;
     const v = R.tutorialView(s);
     assert.deepEqual([v.done.includes('G1'), v.learned.includes('G1'), v.skippedBeats], [true, false, ['G10']]);
     const g = R.step(withScript(settle(R.step(atHub('hunter', 4), { type: 'MOVE', nodeId: 1 }).state), 4), { type: 'MOVE', nodeId: 18 });
@@ -468,13 +505,15 @@ describe('M3 D150: the coach lines\' moments (owner text pass; docs/feedback/202
     assert.equal(T.beats.find((b) => b.id === 'G12').alt.road, 'Take a Road to leave.');
     assert.equal(line('G3'), null);
     for (const classId of ['rogue', 'mage', 'hunter']) {
-      let s = steps(run(classId, 1000), [{ type: 'START_RUN' }, { type: 'TAKE_CONTRACT', index: 0 }]).state;
+      // D152: the guided first run (no board; fight 1 is S1, a lone Furrow Boar on Quest node 1)
+      let s = steps(run(classId, 1000), [{ type: 'START_RUN' }]).state;
       const r = R.step(s, { type: 'SET_OUT' });
       assert.deepEqual([r.state.phase, R.tutorialView(r.state).beat, R.tutorialView(r.state).line], ['ZONE_HUB', 'G5', 'G5'], `${classId}: the hub`);
       s = r.state;
       const seen = [];
       let g4 = null;
-      for (let n = 0; !(s.zone && s.zone.z === 2) && n < 3000 && !(g4 && s.tutorial.beats.G7 && s.tutorial.beats.G7.st !== 'open'); n++) {
+      // D152: on the first run S1's fixed upgrade (G4) comes before the first reward choice, so the walk goes on to one
+      for (let n = 0; !(s.zone && s.zone.z === 2) && n < 3000 && !(g4 && s.tutorial.beats.G7 && s.tutorial.beats.G7.st !== 'open' && seen.some((x) => x[0] === 'reward gear')); n++) {
         const a = R.autoAction(s);
         const x = R.step(s, a);
         const opened = x.events.filter((e) => e.t === 'beat' && e.what === 'open').map((e) => e.id);
@@ -486,7 +525,7 @@ describe('M3 D150: the coach lines\' moments (owner text pass; docs/feedback/202
         }
         s = x.state;
       }
-      assert.deepEqual(seen[0], ['G7', 1, 1, 'site'], `${classId}: G7 in fight 1, a lone Furrow Boar (${JSON.stringify(seen)})`);
+      assert.deepEqual(seen[0], ['G7', 1, 1, 'script'], `${classId}: G7 in fight 1, a lone Furrow Boar (${JSON.stringify(seen)})`);
       assert.ok(seen.some((x) => x[0] === 'reward gear') && seen.filter((x) => x[0] === 'reward gear').every((x) => x[1] === false), `${classId}: no G4 at a reward choice`);
       assert.deepEqual(g4, { a: g4.a, victory: true, up: true }, `${classId}: G4 with a fight's spoils, an upgrade`);
       assert.equal(s.tutorial.beats.G7.st, 'done', `${classId}: fight 1's ENGAGE learns G7`);
@@ -496,9 +535,9 @@ describe('M3 D150: the coach lines\' moments (owner text pass; docs/feedback/202
 
 describe('M3 D150 follow-up (Lead 2026-11-14, draft): G14 combo points, G15 resource, G16 Bloodlust, G17 targets', () => {
   const NEW = ['G14', 'G15', 'G16', 'G17'];
-  /** The autoplay route (seed 1000), per step: the view's line, the fight's id and round, the G14-G17 beat events. */
+  /** The autoplay route (seed 1000; D152: the guided first run), per step: the view's line, the fight's id and round, the G14-G17 beat events. */
   function newMoments(classId) {
-    let s = steps(run(classId, 1000), [{ type: 'START_RUN' }, { type: 'TAKE_CONTRACT', index: 0 }]).state;
+    let s = steps(run(classId, 1000), [{ type: 'START_RUN' }]).state;
     const log = [];
     for (let n = 0; !(s.zone && s.zone.z === 2) && n < 3000; n++) {
       const a = R.autoAction(s);
@@ -546,14 +585,16 @@ describe('M3 D150 follow-up (Lead 2026-11-14, draft): G14 combo points, G15 reso
         assert.ok(showings(log, id) <= 1, `${classId} ${id}: shown once (${showings(log, id)})`);
         at[classId][id] = `${x.fight}:R${x.round}:${showings(log, id)}`;
       }
-      // G14 only where a finisher can be cast (the Rogue); G16 the step after the first beast acted (site 1's Furrow Boar)
+      // G14 only where a finisher can be cast (the Rogue); G16 the step after the first beast acted (S1's Furrow Boar)
       const g16 = log.find((x) => x.ev.some(([b, w]) => b === 'G16' && w === 'open'));
       assert.ok(g16.state.fight.enemies.some((e) => e.alive && e.arch === 'beast' && e.acted === 1), `${classId}: the badge's first round`);
     }
+    // D152 (the first run: S1 is fight 1, S3 fight 3 at level 5): the Rogue's Ambush no longer kills S3's Hexer, so it sees
+    // G17 there too
     assert.deepEqual(at, {
-      rogue: { G14: 'site_1:R2:1', G15: 'site_1:R7:1', G16: 'site_1:R3:1' },
-      mage: { G16: 'site_1:R3:1', G17: 's3:R2:1' },
-      hunter: { G16: 'site_1:R3:1', G17: 's3:R2:1' },
+      rogue: { G14: 's1:R2:1', G15: 's1:R7:1', G16: 's1:R3:1', G17: 's3:R2:1' },
+      mage: { G16: 's1:R3:1', G17: 's3:R2:1' },
+      hunter: { G16: 's1:R3:1', G17: 's3:R2:1' },
     }, JSON.stringify(at));
   });
 
@@ -606,19 +647,23 @@ describe('M3 D150 follow-up (Lead 2026-11-14, draft): G14 combo points, G15 reso
 
 describe('M3 ONB_LINES_PER_FIGHT (Lead 2026-11-14, draft): at most two coach lines become top line in one fight; G7 and G9 exempt', () => {
   const MAPL = /^G(2|12|13)(\.|$)/;
-  /** The autoplay route (seed 8736, run seed 1000): per fight, the beats whose line became the view's line, in order. */
+  /**
+   * The autoplay route (seed 8736, run seed 1000; D152: the guided first run): per fight, the beats whose line became the
+   * view's line, in order (runs), and the lines themselves (lines: a beat's other line, as G8.landed, is another line).
+   */
   function perFight(classId) {
-    let s = steps(run(classId, 1000), [{ type: 'START_RUN' }, { type: 'TAKE_CONTRACT', index: 0 }]).state;
+    let s = steps(run(classId, 1000), [{ type: 'START_RUN' }]).state;
     const fights = [];
     let cur = null;
     for (let n = 0; !(s.zone && s.zone.z === 2) && n < 3000; n++) {
       const r = R.step(s, R.autoAction(s));
       s = r.state;
-      if (r.events.some((e) => e.t === 'fight')) { cur = { id: s.fight.tut ? s.fight.tut.id : s.fight.kind, runs: [], held: new Set() }; fights.push(cur); }
+      if (r.events.some((e) => e.t === 'fight')) { cur = { id: s.fight.tut ? s.fight.tut.id : s.fight.kind, runs: [], lines: [], held: new Set() }; fights.push(cur); }
       const v = R.tutorialView(s);
       if (s.fight && cur) {
         const b = v.line && !MAPL.test(v.line) ? v.line.split('.')[0] : null;
         if (b && cur.runs[cur.runs.length - 1] !== b) cur.runs.push(b);
+        if (b && cur.lines[cur.lines.length - 1] !== v.line) cur.lines.push(v.line);
         for (const o of v.open) if (o.held) cur.held.add(o.id);
       }
     }
@@ -627,10 +672,12 @@ describe('M3 ONB_LINES_PER_FIGHT (Lead 2026-11-14, draft): at most two coach lin
 
   test('the route per class: which line lands in which fight; never more than ONB_LINES_PER_FIGHT counted lines in a fight; no line comes back within a fight; held beats wait for a later fight; the route unchanged', () => {
     assert.equal(C.ONB_LINES_PER_FIGHT, 2);
+    // D152 (the first run: no Cull, so no G10; S3 at level 5): the Rogue's S3 shows G8, G17, then G8's landed line (a
+    // new line of a beat already counted: its wind-up landed); two beats, no line twice
     const want = {
-      rogue: { site_1: ['G7', 'G14', 'G16'], s2: ['G6'], s3: ['G8'], gorrak: ['G15'], site_2: ['G10'] },
-      mage: { site_1: ['G7', 'G10', 'G16'], s2: ['G6'], s3: ['G8', 'G17'] },
-      hunter: { site_1: ['G7', 'G10', 'G16'], s2: ['G6'], s3: ['G8', 'G17'] },
+      rogue: { s1: ['G7', 'G14', 'G16'], s2: ['G6'], s3: ['G8', 'G17', 'G8'], gorrak: ['G15'] },
+      mage: { s1: ['G7', 'G16'], s2: ['G6'], s3: ['G8', 'G17'] },
+      hunter: { s1: ['G7', 'G16'], s2: ['G6'], s3: ['G8', 'G17'] },
     };
     for (const classId of ['rogue', 'mage', 'hunter']) {
       const { s, fights } = perFight(classId);
@@ -638,17 +685,17 @@ describe('M3 ONB_LINES_PER_FIGHT (Lead 2026-11-14, draft): at most two coach lin
       const got = Object.fromEntries(fights.filter((f) => f.runs.length).map((f) => [f.id, f.runs]));
       assert.deepEqual(got, want[classId], `${classId}: ${JSON.stringify(got)}`);
       for (const f of fights) {
-        assert.ok(f.runs.filter((b) => b !== 'G7' && b !== 'G9').length <= C.ONB_LINES_PER_FIGHT, `${classId} ${f.id}: ${f.runs}`);
-        assert.equal(new Set(f.runs).size, f.runs.length, `${classId} ${f.id}: a line comes back (${f.runs})`);
+        assert.ok(new Set(f.runs.filter((b) => b !== 'G7' && b !== 'G9')).size <= C.ONB_LINES_PER_FIGHT, `${classId} ${f.id}: ${f.runs}`);
+        assert.equal(new Set(f.lines).size, f.lines.length, `${classId} ${f.id}: a line comes back (${f.lines})`);
       }
-      // the Rogue's fight 1 holds G10 and G15 back; both show later (site 2, Gorrak's fight), neither closed in fight 1
-      if (classId === 'rogue') assert.deepEqual([...fights[0].held].sort(), ['G10', 'G15']);
+      // the Rogue's fight 1 holds G15 back; it shows later (Gorrak's fight), not closed in fight 1
+      if (classId === 'rogue') assert.deepEqual([...fights[0].held].sort(), ['G15']);
     }
   });
 
   test('a held beat stays open with no line in the view (held: true) and the UI\'s fallback cannot reach it; G9\'s landed line is exempt from a full cap', () => {
-    // the Rogue's fight 1 at round 7: G15's moment (energy) with G14 and G16 already counted
-    let s = steps(run('rogue', 1000), [{ type: 'START_RUN' }, { type: 'TAKE_CONTRACT', index: 0 }]).state;
+    // the Rogue's fight 1 (D152: S1 on the first run) at round 7: G15's moment (energy) with G14 and G16 already counted
+    let s = steps(run('rogue', 1000), [{ type: 'START_RUN' }]).state;
     let held = null;
     for (let n = 0; n < 400 && !held; n++) {
       s = R.step(s, R.autoAction(s)).state;
@@ -696,8 +743,8 @@ describe('M3 coach lines yield after showing (2.5, D141)', () => {
     assert.deepEqual(R.tutorialView(back).open.find((o) => o.id === 'G12'), { id: 'G12', line: 'G12', rest: true });
   });
 
-  test('a line with no other open beat line to yield to stays the line (G1 at the start camp after 3 steps); D150: G1 waits (null) while a contract is held, back when none is', () => {
-    let s = steps(run('mage', 11), [{ type: 'START_RUN' }, { type: 'SET_AUTOPLAY', on: true }, { type: 'SET_AUTOPLAY', on: false }, { type: 'SET_AUTOPLAY', on: true }]).state;
+  test('a line with no other open beat line to yield to stays the line (G1 at the start camp after 3 steps; D152: "Play the guide again", a first run has no G1); D150: G1 waits (null) while a contract is held, back when none is', () => {
+    let s = steps(run('mage', 11, { profile: REPLAY() }), [{ type: 'START_RUN' }, { type: 'SET_AUTOPLAY', on: true }, { type: 'SET_AUTOPLAY', on: false }, { type: 'SET_AUTOPLAY', on: true }]).state;
     let v = R.tutorialView(s);
     assert.deepEqual([v.beat, v.line, v.open], ['G1', 'G1', [{ id: 'G1', line: 'G1', rest: false }]]);
     s = R.step(s, { type: 'TAKE_CONTRACT', index: 0 }).state;
@@ -773,8 +820,25 @@ describe('M3 D142: the Roads open after Gorrak\'s fight (2.3, 2.4 G13)', () => {
     assert.deepEqual([z2.zone.z, R.tutorialView(z2).roads.closed, z2.zone.nodes.some((x) => x.closed)], [2, false, false]);
   });
 
-  test('they open when Gorrak can no longer be fought (his node Dimmed, or barred with no script left), never during his fight', () => {
+  test('D152 (changes-m3-v2.md 2.1-2.3; GATES.guidedHold): his node is held from the Dimming and opens when no Quest or Grind node outside the Dimming is left, so the Roads wait for his fight (the D142 fallback never comes); it stays open', () => {
     const hub = atHub('mage', 5);
+    assert.equal(R.mapView(hub).nodes[18].dimAt, Infinity, 'held');
+    assert.deepEqual(roadsOf(tweak(hub, (x) => { x.time = x.zone.start + 60; })), [true, true, true], 'at zone toll 60 the Roads still wait');
+    const quests = (s) => s.zone.nodes.filter((x) => ['quest', 'grind'].includes(x.type)).map((x) => x.id);
+    const one = tweak(hub, (x) => { for (const id of quests(x).slice(1)) x.zone.nodes[id].done = true; });
+    assert.deepEqual([one.zone.nodes[18].barred, roadsOf(one)], [true, [true, true, true]], 'one Quest or Grind node left');
+    const none = tweak(hub, (x) => { for (const id of quests(x)) x.zone.nodes[id].done = true; });
+    assert.deepEqual([none.zone.nodes[18].barred, none.zone.tut.open, roadsOf(none)], [undefined, true, [true, true, true]], 'none left: open, the Roads wait for him');
+    // open for good: a node coming back (the rescue's fall-back of the Dimming, 3.4) does not bar him again
+    const back = tweak(none, (x) => { x.zone.nodes[quests(x)[0]].done = false; });
+    assert.equal(back.zone.nodes[18].barred, undefined);
+    let s = win(R.step(walkTo(none, 1), { type: 'MOVE', nodeId: 18 }).state);
+    assert.deepEqual([s.tutorial.elite, R.tutorialView(s).roads.closed], ['victory', false]);
+  });
+
+  test('GATES.guidedHold off (the D142 fallback): they open when Gorrak can no longer be fought (his node Dimmed, or barred with no script left), never during his fight', () => withGateT('guidedHold', false, () => {
+    const hub = atHub('mage', 5);
+    assert.equal(hub.zone.hold, undefined, 'no corridor');
     const dimAt = R.mapView(hub).nodes[18].dimAt;
     const at = (s, zt) => tweak(s, (x) => { x.time = x.zone.start + zt; });
     assert.deepEqual(roadsOf(at(hub, dimAt - 1)), [true, true, true]);
@@ -792,11 +856,11 @@ describe('M3 D142: the Roads open after Gorrak\'s fight (2.3, 2.4 G13)', () => {
     assert.equal(R.tutorialView(s).roads.closed, true);
     s = win(s);
     assert.deepEqual([s.tutorial.elite, R.tutorialView(s).roads.closed], ['victory', false]);
-  });
+  }));
 
   test('G13 points to Gorrak: G13.closed once his node opens; from his fight on its line waits (null), then G13.onRoad on a Road', () => {
     const ev = [];
-    let s = tweak(walkTo(atHub('mage', 5), 1), (x) => { x.tutorial.script = 4; }, ev);
+    let s = tweak(walkTo(atHub('mage', 5), 1), (x) => { x.tutorial.script = 4; x.tutorial.fights = 4; }, ev);
     assert.ok(ev.some((e) => e.t === 'beat' && e.id === 'G13' && e.what === 'open' && e.line === 'G13.closed'));
     assert.deepEqual(R.tutorialView(s).open.find((o) => o.id === 'G13'), { id: 'G13', line: 'G13.closed', rest: false });
     assert.equal(R.tutorialView(s).line, 'G13.closed');
@@ -822,7 +886,7 @@ describe('M3 D142: the Roads open after Gorrak\'s fight (2.3, 2.4 G13)', () => {
       return s;
     };
     // his node open: from next to him, and from a far Road, the first fight is his (no Road, no other fight on the way)
-    for (const start of [nextToGorrak('rogue'), tweak(walkTo(atHub('rogue', 5), 23), (x) => { x.tutorial.script = 4; })]) {
+    for (const start of [nextToGorrak('rogue'), tweak(walkTo(atHub('rogue', 5), 23), (x) => { x.tutorial.script = 4; x.tutorial.fights = 4; })]) {
       const t = firstFight(start);
       assert.equal(t.fight && t.fight.tut.kind, 'elite');
     }
@@ -835,14 +899,15 @@ describe('M3 D142: the Roads open after Gorrak\'s fight (2.3, 2.4 G13)', () => {
 });
 
 /**
- * The D143 route measure's run (seed 8736, board slot 1 taken): autoplay to zone 2, except S3's engage round under policy
+ * The D143 route measure's run (seed 8736; D152, changes-m3-v2.md 1-2: the guided first run, no board, no Bell in zone 1,
+ * Gorrak after three fights, the corridor held): autoplay to zone 2, except S3's engage round under policy
  * 'follow' (D149, spec 2.8 item 6: W, the class's control option, on the winding-up Hexer, as the joint line says), 'pass'
  * (X) or 'boar' (Q, the class's strike option, on the Boar; spec 2.8 item 8). Returns
  * the state at zone 2, the scripted fights started (`id@node:zone toll`), the G7-G9 beat events by step and the steps of
  * the ENGAGE actions.
  */
 function guidedRoute(classId, seed, policy = 'auto') {
-  let s = steps(run(classId, seed), [{ type: 'START_RUN' }, { type: 'TAKE_CONTRACT', index: 0 }]).state;
+  let s = steps(run(classId, seed), [{ type: 'START_RUN' }]).state;
   const fights = [];
   const beats = [];
   const engages = [];
@@ -870,15 +935,19 @@ function routeSeen(s) {
   const z1 = s.stats.exp.zones.find((x) => x.z === 1);
   return { exit: z1.exit, zt: z1.time, dimFights: z1.dimFights, bell: s.exp.bell, elite: s.tutorial.elite, rescues: s.tutorial.rescues, script: s.tutorial.script, level: s.player.level };
 }
-const ROUTE_SEEN = { exit: 'road', zt: 19, dimFights: 0, bell: C.BELL_START_CHARGES, elite: 'victory', rescues: 0, script: 3, level: 12 };
+// D152 (measured on the first run): S1 (node 1, zone toll 4), S2 (6, 7), S3 (16, 10), Gorrak (18, 14, won), a Road at zone
+// toll 16, level 11; the Bell's charge kept for zone 2 (not in hand in zone 1). Before D152 (the Cull on the board, the
+// gate after S3): site 1, S1, S2, S3, Gorrak at 16, site 2, Road 19 at toll 19, level 12
+const ROUTE_SEEN = { exit: 'road', zt: 16, dimFights: 0, bell: C.BELL_START_CHARGES, elite: 'victory', rescues: 0, script: 3, level: 11 };
 
-describe('M3 D143, D147 and D149: Gorrak\'s gate after S3, the wind-up fight S3 before it; the guided zone ends by a Road', () => {
-  test('seed 8736, autoplay, 20 run seeds per class: S3 (the wind-up fight) then Gorrak, won, G8 open before G9, G9 learned, zone 1 left by Road 19 at zone toll 19 with no Dimmed encounter, the Bell kept, no rescue; one route per class', () => {
+describe('M3 D143, D147, D149 and D152: Gorrak after three fights, the wind-up fight S3 before him; the guided zone ends by a Road', () => {
+  test('seed 8736, autoplay, 20 run seeds per class, the first run (D152: no board, no Bell in zone 1): S3 (the wind-up fight) then Gorrak, won, G8 open before G9, G9 learned, zone 1 left by a Road at zone toll 16 with no Dimmed encounter, the Bell\'s charge kept, no rescue; one route per class', () => {
     // D147 (spec 2.8 done-when), D149 (2.8 item 6: the Hexer winds up on its turn ONB_WINDUP_TURN, 1): per class, whether
     // G8 was learned or landed on this route. Mage (Binding Glyph, W) and Hunter (Lay Trap, W) on the Hexer cancel its
-    // wind-up at round 2's start, in the step of the W press: STAGGERED, learned. Rogue: rule E never Saps (D49), Ambush (Q)
-    // kills the Hexer in the engage round, so its wind-up neither lands nor is answered; G8's line goes (null) in that step
-    // (ui-2026-11-14 finding 1) and G8 closes missed when zone 1 is left.
+    // wind-up at round 2's start, in the step of the W press: STAGGERED, learned. Rogue: rule E never Saps (D49); D152: on
+    // the first run S3 is fight 3 (level 5, was level 7 after site 1), so Ambush (Q) no longer kills the Hexer in the engage
+    // round and its wind-up lands ("It landed"); G8's line goes (null) after the engage round (ui-2026-11-14 finding 1) and
+    // G8 closes missed when zone 1 is left.
     const G8_AT_END = { rogue: 'missed', mage: 'done', hunter: 'done' };
     for (const classId of ['rogue', 'mage', 'hunter']) {
       const routes = new Set();
@@ -896,13 +965,13 @@ describe('M3 D143, D147 and D149: Gorrak\'s gate after S3, the wind-up fight S3 
         const d7 = beats.find((b) => b.id === 'G7' && b.what === 'done');
         const o8 = beats.find((b) => b.id === 'G8' && b.what === 'open');
         const o9 = beats.find((b) => b.id === 'G9' && b.what === 'open');
-        assert.deepEqual([o7.fight, o7.line, d7.n, o8.fight, o8.line, o9.line], ['site_1', 'G7', o7.n + 1, 's3', 'G8', null], classId);
+        assert.deepEqual([o7.fight, o7.line, d7.n, o8.fight, o8.line, o9.line], ['s1', 'G7', o7.n + 1, 's3', 'G8', null], classId);
         assert.ok(o8.n < o9.n && o9.fight === 'gorrak', classId);
         // D149: the engage round's step ends G8's line: learned (W) or, the Hexer dead, no line (finding 1)
         const next8 = beats.filter((b) => b.id === 'G8' && b.n === o8.n + 1).map((b) => [b.what, b.line]);
         assert.deepEqual(next8, classId === 'rogue' ? [['line', null]] : [['done', null]], `${classId}: G8 after the engage round`);
         assert.equal(s.tutorial.beats.G8.st, G8_AT_END[classId], `${classId}: G8 ${s.tutorial.beats.G8.st}`);
-        assert.ok(!beats.some((b) => b.id === 'G8' && b.line === 'G8.landed'), `${classId}: no wind-up landed`);
+        assert.equal(beats.some((b) => b.id === 'G8' && b.line === 'G8.landed'), classId === 'rogue', `${classId}: the wind-up landed only for the Rogue`);
         routes.add(JSON.stringify([fights, s.stats.exp.zones.find((x) => x.z === 1).time, s.player.level, beats]));
       }
       assert.equal(routes.size, 1, `${classId}: one route for every run seed`);
@@ -1024,7 +1093,7 @@ describe('M3 D147: G7 and G8 share S3\'s engage round (spec 2.8, the D145 fix)',
     }
   });
 
-  test('2.8 item 8 on the route (seed 8736, run seed 1000, level 7): X or Q on the Boar in S3\'s engage round, then autoplay: G8\'s own line does not show after the engage round, the wind-up lands ("It landed"), the route is unchanged', () => {
+  test('2.8 item 8 on the route (seed 8736, run seed 1000, level 5 on the first run, D152): X or Q on the Boar in S3\'s engage round, then autoplay: G8\'s own line does not show after the engage round, the wind-up lands ("It landed"), the route is unchanged', () => {
     for (const classId of ['rogue', 'mage', 'hunter']) {
       const auto = guidedRoute(classId, 1000);
       for (const policy of ['pass', 'boar']) {
@@ -1058,7 +1127,8 @@ describe('M3 D147: G7 and G8 share S3\'s engage round (spec 2.8, the D145 fix)',
 
 describe('M3 D142 and D150: coach-line moments (G10, G12)', () => {
   test('D150 (draft, "Contract site" once): G10 opens at the first held site\'s fight with no line (never on the map or the hub screen), shows its line from round 2 of that fight to its end, not at the next site; G10.done once the contract\'s reward choice is up', () => {
-    const p = steps(run('mage', 5), [{ type: 'START_RUN' }, { type: 'TAKE_CONTRACT', index: 0 }, { type: 'SET_OUT' }, { type: 'SERVICE', service: 'vendor' }, { type: 'LEAVE' }, { type: 'LEAVE_HUB' }]);
+    // D152: the Cull on "Play the guide again" (a first run has no board, so no G10)
+    const p = steps(run('mage', 5, { profile: REPLAY() }), [{ type: 'START_RUN' }, { type: 'TAKE_CONTRACT', index: 0 }, { type: 'SET_OUT' }, { type: 'SERVICE', service: 'vendor' }, { type: 'LEAVE' }, { type: 'LEAVE_HUB' }]);
     assert.ok(p.state.zone.nodes[1].sites && R.mapView(p.state).nodes.some((n) => n.sites), 'a site in view next to the hub');
     assert.ok(!p.events.some((e) => e.t === 'beat' && e.id === 'G10'), 'not at the hub screen or on the map');
     let s = p.state;
@@ -1171,18 +1241,23 @@ describe('M3 table validation and the golden check (E2, E9)', () => {
     const T = CONTENT.tutorial;
     const bad = { ...CONTENT, tutorial: {
       ...T, seed: 1, board: { ...T.board, region: 'nowhere' }, scripts: T.scripts.slice(0, 3),
-      siteFights: [{ id: 'x', enemies: [{ enemy: 'z1_gorrak' }] }], elite: { ...T.elite, gate: { afterScript: 's9' } },
+      siteFights: [{ id: 'x', enemies: [{ enemy: 'z1_gorrak' }] }], elite: { ...T.elite, gate: null },
     } };
     const errs = R.validateContent(bad).join('\n');
-    for (const w of ['tutorial.seed', 'tutorial.board.region', 'tutorial.scripts', 'tutorial.siteFights[0].enemies[0]', 'tutorial.elite.gate.afterScript']) assert.ok(errs.includes(w), w);
+    for (const w of ['tutorial.seed', 'tutorial.board.region', 'tutorial.scripts', 'tutorial.siteFights[0].enemies[0]', 'tutorial.elite.gate']) assert.ok(errs.includes(w), w);
+    // D152 (changes-m3-v2.md 2.1): afterScript is retired: the shipped table has none and it is not read or checked
+    assert.equal(T.elite.gate.afterScript, undefined);
+    assert.deepEqual(R.validateContent({ ...CONTENT, tutorial: { ...T, elite: { ...T.elite, gate: { ...T.elite.gate, afterScript: 's9' } } } }), []);
   });
 
-  test('golden: rows and expedition runs without the option are unchanged run for run (actions, events, states, summaries); only the switched rules change them: D144 reward bias, D146 zone 2 inner-ring cap, D147 zone 1 enemy damage', () => {
+  test('golden: rows and expedition runs are unchanged run for run (actions, events, states, summaries) but for the switched rules: D144 reward bias, D146 zone 2 inner-ring cap, D147 zone 1 enemy damage, D152 the lean first run, the guided hold and the steady Dimming', () => {
     // The hashes recorded on 25a8879 (M3 3.4), unchanged through D143: with C.GATES.rewardPrimary, zone2InnerCap and z1Dmg off
     // they still hold, so every later change leaves these runs as they were except the switched rules. D150 (generated item
     // names, cut list item 20: at most one affix word): every run here loots gear, so all four tables were re-recorded on that
     // change; with every item name masked each run hashes as before (scratch check, docs/handoffs/engine-2026-11-14d.md).
     // D150 (naming rule): the final boss is "Oruvath" (C.BOSS_TEXT.name), so the five runs that reach it were re-recorded too.
+    // D152: these 18 runs are a profile's third run (runs 2; the profile is not hashed, and before D152 runs 1 and 2 played
+    // alike), so only GATES.steadyDim acts on them; every table before D152 holds with the five D152 switches off.
     const PRE_D144 = {
       'rows:rogue:11': '11e1fabb61b05aea:108', 'rows:rogue:4242': 'd2e85b9ad06b91cc:653', 'rows:mage:11': '44e31ffd7d438f6d:304',
       'rows:mage:4242': '9ea1e1d35dfcf3d7:208', 'rows:hunter:11': '77360495fa13ea25:719', 'rows:hunter:4242': '53a6759892b9a8c3:599',
@@ -1211,9 +1286,9 @@ describe('M3 table validation and the golden check (E2, E9)', () => {
       'expPrep:rogue:11': 'b87303fc962cf60b:365', 'expPrep:rogue:4242': 'f3af7787359c671a:266', 'expPrep:mage:11': '3d7ab76070ffbc35:220',
       'expPrep:mage:4242': '17d543036d92bbb6:464', 'expPrep:hunter:11': 'd2b7efd32e330587:397', 'expPrep:hunter:4242': '66ace69a9540cd5f:421',
     };
-    // As built (D147: z1Dmg on too), recorded on this change: every run here meets enemies of level <= Z1_DMG_MAX_LEVEL, on
-    // both maps, so all 18 change.
-    const GOLDEN = {
+    // D147 (z1Dmg on too), recorded on cdc285b: every run here meets enemies of level <= Z1_DMG_MAX_LEVEL, on both maps, so
+    // all 18 changed; with the five D152 switches off (or only GATES.steadyDim off: the others do not act on these runs) they hold.
+    const D147 = {
       'rows:rogue:11': '7af0bbdc229d0a65:104', 'rows:rogue:4242': '4f15f5bc5f013856:655', 'rows:mage:11': '9e1b9973092d5b08:88',
       'rows:mage:4242': '0fec85e0eaa302e2:208', 'rows:hunter:11': 'fb7de4f0c9196e46:98', 'rows:hunter:4242': 'd96f17a16d118ca8:604',
       'exp:rogue:11': '0714d1d1d429349a:128', 'exp:rogue:4242': 'de94fe3dc2dc1b1c:177', 'exp:mage:11': '5c5b689a5630b292:210',
@@ -1221,12 +1296,42 @@ describe('M3 table validation and the golden check (E2, E9)', () => {
       'expPrep:rogue:11': '108f944be1932112:206', 'expPrep:rogue:4242': '0baae593d80ad163:268', 'expPrep:mage:11': '5cd1adde9256d3f2:224',
       'expPrep:mage:4242': '211b9a372d428826:464', 'expPrep:hunter:11': '5daa137174a4179a:400', 'expPrep:hunter:4242': '1fc57e1a4aa4bdb0:421',
     };
+    // D152 (changes-m3-v2.md), first and second runs and guided runs, with the five switches off: recorded on 0da12a2 (the
+    // engine before D152): `first` a profile's first run with the start camp (runs 0), `second` its second (runs 1), `guided`
+    // the guided first run, `replay` "Play the guide again" on a profile with one run.
+    const D147_RUNS = {
+      'first:rogue:11': '33726889e1aac4c7:232', 'second:rogue:4242': '0baae593d80ad163:268', 'guided:rogue:11': '046e9b8f870af5d3:402', 'replay:rogue:4242': 'abeda56e74c09535:279',
+      'first:mage:11': '2c6b88a75561cc63:214', 'second:mage:4242': '211b9a372d428826:464', 'guided:mage:11': 'db02f799a55837dc:301', 'replay:mage:4242': '67760a792c8325ad:297',
+      'first:hunter:11': '714f30b6a19f2f25:427', 'second:hunter:4242': '1fc57e1a4aa4bdb0:421', 'guided:hunter:11': 'f292dc6e4ce463ae:527', 'replay:hunter:4242': '4546b065dc460b73:408',
+    };
+    // As built (D152, every switch on), recorded on this change: the classic map is untouched (rows = D147); the steady
+    // Dimming changes every expedition run; the lean first run, the guided hold and Gorrak's bounty the first, second and
+    // guided runs.
+    const GOLDEN = {
+      'rows:rogue:11': '7af0bbdc229d0a65:104', 'rows:rogue:4242': '4f15f5bc5f013856:655', 'rows:mage:11': '9e1b9973092d5b08:88',
+      'rows:mage:4242': '0fec85e0eaa302e2:208', 'rows:hunter:11': 'fb7de4f0c9196e46:98', 'rows:hunter:4242': 'd96f17a16d118ca8:604',
+      'exp:rogue:11': 'cef98fd11f4bfaf5:128', 'exp:rogue:4242': 'cdebdc037ffe1e97:177', 'exp:mage:11': '1f71da296379da49:591',
+      'exp:mage:4242': '22a767701182e4a5:278', 'exp:hunter:11': '8c14488a3aa59cab:425', 'exp:hunter:4242': '065d1da702d4ee49:477',
+      'expPrep:rogue:11': '8a499051fb089e3d:206', 'expPrep:rogue:4242': '863b35e74b9207e2:410', 'expPrep:mage:11': '8c4db6c2afc85abe:224',
+      'expPrep:mage:4242': 'e5b55ece44cf7389:320', 'expPrep:hunter:11': '9c233c7084b0cce4:552', 'expPrep:hunter:4242': '80d926dc26014583:550',
+    };
+    const GOLDEN_RUNS = {
+      'first:rogue:11': '6d384b0f36cd12f7:297', 'second:rogue:4242': '703ca039f7d80689:368', 'guided:rogue:11': 'e096317ef7d5354b:561', 'replay:rogue:4242': '08ac9c085c5c8585:436',
+      'first:mage:11': '25169355c5e21234:585', 'second:mage:4242': '38f53e837c28d0bb:319', 'guided:mage:11': '18200f7968881945:608', 'replay:mage:4242': '9acef52a4d16374a:331',
+      'first:hunter:11': 'd6631e403102c5e0:548', 'second:hunter:4242': '46c235c7eed33d2b:548', 'guided:hunter:11': '0ea56c0fb3575a5a:542', 'replay:hunter:4242': '5ab1b60f032c4ff4:567',
+    };
     const strip = (s) => { const o = JSON.parse(R.serialize(s)); delete o.profile; if (o.result) delete o.result.profile; return JSON.stringify(o); };
+    const RUNS = { rows: 2, exp: 2, expPrep: 2, first: 0, second: 1, guided: 0, replay: 1 };
     const hashOf = (key) => {
       const [mode, classId, seed] = key.split(':');
       // A profile that had its welcome (its keys are not hashed): the runs are compared, not the M3 profile keys.
-      let s = R.newRun({ classId, petId: PET(classId), seed: Number(seed), content: CONTENT, profile: { ...R.newProfile(), runs: 1, welcome: true },
-        mapMode: mode === 'rows' ? 'rows' : 'expedition', prep: mode === 'rows' ? null : mode === 'expPrep' });
+      const profile = { ...R.newProfile(), runs: RUNS[mode], welcome: true };
+      const o = { classId, petId: PET(classId), seed: Number(seed), content: CONTENT, profile };
+      if (mode === 'rows') Object.assign(o, { mapMode: 'rows' });
+      else if (mode === 'exp') Object.assign(o, { mapMode: 'expedition', prep: false });
+      else if (mode === 'guided' || mode === 'replay') Object.assign(o, { mapMode: 'expedition', prep: true, tutorial: true });
+      else Object.assign(o, { mapMode: 'expedition', prep: true });
+      let s = R.newRun(o);
       const h = createHash('sha256');
       let n = 0;
       while (s.phase !== 'ENDED' && n < 20000) { const a = R.autoAction(s); const r = R.step(s, a); s = r.state; h.update(JSON.stringify(a)); h.update(JSON.stringify(r.events)); n++; }
@@ -1234,18 +1339,23 @@ describe('M3 table validation and the golden check (E2, E9)', () => {
       h.update(JSON.stringify({ ...s.result.summary }));
       return `${h.digest('hex').slice(0, 16)}:${n}`;
     };
-    assert.deepEqual([C.GATES.rewardPrimary, C.GATES.zone2InnerCap, C.GATES.z1Dmg], [true, true, true]);
-    for (const key of Object.keys(GOLDEN)) assert.equal(hashOf(key), GOLDEN[key], key);
+    const D152 = ['firstRunLean', 'gorrakBounty', 'guidedHold', 'steadyDim', 'rescueDim'];
+    const ON = { rewardPrimary: true, zone2InnerCap: true, z1Dmg: true, ...Object.fromEntries(D152.map((g) => [g, true])) };
+    assert.deepEqual(Object.keys(ON).map((k) => C.GATES[k]), Object.keys(ON).map(() => true));
+    for (const [key, want] of Object.entries({ ...GOLDEN, ...GOLDEN_RUNS })) assert.equal(hashOf(key), want, key);
+    const off = Object.fromEntries(D152.map((g) => [g, false]));
     const arms = [
-      [{ z1Dmg: false }, D146, 'z1Dmg off'],
-      [{ zone2InnerCap: false, z1Dmg: false }, D144, 'zone2InnerCap and z1Dmg off'],
-      [{ rewardPrimary: false, zone2InnerCap: false, z1Dmg: false }, PRE_D144, 'all three off'],
+      [{ steadyDim: false }, D147, 'steadyDim off (the other D152 switches do not act on these runs)'],
+      [off, { ...D147, ...D147_RUNS }, 'the five D152 switches off: the engine before D152'],
+      [{ ...off, z1Dmg: false }, D146, 'D152 and z1Dmg off'],
+      [{ ...off, zone2InnerCap: false, z1Dmg: false }, D144, 'D152, zone2InnerCap and z1Dmg off'],
+      [{ ...off, rewardPrimary: false, zone2InnerCap: false, z1Dmg: false }, PRE_D144, 'all off'],
     ];
     for (const [set, want, label] of arms) {
       Object.assign(C.GATES, set);
       try {
         for (const key of Object.keys(want)) assert.equal(hashOf(key), want[key], `${key}, ${label}`);
-      } finally { Object.assign(C.GATES, { rewardPrimary: true, zone2InnerCap: true, z1Dmg: true }); }
+      } finally { Object.assign(C.GATES, ON); }
     }
   });
 });

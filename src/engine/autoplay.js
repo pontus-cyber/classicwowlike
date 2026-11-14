@@ -12,7 +12,8 @@
 // Draughts if the Reserve still holds; the rest kept as Reserve) and the hub contract from Reserve.
 // M3 guided run (tutorial.js): a barred node is closed to the map policy (D138); while the guided zone's Roads are closed
 // (D142) it walks to Gorrak once his node is open, before exploring further, and where it would leave while his node is
-// still barred, to the nearest Quest or Grind node that plays the next script.
+// still barred, to the nearest Quest or Grind node that plays the next script. D152 (changes-m3-v2.md 1.2-1.3): no Bell in
+// zone 1 of a lean first run, and its start camp keeps no points back (no hub contract to pay).
 import {
   SPELL, TALENT, CONSUMABLE, AUTO_POTION_HP, AUTO_TONIC_STACKS, AUTO_MANA_POTION, AUTO_FOOD_HP,
   ENGINE_ASSUMPTION as EA, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, MAX_LEVEL, PET, ENGAGE_OPTION, ENGAGE_OPTIONS,
@@ -28,7 +29,7 @@ import { talentPointsFree } from './progress.js';
 import { nextLanes, dungeonLevels } from './map.js';
 import { checkAction } from './actions.js';
 import { canTravel, exitLevel, trainerSpells, learnCost, trainerUseful, availablePets, canEnter } from './nodes.js';
-import { isExpedition, grindMaxWaves, nodeTime, zoneTime, dimmedAt, outwardStep, dimFightTime } from './expedition.js';
+import { isExpedition, grindMaxWaves, nodeTime, zoneTime, dimmedAt, outwardStep, dimFightTime, bellHidden, leanFirst } from './expedition.js';
 import { takeContractError, buyPrepError, hubContractError, prepLeft } from './contracts.js';
 import { closedRoadsGoal } from './tutorial.js';
 
@@ -393,7 +394,8 @@ function vendorPolicy(s) {
  * Default start camp (prep, expedition.md 2; engine default, not a bot). With GATES.autoEmberFirst on (D133): the Ember of
  * Return when affordable; then, in board order, one contract for each of zones 1..EA.AUTO_PREP_ZONES not yet covered,
  * while points last with EA.AUTO_PREP_RESERVE points kept back for a hub contract; then Field Draughts when the Reserve
- * still holds after it; then SET_OUT. Off: the order before D133, Field Draughts first, then the contracts.
+ * still holds after it; then SET_OUT. Off: the order before D133, Field Draughts first, then the contracts. D152 (engine
+ * choice, draft; changes-m3-v2.md 1.3): a lean first run offers no hub contract, so nothing is kept back (both supplies).
  */
 function prepPolicy(s) {
   const emberFirst = GATES.autoEmberFirst;
@@ -401,12 +403,13 @@ function prepPolicy(s) {
     if (!buyPrepError(s, 'prep_ember')) return { type: 'BUY_PREP', id: 'prep_ember' };
   } else if (!buyPrepError(s, 'prep_draughts')) return { type: 'BUY_PREP', id: 'prep_draughts' };
   const left = prepLeft(s);
+  const keep = leanFirst(s) ? 0 : EA.AUTO_PREP_RESERVE;
   const covered = new Set(s.prep.board.filter((o) => o.taken).map((o) => o.z));
   for (const o of s.prep.board) {
-    if (o.z > EA.AUTO_PREP_ZONES || covered.has(o.z) || left - o.price < EA.AUTO_PREP_RESERVE) continue;
+    if (o.z > EA.AUTO_PREP_ZONES || covered.has(o.z) || left - o.price < keep) continue;
     if (!takeContractError(s, o.index)) return { type: 'TAKE_CONTRACT', index: o.index };
   }
-  if (emberFirst && !buyPrepError(s, 'prep_draughts') && left - PREP_OPTION.prep_draughts.price >= EA.AUTO_PREP_RESERVE) {
+  if (emberFirst && !buyPrepError(s, 'prep_draughts') && left - PREP_OPTION.prep_draughts.price >= keep) {
     return { type: 'BUY_PREP', id: 'prep_draughts' };
   }
   return { type: 'SET_OUT' };
@@ -583,7 +586,7 @@ function expMapPolicy(s) {
   }
   if (goal) return goalStep(s, zt, goal.nodes);
   if (esc.path.length === 1) return { type: 'TAKE_ROAD' };
-  if (esc.dims > 0 && s.exp.bell > 0) return { type: 'RING_BELL' };
+  if (esc.dims > 0 && s.exp.bell > 0 && !bellHidden(s)) return { type: 'RING_BELL' }; // D152: no Bell in a lean first run's zone 1
   return stepAction(s, esc.path[1]);
 }
 

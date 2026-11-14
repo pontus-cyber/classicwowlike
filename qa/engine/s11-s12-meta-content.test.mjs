@@ -366,12 +366,13 @@ describe('rules 12 content ranges', () => {
     assert.throws(() => R.newRun({ content: bad }), /content is invalid/);
   });
 
-  test('D51 expedition content: zones[i].roads (ROAD_COUNT names <= 28 chars) and the texts.expedition group (its four ids, <= 140 chars)', () => {
+  test('D51 expedition content: zones[i].roads (ROAD_COUNT names <= 28 chars) and the texts.expedition group (its five ids since D152, <= 140 chars)', () => {
     const ok = JSON.parse(JSON.stringify(CONTENT));
     ok.zones.forEach((z, i) => { z.roads = [`Road ${i}a`, `Road ${i}b`, `Road ${i}c`]; });
     ok.texts = { ...(ok.texts || {}), expedition: Object.fromEntries(C.EXPEDITION_TEXT_IDS.map((id) => [id, `Text of ${id}.`])) };
     assert.deepEqual(R.validateContent(ok), []);
-    assert.deepEqual(C.EXPEDITION_TEXT_IDS, ['shardfall', 'shardspawn', 'dimming', 'homeward_bell']);
+    // D152 (changes-m3-v2.md 3.3): dimming_pace, the Dimming panel's tooltip line of the steady Dimming
+    assert.deepEqual(C.EXPEDITION_TEXT_IDS, ['shardfall', 'shardspawn', 'dimming', 'homeward_bell', 'dimming_pace']);
     const bad = JSON.parse(JSON.stringify(ok));
     bad.zones[0].roads = ['Only', 'Two'];
     bad.zones[1].roads[2] = 'x'.repeat(29);
@@ -395,7 +396,7 @@ describe('rules 12 content ranges', () => {
   test('12 real content (src/content/index.js) passes the strict validator', { skip: !existsSync(REAL) && 'src/content/index.js not present' }, async () => {
     const { CONTENT: real } = await import(REAL);
     assert.deepEqual(R.validateContent(real, { strict: true }), []);
-    // D51: every zone names its three Roads, and the four expedition texts are there.
+    // D51: every zone names its three Roads, and the expedition texts are there (five since D152).
     for (const z of real.zones) assert.equal(z.roads.length, C.ROAD_COUNT, z.id);
     assert.deepEqual(Object.keys(real.texts.expedition).sort(), [...C.EXPEDITION_TEXT_IDS].sort());
   });

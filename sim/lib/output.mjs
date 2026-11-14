@@ -1,5 +1,5 @@
-// Output helpers: commit hash, cell names (M2b v12: 'rcg' for the gated Ricochet Bolt arm; C.GATES tags, GATE_TAG; D128:
-// the start camp's options, campMark),
+// Output helpers: commit hash, cell names (M2b v12: 'rcg' for the gated Ricochet Bolt arm; C.GATES tags, GATE_TAG, D152's
+// five switches included; D128: the start camp's options, campMark),
 // JSON/JSONL/Markdown writers, number formatting.
 import { execSync } from 'node:child_process';
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
@@ -17,10 +17,13 @@ export const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
  * the start camp's reroll (D128, campReroll; off by default, so the reroll-on arm is '-rr'); the camp board across the run (D132, boardAcrossRun; on by default, so the old board arm is '-noba'); 'rp' the reward choices' class
  * bias (D144, rewardPrimary; on by default, so the arm before D144 is '-norp'); 'z2c' zone 2's inner-ring quest cap (D146,
  * zone2InnerCap; on by default, so the arm before D146 is '-noz2c'); 'z1d' zone 1's enemy damage (D147, z1Dmg; on by
- * default, so the arm before D147 is '-noz1d'); a switch without a tag is
+ * default, so the arm before D147 is '-noz1d'); D152 (changes-m3-v2.md, each on by default, so the arm without it is
+ * '-no<tag>'): 'frl' the lean first run (firstRunLean), 'gb' Gorrak's bounty (gorrakBounty), 'gh' the guided zone's fight
+ * count and held corridor (guidedHold), 'sd' the steady Dimming (steadyDim), 'rd' the rescue's pause and fall-back of the
+ * Dimming (rescueDim); a switch without a tag is
  * marked by its key. (M2b v15's mawgrimHp switch and its 'maw' tag are gone: D126 put Mawgrim's 0.95 in content.)
  */
-export const GATE_TAG = { rareHpMultZ1: 'g5', firstMeetWindup: 'g6', sapHold: 'sap', passStealth: 'pst', swiftRoad: 'swift', campReroll: 'rr', boardAcrossRun: 'ba', autoEmberFirst: 'ae', rewardPrimary: 'rp', zone2InnerCap: 'z2c', z1Dmg: 'z1d' };
+export const GATE_TAG = { rareHpMultZ1: 'g5', firstMeetWindup: 'g6', sapHold: 'sap', passStealth: 'pst', swiftRoad: 'swift', campReroll: 'rr', boardAcrossRun: 'ba', autoEmberFirst: 'ae', rewardPrimary: 'rp', zone2InnerCap: 'z2c', z1Dmg: 'z1d', firstRunLean: 'frl', gorrakBounty: 'gb', guidedHold: 'gh', steadyDim: 'sd', rescueDim: 'rd' };
 
 /**
  * Cell-name mark of the start camp's options (D128, cell.campOptions): none when the cell plays the engine's list
