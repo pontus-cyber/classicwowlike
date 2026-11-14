@@ -15,6 +15,8 @@
 // step, or Instant speed, finishes at once. Waits go through skip tokens.
 // Sound (docs/specs/audio.md, D127): each event goes to ctx.audio.event at its moment (audio.js maps it to cues); a zone
 // arrival rings its bell pair with the banner.
+// D150 (owner 2026-11-14, text pass): "Deathblow stopped" and "Wind-up stopped" (floats and log lines), the end boss
+// and the Ember of Return by their names ("Oruvath", "You return to the fight").
 import { wait, SkipToken, fmtNum, deepClone } from './util.js';
 import { settings } from './settings.js';
 import { linkedText, dangerBanner, CONTROL_WORD as CONTROL_LOG, HEAT_WORDS, freeActionText } from './ui-text.js';
@@ -340,7 +342,7 @@ export class Director {
           }
           case 'resurrect': scene.revive('player'); scene.aura('player', themeToken('--accent-hi'), 1.4); scene.levelUp('player'); p().hp = e.hpAfter;
             if (next.player) Object.assign(p(), { resurrect: deepClone(next.player.resurrect), resurrectHeld: deepClone(next.player.resurrectHeld), resurrectBoss: deepClone(next.player.resurrectBoss) });
-            push(); ctx.ui.banner('Resurrected', `${e.source} returns you to the fight`, 'phase', 1800); hud.log(`${e.source} flares: you return to the fight!`, 'lg-loot'); await WM(M.resurrect); break;
+            push(); ctx.ui.banner(e.source || 'Ember of Return', 'You return to the fight', 'phase', 1800); hud.log(`${e.source} flares: you return to the fight!`, 'lg-loot'); await WM(M.resurrect); break;
           case 'round': {
             if (!shown.combat) break;
             shown.combat.round = e.round;
@@ -410,15 +412,16 @@ export class Director {
               const add = Math.round((answered ? 0 : n.deathblowEmpower ?? 0) * 100); // this stack's share; value is the sum
               const maim = Math.round(((((next.player && next.player.statuses) || []).find((x) => x.id === 'MAIMED') || {}).value || 0) * 100);
               // QA 2026-11-12: both in the headline lane (scene.headline), clear of the numbers, the pet's numbers and Dodge
-              scene.float(dst, answered ? 'Deathblow answered: staggered' : 'Deathblow landed: empowered', { color: answered ? '#9fdcff' : themeToken('--danger-float'), size: 24, crit: true, life: 2.2, lane: 'head' });
+              // D150 naming rule: a Deathblow is stopped (one word for it; the line over the enemy says the rest, tracks.js)
+              scene.float(dst, answered ? 'Deathblow stopped' : 'Deathblow landed: empowered', { color: answered ? '#9fdcff' : themeToken('--danger-float'), size: 24, crit: true, life: 2.2, lane: 'head' });
               if (!answered && e.maimed) { scene.float('player', maim ? `Maimed: healing −${maim} %` : 'Maimed', { color: themeToken('--danger-lethal'), size: 22, crit: true, life: 2.4, lane: 'head' }); if (live()) scene.screenFlash(themeToken('--danger-flash'), 0.3, 0.6); }
-              hud.log(answered ? `Deathblow answered: ${cap(e.who)}'s ${e.name} ${how}. Staggered${e.stacks > 1 ? ` ×${e.stacks}` : ''}: −${pct} % damage for the rest of the fight.`
+              hud.log(answered ? `Deathblow stopped: ${cap(e.who)}'s ${e.name}${how ? ` ${how}` : ''}. Staggered${e.stacks > 1 ? ` ×${e.stacks}` : ''}: −${pct} % damage for the rest of the fight.`
                 : `Deathblow landed: ${cap(e.who)}'s ${e.name}. Empowered: +${add || pct} % damage for the rest of the fight${e.maimed ? `; you are maimed: healing you receive −${maim} % until the fight ends` : ''}.`, answered ? 'lg-loot' : 'lg-warn');
               await W(tm.wait);
               break;
             }
-            scene.float(dst, answered ? 'Staggered!' : 'Empowered!', { color: answered ? '#9fdcff' : '#ff7a5a', size: 26, crit: true, dy: -34 * scene.u });
-            hud.log(answered ? `Wind-up answered: ${cap(e.who)}'s ${e.name} ${how}. Staggered${e.stacks > 1 ? ` ×${e.stacks}` : ''}: −${pct} % damage for the rest of the fight.`
+            scene.float(dst, answered ? 'Stopped!' : 'Empowered!', { color: answered ? '#9fdcff' : '#ff7a5a', size: 26, crit: true, dy: -34 * scene.u });
+            hud.log(answered ? `Wind-up stopped: ${cap(e.who)}'s ${e.name}${how ? ` ${how}` : ''}. Staggered${e.stacks > 1 ? ` ×${e.stacks}` : ''}: −${pct} % damage for the rest of the fight.`
               : `Wind-up landed: ${cap(e.who)}'s ${e.name}. Empowered${e.stacks > 1 ? ` ×${e.stacks}` : ''}: +${pct} % damage for the rest of the fight.`, answered ? 'lg-loot' : 'lg-warn');
             await W(tm.wait);
             break;
@@ -452,7 +455,7 @@ export class Director {
         }
       }
       if (next.phase === 'SUMMARY' && prev.phase !== 'SUMMARY' && next.summary && next.summary.outcome === 'death') await this.deathScreen(token, deathLine(next));
-      if (next.phase === 'SUMMARY' && next.summary && next.summary.outcome === 'victory' && prev.phase !== 'SUMMARY') { ctx.ui.banner('Victory', 'Oruvath, the Unlit Star, is no more.', 'boss', 3000); await WM(2200); }
+      if (next.phase === 'SUMMARY' && next.summary && next.summary.outcome === 'victory' && prev.phase !== 'SUMMARY') { ctx.ui.banner('Victory', 'Oruvath is no more.', 'boss', 3000); await WM(2200); }
     } finally {
       ctx.ui.overlay = false;
       this.token = null; this.cursor = null;
@@ -512,7 +515,7 @@ export class Director {
     ctx.ui.overlay = true;
     scene.targetDim = 0.55;
     ctx.syncScene(next, { enter: true });
-    ctx.ui.banner('Oruvath, the Unlit Star', ctx.data.boss.intro || 'The dead star turns its eye on you.', 'boss', 3400);
+    ctx.ui.banner('Oruvath', ctx.data.boss.intro || 'The dead star turns its eye on you.', 'boss', 3400);
     scene.shake(8);
     await wait(settings.dur(2600), token);
     scene.targetDim = 0;
@@ -540,13 +543,13 @@ function withStacks(shown, next, id) {
 /** How a wind-up was answered, for the log (the `stagger` event's why and by, engine-api.md 5). */
 function windupHow(e) {
   switch (e.why) {
-    case 'interrupt': return e.byName ? `is stopped by your ${e.byName}` : 'is stopped';
-    case 'control': return `is cancelled (${CONTROL_LOG[e.by] || 'controlled'})`;
-    case 'trap': return 'is cancelled by your trap';
-    case 'disrupt': return 'is cancelled by your Disrupt';
-    case 'silenced': return 'cannot be cast (silenced)';
-    case 'avoided': return 'costs you no health';
-    default: return 'is answered';
+    case 'interrupt': return e.byName ? `by your ${e.byName}` : '';
+    case 'control': return `(${CONTROL_LOG[e.by] || 'controlled'})`;
+    case 'trap': return 'by your trap';
+    case 'disrupt': return 'by your Disrupt';
+    case 'silenced': return '(silenced)';
+    case 'avoided': return '(it cost you no health)';
+    default: return '';
   }
 }
 

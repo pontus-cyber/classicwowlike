@@ -2,6 +2,7 @@
 // spells, pets, talents, consumables, archetypes, boons) and adds placeholder content names so every
 // screen can be shown before src/rules.js and src/content/ land. The UI never imports this file;
 // it reads data through src/ui/engine-bridge.js.
+// D150 (naming rule): full words in player-facing text ("combo points").
 
 export const CLASSES = {
   rogue: {
@@ -52,7 +53,7 @@ const S = (id, cls, name, lvl, cost, cd, tags, text, fx = {}) => ({ id, cls, nam
 export const SPELLS = Object.fromEntries([
   // Rogue
   S('gutting_jab', 'rogue', 'Gutting Jab', 1, ['E', 40], 0, ['builder'], 'A vicious stab. Awards 1 combo point.', { dmg: ['phys', 6, 1.3, 0.55, 1.0], cp: 1 }),
-  S('severing_flourish', 'rogue', 'Severing Flourish', 1, ['E', 35], 0, ['finisher'], 'Finisher. Damage per combo point spent.', { dmg: ['phys', 4, 1.0, 0.30, 0], fin: true, finW: 0.5 }),
+  S('severing_flourish', 'rogue', 'Severing Flourish', 1, ['E', 35], 0, ['finisher'], 'Finisher: spends all your combo points.', { dmg: ['phys', 4, 1.0, 0.30, 0], fin: true, finW: 0.5 }),
   S('shadowstep_strike', 'rogue', 'Shadowstep Strike', 4, ['E', 50], 0, ['opener'], 'Opener. Requires Stealth. Awards 2 combo points.', { dmg: ['phys', 10, 2.0, 0.9, 1.5], cp: 2, req: 'STEALTH' }),
   S('throat_jab', 'rogue', 'Throat Jab', 8, ['E', 20], 4, ['interrupt'], 'Interrupts a cast and silences the target for 1 round. Never misses and cannot be dodged.', { dmg: ['phys', 2, 0.4, 0.2, 0], interrupt: true, st: ['SILENCED', 1] }),
   S('open_vein', 'rogue', 'Open Vein', 10, ['E', 30], 0, ['finisher', 'dot'], 'Finisher. The target bleeds for 4 rounds; stronger per combo point.', { dot: ['BLEED', 4, 2, 0.45, 0.13], fin: true }),

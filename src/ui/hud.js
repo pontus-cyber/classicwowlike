@@ -25,15 +25,22 @@
 // (R.autoplayEngage); a first meeting's enemy is tagged "New".
 // M2b v14 (docs/specs/changes-m2b-v14.md "UI needs" 1-2): the autoplay hint adds ", then wait a round" (autoplayEngage
 // `wait`, rule H); while Sap holds on every enemy, the Pass button carries the answer ring and the prompt says to wait.
+// D150 (owner 2026-11-14, text pass; docs/feedback/2026-11-14-blind-wording.md items 2, 3, 10, 16, 17, 24): the turn prompt
+// is the one place of the Deathblow's instruction (tracks.js deathblowPrompt); the engage round has no prompt line of its
+// own (the engage panel says it); no opening ruler; the target frame's list of next actions shows while the target frame or
+// a nameplate is hovered (the chips over the enemies stay); a stopped wind-up's line over the enemy stands alone with the
+// Staggered badge (the off-balance marks give way that round); the minimap, the tracker and the boss frame say no par, line
+// or Ascendancy; a bar spell's tooltip has no "Right-click to clear · drag to reorder" (the spellbook keeps it); the revive
+// is named by its source ("Ember of Return"), never "Resurrect charges".
 import { h, add, clear, fmtNum, moneyEl, clamp, rgba } from './util.js';
 import { spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS } from './art-icons.js';
 import { drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook } from './art-actors.js';
 import { THEMES } from './art-world.js';
 import { tip, spellTip, basicTip, itemTip, statusTip } from './tooltip.js';
 import { settings } from './settings.js';
-import { linkedText, resurrectText, dangerRule, HEAT_WORDS, tolls, freeActionText } from './ui-text.js';
-import { trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createRuler, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind, answersToShow, isLethal, SAP_BREAK_WARN, answerChance } from './tracks.js';
-import { createHeatMeter, standText, bossText, fmtTime, lineShown } from './heat.js';
+import { linkedText, resurrectText, dangerRule, freeActionText } from './ui-text.js';
+import { trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind, answersToShow, isLethal, SAP_BREAK_WARN, stoppedNow, deathblowPrompt } from './tracks.js';
+import { createHeatMeter, bossText } from './heat.js';
 import { trackerContracts } from './prep.js';
 import { CON, token } from './theme.js';
 
@@ -193,7 +200,7 @@ export function createHud(root, ctx) {
   const els = {};
   // ------------------------------------------------------------ player frame
   // resurrect charges (rules 9, M2 v3): what a death would use now; in the end-boss fight without Second Breath
-  els.resc = h('div.resc.hidden', { 'aria-label': 'Resurrect charges' }, h('img', { src: icon('ember', 'heal'), alt: '' }), h('span.n'));
+  els.resc = h('div.resc.hidden', { 'aria-label': 'Ember of Return' }, h('img', { src: icon('ember', 'heal'), alt: '' }), h('span.n'));
   els.player = h('div#player-frame.uf',
     h('div.portrait'), h('div.lvl', { style: { left: '5.4rem', top: '5.4rem' } }),
     h('div.plate', h('div.name', h('span.pn'), h('span.cls')), bar('hp'), bar('res mana'), h('div.cp.hidden', Array.from({ length: ctx.data.rules.cpMax }, () => h('i'))), h('div.strow', h('div.statuses'), els.resc),
@@ -254,10 +261,11 @@ export function createHud(root, ctx) {
   els.logToggle.addEventListener('click', () => { els.log.classList.toggle('min'); els.logToggle.textContent = els.log.classList.contains('min') ? '+' : '–'; });
 
   root.append(els.nameplates, els.player, els.pet, els.target, els.boss, els.minimap, els.tracker, els.log, els.actionbar, els.micro, els.gold, els.xp);
-  // combat v2: the opening ruler over the enemies and the engage panel of round 1 (tracks.js)
-  const ruler = createRuler(root, ctx);
+  // combat v2: the engage panel of round 1 (tracks.js); D150 item 16: no opening ruler
   const engage = createEngagePanel(root, ctx);
-  els.ruler = ruler.el; els.engage = engage.el;
+  els.engage = engage.el;
+  // D150 item 16: the target frame's list of next actions shows on hover (of the frame, or of a nameplate: hover())
+  const listOn = (on) => els.target.classList.toggle('list', !!on);
   // the Heat meter (heat.js), always shown in a run but on the summary: over the action bar's right half, beside the
   // Autoplay controls (over its left half), where no screen panel, window or frame reaches at 16:9 (1366x768, 1920x1080)
   const heat = createHeatMeter(root, ctx, root); // at the top centre (owner 2026-11-11 10:12)
@@ -281,7 +289,8 @@ export function createHud(root, ctx) {
         const onTarget = L.window === 'all' || L.window.includes(ctx.ui.target);
         win = onTarget ? `Off-balance window: lands on ${names.join(', ')} for more damage and more crits.` : `Off-balance window on ${names.join(', ')}: target it first (click its nameplate or Tab).`;
       }
-      const tipEl = spellTip(id, ctx, { reason: L && !L.ok && c && !c.over ? L.reason : null, hint: ctx.view.legal.outOfCombat ? 'Right-click to clear · drag to reorder' : `Key: ${i + 1}` });
+      // D150 item 17: "Right-click to clear · drag to reorder" lives in the spellbook only
+      const tipEl = spellTip(id, ctx, { reason: L && !L.ok && c && !c.over ? L.reason : null, hint: ctx.view.legal.outOfCombat ? null : `Key: ${i + 1}` });
       if (win && tipEl) tipEl.insertBefore(h('div.tt-line', { style: { color: '#ffc25a', fontWeight: 700 } }, win), tipEl.children[2] || null);
       // combat v2.1: the wind-ups this round that the spell can answer (rules 7.7, 7.12)
       const sd = ctx.data.spells[id];
@@ -289,8 +298,8 @@ export function createHud(root, ctx) {
         .map((e) => ({ e, x: entriesOf(e).find((x) => x.now && x.windup) })).filter((w) => w.x && answerKind(sd && sd.raw, w.x)) : [];
       if (wus.length && tipEl) {
         const w = wus[0]; const k = answerKind(sd.raw, w.x);
-        tipEl.insertBefore(h('div.tt-line', { style: { color: '#9fdcff', fontWeight: 700 } }, k === 'avoid' ? `Wind-up this round: ${w.e.name}'s ${w.x.name} is heavy; avoid it entirely (no health lost) and it is answered.`
-          : `Wind-up this round: ${w.e.name}'s ${w.x.name}. This can stop it: answered, staggered for the rest of the fight.${sd.target === 'enemy' && w.e.idx !== ctx.ui.target ? ' Target it first.' : ''}`), tipEl.children[2] || null);
+        tipEl.insertBefore(h('div.tt-line', { style: { color: '#9fdcff', fontWeight: 700 } }, k === 'avoid' ? `Wind-up this round: ${w.e.name}'s ${w.x.name} is heavy; avoid it entirely (no health lost) and it is stopped.`
+          : `Wind-up this round: ${w.e.name}'s ${w.x.name}. This can stop it: staggered for the rest of the fight.${sd.target === 'enemy' && w.e.idx !== ctx.ui.target ? ' Target it first.' : ''}`), tipEl.children[2] || null);
       }
       return tipEl;
     });
@@ -326,11 +335,8 @@ export function createHud(root, ctx) {
   tip(els.minimap.querySelector('.disc'), () => {
     const v = ctx.view; if (!v.zone) return null; const R = ctx.data.rules;
     const danger = v.zone.danger > 0 ? dangerRule(R) : null; // zone danger (rules 7.6): zone.danger from the engine's zoneDanger
-    // the par and the line from R.heatView (the meter's numbers; the Oath of Haste included); v.par without heat (mock)
-    const hv = v.heat; const par = hv ? hv.par : v.par;
+    // D150 item 10: the tolls are the Furnace's (one number); no par, line or Ascendancy here
     return h('div', h('div.tt-name', v.zone.name), h('div.tt-sub', `Levels ${v.zone.band[0]}–${v.zone.band[1]}`),
-      hv ? h('div.tt-line', `${HEAT_WORDS.Name}: ${standText(hv)} (the Star's line: ${lineShown(hv.line)}) · ${bossText(hv.ascIfPar)}`) : null,
-      h('div.tt-line.desc', `Oruvath grows stronger for every ${tolls(R.ascStepTime)} past ${fmtTime(par)} (Ascendancy).`),
       danger ? h('div.tt-warn.danger', danger) : null, h('div.tt-hint', 'Click or press M for the zone map'));
   });
   tip(els.resc, () => { const v = ctx.view; return v.player ? resurrectTip(v) : null; });
@@ -353,7 +359,7 @@ export function createHud(root, ctx) {
     const onMap = v.phase === 'MAP' && !!v.contracts && !v.loot;
     els.tracker.classList.toggle('dimmed', !!(inGame && panelUp && !onMap));
     els.tracker.classList.toggle('narrow', onMap);
-    if (!inGame) { els.pet.classList.add('hidden'); els.target.classList.add('hidden'); els.boss.classList.add('hidden'); syncNameplates(v); ruler.update(v); engage.update(v); heat.update(v); return; }
+    if (!inGame) { els.pet.classList.add('hidden'); els.target.classList.add('hidden'); els.boss.classList.add('hidden'); syncNameplates(v); engage.update(v); heat.update(v); return; }
     heat.update(v);
     const th = THEMES[(v.zone && v.zone.theme) || 'farmland'];
     // player
@@ -425,9 +431,12 @@ export function createHud(root, ctx) {
       const tw = (tgt.statuses || []).find((s) => s.id === 'WARD');
       setBar(els.target.querySelector('.bar.hp'), tgt.hp, tgt.maxHp, `${fmtNum(tgt.hp)} / ${fmtNum(tgt.maxHp)}  ·  ${Math.ceil((tgt.hp / tgt.maxHp) * 100)} %`, tw ? tw.value : 0, inFight ? tgt.dot : null);
       stackBadges(els.target.querySelector('.wstk'), tgt, ctx); // combat v2.1: EMPOWERED / STAGGERED, large (their small icons stay out of the row)
+      // D150 item 24: a wind-up stopped this round: the line over the enemy and its nameplate's Staggered badge say it all
+      const stopT = !!(inFight && stoppedNow(tgt, ctx));
+      els.target.classList.toggle('stopped', stopT);
       statusRow(els.target.querySelector('.statuses'), (tgt.statuses || []).filter((s) => !WINDUP_STACKS.has(s.id)), ctx);
       // the off-balance marker (combat v2, rules 7.13) and the intent track (rules 7.11)
-      const ob = els.target.querySelector('.obal'); const obOn = !!(tgt.offBalance && inFight);
+      const ob = els.target.querySelector('.obal'); const obOn = !!(tgt.offBalance && inFight && !stopT);
       ob.classList.toggle('hidden', !obOn); ob.classList.toggle('frost', !!(obOn && tgt.offBalance.status === 'FROZEN')); if (obOn) ob.textContent = offBalanceText(tgt.offBalance);
       els.target.classList.toggle('offbal', obOn);
       const tr = els.target.querySelector('.ttrack');
@@ -460,11 +469,11 @@ export function createHud(root, ctx) {
         phase,
         h('span', 'Brand ', h('b', String(brand ? brand.stacks : 0)), tg.brandInRounds != null ? (tg.brandInRounds <= 0 ? ' · lands this round' : ` · next ${when(tg.brandInRounds)}`) : ''),
         h('span', 'Round ', h('b', String(c.round)), enrage ? ` · ${enrage}` : ''),
-        h('span', 'Ascendancy ', h('b', `+${Math.round((b.asc || 0) * 100)} %`)));
+        // D150 naming rule: the Furnace's word for it, "Boss +N %" (no Ascendancy), only when he is stronger
+        b.asc > 0 ? h('span', h('b', bossText(b.asc))) : null);
       els.bossWarn.textContent = extra; els.bossWarn.classList.toggle('hidden', !extra);
     } else els.boss.classList.add('hidden');
     syncNameplates(v);
-    ruler.update(v);
     engage.update(v);
     // action bar
     updateBar(v);
@@ -505,8 +514,8 @@ export function createHud(root, ctx) {
           el = h('div.np', h('div.wub.hidden'), h('div.trk'), h('div.castbar.hidden', h('i')), h('div.nm', h('span.rb'), h('span.lv'), h('span.n'), h('span.newtag.hidden', 'New')),
             bar('hp enemy'), h('div.under', h('div.obal.hidden'), h('div.ntag.hidden', h('span.zz.hidden', 'Unaware'), h('span.rtags')), h('div.wstk.hidden'), h('div.sts')));
           el.addEventListener('click', (ev) => { ev.stopPropagation(); ctx.ui.setTarget(e.idx); });
-          el.addEventListener('pointerenter', () => { ctx.scene.hover = `enemy:${e.idx}`; });
-          el.addEventListener('pointerleave', () => { ctx.scene.hover = null; });
+          el.addEventListener('pointerenter', () => { ctx.scene.hover = `enemy:${e.idx}`; listOn(true); });
+          el.addEventListener('pointerleave', () => { ctx.scene.hover = null; listOn(false); });
           tip(el.querySelector('.obal'), () => { const x = ctx.view.combat && ctx.view.combat.enemies.find((q) => q.idx === Number(el.dataset.idx)); return x ? offBalanceTip(x) : null; });
           tip(el.querySelector('.bar'), () => { const x = ctx.view.combat && ctx.view.combat.enemies.find((q) => q.idx === Number(el.dataset.idx)); return x && x.alive ? dotTip(x.dot, 'enemy', x.name) : null; });
           els.nameplates.appendChild(el); npEls.set(String(id), el);
@@ -541,8 +550,10 @@ export function createHud(root, ctx) {
         if (showIntent) trackChips(trk, e, ctx, { allSmall: e.rank === 'shard' || e.arch === 'shard' });
         const wub = el.querySelector('.wub');
         if (showIntent) windupBanner(wub, e, ctx); else { wub.classList.add('hidden'); wub.dataset.key = ''; }
-        // the off-balance marker (rules 7.13)
-        const obOn = !!(e.offBalance && e.alive && !c.over);
+        // the off-balance marker (rules 7.13); D150 item 24: it gives way to the line of a wind-up stopped this round
+        const stopE = !!(e.alive && !c.over && stoppedNow(e, ctx));
+        el.classList.toggle('stopped', stopE);
+        const obOn = !!(e.offBalance && e.alive && !c.over && !stopE);
         el.classList.toggle('offbal', obOn);
         const ob = el.querySelector('.obal'); ob.classList.toggle('hidden', !obOn); ob.classList.toggle('frost', !!(obOn && e.offBalance.status === 'FROZEN'));
         if (obOn) { const t = offBalanceText(e.offBalance, true); if (ob.textContent !== t) ob.textContent = t; }
@@ -654,7 +665,7 @@ export function createHud(root, ctx) {
         if (!at) { at = h('span.atag'); b.appendChild(at); }
         // one tag: side by side the two would overlap on the button. A window on the target joins it ("Answer · +50%");
         // one on another enemy gives way to the wind-up, which plays this round (the button keeps its window class)
-        const aText = avoid ? 'Avoid' : onTgt ? 'Answer' : '⇄ target';
+        const aText = avoid ? 'Avoid' : onTgt ? 'Stop' : '⇄ target';
         at.textContent = wText && here ? `${aText} · ${wText}` : aText;
         at.classList.toggle('db', !!(db && db.now)); at.classList.remove('soon');
         if (wt) wt.remove();
@@ -732,7 +743,7 @@ export function createHud(root, ctx) {
       els.turn.querySelector('.tp-k').textContent = `Autoplay · R${c.round}`;
       const tEl = els.turn.querySelector('.tp-t');
       // M2b v14 (UI need 1): rule H follows a Sap on a lone special enemy (autoplayEngage `wait`)
-      const t = `Autoplay will answer the ${ae.windup.deathblow ? 'Deathblow' : 'wind-up'} with ${ae.name}${ae.wait ? ', then wait a round' : ''}`;
+      const t = `Autoplay will stop the ${ae.windup.deathblow ? 'Deathblow' : 'wind-up'} with ${ae.name}${ae.wait ? ', then wait a round' : ''}`;
       const sig = `auto:${t}:${ae.enemy}`;
       if (tEl.dataset.sig !== sig) { tEl.dataset.sig = sig; clear(tEl); tEl.append(t, h('span.tp-s', ` (${ae.enemy}'s ${ae.windup.name})`)); }
       els.turn.dataset.kind = ae.windup.deathblow ? 'auto-db' : 'auto';
@@ -768,27 +779,26 @@ export function createHud(root, ctx) {
     let dbKind = null;
     let dbLethal = false;
     if (dbw && (c.engage || dbw.inRounds <= 1)) {
-      const when = dbw.inRounds === 0 ? 'now' : `in R${dbw.round}`;
-      const first = dbSh.list.find((x) => x.key) || null;
+      // D150 item 2: the Deathblow's one instruction, built from the view: "Round 3: Threshing Blow, about 85. Sap now [W],
+      // then Pass [X]." (tracks.js deathblowPrompt; keys as key chips)
       k = 'Deathblow';
       dbLethal = isLethal(v, { kind: dbw.kind, target: dbw.target, est: dbw.est }, dbw.est);
-      if (!dbw.ready) { parts = [`Deathblow ${when}: `, h('b.tp-no', 'No answer ready'), dbw.inRounds > 0 ? '. Kill it first or brace for it' : '', ...(dbLethal ? healHint('; heal: ') : [])]; dbKind = 'deathblow-no'; }
-      // M2b v14 (UI need 2): waiting is the answer while Sap holds (windupView's PASS answer); QA 2026-11-12: and attacking breaks it
-      else if (first && dbSh.when === 'now' && first.a.via === 'pass') { parts = [`Deathblow ${when}: wait with `, kb('X'), ` Pass: Sap stops it${first.a.stealth ? ', and you stay hidden' : ''}`, h('span.tp-w', `${SAP_BREAK_WARN}${dbLethal ? ' and kill you' : ''}.`)]; dbKind = 'deathblow'; }
-      else if (first && dbSh.when === 'now' && first.a.target != null && first.a.target !== (ctx.ui.target ?? c.target)) { parts = [`Deathblow ${when} on ${dbw.enemy}: `, kb('Tab'), ' to it, then ', kb(first.key), ` ${first.name}`]; dbKind = 'deathblow'; }
-      // M2b v14: Sap that is sure if you wait says so, as the line and the card do (QA 2026-11-12), not "(a chance)"
-      else if (first && dbSh.when === 'now') { parts = [`Deathblow ${when}: answer with `, kb(first.key), ` ${first.name}${first.a.sure ? '' : first.a.wait ? ', then wait (Pass next round)' : answerChance(first.a) ? ` (${answerChance(first.a)} to hit)` : ' (a chance)'}`]; dbKind = 'deathblow'; }
-      else if (first) { parts = [`Deathblow ${when}: keep `, kb(first.key), ` ${first.name} for round ${dbw.round}`]; dbKind = 'deathblow'; }
+      const pp = deathblowPrompt(dbw, dbSh, v, ctx, ctx.ui.target ?? c.target) || [];
+      parts = pp.map((x) => (typeof x === 'string' ? x : kb(x.key)));
+      if (!dbw.ready && dbLethal) parts.push(...healHint(' Heal: '));
+      dbKind = !dbw.ready ? 'deathblow-no' : 'deathblow';
     }
     if (dbKind) { /* the Deathblow's line above */ }
-    else if (c.engage) { k = 'Opening move'; parts = ['Open with ', kb('Q'), ' ', kb('W'), ' ', kb('E'), ' (left panel) or any bar key: they do not act yet']; }
-    else if (ans) parts = ['Wind-up now: answer with ', kb(key(ans)), ` ${name(ans)}`];
+    // D150 item 3: the engage round's choice is the engage panel's ("Free first move. They act from round 2."): no line here
+    else if (c.engage) { els.turn.classList.add('hidden'); els.turn.dataset.kind = 'engage'; return; }
+    else if (ans) parts = ['Wind-up now: stop it with ', kb(key(ans)), ` ${name(ans)}`];
     else if (els2) parts = ['Wind-up on another enemy: ', kb('Tab'), ' to it, then ', kb(key(els2)), ` ${name(els2)}`];
     else if (avoid) parts = ['Heavy wind-up now: ', kb(key(avoid)), ` ${name(avoid)} can blunt it`];
     else if (wuLive) parts = ['Wind-up now: nothing on your bar can stop it this round'];
     else if (lethalHit && !lethalHit.x.deathblow) { k = 'Lethal'; parts = [`${lethalHit.e.name}'s ${lethalHit.x.name} ${lethalHit.x.now ? 'this round' : `in R${lethalHit.x.round}`}: ≈ ${fmtNum(lethalHit.est)} on your ${fmtNum(p.hp)} health`, ...healHint('. Heal: ')]; }
     else if (pot) { const pi = els.items.indexOf(pot); const it = L.items && L.items[pi]; parts = ['Low health: ', kb(key(pot)), ` ${name(pot)}${it && it.heal > 0 ? ` +${fmtNum(it.heal)}${it.maim > 0 ? ' (maimed)' : ''}` : ''}`]; }
-    else if (win) parts = ['Off-balance: ', kb(key(win)), ` ${name(win)} hits ${(win.querySelector('.wtag') || {}).textContent || 'harder'}`];
+    // D150 item 24: a wind-up stopped this round already says "hit it now" over the enemy: the prompt stays plain then
+    else if (win && !c.enemies.some((e) => e.alive && !e.hidden && stoppedNow(e, ctx))) parts = ['Off-balance: ', kb(key(win)), ` ${name(win)} hits ${(win.querySelector('.wtag') || {}).textContent || 'harder'}`];
     else parts = ['Choose ', kb('1'), '–', kb('7'), ', ', kb('A'), ' attack or ', kb('X'), ' pass'];
     // QA 2026-11-12 (finding 3): LETHAL first when the Deathblow, or another hit this round or the next, would kill you
     const lethal = dbKind ? dbLethal : !!(lethalHit && !c.engage);
@@ -826,7 +836,7 @@ export function createHud(root, ctx) {
       else if (p.level >= t.need) lines.push(['d', `Level ${t.need}: you may travel on early (exit level ${t.exit})`]);
       else lines.push(['l', `Travel on at level ${t.need} (or after row ${t.rows})`]);
       lines.push(['l', `Row ${z.pos.row} of ${t.rows}`]);
-    } else if (z) { lines.push(['h', z.name]); lines.push(['l', `${HEAT_WORDS.Units}: ${fmtTime(v.time)} (par ${fmtTime(v.heat ? v.heat.par : v.par)})`]); } // heatView's par, as the meter
+    } // D150 item 10: on the expedition map and at the camp no zone lines (the minimap names the zone; the tolls are the Furnace's)
     const key = JSON.stringify(lines) + nNode + cKey;
     if (els.tracker.dataset.key === key) return;
     els.tracker.dataset.key = key; clear(els.tracker);
@@ -860,11 +870,11 @@ export function createHud(root, ctx) {
   return { update, placeNameplates, log, clearLog, els, setQueued, heat, flashSlot(i) { const b = els.spells[i] || els.items[i - 7]; if (b) { b.classList.add('pressed'); setTimeout(() => b.classList.remove('pressed'), 120); } } };
 }
 
-/** Tooltip of the resurrect badge (rules 9, M2 v3). */
+/** Tooltip of the revive badge (rules 9, M2 v3; D150: named by its source, the Ember of Return, never "Resurrect charges"). */
 export function resurrectTip(v) {
   const rt = resurrectText(v.player, !!(v.combat && v.combat.isBoss && !v.combat.over));
-  return h('div', h('div.tt-name', 'Resurrect charges'), h('div.tt-line', rt.list), rt.note ? h('div.tt-warn', rt.note) : null,
-    h('div.tt-sub', 'When you die, the first charge returns you to the fight at once.'));
+  return h('div', h('div.tt-name', rt.list), rt.note ? h('div.tt-warn', rt.note) : null,
+    h('div.tt-sub', 'When you die, it brings you back to the fight at once.'));
 }
 
 // ------------------------------------------------------------------ minimap

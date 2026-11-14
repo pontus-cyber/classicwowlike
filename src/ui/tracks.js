@@ -21,15 +21,20 @@
 // what the engine does: it lands (MAIMED) if it hits your pet, Send the Pet makes the pet take it on purpose (answered).
 // The first-fight hint (owner playtest 2026-11-11 08:03): beside the engage panel in the first engage round of each class,
 // the three openers on keys Q, W, E; dismissed for good with "Got it" or the end of that round (localStorage HINT_KEY).
+// D150 (owner 2026-11-14, text pass; docs/feedback/2026-11-14-blind-wording.md items 2-4, 16, 24): each instruction once on
+// screen. The engage panel's header is "Free first move. They act from round 2." (the UNAWARE badge stays on nameplates);
+// the Deathblow's instruction lives only in the turn prompt (deathblowPrompt: "Round 3: Threshing Blow, about 85. Sap now
+// [W], then Pass [X]."), not in the panel (its red box is gone), on the cards or over the enemy; the cards say no "You stay
+// in Stealth" (Ambush from the spells the hero knows: "Gutting Jab at ×1.5. +2 combo points."); the opening ruler is gone
+// (the chips over the enemies stay; the target frame's full list shows on hover, hud.js); a stopped wind-up or Deathblow
+// reads "Deathblow stopped. It is weakened: hit it now." over the enemy, with the Staggered badge as its one status chip
+// (stoppedNow: the off-balance marks give way meanwhile). Naming rule: a wind-up is stopped, never answered.
 // Presentation only: every entry, target, estimate, option, preview and window comes from the engine through the bridge
 // view (engine-bridge.js convTrack, convRole, engageView, legal.spells[].window, bridge.engagePreview).
 import { h, add, clear, fmtNum } from './util.js';
 import { abilityIcon, roleIcon, engageIcon, controlIcon, statusIcon, spellIcon, windupIcon, deathblowIcon } from './art-icons.js';
 import { tip, spellTip } from './tooltip.js';
 import { ROLE_INFO, CONTROL_WORD, ENGAGE_KIND, engageText, engageHint, numWord, plural, windupAnswers, windupStakes, deathblowStakes, sapWaitText } from './ui-text.js';
-
-/** Rounds the opening ruler numbers (combat-v2.md 10.4: rounds 1-5, the first 4-5 moves of the owner's feedback). */
-export const OPENING_ROUNDS = 5;
 
 const pct = (x) => `${Math.round((x || 0) * 100)} %`;
 const cap = (t) => (t ? t[0].toUpperCase() + t.slice(1) : t);
@@ -39,8 +44,6 @@ const HEAL_KINDS = new Set(['heal', 'selfHeal', 'bolster']);
 /** An entry that deals damage (its estimate is damage), one that heals or shields (its estimate is the amount), or neither. */
 const isDamage = (x) => DAMAGE_KINDS.has(x.kind) || (x.kind == null && x.est > 0 && !x.support);
 const isHeal = (x) => HEAL_KINDS.has(x.kind);
-/** Notable entries: what the ruler places and what the track marks (heavy, cast, signature, pack roles). */
-const notable = (x) => x.heavy || x.cast || x.signature || ['signal', 'bolster', 'heal', 'summon', 'cleave', 'curse', 'shieldAlly'].includes(x.kind);
 
 /** Who an entry targets, in words. */
 export function targetWord(x, v) {
@@ -115,8 +118,8 @@ export function softPending(v, e, x, st) {
 const waitKey = (v) => ((v && v.combat && v.combat.windups) || []).filter((w) => w.answers.some((a) => a.via === 'pass')).map((w) => `${w.u}:${w.turn}`).join(',');
 /** The short label of a pending soft answer: "If you wait" / "If not hit" (the chip, the row's flag, the ruler). */
 export const SOFT_TAG = { wait: 'If you wait', nohit: 'If not hit' };
-/** Its words: "answered if you wait" / "answered if not hit". */
-export const SOFT_WORDS = { wait: 'answered if you wait', nohit: 'answered if not hit' };
+/** Its words: "stopped if you wait" / "stopped if not hit". */
+export const SOFT_WORDS = { wait: 'stopped if you wait', nohit: 'stopped if not hit' };
 /** The warning while waiting answers a Deathblow (QA 2026-11-12): attacking breaks Sap and the Deathblow lands. */
 export const SAP_BREAK_WARN = 'Attacking breaks Sap: the Deathblow will land';
 /**
@@ -170,23 +173,12 @@ export function answersToShow(w, v, ctx) {
  * else null.
  */
 export const answerChance = (a) => (a && typeof a.chance === 'number' ? `${Math.round(a.chance * 100)} %` : null);
-/** The answers as inline elements: "W Lay Trap · E Send the Pet" (a chance marked "?", or its hit chance "91 %"). */
-function answerEls(list) {
-  const out = [];
-  list.forEach((x, i) => {
-    if (i) out.push(h('span.sep', ' · '));
-    // M2b v14: Sap that is sure if you wait reads "Sap, then wait" (no "?")
-    const ch = answerChance(x.a);
-    out.push(h('span.ans-o', { dataset: { via: x.a.via, id: x.a.id, sure: x.a.sure ? '1' : '', wait: x.a.wait ? '1' : '', chance: ch || '' } }, x.key ? h('kbd', x.key) : null, ` ${x.name}${x.a.sure ? '' : x.a.wait ? ', then wait' : ch ? ` ${ch}` : ' ?'}`));
-  });
-  return out;
-}
 /**
  * An answer's note in the Deathblow tooltip: a chance and why; M2b v14 (UI need 2): Sap "sure if you wait: press Pass next
  * round; you stay hidden" (`wait`, `stealth`), and the PASS answer "Sap stops it" while every enemy is sapped.
  */
 function answerNote(a) {
-  if (a.via === 'pass') return ` (Sap stops it${a.stealth ? '; you stay hidden' : ''})`;
+  if (a.via === 'pass') return ' (Sap stops it)';
   if (a.wait) return ` (${sapWaitText(a).replace(/^S/, 's')})`;
   const ch = answerChance(a);
   return `${a.sure ? '' : ch ? ` (${ch} to hit)` : ' (a chance)'}${a.breaks ? ' (any damage before its turn wakes it)' : ''}`;
@@ -247,20 +239,20 @@ export function windupLines(e, x, ctx, st) {
   if (w && (!st || st.kind === 'open')) {
     const sh = answersToShow(w, v, ctx);
     if (!w.ready) lines.push(h('div.tt-warn.db-no', 'No answer ready: nothing you have now can stop it. Kill it first, or be ready to take it.'));
-    else if (sh.list.length) lines.push(h('div.tt-line.db-a', `${sh.when === 'now' ? 'Answer it now' : `Ready by round ${w.round}`}: ${sh.list.map((q) => `${q.key ? `[${q.key}] ` : ''}${q.name}${answerNote(q.a)}`).join(', ')}.`));
+    else if (sh.list.length) lines.push(h('div.tt-line.db-a', `${sh.when === 'now' ? 'Stop it now' : `Ready by round ${w.round}`}: ${sh.list.map((q) => `${q.key ? `[${q.key}] ` : ''}${q.name}${answerNote(q.a)}`).join(', ')}.`));
   }
   const bar = answersOnBar(v, ctx, x);
   if (bar.length) {
     const word = (b) => `${b.name}${b.kind === 'avoid' ? ' (avoid)' : ''}${b.cd ? ` (${b.late ? `cooldown ${b.cd}: not ready by then` : `ready in ${b.cd}`})` : ''}`;
     lines.push(h('div.tt-line', { style: { color: '#ffd36a' } }, `On your bar: ${bar.map(word).join(', ')}.`));
-  } else if (!x.now) lines.push(h('div.tt-sub', 'Nothing on your bar answers it: plan your engage round, or kill it first.'));
-  if (x.deathblow && x.target === 'pet' && isDamage(x)) lines.push(h('div.tt-warn', 'Aimed at your pet: if it hits your pet it lands all the same (empowered, and you are maimed). Send the Pet makes your pet take it on purpose: answered.'));
+  } else if (!x.now) lines.push(h('div.tt-sub', 'Nothing on your bar stops it: plan your engage round, or kill it first.'));
+  if (x.deathblow && x.target === 'pet' && isDamage(x)) lines.push(h('div.tt-warn', 'Aimed at your pet: if it hits your pet it lands all the same (empowered, and you are maimed). Send the Pet makes your pet take it on purpose: stopped.'));
   if (isLethal(v, x, w ? w.est : x.est) && !(st && st.kind === 'answered' && !st.soft)) lines.push(h('div.tt-warn.lethal', `LETHAL: about ${fmtNum(w ? w.est : x.est)} against your ${fmtNum(v.player.hp)} health.`));
   const soft = softPending(v, e, x, st);
   if (soft === 'wait') lines.push(h('div.tt-hint.ans', `${cap(answeredBy(st))}: ${SOFT_WORDS.wait} (press Pass); it will be staggered. ${SAP_BREAK_WARN}.`));
-  else if (st && st.kind === 'answered') lines.push(h('div.tt-hint.ans', st.by === 'SILENCED' ? 'Silenced: it cannot cast it. Answered: staggered.' : `${answeredBy(st)[0].toUpperCase()}${answeredBy(st).slice(1)}: answered${st.soft ? ' while it takes no damage' : ''}; it will be staggered.`));
-  if (st && st.kind === 'preview') lines.push(h('div.tt-hint.ans', st.by === 'PET' ? 'With this opening your pet takes it: answered while the pet lives.' : 'With this opening it is answered: staggered.'));
-  if (st && st.kind === 'void') lines.push(h('div.tt-sub', `Replaced (${st.why}): neither answered nor landed.`));
+  else if (st && st.kind === 'answered') lines.push(h('div.tt-hint.ans', st.by === 'SILENCED' ? 'Silenced: it cannot cast it. Stopped: staggered.' : `${answeredBy(st)[0].toUpperCase()}${answeredBy(st).slice(1)}: stopped${st.soft ? ' while it takes no damage' : ''}; it will be staggered.`));
+  if (st && st.kind === 'preview') lines.push(h('div.tt-hint.ans', st.by === 'PET' ? 'With this opening your pet takes it: stopped while the pet lives.' : 'With this opening it is stopped: staggered.'));
+  if (st && st.kind === 'void') lines.push(h('div.tt-sub', `Replaced (${st.why}): neither stopped nor landed.`));
   return lines;
 }
 
@@ -272,16 +264,28 @@ function windupHover(el, e, x, ctx) {
 }
 
 /**
+ * Is a wind-up of enemy e stopped this round (its cancel done, or an interrupt landed): the banner over it says so until the
+ * round ends (D150 item 24), and the off-balance marks give way to it (hud.js).
+ */
+export function stoppedNow(e, ctx) {
+  const w = e && e.alive ? firstWindup(e, ctx) : null;
+  return !!(w && w.state.kind === 'answered' && w.x.now && (!w.cancel || w.cancel.done || w.cancel.by === 'INTERRUPT'));
+}
+/** D150 item 24: the one line of a stopped wind-up or Deathblow: "Deathblow stopped. It is weakened: hit it now." */
+export function stoppedText(e, x) {
+  return `${x.deathblow ? 'Deathblow' : 'Wind-up'} stopped. It is weakened${e && e.offBalance ? ': hit it now' : ''}.`;
+}
+/**
  * The wind-up line over an enemy (its nameplate, combat-v2.md 10.9), from the first round its track shows the wind-up:
- * "Wind-up R3: answer it or it empowers"; once answered (a trap, control, an interrupt) or previewed, what answers it.
- * box: the nameplate's .wub element; hidden when no wind-up is in view.
+ * "Wind-up R3"; a Deathblow "Deathblow R3 · MAIMS if it lands" (its estimate and how to stop it are the turn prompt's, D150
+ * item 2); once stopped this round, "Deathblow stopped. It is weakened: hit it now." (item 24); stopped ahead of its turn
+ * (a trap, control, the engage option previewed) what stops it. box: the nameplate's .wub element; hidden when none in view.
  */
 export function windupBanner(box, e, ctx) {
   const w = e.alive ? firstWindup(e, ctx) : null;
   const wi = w && w.x.deathblow ? windupItem(ctx.view, e, w.x) : null;
-  const key = w ? JSON.stringify([e.idx, w.x.turn, w.x.round, w.x.now, w.state, w.x.name, !!(w.cancel && w.cancel.done), w.cancel && w.cancel.by, w.x.deathblow, wi && [wi.est, wi.ready, wi.maims, wi.answers.map((a) => [a.id, a.now, a.sure])],
-    w.x.target, w.x.est, isLethal(ctx.view, w.x, wi ? wi.est : w.x.est),
-    wi && ctx.view.combat.engage ? ctx.view.combat.engage.options.map((o) => o.key) : null]) : '';
+  const key = w ? JSON.stringify([e.idx, w.x.turn, w.x.round, w.x.now, w.state, w.x.name, !!(w.cancel && w.cancel.done), w.cancel && w.cancel.by, w.x.deathblow, wi && [wi.est, wi.ready, wi.maims, wi.empower],
+    w.x.target, w.x.est, isLethal(ctx.view, w.x, wi ? wi.est : w.x.est), !!e.offBalance, softPending(ctx.view, e, w.x, w.state)]) : '';
   if (box.dataset.key === key) return;
   box.dataset.key = key; clear(box);
   box.classList.toggle('hidden', !w);
@@ -289,49 +293,62 @@ export function windupBanner(box, e, ctx) {
   const { x, state } = w;
   const ans = state.kind === 'answered' || state.kind === 'preview';
   // stopped this round (its cancel is done, or an interrupt landed): the line says so until the round ends
-  const stopped = state.kind === 'answered' && x.now && (!w.cancel || w.cancel.done || w.cancel.by === 'INTERRUPT');
-  box.className = `wub${ans ? ' ans' : ''}${state.kind === 'preview' ? ' pv' : ''}${x.now && !stopped ? ' now' : ''}`;
-  box.dataset.turn = x.turn; box.dataset.state = stopped ? 'stopped' : state.kind; box.dataset.deathblow = ''; box.dataset.est = ''; box.dataset.ready = '';
-  const n = (ctx.data.v2 && ctx.data.v2.num) || {};
-  const msg = stopped ? `staggered${n.staggerDmg != null ? `: −${Math.round(n.staggerDmg * 100)} % dmg` : ''}` : state.kind === 'open' ? 'answer it or it empowers'
-    : state.kind === 'preview' ? (state.by === 'PET' ? 'your pet takes it: answered' : 'this opening answers it') : `${answeredBy(state)}: answered${state.soft ? ' if not hit' : ''}`;
-  if (x.deathblow) {
-    // M2b v13: the Deathblow's own badge (crimson, a skull), its estimate, "MAIMS if it lands" and the answers ready now
-    const wi = windupItem(ctx.view, e, x);
+  const stopped = stoppedNow(e, ctx);
+  box.className = `wub${ans ? ' ans' : ''}${state.kind === 'preview' ? ' pv' : ''}${x.now && !stopped ? ' now' : ''}${stopped ? ' stopped' : ''}`;
+  box.dataset.turn = x.turn; box.dataset.state = stopped ? 'stopped' : state.kind; box.dataset.deathblow = x.deathblow ? '1' : ''; box.dataset.est = ''; box.dataset.ready = '';
+  if (stopped) {
+    if (x.deathblow) box.classList.add('db');
+    box.append(h('span.wu-b', h('img', { src: x.deathblow ? deathblowIcon() : windupIcon(), alt: '' }), stoppedText(e, x)));
+  } else if (x.deathblow) {
+    // M2b v13: the Deathblow's own badge (crimson, a skull) and its stakes; D150 item 2: no estimate or answers here
     const est = wi ? wi.est : x.est;
-    box.classList.add('db'); box.dataset.deathblow = '1'; box.dataset.est = est || 0;
-    box.append(h('span.wu-b', h('img', { src: deathblowIcon(), alt: '' }), stopped ? 'Deathblow stopped' : `Deathblow ${whenText(x)}`));
-    const lethal = isLethal(ctx.view, x, est) && (state.kind === 'open' || !!softPending(ctx.view, e, x, state));
+    box.classList.add('db'); box.dataset.est = est || 0;
+    box.append(h('span.wu-b', h('img', { src: deathblowIcon(), alt: '' }), `Deathblow ${whenText(x)}`));
+    const soft = softPending(ctx.view, e, x, state);
+    const lethal = isLethal(ctx.view, x, est) && (state.kind === 'open' || !!soft);
     box.dataset.lethal = lethal ? '1' : '';
-    if (state.kind === 'open') {
-      if (est && isDamage(x)) box.append(h('span.db-est', `≈ ${fmtNum(est)}`));
+    if (wi) box.dataset.ready = wi.ready ? '1' : '';
+    if (state.kind === 'open' || soft) {
       if (lethal) box.append(lethalBadge());
       if (x.target === 'pet' && isDamage(x)) box.append(h('span.db-pet', '▸ your pet'));
       if (!wi || wi.maims) box.append(h('span.db-m', maimsText(x.target)));
       else box.append(h('span.db-m', `+${Math.round((wi.empower || 0) * 100)} % if it lands`));
-      if (wi) {
-        box.dataset.ready = wi.ready ? '1' : '';
-        const sh = answersToShow(wi, ctx.view, ctx);
-        if (!wi.ready) box.append(h('span.db-a.no', 'No answer ready'));
-        else if (sh.list.length) box.append(h(`span.db-a${sh.when === 'now' ? '.now' : ''}`, h('span.db-al', sh.when === 'now' ? 'Answer: ' : `${whenText(x)}: `), answerEls(sh.list.slice(0, 3))));
-      }
-    } else {
-      // M2b v14 (UI need 2): Sap holds while every enemy is sapped: waiting answers it (windupView's PASS answer, key X)
-      const pass = !stopped && wi ? wi.answers.filter((a) => a.via === 'pass' && a.now) : [];
-      if (pass.length) {
-        box.append(h('span.wu-t', `${answeredBy(state)}: answered if you wait`), h('span.db-a.now', h('span.db-al', ' Wait: '), answerEls(pass.map((a) => ({ a, key: answerKey(ctx.view, a), name: answerName(a, ctx) })))));
-        // QA 2026-11-12 (finding 2): until Sap cancels it, attacking breaks Sap and the Deathblow lands
-        box.append(h('span.db-warn', lethal ? lethalBadge('b.db-lethal') : null, `${SAP_BREAK_WARN}${lethal ? ' and kill you' : ''}`));
-      } else box.append(h('span.wu-t', msg));
-    }
+    } else box.append(h('span.wu-t', `${answeredBy(state)}: stopped`));
   } else {
     const lethal = state.kind === 'open' && isLethal(ctx.view, x);
     box.dataset.lethal = lethal ? '1' : '';
+    const msg = state.kind === 'open' ? null : state.kind === 'preview' ? (state.by === 'PET' ? 'your pet takes it' : 'this opening stops it') : `${answeredBy(state)}: stopped${state.soft ? ' if not hit' : ''}`;
     // blind panel 2026-11-13 ("WIND-UP R3 null"): Element.append prints a null child as the text "null"; add() skips it
-    add(box, h('span.wu-b', h('img', { src: windupIcon(), alt: '' }), stopped ? 'Wind-up stopped' : `Wind-up ${whenText(x)}`), lethal ? lethalBadge() : null, h('span.wu-t', msg));
+    add(box, h('span.wu-b', h('img', { src: windupIcon(), alt: '' }), `Wind-up ${whenText(x)}`), lethal ? lethalBadge() : null, msg ? h('span.wu-t', msg) : null);
   }
   tip(box, () => h('div.tt-spell', h('div.tt-row', h('div.tt-name', `${e.name}: ${x.windupOf ? x.windupOf.name : x.name}`), h('div.tt-rank', x.now ? 'This round' : `Round ${x.round}`)), windupLines(e, x, ctx, state)));
   windupHover(box, e, x, ctx);
+}
+
+/**
+ * D150 item 2: the Deathblow's instruction, said once, in the turn prompt (hud.js), built from the view: "Round 3:
+ * Threshing Blow, about 85. Sap now [W], then Pass [X]." w: an R.windupView item; list: answersToShow(w). Parts: strings and
+ * { key } chips (a key list is pressed in turn: Pre-cast "Q then 3"). tgt: the current target. null with nothing to say.
+ */
+export function deathblowPrompt(w, list, v, ctx, tgt = null) {
+  if (!w) return null;
+  const head = `Round ${w.round}: ${w.name}${w.est && DAMAGE_KINDS.has(w.kind) ? `, about ${fmtNum(w.est)}` : ''}${w.target === 'pet' ? ' on your pet' : ''}. `;
+  if (!w.ready) return [head, 'No answer ready: kill it first or brace for it.'];
+  const first = (list.list || []).find((x) => x.key) || null;
+  if (!first) return [head.trim()];
+  const a = first.a;
+  const keyOf = (x) => {
+    // Pre-cast: its option's key, then the spell's bar key
+    if (x.a.via === 'engage' && x.a.spellId && v.player) { const i = v.player.bar.indexOf(x.a.spellId); return i >= 0 ? [x.key, String(i + 1)] : [x.key]; }
+    return [x.key];
+  };
+  const keys = (ks) => ks.flatMap((k, i) => (i ? [' then ', { key: k }] : [{ key: k }]));
+  const name = a.spellId ? (ctx.data.spells[a.spellId] || { name: a.spellId }).name : a.name;
+  const chance = a.sure || a.wait || a.via === 'pass' ? '' : answerChance(a) ? ` (${answerChance(a)} to hit)` : ' (a chance)';
+  if (list.when !== 'now') return [head, `Keep ${name} `, ...keys(keyOf(first)), ` for round ${w.round}.`];
+  if (a.via === 'pass') return [head, 'Pass ', { key: 'X' }, '. Attacking breaks Sap.'];
+  const tab = a.target != null && tgt != null && a.target !== tgt && a.via === 'spell' ? ['Target it (', { key: 'Tab' }, '), then '] : [];
+  return [head, ...tab, `${tab.length ? name : name} now `, ...keys(keyOf(first)), ...(a.wait ? [', then Pass ', { key: 'X' }] : []), `${chance}.`];
 }
 
 /**
@@ -421,7 +438,9 @@ export function trackChips(box, e, ctx, opts = {}) {
     const wu = windupState(e, x, cancel, p);
     // QA 2026-11-12: a soft answer not yet made says so ("IF YOU WAIT" / "IF NOT HIT"), not ANSWERED
     const soft = softPending(v, e, x, wu);
-    const wuRib = wu && wu.kind === 'open' ? (x.deathblow ? 'DEATHBLOW' : 'WIND-UP') : soft ? SOFT_TAG[soft].toUpperCase() : wu && wu.kind === 'answered' ? 'ANSWERED' : wu && wu.kind === 'preview' ? 'ANSWERS IT' : null;
+    // D150 item 24: stopped this round, the line over the enemy says it; the chip keeps its mark, no word
+    const stopNow = !!(wu && wu.kind === 'answered' && x.now && (!cancel || cancel.done || cancel.by === 'INTERRUPT'));
+    const wuRib = wu && wu.kind === 'open' ? (x.deathblow ? 'DEATHBLOW' : 'WIND-UP') : soft ? SOFT_TAG[soft].toUpperCase() : stopNow ? null : wu && wu.kind === 'answered' ? 'STOPPED' : wu && wu.kind === 'preview' ? 'STOPS IT' : null;
     const lethal = !hardCancel(cancel) && !(wu && wu.kind === 'answered' && !soft) && isLethal(v, x, x.deathblow ? (windupItem(v, e, x) || x).est : x.est);
     const cls = ['tk', big ? 'big' : 'sm', x.now ? 'now' : '', x.heavy ? 'heavy' : '', x.cast ? 'cast' : '', x.signature && !x.windup ? 'sig' : '', cancel ? 'cancel' : '',
       cancel && (cancel.breaks || cancel.preview) ? 'soft' : '', ob ? 'ob' : '', p ? 'pv' : '', p && p.window ? 'pvwin' : '', isHeal(x) || x.support ? 'sup' : '',
@@ -436,7 +455,7 @@ export function trackChips(box, e, ctx, opts = {}) {
       x.replaced && !cancel ? h('i.b-rep', '↺') : null,
       cancel ? h('img.b-ctl', { src: cancel.by === 'PREVIEW' ? statusIcon('STUN') : controlIcon(cancel.by), alt: '' }) : null,
       wuRib ? h(`i.b-wu${wu.kind !== 'open' ? '.ans' : ''}${soft ? '.soft' : ''}${x.deathblow ? '.db' : ''}`, soft ? { title: cap(SOFT_WORDS[soft]) } : {}, wuRib) : null,
-      ob && !wuRib ? h('i.b-ob', 'OFF-BAL') : null,
+      ob && !wuRib && !stopNow ? h('i.b-ob', 'OFF-BAL') : null,
       p && p.window && !ob && !wuRib ? h('i.b-ob.frost', 'WINDOW') : null);
     tip(el, () => entryTip(e, x, ctx, { cancel, ob, petHit, preview: p, wu }));
     windupHover(el, e, x, ctx);
@@ -457,7 +476,8 @@ export function trackRows(box, e, ctx) {
   box.dataset.key = key; clear(box);
   if (!list.length && !unaware) { box.classList.add('hidden'); return; }
   box.classList.remove('hidden');
-  box.appendChild(h('div.tr-h', unaware ? h('span.zz', h('img', { src: abilityIcon({ id: 'unaware' }), alt: '' }), 'Unaware: it does not act this round') : h('span', 'Next actions')));
+  // D150 item 3: the UNAWARE badge on its nameplate says it; the list's head is always the same
+  box.appendChild(h('div.tr-h', h('span', 'Next actions')));
   for (const x of list) {
     const p = previewOf(pv, e, x);
     const cancel = cancelOf(e, x, p, ctx);
@@ -468,7 +488,7 @@ export function trackRows(box, e, ctx) {
     const soft = softPending(v, e, x, wu); // QA 2026-11-12: "If you wait" until Sap cancels it
     const lethal = !hardCancel(cancel) && !(wu && wu.kind === 'answered' && !soft) && isLethal(v, x, x.deathblow ? (windupItem(v, e, x) || x).est : x.est);
     // combat v2.1: a wind-up shows one flag (it is always a cast; "heavy" goes to the line below), so its name keeps its room
-    const flags = wu ? [h(`span.flag.wu${wu.kind !== 'open' ? '.ans' : ''}${soft ? '.soft' : ''}${x.deathblow && wu.kind === 'open' ? '.db' : ''}`, soft ? { title: cap(SOFT_WORDS[soft]) } : {}, wu.kind === 'open' ? (x.deathblow ? 'Deathblow' : 'Wind-up') : wu.kind === 'void' ? 'Wind-up ↺' : soft ? SOFT_TAG[soft] : 'Answered')]
+    const flags = wu ? [h(`span.flag.wu${wu.kind !== 'open' ? '.ans' : ''}${soft ? '.soft' : ''}${x.deathblow && wu.kind === 'open' ? '.db' : ''}`, soft ? { title: cap(SOFT_WORDS[soft]) } : {}, wu.kind === 'open' ? (x.deathblow ? 'Deathblow' : 'Wind-up') : wu.kind === 'void' ? 'Wind-up ↺' : soft ? SOFT_TAG[soft] : 'Stopped')]
       : [x.heavy ? h('span.flag.heavy', 'Heavy') : null, x.cast ? h('span.flag.cast', 'Cast') : null, x.signature ? h('span.flag.sig', '★ Signature') : null];
     if (lethal) flags.push(h('span.flag.lethal', 'Lethal'));
     let sub = '';
@@ -484,7 +504,7 @@ export function trackRows(box, e, ctx) {
       h('span.rt', x.now ? 'Now' : x.round != null ? `R${x.round}` : ''),
       h('img', { src: abilityIcon(x), alt: '' }),
       h('div.tm', h('div.tn', h('span.nm', x.name), flags), h('div.ts', sub,
-        wu && (wu.kind === 'answered' || wu.kind === 'preview') ? h('b.wut', ' → staggered') : wu && wu.kind === 'open' && !x.replaced ? h(`b.wuo${x.deathblow ? '.db' : ''}`, x.deathblow ? ` · ${rowStake(v, e, x)}` : ' · answer it') : null,
+        wu && (wu.kind === 'answered' || wu.kind === 'preview') ? h('b.wut', ' → staggered') : wu && wu.kind === 'open' && !x.replaced ? h(`b.wuo${x.deathblow ? '.db' : ''}`, x.deathblow ? ` · ${rowStake(v, e, x)}` : ' · stop it') : null,
         ob ? h('b.obt', ' → off-balance') : null, p && p.window && !ob ? h('b.obt.frost', ' → frozen window') : null)),
       amt ? h(`div.td${isHeal(x) ? '.heal' : ''}`, amt) : null);
     tip(row, () => entryTip(e, x, ctx, { cancel, ob, petHit, preview: p, wu }));
@@ -547,7 +567,8 @@ export function roleTags(e, ctx) {
   if (r && r.lookout) out.push(h('span.rtag.look', `Signal R${r.lookout}`));
   if (r && r.ward != null) out.push(h('span.rtag.ward', `Guards ${shortName(v, r.ward)}`));
   if (r && r.guardedBy && r.guardedBy.length) out.push(h('span.rtag.ward', 'Ward'));
-  if (r && r.bloodlust) out.push(h('span.rtag.blood', `+${pct(r.bloodlust)}`));
+  // D150: the growing "+10 %" badge says what it is in one short line
+  if (r && r.bloodlust) out.push(tip(h('span.rtag.blood', `+${pct(r.bloodlust)}`), () => h('div.tt-line', `Bloodlust: it deals +${pct(r.bloodlust)} damage, more each turn it acts.`)));
   return out;
 }
 const shortName = (v, idx) => { const e = v.combat && v.combat.enemies.find((x) => x.idx === idx); return e ? e.name.split(' ').slice(-1)[0] : 'ally'; };
@@ -589,81 +610,6 @@ export function offBalanceTip(e) {
     h('div.tt-line.desc', `${ob.status === 'FROZEN' ? 'Frozen, which counts as off-balance' : 'Its big move failed'}: it takes ${pct(ob.taken)} more damage from you and your pet, your hits on it crit ${pct(ob.crit)} more often, and it cannot dodge.`),
     h('div.tt-hint', 'Spend your burst now: the glowing spells on your bar land in the window.'),
     h('div.tt-sub', ob.rounds == null ? 'While it lasts' : `${ob.rounds} ${plural(ob.rounds, 'round')} left (your next action)`));
-}
-
-// ------------------------------------------------------------------ opening ruler
-/**
- * The opening ruler (combat-v2.md 10.4): rounds 1..OPENING_ROUNDS of a fight with an engage round, the current one marked;
- * per round the notable entries of every living enemy's track (heavy, cast, signature, Signal, Bolster, Mend) and the damage
- * the tracks estimate on you; rounds the tracks do not reach yet show "?". Hidden in the end-boss fight and after the opening.
- */
-export function createRuler(root, ctx) {
-  const el = h('div#ruler.hidden', { 'aria-label': 'Opening ruler' });
-  root.appendChild(el);
-  let lastKey = '';
-  function update(v) {
-    const c = v.combat;
-    const show = !!(c && !c.over && !c.isBoss && c.hasEngage && c.round <= OPENING_ROUNDS && v.phase !== 'SUMMARY' && !v.loot);
-    el.classList.toggle('hidden', !show);
-    if (!show) { lastKey = ''; return; }
-    const pv = ctx.ui.preview && ctx.ui.preview.data;
-    const cols = [];
-    for (let r = 1; r <= OPENING_ROUNDS; r++) cols.push({ r, threats: [], dmg: 0, known: r <= c.round, cancelled: 0 });
-    for (const e of c.enemies) {
-      if (!e.alive || e.hidden) continue;
-      for (const x of entriesOf(e)) {
-        const col = cols[(x.round || 0) - 1]; if (!col) continue;
-        col.known = true;
-        const p = previewOf(pv, e, x);
-        const cancelled = !!(x.cancel || (p && p.cancel));
-        if (!cancelled && isDamage(x) && (x.target === 'player' || x.target === 'both') && !(p && p.pet)) col.dmg += x.est || 0;
-        // combat v2.1: a wind-up is marked on its round, answered when a cancel (or the previewed opening) answers it
-        const wu = windupState(e, x, cancelOf(e, x, p, ctx), p);
-        if (notable(x)) col.threats.push({ e, x, cancelled, ob: !!((x.cancel && x.cancel.offBalance) || (p && p.ob)), wu: wu ? wu.kind : null, wuState: wu, db: !!x.deathblow, soft: softPending(v, e, x, wu) });
-      }
-    }
-    for (const k of cols) k.threats.sort((a, b) => (b.db ? 2 : b.wu ? 1 : 0) - (a.db ? 2 : a.wu ? 1 : 0)); // Deathblows, then wind-ups first: they are what the opening is about
-    const key = JSON.stringify([c.round, cols.map((k) => [k.known, k.dmg, k.threats.map((t) => [t.e.idx, t.x.turn, t.x.id, t.cancelled, t.ob, t.wu, t.db, t.soft])])]);
-    if (key === lastKey) return;
-    lastKey = key; clear(el);
-    el.appendChild(h('div.rl-h', h('span.rl-t', 'Opening'), h('span.rl-s', c.round === 1 ? 'Plan your first moves' : `Round ${c.round} of ${OPENING_ROUNDS}`)));
-    const row = h('div.rl-cols');
-    for (const k of cols) {
-      const state = k.r < c.round ? 'past' : k.r === c.round ? 'cur' : 'next';
-      const engage = k.r === 1;
-      const wuOpen = k.threats.some((t) => t.wu === 'open'); const wuAns = !wuOpen && k.threats.some((t) => t.wu === 'answered' || t.wu === 'preview');
-      const dbOpen = k.threats.some((t) => t.wu === 'open' && t.db);
-      // QA 2026-11-12: a soft answer not yet made reads "If you wait" / "If not hit" (any hard answer in that round: Answered)
-      const softT = wuAns && !k.threats.some((t) => (t.wu === 'answered' && !t.soft) || t.wu === 'preview') ? (k.threats.find((t) => t.soft) || {}).soft : null;
-      const head = h('div.rl-n', engage ? h('span', '1 · Engage') : h('span', `Round ${k.r}`),
-        wuOpen || wuAns ? h(`b.rl-wu${wuAns ? '.ans' : ''}${softT ? '.soft' : ''}${dbOpen ? '.db' : ''}`, softT ? { title: cap(SOFT_WORDS[softT]) } : {}, softT ? SOFT_TAG[softT] : wuAns ? 'Answered' : dbOpen ? 'Deathblow' : 'Wind-up') : state === 'cur' ? h('b.rl-now', 'Now') : null);
-      const body = h('div.rl-b');
-      if (engage) body.appendChild(h('div.rl-q', 'They do not act'));
-      else if (!k.known) body.appendChild(h('div.rl-q', '?'));
-      else {
-        const icons = h('div.rl-ic');
-        for (const t of k.threats.slice(0, 4)) {
-          const ic = h(`div.rl-x${t.x.heavy ? '.heavy' : ''}${t.x.cast ? '.cast' : ''}${t.cancelled ? '.cancel' : ''}${t.ob ? '.ob' : ''}${t.wu ? `${t.wu !== 'void' ? '.wu' : ''}.wu-${t.wu}` : ''}${t.db && t.wu && t.wu !== 'void' ? '.db' : ''}`,
-            { dataset: { idx: t.e.idx, turn: t.x.turn, windup: t.wu || '', deathblow: t.db ? '1' : '' } },
-            h('img', { src: abilityIcon(t.x), alt: '' }), t.e.role ? h('img.rl-role', { src: roleIcon(t.e.role.id), alt: '' }) : null,
-            t.wu && t.wu !== 'void' ? h('img.rl-wui', { src: t.db ? deathblowIcon() : windupIcon(), alt: '' }) : null);
-          ic.addEventListener('click', () => ctx.ui.setTarget(t.e.idx));
-          tip(ic, () => entryTip(t.e, t.x, ctx, { cancel: t.x.cancel || (t.cancelled ? { by: 'PREVIEW', preview: true, offBalance: t.ob } : null), ob: t.ob, wu: t.wuState }));
-          windupHover(ic, t.e, t.x, ctx);
-          icons.appendChild(ic);
-        }
-        if (k.threats.length > 4) icons.appendChild(h('span.rl-more', `+${k.threats.length - 4}`));
-        body.appendChild(icons);
-        body.appendChild(h(`div.rl-d${k.dmg ? '' : '.none'}`, k.dmg ? `≈ ${fmtNum(k.dmg)} to you` : 'no hits on you'));
-      }
-      const col = h(`div.rl-c.${state}${engage ? '.eng' : ''}`, { dataset: { round: k.r } }, head, body);
-      tip(col.querySelector('.rl-n'), () => h('div', h('div.tt-name', engage ? 'Round 1: Engage' : `Round ${k.r}`),
-        h('div.tt-line.desc', engage ? 'The enemies have not noticed you: they do not act this round. Choose your opening.' : k.known ? 'Big moves the tracks show for this round, and the damage they estimate on you.' : 'The tracks do not reach this round yet.')));
-      row.appendChild(col);
-    }
-    el.appendChild(row);
-  }
-  return { el, update };
 }
 
 // ------------------------------------------------------------------ engage panel
@@ -746,25 +692,9 @@ export function createEngagePanel(root, ctx) {
   const answerTag = (list) => {
     if (!list.length) return null;
     const db = list.some((w) => w.x.deathblow); // M2b v13: an option that answers a Deathblow says so, in its colour
-    return h(`div.eg-ans${db ? '.db' : ''}`, h('img', { src: db ? deathblowIcon() : windupIcon(), alt: '' }),
-      `Answers ${db ? (list.length > 1 ? 'the Deathblow and a wind-up' : 'the Deathblow') : list.length > 1 ? `${list.length} wind-ups` : 'the wind-up'} (${list.map((w) => `R${w.x.round}`).join(', ')}): staggered`);
-  };
-  /**
-   * M2b v13 (UI needs 1, 2): the Deathblow alert at the head of the panel: each open Deathblow in view (R.windupView), when,
-   * whose, its estimate, "MAIMS if it lands", and the answers ready now with their keys ("No answer ready" in red).
-   */
-  const deathblowAlert = (v) => {
-    const list = (v.combat.windups || []).filter((w) => w.deathblow && !(w.cancel && w.cancel.stagger && !w.cancel.breaks));
-    if (!list.length) return null;
-    return list.map((w) => {
-      const sh = answersToShow(w, v, ctx);
-      return h('div.eg-db', { dataset: { u: w.u, turn: w.turn, ready: w.ready ? '1' : '' } },
-        h('img.eg-dbi', { src: deathblowIcon(), alt: '' }),
-        h('div.eg-dbm', h('div.eg-dbt', h('b', `Deathblow, round ${w.round}`), `: ${w.enemy}'s ${w.name}${w.est && DAMAGE_KINDS.has(w.kind) ? `, ≈ ${fmtNum(w.est)} to ${w.target === 'pet' ? 'your pet' : 'you'}` : ''}. `,
-          isLethal(v, { kind: w.kind, target: w.target, est: w.est }, w.est) ? lethalBadge('b.db-lethal') : null, h('b.eg-dbmaim', w.maims ? `${maimsText(w.target)}.` : `+${Math.round(w.empower * 100)} % if it lands.`)),
-          !w.ready ? h('div.eg-dba.no', 'No answer ready')
-            : h('div.eg-dba', sh.when === 'now' ? 'Answer it now: ' : `Ready by round ${w.round}: `, answerEls(sh.list.slice(0, 4)))));
-    });
+    // D150 item 2: the Deathblow's instruction is the turn prompt's; the card keeps its crimson mark (.db-ans), no words
+    if (db) return null;
+    return h('div.eg-ans', h('img', { src: windupIcon(), alt: '' }), `Stops ${list.length > 1 ? `${list.length} wind-ups` : 'the wind-up'} (${list.map((w) => `R${w.x.round}`).join(', ')})`);
   };
   const pctOf = (x) => `${Math.round((x || 0) * 100)} %`;
   /** Disrupt's line on the card (rules 7.10): the wind-up its trap stops, from R.engagePreview (ans), and the result. */
@@ -781,7 +711,7 @@ export function createEngagePanel(root, ctx) {
     const nm = e ? e.name : 'This enemy';
     const lines = [];
     if (disrupt) {
-      lines.push(h('div.tt-line.desc', `${nm} cannot be controlled, so ${o.name} becomes Disrupt: a trap that springs on its first wind-up in its next ${numWord(n.trackLen || 3)} turns. That wind-up is cancelled: answered, so it is staggered, and it is off-balance for your next action.`));
+      lines.push(h('div.tt-line.desc', `${nm} cannot be controlled, so ${o.name} becomes Disrupt: a trap that springs on its first wind-up in its next ${numWord(n.trackLen || 3)} turns. That wind-up is stopped, so it is staggered, and it is off-balance for your next action.`));
       if (n.signatureTurn2) lines.push(h('div.tt-hint', `A dungeon boss winds up a second time on its turn ${n.signatureTurn2}: answer that one with an interrupt or a stun (a heavy one: a full dodge, a ward or your pet).`));
     } else if (notHere) {
       lines.push(h('div.tt-warn', notHere));
@@ -801,8 +731,8 @@ export function createEngagePanel(root, ctx) {
     if (key === lastKey) return;
     lastKey = key; clear(el);
     const d = ctx.data.v2 || { options: {}, num: {} };
-    el.appendChild(h('div.eg-h', h('div.title', 'Engage'), h('div.eg-sub', h('b', 'They have not noticed you: enemies do not act this round.'), ' Read their tracks, pick a target, then open.')));
-    const dba = deathblowAlert(v); if (dba) el.append(...dba);
+    // D150 item 3: one line says the fact (the UNAWARE badges stay); it gives way while a coach line says it (style.css)
+    el.appendChild(h('div.eg-h', h('div.eg-sub', h('b', 'Free first move.'), ' They act from round 2.')));
     // the engage options that answer an open Deathblow (R.windupView answers, via 'engage'): { option id: [answer] }
     const dbAns = {};
     for (const w of (v.combat.windups || []).filter((q) => q.deathblow)) for (const a of w.answers) if (a.via === 'engage') (dbAns[a.id] = dbAns[a.id] || []).push({ ...a, round: w.round });
@@ -820,10 +750,12 @@ export function createEngagePanel(root, ctx) {
       const at = o.spells ? null : sel.none ? null : here != null ? here : sel.first ?? null;
       const ans = off || o.spells || (at == null && !sel.none) ? [] : answersOf(v, o.id, at, undefined);
       let tline;
+      // D150: the target line only where it tells something: two or more enemies, or the option cannot take the target
+      const many = v.combat.enemies.filter((e) => e.alive && !e.hidden).length > 1;
       if (off) tline = h('div.eg-tg.bad', o.reason);
       else if (o.spells) tline = h('div.eg-tg', ctx.ui.precastArmed ? 'Now press a spell key (1–7) or click a spell:' : 'Choose a spell:');
-      else if (sel.none) tline = h('div.eg-tg.ok', 'No target needed');
-      else if (sel.ok) tline = h('div.eg-tg.ok', `On ${nameOf(v, sel.t)}`);
+      else if (sel.none) tline = null;
+      else if (sel.ok) tline = many ? h('div.eg-tg.ok', `On ${nameOf(v, sel.t)}`) : null;
       else if (notHere) tline = h('div.eg-tg.bad', notHere, h('span.eg-alt', ` Choose: ${o.targets.map((i) => nameOf(v, i)).join(', ')}`));
       else tline = h('div.eg-tg.warn', `Choose a target: ${o.targets.map((i) => nameOf(v, i)).join(', ')}`);
       const name = disrupt ? 'Disrupt' : o.name;
@@ -835,10 +767,8 @@ export function createEngagePanel(root, ctx) {
         { role: o.spells ? null : 'button', tabindex: '-1', dataset: { opt: o.id, key: o.key || '', disrupt: disrupt ? '1' : '', answers: ans.map((w) => `${w.e.idx}:${w.x.turn}`).join(' '), db: dbA.length ? (dbSure ? 'sure' : dbWait ? 'wait' : 'chance') : '' }, 'aria-label': `${name}${disrupt ? ` (${o.name})` : ''} (${ENGAGE_KIND[o.kind] || o.kind})` },
         h('img.eg-ic', { src: engageIcon(o.id), alt: '' }),
         h('div.eg-main', h('div.eg-nm', h('span.eg-name', name), disrupt ? h('span.eg-was', o.name) : null, h('span.eg-kind', ENGAGE_KIND[o.kind] || o.kind), o.key ? h('span.kbd', o.key) : null),
-          h('div.eg-txt', disrupt ? disruptText(v, here, ans) : engageText(data, d.num)), tline, answerTag(ans),
-          dbWait ? h('div.eg-dbc.wait', sapWaitText(dbWait))
-            : dbA.length && !dbSure ? h('div.eg-dbc', dbA.some((a) => a.breaks) ? 'A chance: any damage before its turn wakes it' : dbA.some(answerChance) ? `A chance: it lands ${dbA.map(answerChance).filter(Boolean).join(' / ')}` : 'A chance: it can fail') : null));
-      if (dbA.length) card.prepend(h('i.eg-dbtag', 'Deathblow'));
+          // D150 items 2, 4: the card says what the option does (the hero's own spells), never how to stop the Deathblow
+          h('div.eg-txt', disrupt ? disruptText(v, here, ans) : engageText(data, d.num, { knows: (id) => !!(v.player && v.player.spells.some((x) => x.id === id)), spells: ctx.data.spells })), tline, answerTag(ans)));
       if (disrupt || notHere) tip(card, () => disruptTip(v, o, here ?? cur, disrupt, notHere));
       if (o.spells && !off) {
         const row = h('div.eg-spells');
@@ -855,11 +785,11 @@ export function createEngagePanel(root, ctx) {
           b.addEventListener('click', (ev) => { ev.stopPropagation(); ctx.ui.engage(o.id, sp.spellId); });
           b.addEventListener('pointerenter', () => hover(v, o, sp));
           b.addEventListener('pointerleave', () => ctx.ui.setPreview(null));
-          tip(b, () => spellTip(sp.spellId, ctx, { hint: `Pre-cast: no mana; its cooldown starts.${sa.length ? ` It answers the wind-up (${sa.map((w) => `R${w.x.round}`).join(', ')}).` : ''} Click to open with it.` }));
+          tip(b, () => spellTip(sp.spellId, ctx, { hint: `Pre-cast: no mana; its cooldown starts.${sa.length ? ` It stops the wind-up (${sa.map((w) => `R${w.x.round}`).join(', ')}).` : ''} Click to open with it.` }));
           row.appendChild(b);
         }
         card.querySelector('.eg-main').appendChild(row);
-        if (any.length) { const adb = any.some((w) => w.x.deathblow); card.querySelector('.eg-main').appendChild(h(`div.eg-ans${adb ? '.db' : ''}`, h('img', { src: adb ? deathblowIcon() : windupIcon(), alt: '' }), `${any[0].spell} answers the ${adb ? 'Deathblow' : 'wind-up'} (${any.map((w) => `R${w.x.round}`).join(', ')}): staggered`)); }
+        if (any.length && !any.some((w) => w.x.deathblow)) card.querySelector('.eg-main').appendChild(h('div.eg-ans', h('img', { src: windupIcon(), alt: '' }), `${any[0].spell} stops the wind-up (${any.map((w) => `R${w.x.round}`).join(', ')})`));
       }
       if (!o.spells) {
         card.addEventListener('click', () => ctx.ui.engage(o.id));
@@ -868,7 +798,7 @@ export function createEngagePanel(root, ctx) {
       } else card.addEventListener('click', () => ctx.ui.armPrecast());
       opts.appendChild(card);
     }
-    const any = h('div.eg-any', { dataset: { opt: 'bar' } }, h('span', h('b', 'Or open with any bar spell '), h('span.kbd', '1–7'), ', your attack ', h('span.kbd', 'A'), ' or a potion. They still do not act.'));
+    const any = h('div.eg-any', { dataset: { opt: 'bar' } }, h('span', h('b', 'Or open with any bar spell '), h('span.kbd', '1–7'), ', your attack ', h('span.kbd', 'A'), ' or a potion.'));
     any.addEventListener('pointerenter', () => document.body.classList.add('eg-bar-hint'));
     any.addEventListener('pointerleave', () => document.body.classList.remove('eg-bar-hint'));
     opts.appendChild(any);

@@ -1,6 +1,8 @@
 // Display text for tooltips and screens (descriptions of spells, talents, statuses, consumables,
 // boons and classes). Wording follows docs/specs/rules.md; numbers that matter come from the
 // engine at run time. CONTENT.texts (src/content) overrides any line when it provides one.
+// D150 (owner 2026-11-14, text pass): "stopped" for "answered", the engage cards' texts from the view with no Stealth
+// reminder (Ambush "Gutting Jab at ×1.5. +2 combo points."), no par or Ascendancy in the Oaths' lines.
 import { SPELLS, TALENTS, STATUS_INFO as BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS } from './mock-data.js';
 
 /**
@@ -34,7 +36,7 @@ export const STATUS_INFO = {
   PET_LEAD: { name: 'Leading the Charge', debuff: false, text: 'Your pet engaged first: it taunts and takes less damage.' },
   // combat v2.1 (combat-v2.md 16.2, rules 7.12): the lasting result of an enemy's wind-ups, one stack per wind-up
   EMPOWERED: { name: 'Empowered', debuff: false, text: 'A wind-up landed: it deals more damage for the rest of the fight.' },
-  STAGGERED: { name: 'Staggered', debuff: true, v2Debuff: true, text: 'A wind-up was answered: it deals less damage for the rest of the fight.' },
+  STAGGERED: { name: 'Staggered', debuff: true, v2Debuff: true, text: 'A wind-up was stopped: it deals less damage for the rest of the fight.' },
   // M2b v13 (rules 7.4, D107): a landed Deathblow MAIMS the player for the rest of the fight; dispersal does not remove it.
   MAIMED: { name: 'Maimed', debuff: true, text: 'A Deathblow landed: the healing you receive is cut for the rest of the fight. Cleansing does not remove it.' },
 };
@@ -48,8 +50,8 @@ export const STATUS_INFO = {
  */
 export function windupAnswers(heavy, immune = false) {
   const how = immune
-    ? 'Answer it with an interrupt, a stun or a control spell on its turn (it cannot be controlled: each interrupts it), or with Disrupt in the engage round'
-    : 'Answer it with an interrupt, a stun or control on its turn, or with an engage option that covers that turn';
+    ? 'Stop it with an interrupt, a stun or a control spell on its turn (it cannot be controlled: each interrupts it), or with Disrupt in the engage round'
+    : 'Stop it with an interrupt, a stun or control on its turn, or with an engage option that covers that turn';
   return `${how}${heavy ? '; a heavy one also by a full dodge, a ward that takes it all, Mirrorshade or your pet taking it' : ''}.`;
 }
 /**
@@ -59,25 +61,25 @@ export function windupAnswers(heavy, immune = false) {
  */
 export function deathblowStakes(w) {
   if (!w) return '';
-  return `Answered: staggered, −${pct(w.stagger)} damage for the rest of the fight. Landed: empowered, +${pct(w.empower)} damage${w.maims ? `, and you are MAIMED: healing you receive −${pct(w.maimHeal)}, potions included` : ''}.`;
+  return `Stopped: staggered, −${pct(w.stagger)} damage for the rest of the fight. Landed: empowered, +${pct(w.empower)} damage${w.maims ? `, and you are MAIMED: healing you receive −${pct(w.maimHeal)}, potions included` : ''}.`;
 }
 /** What answers a Deathblow of this type (the map's `type`: 'heavy' or 'cast'; rules 7.12, 7.13 (3)), without its noun. */
 export function deathblowAnswers(type) {
-  return type === 'heavy' ? 'stun, control or interrupt it on its turn; a full dodge, a ward or your pet taking it also answer it'
+  return type === 'heavy' ? 'stun, control or interrupt it on its turn; a full dodge, a ward or your pet taking it also stop it'
     : 'interrupt it or control the caster on its turn';
 }
 /** How a Deathblow can be answered, by its kind (the map's `type`): "heavy blow: ..." or "cast: ...". */
 export function deathblowKind(type) {
   return `${type === 'heavy' ? 'heavy blow' : 'cast'}: ${deathblowAnswers(type)}`;
 }
-/** M2b v14 (UI need 2): Sap is sure if the Rogue waits (windupView answer `wait`; `stealth`: the passes keep STEALTH). */
-export function sapWaitText(a) {
-  return `Sure if you wait: press Pass next round${a && a.stealth ? '; you stay hidden' : ''}`;
+/** M2b v14 (UI need 2): Sap is sure if the Rogue waits (windupView answer `wait`). D150: no "you stay hidden" (one word, Stealth). */
+export function sapWaitText() {
+  return 'Sure if you wait: press Pass next round';
 }
 /** The lasting result in words, from the engine's EMPOWER_DMG and STAGGER_DMG (data.v2.num); no number written here. */
 export function windupStakes(n) {
-  if (!n || n.empowerDmg == null) return 'Answered, it is staggered for the fight; landed, it is empowered.';
-  return `Answered: staggered, −${pct(n.staggerDmg)} damage for the rest of the fight. Landed: empowered, +${pct(n.empowerDmg)}.`;
+  if (!n || n.empowerDmg == null) return 'Stopped, it is staggered for the fight; landed, it is empowered.';
+  return `Stopped: staggered, −${pct(n.staggerDmg)} damage for the rest of the fight. Landed: empowered, +${pct(n.empowerDmg)}.`;
 }
 
 // ------------------------------------------------------------------ combat v2 (docs/specs/combat-v2.md 4, 6, 10)
@@ -100,17 +102,23 @@ export const CONTROL_WORD = { STUN: 'stunned', FROZEN: 'frozen', HEXED: 'hexed',
  * One-line effect of an engage option (rules 7.10, combat-v2.md 6.2) from its engine entry o (data.v2.options[id]: mult,
  * cp, turns, spells, crit, markRounds, stun, dr) and the numbers in n (data.v2.num). No number is written here.
  */
-export function engageText(o, n) {
+export function engageText(o, n, opts = {}) {
   if (!o) return '';
   switch (o.id) {
-    case 'ambush': return `A strike from Stealth: ${n.shadowstep} once learned, else ${n.jab} ×${o.mult} for +${o.cp} combo points. You stay in Stealth.`;
-    case 'sap': return `It skips its next ${numWord(o.turns)} turns. Any damage wakes it, damage over time included. You stay in Stealth.`;
-    case 'premeditate': return `+${o.cp} combo points before the fight starts. You stay in Stealth.`;
+    // D150 item 4: built from what the hero knows, no "else" and no "You stay in Stealth" (the Stealth status says it):
+    // "Gutting Jab at ×1.5. +2 combo points.", or once Shadowstep Strike is learned "Shadowstep Strike. +2 combo points."
+    case 'ambush': {
+      const ss = opts.knows && opts.knows('shadowstep_strike');
+      const ssCp = ss && opts.spells && opts.spells.shadowstep_strike && opts.spells.shadowstep_strike.raw ? opts.spells.shadowstep_strike.raw.cp : o.cp;
+      return ss ? `${n.shadowstep}. +${ssCp} combo points.` : `${n.jab} at ×${o.mult}. +${o.cp} combo points.`;
+    }
+    case 'sap': return `It skips its next ${numWord(o.turns)} turns. Any damage wakes it, damage over time included.`;
+    case 'premeditate': return `+${o.cp} combo points before the fight starts.`;
     case 'precast': return 'Cast one spell from your bar for no mana before they notice you; its cooldown starts.';
     case 'binding_glyph': return `Frozen for its next ${numWord(o.turns)} turns; damage does not break it. Frozen counts as off-balance.`;
     case 'gather_power': return `Your next ${numWord(o.spells)} damaging spells cost no mana and get +${pct(o.crit)} critical strike chance.`;
     case 'opening_shot': return `${n.keen} ×${o.mult}, and the target is Marked (+${n.markValue != null ? pct1(n.markValue) : '?'} damage taken) for ${o.markRounds} rounds.`;
-    case 'lay_trap': return `Springs on its first heavy blow or cast in its next ${numWord(n.trackLen)} turns: cancelled, stunned, off-balance. Else on its first turn.`;
+    case 'lay_trap': return `Springs on its first heavy blow or cast in its next ${numWord(n.trackLen)} turns (with none, on its first turn): cancelled, stunned, off-balance.`;
     case 'send_pet': return `Your pet charges first: it taunts for ${numWord(o.turns)} turns and takes ${pct(o.dr)} less damage.`;
     default: return '';
   }
@@ -395,7 +403,7 @@ export function statusEffect(s, r, info = {}) {
     case 'PET_LEAD': if (s.value) effect = `Your pet taunts and takes ${pct(s.value)} less damage.`; break;
     // combat v2.1 (rules 7.12): value = stacks × EMPOWER_DMG or × STAGGER_DMG (engine-api.md 6)
     case 'EMPOWERED': if (s.value) effect = `Deals ${pct(s.value)} more damage: ${s.stacks || 1} ${plural(s.stacks || 1, 'wind-up')} landed.`; break;
-    case 'STAGGERED': if (s.value) effect = `Deals ${pct(s.value)} less damage: ${s.stacks || 1} ${plural(s.stacks || 1, 'wind-up')} answered.`; break;
+    case 'STAGGERED': if (s.value) effect = `Deals ${pct(s.value)} less damage: ${s.stacks || 1} ${plural(s.stacks || 1, 'wind-up')} stopped.`; break;
     // M2b v13 (rules 7.4, 7.5): value = MAIM_HEAL, the share of every heal on you (potions too) that is lost
     case 'MAIMED': if (s.value) effect = `Healing you receive is ${pct(s.value)} lower, potions included, until the fight ends. Cleansing does not remove it.`; break;
     case 'BRAND':
@@ -534,7 +542,8 @@ export function metaReqText(req, D, short = false) {
 /** An Oath (rules 11.5, R.C.OATH) in words: { short, long }. Numbers from D.num. */
 export function oathEffect(o, D) {
   switch (o.id) {
-    case 'haste': return { short: `Par ${tolls(D.num.oathHaste)} sooner`, long: `${D.names.boss}'s par is ${tolls(D.num.oathHaste)} sooner: Ascendancy begins sooner, and the swift-victory bonus asks for a faster run.` };
+    // D150 naming rule: no "par" or "Ascendancy" in player text
+    case 'haste': return { short: `${D.names.boss} strengthens ${tolls(D.num.oathHaste)} sooner`, long: `${D.names.boss} grows stronger from ${tolls(D.num.oathHaste)} fewer tolls, and the swift-victory bonus asks for a faster run.` };
     case 'frailty': return { short: 'No resurrections', long: `Nothing brings you back: no ${D.names.boon}, no Second Breath, no ${D.names.ember}. One death ends the run.` };
     case 'thrift': return { short: `Vendor prices ×${D.num.oathThrift}`, long: `Everything vendors sell costs ×${D.num.oathThrift}: potions, gear and Embers.` };
     default: return { short: '', long: '' };

@@ -7,6 +7,7 @@
 // and autoplay all come from the engine (legalActions, whyIllegal, spellCost, spellCooldown,
 // itemScore, autoAction). The only state kept here is presentation: which intro dialogs the
 // player has read and which result windows (spoils, rest, chest) are still on screen.
+// D150 (owner 2026-11-14, text pass): a spell's tooltip has one damage line (no "Before level difference" note).
 //
 // View shape consumed by the UI:
 //   phase: 'CREATE' | 'ZONE_HUB' | 'MAP' | 'NODE' | 'CAMP' | 'BOSS' | 'SUMMARY'      (rules.md 1.1)
@@ -1610,11 +1611,15 @@ function engineBackend(seedOpt, runOpts = {}) {
       const a = info && info.amount;
       // Ricochet Bolt (M2 v3): the target takes `amount`, up to `bounces` other enemies `bounceAmount` (spellInfo)
       if (a && a.kind === 'damage' && a.bounces) lines.push(`Deals about ${a.amount} ${school(a.school)} damage to the target, then about ${a.bounceAmount} to up to ${TXT.numWord(a.bounces)} other ${TXT.plural(a.bounces, 'enemy', 'enemies')}.`);
-      else if (a && a.kind === 'damage') lines.push(`${sp.target === 'all' ? 'Hits every enemy for' : 'Deals'} about ${a.amount} ${school(a.school)} damage${a.perCp ? ' per combo point' : ''}${a.hits > 1 ? `, ${a.hits} times` : ''}.`);
+      // section 7 (D150): a finisher's amount is the engine's at the combo points held now (spellAmount: at least 1), so in a
+      // fight with more than one it says "at 2 combo points", not "per combo point"
+      const cpNow = f && f.p ? f.p.cp || 0 : 0;
+      const perCp = a && a.perCp ? (cpNow > 1 ? ` at ${cpNow} combo points` : ' per combo point') : '';
+      if (a && a.kind === 'damage' && !a.bounces) lines.push(`${sp.target === 'all' ? 'Hits every enemy for' : 'Deals'} about ${a.amount} ${school(a.school)} damage${perCp}${a.hits > 1 ? `, ${a.hits} times` : ''}.`);
       if (a && a.kind === 'dot') lines.push(`About ${a.perTick} ${school(a.school)} damage per round for ${a.rounds} rounds.`);
       if (a && a.kind === 'ward') lines.push(`Absorbs about ${a.amount} damage for ${a.rounds} rounds.`);
       if (a && a.kind === 'heal') lines.push(`Heals about ${a.amount}.`);
-      if (a) lines.push('Before level difference, crits and the target\'s defences.');
+      // D150 item 17: no "Before level difference, crits and the target's defences." (a developer's disclaimer)
       // D144 (engine-2026-11-13d UI need 11; tactician: "hit/miss chance shown nowhere"): the hit roll's chance now
       const pc = (x) => `${Math.round(x * 100)} %`;
       const enemyName = (u) => (f && f.enemies[u] ? f.enemies[u].name : 'it');
