@@ -61,15 +61,26 @@ export function lineHints(id, line = null) {
   if (NO_HINT_LINES.has(line)) return [];
   return (LINE_BEATS[line] || [id]).map((b) => HINT_OF_BEAT[b]).filter(Boolean);
 }
-/** The log line when the guide is skipped (draft; content has none): the Skip guide link, or a skip from Settings. */
-export const SKIP_LINE = 'You skip the guide. New things get one hint each.';
 /**
  * What the game says when the guide ends early (pure; event `guideSkipped`): content guide.rescueCapLine when the
- * ONB_RESCUE_MAX-th rescue ended it (D147: why 'rescues'), else SKIP_LINE.
+ * ONB_RESCUE_MAX-th rescue ended it (D147: why 'rescues'), else content guide.skipLine (the Skip guide link, or a skip
+ * from Settings; engine-2026-11-14b UI need 3). '' without the content table.
  */
 export function guideSkippedLine(e, T, num = {}) {
-  const raw = e && e.why === 'rescues' && T && T.guide ? T.guide.rescueCapLine : null;
-  return raw ? lineParts(raw, num).map((x) => (typeof x === 'string' ? x : x.key)).join('') : SKIP_LINE;
+  const G = T && T.guide;
+  const raw = G ? (e && e.why === 'rescues' ? G.rescueCapLine : G.skipLine) : null;
+  return raw ? fillLine(raw, num).text : '';
+}
+/**
+ * The rescue banner's second line (pure; engine-2026-11-14b UI need 4): content guide.rescueLeftLine with {rescuesLeft} =
+ * rescueMax - rescues from R.tutorialView after the rescue, on a rescue that leaves the guide on; '' on the
+ * ONB_RESCUE_MAX-th (the guide ends: the cap line's toast says so) and without a line.
+ */
+export function rescueLeftLine(tv, T) {
+  const raw = T && T.guide ? T.guide.rescueLeftLine : null;
+  if (!raw || !tv || tv.skipped || !tv.on) return '';
+  const left = (tv.rescueMax || 0) - (tv.rescues || 0);
+  return left > 0 ? fillLine(raw, { rescuesLeft: left }).text : '';
 }
 /** Hint lines that leave their hint unseen (D144: H05's shield line; the plain line is still to be taught). */
 const UNSEEN_ALT = { H05: new Set(['shield']) };
@@ -508,8 +519,8 @@ export function createOnboarding(root, ctx) {
       dismissed.clear(); if (cur && cur.kind === 'beat') hide(false);
       const cap = skipped.why === 'rescues';
       const line = guideSkippedLine(skipped, T, num);
-      if (cap) ctx.toast(line); // app.js placeToasts keeps the stack clear of the hub's panel
-      ctx.hud.log(line, cap ? 'lg-warn' : 'lg-sys');
+      if (line && cap) ctx.toast(line); // app.js placeToasts keeps the stack clear of the hub's panel
+      if (line) ctx.hud.log(line, cap ? 'lg-warn' : 'lg-sys');
     }
     if (has(ev, 'guideEnd') && T) ctx.toast(T.guide.endLine, 'good');
     // D143: the guided zone's Roads open (Gorrak's fight over, or he can no longer be fought): say so once. Draft text (no

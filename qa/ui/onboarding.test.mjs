@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 // a localStorage for Node: the store reads and writes tbwcr.hints.v2
 const mem = new Map();
 globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => { mem.set(k, String(v)); }, removeItem: (k) => { mem.delete(k); } };
-const { hints, HINTS_KEY, KEYS, lineParts, lineKeys, attackSlot, rawLine, lineHints, LINE_BEATS, guideSkippedLine, SKIP_LINE } = await import('../../src/ui/onboarding.js');
+const { hints, HINTS_KEY, KEYS, lineParts, lineKeys, attackSlot, rawLine, lineHints, LINE_BEATS, guideSkippedLine, rescueLeftLine } = await import('../../src/ui/onboarding.js');
 const { createBridge } = await import('../../src/ui/engine-bridge.js');
 const R = await import('../../src/rules.js');
 const { CONTENT } = await import('../../src/content/index.js');
@@ -143,13 +143,27 @@ test('D147 (UI need 2): G8\'s joint line names W, fits a line, and stands in for
   assert.deepEqual([hints.seen('H01:mage'), hints.seen('H03'), hints.seen('H01:rogue')], [true, true, false]);
 });
 
-test('D147 (UI need 1): the rescue cap\'s line (content guide.rescueCapLine) in place of the skip line; Skip guide keeps the skip line', () => {
+test('D147 (UI need 1): the rescue cap\'s line (content guide.rescueCapLine) in place of the skip line; Skip guide says content guide.skipLine (engine-2026-11-14b UI need 3)', () => {
   const T = CONTENT.tutorial;
   assert.equal(T.guide.rescueCapLine, 'That was the last rescue: the guide ends here, and from now on a death ends the run.');
+  assert.equal(T.guide.skipLine, 'You skip the guide: new things get one hint each.');
   assert.equal(guideSkippedLine({ t: 'guideSkipped', why: 'rescues', rescues: C.ONB_RESCUE_MAX }, T), T.guide.rescueCapLine);
-  assert.equal(guideSkippedLine({ t: 'guideSkipped', why: null, rescues: null }, T), SKIP_LINE);
-  assert.equal(guideSkippedLine({ t: 'guideSkipped' }, T), SKIP_LINE, 'the SKIP_GUIDE action has no why');
+  assert.equal(guideSkippedLine({ t: 'guideSkipped', why: null, rescues: null }, T), T.guide.skipLine);
+  assert.equal(guideSkippedLine({ t: 'guideSkipped' }, T), T.guide.skipLine, 'the SKIP_GUIDE action has no why');
+  assert.equal(guideSkippedLine({ t: 'guideSkipped' }, null), '', 'no content table: no line');
   assert.ok(!/skip the guide/i.test(T.guide.rescueCapLine));
+});
+
+test('engine-2026-11-14b UI need 4: the rescue banner\'s second line (content guide.rescueLeftLine), rescueMax - rescues after the rescue; none on the cap rescue', () => {
+  const T = CONTENT.tutorial;
+  const max = C.ONB_RESCUE_MAX;
+  const tv = (rescues, skipped = false) => ({ on: true, skipped, rescues, rescueMax: max });
+  assert.equal(T.guide.rescueLeftLine, 'Rescues left before the guide ends: {rescuesLeft}.');
+  assert.deepEqual([1, 2].map((n) => rescueLeftLine(tv(n), T)), [max - 1, max - 2].map((k) => `Rescues left before the guide ends: ${k}.`));
+  assert.equal(rescueLeftLine(tv(max, true), T), '', 'the ONB_RESCUE_MAX-th rescue ends the guide: the cap line says it');
+  assert.equal(rescueLeftLine(tv(max), T), '', 'none left: no line');
+  assert.equal(rescueLeftLine(null, T), '', 'not a guided run');
+  assert.equal(rescueLeftLine(tv(1), null), '', 'no content table');
 });
 
 test('D147 (UI need 1): the bridge passes guideSkipped\'s why and rescues: the ONB_RESCUE_MAX-th rescue of a guided run, seed 8736', () => {
@@ -169,4 +183,5 @@ test('D147 (UI need 1): the bridge passes guideSkipped\'s why and rescues: the O
   assert.ok(kinds.indexOf('rescue') >= 0 && kinds.indexOf('rescue') < kinds.indexOf('guideSkipped'), `the rescue first: ${kinds}`);
   assert.deepEqual([b.view.tutorial.skipped, b.view.tutorial.rescues, b.view.player.hp === b.view.player.maxHp], [true, C.ONB_RESCUE_MAX, true]);
   assert.equal(guideSkippedLine(ev.find((e) => e.t === 'guideSkipped'), CONTENT.tutorial), CONTENT.tutorial.guide.rescueCapLine);
+  assert.equal(rescueLeftLine(b.view.tutorial, CONTENT.tutorial), '', 'the cap rescue: no rescues-left line');
 });

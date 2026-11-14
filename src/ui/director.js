@@ -20,7 +20,7 @@ import { settings } from './settings.js';
 import { linkedText, dangerBanner, CONTROL_WORD as CONTROL_LOG, HEAT_WORDS, freeActionText } from './ui-text.js';
 import { timeline, roundPace, hitShare, STATUS_LABEL } from './combat-feel.js';
 import { CAST, token as themeToken } from './theme.js'; // not `token`: play() has its own SkipToken of that name
-import { fillLine } from './onboarding.js';
+import { fillLine, rescueLeftLine } from './onboarding.js';
 
 const SCHOOL_PROJ = { fire: 'fire', frost: 'frost', arcane: 'arcane', shadow: 'shadow', nature: 'nature' };
 const SCHOOL_GLOW = CAST; // theme.js: the --fx-cast-* tokens (frost: --school-frost-text)
@@ -369,10 +369,14 @@ export class Director {
           case 'defeat': break;
           // M3 guided run (m3-onboarding.md 2.6, U5): a death in the guided zone is a rescue; the hero rises, a short banner
           // says so with its toll cost (the content's line), the log keeps it, and the fight gives way to the map
+          // engine-2026-11-14b UI need 4: on a rescue that leaves the guide on, the banner's second line and the log say how
+          // many rescues are left (content guide.rescueLeftLine, from the view after the step); the ONB_RESCUE_MAX-th shows
+          // nothing extra (onboarding.js: the cap line's toast says the guide ends)
           case 'rescue': {
             const line = rescueLine(ctx, e.tolls);
+            const left = rescueLeftLine(next.tutorial, ctx.data.tutorial && ctx.data.tutorial.table);
             scene.revive('player'); scene.aura('player', themeToken('--accent-hi'), 1.2);
-            ctx.ui.banner(line, '', 'rescue', 2200); hud.log(line, 'lg-loot');
+            ctx.ui.banner(line, left, 'rescue', 2200); hud.log(line, 'lg-loot'); if (left) hud.log(left, 'lg-sys');
             scene.setMode('map'); scene.clearEnemies(); await WM(M.resurrect); break;
           }
           case 'flee': if (e.ok) { scene.float('player', 'Escaped!', { color: themeToken('--accent-pale'), size: 22 }); hud.log('You flee from the fight.', 'lg-warn'); scene.setMode('map'); scene.clearEnemies(); await W(tm.wait); } else { scene.float('player', 'Flee failed', { color: '#ff9a8a', size: 20 }); hud.log('You fail to escape!', 'lg-warn'); await W(tm.wait); } break;
