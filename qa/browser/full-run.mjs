@@ -318,7 +318,8 @@ async function playOne(browser, W, H, cls) {
       case 'LEARN': return click(page.locator('.svc .trow', { has: page.locator('.nm', { hasText: new RegExp(`^${C.SPELL[a.spellId].name}$`) }) }).getByRole('button', { name: 'Learn' }), `Learn ${a.spellId}`);
       case 'TRAIN': return click(page.locator('.svc .trow', { has: page.locator('.nm', { hasText: new RegExp(`^${C.SPELL[a.spellId].name}$`) }) }).getByRole('button', { name: /^Train to/ }), `Train ${a.spellId}`);
       case 'TRAIN_ALL': return click(button(/^Train all/), 'Train all'); // D150 item 21: "Train all · <cost>"
-      case 'BUY': return click(page.locator('.vendor-cols > div').nth(0).locator('.trow').nth(a.index).getByRole('button', { name: 'Buy' }), `Buy ${a.index}`);
+      // the rows show gear first (blind round 2); data-i is the engine's stock index
+      case 'BUY': return click(page.locator(`.vendor-cols > div:nth-child(1) .trow[data-i="${a.index}"]`).getByRole('button', { name: 'Buy' }), `Buy ${a.index}`);
       case 'SELL': {
         const idx = p.bag.findIndex((b) => b.uid === a.itemId);
         return click(page.locator('.vendor-cols > div').nth(1).locator('.trow').nth(idx).getByRole('button', { name: 'Sell' }), `Sell ${a.itemId}`);

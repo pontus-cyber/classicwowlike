@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U]
+ *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -170,6 +170,9 @@
  *   U  blind round 2 (docs/feedback/2026-11-14-blind-*.md; docs/handoffs/ui-2026-11-14e.md): Equip now on the spoils and
  *      chests, the trainer on the level-up banner, autoplay off after a rescue and at a fight in the Dimming, the map's
  *      clicks out of reach, Esc and Key, tooltips (keys, own controls, neighbours), the dungeon's counts, full bags: see partU.
+ *   V  blind round 2 leftovers (docs/handoffs/ui-2026-11-14f.md): Packed Satchel's potions on the item bar, the vendor's gear
+ *      in view and its card's line, rank-only trainer rows, one ring after Tab, bags compact after closing, a closed chest's
+ *      gold not in the purse: see partV.
  *
  * D116 (the flip): new runs start on the expedition map with the start camp. The parts written for the classic map (A-L, O,
  * P) open the page with ?classic=1 (open() adds it unless the query names a map) and their Node twins pass mapMode 'rows';
@@ -200,7 +203,7 @@ import { HEAT_WORDS, tolls, ECHO_LINE, deathblowKind, deathblowAnswers, sapWaitT
 import { RANK as Q_RANK, DIM_NEAR as Q_DIM_NEAR } from '../../src/ui/audio.js';
 import { MAP_LINES, fillLine } from '../../src/ui/onboarding.js'; // D143: the beat lines that wait for the map on screen
 import { trainerWaiting, trainerWaitingShort } from '../../src/ui/ui-text.js'; // blind round 2 (part U)
-import { TOO_FAR, ROAD_FIRST } from '../../src/ui/screens.js';
+import { TOO_FAR, ROAD_FIRST, vendorMeta } from '../../src/ui/screens.js';
 import { MAP_ESC } from '../../src/ui/app.js';
 const ONB_HINT_SHOWS = R.C.ONB_HINT_SHOWS; // D142 (3): showings after which a hint counts as seen (src/constants.js since D143)
 
@@ -209,7 +212,7 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -5705,6 +5708,155 @@ async function partU(browser, W, H) {
   }
 }
 
+// ------------------------------------------------------------------ part V: blind round 2 leftovers (ui-2026-11-14e 2.3)
+/**
+ * Part V (docs/handoffs/ui-2026-11-14f.md): the six UI leftovers of blind round 2. V1 Packed Satchel's potions reach the item
+ * bar (a Mage and a Rogue with the unlock: the run's first step out of the camp puts them on); V2 the hub vendor's gear is in
+ * view and its card says what it sells; V3 the trainer numbers spells by rank only; V4 Tab leaves one ring, under the new
+ * target; V5 the gaps an equip leaves stay while the bags are open and close up when they close; V6 a closed chest's gold is
+ * not in the purse (or the log) before "Open the chest".
+ */
+async function partV(browser, W, H) {
+  // the purse's money element (gold, silver, copper as digits on their own lines) as copper
+  const moneyNum = (t) => { const p = String(t).replace(/,/g, '').split(/\s+/).filter(Boolean).map(Number); return p.reduce((a, x) => a * 100 + x, 0); };
+  const auto = async (page) => { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); };
+  const later = { ...R.newProfile(), runs: 2, guide: 'done', welcome: true, unlocks: { satchel: 1 } };
+  // ---- V1: Packed Satchel's potions on the item bar (Mage and Rogue)
+  for (const cls of ['mage', 'rogue']) {
+    const { context, page, errors } = await open(browser, W, H, 'seed=7&speed=instant&prep=1', later);
+    try {
+      await page.locator(`#create .ccard[data-cls="${cls}"]`).click(); await idle(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      const camp = await view(page);
+      await page.locator('#pp-go').click(); await idle(page);
+      for (let i = 0; i < 4 && (await view(page)).phase === 'PREP'; i++) { const ok = page.getByRole('button', { name: /^(Set out|Leave)/ }).last(); if (await ok.count()) await ok.click(); await idle(page); }
+      const hub = await view(page);
+      const own = await page.evaluate(() => window.__ui.ownActions().filter((a) => a.type === 'SET_ITEM_BAR'));
+      const draughts = camp.bag.filter((b) => b && b.id === 'healing_draught').reduce((a, b) => a + (b.count || 0), 0);
+      check('V-satchel', `${cls}: Packed Satchel's ${draughts} Healing Draughts (in the bags from the start) go on the item bar when the hero leaves the camp (one SET_ITEM_BAR of the UI's own)`,
+        draughts === R.C.META.satchel.potions && hub.phase === 'ZONE_HUB' && hub.itemBar.includes('healing_draught') && own.some((a) => a.itemId === 'healing_draught'), JSON.stringify({ draughts, phase: hub.phase, bar: hub.itemBar, own }));
+    } catch (e) { await shot(page, `V1-${cls}-error`); check('V-1', `part V1 (${cls}) ran to the end`, false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('V-1', `part V1 (${cls}): no console errors`, errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- V2-V6: one Rogue run (seed 7, a later-run profile)
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=7&speed=instant&prep=1', { ...later, unlocks: {} });
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      for (let i = 0; i < 20 && (await view(page)).phase !== 'ZONE_HUB'; i++) await auto(page);
+      // V2: the hub's Vendor card and the vendor's stock: every gear row in view, the card's line names what is sold
+      const card = await page.locator('#screens .svc-card', { has: page.locator('.nm', { hasText: 'Vendor' }) }).locator('.meta').innerText();
+      await page.locator('#screens .svc-card', { has: page.locator('.nm', { hasText: 'Vendor' }) }).click(); await idle(page);
+      const vs = await page.evaluate(() => {
+        const v = window.__ui.view(); const list = document.querySelector('.vendor-cols > div:nth-child(1) .list'); const lr = list.getBoundingClientRect();
+        const rows = [...list.querySelectorAll('.trow')].map((r) => { const b = r.getBoundingClientRect(); return { i: Number(r.dataset.i), name: r.querySelector('.nm').textContent, inView: b.top >= lr.top - 0.5 && b.bottom <= lr.bottom + 0.5 }; });
+        return { rows, stock: (v.node.stock || []).map((x) => ({ kind: x.kind, name: x.name })) };
+      });
+      const gear = vs.stock.map((x, i) => [x, i]).filter(([x]) => x.kind === 'gear');
+      check('V-vendor', `the hub Vendor card says "${card}" and the vendor sells ${gear.length} pieces of gear: each gear row is in view without scrolling, each row's data-i names its stock entry`,
+        gear.length > 0 && card === vendorMeta({ hub: { gearLeft: gear.length } }) && /gear/.test(card) && gear.every(([x, i]) => vs.rows.some((r) => r.i === i && r.name === x.name && r.inView)) && vs.rows.every((r) => vs.stock[r.i] && vs.stock[r.i].name === r.name),
+        JSON.stringify({ card, vs }));
+      await shot(page, 'V2-vendor');
+      // buy every piece of gear (gold loaded), leave: the card then says the gear is gone
+      const s0 = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT); s0.player.gold = 5000000;
+      await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s0)); await idle(page);
+      for (const [, i] of gear) { await page.locator(`.vendor-cols > div:nth-child(1) .trow[data-i="${i}"]`).getByRole('button', { name: 'Buy' }).click(); await idle(page); }
+      await page.locator('.svc').getByRole('button', { name: 'Done' }).click(); await idle(page);
+      // the card says "Used this visit" until the hub is visited again: loaded with the visit's services unused
+      const s2 = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT); if (s2.hub) s2.hub.used = {};
+      await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s2)); await idle(page);
+      const card2 = await page.locator('#screens .svc-card', { has: page.locator('.nm', { hasText: 'Vendor' }) }).locator('.meta').innerText();
+      check('V-vendor', `with the gear bought, the card says "${vendorMeta({ hub: { gearLeft: 0 } })}"`, card2 === vendorMeta({ hub: { gearLeft: 0 } }), card2);
+      // V5: the bags: an equip leaves a gap while open (the next item stays under the pointer); closed and opened: compact
+      const bagIds = async () => page.evaluate(() => [...document.querySelectorAll('#win-bags .baggrid .slot')].map((e) => e.dataset.uid || null));
+      await page.getByRole('button', { name: 'Bags' }).click(); await idle(page);
+      const b0 = await bagIds();
+      const gearUids = await page.evaluate(() => window.__ui.view().player.bag.filter((x) => x && x.kind === 'gear').map((x) => x.uid));
+      const first = gearUids[0]; const last = gearUids[gearUids.length - 1];
+      const at0 = b0.indexOf(last);
+      await page.locator(`#win-bags .baggrid .slot[data-uid="${first}"]`).click({ button: 'right' }); await idle(page);
+      const b1 = await bagIds();
+      const gone = !(await page.evaluate((u) => window.__ui.view().player.bag.some((x) => x && x.uid === u), first));
+      await page.keyboard.press('KeyB'); await idle(page);
+      await page.keyboard.press('KeyB'); await idle(page);
+      const b2 = await bagIds();
+      const filled = b2.filter(Boolean).length; const compact = b2.slice(0, filled).every(Boolean);
+      check('V-bags', `an equip from the bags (${gearUids.length} gear pieces): its slot stays empty while the bags are open, the last piece stays in slot ${at0}; closed and opened again the bags are compact`,
+        gearUids.length >= 2 && gone && b1.indexOf(first) < 0 && b1.indexOf(last) === at0 && b1.slice(0, b1.filter(Boolean).length).some((x) => !x) && compact,
+        JSON.stringify({ b0, b1, b2, at0 }));
+      await page.keyboard.press('Escape'); await idle(page);
+      // V3: the trainer at level 4: rank only ("Train to rank N", "Rank N"), no "level N" on a known spell's row
+      const s3 = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT);
+      s3.player.level = 4; s3.player.gold = 5000000; if (s3.hub && s3.hub.used) s3.hub.used = {};
+      await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s3)); await idle(page);
+      await page.evaluate(() => window.__ui.act({ type: 'HUB_SERVICE', service: 'trainer' })); await idle(page);
+      const trRows = () => page.evaluate(() => { const known = window.__ui.view().player.spells; return [...document.querySelectorAll('.svc .list .trow')].map((r) => {
+        const nm = r.querySelector('.nm').textContent; const k = known.find((x) => (window.__ui.view().legal.trainer || []).some((e) => e.id === x.id && e.name === nm));
+        return { nm, right: r.querySelector('.right').innerText.replace(/\s+/g, ' ').trim(), rank: k ? k.rank : null }; }); });
+      const t0 = await trRows();
+      const trainable = t0.filter((r) => /Train/.test(r.right));
+      const tr0 = trainable[0];
+      if (tr0) { await page.locator('.svc .list .trow', { has: page.locator('.nm', { hasText: new RegExp(`^${tr0.nm}$`) }) }).getByRole('button', { name: /^Train to/ }).click(); await idle(page); }
+      const t1 = await trRows();
+      const after = tr0 ? t1.find((r) => r.nm === tr0.nm) : null;
+      check('V-trainer', `the trainer numbers known spells by rank only: "Train to rank N+1" on ${trainable.length} rows, "Rank N" after training; no "level" on a known spell's row`,
+        trainable.length > 0 && trainable.every((r) => r.rank != null && r.right.endsWith(`Train to rank ${r.rank + 1}`)) && !!after && after.right === `Rank ${tr0.rank + 1}` && t1.filter((r) => r.rank != null).every((r) => !/level/i.test(r.right)),
+        JSON.stringify({ t0, t1 }));
+      await shot(page, 'V3-trainer');
+      await page.locator('.svc').getByRole('button', { name: 'Done' }).click(); await idle(page);
+      // V6: a closed chest: its gold is not in the purse or the log before "Open the chest"
+      let chest = null;
+      for (let i = 0; i < 300 && !chest; i++) {
+        const v = await page.evaluate(() => { const v = window.__ui.view(); return { phase: v.phase, z: v.zone && v.zone.idx, type: v.node && v.node.type, step: v.node && v.node.step, gold: v.player && v.player.gold }; });
+        if (v.phase === 'SUMMARY' || v.z >= 2) break;
+        if (v.type === 'treasure' && v.step === 'chest') {
+          const purse = await page.locator('#hud .goldline, .goldline').first().innerText();
+          const st = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT);
+          const before = await logLines(page);
+          await page.getByRole('button', { name: 'Open the chest' }).click(); await idle(page);
+          const o = await page.evaluate(() => { const v = window.__ui.view(); return { gold: v.player.gold, loot: v.loot ? v.loot.gold : null }; });
+          const purse2 = await page.locator('.goldline').first().innerText();
+          const lines = await logLines(page);
+          const line = `You receive ${o.loot != null ? o.loot.toLocaleString('en-US') : '?'} copper.`;
+          chest = { closed: v.gold, engine: st.player.gold, purse, logged: before.slice(-3).includes(line), opened: o, purse2, line: lines.slice(-4).includes(line) ? line : null };
+          break;
+        }
+        await auto(page);
+      }
+      check('V-chest', 'a closed chest: the purse shows the gold before it (engine gold minus the chest\'s); "Open the chest" adds it, with its log line',
+        !!chest && chest.opened.loot > 0 && chest.closed === chest.engine - chest.opened.loot && chest.opened.gold === chest.engine && !chest.logged && !!chest.line && moneyNum(chest.purse) === chest.closed && moneyNum(chest.purse2) === chest.engine,
+        JSON.stringify(chest));
+    } catch (e) { await shot(page, 'V2-error'); check('V-2', 'part V2-V6 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('V-2', 'part V2-V6: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- V4: Tab with the pointer on the old target: one ring, under the new target
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=5&speed=instant');
+    try {
+      await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle(page);
+      await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 2 })); await idle(page);
+      const foes = R.debug.enemies(CONTENT).filter((x) => x.zone === 2 && x.kind === 'normal').slice(0, 2).map((x) => x.id);
+      await page.evaluate((ids) => window.__ui.dev('fight', { ids }), foes); await idle(page);
+      const t0 = await page.evaluate(() => window.__ui.target());
+      // the pointer on the target's nameplate (as on its body: the hover ring), then Tab
+      const plate = page.locator(`#nameplates .np[data-idx="${t0}"]`); await plate.hover(); await page.waitForTimeout(120);
+      const r0 = await page.evaluate(() => window.__ui.rings());
+      await page.keyboard.press('Tab'); await idle(page); await page.waitForTimeout(80);
+      const t1 = await page.evaluate(() => window.__ui.target());
+      const r1 = await page.evaluate(() => window.__ui.rings());
+      await page.mouse.move(2, 2); await plate.hover(); await page.waitForTimeout(120);
+      const r2 = await page.evaluate(() => window.__ui.rings());
+      check('V-tab', `Tab with the pointer on the target (enemy ${t0}): one ring after it, the red one under the new target (enemy ${t1}); the hover ring comes back when the pointer moves`,
+        t1 !== t0 && r1.length === 1 && r1[0].id === `enemy:${t1}` && r1[0].sel && r2.some((r) => r.id === `enemy:${t0}` && !r.sel), JSON.stringify({ t0, t1, r0, r1, r2 }));
+      await shot(page, 'V4-tab');
+    } catch (e) { await shot(page, 'V4-error'); check('V-4', 'part V4 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('V-4', 'part V4: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+}
+
 for (const [W, H] of SIZES) {
   SIZE = `${W}x${H}`;
   if (PARTS.includes('A')) await partA(browser, W, H);
@@ -5728,6 +5880,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('S')) await partS(browser, W, H);
   if (PARTS.includes('T')) await partT(browser, W, H);
   if (PARTS.includes('U')) await partU(browser, W, H);
+  if (PARTS.includes('V')) await partV(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);
