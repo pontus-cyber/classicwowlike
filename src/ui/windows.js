@@ -2,6 +2,8 @@
 // camp the quest log is the contract tracker (docs/specs/expedition.md 9.3; prep.js); the settings hold "Expedition map
 // with start camp" (the map new runs get). Sound (audio.js, docs/specs/audio.md): mute and the master, effects and interface
 // volumes, saved like every setting.
+// D150 (owner 2026-11-14, text pass): talents show their points one way (no gate numbers or tree totals); the
+// spellbook keeps the bar's "right-click a slot to clear it" (spell tooltips do not).
 import { h, clear, fmtNum, moneyEl, pct } from './util.js';
 import { spellIcon, itemIcon, slotIcon, talentIcon, icon } from './art-icons.js';
 import { drawHumanoid, HERO_LOOKS } from './art-actors.js';
@@ -115,7 +117,8 @@ export function createWindows(root, ctx) {
           stat('Stamina', fmtNum(s.sta)), stat('Agility', fmtNum(s.agi)), stat('Intellect', fmtNum(s.int)), stat('Spirit', fmtNum(s.spi)),
           perTip(stat('Power', fmtNum(s.power)), 'Power', dv && dv.perPower), stat('Critical strike', pct(s.crit, 1)), stat('Dodge', pct(s.dodge, 1)), stat('Armor', fmtNum(s.armor)),
           perTip(stat('Weapon damage', fmtNum(s.wd || 0)), 'Weapon damage', dv && dv.perWd), stat('Crit damage', `× ${(s.critMult || 1.5).toFixed(2)}`),
-          h('div.wide.resline', h('span', 'Resurrections'), h('b', rt.list)), rt.note ? h('div.wide.resnote', rt.note) : null),
+          // D150 naming rule: the revive by its own name (Ember of Return), never "Resurrections"
+          h('div.wide.resline', h('span', 'On death'), h('b', rt.list)), rt.note ? h('div.wide.resnote', rt.note) : null),
         dv ? damageBlock(dv) : null);
       return frame('character', `${p.name}`, `Level ${p.level} ${p.className}`, body);
     },
@@ -147,7 +150,7 @@ export function createWindows(root, ctx) {
         const sp = d.spells[k.id];
         const slot = p.bar.indexOf(k.id);
         const row = h('div.sprow' + (slot >= 0 ? '.onbar' : ''), h('img', { src: spellIcon(k.id, sp), alt: '' }), h('div', h('div.nm', sp.name), h('div.meta', `Rank ${k.rank} · trained to level ${k.tl}${sp.cd ? ` · ${sp.cd} round cooldown` : ''}`)), slot >= 0 ? h('span.pill', `Slot ${slot + 1}`) : h('span.pill.muted', 'Not on bar'));
-        tip(row, () => spellTip(k.id, ctx, { hint: v.legal.outOfCombat ? 'Drag onto the action bar (slots 1–7). The bar order is also the autoplay priority.' : 'Bar changes only out of combat' }));
+        tip(row, () => spellTip(k.id, ctx, { hint: v.legal.outOfCombat ? 'Drag onto the action bar (slots 1–7); right-click a bar slot to clear it. The bar order is also the autoplay priority.' : 'Bar changes only out of combat' }));
         dragSource(row, ctx, () => (v.legal.outOfCombat ? { kind: 'spell', id: k.id, icon: spellIcon(k.id, sp) } : null));
         return row;
       }));
@@ -164,7 +167,8 @@ export function createWindows(root, ctx) {
         const spent = (p.talentSpent || {})[treeId] || 0;
         const tiers = h('div.tiers');
         for (let tier = 1; tier <= 5; tier++) {
-          const row = h('div.tier', h('span.gate', tier > 1 ? `${(tier - 1) * 4}` : ''));
+          // D150 (talents show points one way): no tier gate numbers; a locked talent's tooltip says what it needs
+          const row = h('div.tier', h('span.gate', ''));
           for (const t of Object.values(d.talents).filter((x) => x.tree === treeId && x.tier === tier)) {
             const st = L[t.id] || { rank: p.talents[t.id] || 0 };
             const rank = p.talents[t.id] || 0;
@@ -176,7 +180,7 @@ export function createWindows(root, ctx) {
           }
           tiers.appendChild(row);
         }
-        trees.appendChild(h('div.tree', { style: { background: `radial-gradient(ellipse at 50% 0%, ${bgc[0]}, ${bgc[1]} 80%)` } }, h('div.th', h('div.title', treeName), h('div.dim', `${spent} points`)), tiers));
+        trees.appendChild(h('div.tree', { dataset: { spent }, style: { background: `radial-gradient(ellipse at 50% 0%, ${bgc[0]}, ${bgc[1]} 80%)` } }, h('div.th', h('div.title', treeName)), tiers));
       }
       const foot = h('div.talfoot', h('span', 'Unspent points: ', h('b', String(p.talentPoints))), h('span.muted', p.level < 10 ? 'Talents unlock at level 10.' : 'One point every 2 levels. Reset at a trainer.'));
       return frame('talents', 'Talents', `${p.className} · level ${p.level}`, h('div', trees, foot));

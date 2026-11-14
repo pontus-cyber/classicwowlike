@@ -26,8 +26,13 @@
 // guideSkipped, why 'rescues') a toast and the log say content guide.rescueCapLine, not the skip line; G8's joint line with
 // G7 (G8.withEngage, S3's engage round) points at the engage panel's W button with a second marker on the wind-up badge,
 // and counts for both beats' hints, H01 and H03 (LINE_BEATS).
+// D150 (owner 2026-11-14, text pass; docs/feedback/2026-11-14-blind-wording.md items 1, 3): the Furnace waits for its line
+// (furnaceIntroduced: in a guided run the meter shows once G5's or H16's line is up or has shown, G5 is done, the guide is
+// skipped or over, or hints are off); body[data-coach] names the line up, so a panel that says the same fact gives way
+// (style.css: the engage panel's "Free first move" while G7's, H01's or G8's joint line says "Round 1 is yours").
 import { h } from './util.js';
 import { settings } from './settings.js';
+import { stoppedNow } from './tracks.js';
 
 export const HINTS_KEY = 'tbwcr.hints.v2';
 const OLD_ENGAGE_KEY = 'tbwcr.hints.v1'; // the engage hint, per class (retired: H01)
@@ -82,6 +87,8 @@ export function rescueLeftLine(tv, T) {
   const left = (tv.rescueMax || 0) - (tv.rescues || 0);
   return left > 0 ? fillLine(raw, { rescuesLeft: left }).text : '';
 }
+/** D150 item 1: the lines that introduce the Furnace (G5's beat line, its hint H16); the meter shows with the first of them. */
+export const FURNACE_LINES = new Set(['G5', 'H16']);
 /** Hint lines that leave their hint unseen (D144: H05's shield line; the plain line is still to be taught). */
 const UNSEEN_ALT = { H05: new Set(['shield']) };
 const leavesUnseen = (x) => !!(x && x.kind === 'hint' && UNSEEN_ALT[x.id] && UNSEEN_ALT[x.id].has(x.alt));
@@ -251,7 +258,8 @@ const HINTS = {
   H04: { ctx: 'fight', when: (c) => entries(c.v).some(({ x }) => x.deathblow), anchor: ANCHOR.G9, done: (c) => has(c.ev, 'windup', (e) => e.result === 'answered' && e.deathblow) },
   // D144 (engine-2026-11-13d UI need 2): the off-balance enemy's shield would take the whole hit (offBalance.absorbs): the
   // shield line ("break it, then spend your big hit"), and H05 stays unseen so the plain line is taught in a later window
-  H05: { ctx: 'fight', when: (c) => inFight(c.v) && c.v.combat.enemies.some((e) => e.alive && e.offBalance), anchor: () => q('#target-frame .obal') || q('#target-frame'),
+  // D150 item 24: not while a stopped wind-up's line says "hit it now" over that enemy (one instruction on screen)
+  H05: { ctx: 'fight', when: (c) => inFight(c.v) && c.v.combat.enemies.some((e) => e.alive && e.offBalance && !stoppedNow(e, { ui: c.ui || {}, view: c.v })), anchor: () => q('#target-frame .obal') || q('#target-frame'),
     alt: (c) => (c.v.combat.enemies.some((e) => e.alive && e.offBalance && e.offBalance.absorbs) ? 'shield' : undefined) },
   H06: { ctx: 'fight', when: (c) => inFight(c.v) && status(c.v.player, 'MAIMED'), anchor: () => q('#player-frame .maimb') || q('#player-frame') },
   H07: { ctx: 'fight', when: (c) => inFight(c.v) && !!q('#nameplates .db-lethal, #engage .db-lethal'), anchor: () => q('#nameplates .db-lethal') || q('#engage .db-lethal') },
@@ -341,6 +349,7 @@ export function createOnboarding(root, ctx) {
     renderButtons();
     el.classList.remove('hidden');
     document.body.classList.add('coach-up'); // D142 (2): the turn prompt's "Opening move" line gives way (style.css)
+    document.body.dataset.coach = x.lineId || x.id; // D150 item 3: a panel saying the same fact gives way (style.css)
     el.dataset.id = x.lineId || x.id; el.dataset.kind = x.kind;
     el.classList.toggle('instant', !!settings.reduceMotion);
     // D142 (3): a showing of a hint, or of the beat line that stands in for it, counts towards ONB_HINT_SHOWS (D147: G8's
@@ -349,6 +358,8 @@ export function createOnboarding(root, ctx) {
     else if (x.kind === 'beat') for (const k of beatHintKeys(x.id, x.lineId)) hints.noteShown(k);
     log.push({ id: x.lineId || x.id, key: x.key || null, text: line.text, kind: x.kind, step: stepNo, at: Math.round(performance.now()) });
     if (log.length > 400) log.shift();
+    // D150 item 1: the Furnace's line brings the meter on screen with it (its anchor), before the line is placed
+    if (FURNACE_LINES.has(x.id) && ctx.hud && ctx.hud.heat && ctx.view) ctx.hud.heat.update(ctx.view);
     place();
   }
   function renderButtons() {
@@ -372,6 +383,7 @@ export function createOnboarding(root, ctx) {
     cur = null; confirm = false;
     el.classList.add('hidden');
     document.body.classList.remove('coach-up');
+    delete document.body.dataset.coach;
     if (ctx.scene) ctx.scene.keepOut = []; // the scene's headlines need not keep clear of it any more
   }
   okBtn.addEventListener('click', (e) => {
@@ -615,7 +627,7 @@ export function createOnboarding(root, ctx) {
   /** G6 (spec 2.4): hovering a track entry is the beat's "learned"; the line goes and H02 is seen. */
   document.addEventListener('pointerover', (e) => {
     if (!cur || !(cur.id === 'G6' || cur.id === 'H02')) return;
-    if (!(e.target.closest && e.target.closest('#nameplates .tk, #nameplates .trk, #target-frame .ttrack, #ruler'))) return;
+    if (!(e.target.closest && e.target.closest('#nameplates .tk, #nameplates .trk, #target-frame .ttrack'))) return;
     if (cur.kind === 'beat') { dismissed.add(cur.lineId); hints.mark('H02'); }
     hide(true);
   });
@@ -630,8 +642,21 @@ export function createOnboarding(root, ctx) {
     return true;
   }
 
+  /**
+   * D150 item 1 (pure on the view and the hint store): has the Furnace been introduced? True outside a guided run (not a
+   * first run, the guide skipped or over), with hints off (no line would come), once the engine has G5 done, while G5's or
+   * H16's line is up, and once either line has shown (the store's showings of H16, kept across runs). The meter hides until then.
+   */
+  function furnaceIntroduced(v) {
+    if (!T || hints.off || !guiding(v)) return true;
+    if ((v.tutorial.done || []).includes('G5')) return true;
+    if (cur && FURNACE_LINES.has(cur.id)) return true;
+    const st = store();
+    return !!(st.seen.H16 || (st.shows.H16 || 0) > 0);
+  }
+
   return {
-    el, onStep, update, place, summaryNudge, noteSummary, armHall, closeNudge, holdSetOut,
+    el, onStep, update, place, summaryNudge, noteSummary, armHall, closeNudge, holdSetOut, furnaceIntroduced,
     /** Settings "Reset hints" / "Hints" / "Play the guide again". */
     reset() { hints.reset(); dismissed.clear(); cool.clear(); queue = []; hide(false); },
     /** Dev menu "Reset onboarding": the hint store cleared as on a new profile (hints on, nothing seen, no nudge). */

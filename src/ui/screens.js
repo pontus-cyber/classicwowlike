@@ -11,14 +11,23 @@
 // and its kind (mapView `deathblow`, `bossDeathblow`), so the answer can be planned before entering.
 // M2b v14 ("UI needs" 3): a hidden elite (a rare without Scout's Eye, every expedition elite) shows only its Deathblow's
 // type: "Deathblow: a heavy blow (...)" or "Deathblow: a cast (...)", no name.
+// D150 (owner 2026-11-14, text pass; docs/feedback/2026-11-14-blind-wording.md items 6-10, 19, 22, 23 and section 7): a node's
+// tooltip has one cost line, "Costs 3 tolls.", and a bonus line only when there is one (heat.js previewBlock), no Dimming
+// countdown and no Pass sentence; the expedition map has no Moves panel: a reachable node offers "Pass through (1 toll)" on
+// itself while hovered or focused (a button of its own, so Tab reaches it too); no "zone toll", "Tolls so far" or par; an
+// elite says "Has a Deathblow: one huge hit you must stop." and a node not open yet "Not here yet."; the hub's Trainer card
+// is greyed with "Next spell at level N." when it has nothing to teach (no click, so no toll); loot rows carry no notes and
+// say "item level"; reward cards use full stat names; the Bell's ask names its tolls and the fight that comes first (the
+// engine's preview); on a first run class select shows no Seed field and no Echoes button. Naming: Oruvath, no
+// "Ascendancy" or "par"; a Dimmed node's fight is no "Shardspawn" (the engine fights the zone's own enemies there).
 import { h, add, clear, fmtNum, moneyEl, moneyText, clamp } from './util.js';
 import { spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon, deathblowIcon } from './art-icons.js';
 import { drawPortrait, HERO_LOOKS, PET_LOOKS } from './art-actors.js';
-import { tip, itemTip, spellTip, hide as hideTip } from './tooltip.js';
+import { tip, itemTip, spellTip, hide as hideTip, STAT_NAMES } from './tooltip.js';
 import { conColor, heroPortrait, travelState } from './hud.js';
-import { numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, deathblowKind, deathblowAnswers } from './ui-text.js';
+import { numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS } from './ui-text.js';
 import { createMeta, buildOaths, echoAmt } from './meta.js';
-import { heatKey, previewBlock, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME } from './heat.js';
+import { heatKey, previewBlock, costText, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME } from './heat.js';
 import { createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon } from './prep.js';
 import { contractTitle } from './ui-text.js';
 import { gateLine, closedRoadLine } from './onboarding.js';
@@ -166,7 +175,7 @@ export function expiryText(list, content) {
 function buildCreate(ctx) {
   const d = ctx.data;
   const root = h('div#create');
-  root.appendChild(h('div.ctitle', h('div.t1', 'A classic fantasy roguelike'), h('div.t2', 'Choose your hero'), h('div.t3', `Level from 1 to ${d.rules.maxLevel} across ${numWord(d.rules.zoneCount)} zones, then face Oruvath, the Unlit Star.`)));
+  root.appendChild(h('div.ctitle', h('div.t1', 'A classic fantasy roguelike'), h('div.t2', 'Choose your hero'), h('div.t3', `Level from 1 to ${d.rules.maxLevel} across ${numWord(d.rules.zoneCount)} zones, then face Oruvath.`)));
   const classes = h('div.classes');
   for (const id of ['rogue', 'mage', 'hunter']) {
     const c = d.classes[id];
@@ -211,7 +220,7 @@ function buildCreate(ctx) {
   const guide = h('button.toggle.guide.hidden', { type: 'button', role: 'switch', 'aria-checked': 'true', 'aria-label': 'Guided first run' }, h('span.sw'), h('span', 'Guided first run'));
   guide.addEventListener('click', () => { const m = ctx.view.meta; if (m) ctx.act({ type: 'SET_GUIDE', on: !m.guided }); });
   tip(guide, () => h('div', h('div.tt-name', 'Guided first run'), h('div.tt-line', 'Zone 1 teaches the game as you play: one short line at a time. Skip it at any point.'), h('div.tt-sub', 'Settings can play it again later.')));
-  root.append(classes, details, h('div.bottom.panel', h('div.field', h('label', 'Name'), name), h('div.field', h('label', 'Seed'), seed), mode, echoes, guide, go));
+  root.append(classes, details, h('div.bottom.panel', h('div.field', h('label', 'Name'), name), h('div.field.seedf', h('label', 'Seed'), seed), mode, echoes, guide, go));
   return root;
 }
 
@@ -224,8 +233,12 @@ function updateCreate(root, v, ctx) {
   const m = v.meta;
   const gt = root.querySelector('.bottom .guide');
   if (gt) { const offer = !!(m && m.guideOffer); gt.classList.toggle('hidden', !offer); gt.classList.toggle('on', !!(m && m.guided)); gt.setAttribute('aria-checked', m && m.guided ? 'true' : 'false'); }
+  // D150: a first run (no run in the profile, no Echoes yet) shows no Seed field and no Echoes button
+  const first = !!(m && !(m.runs > 0) && !(m.echoes > 0));
+  const sf = root.querySelector('.bottom .seedf'); if (sf) sf.classList.toggle('hidden', first);
   // Echoes button: the balance and how many unlocks it can buy (the engine's offers)
   const eb = root.querySelector('.bottom .echoes');
+  if (eb) eb.classList.toggle('hidden', first);
   if (eb && m) {
     eb.querySelector('.n').textContent = fmtNum(m.echoes);
     const reach = m.offers.filter((o) => o.affordable).length; const badge = eb.querySelector('.badge');
@@ -268,7 +281,9 @@ function updateCreate(root, v, ctx) {
  * A service card. heat: { ctx, action, v } adds the heat preview of the engine action (R.heatView next): the toll label
  * coloured by a new state, a tooltip with "1 toll, ends Smouldering" and the ghost marker on the meter while hovered.
  */
-function svcCard(glyph, bg, name, meta, cost, used, onClick, heat = null) {
+function svcCard(glyph, bg, name, meta, cost, used, onClick, heat = null, idle = false) {
+  // D150 item 22: an idle card (the Trainer with nothing to teach) is greyed with its line and no toll: no click, no tolls spent
+  if (idle && !used) return h('div.svc-card.off', { 'aria-disabled': 'true' }, h('img', { src: icon(glyph, bg), alt: '' }), h('div', h('div.nm', name), h('div.meta', meta)));
   const p = heat && !used ? heatOf(heat.v, heat.action) : null;
   const hrs = tollLabel(h('div.hrs', p ? tolls(p.time) : cost), p);
   const el = h('div.svc-card' + (used ? '.used' : ''), h('img', { src: icon(glyph, bg), alt: '' }), h('div', h('div.nm', name), h('div.meta', used ? 'Used this visit' : meta)), hrs);
@@ -309,8 +324,10 @@ export function trainerMeta(v) {
   const t = v.trainer;
   if (!t || t.useful) return 'Learn and rank up spells';
   if ((t.learn && t.learn.length) || (t.train && t.train.length)) return 'Its lessons cost more gold than you have';
-  return t.next ? `Nothing new to learn yet (next spell at level ${t.next})` : 'Nothing new to learn';
+  return t.next ? `Next spell at level ${t.next}.` : 'Nothing new to learn.';
 }
+/** D150 item 22: the hub Trainer has nothing to teach (no lesson or rank offered at all): its card is greyed, no click, no toll. */
+export const trainerIdle = (v) => !!(v.trainer && !v.trainer.useful && !(v.trainer.learn && v.trainer.learn.length) && !(v.trainer.train && v.trainer.train.length));
 
 const hubSwap = { swap: false }; // the hub offer's swap list stays open across the hub screen's rebuilds
 function buildHub(v, ctx) {
@@ -329,13 +346,13 @@ function buildHub(v, ctx) {
   else if (hubSwap.taken && hubSwap.taken.z === z.idx) body.appendChild(h('div.hubtaken', { style: { minHeight: `${hubSwap.taken.h}px` } }, h('div.hx-t', 'Contract taken'), h('div.hx-s', `${hubSwap.taken.title}: its sites are on the map and in your tracker.`)));
   const svc = (service) => ({ ctx, v, action: { type: 'SERVICE', service } });
   body.append(
-    svcCard('tome', 'arcane', 'Trainer', trainerMeta(v), tolls(hr.trainer), used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer')),
+    svcCard('tome', 'arcane', 'Trainer', trainerMeta(v), tolls(hr.trainer), used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer'), trainerIdle(v) && !Object.values(p.talents || {}).some((x) => x > 0)),
     svcCard('vendor', 'earth', 'Vendor', 'Potions, rations and gear', tolls(hr.vendor), used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' }), svc('vendor')),
     innCard(v, ctx, 'Inn', 'Full rest and rested experience', used.inn, svc('inn')));
   if (p.talentPoints) body.appendChild(h('div.warn', { style: { fontSize: '1.25rem' } }, `You have ${p.talentPoints} unspent talent point${p.talentPoints > 1 ? 's' : ''}. Press N.`));
   const go = h('button.btn.primary.big', 'Set out');
   go.addEventListener('click', () => ctx.act({ type: 'LEAVE_HUB' }));
-  el.append(scrollCue(body), h('div.sfoot', h('span.muted', `${HEAT_WORDS.Units} so far: ${fmtTime(v.time)}`), go));
+  el.append(scrollCue(body), h('div.sfoot', h('span'), go)); // D150 item 10: no "Tolls so far" (the Furnace's number is the one)
   return el;
 }
 
@@ -352,10 +369,9 @@ function buildCamp(v, ctx) {
     svcCard('vendor', 'earth', 'Quartermaster', `Level ${R.maxLevel} stock`, tolls(hr.vendor), used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' }), svc('vendor')),
     innCard(v, ctx, 'Campfire', 'Full rest before the fight', used.inn, svc('inn')),
     svcCard('grind', 'steel', 'Camp wave', `Fight a wave of level ${R.campGrindLevel} enemies`, `${tolls(hr.grindWave)} a wave`, false, () => ctx.act({ type: 'CAMP_GRIND' }), { ctx, v, action: { type: 'CAMP_GRIND' } }));
-  // the par and the Ascendancy: R.heatView's (the bridge's v.camp: at the Camp the line is the par, ascIfPar the boss's)
-  const par = v.camp && v.camp.par ? ` (par ${fmtTime(v.camp.par)})` : '';
-  const kv = h('dl.kv', h('dt', HEAT_WORDS.Units), h('dd', `${fmtTime(v.time)}${par}`), h('dt', 'Ascendancy'),
-    asc == null ? h('dd.muted', 'Unknown') : h('dd', { class: asc > 0 ? 'bad' : 'good' }, asc > 0 ? `+${Math.round(asc * 100)} % health and damage` : 'None: you are on time'));
+  // what the tolls did to Oruvath (the bridge's v.camp: R.heatView's ascIfPar at the Camp); D150: no par or Ascendancy
+  const kv = h('dl.kv', h('dt', 'Oruvath'),
+    asc == null ? h('dd.muted', 'Unknown') : h('dd', { class: asc > 0 ? 'bad' : 'good' }, asc > 0 ? `+${Math.round(asc * 100)} % health and damage` : 'No stronger'));
   const go = h('button.btn.primary.big', 'Face Oruvath');
   go.addEventListener('click', () => ctx.act({ type: 'FIGHT_BOSS' }));
   el.append(scrollCue(body), h('div.sfoot', kv, go));
@@ -499,8 +515,8 @@ function buildExpMap(v, ctx, readOnly) {
   const btns = acts.map(([label, a]) => {
     const b = btn(label, () => { if (asks(a.type) && leave.armed !== a.type) { leave.armed = a.type; ctx.ui.refreshScreens(); return; } leave.armed = null; ctx.act(a); }, a.type === 'TAKE_ROAD' ? '.primary' : '');
     b.dataset.leave = a.type;
-    tip(b, () => h('div', h('div.tt-name', label), a.type === 'RING_BELL' ? h('div.tt-line', `${mv.texts && mv.texts.homeward_bell ? mv.texts.homeward_bell + ' ' : ''}Rung on the map: ${tolls(mv.bell.channelTime)} to ring, then the next zone's hub.`) : h('div.tt-line', `Leave for ${roadTo(v, ctx)}.`),
-      expiring.length ? h('div.tt-warn', `${expiryText(expiring, ctx.data.content)}. No reward.`) : null, previewBlock(heatOf(ctx.view, a), ctx, { leaves: true }),
+    tip(b, () => h('div', h('div.tt-name', label), a.type === 'RING_BELL' ? h('div.tt-line', `It takes you to the hub of ${roadTo(v, ctx)}.`) : h('div.tt-line', `Leave for ${roadTo(v, ctx)}.`),
+      expiring.length ? h('div.tt-warn', `${expiryText(expiring, ctx.data.content)}. No reward.`) : null, previewBlock(heatOf(ctx.view, a), ctx),
       asks(a.type) ? h('div.tt-hint', 'Click, then confirm') : null));
     return ghostOn(b, ctx, a);
   });
@@ -513,12 +529,14 @@ function buildExpMap(v, ctx, readOnly) {
     btns.unshift(sb);
   } else if (spy.armed) spy.armed = false;
   const dm = mv.dim || {}; const off = !!dm.off;
-  win.appendChild(h('div.mhead', h('div', h('div.title', z.name), h('div.subtitle', `Levels ${z.band[0]}–${z.band[1]} · zone toll ${mv.zt}`)), h('div.row', readOnly ? closeBtn(ctx, 'map') : null, ...btns)));
+  win.appendChild(h('div.mhead', h('div', h('div.title', z.name), h('div.subtitle', `Levels ${z.band[0]}–${z.band[1]}`)), h('div.row', readOnly ? closeBtn(ctx, 'map') : null, ...btns)));
   if (leave.armed) {
     const a = { type: leave.armed }; const road = a.type === 'TAKE_ROAD';
     const go = btn(road ? 'Take the Road anyway' : expiring.length ? 'Ring the Bell anyway' : 'Ring the Bell', () => { leave.armed = null; ctx.act(a); }, '.danger');
     const stay = btn('Stay', () => { leave.armed = null; ctx.ui.refreshScreens(); }, '.primary');
-    const bell = !road && mv.bell ? h('div.lw-l.lw-bell', `The Homeward Bell takes you to the hub of ${roadTo(v, ctx)} in ${tolls(mv.bell.channelTime)}. ${mv.bell.charges === 1 ? 'It is your only charge this run.' : `${mv.bell.charges} charges left this run.`} No way back to ${z.name}.`) : null;
+    // section 7 (D150): the tolls and the fight that comes first are the engine's preview of the ring (RING_BELL), as on its tooltip
+    const bp = !road ? heatOf(v, a) : null;
+    const bell = !road && mv.bell ? h('div.lw-l.lw-bell', `The Homeward Bell takes you to the hub of ${roadTo(v, ctx)}. ${bp ? costText(bp) : `Costs ${tolls(mv.bell.channelTime)}.`} ${mv.bell.charges === 1 ? 'It is your only charge this run.' : `${mv.bell.charges} charges left this run.`} No way back to ${z.name}.`) : null;
     win.appendChild(h('div.leavewarn', { role: 'alertdialog', 'aria-label': road ? `Leave ${z.name}?` : 'Ring the Homeward Bell?' },
       h('div.lw-t', road ? `Leave ${z.name}?` : 'Ring the Homeward Bell?'), bell,
       expiring.length ? h('div.lw-l', `${expiryText(expiring, ctx.data.content)}. They pay nothing once expired.`) : null,
@@ -601,7 +619,7 @@ function buildExpMap(v, ctx, readOnly) {
     // D143: a closed Road of the guided zone (mapView `closed`, D142) carries a Closed tag and the coach's closed line
     const sign = h('div.xroad' + (side ? '.side' : right ? '.r' : '.l') + (n.dimmed ? '.dimmed' : '') + (n.id === mv.pos ? '.on' : '') + (n.closed ? '.rclosed' : ''), { style: { left: `${x / 10}%`, top: `${y / 10}%` }, dataset: { road: rid } },
       h('span.xpost'), h('span.xsign', h('b', side ? to : `${right ? '' : '« '}${to}${right ? ' »' : ''}`), n.closed ? h('i.xshut', 'Closed') : null));
-    tip(sign, () => h('div', h('div.tt-name', name), h('div.tt-line', `A Road out of the zone, to ${to}.`), n.closed ? h('div.tt-warn.rclosed', closedRoadLine(ctx.data) || 'Closed for now.') : h('div.tt-sub', `Standing on it: Take the Road · ${tolls(mv.travelTime)}`), n.dimmed ? h('div.tt-warn', 'Dimmed: a fight with Shardspawn first, then the Road can still be taken.') : null));
+    tip(sign, () => h('div', h('div.tt-name', name), h('div.tt-line', `A Road out of the zone, to ${to}.`), n.closed ? h('div.tt-warn.rclosed', closedRoadLine(ctx.data) || 'Closed for now.') : h('div.tt-sub', `Standing on it: Take the Road · ${tolls(mv.travelTime)}`), n.dimmed ? h('div.tt-warn', 'Dimmed: a fight first, then the Road can still be taken.') : null));
     disc.appendChild(sign);
   });
 
@@ -646,8 +664,11 @@ function buildExpMap(v, ctx, readOnly) {
     const look = { type: 'USE_SPYGLASS', nodeId: n.id };
     if (!readOnly) el.addEventListener('click', () => { leave.armed = null; if (spy.armed) { spy.armed = false; ctx.act(look); } else if (n.barred) { const gl = gateLine(ctx.data, v.tutorial); if (gl) ctx.toast(gl, 'info'); } else if (m) ctx.act(act); });
     if (m) ghostOn(el, ctx, act);
-    tip(el, () => expNodeTip(n, mv, v, ctx, m, here, readOnly, act));
+    tip(el, () => expNodeTip(n, mv, v, ctx, m, here, readOnly, act), { avoid: '.xpass.on' });
     disc.appendChild(el);
+    // D150 item 9 (the Moves panel is gone): a node that can be walked through offers it on itself, "Pass through (1 toll)",
+    // while the node or the button is hovered or has the focus (the button follows the node in the tab order)
+    if (m && m.passTime != null && !(m.barred || n.barred)) disc.appendChild(passButton(n, m, el, v, ctx));
   }
 
   // ---- side columns: the Dimming and the key (left), regions and moves (right)
@@ -662,7 +683,7 @@ function buildExpMap(v, ctx, readOnly) {
   }
   tip(dimBox, () => h('div', h('div.tt-name', 'The Dimming'), mv.texts && mv.texts.dimming ? h('div.tt-line', mv.texts.dimming) : null,
     h('div.tt-line', `It spreads ${dm.frontHops} hops every ${tolls(dm.frontTime)} from the Shardfall, after ${tolls(dm.grace)} in the zone.`),
-    h('div.tt-sub', 'Entering or standing in a Dimmed node starts a fight with Shardspawn; its content is lost. Leave by a Road or the Bell.')));
+    h('div.tt-sub', 'Entering or standing in a Dimmed node starts a fight; what it held is lost. Leave by a Road or the Bell.')));
   const key = h('div.xpanel.xkey', h('div.xph', 'Key'),
     h('div.xk', h('i.xk-seen'), 'Seen: in sight'), h('div.xk', h('i.xk-rem'), 'Remembered'), h('div.xk', h('i.xk-typed'), 'Type known'), h('div.xk', h('i.xk-unk'), 'Unknown'),
     h('div.xk', h('i.xk-dim'), 'Dimmed'), h('div.xk', h('i.xk-shard'), 'Shardfall'));
@@ -678,25 +699,6 @@ function buildExpMap(v, ctx, readOnly) {
     regBox.appendChild(row);
   });
   right.appendChild(scrollCue(regBox));
-  // the moves: enter or walk (MOVE) and pass through (PASS_THROUGH), each with its tolls and heat
-  if (!readOnly) {
-    const list = h('div.xpanel.expmoves', h('div.xph', 'Moves'), mv.moves.map((m) => {
-      const n = mv.nodes[m.nodeId]; const name = n.hub ? 'Hub' : n.know !== 'none' && n.type ? NODE_NAME[n.type] || n.type : 'Unknown';
-      // M3 guided run (D138): Gorrak's barred node is not a move yet; its row says why (the gate line), nothing to press
-      if (m.barred || n.barred) { const gl = gateLine(ctx.data, v.tutorial); return h('div.em.barred', h('span.muted', gl || `${name}: closed for now`)); }
-      const go = { type: 'MOVE', nodeId: m.nodeId }; const pass = { type: 'PASS_THROUGH', nodeId: m.nodeId };
-      const b1 = ghostOn(btn(`${m.via === 'enter' ? 'Enter' : 'Walk to'} ${name} · ${tolls(m.time)}`, () => ctx.act(go), '.small'), ctx, go);
-      tip(b1, () => previewBlock(heatOf(ctx.view, go), ctx));
-      const b2 = m.passTime != null ? ghostOn(btn(`Pass · ${tolls(m.passTime)}`, () => ctx.act(pass), '.small'), ctx, pass) : null;
-      if (b2) tip(b2, () => h('div', h('div.tt-line', 'Walk through without resolving it.'), previewBlock(heatOf(ctx.view, pass), ctx)));
-      // hovering a move lights its node on the map
-      const lit = (on) => { const el = disc.querySelector(`.mnode[data-node="${m.nodeId}"]`); if (el) el.classList.toggle('lit', on); };
-      const row = h('div.em' + (m.dimmed ? '.dimmed' : ''), b1, b2);
-      row.addEventListener('mouseenter', () => lit(true)); row.addEventListener('mouseleave', () => lit(false));
-      return row;
-    }));
-    right.appendChild(scrollCue(list));
-  }
   const body = h('div.mbody.parchment.xbody', left, disc, right);
   win.append(body);
   if (readOnly) win.id = 'win-map';
@@ -706,6 +708,23 @@ function buildExpMap(v, ctx, readOnly) {
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { declutterLabels(disc); declutterRegionNames(disc); });
   setTimeout(() => { declutterLabels(disc); declutterRegionNames(disc); }, 400);
   return win;
+}
+/**
+ * D150 item 9: the "Pass through (N tolls)" button of a node (PASS_THROUGH, its tolls from the engine's preview), placed at
+ * the node and shown while the node or the button is hovered or focused; its cost moves the Furnace's ghost while hovered.
+ * Its key is X (app.js onKey: on the map X presses the offer shown), as X passes a round in a fight.
+ */
+function passButton(n, m, nodeEl, v, ctx) {
+  const pass = { type: 'PASS_THROUGH', nodeId: n.id };
+  const pt = heatOf(v, pass);
+  const b = h('button.xpass', { type: 'button', style: { left: nodeEl.style.left, top: nodeEl.style.top }, dataset: { node: n.id } }, `Pass through (${tolls(pt ? pt.time : m.passTime)})`, h('span.kbd', 'X'));
+  b.addEventListener('click', (ev) => { ev.stopPropagation(); leave.armed = null; ctx.act(pass); });
+  ghostOn(b, ctx, pass);
+  let t = null;
+  const on = () => { clearTimeout(t); b.classList.add('on'); };
+  const off = () => { clearTimeout(t); t = setTimeout(() => { if (!b.matches(':hover, :focus') && !nodeEl.matches(':hover, :focus')) b.classList.remove('on'); }, 260); };
+  for (const x of [nodeEl, b]) { x.addEventListener('pointerenter', on); x.addEventListener('pointerleave', off); x.addEventListener('focus', on); x.addEventListener('blur', off); }
+  return b;
 }
 /**
  * A list that scrolls fades at its foot while more lies below (style.css .more-below; blind panel 2026-11-13, item 5: the
@@ -898,21 +917,20 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
   if (n.road) { const i = (mv.roads || []).indexOf(n.id); box.appendChild(h('div.tt-line', `${mv.roadNames && mv.roadNames[i] ? mv.roadNames[i] : 'A Road'}: leads to ${roadTo(v, ctx)}`)); }
   if (n.road && n.closed) box.appendChild(h('div.tt-warn.rclosed', closedRoadLine(ctx.data) || 'Closed for now.')); // D143
   if (n.shardfall) box.appendChild(h('div.tt-line', mv.texts && mv.texts.shardfall ? mv.texts.shardfall : 'The Shardfall: the Dimming starts here.'));
-  if (n.dimmed) box.appendChild(h('div.tt-warn', 'Dimmed: entering or staying here starts a fight with Shardspawn.'));
-  // M3 guided run (D138): Gorrak's node is barred until the scripted fights are done; the gate line says how many are left
-  if (n.barred) { const gl = gateLine(ctx.data, v.tutorial); if (gl) box.appendChild(h('div.tt-warn.gate', gl)); }
-  else if (n.dimsIn != null && Number.isFinite(n.dimsIn)) box.appendChild(h(n.dimsIn <= 2 ? 'div.tt-warn' : 'div.tt-sub', `Dims in ${tolls(n.dimsIn)}`));
+  if (n.dimmed) box.appendChild(h('div.tt-warn', 'Dimmed: entering or staying here starts a fight; what it held is lost.'));
+  // M3 guided run (D138): Gorrak's node is barred until the scripted fights are done; the gate line says how many are left.
+  // D150 item 8: no "Dims in N" here (the node's own clock on the map and the Dimming panel say it)
+  const gl = n.barred ? gateLine(ctx.data, v.tutorial) : null;
+  if (gl) box.appendChild(h('div.tt-warn.gate', gl));
   for (const ln of siteLines(n, ctx.view, ctx)) box.appendChild(ln);
   if (spy.armed && !readOnly) { box.appendChild(h('div.tt-hint', 'Click to look here through the Spyglass')); return box; }
   // blind panel 2026-11-13 (no tooltip on Gorrak's node): a barred node next to the player is a move mapView lists with
   // `barred` and no heat preview; appending the missing preview threw, so the tooltip never showed. A barred node is no move
   if (m && !(m.barred || n.barred)) {
     box.appendChild(h('div.tt-line', m.via === 'enter' ? 'Click to enter' : 'Click to walk here'));
-    const pb = previewBlock(heatOf(ctx.view, act), ctx);
+    const pb = previewBlock(heatOf(ctx.view, act), ctx); // D150 item 6: "Costs 3 tolls." and a bonus line when there is one
     if (pb) box.appendChild(pb);
-    // QA 2026-11-12: read with "Click to enter" above, the hint says it is the other way through (no fight), and its toll
-    if (m.passTime != null) box.appendChild(h('div.tt-hint', `Or walk through it without doing it (${tolls(m.passTime)}): Pass in the list of moves.`));
-  } else if (m) box.appendChild(h('div.tt-hint', 'Closed for now: you cannot enter it yet'));
+  } else if (m && !gl) box.appendChild(h('div.tt-hint', 'Not here yet.')); // D150 item 23 (the gate line, when there is one, says more)
   else if (here) box.appendChild(h('div.tt-hint', 'You are here'));
   else if (!readOnly) box.appendChild(h('div.tt-warn', 'Not next to you'));
   return box;
@@ -925,12 +943,9 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
  */
 function deathblowLine(db, boss) {
   if (!db) return null;
-  if (!db.name) {
-    return h('div.tt-line.tt-db', { dataset: { deathblow: '', type: db.type } }, h('img', { src: deathblowIcon(), alt: '' }),
-      h('b', `Deathblow: ${db.type === 'heavy' ? 'a heavy blow' : 'a cast'}`), ` (${deathblowAnswers(db.type)}). Landed, it maims you.`);
-  }
-  return h('div.tt-line.tt-db', { dataset: { deathblow: db.id, type: db.type } }, h('img', { src: deathblowIcon(), alt: '' }),
-    h('b', `${boss ? "The boss's Deathblow" : 'Deathblow'}: ${db.name}`), ` (${deathblowKind(db.type)}). Landed, it maims you.`);
+  // D150 item 23: one line, no rules for abilities the hero may not own yet (the fight's prompt says how to stop it)
+  return h('div.tt-line.tt-db', { dataset: { deathblow: db.id || '', type: db.type } }, h('img', { src: deathblowIcon(), alt: '' }),
+    h('b', boss ? 'Its boss has a Deathblow' : 'Has a Deathblow'), ': one huge hit you must stop.');
 }
 /** The tolls Travel on costs now, from the engine (a dry TRAVEL_ON); the mock's own number in mock mode. */
 function travelCost(z, ctx) {
@@ -980,9 +995,9 @@ function nodeTip(n, v, ctx, reach, hp = null) {
   const hrs = ctx.data.nodeTime ? ctx.data.nodeTime[n.type] : null;
   const pb = hp ? previewBlock(hp, ctx) : null; // null without the heat rules (the mock): never appended
   if (pb) box.appendChild(pb);
-  else if (hrs != null) box.appendChild(h('div.tt-sub', n.type === 'grind' ? `Takes ${tolls(hrs)} per wave` : `Takes ${tolls(hrs)}`));
+  else if (hrs != null) box.appendChild(h('div.tt-sub', n.type === 'grind' ? `Costs ${tolls(hrs)} a wave.` : `Costs ${tolls(hrs)}.`));
   const H = ctx.data.rules.heat;
-  if (n.visited && n.heat && H) box.appendChild(h('div.tt-sub', `Entered ${HEAT_NAME[n.heat]}${H.gain[n.heat] > 0 || H.rarityUp[n.heat] > 0 ? ': it paid heat spoils' : ''}`));
+  if (n.visited && n.heat && H) box.appendChild(h('div.tt-sub', `Entered ${HEAT_NAME[n.heat]}${H.gain[n.heat] > 0 || H.rarityUp[n.heat] > 0 ? ': it gave a bonus' : ''}`));
   if (n.visited) box.appendChild(h('div.tt-hint', 'Visited'));
   else if (reach) box.appendChild(h('div.tt-hint', 'Click to travel here'));
   else box.appendChild(h('div.tt-warn', 'Not reachable from your position'));
@@ -1035,7 +1050,8 @@ function buildNode(v, ctx) {
   }
   if (n.type === 'elite' && n.step === 'intro') {
     const e = n.elite || {};
-    return dialog(n.eliteName, `${n.rare ? 'Rare elite' : 'Elite'} · level ${n.cl}`, [
+    // section 7 (D150): the elite's own level (its fight's, as the map shows it), not the node's
+    return dialog(n.eliteName, `${n.rare ? 'Rare elite' : 'Elite'} · level ${n.mobs && n.mobs[0] && n.mobs[0].level ? n.mobs[0].level : n.cl}`, [
       e.text ? h('div', { style: { font: 'italic 1.45rem var(--font-title)', color: 'var(--ink-dim)' } }, e.text) : null,
       h('dl.kv', h('dt', 'Threat'), h('dd.bad', 'High: elites hit hard and have special abilities'), h('dt', 'Reward'), h('dd', 'Large experience, gold and a guaranteed good item'), n.add ? h('dt', 'Escort') : null, n.add ? h('dd', n.add.name) : null),
     ], [btn('Engage', () => ctx.act({ type: 'ACCEPT' }), '.primary')], { left, badge: h('span.row', { style: { gap: '.5rem' } }, hb, h('span.rank-tag' + (n.rare ? '.rare' : ''), n.rare ? 'Rare' : 'Elite')) });
@@ -1087,13 +1103,14 @@ function buildLoot(v, ctx) {
   // spoils of a node entered Hot or Scorched (its heat state, rules 1.7.3): a badge by the title
   win.appendChild(h('div.wtitle', h('div.row', { style: { gap: '.8rem', alignItems: 'center' } }, h('div.title', L.title || 'Loot'), heatBadge(v.node && v.node.heat, ctx)), closeLootBtn(ctx)));
   const rows = h('div.rows');
-  if (L.gold) rows.appendChild(h('div.lrow', { style: { cursor: 'default' } }, h('img', { src: icon('coin', 'gold'), alt: '' }), h('div', h('div.nm', moneyEl(L.gold)), h('div.meta', 'Coins (already in your purse)'))));
-  if (L.xp) rows.appendChild(h('div.lrow', { style: { cursor: 'default' } }, h('img', { src: icon('stars3', 'epic'), alt: '' }), h('div', h('div.nm', { style: { color: '#d0a8ff' } }, `${fmtNum(L.xp)} experience`), h('div.meta', 'Earned in this fight'))));
+  // D150 item 19: no notes under the coins and the experience (Continue already says they are yours)
+  if (L.gold) rows.appendChild(h('div.lrow', { style: { cursor: 'default' } }, h('img', { src: icon('coin', 'gold'), alt: '' }), h('div', h('div.nm', moneyEl(L.gold)))));
+  if (L.xp) rows.appendChild(h('div.lrow', { style: { cursor: 'default' } }, h('img', { src: icon('stars3', 'epic'), alt: '' }), h('div', h('div.nm', { style: { color: '#d0a8ff' } }, `${fmtNum(L.xp)} experience`))));
   if (L.trap) rows.appendChild(h('div.lrow', { style: { cursor: 'default' } }, h('img', { src: icon('trap', 'blood'), alt: '' }), h('div', h('div.nm.bad', 'A needle trap!'), h('div.meta', 'You lost some health opening it.'))));
   (L.items || []).forEach((it, i) => {
     const up = it.kind === 'gear' && ctx.bridge.itemScore(it) > ctx.bridge.itemScore(p.equip[it.slot]);
-    const meta = it.kind === 'gear' ? `${cap(it.slot)} · ilvl ${it.ilvl}` : it.kind === 'junk' ? 'Junk' : 'Consumable';
-    const tag = it.inBag ? h('span.good', ' · in your bags') : up ? h('span.good', ' · ▲ upgrade') : null;
+    const meta = it.kind === 'gear' ? `${cap(it.slot)} · item level ${it.ilvl}` : it.kind === 'junk' ? 'Junk' : 'Consumable';
+    const tag = up ? h('span.good', ' · ▲ upgrade') : null; // D150 item 19: no "in your bags" note
     const r = h('div.lrow.' + (it.rarity || 'common'), h('img', { src: itemIcon(it), alt: '' }), h('div.grow', h('div.nm.r-' + it.rarity, it.name + (it.count > 1 ? ` ×${it.count}` : ''), it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', meta, tag)));
     if (it.pending) {
       const acts = h('div.row', { style: { gap: '.35rem' } });
@@ -1134,7 +1151,7 @@ function buildReward(v, ctx) {
   const L = v.loot; const p = v.player;
   const cards = h('div.choice-cards', (L.choices || []).map((it, i) => {
     const up = ctx.bridge.itemScore(it) - ctx.bridge.itemScore(p.equip[it.slot]);
-    const stats = Object.entries(it.stats || {}).filter(([k, val]) => ['sta', 'agi', 'int', 'spi', 'power'].includes(k) && val > 0).map(([k, val]) => `+${val} ${k.toUpperCase()}`).join('  ');
+    const stats = Object.entries(it.stats || {}).filter(([k, val]) => ['sta', 'agi', 'int', 'spi', 'power'].includes(k) && val > 0).map(([k, val]) => `+${val} ${STAT_NAMES[k] || k}`).join('  '); // D150: full stat names
     // blind panel 2026-11-13 (item 9): a reward that fills an empty slot or is an upgrade offers "Equip now": it is chosen
     // and put on at once (CHOOSE_REWARD, then EQUIP of the same item once it is in the bags)
     const offer = it.kind === 'gear' && (up > 0 || !p.equip[it.slot]);
@@ -1173,14 +1190,14 @@ function buildReward(v, ctx) {
 function buildVendor(v, ctx) {
   const n = v.node; const p = v.player;
   const stock = h('div.list', (n.stock || []).map((it, i) => {
-    const r = h('div.trow' + (it.sold ? '.locked' : ''), h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name), h('div.meta', it.kind === 'gear' ? `${cap(it.slot)} · ilvl ${it.ilvl}` : 'Consumable')),
+    const r = h('div.trow' + (it.sold ? '.locked' : ''), h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name), h('div.meta', it.kind === 'gear' ? `${cap(it.slot)} · item level ${it.ilvl}` : 'Consumable')),
       h('div.right', it.sold ? h('span.muted', 'Sold') : moneyEl(it.price), it.sold ? null : h('button.btn.small' + (p.gold < it.price ? '.disabled' : ''), 'Buy')));
     if (!it.sold) r.querySelector('button').addEventListener('click', () => ctx.act({ type: 'BUY', i }));
     tip(r, () => itemTip(it, ctx, { price: it.price }));
     return r;
   }));
   const bag = h('div.list', p.bag.filter(Boolean).map((it) => {
-    const r = h('div.trow', h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name + (it.count > 1 ? ` ×${it.count}` : '')), h('div.meta', it.sell ? moneyText(it.sell * (it.count || 1)) : it.kind === 'gear' ? `${cap(it.slot)} · ilvl ${it.ilvl}` : it.kind === 'junk' ? 'Junk' : 'Consumable')), h('div.right', h('button.btn.small', 'Sell')));
+    const r = h('div.trow', h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name + (it.count > 1 ? ` ×${it.count}` : '')), h('div.meta', it.sell ? moneyText(it.sell * (it.count || 1)) : it.kind === 'gear' ? `${cap(it.slot)} · item level ${it.ilvl}` : it.kind === 'junk' ? 'Junk' : 'Consumable')), h('div.right', h('button.btn.small', 'Sell')));
     r.querySelector('button').addEventListener('click', () => ctx.act({ type: 'SELL', uid: it.uid }));
     tip(r, () => itemTip(it, ctx, {}));
     return r;
@@ -1233,7 +1250,7 @@ function buildSummary(v, ctx) {
     s.dev ? h('div.devrun', `Dev run${s.dev.god ? ' · god mode' : ''}`) : null));
   const kv = (pairs) => h('dl.kv', pairs.flatMap(([k, val]) => [h('dt', k), h('dd', val)]));
   const card1 = h('div.card', h('h3', 'The journey'), kv([
-    ['Reached', `${s.zone}${s.row ? `, row ${s.row}` : ''}`], [HEAT_WORDS.Units, `${fmtTime(s.time)}${s.par ? ` (par ${fmtTime(s.par)})` : ''}`], ['Ascendancy', s.asc ? `+${Math.round(s.asc * 100)} %` : 'none'],
+    ['Reached', `${s.zone}${s.row ? `, row ${s.row}` : ''}`], [HEAT_WORDS.Units, fmtTime(s.time)], ['Oruvath', s.asc ? `+${Math.round(s.asc * 100)} % health and damage` : 'No stronger'],
     ['Estimated time', `${s.estMinutes.manual} min manual · ${s.estMinutes.auto} min autoplay`], ['Fights', `${s.fights} (${s.rounds} rounds)`], ['Seed', String(s.seed)],
     // the killing blow by its display name (the bridge's actionName; without a name only the killer)
     ...(s.death ? [['Killed by', h('span.killed', { dataset: { ability: s.death.ability || '' } }, s.death.ability ? `${s.death.killer} (${s.death.ability})` : s.death.killer)], ['Where', `${s.death.node}, round ${s.death.round}`]] : []),
@@ -1243,7 +1260,7 @@ function buildSummary(v, ctx) {
     // contracts (expedition.md 8.1; prep): the summary's expedition.contracts
     ...(s.contracts ? [['Contracts', `${s.contracts.completed} of ${s.contracts.taken} completed${s.contracts.expired ? ` · ${s.contracts.expired} expired` : ''}${s.contracts.abandoned ? ` · ${s.contracts.abandoned} given up` : ''} · Reserve left ${s.contracts.reserve}`]] : []),
     ['Dungeons cleared', String(s.dungeons)],
-    ['Gold', `earned ${moneyText(s.goldEarned)} · spent ${moneyText(s.goldSpent)}`], ['Potions used', String(s.potions)], ['Resurrections', String(s.resurrects)],
+    ['Gold', `earned ${moneyText(s.goldEarned)} · spent ${moneyText(s.goldSpent)}`], ['Potions used', String(s.potions)], ['Times revived', String(s.resurrects)],
     ['Damage', `dealt ${fmtNum(s.dealt)} · taken ${fmtNum(s.taken)}`], ['Top spells', s.topSpells.map(([n, d]) => `${n} ${fmtNum(d)}`).join(', ') || '—'],
   ]), h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '.4rem', marginTop: '.8rem' } }, s.equipped.map((it) => tip(h('div.slot.q-' + it.rarity, h('img', { src: itemIcon(it), alt: '' })), () => itemTip(it, ctx, { compare: false })))));
   // Echoes (rules 11.1): the engine's lines; the balance after the run from the bridge's dry END_RUN (view.meta.after)

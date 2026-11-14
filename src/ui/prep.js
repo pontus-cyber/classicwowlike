@@ -9,6 +9,7 @@
 // list in the quest log (L), each contract's tooltip, the hub's contract offer (take it from Reserve or swap a held one)
 // and the site marks on the expedition map (mapView node `sites`: only the marks the player sees; a hidden node is never
 // named). Presentation only: every click sends one engine action.
+// D150 (owner 2026-11-14, naming rule): a contract's "Reward", not "Pays".
 import { h, clear, moneyEl, fmtNum } from './util.js';
 import { icon, consumableIcon } from './art-icons.js';
 import { tip } from './tooltip.js';
@@ -66,7 +67,7 @@ export function contractTip(c, ctx, opts = {}) {
   if (rw.choices) {
     // M2b v10 (expedition.md 3.1): contract XP has no level-difference modifier, so the amount is fixed (reward.xp).
     const xp = typeof rw.xp === 'number' ? ` (${fmtNum(rw.xp)} XP)` : '';
-    box.appendChild(h('div.tt-line.num', 'Pays at once on its last site: ', h('b', levelsText(rw.xpFrac)), ` at level ${rw.cl}${xp}, `, moneyEl(rw.gold), `, and ${contractItemsText(rw)}.`));
+    box.appendChild(h('div.tt-line.num', 'Reward, at once on its last site: ', h('b', levelsText(rw.xpFrac)), ` at level ${rw.cl}${xp}, `, moneyEl(rw.gold), `, and ${contractItemsText(rw)}.`));
   }
   if (opts.progress) box.appendChild(h('div.tt-line', opts.progress));
   if (opts.status) box.appendChild(h('div.tt-sub', opts.status));
@@ -139,7 +140,7 @@ export function createPrepScreen(v, ctx) {
     cards.appendChild(b);
     return b;
   });
-  const board = h('section.pp-board', h('div.pp-sh', h('div.pp-lab', 'Contracts'), h('div.pp-sub', 'One per zone. Each pays at once when its last site is won.'), reroll), cards);
+  const board = h('section.pp-board', h('div.pp-sh', h('div.pp-lab', 'Contracts'), h('div.pp-sub', 'One per zone. Each gives its reward when its last site is won.'), reroll), cards);
   // the options: small cards in one row
   const optEls = new Map();
   const opts = h('div.pp-opts', { style: { '--n': String(Math.max(1, nO)) } }, pv0.options.map((o, i) => {
@@ -156,7 +157,7 @@ export function createPrepScreen(v, ctx) {
   tip(points, () => {
     const pv = ctx.view.prep; if (!pv) return null;
     return h('div', h('div.tt-name', 'Preparation points'), h('div.tt-line', `${pv.points} to spend on contracts and supplies${pv.spent ? `; ${pv.spent} spent` : ''}.`),
-      h('div.tt-line.num', `Unspent points become Reserve: it pays for a hub contract on the way, and what is left at the end of the run becomes Echoes${pv.reserve.points ? ` (${pv.reserve.echoes} for the ${pts(pv.reserve.points)} left now)` : ''}.`),
+      h('div.tt-line.num', `Unspent points become Reserve: it buys a hub contract on the way, and what is left at the end of the run becomes Echoes${pv.reserve.points ? ` (${pv.reserve.echoes} for the ${pts(pv.reserve.points)} left now)` : ''}.`),
       h('div.tt-sub', `${pv.held} of ${pv.slots} contract slots used`));
   });
   const go = h('button.btn.primary.big#pp-go', { type: 'button' }, 'Set out', h('span.k', 'Enter'));
@@ -223,7 +224,7 @@ const priceTag = (n) => h('span.pc-cost', { 'aria-label': pts(n) }, h('span.pc-p
  * (coins) · choose 1 of 3 ◆◆" (rarity marks: the reward table's rare and epic). rw: an offer's reward (R.prepView).
  */
 function payLine(rw, tag, items = true) {
-  return h(tag, h('span.pl', 'Pays'), h('span.xp', levelsText(rw.xpFrac)), h('span.gd', h('span.pl', 'gold'), moneyEl(rw.gold)), items ? itemsChip(rw) : null);
+  return h(tag, h('span.pl', 'Reward'), h('span.xp', levelsText(rw.xpFrac)), h('span.gd', h('span.pl', 'gold'), moneyEl(rw.gold)), items ? itemsChip(rw) : null);
 }
 /** "choose 1 of 3 ◆◆": the item choice and the rarities it can be (the reward table's rare and epic). */
 function itemsChip(rw) {
@@ -362,7 +363,7 @@ export function buildHubOffer(v, ctx, state = { swap: false }) {
   }));
   swapBtn.addEventListener('click', () => { if (!o.swap.length) return; state.swap = !state.swap; list.classList.toggle('hidden', !state.swap); swapBtn.textContent = state.swap ? 'Keep my contracts' : 'Swap…'; });
   const pay = payLine(rw, 'div.hc-rw');
-  tip(pay, () => h('div', h('div.tt-name', 'Pays at once on its last site'), h('div.tt-line', `${levelsText(rw.xpFrac)} at level ${rw.cl}${typeof rw.xp === 'number' ? ` (${fmtNum(rw.xp)} XP)` : ''}, gold, and ${contractItemsText(rw)}.`)));
+  tip(pay, () => h('div', h('div.tt-name', 'Reward, at once on its last site'), h('div.tt-line', `${levelsText(rw.xpFrac)} at level ${rw.cl}${typeof rw.xp === 'number' ? ` (${fmtNum(rw.xp)} XP)` : ''}, gold, and ${contractItemsText(rw)}.`)));
   box.append(head, h('div.hc-row', pay, h('div.hc-acts', take, swapBtn)), list);
   return box;
 }

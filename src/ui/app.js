@@ -17,6 +17,7 @@
 // the map's armed Spyglass away.
 // Sound (audio.js, docs/specs/audio.md; D127): each step is one audio step (the decision view's Deathblow telegraph and
 // Furnace cues after it); a click on a button or card, an error toast and a window opening or closing have their cues.
+// D150 (owner 2026-11-14, text pass): on the zone map X presses the Pass through offer shown on a node (screens.js).
 import { createBridge, flags } from './engine-bridge.js';
 import { Scene } from './scene.js';
 import { createHud } from './hud.js';
@@ -678,6 +679,9 @@ export class App {
       if (o) { if (o.spells && !o.reason) this.ui.armPrecast(); else this.ui.engage(o.id); }
       return;
     }
+    // D150 item 9 (the keyboard path of "Pass through"): on the zone map, X passes through the node whose offer is shown
+    // (the node hovered or focused; screens.js passButton), as X passes a round in a fight
+    if (code === 'KeyX' && !inFight) { const pb = this.root.querySelector('#screens .expmap .xpass.on'); if (pb) { e.preventDefault(); pb.click(); return; } }
     const map = { KeyA: () => this.ui.attack(), KeyZ: () => this.ui.toggleAuto(), KeyX: () => this.ui.pass(), KeyF: () => this.ui.flee(),
       KeyC: () => this.windows.toggle('character'), KeyB: () => this.windows.toggle('bags'), KeyP: () => this.windows.toggle('spellbook'),
       KeyN: () => this.windows.toggle('talents'), KeyL: () => this.windows.toggle('questlog'), KeyM: () => this.windows.toggle('map') };
@@ -802,7 +806,7 @@ function devText(op, args, r, v) {
 /** The fight's panels a banner in a fight keeps clear of (placeBanner). */
 /** What the toast stack keeps clear of (placeToasts): open windows, and the hub's or camp's panel (screens.js .side). */
 const TOAST_KEEP = '#windows > .win, #screens .side.panel';
-const BANNER_KEEP = '#target-frame, #boss-frame, #ruler, #nameplates .np, #engage, #turnprompt, #actionbar, #player-frame, #pet-frame, #tracker, #coach, #fleeask';
+const BANNER_KEEP = '#target-frame, #boss-frame, #nameplates .np, #engage, #turnprompt, #actionbar, #player-frame, #pet-frame, #tracker, #coach, #fleeask';
 /** M2b v13: how long autoplay's engage round holds at 1x when it shows "Autoplay will answer the Deathblow with ..." (ms). */
 const AUTO_HINT_MS = 1600;
 // toasts: on screen at most TOAST_MAX at once for TOAST_MS each (the CSS fade is 2.6 s); at most TOAST_QUEUE wait
