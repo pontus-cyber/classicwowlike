@@ -76,8 +76,10 @@ test('item 8: the Inn asks when health and mana (a mana class) are at INN_ASK_SH
   assert.equal(nearlyFull(p(95, 0, 'energy')), true, 'energy refills every fight: only health counts');
 });
 
-test('D143: the map lines wait for the map (G2, G12, G13 and its closed line); G10 does not; the closed Road\'s line is the content\'s', () => {
-  for (const id of ['G2', 'G12', 'G12.caught', 'G13', 'G13.onRoad', 'G13.closed']) assert.ok(MAP_LINES.has(id), id);
+test('D143: the map lines wait for the map (G2, G12, G13 and its closed line; D150: G12.road, not G12.caught); G10 does not; the closed Road\'s line is the content\'s', () => {
+  for (const id of ['G2', 'G12', 'G12.road', 'G13', 'G13.onRoad', 'G13.closed']) assert.ok(MAP_LINES.has(id), id);
+  assert.ok(!MAP_LINES.has('G12.caught'), 'G12.caught went with D150');
+  assert.ok(rawLine(CONTENT.tutorial, 'G12.road'), 'G12.road has its content line');
   assert.ok(!MAP_LINES.has('G10') && !MAP_LINES.has('G3'));
   const data = { tutorial: { table: CONTENT.tutorial, num: { bellTolls: C.BELL_CHANNEL_TIME } } };
   assert.equal(closedRoadLine(data), rawLine(CONTENT.tutorial, 'G13.closed'));

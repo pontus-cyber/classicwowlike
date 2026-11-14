@@ -163,12 +163,15 @@
  *      the naming rule): the visible word counts of the first engage round and of the map at rest (under T_ENGAGE_MAX and
  *      T_MAP_MAX), the Furnace hidden until its coach line in a guided run and its one line, the Deathblow's one instruction
  *      in the turn prompt, the stopped line and its one status chip, the cards, the map's "Pass through" by mouse and by
- *      keyboard, the hub Trainer card, the Bell's ask, the loot rows: see partT. The parts before T now expect the texts
- *      of D150 (no opening ruler; "stopped", never "answered"; no par, Ascendancy or "the Star's line").
+ *      keyboard, the hub Trainer card, the Bell's ask, the loot rows, the first run's start camp (one contract, "Supplies"),
+ *      the trainer's window (its line, "Level N ·" only on spells not known, Train all with its cost): see partT. The parts
+ *      before T now expect the texts of D150 (no opening ruler; "stopped", never "answered"; no par, Ascendancy or "the
+ *      Star's line") and the engine's D150 moments (engine-2026-11-14d: G7 in fight 1, G3 and G9 silent, G8's own line in S3).
  *
  * D116 (the flip): new runs start on the expedition map with the start camp. The parts written for the classic map (A-L, O,
  * P) open the page with ?classic=1 (open() adds it unless the query names a map) and their Node twins pass mapMode 'rows';
- * part I's expedition run (?expedition=1) is the expedition without the start camp (twin prep: false); M and N use ?prep=1.
+ * part I's expedition run (?expedition=1) is the expedition without the start camp (twin prep: false); M and N use ?prep=1
+ * and (D150, a first run's board has one offer) a stored profile with one run behind it (M_PROFILE), so their board is full.
  *
  * Seeds were picked with the engine of 3559e0e (M2 v2): seed 30's first quest has two Guardians that last long
  * enough for the potion and Autoplay checks. M2 v3 (77c0ca5): seed 1's autoplay run no longer reaches the camp, so part B
@@ -1765,7 +1768,7 @@ async function partI(browser, W, H) {
       const card = page.locator('#screens .svc-card', { has: page.locator('.nm', { hasText: { trainer: 'Trainer', vendor: 'Vendor', inn: 'Inn' }[service] }) });
       // D150 item 22: a Trainer with nothing to teach (R.trainerView) is greyed with no toll label and no tooltip: no preview
       if (await card.evaluate((el) => el.classList.contains('off'))) {
-        const tv = R.trainerView(s); const idle = service === 'trainer' && !tv.useful && !(tv.learn || []).length && !(tv.train || []).length;
+        const tv = R.trainerView(s); const idle = service === 'trainer' && !tv.useful; // engine-2026-11-14d UI need 10: greyed while `useful` is false
         svc.push(`${service}: ${idle && !(await card.locator('.hrs').count()) ? 'idle, no toll: ok' : `greyed (trainerView ${JSON.stringify(tv)})`}`);
         continue;
       }
@@ -2820,7 +2823,13 @@ async function partL(browser, W, H) {
 // Every number on the prep screen, the tracker, the map's site marks and the hub offer is compared with a Node twin
 // that replays the page's engine log (R.step; R.debug for the Dev menu's build).
 const M_SEED = 7;
+/**
+ * D150 (engine-2026-11-14d, cut list item 15): a profile's first run offers one zone 1 contract; parts M and N check the
+ * full board (CONTRACT_BOARD_SIZE offers), so they play a later run: a stored profile with one run, the twin's the same.
+ */
+const M_PROFILE = () => ({ ...R.newProfile(), runs: 1, welcome: true });
 function mTwin(seed) {
+  const run = () => R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: 'expedition', prep: true, profile: M_PROFILE() });
   return {
     async sync(page) {
       const log = await page.evaluate(() => window.__ui.engineLog());
@@ -2828,14 +2837,14 @@ function mTwin(seed) {
       for (const a of log) {
         if (a.type === 'DEV' && a.fn === 'build') s = R.debug.build({ ...a.args[0], content: CONTENT }).state;
         else if (a.type === 'DEV') s = R.debug[a.fn](s, ...a.args).state;
-        else { if (!s) s = R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: 'expedition', prep: true }); s = R.step(s, a).state; }
+        else { if (!s) s = run(); s = R.step(s, a).state; }
       }
-      return s || R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: 'expedition', prep: true });
+      return s || run();
     },
   };
 }
 async function partM(browser, W, H) {
-  const { context, page, errors } = await open(browser, W, H, `seed=${M_SEED}&speed=instant&prep=1`);
+  const { context, page, errors } = await open(browser, W, H, `seed=${M_SEED}&speed=instant&prep=1`, M_PROFILE());
   const twin = mTwin(M_SEED);
   const T = await import('../../src/ui/ui-text.js');
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -2855,7 +2864,7 @@ async function partM(browser, W, H) {
     const ui0 = await page.evaluate(() => ({ phase: window.__ui.view().phase, bar: document.querySelector('#actionbar').classList.contains('hidden'), n: document.querySelector('#prep .pm-n') && document.querySelector('#prep .pm-n').textContent }));
     check('M-prep', `class select's Enter opens the start camp (phase ${ui0.phase}); a second Enter ${Math.round(age)} ms after it opened does not set out; no HUD around it`, ui0.phase === 'PREP' && s.phase === 'PREP' && ui0.bar && age != null && age < 700, JSON.stringify({ ...ui0, age }));
     const dom = () => page.evaluate(() => ({
-      left: document.querySelector('#prep .pm-n').textContent, reserve: document.querySelector('#prep .pm-rl').textContent,
+      left: document.querySelector('#prep .pm-n').textContent, rl: document.querySelectorAll('#prep .pm-rl').length,
       cards: [...document.querySelectorAll('#prep .pp-card')].map((b) => ({ zone: b.querySelector('.pc-zone').textContent, price: b.querySelector('.pc-price').textContent, do: b.querySelector('.pc-do').textContent, taken: b.classList.contains('taken') })),
       opts: [...document.querySelectorAll('#prep .pp-opt')].map((b) => ({ id: b.dataset.id, price: (b.querySelector('.pc-price') || {}).textContent || null, bought: b.classList.contains('bought'), owned: b.classList.contains('owned') })),
       held: document.querySelectorAll('#prep .pp-card.taken').length,
@@ -2865,7 +2874,8 @@ async function partM(browser, W, H) {
     const domDiff = (d, x) => {
       const out = [];
       if (d.left !== String(x.left)) out.push(`points left ${d.left} (engine ${x.left})`);
-      if (!d.reserve.includes(`${x.reserve.points} ${x.reserve.points === 1 ? 'point' : 'points'} = ${x.reserve.echoes} Echoes`)) out.push(`reserve "${d.reserve}" (engine ${x.reserve.points} = ${x.reserve.echoes})`);
+      // D150 item 15: no "Unspent: N points = N Echoes" line under the points (the points' tooltip has the Reserve)
+      if (d.rl) out.push('the "Unspent ... Echoes" line is back');
       if (d.cards.length !== x.board.length) out.push(`${d.cards.length} cards (engine ${x.board.length})`);
       if (d.opts.length !== x.options.length) out.push(`${d.opts.length} options (engine ${x.options.length})`);
       x.board.forEach((o, i) => { const c = d.cards[i]; if (!c || c.zone !== `Zone ${o.z}` || c.price !== String(o.price) || c.do !== doWant(o) || c.taken !== o.taken) out.push(`card ${i + 1} ${JSON.stringify(c)} (engine zone ${o.z}, ${o.price}, ${o.need}, taken ${o.taken})`); });
@@ -2874,7 +2884,12 @@ async function partM(browser, W, H) {
       return out;
     };
     let d = await dom();
-    check('M-prep', `the screen's numbers = R.prepView: ${pv.left} of ${pv.points} points left, ${pv.board.length} offers (zone, price, sites), ${pv.options.length} options, Reserve ${pv.reserve.points} = ${pv.reserve.echoes} Echoes`, same(await pagePrep(), JSON.parse(JSON.stringify(pv))) && !domDiff(d, pv).length, domDiff(d, pv).join(' | '));
+    // D150 item 15: the Reserve's Echoes are in the points' tooltip (no line under the points)
+    await page.locator('#prep .pm-points').hover(); await page.waitForTimeout(150);
+    const ptTip = await page.evaluate(() => { const t = document.querySelector('.tooltip'); return t && t.classList.contains('on') ? t.innerText.replace(/\u00a0/g, ' ') : ''; });
+    await page.mouse.move(2, 2);
+    const rWant = pv.reserve.points ? `(${pv.reserve.echoes} for the ${pv.reserve.points} ${pv.reserve.points === 1 ? 'point' : 'points'} left now)` : 'Unspent points become Reserve';
+    check('M-prep', `the screen's numbers = R.prepView: ${pv.left} of ${pv.points} points left, ${pv.board.length} offers (zone, price, sites), ${pv.options.length} options; the points' tooltip: Reserve ${pv.reserve.points} = ${pv.reserve.echoes} Echoes`, same(await pagePrep(), JSON.parse(JSON.stringify(pv))) && !domDiff(d, pv).length && ptTip.includes(rWant), [...domDiff(d, pv), ptTip.includes(rWant) ? '' : `tooltip "${ptTip}"`].filter(Boolean).join(' | '));
     // everything in view: Set out at the bottom right, every card and option uncut (BUG-QA-10)
     const goP = await placement(page.locator('#pp-go'));
     check('M-prep', 'Set out is in view at the bottom right, on top', fullyShown(goP) && goP.rect[2] > W * 0.8 && goP.rect[3] > H * 0.85, placeText(goP));
@@ -3188,7 +3203,7 @@ const fogOverlaps = (page) => page.evaluate(() => {
   return out;
 });
 async function partN(browser, W, H) {
-  const { context, page, errors } = await open(browser, W, H, `seed=${M_SEED}&speed=instant&prep=1`);
+  const { context, page, errors } = await open(browser, W, H, `seed=${M_SEED}&speed=instant&prep=1`, M_PROFILE());
   const twin = mTwin(M_SEED);
   const nextZone = CONTENT.zones[1].name;
   try {
@@ -3861,13 +3876,12 @@ const browser = await chromium.launch({ headless: true });
  * engine at Instant speed, a fresh profile (no stored profile, no hints). (1) Class select offers "Guided first run", on;
  * Enter starts the guided run (create.tutorial). The run is played through the UI on the engine's autoplay choices (AUTO)
  * to zone 2: after every step the coach line shows the engine's beat line (R.tutorialView `line`, content text with the
- * placeholders filled) and every beat line the engine opened appeared on the coach line, in the engine's order; G1-G4, G6,
- * G8, G9 and G12-G13 among them. D147 (the S3/S4 swap, spec 2.8): S3 is the wind-up fight, so G7 and G8 open in one step as
- * S3 starts, G8 on its joint line G8.withEngage and G7 waiting (line null until the next engage fight, which this route
- * does not play); G7 is then learned (ENGAGE) or its own line shows; G9 opens after G8, on Gorrak's node. The joint line in
- * S3's engage round: its ring on the engage panel's W button (the class's control option), a second marker on the wind-up
- * badge, the arrow at the button, one showing counted for each of H01 and H03. No coach line covers its anchor, its second
- * marker, the bar, the engage buttons, the Furnace, the target frame or Set out. Gorrak's node is barred until its script
+ * placeholders filled) and every beat line the engine opened appeared on the coach line, in the engine's order. D150
+ * (engine-2026-11-14d): G1, G2, G4-G8, G10, G12 (then G12.road) and G13 among them, G3 and G9 with no line; G7 opens in
+ * fight 1 and is learned there; S3 (the wind-up fight, D147) opens G8 on its own line: its ring on the wind-up badge, one
+ * showing of H03; the joint line G8.withEngage (G7 still open in S3's engage round) is no longer on the route; G9 opens
+ * after G8, on Gorrak's node. No coach line covers its anchor, the bar, the engage buttons, the Furnace, the target frame
+ * or Set out. Gorrak's node is barred until its script
  * (content elite.gate.afterScript, S3 since D143) has ended: its map tooltip shows the gate line with the fights still to come.
  * (2) Rescue: a loaded state with 1 HP in a guided-zone fight; passing until the hero falls gives the rescue banner with the
  * content's line and toll cost, full health, +ONB_RESCUE_TOLLS. (2b) D147: the same with ONB_RESCUE_MAX - 1 rescues behind:
@@ -3877,10 +3891,9 @@ const browser = await chromium.launch({ headless: true });
  * camp, once (not after a reload); Hints Off silences them. (5) The nudge after the first summary (a loaded 1 HP fight in
  * the normal run): the welcome line, Spend Echoes glowing with its line, the Hall's Packed Satchel highlighted with the
  * coach line and "Later". D142 (M3 3.7; playtest-2026-11-13 findings 2-5): (6) a Rogue's first guided fight on the
- * route the engine's autoplay plays (its bar order puts Severing Flourish, a finisher, in slot 1): G3 names the first bar
- * spell the view says can be cast now, with its key chip and the ring on that slot; the turn prompt's "Opening move" line
- * is hidden while the coach line is up and back once none is; a refused key shows its reason at once, by the spell's name,
- * with two notes on screen; G3's key plays the round. (7) a Mage's first engage round (normal run, hints on): H01 says
+ * route the engine's autoplay plays: D150 item 11, G7's line (key chips Q, W, E, its ring on the engage panel), not G3's;
+ * no turn prompt line in the engage round, with or without the coach line; a refused key shows its reason at once, by
+ * the spell's name, with two notes on screen; Q plays the engage round (ENGAGE, the strike option). (7) a Mage's first engage round (normal run, hints on): H01 says
  * "Open with Q then N, W or E" (N: the bar key of the first Pre-cast spell), the turn prompt hidden, Q then N pre-casts it;
  * then on to the fifth fight won: no hint shows a third time, each shown twice is stored seen with ONB_HINT_SHOWS
  * showings. (8) D147: a Rogue's S3 engage round: "Got it" on the joint line marks H01:rogue and H03 seen; following it (W,
@@ -3933,13 +3946,14 @@ async function partR(browser, W, H) {
       // as it first showed (S3's engage round): its ring, second marker and arrow, and the hints' store at that moment
       const beatEv = []; let joint = null; const jointLate = []; // D149 / engine-2026-11-14b finding 1: the joint line only in round 1
       for (; steps < 260; steps++) {
-        const st = await page.evaluate(() => { const v = window.__ui.view(); return { phase: v.phase, z: v.zone ? v.zone.idx : null, t: v.tutorial, cls: v.player ? v.player.classId : 'rogue', fight: !!(v.combat && !v.combat.over && !v.loot), map: v.phase === 'MAP' && !!(v.zone && v.zone.exp) && !v.node }; });
+        const st = await page.evaluate(() => { const v = window.__ui.view(); return { phase: v.phase, z: v.zone ? v.zone.idx : null, t: v.tutorial, cls: v.player ? v.player.classId : 'rogue', fight: !!(v.combat && !v.combat.over && !v.loot), map: v.phase === 'MAP' && !!(v.zone && v.zone.exp) && !v.node, contract: !!(v.loot && v.loot.kind === 'contract') }; });
         const t = st.t;
         // a fight's beat line waits while the quest's intro dialog is up (no fight on screen yet); a map line waits for the
         // map on screen (QA playtest 2026-11-13); a resting line (D141) waits for its trigger
         const FIGHT = ['G3', 'G6', 'G7', 'G8', 'G9', 'G11'];
         const MAPL = [...MAP_LINES]; // D143: G2 and G13.closed too (onboarding.js)
-        const open = t && !t.skipped && !t.ended ? (t.open || []).filter((o) => o.line && !o.rest && (st.fight || !FIGHT.includes(o.id)) && (st.map || !MAPL.includes(o.line))).map((o) => o.line) : [];
+        // D150 (engine-2026-11-14d UI need 5): "Contract done" waits for the contract's own window
+        const open = t && !t.skipped && !t.ended ? (t.open || []).filter((o) => o.line && !o.rest && (st.fight || !FIGHT.includes(o.id)) && (st.map || !MAPL.includes(o.line)) && (o.line !== 'G10.done' || st.contract)).map((o) => o.line) : [];
         for (const l of open) if (!engineLines.includes(l)) engineLines.push(l);
         c = await coach(page);
         // the coach line shows one of the engine's open beat lines (tutorialView.line, or the next once the engine rests it, D141), its content text
@@ -3954,20 +3968,22 @@ async function partR(browser, W, H) {
         if ((fresh.length || (c.shown && c.shown.kind === 'beat')) && !(c.shown && c.shown.kind === 'beat' && open.includes(c.shown.id) && c.shown.text === lineText(c.shown.id, st.cls, shownKeys))) bad.push(`step ${steps}: engine ${open.join('/')}, coach ${c.shown ? `${c.shown.id} "${c.shown.text}"` : 'none'}`);
         if (c.shown) { const o = await overlaps(page); if (o.length) layout.push(`${c.shown.id}: ${o.join(',')}`); }
         if (c.shown && c.shown.id === 'G3' && !(await page.evaluate(() => window.__shotG3))) { await page.evaluate(() => { window.__shotG3 = true; }); await shot(page, 'R-coach-fight'); }
-        if (st.fight && c.shown && c.shown.id === 'G8.withEngage') { const rd = await page.evaluate(() => window.__ui.view().combat.round); if (rd > 1) jointLate.push(`step ${steps} round ${rd}`); }
-        // D147 (spec 2.8 item 2): the joint line points at the engage panel's W button, with a second marker on the wind-up badge
-        if (!joint && st.fight && c.shown && c.shown.id === 'G8.withEngage') {
+        if (st.fight && c.shown && c.shown.id === 'G8.withEngage') jointLate.push(`step ${steps}: the joint line on the route`);
+        // D150 (engine-2026-11-14d): G7 is learned in fight 1, so S3 opens G8 on its own line: its ring on the wind-up badge
+        if (!joint && st.fight && c.shown && c.shown.id === 'G8') {
           await page.mouse.move(2, 2);
           joint = await page.evaluate(() => {
             const v = window.__ui.view(); const on = document.querySelector('.coach-on'); const also = document.querySelector('.coach-also'); const a = document.querySelector('#coach .co-arrow');
             const wu = v.combat.enemies.find((e) => e.alive && (e.track || []).some((x) => x.windup && !x.deathblow));
             const np = also ? also.closest('#nameplates .np') : null;
+            const onNp = on ? on.closest('#nameplates .np') : null;
             return { round: v.combat.round, enemies: v.combat.enemies.map((e) => e.name), windup: wu ? wu.idx : null, opts: v.combat.engage ? v.combat.engage.options.map((o) => `${o.key}:${o.id}`) : null,
-              ring: on ? { card: on.matches('#engage .eg-opt'), key: on.dataset.key || null, opt: on.dataset.opt || null } : null,
-              marker: also ? { badge: also.matches('#nameplates .wub:not(.db)') && !also.classList.contains('hidden'), idx: np ? Number(np.dataset.idx) : null, text: also.textContent } : null,
+              ring: on && on.matches('#engage .eg-opt') ? { key: on.dataset.key || null, opt: on.dataset.opt || null } : null,
+              on: on ? { badge: on.matches('#nameplates .wub:not(.db)') && !on.classList.contains('hidden'), idx: onNp ? Number(onNp.dataset.idx) : null, text: on.textContent } : null,
+              marker: also ? { badge: also.matches('#nameplates .wub:not(.db)'), text: also.textContent } : null,
               arrow: a ? a.className : null, text: window.__ui.coach().shown.text, store: window.__ui.coach().store };
           });
-          await shot(page, 'R-joint-line');
+          await shot(page, 'R-g8-line');
         }
         // Gorrak's gate (D138; D143: after S3): his node barred while its script is still to come; the map tooltip says how many fights are left
         if (t && t.elite && st.phase === 'MAP' && gate === null && t.elite.barred) {
@@ -3997,28 +4013,30 @@ async function partR(browser, W, H) {
       check('M3-R', `every beat line the engine opened showed on the coach line, in the order it opened (${engineLines.join(' > ')})`, reachedZ2 && !missing.length && order && !bad.length, `steps ${steps}, shown ${seq.join(' > ')}${missing.length ? ` | never shown: ${missing}` : ''}${bad.length ? ` | ${bad.slice(0, 4).join(' | ')}` : ''}`);
       const ids = new Set(engineLines.map((x) => x.split('.')[0]));
       const cls = await page.evaluate(() => (window.__ui.view().player || {}).classId || 'rogue');
-      // D147 (spec 2.8, 7.1.1; engine-2026-11-14 section 4): S3 is the wind-up fight since the S3/S4 swap, so G8 opens before
-      // Gorrak, with G7, in S3's engage round, on G8's joint line; G7 opens with its line waiting (null) until the next engage
-      // fight, which this route does not play: the joint line is the line that teaches it. G9 opens after G8, in Gorrak's fight
-      check('M3-R', 'G1-G4, G6, G8, G9, G12 and G13 among them, G8 on its joint line with G7 (spec 7.1.1, 2.8)',
-        ['G1', 'G2', 'G3', 'G4', 'G6', 'G8', 'G9', 'G12', 'G13'].every((x) => ids.has(x)) && engineLines.includes('G8.withEngage'), [...ids].join(','));
+      // D150 (engine-2026-11-14d section 2, the route): G1 at the camp, G5 at the hub, G2, G7 in fight 1 (learned there), G10,
+      // G12 once and later G12.road, G4 at S1's spoils, G6 in S2, G8 on its own line in S3, G13; G3 and G9 have no line
+      check('M3-R', 'G1, G2, G4-G8, G10, G12 (and G12.road) and G13 among them; no line for G3 or G9, G8 on its own line (D150)',
+        ['G1', 'G2', 'G4', 'G5', 'G6', 'G7', 'G8', 'G10', 'G12', 'G13'].every((x) => ids.has(x)) && !ids.has('G3') && !ids.has('G9') && !engineLines.includes('G8.withEngage') && engineLines.includes('G12.road'),
+        `${[...ids].join(',')} | ${engineLines.join(' > ')}`);
       const evOf = (id, what) => beatEv.find((e) => e.id === id && e.what === what) || null;
       const o7 = evOf('G7', 'open'); const o8 = evOf('G8', 'open'); const o9 = evOf('G9', 'open');
       const end7 = beatEv.find((e) => e.id === 'G7' && (e.what === 'done' || e.what === 'missed')) || null;
       const own7InS3 = beatEv.filter((e) => e.id === 'G7' && e.what === 'line' && e.line && e.next === 's3'); // tutorialView.next stays 's3' until S3 ends
-      check('M3-R', 'D147: G7 and G8 open in one step as S3 starts, G8 on the joint line and G7 waiting (null, no line of its own in S3); G7 then learned (ENGAGE) or its own line shown at the next engage fight; G9 opens later, on Gorrak\'s node',
-        !!o7 && !!o8 && o7.step === o8.step && o8.next === 's3' && o8.line === 'G8.withEngage' && o7.line === null && !own7InS3.length && ((!!end7 && end7.what === 'done') || firstShown.includes('G7'))
-        && !!o9 && o9.step > o8.step && o9.pos != null && o9.pos === o9.elite, JSON.stringify({ o7, o8, own7InS3, end7, o9 }));
+      check('M3-R', 'D150: G7 opens in fight 1 (site 1, before S1) on its own line and is learned there (ENGAGE); G8 opens as S3 starts on its own line; G9 opens later, on Gorrak\'s node, with no line',
+        !!o7 && o7.line === 'G7' && o7.next === 's1' && !!end7 && end7.what === 'done' && !!o8 && end7.step < o8.step && o8.next === 's3' && o8.line === 'G8' && !own7InS3.length
+        && !!o9 && o9.line == null && o9.step > o8.step && o9.pos != null && o9.pos === o9.elite, JSON.stringify({ o7, o8, own7InS3, end7, o9 }));
       // the joint line on screen (D147, engine-2026-11-14 UI need 2): the class's control option is the engage panel's W
       const ctl = R.C.ENGAGE_OPTIONS[cls][1];
       // D149: S3's wind-up comes on the Hexer's turn ONB_WINDUP_TURN, so the badge the second marker sits on reads that round
       const wuRound = `Wind-up R${R.C.ONB_WINDUP_TURN + 1}`;
-      check('D147-2', `G8's joint line in S3's engage round: "${lineText('G8.withEngage', cls)}"; its ring on the engage panel's W button (${ctl}), a second marker on the wind-up badge ("${wuRound}", D149), the arrow at the button`,
-        !!joint && joint.round === 1 && joint.text === lineText('G8.withEngage', cls) && !!joint.ring && joint.ring.card && joint.ring.key === 'W' && joint.ring.opt === ctl
-        && !!joint.marker && joint.marker.badge && joint.marker.idx === joint.windup && joint.marker.text.startsWith(wuRound) && !!joint.arrow && !/none/.test(joint.arrow), JSON.stringify(joint && { ...joint, store: undefined }));
-      check('D147-2', 'the joint line gives way after the engage round (engine-2026-11-14b section 3): never on the coach line from round 2', !!joint && !jointLate.length, jointLate.join(' | ') || 'none');
-      check('D147-2', `the joint line counts for both hints it stands in for: one showing of H01:${cls} and one of H03 (seen at ${ONB_HINT_SHOWS} or with Got it, part R (8))`,
-        !!joint && joint.store.shows[`H01:${cls}`] === 1 && joint.store.shows.H03 === 1, JSON.stringify(joint && { seen: joint.store.seen, shows: joint.store.shows }));
+      // D150: G8's own line in S3's engage round rings the wind-up badge (ANCHOR.G8); the D147 joint line (G7 still open in the
+      // same engage round) is not on the route any more (its case: part R (8)'s note); G8's line counts one showing of H03
+      check('D147-2', `G8's own line in S3's engage round (D150: G7 learned in fight 1): "${lineText('G8', cls)}"; its ring on the wind-up badge ("${wuRound}", D149) over the ${ctl} target, the arrow at it`,
+        !!joint && joint.round === 1 && joint.text === lineText('G8', cls) && !!joint.ring === false && !!joint.marker === false && !!joint.arrow && !/none/.test(joint.arrow) && !!joint.on && joint.on.badge && joint.on.idx === joint.windup && joint.on.text.startsWith(wuRound),
+        JSON.stringify(joint && { ...joint, store: undefined }));
+      check('D147-2', 'the joint line (G8.withEngage) never shows on the route (D150: G7 is learned before S3)', !jointLate.length && !c.log.some((x) => x.id === 'G8.withEngage'), jointLate.join(' | ') || 'none');
+      check('D147-2', `G8's line counts one showing of the hint it stands in for, H03 (H01:${cls} was G7's, in fight 1)`,
+        !!joint && joint.store.shows.H03 === 1, JSON.stringify(joint && { seen: joint.store.seen, shows: joint.store.shows }));
       check('M3-R', 'no coach line overlapped its anchor, the bar, the engage buttons, the Furnace, the target frame or Set out', !layout.length, layout.slice(0, 6).join(' | ') || 'none');
       const gateAt = Number(String(T.elite.gate.afterScript).replace(/\D/g, '')); // D143: 's3'
       check('M3-R', `Gorrak barred until S${gateAt}: the node is marked and its tooltip shows the gate line with the fights still to come`, !!gate && /barred/.test(gate.cls) && gate.tip.includes(fill(T.elite.gate.barredLine, { n: gate.left })), JSON.stringify(gate));
@@ -4217,16 +4235,17 @@ async function partR(browser, W, H) {
       await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle(page);
       await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
       let c = null;
-      for (let i = 0; i < 160; i++) { c = await coach(page); const v = await view(page); if (v.step === 'combat' && v.round === 1 && c.shown && c.shown.id === 'G3') break; await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
+      // D150 item 11 (engine-2026-11-14d): fight 1 shows G7's line ("Round 1 is yours ... Open with Q, W or E."); G3 has none
+      for (let i = 0; i < 160; i++) { c = await coach(page); const v = await view(page); if (v.step === 'combat' && v.round === 1 && c.shown && c.shown.id === 'G7') break; await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
       await page.mouse.move(2, 2);
       const fv = await page.evaluate(() => { const v = window.__ui.view(); return { round: v.combat && v.combat.round, bar: v.player.bar, legal: Object.fromEntries(Object.entries(v.legal.spells).map(([id, x]) => [id, { ok: x.ok, reason: x.reason || null }])) }; });
       const vk = await viewKeys(page); const key = vk.key_spell1;
       const ring = await page.evaluate(() => { const r = document.querySelector('.coach-on'); return r ? `${r.id || r.className.split(' ')[0]}:${r.dataset.slot ?? ''}` : null; });
       const k1 = await chips(page);
-      await shot(page, 'R-d142-rogue-g3');
-      check('D142-4b', `the Rogue's first guided fight: G3 names the first bar spell that can be cast now ("Press ${key}"; bar ${fv.bar.slice(0, 2).join(', ')}), its key chip and the ring on that slot`,
-        c.shown && c.shown.id === 'G3' && !!key && c.shown.text === lineText('G3', 'rogue', vk) && k1.join(',') === key && ring === `ab:${Number(key) - 1}` && fv.legal[fv.bar[Number(key) - 1]].ok,
-        `${JSON.stringify(c.shown)} chips ${k1} ring ${ring} legal ${JSON.stringify(fv.legal)}`);
+      await shot(page, 'R-d142-rogue-g7');
+      check('D142-4b', 'the Rogue\'s first guided fight (D150 item 11): G7\'s line, not G3\'s ("Press 1 to attack" contradicted the engage panel), key chips Q, W, E, its ring on the engage panel',
+        c.shown && c.shown.id === 'G7' && c.shown.text === lineText('G7', 'rogue', vk) && k1.join(',') === 'Q,W,E' && ring === 'engage:' && !c.log.some((x) => x.id === 'G3'),
+        `${JSON.stringify(c.shown)} chips ${k1} ring ${ring}`);
       const p1 = await tp(page);
       check('D142-2', 'while the coach line is up, the turn prompt\'s "Opening move" line is hidden (no second instruction)', p1.coach && p1.kind === 'engage' && !p1.shown, JSON.stringify(p1));
       // a key that is refused (the finisher: no combo point in round 1) answers at once with the engine's reason, by the spell's
@@ -4247,9 +4266,10 @@ async function partR(browser, W, H) {
       // stays out of the engage round with no coach line up too, and the panel's head is back
       const head2 = await page.evaluate(() => { const e = document.querySelector('#engage .eg-h'); return e && getComputedStyle(e).display !== 'none' ? e.textContent : null; });
       check('D142-2', 'with no coach line up: no turn prompt line in the engage round (D150 item 3), and the engage panel says "Free first move. They act from round 2."', cleared && p2.kind === 'engage' && !p2.shown && head2 === 'Free first move. They act from round 2.', JSON.stringify({ p2, head2 }));
-      await page.keyboard.press(`Digit${key}`); await idle(page);
+      await page.keyboard.press('KeyQ'); await idle(page);
       const after = await page.evaluate(() => { const v = window.__ui.view(); const log = window.__ui.engineLog(); return { round: v.combat ? v.combat.round : null, over: v.combat ? v.combat.over : null, last: log[log.length - 1] }; });
-      check('D142-4b', `the key G3 names (${key}) plays the round: CAST ${fv.bar[Number(key) - 1]}`, after.last && after.last.type === 'CAST' && after.last.spellId === fv.bar[Number(key) - 1] && (after.round > 1 || !!after.over), JSON.stringify(after));
+      const strike = R.C.ENGAGE_OPTIONS.rogue[0];
+      check('D142-4b', `the first key G7 names (Q) plays the engage round: ENGAGE ${strike}`, after.last && after.last.type === 'ENGAGE' && after.last.option === strike && (after.round > 1 || !!after.over), JSON.stringify(after));
     } catch (e) { await shot(page, 'R-error-6'); check('D142', 'part R (6, Rogue) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('D142', 'part R (6, Rogue): no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
@@ -4298,11 +4318,10 @@ async function partR(browser, W, H) {
     check('D142', 'part R (7, Mage, hints): no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
   }
-  // ---- (8) D147 (spec 2.8 item 2; engine-2026-11-14 UI need 2): a Rogue's S3 engage round on the guided route. "Got it" on
-  // G8's joint line marks both hints it stands in for seen (H01:rogue, H03); following the line, W (Sap) on the Hexer and
-  // then autoplay, learns G7 (ENGAGE) and G8 (its wind-up answered), with no "It landed" line; since D149 (the wind-up on
-  // the Hexer's turn 1) both in the W step itself. (The Rogue's autoplay alone opens with Ambush and kills the Hexer first:
-  // part R (1) learns G7 only.)
+  // ---- (8) D147 (spec 2.8 item 2; engine-2026-11-14 UI need 2), D150: a Rogue's S3 engage round on the guided route, G8
+  // on its own line (G7 was learned in fight 1). "Got it" on it marks H03 seen; following it, W (Sap) on the Hexer and then
+  // autoplay, G8 is learned (its wind-up stopped), with no "It landed" line; since D149 (the wind-up on the Hexer's turn 1)
+  // in the W step itself. (The Rogue's autoplay alone opens with Ambush and kills the Hexer first.)
   {
     const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&fresh=1', null, { guide: true, hints: true });
     try {
@@ -4310,13 +4329,14 @@ async function partR(browser, W, H) {
       await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle(page);
       await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
       let c = null;
-      for (let i = 0; i < 160; i++) { c = await coach(page); const v = await view(page); if (v.step === 'combat' && v.round === 1 && c.shown && c.shown.id === 'G8.withEngage') break; await auto(); }
+      // D150: S3 opens G8 on its own line (G7 was learned in fight 1)
+      for (let i = 0; i < 160; i++) { c = await coach(page); const v = await view(page); if (v.step === 'combat' && v.round === 1 && c.shown && c.shown.id === 'G8') break; await auto(); }
       const before = c.store;
       await page.mouse.move(2, 2);
       await page.locator('#coach .co-ok').click(); await idle(page);
       const st1 = (await coach(page)).store;
-      check('D147-2', 'Got it on the joint line marks both hints it stands in for seen: H01:rogue and H03 (one showing each, not seen, before)',
-        !!c.shown && c.shown.id === 'G8.withEngage' && before.shows['H01:rogue'] === 1 && before.shows.H03 === 1 && !before.seen['H01:rogue'] && !before.seen.H03 && st1.seen['H01:rogue'] === true && st1.seen.H03 === true,
+      check('D147-2', 'Got it on G8\'s own line marks the hint it stands in for seen: H03 (one showing, not seen, before)',
+        !!c.shown && c.shown.id === 'G8' && before.shows.H03 === 1 && !before.seen.H03 && st1.seen.H03 === true,
         `${JSON.stringify(c.shown)} before ${JSON.stringify({ seen: before.seen, shows: before.shows })} after ${JSON.stringify(st1.seen)}`);
       // follow the line: the enemy whose track shows the wind-up (the Hexer), targeted on its nameplate, then W
       const hex = await page.evaluate(() => { const e = window.__ui.view().combat.enemies.find((x) => x.alive && (x.track || []).some((y) => y.windup && !y.deathblow)); return e ? { idx: e.idx, name: e.name } : null; });
@@ -4331,14 +4351,14 @@ async function partR(browser, W, H) {
       const co = await coach(page);
       const log = await logLines(page);
       const ctl = R.C.ENGAGE_OPTIONS.rogue[1];
-      await shot(page, 'R-joint-followed');
-      check('D147-2', `following the joint line: W sends ENGAGE ${ctl} on the ${hex && hex.name}; G7 and G8 are then learned (its wind-up answered, staggered), no "It landed" line`,
+      await shot(page, 'R-g8-followed');
+      check('D147-2', `following G8's line: W sends ENGAGE ${ctl} on the ${hex && hex.name}; G7 (fight 1) and G8 are then learned (its wind-up stopped, staggered), no "It landed" line`,
         !!sent && sent.type === 'ENGAGE' && sent.option === ctl && sent.target === hex.idx && t.learned.includes('G7') && t.learned.includes('G8') && !co.log.some((x) => x.id === 'G8.landed')
         && log.some((x) => /^Wind-up stopped/.test(x)), `${JSON.stringify(sent)} learned ${t.learned} lines ${co.log.filter((x) => x.kind === 'beat').map((x) => x.id).join(',')}`);
       check('D147-2', 'D149: W answers the wind-up in its own step: the stagger in the log and G7 and G8 learned before the next action',
         !!sent && wStep.learned.includes('G7') && wStep.learned.includes('G8') && wLog.some((x) => /^Wind-up stopped/.test(x)), `${JSON.stringify(wStep)} log ${JSON.stringify(wLog.slice(-4))}`);
-    } catch (e) { await shot(page, 'R-error-8'); check('D147-2', 'part R (8, the joint line followed) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
-    check('D147-2', 'part R (8, the joint line followed): no console errors', errors.length === 0, errors.join(' | '));
+    } catch (e) { await shot(page, 'R-error-8'); check('D147-2', 'part R (8, G8\'s line followed) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('D147-2', 'part R (8, G8\'s line followed): no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
   }
 }
@@ -4884,7 +4904,7 @@ async function partS(browser, W, H) {
       const hit = R.spellInfo(s1, 'gutting_jab', ti).hit;
       await page.locator(`#actionbar button.ab[data-slot="${gj}"]`).hover(); await page.waitForTimeout(150);
       const jTip = await tipOn(page); await page.mouse.move(2, 2);
-      const wantHit = `Hit chance on ${s1.fight.enemies[ti].name}: ${Math.round(hit * 100)} %`;
+      const wantHit = `Hit chance on ${['elite', 'rare', 'boss', 'dboss'].includes(s1.fight.enemies[ti].kind) ? '' : 'the '}${s1.fight.enemies[ti].name}: ${Math.round(hit * 100)} %`; // D150: "the Hedge Ogre"
       check('D144-11', `a spell's tooltip gives its hit chance on the target: "${wantHit}" (R.spellInfo hit)`, typeof hit === 'number' && !!jTip && jTip.includes(wantHit), JSON.stringify(jTip));
       let tr2 = null;
       for (let i = 0; i < 60 && !tr2; i++) {
@@ -4986,6 +5006,11 @@ async function partT(browser, W, H) {
       const cs = await page.evaluate(() => ({ seed: !!document.querySelector('#create .bottom .seedf:not(.hidden)'), echoes: !!document.querySelector('#create .bottom .echoes:not(.hidden)'), guide: !!document.querySelector('#create .bottom .guide:not(.hidden)') }));
       check('D150-naming', 'class select on a first run: no Seed field and no Echoes button; the guide toggle shown', !cs.seed && !cs.echoes && cs.guide, JSON.stringify(cs));
       await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      // D150 item 15: the first run's start camp: one contract (zone 1, engine), the heading "Supplies" with no subline, no
+      // "Unspent ... Echoes" line under the points
+      const camp = await page.evaluate(() => ({ board: window.__ui.view().prep.board.length, cards: [...document.querySelectorAll('#prep .pp-card')].map((b) => b.dataset.zone), shop: (document.querySelector('#prep .pp-shop .pp-lab') || {}).textContent || null, sub: !!document.querySelector('#prep .pp-shop .pp-sub'), rl: !!document.querySelector('#prep .pm-rl') }));
+      check('D150-15', 'the first run\'s start camp: one contract card, of zone 1 (R.prepView); the heading "Supplies", no subline; no "Unspent ... Echoes" line', camp.board === 1 && camp.cards.length === 1 && camp.cards[0] === '1' && camp.shop === 'Supplies' && !camp.sub && !camp.rl, JSON.stringify(camp));
+      await shot(page, 'T1-camp');
       const furnaceBefore = []; let furnaceAt = null; let hub = null; let map = null; let engage = null; let elite = null; let elite2 = null; let stopped = null; let map2 = null;
       for (let i = 0; i < 320; i++) {
         const st = await page.evaluate(() => {
@@ -4997,11 +5022,12 @@ async function partT(browser, W, H) {
         });
         if (st.z >= 2) break;
         // D150 item 1: the Furnace waits for its coach line (G5, or H16) in a guided first run
-        if (st.phase !== 'PREP' && st.phase !== 'CREATE') {
+        // (engine D150 item 12: G5 opens at zone 1's first hub screen, so the steps before it are the start camp's)
+        if (st.phase !== 'CREATE') {
           if (!st.furnaceShown && !st.g5done) furnaceBefore.push({ i, phase: st.phase, on: st.heatOn });
           else if (!furnaceAt && st.coach && (st.coach === 'G5' || st.coach === 'H16')) {
             const hv = await page.evaluate(() => window.__ui.view().heat);
-            furnaceAt = { i, coach: st.coach, on: st.heatOn, line: await heatLine(page), want: want(hv), row2: await page.locator('#heat .ht-row2').count(), segText: await page.evaluate(() => [...document.querySelectorAll('#heat .ht-seg')].map((x) => x.textContent).join('')), anchor: await page.evaluate(() => !!document.querySelector('#heat.coach-on')) };
+            furnaceAt = { i, phase: st.phase, coach: st.coach, on: st.heatOn, line: await heatLine(page), want: want(hv), row2: await page.locator('#heat .ht-row2').count(), segText: await page.evaluate(() => [...document.querySelectorAll('#heat .ht-seg')].map((x) => x.textContent).join('')), anchor: await page.evaluate(() => !!document.querySelector('#heat.coach-on')) };
             await shot(page, 'T1-furnace-line');
           }
         }
@@ -5196,6 +5222,28 @@ async function partT(browser, W, H) {
         else await auto(page);
       }
       check('D150-19', 'loot rows: no "(already in your purse)", "Earned in this fight" or "in your bags"; gear says "item level N"', !!loot && !/purse|Earned in this fight|in your bags|ilvl/.test(loot.text) && loot.gear.every((n) => loot.text.includes(`item level ${n}`)), loot && loot.text);
+      // D150 item 21 (engine-2026-11-14d UI need 9): the trainer's line; "Level N ·" only on spells not yet known; Train all
+      // with what it spends in all (the ranks, then the new spells the gold covers: the engine's dry TRAIN_ALL). Set up: a
+      // zone 2 hub at level 12, one known spell a rank behind, one spell of the level not known, gold for both
+      await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 2, level: 12, mapMode: 'expedition', prep: true })); await idle(page);
+      const s0 = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT);
+      const cls0 = Object.keys(s0.player.spells).filter((id) => R.C.SPELL[id] && R.C.SPELL[id].source === 'class' && R.C.SPELL[id].lvl > 1 && R.C.SPELL[id].lvl <= 12);
+      const forget = cls0[cls0.length - 1]; const behind = Object.keys(s0.player.spells).find((id) => id !== forget && R.C.SPELL[id].source === 'class');
+      delete s0.player.spells[forget]; s0.player.bar = s0.player.bar.map((x) => (x === forget ? null : x)); if (s0.player.spellOrder) s0.player.spellOrder = s0.player.spellOrder.filter((x) => x !== forget);
+      s0.player.spells[behind].tl = 10; s0.player.gold = 5000000;
+      await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s0)); await idle(page);
+      await page.evaluate(() => window.__ui.act({ type: 'HUB_SERVICE', service: 'trainer' })); await idle(page);
+      const s1 = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT);
+      const dry = s1.player.gold - R.step(s1, { type: 'TRAIN_ALL' }).state.player.gold;
+      const tr = await page.evaluate(() => {
+        const w = document.querySelector('#screens .svc'); const b = [...w.querySelectorAll('button')].find((x) => /^Train all/.test(x.textContent));
+        return { sub: (w.querySelector('.subtitle') || {}).textContent || '', rows: [...w.querySelectorAll('.trow')].map((r) => ({ nm: r.querySelector('.nm').textContent, meta: r.querySelector('.meta').textContent })), btn: b ? { text: b.textContent, money: !!b.querySelector('.money') } : null, cost: window.__ui.view().legal.trainAllCost };
+      });
+      const knownNames = Object.keys(s1.player.spells).map((id) => R.C.SPELL[id].name);
+      const badRows = tr.rows.filter((r) => (knownNames.includes(r.nm) ? /^Level \d+ ·/.test(r.meta) : !/^Level \d+ ·/.test(r.meta)));
+      check('D150-21', `the trainer: "Train spells to bring them up to your level."; "Level N ·" only on spells not known (${tr.rows.length} rows); Train all with its cost, the engine's dry TRAIN_ALL (${dry} copper: a rank and ${R.C.SPELL[forget].name})`,
+        tr.sub === 'Train spells to bring them up to your level.' && tr.rows.length > 0 && !badRows.length && !!tr.btn && tr.btn.money && tr.cost === dry && dry > 0, JSON.stringify({ sub: tr.sub, badRows, btn: tr.btn, cost: tr.cost, dry }));
+      await shot(page, 'T2-trainer');
     } catch (e) { await shot(page, 'T2-error'); check('T-2', 'part T2 (not guided) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('T-2', 'part T2: no console errors', errors.length === 0, errors.join(' | '));
     await context.close();

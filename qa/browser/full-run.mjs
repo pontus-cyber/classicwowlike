@@ -8,9 +8,10 @@
  *        [--map expedition|classic] [--shots /tmp/qa/shots] [--json /tmp/qa/full-run.json] [--quiet]
  *
  * --map (D116): expedition (the default) plays the game's default run, the expedition map with the start camp: the
- * start camp (contract cards, supply and sight cards, Set out), the hub's contract offer, the fog map's nodes and moves
- * list (enter, walk, pass), the Road and the Bell, all by their controls, on the engine's default choices out of combat
- * (policy.mjs expAction: autoplay's start camp, hub and map policies), policy.mjs otherwise. classic plays the classic map
+ * start camp (contract cards, supply and sight cards, Set out), the hub's contract offer, the fog map's nodes (enter,
+ * walk, and D150: Pass through offered on the hovered node), the Road and the Bell, all by their controls, on the
+ * engine's default choices out of combat (policy.mjs expAction: autoplay's start camp, hub and map policies), policy.mjs
+ * otherwise. classic plays the classic map
  * (?classic=1, mapMode 'rows') on policy.mjs as before.
  *
  * For every size and class: a fresh browser profile, one full run from class select to the run summary,
@@ -316,7 +317,7 @@ async function playOne(browser, W, H, cls) {
       case 'LEAVE': return click(button('Done'), 'Done');
       case 'LEARN': return click(page.locator('.svc .trow', { has: page.locator('.nm', { hasText: new RegExp(`^${C.SPELL[a.spellId].name}$`) }) }).getByRole('button', { name: 'Learn' }), `Learn ${a.spellId}`);
       case 'TRAIN': return click(page.locator('.svc .trow', { has: page.locator('.nm', { hasText: new RegExp(`^${C.SPELL[a.spellId].name}$`) }) }).getByRole('button', { name: /^Train to/ }), `Train ${a.spellId}`);
-      case 'TRAIN_ALL': return click(button('Train all'), 'Train all');
+      case 'TRAIN_ALL': return click(button(/^Train all/), 'Train all'); // D150 item 21: "Train all · <cost>"
       case 'BUY': return click(page.locator('.vendor-cols > div').nth(0).locator('.trow').nth(a.index).getByRole('button', { name: 'Buy' }), `Buy ${a.index}`);
       case 'SELL': {
         const idx = p.bag.findIndex((b) => b.uid === a.itemId);
@@ -334,11 +335,12 @@ async function playOne(browser, W, H, cls) {
         if (a.mode === 'reserve') return click(page.locator('.hubc [data-hub="reserve"]'), 'hub contract Take');
         await click(page.locator('.hubc [data-hub="swap"]'), 'hub contract Swap');
         return click(page.locator(`.hubc .hc-give[data-contract="${a.contractId}"]`), `hub contract give up ${a.contractId}`);
-      // the fog map (expedition.md 9.2): a node click enters or walks (MOVE); Pass is in the moves list; the Road and the Bell
+      // the fog map (expedition.md 9.2): a node click enters or walks (MOVE); Pass through is offered on the node while it is
+      // hovered (D150 items 6-10: no Moves list; "Pass through (1 toll)" beside the node); the Road and the Bell
       case 'MOVE': return click(page.locator(`#screens .expmap .mnode[data-node="${a.nodeId}"]`), `map node ${a.nodeId}`);
       case 'PASS_THROUGH': {
-        const i = R.mapView(s).moves.findIndex((m) => m.nodeId === a.nodeId);
-        return click(page.locator('#screens .expmoves .em').nth(i).getByRole('button', { name: /^Pass · / }), `pass through ${a.nodeId}`);
+        await page.locator(`#screens .expmap .mnode[data-node="${a.nodeId}"]`).hover();
+        return click(page.locator(`#screens .expmap .xpass.on[data-node="${a.nodeId}"]`), `pass through ${a.nodeId}`);
       }
       case 'TAKE_ROAD': case 'RING_BELL': {
         await click(page.locator(`#screens .expmap [data-leave="${a.type}"]`), a.type === 'TAKE_ROAD' ? 'Take the Road' : 'Ring the Bell');

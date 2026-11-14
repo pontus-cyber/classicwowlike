@@ -75,7 +75,9 @@ test('item 24: a stopped Deathblow or wind-up is one sentence; "hit it now" only
 test('item 22: the hub Trainer with nothing to teach is idle (greyed, no toll): "Next spell at level N."', () => {
   assert.equal(trainerIdle({ trainer: { learn: [], train: [], next: 4, useful: false } }), true);
   assert.equal(trainerMeta({ trainer: { learn: [], train: [], next: 4, useful: false } }), 'Next spell at level 4.');
-  assert.equal(trainerIdle({ trainer: { learn: [{ id: 'x' }], train: [], next: 6, useful: false } }), false, 'a lesson the gold does not cover: still open');
+  // engine-2026-11-14d UI need 10: greyed whenever the gold covers nothing (a visit would buy nothing)
+  assert.equal(trainerIdle({ trainer: { learn: [{ id: 'x' }], train: [], next: 6, useful: false } }), true, 'a lesson the gold does not cover: greyed too');
+  assert.equal(trainerMeta({ trainer: { learn: [{ id: 'x' }], train: [], next: 6, useful: false } }), 'Its lessons cost more gold than you have.');
   assert.equal(trainerIdle({ trainer: { useful: true } }), false);
   assert.equal(trainerIdle({ trainer: null }), false, 'no view: as before');
 });
@@ -102,7 +104,7 @@ test('item 2: Gorrak\'s engage round (guided seed 8736, Rogue): the prompt is "R
   assert.equal(text(deathblowPrompt({ ...w, ready: false }, { list: [], when: 'now' }, v, ctx)), `Round ${w.round}: ${w.name}, about ${w.est}. No answer ready: kill it first or brace for it.`);
 });
 
-test('section 7: a finisher\'s damage line says "per combo point" out of a fight and "at N combo points" with N held', () => {
+test('section 7, item 17: one damage line; out of a fight "per combo point", in one the engine\'s estimate on the target "with N combo points"', () => {
   const b = createBridge({ seed: 8736 });
   b.dispatch({ type: 'START_RUN' });
   const d0 = b.describeSpell('severing_flourish');
@@ -112,6 +114,30 @@ test('section 7: a finisher\'s damage line says "per combo point" out of a fight
   for (let i = 0; i < 60 && !s.fight; i++) Object.assign(s, R.step(s, R.autoAction(s)).state);
   assert.ok(s.fight, 'a fight');
   s.fight.p.cp = 3; b.testLoad(R.serialize(s));
-  const d3 = b.describeSpell('severing_flourish');
-  assert.ok(d3.lines.some((l) => /at 3 combo points\.$/.test(l)), JSON.stringify(d3.lines));
+  const s3 = R.deserialize(b.serialized(), CONTENT);
+  const tgt = s3.fight.enemies.findIndex((e) => e.hp > 0);
+  const est = R.spellInfo(s3, 'severing_flourish', tgt).est;
+  const d3 = b.describeSpell('severing_flourish', tgt);
+  // engine-2026-11-14d UI need 11: spellInfo est (after level, crits and armour) on the target, the total at amount.cp points
+  assert.ok(typeof est === 'number' && d3.lines.includes(`Deals about ${est} physical damage to the ${s3.fight.enemies[tgt].name} with 3 combo points.`), JSON.stringify({ est, lines: d3.lines }));
+  assert.equal(d3.lines.filter((l) => /damage/.test(l)).length, 1, 'one damage line');
+});
+
+test('section 7 (engine-2026-11-14d UI need 17): the spoils\' experience is the whole fight\'s, the sum of the XP it floated', () => {
+  // the real bridge on a normal run (seed 7, no guide): AUTO until the spoils of a fight with two or more enemies; the
+  // fight's xp events (each kill's in its own step; a quest's, story's or contract's show on their own windows)
+  const b = createBridge({ seed: 7 });
+  b.dispatch({ type: 'START_RUN' });
+  let sum = 0; let n = 0; let found = null;
+  for (let i = 0; i < 400 && !found; i++) {
+    const r = b.dispatch({ type: 'AUTO' }); assert.ok(r.ok, `step ${i}`);
+    for (const e of r.events) {
+      if (e.t === 'fightStart') { sum = 0; n = e.enemies.length; }
+      if (e.t === 'xp' && !['quest', 'story', 'contract'].includes(e.why)) sum += e.amount;
+    }
+    const v = b.view;
+    if (v.loot && v.loot.kind === 'loot' && n >= 2) found = { xp: v.loot.xp, sum, n };
+  }
+  assert.ok(found, 'spoils of a fight with two or more enemies');
+  assert.equal(found.xp, found.sum, JSON.stringify(found));
 });
