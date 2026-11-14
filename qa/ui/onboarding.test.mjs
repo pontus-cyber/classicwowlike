@@ -76,9 +76,9 @@ test('the store as a new profile has it: off, seen, nudge, shows, stats', () => 
   assert.deepEqual(stored().shows, {});
 });
 
-test('D142 (4): the content lines the view keys fill (G3, G7, H01) use {key_spell1} and {key_engage1}', () => {
+test('D142 (4): the content lines the view keys fill (G7, H01) use {key_engage1}; D150: G3 has no line (fight 1 shows G7\'s)', () => {
   const T = CONTENT.tutorial;
-  assert.match(rawLine(T, 'G3', 'rogue'), /\{key_spell1\}/);
+  assert.equal(rawLine(T, 'G3', 'rogue'), null);
   assert.match(rawLine(T, 'G7', 'mage'), /\{key_engage1\}/);
   assert.match(rawLine(T, 'H01', 'mage'), /\{key_engage1\}/);
 });
@@ -87,7 +87,8 @@ test('D142 (4b): G3 names the first bar spell that can be cast now (a finisher i
   const rogue = fightView(['severing_flourish', 'gutting_jab'], ['gutting_jab'], { options: [{ id: 'ambush', spells: null, reason: null }] });
   assert.equal(attackSlot(rogue, SPELLS), 1);
   assert.deepEqual(lineKeys(rogue, SPELLS), { key_spell1: '2' });
-  const parts = lineParts(rawLine(CONTENT.tutorial, 'G3', 'rogue'), {}, { ...KEYS, ...lineKeys(rogue, SPELLS) });
+  // D150: no content line names {key_spell1} any more (G3's went); the key logic is checked on its former line
+  const parts = lineParts('Press {key_spell1} to attack. Bring their health to zero.', {}, { ...KEYS, ...lineKeys(rogue, SPELLS) });
   assert.equal(text(parts), 'Press 2 to attack. Bring their health to zero.');
   assert.deepEqual(chips(parts), ['2']);
   // the class's start order (Gutting Jab in slot 1): key 1, as before

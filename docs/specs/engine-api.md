@@ -877,7 +877,7 @@ points stay, then (D133) Field Draughts when AUTO_PREP_RESERVE points still stay
 before D133: Field Draughts first, then the contracts, no Ember; the hub contract from Reserve when it can; its map policy
 does not seek sites.
 
-## 14. The guided first run (M3; docs/specs/m3-onboarding.md 2, 4.2, 5 E1-E10; D135, D137, D138, D141, D142, D147, D149)
+## 14. The guided first run (M3; docs/specs/m3-onboarding.md 2, 4.2, 5 E1-E10; D135, D137, D138, D141, D142, D147, D149, D150)
 `newRun({ tutorial: true })` (the expedition map with the start camp; `src/engine/tutorial.js`) plays the profile's guided first
 run. Zones 2-6 and everything after the guide are the normal rules. A run without the option is unchanged run for run
 (qa/engine/s18 golden check). The balance bots never set it. Numbers: `C.TUTORIAL_SEED` and `C.ONB_*` (m3-onboarding.md 12).
@@ -954,7 +954,8 @@ run. Zones 2-6 and everything after the guide are the normal rules. A run withou
   `{rescuesLeft}` = `tutorialView` `rescueMax` - `rescues` after it (the ONB_RESCUE_MAX-th rescue shows `guide.rescueCapLine`
   instead); `guide.skipLine` on `guideSkipped` without `why` (SKIP_GUIDE). (draft, engine-2026-11-14c) `guide.roadsOpenLine`
   when the guided zone's Roads open: `tutorialView.roads.closed` true, then false in the same zone (after Gorrak's fight,
-  SKIP_GUIDE, the ONB_RESCUE_MAX-th rescue or the fallback of spec 2.3).
+  SKIP_GUIDE, the ONB_RESCUE_MAX-th rescue or the fallback of spec 2.3); (D150, draft) the fact only, "The Roads are open.":
+  G12's line `G12.road` ("Take a Road to leave.") gives the instruction at that moment.
 - `SKIP_GUIDE`: `tutorial.skipped`; open beats close as missed; event `guideSkipped`; no rescue from then on; Gorrak's node
   and (D142) the Roads open; the zone, its streams and its overlay stay. Refused after the guide has ended (an engine choice;
   spec E4 says "while not skipped").
@@ -975,21 +976,22 @@ run. Zones 2-6 and everything after the guide are the normal rules. A run withou
 
 ### 14.4 Beats (spec 2.4; content `beats`)
 The engine opens and closes G1-G13 from the action, its events and the state, while the guide runs; the UI shows `line`
-(content: `<id>` = the beat's `line`, `<id>.<key>` = `alt[key]` or `byClass[key]`) and adds its own queue, pace and "Got it".
+(content: `<id>` = the beat's `line`, `<id>.<key>` = `alt[key]`; D150: `byClass` went with G9's class lines) and adds its own
+queue, pace and "Got it". D150 (owner text pass; the moments are draft engine choices): the rows marked (D150).
 | Beat | Opens (line) | Closes |
 |---|---|---|
-| G1 | START_RUN (`G1`) | SET_OUT: learned with a contract held; else missed and G10 `skip` (the "press again" line `G1.noContract` is the UI's) |
+| G1 | START_RUN (`G1`); (D150) after each PREP step its line is null while a contract is held, `G1` while none is | SET_OUT: learned with a contract held; else missed and G10 `skip` (the "press again" line `G1.noContract` is the UI's) |
 | G2 | first MAP at zone 1's hub | learned on MOVE or PASS_THROUGH |
-| G3 | the first fight's round 1; again at the next fight while open | learned on a won fight; a rescue or flight leaves it open (line null) |
-| G4 | the first gear loot in the guided zone | learned on EQUIP; missed when the next fight ends |
-| G5 | the first map step after G4's | learned on the next map action (MOVE, PASS_THROUGH, TAKE_ROAD, RING_BELL, USE_SPYGLASS) |
+| G3 | the first fight's round 1; (D150) line null always (fight 1 shows G7's line) | learned on a won fight; a rescue or flight leaves it open |
+| G4 | (D150) the first `loot` of a gear upgrade (`itemScore` above the equipped item's in its slot: the UI's green arrow) in a step that is not CHOOSE_REWARD, LOOT_TAKE, LOOT_TAKE_ALL, LOOT_EQUIP, BUY or SET_OUT (a fight's or a chest's spoils, never a reward screen) | learned on EQUIP; missed when the next fight ends |
+| G5 | (D150) the first hub screen of zone 1 (phase ZONE_HUB after SET_OUT) | learned on the next map action (MOVE, PASS_THROUGH, TAKE_ROAD, RING_BELL, USE_SPYGLASS) |
 | G6 | the first fight with a heavy or cast entry on a track | at its end: learned if a heavy cost 0 HP (`offBalance` `avoided`), else missed (hovering is the UI's) |
-| G7 | the first engage fight with 2 or more enemies; (D147) opening in the same engage round as G8 (S3): line null, G8 carries the joint line | learned on ENGAGE; shown again at the next engage fight (ONB_ENGAGE_SHOWS), then missed |
+| G7 | (D150) the first fight with an engage round (fight 1; was the first with 2 or more enemies); (D147) opening in the same engage round as G8: line null, G8 carries the joint line (not on the guided route since D150) | learned on ENGAGE; shown again at the next engage fight (ONB_ENGAGE_SHOWS), then missed |
 | G8 | the first fight with a non-Deathblow wind-up; (D147) `G8.withEngage` when G7 opens in the same engage round (content `alt.withEngage`, spec 2.8); (draft, ui-2026-11-14 finding 1) from round 2 of the fight, `G8.withEngage` and `G8` become `G8` while a non-Deathblow wind-up can still come (on a living enemy's track after its current turn, or its intent this turn), else null (the winding-up enemy dead, or its wind-up's turn played); (draft, engine-2026-11-14c, spec 2.8 item 8) and only while `windupView` lists at least one answer to that wind-up (its `answers`: bar answers off cooldown by its round, or the PASS answer), else null; a null line becomes `G8` again in a later step when an answer does; `G8.landed` stays until the fight ends | learned on its `stagger` ((D149) S3's: in the step of an engage-round control on the Hexer); landed: `G8.landed`, open for ONB_BEAT_RETRIES more, then missed; the enemy dead before its wind-up: open (line null), missed at the guide's end |
-| G9 | the first fight with a Deathblow (`G9.<class>`) | learned on a Deathblow's `stagger`; landed: `G9.landed`, the class line again at the next Deathblow fight |
-| G10 | (D142) on the map with nothing open, a held contract's site mark first in view (as `mapView` shows it: `sites`), never at the hub screen (`G10`) | first site won: line null; complete: `G10.done`; learned at the CHOOSE_REWARD that takes its reward |
+| G9 | the first fight with a Deathblow; (D150) line null (the UI's prompt bar gives the answer) | learned on a Deathblow's `stagger`; landed: `G9.landed` until the fight ends |
+| G10 | (D150, draft) the first fight on a held contract's site (`fight.tut.kind` 'site'), line null; from round 2 of a site fight to its end `G10`, once: a site fight in which it was the top line ends it (null for good; one it never topped leaves the next site fight its turn) | the contract complete (`contract` what 'complete', zone 1) and its reward set the current one (`node.rewards[0].contract`): `G10.done`; learned at the CHOOSE_REWARD that takes its reward |
 | G11 | in a fight, HP < ONB_POTION_HP of max with a healing potion on the item bar | learned on USE_ITEM of it; missed when the fight ends |
-| G12 | the first node dims, or the front within ONB_DIM_NEAR_HOPS of the player | `G12.caught` at a Dimmed encounter; at the guide's end learned if zone 1 had none |
+| G12 | the first node dims, or the front within ONB_DIM_NEAR_HOPS of the player (`G12`); (D150, draft) once that line rests and the zone's Roads are open (`roadsShut` false): `G12.road` | (D150) no line at a Dimmed encounter (`G12.caught` went); at the guide's end learned if zone 1 had none |
 | G13 | on the map: on a Road (`G13.onRoad`), or ONB_BELL_HOPS+ hops from every Road with the node dimming within ONB_BELL_DIM tolls (`G13`); (D142) while the Roads are closed: at either moment or once Gorrak's node is open, `G13.closed` | learned on TAKE_ROAD or RING_BELL; (D142) when the Roads open (any phase: the fight that opens them ends in a node) `G13.closed` becomes null, then the moments above set their line (the far line only while the line is null) |
 Beats still open when the guide ends close (G12, G13 as above; the rest missed); SKIP_GUIDE closes them as missed.
 
@@ -1000,9 +1002,11 @@ been shown C.ONB_LINE_STEPS (2) steps, unlearned, rests when another open beat h
 A resting beat stays open and can still be learned or closed; its line comes back (count from 0) when the beat's line
 changes (`beat` what `line`), or when its trigger fires again: G12 when the front comes within ONB_DIM_NEAR_HOPS of the
 player after a step on which it was not (`beat` what `line` with the same line). (D142) A trigger brings a resting line
-back at most C.ONB_LINE_RETURNS (1) times per zone; after that it does nothing (no event, the count is not reset). The
-UI shows `line` and needs no step rule of its own. G13 is last by priority, so it never rests: `G13.closed` is the line
-whenever no other open beat has a line that is not resting.
+back at most C.ONB_LINE_RETURNS times per zone (D150: 0, was 1); after that it does nothing (no event, the count is not
+reset). (D150, draft, the Dimming line once) G12's steps as the top line count only on a map step (phase MAP, no node,
+fight or loot window), and after C.ONB_LINE_STEPS of them it rests also when no other open beat has a line; `G12.road`
+brings it back once, by the same rule. The UI shows `line` and needs no step rule of its own. G13 is last by priority,
+so it never rests: `G13.closed` is the line whenever no other open beat has a line that is not resting.
 
 ### 14.5 Profile, welcome and summary (E6, E7)
 - `profile.guide`: `'todo'` (new profiles), `'done'` or `'skipped'`: END_RUN of a guided run sets `'done'`, or `'skipped'`

@@ -1,11 +1,13 @@
 // Content table: the guided first run (docs/specs/m3-onboarding.md 2.3 overlay, 2.4 beats, 2.6-2.7 guide lines, 3.2
 // first-time hints, 4.3 nudge; D135, D137). The authored overlay for zone 1 on TUTORIAL_SEED 8736 (board slot 1, Cull
 // site fights, scripted fights S1-S4 with the wind-up fight third (D145 fix, D147), Gorrak's encounter and the gate that
-// holds him back until S3 has been fought, D143), the 13 coach lines (D142: G13.closed while the Roads wait for Gorrak's
-// fight; D147: G8's joint line with G7), the guide's lines (rescue, rescues left, skip, Roads open, end, hub welcome), the 37 hint
-// lines and the Packed Satchel nudge. Status: draft (owner approval pending). Shape: src/content/SCHEMA.md 2.11. Plain
-// data only; levels, counts and every rule number are constants (spec section 12). Lines hold {placeholders} the UI
-// fills (SCHEMA.md 2.11): key names from its key map, numbers from C.
+// holds him back until S3 has been fought, D143), the 13 beats' coach lines (D142: G13.closed while the Roads wait for
+// Gorrak's fight; D147: G8's joint line with G7; D150: G3 and G9 have none before a landed Deathblow), the guide's lines
+// (rescue, rescues left, skip, Roads open, end, hub welcome), the 37 hints (D150: H04, H12 and H34 retired, line null) and
+// the Packed Satchel nudge. D150 (owner text pass 2026-11-14, docs/feedback/2026-11-14-blind-wording.md 2 and 4): the
+// approved cut-list lines, each instruction once; new lines are draft. Shape: src/content/SCHEMA.md 2.11. Plain data
+// only; levels, counts and every rule number are constants (spec section 12). Lines hold {placeholders} the UI fills
+// (SCHEMA.md 2.11): key names from its key map, numbers from C.
 
 export const TUTORIAL = {
   seed: 8736, // TUTORIAL_SEED as accepted in D137; the engine reads C.TUTORIAL_SEED, this is a cross-check only
@@ -32,7 +34,7 @@ export const TUTORIAL = {
   // D145 fix (m3-onboarding.md 2.8, draft; D147): S3 and S4 swapped, so the wind-up fight comes before Gorrak's gate (after
   // s3): G7 and G8 come in S3, before Gorrak; S4 (the Ogre and the Wolf) has no beat of its own (G7's "If not" may show).
   scripts: [
-    { id: 's1', beat: 'G3', teaches: 'Attack with the bar and win; then loot.', quest: 'q_z1_guide_rooted_rows',
+    { id: 's1', beat: 'G4', teaches: 'Win and loot: its fixed upgrade shows the green arrow.', quest: 'q_z1_guide_rooted_rows',
       enemies: [{ enemy: 'z1_furrow_boar' }],
       loot: { upgrade: 'uncommon', consumable: 'healing_draught' } }, // count: ONB_LOOT_POTIONS
     { id: 's2', beat: 'G6', teaches: 'Read the intent track: Heavy Smash shows two moves ahead.', quest: 'q_z1_guide_hedge_breaker',
@@ -73,32 +75,37 @@ export const TUTORIAL = {
   // longer be fought (spec 2.3), so it does not name him; it replaces the UI's own ROADS_OPEN_LINE.
   // hubLine / hubTrainerLine (D144, draft, Core Gameplay Engineer 2026-11-13): the welcome at a zone hub, any run; the
   // trainer line only while R.trainerView(state).useful (a lesson or a rank the gold covers), else the plain line. Both
-  // blind testers paid a toll for "Visit the trainer" at level 1 with nothing to learn. {zone}: the zone's name.
+  // blind testers paid a toll for "Visit the trainer" at level 1 with nothing to learn. {zone}: the zone's name. D150 (cut
+  // list item 22, draft): neither repeats the trainer card ("Next spell at level 4") or the Set out button.
+  // roadsOpenLine (D150, draft): the fact only; G12.road ("Take a Road to leave.") is the instruction at that moment.
   guide: {
     rescueLine: 'The Bellwrights pull you back ({rescueTolls} tolls).',
     rescueCapLine: 'That was the last rescue: the guide ends here, and from now on a death ends the run.',
     rescueLeftLine: 'Rescues left before the guide ends: {rescuesLeft}.',
     skipLine: 'You skip the guide: new things get one hint each.',
-    roadsOpenLine: 'The Roads are open: take one when you are ready for the next zone.',
+    roadsOpenLine: 'The Roads are open.',
     endLine: 'The guide ends here. New things get one hint each.',
-    hubLine: 'Welcome to {zone}. Nothing to learn at the trainer yet: set out when ready.',
-    hubTrainerLine: 'Welcome to {zone}. Visit the trainer for new spells or ranks, then set out.',
+    hubLine: 'Welcome to {zone}.',
+    hubTrainerLine: 'Welcome to {zone}. The trainer has something new for you.',
   },
 
-  // The 13 beats (spec 2.4). line: the coach line; alt: the beat's other one-line states; byClass: the class line
-  // (G9); hint: the first-time hint the beat stands in for (spec 3.1).
+  // The 13 beats (spec 2.4). line: the coach line (null: none); alt: the beat's other one-line states; hint: the
+  // first-time hint the beat stands in for (spec 3.1). (byClass, the class lines of G9, went with D150.)
   beats: [
     { id: 'G1', name: 'Contracts', hint: 'H23', anchor: 'board slot 1',
-      line: 'Take a contract: win its sites for extra XP and a reward.',
+      line: 'Take a contract: win its fights for extra XP and a reward.',
       alt: { noContract: 'Set out with no contract? Press Set out again.' } },
     { id: 'G2', name: 'Moving', hint: 'H15', anchor: "player's node",
       line: 'Click a lit node next to you to walk there.' },
-    { id: 'G3', name: 'First fight', anchor: 'bar slot 1',
-      line: 'Press {key_spell1} to attack. Bring their health to zero.' },
+    // G3 (D150 item 11): no line; fight 1 shows G7's ("Press 1 to attack" contradicted the engage panel). The engine
+    // still tracks the first fight won.
+    { id: 'G3', name: 'First fight', anchor: null, line: null },
+    // G4 (D150 item 18, draft): only when a loot row has the green arrow, never on a reward screen
     { id: 'G4', name: 'Loot', hint: 'H11', anchor: 'loot window',
-      line: '{key_take_all} takes all. A green arrow marks an upgrade: equip it in your bags ({key_bags}).' },
+      line: 'Green arrow means upgrade. Equip it in your bags {key_bags}.' },
+    // G5 (D150 item 12, draft): at the first hub (it came five tolls late and named the bar's geometry)
     { id: 'G5', name: 'The Furnace', hint: 'H16', anchor: 'the Furnace',
-      line: "The Furnace: each step costs tolls. Stay left of the Star's line." },
+      line: 'Every move costs tolls. Spend too many and the final boss gets stronger.' },
     { id: 'G6', name: 'Intents', hint: 'H02', anchor: "enemy's track",
       line: 'Its next three moves, in order. The big one is marked.' },
     { id: 'G7', name: 'Engage round', hint: 'H01', anchor: 'engage panel',
@@ -112,27 +119,28 @@ export const TUTORIAL = {
         landed: 'It landed: that enemy hits harder until it dies.',
         withEngage: 'Round 1 is yours: open with {key_engage2} on the wind-up and it is weakened all fight.',
       } },
-    // byClass (D144, draft, Core Gameplay Engineer 2026-11-13): no turn number. "on turn 2" (its own turn) read against
-    // the round labels everywhere else ("Deathblow R3", "round 3"); the badge the line points at shows the round.
+    // G9 (D150, cut list item 2, draft): no line before it lands. The Deathblow's answer is said once, in the UI's prompt
+    // bar ("Sap now [W], then Pass [X]"); the class lines (D144) were its fifth copy.
     { id: 'G9', name: 'Deathblow', hint: 'H04', anchor: 'Deathblow badge',
-      byClass: {
-        rogue: 'This Deathblow maims you if it lands. Sap it ({key_engage2}), then wait a round ({key_pass}).',
-        mage: 'This Deathblow maims you if it lands. Freeze it: Binding Glyph ({key_engage2}).',
-        hunter: 'This Deathblow maims you if it lands. Trap it ({key_engage2}): the trap springs on it.',
-      },
       alt: { landed: 'Maimed: your healing is halved this fight. Drink early.' } },
+    // G10 (D150, draft): its line once, from round 2 of a site fight; G10.done when the contract's reward choice is up
     { id: 'G10', name: 'Contract sites', hint: 'H20', anchor: 'site badge',
       line: 'Contract site: win this fight to count it.',
       alt: { done: 'Contract done: choose one reward.' } },
     { id: 'G11', name: 'Potions', hint: 'H09', anchor: 'item slot',
       line: 'Low health: drink a Healing Draught ({key_item1}). It uses your turn.' },
+    // G12 (D150 item 13, draft): its line once (the purple star is the Shardfall's icon on the map); road: once its line
+    // has been shown and the Roads are open (they are closed until Gorrak's fight). The caught line is gone: there was
+    // nowhere to walk.
     { id: 'G12', name: 'The Dimming', hint: 'H18', anchor: 'dark wash nearest the player',
-      line: 'The Dimming spreads from the Shardfall. Leave by a Road before it reaches you.',
-      alt: { caught: 'In the dark: walk away from the Shardfall.' } },
+      line: 'The dark spreads from the purple star. Places it reaches are lost.',
+      alt: { road: 'Take a Road to leave.' } },
     // closed (D142, draft, Core Gameplay Engineer 2026-11-13): while the guided zone's Roads stay closed until Gorrak's
     // fight has ended; anchor: Gorrak's node (tutorialView.roads.node).
+    // G13: D150 (section 7, the Bell's cost): no toll count; a Dimmed node adds a fight and its tolls, so the Bell's own
+    // tooltip says what it costs
     { id: 'G13', name: 'Homeward Bell', hint: 'H19', anchor: 'Bell or Road button',
-      line: 'Far from a Road? Ring the Homeward Bell: it takes you to the next hub in {bellTolls} tolls.',
+      line: 'Far from a Road? Ring the Homeward Bell to reach the next hub.',
       alt: {
         onRoad: 'On a Road: take it to the next zone. Keep the Bell for when no Road is near.',
         closed: 'Face Gorrak first: the Roads open once his fight is over.',
@@ -140,12 +148,13 @@ export const TUTORIAL = {
   ],
 
   // The 37 first-time hints (spec 3.2). perClass: seen per class (spec 3.1). sameAs: the line is that beat's line
-  // (H04: the class lines of G9; H19: both lines of G13).
+  // (H19: both lines of G13). retired (D150): no line (null); the UI shows nothing for it.
   hints: [
     { id: 'H01', system: 'Engage round', perClass: true, line: 'Round 1 is yours: they act from round 2. Open with {key_engage1}, {key_engage2} or {key_engage3}.' },
     { id: 'H02', system: 'Intent track', line: 'Above each enemy: its next three moves, in order.' },
     { id: 'H03', system: 'Wind-up', line: 'Wind-up: stop it with {key_engage2}, an interrupt or a stun, and it is weakened all fight.' },
-    { id: 'H04', system: 'Deathblow', perClass: true, sameAs: 'G9' },
+    // H04 (D150): retired, no line: the UI's prompt bar gives the Deathblow's answer
+    { id: 'H04', system: 'Deathblow', perClass: true, line: null, retired: 'D150' },
     // alt.shield (D144, draft): the target's shield would absorb a whole hit (R.offBalance(...).absorbs): the big hit goes
     // into the shield (casual s0193: a crit for 0, 88 absorbed), so the line says to break the shield first
     { id: 'H05', system: 'Off-balance', line: 'Off-balance: it takes +{offbalPct}% damage. Spend your big hit now.',
@@ -155,14 +164,15 @@ export const TUTORIAL = {
     { id: 'H08', system: 'DoT preview', line: 'The marked end of a health bar is what damage over time will still take.' },
     { id: 'H09', system: 'Potions', line: 'Low health: drink a Healing Draught ({key_item1}). It uses your turn.' },
     { id: 'H10', system: 'Free potion', line: 'Packed Satchel: your first potion each fight costs no turn, at half strength.' },
-    { id: 'H11', system: 'Loot', line: '{key_take_all} takes all. A green arrow marks an upgrade: equip it in your bags ({key_bags}).' },
-    { id: 'H12', system: 'Trainer', line: 'New spell ranks: train them at a hub or a Trainer node.' },
+    { id: 'H11', system: 'Loot', line: 'Green arrow means upgrade. Equip it in your bags {key_bags}.' },
+    // H12 (D150): retired, no line: the level-up banner names what is new at the trainer
+    { id: 'H12', system: 'Trainer', line: null, retired: 'D150' },
     { id: 'H13', system: 'Spell bar', line: 'Drag your new spell onto the bar (spellbook, {key_spellbook}).' },
     { id: 'H14', system: 'Talents', line: 'Talent point: spend it in Talents ({key_talents}).' },
     { id: 'H15', system: 'Fog', line: 'You see the nodes next to you. Walking shows more.' },
-    { id: 'H16', system: 'The Furnace', line: "The Furnace: each step costs tolls. Stay left of the Star's line." },
-    { id: 'H17', system: 'Heat pays', line: 'Burning: more XP, gold and better drops, but the end boss grows stronger.' },
-    { id: 'H18', system: 'The Dimming', line: 'The Dimming spreads from the Shardfall. Leave by a Road before it reaches you.' },
+    { id: 'H16', system: 'The Furnace', line: 'Every move costs tolls. Spend too many and the final boss gets stronger.' },
+    { id: 'H17', system: 'Burning', line: 'Burning: more XP, gold and better drops, but the final boss gets stronger.' },
+    { id: 'H18', system: 'The Dimming', line: 'The dark spreads from the purple star. Places it reaches are lost.' },
     { id: 'H19', system: 'Homeward Bell', sameAs: 'G13' },
     { id: 'H20', system: 'Contract site', line: 'Contract site: win this fight to count it.' },
     { id: 'H21', system: 'Contract done', line: 'Contract done: choose one reward.' },
@@ -178,8 +188,9 @@ export const TUTORIAL = {
     { id: 'H31', system: 'Autoplay', line: '{key_autoplay} lets autoplay fight for you. It answers Deathblows too.' },
     { id: 'H32', system: 'Flee', line: 'You can flee ({key_flee}). The node stays open for later.' },
     { id: 'H33', system: 'Pet', perClass: true, line: 'Your pet fights beside you and draws some of the blows.' },
-    { id: 'H34', system: 'Stealth', perClass: true, line: 'You start hidden: openers work only from stealth.' },
-    { id: 'H35', system: 'The Camp', line: 'The Camp: last stop before the Unlit Star. Spend your gold here.' },
+    // H34 (D150 item 11): retired, no line (it showed with no opener owned; the naming rule's word is Stealth)
+    { id: 'H34', system: 'Stealth', perClass: true, line: null, retired: 'D150' },
+    { id: 'H35', system: 'The Camp', line: 'The Camp: last stop before Oruvath. Spend your gold here.' },
     { id: 'H36', system: 'End boss', line: 'No engage round here: read its schedule above it.' },
     { id: 'H37', system: 'Hall of Echoes', line: 'Echoes buy lasting unlocks. They stay when a run ends.' },
   ],

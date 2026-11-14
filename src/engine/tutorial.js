@@ -8,7 +8,9 @@
 // health, ONB_RESCUE_TOLLS; D147: it lands on the map with no fight started, and the ONB_RESCUE_MAX-th rescue ends the
 // guide), and the 13 beats G1-G13 are tracked from the actions, events and state (`beat` events, tutorialView; D147: G7
 // and G8 opening in one engage round share G8's joint line, which gives way after the engage round, draft; spec 2.8
-// item 8, draft: from round 2 G8's own line only while windupView lists an answer). Leaving zone 1 ends the guide.
+// item 8, draft: from round 2 G8's own line only while windupView lists an answer; D150, the owner's text pass, draft
+// where new: G7 at fight 1, G3 and G9 without a line, G1, G4, G5, G10 and G12 at one moment each, G12.road). Leaving zone 1
+// ends the guide.
 // Pure helpers of the state; nodes.js, combat.js, damage.js, contracts.js, actions.js and autoplay.js call them. A run
 // without the option never reaches any of it.
 import {
@@ -16,7 +18,7 @@ import {
   ONB_RESCUE_TOLLS, ONB_RESCUE_MAX, ONB_BEAT_RETRIES, ONB_POTION_HP, ONB_BELL_HOPS, ONB_BELL_DIM, ONB_DIM_NEAR_HOPS,
   ONB_ENGAGE_SHOWS, ONB_BEATS, ONB_BEAT_PRIORITY, ONB_LINE_STEPS, ONB_LINE_RETURNS, CONTRACT, SLOT_IDS, RARITY, ILVL_MAX, CONSUMABLE,
 } from '../constants.js';
-import { zoneRegions, hops, frontAt, zoneTime, dimAt, dimmedNow, knowledge, siteView } from './expedition.js';
+import { zoneRegions, hops, frontAt, zoneTime, dimAt, dimmedNow, knowledge } from './expedition.js';
 import { itemScore, makeFixedGear, makeConsumable } from './items.js';
 import { windupView } from './answers.js';
 
@@ -300,15 +302,26 @@ function again(t, ev, id) {
   if (b.line) ev.push({ t: 'beat', id, what: 'line', line: b.line });
 }
 /**
+ * Lines shown once (D150, the Dimming line once, draft): after ONB_LINE_STEPS steps as the top line such a line rests
+ * even when no other open beat has a line; it comes back only when the engine changes its line (G12.road).
+ */
+const ONCE_LINES = new Set(['G12']);
+/** Map lines (D150, draft): their steps as the top line count only on a map step, the screen the UI shows them on. */
+const MAP_COUNTED = new Set(['G12']);
+/** A map step: on an expedition map with no node, fight or loot window open (the UI shows map lines then). */
+const mapStep = (s) => s.phase === 'MAP' && !s.node && !s.fight && !(s.loot && s.loot.length);
+/**
  * The coach line yields (spec 2.5, D141), after every action while the guide runs: the top line (the open beat with a line,
  * not resting, by ONB_BEAT_PRIORITY) that has already been the top line for ONB_LINE_STEPS steps rests when another open
- * beat has a line, and the next one is the top line; the top line counts this step. A resting beat stays open (it can
- * still be learned) and its line comes back when the engine opens it anew, changes its line or its trigger fires again.
+ * beat has a line (D150: a ONCE_LINES line also alone), and the next one is the top line; the top line counts this step
+ * (D150: a MAP_COUNTED line only on a map step). A resting beat stays open (it can still be learned) and its line comes
+ * back when the engine opens it anew, changes its line or its trigger fires again (at most ONB_LINE_RETURNS times, 0 since
+ * D150).
  */
-function yieldLines(t) {
+function yieldLines(s, t) {
   const cands = ONB_BEAT_PRIORITY.filter((id) => isOpen(t, id) && t.beats[id].line && !t.beats[id].rest);
-  while (cands.length > 1 && t.beats[cands[0]].shown >= ONB_LINE_STEPS) t.beats[cands.shift()].rest = true;
-  if (cands.length) t.beats[cands[0]].shown += 1;
+  while (cands.length && t.beats[cands[0]].shown >= ONB_LINE_STEPS && (cands.length > 1 || ONCE_LINES.has(cands[0]))) t.beats[cands.shift()].rest = true;
+  if (cands.length && (!MAP_COUNTED.has(cands[0]) || mapStep(s))) t.beats[cands[0]].shown += 1;
 }
 function close(t, ev, id, learned) {
   const b = t.beats[id];
@@ -346,7 +359,7 @@ export function tutorialAfter(s, ev, a) {
   const t = s.tutorial;
   if (!t) return;
   refreshOverlay(s);
-  if (!t.skipped && !t.ended) { trackBeats(s, ev, a); yieldLines(t); }
+  if (!t.skipped && !t.ended) { trackBeats(s, ev, a); yieldLines(s, t); }
   if (!t.ended && s.zone && (s.zone.camp || s.zone.z > 1)) {
     t.ended = true;
     const rec = s.stats.exp ? s.stats.exp.zones.find((r) => r.z === 1) : null;
@@ -360,20 +373,32 @@ export function tutorialAfter(s, ev, a) {
   }
 }
 
+/** A gear item the UI marks with the upgrade arrow (its itemScore above the equipped item's in its slot; screens.js). */
+const isUpgrade = (s, it) => !!(it && it.kind === 'gear' && itemScore(it, s.player.classId) > itemScore(s.player.equipped[it.slot], s.player.classId));
+/** Steps whose loot is not a fight's or a chest's spoils (D150, G4: never a reward screen; not the loot window's own moves). */
+const NOT_SPOILS = new Set(['CHOOSE_REWARD', 'LOOT_TAKE', 'LOOT_TAKE_ALL', 'LOOT_EQUIP', 'BUY', 'SET_OUT']);
+/** A held contract's site fight of the guided zone (the overlay's role 'site', tutorial.js fightOverlay). */
+const siteFight = (f) => !!(f && f.tut && f.tut.kind === 'site');
+/** The reward set up now is a contract's (its item choice; m3-onboarding.md 2.4 G10, D150: the line waits for it). */
+const contractRewardUp = (s) => !!(s.node && s.node.stage === 'reward' && s.node.rewards && s.node.rewards[0] && s.node.rewards[0].contract);
+
 /**
  * The beats of spec 2.4 as the engine sees them: a beat opens (`beat` event what 'open', with its coach line id) on its
  * trigger, can change its line ('line'), and closes learned ('done') or not ('missed'). Line ids: the beat id for its
- * line, `<id>.<key>` for content's `alt` / `byClass` lines (G8.landed, G8.withEngage, G9.<class>, G9.landed, G10.done,
- * G12.caught, G13.onRoad, G13.closed); a line of null: open, waiting for its moment. A beat's hover-only learning (G6) is
- * the UI's.
+ * line, `<id>.<key>` for content's `alt` lines (G8.landed, G8.withEngage, G9.landed, G10.done, G12.road, G13.onRoad,
+ * G13.closed); a line of null: open, waiting for its moment. A beat's hover-only learning (G6) is the UI's. D150 (owner
+ * text pass, draft where the rule is new): G3 has no line (fight 1 shows G7's), G9 none (the UI's prompt bar gives the
+ * Deathblow's answer), G1's line goes once a contract is held, G4 opens on an upgrade in a fight's or a chest's spoils, G5
+ * at the first hub, G7 at the first engage fight, G10 from round 2 of a site fight, G12 once and then G12.road.
  */
 function trackBeats(s, ev, a) {
   const t = s.tutorial;
   const has = (type, fn) => ev.some((e) => e.t === type && (!fn || fn(e)));
   const now = new Set();
   const op = (id, line, n) => { open(t, ev, id, line, n); now.add(id); };
-  // G1: the start camp
+  // G1: the start camp; D150 (verdict "stays after the action"): its line waits (null) while a contract is held
   if (a.type === 'START_RUN' && s.phase === 'PREP') op('G1', 'G1');
+  if (s.phase === 'PREP' && isOpen(t, 'G1') && !now.has('G1')) setLine(t, ev, 'G1', s.exp.contracts.some((c) => c.state === 'held') ? null : 'G1');
   if (a.type === 'SET_OUT' && isOpen(t, 'G1')) {
     const held = s.exp.contracts.filter((c) => c.state === 'held').length;
     close(t, ev, 'G1', held > 0);
@@ -389,6 +414,8 @@ function trackBeats(s, ev, a) {
   if (!inZone1(s)) return;
   const f = s.fight;
   const ended = has('victory') || has('fled') || has('rescue');
+  // G5 (D150 item 12, draft): at the first hub of zone 1 (the hub screen after SET_OUT), before any map step
+  if (!fired(t, 'G5') && s.phase === 'ZONE_HUB') op('G5', 'G5');
   // In a fight: what the step showed
   if (isOpen(t, 'G6') && has('offBalance', (e) => e.why === 'avoided')) t.beats.G6.n = 1;
   if (isOpen(t, 'G8')) {
@@ -413,34 +440,50 @@ function trackBeats(s, ev, a) {
   // its own line follows the same rule, and comes back when an answer does (for example a cooldown over). 'G8.landed'
   // stays until the fight ends
   if (f && !ended && f.round >= 2 && isOpen(t, 'G8') && t.beats.G8.line !== 'G8.landed') setLine(t, ev, 'G8', windupAnswerable(s) ? 'G8' : null);
+  // G10 (D150, "Contract site" once, draft): opens (line null) when the first held site's fight starts; its line from round 2
+  // of a site fight to the end of that fight (the engage round's line is G7's in fight 1), once: a site fight in which it
+  // was the top line ends it (null); one it never topped (won in the engage round) leaves the next site fight its turn.
+  // Then 'G10.done' once the contract's reward choice is up (not at the contract's completion, three screens earlier)
   if (isOpen(t, 'G10')) {
     const b = t.beats.G10;
-    if (has('contract', (e) => e.what === 'complete' && e.z === 1)) { b.n = 1; setLine(t, ev, 'G10', 'G10.done'); }
-    else if (b.n === 1 && a.type === 'CHOOSE_REWARD' && !(s.node && s.node.rewards && s.node.rewards.some((r) => r.contract))) close(t, ev, 'G10', true);
-    else if (b.n === 0 && has('contract', (e) => e.what === 'site')) setLine(t, ev, 'G10', null);
+    if (has('contract', (e) => e.what === 'complete' && e.z === 1)) b.n = 1;
+    if (b.n === 1) {
+      if (a.type === 'CHOOSE_REWARD' && b.line === 'G10.done' && !(s.node && s.node.rewards && s.node.rewards.some((r) => r.contract))) close(t, ev, 'G10', true);
+      else if (b.line !== 'G10.done' && contractRewardUp(s)) setLine(t, ev, 'G10', 'G10.done');
+      else if (b.line === 'G10') setLine(t, ev, 'G10', null);
+    } else if (!b.had) {
+      const up = siteFight(f) && !ended && f.round >= 2;
+      if (!up && b.line === 'G10' && b.shown > 0) b.had = true;
+      setLine(t, ev, 'G10', up ? 'G10' : null);
+    }
   }
   // A fight ended
   if (ended) {
-    if (isOpen(t, 'G3')) { if (has('victory')) close(t, ev, 'G3', true); else setLine(t, ev, 'G3', null); }
+    if (isOpen(t, 'G3') && has('victory')) close(t, ev, 'G3', true);
     if (isOpen(t, 'G6')) close(t, ev, 'G6', t.beats.G6.n > 0);
     if (isOpen(t, 'G8')) setLine(t, ev, 'G8', null);
     if (isOpen(t, 'G9')) setLine(t, ev, 'G9', null);
     if (isOpen(t, 'G11')) close(t, ev, 'G11', false);
     if (isOpen(t, 'G4') && s.stats.fights > t.beats.G4.n) close(t, ev, 'G4', false);
   }
-  // G4: the first item of gear looted in the guided zone (S1's or a site's); missed when the next fight ends
-  if (!fired(t, 'G4') && has('loot', (e) => e.item && e.item.kind === 'gear')) op('G4', 'G4', s.stats.fights);
+  // G4 (D150 item 18, draft): the first upgrade (the UI's green arrow) in a fight's or a chest's spoils in the guided zone,
+  // never from a reward choice; missed when the next fight ends
+  if (!fired(t, 'G4') && !NOT_SPOILS.has(a.type) && has('loot', (e) => isUpgrade(s, e.item))) op('G4', 'G4', s.stats.fights);
   // A fight started (its round 1)
   if (f && has('fight')) {
     const entries = f.enemies.flatMap((e) => e.track || []);
-    if (!fired(t, 'G3')) op('G3', 'G3');
-    else if (isOpen(t, 'G3')) setLine(t, ev, 'G3', 'G3');
+    // G3 (D150 item 11): no line; learned when the first fight is won
+    if (!fired(t, 'G3')) op('G3', null);
     if (!fired(t, 'G6') && entries.some((x) => x.heavy || x.cast)) op('G6', 'G6');
+    if (!fired(t, 'G10') && siteFight(f)) op('G10', null);
     const windup = entries.some((x) => x.windup && !x.deathblow);
-    const g7 = !!f.engage && !fired(t, 'G7') && f.enemies.length >= 2;
-    // D147 (spec 2.8, the D145 fix): G7 and G8 opening in one engage round (S3) share G8's joint line 'G8.withEngage';
+    // D150 item 11 (draft): G7's line is fight 1's (the first fight with an engage round, any number of enemies); it was the
+    // first engage fight with 2 or more enemies, two fights late
+    const g7 = !!f.engage && !fired(t, 'G7');
+    // D147 (spec 2.8, the D145 fix): G7 and G8 opening in one engage round share G8's joint line 'G8.withEngage';
     // G7 opens with its line waiting (null): the joint line is its first showing, its own line comes at the next engage
-    // fight (ONB_ENGAGE_SHOWS). Each is learned as before (any ENGAGE; the wind-up answered)
+    // fight (ONB_ENGAGE_SHOWS). Each is learned as before (any ENGAGE; the wind-up answered). Since D150 G7 opens at the
+    // first fight, which has no wind-up on the guided route, so S3 opens G8 on its own line
     const joint = g7 && windup && !fired(t, 'G8');
     if (f.engage) {
       if (g7) op('G7', joint ? null : 'G7', 1);
@@ -450,18 +493,17 @@ function trackBeats(s, ev, a) {
       if (!fired(t, 'G8')) op('G8', joint ? 'G8.withEngage' : 'G8');
       else if (isOpen(t, 'G8')) setLine(t, ev, 'G8', 'G8');
     }
-    if (entries.some((x) => x.deathblow)) {
-      const line = `G9.${s.player.classId}`;
-      if (!fired(t, 'G9')) op('G9', line);
-      else if (isOpen(t, 'G9')) setLine(t, ev, 'G9', line);
-    }
+    // G9 (D150, the Deathblow's answer in one line only: the UI's prompt bar): no coach line until it lands
+    if (entries.some((x) => x.deathblow) && !fired(t, 'G9')) op('G9', null);
   }
   // G11: low health with a healing potion on the item bar, in a fight
   if (f && !fired(t, 'G11') && s.player.hp < ONB_POTION_HP * s.player.d.maxHp && s.player.itemBar.some((id) => healPotion(id) && s.player.bag.some((x) => x.kind === 'cons' && x.id === id))) op('G11', 'G11');
   const zone = s.zone;
-  // G12: the first node dims, or the front is within ONB_DIM_NEAR_HOPS of the player; caught by a Dimmed encounter. While
-  // open, the front coming within ONB_DIM_NEAR_HOPS again (it was not on the last step) is its trigger again (D141), which
-  // brings a resting line back at most ONB_LINE_RETURNS times (D142, `again`)
+  // G12: the first node dims, or the front is within ONB_DIM_NEAR_HOPS of the player. While open, the front coming within
+  // ONB_DIM_NEAR_HOPS again (it was not on the last step) is its trigger again (D141), which brings a resting line back at
+  // most ONB_LINE_RETURNS times (D142, `again`; 0 since D150: the Dimming line once). D150 (draft): no line for a Dimmed
+  // encounter (G12.caught is gone: there was nowhere to walk); once its line has rested and the Roads are open, its line is
+  // G12.road (shown once too)
   if (!zone.dimOff && (!fired(t, 'G12') || isOpen(t, 'G12'))) {
     const front = frontAt(zoneTime(s));
     const near = front >= 0 && front >= zone.shardDist[zone.pos] - ONB_DIM_NEAR_HOPS;
@@ -472,20 +514,17 @@ function trackBeats(s, ev, a) {
       t.beats.G12.near = near;
     }
   }
-  if (isOpen(t, 'G12') && has('dim')) setLine(t, ev, 'G12', 'G12.caught');
-  // G13 while the Roads are closed (D142) shows G13.closed; from the start of Gorrak's fight (G9 keeps the line: nothing to
-  // yield to) and once they open (at any step) its line waits (null) for its own moment on the map
   const shut = roadsShut(s);
+  if (isOpen(t, 'G12') && t.beats.G12.line === 'G12' && t.beats.G12.rest && !shut) setLine(t, ev, 'G12', 'G12.road');
+  // G13 while the Roads are closed (D142) shows G13.closed; from the start of Gorrak's fight and once they open (at any
+  // step) its line waits (null) for its own moment on the map
   const facing = !!(f && f.tut && f.tut.kind === 'elite');
   if (isOpen(t, 'G13') && t.beats.G13.line === 'G13.closed' && (!shut || facing)) setLine(t, ev, 'G13', null);
   if (s.phase !== 'MAP' || s.node || s.fight) return;
-  // On the map: G2 (first map view at the hub), G5 (first return to the map after G4), G10 (a site in view), G13 (far from
-  // a Road, or on one; while the Roads are closed, also once Gorrak's node is open)
+  // On the map: G2 (first map view at the hub), G13 (far from a Road, or on one; while the Roads are closed, also once
+  // Gorrak's node is open)
   if (!fired(t, 'G2') && zone.pos === 0) op('G2', 'G2');
-  if (!fired(t, 'G5') && fired(t, 'G4') && !now.has('G4') && !(s.loot && s.loot.length)) op('G5', 'G5');
   const d = hops(zone.nodes, zone.pos);
-  // G10 (D142): a held contract's site first in view on the map (its mark as mapView shows it), never at the hub screen
-  if (!fired(t, 'G10') && !(s.loot && s.loot.length) && zone.nodes.some((n) => siteView(s, n, knowledge(s, n), d[n.id]))) op('G10', 'G10');
   const onRoad = zone.nodes[zone.pos].road;
   const far = !onRoad && Math.min(...zone.roads.map((r) => d[r])) >= ONB_BELL_HOPS && dimAt(zone, zone.pos) - zoneTime(s) <= ONB_BELL_DIM;
   const line = shut ? (onRoad || far || !zone.nodes[zone.tut.elite].barred ? 'G13.closed' : null) : onRoad ? 'G13.onRoad' : far ? 'G13' : null;

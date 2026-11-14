@@ -178,14 +178,13 @@ describe('blind panel (3): text and data mismatches, engine and content side', (
   };
   const sameSet = (a, b) => [...new Set(a)].sort().join() === [...new Set(b)].sort().join();
 
-  test('G9 (and H04, its same line) name no turn: "on turn 2" read against "round 3" everywhere else; the badge they point at gives the round', () => {
+  test('G9 and H04 name no turn (D144); since D150 they have no line before a landed Deathblow (the UI\'s prompt bar gives its answer, once); the badge gives the round', () => {
     const T = REAL.tutorial;
     const g9 = T.beats.find((b) => b.id === 'G9');
-    for (const [cls, line] of Object.entries(g9.byClass)) {
-      assert.ok(!/\bturn\b|\{deathblowTurn\}|round \d/i.test(line), `${cls}: ${line}`);
-      assert.ok(/Deathblow/.test(line) && line.replace(/\{key_[a-z0-9]+\}/g, 'W').length <= C.ONB_HINT_MAX_CHARS, line);
-    }
-    assert.equal(T.hints.find((h) => h.id === 'H04').sameAs, 'G9');
+    assert.deepEqual([g9.line, g9.byClass, Object.keys(g9.alt)], [undefined, undefined, ['landed']]);
+    assert.ok(!/\bturn\b|\{deathblowTurn\}|round \d/i.test(g9.alt.landed) && g9.alt.landed.length <= C.ONB_HINT_MAX_CHARS, g9.alt.landed);
+    const h04 = T.hints.find((h) => h.id === 'H04');
+    assert.deepEqual([h04.line, h04.sameAs, h04.retired], [null, undefined, 'D150']);
     // the round: an elite present from the start plays its Deathblow on its turn SIGNATURE_TURN, round SIGNATURE_TURN + 1
     const s = inFight(atLevel(started('rogue'), 20), [{ tid: 'z1_elite', level: 20, variant: 'elite' }], { kind: 'elite', noStealth: true }).state;
     const db = R.windupView(s).find((w) => w.deathblow);
