@@ -82,3 +82,4 @@ Owner ideas and team proposals not yet scheduled. The Lead places each item into
 | 2026-11-14 | Engine: G8 joint line switches to its own line (or none) after the engage round when the Hexer is dead; hub toasts avoid the hub panel; content line for rescues left and SKIP_LINE to content (ui-2026-11-14) | Engineer + UI + Content | M3 3.7 | todo |
 | 2026-11-14 | UI: use guide.skipLine and guide.rescueLeftLine (rescue banner second line); roadsOpenLine to content; hub toasts avoid the hub panel (engine-2026-11-14b, ui-2026-11-14) | UI + Content | M3 3.7 | todo |
 | 2026-11-14 | Engine: G8 round-2 line names W when no answer exists; Lead call: no G8 line while windupView lists no answer (engine-2026-11-14b finding) | Engineer | M3 3.7 | todo |
+| 2026-11-14 | UI: rescue banner title overlaps the hub panel at 1366x768 for 2.2 s; placeBanner should avoid the hub panel outside fights (ui-2026-11-14b) | UI | M3 | todo |
