@@ -816,7 +816,7 @@ export function createHud(root, ctx) {
     const z = v.zone; const p = v.player; const n = v.node; const R = ctx.data.rules;
     if (n && v.phase === 'NODE') {
       if (n.type === 'quest') { const k = n.mobs ? n.mobs.length : 1; lines.push(['h', n.title || 'Quest']); lines.push(['l', n.step === 'reward' || n.step === 'story' ? 'Return to ' + (n.giver || 'the quest giver') : `Defeat ${k} ${k === 1 ? 'enemy' : 'enemies'}`]); }
-      else if (n.type === 'dungeon') { const all = R.dungeonTrashFights + 1; lines.push(['h', n.dungeon]); lines.push(['l', `Fight ${Math.max(1, n.fightNo)} of ${all}${n.fightNo >= all ? ': ' + n.bossName : ''}`]); }
+      else if (n.type === 'dungeon') { const all = (n.trash ?? R.dungeonTrashFights) + 1; /* blind round 2: the bridge's count for this map */ lines.push(['h', n.dungeon]); lines.push(['l', `Fight ${Math.max(1, n.fightNo)} of ${all}${n.fightNo >= all ? ': ' + n.bossName : ''}`]); }
       // D144 (engine-2026-11-13d UI need 8; tactician: "Wave 0 of 1" in the first wave): the wave being fought (fightNo),
       // else the waves done (a won wave's spoils show the node as it was in the fight: that wave counts)
       else if (n.type === 'grind') { lines.push(['h', 'Grind']); lines.push(['l', grindLine(n, v.combat)]); }
@@ -849,9 +849,12 @@ export function createHud(root, ctx) {
 
   function log(text, cls = 'lg-hit') {
     const el = h('div.' + cls, text);
-    els.logLines.appendChild(el);
-    while (els.logLines.children.length > 120) els.logLines.firstChild.remove();
-    els.logLines.scrollTop = els.logLines.scrollHeight;
+    // blind round 2 (tactician re-run: "the combat log holds about five lines with no scroll back"): a log scrolled up to
+    // read stays where it is; it follows new lines again once scrolled to the end
+    const L = els.logLines; const atEnd = L.scrollHeight - L.scrollTop - L.clientHeight < 6;
+    L.appendChild(el);
+    while (L.children.length > 120) L.firstChild.remove();
+    if (atEnd) L.scrollTop = L.scrollHeight;
   }
   function clearLog() { clear(els.logLines); }
   settings.on('change', (k) => { if (k === 'showLog') els.log.style.display = settings.get('showLog') ? '' : 'none'; });

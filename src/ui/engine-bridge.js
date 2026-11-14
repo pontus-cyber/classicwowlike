@@ -108,6 +108,8 @@ function rulesTable(K) {
   const linkDr = Array.from({ length: (K.SHARD_MAX || 4) + 1 }, (_, n) => (n === 0 ? 0 : per != null ? Math.min(K.LINK_DR, per * n) : K.LINK_DR));
   return {
     zoneCount: K.ZONE_COUNT, maxLevel: K.MAX_LEVEL, storyQuests: K.STORY_QUESTS, dungeonTrashFights: K.DUNGEON_TRASH_FIGHTS,
+    // the expedition map's own counts (rules 1.9.8; blind round 2: "3 groups" and "Fight 1 of 4" for a dungeon of 2 + the boss)
+    expDungeonTrashFights: K.EXPED_DUNGEON_TRASH_FIGHTS ?? K.DUNGEON_TRASH_FIGHTS, expGrindMaxWaves: K.EXPED_GRIND_MAX_WAVES ?? K.GRIND_MAX_WAVES,
     grindMaxWaves: K.GRIND_MAX_WAVES, grindWaveSize: K.GRIND_WAVE_SIZE, eliteLevelOffset: K.ELITE_LEVEL_OFFSET,
     campGrindLevel: K.CAMP_GRIND_LEVEL, ascStepTime: K.ASC_STEP_TIME, cpMax: K.CP_MAX, potionCd: K.POTION_CD,
     time: { trainer: K.TIME_TRAINER, vendor: K.TIME_VENDOR, inn: K.TIME_REST, travel: K.TIME_TRAVEL, grindWave: K.TIME_GRIND_WAVE },
@@ -525,6 +527,8 @@ function engineBackend(seedOpt, runOpts = {}) {
   }
 
   function zoneContent(z) { return z >= 1 && z <= C.ZONE_COUNT ? CONTENT.zones[z - 1] : null; }
+  /** Trash fights of a dungeon in this run's map (rules 2.4; the expedition map's EXPED_DUNGEON_TRASH_FIGHTS, 1.9.8). */
+  function trashOf(s) { return s.mapMode === 'expedition' ? (C.EXPED_DUNGEON_TRASH_FIGHTS ?? C.DUNGEON_TRASH_FIGHTS) : C.DUNGEON_TRASH_FIGHTS; }
   /** Zone danger (rules 7.6): the extra damage of an enemy of this level and variant, from the engine's zoneDanger. */
   const dangerOf = (level, variant) => R.zoneDanger(level, variant) - 1;
   /**
@@ -593,7 +597,9 @@ function engineBackend(seedOpt, runOpts = {}) {
   // reads the kind: a dungeon boss is drawn and framed as itself, not as the end boss.
   const rankOf = (e) => (e.kind === 'boss' ? 'boss' : e.kind === 'shard' ? 'shard' : e.kind || 'normal');
   const NAMED_KIND = new Set(['elite', 'rare', 'boss', 'dboss']); // a named enemy: "Gorrak", not "the Gorrak" (spell tooltips)
-  function fightKey(s) { const n = s.node; return `${s.zone ? s.zone.z : 0}:${n ? `${n.r}:${n.l}` : `t${s.time}`}:${s.fight ? s.fight.k : 0}:${s.fight ? s.fight.kind : ''}`; }
+  // blind round 2 (tactician s0143, casual s0254, explorer s0167: a target frame kept the last fight's portrait): an
+  // expedition node has an id, no row or lane, so every fight of a zone had the same key; the node's id and type now count
+  function fightKey(s) { const n = s.node; return `${s.zone ? s.zone.z : 0}:${n ? `${n.id != null ? `n${n.id}:${n.type}` : `${n.r}:${n.l}`}` : `t${s.time}`}:${s.fight ? s.fight.k : 0}:${s.fight ? s.fight.kind : ''}`; }
   const INTENT_LABEL = { curse: 'Curse: you deal less damage', brace: 'Braces: takes less damage', shieldAlly: 'Shields an ally', heal: 'Heals an ally', selfHeal: 'Heals itself',
     selfShield: 'Shields itself', summon: 'Calls for help', cleave: 'Hits you and your pet', rend: 'Hit and bleed', bolster: 'Shields its weakest ally', signal: 'Calls a reinforcement' };
   const SUPPORT = ['selfHeal', 'heal', 'selfShield', 'shieldAlly', 'brace', 'summon', 'bolster', 'signal'];
@@ -728,7 +734,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     const bossE = f.enemies.find((e) => e.kind === 'boss');
     const n = s.node;
     let title = ''; let fights = 1;
-    if (n && n.type === 'dungeon') { fights = C.DUNGEON_TRASH_FIGHTS + 1; title = (zoneContent(s.zone.z) || { dungeon: { name: 'Dungeon' } }).dungeon.name; }
+    if (n && n.type === 'dungeon') { fights = trashOf(s) + 1; title = (zoneContent(s.zone.z) || { dungeon: { name: 'Dungeon' } }).dungeon.name; }
     if (n && n.type === 'grind') { fights = n.planned || 1; title = `Wave ${(n.wavesDone || 0) + 1} of ${n.planned}`; }
     return { round: f.round, enemies, target: f.p.target != null && enemies[f.p.target] && enemies[f.p.target].alive ? f.p.target : firstAlive ? firstAlive.idx : 0,
       cooldowns: cds, potionCd: Math.max(0, (f.p.potionReady || 0) - f.round), kind: f.kind === 'trash' ? 'dungeon' : f.kind, isBoss: f.kind === 'boss',
@@ -801,6 +807,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     const zc = zoneContent(s.zone.z);
     // heat: the state the node was entered in, which fixes what it pays (rules 1.7.3); id: an expedition node (rules 1.9)
     const v = { type: n.type, row: n.r, lane: n.l, id: n.id ?? null, cl: n.cl, fightNo: (n.k || 0) + 1, waves: n.wavesDone || 0, wavesChosen: n.planned || 0, heat: n.heat || null };
+    if (n.type === 'dungeon') v.trash = trashOf(s); // the dungeon's trash fights before its boss (expedition: EXPED_DUNGEON_TRASH_FIGHTS)
     const f = s.fight;
     if (n.stage === 'fight') v.step = NEEDS_INTRO.has(n.type) && (n.k || 0) === 0 && !local.introSeen.has(nodeKey(s)) ? 'intro' : 'combat';
     else if (n.stage === 'grindSetup') v.step = 'intro';
