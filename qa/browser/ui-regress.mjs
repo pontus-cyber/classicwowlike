@@ -5392,8 +5392,8 @@ async function partU(browser, W, H) {
       let n0 = await nLog(page);
       await page.keyboard.press('Escape'); await idle(page);
       const esc = await page.evaluate(() => ({ settings: !!document.querySelector('#win-settings'), onMap: !!document.querySelector('#screens .expmap') }));
-      await page.waitForTimeout(100);
-      check('U-esc', `Esc on the zone map opens no Settings and says "${MAP_ESC}"; the map stays`, !esc.settings && esc.onMap && (await toasts(page)).includes(MAP_ESC), JSON.stringify({ esc, t: await toasts(page) }));
+      const escSaid = await toastSeen(page, new RegExp(`^${MAP_ESC}`));
+      check('U-esc', `Esc on the zone map opens no Settings and says "${MAP_ESC}"; the map stays`, !esc.settings && esc.onMap && escSaid, JSON.stringify({ esc, t: await toasts(page) }));
       // a node out of reach and a Road's sign
       const far = await page.evaluate(() => { const v = window.__ui.view(); const mv = v.zone.exp; const near = new Set(mv.moves.map((m) => m.nodeId));
         const n = mv.nodes.find((x) => x.id !== mv.pos && !near.has(x.id) && !x.barred && document.querySelector(`.expmap .mnode[data-node="${x.id}"]`));
@@ -5651,7 +5651,10 @@ async function partU(browser, W, H) {
       await page.keyboard.press('Escape'); await page.mouse.move(2, 2); await idle(page);
       // four enemies (Dev menu fight): the plates' chips and names clear of each other, no name cut
       await page.evaluate(() => window.__ui.dev('fight', { ids: ['z1_stonewall_sentinel', 'z1_hedgerow_cutpurse', 'z1_scarecrow_hexer', 'z1_bramble_herbalist'], level: 12 })); await idle(page);
-      await page.keyboard.press('KeyQ'); await idle(page); await page.waitForTimeout(300);
+      await page.keyboard.press('KeyQ'); await idle(page);
+      // the enemies walk in: read once the plates stand still (two reads 200 ms apart, at most 4 s)
+      const lefts = () => page.evaluate(() => [...document.querySelectorAll('#nameplates .np:not(.dead)')].map((p) => Math.round(p.getBoundingClientRect().left)).join(','));
+      for (let i = 0, a = await lefts(); i < 20; i++) { await page.waitForTimeout(200); const b2 = await lefts(); if (b2 === a) break; a = b2; }
       const four = await page.evaluate(() => {
         const plates = [...document.querySelectorAll('#nameplates .np:not(.dead)')];
         const boxes = plates.map((p) => [...p.querySelectorAll('.trk .tk, .nm')].filter((x) => x.getClientRects().length && getComputedStyle(x).display !== 'none').map((x) => x.getBoundingClientRect()));
