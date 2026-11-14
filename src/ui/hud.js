@@ -805,7 +805,7 @@ export function createHud(root, ctx) {
     if (lethal && k !== 'Lethal') parts = [lethalB(), ' ', ...parts];
     els.turn.dataset.lethal = lethal ? '1' : '';
     const kEl = els.turn.querySelector('.tp-k'); const tEl = els.turn.querySelector('.tp-t');
-    kEl.textContent = `${k} · R${c.round}`;
+    kEl.textContent = dbKind ? k : `${k} · R${c.round}`; // D150 (Lead): a Deathblow line says its own round ("Round 3: ..."), no "· R1"
     const sig = parts.map((x) => (typeof x === 'string' ? x : `[${x.textContent}]`)).join('');
     if (tEl.dataset.sig !== sig) { tEl.dataset.sig = sig; clear(tEl); tEl.append(...parts); }
     els.turn.dataset.kind = dbKind || (c.engage ? 'engage' : ans || els2 || avoid || wuLive ? 'windup' : k === 'Lethal' ? 'lethal' : pot ? 'potion' : win ? 'window' : 'plain');

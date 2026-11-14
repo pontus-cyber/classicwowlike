@@ -299,7 +299,9 @@ const HINTS = {
   H13: { ctx: 'map', when: (c) => has(c.ev, 'learn', (e) => c.v.player && !c.v.player.bar.includes(e.id)), anchor: () => q('#actionbar'), done: (c) => c.a === 'SET_BAR' },
   H14: { ctx: 'screen', when: (c) => !inFight(c.v) && !!c.v.player && c.v.player.talentPoints > 0, anchor: () => q('#micromenu .mm[aria-label="Talents"]'), done: (c) => c.a === 'SPEND_TALENT' },
   H15: { ctx: 'map', when: (c) => onMap(c.v), anchor: () => q('#screens .mnode.here') },
-  H16: { ctx: 'map', when: (c) => onMap(c.v) && !!c.v.heat && c.v.zone.exp.nodes.some((n) => n.done && !n.hub), anchor: () => q('#heat') },
+  // D150 (Lead 2026-11-14): at the hub, G5's moment (the first hub screen); while the guide runs G5 stands in for it, so the
+  // two never show both (BEAT_OF), and G5 learned marks it seen
+  H16: { ctx: 'screen', when: (c) => c.v.phase === 'ZONE_HUB' && !!c.v.heat, anchor: () => q('#heat') },
   H17: { ctx: 'screen', when: (c) => !!(c.v.node && (c.v.node.heat === 'hot' || c.v.node.heat === 'scorched')), anchor: () => q('#heat') },
   H18: { ctx: 'map', when: (c) => seenNode(c.v, (n) => n.dimmed), anchor: () => q('#screens .xdimp') },
   H19: { ctx: 'map', when: (c) => onMap(c.v) && bellMoment(c.v) !== null, anchor: ANCHOR.G13, alt: (c) => bellMoment(c.v), done: (c) => c.a === 'TAKE_ROAD' || c.a === 'RING_BELL' },

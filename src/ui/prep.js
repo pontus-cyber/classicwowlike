@@ -10,7 +10,8 @@
 // and the site marks on the expedition map (mapView node `sites`: only the marks the player sees; a hidden node is never
 // named). Presentation only: every click sends one engine action.
 // D150 (owner 2026-11-14, naming rule): a contract's "Reward", not "Pays"; item 15: the heading "Supplies" with no
-// subline, no "Unspent ... Echoes" line under the points left (the points' tooltip says what Reserve does).
+// subline, no "Unspent ... Echoes" line under the points left (the points' tooltip says what Reserve does); item 14: an
+// offer's tooltip in three sentences (boardTip: what to win, the reward, the cost).
 import { h, clear, moneyEl, fmtNum } from './util.js';
 import { icon, consumableIcon } from './art-icons.js';
 import { tip } from './tooltip.js';
@@ -77,6 +78,27 @@ export function contractTip(c, ctx, opts = {}) {
   if (opts.hint) box.appendChild(h('div.tt-hint', opts.hint));
   return box;
 }
+/**
+ * D150 item 14 (the owner-approved cut list; Lead 2026-11-14): a start-camp offer's tooltip, three sentences under its
+ * name: "Win 2 Quest or Grind fights in Barleyreach Verge. Reward: about 3 levels of XP, 3s 12c and 1 of 3 items. Cost: 2
+ * points." (a Cull's sites are Quest or Grind nodes, contracts.js isSiteType), and why it cannot be taken when it cannot.
+ * The held contracts keep contractTip (sites, progress, state).
+ */
+export function boardTip(o, ctx, opts = {}) {
+  const rw = o.reward || {};
+  const what = o.kind === 'delve' ? `Clear ${o.dungeon || "the zone's dungeon"}, its boss included.`
+    : o.kind === 'bounty' ? `Hunt down ${o.name || 'a named elite'} in ${o.regionName || 'its region'}.`
+      : `Win ${o.need} Quest or Grind ${plural(o.need, 'fight')} in ${o.regionName || 'its region'}.`;
+  const lv = rw.xpFrac || 0; const n = lv >= 1 ? Math.round(lv) : Math.round(lv * 10) / 10;
+  const pay = [`about ${n} ${n === 1 ? 'level' : 'levels'} of XP`, rw.gold ? moneyEl(rw.gold) : null, rw.choices ? `1 of ${rw.choices} items` : null].filter(Boolean);
+  const list = pay.flatMap((x, i) => (i === 0 ? [x] : [i === pay.length - 1 ? ' and ' : ', ', x]));
+  return h('div.tt-contract.tt-board',
+    h('div.tt-row', h('div.tt-name', contractTitle(o, ctx.data.content)), h('span.ctag', { dataset: { kind: o.kind } }, CONTRACT_KIND[o.kind] || o.kind)),
+    h('div.tt-line.desc', what),
+    h('div.tt-line.num', 'Reward: ', ...list, '.'),
+    h('div.tt-line', `Cost: ${pts(o.price)}.`),
+    opts.warn ? h('div.tt-warn', opts.warn) : null);
+}
 function optionTip(o, ctx, key, why) {
   const r = ctx.data.rules.prep;
   const fl = prepFlavour(o.id, ctx.data.content);
@@ -90,12 +112,6 @@ function optionTip(o, ctx, key, why) {
 }
 
 // ------------------------------------------------------------------ the prep screen
-/** Has the run the perk (owned from meta or bought now)? For the sites lines of the board's tooltips. */
-const hasPerks = (pv) => {
-  const on = (id) => { const o = pv.options.find((x) => x.id === id); return !!(o && (o.owned || o.bought)); };
-  return { guide: on('prep_guide'), tracker: on('prep_tracker') };
-};
-
 /** The contract's headline: the family (Cull), the elite (Bounty) or the dungeon (Delve), capitalised. */
 const cardTitle = (o, content) => cap1(o.kind === 'delve' ? o.dungeon || "the zone's dungeon" : o.kind === 'bounty' ? o.name || 'a named elite' : familyName(o.family, content));
 /** What to do, one line (D128): "Win 2 sites in Millbrook Steadings", "Hunt it in ...", "Clear it, boss included". */
@@ -135,8 +151,7 @@ export function createPrepScreen(v, ctx) {
     tip(b, () => {
       const pv = ctx.view.prep; const x = pv && pv.board[i]; if (!x) return null;
       const why = x.taken || x.canTake ? null : ctx.bridge.why({ type: 'TAKE_CONTRACT', index: i });
-      return contractTip(x, ctx, { has: hasPerks(pv), price: `${pts(x.price)} · refunded if you drop it before you set out · ${pv.held} of ${pv.slots} contract slots used`, warn: why,
-        hint: x.taken ? `Click or press ${BOARD_KEYS[i]} to drop it (+${pts(x.price)})` : `Click or press ${BOARD_KEYS[i]} to take it` });
+      return boardTip(x, ctx, { warn: why }); // D150 item 14: three sentences (the card shows its key)
     }, { avoid: '#prep .pp-card' });
     cards.appendChild(b);
     return b;

@@ -462,7 +462,7 @@ export const META_KIND = {
   map: ['Map and travel', 'See more of the road, and cover it faster.'],
   items: ['Items in the drop pools', 'New items that can drop or be bought.'],
   skill: ['Skills and companions', 'New spells at the trainer and a new companion.'],
-  resurrect: ['Resurrection', 'A second chance on the journey.'],
+  resurrect: ['Revives', 'A second chance on the journey.'], // D150 (Lead): not "Resurrection"; the item stays the Ember of Return
   challenge: ['Challenge', 'Harder runs for more Echoes.'],
 };
 const cls = (id) => ({ rogue: 'Rogue', mage: 'Mage', hunter: 'Hunter' }[id] || humanize(id));
