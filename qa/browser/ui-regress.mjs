@@ -3941,20 +3941,25 @@ async function partR(browser, W, H) {
       await shot(page, 'R-prep');
       check('M3-R', 'the start camp: G1\'s line on the coach line, content text', c.shown && c.shown.id === 'G1' && c.shown.text === lineText('G1'), JSON.stringify(c.shown));
       const engineLines = []; const bad = []; const shownSoFar = new Set(); const layout = []; let gate = null; let gateOpen = null; let reachedZ2 = false; let steps = 0;
+      // the order the coach line should show them: each step's line by the UI's rule (the engine's top line, tutorialView
+      // `line`, when it can show; else the first open line that can), first appearances (D150: G14-G17 take priority over G10)
+      const engineOrder = [];
       let shownSig = null; let shownKeys = {};
       // D147: the engine's beat events by step (with the next script, the player's node and Gorrak's), and G8's joint line
       // as it first showed (S3's engage round): its ring, second marker and arrow, and the hints' store at that moment
       const beatEv = []; let joint = null; const jointLate = []; // D149 / engine-2026-11-14b finding 1: the joint line only in round 1
       for (; steps < 260; steps++) {
-        const st = await page.evaluate(() => { const v = window.__ui.view(); return { phase: v.phase, z: v.zone ? v.zone.idx : null, t: v.tutorial, cls: v.player ? v.player.classId : 'rogue', fight: !!(v.combat && !v.combat.over && !v.loot), map: v.phase === 'MAP' && !!(v.zone && v.zone.exp) && !v.node, contract: !!(v.loot && v.loot.kind === 'contract') }; });
+        const st = await page.evaluate(() => { const v = window.__ui.view(); const tp = document.querySelector('#turnprompt:not(.hidden) .tp-t'); return { phase: v.phase, z: v.zone ? v.zone.idx : null, t: v.tutorial, cls: v.player ? v.player.classId : 'rogue', fight: !!(v.combat && !v.combat.over && !v.loot), map: v.phase === 'MAP' && !!(v.zone && v.zone.exp) && !v.node, contract: !!(v.loot && v.loot.kind === 'contract'), tab: !!tp && /\bTab\b/.test(tp.textContent) }; });
         const t = st.t;
         // a fight's beat line waits while the quest's intro dialog is up (no fight on screen yet); a map line waits for the
         // map on screen (QA playtest 2026-11-13); a resting line (D141) waits for its trigger
-        const FIGHT = ['G3', 'G6', 'G7', 'G8', 'G9', 'G11'];
+        const FIGHT = ['G3', 'G6', 'G7', 'G8', 'G9', 'G11', 'G14', 'G15', 'G16', 'G17']; // D150: G14-G17 (engine-2026-11-14d section 7)
         const MAPL = [...MAP_LINES]; // D143: G2 and G13.closed too (onboarding.js)
         // D150 (engine-2026-11-14d UI need 5): "Contract done" waits for the contract's own window
-        const open = t && !t.skipped && !t.ended ? (t.open || []).filter((o) => o.line && !o.rest && (st.fight || !FIGHT.includes(o.id)) && (st.map || !MAPL.includes(o.line)) && (o.line !== 'G10.done' || st.contract)).map((o) => o.line) : [];
+        const open = t && !t.skipped && !t.ended ? (t.open || []).filter((o) => o.line && !o.rest && (st.fight || !FIGHT.includes(o.id)) && (st.map || !MAPL.includes(o.line)) && (o.line !== 'G10.done' || st.contract) && (o.id !== 'G17' || !st.tab)).map((o) => o.line) : [];
         for (const l of open) if (!engineLines.includes(l)) engineLines.push(l);
+        const expLine = open.includes(t && t.line) ? t.line : open[0];
+        if (expLine && !engineOrder.includes(expLine)) engineOrder.push(expLine);
         c = await coach(page);
         // the coach line shows one of the engine's open beat lines (tutorialView.line, or the next once the engine rests it, D141), its content text
         for (const x of c.log) if (x.kind === 'beat') shownSoFar.add(x.id);
@@ -4009,8 +4014,8 @@ async function partR(browser, W, H) {
       const seq = shownBeats.filter((x, i) => shownBeats[i - 1] !== x);
       const firstShown = [...new Set(seq)];
       const missing = engineLines.filter((l) => !firstShown.includes(l));
-      const order = engineLines.filter((l) => firstShown.includes(l)).join('>') === firstShown.filter((l) => engineLines.includes(l)).join('>');
-      check('M3-R', `every beat line the engine opened showed on the coach line, in the order it opened (${engineLines.join(' > ')})`, reachedZ2 && !missing.length && order && !bad.length, `steps ${steps}, shown ${seq.join(' > ')}${missing.length ? ` | never shown: ${missing}` : ''}${bad.length ? ` | ${bad.slice(0, 4).join(' | ')}` : ''}`);
+      const order = engineOrder.filter((l) => firstShown.includes(l)).join('>') === firstShown.filter((l) => engineOrder.includes(l)).join('>');
+      check('M3-R', `every beat line the engine opened showed on the coach line, in the engine's order (top line first; ${engineOrder.join(' > ')})`, reachedZ2 && !missing.length && order && !bad.length, `steps ${steps}, shown ${seq.join(' > ')}${missing.length ? ` | never shown: ${missing}` : ''}${bad.length ? ` | ${bad.slice(0, 4).join(' | ')}` : ''}`);
       const ids = new Set(engineLines.map((x) => x.split('.')[0]));
       const cls = await page.evaluate(() => (window.__ui.view().player || {}).classId || 'rogue');
       // D150 (engine-2026-11-14d section 2, the route): G1 at the camp, G5 at the hub, G2, G7 in fight 1 (learned there), G10,
@@ -4996,6 +5001,7 @@ const T_WORDS = {}; // the counts this run measured, printed in the summary line
 
 async function partT(browser, W, H) {
   const T = CONTENT.tutorial;
+  const watchToasts = (page) => page.evaluate(() => { window.__sT = []; new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.classList && n.classList.contains('toast')) window.__sT.push(n.textContent); }).observe(document.querySelector('#toasts'), { childList: true }); });
   const coach = (page) => page.evaluate(() => window.__ui.coach());
   const tipOn = (page) => page.evaluate(() => { const t = document.querySelector('.tooltip'); return t && t.classList.contains('on') ? t.innerText.replace(/ /g, ' ') : null; });
   const auto = async (page) => { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); };
@@ -5020,15 +5026,27 @@ async function partT(browser, W, H) {
       check('D150-15', 'the first run\'s start camp: one contract card, of zone 1 (R.prepView); the heading "Supplies", no subline; no "Unspent ... Echoes" line', camp.board === 1 && camp.cards.length === 1 && camp.cards[0] === '1' && camp.shop === 'Supplies' && !camp.sub && !camp.rl, JSON.stringify(camp));
       await shot(page, 'T1-camp');
       const furnaceBefore = []; let furnaceAt = null; let hub = null; let map = null; let engage = null; let elite = null; let elite2 = null; let stopped = null; let map2 = null;
+      let g15 = null; // D150 (Lead): a key refused for lack of resource while G15 is open shows its line, no toast
       for (let i = 0; i < 320; i++) {
         const st = await page.evaluate(() => {
           const v = window.__ui.view(); const c = v.combat; const sh = window.__ui.coach().shown; const log = window.__ui.coach().log;
           return { phase: v.phase, z: v.zone ? v.zone.idx : null, onMap: v.phase === 'MAP' && !!(v.zone && v.zone.exp) && !v.node && !v.loot, fight: !!(c && !c.over && !v.loot && v.node && v.node.step === 'combat'),
             engage: !!(c && c.engage), elite: !!(c && c.enemies.some((e) => e.rank === 'elite')), round: c ? c.round : null, coach: sh ? sh.id : null,
             furnaceShown: log.some((x) => x.id === 'G5' || x.id === 'H16'), g5done: !!(v.tutorial && (v.tutorial.done || []).includes('G5')), heatOn: !!document.querySelector('#heat:not(.hidden)'),
-            stopped: !!document.querySelector('#nameplates .wub.stopped:not(.hidden)') };
+            stopped: !!document.querySelector('#nameplates .wub.stopped:not(.hidden)'), g15: !!(v.tutorial && (v.tutorial.open || []).some((o) => o.id === 'G15' && o.line && !o.rest)) };
         });
         if (st.z >= 2) break;
+        // engine-2026-11-14d section 7: G15 opens when a bar spell is refused only for its resource; a press of that key
+        // shows G15's coach line (ringing the resource bar) in place of the refusal toast, and sends nothing
+        if (!g15 && st.fight && st.g15) {
+          const slot = await page.evaluate(() => { const v = window.__ui.view(); const L = v.legal.spells || {}; return v.player.bar.findIndex((id) => id && L[id] && !L[id].ok && /^Not enough (energy|mana|focus)/.test(L[id].reason || '')); });
+          if (slot >= 0) {
+            await watchToasts(page); const n0 = await page.evaluate(() => window.__ui.engineLog().length);
+            await page.keyboard.press(`Digit${slot + 1}`); await page.waitForTimeout(200);
+            g15 = await page.evaluate((n) => { const c = window.__ui.coach().shown; const on = document.querySelector('.coach-on'); return { slot: n.slot, shown: c, ring: on ? on.matches('#player-frame .bar.res') : false, toasts: window.__sT.slice(), sent: window.__ui.engineLog().length - n.n0 }; }, { slot, n0 });
+            await shot(page, 'T1-g15-refused');
+          }
+        }
         // D150 item 1: the Furnace waits for its coach line (G5, or H16) in a guided first run
         // (engine D150 item 12: G5 opens at zone 1's first hub screen, so the steps before it are the start camp's)
         if (st.phase !== 'CREATE') {
@@ -5163,6 +5181,9 @@ async function partT(browser, W, H) {
         !!engage && engage.rows === 'none' && !!engage.rowsHover && engage.rowsHover.d !== 'none' && engage.rowsHover.head === 'Next actions' && engage.prompt === false, JSON.stringify(engage && { rows: engage.rows, rowsHover: engage.rowsHover, prompt: engage.prompt }));
       const pWant = elite && elite.w ? `Round ${elite.w.round}: ${elite.w.name}, about ${elite.w.est}. Sap now W, then Pass X.` : null;
       if (elite) T_WORDS.elite = elite.words.words;
+      const g15Want = fillLine(T.beats.find((b) => b.id === 'G15').byClass.rogue, {}).text;
+      check('D150-G15', `a bar key refused for its energy while G15 is open: G15's line on the coach line ("${g15Want}"), ringing the resource bar; no refusal toast; nothing sent`,
+        !!g15 && !!g15.shown && g15.shown.id === 'G15.rogue' && g15.shown.text === g15Want && g15.ring && !g15.toasts.some((x) => /^Not enough/.test(x)) && g15.sent === 0, JSON.stringify(g15));
       check('D150-2', `Gorrak's engage round: the turn prompt says it once, "${pWant}" (windupView), tagged Deathblow`, !!elite && elite.prompt === pWant && /^Deathblow · R1$/.test(elite.tag), JSON.stringify(elite && { prompt: elite.prompt, tag: elite.tag }));
       check('D150-2', 'no Deathblow box in the engage panel, no "how to stop it" on the cards (the Sap card keeps its crimson mark), no answers or estimate over Gorrak; no "Sap, then wait" or "Pass X" on the panel, the nameplates, the target frame or the Furnace',
         !!elite && elite.egDb === 0 && elite.sapMark && elite.wubAns === 0 && /^Deathblow R\d MAIMS if it lands$/.test(elite.wub || '') && !/then wait|Answer:|Wait:|Sap now|Pass X/.test(elite.rest), JSON.stringify(elite && { egDb: elite.egDb, sapMark: elite.sapMark, wub: elite.wub, wubAns: elite.wubAns, rest: elite.rest.slice(0, 600) }));

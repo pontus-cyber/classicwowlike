@@ -453,7 +453,9 @@ async function playOne(browser, W, H, cls) {
     }
     const name = `Qa${cls[0].toUpperCase()}${cls.slice(1)}`;
     await page.getByRole('textbox', { name: 'Character name' }).fill(name);
-    await page.getByRole('textbox', { name: 'Run seed' }).fill(String(seed));
+    // D150 (naming rule): a profile's first run shows no Seed field; the page's ?seed= is then the run's seed (the twin's too)
+    const seedBox = page.getByRole('textbox', { name: 'Run seed' });
+    if (await seedBox.isVisible()) await seedBox.fill(String(seed));
     await click(button('Enter the world'), 'Enter the world');
     for (const a of [{ type: 'SET_NAME', name }, { type: 'SET_SEED', seed }, { type: 'START_RUN' }]) s = R.step(s, a).state;
     let v = await view();

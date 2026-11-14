@@ -17,6 +17,7 @@ const { deathblowPrompt, answersToShow, stoppedText } = await import('../../src/
 const { engageText, sapWaitText, oathEffect } = await import('../../src/ui/ui-text.js');
 const { trainerIdle, trainerMeta } = await import('../../src/ui/screens.js');
 const { createBridge } = await import('../../src/ui/engine-bridge.js');
+const { KEYS, rawLine, lineParts, MAP_LINES } = await import('../../src/ui/onboarding.js');
 
 const BANNED = /\bpar\b|Ascendancy|Star's line|\bPays\b|Spoils|\bilvl\b|Unlit Star|stay hidden|answered/;
 const text = (parts) => parts.map((x) => (typeof x === 'string' ? x : x.key)).join('');
@@ -140,4 +141,16 @@ test('section 7 (engine-2026-11-14d UI need 17): the spoils\' experience is the 
   }
   assert.ok(found, 'spoils of a fight with two or more enemies');
   assert.equal(found.xp, found.sum, JSON.stringify(found));
+});
+
+test('engine-2026-11-14d section 7: the draft fight beats G14-G17 have their lines; G15 by class; Tab is a key chip', () => {
+  const T = CONTENT.tutorial;
+  for (const id of ['G14', 'G16', 'G17']) assert.ok(rawLine(T, id, 'rogue'), id);
+  for (const cls of ['rogue', 'mage', 'hunter']) assert.match(rawLine(T, `G15.${cls}`, cls), /^Not enough (energy|mana|focus)/, cls);
+  assert.equal(KEYS.key_target, 'Tab');
+  // a line that names {key_target} gets the Tab chip (G17 can switch to it)
+  const parts = lineParts('Press {key_target} or click an enemy to choose your target.', {}, KEYS);
+  assert.equal(text(parts), 'Press Tab or click an enemy to choose your target.');
+  assert.deepEqual(parts.filter((x) => typeof x !== 'string').map((x) => x.key), ['Tab'], 'one key chip');
+  for (const id of ['G14', 'G15.rogue', 'G16', 'G17']) assert.ok(!MAP_LINES.has(id), `${id} is a fight line`);
 });
