@@ -508,7 +508,7 @@ export function createOnboarding(root, ctx) {
       dismissed.clear(); if (cur && cur.kind === 'beat') hide(false);
       const cap = skipped.why === 'rescues';
       const line = guideSkippedLine(skipped, T, num);
-      if (cap) ctx.toast(line, 'long'); // style.css .toast.long: two lines, clear of the hub's panel
+      if (cap) ctx.toast(line); // app.js placeToasts keeps the stack clear of the hub's panel
       ctx.hud.log(line, cap ? 'lg-warn' : 'lg-sys');
     }
     if (has(ev, 'guideEnd') && T) ctx.toast(T.guide.endLine, 'good');

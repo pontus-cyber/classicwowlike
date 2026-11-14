@@ -709,6 +709,8 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 body.in-fight #toasts { left: 91.5rem; top: 12.6rem; }
 /* no room beside, above or below the open windows: the toasts go under them (app.js placeToasts) */
 #toasts.under-wins { z-index: var(--z-toast-under); }
+/* too wide for every gap beside the windows or the hub's panel: the toasts wrap, and the stack tries again (app.js placeToasts) */
+#toasts.wrap .toast { white-space: normal; text-align: center; max-width: 40rem; }
 /* the end-boss fight: the boss frame fills the top centre, a Shard's target frame sits under it and the boss's nameplate
    high on the right; there is no engage panel, so the toasts take the left column under the player and pet frames */
 body.in-fight.boss-fight #toasts { left: 16.5rem; top: 21.5rem; width: 30rem; }
@@ -718,8 +720,6 @@ body[data-phase="MAP"]:not(.in-fight) #toasts .toast { white-space: normal; text
 .toast { font: var(--fw-bold) var(--fs-label-6) var(--font-ui); color: var(--accent-hi); text-shadow: 0 1px 2px var(--shade), 0 0 6px var(--shade); animation: toast var(--dur-long-8) forwards;
   padding: var(--sp-20) var(--sp-100); border-radius: var(--radius-xl-2); background: rgba(12, 9, 6, .78); box-shadow: inset 0 0 0 1px var(--edge-hi-35); white-space: nowrap; }
 .toast.err { color: var(--ink-bad); } .toast.good { color: var(--ink-good); } .toast.info { color: #cfe0ff; }
-/* D147: a long line (the rescue cap's, onboarding.js) wraps, so the stack centred on the hub keeps clear of its panel */
-.toast.long { white-space: normal; text-align: center; max-width: 40rem; }
 @keyframes toast { 0% { opacity: 0; transform: translateY(.6rem); } 10% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-.6rem); } }
 #skiphint { position: absolute; left: calc(50% - 17rem); bottom: 15.6rem; transform: translateX(-50%); font: var(--fw-bold) var(--fs-small-7) var(--font-ui); color: var(--ink-mute); letter-spacing: .08em; text-transform: uppercase; text-shadow: 0 1px 2px var(--shade); pointer-events: none; opacity: 0; transition: opacity var(--dur-base-3); }
 #skiphint.on { opacity: .85; }
