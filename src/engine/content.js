@@ -17,7 +17,8 @@ export const ONB_HINT_COUNT = 37;
  * (enemies are normals of the zone; windup a boolean; S1's loot a rarity and a consumable; D144: a `quest` a quest of the
  * content), the elite (an elite of the
  * zone with its Deathblow among its abilities; gate.afterScript a script id), the seed equal to C.TUTORIAL_SEED, and
- * with `beats` / `hints` present the 13 beat ids in order and 37 hint ids. Levels are constants, not content.
+ * with `beats` / `hints` present the beat ids of ONB_BEATS in order (17 since the D150 follow-up) and 37 hint ids. Levels
+ * are constants, not content.
  */
 export function validateTutorial(content) {
   const T = content.tutorial;

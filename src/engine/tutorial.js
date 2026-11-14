@@ -6,7 +6,7 @@
 // his node barred until the gate's script has ended (D138), and the zone's Roads closed until his fight has ended (D142).
 // While the guide is on (not skipped) zone 1 is the guided zone: a death there is a rescue (back to the last node, full
 // health, ONB_RESCUE_TOLLS; D147: it lands on the map with no fight started, and the ONB_RESCUE_MAX-th rescue ends the
-// guide), and the 13 beats G1-G13 are tracked from the actions, events and state (`beat` events, tutorialView; D147: G7
+// guide), and the 17 beats G1-G17 are tracked from the actions, events and state (`beat` events, tutorialView; D147: G7
 // and G8 opening in one engage round share G8's joint line, which gives way after the engage round, draft; spec 2.8
 // item 8, draft: from round 2 G8's own line only while windupView lists an answer; D150, the owner's text pass, draft
 // where new: G7 at fight 1, G3 and G9 without a line, G1, G4, G5, G10 and G12 at one moment each, G12.road). Leaving zone 1
@@ -17,10 +17,12 @@ import {
   ONB_SCRIPTED_FIGHTS, ONB_SCRIPT_LEVEL_MAX, ONB_LOOT_POTIONS, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX,
   ONB_RESCUE_TOLLS, ONB_RESCUE_MAX, ONB_BEAT_RETRIES, ONB_POTION_HP, ONB_BELL_HOPS, ONB_BELL_DIM, ONB_DIM_NEAR_HOPS,
   ONB_ENGAGE_SHOWS, ONB_BEATS, ONB_BEAT_PRIORITY, ONB_LINE_STEPS, ONB_LINE_RETURNS, CONTRACT, SLOT_IDS, RARITY, ILVL_MAX, CONSUMABLE,
+  SPELL,
 } from '../constants.js';
 import { zoneRegions, hops, frontAt, zoneTime, dimAt, dimmedNow, knowledge } from './expedition.js';
 import { itemScore, makeFixedGear, makeConsumable } from './items.js';
 import { windupView } from './answers.js';
+import { castError } from './spells.js';
 
 // ---------------- Run and zone state ----------------
 /**
@@ -305,7 +307,7 @@ function again(t, ev, id) {
  * Lines shown once (D150, the Dimming line once, draft): after ONB_LINE_STEPS steps as the top line such a line rests
  * even when no other open beat has a line; it comes back only when the engine changes its line (G12.road).
  */
-const ONCE_LINES = new Set(['G12']);
+const ONCE_LINES = new Set(['G12', 'G14', 'G15', 'G16', 'G17']);
 /** Map lines (D150, draft): their steps as the top line count only on a map step, the screen the UI shows them on. */
 const MAP_COUNTED = new Set(['G12']);
 /** A map step: on an expedition map with no node, fight or loot window open (the UI shows map lines then). */
@@ -373,6 +375,39 @@ export function tutorialAfter(s, ev, a) {
   }
 }
 
+// D150 follow-up (Lead 2026-11-14, draft): the fight moments of G14-G17, from round 2 of a fight (after the engage round,
+// so a line never stands on the quest's intro dialog, which the UI shows while the engine is in round 1)
+const fightOn = (f, ended) => !!(f && !f.over && !ended && f.round >= 2);
+const foes = (f) => f.enemies.filter((e) => e.alive && !e.hidden);
+/** G14: a finisher on the bar can be cast now on a living enemy (combo points held; only the Rogue has finishers). */
+const finisherReady = (s) => s.player.bar.some((id) => id && SPELL[id] && SPELL[id].tags.includes('finisher')
+  && foes(s.fight).some((e) => !castError(s, id, e.idx)));
+/** G15: a bar spell refused now only for lack of resource (energy, mana or focus): with enough it could be cast. */
+function resourceShort(s) {
+  return s.player.bar.some((id) => {
+    const sp = id && SPELL[id];
+    if (!sp) return false;
+    const on = sp.target === 'enemy' ? foes(s.fight).map((e) => e.idx) : [null];
+    return on.some((u) => castError(s, id, u) === `not enough resource for ${id}` && !castError(s, id, u, { free: true }));
+  });
+}
+/** G16: a living beast has acted, so its Bloodlust badge shows (damage.js bloodlust, the UI's red "+N %"). */
+const bloodlustUp = (f) => foes(f).some((e) => e.arch === 'beast' && (e.acted || 0) > 0);
+/** G17: two or more living enemies to choose between. */
+const twoFoes = (f) => foes(f).length >= 2;
+/** Actions on one enemy (G17 reads their `target`). */
+const TARGETED = new Set(['CAST', 'ATTACK']);
+/**
+ * A D150 moment line (draft): the beat's line while its moment lasts (`up`), null between moments; once it has been the
+ * top line, the end of its moment or its rest (ONCE_LINES, ONB_LINE_STEPS steps) closes it learned, so it shows once. A
+ * moment that passed before the line was ever the top line leaves it for the next one.
+ */
+function moment(t, ev, id, up, line) {
+  const b = t.beats[id];
+  if (b.rest || (!up && b.line && b.shown > 0)) { close(t, ev, id, true); return; }
+  setLine(t, ev, id, up ? line : null);
+}
+
 /** A gear item the UI marks with the upgrade arrow (its itemScore above the equipped item's in its slot; screens.js). */
 const isUpgrade = (s, it) => !!(it && it.kind === 'gear' && itemScore(it, s.player.classId) > itemScore(s.player.equipped[it.slot], s.player.classId));
 /** Steps whose loot is not a fight's or a chest's spoils (D150, G4: never a reward screen; not the loot window's own moves). */
@@ -411,6 +446,13 @@ function trackBeats(s, ev, a) {
   if (isOpen(t, 'G7') && a.type === 'ENGAGE') close(t, ev, 'G7', true);
   if (isOpen(t, 'G11') && a.type === 'USE_ITEM' && Number.isInteger(a.slot) && healPotion(s.player.itemBar[a.slot])) close(t, ev, 'G11', true);
   if (isOpen(t, 'G13') && (a.type === 'TAKE_ROAD' || a.type === 'RING_BELL')) close(t, ev, 'G13', true);
+  // D150 follow-up: a finisher cast learns G14; acting on another enemy than the last one acted on (still alive) learns G17
+  if (isOpen(t, 'G14') && a.type === 'CAST' && SPELL[a.spellId] && SPELL[a.spellId].tags.includes('finisher')) close(t, ev, 'G14', true);
+  if (isOpen(t, 'G17') && TARGETED.has(a.type) && Number.isInteger(a.target)) {
+    const b = t.beats.G17;
+    if (Number.isInteger(b.last) && a.target !== b.last && s.fight && s.fight.enemies[b.last] && s.fight.enemies[b.last].alive) close(t, ev, 'G17', true);
+    else b.last = a.target;
+  }
   if (!inZone1(s)) return;
   const f = s.fight;
   const ended = has('victory') || has('fled') || has('rescue');
@@ -498,6 +540,18 @@ function trackBeats(s, ev, a) {
   }
   // G11: low health with a healing potion on the item bar, in a fight
   if (f && !fired(t, 'G11') && s.player.hp < ONB_POTION_HP * s.player.d.maxHp && s.player.itemBar.some((id) => healPotion(id) && s.player.bag.some((x) => x.kind === 'cons' && x.id === id))) op('G11', 'G11');
+  // G14-G17 (D150 follow-up, Lead 2026-11-14, draft): each opens at its first moment, from round 2 of a fight, with its line:
+  // G14 a finisher castable (combo points), G15 a bar spell refused only for lack of resource (its class line: the engine
+  // cannot see a refused press, step throws, so this is the first moment a press would be refused), G16 a beast's
+  // Bloodlust badge, G17 two or more living enemies; then each follows its moment (moment) and shows once
+  const on = fightOn(f, ended);
+  const want = {
+    G14: on && finisherReady(s), G15: on && resourceShort(s), G16: on && bloodlustUp(f), G17: on && twoFoes(f),
+  };
+  const lineOf = { G14: 'G14', G15: `G15.${s.player.classId}`, G16: 'G16', G17: 'G17' };
+  for (const id of ['G14', 'G15', 'G16', 'G17']) {
+    if (!fired(t, id)) { if (want[id]) op(id, lineOf[id]); } else if (isOpen(t, id) && !now.has(id)) moment(t, ev, id, want[id], lineOf[id]);
+  }
   const zone = s.zone;
   // G12: the first node dims, or the front is within ONB_DIM_NEAR_HOPS of the player. While open, the front coming within
   // ONB_DIM_NEAR_HOPS again (it was not on the last step) is its trigger again (D141), which brings a resting line back at

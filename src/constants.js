@@ -1341,8 +1341,12 @@ export const ONB_HINT_SHOWS = 2;
 export const ONB_WELCOME_ECHOES = 60;
 /** Target ONB1, minutes to leave the guided zone (spec 8). */
 export const ONB_GUIDE_MAX_MIN = 15;
-/** The beats in spec order (2.4) and the coach line's priority (2.5: Deathblow > wind-up > potion > engage > the rest). */
-export const ONB_BEATS = ['G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8', 'G9', 'G10', 'G11', 'G12', 'G13'];
-export const ONB_BEAT_PRIORITY = ['G9', 'G8', 'G11', 'G7', 'G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G10', 'G12', 'G13'];
+/**
+ * The beats in spec order (2.4) and the coach line's priority (2.5: Deathblow > wind-up > potion > engage > the rest).
+ * D150 follow-up (Lead 2026-11-14, draft): G14-G17, the fight moments with no line before (combo points, resource,
+ * Bloodlust, targets), after G6 and before G10 in the priority.
+ */
+export const ONB_BEATS = ['G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8', 'G9', 'G10', 'G11', 'G12', 'G13', 'G14', 'G15', 'G16', 'G17'];
+export const ONB_BEAT_PRIORITY = ['G9', 'G8', 'G11', 'G7', 'G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G14', 'G15', 'G16', 'G17', 'G10', 'G12', 'G13'];
 /** Profile values of `guide` (spec E6). */
 export const ONB_GUIDE_STATES = ['todo', 'done', 'skipped'];

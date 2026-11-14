@@ -1,8 +1,9 @@
 // Content table: the guided first run (docs/specs/m3-onboarding.md 2.3 overlay, 2.4 beats, 2.6-2.7 guide lines, 3.2
 // first-time hints, 4.3 nudge; D135, D137). The authored overlay for zone 1 on TUTORIAL_SEED 8736 (board slot 1, Cull
 // site fights, scripted fights S1-S4 with the wind-up fight third (D145 fix, D147), Gorrak's encounter and the gate that
-// holds him back until S3 has been fought, D143), the 13 beats' coach lines (D142: G13.closed while the Roads wait for
-// Gorrak's fight; D147: G8's joint line with G7; D150: G3 and G9 have none before a landed Deathblow), the guide's lines
+// holds him back until S3 has been fought, D143), the 17 beats' coach lines (D142: G13.closed while the Roads wait for
+// Gorrak's fight; D147: G8's joint line with G7; D150: G3 and G9 have none before a landed Deathblow; G14-G17, D150
+// follow-up, draft: combo points, resource, Bloodlust, targets), the guide's lines
 // (rescue, rescues left, skip, Roads open, end, hub welcome), the 37 hints (D150: H04, H12 and H34 retired, line null) and
 // the Packed Satchel nudge. D150 (owner text pass 2026-11-14, docs/feedback/2026-11-14-blind-wording.md 2 and 4): the
 // approved cut-list lines, each instruction once; new lines are draft. Shape: src/content/SCHEMA.md 2.11. Plain data
@@ -89,8 +90,8 @@ export const TUTORIAL = {
     hubTrainerLine: 'Welcome to {zone}. The trainer has something new for you.',
   },
 
-  // The 13 beats (spec 2.4). line: the coach line (null: none); alt: the beat's other one-line states; hint: the
-  // first-time hint the beat stands in for (spec 3.1). (byClass, the class lines of G9, went with D150.)
+  // The 17 beats (spec 2.4). line: the coach line (null: none); byClass: the class's line (G15); alt: the beat's other
+  // one-line states; hint: the first-time hint the beat stands in for (spec 3.1). (G9's class lines went with D150.)
   beats: [
     { id: 'G1', name: 'Contracts', hint: 'H23', anchor: 'board slot 1',
       line: 'Take a contract: win its fights for extra XP and a reward.',
@@ -145,6 +146,22 @@ export const TUTORIAL = {
         onRoad: 'On a Road: take it to the next zone. Keep the Bell for when no Road is near.',
         closed: 'Face Gorrak first: the Roads open once his fight is over.',
       } },
+    // G14-G17 (D150 follow-up, Lead 2026-11-14, draft): fight moments the blind testers met with no line (feedback
+    // 2026-11-14-blind-wording.md 2, last sentence). Each shows once, from round 2 of a fight. G14 only for a class with
+    // finishers (the Rogue); G15 by class (the resource is the class's); G16 the beasts' Bloodlust badge ("+10 %" to
+    // "+50 %"); G17 Tab or a click (the UI's keys; no key chip yet).
+    { id: 'G14', name: 'Combo points', anchor: 'the finisher on the bar',
+      line: 'A finisher is ready: it spends all your combo points, and each point adds damage.' },
+    { id: 'G15', name: 'Resource', anchor: 'resource bar',
+      byClass: {
+        rogue: 'Not enough energy for that spell yet: energy refills every round.',
+        mage: 'Not enough mana for that spell: mana refills slowly, and a Mana Draught restores it.',
+        hunter: 'Not enough focus for that spell yet: focus refills every round.',
+      } },
+    { id: 'G16', name: 'Bloodlust', anchor: 'Bloodlust badge',
+      line: 'The red badge is Bloodlust: a beast hits harder each turn it acts, so kill it early.' },
+    { id: 'G17', name: 'Targets', anchor: 'enemy nameplates',
+      line: 'Press Tab or click an enemy to choose your target.' },
   ],
 
   // The 37 first-time hints (spec 3.2). perClass: seen per class (spec 3.1). sameAs: the line is that beat's line

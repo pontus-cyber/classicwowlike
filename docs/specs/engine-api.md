@@ -937,8 +937,8 @@ run. Zones 2-6 and everything after the guide are the normal rules. A run withou
   ONB_LOOT_POTIONS of `loot.consumable`.
 - `validateContent` checks the table (content.js `validateTutorial`): seed = C.TUTORIAL_SEED, board kind / zone / region id /
   family, site fights and exactly ONB_SCRIPTED_FIGHTS scripts of the zone's normals, `windup` booleans, the loot's rarity and
-  consumable, the elite among the zone's elites with its Deathblow among its abilities, `gate.afterScript` a script id, 13
-  beats G1-G13 and 37 hints H01-H37 in order.
+  consumable, the elite among the zone's elites with its Deathblow among its abilities, `gate.afterScript` a script id, the
+  beats of `C.ONB_BEATS` (17 since the D150 follow-up: G1-G17) and 37 hints H01-H37 in order.
 
 ### 14.2 Rescue and SKIP_GUIDE (E3, E4)
 - The guided zone: zone 1 while the guide is neither skipped nor ended. A death there (not the Camp or the end boss, which
@@ -980,7 +980,7 @@ run. Zones 2-6 and everything after the guide are the normal rules. A run withou
 ```
 
 ### 14.4 Beats (spec 2.4; content `beats`)
-The engine opens and closes G1-G13 from the action, its events and the state, while the guide runs; the UI shows `line`
+The engine opens and closes G1-G17 from the action, its events and the state, while the guide runs; the UI shows `line`
 (content: `<id>` = the beat's `line`, `<id>.<key>` = `alt[key]`; D150: `byClass` went with G9's class lines) and adds its own
 queue, pace and "Got it". D150 (owner text pass; the moments are draft engine choices): the rows marked (D150).
 | Beat | Opens (line) | Closes |
@@ -998,6 +998,10 @@ queue, pace and "Got it". D150 (owner text pass; the moments are draft engine ch
 | G11 | in a fight, HP < ONB_POTION_HP of max with a healing potion on the item bar | learned on USE_ITEM of it; missed when the fight ends |
 | G12 | the first node dims, or the front within ONB_DIM_NEAR_HOPS of the player (`G12`); (D150, draft) once that line rests and the zone's Roads are open (`roadsShut` false): `G12.road` | (D150) no line at a Dimmed encounter (`G12.caught` went); at the guide's end learned if zone 1 had none |
 | G13 | on the map: on a Road (`G13.onRoad`), or ONB_BELL_HOPS+ hops from every Road with the node dimming within ONB_BELL_DIM tolls (`G13`); (D142) while the Roads are closed: at either moment or once Gorrak's node is open, `G13.closed` | learned on TAKE_ROAD or RING_BELL; (D142) when the Roads open (any phase: the fight that opens them ends in a node) `G13.closed` becomes null, then the moments above set their line (the far line only while the line is null) |
+| G14 | (D150 follow-up, draft) from round 2 of a fight (not over), the first step a bar finisher can be cast on a living enemy (`castError` null; combo points held) (`G14`) | learned on a CAST of a finisher; else, as G15-G17, closed learned once it has been the top line and its moment is over or it has rested (`moment`) |
+| G15 | (draft) from round 2 of a fight, the first step a bar spell is refused only for lack of resource (`castError` 'not enough resource for <id>', and none with `{ free: true }`) (`G15.<class>`, content `byClass`) | as G14's second rule |
+| G16 | (draft) from round 2 of a fight, the first step a living, visible beast has acted (`acted` > 0: its Bloodlust shows) (`G16`) | as G14's second rule |
+| G17 | (draft) from round 2 of a fight, the first step two or more living, visible enemies stand (`G17`) | learned on a CAST or ATTACK on another living enemy than the last one acted on since it opened; else as G14's second rule |
 Beats still open when the guide ends close (G12, G13 as above; the rest missed); SKIP_GUIDE closes them as missed.
 
 Coach lines yield (spec 2.5, D141). A step is one action of the guided run while the guide runs. After each step the top
@@ -1010,7 +1014,8 @@ player after a step on which it was not (`beat` what `line` with the same line).
 back at most C.ONB_LINE_RETURNS times per zone (D150: 0, was 1); after that it does nothing (no event, the count is not
 reset). (D150, draft, the Dimming line once) G12's steps as the top line count only on a map step (phase MAP, no node,
 fight or loot window), and after C.ONB_LINE_STEPS of them it rests also when no other open beat has a line; `G12.road`
-brings it back once, by the same rule. The UI shows `line` and needs no step rule of its own. G13 is last by priority,
+brings it back once, by the same rule. (D150 follow-up, draft) G14-G17 rest by the same rule (any step, not only map
+steps); each has its line only while its moment lasts (null between moments). The UI shows `line` and needs no step rule of its own. G13 is last by priority,
 so it never rests: `G13.closed` is the line whenever no other open beat has a line that is not resting.
 
 ### 14.5 Profile, welcome and summary (E6, E7)

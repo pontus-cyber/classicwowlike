@@ -492,6 +492,111 @@ describe('M3 D150: the coach lines\' moments (owner text pass; docs/feedback/202
   });
 });
 
+describe('M3 D150 follow-up (Lead 2026-11-14, draft): G14 combo points, G15 resource, G16 Bloodlust, G17 targets', () => {
+  const NEW = ['G14', 'G15', 'G16', 'G17'];
+  /** The autoplay route (seed 1000), per step: the view's line, the fight's id and round, the G14-G17 beat events. */
+  function newMoments(classId) {
+    let s = steps(run(classId, 1000), [{ type: 'START_RUN' }, { type: 'TAKE_CONTRACT', index: 0 }]).state;
+    const log = [];
+    for (let n = 0; !(s.zone && s.zone.z === 2) && n < 3000; n++) {
+      const a = R.autoAction(s);
+      const r = R.step(s, a);
+      const f = r.state.fight;
+      log.push({ n, a, line: R.tutorialView(r.state).line, fight: f && f.tut ? f.tut.id : f ? f.kind : null, round: f ? f.round : null, state: r.state,
+        ev: r.events.filter((e) => e.t === 'beat' && NEW.includes(e.id)).map((e) => [e.id, e.what, e.line]) });
+      s = r.state;
+    }
+    return { s, log };
+  }
+  /** Separate runs of steps in which `id`'s line was the view's line. */
+  const showings = (log, id) => log.reduce((k, x, i) => k + ((x.line || '').split('.')[0] === id && !(i > 0 && (log[i - 1].line || '').split('.')[0] === id) ? 1 : 0), 0);
+
+  test('content: four lines (G15 one per class), each one sentence within ONB_HINT_MAX_CHARS, no placeholder; ONB_BEATS has G14-G17 after G13 and they rank after G6, before G10', () => {
+    const T = CONTENT.tutorial;
+    assert.deepEqual(C.ONB_BEATS.slice(13), NEW);
+    const pr = C.ONB_BEAT_PRIORITY;
+    assert.ok(NEW.every((id) => pr.indexOf(id) > pr.indexOf('G6') && pr.indexOf(id) < pr.indexOf('G10')));
+    const g15 = T.beats.find((b) => b.id === 'G15');
+    assert.deepEqual(Object.keys(g15.byClass), ['rogue', 'mage', 'hunter']);
+    const lines = [...['G14', 'G16', 'G17'].map((id) => T.beats.find((b) => b.id === id).line), ...Object.values(g15.byClass)];
+    for (const line of lines) {
+      assert.ok(line.length <= C.ONB_HINT_MAX_CHARS && /\.$/.test(line) && !/[.!?]\s/.test(line) && !/[{}]/.test(line), line);
+    }
+    assert.match(g15.byClass.rogue, /energy/);
+    assert.match(g15.byClass.mage, /mana/);
+    assert.match(g15.byClass.hunter, /focus/);
+    assert.match(T.beats.find((b) => b.id === 'G17').line, /Tab/);
+  });
+
+  test('on the autoplay route (seed 8736, run seed 1000): each opens at its moment from round 2 of a fight, shows once, and the route is unchanged', () => {
+    const at = {};
+    for (const classId of ['rogue', 'mage', 'hunter']) {
+      const { s, log } = newMoments(classId);
+      assert.deepEqual(routeSeen(s), ROUTE_SEEN, `${classId}: the route`);
+      at[classId] = {};
+      for (const id of NEW) {
+        const i = log.findIndex((x) => x.ev.some(([b, w]) => b === id && w === 'open'));
+        if (i < 0) continue;
+        const x = log[i];
+        const opened = x.ev.find(([b, w]) => b === id && w === 'open');
+        assert.ok(x.round >= 2 && x.state.fight && !x.state.fight.over, `${classId} ${id}: in a fight, round ${x.round}`);
+        assert.equal(opened[2], id === 'G15' ? `G15.${classId}` : id, `${classId} ${id}: its line`);
+        assert.ok(showings(log, id) <= 1, `${classId} ${id}: shown once (${showings(log, id)})`);
+        at[classId][id] = `${x.fight}:R${x.round}:${showings(log, id)}`;
+      }
+      // G14 only where a finisher can be cast (the Rogue); G16 the step after the first beast acted (site 1's Furrow Boar)
+      const g16 = log.find((x) => x.ev.some(([b, w]) => b === 'G16' && w === 'open'));
+      assert.ok(g16.state.fight.enemies.some((e) => e.alive && e.arch === 'beast' && e.acted === 1), `${classId}: the badge's first round`);
+    }
+    assert.deepEqual(at, {
+      rogue: { G14: 'site_1:R2:1', G15: 'site_1:R7:1', G16: 'site_1:R3:1' },
+      mage: { G16: 'site_1:R3:1', G17: 's3:R2:1' },
+      hunter: { G16: 'site_1:R3:1', G17: 's3:R2:1' },
+    }, JSON.stringify(at));
+  });
+
+  test('G14 opens when a finisher becomes castable (combo points) and a finisher cast learns it; G15 only when a bar spell lacks only resource (by class)', () => {
+    // a Rogue in S3's engage round (atS3 below: S1 and S2 counted as ended): Ambush on the Boar gives combo points, the Hexer lives
+    const s3 = R.step(withScript(atHub('rogue', 5), 2), { type: 'MOVE', nodeId: 2 }).state;
+    const amb = R.legalActions(s3).find((x) => x.type === 'ENGAGE' && x.option === C.ENGAGE_OPTIONS.rogue[0] && x.target === 1);
+    const r2 = R.step(s3, amb);
+    assert.ok(r2.state.fight.p.cp >= 1 && r2.state.fight.round === 2);
+    assert.ok(r2.events.some((e) => e.t === 'beat' && e.id === 'G14' && e.what === 'open' && e.line === 'G14'));
+    const fin = r2.state.player.bar.find((id) => id && C.SPELL[id].tags.includes('finisher'));
+    const tgt = r2.state.fight.enemies.findIndex((e) => e.alive);
+    const r3 = R.step(r2.state, { type: 'CAST', spellId: fin, target: tgt });
+    assert.ok(r3.events.some((e) => e.t === 'beat' && e.id === 'G14' && e.what === 'done'), 'a finisher cast learns it');
+    // no energy (fight.p.energy 0): Gutting Jab lacks only energy: G15 opens with the Rogue's line
+    const live = r3.state.fight.enemies.findIndex((e) => e.alive);
+    const dry = tweak(r3.state, (x) => { x.fight.p.energy = 0; x.tutorial.beats.G14 = { st: 'done', line: null, n: 0 }; });
+    assert.match(R.whyIllegal(dry, { type: 'CAST', spellId: 'gutting_jab', target: live }) || '', /not enough resource/);
+    assert.deepEqual([dry.tutorial.beats.G15.st, dry.tutorial.beats.G15.line], ['open', 'G15.rogue']);
+    // energy enough but the spell on cooldown, or only a finisher without combo points: no shortage of resource alone
+    const cd = tweak(r3.state, (x) => { x.fight.p.energy = 100; delete x.tutorial.beats.G15; x.fight.p.cp = 0; });
+    assert.ok(!cd.tutorial.beats.G15, 'enough energy: no G15');
+    // a Mage: never G14 (no finisher)
+    const m = R.step(withScript(atHub('mage', 5), 2), { type: 'MOVE', nodeId: 2 }).state;
+    const m2 = R.step(m, { type: 'PASS' }).state;
+    assert.ok(!m2.tutorial.beats.G14);
+  });
+
+  test('G17 opens in round 2 of a fight with two living enemies and is learned by acting on the other one; G16 waits when its moment passes unseen', () => {
+    // the Mage in S3: W (Binding Glyph) on the Hexer, then both live in round 2
+    const s3 = R.step(withScript(atHub('mage', 5), 2), { type: 'MOVE', nodeId: 2 }).state;
+    const r2 = R.step(s3, { type: 'ENGAGE', option: C.ENGAGE_OPTIONS.mage[1], target: 0 });
+    assert.ok(r2.events.some((e) => e.t === 'beat' && e.id === 'G17' && e.what === 'open' && e.line === 'G17'));
+    assert.deepEqual(R.tutorialView(r2.state).open.find((o) => o.id === 'G17'), { id: 'G17', line: 'G17', rest: false });
+    const cast = (x, u) => R.step(x, { type: 'CAST', spellId: x.player.bar.find((id) => id && R.whyIllegal(x, { type: 'CAST', spellId: id, target: u }) === null), target: u });
+    const a = cast(tweak(r2.state, (x) => { for (const e of x.fight.enemies) e.hp = e.maxHp = 1e6; }), 1);
+    assert.ok(!a.events.some((e) => e.t === 'beat' && e.id === 'G17' && e.what === 'done'), 'the first target is no change');
+    const b = cast(a.state, 0);
+    assert.ok(b.events.some((e) => e.t === 'beat' && e.id === 'G17' && e.what === 'done'), 'acting on the other living enemy learns it');
+    // G16 opened while another line was the top line and its beast died before it showed: it waits (null), open
+    const w = tweak(r2.state, (x) => { x.tutorial.beats.G16 = { st: 'open', line: 'G16', n: 0, shown: 0, rest: false, back: 0 }; for (const e of x.fight.enemies) if (e.arch === 'beast') { e.alive = false; e.hp = 0; } });
+    assert.deepEqual([w.tutorial.beats.G16.st, w.tutorial.beats.G16.line], ['open', null]);
+  });
+});
+
 describe('M3 coach lines yield after showing (2.5, D141)', () => {
   test('seed 8736 (D150, the Dimming line once): G12 is the line for ONB_LINE_STEPS map steps, then rests with no other line open; G13 becomes the line when it opens; its trigger again brings nothing back (ONB_LINE_RETURNS 0)', () => {
     assert.deepEqual([C.ONB_LINE_STEPS, C.ONB_LINE_RETURNS], [2, 0]);
