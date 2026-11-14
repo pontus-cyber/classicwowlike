@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V]
+ *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -173,6 +173,10 @@
  *   V  blind round 2 leftovers (docs/handoffs/ui-2026-11-14f.md): Packed Satchel's potions on the item bar, the vendor's gear
  *      in view and its card's line, rank-only trainer rows, one ring after Tab, bags compact after closing, a closed chest's
  *      gold not in the purse: see partV.
+ *   W  D152 (docs/specs/changes-m3-v2.md; engine-2026-11-14f section 6): a first run's zone 1 (no Bell, no contracts, the held
+ *      corridor's lamps, the steady Dimming's panel and tooltip, no contract hints), the dimBack line after a rescue, a first
+ *      run's summary, a later run's Bell and tracker, a first run's zone 2 hub: see partW. The first-run camp is in part T,
+ *      the bounty window in part R; parts M, N, S4 and the M rewards play a later-run profile (M_PROFILE, runs 2).
  *
  * D116 (the flip): new runs start on the expedition map with the start camp. The parts written for the classic map (A-L, O,
  * P) open the page with ?classic=1 (open() adds it unless the query names a map) and their Node twins pass mapMode 'rows';
@@ -212,7 +216,7 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -1513,7 +1517,9 @@ const HNAME = HEAT_WORDS.state; // Calm, Smouldering, Burning, Infernal (M2b v7)
 const fh = (x) => String(Math.round(Math.abs(x))); // whole tolls (M2b v7: no decimals)
 const lineS = (l) => Math.ceil(l - 1e-9); // the Star's line as shown: the engine's, whole and rounded up (changes-m2b-v7.md A row 2)
 // D150 (items 1, 25): the meter's one line, "Calm · 18 tolls to spare" ("8 tolls overspent"), and "Boss +N %" only above 0
-const stand = (x) => { const past = Math.floor(x.heat + 1e-9); const hand = Math.ceil(-x.heat - 1e-9); return x.heat > 0 && past > 0 ? `${tolls(past)} overspent` : x.heat < 0 && hand > 0 ? `${tolls(hand)} to spare` : 'No tolls to spare'; };
+// D152 (changes-m3-v2.md 4): when the Dimming sets the state (heatView `by` 'dim') the line is the Dimming's own words
+const stand = (x) => { if (x.by === 'dim' && x.dimIn != null) return x.dimIn > 0 ? `Your node dims in ${tolls(x.dimIn)}` : 'You stand in the Dimming';
+  const past = Math.floor(x.heat + 1e-9); const hand = Math.ceil(-x.heat - 1e-9); return x.heat > 0 && past > 0 ? `${tolls(past)} overspent` : x.heat < 0 && hand > 0 ? `${tolls(hand)} to spare` : 'No tolls to spare'; };
 const bossTxt = (a) => (Math.round((a || 0) * 100) > 0 ? `Boss +${Math.round((a || 0) * 100)} %` : '');
 const barPct = (x) => (100 * (Math.min(R.C.HEAT_BAR_MAX, Math.max(R.C.HEAT_BAR_MIN, x)) - R.C.HEAT_BAR_MIN)) / (R.C.HEAT_BAR_MAX - R.C.HEAT_BAR_MIN);
 const chanceTxt = (p) => { for (let d = 2; d <= 10; d++) { const n = p * d; if (Math.abs(n - Math.round(n)) < 1e-9 && Math.round(n) >= 1) return `${Math.round(n)} in ${d}`; } return `${Math.round(p * 100)} %`; };
@@ -1864,7 +1870,7 @@ async function partI(browser, W, H) {
     let rec = await page.evaluate(() => window.__heat);
     const changes = rec.states.slice(1).map((x, i) => ({ from: rec.states[i], to: x }));
     check('M2b-heat', `no toast on a change of state (${changes.length} so far: ${rec.states.join(' > ')}; D150 item 25)`, changes.length >= 3 && rec.toasts.length === 0 && rec.maxHeat === 0, `toasts: ${rec.toasts.map((t) => t.text).join(' | ')}`);
-    const okLog = (l, c) => new RegExp(`^${HEAT_WORDS.Name}: ${HNAME[c.to]} · (\\d+ tolls? (to spare|overspent)|No tolls to spare)\\.$`).test(l);
+    const okLog = (l, c) => new RegExp(`^${HEAT_WORDS.Name}: ${HNAME[c.to]} · (\\d+ tolls? (to spare|overspent)|No tolls to spare|Your node dims in \\d+ tolls?|You stand in the Dimming)\\.$`).test(l); // D152: the Dimming's words when it sets the state
     check('M2b-heat', 'the combat log has a line for each change of state: "The Furnace: Burning · 3 tolls overspent." (one full stop, no "..")', rec.logs.length === changes.length && rec.logs.every((l, i) => okLog(l, changes[i])),
       rec.logs.slice(0, 6).join(' | '));
     check('M2b-heat', `the toast stack within its limit during the run (seen: ${rec.maxAll} at once)`, rec.maxAll <= 2, '');
@@ -1967,7 +1973,9 @@ async function partIExp(browser, W, H) {
     const tip = await tipOf(page, page.locator('#heat'));
     check('M2b-heat-exp', `the Dimming sets the state (zone toll ${s.time - s.zone.start}: ${HNAME[hv.stateDim]} by the Dimming, ${HNAME[hv.stateRun]} by the line): "${HNAME[hv.state]} · ${stand(hv)}" (D150 item 25), its marker in ${hv.stateDim} and marked as the clock that sets it`,
       !diff.length && hv.by === 'dim' && d.by === 'dim', diff.join(' | ') || JSON.stringify(d));
-    check('M2b-heat-exp', 'the meter\'s tooltip says the Dimming near you raised it (one short line; D150 item 5)', tip.includes('Raised by the Dimming near you.') && !/hotter clock/.test(tip), tip);
+    // D152 (changes-m3-v2.md 4): the tolls figure moves to the tooltip's first line
+    const tipWant = `Tolls: ${hv.heat > 0 ? `${hv.heat} overspent` : hv.heat < 0 ? `${-hv.heat} to spare` : 'none to spare'}. The Dimming near you sets the Furnace now.`;
+    check('M2b-heat-exp', `the meter's tooltip, first line under the name: "${tipWant}" (D152); no "Raised by"`, tip.includes(tipWant) && tip.indexOf(tipWant) < tip.indexOf('Every move costs tolls') && !/Raised by|hotter clock/.test(tip), tip);
   } catch (e) {
     check('-', 'part I (expedition) ran to the end', false, e.message.split('\n')[0]);
   }
@@ -2843,7 +2851,9 @@ const M_SEED = 7;
  * D150 (engine-2026-11-14d, cut list item 15): a profile's first run offers one zone 1 contract; parts M and N check the
  * full board (CONTRACT_BOARD_SIZE offers), so they play a later run: a stored profile with one run, the twin's the same.
  */
-const M_PROFILE = () => ({ ...R.newProfile(), runs: 1, welcome: true });
+// D152 (changes-m3-v2.md 1.2): a profile with no run is a lean first run (no board, no zone 1 Bell); the board of
+// CONTRACT_BOARD_SIZE offers and the Bell in zone 1 come from the third run (runs >= 2)
+const M_PROFILE = () => ({ ...R.newProfile(), runs: 2, welcome: true, guide: 'done' });
 /**
  * D150 item 14: what a start-camp offer's tooltip says (prep.js boardTip), as text pieces: "Win 2 Quest or Grind fights in
  * <region>." (a Bounty: "Hunt down <elite> in <region>.", a Delve: "Clear <dungeon>, its boss included."), "Reward: about
@@ -3088,7 +3098,7 @@ async function partM(browser, W, H) {
 }
 /** Part M, a completed contract: seed 1 on the engine's autoplay choices (its start camp takes contracts) to the reward. */
 async function partMReward(browser, W, H) {
-  const { context, page, errors } = await open(browser, W, H, 'seed=1&speed=instant&prep=1');
+  const { context, page, errors } = await open(browser, W, H, 'seed=1&speed=instant&prep=1', M_PROFILE()); // D152: a later run
   const T = await import('../../src/ui/ui-text.js');
   try {
     await page.keyboard.press('Enter'); await idle(page);
@@ -3102,7 +3112,7 @@ async function partMReward(browser, W, H) {
     if (!L) throw new Error('seed 1 completed no contract on the autoplay choices');
     // the engine's pay: replay the log, sum the XP and gold events after the step's contract complete event
     const log = await page.evaluate(() => window.__ui.engineLog());
-    let s = R.newRun({ classId: 'rogue', seed: 1, content: CONTENT, mapMode: 'expedition', prep: true }); let pay = null;
+    let s = R.newRun({ classId: 'rogue', seed: 1, content: CONTENT, mapMode: 'expedition', prep: true, profile: M_PROFILE() }); let pay = null;
     for (const a of log) { const r = R.step(s, a); s = r.state; const k = r.events.findIndex((e) => e.t === 'contract' && e.what === 'complete'); if (k >= 0) { const after = r.events.slice(k + 1).filter((e) => e.why === 'contract'); pay = { id: r.events[k].id, xp: after.filter((e) => e.t === 'xp').reduce((x, e) => x + e.amount, 0), gold: after.filter((e) => e.t === 'gold').reduce((x, e) => x + e.amount, 0) }; } }
     const c = R.contractView(s).contracts.find((x) => x.id === pay.id);
     const dlg = await page.evaluate(() => { const d = document.querySelector('.dialog.contract-reward'); return d ? { title: d.querySelector('.wtitle .title').textContent, text: d.innerText, cards: d.querySelectorAll('.choice-cards .icard').length } : null; });
@@ -3966,8 +3976,9 @@ async function partR(browser, W, H) {
       await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
       let c = await coach(page);
       await shot(page, 'R-prep');
-      check('M3-R', 'the start camp: G1\'s line on the coach line, content text', c.shown && c.shown.id === 'G1' && c.shown.text === lineText('G1'), JSON.stringify(c.shown));
-      const engineLines = []; const bad = []; const shownSoFar = new Set(); const layout = []; let gate = null; let gateOpen = null; let reachedZ2 = false; let steps = 0;
+      // D152 (changes-m3-v2.md 1.2): a first run's camp has no board, G1 closes at START_RUN: no coach line there, no H23
+      check('M3-R', 'the start camp of a first run (D152): no coach line (no G1, no H23: no board)', !c.shown && !c.log.some((x) => x.id === 'G1' || x.id === 'H23'), JSON.stringify(c.shown));
+      const engineLines = []; const bad = []; const shownSoFar = new Set(); const layout = []; let gate = null; let gateOpen = null; let reachedZ2 = false; let steps = 0; let bounty = null;
       // the order the coach line should show them: each step's line by the UI's rule (the engine's top line, tutorialView
       // `line`, when it can show; else the first open line that can), first appearances (D150: G14-G17 take priority over G10)
       const engineOrder = [];
@@ -3978,6 +3989,9 @@ async function partR(browser, W, H) {
       for (; steps < 260; steps++) {
         const st = await page.evaluate(() => { const v = window.__ui.view(); const tp = document.querySelector('#turnprompt:not(.hidden) .tp-t'); return { phase: v.phase, z: v.zone ? v.zone.idx : null, t: v.tutorial, cls: v.player ? v.player.classId : 'rogue', fight: !!(v.combat && !v.combat.over && !v.loot), map: v.phase === 'MAP' && !!(v.zone && v.zone.exp) && !v.node, contract: !!(v.loot && v.loot.kind === 'contract'), tab: !!tp && /\bTab\b/.test(tp.textContent) }; });
         const t = st.t;
+        // D152 (changes-m3-v2.md 1.4): Gorrak's bounty on a first run, its own window after his fight's spoils
+        if (!bounty) bounty = await page.evaluate(() => { const v = window.__ui.view(); if (!(v.loot && v.loot.kind === 'bounty')) return null; const d = document.querySelector('.dialog.bounty-reward');
+          return { L: { xp: v.loot.xp, gold: v.loot.gold, text: v.loot.text, choices: v.loot.choices.length }, title: d ? d.querySelector('.wtitle .title').textContent : null, text: d ? d.innerText : '', cards: d ? d.querySelectorAll('.choice-cards .icard').length : 0 }; });
         // a fight's beat line waits while the quest's intro dialog is up (no fight on screen yet); a map line waits for the
         // map on screen (QA playtest 2026-11-13); a resting line (D141) waits for its trigger
         const FIGHT = ['G3', 'G6', 'G7', 'G8', 'G9', 'G11', 'G14', 'G15', 'G16', 'G17']; // D150: G14-G17 (engine-2026-11-14d section 7)
@@ -4045,11 +4059,17 @@ async function partR(browser, W, H) {
       check('M3-R', `every beat line the engine opened showed on the coach line, in the engine's order (top line first; ${engineOrder.join(' > ')})`, reachedZ2 && !missing.length && order && !bad.length, `steps ${steps}, shown ${seq.join(' > ')}${missing.length ? ` | never shown: ${missing}` : ''}${bad.length ? ` | ${bad.slice(0, 4).join(' | ')}` : ''}`);
       const ids = new Set(engineLines.map((x) => x.split('.')[0]));
       const cls = await page.evaluate(() => (window.__ui.view().player || {}).classId || 'rogue');
-      // D150 (engine-2026-11-14d section 2, the route): G1 at the camp, G5 at the hub, G2, G7 in fight 1 (learned there), G10,
-      // G12 once and later G12.road, G4 at S1's spoils, G6 in S2, G8 on its own line in S3, G13; G3 and G9 have no line
-      check('M3-R', 'G1, G2, G4-G8, G10, G12 (and G12.road) and G13 among them; no line for G3 or G9, G8 on its own line (D150)',
-        ['G1', 'G2', 'G4', 'G5', 'G6', 'G7', 'G8', 'G10', 'G12', 'G13'].every((x) => ids.has(x)) && !ids.has('G3') && !ids.has('G9') && !engineLines.includes('G8.withEngage') && engineLines.includes('G12.road'),
+      // D150 (engine-2026-11-14d section 2, the route): G5 at the hub, G2, G7 in fight 1 (learned there), G12 once and later
+      // G12.road, G4 at S1's spoils, G6 in S2, G8 on its own line in S3, G13; G3 and G9 have no line. D152 (a lean first run):
+      // no G1 (no board) and no G10 (no contract); G13 on the Road reads G13.onRoadFirst (no Bell in zone 1)
+      check('M3-R', 'G2, G4-G8, G12 (and G12.road) and G13 (G13.onRoadFirst) among them; no line for G1, G3, G9 or G10 (D152: no contracts on a first run), G8 on its own line (D150)',
+        ['G2', 'G4', 'G5', 'G6', 'G7', 'G8', 'G12', 'G13'].every((x) => ids.has(x)) && !ids.has('G1') && !ids.has('G10') && !ids.has('G3') && !ids.has('G9') && !engineLines.includes('G8.withEngage') && engineLines.includes('G12.road') && engineLines.includes('G13.onRoadFirst') && !engineLines.includes('G13.onRoad'),
         `${[...ids].join(',')} | ${engineLines.join(' > ')}`);
+      // the engine's bounty event (a Node replay of the page's engine actions) against the window
+      let bEv = null; { let s1 = R.newRun({ classId: 'rogue', seed: 8736, content: CONTENT, mapMode: 'expedition', prep: true, tutorial: true, profile: R.newProfile() });
+        for (const a of await page.evaluate(() => window.__ui.engineLog())) { const r = R.step(s1, a); s1 = r.state; const e = r.events.find((x) => x.t === 'bounty'); if (e) bEv = e; } }
+      check('D152-bounty', `Gorrak's bounty on a first run: its window "${"Gorrak's bounty"}" with "${T.guide.bountyLine}", +XP and gold = the engine's bounty event${bEv ? ` (${bEv.xp} XP, ${bEv.gold} c)` : ''}, ${R.C.CONTRACT_REWARD_CHOICES} items to choose from`,
+        !!bounty && !!bEv && bounty.title === "Gorrak's bounty" && bounty.text.includes(T.guide.bountyLine) && bounty.L.xp === bEv.xp && bounty.L.gold === bEv.gold && bounty.cards === R.C.CONTRACT_REWARD_CHOICES, JSON.stringify({ bounty: bounty && { ...bounty, text: bounty.text.slice(0, 160) }, bEv }));
       const evOf = (id, what) => beatEv.find((e) => e.id === id && e.what === what) || null;
       const o7 = evOf('G7', 'open'); const o8 = evOf('G8', 'open'); const o9 = evOf('G9', 'open');
       const end7 = beatEv.find((e) => e.id === 'G7' && (e.what === 'done' || e.what === 'missed')) || null;
@@ -4106,7 +4126,7 @@ async function partR(browser, W, H) {
       check('M3-R', `rescue ${v && v.rescues} of ${R.C.ONB_RESCUE_MAX}: the banner's second line and the log say "${leftLine}"`,
         !!v && v.rescues < v.rescueMax && sub === leftLine && log.includes(leftLine), `sub "${sub}" log ${JSON.stringify(log.slice(-3))}`);
       // (3) skip from the coach line: one-line confirm, then SKIP_GUIDE
-      for (let i = 0; i < 40 && !((await coach(page)).shown || {}).kind; i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
+      for (let i = 0; i < 80 && ((await coach(page)).shown || {}).kind !== 'beat'; i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
       const sh = (await coach(page)).shown;
       await page.locator('#coach .co-skip').click(); await idle(page);
       const ask = await page.locator('#coach .co-t').innerText();
@@ -4221,14 +4241,15 @@ async function partR(browser, W, H) {
       const prof = JSON.parse(await page.evaluate((k) => localStorage.getItem(k), PROFILE_KEY));
       const t0 = await page.evaluate(() => window.__ui.view().tutorial);
       const sh = (await coach(page)).shown;
-      check('M3-R', 'toggle off: a normal run (no tutorial), the profile\'s guide "skipped"; hint H23 shows at the camp (content line)', off === 'false' && !t0 && prof.guide === 'skipped' && sh && sh.id === 'H23' && sh.text === T.hints.find((x) => x.id === 'H23').line, `${off} ${JSON.stringify(t0)} ${prof.guide} ${JSON.stringify(sh)}`);
-      await page.locator('#coach .co-ok').click(); await idle(page);
+      // D152 (changes-m3-v2.md 1.2): a first run with the guide off is still a first run: no board, so no H23 at its camp
+      check('M3-R', 'toggle off: a normal run (no tutorial), the profile\'s guide "skipped"; no H23 at a first run\'s camp (D152: no board)', off === 'false' && !t0 && prof.guide === 'skipped' && !(sh && sh.id === 'H23'), `${off} ${JSON.stringify(t0)} ${prof.guide} ${JSON.stringify(sh)}`);
+      if (sh) { await page.locator('#coach .co-ok').click(); await idle(page); }
       // Hints off from Settings: no line on the next steps
       await page.keyboard.press('Escape'); await page.locator('#win-settings .hintseg button', { hasText: 'Off' }).click(); await page.keyboard.press('Escape'); await idle(page);
       let any = null;
       for (let i = 0; i < 12; i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); const x = (await coach(page)).shown; if (x) { any = x.id; break; } }
       const st = JSON.parse(await page.evaluate((k) => localStorage.getItem(k), HINTS_KEY));
-      check('M3-R', 'Hints Off (Settings) silences every hint; H23 stays seen', !any && st.off === true && st.seen.H23 === true, `${any} ${JSON.stringify(st)}`);
+      check('M3-R', 'Hints Off (Settings) silences every hint (stored off)', !any && st.off === true, `${any} ${JSON.stringify(st)}`);
       await page.evaluate((k) => { const x = JSON.parse(localStorage.getItem(k)); x.off = false; localStorage.setItem(k, JSON.stringify(x)); }, HINTS_KEY);
       // (5) a death in a fight of the normal run: the first summary with the welcome
       await page.goto(`${URL}?seed=21&speed=instant&fresh=1`); await page.waitForFunction(() => window.__ui);
@@ -4532,7 +4553,7 @@ async function partS(browser, W, H) {
       check('D143-1', 'the closed line shown and put away does not count for the Bell\'s hint H19 (no showing, not seen)', !!closed && !closed.h19.seen && closed.h19.shows === 0, JSON.stringify(closed && closed.h19));
       check('D143-1', `a toast when the Roads open ("${T.guide.roadsOpenLine}")`, Array.isArray(roadsOpened) && roadsOpened.some((x) => x.startsWith(T.guide.roadsOpenLine)), JSON.stringify(roadsOpened));
       check('S-3', `Gorrak's barred node next to the player has a tooltip: Elite, "${DB_LINE}" (D150 item 23), the gate line, no "Click to enter", no "Not here yet.", no error`, !!barredTip && !!barredTip.text && /^Elite/.test(barredTip.text) && barredTip.text.includes(DB_LINE) && barredTip.text.includes('Gorrak is out on the downs') && !/Click to enter|Not here yet/.test(barredTip.text) && barredTip.errors === 0, JSON.stringify(barredTip));
-      check('S-5', 'the Furnace header fits its frame when the Dimming sets the state: "State · N tolls to spare" or "overspent", no "Dimming" (D150 items 1, 25)', !!furnace && furnace.sw <= furnace.cw + 1 && furnace.inside && /^(Calm|Smouldering|Blazing|Scorched|Warm|Hot|Clear)\s*·\s*(\d+ tolls? (to spare|overspent)|No tolls to spare)/.test(furnace.text) && !/Dimming/.test(furnace.text), JSON.stringify(furnace));
+      check('S-5', 'the Furnace header fits its frame when the Dimming sets the state: "State · Your node dims in N tolls" or "Infernal · You stand in the Dimming" (D152, changes-m3-v2.md 4)', !!furnace && furnace.sw <= furnace.cw + 1 && furnace.inside && /^(Calm|Smouldering|Burning|Infernal)\s*·\s*(Your node dims in \d+ tolls?|You stand in the Dimming)/i.test(furnace.text) && !/to spare|overspent/.test(furnace.text), JSON.stringify(furnace));
       check('S-9', 'a reward that is an upgrade offers "Equip now": one click sends CHOOSE_REWARD then EQUIP of that item, and it is worn', !!eqNow && eqNow.acts.length === 2 && /^CHOOSE_REWARD/.test(eqNow.acts[0]) && eqNow.acts[1] === `EQUIP:${eqNow.uid}` && eqNow.worn, JSON.stringify(eqNow));
       check('S-10', `no wind-up line over an enemy prints "null" (${wub.length} seen, ${wub.filter((x) => !/Deathblow/.test(x)).length} not a Deathblow, to ${z2Steps} steps into zone 2)`, plainWu() && !wub.some((x) => /null/.test(x)), [...new Set(wub)].slice(0, 6).join(' | '));
       check('S-1', 'the guided run reached zone 2', zone2, '');
@@ -4553,7 +4574,7 @@ async function partS(browser, W, H) {
     const { context, page, errors } = await open(browser, W, H, 'seed=8736&fresh=1', null, { guide: true, hints: true });
     try {
       await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
-      await page.locator('#prep .pp-card').first().click(); await idle(page);
+      if (await page.locator('#prep .pp-card').count()) { await page.locator('#prep .pp-card').first().click(); await idle(page); } // D152: a first run has no board
       await page.locator('#pp-go').click();
       const under = [];
       for (let i = 0; i < 30; i++) {
@@ -4702,9 +4723,10 @@ async function partS(browser, W, H) {
     await context.close();
   }
 
-  // ---- S4: the zone 2 hub (Dev menu): in view; Take keeps the cards in place; the Inn asks at full health
+  // ---- S4: the zone 2 hub (Dev menu): in view; Take keeps the cards in place; the Inn asks at full health. D152: a later run
+  // (a first run has no hub contract)
   {
-    const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&fresh=1&guide=0', null, {});
+    const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&fresh=1&guide=0', M_PROFILE(), {});
     try {
       await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
       await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 2, level: 12, mapMode: 'expedition', prep: true })); await idle(page);
@@ -5038,7 +5060,7 @@ async function partT(browser, W, H) {
     const t = (sel) => { const x = e.querySelector(sel); return x && !x.classList.contains('hidden') ? x.textContent.trim() : ''; };
     return [`${t('.ht-sname')} ${t('.ht-sep')} ${t('.ht-num')}`, t('.ht-boss')].filter(Boolean).join(' ');
   });
-  const want = (hv) => `${HEAT_WORDS.state[hv.state]} · ${hv.heat > 0 ? `${tolls(hv.heat)} overspent` : hv.heat < 0 ? `${tolls(-hv.heat)} to spare` : 'No tolls to spare'}${Math.round((hv.ascIfPar || 0) * 100) > 0 ? ` Boss +${Math.round(hv.ascIfPar * 100)} %` : ''}`;
+  const want = (hv) => `${HEAT_WORDS.state[hv.state]} · ${stand(hv)}${Math.round((hv.ascIfPar || 0) * 100) > 0 ? ` Boss +${Math.round(hv.ascIfPar * 100)} %` : ''}`; // D152: stand() as section 4
   // ---- T1: the guided first run, Rogue, seed 8736, a new profile (guide and hints on)
   {
     const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&fresh=1', null, { guide: true, hints: true });
@@ -5047,18 +5069,26 @@ async function partT(browser, W, H) {
       const cs = await page.evaluate(() => ({ seed: !!document.querySelector('#create .bottom .seedf:not(.hidden)'), echoes: !!document.querySelector('#create .bottom .echoes:not(.hidden)'), guide: !!document.querySelector('#create .bottom .guide:not(.hidden)') }));
       check('D150-naming', 'class select on a first run: no Seed field and no Echoes button; the guide toggle shown', !cs.seed && !cs.echoes && cs.guide, JSON.stringify(cs));
       await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
-      // D150 item 15: the first run's start camp: one contract (zone 1, engine), the heading "Supplies" with no subline, no
-      // "Unspent ... Echoes" line under the points
-      const camp = await page.evaluate(() => ({ board: window.__ui.view().prep.board.length, cards: [...document.querySelectorAll('#prep .pp-card')].map((b) => b.dataset.zone), shop: (document.querySelector('#prep .pp-shop .pp-lab') || {}).textContent || null, sub: !!document.querySelector('#prep .pp-shop .pp-sub'), rl: !!document.querySelector('#prep .pm-rl') }));
-      check('D150-15', 'the first run\'s start camp: one contract card, of zone 1 (R.prepView); the heading "Supplies", no subline; no "Unspent ... Echoes" line', camp.board === 1 && camp.cards.length === 1 && camp.cards[0] === '1' && camp.shop === 'Supplies' && !camp.sub && !camp.rl, JSON.stringify(camp));
+      // D152 (changes-m3-v2.md 1.2-1.3; engine-2026-11-14f UI need 2): a lean first run's start camp: no board, no contracts
+      // section, the two supplies under "Supplies", PREP_POINTS_FIRST points, and over Set out content prep.unspentFirst
+      // with prepView.unspent.echoes; the points' and Set out's tooltips (they threw on a missing Reserve) name no Reserve or
+      // contract; buying both supplies spends every point and the line goes
+      const camp = await page.evaluate(() => { const pv = window.__ui.view().prep; return { first: pv.first, points: pv.points, board: pv.board.length, opts: pv.options.map((o) => o.id), unspent: pv.unspent,
+        cards: document.querySelectorAll('#prep .pp-card').length, boardEl: !!document.querySelector('#prep .pp-board'), shop: (document.querySelector('#prep .pp-shop .pp-lab') || {}).textContent || null,
+        sub: !!document.querySelector('#prep .pp-shop .pp-sub'), optEls: document.querySelectorAll('#prep .pp-opt').length, line: (document.querySelector('#prep .pp-unspent:not(.hidden)') || {}).textContent || null, keys: (document.querySelector('#prep .pp-keys') || {}).textContent || '' }; });
+      const unspentWant = (e) => CONTENT.tutorial.prep.unspentFirst.replace('{echoes}', String(e));
+      check('D152-camp', `a first run's start camp (D152): no board or contracts section, the ${R.C.PREP_POINTS_FIRST} points, two supplies (Field Draughts, Ember of Return) under "Supplies"; over Set out "${unspentWant(camp.unspent && camp.unspent.echoes)}"`,
+        camp.first === true && camp.board === 0 && camp.cards === 0 && !camp.boardEl && camp.points === R.C.PREP_POINTS_FIRST && camp.opts.join(',') === 'prep_draughts,prep_ember' && camp.optEls === 2 && camp.shop === 'Supplies' && !camp.sub
+          && camp.line === unspentWant(camp.unspent.echoes) && camp.unspent.echoes === camp.points * R.C.PREP_ECHO_PER_POINT && !/contracts/.test(camp.keys), JSON.stringify(camp));
+      const tipOf = async (sel) => { await page.locator(sel).hover(); await page.waitForTimeout(150); const t = await page.evaluate(() => { const x = document.querySelector('.tooltip.on'); return x ? x.innerText.replace(/\u00a0/g, ' ') : null; }); await page.mouse.move(2, 2); await page.waitForTimeout(80); return t; };
+      const ptsTip = await tipOf('#prep .pm-points'); const goTip = await tipOf('#pp-go');
+      check('D152-camp', 'a first run\'s points and Set out tooltips show (no error on a missing Reserve), say what unspent points pay, and name no Reserve or contract',
+        !!ptsTip && !!goTip && ptsTip.includes(unspentWant(camp.unspent.echoes)) && goTip.includes(unspentWant(camp.unspent.echoes)) && !/Reserve|contract/i.test(ptsTip + goTip) && errors.length === 0, JSON.stringify({ ptsTip, goTip, errors }));
       await shot(page, 'T1-camp');
-      // D150 item 14: the offer's tooltip in three sentences
-      const o1 = await page.evaluate(() => window.__ui.view().prep.board[0]);
-      await page.locator('#prep .pp-card').first().hover(); await page.waitForTimeout(150);
-      const ot = await page.evaluate(() => { const t = document.querySelector('.tooltip.on'); return t ? { text: t.innerText.replace(/\u00a0/g, ' '), money: !!t.querySelector('.money') } : null; });
-      await page.mouse.move(2, 2); await page.waitForTimeout(100);
-      const ow = boardTipWant(o1);
-      check('D150-14', `the first run's offer tooltip: "${ow.join(' ... ')}" (gold in coins); no sites, refund or key lines`, !!ot && ow.every((x) => ot.text.includes(x)) && ot.money && !/Sites:|refunded|Click or press/.test(ot.text), JSON.stringify(ot));
+      await page.keyboard.press('KeyA'); await idle(page); await page.keyboard.press('KeyB'); await idle(page);
+      const spent = await page.evaluate(() => ({ left: window.__ui.view().prep.left, line: !!document.querySelector('#prep .pp-unspent:not(.hidden)') }));
+      check('D152-camp', `both supplies bought with A and B: every one of the ${R.C.PREP_POINTS_FIRST} points spent, the unspent line goes`, spent.left === 0 && !spent.line, JSON.stringify(spent));
+      await page.keyboard.press('KeyA'); await idle(page); await page.keyboard.press('KeyB'); await idle(page); // sold back: the run below is as before
       const furnaceBefore = []; let furnaceAt = null; let hub = null; let map = null; let engage = null; let elite = null; let elite2 = null; let stopped = null; let map2 = null;
       let g15 = null; // D150 (Lead): a key refused for lack of resource while G15 is open shows its line, no toast
       for (let i = 0; i < 320; i++) {
@@ -5203,8 +5233,8 @@ async function partT(browser, W, H) {
         !!map && map.m.node != null && !!map.tipText && map.tipText.includes(`Costs ${tolls(map.m.go)}.`) && !/Dims in|Dimming in|Pass in the list|walk through it|Pays|no reward/.test(map.tipText), map && map.tipText);
       check('D150-9', `hovered, the node offers "Pass through (${map && map.m.pass} toll)" on itself (heatView's PASS_THROUGH), and the offer goes with the pointer`,
         !!map && !!map.passBtn && map.passBtn.on && map.passBtn.text === `Pass through (${tolls(map.m.pass)})` && map.passBtn.key === 'X' && map.passBtn.after === false, JSON.stringify(map && map.passBtn));
-      const bw = map && map.bell && map.bell.p ? `Costs ${tolls(map.bell.p.time)}${map.bell.p.dimFight ? ', then a fight in the Dimming' : ''}.` : null;
-      check('D150-s7', `the Bell's ask names its tolls and any fight first (heatView RING_BELL: "${bw}"), as its tooltip does`, !!bw && !!map.bell.text && map.bell.text.includes(bw), JSON.stringify(map && map.bell));
+      // D152: zone 1 of a first run has no Bell (the ask of section 7 is checked on a later run, part W3)
+      check('D152-bell', 'the guided first run\'s zone 1 map: no Bell button, so no Bell ask', !!map && !map.bell, JSON.stringify(map && map.bell));
       if (map) T_WORDS.map = map.w.words;
       check('D150-words', `the map at rest: ${map && map.w.words} visible words (under ${T_MAP_MAX}; the combat log, toasts and key chips not counted)`, !!map && map.w.words < T_MAP_MAX, map && map.w.text);
       if (engage) T_WORDS.engage = engage.w.words;
@@ -5414,7 +5444,12 @@ async function partU(browser, W, H) {
         const bo = { tip: !!(await tipOn(page)), over: await overSel(page, '.expmap .xside .xpanel') };
         check('U-tips', 'the Bell\'s tip covers none of the map\'s side panels (Regions, the Dimming, Key)', bo.tip && bo.over === 0, JSON.stringify(bo));
         await page.mouse.move(2, 2);
-      } else check('U-tips', 'the Bell\'s button on the first map (seed 7)', false, 'no Bell button');
+      } else {
+        // D152 (changes-m3-v2.md 1.2): zone 1 of a first run has no Bell (mapView.bell.hidden): no button. The Bell's tip
+        // over the panels is checked on a later run in part W
+        const bh = await page.evaluate(() => { const b = window.__ui.view().zone.exp.bell; return b ? { hidden: !!b.hidden, charges: b.charges } : null; });
+        check('D152-bell', 'zone 1 of a first run: no Bell button (mapView.bell hidden)', !!bh && bh.hidden && bh.charges === 0, JSON.stringify(bh));
+      }
       // a key puts a tip away: a map node's tip, then B opens the bags over the map
       await page.mouse.move(2, 2);
       const reach = page.locator('.expmap .mnode.reach').first();
@@ -5463,7 +5498,7 @@ async function partU(browser, W, H) {
         }
         if (s.node && s.node.type === 'trainer' && !trainer && (await page.locator('.svc .list .trow').count())) {
           const rows = page.locator('.svc .list .trow'); const nr = await rows.count(); const over = [];
-          for (let k = 0; k < nr; k++) { const bb = await rows.nth(k).boundingBox(); await page.mouse.move(bb.x + 30, bb.y + bb.height - 6); await page.waitForTimeout(120); over.push(await overSel(page, '.svc .list .trow .right')); }
+          for (let k = 0; k < nr; k++) { await rows.nth(k).scrollIntoViewIfNeeded(); const bb = await rows.nth(k).boundingBox(); await page.mouse.move(bb.x + 30, bb.y + bb.height - 6); await page.waitForTimeout(120); over.push(await overSel(page, '.svc .list .trow .right')); }
           trainer = { rows: nr, over }; await shot(page, 'U1-trainer'); await page.mouse.move(2, 2);
         }
         const lv = s.level;
@@ -5678,11 +5713,14 @@ async function partU(browser, W, H) {
     const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&fresh=1', null, { guide: true, hints: true });
     try {
       await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      // D152: a first run's camp has no beat line (no board, G1 closed): the first one comes at the hub (G5)
+      for (let i = 0; i < 20 && ((await page.evaluate(() => window.__ui.coach().shown)) || {}).kind !== 'beat'; i++) await auto(page);
       const c0 = await page.evaluate(() => window.__ui.coach().shown);
+      const ph0 = await page.evaluate(() => window.__ui.view().phase);
       await page.locator('#coach .co-skip').click(); await idle(page);
       await page.locator('#coach .co-skip').click(); await idle(page);
       const r = await page.evaluate(() => ({ skipped: !!(window.__ui.view().tutorial && window.__ui.view().tutorial.skipped), shown: window.__ui.coach().shown, phase: window.__ui.view().phase }));
-      check('U-skipguide', `the guide's Skip: "Skip guide", then one confirm; no first-time hint for the line just skipped (${c0 && c0.id}) on that screen`, !!c0 && c0.kind === 'beat' && r.skipped && !(r.shown && r.shown.kind === 'hint' && r.phase === 'PREP'), JSON.stringify({ c0, r }));
+      check('U-skipguide', `the guide's Skip: "Skip guide", then one confirm; no first-time hint for the line just skipped (${c0 && c0.id}) on that screen`, !!c0 && c0.kind === 'beat' && r.skipped && !(r.shown && r.shown.kind === 'hint' && r.phase === ph0), JSON.stringify({ c0, ph0, r }));
       // after the skip, hints on: one line at a time, each hint at most ONB_HINT_SHOWS times (60 steps, Got it on each)
       for (let i = 0; i < 60; i++) { if ((await page.evaluate(() => window.__ui.coach().shown))) { await page.locator('#coach .co-ok').click().catch(() => null); await idle(page); } await auto(page); }
       const lg = await page.evaluate(() => window.__ui.coach().log.filter((x) => x.kind === 'hint'));
@@ -5857,6 +5895,136 @@ async function partV(browser, W, H) {
   }
 }
 
+// ------------------------------------------------------------------ part W: D152, the UI of changes-m3-v2
+/**
+ * Part W (docs/specs/changes-m3-v2.md; docs/handoffs/engine-2026-11-14f.md section 6; docs/handoffs/ui-2026-11-14f.md):
+ * W1 a guided first run (seed 8736): zone 1's map with no Bell button, no contract tracker or site marks, the held
+ * corridor's lamp on every held node but the hub (mapView `held`) with content guide.holdLine in its tooltip, the steady
+ * Dimming's panel ("Starts to spread in N tolls", "{count} of {total} places Dimmed") and its tooltip line (texts
+ * dimming_pace), no contract hint (H20-H23); then a rescue with most of the zone dark (loaded: dimShift back): the dimBack
+ * line (guide.dimBackLine) in the log. W2 a first run with the guide off, ended by a death: the summary's Echo line for
+ * unspent camp points reads prep.unspentLabel, no Contracts row, no "Reserve". W3 a later run (runs 2): the Bell in zone 1,
+ * its tooltip clear of the map's side panels, the tracker. W4 a zone 2 hub of a first run (Dev menu): no contract card.
+ * Gorrak's bounty window is checked in part R (the guided route wins his fight).
+ */
+async function partW(browser, W, H) {
+  const auto = async (page) => { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); };
+  const T = CONTENT.tutorial;
+  // ---- W1
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&fresh=1', null, { guide: true, hints: true });
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      for (let i = 0; i < 40 && !(await page.evaluate(() => { const v = window.__ui.view(); return v.phase === 'MAP' && !v.node && !v.loot; })); i++) await auto(page);
+      await page.mouse.move(2, 2); await page.waitForTimeout(300);
+      const m = await page.evaluate(() => {
+        const v = window.__ui.view(); const mv = v.zone.exp;
+        return { bell: mv.bell, bellBtn: document.querySelectorAll('#screens [data-leave="RING_BELL"]').length, contracts: v.contracts, tracker: document.querySelectorAll('#tracker .tk-c, #tracker [data-contract]').length,
+          sites: document.querySelectorAll('#screens .mnode .xsite').length, dim: mv.dim, held: mv.nodes.filter((n) => n.held && !n.hub).map((n) => n.id).sort((a, b) => a - b),
+          lamps: [...document.querySelectorAll('#screens .mnode .xheld')].map((e) => Number(e.closest('.mnode').dataset.node)).sort((a, b) => a - b),
+          heldClock: mv.nodes.filter((n) => n.held).filter((n) => document.querySelector(`#screens .mnode[data-node="${n.id}"] .xclock`)).length,
+          panel: [...document.querySelectorAll('#screens .xdimp .xpl')].map((e) => e.textContent), texts: mv.texts };
+      });
+      check('D152-bell', 'zone 1 of a first run: no Bell button (mapView.bell hidden, no charge shown)', m.bell && m.bell.hidden && m.bellBtn === 0, JSON.stringify({ bell: m.bell, btn: m.bellBtn }));
+      check('D152-contracts', 'a first run: R.contractView null, no tracker contract line, no site marks on the map', m.contracts === null && m.tracker === 0 && m.sites === 0, JSON.stringify({ c: m.contracts, tracker: m.tracker, sites: m.sites }));
+      check('D152-held', `the held corridor: a lamp on each held node but the hub (${m.held.join(', ')}), no "dims in" chip on a held node`, m.held.length > 0 && JSON.stringify(m.lamps) === JSON.stringify(m.held) && m.heldClock === 0, JSON.stringify({ held: m.held, lamps: m.lamps, heldClock: m.heldClock }));
+      const pw = (dm) => [dm.count ? `Spreads in ${tolls(dm.nextIn)}: ${dm.nextCount} ${dm.nextCount === 1 ? 'place' : 'places'}` : `Starts to spread in ${tolls(dm.nextIn)}`, `${dm.count} of ${dm.total} places Dimmed`];
+      const want = pw(m.dim);
+      check('D152-dim', `the Dimming panel (steady): "${want.join('" / "')}" (mapView.dim); no "dims in" line for a held node`, m.dim.steady && m.panel[0] === want[0] && m.panel[m.panel.length - 1] === want[1] && !m.panel.some((x) => /Your node dims in 0/.test(x)), JSON.stringify(m.panel));
+      const lamp = m.held.find((id) => id != null);
+      await page.locator(`#screens .mnode[data-node="${lamp}"]`).hover({ force: true }); await page.waitForTimeout(150);
+      const ltip = await page.evaluate(() => { const t = document.querySelector('.tooltip.on'); return t ? t.innerText : null; });
+      await page.locator('#screens .xdimp').hover(); await page.waitForTimeout(150);
+      const dtip = await page.evaluate(() => { const t = document.querySelector('.tooltip.on'); return t ? t.innerText : null; });
+      await page.mouse.move(2, 2);
+      const pace = m.texts.dimming_pace.replace('{maxPerToll}', String(m.dim.maxPerToll)).replace('{grace}', String(m.dim.grace));
+      check('D152-held', `a held node's tooltip: "${T.guide.holdLine}"`, !!ltip && ltip.includes(T.guide.holdLine), ltip);
+      check('D152-dim', `the Dimming's tooltip: "${pace}", not the hops rule`, !!dtip && dtip.includes(pace) && !/hops every/.test(dtip), dtip);
+      await shot(page, 'W1-map');
+      // a rescue with most of the zone dark (loaded: the Dimming's clock moved on): the Dimming falls back, the dimBack line
+      for (let i = 0; i < 120; i++) { const v = await view(page); if (v.round >= 2 && !v.over && v.step === 'combat') break; await auto(page); }
+      const s0 = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT);
+      s0.player.hp = 1; s0.zone.dimShift = (s0.zone.dimShift || 0) - 80;
+      await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s0)); await idle(page);
+      const before = await page.evaluate(() => window.__ui.view().zone.exp.nodes.filter((n) => n.dimmed).length);
+      for (let i = 0; i < 10; i++) { await page.keyboard.press('KeyX'); await idle(page); const r = await page.evaluate(() => window.__ui.view().tutorial.rescues); if (r > s0.tutorial.rescues) break; }
+      const after = await page.evaluate(() => ({ dimmed: window.__ui.view().zone.exp.nodes.filter((n) => n.dimmed).length, total: window.__ui.view().zone.exp.nodes.length, rescues: window.__ui.view().tutorial.rescues }));
+      const lines = await logLines(page);
+      check('D152-dimback', `a rescue with ${before} of ${after.total} places Dimmed: the Dimming falls back to ${after.dimmed} (at most half); the log says "${T.guide.dimBackLine}"`,
+        after.rescues === s0.tutorial.rescues + 1 && before > after.total / 2 && after.dimmed <= Math.floor(after.total / 2) && lines.includes(T.guide.dimBackLine), JSON.stringify({ before, after, last: lines.slice(-4) }));
+      const hintIds = await page.evaluate(() => window.__ui.coach().log.map((x) => x.id));
+      check('D152-hints', 'a first run shows none of the contract hints H20-H23 (and no G1 or G10)', !hintIds.some((x) => ['H20', 'H21', 'H22', 'H23', 'G1', 'G10'].includes(x)), hintIds.join(','));
+    } catch (e) { await shot(page, 'W1-error'); check('W-1', 'part W1 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('W-1', 'part W1: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- W2: a first run's summary
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=7&speed=instant&fresh=1&guide=0', null, {});
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await page.locator('#pp-go').click(); await idle(page); // nothing bought: every point unspent
+      for (let i = 0; i < 80; i++) { const v = await view(page); if (v.round >= 2 && !v.over && v.step === 'combat') break; await auto(page); }
+      const s0 = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT); s0.player.hp = 1;
+      for (const e of s0.fight.enemies) { e.hp = 9999; e.maxHp = 9999; }
+      await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s0)); await idle(page);
+      for (let i = 0; i < 12 && (await view(page)).phase !== 'SUMMARY'; i++) { await page.keyboard.press('KeyX'); await idle(page); }
+      await page.waitForTimeout(300);
+      const sm = await page.evaluate(() => { const v = window.__ui.view(); const el = document.querySelector('#screens .summary'); return { phase: v.phase, firstRun: v.summary && v.summary.firstRun, text: el ? el.innerText : '',
+        line: [...document.querySelectorAll('#screens .summary .echo[data-line="reserve"]')].map((e) => e.innerText.replace(/\s+/g, ' ').trim()) }; });
+      await shot(page, 'W2-summary');
+      check('D152-summary', `a first run's summary: the unspent points' Echo line reads "${T.prep.unspentLabel}"; no Contracts row, no "Reserve"`,
+        sm.phase === 'SUMMARY' && sm.firstRun === true && sm.line.length === 1 && sm.line[0].startsWith(T.prep.unspentLabel) && !/Reserve|Contracts/.test(sm.text), JSON.stringify(sm).slice(0, 600));
+    } catch (e) { await shot(page, 'W2-error'); check('W-2', 'part W2 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('W-2', 'part W2: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- W3: a later run: the Bell in zone 1, its tooltip clear of the side panels, the tracker
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=7&speed=instant&prep=1', M_PROFILE());
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      for (let i = 0; i < 40 && (await view(page)).phase !== 'MAP'; i++) await auto(page);
+      await page.mouse.move(2, 2); await page.waitForTimeout(300);
+      const bell = page.locator('#screens .expmap [data-leave="RING_BELL"]');
+      const n = await bell.count(); let over = null; let tipShown = false;
+      if (n) {
+        await bell.hover(); await page.waitForTimeout(150);
+        tipShown = await page.evaluate(() => !!document.querySelector('.tooltip.on'));
+        over = await page.evaluate(() => { const t = document.querySelector('.tooltip.on'); if (!t) return null; const r = t.getBoundingClientRect();
+          return [...document.querySelectorAll('.expmap .xside .xpanel')].filter((e) => { const b = e.getBoundingClientRect(); return b.width > 0 && r.left < b.right - 1 && r.right > b.left + 1 && r.top < b.bottom - 1 && r.bottom > b.top + 1; }).length; });
+        await page.mouse.move(2, 2);
+      }
+      const cv = await page.evaluate(() => !!window.__ui.view().contracts);
+      // D150 section 7 (moved here from part T1 by D152): the Bell's ask names its tolls and any fight first, as its tooltip does
+      let ask = null;
+      if (n) {
+        await bell.click(); await idle(page);
+        ask = await page.evaluate(() => { const x = window.__ui.view(); const e = document.querySelector('#screens .leavewarn .lw-bell'); return { p: x.heat.next.RING_BELL || null, text: e ? e.textContent : null }; });
+        await shot(page, 'W3-bell-ask');
+        await page.getByRole('button', { name: 'Stay' }).click(); await idle(page);
+      }
+      const bw = ask && ask.p ? `Costs ${tolls(ask.p.time)}${ask.p.dimFight ? ', then a fight in the Dimming' : ''}.` : null;
+      check('D150-s7', `the Bell's ask names its tolls and any fight first (heatView RING_BELL: "${bw}"), as its tooltip does`, !!bw && !!ask.text && ask.text.includes(bw), JSON.stringify(ask));
+      check('D152-bell', 'a later run (runs 2): the Bell in zone 1, its tooltip clear of the map\'s side panels; the contract tracker is there', n === 1 && tipShown && over === 0 && cv, JSON.stringify({ n, tipShown, over, cv }));
+    } catch (e) { await shot(page, 'W3-error'); check('W-3', 'part W3 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('W-3', 'part W3: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- W4: a zone 2 hub on a first run: no contract card (zone.hubOffer null)
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&fresh=1&guide=0', null, {});
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 2, level: 12, mapMode: 'expedition', prep: true })); await idle(page);
+      const hub = await page.evaluate(() => { const v = window.__ui.view(); return { phase: v.phase, z: v.zone && v.zone.idx, contracts: v.contracts, card: document.querySelectorAll('#screens .hubc, #screens [data-hub-offer]').length, text: (document.querySelector('#screens .side') || {}).innerText || '' }; });
+      check('D152-contracts', 'a zone 2 hub of a first run: no contract card, no "Reserve"', hub.phase === 'ZONE_HUB' && hub.z === 2 && hub.contracts === null && hub.card === 0 && !/Reserve/.test(hub.text), JSON.stringify({ ...hub, text: hub.text.slice(0, 200) }));
+    } catch (e) { await shot(page, 'W4-error'); check('W-4', 'part W4 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('W-4', 'part W4: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+}
+
 for (const [W, H] of SIZES) {
   SIZE = `${W}x${H}`;
   if (PARTS.includes('A')) await partA(browser, W, H);
@@ -5881,6 +6049,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('T')) await partT(browser, W, H);
   if (PARTS.includes('U')) await partU(browser, W, H);
   if (PARTS.includes('V')) await partV(browser, W, H);
+  if (PARTS.includes('W')) await partW(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);

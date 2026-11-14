@@ -14,7 +14,8 @@
  * otherwise. classic plays the classic map
  * (?classic=1, mapMode 'rows') on policy.mjs as before.
  *
- * For every size and class: a fresh browser profile, one full run from class select to the run summary,
+ * For every size and class: a fresh browser profile (D152: the Rogue's a new profile, the lean first run; the Mage's and the
+ * Hunter's a stored profile with two runs behind it, --profiles), one full run from class select to the run summary,
  * played only with the game's own controls (mouse clicks, drags and keys on buttons, cards, map nodes,
  * the action bar, bags, spellbook and talent windows). Combat is manual in zone 1 (each round is a click
  * on a spell, the basic attack, an item slot, Pass or Flee) and on autoplay after that (the Autoplay
@@ -52,6 +53,11 @@ const CLASSES = arg('--classes', 'rogue,mage,hunter').split(',');
 const SEED = Number(arg('--seed', '7'));
 const SEEDS = Object.fromEntries((arg('--seeds', '') || '').split(',').filter(Boolean).map((x) => x.split(':')).map(([c, n]) => [c, Number(n)]));
 const MANUAL_ZONES = Number(arg('--manual-zones', '1'));
+// D152 (changes-m3-v2.md 1.2): a profile with no run plays the lean first run (no board, no Bell in zone 1, no contracts);
+// the board of CONTRACT_BOARD_SIZE offers, the hub contracts and the zone 1 Bell come from the third run. --profiles picks
+// per class: first (a fresh profile) or later (runs 2). Default: the Rogue plays the first run, the Mage and Hunter a later one.
+const PROFILES = { rogue: 'first', mage: 'later', hunter: 'later', ...Object.fromEntries((arg('--profiles', '') || '').split(',').filter(Boolean).map((x) => x.split(':'))) };
+const LATER_PROFILE = () => ({ ...R.newProfile(), runs: 2, guide: 'done', welcome: true });
 const MAP = arg('--map', 'expedition'); // D116: the default run is the expedition map with the start camp
 if (!['expedition', 'classic'].includes(MAP)) { console.error('--map must be expedition or classic'); process.exit(2); }
 const EXP = MAP === 'expedition';
@@ -135,6 +141,12 @@ function compare(v, s) {
   const t = slimTwin(s);
   const ui = { time: v.time, player: { ...v.player }, zone: v.zone && v.zone.idx <= 6 ? v.zone : null };
   delete ui.player.cp; delete ui.player.talentPoints;
+  // blind round 2 leftovers (ui-2026-11-14f): a closed chest's gold and needle trap wait for "Open the chest" (the engine
+  // opened it on entry); the purse may then show less and health more than the engine, compared again once it is opened
+  if (v.node && v.node.step === 'chest' && s.player) {
+    if (ui.player.gold <= s.player.gold) ui.player.gold = s.player.gold;
+    if (ui.player.hp >= s.player.hp) ui.player.hp = s.player.hp;
+  }
   if (!s.fight) { if (t.player.res && t.player.res.kind !== 'mana') t.player.res = null; if (ui.player.res && ui.player.res.kind !== 'mana') ui.player.res = null; }
   const out = diff(ui, { time: t.time, player: t.player, zone: t.zone });
   if (s.fight && v.combat && !v.combat.over && !v.loot) out.push(...diff(v.combat.round, t.combat.round, 'combat.round'), ...diff(v.combat.enemies, t.combat.enemies, 'combat.enemies'));
@@ -161,6 +173,9 @@ async function playOne(browser, W, H, cls) {
     divergences: [], layout: [], problems: [], notes: [], shots: [], summary: null, twinSummary: null, reached: null, build: null };
   const t0 = Date.now();
   const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
+  const later = PROFILES[cls] === 'later';
+  res.profile = later ? 'later' : 'first';
+  if (later) await context.addInitScript((json) => { try { if (!localStorage.getItem('tbwcr.profile.v1')) localStorage.setItem('tbwcr.profile.v1', json); } catch { /* storage blocked */ } }, JSON.stringify(LATER_PROFILE()));
   const page = await context.newPage();
   page.on('console', (m) => { const line = `${m.type()}: ${m.text()}`; res.console.push(line); if (m.type() === 'error') res.consoleErrors.push(line); });
   page.on('pageerror', (e) => res.pageErrors.push(e.stack || e.message));
@@ -444,7 +459,7 @@ async function playOne(browser, W, H, cls) {
     // twin plays the same (newRun tutorial: true)
     const guided = await page.evaluate(() => { const v = window.__ui.view(); return !!(v.meta && v.meta.guided); });
     res.guided = guided;
-    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: EXP ? 'expedition' : 'rows', ...(guided ? { tutorial: true } : {}) }); // D116: the expedition with the start camp
+    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: EXP ? 'expedition' : 'rows', ...(guided ? { tutorial: true } : {}), ...(later ? { profile: LATER_PROFILE() } : {}) }); // D116: the expedition with the start camp
     await click(page.locator(`#create .ccard[data-cls="${cls}"]`), `class card ${cls}`);
     s = R.step(s, { type: 'SELECT_CLASS', classId: cls }).state;
     if (cls === 'hunter') {
@@ -462,6 +477,13 @@ async function playOne(browser, W, H, cls) {
     let v = await view();
     if (v.phase !== (EXP ? 'PREP' : 'ZONE_HUB')) throw new Error(`after Enter the world the phase is ${v.phase}`);
     await shotFirst(EXP ? 'prep' : 'hub');
+    // D152: the start camp of a first run (no board, the unspent points' line over Set out) or of a later run (the board)
+    if (EXP) {
+      const camp = await page.evaluate(() => ({ first: !!window.__ui.view().prep.first, cards: document.querySelectorAll('#prep .pp-card').length, line: !!document.querySelector('#prep .pp-unspent:not(.hidden)') }));
+      const okCamp = later ? !camp.first && camp.cards === C.CONTRACT_BOARD_SIZE && !camp.line : camp.first && camp.cards === 0 && camp.line;
+      if (!okCamp) res.problems.push(`D152 camp (${res.profile} run): ${JSON.stringify(camp)}`); else res.notes.push(`D152 camp (${res.profile} run): ${camp.cards} contract cards${camp.line ? ', the unspent line' : ''}`);
+    }
+    let bellSeen = false;
 
     let autoplay = false;
     let autoplayBroken = false;
@@ -549,6 +571,13 @@ async function playOne(browser, W, H, cls) {
       if (s.fight && !autoplay) await shotFirst('manual-combat');
       if (s.phase === 'BOSS' && s.fight.round >= 4) await shotFirst('boss-fight');
       if (s.phase === 'MAP') await shotFirst(s.zone.z === 1 ? 'map' : `map-z${s.zone.z}`);
+      // D152: zone 1's map has the Bell on a later run, none on a first run (mapView.bell hidden)
+      if (EXP && s.phase === 'MAP' && s.zone.z === 1 && !bellSeen) {
+        bellSeen = true;
+        const b = await page.evaluate(() => ({ btn: document.querySelectorAll('#screens .expmap [data-leave="RING_BELL"]').length, contracts: !!window.__ui.view().contracts }));
+        const okBell = later ? b.btn === 1 && b.contracts : b.btn === 0 && !b.contracts;
+        if (!okBell) res.problems.push(`D152 zone 1 (${res.profile} run): Bell buttons ${b.btn}, contracts ${b.contracts}`);
+      }
       if (s.phase === 'CAMP') await shotFirst('camp');
       await perform(a, s, v, { keys: s.fight && autoplay });
       s = R.step(s, a).state;

@@ -12,6 +12,8 @@
 // D150 (owner 2026-11-14, naming rule): a contract's "Reward", not "Pays"; item 15: the heading "Supplies" with no
 // subline, no "Unspent ... Echoes" line under the points left (the points' tooltip says what Reserve does); item 14: an
 // offer's tooltip in three sentences (boardTip: what to win, the reward, the cost).
+// D152 (changes-m3-v2.md 1.2-1.3): a lean first run's camp (prepView.first): no board, the two supplies, and over Set out
+// what unspent points pay (content prep.unspentFirst); no Reserve is read or named.
 import { h, clear, moneyEl, fmtNum } from './util.js';
 import { icon, consumableIcon } from './art-icons.js';
 import { tip } from './tooltip.js';
@@ -130,11 +132,15 @@ const doLine = (o) => (o.kind === 'delve' ? 'Clear the dungeon, its boss include
 export function createPrepScreen(v, ctx) {
   const root = h('div#prep', { dataset: { mounted: String(performance.now()) } });
   const pv0 = v.prep;
-  const zone1 = (pv0.board.find((o) => o.z === 1) || pv0.board[0] || {}).zoneName || 'the first zone';
+  // D152 (changes-m3-v2.md 1.2-1.3): a lean first run (prepView.first) has no board, no contract slots and no Reserve: the
+  // camp shows its two supplies, the points left and, over Set out, what unspent points pay (content prep.unspentFirst)
+  const first = !!pv0.first;
+  const zone1 = (pv0.board.find((o) => o.z === 1) || pv0.board[0] || {}).zoneName || ctx.data.zone1Name || 'the first zone';
   const nB = pv0.board.length; const nO = pv0.options.length;
+  root.classList.toggle('first', first);
   root.appendChild(h('div.pp-head',
-    h('div', h('div.pp-t1', 'The start camp'), h('div.pp-t2', `Pick your contracts and supplies for the road to ${zone1}.`)),
-    h('div.pp-keys', h('span.kbd', nB > 1 ? `1–${nB}` : '1'), 'contracts', nO ? [h('span.kbd', nO > 1 ? `A–${OPT_KEYS[nO - 1]}` : 'A'), 'supplies'] : null, h('span.kbd', 'Enter'), 'set out')));
+    h('div', h('div.pp-t1', 'The start camp'), h('div.pp-t2', first ? `Pick your supplies for the road to ${zone1}.` : `Pick your contracts and supplies for the road to ${zone1}.`)),
+    h('div.pp-keys', nB ? [h('span.kbd', nB > 1 ? `1–${nB}` : '1'), 'contracts'] : null, nO ? [h('span.kbd', nO > 1 ? `A–${OPT_KEYS[nO - 1]}` : 'A'), 'supplies'] : null, h('span.kbd', 'Enter'), 'set out')));
   // the contracts: cards side by side
   const reroll = h('button.btn.small#pp-reroll', { type: 'button' });
   reroll.addEventListener('click', () => { reroll.blur(); ctx.act({ type: 'REROLL_BOARD' }); });
@@ -156,7 +162,7 @@ export function createPrepScreen(v, ctx) {
     cards.appendChild(b);
     return b;
   });
-  const board = h('section.pp-board', h('div.pp-sh', h('div.pp-lab', 'Contracts'), h('div.pp-sub', 'One per zone. Each gives its reward when its last site is won.'), reroll), cards);
+  const board = first ? null : h('section.pp-board', h('div.pp-sh', h('div.pp-lab', 'Contracts'), h('div.pp-sub', 'One per zone. Each gives its reward when its last site is won.'), reroll), cards);
   // the options: small cards in one row
   const optEls = new Map();
   const opts = h('div.pp-opts', { style: { '--n': String(Math.max(1, nO)) } }, pv0.options.map((o, i) => {
@@ -174,25 +180,33 @@ export function createPrepScreen(v, ctx) {
   const points = h('div.pm-points', big, h('div', h('div.pm-l', 'points left')));
   tip(points, () => {
     const pv = ctx.view.prep; if (!pv) return null;
+    if (pv.first) return h('div', h('div.tt-name', 'Preparation points'), h('div.tt-line', `${pv.points} to spend on supplies${pv.spent ? `; ${pv.spent} spent` : ''}.`), h('div.tt-line.num', unspentLine(pv, ctx)));
+    const rs = pv.reserve || { points: 0, echoes: 0 }; // engine-2026-11-14f UI need 2: never read a missing Reserve
     return h('div', h('div.tt-name', 'Preparation points'), h('div.tt-line', `${pv.points} to spend on contracts and supplies${pv.spent ? `; ${pv.spent} spent` : ''}.`),
-      h('div.tt-line.num', `Unspent points become Reserve: it buys a hub contract on the way, and what is left at the end of the run becomes Echoes${pv.reserve.points ? ` (${pv.reserve.echoes} for the ${pts(pv.reserve.points)} left now)` : ''}.`),
+      h('div.tt-line.num', `Unspent points become Reserve: it buys a hub contract on the way, and what is left at the end of the run becomes Echoes${rs.points ? ` (${rs.echoes} for the ${pts(rs.points)} left now)` : ''}.`),
       h('div.tt-sub', `${pv.held} of ${pv.slots} contract slots used`));
   });
   const go = h('button.btn.primary.big#pp-go', { type: 'button' }, 'Set out', h('span.k', 'Enter'));
   go.addEventListener('click', () => { go.blur(); if (ctx.coach && ctx.coach.holdSetOut(ctx.view)) return; ctx.act({ type: 'SET_OUT' }); });
   tip(go, () => {
     const pv = ctx.view.prep; if (!pv) return null;
+    if (pv.first) return h('div', h('div.tt-name', 'Set out'), h('div.tt-line', `Leave the camp for ${zone1}. Supplies go into your bags.`), pv.left ? h('div.tt-line.num', unspentLine(pv, ctx)) : null);
+    const rs = pv.reserve || { points: 0, echoes: 0 };
     return h('div', h('div.tt-name', 'Set out'), h('div.tt-line', `Leave the camp for ${zone1}. Supplies go into your bags and the perks last the run.`),
-      h('div.tt-line.num', pv.left ? `${pts(pv.left)} unspent become Reserve: ${pv.reserve.echoes} Echoes at the end of the run, or hub contracts on the way.` : 'Every point is spent: no Reserve.'),
+      h('div.tt-line.num', pv.left ? `${pts(pv.left)} unspent become Reserve: ${rs.echoes} Echoes at the end of the run, or hub contracts on the way.` : 'Every point is spent: no Reserve.'),
       pv.held ? null : h('div.tt-warn', 'You hold no contract: the zones then pay only what you find.'));
   });
-  root.append(h('div.pp-main', board, shop), h('div.pp-foot', points, go));
+  // a first run: the line over Set out (prep.unspentFirst), while points are left
+  const unspent = h('div.pp-unspent');
+  root.append(h('div.pp-main', board, shop), h('div.pp-foot', points, h('div.pp-go', unspent, go)));
 
   let last = null;
   root.update = (vv) => {
     const pv = vv.prep; if (!pv) return;
     const prev = last; last = pv;
     if (!prev || prev.left !== pv.left) { big.textContent = String(pv.left); if (prev) { big.classList.remove('pop'); void big.offsetWidth; big.classList.add('pop'); } }
+    unspent.textContent = pv.first && pv.left ? unspentLine(pv, ctx) : '';
+    unspent.classList.toggle('hidden', !(pv.first && pv.left));
     reroll.classList.toggle('hidden', !pv.reroll.open);
     if (pv.reroll.open) {
       reroll.textContent = ''; reroll.append(`Reroll · ${pts(pv.reroll.price)}`, h('span.pp-left', `${pv.reroll.max - pv.reroll.used} left`), h('span.k', 'R'));
@@ -234,6 +248,11 @@ export function createPrepScreen(v, ctx) {
   return root;
 }
 const cap1 = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+/** A first run's unspent points line (D152, content prep.unspentFirst, draft): "Points you do not spend: +N Echoes ...". */
+export function unspentLine(pv, ctx) {
+  const raw = (ctx.data.tutorial && ctx.data.tutorial.table && ctx.data.tutorial.table.prep && ctx.data.tutorial.table.prep.unspentFirst) || 'Points you do not spend: +{echoes} Echoes at the end of the run.';
+  return raw.replace('{echoes}', String((pv.unspent && pv.unspent.echoes) || 0));
+}
 /** A price in preparation points: the number on its seal and the word next to it. */
 const priceTag = (n) => h('span.pc-cost', { 'aria-label': pts(n) }, h('span.pc-price', String(n)), h('span.pc-pl', plural(n, 'pt')));
 /**

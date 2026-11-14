@@ -47,6 +47,11 @@ const OLD_HEAT_KEY = 'tbwcr.heatIntro.v1'; // the Furnace note (retired: H16)
 export const KEYS = { key_spell1: '1', key_engage1: 'Q', key_engage2: 'W', key_engage3: 'E', key_pass: 'X', key_item1: '8', key_take_all: 'Space', key_bags: 'B', key_talents: 'N', key_spellbook: 'P', key_autoplay: 'Z', key_flee: 'F', key_target: 'Tab' };
 const PER_CLASS = new Set(['H01', 'H04', 'H33', 'H34']);
 // the hints a beat stands in for while the guide runs (spec 3.2 "Beat"), and the hints a beat's line marks seen
+/**
+ * D152 (changes-m3-v2.md 1.2; engine-2026-11-14f UI need 9): a lean first run has no contracts (no board at the camp,
+ * R.contractView null all run), so the contract hints H20-H23 do not show on it; they come on the second run.
+ */
+export const leanFirst = (v) => !!v && (!!(v.prep && v.prep.first) || (v.phase !== 'CREATE' && v.contracts === null));
 const BEAT_OF = { H01: 'G7', H02: 'G6', H03: 'G8', H04: 'G9', H06: 'G9', H09: 'G11', H11: 'G4', H15: 'G2', H16: 'G5', H18: 'G12', H19: 'G13', H20: 'G10', H21: 'G10', H23: 'G1', H30: 'G9' };
 const HINT_OF_BEAT = { G1: 'H23', G2: 'H15', G4: 'H11', G5: 'H16', G6: 'H02', G7: 'H01', G8: 'H03', G9: 'H04', G10: 'H20', G11: 'H09', G12: 'H18', G13: 'H19' };
 // priority (spec 2.5): Deathblow > wind-up > lethal > potion > engage > the rest
@@ -59,7 +64,7 @@ const FIGHT_BEATS = new Set(['G3', 'G6', 'G7', 'G8', 'G9', 'G11', 'G14', 'G15', 
 // came while the hero walked out of the hub, before the map showed. D143: G13.closed (it points at Gorrak's node). G10 is
 // no map line (engine-2026-11-13c finding 2: as one it is never the top line on the autoplay route, whose first move enters
 // a site): it shows where the engine has it, at the site's dialog or in its fight, its arrow at the contract's tracker row
-export const MAP_LINES = new Set(['G2', 'G12', 'G12.road', 'G13', 'G13.onRoad', 'G13.closed']); // D150: G12.caught went, G12.road came
+export const MAP_LINES = new Set(['G2', 'G12', 'G12.road', 'G13', 'G13.onRoad', 'G13.onRoadFirst', 'G13.closed']); // D152: G13.onRoadFirst // D150: G12.caught went, G12.road came
 /** Beat lines that stand for no hint (D143: the closed line is about Gorrak, not the Bell, so it does not make H19 seen). */
 const NO_HINT_LINES = new Set(['G13.closed']);
 /**
@@ -305,10 +310,10 @@ const HINTS = {
   H17: { ctx: 'screen', when: (c) => !!(c.v.node && (c.v.node.heat === 'hot' || c.v.node.heat === 'scorched')), anchor: () => q('#heat') },
   H18: { ctx: 'map', when: (c) => seenNode(c.v, (n) => n.dimmed), anchor: () => q('#screens .xdimp') },
   H19: { ctx: 'map', when: (c) => onMap(c.v) && bellMoment(c.v) !== null, anchor: ANCHOR.G13, alt: (c) => bellMoment(c.v), done: (c) => c.a === 'TAKE_ROAD' || c.a === 'RING_BELL' },
-  H20: { ctx: 'map', when: (c) => onMap(c.v) && !!q('#screens .mnode .xsite'), anchor: () => q('#screens .mnode .xsite') },
-  H21: { ctx: 'screen', when: (c) => !!(c.v.loot && c.v.loot.kind === 'contract'), anchor: () => q('#screens .dialog') },
-  H22: { ctx: 'screen', when: (c) => c.v.phase === 'ZONE_HUB' && !c.v.node && !!q('#screens .hub-contract, #screens [data-hub-offer]'), anchor: () => q('#screens .hub-contract, #screens [data-hub-offer]') },
-  H23: { ctx: 'screen', when: (c) => c.v.phase === 'PREP', anchor: () => q('#prep .pp-foot .pp-pts') || q('#prep .pp-foot') },
+  H20: { ctx: 'map', when: (c) => !leanFirst(c.v) && onMap(c.v) && !!q('#screens .mnode .xsite'), anchor: () => q('#screens .mnode .xsite') },
+  H21: { ctx: 'screen', when: (c) => !leanFirst(c.v) && !!(c.v.loot && c.v.loot.kind === 'contract'), anchor: () => q('#screens .dialog') },
+  H22: { ctx: 'screen', when: (c) => !leanFirst(c.v) && c.v.phase === 'ZONE_HUB' && !c.v.node && !!q('#screens .hub-contract, #screens [data-hub-offer]'), anchor: () => q('#screens .hub-contract, #screens [data-hub-offer]') },
+  H23: { ctx: 'screen', when: (c) => !leanFirst(c.v) && c.v.phase === 'PREP', anchor: () => q('#prep .pp-foot .pp-pts') || q('#prep .pp-foot') },
   H24: { ctx: 'map', when: (c) => seenNode(c.v, (n) => n.type === 'elite' && !n.done), anchor: (v) => nodeEl(v, (n) => n.type === 'elite' && n.know !== 'none' && !n.done) },
   H25: { ctx: 'fight', when: (c) => inFight(c.v) && c.v.combat.enemies.some((e) => e.alive && (e.rare || e.rank === 'rare')), anchor: () => q('#target-frame') },
   H26: { ctx: 'map', when: (c) => seenNode(c.v, (n) => n.type === 'dungeon' && !n.done), anchor: (v) => nodeEl(v, (n) => n.type === 'dungeon' && n.know !== 'none' && !n.done) },
@@ -328,6 +333,7 @@ const HINTS = {
 /** G13 / H19's moment on the map: 'onRoad' on a Road, '' (the far line) far from every Road with the node dimming soon, else null. */
 function bellMoment(v) {
   const mv = v.zone && v.zone.exp; if (!mv) return null;
+  if (mv.bell && mv.bell.hidden) return null; // D152: no Bell in hand (zone 1 of a first run): H19 waits for zone 2
   const me = mv.nodes[mv.pos]; if (!me || me.hub) return null;
   if (me.road) return 'onRoad';
   const near = (mv.moves || []).some((m) => mv.nodes[m.nodeId] && mv.nodes[m.nodeId].road);
@@ -690,7 +696,7 @@ export function createOnboarding(root, ctx) {
   /** G1 (spec 2.4 "If not"): the first Set out with no contract in a guided run shows the alt line once; true: hold it. */
   let setOutWarned = false;
   function holdSetOut(v) {
-    if (setOutWarned || !v || !guiding(v) || !v.prep || v.prep.held > 0 || hints.off) return false;
+    if (setOutWarned || !v || !guiding(v) || !v.prep || v.prep.first || v.prep.held > 0 || hints.off) return false; // D152: a first run has no board
     setOutWarned = true;
     if (cur) hide(false);
     show({ id: 'G1', lineId: 'G1.noContract', kind: 'beat', anchorFn: () => q('#pp-go') });

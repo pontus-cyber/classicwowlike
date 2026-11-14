@@ -522,7 +522,7 @@ function buildExpMap(v, ctx, readOnly) {
   const win = h('div.mapwin.panel.expmap' + (spy.armed && !readOnly ? '.spying' : ''));
   const acts = [];
   if (!readOnly && mv.onRoad) acts.push(['Take the Road', { type: 'TAKE_ROAD' }]);
-  if (!readOnly && mv.bell && mv.bell.charges > 0) acts.push([`Ring the Bell (${mv.bell.charges})`, { type: 'RING_BELL' }]);
+  if (!readOnly && mv.bell && !mv.bell.hidden && mv.bell.charges > 0) acts.push([`Ring the Bell (${mv.bell.charges})`, { type: 'RING_BELL' }]);
   const expiring = readOnly ? [] : expiringHere(v);
   // blind panel 2026-11-13 (item 8): the Bell (one charge a run, it leaves the zone) always asks first; a Road asks when
   // contracts of this zone would expire
@@ -552,7 +552,7 @@ function buildExpMap(v, ctx, readOnly) {
     const stay = btn('Stay', () => { leave.armed = null; ctx.ui.refreshScreens(); }, '.primary');
     // section 7 (D150): the tolls and the fight that comes first are the engine's preview of the ring (RING_BELL), as on its tooltip
     const bp = !road ? heatOf(v, a) : null;
-    const bell = !road && mv.bell ? h('div.lw-l.lw-bell', `The Homeward Bell takes you to the hub of ${roadTo(v, ctx)}. ${bp ? costText(bp) : `Costs ${tolls(mv.bell.channelTime)}.`} ${mv.bell.charges === 1 ? 'It is your only charge this run.' : `${mv.bell.charges} charges left this run.`} No way back to ${z.name}.`) : null;
+    const bell = !road && mv.bell && !mv.bell.hidden ? h('div.lw-l.lw-bell', `The Homeward Bell takes you to the hub of ${roadTo(v, ctx)}. ${bp ? costText(bp) : `Costs ${tolls(mv.bell.channelTime)}.`} ${mv.bell.charges === 1 ? 'It is your only charge this run.' : `${mv.bell.charges} charges left this run.`} No way back to ${z.name}.`) : null;
     win.appendChild(h('div.leavewarn', { role: 'alertdialog', 'aria-label': road ? `Leave ${z.name}?` : 'Ring the Homeward Bell?' },
       h('div.lw-t', road ? `Leave ${z.name}?` : 'Ring the Homeward Bell?'), bell,
       expiring.length ? h('div.lw-l', `${expiryText(expiring, ctx.data.content)}. They pay nothing once expired.`) : null,
@@ -682,6 +682,9 @@ function buildExpMap(v, ctx, readOnly) {
     // D128: the full "dims in N" on the player's node and the reachable ones; elsewhere the number alone (hover: the tolls)
     const near = !off && !n.dimmed && finite(n.dimsIn) && sfHops[n.id] <= front + 2;
     const fullClock = here || !!m;
+    // D152 (changes-m3-v2.md 2.2; engine-2026-11-14f UI need 7): a node of the guided zone's corridor, held from the Dimming
+    // (mapView `held`, no dimsIn): a small lamp in place of the clock; its tooltip says why (content guide.holdLine)
+    if (n.held && !n.hub && !off && !n.dimmed) el.appendChild(lampMark());
     if (near || (here && !off && !n.dimmed && finite(n.dimsIn) && n.dimsIn <= 2)) el.appendChild(h('div.xclock' + (here && n.dimsIn <= 2 ? '.urgent' : '') + (n.dimsIn <= 2 ? '.soon' : '') + (fullClock ? '' : '.mini'), { dataset: { dimsIn: n.dimsIn } }, here && n.dimsIn <= 2 ? `Dims in ${n.dimsIn}!` : fullClock ? `dims in ${n.dimsIn}` : String(n.dimsIn)));
     const act = { type: 'MOVE', nodeId: n.id };
     const hp = m ? heatOf(v, act) : null;
@@ -702,13 +705,20 @@ function buildExpMap(v, ctx, readOnly) {
   const left = h('div.xside.xleft');
   const dimBox = h('div.xpanel.xdimp' + (me && !off && finite(me.dimsIn) && me.dimsIn <= 2 ? '.urgent' : ''), h('div.xph', 'The Dimming'));
   if (off) dimBox.appendChild(h('div.xpl.muted', 'Not in this run.'));
-  else {
+  else if (dm.steady) {
+    // D152 (changes-m3-v2.md 3.3; engine-2026-11-14f UI need 4): the steady Dimming's own numbers (mapView.dim nextIn,
+    // nextCount, count, total); a held node (no dimsIn) has no "dims in" line
+    if (finite(dm.nextIn)) dimBox.appendChild(h('div.xpl.xnext', dm.count ? `Spreads in ${tolls(dm.nextIn)}: ${dm.nextCount} ${plural(dm.nextCount, 'place')}` : `Starts to spread in ${tolls(dm.nextIn)}`));
+    if (me && (me.dimmed || finite(me.dimsIn))) dimBox.appendChild(h('div.xpl.xmine', { dataset: { dimsIn: me.dimmed ? 0 : me.dimsIn } }, me.dimmed ? 'You stand in the Dimming!' : `Your node dims in ${tolls(me.dimsIn)}`));
+    dimBox.appendChild(h('div.xpl.muted.xcount', `${dm.count ?? mv.nodes.filter((n) => n.dimmed).length} of ${dm.total ?? mv.nodes.length} places Dimmed`));
+  } else {
     dimBox.appendChild(h('div.xpl', front < 0 ? `Starts to spread in ${tolls(dm.nextIn)}` : `Spreads again in ${tolls(dm.nextIn)}`));
     if (me) dimBox.appendChild(h('div.xpl.xmine', { dataset: { dimsIn: me.dimmed ? 0 : me.dimsIn } }, me.dimmed ? 'You stand in the Dimming!' : `Your node dims in ${tolls(me.dimsIn)}`));
     dimBox.appendChild(h('div.xpl.muted', `${mv.nodes.filter((n) => n.dimmed).length} of ${mv.nodes.length} nodes Dimmed`));
   }
+  const pace = dm.steady && mv.texts && mv.texts.dimming_pace ? mv.texts.dimming_pace.replace('{maxPerToll}', String(dm.maxPerToll)).replace('{grace}', String(dm.grace)) : null;
   tip(dimBox, () => h('div', h('div.tt-name', 'The Dimming'), mv.texts && mv.texts.dimming ? h('div.tt-line', mv.texts.dimming) : null,
-    h('div.tt-line', `It spreads ${dm.frontHops} hops every ${tolls(dm.frontTime)} from the Shardfall, after ${tolls(dm.grace)} in the zone.`),
+    h('div.tt-line.xpace', pace || `It spreads ${dm.frontHops} hops every ${tolls(dm.frontTime)} from the Shardfall, after ${tolls(dm.grace)} in the zone.`),
     h('div.tt-sub', 'Entering or standing in a Dimmed node starts a fight with this zone\'s creatures, made stronger by the dark; what it held is lost. Leave by a Road or the Bell.')));
   // blind round 2 (casual re-run s0014: the Key panel looked empty at rest, its rows only on hover): the node icons stay in
   // view as a row of pictures (no words, D150's budget), each named under the pointer; the fog rows on hover as before
@@ -979,6 +989,8 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
   // D150 item 8: no "Dims in N" here (the node's own clock on the map and the Dimming panel say it)
   const gl = n.barred ? gateLine(ctx.data, v.tutorial) : null;
   if (gl) box.appendChild(h('div.tt-warn.gate', gl));
+  // D152 (changes-m3-v2.md 2.4): a held corridor node says why the dark keeps off it (content guide.holdLine, draft)
+  if (n.held && !n.dimmed && !(mv.dim && mv.dim.off)) { const hl = holdLine(ctx.data); if (hl) box.appendChild(h('div.tt-line.xheldl', hl)); }
   for (const ln of siteLines(n, ctx.view, ctx)) box.appendChild(ln);
   if (spy.armed && !readOnly) { box.appendChild(h('div.tt-hint', 'Click to look here through the Spyglass')); return box; }
   // blind panel 2026-11-13 (no tooltip on Gorrak's node): a barred node next to the player is a move mapView lists with
@@ -1009,6 +1021,14 @@ function travelCost(z, ctx) {
   const hrs = z.travelTime !== undefined ? z.travelTime : ctx.data.rules.time.travel;
   return hrs == null ? '' : hrs > 0 ? ` Costs ${tolls(hrs)}.` : ' Costs no time.';
 }
+/** D152: the held corridor's mark, a small lamp (drawn in code). */
+function lampMark() {
+  const d = h('div.xheld', { 'aria-hidden': 'true' });
+  d.innerHTML = '<svg viewBox="0 0 16 20" width="100%" height="100%"><path d="M5 3 h6 l1 2 h-8 z" fill="#5a3a18"/><path d="M4.5 5 h7 l-1 9 h-5 z" fill="#ffd27a" stroke="#6a4416" stroke-width="1"/><circle cx="8" cy="9.5" r="2.2" fill="#fff4c8"/><path d="M5 14 h6 v2 h-6 z" fill="#5a3a18"/><path d="M8 0.5 v2.5" stroke="#6a4416" stroke-width="1.2"/></svg>';
+  return d;
+}
+/** The held corridor's tooltip line (content guide.holdLine), or null. */
+function holdLine(data) { const g = data.tutorial && data.tutorial.table && data.tutorial.table.guide; return g && g.holdLine ? g.holdLine : null; }
 function flagSvg() {
   const d = h('div.flagm');
   d.innerHTML = '<svg viewBox="0 0 24 30" width="100%" height="100%"><rect x="3" y="2" width="2.4" height="27" fill="#3a2410"/><path d="M5.4 3 L22 7 L5.4 13 Z" fill="#c0281a" stroke="#4a0a04" stroke-width="1"/></svg>';
@@ -1217,7 +1237,7 @@ function buildLoot(v, ctx) {
  */
 function nextStrip(L) {
   const list = L.next || []; if (!list.length) return null;
-  const word = (x) => (x.kind === 'contract' ? `Contract complete: ${x.title}` : x.kind === 'story' ? `Story complete: ${x.title}` : `Quest complete: ${x.title}`);
+  const word = (x) => (x.kind === 'contract' ? `Contract complete: ${x.title}` : x.kind === 'story' ? `Story complete: ${x.title}` : x.kind === 'bounty' ? x.title : `Quest complete: ${x.title}`);
   return h('div.lnext', { dataset: { next: list.map((x) => x.kind).join(',') } }, h('span.nx', 'Next'), h('span.nt', list.map(word).join(', then ')));
 }
 function miniBtn(label, fn, cls = '') { const b = h('button.btn.small' + cls, { type: 'button' }, label); b.addEventListener('click', (e) => { e.stopPropagation(); fn(); }); return b; }
@@ -1244,6 +1264,16 @@ function buildReward(v, ctx) {
     tip(c, () => itemTip(it, ctx, { hint: eq ? 'Click to choose this reward · Equip now: choose it and put it on' : 'Click to choose this reward' }), { avoid: '.choice-cards .icard' }); // blind round 2 (skipper s0045): not over another card's Equip now
     return c;
   }));
+  if (L.kind === 'bounty') {
+    // D152 (changes-m3-v2.md 1.4): Gorrak's bounty on a first run: its line (content guide.bountyLine, draft), what it paid
+    // (the bridge's sums of its `why: 'bounty'` XP and gold) and its item choice
+    return dialog(L.title, '', [
+      L.text ? h('div.qtext.parchment.bounty', h('div.turnin', L.text)) : null,
+      h('div.row', { style: { gap: '2rem' } }, L.xp ? h('span', { style: { color: '#d0a8ff', fontWeight: 700, fontSize: '1.35rem' } }, `+${fmtNum(L.xp)} XP`) : null, L.gold ? h('span', moneyEl(L.gold)) : null),
+      h('div.subtitle', 'Choose one reward'), cards,
+      p.bag.every(Boolean) ? h('div.warn', 'Your bags are full: discard something first (B).') : null, nextStrip(L),
+    ], [], { style: { width: '60rem' }, cls: 'bounty-reward' });
+  }
   if (L.kind === 'contract') {
     // a completed contract (expedition.md 3.1, 9.3): paid at once on its last site; its item choice as the story's
     const c = L.contract;
@@ -1358,7 +1388,7 @@ function buildSummary(v, ctx) {
   const card2 = h('div.card', h('h3', 'Deeds'), kv([
     ['Kills', `${s.kills.normal} normal · ${s.kills.elite} elite · ${s.kills.rare} rare · ${s.kills.boss} boss`], ['Quests', s.contracts ? String(s.quests) : `${s.quests} (${s.story} stories)`],
     // contracts (expedition.md 8.1; prep): the summary's expedition.contracts
-    ...(s.contracts ? [['Contracts', `${s.contracts.completed} of ${s.contracts.taken} completed${s.contracts.expired ? ` · ${s.contracts.expired} expired` : ''}${s.contracts.abandoned ? ` · ${s.contracts.abandoned} given up` : ''} · Reserve left ${s.contracts.reserve}`]] : []),
+    ...(s.contracts && !s.firstRun ? [['Contracts', `${s.contracts.completed} of ${s.contracts.taken} completed${s.contracts.expired ? ` · ${s.contracts.expired} expired` : ''}${s.contracts.abandoned ? ` · ${s.contracts.abandoned} given up` : ''} · Reserve left ${s.contracts.reserve}`]] : []),
     ['Dungeons cleared', String(s.dungeons)],
     ['Gold', `earned ${moneyText(s.goldEarned)} · spent ${moneyText(s.goldSpent)}`], ['Potions used', String(s.potions)], ['Times revived', String(s.resurrects)],
     ['Damage', `dealt ${fmtNum(s.dealt)} · taken ${fmtNum(s.taken)}`], ['Top spells', s.topSpells.map(([n, d]) => `${n} ${fmtNum(d)}`).join(', ') || '—'],

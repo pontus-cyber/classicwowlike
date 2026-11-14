@@ -30,7 +30,9 @@ test('items 1, 25: the Furnace reads "Calm · 18 tolls to spare"; Boss only abov
   assert.equal(bossShown(0), '', 'no "Boss +0 %"');
   assert.equal(bossShown(0.004), '', 'rounds to 0: none');
   assert.equal(bossShown(0.06), 'Boss +6 %');
-  assert.equal(heatToast({ state: 'warm', heat: -8, by: 'dim' }), 'The Furnace: Smouldering · 8 tolls to spare.', 'item 25: no "the Dimming draws near"');
+  // D152 (changes-m3-v2.md 4): when the Dimming sets the state, the Dimming's own words (as on the map)
+  assert.equal(heatToast({ state: 'warm', heat: -8, by: 'run' }), 'The Furnace: Smouldering · 8 tolls to spare.', 'item 25: no "the Dimming draws near"');
+  assert.equal(heatToast({ state: 'warm', heat: -8, by: 'dim', dimIn: 3 }), 'The Furnace: Smouldering · Your node dims in 3 tolls.');
   for (const st of ['clear', 'warm', 'hot', 'scorched']) assert.doesNotMatch(heatToast({ state: st, heat: 3 }), BANNED);
 });
 

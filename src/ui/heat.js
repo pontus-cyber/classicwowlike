@@ -7,6 +7,8 @@
 // Infernal; whole tolls) and sits at the top centre, calm water on the cool side and embers on the hot side; its name and
 // time unit come from ui-text.js HEAT_WORDS (a rename is one edit). The engine counts tolls (M2b v7: heatView.time,
 // heatPreview.time, the summary's time and heat.timeByState, all whole numbers); nothing here rounds or converts them.
+// D152 (changes-m3-v2.md 4): when the Dimming sets the state (heatView `by` 'dim') the meter reads "Your node dims in N
+// tolls" or "You stand in the Dimming" (meterText), and the tolls figure moves to the tooltip's first line (dimTipLine).
 //
 //   createHeatMeter(root, ctx)  the HUD meter, on every screen of a run but the summary: the four states (Clear, Warm,
 //                               Hot, Scorched) as segments of one bar over HEAT_BAR_MIN..HEAT_BAR_MAX tolls past the
@@ -72,6 +74,20 @@ export function standText(x) {
   if (x.heat < 0) return `${tolls(-x.heat)} to spare`;
   return 'No tolls to spare';
 }
+/**
+ * The meter's line after the state's name (D152, changes-m3-v2.md 4): the tolls against the line (standText) while the run
+ * clock sets the state (heatView `by` 'run'); when the Dimming near the player sets it (`by` 'dim'), the Dimming's own
+ * words, as on the map: "Your node dims in N tolls", or "You stand in the Dimming" (dimIn 0 or less).
+ */
+export function meterText(x) {
+  if (x.by !== 'dim' || x.dimIn == null) return standText(x);
+  return x.dimIn > 0 ? `Your node dims in ${tolls(x.dimIn)}` : 'You stand in the Dimming';
+}
+/** D152 (changes-m3-v2.md 4, draft): the tooltip's first line while the Dimming sets the state: the tolls against the line. */
+export function dimTipLine(x) {
+  const n = Math.abs(x.heat || 0);
+  return `Tolls: ${x.heat > 0 ? `${n} overspent` : x.heat < 0 ? `${n} to spare` : 'none to spare'}. The Dimming near you sets the Furnace now.`;
+}
 export const bossText = (asc) => `Boss +${Math.round((asc || 0) * 100)} %`;
 /** D150 item 1: "Boss +N %" only when the boss would be stronger (above 0), else ''. */
 export const bossShown = (asc) => (Math.round((asc || 0) * 100) > 0 ? bossText(asc) : '');
@@ -95,7 +111,7 @@ export function payText(state, H, short = false) {
  * overspent", the meter's own line.
  */
 export function heatToast(hv) {
-  return `${HW.Name}: ${HEAT_NAME[hv.state] || hv.state} · ${standText(hv)}.`;
+  return `${HW.Name}: ${HEAT_NAME[hv.state] || hv.state} · ${meterText(hv)}.`;
 }
 
 /** Per cent across the bar of a value in tolls past the line. */
@@ -202,7 +218,7 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
     for (const s of STATES) els.segs[s].classList.toggle('on', s === hv.state);
     els.state.querySelector('.ht-sname').textContent = HEAT_NAME[hv.state];
     queueMicrotask(fitHeader); // after the texts below are set
-    els.num.textContent = standText(hv);
+    els.num.textContent = meterText(hv); // D152: the Dimming's words when it sets the state
     const boss = bossShown(hv.ascIfPar);
     els.boss.textContent = boss; els.boss.classList.toggle('hidden', !boss);
     // the player's marker; an arrow when the heat is off the bar (bar.beyond)
@@ -219,7 +235,7 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
       els.dmark.classList.toggle('sets', hv.by === 'dim');
     }
     drawGhost(hv);
-    els.el.setAttribute('aria-label', `${HW.Name}: ${HEAT_NAME[hv.state]}, ${standText(hv)}${boss ? `, ${boss}` : ''}`);
+    els.el.setAttribute('aria-label', `${HW.Name}: ${HEAT_NAME[hv.state]}, ${meterText(hv)}${boss ? `, ${boss}` : ''}`);
     // the first-time note: on the hub (hidden while a service window is open), until "Got it" or setting out
     if (!introSeen) {
       const svcOpen = !!(v.node && v.node.origin === 'hub');
@@ -287,10 +303,10 @@ export function heatTip(ctx) {
   if (!hv || !H) return null;
   const box = h('div.tt-heatbox');
   box.appendChild(h('div.tt-name', HW.Name));
+  // D152 (changes-m3-v2.md 4): while the Dimming sets the state, the tolls figure moves here, as the first line
+  if (hv.by === 'dim') box.appendChild(h('div.tt-line.ht-dimtip', dimTipLine(hv)));
   box.appendChild(h('div.tt-line.desc', FURNACE_LINE));
   box.appendChild(h('div.tt-heatstates', stateRows(H).map(([st, when, pay]) => h('div.hs' + (st === hv.state ? '.on' : ''), { dataset: { hs: st } }, h('i.ht-dot', { dataset: { hs: st } }), h('b', HEAT_NAME[st]), h('span.w', when), h('span.p', pay)))));
-  // the state the meter shows can come from the Dimming near the player (heatView `by`): one short line says so
-  if (hv.by === 'dim') box.appendChild(h('div.tt-sub', 'Raised by the Dimming near you.'));
   return box;
 }
 
@@ -352,7 +368,7 @@ export function buildHeatSummary(sum, ctx) {
   card.appendChild(heatChart(recs, H, zc));
   const hotNodes = ht.nodesByState[2] + ht.nodesByState[3];
   const hotFights = ht.fightsByState[2] + ht.fightsByState[3];
-  card.appendChild(h('div.hc-foot', `Nodes entered: ${STATES.map((s, i) => `${ht.nodesByState[i]} ${HEAT_NAME[s]}`).join(' · ')}. Fights won in heat: ${hotFights}${hotNodes ? '' : ' (no node entered ${HEAT_NAME.hot} or ${HEAT_NAME.scorched})'}. Hover a point for its ${HW.units}.`));
+  card.appendChild(h('div.hc-foot', `Nodes entered: ${STATES.map((s, i) => `${ht.nodesByState[i]} ${HEAT_NAME[s]}`).join(' · ')}. Fights won in heat: ${hotFights}${hotNodes ? '' : ` (no node entered ${HEAT_NAME.hot} or ${HEAT_NAME.scorched})`}. Hover a point for its ${HW.units}.`));
   return card;
 }
 

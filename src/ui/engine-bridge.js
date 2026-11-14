@@ -93,6 +93,9 @@ import * as mock from './mock-engine.js';
 import * as TXT from './ui-text.js';
 import { heatKey } from './heat.js';
 
+/** A line of the guided run's `guide` table (content, draft), or null. */
+const guideLine = (k) => (CONTENT.tutorial && CONTENT.tutorial.guide && CONTENT.tutorial.guide[k]) || null;
+const BOUNTY_TITLE = "Gorrak's bounty"; // D152: the bounty's reward window and the loot window's "Next" (draft)
 const params = (() => {
   try { return new URLSearchParams(globalThis.location ? globalThis.location.search : ''); } catch { return new URLSearchParams(''); }
 })();
@@ -390,7 +393,8 @@ function engineBackend(seedOpt, runOpts = {}) {
     statuses: Object.fromEntries(Object.entries(TXT.STATUS_INFO).map(([id, x]) => [id, { ...x, debuff: C.DEBUFFS ? C.DEBUFFS.includes(id) || !!x.v2Debuff : x.debuff }])),
     boons: Object.fromEntries(Object.values(C.BOON).map((b) => [b.id, { id: b.id, name: b.name, text: TXT.boonText(b.id, CONTENT) }])),
     slots: C.SLOT_IDS, zones: CONTENT.zones, camp: CONTENT.camp,
-    content: { texts: CONTENT.texts || {} }, // texts.families, .prep, .contracts: the contract and start-camp words (ui-text.js)
+    content: { texts: CONTENT.texts || {} },
+    zone1Name: (CONTENT.zones && CONTENT.zones[0] && CONTENT.zones[0].name) || null, // the start camp's heading (D152: a first run has no board to name it) // texts.families, .prep, .contracts: the contract and start-camp words (ui-text.js)
     nodeTime: Object.fromEntries(Object.values(C.NODE_TYPE).map((t) => [t.id, t.time])),
     boss: { name: C.BOSS_TEXT.name, intro: (CONTENT.camp && CONTENT.camp.bossText) || '' },
     rules: rulesTable(C),
@@ -950,7 +954,7 @@ function engineBackend(seedOpt, runOpts = {}) {
       equipped: (sm.equipped || []).map((e) => ({ uid: `sum-${e.slot}`, kind: 'gear', slot: e.slot, name: e.name, rarity: e.rarity, ilvl: e.ilvl, stats: {} })),
       estMinutes: { manual: Math.round(sm.minutes.manual), auto: Math.round(sm.minutes.autoplay) }, bossPhase: sm.bossPhase,
       // the welcome (M3, m3-onboarding.md 4.2): its label from content (nudge.welcomeLabel); [label, Echoes, line id]
-      echoes: ((sm.echoes && sm.echoes.lines) || []).map((l) => [`${l.id === 'welcome' && CONTENT.tutorial ? CONTENT.tutorial.nudge.welcomeLabel : TXT.ECHO_LINE[l.id] || TXT.humanize(l.id)}${l.count > 1 ? ` (${l.count})` : ''}`, l.echoes, l.id]),
+      echoes: ((sm.echoes && sm.echoes.lines) || []).map((l) => [`${l.id === 'welcome' && CONTENT.tutorial ? CONTENT.tutorial.nudge.welcomeLabel : l.id === 'reserve' && sm.firstRun && CONTENT.tutorial && CONTENT.tutorial.prep ? CONTENT.tutorial.prep.unspentLabel : TXT.ECHO_LINE[l.id] || TXT.humanize(l.id)}${l.count > 1 ? ` (${l.count})` : ''}`, l.echoes, l.id]),
       // heat (rules 1.7.4, engine-api.md 11.3): the zone track, tolls / nodes / fights won by state, the Echo line's
       // Echoes; par: the run's boss par (R.bossPar) for "tolls over par"
       heat: sm.heat ? { trackPerZone: sm.heat.trackPerZone.map((r) => ({ ...r })), timeByState: [...sm.heat.timeByState], nodesByState: [...sm.heat.nodesByState],
@@ -963,6 +967,9 @@ function engineBackend(seedOpt, runOpts = {}) {
       dev: sm.dev ? { god: !!sm.dev.god, tools: [...sm.dev.tools], withheld: (sm.echoes && sm.echoes.withheld) || 0 } : null,
       // contracts (expedition.md 8.1; prep): taken, completed, expired, abandoned, held, bought, reserve; null without
       contracts: sm.expedition && sm.expedition.contracts ? JSON.parse(JSON.stringify(sm.expedition.contracts)) : null,
+      // D152 (changes-m3-v2.md 1.3): a lean first run: no contracts or Reserve named; its Echo line `reserve` is
+      // "Unspent camp points" (content prep.unspentLabel)
+      firstRun: !!sm.firstRun,
     };
   }
 
@@ -1098,6 +1105,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     const nextOf = (list) => list.map((r) => {
       if (r.contract) { const c = v.contracts ? v.contracts.contracts.find((x) => x.id === r.contract) : null; return { kind: 'contract', title: c ? TXT.contractTitle(c, CONTENT) : 'a contract' }; }
       if (r.story) return { kind: 'story', title: v.zone ? `${v.zone.name}: the story` : 'the story' };
+      if (r.bounty) return { kind: 'bounty', title: BOUNTY_TITLE };
       return { kind: 'quest', title: (CONTENT.quests[s.node.quest] || {}).title || 'the quest' };
     });
     if (local.hold) {
@@ -1118,7 +1126,11 @@ function engineBackend(seedOpt, runOpts = {}) {
       // a completed contract's item choice (prep, expedition.md 3.1, 9.3): after the node's own rewards, as the story's
       const kc = r0.contract && v.contracts ? v.contracts.contracts.find((c) => c.id === r0.contract) || null : null;
       const paid = (rw.contracts || {})[r0.contract] || {};
-      if (r0.contract) v.loot = { kind: 'contract', title: 'Contract complete', contract: kc, hubName: v.zone.hubName, xp: paid.xp || 0, gold: paid.gold || 0, choices: r0.items.map((it) => item(it, s.player.classId)) };
+      if (r0.bounty) {
+        // D152 (changes-m3-v2.md 1.4): Gorrak's bounty on a first run: its line (content guide.bountyLine) and what it paid
+        const b = local.bounty || {};
+        v.loot = { kind: 'bounty', title: BOUNTY_TITLE, text: guideLine('bountyLine') || '', xp: b.xp || 0, gold: b.gold || 0, choices: r0.items.map((it) => item(it, s.player.classId)) };
+      } else if (r0.contract) v.loot = { kind: 'contract', title: 'Contract complete', contract: kc, hubName: v.zone.hubName, xp: paid.xp || 0, gold: paid.gold || 0, choices: r0.items.map((it) => item(it, s.player.classId)) };
       else v.loot = r0.story
         ? { kind: 'story', title: `${v.zone.name}: the story is told`, text: 'Three tasks done; the people of this land will remember your name.', xp: rw.storyXp || 0, gold: 0, choices: r0.items.map((it) => item(it, s.player.classId)) }
         : { kind: 'reward', title: q.title || 'Quest', giver: q.giver, text: q.turnIn || '', xp: rw.xp || 0, gold: rw.gold || 0, choices: r0.items.map((it) => item(it, s.player.classId)) };
@@ -1263,7 +1275,8 @@ function engineBackend(seedOpt, runOpts = {}) {
         // start camp and contracts (prep, engine-api.md 5): the screens show PREP's own steps; these say what changed
         case 'contract': { const m = contractMsg(e, s); if (m) out.push(m); break; }
         case 'prep':
-          if (e.what === 'setOut') out.push({ t: 'msg', text: `You set out with ${e.contracts} ${TXT.plural(e.contracts, 'contract')} and ${e.reserve} ${TXT.plural(e.reserve, 'point')} of Reserve.`, kind: 'good' });
+          // D152: a lean first run's Set out names no contracts or Reserve (it has neither)
+          if (e.what === 'setOut') out.push({ t: 'msg', text: e.first ? 'You set out.' : `You set out with ${e.contracts} ${TXT.plural(e.contracts, 'contract')} and ${e.reserve} ${TXT.plural(e.reserve, 'point')} of Reserve.`, kind: 'good' });
           break;
         // M3 guided run (engine-api.md 14): the beats (onboarding.js reads them), the rescue, the skip and the guide's end
         case 'beat': out.push({ t: 'beat', id: e.id, what: e.what, line: e.line ?? null }); break;
@@ -1271,6 +1284,10 @@ function engineBackend(seedOpt, runOpts = {}) {
         // D147 (engine-2026-11-14, UI need 1): why 'rescues' when ONB_RESCUE_MAX rescues ended the guide, with the count
         case 'guideSkipped': out.push({ t: 'guideSkipped', why: e.why || null, rescues: e.rescues ?? null }); break;
         case 'guideEnd': out.push({ t: 'guideEnd' }); break;
+        // D152 (changes-m3-v2.md 3.4, 1.4; engine-2026-11-14f UI needs 6, 10): the Dimming's fall-back after a rescue, and
+        // Gorrak's bounty on a first run (content guide.dimBackLine, guide.bountyLine; draft)
+        case 'dimBack': out.push({ t: 'msg', text: guideLine('dimBackLine') || 'The dark falls back.', kind: 'good' }); break;
+        case 'bounty': out.push({ t: 'msg', text: guideLine('bountyLine') || "Gorrak's bounty.", kind: 'good' }); break; // the XP and gold lines follow their own events
         case 'spyglass': out.push({ t: 'msg', text: `Spyglass: ${e.seen.length ? `${e.seen.length} more ${TXT.plural(e.seen.length, 'place')} in view` : 'nothing new in view'} · ${e.charges} ${TXT.plural(e.charges, 'look')} left`, kind: 'good' }); break;
         default: break;
       }
@@ -1501,10 +1518,14 @@ function engineBackend(seedOpt, runOpts = {}) {
     const items = events.filter((e) => e.t === 'loot').map((e) => item(e.item, st.player ? st.player.classId : 'rogue', { inBag: e.to === 'bag', pending: e.to === 'window' }));
     // D150 section 7 (engine-2026-11-14d UI need 17): the spoils' XP is the whole fight's (each kill's XP comes in the step of
     // the kill), the same sum the fight floated; a quest's, story's or contract's XP shows on its own window
-    const fightXp = (e) => e.why !== 'quest' && e.why !== 'story' && e.why !== 'contract';
+    // D152 (engine-2026-11-14f UI need 10): Gorrak's bounty (why 'bounty') shows on its own window, not with the fight's
+    const fightXp = (e) => e.why !== 'quest' && e.why !== 'story' && e.why !== 'contract' && e.why !== 'bounty';
     if (has('fight')) local.fightXp = 0;
     local.fightXp = (local.fightXp || 0) + sum('xp', fightXp);
     if (events.some((e) => e.t === 'questComplete')) local.reward = { xp: sum('xp', (e) => e.why === 'quest'), gold: sum('gold', (e) => e.why === 'quest' && e.amount > 0), storyXp: sum('xp', (e) => e.why === 'story') };
+    // D152: Gorrak's bounty (event `bounty { xp, gold }`): its window shows what it paid
+    const bty = events.find((e) => e.t === 'bounty');
+    if (bty) local.bounty = { xp: bty.xp || 0, gold: bty.gold || 0 };
     // contracts completed in this step (prep): each one's XP and gold (the events after its `contract` complete event,
     // why 'contract'), shown on its reward window
     const done = events.map((e, i) => [e, i]).filter(([e]) => e.t === 'contract' && e.what === 'complete');
@@ -1534,7 +1555,7 @@ function engineBackend(seedOpt, runOpts = {}) {
         title: kind === 'dboss' ? `${(prev.node && prev.node.dungeon) || 'Dungeon'} cleared` : prev.node && prev.node.type === 'treasure' ? 'Treasure chest' : 'Loot',
         phase: 'NODE', node: prev.node ? { ...prev.node, step: 'combat' } : { type: 'camp_grind', step: 'combat', cl: C.CAMP_GRIND_LEVEL },
         // a contract's XP and gold show on its own reward window (prep), not with the fight's spoils
-        combat: pc, gold: sum('gold', (e) => e.amount > 0 && e.why !== 'quest' && e.why !== 'contract'), xp: local.fightXp, trap: sum('trap') > 0, items,
+        combat: pc, gold: sum('gold', (e) => e.amount > 0 && e.why !== 'quest' && e.why !== 'contract' && e.why !== 'bounty'), xp: local.fightXp, trap: sum('trap') > 0, items,
       };
       local.fightXp = 0;
     }

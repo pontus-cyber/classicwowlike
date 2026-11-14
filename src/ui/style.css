@@ -1222,6 +1222,10 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 #prep .pm-l { font: var(--fw-semibold) var(--fs-label-7) var(--font-title); color: var(--ink); }
 .i.dot, i.dot { display: inline-block; flex: none; width: .85rem; height: .85rem; border-radius: var(--radius-round); background: var(--cc, #8a7c66); box-shadow: 0 0 .45rem var(--cc, transparent), 0 0 0 1px var(--shade-60); margin-right: var(--sp-45); vertical-align: .05rem; }
 #pp-go { box-shadow: inset 0 1px 0 rgba(255, 200, 160, .35), inset 0 0 0 1px rgba(255, 190, 120, .55), 0 0 2.2rem rgba(255, 150, 80, .35), 0 .4rem 1rem var(--shade-60); }
+/* D152: a first run's line over Set out (what unspent points pay), beside the button */
+#prep .pp-go { display: flex; align-items: center; gap: var(--sp-100); }
+#prep .pp-unspent { max-width: 34rem; font: var(--fw-semibold) var(--fs-body-3) var(--font-ui); color: var(--ink); text-align: right; }
+#prep .pp-unspent.hidden { display: none; }
 #pp-reroll.disabled { filter: grayscale(.85) brightness(.6); }
 .tt-contract { max-width: 42rem; } .tt-contract .tt-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-100); }
 .tt-line.flav { font: italic var(--fs-body-3) var(--font-title); color: var(--ink-dim); margin-top: var(--sp-20); }
@@ -1355,6 +1359,8 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .expmap .mnode .flagm { top: -1.7rem; width: 1.5rem; height: 1.9rem; }
 .expmap .mnode .xfoes { position: absolute; right: -.7rem; bottom: -.35rem; padding: 0 var(--sp-30); border-radius: var(--radius-md-4); background: #5a1a12; color: #ffd6c8; font: var(--fw-heavy) var(--fs-micro-3)/var(--lh-box-5) var(--font-num); box-shadow: 0 0 0 1px #1a0804; pointer-events: none; }
 .expmap .mnode .xclock { position: absolute; left: 50%; top: calc(100% + 1.45rem); transform: translateX(-50%); padding: 0 var(--sp-35); border-radius: var(--radius-sm-1); background: rgba(26, 14, 52, .92); color: #d8ccff; font: var(--fw-bold) var(--fs-micro-12)/var(--lh-box-6) var(--font-ui); white-space: nowrap; box-shadow: 0 0 0 1px rgba(140, 110, 230, .7); pointer-events: none; }
+/* D152: the held corridor's lamp (no "dims in" chip while the guide holds the dark off the node) */
+.expmap .mnode .xheld { position: absolute; left: 50%; top: calc(100% + 1.35rem); transform: translateX(-50%); width: 1.3rem; height: 1.6rem; filter: drop-shadow(0 0 .45rem rgba(255, 210, 122, .85)); pointer-events: none; }
 .expmap .mnode .xclock.soon { color: #ffd0c8; box-shadow: 0 0 0 1px rgba(255, 120, 110, .9), 0 0 .6rem rgba(160, 80, 255, .7); }
 .expmap .mnode .xclock.urgent { top: auto; bottom: calc(100% + 2rem); font-size: var(--fs-body-1); line-height: var(--lh-box-12); padding: 0 var(--sp-60); background: var(--map-dimmed-deep); color: var(--ink-bright); box-shadow: 0 0 0 2px var(--map-dimmed), 0 0 1.2rem var(--map-dimmed-glow); animation: xurgent var(--dur-slow-7) ease-in-out infinite; }
 .expmap .mnode.here .mhrs { display: none; }
