@@ -4394,7 +4394,8 @@ async function partR(browser, W, H) {
  *       node of unknown level, an unguarded chest's gold and loot in the log only after "Open the chest", the tracker's
  *       wave in a Grind ("Wave 1 of 1", then "1 of 1 wave done"), Gutting Jab's tooltip with its hit chance.
  *   S7  hints on, every hint but H05 seen: an off-balance elite whose shield takes the whole hit gives H05's shield line and
- *       leaves H05 unseen; a later window without a shield gives the plain line.
+ *       leaves H05 unseen; a later window without a shield gives the plain line. D150 (engine-2026-11-14d UI need 6): only
+ *       while a big hit can be cast (offBalance bigHit; 3 combo points held), none with 0 combo points (D150-6).
  */
 async function partS(browser, W, H) {
   const T = CONTENT.tutorial;
@@ -4931,9 +4932,10 @@ async function partS(browser, W, H) {
       await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
       await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 2, level: 10, mapMode: 'expedition', prep: true })); await idle(page);
       const H05 = T.hints.find((x) => x.id === 'H05');
-      // the casual's case: an elite 8 levels up with a Bolster's shield (BOLSTER_PCT of its health) while it is off-balance
+      // the casual's case: an elite 8 levels up with a Bolster's shield (BOLSTER_PCT of its health) while it is off-balance;
+      // D150 (engine-2026-11-14d UI need 6): H05 only while a big hit can be cast (offBalance bigHit): 3 combo points held
       await page.evaluate(() => window.__ui.dev('fight', { ids: ['z2_bargh'], level: 18 })); await idle(page);
-      await load(page, (s0) => { const e = s0.fight.enemies[0]; e.st.push({ id: 'OFF_BALANCE', dur: 3, value: R.C.OFFBAL_TAKEN }); e.shield = Math.round(R.C.BOLSTER_PCT * e.maxHp); s0.player.hp = s0.player.d.maxHp; });
+      await load(page, (s0) => { const e = s0.fight.enemies[0]; e.st.push({ id: 'OFF_BALANCE', dur: 3, value: R.C.OFFBAL_TAKEN }); e.shield = Math.round(R.C.BOLSTER_PCT * e.maxHp); s0.player.hp = s0.player.d.maxHp; s0.fight.p.cp = 3; });
       await page.keyboard.press('KeyX'); await idle(page);
       const ob = await page.evaluate(() => window.__ui.view().combat.enemies[0].offBalance);
       const c1 = await coach(page);
@@ -4948,7 +4950,13 @@ async function partS(browser, W, H) {
       await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
       await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 2, level: 10, mapMode: 'expedition', prep: true })); await idle(page);
       await page.evaluate(() => window.__ui.dev('fight', { ids: ['z1_furrow_boar'], level: 10 })); await idle(page);
-      await load(page, (s0) => { const e = s0.fight.enemies[0]; e.st.push({ id: 'OFF_BALANCE', dur: 3, value: R.C.OFFBAL_TAKEN }); e.shield = 0; });
+      // D150 (engine-2026-11-14d UI need 6): first with no big hit to cast (0 combo points: bigHit false): no H05 ("Spend your
+      // big hit now" at 0 combo points was the blind tester's case); then 3 combo points: the line
+      await load(page, (s0) => { const e = s0.fight.enemies[0]; e.st.push({ id: 'OFF_BALANCE', dur: 3, value: R.C.OFFBAL_TAKEN }); e.shield = 0; s0.fight.p.cp = 0; });
+      await page.keyboard.press('KeyX'); await idle(page);
+      const c0 = await page.evaluate(() => ({ shown: window.__ui.coach().shown, ob: window.__ui.view().combat.enemies[0].offBalance }));
+      check('D150-6', 'an off-balance window with no big hit to cast (0 combo points, offBalance bigHit false): no H05 line', !!c0.ob && c0.ob.bigHit === false && !(c0.shown && c0.shown.id === 'H05'), JSON.stringify(c0));
+      await load(page, (s0) => { const e = s0.fight.enemies[0]; if (!e.st.some((x) => x.id === 'OFF_BALANCE')) e.st.push({ id: 'OFF_BALANCE', dur: 3, value: R.C.OFFBAL_TAKEN }); e.shield = 0; s0.fight.p.cp = 3; s0.player.hp = s0.player.d.maxHp; });
       await page.keyboard.press('KeyX'); await idle(page);
       const c2 = await coach(page);
       if (c2.shown) { await page.locator('#coach .co-ok').click(); await idle(page); }
