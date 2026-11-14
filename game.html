@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="7a58cec 2026-11-14T14:35:52Z">
+<meta name="build" content="92177a9 2026-11-14T15:10:30Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -2002,8 +2002,8 @@ body.coach-up #turnprompt[data-kind="engage"] { display: none; }
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (7a58cec 2026-11-14T14:35:52Z) from 67 modules.
-const __BUILD__ = "7a58cec 2026-11-14T14:35:52Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (92177a9 2026-11-14T15:10:30Z) from 67 modules.
+const __BUILD__ = "92177a9 2026-11-14T15:10:30Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -20777,7 +20777,7 @@ const META_KIND = {
   map: ['Map and travel', 'See more of the road, and cover it faster.'],
   items: ['Items in the drop pools', 'New items that can drop or be bought.'],
   skill: ['Skills and companions', 'New spells at the trainer and a new companion.'],
-  resurrect: ['Resurrection', 'A second chance on the journey.'],
+  resurrect: ['Revives', 'A second chance on the journey.'], // D150 (Lead): not "Resurrection"; the item stays the Ember of Return
   challenge: ['Challenge', 'Harder runs for more Echoes.'],
 };
 const cls = (id) => ({ rogue: 'Rogue', mage: 'Mage', hunter: 'Hunter' }[id] || humanize(id));
@@ -27166,7 +27166,7 @@ function createEngagePanel(root, ctx) {
 
 });
 __bundle.def("src/ui/prep.js", function* (__ns, __link) {
-let h, clear, moneyEl, fmtNum; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["fmtNum", (v) => { fmtNum = v; }]]); let icon, consumableIcon; __link.imp("src/ui/art-icons.js", [["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }]]); let tip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }]]); let CONTRACT_KIND, contractTitle, contractSentence, familyName, hubOfferSentence, contractKindText, contractSitesText, contractItemsText, levelsText, prepOptionEffect, prepFlavour, bandText, numWord, plural; __link.imp("src/ui/ui-text.js", [["CONTRACT_KIND", (v) => { CONTRACT_KIND = v; }], ["contractTitle", (v) => { contractTitle = v; }], ["contractSentence", (v) => { contractSentence = v; }], ["familyName", (v) => { familyName = v; }], ["hubOfferSentence", (v) => { hubOfferSentence = v; }], ["contractKindText", (v) => { contractKindText = v; }], ["contractSitesText", (v) => { contractSitesText = v; }], ["contractItemsText", (v) => { contractItemsText = v; }], ["levelsText", (v) => { levelsText = v; }], ["prepOptionEffect", (v) => { prepOptionEffect = v; }], ["prepFlavour", (v) => { prepFlavour = v; }], ["bandText", (v) => { bandText = v; }], ["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }]]); __link.exp({ "CONTRACT_COLORS": () => CONTRACT_COLORS, "contractColors": () => contractColors, "kindIcon": () => kindIcon, "contractTip": () => contractTip, "createPrepScreen": () => createPrepScreen, "prepKey": () => prepKey, "progressText": () => progressText, "trackerContracts": () => trackerContracts, "buildContractLog": () => buildContractLog, "buildHubOffer": () => buildHubOffer, "siteBadge": () => siteBadge, "siteLines": () => siteLines, "numWord": () => numWord });
+let h, clear, moneyEl, fmtNum; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["fmtNum", (v) => { fmtNum = v; }]]); let icon, consumableIcon; __link.imp("src/ui/art-icons.js", [["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }]]); let tip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }]]); let CONTRACT_KIND, contractTitle, contractSentence, familyName, hubOfferSentence, contractKindText, contractSitesText, contractItemsText, levelsText, prepOptionEffect, prepFlavour, bandText, numWord, plural; __link.imp("src/ui/ui-text.js", [["CONTRACT_KIND", (v) => { CONTRACT_KIND = v; }], ["contractTitle", (v) => { contractTitle = v; }], ["contractSentence", (v) => { contractSentence = v; }], ["familyName", (v) => { familyName = v; }], ["hubOfferSentence", (v) => { hubOfferSentence = v; }], ["contractKindText", (v) => { contractKindText = v; }], ["contractSitesText", (v) => { contractSitesText = v; }], ["contractItemsText", (v) => { contractItemsText = v; }], ["levelsText", (v) => { levelsText = v; }], ["prepOptionEffect", (v) => { prepOptionEffect = v; }], ["prepFlavour", (v) => { prepFlavour = v; }], ["bandText", (v) => { bandText = v; }], ["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }]]); __link.exp({ "CONTRACT_COLORS": () => CONTRACT_COLORS, "contractColors": () => contractColors, "kindIcon": () => kindIcon, "contractTip": () => contractTip, "boardTip": () => boardTip, "createPrepScreen": () => createPrepScreen, "prepKey": () => prepKey, "progressText": () => progressText, "trackerContracts": () => trackerContracts, "buildContractLog": () => buildContractLog, "buildHubOffer": () => buildHubOffer, "siteBadge": () => siteBadge, "siteLines": () => siteLines, "numWord": () => numWord });
 yield;
 // prep.js - the start camp and the contracts on screen (docs/specs/expedition.md 2, 3, 9.1, 9.3; engine-api.md 13; M2b
 // 2b.6; D128 lean camp). The prep screen of an expedition run with the start camp (phase PREP): one lean screen (D128,
@@ -27180,7 +27180,8 @@ yield;
 // and the site marks on the expedition map (mapView node `sites`: only the marks the player sees; a hidden node is never
 // named). Presentation only: every click sends one engine action.
 // D150 (owner 2026-11-14, naming rule): a contract's "Reward", not "Pays"; item 15: the heading "Supplies" with no
-// subline, no "Unspent ... Echoes" line under the points left (the points' tooltip says what Reserve does).
+// subline, no "Unspent ... Echoes" line under the points left (the points' tooltip says what Reserve does); item 14: an
+// offer's tooltip in three sentences (boardTip: what to win, the reward, the cost).
 
 
 
@@ -27247,6 +27248,27 @@ function contractTip(c, ctx, opts = {}) {
   if (opts.hint) box.appendChild(h('div.tt-hint', opts.hint));
   return box;
 }
+/**
+ * D150 item 14 (the owner-approved cut list; Lead 2026-11-14): a start-camp offer's tooltip, three sentences under its
+ * name: "Win 2 Quest or Grind fights in Barleyreach Verge. Reward: about 3 levels of XP, 3s 12c and 1 of 3 items. Cost: 2
+ * points." (a Cull's sites are Quest or Grind nodes, contracts.js isSiteType), and why it cannot be taken when it cannot.
+ * The held contracts keep contractTip (sites, progress, state).
+ */
+function boardTip(o, ctx, opts = {}) {
+  const rw = o.reward || {};
+  const what = o.kind === 'delve' ? `Clear ${o.dungeon || "the zone's dungeon"}, its boss included.`
+    : o.kind === 'bounty' ? `Hunt down ${o.name || 'a named elite'} in ${o.regionName || 'its region'}.`
+      : `Win ${o.need} Quest or Grind ${plural(o.need, 'fight')} in ${o.regionName || 'its region'}.`;
+  const lv = rw.xpFrac || 0; const n = lv >= 1 ? Math.round(lv) : Math.round(lv * 10) / 10;
+  const pay = [`about ${n} ${n === 1 ? 'level' : 'levels'} of XP`, rw.gold ? moneyEl(rw.gold) : null, rw.choices ? `1 of ${rw.choices} items` : null].filter(Boolean);
+  const list = pay.flatMap((x, i) => (i === 0 ? [x] : [i === pay.length - 1 ? ' and ' : ', ', x]));
+  return h('div.tt-contract.tt-board',
+    h('div.tt-row', h('div.tt-name', contractTitle(o, ctx.data.content)), h('span.ctag', { dataset: { kind: o.kind } }, CONTRACT_KIND[o.kind] || o.kind)),
+    h('div.tt-line.desc', what),
+    h('div.tt-line.num', 'Reward: ', ...list, '.'),
+    h('div.tt-line', `Cost: ${pts(o.price)}.`),
+    opts.warn ? h('div.tt-warn', opts.warn) : null);
+}
 function optionTip(o, ctx, key, why) {
   const r = ctx.data.rules.prep;
   const fl = prepFlavour(o.id, ctx.data.content);
@@ -27260,12 +27282,6 @@ function optionTip(o, ctx, key, why) {
 }
 
 // ------------------------------------------------------------------ the prep screen
-/** Has the run the perk (owned from meta or bought now)? For the sites lines of the board's tooltips. */
-const hasPerks = (pv) => {
-  const on = (id) => { const o = pv.options.find((x) => x.id === id); return !!(o && (o.owned || o.bought)); };
-  return { guide: on('prep_guide'), tracker: on('prep_tracker') };
-};
-
 /** The contract's headline: the family (Cull), the elite (Bounty) or the dungeon (Delve), capitalised. */
 const cardTitle = (o, content) => cap1(o.kind === 'delve' ? o.dungeon || "the zone's dungeon" : o.kind === 'bounty' ? o.name || 'a named elite' : familyName(o.family, content));
 /** What to do, one line (D128): "Win 2 sites in Millbrook Steadings", "Hunt it in ...", "Clear it, boss included". */
@@ -27305,8 +27321,7 @@ function createPrepScreen(v, ctx) {
     tip(b, () => {
       const pv = ctx.view.prep; const x = pv && pv.board[i]; if (!x) return null;
       const why = x.taken || x.canTake ? null : ctx.bridge.why({ type: 'TAKE_CONTRACT', index: i });
-      return contractTip(x, ctx, { has: hasPerks(pv), price: `${pts(x.price)} · refunded if you drop it before you set out · ${pv.held} of ${pv.slots} contract slots used`, warn: why,
-        hint: x.taken ? `Click or press ${BOARD_KEYS[i]} to drop it (+${pts(x.price)})` : `Click or press ${BOARD_KEYS[i]} to take it` });
+      return boardTip(x, ctx, { warn: why }); // D150 item 14: three sentences (the card shows its key)
     }, { avoid: '#prep .pp-card' });
     cards.appendChild(b);
     return b;
@@ -28370,7 +28385,7 @@ function createHud(root, ctx) {
     if (lethal && k !== 'Lethal') parts = [lethalB(), ' ', ...parts];
     els.turn.dataset.lethal = lethal ? '1' : '';
     const kEl = els.turn.querySelector('.tp-k'); const tEl = els.turn.querySelector('.tp-t');
-    kEl.textContent = `${k} · R${c.round}`;
+    kEl.textContent = dbKind ? k : `${k} · R${c.round}`; // D150 (Lead): a Deathblow line says its own round ("Round 3: ..."), no "· R1"
     const sig = parts.map((x) => (typeof x === 'string' ? x : `[${x.textContent}]`)).join('');
     if (tEl.dataset.sig !== sig) { tEl.dataset.sig = sig; clear(tEl); tEl.append(...parts); }
     els.turn.dataset.kind = dbKind || (c.engage ? 'engage' : ans || els2 || avoid || wuLive ? 'windup' : k === 'Lethal' ? 'lethal' : pot ? 'potion' : win ? 'window' : 'plain');
@@ -29155,7 +29170,9 @@ const HINTS = {
   H13: { ctx: 'map', when: (c) => has(c.ev, 'learn', (e) => c.v.player && !c.v.player.bar.includes(e.id)), anchor: () => q('#actionbar'), done: (c) => c.a === 'SET_BAR' },
   H14: { ctx: 'screen', when: (c) => !inFight(c.v) && !!c.v.player && c.v.player.talentPoints > 0, anchor: () => q('#micromenu .mm[aria-label="Talents"]'), done: (c) => c.a === 'SPEND_TALENT' },
   H15: { ctx: 'map', when: (c) => onMap(c.v), anchor: () => q('#screens .mnode.here') },
-  H16: { ctx: 'map', when: (c) => onMap(c.v) && !!c.v.heat && c.v.zone.exp.nodes.some((n) => n.done && !n.hub), anchor: () => q('#heat') },
+  // D150 (Lead 2026-11-14): at the hub, G5's moment (the first hub screen); while the guide runs G5 stands in for it, so the
+  // two never show both (BEAT_OF), and G5 learned marks it seen
+  H16: { ctx: 'screen', when: (c) => c.v.phase === 'ZONE_HUB' && !!c.v.heat, anchor: () => q('#heat') },
   H17: { ctx: 'screen', when: (c) => !!(c.v.node && (c.v.node.heat === 'hot' || c.v.node.heat === 'scorched')), anchor: () => q('#heat') },
   H18: { ctx: 'map', when: (c) => seenNode(c.v, (n) => n.dimmed), anchor: () => q('#screens .xdimp') },
   H19: { ctx: 'map', when: (c) => onMap(c.v) && bellMoment(c.v) !== null, anchor: ANCHOR.G13, alt: (c) => bellMoment(c.v), done: (c) => c.a === 'TAKE_ROAD' || c.a === 'RING_BELL' },
