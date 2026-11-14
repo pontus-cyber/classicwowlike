@@ -9,7 +9,8 @@
 // D147: a rescue lands on the map with no fight started (it looped in Dimmed nodes), and ONB_RESCUE_MAX rescues end the
 // guide. D149: S3's Hexer winds up on its turn ONB_WINDUP_TURN (1), so W in the engage round answers it in that step
 // (the route measure per class, autoplay and following the joint line); ui-2026-11-14 finding 1 (draft): the joint line
-// gives way after the engage round; the content lines guide.rescueLeftLine and guide.skipLine (draft).
+// gives way after the engage round; the content lines guide.rescueLeftLine and guide.skipLine (draft). Spec 2.8 item 8
+// (Lead decision 2026-11-14, draft): from round 2 G8's own line only while windupView lists an answer.
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -380,6 +381,7 @@ describe('M3 content lines for the UI (draft, engine-2026-11-14b: ui-2026-11-14 
     assert.ok(G.skipLine !== G.endLine && G.skipLine !== G.rescueCapLine && /skip the guide/i.test(G.skipLine));
     for (const k of ['rescueLine', 'rescueCapLine', 'endLine', 'hubLine', 'hubTrainerLine']) assert.equal(typeof G[k], 'string', k);
   });
+
 });
 
 describe('M3 guided run: beats and tutorialView (2.4-2.7, E5)', () => {
@@ -574,7 +576,8 @@ describe('M3 D142: the Roads open after Gorrak\'s fight (2.3, 2.4 G13)', () => {
 
 /**
  * The D143 route measure's run (seed 8736, board slot 1 taken): autoplay to zone 2, except S3's engage round under policy
- * 'follow' (D149, spec 2.8 item 6: W, the class's control option, on the winding-up Hexer, as the joint line says). Returns
+ * 'follow' (D149, spec 2.8 item 6: W, the class's control option, on the winding-up Hexer, as the joint line says), 'pass'
+ * (X) or 'boar' (Q, the class's strike option, on the Boar; spec 2.8 item 8). Returns
  * the state at zone 2, the scripted fights started (`id@node:zone toll`), the G7-G9 beat events by step and the steps of
  * the ENGAGE actions.
  */
@@ -586,8 +589,10 @@ function guidedRoute(classId, seed, policy = 'auto') {
   for (let n = 0; !(s.zone && s.zone.z === 2) && n < 3000; n++) {
     let a = R.autoAction(s);
     const f = s.fight;
-    if (policy === 'follow' && f && f.tut && f.tut.id === 's3' && f.round === 1 && f.engage) {
-      a = { type: 'ENGAGE', option: C.ENGAGE_OPTIONS[classId][1], target: f.enemies.findIndex((e) => e.firstMeet) };
+    if (policy !== 'auto' && f && f.tut && f.tut.id === 's3' && f.round === 1 && f.engage) {
+      if (policy === 'follow') a = { type: 'ENGAGE', option: C.ENGAGE_OPTIONS[classId][1], target: f.enemies.findIndex((e) => e.firstMeet) };
+      else if (policy === 'pass') a = { type: 'PASS' };
+      else if (policy === 'boar') a = R.legalActions(s).find((x) => x.type === 'ENGAGE' && x.option === C.ENGAGE_OPTIONS[classId][0] && !f.enemies[x.target].firstMeet);
     }
     if (a.type === 'ENGAGE') engages.push(n);
     const r = R.step(s, a);
@@ -697,7 +702,7 @@ describe('M3 D147: G7 and G8 share S3\'s engage round (spec 2.8, the D145 fix)',
     }
   });
 
-  test('D149 (ui-2026-11-14 finding 1): after the engage round the joint line gives way: G8\'s own line while the wind-up can still come, no line once it cannot (the Hexer dead); its own line follows the same rule', () => {
+  test('D149 (ui-2026-11-14 finding 1): after the engage round the joint line gives way: G8\'s own line while the wind-up can still come and an answer is on the bar (2.8 item 8), no line once it cannot (the Hexer dead); its own line follows the same rule', () => {
     /** The beat events of G8 in a step's events. */
     const g8 = (ev) => ev.filter((e) => e.t === 'beat' && e.id === 'G8').map((e) => [e.what, e.line]);
     /** A copy with the Hexer (enemy 0) at 1 HP, so one hit kills it (the route's level-5 Ambush does; a level-1 one may not). */
@@ -708,19 +713,11 @@ describe('M3 D147: G7 and G8 share S3\'s engage round (spec 2.8, the D145 fix)',
     assert.deepEqual([a.state.fight.round, a.state.fight.enemies[0].alive], [2, false]);
     assert.deepEqual(g8(a.events), [['line', null]]);
     assert.deepEqual(R.tutorialView(a.state).open.find((x) => x.id === 'G8'), { id: 'G8', line: null, rest: false }, 'open, waiting (no line)');
-    for (const classId of ['rogue', 'mage', 'hunter']) {
-      // X (pass) in the engage round: in round 2 the Hexer's intent is its wind-up, so G8 shows its own line
-      const p = R.step(atS3(classId).state, { type: 'PASS' });
-      assert.ok(p.state.fight.enemies[0].intent.windup, `${classId}: the wind-up is the Hexer's intent in round 2`);
-      assert.deepEqual(g8(p.events), [['line', 'G8']], classId);
-      assert.deepEqual([R.tutorialView(p.state).beat, R.tutorialView(p.state).line], ['G8', 'G8'], classId);
-      // ... and it lands in round 2: "It landed"
-      const q = R.step(p.state, { type: 'PASS' });
-      assert.ok(q.events.some((e) => e.t === 'empower' && e.u === 0 && e.turn === C.ONB_WINDUP_TURN), `${classId}: landed`);
-      assert.deepEqual(g8(q.events), [['line', 'G8.landed']], classId);
-    }
     // the own line, the Hexer killed before its wind-up's turn (round 2, the player's action first): no line in that step
-    const kill = R.step(frail(R.step(atS3('mage').state, { type: 'PASS' }).state), { type: 'ATTACK', target: 0 });
+    // (an interrupt on the bar keeps the own line up in round 2, item 8)
+    const up = tweak(R.step(atS3('mage').state, { type: 'PASS' }).state, (x) => { x.player.bar[x.player.bar.indexOf(null)] = 'spellsnap'; });
+    assert.equal(up.tutorial.beats.G8.line, 'G8', 'Spellsnap on the bar answers it: the own line');
+    const kill = R.step(frail(up), { type: 'ATTACK', target: 0 });
     assert.ok(!kill.state.fight.enemies[0].alive && kill.state.fight.round === 3, 'the Hexer died before acting');
     assert.ok(!kill.events.some((e) => e.t === 'empower' || e.t === 'stagger'));
     assert.deepEqual(g8(kill.events), [['line', null]]);
@@ -730,6 +727,53 @@ describe('M3 D147: G7 and G8 share S3\'s engage round (spec 2.8, the D145 fix)',
     assert.deepEqual(g8(o.events), [['open', 'G8']], 'its own line, not the joint one');
     const b = R.step(frail(o.state), ambush);
     assert.deepEqual([b.state.fight.round, b.state.fight.enemies[0].alive, g8(b.events)], [2, false, [['line', null]]]);
+  });
+
+  test('2.8 item 8 (Lead decision, draft): from round 2 G8\'s own line shows only while windupView lists an answer with the current bar; X (pass) or a strike on the Boar in S3\'s engage round leave none, so no line, then "It landed"; an interrupt on the bar brings the line', () => {
+    const g8 = (ev) => ev.filter((e) => e.t === 'beat' && e.id === 'G8').map((e) => [e.what, e.line]);
+    const INTERRUPT = { rogue: 'throat_jab', mage: 'spellsnap', hunter: 'muzzle_shot' };
+    for (const classId of ['rogue', 'mage', 'hunter']) {
+      const s3 = atS3(classId).state;
+      // Q (the class's strike option) on the Boar, enemy 1: the Hexer lives, its wind-up is not answered
+      const q = R.legalActions(s3).find((x) => x.type === 'ENGAGE' && x.option === C.ENGAGE_OPTIONS[classId][0] && x.target === 1);
+      assert.ok(q, `${classId}: Q on the Boar is legal`);
+      for (const [arm, act] of [['X', { type: 'PASS' }], ['Q on the Boar', q]]) {
+        const p = R.step(s3, act);
+        const hexer = p.state.fight.enemies[0];
+        assert.ok(p.state.fight.round === 2 && hexer.alive && hexer.intent.windup, `${classId} ${arm}: the wind-up is the Hexer's intent in round 2`);
+        const w = R.windupView(p.state).filter((x) => x.u === 0 && x.turn === C.ONB_WINDUP_TURN);
+        assert.deepEqual(w.map((x) => x.answers), [[]], `${classId} ${arm}: windupView lists no answer on this bar`);
+        // the joint line goes, and G8's own line (it names W, now illegal) does not come: no line
+        assert.deepEqual(g8(p.events), [['line', null]], `${classId} ${arm}`);
+        assert.notEqual(R.tutorialView(p.state).line, 'G8', `${classId} ${arm}`);
+        assert.deepEqual(R.tutorialView(p.state).open.find((x) => x.id === 'G8'), { id: 'G8', line: null, rest: false });
+        // ... and it lands in round 2: "It landed" (G8.landed, unchanged)
+        const l = R.step(p.state, { type: 'PASS' });
+        assert.ok(l.events.some((e) => e.t === 'empower' && e.u === 0 && e.turn === C.ONB_WINDUP_TURN), `${classId} ${arm}: landed`);
+        assert.deepEqual(g8(l.events), [['line', 'G8.landed']], `${classId} ${arm}`);
+        // the same round with the class's interrupt on the bar (off cooldown): windupView lists it, the own line shows
+        const i = tweak(p.state, (x) => { x.player.bar[x.player.bar.indexOf(null)] = INTERRUPT[classId]; });
+        assert.ok(R.windupView(i).some((x) => x.u === 0 && x.answers.some((y) => y.id === INTERRUPT[classId] && y.how === 'interrupt')), `${classId} ${arm}: the interrupt answers it`);
+        assert.deepEqual(R.tutorialView(i).open.find((x) => x.id === 'G8'), { id: 'G8', line: 'G8', rest: false }, `${classId} ${arm}: the own line with an answer`);
+        // its cooldown not over by the wind-up's round: no answer, the line goes again
+        const cd = tweak(i, (x) => { x.fight.p.cds[INTERRUPT[classId]] = x.fight.round + 1; });
+        assert.equal(cd.tutorial.beats.G8.line, null, `${classId} ${arm}: on cooldown, no line`);
+      }
+    }
+  });
+
+  test('2.8 item 8 on the route (seed 8736, run seed 1000, level 7): X or Q on the Boar in S3\'s engage round, then autoplay: G8\'s own line never shows, the wind-up lands ("It landed"), the route is unchanged', () => {
+    for (const classId of ['rogue', 'mage', 'hunter']) {
+      const auto = guidedRoute(classId, 1000);
+      for (const policy of ['pass', 'boar']) {
+        const { s, fights, beats } = guidedRoute(classId, 1000, policy);
+        assert.deepEqual(routeSeen(s), ROUTE_SEEN, `${classId} ${policy}`);
+        assert.deepEqual(fights, auto.fights, `${classId} ${policy}: the autoplay route`);
+        const lines = beats.filter((b) => b.id === 'G8').map((b) => [b.what, b.line]);
+        assert.deepEqual(lines.slice(0, 3), [['open', 'G8.withEngage'], ['line', null], ['line', 'G8.landed']], `${classId} ${policy}: ${JSON.stringify(lines)}`);
+        assert.ok(!lines.some(([, line]) => line === 'G8'), `${classId} ${policy}: no own line`);
+      }
+    }
   });
 
   test('without an ENGAGE in S3, G7\'s own line shows once at the next engage fight (S4), then G7 is missed', () => {

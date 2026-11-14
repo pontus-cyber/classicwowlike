@@ -7,8 +7,8 @@
 // While the guide is on (not skipped) zone 1 is the guided zone: a death there is a rescue (back to the last node, full
 // health, ONB_RESCUE_TOLLS; D147: it lands on the map with no fight started, and the ONB_RESCUE_MAX-th rescue ends the
 // guide), and the 13 beats G1-G13 are tracked from the actions, events and state (`beat` events, tutorialView; D147: G7
-// and G8 opening in one engage round share G8's joint line, which gives way after the engage round, draft). Leaving
-// zone 1 ends the guide.
+// and G8 opening in one engage round share G8's joint line, which gives way after the engage round, draft; spec 2.8
+// item 8, draft: from round 2 G8's own line only while windupView lists an answer). Leaving zone 1 ends the guide.
 // Pure helpers of the state; nodes.js, combat.js, damage.js, contracts.js, actions.js and autoplay.js call them. A run
 // without the option never reaches any of it.
 import {
@@ -18,6 +18,7 @@ import {
 } from '../constants.js';
 import { zoneRegions, hops, frontAt, zoneTime, dimAt, dimmedNow, knowledge, siteView } from './expedition.js';
 import { itemScore, makeFixedGear, makeConsumable } from './items.js';
+import { windupView } from './answers.js';
 
 // ---------------- Run and zone state ----------------
 /**
@@ -322,9 +323,18 @@ const healPotion = (id) => !!(id && CONSUMABLE[id] && CONSUMABLE[id].potion && C
  * enemy's track after its current turn, or on its current turn while its intent is still that wind-up (not cancelled by
  * control or a trap, not replaced). False once the winding-up enemy is dead or its wind-up's turn has been played.
  */
-function windupAhead(f) {
-  return f.enemies.some((e) => e.alive && e.kind !== 'boss' && (e.track || []).some((x) => x.windup && !x.deathblow
-    && (x.turn > e.turn || (x.turn === e.turn && !!e.intent && !!e.intent.windup))));
+const windupComes = (e, x) => e.alive && e.kind !== 'boss' && x.windup && !x.deathblow
+  && (x.turn > e.turn || (x.turn === e.turn && !!e.intent && !!e.intent.windup));
+/**
+ * G8's own line from round 2 (Lead decision 2026-11-14, spec 2.8 item 8, draft; engine-2026-11-14b finding 1): a wind-up
+ * that can still come (windupComes) for which windupView lists at least one answer with the player's current bar (an
+ * interrupt, a stun, Hexbind or a defensive off cooldown by its round, or the PASS answer). Without one the line would
+ * name W, which is legal only in the engage round, while nothing can answer it.
+ */
+function windupAnswerable(s) {
+  const f = s.fight;
+  return (windupView(s) || []).some((w) => w.answers.length > 0
+    && (f.enemies[w.u].track || []).some((x) => x.turn === w.turn && windupComes(f.enemies[w.u], x)));
 }
 
 /**
@@ -398,10 +408,11 @@ function trackBeats(s, ev, a) {
     else setLine(t, ev, 'G7', null);
   }
   // ui-2026-11-14 finding 1 (draft): the joint line belongs to the engage round, as G7's line does. After it, G8
-  // shows its own line while its wind-up can still come, and waits (null) once it cannot (the enemy dead, its turn
-  // played); its own line follows the same rule. 'G8.landed' stays until the fight ends
-  const g8 = isOpen(t, 'G8') ? t.beats.G8.line : null;
-  if (f && !ended && f.round >= 2 && (g8 === 'G8.withEngage' || g8 === 'G8')) setLine(t, ev, 'G8', windupAhead(f) ? 'G8' : null);
+  // shows its own line while its wind-up can still come and (spec 2.8 item 8, draft) windupView lists an answer to it
+  // with the current bar, and waits (null) otherwise (the enemy dead, its turn played, or nothing on the bar answers it);
+  // its own line follows the same rule, and comes back when an answer does (for example a cooldown over). 'G8.landed'
+  // stays until the fight ends
+  if (f && !ended && f.round >= 2 && isOpen(t, 'G8') && t.beats.G8.line !== 'G8.landed') setLine(t, ev, 'G8', windupAnswerable(s) ? 'G8' : null);
   if (isOpen(t, 'G10')) {
     const b = t.beats.G10;
     if (has('contract', (e) => e.what === 'complete' && e.z === 1)) { b.n = 1; setLine(t, ev, 'G10', 'G10.done'); }
