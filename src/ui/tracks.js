@@ -832,7 +832,7 @@ export function createEngagePanel(root, ctx) {
       const dbSure = dbA.some((a) => a.sure);
       const dbWait = dbSure ? null : dbA.find((a) => a.wait) || null; // M2b v14 (UI need 2): Sap, sure if you wait
       const card = h(`div.eg-opt.k-${o.kind}${off ? '.off' : ''}${notHere ? '.off-here' : ''}${disrupt ? '.disrupt' : ''}${ans.length ? '.answers' : ''}${o.spells && ctx.ui.precastArmed ? '.armed' : ''}${dbA.length ? '.db-ans' : ''}`,
-        { role: o.spells ? null : 'button', tabindex: '-1', dataset: { opt: o.id, disrupt: disrupt ? '1' : '', answers: ans.map((w) => `${w.e.idx}:${w.x.turn}`).join(' '), db: dbA.length ? (dbSure ? 'sure' : dbWait ? 'wait' : 'chance') : '' }, 'aria-label': `${name}${disrupt ? ` (${o.name})` : ''} (${ENGAGE_KIND[o.kind] || o.kind})` },
+        { role: o.spells ? null : 'button', tabindex: '-1', dataset: { opt: o.id, key: o.key || '', disrupt: disrupt ? '1' : '', answers: ans.map((w) => `${w.e.idx}:${w.x.turn}`).join(' '), db: dbA.length ? (dbSure ? 'sure' : dbWait ? 'wait' : 'chance') : '' }, 'aria-label': `${name}${disrupt ? ` (${o.name})` : ''} (${ENGAGE_KIND[o.kind] || o.kind})` },
         h('img.eg-ic', { src: engageIcon(o.id), alt: '' }),
         h('div.eg-main', h('div.eg-nm', h('span.eg-name', name), disrupt ? h('span.eg-was', o.name) : null, h('span.eg-kind', ENGAGE_KIND[o.kind] || o.kind), o.key ? h('span.kbd', o.key) : null),
           h('div.eg-txt', disrupt ? disruptText(v, here, ans) : engageText(data, d.num)), tline, answerTag(ans),

@@ -22,8 +22,10 @@
 // what its screen shows (the nearest site node on the map, the contract's tracker row in a fight); the closed line does not
 // count for the Bell's hint H19; a toast says when the Roads open. ONB_HINT_SHOWS lives in src/constants.js (the bridge's
 // data.tutorial.rules.hintShows).
-// D147 (engine-2026-11-14 UI need 1; m3-onboarding.md 2.6): when ONB_RESCUE_MAX rescues end the guide (event guideSkipped,
-// why 'rescues') a toast and the log say content guide.rescueCapLine, not the skip line.
+// D147 (engine-2026-11-14 UI needs 1-2; m3-onboarding.md 2.6, 2.8): when ONB_RESCUE_MAX rescues end the guide (event
+// guideSkipped, why 'rescues') a toast and the log say content guide.rescueCapLine, not the skip line; G8's joint line with
+// G7 (G8.withEngage, S3's engage round) points at the engage panel's W button with a second marker on the wind-up badge,
+// and counts for both beats' hints, H01 and H03 (LINE_BEATS).
 import { h } from './util.js';
 import { settings } from './settings.js';
 
@@ -48,6 +50,17 @@ const FIGHT_BEATS = new Set(['G3', 'G6', 'G7', 'G8', 'G9', 'G11']); // beats who
 export const MAP_LINES = new Set(['G2', 'G12', 'G12.caught', 'G13', 'G13.onRoad', 'G13.closed']);
 /** Beat lines that stand for no hint (D143: the closed line is about Gorrak, not the Bell, so it does not make H19 seen). */
 const NO_HINT_LINES = new Set(['G13.closed']);
+/**
+ * Beat lines that stand for more than their own beat (D147, m3-onboarding.md 2.8 item 2): G8's joint line is G7's engage-round
+ * line and G8's wind-up line in one ("Both beats count as shown"), so its showings, its Got it and its rest count for H01
+ * and H03. Learning stays per beat (the engine's `done` events: G7 on any ENGAGE, G8 on the wind-up answered).
+ */
+export const LINE_BEATS = { 'G8.withEngage': ['G7', 'G8'] };
+/** The hints a beat line stands in for (pure; spec 3.2 "Beat"): its beat's hint, both beats' for a joint line, none for a closed line. */
+export function lineHints(id, line = null) {
+  if (NO_HINT_LINES.has(line)) return [];
+  return (LINE_BEATS[line] || [id]).map((b) => HINT_OF_BEAT[b]).filter(Boolean);
+}
 /** The log line when the guide is skipped (draft; content has none): the Skip guide link, or a skip from Settings. */
 export const SKIP_LINE = 'You skip the guide. New things get one hint each.';
 /**
@@ -202,10 +215,18 @@ const ANCHOR = {
   // the Road's button on a Road, else the Bell's (the header's first button can be the Spyglass)
   G13: (v) => (v.zone && v.zone.exp && v.zone.exp.onRoad ? q('#screens .mhead .btn[data-leave="TAKE_ROAD"]') : null) || q('#screens .mhead .btn[data-leave="RING_BELL"]') || q('#screens .mhead .btn') || q('#screens .mnode.here'),
 };
-/** Anchors of single lines of a beat (D143): G13.closed at Gorrak's node, whose fight opens the Roads (tutorialView.roads.node). */
+/**
+ * Anchors of single lines of a beat. D143: G13.closed at Gorrak's node, whose fight opens the Roads (tutorialView.roads.node).
+ * D147 (m3-onboarding.md 2.8 item 2): G8's joint line at the engage panel's W button (key_engage2: each class's control
+ * option, which answers a normal enemy's wind-up; tracks.js marks each card with its key); once the engage round is over
+ * (the engine keeps the line until the wind-up is answered or lands, or the fight ends) at the wind-up badge, G8's own.
+ */
 const LINE_ANCHOR = {
   'G13.closed': (v) => { const t = v.tutorial; const id = t && t.roads && t.roads.node != null ? t.roads.node : t && t.elite ? t.elite.node : null; return id == null ? null : q(`#screens .mnode[data-node="${id}"]`); },
+  'G8.withEngage': (v, d) => q(`#engage .eg-opt[data-key="${KEYS.key_engage2}"]`) || ANCHOR.G8(v, d),
 };
+/** Second markers of single lines (D147, spec 2.8 item 2): G8's joint line also rings the wind-up badge (class coach-also). */
+const LINE_ALSO = { 'G8.withEngage': ANCHOR.G8 };
 // ------------------------------------------------------------------ the 37 hints (spec 3.2): trigger, anchor, moment, done
 // ctx: 'fight' (gone when the fight ends or two rounds on), 'map' (gone at the next map step), else 'screen' (gone when
 // `when` no longer holds). Each `when` reads the view, the step's events (ev) and the UI.
@@ -276,7 +297,7 @@ export function createOnboarding(root, ctx) {
   const arrow = h('i.co-arrow');
   const el = h('div#coach.hidden', { role: 'status', 'aria-live': 'polite' }, arrow, textEl, okBtn, skipBtn);
   root.appendChild(el);
-  let cur = null; // { id, key, kind: 'beat'|'hint'|'nudge'|'confirm', text, anchor, at, step, fight, round, pos, hint, beatLine }
+  let cur = null; // { id, key, kind: 'beat'|'hint'|'nudge'|'confirm', text, anchorFn, anchorEl, alsoFn, alsoEl, at, step, fight, round, moment, lineId }
   let queue = []; // hints waiting: { id, key, step, ... }
   let stepNo = 0;
   let fightNo = 0; let fightHints = 0; let lastHintStep = -1;
@@ -289,8 +310,9 @@ export function createOnboarding(root, ctx) {
   const store = () => hints.get();
   const cls = () => (lastV && lastV.player ? lastV.player.classId : lastV && lastV.create ? lastV.create.classId : 'rogue');
   const keyOf = (id) => (PER_CLASS.has(id) ? `${id}:${cls()}` : id);
-  /** The stored key of the hint a beat stands in for (spec 3.2 "Beat"), or null. */
-  const beatHintKey = (id, line = null) => (HINT_OF_BEAT[id] && !NO_HINT_LINES.has(line) ? keyOf(HINT_OF_BEAT[id]) : null);
+  /** The stored keys of the hints a beat's line stands in for (spec 3.2 "Beat"; D147: both for G8's joint line; lineHints). */
+  const beatHintKeys = (id, line = null) => lineHints(id, line).map(keyOf);
+  const markAll = (keys) => { for (const k of keys) hints.mark(k); };
   hints.need = r.hintShows || null; // ONB_HINT_SHOWS (src/constants.js) through the bridge
   const guiding = (v) => !!(v && v.tutorial && v.tutorial.on && !v.tutorial.skipped && !v.tutorial.ended);
   const momentOf = (spec, v) => (spec.ctx === 'fight' ? `f${fightNo}` : spec.ctx === 'map' ? `m${v.zone ? `${v.zone.idx}:${v.zone.exp ? v.zone.exp.pos : ''}` : ''}` : `s${v.phase}:${v.node ? v.node.type : ''}:${v.loot ? v.loot.kind : ''}`);
@@ -303,7 +325,7 @@ export function createOnboarding(root, ctx) {
   function show(x) {
     const line = lineFor(x.lineId || x.id, x.alt);
     if (!line) return;
-    if (cur && cur.anchorEl) cur.anchorEl.classList.remove('coach-on');
+    unmark();
     cur = { ...x, text: line.text, at: performance.now(), step: stepNo };
     confirm = false;
     textEl.replaceChildren(...line.nodes);
@@ -312,8 +334,10 @@ export function createOnboarding(root, ctx) {
     document.body.classList.add('coach-up'); // D142 (2): the turn prompt's "Opening move" line gives way (style.css)
     el.dataset.id = x.lineId || x.id; el.dataset.kind = x.kind;
     el.classList.toggle('instant', !!settings.reduceMotion);
-    // D142 (3): a showing of a hint, or of the beat line that stands in for it, counts towards ONB_HINT_SHOWS
-    hints.noteShown(x.kind === 'hint' && !leavesUnseen(x) ? x.key : x.kind === 'beat' ? beatHintKey(x.id, x.lineId) : null);
+    // D142 (3): a showing of a hint, or of the beat line that stands in for it, counts towards ONB_HINT_SHOWS (D147: G8's
+    // joint line is a showing of H01 and of H03)
+    if (x.kind === 'hint' && !leavesUnseen(x)) hints.noteShown(x.key);
+    else if (x.kind === 'beat') for (const k of beatHintKeys(x.id, x.lineId)) hints.noteShown(k);
     log.push({ id: x.lineId || x.id, key: x.key || null, text: line.text, kind: x.kind, step: stepNo, at: Math.round(performance.now()) });
     if (log.length > 400) log.shift();
     place();
@@ -324,13 +348,18 @@ export function createOnboarding(root, ctx) {
     skipBtn.textContent = guided ? 'Skip guide' : 'Hints off';
     skipBtn.classList.toggle('hidden', !!(cur && cur.kind === 'nudge'));
   }
+  /** The ring off the line's anchor and its second marker (D147). */
+  function unmark() {
+    if (cur && cur.anchorEl) cur.anchorEl.classList.remove('coach-on');
+    if (cur && cur.alsoEl) cur.alsoEl.classList.remove('coach-also');
+  }
   /** Put the line away. seen: the hint counts as seen (Got it, done, or its moment ended after ONB_HINT_MIN_MS). */
   function hide(seenNow) {
     if (!cur) return;
     const long = performance.now() - cur.at >= r.hintMinMs;
     if (leavesUnseen(cur)) cool.set(cur.key, cur.moment); // not seen, and not again in this fight
     else if (cur.kind === 'hint' && (seenNow || long)) hints.mark(cur.key);
-    if (cur.anchorEl) cur.anchorEl.classList.remove('coach-on');
+    unmark();
     cur = null; confirm = false;
     el.classList.add('hidden');
     document.body.classList.remove('coach-up');
@@ -340,7 +369,7 @@ export function createOnboarding(root, ctx) {
     e.stopPropagation();
     if (confirm) { confirm = false; textEl.replaceChildren(...lineFor(cur.lineId || cur.id, cur.alt).nodes); renderButtons(); place(); return; }
     if (!cur) return;
-    if (cur.kind === 'beat') { dismissed.add(cur.lineId); hints.mark(beatHintKey(cur.id, cur.lineId)); }
+    if (cur.kind === 'beat') { dismissed.add(cur.lineId); markAll(beatHintKeys(cur.id, cur.lineId)); }
     if (cur.kind === 'nudge') { store().nudge.hall = true; hints.save(); nudgeHall = false; document.querySelectorAll('#meta .mcard.nudge').forEach((x) => x.classList.remove('nudge')); }
     hide(true);
     advance(lastV);
@@ -369,7 +398,14 @@ export function createOnboarding(root, ctx) {
   function place() {
     if (!cur || el.classList.contains('hidden')) return;
     const anchorEl = cur.anchorFn ? safe(() => cur.anchorFn(lastV, ctx.data)) : null;
-    if (cur.anchorEl !== anchorEl) { if (cur.anchorEl) cur.anchorEl.classList.remove('coach-on'); cur.anchorEl = anchorEl; if (anchorEl) anchorEl.classList.add('coach-on'); }
+    if (cur.anchorEl !== anchorEl) { if (cur.anchorEl) cur.anchorEl.classList.remove('coach-on'); cur.anchorEl = anchorEl; }
+    // on every placement: a re-render can set the element's class anew (tracks.js windupBanner sets the badge's className)
+    if (anchorEl && !anchorEl.classList.contains('coach-on')) anchorEl.classList.add('coach-on');
+    // D147: the line's second marker (G8's joint line: the wind-up badge), unless it is the anchor itself
+    const found = cur.alsoFn ? safe(() => cur.alsoFn(lastV, ctx.data)) : null;
+    const alsoEl = found && found !== anchorEl ? found : null;
+    if (cur.alsoEl !== alsoEl) { if (cur.alsoEl) cur.alsoEl.classList.remove('coach-also'); cur.alsoEl = alsoEl; }
+    if (alsoEl && !alsoEl.classList.contains('coach-also')) alsoEl.classList.add('coach-also');
     el.style.left = ''; el.style.top = ''; el.style.bottom = ''; el.style.transform = '';
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 10;
     const W = innerWidth; const H = innerHeight; const gap = 0.8 * rem;
@@ -378,6 +414,8 @@ export function createOnboarding(root, ctx) {
     const rects = PROTECT.flatMap((s) => [...document.querySelectorAll(s)].map(visible).filter(Boolean));
     const ar = anchorEl ? visible(anchorEl) : null;
     if (ar) rects.push(ar);
+    const sr = alsoEl ? visible(alsoEl) : null; // the second marker is not covered either
+    if (sr) rects.push(sr);
     const hits = (x, y) => rects.find((k) => x < k.right + 2 && x + w > k.left - 2 && y < k.bottom + 2 && y + hh > k.top - 2);
     // the one place: bottom centre, its bottom edge BOTTOM_REM over the window's bottom (over the bar's control row)
     let x = (W - w) / 2; let y = H - BOTTOM_REM * rem - hh;
@@ -414,12 +452,12 @@ export function createOnboarding(root, ctx) {
     const top = (t.open || []).find((x) => x.line === t.line);
     const o = ok(top) ? top : (t.open || []).find(ok);
     if (!o) return null;
-    return { id: o.id, lineId: o.line, kind: 'beat', anchorFn: LINE_ANCHOR[o.line] || ANCHOR[o.id] || null };
+    return { id: o.id, lineId: o.line, kind: 'beat', anchorFn: LINE_ANCHOR[o.line] || ANCHOR[o.id] || null, alsoFn: LINE_ALSO[o.line] || null };
   }
   function advance(v) {
     if (!v) return;
     // D141: a beat line the engine has rested counts its hint seen when it was on screen long enough (spec 3.1)
-    if (cur && cur.kind === 'beat' && v.tutorial && (v.tutorial.open || []).some((o) => o.id === cur.id && o.rest) && performance.now() - cur.at >= r.hintMinMs) hints.mark(beatHintKey(cur.id, cur.lineId));
+    if (cur && cur.kind === 'beat' && v.tutorial && (v.tutorial.open || []).some((o) => o.id === cur.id && o.rest) && performance.now() - cur.at >= r.hintMinMs) markAll(beatHintKeys(cur.id, cur.lineId));
     const b = beatNow(v);
     if (b && (!cur || cur.kind === 'hint' || (cur.kind === 'beat' && cur.lineId !== b.lineId)) && !(cur && cur.kind === 'nudge') && !(cur && cur.kind === 'hint' && prio(cur.id) > prio(b.id))) {
       if (cur && cur.kind === 'hint') hide(false);
@@ -461,7 +499,7 @@ export function createOnboarding(root, ctx) {
     for (const e of ev) {
       if (e.t !== 'beat') continue;
       if ((e.what === 'open' || e.what === 'line') && e.line) dismissed.delete(e.line);
-      if (e.what === 'done') { hints.mark(beatHintKey(e.id)); if (e.id === 'G10') hints.mark('H21'); }
+      if (e.what === 'done') { markAll(beatHintKeys(e.id)); if (e.id === 'G10') hints.mark('H21'); }
     }
     // the guide ends early: Skip guide, or (D147) the ONB_RESCUE_MAX-th rescue, whose line (content guide.rescueCapLine)
     // also shows as a toast next to the rescue's banner: from now on a death ends the run
