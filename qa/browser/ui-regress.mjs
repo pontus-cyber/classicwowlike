@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S]
+ *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -159,6 +159,12 @@
  *      wind-up badge), R(2b) the rescue cap's line, R(8) Got it on the joint line and following it.
  *   S  M3 3.7: the D143 UI to-dos and the blind tester panel of 2026-11-13 (D144; docs/handoffs/ui-2026-11-13d.md items
  *      1-10) and the UI needs of docs/handoffs/engine-2026-11-13d.md (checks D144-n): see partS.
+ *   T  D150, the text pass (owner 2026-11-14; docs/feedback/2026-11-14-blind-wording.md section 4 items 1-25, section 7 and
+ *      the naming rule): the visible word counts of the first engage round and of the map at rest (under T_ENGAGE_MAX and
+ *      T_MAP_MAX), the Furnace hidden until its coach line in a guided run and its one line, the Deathblow's one instruction
+ *      in the turn prompt, the stopped line and its one status chip, the cards, the map's "Pass through" by mouse and by
+ *      keyboard, the hub Trainer card, the Bell's ask, the loot rows: see partT. The parts before T now expect the texts
+ *      of D150 (no opening ruler; "stopped", never "answered"; no par, Ascendancy or "the Star's line").
  *
  * D116 (the flip): new runs start on the expedition map with the start camp. The parts written for the classic map (A-L, O,
  * P) open the page with ?classic=1 (open() adds it unless the query names a map) and their Node twins pass mapMode 'rows';
@@ -194,10 +200,11 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
+const DB_LINE = 'Has a Deathblow: one huge hit you must stop.'; // D150 item 23: an elite node's Deathblow line
 const median = (a) => { const b = [...a].sort((x, y) => x - y); return b.length ? b[b.length >> 1] : null; };
 const R_LINK = { per: R.C.LINK_DR_PER_SHARD, cap: R.C.LINK_DR }; // Linked (rules 10.2, M2 v2)
 const SLOWER = 1.4; // owner 2026-11-10: combat at the default speed at least 40 % slower than the M2 v2 round budget
@@ -579,10 +586,10 @@ async function partB(browser, W, H) {
     const pf = await placement(face);
     check('BUG-QA-10', 'camp: "Face Oruvath" is in view without scrolling', fullyShown(pf), placeText(pf));
     const foot = page.locator('#screens .side .sfoot');
-    const time = await placement(foot.locator('dd').nth(0));
-    const asc = await placement(foot.locator('dd').nth(1));
+    const asc = await placement(foot.locator('dd').nth(0));
     const footText = (await foot.innerText()).replace(/\n/g, ' ');
-    check('BUG-QA-10', 'camp: the time (Tolls, M2b v7) and the Ascendancy lines are in view', fullyShown(time) && fullyShown(asc) && footText.includes(HEAT_WORDS.Units) && /Ascendancy/.test(footText), `${footText} | ${placeText(time)} | ${placeText(asc)}`);
+    // D150: one line, what the tolls did to Oruvath (no tolls, par or Ascendancy: the Furnace has the number)
+    check('BUG-QA-10', 'camp: Oruvath\'s line (what the tolls did to him) is in view; no par or Ascendancy', fullyShown(asc) && /Oruvath (\+\d+ % health and damage|No stronger)/.test(footText) && !/\bpar\b|Ascendancy/.test(footText), `${footText} | ${placeText(asc)}`);
     const cards = page.locator('#screens .side .svc-card');
     const cardPl = [];
     for (let i = 0; i < await cards.count(); i++) cardPl.push(await placement(cards.nth(i)));
@@ -965,8 +972,9 @@ async function partE(browser, W, H) {
     await idle(page);
     const rec = await page.evaluate(() => window.__e);
     v = await view(page);
-    const resBanners = rec.banners.filter((t) => /^Resurrected/.test(t));
-    const wantBanners = twin.sources.map((x) => `Resurrected | ${RES_NAMES[x]} returns you to the fight`);
+    // D150 naming rule: the banner names the revive itself ("Boon of Return | You return to the fight"), never "Resurrected"
+    const resBanners = rec.banners.filter((t) => / \| You return to the fight$/.test(t));
+    const wantBanners = twin.sources.map((x) => `${RES_NAMES[x]} | You return to the fight`);
     check('M2v3-2', `boss fight: the resurrects played are the engine's (${twin.sources.join(', ') || 'none'}), and Second Breath is not one of them`,
       done && JSON.stringify(resBanners) === JSON.stringify(wantBanners) && !twin.sources.includes('second_breath'), `${resBanners.join(' / ') || 'no resurrect banner'} (wanted ${wantBanners.join(' / ') || 'none'})`);
     const counts = rec.counts.map((c) => `${c.hidden ? 'hidden' : c.n}${c.none ? ' dimmed' : ''}`);
@@ -1279,10 +1287,11 @@ async function partG(browser, W, H) {
     const track = (await page.locator('#tracker').innerText()).replace(NBSP, ' ').replace(/\n/g, ' ');
     const mm = await tipOf(page, page.locator('#minimap .disc'));
     await shot(page, 'G-camp-haste');
-    const ascText = twin.asc > 0 ? `+${Math.round(twin.asc * 100)} % health and damage` : 'None: you are on time';
-    check('M2v4-par', `camp with the Oath of Haste at ${v.time} tolls: panel "${v.time} (par ${twin.par})", tracker "Tolls: ${v.time} (par ${twin.par})", minimap "past ${twin.par} (Ascendancy)" = bossPar (${R.C.BOSS_TIME_PAR} - ${R.C.OATH_HASTE_TIME}), Ascendancy "${ascText}" (the engine's)`,
-      twin.par === PAR && v.time === twin.time && foot.includes(`${v.time} (par ${twin.par})`) && foot.includes(ascText) && track.includes(`${HEAT_WORDS.Units}: ${v.time} (par ${twin.par})`)
-        && mm.includes(`past ${twin.par} (Ascendancy)`) && !foot.includes(`par ${R.C.BOSS_TIME_PAR})`),
+    // D150 naming rule: no par or Ascendancy in player text; the panel says what the tolls did to Oruvath, the engine's
+    // Ascendancy with the Oath of Haste's par (bossPar), and the tracker and the minimap say no tolls (the Furnace's number)
+    const ascText = twin.asc > 0 ? `+${Math.round(twin.asc * 100)} % health and damage` : 'No stronger';
+    check('M2v4-par', `camp with the Oath of Haste at ${v.time} tolls (bossPar ${twin.par} = ${R.C.BOSS_TIME_PAR} - ${R.C.OATH_HASTE_TIME}): the panel's "Oruvath ${ascText}" (the engine's Ascendancy); no par, Ascendancy or tolls in the panel, the tracker or the minimap`,
+      twin.par === PAR && v.time === twin.time && foot.includes(`Oruvath ${ascText}`) && !/\bpar\b|Ascendancy/.test(`${foot} ${track} ${mm}`) && !track.includes(HEAT_WORDS.Units),
       `panel "${foot}" | tracker "${track}" | minimap "${mm}"`);
   } catch (e) {
     check('-', 'part G ran to the end', false, e.message.split('\n')[0]);
@@ -1318,21 +1327,24 @@ function wantTrack(e) {
     return { turn: x.turn, id: live && it.replaced ? it.id : x.id, est: (live ? it.est : x.est) || 0 };
   });
 }
-/** The combat v2 display on the page: engage panel, ruler, nameplate chips, target frame rows, off-balance, bar windows. */
+/**
+ * The combat v2 display on the page: engage panel, nameplate chips, target frame rows (on hover since D150; read from the
+ * DOM), off-balance, bar windows. D150 item 16: no opening ruler (`ruler` counts it, 0). Item 24: `stopped` marks a
+ * nameplate whose wind-up was stopped this round (its line says "hit it now"; the off-balance marks give way).
+ */
 const v2dom = (page) => page.evaluate(() => {
   const vis = (el) => !!el && !el.classList.contains('hidden') && getComputedStyle(el).display !== 'none';
-  const cur = document.querySelector('#ruler .rl-c.cur');
   return {
     engage: vis(document.querySelector('#engage')), options: [...document.querySelectorAll('#engage .eg-opt[data-opt]')].map((c) => c.dataset.opt),
     spells: [...document.querySelectorAll('#engage .eg-sp')].map((b) => b.dataset.spell), any: !!document.querySelector('#engage .eg-any'),
-    ruler: vis(document.querySelector('#ruler')), rulerCur: cur ? Number(cur.dataset.round) : null,
+    ruler: document.querySelectorAll('#ruler').length,
     np: [...document.querySelectorAll('#nameplates .np')].filter((el) => !el.classList.contains('dead')).map((el) => ({
-      idx: Number(el.dataset.idx), offbal: el.classList.contains('offbal'), obal: vis(el.querySelector('.obal')) ? el.querySelector('.obal').textContent : null,
+      idx: Number(el.dataset.idx), stopped: el.classList.contains('stopped'), offbal: el.classList.contains('offbal'), obal: vis(el.querySelector('.obal')) ? el.querySelector('.obal').textContent : null,
       frost: el.querySelector('.obal').classList.contains('frost'), role: (el.querySelector('img.role') || { dataset: {} }).dataset.role || null,
       chips: [...el.querySelectorAll('.trk .tk')].map((c) => ({ turn: Number(c.dataset.turn), id: c.dataset.id, est: Number(c.dataset.est), cancel: c.classList.contains('cancel'), ob: c.classList.contains('ob'), big: c.classList.contains('big') })),
     })),
     rows: [...document.querySelectorAll('#target-frame .ttrack .tr')].map((r) => ({ turn: Number(r.dataset.turn), id: r.dataset.id })),
-    targetOffbal: document.querySelector('#target-frame').classList.contains('offbal'),
+    targetOffbal: document.querySelector('#target-frame').classList.contains('offbal'), targetStopped: document.querySelector('#target-frame').classList.contains('stopped'),
     bar: [...document.querySelectorAll('#actionbar .ab[data-slot]')].map((b) => ({ slot: Number(b.dataset.slot), window: b.classList.contains('window'), else: b.classList.contains('window-else') })),
   };
 });
@@ -1363,12 +1375,16 @@ function windowsMatch(d, s, target) {
   });
   return bad;
 }
-/** Every living enemy's off-balance marker follows R.offBalance (the ribbon names its extra damage taken). */
+/**
+ * Every living enemy's off-balance marker follows R.offBalance (the ribbon names its extra damage taken). D150 item 24: on an
+ * enemy whose wind-up was stopped this round the marker gives way to the line over it ("... hit it now"), so none shows there.
+ */
 function offBalanceMatch(d, s) {
   const bad = [];
   for (const e of s.fight.enemies.filter((x) => x.alive)) {
     const ob = R.offBalance(s, e.idx); const np = d.np.find((x) => x.idx === e.idx);
     if (!np) continue;
+    if (np.stopped) { if (np.offbal || np.obal) bad.push(`${e.name}: stopped this round, yet an off-balance marker "${np.obal}"`); continue; }
     const pct = ob ? `+${Math.round(ob.taken * 100)} %` : null;
     if (!!np.offbal !== !!ob || (ob && !(np.obal || '').includes(pct)) || (ob && np.frost !== (ob.status === 'FROZEN'))) bad.push(`${e.name}: page ${np.offbal} "${np.obal}", engine ${JSON.stringify(ob)}`);
   }
@@ -1390,8 +1406,8 @@ async function partH(browser, W, H) {
       let d = await v2dom(page);
       const want = R.engageOptions(s).map((o) => o.id);
       await shot(page, 'H-engage');
-      check('M2b-2b.6', `round 1 (R.isEngageRound): the engage panel offers the class's options ${want.join(', ')} in order and "any bar spell"; the opening ruler marks round 1`,
-        R.isEngageRound(s) && d.engage && d.options.join(',') === want.join(',') && d.any && d.ruler && d.rulerCur === 1, JSON.stringify({ engage: d.engage, options: d.options, any: d.any, ruler: d.ruler, cur: d.rulerCur }));
+      check('M2b-2b.6', `round 1 (R.isEngageRound): the engage panel offers the class's options ${want.join(', ')} in order and "any bar spell"; no opening ruler (D150 item 16)`,
+        R.isEngageRound(s) && d.engage && d.options.join(',') === want.join(',') && d.any && d.ruler === 0, JSON.stringify({ engage: d.engage, options: d.options, any: d.any, ruler: d.ruler }));
       let bad = tracksMatch(d, s, brute.idx);
       check('M2b-2b.6', `each nameplate and the target frame show the enemy's ${R.C.INTENT_TRACK_LEN} track entries in order, as the engine has them (Node twin of the page's actions)`, !bad.length, bad.join(' | ') || d.np.map((x) => `${x.idx}: ${chipText(x.chips)}`).join(' | '));
       check('M2b-2b.6', 'role badges: brute and skulker; the skulker that will Signal is tagged with its round', d.np.find((x) => x.idx === brute.idx).role === 'brute' && d.np.find((x) => x.idx === skulker.idx).role === 'skulker'
@@ -1413,9 +1429,9 @@ async function partH(browser, W, H) {
       s = await twin.sync(page); d = await v2dom(page);
       const last = (await page.evaluate(() => window.__ui.engineLog())).slice(-1)[0];
       bad = [...tracksMatch(d, s, brute.idx), ...offBalanceMatch(d, s), ...windowsMatch(d, s, brute.idx)];
-      check('M2b-2b.6', 'key W sends ENGAGE lay_trap on the target; round 2: no engage panel (ENGAGE is legal in round 1 only), the ruler moves to round 2, tracks, markers and bar match the engine',
-        last.type === 'ENGAGE' && last.option === 'lay_trap' && last.target === brute.idx && s.fight.round === 2 && !R.isEngageRound(s) && !d.engage && d.rulerCur === 2 && !bad.length,
-        `${JSON.stringify(last)}; round ${s.fight.round}, engage panel ${d.engage}, ruler ${d.rulerCur}; ${bad.join(' | ')}`);
+      check('M2b-2b.6', 'key W sends ENGAGE lay_trap on the target; round 2: no engage panel (ENGAGE is legal in round 1 only), tracks, markers and bar match the engine',
+        last.type === 'ENGAGE' && last.option === 'lay_trap' && last.target === brute.idx && s.fight.round === 2 && !R.isEngageRound(s) && !d.engage && !bad.length,
+        `${JSON.stringify(last)}; round ${s.fight.round}, engage panel ${d.engage}; ${bad.join(' | ')}`);
       // attack until the trap springs on the Heavy Smash: the brute is off-balance for the next action
       let opened = null;
       for (let r = 0; r < 4 && !opened; r++) {
@@ -1430,8 +1446,10 @@ async function partH(browser, W, H) {
         const tgt = await page.evaluate(() => window.__ui.target());
         bad = [...offBalanceMatch(opened.d, opened.s), ...windowsMatch(opened.d, opened.s, tgt), ...tracksMatch(opened.d, opened.s, tgt)];
         const bchips = opened.d.np.find((x) => x.idx === brute.idx).chips;
-        check('M2b-2b.6', `round ${opened.round}: the trap cancels the brute's Heavy Smash (now chip struck, off-balance) and the off-balance marker and the bar's window highlight appear where R.offBalance and R.spellInfo(...).window say`,
-          !bad.length && bchips[0].cancel && bchips[0].ob && opened.d.np.find((x) => x.idx === brute.idx).offbal && opened.d.bar.some((b) => b.window) && (tgt !== brute.idx || opened.d.targetOffbal),
+        // D150 item 24: when that Heavy Smash was the brute's wind-up, the line over it says "stopped ... hit it now" and is the mark
+        const bnp = opened.d.np.find((x) => x.idx === brute.idx);
+        check('M2b-2b.6', `round ${opened.round}: the trap cancels the brute's Heavy Smash (now chip struck, off-balance) and the off-balance marker (or, for a stopped wind-up, its line) and the bar's window highlight appear where R.offBalance and R.spellInfo(...).window say`,
+          !bad.length && bchips[0].cancel && (bchips[0].ob || bnp.stopped) && (bnp.offbal || bnp.stopped) && opened.d.bar.some((b) => b.window) && (tgt !== brute.idx || opened.d.targetOffbal || opened.d.targetStopped),
           `${bad.join(' | ')} brute now chip ${JSON.stringify(bchips[0])}; bar ${JSON.stringify(opened.d.bar.filter((b) => b.window || b.else))}`);
       } else check('M2b-2b.6', 'the trap opens an off-balance window on the brute within 4 rounds', false, 'no enemy off-balance');
     } catch (e) {
@@ -1475,8 +1493,9 @@ async function partH(browser, W, H) {
 const HNAME = HEAT_WORDS.state; // Calm, Smouldering, Burning, Infernal (M2b v7)
 const fh = (x) => String(Math.round(Math.abs(x))); // whole tolls (M2b v7: no decimals)
 const lineS = (l) => Math.ceil(l - 1e-9); // the Star's line as shown: the engine's, whole and rounded up (changes-m2b-v7.md A row 2)
-const stand = (x) => { const past = Math.floor(x.heat + 1e-9); const hand = Math.ceil(-x.heat - 1e-9); return x.heat > 0 && past > 0 ? `${tolls(past)} past the line` : x.heat < 0 && hand > 0 ? `${tolls(hand)} in hand` : 'On the line'; };
-const bossTxt = (a) => `Boss +${Math.round((a || 0) * 100)} %`;
+// D150 (items 1, 25): the meter's one line, "Calm · 18 tolls to spare" ("8 tolls overspent"), and "Boss +N %" only above 0
+const stand = (x) => { const past = Math.floor(x.heat + 1e-9); const hand = Math.ceil(-x.heat - 1e-9); return x.heat > 0 && past > 0 ? `${tolls(past)} overspent` : x.heat < 0 && hand > 0 ? `${tolls(hand)} to spare` : 'No tolls to spare'; };
+const bossTxt = (a) => (Math.round((a || 0) * 100) > 0 ? `Boss +${Math.round((a || 0) * 100)} %` : '');
 const barPct = (x) => (100 * (Math.min(R.C.HEAT_BAR_MAX, Math.max(R.C.HEAT_BAR_MIN, x)) - R.C.HEAT_BAR_MIN)) / (R.C.HEAT_BAR_MAX - R.C.HEAT_BAR_MIN);
 const chanceTxt = (p) => { for (let d = 2; d <= 10; d++) { const n = p * d; if (Math.abs(n - Math.round(n)) < 1e-9 && Math.round(n) >= 1) return `${Math.round(n)} in ${d}`; } return `${Math.round(p * 100)} %`; };
 /** What a state pays in the meter's short words and the tooltips' long ones (HEAT_GAIN, HEAT_RARITY_UP). */
@@ -1486,22 +1505,19 @@ const payTxt = (s, short) => {
   return [g ? `+${Math.round(g * 100)} % XP and gold` : null, u ? (short ? `${chanceTxt(u)} drops up` : `${chanceTxt(u)} drops a rarity up`) : null].filter(Boolean).join(short ? ' · ' : ', ');
 };
 const FIRST_PAYING = R.C.HEAT_STATES.find((s) => payTxt(s, true));
-/** The meter's pay line for a heatView (the view shown at the camp, in a node, elsewhere). */
-function wantPay(hv, camp) {
-  if (camp) return `At the camp ${HEAT_WORDS.name} pays nothing; it strengthens the boss`;
-  if (hv.node && (hv.node.gain > 0 || hv.node.rarityUp > 0)) return `This node pays ${HNAME[hv.node.state]}: ${payTxt(hv.node.state, true)}`;
-  if (payTxt(hv.state, true)) return `Spoils: ${payTxt(hv.state, true)}`;
-  return hv.node ? '' : `${HNAME[FIRST_PAYING]} pays ${payTxt(FIRST_PAYING, true)}`;
-}
+/** D150 item 1: the meter has no pay line any more (no "Burning pays ...", "Spoils: ...", "This node pays ..."). */
+const wantPay = () => null;
 /** The meter as drawn: its state, texts, the marker, line and Dimming positions (style.left, per cent of the bar). */
 const meterDom = (page) => page.evaluate(() => {
   const m = document.querySelector('#heat'); if (!m) return null;
   const q = (s) => m.querySelector(s); const t = (s) => (q(s) ? q(s).textContent.replace(/ /g, ' ') : null);
   const pc = (s) => (q(s) ? parseFloat(q(s).style.left) : null);
-  return { shown: !m.classList.contains('hidden') && getComputedStyle(m).display !== 'none', state: m.dataset.state, by: m.dataset.by, sname: t('.ht-sname'), by2: t('.ht-by'), num: t('.ht-num'),
-    boss: t('.ht-boss'), pay: t('.ht-pay'), on: [...m.querySelectorAll('.ht-seg.on')].map((x) => x.dataset.hs), mark: pc('.ht-mark.run'), line: pc('.ht-line'),
+  // D150: one line (name, "·", the tolls, Boss only above 0); no title, pay line, Dimming text or "· Dimming" (pay, dimTxt, by2: null)
+  return { shown: !m.classList.contains('hidden') && getComputedStyle(m).display !== 'none', state: m.dataset.state, by: m.dataset.by, sname: t('.ht-sname'), by2: q('.ht-by') ? t('.ht-by') : null, num: t('.ht-num'),
+    boss: q('.ht-boss').classList.contains('hidden') ? '' : t('.ht-boss'), pay: q('.ht-pay') ? t('.ht-pay') : null, title: q('.ht-title') ? t('.ht-title') : null, segText: [...m.querySelectorAll('.ht-seg')].map((x) => x.textContent).join(''),
+    on: [...m.querySelectorAll('.ht-seg.on')].map((x) => x.dataset.hs), mark: pc('.ht-mark.run'), line: pc('.ht-line'),
     runSets: q('.ht-mark.run').classList.contains('sets'), dimShown: !q('.ht-mark.dim').classList.contains('hidden'), dim: pc('.ht-mark.dim'), dimSets: q('.ht-mark.dim').classList.contains('sets'),
-    dimTxt: q('.ht-dim').classList.contains('hidden') ? null : t('.ht-dim span'), ghost: q('.ht-mark.ghost').classList.contains('hidden') ? null : pc('.ht-mark.ghost'),
+    dimTxt: q('.ht-dim') && !q('.ht-dim').classList.contains('hidden') ? t('.ht-dim span') : null, ghost: q('.ht-mark.ghost').classList.contains('hidden') ? null : pc('.ht-mark.ghost'),
     arrow: q('.ht-arrow').classList.contains('hidden') ? null : t('.ht-arrow') };
 });
 /** Is the meter inside the window and on top at five points (no panel, window or frame over it)? */
@@ -1521,14 +1537,14 @@ function meterDiff(d, hv, camp) {
   const near = (k, got, want) => { if (got == null || Math.abs(got - want) > 0.05) out.push(`${k} ${got} (want ${want.toFixed(2)})`); };
   if (!d || !d.shown) return ['meter not shown'];
   eq('state', d.state, hv.state); eq('name', d.sname, HNAME[hv.state]); eq('by', d.by, hv.by); eq('numbers', d.num, stand(hv)); eq('boss', d.boss, bossTxt(hv.ascIfPar));
-  eq('segment', d.on.join(','), hv.state); eq('pay line', d.pay, wantPay(hv, camp));
+  eq('segment', d.on.join(','), hv.state); eq('pay line', d.pay, wantPay(hv, camp)); eq('title', d.title, null); eq('names on the bar', d.segText, '');
   near('marker', d.mark, barPct(hv.bar.marker)); near('line', d.line, barPct(0));
   eq('arrow', d.arrow, hv.bar.beyond < 0 ? '◀' : hv.bar.beyond > 0 ? '▶' : null);
   if (hv.dimIn === null || hv.dimIn === undefined) { if (d.dimShown || d.dimTxt) out.push('a Dimming marker without a Dimming clock'); } else {
-    eq('Dimming text', d.dimTxt, hv.dimIn <= 0 ? 'Dimmed' : `Dimming: ${tolls(hv.dimIn)}`);
+    eq('Dimming text', d.dimTxt, null); // D150 item 8: the clock in words is the map's (its chips and the Dimming panel)
     const seg = { clear: [R.C.HEAT_BAR_MIN, R.C.HEAT_WARM_AT], warm: [R.C.HEAT_WARM_AT, R.C.HEAT_HOT_AT], hot: [R.C.HEAT_HOT_AT, R.C.HEAT_SCORCH_AT], scorched: [R.C.HEAT_SCORCH_AT, R.C.HEAT_BAR_MAX] }[hv.stateDim];
     if (!d.dimShown || d.dim < barPct(seg[0]) || d.dim > barPct(seg[1])) out.push(`Dimming marker ${d.dim} outside ${hv.stateDim} (${barPct(seg[0]).toFixed(1)}-${barPct(seg[1]).toFixed(1)})`);
-    eq('the clock that sets the state', `${d.dimSets ? 'dim' : ''}${d.runSets ? 'run' : ''}`, hv.by); eq('by text', d.by2, hv.by === 'dim' ? ' · Dimming' : '');
+    eq('the clock that sets the state', `${d.dimSets ? 'dim' : ''}${d.runSets ? 'run' : ''}`, hv.by); eq('by text', d.by2, null);
   }
   return out;
 }
@@ -1543,29 +1559,30 @@ async function hoverHeat(page, locator) {
   const r = await page.evaluate(() => {
     const tt = document.querySelector('.tooltip.on .tt-heat'); const m = document.querySelector('#heat');
     const g = m.querySelector('.ht-mark.ghost');
-    return { tip: tt ? [...tt.children].map((x) => x.textContent.replace(/ /g, ' ')) : null, ghost: g.classList.contains('hidden') ? null : parseFloat(g.style.left), pay: m.querySelector('.ht-pay').textContent };
+    return { tip: tt ? [...tt.children].map((x) => x.textContent.replace(/ /g, ' ')) : null, ghost: g.classList.contains('hidden') ? null : parseFloat(g.style.left), pay: m.querySelector('.ht-pay') ? m.querySelector('.ht-pay').textContent : null };
   });
   await page.mouse.move(2, 2); await page.waitForTimeout(30);
   r.after = await page.evaluate(() => document.querySelector('#heat .ht-mark.ghost').classList.contains('hidden'));
   return r;
 }
 /** Differences between a hovered choice's tooltip block and ghost and R.heatPreview p. */
+/**
+ * D150 item 6: the block is one cost line, "Costs 3 tolls." (a wave: "Costs 3 tolls a wave."; ending in the Dimming:
+ * "Costs 4 tolls, then a fight in the Dimming."), and a bonus line only when a node entered now pays one ("Burning bonus:
+ * +35 % XP and gold, 1 in 2 drops a rarity up."); no "ends Smouldering", no "Pays Calm: no reward", no "Then ...". The ghost
+ * marker on the meter stays (no words on the meter).
+ */
 function previewDiff(r, p, opts = {}) {
   const out = [];
   if (!r.tip) return ['no heat block in the tooltip'];
-  const hrs = `${tolls(p.time)}${p.perWave ? ' a wave' : ''}`;
   const head = r.tip[0];
-  if (!head.includes(`${hrs}, ends ${HNAME[p.state]}`)) out.push(`head "${head}" (want "${hrs}, ends ${HNAME[p.state]}")`);
-  if (head.includes('(a new state)') !== !!p.change) out.push(`"(a new state)" ${head.includes('(a new state)')} (change ${p.change})`);
-  const pays = r.tip.find((x) => x.startsWith('Pays '));
-  const wantPays = p.pays ? `Pays ${HNAME[p.pays]}: ${payTxt(p.pays, false) || 'no reward'}` : null;
-  if ((pays || null) !== wantPays) out.push(`pays "${pays}" (want "${wantPays}")`);
-  const then = r.tip.find((x) => x.startsWith('Then '));
-  const wantThen = `Then ${stand(p).replace(/^On the line$/, 'on the line')} · ${bossTxt(p.ascIfPar)}${p.dimIn !== null && p.dimIn !== undefined && !p.dimFight ? ` · Dimming ${p.dimIn <= 0 ? 'here' : `in ${tolls(p.dimIn)}`}` : ''}`;
-  if (then !== wantThen) out.push(`"${then}" (want "${wantThen}")`);
+  const wantHead = `Costs ${tolls(p.time)}${p.perWave ? ' a wave' : ''}${p.dimFight ? ', then a fight in the Dimming' : ''}.`;
+  if (head !== wantHead) out.push(`head "${head}" (want "${wantHead}")`);
+  const wantBonus = p.pays && payTxt(p.pays, false) ? `${HNAME[p.pays]} bonus: ${payTxt(p.pays, false)}.` : null;
+  if ((r.tip[1] || null) !== wantBonus || r.tip.length > (wantBonus ? 2 : 1)) out.push(`lines ${JSON.stringify(r.tip)} (want the bonus "${wantBonus}")`);
+  if (r.tip.some((x) => /Pays|no reward|ends |Then |Dimming in|Star's line/.test(x))) out.push(`old words: ${JSON.stringify(r.tip)}`);
   if (r.ghost == null || Math.abs(r.ghost - barPct(p.heat)) > 0.05) out.push(`ghost ${r.ghost} (want ${barPct(p.heat).toFixed(2)})`);
-  const wantGhost = `→ ${hrs}${p.dimFight ? ' + Dimmed fight' : ''}, ends ${HNAME[p.state]}`;
-  if (r.pay !== wantGhost) out.push(`meter "${r.pay}" (want "${wantGhost}")`);
+  if (r.pay !== null) out.push(`meter text "${r.pay}" (want none)`);
   if (!r.after) out.push('the ghost stays after the hover');
   if (opts.chip !== undefined) {
     const want = `${tolls(p.time)}${p.perWave ? '/wave' : ''}`;
@@ -1690,7 +1707,7 @@ const slowRun = (page, stopSrc) => page.evaluate(async ([src, choiceSrc, maxWave
       rec.maxAll = Math.max(rec.maxAll, all.length); rec.maxHeat = Math.max(rec.maxHeat, all.filter((t) => /\bheat-/.test(t.className)).length);
     });
     window.__heatObs.observe(document.querySelector('#toasts'), { childList: true });
-    const states = new RegExp(`^(${stateNames.join('|')}): `); // the Furnace's state names (passed in: HEAT_WORDS.state)
+    const states = new RegExp(`^The Furnace: (${stateNames.join('|')}) · `); // D150 item 25: the log line, as The Furnace: Burning · 3 tolls overspent
     new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.textContent && states.test(n.textContent)) rec.logs.push(n.textContent); }).observe(document.querySelector('#combatlog .lines'), { childList: true });
   }
   const frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -1746,6 +1763,12 @@ async function partI(browser, W, H) {
     const svc = [];
     for (const service of ['trainer', 'vendor', 'inn']) {
       const card = page.locator('#screens .svc-card', { has: page.locator('.nm', { hasText: { trainer: 'Trainer', vendor: 'Vendor', inn: 'Inn' }[service] }) });
+      // D150 item 22: a Trainer with nothing to teach (R.trainerView) is greyed with no toll label and no tooltip: no preview
+      if (await card.evaluate((el) => el.classList.contains('off'))) {
+        const tv = R.trainerView(s); const idle = service === 'trainer' && !tv.useful && !(tv.learn || []).length && !(tv.train || []).length;
+        svc.push(`${service}: ${idle && !(await card.locator('.hrs').count()) ? 'idle, no toll: ok' : `greyed (trainerView ${JSON.stringify(tv)})`}`);
+        continue;
+      }
       const p = R.heatPreview(s, { type: 'SERVICE', service });
       const chip = await card.locator('.hrs').evaluate((el) => ({ text: el.textContent, hs: el.dataset.hs || null }));
       const r = await hoverHeat(page, card);
@@ -1799,8 +1822,8 @@ async function partI(browser, W, H) {
         d = await meterDom(page); diff = meterDiff(d, hv, false);
         const badgeTxt = await page.locator('#screens .dialog .wtitle .heat-badge').innerText().catch(() => null);
         await shot(page, 'I-node-hot');
-        check('M2b-heat', `a ${s.node.type} node entered Hot: the dialog badge "${HNAME.hot} spoils" and the meter's "This node pays Hot: ${payTxt('hot', true)}" (heatView.node)`,
-          !diff.length && hv.node && hv.node.state === 'hot' && (badgeTxt || '').toLowerCase().includes(`${HNAME.hot} spoils`.toLowerCase()), `${diff.join(' | ')} | badge "${badgeTxt}" | node ${JSON.stringify(hv.node)}`);
+        check('M2b-heat', `a ${s.node.type} node entered Hot: the dialog badge "${HNAME.hot} bonus" (heatView.node; D150: no "spoils", and no pay line on the meter)`,
+          !diff.length && hv.node && hv.node.state === 'hot' && (badgeTxt || '').toLowerCase().includes(`${HNAME.hot} bonus`.toLowerCase()), `${diff.join(' | ')} | badge "${badgeTxt}" | node ${JSON.stringify(hv.node)}`);
         continue;
       }
       await shot(page, `I-map-${r.key}`);
@@ -1818,19 +1841,14 @@ async function partI(browser, W, H) {
     }
     const missed = Object.keys(todo).filter((k) => k !== 'scorched');
     if (missed.length) throw new Error(`setup: the slow run of seed ${I_SEED} never met ${missed.join(', ')}`);
-    // ---- state changes: a toast and a log line each, in the heat colours
+    // ---- state changes (D150 item 25): no toast (the meter flashes); a log line each, the meter's own line, one full stop
     let rec = await page.evaluate(() => window.__heat);
     const changes = rec.states.slice(1).map((x, i) => ({ from: rec.states[i], to: x }));
-    const toastStates = rec.toasts.map((t) => (/heat-(\w+)/.exec(t.cls) || [])[1]);
-    const okToasts = changes.length >= 3 && toastStates.length === changes.length && changes.every((c, i) => toastStates[i] === c.to && rec.toasts[i].text.startsWith(`${HNAME[c.to]}:`));
-    check('M2b-heat', `a toast on each change of state (${changes.length} so far: ${rec.states.join(' > ')}), named and coloured by the new state`, okToasts,
-      `toasts: ${rec.toasts.map((t) => t.text).join(' | ')}`);
-    // QA playtest 2026-11-11 finding 6: the log line is the toast's sentence with one full stop, never ".."
-    const sentence = (t) => (/[.!?]$/.test(t) ? t : `${t}.`);
-    check('M2b-heat', 'the combat log has a line for each change of state, the toast\'s sentence with one full stop (no "..")', rec.logs.length === rec.toasts.length && rec.logs.every((l, i) => l === sentence(rec.toasts[i].text) && !/\.\.$/.test(l)),
+    check('M2b-heat', `no toast on a change of state (${changes.length} so far: ${rec.states.join(' > ')}; D150 item 25)`, changes.length >= 3 && rec.toasts.length === 0 && rec.maxHeat === 0, `toasts: ${rec.toasts.map((t) => t.text).join(' | ')}`);
+    const okLog = (l, c) => new RegExp(`^${HEAT_WORDS.Name}: ${HNAME[c.to]} · (\\d+ tolls? (to spare|overspent)|No tolls to spare)\\.$`).test(l);
+    check('M2b-heat', 'the combat log has a line for each change of state: "The Furnace: Burning · 3 tolls overspent." (one full stop, no "..")', rec.logs.length === changes.length && rec.logs.every((l, i) => okLog(l, changes[i])),
       rec.logs.slice(0, 6).join(' | '));
-    // QA playtest 2026-11-11 finding 1: one heat toast at a time (a later change replaces it), the stack within its limit
-    check('M2b-heat', `heat toasts never stack: at most one on screen and at most 2 toasts in all during the run (seen: ${rec.maxHeat} heat, ${rec.maxAll} in all)`, rec.maxHeat === 1 && rec.maxAll <= 2, '');
+    check('M2b-heat', `the toast stack within its limit during the run (seen: ${rec.maxAll} at once)`, rec.maxAll <= 2, '');
 
     // ---- the camp: panel, tracker and minimap read heatView, as the meter
     const rc = await slowRun(page, "(v) => v.phase === 'CAMP' && !(v.node && v.node.origin === 'hub') && !v.combat");
@@ -1841,11 +1859,11 @@ async function partI(browser, W, H) {
     const foot = (await page.locator('#screens .side .sfoot').innerText()).replace(NBSP, ' ').replace(/\n/g, ' ');
     const track = (await page.locator('#tracker').innerText()).replace(NBSP, ' ').replace(/\n/g, ' ');
     const mm = await tipOf(page, page.locator('#minimap .disc'));
-    const ascText = hv.ascIfPar > 0 ? `+${Math.round(hv.ascIfPar * 100)} % health and damage` : 'None: you are on time';
+    const ascText = hv.ascIfPar > 0 ? `+${Math.round(hv.ascIfPar * 100)} % health and damage` : 'No stronger';
     await shot(page, 'I-camp');
-    check('M2b-heat', `camp (${s.time} tolls): the meter (line = par ${fh(hv.par)}, ${HNAME[hv.state]}, "${bossTxt(hv.ascIfPar)}", "At the camp the Furnace pays nothing") equals R.heatView`, !diff.length, diff.join(' | '));
-    check('M2b-heat', `camp: the panel "(par ${fh(hv.par)})" and "${ascText}", the tracker "Tolls: ... (par ${fh(hv.par)})", the minimap "${HEAT_WORDS.Name}: ${stand(hv)} ... · ${bossTxt(hv.ascIfPar)}" read heatView like the meter`,
-      foot.includes(`${s.time} (par ${fh(hv.par)})`) && foot.includes(ascText) && track.includes(`${HEAT_WORDS.Units}: ${s.time} (par ${fh(hv.par)})`) && mm.includes(`${HEAT_WORDS.Name}: ${stand(hv)} (the Star's line: ${lineS(hv.line)}) · ${bossTxt(hv.ascIfPar)}`) && mm.includes(`past ${fh(hv.par)} (Ascendancy)`),
+    check('M2b-heat', `camp (${s.time} tolls): the meter (${HNAME[hv.state]}, "${stand(hv)}"${bossTxt(hv.ascIfPar) ? `, "${bossTxt(hv.ascIfPar)}"` : ''}; no pay line) equals R.heatView`, !diff.length, diff.join(' | '));
+    check('M2b-heat', `camp: the panel says "Oruvath ${ascText}" (heatView's ascIfPar, as the meter's Boss); D150: no par, Ascendancy, line or tolls in the panel, the tracker or the minimap`,
+      foot.includes(`Oruvath ${ascText}`) && !/\bpar\b|Ascendancy|Star's line/.test(`${foot} ${track} ${mm}`) && !track.includes(HEAT_WORDS.Units) && !mm.includes(HEAT_WORDS.Name),
       `panel "${foot}" | tracker "${track}" | minimap "${mm}"`);
     // ---- the boss fight: the meter's "Boss +N %" is the boss frame's Ascendancy
     const rb = await slowRun(page, "(v) => !!(v.combat && v.combat.isBoss && !v.combat.over)");
@@ -1853,7 +1871,8 @@ async function partI(browser, W, H) {
       s = await twin.sync(page); hv = R.heatView(s);
       d = await meterDom(page);
       const binfo = (await page.locator('#boss-frame .binfo').innerText()).replace(NBSP, ' ');
-      check('M2b-heat', `boss fight: the meter's "${bossTxt(hv.ascIfPar)}" is the boss's Ascendancy (+${Math.round(s.fight.boss.asc * 100)} %, the boss frame)`, d.boss === bossTxt(s.fight.boss.asc) && binfo.includes(`Ascendancy +${Math.round(s.fight.boss.asc * 100)} %`), `${d.boss} | ${binfo.replace(/\n/g, ' ')}`);
+      // D150: the boss frame says it as the meter does, "Boss +N %" (only above 0), never "Ascendancy"
+      check('M2b-heat', `boss fight: the meter's "${bossTxt(hv.ascIfPar)}" is the boss's (+${Math.round(s.fight.boss.asc * 100)} %), and the boss frame says the same`, d.boss === bossTxt(s.fight.boss.asc) && (bossTxt(s.fight.boss.asc) ? binfo.includes(bossTxt(s.fight.boss.asc)) : !/Boss \+/.test(binfo)) && !/Ascendancy/.test(binfo), `${d.boss} | ${binfo.replace(/\n/g, ' ')}`);
     } else check('M2b-heat', 'boss fight reached', false, rb.phase);
 
     // ---- the summary: the heat card and the Echo line
@@ -1865,11 +1884,12 @@ async function partI(browser, W, H) {
       xv: [...el.querySelectorAll('.hc-chart .xv')].map((x) => x.textContent), foot: el.querySelector('.hc-foot').textContent, strip: el.querySelector('.hc-strip').getAttribute('aria-label') }));
     const recs = sm.heat.trackPerZone; const par = R.bossPar(s); const over = sm.time - par;
     const signedH = (v) => { const k = v > 0 ? Math.floor(v + 1e-9) : Math.ceil(-v - 1e-9); return v > 0 && k ? `+${k}` : v < 0 && k ? `−${k}` : '0'; };
-    const wantEnd = sm.reached && sm.reached.camp ? `${HEAT_WORDS.Units}: ${fh(sm.time)} (par ${fh(par)}) · ${over > 0 ? `${tolls(over)} over par` : over < 0 ? `${tolls(over)} under par` : 'on par'}${sm.ascendancy ? ` · Ascendancy +${Math.round(sm.ascendancy * 100)} %` : ''}` : null; // the bridge's summary.asc = R.summary ascendancy
+    // D150: the run's tolls, what was overspent or to spare against bossPar, and Oruvath's gain (no par or Ascendancy)
+    const wantEnd = sm.reached && sm.reached.camp ? `${HEAT_WORDS.Units}: ${fh(sm.time)} · ${over > 0 ? `${tolls(over)} overspent` : `${tolls(-over)} to spare`} · Oruvath ${sm.ascendancy ? `+${Math.round(sm.ascendancy * 100)} %` : 'at his base strength'}` : null; // the bridge's summary.asc = R.summary ascendancy
     const timeOk = card.leg.startsWith(`${HEAT_WORDS.Units} in each state: `) && R.C.HEAT_STATES.every((st, i) => card.leg.includes(`${HNAME[st]} ${fh(sm.heat.timeByState[i])}`));
     await shot(page, 'I-summary');
-    check('M2b-heat', `summary: the heat card's track has ${recs.length} zone records (${recs.length * 2} points, each zone's heat when left under it), tolls by state ${sm.heat.timeByState.join('/')} and "${wantEnd}" (time - bossPar)`,
-      rs.phase === 'SUMMARY' && card.dots === recs.length * 2 && card.xv.join(',') === recs.map((r) => signedH(r.exit - r.line)).join(',') && timeOk && (!wantEnd || card.end === wantEnd),
+    check('M2b-heat', `summary: the heat card's track has ${recs.length} zone records (${recs.length * 2} points, each zone's heat when left under it), tolls by state ${sm.heat.timeByState.join('/')} and "${wantEnd}" (time - bossPar); no par, Ascendancy or "the Star's line"`,
+      rs.phase === 'SUMMARY' && card.dots === recs.length * 2 && card.xv.join(',') === recs.map((r) => signedH(r.exit - r.line)).join(',') && timeOk && (!wantEnd || card.end === wantEnd) && !/\bpar\b|Ascendancy|Star's line/.test(JSON.stringify(card)),
       JSON.stringify(card));
     const echo = await page.locator('#screens .summary .card').nth(2).innerText();
     const line = sm.echoes.lines.find((l) => l.id === 'heat');
@@ -1904,7 +1924,7 @@ async function partIExp(browser, W, H) {
     await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
     let s = await twin.sync(page); let hv = R.heatView(s);
     let d = await meterDom(page); let diff = meterDiff(d, hv, false);
-    check('M2b-heat-exp', `expedition hub (mapMode ${s.mapMode}): the Dimming's marker and "Dimming: ${tolls(hv.dimIn)}"; the line sets the state (by ${hv.by})`, s.mapMode === 'expedition' && !diff.length && d.dimShown && hv.by === 'run', diff.join(' | ') || JSON.stringify(d));
+    check('M2b-heat-exp', `expedition hub (mapMode ${s.mapMode}): the Dimming's marker (its clock in words is the map's, D150 item 8); the line sets the state (by ${hv.by})`, s.mapMode === 'expedition' && !diff.length && d.dimShown && hv.by === 'run', diff.join(' | ') || JSON.stringify(d));
     await page.getByRole('button', { name: 'Set out' }).click(); await idle(page); // M3: the Furnace note is retired (H16), no "Got it" here
     s = await twin.sync(page);
     const mv = R.mapView(s);
@@ -1926,9 +1946,9 @@ async function partIExp(browser, W, H) {
     d = await meterDom(page); diff = meterDiff(d, hv, false);
     await shot(page, 'I-exp-dim');
     const tip = await tipOf(page, page.locator('#heat'));
-    check('M2b-heat-exp', `the Dimming sets the state (zone toll ${s.time - s.zone.start}: ${HNAME[hv.stateDim]} by the Dimming, ${HNAME[hv.stateRun]} by the line): "${HNAME[hv.state]} · Dimming", "Dimming: ${tolls(hv.dimIn)}", its marker in ${hv.stateDim} and marked as the clock that sets it`,
+    check('M2b-heat-exp', `the Dimming sets the state (zone toll ${s.time - s.zone.start}: ${HNAME[hv.stateDim]} by the Dimming, ${HNAME[hv.stateRun]} by the line): "${HNAME[hv.state]} · ${stand(hv)}" (D150 item 25), its marker in ${hv.stateDim} and marked as the clock that sets it`,
       !diff.length && hv.by === 'dim' && d.by === 'dim', diff.join(' | ') || JSON.stringify(d));
-    check('M2b-heat-exp', 'the meter\'s tooltip names the clock that sets the state', tip.includes(`The hotter clock sets the state: now the Dimming (${HNAME[hv.stateDim]}).`), tip);
+    check('M2b-heat-exp', 'the meter\'s tooltip says the Dimming near you raised it (one short line; D150 item 5)', tip.includes('Raised by the Dimming near you.') && !/hotter clock/.test(tip), tip);
   } catch (e) {
     check('-', 'part I (expedition) ran to the end', false, e.message.split('\n')[0]);
   }
@@ -1951,9 +1971,9 @@ function jAnswerKind(id, x) {
 }
 const J_WINDUP_FIGHTS = new Set(['elite', 'rare', 'dboss']);
 /** What a wind-up's tooltip says answers it (src/ui/ui-text.js windupAnswers): an enemy that can be controlled, one immune to control. */
-const J_ANSWERS = {
-  control: 'Answer it with an interrupt, a stun or control on its turn, or with an engage option that covers that turn',
-  immune: 'Answer it with an interrupt, a stun or a control spell on its turn (it cannot be controlled: each interrupts it), or with Disrupt in the engage round',
+const J_ANSWERS = { // D150 naming rule: a wind-up is stopped, never answered
+  control: 'Stop it with an interrupt, a stun or control on its turn, or with an engage option that covers that turn',
+  immune: 'Stop it with an interrupt, a stun or a control spell on its turn (it cannot be controlled: each interrupts it), or with Disrupt in the engage round',
 };
 /**
  * An elite, rare or dungeon-boss round (not the engage round) whose wind-up plays now while a bar spell that stops it (an
@@ -2015,7 +2035,7 @@ function jPickRogue() {
 const jFoe = (s, immune = false) => s.fight.enemies.find((e) => e.alive && !!e.ccImmune === immune && e.track.some((x) => x.windup && x.turn >= 1 && x.turn <= R.C.INTENT_TRACK_LEN)) || null;
 const jRound = (e, x) => (e.turn0 || 1) + x.turn - 1;
 const jStack = (e, id) => { const st = (e.st || []).find((x) => x.id === id); return st ? { id, stacks: st.stacks, value: st.value, deathblows: st.deathblows || 0 } : null; };
-/** M2b v13: a Deathblow's words where an ordinary wind-up's stood ("Deathblow R3", "Deathblow answered: ..."). */
+/** M2b v13: a Deathblow's words where an ordinary wind-up's stood ("Deathblow R3", "Deathblow stopped: ..."; D150: stopped). */
 const jWord = (x) => (x && x.deathblow ? 'Deathblow' : 'Wind-up');
 const jPct = (x) => `${Math.round((x || 0) * 100)} %`;
 let J_PICK = null;
@@ -2072,7 +2092,7 @@ const j21dom = (page) => page.evaluate(() => {
     }),
     rows: vis(tf) ? [...tf.querySelectorAll('.ttrack .tr')].map((r) => ({ turn: Number(r.dataset.turn), windup: r.dataset.windup || '' })) : [],
     twst: vis(tf) ? wst(tf) : [],
-    ruler: vis(document.querySelector('#ruler')) ? [...document.querySelectorAll('#ruler .rl-c')].map((c) => ({ round: Number(c.dataset.round), wu: (c.querySelector('.rl-wu') || {}).textContent || '' })) : [],
+    ruler: document.querySelectorAll('#ruler').length, // D150 item 16: no opening ruler
     bar: [...document.querySelectorAll('#actionbar .ab[data-slot]')].map((b) => ({ slot: Number(b.dataset.slot), ans: b.classList.contains('wu-ans'), else: b.classList.contains('wu-else'), avoid: b.classList.contains('wu-avoid'), hl: b.classList.contains('wu-hl'),
       tag: (b.querySelector('.atag') || {}).textContent || '', wtag: !!b.querySelector('.wtag') })),
     cards: [...document.querySelectorAll('#engage .eg-opt[data-opt]')].map((c) => ({ opt: c.dataset.opt, disrupt: c.dataset.disrupt === '1', answers: c.dataset.answers || '', off: c.classList.contains('off'),
@@ -2227,10 +2247,10 @@ async function partJ(browser, W, H) {
     await shot(page, 'J-windup-engage');
     let bad = jBadgesMatch(d, s, a.idx);
     const line = d.np.find((x) => x.idx === a.idx).wub;
-    check('M2b-2b.6', `engage round of the ${s.fight.kind} fight: the wind-up badge is on exactly the entries the engine flags (chips, target frame), and over ${a.name}: "${jWord(wx)} R${wRound}: ${wx.deathblow ? 'MAIMS if it lands' : 'answer it or it empowers'}"`,
-      !bad.length && line && line.turn === wx.turn && line.text.includes(`${jWord(wx)} R${wRound}`) && line.text.includes(wx.deathblow ? 'MAIMS if it lands' : 'answer it or it empowers'), `${bad.join(' | ')}; line ${JSON.stringify(line)}`);
-    const col = d.ruler.find((c) => c.round === wRound);
-    check('M2b-2b.6', `the opening ruler marks round ${wRound} "${jWord(wx)}"`, wRound > 5 || (col && col.wu === jWord(wx)), JSON.stringify(d.ruler));
+    // D150 item 2: the line over it names it and its stakes only (how to stop it is the turn prompt's)
+    check('M2b-2b.6', `engage round of the ${s.fight.kind} fight: the wind-up badge is on exactly the entries the engine flags (chips, target frame), and over ${a.name}: "${jWord(wx)} R${wRound}${wx.deathblow ? ' MAIMS if it lands' : ''}", no instruction`,
+      !bad.length && line && line.turn === wx.turn && line.text.includes(`${jWord(wx)} R${wRound}`) && (!wx.deathblow || line.text.includes('MAIMS if it lands')) && !/answer it|Answer:|then wait/.test(line.text), `${bad.join(' | ')}; line ${JSON.stringify(line)}`);
+    check('M2b-2b.6', 'no opening ruler (D150 item 16: the chips over the enemies say it)', d.ruler === 0, JSON.stringify(d.ruler));
     bad = jCardsMatch(d, s, a.idx);
     check('M2b-2b.6', 'each engage card says which wind-ups it answers exactly as R.engagePreview does (stagger, Send the Pet on a heavy one) on its target', !bad.length, bad.join(' | ') || JSON.stringify(d.cards.map((c) => [c.opt, c.answers])));
     // hover the wind-up chip: the tooltip says what answers it; the bar marks every spell that can
@@ -2251,7 +2271,7 @@ async function partJ(browser, W, H) {
     const sent = (await page.evaluate(() => window.__ui.engineLog())).slice(-1)[0];
     d = await j21dom(page);
     const pred = (r.s.fight.enemies[a.idx].track.find((x) => x.turn === wx.turn) || {}).cancel;
-    check('M2b-2b.6', `key W sends Lay Trap on ${a.name}; the engine predicts its wind-up answered (cancel.stagger) and the page says so (ANSWERED, "your trap answers it")`,
+    check('M2b-2b.6', `key W sends Lay Trap on ${a.name}; the engine predicts its wind-up stopped (cancel.stagger) and the page says so (the chip's state, "your trap: stopped")`,
       sent.type === 'ENGAGE' && sent.option === 'lay_trap' && sent.target === a.idx && pred && pred.stagger && (d.np.find((x) => x.idx === a.idx).chips.find((c) => c.turn === wx.turn) || {}).windup === 'answered'
         && (d.np.find((x) => x.idx === a.idx).wub || { text: '' }).text.includes('your trap'), `${JSON.stringify(sent)}; cancel ${JSON.stringify(pred)}; ${JSON.stringify(d.np.find((x) => x.idx === a.idx))}`);
     let answered = null;
@@ -2263,8 +2283,8 @@ async function partJ(browser, W, H) {
     if (answered) {
       await shot(page, 'J-answered');
       bad = jStacksMatch(answered.d, answered.s, answered.tgt);
-      const logOk = answered.log.some((l) => l.startsWith(`${jWord(wx)} answered: ${a.name}'s ${wx.name}`) && l.includes(`Staggered: −${jPct(R.C.STAGGER_DMG)} damage`));
-      check('M2b-2b.6', `answered: the STAGGERED badge on ${a.name} (nameplate and target frame) equals the engine's status, and the log says "${jWord(wx)} answered"`, !bad.length && logOk, `${bad.join(' | ')}; log ${answered.log.slice(-4).join(' / ')}`);
+      const logOk = answered.log.some((l) => l.startsWith(`${jWord(wx)} stopped: ${a.name}'s ${wx.name}`) && l.includes(`Staggered: −${jPct(R.C.STAGGER_DMG)} damage`));
+      check('M2b-2b.6', `stopped: the STAGGERED badge on ${a.name} (nameplate and target frame) equals the engine's status, and the log says "${jWord(wx)} stopped"`, !bad.length && logOk, `${bad.join(' | ')}; log ${answered.log.slice(-4).join(' / ')}`);
     } else check('M2b-2b.6', `the trap answers ${a.name}'s wind-up`, false, 'no STAGGERED status');
     for (let n = 0; n < 300 && twin.s.fight && !twin.s.fight.over; n++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); await twin.sync(page); }
 
@@ -2315,8 +2335,8 @@ async function partJ(browser, W, H) {
     if (answered) {
       await shot(page, 'J-disrupt-answered');
       bad = jStacksMatch(answered.d, answered.s, answered.tgt);
-      check('M2b-2b.6', 'Disrupt answers the boss\'s wind-up: its STAGGERED badge equals the engine\'s status and the log says "cancelled by your Disrupt"',
-        !bad.length && answered.log.some((l) => l.startsWith(`${jWord(dx)} answered: ${boss.name}'s ${dx.name} is cancelled by your Disrupt`)), `${bad.join(' | ')}; ${answered.log.slice(-3).join(' / ')}`);
+      check('M2b-2b.6', 'Disrupt stops the boss\'s wind-up: its STAGGERED badge equals the engine\'s status and the log says "stopped: ... by your Disrupt"',
+        !bad.length && answered.log.some((l) => l.startsWith(`${jWord(dx)} stopped: ${boss.name}'s ${dx.name} by your Disrupt`)), `${bad.join(' | ')}; ${answered.log.slice(-3).join(' / ')}`);
     } else check('M2b-2b.6', 'Disrupt answers the boss\'s wind-up', false, 'no STAGGERED status');
     check('M2b-2b.6', `in every round met (${barSeen}, ${nowSeen} with a wind-up playing), the bar marked exactly the usable spells that can answer one now (none without)`, barSeen > 0 && !nowBad.length, nowBad.slice(0, 4).join(' | '));
 
@@ -2387,15 +2407,17 @@ async function partJRogue(browser, W, H) {
     let bad = jBarMatch(d, s, tgt);
     const b = d.bar.find((x) => x.slot === w.slot);
     await shot(page, 'J-rogue-answer');
-    check('M2b-2b.6', `a wind-up plays this round (${w.name}'s ${w.ability}): the bar marks exactly the usable spells that can stop it, ${spName} (key ${w.slot + 1}) tagged "Answer"`,
-      tgt === w.idx && !bad.length && !!b && b.ans && b.tag.startsWith('Answer') && !b.wtag, `${bad.join(' | ')}; target ${tgt}; slot ${JSON.stringify(b)}`);
+    check('M2b-2b.6', `a wind-up plays this round (${w.name}'s ${w.ability}): the bar marks exactly the usable spells that can stop it, ${spName} (key ${w.slot + 1}) tagged "Stop"`,
+      tgt === w.idx && !bad.length && !!b && b.ans && b.tag.startsWith('Stop') && !b.wtag, `${bad.join(' | ')}; target ${tgt}; slot ${JSON.stringify(b)}`);
     // UX pass 2026-11-11: the turn prompt over the action bar names the answer and its key; the bar is framed as your turn
     const tp = await page.evaluate(() => { const el = document.querySelector('#turnprompt'); const r = el.getBoundingClientRect(); const bar = document.querySelector('#actionbar');
       const c = (x, y) => { const e = document.elementFromPoint(x, y); return e ? e.closest('#actionbar .ab, #actionbar .ctrl') : null; };
       return { shown: !el.classList.contains('hidden'), kind: el.dataset.kind, text: el.textContent.replace(/\s+/g, ' ').trim(), turn: bar.classList.contains('your-turn'),
         inView: r.width > 0 && r.left >= 0 && r.right <= innerWidth && r.top >= 0, overBar: [[0.1, 0.5], [0.5, 0.5], [0.9, 0.5]].some(([fx, fy]) => c(r.left + r.width * fx, r.top + r.height * fy)) }; });
-    check('UX-1', `turn prompt on the wind-up round: "${jWord(w)} now: answer with ${w.slot + 1} ${spName}", the bar framed as your turn, in view and covering no bar button`,
-      tp.shown && tp.kind === (w.deathblow ? 'deathblow' : 'windup') && tp.text.includes(`${jWord(w)} now: answer with ${w.slot + 1} ${spName}`) && tp.turn && tp.inView && !tp.overBar, JSON.stringify(tp));
+    // D150: a wind-up "Wind-up now: stop it with 1 Throat Jab"; a Deathblow the prompt's one instruction, "... Throat Jab now 1."
+    const tpWant = w.deathblow ? `${spName} now ${w.slot + 1}` : `Wind-up now: stop it with ${w.slot + 1} ${spName}`;
+    check('UX-1', `turn prompt on the wind-up round: "${tpWant}", the bar framed as your turn, in view and covering no bar button`,
+      tp.shown && tp.kind === (w.deathblow ? 'deathblow' : 'windup') && tp.text.includes(tpWant) && tp.turn && tp.inView && !tp.overBar, JSON.stringify(tp));
     // hovering the wind-up's chip marks every bar spell that can answer it (stop or, for a heavy one, avoid)
     await page.locator(`#nameplates .np[data-idx="${w.idx}"] .trk .tk[data-turn="${w.turn}"]`).hover(); await page.waitForTimeout(200); await frame();
     d = await j21dom(page);
@@ -2424,7 +2446,7 @@ async function partJRogue(browser, W, H) {
     const ms = rec ? roundMs(rec) : null; const cap = rec && rec.round ? rec.round.budget : null;
     // D52: headless rendering at 1920x1080 runs at about 10 fps, so there a single round is reported and not held to the cap
     const capHeld = !(W >= 1920 && H >= 1080);
-    check('M2v2-52', `at the default speed the round with the wind-up's moment ("Staggered!", its beat) plays within the round cap (D47)${capHeld ? '' : ' (1920x1080: reported only, D52)'}`,
+    check('M2v2-52', `at the default speed the round with the wind-up's moment ("Stopped!", its beat) plays within the round cap (D47)${capHeld ? '' : ' (1920x1080: reported only, D52)'}`,
       atMoment && !!rec && rec.events.includes('windup') && cap != null && (!capHeld || ms <= cap), `round ${ms} ms, cap ${cap} ms, tempo ${rec && rec.round ? rec.round.tempo.toFixed(2) : '-'}, moment seen ${atMoment}; events ${rec ? rec.events.join(' ') : '-'}`);
     await setSpeed(page, 'Instant');
     await page.mouse.move(2, 2); await frame();
@@ -2435,8 +2457,8 @@ async function partJRogue(browser, W, H) {
     const st = e && jStack(e, 'STAGGERED');
     bad = s.fight && !s.fight.over ? jStacksMatch(d, s, await page.evaluate(() => window.__ui.target())) : [];
     await shot(page, 'J-rogue-stopped');
-    check('M2b-2b.6', `key ${w.slot + 1} casts ${spName} on ${w.name}: the wind-up is stopped ("${jWord(w)} answered: ${w.name}'s ${w.ability} is stopped by your ${spName}") and the STAGGERED badge equals the engine's status`,
-      !!sent && sent.type === 'CAST' && sent.spellId === w.spellId && !!st && !bad.length && log.some((l) => l.startsWith(`${jWord(w)} answered: ${w.name}'s ${w.ability} is stopped by your ${spName}.`)),
+    check('M2b-2b.6', `key ${w.slot + 1} casts ${spName} on ${w.name}: the wind-up is stopped ("${jWord(w)} stopped: ${w.name}'s ${w.ability} by your ${spName}") and the STAGGERED badge equals the engine's status`,
+      !!sent && sent.type === 'CAST' && sent.spellId === w.spellId && !!st && !bad.length && log.some((l) => l.startsWith(`${jWord(w)} stopped: ${w.name}'s ${w.ability} by your ${spName}.`)),
       `${JSON.stringify(sent)}; stack ${JSON.stringify(st)}; ${bad.join(' | ')}; log ${log.slice(-3).join(' / ')}`);
   } catch (e) {
     await shot(page, 'J-rogue-error');
@@ -2905,11 +2927,11 @@ async function partM(browser, W, H) {
       if (c.zone !== `Zone ${o.z}`) bad.push(`zone "${c.zone}"`);
       if (c.price !== String(o.price) || c.pl !== (o.price === 1 ? 'pt' : 'pts')) bad.push(`price "${c.price} ${c.pl}"`);
       if (o.kind === 'cull' && !(c.do || '').startsWith(`Win ${o.need} ${o.need === 1 ? 'site' : 'sites'} in `)) bad.push(`sites "${c.do}"`);
-      if (!/^Pays /.test(c.pay || '') || !(c.pay || '').includes(`${Math.round(o.reward.xpFrac * 10) / 10} levels of XP`) || !/ gold /.test(c.pay || '')) bad.push(`pay "${c.pay}"`);
+      if (!/^Reward /.test(c.pay || '') || !(c.pay || '').includes(`${Math.round(o.reward.xpFrac * 10) / 10} levels of XP`) || !/ gold /.test(c.pay || '')) bad.push(`pay "${c.pay}"`); // D150: no "Pays"
       if (!(c.it || '').startsWith(`choose 1 of ${o.reward.choices}`)) bad.push(`items "${c.it}"`);
       if (!c.one) bad.push('the pay line is cut or wraps');
       return bad.length ? `card ${i + 1}: ${bad.join(', ')}` : null; }).filter(Boolean);
-    check('M-prep', 'every number on a contract card has its word: "Zone 1", "2 pts", "Win 2 sites in ...", "Pays 2.8 levels of XP", "gold", "choose 1 of 3", the pay on one uncut line (QA 2026-11-11 finding 5; D128)', !lBad.length, lBad.slice(0, 3).join(' | '));
+    check('M-prep', 'every number on a contract card has its word: "Zone 1", "2 pts", "Win 2 sites in ...", "Reward 2.8 levels of XP", "gold", "choose 1 of 3", the pay on one uncut line (QA 2026-11-11 finding 5; D128; D150: no "Pays")', !lBad.length, lBad.slice(0, 3).join(' | '));
     // QA playtest 2026-11-11 finding 4 (an engine fix, contracts.js drawBoard): no two cards are the same contract
     const keys = pv.board.map((o) => [o.z, o.kind, o.region, o.family, o.template].join('|'));
     const shown = await page.evaluate(() => [...document.querySelectorAll('#prep .pp-card')].map((b) => [b.querySelector('.pc-zone').textContent, b.querySelector('.pc-kind').textContent, b.querySelector('.pc-target').textContent, b.querySelector('.pc-do').textContent].join(' / ')));
@@ -2940,18 +2962,20 @@ async function partM(browser, W, H) {
     check('M-track', `Enter sets out (phase ${s.phase}): the contracts and Reserve on screen = R.contractView (held ${cv.held}, Reserve ${cv.reserve})`, s.phase === 'ZONE_HUB' && same(pc, JSON.parse(JSON.stringify(cv))), JSON.stringify(pc && { held: pc.held, reserve: pc.reserve }));
     // QA playtest 2026-11-11 finding 7: a hub service's tooltip never covers Set out (or another primary button)
     const got = page.getByRole('button', { name: 'Got it' }); if (await got.count()) await got.first().click();
+    // D150 item 22: a greyed Trainer (nothing to teach) has no tooltip, no toll and no click: the cards with a tooltip are checked
     const svcBad = [];
-    const nSvc = await page.locator('#screens .svc-card').count();
+    const SVC = '#screens .svc-card:not(.off)';
+    const nSvc = await page.locator(SVC).count(); const nIdle = await page.locator('#screens .svc-card.off').count();
     for (let i = 0; i < nSvc; i++) {
-      const bx = await page.locator('#screens .svc-card').nth(i).boundingBox();
+      const bx = await page.locator(SVC).nth(i).boundingBox();
       for (const [fx, fy] of [[0.5, 0.5], [0.95, 0.9], [0.05, 0.9], [0.95, 0.1]]) {
         await page.mouse.move(bx.x + bx.width * fx, bx.y + bx.height * fy); await page.waitForTimeout(40);
-        const hit = await tipHits('#screens .svc-card', i, '.btn.primary');
+        const hit = await tipHits(SVC, i, '.btn.primary');
         if (hit.length) svcBad.push(`service ${i + 1} at ${fx},${fy}: over ${hit.join(', ')}`);
       }
     }
     await page.mouse.move(2, 2);
-    check('M-track', `the hub's ${nSvc} service tooltips never cover Set out, wherever the pointer is on the card (QA 2026-11-11 finding 7)`, nSvc >= 3 && !svcBad.length, svcBad.slice(0, 4).join(' | '));
+    check('M-track', `the hub's ${nSvc} service tooltips never cover Set out, wherever the pointer is on the card (QA 2026-11-11 finding 7; ${nIdle} greyed card without one)`, nSvc + nIdle >= 3 && nSvc >= 2 && !svcBad.length, svcBad.slice(0, 4).join(' | '));
     // the map: the tracker pins this zone's contracts; site marks exactly where mapView has them; hidden nodes unnamed
     await page.locator('#screens .side .btn.primary').click(); await idle(page);
     s = await twin.sync(page);
@@ -3006,7 +3030,7 @@ async function partM(browser, W, H) {
     const off = R.contractView(s).hub;
     const hc = await page.evaluate(() => { const e = document.querySelector('.hubc'); return e ? { s: e.querySelector('.hc-s').textContent, take: e.querySelector('[data-hub="reserve"]').textContent, pay: e.querySelector('.hc-rw').innerText.replace(/\s+/g, ' ') } : null; });
     check('M-hub', `zone 2's hub shows its contract offer (${off ? T.contractTitle(off, CONTENT) : 'none'}) with its price in Reserve and its pay with words ("${hc && hc.pay}")`, !!off && !!hc && hc.s === T.hubOfferSentence(off, CONTENT.zones[1].hubName, CONTENT) && hc.take.includes(`${off.price} Reserve`)
-      && /^Pays /.test(hc.pay) && hc.pay.includes(`${Math.round(off.reward.xpFrac * 10) / 10} levels of XP`) && / gold /.test(hc.pay) && hc.pay.includes(`choose 1 of ${off.reward.choices}`), JSON.stringify(hc));
+      && /^Reward /.test(hc.pay) && hc.pay.includes(`${Math.round(off.reward.xpFrac * 10) / 10} levels of XP`) && / gold /.test(hc.pay) && hc.pay.includes(`choose 1 of ${off.reward.choices}`), JSON.stringify(hc));
     const res0 = R.contractView(s).reserve;
     await page.locator('.hubc [data-hub="reserve"]').click(); await idle(page);
     s = await twin.sync(page);
@@ -3078,11 +3102,13 @@ const fogDom = (page) => page.evaluate(() => {
     tints: [...document.querySelectorAll('#screens .expmap .xregions path')].map((x) => Number(x.dataset.region)),
     names: [...document.querySelectorAll('#screens .expmap .xrname')].map((x) => ({ region: Number(x.dataset.region), text: x.textContent })),
     legend: document.querySelectorAll('#screens .expmap .xreg').length,
-    roads: [...document.querySelectorAll('#screens .expmap .xroad')].map((x) => ({ id: Number(x.dataset.road), text: x.innerText.replace(/\s+/g, ' '), rect: r(x) })),
+    // D150 (the map's word budget): a closed Road's sign shows only "Closed"; its destination stays in the sign and its tooltip
+    roads: [...document.querySelectorAll('#screens .expmap .xroad')].map((x) => ({ id: Number(x.dataset.road), text: x.innerText.replace(/\s+/g, ' '), name: (x.querySelector('.xsign b') || {}).textContent || '', closed: x.classList.contains('rclosed'), rect: r(x) })),
     sides: [...document.querySelectorAll('#screens .expmap .xside .xpanel')].map(r),
     shard: document.querySelectorAll('#screens .expmap .xshard').length, wash: document.querySelectorAll('#screens .expmap .xdimwash path').length,
     mine: (document.querySelector('#screens .expmap .xmine') || {}).dataset ? Number(document.querySelector('#screens .expmap .xmine').dataset.dimsIn) : null,
-    moves: document.querySelectorAll('#screens .expmap .expmoves .em').length,
+    // D150 item 9: no Moves panel; "Pass through" offered on the nodes that can be walked through
+    movesPanel: document.querySelectorAll('#screens .expmap .expmoves').length, passes: [...document.querySelectorAll('#screens .expmap .xpass')].map((b) => Number(b.dataset.node)).sort((a, b) => a - b),
   };
 });
 /** What the fog map must show of R.mapView mv; a list of differences (empty = equal). */
@@ -3128,11 +3154,12 @@ function fogDiff(d, mv, nextZone) {
   const nameWant = [...new Set(mv.nodes.filter((n) => n.ring >= 2 && n.region != null).map((n) => n.region))].sort();
   if (JSON.stringify(d.names.map((x) => x.region).sort()) !== JSON.stringify(nameWant) || d.names.some((x) => x.text !== mv.regions[x.region].name)) out.push(`region names ${JSON.stringify(d.names)} (view: ${nameWant})`);
   if (d.legend !== mv.regions.length) out.push(`legend ${d.legend} regions`);
-  if (d.roads.length !== mv.roads.length || d.roads.some((r) => !mv.roads.includes(r.id) || !r.text.includes(nextZone))) out.push(`roads ${JSON.stringify(d.roads.map((r) => r.text))} (view ${mv.roads}, to ${nextZone})`);
+  if (d.roads.length !== mv.roads.length || d.roads.some((r) => !mv.roads.includes(r.id) || !r.name.includes(nextZone) || (r.closed ? r.text !== 'Closed' : !r.text.includes(nextZone)))) out.push(`roads ${JSON.stringify(d.roads.map((r) => [r.text, r.closed]))} (view ${mv.roads}, to ${nextZone}; a closed one shows "Closed")`);
   if (d.shard !== 1) out.push(`${d.shard} Shardfall stars`);
   if (d.wash !== mv.nodes.filter((n) => n.dimmed).length) out.push(`Dimming wash on ${d.wash} nodes (view ${mv.nodes.filter((n) => n.dimmed).length})`);
   const me = mv.nodes[mv.pos]; if (d.mine !== (me.dimmed ? 0 : me.dimsIn)) out.push(`"your node dims in" ${d.mine} (view ${me.dimsIn})`);
-  if (d.moves !== mv.moves.length) out.push(`${d.moves} moves listed (view ${mv.moves.length})`);
+  const passWant = mv.moves.filter((m) => m.passTime != null && !m.barred && !mv.nodes[m.nodeId].barred).map((m) => m.nodeId).sort((a, b) => a - b);
+  if (d.movesPanel !== 0 || JSON.stringify(d.passes) !== JSON.stringify(passWant)) out.push(`Moves panel ${d.movesPanel}; "Pass through" on ${d.passes} (view: the moves with passTime ${passWant})`);
   return out;
 }
 /** The disc is round and in view, every node inside it and big enough to read (D128: smaller icons), no signpost on a side panel. */
@@ -3325,8 +3352,8 @@ const pDom = (page) => page.evaluate(() => {
     }),
     rows: vis(tf) ? [...tf.querySelectorAll('.ttrack .tr')].map((r) => ({ turn: Number(r.dataset.turn), db: r.classList.contains('db'), text: r.textContent, soft: r.dataset.soft || '', lethal: r.dataset.lethal || '', flag: (r.querySelector('.flag.wu') || {}).textContent || '' })) : [],
     twst: vis(tf) ? wst(tf) : [], tnew: vis(tf) && !!tf.querySelector('.rank-tag.new'),
-    ruler: vis(document.querySelector('#ruler')) ? [...document.querySelectorAll('#ruler .rl-c')].map((c) => ({ round: Number(c.dataset.round), wu: (c.querySelector('.rl-wu') || {}).textContent || '' })) : [],
-    cards: [...document.querySelectorAll('#engage .eg-opt')].map((c) => ({ opt: c.dataset.opt, db: c.dataset.db || '', tag: !!c.querySelector('.eg-dbtag') })),
+    ruler: document.querySelectorAll('#ruler').length, // D150 item 16: no opening ruler
+    cards: [...document.querySelectorAll('#engage .eg-opt')].map((c) => ({ opt: c.dataset.opt, db: c.dataset.db || '', tag: !!c.querySelector('.eg-dbtag'), mark: c.classList.contains('db-ans'), dbc: (c.querySelector('.eg-dbc') || {}).textContent || '' })),
     alert: [...document.querySelectorAll('#engage .eg-db')].map((a) => ({ u: Number(a.dataset.u), turn: Number(a.dataset.turn), ready: a.dataset.ready, text: a.textContent })),
     bar: [...document.querySelectorAll('#actionbar .ab[data-slot]')].map((b) => ({ slot: Number(b.dataset.slot), db: b.dataset.db || '', now: b.classList.contains('db-now'), soon: b.classList.contains('db-soon'), tag: (b.querySelector('.atag') || {}).textContent || '' })),
     items: [...document.querySelectorAll('#actionbar .ab[data-islot]')].map((b) => ({ slot: Number(b.dataset.islot), mtag: (b.querySelector('.mtag') || {}).textContent || '' })),
@@ -3342,20 +3369,25 @@ const pDigits = (t) => (t || '').replace(/\D/g, '');
 /** "MAIMS if it lands"; aimed at the pet: "MAIMS you if it hits your pet" (QA 2026-11-12; the engine lands it on a pet hit). */
 const pMaims = (w) => (w.target === 'pet' ? 'MAIMS you if it hits your pet' : 'MAIMS if it lands');
 const P_WARN = 'Attacking breaks Sap: the Deathblow will land'; // src/ui/tracks.js SAP_BREAK_WARN
-/** The Deathblow's telegraph on the page against windupView item w (enemy e): the line, the chip, the row, the ruler. */
+/**
+ * The Deathblow's telegraph on the page against windupView item w (enemy e): the line, the chip, the row. D150 item 2: the
+ * line names it and its stakes ("Deathblow R3 MAIMS if it lands"), no estimate and no answers (the turn prompt's); no ruler.
+ */
 function pTelegraph(d, w, opts = {}) {
   const bad = [];
   const np = d.np.find((x) => x.idx === w.u);
   if (!np || !np.wub) return [`no line over enemy ${w.u}`];
   const L = np.wub;
   if (!L.db || L.turn !== w.turn || L.est !== w.est) bad.push(`line ${JSON.stringify(L)} vs turn ${w.turn} est ${w.est}`);
-  if (!L.text.includes(`Deathblow ${w.inRounds === 0 ? 'now' : `R${w.round}`}`) || !L.text.includes(`≈ ${w.est}`) || !L.text.includes(w.maims ? pMaims(w) : '')) bad.push(`line text "${L.text}"`);
+  if (!L.text.includes(`Deathblow ${w.inRounds === 0 ? 'now' : `R${w.round}`}`) || L.text.includes('≈') || !L.text.includes(w.maims ? pMaims(w) : '') || L.answers.length) bad.push(`line text "${L.text}" (answers ${L.answers.length})`);
   const chip = np.chips.find((c) => c.turn === w.turn);
   if (!chip || !chip.db || chip.ribbon !== 'DEATHBLOW' || np.chips.some((c) => c.db && c.turn !== w.turn)) bad.push(`chips ${JSON.stringify(np.chips)}`);
   if (opts.target) { const row = d.rows.find((r) => r.turn === w.turn); if (!row || !row.db || !row.text.includes(pMaims(w)) || d.rows.some((r) => r.db && r.turn !== w.turn)) bad.push(`rows ${JSON.stringify(d.rows)}`); }
-  if (w.round <= 5) { const col = d.ruler.find((c) => c.round === w.round); if (!col || col.wu !== 'Deathblow') bad.push(`ruler ${JSON.stringify(d.ruler)}`); }
+  if (d.ruler) bad.push(`an opening ruler (${d.ruler})`);
   return bad;
 }
+/** D150 item 2: the turn prompt's head for windupView item w: "Round 3: Tidefall Slam, about 130." ("on your pet" when aimed at it). */
+const pHead = (w) => `Round ${w.round}: ${w.name}${w.est ? `, about ${w.est}` : ''}${w.target === 'pet' ? ' on your pet' : ''}.`;
 async function partP(browser, W, H) {
   // ---- (1) Hunter: telegraph, answers, autoplay hint, no answer ready, landed (MAIMED, potions, +100 %), the map tooltips
   {
@@ -3373,14 +3405,13 @@ async function partP(browser, W, H) {
         await page.locator(`#screens button.mnode[data-row="${r}"][data-lane="${l}"]`).hover(); await page.waitForTimeout(160);
         const t = (await page.getByRole('tooltip').innerText().catch(() => '')).replace(NBSP, ' ');
         const db = n.type === 'elite' ? n.deathblow : n.bossDeathblow;
-        // M2b v14 (UI need 3): a hidden elite's view gives { type } only: "Deathblow: a heavy blow (...)", no name
-        const want = !db ? null : db.name ? `${n.type === 'dungeon' ? "The boss's Deathblow" : 'Deathblow'}: ${db.name} (${deathblowKind(db.type)})`
-          : `Deathblow: ${db.type === 'heavy' ? 'a heavy blow' : 'a cast'} (${deathblowAnswers(db.type)})`;
-        if (want ? !t.includes(want) : /Deathblow:/.test(t)) badMap.push(`${n.type} r${r} l${l}: want ${want || 'no Deathblow line'}; saw ${t.replace(/\n/g, ' / ').slice(0, 160)}`);
+        // D150 item 23: one line, the same for a named or a hidden elite: no rules for answers the hero may not own yet
+        const want = !db ? null : `${n.type === 'dungeon' ? 'Its boss has a Deathblow' : 'Has a Deathblow'}: one huge hit you must stop.`;
+        if (want ? !t.includes(want) || /Landed, it maims you|stun, control or interrupt/.test(t) : /Deathblow/.test(t)) badMap.push(`${n.type} r${r} l${l}: want ${want || 'no Deathblow line'}; saw ${t.replace(/\n/g, ' / ').slice(0, 160)}`);
         if (want) named++;
         await page.mouse.move(2, 2);
       }
-      check('M2b-v13', `map: every elite and dungeon node's tooltip names its Deathblow and kind exactly as mapView gives it; a hidden elite its type only (M2b v14) (${nodes.length} nodes, ${named} lines)`, nodes.length > 0 && named > 0 && !badMap.length, badMap.join(' | ') || `${nodes.length} nodes`);
+      check('M2b-v13', `map: every elite and dungeon node's tooltip has its Deathblow line exactly when mapView gives one, "Has a Deathblow: one huge hit you must stop." (D150 item 23) (${nodes.length} nodes, ${named} lines)`, nodes.length > 0 && named > 0 && !badMap.length, badMap.join(' | ') || `${nodes.length} nodes`);
       // the fight: Bargh the Drowned King, its engage round
       await page.evaluate((id) => window.__ui.dev('fight', { ids: [id] }), P_ELITE); await idle(page); await page.mouse.move(2, 2);
       s = await twin();
@@ -3388,19 +3419,17 @@ async function partP(browser, W, H) {
       let d = await pDom(page);
       await shot(page, 'P-engage');
       let bad = w ? pTelegraph(d, w, { target: true }) : ['no Deathblow in windupView'];
-      check('M2b-v13', `engage round: the Deathblow over ${w && w.enemy} ("Deathblow R${w && w.round} ≈ ${w && w.est} MAIMS if it lands"), its chip, target row and ruler round = R.windupView`, !bad.length, bad.join(' | '));
+      check('M2b-v13', `engage round: the Deathblow over ${w && w.enemy} ("Deathblow R${w && w.round} MAIMS if it lands"), its chip and target row = R.windupView`, !bad.length, bad.join(' | '));
       // the answers: engage cards and the names on the line = windupView's engage answers (keys; sure)
       const eng = w.answers.filter((a) => a.via === 'engage');
       const wantCards = [...new Set(eng.map((a) => a.id))].map((id) => `${id}:${eng.some((a) => a.id === id && a.sure) ? 'sure' : 'chance'}`).sort().join(' ');
-      const sawCards = d.cards.filter((c) => c.db && c.tag).map((c) => `${c.opt}:${c.db}`).sort().join(' ');
+      // D150 item 2: the cards that answer it keep their crimson mark (data-db, .db-ans), with no tag or text; no alert box
+      const sawCards = d.cards.filter((c) => c.db && c.mark && !c.tag && !c.dbc).map((c) => `${c.opt}:${c.db}`).sort().join(' ');
       const L = d.np.find((x) => x.idx === w.u).wub;
-      const wantNames = eng.filter((a) => a.now).slice(0, 3).map((a) => `${pKey(s, a)} ${a.name}${a.sure ? '' : ' ?'}`);
-      const sawNames = L.answers.map((a) => a.text.replace(/\s+/g, ' '));
-      const alert = d.alert.find((a) => a.u === w.u && a.turn === w.turn);
-      check('M2b-v13', `answers: the engage cards marked "Deathblow" (${wantCards}) and the answers on the line (${wantNames.join(', ')}) = windupView's engage answers; ready ${w.ready}, the panel's alert says so`,
-        eng.length > 0 && sawCards === wantCards && wantNames.every((n) => sawNames.includes(n)) && w.ready && L.ready === '1' && !L.no && alert && alert.ready === '1' && alert.text.includes(pMaims(w)) && alert.text.includes(`≈ ${w.est}`),
-        `cards ${sawCards} | line ${JSON.stringify(sawNames)} | alert ${JSON.stringify(alert)}`);
-      check('M2b-v13', 'engage round: the turn prompt names the Deathblow and its first answer with its key', !!d.prompt && d.prompt.kind === 'deathblow' && d.prompt.text.includes(`Deathblow in R${w.round}: answer with ${pKey(s, eng.find((a) => a.now && a.sure) || eng[0])}`), JSON.stringify(d.prompt));
+      check('M2b-v13', `the engage cards that stop it marked (${wantCards}) = windupView's engage answers; ready ${w.ready}; no Deathblow box in the panel, no answers on the line`,
+        eng.length > 0 && sawCards === wantCards && w.ready && L.ready === '1' && !L.no && !L.answers.length && d.alert.length === 0, `cards ${JSON.stringify(d.cards)} | line ${JSON.stringify(L)} | alert ${JSON.stringify(d.alert)}`);
+      const first = [...eng.filter((a) => a.now)].sort((p, q) => (q.sure ? 1 : 0) - (p.sure ? 1 : 0))[0] || eng[0];
+      check('M2b-v13', `engage round: the turn prompt says it once: "${pHead(w)} ${first.name} now ${pKey(s, first)}..."`, !!d.prompt && d.prompt.kind === 'deathblow' && d.prompt.text.includes(pHead(w)) && d.prompt.text.includes(`${first.name} now ${pKey(s, first)}`), JSON.stringify(d.prompt));
       // the autoplay hint (rule E2): Z on, the line, Z off before autoplay acts (its delay held long for the reading)
       await page.evaluate(() => { window.__ui.settings.set('autoDelay', 9000); window.__ui.settings.set('speed', 1); });
       await page.keyboard.press('KeyZ');
@@ -3412,8 +3441,8 @@ async function partP(browser, W, H) {
       await page.waitForFunction(() => window.__ui.view().autoplay === false, null, { timeout: 4000 }); await idle(page);
       await page.evaluate(() => { window.__ui.settings.set('speed', 0); window.__ui.settings.set('autoDelay', 350); });
       const stillEngage = R.isEngageRound(await twin());
-      check('M2b-v13', `autoplay on in the engage round: "Autoplay will answer the Deathblow with ${ae && ae.name}" (R.autoplayEngage); off again before it acts`,
-        !!ae && !!d.prompt && d.prompt.kind === 'auto-db' && d.prompt.text.includes(`Autoplay will answer the Deathblow with ${ae.name}`) && stillEngage, `${JSON.stringify(d.prompt)}; autoplayEngage ${JSON.stringify(ae && ae.name)}; still the engage round ${stillEngage}`);
+      check('M2b-v13', `autoplay on in the engage round: "Autoplay will stop the Deathblow with ${ae && ae.name}" (R.autoplayEngage); off again before it acts`,
+        !!ae && !!d.prompt && d.prompt.kind === 'auto-db' && d.prompt.text.includes(`Autoplay will stop the Deathblow with ${ae.name}`) && stillEngage, `${JSON.stringify(d.prompt)}; autoplayEngage ${JSON.stringify(ae && ae.name)}; still the engage round ${stillEngage}`);
       // round 2: nothing on the bar answers it by round 3 (windupView ready false): "No answer ready" in red
       const potBefore = R.potionInfo(s, 'healing_draught');
       await page.keyboard.press('KeyX'); await idle(page); await page.mouse.move(2, 2);
@@ -3422,8 +3451,9 @@ async function partP(browser, W, H) {
       d = await pDom(page);
       const L2 = w2 && d.np.find((x) => x.idx === w2.u).wub;
       const red = (c) => { const m = /rgba?\((\d+), (\d+), (\d+)/.exec(c || ''); return !!m && Number(m[1]) >= 200 && Number(m[2]) < 110 && Number(m[3]) < 110; };
-      check('M2b-v13', `round 2: windupView ready ${w2 && w2.ready}: the line says "No answer ready" in red, and so does the turn prompt`,
-        !!w2 && !w2.ready && !!L2 && L2.text.includes('No answer ready') && red(L2.no) && L2.ready === '' && !!d.prompt && d.prompt.kind === 'deathblow-no' && /No answer ready/i.test(d.prompt.text), `${JSON.stringify(L2)}; prompt ${JSON.stringify(d.prompt)}`);
+      // D150 item 2: "No answer ready" is the prompt's (the line keeps its stakes only)
+      check('M2b-v13', `round 2: windupView ready ${w2 && w2.ready}: the turn prompt says "${pHead(w2 || w)} No answer ready: kill it first or brace for it."; the line no instruction`,
+        !!w2 && !w2.ready && !!L2 && !L2.text.includes('No answer ready') && L2.ready === '' && !!d.prompt && d.prompt.kind === 'deathblow-no' && d.prompt.text.includes(`${pHead(w2)} No answer ready: kill it first or brace for it.`), `${JSON.stringify(L2)}; prompt ${JSON.stringify(d.prompt)}; red ${typeof red}`);
       // it lands: MAIMED, the cut potion amount, "+100 %" on the enemy, the log
       for (let n = 0; n < 3; n++) { const t = await twin(); if (t.fight.p.st.some((x) => x.id === 'MAIMED')) break; await page.keyboard.press('KeyX'); await idle(page); }
       await page.mouse.move(2, 2); await page.waitForTimeout(150);
@@ -3466,9 +3496,10 @@ async function partP(browser, W, H) {
       const slot = spell ? s.player.bar.indexOf(spell.id) : -1;
       const b1 = d.bar.find((x) => x.slot === slot);
       // M2b v14 (UI need 2): a lone elite: Sap is sure if you wait (windupView `wait`): its card "wait" with the engine's words
+      // D150 item 2: the card is marked (data-db "wait") and says what Sap does, not how to stop the Deathblow (the prompt's)
       const sapCard = await page.evaluate(() => { const c = document.querySelector('#engage .eg-opt[data-opt="sap"] .eg-dbc'); return c ? c.textContent : ''; });
-      check('M2b-v14', `Rogue, engage round: Sap answers it (sure ${sap && sap.sure}, wait ${sap && sap.wait}): its card "${sap && sap.wait ? 'wait' : 'chance'}"${sap && sap.wait ? ` and "${sapWaitText(sap)}"` : ''}; ${spell && spell.name} (not now) kept for round ${w && w.round}: "R${w && w.round}" on key ${slot + 1}`,
-        !!sap && !sap.sure && d.cards.some((c) => c.opt === 'sap' && c.db === (sap.wait ? 'wait' : 'chance')) && (!sap.wait || sapCard === sapWaitText(sap)) && !!spell && !spell.now && !!b1 && b1.soon && !b1.now && b1.tag === `R${w.round}`, `cards ${JSON.stringify(d.cards)}; card text "${sapCard}"; bar ${JSON.stringify(b1)}`);
+      check('M2b-v14', `Rogue, engage round: Sap stops it (sure ${sap && sap.sure}, wait ${sap && sap.wait}): its card marked "${sap && sap.wait ? 'wait' : 'chance'}" with no instruction text; ${spell && spell.name} (not now) kept for round ${w && w.round}: "R${w && w.round}" on key ${slot + 1}`,
+        !!sap && !sap.sure && d.cards.some((c) => c.opt === 'sap' && c.db === (sap.wait ? 'wait' : 'chance') && c.mark) && sapCard === '' && !!spell && !spell.now && !!b1 && b1.soon && !b1.now && b1.tag === `R${w.round}`, `cards ${JSON.stringify(d.cards)}; card text "${sapCard}"; bar ${JSON.stringify(b1)}`);
       for (let n = 0; n < 4; n++) { s = await twin(); w = (R.windupView(s) || []).find((x) => x.deathblow); if (!w || w.inRounds === 0) break; await page.keyboard.press('KeyX'); await idle(page); }
       await page.mouse.move(2, 2);
       d = await pDom(page);
@@ -3476,15 +3507,15 @@ async function partP(browser, W, H) {
       const b3 = d.bar.find((x) => x.slot === slot);
       const bad = w ? pTelegraph(d, w) : ['no Deathblow'];
       await shot(page, 'P-rogue-now');
-      check('M2b-v13', `Rogue, round ${w && w.round}: the Deathblow plays now; ${spell.name} answers it now (windupView now ${now && now.now}): the bar marks it, the line and the prompt name key ${slot + 1}`,
-        !bad.length && !!now && now.now && !!b3 && b3.now && b3.tag.startsWith('Answer') && d.np.find((x) => x.idx === w.u).wub.answers.some((a) => a.id === spell.id && a.text.startsWith(`${slot + 1} `)) && !!d.prompt && d.prompt.text.includes(`Deathblow now: answer with ${slot + 1} ${spell.name}`),
+      check('M2b-v13', `Rogue, round ${w && w.round}: the Deathblow plays now; ${spell.name} stops it now (windupView now ${now && now.now}): the bar marks it ("Stop"), the prompt names key ${slot + 1}`,
+        !bad.length && !!now && now.now && !!b3 && b3.now && b3.tag.startsWith('Stop') && !!d.prompt && d.prompt.text.includes(`${pHead(w)} ${spell.name} now ${slot + 1}.`),
         `${bad.join(' | ')}; bar ${JSON.stringify(b3)}; prompt ${JSON.stringify(d.prompt)}`);
       await page.keyboard.press(`Digit${slot + 1}`); await idle(page);
       s = await twin();
       const st = s.fight && s.fight.enemies[w.u].st.find((x) => x.id === 'STAGGERED');
       const log = await logLines(page);
-      check('M2b-v13', `key ${slot + 1}: the Deathblow is answered (STAGGERED in the engine), the log says "Deathblow answered: ... stopped by your ${spell.name}", no MAIMED`,
-        !!st && !s.fight.p.st.some((x) => x.id === 'MAIMED') && log.some((l) => l.startsWith(`Deathblow answered: ${w.enemy}'s ${w.name} is stopped by your ${spell.name}.`)) && !(await pDom(page)).maim, log.slice(-3).join(' / '));
+      check('M2b-v13', `key ${slot + 1}: the Deathblow is stopped (STAGGERED in the engine), the log says "Deathblow stopped: ... by your ${spell.name}", no MAIMED`,
+        !!st && !s.fight.p.st.some((x) => x.id === 'MAIMED') && log.some((l) => l.startsWith(`Deathblow stopped: ${w.enemy}'s ${w.name} by your ${spell.name}.`)) && !(await pDom(page)).maim, log.slice(-3).join(' / '));
     } catch (e) {
       await shot(page, 'P-error-rogue');
       check('-', 'part P (Rogue) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
@@ -3510,16 +3541,17 @@ async function partP(browser, W, H) {
       await page.keyboard.press('KeyZ');
       await page.waitForFunction(() => window.__ui.view().autoplay === false, null, { timeout: 4000 }); await idle(page);
       await page.evaluate(() => { window.__ui.settings.set('speed', 0); window.__ui.settings.set('autoDelay', 350); });
-      check('M2b-v14', `Rogue, autoplay on in the engage round: "Autoplay will answer the Deathblow with Sap, then wait a round" (R.autoplayEngage wait ${ae && ae.wait})`,
-        !!ae && ae.option === 'sap' && ae.wait === true && !!d.prompt && d.prompt.kind === 'auto-db' && d.prompt.text.includes('Autoplay will answer the Deathblow with Sap, then wait a round') && R.isEngageRound(await twin()), `${JSON.stringify(d.prompt)}; autoplayEngage ${JSON.stringify(ae)}`);
+      check('M2b-v14', `Rogue, autoplay on in the engage round: "Autoplay will stop the Deathblow with Sap, then wait a round" (R.autoplayEngage wait ${ae && ae.wait})`,
+        !!ae && ae.option === 'sap' && ae.wait === true && !!d.prompt && d.prompt.kind === 'auto-db' && d.prompt.text.includes('Autoplay will stop the Deathblow with Sap, then wait a round') && R.isEngageRound(await twin()), `${JSON.stringify(d.prompt)}; autoplayEngage ${JSON.stringify(ae)}`);
       // Sap (its key on the engage panel), then round 2: Pass is the answer
       const sapKey = ['Q', 'W', 'E'][(R.engageOptions(s) || []).findIndex((o) => o.id === 'sap')];
       // QA 2026-11-12: the manual prompt in the engage round says Sap is sure if you wait, as the line and the card do (not "(a chance)")
       await page.mouse.move(2, 2); await page.waitForTimeout(100);
       d = await pDom(page);
-      const sapW = ((R.windupView(s) || []).find((x) => x.deathblow) || { answers: [] }).answers.find((a) => a.id === 'sap');
-      check('M2b-v14', `Rogue, engage round, autoplay off: the turn prompt reads "answer with ${sapKey} Sap, then wait (Pass next round)", no "(a chance)" (windupView Sap wait ${sapW && sapW.wait})`,
-        !!sapW && sapW.wait && !!d.prompt && d.prompt.kind === 'deathblow' && d.prompt.text.includes(`answer with ${sapKey} Sap, then wait (Pass next round)`) && !d.prompt.text.includes('a chance'), JSON.stringify(d.prompt));
+      const wS = (R.windupView(s) || []).find((x) => x.deathblow) || { answers: [] };
+      const sapW = wS.answers.find((a) => a.id === 'sap');
+      check('M2b-v14', `Rogue, engage round, autoplay off: the turn prompt reads "${wS.round ? pHead(wS) : ''} Sap now ${sapKey}, then Pass X.", no "(a chance)" (windupView Sap wait ${sapW && sapW.wait})`,
+        !!sapW && sapW.wait && !!d.prompt && d.prompt.kind === 'deathblow' && d.prompt.text.includes(`${pHead(wS)} Sap now ${sapKey}, then Pass X.`) && !d.prompt.text.includes('a chance'), JSON.stringify(d.prompt));
       await page.keyboard.press(`Key${sapKey}`); await idle(page);
       const t0 = await twin();
       if (R.isEngageRound(t0)) { await page.locator(`#nameplates .np[data-idx="${ae.target}"]`).click().catch(() => {}); await idle(page); }
@@ -3531,16 +3563,16 @@ async function partP(browser, W, H) {
       const passBtn = await page.evaluate(() => { const b = [...document.querySelectorAll('.ctrl .btn')].find((x) => /^Pass/.test(x.textContent)); return b ? { ring: b.classList.contains('db-now'), db: b.dataset.db || '' } : null; });
       const L = w && d.np.find((x) => x.idx === w.u);
       await shot(page, 'P-rogue-wait');
-      check('M2b-v14', `Rogue, round ${s.fight && s.fight.round} after Sap: windupView's PASS answer (now ${pa && pa.now}, stealth ${pa && pa.stealth}): the Pass button has the answer ring, the line names "X Pass", the prompt says to wait`,
-        !!pa && pa.now && w.ready && !!passBtn && passBtn.ring && passBtn.db === 'now' && !!L && !!L.wub && L.wub.answers.some((a) => a.via === 'pass' && a.text.startsWith('X Pass'))
-          && !!d.prompt && d.prompt.kind === 'deathblow' && d.prompt.text.includes(`Deathblow in R${w.round}: wait with X Pass: Sap stops it${pa.stealth ? ', and you stay hidden' : ''}`),
+      check('M2b-v14', `Rogue, round ${s.fight && s.fight.round} after Sap: windupView's PASS answer (now ${pa && pa.now}): the Pass button has the answer ring, the prompt says it once ("${w ? pHead(w) : ''} Pass X. Attacking breaks Sap."), the line no instruction`,
+        !!pa && pa.now && w.ready && !!passBtn && passBtn.ring && passBtn.db === 'now' && !!L && !!L.wub && !L.wub.answers.length && !L.wub.warn
+          && !!d.prompt && d.prompt.kind === 'deathblow' && d.prompt.text.includes(`${pHead(w)} Pass X. Attacking breaks Sap.`) && !/hidden/.test(d.prompt.text),
         `pass ${JSON.stringify(passBtn)}; line ${JSON.stringify(L && L.wub && L.wub.answers)}; prompt ${JSON.stringify(d.prompt)}; answer ${JSON.stringify(pa)}`);
       // QA 2026-11-12 (finding 2): until Sap cancels it, "If you wait" (not ANSWERED) on its chip, its row and the ruler; attacking warned
-      const wChip = L && L.chips.find((c) => c.turn === w.turn); const wRow = d.rows.find((r) => r.turn === w.turn); const wCol = d.ruler.find((c) => c.round === w.round);
-      check('QA-2026-11-12', `Rogue, waiting round: the Deathblow's chip, target row and ruler say "If you wait" (the row "Sapped: answered if you wait"), not ANSWERED; the line and the prompt warn "${P_WARN}"; the attack button is marked "Breaks Sap"`,
-        !!wChip && wChip.ribbon === 'IF YOU WAIT' && wChip.soft === 'wait' && !!wRow && wRow.soft === 'wait' && wRow.flag === 'If you wait' && wRow.text.includes('answered if you wait') && !/Answered/.test(wRow.flag)
-          && (w.round > 5 || (!!wCol && wCol.wu === 'If you wait')) && L.wub.warn.includes(P_WARN) && d.prompt.text.includes(P_WARN) && !!d.attack && d.attack.sap && d.attack.tag === 'Breaks Sap',
-        `chip ${JSON.stringify(wChip)}; row ${JSON.stringify(wRow)}; ruler ${JSON.stringify(wCol)}; warn "${L && L.wub && L.wub.warn}"; prompt ${JSON.stringify(d.prompt)}; attack ${JSON.stringify(d.attack)}`);
+      const wChip = L && L.chips.find((c) => c.turn === w.turn); const wRow = d.rows.find((r) => r.turn === w.turn);
+      check('QA-2026-11-12', 'Rogue, waiting round: the Deathblow\'s chip and target row say "If you wait" (the row "Sapped: stopped if you wait"), not STOPPED; the prompt warns "Attacking breaks Sap." (D150: once); the attack button is marked "Breaks Sap"',
+        !!wChip && wChip.ribbon === 'IF YOU WAIT' && wChip.soft === 'wait' && !!wRow && wRow.soft === 'wait' && wRow.flag === 'If you wait' && wRow.text.includes('stopped if you wait') && !/Stopped/.test(wRow.flag)
+          && d.prompt.text.includes('Attacking breaks Sap.') && !!d.attack && d.attack.sap && d.attack.tag === 'Breaks Sap',
+        `chip ${JSON.stringify(wChip)}; row ${JSON.stringify(wRow)}; prompt ${JSON.stringify(d.prompt)}; attack ${JSON.stringify(d.attack)}`);
       await page.keyboard.press('KeyX'); await idle(page);
       s = await twin();
       const e = s.fight && s.fight.enemies[w.u];
@@ -3551,7 +3583,7 @@ async function partP(browser, W, H) {
       await page.mouse.move(2, 2);
       const d3 = await pDom(page); const L3 = d3.np.find((x) => x.idx === w.u);
       check('QA-2026-11-12', 'once Sap has cancelled it: no "If you wait" on the chips or rows, no warning on the line or the prompt, the attack button unmarked',
-        !!L3 && !L3.chips.some((c) => c.soft) && !d3.rows.some((r) => r.soft) && !(L3.wub && L3.wub.warn) && !(d3.prompt && d3.prompt.text.includes(P_WARN)) && !!d3.attack && !d3.attack.sap,
+        !!L3 && !L3.chips.some((c) => c.soft) && !d3.rows.some((r) => r.soft) && !(L3.wub && L3.wub.warn) && !(d3.prompt && /breaks Sap/.test(d3.prompt.text)) && !!d3.attack && !d3.attack.sap,
         `chips ${JSON.stringify(L3 && L3.chips)}; rows ${JSON.stringify(d3.rows)}; line ${JSON.stringify(L3 && L3.wub)}; prompt ${JSON.stringify(d3.prompt)}; attack ${JSON.stringify(d3.attack)}`);
     } catch (e) {
       await shot(page, 'P-error-rogue-wait');
@@ -3584,7 +3616,7 @@ async function partP(browser, W, H) {
       await page.keyboard.press('KeyW'); await idle(page); await page.mouse.move(2, 2);
       const d = await pDom(page);
       const L = d.np.map((x) => x.wub).find((w) => w && w.db);
-      check('M2b-v13', 'dungeon boss, Disrupt (key W) answers the Deathblow: the line over it reads "Disrupt: answered"', !!L && L.text.includes('Disrupt: answered') && !L.text.includes('your trap'), JSON.stringify(L));
+      check('M2b-v13', 'dungeon boss, Disrupt (key W) stops the Deathblow: the line over it reads "Disrupt: stopped"', !!L && L.text.includes('Disrupt: stopped') && !L.text.includes('your trap'), JSON.stringify(L));
     } catch (e) {
       check('-', 'part P (Disrupt) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
     }
@@ -3624,7 +3656,7 @@ async function partP(browser, W, H) {
       const np = d.np.find((x) => x.idx === w.u); const chip = np && np.chips.find((c) => c.turn === w.turn); const row = d.rows.find((r) => r.turn === w.turn);
       check('QA-2026-11-12', `health ${t.player.hp} under the Deathblow's estimate ${w.est}: LETHAL on the line, its chip, its row and the prompt; MAIMED: the prompt's heal hint "+${pot && pot.heal} (maimed)" = R.potionInfo (maim ${pot && pot.maim})`,
         w.est >= t.player.hp && !!np && !!np.wub && np.wub.lethal === '1' && np.wub.text.includes('LETHAL') && !!chip && chip.lethal === '1' && !!row && row.lethal === '1' && row.text.includes('Lethal')
-          && !!d.prompt && d.prompt.lethal === '1' && d.prompt.text.includes('LETHAL Deathblow in R') && !!pot && pot.maim > 0 && slot >= 0 && d.prompt.text.includes(`${['8', '9', '0'][slot]} Healing Draught +${pot.heal} (maimed)`),
+          && !!d.prompt && d.prompt.lethal === '1' && d.prompt.text.includes(`LETHAL ${pHead(w)}`) && !!pot && pot.maim > 0 && slot >= 0 && d.prompt.text.includes(`${['8', '9', '0'][slot]} Healing Draught +${pot.heal} (maimed)`),
         JSON.stringify({ wub: np && np.wub, chip, row, prompt: d.prompt, pot, slot }));
     } catch (e) {
       await shot(page, 'P-error-lethal');
@@ -3650,10 +3682,11 @@ async function partP(browser, W, H) {
       const d = await pDom(page);
       await shot(page, 'P-pet-deathblow');
       const np = d.np.find((x) => x.idx === u); const row = d.rows.find((r) => r.turn === w.turn);
-      check('QA-2026-11-12', `a Deathblow aimed at the pet (windupView target ${w.target}, maims ${w.maims}, Send the Pet an answer): the line, the row and the alert say "MAIMS you if it hits your pet" and "≈ ${w.est} to your pet"; no LETHAL`,
+      // D150 item 2: no alert box; the line and the row say what happens, the prompt "about N on your pet"
+      check('QA-2026-11-12', `a Deathblow aimed at the pet (windupView target ${w.target}, maims ${w.maims}, Send the Pet an answer): the line and the row say "MAIMS you if it hits your pet", the prompt "${pHead(w)}"; no LETHAL`,
         w.target === 'pet' && w.maims && w.answers.some((a) => a.id === 'send_pet') && !!np && !!np.wub && np.wub.text.includes('MAIMS you if it hits your pet') && np.wub.text.includes('your pet') && !np.wub.lethal
-          && !!row && row.text.includes('MAIMS you if it hits your pet') && d.alertText.includes(`≈ ${w.est} to your pet`) && d.alertText.includes('MAIMS you if it hits your pet'),
-        JSON.stringify({ wub: np && np.wub, row, alert: d.alertText }));
+          && !!row && row.text.includes('MAIMS you if it hits your pet') && !d.alertText && !!d.prompt && d.prompt.text.includes(pHead(w)),
+        JSON.stringify({ wub: np && np.wub, row, prompt: d.prompt }));
     } catch (e) {
       await shot(page, 'P-error-pet');
       check('-', 'part P (pet Deathblow) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / '));
@@ -4210,7 +4243,10 @@ async function partR(browser, W, H) {
         badSlot >= 0 && refused.toasts.length <= 2 && refused.toasts.includes(why) && !/_/.test(why) && why.includes(R.C.SPELL[fv.bar[badSlot]].name) && refused.round === 1, JSON.stringify(refused));
       const cleared = await clearCoach(page);
       const p2 = await tp(page);
-      check('D142-2', 'with no coach line up, the turn prompt shows "Opening move" again', cleared && p2.kind === 'engage' && p2.shown && /Opening move/.test(p2.text), JSON.stringify(p2));
+      // D150 item 3: the engage round's choice is the engage panel's ("Free first move. They act from round 2."): the prompt
+      // stays out of the engage round with no coach line up too, and the panel's head is back
+      const head2 = await page.evaluate(() => { const e = document.querySelector('#engage .eg-h'); return e && getComputedStyle(e).display !== 'none' ? e.textContent : null; });
+      check('D142-2', 'with no coach line up: no turn prompt line in the engage round (D150 item 3), and the engage panel says "Free first move. They act from round 2."', cleared && p2.kind === 'engage' && !p2.shown && head2 === 'Free first move. They act from round 2.', JSON.stringify({ p2, head2 }));
       await page.keyboard.press(`Digit${key}`); await idle(page);
       const after = await page.evaluate(() => { const v = window.__ui.view(); const log = window.__ui.engineLog(); return { round: v.combat ? v.combat.round : null, over: v.combat ? v.combat.over : null, last: log[log.length - 1] }; });
       check('D142-4b', `the key G3 names (${key}) plays the round: CAST ${fv.bar[Number(key) - 1]}`, after.last && after.last.type === 'CAST' && after.last.spellId === fv.bar[Number(key) - 1] && (after.round > 1 || !!after.over), JSON.stringify(after));
@@ -4298,9 +4334,9 @@ async function partR(browser, W, H) {
       await shot(page, 'R-joint-followed');
       check('D147-2', `following the joint line: W sends ENGAGE ${ctl} on the ${hex && hex.name}; G7 and G8 are then learned (its wind-up answered, staggered), no "It landed" line`,
         !!sent && sent.type === 'ENGAGE' && sent.option === ctl && sent.target === hex.idx && t.learned.includes('G7') && t.learned.includes('G8') && !co.log.some((x) => x.id === 'G8.landed')
-        && log.some((x) => /^Wind-up answered/.test(x)), `${JSON.stringify(sent)} learned ${t.learned} lines ${co.log.filter((x) => x.kind === 'beat').map((x) => x.id).join(',')}`);
+        && log.some((x) => /^Wind-up stopped/.test(x)), `${JSON.stringify(sent)} learned ${t.learned} lines ${co.log.filter((x) => x.kind === 'beat').map((x) => x.id).join(',')}`);
       check('D147-2', 'D149: W answers the wind-up in its own step: the stagger in the log and G7 and G8 learned before the next action',
-        !!sent && wStep.learned.includes('G7') && wStep.learned.includes('G8') && wLog.some((x) => /^Wind-up answered/.test(x)), `${JSON.stringify(wStep)} log ${JSON.stringify(wLog.slice(-4))}`);
+        !!sent && wStep.learned.includes('G7') && wStep.learned.includes('G8') && wLog.some((x) => /^Wind-up stopped/.test(x)), `${JSON.stringify(wStep)} log ${JSON.stringify(wLog.slice(-4))}`);
     } catch (e) { await shot(page, 'R-error-8'); check('D147-2', 'part R (8, the joint line followed) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('D147-2', 'part R (8, the joint line followed): no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
@@ -4321,7 +4357,8 @@ async function partR(browser, W, H) {
  *       D144-9: a guided fight's node says so, not the ring's band.
  *   S2  at 1x: the camp's Set out, the hub's toasts under the zone banner (item 6); the hub's Set out: no coach line while
  *       the hero walks out, "Click a lit node" once the map shows (item 2).
- *   S3  zone 2 and 3 (Dev menu): every elite's tooltip (item 3); the Moves list one column in the map (item 5); a bag
+ *   S3  zone 2 and 3 (Dev menu): every elite's tooltip (item 3); no Moves list, the Pass through offer on its node inside
+ *       the map (D150 items 6-10, was the Moves list in one column, item 5); a bag
  *       item's tooltip goes with the bags (item 4); the bag menu beside the grid (item 6); bag slots stay put (item 9); the
  *       Bell asks first (item 8); the rim names apart on a state where they would meet (item 5). D144-5: every elite at its
  *       own level, with its gap to the player's.
@@ -4330,8 +4367,8 @@ async function partR(browser, W, H) {
  *   S5  fights at 1x (Dev menu): a refused key answers at once, also while a round plays, in words (energy, mana); the flee
  *       ask stays until answered, F and the button alike, a refused flee says why (item 7); a level-up banner clear of the
  *       fight's panels; the enemy's Deathblow headline clear of the coach line; the death screen clear of the panels (item 6).
- *       D144-7: one flight, one log line; D144-11: Rime Burst's answer gives its hit chance over the enemy, its tooltip the
- *       chance on each enemy.
+ *       D144-7: one flight, one log line; D144-11: Rime Burst's answer gives its hit chance in the Deathblow's tooltip (D150
+ *       item 2: no answers over the enemy), its spell tooltip the chance on each enemy.
  * The D144-n checks are the UI needs n of docs/handoffs/engine-2026-11-13d.md section 4 (D144-10 is in part M's reward):
  *   S6  a zone 2 map (Dev menu, seed 8748): a Grind's tooltip on the expedition map (one wave), the ring's band only for a
  *       node of unknown level, an unguarded chest's gold and loot in the log only after "Open the chest", the tracker's
@@ -4387,7 +4424,7 @@ async function partS(browser, W, H) {
         if (!hub1 && st.phase === 'ZONE_HUB' && st.z === 1) {
           hub1 = await page.evaluate(() => {
             const v = window.__ui.view(); const card = [...document.querySelectorAll('#screens .svc-card')].find((e) => e.querySelector('.nm').textContent === 'Trainer');
-            return { zone: v.zone.name, tv: v.trainer, log: [...document.querySelectorAll('#combatlog .lines .lg-sys')].map((e) => e.textContent), card: card ? card.querySelector('.meta').textContent : null };
+            return { zone: v.zone.name, tv: v.trainer, log: [...document.querySelectorAll('#combatlog .lines .lg-sys')].map((e) => e.textContent), card: card ? card.querySelector('.meta').textContent : null, off: !!card && card.classList.contains('off'), toll: !!card && !!card.querySelector('.hrs') };
           });
         }
         // a guided fight's node (D144, UI need 9): "guided fight", not the ring's band, once its level is known
@@ -4441,8 +4478,8 @@ async function partS(browser, W, H) {
         && !!closed.roadTip && closed.roadTip.includes(T.beats.find((b) => b.id === 'G13').alt.closed), JSON.stringify(closed && { want: closed.want, marks: closed.marks, tip: closed.roadTip }));
       check('D143-1', 'the closed line shown and put away does not count for the Bell\'s hint H19 (no showing, not seen)', !!closed && !closed.h19.seen && closed.h19.shows === 0, JSON.stringify(closed && closed.h19));
       check('D143-1', `a toast when the Roads open ("${T.guide.roadsOpenLine}")`, Array.isArray(roadsOpened) && roadsOpened.some((x) => x.startsWith(T.guide.roadsOpenLine)), JSON.stringify(roadsOpened));
-      check('S-3', 'Gorrak\'s barred node next to the player has a tooltip: Elite, its Deathblow, the gate line, no "Click to enter", no error', !!barredTip && !!barredTip.text && /^Elite/.test(barredTip.text) && /Deathblow/.test(barredTip.text) && barredTip.text.includes('Gorrak is out on the downs') && !/Click to enter/.test(barredTip.text) && barredTip.errors === 0, JSON.stringify(barredTip));
-      check('S-5', 'the Furnace header fits its frame when the Dimming sets the state ("· Dimming")', !!furnace && furnace.sw <= furnace.cw + 1 && furnace.inside && /Dimming/.test(furnace.text), JSON.stringify(furnace));
+      check('S-3', `Gorrak's barred node next to the player has a tooltip: Elite, "${DB_LINE}" (D150 item 23), the gate line, no "Click to enter", no "Not here yet.", no error`, !!barredTip && !!barredTip.text && /^Elite/.test(barredTip.text) && barredTip.text.includes(DB_LINE) && barredTip.text.includes('Gorrak is out on the downs') && !/Click to enter|Not here yet/.test(barredTip.text) && barredTip.errors === 0, JSON.stringify(barredTip));
+      check('S-5', 'the Furnace header fits its frame when the Dimming sets the state: "State · N tolls to spare" or "overspent", no "Dimming" (D150 items 1, 25)', !!furnace && furnace.sw <= furnace.cw + 1 && furnace.inside && /^(Calm|Smouldering|Blazing|Scorched|Warm|Hot|Clear)\s*·\s*(\d+ tolls? (to spare|overspent)|No tolls to spare)/.test(furnace.text) && !/Dimming/.test(furnace.text), JSON.stringify(furnace));
       check('S-9', 'a reward that is an upgrade offers "Equip now": one click sends CHOOSE_REWARD then EQUIP of that item, and it is worn', !!eqNow && eqNow.acts.length === 2 && /^CHOOSE_REWARD/.test(eqNow.acts[0]) && eqNow.acts[1] === `EQUIP:${eqNow.uid}` && eqNow.worn, JSON.stringify(eqNow));
       check('S-10', `no wind-up line over an enemy prints "null" (${wub.length} seen, ${wub.filter((x) => !/Deathblow/.test(x)).length} not a Deathblow, to ${z2Steps} steps into zone 2)`, plainWu() && !wub.some((x) => /null/.test(x)), [...new Set(wub)].slice(0, 6).join(' | '));
       check('S-1', 'the guided run reached zone 2', zone2, '');
@@ -4451,7 +4488,7 @@ async function partS(browser, W, H) {
       const hubWant = hub1 ? fillLine(hub1.tv && !hub1.tv.useful ? T.guide.hubLine : T.guide.hubTrainerLine, { zone: hub1.zone }).text : null;
       check('D144-1', `the first hub's welcome line follows R.trainerView (useful ${hub1 && hub1.tv ? hub1.tv.useful : '?'}): "${hubWant}"; no "Visit the trainer" with nothing to learn`,
         !!hub1 && !!hub1.tv && hub1.tv.useful === false && hub1.log.includes(hubWant) && !hub1.log.some((x) => /Visit the trainer/.test(x)), JSON.stringify(hub1));
-      check('D144-1', `the first hub's Trainer card: "Nothing new to learn yet (next spell at level ${hub1 && hub1.tv ? hub1.tv.next : '?'})"`, !!hub1 && !!hub1.tv && hub1.card === `Nothing new to learn yet (next spell at level ${hub1.tv.next})`, JSON.stringify(hub1 && hub1.card));
+      check('D144-1', `the first hub's Trainer card is greyed, no toll: "Next spell at level ${hub1 && hub1.tv ? hub1.tv.next : '?'}." (D150 item 22)`, !!hub1 && !!hub1.tv && hub1.card === `Next spell at level ${hub1.tv.next}.` && hub1.off && !hub1.toll, JSON.stringify(hub1 && { card: hub1.card, off: hub1.off, toll: hub1.toll }));
       check('D144-9', 'a guided fight\'s node with its level known: its tooltip says "guided fight", not the ring\'s level band', !!guidedTip && !!guidedTip.tip && /guided fight/.test(guidedTip.tip) && !/levels \d/.test(guidedTip.tip), JSON.stringify(guidedTip));
     } catch (e) { await shot(page, 'S1-error'); check('S-1', 'part S1 (guided run) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('S-1', 'part S1: no console errors', errors.length === 0, errors.join(' | '));
@@ -4491,21 +4528,28 @@ async function partS(browser, W, H) {
     await context.close();
   }
 
-  // ---- S3: zone 2 and 3 on the map (Dev menu): elites, Moves, bags, the Bell, rim names
+  // ---- S3: zone 2 and 3 on the map (Dev menu): elites, Pass through, bags, the Bell, rim names
   {
     const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&fresh=1&guide=0', null, {});
     try {
       await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
       await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 2, level: 12, mapMode: 'expedition', prep: true })); await idle(page);
       await page.evaluate(() => window.__ui.act({ type: 'LEAVE_HUB' })); await idle(page);
-      // the Moves list: one column, every button inside it, its foot inside the map; cut rows fade (more below)
-      const mv = await page.evaluate(() => {
-        const l = document.querySelector('#screens .expmoves'); const w = document.querySelector('#screens .mapwin'); const r = l.getBoundingClientRect(); const wr = w.getBoundingClientRect();
-        const bs = [...l.querySelectorAll('button')].map((b) => b.getBoundingClientRect());
-        return { n: l.querySelectorAll('.em').length, wrap: getComputedStyle(l).flexWrap, inX: bs.every((b) => b.left >= r.left - 0.5 && b.right <= r.right + 0.5), bottom: r.bottom <= wr.bottom + 0.5, over: l.scrollHeight > l.clientHeight + 1, more: l.classList.contains('more-below'), sw: l.scrollWidth, cw: l.clientWidth };
-      });
-      check('S-5', `the map's Moves list (${mv.n} moves): one column, no button cut at the right, its foot inside the map; with more below than it shows, it fades there`, mv.n >= 3 && mv.wrap === 'nowrap' && mv.inX && mv.sw <= mv.cw + 1 && mv.bottom && (!mv.over || mv.more), JSON.stringify(mv));
-      await shot(page, 'S3-moves');
+      // D150 items 6-10: no Moves list on the map; a node that can be walked through offers "Pass through (N tolls)" on
+      // itself while hovered, beside its node and inside the map
+      const passIds = await page.evaluate(() => [...document.querySelectorAll('#screens .expmap .xpass')].map((b) => b.dataset.node));
+      const mv = { list: await page.locator('#screens .expmoves, #screens .em').count(), n: passIds.length, bad: [] };
+      for (const id of passIds) {
+        await page.locator(`#screens .expmap .mnode[data-node="${id}"]`).hover({ force: true }); await page.waitForTimeout(120);
+        const r = await page.evaluate((i) => {
+          const b = document.querySelector(`#screens .expmap .xpass[data-node="${i}"]`); const w = document.querySelector('#screens .mapwin'); const br = b.getBoundingClientRect(); const wr = w.getBoundingClientRect();
+          return { on: b.classList.contains('on') && getComputedStyle(b).display !== 'none', inside: br.left >= wr.left - 0.5 && br.right <= wr.right + 0.5 && br.top >= wr.top - 0.5 && br.bottom <= wr.bottom + 0.5, text: b.firstChild.textContent };
+        }, id);
+        if (!r.on || !r.inside || !/^Pass through \(\d+ tolls?\)$/.test(r.text)) mv.bad.push({ id, ...r });
+        if (!mv.shot) { await shot(page, 'S3-pass'); mv.shot = true; }
+        await page.mouse.move(2, 2); await page.waitForTimeout(300);
+      }
+      check('S-5', `no Moves list on the map (D150 items 6-10); every node that can be passed through (${mv.n}) offers "Pass through (N tolls)" beside it on hover, inside the map`, mv.list === 0 && mv.n >= 1 && !mv.bad.length, JSON.stringify(mv));
       // every elite of zones 2 and 3 has its tooltip (the map revealed)
       const eliteTips = [];
       for (const z of [2, 3]) {
@@ -4514,7 +4558,7 @@ async function partS(browser, W, H) {
         const els = await page.evaluate(() => { const v = window.__ui.view(); return v.zone.exp.nodes.filter((n) => n.type === 'elite').map((n) => ({ id: n.id, level: n.level, cl: n.cl, pl: v.player.level, label: document.querySelector(`#screens .expmap .mnode[data-node="${n.id}"] .cl`).textContent })); });
         for (const x of els) { await page.locator(`#screens .expmap .mnode[data-node="${x.id}"]`).hover({ force: true }); await page.waitForTimeout(120); eliteTips.push({ z, ...x, tip: await tipOn(page) }); await page.mouse.move(2, 2); }
       }
-      check('S-3', `every elite node of zones 2 and 3 shows its tooltip (Elite, its Deathblow): ${eliteTips.length} nodes`, eliteTips.length >= 2 && eliteTips.every((x) => x.tip && /^Elite/.test(x.tip) && /Deathblow/.test(x.tip)), JSON.stringify(eliteTips.filter((x) => !x.tip || !/Deathblow/.test(x.tip))));
+      check('S-3', `every elite node of zones 2 and 3 shows its tooltip (Elite, "${DB_LINE}"): ${eliteTips.length} nodes`, eliteTips.length >= 2 && eliteTips.every((x) => x.tip && /^Elite/.test(x.tip) && x.tip.includes(DB_LINE)), JSON.stringify(eliteTips.filter((x) => !x.tip || !x.tip.includes(DB_LINE))));
       // D144 (engine-2026-11-13d UI need 5; casual: "one level higher" for a level 17 elite at level 10): the elite's own level
       // (mapView `level`, above the node's cl) on the node, in the tooltip, and its gap to the player's level in words
       const gapText = (x) => { const g = x.level - x.pl; return g > 0 ? `${g} level${g === 1 ? '' : 's'} above you` : g < 0 ? `${-g} level${g === -1 ? '' : 's'} below you` : 'your level'; };
@@ -4663,18 +4707,18 @@ async function partS(browser, W, H) {
       await page.evaluate(() => window.__ui.dev('fight', { ids: ['z2_bargh'] })); await idle(page);
       await page.mouse.move(2, 2);
       // the Deathblow hint (H04) on the coach line (hints come with a step: after Sap, W); then Pass (X): its "Deathblow
-      // answered" headline clear of the line
+      // stopped" headline clear of the line (D150: "stopped", not "answered")
       await page.keyboard.press('KeyW'); await idle(page);
       const h04 = (await coach(page)).shown;
       await page.keyboard.press('KeyX');
       let head = null; let co = null;
       for (let i = 0; i < 60 && !head; i++) {
         await page.waitForTimeout(60);
-        const f = (await page.evaluate(() => window.__ui.floats())).floats.filter((x) => /^Deathblow answered/.test(x.text));
+        const f = (await page.evaluate(() => window.__ui.floats())).floats.filter((x) => /^Deathblow stopped/.test(x.text));
         if (f.length) { head = f[0]; co = await box(page, '#coach'); }
       }
       await idle(page);
-      check('S-6', `the enemy's "Deathblow answered" headline keeps clear of the coach line (${h04 ? h04.id : 'no line'})`, !!h04 && !!head && !!co && !meet({ l: head.x0, t: head.y0, r: head.x1, b: head.y1 }, co), JSON.stringify({ head: head && [head.x0, head.y0, head.x1, head.y1].map(Math.round), coach: fmt(co) }));
+      check('S-6', `the enemy's "Deathblow stopped" headline keeps clear of the coach line (${h04 ? h04.id : 'no line'})`, !!h04 && !!head && !!co && !meet({ l: head.x0, t: head.y0, r: head.x1, b: head.y1 }, co), JSON.stringify({ head: head && [head.x0, head.y0, head.x1, head.y1].map(Math.round), coach: fmt(co) }));
       await clearCoach();
       // a refused key: energy too low, also while a round plays: the reason at once, in words, nothing queued
       await load(page, (s0) => { s0.fight.p.energy = 45; s0.fight.p.cds = {}; });
@@ -4721,11 +4765,17 @@ async function partS(browser, W, H) {
       await page.evaluate(() => window.__ui.dev('build', { classId: 'mage', zone: 2, level: 12, mapMode: 'expedition', prep: true })); await idle(page);
       await page.evaluate(() => window.__ui.dev('fight', { ids: ['z2_bargh'] })); await idle(page);
       await page.keyboard.press('KeyX'); await idle(page);
-      // D144 (engine-2026-11-13d UI need 11): an answer that lands only on a hit roll (Rime Burst) shows its chance over the
-      // enemy (windupView answers' `chance`), not "?"; Rime Burst's tooltip gives its chance on every enemy (spellInfo hitAll)
-      const rb = await page.evaluate(() => { const v = window.__ui.view(); const a = (v.combat.windups || []).flatMap((w) => w.answers).find((x) => x.id === 'rime_burst' && typeof x.chance === 'number'); return { chance: a ? a.chance : null, els: [...document.querySelectorAll('#nameplates .ans-o[data-id="rime_burst"]')].map((e) => ({ text: e.textContent, ch: e.dataset.chance })) }; });
+      // D144 (engine-2026-11-13d UI need 11): an answer that lands only on a hit roll (Rime Burst) gives its chance
+      // (windupView answers' `chance`), not "?"; D150 item 2: the line over the enemy lists no answers, the Deathblow's
+      // tooltip does (with the chance), and the turn prompt when Rime Burst is its instruction; Rime Burst's tooltip gives
+      // its chance on every enemy (spellInfo hitAll)
+      const rb = await page.evaluate(() => { const v = window.__ui.view(); const w = (v.combat.windups || []).find((x) => x.answers.some((a) => a.id === 'rime_burst' && typeof a.chance === 'number')); const a = w ? w.answers.find((x) => x.id === 'rime_burst') : null; return { chance: a ? a.chance : null, first: w && w.answers[0] ? w.answers[0].id : null, prompt: document.querySelector('#turnprompt .tp-t').textContent, over: document.querySelectorAll('#nameplates .ans-o, #nameplates .db-a').length }; });
       const rbPc = rb.chance == null ? null : `${Math.round(rb.chance * 100)} %`;
-      check('D144-11', `a wind-up's answer that lands on a hit roll shows its chance over the enemy: "Rime Burst ${rbPc}" (windupView answers' chance), not "?"`, !!rbPc && rb.els.length > 0 && rb.els.every((x) => x.ch === rbPc && x.text.includes(`Rime Burst ${rbPc}`) && !/\?/.test(x.text)), JSON.stringify(rb));
+      const dbBan = page.locator('#nameplates .wub.db:not(.hidden)').first();
+      let dbTip = null;
+      if (await dbBan.count()) { await dbBan.hover(); await page.waitForTimeout(150); dbTip = await tipOn(page); await page.mouse.move(2, 2); }
+      check('D144-11', `a wind-up's answer that lands on a hit roll gives its chance: the Deathblow's tooltip "Rime Burst (${rbPc} to hit)" (windupView answers' chance), the turn prompt too when it is the instruction; no answers over the enemy`,
+        !!rbPc && !!dbTip && dbTip.includes(`Rime Burst (${rbPc} to hit)`) && rb.over === 0 && (rb.first !== 'rime_burst' || rb.prompt.includes(`(${rbPc} to hit)`)), JSON.stringify({ rb, tip: dbTip }));
       const sM = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT);
       const hitAll = R.spellInfo(sM, 'rime_burst', null).hitAll || [];
       const rbSlot = (await page.evaluate(() => window.__ui.view().player.bar)).indexOf('rime_burst');
@@ -4890,6 +4940,269 @@ async function partS(browser, W, H) {
   }
 }
 
+// ------------------------------------------------------------------ part T: the text pass (D150)
+/**
+ * Visible words on the page (D150 word budget): text nodes laid out in the window with no hidden or transparent ancestor,
+ * outside the combat log (a record the player can fold), the toast stack (passing messages), the Dev tab and key chips
+ * (glyphs, not words); a word is a token with a letter in it. { words, text }.
+ */
+const visibleWords = async (page) => { await page.waitForTimeout(700); return page.evaluate(() => { // the panels' fades are over
+  const toks = []; const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); let n;
+  const shown = (el) => { for (let e = el; e && e !== document.documentElement; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) === 0) return false; } return true; };
+  while ((n = w.nextNode())) {
+    const t = n.textContent.trim(); const el = n.parentElement;
+    if (!t || !el || el.closest('script, style, #combatlog, #toasts, #devbtn, #devmenu, #boot, kbd, .kbd, .key, .mk, .k')) continue;
+    const r = el.getBoundingClientRect();
+    if (!(r.width > 0 && r.height > 0) || r.bottom < 0 || r.right < 0 || r.top > innerHeight || r.left > innerWidth || !shown(el)) continue;
+    toks.push(...t.split(/\s+/));
+  }
+  const words = toks.filter((x) => /[A-Za-z]/.test(x));
+  return { words: words.length, text: words.join(' ') };
+}); };
+/** The engage round's and the map's word budgets (D150, the Lead's task: engage under 120, map under 90). */
+const T_ENGAGE_MAX = 120;
+const T_MAP_MAX = 90;
+/** Player text the naming rule drops (D150): par, Ascendancy, the Star's line, Pays, Spoils, ilvl, "you stay hidden", "answered". */
+const T_BANNED = /\bpar\b|Ascendancy|Star's line|\bPays\b|\bSpoils\b|\bilvl\b|stay hidden|\b[Aa]nswered\b|Unlit Star|Resurrect charges/;
+const T_WORDS = {}; // the counts this run measured, printed in the summary line of part T
+
+async function partT(browser, W, H) {
+  const T = CONTENT.tutorial;
+  const coach = (page) => page.evaluate(() => window.__ui.coach());
+  const tipOn = (page) => page.evaluate(() => { const t = document.querySelector('.tooltip'); return t && t.classList.contains('on') ? t.innerText.replace(/ /g, ' ') : null; });
+  const auto = async (page) => { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); };
+  // the Furnace's one line as written (the state's name is upper-cased by style.css): "Calm · 16 tolls to spare", "Boss +N %" after
+  const heatLine = (page) => page.evaluate(() => {
+    const e = document.querySelector('#heat'); if (!e || e.classList.contains('hidden')) return null;
+    const t = (sel) => { const x = e.querySelector(sel); return x && !x.classList.contains('hidden') ? x.textContent.trim() : ''; };
+    return [`${t('.ht-sname')} ${t('.ht-sep')} ${t('.ht-num')}`, t('.ht-boss')].filter(Boolean).join(' ');
+  });
+  const want = (hv) => `${HEAT_WORDS.state[hv.state]} · ${hv.heat > 0 ? `${tolls(hv.heat)} overspent` : hv.heat < 0 ? `${tolls(-hv.heat)} to spare` : 'No tolls to spare'}${Math.round((hv.ascIfPar || 0) * 100) > 0 ? ` Boss +${Math.round(hv.ascIfPar * 100)} %` : ''}`;
+  // ---- T1: the guided first run, Rogue, seed 8736, a new profile (guide and hints on)
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&fresh=1', null, { guide: true, hints: true });
+    try {
+      // class select on a first run: no Seed field, no Echoes button (D150 naming rule)
+      const cs = await page.evaluate(() => ({ seed: !!document.querySelector('#create .bottom .seedf:not(.hidden)'), echoes: !!document.querySelector('#create .bottom .echoes:not(.hidden)'), guide: !!document.querySelector('#create .bottom .guide:not(.hidden)') }));
+      check('D150-naming', 'class select on a first run: no Seed field and no Echoes button; the guide toggle shown', !cs.seed && !cs.echoes && cs.guide, JSON.stringify(cs));
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      const furnaceBefore = []; let furnaceAt = null; let hub = null; let map = null; let engage = null; let elite = null; let elite2 = null; let stopped = null; let map2 = null;
+      for (let i = 0; i < 320; i++) {
+        const st = await page.evaluate(() => {
+          const v = window.__ui.view(); const c = v.combat; const sh = window.__ui.coach().shown; const log = window.__ui.coach().log;
+          return { phase: v.phase, z: v.zone ? v.zone.idx : null, onMap: v.phase === 'MAP' && !!(v.zone && v.zone.exp) && !v.node && !v.loot, fight: !!(c && !c.over && !v.loot && v.node && v.node.step === 'combat'),
+            engage: !!(c && c.engage), elite: !!(c && c.enemies.some((e) => e.rank === 'elite')), round: c ? c.round : null, coach: sh ? sh.id : null,
+            furnaceShown: log.some((x) => x.id === 'G5' || x.id === 'H16'), g5done: !!(v.tutorial && (v.tutorial.done || []).includes('G5')), heatOn: !!document.querySelector('#heat:not(.hidden)'),
+            stopped: !!document.querySelector('#nameplates .wub.stopped:not(.hidden)') };
+        });
+        if (st.z >= 2) break;
+        // D150 item 1: the Furnace waits for its coach line (G5, or H16) in a guided first run
+        if (st.phase !== 'PREP' && st.phase !== 'CREATE') {
+          if (!st.furnaceShown && !st.g5done) furnaceBefore.push({ i, phase: st.phase, on: st.heatOn });
+          else if (!furnaceAt && st.coach && (st.coach === 'G5' || st.coach === 'H16')) {
+            const hv = await page.evaluate(() => window.__ui.view().heat);
+            furnaceAt = { i, coach: st.coach, on: st.heatOn, line: await heatLine(page), want: want(hv), row2: await page.locator('#heat .ht-row2').count(), segText: await page.evaluate(() => [...document.querySelectorAll('#heat .ht-seg')].map((x) => x.textContent).join('')), anchor: await page.evaluate(() => !!document.querySelector('#heat.coach-on')) };
+            await shot(page, 'T1-furnace-line');
+          }
+        }
+        // the first hub: the Trainer with nothing to teach is greyed, no toll, no click; no "Tolls so far"
+        if (!hub && st.phase === 'ZONE_HUB' && st.z === 1) {
+          hub = await page.evaluate(() => {
+            const v = window.__ui.view(); const card = [...document.querySelectorAll('#screens .svc-card')].find((e) => e.querySelector('.nm') && e.querySelector('.nm').textContent === 'Trainer');
+            return { tv: v.trainer, off: !!(card && card.classList.contains('off')), meta: card ? card.querySelector('.meta').textContent : null, toll: card ? !!card.querySelector('.hrs') : null, foot: (document.querySelector('#screens .side .sfoot') || {}).innerText || '', log: window.__ui.engineLog().length };
+          });
+          await page.locator('#screens .svc-card.off').first().click({ force: true }).catch(() => {}); await idle(page);
+          const after = await page.evaluate(() => ({ log: window.__ui.engineLog().length, phase: window.__ui.view().phase, node: !!window.__ui.view().node }));
+          hub.click = after; hub.words = await visibleWords(page);
+          await shot(page, 'T1-hub');
+        }
+        // the first map at rest (the pointer parked): no Moves panel, no zone toll, the tracker without tolls; its word count;
+        // a reachable node's tooltip ("Costs N tolls.") and its "Pass through" button, from the engine's previews
+        if (!map && st.onMap && st.z === 1) {
+          await page.mouse.move(2, 2); await page.waitForTimeout(150);
+          const w = await visibleWords(page);
+          const m = await page.evaluate(() => {
+            const v = window.__ui.view(); const mv = v.zone.exp;
+            const mv0 = mv.moves.find((x) => x.passTime != null && !x.barred && !mv.nodes[x.nodeId].barred && !mv.nodes[x.nodeId].hub) || null;
+            return { moves: document.querySelectorAll('#screens .expmoves').length, sub: (document.querySelector('#screens .mhead .subtitle') || {}).textContent || '', tracker: document.querySelector('#tracker').innerText,
+              node: mv0 ? mv0.nodeId : null, go: mv0 ? (v.heat.next[`MOVE:${mv0.nodeId}`] || {}).time : null, pass: mv0 ? (v.heat.next[`PASS_THROUGH:${mv0.nodeId}`] || {}).time : null };
+          });
+          let tipText = null; let passBtn = null;
+          if (m.node != null) {
+            await page.locator(`#screens .expmap .mnode[data-node="${m.node}"]`).hover({ force: true }); await page.waitForTimeout(150);
+            tipText = await tipOn(page);
+            passBtn = await page.evaluate((id) => { const b = document.querySelector(`#screens .expmap .xpass[data-node="${id}"]`); return b ? { on: b.classList.contains('on') && getComputedStyle(b).display !== 'none', text: b.firstChild.textContent, key: (b.querySelector('.kbd') || {}).textContent || null } : null; }, m.node);
+            await page.mouse.move(2, 2); await page.waitForTimeout(420);
+            passBtn.after = await page.evaluate((id) => { const b = document.querySelector(`#screens .expmap .xpass[data-node="${id}"]`); return !!b && getComputedStyle(b).display !== 'none'; }, m.node);
+          }
+          // the Bell's ask (section 7): its tolls and the fight that comes first, as the engine's preview of RING_BELL says; Stay
+          let bell = null;
+          const bb = page.locator('#screens .mhead .btn[data-leave="RING_BELL"]');
+          if (await bb.count()) {
+            await bb.click(); await idle(page);
+            bell = await page.evaluate(() => { const x = window.__ui.view(); const e = document.querySelector('#screens .leavewarn .lw-bell'); return { p: x.heat.next.RING_BELL || null, text: e ? e.textContent : null }; });
+            await shot(page, 'T1-bell-ask');
+            await page.getByRole('button', { name: 'Stay' }).click(); await idle(page);
+          }
+          map = { w, m, tipText, passBtn, bell };
+          await shot(page, 'T1-map');
+        }
+        // the first engage round (no elite): the word budget, one "free first move", no strip, the cards (item 4), no prompt line
+        if (!engage && st.fight && st.engage && !st.elite) {
+          await page.mouse.move(2, 2); await page.waitForTimeout(120);
+          const w = await visibleWords(page);
+          engage = await page.evaluate(() => {
+            const v = window.__ui.view(); const eh = document.querySelector('#engage .eg-h'); const zz = document.querySelector('#nameplates .np .zz');
+            const amb = document.querySelector('#engage .eg-opt[data-opt="ambush"] .eg-txt');
+            return { head: eh && getComputedStyle(eh).display !== 'none' ? eh.innerText.replace(/\s+/g, ' ').trim() : null, coach: window.__ui.coach().shown, ruler: document.querySelectorAll('#ruler').length, unaware: !!(zz && !zz.classList.contains('hidden')),
+              ambush: amb ? amb.textContent : null, knowsSS: v.player.spells.some((s) => s.id === 'shadowstep_strike'), cards: [...document.querySelectorAll('#engage .eg-txt')].map((x) => x.textContent).join(' | '),
+              prompt: !document.querySelector('#turnprompt').classList.contains('hidden'), rows: (() => { const t = document.querySelector('#target-frame .ttrack'); return t ? getComputedStyle(t).display : null; })() };
+          });
+          await page.locator('#target-frame .plate').hover({ force: true }); await page.waitForTimeout(80);
+          engage.rowsHover = await page.evaluate(() => { const t = document.querySelector('#target-frame .ttrack'); return t ? { d: getComputedStyle(t).display, head: (t.querySelector('.tr-h') || {}).textContent || '' } : null; });
+          await page.mouse.move(2, 2);
+          engage.w = w;
+          await shot(page, 'T1-engage');
+        }
+        // Gorrak's engage round: the Deathblow's instruction once, in the turn prompt (item 2)
+        if (!elite && st.fight && st.engage && st.elite) {
+          await page.mouse.move(2, 2); await page.waitForTimeout(120);
+          const w = await visibleWords(page);
+          elite = await page.evaluate(() => {
+            const v = window.__ui.view(); const wv = v.combat.windups.find((x) => x.deathblow);
+            const out = []; const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); let n;
+            while ((n = tw.nextNode())) { const el = n.parentElement; if (!el || !el.closest('#engage, #nameplates, #target-frame, #heat') || el.closest('.hidden')) continue; const r = el.getBoundingClientRect(); if (r.width > 0 && r.height > 0) out.push(n.textContent); }
+            const wub = document.querySelector('#nameplates .wub.db:not(.hidden)');
+            const parts = (e) => (e ? [...e.children].map((c) => c.textContent.trim()).filter(Boolean).join(' ') : null); // style.css upper-cases the badge
+            return { w: wv ? { round: wv.round, name: wv.name, est: wv.est } : null, prompt: document.querySelector('#turnprompt .tp-t').innerText.replace(/\s+/g, ' ').trim(), tag: document.querySelector('#turnprompt .tp-k').textContent,
+              egDb: document.querySelectorAll('#engage .eg-db, #engage .eg-dbc, #engage .eg-dbtag').length, sapMark: !!document.querySelector('#engage .eg-opt[data-opt="sap"].db-ans'),
+              wub: parts(wub), wubAns: wub ? wub.querySelectorAll('.db-a, .db-est').length : null, rest: out.join(' ').replace(/\s+/g, ' ') };
+          });
+          elite.words = w;
+          await shot(page, 'T1-elite-engage');
+        }
+        if (elite && !elite2 && st.fight && st.elite && st.round === 2) {
+          elite2 = await page.evaluate(() => { const v = window.__ui.view(); const wv = v.combat.windups.find((x) => x.deathblow); const wub = document.querySelector('#nameplates .wub.db:not(.hidden)'); return { w: wv ? { round: wv.round, name: wv.name, est: wv.est } : null, prompt: document.querySelector('#turnprompt .tp-t').innerText.replace(/\s+/g, ' ').trim(), wub: wub ? [...wub.children].map((c) => c.textContent.trim()).filter(Boolean).join(' ') : null }; });
+        }
+        // the Deathblow stopped (item 24): one line over Gorrak and one status chip
+        if (!stopped && st.fight && st.elite && st.stopped) {
+          await page.mouse.move(2, 2); await page.waitForTimeout(100);
+          stopped = await page.evaluate(() => {
+            const v = window.__ui.view(); const g = v.combat.enemies.find((e) => e.rank === 'elite');
+            const np = document.querySelector(`#nameplates .np[data-idx="${g.idx}"]`); const tf = document.querySelector('#target-frame');
+            const vis = (e) => !!e && !e.classList.contains('hidden') && getComputedStyle(e).display !== 'none';
+            return { off: !!g.offBalance, line: np.querySelector('.wub').innerText.replace(/\s+/g, ' ').trim(), npObal: vis(np.querySelector('.obal')), npStacks: [...np.querySelectorAll('.wstk .wst')].map((x) => x.innerText.replace(/\s+/g, ' ')),
+              tfObal: vis(tf.querySelector('.obal')), tfStk: vis(tf.querySelector('.wstk')), ribbon: [...np.querySelectorAll('.tk.now .b-wu, .tk.now .b-ob')].map((x) => x.textContent), coach: window.__ui.coach().shown };
+          });
+          await shot(page, 'T1-deathblow-stopped');
+        }
+        if (!map2 && elite && st.onMap && st.z === 1 && !st.fight) {
+          await page.mouse.move(2, 2); await page.waitForTimeout(150);
+          map2 = { w: await visibleWords(page), line: await heatLine(page), want: want(await page.evaluate(() => window.__ui.view().heat)) };
+          await shot(page, 'T1-map-later');
+        }
+        await auto(page);
+      }
+      // ---- the checks
+      check('D150-1', `the Furnace stays hidden in the guided run until its coach line has shown (${furnaceBefore.length} steps before it)`, furnaceBefore.length > 0 && furnaceBefore.every((x) => !x.on), JSON.stringify(furnaceBefore.filter((x) => x.on).slice(0, 4)));
+      check('D150-1', `with its line (${furnaceAt && furnaceAt.coach}) the Furnace shows, ringed, its one line "${furnaceAt && furnaceAt.want}" (heatView), no title, no pay line, no names on the bar`,
+        !!furnaceAt && furnaceAt.on && furnaceAt.anchor && furnaceAt.line === furnaceAt.want && furnaceAt.row2 === 0 && furnaceAt.segText === '' && !/Furnace|Boss \+0|pays|Dimming/.test(furnaceAt.line), JSON.stringify(furnaceAt));
+      check('D150-22', `the first hub's Trainer, nothing to teach (R.trainerView next ${hub && hub.tv && hub.tv.next}): greyed, "Next spell at level N.", no toll, a click spends nothing; no "Tolls so far"`,
+        !!hub && hub.off && hub.meta === `Next spell at level ${hub.tv.next}.` && hub.toll === false && hub.click.log === hub.log && hub.click.phase === 'ZONE_HUB' && !hub.click.node && !/Tolls so far/.test(hub.foot), JSON.stringify(hub && { ...hub, words: undefined }));
+      check('D150-9', 'the map: no Moves panel, no "zone toll", no toll counter in the tracker', !!map && map.m.moves === 0 && !/zone toll/.test(map.m.sub) && !/Tolls:|par\b/.test(map.m.tracker), JSON.stringify(map && map.m));
+      check('D150-6', `a reachable node's tooltip: "Costs ${map && map.m.go} tolls." (heatView), no Dimming countdown, no Pass sentence, no "Pays"`,
+        !!map && map.m.node != null && !!map.tipText && map.tipText.includes(`Costs ${tolls(map.m.go)}.`) && !/Dims in|Dimming in|Pass in the list|walk through it|Pays|no reward/.test(map.tipText), map && map.tipText);
+      check('D150-9', `hovered, the node offers "Pass through (${map && map.m.pass} toll)" on itself (heatView's PASS_THROUGH), and the offer goes with the pointer`,
+        !!map && !!map.passBtn && map.passBtn.on && map.passBtn.text === `Pass through (${tolls(map.m.pass)})` && map.passBtn.key === 'X' && map.passBtn.after === false, JSON.stringify(map && map.passBtn));
+      const bw = map && map.bell && map.bell.p ? `Costs ${tolls(map.bell.p.time)}${map.bell.p.dimFight ? ', then a fight in the Dimming' : ''}.` : null;
+      check('D150-s7', `the Bell's ask names its tolls and any fight first (heatView RING_BELL: "${bw}"), as its tooltip does`, !!bw && !!map.bell.text && map.bell.text.includes(bw), JSON.stringify(map && map.bell));
+      if (map) T_WORDS.map = map.w.words;
+      check('D150-words', `the map at rest: ${map && map.w.words} visible words (under ${T_MAP_MAX}; the combat log, toasts and key chips not counted)`, !!map && map.w.words < T_MAP_MAX, map && map.w.text);
+      if (engage) T_WORDS.engage = engage.w.words;
+      check('D150-words', `the first engage round: ${engage && engage.w.words} visible words (under ${T_ENGAGE_MAX})`, !!engage && engage.w.words < T_ENGAGE_MAX, engage && engage.w.text);
+      const jointUp = engage && engage.coach && ['G7', 'H01', 'G8.withEngage'].includes(engage.coach.id);
+      check('D150-3', `the engage round: "Free first move. They act from round 2." once (none while ${engage && engage.coach ? engage.coach.id : 'no coach line'} says it), the UNAWARE badge, no "do not act" anywhere, no opening ruler`,
+        !!engage && (jointUp ? engage.head === null : engage.head === 'Free first move. They act from round 2.') && engage.unaware && engage.ruler === 0 && !/do not act|not noticed|still do not|They do not/.test(engage.w.text), JSON.stringify(engage && { ...engage, w: undefined }));
+      const ambWant = engage && engage.knowsSS ? `${R.C.SPELL.shadowstep_strike.name}. +${R.C.SPELL.shadowstep_strike.cp} combo points.` : `${R.C.SPELL.gutting_jab.name} at ×${R.C.AMBUSH_MULT}. +${R.C.ENGAGE_OPTION.ambush.cp} combo points.`;
+      check('D150-4', `the cards: Ambush "${ambWant}" (the spells known), no "You stay in Stealth", no "else"`, !!engage && engage.ambush === ambWant && !/Stealth|\belse\b/i.test(engage.cards), engage && engage.cards);
+      check('D150-16', 'the target frame\'s list of next actions shows on hover only (the chips over the enemy stay); its head is "Next actions"; no turn prompt line in the engage round',
+        !!engage && engage.rows === 'none' && !!engage.rowsHover && engage.rowsHover.d !== 'none' && engage.rowsHover.head === 'Next actions' && engage.prompt === false, JSON.stringify(engage && { rows: engage.rows, rowsHover: engage.rowsHover, prompt: engage.prompt }));
+      const pWant = elite && elite.w ? `Round ${elite.w.round}: ${elite.w.name}, about ${elite.w.est}. Sap now W, then Pass X.` : null;
+      if (elite) T_WORDS.elite = elite.words.words;
+      check('D150-2', `Gorrak's engage round: the turn prompt says it once, "${pWant}" (windupView), tagged Deathblow`, !!elite && elite.prompt === pWant && /^Deathblow · R1$/.test(elite.tag), JSON.stringify(elite && { prompt: elite.prompt, tag: elite.tag }));
+      check('D150-2', 'no Deathblow box in the engage panel, no "how to stop it" on the cards (the Sap card keeps its crimson mark), no answers or estimate over Gorrak; no "Sap, then wait" or "Pass X" on the panel, the nameplates, the target frame or the Furnace',
+        !!elite && elite.egDb === 0 && elite.sapMark && elite.wubAns === 0 && /^Deathblow R\d MAIMS if it lands$/.test(elite.wub || '') && !/then wait|Answer:|Wait:|Sap now|Pass X/.test(elite.rest), JSON.stringify(elite && { egDb: elite.egDb, sapMark: elite.sapMark, wub: elite.wub, wubAns: elite.wubAns, rest: elite.rest.slice(0, 600) }));
+      const p2Want = elite2 && elite2.w ? `Round ${elite2.w.round}: ${elite2.w.name}, about ${elite2.w.est}. Pass X. Attacking breaks Sap.` : null;
+      check('D150-2', `round 2 after Sap: the prompt "${p2Want}"; the line over Gorrak gives no instruction`, !!elite2 && elite2.prompt === p2Want && !/Wait|Pass|answered/.test(elite2.wub || ''), JSON.stringify(elite2));
+      const sWant = stopped ? `Deathblow stopped. It is weakened${stopped.off ? ': hit it now' : ''}.` : null;
+      check('D150-24', `the Deathblow stopped: one line over Gorrak, "${sWant}", and one status chip (Staggered); no off-balance marks, no STOPPED ribbon, no H05 line meanwhile`,
+        !!stopped && stopped.line === sWant && !stopped.npObal && !stopped.tfObal && !stopped.tfStk && stopped.npStacks.length === 1 && /^Staggered/.test(stopped.npStacks[0]) && stopped.ribbon.length === 0 && !(stopped.coach && stopped.coach.id === 'H05'), JSON.stringify(stopped));
+      if (map2) T_WORDS.mapLater = map2.w.words;
+      check('D150-25', `the map later, the Furnace on: its one line "${map2 && map2.want}" (no "Dimming", no toast); ${map2 && map2.w.words} words`, !!map2 && map2.line === map2.want, JSON.stringify(map2 && { line: map2.line, text: map2.w.text }));
+      const all = [map, engage, elite].filter(Boolean).map((x) => (x.w || x.words).text).join(' ');
+      check('D150-naming', 'no par, Ascendancy, "the Star\'s line", Pays, Spoils, ilvl, "you stay hidden" or "answered" on these screens', !T_BANNED.test(all), (all.match(T_BANNED) || []).join(', '));
+    } catch (e) { await shot(page, 'T1-error'); check('T-1', 'part T1 (the guided run) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('T-1', 'part T1: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- T2: a run that is not guided (guide and hints off): the Furnace from the hub on, its tooltip, the pass-through button
+  // by mouse and by keyboard, the Bell's ask, the loot rows
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=7&speed=instant&prep=1');
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await page.locator('#pp-go').click(); await idle(page); // the start camp: set out
+      await page.waitForFunction(() => window.__ui.view().phase === 'ZONE_HUB', null, { timeout: 8000 }).catch(() => null);
+      let v = await page.evaluate(() => { const x = window.__ui.view(); return { phase: x.phase, heat: x.heat }; });
+      const line = await heatLine(page);
+      check('D150-1', `not a guided run: the Furnace shows at the first hub, "${v.heat && want(v.heat)}"`, v.phase === 'ZONE_HUB' && line === want(v.heat), `${v.phase} | ${line}`);
+      await page.locator('#heat').hover({ force: true }); await page.waitForTimeout(150);
+      const tt = await tipOn(page); await page.mouse.move(2, 2);
+      const names = Object.values(HEAT_WORDS.state);
+      check('D150-5', 'the Furnace\'s tooltip: "Every move costs tolls. Overspend and fights pay more, but the final boss gets stronger." and the four states', !!tt && tt.includes('Every move costs tolls. Overspend and fights pay more, but the final boss gets stronger.') && names.every((x) => tt.includes(x)) && !T_BANNED.test(tt) && !/no reward|in hand|so far/.test(tt), tt);
+      await page.getByRole('button', { name: 'Set out' }).click(); await idle(page);
+      // a reachable node that can be passed through: hover, then the button; then by keyboard on the next node
+      const pick = () => page.evaluate(() => { const x = window.__ui.view(); const mv = x.zone.exp; const m = mv.moves.find((y) => y.passTime != null && !y.barred && !mv.nodes[y.nodeId].hub && !mv.nodes[y.nodeId].barred); return m ? { node: m.nodeId, t: (x.heat.next[`PASS_THROUGH:${m.nodeId}`] || {}).time, time: x.time } : null; });
+      const p1 = await pick();
+      let mouse = null;
+      if (p1) {
+        await page.locator(`#screens .expmap .mnode[data-node="${p1.node}"]`).hover({ force: true }); await page.waitForTimeout(120);
+        await page.locator(`#screens .expmap .xpass[data-node="${p1.node}"]`).click(); await idle(page);
+        mouse = await page.evaluate(() => ({ last: window.__ui.engineLog().slice(-1)[0], time: window.__ui.view().time, pos: window.__ui.view().zone.exp.pos }));
+      }
+      check('D150-9', `"Pass through" by mouse: PASS_THROUGH on that node, its tolls as the label said (${p1 && p1.t})`, !!mouse && mouse.last.type === 'PASS_THROUGH' && mouse.last.nodeId === p1.node && mouse.time - p1.time === p1.t, JSON.stringify({ p1, mouse }));
+      // the key: X passes through the node whose offer shows (hovered, or with the focus), as X passes a round in a fight
+      const p2 = await pick();
+      let keys = null;
+      if (p2) {
+        await page.locator(`#screens .expmap .mnode[data-node="${p2.node}"]`).hover({ force: true }); await page.waitForTimeout(80);
+        await page.keyboard.press('KeyX'); await idle(page);
+        keys = { hover: await page.evaluate(() => window.__ui.engineLog().slice(-1)[0]) };
+        await page.mouse.move(2, 2); await page.waitForTimeout(350);
+        const p3 = await pick();
+        if (p3) {
+          await page.locator(`#screens .expmap .mnode[data-node="${p3.node}"]`).focus(); await page.waitForTimeout(60);
+          keys.p3 = p3; keys.shownOnFocus = await page.evaluate((id) => { const b = document.querySelector(`#screens .expmap .xpass[data-node="${id}"]`); return !!b && getComputedStyle(b).display !== 'none'; }, p3.node);
+          await page.keyboard.press('KeyX'); await idle(page);
+          keys.focus = await page.evaluate(() => window.__ui.engineLog().slice(-1)[0]);
+        }
+      }
+      check('D150-9', 'the key: X passes through the node hovered, and the node with the focus (its offer shown)', !!keys && keys.hover.type === 'PASS_THROUGH' && keys.hover.nodeId === p2.node && !!keys.p3 && keys.shownOnFocus && keys.focus.type === 'PASS_THROUGH' && keys.focus.nodeId === keys.p3.node, JSON.stringify({ p2, keys }));
+      // a fight's loot: no notes, "item level"
+      let loot = null;
+      for (let i = 0; i < 80 && !loot; i++) {
+        const has = await page.evaluate(() => { const x = window.__ui.view(); return !!(x.loot && x.loot.kind === 'loot'); });
+        if (has) loot = await page.evaluate(() => ({ text: document.querySelector('#screens .loot').innerText.replace(/\s+/g, ' '), gear: (window.__ui.view().loot.items || []).filter((it) => it.kind === 'gear').map((it) => it.ilvl) }));
+        else await auto(page);
+      }
+      check('D150-19', 'loot rows: no "(already in your purse)", "Earned in this fight" or "in your bags"; gear says "item level N"', !!loot && !/purse|Earned in this fight|in your bags|ilvl/.test(loot.text) && loot.gear.every((n) => loot.text.includes(`item level ${n}`)), loot && loot.text);
+    } catch (e) { await shot(page, 'T2-error'); check('T-2', 'part T2 (not guided) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('T-2', 'part T2: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  console.log(`      part T word counts (${SIZE}): ${JSON.stringify(T_WORDS)}`);
+}
+
 for (const [W, H] of SIZES) {
   SIZE = `${W}x${H}`;
   if (PARTS.includes('A')) await partA(browser, W, H);
@@ -4911,6 +5224,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('Q')) await partQ(browser, W, H);
   if (PARTS.includes('R')) await partR(browser, W, H);
   if (PARTS.includes('S')) await partS(browser, W, H);
+  if (PARTS.includes('T')) await partT(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);

@@ -37,11 +37,11 @@ test('need 1: at the first hub every class gets useful false (R.trainerView); th
     assert.deepEqual([s.phase, s.player.level], ['ZONE_HUB', 1], classId);
     const tv = R.trainerView(s);
     assert.equal(tv.useful, false, `${classId}: nothing to learn at level 1`);
-    assert.equal(trainerMeta({ trainer: tv }), `Nothing new to learn yet (next spell at level ${tv.next})`);
+    assert.equal(trainerMeta({ trainer: tv }), `Next spell at level ${tv.next}.`, 'D150 item 22');
   }
   assert.equal(trainerMeta({ trainer: { useful: true, next: 6 } }), 'Learn and rank up spells');
   assert.equal(trainerMeta({ trainer: null }), 'Learn and rank up spells', 'no view (an older engine): as before');
-  assert.equal(trainerMeta({ trainer: { useful: false, next: null } }), 'Nothing new to learn');
+  assert.equal(trainerMeta({ trainer: { useful: false, next: null } }), 'Nothing new to learn.');
   assert.equal(trainerMeta({ trainer: { learn: [{ id: 'x', lvl: 4, cost: 900 }], train: [], next: 6, useful: false } }), 'Its lessons cost more gold than you have', 'a lesson the gold does not cover');
 });
 
