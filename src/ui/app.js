@@ -26,7 +26,7 @@ import { createScreens, disarmSpyglass } from './screens.js';
 import { prepKey } from './prep.js';
 import { createWindows } from './windows.js';
 import { Director } from './director.js';
-import { initTooltip, hide as hideTip } from './tooltip.js';
+import { initTooltip, hide as hideTip, refreshTip } from './tooltip.js';
 import { createDevMenu } from './dev-menu.js';
 import { createOnboarding } from './onboarding.js';
 import { createAudio, CLICKABLE } from './audio.js';
@@ -213,6 +213,8 @@ export class App {
         this.afterPlay();
         this.coach.onStep(prev, res.view, res.events, action);
         this.placeNewItems(prev, res.view);
+        this.noteBagsFull(prev, res.view);
+        this.noteAutoStop(prev, res.view, res.events, action);
         return res;
       } catch (err) { console.error(err); this.shown = this.bridge.view; this.queueRender(); return { ok: false, error: String(err) }; } finally {
         this.pending--;
@@ -337,6 +339,7 @@ export class App {
     this.ui.chestOpen = v.node && v.node.type === 'treasure' && v.node.step === 'opened' ? true : v.node && v.node.type === 'treasure' ? this.ui.chestOpen : false;
     if (v.combat && !v.combat.over) this.retarget(v); else if (!v.combat) this.ui.setTarget(null);
     this.windows.update();
+    refreshTip(); // blind round 2: a tip under the pointer shows the new state (or goes, when a window now covers its element)
   }
 
   /**
@@ -364,6 +367,36 @@ export class App {
         if (r && r.ok) { this.toast(`${nm} is on item slot ${key}`, 'good'); this.hud.log(`${nm} goes on item slot ${key} (key ${key}).`, 'lg-sys'); }
       });
     });
+  }
+
+  /**
+   * Blind round 2 (skipper s0161-s0166: loot lost with full bags, no warning): the step that fills the last bag slot says
+   * so at once, before any loot has to wait in the loot window (one toast and a log line each time the bags fill up).
+   */
+  noteBagsFull(prev, next) {
+    const free = (v) => (v && v.player ? v.player.bag.filter((x) => !x).length : null);
+    const a = free(prev); const b = free(next);
+    if (a == null || b == null || a === 0 || b !== 0 || next.phase === 'SUMMARY') return;
+    this.toast('Bags full: make room (B) or new loot is left behind', 'warn');
+    this.hud.log('Your bags are full. New loot waits in the loot window until you make room.', 'lg-sys');
+  }
+
+  /**
+   * Blind round 2 (casual re-run s0234-s0249: autoplay walked from a rescue into the next forced fight and died there):
+   * autoplay switches off after a death that the run survives (a rescue or a revive) and when a fight in the Dimming
+   * starts, with one line saying why. The UI sends SET_AUTOPLAY itself (an own action, mirrored by the Node twins).
+   */
+  noteAutoStop(prev, next, events, action) {
+    if (!next.autoplay) return;
+    const t = (x) => events.some((e) => e.t === x);
+    const why = t('rescue') || t('resurrect') ? 'Autoplay off after your death.'
+      : next.node && next.node.type === 'dim' && next.combat && !next.combat.over && !(prev.node && prev.node.type === 'dim' && prev.combat && !prev.combat.over) ? 'Autoplay off: a fight in the Dimming.'
+        : null;
+    if (!why || (action && action.type === 'SET_AUTOPLAY')) return;
+    clearTimeout(this.autoTimer);
+    const a = { type: 'SET_AUTOPLAY', on: false };
+    this.ownActions.push(a);
+    this.act(a).then((r) => { if (r && r.ok) { this.toast(why, 'warn'); this.hud.log(why, 'lg-sys'); } });
   }
 
   /** While autoplay is on in a fight, play the engine's autoplay choice after the autoplay pause. */
@@ -404,7 +437,7 @@ export class App {
     document.body.classList.toggle('in-fight', !!(v.combat && !v.combat.over && !v.loot));
     document.body.classList.toggle('boss-fight', !!(v.combat && !v.combat.over && !v.loot && v.combat.isBoss));
     // a banner shown as a fight comes on screen (an elite's name) steps aside once its panels are drawn
-    if (this.bannerEl.classList.contains('on') && document.body.classList.contains('in-fight')) this.placeBanner();
+    if (this.bannerEl.classList.contains('on')) this.placeBanner(); // in a fight, or beside the zone map (blind round 2)
   }
 
   syncScene(v, opts = {}) {
@@ -488,26 +521,41 @@ export class App {
     b.querySelector('.b2').textContent = sub || '';
     this.placeBanner(); this.placeToasts();
     clearTimeout(this.bannerT);
-    this.bannerT = setTimeout(() => { b.className = kind; this.placeToasts(); }, settings.instant ? Math.min(ms, 1200) : ms / Math.max(1, Math.min(2, settings.get('speed'))));
+    this.bannerT = setTimeout(() => { b.className = kind + (b.classList.contains('side') ? ' side' : ''); this.placeToasts(); }, settings.instant ? Math.min(ms, 1200) : ms / Math.max(1, Math.min(2, settings.get('speed'))));
   }
   hideBanner() { clearTimeout(this.bannerT); this.bannerEl.classList.remove('on'); this.placeToasts(); }
   /**
    * Blind panel 2026-11-13 (item 6): in a fight the banner ("Level up" mid-fight, an elite's name, a boss phase) covered the
    * target frame's Next actions and the action numbers. It takes the first spot, from its own (top 30 %) down over the
    * field and then off centre, that covers no fight panel (BANNER_KEEP); with none free, the one that covers least. Outside
-   * fights it stays put.
+   * fights it stays put unless a screen's panel is up (blind round 2, below).
    */
   placeBanner() {
-    const b = this.bannerEl; b.style.left = ''; b.style.top = '';
-    if (!b.classList.contains('on') || !document.body.classList.contains('in-fight')) return;
-    const keep = [...document.querySelectorAll(BANNER_KEEP)].filter((x) => !x.closest('.hidden')).map((x) => x.getBoundingClientRect()).filter((q) => q.width > 0 && q.height > 0);
-    const r = b.getBoundingClientRect(); const W = innerWidth; const H = innerHeight;
-    const cost = ([cx, cy]) => keep.reduce((k, q) => k + Math.max(0, Math.min(cx + r.width / 2, q.right) - Math.max(cx - r.width / 2, q.left)) * Math.max(0, Math.min(cy + r.height / 2, q.bottom) - Math.max(cy - r.height / 2, q.top)), 0);
-    const spots = [];
-    for (const fx of [0.5, 0.42, 0.58, 0.36]) for (const fy of [0.3, 0.44, 0.5, 0.56, 0.38]) spots.push([fx * W, Math.max(r.height / 2 + 4, Math.min(H - r.height / 2 - 4, fy * H))]);
-    let best = spots[0]; let bestK = Infinity;
-    for (const p of spots) { const k = cost(p); if (k < bestK - 0.5) { best = p; bestK = k; } if (k <= 0) break; }
-    b.style.left = `${Math.round(best[0])}px`; b.style.top = `${Math.round(best[1])}px`;
+    const b = this.bannerEl;
+    if (!b.classList.contains('on')) return; // a banner fading out stays where it was
+    b.style.left = ''; b.style.top = '';
+    const fight = document.body.classList.contains('in-fight');
+    // blind round 2 (casual re-run s0061: the rescue banner over the map's text): outside fights, with a screen's panel up
+    // (the zone map, the hub), the banner moves aside of it; when no spot clears the panel (the map fills the middle) it
+    // takes a smaller type in a side column
+    const panel = !fight && b.classList.contains('on') && !!document.querySelector('#screens .panel, #screens .mapwin');
+    b.classList.remove('side');
+    if (!b.classList.contains('on') || !(panel || fight)) return;
+    const W = innerWidth; const H = innerHeight;
+    const keep = [...document.querySelectorAll(fight ? BANNER_KEEP : BANNER_KEEP_MAP)].filter((x) => !x.closest('.hidden')).map((x) => x.getBoundingClientRect()).filter((q) => q.width > 0 && q.height > 0);
+    const best = (xs, ys) => {
+      const r = b.getBoundingClientRect();
+      const cost = ([cx, cy]) => keep.reduce((k, q) => k + Math.max(0, Math.min(cx + r.width / 2, q.right) - Math.max(cx - r.width / 2, q.left)) * Math.max(0, Math.min(cy + r.height / 2, q.bottom) - Math.max(cy - r.height / 2, q.top)), 0);
+      let at = null; let atK = Infinity;
+      for (const fx of xs(r)) for (const fy of ys) {
+        const p = [Math.max(r.width / 2 + 4, Math.min(W - r.width / 2 - 4, fx * W)), Math.max(r.height / 2 + 4, Math.min(H - r.height / 2 - 4, fy * H))];
+        const k = cost(p); if (k < atK - 0.5) { at = p; atK = k; } if (k <= 0) return { at, k: 0 };
+      }
+      return { at, k: atK };
+    };
+    let pick = fight ? best(() => [0.5, 0.42, 0.58, 0.36], [0.3, 0.44, 0.5, 0.56, 0.38]) : best(() => [0.5, 0.42, 0.36, 0.3], [0.3, 0.24, 0.36]);
+    if (!fight && pick.k > 0) { b.classList.add('side'); pick = best((r) => [1 - (r.width / 2 + 12) / W, (r.width / 2 + 12) / W], [0.55, 0.62, 0.48, 0.7, 0.4]); }
+    b.style.left = `${Math.round(pick.at[0])}px`; b.style.top = `${Math.round(pick.at[1])}px`;
   }
   /**
    * A short message in the toast stack. The same message while it is on screen merges into it ("Quest complete! ×2") and
@@ -655,6 +703,9 @@ export class App {
       if (disarmSpyglass()) { this.ui.refreshScreens(); return; }
       if (this.windows.anyOpen()) this.windows.closeAll();
       else if (this.ui.metaOpen) this.ui.closeMeta();
+      // blind round 2 (skipper s0118: Esc on the map opened Settings): the expedition's zone map is the screen itself, so
+      // Esc there closes what lies over it (the leave ask and the Spyglass above, windows) and opens nothing else
+      else if (v.phase === 'MAP' && v.zone && v.zone.exp && !v.loot && !(v.combat && !v.combat.over)) this.toast(MAP_ESC, 'info');
       else this.windows.toggle('settings');
       hideTip(); return;
     }
@@ -807,6 +858,11 @@ function devText(op, args, r, v) {
   }
 }
 
+/** Esc on the zone map with nothing over it (blind round 2, draft wording). */
+export const MAP_ESC = 'The zone map stays open: click a lit node to move';
+
+/** What a banner keeps clear of outside fights while a screen's panel is up (placeBanner, blind round 2). */
+const BANNER_KEEP_MAP = '#screens .mapwin, #screens .panel, #toasts .toast, #tracker, #player-frame, #pet-frame, #minimap, #combatlog, #actionbar, #coach, #heat';
 /** The fight's panels a banner in a fight keeps clear of (placeBanner). */
 /** What the toast stack keeps clear of (placeToasts): open windows, and the hub's or camp's panel (screens.js .side). */
 const TOAST_KEEP = '#windows > .win, #screens .side.panel';

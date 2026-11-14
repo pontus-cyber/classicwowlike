@@ -26,7 +26,7 @@ import { spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon, deathblo
 import { drawPortrait, HERO_LOOKS, PET_LOOKS } from './art-actors.js';
 import { tip, itemTip, spellTip, hide as hideTip, STAT_NAMES } from './tooltip.js';
 import { conColor, heroPortrait, travelState } from './hud.js';
-import { numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS } from './ui-text.js';
+import { numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, trainerWaitingShort } from './ui-text.js';
 import { createMeta, buildOaths, echoAmt } from './meta.js';
 import { heatKey, previewBlock, costText, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME } from './heat.js';
 import { createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon } from './prep.js';
@@ -49,6 +49,9 @@ function tollLabel(el, p) {
   return el;
 }
 
+// blind round 2 (skipper s0037, explorer s0299, casual s0235): a click that cannot move says why (draft wording)
+export const TOO_FAR = 'Too far: click a lit node';
+export const ROAD_FIRST = 'Walk to the Road first';
 const NODE_NAME = { quest: 'Quest', grind: 'Grind', elite: 'Elite', dungeon: 'Dungeon', rest: 'Rest', vendor: 'Vendor', trainer: 'Trainer', treasure: 'Treasure', shrine: 'Shrine' };
 const NO_FIGHT = new Set(['rest', 'vendor', 'trainer', 'shrine']); // nodes that hold no fight: labels in a neutral colour
 const NEUTRAL = '#f0e0c0';
@@ -95,8 +98,11 @@ export function expNodeDesc(n, p, rules) {
     const foes = n.archetypes && n.archetypes.length ? ` of ${enemies(n.archetypes.length)}` : '';
     return `${n.waves === 1 ? `One wave${foes}` : `1 to ${n.waves} waves; the first${foes}`}. Steady experience, gold and more drops.`;
   }
-  return nodeDesc(n.type, rules);
+  // blind round 2 (competitive s0143): the expedition map's counts (its dungeon's own fights when they are known)
+  return nodeDesc(n.type, { ...rules, dungeonTrashFights: n.fights && n.fights.length ? n.fights.length : rules.expDungeonTrashFights ?? rules.dungeonTrashFights, grindMaxWaves: rules.expGrindMaxWaves ?? rules.grindMaxWaves });
 }
+/** The rules table with this run's map counts (blind round 2: the expedition map's dungeons have 2 fights before the boss). */
+const rulesOf = (v, r) => (v && v.mapMode === 'expedition' ? { ...r, dungeonTrashFights: r.expDungeonTrashFights ?? r.dungeonTrashFights, grindMaxWaves: r.expGrindMaxWaves ?? r.grindMaxWaves } : r);
 
 export function createScreens(root, ctx) {
   const layer = h('div#screens');
@@ -134,7 +140,9 @@ export function createScreens(root, ctx) {
       if (n.step === 'combat' || (v.combat && !v.combat.over)) { mount('combat', () => null); return; }
       if (n.type === 'vendor') { mount('vendor:' + svcKey(v), () => buildVendor(v, ctx)); return; }
       if (n.type === 'trainer') { mount('trainer:' + svcKey(v), () => buildTrainer(v, ctx)); return; }
-      mount(`node:${n.type}:${n.step}:${n.row}:${n.lane}:${n.fightNo}`, () => buildNode(v, ctx));
+      // blind round 2 (casual re-run s0146-s0148): the panel between fights shows health and the rations left, so a ration
+      // eaten there builds it again
+      mount(`node:${n.type}:${n.step}:${n.row}:${n.lane}:${n.fightNo}:${p ? `${p.hp}|${p.res ? p.res.cur : ''}|${p.bag.map((x) => (x ? `${x.uid}:${x.count || 1}` : '-')).join(',')}` : ''}`, () => buildNode(v, ctx));
       return;
     }
     mount('none', () => null);
@@ -142,7 +150,7 @@ export function createScreens(root, ctx) {
   return { update, layer, meta, refresh() { cur.key = null; } };
 }
 
-const lootKey = (v) => `${v.loot.kind}|${v.loot.title}|${(v.loot.items || v.loot.choices || []).map((i) => i.uid).join(',')}|${v.player.bag.filter(Boolean).length}`;
+const lootKey = (v) => `${v.loot.kind}|${v.loot.title}|${(v.loot.items || v.loot.choices || []).map((i) => i.uid).join(',')}|${v.player.bag.filter(Boolean).length}|${Object.values(v.player.equip || {}).map((e) => (e ? e.uid : '-')).join(',')}`;
 const svcKey = (v) => `${v.player.gold}|${v.player.bag.map((s) => (s ? s.uid + ':' + (s.count || 1) : '-')).join(',')}|${v.player.spells.map((s) => s.id + s.tl).join(',')}|${v.player.talentPoints}|${(v.node.stock || []).length}`;
 const mapKey = (v) => `${v.zone.idx}|${v.zone.pos.row}|${v.zone.pos.lane}|${v.zone.exp ? `${v.zone.exp.pos}|${v.zone.exp.spyglass}|${spy.armed}|${leave.armed}` : ''}|${v.player.level}|${v.legal.travelOn}|${v.time}`;
 /** The hub's contract state in the hub screen's key (prep): the offer, Reserve and the held contracts. */
@@ -269,7 +277,7 @@ function updateCreate(root, v, ctx) {
       drawPortrait(cv.getContext('2d'), 120, PET_LOOKS[id], 'beast', { bg1: '#2e3a26' });
       const el = h('div.pet' + (c.petId === id ? '.sel' : '') + (pd.locked ? '.locked' : ''), cv, h('div.pn', pd.name));
       const unlockName = pd.meta && d.meta && d.meta.entries[pd.meta] ? d.meta.entries[pd.meta].name : null;
-      tip(el, () => h('div', h('div.tt-name', pd.name), h('div.tt-line.desc', pd.text), pd.locked ? h('div.tt-warn', unlockName ? `Unlock it with ${unlockName} in the Hall of Echoes.` : 'Unlocked with meta progression') : null));
+      tip(el, () => h('div', h('div.tt-name', pd.name), h('div.tt-line.desc', pd.text), pd.locked ? h('div.tt-warn', unlockName ? `Unlock it with ${unlockName} in the Hall of Echoes.` : 'Unlocked with meta progression') : null), { avoid: '.pets .pet' }); // blind round 2 (tactician s0005-s0008): not over the other companions
       if (!pd.locked) el.addEventListener('click', () => ctx.act({ type: 'SELECT_PET', petId: id }));
       pets.appendChild(el);
     }
@@ -290,7 +298,7 @@ function svcCard(glyph, bg, name, meta, cost, used, onClick, heat = null, idle =
   const el = h('div.svc-card' + (used ? '.used' : ''), h('img', { src: icon(glyph, bg), alt: '' }), h('div', h('div.nm', name), h('div.meta', used ? 'Used this visit' : meta)), hrs);
   if (!used) el.addEventListener('click', onClick);
   if (p) {
-    tip(el, () => h('div', h('div.tt-name', name), h('div.tt-line.desc', meta), previewBlock(heatOf(heat.ctx.view, heat.action) || p, heat.ctx)));
+    tip(el, () => h('div', h('div.tt-name', name), h('div.tt-line.desc', meta), previewBlock(heatOf(heat.ctx.view, heat.action) || p, heat.ctx)), { avoid: '.svc-card' }); // blind round 2 (skipper s0147): not over the other services
     ghostOn(el, heat.ctx, heat.action);
   }
   return el;
@@ -323,7 +331,8 @@ function innCard(v, ctx, name, meta, used, heat) {
  */
 export function trainerMeta(v) {
   const t = v.trainer;
-  if (!t || t.useful) return 'Learn and rank up spells';
+  if (!t) return 'Learn and rank up spells';
+  if (t.useful) return trainerWaitingShort(t) || 'Learn and rank up spells'; // blind round 2: "Waiting: 2 new spells, 1 rank"
   if ((t.learn && t.learn.length) || (t.train && t.train.length)) return 'Its lessons cost more gold than you have.';
   return t.next ? `Next spell at level ${t.next}.` : 'Nothing new to learn.';
 }
@@ -349,8 +358,11 @@ function buildHub(v, ctx) {
   // the pointer is (the next click hit the Inn instead of the Trainer)
   else if (hubSwap.taken && hubSwap.taken.z === z.idx) body.appendChild(h('div.hubtaken', { style: { minHeight: `${hubSwap.taken.h}px` } }, h('div.hx-t', 'Contract taken'), h('div.hx-s', `${hubSwap.taken.title}: its sites are on the map and in your tracker.`)));
   const svc = (service) => ({ ctx, v, action: { type: 'SERVICE', service } });
+  const trainerCard = svcCard('tome', 'arcane', 'Trainer', trainerMeta(v), tolls(hr.trainer), used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer'), trainerIdle(v) && !Object.values(p.talents || {}).some((x) => x > 0));
+  // blind round 2 (casual re-run s0279): the card stands out while a new spell the gold covers waits there
+  if (!used.trainer && v.trainer && v.trainer.useful && (v.trainer.learn || []).length) trainerCard.classList.add('waiting');
   body.append(
-    svcCard('tome', 'arcane', 'Trainer', trainerMeta(v), tolls(hr.trainer), used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer'), trainerIdle(v) && !Object.values(p.talents || {}).some((x) => x > 0)),
+    trainerCard,
     svcCard('vendor', 'earth', 'Vendor', 'Potions, rations and gear', tolls(hr.vendor), used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' }), svc('vendor')),
     innCard(v, ctx, 'Inn', 'Full rest and rested experience', used.inn, svc('inn')));
   if (p.talentPoints) body.appendChild(h('div.warn', { style: { fontSize: '1.25rem' } }, `You have ${p.talentPoints} unspent talent point${p.talentPoints > 1 ? 's' : ''}. Press N.`));
@@ -521,7 +533,7 @@ function buildExpMap(v, ctx, readOnly) {
     b.dataset.leave = a.type;
     tip(b, () => h('div', h('div.tt-name', label), a.type === 'RING_BELL' ? h('div.tt-line', `It takes you to the hub of ${roadTo(v, ctx)}.`) : h('div.tt-line', `Leave for ${roadTo(v, ctx)}.`),
       expiring.length ? h('div.tt-warn', `${expiryText(expiring, ctx.data.content)}. No reward.`) : null, previewBlock(heatOf(ctx.view, a), ctx),
-      asks(a.type) ? h('div.tt-hint', 'Click, then confirm') : null));
+      asks(a.type) ? h('div.tt-hint', 'Click, then confirm') : null), { avoid: '.expmap .xside .xpanel' }); // blind round 2 (tactician s0183): the Bell's tip not over Regions
     return ghostOn(b, ctx, a);
   });
   // the Spyglass (expedition.md 2.4; prep): arm it, then click any node: it and its neighbours come into full view, no tolls
@@ -621,8 +633,18 @@ function buildExpMap(v, ctx, readOnly) {
     const [x, y] = polar(side ? 484 : 478, n.angle); const right = Math.cos((n.angle * Math.PI) / 180) >= 0;
     const name = mv.roadNames && mv.roadNames[i] ? mv.roadNames[i] : 'Road';
     // D143: a closed Road of the guided zone (mapView `closed`, D142) carries a Closed tag and the coach's closed line
-    const sign = h('div.xroad' + (side ? '.side' : right ? '.r' : '.l') + (n.dimmed ? '.dimmed' : '') + (n.id === mv.pos ? '.on' : '') + (n.closed ? '.rclosed' : ''), { style: { left: `${x / 10}%`, top: `${y / 10}%` }, dataset: { road: rid } },
+    const sign = h('div.xroad' + (side ? '.side' : right ? '.r' : '.l') + (n.dimmed ? '.dimmed' : '') + (n.id === mv.pos ? '.on' : '') + (n.closed ? '.rclosed' : ''), { style: { left: `${x / 10}%`, top: `${y / 10}%` }, dataset: { road: rid, angle: n.angle } },
       h('span.xpost'), h('span.xsign', h('b', side ? to : `${right ? '' : '« '}${to}${right ? ' »' : ''}`), n.closed ? h('i.xshut', 'Closed') : null));
+    // blind round 2 (casual re-run s0235-s0237: a click on the sign did nothing): standing on the Road, the sign takes it
+    // (the Take the Road button, with its ask); elsewhere a short line says what to do
+    if (!readOnly) {
+      sign.addEventListener('click', () => {
+        if (n.closed) { const cl = closedRoadLine(ctx.data); ctx.toast(cl || 'Closed for now.', 'info'); return; }
+        const take = n.id === mv.pos ? win.querySelector('[data-leave="TAKE_ROAD"]') : null;
+        if (take) take.click(); else ctx.toast(ROAD_FIRST, 'info');
+      });
+      sign.style.cursor = 'pointer';
+    }
     tip(sign, () => h('div', h('div.tt-name', name), h('div.tt-line', `A Road out of the zone, to ${to}.`), n.closed ? h('div.tt-warn.rclosed', closedRoadLine(ctx.data) || 'Closed for now.') : h('div.tt-sub', `Standing on it: Take the Road · ${tolls(mv.travelTime)}`), n.dimmed ? h('div.tt-warn', 'Dimmed: first a fight with this zone\'s creatures, made stronger by the dark; then the Road can still be taken.') : null));
     disc.appendChild(sign);
   });
@@ -666,7 +688,7 @@ function buildExpMap(v, ctx, readOnly) {
     if (hp) el.appendChild(tollLabel(h('div.mhrs', tolls(hp.time)), hp));
     if (n.done && n.heat && ctx.data.rules.heat && (ctx.data.rules.heat.gain[n.heat] > 0 || ctx.data.rules.heat.rarityUp[n.heat] > 0)) el.appendChild(h('div.mheat', { dataset: { hs: n.heat } }));
     const look = { type: 'USE_SPYGLASS', nodeId: n.id };
-    if (!readOnly) el.addEventListener('click', () => { leave.armed = null; if (spy.armed) { spy.armed = false; ctx.act(look); } else if (n.barred) { const gl = gateLine(ctx.data, v.tutorial); if (gl) ctx.toast(gl, 'info'); } else if (m) ctx.act(act); });
+    if (!readOnly) el.addEventListener('click', () => { leave.armed = null; if (spy.armed) { spy.armed = false; ctx.act(look); } else if (n.barred) { const gl = gateLine(ctx.data, v.tutorial); if (gl) ctx.toast(gl, 'info'); } else if (m) ctx.act(act); else if (!here) ctx.toast(TOO_FAR, 'info'); });
     if (m) ghostOn(el, ctx, act);
     tip(el, () => expNodeTip(n, mv, v, ctx, m, here, readOnly, act), { avoid: '.xpass.on' });
     disc.appendChild(el);
@@ -688,7 +710,11 @@ function buildExpMap(v, ctx, readOnly) {
   tip(dimBox, () => h('div', h('div.tt-name', 'The Dimming'), mv.texts && mv.texts.dimming ? h('div.tt-line', mv.texts.dimming) : null,
     h('div.tt-line', `It spreads ${dm.frontHops} hops every ${tolls(dm.frontTime)} from the Shardfall, after ${tolls(dm.grace)} in the zone.`),
     h('div.tt-sub', 'Entering or standing in a Dimmed node starts a fight with this zone\'s creatures, made stronger by the dark; what it held is lost. Leave by a Road or the Bell.')));
+  // blind round 2 (casual re-run s0014: the Key panel looked empty at rest, its rows only on hover): the node icons stay in
+  // view as a row of pictures (no words, D150's budget), each named under the pointer; the fog rows on hover as before
+  const kinds = ['quest', 'grind', 'elite', 'dungeon', 'treasure', 'shrine', 'rest', 'vendor', 'trainer'];
   const key = h('div.xpanel.xkey', h('div.xph', 'Key'),
+    h('div.xkicons', kinds.map((k) => h('span.xki', { dataset: { kind: k } }, h('img', { src: nodeIcon(k), alt: NODE_NAME[k] }), h('b', NODE_NAME[k])))),
     h('div.xk', h('i.xk-seen'), 'Seen: in sight'), h('div.xk', h('i.xk-rem'), 'Remembered'), h('div.xk', h('i.xk-typed'), 'Type known'), h('div.xk', h('i.xk-unk'), 'Unknown'),
     h('div.xk', h('i.xk-dim'), 'Dimmed'), h('div.xk', h('i.xk-shard'), 'Shardfall'));
   tip(key, () => h('div', h('div.tt-name', 'What you see'), h('div.tt-line', `Nodes within ${mv.vision.radius} ${plural(mv.vision.radius, 'hop')} of you are in full view; a node once seen stays on the map.`),
@@ -708,9 +734,9 @@ function buildExpMap(v, ctx, readOnly) {
   if (readOnly) win.id = 'win-map';
   // labels of neighbouring nodes (levels, toll labels, Dimming clocks) step aside once the disc has its size
   // (again when the web fonts are in, which changes the labels' widths, and once the window's opening animation is over)
-  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => { declutterLabels(disc); declutterRegionNames(disc); }).observe(disc);
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { declutterLabels(disc); declutterRegionNames(disc); });
-  setTimeout(() => { declutterLabels(disc); declutterRegionNames(disc); }, 400);
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => { declutterRoads(disc); declutterLabels(disc); declutterRegionNames(disc); }).observe(disc);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { declutterRoads(disc); declutterLabels(disc); declutterRegionNames(disc); });
+  setTimeout(() => { declutterRoads(disc); declutterLabels(disc); declutterRegionNames(disc); }, 400);
   return win;
 }
 /**
@@ -768,6 +794,32 @@ function declutterRegionNames(disc) {
     x.t.dataset.at = mids[i].toFixed(2);
   });
 }
+/**
+ * Blind round 2 (casual re-run s0249, s0234: "Greywater Fens" over a node): a Road's sign that lies on a node's ring moves
+ * out along its angle (then a little sideways) until it is clear, with the CSS `translate` property; it never leaves the
+ * map panel. Presentation only.
+ */
+function declutterRoads(disc) {
+  if (!disc.isConnected) return;
+  const D = disc.getBoundingClientRect(); const k = D.width / (disc.offsetWidth || D.width || 1) || 1;
+  const P = (disc.closest('.mbody') || disc).getBoundingClientRect();
+  const rings = [...disc.querySelectorAll(':scope > .mnode .ring')].map((r) => r.getBoundingClientRect());
+  const hit = (a) => rings.reduce((t, b) => t + Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)), 0);
+  for (const sign of disc.querySelectorAll(':scope > .xroad')) {
+    sign.style.translate = '';
+    const r0 = sign.getBoundingClientRect(); if (!r0.width || !hit(r0)) continue;
+    const a = (Number(sign.dataset.angle) * Math.PI) / 180; const ux = Math.cos(a); const uy = Math.sin(a);
+    let best = null; let bestK = hit(r0);
+    for (const out of [8, 16, 24, 32, 40, 52, 64]) for (const side of [0, 10, -10, 20, -20]) {
+      const dx = ux * out - uy * side; const dy = uy * out + ux * side;
+      const r = { left: r0.left + dx, right: r0.right + dx, top: r0.top + dy, bottom: r0.bottom + dy };
+      if (r.left < P.left || r.right > P.right || r.top < P.top || r.bottom > P.bottom) continue;
+      const kk = hit(r); if (kk < bestK - 0.5) { best = [dx, dy]; bestK = kk; }
+      if (bestK <= 0) break;
+    }
+    if (best) sign.style.translate = `${(best[0] / k).toFixed(1)}px ${(best[1] / k).toFixed(1)}px`;
+  }
+}
 /** Degrees kept between two region names on the rim. */
 const RIM_GAP_DEG = 4;
 /**
@@ -821,6 +873,7 @@ function declutterLabels(disc) {
   const box = (r) => ({ l: (r.left - D.left) / k, t: (r.top - D.top) / k, r: (r.right - D.left) / k, b: (r.bottom - D.top) / k });
   const ring = new Map(nodes.map((n) => [n, box((n.querySelector('.ring') || n).getBoundingClientRect())]));
   const fixed = nodes.flatMap((n) => [...n.querySelectorAll(':scope > .xfoes, :scope > .xsite')].map((x) => ({ n, b: box(x.getBoundingClientRect()) })));
+  for (const sg of disc.querySelectorAll(':scope > .xroad')) fixed.push({ n: null, b: box(sg.getBoundingClientRect()) }); // blind round 2: not over a Road's sign
   const rank = ({ el }) => (el.classList.contains('cl') ? 0 : el.classList.contains('urgent') ? 1 : el.classList.contains('mhrs') ? 2 : 3);
   shown.sort((a, b) => rank(a) - rank(b));
   const area = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l)) * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t));
@@ -991,7 +1044,7 @@ function nodeTip(n, v, ctx, reach, hp = null) {
     box.appendChild(h('div.tt-foes', h('span.k', `${n.type === 'grind' ? 'Wave 1' : n.type === 'treasure' ? 'Guard' : 'Foes'}: ${enemies(n.archetypes.length)}`), archChips(n.archetypes)));
   } else if (n.type === 'treasure' && n.guarded === false) box.appendChild(h('div.tt-line', 'Unguarded'));
   else if (n.enemyNames && n.enemyNames.length) box.appendChild(h('div.tt-line.foes', `Foes: ${n.enemyNames.join(', ')}`)); // mock engine: names only
-  box.appendChild(h('div.tt-line.desc', nodeDesc(n.type, ctx.data.rules)));
+  box.appendChild(h('div.tt-line.desc', nodeDesc(n.type, n.type === 'dungeon' && n.fights && n.fights.length ? { ...ctx.data.rules, dungeonTrashFights: n.fights.length } : rulesOf(ctx.view, ctx.data.rules))));
   const danger = nodeDanger(n, ctx.data.rules);
   if (danger) box.appendChild(h('div.tt-warn.danger', danger));
   // the tolls: from the heat preview when the node can be entered now (R.heatView, the engine's tolls and the state the
@@ -1050,7 +1103,7 @@ function buildNode(v, ctx) {
       return b;
     };
     const waves = ks.map(w);
-    return dialog('Grind', `Level ${n.cl}`, [h('div.dim', { style: { fontSize: '1.35rem' } }, nodeDesc('grind', R)), h('div.subtitle', 'Enemies'), foeList(v, n.mobs, ctx), h('div.muted', 'You can stop after any wave.')], waves, { left, badge: heatBadge(n.heat, ctx) });
+    return dialog('Grind', `Level ${n.cl}`, [h('div.dim', { style: { fontSize: '1.35rem' } }, nodeDesc('grind', rulesOf(v, R))), h('div.subtitle', 'Enemies'), foeList(v, n.mobs, ctx), h('div.muted', 'You can stop after any wave.')], waves, { left, badge: heatBadge(n.heat, ctx) });
   }
   if (n.type === 'elite' && n.step === 'intro') {
     const e = n.elite || {};
@@ -1063,7 +1116,7 @@ function buildNode(v, ctx) {
   if (n.type === 'dungeon' && n.step === 'intro') {
     return dialog(n.dungeon, `Dungeon · level ${n.cl}`, [
       n.dungeonText ? h('div', { style: { font: 'italic 1.45rem var(--font-title)', color: 'var(--ink-dim)' } }, n.dungeonText) : null,
-      h('dl.kv', h('dt', 'Fights'), h('dd', `${ctx.data.rules.dungeonTrashFights} groups, then ${n.bossName}`), h('dt', 'Between fights'), h('dd', 'You may eat, change gear, or leave with what you have'), h('dt', 'Warning'), h('dd.bad', 'No fleeing from the dungeon boss')),
+      h('dl.kv', h('dt', 'Fights'), h('dd', `${n.trash ?? ctx.data.rules.dungeonTrashFights} ${plural(n.trash ?? ctx.data.rules.dungeonTrashFights, 'group')}, then ${n.bossName}`), h('dt', 'Between fights'), h('dd', 'You may eat, change gear, or leave with what you have'), h('dt', 'Warning'), h('dd.bad', 'No fleeing from the dungeon boss')),
     ], [btn('Enter the dungeon', () => ctx.act({ type: 'ACCEPT' }), '.primary')], { left, badge: hb });
   }
   if (n.type === 'treasure' && n.step === 'intro') {
@@ -1079,7 +1132,7 @@ function buildNode(v, ctx) {
     // the next fight: a Grind wave costs tolls (heatView's NEXT_FIGHT); the dungeon's fights cost none
     const next = (label) => { const b = btn(label, () => ctx.act({ type: 'CONTINUE' }), '.primary'); const hp = heatOf(v, { type: 'NEXT_FIGHT' }); if (hp) { tip(b, () => previewBlock(heatOf(ctx.view, { type: 'NEXT_FIGHT' }), ctx)); ghostOn(b, ctx, { type: 'NEXT_FIGHT' }); } return b; };
     if (n.type === 'grind') return dialog('Grind', `Wave ${n.waves} of ${n.wavesChosen} done`, [h('div.dim', hpTxt)], [eat, btn('Stop here', () => ctx.act({ type: 'GRIND_STOP' })), next('Next wave')].filter(Boolean), { left, badge: hb });
-    const trash = ctx.data.rules.dungeonTrashFights; // the boss is fight trash + 1
+    const trash = n.trash ?? ctx.data.rules.dungeonTrashFights; // the boss is fight trash + 1 (the bridge's count for this map)
     return dialog(n.dungeon, `Fight ${n.fightNo} of ${trash + 1} cleared`, [h('div.dim', hpTxt), n.fightNo === trash ? h('div.warn', `Next: ${n.bossName}. There is no fleeing from the boss.`) : null],
       [eat, btn('Leave the dungeon', () => ctx.act({ type: 'DUNGEON_LEAVE' })), next(n.fightNo === trash ? 'Face the boss' : 'Press on')].filter(Boolean), { left, badge: hb });
   }
@@ -1105,27 +1158,45 @@ function buildLoot(v, ctx) {
   const L = v.loot; const p = v.player;
   const win = h('div.loot.panel.rightside');
   // spoils of a node entered Hot or Scorched (its heat state, rules 1.7.3): a badge by the title
-  win.appendChild(h('div.wtitle', h('div.row', { style: { gap: '.8rem', alignItems: 'center' } }, h('div.title', L.title || 'Loot'), heatBadge(v.node && v.node.heat, ctx)), closeLootBtn(ctx)));
+  // blind round 2 (skipper s0161-s0166: loot lost with full bags): items still in the loot window are not left behind on one
+  // click; Leave and × ask first ("Leave 2 items behind?"), a second click leaves them
+  const waiting = (L.items || []).filter((it) => it.pending).length;
+  const lk = (L.items || []).map((it) => it.uid).join(',');
+  if (lootLeave.key !== lk) lootLeave.armed = false;
+  const leaveFn = () => {
+    if (waiting && !lootLeave.armed) { lootLeave.armed = true; lootLeave.key = lk; ctx.ui.refreshScreens(); return; }
+    lootLeave.armed = false; ctx.act({ type: 'LOOT_CLOSE' });
+  };
+  win.appendChild(h('div.wtitle', h('div.row', { style: { gap: '.8rem', alignItems: 'center' } }, h('div.title', L.title || 'Loot'), heatBadge(v.node && v.node.heat, ctx)), closeLootBtn(leaveFn)));
   const rows = h('div.rows');
   // D150 item 19: no notes under the coins and the experience (Continue already says they are yours)
   if (L.gold) rows.appendChild(h('div.lrow', { style: { cursor: 'default' } }, h('img', { src: icon('coin', 'gold'), alt: '' }), h('div', h('div.nm', moneyEl(L.gold)))));
   if (L.xp) rows.appendChild(h('div.lrow', { style: { cursor: 'default' } }, h('img', { src: icon('stars3', 'epic'), alt: '' }), h('div', h('div.nm', { style: { color: '#d0a8ff' } }, `${fmtNum(L.xp)} experience`))));
   if (L.trap) rows.appendChild(h('div.lrow', { style: { cursor: 'default' } }, h('img', { src: icon('trap', 'blood'), alt: '' }), h('div', h('div.nm.bad', 'A needle trap!'), h('div.meta', 'You lost some health opening it.'))));
   (L.items || []).forEach((it, i) => {
-    const up = it.kind === 'gear' && ctx.bridge.itemScore(it) > ctx.bridge.itemScore(p.equip[it.slot]);
+    const worn = it.kind === 'gear' && !!p.equip[it.slot] && p.equip[it.slot].uid === it.uid; // put on from this window
+    const up = it.kind === 'gear' && !worn && ctx.bridge.itemScore(it) > ctx.bridge.itemScore(p.equip[it.slot]);
     const meta = it.kind === 'gear' ? `${cap(it.slot)} · item level ${it.ilvl}` : it.kind === 'junk' ? 'Junk' : 'Consumable';
-    const tag = up ? h('span.good', ' · ▲ upgrade') : null; // D150 item 19: no "in your bags" note
-    const r = h('div.lrow.' + (it.rarity || 'common'), h('img', { src: itemIcon(it), alt: '' }), h('div.grow', h('div.nm.r-' + it.rarity, it.name + (it.count > 1 ? ` ×${it.count}` : ''), it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', meta, tag)));
+    const tag = worn ? h('span.good', ' · equipped') : up ? h('span.good', ' · ▲ upgrade') : null; // D150 item 19: no "in your bags" note
+    const r = h('div.lrow.' + (it.rarity || 'common'), { dataset: { uid: it.uid } }, h('img', { src: itemIcon(it), alt: '' }), h('div.grow', h('div.nm.r-' + it.rarity, it.name + (it.count > 1 ? ` ×${it.count}` : ''), it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', meta, tag)));
+    // blind round 2 (casual re-run s0071-s0079): every gear row of the spoils and of a chest offers "Equip now", and a click
+    // on the row does the same: from the bags (EQUIP), or from the loot window when the bags were full (LOOT_EQUIP)
+    const inBags = () => { const b = ctx.bridge.view.player; return !!(b && b.bag.some((x) => x && x.uid === it.uid)); };
+    const equip = it.kind === 'gear' && !worn ? () => ctx.act(it.pending ? { type: 'LOOT_EQUIP', i } : () => (inBags() ? { type: 'EQUIP', uid: it.uid } : null)) : null;
     if (it.pending) {
       const acts = h('div.row', { style: { gap: '.35rem' } });
-      if (it.kind === 'gear') acts.appendChild(miniBtn('Equip', () => ctx.act({ type: 'LOOT_EQUIP', i })));
+      if (equip) acts.appendChild(miniBtn('Equip now', equip, '.eqnow'));
       acts.appendChild(miniBtn('Take', () => ctx.act({ type: 'LOOT_TAKE', i })));
       acts.appendChild(miniBtn('Drop', () => ctx.act({ type: 'LOOT_DROP', i })));
       r.appendChild(acts);
       r.style.cursor = 'default';
+    } else if (equip) {
+      r.appendChild(miniBtn('Equip now', equip, '.eqnow'));
+      r.addEventListener('click', equip);
     } else if (!it.inBag) r.addEventListener('click', () => ctx.act({ type: 'LOOT_TAKE', i }));
     else r.style.cursor = 'default';
-    tip(r, () => itemTip(it, ctx, { hint: it.pending ? 'Waiting in the loot window: equip, take or drop it' : it.inBag ? 'Already in your bags' : 'Click to take' }));
+    const hint = it.pending ? 'Waiting in the loot window: equip, take or drop it' : equip ? 'Click or Equip now: put it on' : worn ? null : it.inBag ? 'Already in your bags' : 'Click to take';
+    tip(r, () => itemTip(it, ctx, { hint }), { avoid: '.loot .lrow, .loot .foot' });
     rows.appendChild(r);
   });
   if (!(L.items || []).length && !L.gold && !L.xp) rows.appendChild(h('div.muted', { style: { padding: '1rem' } }, 'Nothing of value.'));
@@ -1135,7 +1206,9 @@ function buildLoot(v, ctx) {
   const take = btn(pending ? 'Take all' : 'Continue', () => ctx.act({ type: 'LOOT_TAKE_ALL' }), '.primary');
   take.appendChild(h('span.k', 'Space'));
   const nx = nextStrip(L); if (nx) win.appendChild(nx);
-  win.appendChild(h('div.foot', full ? h('span.warn', 'Bags full: discard (B)') : h('span.muted.nowrap', `Bags ${p.bag.filter(Boolean).length}/${p.bag.length}`), h('div.row', { style: { gap: '.6rem' } }, pending ? btn('Leave', () => ctx.act({ type: 'LOOT_CLOSE' })) : null, take)));
+  const note = lootLeave.armed && waiting ? h('span.warn.lleave', `Leave ${waiting} ${waiting > 1 ? 'items' : 'item'} behind? Click Leave again.`)
+    : full || (waiting && !p.bag.some((x) => !x)) ? h('span.warn', 'Bags full: discard (B)') : h('span.muted.nowrap', `Bags ${p.bag.filter(Boolean).length}/${p.bag.length}`);
+  win.appendChild(h('div.foot', note, h('div.row', { style: { gap: '.6rem' } }, pending ? btn('Leave', leaveFn, lootLeave.armed && waiting ? '.danger' : '') : null, take)));
   return win;
 }
 /**
@@ -1147,8 +1220,9 @@ function nextStrip(L) {
   const word = (x) => (x.kind === 'contract' ? `Contract complete: ${x.title}` : x.kind === 'story' ? `Story complete: ${x.title}` : `Quest complete: ${x.title}`);
   return h('div.lnext', { dataset: { next: list.map((x) => x.kind).join(',') } }, h('span.nx', 'Next'), h('span.nt', list.map(word).join(', then ')));
 }
-function miniBtn(label, fn) { const b = h('button.btn.small', label); b.addEventListener('click', (e) => { e.stopPropagation(); fn(); }); return b; }
-function closeLootBtn(ctx) { const b = h('button.xbtn', '×'); b.addEventListener('click', () => ctx.act({ type: 'LOOT_CLOSE' })); return b; }
+function miniBtn(label, fn, cls = '') { const b = h('button.btn.small' + cls, { type: 'button' }, label); b.addEventListener('click', (e) => { e.stopPropagation(); fn(); }); return b; }
+function closeLootBtn(fn) { const b = h('button.xbtn', '×'); b.addEventListener('click', fn); return b; }
+const lootLeave = { armed: false, key: null }; // the loot window's "Leave N items behind?" ask (buildLoot)
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
 function buildReward(v, ctx) {
@@ -1167,7 +1241,7 @@ function buildReward(v, ctx) {
       ctx.act({ type: 'CHOOSE_REWARD', i });
       ctx.act(() => { const b = ctx.bridge.view.player; return b && b.bag.some((x) => x && x.uid === it.uid) ? { type: 'EQUIP', uid: it.uid } : null; });
     });
-    tip(c, () => itemTip(it, ctx, { hint: eq ? 'Click to choose this reward · Equip now: choose it and put it on' : 'Click to choose this reward' }));
+    tip(c, () => itemTip(it, ctx, { hint: eq ? 'Click to choose this reward · Equip now: choose it and put it on' : 'Click to choose this reward' }), { avoid: '.choice-cards .icard' }); // blind round 2 (skipper s0045): not over another card's Equip now
     return c;
   }));
   if (L.kind === 'contract') {
@@ -1228,7 +1302,7 @@ function buildTrainer(v, ctx) {
     // D150 item 21: "Level N ·" only where it is the level a spell needs (not yet known); a known spell's rank is on the right
     const known = e.state === 'current' || e.state === 'trainable';
     const r = h('div.trow' + (e.state === 'locked' ? '.locked' : ''), h('img', { src: spellIcon(e.id, sp), alt: '' }), h('div', h('div.nm', sp.name), h('div.meta', known ? sp.text : `Level ${e.lvl} · ${sp.text}`)), right);
-    tip(r, () => spellTip(e.id, ctx));
+    tip(r, () => spellTip(e.id, ctx), { avoid: '.svc .list .trow .right' }); // blind round 2 (tactician s0210): no row's price or Learn covered
     return r;
   }));
   // D150 item 21: Train all also learns the new spells the gold covers; shown while the engine allows it (the mock: a rank)
