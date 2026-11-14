@@ -3898,7 +3898,7 @@ async function partR(browser, W, H) {
       let shownSig = null; let shownKeys = {};
       // D147: the engine's beat events by step (with the next script, the player's node and Gorrak's), and G8's joint line
       // as it first showed (S3's engage round): its ring, second marker and arrow, and the hints' store at that moment
-      const beatEv = []; let joint = null;
+      const beatEv = []; let joint = null; const jointLate = []; // D149 / engine-2026-11-14b finding 1: the joint line only in round 1
       for (; steps < 260; steps++) {
         const st = await page.evaluate(() => { const v = window.__ui.view(); return { phase: v.phase, z: v.zone ? v.zone.idx : null, t: v.tutorial, cls: v.player ? v.player.classId : 'rogue', fight: !!(v.combat && !v.combat.over && !v.loot), map: v.phase === 'MAP' && !!(v.zone && v.zone.exp) && !v.node }; });
         const t = st.t;
@@ -3921,6 +3921,7 @@ async function partR(browser, W, H) {
         if ((fresh.length || (c.shown && c.shown.kind === 'beat')) && !(c.shown && c.shown.kind === 'beat' && open.includes(c.shown.id) && c.shown.text === lineText(c.shown.id, st.cls, shownKeys))) bad.push(`step ${steps}: engine ${open.join('/')}, coach ${c.shown ? `${c.shown.id} "${c.shown.text}"` : 'none'}`);
         if (c.shown) { const o = await overlaps(page); if (o.length) layout.push(`${c.shown.id}: ${o.join(',')}`); }
         if (c.shown && c.shown.id === 'G3' && !(await page.evaluate(() => window.__shotG3))) { await page.evaluate(() => { window.__shotG3 = true; }); await shot(page, 'R-coach-fight'); }
+        if (st.fight && c.shown && c.shown.id === 'G8.withEngage') { const rd = await page.evaluate(() => window.__ui.view().combat.round); if (rd > 1) jointLate.push(`step ${steps} round ${rd}`); }
         // D147 (spec 2.8 item 2): the joint line points at the engage panel's W button, with a second marker on the wind-up badge
         if (!joint && st.fight && c.shown && c.shown.id === 'G8.withEngage') {
           await page.mouse.move(2, 2);
@@ -3977,9 +3978,12 @@ async function partR(browser, W, H) {
         && !!o9 && o9.step > o8.step && o9.pos != null && o9.pos === o9.elite, JSON.stringify({ o7, o8, own7InS3, end7, o9 }));
       // the joint line on screen (D147, engine-2026-11-14 UI need 2): the class's control option is the engage panel's W
       const ctl = R.C.ENGAGE_OPTIONS[cls][1];
-      check('D147-2', `G8's joint line in S3's engage round: "${lineText('G8.withEngage', cls)}"; its ring on the engage panel's W button (${ctl}), a second marker on the wind-up badge, the arrow at the button`,
+      // D149: S3's wind-up comes on the Hexer's turn ONB_WINDUP_TURN, so the badge the second marker sits on reads that round
+      const wuRound = `Wind-up R${R.C.ONB_WINDUP_TURN + 1}`;
+      check('D147-2', `G8's joint line in S3's engage round: "${lineText('G8.withEngage', cls)}"; its ring on the engage panel's W button (${ctl}), a second marker on the wind-up badge ("${wuRound}", D149), the arrow at the button`,
         !!joint && joint.round === 1 && joint.text === lineText('G8.withEngage', cls) && !!joint.ring && joint.ring.card && joint.ring.key === 'W' && joint.ring.opt === ctl
-        && !!joint.marker && joint.marker.badge && joint.marker.idx === joint.windup && !!joint.arrow && !/none/.test(joint.arrow), JSON.stringify(joint && { ...joint, store: undefined }));
+        && !!joint.marker && joint.marker.badge && joint.marker.idx === joint.windup && joint.marker.text.startsWith(wuRound) && !!joint.arrow && !/none/.test(joint.arrow), JSON.stringify(joint && { ...joint, store: undefined }));
+      check('D147-2', 'the joint line gives way after the engage round (engine-2026-11-14b section 3): never on the coach line from round 2', !!joint && !jointLate.length, jointLate.join(' | ') || 'none');
       check('D147-2', `the joint line counts for both hints it stands in for: one showing of H01:${cls} and one of H03 (seen at ${ONB_HINT_SHOWS} or with Got it, part R (8))`,
         !!joint && joint.store.shows[`H01:${cls}`] === 1 && joint.store.shows.H03 === 1, JSON.stringify(joint && { seen: joint.store.seen, shows: joint.store.shows }));
       check('M3-R', 'no coach line overlapped its anchor, the bar, the engage buttons, the Furnace, the target frame or Set out', !layout.length, layout.slice(0, 6).join(' | ') || 'none');
@@ -4001,12 +4005,12 @@ async function partR(browser, W, H) {
       const s0 = R.deserialize(ser, CONTENT); s0.player.hp = 1;
       const before = { time: s0.time, rescues: s0.tutorial.rescues };
       await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s0)); await idle(page);
-      let banner = ''; let v = null;
+      let banner = ''; let sub = ''; let v = null;
       for (let i = 0; i < 8; i++) {
         await page.keyboard.press('KeyX'); await page.waitForTimeout(60);
-        banner = banner || await page.locator('#banner.on .b1').innerText().catch(() => '');
+        if (!banner) { banner = await page.locator('#banner.on .b1').innerText().catch(() => ''); if (banner) sub = await page.locator('#banner.on .b2').innerText().catch(() => ''); }
         await idle(page);
-        v = await page.evaluate(() => { const x = window.__ui.view(); return { phase: x.phase, hp: x.player.hp, maxHp: x.player.maxHp, time: x.time, rescues: x.tutorial.rescues, combat: !!x.combat }; });
+        v = await page.evaluate(() => { const x = window.__ui.view(); return { phase: x.phase, hp: x.player.hp, maxHp: x.player.maxHp, time: x.time, rescues: x.tutorial.rescues, rescueMax: x.tutorial.rescueMax, combat: !!x.combat }; });
         if (v.rescues > before.rescues) break;
       }
       const log = await logLines(page);
@@ -4014,6 +4018,10 @@ async function partR(browser, W, H) {
       await shot(page, 'R-rescue');
       check('M3-R', `rescue: the banner "${line}", a log line, full health, +${R.C.ONB_RESCUE_TOLLS} tolls or more, back on the map`,
         v && v.rescues === before.rescues + 1 && banner === line && log.includes(line) && v.hp === v.maxHp && v.time >= before.time + R.C.ONB_RESCUE_TOLLS && !v.combat, `${JSON.stringify(v)} banner "${banner}"`);
+      // engine-2026-11-14b UI need 4: a rescue that leaves the guide on says how many are left (banner's second line, log)
+      const leftLine = v ? fill(T.guide.rescueLeftLine, { rescuesLeft: v.rescueMax - v.rescues }) : '';
+      check('M3-R', `rescue ${v && v.rescues} of ${R.C.ONB_RESCUE_MAX}: the banner's second line and the log say "${leftLine}"`,
+        !!v && v.rescues < v.rescueMax && sub === leftLine && log.includes(leftLine), `sub "${sub}" log ${JSON.stringify(log.slice(-3))}`);
       // (3) skip from the coach line: one-line confirm, then SKIP_GUIDE
       for (let i = 0; i < 40 && !((await coach(page)).shown || {}).kind; i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
       const sh = (await coach(page)).shown;
@@ -4024,7 +4032,8 @@ async function partR(browser, W, H) {
       const sent = (await page.evaluate(() => window.__ui.engineLog())).some((a) => a.type === 'SKIP_GUIDE');
       let after = null;
       for (let i = 0; i < 25; i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); const x = (await coach(page)).shown; if (x && x.kind === 'beat') { after = x.id; break; } }
-      check('M3-R', 'skip: "Skip guide" asks in one line, Skip sends SKIP_GUIDE; no beat line after', !!sh && sh.kind === 'beat' && /Skip the guide/.test(ask) && sent && t.skipped && !after, `${JSON.stringify(sh)} ask "${ask}" sent ${sent} skipped ${t.skipped} after ${after}`);
+      const skipLog = await logLines(page);
+      check('M3-R', `skip: "Skip guide" asks in one line, Skip sends SKIP_GUIDE; the log says "${T.guide.skipLine}" (content); no beat line after`, !!sh && sh.kind === 'beat' && /Skip the guide/.test(ask) && sent && t.skipped && !after && skipLog.includes(T.guide.skipLine), `${JSON.stringify(sh)} ask "${ask}" sent ${sent} skipped ${t.skipped} after ${after} skip line ${skipLog.includes(T.guide.skipLine)}`);
     } catch (e) { await shot(page, 'R-error-2'); check('M3-R', 'part R (rescue, skip) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('M3-R', 'part R (rescue, skip): no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
@@ -4044,10 +4053,10 @@ async function partR(browser, W, H) {
       await page.evaluate(() => { window.__rT = []; new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.classList && n.classList.contains('toast')) window.__rT.push(n.textContent); }).observe(document.querySelector('#toasts'), { childList: true }); });
       const s0 = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT); s0.player.hp = 1; s0.tutorial.rescues = max - 1;
       await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s0)); await idle(page);
-      let banner = ''; let v = null;
+      let banner = ''; let sub = null; let v = null;
       for (let i = 0; i < 8; i++) {
         await page.keyboard.press('KeyX'); await page.waitForTimeout(60);
-        banner = banner || await page.locator('#banner.on .b1').innerText().catch(() => '');
+        if (!banner) { banner = await page.locator('#banner.on .b1').innerText().catch(() => ''); if (banner) sub = await page.locator('#banner.on .b2').innerText().catch(() => null); }
         await idle(page);
         v = await page.evaluate(() => { const x = window.__ui.view(); const t = x.tutorial; return { phase: x.phase, hp: x.player.hp, maxHp: x.player.maxHp, combat: !!x.combat, rescues: t.rescues, rescueMax: t.rescueMax, skipped: t.skipped, guidedZone: t.guidedZone, roadsClosed: t.roads.closed }; });
         if (v.rescues >= max) break;
@@ -4064,10 +4073,11 @@ async function partR(browser, W, H) {
       }, capLine);
       const log = await logLines(page);
       await shot(page, 'R-rescue-cap');
-      check('D147-1', `rescue ${max} of ${max} (ONB_RESCUE_MAX) ends the guide: the rescue's banner, then "${capLine}" as a toast (in the window, clear of the screen's panel) and in the log, not the skip line`,
+      check('D147-1', `rescue ${max} of ${max} (ONB_RESCUE_MAX) ends the guide: the rescue's banner with no rescues-left line, then "${capLine}" as a toast (in the window, clear of the screen's panel) and in the log, not the skip line`,
         !!v && v.rescues === max && v.rescueMax === max && v.skipped && banner === fill(T.guide.rescueLine) && toasts.some((x) => x.startsWith(capLine)) && log.includes(capLine)
-        && !log.some((x) => /skip the guide/i.test(x)) && v.hp === v.maxHp && !v.combat && !!tbox && tbox.inside && tbox.meets === 0,
-        `${JSON.stringify(v)} banner "${banner}" toasts ${JSON.stringify(toasts)} toast box ${JSON.stringify(tbox)} log ${JSON.stringify(log.slice(-4))}`);
+        && !log.some((x) => /skip the guide/i.test(x)) && v.hp === v.maxHp && !v.combat && !!tbox && tbox.inside && tbox.meets === 0
+        && sub === '' && !log.some((x) => x.startsWith(T.guide.rescueLeftLine.split('{')[0])),
+        `${JSON.stringify(v)} banner "${banner}" second line "${sub}" toasts ${JSON.stringify(toasts)} toast box ${JSON.stringify(tbox)} log ${JSON.stringify(log.slice(-4))}`);
       let after = null;
       for (let i = 0; i < 20; i++) { await auto(); const x = (await coach(page)).shown; if (x && x.kind === 'beat') { after = x.id; break; } }
       check('D147-1', 'after it the guide is off as after Skip guide: no beat line on the next steps, the guided zone over, the Roads open', !!v && !after && !v.guidedZone && v.roadsClosed === false, `beat line ${after} ${JSON.stringify(v)}`);
@@ -4082,6 +4092,40 @@ async function partR(browser, W, H) {
       check('D147-1', 'as the line says, a death after it ends the run: the summary (death), no rescue banner', end.phase === 'SUMMARY' && end.outcome === 'death' && banner2 !== fill(T.guide.rescueLine), `${end.phase} ${end.outcome} banner "${banner2}"`);
     } catch (e) { await shot(page, 'R-error-2b'); check('D147-1', 'part R (2b, rescue cap) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('D147-1', 'part R (2b, rescue cap): no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- (2c) ui-2026-11-14 finding 2: the toast stack keeps clear of the hub's panel (app.js placeToasts, TOAST_KEEP), not
+  // only of the banner and windows: toasts of every length, with the zone's banner up and after it, never meet the panel
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&classic=1');
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      const lens = [40, 84, 120, 200];
+      const seen = [];
+      for (const banner of [true, false]) {
+        for (const n of lens) {
+          const txt = `Toast ${n}: ${'a long line of words '.repeat(12)}`.slice(0, n);
+          const box = await page.evaluate(async ([t, keepBanner]) => {
+            for (const x of [...document.querySelectorAll('#toasts .toast')]) x.remove();
+            if (!keepBanner) document.querySelector('#banner').classList.remove('on');
+            window.__ui.toast(t, 'info');
+            await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+            const el = [...document.querySelectorAll('#toasts .toast')].find((x) => x.textContent.startsWith(t.slice(0, 12))); if (!el) return null;
+            const r = el.getBoundingClientRect();
+            const panels = [...document.querySelectorAll('#screens .panel')].filter((p) => !p.closest('.hidden')).map((p) => p.getBoundingClientRect()).filter((b) => b.width > 0 && b.height > 0);
+            const bn = document.querySelector('#banner.on'); const b = bn ? bn.getBoundingClientRect() : null;
+            return { phase: window.__ui.view().phase, rect: [r.left, r.top, r.right, r.bottom].map(Math.round), panels: panels.length, inside: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight,
+              meets: panels.filter((q) => r.left < q.right && r.right > q.left && r.top < q.bottom && r.bottom > q.top).length,
+              onBanner: !!b && b.width > 0 && r.left < b.right && r.right > b.left && r.top < b.bottom && r.bottom > b.top };
+          }, [txt, banner]);
+          seen.push({ n, banner, ...box });
+        }
+        if (banner) await shot(page, 'R-toast-hub');
+      }
+      check('UI-F2', `on the hub, toasts of ${lens.join(', ')} characters, with the banner up and after it: inside the window, clear of the hub's panel and the banner`,
+        seen.every((x) => x.phase === 'ZONE_HUB' && x.panels >= 1 && x.inside && x.meets === 0 && !x.onBanner), JSON.stringify(seen.filter((x) => !(x.inside && x.meets === 0 && !x.onBanner)).concat(seen.slice(0, 1))));
+    } catch (e) { await shot(page, 'R-error-2c'); check('UI-F2', 'part R (2c, toasts on the hub) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('UI-F2', 'part R (2c, toasts on the hub): no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
   }
   // ---- (4) hints once, Hints off; (5) the nudge after the first summary
@@ -4220,8 +4264,9 @@ async function partR(browser, W, H) {
   }
   // ---- (8) D147 (spec 2.8 item 2; engine-2026-11-14 UI need 2): a Rogue's S3 engage round on the guided route. "Got it" on
   // G8's joint line marks both hints it stands in for seen (H01:rogue, H03); following the line, W (Sap) on the Hexer and
-  // then autoplay, learns G7 (ENGAGE) and G8 (its wind-up answered), with no "It landed" line. (The Rogue's autoplay alone
-  // opens with Ambush and kills the Hexer first: part R (1) learns G7 only.)
+  // then autoplay, learns G7 (ENGAGE) and G8 (its wind-up answered), with no "It landed" line; since D149 (the wind-up on
+  // the Hexer's turn 1) both in the W step itself. (The Rogue's autoplay alone opens with Ambush and kills the Hexer first:
+  // part R (1) learns G7 only.)
   {
     const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&fresh=1', null, { guide: true, hints: true });
     try {
@@ -4242,6 +4287,9 @@ async function partR(browser, W, H) {
       await page.locator(`#nameplates .np[data-idx="${hex.idx}"]`).click(); await idle(page);
       await page.keyboard.press('KeyW'); await idle(page);
       const sent = await page.evaluate(() => { const l = window.__ui.engineLog(); return l[l.length - 1]; });
+      // D149: the wind-up comes on the Hexer's turn 1, so W answers it in the same step: staggered, G8 learned, before any autoplay
+      const wStep = await page.evaluate(() => { const v = window.__ui.view(); return { round: v.combat ? v.combat.round : null, learned: v.tutorial.learned, n: window.__ui.engineLog().length }; });
+      const wLog = await logLines(page);
       for (let i = 0; i < 40; i++) { const v = await view(page); if (v.step !== 'combat' || v.over) break; await auto(); }
       const t = await page.evaluate(() => window.__ui.view().tutorial);
       const co = await coach(page);
@@ -4251,6 +4299,8 @@ async function partR(browser, W, H) {
       check('D147-2', `following the joint line: W sends ENGAGE ${ctl} on the ${hex && hex.name}; G7 and G8 are then learned (its wind-up answered, staggered), no "It landed" line`,
         !!sent && sent.type === 'ENGAGE' && sent.option === ctl && sent.target === hex.idx && t.learned.includes('G7') && t.learned.includes('G8') && !co.log.some((x) => x.id === 'G8.landed')
         && log.some((x) => /^Wind-up answered/.test(x)), `${JSON.stringify(sent)} learned ${t.learned} lines ${co.log.filter((x) => x.kind === 'beat').map((x) => x.id).join(',')}`);
+      check('D147-2', 'D149: W answers the wind-up in its own step: the stagger in the log and G7 and G8 learned before the next action',
+        !!sent && wStep.learned.includes('G7') && wStep.learned.includes('G8') && wLog.some((x) => /^Wind-up answered/.test(x)), `${JSON.stringify(wStep)} log ${JSON.stringify(wLog.slice(-4))}`);
     } catch (e) { await shot(page, 'R-error-8'); check('D147-2', 'part R (8, the joint line followed) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('D147-2', 'part R (8, the joint line followed): no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
