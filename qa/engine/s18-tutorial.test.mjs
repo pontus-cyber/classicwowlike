@@ -93,7 +93,9 @@ describe('M3 guided run: newRun, seed and overlay (m3-onboarding 2.1-2.3, E1, E2
     assert.throws(() => R.newRun({ classId: 'mage', content: { ...CONTENT, tutorial: undefined }, tutorial: true, validate: false }), /CONTENT.tutorial/);
     const s = steps(run(), [{ type: 'START_RUN' }]).state;
     assert.equal(s.phase, 'PREP');
-    assert.deepEqual({ ...s.tutorial, beats: undefined }, { on: true, skipped: false, ended: false, rescues: 0, script: 0, sites: 0, elite: null, beats: undefined });
+    // beats, top (the last top line) and fl (the fight's capped lines, from its first fight) are the engine's bookkeeping
+    assert.deepEqual({ ...s.tutorial, beats: undefined, top: undefined }, { on: true, skipped: false, ended: false, rescues: 0, script: 0, sites: 0, elite: null, beats: undefined, top: undefined });
+    assert.equal(s.tutorial.top, 'G1');
     const n = steps(R.newRun({ classId: 'mage', seed: 5, content: CONTENT }), [{ type: 'START_RUN' }]).state;
     assert.equal(n.tutorial, undefined);
     assert.equal(n.create.tutorial, undefined);
@@ -581,19 +583,85 @@ describe('M3 D150 follow-up (Lead 2026-11-14, draft): G14 combo points, G15 reso
   });
 
   test('G17 opens in round 2 of a fight with two living enemies and is learned by acting on the other one; G16 waits when its moment passes unseen', () => {
-    // the Mage in S3: W (Binding Glyph) on the Hexer, then both live in round 2
-    const s3 = R.step(withScript(atHub('mage', 5), 2), { type: 'MOVE', nodeId: 2 }).state;
+    // the Mage in S3 (G6 taught as in S2, so S3's lines are G8 and G17 under the fight's cap): W (Binding Glyph) on the
+    // Hexer, then both live in round 2
+    const pre = tweak(withScript(atHub('mage', 5), 2), (x) => { x.tutorial.beats.G6 = { st: 'done', line: null, n: 1, shown: 0, rest: false, back: 0 }; });
+    const s3 = R.step(pre, { type: 'MOVE', nodeId: 2 }).state;
     const r2 = R.step(s3, { type: 'ENGAGE', option: C.ENGAGE_OPTIONS.mage[1], target: 0 });
     assert.ok(r2.events.some((e) => e.t === 'beat' && e.id === 'G17' && e.what === 'open' && e.line === 'G17'));
     assert.deepEqual(R.tutorialView(r2.state).open.find((o) => o.id === 'G17'), { id: 'G17', line: 'G17', rest: false });
     const cast = (x, u) => R.step(x, { type: 'CAST', spellId: x.player.bar.find((id) => id && R.whyIllegal(x, { type: 'CAST', spellId: id, target: u }) === null), target: u });
-    const a = cast(tweak(r2.state, (x) => { for (const e of x.fight.enemies) e.hp = e.maxHp = 1e6; }), 1);
+    // tough enemies, set without a step (tweak's two no-op steps would let G17 finish its showing)
+    const tough = JSON.parse(R.serialize(r2.state)); tough.content = CONTENT;
+    for (const e of tough.fight.enemies) e.hp = e.maxHp = 1e6;
+    const a = cast(tough, 1);
     assert.ok(!a.events.some((e) => e.t === 'beat' && e.id === 'G17' && e.what === 'done'), 'the first target is no change');
     const b = cast(a.state, 0);
     assert.ok(b.events.some((e) => e.t === 'beat' && e.id === 'G17' && e.what === 'done'), 'acting on the other living enemy learns it');
     // G16 opened while another line was the top line and its beast died before it showed: it waits (null), open
     const w = tweak(r2.state, (x) => { x.tutorial.beats.G16 = { st: 'open', line: 'G16', n: 0, shown: 0, rest: false, back: 0 }; for (const e of x.fight.enemies) if (e.arch === 'beast') { e.alive = false; e.hp = 0; } });
     assert.deepEqual([w.tutorial.beats.G16.st, w.tutorial.beats.G16.line], ['open', null]);
+  });
+});
+
+describe('M3 ONB_LINES_PER_FIGHT (Lead 2026-11-14, draft): at most two coach lines become top line in one fight; G7 and G9 exempt', () => {
+  const MAPL = /^G(2|12|13)(\.|$)/;
+  /** The autoplay route (seed 8736, run seed 1000): per fight, the beats whose line became the view's line, in order. */
+  function perFight(classId) {
+    let s = steps(run(classId, 1000), [{ type: 'START_RUN' }, { type: 'TAKE_CONTRACT', index: 0 }]).state;
+    const fights = [];
+    let cur = null;
+    for (let n = 0; !(s.zone && s.zone.z === 2) && n < 3000; n++) {
+      const r = R.step(s, R.autoAction(s));
+      s = r.state;
+      if (r.events.some((e) => e.t === 'fight')) { cur = { id: s.fight.tut ? s.fight.tut.id : s.fight.kind, runs: [], held: new Set() }; fights.push(cur); }
+      const v = R.tutorialView(s);
+      if (s.fight && cur) {
+        const b = v.line && !MAPL.test(v.line) ? v.line.split('.')[0] : null;
+        if (b && cur.runs[cur.runs.length - 1] !== b) cur.runs.push(b);
+        for (const o of v.open) if (o.held) cur.held.add(o.id);
+      }
+    }
+    return { s, fights };
+  }
+
+  test('the route per class: which line lands in which fight; never more than ONB_LINES_PER_FIGHT counted lines in a fight; no line comes back within a fight; held beats wait for a later fight; the route unchanged', () => {
+    assert.equal(C.ONB_LINES_PER_FIGHT, 2);
+    const want = {
+      rogue: { site_1: ['G7', 'G14', 'G16'], s2: ['G6'], s3: ['G8'], gorrak: ['G15'], site_2: ['G10'] },
+      mage: { site_1: ['G7', 'G10', 'G16'], s2: ['G6'], s3: ['G8', 'G17'] },
+      hunter: { site_1: ['G7', 'G10', 'G16'], s2: ['G6'], s3: ['G8', 'G17'] },
+    };
+    for (const classId of ['rogue', 'mage', 'hunter']) {
+      const { s, fights } = perFight(classId);
+      assert.deepEqual(routeSeen(s), ROUTE_SEEN, `${classId}: the route`);
+      const got = Object.fromEntries(fights.filter((f) => f.runs.length).map((f) => [f.id, f.runs]));
+      assert.deepEqual(got, want[classId], `${classId}: ${JSON.stringify(got)}`);
+      for (const f of fights) {
+        assert.ok(f.runs.filter((b) => b !== 'G7' && b !== 'G9').length <= C.ONB_LINES_PER_FIGHT, `${classId} ${f.id}: ${f.runs}`);
+        assert.equal(new Set(f.runs).size, f.runs.length, `${classId} ${f.id}: a line comes back (${f.runs})`);
+      }
+      // the Rogue's fight 1 holds G10 and G15 back; both show later (site 2, Gorrak's fight), neither closed in fight 1
+      if (classId === 'rogue') assert.deepEqual([...fights[0].held].sort(), ['G10', 'G15']);
+    }
+  });
+
+  test('a held beat stays open with no line in the view (held: true) and the UI\'s fallback cannot reach it; G9\'s landed line is exempt from a full cap', () => {
+    // the Rogue's fight 1 at round 7: G15's moment (energy) with G14 and G16 already counted
+    let s = steps(run('rogue', 1000), [{ type: 'START_RUN' }, { type: 'TAKE_CONTRACT', index: 0 }]).state;
+    let held = null;
+    for (let n = 0; n < 400 && !held; n++) {
+      s = R.step(s, R.autoAction(s)).state;
+      const o = R.tutorialView(s).open.find((x) => x.id === 'G15');
+      if (o && s.fight) held = { o, line: s.tutorial.beats.G15.line, st: s.tutorial.beats.G15.st, fl: s.tutorial.fl.slice() };
+    }
+    assert.deepEqual(held, { o: { id: 'G15', line: null, rest: false, held: true }, line: 'G15.rogue', st: 'open', fl: ['G14', 'G16'] });
+    // G9 (exempt): with the cap full in Gorrak's fight, a landed Deathblow's line is the view's line
+    const g = R.step(withScript(settle(R.step(atHub('hunter', 4), { type: 'MOVE', nodeId: 1 }).state), 4), { type: 'MOVE', nodeId: 18 }).state;
+    let t = tweak(g, (x) => { x.tutorial.fl = ['G14', 'G16']; });
+    for (let n = 0; t.fight && n < 6 && !(t.tutorial.beats.G9 && t.tutorial.beats.G9.line === 'G9.landed'); n++) t = R.step(t, { type: 'PASS' }).state;
+    assert.equal(t.tutorial.beats.G9.line, 'G9.landed');
+    assert.equal(R.tutorialView(t).line, 'G9.landed');
   });
 });
 

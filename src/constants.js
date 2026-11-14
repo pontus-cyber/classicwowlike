@@ -1327,6 +1327,11 @@ export const ONB_DIM_NEAR_HOPS = 2;
 export const ONB_ENGAGE_SHOWS = 2;
 /** Coach line: steps a beat's line stays the top line before it yields to the next open beat with a line (spec 2.5, D141). */
 export const ONB_LINE_STEPS = 2;
+/**
+ * Coach line (spec 2.5; Lead 2026-11-14, D150 spirit, draft): beats whose line becomes the top line in any one fight, at
+ * most; a further beat whose moment comes in that fight waits for a later one (it stays open). G7 and G9 are exempt.
+ */
+export const ONB_LINES_PER_FIGHT = 2;
 /** Coach line: times a resting line comes back when its trigger fires again, per zone (G12; spec 2.5, D142; D150: 0, was 1: the Dimming line once). */
 export const ONB_LINE_RETURNS = 0;
 /** UI numbers (spec 3.1-3.2, 2.5): H31's fights won, line length, time on screen, pace, queue. */

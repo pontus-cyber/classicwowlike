@@ -93,6 +93,7 @@ Notes:
 - A beat's line that has been the top line for ONB_LINE_STEPS steps without being learned yields to the next open beat with a line. The beat stays open and can still be learned; its line comes back when its trigger fires again (G12: the Dimming comes within 2 hops again), at most ONB_LINE_RETURNS times per zone (D142; 0 since D150), or when the line changes. With no other open beat line it stays (D141).
 - (D150, draft) G12's lines are shown once: their steps as the top line count only on map steps (the screen they show on), and after ONB_LINE_STEPS such steps they rest also with no other line open; only the change to "Take a Road to leave." brings the beat back, once.
 - (D150 follow-up, draft) G14-G17 are shown once too: each has its line only while its moment lasts (from round 2 of a fight, so never on the quest's intro dialog, which the UI shows while the engine is in round 1), rests after ONB_LINE_STEPS steps as the top line also alone, and closes once it has been the top line and its moment is over; a moment that passes unseen leaves it for the next one. Priority: after G6, before G10.
+- (Lead 2026-11-14, draft; D150 spirit: little text in the player's face) **At most ONB_LINES_PER_FIGHT (2) beats' lines become the top line in any one fight.** A further beat whose moment comes in that fight is held: it stays open with no line on screen (`tutorialView.open` entry `line: null, held: true`) and waits for its moment in a later fight; it is not closed, and a held moment does not count as shown. G7 and G9 are exempt (they neither count nor wait); G2, G12 and G13 are map lines a fight never shows, so they neither count nor wait either. In a fight, a line that a higher one displaces after it has shown rests, so no line comes back within one fight (the Hunter's G10 came back after G16 before this rule). Route (autoplay, seed 8736): the Rogue's site 1 shows G7, G14 and G16 and holds G10 and G15, which show in site 2 and in Gorrak's fight; the Mage and the Hunter show G7, G10 and G16 in site 1 and G8 and G17 in S3.
 - Autoplay and fast mode do not wait for a line. A line that was on screen less than ONB_HINT_MIN_MS does not count as seen.
 - Reduce motion: no slide-in, no pulse; the strip just appears.
 
@@ -364,6 +365,7 @@ The balance bots never play the tutorial option; balance targets B1-B62 stay mea
 | ONB_HINTS_PER_FIGHT | 2 | hints per fight at most |
 | ONB_QUEUE_MAX | 2 | lines waiting at most |
 | ONB_LINE_STEPS | 2 | steps a beat's line stays the top line before it yields to the next open beat with a line (2.5, D141) |
+| ONB_LINES_PER_FIGHT | 2 | beats whose line becomes the top line in one fight, at most; G7 and G9 exempt (2.5; Lead 2026-11-14, draft) |
 | ONB_LINE_RETURNS | 0 | times a resting line comes back when its trigger fires again, per zone (2.5, G12; D142; D150: 0, was 1, the Dimming line once) |
 | ONB_WELCOME_ECHOES | 60 | the Bellwrights' welcome, once per profile (= Packed Satchel's price) |
 | ONB_GUIDE_MAX_MIN | 15 | minutes, target ONB1 |

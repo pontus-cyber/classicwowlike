@@ -16,7 +16,7 @@
 import {
   ONB_SCRIPTED_FIGHTS, ONB_SCRIPT_LEVEL_MAX, ONB_LOOT_POTIONS, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX,
   ONB_RESCUE_TOLLS, ONB_RESCUE_MAX, ONB_BEAT_RETRIES, ONB_POTION_HP, ONB_BELL_HOPS, ONB_BELL_DIM, ONB_DIM_NEAR_HOPS,
-  ONB_ENGAGE_SHOWS, ONB_BEATS, ONB_BEAT_PRIORITY, ONB_LINE_STEPS, ONB_LINE_RETURNS, CONTRACT, SLOT_IDS, RARITY, ILVL_MAX, CONSUMABLE,
+  ONB_ENGAGE_SHOWS, ONB_BEATS, ONB_BEAT_PRIORITY, ONB_LINE_STEPS, ONB_LINE_RETURNS, ONB_LINES_PER_FIGHT, CONTRACT, SLOT_IDS, RARITY, ILVL_MAX, CONSUMABLE,
   SPELL,
 } from '../constants.js';
 import { zoneRegions, hops, frontAt, zoneTime, dimAt, dimmedNow, knowledge } from './expedition.js';
@@ -313,17 +313,40 @@ const MAP_COUNTED = new Set(['G12']);
 /** A map step: on an expedition map with no node, fight or loot window open (the UI shows map lines then). */
 const mapStep = (s) => s.phase === 'MAP' && !s.node && !s.fight && !(s.loot && s.loot.length);
 /**
+ * Beats outside the fight's cap (ONB_LINES_PER_FIGHT; Lead 2026-11-14, draft): G7 and G9, exempt; G2, G12 and G13, map
+ * lines a fight never shows (the UI shows them on the map only), which neither count nor wait.
+ */
+const CAP_FREE = new Set(['G7', 'G9', 'G2', 'G12', 'G13']);
+/**
+ * The fight's cap holds this beat's line back now: in a fight, ONB_LINES_PER_FIGHT other beats have already been its top
+ * lines (state.tutorial.fl, reset when a fight starts). The beat stays open and waits for its moment in a later fight.
+ */
+const capped = (s, t, id) => !!(s.fight && !CAP_FREE.has(id) && t.fl && t.fl.length >= ONB_LINES_PER_FIGHT && !t.fl.includes(id));
+/**
  * The coach line yields (spec 2.5, D141), after every action while the guide runs: the top line (the open beat with a line,
  * not resting, by ONB_BEAT_PRIORITY) that has already been the top line for ONB_LINE_STEPS steps rests when another open
  * beat has a line (D150: a ONCE_LINES line also alone), and the next one is the top line; the top line counts this step
- * (D150: a MAP_COUNTED line only on a map step). A resting beat stays open (it can still be learned) and its line comes
+ * (D150: a MAP_COUNTED line only on a map step). In a fight a beat the cap holds (capped) is no candidate, a new top
+ * line counts towards the cap, and a top line a higher one displaces after showing rests (`top`: the last top line). A resting beat stays open (it can still be learned) and its line comes
  * back when the engine opens it anew, changes its line or its trigger fires again (at most ONB_LINE_RETURNS times, 0 since
  * D150).
  */
 function yieldLines(s, t) {
-  const cands = ONB_BEAT_PRIORITY.filter((id) => isOpen(t, id) && t.beats[id].line && !t.beats[id].rest);
+  const cands = ONB_BEAT_PRIORITY.filter((id) => isOpen(t, id) && t.beats[id].line && !t.beats[id].rest && !capped(s, t, id));
+  // in a fight, a line a higher one displaces after it has shown rests: its showing is over and it does not come back in
+  // the same fight (Lead 2026-11-14, draft: the Hunter's G10 came back after G16). Map lines are not shown in fights.
+  const p = t.top;
+  if (s.fight && p && p !== cands[0] && cands.includes(p) && !CAP_FREE.has(p) && t.beats[p].shown > 0) {
+    t.beats[p].rest = true;
+    cands.splice(cands.indexOf(p), 1);
+  }
   while (cands.length && t.beats[cands[0]].shown >= ONB_LINE_STEPS && (cands.length > 1 || ONCE_LINES.has(cands[0]))) t.beats[cands.shift()].rest = true;
-  if (cands.length && (!MAP_COUNTED.has(cands[0]) || mapStep(s))) t.beats[cands[0]].shown += 1;
+  if (cands.length && (!MAP_COUNTED.has(cands[0]) || mapStep(s))) {
+    t.beats[cands[0]].shown += 1;
+    // the fight's cap counts it (Lead 2026-11-14, draft)
+    if (s.fight && t.fl && !CAP_FREE.has(cands[0]) && !t.fl.includes(cands[0])) t.fl.push(cands[0]);
+  }
+  t.top = cands.length ? cands[0] : null;
 }
 function close(t, ev, id, learned) {
   const b = t.beats[id];
@@ -511,8 +534,9 @@ function trackBeats(s, ev, a) {
   // G4 (D150 item 18, draft): the first upgrade (the UI's green arrow) in a fight's or a chest's spoils in the guided zone,
   // never from a reward choice; missed when the next fight ends
   if (!fired(t, 'G4') && !NOT_SPOILS.has(a.type) && has('loot', (e) => isUpgrade(s, e.item))) op('G4', 'G4', s.stats.fights);
-  // A fight started (its round 1)
+  // A fight started (its round 1); the fight's cap starts again (ONB_LINES_PER_FIGHT, Lead 2026-11-14, draft)
   if (f && has('fight')) {
+    t.fl = [];
     const entries = f.enemies.flatMap((e) => e.track || []);
     // G3 (D150 item 11): no line; learned when the first fight is won
     if (!fired(t, 'G3')) op('G3', null);
@@ -606,7 +630,9 @@ export function tutorialView(s) {
   const zone = inZone1(s) && s.zone.tut ? s.zone : null;
   const eid = zone ? zone.tut.elite : null;
   const gate = scriptIndex(T, T.elite.gate.afterScript) + 1;
-  const openList = ONB_BEAT_PRIORITY.filter((id) => isOpen(t, id)).map((id) => ({ id, line: t.beats[id].line, rest: !!t.beats[id].rest }));
+  // a beat the fight's cap holds back shows no line now (held: true), so the UI's fallback cannot show it either
+  const openList = ONB_BEAT_PRIORITY.filter((id) => isOpen(t, id)).map((id) => (t.beats[id].line && capped(s, t, id)
+    ? { id, line: null, rest: !!t.beats[id].rest, held: true } : { id, line: t.beats[id].line, rest: !!t.beats[id].rest }));
   const cur = guideOn(s) ? openList.find((o) => o.line && !o.rest) || null : null;
   const st = (id) => (t.beats[id] ? t.beats[id].st : null);
   const shut = roadsShut(s);

@@ -890,7 +890,8 @@ run. Zones 2-6 and everything after the guide are the normal rules. A run withou
 ### 14.1 Seed and overlay (E1, E2)
 - `state.tutorial = { on, skipped, ended, rescues, script, sites, elite, beats }` from START_RUN (`script`: scripted fights
   ended; `sites`: Cull site fights started; `elite` (D142): how Gorrak's fight in the guided zone ended, null, `'victory'`,
-  `'fled'` or `'rescue'`; `beats`: engine bookkeeping, read `tutorialView`). `create.tutorial` is true.
+  `'fled'` or `'rescue'`; `beats`: engine bookkeeping, read `tutorialView`; (Lead 2026-11-14, draft) `top`, the last
+  top line's beat, and `fl`, the beats counted by the fight's cap since its start: bookkeeping too). `create.tutorial` is true.
 - Zone 1's streams `map(1)`, `node(1, id)`, `fight(1, id, k)`, `loot(1, id)`, `dim(1, id, n)` and the hub vendor take
   `C.TUTORIAL_SEED` (8736, D137) in place of the run seed (`expedition.js zoneSeed`), skipped or not, so every guided run
   gets the same zone 1 (Cull sites 1, 4, 7; Gorrak on node 18; Roads 23, 27, 19; Shardfall 25). Item names keep the run seed.
@@ -1015,7 +1016,12 @@ back at most C.ONB_LINE_RETURNS times per zone (D150: 0, was 1); after that it d
 reset). (D150, draft, the Dimming line once) G12's steps as the top line count only on a map step (phase MAP, no node,
 fight or loot window), and after C.ONB_LINE_STEPS of them it rests also when no other open beat has a line; `G12.road`
 brings it back once, by the same rule. (D150 follow-up, draft) G14-G17 rest by the same rule (any step, not only map
-steps); each has its line only while its moment lasts (null between moments). The UI shows `line` and needs no step rule of its own. G13 is last by priority,
+steps); each has its line only while its moment lasts (null between moments). (Lead 2026-11-14, draft) In a fight at
+most C.ONB_LINES_PER_FIGHT (2) beats' lines become the top line (`state.tutorial.fl`, reset at each `fight` event; G7, G9
+and the map lines G2, G12, G13 neither count nor wait): a further beat is held, no candidate for the top line, shown in
+`tutorialView.open` as `{ id, line: null, rest, held: true }`, still open, and its line comes at its moment in a later
+fight; and a fight's top line that a higher one displaces after showing rests (`state.tutorial.top`), so no line comes
+back within a fight. The UI shows `line` and needs no step rule of its own. G13 is last by priority,
 so it never rests: `G13.closed` is the line whenever no other open beat has a line that is not resting.
 
 ### 14.5 Profile, welcome and summary (E6, E7)
