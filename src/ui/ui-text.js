@@ -605,3 +605,24 @@ export function linkedText(r, form) {
   if (form === 'log') return `The Shards link to Oruvath: −${pct(per)} damage taken per living Shard, at most −${pct(r.linkCap)}.`;
   return `Each living Dimming Shard shields Oruvath: −${pct(per)} damage taken per Shard, at most −${pct(r.linkCap)}. Every Shard killed weakens the link.${aoe}`;
 }
+
+/**
+ * Blind round 2 (casual re-run s0279: level 8 with two new spells and two ranks never trained, nothing said so): what waits
+ * at the trainer, from R.trainerView ({ learn, train }) and the spells' names, in one short line, or null with nothing
+ * waiting. New spells first ("New at the trainer: Shadowstep Strike, Gouge"), else the ranks ("2 spells can rank up at
+ * the trainer"). Draft wording.
+ */
+export function trainerWaiting(t, name = (id) => id) {
+  if (!t) return null;
+  const learn = t.learn || []; const train = t.train || [];
+  if (learn.length) return `New at the trainer: ${learn.map((x) => name(x.id)).join(', ')}`;
+  if (train.length) return `${train.length} ${plural(train.length, 'spell')} can rank up at the trainer`;
+  return null;
+}
+/** The hub Trainer card's line while lessons wait (blind round 2): "2 new spells, 1 rank" (draft). */
+export function trainerWaitingShort(t) {
+  if (!t) return null;
+  const a = (t.learn || []).length; const b = (t.train || []).length;
+  const parts = [a ? `${a} new ${plural(a, 'spell')}` : null, b ? `${b} ${plural(b, 'rank')}` : null].filter(Boolean);
+  return parts.length ? `Waiting: ${parts.join(', ')}` : null;
+}

@@ -20,7 +20,7 @@
 // floats not with the fight's (its window shows it), so the fight's floats add up to the spoils' experience.
 import { wait, SkipToken, fmtNum, deepClone } from './util.js';
 import { settings } from './settings.js';
-import { linkedText, dangerBanner, CONTROL_WORD as CONTROL_LOG, HEAT_WORDS, freeActionText } from './ui-text.js';
+import { linkedText, dangerBanner, CONTROL_WORD as CONTROL_LOG, HEAT_WORDS, freeActionText, trainerWaiting } from './ui-text.js';
 import { timeline, roundPace, hitShare, STATUS_LABEL } from './combat-feel.js';
 import { CAST, token as themeToken } from './theme.js'; // not `token`: play() has its own SkipToken of that name
 import { fillLine, rescueLeftLine } from './onboarding.js';
@@ -365,7 +365,10 @@ export class Director {
             Object.assign(p(), { level: e.level, maxHp: e.maxHp, hp: e.hp, xp: 0, xpToNext: (next.player && next.player.level === e.level) ? next.player.xpToNext : p().xpToNext });
             push();
             scene.levelUp('player');
-            const extra = [e.talentPoint ? '+1 talent point' : null, e.newSpells && e.newSpells.length ? `New at the trainer: ${e.newSpells.join(', ')}` : null].filter(Boolean).join('  ·  ');
+            // blind round 2 (casual re-run s0279): the banner points to the trainer whenever a spell or a rank waits there
+            // (R.trainerView after the step), once per level; the mock has no trainer view: the level's new spells
+            const waiting = next.trainer ? trainerWaiting(next.trainer, (id) => (ctx.data.spells[id] || {}).name || id) : e.newSpells && e.newSpells.length ? `New at the trainer: ${e.newSpells.join(', ')}` : null;
+            const extra = [e.talentPoint ? '+1 talent point' : null, waiting].filter(Boolean).join('  ·  ');
             ctx.ui.banner(`Level ${e.level}`, extra || 'You feel stronger.', 'level', 2200);
             hud.log(`You have reached level ${e.level}!`, 'lg-loot');
             if (!fast()) await WM(M.levelUp);

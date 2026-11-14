@@ -437,7 +437,9 @@ export function createOnboarding(root, ctx) {
         okBtn.textContent = 'Keep it'; skipBtn.textContent = 'Skip';
         place(); return;
       }
-      confirm = false; hide(false); ctx.act({ type: 'SKIP_GUIDE' });
+      // blind round 2 (skipper s0003-s0004: a hint popped up at once after the skip): the line on screen counts as read, so
+      // its own first-time hint (G1's H23 at the camp) does not follow it on the same screen
+      confirm = false; markAll(beatHintKeys(cur.id, cur.lineId)); hide(false); ctx.act({ type: 'SKIP_GUIDE' });
       return;
     }
     hints.setOff(true); hide(false); queue = [];
