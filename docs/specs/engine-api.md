@@ -67,7 +67,8 @@ inner-ring quests keep zone 1's cap, `C.QUEST_CAP_Z2_RINGS` and the switch `C.GA
 2026-11-14 (D147: a guided rescue starts no fight and `C.ONB_RESCUE_MAX` rescues end the guide, `guideSkipped` `why`,
 `tutorialView.rescueMax`, 14.2-14.5; zone 1 enemy damage `C.Z1_DMG_MULT` up to `C.Z1_DMG_MAX_LEVEL` in `zoneDanger`, the
 switch `C.GATES.z1Dmg`, on (rules 7.6); marked "(D147)"); 2026-11-14b (D149: the guided zone's marked wind-up on the enemy's
-turn `C.ONB_WINDUP_TURN` (1), 14.1, marked "(D149)").
+turn `C.ONB_WINDUP_TURN` (1), 14.1, marked "(D149)"; draft, docs/handoffs/engine-2026-11-14b.md: G8's joint line gives way
+after the engage round (ui-2026-11-14 finding 1), 14.4).
 Units: every time value of the API is a whole number of tolls (1 toll = 1 former in-game hour, D69); there are no hours.
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
@@ -979,7 +980,7 @@ The engine opens and closes G1-G13 from the action, its events and the state, wh
 | G5 | the first map step after G4's | learned on the next map action (MOVE, PASS_THROUGH, TAKE_ROAD, RING_BELL, USE_SPYGLASS) |
 | G6 | the first fight with a heavy or cast entry on a track | at its end: learned if a heavy cost 0 HP (`offBalance` `avoided`), else missed (hovering is the UI's) |
 | G7 | the first engage fight with 2 or more enemies; (D147) opening in the same engage round as G8 (S3): line null, G8 carries the joint line | learned on ENGAGE; shown again at the next engage fight (ONB_ENGAGE_SHOWS), then missed |
-| G8 | the first fight with a non-Deathblow wind-up; (D147) `G8.withEngage` when G7 opens in the same engage round (content `alt.withEngage`, spec 2.8) | learned on its `stagger` ((D149) S3's: in the step of an engage-round control on the Hexer); landed: `G8.landed`, open for ONB_BEAT_RETRIES more, then missed; the enemy dead before its wind-up: open (line null), missed at the guide's end |
+| G8 | the first fight with a non-Deathblow wind-up; (D147) `G8.withEngage` when G7 opens in the same engage round (content `alt.withEngage`, spec 2.8); (draft, ui-2026-11-14 finding 1) from round 2 of the fight, `G8.withEngage` and `G8` become `G8` while a non-Deathblow wind-up can still come (on a living enemy's track after its current turn, or its intent this turn), else null (the winding-up enemy dead, or its wind-up's turn played); `G8.landed` stays until the fight ends | learned on its `stagger` ((D149) S3's: in the step of an engage-round control on the Hexer); landed: `G8.landed`, open for ONB_BEAT_RETRIES more, then missed; the enemy dead before its wind-up: open (line null), missed at the guide's end |
 | G9 | the first fight with a Deathblow (`G9.<class>`) | learned on a Deathblow's `stagger`; landed: `G9.landed`, the class line again at the next Deathblow fight |
 | G10 | (D142) on the map with nothing open, a held contract's site mark first in view (as `mapView` shows it: `sites`), never at the hub screen (`G10`) | first site won: line null; complete: `G10.done`; learned at the CHOOSE_REWARD that takes its reward |
 | G11 | in a fight, HP < ONB_POTION_HP of max with a healing potion on the item bar | learned on USE_ITEM of it; missed when the fight ends |

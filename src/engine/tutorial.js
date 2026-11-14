@@ -7,7 +7,8 @@
 // While the guide is on (not skipped) zone 1 is the guided zone: a death there is a rescue (back to the last node, full
 // health, ONB_RESCUE_TOLLS; D147: it lands on the map with no fight started, and the ONB_RESCUE_MAX-th rescue ends the
 // guide), and the 13 beats G1-G13 are tracked from the actions, events and state (`beat` events, tutorialView; D147: G7
-// and G8 opening in one engage round share G8's joint line). Leaving zone 1 ends the guide.
+// and G8 opening in one engage round share G8's joint line, which gives way after the engage round, draft). Leaving
+// zone 1 ends the guide.
 // Pure helpers of the state; nodes.js, combat.js, damage.js, contracts.js, actions.js and autoplay.js call them. A run
 // without the option never reaches any of it.
 import {
@@ -316,6 +317,15 @@ function close(t, ev, id, learned) {
 }
 const MAP_ACTIONS = new Set(['MOVE', 'PASS_THROUGH', 'TAKE_ROAD', 'RING_BELL', 'USE_SPYGLASS']);
 const healPotion = (id) => !!(id && CONSUMABLE[id] && CONSUMABLE[id].potion && CONSUMABLE[id].heal);
+/**
+ * A wind-up G8 teaches can still come in fight f (ui-2026-11-14 finding 1, draft): a non-Deathblow wind-up on a living
+ * enemy's track after its current turn, or on its current turn while its intent is still that wind-up (not cancelled by
+ * control or a trap, not replaced). False once the winding-up enemy is dead or its wind-up's turn has been played.
+ */
+function windupAhead(f) {
+  return f.enemies.some((e) => e.alive && e.kind !== 'boss' && (e.track || []).some((x) => x.windup && !x.deathblow
+    && (x.turn > e.turn || (x.turn === e.turn && !!e.intent && !!e.intent.windup))));
+}
 
 /**
  * After every action of a guided run (actions.js applyAction, after the settle step): the overlay of zone 1, the beats
@@ -387,6 +397,11 @@ function trackBeats(s, ev, a) {
     if (t.beats.G7.n >= ONB_ENGAGE_SHOWS) close(t, ev, 'G7', false);
     else setLine(t, ev, 'G7', null);
   }
+  // ui-2026-11-14 finding 1 (draft): the joint line belongs to the engage round, as G7's line does. After it, G8
+  // shows its own line while its wind-up can still come, and waits (null) once it cannot (the enemy dead, its turn
+  // played); its own line follows the same rule. 'G8.landed' stays until the fight ends
+  const g8 = isOpen(t, 'G8') ? t.beats.G8.line : null;
+  if (f && !ended && f.round >= 2 && (g8 === 'G8.withEngage' || g8 === 'G8')) setLine(t, ev, 'G8', windupAhead(f) ? 'G8' : null);
   if (isOpen(t, 'G10')) {
     const b = t.beats.G10;
     if (has('contract', (e) => e.what === 'complete' && e.z === 1)) { b.n = 1; setLine(t, ev, 'G10', 'G10.done'); }
