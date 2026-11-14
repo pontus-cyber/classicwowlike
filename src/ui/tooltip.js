@@ -13,17 +13,46 @@ let el = null;
 let current = null;
 let hover = null; // { target, avoid }: the hovered element and the selector of what else its tip must not cover
 let spot = -1; // the spot the tip took last (kept while it stays free)
+let last = null; // the pointer's last position ({ x, y })
+let parked = null; // a tip a key put away: { target, avoid, build }, shown again when the pointer moves on its element
 
 export function initTooltip(root) {
   el = h('div.tooltip', { role: 'tooltip' });
   root.appendChild(el);
   document.addEventListener('pointermove', (e) => {
+    last = { x: e.clientX, y: e.clientY };
+    // blind round 2: a tip put away by a key comes back, built anew, when the pointer moves on its element again
+    if (!current && parked) {
+      const pk = parked; parked = null;
+      if (pk.target.isConnected && (e.target === pk.target || pk.target.contains(e.target))) { hover = { target: pk.target, avoid: pk.avoid }; show(pk.build, e.clientX, e.clientY, true); }
+      return;
+    }
     if (!current) return;
     // blind panel 2026-11-13: a tip whose element went away under the pointer (bags closed with B, a re-rendered list)
     // gets no pointerleave; it stayed and followed the cursor over the map. It goes once the pointer is off its element
     if (stale(e.target)) { hide(); return; }
     place(e.clientX, e.clientY);
   }, { passive: true });
+  // blind round 2 (competitive s0028, s0038-s0055; tactician s0112): a key changes what a tip says (a spell cast, the bags
+  // opened over a map node), so any key puts the tip away; it shows again, up to date, when the pointer moves on its element
+  document.addEventListener('keydown', () => {
+    if (!current) return;
+    const pk = hover && hover.target ? { target: hover.target, avoid: hover.avoid, build: current } : null;
+    hide(); parked = pk;
+  }, true);
+}
+/**
+ * After a step (app.js afterPlay): the tip on screen is built again from the new view while its element is still under the
+ * pointer and on top there (a window opened over it hides it), so it never shows numbers of a state that is gone.
+ */
+export function refreshTip() {
+  if (!current || typeof current !== 'function' || !hover || !hover.target) return;
+  const t = hover.target;
+  const top = last ? document.elementFromPoint(last.x, last.y) : null;
+  if (!t.isConnected || (top && !(top === t || t.contains(top)) && !(el && el.contains(top)))) { hide(); return; }
+  const content = current(); if (!content) { hide(); return; }
+  clear(el).appendChild(content);
+  if (last) place(last.x, last.y);
 }
 /** The hovered element is gone from the page, or the pointer (at `at`, the event's target) is no longer over it. */
 function stale(at) {
@@ -36,11 +65,17 @@ export function hideIn(root) { const t = hover && hover.target; if (current && t
 
 /** The next action on screen: primary buttons (Set out, Take the Road, Continue, ...), wherever they are. */
 const PRIMARY = '.btn.primary, #pp-go';
+/** The parts of a hovered element its own tip keeps clear of: its buttons, a row's right column (price), a rank counter. */
+const OWN = 'button, .btn, .right, .rk, .rank, .eqnow';
 /** Rects the tip must not cover: visible primary buttons and the tip's own `avoid` elements, never the hovered one. */
 function keepClear() {
   const t = hover && hover.target;
-  const els = [...document.querySelectorAll(PRIMARY + (hover && hover.avoid ? `, ${hover.avoid}` : ''))];
-  return els.filter((b) => !(t && (b === t || b.contains(t) || t.contains(b))) && !b.closest('.tooltip'))
+  const els = [...document.querySelectorAll(PRIMARY + (hover && hover.avoid ? `, ${hover.avoid}` : ''))]
+    .filter((b) => !(t && (b === t || b.contains(t) || t.contains(b))));
+  // blind round 2 (tactician s0065, s0210; casual s0334): the hovered element's own controls and numbers (its Equip now,
+  // a trainer row's price and Learn, a talent's rank counter) stay in view too
+  if (t && t.querySelectorAll) els.push(...t.querySelectorAll(OWN));
+  return els.filter((b) => !b.closest('.tooltip'))
     .map((b) => b.getBoundingClientRect()).filter((q) => q.width > 0 && q.height > 0 && q.bottom > 0 && q.right > 0 && q.top < innerHeight && q.left < innerWidth);
 }
 function place(x, y) {
@@ -94,7 +129,7 @@ export function show(build, x, y, keepHover = false) {
   spot = -1;
   place(x, y);
 }
-export function hide() { current = null; hover = null; spot = -1; if (el) el.classList.remove('on'); }
+export function hide() { current = null; hover = null; spot = -1; parked = null; if (el) el.classList.remove('on'); }
 
 // ------------------------------------------------------------------ builders
 const STAT_NAMES = { sta: 'Stamina', agi: 'Agility', int: 'Intellect', spi: 'Spirit', power: 'Power', crit: 'Critical strike', armor: 'Armor', wd: 'Weapon damage' };
