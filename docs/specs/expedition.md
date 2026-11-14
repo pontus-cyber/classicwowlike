@@ -36,7 +36,7 @@ Real time: PREP is one screen, about PACE_PREP_S seconds. The run otherwise keep
 `prepPoints = PREP_POINTS + PREP_POINTS_PER_QM × (Quartermaster ranks)` (meta, 11). Everything on the prep screen is bought with these points. Points not spent at `SET_OUT` become **Reserve** (2.6).
 
 ### 2.2 The contract board
-At PREP the board shows CONTRACT_BOARD_SIZE contracts drawn on stream `prep(k)` = hash(runSeed, "prep", k), k = number of rerolls so far:
+At PREP the board shows CONTRACT_BOARD_SIZE contracts drawn on stream `prep(k)` = hash(runSeed, "prep", k), k = number of rerolls so far. (D150, cut list item 15, owner-approved; measured in docs/handoffs/engine-2026-11-14d.md) On a profile's first run (no run completed on the profile: `profile.runs` 0; a dev run does not count) the board holds only the slots of CONTRACT_BOARD_FIRST_BANDS, one offer of zone 1, drawn by the same rules on the same stream (a reroll keeps the size); the guided first run's slot 1 is its Cull (m3-onboarding.md 2.3). Later runs keep the board below:
 - (D132) slot i (from 0) first takes its zone from its band, CONTRACT_BOARD_BANDS[i]: one uniform draw over the band's zones (a band of one zone makes no draw). The bands are zones 1-2, 3-4 and 5-6, so the three offers span the run: one early, one middle, one late contract (report 2026-11-12d: with the board on zones 1-3 the zone 4-6 contracts left the start camp and the hubs did not replace them; PALL 48.2 % < 50 %, B46 5.1 % < 8 %). The switch `GATES.boardAcrossRun` is **on**; off, slot i is a contract of zone i + 1 while i < ZONE_COUNT with no zone draw (the D128 board: zones 1, 2 and 3), kept so the simulator can arm the old board. A slot past the bands (or past ZONE_COUNT when off) would draw its zone uniformly from 1..ZONE_COUNT. (D128: CONTRACT_BOARD_SIZE 3; it was 8, one per zone and CONTRACT_BOARD_EXTRA 2 drawn zones, a constant now retired. Owner playtest 2026-11-12 20:19: "lower the contracts to maybe 3 choices". Each zone 2-6 also offers a contract at its hub, 3.6.);
 - kind by weight: Cull CW_CULL, Bounty CW_BOUNTY, Delve CW_DELVE (section 3);
 - target region: uniform over the zone's REGION_COUNT regions (Delve: the zone's dungeon); target family: one of the region's families (Content, 12.2);
@@ -542,6 +542,7 @@ Reproduce: `cd sim/out/heat && HEATP='{"gain":[0,0,0.35,0.5],"up":[0,0,0.25,0.4]
 | PREP_ECHO_PER_POINT | 2 | Echoes per Reserve point at SUMMARY |
 | CONTRACT_BOARD_SIZE | 3 | contracts (D128: was 8; CONTRACT_BOARD_EXTRA 2 retired) |
 | CONTRACT_BOARD_BANDS | [[1,2],[3,4],[5,6]] | zone band of each board slot (D132; only with `GATES.boardAcrossRun`, on; off: zones 1, 2, 3) |
+| CONTRACT_BOARD_FIRST_BANDS | [[1,1]] | the board on a profile's first run (`profile.runs` 0): one slot, zone 1, whatever `GATES.boardAcrossRun` (D150, cut list item 15) |
 | CONTRACT_SLOTS | 4 | contracts held |
 | REROLL_PRICE | 1 | points (only with `GATES.campReroll`, off since D128) |
 | REROLL_MAX | 2 | rerolls (only with `GATES.campReroll`, off since D128) |

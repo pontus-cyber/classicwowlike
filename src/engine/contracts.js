@@ -12,7 +12,7 @@
 // them from the run flow, actions.js checks legality. M3 guided run (tutorial.js fixBoard): board slot 1 is fixed. Only a run created with newRun({ mapMode: 'expedition', prep: true })
 // uses it; a rows run, or an expedition run without the option, never does.
 import {
-  ZONE_COUNT, ZONE_LEVELS, PREP_POINTS, PREP_POINTS_PER_QM, PREP_ECHO_PER_POINT, CONTRACT_BOARD_SIZE, CONTRACT_BOARD_BANDS,
+  ZONE_COUNT, ZONE_LEVELS, PREP_POINTS, PREP_POINTS_PER_QM, PREP_ECHO_PER_POINT, CONTRACT_BOARD_SIZE, CONTRACT_BOARD_BANDS, CONTRACT_BOARD_FIRST_BANDS,
   CONTRACT_SLOTS,  REROLL_PRICE, REROLL_MAX, CULL_SITES, CULL_SITE_SPARE, CULL_SITE_IN, CULL_SITE_OUT, BOUNTY_PLACED,
   CONTRACT_CL_OFFSET, PREP_OPTION, PREP_OPTION_IDS, PREP_CAMP_OPTIONS, CONTRACT, CONTRACT_KINDS, META, BELL_MAX_CHARGES,
   GUIDE_RADIUS_BONUS, TRACKER_RADIUS, EMBER_MAX_CARRIED, XP_WEIGHT_MULT, DROP_TABLE, RARITY_ORDER, GATES,
@@ -92,15 +92,26 @@ function offerOdds(c, zs) {
 
 /**
  * The zone band [lo, hi] of board slot i (expedition.md 2.2): with GATES.boardAcrossRun (D132, on) CONTRACT_BOARD_BANDS[i];
- * off (the D128 board) the zone i + 1 alone while i < ZONE_COUNT; a slot past those draws from 1..ZONE_COUNT.
+ * off (the D128 board) the zone i + 1 alone while i < ZONE_COUNT; a slot past those draws from 1..ZONE_COUNT. first
+ * (D150): a profile's first run, CONTRACT_BOARD_FIRST_BANDS[i] (zone 1) whatever the switch.
  */
-export function boardBand(i) {
+export function boardBand(i, first = false) {
+  if (first) return CONTRACT_BOARD_FIRST_BANDS[i] || [1, 1];
   if (GATES.boardAcrossRun) return CONTRACT_BOARD_BANDS[i] || [1, ZONE_COUNT];
   return i < ZONE_COUNT ? [i + 1, i + 1] : [1, ZONE_COUNT];
 }
 
 /**
- * The board after k rerolls (stream prep(k), 2.2): `size` slots (CONTRACT_BOARD_SIZE: 3 since D128). Slot i first takes
+ * A profile's first run (D150, cut list item 15): no run completed on the profile (`runs` 0; a dev run does not count,
+ * meta.js applyRunToProfile). Its start camp offers only CONTRACT_BOARD_FIRST_BANDS (one zone 1 contract).
+ */
+export const firstRun = (s) => !(s.profile && s.profile.runs > 0);
+/** Offers on the board of this run (D150): CONTRACT_BOARD_FIRST_BANDS.length on a first run, else CONTRACT_BOARD_SIZE. */
+export const boardSize = (s) => (firstRun(s) ? CONTRACT_BOARD_FIRST_BANDS.length : CONTRACT_BOARD_SIZE);
+
+/**
+ * The board after k rerolls (stream prep(k), 2.2): `size` slots (boardSize: CONTRACT_BOARD_SIZE, 3 since D128; D150: one,
+ * zone 1, on a profile's first run, with the bands of CONTRACT_BOARD_FIRST_BANDS). Slot i first takes
  * its zone from its band (boardBand: one uniform draw when the band holds more than one zone, none for a single zone),
  * then draws its offer. D132 (GATES.boardAcrossRun on): one offer each from zones 1-2, 3-4 and 5-6; off: zones 1, 2, 3 as
  * D128 drew them (no zone draw). `kept` (REROLL_BOARD): the taken offers by slot; such a slot still makes its draws and
@@ -109,11 +120,12 @@ export function boardBand(i) {
  * 1 / band size) that are not on the board, each with its chance in the normal draw (offerOdds); with none left the offer
  * stays. A board without a repeat is drawn as before this rule (2026-11-11). `size` is a parameter for the tests.
  */
-export function drawBoard(s, k, kept = [], size = CONTRACT_BOARD_SIZE) {
+export function drawBoard(s, k, kept = [], size = boardSize(s)) {
   const rng = STREAM.prep(s.seed, k);
+  const first = firstRun(s);
   const out = [];
   for (let i = 0; i < size; i++) {
-    const [lo, hi] = boardBand(i);
+    const [lo, hi] = boardBand(i, first);
     const z = lo === hi ? lo : lo + nextInt(rng, hi - lo + 1);
     let o = drawOffer(s.content, rng, z);
     if (kept[i]) { out.push(kept[i]); continue; }

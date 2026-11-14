@@ -10,7 +10,9 @@ import { buildProfile } from '../../sim/lib/profiles.mjs';
 import { createBot } from '../../sim/bots/index.mjs';
 import { barGuard, barFingerprint } from '../../sim/lib/policy.mjs';
 
-const guidedHunter = (seed) => newRunFor({ classId: 'hunter', petId: 'ridgewolf', seed, profile: buildProfile('fresh', 'hunter'), mapMode: 'expedition', prep: true, tutorial: true });
+// D150 (cut list item 15): a profile's first run offers one camp contract; the scenario below was found with the three-offer
+// board, so the run's profile has one run behind it (the board only; the guide is the newRun option)
+const guidedHunter = (seed) => newRunFor({ classId: 'hunter', petId: 'ridgewolf', seed, profile: { ...buildProfile('fresh', 'hunter'), runs: 1 }, mapMode: 'expedition', prep: true, tutorial: true });
 /** A guided Hunter on the zone 1 map (the planner played up to there). */
 function onMap(seed) {
   const s = guidedHunter(seed);

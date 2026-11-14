@@ -560,6 +560,12 @@ export const CONTRACT_BOARD_SIZE = 3;
  * span the run. Off: slot i is zone i + 1 (D128). A slot past the bands draws from 1..ZONE_COUNT.
  */
 export const CONTRACT_BOARD_BANDS = [[1, 2], [3, 4], [5, 6]];
+/**
+ * expedition.md 2.2 (D150, cut list item 15, owner-approved; draft until measured): the board on a profile's first run (no
+ * run completed on it: profile.runs 0): one offer per band here, so one contract of zone 1. Later runs keep
+ * CONTRACT_BOARD_SIZE offers from CONTRACT_BOARD_BANDS.
+ */
+export const CONTRACT_BOARD_FIRST_BANDS = [[1, 1]];
 /** expedition.md 2.2, 3.5: contracts held at once (PREP and hubs together). */
 export const CONTRACT_SLOTS = 4;
 /** expedition.md 2.2: price of REROLL_BOARD and the most rerolls per run; legal only with GATES.campReroll (off since D128). */

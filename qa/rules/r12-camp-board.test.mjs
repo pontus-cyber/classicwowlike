@@ -7,7 +7,8 @@ import assert from 'node:assert/strict';
 import { R, C } from './helpers.mjs';
 import { CONTENT as REAL } from '../../src/content/index.js';
 
-const atCamp = (seed) => R.step(R.newRun({ classId: 'mage', seed, content: REAL, mapMode: 'expedition', prep: true }), { type: 'START_RUN' }).state;
+// D150 (cut list item 15): a profile's first run offers one zone 1 contract; the board across the run is a later run's
+const atCamp = (seed) => R.step(R.newRun({ classId: 'mage', seed, content: REAL, mapMode: 'expedition', prep: true, profile: { ...R.newProfile(), runs: 1, welcome: true } }), { type: 'START_RUN' }).state;
 const go = (s, a) => R.step(s, a).state;
 function withGate(key, value, fn) {
   const old = C.GATES[key];

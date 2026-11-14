@@ -797,7 +797,12 @@ DUNGEON_DIM_HOLD 3 until M2b v12 removed it) act on every expedition run, with o
   REROLL_BOARD is refused ("no reroll at the start camp") while `C.GATES.campReroll` is off, its default; on, the rule
   below holds. BUY_PREP refuses an option not in `C.PREP_CAMP_OPTIONS` ("not offered at the start camp"): the camp sells
   Field Draughts, Ember of Return, Region Charts and Tracker's Notes; the other options keep their SET_OUT effects.
-  `contracts.js drawBoard(s, k, kept, size)` draws a board of `size` slots (default CONTRACT_BOARD_SIZE; tests draw 8).
+  `contracts.js drawBoard(s, k, kept, size)` draws a board of `size` slots (default `boardSize(s)`; tests draw 8).
+- (D150, cut list item 15) A profile's first run (`contracts.js firstRun`: `profile.runs` 0; a dev run leaves `runs`
+  unchanged) draws `C.CONTRACT_BOARD_FIRST_BANDS.length` (1) slot with the bands of `C.CONTRACT_BOARD_FIRST_BANDS`
+  ([[1,1]]: zone 1, no zone draw), whatever `GATES.boardAcrossRun`; `boardBand(i, first)`, `boardSize(s)`; a reroll keeps
+  it. prepView's `board` has that one entry; a later run is unchanged run for run. The sim's fixed profiles (P0, P10, PALL;
+  sim/lib/profiles.mjs) have `runs` 0, so they play the first-run board.
 - (D132, the board across the run) With `C.GATES.boardAcrossRun` on (the default), slot i draws its zone from
   `C.CONTRACT_BOARD_BANDS[i]` = [[1,2],[3,4],[5,6]]: the board is one offer each from zones 1-2, 3-4 and 5-6. Off: the
   D128 board (zones 1, 2, 3; the stream as D128 drew it). `contracts.js boardBand(i)` gives a slot's band [lo, hi] under

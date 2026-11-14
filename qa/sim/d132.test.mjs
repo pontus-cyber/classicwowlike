@@ -11,10 +11,13 @@ import { join } from 'node:path';
 import { C, GATE_DEFAULTS } from '../../sim/lib/engine.mjs';
 import { setGates, runWithBot } from '../../sim/lib/runner.mjs';
 import { cellName, GATE_TAG, REPO } from '../../sim/lib/output.mjs';
+import { buildProfile } from '../../sim/lib/profiles.mjs';
 
 const on = Object.fromEntries(Object.keys(GATE_DEFAULTS).filter((k) => GATE_DEFAULTS[k]).map((k) => [k, true]));
 const noba = Object.fromEntries(Object.keys(on).filter((k) => k !== 'boardAcrossRun').map((k) => [k, true]));
-const camp = (cell, seed, max = 400) => runWithBot({ map: 'expedition', prep: true, prof: 'fresh', ...cell }, seed, null, { maxActions: max, hash: true }).record;
+// D150 (cut list item 15): a profile's first run offers one camp contract (zone 1); the board across the run is a later run's
+const later = (cls) => ({ ...buildProfile('fresh', cls), runs: 1 });
+const camp = (cell, seed, max = 400) => runWithBot({ map: 'expedition', prep: true, prof: 'fresh', ...cell }, seed, null, { maxActions: max, hash: true, profile: later(cell.cls) }).record;
 const boardZones = (r) => r.ct.c.filter((k) => k[2] !== 'h').map((k) => k[0]);
 
 describe('D132 board across the run in the sim', () => {
