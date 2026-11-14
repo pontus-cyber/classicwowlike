@@ -1075,7 +1075,9 @@ function engineBackend(seedOpt, runOpts = {}) {
     }
     v.prep = null;
     v.zone = convZone(s);
-    v.hub = s.hub || { used: {} };
+    // gearLeft: unsold gear in the zone's hub stock (expedition, rules 1.9.2), null before the stock is drawn (the Vendor card)
+    const hubStock = s.zone && s.zone.hubStock;
+    v.hub = { ...(s.hub || { used: {} }), gearLeft: hubStock ? hubStock.filter((x) => x.kind === 'gear' && !x.sold).length : null };
     v.node = convNode(s);
     v.combat = convFight(s);
     v.loot = null;
@@ -1098,7 +1100,12 @@ function engineBackend(seedOpt, runOpts = {}) {
       if (r.story) return { kind: 'story', title: v.zone ? `${v.zone.name}: the story` : 'the story' };
       return { kind: 'quest', title: (CONTENT.quests[s.node.quest] || {}).title || 'the quest' };
     });
-    if (local.hold) { v.phase = 'NODE'; v.node = local.hold.node; v.combat = null; }
+    if (local.hold) {
+      v.phase = 'NODE'; v.node = local.hold.node; v.combat = null;
+      // blind round 2 (ui-2026-11-14e 2.3): a closed chest's gold and needle trap are not in the purse and the health bar
+      // yet; they come with "Open the chest" (OPEN_CHEST), as its log lines do. The engine's state is not changed.
+      if (local.hold.node.step === 'chest' && v.player) v.player = { ...v.player, gold: v.player.gold - (local.hold.gold || 0), hp: Math.min(v.player.maxHp, v.player.hp + (local.hold.trap || 0)) };
+    }
     if (local.spoils) {
       const sp = local.spoils;
       v.phase = sp.phase || 'NODE'; v.node = sp.node; v.combat = sp.combat;
@@ -1657,7 +1664,7 @@ function engineBackend(seedOpt, runOpts = {}) {
       return {
         cost: info && info.cost ? `${info.cost} ${resName}` : 'No cost', cd: info && info.cd ? `${info.cd} round cooldown` : null, lines,
         rank: k ? `Rank ${k.rank}` : null, flavour: info && info.text,
-        trained: k && k.tl < s.player.level && !(sp.source === 'talent') ? `Trained to level ${k.tl}. A trainer can raise it to ${s.player.level}.` : null,
+        trained: k && k.tl < s.player.level && !(sp.source === 'talent') ? `Rank ${k.rank}. A trainer can raise it to rank ${k.rank + 1}.` : null,
       };
     },
     itemScore(it) { if (!it || it.kind !== 'gear' || !st.player) return 0; try { return R.itemScore(it._raw || it, st.player.classId); } catch { return 0; } },

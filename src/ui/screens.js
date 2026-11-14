@@ -363,7 +363,7 @@ function buildHub(v, ctx) {
   if (!used.trainer && v.trainer && v.trainer.useful && (v.trainer.learn || []).length) trainerCard.classList.add('waiting');
   body.append(
     trainerCard,
-    svcCard('vendor', 'earth', 'Vendor', 'Potions, rations and gear', tolls(hr.vendor), used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' }), svc('vendor')),
+    svcCard('vendor', 'earth', 'Vendor', vendorMeta(v), tolls(hr.vendor), used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' }), svc('vendor')),
     innCard(v, ctx, 'Inn', 'Full rest and rested experience', used.inn, svc('inn')));
   if (p.talentPoints) body.appendChild(h('div.warn', { style: { fontSize: '1.25rem' } }, `You have ${p.talentPoints} unspent talent point${p.talentPoints > 1 ? 's' : ''}. Press N.`));
   const go = h('button.btn.primary.big', 'Set out');
@@ -1265,15 +1265,26 @@ function buildReward(v, ctx) {
 }
 
 // ------------------------------------------------------------------ vendor & trainer
+/**
+ * The hub Vendor card's line (blind round 2, tactician s0028): what the hub vendor sells now. Gear while the zone's stock
+ * holds unsold gear (or before the stock is drawn: the engine always stocks VENDOR_GEAR_STOCK pieces), else supplies only.
+ */
+export function vendorMeta(v) {
+  const left = v.hub && v.hub.gearLeft;
+  return left === 0 ? 'Potions and rations (gear sold out)' : 'Potions, rations and gear';
+}
 function buildVendor(v, ctx) {
   const n = v.node; const p = v.player;
-  const stock = h('div.list', (n.stock || []).map((it, i) => {
-    const r = h('div.trow' + (it.sold ? '.locked' : ''), h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name), h('div.meta', it.kind === 'gear' ? `${cap(it.slot)} · item level ${it.ilvl}` : 'Consumable')),
+  // blind round 2 (tactician s0028: "sells only consumables"): the gear rows came last and sat below the list's fold at
+  // 1366x768. Gear now comes first; data-i keeps the engine's stock index (BUY), the list shows a cue when more is below.
+  const rowsOf = (n.stock || []).map((it, i) => [it, i]).sort((a, b) => (a[0].kind === 'gear' ? 0 : 1) - (b[0].kind === 'gear' ? 0 : 1) || a[1] - b[1]);
+  const stock = scrollCue(h('div.list', rowsOf.map(([it, i]) => {
+    const r = h('div.trow' + (it.sold ? '.locked' : ''), { dataset: { i: String(i) } }, h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name), h('div.meta', it.kind === 'gear' ? `${cap(it.slot)} · item level ${it.ilvl}` : 'Consumable')),
       h('div.right', it.sold ? h('span.muted', 'Sold') : moneyEl(it.price), it.sold ? null : h('button.btn.small' + (p.gold < it.price ? '.disabled' : ''), 'Buy')));
     if (!it.sold) r.querySelector('button').addEventListener('click', () => ctx.act({ type: 'BUY', i }));
     tip(r, () => itemTip(it, ctx, { price: it.price }));
     return r;
-  }));
+  })));
   const bag = h('div.list', p.bag.filter(Boolean).map((it) => {
     const r = h('div.trow', h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name + (it.count > 1 ? ` ×${it.count}` : '')), h('div.meta', it.sell ? moneyText(it.sell * (it.count || 1)) : it.kind === 'gear' ? `${cap(it.slot)} · item level ${it.ilvl}` : it.kind === 'junk' ? 'Junk' : 'Consumable')), h('div.right', h('button.btn.small', 'Sell')));
     r.querySelector('button').addEventListener('click', () => ctx.act({ type: 'SELL', uid: it.uid }));
@@ -1296,8 +1307,8 @@ function buildTrainer(v, ctx) {
     const afford = e.affordable !== undefined ? e.affordable : p.gold >= e.cost;
     const price = e.cost != null ? moneyEl(e.cost) : h('span.bad', 'Need more gold');
     if (e.state === 'learnable') right = h('div.right', price, btnSmall('Learn', afford, () => ctx.act({ type: 'LEARN', spellId: e.id })));
-    else if (e.state === 'trainable') right = h('div.right', price, btnSmall(`Train to ${p.level}`, afford, () => ctx.act({ type: 'TRAIN', spellId: e.id })));
-    else if (e.state === 'current') right = h('div.right', h('span.good', `Rank ${e.rank} · level ${e.tl}`));
+    else if (e.state === 'trainable') right = h('div.right', price, btnSmall(`Train to rank ${(e.rank || 1) + 1}`, afford, () => ctx.act({ type: 'TRAIN', spellId: e.id })));
+    else if (e.state === 'current') right = h('div.right', h('span.good', `Rank ${e.rank}`));
     else right = h('div.right', h('span.muted', `Requires level ${e.lvl}`));
     // D150 item 21: "Level N ·" only where it is the level a spell needs (not yet known); a known spell's rank is on the right
     const known = e.state === 'current' || e.state === 'trainable';
@@ -1320,7 +1331,7 @@ function trainAllBtn(v, ctx) {
   const cost = v.legal.trainAllCost;
   const b = btn('Train all', () => ctx.act({ type: 'TRAIN_ALL' }));
   if (cost > 0) b.append(' · ', moneyEl(cost));
-  tip(b, () => h('div', h('div.tt-name', 'Train all'), h('div.tt-line', `Trains your spells to level ${v.player.level}, then learns the new spells your gold covers.`)));
+  tip(b, () => h('div', h('div.tt-name', 'Train all'), h('div.tt-line', 'Raises each spell that can train by one rank, then learns the new spells your gold covers.')));
   return b;
 }
 function btnSmall(label, ok, fn) { const b = h('button.btn.small' + (ok ? '' : '.disabled'), label); b.addEventListener('click', fn); return b; }

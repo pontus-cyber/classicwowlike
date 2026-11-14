@@ -49,8 +49,8 @@ function damageBlock(dv) {
 
 /**
  * Bag slots that stay put (blind panel 2026-11-13, item 9: "bag items move after each equip"; the second click hit another
- * item). The bags show each item in the slot it had when the window last drew it: one that leaves (equipped, used, sold,
- * discarded) leaves a gap. A new item that takes the engine's place of one that left (equipping over a worn piece puts the
+ * item). While the window is open, the bags show each item in the slot it had when the window last drew it: one that leaves
+ * (equipped, used, sold, discarded) leaves a gap. Closing the bags forgets the layout, so they open compact. A new item that takes the engine's place of one that left (equipping over a worn piece puts the
  * old piece there) takes that one's slot; any other new item the first free slot. Pure. prev: the last result or null;
  * bag: the view's bag (items then nulls, the engine's order). Returns { uids (a uid or null per slot), order (the bag's uids) }.
  */
@@ -149,7 +149,7 @@ export function createWindows(root, ctx) {
       const list = h('div.splist', p.spells.map((k) => {
         const sp = d.spells[k.id];
         const slot = p.bar.indexOf(k.id);
-        const row = h('div.sprow' + (slot >= 0 ? '.onbar' : ''), h('img', { src: spellIcon(k.id, sp), alt: '' }), h('div', h('div.nm', sp.name), h('div.meta', `Rank ${k.rank} · trained to level ${k.tl}${sp.cd ? ` · ${sp.cd} round cooldown` : ''}`)), slot >= 0 ? h('span.pill', `Slot ${slot + 1}`) : h('span.pill.muted', 'Not on bar'));
+        const row = h('div.sprow' + (slot >= 0 ? '.onbar' : ''), h('img', { src: spellIcon(k.id, sp), alt: '' }), h('div', h('div.nm', sp.name), h('div.meta', `Rank ${k.rank}${sp.cd ? ` · ${sp.cd} round cooldown` : ''}`)), slot >= 0 ? h('span.pill', `Slot ${slot + 1}`) : h('span.pill.muted', 'Not on bar'));
         tip(row, () => spellTip(k.id, ctx, { hint: v.legal.outOfCombat ? 'Drag onto the action bar (slots 1–7); right-click a bar slot to clear it. The bar order is also the autoplay priority.' : 'Bar changes only out of combat' }));
         dragSource(row, ctx, () => (v.legal.outOfCombat ? { kind: 'spell', id: k.id, icon: spellIcon(k.id, sp) } : null));
         return row;
@@ -307,10 +307,13 @@ export function createWindows(root, ctx) {
     if (name === 'map' && v && v.phase === 'MAP' && v.zone && v.zone.exp) { ctx.toast('The zone map is the screen you are on. M opens it in fights, nodes and the hub.', 'info'); return; }
     if (name === 'talents' || name === 'settings' || name === 'map') for (const n of ['talents', 'settings', 'map']) if (n !== name) close(n);
     if (name === 'character' || name === 'spellbook' || name === 'questlog') for (const n of ['character', 'spellbook', 'questlog']) if (n !== name) close(n);
+    if (name === 'bags' && !open.has('bags')) bagMem.prev = null; // a fresh open shows the bags compact (the engine's order)
     render(name);
   }
   // a tip of something in the window goes with it (blind panel 2026-11-13: a bag item's tip stayed after B closed the bags)
-  function close(name) { const el = open.get(name); if (el) { hideIn(el); el.remove(); open.delete(name); } closeMenu(); }
+  // blind round 2 (ui-2026-11-14e 2.3): the gaps that equips leave in the bags (stableBag keeps slots put while the window is
+  // open, so a second click hits the item it aimed at) close up when the bags close: the next open is compact
+  function close(name) { const el = open.get(name); if (el) { hideIn(el); el.remove(); open.delete(name); } if (name === 'bags') bagMem.prev = null; closeMenu(); }
   function closeAll() { for (const n of [...open.keys()]) close(n); }
   function update() { for (const n of open.keys()) render(n); }
   return { toggle, open: openWin, close, closeAll, update, isOpen: (n) => open.has(n), anyOpen: () => open.size > 0 };

@@ -212,7 +212,7 @@ export class App {
         this.hud.heat.noteStep(prev, res.view); // heat (expedition.md H.4): a toast when the step changed the meter's state
         this.afterPlay();
         this.coach.onStep(prev, res.view, res.events, action);
-        this.placeNewItems(prev, res.view);
+        this.placeNewItems(prev, res.view, action);
         this.noteBagsFull(prev, res.view);
         this.noteAutoStop(prev, res.view, res.events, action);
         return res;
@@ -345,12 +345,16 @@ export class App {
   /**
    * A combat consumable that has just come into the bags (bought, looted) goes to a free item-bar slot,
    * as the engine puts a newly learned spell on a free spell slot. The UI sends SET_ITEM_BAR for it.
-   * Items already in the bags are left alone, so a slot the player cleared stays clear.
+   * Items already in the bags are left alone, so a slot the player cleared stays clear. The run's first such step counts
+   * what the run started with as new (ui-2026-11-14e 2.3: Packed Satchel's potions are in the bags from START_RUN, so they
+   * never came "new" and never reached the bar).
    */
-  placeNewItems(prev, next) {
+  placeNewItems(prev, next, action = null) {
+    if (action && action.type === 'START_RUN') this.runStartItems = true;
     const p = next.player;
     if (!p || !['ZONE_HUB', 'MAP', 'NODE', 'CAMP'].includes(next.phase) || !next.legal || !next.legal.outOfCombat) return;
-    const had = new Set(((prev && prev.player && prev.player.bag) || []).filter((it) => it && it.kind === 'consumable').map((it) => it.id));
+    const first = this.runStartItems; this.runStartItems = false;
+    const had = new Set(first ? [] : ((prev && prev.player && prev.player.bag) || []).filter((it) => it && it.kind === 'consumable').map((it) => it.id));
     const fresh = [];
     for (const it of p.bag) {
       if (!it || it.kind !== 'consumable' || had.has(it.id) || fresh.includes(it.id) || p.itemBar.includes(it.id)) continue;
@@ -723,6 +727,9 @@ export class App {
       const alive = v.combat.enemies.filter((x) => x.alive && !x.hidden);
       if (!alive.length) return;
       const i = alive.findIndex((x) => x.idx === this.ui.target);
+      // blind round 2 (competitive s0070): the pointer's hover ring stayed under the old target and read as the target ring;
+      // a key puts it away (as it does a tooltip) until the pointer moves again
+      this.scene.hover = null;
       this.ui.setTarget(alive[(i + (e.shiftKey ? alive.length - 1 : 1)) % alive.length].idx);
       return;
     }
@@ -808,6 +815,8 @@ export class App {
       preview: () => (app.ui.preview ? { option: app.ui.preview.option, target: app.ui.preview.target, data: app.ui.preview.data } : null),
       /** The current target (enemy index) or null. */
       target: () => app.ui.target,
+      /** The enemy actors drawn with a ring under them now: { id, sel } (sel: the target's red ring, else the hover ring). */
+      rings: () => app.scene.ringed(),
       /** The wind-up hovered on a track, the ruler or a nameplate ({ idx, turn }) or null (combat v2.1). */
       windupHover: () => (app.ui.wuHover ? { ...app.ui.wuHover } : null),
       /**

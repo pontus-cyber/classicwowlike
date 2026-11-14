@@ -1551,7 +1551,7 @@ export function describeSpell(st, id) {
   if (s.fx.dot) { const [, rounds, b, l, pw] = s.fx.dot; const tl = k?.tl || p.level; out.lines.push(`${Math.round(b + l * tl + pw * p.stats.power)} damage per round for ${rounds} rounds${s.fx.fin ? ', per combo point' : ''}.`); }
   if (s.fx.ward) { const [b, l, pw] = s.fx.ward; const tl = k?.tl || p.level; out.lines.push(`Absorbs ${Math.round(b + l * tl + pw * p.stats.power)} damage.`); }
   out.rank = k ? `Rank ${k.rank}` : null;
-  out.trained = k ? (k.tl < p.level ? `Trained to level ${k.tl}. A trainer can raise it to ${p.level}.` : null) : null;
+  out.trained = k ? (k.tl < p.level ? `Rank ${k.rank}. A trainer can raise it to rank ${k.rank + 1}.` : null) : null;
   return out;
 }
 const schoolName = (s) => ({ phys: 'physical', fire: 'fire', frost: 'frost', arcane: 'arcane', shadow: 'shadow', nature: 'nature' }[s] || s);

@@ -132,6 +132,10 @@ export class Scene {
     this.layout();
   }
 
+  /** The enemy actors that get a ring under them (the draw's own test): [{ id, sel }] (sel: the target's ring). */
+  ringed() {
+    return [...this.actors.values()].filter((a) => a.id.startsWith('enemy') && a.alive !== false && !a.deadT0 && (this.target === a.id || this.hover === a.id)).map((a) => ({ id: a.id, sel: this.target === a.id }));
+  }
   clearEnemies() { for (const id of [...this.actors.keys()]) if (id.startsWith('enemy:')) this.actors.delete(id); this.target = null; }
 
   setMode(mode, opts = {}) {
