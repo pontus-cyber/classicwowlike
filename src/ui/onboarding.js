@@ -30,6 +30,11 @@
 // (furnaceIntroduced: in a guided run the meter shows once G5's or H16's line is up or has shown, G5 is done, the guide is
 // skipped or over, or hints are off); body[data-coach] names the line up, so a panel that says the same fact gives way
 // (style.css: the engage panel's "Free first move" while G7's, H01's or G8's joint line says "Round 1 is yours").
+// D150 follow-ups (docs/handoffs/engine-2026-11-14d.md sections 3 and 7): retired hints (line null) take no turn; G12.road
+// points at the nearest open Road's sign; G4 and H11 at the loot row with the green arrow; G10.done waits for the contract's
+// window; H05 needs a big hit (offBalance bigHit); H30 and G17 give way to a turn prompt that says the same ("Pass", "Tab");
+// the draft fight beats G14-G17 (a finisher on the bar, the resource bar, a Bloodlust tag, the nameplates; key_target Tab);
+// a bar key refused for lack of resource while G15 is open shows G15's line in place of the toast (refusedLine, app.js).
 import { h } from './util.js';
 import { settings } from './settings.js';
 import { stoppedNow } from './tracks.js';
@@ -38,7 +43,8 @@ export const HINTS_KEY = 'tbwcr.hints.v2';
 const OLD_ENGAGE_KEY = 'tbwcr.hints.v1'; // the engage hint, per class (retired: H01)
 const OLD_HEAT_KEY = 'tbwcr.heatIntro.v1'; // the Furnace note (retired: H16)
 /** The UI's key map for the content's key placeholders (app.js onKey). */
-export const KEYS = { key_spell1: '1', key_engage1: 'Q', key_engage2: 'W', key_engage3: 'E', key_pass: 'X', key_item1: '8', key_take_all: 'Space', key_bags: 'B', key_talents: 'N', key_spellbook: 'P', key_autoplay: 'Z', key_flee: 'F' };
+// key_target (D150, engine-2026-11-14d section 7 UI need 3): the target key (app.js: Tab cycles the targets), for G17's chip
+export const KEYS = { key_spell1: '1', key_engage1: 'Q', key_engage2: 'W', key_engage3: 'E', key_pass: 'X', key_item1: '8', key_take_all: 'Space', key_bags: 'B', key_talents: 'N', key_spellbook: 'P', key_autoplay: 'Z', key_flee: 'F', key_target: 'Tab' };
 const PER_CLASS = new Set(['H01', 'H04', 'H33', 'H34']);
 // the hints a beat stands in for while the guide runs (spec 3.2 "Beat"), and the hints a beat's line marks seen
 const BEAT_OF = { H01: 'G7', H02: 'G6', H03: 'G8', H04: 'G9', H06: 'G9', H09: 'G11', H11: 'G4', H15: 'G2', H16: 'G5', H18: 'G12', H19: 'G13', H20: 'G10', H21: 'G10', H23: 'G1', H30: 'G9' };
@@ -46,7 +52,8 @@ const HINT_OF_BEAT = { G1: 'H23', G2: 'H15', G4: 'H11', G5: 'H16', G6: 'H02', G7
 // priority (spec 2.5): Deathblow > wind-up > lethal > potion > engage > the rest
 const PRIO = { G9: 6, H04: 6, G8: 5, H03: 5, H07: 4, G11: 3, H09: 3, H10: 3, G7: 2, H01: 2, H27: 2, NUDGE: 7 };
 const prio = (id) => PRIO[id] || 1;
-const FIGHT_BEATS = new Set(['G3', 'G6', 'G7', 'G8', 'G9', 'G11']); // beats whose line belongs to a fight on screen
+// beats whose line belongs to a fight on screen (D150, engine-2026-11-14d section 7: G14-G17, from round 2 of a fight)
+const FIGHT_BEATS = new Set(['G3', 'G6', 'G7', 'G8', 'G9', 'G11', 'G14', 'G15', 'G16', 'G17']);
 // beat lines that belong to the expedition map on screen (QA playtest 2026-11-13: G12 showed over a quest dialog, with no
 // Dimming in view): they wait until the map is the screen shown (mapShown). Blind panel 2026-11-13: G2 ("Click a lit node")
 // came while the hero walked out of the hub, before the map showed. D143: G13.closed (it points at Gorrak's node). G10 is
@@ -229,6 +236,12 @@ const ANCHOR = {
   G1: () => q('#prep .pp-card'), G2: () => q('#screens .mnode.here'), G3: (v, d) => q(`#actionbar .ab[data-slot="${Math.max(0, attackSlot(v, d && d.spells))}"]`), G4: () => upRow() || q('#screens .loot') || q('#screens .dialog'),
   G5: () => q('#heat'), G6: npOf((e) => (e.track || []).some((x) => x.heavy || x.cast)), G7: () => q('#engage'),
   G8: () => q('#nameplates .wub:not(.db)') || q('#nameplates .tk.wu'), G9: () => q('#nameplates .wub.db') || q('#engage .eg-db'),
+  // D150 (engine-2026-11-14d section 7, draft beats): G14 the first finisher castable now on the bar, G15 the player's
+  // resource bar, G16 a living beast's Bloodlust tag, G17 the enemies' nameplates
+  G14: (v, d) => { const bar = (v.player && v.player.bar) || []; const L = (v.legal && v.legal.spells) || {}; const i = bar.findIndex((id) => id && L[id] && L[id].ok && d && d.spells && d.spells[id] && (d.spells[id].tags || []).includes('finisher')); return i >= 0 ? q(`#actionbar .ab[data-slot="${i}"]`) : null; },
+  G15: () => q('#player-frame .bar.res'),
+  G16: () => q('#nameplates .np:not(.dead) .rtag.blood') || q('#nameplates .rtag.blood'),
+  G17: () => q('#nameplates .np') || q('#target-frame'),
   G10: (v) => (v.loot ? q('#screens .dialog') : inFight(v) ? (document.body.classList.contains('engage-round') ? null : q('#tracker .tk-c[data-status="active"]')) : onMap(v) ? siteNodeEl(v) : q('#screens .dialog')), G11: (v) => itemSlot(v, (x) => x && x.heal > 0), G12: () => q('#screens .xdimp'),
   // the Road's button on a Road, else the Bell's (the header's first button can be the Spyglass)
   G13: (v) => (v.zone && v.zone.exp && v.zone.exp.onRoad ? q('#screens .mhead .btn[data-leave="TAKE_ROAD"]') : null) || q('#screens .mhead .btn[data-leave="RING_BELL"]') || q('#screens .mhead .btn') || q('#screens .mnode.here'),
@@ -488,7 +501,9 @@ export function createOnboarding(root, ctx) {
     // D150 (engine-2026-11-14d UI need 5): "Contract done: choose one reward." waits for the contract's own window (a Grind
     // or Elite site shows the fight's spoils first)
     const ok = (x) => x && x.line && !x.rest && !dismissed.has(x.line) && (!FIGHT_BEATS.has(x.id) || inFight(v)) && (!MAP_LINES.has(x.line) || (onMap(v) && mapShown(ctx.ui, ctx.view)))
-      && (x.line !== 'G10.done' || !!(v.loot && v.loot.kind === 'contract'));
+      && (x.line !== 'G10.done' || !!(v.loot && v.loot.kind === 'contract'))
+      // D150 (engine-2026-11-14d section 7 UI need 4): G17 ("Press Tab ...") waits while the turn prompt says "[Tab] to it"
+      && (x.id !== 'G17' || !promptSays(/\bTab\b/));
     const top = (t.open || []).find((x) => x.line === t.line);
     const o = ok(top) ? top : (t.open || []).find(ok);
     if (!o) return null;
@@ -508,6 +523,22 @@ export function createOnboarding(root, ctx) {
       const x = queue.shift();
       if (stepNo - x.step <= 1 && safe(() => HINTS[x.id].when(ctxOf(v, [], null)))) showHint(x, v);
     }
+  }
+  /**
+   * D150 (Lead 2026-11-14; engine-2026-11-14d section 7 UI need 4): a bar key refused for lack of resource while G15 is open
+   * (with its line, not rested) shows G15's line on the coach line in place of the refusal toast, which would say the same.
+   * True when the coach line says it (shown now, or on screen already); the caller then shows no toast.
+   */
+  function refusedLine(v, reason) {
+    if (!T || hints.off || !guiding(v) || !inFight(v) || !/^Not enough (energy|mana|focus)\b/i.test(reason || '')) return false;
+    const o = ((v.tutorial && v.tutorial.open) || []).find((x) => x.id === 'G15' && x.line && !x.rest);
+    if (!o || !lineFor(o.line)) return false;
+    if (cur && cur.kind === 'beat' && cur.id === 'G15') { place(); return true; }
+    if (cur && cur.kind === 'nudge') return false;
+    if (cur && cur.kind === 'hint') hide(false);
+    dismissed.delete(o.line);
+    show({ id: 'G15', lineId: o.line, kind: 'beat', anchorFn: LINE_ANCHOR[o.line] || ANCHOR.G15, alsoFn: null });
+    return true;
   }
   function showHint(x, v) {
     if (inFight(v)) fightHints += 1;
@@ -676,7 +707,7 @@ export function createOnboarding(root, ctx) {
   }
 
   return {
-    el, onStep, update, place, summaryNudge, noteSummary, armHall, closeNudge, holdSetOut, furnaceIntroduced,
+    el, onStep, update, place, summaryNudge, noteSummary, armHall, closeNudge, holdSetOut, furnaceIntroduced, refusedLine,
     /** Settings "Reset hints" / "Hints" / "Play the guide again". */
     reset() { hints.reset(); dismissed.clear(); cool.clear(); queue = []; hide(false); },
     /** Dev menu "Reset onboarding": the hint store cleared as on a new profile (hints on, nothing seen, no nudge). */

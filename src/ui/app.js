@@ -17,7 +17,8 @@
 // the map's armed Spyglass away.
 // Sound (audio.js, docs/specs/audio.md; D127): each step is one audio step (the decision view's Deathblow telegraph and
 // Furnace cues after it); a click on a button or card, an error toast and a window opening or closing have their cues.
-// D150 (owner 2026-11-14, text pass): on the zone map X presses the Pass through offer shown on a node (screens.js).
+// D150 (owner 2026-11-14, text pass): on the zone map X presses the Pass through offer shown on a node (screens.js); a bar
+// key refused for lack of resource while the guide's G15 is open shows G15's coach line in place of the refusal toast.
 import { createBridge, flags } from './engine-bridge.js';
 import { Scene } from './scene.js';
 import { createHud } from './hud.js';
@@ -67,7 +68,10 @@ export class App {
         if (ui.precastArmed && app.bridge.view.combat && app.bridge.view.combat.engage) { app.hud.flashSlot(i); app.engageAct('precast', id); return; }
         // blind panel 2026-11-13: a key the engine refuses (energy, mana, a combo point, a cooldown) says why at once, also
         // while a round plays (it used to be queued and refused only when the round ended)
-        if (app.refused(app.spellRefusal(id))) return;
+        const why = app.spellRefusal(id);
+        // D150 (Lead 2026-11-14): refused for lack of resource while the guide's G15 is open: its coach line, not the toast
+        if (why && app.coach && app.coach.refusedLine(app.bridge.view, why)) return;
+        if (app.refused(why)) return;
         ui.fleeArmed = false;
         app.combatAct((t) => ({ type: 'CAST', spellId: id, target: t }), `spell${i}`, (app.data.spells[id] || {}).name || id, () => app.hud.flashSlot(i));
       },
