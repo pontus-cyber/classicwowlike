@@ -10,7 +10,7 @@
 // guide. D149: S3's Hexer winds up on its turn ONB_WINDUP_TURN (1), so W in the engage round answers it in that step
 // (the route measure per class, autoplay and following the joint line); ui-2026-11-14 finding 1 (draft): the joint line
 // gives way after the engage round; the content lines guide.rescueLeftLine and guide.skipLine (draft). Spec 2.8 item 8
-// (Lead decision 2026-11-14, draft): from round 2 G8's own line only while windupView lists an answer.
+// (Lead decision 2026-11-14, draft): from round 2 G8's own line only while windupView lists an answer; guide.roadsOpenLine.
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -382,6 +382,27 @@ describe('M3 content lines for the UI (draft, engine-2026-11-14b: ui-2026-11-14 
     for (const k of ['rescueLine', 'rescueCapLine', 'endLine', 'hubLine', 'hubTrainerLine']) assert.equal(typeof G[k], 'string', k);
   });
 
+  test('guide.roadsOpenLine (draft): one plain sentence for the step the guided zone\'s Roads open (tutorialView.roads.closed true, then false, same zone): after Gorrak\'s fight on the autoplay route, and on SKIP_GUIDE', () => {
+    const G = CONTENT.tutorial.guide;
+    plain(G.roadsOpenLine);
+    assert.ok(G.roadsOpenLine.length <= C.ONB_HINT_MAX_CHARS && /\bRoads\b/.test(G.roadsOpenLine) && !/Gorrak/.test(G.roadsOpenLine), G.roadsOpenLine);
+    assert.ok(![G.skipLine, G.endLine, G.rescueCapLine].includes(G.roadsOpenLine));
+    // its moment on the route (seed 8736): the step that ends Gorrak's fight opens the Roads, in zone 1
+    let s = steps(run('mage', 8736), [{ type: 'START_RUN' }, { type: 'TAKE_CONTRACT', index: 0 }]).state;
+    let opened = null;
+    for (let n = 0; !opened && n < 3000 && !(s.zone && s.zone.z === 2); n++) {
+      const was = R.tutorialView(s).roads;
+      const r = R.step(s, R.autoAction(s));
+      const now = R.tutorialView(r.state).roads;
+      if (was && was.closed && now && !now.closed && r.state.zone.z === 1) opened = r;
+      s = r.state;
+    }
+    assert.ok(opened, 'the Roads opened in zone 1');
+    assert.equal(opened.state.tutorial.elite, 'victory', 'after Gorrak\'s fight');
+    // ... and at once on a skip
+    const k = R.step(atHub('rogue', 5), { type: 'SKIP_GUIDE' });
+    assert.deepEqual([R.tutorialView(atHub('rogue', 5)).roads.closed, R.tutorialView(k.state).roads.closed], [true, false]);
+  });
 });
 
 describe('M3 guided run: beats and tutorialView (2.4-2.7, E5)', () => {
