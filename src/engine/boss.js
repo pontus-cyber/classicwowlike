@@ -1,4 +1,4 @@
-// End boss: Oruvath, the Unlit Star (rules 10). Stream: boss. Combat v2: the boss's intent track (rules 7.11, 10.3)
+// End boss: Oruvath (rules 10; D150: the one name of the final boss, was "Oruvath, the Unlit Star"). Stream: boss. Combat v2: the boss's intent track (rules 7.11, 10.3)
 // shows the next INTENT_TRACK_LEN rounds of its schedule (each entry's target is drawn when it enters the track);
 // OFF_BALANCE hooks (7.13): an interrupted Collapse Litany, a Gravity Crush that costs the player 0 HP.
 import {

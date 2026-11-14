@@ -909,7 +909,7 @@ Run summary (SUMMARY phase): class, pet, talents (per tree), seed, outcome (vict
 
 ---
 
-## 10. End boss: Oruvath, the Unlit Star
+## 10. End boss: Oruvath, the Unlit Star (D150: its one name in the game is "Oruvath", `BOSS_TEXT.name`)
 
 ### 10.1 Setup
 Fought once at the end of the Camp in the Sunken Observatory. Level BOSS_LEVEL. HP `BOSS_HP × (1 + asc)`, armor BOSS_ARMOR, crit ENEMY_CRIT. Every damage the boss fight's enemies deal (Oruvath's attacks, the Shards' hits, the Brand's ticks; 10.2) is × BOSS_DMG_MULT × (1 + asc), at the same step as (1 + asc) today (7.2 step 2 and the Brand tick); Shard HP stays `SHARD_HP × (1 + asc)`. (M2b v6) BOSS_HP 13066 -> 12282 and BOSS_DMG_MULT 1.17 -> 1.30 (the sim's ladder may set 1.32 or 1.34, never more; D74): Umbral Strike at Ascendancy 0 is 260 × 1.30 = 338 before the level modifier and armor (was 304). (M2b v8) Immune to STUN, FROZEN, HEXED (they interrupt casts instead). No flee. The boss always targets the player except when a pet has TAUNT, feign is active, or a single-target attack rolls pet aggro.

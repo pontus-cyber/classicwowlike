@@ -1,7 +1,9 @@
 // Content table: flavour lines for engine-defined ids (src/content/SCHEMA.md 2.10). The expedition group (D51) holds the
 // Shardfall, Shardspawn, Dimming and Homeward Bell lines (rules.md 1.9.5-1.9.7), written by the Content Designer
 // (docs/handoffs/content-2026-11-10b.md). The families, prep and contracts groups (docs/handoffs/content-2026-11-11.md)
-// hold the contract and start-camp text of docs/specs/expedition.md 2-3. Plain data only.
+// hold the contract and start-camp text of docs/specs/expedition.md 2-3. Plain data only. D150 (naming rule, owner
+// 2026-11-14): the final boss is Oruvath, "hidden" is not used for fogged nodes (Stealth is the hidden state), and the
+// Homeward Bell's line says where it takes you (the next zone's hub, not home).
 export const TEXTS = {
   // Display names of the enemy family ids (zones.js regions, enemies.js family), used in contract texts.
   families: {
@@ -33,7 +35,7 @@ export const TEXTS = {
     prep_bell: { name: 'Second Clapper', flavour: 'A spare clapper for the Homeward Bell, tied with red thread so it is not lost.', rule: 'Adds one charge to your Homeward Bell, up to its limit.' },
     prep_mule: { name: 'Pack Mule', flavour: 'Stubborn, sure-footed and unimpressed by anything on the road.', rule: 'Adds bag slots for the whole run.' },
     prep_charts: { name: 'Region Charts', flavour: 'Hand-inked sheets, folded soft from use, with the roads and the bad ground marked.', rule: 'Shows the region of every node and the location of every dungeon.' },
-    prep_tracker: { name: "Tracker's Notes", flavour: 'A scout\'s cramped notes on tracks, droppings and where the quarry sleeps.', rule: 'Shows contract sites that are a few steps away, even on hidden nodes.' },
+    prep_tracker: { name: "Tracker's Notes", flavour: 'A scout\'s cramped notes on tracks, droppings and where the quarry sleeps.', rule: 'Shows contract sites that are a few steps away, even on nodes you have not seen yet.' },
     prep_guide: { name: 'Local Guide', flavour: 'A farmer\'s son who knows every stile and sheep-track for ten miles.', rule: 'Widens how far you see around you for the whole run.' },
     prep_spyglass: { name: 'Spyglass', flavour: 'A brass tube with a cracked lens that still shows far hills sharp and clear.', rule: 'Lets you reveal one distant node and its neighbours, a few times per run.' },
   },
@@ -47,9 +49,9 @@ export const TEXTS = {
     hub: '{hub} has work on the board: {contract}',
   },
   expedition: {
-    shardfall: 'Where a fallen shard of the Unlit Star cracked the rim. The dark starts here.',
+    shardfall: 'Where a shard of Oruvath fell and cracked the rim. The dark starts here.',
     shardspawn: "Things that walked into the Dimming and came out hollow, lit only by the shard's cold glow.",
     dimming: 'Darkness that spreads from the Shardfall. It takes the land hop by hop, and whoever stands in it.',
-    homeward_bell: 'A small brass bell. Rung, it calls its bearer home along the road it was cast for.',
+    homeward_bell: 'A small brass bell. Rung, it carries you on to the next zone\'s hub.',
   },
 };

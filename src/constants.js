@@ -1207,9 +1207,9 @@ export const CONTENT_RANGE = {
   objectives: ['slay', 'gather', 'rescue', 'deliver', 'scout'],
 };
 
-/** End boss (rules 10). Names are rules data. */
+/** End boss (rules 10). Names are rules data. D150 (naming rule): the final boss is "Oruvath" everywhere (was "Oruvath, the Unlit Star"). */
 export const BOSS_TEXT = {
-  name: 'Oruvath, the Unlit Star', raid: 'the Sunken Observatory', shard: 'Dimming Shard',
+  name: 'Oruvath', raid: 'the Sunken Observatory', shard: 'Dimming Shard',
   strike: 'Umbral Strike', crush: 'Gravity Crush', litany: 'Collapse Litany', brand: 'Brand of the Hollow',
   pulse: 'Starless Pulse', finalDark: 'Final Dark', linked: 'Linked', eclipse: 'Eclipse',
 };

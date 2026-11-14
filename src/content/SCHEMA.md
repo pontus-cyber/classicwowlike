@@ -73,7 +73,7 @@ export const CONTENT = {
 ```
 
 ### 2.2 Camp (rules 1.6, 10)
-The end boss (Oruvath, the Unlit Star), the Dimming Shards and the raid name (the Sunken Observatory) are
+The end boss (Oruvath; D150: its one name, `C.BOSS_TEXT.name`, was "Oruvath, the Unlit Star"), the Dimming Shards and the raid name (the Sunken Observatory) are
 fixed by rules 10; the camp only adds text and the mob list for `CAMP_GRIND` waves.
 
 | Field | Type | Rule |

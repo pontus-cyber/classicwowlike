@@ -1009,9 +1009,10 @@ describe('M3 table validation and the golden check (E2, E9)', () => {
     // they still hold, so every later change leaves these runs as they were except the switched rules. D150 (generated item
     // names, cut list item 20: at most one affix word): every run here loots gear, so all four tables were re-recorded on that
     // change; with every item name masked each run hashes as before (scratch check, docs/handoffs/engine-2026-11-14d.md).
+    // D150 (naming rule): the final boss is "Oruvath" (C.BOSS_TEXT.name), so the five runs that reach it were re-recorded too.
     const PRE_D144 = {
       'rows:rogue:11': '11e1fabb61b05aea:108', 'rows:rogue:4242': 'd2e85b9ad06b91cc:653', 'rows:mage:11': '44e31ffd7d438f6d:304',
-      'rows:mage:4242': '9ea1e1d35dfcf3d7:208', 'rows:hunter:11': '8755a9f5a00fda0a:719', 'rows:hunter:4242': '53a6759892b9a8c3:599',
+      'rows:mage:4242': '9ea1e1d35dfcf3d7:208', 'rows:hunter:11': '77360495fa13ea25:719', 'rows:hunter:4242': '53a6759892b9a8c3:599',
       'exp:rogue:11': 'f2f926428d80e86a:101', 'exp:rogue:4242': '32dab45425e89087:86', 'exp:mage:11': '8bdbbae46757fb6f:208',
       'exp:mage:4242': '93156d8006a22d14:285', 'exp:hunter:11': '1065164137292f55:338', 'exp:hunter:4242': '981d0aba511cb52d:401',
       'expPrep:rogue:11': 'fc58bb181263d684:111', 'expPrep:rogue:4242': 'f33a5256e44daa5a:88', 'expPrep:mage:11': '57c2f35af04d4056:212',
@@ -1020,8 +1021,8 @@ describe('M3 table validation and the golden check (E2, E9)', () => {
     // D144 (rewardPrimary on), zone2InnerCap and z1Dmg off: recorded on 24f15c5; the two runs that met no other-primary reward
     // equal PRE_D144.
     const D144 = {
-      'rows:rogue:11': '98a760d6d9a0fc9c:107', 'rows:rogue:4242': '7c76f5cddbae5923:653', 'rows:mage:11': 'b8cfa2b39e8c3e28:750',
-      'rows:mage:4242': 'bae6d8c54e2fa402:208', 'rows:hunter:11': '055b8b1c79f51688:728', 'rows:hunter:4242': 'ffbb9cbe880c24f0:604',
+      'rows:rogue:11': '98a760d6d9a0fc9c:107', 'rows:rogue:4242': '7c76f5cddbae5923:653', 'rows:mage:11': '2a55d46b3729e550:750',
+      'rows:mage:4242': 'bae6d8c54e2fa402:208', 'rows:hunter:11': '1de20860eebdc2b4:728', 'rows:hunter:4242': 'ffbb9cbe880c24f0:604',
       'exp:rogue:11': '7c79f63464f99480:102', 'exp:rogue:4242': '32dab45425e89087:86', 'exp:mage:11': '3dc17da0efc374ce:212',
       'exp:mage:4242': 'c0ce742263fdc50f:289', 'exp:hunter:11': '0a2c252685e06483:338', 'exp:hunter:4242': '41b811a18b095fd3:246',
       'expPrep:rogue:11': 'fbe5f96b58c626dd:112', 'expPrep:rogue:4242': 'f33a5256e44daa5a:88', 'expPrep:mage:11': '17dc61ef0f48e29b:91',
@@ -1030,8 +1031,8 @@ describe('M3 table validation and the golden check (E2, E9)', () => {
     // D146 (rewardPrimary and zone2InnerCap on), z1Dmg off: recorded on 321f2aa: the classic map is untouched by D146 (rows =
     // D144); every expedition run here reaches zone 2 and changes there. D147's rescue rule and S3/S4 swap change only guided runs.
     const D146 = {
-      'rows:rogue:11': '98a760d6d9a0fc9c:107', 'rows:rogue:4242': '7c76f5cddbae5923:653', 'rows:mage:11': 'b8cfa2b39e8c3e28:750',
-      'rows:mage:4242': 'bae6d8c54e2fa402:208', 'rows:hunter:11': '055b8b1c79f51688:728', 'rows:hunter:4242': 'ffbb9cbe880c24f0:604',
+      'rows:rogue:11': '98a760d6d9a0fc9c:107', 'rows:rogue:4242': '7c76f5cddbae5923:653', 'rows:mage:11': '2a55d46b3729e550:750',
+      'rows:mage:4242': 'bae6d8c54e2fa402:208', 'rows:hunter:11': '1de20860eebdc2b4:728', 'rows:hunter:4242': 'ffbb9cbe880c24f0:604',
       'exp:rogue:11': '9497780498d96976:109', 'exp:rogue:4242': '69497220ebc3587c:176', 'exp:mage:11': '057d31953d3f3d98:206',
       'exp:mage:4242': 'ee07042beffbec7d:278', 'exp:hunter:11': '0b747bb17b07d39d:410', 'exp:hunter:4242': '06fbd32b7230ef8a:390',
       'expPrep:rogue:11': 'b87303fc962cf60b:365', 'expPrep:rogue:4242': 'f3af7787359c671a:266', 'expPrep:mage:11': '3d7ab76070ffbc35:220',
