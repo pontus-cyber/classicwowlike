@@ -86,8 +86,6 @@ export function rescueLeftLine(tv, T) {
 const UNSEEN_ALT = { H05: new Set(['shield']) };
 const leavesUnseen = (x) => !!(x && x.kind === 'hint' && UNSEEN_ALT[x.id] && UNSEEN_ALT[x.id].has(x.alt));
 const BOTTOM_REM = 14.8; // the coach line's place: its bottom edge over the action bar's control row (1366x768: y 620)
-/** D143, draft (no content line yet): the toast when the guided zone's Roads open. */
-export const ROADS_OPEN_LINE = 'The Roads are open: take one on to the next zone.';
 
 // ------------------------------------------------------------------ the hint store (spec 3.1)
 function readJson(k) { try { const x = JSON.parse(localStorage.getItem(k) || 'null'); return x && typeof x === 'object' ? x : null; } catch { return null; } }
@@ -523,10 +521,10 @@ export function createOnboarding(root, ctx) {
       if (line) ctx.hud.log(line, cap ? 'lg-warn' : 'lg-sys');
     }
     if (has(ev, 'guideEnd') && T) ctx.toast(T.guide.endLine, 'good');
-    // D143: the guided zone's Roads open (Gorrak's fight over, or he can no longer be fought): say so once. Draft text (no
-    // content line yet: T.guide.roadsOpenLine when the Content Designer adds one)
+    // D143: the guided zone's Roads open (Gorrak's fight over, or he can no longer be fought): say so once (content
+    // guide.roadsOpenLine, engine-2026-11-14b UI need 5)
     const shut = (x) => !!(x && x.tutorial && x.tutorial.roads && x.tutorial.roads.closed);
-    if (T && shut(prev) && !shut(v) && v.zone && prev.zone && v.zone.idx === prev.zone.idx && v.phase !== 'SUMMARY') ctx.toast(T.guide.roadsOpenLine || ROADS_OPEN_LINE, 'good');
+    if (T && shut(prev) && !shut(v) && v.zone && prev.zone && v.zone.idx === prev.zone.idx && v.phase !== 'SUMMARY') ctx.toast(T.guide.roadsOpenLine, 'good');
     const c = ctxOf(v, ev, a);
     // the line on screen: done, or its moment over
     if (cur && cur.kind === 'hint') {

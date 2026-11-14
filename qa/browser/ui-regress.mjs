@@ -186,7 +186,7 @@ import { CONTENT } from '../../src/content/index.js';
 // the Furnace's player-facing words (changes-m2b-v7.md table D: names, states, whole tolls; UX pass 2026-11-11)
 import { HEAT_WORDS, tolls, ECHO_LINE, deathblowKind, deathblowAnswers, sapWaitText } from '../../src/ui/ui-text.js';
 import { RANK as Q_RANK, DIM_NEAR as Q_DIM_NEAR } from '../../src/ui/audio.js';
-import { MAP_LINES, ROADS_OPEN_LINE, fillLine } from '../../src/ui/onboarding.js'; // D143: the beat lines that wait for the map on screen; the Roads' toast
+import { MAP_LINES, fillLine } from '../../src/ui/onboarding.js'; // D143: the beat lines that wait for the map on screen
 const ONB_HINT_SHOWS = R.C.ONB_HINT_SHOWS; // D142 (3): showings after which a hint counts as seen (src/constants.js since D143)
 
 const args = process.argv.slice(2);
@@ -4415,7 +4415,7 @@ async function partS(browser, W, H) {
         }
         // the Roads open: their toast (it may wait behind two others, TOAST_MAX, for a few seconds)
         if (closed && roadsOpened === null && st.t && st.t.roads && !st.t.roads.closed) {
-          await page.waitForFunction((t) => window.__sT.some((x) => x.startsWith(t)), T.guide.roadsOpenLine || ROADS_OPEN_LINE, { timeout: 9000, polling: 100 }).catch(() => null);
+          await page.waitForFunction((t) => window.__sT.some((x) => x.startsWith(t)), T.guide.roadsOpenLine, { timeout: 9000, polling: 100 }).catch(() => null);
           roadsOpened = await page.evaluate(() => window.__sT.slice());
         }
         // the Furnace header when the Dimming sets the state (the longest header)
@@ -4440,7 +4440,7 @@ async function partS(browser, W, H) {
         !!closed && closed.want.length > 0 && JSON.stringify(closed.marks.nodes) === JSON.stringify(closed.want) && closed.marks.signs.length === closed.want.length && closed.marks.signs.every((x) => x.tag === 'Closed')
         && !!closed.roadTip && closed.roadTip.includes(T.beats.find((b) => b.id === 'G13').alt.closed), JSON.stringify(closed && { want: closed.want, marks: closed.marks, tip: closed.roadTip }));
       check('D143-1', 'the closed line shown and put away does not count for the Bell\'s hint H19 (no showing, not seen)', !!closed && !closed.h19.seen && closed.h19.shows === 0, JSON.stringify(closed && closed.h19));
-      check('D143-1', `a toast when the Roads open ("${T.guide.roadsOpenLine || ROADS_OPEN_LINE}")`, Array.isArray(roadsOpened) && roadsOpened.some((x) => x.startsWith(T.guide.roadsOpenLine || ROADS_OPEN_LINE)), JSON.stringify(roadsOpened));
+      check('D143-1', `a toast when the Roads open ("${T.guide.roadsOpenLine}")`, Array.isArray(roadsOpened) && roadsOpened.some((x) => x.startsWith(T.guide.roadsOpenLine)), JSON.stringify(roadsOpened));
       check('S-3', 'Gorrak\'s barred node next to the player has a tooltip: Elite, its Deathblow, the gate line, no "Click to enter", no error', !!barredTip && !!barredTip.text && /^Elite/.test(barredTip.text) && /Deathblow/.test(barredTip.text) && barredTip.text.includes('Gorrak is out on the downs') && !/Click to enter/.test(barredTip.text) && barredTip.errors === 0, JSON.stringify(barredTip));
       check('S-5', 'the Furnace header fits its frame when the Dimming sets the state ("· Dimming")', !!furnace && furnace.sw <= furnace.cw + 1 && furnace.inside && /Dimming/.test(furnace.text), JSON.stringify(furnace));
       check('S-9', 'a reward that is an upgrade offers "Equip now": one click sends CHOOSE_REWARD then EQUIP of that item, and it is worn', !!eqNow && eqNow.acts.length === 2 && /^CHOOSE_REWARD/.test(eqNow.acts[0]) && eqNow.acts[1] === `EQUIP:${eqNow.uid}` && eqNow.worn, JSON.stringify(eqNow));
