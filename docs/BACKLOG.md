@@ -77,4 +77,5 @@ Owner ideas and team proposals not yet scheduled. The Lead places each item into
 | 2026-11-13 | Sim: planner bar template swaps slot 0 forever on some guided Hunter runs (seed 1003); B14 band still classic-map | Sim | M3 | todo |
 | 2026-11-14 | sim/report.mjs: check expedition cells against NODES_EXP 27-38 and FIGHTS_EXP 26-36 once approved; ARCHITECTURE note for barGuard (sim-2026-11-14) | Sim | M3 | todo |
 | 2026-11-14 | UI for D147: pass guideSkipped why/rescues and show guide.rescueCapLine; anchor G8.withEngage (W button + wind-up badge, marks H01 and H03); update ui-regress part R for the S3/S4 swap (fails 1/108 on 7d15d0a) | UI/UX Engineer | M3 3.7 | todo |
-| 2026-11-14 | Guided S3: Rogue and Mage kill the Hexer before its wind-up, so G8 is learned only by the Hunter on autoplay (engine-2026-11-14 section 7) | Designer | M3 3.7 | todo |
+| 2026-11-14 | Guided S3: Rogue and Mage kill the Hexer before its wind-up, so G8 is learned only by the Hunter on autoplay (engine-2026-11-14 section 7) | Designer | M3 3.7 | spec done (b4c96ce, D149) |
+| 2026-11-14 | Engine: implement m3-onboarding 2.8 item 6 (ONB_WINDUP_TURN 1, windupTurn in startFight/makeEntry, S3 text, re-pin three s18 tests) (D149) | Engineer | M3 3.7 | todo |
