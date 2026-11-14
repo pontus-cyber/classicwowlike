@@ -36,7 +36,8 @@
 //              over, title, fightNo, fights, engage }
 //              combat v2 (docs/specs/combat-v2.md 10, engine-api.md 6): track = the enemy's intent track (convTrack), role =
 //              its archetype and pack role (convRole), offBalance = R.offBalance (D144: with `shield` and `absorbs`, the
-//              enemy shield takes the main attack's whole hit), engage = the engage round's options
+//              enemy shield takes the main attack's whole hit; D150: `bigHit`, a big hit can be cast on it now; the mock:
+//              true), engage = the engage round's options
 //              (R.isEngageRound, R.engageOptions) or null; bridge.engagePreview(option, target, spellId) = R.engagePreview
 //              combat v2.1 (combat-v2.md 16, engine-api.md 5, 6): track entries and intents carry `windup` (cancel.stagger:
 //              the predicted cancel answers it), statuses hold EMPOWERED and STAGGERED ({ stacks, value }), engage options
@@ -49,7 +50,8 @@
 //   camp:    { par, asc } at the camp (asc: the engine's Ascendancy if the boss were faced now), else null
 //   zone.danger, node.danger { lo, hi }: zone danger (rules 7.6) from R.zoneDanger; the zone's at its highest level
 //   legal:   { lanes, travelOn, mustTravel, outOfCombat, spells: { id: { ok, reason, cd, window } }, items: [{ ok, reason, count, cd, free }],
-//              attack, flee, fleeChance?, services, talents, trainer }   window (combat v2): the enemies on which the spell
+//              attack, flee, fleeChance?, services, talents, trainer, trainAll }   window (combat v2): the enemies on which the spell
+//              (trainAll, D150 item 21: TRAIN_ALL is legal, a rank or a lesson the gold covers; trainAllCost: the gold it spends)
 //              lands in an OFF_BALANCE window (R.spellInfo(...).window per enemy; 'all' for an area spell), else null;
 //              items[].free (M2b v6): a potion that Packed Satchel's free potion would make a free action now (R.freePotion);
 //              the `action` event of that potion carries free: true. M2b v8: items[].mult (FREE_POTION_MULT when free, else
@@ -590,6 +592,7 @@ function engineBackend(seedOpt, runOpts = {}) {
   // The end boss is kind 'boss'; a dungeon boss is kind 'dboss' (both carry boss: true, engine-api.md 6), so the rank
   // reads the kind: a dungeon boss is drawn and framed as itself, not as the end boss.
   const rankOf = (e) => (e.kind === 'boss' ? 'boss' : e.kind === 'shard' ? 'shard' : e.kind || 'normal');
+  const NAMED_KIND = new Set(['elite', 'rare', 'boss', 'dboss']); // a named enemy: "Gorrak", not "the Gorrak" (spell tooltips)
   function fightKey(s) { const n = s.node; return `${s.zone ? s.zone.z : 0}:${n ? `${n.r}:${n.l}` : `t${s.time}`}:${s.fight ? s.fight.k : 0}:${s.fight ? s.fight.kind : ''}`; }
   const INTENT_LABEL = { curse: 'Curse: you deal less damage', brace: 'Braces: takes less damage', shieldAlly: 'Shields an ally', heal: 'Heals an ally', selfHeal: 'Heals itself',
     selfShield: 'Shields itself', summon: 'Calls for help', cleave: 'Hits you and your pet', rend: 'Hit and bleed', bolster: 'Shields its weakest ally', signal: 'Calls a reinforcement' };
@@ -715,7 +718,7 @@ function engineBackend(seedOpt, runOpts = {}) {
       if (e.alive && R.offBalance) { try { ob = R.offBalance(s, e.idx); } catch { ob = null; } }
       return { idx: e.idx, uid: `${key}:${e.idx}`, tplId: e.tid, name: e.name, level: e.level, rank: rankOf(e), arch: e.arch || (e.kind === 'boss' ? 'boss' : 'shard'),
         hp: e.hp, maxHp: e.maxHp, alive: e.alive, statuses: statuses(e.st, f, e.shield, e.enraged), intent: e.alive ? convIntent(e.intent, e) : null,
-        track, role: e.alive ? convRole(e, f, track) : null, offBalance: ob ? { status: ob.status, taken: ob.taken, crit: ob.crit, rounds: ob.rounds, shield: ob.shield || 0, absorbs: !!ob.absorbs } : null,
+        track, role: e.alive ? convRole(e, f, track) : null, offBalance: ob ? { status: ob.status, taken: ob.taken, crit: ob.crit, rounds: ob.rounds, shield: ob.shield || 0, absorbs: !!ob.absorbs, bigHit: ob.bigHit !== false } : null,
         ccImmune: !!e.ccImmune, firstMeet: !!e.firstMeet, turn: e.turn || 0, added: !!(e.summoned || e.noReward || (e.unscripted && e.kind !== 'boss' && e.kind !== 'shard')),
         dot: e.alive ? dotOf(s, e.idx) : null }; // the DoT preview (engine-api.md 6.1)
     });
@@ -869,7 +872,10 @@ function engineBackend(seedOpt, runOpts = {}) {
       const canSpend = has('SPEND_TALENT', (a) => a.talentId === t.id);
       L.talents[t.id] = { canSpend, rank, need, spentTree, tree, locked: spentTree < need, reason: canSpend ? null : rank >= t.ranks ? 'Maxed' : spentTree < need ? `Requires ${need} points in this tree` : reasonOf(R.whyIllegal(s, { type: 'SPEND_TALENT', talentId: t.id })) };
     }
-    if (s.service && s.service.kind === 'trainer') L.trainer = trainerList(s, has);
+    if (s.service && s.service.kind === 'trainer') {
+      // D150 item 21: Train all trains the ranks, then learns the lessons the gold still covers; its cost is the engine's (a dry step)
+      L.trainer = trainerList(s, has); L.trainAll = has('TRAIN_ALL'); L.trainAllCost = L.trainAll ? dryCost(s, { type: 'TRAIN_ALL' }) : null;
+    }
     return L;
   }
 
@@ -1479,6 +1485,11 @@ function engineBackend(seedOpt, runOpts = {}) {
     const has = (t) => events.some((e) => e.t === t);
     const sum = (t, pred) => events.filter((e) => e.t === t && (!pred || pred(e))).reduce((a, e) => a + (e.amount || 0), 0);
     const items = events.filter((e) => e.t === 'loot').map((e) => item(e.item, st.player ? st.player.classId : 'rogue', { inBag: e.to === 'bag', pending: e.to === 'window' }));
+    // D150 section 7 (engine-2026-11-14d UI need 17): the spoils' XP is the whole fight's (each kill's XP comes in the step of
+    // the kill), the same sum the fight floated; a quest's, story's or contract's XP shows on its own window
+    const fightXp = (e) => e.why !== 'quest' && e.why !== 'story' && e.why !== 'contract';
+    if (has('fight')) local.fightXp = 0;
+    local.fightXp = (local.fightXp || 0) + sum('xp', fightXp);
     if (events.some((e) => e.t === 'questComplete')) local.reward = { xp: sum('xp', (e) => e.why === 'quest'), gold: sum('gold', (e) => e.why === 'quest' && e.amount > 0), storyXp: sum('xp', (e) => e.why === 'story') };
     // contracts completed in this step (prep): each one's XP and gold (the events after its `contract` complete event,
     // why 'contract'), shown on its reward window
@@ -1509,8 +1520,9 @@ function engineBackend(seedOpt, runOpts = {}) {
         title: kind === 'dboss' ? `${(prev.node && prev.node.dungeon) || 'Dungeon'} cleared` : prev.node && prev.node.type === 'treasure' ? 'Treasure chest' : 'Loot',
         phase: 'NODE', node: prev.node ? { ...prev.node, step: 'combat' } : { type: 'camp_grind', step: 'combat', cl: C.CAMP_GRIND_LEVEL },
         // a contract's XP and gold show on its own reward window (prep), not with the fight's spoils
-        combat: pc, gold: sum('gold', (e) => e.amount > 0 && e.why !== 'quest' && e.why !== 'contract'), xp: sum('xp', (e) => e.why !== 'quest' && e.why !== 'story' && e.why !== 'contract'), trap: sum('trap') > 0, items,
+        combat: pc, gold: sum('gold', (e) => e.amount > 0 && e.why !== 'quest' && e.why !== 'contract'), xp: local.fightXp, trap: sum('trap') > 0, items,
       };
+      local.fightXp = 0;
     }
   }
 
@@ -1600,6 +1612,8 @@ function engineBackend(seedOpt, runOpts = {}) {
     autoAction() { const a = st.phase === 'ENDED' ? null : R.autoAction(st); return a ? { type: 'ENGINE', action: a } : { type: 'PASS' }; },
     describeSpell(id, target = null) {
       const s = st; const sp = C.SPELL[id]; if (!sp || !s.player) return null;
+      // "the Hedge Ogre"; a named enemy (an elite, a boss) by its name alone
+      const enemyName0 = (fi, u) => { const e = fi.enemies[u]; if (!e) return 'the target'; return NAMED_KIND.has(e.kind) ? e.name : `the ${e.name}`; };
       const f = s.fight;
       // the UI's target when it is alive (the hit chance is the target's), else the first living enemy
       const tgt = f ? (target != null && f.enemies[target] && f.enemies[target].alive ? target : (f.enemies.find((e) => e.alive) || { idx: 0 }).idx) : null;
@@ -1611,11 +1625,18 @@ function engineBackend(seedOpt, runOpts = {}) {
       const a = info && info.amount;
       // Ricochet Bolt (M2 v3): the target takes `amount`, up to `bounces` other enemies `bounceAmount` (spellInfo)
       if (a && a.kind === 'damage' && a.bounces) lines.push(`Deals about ${a.amount} ${school(a.school)} damage to the target, then about ${a.bounceAmount} to up to ${TXT.numWord(a.bounces)} other ${TXT.plural(a.bounces, 'enemy', 'enemies')}.`);
-      // section 7 (D150): a finisher's amount is the engine's at the combo points held now (spellAmount: at least 1), so in a
-      // fight with more than one it says "at 2 combo points", not "per combo point"
+      // section 7 and item 17 (D150; engine-2026-11-14d UI need 11): one damage line. In a fight on a living target it is the
+      // engine's average hit on it now (spellInfo `est`: level difference, crits and armour in), "Deals about 31 physical
+      // damage to the Hedge Ogre with 2 combo points."; a finisher's amount is a total at `amount.cp` points (at least 1)
       const cpNow = f && f.p ? f.p.cp || 0 : 0;
-      const perCp = a && a.perCp ? (cpNow > 1 ? ` at ${cpNow} combo points` : ' per combo point') : '';
-      if (a && a.kind === 'damage' && !a.bounces) lines.push(`${sp.target === 'all' ? 'Hits every enemy for' : 'Deals'} about ${a.amount} ${school(a.school)} damage${perCp}${a.hits > 1 ? `, ${a.hits} times` : ''}.`);
+      const cpWord = (n) => `${n} combo ${n === 1 ? 'point' : 'points'}`;
+      const perCp = a && a.perCp ? (cpNow >= 1 ? ` with ${cpWord(a.cp || cpNow)}` : ' per combo point') : '';
+      const est = info && typeof info.est === 'number' && f && tgt != null ? info.est : null;
+      if (a && a.kind === 'damage' && !a.bounces) {
+        lines.push(est != null && sp.target !== 'all'
+          ? `Deals about ${est} ${school(a.school)} damage to ${enemyName0(f, tgt)}${perCp}${a.hits > 1 ? `, ${a.hits} times` : ''}.`
+          : `${sp.target === 'all' ? 'Hits every enemy for' : 'Deals'} about ${a.amount} ${school(a.school)} damage${perCp}${a.hits > 1 ? `, ${a.hits} times` : ''}.`);
+      }
       if (a && a.kind === 'dot') lines.push(`About ${a.perTick} ${school(a.school)} damage per round for ${a.rounds} rounds.`);
       if (a && a.kind === 'ward') lines.push(`Absorbs about ${a.amount} damage for ${a.rounds} rounds.`);
       if (a && a.kind === 'heal') lines.push(`Heals about ${a.amount}.`);
@@ -1623,7 +1644,7 @@ function engineBackend(seedOpt, runOpts = {}) {
       // D144 (engine-2026-11-13d UI need 11; tactician: "hit/miss chance shown nowhere"): the hit roll's chance now
       const pc = (x) => `${Math.round(x * 100)} %`;
       const enemyName = (u) => (f && f.enemies[u] ? f.enemies[u].name : 'it');
-      if (info && typeof info.hit === 'number') lines.push(`Hit chance on ${enemyName(tgt)}: ${pc(info.hit)}`);
+      if (info && typeof info.hit === 'number') lines.push(`Hit chance on ${f ? enemyName0(f, tgt) : 'it'}: ${pc(info.hit)}`);
       else if (info && Array.isArray(info.hitAll) && info.hitAll.length) lines.push(`Hit chance: ${info.hitAll.map((x) => `${enemyName(x.u)} ${pc(x.chance)}`).join(', ')}`);
       const k = s.player.spells[id];
       return {

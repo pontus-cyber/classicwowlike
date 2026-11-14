@@ -52,7 +52,7 @@ const FIGHT_BEATS = new Set(['G3', 'G6', 'G7', 'G8', 'G9', 'G11']); // beats who
 // came while the hero walked out of the hub, before the map showed. D143: G13.closed (it points at Gorrak's node). G10 is
 // no map line (engine-2026-11-13c finding 2: as one it is never the top line on the autoplay route, whose first move enters
 // a site): it shows where the engine has it, at the site's dialog or in its fight, its arrow at the contract's tracker row
-export const MAP_LINES = new Set(['G2', 'G12', 'G12.caught', 'G13', 'G13.onRoad', 'G13.closed']);
+export const MAP_LINES = new Set(['G2', 'G12', 'G12.road', 'G13', 'G13.onRoad', 'G13.closed']); // D150: G12.caught went, G12.road came
 /** Beat lines that stand for no hint (D143: the closed line is about Gorrak, not the Bell, so it does not make H19 seen). */
 const NO_HINT_LINES = new Set(['G13.closed']);
 /**
@@ -223,8 +223,10 @@ const siteNodeEl = (v) => {
   return q('#screens .mnode .xsite');
 };
 const entries = (v) => (v.combat && !v.combat.over ? v.combat.enemies.filter((e) => e.alive && !e.hidden).flatMap((e) => (e.track || []).map((x) => ({ e, x }))) : []);
+/** The loot window's first row with the green arrow ("▲ upgrade"; screens.js buildLoot), the line's anchor (G4, H11). */
+const upRow = () => { const g = q('#screens .loot .lrow .meta .good'); return g ? g.closest('.lrow') : null; };
 const ANCHOR = {
-  G1: () => q('#prep .pp-card'), G2: () => q('#screens .mnode.here'), G3: (v, d) => q(`#actionbar .ab[data-slot="${Math.max(0, attackSlot(v, d && d.spells))}"]`), G4: () => q('#screens .dialog'),
+  G1: () => q('#prep .pp-card'), G2: () => q('#screens .mnode.here'), G3: (v, d) => q(`#actionbar .ab[data-slot="${Math.max(0, attackSlot(v, d && d.spells))}"]`), G4: () => upRow() || q('#screens .loot') || q('#screens .dialog'),
   G5: () => q('#heat'), G6: npOf((e) => (e.track || []).some((x) => x.heavy || x.cast)), G7: () => q('#engage'),
   G8: () => q('#nameplates .wub:not(.db)') || q('#nameplates .tk.wu'), G9: () => q('#nameplates .wub.db') || q('#engage .eg-db'),
   G10: (v) => (v.loot ? q('#screens .dialog') : inFight(v) ? (document.body.classList.contains('engage-round') ? null : q('#tracker .tk-c[data-status="active"]')) : onMap(v) ? siteNodeEl(v) : q('#screens .dialog')), G11: (v) => itemSlot(v, (x) => x && x.heal > 0), G12: () => q('#screens .xdimp'),
@@ -240,6 +242,15 @@ const ANCHOR = {
 const LINE_ANCHOR = {
   'G13.closed': (v) => { const t = v.tutorial; const id = t && t.roads && t.roads.node != null ? t.roads.node : t && t.elite ? t.elite.node : null; return id == null ? null : q(`#screens .mnode[data-node="${id}"]`); },
   'G8.withEngage': (v, d) => q(`#engage .eg-opt[data-key="${KEYS.key_engage2}"]`) || ANCHOR.G8(v, d),
+  // D150 (engine-2026-11-14d UI need 2): "Take a Road to leave." points at the nearest open Road's sign (hops from the player)
+  'G12.road': (v) => {
+    const mv = v.zone && v.zone.exp; if (!mv || !mv.edges) return null;
+    const nb = mv.nodes.map(() => []); for (const [a, b] of mv.edges) { nb[a].push(b); nb[b].push(a); }
+    const d = mv.nodes.map(() => Infinity); d[mv.pos] = 0; const qq = [mv.pos];
+    while (qq.length) { const x = qq.shift(); for (const y of nb[x]) if (d[y] === Infinity) { d[y] = d[x] + 1; qq.push(y); } }
+    const open = (mv.roads || []).filter((id) => mv.nodes[id] && !mv.nodes[id].closed).sort((a, b) => d[a] - d[b]);
+    return (open.length ? q(`#screens .expmap .xroad[data-road="${open[0]}"]`) : null) || ANCHOR.G12(v);
+  },
 };
 /** Second markers of single lines (D147, spec 2.8 item 2): G8's joint line also rings the wind-up badge (class coach-also). */
 const LINE_ALSO = { 'G8.withEngage': ANCHOR.G8 };
@@ -247,6 +258,8 @@ const LINE_ALSO = { 'G8.withEngage': ANCHOR.G8 };
 // ctx: 'fight' (gone when the fight ends or two rounds on), 'map' (gone at the next map step), else 'screen' (gone when
 // `when` no longer holds). Each `when` reads the view, the step's events (ev) and the UI.
 const inFight = (v) => !!(v.combat && !v.combat.over && !v.loot);
+/** The turn prompt on screen says it (D150: an instruction is said once; a hint gives way to the prompt's). */
+const promptSays = (re) => { const t = q('#turnprompt .tp-t'); return !!t && re.test(t.textContent); };
 const onMap = (v) => v.phase === 'MAP' && !!(v.zone && v.zone.exp) && !v.node;
 const seenNode = (v, pred) => { const mv = v.zone && v.zone.exp; return !!(mv && onMap(v) && mv.nodes.some((n) => n.know && n.know !== 'none' && pred(n))); };
 const has = (ev, t, f) => ev.some((e) => e.t === t && (!f || f(e)));
@@ -259,14 +272,16 @@ const HINTS = {
   // D144 (engine-2026-11-13d UI need 2): the off-balance enemy's shield would take the whole hit (offBalance.absorbs): the
   // shield line ("break it, then spend your big hit"), and H05 stays unseen so the plain line is taught in a later window
   // D150 item 24: not while a stopped wind-up's line says "hit it now" over that enemy (one instruction on screen)
-  H05: { ctx: 'fight', when: (c) => inFight(c.v) && c.v.combat.enemies.some((e) => e.alive && e.offBalance && !stoppedNow(e, { ui: c.ui || {}, view: c.v })), anchor: () => q('#target-frame .obal') || q('#target-frame'),
+  // D150 (engine-2026-11-14d UI need 6): only while a big hit can be cast on it now (R.offBalance bigHit; it showed at 0 combo points)
+  H05: { ctx: 'fight', when: (c) => inFight(c.v) && c.v.combat.enemies.some((e) => e.alive && e.offBalance && e.offBalance.bigHit && !stoppedNow(e, { ui: c.ui || {}, view: c.v })), anchor: () => q('#target-frame .obal') || q('#target-frame'),
     alt: (c) => (c.v.combat.enemies.some((e) => e.alive && e.offBalance && e.offBalance.absorbs) ? 'shield' : undefined) },
   H06: { ctx: 'fight', when: (c) => inFight(c.v) && status(c.v.player, 'MAIMED'), anchor: () => q('#player-frame .maimb') || q('#player-frame') },
   H07: { ctx: 'fight', when: (c) => inFight(c.v) && !!q('#nameplates .db-lethal, #engage .db-lethal'), anchor: () => q('#nameplates .db-lethal') || q('#engage .db-lethal') },
   H08: { ctx: 'fight', when: (c) => inFight(c.v) && c.v.combat.enemies.some((e) => e.alive && e.dot && (e.dot.total || e.dot.amount || e.dot.ticks)), anchor: () => q('#target-frame .bar.hp') },
   H09: { ctx: 'fight', when: (c) => inFight(c.v) && c.v.player.hp < c.r.potionHp * c.v.player.maxHp && ((c.v.legal && c.v.legal.items) || []).some((x) => x && x.ok && x.heal > 0), anchor: (v) => itemSlot(v, (x) => x && x.ok && x.heal > 0), done: (c) => c.a === 'USE_ITEM' },
   H10: { ctx: 'fight', when: (c) => inFight(c.v) && ((c.v.legal && c.v.legal.items) || []).some((x) => x && x.free), anchor: (v) => itemSlot(v, (x) => x && x.free), done: (c) => c.a === 'USE_ITEM' },
-  H11: { ctx: 'screen', when: (c) => !!(c.v.loot && c.v.loot.kind === 'loot' && (c.v.loot.items || []).length), anchor: () => q('#screens .dialog'), done: (c) => c.a === 'LOOT_TAKE_ALL' || c.a === 'LOOT_EQUIP' },
+  // D150 (engine-2026-11-14d UI need 3): only with a row that shows the green arrow ("▲ upgrade", in the bags or not)
+  H11: { ctx: 'screen', when: (c) => !!(c.v.loot && c.v.loot.kind === 'loot' && (c.v.loot.items || []).length && upRow()), anchor: () => upRow() || q('#screens .loot'), done: (c) => c.a === 'LOOT_TAKE_ALL' || c.a === 'LOOT_EQUIP' },
   H12: { ctx: 'map', when: (c) => has(c.ev, 'levelUp', (e) => (e.newSpells || []).length > 0), anchor: () => q('#screens .mnode.xhub') || q('#minimap') },
   H13: { ctx: 'map', when: (c) => has(c.ev, 'learn', (e) => c.v.player && !c.v.player.bar.includes(e.id)), anchor: () => q('#actionbar'), done: (c) => c.a === 'SET_BAR' },
   H14: { ctx: 'screen', when: (c) => !inFight(c.v) && !!c.v.player && c.v.player.talentPoints > 0, anchor: () => q('#micromenu .mm[aria-label="Talents"]'), done: (c) => c.a === 'SPEND_TALENT' },
@@ -285,7 +300,8 @@ const HINTS = {
   H27: { ctx: 'fight', when: (c) => inFight(c.v) && !!c.v.combat.engage && c.v.combat.kind === 'dboss', anchor: () => q('#engage'), done: (c) => c.a === 'ENGAGE' },
   H28: { ctx: 'screen', when: (c) => !!q('#screens .vendor-cols'), anchor: () => q('#screens .vendor-cols') },
   H29: { ctx: 'map', when: (c) => seenNode(c.v, (n) => n.type === 'rest' && !n.done), anchor: (v) => nodeEl(v, (n) => n.type === 'rest' && n.know !== 'none' && !n.done) },
-  H30: { ctx: 'fight', when: (c) => inFight(c.v) && !!q('#actionbar .ctrl .btn.db-now, #actionbar .ctrl .btn.ans'), anchor: () => q('#actionbar .ctrl .btn.db-now, #actionbar .ctrl .btn.ans'), done: (c) => c.a === 'PASS' },
+  // D150 (Lead 2026-11-14): not while the turn prompt already says "Pass [X]" (the Deathblow's one instruction)
+  H30: { ctx: 'fight', when: (c) => inFight(c.v) && !!q('#actionbar .ctrl .btn.db-now, #actionbar .ctrl .btn.ans') && !promptSays(/\bPass\b/), anchor: () => q('#actionbar .ctrl .btn.db-now, #actionbar .ctrl .btn.ans'), done: (c) => c.a === 'PASS' },
   H31: { ctx: 'fight', when: (c) => inFight(c.v) && c.v.combat.round <= 1 && !c.v.autoplay && (c.store.stats || {}).won >= c.r.autoplayAfter && !(c.store.stats || {}).auto, anchor: () => q('#actionbar .ctrl .toggle'), done: (c) => c.a === 'SET_AUTOPLAY' },
   H32: { ctx: 'fight', when: (c) => inFight(c.v) && !c.v.combat.isBoss && !!(c.v.legal && c.v.legal.flee) && c.v.player.hp < c.r.fleeHp * c.v.player.maxHp, anchor: () => [...document.querySelectorAll('#actionbar .ctrl .btn')].find((b) => /Flee/.test(b.textContent)) || null, done: (c) => c.a === 'FLEE' },
   H33: { ctx: 'fight', when: (c) => inFight(c.v) && !!(c.v.player.pet && c.v.player.pet.alive), anchor: () => q('#pet-frame') },
@@ -469,7 +485,10 @@ export function createOnboarding(root, ctx) {
   function beatNow(v) {
     const t = v && v.tutorial;
     if (!t || !guiding(v) || hints.off || !T) return null;
-    const ok = (x) => x && x.line && !x.rest && !dismissed.has(x.line) && (!FIGHT_BEATS.has(x.id) || inFight(v)) && (!MAP_LINES.has(x.line) || (onMap(v) && mapShown(ctx.ui, ctx.view)));
+    // D150 (engine-2026-11-14d UI need 5): "Contract done: choose one reward." waits for the contract's own window (a Grind
+    // or Elite site shows the fight's spoils first)
+    const ok = (x) => x && x.line && !x.rest && !dismissed.has(x.line) && (!FIGHT_BEATS.has(x.id) || inFight(v)) && (!MAP_LINES.has(x.line) || (onMap(v) && mapShown(ctx.ui, ctx.view)))
+      && (x.line !== 'G10.done' || !!(v.loot && v.loot.kind === 'contract'));
     const top = (t.open || []).find((x) => x.line === t.line);
     const o = ok(top) ? top : (t.open || []).find(ok);
     if (!o) return null;
@@ -553,6 +572,7 @@ export function createOnboarding(root, ctx) {
         const key = keyOf(id);
         if (hints.seen(key) || (cur && cur.key === key) || queue.some((x) => x.key === key)) continue;
         if (guiding(v) && BEAT_OF[id]) continue; // the beat stands in for it
+        if (!rawLine(T, id, cls())) continue; // D150: a retired hint (content line null: H04, H12, H34) shows nothing and takes no turn
         const spec = HINTS[id];
         const moment = momentOf(spec, v);
         if (cool.get(key) === moment) continue;

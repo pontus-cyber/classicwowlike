@@ -2,7 +2,8 @@
 // boons and classes). Wording follows docs/specs/rules.md; numbers that matter come from the
 // engine at run time. CONTENT.texts (src/content) overrides any line when it provides one.
 // D150 (owner 2026-11-14, text pass): "stopped" for "answered", the engage cards' texts from the view with no Stealth
-// reminder (Ambush "Gutting Jab at ×1.5. +2 combo points."), no par or Ascendancy in the Oaths' lines.
+// reminder (Ambush "Gutting Jab at ×1.5. +2 combo points."), no par or Ascendancy in the Oaths' lines; "hidden" is only
+// Stealth (Tracker's Notes: "nodes you have not seen yet").
 import { SPELLS, TALENTS, STATUS_INFO as BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS } from './mock-data.js';
 
 /**
@@ -306,7 +307,7 @@ export function contractKindText(kind) { return CONTRACT_KIND_TEXT[kind] || ''; 
  */
 export function contractSitesText(c, r, has = {}) {
   if (c.kind === 'delve') return `Its one site is ${c.dungeon || "the zone's dungeon"}. Holding this contract shows the dungeon on that zone's map.`;
-  const see = `You see a site's mark on nodes in full view: within ${r.vision} ${plural(r.vision, 'hop')}${has.guide ? `, ${r.guide} more with the Local Guide` : ''}${has.tracker ? `; with Tracker's Notes within ${r.tracker} hops, hidden nodes too` : ''}.`;
+  const see = `You see a site's mark on nodes in full view: within ${r.vision} ${plural(r.vision, 'hop')}${has.guide ? `, ${r.guide} more with the Local Guide` : ''}${has.tracker ? `; with Tracker's Notes within ${r.tracker} hops, on nodes you have not seen yet too` : ''}.`;
   if (c.kind === 'bounty') return `The elite waits at ${numWord(r.bountyPlaced)} Elite nodes of rings 2 and 3 in ${c.regionName || 'its region'}; win either. ${see}`;
   return `Sites: Quest or Grind nodes, most of them in ${c.regionName || 'its region'}. ${see}`;
 }
@@ -330,7 +331,7 @@ export function prepOptionEffect(o, r, name = (id) => humanize(id), content = nu
     case 'prep_bell': return `+${o.bell} Homeward Bell charge: one more way out of a zone.`;
     case 'prep_mule': return `+${o.slots} bag slots for the whole run.`;
     case 'prep_charts': return "Every node's region and every dungeon shown on each zone map.";
-    case 'prep_tracker': return `Contract sites marked within ${r.tracker} hops of you, hidden nodes too.`;
+    case 'prep_tracker': return `Contract sites marked within ${r.tracker} hops of you, even on nodes you have not seen yet.`;
     case 'prep_guide': return `Your full view reaches ${r.guide} ${plural(r.guide, 'hop')} further on every zone map.`;
     case 'prep_spyglass': return `${o.charges} looks on the map: any node and its neighbours in full view, no tolls.`;
     default: { const g = group(content, 'prep'); const x = g && g[o.id]; return (x && x.rule) || ''; }
@@ -408,7 +409,7 @@ export function statusEffect(s, r, info = {}) {
     case 'MAIMED': if (s.value) effect = `Healing you receive is ${pct(s.value)} lower, potions included, until the fight ends. Cleansing does not remove it.`; break;
     case 'BRAND':
       if (R.brandDmg != null) {
-        effect = `Takes ${R.brandDmg} shadow damage per stack at the end of each round: ${R.brandDmg * (s.stacks || 1)} at ${s.stacks || 1} ${plural(s.stacks || 1, 'stack')}, before level difference and Ascendancy.`;
+        effect = `Takes ${R.brandDmg} shadow damage per stack at the end of each round: ${R.brandDmg * (s.stacks || 1)} at ${s.stacks || 1} ${plural(s.stacks || 1, 'stack')}.`; // D150: no "before level difference and Ascendancy"
         lines.push(`${R.brandMax != null ? `Up to ${R.brandMax} stacks. ` : ''}Only dispersal removes it.`);
       }
       break;
@@ -510,7 +511,7 @@ export function metaEffect(m, D, d, mode = 'rows') {
     }
     // expedition.md 8.2 (M2b v11): entries of the expedition map only (m.mapMode 'expedition'; a tag on classic runs, D116)
     case 'cartographer': return { short: `${NM.charts} every run, free`, long: `On the expedition map the start camp's ${NM.charts} are yours every run, free: every node's region and the dungeon's place show on the map.${onlyExp}` };
-    case 'old_hand': return { short: `${NM.tracker} every run, free`, long: `On the expedition map the start camp's ${NM.tracker} are yours every run, free: contract sites show within ${numWord(N.trackerRadius)} hops, hidden nodes too.${onlyExp}` };
+    case 'old_hand': return { short: `${NM.tracker} every run, free`, long: `On the expedition map the start camp's ${NM.tracker} are yours every run, free: contract sites show within ${numWord(N.trackerRadius)} hops, even on nodes you have not seen yet.${onlyExp}` };
     case 'quartermaster': return { short: `+${m.points} preparation points per rank`, long: `On the expedition map you have ${numWord(m.points)} more preparation points to spend at the start camp for each rank.${onlyExp}` };
     case 'alchemist': return { short: `Vendors sell ${plurName(2, NM.greater)}`, long: `Every vendor also sells ${plurName(2, NM.greater)}: each restores ${pct1(D.greaterHeal)} of your maximum health.` };
     case 'cache': {

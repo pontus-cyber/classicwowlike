@@ -16,7 +16,8 @@
 // Sound (docs/specs/audio.md, D127): each event goes to ctx.audio.event at its moment (audio.js maps it to cues); a zone
 // arrival rings its bell pair with the banner.
 // D150 (owner 2026-11-14, text pass): "Deathblow stopped" and "Wind-up stopped" (floats and log lines), the end boss
-// and the Ember of Return by their names ("Oruvath", "You return to the fight").
+// and the Ember of Return by their names ("Oruvath", "You return to the fight"); a quest's, story's or contract's XP
+// floats not with the fight's (its window shows it), so the fight's floats add up to the spoils' experience.
 import { wait, SkipToken, fmtNum, deepClone } from './util.js';
 import { settings } from './settings.js';
 import { linkedText, dangerBanner, CONTROL_WORD as CONTROL_LOG, HEAT_WORDS, freeActionText } from './ui-text.js';
@@ -30,6 +31,7 @@ const ref = (r) => (r.side === 'player' ? 'player' : r.side === 'pet' ? 'pet' : 
 
 /** Combat v2.1: an enemy's wind-up stacks (rules 7.12), shown when their own status event plays. */
 const WINDUP_STACK_IDS = new Set(['EMPOWERED', 'STAGGERED']);
+const OWN_WINDOW_XP = new Set(['quest', 'story', 'contract']); // XP shown on its own reward window (D150 section 7)
 // Moments with their own place in the pacing model (rules 3: level-up, fight overhead, boss): outside the round budget.
 const M = { levelUp: 1200, victory: 500, playerDeath: 900, resurrect: 1200, bossPhase: 1400 };
 // Round budget: the planned beats are fitted into PLAN_SHARE of the round cap (combat-feel.js roundPace); once
@@ -356,7 +358,9 @@ export class Director {
             await W(tm.wait);
             break;
           }
-          case 'xp': if (e.amount > 0) { scene.float('player', `+${fmtNum(e.amount)} XP`, { color: '#d0a8ff', size: 17, dy: -30 * scene.u, small: true }); p().xp = Math.min(p().xpToNext, p().xp + e.amount); p().rested = Math.max(0, (p().rested || 0) - (e.rested || 0)); push(); hud.log(`You gain ${fmtNum(e.amount)} experience${e.rested ? ` (${fmtNum(e.rested)} rested bonus)` : ''}${e.heat ? ` (+${fmtNum(e.heat)} from heat)` : ''}.`, 'lg-xp'); } break;
+          // D150 section 7: a quest's, story's or contract's XP floats on its own window (its "+N XP"), not with the fight's:
+          // the fight's floats add up to the spoils window's experience
+          case 'xp': if (e.amount > 0) { if (!OWN_WINDOW_XP.has(e.why)) scene.float('player', `+${fmtNum(e.amount)} XP`, { color: '#d0a8ff', size: 17, dy: -30 * scene.u, small: true }); p().xp = Math.min(p().xpToNext, p().xp + e.amount); p().rested = Math.max(0, (p().rested || 0) - (e.rested || 0)); push(); hud.log(`You gain ${fmtNum(e.amount)} experience${e.rested ? ` (${fmtNum(e.rested)} rested bonus)` : ''}${e.heat ? ` (+${fmtNum(e.heat)} from heat)` : ''}.`, 'lg-xp'); } break;
           case 'levelUp': {
             Object.assign(p(), { level: e.level, maxHp: e.maxHp, hp: e.hp, xp: 0, xpToNext: (next.player && next.player.level === e.level) ? next.player.xpToNext : p().xpToNext });
             push();

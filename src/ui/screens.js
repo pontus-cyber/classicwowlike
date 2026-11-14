@@ -19,7 +19,8 @@
 // is greyed with "Next spell at level N." when it has nothing to teach (no click, so no toll); loot rows carry no notes and
 // say "item level"; reward cards use full stat names; the Bell's ask names its tolls and the fight that comes first (the
 // engine's preview); on a first run class select shows no Seed field and no Echoes button. Naming: Oruvath, no
-// "Ascendancy" or "par"; a Dimmed node's fight is no "Shardspawn" (the engine fights the zone's own enemies there).
+// "Ascendancy" or "par"; a Dimmed node's fight is "with this zone's creatures, made stronger by the dark" (no "Shardspawn":
+// the engine fights the zone's own enemies there, variant shardspawn; engine-2026-11-14d UI need 15).
 import { h, add, clear, fmtNum, moneyEl, moneyText, clamp } from './util.js';
 import { spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon, deathblowIcon } from './art-icons.js';
 import { drawPortrait, HERO_LOOKS, PET_LOOKS } from './art-actors.js';
@@ -323,11 +324,14 @@ function innCard(v, ctx, name, meta, used, heat) {
 export function trainerMeta(v) {
   const t = v.trainer;
   if (!t || t.useful) return 'Learn and rank up spells';
-  if ((t.learn && t.learn.length) || (t.train && t.train.length)) return 'Its lessons cost more gold than you have';
+  if ((t.learn && t.learn.length) || (t.train && t.train.length)) return 'Its lessons cost more gold than you have.';
   return t.next ? `Next spell at level ${t.next}.` : 'Nothing new to learn.';
 }
-/** D150 item 22: the hub Trainer has nothing to teach (no lesson or rank offered at all): its card is greyed, no click, no toll. */
-export const trainerIdle = (v) => !!(v.trainer && !v.trainer.useful && !(v.trainer.learn && v.trainer.learn.length) && !(v.trainer.train && v.trainer.train.length));
+/**
+ * D150 item 22 (engine-2026-11-14d UI need 10): the hub Trainer has nothing the gold covers (R.trainerView `useful` false,
+ * the autoplay's own test): its card is greyed, no click, no toll.
+ */
+export const trainerIdle = (v) => !!(v.trainer && !v.trainer.useful);
 
 const hubSwap = { swap: false }; // the hub offer's swap list stays open across the hub screen's rebuilds
 function buildHub(v, ctx) {
@@ -619,7 +623,7 @@ function buildExpMap(v, ctx, readOnly) {
     // D143: a closed Road of the guided zone (mapView `closed`, D142) carries a Closed tag and the coach's closed line
     const sign = h('div.xroad' + (side ? '.side' : right ? '.r' : '.l') + (n.dimmed ? '.dimmed' : '') + (n.id === mv.pos ? '.on' : '') + (n.closed ? '.rclosed' : ''), { style: { left: `${x / 10}%`, top: `${y / 10}%` }, dataset: { road: rid } },
       h('span.xpost'), h('span.xsign', h('b', side ? to : `${right ? '' : '« '}${to}${right ? ' »' : ''}`), n.closed ? h('i.xshut', 'Closed') : null));
-    tip(sign, () => h('div', h('div.tt-name', name), h('div.tt-line', `A Road out of the zone, to ${to}.`), n.closed ? h('div.tt-warn.rclosed', closedRoadLine(ctx.data) || 'Closed for now.') : h('div.tt-sub', `Standing on it: Take the Road · ${tolls(mv.travelTime)}`), n.dimmed ? h('div.tt-warn', 'Dimmed: a fight first, then the Road can still be taken.') : null));
+    tip(sign, () => h('div', h('div.tt-name', name), h('div.tt-line', `A Road out of the zone, to ${to}.`), n.closed ? h('div.tt-warn.rclosed', closedRoadLine(ctx.data) || 'Closed for now.') : h('div.tt-sub', `Standing on it: Take the Road · ${tolls(mv.travelTime)}`), n.dimmed ? h('div.tt-warn', 'Dimmed: first a fight with this zone\'s creatures, made stronger by the dark; then the Road can still be taken.') : null));
     disc.appendChild(sign);
   });
 
@@ -683,7 +687,7 @@ function buildExpMap(v, ctx, readOnly) {
   }
   tip(dimBox, () => h('div', h('div.tt-name', 'The Dimming'), mv.texts && mv.texts.dimming ? h('div.tt-line', mv.texts.dimming) : null,
     h('div.tt-line', `It spreads ${dm.frontHops} hops every ${tolls(dm.frontTime)} from the Shardfall, after ${tolls(dm.grace)} in the zone.`),
-    h('div.tt-sub', 'Entering or standing in a Dimmed node starts a fight; what it held is lost. Leave by a Road or the Bell.')));
+    h('div.tt-sub', 'Entering or standing in a Dimmed node starts a fight with this zone\'s creatures, made stronger by the dark; what it held is lost. Leave by a Road or the Bell.')));
   const key = h('div.xpanel.xkey', h('div.xph', 'Key'),
     h('div.xk', h('i.xk-seen'), 'Seen: in sight'), h('div.xk', h('i.xk-rem'), 'Remembered'), h('div.xk', h('i.xk-typed'), 'Type known'), h('div.xk', h('i.xk-unk'), 'Unknown'),
     h('div.xk', h('i.xk-dim'), 'Dimmed'), h('div.xk', h('i.xk-shard'), 'Shardfall'));
@@ -917,7 +921,7 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
   if (n.road) { const i = (mv.roads || []).indexOf(n.id); box.appendChild(h('div.tt-line', `${mv.roadNames && mv.roadNames[i] ? mv.roadNames[i] : 'A Road'}: leads to ${roadTo(v, ctx)}`)); }
   if (n.road && n.closed) box.appendChild(h('div.tt-warn.rclosed', closedRoadLine(ctx.data) || 'Closed for now.')); // D143
   if (n.shardfall) box.appendChild(h('div.tt-line', mv.texts && mv.texts.shardfall ? mv.texts.shardfall : 'The Shardfall: the Dimming starts here.'));
-  if (n.dimmed) box.appendChild(h('div.tt-warn', 'Dimmed: entering or staying here starts a fight; what it held is lost.'));
+  if (n.dimmed) box.appendChild(h('div.tt-warn', 'Dimmed: entering or staying here starts a fight with this zone\'s creatures, made stronger by the dark; what it held is lost.'));
   // M3 guided run (D138): Gorrak's node is barred until the scripted fights are done; the gate line says how many are left.
   // D150 item 8: no "Dims in N" here (the node's own clock on the map and the Dimming panel say it)
   const gl = n.barred ? gateLine(ctx.data, v.tutorial) : null;
@@ -1221,18 +1225,29 @@ function buildTrainer(v, ctx) {
     else if (e.state === 'trainable') right = h('div.right', price, btnSmall(`Train to ${p.level}`, afford, () => ctx.act({ type: 'TRAIN', spellId: e.id })));
     else if (e.state === 'current') right = h('div.right', h('span.good', `Rank ${e.rank} · level ${e.tl}`));
     else right = h('div.right', h('span.muted', `Requires level ${e.lvl}`));
-    const r = h('div.trow' + (e.state === 'locked' ? '.locked' : ''), h('img', { src: spellIcon(e.id, sp), alt: '' }), h('div', h('div.nm', sp.name), h('div.meta', `Level ${e.lvl} · ${sp.text}`)), right);
+    // D150 item 21: "Level N ·" only where it is the level a spell needs (not yet known); a known spell's rank is on the right
+    const known = e.state === 'current' || e.state === 'trainable';
+    const r = h('div.trow' + (e.state === 'locked' ? '.locked' : ''), h('img', { src: spellIcon(e.id, sp), alt: '' }), h('div', h('div.nm', sp.name), h('div.meta', known ? sp.text : `Level ${e.lvl} · ${sp.text}`)), right);
     tip(r, () => spellTip(e.id, ctx));
     return r;
   }));
-  const trainAll = list.some((e) => e.state === 'trainable');
+  // D150 item 21: Train all also learns the new spells the gold covers; shown while the engine allows it (the mock: a rank)
+  const trainAll = v.legal.trainAll != null ? v.legal.trainAll : list.some((e) => e.state === 'trainable');
   const spent = Object.values(p.talents || {}).reduce((a, b) => a + b, 0);
   return h('div.svc.panel.rightside', {},
-    h('div.wtitle', h('div', h('div.title', 'Trainer'), h('div.subtitle', 'Spells grow only when trained to your level')), h('div.row', moneyEl(p.gold))),
+    h('div.wtitle', h('div', h('div.title', 'Trainer'), h('div.subtitle', 'Train spells to bring them up to your level.')), h('div.row', moneyEl(p.gold))),
     rows,
     h('div.row', { style: { justifyContent: 'space-between', padding: '.4rem 1.4rem 1.4rem' } },
       spent ? btn('Reset talents', () => ctx.act({ type: 'RESPEC' })) : h('span'),
-      h('div.row', trainAll ? btn('Train all', () => ctx.act({ type: 'TRAIN_ALL' })) : null, btn('Done', () => ctx.act({ type: 'LEAVE' }), '.primary'))));
+      h('div.row', trainAll ? trainAllBtn(v, ctx) : null, btn('Done', () => ctx.act({ type: 'LEAVE' }), '.primary'))));
+}
+/** Train all with what it costs in all (D150 item 21: the ranks, then the new spells the gold covers; the engine's dry step). */
+function trainAllBtn(v, ctx) {
+  const cost = v.legal.trainAllCost;
+  const b = btn('Train all', () => ctx.act({ type: 'TRAIN_ALL' }));
+  if (cost > 0) b.append(' · ', moneyEl(cost));
+  tip(b, () => h('div', h('div.tt-name', 'Train all'), h('div.tt-line', `Trains your spells to level ${v.player.level}, then learns the new spells your gold covers.`)));
+  return b;
 }
 function btnSmall(label, ok, fn) { const b = h('button.btn.small' + (ok ? '' : '.disabled'), label); b.addEventListener('click', fn); return b; }
 

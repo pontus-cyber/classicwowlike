@@ -9,7 +9,8 @@
 // list in the quest log (L), each contract's tooltip, the hub's contract offer (take it from Reserve or swap a held one)
 // and the site marks on the expedition map (mapView node `sites`: only the marks the player sees; a hidden node is never
 // named). Presentation only: every click sends one engine action.
-// D150 (owner 2026-11-14, naming rule): a contract's "Reward", not "Pays".
+// D150 (owner 2026-11-14, naming rule): a contract's "Reward", not "Pays"; item 15: the heading "Supplies" with no
+// subline, no "Unspent ... Echoes" line under the points left (the points' tooltip says what Reserve does).
 import { h, clear, moneyEl, fmtNum } from './util.js';
 import { icon, consumableIcon } from './art-icons.js';
 import { tip } from './tooltip.js';
@@ -150,10 +151,12 @@ export function createPrepScreen(v, ctx) {
     optEls.set(o.id, { el: b, key: OPT_KEYS[i] });
     return b;
   }));
-  const shop = nO ? h('section.pp-shop', h('div.pp-sh', h('div.pp-lab', 'Supplies and sight'), h('div.pp-sub', 'Supplies go into your bags; sight lasts the whole run.')), opts) : null;
+  // D150 item 15: the heading "Supplies", no subline (each card's tooltip says what it does and for how long)
+  const shop = nO ? h('section.pp-shop', h('div.pp-sh', h('div.pp-lab', 'Supplies')), opts) : null;
   // the points left and Set out: always in view, bottom right (QA finding BUG-QA-10)
-  const big = h('b.pm-n'); const rl = h('div.pm-rl');
-  const points = h('div.pm-points', big, h('div', h('div.pm-l', 'points left'), rl));
+  // D150 item 15: no "Unspent: N points = N Echoes, usable at hubs" line (it contradicted the tooltip: Reserve first)
+  const big = h('b.pm-n');
+  const points = h('div.pm-points', big, h('div', h('div.pm-l', 'points left')));
   tip(points, () => {
     const pv = ctx.view.prep; if (!pv) return null;
     return h('div', h('div.tt-name', 'Preparation points'), h('div.tt-line', `${pv.points} to spend on contracts and supplies${pv.spent ? `; ${pv.spent} spent` : ''}.`),
@@ -175,7 +178,6 @@ export function createPrepScreen(v, ctx) {
     const pv = vv.prep; if (!pv) return;
     const prev = last; last = pv;
     if (!prev || prev.left !== pv.left) { big.textContent = String(pv.left); if (prev) { big.classList.remove('pop'); void big.offsetWidth; big.classList.add('pop'); } }
-    rl.textContent = `Unspent: ${pts(pv.reserve.points)} = ${pv.reserve.echoes} Echoes, usable at hubs`;
     reroll.classList.toggle('hidden', !pv.reroll.open);
     if (pv.reroll.open) {
       reroll.textContent = ''; reroll.append(`Reroll · ${pts(pv.reroll.price)}`, h('span.pp-left', `${pv.reroll.max - pv.reroll.used} left`), h('span.k', 'R'));

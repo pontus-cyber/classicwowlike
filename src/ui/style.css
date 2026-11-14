@@ -1220,7 +1220,6 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 #prep .pm-n.pop { animation: pp-pop var(--dur-base-4) ease-out; }
 @keyframes pp-pop { 0% { transform: scale(1.35); color: #fff6d8; } 100% { transform: scale(1); } }
 #prep .pm-l { font: var(--fw-semibold) var(--fs-label-7) var(--font-title); color: var(--ink); }
-#prep .pm-rl { font-size: var(--fs-small-7); color: var(--ink-dim); }
 .i.dot, i.dot { display: inline-block; flex: none; width: .85rem; height: .85rem; border-radius: var(--radius-round); background: var(--cc, #8a7c66); box-shadow: 0 0 .45rem var(--cc, transparent), 0 0 0 1px var(--shade-60); margin-right: var(--sp-45); vertical-align: .05rem; }
 #pp-go { box-shadow: inset 0 1px 0 rgba(255, 200, 160, .35), inset 0 0 0 1px rgba(255, 190, 120, .55), 0 0 2.2rem rgba(255, 150, 80, .35), 0 .4rem 1rem var(--shade-60); }
 #pp-reroll.disabled { filter: grayscale(.85) brightness(.6); }

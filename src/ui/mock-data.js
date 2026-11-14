@@ -315,6 +315,6 @@ export const ITEM_SUFFIX = { agi: 'of the Fox', int: 'of the Heron', sta: 'of th
 export const JUNK = ['Cracked Tooth', 'Torn Pelt', 'Bent Buckle', 'Faded Ribbon', 'Chipped Fang', 'Dull Gemstone', 'Moth-eaten Scarf', 'Rusty Key'];
 
 export const BOSS = {
-  id: 'oruvath', name: 'Oruvath, the Unlit Star', level: 62, hp: 11000, armor: 1200,
+  id: 'oruvath', name: 'Oruvath', level: 62, hp: 11000, armor: 1200,
   intro: 'At the bottom of the drowned observatory, something that was once a star turns its attention to you.',
 };
