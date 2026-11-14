@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="92177a9 2026-11-14T15:10:30Z">
+<meta name="build" content="bd039d2 2026-11-14T19:07:27Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -1991,6 +1991,41 @@ body.coach-up #turnprompt[data-kind="engage"] { display: none; }
 .np .wub.db.stopped { margin: 0; }
 .expmap .xpass .kbd { margin-left: var(--sp-35); }
 
+/* ---------------------------------------------------------------- blind round 2 (2026-11-14, UI bugs and friction) */
+/* every gear row of the spoils and of a chest offers "Equip now" (casual re-run s0071-s0079), as the quest rewards do */
+.lrow .eqnow { flex: none; color: #eaffe6; background: linear-gradient(180deg, #3f8a3a, #24561f); box-shadow: inset 0 0 0 1px #8fd68a, 0 0 .6rem rgba(120, 220, 110, .35); }
+/* a warning toast (bags full, autoplay switched off) */
+.toast.warn { color: var(--gold-90, #f2c25a); }
+/* "Space or click: skip this hit" stays readable over the hero and the bright meadow (casual re-run s0245) */
+#skiphint { color: var(--ink); background: rgba(12, 9, 6, .72); padding: var(--sp-20) var(--sp-80); border-radius: var(--radius-xl-2); box-shadow: inset 0 0 0 1px var(--edge-hi-28); text-shadow: none; }
+#skiphint.on { opacity: 1; }
+/* the hub Trainer while a new spell waits there (casual re-run s0279) */
+.svc-card.waiting { box-shadow: inset 0 0 0 1px var(--gold-70), 0 0 .8rem var(--gold-50); }
+.svc-card.waiting .meta { color: var(--gold-90); }
+/* the map's Key (casual re-run s0014: empty at rest): the node icons in a row at rest, their names and the fog rows on hover */
+.expmap .xkicons { display: grid; grid-template-columns: repeat(5, 2rem); gap: var(--sp-30); margin-top: var(--sp-20); }
+.expmap .xki { display: flex; align-items: center; gap: var(--sp-30); }
+.expmap .xki img { width: 1.9rem; height: 1.9rem; flex: none; }
+.expmap .xki b { display: none; font: var(--fw-semibold) var(--fs-micro-9) var(--font-ui); color: var(--ink-dim); white-space: nowrap; }
+.expmap .xkey:hover .xkicons { grid-template-columns: repeat(2, max-content); column-gap: var(--sp-90); }
+.expmap .xkey:hover .xki b { display: inline; }
+/* the combat log grows upward while hovered, so the lines before can be read and scrolled (tactician re-run section 3) */
+#combatlog:not(.min):hover { height: 26rem; z-index: var(--z-hud-callout); background: linear-gradient(180deg, rgba(10, 8, 6, .82), rgba(10, 8, 6, .9)); }
+/* four or more enemies (casual re-run s0162, s0166: chips over the next plate, "Rust-Shackled Gua", "Shiel..."): the plate
+   keeps its next action (a wind-up's chip always); the rounds after it are on the target frame's list (hover); the name
+   may take two lines in a smaller type */
+#nameplates.tight .np .trk .tk.sm:not(.wu) { display: none; }
+#nameplates.tight .np .nm { white-space: normal; text-align: center; justify-content: center; font-size: var(--fs-small-2); line-height: var(--lh-tight-2); max-width: 100%; }
+#nameplates.tight .np .nm .n { overflow-wrap: anywhere; }
+#nameplates.tight .tk.big { max-width: 8.2rem; }
+#nameplates.tight .tk.big .tn { max-width: 4.9rem; }
+/* a banner while the zone map is on screen (casual re-run s0061): a side column beside the map, smaller, wrapping */
+#banner.side { max-width: 19rem; transform: translate(-50%, -50%); }
+#banner.side .b1 { font-size: 2.6rem; line-height: 1.15; }
+#banner.side .b2 { font-size: var(--fs-body-2); margin-top: var(--sp-30); }
+#banner.side .b0 { letter-spacing: .2em; }
+#nameplates.tight .np { width: 12.4rem; } /* four plates sit about 13rem apart at 1366x768 */
+
 </style>
 </head>
 <body>
@@ -2002,8 +2037,8 @@ body.coach-up #turnprompt[data-kind="engage"] { display: none; }
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (92177a9 2026-11-14T15:10:30Z) from 67 modules.
-const __BUILD__ = "92177a9 2026-11-14T15:10:30Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (bd039d2 2026-11-14T19:07:27Z) from 67 modules.
+const __BUILD__ = "bd039d2 2026-11-14T19:07:27Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -20311,7 +20346,7 @@ const data = {
 
 });
 __bundle.def("src/ui/ui-text.js", function* (__ns, __link) {
-let SPELLS, TALENTS, BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS; __link.imp("src/ui/mock-data.js", [["SPELLS", (v) => { SPELLS = v; }], ["TALENTS", (v) => { TALENTS = v; }], ["STATUS_INFO", (v) => { BASE_STATUS = v; }], ["CONSUMABLES", (v) => { CONSUMABLES = v; }], ["BOONS", (v) => { BOONS = v; }], ["CLASSES", (v) => { CLASSES = v; }], ["PETS", (v) => { PETS = v; }]]); __link.exp({ "HEAT_WORDS": () => HEAT_WORDS, "tolls": () => tolls, "STATUS_INFO": () => STATUS_INFO, "windupAnswers": () => windupAnswers, "deathblowStakes": () => deathblowStakes, "deathblowAnswers": () => deathblowAnswers, "deathblowKind": () => deathblowKind, "sapWaitText": () => sapWaitText, "windupStakes": () => windupStakes, "ROLE_INFO": () => ROLE_INFO, "CONTROL_WORD": () => CONTROL_WORD, "engageText": () => engageText, "engageHint": () => engageHint, "ENGAGE_KIND": () => ENGAGE_KIND, "CLASS_UI": () => CLASS_UI, "spellText": () => spellText, "bounceText": () => bounceText, "talentText": () => talentText, "talentTotals": () => talentTotals, "consumableText": () => consumableText, "boonText": () => boonText, "petText": () => petText, "UNIQUE_EFFECT_TEXT": () => UNIQUE_EFFECT_TEXT, "ECHO_LINE": () => ECHO_LINE, "humanize": () => humanize, "CONTRACT_KIND": () => CONTRACT_KIND, "familyName": () => familyName, "bandText": () => bandText, "contractTarget": () => contractTarget, "contractTitle": () => contractTitle, "contractSentence": () => contractSentence, "hubOfferSentence": () => hubOfferSentence, "contractKindText": () => contractKindText, "contractSitesText": () => contractSitesText, "contractItemsText": () => contractItemsText, "levelsText": () => levelsText, "prepOptionEffect": () => prepOptionEffect, "prepFlavour": () => prepFlavour, "numWord": () => numWord, "plural": () => plural, "pct1": () => pct1, "pct2": () => pct2, "strengthText": () => strengthText, "freeActionText": () => freeActionText, "statusEffect": () => statusEffect, "RES_NAME": () => RES_NAME, "resurrectText": () => resurrectText, "DANGER_LEVELS": () => DANGER_LEVELS, "dangerRule": () => dangerRule, "dangerBanner": () => dangerBanner, "META_KIND": () => META_KIND, "metaEffect": () => metaEffect, "metaReqText": () => metaReqText, "oathEffect": () => oathEffect, "nextRunLines": () => nextRunLines, "linkedText": () => linkedText });
+let SPELLS, TALENTS, BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS; __link.imp("src/ui/mock-data.js", [["SPELLS", (v) => { SPELLS = v; }], ["TALENTS", (v) => { TALENTS = v; }], ["STATUS_INFO", (v) => { BASE_STATUS = v; }], ["CONSUMABLES", (v) => { CONSUMABLES = v; }], ["BOONS", (v) => { BOONS = v; }], ["CLASSES", (v) => { CLASSES = v; }], ["PETS", (v) => { PETS = v; }]]); __link.exp({ "HEAT_WORDS": () => HEAT_WORDS, "tolls": () => tolls, "STATUS_INFO": () => STATUS_INFO, "windupAnswers": () => windupAnswers, "deathblowStakes": () => deathblowStakes, "deathblowAnswers": () => deathblowAnswers, "deathblowKind": () => deathblowKind, "sapWaitText": () => sapWaitText, "windupStakes": () => windupStakes, "ROLE_INFO": () => ROLE_INFO, "CONTROL_WORD": () => CONTROL_WORD, "engageText": () => engageText, "engageHint": () => engageHint, "ENGAGE_KIND": () => ENGAGE_KIND, "CLASS_UI": () => CLASS_UI, "spellText": () => spellText, "bounceText": () => bounceText, "talentText": () => talentText, "talentTotals": () => talentTotals, "consumableText": () => consumableText, "boonText": () => boonText, "petText": () => petText, "UNIQUE_EFFECT_TEXT": () => UNIQUE_EFFECT_TEXT, "ECHO_LINE": () => ECHO_LINE, "humanize": () => humanize, "CONTRACT_KIND": () => CONTRACT_KIND, "familyName": () => familyName, "bandText": () => bandText, "contractTarget": () => contractTarget, "contractTitle": () => contractTitle, "contractSentence": () => contractSentence, "hubOfferSentence": () => hubOfferSentence, "contractKindText": () => contractKindText, "contractSitesText": () => contractSitesText, "contractItemsText": () => contractItemsText, "levelsText": () => levelsText, "prepOptionEffect": () => prepOptionEffect, "prepFlavour": () => prepFlavour, "numWord": () => numWord, "plural": () => plural, "pct1": () => pct1, "pct2": () => pct2, "strengthText": () => strengthText, "freeActionText": () => freeActionText, "statusEffect": () => statusEffect, "RES_NAME": () => RES_NAME, "resurrectText": () => resurrectText, "DANGER_LEVELS": () => DANGER_LEVELS, "dangerRule": () => dangerRule, "dangerBanner": () => dangerBanner, "META_KIND": () => META_KIND, "metaEffect": () => metaEffect, "metaReqText": () => metaReqText, "oathEffect": () => oathEffect, "nextRunLines": () => nextRunLines, "linkedText": () => linkedText, "trainerWaiting": () => trainerWaiting, "trainerWaitingShort": () => trainerWaitingShort });
 yield;
 // Display text for tooltips and screens (descriptions of spells, talents, statuses, consumables,
 // boons and classes). Wording follows docs/specs/rules.md; numbers that matter come from the
@@ -20921,6 +20956,27 @@ function linkedText(r, form) {
   return `Each living Dimming Shard shields Oruvath: −${pct(per)} damage taken per Shard, at most −${pct(r.linkCap)}. Every Shard killed weakens the link.${aoe}`;
 }
 
+/**
+ * Blind round 2 (casual re-run s0279: level 8 with two new spells and two ranks never trained, nothing said so): what waits
+ * at the trainer, from R.trainerView ({ learn, train }) and the spells' names, in one short line, or null with nothing
+ * waiting. New spells first ("New at the trainer: Shadowstep Strike, Gouge"), else the ranks ("2 spells can rank up at
+ * the trainer"). Draft wording.
+ */
+function trainerWaiting(t, name = (id) => id) {
+  if (!t) return null;
+  const learn = t.learn || []; const train = t.train || [];
+  if (learn.length) return `New at the trainer: ${learn.map((x) => name(x.id)).join(', ')}`;
+  if (train.length) return `${train.length} ${plural(train.length, 'spell')} can rank up at the trainer`;
+  return null;
+}
+/** The hub Trainer card's line while lessons wait (blind round 2): "2 new spells, 1 rank" (draft). */
+function trainerWaitingShort(t) {
+  if (!t) return null;
+  const a = (t.learn || []).length; const b = (t.train || []).length;
+  const parts = [a ? `${a} new ${plural(a, 'spell')}` : null, b ? `${b} ${plural(b, 'rank')}` : null].filter(Boolean);
+  return parts.length ? `Waiting: ${parts.join(', ')}` : null;
+}
+
 });
 __bundle.def("src/ui/util.js", function* (__ns, __link) {
 __link.exp({ "clamp": () => clamp, "lerp": () => lerp, "ease": () => ease, "prng": () => prng, "strHash": () => strHash, "hexToRgb": () => hexToRgb, "rgbToHex": () => rgbToHex, "mix": () => mix, "shade": () => shade, "rgba": () => rgba, "glowBall": () => glowBall, "h": () => h, "add": () => add, "clear": () => clear, "fmtNum": () => fmtNum, "moneyParts": () => moneyParts, "moneyEl": () => moneyEl, "moneyText": () => moneyText, "pct": () => pct, "wait": () => wait, "SkipToken": () => SkipToken, "emitter": () => emitter, "deepClone": () => deepClone });
@@ -21428,7 +21484,7 @@ function controlIcon(by) { return by === 'TRAP' ? icon('trap', 'steel') : by ===
 
 });
 __bundle.def("src/ui/tooltip.js", function* (__ns, __link) {
-let h, clear, moneyEl, pct, fmtNum; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["pct", (v) => { pct = v; }], ["fmtNum", (v) => { fmtNum = v; }]]); let itemIcon; __link.imp("src/ui/art-icons.js", [["itemIcon", (v) => { itemIcon = v; }]]); let statusEffect, talentTotals, HEAT_WORDS; __link.imp("src/ui/ui-text.js", [["statusEffect", (v) => { statusEffect = v; }], ["talentTotals", (v) => { talentTotals = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }]]); __link.exp({ "initTooltip": () => initTooltip, "hideIn": () => hideIn, "tip": () => tip, "show": () => show, "hide": () => hide, "statLine": () => statLine, "itemTip": () => itemTip, "spellTip": () => spellTip, "basicTip": () => basicTip, "talentTip": () => talentTip, "statusTip": () => statusTip, "SLOT_NAMES": () => SLOT_NAMES, "STAT_NAMES": () => STAT_NAMES, "pct": () => pct });
+let h, clear, moneyEl, pct, fmtNum; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["pct", (v) => { pct = v; }], ["fmtNum", (v) => { fmtNum = v; }]]); let itemIcon; __link.imp("src/ui/art-icons.js", [["itemIcon", (v) => { itemIcon = v; }]]); let statusEffect, talentTotals, HEAT_WORDS; __link.imp("src/ui/ui-text.js", [["statusEffect", (v) => { statusEffect = v; }], ["talentTotals", (v) => { talentTotals = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }]]); __link.exp({ "initTooltip": () => initTooltip, "refreshTip": () => refreshTip, "hideIn": () => hideIn, "tip": () => tip, "show": () => show, "hide": () => hide, "statLine": () => statLine, "itemTip": () => itemTip, "spellTip": () => spellTip, "basicTip": () => basicTip, "talentTip": () => talentTip, "statusTip": () => statusTip, "SLOT_NAMES": () => SLOT_NAMES, "STAT_NAMES": () => STAT_NAMES, "pct": () => pct });
 yield;
 // Hover tooltips for spells, items, talents, statuses and map nodes. Content is built from the
 // view and the bridge's data tables; nothing here decides game rules. Talents show the totals of the ranks taken and the
@@ -21445,17 +21501,46 @@ let el = null;
 let current = null;
 let hover = null; // { target, avoid }: the hovered element and the selector of what else its tip must not cover
 let spot = -1; // the spot the tip took last (kept while it stays free)
+let last = null; // the pointer's last position ({ x, y })
+let parked = null; // a tip a key put away: { target, avoid, build }, shown again when the pointer moves on its element
 
 function initTooltip(root) {
   el = h('div.tooltip', { role: 'tooltip' });
   root.appendChild(el);
   document.addEventListener('pointermove', (e) => {
+    last = { x: e.clientX, y: e.clientY };
+    // blind round 2: a tip put away by a key comes back, built anew, when the pointer moves on its element again
+    if (!current && parked) {
+      const pk = parked; parked = null;
+      if (pk.target.isConnected && (e.target === pk.target || pk.target.contains(e.target))) { hover = { target: pk.target, avoid: pk.avoid }; show(pk.build, e.clientX, e.clientY, true); }
+      return;
+    }
     if (!current) return;
     // blind panel 2026-11-13: a tip whose element went away under the pointer (bags closed with B, a re-rendered list)
     // gets no pointerleave; it stayed and followed the cursor over the map. It goes once the pointer is off its element
     if (stale(e.target)) { hide(); return; }
     place(e.clientX, e.clientY);
   }, { passive: true });
+  // blind round 2 (competitive s0028, s0038-s0055; tactician s0112): a key changes what a tip says (a spell cast, the bags
+  // opened over a map node), so any key puts the tip away; it shows again, up to date, when the pointer moves on its element
+  document.addEventListener('keydown', () => {
+    if (!current) return;
+    const pk = hover && hover.target ? { target: hover.target, avoid: hover.avoid, build: current } : null;
+    hide(); parked = pk;
+  }, true);
+}
+/**
+ * After a step (app.js afterPlay): the tip on screen is built again from the new view while its element is still under the
+ * pointer and on top there (a window opened over it hides it), so it never shows numbers of a state that is gone.
+ */
+function refreshTip() {
+  if (!current || typeof current !== 'function' || !hover || !hover.target) return;
+  const t = hover.target;
+  const top = last ? document.elementFromPoint(last.x, last.y) : null;
+  if (!t.isConnected || (top && !(top === t || t.contains(top)) && !(el && el.contains(top)))) { hide(); return; }
+  const content = current(); if (!content) { hide(); return; }
+  clear(el).appendChild(content);
+  if (last) place(last.x, last.y);
 }
 /** The hovered element is gone from the page, or the pointer (at `at`, the event's target) is no longer over it. */
 function stale(at) {
@@ -21468,11 +21553,17 @@ function hideIn(root) { const t = hover && hover.target; if (current && t && roo
 
 /** The next action on screen: primary buttons (Set out, Take the Road, Continue, ...), wherever they are. */
 const PRIMARY = '.btn.primary, #pp-go';
+/** The parts of a hovered element its own tip keeps clear of: its buttons, a row's right column (price), a rank counter. */
+const OWN = 'button, .btn, .right, .rk, .rank, .eqnow';
 /** Rects the tip must not cover: visible primary buttons and the tip's own `avoid` elements, never the hovered one. */
 function keepClear() {
   const t = hover && hover.target;
-  const els = [...document.querySelectorAll(PRIMARY + (hover && hover.avoid ? `, ${hover.avoid}` : ''))];
-  return els.filter((b) => !(t && (b === t || b.contains(t) || t.contains(b))) && !b.closest('.tooltip'))
+  const els = [...document.querySelectorAll(PRIMARY + (hover && hover.avoid ? `, ${hover.avoid}` : ''))]
+    .filter((b) => !(t && (b === t || b.contains(t) || t.contains(b))));
+  // blind round 2 (tactician s0065, s0210; casual s0334): the hovered element's own controls and numbers (its Equip now,
+  // a trainer row's price and Learn, a talent's rank counter) stay in view too
+  if (t && t.querySelectorAll) els.push(...t.querySelectorAll(OWN));
+  return els.filter((b) => !b.closest('.tooltip'))
     .map((b) => b.getBoundingClientRect()).filter((q) => q.width > 0 && q.height > 0 && q.bottom > 0 && q.right > 0 && q.top < innerHeight && q.left < innerWidth);
 }
 function place(x, y) {
@@ -21526,7 +21617,7 @@ function show(build, x, y, keepHover = false) {
   spot = -1;
   place(x, y);
 }
-function hide() { current = null; hover = null; spot = -1; if (el) el.classList.remove('on'); }
+function hide() { current = null; hover = null; spot = -1; parked = null; if (el) el.classList.remove('on'); }
 
 // ------------------------------------------------------------------ builders
 const STAT_NAMES = { sta: 'Stamina', agi: 'Agility', int: 'Intellect', spi: 'Spirit', power: 'Power', crit: 'Critical strike', armor: 'Armor', wd: 'Weapon damage' };
@@ -22158,6 +22249,8 @@ function rulesTable(K) {
   const linkDr = Array.from({ length: (K.SHARD_MAX || 4) + 1 }, (_, n) => (n === 0 ? 0 : per != null ? Math.min(K.LINK_DR, per * n) : K.LINK_DR));
   return {
     zoneCount: K.ZONE_COUNT, maxLevel: K.MAX_LEVEL, storyQuests: K.STORY_QUESTS, dungeonTrashFights: K.DUNGEON_TRASH_FIGHTS,
+    // the expedition map's own counts (rules 1.9.8; blind round 2: "3 groups" and "Fight 1 of 4" for a dungeon of 2 + the boss)
+    expDungeonTrashFights: K.EXPED_DUNGEON_TRASH_FIGHTS ?? K.DUNGEON_TRASH_FIGHTS, expGrindMaxWaves: K.EXPED_GRIND_MAX_WAVES ?? K.GRIND_MAX_WAVES,
     grindMaxWaves: K.GRIND_MAX_WAVES, grindWaveSize: K.GRIND_WAVE_SIZE, eliteLevelOffset: K.ELITE_LEVEL_OFFSET,
     campGrindLevel: K.CAMP_GRIND_LEVEL, ascStepTime: K.ASC_STEP_TIME, cpMax: K.CP_MAX, potionCd: K.POTION_CD,
     time: { trainer: K.TIME_TRAINER, vendor: K.TIME_VENDOR, inn: K.TIME_REST, travel: K.TIME_TRAVEL, grindWave: K.TIME_GRIND_WAVE },
@@ -22575,6 +22668,8 @@ function engineBackend(seedOpt, runOpts = {}) {
   }
 
   function zoneContent(z) { return z >= 1 && z <= C.ZONE_COUNT ? CONTENT.zones[z - 1] : null; }
+  /** Trash fights of a dungeon in this run's map (rules 2.4; the expedition map's EXPED_DUNGEON_TRASH_FIGHTS, 1.9.8). */
+  function trashOf(s) { return s.mapMode === 'expedition' ? (C.EXPED_DUNGEON_TRASH_FIGHTS ?? C.DUNGEON_TRASH_FIGHTS) : C.DUNGEON_TRASH_FIGHTS; }
   /** Zone danger (rules 7.6): the extra damage of an enemy of this level and variant, from the engine's zoneDanger. */
   const dangerOf = (level, variant) => R.zoneDanger(level, variant) - 1;
   /**
@@ -22643,7 +22738,9 @@ function engineBackend(seedOpt, runOpts = {}) {
   // reads the kind: a dungeon boss is drawn and framed as itself, not as the end boss.
   const rankOf = (e) => (e.kind === 'boss' ? 'boss' : e.kind === 'shard' ? 'shard' : e.kind || 'normal');
   const NAMED_KIND = new Set(['elite', 'rare', 'boss', 'dboss']); // a named enemy: "Gorrak", not "the Gorrak" (spell tooltips)
-  function fightKey(s) { const n = s.node; return `${s.zone ? s.zone.z : 0}:${n ? `${n.r}:${n.l}` : `t${s.time}`}:${s.fight ? s.fight.k : 0}:${s.fight ? s.fight.kind : ''}`; }
+  // blind round 2 (tactician s0143, casual s0254, explorer s0167: a target frame kept the last fight's portrait): an
+  // expedition node has an id, no row or lane, so every fight of a zone had the same key; the node's id and type now count
+  function fightKey(s) { const n = s.node; return `${s.zone ? s.zone.z : 0}:${n ? `${n.id != null ? `n${n.id}:${n.type}` : `${n.r}:${n.l}`}` : `t${s.time}`}:${s.fight ? s.fight.k : 0}:${s.fight ? s.fight.kind : ''}`; }
   const INTENT_LABEL = { curse: 'Curse: you deal less damage', brace: 'Braces: takes less damage', shieldAlly: 'Shields an ally', heal: 'Heals an ally', selfHeal: 'Heals itself',
     selfShield: 'Shields itself', summon: 'Calls for help', cleave: 'Hits you and your pet', rend: 'Hit and bleed', bolster: 'Shields its weakest ally', signal: 'Calls a reinforcement' };
   const SUPPORT = ['selfHeal', 'heal', 'selfShield', 'shieldAlly', 'brace', 'summon', 'bolster', 'signal'];
@@ -22778,7 +22875,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     const bossE = f.enemies.find((e) => e.kind === 'boss');
     const n = s.node;
     let title = ''; let fights = 1;
-    if (n && n.type === 'dungeon') { fights = C.DUNGEON_TRASH_FIGHTS + 1; title = (zoneContent(s.zone.z) || { dungeon: { name: 'Dungeon' } }).dungeon.name; }
+    if (n && n.type === 'dungeon') { fights = trashOf(s) + 1; title = (zoneContent(s.zone.z) || { dungeon: { name: 'Dungeon' } }).dungeon.name; }
     if (n && n.type === 'grind') { fights = n.planned || 1; title = `Wave ${(n.wavesDone || 0) + 1} of ${n.planned}`; }
     return { round: f.round, enemies, target: f.p.target != null && enemies[f.p.target] && enemies[f.p.target].alive ? f.p.target : firstAlive ? firstAlive.idx : 0,
       cooldowns: cds, potionCd: Math.max(0, (f.p.potionReady || 0) - f.round), kind: f.kind === 'trash' ? 'dungeon' : f.kind, isBoss: f.kind === 'boss',
@@ -22851,6 +22948,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     const zc = zoneContent(s.zone.z);
     // heat: the state the node was entered in, which fixes what it pays (rules 1.7.3); id: an expedition node (rules 1.9)
     const v = { type: n.type, row: n.r, lane: n.l, id: n.id ?? null, cl: n.cl, fightNo: (n.k || 0) + 1, waves: n.wavesDone || 0, wavesChosen: n.planned || 0, heat: n.heat || null };
+    if (n.type === 'dungeon') v.trash = trashOf(s); // the dungeon's trash fights before its boss (expedition: EXPED_DUNGEON_TRASH_FIGHTS)
     const f = s.fight;
     if (n.stage === 'fight') v.step = NEEDS_INTRO.has(n.type) && (n.k || 0) === 0 && !local.introSeen.has(nodeKey(s)) ? 'intro' : 'combat';
     else if (n.stage === 'grindSetup') v.step = 'intro';
@@ -28396,7 +28494,7 @@ function createHud(root, ctx) {
     const z = v.zone; const p = v.player; const n = v.node; const R = ctx.data.rules;
     if (n && v.phase === 'NODE') {
       if (n.type === 'quest') { const k = n.mobs ? n.mobs.length : 1; lines.push(['h', n.title || 'Quest']); lines.push(['l', n.step === 'reward' || n.step === 'story' ? 'Return to ' + (n.giver || 'the quest giver') : `Defeat ${k} ${k === 1 ? 'enemy' : 'enemies'}`]); }
-      else if (n.type === 'dungeon') { const all = R.dungeonTrashFights + 1; lines.push(['h', n.dungeon]); lines.push(['l', `Fight ${Math.max(1, n.fightNo)} of ${all}${n.fightNo >= all ? ': ' + n.bossName : ''}`]); }
+      else if (n.type === 'dungeon') { const all = (n.trash ?? R.dungeonTrashFights) + 1; /* blind round 2: the bridge's count for this map */ lines.push(['h', n.dungeon]); lines.push(['l', `Fight ${Math.max(1, n.fightNo)} of ${all}${n.fightNo >= all ? ': ' + n.bossName : ''}`]); }
       // D144 (engine-2026-11-13d UI need 8; tactician: "Wave 0 of 1" in the first wave): the wave being fought (fightNo),
       // else the waves done (a won wave's spoils show the node as it was in the fight: that wave counts)
       else if (n.type === 'grind') { lines.push(['h', 'Grind']); lines.push(['l', grindLine(n, v.combat)]); }
@@ -28429,9 +28527,12 @@ function createHud(root, ctx) {
 
   function log(text, cls = 'lg-hit') {
     const el = h('div.' + cls, text);
-    els.logLines.appendChild(el);
-    while (els.logLines.children.length > 120) els.logLines.firstChild.remove();
-    els.logLines.scrollTop = els.logLines.scrollHeight;
+    // blind round 2 (tactician re-run: "the combat log holds about five lines with no scroll back"): a log scrolled up to
+    // read stays where it is; it follows new lines again once scrolled to the end
+    const L = els.logLines; const atEnd = L.scrollHeight - L.scrollTop - L.clientHeight < 6;
+    L.appendChild(el);
+    while (L.children.length > 120) L.firstChild.remove();
+    if (atEnd) L.scrollTop = L.scrollHeight;
   }
   function clearLog() { clear(els.logLines); }
   settings.on('change', (k) => { if (k === 'showLog') els.log.style.display = settings.get('showLog') ? '' : 'none'; });
@@ -29308,7 +29409,9 @@ function createOnboarding(root, ctx) {
         okBtn.textContent = 'Keep it'; skipBtn.textContent = 'Skip';
         place(); return;
       }
-      confirm = false; hide(false); ctx.act({ type: 'SKIP_GUIDE' });
+      // blind round 2 (skipper s0003-s0004: a hint popped up at once after the skip): the line on screen counts as read, so
+      // its own first-time hint (G1's H23 at the camp) does not follow it on the same screen
+      confirm = false; markAll(beatHintKeys(cur.id, cur.lineId)); hide(false); ctx.act({ type: 'SKIP_GUIDE' });
       return;
     }
     hints.setOff(true); hide(false); queue = [];
@@ -29606,7 +29709,7 @@ function gateLine(data, tv) {
 
 });
 __bundle.def("src/ui/screens.js", function* (__ns, __link) {
-let h, add, clear, fmtNum, moneyEl, moneyText, clamp; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["moneyText", (v) => { moneyText = v; }], ["clamp", (v) => { clamp = v; }]]); let spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon, deathblowIcon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["roleIcon", (v) => { roleIcon = v; }], ["deathblowIcon", (v) => { deathblowIcon = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }]]); let tip, itemTip, spellTip, hideTip, STAT_NAMES; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }], ["hide", (v) => { hideTip = v; }], ["STAT_NAMES", (v) => { STAT_NAMES = v; }]]); let conColor, heroPortrait, travelState; __link.imp("src/ui/hud.js", [["conColor", (v) => { conColor = v; }], ["heroPortrait", (v) => { heroPortrait = v; }], ["travelState", (v) => { travelState = v; }]]); let numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS; __link.imp("src/ui/ui-text.js", [["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["pct1", (v) => { pct1 = v; }], ["ROLE_INFO", (v) => { ROLE_INFO = v; }], ["humanize", (v) => { humanize = v; }], ["tolls", (v) => { tolls = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }]]); let createMeta, buildOaths, echoAmt; __link.imp("src/ui/meta.js", [["createMeta", (v) => { createMeta = v; }], ["buildOaths", (v) => { buildOaths = v; }], ["echoAmt", (v) => { echoAmt = v; }]]); let heatKey, previewBlock, costText, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME; __link.imp("src/ui/heat.js", [["heatKey", (v) => { heatKey = v; }], ["previewBlock", (v) => { previewBlock = v; }], ["costText", (v) => { costText = v; }], ["heatBadge", (v) => { heatBadge = v; }], ["buildHeatSummary", (v) => { buildHeatSummary = v; }], ["fmtTime", (v) => { fmtTime = v; }], ["HEAT_NAME", (v) => { HEAT_NAME = v; }]]); let createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon; __link.imp("src/ui/prep.js", [["createPrepScreen", (v) => { createPrepScreen = v; }], ["buildHubOffer", (v) => { buildHubOffer = v; }], ["siteBadge", (v) => { siteBadge = v; }], ["siteLines", (v) => { siteLines = v; }], ["contractTip", (v) => { contractTip = v; }], ["kindIcon", (v) => { kindIcon = v; }]]); let contractTitle; __link.imp("src/ui/ui-text.js", [["contractTitle", (v) => { contractTitle = v; }]]); let gateLine, closedRoadLine; __link.imp("src/ui/onboarding.js", [["gateLine", (v) => { gateLine = v; }], ["closedRoadLine", (v) => { closedRoadLine = v; }]]); let token; __link.imp("src/ui/theme.js", [["token", (v) => { token = v; }]]); __link.exp({ "nodeLevel": () => nodeLevel, "expNodeDesc": () => expNodeDesc, "createScreens": () => createScreens, "INN_ASK_SHARE": () => INN_ASK_SHARE, "nearlyFull": () => nearlyFull, "disarmSpyglass": () => disarmSpyglass, "expiringHere": () => expiringHere, "expiryText": () => expiryText, "trainerMeta": () => trainerMeta, "trainerIdle": () => trainerIdle, "buildMap": () => buildMap, "spreadAngles": () => spreadAngles });
+let h, add, clear, fmtNum, moneyEl, moneyText, clamp; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["moneyText", (v) => { moneyText = v; }], ["clamp", (v) => { clamp = v; }]]); let spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon, deathblowIcon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["roleIcon", (v) => { roleIcon = v; }], ["deathblowIcon", (v) => { deathblowIcon = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }]]); let tip, itemTip, spellTip, hideTip, STAT_NAMES; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }], ["hide", (v) => { hideTip = v; }], ["STAT_NAMES", (v) => { STAT_NAMES = v; }]]); let conColor, heroPortrait, travelState; __link.imp("src/ui/hud.js", [["conColor", (v) => { conColor = v; }], ["heroPortrait", (v) => { heroPortrait = v; }], ["travelState", (v) => { travelState = v; }]]); let numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, trainerWaitingShort; __link.imp("src/ui/ui-text.js", [["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["pct1", (v) => { pct1 = v; }], ["ROLE_INFO", (v) => { ROLE_INFO = v; }], ["humanize", (v) => { humanize = v; }], ["tolls", (v) => { tolls = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["trainerWaitingShort", (v) => { trainerWaitingShort = v; }]]); let createMeta, buildOaths, echoAmt; __link.imp("src/ui/meta.js", [["createMeta", (v) => { createMeta = v; }], ["buildOaths", (v) => { buildOaths = v; }], ["echoAmt", (v) => { echoAmt = v; }]]); let heatKey, previewBlock, costText, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME; __link.imp("src/ui/heat.js", [["heatKey", (v) => { heatKey = v; }], ["previewBlock", (v) => { previewBlock = v; }], ["costText", (v) => { costText = v; }], ["heatBadge", (v) => { heatBadge = v; }], ["buildHeatSummary", (v) => { buildHeatSummary = v; }], ["fmtTime", (v) => { fmtTime = v; }], ["HEAT_NAME", (v) => { HEAT_NAME = v; }]]); let createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon; __link.imp("src/ui/prep.js", [["createPrepScreen", (v) => { createPrepScreen = v; }], ["buildHubOffer", (v) => { buildHubOffer = v; }], ["siteBadge", (v) => { siteBadge = v; }], ["siteLines", (v) => { siteLines = v; }], ["contractTip", (v) => { contractTip = v; }], ["kindIcon", (v) => { kindIcon = v; }]]); let contractTitle; __link.imp("src/ui/ui-text.js", [["contractTitle", (v) => { contractTitle = v; }]]); let gateLine, closedRoadLine; __link.imp("src/ui/onboarding.js", [["gateLine", (v) => { gateLine = v; }], ["closedRoadLine", (v) => { closedRoadLine = v; }]]); let token; __link.imp("src/ui/theme.js", [["token", (v) => { token = v; }]]); __link.exp({ "TOO_FAR": () => TOO_FAR, "ROAD_FIRST": () => ROAD_FIRST, "nodeLevel": () => nodeLevel, "expNodeDesc": () => expNodeDesc, "createScreens": () => createScreens, "INN_ASK_SHARE": () => INN_ASK_SHARE, "nearlyFull": () => nearlyFull, "disarmSpyglass": () => disarmSpyglass, "expiringHere": () => expiringHere, "expiryText": () => expiryText, "trainerMeta": () => trainerMeta, "trainerIdle": () => trainerIdle, "buildMap": () => buildMap, "spreadAngles": () => spreadAngles });
 yield;
 // Centre screens by phase: class select, hub/camp, zone map, node dialogs, loot, quest rewards,
 // vendor, trainer, shrine, rest, treasure and the run summary (its Killed by line names the killing blow, never an id).
@@ -29659,6 +29762,9 @@ function tollLabel(el, p) {
   return el;
 }
 
+// blind round 2 (skipper s0037, explorer s0299, casual s0235): a click that cannot move says why (draft wording)
+const TOO_FAR = 'Too far: click a lit node';
+const ROAD_FIRST = 'Walk to the Road first';
 const NODE_NAME = { quest: 'Quest', grind: 'Grind', elite: 'Elite', dungeon: 'Dungeon', rest: 'Rest', vendor: 'Vendor', trainer: 'Trainer', treasure: 'Treasure', shrine: 'Shrine' };
 const NO_FIGHT = new Set(['rest', 'vendor', 'trainer', 'shrine']); // nodes that hold no fight: labels in a neutral colour
 const NEUTRAL = '#f0e0c0';
@@ -29705,8 +29811,11 @@ function expNodeDesc(n, p, rules) {
     const foes = n.archetypes && n.archetypes.length ? ` of ${enemies(n.archetypes.length)}` : '';
     return `${n.waves === 1 ? `One wave${foes}` : `1 to ${n.waves} waves; the first${foes}`}. Steady experience, gold and more drops.`;
   }
-  return nodeDesc(n.type, rules);
+  // blind round 2 (competitive s0143): the expedition map's counts (its dungeon's own fights when they are known)
+  return nodeDesc(n.type, { ...rules, dungeonTrashFights: n.fights && n.fights.length ? n.fights.length : rules.expDungeonTrashFights ?? rules.dungeonTrashFights, grindMaxWaves: rules.expGrindMaxWaves ?? rules.grindMaxWaves });
 }
+/** The rules table with this run's map counts (blind round 2: the expedition map's dungeons have 2 fights before the boss). */
+const rulesOf = (v, r) => (v && v.mapMode === 'expedition' ? { ...r, dungeonTrashFights: r.expDungeonTrashFights ?? r.dungeonTrashFights, grindMaxWaves: r.expGrindMaxWaves ?? r.grindMaxWaves } : r);
 
 function createScreens(root, ctx) {
   const layer = h('div#screens');
@@ -29744,7 +29853,9 @@ function createScreens(root, ctx) {
       if (n.step === 'combat' || (v.combat && !v.combat.over)) { mount('combat', () => null); return; }
       if (n.type === 'vendor') { mount('vendor:' + svcKey(v), () => buildVendor(v, ctx)); return; }
       if (n.type === 'trainer') { mount('trainer:' + svcKey(v), () => buildTrainer(v, ctx)); return; }
-      mount(`node:${n.type}:${n.step}:${n.row}:${n.lane}:${n.fightNo}`, () => buildNode(v, ctx));
+      // blind round 2 (casual re-run s0146-s0148): the panel between fights shows health and the rations left, so a ration
+      // eaten there builds it again
+      mount(`node:${n.type}:${n.step}:${n.row}:${n.lane}:${n.fightNo}:${p ? `${p.hp}|${p.res ? p.res.cur : ''}|${p.bag.map((x) => (x ? `${x.uid}:${x.count || 1}` : '-')).join(',')}` : ''}`, () => buildNode(v, ctx));
       return;
     }
     mount('none', () => null);
@@ -29752,7 +29863,7 @@ function createScreens(root, ctx) {
   return { update, layer, meta, refresh() { cur.key = null; } };
 }
 
-const lootKey = (v) => `${v.loot.kind}|${v.loot.title}|${(v.loot.items || v.loot.choices || []).map((i) => i.uid).join(',')}|${v.player.bag.filter(Boolean).length}`;
+const lootKey = (v) => `${v.loot.kind}|${v.loot.title}|${(v.loot.items || v.loot.choices || []).map((i) => i.uid).join(',')}|${v.player.bag.filter(Boolean).length}|${Object.values(v.player.equip || {}).map((e) => (e ? e.uid : '-')).join(',')}`;
 const svcKey = (v) => `${v.player.gold}|${v.player.bag.map((s) => (s ? s.uid + ':' + (s.count || 1) : '-')).join(',')}|${v.player.spells.map((s) => s.id + s.tl).join(',')}|${v.player.talentPoints}|${(v.node.stock || []).length}`;
 const mapKey = (v) => `${v.zone.idx}|${v.zone.pos.row}|${v.zone.pos.lane}|${v.zone.exp ? `${v.zone.exp.pos}|${v.zone.exp.spyglass}|${spy.armed}|${leave.armed}` : ''}|${v.player.level}|${v.legal.travelOn}|${v.time}`;
 /** The hub's contract state in the hub screen's key (prep): the offer, Reserve and the held contracts. */
@@ -29879,7 +29990,7 @@ function updateCreate(root, v, ctx) {
       drawPortrait(cv.getContext('2d'), 120, PET_LOOKS[id], 'beast', { bg1: '#2e3a26' });
       const el = h('div.pet' + (c.petId === id ? '.sel' : '') + (pd.locked ? '.locked' : ''), cv, h('div.pn', pd.name));
       const unlockName = pd.meta && d.meta && d.meta.entries[pd.meta] ? d.meta.entries[pd.meta].name : null;
-      tip(el, () => h('div', h('div.tt-name', pd.name), h('div.tt-line.desc', pd.text), pd.locked ? h('div.tt-warn', unlockName ? `Unlock it with ${unlockName} in the Hall of Echoes.` : 'Unlocked with meta progression') : null));
+      tip(el, () => h('div', h('div.tt-name', pd.name), h('div.tt-line.desc', pd.text), pd.locked ? h('div.tt-warn', unlockName ? `Unlock it with ${unlockName} in the Hall of Echoes.` : 'Unlocked with meta progression') : null), { avoid: '.pets .pet' }); // blind round 2 (tactician s0005-s0008): not over the other companions
       if (!pd.locked) el.addEventListener('click', () => ctx.act({ type: 'SELECT_PET', petId: id }));
       pets.appendChild(el);
     }
@@ -29900,7 +30011,7 @@ function svcCard(glyph, bg, name, meta, cost, used, onClick, heat = null, idle =
   const el = h('div.svc-card' + (used ? '.used' : ''), h('img', { src: icon(glyph, bg), alt: '' }), h('div', h('div.nm', name), h('div.meta', used ? 'Used this visit' : meta)), hrs);
   if (!used) el.addEventListener('click', onClick);
   if (p) {
-    tip(el, () => h('div', h('div.tt-name', name), h('div.tt-line.desc', meta), previewBlock(heatOf(heat.ctx.view, heat.action) || p, heat.ctx)));
+    tip(el, () => h('div', h('div.tt-name', name), h('div.tt-line.desc', meta), previewBlock(heatOf(heat.ctx.view, heat.action) || p, heat.ctx)), { avoid: '.svc-card' }); // blind round 2 (skipper s0147): not over the other services
     ghostOn(el, heat.ctx, heat.action);
   }
   return el;
@@ -29933,7 +30044,8 @@ function innCard(v, ctx, name, meta, used, heat) {
  */
 function trainerMeta(v) {
   const t = v.trainer;
-  if (!t || t.useful) return 'Learn and rank up spells';
+  if (!t) return 'Learn and rank up spells';
+  if (t.useful) return trainerWaitingShort(t) || 'Learn and rank up spells'; // blind round 2: "Waiting: 2 new spells, 1 rank"
   if ((t.learn && t.learn.length) || (t.train && t.train.length)) return 'Its lessons cost more gold than you have.';
   return t.next ? `Next spell at level ${t.next}.` : 'Nothing new to learn.';
 }
@@ -29959,8 +30071,11 @@ function buildHub(v, ctx) {
   // the pointer is (the next click hit the Inn instead of the Trainer)
   else if (hubSwap.taken && hubSwap.taken.z === z.idx) body.appendChild(h('div.hubtaken', { style: { minHeight: `${hubSwap.taken.h}px` } }, h('div.hx-t', 'Contract taken'), h('div.hx-s', `${hubSwap.taken.title}: its sites are on the map and in your tracker.`)));
   const svc = (service) => ({ ctx, v, action: { type: 'SERVICE', service } });
+  const trainerCard = svcCard('tome', 'arcane', 'Trainer', trainerMeta(v), tolls(hr.trainer), used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer'), trainerIdle(v) && !Object.values(p.talents || {}).some((x) => x > 0));
+  // blind round 2 (casual re-run s0279): the card stands out while a new spell the gold covers waits there
+  if (!used.trainer && v.trainer && v.trainer.useful && (v.trainer.learn || []).length) trainerCard.classList.add('waiting');
   body.append(
-    svcCard('tome', 'arcane', 'Trainer', trainerMeta(v), tolls(hr.trainer), used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer'), trainerIdle(v) && !Object.values(p.talents || {}).some((x) => x > 0)),
+    trainerCard,
     svcCard('vendor', 'earth', 'Vendor', 'Potions, rations and gear', tolls(hr.vendor), used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' }), svc('vendor')),
     innCard(v, ctx, 'Inn', 'Full rest and rested experience', used.inn, svc('inn')));
   if (p.talentPoints) body.appendChild(h('div.warn', { style: { fontSize: '1.25rem' } }, `You have ${p.talentPoints} unspent talent point${p.talentPoints > 1 ? 's' : ''}. Press N.`));
@@ -30131,7 +30246,7 @@ function buildExpMap(v, ctx, readOnly) {
     b.dataset.leave = a.type;
     tip(b, () => h('div', h('div.tt-name', label), a.type === 'RING_BELL' ? h('div.tt-line', `It takes you to the hub of ${roadTo(v, ctx)}.`) : h('div.tt-line', `Leave for ${roadTo(v, ctx)}.`),
       expiring.length ? h('div.tt-warn', `${expiryText(expiring, ctx.data.content)}. No reward.`) : null, previewBlock(heatOf(ctx.view, a), ctx),
-      asks(a.type) ? h('div.tt-hint', 'Click, then confirm') : null));
+      asks(a.type) ? h('div.tt-hint', 'Click, then confirm') : null), { avoid: '.expmap .xside .xpanel' }); // blind round 2 (tactician s0183): the Bell's tip not over Regions
     return ghostOn(b, ctx, a);
   });
   // the Spyglass (expedition.md 2.4; prep): arm it, then click any node: it and its neighbours come into full view, no tolls
@@ -30231,8 +30346,18 @@ function buildExpMap(v, ctx, readOnly) {
     const [x, y] = polar(side ? 484 : 478, n.angle); const right = Math.cos((n.angle * Math.PI) / 180) >= 0;
     const name = mv.roadNames && mv.roadNames[i] ? mv.roadNames[i] : 'Road';
     // D143: a closed Road of the guided zone (mapView `closed`, D142) carries a Closed tag and the coach's closed line
-    const sign = h('div.xroad' + (side ? '.side' : right ? '.r' : '.l') + (n.dimmed ? '.dimmed' : '') + (n.id === mv.pos ? '.on' : '') + (n.closed ? '.rclosed' : ''), { style: { left: `${x / 10}%`, top: `${y / 10}%` }, dataset: { road: rid } },
+    const sign = h('div.xroad' + (side ? '.side' : right ? '.r' : '.l') + (n.dimmed ? '.dimmed' : '') + (n.id === mv.pos ? '.on' : '') + (n.closed ? '.rclosed' : ''), { style: { left: `${x / 10}%`, top: `${y / 10}%` }, dataset: { road: rid, angle: n.angle } },
       h('span.xpost'), h('span.xsign', h('b', side ? to : `${right ? '' : '« '}${to}${right ? ' »' : ''}`), n.closed ? h('i.xshut', 'Closed') : null));
+    // blind round 2 (casual re-run s0235-s0237: a click on the sign did nothing): standing on the Road, the sign takes it
+    // (the Take the Road button, with its ask); elsewhere a short line says what to do
+    if (!readOnly) {
+      sign.addEventListener('click', () => {
+        if (n.closed) { const cl = closedRoadLine(ctx.data); ctx.toast(cl || 'Closed for now.', 'info'); return; }
+        const take = n.id === mv.pos ? win.querySelector('[data-leave="TAKE_ROAD"]') : null;
+        if (take) take.click(); else ctx.toast(ROAD_FIRST, 'info');
+      });
+      sign.style.cursor = 'pointer';
+    }
     tip(sign, () => h('div', h('div.tt-name', name), h('div.tt-line', `A Road out of the zone, to ${to}.`), n.closed ? h('div.tt-warn.rclosed', closedRoadLine(ctx.data) || 'Closed for now.') : h('div.tt-sub', `Standing on it: Take the Road · ${tolls(mv.travelTime)}`), n.dimmed ? h('div.tt-warn', 'Dimmed: first a fight with this zone\'s creatures, made stronger by the dark; then the Road can still be taken.') : null));
     disc.appendChild(sign);
   });
@@ -30276,7 +30401,7 @@ function buildExpMap(v, ctx, readOnly) {
     if (hp) el.appendChild(tollLabel(h('div.mhrs', tolls(hp.time)), hp));
     if (n.done && n.heat && ctx.data.rules.heat && (ctx.data.rules.heat.gain[n.heat] > 0 || ctx.data.rules.heat.rarityUp[n.heat] > 0)) el.appendChild(h('div.mheat', { dataset: { hs: n.heat } }));
     const look = { type: 'USE_SPYGLASS', nodeId: n.id };
-    if (!readOnly) el.addEventListener('click', () => { leave.armed = null; if (spy.armed) { spy.armed = false; ctx.act(look); } else if (n.barred) { const gl = gateLine(ctx.data, v.tutorial); if (gl) ctx.toast(gl, 'info'); } else if (m) ctx.act(act); });
+    if (!readOnly) el.addEventListener('click', () => { leave.armed = null; if (spy.armed) { spy.armed = false; ctx.act(look); } else if (n.barred) { const gl = gateLine(ctx.data, v.tutorial); if (gl) ctx.toast(gl, 'info'); } else if (m) ctx.act(act); else if (!here) ctx.toast(TOO_FAR, 'info'); });
     if (m) ghostOn(el, ctx, act);
     tip(el, () => expNodeTip(n, mv, v, ctx, m, here, readOnly, act), { avoid: '.xpass.on' });
     disc.appendChild(el);
@@ -30298,7 +30423,11 @@ function buildExpMap(v, ctx, readOnly) {
   tip(dimBox, () => h('div', h('div.tt-name', 'The Dimming'), mv.texts && mv.texts.dimming ? h('div.tt-line', mv.texts.dimming) : null,
     h('div.tt-line', `It spreads ${dm.frontHops} hops every ${tolls(dm.frontTime)} from the Shardfall, after ${tolls(dm.grace)} in the zone.`),
     h('div.tt-sub', 'Entering or standing in a Dimmed node starts a fight with this zone\'s creatures, made stronger by the dark; what it held is lost. Leave by a Road or the Bell.')));
+  // blind round 2 (casual re-run s0014: the Key panel looked empty at rest, its rows only on hover): the node icons stay in
+  // view as a row of pictures (no words, D150's budget), each named under the pointer; the fog rows on hover as before
+  const kinds = ['quest', 'grind', 'elite', 'dungeon', 'treasure', 'shrine', 'rest', 'vendor', 'trainer'];
   const key = h('div.xpanel.xkey', h('div.xph', 'Key'),
+    h('div.xkicons', kinds.map((k) => h('span.xki', { dataset: { kind: k } }, h('img', { src: nodeIcon(k), alt: NODE_NAME[k] }), h('b', NODE_NAME[k])))),
     h('div.xk', h('i.xk-seen'), 'Seen: in sight'), h('div.xk', h('i.xk-rem'), 'Remembered'), h('div.xk', h('i.xk-typed'), 'Type known'), h('div.xk', h('i.xk-unk'), 'Unknown'),
     h('div.xk', h('i.xk-dim'), 'Dimmed'), h('div.xk', h('i.xk-shard'), 'Shardfall'));
   tip(key, () => h('div', h('div.tt-name', 'What you see'), h('div.tt-line', `Nodes within ${mv.vision.radius} ${plural(mv.vision.radius, 'hop')} of you are in full view; a node once seen stays on the map.`),
@@ -30318,9 +30447,9 @@ function buildExpMap(v, ctx, readOnly) {
   if (readOnly) win.id = 'win-map';
   // labels of neighbouring nodes (levels, toll labels, Dimming clocks) step aside once the disc has its size
   // (again when the web fonts are in, which changes the labels' widths, and once the window's opening animation is over)
-  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => { declutterLabels(disc); declutterRegionNames(disc); }).observe(disc);
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { declutterLabels(disc); declutterRegionNames(disc); });
-  setTimeout(() => { declutterLabels(disc); declutterRegionNames(disc); }, 400);
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => { declutterRoads(disc); declutterLabels(disc); declutterRegionNames(disc); }).observe(disc);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { declutterRoads(disc); declutterLabels(disc); declutterRegionNames(disc); });
+  setTimeout(() => { declutterRoads(disc); declutterLabels(disc); declutterRegionNames(disc); }, 400);
   return win;
 }
 /**
@@ -30378,6 +30507,32 @@ function declutterRegionNames(disc) {
     x.t.dataset.at = mids[i].toFixed(2);
   });
 }
+/**
+ * Blind round 2 (casual re-run s0249, s0234: "Greywater Fens" over a node): a Road's sign that lies on a node's ring moves
+ * out along its angle (then a little sideways) until it is clear, with the CSS `translate` property; it never leaves the
+ * map panel. Presentation only.
+ */
+function declutterRoads(disc) {
+  if (!disc.isConnected) return;
+  const D = disc.getBoundingClientRect(); const k = D.width / (disc.offsetWidth || D.width || 1) || 1;
+  const P = (disc.closest('.mbody') || disc).getBoundingClientRect();
+  const rings = [...disc.querySelectorAll(':scope > .mnode .ring')].map((r) => r.getBoundingClientRect());
+  const hit = (a) => rings.reduce((t, b) => t + Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)), 0);
+  for (const sign of disc.querySelectorAll(':scope > .xroad')) {
+    sign.style.translate = '';
+    const r0 = sign.getBoundingClientRect(); if (!r0.width || !hit(r0)) continue;
+    const a = (Number(sign.dataset.angle) * Math.PI) / 180; const ux = Math.cos(a); const uy = Math.sin(a);
+    let best = null; let bestK = hit(r0);
+    for (const out of [8, 16, 24, 32, 40, 52, 64]) for (const side of [0, 10, -10, 20, -20]) {
+      const dx = ux * out - uy * side; const dy = uy * out + ux * side;
+      const r = { left: r0.left + dx, right: r0.right + dx, top: r0.top + dy, bottom: r0.bottom + dy };
+      if (r.left < P.left || r.right > P.right || r.top < P.top || r.bottom > P.bottom) continue;
+      const kk = hit(r); if (kk < bestK - 0.5) { best = [dx, dy]; bestK = kk; }
+      if (bestK <= 0) break;
+    }
+    if (best) sign.style.translate = `${(best[0] / k).toFixed(1)}px ${(best[1] / k).toFixed(1)}px`;
+  }
+}
 /** Degrees kept between two region names on the rim. */
 const RIM_GAP_DEG = 4;
 /**
@@ -30431,6 +30586,7 @@ function declutterLabels(disc) {
   const box = (r) => ({ l: (r.left - D.left) / k, t: (r.top - D.top) / k, r: (r.right - D.left) / k, b: (r.bottom - D.top) / k });
   const ring = new Map(nodes.map((n) => [n, box((n.querySelector('.ring') || n).getBoundingClientRect())]));
   const fixed = nodes.flatMap((n) => [...n.querySelectorAll(':scope > .xfoes, :scope > .xsite')].map((x) => ({ n, b: box(x.getBoundingClientRect()) })));
+  for (const sg of disc.querySelectorAll(':scope > .xroad')) fixed.push({ n: null, b: box(sg.getBoundingClientRect()) }); // blind round 2: not over a Road's sign
   const rank = ({ el }) => (el.classList.contains('cl') ? 0 : el.classList.contains('urgent') ? 1 : el.classList.contains('mhrs') ? 2 : 3);
   shown.sort((a, b) => rank(a) - rank(b));
   const area = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l)) * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t));
@@ -30601,7 +30757,7 @@ function nodeTip(n, v, ctx, reach, hp = null) {
     box.appendChild(h('div.tt-foes', h('span.k', `${n.type === 'grind' ? 'Wave 1' : n.type === 'treasure' ? 'Guard' : 'Foes'}: ${enemies(n.archetypes.length)}`), archChips(n.archetypes)));
   } else if (n.type === 'treasure' && n.guarded === false) box.appendChild(h('div.tt-line', 'Unguarded'));
   else if (n.enemyNames && n.enemyNames.length) box.appendChild(h('div.tt-line.foes', `Foes: ${n.enemyNames.join(', ')}`)); // mock engine: names only
-  box.appendChild(h('div.tt-line.desc', nodeDesc(n.type, ctx.data.rules)));
+  box.appendChild(h('div.tt-line.desc', nodeDesc(n.type, n.type === 'dungeon' && n.fights && n.fights.length ? { ...ctx.data.rules, dungeonTrashFights: n.fights.length } : rulesOf(ctx.view, ctx.data.rules))));
   const danger = nodeDanger(n, ctx.data.rules);
   if (danger) box.appendChild(h('div.tt-warn.danger', danger));
   // the tolls: from the heat preview when the node can be entered now (R.heatView, the engine's tolls and the state the
@@ -30660,7 +30816,7 @@ function buildNode(v, ctx) {
       return b;
     };
     const waves = ks.map(w);
-    return dialog('Grind', `Level ${n.cl}`, [h('div.dim', { style: { fontSize: '1.35rem' } }, nodeDesc('grind', R)), h('div.subtitle', 'Enemies'), foeList(v, n.mobs, ctx), h('div.muted', 'You can stop after any wave.')], waves, { left, badge: heatBadge(n.heat, ctx) });
+    return dialog('Grind', `Level ${n.cl}`, [h('div.dim', { style: { fontSize: '1.35rem' } }, nodeDesc('grind', rulesOf(v, R))), h('div.subtitle', 'Enemies'), foeList(v, n.mobs, ctx), h('div.muted', 'You can stop after any wave.')], waves, { left, badge: heatBadge(n.heat, ctx) });
   }
   if (n.type === 'elite' && n.step === 'intro') {
     const e = n.elite || {};
@@ -30673,7 +30829,7 @@ function buildNode(v, ctx) {
   if (n.type === 'dungeon' && n.step === 'intro') {
     return dialog(n.dungeon, `Dungeon · level ${n.cl}`, [
       n.dungeonText ? h('div', { style: { font: 'italic 1.45rem var(--font-title)', color: 'var(--ink-dim)' } }, n.dungeonText) : null,
-      h('dl.kv', h('dt', 'Fights'), h('dd', `${ctx.data.rules.dungeonTrashFights} groups, then ${n.bossName}`), h('dt', 'Between fights'), h('dd', 'You may eat, change gear, or leave with what you have'), h('dt', 'Warning'), h('dd.bad', 'No fleeing from the dungeon boss')),
+      h('dl.kv', h('dt', 'Fights'), h('dd', `${n.trash ?? ctx.data.rules.dungeonTrashFights} ${plural(n.trash ?? ctx.data.rules.dungeonTrashFights, 'group')}, then ${n.bossName}`), h('dt', 'Between fights'), h('dd', 'You may eat, change gear, or leave with what you have'), h('dt', 'Warning'), h('dd.bad', 'No fleeing from the dungeon boss')),
     ], [btn('Enter the dungeon', () => ctx.act({ type: 'ACCEPT' }), '.primary')], { left, badge: hb });
   }
   if (n.type === 'treasure' && n.step === 'intro') {
@@ -30689,7 +30845,7 @@ function buildNode(v, ctx) {
     // the next fight: a Grind wave costs tolls (heatView's NEXT_FIGHT); the dungeon's fights cost none
     const next = (label) => { const b = btn(label, () => ctx.act({ type: 'CONTINUE' }), '.primary'); const hp = heatOf(v, { type: 'NEXT_FIGHT' }); if (hp) { tip(b, () => previewBlock(heatOf(ctx.view, { type: 'NEXT_FIGHT' }), ctx)); ghostOn(b, ctx, { type: 'NEXT_FIGHT' }); } return b; };
     if (n.type === 'grind') return dialog('Grind', `Wave ${n.waves} of ${n.wavesChosen} done`, [h('div.dim', hpTxt)], [eat, btn('Stop here', () => ctx.act({ type: 'GRIND_STOP' })), next('Next wave')].filter(Boolean), { left, badge: hb });
-    const trash = ctx.data.rules.dungeonTrashFights; // the boss is fight trash + 1
+    const trash = n.trash ?? ctx.data.rules.dungeonTrashFights; // the boss is fight trash + 1 (the bridge's count for this map)
     return dialog(n.dungeon, `Fight ${n.fightNo} of ${trash + 1} cleared`, [h('div.dim', hpTxt), n.fightNo === trash ? h('div.warn', `Next: ${n.bossName}. There is no fleeing from the boss.`) : null],
       [eat, btn('Leave the dungeon', () => ctx.act({ type: 'DUNGEON_LEAVE' })), next(n.fightNo === trash ? 'Face the boss' : 'Press on')].filter(Boolean), { left, badge: hb });
   }
@@ -30715,27 +30871,45 @@ function buildLoot(v, ctx) {
   const L = v.loot; const p = v.player;
   const win = h('div.loot.panel.rightside');
   // spoils of a node entered Hot or Scorched (its heat state, rules 1.7.3): a badge by the title
-  win.appendChild(h('div.wtitle', h('div.row', { style: { gap: '.8rem', alignItems: 'center' } }, h('div.title', L.title || 'Loot'), heatBadge(v.node && v.node.heat, ctx)), closeLootBtn(ctx)));
+  // blind round 2 (skipper s0161-s0166: loot lost with full bags): items still in the loot window are not left behind on one
+  // click; Leave and × ask first ("Leave 2 items behind?"), a second click leaves them
+  const waiting = (L.items || []).filter((it) => it.pending).length;
+  const lk = (L.items || []).map((it) => it.uid).join(',');
+  if (lootLeave.key !== lk) lootLeave.armed = false;
+  const leaveFn = () => {
+    if (waiting && !lootLeave.armed) { lootLeave.armed = true; lootLeave.key = lk; ctx.ui.refreshScreens(); return; }
+    lootLeave.armed = false; ctx.act({ type: 'LOOT_CLOSE' });
+  };
+  win.appendChild(h('div.wtitle', h('div.row', { style: { gap: '.8rem', alignItems: 'center' } }, h('div.title', L.title || 'Loot'), heatBadge(v.node && v.node.heat, ctx)), closeLootBtn(leaveFn)));
   const rows = h('div.rows');
   // D150 item 19: no notes under the coins and the experience (Continue already says they are yours)
   if (L.gold) rows.appendChild(h('div.lrow', { style: { cursor: 'default' } }, h('img', { src: icon('coin', 'gold'), alt: '' }), h('div', h('div.nm', moneyEl(L.gold)))));
   if (L.xp) rows.appendChild(h('div.lrow', { style: { cursor: 'default' } }, h('img', { src: icon('stars3', 'epic'), alt: '' }), h('div', h('div.nm', { style: { color: '#d0a8ff' } }, `${fmtNum(L.xp)} experience`))));
   if (L.trap) rows.appendChild(h('div.lrow', { style: { cursor: 'default' } }, h('img', { src: icon('trap', 'blood'), alt: '' }), h('div', h('div.nm.bad', 'A needle trap!'), h('div.meta', 'You lost some health opening it.'))));
   (L.items || []).forEach((it, i) => {
-    const up = it.kind === 'gear' && ctx.bridge.itemScore(it) > ctx.bridge.itemScore(p.equip[it.slot]);
+    const worn = it.kind === 'gear' && !!p.equip[it.slot] && p.equip[it.slot].uid === it.uid; // put on from this window
+    const up = it.kind === 'gear' && !worn && ctx.bridge.itemScore(it) > ctx.bridge.itemScore(p.equip[it.slot]);
     const meta = it.kind === 'gear' ? `${cap(it.slot)} · item level ${it.ilvl}` : it.kind === 'junk' ? 'Junk' : 'Consumable';
-    const tag = up ? h('span.good', ' · ▲ upgrade') : null; // D150 item 19: no "in your bags" note
-    const r = h('div.lrow.' + (it.rarity || 'common'), h('img', { src: itemIcon(it), alt: '' }), h('div.grow', h('div.nm.r-' + it.rarity, it.name + (it.count > 1 ? ` ×${it.count}` : ''), it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', meta, tag)));
+    const tag = worn ? h('span.good', ' · equipped') : up ? h('span.good', ' · ▲ upgrade') : null; // D150 item 19: no "in your bags" note
+    const r = h('div.lrow.' + (it.rarity || 'common'), { dataset: { uid: it.uid } }, h('img', { src: itemIcon(it), alt: '' }), h('div.grow', h('div.nm.r-' + it.rarity, it.name + (it.count > 1 ? ` ×${it.count}` : ''), it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', meta, tag)));
+    // blind round 2 (casual re-run s0071-s0079): every gear row of the spoils and of a chest offers "Equip now", and a click
+    // on the row does the same: from the bags (EQUIP), or from the loot window when the bags were full (LOOT_EQUIP)
+    const inBags = () => { const b = ctx.bridge.view.player; return !!(b && b.bag.some((x) => x && x.uid === it.uid)); };
+    const equip = it.kind === 'gear' && !worn ? () => ctx.act(it.pending ? { type: 'LOOT_EQUIP', i } : () => (inBags() ? { type: 'EQUIP', uid: it.uid } : null)) : null;
     if (it.pending) {
       const acts = h('div.row', { style: { gap: '.35rem' } });
-      if (it.kind === 'gear') acts.appendChild(miniBtn('Equip', () => ctx.act({ type: 'LOOT_EQUIP', i })));
+      if (equip) acts.appendChild(miniBtn('Equip now', equip, '.eqnow'));
       acts.appendChild(miniBtn('Take', () => ctx.act({ type: 'LOOT_TAKE', i })));
       acts.appendChild(miniBtn('Drop', () => ctx.act({ type: 'LOOT_DROP', i })));
       r.appendChild(acts);
       r.style.cursor = 'default';
+    } else if (equip) {
+      r.appendChild(miniBtn('Equip now', equip, '.eqnow'));
+      r.addEventListener('click', equip);
     } else if (!it.inBag) r.addEventListener('click', () => ctx.act({ type: 'LOOT_TAKE', i }));
     else r.style.cursor = 'default';
-    tip(r, () => itemTip(it, ctx, { hint: it.pending ? 'Waiting in the loot window: equip, take or drop it' : it.inBag ? 'Already in your bags' : 'Click to take' }));
+    const hint = it.pending ? 'Waiting in the loot window: equip, take or drop it' : equip ? 'Click or Equip now: put it on' : worn ? null : it.inBag ? 'Already in your bags' : 'Click to take';
+    tip(r, () => itemTip(it, ctx, { hint }), { avoid: '.loot .lrow, .loot .foot' });
     rows.appendChild(r);
   });
   if (!(L.items || []).length && !L.gold && !L.xp) rows.appendChild(h('div.muted', { style: { padding: '1rem' } }, 'Nothing of value.'));
@@ -30745,7 +30919,9 @@ function buildLoot(v, ctx) {
   const take = btn(pending ? 'Take all' : 'Continue', () => ctx.act({ type: 'LOOT_TAKE_ALL' }), '.primary');
   take.appendChild(h('span.k', 'Space'));
   const nx = nextStrip(L); if (nx) win.appendChild(nx);
-  win.appendChild(h('div.foot', full ? h('span.warn', 'Bags full: discard (B)') : h('span.muted.nowrap', `Bags ${p.bag.filter(Boolean).length}/${p.bag.length}`), h('div.row', { style: { gap: '.6rem' } }, pending ? btn('Leave', () => ctx.act({ type: 'LOOT_CLOSE' })) : null, take)));
+  const note = lootLeave.armed && waiting ? h('span.warn.lleave', `Leave ${waiting} ${waiting > 1 ? 'items' : 'item'} behind? Click Leave again.`)
+    : full || (waiting && !p.bag.some((x) => !x)) ? h('span.warn', 'Bags full: discard (B)') : h('span.muted.nowrap', `Bags ${p.bag.filter(Boolean).length}/${p.bag.length}`);
+  win.appendChild(h('div.foot', note, h('div.row', { style: { gap: '.6rem' } }, pending ? btn('Leave', leaveFn, lootLeave.armed && waiting ? '.danger' : '') : null, take)));
   return win;
 }
 /**
@@ -30757,8 +30933,9 @@ function nextStrip(L) {
   const word = (x) => (x.kind === 'contract' ? `Contract complete: ${x.title}` : x.kind === 'story' ? `Story complete: ${x.title}` : `Quest complete: ${x.title}`);
   return h('div.lnext', { dataset: { next: list.map((x) => x.kind).join(',') } }, h('span.nx', 'Next'), h('span.nt', list.map(word).join(', then ')));
 }
-function miniBtn(label, fn) { const b = h('button.btn.small', label); b.addEventListener('click', (e) => { e.stopPropagation(); fn(); }); return b; }
-function closeLootBtn(ctx) { const b = h('button.xbtn', '×'); b.addEventListener('click', () => ctx.act({ type: 'LOOT_CLOSE' })); return b; }
+function miniBtn(label, fn, cls = '') { const b = h('button.btn.small' + cls, { type: 'button' }, label); b.addEventListener('click', (e) => { e.stopPropagation(); fn(); }); return b; }
+function closeLootBtn(fn) { const b = h('button.xbtn', '×'); b.addEventListener('click', fn); return b; }
+const lootLeave = { armed: false, key: null }; // the loot window's "Leave N items behind?" ask (buildLoot)
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
 function buildReward(v, ctx) {
@@ -30777,7 +30954,7 @@ function buildReward(v, ctx) {
       ctx.act({ type: 'CHOOSE_REWARD', i });
       ctx.act(() => { const b = ctx.bridge.view.player; return b && b.bag.some((x) => x && x.uid === it.uid) ? { type: 'EQUIP', uid: it.uid } : null; });
     });
-    tip(c, () => itemTip(it, ctx, { hint: eq ? 'Click to choose this reward · Equip now: choose it and put it on' : 'Click to choose this reward' }));
+    tip(c, () => itemTip(it, ctx, { hint: eq ? 'Click to choose this reward · Equip now: choose it and put it on' : 'Click to choose this reward' }), { avoid: '.choice-cards .icard' }); // blind round 2 (skipper s0045): not over another card's Equip now
     return c;
   }));
   if (L.kind === 'contract') {
@@ -30838,7 +31015,7 @@ function buildTrainer(v, ctx) {
     // D150 item 21: "Level N ·" only where it is the level a spell needs (not yet known); a known spell's rank is on the right
     const known = e.state === 'current' || e.state === 'trainable';
     const r = h('div.trow' + (e.state === 'locked' ? '.locked' : ''), h('img', { src: spellIcon(e.id, sp), alt: '' }), h('div', h('div.nm', sp.name), h('div.meta', known ? sp.text : `Level ${e.lvl} · ${sp.text}`)), right);
-    tip(r, () => spellTip(e.id, ctx));
+    tip(r, () => spellTip(e.id, ctx), { avoid: '.svc .list .trow .right' }); // blind round 2 (tactician s0210): no row's price or Learn covered
     return r;
   }));
   // D150 item 21: Train all also learns the new spells the gold covers; shown while the engine allows it (the mock: a rank)
@@ -31427,7 +31604,7 @@ function timeline(events, prev, spells, scale = 1) {
 
 });
 __bundle.def("src/ui/director.js", function* (__ns, __link) {
-let wait, SkipToken, fmtNum, deepClone; __link.imp("src/ui/util.js", [["wait", (v) => { wait = v; }], ["SkipToken", (v) => { SkipToken = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["deepClone", (v) => { deepClone = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let linkedText, dangerBanner, CONTROL_LOG, HEAT_WORDS, freeActionText; __link.imp("src/ui/ui-text.js", [["linkedText", (v) => { linkedText = v; }], ["dangerBanner", (v) => { dangerBanner = v; }], ["CONTROL_WORD", (v) => { CONTROL_LOG = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["freeActionText", (v) => { freeActionText = v; }]]); let timeline, roundPace, hitShare, STATUS_LABEL; __link.imp("src/ui/combat-feel.js", [["timeline", (v) => { timeline = v; }], ["roundPace", (v) => { roundPace = v; }], ["hitShare", (v) => { hitShare = v; }], ["STATUS_LABEL", (v) => { STATUS_LABEL = v; }]]); let CAST, themeToken; __link.imp("src/ui/theme.js", [["CAST", (v) => { CAST = v; }], ["token", (v) => { themeToken = v; }]]); let fillLine, rescueLeftLine; __link.imp("src/ui/onboarding.js", [["fillLine", (v) => { fillLine = v; }], ["rescueLeftLine", (v) => { rescueLeftLine = v; }]]); __link.exp({ "planMs": () => planMs, "makeInterim": () => makeInterim, "Director": () => Director, "hubWelcome": () => hubWelcome });
+let wait, SkipToken, fmtNum, deepClone; __link.imp("src/ui/util.js", [["wait", (v) => { wait = v; }], ["SkipToken", (v) => { SkipToken = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["deepClone", (v) => { deepClone = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let linkedText, dangerBanner, CONTROL_LOG, HEAT_WORDS, freeActionText, trainerWaiting; __link.imp("src/ui/ui-text.js", [["linkedText", (v) => { linkedText = v; }], ["dangerBanner", (v) => { dangerBanner = v; }], ["CONTROL_WORD", (v) => { CONTROL_LOG = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["freeActionText", (v) => { freeActionText = v; }], ["trainerWaiting", (v) => { trainerWaiting = v; }]]); let timeline, roundPace, hitShare, STATUS_LABEL; __link.imp("src/ui/combat-feel.js", [["timeline", (v) => { timeline = v; }], ["roundPace", (v) => { roundPace = v; }], ["hitShare", (v) => { hitShare = v; }], ["STATUS_LABEL", (v) => { STATUS_LABEL = v; }]]); let CAST, themeToken; __link.imp("src/ui/theme.js", [["CAST", (v) => { CAST = v; }], ["token", (v) => { themeToken = v; }]]); let fillLine, rescueLeftLine; __link.imp("src/ui/onboarding.js", [["fillLine", (v) => { fillLine = v; }], ["rescueLeftLine", (v) => { rescueLeftLine = v; }]]); __link.exp({ "planMs": () => planMs, "makeInterim": () => makeInterim, "Director": () => Director, "hubWelcome": () => hubWelcome });
 yield;
 // Plays the events of one engine step as animation, then hands the new view to the HUD.
 // The DoT preview (view `dot`, engine-api.md 6.1) is the next decision's: the views shown while a round plays carry none.
@@ -31796,7 +31973,10 @@ class Director {
             Object.assign(p(), { level: e.level, maxHp: e.maxHp, hp: e.hp, xp: 0, xpToNext: (next.player && next.player.level === e.level) ? next.player.xpToNext : p().xpToNext });
             push();
             scene.levelUp('player');
-            const extra = [e.talentPoint ? '+1 talent point' : null, e.newSpells && e.newSpells.length ? `New at the trainer: ${e.newSpells.join(', ')}` : null].filter(Boolean).join('  ·  ');
+            // blind round 2 (casual re-run s0279): the banner points to the trainer whenever a spell or a rank waits there
+            // (R.trainerView after the step), once per level; the mock has no trainer view: the level's new spells
+            const waiting = next.trainer ? trainerWaiting(next.trainer, (id) => (ctx.data.spells[id] || {}).name || id) : e.newSpells && e.newSpells.length ? `New at the trainer: ${e.newSpells.join(', ')}` : null;
+            const extra = [e.talentPoint ? '+1 talent point' : null, waiting].filter(Boolean).join('  ·  ');
             ctx.ui.banner(`Level ${e.level}`, extra || 'You feel stronger.', 'level', 2200);
             hud.log(`You have reached level ${e.level}!`, 'lg-loot');
             if (!fast()) await WM(M.levelUp);
@@ -32650,7 +32830,7 @@ function createAudio(settings) {
 
 });
 __bundle.def("src/ui/app.js", function* (__ns, __link) {
-let createBridge, flags; __link.imp("src/ui/engine-bridge.js", [["createBridge", (v) => { createBridge = v; }], ["flags", (v) => { flags = v; }]]); let Scene; __link.imp("src/ui/scene.js", [["Scene", (v) => { Scene = v; }]]); let createHud; __link.imp("src/ui/hud.js", [["createHud", (v) => { createHud = v; }]]); let createScreens, disarmSpyglass; __link.imp("src/ui/screens.js", [["createScreens", (v) => { createScreens = v; }], ["disarmSpyglass", (v) => { disarmSpyglass = v; }]]); let prepKey; __link.imp("src/ui/prep.js", [["prepKey", (v) => { prepKey = v; }]]); let createWindows; __link.imp("src/ui/windows.js", [["createWindows", (v) => { createWindows = v; }]]); let Director; __link.imp("src/ui/director.js", [["Director", (v) => { Director = v; }]]); let initTooltip, hideTip; __link.imp("src/ui/tooltip.js", [["initTooltip", (v) => { initTooltip = v; }], ["hide", (v) => { hideTip = v; }]]); let createDevMenu; __link.imp("src/ui/dev-menu.js", [["createDevMenu", (v) => { createDevMenu = v; }]]); let createOnboarding; __link.imp("src/ui/onboarding.js", [["createOnboarding", (v) => { createOnboarding = v; }]]); let createAudio, CLICKABLE; __link.imp("src/ui/audio.js", [["createAudio", (v) => { createAudio = v; }], ["CLICKABLE", (v) => { CLICKABLE = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let h, clear; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }]]); let enemyLook; __link.imp("src/ui/art-actors.js", [["enemyLook", (v) => { enemyLook = v; }]]); let TELE, TELE_CAST; __link.imp("src/ui/theme.js", [["TELE", (v) => { TELE = v; }], ["TELE_CAST", (v) => { TELE_CAST = v; }]]); let HEAT_WORDS, tolls; __link.imp("src/ui/ui-text.js", [["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["tolls", (v) => { tolls = v; }]]); __link.exp({ "App": () => App, "flags": () => flags });
+let createBridge, flags; __link.imp("src/ui/engine-bridge.js", [["createBridge", (v) => { createBridge = v; }], ["flags", (v) => { flags = v; }]]); let Scene; __link.imp("src/ui/scene.js", [["Scene", (v) => { Scene = v; }]]); let createHud; __link.imp("src/ui/hud.js", [["createHud", (v) => { createHud = v; }]]); let createScreens, disarmSpyglass; __link.imp("src/ui/screens.js", [["createScreens", (v) => { createScreens = v; }], ["disarmSpyglass", (v) => { disarmSpyglass = v; }]]); let prepKey; __link.imp("src/ui/prep.js", [["prepKey", (v) => { prepKey = v; }]]); let createWindows; __link.imp("src/ui/windows.js", [["createWindows", (v) => { createWindows = v; }]]); let Director; __link.imp("src/ui/director.js", [["Director", (v) => { Director = v; }]]); let initTooltip, hideTip, refreshTip; __link.imp("src/ui/tooltip.js", [["initTooltip", (v) => { initTooltip = v; }], ["hide", (v) => { hideTip = v; }], ["refreshTip", (v) => { refreshTip = v; }]]); let createDevMenu; __link.imp("src/ui/dev-menu.js", [["createDevMenu", (v) => { createDevMenu = v; }]]); let createOnboarding; __link.imp("src/ui/onboarding.js", [["createOnboarding", (v) => { createOnboarding = v; }]]); let createAudio, CLICKABLE; __link.imp("src/ui/audio.js", [["createAudio", (v) => { createAudio = v; }], ["CLICKABLE", (v) => { CLICKABLE = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let h, clear; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }]]); let enemyLook; __link.imp("src/ui/art-actors.js", [["enemyLook", (v) => { enemyLook = v; }]]); let TELE, TELE_CAST; __link.imp("src/ui/theme.js", [["TELE", (v) => { TELE = v; }], ["TELE_CAST", (v) => { TELE_CAST = v; }]]); let HEAT_WORDS, tolls; __link.imp("src/ui/ui-text.js", [["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["tolls", (v) => { tolls = v; }]]); __link.exp({ "App": () => App, "MAP_ESC": () => MAP_ESC, "flags": () => flags });
 yield;
 // App orchestrator: owns the bridge, scene, HUD, screens and windows; turns input into actions and
 // plays each step through the director. Presentation only.
@@ -32867,6 +33047,8 @@ class App {
         this.afterPlay();
         this.coach.onStep(prev, res.view, res.events, action);
         this.placeNewItems(prev, res.view);
+        this.noteBagsFull(prev, res.view);
+        this.noteAutoStop(prev, res.view, res.events, action);
         return res;
       } catch (err) { console.error(err); this.shown = this.bridge.view; this.queueRender(); return { ok: false, error: String(err) }; } finally {
         this.pending--;
@@ -32991,6 +33173,7 @@ class App {
     this.ui.chestOpen = v.node && v.node.type === 'treasure' && v.node.step === 'opened' ? true : v.node && v.node.type === 'treasure' ? this.ui.chestOpen : false;
     if (v.combat && !v.combat.over) this.retarget(v); else if (!v.combat) this.ui.setTarget(null);
     this.windows.update();
+    refreshTip(); // blind round 2: a tip under the pointer shows the new state (or goes, when a window now covers its element)
   }
 
   /**
@@ -33018,6 +33201,36 @@ class App {
         if (r && r.ok) { this.toast(`${nm} is on item slot ${key}`, 'good'); this.hud.log(`${nm} goes on item slot ${key} (key ${key}).`, 'lg-sys'); }
       });
     });
+  }
+
+  /**
+   * Blind round 2 (skipper s0161-s0166: loot lost with full bags, no warning): the step that fills the last bag slot says
+   * so at once, before any loot has to wait in the loot window (one toast and a log line each time the bags fill up).
+   */
+  noteBagsFull(prev, next) {
+    const free = (v) => (v && v.player ? v.player.bag.filter((x) => !x).length : null);
+    const a = free(prev); const b = free(next);
+    if (a == null || b == null || a === 0 || b !== 0 || next.phase === 'SUMMARY') return;
+    this.toast('Bags full: make room (B) or new loot is left behind', 'warn');
+    this.hud.log('Your bags are full. New loot waits in the loot window until you make room.', 'lg-sys');
+  }
+
+  /**
+   * Blind round 2 (casual re-run s0234-s0249: autoplay walked from a rescue into the next forced fight and died there):
+   * autoplay switches off after a death that the run survives (a rescue or a revive) and when a fight in the Dimming
+   * starts, with one line saying why. The UI sends SET_AUTOPLAY itself (an own action, mirrored by the Node twins).
+   */
+  noteAutoStop(prev, next, events, action) {
+    if (!next.autoplay) return;
+    const t = (x) => events.some((e) => e.t === x);
+    const why = t('rescue') || t('resurrect') ? 'Autoplay off after your death.'
+      : next.node && next.node.type === 'dim' && next.combat && !next.combat.over && !(prev.node && prev.node.type === 'dim' && prev.combat && !prev.combat.over) ? 'Autoplay off: a fight in the Dimming.'
+        : null;
+    if (!why || (action && action.type === 'SET_AUTOPLAY')) return;
+    clearTimeout(this.autoTimer);
+    const a = { type: 'SET_AUTOPLAY', on: false };
+    this.ownActions.push(a);
+    this.act(a).then((r) => { if (r && r.ok) { this.toast(why, 'warn'); this.hud.log(why, 'lg-sys'); } });
   }
 
   /** While autoplay is on in a fight, play the engine's autoplay choice after the autoplay pause. */
@@ -33058,7 +33271,7 @@ class App {
     document.body.classList.toggle('in-fight', !!(v.combat && !v.combat.over && !v.loot));
     document.body.classList.toggle('boss-fight', !!(v.combat && !v.combat.over && !v.loot && v.combat.isBoss));
     // a banner shown as a fight comes on screen (an elite's name) steps aside once its panels are drawn
-    if (this.bannerEl.classList.contains('on') && document.body.classList.contains('in-fight')) this.placeBanner();
+    if (this.bannerEl.classList.contains('on')) this.placeBanner(); // in a fight, or beside the zone map (blind round 2)
   }
 
   syncScene(v, opts = {}) {
@@ -33142,26 +33355,41 @@ class App {
     b.querySelector('.b2').textContent = sub || '';
     this.placeBanner(); this.placeToasts();
     clearTimeout(this.bannerT);
-    this.bannerT = setTimeout(() => { b.className = kind; this.placeToasts(); }, settings.instant ? Math.min(ms, 1200) : ms / Math.max(1, Math.min(2, settings.get('speed'))));
+    this.bannerT = setTimeout(() => { b.className = kind + (b.classList.contains('side') ? ' side' : ''); this.placeToasts(); }, settings.instant ? Math.min(ms, 1200) : ms / Math.max(1, Math.min(2, settings.get('speed'))));
   }
   hideBanner() { clearTimeout(this.bannerT); this.bannerEl.classList.remove('on'); this.placeToasts(); }
   /**
    * Blind panel 2026-11-13 (item 6): in a fight the banner ("Level up" mid-fight, an elite's name, a boss phase) covered the
    * target frame's Next actions and the action numbers. It takes the first spot, from its own (top 30 %) down over the
    * field and then off centre, that covers no fight panel (BANNER_KEEP); with none free, the one that covers least. Outside
-   * fights it stays put.
+   * fights it stays put unless a screen's panel is up (blind round 2, below).
    */
   placeBanner() {
-    const b = this.bannerEl; b.style.left = ''; b.style.top = '';
-    if (!b.classList.contains('on') || !document.body.classList.contains('in-fight')) return;
-    const keep = [...document.querySelectorAll(BANNER_KEEP)].filter((x) => !x.closest('.hidden')).map((x) => x.getBoundingClientRect()).filter((q) => q.width > 0 && q.height > 0);
-    const r = b.getBoundingClientRect(); const W = innerWidth; const H = innerHeight;
-    const cost = ([cx, cy]) => keep.reduce((k, q) => k + Math.max(0, Math.min(cx + r.width / 2, q.right) - Math.max(cx - r.width / 2, q.left)) * Math.max(0, Math.min(cy + r.height / 2, q.bottom) - Math.max(cy - r.height / 2, q.top)), 0);
-    const spots = [];
-    for (const fx of [0.5, 0.42, 0.58, 0.36]) for (const fy of [0.3, 0.44, 0.5, 0.56, 0.38]) spots.push([fx * W, Math.max(r.height / 2 + 4, Math.min(H - r.height / 2 - 4, fy * H))]);
-    let best = spots[0]; let bestK = Infinity;
-    for (const p of spots) { const k = cost(p); if (k < bestK - 0.5) { best = p; bestK = k; } if (k <= 0) break; }
-    b.style.left = `${Math.round(best[0])}px`; b.style.top = `${Math.round(best[1])}px`;
+    const b = this.bannerEl;
+    if (!b.classList.contains('on')) return; // a banner fading out stays where it was
+    b.style.left = ''; b.style.top = '';
+    const fight = document.body.classList.contains('in-fight');
+    // blind round 2 (casual re-run s0061: the rescue banner over the map's text): outside fights, with a screen's panel up
+    // (the zone map, the hub), the banner moves aside of it; when no spot clears the panel (the map fills the middle) it
+    // takes a smaller type in a side column
+    const panel = !fight && b.classList.contains('on') && !!document.querySelector('#screens .panel, #screens .mapwin');
+    b.classList.remove('side');
+    if (!b.classList.contains('on') || !(panel || fight)) return;
+    const W = innerWidth; const H = innerHeight;
+    const keep = [...document.querySelectorAll(fight ? BANNER_KEEP : BANNER_KEEP_MAP)].filter((x) => !x.closest('.hidden')).map((x) => x.getBoundingClientRect()).filter((q) => q.width > 0 && q.height > 0);
+    const best = (xs, ys) => {
+      const r = b.getBoundingClientRect();
+      const cost = ([cx, cy]) => keep.reduce((k, q) => k + Math.max(0, Math.min(cx + r.width / 2, q.right) - Math.max(cx - r.width / 2, q.left)) * Math.max(0, Math.min(cy + r.height / 2, q.bottom) - Math.max(cy - r.height / 2, q.top)), 0);
+      let at = null; let atK = Infinity;
+      for (const fx of xs(r)) for (const fy of ys) {
+        const p = [Math.max(r.width / 2 + 4, Math.min(W - r.width / 2 - 4, fx * W)), Math.max(r.height / 2 + 4, Math.min(H - r.height / 2 - 4, fy * H))];
+        const k = cost(p); if (k < atK - 0.5) { at = p; atK = k; } if (k <= 0) return { at, k: 0 };
+      }
+      return { at, k: atK };
+    };
+    let pick = fight ? best(() => [0.5, 0.42, 0.58, 0.36], [0.3, 0.44, 0.5, 0.56, 0.38]) : best(() => [0.5, 0.42, 0.36, 0.3], [0.3, 0.24, 0.36]);
+    if (!fight && pick.k > 0) { b.classList.add('side'); pick = best((r) => [1 - (r.width / 2 + 12) / W, (r.width / 2 + 12) / W], [0.55, 0.62, 0.48, 0.7, 0.4]); }
+    b.style.left = `${Math.round(pick.at[0])}px`; b.style.top = `${Math.round(pick.at[1])}px`;
   }
   /**
    * A short message in the toast stack. The same message while it is on screen merges into it ("Quest complete! ×2") and
@@ -33309,6 +33537,9 @@ class App {
       if (disarmSpyglass()) { this.ui.refreshScreens(); return; }
       if (this.windows.anyOpen()) this.windows.closeAll();
       else if (this.ui.metaOpen) this.ui.closeMeta();
+      // blind round 2 (skipper s0118: Esc on the map opened Settings): the expedition's zone map is the screen itself, so
+      // Esc there closes what lies over it (the leave ask and the Spyglass above, windows) and opens nothing else
+      else if (v.phase === 'MAP' && v.zone && v.zone.exp && !v.loot && !(v.combat && !v.combat.over)) this.toast(MAP_ESC, 'info');
       else this.windows.toggle('settings');
       hideTip(); return;
     }
@@ -33461,6 +33692,11 @@ function devText(op, args, r, v) {
   }
 }
 
+/** Esc on the zone map with nothing over it (blind round 2, draft wording). */
+const MAP_ESC = 'The zone map stays open: click a lit node to move';
+
+/** What a banner keeps clear of outside fights while a screen's panel is up (placeBanner, blind round 2). */
+const BANNER_KEEP_MAP = '#screens .mapwin, #screens .panel, #toasts .toast, #tracker, #player-frame, #pet-frame, #minimap, #combatlog, #actionbar, #coach, #heat';
 /** The fight's panels a banner in a fight keeps clear of (placeBanner). */
 /** What the toast stack keeps clear of (placeToasts): open windows, and the hub's or camp's panel (screens.js .side). */
 const TOAST_KEEP = '#windows > .win, #screens .side.panel';
