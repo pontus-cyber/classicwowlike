@@ -1,11 +1,11 @@
 // Items, drops (heat: the rarity step, rules 8.4; D144: a reward choice's primary at REWARD_CLASS_BIAS), gold values, bag
-// (rules 8).
+// (rules 8). Generated names (rules 12.5; D150: at most one affix word, never two "of").
 import {
   VALUE_BASE, VALUE_COEF, VALUE_EXP, RARITY, RARITY_ORDER, SLOT, SLOT_IDS, DROP_TABLE, ILVL_MAX,
   BUDGET_PER_ILVL, AFFIX_SHARE, AFFIX_CRIT_PCT, AFFIX_EPIC_MULT, AFFIX_POWER_PER_PT, AFFIX_ARMOR_PER_PT,
   SPLIT2_MAIN, SPLIT3_MAIN, SPLIT3_SECOND, DROP_CLASS_BIAS, REWARD_CLASS_BIAS, REWARD_DROP_TABLES, GATES, WEAPON_DMG_BASE, WEAPON_DMG_PER_ILVL,
   ARMOR_PER_ILVL, STAT1_PRIMARY_CHANCE, STAT2_STA_CHANCE, AFFIX_KINDS, ITEM_SCORE, ITEM_SCORE_CRIT_UNIT,
-  CLASS, CONSUMABLE, STACK_JUNK, BAG_SLOTS, PREP_MULE_SLOTS, JUNK_V, BUY_MULT, UNIQUE_DROP_CHANCE, ZONE_COUNT, ZONE_LEVELS,
+  CLASS, CONSUMABLE, CONTENT_RANGE, STACK_JUNK, BAG_SLOTS, PREP_MULE_SLOTS, JUNK_V, BUY_MULT, UNIQUE_DROP_CHANCE, ZONE_COUNT, ZONE_LEVELS,
   OATH_THRIFT_MULT, MAX_LEVEL, HEAT_RARITY_UP,
 } from '../constants.js';
 import { nextFloat, nextInt, weightedIndex, hash32 } from '../rng.js';
@@ -80,22 +80,43 @@ function pick(list, h, salt) {
   return list[(h >>> salt) % list.length];
 }
 
-/** Name of a generated item from content, picked with a hash (never a game stream). */
+/** The words of a name that count for a repeat (lower case, without "of", "the" and "a"). */
+const nameWords = (x) => x.toLowerCase().split(/[^a-z']+/).filter((w) => w && w !== 'of' && w !== 'the' && w !== 'a');
+/**
+ * An affix word for `base` from `list`, picked with the hash at `salt`; when it repeats a word of the base ("Skinning Blade
+ * of the Still Blade") or makes the name longer than CONTENT_RANGE.len.itemName (long names clipped the reward cards), the
+ * next one in the list that does not, else none (D150, cut list item 20).
+ */
+function affixFor(list, h, salt, base) {
+  if (!list || !list.length) return null;
+  const have = new Set(nameWords(base));
+  const i0 = (h >>> salt) % list.length;
+  for (let k = 0; k < list.length; k++) {
+    const w = list[(i0 + k) % list.length];
+    if (base.length + 1 + w.length <= CONTENT_RANGE.len.itemName && !nameWords(w).some((x) => have.has(x))) return w;
+  }
+  return null;
+}
+
+/**
+ * Name of a generated item from content, picked with a hash (never a game stream). D150 (cut list item 20, owner-approved):
+ * at most one affix word and never two "of": an item with an affix (crit, power, armor) takes its prefix ("Keen Hempen
+ * Hood"), any other its stat suffix ("Hempen Hood of the Fox") unless the base name has an "of" ("Cord of Wheat"); within
+ * CONTENT_RANGE.len.itemName characters (affixFor); the zone base names stay. Stats and draws are unchanged: only the name
+ * differs from before.
+ */
 function gearName(s, item) {
   const c = s.content;
   const h = hash32(`${s.seed}|name|${item.uid}`);
   const band = c.itemNames[Math.min(ZONE_COUNT, Math.max(1, Math.ceil(item.ilvl / ZONE_LEVELS))) - 1];
   let names = band[item.slot];
   if (!Array.isArray(names)) names = names[item.stats.INT > item.stats.AGI ? 'INT' : 'AGI'] || names.AGI;
-  let name = pick(names, h, 0);
-  const key = statKey(item.stats);
-  const sfx = c.affixWords.suffix[key];
-  if (sfx && sfx.length) name = `${name} ${pick(sfx, h, 8)}`;
-  if (item.affix) {
-    const pfx = c.affixWords.prefix[item.affix];
-    if (pfx && pfx.length) name = `${pick(pfx, h, 16)} ${name}`;
-  }
-  return name;
+  const base = pick(names, h, 0);
+  const pfx = item.affix ? affixFor(c.affixWords.prefix[item.affix], h, 16, base) : null;
+  if (pfx) return `${pfx} ${base}`;
+  if (/\bof\b/i.test(base)) return base;
+  const sfx = affixFor(c.affixWords.suffix[statKey(item.stats)], h, 8, base);
+  return sfx ? `${base} ${sfx}` : base;
 }
 
 function buildGear(s, rng, { level, rarity, slot, fixed, ilvl, pad = false, bias }) {

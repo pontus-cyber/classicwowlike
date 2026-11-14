@@ -1006,44 +1006,46 @@ describe('M3 table validation and the golden check (E2, E9)', () => {
 
   test('golden: rows and expedition runs without the option are unchanged run for run (actions, events, states, summaries); only the switched rules change them: D144 reward bias, D146 zone 2 inner-ring cap, D147 zone 1 enemy damage', () => {
     // The hashes recorded on 25a8879 (M3 3.4), unchanged through D143: with C.GATES.rewardPrimary, zone2InnerCap and z1Dmg off
-    // they still hold, so every later change leaves these runs as they were except the switched rules.
+    // they still hold, so every later change leaves these runs as they were except the switched rules. D150 (generated item
+    // names, cut list item 20: at most one affix word): every run here loots gear, so all four tables were re-recorded on that
+    // change; with every item name masked each run hashes as before (scratch check, docs/handoffs/engine-2026-11-14d.md).
     const PRE_D144 = {
-      'rows:rogue:11': '41798041347ce9f8:108', 'rows:rogue:4242': '00886b4b19e73a89:653', 'rows:mage:11': '60aad992e05fee5a:304',
-      'rows:mage:4242': '88c9a2eeacfb1665:208', 'rows:hunter:11': 'b7c11055704ada75:719', 'rows:hunter:4242': '168bb8f07d4247bd:599',
-      'exp:rogue:11': 'ace46bd9e084ae03:101', 'exp:rogue:4242': '4c729a13470c3484:86', 'exp:mage:11': '89d14027e228430a:208',
-      'exp:mage:4242': '03209131f3c277a4:285', 'exp:hunter:11': '0c57c016c169696a:338', 'exp:hunter:4242': '3da7d90c8a5401b9:401',
-      'expPrep:rogue:11': '69d8cbffae60e74b:111', 'expPrep:rogue:4242': 'b6bcb252e1e8744d:88', 'expPrep:mage:11': '1054d25f06e0865a:212',
-      'expPrep:mage:4242': '3970be1838c40992:296', 'expPrep:hunter:11': '9b27dda4deba5907:332', 'expPrep:hunter:4242': '084a85890a562b3f:427',
+      'rows:rogue:11': '11e1fabb61b05aea:108', 'rows:rogue:4242': 'd2e85b9ad06b91cc:653', 'rows:mage:11': '44e31ffd7d438f6d:304',
+      'rows:mage:4242': '9ea1e1d35dfcf3d7:208', 'rows:hunter:11': '8755a9f5a00fda0a:719', 'rows:hunter:4242': '53a6759892b9a8c3:599',
+      'exp:rogue:11': 'f2f926428d80e86a:101', 'exp:rogue:4242': '32dab45425e89087:86', 'exp:mage:11': '8bdbbae46757fb6f:208',
+      'exp:mage:4242': '93156d8006a22d14:285', 'exp:hunter:11': '1065164137292f55:338', 'exp:hunter:4242': '981d0aba511cb52d:401',
+      'expPrep:rogue:11': 'fc58bb181263d684:111', 'expPrep:rogue:4242': 'f33a5256e44daa5a:88', 'expPrep:mage:11': '57c2f35af04d4056:212',
+      'expPrep:mage:4242': 'fd353e23a02e2d6f:296', 'expPrep:hunter:11': '34a6fbdbe8314bdc:332', 'expPrep:hunter:4242': 'f4a1064925b31c5b:427',
     };
     // D144 (rewardPrimary on), zone2InnerCap and z1Dmg off: recorded on 24f15c5; the two runs that met no other-primary reward
     // equal PRE_D144.
     const D144 = {
-      'rows:rogue:11': 'c5a158857532e1ca:107', 'rows:rogue:4242': '4f1ab25dc35c0bb2:653', 'rows:mage:11': '4ce667c4cb1926a2:750',
-      'rows:mage:4242': 'a650fc06d42688a4:208', 'rows:hunter:11': '558ee96af8d5db26:728', 'rows:hunter:4242': 'e0b62f49405eeaab:604',
-      'exp:rogue:11': 'a5c3b69fc6919a9f:102', 'exp:rogue:4242': '4c729a13470c3484:86', 'exp:mage:11': '0a893780ed9954fd:212',
-      'exp:mage:4242': '64748813a48ce4bb:289', 'exp:hunter:11': '9657bdf18371e82e:338', 'exp:hunter:4242': '8f8f05d40dd6794f:246',
-      'expPrep:rogue:11': 'aafc01e3673b0619:112', 'expPrep:rogue:4242': 'b6bcb252e1e8744d:88', 'expPrep:mage:11': 'c6b946acd71017e2:91',
-      'expPrep:mage:4242': '2d024af1865d8309:298', 'expPrep:hunter:11': 'f7311b5ccf3533d5:333', 'expPrep:hunter:4242': '9f572536479438a3:421',
+      'rows:rogue:11': '98a760d6d9a0fc9c:107', 'rows:rogue:4242': '7c76f5cddbae5923:653', 'rows:mage:11': 'b8cfa2b39e8c3e28:750',
+      'rows:mage:4242': 'bae6d8c54e2fa402:208', 'rows:hunter:11': '055b8b1c79f51688:728', 'rows:hunter:4242': 'ffbb9cbe880c24f0:604',
+      'exp:rogue:11': '7c79f63464f99480:102', 'exp:rogue:4242': '32dab45425e89087:86', 'exp:mage:11': '3dc17da0efc374ce:212',
+      'exp:mage:4242': 'c0ce742263fdc50f:289', 'exp:hunter:11': '0a2c252685e06483:338', 'exp:hunter:4242': '41b811a18b095fd3:246',
+      'expPrep:rogue:11': 'fbe5f96b58c626dd:112', 'expPrep:rogue:4242': 'f33a5256e44daa5a:88', 'expPrep:mage:11': '17dc61ef0f48e29b:91',
+      'expPrep:mage:4242': '4953498640cfa892:298', 'expPrep:hunter:11': '5928220098aa1a93:333', 'expPrep:hunter:4242': '7e863abf12d0619c:421',
     };
     // D146 (rewardPrimary and zone2InnerCap on), z1Dmg off: recorded on 321f2aa: the classic map is untouched by D146 (rows =
     // D144); every expedition run here reaches zone 2 and changes there. D147's rescue rule and S3/S4 swap change only guided runs.
     const D146 = {
-      'rows:rogue:11': 'c5a158857532e1ca:107', 'rows:rogue:4242': '4f1ab25dc35c0bb2:653', 'rows:mage:11': '4ce667c4cb1926a2:750',
-      'rows:mage:4242': 'a650fc06d42688a4:208', 'rows:hunter:11': '558ee96af8d5db26:728', 'rows:hunter:4242': 'e0b62f49405eeaab:604',
-      'exp:rogue:11': '693dbff257518487:109', 'exp:rogue:4242': 'a9cec12d96db2386:176', 'exp:mage:11': '22930d7b4a94d665:206',
-      'exp:mage:4242': '46524b45253d2c4e:278', 'exp:hunter:11': 'fac86b9ba91eee7b:410', 'exp:hunter:4242': '71ac5a32016aa4b1:390',
-      'expPrep:rogue:11': '0ad25f31980e8f6c:365', 'expPrep:rogue:4242': 'c737c80af82d3699:266', 'expPrep:mage:11': '5e53e299f3d0e78e:220',
-      'expPrep:mage:4242': 'd4ba93f5b60f0579:464', 'expPrep:hunter:11': 'ea0912e483d8c5db:397', 'expPrep:hunter:4242': 'c6b562785d2a4ad5:421',
+      'rows:rogue:11': '98a760d6d9a0fc9c:107', 'rows:rogue:4242': '7c76f5cddbae5923:653', 'rows:mage:11': 'b8cfa2b39e8c3e28:750',
+      'rows:mage:4242': 'bae6d8c54e2fa402:208', 'rows:hunter:11': '055b8b1c79f51688:728', 'rows:hunter:4242': 'ffbb9cbe880c24f0:604',
+      'exp:rogue:11': '9497780498d96976:109', 'exp:rogue:4242': '69497220ebc3587c:176', 'exp:mage:11': '057d31953d3f3d98:206',
+      'exp:mage:4242': 'ee07042beffbec7d:278', 'exp:hunter:11': '0b747bb17b07d39d:410', 'exp:hunter:4242': '06fbd32b7230ef8a:390',
+      'expPrep:rogue:11': 'b87303fc962cf60b:365', 'expPrep:rogue:4242': 'f3af7787359c671a:266', 'expPrep:mage:11': '3d7ab76070ffbc35:220',
+      'expPrep:mage:4242': '17d543036d92bbb6:464', 'expPrep:hunter:11': 'd2b7efd32e330587:397', 'expPrep:hunter:4242': '66ace69a9540cd5f:421',
     };
     // As built (D147: z1Dmg on too), recorded on this change: every run here meets enemies of level <= Z1_DMG_MAX_LEVEL, on
     // both maps, so all 18 change.
     const GOLDEN = {
-      'rows:rogue:11': '1b83f04d8eca3c82:104', 'rows:rogue:4242': '310851e9a9984e69:655', 'rows:mage:11': 'b235b3f63279e285:88',
-      'rows:mage:4242': 'fd32710ba62a264b:208', 'rows:hunter:11': 'f38481551c532f66:98', 'rows:hunter:4242': '4dc0846863f6d7de:604',
-      'exp:rogue:11': '789c28d22cf168a4:128', 'exp:rogue:4242': 'f080648ffdf3a3bc:177', 'exp:mage:11': '7c8f8467595d97af:210',
-      'exp:mage:4242': 'bdd03c3c208d44a6:278', 'exp:hunter:11': '231644764d00c8bb:330', 'exp:hunter:4242': 'f6fb41c58ef378d6:390',
-      'expPrep:rogue:11': '18003d760b560150:206', 'expPrep:rogue:4242': 'eb25c28a91f45efb:268', 'expPrep:mage:11': '0e2d4d6f0ff19c03:224',
-      'expPrep:mage:4242': '319650d8ae27e6bf:464', 'expPrep:hunter:11': 'b5a6b2099f45d648:400', 'expPrep:hunter:4242': '7a003c87c641d9c3:421',
+      'rows:rogue:11': '7af0bbdc229d0a65:104', 'rows:rogue:4242': '4f15f5bc5f013856:655', 'rows:mage:11': '9e1b9973092d5b08:88',
+      'rows:mage:4242': '0fec85e0eaa302e2:208', 'rows:hunter:11': 'fb7de4f0c9196e46:98', 'rows:hunter:4242': 'd96f17a16d118ca8:604',
+      'exp:rogue:11': '0714d1d1d429349a:128', 'exp:rogue:4242': 'de94fe3dc2dc1b1c:177', 'exp:mage:11': '5c5b689a5630b292:210',
+      'exp:mage:4242': '0830e815429032d4:278', 'exp:hunter:11': 'f5ba7096add4b624:330', 'exp:hunter:4242': '7320eff79764b1d3:390',
+      'expPrep:rogue:11': '108f944be1932112:206', 'expPrep:rogue:4242': '0baae593d80ad163:268', 'expPrep:mage:11': '5cd1adde9256d3f2:224',
+      'expPrep:mage:4242': '211b9a372d428826:464', 'expPrep:hunter:11': '5daa137174a4179a:400', 'expPrep:hunter:4242': '1fc57e1a4aa4bdb0:421',
     };
     const strip = (s) => { const o = JSON.parse(R.serialize(s)); delete o.profile; if (o.result) delete o.result.profile; return JSON.stringify(o); };
     const hashOf = (key) => {

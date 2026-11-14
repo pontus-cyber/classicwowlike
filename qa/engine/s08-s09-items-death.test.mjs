@@ -176,6 +176,37 @@ describe('rules 8 items', () => {
   });
 });
 
+describe('rules 12.5 generated item names (D150, cut list item 20)', () => {
+  test('at most one affix word, never two "of", no repeated word, within CONTENT_RANGE.len.itemName; an affixed item takes its prefix, others the stat suffix unless the base has an "of"', async () => {
+    const { CONTENT: REAL } = await import('../../src/content/index.js');
+    const prefixes = new Set(Object.values(REAL.affixWords.prefix).flat());
+    const suffixes = new Set(Object.values(REAL.affixWords.suffix).flat());
+    const bases = new Set(REAL.itemNames.flatMap((band) => Object.values(band).flatMap((x) => (Array.isArray(x) ? x : Object.values(x).flat()))));
+    let n = 0;
+    for (const cls of ['rogue', 'mage', 'hunter']) {
+      for (let seed = 1; seed <= 6; seed++) {
+        const s = R.step(R.newRun({ classId: cls, petId: cls === 'hunter' ? 'ridgewolf' : null, seed, content: REAL }), { type: 'START_RUN' }).state;
+        for (let k = 0; k < 40; k++) {
+          for (const it of rollDrop(s, makeRng(seed * 1000 + k), 'elite', 1 + ((k * 7) % 60), 1 + (k % 6))) {
+            if (it.kind !== 'gear' || it.unique) continue;
+            n += 1;
+            const name = it.name;
+            assert.ok(name.length <= C.CONTENT_RANGE.len.itemName, name);
+            assert.ok((name.match(/\bof\b/g) || []).length <= 1, name);
+            const words = name.toLowerCase().split(/[^a-z']+/).filter((w) => w && !['of', 'the', 'a'].includes(w));
+            assert.equal(new Set(words).size, words.length, `no repeated word: ${name}`);
+            const pre = [...prefixes].find((w) => name.startsWith(`${w} `) && bases.has(name.slice(w.length + 1)));
+            const suf = [...suffixes].find((w) => name.endsWith(` ${w}`) && bases.has(name.slice(0, -w.length - 1)));
+            assert.ok(bases.has(name) || !!pre !== !!suf, `a base name with at most one affix word: ${name}`);
+            if (pre) assert.ok(it.affix, `a prefix only for an affixed item: ${name}`);
+          }
+        }
+      }
+    }
+    assert.ok(n > 300, `${n} names`);
+  });
+});
+
 describe('rules 9 death and resurrection', () => {
   const lethal = (s) => tweak(s, (x) => { x.player.hp = 1; x.fight.enemies[0].intent = { id: 'strike', name: 'Strike', kind: 'hit', cast: false, heavy: false, school: 'magic', cd: 0, pct: 50, hits: 1, target: 'player', est: 1 }; x.fight.p.st.push({ id: 'CURSED', dur: 3 }); });
   const fightAt = (profile, prep) => {

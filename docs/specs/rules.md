@@ -1051,6 +1051,7 @@ Deathblow types (M2b v14, D112): every zone's elite pool (`elites`) keeps at lea
 
 ### 12.5 Items
 Names <= 30 chars; flavour text <= 100 chars; no stats set by hand except unique effects within 11.3.
+A generated item's name (D150, cut list item 20, owner-approved): its zone band's base name for the slot with at most one affix word and never two "of": an item with an affix (crit, power, armor) takes a prefix of its affix ("Keen Hempen Hood"), any other a suffix of its stat signature ("Hempen Hood of the Fox") unless the base name has an "of" ("Cord of Wheat"); a word that would repeat one of the base name ("Skinning Blade of the Still Blade") takes the next word of its list, or none. The words are picked with the name hash (no game stream), so only names changed: stats and draws are as before.
 
 ---
 
