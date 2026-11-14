@@ -354,7 +354,7 @@ async function playOne(browser, W, H, cls) {
       case 'TRAVEL_ON': return click(button(/^Travel on/), 'Travel on');
       // M2b v7: the label counts tolls ("2 waves · 2 tolls"), no hours; match the wave count only (QA 2026-11-12)
       case 'GRIND_SET_WAVES': return click(button(new RegExp(`^${a.n} waves? · `)), `grind ${a.n}`);
-      case 'NEXT_FIGHT': return click(button(s.node.type === 'grind' ? 'Next wave' : s.node.k === C.DUNGEON_TRASH_FIGHTS - 1 ? 'Face the boss' : 'Press on'), 'next fight');
+      case 'NEXT_FIGHT': return click(button(s.node.type === 'grind' ? 'Next wave' : s.node.k === (s.mapMode === 'expedition' ? C.EXPED_DUNGEON_TRASH_FIGHTS : C.DUNGEON_TRASH_FIGHTS) - 1 ? 'Face the boss' : 'Press on'), 'next fight');
       case 'GRIND_STOP': return click(button('Stop here'), 'Stop here');
       case 'DUNGEON_LEAVE': return click(button('Leave the dungeon'), 'Leave the dungeon');
       case 'CHOOSE_REWARD': return click(page.locator('#screens .choice-cards .icard').nth(a.index), `reward ${a.index}`);
@@ -363,7 +363,7 @@ async function playOne(browser, W, H, cls) {
         if (li >= 0) {
           const off = (v.loot.gold ? 1 : 0) + (v.loot.xp ? 1 : 0) + (v.loot.trap ? 1 : 0);
           const row = page.locator('.loot .rows .lrow').nth(off + li);
-          return click(row.getByRole('button', { name: { LOOT_TAKE: 'Take', LOOT_DROP: 'Drop', EQUIP: 'Equip' }[a.type], exact: true }), `loot ${a.type} ${li}`);
+          return click(row.getByRole('button', { name: { LOOT_TAKE: 'Take', LOOT_DROP: 'Drop', EQUIP: 'Equip now' }[a.type], exact: true }), `loot ${a.type} ${li}`);
         }
         if (a.type !== 'EQUIP') throw new Error(`${a.type}: ${a.itemId} not in the loot window`);
         return bagMenu(s, a.itemId, 'Equip');
@@ -480,6 +480,9 @@ async function playOne(browser, W, H, cls) {
       res.steps = step;
       await mirrorOwn();
       v = await view();
+      // a fight on autoplay that ended the run before the loop came round (it can be quick after autoplay is switched on
+      // again, blind round 2): the twin plays it on the same choices first
+      if (v.phase === 'SUMMARY' && s.fight && autoplay && !autoplayBroken) { let n = 0; while (s.fight && n++ < 2000) s = R.step(s, R.autoAction(s)).state; }
       if (v.phase === 'SUMMARY' || s.phase === 'SUMMARY') break;
       await checkLayout(screenKind(v));
       // While the game plays a fight on autoplay the twin lags behind until the fight ends; compare after it.
@@ -503,6 +506,14 @@ async function playOne(browser, W, H, cls) {
       if ((v.loot && (v.loot.kind === 'reward' || v.loot.kind === 'story'))) await shotFirst(`reward-${v.loot.kind}`);
       // Autoplay fights: the game acts on its own; wait, then step the twin with the same policy.
       if (s.fight && autoplay && !autoplayBroken) {
+        // blind round 2: the game switches autoplay off when a fight in the Dimming starts and after a death the run survives
+        // (app.js noteAutoStop, an own action the twin mirrors): switched on again with the toggle, as a player would
+        if (!v.autoplay) {
+          res.autoStops = (res.autoStops || 0) + 1;
+          await perform({ type: 'SET_AUTOPLAY', on: true }, s, v);
+          s = R.step(s, { type: 'SET_AUTOPLAY', on: true }).state;
+          continue;
+        }
         const r0 = v.combat ? v.combat.round : 0;
         const moved = await page.waitForFunction((r) => { const x = window.__ui.view(); return x.phase === 'SUMMARY' || !(x.combat && !x.combat.over) || x.combat.round > r; }, r0, { timeout: AUTOPLAY_WAIT, polling: 50 }).then(() => true, () => false);
         if (!moved) {
@@ -515,8 +526,9 @@ async function playOne(browser, W, H, cls) {
           await page.waitForFunction(() => { const x = window.__ui.view(); return x.phase !== 'BOSS' || (x.combat && x.combat.round >= 4); }, null, { timeout: 120000, polling: 100 });
           await shotFirst('boss-fight');
         }
-        await page.waitForFunction(() => { const x = window.__ui.view(); return x.phase === 'SUMMARY' || !(x.combat && !x.combat.over); }, null, { timeout: 300000, polling: 100 });
+        await page.waitForFunction(() => { const x = window.__ui.view(); return x.phase === 'SUMMARY' || !(x.combat && !x.combat.over) || !x.autoplay; }, null, { timeout: 300000, polling: 100 });
         await idle();
+        if (await page.evaluate(() => { const x = window.__ui.view(); return x.phase !== 'SUMMARY' && !!(x.combat && !x.combat.over) && !x.autoplay; })) continue; // stopped mid-fight (a revive): on again above
         let n = 0;
         while (s.fight && n++ < 2000) s = R.step(s, R.autoAction(s)).state;
         continue;

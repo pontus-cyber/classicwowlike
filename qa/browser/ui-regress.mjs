@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T]
+ *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -167,6 +167,9 @@
  *      the trainer's window (its line, "Level N ·" only on spells not known, Train all with its cost): see partT. The parts
  *      before T now expect the texts of D150 (no opening ruler; "stopped", never "answered"; no par, Ascendancy or "the
  *      Star's line") and the engine's D150 moments (engine-2026-11-14d: G7 in fight 1, G3 and G9 silent, G8's own line in S3).
+ *   U  blind round 2 (docs/feedback/2026-11-14-blind-*.md; docs/handoffs/ui-2026-11-14e.md): Equip now on the spoils and
+ *      chests, the trainer on the level-up banner, autoplay off after a rescue and at a fight in the Dimming, the map's
+ *      clicks out of reach, Esc and Key, tooltips (keys, own controls, neighbours), the dungeon's counts, full bags: see partU.
  *
  * D116 (the flip): new runs start on the expedition map with the start camp. The parts written for the classic map (A-L, O,
  * P) open the page with ?classic=1 (open() adds it unless the query names a map) and their Node twins pass mapMode 'rows';
@@ -196,6 +199,9 @@ import { CONTENT } from '../../src/content/index.js';
 import { HEAT_WORDS, tolls, ECHO_LINE, deathblowKind, deathblowAnswers, sapWaitText } from '../../src/ui/ui-text.js';
 import { RANK as Q_RANK, DIM_NEAR as Q_DIM_NEAR } from '../../src/ui/audio.js';
 import { MAP_LINES, fillLine } from '../../src/ui/onboarding.js'; // D143: the beat lines that wait for the map on screen
+import { trainerWaiting, trainerWaitingShort } from '../../src/ui/ui-text.js'; // blind round 2 (part U)
+import { TOO_FAR, ROAD_FIRST } from '../../src/ui/screens.js';
+import { MAP_ESC } from '../../src/ui/app.js';
 const ONB_HINT_SHOWS = R.C.ONB_HINT_SHOWS; // D142 (3): showings after which a hint counts as seen (src/constants.js since D143)
 
 const args = process.argv.slice(2);
@@ -203,7 +209,7 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -971,9 +977,16 @@ async function partE(browser, W, H) {
       new MutationObserver(() => { if (!dm.classList.contains('hidden')) rec.death.push(dm.querySelector('.d2').textContent); }).observe(dm, { attributes: true });
     });
     await page.keyboard.press('KeyZ');
-    const done = await page.waitForFunction(() => window.__ui.view().phase === 'SUMMARY', null, { timeout: 120000, polling: 200 }).then(() => true, () => false);
-    await idle(page);
+    // blind round 2: autoplay switches off after a revive (app.js noteAutoStop); Z switches it on again, as a player would
+    let done = false; let autoStops = 0;
+    for (let k = 0; k < 6 && !done; k++) {
+      await page.waitForFunction(() => { const x = window.__ui.view(); return x.phase === 'SUMMARY' || !x.autoplay; }, null, { timeout: 120000, polling: 200 }).catch(() => null);
+      await idle(page);
+      done = await page.evaluate(() => window.__ui.view().phase === 'SUMMARY');
+      if (!done && !(await page.evaluate(() => window.__ui.view().autoplay))) { autoStops++; await page.keyboard.press('KeyZ'); }
+    }
     const rec = await page.evaluate(() => window.__e);
+    check('M2v3-2', `boss fight: autoplay stops after each revive (blind round 2) and Z starts it again (${autoStops} stops, ${twin.sources.length} revives)`, done && autoStops === twin.sources.length, `${autoStops} stops`);
     v = await view(page);
     // D150 naming rule: the banner names the revive itself ("Boon of Return | You return to the fight"), never "Resurrected"
     const resBanners = rec.banners.filter((t) => / \| You return to the fight$/.test(t));
@@ -5318,6 +5331,377 @@ async function partT(browser, W, H) {
   console.log(`      part T word counts (${SIZE}): ${JSON.stringify(T_WORDS)}`);
 }
 
+// ------------------------------------------------------------------ part U: blind round 2 (2026-11-14)
+/**
+ * Part U: the UI bugs and friction of blind round 2 (docs/feedback/2026-11-14-blind-{casual-rerun,tactician-rerun,skipper,
+ * competitive,explorer}.md; docs/handoffs/ui-2026-11-14e.md), real engine at Instant speed, every check through the
+ * game's own controls (window.__ui for setup and reading only).
+ *   U1 seed 7 (start camp, guide off): a bought supply's tip goes on its key and comes back up to date; the map's Key shows
+ *      the node icons; Esc on the map opens nothing; a click on a node out of reach or on a Road's sign says why and sends
+ *      nothing; a key puts a map node's tip away (B over the node); every gear row of the spoils and of a chest has "Equip
+ *      now" and it equips; the level-up banner names what waits at the trainer; the reward card's tip clears every Equip
+ *      now; the trainer row's tip clears every price and Learn; enemy uids (the target frame's portrait key) are unique per
+ *      fight; the combat log stays where it was scrolled.
+ *   U2 seed 5: the dungeon's counts (map tooltip, entry, tracker, the panel between fights) from the engine; the panel
+ *      between fights shows a ration eaten there (health, rations left).
+ *   U3 loaded states: the step that fills the bags says so; items waiting in the loot window ask before Leave drops them.
+ *   U4 autoplay switches off after a rescue (guided run) and when a fight in the Dimming starts, with its line; the rescue's
+ *      banner beside the map panel.
+ *   U5 four enemies: plates, chips and names clear of each other; the skip line on a backing; the talent tip clears its
+ *      rank counter; a companion's tip clears the other companions; the guided run's Skip needs one confirm and no hint
+ *      follows on that screen; seed 11's Road sign clear of the nodes.
+ */
+async function partU(browser, W, H) {
+  const watch = (page) => page.evaluate(() => { window.__uT = []; new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.classList && n.classList.contains('toast')) window.__uT.push(n.textContent); }).observe(document.querySelector('#toasts'), { childList: true }); });
+  const toasts = (page) => page.evaluate(() => window.__uT.slice());
+  // a toast may wait in the stack's queue (TOAST_MAX on screen): up to 7 s
+  const toastSeen = (page, re) => page.waitForFunction((src) => window.__uT.some((t) => new RegExp(src).test(t)), re.source, { timeout: 7000, polling: 100 }).then(() => true, () => false);
+  const auto = async (page) => { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); };
+  const tipOn = (page) => page.evaluate(() => { const t = document.querySelector('.tooltip.on'); return t ? t.innerText.replace(/ /g, ' ') : null; });
+  const tipRect = (page) => page.evaluate(() => { const t = document.querySelector('.tooltip.on'); if (!t) return null; const r = t.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; });
+  const overSel = (page, sel) => page.evaluate((q) => { const t = document.querySelector('.tooltip.on'); if (!t) return null; const r = t.getBoundingClientRect();
+    return [...document.querySelectorAll(q)].filter((e) => { const b = e.getBoundingClientRect(); return b.width > 0 && r.left < b.right - 1 && r.right > b.left + 1 && r.top < b.bottom - 1 && r.bottom > b.top + 1; }).length; }, sel);
+  const nLog = (page) => page.evaluate(() => window.__ui.engineLog().length);
+  const sv = (page) => page.evaluate(() => { const v = window.__ui.view(); return { phase: v.phase, z: v.zone ? v.zone.idx : null, node: v.node ? { type: v.node.type, step: v.node.step, trash: v.node.trash ?? null, fightNo: v.node.fightNo } : null, loot: v.loot ? v.loot.kind : null, fight: !!(v.combat && !v.combat.over), level: v.player ? v.player.level : null, autoplay: v.autoplay }; });
+  const spellName = (id) => (R.C.SPELL[id] || {}).name || id;
+  // ---- U1
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=7&speed=instant&prep=1');
+    try {
+      await watch(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      // a supply bought with its key while its tip shows: the tip goes, and comes back with "sell it back"
+      const opt = page.locator('#prep .pp-opt').first();
+      await opt.hover(); await page.waitForTimeout(150);
+      const t0 = await tipOn(page);
+      const key = await opt.evaluate((e) => (e.querySelector('.kbd, .k') || {}).textContent || null);
+      if (key) await page.keyboard.press(`Key${key.trim().toUpperCase()}`); await idle(page);
+      const t1 = await tipOn(page);
+      const b = await opt.boundingBox(); await page.mouse.move(b.x + b.width / 2 + 3, b.y + b.height / 2 + 2); await page.waitForTimeout(150);
+      const t2 = await tipOn(page);
+      check('U-stale', `a supply bought with its key (${key}): the tip ("${(t0 || '').split('\n').pop()}") goes; back under the pointer it says "sell it back"`, !!t0 && /to buy it/.test(t0) && !t1 && !!t2 && /sell it back/.test(t2), JSON.stringify({ t0, t1, t2 }));
+      await page.mouse.move(2, 2);
+      for (let i = 0; i < 40 && (await sv(page)).phase !== 'MAP'; i++) await auto(page);
+      await page.mouse.move(2, 2); await page.waitForTimeout(500);
+      // the Key: the node icons at rest
+      const keyP = await page.evaluate(() => { const k = document.querySelector('.expmap .xkey'); return { icons: [...k.querySelectorAll('.xki img')].filter((i) => i.getClientRects().length && i.getBoundingClientRect().width > 0).length,
+        clipped: [...k.querySelectorAll('.xki img')].filter((i) => i.getBoundingClientRect().right > k.getBoundingClientRect().right + 0.5).length, words: k.innerText.trim() }; });
+      check('U-key', 'the map\'s Key shows the 9 node icons at rest inside its panel (no names: D150\'s word budget)', keyP.icons === 9 && keyP.clipped === 0 && keyP.words === 'Key', JSON.stringify(keyP));
+      await shot(page, 'U1-map');
+      // Esc on the map: no Settings, one line
+      let n0 = await nLog(page);
+      await page.keyboard.press('Escape'); await idle(page);
+      const esc = await page.evaluate(() => ({ settings: !!document.querySelector('#win-settings'), onMap: !!document.querySelector('#screens .expmap') }));
+      await page.waitForTimeout(100);
+      check('U-esc', `Esc on the zone map opens no Settings and says "${MAP_ESC}"; the map stays`, !esc.settings && esc.onMap && (await toasts(page)).includes(MAP_ESC), JSON.stringify({ esc, t: await toasts(page) }));
+      // a node out of reach and a Road's sign
+      const far = await page.evaluate(() => { const v = window.__ui.view(); const mv = v.zone.exp; const near = new Set(mv.moves.map((m) => m.nodeId));
+        const n = mv.nodes.find((x) => x.id !== mv.pos && !near.has(x.id) && !x.barred && document.querySelector(`.expmap .mnode[data-node="${x.id}"]`));
+        const rd = (mv.roads || []).find((r) => r !== mv.pos);
+        return { node: n ? n.id : null, road: rd ?? null }; });
+      n0 = await nLog(page);
+      await page.locator(`.expmap .mnode[data-node="${far.node}"]`).click({ force: true }); await idle(page);
+      await page.locator(`.expmap .xroad[data-road="${far.road}"]`).click({ force: true }); await idle(page);
+      const n1 = await nLog(page); const seenFar = await toastSeen(page, new RegExp(`^${TOO_FAR}`)); const seenRoad = await toastSeen(page, new RegExp(`^${ROAD_FIRST}`)); const tt = await toasts(page);
+      check('U-far', `a click on node ${far.node} (out of reach) says "${TOO_FAR}", on a Road's sign "${ROAD_FIRST}"; nothing sent`, far.node != null && far.road != null && seenFar && seenRoad && n1 === n0, JSON.stringify({ far, tt, n0, n1 }));
+      // the Bell's tip clears the Regions panel (tactician s0183)
+      const bell = page.locator('.expmap [data-leave="RING_BELL"]');
+      if (await bell.count()) {
+        await bell.hover(); await page.waitForTimeout(150);
+        const bo = { tip: !!(await tipOn(page)), over: await overSel(page, '.expmap .xside .xpanel') };
+        check('U-tips', 'the Bell\'s tip covers none of the map\'s side panels (Regions, the Dimming, Key)', bo.tip && bo.over === 0, JSON.stringify(bo));
+        await page.mouse.move(2, 2);
+      } else check('U-tips', 'the Bell\'s button on the first map (seed 7)', false, 'no Bell button');
+      // a key puts a tip away: a map node's tip, then B opens the bags over the map
+      await page.mouse.move(2, 2);
+      const reach = page.locator('.expmap .mnode.reach').first();
+      await reach.hover(); await page.waitForTimeout(150);
+      const k0 = await tipOn(page);
+      await page.keyboard.press('KeyB'); await idle(page);
+      const k1 = await tipOn(page);
+      check('U-tipkey', 'a map node\'s tip goes when a key is pressed (B opens the bags): none left over the Bags window', !!k0 && !k1 && !!(await page.locator('#win-bags').count()), JSON.stringify({ k0: k0 && k0.split('\n')[0], k1 }));
+      await page.keyboard.press('Escape'); await idle(page); await page.mouse.move(2, 2);
+      // the run: spoils, chests, level-ups, rewards, the trainer, enemy uids, the log
+      let lootDone = null; let chestDone = null; let banner = null; let reward = null; let trainer = null; let logScroll = null;
+      const uids = new Map(); const uidClash = [];
+      for (let i = 0; i < 420; i++) {
+        const s = await sv(page);
+        if (s.z >= 2 || s.phase === 'SUMMARY') break;
+        if (s.fight) {
+          const us = await page.evaluate(() => window.__ui.view().combat.enemies.map((e) => [e.uid, e.name]));
+          for (const [u, nm] of us) { if (uids.has(u) && uids.get(u) !== nm) uidClash.push(`${u}: ${uids.get(u)} / ${nm}`); uids.set(u, nm); }
+          if (!logScroll && (await page.evaluate(() => document.querySelector('#combatlog .lines').scrollHeight > document.querySelector('#combatlog .lines').clientHeight + 20))) {
+            await page.evaluate(() => { document.querySelector('#combatlog .lines').scrollTop = 0; });
+            const before = await page.evaluate(() => document.querySelector('#combatlog .lines').children.length);
+            await auto(page);
+            const after = await page.evaluate(() => { const l = document.querySelector('#combatlog .lines'); return { top: l.scrollTop, n: l.children.length }; });
+            logScroll = { before, ...after };
+            continue;
+          }
+        }
+        // the spoils (a fight's or a chest's): every gear row offers Equip now; the first one not worn is put on with it
+        if (s.loot === 'loot' && ((s.node && s.node.type === 'treasure') ? !chestDone : !lootDone)) {
+          const rows = await page.evaluate(() => { const v = window.__ui.view(); const p = v.player; const L = v.loot;
+            return (L.items || []).filter((it) => it.kind === 'gear').map((it) => ({ uid: it.uid, name: it.name, worn: !!(p.equip[it.slot] && p.equip[it.slot].uid === it.uid),
+              btn: !!document.querySelector(`.loot .lrow[data-uid="${it.uid}"] .eqnow`) })); });
+          if (rows.length) {
+            const first = rows.find((r) => !r.worn);
+            let worn = null;
+            if (first) { await page.locator(`.loot .lrow[data-uid="${first.uid}"] .eqnow`).click(); await idle(page); worn = await page.evaluate((u) => Object.values(window.__ui.view().player.equip).some((e) => e && e.uid === u), first.uid); }
+            const res = { rows, worn, tag: first ? await page.locator(`.loot .lrow[data-uid="${first.uid}"] .meta`).innerText().catch(() => null) : null };
+            if (s.node && s.node.type === 'treasure') chestDone = res; else lootDone = res;
+            await shot(page, s.node && s.node.type === 'treasure' ? 'U1-chest' : 'U1-loot');
+          }
+        }
+        if (s.loot === 'reward' && !reward && (await page.locator('.choice-cards .eqnow').count())) {
+          const cards = page.locator('.choice-cards .icard'); const nc = await cards.count(); const over = [];
+          for (let k = 0; k < nc; k++) { const c = cards.nth(k); const bb = await c.boundingBox(); await page.mouse.move(bb.x + 20, bb.y + bb.height - 12); await page.waitForTimeout(120); over.push(await overSel(page, '.choice-cards .eqnow')); }
+          reward = { cards: nc, over }; await shot(page, 'U1-reward'); await page.mouse.move(2, 2);
+        }
+        if (s.node && s.node.type === 'trainer' && !trainer && (await page.locator('.svc .list .trow').count())) {
+          const rows = page.locator('.svc .list .trow'); const nr = await rows.count(); const over = [];
+          for (let k = 0; k < nr; k++) { const bb = await rows.nth(k).boundingBox(); await page.mouse.move(bb.x + 30, bb.y + bb.height - 6); await page.waitForTimeout(120); over.push(await overSel(page, '.svc .list .trow .right')); }
+          trainer = { rows: nr, over }; await shot(page, 'U1-trainer'); await page.mouse.move(2, 2);
+        }
+        const lv = s.level;
+        await auto(page);
+        if (!banner) {
+          const after = await page.evaluate(() => { const v = window.__ui.view(); return { level: v.player ? v.player.level : null, trainer: v.trainer, b2: (document.querySelector('#banner .b2') || {}).textContent || '', on: document.querySelector('#banner').classList.contains('level') }; });
+          if (after.level > lv && after.on && after.trainer && ((after.trainer.learn || []).length || (after.trainer.train || []).length)) banner = { ...after, want: trainerWaiting(after.trainer, spellName) };
+        }
+      }
+      check('U-loot', 'the spoils: every gear row has "Equip now"; it puts the item on and the row says "equipped"', !!lootDone && lootDone.rows.every((r) => r.btn || r.worn) && lootDone.worn === true && /equipped/.test(lootDone.tag || ''), JSON.stringify(lootDone));
+      check('U-chest', 'a chest\'s spoils: its gear row has "Equip now" and it equips', !!chestDone && chestDone.rows.every((r) => r.btn || r.worn) && chestDone.worn === true, JSON.stringify(chestDone));
+      check('U-trainer', 'the level-up banner names what waits at the trainer (R.trainerView after the step)', !!banner && !!banner.want && banner.b2.includes(banner.want), JSON.stringify(banner && { b2: banner.b2, want: banner.want }));
+      check('U-tips', 'a reward card\'s tip covers no Equip now (its own or the other card\'s)', !!reward && reward.over.every((x) => x === 0), JSON.stringify(reward));
+      check('U-tips', 'a trainer row\'s tip covers no price or Learn (its own row or another)', !trainer || trainer.over.every((x) => x === 0), JSON.stringify(trainer));
+      if (!trainer) console.log('      (U1: no trainer visit on this seed: the trainer rows are checked in U5)');
+      check('U-portrait', `enemy uids (the target frame's portrait key) name one enemy each across the zone's fights (${uids.size} uids)`, uids.size > 4 && !uidClash.length, uidClash.slice(0, 4).join(' | '));
+      check('U-log', 'the combat log scrolled up stays where it is while new lines come', !!logScroll && logScroll.top === 0 && logScroll.n > logScroll.before, JSON.stringify(logScroll));
+    } catch (e) { await shot(page, 'U1-error'); check('U-1', 'part U1 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('U-1', 'part U1: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- U2: the dungeon (seed 5)
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=5&speed=instant&prep=1');
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      const trash = R.C.EXPED_DUNGEON_TRASH_FIGHTS; const words = ['No', 'One', 'Two', 'Three', 'Four'];
+      let mapTip = null; let entry = null; let between = null; let boss = null; let ration = null;
+      for (let i = 0; i < 400; i++) {
+        const s = await sv(page);
+        if (s.z >= 2 || s.phase === 'SUMMARY' || (between && boss)) break;
+        if (s.phase === 'MAP' && !s.loot && !mapTip) {
+          const d = await page.evaluate(() => { const mv = window.__ui.view().zone.exp; const n = mv.nodes.find((x) => x.type === 'dungeon' && x.know === 'full' && x.fights && x.fights.length); return n ? { id: n.id, fights: n.fights.length } : null; });
+          if (d) { const el = page.locator(`.expmap .mnode[data-node="${d.id}"]`); await el.hover({ force: true }); await page.waitForTimeout(150); mapTip = { ...d, tip: await tipOn(page) }; await page.mouse.move(2, 2); }
+        }
+        if (s.node && s.node.type === 'dungeon' && s.node.step === 'intro' && !entry) entry = { trash: s.node.trash, text: await page.locator('#screens .dialog').innerText() };
+        if (s.node && s.node.type === 'dungeon' && s.fight && !s.loot) {
+          const tr = await page.evaluate(() => document.querySelector('#tracker').innerText);
+          if (s.node.fightNo === trash + 1 && !boss) boss = { tracker: tr };
+          else if (!entry || !entry.tracker) entry = { ...(entry || {}), tracker: tr };
+        }
+        if (s.node && s.node.type === 'dungeon' && s.node.step === 'between' && !s.loot && !between) {
+          between = { sub: await page.locator('#screens .dialog .subtitle').first().innerText().catch(() => ''), fightNo: s.node.fightNo };
+          // a ration eaten here: the panel shows it (loaded: health at half)
+          const st = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT);
+          if (!st.player.bag.some((x) => x.id === 'trail_rations')) { st.player.bag.push({ uid: 'u-test-ration', kind: 'cons', id: 'trail_rations', qty: 2 }); }
+          st.player.hp = Math.floor(st.player.d.maxHp / 2);
+          await page.evaluate((x) => window.__ui.loadState(x), R.serialize(st)); await idle(page);
+          const eat = page.locator('#screens .dialog').getByRole('button', { name: /^Eat Trail Rations/ });
+          const label0 = await eat.innerText();
+          await eat.click(); await idle(page);
+          const after = await page.evaluate(() => { const v = window.__ui.view(); const r = v.player.bag.find((x) => x && x.id === 'trail_rations'); return { hp: v.player.hp, max: v.player.maxHp, left: r ? r.count : 0, text: document.querySelector('#screens .dialog').innerText }; });
+          ration = { label0, ...after, ok: after.text.includes(`Health ${after.hp.toLocaleString('en-US')} / ${after.max.toLocaleString('en-US')}`) && (after.left ? after.text.includes(`Eat Trail Rations (${after.left})`) : !/Eat Trail Rations/.test(after.text)) };
+          await shot(page, 'U2-between');
+        }
+        await auto(page);
+      }
+      check('U-dungeon', `the map tooltip of a dungeon says "${words[mapTip ? mapTip.fights : trash]} fights and a dungeon boss" (its own fights)`, !!mapTip && mapTip.tip.includes(`${words[mapTip.fights]} fights and a dungeon boss`), JSON.stringify(mapTip));
+      check('U-dungeon', `the dungeon's entry: "${trash} groups, then ..." (EXPED_DUNGEON_TRASH_FIGHTS); the tracker "Fight 1 of ${trash + 1}"`, !!entry && entry.trash === trash && new RegExp(`${trash} groups, then`).test(entry.text) && new RegExp(`Fight 1 of ${trash + 1}`).test(entry.tracker || ''), JSON.stringify(entry));
+      check('U-dungeon', `between fights "Fight N of ${trash + 1} cleared"; the boss is "Fight ${trash + 1} of ${trash + 1}"`, !!between && new RegExp(`Fight ${between.fightNo} of ${trash + 1} cleared`).test(between.sub) && (!boss || new RegExp(`Fight ${trash + 1} of ${trash + 1}:`).test(boss.tracker)), JSON.stringify({ between, boss }));
+      check('U-rest', 'the panel between fights shows a ration eaten there: health and the rations left', !!ration && ration.ok, JSON.stringify(ration));
+    } catch (e) { await shot(page, 'U2-error'); check('U-2', 'part U2 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('U-2', 'part U2: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- U3: full bags (loaded states)
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=7&speed=instant&prep=1');
+    try {
+      await watch(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      for (let i = 0; i < 40 && (await sv(page)).phase !== 'MAP'; i++) await auto(page);
+      const base = await page.evaluate(() => window.__ui.state());
+      const junk = (k) => ({ uid: `u-junk-${k}`, kind: 'junk', name: 'Cracked Hoof', qty: 1, value: 1 });
+      // one slot free, then the chest piece taken off: the bags fill and say so
+      const s1 = R.deserialize(base, CONTENT); while (s1.player.bag.length < R.C.BAG_SLOTS - 1) s1.player.bag.push(junk(s1.player.bag.length));
+      await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s1)); await idle(page);
+      await page.evaluate(() => window.__ui.act({ type: 'UNEQUIP', slot: 'chest' })); await idle(page);
+      const full = await page.evaluate(() => window.__ui.view().player.bag.every(Boolean));
+      const seen = await toastSeen(page, /^Bags full/); const logged = (await logLines(page)).some((l) => /^Your bags are full/.test(l));
+      check('U-full', 'the step that fills the last bag slot warns at once ("Bags full: ..." and a log line)', full && seen && logged, JSON.stringify({ full, logged, tt: await toasts(page) }));
+      // an item waiting in the loot window with the bags full: "Equip now" on its row; Leave asks first, then drops it
+      const s2 = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT);
+      const worn = Object.values(s2.player.equipped).find(Boolean);
+      s2.loot = [{ ...JSON.parse(JSON.stringify(worn)), uid: 'u-test-loot', name: `${worn.name} (spare)` }];
+      await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s2)); await idle(page);
+      const eq = await page.locator('.loot .lrow[data-uid="u-test-loot"] .eqnow').count();
+      const n0 = await nLog(page);
+      await page.locator('.loot .foot').getByRole('button', { name: 'Leave' }).click(); await idle(page);
+      const ask = await page.locator('.loot .foot .lleave').innerText().catch(() => null); const n1 = await nLog(page);
+      await page.locator('.loot .foot').getByRole('button', { name: 'Leave' }).click(); await idle(page);
+      const log = await page.evaluate(() => window.__ui.engineLog()); const gone = await page.evaluate(() => !window.__ui.view().loot);
+      await shot(page, 'U3-leave');
+      check('U-full', 'an item waiting in the loot window (bags full): its row has "Equip now"; Leave asks ("Leave 1 item behind?") and sends nothing; a second Leave drops it', eq === 1 && /Leave 1 item behind\?/.test(ask || '') && n1 === n0 && log.slice(n1).some((a) => a.type === 'LOOT_DROP') && gone, JSON.stringify({ eq, ask, n0, n1, sent: log.slice(n1).map((a) => a.type), gone }));
+    } catch (e) { await shot(page, 'U3-error'); check('U-3', 'part U3 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('U-3', 'part U3: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- U4: autoplay stops (a rescue in the guided run; a fight in the Dimming)
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&fresh=1', null, { guide: true, hints: true });
+    try {
+      await watch(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      for (let i = 0; i < 120; i++) { const v = await view(page); if (v.round >= 2 && !v.over && v.step === 'combat') break; await auto(page); }
+      // loaded: 1 health against enemies autoplay cannot beat in time, so the hero falls on autoplay and is rescued
+      const s0 = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT); s0.player.hp = 1;
+      for (const e of s0.fight.enemies) { e.hp = 9999; e.maxHp = 9999; }
+      await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s0)); await idle(page);
+      await page.locator('#actionbar .toggle').click();
+      await page.waitForFunction(() => { const v = window.__ui.view(); return !(v.combat && !v.combat.over); }, null, { timeout: 15000 }).catch(() => null);
+      await idle(page); await page.waitForTimeout(300);
+      const r = await page.evaluate(() => { const v = window.__ui.view(); return { autoplay: v.autoplay, rescues: v.tutorial ? v.tutorial.rescues : null, own: window.__ui.ownActions().filter((a) => a.type === 'SET_AUTOPLAY') }; });
+      const ban = await page.evaluate(() => { const b = document.querySelector('#banner'); const r = [...b.children].filter((c) => c.textContent).map((c) => c.getBoundingClientRect());
+        const ps = [...document.querySelectorAll('#screens .panel, #screens .mapwin')].map((m) => m.getBoundingClientRect()).filter((q) => q.width > 0);
+        return { cls: b.className, text: b.querySelector('.b1').textContent, panels: ps.length, meets: ps.some((q) => r.some((a) => a.left < q.right && a.right > q.left && a.top < q.bottom && a.bottom > q.top)) }; });
+      await shot(page, 'U4-rescue');
+      const said = await toastSeen(page, /^Autoplay off after your death\.$/);
+      check('U-auto', 'after a rescue autoplay is off (an own SET_AUTOPLAY), with "Autoplay off after your death."', r.rescues >= 1 && r.autoplay === false && r.own.length === 1 && said, JSON.stringify({ r, t: await toasts(page) }));
+      check('U-banner', 'the rescue banner keeps clear of the screen\'s panel it lands on (the hub here; the zone map: a side column)', /\brescue\b/.test(ban.cls) && ban.panels > 0 && !ban.meets, JSON.stringify(ban));
+    } catch (e) { await shot(page, 'U4-error'); check('U-4', 'part U4 (rescue) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('U-4', 'part U4 (rescue): no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=7&speed=instant&prep=1');
+    try {
+      await watch(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      for (let i = 0; i < 40 && (await sv(page)).phase !== 'MAP'; i++) await auto(page);
+      // the zone's clock moved on until a node next to the player is Dimmed (loaded: zone.start earlier)
+      let dimNode = null;
+      for (const back of [8, 9, 10, 11, 12, 13, 14, 16, 18]) {
+        const st = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT); st.zone.start -= back;
+        const mv = R.mapView(st); const me = mv.nodes[mv.pos];
+        if (me && me.dimmed) continue;
+        const m = mv.moves.find((x) => mv.nodes[x.nodeId].dimmed);
+        if (m) { await page.evaluate((x) => window.__ui.loadState(x), R.serialize(st)); await idle(page); dimNode = m.nodeId; break; }
+      }
+      await page.keyboard.press('KeyZ'); await idle(page);
+      const on = (await sv(page)).autoplay;
+      await page.locator(`.expmap .mnode[data-node="${dimNode}"]`).click({ force: true }); await idle(page);
+      const r = await page.evaluate(() => { const v = window.__ui.view(); return { node: v.node && v.node.type, fight: !!(v.combat && !v.combat.over), autoplay: v.autoplay, round: v.combat ? v.combat.round : null }; });
+      await page.waitForTimeout(400);
+      const r2 = await page.evaluate(() => { const v = window.__ui.view(); return { round: v.combat ? v.combat.round : null }; });
+      const said = await toastSeen(page, /^Autoplay off: a fight in the Dimming\.$/);
+      await shot(page, 'U4-dim');
+      check('U-auto', 'a fight in the Dimming switches autoplay off at its start, with "Autoplay off: a fight in the Dimming."; nothing is played for the player', dimNode != null && on && r.node === 'dim' && r.fight && !r.autoplay && r2.round === r.round && said, JSON.stringify({ dimNode, on, r, r2, t: await toasts(page) }));
+    } catch (e) { await shot(page, 'U4-error-dim'); check('U-4', 'part U4 (Dimming) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('U-4', 'part U4 (Dimming): no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- U5: four enemies, the skip line, talents, companions, the trainer rows, the guide's Skip, a Road's sign
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=7&speed=instant&prep=1');
+    try {
+      await page.locator('#create .ccard[data-cls="hunter"]').click(); await idle(page);
+      const pets = page.locator('#create .pet'); const np = await pets.count(); const pov = [];
+      for (let k = 0; k < np; k++) { await pets.nth(k).hover(); await page.waitForTimeout(120); pov.push(await overSel(page, `#create .pet:not(:nth-child(${k + 1}))`)); }
+      check('U-tips', `a companion's tip covers none of the ${np} companion cards`, np >= 2 && pov.every((x) => x === 0), JSON.stringify(pov));
+      await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      // the trainer's rows (a Dev menu build: level 8 in zone 1, gold given; the trainer opened from the hub card)
+      await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 1, level: 8 })); await idle(page);
+      for (let i = 0; i < 40 && (await sv(page)).phase !== 'ZONE_HUB'; i++) await auto(page);
+      // loaded: one spell of the build unlearned (not on the bar) and another a rank behind, so lessons wait
+      const sb = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT);
+      const known = Object.keys(sb.player.spells).filter((id) => R.C.SPELL[id] && R.C.SPELL[id].lvl > 1);
+      const off = known.find((id) => !sb.player.bar.includes(id)) || known[known.length - 1];
+      if (off) { delete sb.player.spells[off]; sb.player.spellOrder = sb.player.spellOrder.filter((x) => x !== off); sb.player.bar = sb.player.bar.map((x) => (x === off ? null : x)); }
+      const behind = known.find((id) => id !== off); if (behind) sb.player.spells[behind].tl = 1;
+      sb.player.gold += 50000;
+      await page.evaluate((x) => window.__ui.loadState(x), R.serialize(sb)); await idle(page);
+      const card = await page.evaluate(() => { const c = [...document.querySelectorAll('#screens .svc-card')].find((x) => /Trainer/.test(x.textContent)); return c ? { waiting: c.classList.contains('waiting'), meta: c.querySelector('.meta').textContent, t: window.__ui.view().trainer } : null; });
+      check('U-trainer', 'the hub Trainer card while a new spell waits: highlighted, "Waiting: N new spells, M ranks" (R.trainerView)', !!card && card.waiting && card.meta === trainerWaitingShort(card.t), JSON.stringify(card && { waiting: card.waiting, meta: card.meta }));
+      await shot(page, 'U5-hub');
+      await page.locator('#screens .svc-card', { hasText: 'Trainer' }).click().catch(() => null); await idle(page);
+      const rows = page.locator('.svc .list .trow'); const nr = await rows.count(); const tov = [];
+      for (let k = 0; k < nr; k++) { await rows.nth(k).scrollIntoViewIfNeeded(); const bb = await rows.nth(k).boundingBox(); await page.mouse.move(bb.x + 30, bb.y + bb.height - 6); await page.waitForTimeout(120); tov.push(await overSel(page, '.svc .list .trow .right')); }
+      check('U-tips', `a trainer row's tip covers no row's price or Learn (${nr} rows)`, nr > 0 && tov.every((x) => x === 0), JSON.stringify(tov));
+      await page.mouse.move(2, 2);
+      await page.locator('.svc').getByRole('button', { name: 'Done' }).click().catch(() => null); await idle(page);
+      // the talent window: a talent's tip clears its rank counter
+      await page.keyboard.press('KeyN'); await idle(page);
+      const tal = page.locator('#win-talents .tal').first(); await tal.hover(); await page.waitForTimeout(150);
+      const rk = await page.evaluate(() => { const t = document.querySelector('.tooltip.on'); const k = document.querySelector('#win-talents .tal .rk'); if (!t || !k) return null; const a = t.getBoundingClientRect(); const b = k.getBoundingClientRect(); return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top; });
+      check('U-tips', 'a talent\'s tip does not cover its rank counter', rk === false, String(rk));
+      await page.keyboard.press('Escape'); await page.mouse.move(2, 2); await idle(page);
+      // four enemies (Dev menu fight): the plates' chips and names clear of each other, no name cut
+      await page.evaluate(() => window.__ui.dev('fight', { ids: ['z1_stonewall_sentinel', 'z1_hedgerow_cutpurse', 'z1_scarecrow_hexer', 'z1_bramble_herbalist'], level: 12 })); await idle(page);
+      await page.keyboard.press('KeyQ'); await idle(page); await page.waitForTimeout(300);
+      const four = await page.evaluate(() => {
+        const plates = [...document.querySelectorAll('#nameplates .np:not(.dead)')];
+        const boxes = plates.map((p) => [...p.querySelectorAll('.trk .tk, .nm')].filter((x) => x.getClientRects().length && getComputedStyle(x).display !== 'none').map((x) => x.getBoundingClientRect()));
+        let hits = 0;
+        for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) for (const a of boxes[i]) for (const b of boxes[j]) if (a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1) hits++;
+        const cut = [...document.querySelectorAll('#nameplates .np:not(.dead) .nm .n')].filter((n) => n.scrollWidth > n.clientWidth + 1).map((n) => n.textContent);
+        return { plates: plates.length, tight: document.querySelector('#nameplates').classList.contains('tight'), hits, cut };
+      });
+      const skip = await page.evaluate(() => { const cs = getComputedStyle(document.querySelector('#skiphint')); return { bg: cs.backgroundColor, color: cs.color }; });
+      await shot(page, 'U5-four');
+      check('U-four', 'four enemies: no plate\'s chips or name over another plate\'s; no name cut', four.plates === 4 && four.tight && four.hits === 0 && !four.cut.length, JSON.stringify(four));
+      check('U-skip', '"Space or click to skip" sits on a dark backing', /rgba\(12, 9, 6/.test(skip.bg), JSON.stringify(skip));
+    } catch (e) { await shot(page, 'U5-error'); check('U-5', 'part U5 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('U-5', 'part U5: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&fresh=1', null, { guide: true, hints: true });
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      const c0 = await page.evaluate(() => window.__ui.coach().shown);
+      await page.locator('#coach .co-skip').click(); await idle(page);
+      await page.locator('#coach .co-skip').click(); await idle(page);
+      const r = await page.evaluate(() => ({ skipped: !!(window.__ui.view().tutorial && window.__ui.view().tutorial.skipped), shown: window.__ui.coach().shown, phase: window.__ui.view().phase }));
+      check('U-skipguide', `the guide's Skip: "Skip guide", then one confirm; no first-time hint for the line just skipped (${c0 && c0.id}) on that screen`, !!c0 && c0.kind === 'beat' && r.skipped && !(r.shown && r.shown.kind === 'hint' && r.phase === 'PREP'), JSON.stringify({ c0, r }));
+      // after the skip, hints on: one line at a time, each hint at most ONB_HINT_SHOWS times (60 steps, Got it on each)
+      for (let i = 0; i < 60; i++) { if ((await page.evaluate(() => window.__ui.coach().shown))) { await page.locator('#coach .co-ok').click().catch(() => null); await idle(page); } await auto(page); }
+      const lg = await page.evaluate(() => window.__ui.coach().log.filter((x) => x.kind === 'hint'));
+      const per = {}; for (const x of lg) per[x.id] = (per[x.id] || 0) + 1;
+      check('U-skipguide', `after the skip (hints on), each first-time hint shows at most ${ONB_HINT_SHOWS} times (${lg.length} lines)`, lg.length > 0 && Object.values(per).every((n) => n <= ONB_HINT_SHOWS), JSON.stringify(per));
+    } catch (e) { check('U-5', 'part U5 (skip) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('U-5', 'part U5 (skip): no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=11&speed=instant&prep=1');
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      for (let i = 0; i < 40 && (await sv(page)).phase !== 'MAP'; i++) await auto(page);
+      await page.mouse.move(2, 2); await page.waitForTimeout(600);
+      const ov = await page.evaluate(() => { const d = document.querySelector('#screens .xdisc'); const rings = [...d.querySelectorAll(':scope > .mnode .ring')].map((x) => x.getBoundingClientRect());
+        return [...d.querySelectorAll(':scope > .xroad')].map((s) => { const a = s.getBoundingClientRect(); return { road: s.textContent, on: rings.filter((b) => a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1).length }; }); });
+      await shot(page, 'U5-roads');
+      check('U-maplabels', 'seed 11\'s first map: no Road sign over a node (it moves out along its angle)', ov.length > 0 && ov.every((x) => x.on === 0), JSON.stringify(ov));
+    } catch (e) { check('U-5', 'part U5 (roads) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('U-5', 'part U5 (roads): no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+}
+
 for (const [W, H] of SIZES) {
   SIZE = `${W}x${H}`;
   if (PARTS.includes('A')) await partA(browser, W, H);
@@ -5340,6 +5724,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('R')) await partR(browser, W, H);
   if (PARTS.includes('S')) await partS(browser, W, H);
   if (PARTS.includes('T')) await partT(browser, W, H);
+  if (PARTS.includes('U')) await partU(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);
