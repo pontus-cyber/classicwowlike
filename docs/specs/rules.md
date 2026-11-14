@@ -307,7 +307,7 @@ Full HP, mana and pet HP; revives a dead pet; rested pool `+= REST_RESTED_FRAC �
 Stock (stream `node`): VENDOR_CONSUMABLES always (Healing Draught, Mana Draught, Trail Rations, Purifying Tonic, Spark Flask, Elixir of Ferocity; unlimited), VENDOR_GEAR_STOCK equipment items (rarity table "Vendor"), and an Ember of Return at EMBER_STOCK_CHANCE (one). Actions: `BUY(i)`, `SELL(itemId)`, `SELL_JUNK`, `LEAVE`.
 
 ### 2.7 Trainer
-Actions: `LEARN(spellId)` for any class spell with `learnLevel <= L` not yet known, cost `TRAIN_NEW_V × V(learnLevel)`, sets tl = L. `TRAIN(spellId)` raises tl of a known spell to L, cost `TRAIN_RANK_V × V(L)`. `TRAIN_ALL` = TRAIN on every known spell the player can afford, in bar order. `RESPEC` refunds all talent points, cost `RESPEC_V × V(L)`. `LEAVE`.
+Actions: `LEARN(spellId)` for any class spell with `learnLevel <= L` not yet known, cost `TRAIN_NEW_V × V(learnLevel)`, sets tl = L. `TRAIN(spellId)` raises tl of a known spell to L, cost `TRAIN_RANK_V × V(L)`. `TRAIN_ALL` = TRAIN on every known spell the player can afford, in bar order; then (D150, cut list item 21) LEARN of every new spell the gold still covers, cheapest first (autoplay's order). Legal while either has something the gold covers. `RESPEC` refunds all talent points, cost `RESPEC_V × V(L)`. `LEAVE`.
 
 ### 2.8 Treasure
 Guard (TREASURE_GUARD_CHANCE): one normal mob at CL; then chest: gold TREASURE_GOLD_V × V(CL), one roll on "Treasure". Trap (TREASURE_TRAP_CHANCE, rolled on stream `loot`): lose TREASURE_TRAP_PCT of max HP (cannot kill: min 1 HP).

@@ -255,6 +255,34 @@ describe('rules 2 node types', () => {
     assert.deepEqual(s.player.talents, {});
   });
 
+  test('2.7 TRAIN_ALL (D150, cut list item 21): the ranks as before, then every new spell the gold still covers, cheapest first; legal with either; why not', () => {
+    const at = (gold, prep = () => {}) => enterNode(started('rogue', { seed: 2 }), 'trainer', { level: 12, prep: (x) => { x.player.gold = gold; for (const id of Object.keys(x.player.spells)) x.player.spells[id].tl = 1; delete x.player.spells.shadowstep_strike; x.player.spellOrder = x.player.spellOrder.filter((i) => i !== 'shadowstep_strike'); prep(x); } }).state;
+    const rank = Math.round(C.TRAIN_RANK_V * V(12));
+    const lessons = (s) => C.SPELL && Object.values(C.SPELL).filter((sp) => sp.cls === 'rogue' && sp.source === 'class' && sp.lvl <= 12 && !s.player.spells[sp.id]).map((sp) => sp.id);
+    // enough gold: every rank and every lesson (the blind tester's Shadowstep Strike stayed on "Learn")
+    let s = at(99999);
+    const want = lessons(s);
+    assert.ok(want.includes('shadowstep_strike'), want.join());
+    const r = R.step(s, { type: 'TRAIN_ALL' });
+    assert.ok(want.every((id) => r.state.player.spells[id] && r.state.player.spells[id].tl === 12), 'every lesson learned at L');
+    assert.ok(Object.values(r.state.player.spells).every((k) => k.tl === 12), 'every spell at L');
+    const kinds = r.events.filter((e) => e.t === 'train' || e.t === 'learn').map((e) => e.t);
+    assert.equal(kinds.lastIndexOf('train') < kinds.indexOf('learn'), true, 'the ranks first');
+    // gold for the ranks only: as before (no lesson)
+    const known = R.trainerView(at(99999)).train.length;
+    s = at(rank * known);
+    const t = R.step(s, { type: 'TRAIN_ALL' });
+    assert.equal(t.events.filter((e) => e.t === 'train').length, known);
+    assert.ok(!t.events.some((e) => e.t === 'learn'));
+    // nothing to train, a lesson the gold covers: legal, it learns it
+    s = at(99999, (x) => { for (const id of Object.keys(x.player.spells)) x.player.spells[id].tl = 12; });
+    assert.equal(R.whyIllegal(s, { type: 'TRAIN_ALL' }), null);
+    assert.ok(R.step(s, { type: 'TRAIN_ALL' }).state.player.spells.shadowstep_strike);
+    // no gold: why not; nothing left: why not
+    assert.equal(R.whyIllegal(at(0), { type: 'TRAIN_ALL' }), 'not enough gold');
+    assert.equal(R.whyIllegal(r.state, { type: 'TRAIN_ALL' }), 'nothing to train or learn');
+  });
+
   test('2.8 treasure: guard fight then chest; gold 3 × V(CL); trap (first loot draw) costs 15 % max HP, never kills', () => {
     const base = started('rogue', { seed: 12 });
     let r = enterNode(base, 'treasure', { level: 10, patch: (n) => { n.guard = null; n.trap = true; } });

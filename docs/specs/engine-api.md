@@ -176,7 +176,7 @@ Every action is `{ type, ...fields }`. Indices are 0-based. Enemy targets are in
 | `LEAVE_HUB` | | ZONE_HUB, no service open |
 | `LEARN` | `spellId` | trainer; class or unlocked meta spell, `lvl <= L`, not known, gold |
 | `TRAIN` | `spellId` | trainer; known non-talent spell with `tl < L`, gold |
-| `TRAIN_ALL` | | trainer; trains in bar order, then learn order, while gold lasts |
+| `TRAIN_ALL` | | trainer; trains in bar order, then learn order, while gold lasts; (D150) then learns every new spell the gold still covers, cheapest first (`nodes.js learnable`); legal while a rank or a lesson is affordable ('not enough gold', 'nothing to train or learn') |
 | `RESPEC` | | trainer; points spent > 0 |
 | `BUY` | `index` into `state.service.stock` | vendor; gold, bag space, Ember limit |
 | `SELL` | `itemId` (bag uid) | vendor |

@@ -986,10 +986,26 @@ export function trainerOffer(s) {
   };
 }
 
+/**
+ * New spells the trainer offers at the character's level or below that the gold covers now, cheapest first (ties by id):
+ * autoplay's order (D150, cut list item 21).
+ */
+export function learnable(s) {
+  const p = s.player;
+  return trainerSpells(s).filter((id) => !p.spells[id] && SPELL[id].lvl <= p.level && p.gold >= learnCost(s, id))
+    .sort((a, b) => learnCost(s, a) - learnCost(s, b) || (a < b ? -1 : 1));
+}
+
+/**
+ * TRAIN_ALL (rules 2.7): every known spell below the character's level in trainable order while the gold covers a rank;
+ * then (D150, cut list item 21: "Train all" left a new spell on "Learn" with the coin for it) every new spell the gold
+ * still covers, cheapest first. Ranks first keep a press that cannot pay for everything as it was.
+ */
 export function trainAll(s, ev) {
   for (const id of trainable(s)) {
     if (s.player.gold >= trainCost(s)) trainSpell(s, ev, id);
   }
+  for (let next = learnable(s); next.length; next = learnable(s)) learnSpell(s, ev, next[0]);
 }
 
 export function respec(s, ev) {

@@ -22,7 +22,7 @@ import { engageError, engageAct } from './engage.js';
 import {
   availablePets, startRun, canTravel, travelOn, openService, leaveService, chooseNode, startGrind, nextFight,
   completeNode, chooseReward, campGrind, fightBoss, finishFight, trainerSpells, learnCost, trainCost, travelLevel,
-  respecCost, learnSpell, trainSpell, trainAll, trainable, respec, buy, sell, sellJunk, useItemOutOfCombat,
+  respecCost, learnSpell, trainSpell, trainAll, trainable, learnable, respec, buy, sell, sellJunk, useItemOutOfCombat,
   clampAfterStatChange, moveTo, passThrough, takeRoad, ringBell, settleExpedition, canEnter, setOut,
 } from './nodes.js';
 import {
@@ -164,7 +164,14 @@ const A = {
     apply: (s, ev, a) => trainSpell(s, ev, a.spellId),
   },
   TRAIN_ALL: {
-    check: (s) => svc(s, 'trainer') || (trainable(s).length === 0 ? 'nothing to train' : s.player.gold < trainCost(s) ? 'not enough gold' : null),
+    // D150 (cut list item 21): it also learns the new spells the gold covers, so either is enough
+    check: (s) => {
+      const e = svc(s, 'trainer');
+      if (e) return e;
+      if ((trainable(s).length > 0 && s.player.gold >= trainCost(s)) || learnable(s).length > 0) return null;
+      const lesson = trainerSpells(s).some((id) => !s.player.spells[id] && SPELL[id].lvl <= s.player.level);
+      return trainable(s).length > 0 || lesson ? 'not enough gold' : 'nothing to train or learn';
+    },
     apply: (s, ev) => trainAll(s, ev),
   },
   RESPEC: {
