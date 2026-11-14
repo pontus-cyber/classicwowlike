@@ -23,8 +23,9 @@ export const TUTORIAL = {
 
   // Scripted fights S1-S4 (spec 2.3): the first ONB_SCRIPTED_FIGHTS fights the player starts in zone 1 on Quest or
   // Grind nodes that are not Cull sites, in this order. Each teaches one thing (beat). In the guided zone an enemy
-  // makes its turn-2 action a wind-up only where `windup: true` is set here: FIRST_MEET_WINDUP is off for every other
-  // guided-zone fight (S1-S3 and the site fights would otherwise get first-meeting wind-ups before G8 teaches them).
+  // makes its turn-ONB_WINDUP_TURN (1) action a wind-up only where `windup: true` is set here (D149, m3-onboarding.md
+  // 2.8 item 6, draft): FIRST_MEET_WINDUP is off for every other guided-zone fight (S1, S2 and the site fights would
+  // otherwise get first-meeting wind-ups before G8 teaches them).
   // quest (D144, draft): the quest a Quest node shows while it plays this script (the blind testers met S1's boar under a
   // quest about cutpurses); S4 is zone 1's Lost Lambs, the others are the guided zone's own (src/content/quests.js).
   // D145 fix (m3-onboarding.md 2.8, draft; D147): S3 and S4 swapped, so the wind-up fight comes before Gorrak's gate (after
@@ -35,7 +36,7 @@ export const TUTORIAL = {
       loot: { upgrade: 'uncommon', consumable: 'healing_draught' } }, // count: ONB_LOOT_POTIONS
     { id: 's2', beat: 'G6', teaches: 'Read the intent track: Heavy Smash shows two moves ahead.', quest: 'q_z1_guide_hedge_breaker',
       enemies: [{ enemy: 'z1_hedge_ogre' }] },
-    { id: 's3', beat: 'G8', teaches: 'Open on the wind-up: the Hexer winds up Hex Bolt on its turn 2.', quest: 'q_z1_guide_straw_and_tusk',
+    { id: 's3', beat: 'G8', teaches: 'Open on the wind-up: the Hexer winds up its Bolt on its turn 1.', quest: 'q_z1_guide_straw_and_tusk',
       enemies: [{ enemy: 'z1_scarecrow_hexer', windup: true }, { enemy: 'z1_furrow_boar' }] },
     { id: 's4', beat: 'G7', teaches: 'Use the engage round on one of two foes.', quest: 'q_z1_lost_lambs',
       enemies: [{ enemy: 'z1_hedge_ogre' }, { enemy: 'z1_barn_wolf' }] },

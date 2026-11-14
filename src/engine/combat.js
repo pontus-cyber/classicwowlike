@@ -9,14 +9,15 @@
 // M2b v13 (D109; on by default since M2b v14, D113): a zone-1 rare's HP with RARE_HP_MULT_Z1 (GATES.rareHpMultZ1, rules
 // 2.3); first meetings (s.met, GATES.firstMeetWindup, rules 7.12) are marked when a fight starts. M2b v14 (D111):
 // allSapped, read by autoplay rule H and the PASS that keeps STEALTH. M3 guided run (m3-onboarding.md 2.3, D138;
-// tutorial.js): a node fight of zone 1 carries its overlay role (`tut`) and its own wind-up marks (`windups`); a rescue
-// ends the fight like a death (no flight or victory events; nodes.js moves the player back).
+// tutorial.js): a node fight of zone 1 carries its overlay role (`tut`) and its own wind-up marks (`windups`; D149: a
+// marked enemy winds up on its turn ONB_WINDUP_TURN, `windupTurn`); a rescue ends the fight like a death (no flight or
+// victory events; nodes.js moves the player back).
 import {
   ARCHETYPE, VARIANT, ENEMY_HP_BASE, ENEMY_HP_PER_LEVEL, ENEMY_DMG_BASE, ENEMY_DMG_PER_LEVEL,
   ENEMY_ARMOR_PER_LEVEL, ENEMY_DODGE, PET, ENERGY_MAX, ENERGY_REGEN, FOCUS_MAX, FOCUS_REGEN,
   MANA_REGEN_ROUND_PCT, PET_REVIVE_PCT, TALENT, UNIQUE_WARD_PCT, BRAND_DMG, BOSS_LEVEL, MIN_HIT_DAMAGE,
   ZONE_DANGER_FROM, ZONE_DANGER_STEP, DUNGEON_DANGER_FRAC, ENGAGE_DMG_COMP, OFFBAL_DURATION, CONSUMABLE,
-  EARLY_DMG_MULT, EARLY_DMG_MAX_LEVEL, Z1_DMG_MULT, Z1_DMG_MAX_LEVEL, RARE_HP_MULT_Z1, GATES,
+  EARLY_DMG_MULT, EARLY_DMG_MAX_LEVEL, Z1_DMG_MULT, Z1_DMG_MAX_LEVEL, RARE_HP_MULT_Z1, GATES, ONB_WINDUP_TURN,
 } from '../constants.js';
 import { nextFloat, nextInt } from '../rng.js';
 import { rnd, deepClone, cloneState } from './util.js';
@@ -488,8 +489,15 @@ export function startFight(s, ev, spec) {
   for (const e of f.enemies) e.turn0 = f.engage ? 2 : 1;
   for (const e of f.enemies) if (e.arch === 'guardian') assignWard(f, e);
   meetEnemies(s, f);
-  // M3 (D138): in zone 1 of a guided run only the enemies the overlay marks get the first-meeting wind-up on turn 2.
-  if (spec.windups) for (const e of f.enemies) { if (spec.windups[e.idx]) e.firstMeet = true; else delete e.firstMeet; }
+  // M3 (D138): in zone 1 of a guided run only the enemies the overlay marks get the first-meeting wind-up; D149 (spec
+  // 2.8 item 6): on their turn ONB_WINDUP_TURN (1), not SIGNATURE_TURN (track.js makeEntry), so a control from the
+  // engage round answers it at round 2's start.
+  if (spec.windups) {
+    for (const e of f.enemies) {
+      if (spec.windups[e.idx]) { e.firstMeet = true; e.windupTurn = ONB_WINDUP_TURN; }
+      else { delete e.firstMeet; delete e.windupTurn; }
+    }
+  }
   s.stats.fights += 1;
   if (f.engage) s.stats.engages = (s.stats.engages || 0) + 1;
   ev.push({ t: 'fight', kind: f.kind, k: f.k, engage: f.engage, heat: f.heat, enemies: f.enemies.map((e) => ({ u: e.idx, name: e.name, level: e.level, hp: e.hp, kind: e.kind, arch: e.arch })) });

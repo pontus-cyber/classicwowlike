@@ -7,7 +7,8 @@
 // D142 (M3 3.7): the guided zone's Roads closed until Gorrak's fight has ended (won, fled or rescued), open on a skip, the
 // fallback when he can no longer be fought, G13.closed, the autoplay's way to him; G10 only on the map, G12's return cap.
 // D147: a rescue lands on the map with no fight started (it looped in Dimmed nodes), and ONB_RESCUE_MAX rescues end the
-// guide.
+// guide. D149: S3's Hexer winds up on its turn ONB_WINDUP_TURN (1), so W in the engage round answers it in that step
+// (the route measure per class, autoplay and following the joint line).
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -148,12 +149,17 @@ describe('M3 guided run: newRun, seed and overlay (m3-onboarding 2.1-2.3, E1, E2
       ['s3', 'Scarecrow Hexer+Furrow Boar', 4, true], ['site_2', 'Furrow Boar+Barn Wolf', 3, false],
     ]);
     assert.deepEqual([s.tutorial.script, s.tutorial.sites], [3, 2]);
-    // S3 (the third scripted fight, before Gorrak's gate): only the Hexer, marked windup, winds up (turn 2, Hex Bolt); its
-    // quest is Straw and Tusk
+    // S3 (the third scripted fight, before Gorrak's gate): only the Hexer, marked windup, winds up; D149 (spec 2.8 item 6):
+    // on its turn ONB_WINDUP_TURN (1, round 2), its Bolt; Hex Bolt on turn 2 is a normal cast. Its quest is Straw and Tusk
     const t3 = withScript(atHub('mage', 5), 2);
     const f3 = R.step(t3, { type: 'MOVE', nodeId: 2 }).state.fight;
     assert.equal(f3.tut.id, 's3');
-    assert.deepEqual(f3.enemies.map((e) => e.track.filter((x) => x.windup).map((x) => [x.turn, x.id])), [[[C.SIGNATURE_TURN, 'hex_bolt']], []]);
+    assert.equal(C.ONB_WINDUP_TURN, 1);
+    assert.deepEqual(f3.enemies.map((e) => e.track.filter((x) => x.windup).map((x) => [x.turn, x.id])), [[[C.ONB_WINDUP_TURN, 'bolt']], []]);
+    assert.deepEqual(f3.enemies.map((e) => [e.firstMeet, e.windupTurn]), [[true, C.ONB_WINDUP_TURN], [undefined, undefined]]);
+    const hex2 = f3.enemies[0].track.find((x) => x.turn === 2);
+    assert.deepEqual([hex2.id, !!hex2.windup, hex2.cast], ['hex_bolt', false, true], 'turn 2: Hex Bolt, a normal cast');
+    assert.deepEqual(R.windupView(R.step(t3, { type: 'MOVE', nodeId: 2 }).state).map((w) => [w.u, w.turn, w.round, w.firstMeet, w.deathblow]), [[0, 1, 2, true, false]]);
     assert.deepEqual(CONTENT.tutorial.scripts.map((x) => x.quest), ['q_z1_guide_rooted_rows', 'q_z1_guide_hedge_breaker', 'q_z1_guide_straw_and_tusk', 'q_z1_lost_lambs']);
     // S4 (after the gate): the Ogre and the Wolf, no wind-up in the guided zone
     const t = withScript(atHub('mage', 5), 3);
@@ -524,29 +530,55 @@ describe('M3 D142: the Roads open after Gorrak\'s fight (2.3, 2.4 G13)', () => {
   });
 });
 
-describe('M3 D143 and D147: Gorrak\'s gate after S3, the wind-up fight S3 before it; the guided zone ends by a Road', () => {
+/**
+ * The D143 route measure's run (seed 8736, board slot 1 taken): autoplay to zone 2, except S3's engage round under policy
+ * 'follow' (D149, spec 2.8 item 6: W, the class's control option, on the winding-up Hexer, as the joint line says). Returns
+ * the state at zone 2, the scripted fights started (`id@node:zone toll`), the G7-G9 beat events by step and the steps of
+ * the ENGAGE actions.
+ */
+function guidedRoute(classId, seed, policy = 'auto') {
+  let s = steps(run(classId, seed), [{ type: 'START_RUN' }, { type: 'TAKE_CONTRACT', index: 0 }]).state;
+  const fights = [];
+  const beats = [];
+  const engages = [];
+  for (let n = 0; !(s.zone && s.zone.z === 2) && n < 3000; n++) {
+    let a = R.autoAction(s);
+    const f = s.fight;
+    if (policy === 'follow' && f && f.tut && f.tut.id === 's3' && f.round === 1 && f.engage) {
+      a = { type: 'ENGAGE', option: C.ENGAGE_OPTIONS[classId][1], target: f.enemies.findIndex((e) => e.firstMeet) };
+    }
+    if (a.type === 'ENGAGE') engages.push(n);
+    const r = R.step(s, a);
+    if (r.state.fight && !s.fight && r.state.fight.tut) fights.push(`${r.state.fight.tut.id}@${r.state.zone.pos}:${r.state.time - r.state.zone.start}`);
+    for (const e of r.events) {
+      if (e.t === 'beat' && ['G7', 'G8', 'G9'].includes(e.id)) beats.push({ n, id: e.id, what: e.what, line: e.line, fight: r.state.fight && r.state.fight.tut ? r.state.fight.tut.id : null });
+      else if (e.t === 'stagger' && !e.deathblow) beats.push({ n, id: 'stagger', what: e.why, line: null, fight: null, turn: e.turn });
+    }
+    s = r.state;
+  }
+  return { s, fights, beats, engages };
+}
+/** The route's outcome as the D143 measure reads it. */
+function routeSeen(s) {
+  const z1 = s.stats.exp.zones.find((x) => x.z === 1);
+  return { exit: z1.exit, zt: z1.time, dimFights: z1.dimFights, bell: s.exp.bell, elite: s.tutorial.elite, rescues: s.tutorial.rescues, script: s.tutorial.script, level: s.player.level };
+}
+const ROUTE_SEEN = { exit: 'road', zt: 19, dimFights: 0, bell: C.BELL_START_CHARGES, elite: 'victory', rescues: 0, script: 3, level: 12 };
+
+describe('M3 D143, D147 and D149: Gorrak\'s gate after S3, the wind-up fight S3 before it; the guided zone ends by a Road', () => {
   test('seed 8736, autoplay, 20 run seeds per class: S3 (the wind-up fight) then Gorrak, won, G8 open before G9, G9 learned, zone 1 left by Road 19 at zone toll 19 with no Dimmed encounter, the Bell kept, no rescue; one route per class', () => {
-    // D147 (spec 2.8 done-when): per class, whether G8 was learned or landed on this route. Hunter: Lay Trap (W) on the
-    // Hexer springs on its turn, STAGGERED: learned. Rogue (rule E never Saps: Ambush, Q, kills the Hexer in the engage
-    // round) and Mage (Binding Glyph, W, freezes it; Frost Lance kills it in round 2): the Hexer dies before its turn-2
-    // wind-up, which neither lands nor is answered, so G8 waits (line null) and closes missed when zone 1 is left.
-    const G8_AT_END = { rogue: 'missed', mage: 'missed', hunter: 'done' };
+    // D147 (spec 2.8 done-when), D149 (2.8 item 6: the Hexer winds up on its turn ONB_WINDUP_TURN, 1): per class, whether
+    // G8 was learned or landed on this route. Mage (Binding Glyph, W) and Hunter (Lay Trap, W) on the Hexer cancel its
+    // wind-up at round 2's start, in the step of the W press: STAGGERED, learned. Rogue: rule E never Saps (D49), Ambush (Q)
+    // kills the Hexer in the engage round, so its wind-up neither lands nor is answered; G8 closes missed when zone 1 is
+    // left.
+    const G8_AT_END = { rogue: 'missed', mage: 'done', hunter: 'done' };
     for (const classId of ['rogue', 'mage', 'hunter']) {
       const routes = new Set();
       for (let k = 0; k < 20; k++) {
-        let s = steps(run(classId, 1000 + 7919 * k), [{ type: 'START_RUN' }, { type: 'TAKE_CONTRACT', index: 0 }]).state;
-        const fights = [];
-        const beats = [];
-        for (let n = 0; !(s.zone && s.zone.z === 2) && n < 3000; n++) {
-          const r = R.step(s, R.autoAction(s));
-          if (r.state.fight && !s.fight && r.state.fight.tut) fights.push(`${r.state.fight.tut.id}@${r.state.zone.pos}:${r.state.time - r.state.zone.start}`);
-          for (const e of r.events) if (e.t === 'beat' && ['G7', 'G8', 'G9'].includes(e.id)) beats.push({ n, id: e.id, what: e.what, line: e.line, fight: r.state.fight && r.state.fight.tut ? r.state.fight.tut.id : null });
-          s = r.state;
-        }
-        const z1 = s.stats.exp.zones.find((x) => x.z === 1);
+        const { s, fights, beats } = guidedRoute(classId, 1000 + 7919 * k);
         const v = R.tutorialView(s);
-        const seen = { exit: z1.exit, zt: z1.time, dimFights: z1.dimFights, bell: s.exp.bell, elite: s.tutorial.elite, rescues: s.tutorial.rescues, script: s.tutorial.script };
-        assert.deepEqual(seen, { exit: 'road', zt: 19, dimFights: 0, bell: C.BELL_START_CHARGES, elite: 'victory', rescues: 0, script: 3 }, `${classId} seed ${1000 + 7919 * k}`);
+        assert.deepEqual(routeSeen(s), ROUTE_SEEN, `${classId} seed ${1000 + 7919 * k}`);
         for (const id of ['G7', 'G9', 'G12', 'G13']) assert.ok(v.learned.includes(id), `${classId}: ${id} learned`);
         // Gorrak right after S3 (the third scripted fight), before any later script
         const i = fights.findIndex((x) => x.startsWith('gorrak@'));
@@ -557,11 +589,34 @@ describe('M3 D143 and D147: Gorrak\'s gate after S3, the wind-up fight S3 before
         const o9 = beats.find((b) => b.id === 'G9' && b.what === 'open');
         assert.deepEqual([o7.n, o7.fight, o7.line, o8.n, o8.fight, o8.line], [o8.n, 's3', null, o7.n, 's3', 'G8.withEngage'], classId);
         assert.ok(o8.n < o9.n && o9.fight === 'gorrak', classId);
+        // D149: the engage round's step learns G8 (W) for the Mage and the Hunter
+        const next8 = beats.filter((b) => b.id === 'G8' && b.n === o8.n + 1).map((b) => [b.what, b.line]);
+        assert.deepEqual(next8, classId === 'rogue' ? [] : [['done', null]], `${classId}: G8 after the engage round`);
         assert.equal(s.tutorial.beats.G8.st, G8_AT_END[classId], `${classId}: G8 ${s.tutorial.beats.G8.st}`);
         assert.ok(!beats.some((b) => b.id === 'G8' && b.line === 'G8.landed'), `${classId}: no wind-up landed`);
-        routes.add(JSON.stringify([fights, z1.time, s.player.level, beats]));
+        routes.add(JSON.stringify([fights, s.stats.exp.zones.find((x) => x.z === 1).time, s.player.level, beats]));
       }
       assert.equal(routes.size, 1, `${classId}: one route for every run seed`);
+    }
+  });
+
+  test('D149: following the joint line (W on the Hexer in S3\'s engage round, then autoplay) learns G8 for every class in the W step; the route is the autoplay route, unchanged', () => {
+    for (const classId of ['rogue', 'mage', 'hunter']) {
+      const auto = guidedRoute(classId, 1000);
+      for (let k = 0; k < 20; k++) {
+        const seed = 1000 + 7919 * k;
+        const { s, fights, beats, engages } = guidedRoute(classId, seed, 'follow');
+        assert.deepEqual(routeSeen(s), ROUTE_SEEN, `${classId} seed ${seed}`);
+        assert.deepEqual(fights, auto.fights, `${classId} seed ${seed}: the autoplay route`);
+        assert.ok(R.tutorialView(s).learned.includes('G9'), `${classId}: G9 learned`);
+        // the stagger (turn ONB_WINDUP_TURN) and G8's done come in the W step itself, which is S3's engage round
+        const o8 = beats.find((b) => b.id === 'G8' && b.what === 'open');
+        const w = engages.find((n) => n > o8.n);
+        assert.equal(w, o8.n + 1, `${classId}: W in S3's engage round`);
+        const inW = beats.filter((b) => b.n === w && (b.id === 'G8' || b.id === 'stagger')).map((b) => [b.id, b.what, b.turn]);
+        assert.deepEqual(inW, [['stagger', classId === 'hunter' ? 'trap' : 'control', C.ONB_WINDUP_TURN], ['G8', 'done', undefined]], `${classId} seed ${seed}`);
+        assert.equal(s.tutorial.beats.G8.st, 'done', classId);
+      }
     }
   });
 });
@@ -582,17 +637,21 @@ describe('M3 D147: G7 and G8 share S3\'s engage round (spec 2.8, the D145 fix)',
     assert.ok(typeof raw === 'string' && raw.length <= C.ONB_HINT_MAX_CHARS && raw.includes('{key_engage2}'), raw);
   });
 
-  test('each is learned as before: any ENGAGE learns G7; W on the Hexer answers its wind-up (Rogue Sap, Hunter trap: STAGGERED) and learns G8', () => {
-    for (const classId of ['rogue', 'hunter']) {
-      let s = atS3(classId).state;
-      const ev = [];
+  test('each is learned as before: any ENGAGE learns G7; W on the Hexer answers its wind-up (Rogue Sap, Mage Binding Glyph, Hunter trap: STAGGERED) and learns G8, both in the W step (D149)', () => {
+    for (const classId of ['rogue', 'mage', 'hunter']) {
       const w = { type: 'ENGAGE', option: C.ENGAGE_OPTIONS[classId][1], target: 0 };
       assert.equal(C.ENGAGE_OPTION[w.option].kind, 'control');
-      s = R.step(s, w).state;
-      assert.equal(s.tutorial.beats.G7.st, 'done', `${classId}: G7 on ENGAGE`);
-      s = settle(s, ev);
-      assert.ok(ev.some((e) => e.t === 'stagger' && e.u === 0 && !e.deathblow), `${classId}: the Hexer staggered`);
-      assert.equal(s.tutorial.beats.G8.st, 'done', `${classId}: G8 learned`);
+      const r = R.step(atS3(classId).state, w);
+      // D149 (spec 2.8 item 6): the wind-up is the Hexer's turn ONB_WINDUP_TURN (round 2), cancelled at round 2's start
+      const ev = r.events;
+      const st = ev.find((e) => e.t === 'stagger');
+      assert.ok(st && st.u === 0 && !st.deathblow && st.turn === C.ONB_WINDUP_TURN && st.id === 'bolt', `${classId}: the Hexer staggered in the W step ${JSON.stringify(st)}`);
+      assert.equal(st.why, classId === 'hunter' ? 'trap' : 'control', classId);
+      const beat = (id) => ev.filter((e) => e.t === 'beat' && e.id === id).map((e) => e.what);
+      assert.deepEqual([beat('G7'), beat('G8')], [['done'], ['done']], `${classId}: G7 on ENGAGE, G8 on the stagger, in that step`);
+      assert.ok(ev.findIndex((e) => e.t === 'stagger') < ev.findIndex((e) => e.t === 'beat' && e.id === 'G8'));
+      assert.deepEqual([r.state.fight.round, r.state.tutorial.beats.G8.st], [2, 'done'], classId);
+      assert.ok(!R.tutorialView(r.state).open.some((x) => x.id === 'G8'), `${classId}: no G8 line after it`);
     }
   });
 

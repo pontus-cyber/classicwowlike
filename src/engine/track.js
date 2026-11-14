@@ -8,7 +8,8 @@
 // is answered (STAGGERED, damage.js).
 // M2b v13 (rules 7.12, D105, D109): the SIGNATURE_TURN wind-up of an elite, rare or dungeon boss is its Deathblow
 // (`deathblow`; a damaging one × DEATHBLOW_MULT); with GATES.firstMeetWindup a normal enemy met for the first time in a
-// quest fight (`firstMeet`, combat.js) plays its turn-2 scripted action as a wind-up (no Deathblow). M2b v14 (D112):
+// quest fight (`firstMeet`, combat.js) plays its turn-2 scripted action as a wind-up (no Deathblow); D149 (M3, draft): an
+// enemy the guided zone's overlay marks does so on its turn `windupTurn` (ONB_WINDUP_TURN). M2b v14 (D112):
 // deathblowType, the type alone for a map elite whose name is hidden.
 // The end boss's entries are made by boss.js (rules 10.3). Every entry shows its target, estimate and (D52) the
 // predicted `cancel`, recomputed each round (refreshTrack).
@@ -227,8 +228,10 @@ function makeEntry(s, e, t) {
       x.deathblow = true;
       if (typeof x.pct === 'number' && DAMAGING.includes(x.kind)) x.pct *= DEATHBLOW_MULT;
     }
-  } else if (sid && e.firstMeet && t === SIGNATURE_TURN) {
+  } else if (sid && e.firstMeet && t === (e.windupTurn || SIGNATURE_TURN)) {
     // M2b v13 row 6 (gated, D109): a first meeting's turn-2 scripted action is a wind-up, pct unchanged, no Deathblow.
+    // D149 (m3-onboarding.md 2.8 item 6, draft): an enemy the guided zone's overlay marks winds up on its turn
+    // e.windupTurn (ONB_WINDUP_TURN, combat.js startFight); every other first meeting keeps SIGNATURE_TURN.
     x.windup = true;
     x.cast = true;
     x.firstMeet = true;

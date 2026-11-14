@@ -2,12 +2,12 @@
 // newRun({ tutorial: true }) (expedition map with the start camp) plays zone 1 on TUTORIAL_SEED (expedition.js
 // zoneSeed) with the authored overlay of CONTENT.tutorial (src/content/tutorial.js): board slot 1 fixed (a Cull), the
 // Cull site fights, scripts S1-S4 on the first non-site Quest or Grind fights, S1's fixed loot, only marked enemies wind
-// up (D138), Gorrak on the Elite node nearest the hub with a level clamp, his node barred until the gate's script has
-// ended (D138), and the zone's Roads closed until his fight has ended (D142). While the guide is on (not skipped) zone 1
-// is the guided zone: a death there is a rescue (back to the last node, full health, ONB_RESCUE_TOLLS; D147: it lands on
-// the map with no fight started, and the ONB_RESCUE_MAX-th rescue ends the guide), and the 13 beats G1-G13 are tracked
-// from the actions, events and state (`beat` events, tutorialView; D147: G7 and G8 opening in one engage round share
-// G8's joint line). Leaving zone 1 ends the guide.
+// up (D138; D149: on their turn ONB_WINDUP_TURN, combat.js), Gorrak on the Elite node nearest the hub with a level clamp,
+// his node barred until the gate's script has ended (D138), and the zone's Roads closed until his fight has ended (D142).
+// While the guide is on (not skipped) zone 1 is the guided zone: a death there is a rescue (back to the last node, full
+// health, ONB_RESCUE_TOLLS; D147: it lands on the map with no fight started, and the ONB_RESCUE_MAX-th rescue ends the
+// guide), and the 13 beats G1-G13 are tracked from the actions, events and state (`beat` events, tutorialView; D147: G7
+// and G8 opening in one engage round share G8's joint line). Leaving zone 1 ends the guide.
 // Pure helpers of the state; nodes.js, combat.js, damage.js, contracts.js, actions.js and autoplay.js call them. A run
 // without the option never reaches any of it.
 import {
@@ -176,9 +176,10 @@ export function refreshOverlay(s) {
 // ---------------- Fights ----------------
 /**
  * startFight's overlay for a node fight (nodes.js nodeFight): `tut` (the role: script or site) and `windups` (D138: in
- * zone 1 of a guided run only enemies marked `windup` get the first-meeting wind-up on turn 2; every other quest fight
- * of the guided zone has none). A site fight counts as started. Gorrak's fight in the guided zone carries `tut` kind
- * 'elite' (D142: its end opens the Roads) and plays by the normal rules. null: the fight plays by the normal rules.
+ * zone 1 of a guided run only enemies marked `windup` get the first-meeting wind-up, D149: on turn ONB_WINDUP_TURN; every
+ * other quest fight of the guided zone has none). A site fight counts as started. Gorrak's fight in the guided zone
+ * carries `tut` kind 'elite' (D142: its end opens the Roads) and plays by the normal rules. null: the fight plays by the
+ * normal rules.
  */
 export function fightOverlay(s, kind) {
   if (!inZone1(s) || !s.node || s.node.id === undefined || s.node.type === 'dim' || s.node.type === 'dev') return null;

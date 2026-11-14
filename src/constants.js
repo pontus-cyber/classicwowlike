@@ -1303,6 +1303,11 @@ export const ONB_RESCUE_TOLLS = 2;
 export const ONB_RESCUE_MAX = 3;
 /** Extra wind-ups G8 stays open for after one lands (spec 2.4). */
 export const ONB_BEAT_RETRIES = 1;
+/**
+ * Enemy turn of the guided zone's marked wind-up (S3's Hexer), in place of SIGNATURE_TURN (spec 2.8 item 6; D149,
+ * draft): turn 1 is round 2, so a control from the engage round cancels it at round 2's start, in the step of the W press.
+ */
+export const ONB_WINDUP_TURN = 1;
 /** HP share under which G11 / H09 fire (spec 2.4, 3.2). */
 export const ONB_POTION_HP = 0.5;
 /** HP share under which H32 fires (spec 3.2; UI). */

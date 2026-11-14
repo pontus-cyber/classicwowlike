@@ -66,7 +66,8 @@ guided zone's `guided` marks, a guided Quest node's quest from its role, and the
 inner-ring quests keep zone 1's cap, `C.QUEST_CAP_Z2_RINGS` and the switch `C.GATES.zone2InnerCap`, on; rules 1.9.3, 2.1);
 2026-11-14 (D147: a guided rescue starts no fight and `C.ONB_RESCUE_MAX` rescues end the guide, `guideSkipped` `why`,
 `tutorialView.rescueMax`, 14.2-14.5; zone 1 enemy damage `C.Z1_DMG_MULT` up to `C.Z1_DMG_MAX_LEVEL` in `zoneDanger`, the
-switch `C.GATES.z1Dmg`, on (rules 7.6); marked "(D147)").
+switch `C.GATES.z1Dmg`, on (rules 7.6); marked "(D147)"); 2026-11-14b (D149: the guided zone's marked wind-up on the enemy's
+turn `C.ONB_WINDUP_TURN` (1), 14.1, marked "(D149)").
 Units: every time value of the API is a whole number of tolls (1 toll = 1 former in-game hour, D69); there are no hours.
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
@@ -875,7 +876,7 @@ points stay, then (D133) Field Draughts when AUTO_PREP_RESERVE points still stay
 before D133: Field Draughts first, then the contracts, no Ember; the hub contract from Reserve when it can; its map policy
 does not seek sites.
 
-## 14. The guided first run (M3; docs/specs/m3-onboarding.md 2, 4.2, 5 E1-E10; D135, D137, D138, D141, D142, D147)
+## 14. The guided first run (M3; docs/specs/m3-onboarding.md 2, 4.2, 5 E1-E10; D135, D137, D138, D141, D142, D147, D149)
 `newRun({ tutorial: true })` (the expedition map with the start camp; `src/engine/tutorial.js`) plays the profile's guided first
 run. Zones 2-6 and everything after the guide are the normal rules. A run without the option is unchanged run for run
 (qa/engine/s18 golden check). The balance bots never set it. Numbers: `C.TUTORIAL_SEED` and `C.ONB_*` (m3-onboarding.md 12).
@@ -907,8 +908,9 @@ run. Zones 2-6 and everything after the guide are the normal rules. A run withou
   leave it goes to the nearest node that plays the next script. Seed 8736, every class, 20 run seeds each, with the gate
   after S3 (D143): he is entered at zone toll 13 right after S3 and won, G9 learned, zone 1 left by Road 19 at toll 19 with
   0 Dimmed encounters, the Bell kept, 0 rescues; S4 is not played on that route (D147: the same route with S3 the wind-up
-  fight, G8 open before G9 [source: docs/handoffs/engine-2026-11-14.md]) [source: docs/handoffs/engine-2026-11-13d.md
-  1]. With the gate after S4 (D142 as first built) he was fought at zone toll 17-20 and zone 1 left by the Bell at toll 26
+  fight, G8 open before G9 [source: docs/handoffs/engine-2026-11-14.md]; D149: the same route with the Hexer's wind-up on
+  its turn 1, G8 learned on autoplay by the Mage and the Hunter, and by every class that follows the joint line [source:
+  docs/handoffs/engine-2026-11-14b.md]) [source: docs/handoffs/engine-2026-11-13d.md 1]. With the gate after S4 (D142 as first built) he was fought at zone toll 17-20 and zone 1 left by the Bell at toll 26
   after 2 Dimmed encounters [source: docs/handoffs/engine-2026-11-13c.md 4].
 - Scripts and sites: every unresolved Quest and Grind node of zone 1 plays its role, laid on its encounter after every
   action (so `mapView` shows it): a node with a held contract's site plays `siteFights[min(sites, last)]` at the node's level;
@@ -918,9 +920,12 @@ run. Zones 2-6 and everything after the guide are the normal rules. A run withou
   quest of its role (content `quest` of the script or site fight, a quest whose enemies are that fight's; the node's own
   quest once the role is lifted), so `mapView`'s `title`, the node's `quest` and the `quest` event match the enemies; `mapView`
   marks such nodes `guided` (10.3).
-- Wind-ups (D138): in an overlay fight only enemies with `windup: true` play their turn-2 scripted action as a wind-up (the
-  first-meeting mechanism, any fight kind; S3's Scarecrow Hexer: Hex Bolt, since D147 (was S4)); every other quest fight of the guided zone has
-  no first-meeting wind-up. Elite, rare and dungeon-boss wind-ups and Deathblows are unchanged.
+- Wind-ups (D138): in an overlay fight only enemies with `windup: true` play a scripted action as a wind-up (the
+  first-meeting mechanism, any fight kind); every other quest fight of the guided zone has no first-meeting wind-up. (D149,
+  draft) It is the action of their turn `C.ONB_WINDUP_TURN` (1, round 2 after the engage round; startFight sets the enemy's
+  `windupTurn`), not SIGNATURE_TURN (2) as other first meetings: S3's Scarecrow Hexer winds up Bolt (Hex Bolt on turn 2 is a
+  normal cast), so a control from the engage round (Sap, Binding Glyph, Lay Trap) answers it at round 2's start, in the step of
+  the ENGAGE (m3-onboarding.md 2.8 item 6). Elite, rare and dungeon-boss wind-ups and Deathblows are unchanged.
 - S1's loot (`scripts[0].loot`), on a win, replaces its drops: one item of rarity `loot.upgrade` for the class's weakest slot
   by `itemScore` (fixed stats as starting gear, ilvl = the node's level + the rarity's bonus; an upgrade), and
   ONB_LOOT_POTIONS of `loot.consumable`.
@@ -974,7 +979,7 @@ The engine opens and closes G1-G13 from the action, its events and the state, wh
 | G5 | the first map step after G4's | learned on the next map action (MOVE, PASS_THROUGH, TAKE_ROAD, RING_BELL, USE_SPYGLASS) |
 | G6 | the first fight with a heavy or cast entry on a track | at its end: learned if a heavy cost 0 HP (`offBalance` `avoided`), else missed (hovering is the UI's) |
 | G7 | the first engage fight with 2 or more enemies; (D147) opening in the same engage round as G8 (S3): line null, G8 carries the joint line | learned on ENGAGE; shown again at the next engage fight (ONB_ENGAGE_SHOWS), then missed |
-| G8 | the first fight with a non-Deathblow wind-up; (D147) `G8.withEngage` when G7 opens in the same engage round (content `alt.withEngage`, spec 2.8) | learned on its `stagger`; landed: `G8.landed`, open for ONB_BEAT_RETRIES more, then missed; the enemy dead before its wind-up: open (line null), missed at the guide's end |
+| G8 | the first fight with a non-Deathblow wind-up; (D147) `G8.withEngage` when G7 opens in the same engage round (content `alt.withEngage`, spec 2.8) | learned on its `stagger` ((D149) S3's: in the step of an engage-round control on the Hexer); landed: `G8.landed`, open for ONB_BEAT_RETRIES more, then missed; the enemy dead before its wind-up: open (line null), missed at the guide's end |
 | G9 | the first fight with a Deathblow (`G9.<class>`) | learned on a Deathblow's `stagger`; landed: `G9.landed`, the class line again at the next Deathblow fight |
 | G10 | (D142) on the map with nothing open, a held contract's site mark first in view (as `mapView` shows it: `sites`), never at the hub screen (`G10`) | first site won: line null; complete: `G10.done`; learned at the CHOOSE_REWARD that takes its reward |
 | G11 | in a fight, HP < ONB_POTION_HP of max with a healing potion on the item bar | learned on USE_ITEM of it; missed when the fight ends |
