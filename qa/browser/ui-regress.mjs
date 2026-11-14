@@ -2828,6 +2828,16 @@ const M_SEED = 7;
  * full board (CONTRACT_BOARD_SIZE offers), so they play a later run: a stored profile with one run, the twin's the same.
  */
 const M_PROFILE = () => ({ ...R.newProfile(), runs: 1, welcome: true });
+/**
+ * D150 item 14: what a start-camp offer's tooltip says (prep.js boardTip), as text pieces: "Win 2 Quest or Grind fights in
+ * <region>." (a Bounty: "Hunt down <elite> in <region>.", a Delve: "Clear <dungeon>, its boss included."), "Reward: about
+ * N levels of XP", "1 of N items." and "Cost: N points." (the gold is a coins element between them).
+ */
+const boardTipWant = (o) => {
+  const lv = o.reward.xpFrac; const n = lv >= 1 ? Math.round(lv) : Math.round(lv * 10) / 10;
+  const what = o.kind === 'delve' ? `Clear ${o.dungeon}, its boss included.` : o.kind === 'bounty' ? `Hunt down ${o.name} in ${o.regionName}.` : `Win ${o.need} Quest or Grind ${o.need === 1 ? 'fight' : 'fights'} in ${o.regionName}.`;
+  return [what, `Reward: about ${n} ${n === 1 ? 'level' : 'levels'} of XP`, ...(o.reward.choices ? [`1 of ${o.reward.choices} items.`] : []), `Cost: ${o.price} ${o.price === 1 ? 'point' : 'points'}.`];
+};
 function mTwin(seed) {
   const run = () => R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: 'expedition', prep: true, profile: M_PROFILE() });
   return {
@@ -2927,9 +2937,10 @@ async function partM(browser, W, H) {
     await page.mouse.move(2, 2);
     const k = pv.board.findIndex((o) => o.kind === 'cull'); const o = pv.board[k >= 0 ? k : 0];
     await page.locator('#prep .pp-card').nth(k >= 0 ? k : 0).hover(); await page.waitForTimeout(80);
-    const tt1 = await page.evaluate(() => (document.querySelector('.tooltip.on') || {}).innerText || '');
-    const want1 = [T.contractSentence(o, CONTENT), o.kind === 'cull' ? 'Sites: Quest or Grind nodes' : 'site', `${Math.round(o.reward.xpFrac * 10) / 10} levels of XP`];
-    check('M-prep', `a contract's tooltip: its sentence, its sites and its pay (${want1[0]})`, want1.every((x) => tt1.replace(NBSP, ' ').includes(x)), tt1.replace(/\n/g, ' / '));
+    const tt1 = (await page.evaluate(() => (document.querySelector('.tooltip.on') || {}).innerText || '')).replace(NBSP, ' ');
+    const tt1Money = await page.evaluate(() => !!document.querySelector('.tooltip.on .money'));
+    const want1 = boardTipWant(o);
+    check('M-prep', `D150 item 14: an offer's tooltip in three sentences ("${want1.join(' ... ')}"), the gold in coins; no sites, refund or key lines`, want1.every((x) => tt1.includes(x)) && tt1Money && !/Sites:|refunded|Click or press/.test(tt1), tt1.replace(/\n/g, ' / '));
     const spy = pv.options.find((x) => x.id === 'prep_tracker');
     await page.locator('#prep .pp-opt[data-id="prep_tracker"]').hover(); await page.waitForTimeout(80);
     const tt2 = await page.evaluate(() => (document.querySelector('.tooltip.on') || {}).innerText || '');
@@ -5025,6 +5036,13 @@ async function partT(browser, W, H) {
       const camp = await page.evaluate(() => ({ board: window.__ui.view().prep.board.length, cards: [...document.querySelectorAll('#prep .pp-card')].map((b) => b.dataset.zone), shop: (document.querySelector('#prep .pp-shop .pp-lab') || {}).textContent || null, sub: !!document.querySelector('#prep .pp-shop .pp-sub'), rl: !!document.querySelector('#prep .pm-rl') }));
       check('D150-15', 'the first run\'s start camp: one contract card, of zone 1 (R.prepView); the heading "Supplies", no subline; no "Unspent ... Echoes" line', camp.board === 1 && camp.cards.length === 1 && camp.cards[0] === '1' && camp.shop === 'Supplies' && !camp.sub && !camp.rl, JSON.stringify(camp));
       await shot(page, 'T1-camp');
+      // D150 item 14: the offer's tooltip in three sentences
+      const o1 = await page.evaluate(() => window.__ui.view().prep.board[0]);
+      await page.locator('#prep .pp-card').first().hover(); await page.waitForTimeout(150);
+      const ot = await page.evaluate(() => { const t = document.querySelector('.tooltip.on'); return t ? { text: t.innerText.replace(/\u00a0/g, ' '), money: !!t.querySelector('.money') } : null; });
+      await page.mouse.move(2, 2); await page.waitForTimeout(100);
+      const ow = boardTipWant(o1);
+      check('D150-14', `the first run's offer tooltip: "${ow.join(' ... ')}" (gold in coins); no sites, refund or key lines`, !!ot && ow.every((x) => ot.text.includes(x)) && ot.money && !/Sites:|refunded|Click or press/.test(ot.text), JSON.stringify(ot));
       const furnaceBefore = []; let furnaceAt = null; let hub = null; let map = null; let engage = null; let elite = null; let elite2 = null; let stopped = null; let map2 = null;
       let g15 = null; // D150 (Lead): a key refused for lack of resource while G15 is open shows its line, no toast
       for (let i = 0; i < 320; i++) {
@@ -5159,6 +5177,9 @@ async function partT(browser, W, H) {
       check('D150-1', `the Furnace stays hidden in the guided run until its coach line has shown (${furnaceBefore.length} steps before it)`, furnaceBefore.length > 0 && furnaceBefore.every((x) => !x.on), JSON.stringify(furnaceBefore.filter((x) => x.on).slice(0, 4)));
       check('D150-1', `with its line (${furnaceAt && furnaceAt.coach}) the Furnace shows, ringed, its one line "${furnaceAt && furnaceAt.want}" (heatView), no title, no pay line, no names on the bar`,
         !!furnaceAt && furnaceAt.on && furnaceAt.anchor && furnaceAt.line === furnaceAt.want && furnaceAt.row2 === 0 && furnaceAt.segText === '' && !/Furnace|Boss \+0|pays|Dimming/.test(furnaceAt.line), JSON.stringify(furnaceAt));
+      // Lead 2026-11-14: H16 at G5's moment and never both: the guided run shows G5 at the first hub, H16 never
+      const log1 = (await coach(page)).log;
+      check('D150-H16', 'the guided run: G5\'s line at the first hub, H16 never (G5 stands in for it)', !!furnaceAt && furnaceAt.coach === 'G5' && furnaceAt.phase === 'ZONE_HUB' && !log1.some((x) => x.id === 'H16'), JSON.stringify({ at: furnaceAt && { coach: furnaceAt.coach, phase: furnaceAt.phase }, h16: log1.filter((x) => x.id === 'H16') }));
       check('D150-22', `the first hub's Trainer, nothing to teach (R.trainerView next ${hub && hub.tv && hub.tv.next}): greyed, "Next spell at level N.", no toll, a click spends nothing; no "Tolls so far"`,
         !!hub && hub.off && hub.meta === `Next spell at level ${hub.tv.next}.` && hub.toll === false && hub.click.log === hub.log && hub.click.phase === 'ZONE_HUB' && !hub.click.node && !/Tolls so far/.test(hub.foot), JSON.stringify(hub && { ...hub, words: undefined }));
       check('D150-9', 'the map: no Moves panel, no "zone toll", no toll counter in the tracker', !!map && map.m.moves === 0 && !/zone toll/.test(map.m.sub) && !/Tolls:|par\b/.test(map.m.tracker), JSON.stringify(map && map.m));
@@ -5184,7 +5205,7 @@ async function partT(browser, W, H) {
       const g15Want = fillLine(T.beats.find((b) => b.id === 'G15').byClass.rogue, {}).text;
       check('D150-G15', `a bar key refused for its energy while G15 is open: G15's line on the coach line ("${g15Want}"), ringing the resource bar; no refusal toast; nothing sent`,
         !!g15 && !!g15.shown && g15.shown.id === 'G15.rogue' && g15.shown.text === g15Want && g15.ring && !g15.toasts.some((x) => /^Not enough/.test(x)) && g15.sent === 0, JSON.stringify(g15));
-      check('D150-2', `Gorrak's engage round: the turn prompt says it once, "${pWant}" (windupView), tagged Deathblow`, !!elite && elite.prompt === pWant && /^Deathblow · R1$/.test(elite.tag), JSON.stringify(elite && { prompt: elite.prompt, tag: elite.tag }));
+      check('D150-2', `Gorrak's engage round: the turn prompt says it once, "${pWant}" (windupView), tagged "Deathblow" (no "· R1": the line names its round)`, !!elite && elite.prompt === pWant && elite.tag === 'Deathblow', JSON.stringify(elite && { prompt: elite.prompt, tag: elite.tag }));
       check('D150-2', 'no Deathblow box in the engage panel, no "how to stop it" on the cards (the Sap card keeps its crimson mark), no answers or estimate over Gorrak; no "Sap, then wait" or "Pass X" on the panel, the nameplates, the target frame or the Furnace',
         !!elite && elite.egDb === 0 && elite.sapMark && elite.wubAns === 0 && /^Deathblow R\d MAIMS if it lands$/.test(elite.wub || '') && !/then wait|Answer:|Wait:|Sap now|Pass X/.test(elite.rest), JSON.stringify(elite && { egDb: elite.egDb, sapMark: elite.sapMark, wub: elite.wub, wubAns: elite.wubAns, rest: elite.rest.slice(0, 600) }));
       const p2Want = elite2 && elite2.w ? `Round ${elite2.w.round}: ${elite2.w.name}, about ${elite2.w.est}. Pass X. Attacking breaks Sap.` : null;
@@ -5275,6 +5296,23 @@ async function partT(browser, W, H) {
       await shot(page, 'T2-trainer');
     } catch (e) { await shot(page, 'T2-error'); check('T-2', 'part T2 (not guided) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('T-2', 'part T2: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- T3: the guide off, hints on (Lead 2026-11-14): H16 at the first hub, G5's moment, on the Furnace; no G5
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=7&speed=instant&prep=1&fresh=1', null, { hints: true });
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      for (let i = 0; i < 3 && (await coach(page)).shown; i++) { await page.locator('#coach .co-ok').click(); await idle(page); } // the camp's H23
+      await page.locator('#pp-go').click(); await idle(page);
+      await page.waitForFunction(() => window.__ui.view().phase === 'ZONE_HUB', null, { timeout: 8000 }).catch(() => null);
+      await page.mouse.move(2, 2); await page.waitForTimeout(150);
+      const h16 = await page.evaluate(() => { const v = window.__ui.view(); const c = window.__ui.coach(); const on = document.querySelector('.coach-on'); return { phase: v.phase, tutorial: !!(v.tutorial && v.tutorial.on), shown: c.shown, ring: on ? on.id : null, g5: c.log.some((x) => x.id === 'G5') }; });
+      const want16 = T.hints.find((x) => x.id === 'H16').line;
+      await shot(page, 'T3-h16-hub');
+      check('D150-H16', `the guide off, hints on: at the first hub H16's line ("${want16}"), ringing the Furnace; no G5`, h16.phase === 'ZONE_HUB' && !h16.tutorial && !!h16.shown && h16.shown.id === 'H16' && h16.shown.text === want16 && h16.ring === 'heat' && !h16.g5, JSON.stringify(h16));
+    } catch (e) { await shot(page, 'T3-error'); check('T-3', 'part T3 (H16 at the hub) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('T-3', 'part T3: no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
   }
   console.log(`      part T word counts (${SIZE}): ${JSON.stringify(T_WORDS)}`);

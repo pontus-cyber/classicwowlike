@@ -14,7 +14,7 @@ const C = await import('../../src/constants.js');
 const { CONTENT } = await import('../../src/content/index.js');
 const { standText, bossShown, heatToast, costText, stateRows, FURNACE_LINE } = await import('../../src/ui/heat.js');
 const { deathblowPrompt, answersToShow, stoppedText } = await import('../../src/ui/tracks.js');
-const { engageText, sapWaitText, oathEffect } = await import('../../src/ui/ui-text.js');
+const { engageText, sapWaitText, oathEffect, META_KIND } = await import('../../src/ui/ui-text.js');
 const { trainerIdle, trainerMeta } = await import('../../src/ui/screens.js');
 const { createBridge } = await import('../../src/ui/engine-bridge.js');
 const { KEYS, rawLine, lineParts, MAP_LINES } = await import('../../src/ui/onboarding.js');
@@ -153,4 +153,9 @@ test('engine-2026-11-14d section 7: the draft fight beats G14-G17 have their lin
   assert.equal(text(parts), 'Press Tab or click an enemy to choose your target.');
   assert.deepEqual(parts.filter((x) => typeof x !== 'string').map((x) => x.key), ['Tab'], 'one key chip');
   for (const id of ['G14', 'G15.rogue', 'G16', 'G17']) assert.ok(!MAP_LINES.has(id), `${id} is a fight line`);
+});
+
+test('naming rule (Lead 2026-11-14): the Hall files the revive unlocks under "Revives"; the item is the Ember of Return', () => {
+  assert.equal(META_KIND.resurrect[0], 'Revives');
+  assert.ok(!Object.values(META_KIND).some(([t, line]) => /Resurrect/.test(`${t} ${line}`)));
 });
