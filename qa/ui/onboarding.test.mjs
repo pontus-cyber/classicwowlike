@@ -2,14 +2,18 @@
 // showings (a hint counts as seen at its ONB_HINT_SHOWS-th showing, however short each was), keeps them and H31's counters
 // across a reload, and Reset hints clears them; the key chips follow the view: G3's key is the first bar spell that can be
 // cast now (QA playtest 2026-11-13 finding 5: a Rogue with Severing Flourish, a finisher, in slot 1), and the Mage's
-// Pre-cast names Q, then the spell's bar key (finding 4).
+// Pre-cast names Q, then the spell's bar key (finding 4). D147 (docs/handoffs/engine-2026-11-14.md section 6, UI needs 1-2):
+// the bridge passes guideSkipped's `why` and `rescues` (the real bridge in Node, driven to the ONB_RESCUE_MAX-th rescue), the
+// rescue cap's line in place of the skip line, and G8's joint line with G7: its text and the two hints it stands in for.
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 // a localStorage for Node: the store reads and writes tbwcr.hints.v2
 const mem = new Map();
 globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => { mem.set(k, String(v)); }, removeItem: (k) => { mem.delete(k); } };
-const { hints, HINTS_KEY, KEYS, lineParts, lineKeys, attackSlot, rawLine } = await import('../../src/ui/onboarding.js');
+const { hints, HINTS_KEY, KEYS, lineParts, lineKeys, attackSlot, rawLine, lineHints, LINE_BEATS, guideSkippedLine, SKIP_LINE } = await import('../../src/ui/onboarding.js');
+const { createBridge } = await import('../../src/ui/engine-bridge.js');
+const R = await import('../../src/rules.js');
 const { CONTENT } = await import('../../src/content/index.js');
 const C = await import('../../src/constants.js');
 
@@ -121,4 +125,48 @@ test('D142 (4a): the Mage\'s Pre-cast names Q, then its spell\'s bar key; a line
 
 test('lineParts: numbers from num, unknown placeholders stay visible', () => {
   assert.equal(text(lineParts('Deathblow on turn {deathblowTurn}: {nope}', { deathblowTurn: 2 })), 'Deathblow on turn 2: {nope}');
+});
+
+test('D147 (UI need 2): G8\'s joint line names W, fits a line, and stands in for H01 and H03; every other line for its own beat\'s hint', () => {
+  const T = CONTENT.tutorial;
+  const parts = lineParts(rawLine(T, 'G8.withEngage', 'rogue'), {}, KEYS);
+  assert.equal(text(parts), 'Round 1 is yours: open with W on the wind-up and it is weakened all fight.');
+  assert.deepEqual(chips(parts), [KEYS.key_engage2], 'the key chip is the control option\'s key, W');
+  assert.ok(text(parts).length <= C.ONB_HINT_MAX_CHARS);
+  assert.deepEqual(Object.keys(LINE_BEATS), ['G8.withEngage']);
+  assert.deepEqual(lineHints('G8', 'G8.withEngage'), ['H01', 'H03'], 'both beats count as shown (spec 2.8 item 2)');
+  assert.deepEqual([lineHints('G8', 'G8'), lineHints('G8', 'G8.landed'), lineHints('G8')], [['H03'], ['H03'], ['H03']], 'G8\'s own lines: H03 only');
+  assert.deepEqual([lineHints('G7', 'G7'), lineHints('G7')], [['H01'], ['H01']]);
+  assert.deepEqual([lineHints('G13', 'G13.closed'), lineHints('G3', 'G3')], [[], []], 'the closed line and a beat with no hint: none');
+  // the joint line's hints are seen as one: two showings make both seen (H01 per class), and a mark marks each
+  for (const k of lineHints('G8', 'G8.withEngage').map((id) => (id === 'H01' ? 'H01:mage' : id))) { hints.noteShown(k); hints.noteShown(k); }
+  assert.deepEqual([hints.seen('H01:mage'), hints.seen('H03'), hints.seen('H01:rogue')], [true, true, false]);
+});
+
+test('D147 (UI need 1): the rescue cap\'s line (content guide.rescueCapLine) in place of the skip line; Skip guide keeps the skip line', () => {
+  const T = CONTENT.tutorial;
+  assert.equal(T.guide.rescueCapLine, 'That was the last rescue: the guide ends here, and from now on a death ends the run.');
+  assert.equal(guideSkippedLine({ t: 'guideSkipped', why: 'rescues', rescues: C.ONB_RESCUE_MAX }, T), T.guide.rescueCapLine);
+  assert.equal(guideSkippedLine({ t: 'guideSkipped', why: null, rescues: null }, T), SKIP_LINE);
+  assert.equal(guideSkippedLine({ t: 'guideSkipped' }, T), SKIP_LINE, 'the SKIP_GUIDE action has no why');
+  assert.ok(!/skip the guide/i.test(T.guide.rescueCapLine));
+});
+
+test('D147 (UI need 1): the bridge passes guideSkipped\'s why and rescues: the ONB_RESCUE_MAX-th rescue of a guided run, seed 8736', () => {
+  assert.equal(C.ONB_RESCUE_MAX, 3);
+  const b = createBridge({ seed: 8736 }); // a new profile in Node: the guided first run (no ?guide=0)
+  b.dispatch({ type: 'START_RUN' });
+  assert.ok(b.view.tutorial && b.view.tutorial.on, 'a guided run');
+  for (let i = 0; i < 80 && !(b.view.combat && !b.view.combat.over && b.view.node && b.view.node.step === 'combat'); i++) assert.ok(b.dispatch({ type: 'AUTO' }).ok);
+  assert.ok(b.view.combat && b.view.tutorial.guidedZone, 'a fight in the guided zone');
+  // two rescues behind, 1 HP: the next death is the third rescue
+  const s0 = R.deserialize(b.serialized(), CONTENT); s0.player.hp = 1; s0.tutorial.rescues = C.ONB_RESCUE_MAX - 1;
+  b.testLoad(R.serialize(s0));
+  let ev = [];
+  for (let k = 0; k < 10 && !ev.some((e) => e.t === 'guideSkipped'); k++) ev = b.dispatch({ type: 'PASS' }).events;
+  const kinds = ev.map((e) => e.t);
+  assert.deepEqual(ev.find((e) => e.t === 'guideSkipped'), { t: 'guideSkipped', why: 'rescues', rescues: C.ONB_RESCUE_MAX });
+  assert.ok(kinds.indexOf('rescue') >= 0 && kinds.indexOf('rescue') < kinds.indexOf('guideSkipped'), `the rescue first: ${kinds}`);
+  assert.deepEqual([b.view.tutorial.skipped, b.view.tutorial.rescues, b.view.player.hp === b.view.player.maxHp], [true, C.ONB_RESCUE_MAX, true]);
+  assert.equal(guideSkippedLine(ev.find((e) => e.t === 'guideSkipped'), CONTENT.tutorial), CONTENT.tutorial.guide.rescueCapLine);
 });
