@@ -635,7 +635,11 @@ costs TIME_DIM_ESCAPE 1 toll (rules 1.9.6), every other one TIME_DIM_FIGHT.
     then floor(frontHops × (zt - grace) / frontTime)), nextIn (tolls until the front moves: dimAt(front + 1) - zt, at
     least 1), off (D50: a run without the Dimming; then front -1 and nextIn, every node's dimsIn and dimAt are Infinity),
     (M3 v2, D152) steady (C.GATES.steadyDim: the schedule of rules 1.9.6), maxPerToll (DIM_MAX_PER_TOLL; null when steady
-    is off), nextIn (steady: tolls until the next node dims, the smallest dimAt - zt above 0, Infinity when none), nextCount
+    is off; newcomer check 2026-11-15: the most nodes that can dim in one toll after now, expedition.js `paceBound`:
+    DIM_MAX_PER_TOLL, more in the guided zone where the corridor's release comes on top of the schedule, its peak once
+    released and the worst release clock still possible while held, so the tooltip's "at most {maxPerToll}" holds for the
+    rest of the zone; the tester read "at most 2" and then "3 places" in one toll), cap ((2026-11-15) DIM_MAX_PER_TOLL, the
+    schedule's own pace; null when steady is off), nextIn (steady: tolls until the next node dims, the smallest dimAt - zt above 0, Infinity when none), nextCount
     (nodes that dim then; 0 when none), count (nodes Dimmed now), total (the zone's nodes), shift (zone.dimShift: tolls the
     guided rescues paused or pushed back the Dimming; 0 elsewhere); front and frontTime (DIM_FRONT_TIME 4; DIM_FRONT_TIME_NOCAP
     5 with the switch off) are for display and the tooltip. The panel reads "Spreads in {nextIn} tolls: {nextCount} places" },

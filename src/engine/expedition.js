@@ -27,7 +27,7 @@ import {
   VISION_RADIUS_MAX, GUIDE_RADIUS_BONUS, PATHFINDER_RADIUS, DIM_GRACE, DIM_FRONT_HOPS, DIM_FRONT_TIME, TIME_DIM_FIGHT, TIME_DIM_ESCAPE, BELL_CHANNEL_TIME,
   XP_WEIGHT_MULT, EXPED_GRIND_MAX_WAVES, EXPED_DUNGEON_TRASH_FIGHTS, EXPED_TIME_QUEST, EXPED_TIME_ELITE,
   EXPED_TIME_GRIND_WAVE, EXPED_TIME_DUNGEON, EXPEDITION_TEXT_IDS, EXPED_DROP_MULT, EXPED_DUNGEON_BOSS_DROPS, DUNGEON_BOSS_DROPS,
-  ROAD_SWIFT_TOLLS, ROAD_SWIFT_XP_FRAC, GATES, TUTORIAL_SEED, DIM_FRONT_TIME_NOCAP, DIM_MAX_PER_TOLL,
+  ROAD_SWIFT_TOLLS, ROAD_SWIFT_XP_FRAC, GATES, TUTORIAL_SEED, DIM_FRONT_TIME_NOCAP, DIM_MAX_PER_TOLL, ONB_HOLD_RELEASE,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt, weightedIndex } from '../rng.js';
 import { rnd } from './util.js';
@@ -405,6 +405,47 @@ export function nextDim(zone, zt) {
   }
   return { nextIn, nextCount };
 }
+/** The most values that are equal in `times` (0 for none). */
+function peakCount(times) {
+  const seen = new Map();
+  let top = 0;
+  for (const x of times) {
+    const k = (seen.get(x) || 0) + 1;
+    seen.set(x, k);
+    if (k > top) top = k;
+  }
+  return top;
+}
+/**
+ * The most nodes that can dim in one toll after zone time zt (newcomer check 2026-11-15, s0055 "at most 2 places a toll"
+ * vs s0128 "Spreads in 1 toll: 3 places"; mapView `dim.maxPerToll`, the tooltip's {maxPerToll}). The schedule keeps
+ * DIM_MAX_PER_TOLL a toll, but the guided corridor's release comes on top of it (tutorial.js refreshOverlay: corridor node
+ * i dims at max(dimAtHops(hops), c + ONB_HOLD_RELEASE + i), c the Dimming's clock at the release): once released, the
+ * peak of the tolls still to come; while held, the peak over every release clock still possible (the clock never runs
+ * back), so the number is true for the rest of the zone. At least DIM_MAX_PER_TOLL; DIM_MAX_PER_TOLL without a schedule.
+ * Every value on the Dimming's clock (dimClock): a rescue's shift moves every node alike. Read-only, no draw.
+ */
+export function paceBound(zone, zt) {
+  if (zone.dimOff || !zone.dimBase) return DIM_MAX_PER_TOLL;
+  const H = zone.hold;
+  const c = dimClock(zone, zt);
+  const base = [];
+  for (const n of zone.nodes) {
+    if (H && H.ids.includes(n.id)) continue;
+    const b = zone.dimBase[n.id];
+    if (b !== null && b > c) base.push(b);
+  }
+  let top = peakCount(base);
+  if (H && H.release !== null) top = peakCount([...base, ...H.ids.map((id) => H.at[id]).filter((x) => x > c)]);
+  else if (H) {
+    const order = H.ids.slice().sort((a, b) => zone.shardDist[a] - zone.shardDist[b] || a - b);
+    const hopsAt = order.map((id) => dimAtHops(zone.shardDist[id]));
+    // past the last of these the corridor's nodes dim one a toll, after the rest: nothing more can meet
+    const last = Math.max(c, ...base, ...hopsAt);
+    for (let r = c; r <= last; r++) top = Math.max(top, peakCount([...base, ...hopsAt.map((h, i) => Math.max(h, r + ONB_HOLD_RELEASE + i))]));
+  }
+  return Math.max(DIM_MAX_PER_TOLL, top);
+}
 // ---------------- Swift passage (rules 1.9.7; M2b v15 row 2, D124) ----------------
 /**
  * XP a Road taken now grants (rules 1.9.7, expedition.md 7.1): round(ROAD_SWIFT_XP_FRAC × xpToNext(L)) while the zone time
@@ -590,7 +631,9 @@ export function expMapView(s) {
       // D152 (changes-m3-v2.md 3.3): steady (GATES.steadyDim: the order, the cap and the depth by time), maxPerToll
       // (DIM_MAX_PER_TOLL; null without the cap), nextCount (nodes that dim in nextIn tolls), count (Dimmed now), total
       // (nodes of the zone), shift (zone.dimShift: tolls of guided rescues the Dimming did not count, 3.4)
-      steady: !!GATES.steadyDim, maxPerToll: GATES.steadyDim ? DIM_MAX_PER_TOLL : null, nextCount,
+      // newcomer check 2026-11-15: maxPerToll is paceBound (DIM_MAX_PER_TOLL, more while the guided corridor's release
+      // can add to a toll), cap the rule's DIM_MAX_PER_TOLL
+      steady: !!GATES.steadyDim, maxPerToll: GATES.steadyDim ? paceBound(zone, zt) : null, cap: GATES.steadyDim ? DIM_MAX_PER_TOLL : null, nextCount,
       count: nodes.filter((x) => x.dimmed).length, total: nodes.length, shift: zone.dimShift || 0,
     },
     regions: regs.map((r, i) => ({ id: i, name: r.name, kind: r.kind, families: r.families.slice() })),

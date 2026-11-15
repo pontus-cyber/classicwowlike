@@ -226,7 +226,7 @@ reported by the validator. Each line <= 140 chars. Group `expedition` (D51; rule
 `shardfall`, `shardspawn`, `dimming` and `homeward_bell` (C.EXPEDITION_TEXT_IDS); the expedition map view returns them
 as `mapView(state).texts`. src/content/texts.js holds the shipped lines. (M3 v2, D152, draft) `dimming_pace`: the Dimming
 tooltip's pace line of the steady Dimming (changes-m3-v2.md 3.3), placeholders the UI fills from `mapView.dim`:
-`{maxPerToll}` (DIM_MAX_PER_TOLL) and `{grace}` (DIM_GRACE).
+`{maxPerToll}` (`mapView.dim.maxPerToll`: DIM_MAX_PER_TOLL, more in the guided zone while its corridor's release can add to a toll; newcomer check 2026-11-15) and `{grace}` (DIM_GRACE).
 
 ```js
 texts: { spells: { ember_bolt: 'A bolt of living ember.' }, talents: { r_a1: '...' }, pets: { ridgewolf: '...' },

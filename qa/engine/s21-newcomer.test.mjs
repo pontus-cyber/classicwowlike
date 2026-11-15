@@ -3,12 +3,14 @@
 // keeps its quest through its reward stage (the finished Rooted Rows node was renamed to the next script's quest), and an
 // unresolved guided node, whose quest is fixed only when it is entered (m3-onboarding.md 2.3), names none; (2) the trainer
 // at a level (R.trainerView(state, level)): one step can give several levels, and each banner reads its own level; (3)
-// Gorrak's name on his node in mapView at any `know`, and a gate line that reads right at one fight left.
+// Gorrak's name on his node in mapView at any `know`, and a gate line that reads right at one fight left; (4) the Dimming's
+// `maxPerToll` is the most one toll can still take (the guided corridor's release counted), `cap` the rule's value.
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as R from '../../src/rules.js';
 import { CONTENT } from '../../src/content/index.js';
 import { trainerUseful } from '../../src/engine/nodes.js';
+import { dimAt, dimClock } from '../../src/engine/expedition.js';
 
 const C = R.C;
 const PET = (c) => (c === 'hunter' ? 'ridgewolf' : null);
@@ -173,5 +175,66 @@ describe('newcomer (3): Gorrak is named on his node; the gate line reads right f
     for (let i = 0; i < 4000 && !(s.zone && s.zone.z === 2 && s.phase === 'MAP'); i++) s = R.step(s, R.autoAction(s)).state;
     assert.equal(s.zone.z, 2);
     assert.ok(R.mapView(s).nodes.every((n) => n.name == null || n.type === 'dungeon'));
+  });
+});
+
+describe('newcomer (4): the Dimming tooltip\'s "at most {maxPerToll} places a toll" holds for the rest of the zone (s0055, s0128)', () => {
+  /** Nodes that dim in each toll after Dimming clock c, on the final state's schedule: the most in one toll. */
+  const peakAfter = (zone, c) => {
+    const at = zone.nodes.map((n) => dimAt(zone, n.id) - (zone.dimShift || 0)).filter((x) => x > c && x !== Infinity);
+    const k = {};
+    for (const x of at) k[x] = (k[x] || 0) + 1;
+    return Math.max(0, ...Object.values(k));
+  };
+
+  test('autoplay, every class, first run and replay: nextCount never exceeds maxPerToll, the bound read at any toll holds for the zone\'s rest, and the old cap did not', () => {
+    let over = 0;
+    for (const classId of C.CLASS_IDS) {
+      for (const replay of [false, true]) {
+        let s = guidedRun(classId, 4, replay);
+        if (replay) for (const a of [{ type: 'START_RUN' }, { type: 'TAKE_CONTRACT', index: 0 }]) s = R.step(s, a).state;
+        const reads = []; // [zone, Dimming clock, maxPerToll] at each map state
+        let last = null;
+        for (let i = 0; i < 5000 && s.phase !== 'ENDED' && !(s.zone && s.zone.z === 3); i++) {
+          if (s.phase === 'MAP' && s.zone && !s.zone.camp) {
+            const d = R.mapView(s).dim;
+            assert.ok(d.nextCount <= d.maxPerToll, `${classId} z${s.zone.z} zt ${R.mapView(s).zt}: ${d.nextCount} > ${d.maxPerToll}`);
+            assert.equal(d.cap, C.DIM_MAX_PER_TOLL);
+            if (!s.zone.hold) assert.equal(d.maxPerToll, C.DIM_MAX_PER_TOLL, 'no corridor: the cap');
+            if (s.zone.z === 1) { reads.push([dimClock(s.zone, R.mapView(s).zt), d.maxPerToll]); last = s.zone; }
+          }
+          s = R.step(s, R.autoAction(s)).state;
+        }
+        // the schedule zone 1 really kept (its release fixed by the end): no toll after a read took more than it said
+        for (const [c, b] of reads) {
+          const p = peakAfter(last, c);
+          assert.ok(p <= b, `${classId}: ${p} in one toll after clock ${c}, read ${b}`);
+          if (p > C.DIM_MAX_PER_TOLL) over++;
+        }
+      }
+    }
+    assert.ok(over > 0, 'the corridor\'s release took more than DIM_MAX_PER_TOLL in a toll (the tester\'s 3)');
+  });
+
+  test('while the corridor is held the bound covers a release at any later toll, and is reached by one', () => {
+    let s = guidedRun('mage', 5);
+    for (const a of [{ type: 'START_RUN' }, { type: 'SET_OUT' }, { type: 'LEAVE_HUB' }]) s = R.step(s, a).state;
+    const b = R.mapView(s).dim.maxPerToll;
+    const c0 = dimClock(s.zone, R.mapView(s).zt);
+    assert.ok(b > C.DIM_MAX_PER_TOLL && R.tutorialView(s).hold.released === false, `held: ${b}`);
+    let top = 0;
+    for (let k = 0; k <= 30; k++) {
+      // k tolls later (the clock only; nothing else is spent), the guide ends: the release happens at that clock
+      const x = copy(s);
+      x.time += k;
+      const r = R.step(x, { type: 'SKIP_GUIDE' }).state;
+      assert.equal(R.tutorialView(r).hold.released, true, `k ${k}`);
+      const p = peakAfter(r.zone, c0);
+      assert.ok(p <= b, `release ${k} tolls on: ${p} in one toll, bound ${b}`);
+      top = Math.max(top, p);
+      // once released, the bound is the remaining schedule's own peak (at least the cap)
+      assert.equal(R.mapView(r).dim.maxPerToll, Math.max(C.DIM_MAX_PER_TOLL, peakAfter(r.zone, dimClock(r.zone, R.mapView(r).zt))));
+    }
+    assert.equal(top, b, 'the bound is reached by a release still possible');
   });
 });
