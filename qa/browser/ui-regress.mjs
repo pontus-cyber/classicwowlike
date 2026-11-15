@@ -1604,11 +1604,23 @@ async function hoverHeat(page, locator) {
  * +35 % XP and gold, 1 in 2 drops a rarity up."); no "ends Smouldering", no "Pays Calm: no reward", no "Then ...". The ghost
  * marker on the meter stays (no words on the meter).
  */
+/**
+ * The cost line of a preview p (heat.js costText): engine-2026-11-15 UI need 5, a Dimmed encounter after the action's own
+ * tolls (heatPreview parts) splits the sum: "Costs 5 tolls: 3 for the quest, +2 for a fight in the Dimming (it dims before you
+ * finish)."; else "Costs N tolls[ a wave][, then a fight in the Dimming]."
+ */
+const COST_WORD = { walk: 'the walk', pass: 'passing through', travel: 'the Road', bell: 'the Bell', trainer: 'the trainer', vendor: 'the vendor', inn: 'the inn', grind: 'the wave' };
+function wantCost(p) {
+  const parts = p.parts || []; const dim = parts.find((x) => x.why === 'dimFight'); const own = parts.filter((x) => x.why !== 'dimFight');
+  const n = own.reduce((a, x) => a + x.tolls, 0);
+  if (dim && own.length && n > 0 && !p.perWave) return `Costs ${tolls(p.time)}: ${n} for ${COST_WORD[own[0].why] || `the ${own[0].why}`}, +${dim.tolls} for a fight in the Dimming${COST_WORD[own[0].why] ? '' : ' (it dims before you finish)'}.`;
+  return `Costs ${tolls(p.time)}${p.perWave ? ' a wave' : ''}${p.dimFight ? ', then a fight in the Dimming' : ''}.`;
+}
 function previewDiff(r, p, opts = {}) {
   const out = [];
   if (!r.tip) return ['no heat block in the tooltip'];
   const head = r.tip[0];
-  const wantHead = `Costs ${tolls(p.time)}${p.perWave ? ' a wave' : ''}${p.dimFight ? ', then a fight in the Dimming' : ''}.`;
+  const wantHead = wantCost(p);
   if (head !== wantHead) out.push(`head "${head}" (want "${wantHead}")`);
   const wantBonus = p.pays && payTxt(p.pays, false) ? `${HNAME[p.pays]} bonus: ${payTxt(p.pays, false)}.` : null;
   if ((r.tip[1] || null) !== wantBonus || r.tip.length > (wantBonus ? 2 : 1)) out.push(`lines ${JSON.stringify(r.tip)} (want the bonus "${wantBonus}")`);
@@ -4561,7 +4573,7 @@ async function partS(browser, W, H) {
         && !!closed.roadTip && closed.roadTip.includes(T.beats.find((b) => b.id === 'G13').alt.closed), JSON.stringify(closed && { want: closed.want, marks: closed.marks, tip: closed.roadTip }));
       check('D143-1', 'the closed line shown and put away does not count for the Bell\'s hint H19 (no showing, not seen)', !!closed && !closed.h19.seen && closed.h19.shows === 0, JSON.stringify(closed && closed.h19));
       check('D143-1', `a toast when the Roads open ("${T.guide.roadsOpenLine}")`, Array.isArray(roadsOpened) && roadsOpened.some((x) => x.startsWith(T.guide.roadsOpenLine)), JSON.stringify(roadsOpened));
-      check('S-3', `Gorrak's barred node next to the player has a tooltip: Elite, "${DB_LINE}" (D150 item 23), the gate line, no "Click to enter", no "Not here yet.", no error`, !!barredTip && !!barredTip.text && /^Elite/.test(barredTip.text) && barredTip.text.includes(DB_LINE) && barredTip.text.includes('Gorrak is out on the downs') && !/Click to enter|Not here yet/.test(barredTip.text) && barredTip.errors === 0, JSON.stringify(barredTip));
+      check('S-3', `Gorrak's barred node next to the player has a tooltip: titled "Gorrak the Fieldbreaker" (mapView name; engine-2026-11-15 UI need 3), "${DB_LINE}" (D150 item 23), the gate line, no "Click to enter", no "Not here yet.", no error`, !!barredTip && !!barredTip.text && /^Gorrak the Fieldbreaker/.test(barredTip.text) && barredTip.text.includes(DB_LINE) && barredTip.text.includes('Gorrak is out on the downs') && !/Click to enter|Not here yet/.test(barredTip.text) && barredTip.errors === 0, JSON.stringify(barredTip));
       check('S-5', 'the Furnace header fits its frame when the Dimming sets the state: "State · The Dimming is near" or "Infernal · You stand in the Dimming" (D152; newcomer check 2026-11-15)', !!furnace && furnace.sw <= furnace.cw + 1 && furnace.inside && /^(Calm|Smouldering|Burning|Infernal)\s*·\s*(The Dimming is near|You stand in the Dimming)/i.test(furnace.text) && !/to spare|overspent/.test(furnace.text), JSON.stringify(furnace));
       check('S-9', 'a reward that is an upgrade offers "Equip now": one click sends CHOOSE_REWARD then EQUIP of that item, and it is worn', !!eqNow && eqNow.acts.length === 2 && /^CHOOSE_REWARD/.test(eqNow.acts[0]) && eqNow.acts[1] === `EQUIP:${eqNow.uid}` && eqNow.worn, JSON.stringify(eqNow));
       check('S-10', `no wind-up line over an enemy prints "null" (${wub.length} seen, ${wub.filter((x) => !/Deathblow/.test(x)).length} not a Deathblow, to ${z2Steps} steps into zone 2)`, plainWu() && !wub.some((x) => /null/.test(x)), [...new Set(wub)].slice(0, 6).join(' | '));
@@ -6014,7 +6026,7 @@ async function partW(browser, W, H) {
         await shot(page, 'W3-bell-ask');
         await page.getByRole('button', { name: 'Stay' }).click(); await idle(page);
       }
-      const bw = ask && ask.p ? `Costs ${tolls(ask.p.time)}${ask.p.dimFight ? ', then a fight in the Dimming' : ''}.` : null;
+      const bw = ask && ask.p ? wantCost(ask.p) : null;
       check('D150-s7', `the Bell's ask names its tolls and any fight first (heatView RING_BELL: "${bw}"), as its tooltip does`, !!bw && !!ask.text && ask.text.includes(bw), JSON.stringify(ask));
       check('D152-bell', 'a later run (runs 2): the Bell in zone 1, its tooltip clear of the map\'s side panels; the contract tracker is there', n === 1 && tipShown && over === 0 && cv, JSON.stringify({ n, tipShown, over, cv }));
     } catch (e) { await shot(page, 'W3-error'); check('W-3', 'part W3 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }

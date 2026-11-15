@@ -67,3 +67,35 @@ test('the Furnace while the Dimming sets the state: the line says why, the toolt
   assert.match(dimTipLine({ heat: -3, dimIn: 1 }), /^Your node dims in 1 toll\. Tolls: 3 to spare\./);
   assert.ok(DIM_MARK_LINE.startsWith('◆'));
 });
+
+test('engine-2026-11-15 UI needs 5 and 8: the cost line split by heatPreview parts; the carry line', async () => {
+  const { costText, carryLine } = await import('../../src/ui/heat.js');
+  assert.equal(costText({ time: 5, dimFight: true, parts: [{ why: 'quest', tolls: 3 }, { why: 'dimFight', tolls: 2 }] }), 'Costs 5 tolls: 3 for the quest, +2 for a fight in the Dimming (it dims before you finish).');
+  assert.equal(costText({ time: 2, dimFight: true, parts: [{ why: 'walk', tolls: 1 }, { why: 'dimFight', tolls: 1, escape: true }] }), 'Costs 2 tolls: 1 for the walk, +1 for a fight in the Dimming.');
+  assert.equal(costText({ time: 3, parts: [{ why: 'quest', tolls: 3 }] }), 'Costs 3 tolls.');
+  assert.equal(carryLine({ carry: { cumulative: true, carried: 3, share: 20 } }), 'Tolls carry over: 3 overspent before this zone, which adds 20.');
+  assert.equal(carryLine({ carry: { cumulative: true, carried: -4, share: 20 } }), 'Tolls carry over: 4 saved before this zone, which adds 20.');
+  assert.equal(carryLine({ carry: { cumulative: true, carried: 0, share: 20 } }), '');
+  assert.equal(carryLine({}), '');
+});
+
+test('engine-2026-11-15 UI needs 2 and 6 through the bridge: each levelUp event carries the trainer as at that level; the talent rule numbers', async () => {
+  mem.clear();
+  const { createBridge } = await import('../../src/ui/engine-bridge.js');
+  const C = await import('../../src/constants.js');
+  const b = createBridge({});
+  assert.equal(b.data.rules.talentFirst, C.TALENT_FIRST_LEVEL);
+  assert.equal(b.data.rules.talentStep, C.TALENT_LEVEL_STEP);
+  assert.ok(CONTENT.texts.progress.talent_points.includes('{first}'));
+  b.dispatch({ type: 'START_RUN' });
+  const ups = [];
+  for (let i = 0; i < 400 && ups.length < 6 && b.view.phase !== 'SUMMARY'; i++) {
+    const r = b.dispatch({ type: 'AUTO' }); if (!r.ok) break;
+    for (const e of r.events) if (e.t === 'levelUp') ups.push(e);
+  }
+  assert.ok(ups.length >= 3, `level-ups seen: ${ups.length}`);
+  for (const e of ups) {
+    assert.ok(e.trainer, `level ${e.level}: a trainer view`);
+    for (const x of e.trainer.learn || []) assert.ok(C.SPELL[x.id].lvl <= e.level, `level ${e.level} banner names ${x.id} (level ${C.SPELL[x.id].lvl})`);
+  }
+});

@@ -182,7 +182,12 @@ export function createWindows(root, ctx) {
         }
         trees.appendChild(h('div.tree', { dataset: { spent }, style: { background: `radial-gradient(ellipse at 50% 0%, ${bgc[0]}, ${bgc[1]} 80%)` } }, h('div.th', h('div.title', treeName)), tiers));
       }
-      const foot = h('div.talfoot', h('span', 'Unspent points: ', h('b', String(p.talentPoints))), h('span.muted', p.level < 10 ? 'Talents unlock at level 10.' : 'One point every 2 levels. Reset at a trainer.'));
+      // engine-2026-11-15 UI need 6 (newcomer check s0108): the rule line is content's (texts.progress), filled from the engine
+      const ru = ctx.data.rules || {}; const first = ru.talentFirst ?? 10; const step = ru.talentStep ?? 2;
+      const pt = (ctx.data.content && ctx.data.content.texts && ctx.data.content.texts.progress) || {};
+      const fillP = (t) => t.replace('{first}', String(first)).replace('{step}', String(step));
+      const rule = p.level < first ? fillP(pt.talents_locked || 'Talents unlock at level {first}.') : fillP(pt.talent_points || 'One point at level {first}, then one every {step} levels. Reset at a trainer.');
+      const foot = h('div.talfoot', h('span', 'Unspent points: ', h('b', String(p.talentPoints))), h('span.muted', rule));
       return frame('talents', 'Talents', `${p.className} · level ${p.level}`, h('div', trees, foot));
     },
     questlog(v) {

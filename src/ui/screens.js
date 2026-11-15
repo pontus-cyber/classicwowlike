@@ -679,7 +679,7 @@ function buildExpMap(v, ctx, readOnly) {
     const fightLvl = full && n.cl && !n.hub && !NO_FIGHT.has(n.type);
     const shownLvl = nodeLevel(n);
     const el = h(`button.mnode.x-${fog}` + (m ? '.reach' : '') + (n.done && !n.hub ? '.visited' : '') + (here ? '.here' : '') + (n.dimmed ? '.dimmed' : '') + (n.lost ? '.lost' : '') + (type ? '' : '.fog') + (n.hub ? '.xhub' : '') + (n.shardfall ? '.xsf' : '') + (n.road ? '.xrd' : '') + (n.barred ? '.barred' : '') + (n.road && n.closed ? '.rclosed' : '') + (loud ? '' : '.quiet'),
-      { style: { left: `${x / 10}%`, top: `${y / 10}%` }, 'aria-label': `${type ? NODE_NAME[type] || 'Hub' : 'Unknown'} node ${n.id}`, dataset: { node: n.id, fog } },
+      { style: { left: `${x / 10}%`, top: `${y / 10}%` }, 'aria-label': `${n.name && (n.type === 'elite' || !type) ? n.name : type ? NODE_NAME[type] || 'Hub' : 'Unknown'} node ${n.id}`, dataset: { node: n.id, fog } },
       h('div.ring', type ? h('img', { src: nodeIcon(type), alt: '' }) : h('span.fogq', '?')),
       h('div.cl' + (n.know === 'type' ? '.band' : '') + (fightLvl ? '.lvl' : ''), { style: { color: fightLvl ? conColor(shownLvl, p.level) : NEUTRAL } }, label));
     if (here) el.appendChild(flagSvg());
@@ -972,7 +972,9 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
   const box = h('div.tt-node');
   const L = nodeLevel(n); // D144: an elite fights at its own level (mapView `level`), not the node's
   const lvl = full && L && !n.hub ? h('div', { style: { color: NO_FIGHT.has(n.type) ? NEUTRAL : conColor(L, p.level), fontWeight: 800 } }, `Level ${L}`) : null;
-  box.appendChild(h('div.tt-row', h('div.tt-name', n.hub ? z.hubName : type ? NODE_NAME[type] || type : 'Unknown'), lvl));
+  // engine-2026-11-15 UI need 3: a named elite (Gorrak in the guided zone, mapView `name`, unseen too) titles his node
+  const named = n.name && (n.type === 'elite' || !type) ? n.name : null;
+  box.appendChild(h('div.tt-row', h('div.tt-name', n.hub ? z.hubName : named || (type ? NODE_NAME[type] || type : 'Unknown')), lvl));
   const band = mv.bands && mv.bands[n.ring];
   const reg = n.region != null && mv.regions[n.region] ? mv.regions[n.region] : null;
   // D144 (engine-2026-11-13d UI need 9; tactician s0119 "Ring 3 · levels 8-10" and "Level 5"): the ring's band only while the

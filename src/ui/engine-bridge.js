@@ -116,6 +116,8 @@ function rulesTable(K) {
     grindMaxWaves: K.GRIND_MAX_WAVES, grindWaveSize: K.GRIND_WAVE_SIZE, eliteLevelOffset: K.ELITE_LEVEL_OFFSET,
     campGrindLevel: K.CAMP_GRIND_LEVEL, ascStepTime: K.ASC_STEP_TIME, cpMax: K.CP_MAX, potionCd: K.POTION_CD,
     time: { trainer: K.TIME_TRAINER, vendor: K.TIME_VENDOR, inn: K.TIME_REST, travel: K.TIME_TRAVEL, grindWave: K.TIME_GRIND_WAVE },
+    // engine-2026-11-15 UI need 6: the talent window's rule line ({first}, {step} of content texts.progress)
+    talentFirst: K.TALENT_FIRST_LEVEL ?? 10, talentStep: K.TALENT_LEVEL_STEP ?? 2,
     linkPerShard: per ?? null, linkCap: K.LINK_DR, linkDr, shardAoeTaken: K.SHARD_AOE_TAKEN ?? null,
     // Round time budget at the default animation speed (rules 3, M2 v2); null on an engine without it.
     roundAnimMs: K.PACE_ROUND_ANIM_S != null ? K.PACE_ROUND_ANIM_S * 1000 : null,
@@ -1253,7 +1255,8 @@ function engineBackend(seedOpt, runOpts = {}) {
         case 'resurrect': hp.set('player', s.player.hp); out.push({ t: 'resurrect', source: { boon: 'Boon of Return', second_breath: 'Second Breath', ember: 'Ember of Return' }[e.source] || 'A resurrection', hpAfter: s.player.hp, maxHp: s.player.d.maxHp }); break;
         // heat (rules 1.7.3): the extra XP and gold of a node entered Hot or Scorched, carried by the events as `heat`
         case 'xp': if (e.amount > 0) out.push({ t: 'xp', amount: e.amount, rested: e.rested || 0, why: e.why, heat: e.heat || 0 }); break;
-        case 'levelUp': out.push({ t: 'levelUp', level: e.level, talentPoint: !!e.talentPoint, newSpells: Object.values(C.SPELL).filter((sp) => sp.cls === s.player.classId && sp.source === 'class' && sp.lvl === e.level).map((sp) => sp.name), hp: s.player.hp, maxHp: s.player.d.maxHp }); break;
+        // engine-2026-11-15 UI need 2: the trainer's offer as at this level (R.trainerView(state, level)), for its banner
+        case 'levelUp': out.push({ t: 'levelUp', level: e.level, talentPoint: !!e.talentPoint, trainer: (() => { try { return R.trainerView(s, e.level); } catch { return null; } })(), newSpells: Object.values(C.SPELL).filter((sp) => sp.cls === s.player.classId && sp.source === 'class' && sp.lvl === e.level).map((sp) => sp.name), hp: s.player.hp, maxHp: s.player.d.maxHp }); break;
         case 'gold': if (e.amount > 0 && e.why !== 'sell') out.push({ t: 'gold', amount: e.amount, why: e.why, heat: e.heat || 0 }); break; // a sale says its price itself
         case 'loot': out.push({ t: 'gotItem', name: e.item.name || (C.CONSUMABLE[e.item.id] || {}).name || 'item', rarity: e.item.rarity || 'common', to: e.to, heatUp: local.heatUp.get(e.item.uid) || null }); break;
         case 'victory': out.push({ t: 'victory' }); break;

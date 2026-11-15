@@ -368,8 +368,9 @@ export class Director {
             push();
             scene.levelUp('player');
             // blind round 2 (casual re-run s0279): the banner points to the trainer whenever a spell or a rank waits there
-            // (R.trainerView after the step), once per level; the mock has no trainer view: the level's new spells
-            const waiting = next.trainer ? trainerWaiting(next.trainer, (id) => (ctx.data.spells[id] || {}).name || id) : e.newSpells && e.newSpells.length ? `New at the trainer: ${e.newSpells.join(', ')}` : null;
+            // (R.trainerView after the step), once per level; the mock has no trainer view: the level's new spells. engine-2026-11-15
+            // UI need 2: the offer as at this level (the bridge's levelUp `trainer`), so a level 3 banner never names a level 4 spell
+            const waiting = (e.trainer || next.trainer) ? trainerWaiting(e.trainer || next.trainer, (id) => (ctx.data.spells[id] || {}).name || id) : e.newSpells && e.newSpells.length ? `New at the trainer: ${e.newSpells.join(', ')}` : null;
             const extra = [e.talentPoint ? '+1 talent point' : null, waiting].filter(Boolean).join('  ·  ');
             ctx.ui.banner(`Level ${e.level}`, extra || 'You feel stronger.', 'level', 2200);
             hud.log(`You have reached level ${e.level}!`, 'lg-loot');

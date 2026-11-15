@@ -95,6 +95,16 @@ export function dimTipLine(x) {
   const mine = x.dimIn > 0 ? `Your node dims in ${tolls(x.dimIn)}. ` : '';
   return `${mine}Tolls: ${x.heat > 0 ? `${n} overspent` : x.heat < 0 ? `${n} to spare` : 'none to spare'}. The Dimming near you sets the Furnace now.`;
 }
+/**
+ * engine-2026-11-15 UI need 8 (newcomer check s0142: does overspending carry over?): the tooltip's line from heatView.carry
+ * when tolls came over from the zones before (draft): "Tolls carry over: 3 overspent before this zone, which adds 20."
+ * ("3 saved before ..."); '' when nothing carried or on an engine without it.
+ */
+export function carryLine(hv) {
+  const c = hv && hv.carry; if (!c || !c.cumulative || !c.share) return '';
+  const n = Math.abs(Math.round(c.carried || 0)); if (!n) return '';
+  return `Tolls carry over: ${n} ${c.carried > 0 ? 'overspent' : 'saved'} before this zone, which adds ${c.share}.`;
+}
 /** Newcomer check 2026-11-15 (s0017-s0133, draft): the tooltip's one line on the diamond (the Dimming's marker). */
 export const DIM_MARK_LINE = '◆ The Dimming near you. Whichever marker is further right sets the state.';
 export const bossText = (asc) => `Boss +${Math.round((asc || 0) * 100)} %`;
@@ -316,6 +326,7 @@ export function heatTip(ctx) {
   if (hv.by === 'dim') box.appendChild(h('div.tt-line.ht-dimtip', dimTipLine(hv)));
   box.appendChild(h('div.tt-line.desc', FURNACE_LINE));
   if (hv.dimIn != null && hv.stateDim) box.appendChild(h('div.tt-line.ht-dimmark', DIM_MARK_LINE)); // the diamond is on the bar
+  const cl = carryLine(hv); if (cl) box.appendChild(h('div.tt-line.ht-carry', cl));
   box.appendChild(h('div.tt-heatstates', stateRows(H).map(([st, when, pay]) => h('div.hs' + (st === hv.state ? '.on' : ''), { dataset: { hs: st } }, h('i.ht-dot', { dataset: { hs: st } }), h('b', HEAT_NAME[st]), h('span.w', when), h('span.p', pay)))));
   return box;
 }
@@ -326,8 +337,19 @@ export function heatTip(ctx) {
  * now would pay one (`pays`): "Burning bonus: +35 % XP and gold, 1 in 2 drops a rarity up." p: a heatView.next entry or an
  * R.heatPreview result.
  */
+/** The words of a cost part's `why` that is not a node type (engine heatPreview parts; draft). */
+const PART_WORD = { walk: 'the walk', pass: 'passing through', travel: 'the Road', bell: 'the Bell', trainer: 'the trainer', vendor: 'the vendor', inn: 'the inn', grind: 'the wave' };
 export function costText(p) {
   if (!p) return '';
+  // engine-2026-11-15 UI need 5 (newcomer check s0033 / s0065: a quest cost 3 tolls, later 5): when the preview's `parts`
+  // hold a Dimmed encounter after the action's own tolls, the sum is split: "Costs 5 tolls: 3 for the quest, +2 for a fight
+  // in the Dimming (it dims before you finish)." (draft)
+  const parts = p.parts || []; const dim = parts.find((x) => x.why === 'dimFight'); const own = parts.filter((x) => x.why !== 'dimFight');
+  const ownTolls = own.reduce((a, x) => a + (x.tolls || 0), 0);
+  if (dim && own.length && ownTolls > 0 && !p.perWave) {
+    const why = own[0].why; const word = PART_WORD[why] || `the ${why}`;
+    return `Costs ${tolls(p.time)}: ${ownTolls} for ${word}, +${dim.tolls} for a fight in the Dimming${PART_WORD[why] ? '' : ' (it dims before you finish)'}.`;
+  }
   return `Costs ${tolls(p.time)}${p.perWave ? ' a wave' : ''}${p.dimFight ? ', then a fight in the Dimming' : ''}.`;
 }
 export function previewBlock(p, ctx) {
