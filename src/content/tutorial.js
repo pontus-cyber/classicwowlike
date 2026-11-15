@@ -58,9 +58,10 @@ export const TUTORIAL = {
     // so the route stays S1, S2, S3, Gorrak. `afterScript` is retired (D143-D150: the node opened after script S3; the
     // engine's ONB_GATE_SCRIPTS keeps that rule for GATES.guidedHold off). The gate is open at once after SKIP_GUIDE
     // and outside the guided zone. Barring the node cuts no route on seed 8736 (its neighbours 1, 7, 17 and 30 stay
-    // linked through 7 and 17). {n}: fights still to come before the gate opens (tutorialView.elite.left).
+    // linked through 7 and 17). {n}: fights still to come before the gate opens (tutorialView.elite.left). Newcomer check
+    // 2026-11-15 (draft): "He comes back after 1 more fights" (s0066); the count is now a label, right for every {n}.
     gate: {
-      barredLine: 'Gorrak is out on the downs. He comes back after {n} more fights.',
+      barredLine: 'Gorrak is out on the downs. Fights before he comes back: {n}.',
       openLine: 'Gorrak is back on his threshing floor.',
     },
   },

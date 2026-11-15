@@ -556,6 +556,10 @@ export function expMapView(s) {
     const sites = siteView(s, n, know, d[n.id]);
     if (sites) v.sites = sites;
     if (n.barred) v.barred = true; // a guided run's closed node (Gorrak's, D138; tutorial.js): MOVE and PASS_THROUGH refused
+    // Newcomer check 2026-11-15 (s0066 "Unknown", s0086 "Elite"): Gorrak's node in a guided run's zone 1 carries his name
+    // whatever the player knows of it (tutorialView gives the node already; it is never a rare, D137, so D50's hidden
+    // name tells nothing there); every other elite stays unnamed
+    if (zone.tut && zone.tut.elite === n.id) v.name = c.enemies[n.elite].name;
     if (n.closed) v.closed = true; // a guided run's closed Road (D142; tutorial.js): TAKE_ROAD refused until the elite's fight
     return v;
   });

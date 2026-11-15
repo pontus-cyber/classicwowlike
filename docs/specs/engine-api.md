@@ -663,6 +663,9 @@ know 'type' (Pathfinder within its radius; the dungeon with Region Charts or a h
 sites (prep; only when the player sees marks there): [ids of held contracts with a site on the node], on a 'full' node,
   and with Tracker's Notes on any node within TRACKER_RADIUS hops (hidden ones too)
 barred (M3, D138; only when true): a guided run's closed node, MOVE and PASS_THROUGH refused (also on its `moves` entry);
+  name (newcomer check 2026-11-15; Gorrak's node in a guided run's zone 1 only, at any `know`): his content name ("Gorrak the
+  Fieldbreaker"), the node's title on the map (the tester met it as "Unknown" and "Elite"); never a rare (D137), so D50's
+  hidden name tells nothing there; on a 'full' node it replaces the elite's `name: null`;
   closed (D142; only when true): a closed Road of a guided run's zone 1, TAKE_ROAD refused there (section 14.1);
   guided (D144; on a 'full' node only): 'script' or 'site', an unresolved Quest or Grind node of the guided zone that plays
   the overlay's fight (section 14.1): its `cl` is the script's (capped at ONB_SCRIPT_LEVEL_MAX), not its ring's band

@@ -2,7 +2,8 @@
 // docs/handoffs/engine-2026-11-15.md): (1) a guided node's map tooltip names only the quest it holds: the node being played
 // keeps its quest through its reward stage (the finished Rooted Rows node was renamed to the next script's quest), and an
 // unresolved guided node, whose quest is fixed only when it is entered (m3-onboarding.md 2.3), names none; (2) the trainer
-// at a level (R.trainerView(state, level)): one step can give several levels, and each banner reads its own level.
+// at a level (R.trainerView(state, level)): one step can give several levels, and each banner reads its own level; (3)
+// Gorrak's name on his node in mapView at any `know`, and a gate line that reads right at one fight left.
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as R from '../../src/rules.js';
@@ -137,5 +138,40 @@ describe('newcomer (2): the trainer at a level: the hub card and every level-up 
     for (const bad of [0, C.MAX_LEVEL + 1, 2.5, '3', null]) assert.throws(() => R.trainerView(s, bad), RangeError, String(bad));
     assert.equal(R.serialize(s), snap);
     assert.equal(R.trainerView(R.newRun({ classId: 'mage', seed: 1, content: CONTENT }), 3), null, 'before START_RUN');
+  });
+});
+
+describe('newcomer (3): Gorrak is named on his node; the gate line reads right for every count (s0066, s0086)', () => {
+  test('his node carries his content name at every `know`, the other elites none; the barred line is a label', () => {
+    let s = guidedRun('hunter', 3);
+    for (const a of [{ type: 'START_RUN' }, { type: 'SET_OUT' }, { type: 'LEAVE_HUB' }]) s = R.step(s, a).state;
+    const id = R.tutorialView(s).eliteNodeId;
+    const gorrak = CONTENT.enemies[CONTENT.tutorial.elite.enemy].name;
+    assert.equal(gorrak, 'Gorrak the Fieldbreaker');
+    let mv = R.mapView(s);
+    assert.deepEqual([mv.nodes[id].know, mv.nodes[id].name, mv.nodes[id].barred], ['none', gorrak, true], 'unseen and barred: named');
+    const elites = (v) => v.nodes.filter((n) => n.type === 'elite' && n.id !== id);
+    // walk to him (autoplay) until his node is seen: still named; every other elite in view stays unnamed (D50)
+    for (let i = 0; i < 2000 && R.mapView(s).nodes[id].know !== 'full'; i++) s = R.step(s, R.autoAction(s)).state;
+    mv = R.mapView(s);
+    // the zone's other elites, seen in a copy: unnamed (D50)
+    const all = copy(s);
+    all.zone.seen = all.zone.seen.map(() => true);
+    assert.ok(elites(R.mapView(all)).length > 0 && elites(R.mapView(all)).every((n) => n.know === 'full' && n.name === null));
+    assert.deepEqual([mv.nodes[id].know, mv.nodes[id].type, mv.nodes[id].name, mv.nodes[id].rare], ['full', 'elite', gorrak, null]);
+    assert.equal(mv.nodes.filter((n) => n.name === gorrak).length, 1);
+    // the gate line: "Fights before he comes back: {n}." (the old "after {n} more fights" read "1 more fights")
+    const line = CONTENT.tutorial.elite.gate.barredLine;
+    assert.ok(/: \{n\}\.$/.test(line) && !/more fights/.test(line), line);
+  });
+
+  test('no name outside a guided run\'s zone 1: a normal run, and the guided run\'s zone 2', () => {
+    let p = R.newRun({ classId: 'mage', seed: 5, content: CONTENT });
+    for (const a of [{ type: 'START_RUN' }, { type: 'SET_OUT' }, { type: 'LEAVE_HUB' }]) p = R.step(p, a).state;
+    assert.ok(R.mapView(p).nodes.every((n) => n.name == null || n.type === 'dungeon'));
+    let s = guidedRun('rogue', 11);
+    for (let i = 0; i < 4000 && !(s.zone && s.zone.z === 2 && s.phase === 'MAP'); i++) s = R.step(s, R.autoAction(s)).state;
+    assert.equal(s.zone.z, 2);
+    assert.ok(R.mapView(s).nodes.every((n) => n.name == null || n.type === 'dungeon'));
   });
 });
