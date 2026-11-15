@@ -995,11 +995,14 @@ export function trainSpell(s, ev, id) {
   ev.push({ t: 'train', spell: id, tl: p.level, rank: p.spells[id].rank });
 }
 
-/** Known trainable spells in bar order, then learn order (rules 2.7 TRAIN_ALL). */
-export function trainable(s) {
+/**
+ * Known trainable spells in bar order, then learn order (rules 2.7 TRAIN_ALL): trained below level L (default the
+ * character's; trainerOffer reads another level).
+ */
+export function trainable(s, L = s.player.level) {
   const p = s.player;
   const order = [...p.bar.filter((x) => x), ...p.spellOrder.filter((x) => !p.bar.includes(x))];
-  return order.filter((id) => SPELL[id].source !== 'talent' && p.spells[id] && p.spells[id].tl < p.level);
+  return order.filter((id) => SPELL[id].source !== 'talent' && p.spells[id] && p.spells[id].tl < L);
 }
 
 /** A trainer is worth a visit now (rules 2.7): a spell to learn or a rank to train that the gold covers (autoplay's test). */
@@ -1015,18 +1018,22 @@ export function trainerUseful(s) {
  * level that it does not know, by level), train: [{ id, tl, cost }] (known spells trained below its level, TRAIN_ALL's
  * order), next (the level of the next spell to learn above it, or null), useful (trainerUseful: a lesson or a rank the gold
  * covers) }. Prices as the trainer asks them now (the Ledger's free first lesson counts only while a hub's trainer is open).
- * Read-only.
+ * Newcomer check 2026-11-15 (s0049, s0101: one step gave levels 8 to 11 and the level 8 banner, read from the view after
+ * the step, named Rime Burst, learned at level 10): `level` gives the same offer as at that level (default the character's),
+ * with the spells it knows now, so the hub card's "Next spell at level N" and each level-up's "New at the trainer" follow
+ * one rule: a spell is in `learn` from its own level on; `useful` then with the gold held now. Read-only.
  */
-export function trainerOffer(s) {
+export function trainerOffer(s, level = s.player.level) {
   const p = s.player;
   const spells = trainerSpells(s).filter((id) => !p.spells[id]);
-  const learn = spells.filter((id) => SPELL[id].lvl <= p.level).sort((a, b) => SPELL[a].lvl - SPELL[b].lvl || (a < b ? -1 : 1));
-  const later = spells.map((id) => SPELL[id].lvl).filter((l) => l > p.level);
+  const learn = spells.filter((id) => SPELL[id].lvl <= level).sort((a, b) => SPELL[a].lvl - SPELL[b].lvl || (a < b ? -1 : 1))
+    .map((id) => ({ id, lvl: SPELL[id].lvl, cost: learnCost(s, id) }));
+  const train = trainable(s, level).map((id) => ({ id, tl: p.spells[id].tl, cost: trainCost(s) }));
+  const later = spells.map((id) => SPELL[id].lvl).filter((l) => l > level);
   return {
-    learn: learn.map((id) => ({ id, lvl: SPELL[id].lvl, cost: learnCost(s, id) })),
-    train: trainable(s).map((id) => ({ id, tl: p.spells[id].tl, cost: trainCost(s) })),
-    next: later.length ? Math.min(...later) : null,
-    useful: trainerUseful(s),
+    learn, train, next: later.length ? Math.min(...later) : null,
+    // at the character's level: trainerUseful (autoplay's test) by the same definitions
+    useful: learn.some((x) => p.gold >= x.cost) || (train.length > 0 && p.gold >= trainCost(s)),
   };
 }
 

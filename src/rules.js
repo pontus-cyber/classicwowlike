@@ -239,10 +239,15 @@ export function offBalance(state, enemyIdx) {
  * What a trainer would teach the character now (rules 2.7; D144: the hub's "visit the trainer" advice cost a level 1
  * character a toll with nothing to learn): { learn: [{ id, lvl, cost }], train: [{ id, tl, cost }], next (the level of
  * the next spell to learn, or null), useful (a lesson or a rank the gold covers: worth the toll; autoplay's own test) };
- * null before START_RUN. Any phase; prices as the trainer asks them now.
+ * null before START_RUN. Any phase; prices as the trainer asks them now. Newcomer check 2026-11-15: `level` (an integer
+ * from 1 to MAX_LEVEL; default the character's) gives the offer as at that level with the spells known now: each `levelUp`
+ * event's banner reads it at the event's level (one step can give several levels), the hub card at the character's.
  */
-export function trainerView(state) {
-  return state.player ? trainerOffer(state) : null;
+export function trainerView(state, level) {
+  if (!state.player) return null;
+  if (level === undefined) return trainerOffer(state);
+  if (!Number.isInteger(level) || level < 1 || level > C.MAX_LEVEL) throw new RangeError(`trainerView: level must be an integer from 1 to ${C.MAX_LEVEL}`);
+  return trainerOffer(state, level);
 }
 
 /**

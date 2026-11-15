@@ -1,11 +1,13 @@
 // Newcomer check 2026-11-15 (docs/feedback/2026-11-15-blind-newcomer.md; BACKLOG 2026-11-15; engine and content side,
 // docs/handoffs/engine-2026-11-15.md): (1) a guided node's map tooltip names only the quest it holds: the node being played
 // keeps its quest through its reward stage (the finished Rooted Rows node was renamed to the next script's quest), and an
-// unresolved guided node, whose quest is fixed only when it is entered (m3-onboarding.md 2.3), names none.
+// unresolved guided node, whose quest is fixed only when it is entered (m3-onboarding.md 2.3), names none; (2) the trainer
+// at a level (R.trainerView(state, level)): one step can give several levels, and each banner reads its own level.
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as R from '../../src/rules.js';
 import { CONTENT } from '../../src/content/index.js';
+import { trainerUseful } from '../../src/engine/nodes.js';
 
 const C = R.C;
 const PET = (c) => (c === 'hunter' ? 'ridgewolf' : null);
@@ -75,3 +77,65 @@ describe('newcomer (1): a guided node names only the quest it holds (s0037, s003
   });
 });
 
+describe('newcomer (2): the trainer at a level: the hub card and every level-up banner follow one rule (s0010, s0049, s0058, s0101)', () => {
+  /** Every autoplay step of a guided run up to zone 3 that gives levels: { before, after, levels }. */
+  const levelSteps = (classId, seed = 5) => {
+    let s = guidedRun(classId, seed);
+    const out = [];
+    for (let i = 0; i < 6000 && s.phase !== 'ENDED' && !(s.zone && s.zone.z === 3); i++) {
+      const r = R.step(s, R.autoAction(s));
+      const levels = r.events.filter((e) => e.t === 'levelUp').map((e) => e.level);
+      if (levels.length) out.push({ before: s, after: r.state, levels });
+      s = r.state;
+    }
+    return out;
+  };
+
+  test('a spell is in `learn` from its own level on, so a level\'s banner names only what that level can learn and the card\'s "next" names the level a spell first appears', () => {
+    for (const classId of C.CLASS_IDS) {
+      const steps = levelSteps(classId);
+      assert.ok(steps.some((x) => x.levels.length >= 3), `${classId}: a step that gives three or more levels`);
+      for (const { before, after, levels } of steps) {
+        for (const L of levels) {
+          const at = R.trainerView(after, L);
+          const prev = R.trainerView(after, L - 1);
+          for (const x of at.learn) assert.ok(C.SPELL[x.id].lvl <= L, `${classId} level ${L}: ${x.id} needs level ${C.SPELL[x.id].lvl}`);
+          const fresh = at.learn.filter((x) => !prev.learn.some((y) => y.id === x.id));
+          for (const x of fresh) assert.equal(x.lvl, L, `${classId} level ${L}: ${x.id} is new at its own level`);
+          if (fresh.length) assert.equal(prev.next, L, `${classId}: "Next spell at level ${L}" one level before`);
+        }
+        // the hub card before the step and the first banner agree; the view after the step is the last level's
+        assert.deepEqual(R.trainerView(before), R.trainerView(before, before.player.level));
+        assert.deepEqual(R.trainerView(after), R.trainerView(after, levels[levels.length - 1]));
+      }
+    }
+  });
+
+  test('the newcomer\'s Mage: one step from level 7 to 11; the level 8 and 9 banners name no Rime Burst (learned from level 10, as the trainer row says), the level 10 one does', () => {
+    const step = levelSteps('mage').find((x) => x.levels.includes(8));
+    assert.deepEqual(step.levels, [8, 9, 10, 11]);
+    const names = (L) => R.trainerView(step.after, L).learn.map((x) => x.id);
+    assert.equal(C.SPELL.rime_burst.lvl, 10);
+    assert.ok(!names(8).includes('rime_burst') && !names(9).includes('rime_burst') && names(10).includes('rime_burst'), JSON.stringify([names(8), names(10)]));
+    assert.equal(R.trainerView(step.before).next, 10, 'the card said "Next spell at level 10"');
+    // and the first step: levels 2-4 in one, Arcane Ward (level 4) not on the level 2 or 3 banner
+    const first = levelSteps('mage')[0];
+    assert.deepEqual(first.levels, [2, 3, 4]);
+    assert.deepEqual([R.trainerView(first.after, 3).learn, R.trainerView(first.after, 4).learn.map((x) => x.id)], [[], ['arcane_ward']]);
+    assert.equal(R.trainerView(first.before).next, 4);
+  });
+
+  test('the default level is the character\'s; `useful` there is the autoplay\'s test; a level outside 1..MAX_LEVEL is refused; no state change', () => {
+    const s = levelSteps('rogue')[1].after;
+    const snap = R.serialize(s);
+    for (const L of [1, 5, s.player.level, C.MAX_LEVEL]) {
+      const v = R.trainerView(s, L);
+      assert.deepEqual(Object.keys(v), ['learn', 'train', 'next', 'useful']);
+      assert.ok(v.train.every((x) => x.tl < L));
+    }
+    for (const x of levelSteps('hunter')) assert.equal(R.trainerView(x.after).useful, trainerUseful(x.after));
+    for (const bad of [0, C.MAX_LEVEL + 1, 2.5, '3', null]) assert.throws(() => R.trainerView(s, bad), RangeError, String(bad));
+    assert.equal(R.serialize(s), snap);
+    assert.equal(R.trainerView(R.newRun({ classId: 'mage', seed: 1, content: CONTENT }), 3), null, 'before START_RUN');
+  });
+});
