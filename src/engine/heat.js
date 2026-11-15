@@ -273,8 +273,12 @@ function choices(s) {
  * or 'dim': the clock that sets the state), ascIfPar, gain, rarityUp (the rewards of the state, rules 1.7.3), bar: {
  * min, max, marker (heat clamped to the bar), beyond (-1, 0, 1) }, node (inside a node: { state, gain, rarityUp } of
  * the state it was entered in, which is what it pays; else null), next: [{ action, ...heatPreview }] for the legal
- * time-costing choices of the current phase }. Every time value is a whole number of tolls (M2b v7). `legal(action)`
- * filters the choices (rules.js passes the engine's check).
+ * time-costing choices of the current phase, carry (newcomer check 2026-11-15): { cumulative (true: the line adds up zone by
+ * zone and FIGHT_BOSS counts the run's tolls against the par, so tolls over or under one zone's share carry on), carried
+ * (heat when this zone was entered, against the line of the zone before: positive = tolls over it, negative = in hand;
+ * the travel's tolls included), share (this zone's part of the line: line - the zone before's line; 0 at the Camp) }:
+ * heat = carried - share + the tolls spent since entering }. Every time value is a whole number of tolls (M2b v7).
+ * `legal(action)` filters the choices (rules.js passes the engine's check).
  */
 export function heatView(s, legal = () => true) {
   if (!s.player || !s.zone) return null;
@@ -289,8 +293,16 @@ export function heatView(s, legal = () => true) {
     }
   }
   const ns = s.node && s.node.heat ? s.node.heat : null;
+  // newcomer check 2026-11-15 (s0142: "budget reset to 20 in zone 2: does overspending carry over?"): the line is the run's
+  // cumulative par schedule and the boss counts every toll against the par (rules 1.7), so a zone's tolls in hand are its
+  // share of the line minus what was over the line when it began: carry { cumulative, carried, share }
+  const zones = s.stats && s.stats.heat ? s.stats.heat.zones : [];
+  const rec = zones.length ? zones[zones.length - 1] : null;
+  const before = lineAt(s.oaths, lineZone(s) - 1);
+  const entry = rec ? rec.entry : s.time;
   return {
     time: f.time, par: parTime(s.oaths), z: s.zone.z, line: f.line, heat: f.heat, inHand: Math.max(0, -f.heat),
+    carry: { cumulative: true, carried: entry - before, share: f.line - before },
     past: Math.max(0, f.heat), stateRun: f.stateRun, dimIn: f.dimIn, stateDim: f.stateDim, state: f.state, by: f.by,
     ascIfPar: f.ascIfPar, gain: HEAT_GAIN[f.state], rarityUp: HEAT_RARITY_UP[f.state],
     bar: { min: HEAT_BAR_MIN, max: HEAT_BAR_MAX, marker, beyond: f.heat < HEAT_BAR_MIN ? -1 : f.heat > HEAT_BAR_MAX ? 1 : 0 },

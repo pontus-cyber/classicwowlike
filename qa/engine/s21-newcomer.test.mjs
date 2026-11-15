@@ -8,6 +8,7 @@
 // (5) heatPreview `parts`: the tolls of a cost in spend order, so a cost that grows (a Dimmed encounter) says why.
 // (6) content texts.progress: the talent window's rule line, kept on TALENT_FIRST_LEVEL and TALENT_LEVEL_STEP.
 // (7) offhand base names by the item's primary stat and the class: quivers for a Hunter's Agility offhand only.
+// (8) heatView `carry`: the line is cumulative, so a zone's tolls in hand are its share less what it carried in.
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as R from '../../src/rules.js';
@@ -16,6 +17,7 @@ import { trainerUseful } from '../../src/engine/nodes.js';
 import { dimAt, dimClock } from '../../src/engine/expedition.js';
 import { rollDrop, makeFixedGear } from '../../src/engine/items.js';
 import { makeRng, hash32 } from '../../src/rng.js';
+import { lineAt } from '../../src/engine/heat.js';
 
 const C = R.C;
 const PET = (c) => (c === 'hunter' ? 'ridgewolf' : null);
@@ -349,5 +351,50 @@ describe('newcomer (7): offhand base names follow the item and the class: quiver
     assert.ok(errs.includes('itemNames[0].offhand.priest: not AGI, INT or a class id'), errs);
     assert.ok(errs.includes('itemNames[0].offhand.hunter: 1 names'), errs);
     for (const b of CONTENT.itemNames) assert.deepEqual(Object.keys(b.offhand).sort(), ['AGI', 'INT', 'hunter']);
+  });
+});
+
+describe('newcomer (8): does overspending carry over? heatView `carry` says so (s0142; no rule change)', () => {
+  test('every state of autoplay runs on both maps: cumulative, carried = the heat at entry on the zone before\'s line, heat = carried - share + tolls since entry', () => {
+    for (const mapMode of ['expedition', 'rows']) {
+      let most = 0;
+      for (const classId of C.CLASS_IDS) {
+        let s = R.newRun({ classId, petId: PET(classId), seed: 13, content: CONTENT, mapMode, profile: { ...R.newProfile(), runs: 2 } });
+        let entry = null;
+        let z = null;
+        let zones = 0;
+        for (let i = 0; i < 20000 && s.phase !== 'ENDED'; i++) {
+          const hv = R.heatView(s);
+          if (hv) {
+            const zl = s.zone.camp ? C.ZONE_COUNT + 1 : s.zone.z;
+            if (zl !== z) { z = zl; entry = s.time; zones++; } // the first state in a zone is its entry (the hub)
+            const before = lineAt(s.oaths, zl - 1);
+            assert.deepEqual(hv.carry, { cumulative: true, carried: entry - before, share: hv.line - before }, `${mapMode} ${classId} z${zl}`);
+            assert.equal(hv.heat, hv.carry.carried - hv.carry.share + (s.time - entry));
+            if (zl === C.ZONE_COUNT + 1) assert.equal(hv.carry.share, 0, 'the Camp: the line is the par');
+          }
+          s = R.step(s, R.autoAction(s)).state;
+        }
+        most = Math.max(most, zones);
+      }
+      assert.ok(most >= 3, `${mapMode}: a run through three or more zones (${most})`);
+    }
+  });
+
+  test('three tolls over in zone 1 are three fewer in hand in zone 2, and a step nearer a stronger Oruvath', () => {
+    const toZone2 = (extra) => {
+      let s = R.newRun({ classId: 'mage', seed: 5, content: CONTENT, profile: { ...R.newProfile(), runs: 2 } });
+      for (let i = 0; i < 4000 && !(s.zone && s.zone.z === 1 && s.phase === 'MAP'); i++) s = R.step(s, R.autoAction(s)).state;
+      s = copy(s);
+      s.time += extra; // tolls spent over the line in zone 1
+      for (let i = 0; i < 4000 && !(s.zone && s.zone.z === 2); i++) s = R.step(s, R.autoAction(s)).state;
+      return R.heatView(s);
+    };
+    const a = toZone2(0);
+    const b = toZone2(3);
+    assert.equal(b.carry.carried, a.carry.carried + 3);
+    assert.equal(b.carry.share, a.carry.share);
+    assert.equal(b.heat, a.heat + 3);
+    assert.ok(b.ascIfPar >= a.ascIfPar);
   });
 });

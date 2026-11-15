@@ -693,9 +693,16 @@ clock. Every time value is a whole number of tolls (M2b v7): the line is rounded
 ### 11.1 `heatView(state)`
 ```
 { time, par (bossPar), z (state.zone.z; the Camp ZONE_COUNT + 1), line, heat (time - line; negative = in hand),
-  inHand (max(0, -heat)), past (max(0, heat)), stateRun, dimIn, stateDim, state, by ('run' | 'dim'),
-  ascIfPar, gain, rarityUp, bar: { min, max, marker, beyond }, next: [{ action, ...heatPreview(action) }] }
+  inHand (max(0, -heat)), past (max(0, heat)), carry: { cumulative, carried, share }, stateRun, dimIn, stateDim, state,
+  by ('run' | 'dim'), ascIfPar, gain, rarityUp, bar: { min, max, marker, beyond }, next: [{ action, ...heatPreview(action) }] }
 ```
+- `carry` (newcomer check 2026-11-15: "budget reset to 20 in zone 2: does overspending carry over?", s0142): `cumulative`
+  is always true: the line adds up zone by zone and FIGHT_BOSS counts the run's tolls against the par (rules 1.7), so
+  tolls over or under a zone's share carry into the next zones and to Oruvath; `carried`: the heat when this zone was
+  entered, against the line of the zone before (`state.stats.heat` zone record's entry - line(z - 1); positive = tolls over
+  it, negative = in hand; the travel's tolls included); `share`: this zone's part of the line (line - line(z - 1); 0 at the
+  Camp). So `heat = carried - share + the tolls spent since entering`: "17 to spare: this zone's 20, less 3 carried over".
+  No rule change.
 - `state`, `stateRun`, `stateDim`: one of `C.HEAT_STATES` (`'clear'`, `'warm'`, `'hot'`, `'scorched'`). `stateRun` from
   the heat (rules 1.7.2); `stateDim` from `dimIn` (rules 1.9.10), null without a Dimming clock (a rows run, the Camp,
   or `dimming: false`); `state` is the hotter of the two, and `by` names the clock that sets it (`'dim'` only when the
