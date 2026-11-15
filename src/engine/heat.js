@@ -103,14 +103,23 @@ function costOf(s, a) {
   const exp = isExpedition(s) && !zone.camp;
   const here = exp ? zone.pos : null;
   const nextZ = zone.camp ? null : zone.z + 1;
-  const out = (time, z, node, extra = {}, escape = false) => {
+  // parts (newcomer check 2026-11-15: a Quest node cost 3 tolls, later 5 with no reason shown, s0033 / s0065): the tolls
+  // in spend order, [{ why, tolls }]: the action's own (`why` its kind) and, when it ends on a Dimmed node, the Dimmed
+  // encounter's ('dimFight'; `escape: true` for TIME_DIM_ESCAPE after a walk farther from the Shardfall)
+  const out = (why, time, z, node, extra = {}, escape = false) => {
     if (!(time > 0)) return null;
     let t = time;
     let dimFight = false;
+    const parts = [{ why, tolls: time }];
     // A step, a node's content, a service or the Bell's channel that ends on a Dimmed node: a Dimmed encounter follows
     // (M2b v12: TIME_DIM_ESCAPE after a walk farther from the Shardfall, else TIME_DIM_FIGHT).
-    if (exp && node !== null && !zone.dimOff && dimmedAt(zone, node, zoneTime(s) + t)) { t += dimFightTime(escape); dimFight = true; }
-    return { time: t, z, node, enters: null, dimFight, perWave: false, ...extra };
+    if (exp && node !== null && !zone.dimOff && dimmedAt(zone, node, zoneTime(s) + t)) {
+      const d = dimFightTime(escape);
+      t += d;
+      dimFight = true;
+      parts.push(escape ? { why: 'dimFight', tolls: d, escape: true } : { why: 'dimFight', tolls: d });
+    }
+    return { time: t, z, node, enters: null, dimFight, perWave: false, parts, ...extra };
   };
   switch (a.type) {
     case 'CHOOSE_NODE': {
@@ -118,30 +127,30 @@ function costOf(s, a) {
       const row = zone.rows[zone.pos.r];
       const def = row && row[a.lane];
       if (!def) return null;
-      return out(nodeTime(s, def.type), zone.z, null, { enters: a.lane, perWave: def.type === 'grind' && grindMaxWaves(s) > 1 });
+      return out(def.type, nodeTime(s, def.type), zone.z, null, { enters: a.lane, perWave: def.type === 'grind' && grindMaxWaves(s) > 1 });
     }
-    case 'TRAVEL_ON': return exp || zone.camp ? null : out(TIME_TRAVEL, nextZ, null);
+    case 'TRAVEL_ON': return exp || zone.camp ? null : out('travel', TIME_TRAVEL, nextZ, null);
     case 'MOVE': {
       const n = exp && zone.nodes[a.nodeId];
       if (!n) return null;
-      if (canEnter(s, n.id)) return out(nodeTime(s, n.type), zone.z, n.id, { enters: n.id, perWave: n.type === 'grind' && grindMaxWaves(s) > 1 });
-      return out(TIME_WALK, zone.z, n.id, {}, outwardStep(zone, here, n.id));
+      if (canEnter(s, n.id)) return out(n.type, nodeTime(s, n.type), zone.z, n.id, { enters: n.id, perWave: n.type === 'grind' && grindMaxWaves(s) > 1 });
+      return out('walk', TIME_WALK, zone.z, n.id, {}, outwardStep(zone, here, n.id));
     }
-    case 'PASS_THROUGH': return exp && zone.nodes[a.nodeId] ? out(TIME_WALK, zone.z, a.nodeId) : null;
-    case 'TAKE_ROAD': return exp ? out(TIME_TRAVEL, nextZ, null) : null;
+    case 'PASS_THROUGH': return exp && zone.nodes[a.nodeId] ? out('pass', TIME_WALK, zone.z, a.nodeId) : null;
+    case 'TAKE_ROAD': return exp ? out('travel', TIME_TRAVEL, nextZ, null) : null;
     case 'RING_BELL': {
       if (!exp) return null;
       // The channel's tolls, a Dimmed encounter when the node is Dimmed at its end, then the next zone (no TIME_TRAVEL).
-      const c = out(BELL_CHANNEL_TIME, zone.z, here);
+      const c = out('bell', BELL_CHANNEL_TIME, zone.z, here);
       return { ...c, z: nextZ, node: null };
     }
     case 'SERVICE': {
       const t = { trainer: TIME_TRAINER, vendor: TIME_VENDOR, inn: TIME_REST }[a.service];
-      return t ? out(t, lineZone(s), here) : null;
+      return t ? out(a.service, t, lineZone(s), here) : null;
     }
-    case 'CAMP_GRIND': return zone.camp ? out(nodeTime(s, 'grind'), lineZone(s), null) : null;
-    case 'GRIND_SET_WAVES': return Number.isInteger(a.n) && a.n > 0 ? out(a.n * nodeTime(s, 'grind'), zone.z, here) : null;
-    case 'NEXT_FIGHT': return s.node && s.node.type === 'grind' ? out(nodeTime(s, 'grind'), zone.z, here) : null;
+    case 'CAMP_GRIND': return zone.camp ? out('grind', nodeTime(s, 'grind'), lineZone(s), null) : null;
+    case 'GRIND_SET_WAVES': return Number.isInteger(a.n) && a.n > 0 ? out('grind', a.n * nodeTime(s, 'grind'), zone.z, here) : null;
+    case 'NEXT_FIGHT': return s.node && s.node.type === 'grind' ? out('grind', nodeTime(s, 'grind'), zone.z, here) : null;
     default: return null;
   }
 }
@@ -155,6 +164,10 @@ function costOf(s, a) {
  * unresolved node), `pays`: the state the node is entered in (now, with the Dimming clock of the node entered), which
  * fixes its rewards (rules 1.7.3); null for other actions. All numbers are whole tolls. `swift` (M2b v15 row 2, D124): for a
  * TAKE_ROAD the Swift passage XP the Road grants now (rules 1.9.7), null when it grants none and for every other action.
+ * `parts` (newcomer check 2026-11-15): the tolls in spend order, [{ why, tolls }] summing to `time`: the action's own (why:
+ * the node type entered, 'walk', 'pass', 'travel', 'bell', 'trainer', 'vendor', 'inn' or 'grind') and, with `dimFight`, the
+ * Dimmed encounter's ('dimFight', `escape: true` when TIME_DIM_ESCAPE), so a cost that grows can say why ("+2 for a
+ * fight in the Dimming": the node dims before its tolls end).
  */
 export function heatPreview(s, a) {
   if (!s.player || !s.zone) return null;
@@ -168,7 +181,7 @@ export function heatPreview(s, a) {
   return {
     time: c.time, timeAfter: f.time, line: f.line, heat: f.heat, stateRun: f.stateRun, dimIn: f.dimIn, stateDim: f.stateDim,
     state: f.state, by: f.by, ascIfPar: f.ascIfPar, change: f.state !== now.state, dimFight: c.dimFight, perWave: c.perWave, pays,
-    swift: a.type === 'TAKE_ROAD' ? swiftXp(s) || null : null,
+    swift: a.type === 'TAKE_ROAD' ? swiftXp(s) || null : null, parts: c.parts,
   };
 }
 

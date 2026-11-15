@@ -5,6 +5,7 @@
 // at a level (R.trainerView(state, level)): one step can give several levels, and each banner reads its own level; (3)
 // Gorrak's name on his node in mapView at any `know`, and a gate line that reads right at one fight left; (4) the Dimming's
 // `maxPerToll` is the most one toll can still take (the guided corridor's release counted), `cap` the rule's value.
+// (5) heatPreview `parts`: the tolls of a cost in spend order, so a cost that grows (a Dimmed encounter) says why.
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as R from '../../src/rules.js';
@@ -236,5 +237,42 @@ describe('newcomer (4): the Dimming tooltip\'s "at most {maxPerToll} places a to
       assert.equal(R.mapView(r).dim.maxPerToll, Math.max(C.DIM_MAX_PER_TOLL, peakAfter(r.zone, dimClock(r.zone, R.mapView(r).zt))));
     }
     assert.equal(top, b, 'the bound is reached by a release still possible');
+  });
+});
+
+describe('newcomer (5): a toll cost that grows says why: heatPreview `parts` (s0033, s0065)', () => {
+  test('the same Quest node: 3 tolls, then 5 once it dims before its tolls end: [quest 3] then [quest 3, dimFight 2]', () => {
+    let s = guidedRun('mage', 5);
+    for (const a of [{ type: 'START_RUN' }, { type: 'SET_OUT' }, { type: 'LEAVE_HUB' }]) s = R.step(s, a).state;
+    const id = 4; // a Quest node next to the hub, Dimmed from zone toll 10 on TUTORIAL_SEED
+    const at = dimAt(s.zone, id);
+    const later = (k) => { const x = copy(s); x.time += k; return x; };
+    const before = R.heatPreview(later(at - C.EXPED_TIME_QUEST - 1 - R.mapView(s).zt), { type: 'MOVE', nodeId: id });
+    const after = R.heatPreview(later(at - C.EXPED_TIME_QUEST - R.mapView(s).zt), { type: 'MOVE', nodeId: id });
+    assert.deepEqual([before.time, before.dimFight, before.parts], [3, false, [{ why: 'quest', tolls: 3 }]]);
+    assert.deepEqual([after.time, after.dimFight, after.parts], [5, true, [{ why: 'quest', tolls: 3 }, { why: 'dimFight', tolls: C.TIME_DIM_FIGHT }]]);
+  });
+
+  test('every preview of autoplay runs, both maps: parts sum to `time`, the action\'s own part first, a dimFight part exactly when `dimFight`', () => {
+    const OWN = new Set(['quest', 'grind', 'elite', 'dungeon', 'rest', 'vendor', 'trainer', 'treasure', 'shrine', 'walk', 'pass', 'travel', 'bell', 'inn']);
+    const seen = new Set();
+    for (const mapMode of ['expedition', 'rows']) {
+      let s = R.newRun({ classId: 'hunter', petId: 'ridgewolf', seed: 7, content: CONTENT, mapMode, profile: { ...R.newProfile(), runs: 2 } });
+      for (let i = 0; i < 6000 && s.phase !== 'ENDED' && !(s.zone && s.zone.z >= 3); i++) {
+        if (!s.fight && s.player && s.zone) {
+          for (const p of R.heatView(s).next) {
+            const sum = p.parts.reduce((a, x) => a + x.tolls, 0);
+            assert.equal(sum, p.time, JSON.stringify(p.action));
+            assert.ok(OWN.has(p.parts[0].why), p.parts[0].why);
+            const dim = p.parts.filter((x) => x.why === 'dimFight');
+            assert.equal(dim.length, p.dimFight ? 1 : 0);
+            if (dim.length) assert.equal(dim[0].tolls, dim[0].escape ? C.TIME_DIM_ESCAPE : C.TIME_DIM_FIGHT);
+            for (const x of p.parts) seen.add(x.why + (x.escape ? ':escape' : ''));
+          }
+        }
+        s = R.step(s, R.autoAction(s)).state;
+      }
+    }
+    for (const w of ['quest', 'walk', 'pass', 'travel', 'grind', 'dimFight', 'trainer', 'vendor', 'inn']) assert.ok(seen.has(w), `${w} seen: ${[...seen]}`);
   });
 });

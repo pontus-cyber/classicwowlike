@@ -717,8 +717,15 @@ clock. Every time value is a whole number of tolls (M2b v7): the line is rounded
 ### 11.2 `heatPreview(state, action)`
 ```
 { time, timeAfter, line, heat, stateRun, dimIn, stateDim, state, by, ascIfPar,   (as heatView, after the action)
-  change (state differs from now), dimFight, perWave, pays, swift }
+  change (state differs from now), dimFight, perWave, pays, swift, parts }
 ```
+- `parts` (newcomer check 2026-11-15: a Quest node cost 3 tolls and later 5, with no reason shown, s0033 / s0065): the
+  tolls of `time` in spend order, `[{ why, tolls }]` summing to `time`. First the action's own: `why` is the node type a
+  MOVE or CHOOSE_NODE enters (`'quest'`, `'grind'`, `'elite'`, ...), `'walk'` (a MOVE that does not enter), `'pass'`
+  (PASS_THROUGH), `'travel'` (TRAVEL_ON, TAKE_ROAD), `'bell'` (RING_BELL's channel), `'trainer'` / `'vendor'` / `'inn'`
+  (SERVICE), `'grind'` (CAMP_GRIND, GRIND_SET_WAVES, NEXT_FIGHT); then, with `dimFight`, `{ why: 'dimFight', tolls }`
+  (TIME_DIM_FIGHT, or TIME_DIM_ESCAPE with `escape: true`): the node is Dimmed by the time the action's own tolls end, so
+  the cost can say "3 for the quest, +2 for a fight in the Dimming". Also in each `heatView.next` entry.
 - `swift` (M2b v15, rules 1.9.7): for `TAKE_ROAD`, the Swift passage XP the Road pays now (as `mapView.swift.xp`); null
   when it pays none and for every other action.
 - `time`: the tolls the action costs (`timeAfter` = run time then), as the engine spends it: node tolls (rules 2.0, 1.9.8), a walk or a pass
