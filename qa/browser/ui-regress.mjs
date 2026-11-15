@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W]
+ *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -177,6 +177,10 @@
  *      corridor's lamps, the steady Dimming's panel and tooltip, no contract hints), the dimBack line after a rescue, a first
  *      run's summary, a later run's Bell and tracker, a first run's zone 2 hub: see partW. The first-run camp is in part T,
  *      the bounty window in part R; parts M, N, S4 and the M rewards play a later-run profile (M_PROFILE, runs 2).
+ *   X  the newcomer check (docs/feedback/2026-11-15-blind-newcomer.md; docs/handoffs/ui-2026-11-15.md): the Roads' post lines and
+ *      rim nodes, the nearest Road's numbers when the Roads open, the pass-through hint at the first red toll label, the
+ *      Furnace's line and diamond when the Dimming sets the state, pinned Dimming clocks, the Key's tip, the Bags beside the
+ *      Loot window, the skip line under the coach line, the map at once after Set out, the "+N items" note: see partX.
  *
  * D116 (the flip): new runs start on the expedition map with the start camp. The parts written for the classic map (A-L, O,
  * P) open the page with ?classic=1 (open() adds it unless the query names a map) and their Node twins pass mapMode 'rows';
@@ -209,6 +213,8 @@ import { MAP_LINES, fillLine } from '../../src/ui/onboarding.js'; // D143: the b
 import { trainerWaiting, trainerWaitingShort } from '../../src/ui/ui-text.js'; // blind round 2 (part U)
 import { TOO_FAR, ROAD_FIRST, vendorMeta } from '../../src/ui/screens.js';
 import { MAP_ESC } from '../../src/ui/app.js';
+import { nearestRoad, hopsText, UI_HINTS, NEAREST_ROAD_TAIL } from '../../src/ui/ui-text.js'; // newcomer check 2026-11-15 (part X)
+import { DIM_NEAR_WORDS, DIM_MARK_LINE } from '../../src/ui/heat.js';
 const ONB_HINT_SHOWS = R.C.ONB_HINT_SHOWS; // D142 (3): showings after which a hint counts as seen (src/constants.js since D143)
 
 const args = process.argv.slice(2);
@@ -216,7 +222,7 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -1518,7 +1524,8 @@ const fh = (x) => String(Math.round(Math.abs(x))); // whole tolls (M2b v7: no de
 const lineS = (l) => Math.ceil(l - 1e-9); // the Star's line as shown: the engine's, whole and rounded up (changes-m2b-v7.md A row 2)
 // D150 (items 1, 25): the meter's one line, "Calm · 18 tolls to spare" ("8 tolls overspent"), and "Boss +N %" only above 0
 // D152 (changes-m3-v2.md 4): when the Dimming sets the state (heatView `by` 'dim') the line is the Dimming's own words
-const stand = (x) => { if (x.by === 'dim' && x.dimIn != null) return x.dimIn > 0 ? `Your node dims in ${tolls(x.dimIn)}` : 'You stand in the Dimming';
+// newcomer check 2026-11-15: "The Dimming is near" (heat.js DIM_NEAR_WORDS) says why; the node's clock is in the tooltip
+const stand = (x) => { if (x.by === 'dim' && x.dimIn != null) return x.dimIn > 0 ? 'The Dimming is near' : 'You stand in the Dimming';
   const past = Math.floor(x.heat + 1e-9); const hand = Math.ceil(-x.heat - 1e-9); return x.heat > 0 && past > 0 ? `${tolls(past)} overspent` : x.heat < 0 && hand > 0 ? `${tolls(hand)} to spare` : 'No tolls to spare'; };
 const bossTxt = (a) => (Math.round((a || 0) * 100) > 0 ? `Boss +${Math.round((a || 0) * 100)} %` : '');
 const barPct = (x) => (100 * (Math.min(R.C.HEAT_BAR_MAX, Math.max(R.C.HEAT_BAR_MIN, x)) - R.C.HEAT_BAR_MIN)) / (R.C.HEAT_BAR_MAX - R.C.HEAT_BAR_MIN);
@@ -1870,7 +1877,7 @@ async function partI(browser, W, H) {
     let rec = await page.evaluate(() => window.__heat);
     const changes = rec.states.slice(1).map((x, i) => ({ from: rec.states[i], to: x }));
     check('M2b-heat', `no toast on a change of state (${changes.length} so far: ${rec.states.join(' > ')}; D150 item 25)`, changes.length >= 3 && rec.toasts.length === 0 && rec.maxHeat === 0, `toasts: ${rec.toasts.map((t) => t.text).join(' | ')}`);
-    const okLog = (l, c) => new RegExp(`^${HEAT_WORDS.Name}: ${HNAME[c.to]} · (\\d+ tolls? (to spare|overspent)|No tolls to spare|Your node dims in \\d+ tolls?|You stand in the Dimming)\\.$`).test(l); // D152: the Dimming's words when it sets the state
+    const okLog = (l, c) => new RegExp(`^${HEAT_WORDS.Name}: ${HNAME[c.to]} · (\\d+ tolls? (to spare|overspent)|No tolls to spare|The Dimming is near|You stand in the Dimming)\\.$`).test(l); // D152: the Dimming's words when it sets the state
     check('M2b-heat', 'the combat log has a line for each change of state: "The Furnace: Burning · 3 tolls overspent." (one full stop, no "..")', rec.logs.length === changes.length && rec.logs.every((l, i) => okLog(l, changes[i])),
       rec.logs.slice(0, 6).join(' | '));
     check('M2b-heat', `the toast stack within its limit during the run (seen: ${rec.maxAll} at once)`, rec.maxAll <= 2, '');
@@ -3197,7 +3204,8 @@ function fogDiff(d, mv, nextZone) {
     const loud = n.id === mv.pos || moves.has(n.id) || !!(n.sites && n.sites.length);
     if (e.quiet === loud || (!loud && e.text) || (!loud && e.foesShown)) out.push(`node ${n.id} labels: quiet ${e.quiet}, text ${e.text}, foes shown ${e.foesShown} (loud ${loud})`);
     if (clock !== null) {
-      const want = n.id === mv.pos && n.dimsIn <= 2 ? `Dims in ${n.dimsIn}!` : n.id === mv.pos || moves.has(n.id) ? `dims in ${n.dimsIn}` : String(n.dimsIn);
+      // newcomer check 2026-11-15: the number alone on every clock but the player's urgent one (pinned badges; the Key names it)
+      const want = n.id === mv.pos && n.dimsIn <= 2 ? `Dims in ${n.dimsIn}!` : String(n.dimsIn);
       if (e.clockText !== want) out.push(`node ${n.id} clock "${e.clockText}" (want "${want}")`);
     }
   }
@@ -4011,7 +4019,8 @@ async function partR(browser, W, H) {
         const sig = c.shown && last ? `${c.shown.id}@${last.step}@${last.at}` : null;
         if (sig !== shownSig) { shownSig = sig; shownKeys = c.shown && c.shown.kind === 'beat' ? await viewKeys(page) : {}; }
         // a line already shown may rest (D141, the engine); an open line not yet shown must be on screen now (or one with it)
-        if ((fresh.length || (c.shown && c.shown.kind === 'beat')) && !(c.shown && c.shown.kind === 'beat' && open.includes(c.shown.id) && c.shown.text === lineText(c.shown.id, st.cls, shownKeys))) bad.push(`step ${steps}: engine ${open.join('/')}, coach ${c.shown ? `${c.shown.id} "${c.shown.text}"` : 'none'}`);
+        // newcomer check 2026-11-15: the guided "Take a Road" line (G12.road) ends with the nearest Road's numbers
+        if ((fresh.length || (c.shown && c.shown.kind === 'beat')) && !(c.shown && c.shown.kind === 'beat' && open.includes(c.shown.id) && (c.shown.text === lineText(c.shown.id, st.cls, shownKeys) || (c.shown.id === 'G12.road' && /^Nearest: \d+ hops?, \d+ tolls?\.$/.test(c.shown.text.slice(lineText(c.shown.id, st.cls, shownKeys).length + 1)) && c.shown.text.startsWith(lineText(c.shown.id, st.cls, shownKeys)))))) bad.push(`step ${steps}: engine ${open.join('/')}, coach ${c.shown ? `${c.shown.id} "${c.shown.text}"` : 'none'}`);
         if (c.shown) { const o = await overlaps(page); if (o.length) layout.push(`${c.shown.id}: ${o.join(',')}`); }
         if (c.shown && c.shown.id === 'G3' && !(await page.evaluate(() => window.__shotG3))) { await page.evaluate(() => { window.__shotG3 = true; }); await shot(page, 'R-coach-fight'); }
         if (st.fight && c.shown && c.shown.id === 'G8.withEngage') jointLate.push(`step ${steps}: the joint line on the route`);
@@ -4553,7 +4562,7 @@ async function partS(browser, W, H) {
       check('D143-1', 'the closed line shown and put away does not count for the Bell\'s hint H19 (no showing, not seen)', !!closed && !closed.h19.seen && closed.h19.shows === 0, JSON.stringify(closed && closed.h19));
       check('D143-1', `a toast when the Roads open ("${T.guide.roadsOpenLine}")`, Array.isArray(roadsOpened) && roadsOpened.some((x) => x.startsWith(T.guide.roadsOpenLine)), JSON.stringify(roadsOpened));
       check('S-3', `Gorrak's barred node next to the player has a tooltip: Elite, "${DB_LINE}" (D150 item 23), the gate line, no "Click to enter", no "Not here yet.", no error`, !!barredTip && !!barredTip.text && /^Elite/.test(barredTip.text) && barredTip.text.includes(DB_LINE) && barredTip.text.includes('Gorrak is out on the downs') && !/Click to enter|Not here yet/.test(barredTip.text) && barredTip.errors === 0, JSON.stringify(barredTip));
-      check('S-5', 'the Furnace header fits its frame when the Dimming sets the state: "State · Your node dims in N tolls" or "Infernal · You stand in the Dimming" (D152, changes-m3-v2.md 4)', !!furnace && furnace.sw <= furnace.cw + 1 && furnace.inside && /^(Calm|Smouldering|Burning|Infernal)\s*·\s*(Your node dims in \d+ tolls?|You stand in the Dimming)/i.test(furnace.text) && !/to spare|overspent/.test(furnace.text), JSON.stringify(furnace));
+      check('S-5', 'the Furnace header fits its frame when the Dimming sets the state: "State · The Dimming is near" or "Infernal · You stand in the Dimming" (D152; newcomer check 2026-11-15)', !!furnace && furnace.sw <= furnace.cw + 1 && furnace.inside && /^(Calm|Smouldering|Burning|Infernal)\s*·\s*(The Dimming is near|You stand in the Dimming)/i.test(furnace.text) && !/to spare|overspent/.test(furnace.text), JSON.stringify(furnace));
       check('S-9', 'a reward that is an upgrade offers "Equip now": one click sends CHOOSE_REWARD then EQUIP of that item, and it is worn', !!eqNow && eqNow.acts.length === 2 && /^CHOOSE_REWARD/.test(eqNow.acts[0]) && eqNow.acts[1] === `EQUIP:${eqNow.uid}` && eqNow.worn, JSON.stringify(eqNow));
       check('S-10', `no wind-up line over an enemy prints "null" (${wub.length} seen, ${wub.filter((x) => !/Deathblow/.test(x)).length} not a Deathblow, to ${z2Steps} steps into zone 2)`, plainWu() && !wub.some((x) => /null/.test(x)), [...new Set(wub)].slice(0, 6).join(' | '));
       check('S-1', 'the guided run reached zone 2', zone2, '');
@@ -4594,8 +4603,9 @@ async function partS(browser, W, H) {
         if (looks[looks.length - 1].coach && looks[looks.length - 1].map) break;
       }
       const early = looks.filter((x) => x.coach && !x.map);
-      check('S-2', `after the hub's Set out no coach line shows before the map (${looks.filter((x) => !x.map).length} looks while walking out); then "${T.beats.find((b) => b.id === 'G2').line}" with the map`,
-        !early.length && looks.some((x) => !x.map) && looks.some((x) => x.coach === 'G2' && x.map), JSON.stringify({ early: early.slice(0, 3), last: looks[looks.length - 1] }));
+      // newcomer check 2026-11-15 (s0013): no walk out with an empty screen any more: the map shows at once (part X3)
+      check('S-2', `after the hub's Set out no coach line shows before the map (${looks.filter((x) => !x.map).length} looks without it); then "${T.beats.find((b) => b.id === 'G2').line}" with the map`,
+        !early.length && looks.some((x) => x.coach === 'G2' && x.map), JSON.stringify({ early: early.slice(0, 3), last: looks[looks.length - 1] }));
       await shot(page, 'S2-map-g2');
     } catch (e) { await shot(page, 'S2-error'); check('S-2', 'part S2 (Set out at 1x) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('S-2', 'part S2: no console errors', errors.length === 0, errors.join(' | '));
@@ -6025,6 +6035,182 @@ async function partW(browser, W, H) {
   }
 }
 
+// ------------------------------------------------------------------ part X: the newcomer check of 2026-11-15
+/**
+ * Part X (docs/feedback/2026-11-15-blind-newcomer.md; docs/handoffs/ui-2026-11-15.md). X1 a guided first run (seed 8736, hints
+ * on) on the engine's autoplay choices to zone 2: on every map screen each Road (mapView roads) has its post line
+ * (svg .xroadln) from its sign towards its own rim node, which carries the Road ring (.xrd, an outline); every Dimming clock is
+ * pinned to its node (no translate, touching its ring) and shows the number alone (the player's own at 2 or less "Dims in
+ * N!"); while the Dimming sets the Furnace (heatView `by` 'dim') the meter reads "<State> · The Dimming is near" and its tip
+ * has the diamond's line; when the Roads open, the "Take a Road" line (G12.road) ends with "Nearest: N hops, M tolls."
+ * (nearestRoad on mapView) and U01 counts as seen; the Key's tip does not cover the Key; at the first loot window with
+ * items the Bags (B) open beside it, Continue on top, and the "+N items" note on the Bags button goes when they open. X2 a
+ * first run with the guide off (seed 7, hints on): U02 at a red toll label (MOVE ending Burning or Infernal), its ring on that
+ * node, its Pass through button shown and taken by X (PASS_THROUGH); U01 "Nearest Road: N hops, M tolls." at the nearest
+ * Road's sign; each shown once. X3 the default speed: the hub's Set out shows the map at once (no empty screen); the skip
+ * line hides while a coach line is up.
+ */
+async function partX(browser, W, H) {
+  const auto = async (page) => { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); };
+  const onMapNow = (page) => page.evaluate(() => { const v = window.__ui.view(); return v.phase === 'MAP' && !v.node && !v.loot && !!(v.zone && v.zone.exp); });
+  /** The map's Roads, clocks and Furnace as drawn, with mapView and heatView. */
+  const mapFacts = (page) => page.evaluate(() => {
+    const v = window.__ui.view(); const mv = v.zone.exp;
+    const rc = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, cx: (r.left + r.right) / 2, cy: (r.top + r.bottom) / 2, w: r.width }; };
+    const roads = mv.roads.map((id) => {
+      const lines = [...document.querySelectorAll(`#screens .xsvg .xroadln[data-road="${id}"]`)];
+      const node = document.querySelector(`#screens .mnode[data-node="${id}"]`);
+      const ring = node && node.querySelector('.ring'); const sign = document.querySelector(`#screens .xroad[data-road="${id}"] .xpost`);
+      const ln = lines[lines.length - 1];
+      const ends = ln ? [[+ln.getAttribute('x1'), +ln.getAttribute('y1')], [+ln.getAttribute('x2'), +ln.getAttribute('y2')]].map(([x, y]) => { const p = ln.ownerSVGElement.createSVGPoint(); p.x = x; p.y = y; const q = p.matrixTransform(ln.getScreenCTM()); return [q.x, q.y]; }) : null;
+      return { id, closed: !!mv.nodes[id].closed, dimmed: !!mv.nodes[id].dimmed, lines: lines.length, kind: ln ? ln.dataset.kind : null, ends, ring: ring ? rc(ring) : null, post: sign ? rc(sign) : null,
+        xrd: !!node && node.classList.contains('xrd'), outline: ring ? getComputedStyle(ring).outlineStyle : null };
+    });
+    const clocks = [...document.querySelectorAll('#screens .mnode .xclock')].map((e) => { const n = e.closest('.mnode'); const id = Number(n.dataset.node);
+      return { id, text: e.textContent, urgent: e.classList.contains('urgent'), translate: e.style.translate || '', c: rc(e), ring: rc(n.querySelector('.ring')), here: id === mv.pos, dimsIn: mv.nodes[id].dimsIn }; });
+    const hm = document.querySelector('#heat');
+    return { pos: mv.pos, roads, clocks, closedRoads: !!(v.tutorial && v.tutorial.roads && v.tutorial.roads.closed), mv, heat: v.heat ? { by: v.heat.by, state: v.heat.state, dimIn: v.heat.dimIn } : null,
+      meter: hm && !hm.classList.contains('hidden') ? hm.querySelector('.ht-row').innerText.replace(/\s+/g, ' ').trim() : null, coach: window.__ui.coach().shown };
+  });
+  const near = (a, ring, slack) => { const dx = Math.max(ring.l - a[0], 0, a[0] - ring.r); const dy = Math.max(ring.t - a[1], 0, a[1] - ring.b); return Math.hypot(dx, dy) <= slack; };
+  // ---- X1
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&fresh=1', null, { guide: true, hints: true });
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      let maps = 0; const badRoads = []; const badClocks = []; let clocksSeen = 0; let dimFurnace = null; let roadLine = null; let keyTip = null; let loot = null; let roadsOpenAt = null;
+      for (let i = 0; i < 260; i++) {
+        const v = await view(page);
+        const z = await page.evaluate(() => (window.__ui.view().zone || {}).idx);
+        if (z > 1 || v.phase === 'SUMMARY') break;
+        const lv = await page.evaluate(() => { const x = window.__ui.view(); return x.loot && x.loot.kind === 'loot' && (x.loot.items || []).length > 0 && !document.querySelector('#win-bags'); });
+        if (lv && !loot) {
+          await page.waitForTimeout(400);
+          const before = await page.evaluate(() => { const e = document.querySelector('#micromenu .mm-new'); return e && !e.classList.contains('hidden') ? e.textContent : null; });
+          await page.keyboard.press('KeyB'); await idle(page); await page.waitForTimeout(450);
+          loot = await page.evaluate(() => {
+            const bags = document.querySelector('#win-bags'); const panel = document.querySelector('#screens .loot');
+            const a = bags && bags.getBoundingClientRect(); const b = panel && panel.getBoundingClientRect();
+            const btns = [...document.querySelectorAll('#screens .loot button')].map((x) => { const r = x.getBoundingClientRect(); const t = document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2); return { text: x.textContent.trim(), top: !!t && (t === x || x.contains(t)) }; });
+            const note = document.querySelector('#micromenu .mm-new');
+            return { bags: !!bags, overlap: !!(a && b) && a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1, btns, noteAfter: note && !note.classList.contains('hidden') ? note.textContent : null };
+          });
+          loot.noteBefore = before;
+          await shot(page, 'X1-loot-bags');
+          await page.keyboard.press('KeyB'); await idle(page);
+        }
+        if (await onMapNow(page)) {
+          await page.mouse.move(2, 2); await page.waitForTimeout(450);
+          const f = await mapFacts(page); maps += 1;
+          for (const r of f.roads) {
+            const okLine = r.lines === 2 && r.kind === (r.closed ? 'closed' : r.dimmed ? 'dimmed' : 'open') && !!r.ends && !!r.ring && near(r.ends[1], r.ring, r.ring.w * 0.6) && !!r.post && Math.hypot(r.ends[0][0] - r.post.cx, r.ends[0][1] - r.post.cy) <= 3 * r.post.w + 40;
+            if (!okLine || !r.xrd || r.outline === 'none') badRoads.push({ step: i, ...r, ends: r.ends && r.ends.map((p) => p.map(Math.round)), ring: r.ring && [r.ring.l, r.ring.t, r.ring.r, r.ring.b].map(Math.round), post: r.post && [r.post.cx, r.post.cy].map(Math.round) });
+          }
+          for (const c of f.clocks) {
+            clocksSeen += 1;
+            const want = c.urgent ? `Dims in ${c.dimsIn}!` : String(c.dimsIn);
+            const touch = c.c.l <= c.ring.r + 2 && c.c.r >= c.ring.l - 2 && c.c.t <= c.ring.b + 2 && c.c.b >= c.ring.t - 2;
+            if (c.text !== want || c.translate || (!c.urgent && !touch) || (c.urgent && !c.here)) badClocks.push({ step: i, id: c.id, text: c.text, want, translate: c.translate, touch });
+          }
+          if (f.heat && f.heat.by === 'dim' && f.heat.dimIn > 0 && !dimFurnace && f.meter) {
+            await page.locator('#heat').hover(); await page.waitForTimeout(200);
+            const t = await page.evaluate(() => { const e = document.querySelector('.tooltip.on'); return e ? e.innerText : null; }); await page.mouse.move(2, 2);
+            dimFurnace = { meter: f.meter, state: HEAT_WORDS.state[f.heat.state], tip: t };
+            await shot(page, 'X1-furnace-dim');
+          }
+          if (!f.closedRoads && roadsOpenAt == null) roadsOpenAt = i;
+          if (f.coach && f.coach.id === 'G12.road' && !roadLine) {
+            const nr = nearestRoad(f.mv);
+            roadLine = { text: f.coach.text, want: nr ? NEAREST_ROAD_TAIL.replace('{hops}', hopsText(nr.hops)).replace('{tolls}', tolls(nr.tolls)) : null,
+              ring: await page.evaluate(() => { const e = document.querySelector('.coach-on'); return e ? e.className + ' ' + (e.dataset.road || '') : null; }), nr, u01: (await page.evaluate(() => window.__ui.coach().store.seen)).U01 || false };
+            await shot(page, 'X1-roads-open');
+          }
+          if (!keyTip) {
+            await page.locator('#screens .xkey').hover(); await page.waitForTimeout(200);
+            keyTip = await page.evaluate(() => { const t = document.querySelector('.tooltip.on'); const k = document.querySelector('#screens .xkey'); if (!t || !k) return null; const a = t.getBoundingClientRect(); const b = k.getBoundingClientRect();
+              return { tip: [a.left, a.top, a.right, a.bottom].map(Math.round), key: [b.left, b.top, b.right, b.bottom].map(Math.round), overlap: a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1, row: [...k.querySelectorAll('.xk')].some((x) => /Dims in 3 tolls/.test(x.textContent)) }; });
+            await page.mouse.move(2, 2);
+          }
+        }
+        await auto(page);
+      }
+      check('X-roads', `every Road on ${maps} map screens: a post line from its sign to its own rim node (open, closed or Dimmed colour), the node ringed (.xrd)`, maps > 3 && badRoads.length === 0, JSON.stringify(badRoads.slice(0, 3)));
+      check('X-clocks', `${clocksSeen} Dimming clocks: each pinned to its node (no declutter shift, touching its ring), the number alone; the player's own at 2 or less "Dims in N!"`, clocksSeen > 10 && badClocks.length === 0, JSON.stringify(badClocks.slice(0, 4)));
+      check('X-furnace', `the Dimming sets the Furnace: the meter reads "<State> · ${DIM_NEAR_WORDS}", its tip "Your node dims in N tolls" and the diamond's line`, !!dimFurnace && dimFurnace.meter.toLowerCase() === `${dimFurnace.state} · ${DIM_NEAR_WORDS}`.toLowerCase() && !!dimFurnace.tip && /Your node dims in \d+ tolls?\./.test(dimFurnace.tip) && dimFurnace.tip.includes(DIM_MARK_LINE), JSON.stringify(dimFurnace));
+      check('X-nearest', 'the Roads open (Gorrak\'s fight over): the "Take a Road" line (G12.road) ends with the nearest Road\'s hops and tolls (nearestRoad on mapView), rings that Road\'s sign, and counts for U01', roadsOpenAt != null && !!roadLine && !!roadLine.want && roadLine.text.endsWith(roadLine.want) && !!roadLine.ring && roadLine.ring.endsWith(` ${roadLine.nr.id}`) && roadLine.u01 === true, JSON.stringify({ roadsOpenAt, roadLine }));
+      check('X-key', 'the map Key\'s tip lies beside the Key, not over it; the Key names the clock badge ("Dims in 3 tolls")', !!keyTip && !keyTip.overlap && keyTip.row, JSON.stringify(keyTip));
+      check('X-bags', 'the first loot window with items: the Bags (B) open beside it, not over it; Continue and every button of the window on top; a "+N items" note on the Bags button before, gone once they open',
+        !!loot && loot.bags && !loot.overlap && loot.btns.length > 0 && loot.btns.every((b) => b.top) && /^\+\d+ items?$/.test(loot.noteBefore || '') && loot.noteAfter === null, JSON.stringify(loot));
+    } catch (e) { await shot(page, 'X1-error'); check('X-1', 'part X1 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('X-1', 'part X1: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- X2: U02 and U01 on a first run with the guide off
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=7&speed=instant&fresh=1&guide=0', null, { hints: true });
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      if (await page.locator('#pp-go').count()) { await page.locator('#pp-go').click(); await idle(page); }
+      let u02 = null; let u01 = null;
+      for (let i = 0; i < 200 && !(u02 && u01); i++) {
+        const v = await view(page); if (v.phase === 'SUMMARY') break;
+        const sh = await page.evaluate(() => window.__ui.coach().shown);
+        if (sh && sh.id === 'U02' && !u02) {
+          await page.waitForTimeout(300);
+          const x = await page.evaluate(() => { const v = window.__ui.view(); const on = document.querySelector('#screens .mnode.coach-on'); const pb = document.querySelector('#screens .xpass.coach-also');
+            const id = on ? Number(on.dataset.node) : null; const p = id != null && v.heat.next ? v.heat.next[`MOVE:${id}`] : null; const pt = id != null && v.heat.next ? v.heat.next[`PASS_THROUGH:${id}`] : null;
+            return { id, red: !!p && p.change && (p.state === 'hot' || p.state === 'scorched'), label: on ? { ...(on.querySelector('.mhrs') || {}).dataset } : null, pass: pt ? pt.time : null, btn: pb ? { node: Number(pb.dataset.node), shown: getComputedStyle(pb).display !== 'none' } : null };
+          });
+          x.text = sh.text;
+          await shot(page, 'X2-u02');
+          const seen = await page.evaluate(() => !!window.__ui.coach().store.seen.U02);
+          await page.keyboard.press('KeyX'); await idle(page);
+          const after = await page.evaluate(() => window.__ui.view().zone.exp.pos);
+          u02 = { ...x, seen, after, want: UI_HINTS.U02 };
+          continue;
+        }
+        if (sh && sh.id === 'U01' && !u01) {
+          const f = await mapFacts(page); const nr = nearestRoad(f.mv);
+          const ring = await page.evaluate(() => { const e = document.querySelector('.coach-on'); return e && e.dataset.road != null ? Number(e.dataset.road) : null; });
+          u01 = { text: sh.text, nr, ring, want: nr ? `Nearest Road: ${hopsText(nr.hops)}, ${tolls(nr.tolls)}.` : null };
+          await shot(page, 'X2-u01');
+        }
+        await auto(page);
+      }
+      const log = (await page.evaluate(() => window.__ui.coach().log)).map((x) => x.id);
+      check('X-pass', `the first red toll label: U02 "${UI_HINTS.U02.replace('{passTolls}', 'N tolls').replace('{key_pass}', '[X]')}" (heatView PASS_THROUGH), ringed on that node, its Pass through button shown; X passes through it; seen at once`,
+        !!u02 && u02.red && u02.text === `Pass through a place for ${tolls(u02.pass)} X.` && !!u02.btn && u02.btn.node === u02.id && u02.btn.shown && u02.after === u02.id && u02.seen, JSON.stringify(u02));
+      check('X-nearest', 'a first run with the guide off: U01 "Nearest Road: N hops, M tolls." (nearestRoad: hops, walk tolls plus the Road\'s) at the nearest Road\'s sign', !!u01 && u01.text === u01.want && u01.ring === u01.nr.id, JSON.stringify(u01));
+      check('X-once', 'U01 and U02 each shown once', log.filter((x) => x === 'U01').length === 1 && log.filter((x) => x === 'U02').length === 1, log.filter((x) => /^U0/.test(x)).join(','));
+    } catch (e) { await shot(page, 'X2-error'); check('X-2', 'part X2 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('X-2', 'part X2: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- X3: the default speed: Set out shows the map at once; the skip line under a coach line
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=8736&fresh=1', null, { guide: true, hints: true });
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await page.locator('#pp-go').click(); await idle(page); await page.waitForTimeout(600);
+      // every frame from the click on (in the page): is a screen panel shown, and is it the map
+      await page.evaluate(() => {
+        const go = [...document.querySelectorAll('#screens button')].find((b) => b.textContent.trim() === 'Set out');
+        window.__xso = []; let t0 = null;
+        go.addEventListener('click', () => { t0 = performance.now(); const tick = () => { const sc = document.querySelector('#screens'); window.__xso.push({ t: Math.round(performance.now() - t0), map: !!sc.querySelector('.expmap'), n: sc.children.length }); if (performance.now() - t0 < 1600) requestAnimationFrame(tick); }; requestAnimationFrame(tick); }, { capture: true });
+      });
+      await page.locator('#screens').getByRole('button', { name: 'Set out' }).click(); await page.waitForTimeout(1800);
+      const samples = await page.evaluate(() => window.__xso);
+      const first = samples.find((x) => x.map);
+      check('X-setout', 'the default speed: the hub\'s Set out shows the zone map at once (within 250 ms of the click), and no frame after it is empty', !!first && first.t <= 250 && samples.every((x) => x.n > 0) && samples.slice(samples.indexOf(first)).every((x) => x.map), JSON.stringify({ first, frames: samples.length, empty: samples.filter((x) => !x.n).length, notMap: samples.filter((x) => !x.map).map((x) => x.t).slice(0, 8) }));
+      await shot(page, 'X3-map');
+      const skip = await page.evaluate(() => { const s = document.querySelector('#skiphint'); const was = s.className; s.classList.add('on'); document.body.classList.add('coach-up'); const a = getComputedStyle(s).visibility; document.body.classList.remove('coach-up'); const b = getComputedStyle(s).visibility; s.className = was; return { underCoach: a, alone: b }; });
+      check('X-skip', 'the skip line ("Space or click to skip") hides while a coach line is up (they share the place over the action bar)', skip.underCoach === 'hidden' && skip.alone === 'visible', JSON.stringify(skip));
+    } catch (e) { await shot(page, 'X3-error'); check('X-3', 'part X3 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('X-3', 'part X3: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+}
+
 for (const [W, H] of SIZES) {
   SIZE = `${W}x${H}`;
   if (PARTS.includes('A')) await partA(browser, W, H);
@@ -6050,6 +6236,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('U')) await partU(browser, W, H);
   if (PARTS.includes('V')) await partV(browser, W, H);
   if (PARTS.includes('W')) await partW(browser, W, H);
+  if (PARTS.includes('X')) await partX(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);
