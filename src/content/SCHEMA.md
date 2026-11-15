@@ -227,11 +227,15 @@ reported by the validator. Each line <= 140 chars. Group `expedition` (D51; rule
 as `mapView(state).texts`. src/content/texts.js holds the shipped lines. (M3 v2, D152, draft) `dimming_pace`: the Dimming
 tooltip's pace line of the steady Dimming (changes-m3-v2.md 3.3), placeholders the UI fills from `mapView.dim`:
 `{maxPerToll}` (`mapView.dim.maxPerToll`: DIM_MAX_PER_TOLL, more in the guided zone while its corridor's release can add to a toll; newcomer check 2026-11-15) and `{grace}` (DIM_GRACE).
+Group `progress` (newcomer check 2026-11-15, draft; ids C.PROGRESS_TEXT_IDS): the talent window's rule lines, `talent_points`
+(must hold `{first}` and `{step}`: C.TALENT_FIRST_LEVEL and C.TALENT_LEVEL_STEP, rules 6) and `talents_locked` (must hold
+`{first}`); the validator reports a missing placeholder, so the line cannot drift from the rule's numbers.
 
 ```js
 texts: { spells: { ember_bolt: 'A bolt of living ember.' }, talents: { r_a1: '...' }, pets: { ridgewolf: '...' },
          boons: { return: '...' }, consumables: { healing_draught: '...' },
-         expedition: { shardfall: '...', shardspawn: '...', dimming: '...', homeward_bell: '...', dimming_pace: '...' } }
+         expedition: { shardfall: '...', shardspawn: '...', dimming: '...', homeward_bell: '...', dimming_pace: '...' },
+         progress: { talent_points: 'One point at level {first}, then one every {step} levels. ...', talents_locked: '...' } }
 ```
 
 ### 2.11 Tutorial (M3 guided first run; docs/specs/m3-onboarding.md 2.3-2.7, 3.2, 4.3; draft)

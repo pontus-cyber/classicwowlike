@@ -523,7 +523,7 @@ Pets: chosen at creation, level = hunter level. Pet acts after the hunter each r
 
 ## 6. Talents
 
-- Points: one at TALENT_FIRST_LEVEL and every TALENT_LEVEL_STEP levels after (26 at level 60). Spend any time out of combat (`SPEND_TALENT`). Reset only by RESPEC at a trainer.
+- Points: one at TALENT_FIRST_LEVEL and every TALENT_LEVEL_STEP levels after (26 at level 60). Spend any time out of combat (`SPEND_TALENT`). Reset only by RESPEC at a trainer. The talent window says it with content `texts.progress.talent_points` ("One point at level {first}, then one every {step} levels. Reset at a trainer.", {first} TALENT_FIRST_LEVEL, {step} TALENT_LEVEL_STEP) and, below TALENT_FIRST_LEVEL, `talents_locked` (newcomer check 2026-11-15, draft: "One point every 2 levels" read as five points by level 10).
 - Three trees per class, 9 talents each. Tier t (1..5) requires `TALENT_TIER_GATE × (t-1)` points already spent in that tree. Tier 5 (capstone) needs 16 points in the tree, so one capstone per run is the maximum (17 + 17 > 26).
 - "/rank" values multiply by ranks taken. "New spell" talents add a spell to the known list (tl = L, no trainer needed); it still needs a bar slot.
 

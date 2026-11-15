@@ -716,6 +716,11 @@ export const REGION_W = {
 export const REGION_KINDS = ['wilds', 'road', 'haunt', 'steads'];
 /** Text ids of the content group texts.expedition (D51; rules 1.9.5-1.9.7): the Shardfall, Shardspawn, the Dimming, the Bell; D152 (changes-m3-v2.md 3.3): the steady Dimming's pace line. */
 export const EXPEDITION_TEXT_IDS = ['shardfall', 'shardspawn', 'dimming', 'homeward_bell', 'dimming_pace'];
+/**
+ * Text ids of the content group texts.progress (newcomer check 2026-11-15, s0108: "One point every 2 levels" with one point
+ * at level 10): the talent window's rule lines, filled from TALENT_FIRST_LEVEL ({first}) and TALENT_LEVEL_STEP ({step}).
+ */
+export const PROGRESS_TEXT_IDS = ['talent_points', 'talents_locked'];
 /** rules 1.9.2: no Elite, Vendor or Trainer in ring 1. */
 export const RING1_FORBIDDEN = ['elite', 'vendor', 'trainer'];
 

@@ -6,6 +6,7 @@
 // Gorrak's name on his node in mapView at any `know`, and a gate line that reads right at one fight left; (4) the Dimming's
 // `maxPerToll` is the most one toll can still take (the guided corridor's release counted), `cap` the rule's value.
 // (5) heatPreview `parts`: the tolls of a cost in spend order, so a cost that grows (a Dimmed encounter) says why.
+// (6) content texts.progress: the talent window's rule line, kept on TALENT_FIRST_LEVEL and TALENT_LEVEL_STEP.
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as R from '../../src/rules.js';
@@ -274,5 +275,30 @@ describe('newcomer (5): a toll cost that grows says why: heatPreview `parts` (s0
       }
     }
     for (const w of ['quest', 'walk', 'pass', 'travel', 'grind', 'dimFight', 'trainer', 'vendor', 'inn']) assert.ok(seen.has(w), `${w} seen: ${[...seen]}`);
+  });
+});
+
+describe('newcomer (6): the talent window\'s rule line matches the engine\'s rule (s0108)', () => {
+  const fill = (line) => line.replace('{first}', String(C.TALENT_FIRST_LEVEL)).replace('{step}', String(C.TALENT_LEVEL_STEP));
+  test('content texts.progress: one point at TALENT_FIRST_LEVEL, then one every TALENT_LEVEL_STEP; the engine pays exactly that', () => {
+    const P = CONTENT.texts.progress;
+    assert.deepEqual(Object.keys(P).sort(), [...C.PROGRESS_TEXT_IDS].sort());
+    assert.equal(fill(P.talent_points), 'One point at level 10, then one every 2 levels. Reset at a trainer.');
+    assert.equal(fill(P.talents_locked), 'Talents unlock at level 10.');
+    // the engine's rule (rules 6, progress.js talentPointsEarned) at the levels the line names
+    let s = R.newRun({ classId: 'rogue', seed: 3, content: CONTENT, mapMode: 'rows' });
+    s = R.step(s, { type: 'START_RUN' }).state;
+    const at = (L) => { const x = copy(s); x.player.level = L; return R.talentPointsFree(x); };
+    const F = C.TALENT_FIRST_LEVEL;
+    const S = C.TALENT_LEVEL_STEP;
+    assert.deepEqual([at(F - 1), at(F), at(F + S - 1), at(F + S), at(F + 2 * S)], [0, 1, 1, 2, 3]);
+    assert.equal(at(C.MAX_LEVEL), Math.floor((C.MAX_LEVEL - F) / S) + 1, 'rules 6: 26 points by level 60');
+  });
+
+  test('validateContent keeps the line on the rule: a missing placeholder or an unknown id is reported', () => {
+    const bad = { ...CONTENT, texts: { ...CONTENT.texts, progress: { talent_points: 'One point every 2 levels. Reset at a trainer.', talents_locked: 'Talents unlock later.', other: 'x' } } };
+    const errs = R.validateContent(bad).join('\n');
+    for (const w of ['texts.progress.talent_points: needs {first}', 'texts.progress.talent_points: needs {step}', 'texts.progress.talents_locked: needs {first}', 'texts.progress.other: unknown id']) assert.ok(errs.includes(w), w);
+    assert.deepEqual(R.validateContent(CONTENT, { strict: true }), []);
   });
 });

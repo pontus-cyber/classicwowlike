@@ -4,7 +4,7 @@
 // SCHEMA.md 2.11): the optional guided-run table `tutorial` (validateTutorial).
 import {
   ZONE_COUNT, CONTENT_RANGE as CR, ARCHETYPE, ABILITY_TEMPLATE, SLOT_IDS, CLASS_IDS, SPELL, TALENT, PET,
-  BOON, CONSUMABLE, ENGINE_ASSUMPTION as EA, REGION_COUNT, REGION_W, ROAD_COUNT, EXPEDITION_TEXT_IDS, PREP_OPTION,
+  BOON, CONSUMABLE, ENGINE_ASSUMPTION as EA, REGION_COUNT, REGION_W, ROAD_COUNT, EXPEDITION_TEXT_IDS, PROGRESS_TEXT_IDS, PREP_OPTION,
   TUTORIAL_SEED, ONB_SCRIPTED_FIGHTS, ONB_BEATS, CONTRACT, CONTRACT_KINDS, CONTRACT_BOARD_SIZE, RARITY,
 } from '../constants.js';
 
@@ -334,7 +334,10 @@ export function validateContent(content, { strict = false } = {}) {
 
   // Optional texts (D51: the expedition group, ids EXPEDITION_TEXT_IDS)
   const expeditionIds = Object.fromEntries(EXPEDITION_TEXT_IDS.map((id) => [id, true]));
-  const known = { spells: SPELL, talents: TALENT, pets: PET, boons: BOON, consumables: CONSUMABLE, expedition: expeditionIds };
+  // newcomer check 2026-11-15: the talent window's rule lines (PROGRESS_TEXT_IDS) keep the rule's numbers as placeholders
+  const progressIds = Object.fromEntries(PROGRESS_TEXT_IDS.map((id) => [id, true]));
+  const known = { spells: SPELL, talents: TALENT, pets: PET, boons: BOON, consumables: CONSUMABLE, expedition: expeditionIds, progress: progressIds };
+  const needs = { progress: { talent_points: ['{first}', '{step}'], talents_locked: ['{first}'] } };
   // Expedition contract and prep texts (2b.5): object-shaped entries.
   const famIds = {};
   for (const z of content.zones || []) {
@@ -360,6 +363,7 @@ export function validateContent(content, { strict = false } = {}) {
     for (const [id, t] of Object.entries(map || {})) {
       if (!known[group][id]) e(`texts.${group}.${id}: unknown id`);
       str(t, CR.len.flavour, `texts.${group}.${id}`);
+      for (const ph of (needs[group] && needs[group][id]) || []) if (typeof t === 'string' && !t.includes(ph)) e(`texts.${group}.${id}: needs ${ph}`);
     }
   }
   // M3 (E2): the guided-run table, when present

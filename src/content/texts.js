@@ -5,6 +5,7 @@
 // 2026-11-14): the final boss is Oruvath, "hidden" is not used for fogged nodes (Stealth is the hidden state), and the
 // Homeward Bell's line says where it takes you (the next zone's hub, not home). D152 (docs/specs/changes-m3-v2.md 3.3,
 // draft): dimming_pace, the Dimming panel's tooltip line for the steady Dimming ({maxPerToll}, {grace}: mapView.dim).
+// Newcomer check 2026-11-15 (draft): the progress group, the talent window's rule lines.
 export const TEXTS = {
   // Display names of the enemy family ids (zones.js regions, enemies.js family), used in contract texts.
   families: {
@@ -55,5 +56,11 @@ export const TEXTS = {
     dimming: 'Darkness that spreads from the Shardfall. It takes the land hop by hop, and whoever stands in it.',
     homeward_bell: 'A small brass bell. Rung, it carries you on to the next zone\'s hub.',
     dimming_pace: 'It takes at most {maxPerToll} places a toll, nearest the purple star first, from toll {grace} in the zone.',
+  },
+  // The talent window's rule lines (newcomer check 2026-11-15, draft; ids C.PROGRESS_TEXT_IDS): {first} is
+  // C.TALENT_FIRST_LEVEL, {step} C.TALENT_LEVEL_STEP (rules 6: one point at the first level, then one every step).
+  progress: {
+    talent_points: 'One point at level {first}, then one every {step} levels. Reset at a trainer.',
+    talents_locked: 'Talents unlock at level {first}.',
   },
 };
