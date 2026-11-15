@@ -296,7 +296,24 @@ export function createWindows(root, ctx) {
     const old = open.get(name);
     if (old) old.replaceWith(el); else layer.appendChild(el);
     open.set(name, el);
+    if (name === 'bags') { placeBags(el); setTimeout(() => placeBags(el), 360); } // again once a panel's opening animation is over
     return el;
+  }
+  /**
+   * Newcomer check 2026-11-15 (s0028: the Bags opened over the Loot window and hid Continue): with a screen panel at the
+   * right (loot, a quest dialog, a service window, the hub) under them, the bags open at its left, their foot level with
+   * the panel's (clear of the coach line under it); where there is no room at its left they stay where they are.
+   */
+  function placeBags(el) {
+    if (!el.isConnected) return;
+    el.style.right = ''; el.style.bottom = '';
+    const panel = [...document.querySelectorAll('#screens .rightside, #screens .side.panel')].find((x) => { const r = x.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
+    if (!panel) return;
+    const a = el.getBoundingClientRect(); const b = panel.getBoundingClientRect(); const gap = 8;
+    if (a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom) return;
+    if (b.left - gap - a.width < gap) return;
+    el.style.right = `${Math.round(innerWidth - b.left + gap)}px`;
+    if (b.bottom - a.height >= gap && b.bottom < a.bottom) el.style.bottom = `${Math.round(innerHeight - b.bottom)}px`;
   }
   function refresh(name) { if (open.has(name)) render(name); }
   function toggle(name) { if (open.has(name)) close(name); else openWin(name); }
@@ -308,6 +325,7 @@ export function createWindows(root, ctx) {
     if (name === 'talents' || name === 'settings' || name === 'map') for (const n of ['talents', 'settings', 'map']) if (n !== name) close(n);
     if (name === 'character' || name === 'spellbook' || name === 'questlog') for (const n of ['character', 'spellbook', 'questlog']) if (n !== name) close(n);
     if (name === 'bags' && !open.has('bags')) bagMem.prev = null; // a fresh open shows the bags compact (the engine's order)
+    if (name === 'bags' && ctx.hud) ctx.hud.noteNewItems(0); // newcomer check 2026-11-15: the "+N items" note is read
     render(name);
   }
   // a tip of something in the window goes with it (blind panel 2026-11-13: a bag item's tip stayed after B closed the bags)

@@ -38,6 +38,7 @@
 import { h } from './util.js';
 import { settings } from './settings.js';
 import { stoppedNow } from './tracks.js';
+import { UI_HINTS, NEAREST_ROAD_TAIL, hopsText, nearestRoad, tolls } from './ui-text.js';
 
 export const HINTS_KEY = 'tbwcr.hints.v2';
 const OLD_ENGAGE_KEY = 'tbwcr.hints.v1'; // the engage hint, per class (retired: H01)
@@ -207,6 +208,7 @@ export function lineKeys(v, spells = null) {
 export function rawLine(T, id, cls, alt) {
   if (!T || !id) return null;
   const [base, key] = id.split('.');
+  if (UI_HINTS[base]) return UI_HINTS[base]; // newcomer check 2026-11-15: the UI's own hints (ui-text.js, draft)
   if (base[0] === 'G') {
     const b = T.beats.find((x) => x.id === base); if (!b) return null;
     if (!key) return b.line || (b.byClass ? b.byClass[cls] : null) || null;
@@ -282,6 +284,25 @@ const onMap = (v) => v.phase === 'MAP' && !!(v.zone && v.zone.exp) && !v.node;
 const seenNode = (v, pred) => { const mv = v.zone && v.zone.exp; return !!(mv && onMap(v) && mv.nodes.some((n) => n.know && n.know !== 'none' && pred(n))); };
 const has = (ev, t, f) => ev.some((e) => e.t === t && (!f || f(e)));
 const status = (u, id) => !!(u && (u.statuses || []).some((s) => s.id === id));
+/** The guided zone's Roads are open (tutorialView.roads not closed; outside a guided zone always). */
+const roadsOpen = (v) => !(v.tutorial && v.tutorial.roads && v.tutorial.roads.closed);
+/** Newcomer check 2026-11-15: the nearest open Road's sign on the map (nearestRoad), else null. */
+const roadSign = (v) => { const r = v.zone && v.zone.exp ? nearestRoad(v.zone.exp) : null; return r ? q(`#screens .expmap .xroad[data-road="${r.id}"]`) : null; };
+/** U01's numbers: "2 hops", "4 tolls" (nearestRoad), or null. */
+const roadNum = (v) => { const r = v && v.zone && v.zone.exp ? nearestRoad(v.zone.exp) : null; return r ? { hops: hopsText(r.hops), tolls: tolls(r.tolls) } : null; };
+/**
+ * Newcomer check 2026-11-15 (s0129): a reachable node whose toll label is red (its MOVE ends Burning or Infernal: heatView
+ * `change` to hot or scorched, as screens.js tollLabel colours it) and that can be passed through; its id, or null.
+ */
+export function redPassNode(v) {
+  const mv = v && v.zone && v.zone.exp; const next = v && v.heat && v.heat.next;
+  if (!mv || !next || v.node) return null;
+  const m = (mv.moves || []).find((x) => { const p = next[`MOVE:${x.nodeId}`]; return p && p.change && (p.state === 'hot' || p.state === 'scorched') && x.passTime != null && !x.barred && !(mv.nodes[x.nodeId] || {}).barred; });
+  return m ? m.nodeId : null;
+}
+const passNum = (v) => { const id = redPassNode(v); if (id == null) return null; const p = v.heat.next[`PASS_THROUGH:${id}`]; const m = v.zone.exp.moves.find((x) => x.nodeId === id); return { passTolls: tolls(p ? p.time : m.passTime) }; };
+/** The UI's own hints (ui-text.js UI_HINTS): shown once each (seen at the first showing). */
+export const UI_HINT_IDS = ['U01', 'U02'];
 const HINTS = {
   H01: { ctx: 'fight', when: (c) => inFight(c.v) && !!c.v.combat.engage && c.v.combat.kind !== 'dboss', anchor: () => q('#engage'), done: (c) => c.a === 'ENGAGE', gone: (c) => !(c.v.combat && c.v.combat.engage) },
   H02: { ctx: 'fight', when: (c) => inFight(c.v) && entries(c.v).length > 0, anchor: npOf(() => true) },
@@ -329,6 +350,13 @@ const HINTS = {
   H35: { ctx: 'screen', when: (c) => c.v.phase === 'CAMP' && !c.v.node && !c.v.combat, anchor: () => q('#screens .title') },
   H36: { ctx: 'fight', when: (c) => inFight(c.v) && !!c.v.combat.isBoss, anchor: () => q('#boss-frame') },
   H37: { ctx: 'screen', when: (c) => c.ui.metaOpen && c.v.phase === 'CREATE' && !c.nudgeHall, anchor: () => q('#meta .mbal') },
+  // newcomer check 2026-11-15 (draft): U01 once the Roads are open (the guided run's G12.road line carries the same numbers,
+  // and its showing counts for U01), at the nearest Road's sign; U02 the first time a toll label turns red, at that node,
+  // with its "Pass through" button shown beside it (the second marker), so X takes it
+  U01: { ctx: 'map', once: true, when: (c) => onMap(c.v) && !c.v.loot && !(c.ui && c.ui.overlay) && roadsOpen(c.v) && !!roadNum(c.v), anchor: roadSign, num: roadNum },
+  U02: { ctx: 'map', once: true, when: (c) => onMap(c.v) && !c.v.loot && !(c.ui && c.ui.overlay) && redPassNode(c.v) != null, num: passNum,
+    anchor: (v) => { const id = redPassNode(v); return id == null ? null : q(`#screens .mnode[data-node="${id}"]`); },
+    also: (v) => { const id = redPassNode(v); return id == null ? null : document.querySelector(`#screens .expmap .xpass[data-node="${id}"]`); } },
 };
 /** G13 / H19's moment on the map: 'onRoad' on a Road, '' (the far line) far from every Road with the node dimming soon, else null. */
 function bellMoment(v) {
@@ -373,8 +401,14 @@ export function createOnboarding(root, ctx) {
 
   function lineFor(id, alt) {
     if (id === 'NUDGE') return fillLine(T.nudge.hallLine, num);
-    const raw = rawLine(T, id, cls(), alt);
-    return raw ? fillLine(raw, num, { ...KEYS, ...lineKeys(lastV, ctx.data.spells) }) : null;
+    let raw = rawLine(T, id, cls(), alt);
+    let n = num;
+    // newcomer check 2026-11-15: a UI hint's numbers come from the view; the guided "Take a Road" line (G12.road) carries
+    // U01's numbers, so the nearest Road is said once
+    const spec = HINTS[id];
+    if (spec && spec.num) { const x = safe(() => spec.num(lastV)); if (!x) return null; n = { ...num, ...x }; }
+    if (raw && id === 'G12.road') { const x = roadNum(lastV); if (x) { raw = `${raw} ${NEAREST_ROAD_TAIL}`; n = { ...num, ...x }; } }
+    return raw ? fillLine(raw, n, { ...KEYS, ...lineKeys(lastV, ctx.data.spells) }) : null;
   }
   function show(x) {
     const line = lineFor(x.lineId || x.id, x.alt);
@@ -391,8 +425,9 @@ export function createOnboarding(root, ctx) {
     el.classList.toggle('instant', !!settings.reduceMotion);
     // D142 (3): a showing of a hint, or of the beat line that stands in for it, counts towards ONB_HINT_SHOWS (D147: G8's
     // joint line is a showing of H01 and of H03)
-    if (x.kind === 'hint' && !leavesUnseen(x)) hints.noteShown(x.key);
+    if (x.kind === 'hint' && !leavesUnseen(x)) { hints.noteShown(x.key); if (HINTS[x.id] && HINTS[x.id].once) hints.mark(x.key); }
     else if (x.kind === 'beat') for (const k of beatHintKeys(x.id, x.lineId)) hints.noteShown(k);
+    if (x.lineId === 'G12.road' && roadNum(lastV)) hints.mark('U01'); // its numbers were on the line (lineFor)
     log.push({ id: x.lineId || x.id, key: x.key || null, text: line.text, kind: x.kind, step: stepNo, at: Math.round(performance.now()) });
     if (log.length > 400) log.shift();
     // D150 item 1: the Furnace's line brings the meter on screen with it (its anchor), before the line is placed
@@ -553,7 +588,7 @@ export function createOnboarding(root, ctx) {
   function showHint(x, v) {
     if (inFight(v)) fightHints += 1;
     lastHintStep = stepNo;
-    show({ id: x.id, key: x.key, kind: 'hint', alt: x.alt, anchorFn: HINTS[x.id].anchor, fight: fightNo, round: v.combat ? v.combat.round : 0, moment: x.moment });
+    show({ id: x.id, key: x.key, kind: 'hint', alt: x.alt, anchorFn: HINTS[x.id].anchor, alsoFn: HINTS[x.id].also || null, fight: fightNo, round: v.combat ? v.combat.round : 0, moment: x.moment });
   }
   const ctxOf = (v, ev, a) => ({ v, ev: ev || [], a: a ? a.type : null, ui: ctx.ui, r, store: store(), nudgeHall });
 

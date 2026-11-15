@@ -213,6 +213,7 @@ export class App {
         this.afterPlay();
         this.coach.onStep(prev, res.view, res.events, action);
         this.placeNewItems(prev, res.view, action);
+        this.noteBagLoot(res.events, action);
         this.noteBagsFull(prev, res.view);
         this.noteAutoStop(prev, res.view, res.events, action);
         return res;
@@ -373,6 +374,16 @@ export class App {
     });
   }
 
+  /**
+   * Newcomer check 2026-11-15 (s0124): loot that went into the bags while they were shut shows as "+N items" on the Bags
+   * button (hud.noteNewItems; opening the bags clears it, as does a new run).
+   */
+  noteBagLoot(events, action) {
+    const t = action ? (action.type === 'ENGINE' ? action.action.type : action.type) : null;
+    if (t === 'START_RUN' || t === 'END_RUN') { this.hud.noteNewItems(0); return; }
+    const n = (events || []).filter((e) => e.t === 'gotItem' && e.to === 'bag').length;
+    if (n && !this.windows.isOpen('bags')) this.hud.noteNewItems(n);
+  }
   /**
    * Blind round 2 (skipper s0161-s0166: loot lost with full bags, no warning): the step that fills the last bag slot says
    * so at once, before any loot has to wait in the loot window (one toast and a log line each time the bags fill up).
@@ -743,7 +754,7 @@ export class App {
     }
     // D150 item 9 (the keyboard path of "Pass through"): on the zone map, X passes through the node whose offer is shown
     // (the node hovered or focused; screens.js passButton), as X passes a round in a fight
-    if (code === 'KeyX' && !inFight) { const pb = this.root.querySelector('#screens .expmap .xpass.on'); if (pb) { e.preventDefault(); pb.click(); return; } }
+    if (code === 'KeyX' && !inFight) { const pb = this.root.querySelector('#screens .expmap .xpass.on, #screens .expmap .xpass.coach-also'); /* newcomer check 2026-11-15: U02 shows one */ if (pb) { e.preventDefault(); pb.click(); return; } }
     const map = { KeyA: () => this.ui.attack(), KeyZ: () => this.ui.toggleAuto(), KeyX: () => this.ui.pass(), KeyF: () => this.ui.flee(),
       KeyC: () => this.windows.toggle('character'), KeyB: () => this.windows.toggle('bags'), KeyP: () => this.windows.toggle('spellbook'),
       KeyN: () => this.windows.toggle('talents'), KeyL: () => this.windows.toggle('questlog'), KeyM: () => this.windows.toggle('map') };

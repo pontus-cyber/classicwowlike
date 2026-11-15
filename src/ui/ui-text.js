@@ -626,3 +626,42 @@ export function trainerWaitingShort(t) {
   const parts = [a ? `${a} new ${plural(a, 'spell')}` : null, b ? `${b} ${plural(b, 'rank')}` : null].filter(Boolean);
   return parts.length ? `Waiting: ${parts.join(', ')}` : null;
 }
+
+/**
+ * Newcomer check 2026-11-15 (docs/feedback/2026-11-15-blind-newcomer.md; draft wording): the UI's own first-time hints,
+ * shown once each on the coach line (onboarding.js UI_HINT_IDS). {placeholders} are filled from the view; {key_pass} is
+ * the X key chip. U01: once the Roads are open, how far the nearest one is (its hops, and the tolls to walk there and take
+ * it). U02: the first time a toll label turns red, the cheaper way through a place. NEAREST_ROAD_TAIL is U01's numbers
+ * added to the guided run's own "Take a Road" line (G12.road), so the two are one line.
+ */
+export const UI_HINTS = {
+  U01: 'Nearest Road: {hops}, {tolls}.',
+  U02: 'Pass through a place for {passTolls} {key_pass}.',
+};
+export const NEAREST_ROAD_TAIL = 'Nearest: {hops}, {tolls}.';
+/** "2 hops", "1 hop". */
+export const hopsText = (n) => `${n} ${n === 1 ? 'hop' : 'hops'}`;
+/**
+ * The nearest open Road from the player's node on an expedition map (pure; mapView): { id, hops, tolls }, or null when the
+ * player stands on a Road or none can be reached. Hops count the fewest steps along the paths, through nodes that are not
+ * Dimmed or barred where such a way exists; tolls are what walking there costs (each step passes through: mapView
+ * walkTime) plus the Road itself (travelTime).
+ */
+export function nearestRoad(mv) {
+  if (!mv || !mv.nodes || !mv.edges || mv.pos == null) return null;
+  const me = mv.nodes[mv.pos]; if (!me || me.road) return null;
+  const open = new Set((mv.roads || []).filter((id) => mv.nodes[id] && !mv.nodes[id].closed));
+  if (!open.size) return null;
+  const nb = mv.nodes.map(() => []); for (const [a, b] of mv.edges) { nb[a].push(b); nb[b].push(a); }
+  const walk = (avoid) => {
+    const d = mv.nodes.map(() => Infinity); d[mv.pos] = 0; const q = [mv.pos];
+    while (q.length) {
+      const x = q.shift();
+      if (open.has(x)) return { id: x, hops: d[x] };
+      for (const y of nb[x]) if (d[y] === Infinity && (open.has(y) || !avoid(mv.nodes[y]))) { d[y] = d[x] + 1; q.push(y); }
+    }
+    return null;
+  };
+  const r = walk((n) => n.dimmed || n.barred) || walk((n) => n.barred);
+  return r ? { ...r, tolls: r.hops * (mv.walkTime || 0) + (mv.travelTime || 0) } : null;
+}

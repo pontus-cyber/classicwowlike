@@ -1603,3 +1603,21 @@ body.coach-up #turnprompt[data-kind="engage"] { display: none; }
 #banner.side .b2 { font-size: var(--fs-body-2); margin-top: var(--sp-30); }
 #banner.side .b0 { letter-spacing: .2em; }
 #nameplates.tight .np { width: 12.4rem; } /* four plates sit about 13rem apart at 1366x768 */
+
+/* newcomer check 2026-11-15 (docs/feedback/2026-11-15-blind-newcomer.md) ------------------------------------------- */
+/* a Road's own node: a ring in the colour of its post line (screens.js ROAD_LINE), so the sign and its node read as one */
+.expmap .mnode.xrd .ring { outline: .26rem solid #c98a3e; outline-offset: .16rem; }
+.expmap .xroad.side.down { flex-direction: column; transform: translate(-50%, 0); }
+.expmap .mnode.xrd.rclosed .ring { outline-color: #a0705a; outline-style: dashed; }
+.expmap .mnode.xrd.dimmed .ring { outline-color: #9b7cf0; }
+/* the Dimming's clocks: a badge pinned to the node's lower left (the enemy count holds the lower right) */
+.expmap .mnode .xclock.mini { top: auto; left: auto; right: calc(100% - .55rem); bottom: -.35rem; }
+.expmap .mnode .xclock.mini.full { font-size: var(--fs-micro-9); min-width: 1.5rem; }
+.expmap .mnode .xclock.urgent { bottom: calc(100% + 1.6rem); }
+.expmap .xk-clock { display: inline-flex; align-items: center; justify-content: center; font: var(--fw-bold) var(--fs-micro-3)/1 var(--font-ui); font-style: normal; color: #d8ccff; background: rgba(26, 14, 52, .92); box-shadow: 0 0 0 1px rgba(140, 110, 230, .7); }
+/* U02's second marker: the node's Pass through button stays shown while the hint is up (X takes it) */
+.expmap .xpass.coach-also { display: block; }
+/* the skip line gives way to the coach line, which sits in the same place */
+body.coach-up #skiphint { visibility: hidden; }
+/* the "+N items" note on the Bags button (hud.js noteNewItems) */
+#micromenu .mm .mm-new { position: absolute; left: 50%; bottom: calc(100% + .45rem); transform: translateX(-50%); padding: 0 var(--sp-40); border-radius: var(--radius-sm-1); background: #2c5a1e; color: #e8ffd8; font: var(--fw-heavy) var(--fs-micro-9)/var(--lh-box-5) var(--font-ui); white-space: nowrap; box-shadow: 0 0 0 1px #0e1a08, 0 0 .6rem rgba(120, 220, 90, .55); pointer-events: none; }

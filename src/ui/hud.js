@@ -250,7 +250,12 @@ export function createHud(root, ctx) {
     return b;
   };
   els.mmTalents = mm('N', 'Talents', 'stars3', 'gold', 'talents');
-  els.micro = h('div#micromenu.panel', mm('C', 'Character', 'helm', 'steel', 'character'), mm('B', 'Bags', 'junk', 'earth', 'bags'), mm('P', 'Spellbook', 'tome', 'arcane', 'spellbook'),
+  // newcomer check 2026-11-15 (s0124: the bags went from 3 to 10 of 16 unseen): a small "+N items" note on the Bags button
+  // for the loot that went into the bags since they were last open (noteNewItems; cleared when they open)
+  els.mmBags = mm('B', 'Bags', 'junk', 'earth', 'bags');
+  els.bagsNew = h('span.mm-new.hidden', { 'aria-live': 'polite' });
+  els.mmBags.appendChild(els.bagsNew);
+  els.micro = h('div#micromenu.panel', mm('C', 'Character', 'helm', 'steel', 'character'), els.mmBags, mm('P', 'Spellbook', 'tome', 'arcane', 'spellbook'),
     els.mmTalents, mm('L', 'Quest log', 'quest', 'parchment', 'questlog'), mm('M', 'Zone map', 'target', 'earth', 'map'), mm('Esc', 'Menu and settings', 'sun', 'dark', 'settings'));
   els.gold = h('div.goldline');
   // ------------------------------------------------------------ tracker & log
@@ -870,7 +875,14 @@ export function createHud(root, ctx) {
     els.qtag.textContent = `Next: ${label}`;
   }
 
-  return { update, placeNameplates, log, clearLog, els, setQueued, heat, flashSlot(i) { const b = els.spells[i] || els.items[i - 7]; if (b) { b.classList.add('pressed'); setTimeout(() => b.classList.remove('pressed'), 120); } } };
+  let newItems = 0;
+  /** Newcomer check 2026-11-15: n more items went into the bags (n 0 or less: clear the note). */
+  function noteNewItems(n) {
+    newItems = n > 0 ? newItems + n : 0;
+    els.bagsNew.textContent = newItems ? `+${newItems} ${newItems === 1 ? 'item' : 'items'}` : '';
+    els.bagsNew.classList.toggle('hidden', !newItems);
+  }
+  return { update, placeNameplates, log, clearLog, els, setQueued, heat, noteNewItems, flashSlot(i) { const b = els.spells[i] || els.items[i - 7]; if (b) { b.classList.add('pressed'); setTimeout(() => b.classList.remove('pressed'), 120); } } };
 }
 
 /** Tooltip of the revive badge (rules 9, M2 v3; D150: named by its source, the Ember of Return, never "Resurrect charges"). */

@@ -81,13 +81,22 @@ export function standText(x) {
  */
 export function meterText(x) {
   if (x.by !== 'dim' || x.dimIn == null) return standText(x);
-  return x.dimIn > 0 ? `Your node dims in ${tolls(x.dimIn)}` : 'You stand in the Dimming';
+  // newcomer check 2026-11-15 (s0133: "Burning" with 3 tolls to spare, the reason only on hover): the line says why
+  return x.dimIn > 0 ? DIM_NEAR_WORDS : 'You stand in the Dimming';
 }
-/** D152 (changes-m3-v2.md 4, draft): the tooltip's first line while the Dimming sets the state: the tolls against the line. */
+/** Newcomer check 2026-11-15 (draft): the meter's line while the Dimming near the player sets the state. */
+export const DIM_NEAR_WORDS = 'The Dimming is near';
+/**
+ * D152 (changes-m3-v2.md 4, draft): the tooltip's first line while the Dimming sets the state: the player's node's clock
+ * (newcomer check 2026-11-15: the meter's line no longer holds it) and the tolls against the line.
+ */
 export function dimTipLine(x) {
   const n = Math.abs(x.heat || 0);
-  return `Tolls: ${x.heat > 0 ? `${n} overspent` : x.heat < 0 ? `${n} to spare` : 'none to spare'}. The Dimming near you sets the Furnace now.`;
+  const mine = x.dimIn > 0 ? `Your node dims in ${tolls(x.dimIn)}. ` : '';
+  return `${mine}Tolls: ${x.heat > 0 ? `${n} overspent` : x.heat < 0 ? `${n} to spare` : 'none to spare'}. The Dimming near you sets the Furnace now.`;
 }
+/** Newcomer check 2026-11-15 (s0017-s0133, draft): the tooltip's one line on the diamond (the Dimming's marker). */
+export const DIM_MARK_LINE = '◆ The Dimming near you. Whichever marker is further right sets the state.';
 export const bossText = (asc) => `Boss +${Math.round((asc || 0) * 100)} %`;
 /** D150 item 1: "Boss +N %" only when the boss would be stronger (above 0), else ''. */
 export const bossShown = (asc) => (Math.round((asc || 0) * 100) > 0 ? bossText(asc) : '');
@@ -306,6 +315,7 @@ export function heatTip(ctx) {
   // D152 (changes-m3-v2.md 4): while the Dimming sets the state, the tolls figure moves here, as the first line
   if (hv.by === 'dim') box.appendChild(h('div.tt-line.ht-dimtip', dimTipLine(hv)));
   box.appendChild(h('div.tt-line.desc', FURNACE_LINE));
+  if (hv.dimIn != null && hv.stateDim) box.appendChild(h('div.tt-line.ht-dimmark', DIM_MARK_LINE)); // the diamond is on the bar
   box.appendChild(h('div.tt-heatstates', stateRows(H).map(([st, when, pay]) => h('div.hs' + (st === hv.state ? '.on' : ''), { dataset: { hs: st } }, h('i.ht-dot', { dataset: { hs: st } }), h('b', HEAT_NAME[st]), h('span.w', when), h('span.p', pay)))));
   return box;
 }

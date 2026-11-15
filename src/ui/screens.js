@@ -480,6 +480,8 @@ const SVGNS = 'http://www.w3.org/2000/svg';
 const REGION_TINT = { wilds: '#7fa646', road: '#c8913c', haunt: '#8a6cc0', steads: '#e0bc52' };
 const REGION_FEEL = { wilds: 'Wilds: beasts, open country', road: 'Road country: bandits and waystations', haunt: 'Haunt: ruins, casters and shrines', steads: 'Steads: farms, villages and rest' };
 const XR = [0, 138, 262, 376]; // ring radii in the disc's 1000 units
+/** The colour of a Road's post line (newcomer check 2026-11-15): open, closed (the guided zone, D142), Dimmed. */
+const ROAD_LINE = { open: '#c98a3e', closed: '#a0705a', dimmed: '#9b7cf0' };
 const XCELL = [[0, 66], [66, 200], [200, 320], [320, 468]]; // each ring's band of the disc
 const svgEl = (tag, attrs = {}, parent = null) => { const e = document.createElementNS(SVGNS, tag); for (const [k, x] of Object.entries(attrs)) e.setAttribute(k, x); if (parent) parent.appendChild(e); return e; };
 const polar = (r, deg) => { const a = (deg * Math.PI) / 180; return [500 + r * Math.cos(a), 500 + r * Math.sin(a)]; };
@@ -633,7 +635,10 @@ function buildExpMap(v, ctx, readOnly) {
     const [x, y] = polar(side ? 484 : 478, n.angle); const right = Math.cos((n.angle * Math.PI) / 180) >= 0;
     const name = mv.roadNames && mv.roadNames[i] ? mv.roadNames[i] : 'Road';
     // D143: a closed Road of the guided zone (mapView `closed`, D142) carries a Closed tag and the coach's closed line
-    const sign = h('div.xroad' + (side ? '.side' : right ? '.r' : '.l') + (n.dimmed ? '.dimmed' : '') + (n.id === mv.pos ? '.on' : '') + (n.closed ? '.rclosed' : ''), { style: { left: `${x / 10}%`, top: `${y / 10}%` }, dataset: { road: rid, angle: n.angle } },
+    // newcomer check 2026-11-15: a side sign in the lower half hangs under its post (outside the rim), so the board does not
+    // cover the post line and the Road's node
+    const down = side && Math.sin((n.angle * Math.PI) / 180) > 0.05;
+    const sign = h('div.xroad' + (side ? '.side' : right ? '.r' : '.l') + (down ? '.down' : '') + (n.dimmed ? '.dimmed' : '') + (n.id === mv.pos ? '.on' : '') + (n.closed ? '.rclosed' : ''), { style: { left: `${x / 10}%`, top: `${y / 10}%` }, dataset: { road: rid, angle: n.angle } },
       h('span.xpost'), h('span.xsign', h('b', side ? to : `${right ? '' : '« '}${to}${right ? ' »' : ''}`), n.closed ? h('i.xshut', 'Closed') : null));
     // blind round 2 (casual re-run s0235-s0237: a click on the sign did nothing): standing on the Road, the sign takes it
     // (the Take the Road button, with its ask); elsewhere a short line says what to do
@@ -645,6 +650,11 @@ function buildExpMap(v, ctx, readOnly) {
       });
       sign.style.cursor = 'pointer';
     }
+    // newcomer check 2026-11-15 (s0129: which node is "on the Road" only after a mistake): a short post line from the sign
+    // to the Road's own node on the rim, which carries a ring of the same colour (style.css .mnode.xrd)
+    const [ax, ay] = polar(side ? 484 : 476, n.angle); const [bx, by] = polar(XR[n.ring] + 26, n.angle);
+    const lk = n.closed ? 'closed' : n.dimmed ? 'dimmed' : 'open';
+    for (const [w, c] of [[9, '#2a1808'], [5, ROAD_LINE[lk]]]) svgEl('line', { x1: ax.toFixed(1), y1: ay.toFixed(1), x2: bx.toFixed(1), y2: by.toFixed(1), stroke: c, 'stroke-width': w, 'stroke-linecap': 'round', opacity: w > 5 ? 0.55 : 0.95, class: 'xroadln', 'data-road': rid, 'data-kind': lk }, svg);
     tip(sign, () => h('div', h('div.tt-name', name), h('div.tt-line', `A Road out of the zone, to ${to}.`), n.closed ? h('div.tt-warn.rclosed', closedRoadLine(ctx.data) || 'Closed for now.') : h('div.tt-sub', `Standing on it: Take the Road · ${tolls(mv.travelTime)}`), n.dimmed ? h('div.tt-warn', 'Dimmed: first a fight with this zone\'s creatures, made stronger by the dark; then the Road can still be taken.') : null));
     disc.appendChild(sign);
   });
@@ -685,7 +695,11 @@ function buildExpMap(v, ctx, readOnly) {
     // D152 (changes-m3-v2.md 2.2; engine-2026-11-14f UI need 7): a node of the guided zone's corridor, held from the Dimming
     // (mapView `held`, no dimsIn): a small lamp in place of the clock; its tooltip says why (content guide.holdLine)
     if (n.held && !n.hub && !off && !n.dimmed) el.appendChild(lampMark());
-    if (near || (here && !off && !n.dimmed && finite(n.dimsIn) && n.dimsIn <= 2)) el.appendChild(h('div.xclock' + (here && n.dimsIn <= 2 ? '.urgent' : '') + (n.dimsIn <= 2 ? '.soon' : '') + (fullClock ? '' : '.mini'), { dataset: { dimsIn: n.dimsIn } }, here && n.dimsIn <= 2 ? `Dims in ${n.dimsIn}!` : fullClock ? `dims in ${n.dimsIn}` : String(n.dimsIn)));
+    // newcomer check 2026-11-15 (s0134: "dims in 2" labels floated between nodes): every clock is a small badge with the
+    // number, pinned to its node's lower left and never moved by the label declutter (the other labels keep off it); the
+    // map's Key names it ("Dims in 3 tolls"); the player's own at 2 or less stays the "Dims in N!" tag over the node
+    const urgent = here && n.dimsIn <= 2;
+    if (near || (here && !off && !n.dimmed && finite(n.dimsIn) && n.dimsIn <= 2)) el.appendChild(h('div.xclock' + (urgent ? '.urgent' : '.mini') + (n.dimsIn <= 2 ? '.soon' : '') + (fullClock && !urgent ? '.full' : ''), { dataset: { dimsIn: n.dimsIn } }, urgent ? `Dims in ${n.dimsIn}!` : String(n.dimsIn)));
     const act = { type: 'MOVE', nodeId: n.id };
     const hp = m ? heatOf(v, act) : null;
     if (hp) el.appendChild(tollLabel(h('div.mhrs', tolls(hp.time)), hp));
@@ -726,9 +740,10 @@ function buildExpMap(v, ctx, readOnly) {
   const key = h('div.xpanel.xkey', h('div.xph', 'Key'),
     h('div.xkicons', kinds.map((k) => h('span.xki', { dataset: { kind: k } }, h('img', { src: nodeIcon(k), alt: NODE_NAME[k] }), h('b', NODE_NAME[k])))),
     h('div.xk', h('i.xk-seen'), 'Seen: in sight'), h('div.xk', h('i.xk-rem'), 'Remembered'), h('div.xk', h('i.xk-typed'), 'Type known'), h('div.xk', h('i.xk-unk'), 'Unknown'),
-    h('div.xk', h('i.xk-dim'), 'Dimmed'), h('div.xk', h('i.xk-shard'), 'Shardfall'));
+    h('div.xk', h('i.xk-dim'), 'Dimmed'), h('div.xk', h('i.xk-clock', '3'), 'Dims in 3 tolls'), h('div.xk', h('i.xk-shard'), 'Shardfall'));
   tip(key, () => h('div', h('div.tt-name', 'What you see'), h('div.tt-line', `Nodes within ${mv.vision.radius} ${plural(mv.vision.radius, 'hop')} of you are in full view; a node once seen stays on the map.`),
-    mv.vision.typeRadius ? h('div.tt-line', `Pathfinder: node types within ${mv.vision.typeRadius} hops.`) : null, mv.vision.regions ? h('div.tt-line', 'Your charts show every region.') : h('div.tt-line', 'A region shows where you have seen its land.')));
+    mv.vision.typeRadius ? h('div.tt-line', `Pathfinder: node types within ${mv.vision.typeRadius} hops.`) : null, mv.vision.regions ? h('div.tt-line', 'Your charts show every region.') : h('div.tt-line', 'A region shows where you have seen its land.')),
+    { self: true }); // newcomer check 2026-11-15 (s0054): the tip beside the Key, not over half of it
   left.append(dimBox, key);
   const right = h('div.xside.xright');
   const regBox = h('div.xpanel.xregp', h('div.xph', 'Regions'));
@@ -876,13 +891,14 @@ function declutterLabels(disc) {
   if (!disc.isConnected) return;
   const nodes = [...disc.querySelectorAll(':scope > .mnode')];
   const labs = [];
-  for (const n of nodes) for (const el of n.querySelectorAll(':scope > .cl, :scope > .mhrs, :scope > .xclock')) { el.style.translate = ''; labs.push({ el, n }); }
+  for (const n of nodes) for (const el of n.querySelectorAll(':scope > .cl, :scope > .mhrs')) { el.style.translate = ''; labs.push({ el, n }); }
   const shown = labs.filter(({ el }) => el.getClientRects().length > 0);
   // in the disc's own pixels: the window may still be scaling in (its opening animation), which moves and scales every rect
   const D = disc.getBoundingClientRect(); const k = D.width / (disc.offsetWidth || D.width || 1) || 1;
   const box = (r) => ({ l: (r.left - D.left) / k, t: (r.top - D.top) / k, r: (r.right - D.left) / k, b: (r.bottom - D.top) / k });
   const ring = new Map(nodes.map((n) => [n, box((n.querySelector('.ring') || n).getBoundingClientRect())]));
-  const fixed = nodes.flatMap((n) => [...n.querySelectorAll(':scope > .xfoes, :scope > .xsite')].map((x) => ({ n, b: box(x.getBoundingClientRect()) })));
+  // newcomer check 2026-11-15: the Dimming's clocks stay pinned to their nodes; the other labels keep off them
+  const fixed = nodes.flatMap((n) => [...n.querySelectorAll(':scope > .xfoes, :scope > .xsite, :scope > .xclock')].map((x) => ({ n, b: box(x.getBoundingClientRect()) })));
   for (const sg of disc.querySelectorAll(':scope > .xroad')) fixed.push({ n: null, b: box(sg.getBoundingClientRect()) }); // blind round 2: not over a Road's sign
   const rank = ({ el }) => (el.classList.contains('cl') ? 0 : el.classList.contains('urgent') ? 1 : el.classList.contains('mhrs') ? 2 : 3);
   shown.sort((a, b) => rank(a) - rank(b));

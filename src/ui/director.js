@@ -179,7 +179,9 @@ export class Director {
       // an expedition move into a node (MOVE, rules 1.9) travels like a map choice; a Road or the Bell like Travel on
       if ((t === 'CHOOSE_NODE' || t === 'MOVE') && next.phase === 'NODE') await this.travel(prev, next, token);
       if (t === 'TRAVEL_ON' || ((t === 'TAKE_ROAD' || t === 'RING_BELL') && prev.zone && next.zone && prev.zone.idx !== next.zone.idx)) await this.zoneTravel(prev, next, token);
-      if (t === 'LEAVE_HUB') { ctx.ui.overlay = true; push(); scene.setMode('travel'); scene.targetSpeed = 240 * scene.u; await W(900); scene.targetSpeed = 0; }
+      // newcomer check 2026-11-15 (s0013: about 1.5 s of empty screen while the hero walked out of the hub): the zone map
+      // shows at once, with its window's own short fade-in
+      if (t === 'LEAVE_HUB') { Object.assign(shown, deepClone(next)); push(); }
       if (t === 'FIGHT_BOSS') await this.bossIntro(next, token);
       if ((t === 'ACCEPT' || t === 'GRIND_SET_WAVES' || t === 'CONTINUE' || t === 'CAMP_GRIND') && next.combat) {
         ctx.ui.overlay = true; shown.phase = next.phase; shown.node = deepClone(next.node); shown.combat = deepClone(next.combat); push();

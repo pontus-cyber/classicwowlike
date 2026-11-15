@@ -24,7 +24,7 @@ export function initTooltip(root) {
     // blind round 2: a tip put away by a key comes back, built anew, when the pointer moves on its element again
     if (!current && parked) {
       const pk = parked; parked = null;
-      if (pk.target.isConnected && (e.target === pk.target || pk.target.contains(e.target))) { hover = { target: pk.target, avoid: pk.avoid }; show(pk.build, e.clientX, e.clientY, true); }
+      if (pk.target.isConnected && (e.target === pk.target || pk.target.contains(e.target))) { hover = { target: pk.target, avoid: pk.avoid, self: pk.self }; show(pk.build, e.clientX, e.clientY, true); }
       return;
     }
     if (!current) return;
@@ -37,7 +37,7 @@ export function initTooltip(root) {
   // opened over a map node), so any key puts the tip away; it shows again, up to date, when the pointer moves on its element
   document.addEventListener('keydown', () => {
     if (!current) return;
-    const pk = hover && hover.target ? { target: hover.target, avoid: hover.avoid, build: current } : null;
+    const pk = hover && hover.target ? { target: hover.target, avoid: hover.avoid, self: hover.self, build: current } : null;
     hide(); parked = pk;
   }, true);
 }
@@ -75,6 +75,7 @@ function keepClear() {
   // blind round 2 (tactician s0065, s0210; casual s0334): the hovered element's own controls and numbers (its Equip now,
   // a trainer row's price and Learn, a talent's rank counter) stay in view too
   if (t && t.querySelectorAll) els.push(...t.querySelectorAll(OWN));
+  if (t && hover.self) els.push(t);
   return els.filter((b) => !b.closest('.tooltip'))
     .map((b) => b.getBoundingClientRect()).filter((q) => q.width > 0 && q.height > 0 && q.bottom > 0 && q.right > 0 && q.top < innerHeight && q.left < innerWidth);
 }
@@ -111,10 +112,11 @@ function place(x, y) {
 
 /**
  * Attach a tooltip to an element; build() returns DOM content (called on hover). opts.avoid: a selector of elements the
- * tip must not cover besides the primary buttons (the start camp's cards: their neighbours).
+ * tip must not cover besides the primary buttons (the start camp's cards: their neighbours). opts.self: the tip keeps
+ * clear of the hovered element itself (a panel whose tip explains what it shows: the map's Key, newcomer check 2026-11-15).
  */
 export function tip(target, build, opts = null) {
-  target.addEventListener('pointerenter', (e) => { hover = { target, avoid: opts && opts.avoid }; show(build, e.clientX, e.clientY, true); });
+  target.addEventListener('pointerenter', (e) => { hover = { target, avoid: opts && opts.avoid, self: !!(opts && opts.self) }; show(build, e.clientX, e.clientY, true); });
   target.addEventListener('pointerleave', hide);
   target.addEventListener('pointerdown', hide);
   return target;
