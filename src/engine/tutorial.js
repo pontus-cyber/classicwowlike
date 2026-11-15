@@ -225,6 +225,10 @@ export function refreshOverlay(s) {
   }
   for (const n of zone.nodes) {
     if (!n.gen || n.done) continue;
+    // Newcomer check 2026-11-15 (s0037-s0068): the node being played keeps the role, quest and enemies its fight started
+    // with until it is resolved or left; re-laying the next script during its reward stage renamed the finished node to
+    // the next quest ("The Hedge Breaker" on the Rooted Rows node). Its fight and its `quest` event never changed.
+    if (s.node && s.node.id === n.id) continue;
     const role = roleOf(s, n);
     let mobs = n.gen.mobs;
     let cl = n.gen.cl;

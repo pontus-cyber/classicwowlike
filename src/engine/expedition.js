@@ -549,6 +549,10 @@ export function expMapView(s) {
     // fight on an unresolved Quest or Grind node ('script' or 'site', tutorial.js), whose level is the script's, not the ring's
     if (know === 'full' && n.type === 'grind') v.waves = grindMaxWaves(s);
     if (know === 'full' && n.tutRole && !n.done) v.guided = n.tutRole.kind;
+    // Newcomer check 2026-11-15 (two nodes named "The Hedge Breaker"): an overlay role goes to whichever such node is
+    // entered first (m3-onboarding.md 2.3), so an unresolved guided node holds no quest yet and its `title` is null; the
+    // quest is named once its fight has started (the node being played, then done) or its own encounter is back
+    if (v.guided && n.type === 'quest' && !(s.node && s.node.id === n.id)) v.title = null;
     const sites = siteView(s, n, know, d[n.id]);
     if (sites) v.sites = sites;
     if (n.barred) v.barred = true; // a guided run's closed node (Gorrak's, D138; tutorial.js): MOVE and PASS_THROUGH refused

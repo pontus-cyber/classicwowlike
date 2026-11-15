@@ -652,7 +652,8 @@ node (every node): { id, ring, angle (degrees), nb (neighbour ids), hops (from t
   know ('full' | 'type' | 'none'),
   region (content region index, or null when unknown) }
 know 'full' (the hub, or seen) adds: type, cl, done, lost (Dimmed and unresolved), and the details of the rows view:
-  quest { title, archetypes }, grind { archetypes (wave 1), waves (D144: its waves in this map mode, EXPED_GRIND_MAX_WAVES) },
+  quest { title (newcomer check 2026-11-15: null on an unresolved node marked `guided`, other than the node being played:
+    its quest is fixed only when it is entered, 14.1), archetypes }, grind { archetypes (wave 1), waves (D144: its waves in this map mode, EXPED_GRIND_MAX_WAVES) },
   elite { level, archetypes ([null, the add's archetype]: one
   entry per enemy, the elite's own hidden, D50), rare: null, name: null (D50: neither tells a rare), deathblow: { type }
   (M2b v14, D112: 'heavy' or 'cast' only; M2b v13 hid it with the name) }, dungeon { name, level, bossLevel, fights, bossArchetype, bossDeathblow (M2b v13, 6.2) },
@@ -975,8 +976,12 @@ run. Zones 2-6 and everything after the guide are the normal rules. A run withou
   (its `cl` too); once the scripts are used up, its own encounter. A Grind plays it as its only wave. `fight.tut = { kind
   ('script' | 'site'), i, id }`. A scripted fight's end (any outcome) advances `script`. (D144) A Quest node shows the
   quest of its role (content `quest` of the script or site fight, a quest whose enemies are that fight's; the node's own
-  quest once the role is lifted), so `mapView`'s `title`, the node's `quest` and the `quest` event match the enemies; `mapView`
-  marks such nodes `guided` (10.3).
+  quest once the role is lifted), so the node's `quest`, the `quest` event and `mapView`'s `title` match the enemies; `mapView`
+  marks such nodes `guided` (10.3). (Newcomer check 2026-11-15, draft) A role goes to whichever such node is entered first, so
+  no unresolved guided node holds a quest: its `title` is null (every such node would play the same next script, and two
+  nodes showed "The Hedge Breaker"). The node being played keeps the role, `quest` and enemies its fight started with until it
+  is resolved or left (`refreshOverlay` skips `state.node`): before, its reward stage re-laid the next script on it, so the
+  finished node showed the next quest. Its fight, events and rewards never read the re-laid fields: runs are unchanged.
 - Wind-ups (D138): in an overlay fight only enemies with `windup: true` play a scripted action as a wind-up (the
   first-meeting mechanism, any fight kind); every other quest fight of the guided zone has no first-meeting wind-up. (D149,
   draft) It is the action of their turn `C.ONB_WINDUP_TURN` (1, round 2 after the engage round; startFight sets the enemy's

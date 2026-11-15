@@ -237,7 +237,7 @@ describe('blind panel (3): text and data mismatches, engine and content side', (
     assert.deepEqual([db.turn, db.round, db.inRounds], [C.SIGNATURE_TURN, C.SIGNATURE_TURN + 1, C.SIGNATURE_TURN]);
   });
 
-  test('guided zone: a Quest node shows the quest of the fight it plays (its enemies are that fight\'s), the fight carries it, and its own quest comes back once the scripts are used up', () => {
+  test('guided zone: a Quest node plays the quest of its role (its enemies are that fight\'s), the fight carries it, and its own quest comes back once the scripts are used up; mapView names no quest on an unresolved guided node (newcomer check 2026-11-15)', () => {
     const T = REAL.tutorial;
     const s0 = guided();
     for (let k = 0; k < T.scripts.length; k++) {
@@ -250,7 +250,8 @@ describe('blind panel (3): text and data mismatches, engine and content side', (
         const q = REAL.quests[n.quest];
         assert.equal(n.quest, role.quest, `node ${n.id}`);
         assert.ok(sameSet(q.enemies, role.enemies.map((e) => e.enemy)) && sameSet(n.mobs, q.enemies), `node ${n.id}: ${q.title} / ${n.mobs}`);
-        if (mv.nodes[n.id].know === 'full') { assert.equal(mv.nodes[n.id].title, q.title); seen++; }
+        // its role goes to whichever such node is entered first (spec 2.3): no node holds that quest yet, so none names it
+        if (mv.nodes[n.id].know === 'full') { assert.deepEqual([mv.nodes[n.id].guided, mv.nodes[n.id].title], [n.tutRole.kind, null], `node ${n.id}`); seen++; }
       }
       assert.ok(seen > 0, `script ${k}: a quest node in view`);
     }
@@ -263,7 +264,12 @@ describe('blind panel (3): text and data mismatches, engine and content side', (
     assert.notEqual(s0.zone.nodes[3].gen.quest, 'q_z1_guide_rooted_rows');
     // scripts used up: every unresolved Quest node without a site plays and shows its own encounter and quest again
     const used = atScript(s0, C.ONB_SCRIPTED_FIGHTS);
-    for (const n of used.zone.nodes) if (n.type === 'quest' && !n.tutRole) assert.deepEqual([n.quest, n.mobs], [n.gen.quest, n.gen.mobs], `node ${n.id}`);
+    const uv = R.mapView(used);
+    for (const n of used.zone.nodes) {
+      if (n.type !== 'quest' || n.tutRole) continue;
+      assert.deepEqual([n.quest, n.mobs], [n.gen.quest, n.gen.mobs], `node ${n.id}`);
+      if (uv.nodes[n.id].know === 'full') assert.deepEqual([uv.nodes[n.id].guided, uv.nodes[n.id].title], [undefined, REAL.quests[n.gen.quest].title], `node ${n.id}`);
+    }
     // the guided quests are in no zone's list: normal runs never draw them; the table names existing quests
     const listed = new Set(REAL.zones.flatMap((z) => z.quests));
     for (const x of [...T.scripts, ...T.siteFights]) assert.ok(REAL.quests[x.quest], x.id);
