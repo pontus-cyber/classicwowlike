@@ -158,13 +158,15 @@ q_z1_lost_flock: { id: 'q_z1_lost_flock', title: 'The Lost Flock', giver: 'Sheph
 Base names for generated items, one band per zone (item level band of that zone). Keys are slot ids:
 `head`, `chest`, `legs`, `hands`, `feet`, `neck`, `ring`, `trinket`, `weapon`, `offhand`. Each slot holds at
 least 3 names (<= 30 chars, room for affix words). A slot may instead hold `{ AGI: [...], INT: [...] }` when
-names should follow the item's primary stat (each list >= 3). Items above ilvl 60 use band 6.
+names should follow the item's primary stat (each list >= 3). Such a slot may add a list under a class id (newcomer check
+2026-11-15: `offhand.hunter`, the quivers), used for that class's items of its own primary stat; any other key is
+reported. Items above ilvl 60 use band 6.
 
 ```js
 { head: ['Wool Hood', 'Leather Cap', 'Iron Coif'], chest: ['Quilted Vest', 'Hide Jerkin', 'Ring Shirt'],
   legs: ['...'], hands: ['...'], feet: ['...'], neck: ['...'], ring: ['...'], trinket: ['...'],
   weapon: { AGI: ['Skinning Knife', 'Hunting Bow', 'Short Blade'], INT: ['Ash Wand', 'Oak Staff', 'Reed Rod'] },
-  offhand: ['Buckler', 'Lantern', 'Tome'] }
+  offhand: { AGI: ['Buckler', 'Round Shield', 'Targe'], INT: ['Lantern Orb', 'Tome', 'Codex'], hunter: ['Quiver', 'Hide Quiver', 'Arrow Bag'] } }
 ```
 
 ### 2.7 AffixWords (rules 8.3, 12.1)

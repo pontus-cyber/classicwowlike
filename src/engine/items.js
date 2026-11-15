@@ -103,14 +103,22 @@ function affixFor(list, h, salt, base) {
  * at most one affix word and never two "of": an item with an affix (crit, power, armor) takes its prefix ("Keen Hempen
  * Hood"), any other its stat suffix ("Hempen Hood of the Fox") unless the base name has an "of" ("Cord of Wheat"); within
  * CONTENT_RANGE.len.itemName characters (affixFor); the zone base names stay. Stats and draws are unchanged: only the name
- * differs from before.
+ * differs from before. A slot of `{ AGI, INT }` lists follows the item's primary stat; a class id key (offhand `hunter`)
+ * names that class's items of its own primary (newcomer check 2026-11-15: quivers only for Hunters, casters' offhands from
+ * the INT list). Names are hashed, never drawn, so a name change changes no draw.
  */
 function gearName(s, item) {
   const c = s.content;
   const h = hash32(`${s.seed}|name|${item.uid}`);
   const band = c.itemNames[Math.min(ZONE_COUNT, Math.max(1, Math.ceil(item.ilvl / ZONE_LEVELS))) - 1];
   let names = band[item.slot];
-  if (!Array.isArray(names)) names = names[item.stats.INT > item.stats.AGI ? 'INT' : 'AGI'] || names.AGI;
+  if (!Array.isArray(names)) {
+    // the item's primary stat's list; newcomer check 2026-11-15 (s0126: a Mage's offhand named "Quiver of Rushes"): a class's
+    // own list where the band has one (offhand `hunter`: the quivers) for that class's items of its primary stat
+    const k = item.stats.INT > item.stats.AGI ? 'INT' : 'AGI';
+    const cls = s.player.classId;
+    names = (Array.isArray(names[cls]) && CLASS[cls].primary === k ? names[cls] : names[k]) || names.AGI;
+  }
   const base = pick(names, h, 0);
   const pfx = item.affix ? affixFor(c.affixWords.prefix[item.affix], h, 16, base) : null;
   if (pfx) return `${pfx} ${base}`;

@@ -279,8 +279,16 @@ export function validateContent(content, { strict = false } = {}) {
         arr.forEach((t, j) => str(t, CR.len.itemName, `${where}[${j}]`));
       };
       if (Array.isArray(v)) checkList(v, w);
-      else if (v && typeof v === 'object') { checkList(v.AGI, `${w}.AGI`); checkList(v.INT, `${w}.INT`); }
-      else e(`${w}: missing`);
+      else if (v && typeof v === 'object') {
+        checkList(v.AGI, `${w}.AGI`);
+        checkList(v.INT, `${w}.INT`);
+        // newcomer check 2026-11-15: a class's own list (offhand `hunter`), used for its items of its primary stat
+        for (const k of Object.keys(v)) {
+          if (k === 'AGI' || k === 'INT') continue;
+          if (!CLASS_IDS.includes(k)) e(`${w}.${k}: not AGI, INT or a class id`);
+          else checkList(v[k], `${w}.${k}`);
+        }
+      } else e(`${w}: missing`);
     }
   });
 

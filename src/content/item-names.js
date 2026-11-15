@@ -1,4 +1,7 @@
 // Content table: item base names per slot and level band (rules.md 8, 12). Plain data only (Content Designer).
+// Newcomer check 2026-11-15 (draft; s0126, a Mage's offhand named "Quiver of Rushes"): `offhand` is `{ AGI, INT, hunter }`:
+// shields for an Agility item, caster offhands (orbs, tomes) for an Intellect item, quivers for a Hunter's Agility item.
+// The first name of each list is the band's old one; the other 36 are new (generic object names in each zone's words).
 export const ITEM_NAMES = [
  {
   "head": [
@@ -53,11 +56,23 @@ export const ITEM_NAMES = [
     "Elm Switch"
    ]
   },
-  "offhand": [
-   "Wooden Buckler",
-   "Lantern Orb",
-   "Quiver of Rushes"
-  ]
+  "offhand": {
+   "AGI": [
+    "Wooden Buckler",
+    "Millwheel Buckler",
+    "Hedgewood Shield"
+   ],
+   "INT": [
+    "Lantern Orb",
+    "Almanac of the Furrow",
+    "Millbrook Tome"
+   ],
+   "hunter": [
+    "Quiver of Rushes",
+    "Boarhide Quiver",
+    "Strawbound Quiver"
+   ]
+  }
  },
  {
   "head": [
@@ -112,11 +127,23 @@ export const ITEM_NAMES = [
     "Willow Staff"
    ]
   },
-  "offhand": [
-   "Driftwood Shield",
-   "Witchlight Orb",
-   "Smuggler's Quiver"
-  ]
+  "offhand": {
+   "AGI": [
+    "Driftwood Shield",
+    "Reedwoven Buckler",
+    "Stilt-Plank Shield"
+   ],
+   "INT": [
+    "Witchlight Orb",
+    "Gloam-Bound Tome",
+    "Mirewater Codex"
+   ],
+   "hunter": [
+    "Smuggler's Quiver",
+    "Eelskin Quiver",
+    "Stiltwalker's Quiver"
+   ]
+  }
  },
  {
   "head": [
@@ -171,11 +198,23 @@ export const ITEM_NAMES = [
     "Oakheart Staff"
    ]
   },
-  "offhand": [
-   "Ironbound Targe",
-   "Standing-Stone Orb",
-   "Hornquiver"
-  ]
+  "offhand": {
+   "AGI": [
+    "Ironbound Targe",
+    "Heathwood Buckler",
+    "Cairnstone Shield"
+   ],
+   "INT": [
+    "Standing-Stone Orb",
+    "Barrow-Lore Tome",
+    "Oathbound Codex"
+   ],
+   "hunter": [
+    "Hornquiver",
+    "Heath-Stag Quiver",
+    "Windbarrow Quiver"
+   ]
+  }
  },
  {
   "head": [
@@ -230,11 +269,23 @@ export const ITEM_NAMES = [
     "Sandglass Rod"
    ]
   },
-  "offhand": [
-   "Bronze Tower Shield",
-   "Glyph-Etched Orb",
-   "Sandsilk Quiver"
-  ]
+  "offhand": {
+   "AGI": [
+    "Bronze Tower Shield",
+    "Dune Buckler",
+    "Sun-Disc Shield"
+   ],
+   "INT": [
+    "Glyph-Etched Orb",
+    "Sunscribe Codex",
+    "Tablets of Veth"
+   ],
+   "hunter": [
+    "Sandsilk Quiver",
+    "Jackal-Hide Quiver",
+    "Kharun Quiver"
+   ]
+  }
  },
  {
   "head": [
@@ -289,11 +340,23 @@ export const ITEM_NAMES = [
     "Pale Yew Staff"
    ]
   },
-  "offhand": [
-   "Gravewarden Shield",
-   "Spirit-Light Orb",
-   "Quiver of Pale Arrows"
-  ]
+  "offhand": {
+   "AGI": [
+    "Gravewarden Shield",
+    "Coffin-Lid Buckler",
+    "Penitent's Shield"
+   ],
+   "INT": [
+    "Spirit-Light Orb",
+    "Chapel Psalter",
+    "Lanternfall Hymnal"
+   ],
+   "hunter": [
+    "Quiver of Pale Arrows",
+    "Mourner's Quiver",
+    "Lychgate Quiver"
+   ]
+  }
  },
  {
   "head": [
@@ -348,10 +411,22 @@ export const ITEM_NAMES = [
     "Cinderwood Rod"
    ]
   },
-  "offhand": [
-   "Slag Bulwark",
-   "Ember-Core Orb",
-   "Cinder Quiver"
-  ]
+  "offhand": {
+   "AGI": [
+    "Slag Bulwark",
+    "Anvil Buckler",
+    "Forgeplate Targe"
+   ],
+   "INT": [
+    "Ember-Core Orb",
+    "Ashbound Grimoire",
+    "Codex of Karth"
+   ],
+   "hunter": [
+    "Cinder Quiver",
+    "Drakehide Quiver",
+    "Emberwatch Quiver"
+   ]
+  }
  }
 ];

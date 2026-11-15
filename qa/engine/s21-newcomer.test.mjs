@@ -7,12 +7,15 @@
 // `maxPerToll` is the most one toll can still take (the guided corridor's release counted), `cap` the rule's value.
 // (5) heatPreview `parts`: the tolls of a cost in spend order, so a cost that grows (a Dimmed encounter) says why.
 // (6) content texts.progress: the talent window's rule line, kept on TALENT_FIRST_LEVEL and TALENT_LEVEL_STEP.
+// (7) offhand base names by the item's primary stat and the class: quivers for a Hunter's Agility offhand only.
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as R from '../../src/rules.js';
 import { CONTENT } from '../../src/content/index.js';
 import { trainerUseful } from '../../src/engine/nodes.js';
 import { dimAt, dimClock } from '../../src/engine/expedition.js';
+import { rollDrop, makeFixedGear } from '../../src/engine/items.js';
+import { makeRng, hash32 } from '../../src/rng.js';
 
 const C = R.C;
 const PET = (c) => (c === 'hunter' ? 'ridgewolf' : null);
@@ -300,5 +303,51 @@ describe('newcomer (6): the talent window\'s rule line matches the engine\'s rul
     const errs = R.validateContent(bad).join('\n');
     for (const w of ['texts.progress.talent_points: needs {first}', 'texts.progress.talent_points: needs {step}', 'texts.progress.talents_locked: needs {first}', 'texts.progress.other: unknown id']) assert.ok(errs.includes(w), w);
     assert.deepEqual(R.validateContent(CONTENT, { strict: true }), []);
+  });
+});
+
+describe('newcomer (7): offhand base names follow the item and the class: quivers only for Hunters, casters\' offhands from the INT list (s0126)', () => {
+  const bandOf = (ilvl) => CONTENT.itemNames[Math.min(C.ZONE_COUNT, Math.max(1, Math.ceil(ilvl / C.ZONE_LEVELS))) - 1];
+  const baseOf = (name, list) => list.find((b) => name === b || name.endsWith(` ${b}`) || name.startsWith(`${b} `) || name.includes(` ${b} `));
+
+  test('every offhand of 3000 drops per class takes its base from the list of its primary stat, a Hunter\'s Agility one from `hunter`', () => {
+    const counts = {};
+    for (const classId of C.CLASS_IDS) {
+      let s = R.newRun({ classId, petId: PET(classId), seed: 21, content: CONTENT, mapMode: 'rows' });
+      s = copy(R.step(s, { type: 'START_RUN' }).state);
+      const rng = makeRng(hash32(`offhand|${classId}`));
+      for (let i = 0; i < 3000; i++) {
+        for (const it of rollDrop(s, rng, 'elite', 1 + (i % C.MAX_LEVEL), 1)) {
+          if (it.kind !== 'gear' || it.slot !== 'offhand' || it.unique) continue;
+          const lists = bandOf(it.ilvl).offhand;
+          const k = it.stats.INT > it.stats.AGI ? 'INT' : 'AGI';
+          const want = classId === 'hunter' && k === 'AGI' ? 'hunter' : k;
+          assert.ok(baseOf(it.name, lists[want]), `${classId} ${k} ilvl ${it.ilvl}: "${it.name}" not from ${want}`);
+          if (want !== 'hunter') assert.ok(!/quiver/i.test(it.name), `${classId}: "${it.name}"`);
+          counts[`${classId}:${want}`] = (counts[`${classId}:${want}`] || 0) + 1;
+        }
+      }
+    }
+    // the drops cover each class's own lists (other-primary drops too: a Mage's Agility offhand is a shield)
+    for (const k of ['rogue:AGI', 'mage:INT', 'hunter:hunter', 'mage:AGI', 'rogue:INT', 'hunter:INT']) assert.ok(counts[k] > 0, `${k}: ${JSON.stringify(counts)}`);
+  });
+
+  test('the newcomer\'s case: a Mage\'s Intellect offhand at item level 5 is a caster base of band 1, never "Quiver of Rushes"; weapons keep their lists', () => {
+    let s = R.newRun({ classId: 'mage', seed: 7, content: CONTENT, mapMode: 'rows' });
+    s = copy(R.step(s, { type: 'START_RUN' }).state);
+    const names = new Set();
+    for (let i = 0; i < 40; i++) names.add(makeFixedGear(s, 'offhand', 'uncommon', 5, null).name);
+    assert.ok([...names].every((n) => baseOf(n, CONTENT.itemNames[0].offhand.INT)), [...names].join(', '));
+    assert.ok(names.size >= 2, 'more than one caster base');
+    assert.ok(baseOf(makeFixedGear(s, 'weapon', 'uncommon', 5, null).name, CONTENT.itemNames[0].weapon.INT));
+  });
+
+  test('validateContent: a slot object keeps AGI and INT lists, and any other key is a class id with its own list', () => {
+    const band = CONTENT.itemNames[0];
+    const bad = { ...CONTENT, itemNames: [{ ...band, offhand: { ...band.offhand, priest: ['A', 'B', 'C'], hunter: ['Only One'] } }, ...CONTENT.itemNames.slice(1)] };
+    const errs = R.validateContent(bad, { strict: true }).join('\n');
+    assert.ok(errs.includes('itemNames[0].offhand.priest: not AGI, INT or a class id'), errs);
+    assert.ok(errs.includes('itemNames[0].offhand.hunter: 1 names'), errs);
+    for (const b of CONTENT.itemNames) assert.deepEqual(Object.keys(b.offhand).sort(), ['AGI', 'INT', 'hunter']);
   });
 });
