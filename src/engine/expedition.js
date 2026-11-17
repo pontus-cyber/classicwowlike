@@ -16,7 +16,9 @@
 // dimSchedule, the order and the cap of 3.2, zone.dimBase; the panel data of 3.3), the Dimming's clock (zone.dimShift:
 // a guided rescue's tolls, GATES.rescueDim, 3.4), the guided zone's held corridor (zone.hold, tutorial.js; GATES.guidedHold,
 // 2.2), and a profile's lean first run (firstRun, leanFirst; GATES.firstRunLean, 1.2): no Homeward Bell in its zone 1
-// (bellHidden).
+// (bellHidden). Legacy (D154, legacy.md 2.1; a Legacy run, legacy.js): a zone's band is fixed when it is generated (the
+// hero's arrival): clamp(P + ZONE_TIER[z - 1], 1, CL_MAX), with the *_HERO ring and dungeon offsets and CL_MAX; the view's
+// `bands` follow it; the Swift passage pays ROAD_SWIFT_XP_FRAC × HERO_XP_UNIT hero XP.
 import {
   ZONE_LEVELS, NODE_DRAW_ORDER, QUEST_LEVEL_OFFSETS, ELITE_LEVEL_OFFSET, RARE_CHANCE, QUEST_SIZE_W1, QUEST_SIZE_W2,
   QUEST_SIZE_W3, QUEST_MAX_SIZE_Z1, QUEST_CAP_Z2_RINGS, GRIND_WAVE_SIZE, ELITE_ADD_CHANCE, DUNGEON_SIZE_W2, DUNGEON_SIZE_W3,
@@ -28,6 +30,7 @@ import {
   XP_WEIGHT_MULT, EXPED_GRIND_MAX_WAVES, EXPED_DUNGEON_TRASH_FIGHTS, EXPED_TIME_QUEST, EXPED_TIME_ELITE,
   EXPED_TIME_GRIND_WAVE, EXPED_TIME_DUNGEON, EXPEDITION_TEXT_IDS, EXPED_DROP_MULT, EXPED_DUNGEON_BOSS_DROPS, DUNGEON_BOSS_DROPS,
   ROAD_SWIFT_TOLLS, ROAD_SWIFT_XP_FRAC, GATES, TUTORIAL_SEED, DIM_FRONT_TIME_NOCAP, DIM_MAX_PER_TOLL, ONB_HOLD_RELEASE,
+  RING_CL_BASE_HERO, RING_CL_SPREAD_HERO, DUNGEON_LEVEL_OFFSET_HERO, DUNGEON_BOSS_LEVEL_OFFSET, HERO_XP_UNIT,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt, weightedIndex } from '../rng.js';
 import { rnd } from './util.js';
@@ -35,6 +38,17 @@ import { xpToNext } from './progress.js';
 import { zoneContent } from './content.js';
 import { deathblowOf, deathblowType } from './track.js';
 import { composeEncounter, vendorStock, dungeonLevels, clampCl, pickFrom } from './map.js';
+import { isLegacy, bandNow, zoneBand, clMax } from './legacy.js';
+
+/**
+ * The level rules of a zone's nodes (rules 1.9.3): the band, the ring offsets RING_CL_BASE and the spread RING_CL_SPREAD,
+ * the content cap; in a Legacy run (legacy.md 2.1) the band fixed at arrival, RING_CL_BASE_HERO, RING_CL_SPREAD_HERO and
+ * CL_MAX.
+ */
+export function ringRule(s, z) {
+  if (!isLegacy(s)) return { band: ZONE_LEVELS * (z - 1) + 1, base: RING_CL_BASE, spread: RING_CL_SPREAD, cap: clMax(s) };
+  return { band: zoneBand(s, z), base: RING_CL_BASE_HERO, spread: RING_CL_SPREAD_HERO, cap: clMax(s) };
+}
 
 // ---------------- Map modes (rules 1.9) ----------------
 /** Map modes of newRun: 'rows' (rules 1.4, the default until the switch-over) and 'expedition' (rules 1.9). */
@@ -132,6 +146,8 @@ export function zoneRegions(content, z) {
  */
 export function generateExpZone(s, z) {
   const c = s.content;
+  // Legacy (legacy.md 2.1): the zone's band is fixed now, at the hero's arrival; a level-up inside the zone does not move it
+  if (isLegacy(s)) s.hero.bands[z] = bandNow(s, z);
   const regs = zoneRegions(c, z);
   const rng = STREAM.map(zoneSeed(s, z), z);
   const [, n1, n2, n3] = RING_NODES;
@@ -230,14 +246,16 @@ export function generateExpZone(s, z) {
 export function setupExpNode(s, z, n, regs) {
   const c = s.content;
   const zn = zoneContent(c, z);
-  const band = ZONE_LEVELS * (z - 1) + 1;
+  const rule = ringRule(s, z); // Legacy (legacy.md 2.1): the band fixed at arrival and the *_HERO offsets
+  const band = rule.band;
+  const cap = (x) => clampCl(x, rule.cap);
   if (n.ring === 0) {
     n.cl = band;
     n.done = true;
     return n;
   }
   const rng = STREAM.nodeId(zoneSeed(s, z), z, n.id);
-  const cl = clampCl(band + RING_CL_BASE[n.ring] + nextInt(rng, RING_CL_SPREAD));
+  const cl = cap(band + rule.base[n.ring] + nextInt(rng, rule.spread));
   n.cl = cl;
   n.done = false;
   const fam = regs[n.region].families;
@@ -257,7 +275,7 @@ export function setupExpNode(s, z, n, regs) {
     let mobs = [];
     for (let i = 0; i < size; i++) mobs.push(pick(pool));
     mobs = composeEncounter(c, rng, mobs, pool, zn.normals);
-    n.cl = clampCl(cl + QUEST_LEVEL_OFFSETS[nextInt(rng, QUEST_LEVEL_OFFSETS.length)]);
+    n.cl = cap(cl + QUEST_LEVEL_OFFSETS[nextInt(rng, QUEST_LEVEL_OFFSETS.length)]);
     n.quest = qid;
     n.mobs = mobs;
   } else if (n.type === 'grind') {
@@ -272,9 +290,11 @@ export function setupExpNode(s, z, n, regs) {
     n.elite = pick(n.rare ? zn.rares : zn.elites);
     n.add = nextFloat(rng) < ELITE_ADD_CHANCE ? pick(zn.normals) : null;
     if (n.add) n.add = composeEncounter(c, rng, [n.elite, n.add], zn.normals)[1];
-    n.eliteLevel = clampCl(cl + ELITE_LEVEL_OFFSET);
+    n.eliteLevel = cap(cl + ELITE_LEVEL_OFFSET);
   } else if (n.type === 'dungeon') {
-    const lv = dungeonLevels(z);
+    // Legacy (legacy.md 2.1): trash at the band + DUNGEON_LEVEL_OFFSET_HERO, the boss DUNGEON_BOSS_LEVEL_OFFSET above
+    const lt = isLegacy(s) ? cap(band + DUNGEON_LEVEL_OFFSET_HERO) : 0;
+    const lv = isLegacy(s) ? { trash: lt, boss: cap(lt + DUNGEON_BOSS_LEVEL_OFFSET) } : dungeonLevels(z);
     n.trashLevel = lv.trash;
     n.bossLevel = lv.boss;
     n.cl = lv.trash;
@@ -454,6 +474,7 @@ export function paceBound(zone, zt) {
  */
 export function swiftXp(s) {
   if (!GATES.swiftRoad || !isExpedition(s) || !s.zone || s.zone.camp || !s.player || zoneTime(s) > ROAD_SWIFT_TOLLS) return 0;
+  if (isLegacy(s)) return rnd(ROAD_SWIFT_XP_FRAC * HERO_XP_UNIT); // Legacy (legacy.md 1.3): a level-equivalent in hero XP
   return rnd(ROAD_SWIFT_XP_FRAC * xpToNext(s.player.level));
 }
 /**
@@ -572,7 +593,8 @@ export function expMapView(s) {
   const regs = zoneRegions(c, z);
   const showRegions = !!s.exp.vision.regions;
   const d = hops(zone.nodes, zone.pos);
-  const band = ZONE_LEVELS * (z - 1) + 1;
+  const rule = ringRule(s, z); // Legacy (legacy.md 2.1): the band fixed at arrival, the *_HERO ring offsets
+  const band = rule.band;
   const nodes = zone.nodes.map((n) => {
     const know = knowledge(s, n);
     const at = dimAt(zone, n.id); // M2b v12: every node by its hops (the Dungeon's hold of M2b v10 removed)
@@ -637,7 +659,7 @@ export function expMapView(s) {
       count: nodes.filter((x) => x.dimmed).length, total: nodes.length, shift: zone.dimShift || 0,
     },
     regions: regs.map((r, i) => ({ id: i, name: r.name, kind: r.kind, families: r.families.slice() })),
-    bands: RING_NODES.map((_, r) => (r === 0 ? [band, band] : [clampCl(band + RING_CL_BASE[r]), clampCl(band + RING_CL_BASE[r] + RING_CL_SPREAD - 1)])),
+    bands: RING_NODES.map((_, r) => (r === 0 ? [band, band] : [clampCl(band + rule.base[r], rule.cap), clampCl(band + rule.base[r] + rule.spread - 1, rule.cap)])),
     edges, moves, nodes,
   };
 }

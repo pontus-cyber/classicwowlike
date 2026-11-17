@@ -13,7 +13,9 @@
 // M3 guided run (tutorial.js): a barred node is closed to the map policy (D138); while the guided zone's Roads are closed
 // (D142) it walks to Gorrak once his node is open, before exploring further, and where it would leave while his node is
 // still barred, to the nearest Quest or Grind node that plays the next script. D152 (changes-m3-v2.md 1.2-1.3): no Bell in
-// zone 1 of a lean first run, and its start camp keeps no points back (no hub contract to pay).
+// zone 1 of a lean first run, and its start camp keeps no points back (no hub contract to pay). Legacy (D154, legacy.md
+// 5.8 items 1 and 4; a Legacy run): no zone exit level (explore while a node is worth it), no Camp grind to MAX_LEVEL
+// (on to Oruvath), a dungeon's own trash level.
 import {
   SPELL, TALENT, CONSUMABLE, AUTO_POTION_HP, AUTO_TONIC_STACKS, AUTO_MANA_POTION, AUTO_FOOD_HP,
   ENGINE_ASSUMPTION as EA, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, MAX_LEVEL, PET, ENGAGE_OPTION, ENGAGE_OPTIONS,
@@ -32,6 +34,7 @@ import { canTravel, exitLevel, trainerSpells, learnCost, trainerUseful, availabl
 import { isExpedition, grindMaxWaves, nodeTime, zoneTime, dimmedAt, outwardStep, dimFightTime, bellHidden, leanFirst } from './expedition.js';
 import { takeContractError, buyPrepError, hubContractError, prepLeft } from './contracts.js';
 import { closedRoadsGoal } from './tutorial.js';
+import { isLegacy } from './legacy.js';
 
 const legal = (s, a) => !checkAction(s, a);
 
@@ -435,7 +438,8 @@ function nodeScore(s, node) {
   switch (node.type) {
     case 'rest': return hpF < EA.AUTO_REST_HP ? S.restLow : S.rest;
     case 'quest': return S.quest;
-    case 'dungeon': return hpF >= EA.AUTO_DUNGEON_HP && p.level >= dungeonLevels(s.zone.z).trash - EA.AUTO_DUNGEON_LEVEL_SLACK ? S.dungeon : S.risky;
+    // Legacy (legacy.md 2.1): the node's own trash level (the zone's band + DUNGEON_LEVEL_OFFSET_HERO)
+    case 'dungeon': return hpF >= EA.AUTO_DUNGEON_HP && p.level >= (isLegacy(s) ? node.trashLevel : dungeonLevels(s.zone.z).trash) - EA.AUTO_DUNGEON_LEVEL_SLACK ? S.dungeon : S.risky;
     case 'elite': return hpF >= EA.AUTO_ELITE_HP && p.level >= node.eliteLevel - EA.AUTO_ELITE_LEVEL_SLACK ? S.elite : S.risky;
     case 'grind': return S.grind;
     case 'shrine': return S.shrine;
@@ -573,7 +577,8 @@ function expMapPolicy(s) {
   const goal = closedRoadsGoal(s);
   if (goal && goal.elite) return goalStep(s, zt, goal.nodes);
   const esc = escapeRoute(s, zone.pos, zt);
-  if (p.level < exitLevel(zone.z) && esc.dims === 0) {
+  // Legacy (legacy.md 5.8 item 1): no exit level; explore while a node is worth it
+  if ((isLegacy(s) || p.level < exitLevel(zone.z)) && esc.dims === 0) {
     let best = null;
     let bs = -Infinity;
     for (const id of zone.nodes[zone.pos].nb) {
@@ -636,7 +641,7 @@ function campPolicy(s) {
   const p = s.player;
   const hub = hubPolicy(s, null);
   if (hub && hub.service !== 'inn') return hub;
-  if (p.level < MAX_LEVEL) return { type: 'CAMP_GRIND' };
+  if (p.level < MAX_LEVEL && !isLegacy(s)) return { type: 'CAMP_GRIND' }; // Legacy (legacy.md 5.8 item 4): no grind to 60
   if (!s.hub.used.inn && p.hp < p.d.maxHp) return { type: 'SERVICE', service: 'inn' };
   if (countConsumable(s, 'elixir_ferocity') > 0 && !p.buffs.elixir) return { type: 'USE_ITEM', itemId: 'elixir_ferocity' };
   return { type: 'FIGHT_BOSS' };

@@ -14,9 +14,13 @@
 // `dimming` event from the node's dimAt (the steady Dimming and the held corridor, 3.2, 2.2), the rescue's pause and
 // fall-back of the Dimming (3.4, GATES.rescueDim: event `dimBack`), the depth of a Dimmed encounter by its time in the dark
 // (3.3), every fight of the guided zone counted for Gorrak's return (2.1, GATES.guidedHold) and Gorrak's bounty on a lean
-// first run (1.4, GATES.gorrakBounty: event `bounty`).
+// first run (1.4, GATES.gorrakBounty: event `bounty`). Legacy (D154, docs/specs/legacy.md 1.5-1.7, 2.1, 2.4; a run made
+// under GATES.legacy; legacy.js): the run starts with the class's hero (level, hero XP, talents, spells trained free to
+// its level, its bar), the Wayfarer's kit and START_GOLD_V × V gold; each zone arrival and the Camp fix their levels and
+// write the hero to the run's profile; the Camp's vendor and waves at its level; Oruvath at the hero's level
+// (legacy.js oruvathScale); a spell's rank is the hero level it was trained at; ABANDON_RUN ends the run as a death.
 import {
-  CLASS, PET, SPELL, META, SLOT_IDS, START_GOLD, START_RATIONS, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, ZONE_COUNT,
+  CLASS, PET, SPELL, TALENT, META, SLOT_IDS, START_GOLD, START_RATIONS, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, ZONE_COUNT,
   ZONE_LEVELS, ZONE_CHOICE_ROWS, TIME_REST, TIME_VENDOR, TIME_TRAINER, TIME_TRAVEL, QUEST_TURNIN_XP_FRAC, QUEST_GOLD_V,
   QUEST_REWARD_CHOICES, STORY_QUESTS, STORY_XP_FRAC, STORY_REWARD_CHOICES, GRIND_WAVE_XP_FRAC, GRIND_DROP_MULT,
   GRIND_WAVE_SIZE, DUNGEON_CLEAR_XP_FRAC, DUNGEON_GOLD_V, TREASURE_GOLD_V,
@@ -24,7 +28,7 @@ import {
   MAX_LEVEL, TRAIN_NEW_V, TRAIN_RANK_V, TRAVEL_EARLY_LEVELS,
   RESPEC_V, CONSUMABLE, ELIXIR_NODES, RES_META_CHARGES, BOSS_LEVEL, UNIQUE_POTION_PCT, TIME_WALK, DIM_PACK_SIZE,
   DIM_LEVEL_PER_DEPTH, BELL_START_CHARGES, BELL_MAX_CHARGES, BELL_CHANNEL_TIME, TRACKER_RADIUS, ROAD_SWIFT_TOLLS,
-  ONB_RESCUE_TOLLS, GATES, DIM_FRONT_HOPS, DIM_RESCUE_MAX_SHARE,
+  ONB_RESCUE_TOLLS, GATES, DIM_FRONT_HOPS, DIM_RESCUE_MAX_SHARE, START_GOLD_V, KIT_RARITY,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt } from '../rng.js';
 import { rnd, frac6, deepClone } from './util.js';
@@ -35,7 +39,10 @@ import {
 } from './items.js';
 import { generateZone, contentLevel, vendorStock, composeEncounter, pickFrom } from './map.js';
 import { zoneContent, campEnemies, CAMP_Z } from './content.js';
-import { startFight, endFight } from './combat.js';
+import { startFight, endFight, zoneDanger } from './combat.js';
+import {
+  isLegacy, heroOf, newHero, powerOf, checkpointHero, campLevelNow, clMax, oruvathScale, zoneBand,
+} from './legacy.js';
 import { parTime } from './meta.js';
 import { makeBoss } from './boss.js';
 import { ascOver, newHeatStats, heatTime, heatZoneEntered, heatNodeEntered, heatFightWon } from './heat.js';
@@ -120,11 +127,14 @@ export function startRun(s, ev) {
   for (const slot of SLOT_IDS) p.equipped[slot] = null;
   cls.startSpells.forEach((id, i) => { p.spells[id] = { tl: 1, rank: 1 }; p.spellOrder.push(id); p.bar[i] = id; });
   const txt = s.content.classes[c.classId];
-  p.equipped.weapon = s.meta.heirloom
-    ? makeFixedGear(s, 'weapon', META.heirloom_blade.rarity, META.heirloom_blade.ilvl, txt.heirloomWeapon)
-    : makeFixedGear(s, 'weapon', 'common', 1, txt.startWeapon);
-  p.equipped.chest = makeFixedGear(s, 'chest', 'common', 1, txt.startChest);
   s.stats = newStats();
+  if (isLegacy(s)) startHero(s, txt);
+  else {
+    p.equipped.weapon = s.meta.heirloom
+      ? makeFixedGear(s, 'weapon', META.heirloom_blade.rarity, META.heirloom_blade.ilvl, txt.heirloomWeapon)
+      : makeFixedGear(s, 'weapon', 'common', 1, txt.startWeapon);
+    p.equipped.chest = makeFixedGear(s, 'chest', 'common', 1, txt.startChest);
+  }
   refreshDerived(s);
   addToBag(s, makeConsumable(s, 'trail_rations', START_RATIONS));
   if (s.meta.satchel) addToBag(s, makeConsumable(s, 'healing_draught', META.satchel.potions));
@@ -148,6 +158,55 @@ export function startRun(s, ev) {
     return;
   }
   enterZone(s, ev, 1);
+}
+
+/**
+ * The run's start in a Legacy run (legacy.md 1.6-1.7): the class's hero from the profile (a new one at level 1 when the
+ * class has none: the name is the run's), its level (the power level POWER_OF_LEVEL[H]), hero XP and talents; its known
+ * spells (those of this run: class spells, talent spells of its talents, meta spells the profile owns) and then every
+ * spell the trainer teaches up to the power level, learned and trained to it, free, rank = the hero level; the hero's
+ * action bar (new spells go to the spellbook; a hero without a bar of its own gets the class's start bar, the new spells
+ * placed while a slot is free); the Wayfarer's kit: a KIT_RARITY item of the power level in each of the ten slots (weapon
+ * and chest keep the class's start names; Heirloom Blade makes the weapon uncommon); START_GOLD_V × V(P) gold.
+ * state.hero: the run's record (start, bands fixed at each zone's arrival, the Camp's level, levels gained).
+ */
+function startHero(s, txt) {
+  const c = s.create;
+  const p = s.player;
+  const hero = heroOf(s.profile, c.classId) || newHero(c.classId, c.name);
+  p.name = c.name || hero.name || p.name;
+  p.heroLevel = hero.level;
+  p.level = powerOf(hero.level);
+  p.xp = hero.xp;
+  s.hero = { start: { level: hero.level, xp: hero.xp }, bands: {}, camp: null, gained: 0, over: 0 };
+  // talents (kept on the hero; legacy.md 1.6, 1.8) and the spells they give
+  for (const [id, r] of Object.entries(hero.talents || {})) {
+    const t = TALENT[id];
+    if (!t || t.cls !== c.classId || !(r > 0)) continue;
+    p.talents[id] = Math.min(r, t.ranks);
+    p.talentSpent += p.talents[id];
+  }
+  const teach = trainerSpells(s);
+  const valid = (id) => !!SPELL[id] && SPELL[id].cls === c.classId && (SPELL[id].source === 'talent'
+    ? Object.keys(p.talents).some((tid) => TALENT[tid].spell === id) : teach.includes(id) && SPELL[id].lvl <= p.level);
+  const own = !!hero.bar;
+  const know = (id) => {
+    if (p.spells[id] || !valid(id)) return;
+    p.spells[id] = { tl: p.level, rank: hero.level };
+    p.spellOrder.push(id);
+    if (!own) placeOnBar(s, id);
+  };
+  for (const id of hero.spellOrder || []) know(id);
+  for (const id of Object.keys(p.talents)) if (TALENT[id].spell) know(TALENT[id].spell);
+  teach.filter((id) => SPELL[id].lvl <= p.level).sort((a, b) => SPELL[a].lvl - SPELL[b].lvl || (a < b ? -1 : 1)).forEach(know);
+  for (const id of Object.keys(p.spells)) if (SPELL[id].source !== 'talent') p.spells[id] = { tl: p.level, rank: hero.level };
+  if (own) p.bar = hero.bar.slice(0, SPELL_BAR_SLOTS).map((id) => (id && p.spells[id] ? id : null)).concat(new Array(SPELL_BAR_SLOTS).fill(null)).slice(0, SPELL_BAR_SLOTS);
+  // the Wayfarer's kit (legacy.md 1.6): weapon and chest first (their uids as before), then the other slots in SLOT_IDS order
+  const P = p.level;
+  p.equipped.weapon = s.meta.heirloom ? makeFixedGear(s, 'weapon', META.heirloom_blade.rarity, P, txt.heirloomWeapon) : makeFixedGear(s, 'weapon', KIT_RARITY, P, txt.startWeapon);
+  p.equipped.chest = makeFixedGear(s, 'chest', KIT_RARITY, P, txt.startChest);
+  for (const slot of SLOT_IDS) if (!p.equipped[slot]) p.equipped[slot] = makeFixedGear(s, slot, KIT_RARITY, P, null);
+  p.gold = rnd(START_GOLD_V * V(P));
 }
 
 /** SET_OUT (expedition.md 2; prep): the purchases take effect, unspent points become Reserve, then zone 1's hub. */
@@ -255,7 +314,9 @@ export function enterZone(s, ev, z, { again = false } = {}) {
   s.service = null;
   s.stats.maxZone = Math.max(s.stats.maxZone, z);
   if (!again) heatZoneEntered(s); // rules 1.7.1: the line moves one share ahead
-  ev.push({ t: 'zone', z, name: zoneContent(s.content, z).name });
+  // Legacy (legacy.md 1.5, 2.1): the zone's band was fixed by its generation; the hero goes to the run's profile
+  if (isLegacy(s)) checkpointHero(s);
+  ev.push(isLegacy(s) ? { t: 'zone', z, name: zoneContent(s.content, z).name, band: zoneBand(s, z) } : { t: 'zone', z, name: zoneContent(s.content, z).name });
   // M3 v3 (D153, changes-m3-v3.md 3; GATES.bountyRoad): Gorrak's bounty XP on arrival at zone 2's hub, once, on a guided
   // lean first run, whatever his fight's outcome (won, fled, rescued, never fought; after a skip too)
   if (z === 2 && GATES.bountyRoad && GATES.gorrakBounty && s.tutorial && leanFirst(s) && !s.tutorial.roadPaid) {
@@ -271,10 +332,16 @@ function enterCamp(s, ev) {
   s.hub = { used: { trainer: false, vendor: false, inn: false }, ledgerFree: s.meta.ledger };
   s.camp = { waves: 0 };
   s.service = null;
-  ev.push({ t: 'camp', name: s.content.camp.name });
+  // Legacy (legacy.md 2.4): the Camp's level is the hero's power level at arrival + CAMP_TIER; the hero to the profile
+  if (isLegacy(s)) { s.hero.camp = campLevelNow(s); checkpointHero(s); }
+  ev.push(isLegacy(s) ? { t: 'camp', name: s.content.camp.name, level: s.hero.camp } : { t: 'camp', name: s.content.camp.name });
   setPhase(s, ev, 'CAMP');
 }
 
+/** The Camp's level: CAMP_GRIND_LEVEL, in a Legacy run the level fixed at arrival (legacy.md 2.4). */
+const campLevel = (s) => (isLegacy(s) && s.hero && s.hero.camp ? s.hero.camp : CAMP_GRIND_LEVEL);
+
+/** Zone exit level ZONE_LEVELS × z (rules 1.5; autoplay's and the rows map's). A Legacy run has none (legacy.md 5.8 item 1). */
 export const exitLevel = (z) => ZONE_LEVELS * z;
 
 /** Level from which TRAVEL_ON is legal in zone z (rules 1.5, M2 v2): exit level - TRAVEL_EARLY_LEVELS, Swift Boots one lower. */
@@ -321,7 +388,8 @@ export function openService(s, ev, kind) {
   } else {
     addTime(s, ev, TIME_VENDOR, 'vendor');
     const z = camp ? CAMP_Z : s.zone.z;
-    const cl = camp ? MAX_LEVEL : contentLevel(z, 0);
+    // Legacy (legacy.md 2.4, 2.5): the hub's vendor at the zone's band, the Camp's at the Camp's level
+    const cl = camp ? (isLegacy(s) ? campLevel(s) : MAX_LEVEL) : isLegacy(s) && isExpedition(s) ? zoneBand(s, z) : contentLevel(z, 0);
     let stock;
     if (!camp && isExpedition(s)) {
       // Expedition (rules 1.9.2): the hub vendor's stock is drawn once per zone (nodeId(z, 0)) and keeps what was sold.
@@ -592,7 +660,7 @@ export function startDimEncounter(s, ev, id, escape = false) {
   const z = zone.z;
   const def = zone.nodes[id];
   const depth = dimDepth(s, id);
-  const level = Math.min(MAX_LEVEL, Math.max(def.cl, s.player.level) + DIM_LEVEL_PER_DEPTH * depth);
+  const level = Math.min(clMax(s), Math.max(def.cl, s.player.level) + DIM_LEVEL_PER_DEPTH * depth);
   const k = zone.dimN[id];
   zone.dimN[id] = k + 1;
   const zn = zoneContent(s.content, z);
@@ -756,7 +824,7 @@ export function finishFight(s, ev) {
   receiveItems(s, ev, drops);
   if (kind === 'boss') { endRun(s, ev, 'victory'); return; }
   if (kind === 'camp') {
-    if (outcome === 'victory') gainXp(s, ev, eventXp(s, GRIND_WAVE_XP_FRAC * xpWeight(s), CAMP_GRIND_LEVEL), 'wave');
+    if (outcome === 'victory') gainXp(s, ev, eventXp(s, GRIND_WAVE_XP_FRAC * xpWeight(s), campLevel(s)), 'wave');
     s.lootRng = null;
     return;
   }
@@ -888,7 +956,7 @@ function applyBoon(s, ev, id) {
   } else if (id === 'clarity') {
     p.freeRespec = true;
     for (const sid of Object.keys(p.spells)) {
-      if (SPELL[sid].source !== 'talent' && p.spells[sid].tl < p.level) { p.spells[sid].tl = p.level; p.spells[sid].rank += 1; }
+      if (SPELL[sid].source !== 'talent' && p.spells[sid].tl < p.level) { p.spells[sid].tl = p.level; p.spells[sid].rank = isLegacy(s) ? p.heroLevel : p.spells[sid].rank + 1; }
     }
   }
 }
@@ -906,10 +974,11 @@ export function campGrind(s, ev) {
   let tids = [];
   for (let i = 0; i < GRIND_WAVE_SIZE; i++) tids.push(pool[nextInt(setup, pool.length)]);
   tids = composeEncounter(s.content, setup, tids, pool); // rules 7.14 (combat v2)
-  const en = tids.map((tid) => ({ tid, level: CAMP_GRIND_LEVEL, variant: 'normal' }));
+  const lvl = campLevel(s); // Legacy (legacy.md 2.4): the Camp's level
+  const en = tids.map((tid) => ({ tid, level: lvl, variant: 'normal' }));
   startFight(s, ev, {
     kind: 'camp', k: 0, z: CAMP_Z, rng: STREAM.fight(s.seed, CAMP_Z, w, 0, 0), enemies: en,
-    addLevel: CAMP_GRIND_LEVEL, addPool: pool, dropMult: GRIND_DROP_MULT, canFlee: true,
+    addLevel: lvl, addPool: pool, dropMult: GRIND_DROP_MULT, canFlee: true,
   });
 }
 
@@ -927,15 +996,38 @@ export function fightBoss(s, ev) {
   s.stats.asc = asc;
   s.lootRng = null;
   setPhase(s, ev, 'BOSS');
-  ev.push({ t: 'bossStart', asc, time: s.time, level: BOSS_LEVEL });
+  // Legacy (legacy.md 2.4): Oruvath at the hero's level + BOSS_TIER, his HP, damage and armour scaled (legacy.js)
+  const scale = oruvathScale(s, zoneDanger);
+  const level = scale ? scale.level : BOSS_LEVEL;
+  ev.push({ t: 'bossStart', asc, time: s.time, level });
   startFight(s, ev, {
-    kind: 'boss', k: 0, z: CAMP_Z, rng: STREAM.boss(s.seed), enemies: [], bossEnemy: makeBoss(asc),
-    addLevel: BOSS_LEVEL, addPool: [], canFlee: false, noStealth: true,
-    boss: { asc, phase: 1, resume: null, nextShard: null, nextPulse: null, eclipse: 0 },
+    kind: 'boss', k: 0, z: CAMP_Z, rng: STREAM.boss(s.seed), enemies: [], bossEnemy: makeBoss(asc, scale),
+    addLevel: level, addPool: [], canFlee: false, noStealth: true,
+    boss: { asc, phase: 1, resume: null, nextShard: null, nextPulse: null, eclipse: 0, ...(scale ? { scale } : {}) },
   });
 }
 
 // ---------------- Run end (rules 9) ----------------
+/**
+ * ABANDON_RUN (legacy.md 1.5; Legacy runs only): the run ends as a death where the hero stands (state.death: zone, node,
+ * killer 'abandon'), so it pays its lines and keeps the hero's level, XP, talents and spells. Whatever is open is left.
+ */
+export function abandonRun(s, ev) {
+  const f = s.fight;
+  const z = s.zone && !s.zone.camp ? s.zone : null;
+  const id = z && isExpedition(s) ? (s.node && s.node.id !== undefined ? s.node.id : z.pos) : null;
+  const fightType = f && (f.kind === 'boss' || f.kind === 'camp') ? f.kind : null;
+  s.death = {
+    zone: s.zone ? s.zone.z : null, row: null, lane: null, nodeType: fightType || (s.node ? s.node.type : null),
+    fightIdx: f ? f.k : null, enemies: f ? f.enemies.map((x) => x.tid) : [], round: f ? f.round : null,
+    killer: { idx: null, name: 'abandon', ability: null },
+    // expedition (rules 1.9.6, 9): the node and ring where the hero stands; a Dimmed encounter's depth
+    ...(id !== null ? { node: id, ring: z.nodes[id].ring, depth: s.node && s.node.type === 'dim' ? s.node.depth : null } : {}),
+  };
+  ev.push({ t: 'abandon' });
+  endRun(s, ev, 'death');
+}
+
 export function endRun(s, ev, outcome) {
   s.outcome = outcome;
   s.loot = [];
@@ -983,7 +1075,7 @@ export function learnSpell(s, ev, id) {
   const cost = learnCost(s, id);
   useLedger(s);
   if (cost) spendGold(s, ev, cost, 'learn');
-  p.spells[id] = { tl: p.level, rank: 1 };
+  p.spells[id] = { tl: p.level, rank: isLegacy(s) ? p.heroLevel : 1 }; // Legacy (legacy.md 1.7): rank = the hero level
   p.spellOrder.push(id);
   placeOnBar(s, id);
   s.stats.trainerTx += 1;
@@ -996,7 +1088,7 @@ export function trainSpell(s, ev, id) {
   useLedger(s);
   if (cost) spendGold(s, ev, cost, 'train');
   p.spells[id].tl = p.level;
-  p.spells[id].rank += 1;
+  p.spells[id].rank = isLegacy(s) ? p.heroLevel : p.spells[id].rank + 1; // Legacy (legacy.md 1.7): the hero level
   s.stats.trainerTx += 1;
   ev.push({ t: 'train', spell: id, tl: p.level, rank: p.spells[id].rank });
 }

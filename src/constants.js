@@ -296,19 +296,35 @@ export const PULSE_DMG = 280;
 export const PULSE_EVERY = 3;
 export const BOSS_ENRAGE_ROUND = 57;
 export const FINAL_DARK_DMG = 99999;
-/** rules 11.1 (M2b v9, D81: was 1.5): Echoes per level gained. */
+/** rules 11.1 (M2b v9, D81: was 1.5): Echoes per level gained (the in-run level line; GATES.legacy: LEGACY_PER_LEVEL). */
 export const ECHO_PER_LEVEL = 1.0;
-export const ECHO_PER_ZONE = 7.5;
-export const ECHO_PER_DUNGEON = 8;
-export const ECHO_PER_ELITE = 3;
-export const ECHO_PER_RARE = 6;
-export const ECHO_PER_QUEST = 1;
-export const ECHO_BOSS_REACHED = 20;
-export const ECHO_BOSS_PHASE = 12;
-export const ECHO_BOSS_KILL = 120;
-export const ECHO_SPEED_BONUS = 40;
-export const ECHO_FIRST_KILL_CLASS = 100;
-export const OATH_ECHO_BONUS = 0.25;
+/**
+ * The run's lines (rules 11.1; legacy.md 4.1, 10, D154: the Echo lines renamed LEGACY_*, same values). The ECHO_* names
+ * stay as aliases of the same values for rules.md 13, which keeps them until it is rewritten after the owner's steer
+ * (legacy.md header), and for the clients that read them.
+ */
+export const LEGACY_PER_ZONE = 7.5;
+export const LEGACY_PER_DUNGEON = 8;
+export const LEGACY_PER_ELITE = 3;
+export const LEGACY_PER_RARE = 6;
+export const LEGACY_PER_QUEST = 1;
+export const LEGACY_BOSS_REACHED = 20;
+export const LEGACY_BOSS_PHASE = 12;
+export const LEGACY_BOSS_KILL = 120;
+export const LEGACY_SPEED_BONUS = 40;
+export const LEGACY_FIRST_KILL_CLASS = 100;
+export const LEGACY_OATH_BONUS = 0.25;
+export const ECHO_PER_ZONE = LEGACY_PER_ZONE;
+export const ECHO_PER_DUNGEON = LEGACY_PER_DUNGEON;
+export const ECHO_PER_ELITE = LEGACY_PER_ELITE;
+export const ECHO_PER_RARE = LEGACY_PER_RARE;
+export const ECHO_PER_QUEST = LEGACY_PER_QUEST;
+export const ECHO_BOSS_REACHED = LEGACY_BOSS_REACHED;
+export const ECHO_BOSS_PHASE = LEGACY_BOSS_PHASE;
+export const ECHO_BOSS_KILL = LEGACY_BOSS_KILL;
+export const ECHO_SPEED_BONUS = LEGACY_SPEED_BONUS;
+export const ECHO_FIRST_KILL_CLASS = LEGACY_FIRST_KILL_CLASS;
+export const OATH_ECHO_BONUS = LEGACY_OATH_BONUS;
 export const OATH_HASTE_TIME = 20;
 export const OATH_THRIFT_MULT = 1.5;
 export const UNIQUE_PROC_CHANCE = 0.15;
@@ -467,8 +483,16 @@ export const RARE_HP_MULT_Z1 = 3.0;
  *   ONB_ELITE_LEVEL_MAX); off: clamp(L, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX_V2).
  * - bountyRoad (3): Gorrak's bounty pays its gold and item choice on his victory and its XP on arrival at zone 2's hub,
  *   once, on a guided lean first run, whatever his fight's outcome (needs gorrakBounty); off: all of it on his victory.
+ * D154-D155 (docs/specs/legacy.md, draft; phase 1, engine side): legacy. **Off** until the phase 1 measures pass. On, a run
+ * created by newRun is a Legacy run (state.legacy, read from then on): the profile is version 3 (Legacy points, one hero
+ * per class; migrateProfile turns a version 1 profile's Echoes into Legacy points), the run plays the class's hero (level
+ * 1-25 and hero XP kept across runs; the engine's level is the power level POWER_OF_LEVEL[H]), starts with the Wayfarer's
+ * kit, every spell trained and START_GOLD_V × V gold, sets each zone at arrival from the hero's level (ZONE_TIER, the
+ * *_HERO ring, dungeon and contract offsets, ZONE_TIER_DMG, CL_MAX, ILVL_MAX_HERO), the Camp at CAMP_TIER and Oruvath at
+ * BOSS_TIER with his HP factor (legacy.js oruvathScale), and pays LEGACY_PER_LEVEL a hero level gained. Off, every run
+ * and profile is as before D154.
  */
-export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true, rewardPrimary: true, zone2InnerCap: true, z1Dmg: true, firstRunLean: true, gorrakBounty: true, guidedHold: true, steadyDim: true, rescueDim: true, gorrakLevel: true, bountyRoad: true };
+export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true, rewardPrimary: true, zone2InnerCap: true, z1Dmg: true, firstRunLean: true, gorrakBounty: true, guidedHold: true, steadyDim: true, rescueDim: true, gorrakLevel: true, bountyRoad: true, legacy: false };
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
 // with mapMode 'expedition'; a run on today's map (mapMode 'rows', the default) never reads them.
 /** rules 1.9.2: nodes per ring (ring 0 = the hub). */
@@ -584,8 +608,9 @@ export const META_COST_CARTOGRAPHER = 100;
 export const META_COST_OLD_HAND = 150;
 export const META_COST_QM_1 = 120;
 export const META_COST_QM_2 = 200;
-/** expedition.md 2.6, 11.1: Echoes per Reserve point left at SUMMARY. */
-export const PREP_ECHO_PER_POINT = 2;
+/** expedition.md 2.6, 11.1: Echoes per Reserve point left at SUMMARY (legacy.md 4.1: LEGACY_PER_PREP_POINT; the old name an alias). */
+export const LEGACY_PER_PREP_POINT = 2;
+export const PREP_ECHO_PER_POINT = LEGACY_PER_PREP_POINT;
 /**
  * expedition.md 2.2: contracts on the board. D128 (owner playtest 2026-11-12 20:19, a lean start camp): 3 (was 8: one
  * per zone and CONTRACT_BOARD_EXTRA 2 drawn zones; that constant is retired). D132: one from each band of
@@ -642,8 +667,9 @@ export const CONTRACT_RARE_W = 65;
 export const CONTRACT_EPIC_W = 35;
 export const BOUNTY_RARE_W = 40;
 export const BOUNTY_EPIC_W = 60;
-/** expedition.md 8.1, 11.1: Echoes per contract completed = ECHO_PER_QUEST × this. */
-export const ECHO_CONTRACT_MULT = 3;
+/** expedition.md 8.1, 11.1: Echoes per contract completed = ECHO_PER_QUEST × this (legacy.md 4.1: LEGACY_CONTRACT_MULT; the old name an alias). */
+export const LEGACY_CONTRACT_MULT = 3;
+export const ECHO_CONTRACT_MULT = LEGACY_CONTRACT_MULT;
 /** expedition.md 2.3: supply prices and amounts. */
 export const PRICE_PREP_DRAUGHTS = 1;
 export const PREP_DRAUGHT_COUNT = 2;
@@ -680,8 +706,9 @@ export const HEAT_DIM_HOT = 2;
 export const HEAT_GAIN = { clear: 0, warm: 0, hot: 0.35, scorched: 0.50 };
 /** rules 8.4: chance per item rolled in a node that its rarity is one step higher, by the node's entry state (M2b v6, D62: hot 0.25 -> 0.50, scorched 0.40 -> 0.70). */
 export const HEAT_RARITY_UP = { clear: 0, warm: 0, hot: 0.50, scorched: 0.70 };
-/** rules 11.1: Echoes per fight won in a node entered Hot or Scorched. */
-export const ECHO_PER_HEAT_FIGHT = 1;
+/** rules 11.1: Echoes per fight won in a node entered Hot or Scorched (legacy.md 4.1: LEGACY_PER_HEAT_FIGHT; the old name an alias). */
+export const LEGACY_PER_HEAT_FIGHT = 1;
+export const ECHO_PER_HEAT_FIGHT = LEGACY_PER_HEAT_FIGHT;
 /** expedition.md H.4: tolls of heat shown on the meter, left and right end. */
 export const HEAT_BAR_MIN = -20;
 export const HEAT_BAR_MAX = 40;
@@ -1408,8 +1435,12 @@ export const ONB_HINTS_PER_FIGHT = 2;
 export const ONB_QUEUE_MAX = 2;
 /** UI number (D142 (3), spec 3.1 draft): showings after which a hint counts as seen, however short each showing was. */
 export const ONB_HINT_SHOWS = 2;
-/** The Bellwrights' welcome: Echoes once per profile, at the first non-dev run's summary (spec 4.2; = Packed Satchel). */
-export const ONB_WELCOME_ECHOES = 60;
+/**
+ * The Bellwrights' welcome: Echoes once per profile, at the first non-dev run's summary (spec 4.2; = Packed Satchel).
+ * legacy.md 4.1, 4.6: LEGACY_WELCOME, paid in Legacy points under GATES.legacy; the old name an alias.
+ */
+export const LEGACY_WELCOME = 60;
+export const ONB_WELCOME_ECHOES = LEGACY_WELCOME;
 /** Target ONB1, minutes to leave the guided zone (spec 8). */
 export const ONB_GUIDE_MAX_MIN = 15;
 /**
@@ -1421,3 +1452,58 @@ export const ONB_BEATS = ['G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8', 'G9', 
 export const ONB_BEAT_PRIORITY = ['G9', 'G8', 'G11', 'G7', 'G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G14', 'G15', 'G16', 'G17', 'G10', 'G12', 'G13'];
 /** Profile values of `guide` (spec E6). */
 export const ONB_GUIDE_STATES = ['todo', 'done', 'skipped'];
+
+// ---------------------------------------------------------------------------------------------
+// Part 6. Legacy (D154-D155; docs/specs/legacy.md 10, draft for owner steering): phase 1, the hero and zones at the
+// hero's level, played only while GATES.legacy is on (a run created then carries state.legacy). Names of legacy.md 10
+// whose rules.md 13 value differs carry the suffix _HERO here (RING_CL_BASE_HERO, ..., ILVL_MAX_HERO), so both tables
+// hold until rules.md is rewritten after the owner's steer. Not built yet (later phases): the Legacy hall, trees from
+// level 20, the Armoury, the Camp waves' cap and XP (CAMP_WAVE_MAX, CAMP_WAVE_XP_MULT).
+// ---------------------------------------------------------------------------------------------
+/** legacy.md 1.1: heroes per class on a profile. */
+export const HEROES_PER_CLASS = 1;
+/** legacy.md 1.2: the highest hero level. */
+export const HERO_MAX_LEVEL = 25;
+/** legacy.md 1.2: the power level (the engine's 1-60 level) of hero levels 1-25: round(1 + (H - 1) × 59 / 24). */
+export const POWER_OF_LEVEL = [1, 3, 6, 8, 11, 13, 16, 18, 21, 23, 26, 28, 31, 33, 35, 38, 40, 43, 45, 48, 50, 53, 55, 58, 60];
+/** legacy.md 1.3: hero XP per level-equivalent (an award of `frac` levels at the hero's power level pays frac × this). */
+export const HERO_XP_UNIT = 100;
+/** legacy.md 1.4: hero XP from level H to H + 1, H = 1-24 (69 800 in all). */
+export const HERO_XP = [2000, 2000, 2050, 2100, 2150, 2250, 2350, 2450, 2550, 2650, 2750, 2850, 2900, 3000, 3100, 3200, 3300, 3400, 3500, 3600, 3750, 3850, 3950, 4100];
+/** legacy.md 1.3: hero XP past level 25 that pays LEGACY_PER_LEVEL at the run's end (= HERO_XP[24]). */
+export const HERO_XP_AT_MAX = 4100;
+/** legacy.md 4.1: Legacy points per hero level gained in the run, and per HERO_XP_AT_MAX XP gained at level 25. */
+export const LEGACY_PER_LEVEL = 20;
+/** legacy.md 1.6: gold at Set out, × V(power level) (two Healing Draughts at the first vendor; was START_GOLD copper). */
+export const START_GOLD_V = 3;
+/** legacy.md 1.6: the Wayfarer's kit, an item of this rarity at the hero's power level in every slot (KIT_SLOTS: all ten). */
+export const KIT_RARITY = 'common';
+/** legacy.md 2.1-2.2: power levels added to zones 1-6's band at arrival (band = clamp(P + ZONE_TIER[z - 1], 1, CL_MAX)). */
+export const ZONE_TIER = [-2, -1, 0, 1, 2, 3];
+/** legacy.md 2.2: × the damage of every template enemy in zones 1-6 (the Camp: zone 6's), on top of zone danger. */
+export const ZONE_TIER_DMG = [1.25, 1.30, 1.35, 1.40, 1.45, 1.50];
+/** legacy.md 2.1: levels above the band of rings 0-3 (rules.md RING_CL_BASE 0, 1, 4, 7) and the spread u (RING_CL_SPREAD 3). */
+export const RING_CL_BASE_HERO = [0, 0, 1, 2];
+export const RING_CL_SPREAD_HERO = 2;
+/** legacy.md 2.1: dungeon trash above the band (rules.md DUNGEON_LEVEL_OFFSET 4); its boss DUNGEON_BOSS_LEVEL_OFFSET more. */
+export const DUNGEON_LEVEL_OFFSET_HERO = 2;
+/** legacy.md 2.1, 5.3: contract level above the zone's band (rules.md CONTRACT_CL_OFFSET 8 of a ten-level band). */
+export const CONTRACT_CL_OFFSET_HERO = 2;
+/** legacy.md 2.1: the highest content level (was MAX_LEVEL 60): late zones and Oruvath over a level-25 hero sit above 60. */
+export const CL_MAX = 66;
+/** legacy.md 2.1, 5.6: the highest item level (legacy.md's ILVL_MAX 69; rules.md ILVL_MAX 63). */
+export const ILVL_MAX_HERO = 69;
+/** legacy.md 2.4: the Camp's level is the hero's power level at arrival + CAMP_TIER (zone 6's tier): its vendor and waves. */
+export const CAMP_TIER = 3;
+/** legacy.md 5.1: Gorrak's lowest level in the guided zone (rules.md ONB_ELITE_LEVEL_MIN 4). */
+export const ONB_ELITE_LEVEL_MIN_HERO = 2;
+/**
+ * Oruvath at the hero's level (legacy.md 2.4; one block, read only by legacy.js oruvathScale, so the Designer's rework of
+ * the fight replaces it in one place): his level LB = P(hero at FIGHT_BOSS) + BOSS_TIER; HP and Shard HP × hpScale(LB) ×
+ * min(1, BOSS_HP_LEVEL_BASE + BOSS_HP_LEVEL_STEP × H); every damage of the fight × dmgScale(LB); armour × LB /
+ * BOSS_REF_LEVEL; Shards at LB - 2. BOSS_REF_LEVEL is the level his numbers are tuned at (BOSS_LEVEL).
+ */
+export const BOSS_TIER = 5;
+export const BOSS_REF_LEVEL = 62;
+export const BOSS_HP_LEVEL_BASE = 0.40;
+export const BOSS_HP_LEVEL_STEP = 0.024;

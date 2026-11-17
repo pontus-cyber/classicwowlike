@@ -1,5 +1,5 @@
 // Output helpers: commit hash, cell names (M2b v12: 'rcg' for the gated Ricochet Bolt arm; C.GATES tags, GATE_TAG, D152's
-// five switches included; D128: the start camp's options, campMark),
+// five switches included; D128: the start camp's options, campMark; D154: 'leg' a Legacy cell, `h<H>` its hero level),
 // JSON/JSONL/Markdown writers, number formatting.
 import { execSync } from 'node:child_process';
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
@@ -21,10 +21,11 @@ export const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
  * '-no<tag>'): 'frl' the lean first run (firstRunLean), 'gb' Gorrak's bounty (gorrakBounty), 'gh' the guided zone's fight
  * count and held corridor (guidedHold), 'sd' the steady Dimming (steadyDim), 'rd' the rescue's pause and fall-back of the
  * Dimming (rescueDim); D153 (changes-m3-v3.md, on by default): 'gl' Gorrak one level above the player (gorrakLevel), 'br'
- * the bounty's XP on the road to zone 2 (bountyRoad); a switch without a tag is
- * marked by its key. (M2b v15's mawgrimHp switch and its 'maw' tag are gone: D126 put Mawgrim's 0.95 in content.)
+ * the bounty's XP on the road to zone 2 (bountyRoad); D154-D155 (legacy.md, off by default): 'leg' a Legacy run (legacy); a
+ * switch without a tag is marked by its key. (M2b v15's mawgrimHp switch and its 'maw' tag are gone: D126 put Mawgrim's 0.95
+ * in content.)
  */
-export const GATE_TAG = { rareHpMultZ1: 'g5', firstMeetWindup: 'g6', sapHold: 'sap', passStealth: 'pst', swiftRoad: 'swift', campReroll: 'rr', boardAcrossRun: 'ba', autoEmberFirst: 'ae', rewardPrimary: 'rp', zone2InnerCap: 'z2c', z1Dmg: 'z1d', firstRunLean: 'frl', gorrakBounty: 'gb', guidedHold: 'gh', steadyDim: 'sd', rescueDim: 'rd', gorrakLevel: 'gl', bountyRoad: 'br' };
+export const GATE_TAG = { rareHpMultZ1: 'g5', firstMeetWindup: 'g6', sapHold: 'sap', passStealth: 'pst', swiftRoad: 'swift', campReroll: 'rr', boardAcrossRun: 'ba', autoEmberFirst: 'ae', rewardPrimary: 'rp', zone2InnerCap: 'z2c', z1Dmg: 'z1d', firstRunLean: 'frl', gorrakBounty: 'gb', guidedHold: 'gh', steadyDim: 'sd', rescueDim: 'rd', gorrakLevel: 'gl', bountyRoad: 'br', legacy: 'leg' };
 
 /**
  * Cell-name mark of the start camp's options (D128, cell.campOptions): none when the cell plays the engine's list
@@ -73,6 +74,7 @@ export function cellName(cell) {
   if (cell.oracle) parts.push('oracle');
   if (cell.route) parts.push('route');
   if (cell.guided) parts.push('guided');
+  if (cell.hero) parts.push(`h${cell.hero}`); // D154 (legacy.md 5.7): the hero cell's level
   return parts.join('-');
 }
 

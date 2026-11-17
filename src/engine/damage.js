@@ -347,7 +347,9 @@ function attackerDebuffMult(st) {
  * fight (dungeon bosses, Camp waves, Dimmed encounters) only (1 + asc), and those enemies have asc 0.
  */
 export function bossDmgFactor(s, asc) {
-  return s.fight && s.fight.kind === 'boss' ? BOSS_DMG_MULT * (1 + (asc || 0)) : 1 + (asc || 0);
+  // Legacy (legacy.md 2.4): × the fight's damage scale at Oruvath's level (legacy.js oruvathScale; none: 1)
+  const scale = s.fight && s.fight.boss && s.fight.boss.scale ? s.fight.boss.scale.dmg : 1;
+  return s.fight && s.fight.kind === 'boss' ? BOSS_DMG_MULT * (1 + (asc || 0)) * scale : 1 + (asc || 0);
 }
 
 /** Steps 1-2 and 6 of the pipeline: the snapshot used for DOT ticks and intent estimates. */

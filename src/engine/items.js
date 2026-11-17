@@ -1,7 +1,9 @@
 // Items, drops (heat: the rarity step, rules 8.4; D144: a reward choice's primary at REWARD_CLASS_BIAS), gold values, bag
-// (rules 8). Generated names (rules 12.5; D150: at most one affix word, never two "of").
+// (rules 8). Generated names (rules 12.5; D150: at most one affix word, never two "of"). Legacy (D154, legacy.md 2.1, 5.6;
+// a Legacy run): item levels up to ILVL_MAX_HERO; a generated name's zone band words by the zone it drops in (the Camp:
+// zone 6's; the start camp: by item level), since a zone's level no longer matches its band.
 import {
-  VALUE_BASE, VALUE_COEF, VALUE_EXP, RARITY, RARITY_ORDER, SLOT, SLOT_IDS, DROP_TABLE, ILVL_MAX,
+  VALUE_BASE, VALUE_COEF, VALUE_EXP, RARITY, RARITY_ORDER, SLOT, SLOT_IDS, DROP_TABLE,
   BUDGET_PER_ILVL, AFFIX_SHARE, AFFIX_CRIT_PCT, AFFIX_EPIC_MULT, AFFIX_POWER_PER_PT, AFFIX_ARMOR_PER_PT,
   SPLIT2_MAIN, SPLIT3_MAIN, SPLIT3_SECOND, DROP_CLASS_BIAS, REWARD_CLASS_BIAS, REWARD_DROP_TABLES, GATES, WEAPON_DMG_BASE, WEAPON_DMG_PER_ILVL,
   ARMOR_PER_ILVL, STAT1_PRIMARY_CHANCE, STAT2_STA_CHANCE, AFFIX_KINDS, ITEM_SCORE, ITEM_SCORE_CRIT_UNIT,
@@ -11,6 +13,7 @@ import {
 import { nextFloat, nextInt, weightedIndex, hash32 } from '../rng.js';
 import { rnd } from './util.js';
 import { zoneContent } from './content.js';
+import { isLegacy, ilvlMax } from './legacy.js';
 
 /** Value scale V(L) (rules 8.5). */
 export function V(L) {
@@ -110,7 +113,8 @@ function affixFor(list, h, salt, base) {
 function gearName(s, item) {
   const c = s.content;
   const h = hash32(`${s.seed}|name|${item.uid}`);
-  const band = c.itemNames[Math.min(ZONE_COUNT, Math.max(1, Math.ceil(item.ilvl / ZONE_LEVELS))) - 1];
+  const zb = isLegacy(s) && s.zone ? (s.zone.camp ? ZONE_COUNT : s.zone.z) : Math.ceil(item.ilvl / ZONE_LEVELS); // Legacy: the zone's words
+  const band = c.itemNames[Math.min(ZONE_COUNT, Math.max(1, zb)) - 1];
   let names = band[item.slot];
   if (!Array.isArray(names)) {
     // the item's primary stat's list; newcomer check 2026-11-15 (s0126: a Mage's offhand named "Quiver of Rushes"): a class's
@@ -128,7 +132,7 @@ function gearName(s, item) {
 }
 
 function buildGear(s, rng, { level, rarity, slot, fixed, ilvl, pad = false, bias }) {
-  const il = ilvl !== undefined ? ilvl : Math.min(ILVL_MAX, Math.max(1, level) + RARITY[rarity].ilvlBonus);
+  const il = ilvl !== undefined ? ilvl : Math.min(ilvlMax(s), Math.max(1, level) + RARITY[rarity].ilvlBonus);
   const r = rollStats(rng, il, rarity, slot, CLASS[s.player.classId].primary, fixed, pad, bias);
   const item = {
     uid: newUid(s), kind: 'gear', slot, rarity, ilvl: il, name: '',

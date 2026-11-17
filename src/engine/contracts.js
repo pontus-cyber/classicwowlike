@@ -15,6 +15,8 @@
 // (prepView `first`, `unspent`); the second run's board is CONTRACT_BOARD_FIRST_BANDS (one zone 1 offer), from the third
 // run CONTRACT_BOARD_SIZE; and (1.4, GATES.gorrakBounty) Gorrak's bounty pays the guided Cull's reward (bountyReward;
 // M3 v3, D153, GATES.bountyRoad: its XP on arrival at zone 2's hub, bountyRoadXp).
+// Legacy (D154, legacy.md 5.3; a Legacy run): a contract's level is its zone's band + CONTRACT_CL_OFFSET_HERO, fixed when
+// the hero arrives (legacy.js contractLevelOf; the board's estimate before), so its XP is hero XP at that level.
 // Only a run created with newRun({ mapMode: 'expedition', prep: true }) uses it; a rows run, or an expedition run without
 // the option, never does.
 import {
@@ -28,16 +30,20 @@ import { zoneContent } from './content.js';
 import { validEncounter, clampCl } from './map.js';
 import { flatXp, gainXp, gainGold } from './progress.js';
 import { V, rollDrop, makeConsumable, addToBag, countConsumable } from './items.js';
-import { zoneRegions, setupExpNode, xpWeight, firstRun, leanFirst } from './expedition.js';
+import { zoneRegions, setupExpNode, xpWeight, firstRun, leanFirst, ringRule } from './expedition.js';
 import { fixBoard } from './tutorial.js';
+import { isLegacy, contractLevelOf } from './legacy.js';
 
 // ---------------- Preparation points and the board (expedition.md 2.1, 2.2) ----------------
 /** Ranks of an expedition catalogue entry the profile owns (META, mapMode 'expedition'; capped at its ranks). */
 const metaRank = (profile, id) => Math.min(((profile && profile.unlocks) || {})[id] || 0, META[id].ranks);
 /** prepPoints = PREP_POINTS + PREP_POINTS_PER_QM × Quartermaster ranks (expedition.md 2.1). */
 export const prepPoints = (profile) => PREP_POINTS + PREP_POINTS_PER_QM * metaRank(profile, 'quartermaster');
-/** The contract level CL_c = ZONE_LEVELS × (z - 1) + CONTRACT_CL_OFFSET (the zone's rim level 10z - 2, expedition.md 3.1, M2b v10). */
-export const contractLevel = (z) => ZONE_LEVELS * (z - 1) + CONTRACT_CL_OFFSET;
+/**
+ * The contract level CL_c = ZONE_LEVELS × (z - 1) + CONTRACT_CL_OFFSET (the zone's rim level 10z - 2, expedition.md 3.1, M2b
+ * v10). With a state `s` of a Legacy run: the zone's band + CONTRACT_CL_OFFSET_HERO (legacy.js contractLevelOf).
+ */
+export const contractLevel = (z, s = null) => (s ? contractLevelOf(s, z) : ZONE_LEVELS * (z - 1) + CONTRACT_CL_OFFSET);
 
 /**
  * One contract offer of zone z (expedition.md 2.2), draws on `rng` in this order: the kind by weight; Cull and Bounty
@@ -312,9 +318,9 @@ const enemyName = (c, t) => (t ? c.enemies[t].name : null);
  * What a contract pays (expedition.md 3.1), before Quick Study, Insight, Prospector and heat: XP levels-worth at CL_c (no
  * level-difference modifier since M2b v10, so xpFrac × xpToNext(cl) is the XP paid), gold, item choice.
  */
-export function rewardInfo(kind, z) {
+export function rewardInfo(kind, z, s = null) {
   const k = CONTRACT[kind];
-  const cl = contractLevel(z);
+  const cl = contractLevel(z, s);
   const w = DROP_TABLE[k.table].weights;
   return {
     cl, xpFrac: k.xpFrac * XP_WEIGHT_MULT, gold: k.goldV * V(cl), choices: k.choices, table: k.table,
@@ -328,8 +334,11 @@ export function rewardInfo(kind, z) {
  */
 function offerView(s, o) {
   const c = s.content;
-  const band = [ZONE_LEVELS * (o.z - 1) + 1, ZONE_LEVELS * o.z];
-  const rw = rewardInfo(o.kind, o.z);
+  // Legacy (legacy.md 2.1, 5.3): the zone's band to its ring 3 top, fixed at the hero's arrival (before it, the estimate
+  // at the hero's level now)
+  const rr = isLegacy(s) ? ringRule(s, o.z) : null;
+  const band = rr ? [rr.band, clampCl(rr.band + rr.base[rr.base.length - 1] + rr.spread - 1, rr.cap)] : [ZONE_LEVELS * (o.z - 1) + 1, ZONE_LEVELS * o.z];
+  const rw = rewardInfo(o.kind, o.z, s);
   return {
     z: o.z, zoneName: zoneContent(c, o.z).name, band, kind: o.kind, region: o.region, regionName: regionName(c, o.z, o.region),
     family: o.family, template: o.template, name: enemyName(c, o.template),
@@ -575,7 +584,7 @@ export function siteWon(s, ev) {
  */
 function contractPay(s, ev, kind, z, why, xp = true) {
   const k = CONTRACT[kind];
-  const cl = contractLevel(z);
+  const cl = contractLevel(z, s);
   if (xp) gainXp(s, ev, flatXp(s, k.xpFrac * xpWeight(s), cl), why);
   gainGold(s, ev, k.goldV * V(cl), why);
   const items = [];
@@ -615,7 +624,7 @@ export function bountyReward(s, ev) {
  */
 export function bountyRoadXp(s, ev) {
   const at = ev.length;
-  gainXp(s, ev, flatXp(s, CONTRACT.cull.xpFrac * xpWeight(s), contractLevel(1)), 'bounty');
+  gainXp(s, ev, flatXp(s, CONTRACT.cull.xpFrac * xpWeight(s), contractLevel(1, s)), 'bounty');
   const xp = ev.slice(at).filter((e) => e.t === 'xp' && e.why === 'bounty').reduce((n, e) => n + e.amount, 0);
   ev.push({ t: 'bounty', xp, gold: 0, road: true });
 }

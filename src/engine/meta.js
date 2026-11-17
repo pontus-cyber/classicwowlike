@@ -1,15 +1,19 @@
 // Meta progression (rules 11): profile, catalogue purchases, Echoes per run (a dev run leaves the profile as it was,
 // engine-api.md 12; prep, expedition.md 8.1: the lines of contracts completed and Reserve left). M3 onboarding
 // (m3-onboarding.md 4.2, E6): the profile's `guide` and `welcome`, their migration, setGuide, and the welcome line. M3 v3
-// (D153, changes-m3-v3.md 4): the profile's `deathblowMet`, per class.
+// (D153, changes-m3-v3.md 4): the profile's `deathblowMet`, per class. Legacy (D154, legacy.md 1.1, 4.1, 4.6; GATES.legacy,
+// draft): the version 3 profile (Legacy points in `legacy`, one hero per class in `heroes`), the migration of a version 1
+// profile, the level line LEGACY_PER_LEVEL a hero level gained, and the hero written back at the run's end. The lines are
+// the LEGACY_* constants (the Echo lines renamed, same values).
 import {
-  META, CLASS_IDS, ECHO_PER_LEVEL, ECHO_PER_ZONE, ECHO_PER_DUNGEON, ECHO_PER_ELITE, ECHO_PER_RARE, ECHO_PER_QUEST,
-  ECHO_BOSS_REACHED, ECHO_BOSS_PHASE, ECHO_BOSS_KILL, ECHO_SPEED_BONUS, ECHO_FIRST_KILL_CLASS, OATH_ECHO_BONUS,
-  BOSS_TIME_PAR, OATH_HASTE_TIME, ECHO_PER_HEAT_FIGHT, ECHO_CONTRACT_MULT, PREP_ECHO_PER_POINT, ONB_WELCOME_ECHOES,
-  ONB_GUIDE_STATES,
+  META, CLASS_IDS, ECHO_PER_LEVEL, LEGACY_PER_ZONE, LEGACY_PER_DUNGEON, LEGACY_PER_ELITE, LEGACY_PER_RARE, LEGACY_PER_QUEST,
+  LEGACY_BOSS_REACHED, LEGACY_BOSS_PHASE, LEGACY_BOSS_KILL, LEGACY_SPEED_BONUS, LEGACY_FIRST_KILL_CLASS, LEGACY_OATH_BONUS,
+  BOSS_TIME_PAR, OATH_HASTE_TIME, LEGACY_PER_HEAT_FIGHT, LEGACY_CONTRACT_MULT, LEGACY_PER_PREP_POINT, LEGACY_WELCOME,
+  ONB_GUIDE_STATES, LEGACY_PER_LEVEL,
 } from '../constants.js';
 import { IllegalActionError, deepClone, rnd } from './util.js';
 import { hash32 } from '../rng.js';
+import { legacyProfile, legacyProfiles, balanceOf, balanceKey, heroOf } from './legacy.js';
 
 /**
  * Boss time par in tolls (rules 1.7, 11.5): BOSS_TIME_PAR, OATH_HASTE_TIME less under the Oath of Haste. Ascendancy
@@ -21,14 +25,16 @@ export function parTime(oaths) {
 
 /**
  * A fresh profile (no unlocks). Plain JSON; the front end stores it. M3 (m3-onboarding.md E6): `guide` 'todo' (the next
- * run is offered as the guided run), `welcome` false (the first non-dev run's summary pays ONB_WELCOME_ECHOES).
+ * run is offered as the guided run), `welcome` false (the first non-dev run's summary pays ONB_WELCOME_ECHOES). Legacy
+ * (GATES.legacy; legacy.md 4.6): version 3, Legacy points in `legacy` instead of `echoes`, and `heroes` (none yet).
  */
 export function newProfile() {
-  return {
+  const p = {
     v: 1, echoes: 0, earned: 0, spent: 0, unlocks: {}, reachedBoss: false, bossKills: 0,
     firstKill: { rogue: false, mage: false, hunter: false }, runs: 0, guide: 'todo', welcome: false,
     deathblowMet: noDeathblowMet(),
   };
+  return legacyProfiles() ? legacyProfile(p) : p;
 }
 
 /**
@@ -51,7 +57,9 @@ export function migrateProfile(profile) {
   // M3 v3 (D153): a profile saved before it has met no Deathblow (each class's next one names its answer once)
   const met = p.deathblowMet && typeof p.deathblowMet === 'object' ? p.deathblowMet : {};
   p.deathblowMet = Object.fromEntries(CLASS_IDS.map((c) => [c, met[c] === true]));
-  return p;
+  // Legacy (GATES.legacy; legacy.md 4.6): a version 1 profile becomes version 3 (Echoes in, Legacy points out: every Echo
+  // spent comes back, the catalogue cleared but Packed Satchel); a version 3 profile is kept as it is, switch or not.
+  return legacyProfiles() || p.v >= 3 ? legacyProfile(p) : p;
 }
 
 /** The profile with guide = value ('todo', 'done', 'skipped'): class select's toggle and Settings (E6). Pure. */
@@ -85,20 +93,21 @@ export function metaOffers(profile) {
     const reqOk = m.req.every((r) => reqMet(profile, r));
     return {
       id: m.id, name: m.name, kind: m.kind, rank, ranks: m.ranks, nextCost, req: m.req.slice(),
-      available: !maxed && reqOk, affordable: !maxed && reqOk && profile.echoes >= nextCost,
+      available: !maxed && reqOk, affordable: !maxed && reqOk && balanceOf(profile) >= nextCost,
     };
   });
 }
 
-/** Buy one rank. Returns a new profile; throws IllegalActionError when not allowed. */
+/** Buy one rank (Echoes, or Legacy points on a version 3 profile). Returns a new profile; throws IllegalActionError when not allowed. */
 export function buyMeta(profile, id) {
   const m = META[id];
   if (!m) throw new IllegalActionError(`unknown meta unlock ${id}`);
   const offer = metaOffers(profile).find((o) => o.id === id);
   if (!offer.available) throw new IllegalActionError(`meta unlock ${id} is not available (rank ${offer.rank}/${m.ranks}, requires ${m.req.join(', ') || 'nothing'})`);
-  if (profile.echoes < offer.nextCost) throw new IllegalActionError(`meta unlock ${id} costs ${offer.nextCost} Echoes, profile has ${profile.echoes}`);
+  const have = balanceOf(profile);
+  if (have < offer.nextCost) throw new IllegalActionError(`meta unlock ${id} costs ${offer.nextCost} ${profile.v >= 3 ? 'Legacy points' : 'Echoes'}, profile has ${have}`);
   const p = deepClone(profile);
-  p.echoes -= offer.nextCost;
+  p[balanceKey(p)] -= offer.nextCost;
   p.spent += offer.nextCost;
   p.unlocks[id] = offer.rank + 1;
   return p;
@@ -113,42 +122,47 @@ export function profileHash(profile) {
 /**
  * Echoes earned by a run, line by line (rules 11.1). facts: see summary(). Each line is rounded half away from
  * zero, round(count × each) (M2 v3: ECHO_PER_LEVEL and ECHO_PER_ZONE are fractional); the total is the sum of the
- * rounded lines × the Oath multiplier, rounded. Heat: line `heat`, fights won in nodes entered Hot or Scorched.
+ * rounded lines × the Oath multiplier, rounded. Heat: line `heat`, fights won in nodes entered Hot or Scorched. Legacy
+ * (legacy.md 4.1): the same lines (the LEGACY_* constants) in Legacy points; in a Legacy run (facts.heroLevels set) the
+ * line `levels` is LEGACY_PER_LEVEL per hero level gained (each HERO_XP_AT_MAX at level 25 counts as one).
  */
 export function echoes(facts, profile) {
   const lines = [];
   const add = (id, count, each) => { if (count > 0) lines.push({ id, count, each, echoes: rnd(count * each) }); };
-  add('levels', facts.level - 1, ECHO_PER_LEVEL);
-  add('zones', facts.zonesLeft, ECHO_PER_ZONE);
-  add('dungeons', facts.dungeons, ECHO_PER_DUNGEON);
-  add('elites', facts.kills.elite, ECHO_PER_ELITE);
-  add('rares', facts.kills.rare, ECHO_PER_RARE);
-  add('quests', facts.quests, ECHO_PER_QUEST);
-  add('heat', facts.heatFights || 0, ECHO_PER_HEAT_FIGHT);
-  // prep (expedition.md 8.1, 2.6): contracts completed × ECHO_PER_QUEST × ECHO_CONTRACT_MULT; Reserve × PREP_ECHO_PER_POINT
-  add('contracts', facts.contracts || 0, ECHO_PER_QUEST * ECHO_CONTRACT_MULT);
-  add('reserve', facts.reserve || 0, PREP_ECHO_PER_POINT);
+  if (facts.heroLevels !== undefined) add('levels', facts.heroLevels, LEGACY_PER_LEVEL);
+  else add('levels', facts.level - 1, ECHO_PER_LEVEL);
+  add('zones', facts.zonesLeft, LEGACY_PER_ZONE);
+  add('dungeons', facts.dungeons, LEGACY_PER_DUNGEON);
+  add('elites', facts.kills.elite, LEGACY_PER_ELITE);
+  add('rares', facts.kills.rare, LEGACY_PER_RARE);
+  add('quests', facts.quests, LEGACY_PER_QUEST);
+  add('heat', facts.heatFights || 0, LEGACY_PER_HEAT_FIGHT);
+  // prep (expedition.md 8.1, 2.6): contracts completed × LEGACY_PER_QUEST × LEGACY_CONTRACT_MULT; Reserve × LEGACY_PER_PREP_POINT
+  add('contracts', facts.contracts || 0, LEGACY_PER_QUEST * LEGACY_CONTRACT_MULT);
+  add('reserve', facts.reserve || 0, LEGACY_PER_PREP_POINT);
   // M3 (m3-onboarding.md 4.2): the Bellwrights' welcome, once per profile, in the first non-dev run's summary
-  if (facts.welcome) add('welcome', 1, ONB_WELCOME_ECHOES);
+  if (facts.welcome) add('welcome', 1, LEGACY_WELCOME);
   if (facts.reachedBoss) {
-    add('bossReached', 1, ECHO_BOSS_REACHED);
-    add('bossPhases', Math.max(0, facts.bossPhase - 1), ECHO_BOSS_PHASE);
+    add('bossReached', 1, LEGACY_BOSS_REACHED);
+    add('bossPhases', Math.max(0, facts.bossPhase - 1), LEGACY_BOSS_PHASE);
   }
   if (facts.outcome === 'victory') {
-    add('bossKill', 1, ECHO_BOSS_KILL);
+    add('bossKill', 1, LEGACY_BOSS_KILL);
     const par = parTime(facts.oaths);
-    if (facts.timeAtBoss !== null && facts.timeAtBoss <= par) add('speed', 1, ECHO_SPEED_BONUS);
-    if (profile && profile.firstKill && !profile.firstKill[facts.classId]) add('firstKill', 1, ECHO_FIRST_KILL_CLASS);
+    if (facts.timeAtBoss !== null && facts.timeAtBoss <= par) add('speed', 1, LEGACY_SPEED_BONUS);
+    if (profile && profile.firstKill && !profile.firstKill[facts.classId]) add('firstKill', 1, LEGACY_FIRST_KILL_CLASS);
   }
   const base = lines.reduce((n, l) => n + l.echoes, 0);
-  const mult = 1 + OATH_ECHO_BONUS * facts.oaths.length;
+  const mult = 1 + LEGACY_OATH_BONUS * facts.oaths.length;
   return { lines, base, oathMult: mult, total: rnd(base * mult) };
 }
 
 /**
  * Profile after a run (END_RUN): Echoes added, flags updated. Returns a new profile. A dev run (summary `dev`, engine-api.md
  * 12) leaves the profile as it was: no Echoes, no run counted, no boss flags, no welcome, no guide. M3: `welcome` true after
- * any other run; a guided run's `guide` 'done', or 'skipped' after SKIP_GUIDE.
+ * any other run; a guided run's `guide` 'done', or 'skipped' after SKIP_GUIDE. Legacy (legacy.md 1.5, 4.1): on a version
+ * 3 profile the total goes to Legacy points, and a Legacy run's hero (summary `hero.record`: level, XP, talents, spells,
+ * bar) is written back whatever the outcome, with its runs and wins counted.
  */
 export function applyRunToProfile(profile, sum) {
   if (sum.dev) return deepClone(profile);
@@ -156,13 +170,17 @@ export function applyRunToProfile(profile, sum) {
   // M3 (m3-onboarding.md 4.2, E6): every non-dev run sets the welcome (paid or not); a guided run sets the guide.
   p.welcome = true;
   if (sum.tutorial) p.guide = sum.tutorial.skipped ? 'skipped' : 'done';
-  p.echoes += sum.echoes.total;
+  p[balanceKey(p)] += sum.echoes.total;
   p.earned += sum.echoes.total;
   p.runs += 1;
   if (sum.reachedBoss) p.reachedBoss = true;
   if (sum.outcome === 'victory') {
     p.bossKills += 1;
     if (CLASS_IDS.includes(sum.classId)) p.firstKill[sum.classId] = true;
+  }
+  if (sum.hero && sum.hero.record && p.heroes && CLASS_IDS.includes(sum.classId)) {
+    const old = heroOf(profile, sum.classId);
+    p.heroes[sum.classId] = { ...deepClone(sum.hero.record), runs: (old ? old.runs || 0 : 0) + 1, wins: (old ? old.wins || 0 : 0) + (sum.outcome === 'victory' ? 1 : 0) };
   }
   return p;
 }

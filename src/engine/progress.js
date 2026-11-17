@@ -1,11 +1,16 @@
 // XP, levels, rested pool, talent points, gold income (rules 2.5, 4.3, 4.4, 6, 8.5); heat's XP and gold multiplier
-// (rules 1.7.3); contract XP without the level-difference modifier (expedition.md 3.1, M2b v10: flatXp).
+// (rules 1.7.3); contract XP without the level-difference modifier (expedition.md 3.1, M2b v10: flatXp). Legacy (D154,
+// legacy.md 1.2-1.4; a run made under GATES.legacy): every award in hero XP (HERO_XP_UNIT per level-equivalent at the
+// hero's power level), the rested pool in hero XP, and the hero's levels (HERO_XP; a level-up raises the power level to
+// POWER_OF_LEVEL[H]; past HERO_MAX_LEVEL each HERO_XP_AT_MAX counts for the run's Legacy level line).
 import {
   XP_A, XP_B, XP_C, MAX_LEVEL, XP_DIFF_STEP, XP_DIFF_MAX, XP_DIFF_SOFT_FLOOR, XP_DIFF_FALL, XP_GREY_DIFF,
   XP_GREY_MOD, RESTED_MULT, RESTED_CAP_FRAC, TALENT_FIRST_LEVEL, TALENT_LEVEL_STEP, BOON_XP_PCT, HEAT_GAIN,
+  HERO_XP_UNIT, HERO_MAX_LEVEL, HERO_XP_AT_MAX,
 } from '../constants.js';
 import { rnd, flr } from './util.js';
 import { refreshDerived } from './stats.js';
+import { isLegacy, powerOf, heroXpToNext } from './legacy.js';
 
 /** The levelling polynomial XP_A×L² + XP_B×L + XP_C (rules 4.3), defined for any level (event XP at CL 60). */
 export function xpCurve(L) {
@@ -43,9 +48,14 @@ export function xpPct(s) {
   return (s.player.buffs.insight && s.player.buffs.insight.active ? BOON_XP_PCT : 0) + s.meta.xpPct;
 }
 
-/** XP for an event (rules 4.4): round(frac × xpToNext(CL) × diffMod(CL - L) × (1 + xpPctMods)). */
+/**
+ * XP for an event (rules 4.4): round(frac × xpToNext(CL) × diffMod(CL - L) × (1 + xpPctMods)). Legacy (legacy.md 1.3): in
+ * hero XP, round(HERO_XP_UNIT × frac × xpCurve(CL) / xpCurve(L) × diffMod(CL - L) × (1 + xpPctMods)), CL and L power
+ * levels, at every hero level (XP keeps counting at HERO_MAX_LEVEL).
+ */
 export function eventXp(s, frac, cl) {
   const L = s.player.level;
+  if (isLegacy(s)) return rnd((HERO_XP_UNIT * frac * xpCurve(cl) * diffMod(cl - L) * (1 + xpPct(s))) / xpCurve(L));
   if (L >= MAX_LEVEL) return 0;
   return rnd(frac * xpCurve(cl) * diffMod(cl - L) * (1 + xpPct(s)));
 }
@@ -53,9 +63,10 @@ export function eventXp(s, frac, cl) {
 /**
  * XP of an event without the level-difference modifier (expedition.md 3.1, M2b v10: contracts, as the retired story
  * chain): round(frac × xpToNext(CL) × (1 + xpPctMods)); 0 at MAX_LEVEL. Contract levels are at most 58, where xpToNext
- * and xpCurve agree.
+ * and xpCurve agree. Legacy: in hero XP, round(HERO_XP_UNIT × frac × xpCurve(CL) / xpCurve(L) × (1 + xpPctMods)).
  */
 export function flatXp(s, frac, cl) {
+  if (isLegacy(s)) return rnd((HERO_XP_UNIT * frac * xpCurve(cl) * (1 + xpPct(s))) / xpCurve(s.player.level));
   if (s.player.level >= MAX_LEVEL) return 0;
   return rnd(frac * xpCurve(cl) * (1 + xpPct(s)));
 }
@@ -73,7 +84,8 @@ export const heatGain = (s) => (s.node && s.node.heat ? HEAT_GAIN[s.node.heat] :
  */
 export function gainXp(s, ev, amount, why, kill = false) {
   const p = s.player;
-  if (p.level >= MAX_LEVEL || amount <= 0) return 0;
+  const hero = isLegacy(s);
+  if ((!hero && p.level >= MAX_LEVEL) || amount <= 0) return 0;
   let rested = 0;
   if (kill && p.rested > 0) {
     rested = Math.min(p.rested, amount * (RESTED_MULT - 1));
@@ -85,6 +97,10 @@ export function gainXp(s, ev, amount, why, kill = false) {
   p.xp += total;
   s.stats.xpGained += total;
   ev.push(total > base ? { t: 'xp', amount: total, rested, why, heat: total - base } : { t: 'xp', amount: total, rested, why });
+  if (hero) {
+    heroLevelUps(s, ev);
+    return total;
+  }
   while (p.level < MAX_LEVEL && p.xp >= xpToNext(p.level)) {
     p.xp -= xpToNext(p.level);
     const before = p.d;
@@ -109,10 +125,48 @@ export function gainXp(s, ev, amount, why, kill = false) {
   return total;
 }
 
-/** Add rested XP, capped (rules 2.5). */
+/**
+ * The hero's level-ups after XP (legacy.md 1.3-1.4): while the hero XP reaches HERO_XP of its level, the hero levels up
+ * (carry-over), the power level becomes POWER_OF_LEVEL[H] (2 or 3 levels at once; max HP, mana and pet HP rise and the
+ * current values by the same amount, rules 4.3) and a `levelUp` event { level (power), heroLevel, talentPoint,
+ * talentPoints (points the step gave), ... } follows; at HERO_MAX_LEVEL every HERO_XP_AT_MAX is one more line of
+ * LEGACY_PER_LEVEL at the run's end (state.hero.over; event `heroMax` { over }). XP is never lost.
+ */
+function heroLevelUps(s, ev) {
+  const p = s.player;
+  while (p.heroLevel < HERO_MAX_LEVEL && p.xp >= heroXpToNext(p.heroLevel)) {
+    p.xp -= heroXpToNext(p.heroLevel);
+    const before = p.d;
+    const hp0 = p.hp;
+    const mana0 = p.mana;
+    const pet0 = p.pet ? p.pet.hp : 0;
+    const L0 = p.level;
+    p.heroLevel += 1;
+    p.level = powerOf(p.heroLevel);
+    const d = refreshDerived(s);
+    p.hp += d.maxHp - before.maxHp;
+    p.mana += d.maxMana - before.maxMana;
+    if (p.pet && p.pet.alive) p.pet.hp = Math.max(1, p.pet.hp + (d.petMaxHp - before.petMaxHp));
+    s.stats.levelUps += 1;
+    s.hero.gained += 1;
+    const points = talentPointsEarned(s, p.level) - talentPointsEarned(s, L0);
+    ev.push({
+      t: 'levelUp', level: p.level, heroLevel: p.heroLevel, talentPoint: points > 0, talentPoints: points,
+      hpGain: p.hp - hp0, manaGain: p.mana - mana0, petHpGain: p.pet ? p.pet.hp - pet0 : 0,
+      maxHp: d.maxHp, maxMana: d.maxMana, petMaxHp: p.pet ? d.petMaxHp : 0,
+    });
+  }
+  while (p.heroLevel >= HERO_MAX_LEVEL && p.xp >= HERO_XP_AT_MAX) {
+    p.xp -= HERO_XP_AT_MAX;
+    s.hero.over += 1;
+    ev.push({ t: 'heroMax', over: s.hero.over });
+  }
+}
+
+/** Add rested XP, capped (rules 2.5). Legacy (legacy.md 1.3): a level is HERO_XP_UNIT hero XP (the pool's 60, cap 150). */
 export function addRested(s, fracOfLevel) {
   const p = s.player;
-  const need = xpToNext(p.level);
+  const need = isLegacy(s) ? HERO_XP_UNIT : xpToNext(p.level);
   if (!need) return;
   p.rested = Math.min(rnd(RESTED_CAP_FRAC * need), p.rested + rnd(fracOfLevel * need));
 }

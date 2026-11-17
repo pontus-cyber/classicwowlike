@@ -5,7 +5,9 @@
 // SET_OUT in phase PREP; TAKE_HUB_CONTRACT in a hub before LEAVE_HUB; USE_SPYGLASS on the map. M3 guided run
 // (m3-onboarding.md 2.2, 2.3, E4; tutorial.js): SKIP_GUIDE (in any phase, fights and the loot window included), MOVE and
 // PASS_THROUGH refused onto a barred node (Gorrak's, D138), TAKE_ROAD refused on a closed Road (until the elite's fight
-// has ended, D142), and the guided run's bookkeeping after every action.
+// has ended, D142), and the guided run's bookkeeping after every action. Legacy (D154, legacy.md 1.5; a Legacy run):
+// ABANDON_RUN ends the run as a death where the hero stands (any phase from PREP to the boss fight, fights and the loot
+// window included; not listed by legalActions: a menu action), and END_RUN's result carries `legacy` (the points paid).
 import {
   CLASS, CLASS_IDS, PET, SPELL, TALENT, TALENT_TIER_GATE, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, CONSUMABLE, OATH_IDS,
   SLOT_IDS, ENGAGE_OPTION, ENGAGE_OPTIONS, PREP_OPTION_IDS,
@@ -23,8 +25,9 @@ import {
   availablePets, startRun, canTravel, travelOn, openService, leaveService, chooseNode, startGrind, nextFight,
   completeNode, chooseReward, campGrind, fightBoss, finishFight, trainerSpells, learnCost, trainCost, travelLevel,
   respecCost, learnSpell, trainSpell, trainAll, trainable, learnable, respec, buy, sell, sellJunk, useItemOutOfCombat,
-  clampAfterStatChange, moveTo, passThrough, takeRoad, ringBell, settleExpedition, canEnter, setOut,
+  clampAfterStatChange, moveTo, passThrough, takeRoad, ringBell, settleExpedition, canEnter, setOut, abandonRun,
 } from './nodes.js';
+import { isLegacy } from './legacy.js';
 import {
   takeContractError, dropContractError, buyPrepError, sellPrepError, rerollError, takeContract, dropContract, buyPrep,
   sellPrep, rerollBoard, hubContractError, takeHubContract, spyglassError, useSpyglass,
@@ -35,7 +38,7 @@ import { applyRunToProfile } from './meta.js';
 import { skipGuideError, skipGuide, tutorialAfter } from './tutorial.js';
 
 const OOC = new Set(['EQUIP', 'UNEQUIP', 'DISCARD', 'USE_ITEM', 'SET_BAR', 'SET_ITEM_BAR', 'SPEND_TALENT']);
-const LOOT_OK = new Set(['LOOT_TAKE', 'LOOT_DROP', 'SET_AUTOPLAY', 'SKIP_GUIDE', ...OOC]);
+const LOOT_OK = new Set(['LOOT_TAKE', 'LOOT_DROP', 'SET_AUTOPLAY', 'SKIP_GUIDE', 'ABANDON_RUN', ...OOC]);
 const COMBAT = new Set(['CAST', 'ATTACK', 'USE_ITEM', 'FLEE', 'PASS', 'ENGAGE']);
 export const NAME_MAX = 24;
 
@@ -291,9 +294,15 @@ const A = {
     apply: (s, ev) => {
       const sum = summary(s);
       s.result = { summary: sum, echoes: sum.echoes.total, profile: applyRunToProfile(s.profile, sum) };
+      if (isLegacy(s)) s.result.legacy = sum.echoes.total; // Legacy (legacy.md 4.1): the points paid
       s.phase = 'ENDED';
-      ev.push({ t: 'phase', phase: 'ENDED' }, { t: 'echoes', total: sum.echoes.total });
+      ev.push({ t: 'phase', phase: 'ENDED' }, isLegacy(s) ? { t: 'echoes', total: sum.echoes.total, legacy: true } : { t: 'echoes', total: sum.echoes.total });
     },
+  },
+  // Legacy (legacy.md 1.5): the run ends as a death where the hero stands; it pays its lines, the hero keeps level and XP
+  ABANDON_RUN: {
+    check: (s) => (!isLegacy(s) ? 'only in a Legacy run' : !s.player || ['CREATE', 'SUMMARY', 'ENDED'].includes(s.phase) ? 'only during a run' : null),
+    apply: (s, ev) => abandonRun(s, ev),
   },
   // ---------------- Out of combat ----------------
   EQUIP: {
@@ -468,7 +477,7 @@ export function checkAction(s, a) {
   const def = A[a.type];
   if (!def) return `unknown action type "${a.type}"`;
   if (s.phase === 'ENDED') return 'the run has ended';
-  if (s.fight && !COMBAT.has(a.type) && a.type !== 'SET_AUTOPLAY' && a.type !== 'SKIP_GUIDE') return `${a.type} is not allowed during a fight`;
+  if (s.fight && !COMBAT.has(a.type) && a.type !== 'SET_AUTOPLAY' && a.type !== 'SKIP_GUIDE' && a.type !== 'ABANDON_RUN') return `${a.type} is not allowed during a fight`;
   if (!s.fight && lootOpen(s) && !LOOT_OK.has(a.type)) return 'resolve the loot window first (LOOT_TAKE, LOOT_DROP, DISCARD or EQUIP)';
   if (OOC.has(a.type) && a.type !== 'USE_ITEM' && !oocAllowed(s)) return `${a.type} is only allowed out of combat`;
   return def.check(s, a) || null;

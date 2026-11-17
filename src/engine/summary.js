@@ -6,7 +6,9 @@
 // estimate, the Echo lines of contracts completed and Reserve left. M2b v15 (D124): Swift passage counts in `expedition`.
 // M3 (m3-onboarding.md 4.2, E7): the Echo line `welcome` (once per profile) and a guided run's `tutorial` block. D152
 // (changes-m3-v2.md 1.3; GATES.firstRunLean): `firstRun` on a lean first run, whose Echo line `reserve` is the camp points
-// left unspent (the UI's label "Unspent camp points"; no Reserve is named on a first run).
+// left unspent (the UI's label "Unspent camp points"; no Reserve is named on a first run). Legacy (D154, legacy.md 1.3-1.5,
+// 4.1; a Legacy run): the lines pay Legacy points (`legacy`, the same object as `echoes`), the level line per hero level
+// gained, and the `hero` block (level, XP, levels gained; `record`: the hero applyRunToProfile writes back).
 import {
   PACE_CREATE_S, PACE_DECIDE_S, PACE_TRAVEL_NODE_S, PACE_ZONE_TRAVEL_S, PACE_QUEST_TEXT_S, PACE_FIGHT_OVERHEAD_S,
   PACE_MANUAL_ROUND_S, PACE_AUTO_ROUND_S, PACE_LOOT_S, PACE_LEVELUP_S, PACE_TALENT_S, PACE_REST_S, PACE_SHRINE_S,
@@ -18,6 +20,7 @@ import { leanFirst } from './expedition.js';
 import { echoes, profileHash, welcomeDue } from './meta.js';
 import { deepClone } from './util.js';
 import { heatSummary } from './heat.js';
+import { isLegacy, heroView, heroRecord } from './legacy.js';
 
 /**
  * estSeconds (rules 3): sum of pace terms; rounds at the manual or autoplay rate. The manual profile also reads the
@@ -63,6 +66,8 @@ export function summary(s) {
     ...(s.exp && s.exp.prep ? { contracts: contractSummary(s).completed, reserve: s.exp.reserve || 0 } : {}),
     // M3 (m3-onboarding.md 4.2): the welcome line until the profile has had it
     ...(welcomeDue(s.profile) ? { welcome: true } : {}),
+    // Legacy (legacy.md 4.1): hero levels gained in the run, each HERO_XP_AT_MAX at level 25 one more
+    ...(isLegacy(s) ? { heroLevels: (s.hero.gained || 0) + (s.hero.over || 0) } : {}),
   };
   // Dev tools (engine-api.md 12): a dev run earns no Echoes; `withheld` is what the run would have earned.
   const dev = s.dev ? { god: !!s.dev.godUsed, tools: s.dev.tools.slice() } : null;
@@ -94,6 +99,8 @@ export function summary(s) {
     ...(s.tutorial ? { tutorial: { rescues: s.tutorial.rescues, skipped: s.tutorial.skipped, learned: ONB_BEATS.filter((id) => s.tutorial.beats[id] && s.tutorial.beats[id].st === 'done') } } : {}),
     // D152 (changes-m3-v2.md 1.3): a lean first run (no contracts, no Reserve: its `reserve` Echo line is the unspent points)
     ...(leanFirst(s) ? { firstRun: true } : {}),
+    // Legacy (legacy.md 1.5, 4.1): the lines in Legacy points and the hero (heroView; `record`: written back at END_RUN)
+    ...(isLegacy(s) ? { legacy: ech, hero: { ...heroView(s), record: heroRecord(s) } } : {}),
   });
 }
 

@@ -29,7 +29,10 @@
 // map's Deathblow fields (engine-api.md 6.2). M3 onboarding (docs/specs/m3-onboarding.md 2, 4.2, 5; engine-api.md 14):
 // newRun's `tutorial` option (the guided first run), tutorialView, SKIP_GUIDE, the rescue, the profile's guide and welcome
 // (migrateProfile, setGuide) and debug.resetOnboarding. D144 (blind tester pilot, engine-api.md 1): trainerView (what a
-// trainer would teach now), offBalance's `shield` and `absorbs`, spellInfo's `hit` and `hitAll`.
+// trainer would teach now), offBalance's `shield` and `absorbs`, spellInfo's `hit` and `hitAll`. Legacy (D154-D155,
+// docs/specs/legacy.md, phase 1, draft; engine-api.md 15): while C.GATES.legacy is on, newRun makes a Legacy run
+// (state.legacy) and profiles are version 3; heroView, heroesView, shownLevel, powerOfLevel, heroXpToNext; the action
+// ABANDON_RUN; debug.setHero.
 import * as C from './constants.js';
 import { normaliseSeed } from './rng.js';
 import { cloneState, deepFreeze, IllegalActionError } from './engine/util.js';
@@ -55,6 +58,7 @@ import { createDebug } from './engine/debug.js';
 import { windupView as windups, autoplayEngage as autoEngage } from './engine/answers.js';
 import { deathblowOf, deathblowType } from './engine/track.js';
 import { damageView as dmgView } from './engine/damageview.js';
+import { heroView as heroNow, heroesView as heroList, shownLevelOf, powerOf, heroXpToNext } from './engine/legacy.js';
 
 /**
  * 3 (M2b v7): the run's time is `state.time` in whole tolls (was `hours`), with `stats.timeAtBoss`,
@@ -88,6 +92,30 @@ export function tutorialView(state) {
  *               M2b v8: × EARLY_DMG_MULT (0.80) at level <= EARLY_DMG_MAX_LEVEL, so below 1 there.
  */
 export { V, xpCurve, diffMod, zoneDanger };
+
+/**
+ * Legacy (D154, legacy.md 1.1-1.4; engine-api.md 15): the run's hero for the HUD and the summary, null outside a Legacy
+ * run: { classId, level (hero level 1-25), xp, xpToNext, atMax, power (the engine's level), start { level, xp }, gained }.
+ */
+export function heroView(state) {
+  return heroNow(state);
+}
+/**
+ * Legacy (legacy.md 1.1): hero select's cards from a profile, one per class (CLASS_IDS order): null (no hero yet) or {
+ * classId, className, name, level, xp, xpToNext, power, runs, wins, talents (points per tree), tree }.
+ */
+export function heroesView(profile) {
+  return heroList(profile);
+}
+/**
+ * The level to show for an engine level (legacy.md 1.2): in a Legacy run every level on screen (enemies, nodes, items,
+ * spells, Oruvath) is on the hero scale, 1 + round((M - 1) × 24 / 59) (power 65 shows 27); outside one, M itself.
+ */
+export function shownLevel(state, level) {
+  return state && state.legacy ? shownLevelOf(level) : level;
+}
+/** powerOfLevel(H): the engine's level of hero level H (POWER_OF_LEVEL); heroXpToNext(H): hero XP from H to H + 1 (HERO_XP; at 25 HERO_XP_AT_MAX). */
+export { powerOf as powerOfLevel, heroXpToNext };
 
 /**
  * Boss time par in tolls (rules 1.7, 11.5): BOSS_TIME_PAR, OATH_HASTE_TIME less under the Oath of Haste. Ascendancy
@@ -430,6 +458,7 @@ export function newRun({ classId = null, petId = null, name = '', seed = 0, prof
   }
   deepFreeze(content);
   const prof = migrateProfile(profile || newProfile()); // M3 (E6): a stored profile gets its guide and welcome keys
+  // Legacy (D154; GATES.legacy): a Legacy run, read from here on (legacy.js isLegacy), on a version 3 profile
   // M3 v3 (D153, changes-m3-v3.md 4): a guided run ("Play the guide again" too) teaches every class's Deathblow answer again
   if (tutorial) prof.deathblowMet = noDeathblowMet();
   if (classId !== null && !C.CLASS[classId]) throw new Error(`newRun: unknown class ${classId}`);
@@ -439,6 +468,7 @@ export function newRun({ classId = null, petId = null, name = '', seed = 0, prof
     content,
     contentVersion: content.version || null,
     mapMode,
+    ...(C.GATES.legacy ? { legacy: true } : {}),
     phase: 'CREATE',
     create: {
       classId, petId, name: typeof name === 'string' ? name.trim().slice(0, 24) : '', seed: normaliseSeed(seed), oaths: [],

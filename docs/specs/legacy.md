@@ -529,6 +529,8 @@ From the T2 cells (6.3): 135 a run in the first run (plus the 60 welcome), 153-2
 
 Order inside phase 1: engine (hero and zones), then sim (warmed tables, campaign v3 and the hero cells measure L1, L4 and B6 before UI work), then UI, then QA. Phases 2-5 can overlap once phase 1 is in. Every new rule sits behind a `C.GATES` switch until its measure passes, as D152 did.
 
+**(engine, 2026-11-18)** Phase 1 engine side built behind `C.GATES.legacy`, **off** (docs/handoffs/engine-2026-11-18.md; engine-api.md 15; src/engine/legacy.js): profile v3 with one hero per class and the migration of 4.6; POWER_OF_LEVEL, hero XP and HERO_XP, XP past 25; the run start of 1.6-1.7; zones set at arrival (ZONE_TIER, ZONE_TIER_DMG, the rings, dungeon and contract offsets, CL_MAX, ILVL_MAX); the Camp's level; Oruvath's scaling and HP factor (one function, `oruvathScale`, over one constants block, for the Oruvath rework); the Legacy lines (LEGACY_*, the level line per hero level); death and ABANDON_RUN keep the hero; the guided zone at its new levels; `heroView`, `heroesView`, `shownLevel`. The table's names whose rules.md 13 value differs carry `_HERO` in the engine (RING_CL_BASE_HERO, RING_CL_SPREAD_HERO, DUNGEON_LEVEL_OFFSET_HERO, CONTRACT_CL_OFFSET_HERO, ILVL_MAX_HERO, ONB_ELITE_LEVEL_MIN_HERO) until rules.md is rewritten. Not built: CAMP_WAVE_MAX and CAMP_WAVE_XP_MULT (the Camp grind), the hall, trees, the Armoury, Retire hero. Sim side of 5.8 built with it: no zone exit level and no Camp grind in a Legacy run, hero cells (`sim/run.mjs --hero H`, `--profile later`; `sim/legacy-run.mjs --native`); VAL_HERO_XP, route bots and campaign v3 not yet.
+
 ### 7.2 New targets (proposed; numbers in 10)
 
 | ID | Pri | Metric | Target | Measured (6) |

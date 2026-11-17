@@ -11,11 +11,13 @@
 // allSapped, read by autoplay rule H and the PASS that keeps STEALTH. M3 guided run (m3-onboarding.md 2.3, D138;
 // tutorial.js): a node fight of zone 1 carries its overlay role (`tut`) and its own wind-up marks (`windups`; D149: a
 // marked enemy winds up on its turn ONB_WINDUP_TURN, `windupTurn`); a rescue ends the fight like a death (no flight or
-// victory events; nodes.js moves the player back).
+// victory events; nodes.js moves the player back). Legacy (D154, legacy.md 2.2; a Legacy run): every template enemy deals
+// × ZONE_TIER_DMG of its fight's zone (the Camp: zone 6's), on top of zone danger by its (power) level; the Brand at
+// Oruvath's own level.
 import {
   ARCHETYPE, VARIANT, ENEMY_HP_BASE, ENEMY_HP_PER_LEVEL, ENEMY_DMG_BASE, ENEMY_DMG_PER_LEVEL,
   ENEMY_ARMOR_PER_LEVEL, ENEMY_DODGE, PET, ENERGY_MAX, ENERGY_REGEN, FOCUS_MAX, FOCUS_REGEN,
-  MANA_REGEN_ROUND_PCT, PET_REVIVE_PCT, TALENT, UNIQUE_WARD_PCT, BRAND_DMG, BOSS_LEVEL, MIN_HIT_DAMAGE,
+  MANA_REGEN_ROUND_PCT, PET_REVIVE_PCT, TALENT, UNIQUE_WARD_PCT, BRAND_DMG, MIN_HIT_DAMAGE,
   ZONE_DANGER_FROM, ZONE_DANGER_STEP, DUNGEON_DANGER_FRAC, ENGAGE_DMG_COMP, OFFBAL_DURATION, CONSUMABLE,
   EARLY_DMG_MULT, EARLY_DMG_MAX_LEVEL, Z1_DMG_MULT, Z1_DMG_MAX_LEVEL, RARE_HP_MULT_Z1, GATES, ONB_WINDUP_TURN,
 } from '../constants.js';
@@ -28,6 +30,7 @@ import {
 } from './damage.js';
 import { bossIntent, bossAct, bossStartRound, bossEndOfRound, mirrorImage, bossTrackView } from './boss.js';
 import { playerAction, petAction } from './spells.js';
+import { zoneTierDmg } from './legacy.js';
 import {
   isEngageRound, updateTracks, fillTrack, nowIntent, refreshTrack, controlOf, lowestHpAlly, wardOf, assignWard,
   isSingle, signatures,
@@ -75,7 +78,8 @@ export function makeEnemy(s, idx, tid, level, variant) {
   const hp = Math.max(1, rnd((ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL * level) * a.hp * vHp * t.hpMult));
   return {
     idx, tid, name: t.name, kind: variant, arch: t.archetype, level, hp, maxHp: hp,
-    dmg: (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL * level) * a.dmg * v.dmg * t.dmgMult * zoneDanger(level, variant) * engageComp(s),
+    dmg: (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL * level) * a.dmg * v.dmg * t.dmgMult * zoneDanger(level, variant) * engageComp(s)
+      * (s.legacy && s.fight ? zoneTierDmg(s, s.fight.z) : 1),
     armor: ENEMY_ARMOR_PER_LEVEL * level * a.armor, dodge: ENEMY_DODGE + a.dodge,
     abilities: t.abilities.slice(), cds: {}, st: [], intent: null, alive: true,
     elite: variant === 'elite' || variant === 'rare', boss: variant === 'dboss', ccImmune: variant === 'dboss',
@@ -297,7 +301,7 @@ function tickUnit(s, ev, u, crits) {
     } else if (x.id === 'BRAND' && u === 'player') {
       // rules 10.2: BRAND_DMG × stacks × BOSS_DMG_MULT × (1 + asc) × levelMod in the end-boss fight (M2b v6, D64)
       const asc = f.boss ? f.boss.asc : 0;
-      const amt = rnd(BRAND_DMG * x.stacks * bossDmgFactor(s, asc) * levelMod(BOSS_LEVEL, s.player.level));
+      const amt = rnd(BRAND_DMG * x.stacks * bossDmgFactor(s, asc) * levelMod(f.enemies[0].level, s.player.level)); // his level: BOSS_LEVEL, or Legacy's
       applyDamage(s, ev, 0, 'player', Math.max(MIN_HIT_DAMAGE, amt), { tick: true, spell: 'brand', school: 'magic' });
     } else if (x.id === 'HOT') {
       healUnit(s, ev, u, x.amount, x.src);

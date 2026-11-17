@@ -19,7 +19,8 @@ export function contentLevel(z, r) {
   return ZONE_LEVELS * (z - 1) + 1 + Math.floor(((r - 1) * (ZONE_LEVELS - 1)) / (ZONE_CHOICE_ROWS - 1));
 }
 
-export const clampCl = (x) => Math.max(1, Math.min(MAX_LEVEL, x));
+/** A content level clamped to 1..max (MAX_LEVEL; a Legacy run's CL_MAX, legacy.md 2.1). */
+export const clampCl = (x, max = MAX_LEVEL) => Math.max(1, Math.min(max, x));
 
 /** Dungeon trash and boss levels of zone z (rules 1.4). */
 export function dungeonLevels(z) {

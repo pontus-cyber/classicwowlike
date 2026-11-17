@@ -16,12 +16,14 @@
 // path to each) is held from the Dimming until his fight or the guide ends, then released one node a toll (zone.hold).
 // A lean first run (1.2, GATES.firstRunLean) skips G1 and G10 and, with no Bell in zone 1, G13's far line (G13.onRoadFirst
 // on a Road).
+// Legacy (D154, legacy.md 5.1; a Legacy run): Gorrak's lowest level ONB_ELITE_LEVEL_MIN_HERO and S1's loot up to
+// ILVL_MAX_HERO; the zone's levels are the hero's band (expedition.js).
 // Pure helpers of the state; nodes.js, combat.js, damage.js, contracts.js, actions.js and autoplay.js call them. A run
 // without the option never reaches any of it.
 import {
-  ONB_SCRIPTED_FIGHTS, ONB_SCRIPT_LEVEL_MAX, ONB_LOOT_POTIONS, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX, ONB_ELITE_LEVEL_MAX_V2, ELITE_LEVEL_OFFSET,
+  ONB_SCRIPTED_FIGHTS, ONB_SCRIPT_LEVEL_MAX, ONB_LOOT_POTIONS, ONB_ELITE_LEVEL_MAX, ONB_ELITE_LEVEL_MAX_V2, ELITE_LEVEL_OFFSET,
   ONB_RESCUE_TOLLS, ONB_RESCUE_MAX, ONB_BEAT_RETRIES, ONB_POTION_HP, ONB_BELL_HOPS, ONB_BELL_DIM, ONB_DIM_NEAR_HOPS,
-  ONB_ENGAGE_SHOWS, ONB_BEATS, ONB_BEAT_PRIORITY, ONB_LINE_STEPS, ONB_LINE_RETURNS, ONB_LINES_PER_FIGHT, CONTRACT, SLOT_IDS, RARITY, ILVL_MAX, CONSUMABLE,
+  ONB_ENGAGE_SHOWS, ONB_BEATS, ONB_BEAT_PRIORITY, ONB_LINE_STEPS, ONB_LINE_RETURNS, ONB_LINES_PER_FIGHT, CONTRACT, SLOT_IDS, RARITY, CONSUMABLE,
   SPELL, GATES, ONB_ELITE_FIGHTS, ONB_GATE_SCRIPTS, ONB_HOLD_RELEASE,
 } from '../constants.js';
 import {
@@ -30,6 +32,7 @@ import {
 import { itemScore, makeFixedGear, makeConsumable } from './items.js';
 import { windupView } from './answers.js';
 import { castError } from './spells.js';
+import { onbEliteMin, ilvlMax } from './legacy.js';
 
 // ---------------- Run and zone state ----------------
 /**
@@ -219,8 +222,9 @@ export function refreshOverlay(s) {
     const n = zone.nodes[el];
     // M3 v3 (D153, changes-m3-v3.md 2; GATES.gorrakLevel): one level above the player, as every elite over its node
     if (!n.done) {
-      n.eliteLevel = GATES.gorrakLevel ? clamp(s.player.level + ELITE_LEVEL_OFFSET, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX)
-        : clamp(s.player.level, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX_V2);
+      // Legacy (legacy.md 5.1): the lowest level ONB_ELITE_LEVEL_MIN_HERO (2), the hero's power level + 1 up to MAX
+      n.eliteLevel = GATES.gorrakLevel ? clamp(s.player.level + ELITE_LEVEL_OFFSET, onbEliteMin(s), ONB_ELITE_LEVEL_MAX)
+        : clamp(s.player.level, onbEliteMin(s), ONB_ELITE_LEVEL_MAX_V2);
     }
     if (eliteBarred(s)) n.barred = true;
     else {
@@ -301,7 +305,7 @@ export function overlayFightEnd(s, f, outcome, drops) {
     if (sc < low) { low = sc; slot = k; }
   }
   const level = s.node ? s.node.cl : p.level;
-  const out = [makeFixedGear(s, slot, loot.upgrade, Math.min(ILVL_MAX, Math.max(1, level) + RARITY[loot.upgrade].ilvlBonus), null)];
+  const out = [makeFixedGear(s, slot, loot.upgrade, Math.min(ilvlMax(s), Math.max(1, level) + RARITY[loot.upgrade].ilvlBonus), null)];
   if (loot.consumable) out.push(makeConsumable(s, loot.consumable, ONB_LOOT_POTIONS));
   return out;
 }

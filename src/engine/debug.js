@@ -9,6 +9,7 @@
 //   setTime(s, time), setHeat(s, state), revealMap(s), setMapMode(s, mode)       (time in whole tolls, M2b v7)
 //   grantEchoes(profile, n), fullCatalogue(profile), setProfile(s, profile)      the meta profile
 //   resetOnboarding(profile)          M3 (m3-onboarding.md E8): guide 'todo', welcome false (the UI also clears tbwcr.hints.v2)
+//   setHero(profile, classId, {level, xp})   Legacy (D154, legacy.md 1.1; a version 3 profile): the class's hero at a level
 //   enemies(content)                  every enemy template with its zone and kind (the Dev menu's list)
 //   validate(s, {steps})              the state checks every helper's result passes (string[]; empty = valid)
 //
@@ -40,6 +41,8 @@ import { lineAt, newHeatStats } from './heat.js';
 import { isExpedition, MAP_MODES } from './expedition.js';
 import { zoneContent } from './content.js';
 import { newProfile, migrateProfile, noDeathblowMet } from './meta.js';
+import { isLegacy, heroOf, newHero, heroLevelAt, powerOf, heroXpToNext, balanceKey } from './legacy.js';
+import { HERO_MAX_LEVEL } from '../constants.js';
 
 const RUN_PHASES = ['ZONE_HUB', 'MAP', 'NODE', 'CAMP', 'BOSS'];
 const PHASES = ['CREATE', 'PREP', ...RUN_PHASES, 'SUMMARY', 'ENDED'];
@@ -215,14 +218,15 @@ export function createDebug(api) {
     if (s.phase === 'PREP') setOut(s, ev, { enter: false });
     mark(s, 'build');
     const p = s.player;
-    // Level (rules 4.3): the character has just reached it.
-    p.level = level;
+    // Level (rules 4.3): the character has just reached it. Legacy (legacy.md 1.2): the hero level whose power level is the
+    // highest at most `level`, and its power level (a Legacy run's levels are the hero scale's).
+    if (isLegacy(s)) { p.heroLevel = heroLevelAt(level); p.level = powerOf(p.heroLevel); } else p.level = level;
     p.xp = 0;
     p.rested = 0;
     // Spells (rules 2.7): every spell the trainer teaches up to the level, learned in level order, all trained to it.
-    const learn = trainerSpells(s).filter((id) => SPELL[id].lvl <= level && !p.spells[id]).sort((a, b) => SPELL[a].lvl - SPELL[b].lvl || (a < b ? -1 : 1));
-    for (const id of learn) { p.spells[id] = { tl: level, rank: 1 }; p.spellOrder.push(id); }
-    for (const id of Object.keys(p.spells)) if (SPELL[id].source !== 'talent') p.spells[id].tl = level;
+    const learn = trainerSpells(s).filter((id) => SPELL[id].lvl <= p.level && !p.spells[id]).sort((a, b) => SPELL[a].lvl - SPELL[b].lvl || (a < b ? -1 : 1));
+    for (const id of learn) { p.spells[id] = { tl: p.level, rank: 1 }; p.spellOrder.push(id); }
+    for (const id of Object.keys(p.spells)) if (SPELL[id].source !== 'talent') p.spells[id].tl = p.level;
     // Gear (rules 8.3): every slot, fixed stats, the generated name.
     for (const slot of SLOT_IDS) p.equipped[slot] = makeFixedGear(s, slot, rarity, ilvl, null);
     refreshDerived(s);
@@ -230,7 +234,7 @@ export function createDebug(api) {
     if (talents === 'auto') {
       for (let t = talentPointsFree(s) > 0 ? nextTalent(s) : null; t; t = talentPointsFree(s) > 0 ? nextTalent(s) : null) act(s, ev, { type: 'SPEND_TALENT', talentId: t });
     }
-    p.gold = o.gold ?? rnd(DEV.GOLD_V * V(level));
+    p.gold = o.gold ?? rnd(DEV.GOLD_V * V(p.level));
     addPotions(s, o.potions ?? DEV.POTIONS);
     // The zone (rules 1.3): its hub, arrived at `time` (whole tolls); the heat records start there.
     s.time = o.time ?? lineAt(s.oaths, zone - 1);
@@ -453,11 +457,28 @@ export function createDebug(api) {
     return { state: s, events: ev };
   }
 
-  /** The profile with n more Echoes to spend (rules 11.2; not counted as earned). */
+  /** The profile with n more Echoes to spend (rules 11.2; not counted as earned); Legacy points on a version 3 profile. */
   function grantEchoes(profile, n) {
     if (!isInt(n) || n < 1) fail('debug.grantEchoes: n must be a whole number >= 1');
     const p = deepClone(profile || newProfile());
-    p.echoes += n;
+    p[balanceKey(p)] += n;
+    return p;
+  }
+
+  /**
+   * Legacy (D154, legacy.md 1.1): the profile (version 3: migrateProfile under GATES.legacy) with the class's hero at hero
+   * level `level` (1-HERO_MAX_LEVEL) and `xp` hero XP into it (0 to below heroXpToNext(level)); talents, spells and bar
+   * as a new hero's (the next run trains its spells and plays the class's start bar), its name, runs and wins kept. The
+   * simulator's hero cells (legacy.md 5.7) and the Dev menu.
+   */
+  function setHero(profile, classId, { level = 1, xp = 0 } = {}) {
+    if (!CLASS[classId]) fail(`debug.setHero: unknown class ${classId}`);
+    if (!isInt(level) || level < 1 || level > HERO_MAX_LEVEL) fail(`debug.setHero: level must be 1-${HERO_MAX_LEVEL}`);
+    if (!isInt(xp) || xp < 0 || xp >= heroXpToNext(level)) fail(`debug.setHero: xp must be a whole number from 0 to ${heroXpToNext(level) - 1}`);
+    const p = migrateProfile(profile || newProfile());
+    if (!p.heroes) fail('debug.setHero: a version 3 profile is needed (C.GATES.legacy on)');
+    const old = heroOf(p, classId);
+    p.heroes[classId] = { ...newHero(classId, old ? old.name : ''), level, xp, runs: old ? old.runs : 0, wins: old ? old.wins : 0 };
     return p;
   }
 
@@ -520,7 +541,11 @@ export function createDebug(api) {
       const cls = CLASS[p.classId];
       if (!cls) e(`unknown class ${p.classId}`);
       if (!isInt(p.level) || p.level < 1 || p.level > MAX_LEVEL) e(`level ${p.level}`);
-      if (p.level < MAX_LEVEL ? !(p.xp >= 0 && p.xp < xpToNext(p.level)) : p.xp !== 0) e(`xp ${p.xp} at level ${p.level}`);
+      if (isLegacy(s)) {
+        // Legacy (legacy.md 1.2-1.3): hero level 1-25, its power level, hero XP below the next level's (at 25: HERO_XP_AT_MAX)
+        if (!isInt(p.heroLevel) || p.heroLevel < 1 || p.heroLevel > HERO_MAX_LEVEL || p.level !== powerOf(p.heroLevel)) e(`hero level ${p.heroLevel} at power level ${p.level}`);
+        if (!(isInt(p.xp) && p.xp >= 0 && p.xp < heroXpToNext(p.heroLevel))) e(`hero xp ${p.xp} at hero level ${p.heroLevel}`);
+      } else if (p.level < MAX_LEVEL ? !(p.xp >= 0 && p.xp < xpToNext(p.level)) : p.xp !== 0) e(`xp ${p.xp} at level ${p.level}`);
       const c = cloneState(s);
       guard('refreshDerived', () => { refreshDerived(c); if (JSON.stringify(c.player.d) !== JSON.stringify(p.d)) e('derived values (player.d) are not current'); });
       const over = s.phase === 'SUMMARY' || s.phase === 'ENDED';
@@ -627,6 +652,6 @@ export function createDebug(api) {
 
   return Object.freeze({
     build, toCamp, toBoss, nextZone, encounter, killTarget, refill, setGod, give, setTime, setHeat, revealMap, setMapMode,
-    grantEchoes, fullCatalogue, setProfile, resetOnboarding, enemies, validate,
+    grantEchoes, fullCatalogue, setProfile, resetOnboarding, setHero, enemies, validate,
   });
 }

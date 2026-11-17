@@ -1,6 +1,8 @@
 // End boss: Oruvath (rules 10; D150: the one name of the final boss, was "Oruvath, the Unlit Star"). Stream: boss. Combat v2: the boss's intent track (rules 7.11, 10.3)
 // shows the next INTENT_TRACK_LEN rounds of its schedule (each entry's target is drawn when it enters the track);
-// OFF_BALANCE hooks (7.13): an interrupted Collapse Litany, a Gravity Crush that costs the player 0 HP.
+// OFF_BALANCE hooks (7.13): an interrupted Collapse Litany, a Gravity Crush that costs the player 0 HP. Legacy (D154,
+// legacy.md 2.4): in a Legacy run his level, HP, armour and the Shards' level and HP come from the fight's `boss.scale`
+// (legacy.js oruvathScale; damage.js bossDmgFactor applies its damage factor); without it the fight is as tuned at BOSS_LEVEL.
 import {
   BOSS_LEVEL, BOSS_HP, BOSS_ARMOR, BOSS_MELEE, BOSS_CRUSH, BOSS_CRUSH_EVERY, BOSS_LITANY_DMG, LITANY_FIRST,
   LITANY_EVERY, BRAND_EVERY, P2_AT, P3_AT, SHARD_HP, SHARD_DMG, SHARD_COUNT, SHARD_EVERY, SHARD_MAX, PULSE_DMG,
@@ -19,21 +21,27 @@ export const SHARD_ACTION = { id: 'shard_hit', name: `${BOSS_TEXT.shard} Strike`
 /** Fields every enemy carries for the intent track (rules 7.11); the boss and Shards play no opening script. */
 const trackFields = (turn0) => ({ turn0, turn: 0, track: [], acted: 0, ward: null, unscripted: true, noReward: false });
 
-export function makeBoss(asc) {
-  const hp = rnd(BOSS_HP * (1 + asc));
+/**
+ * Oruvath (rules 10.1). scale (Legacy, legacy.md 2.4; legacy.js oruvathScale): { level, hp, armor, ... } sets his level,
+ * multiplies his HP (with the Ascendancy's) and his armour; null: BOSS_LEVEL, BOSS_HP and BOSS_ARMOR.
+ */
+export function makeBoss(asc, scale = null) {
+  const hp = rnd(BOSS_HP * (1 + asc) * (scale ? scale.hp : 1));
   return {
-    idx: 0, tid: 'boss', name: BOSS_TEXT.name, kind: 'boss', arch: null, level: BOSS_LEVEL, hp, maxHp: hp,
-    dmg: BOSS_MELEE, armor: BOSS_ARMOR, dodge: ENEMY_DODGE, abilities: [], cds: {}, st: [], intent: null,
+    idx: 0, tid: 'boss', name: BOSS_TEXT.name, kind: 'boss', arch: null, level: scale ? scale.level : BOSS_LEVEL, hp, maxHp: hp,
+    dmg: BOSS_MELEE, armor: scale ? rnd(BOSS_ARMOR * scale.armor) : BOSS_ARMOR, dodge: ENEMY_DODGE, abilities: [], cds: {}, st: [], intent: null,
     alive: true, elite: false, boss: true, ccImmune: true, enraged: 0, summoned: false, shield: 0, asc,
     ...trackFields(1),
   };
 }
 
-function makeShard(idx, asc, turn0) {
-  const hp = rnd(SHARD_HP * (1 + asc));
+/** A Dimming Shard (rules 10.2); scale (Legacy): its level is scale.shardLevel, its HP × scale.hp, its armour that level's. */
+function makeShard(idx, asc, turn0, scale = null) {
+  const hp = rnd(SHARD_HP * (1 + asc) * (scale ? scale.hp : 1));
+  const level = scale ? scale.shardLevel : EA.SHARD_LEVEL;
   return {
-    idx, tid: 'shard', name: BOSS_TEXT.shard, kind: 'shard', arch: null, level: EA.SHARD_LEVEL, hp, maxHp: hp,
-    dmg: SHARD_DMG, armor: ENEMY_ARMOR_PER_LEVEL * EA.SHARD_LEVEL, dodge: ENEMY_DODGE, abilities: [], cds: {},
+    idx, tid: 'shard', name: BOSS_TEXT.shard, kind: 'shard', arch: null, level, hp, maxHp: hp,
+    dmg: SHARD_DMG, armor: ENEMY_ARMOR_PER_LEVEL * level, dodge: ENEMY_DODGE, abilities: [], cds: {},
     st: [], intent: null, alive: true, elite: false, boss: false, ccImmune: false, enraged: 0, summoned: false,
     shield: 0, asc, ...trackFields(turn0),
   };
@@ -50,7 +58,7 @@ function summonShards(s, ev, turn0) {
   const alive = livingShards(s);
   const n = Math.min(SHARD_COUNT, SHARD_MAX - alive);
   for (let i = 0; i < n; i++) {
-    const sh = makeShard(f.enemies.length, f.boss.asc, turn0);
+    const sh = makeShard(f.enemies.length, f.boss.asc, turn0, f.boss.scale || null);
     f.enemies.push(sh);
     ev.push({ t: 'summon', u: sh.idx, name: sh.name, hp: sh.hp, by: 0 });
     fillTrack(s, sh);
@@ -101,7 +109,8 @@ export function bossStartRound(s, ev) {
 
 function est(s, base, school, tgt) {
   let x = snapshot(s, 0, tgt, base, {});
-  if (school === 'phys') x *= 1 - mitigation(tgt === 'pet' ? s.player.d.petArmor : s.player.d.armor, BOSS_LEVEL);
+  // the boss's own level: BOSS_LEVEL, in a Legacy run his scaled level (legacy.md 2.4)
+  if (school === 'phys') x *= 1 - mitigation(tgt === 'pet' ? s.player.d.petArmor : s.player.d.armor, s.fight.enemies[0].level);
   return rnd(x);
 }
 

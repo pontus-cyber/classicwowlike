@@ -68,7 +68,7 @@ inner-ring quests keep zone 1's cap, `C.QUEST_CAP_Z2_RINGS` and the switch `C.GA
 `tutorialView.rescueMax`, 14.2-14.5; zone 1 enemy damage `C.Z1_DMG_MULT` up to `C.Z1_DMG_MAX_LEVEL` in `zoneDanger`, the
 switch `C.GATES.z1Dmg`, on (rules 7.6); marked "(D147)"); 2026-11-14b (D149: the guided zone's marked wind-up on the enemy's
 turn `C.ONB_WINDUP_TURN` (1), 14.1, marked "(D149)"; draft, docs/handoffs/engine-2026-11-14b.md: G8's joint line gives way
-after the engage round (ui-2026-11-14 finding 1), 14.4; content `guide.rescueLeftLine` and `guide.skipLine` for the UI, 14.2); 2026-11-14c (draft, docs/handoffs/engine-2026-11-14c.md: from round 2 G8's own line only while `windupView` lists an answer, 14.4; content `guide.roadsOpenLine`, 14.2); 2026-11-14f (D152, docs/specs/changes-m3-v2.md, docs/handoffs/engine-2026-11-14f.md: the lean first run, `prepView.first` and `unspent`, `contractView` null, no hub offer, `mapView.bell.hidden`, summary `firstRun`, 13.1-13.4, 10.3-10.4; Gorrak's bounty and event `bounty`, every fight counts (`tutorial.fights`, `tutorialView.elite.fights` and `left`), the held corridor (`mapView` node `held`, `tutorialView.hold`), 14.1-14.4; the steady Dimming (`mapView.dim` `steady`, `maxPerToll`, `nextIn`, `nextCount`, `count`, `total`, `shift`, texts `dimming_pace`) and the rescue's pause and fall-back (event `dimBack`), section 5; switches `C.GATES.firstRunLean`, `gorrakBounty`, `guidedHold`, `steadyDim`, `rescueDim`, all on; marked "(M3 v2)").
+after the engage round (ui-2026-11-14 finding 1), 14.4; content `guide.rescueLeftLine` and `guide.skipLine` for the UI, 14.2); 2026-11-14c (draft, docs/handoffs/engine-2026-11-14c.md: from round 2 G8's own line only while `windupView` lists an answer, 14.4; content `guide.roadsOpenLine`, 14.2); 2026-11-14f (D152, docs/specs/changes-m3-v2.md, docs/handoffs/engine-2026-11-14f.md: the lean first run, `prepView.first` and `unspent`, `contractView` null, no hub offer, `mapView.bell.hidden`, summary `firstRun`, 13.1-13.4, 10.3-10.4; Gorrak's bounty and event `bounty`, every fight counts (`tutorial.fights`, `tutorialView.elite.fights` and `left`), the held corridor (`mapView` node `held`, `tutorialView.hold`), 14.1-14.4; the steady Dimming (`mapView.dim` `steady`, `maxPerToll`, `nextIn`, `nextCount`, `count`, `total`, `shift`, texts `dimming_pace`) and the rescue's pause and fall-back (event `dimBack`), section 5; switches `C.GATES.firstRunLean`, `gorrakBounty`, `guidedHold`, `steadyDim`, `rescueDim`, all on; marked "(M3 v2)"); 2026-11-18 (Legacy phase 1, engine side, D154-D155, docs/specs/legacy.md, draft: the switch `C.GATES.legacy`, **off**; with it on, a Legacy run (`state.legacy`) and the version 3 profile, `heroView`, `heroesView`, `shownLevel`, `powerOfLevel`, `heroXpToNext`, `ABANDON_RUN`, the events `heroMax` and `abandon`, `levelUp.heroLevel`, `zone.band`, `camp.level`, `debug.setHero`; section 15; marked "(Legacy)"; with it off every run, profile and view is as before, checked run for run in qa/engine/s23).
 Units: every time value of the API is a whole number of tolls (1 toll = 1 former in-game hour, D69); there are no hours.
 Rules authority:
 docs/specs/rules.md (section numbers below refer to it).
@@ -104,7 +104,11 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 | `migrateProfile(profile)`, `setGuide(profile, value)` | profile | (M3, section 14.5) A stored profile with `guide` and `welcome` (a profile without them and `runs > 0` loads as `'done'` and `true`, else `'todo'` and `false`); `setGuide` sets `guide` (`'todo'`, `'done'`, `'skipped'`; class select and Settings), throws `IllegalActionError` on another value. Pure. Call `migrateProfile` when the profile is loaded |
 | `tutorialView(state)` | object or null | (M3) The guided first run for the UI (section 14.3); null in any other run and before START_RUN. Pure and cheap |
 | `trainerView(state, level?)` | object or null | (D144) What a trainer would teach the character now (rules 2.7), any phase after START_RUN (null before): `{ learn: [{ id, lvl, cost }]` (spells it offers up to the character's level, not known, by level), `train: [{ id, tl, cost }]` (known spells trained below the level, TRAIN_ALL's order), `next` (the level of the next spell to learn, or null), `useful` (a lesson or a rank the gold covers: worth the toll; the autoplay's own test, nodes.js `trainerUseful`) `}`. Prices as the trainer asks them now (the Ledger's free first lesson only while a hub's trainer is open). The hub's welcome line reads `useful`: content `guide.hubTrainerLine` when true, else `guide.hubLine` (blind tester report 2026-11-13: both testers paid a toll for "Visit the trainer" at level 1, `{ learn: [], train: [], next: 4, useful: false }`). (Newcomer check 2026-11-15) `level`: an integer from 1 to MAX_LEVEL (else RangeError; default the character's level): the same offer as at that level with the spells known now (`learn` lvl <= level, `train` tl < level, `next` the lowest lvl above it, `useful` with the gold held now). One step can give several levels (a fight's XP, Gorrak's bounty); each `levelUp` event's "New at the trainer" banner reads `trainerView(state after the step, event.level)`, the hub card's "Next spell at level N" `trainerView(state).next`, so a spell is announced at its own level (the tester's Mage, levels 8 to 11 in one step, was told of Rime Burst, level 10, at level 8) |
-| `newProfile()`, `metaOffers(profile)`, `buyMeta(profile, id)` | profile / offers / profile | Meta catalogue between runs (rules 11.2). `buyMeta` throws `IllegalActionError` when not allowed. (M2b v11) The expedition entries are offered and bought as any entry; read `C.META[id].mapMode` (`'expedition'`: no effect on the rows map) and `C.META[id].expedition` (Scout's Eye, Swift Boots: the effect in an expedition run) to label them. |
+| `heroView(state)` | object or null | (Legacy) The run's hero for the HUD (section 15.4): `{ classId, level, xp, xpToNext, atMax, power, start, gained }`; null outside a Legacy run |
+| `heroesView(profile)` | array | (Legacy) Hero select: one card per class in `C.CLASS_IDS` order, null for a class without a hero (section 15.4) |
+| `shownLevel(state, level)` | number | (Legacy) The level to show for an engine level: in a Legacy run 1 + round((level - 1) × 24 / 59) (the hero scale; power 65 shows 27), outside one `level` itself. Every level on screen goes through it (section 15.4) |
+| `powerOfLevel(H)`, `heroXpToNext(H)` | number | (Legacy) The engine's level of hero level H (`C.POWER_OF_LEVEL`), and the hero XP from H to H + 1 (`C.HERO_XP`; at 25 `C.HERO_XP_AT_MAX`) |
+| `newProfile()`, `metaOffers(profile)`, `buyMeta(profile, id)` | profile / offers / profile | Meta catalogue between runs (rules 11.2). (Legacy) On a version 3 profile the balance is `legacy` (Legacy points), section 15.1. `buyMeta` throws `IllegalActionError` when not allowed. (M2b v11) The expedition entries are offered and bought as any entry; read `C.META[id].mapMode` (`'expedition'`: no effect on the rows map) and `C.META[id].expedition` (Scout's Eye, Swift Boots: the effect in an expedition run) to label them. |
 | `xpToNext(L)`, `talentPointsFree(state)`, `itemScore(item, classId)`, `spellCost(state, id)`, `spellCooldown(state, id)`, `fleeChance(state)` | number | Display helpers so the UI never re-implements a rule. |
 | `bagCapacity(state)` | number | Bag slots: `BAG_SLOTS` + meta Deeper Pockets (rules 8.7, 11.2). In CREATE it reads the profile. |
 | `travelLevel(state)` | number or null | Level from which `TRAVEL_ON` is legal in the current zone (rules 1.5): exit level - TRAVEL_EARLY_LEVELS, one lower with Swift Boots ("Travel on at level N"). After the last row TRAVEL_ON is legal at any level. null outside a zone (CREATE, Camp, run over) and in an expedition run (no level gate, rules 1.9.7). |
@@ -170,6 +174,7 @@ Every action is `{ type, ...fields }`. Indices are 0-based. Enemy targets are in
 | `SET_SEED` | `seed` (integer) | CREATE |
 | `SET_OATH` | `oath`: `haste` `frailty` `thrift`, `on`: bool | CREATE, profile owns `oaths` |
 | `START_RUN` | | CREATE, class (and pet for Hunter) chosen |
+| `ABANDON_RUN` | | (Legacy) a Legacy run from PREP to the boss fight, a fight and the loot window included; not listed by `legalActions` (a menu action). The run ends as a death where the hero stands (section 15.3) |
 | `SET_AUTOPLAY` | `on`: bool | always (not ENDED); changes nothing else (rules 7.1) |
 | `SERVICE` | `service`: `trainer` `vendor` `inn` | ZONE_HUB or CAMP, once per visit each |
 | `LEAVE` | | a service is open (at a Vendor/Trainer node this completes the node) |
@@ -265,7 +270,7 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 |---|---|---|
 | `phase` | `phase` | phase changed |
 | `runStart` | `classId, petId, seed, oaths` | |
-| `zone`, `camp`, `travel` | `z, name` / `name` / `from` | zone hub entered / camp / TRAVEL_ON. (expedition) `travel` adds `by` (`road` or `bell`), `node` and `road` (D51: the Road's content name, null by the Bell or without names) |
+| `zone`, `camp`, `travel` | `z, name` / `name` / `from` | zone hub entered / camp / TRAVEL_ON. (Legacy) `zone` adds `band` (the zone's band fixed now) and `camp` `level` (the Camp's level). (expedition) `travel` adds `by` (`road` or `bell`), `node` and `road` (D51: the Road's content name, null by the Bell or without names) |
 | `time` | `add, total, why` | tolls spent (M2b v7: was the `hours` event) |
 | `node`, `nodeDone`, `quest` | `type, r, l, cl, heat` / ... / `quest` | node entered / completed / quest template id. (expedition) `node`: `type, id, ring, cl, heat`; `nodeDone`: `type, id`. (heat) `heat`: the node's entry state (rules 1.7.3) |
 | `move` | `from, to, via, seen` | (expedition) a step: `via` `enter`, `walk` or `pass`; `seen` = node ids newly in view. (M3) `via: 'rescue'`: a rescue's way back (section 14.2) |
@@ -308,7 +313,7 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `death` | `u, name` | enemy, pet or player died |
 | `resurrect` | `source` (`boon` `second_breath` `ember`), `hp, mana` | `hp`, `mana`: the player's values after the resurrect (RES_HP_PCT, RES_MANA_PCT). Never `second_breath` in the end-boss fight (M2 v3) |
 | `xp` | `amount, rested, why, heat` | (heat) `heat` (only when > 0): the part of `amount` that heat added (rules 1.7.3). (M2b v15) `why: 'swift'`: the Swift passage of a Road (after its `swift` event) |
-| `levelUp` | `level, talentPoint, hpGain, manaGain, petHpGain, maxHp, maxMana, petMaxHp` | one per level gained. Current HP, mana and pet HP (live pet) rise by the max gains (rules 4.3); `*Gain` = what was added, `max*` = the new maxima (`maxMana` 0 without mana, `petMaxHp` 0 without a pet) |
+| `levelUp` | `level, talentPoint, hpGain, manaGain, petHpGain, maxHp, maxMana, petMaxHp` | one per level gained (Legacy: one per hero level gained, with `heroLevel`, the level to show, and `talentPoints`, the points the step gave; `level` is the power level, 2 or 3 higher than before). Current HP, mana and pet HP (live pet) rise by the max gains (rules 4.3); `*Gain` = what was added, `max*` = the new maxima (`maxMana` 0 without mana, `petMaxHp` 0 without a pet) |
 | `gold` | `amount, why, heat` | negative when spent. (heat) `heat` (only when > 0): the part of `amount` that heat added |
 | `loot` | `item, to` (`bag` or `window`) | |
 | `victory`, `fled` | `kind, rounds` | fight over |
@@ -317,7 +322,9 @@ bonusArmor, wd, affix, unique, effect}`; consumable stack `{uid, kind: 'cons', i
 | `questComplete`, `story`, `dungeonClear`, `dungeonLeft` | | |
 | `boon`, `trap`, `buffEnd` | `id, name` / `amount` / `id` | |
 | `learn`, `train`, `respec`, `talent`, `buy`, `sell`, `equip`, `unequip`, `discard`, `bar`, `itemBar`, `useItem`, `lootDropped`, `autoplay` | | bookkeeping |
-| `bossStart` | `asc, time, level` | `time`: the run's tolls at the boss (M2b v7) |
+| `bossStart` | `asc, time, level` | `time`: the run's tolls at the boss (M2b v7). (Legacy) `level`: Oruvath's level at the hero's level (show `shownLevel`) |
+| `heroMax` | `over` | (Legacy) at hero level 25, another HERO_XP_AT_MAX of XP: one more line of LEGACY_PER_LEVEL at the run's end (`over`: so far this run) |
+| `abandon` | | (Legacy) ABANDON_RUN; `runEnd` (death) follows |
 | `runEnd`, `echoes` | `outcome` / `total` | |
 
 **Damage amounts.** The pipeline rolls a hit (rules 7.2); absorbs come off it, in this order: IMMUNE (all),
@@ -1116,3 +1123,82 @@ so it never rests: `G13.closed` is the line whenever no other open beat has a li
   leaves the profile as it was. A profile saved before M3 with `runs > 0` loads with the welcome had (`migrateProfile`).
 - The summary of a guided run has `tutorial: { rescues, skipped, learned }`.
 - Not in the engine (spec 3.1, U2): the first-time hints' seen ids and Hints On / Off (`tbwcr.hints.v2`, the UI's).
+
+## 15. Legacy, phase 1 (Legacy; docs/specs/legacy.md 1, 2, 4.1, 4.6, 5.1; D154-D155, draft)
+
+Behind the switch `C.GATES.legacy`, **off** until the phase 1 measures pass (legacy.md 7.1). Off, nothing of this section
+exists: profiles stay version 1, runs and views are as before (qa/engine/s23 golden check). On, `newRun` makes a Legacy run:
+`state.legacy` is true and every rule below reads it (not the switch), so a run keeps its rules to its end. Not built yet
+(later phases): the Legacy hall (the 13 entries; the old catalogue still sells, for Legacy points), the first-point tree and
+the camp respec, trees from level 20, the Armoury, the Camp waves' cap and double XP (CAMP_WAVE_MAX, CAMP_WAVE_XP_MULT),
+Retire hero. The Legacy rules act on the expedition map (the game's); a rows run under the switch plays the hero on the
+rows map's bands (simulator and Dev menu only).
+
+### 15.1 Profile version 3 (legacy.md 1.1, 4.6)
+- `newProfile()` under the switch: `{ v: 3, legacy: 0, earned, spent, unlocks, reachedBoss, bossKills, firstKill, runs, guide,
+  welcome, deathblowMet, heroes: {} }`: `legacy` (Legacy points) replaces `echoes`; `heroes[classId]` holds the class's hero
+  (one per class, `C.HEROES_PER_CLASS`).
+- `migrateProfile(profile)` under the switch turns a version 1 profile into version 3: `legacy = echoes + spent` (every Echo
+  spent comes back), the catalogue's ranks cleared except Packed Satchel (kept: the first-run nudge does not repeat; its price
+  stays spent, `spent` = 60), `earned`, the boss flags, `runs`, `guide`, `welcome`, `deathblowMet` kept, no hero. A version 3
+  profile is kept as it is, switch on or off (no downgrade). Call it when the profile is loaded, as today.
+- `metaOffers`, `buyMeta`, `applyRunToProfile`, `debug.grantEchoes` use `legacy` on a version 3 profile.
+- A hero: `{ classId, name, level (1-25), xp (hero XP into the level; at 25 toward the next Legacy level line), talents,
+  spells, spellOrder, bar (null until a run has set them), runs, wins }`.
+
+### 15.2 The run (legacy.md 1.2-1.7, 2.1-2.4)
+- **Levels.** `state.player.heroLevel` (1-25) is the hero's level; `state.player.level` is the power level
+  `C.POWER_OF_LEVEL[heroLevel - 1]` (1-60), the engine's level for every formula; `state.player.xp` is hero XP into the
+  hero level. A level costs `C.HERO_XP[H - 1]`; a level-up raises the power level by 2 or 3 at once (`levelUp` with
+  `heroLevel`, `talentPoints`). At 25 XP keeps counting: every `C.HERO_XP_AT_MAX` is a `heroMax` event and one more line of
+  `C.LEGACY_PER_LEVEL` at the run's end.
+- **XP.** Every award in hero XP: `round(C.HERO_XP_UNIT × frac × xpCurve(CL) / xpCurve(L) × diffMod(CL - L) × (1 + xpPct))`
+  (contracts and Gorrak's bounty without `diffMod`); the rested pool in hero XP (a rest adds REST_RESTED_FRAC × HERO_XP_UNIT,
+  capped at RESTED_CAP_FRAC × HERO_XP_UNIT). `xpToNext(L)` is not the hero's: use `heroView`.
+- **Start** (START_RUN): the class's hero from the profile (a new one at level 1 when none; its name is the run's), its level,
+  XP and talents; its known spells (class spells, talent spells of its talents, meta spells the profile owns) and every spell
+  the trainer teaches up to the power level, learned and trained to it free (rank = the hero level; `trainerView(state).useful`
+  is false at the start); its bar (a hero without one: the class's start bar, new spells placed while a slot is free); the
+  Wayfarer's kit, a `C.KIT_RARITY` item of the power level in each of the ten slots (weapon and chest keep the class's start
+  names; Heirloom Blade makes the weapon uncommon); gold `C.START_GOLD_V × V(power level)`. `state.hero` is the run's record:
+  `{ start: { level, xp }, bands: { z: band }, camp, gained, over }`.
+- **Zones.** Each zone's band is fixed when it is generated (the hero's arrival): `clamp(P + C.ZONE_TIER[z - 1], 1, C.CL_MAX)`;
+  rings `C.RING_CL_BASE_HERO` with spread `C.RING_CL_SPREAD_HERO`, quests ±1, elites +1, dungeon trash at the band +
+  `C.DUNGEON_LEVEL_OFFSET_HERO` and its boss DUNGEON_BOSS_LEVEL_OFFSET more, the hub's vendor at the band, contracts at the
+  band + `C.CONTRACT_CL_OFFSET_HERO` (before the zone is reached, the board shows the estimate at the hero's level now:
+  `prepView` offers' `band` and `reward.cl` / `reward.xp`); content up to `C.CL_MAX` (66), items up to `C.ILVL_MAX_HERO`
+  (69). Every template enemy deals × `C.ZONE_TIER_DMG[z - 1]` (the Camp: zone 6's). `mapView.bands` follow the band.
+  Generated item names take their zone band words from the zone they drop in (the Camp: zone 6).
+- **The Camp** at `P + C.CAMP_TIER` (its vendor and waves; `camp` event `level`). The waves' cap and XP are a later phase.
+  Autoplay goes on to Oruvath without the grind to 60.
+- **Oruvath** (legacy.js `oruvathScale`, one function over one constants block: the Designer's rework replaces it): his level
+  `LB = P + C.BOSS_TIER` (at most CL_MAX); his and the Shards' HP × hpScale(LB) × min(1, `C.BOSS_HP_LEVEL_BASE` +
+  `C.BOSS_HP_LEVEL_STEP` × H); every damage of the fight × dmgScale(LB) (bossDmgFactor); armour × LB / `C.BOSS_REF_LEVEL`;
+  Shards at LB - 2. `state.fight.boss.scale` holds `{ level, hp, dmg, armor, shardLevel }`.
+- **Guided first run** (legacy.md 5.1): zone 1 at band 1 (power levels 1-4), Gorrak at clamp(P + 1,
+  `C.ONB_ELITE_LEVEL_MIN_HERO` 2, ONB_ELITE_LEVEL_MAX 8), the bounty's road XP is hero XP at zone 1's contract level.
+- **Checkpoint.** At every zone arrival and at the Camp the hero (level, XP, talents, spells, bar) is written into
+  `state.profile.heroes[classId]` (not in a dev run): store `state.profile` then, so a closed browser loses at most the
+  zone in progress (legacy.md 1.5).
+
+### 15.3 The run's end (legacy.md 1.5, 4.1)
+- Every ending keeps the hero: END_RUN's `result.profile.heroes[classId]` is the hero as the run ended (`summary.hero.record`),
+  with `runs` + 1 and `wins` + 1 on a victory, whatever the outcome; the Legacy points go to `legacy` (`result.legacy`, the
+  `echoes` event with `legacy: true`).
+- The lines are the Echo lines (constants `LEGACY_*`, the `ECHO_*` names aliases) but `levels`: `C.LEGACY_PER_LEVEL` (20) a
+  hero level gained in the run, each `heroMax` one more. The summary has `legacy` (the same object as `echoes`) and `hero`
+  (`heroView` with `record`).
+- `ABANDON_RUN`: the run ends as a death where the hero stands (`state.death.killer.name` 'abandon', event `abandon`, then
+  `runEnd`); it pays its lines and keeps the hero. A dev run leaves the profile as it was.
+
+### 15.4 Views
+- `heroView(state)`: `{ classId, level, xp, xpToNext, atMax, power, start: { level, xp }, gained }` (null outside a Legacy run):
+  the HUD's level and XP bar.
+- `heroesView(profile)`: hero select, `[rogue, mage, hunter]`, each null (no hero: "New hero") or `{ classId, className, name,
+  level, xp, xpToNext, power, runs, wins, talents (points per tree), tree (the tree with the most points, null without) }`.
+- `shownLevel(state, level)`: every level on screen (enemies, nodes, `mapView.bands`, items, spells' `lvl` and trainer
+  levels, Oruvath, Gorrak) on the hero scale: 1 + round((level - 1) × 24 / 59); content shows 1-27, items up to 29 (item level
+  69). A level's colour stays computed on the engine's levels. Outside a Legacy run it returns `level`.
+- `debug.setHero(profile, classId, { level, xp })` (dev): the profile (version 3) with that class's hero at a level (talents,
+  spells and bar as a new hero's); the simulator's hero cells and the Dev menu. `debug.build` in a Legacy run snaps its level
+  to the hero scale.
