@@ -425,7 +425,8 @@ export function rewardAction(s) {
 
 /**
  * Camp for the non-random bots: vendor, Camp grind to MAX_LEVEL, trainer, Inn, Elixir, boss bar, FIGHT_BOSS.
- * (The boss bar is set by the bot's bar() at phase CAMP before FIGHT_BOSS.)
+ * (The boss bar is set by the bot's bar() at phase CAMP before FIGHT_BOSS.) D154 (legacy.md 5.8 item 4): no grind in a
+ * Legacy run (C.GATES.legacy): the winner goes to Oruvath (the leveller's Camp waves come with CAMP_WAVE_MAX, a later phase).
  */
 export function campAction(s, { vendor = true } = {}) {
   const p = s.player;
@@ -435,7 +436,7 @@ export function campAction(s, { vendor = true } = {}) {
   // gives no post-fight regen): use the Inn once, then go to the boss.
   const weak = hpFrac(s) < SIM.STOP_HP && countCons(s, 'trail_rations') < 1;
   if (weak && !u.inn) return { type: 'SERVICE', service: 'inn' };
-  if (p.level < C.MAX_LEVEL && !weak && s.camp.waves < SIM.CAMP_MAX_WAVES) return { type: 'CAMP_GRIND' };
+  if (!C.GATES.legacy && p.level < C.MAX_LEVEL && !weak && s.camp.waves < SIM.CAMP_MAX_WAVES) return { type: 'CAMP_GRIND' };
   if (!u.trainer && trainerUseful(s)) return { type: 'SERVICE', service: 'trainer' };
   if (!u.inn && (p.hp < p.d.maxHp || p.mana < p.d.maxMana || (p.pet && p.pet.hp < p.d.petMaxHp))) return { type: 'SERVICE', service: 'inn' };
   if (countCons(s, 'elixir_ferocity') > 0 && !p.buffs.elixir) return { type: 'USE_ITEM', itemId: 'elixir_ferocity' };

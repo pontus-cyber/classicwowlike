@@ -41,6 +41,9 @@
 //            D128: tag 'rr' (campReroll, the start camp's reroll; off by default; the bots never reroll)
 //            report balance-2026-11-13c: --guided (with --map expedition --prep: the guided first run, newRun tutorial;
 //            zone 1 on TUTORIAL_SEED with the authored overlay; cell mark 'guided')
+//            D154 (legacy.md 5.7, phase 1): --hero H (1-25: a hero cell, a Legacy run of the class's hero at hero level H on
+//            the version 3 profile; C.GATES.legacy on with the engine's other defaults, or with --gates' list; cell marks
+//            'leg' and 'h<H>'); --profile later (two runs played, nothing bought: the Legacy cells' profile)
 //   campaigns: --map expedition --prep also apply (B31 / B32 on the expedition with the start camp)
 //   campaigns: node sim/run.mjs --campaign N --class <c|all> --out <dir> [--risk-in <risk.json>]
 //
@@ -56,7 +59,7 @@ import { runCampaigns } from './lib/batch.mjs';
 import { buildTable } from './lib/risk.mjs';
 import { BOT_NAMES } from './bots/index.mjs';
 import { readJson, writeJson, commitInfo, ensureDir } from './lib/output.mjs';
-import { C, CAMP_LIST, campRefusal } from './lib/engine.mjs';
+import { C, CAMP_LIST, campRefusal, GATE_DEFAULTS } from './lib/engine.mjs';
 import { campaignMarkdown } from './lib/campaignreport.mjs';
 import { defaultTrees, profileGroup } from './lib/trees.mjs';
 import { oneButtonTrees } from './bots/onebutton.mjs';
@@ -125,8 +128,16 @@ const metaDrop = args['meta-drop'] ? args['meta-drop'].split(',') : null;
 if (metaDrop) for (const id of metaDrop) if (!C.META[id]) throw new Error(`--meta-drop: unknown catalogue entry ${id}`);
 if (args['beastcall-gated'] && C.BEASTCALL_HORN_CD_GATED === undefined) throw new Error('--beastcall-gated needs an engine with BEASTCALL_HORN_CD_GATED');
 if (args['ricochet-gated'] && C.RICOCHET_BOUNCE_FRAC_GATED === undefined) throw new Error('--ricochet-gated needs an engine with RICOCHET_BOUNCE_FRAC_GATED');
-const gates = args.gates ? Object.fromEntries(args.gates.split(',').map((k) => [k, true])) : null;
+let gates = args.gates ? Object.fromEntries(args.gates.split(',').map((k) => [k, true])) : null;
 if (gates) for (const k of Object.keys(gates)) if (!C.GATES || !(k in C.GATES)) throw new Error(`--gates: unknown gate ${k} (C.GATES: ${C.GATES ? Object.keys(C.GATES).join(', ') : 'none'})`);
+// D154: a hero cell plays C.GATES.legacy on, with the engine's other switches as built (or the --gates list)
+const hero = args.hero !== undefined ? Number(args.hero) : null;
+if (hero !== null) {
+  if (!Number.isInteger(hero) || hero < 1 || hero > (C.HERO_MAX_LEVEL || 0)) throw new Error(`--hero must be 1-${C.HERO_MAX_LEVEL} (an engine with C.GATES.legacy)`);
+  if (!C.GATES || !('legacy' in C.GATES)) throw new Error('--hero needs an engine with C.GATES.legacy (D154)');
+  if (args.campaign) throw new Error('--hero is a batch cell option, not a campaign one');
+  gates = { ...(gates || Object.fromEntries(Object.entries(GATE_DEFAULTS).filter(([, on]) => on))), legacy: true };
+}
 const pool = new Pool(workers);
 try {
   if (args.campaign) {
@@ -150,7 +161,7 @@ try {
       prof: args.profile || 'fresh', trees, style: args.style || null, variant: args.variant || null, pet: args.pet || null,
       out, warmup: args.warmup !== undefined ? Number(args.warmup) : SIM.WARMUP_RUNS, obsIn, log: !!args.log, workers, replay: !!args.replay, pairs: !!args.pairs, think: !!args.think, thinkMash: !!args['think-mash'],
       map: args.map || null, vision: args.vision ? Object.fromEntries(args.vision.split(',').map((k) => [k, true])) : null, dimming: args.dimming === 'off' ? false : true, oracle: !!args.oracle, route: !!args.route,
-      prep: !!args.prep, prepPolicy: args['prep-policy'] || null, prepForce, prepBan, campOptions, tablesIn: args['tables-in'] || null, metaDrop, beastcallGated: !!args['beastcall-gated'], ricochetGated: !!args['ricochet-gated'], gates, guided: !!args.guided,
+      prep: !!args.prep, prepPolicy: args['prep-policy'] || null, prepForce, prepBan, campOptions, tablesIn: args['tables-in'] || null, metaDrop, beastcallGated: !!args['beastcall-gated'], ricochetGated: !!args['ricochet-gated'], gates, guided: !!args.guided, hero,
       expMeta: args['exp-meta'] ? Object.fromEntries(args['exp-meta'].split(',').map((x) => { const [id, r] = x.split(':'); return [id, Number(r || 1)]; })) : null,
     });
     for (const [cls, x] of Object.entries(r.perClass)) {

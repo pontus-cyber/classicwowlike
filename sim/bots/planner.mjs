@@ -119,8 +119,11 @@ export function plannerHeat(variant) {
 }
 
 // ---------------- Expedition map: belief search on the fog view (expedition.md 10.2) ----------------
-/** Zone exit level of zone z (rules 1.9.7 has no gate; the bots aim at ZONE_LEVELS × z, B20). */
-export const expExitLevel = (z) => C.ZONE_LEVELS * z;
+/**
+ * Zone exit level of zone z (rules 1.9.7 has no gate; the bots aim at ZONE_LEVELS × z, B20). D154 (legacy.md 5.8 item 1):
+ * none in a Legacy run (C.GATES.legacy, set per run): zones follow the hero, so the bots leave by value against the Dimming.
+ */
+export const expExitLevel = (z) => (C.GATES.legacy ? 0 : C.ZONE_LEVELS * z);
 
 /** One toll of walking (or a Dimmed encounter's toll) in the model: evalNode's default cell costs 1 toll. */
 function tollCost(ctx, m, n) {

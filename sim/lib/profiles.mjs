@@ -35,7 +35,8 @@ export function withoutMeta(profile, ids) {
  * Profile by name: fresh | p0 (no unlocks), metaN | pN (first N entries of the standard order), all | pall. D152
  * (docs/specs/changes-m3-v2.md 7.4): P0 is a profile's first run (`runs` 0: the lean first run, no contracts, Reserve or
  * zone 1 Bell); every profile with meta (PN, N >= 1, and PALL) has played FIXED_PROFILE_RUNS runs, so it plays later runs
- * (the three-offer board, the Bell in zone 1).
+ * (the three-offer board, the Bell in zone 1). D154 (legacy.md 6.1, report legacy-calibration-2026-11-17): later | plater,
+ * a profile that has played FIXED_PROFILE_RUNS runs with nothing bought (the Legacy cells' profile; label PL).
  */
 export const FIXED_PROFILE_RUNS = 2;
 export function buildProfile(name, classId) {
@@ -46,6 +47,7 @@ export function buildProfile(name, classId) {
   const n = String(name || 'fresh').toLowerCase();
   if (n === 'fresh' || n === 'p0' || n === 'meta0') return p;
   p.runs = FIXED_PROFILE_RUNS;
+  if (n === 'later' || n === 'plater') return p;
   if (n === 'all' || n === 'pall' || n === 'metaall') {
     for (const m of Object.values(C.META)) p.unlocks[m.id] = m.ranks;
     // A complete catalogue implies the boss was reached and killed (oaths, second_breath need it).
@@ -69,6 +71,7 @@ export function profileLabel(name) {
   const n = String(name).toLowerCase();
   if (n === 'fresh' || n === 'p0' || n === 'meta0') return 'P0';
   if (n === 'all' || n === 'pall' || n === 'metaall') return 'PALL';
+  if (n === 'later' || n === 'plater') return 'PL';
   const m = n.match(/^(?:meta|p)(\d+)$/);
   return m ? `P${m[1]}` : name;
 }

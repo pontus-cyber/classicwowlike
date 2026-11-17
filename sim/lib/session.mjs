@@ -46,6 +46,8 @@ export async function runBatch(opts) {
     ...(opts.campOptions ? { campOptions: opts.campOptions } : {}),
     // Report balance-2026-11-13c: the guided first run (newRun tutorial).
     ...(opts.guided ? { guided: true } : {}),
+    // D154 (legacy.md 5.7): a hero cell, the class's hero at this hero level (needs C.GATES.legacy in the gates).
+    ...(opts.hero ? { hero: opts.hero } : {}),
   };
   const name = opts.name || cellName({ ...cellBase, tree: null });
   const dir = opts.out ? ensureDir(join(opts.out, name)) : null;
@@ -58,7 +60,7 @@ export async function runBatch(opts) {
     const cell = { ...cellBase, cls, tree };
     let obsIn = opts.obsIn && opts.obsIn[cls] ? opts.obsIn[cls] : null;
     if (!obsIn && opts.warmup > 0 && opts.bot !== 'random') {
-      const wcell = { bot: 'planner', cls, prof: opts.prof, tree, style: null, variant: null, pet: opts.pet || null, ...(opts.map ? { map: opts.map } : {}), ...(opts.prep ? { prep: true } : {}), ...(opts.expMeta ? { expMeta: opts.expMeta } : {}) };
+      const wcell = { bot: 'planner', cls, prof: opts.prof, tree, style: null, variant: null, pet: opts.pet || null, ...(opts.map ? { map: opts.map } : {}), ...(opts.prep ? { prep: true } : {}), ...(opts.expMeta ? { expMeta: opts.expMeta } : {}), ...(opts.hero ? { hero: opts.hero, gates: opts.gates } : {}) };
       const w = await runCell(opts.pool, wcell, { runs: opts.warmup, seedStart: SIM.WARMUP_SEED_BASE });
       obsIn = w.obs;
       total += opts.warmup;
@@ -88,6 +90,7 @@ export async function runBatch(opts) {
     // M2b v14: the C.GATES switches the cell played (the engine's defaults when it names none).
     gatesPlayed: gatesFor(opts.gates || null),
     ...(opts.guided ? { guided: true } : {}),
+    ...(opts.hero ? { hero: opts.hero } : {}),
     // D128: the options the start camp offered (the engine's list when the cell names none).
     ...(opts.prep ? { campOptions: opts.campOptions || null, campPlayed: campOptionsFor(opts.campOptions || null) } : {}),
   };

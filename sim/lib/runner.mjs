@@ -13,6 +13,9 @@
 // C.PREP_CAMP_OPTIONS as built, 'all' = every option as before D128, or a list of ids; setCampOptions). D152
 // (docs/specs/changes-m3-v2.md 5.1, 7.4): in a guided cell, while the guided zone's Roads are closed and Gorrak's node is
 // open, the bot follows the coach line ("Face Gorrak first"): the engine's autoplay action is played (counted in gfb).
+// D154 (legacy.md 5.7, phase 1): cell.hero (a hero cell, with C.GATES.legacy among the cell's gates): the profile is the
+// version 3 one (R.migrateProfile under the switch) with the class's hero at hero level cell.hero (R.debug.setHero). The
+// switches are set before the profile is built, since the profile's version follows C.GATES.legacy.
 import { C, R, newRunFor, withExpMeta, hash32, gatesFor, campOptionsFor, CAMP_LIST } from './engine.mjs';
 import { BAL, SIM } from './params.mjs';
 import { createBot } from '../bots/index.mjs';
@@ -41,14 +44,14 @@ export function cellPet(cell) {
  * cell.prof, maxActions }. Returns { record, state }.
  */
 export function runWithBot(cell, seed, risk, opts = {}) {
-  const profile = opts.profile || withoutMeta(withExpMeta(buildProfile(cell.prof, cell.cls), cell.expMeta || null), cell.metaDrop || null);
+  setGates(cell.gates);
+  const profile = opts.profile || cellProfile(cell);
   // M2b v11 row 8 (gated): the Beastcall Horn cooldown of the arm; the engine reads the field at each cast, so it is set
   // for every run (a worker plays runs of several cells).
   if (C.SPELL.beastcall_horn && C.BEASTCALL_HORN_CD_GATED !== undefined) C.SPELL.beastcall_horn.cd = cell.beastcallGated ? C.BEASTCALL_HORN_CD_GATED : C.BEASTCALL_HORN_CD;
   // M2b v12 row 5 (gated, D104): Ricochet Bolt's bounce of the arm, else the engine's value; set for every run for the same
   // reason (the engine and sim/lib/policy.mjs read SPELL.ricochet_bolt.bounceFrac at each use).
   if (C.SPELL.ricochet_bolt && C.RICOCHET_BOUNCE_FRAC_GATED !== undefined) C.SPELL.ricochet_bolt.bounceFrac = cell.ricochetGated ? C.RICOCHET_BOUNCE_FRAC_GATED : C.RICOCHET_BOUNCE_FRAC;
-  setGates(cell.gates);
   setCampOptions(cell.campOptions);
   const bot = createBot(cell.bot, { classId: cell.cls, seed, risk, tree: cell.tree, style: cell.style, variant: cell.variant, ...(cell.prepPolicy ? { prepPolicy: cell.prepPolicy } : {}), ...(cell.prepForce ? { prepForce: cell.prepForce } : {}), ...(cell.prepBan ? { prepBan: cell.prepBan } : {}) });
   const s = newRunFor({ classId: cell.cls, petId: cellPet(cell), seed, profile, mapMode: cell.map || null, vision: cell.vision || null, dimming: cell.dimming === false ? false : null, prep: !!cell.prep, tutorial: !!cell.guided });
@@ -143,6 +146,17 @@ export function runWithBot(cell, seed, risk, opts = {}) {
 }
 
 /**
+ * The profile a cell's run starts with (balance.md 1.4): the named profile with the cell's expedition meta and dropped
+ * entries; D154 (a hero cell, cell.hero; C.GATES.legacy set by setGates first): version 3 with the class's hero at that level.
+ */
+export function cellProfile(cell) {
+  const p = withoutMeta(withExpMeta(buildProfile(cell.prof, cell.cls), cell.expMeta || null), cell.metaDrop || null);
+  if (!cell.hero) return p;
+  if (!C.GATES.legacy) throw new Error('cell.hero needs C.GATES.legacy on (the cell\'s gates)');
+  return R.debug.setHero(R.migrateProfile(p), cell.cls, { level: cell.hero });
+}
+
+/**
  * The guided harness rule's test (D152, changes-m3-v2.md 5.1): in the guided zone (tutorialView) the Roads are closed and
  * Gorrak's node is open (not barred; his fight not yet ended, or the Roads would be open).
  */
@@ -209,8 +223,8 @@ export function playRun(cell, seed, risk, opts = {}) {
 
 /** Replay a run from its seed and action log with the pure step; returns the final state hash. */
 export function replayHash(cell, seed, log, profile = null) {
-  const prof = profile || withoutMeta(withExpMeta(buildProfile(cell.prof, cell.cls), cell.expMeta || null), cell.metaDrop || null);
   setGates(cell.gates);
+  const prof = profile || cellProfile(cell);
   setCampOptions(cell.campOptions);
   let s = newRunFor({ classId: cell.cls, petId: cellPet(cell), seed, profile: prof, mapMode: cell.map || null, vision: cell.vision || null, dimming: cell.dimming === false ? false : null, prep: !!cell.prep, tutorial: !!cell.guided });
   for (const a of log) s = R.step(s, a).state;

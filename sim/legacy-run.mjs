@@ -15,6 +15,10 @@
 //           --workers N (default 2), --profile later (a profile that has played two runs, nothing bought),
 //           --tree N (talent tree index for every class, B7 cells; default the recorded default trees),
 //           --bot <id> (default planner; e.g. onebutton) (designer, report legacy-oruvath-2026-11-18)
+//   --native (Legacy phase 1 engine, D154; in place of --scratch): each cell plays the repository's engine with
+//           C.GATES.legacy on (sim/run.mjs --hero H): the hero's level, XP curve, zones, Oruvath and kit as built (no --leg
+//           arms). The scratch patch targets the engine before the switch (5d3571a) and does not apply to it.
+//   --levels takes a range (1-25) or a list (1,10,20).
 // Every cell: expedition map with the start camp (D118: --map expedition --prep), planner, --warmup 0.
 import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, copyFileSync } from 'node:fs';
@@ -41,20 +45,28 @@ const WARMUP_SEED_BASE = 9000000;
 function parse(argv) {
   const o = { _: [] };
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i].startsWith('--')) o[argv[i].slice(2)] = argv[++i];
+    if (argv[i] === '--native') o.native = true; // the one flag without a value
+    else if (argv[i].startsWith('--')) o[argv[i].slice(2)] = argv[++i];
     else o._.push(argv[i]);
   }
   return o;
 }
-const range = (s) => { const [a, b] = s.split('-').map(Number); return Array.from({ length: (b ?? a) - a + 1 }, (_, i) => a + i); };
+const range = (s) => {
+  if (s.includes(',')) return s.split(',').map(Number);
+  const [a, b] = s.split('-').map(Number);
+  return Array.from({ length: (b ?? a) - a + 1 }, (_, i) => a + i);
+};
 
-function cell({ scratch, h, leg, out, runs, seed, riskIn, classes, workers, profile, tree, bot }) {
+function cell({ scratch, native, h, leg, out, runs, seed, riskIn, classes, workers, profile, tree, bot }) {
   const LEG = JSON.stringify({ ...T2, ...leg, P: powerOf(h) });
   const args = ['sim/run.mjs', '--bot', bot || 'planner', '--class', classes, '--runs', String(runs), '--seed-start', String(seed),
     '--warmup', '0', '--workers', String(workers), '--profile', profile, '--map', 'expedition', '--prep', '--out', resolve(out)];
   if (riskIn) args.push('--risk-in', resolve(riskIn));
   if (tree !== undefined) args.push('--tree', String(tree));
-  const r = spawnSync('node', args, { cwd: scratch, env: { ...process.env, LEG }, encoding: 'utf8', maxBuffer: 1 << 26 });
+  if (native) args.push('--hero', String(h));
+  const env = { ...process.env };
+  if (native) delete env.LEG; else env.LEG = LEG;
+  const r = spawnSync('node', args, { cwd: native ? ROOT : scratch, env, encoding: 'utf8', maxBuffer: 1 << 26 });
   if (r.status !== 0) throw new Error(`cell H${h} failed:\n${r.stderr.slice(-3000)}`);
   const sub = readdirSync(out).find((d) => d.startsWith(`${bot || 'planner'}-`));
   const lines = r.stdout.split('\n').filter((l) => / win /.test(l));
@@ -66,10 +78,14 @@ const a = parse(process.argv.slice(2));
 const cmd = a._[0];
 const scratch = a.scratch ? resolve(a.scratch) : null;
 const leg = a.leg ? JSON.parse(a.leg) : {};
-const common = { classes: a.classes || 'all', workers: Number(a.workers || 2), profile: a.profile || 'later', leg, scratch, tree: a.tree, bot: a.bot };
+const native = a.native === true;
+if (native && a.leg) throw new Error('--native plays the engine as built: no --leg arms');
+const common = { classes: a.classes || 'all', workers: Number(a.workers || 2), profile: a.profile || 'later', leg, scratch, native, tree: a.tree, bot: a.bot };
 
 if (cmd === 'build') {
   if (!scratch || !scratch.includes('/scratch')) throw new Error('--scratch must name a path with /scratch');
+  const K = await import(join(ROOT, 'src', 'constants.js'));
+  if (K.GATES && 'legacy' in K.GATES) throw new Error('this engine plays Legacy itself (C.GATES.legacy, D154 phase 1): use grid / warm --native; the scratch patch applies to the engine before it (5d3571a)');
   rmSync(scratch, { recursive: true, force: true });
   mkdirSync(join(scratch, 'sim', 'out'), { recursive: true });
   cpSync(join(ROOT, 'src'), join(scratch, 'src'), { recursive: true });
