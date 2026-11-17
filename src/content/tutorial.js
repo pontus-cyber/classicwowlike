@@ -96,6 +96,8 @@ export const TUTORIAL = {
     holdLine: 'The Bellwrights keep the dark off this road until Gorrak\'s fight is over.',
     dimBackLine: 'The Bellwrights ring the dark back.',
     bountyLine: 'Gorrak\'s bounty: the Bellwrights pay for the Fieldbreaker.',
+    // M3 v3 (D153, changes-m3-v3.md 3, draft): the bounty's XP paid on arrival at zone 2's hub (event bounty `road`); {xp}
+    bountyRoadLine: 'The Bellwrights pay for the road you kept open: +{xp} XP.',
   },
 
   // The start camp of a lean first run (D152, changes-m3-v2.md 1.3, draft; prepView `first`): unspentFirst, over Set out

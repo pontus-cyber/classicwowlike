@@ -131,13 +131,17 @@ function passAnswer(s, e, x) {
  * breaks (Sap, Hexbind: any damage ends it before the wind-up's turn), wait and stealth (M2b v14: Sap, sure if the player
  * then passes; the passes keep STEALTH) }]: engage answers only in the engage round; the PASS answer (`via` 'pass', how
  * 'wait'; M2b v14) while every living enemy is SAPPED and Sap will cancel it; bar answers whose cooldown is over by the
- * wind-up's round. ready: an answer or a cancel that does not break exists.
+ * wind-up's round. ready: an answer or a cancel that does not break exists. firstDeathblow (M3 v3, D153, on a Deathblow
+ * only): the class has ended no fight with a Deathblow on this profile (profile `deathblowMet`), so the prompt names the
+ * answer and its key; false from the next such fight on ("Stop it.", changes-m3-v3.md 4).
  */
 export function windupView(s) {
   const f = s.fight;
   if (!f || !s.player) return null;
   const acts = isEngageRound(f) ? engageActions(s) : [];
   const maimed = !!findSt(f.p.st, 'MAIMED');
+  // M3 v3 (D153, changes-m3-v3.md 4): no fight with a Deathblow has ended for this class on the profile, so this is its first
+  const first = !(s.profile && s.profile.deathblowMet && s.profile.deathblowMet[s.player.classId]);
   const out = [];
   for (const e of f.enemies) {
     if (!e.alive || e.kind === 'boss' || !e.track) continue;
@@ -151,6 +155,7 @@ export function windupView(s) {
         deathblow: !!x.deathblow, firstMeet: !!x.firstMeet, heavy: !!x.heavy, target: x.target, est: x.est,
         empower: x.deathblow ? DEATHBLOW_EMPOWER : EMPOWER_DMG, maims: !!x.deathblow && !maimed, maimHeal: x.deathblow ? MAIM_HEAL : 0,
         stagger: STAGGER_DMG, cancel, answers, ready: answers.length > 0 || !!(cancel && cancel.stagger && !cancel.breaks),
+        ...(x.deathblow ? { firstDeathblow: first } : {}),
       });
     }
   }

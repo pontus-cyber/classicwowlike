@@ -134,7 +134,7 @@ describe('changes-m3-v2.md 1.4: Gorrak\'s bounty on a first run (GATES.gorrakBou
     const s = steps(camp(n, { tutorial: true, classId }), [...(n ? [{ type: 'TAKE_CONTRACT', index: 0 }] : []), { type: 'SET_OUT' }, { type: 'LEAVE_HUB' }, { type: 'MOVE', nodeId: 1 }]).state;
     return tweak(autoUntil(s, (x) => !x.fight && x.phase === 'MAP').state, (x) => { x.tutorial.fights = C.ONB_ELITE_FIGHTS; });
   };
-  test('his victory pays the guided Cull\'s reward: XP CULL_XP_FRAC × XP_WEIGHT_MULT × xpToNext(CL_c of zone 1), gold CULL_GOLD_V × V(CL_c), a choice of CONTRACT_REWARD_CHOICES items on table "Contract"; event bounty { xp, gold }', () => {
+  test('his victory pays the guided Cull\'s reward: XP CULL_XP_FRAC × XP_WEIGHT_MULT × xpToNext(CL_c of zone 1), gold CULL_GOLD_V × V(CL_c), a choice of CONTRACT_REWARD_CHOICES items on table "Contract"; event bounty { xp, gold } (D153\'s GATES.bountyRoad off: the XP with them; on, qa/engine/s22)', () => withGate('bountyRoad', false, () => {
     const s = nextTo(0);
     assert.equal(s.zone.nodes[18].barred, undefined);
     const f = R.step(s, { type: 'MOVE', nodeId: 18 }).state;
@@ -157,7 +157,7 @@ describe('changes-m3-v2.md 1.4: Gorrak\'s bounty on a first run (GATES.gorrakBou
     assert.deepEqual([set.kind, set.bounty, set.items.length], ['items', true, C.CONTRACT_REWARD_CHOICES]);
     assert.ok(set.items.every((it) => ['rare', 'epic'].includes(it.rarity)), 'table "Contract": rare or epic');
     assert.equal(t.tutorial.elite, 'victory');
-  });
+  }));
   test('not on a flight or a rescue, not on a later run ("Play the guide again": the Cull is back), not with the switch off', () => {
     const fled = R.step(R.step(nextTo(0, 'rogue'), { type: 'MOVE', nodeId: 18 }).state, { type: 'FLEE' });
     assert.ok(!fled.events.some((e) => e.t === 'bounty') && fled.state.tutorial.elite === 'fled');

@@ -37,7 +37,7 @@ import { validateContent, zoneContent } from './engine/content.js';
 import { checkAction, applyAction, legalActions as legal } from './engine/actions.js';
 import { autoAction as auto } from './engine/autoplay.js';
 import { summary as sum } from './engine/summary.js';
-import { newProfile, metaOffers, buyMeta, applyRunToProfile, parTime, migrateProfile, setGuide } from './engine/meta.js';
+import { newProfile, metaOffers, buyMeta, applyRunToProfile, parTime, migrateProfile, setGuide, noDeathblowMet } from './engine/meta.js';
 import { tutorialView as guidedView } from './engine/tutorial.js';
 import { zoneDanger, defaultTarget as defaultTgt, pendingTicks as previewTicks } from './engine/combat.js';
 import { availablePets, metaFromProfile, travelLevel as travelAt, trainerOffer } from './engine/nodes.js';
@@ -430,6 +430,8 @@ export function newRun({ classId = null, petId = null, name = '', seed = 0, prof
   }
   deepFreeze(content);
   const prof = migrateProfile(profile || newProfile()); // M3 (E6): a stored profile gets its guide and welcome keys
+  // M3 v3 (D153, changes-m3-v3.md 4): a guided run ("Play the guide again" too) teaches every class's Deathblow answer again
+  if (tutorial) prof.deathblowMet = noDeathblowMet();
   if (classId !== null && !C.CLASS[classId]) throw new Error(`newRun: unknown class ${classId}`);
   if (petId !== null && (classId !== 'hunter' || !availablePets(prof).includes(petId))) throw new Error(`newRun: pet ${petId} is not available for ${classId}`);
   return {

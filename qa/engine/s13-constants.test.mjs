@@ -184,11 +184,12 @@ describe('change doc M2b v15 (docs/specs/changes-m2b-v15.md, D123-D125): the eng
     assert.equal(value(maw[1]), 0.95);
     assert.deepEqual(Object.keys(ENEMIES).filter((id) => 'gated' in ENEMIES[id]), []);
   });
-  test('C.GATES: the v14 switches, the v15 swiftRoad (off since D126), campReroll (D128, off), boardAcrossRun (D132, on), autoEmberFirst (D133, on), rewardPrimary (D144, on), zone2InnerCap (D146, on), z1Dmg (D147, on) and the five of D152 (on), nothing else (mawgrimHp removed)', () => {
-    assert.deepEqual(Object.keys(K.GATES).sort(), ['autoEmberFirst', 'boardAcrossRun', 'campReroll', 'firstMeetWindup', 'firstRunLean', 'gorrakBounty', 'guidedHold', 'passStealth', 'rareHpMultZ1', 'rescueDim', 'rewardPrimary', 'sapHold', 'steadyDim', 'swiftRoad', 'z1Dmg', 'zone2InnerCap']);
+  test('C.GATES: the v14 switches, the v15 swiftRoad (off since D126), campReroll (D128, off), boardAcrossRun (D132, on), autoEmberFirst (D133, on), rewardPrimary (D144, on), zone2InnerCap (D146, on), z1Dmg (D147, on) the five of D152 (on) and the two of D153 (on), nothing else (mawgrimHp removed)', () => {
+    assert.deepEqual(Object.keys(K.GATES).sort(), ['autoEmberFirst', 'boardAcrossRun', 'bountyRoad', 'campReroll', 'firstMeetWindup', 'firstRunLean', 'gorrakBounty', 'gorrakLevel', 'guidedHold', 'passStealth', 'rareHpMultZ1', 'rescueDim', 'rewardPrimary', 'sapHold', 'steadyDim', 'swiftRoad', 'z1Dmg', 'zone2InnerCap']);
     assert.equal(K.GATES.rewardPrimary, true);
     assert.equal(K.GATES.zone2InnerCap, true);
     assert.equal(K.GATES.z1Dmg, true);
+    assert.deepEqual([K.GATES.gorrakLevel, K.GATES.bountyRoad], [true, true]);
     assert.equal(K.GATES.campReroll, false);
     assert.equal(K.GATES.boardAcrossRun, true);
     assert.equal(K.GATES.autoEmberFirst, true);

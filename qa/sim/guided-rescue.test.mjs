@@ -22,7 +22,8 @@ after(() => setGates(null));
 const OBS = JSON.parse(readFileSync(new URL('../fixtures/x0-hunter.json', import.meta.url), 'utf8'));
 
 test('D147: guided onebutton Hunter, seed 1000, zone 1 lever, X0 tables: the run ends; each rescue starts no fight, one lands on a Dimmed node', () => {
-  const D152 = ['firstRunLean', 'gorrakBounty', 'guidedHold', 'steadyDim', 'rescueDim'];
+  // the D152 switches and D153's (gorrakLevel, bountyRoad) off: the engine of D147
+  const D152 = ['firstRunLean', 'gorrakBounty', 'guidedHold', 'steadyDim', 'rescueDim', 'gorrakLevel', 'bountyRoad'];
   const gates = Object.fromEntries(Object.keys(GATE_DEFAULTS).filter((k) => GATE_DEFAULTS[k] && !D152.includes(k)).map((k) => [k, true]));
   const cell = { bot: 'onebutton', prof: 'fresh', cls: 'hunter', tree: slot1Tree('hunter'), map: 'expedition', prep: true, guided: true, gates };
   const { record, state } = runWithBot(cell, 1000, buildTable(structuredClone(OBS)), { log: true });

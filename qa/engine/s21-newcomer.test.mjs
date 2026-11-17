@@ -121,7 +121,12 @@ describe('newcomer (2): the trainer at a level: the hub card and every level-up 
     }
   });
 
-  test('the newcomer\'s Mage: one step from level 7 to 11; the level 8 and 9 banners name no Rime Burst (learned from level 10, as the trainer row says), the level 10 one does', () => {
+  test('the newcomer\'s Mage (build 902c976: D153\'s switches off): one step from level 7 to 11; the level 8 and 9 banners name no Rime Burst (learned from level 10, as the trainer row says), the level 10 one does', () => {
+    const saved = { ...C.GATES };
+    Object.assign(C.GATES, { gorrakLevel: false, bountyRoad: false });
+    try { newcomerMage(); } finally { Object.assign(C.GATES, saved); }
+  });
+  const newcomerMage = () => {
     const step = levelSteps('mage').find((x) => x.levels.includes(8));
     assert.deepEqual(step.levels, [8, 9, 10, 11]);
     const names = (L) => R.trainerView(step.after, L).learn.map((x) => x.id);
@@ -133,7 +138,7 @@ describe('newcomer (2): the trainer at a level: the hub card and every level-up 
     assert.deepEqual(first.levels, [2, 3, 4]);
     assert.deepEqual([R.trainerView(first.after, 3).learn, R.trainerView(first.after, 4).learn.map((x) => x.id)], [[], ['arcane_ward']]);
     assert.equal(R.trainerView(first.before).next, 4);
-  });
+  };
 
   test('the default level is the character\'s; `useful` there is the autoplay\'s test; a level outside 1..MAX_LEVEL is refused; no state change', () => {
     const s = levelSteps('rogue')[1].after;

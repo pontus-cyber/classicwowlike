@@ -20,10 +20,11 @@ export const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
  * default, so the arm before D147 is '-noz1d'); D152 (changes-m3-v2.md, each on by default, so the arm without it is
  * '-no<tag>'): 'frl' the lean first run (firstRunLean), 'gb' Gorrak's bounty (gorrakBounty), 'gh' the guided zone's fight
  * count and held corridor (guidedHold), 'sd' the steady Dimming (steadyDim), 'rd' the rescue's pause and fall-back of the
- * Dimming (rescueDim); a switch without a tag is
+ * Dimming (rescueDim); D153 (changes-m3-v3.md, on by default): 'gl' Gorrak one level above the player (gorrakLevel), 'br'
+ * the bounty's XP on the road to zone 2 (bountyRoad); a switch without a tag is
  * marked by its key. (M2b v15's mawgrimHp switch and its 'maw' tag are gone: D126 put Mawgrim's 0.95 in content.)
  */
-export const GATE_TAG = { rareHpMultZ1: 'g5', firstMeetWindup: 'g6', sapHold: 'sap', passStealth: 'pst', swiftRoad: 'swift', campReroll: 'rr', boardAcrossRun: 'ba', autoEmberFirst: 'ae', rewardPrimary: 'rp', zone2InnerCap: 'z2c', z1Dmg: 'z1d', firstRunLean: 'frl', gorrakBounty: 'gb', guidedHold: 'gh', steadyDim: 'sd', rescueDim: 'rd' };
+export const GATE_TAG = { rareHpMultZ1: 'g5', firstMeetWindup: 'g6', sapHold: 'sap', passStealth: 'pst', swiftRoad: 'swift', campReroll: 'rr', boardAcrossRun: 'ba', autoEmberFirst: 'ae', rewardPrimary: 'rp', zone2InnerCap: 'z2c', z1Dmg: 'z1d', firstRunLean: 'frl', gorrakBounty: 'gb', guidedHold: 'gh', steadyDim: 'sd', rescueDim: 'rd', gorrakLevel: 'gl', bountyRoad: 'br' };
 
 /**
  * Cell-name mark of the start camp's options (D128, cell.campOptions): none when the cell plays the engine's list

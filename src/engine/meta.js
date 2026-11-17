@@ -1,6 +1,7 @@
 // Meta progression (rules 11): profile, catalogue purchases, Echoes per run (a dev run leaves the profile as it was,
 // engine-api.md 12; prep, expedition.md 8.1: the lines of contracts completed and Reserve left). M3 onboarding
-// (m3-onboarding.md 4.2, E6): the profile's `guide` and `welcome`, their migration, setGuide, and the welcome line.
+// (m3-onboarding.md 4.2, E6): the profile's `guide` and `welcome`, their migration, setGuide, and the welcome line. M3 v3
+// (D153, changes-m3-v3.md 4): the profile's `deathblowMet`, per class.
 import {
   META, CLASS_IDS, ECHO_PER_LEVEL, ECHO_PER_ZONE, ECHO_PER_DUNGEON, ECHO_PER_ELITE, ECHO_PER_RARE, ECHO_PER_QUEST,
   ECHO_BOSS_REACHED, ECHO_BOSS_PHASE, ECHO_BOSS_KILL, ECHO_SPEED_BONUS, ECHO_FIRST_KILL_CLASS, OATH_ECHO_BONUS,
@@ -26,8 +27,17 @@ export function newProfile() {
   return {
     v: 1, echoes: 0, earned: 0, spent: 0, unlocks: {}, reachedBoss: false, bossKills: 0,
     firstKill: { rogue: false, mage: false, hunter: false }, runs: 0, guide: 'todo', welcome: false,
+    deathblowMet: noDeathblowMet(),
   };
 }
+
+/**
+ * M3 v3 (D153, changes-m3-v3.md 4): per class, whether a fight with a Deathblow has ended on this profile (combat.js
+ * endFight sets it in the run's profile, any outcome; a dev run never does). Until then the class's Deathblow fights are its
+ * first (windupView `firstDeathblow`), where the UI's prompt names the answer and its key. A guided run starts with every
+ * class cleared ("Play the guide again" teaches the answers again, rules.js newRun).
+ */
+export const noDeathblowMet = () => Object.fromEntries(CLASS_IDS.map((c) => [c, false]));
 
 /**
  * A stored profile with the M3 keys (m3-onboarding.md E6): a profile saved before them loads with `guide` 'done' and
@@ -38,6 +48,9 @@ export function migrateProfile(profile) {
   const p = deepClone(profile);
   if (!ONB_GUIDE_STATES.includes(p.guide)) p.guide = p.runs > 0 ? 'done' : 'todo';
   if (typeof p.welcome !== 'boolean') p.welcome = p.runs > 0;
+  // M3 v3 (D153): a profile saved before it has met no Deathblow (each class's next one names its answer once)
+  const met = p.deathblowMet && typeof p.deathblowMet === 'object' ? p.deathblowMet : {};
+  p.deathblowMet = Object.fromEntries(CLASS_IDS.map((c) => [c, met[c] === true]));
   return p;
 }
 

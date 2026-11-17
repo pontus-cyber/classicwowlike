@@ -19,7 +19,7 @@
 // Pure helpers of the state; nodes.js, combat.js, damage.js, contracts.js, actions.js and autoplay.js call them. A run
 // without the option never reaches any of it.
 import {
-  ONB_SCRIPTED_FIGHTS, ONB_SCRIPT_LEVEL_MAX, ONB_LOOT_POTIONS, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX,
+  ONB_SCRIPTED_FIGHTS, ONB_SCRIPT_LEVEL_MAX, ONB_LOOT_POTIONS, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX, ONB_ELITE_LEVEL_MAX_V2, ELITE_LEVEL_OFFSET,
   ONB_RESCUE_TOLLS, ONB_RESCUE_MAX, ONB_BEAT_RETRIES, ONB_POTION_HP, ONB_BELL_HOPS, ONB_BELL_DIM, ONB_DIM_NEAR_HOPS,
   ONB_ENGAGE_SHOWS, ONB_BEATS, ONB_BEAT_PRIORITY, ONB_LINE_STEPS, ONB_LINE_RETURNS, ONB_LINES_PER_FIGHT, CONTRACT, SLOT_IDS, RARITY, ILVL_MAX, CONSUMABLE,
   SPELL, GATES, ONB_ELITE_FIGHTS, ONB_GATE_SCRIPTS, ONB_HOLD_RELEASE,
@@ -191,7 +191,8 @@ export function closedRoadsGoal(s) {
 
 /**
  * The overlay laid on zone 1 (after every action of a guided run in zone 1, so the map always shows what a node will
- * play): Gorrak's level clamp(L, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX) and his node's bar; every unresolved Quest
+ * play): Gorrak's level clamp(L + ELITE_LEVEL_OFFSET, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX) (M3 v3, D153; GATES.gorrakLevel
+ * off: clamp(L, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX_V2)) and his node's bar; every unresolved Quest
  * and Grind node plays its role's enemies (a site: the site fight of the site fights started so far; else the next
  * script at min(its level, ONB_SCRIPT_LEVEL_MAX)), or its own encounter again once the scripts are used up; a Quest node
  * shows its role's quest (content `quest` of the script or site fight; D144: the text names the enemies it plays), else
@@ -216,7 +217,11 @@ export function refreshOverlay(s) {
   }
   if (el !== null) {
     const n = zone.nodes[el];
-    if (!n.done) n.eliteLevel = clamp(s.player.level, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX);
+    // M3 v3 (D153, changes-m3-v3.md 2; GATES.gorrakLevel): one level above the player, as every elite over its node
+    if (!n.done) {
+      n.eliteLevel = GATES.gorrakLevel ? clamp(s.player.level + ELITE_LEVEL_OFFSET, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX)
+        : clamp(s.player.level, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX_V2);
+    }
     if (eliteBarred(s)) n.barred = true;
     else {
       delete n.barred;

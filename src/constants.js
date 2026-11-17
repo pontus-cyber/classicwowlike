@@ -462,8 +462,13 @@ export const RARE_HP_MULT_Z1 = 3.0;
  *   DIM_FRONT_TIME (off: DIM_FRONT_TIME_NOCAP), the depth of a Dimmed encounter by its time in the dark, the panel data.
  * - rescueDim (3.4): a guided rescue's tolls do not move the Dimming, and it falls back to at most DIM_RESCUE_MAX_SHARE
  *   of the zone Dimmed.
+ * D153 (changes-m3-v3.md; each **on**, off plays D152):
+ * - gorrakLevel (2): in the guided zone Gorrak plays at clamp(L + ELITE_LEVEL_OFFSET, ONB_ELITE_LEVEL_MIN,
+ *   ONB_ELITE_LEVEL_MAX); off: clamp(L, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MAX_V2).
+ * - bountyRoad (3): Gorrak's bounty pays its gold and item choice on his victory and its XP on arrival at zone 2's hub,
+ *   once, on a guided lean first run, whatever his fight's outcome (needs gorrakBounty); off: all of it on his victory.
  */
-export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true, rewardPrimary: true, zone2InnerCap: true, z1Dmg: true, firstRunLean: true, gorrakBounty: true, guidedHold: true, steadyDim: true, rescueDim: true };
+export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true, rewardPrimary: true, zone2InnerCap: true, z1Dmg: true, firstRunLean: true, gorrakBounty: true, guidedHold: true, steadyDim: true, rescueDim: true, gorrakLevel: true, bountyRoad: true };
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
 // with mapMode 'expedition'; a run on today's map (mapMode 'rows', the default) never reads them.
 /** rules 1.9.2: nodes per ring (ring 0 = the hub). */
@@ -1337,9 +1342,15 @@ export const ONB_SCRIPTED_FIGHTS = 4;
 export const ONB_SCRIPT_LEVEL_MAX = 5;
 /** Healing Draughts in S1's fixed loot (spec 2.3). */
 export const ONB_LOOT_POTIONS = 1;
-/** Gorrak's level in the guided zone: clamp(L at entry, MIN, MAX) (spec 2.3). */
+/**
+ * Gorrak's level in the guided zone (spec 2.3): (M3 v3, D153, changes-m3-v3.md 2; GATES.gorrakLevel) clamp(L +
+ * ELITE_LEVEL_OFFSET, MIN, MAX), one level above the player as every elite over its node, MAX 8 (was 6); switch off:
+ * clamp(L, MIN, ONB_ELITE_LEVEL_MAX_V2), the rule before D153.
+ */
 export const ONB_ELITE_LEVEL_MIN = 4;
-export const ONB_ELITE_LEVEL_MAX = 6;
+export const ONB_ELITE_LEVEL_MAX = 8;
+/** Gorrak's highest level with GATES.gorrakLevel off (M3 v2 and before: clamp(L, ONB_ELITE_LEVEL_MIN, 6)). */
+export const ONB_ELITE_LEVEL_MAX_V2 = 6;
 /** Tolls a rescue costs (spec 2.6). */
 export const ONB_RESCUE_TOLLS = 2;
 /**

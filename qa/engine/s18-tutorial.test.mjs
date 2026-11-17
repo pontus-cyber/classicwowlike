@@ -213,7 +213,8 @@ describe('M3 guided run: newRun, seed and overlay (m3-onboarding 2.1-2.3, E1, E2
     s = settle(s);
     const n = s.zone.nodes[18];
     assert.deepEqual([n.elite, n.rare, n.add], [CONTENT.tutorial.elite.enemy, false, null]);
-    assert.equal(n.eliteLevel, Math.max(C.ONB_ELITE_LEVEL_MIN, Math.min(C.ONB_ELITE_LEVEL_MAX, s.player.level)));
+    // D153 (GATES.gorrakLevel): one level above the player
+    assert.equal(n.eliteLevel, Math.max(C.ONB_ELITE_LEVEL_MIN, Math.min(C.ONB_ELITE_LEVEL_MAX, s.player.level + C.ELITE_LEVEL_OFFSET)));
     assert.match(R.whyIllegal(s, { type: 'MOVE', nodeId: 18 }), /closed/);
     assert.match(R.whyIllegal(s, { type: 'PASS_THROUGH', nodeId: 18 }), /closed/);
     const mv = R.mapView(s);
@@ -675,7 +676,8 @@ describe('M3 ONB_LINES_PER_FIGHT (Lead 2026-11-14, draft): at most two coach lin
     // D152 (the first run: no Cull, so no G10; S3 at level 5): the Rogue's S3 shows G8, G17, then G8's landed line (a
     // new line of a beat already counted: its wind-up landed); two beats, no line twice
     const want = {
-      rogue: { s1: ['G7', 'G14', 'G16'], s2: ['G6'], s3: ['G8', 'G17', 'G8'], gorrak: ['G15'] },
+      // D153 (changes-m3-v3.md 5.4 item 1): Gorrak one level up takes the Rogue below ONB_POTION_HP, so G11 has its moment there
+      rogue: { s1: ['G7', 'G14', 'G16'], s2: ['G6'], s3: ['G8', 'G17', 'G8'], gorrak: ['G15', 'G11'] },
       mage: { s1: ['G7', 'G16'], s2: ['G6'], s3: ['G8', 'G17'] },
       hunter: { s1: ['G7', 'G16'], s2: ['G6'], s3: ['G8', 'G17'] },
     };
@@ -938,7 +940,9 @@ function routeSeen(s) {
 // D152 (measured on the first run): S1 (node 1, zone toll 4), S2 (6, 7), S3 (16, 10), Gorrak (18, 14, won), a Road at zone
 // toll 16, level 11; the Bell's charge kept for zone 2 (not in hand in zone 1). Before D152 (the Cull on the board, the
 // gate after S3): site 1, S1, S2, S3, Gorrak at 16, site 2, Road 19 at toll 19, level 12
-const ROUTE_SEEN = { exit: 'road', zt: 16, dimFights: 0, bell: C.BELL_START_CHARGES, elite: 'victory', rescues: 0, script: 3, level: 11 };
+// D153 (changes-m3-v3.md 2-3): Gorrak at player level + 1 (8 at 7), his bounty's XP on the road, so autoplay leaves him at
+// level 9, plays S4 (zone toll 17-19) and takes the Road at zone toll 19 at level 10; zone 2's hub pays the XP: level 12
+const ROUTE_SEEN = { exit: 'road', zt: 19, dimFights: 0, bell: C.BELL_START_CHARGES, elite: 'victory', rescues: 0, script: 4, level: 12 };
 
 describe('M3 D143, D147, D149 and D152: Gorrak after three fights, the wind-up fight S3 before him; the guided zone ends by a Road', () => {
   test('seed 8736, autoplay, 20 run seeds per class, the first run (D152: no board, no Bell in zone 1): S3 (the wind-up fight) then Gorrak, won, G8 open before G9, G9 learned, zone 1 left by a Road at zone toll 16 with no Dimmed encounter, the Bell\'s charge kept, no rescue; one route per class', () => {
@@ -1318,10 +1322,29 @@ describe('M3 table validation and the golden check (E2, E9)', () => {
       'expPrep:rogue:11': '8a499051fb089e3d:206', 'expPrep:rogue:4242': '8fdca18069b3cff7:410', 'expPrep:mage:11': '8c4db6c2afc85abe:224',
       'expPrep:mage:4242': 'c944bfa8bfb7bd95:320', 'expPrep:hunter:11': 'aecc92212500a5ba:552', 'expPrep:hunter:4242': 'b63c0a7ed1aa335f:550',
     };
-    const GOLDEN_RUNS = {
+    // D152 as built with D153's two switches off (recorded before D153; items of the newcomer check included)
+    const D152_RUNS = {
       'first:rogue:11': '6d384b0f36cd12f7:297', 'second:rogue:4242': 'fbd7263e5c33ae64:368', 'guided:rogue:11': '3a406a07f81635bf:561', 'replay:rogue:4242': '9b496e45d09eafa9:436',
       'first:mage:11': 'bda1e03e506bde1f:585', 'second:mage:4242': '8c883cec0a464e4a:319', 'guided:mage:11': 'fb53df798af5cc08:608', 'replay:mage:4242': '10c0cf1bb569732e:331',
       'first:hunter:11': '7047e5eaed2ded6f:548', 'second:hunter:4242': '8ca92df9e04a0d4e:548', 'guided:hunter:11': 'd3521f25e1d18ca4:542', 'replay:hunter:4242': 'a360c1bed76fe782:567',
+    };
+    // D153 (changes-m3-v3.md, both switches on): only the guided and replayed runs change (Gorrak's level; the guided
+    // first run also by the bounty's XP on the road); every other run hashes as in D152_RUNS and GOLDEN
+    const GOLDEN_RUNS = {
+      'first:rogue:11': '6d384b0f36cd12f7:297', 'second:rogue:4242': 'fbd7263e5c33ae64:368', 'guided:rogue:11': '4b602dd756745a8a:560', 'replay:rogue:4242': '41ca8e3e188b8deb:473',
+      'first:mage:11': 'bda1e03e506bde1f:585', 'second:mage:4242': '8c883cec0a464e4a:319', 'guided:mage:11': '471349f59862b65e:615', 'replay:mage:4242': '751687b9225b54c5:329',
+      'first:hunter:11': '7047e5eaed2ded6f:548', 'second:hunter:4242': '8ca92df9e04a0d4e:548', 'guided:hunter:11': '9efc4bc3a1f6c9ac:548', 'replay:hunter:4242': '5c4668b0b962ecb2:549',
+    };
+    // each D153 switch off alone: GATES.gorrakLevel off (Gorrak at clamp(L, 4, 6)); GATES.bountyRoad off (the XP on his victory)
+    const GL_OFF_RUNS = {
+      'first:rogue:11': '6d384b0f36cd12f7:297', 'second:rogue:4242': 'fbd7263e5c33ae64:368', 'guided:rogue:11': '06c25bd653225376:567', 'replay:rogue:4242': '9b496e45d09eafa9:436',
+      'first:mage:11': 'bda1e03e506bde1f:585', 'second:mage:4242': '8c883cec0a464e4a:319', 'guided:mage:11': '4d1f5a2ce0b14b67:607', 'replay:mage:4242': '10c0cf1bb569732e:331',
+      'first:hunter:11': '7047e5eaed2ded6f:548', 'second:hunter:4242': '8ca92df9e04a0d4e:548', 'guided:hunter:11': '075ddc7d7b311a1e:558', 'replay:hunter:4242': 'a360c1bed76fe782:567',
+    };
+    const BR_OFF_RUNS = {
+      'first:rogue:11': '6d384b0f36cd12f7:297', 'second:rogue:4242': 'fbd7263e5c33ae64:368', 'guided:rogue:11': '4ad3c8f17955b3e4:559', 'replay:rogue:4242': '41ca8e3e188b8deb:473',
+      'first:mage:11': 'bda1e03e506bde1f:585', 'second:mage:4242': '8c883cec0a464e4a:319', 'guided:mage:11': '37a91302a6c9433b:609', 'replay:mage:4242': '751687b9225b54c5:329',
+      'first:hunter:11': '7047e5eaed2ded6f:548', 'second:hunter:4242': '8ca92df9e04a0d4e:548', 'guided:hunter:11': 'ae462f51f9e3eb8a:545', 'replay:hunter:4242': '5c4668b0b962ecb2:549',
     };
     const strip = (s) => { const o = JSON.parse(R.serialize(s)); delete o.profile; if (o.result) delete o.result.profile; return JSON.stringify(o); };
     const RUNS = { rows: 2, exp: 2, expPrep: 2, first: 0, second: 1, guided: 0, replay: 1 };
@@ -1343,12 +1366,17 @@ describe('M3 table validation and the golden check (E2, E9)', () => {
       return `${h.digest('hex').slice(0, 16)}:${n}`;
     };
     const D152 = ['firstRunLean', 'gorrakBounty', 'guidedHold', 'steadyDim', 'rescueDim'];
-    const ON = { rewardPrimary: true, zone2InnerCap: true, z1Dmg: true, ...Object.fromEntries(D152.map((g) => [g, true])) };
+    const D153 = ['gorrakLevel', 'bountyRoad'];
+    const ON = { rewardPrimary: true, zone2InnerCap: true, z1Dmg: true, ...Object.fromEntries([...D152, ...D153].map((g) => [g, true])) };
     assert.deepEqual(Object.keys(ON).map((k) => C.GATES[k]), Object.keys(ON).map(() => true));
     for (const [key, want] of Object.entries({ ...GOLDEN, ...GOLDEN_RUNS })) assert.equal(hashOf(key), want, key);
-    const off = Object.fromEntries(D152.map((g) => [g, false]));
+    const off3 = Object.fromEntries(D153.map((g) => [g, false]));
+    const off = Object.fromEntries([...D152, ...D153].map((g) => [g, false]));
     const arms = [
-      [{ steadyDim: false }, D147, 'steadyDim off (the other D152 switches do not act on these runs)'],
+      [off3, { ...GOLDEN, ...D152_RUNS }, 'the two D153 switches off: D152 as built'],
+      [{ gorrakLevel: false }, GL_OFF_RUNS, 'gorrakLevel off'],
+      [{ bountyRoad: false }, BR_OFF_RUNS, 'bountyRoad off'],
+      [{ ...off3, steadyDim: false }, D147, 'steadyDim off (the other D152 and D153 switches do not act on these runs)'],
       [off, { ...D147, ...D147_RUNS }, 'the five D152 switches off: the engine before D152'],
       [{ ...off, z1Dmg: false }, D146, 'D152 and z1Dmg off'],
       [{ ...off, zone2InnerCap: false, z1Dmg: false }, D144, 'D152, zone2InnerCap and z1Dmg off'],

@@ -39,7 +39,7 @@ import { refreshTrack } from './track.js';
 import { lineAt, newHeatStats } from './heat.js';
 import { isExpedition, MAP_MODES } from './expedition.js';
 import { zoneContent } from './content.js';
-import { newProfile, migrateProfile } from './meta.js';
+import { newProfile, migrateProfile, noDeathblowMet } from './meta.js';
 
 const RUN_PHASES = ['ZONE_HUB', 'MAP', 'NODE', 'CAMP', 'BOSS'];
 const PHASES = ['CREATE', 'PREP', ...RUN_PHASES, 'SUMMARY', 'ENDED'];
@@ -469,6 +469,7 @@ export function createDebug(api) {
     const p = migrateProfile(profile || newProfile());
     p.guide = 'todo';
     p.welcome = false;
+    p.deathblowMet = noDeathblowMet(); // M3 v3 (D153): every class's first Deathblow fight again
     return p;
   }
 

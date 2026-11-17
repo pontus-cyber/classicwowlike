@@ -13,7 +13,8 @@
 // (docs/specs/changes-m3-v2.md 1, D151; GATES.firstRunLean): a profile's first run is lean (expedition.js leanFirst): no
 // board, Reserve, hub contract, contract tracker or vision perk, PREP_POINTS_FIRST points, the unspent ones worth Echoes
 // (prepView `first`, `unspent`); the second run's board is CONTRACT_BOARD_FIRST_BANDS (one zone 1 offer), from the third
-// run CONTRACT_BOARD_SIZE; and (1.4, GATES.gorrakBounty) Gorrak's bounty pays the guided Cull's reward (bountyReward).
+// run CONTRACT_BOARD_SIZE; and (1.4, GATES.gorrakBounty) Gorrak's bounty pays the guided Cull's reward (bountyReward;
+// M3 v3, D153, GATES.bountyRoad: its XP on arrival at zone 2's hub, bountyRoadXp).
 // Only a run created with newRun({ mapMode: 'expedition', prep: true }) uses it; a rows run, or an expedition run without
 // the option, never does.
 import {
@@ -572,10 +573,10 @@ export function siteWon(s, ev) {
  * M2b v10, D82, as the retired story chain; not a kill, so no rested; heat in gainXp), gold, and the item choice rolled on
  * the node's loot stream. `why`: the XP and gold events' why. Returns the items.
  */
-function contractPay(s, ev, kind, z, why) {
+function contractPay(s, ev, kind, z, why, xp = true) {
   const k = CONTRACT[kind];
   const cl = contractLevel(z);
-  gainXp(s, ev, flatXp(s, k.xpFrac * xpWeight(s), cl), why);
+  if (xp) gainXp(s, ev, flatXp(s, k.xpFrac * xpWeight(s), cl), why);
   gainGold(s, ev, k.goldV * V(cl), why);
   const items = [];
   for (let i = 0; i < k.choices; i++) items.push(...rollDrop(s, s.lootRng, k.table, clampCl(cl), s.zone.z));
@@ -595,13 +596,28 @@ function completeContract(s, ev, c) {
  * CULL_XP_FRAC × XP_WEIGHT_MULT × xpToNext(CL_c) of zone 1 (no level-difference modifier, heat applies), gold CULL_GOLD_V
  * × V(CL_c), and a choice of CONTRACT_REWARD_CHOICES items on table "Contract". The XP and gold events have why 'bounty';
  * event `bounty` { xp, gold } (what was paid). No new constant. Returns the reward set ({ kind 'items', items, bounty: true }).
+ * M3 v3 (D153, changes-m3-v3.md 3; GATES.bountyRoad): the XP is not paid here but on arrival at zone 2's hub
+ * (bountyRoadXp), so the victory pays the gold and the item choice (event `bounty` { xp: 0, gold }); the draws are the same.
  */
 export function bountyReward(s, ev) {
   const at = ev.length;
-  const items = contractPay(s, ev, 'cull', 1, 'bounty');
+  const items = contractPay(s, ev, 'cull', 1, 'bounty', !GATES.bountyRoad);
   const paid = (t) => ev.slice(at).filter((e) => e.t === t && e.why === 'bounty').reduce((n, e) => n + e.amount, 0);
   ev.push({ t: 'bounty', xp: paid('xp'), gold: paid('gold') });
   return { kind: 'items', items, bounty: true };
+}
+
+/**
+ * Gorrak's bounty XP on the road (M3 v3, D153, changes-m3-v3.md 3; GATES.bountyRoad; nodes.js enterZone, zone 2, once, on a
+ * guided lean first run whatever his fight's outcome, after a skip too): the guided Cull's XP of 1.4, CULL_XP_FRAC ×
+ * XP_WEIGHT_MULT × xpToNext(CL_c) of zone 1 (flatXp: no level-difference modifier; at the hub no heat), `xp` event why
+ * 'bounty', then event `bounty` { xp, gold: 0, road: true }.
+ */
+export function bountyRoadXp(s, ev) {
+  const at = ev.length;
+  gainXp(s, ev, flatXp(s, CONTRACT.cull.xpFrac * xpWeight(s), contractLevel(1)), 'bounty');
+  const xp = ev.slice(at).filter((e) => e.t === 'xp' && e.why === 'bounty').reduce((n, e) => n + e.amount, 0);
+  ev.push({ t: 'bounty', xp, gold: 0, road: true });
 }
 
 /** Leaving zone z (Road or Bell): its held contracts expire (no reward, no penalty; the slot frees). */

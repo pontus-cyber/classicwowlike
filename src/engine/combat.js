@@ -30,7 +30,7 @@ import { bossIntent, bossAct, bossStartRound, bossEndOfRound, mirrorImage, bossT
 import { playerAction, petAction } from './spells.js';
 import {
   isEngageRound, updateTracks, fillTrack, nowIntent, refreshTrack, controlOf, lowestHpAlly, wardOf, assignWard,
-  isSingle,
+  isSingle, signatures,
 } from './track.js';
 
 // ---------------- Enemies ----------------
@@ -529,6 +529,12 @@ export function endFight(s, ev) {
   const f = s.fight;
   const p = s.player;
   const outcome = f.over;
+  // M3 v3 (D153, changes-m3-v3.md 4): a fight with a Deathblow has ended (any outcome), so the class has met one on this
+  // profile: its later Deathblow fights are not its first (windupView `firstDeathblow`). A dev run leaves the profile as it was
+  if (!s.dev && s.profile && f.enemies.some((e) => signatures(s, e)[0])) {
+    // a new profile object: a replay's copy (sim fightClone) may share the live run's profile
+    if (!(s.profile.deathblowMet && s.profile.deathblowMet[p.classId])) s.profile = { ...s.profile, deathblowMet: { ...(s.profile.deathblowMet || {}), [p.classId]: true } };
+  }
   s.fight = null;
   if (outcome === 'death' || outcome === 'rescue') return { outcome, drops: f.drops };
   if (p.pet && !p.pet.alive) {

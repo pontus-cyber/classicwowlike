@@ -44,7 +44,7 @@ import {
   visionKit, canEnter, roadNameOf, outwardStep, dimFightTime, swiftXp, zoneSeed, dimAt, dimmedAt, dimClock, frontTime,
   leanFirst,
 } from './expedition.js';
-import { newPrep, applySetOut, contractsAtZone, siteWon, expireContracts, ownedPerks, bountyReward } from './contracts.js';
+import { newPrep, applySetOut, contractsAtZone, siteWon, expireContracts, ownedPerks, bountyReward, bountyRoadXp } from './contracts.js';
 import { newTutorial, setupGuidedZone, fightOverlay, overlayFightEnd, rescueTarget, rescueCap, guidedZone } from './tutorial.js';
 
 // ---------------- Meta at run start (rules 11.4) ----------------
@@ -256,6 +256,12 @@ export function enterZone(s, ev, z, { again = false } = {}) {
   s.stats.maxZone = Math.max(s.stats.maxZone, z);
   if (!again) heatZoneEntered(s); // rules 1.7.1: the line moves one share ahead
   ev.push({ t: 'zone', z, name: zoneContent(s.content, z).name });
+  // M3 v3 (D153, changes-m3-v3.md 3; GATES.bountyRoad): Gorrak's bounty XP on arrival at zone 2's hub, once, on a guided
+  // lean first run, whatever his fight's outcome (won, fled, rescued, never fought; after a skip too)
+  if (z === 2 && GATES.bountyRoad && GATES.gorrakBounty && s.tutorial && leanFirst(s) && !s.tutorial.roadPaid) {
+    s.tutorial.roadPaid = true;
+    bountyRoadXp(s, ev);
+  }
   setPhase(s, ev, 'ZONE_HUB');
 }
 
