@@ -105,6 +105,25 @@ test('item 2: Gorrak\'s engage round (guided seed 8736, Rogue): the prompt is "R
   assert.ok(w2 && w2.answers.some((x) => x.via === 'pass' && x.now), 'Pass answers it now');
   assert.equal(text(deathblowPrompt(w2, answersToShow(w2, v, ctx), v, ctx, v.combat.target)), `Round ${w2.round}: ${w2.name}, about ${w2.est}. Pass X. Attacking breaks Sap.`);
   assert.equal(text(deathblowPrompt({ ...w, ready: false }, { list: [], when: 'now' }, v, ctx)), `Round ${w.round}: ${w.name}, about ${w.est}. No answer ready: kill it first or brace for it.`);
+  // D153 (engine-2026-11-17 UI need 1): the class's first Deathblow fight on the profile keeps the key chips; after it, none
+  assert.notEqual(w.firstDeathblow, false, 'a new profile: the first Deathblow fight');
+  const later = deathblowPrompt({ ...w, firstDeathblow: false }, answersToShow(w, v, ctx), v, ctx, v.combat.target);
+  assert.equal(text(later), `Round ${w.round}: ${w.name}, about ${w.est}. Stop it.`);
+  assert.ok(later.every((x) => typeof x === 'string'), 'no key chip');
+  assert.equal(text(deathblowPrompt({ ...w, firstDeathblow: false, ready: false }, { list: [], when: 'now' }, v, ctx)), `Round ${w.round}: ${w.name}, about ${w.est}. No answer ready: kill it first or brace for it.`);
+});
+
+test('D153 (engine-2026-11-17 UI needs 2, 3): Gorrak\'s victory window has no XP; the road share at zone 2\'s hub is a line with its XP', () => {
+  const b = createBridge({ seed: 8736 });
+  b.dispatch({ type: 'START_RUN' });
+  let win = null; let road = null;
+  for (let i = 0; i < 400 && !road && b.view.phase !== 'SUMMARY'; i++) {
+    const r = b.dispatch({ type: 'AUTO' }); assert.ok(r.ok, `step ${i}`);
+    if (!win && b.view.loot && b.view.loot.kind === 'bounty') win = { ...b.view.loot };
+    road = r.events.find((e) => e.t === 'msg' && e.bountyRoad) || null;
+  }
+  assert.ok(win, 'the bounty window'); assert.equal(win.xp, 0, 'no XP on the victory (bountyRoad)');
+  assert.ok(road, 'the road line'); assert.match(road.text, /^The Bellwrights pay for the road you kept open: \+\d+ XP\.$/);
 });
 
 test('section 7, item 17: one damage line; out of a fight "per combo point", in one the engine\'s estimate on the target "with N combo points"', () => {

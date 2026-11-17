@@ -334,6 +334,9 @@ export function deathblowPrompt(w, list, v, ctx, tgt = null) {
   if (!w) return null;
   const head = `Round ${w.round}: ${w.name}${w.est && DAMAGE_KINDS.has(w.kind) ? `, about ${fmtNum(w.est)}` : ''}${w.target === 'pet' ? ' on your pet' : ''}. `;
   if (!w.ready) return [head, 'No answer ready: kill it first or brace for it.'];
+  // D153 (changes-m3-v3.md 4; engine-2026-11-17 UI need 1): after the class's first Deathblow fight (firstDeathblow false)
+  // the prompt names the threat and leaves the answer to the player: no key chip (draft)
+  if (w.firstDeathblow === false) return [`${head}Stop it.`];
   const first = (list.list || []).find((x) => x.key) || null;
   if (!first) return [head.trim()];
   const a = first.a;
@@ -727,7 +730,7 @@ export function createEngagePanel(root, ctx) {
     // M3 (m3-onboarding.md 3.3, U4): the engage hint panel is retired into hint H01 (onboarding.js, one line); its
     // per-option lines live in the options' tooltips (updateHint is no longer called).
     if (!show) { lastKey = ''; return; }
-    const key = JSON.stringify([eg, ctx.ui.target, ctx.ui.precastArmed, v.player.classId, (c.windups || []).filter((w) => w.deathblow).map((w) => [w.u, w.turn, w.est, w.ready, w.answers])]);
+    const key = JSON.stringify([eg, ctx.ui.target, ctx.ui.precastArmed, v.player.classId, (c.windups || []).filter((w) => w.deathblow).map((w) => [w.u, w.turn, w.est, w.ready, w.answers, w.firstDeathblow])]);
     if (key === lastKey) return;
     lastKey = key; clear(el);
     const d = ctx.data.v2 || { options: {}, num: {} };
@@ -735,7 +738,8 @@ export function createEngagePanel(root, ctx) {
     el.appendChild(h('div.eg-h', h('div.eg-sub', h('b', 'Free first move.'), ' They act from round 2.')));
     // the engage options that answer an open Deathblow (R.windupView answers, via 'engage'): { option id: [answer] }
     const dbAns = {};
-    for (const w of (v.combat.windups || []).filter((q) => q.deathblow)) for (const a of w.answers) if (a.via === 'engage') (dbAns[a.id] = dbAns[a.id] || []).push({ ...a, round: w.round });
+    // D153 (engine-2026-11-17 UI need 1): after the class's first Deathblow fight (windupView firstDeathblow false) no crimson mark
+    for (const w of (v.combat.windups || []).filter((q) => q.deathblow && q.firstDeathblow !== false)) for (const a of w.answers) if (a.via === 'engage') (dbAns[a.id] = dbAns[a.id] || []).push({ ...a, round: w.round });
     const opts = h('div.eg-opts');
     const cur = ctx.ui.target;
     for (const o of eg.options) {

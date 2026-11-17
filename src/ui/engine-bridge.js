@@ -1290,7 +1290,9 @@ function engineBackend(seedOpt, runOpts = {}) {
         // D152 (changes-m3-v2.md 3.4, 1.4; engine-2026-11-14f UI needs 6, 10): the Dimming's fall-back after a rescue, and
         // Gorrak's bounty on a first run (content guide.dimBackLine, guide.bountyLine; draft)
         case 'dimBack': out.push({ t: 'msg', text: guideLine('dimBackLine') || 'The dark falls back.', kind: 'good' }); break;
-        case 'bounty': out.push({ t: 'msg', text: guideLine('bountyLine') || "Gorrak's bounty.", kind: 'good' }); break; // the XP and gold lines follow their own events
+        // D153 (engine-2026-11-17 UI need 2): the road's share (road: true, at zone 2's hub) has its own line, guide.bountyRoadLine
+        case 'bounty': out.push(e.road ? { t: 'msg', text: (guideLine('bountyRoadLine') || 'The Bellwrights pay for the road: +{xp} XP.').replace('{xp}', String(e.xp || 0)), kind: 'good', bountyRoad: true }
+          : { t: 'msg', text: guideLine('bountyLine') || "Gorrak's bounty.", kind: 'good' }); break; // the XP and gold lines follow their own events
         case 'spyglass': out.push({ t: 'msg', text: `Spyglass: ${e.seen.length ? `${e.seen.length} more ${TXT.plural(e.seen.length, 'place')} in view` : 'nothing new in view'} · ${e.charges} ${TXT.plural(e.charges, 'look')} left`, kind: 'good' }); break;
         default: break;
       }
@@ -1527,7 +1529,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     local.fightXp = (local.fightXp || 0) + sum('xp', fightXp);
     if (events.some((e) => e.t === 'questComplete')) local.reward = { xp: sum('xp', (e) => e.why === 'quest'), gold: sum('gold', (e) => e.why === 'quest' && e.amount > 0), storyXp: sum('xp', (e) => e.why === 'story') };
     // D152: Gorrak's bounty (event `bounty { xp, gold }`): its window shows what it paid
-    const bty = events.find((e) => e.t === 'bounty');
+    const bty = events.find((e) => e.t === 'bounty' && !e.road); // D153: the road's share is not the victory's window
     if (bty) local.bounty = { xp: bty.xp || 0, gold: bty.gold || 0 };
     // contracts completed in this step (prep): each one's XP and gold (the events after its `contract` complete event,
     // why 'contract'), shown on its reward window

@@ -600,8 +600,8 @@ export function createHud(root, ctx) {
     const wuNow = fight ? c.enemies.filter((e) => e.alive && !e.hidden && e.intent && e.intent.windup && !e.intent.interrupted && !e.intent.cancelled)
       .map((e) => ({ e, x: entriesOf(e).find((x) => x.now && x.windup) || { windup: true, heavy: !!e.intent.heavy, now: true } })) : [];
     // M2b v13: the bar spells that answer an open Deathblow (R.windupView answers via 'spell'): now, or ready by its round
-    const dbSp = {};
-    if (fight) for (const w of (c.windups || []).filter((q) => q.deathblow && !(q.cancel && q.cancel.stagger && !q.cancel.breaks))) for (const a of w.answers) if (a.via === 'spell') { const o = dbSp[a.id]; if (!o || (a.now && !o.now)) dbSp[a.id] = { now: a.now, sure: a.sure, round: w.round, inRounds: w.inRounds }; }
+    const dbSp = {}; // D153: no crimson answer ring after the class's first Deathblow fight (windupView firstDeathblow false)
+    if (fight) for (const w of (c.windups || []).filter((q) => q.deathblow && q.firstDeathblow !== false && !(q.cancel && q.cancel.stagger && !q.cancel.breaks))) for (const a of w.answers) if (a.via === 'spell') { const o = dbSp[a.id]; if (!o || (a.now && !o.now)) dbSp[a.id] = { now: a.now, sure: a.sure, round: w.round, inRounds: w.inRounds }; }
     // QA 2026-11-12 (finding 2): while waiting answers a Deathblow (windupView's PASS answer: every enemy sapped), the attack
     // and every bar spell that would damage the sapped enemy are marked: attacking breaks Sap and the Deathblow lands
     const sapW = fight ? (c.windups || []).find((w) => w.deathblow && w.answers.some((a) => a.via === 'pass' && a.now)) || null : null;
@@ -713,7 +713,7 @@ export function createHud(root, ctx) {
     els.auto.setAttribute('aria-checked', v.autoplay ? 'true' : 'false');
     els.pass.disabled = !fight; els.flee.disabled = !fight || !L.flee;
     // M2b v14 (UI need 2): Pass answers an open Deathblow while every enemy is sapped (windupView's PASS answer): its ring
-    const passDb = !!fight && (c.windups || []).some((w) => w.deathblow && w.answers.some((a) => a.via === 'pass' && a.now));
+    const passDb = !!fight && (c.windups || []).some((w) => w.deathblow && w.firstDeathblow !== false && w.answers.some((a) => a.via === 'pass' && a.now));
     els.pass.classList.toggle('db-now', passDb); els.pass.dataset.db = passDb ? 'now' : '';
     els.flee.firstChild.textContent = ctx.ui.fleeArmed ? 'Confirm?' : 'Flee';
     els.flee.classList.toggle('armed', !!(fight && ctx.ui.fleeArmed));

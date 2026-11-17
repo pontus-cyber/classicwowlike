@@ -4087,8 +4087,13 @@ async function partR(browser, W, H) {
         ['G2', 'G4', 'G5', 'G6', 'G7', 'G8', 'G12', 'G13'].every((x) => ids.has(x)) && !ids.has('G1') && !ids.has('G10') && !ids.has('G3') && !ids.has('G9') && !engineLines.includes('G8.withEngage') && engineLines.includes('G12.road') && engineLines.includes('G13.onRoadFirst') && !engineLines.includes('G13.onRoad'),
         `${[...ids].join(',')} | ${engineLines.join(' > ')}`);
       // the engine's bounty event (a Node replay of the page's engine actions) against the window
-      let bEv = null; { let s1 = R.newRun({ classId: 'rogue', seed: 8736, content: CONTENT, mapMode: 'expedition', prep: true, tutorial: true, profile: R.newProfile() });
-        for (const a of await page.evaluate(() => window.__ui.engineLog())) { const r = R.step(s1, a); s1 = r.state; const e = r.events.find((x) => x.t === 'bounty'); if (e) bEv = e; } }
+      // D153 (engine-2026-11-17 UI needs 3, 4): the victory's event (xp 0 with bountyRoad on) and the road's (road: true, at zone 2's hub)
+      let bEv = null; let rEv = null; { let s1 = R.newRun({ classId: 'rogue', seed: 8736, content: CONTENT, mapMode: 'expedition', prep: true, tutorial: true, profile: R.newProfile() });
+        for (const a of await page.evaluate(() => window.__ui.engineLog())) { const r = R.step(s1, a); s1 = r.state; for (const e of r.events.filter((x) => x.t === 'bounty')) { if (e.road) rEv = e; else bEv = e; } } }
+      const roadWant = rEv ? T.guide.bountyRoadLine.replace('{xp}', String(rEv.xp)) : null;
+      const allLog = await logLines(page).catch(() => []);
+      check('D153-bounty', `the bounty's road share at zone 2's hub (event road: true): the log says "${roadWant}"; the victory window shows no "+0 XP"`,
+        !!rEv && rEv.xp > 0 && allLog.includes(roadWant) && !!bounty && !/\+0 XP/.test(bounty.text), JSON.stringify({ rEv, roadWant, last: allLog.slice(-6), bountyText: bounty && bounty.text.slice(0, 200) }));
       check('D152-bounty', `Gorrak's bounty on a first run: its window "${"Gorrak's bounty"}" with "${T.guide.bountyLine}", +XP and gold = the engine's bounty event${bEv ? ` (${bEv.xp} XP, ${bEv.gold} c)` : ''}, ${R.C.CONTRACT_REWARD_CHOICES} items to choose from`,
         !!bounty && !!bEv && bounty.title === "Gorrak's bounty" && bounty.text.includes(T.guide.bountyLine) && bounty.L.xp === bEv.xp && bounty.L.gold === bEv.gold && bounty.cards === R.C.CONTRACT_REWARD_CHOICES, JSON.stringify({ bounty: bounty && { ...bounty, text: bounty.text.slice(0, 160) }, bEv }));
       const evOf = (id, what) => beatEv.find((e) => e.id === id && e.what === what) || null;
@@ -6219,6 +6224,30 @@ async function partX(browser, W, H) {
       check('X-skip', 'the skip line ("Space or click to skip") hides while a coach line is up (they share the place over the action bar)', skip.underCoach === 'hidden' && skip.alone === 'visible', JSON.stringify(skip));
     } catch (e) { await shot(page, 'X3-error'); check('X-3', 'part X3 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('X-3', 'part X3: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- X4: D153 (engine-2026-11-17 UI need 1): Gorrak's Deathblow after the Rogue's first Deathblow fight on the profile
+  {
+    const { context, page, errors } = await open(browser, W, H, 'seed=8736&speed=instant&fresh=1', null, { guide: true, hints: false });
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      const inDb = () => page.evaluate(() => { const v = window.__ui.view(); return !!(v.combat && !v.combat.over && (v.combat.windups || []).some((w) => w.deathblow)); });
+      for (let i = 0; i < 200 && !(await inDb()); i++) await auto(page);
+      const read = () => page.evaluate(() => { const v = window.__ui.view(); const w = v.combat.windups.find((x) => x.deathblow); const tp = document.querySelector('#turnprompt');
+        return { first: w.firstDeathblow, ready: w.ready, prompt: tp && !tp.classList.contains('hidden') ? tp.querySelector('.tp-t').innerText.replace(/\s+/g, ' ').trim() : null, kbd: tp ? tp.querySelectorAll('kbd, .kbd').length : 0,
+          rings: [...document.querySelectorAll('#actionbar .ab.db-now, #actionbar .ab.db-soon, #actionbar .ctrl .btn.db-now, #engage .eg-opt.db-ans, #engage .eg-sp.db')].map((e) => `${e.tagName}.${[...e.classList].join('.')}`), w: { round: w.round, name: w.name, est: w.est } }; });
+      await page.mouse.move(2, 2); await page.waitForTimeout(200);
+      const a = await read();
+      const s0 = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT);
+      s0.profile = { ...(s0.profile || {}), deathblowMet: { ...((s0.profile || {}).deathblowMet || {}), [s0.player.classId]: true } };
+      await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s0)); await idle(page); await page.waitForTimeout(200);
+      const b = await read();
+      await shot(page, 'X4-deathblow-later');
+      check('X-db', 'the first Deathblow fight of the class: the prompt names the answer with key chips and the crimson ring shows', a.first === true && a.ready && a.kbd > 0 && a.rings.length > 0, JSON.stringify(a));
+      check('X-db', 'after the class\'s first Deathblow fight (windupView firstDeathblow false): "Round N: <name>, about X. Stop it.", no key chip, no crimson answer ring',
+        b.first === false && b.prompt === `Round ${b.w.round}: ${b.w.name}, about ${b.w.est}. Stop it.` && b.kbd === 0 && b.rings.length === 0, JSON.stringify(b));
+    } catch (e) { await shot(page, 'X4-error'); check('X-4', 'part X4 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('X-4', 'part X4: no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
   }
 }
