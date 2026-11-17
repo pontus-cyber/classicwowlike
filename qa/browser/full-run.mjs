@@ -513,7 +513,9 @@ async function playOne(browser, W, H, cls) {
       const d0 = autoFight ? [] : compare(v, s);
       if (d0.length) { res.divergences.push({ step, before: 'next action', diffs: d0.slice(0, 12), phase: s.phase }); break; }
       // Presentation windows that do not change the engine state.
-      if (v.loot && v.loot.kind === 'loot' && !(s.loot && s.loot.length)) {
+      // (2026-11-17: not while the twin still lags in an autoplay fight: with full bags the window holds items the twin has
+      // not got yet, and Take all looped; the autoplay branch below catches the twin up first)
+      if (v.loot && v.loot.kind === 'loot' && !(s.loot && s.loot.length) && !(s.fight && autoplay && !autoplayBroken)) {
         await shotFirst('loot');
         await click(page.locator('.loot .foot').getByRole('button', { name: /^(Continue|Take all)/ }), 'loot Continue');
         continue;

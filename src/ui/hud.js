@@ -523,6 +523,8 @@ export function createHud(root, ctx) {
           el.addEventListener('pointerleave', () => { ctx.scene.hover = null; listOn(false); });
           tip(el.querySelector('.obal'), () => { const x = ctx.view.combat && ctx.view.combat.enemies.find((q) => q.idx === Number(el.dataset.idx)); return x ? offBalanceTip(x) : null; });
           tip(el.querySelector('.bar'), () => { const x = ctx.view.combat && ctx.view.combat.enemies.find((q) => q.idx === Number(el.dataset.idx)); return x && x.alive ? dotTip(x.dot, 'enemy', x.name) : null; });
+          // full-run 2026-11-17 (a boss Shard's plate showed for a frame at the window's corner): hidden until placeNameplates places it
+          el.style.opacity = 0;
           els.nameplates.appendChild(el); npEls.set(String(id), el);
         }
         el.dataset.idx = e.idx;
