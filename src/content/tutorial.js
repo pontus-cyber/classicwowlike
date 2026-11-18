@@ -233,6 +233,19 @@ export const TUTORIAL = {
     { id: 'H37', system: 'Hall of Echoes', line: 'Echoes buy lasting unlocks. They stay when a run ends.' },
   ],
 
+  // Legacy wording (D154, legacy.md 4.6: "Echoes" becomes "Legacy points", the Hall of Echoes the Legacy hall; draft, for
+  // the owner and the lore chat): the lines above that name Echoes, as they read while C.GATES.legacy is on. The content
+  // index (index.js) makes each named field read this text under the switch, so the UI shows it with no word swap.
+  // Placeholders as the line it replaces ({echoes} = prepView.unspent.echoes, the points' worth in Legacy points).
+  legacy: {
+    prep: {
+      unspentFirst: 'Points you do not spend: +{echoes} Legacy points at the end of the run.',
+    },
+    hints: {
+      H37: { system: 'Legacy hall', line: 'Legacy points buy lasting unlocks. They stay when a run ends.' },
+    },
+  },
+
   // The first-run nudge (spec 4.2-4.3). unlock: the META id the nudge points at. {satchelPotions}: META.satchel.potions.
   nudge: {
     unlock: 'satchel',

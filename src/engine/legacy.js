@@ -34,6 +34,15 @@ const heroClamp = (H) => clamp(Math.round(H), 1, HERO_MAX_LEVEL);
 export const powerOf = (H) => POWER_OF_LEVEL[heroClamp(H) - 1];
 /** The hero level shown for power level M (legacy.md 1.2): 1 + round((M - 1) × (HERO_MAX_LEVEL - 1) / (MAX_LEVEL - 1)). */
 export const shownLevelOf = (M) => 1 + rnd(((M - 1) * (HERO_MAX_LEVEL - 1)) / (MAX_LEVEL - 1));
+/**
+ * The first hero level whose power level reaches M (legacy.md 1.7: a spell of learn level M is trained at the run start
+ * from that hero level on); HERO_MAX_LEVEL when no hero level reaches it. Unlike shownLevelOf (the nearest hero level),
+ * never below the level that learns it: Shadowstep Strike (power 4) shows 3, not 2.
+ */
+export function learnHeroLevel(M) {
+  for (let H = 1; H <= HERO_MAX_LEVEL; H++) if (POWER_OF_LEVEL[H - 1] >= M) return H;
+  return HERO_MAX_LEVEL;
+}
 /** The highest hero level whose power level is at most M (at least 1): the dev tools' hero for a power level. */
 export function heroLevelAt(M) {
   let H = 1;
@@ -154,6 +163,7 @@ export const campLevelNow = (s) => clamp(s.player.level + CAMP_TIER, 1, CL_MAX);
  * × the damage of a template enemy of a fight in zone z (legacy.md 2.2): ZONE_TIER_DMG[z - 1] for zones 1-6, zone 6's at
  * the Camp (z = ZONE_COUNT + 1); 1 outside a Legacy run.
  */
+/** legacy.md 2.2: × the damage of every template enemy of zone z in a Legacy run (ZONE_TIER_DMG; the Camp, z 7: zone 6's), else 1. */
 export const zoneTierDmg = (s, z) => (isLegacy(s) ? ZONE_TIER_DMG[clamp(z, 1, ZONE_COUNT) - 1] : 1);
 
 // ---------------- Oruvath (legacy.md 2.4; one place for the Designer's rework) ----------------

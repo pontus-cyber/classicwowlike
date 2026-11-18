@@ -107,6 +107,8 @@ const { state: next, events } = step(state, legalActions(state)[0]);
 | `heroView(state)` | object or null | (Legacy) The run's hero for the HUD (section 15.4): `{ classId, level, xp, xpToNext, atMax, power, start, gained }`; null outside a Legacy run |
 | `heroesView(profile)` | array | (Legacy) Hero select: one card per class in `C.CLASS_IDS` order, null for a class without a hero (section 15.4) |
 | `shownLevel(state, level)` | number | (Legacy) The level to show for an engine level: in a Legacy run 1 + round((level - 1) × 24 / 59) (the hero scale; power 65 shows 27), outside one `level` itself. Every level on screen goes through it (section 15.4) |
+| `learnLevel(state, spell)` | number or null | (Legacy, D158 follow-up) A spell's learn level as shown: `spell` a spell id (`C.SPELL[id].lvl`, D157 numbers included) or an engine learn level. In a Legacy run the first hero level whose power level reaches it (legacy.md 1.7: the hero level that has it trained; Shadowstep Strike power 4 is hero 3, where `shownLevel` gives 2), outside one the level itself; null for an unknown id (section 15.4) |
+| `zoneTierDmg(state, z?)` | number | (Legacy) The zone tier's damage factor of zone z (default the run's zone; the Camp, 7, plays zone 6's): `C.ZONE_TIER_DMG[z - 1]` in a Legacy run, × every template enemy's damage on top of zone danger; 1 outside one. `mapView.tierDmg` carries it in a Legacy run (section 15.4) |
 | `powerOfLevel(H)`, `heroXpToNext(H)` | number | (Legacy) The engine's level of hero level H (`C.POWER_OF_LEVEL`), and the hero XP from H to H + 1 (`C.HERO_XP`; at 25 `C.HERO_XP_AT_MAX`) |
 | `newProfile()`, `metaOffers(profile)`, `buyMeta(profile, id)` | profile / offers / profile | Meta catalogue between runs (rules 11.2). (Legacy) On a version 3 profile the balance is `legacy` (Legacy points), section 15.1. `buyMeta` throws `IllegalActionError` when not allowed. (M2b v11) The expedition entries are offered and bought as any entry; read `C.META[id].mapMode` (`'expedition'`: no effect on the rows map) and `C.META[id].expedition` (Scout's Eye, Swift Boots: the effect in an expedition run) to label them. |
 | `xpToNext(L)`, `talentPointsFree(state)`, `itemScore(item, classId)`, `spellCost(state, id)`, `spellCooldown(state, id)`, `fleeChance(state)` | number | Display helpers so the UI never re-implements a rule. |
@@ -1220,6 +1222,13 @@ rows map's bands (simulator and Dev menu only).
 - `shownLevel(state, level)`: every level on screen (enemies, nodes, `mapView.bands`, items, spells' `lvl` and trainer
   levels, Oruvath, Gorrak) on the hero scale: 1 + round((level - 1) × 24 / 59); content shows 1-27, items up to 29 (item level
   69). A level's colour stays computed on the engine's levels. Outside a Legacy run it returns `level`.
+- `learnLevel(state, spell)`: a spell's learn level on screen (the trainer, spell tooltips): in a Legacy run the first hero
+  level whose power level is at least the spell's `lvl` (legacy.md 1.7), which is never below the level that trains it
+  (`shownLevel` rounds to the nearest hero level and shows 14 spells one too low); outside one `lvl` itself.
+- `mapView(state).tierDmg` (Legacy run only; absent outside one): the zone's `C.ZONE_TIER_DMG` factor; an enemy of the zone
+  deals × `zoneDanger(level, variant)` × `tierDmg`, so the zone danger line's extra damage is `zoneDanger × tierDmg - 1`.
+  `zoneTierDmg(state, z)` gives the same for any zone and for the Camp (where `mapView` is null). Oruvath and his Shards do
+  not take it (their numbers are oruvathScale's).
 - `debug.setHero(profile, classId, { level, xp })` (dev): the profile (version 3) with that class's hero at a level (talents,
   spells and bar as a new hero's); the simulator's hero cells and the Dev menu. `debug.build` in a Legacy run snaps its level
   to the hero scale.

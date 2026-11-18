@@ -58,7 +58,7 @@ import { createDebug } from './engine/debug.js';
 import { windupView as windups, autoplayEngage as autoEngage } from './engine/answers.js';
 import { deathblowOf, deathblowType } from './engine/track.js';
 import { damageView as dmgView } from './engine/damageview.js';
-import { heroView as heroNow, heroesView as heroList, shownLevelOf, powerOf, heroXpToNext } from './engine/legacy.js';
+import { heroView as heroNow, heroesView as heroList, shownLevelOf, powerOf, heroXpToNext, learnHeroLevel, zoneTierDmg as tierDmgOf } from './engine/legacy.js';
 
 /**
  * 3 (M2b v7): the run's time is `state.time` in whole tolls (was `hours`), with `stats.timeAtBoss`,
@@ -113,6 +113,26 @@ export function heroesView(profile) {
  */
 export function shownLevel(state, level) {
   return state && state.legacy ? shownLevelOf(level) : level;
+}
+/**
+ * A spell's learn level as shown (legacy.md 1.7; engine-api.md 15.4): `spell` a spell id (its `C.SPELL[id].lvl`, the
+ * D157 numbers included) or an engine learn level. In a Legacy run the first hero level whose power level reaches it
+ * (the level at which a hero has it trained; Shadowstep Strike, power 4, is hero 3), outside one the engine level itself.
+ * null for an unknown spell id.
+ */
+export function learnLevel(state, spell) {
+  const M = typeof spell === 'number' ? spell : C.SPELL[spell] ? C.SPELL[spell].lvl : null;
+  if (M === null || M === undefined) return null;
+  return state && state.legacy ? learnHeroLevel(M) : M;
+}
+/**
+ * legacy.md 2.2: the zone tier's damage factor, × the damage of every template enemy of zone z (1-6; the Camp, 7, plays
+ * zone 6's) on top of zone danger, in a Legacy run (C.ZONE_TIER_DMG); 1 outside one. z defaults to the run's zone (the
+ * Camp's when there). mapView carries the same number as `tierDmg` in a Legacy run.
+ */
+export function zoneTierDmg(state, z) {
+  const zz = z !== undefined && z !== null ? z : state && state.zone ? (state.zone.camp ? C.ZONE_COUNT + 1 : state.zone.z) : 1;
+  return tierDmgOf(state, zz);
 }
 /** powerOfLevel(H): the engine's level of hero level H (POWER_OF_LEVEL); heroXpToNext(H): hero XP from H to H + 1 (HERO_XP; at 25 HERO_XP_AT_MAX). */
 export { powerOf as powerOfLevel, heroXpToNext };
@@ -563,7 +583,8 @@ export function deserialize(str, content) {
 export function mapView(state) {
   const s = state;
   if (!s.zone || s.zone.camp) return null;
-  if (isExpedition(s)) return expMapView(s);
+  // Legacy (legacy.md 2.2): the zone tier's damage factor (ZONE_TIER_DMG) on the view, in a Legacy run only
+  if (isExpedition(s)) return withTierDmg(s, expMapView(s));
   const c = s.content;
   const scout = !!(s.meta && s.meta.scout);
   const arch = (tid) => c.enemies[tid].archetype;
@@ -591,7 +612,11 @@ export function mapView(state) {
     if (n.type === 'vendor') v.ember = scout ? n.stock.some((e) => e.id === 'ember_of_return') : null;
     return v;
   }));
-  return { z: s.zone.z, name: zoneContent(c, s.zone.z).name, pos: { ...s.zone.pos }, next: nextLanes(s.zone), rows };
+  return withTierDmg(s, { z: s.zone.z, name: zoneContent(c, s.zone.z).name, pos: { ...s.zone.pos }, next: nextLanes(s.zone), rows });
+}
+/** mapView's `tierDmg` (legacy.md 2.2: × every template enemy's damage in this zone) in a Legacy run; outside one the view as before. */
+function withTierDmg(s, v) {
+  return s.legacy ? { ...v, tierDmg: tierDmgOf(s, s.zone.z) } : v;
 }
 
 /**
