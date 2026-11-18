@@ -230,7 +230,10 @@ The Rogue's Shard answer stays Whirling Edges at hero 9 with Toxic Coating: with
 4. Phase 1's done-when (7.1) reads "B6 at H10 within its band (1.7 learn levels first)": with 2.4.1 it is B6 in every band on 300 runs per class, met in four of five.
 
 ### 2.4.2 Class numbers on the 1-25 scale (change, Lead Game Designer 2026-11-18, **draft**)
-Status: **draft**, not approved by the owner; on top of 2.4.1, behind the same switch `C.GATES.oruvathLegacy`. Measured on the native engine with the hero-XP planner model and the band tables sim/tables/legacy-hx/ (D118 cells: `--map expedition --prep`, planner, profile `later`, P0-group default trees, pet ridgewolf, 120 runs per class and hero level, **600 per class per band**, seeds 6000-6119, the seeds of the "before" table); report docs/reports/legacy-classes-2026-11-18.md. Every number is in section 10 (rows marked "2.4.2").
+Status: **draft**, not approved by the owner; on top of 2.4.1, behind the same switch `C.GATES.oruvathLegacy`. **D158
+(engine 2026-11-19):** 2.4.1 and 2.4.2 apply only in Legacy runs (`C.GATES.legacy` and `oruvathLegacy` both on, the boss
+rules also on the run's mark `state.legacy`), as does the sim's Hunter Camp pet step; level-60 runs keep rules.md's numbers
+(level-60 standard cells with oruvathLegacy on: 5 400 / 5 400 runs identical to off; handoff engine-2026-11-19). Measured on the native engine with the hero-XP planner model and the band tables sim/tables/legacy-hx/ (D118 cells: `--map expedition --prep`, planner, profile `later`, P0-group default trees, pet ridgewolf, 120 runs per class and hero level, **600 per class per band**, seeds 6000-6119, the seeds of the "before" table); report docs/reports/legacy-classes-2026-11-18.md. Every number is in section 10 (rows marked "2.4.2").
 
 **Problem** [measured: docs/reports/legacy-native-2026-11-18.md, "With the hero-XP model"]. B6 passed in band 1-5 only: the Hunter led 6-10 (30 %) and 16-25 (63 % in 21-25), the Mage led 11-15 (47 %), the Rogue trailed from 16, the Mage won 0 % at H6. The causes, found on boss replays of dumped states [measured, report section 3]:
 1. The Shard answers came at different levels: Whirling Edges and Pyre Comet at hero 9, Cinder Storm and Volley Rain at hero 10 (power 22, one power level above hero 9), so at H6 (boss at hero 9) the Rogue won and the Mage could not.
