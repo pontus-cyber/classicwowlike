@@ -25,7 +25,7 @@
 // as any XP; a Road taken now uses the view's own swift.xp. No view block (GATES.swiftRoad off): the search as before.
 import { C, R, legal, hpFrac, dimFightTime } from '../lib/engine.mjs';
 import { BAL, HEAT, SIM, EXP } from '../lib/params.mjs';
-import { makeCtx, evalNode, copyM, levelPos, eatModel, contractValue, siteTerm, swiftModel, bankedPos } from '../lib/model.mjs';
+import { makeCtx, evalNode, copyM, levelPos, eatModel, contractValue, siteTerm, swiftModel, xpMark, xpGainSince } from '../lib/model.mjs';
 import { dimRisk } from '../lib/risk.mjs';
 import { createValueBot, hubFull, FULL_KIT, plannerPrep, plannerHubContract } from './shared.mjs';
 import { fogInput, oracleInput, dimmedAtV, dimDepthV, enterableV, escapeV, typeBelief, protoCell, siteKnowledge, viewHops, shardZoneV, dimTollsV } from '../lib/view.mjs';
@@ -209,8 +209,8 @@ export function planFog(view, ctx, opts = {}) {
   // at zone time <= swift.tolls pays its XP before TIME_TRAVEL; valued as any XP (VAL_XP on the banked level position).
   const sw = view.swift || null;
   const swiftValue = (m, ztTake) => {
-    const p0 = bankedPos(m);
-    return swiftModel(m, sw, ztTake) ? (bankedPos(m) - p0) * BAL.VAL_XP : 0;
+    const p0 = xpMark(m);
+    return swiftModel(m, sw, ztTake) ? xpGainSince(m, p0) : 0;
   };
   // Leaving from (pos, zt): by the Road (walk there, Dimmed steps, the Swift passage XP when the Road is reached in its
   // window, TIME_TRAVEL) or by the Bell (channel, a Dimmed encounter if the node dims during it, the charge's keep value).

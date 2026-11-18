@@ -395,6 +395,13 @@ Object.assign(SIM, {
    *  hour past the line). VAL_DEATH (a run lost) × 3.9, the win probability a planner P0 run that reaches the boss loses
    *  per 1.0 of Ascendancy (paired measure ASC_CAP 0.40 vs 0, docs/reports/balance-2026-11-11.md), rounded. */
   VAL_ASC: 8000,
+  /** legacy.md 5.8 item 3, 10 (VAL_HERO_XP_WIN / VAL_HERO_XP_LEVEL, start values 40 / 120 [assumption]): value units per
+   *  HERO_XP_UNIT (100) hero XP for the winner and the leveller route bots; VAL_HERO_XP is the one the planner family
+   *  plays (the winner's; sim/lib/model.mjs xpWorth, Legacy runs only). At hero level 25 the same rate (the XP converts to
+   *  the Legacy level line). */
+  VAL_HERO_XP_WIN: 40,
+  VAL_HERO_XP_LEVEL: 120,
+  VAL_HERO_XP: 40,
   /** 1 = the boss term uses the meter's stepped ascIfPar; 0 = without the floor (expected steps; the bots' default). */
   HEAT_ASC_FLOOR: 0,
 });

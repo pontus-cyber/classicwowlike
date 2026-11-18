@@ -78,3 +78,47 @@ describe('D156 (legacy.md 2.4.1 item 6): the Hunter keeps Mend Companion on the 
     } finally { setGates(null); }
   });
 });
+
+describe('legacy.md 5.8 item 3: the planner model counts hero XP in a Legacy run (VAL_HERO_XP)', async () => {
+  const { makeCtx, evalNode, copyM, xpWorth, bankedPos, levelPos } = await import('../../sim/lib/model.mjs');
+  const { priorTable } = await import('../../sim/lib/risk.mjs');
+  const { SIM, BAL } = await import('../../sim/lib/params.mjs');
+  const heroState = (cls, level) => {
+    setGates(LEG);
+    const s = newRunFor({ classId: cls, seed: 7, profile: cellProfile({ bot: 'planner', cls, prof: 'later', hero: level }) });
+    R.stepInPlace(s, { type: 'START_RUN' });
+    setGates(null);
+    return s;
+  };
+
+  test('makeCtx: hero level and hero XP in a Legacy run, no hero level otherwise; levelPos follows POWER_OF_LEVEL', () => {
+    const s = heroState('mage', 10);
+    s.player.xp = 1325; // half of HERO_XP[9] (2650)
+    const ctx = makeCtx(s, priorTable());
+    assert.deepEqual([ctx.hero, ctx.m.H, ctx.m.L, ctx.m.xp], [true, 10, C.POWER_OF_LEVEL[9], 1325]);
+    assert.equal(levelPos(ctx.m), C.POWER_OF_LEVEL[9] + (C.POWER_OF_LEVEL[10] - C.POWER_OF_LEVEL[9]) / 2);
+    assert.equal(copyM(ctx.m).H, 10);
+    const s0 = newRunFor({ classId: 'mage', seed: 7 });
+    R.stepInPlace(s0, { type: 'START_RUN' });
+    const plain = makeCtx(s0, priorTable());
+    assert.deepEqual([plain.hero, plain.m.H], [false, undefined]);
+  });
+
+  test('a quest pays hero XP at every level (also at power 60, hero 25) and xpWorth counts it at VAL_HERO_XP per 100', () => {
+    for (const H of [10, 25]) {
+      const s = heroState('rogue', H);
+      const ctx = makeCtx(s, priorTable());
+      const m = copyM(ctx.m);
+      const w0 = xpWorth(m);
+      evalNode(ctx, m, { type: 'quest', cl: m.L + 1, archetypes: ['a', 'b'] });
+      const hx = xpWorth(m) - w0;
+      assert.ok(hx > 0, `H${H}: the quest's XP has value (${hx})`);
+      if (H === 25) assert.equal(bankedPos(m), 60);
+      // one level-equivalent of hero XP is worth at least VAL_HERO_XP
+      const m2 = copyM(ctx.m);
+      m2.xp += C.HERO_XP_UNIT;
+      assert.ok(xpWorth(m2) - xpWorth(ctx.m) >= SIM.VAL_HERO_XP - 1e-9);
+      assert.ok(xpWorth(m2) - xpWorth(ctx.m) <= SIM.VAL_HERO_XP + BAL.VAL_XP);
+    }
+  });
+});

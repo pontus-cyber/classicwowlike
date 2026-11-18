@@ -21,6 +21,13 @@
 // SIM.CONTRACT_XP_DIFFMOD), siteValueOf / siteTerm (the site value of 10.3, with the sites a
 // search branch has already counted in m.cp). Swift passage (M2b v15 row 2, D124): swiftModel, the XP a Road taken in the
 // window pays (the view's `swift` block), for planFog and speedFog.
+// Legacy runs (legacy.md 1.3-1.4, 5.8 item 3; a state made under C.GATES.legacy, s.legacy): the model counts hero XP as
+// the engine pays it (HERO_XP_UNIT per level-equivalent at the hero's power level, no 1-60 cap), levels the hero by HERO_XP
+// (the power level follows POWER_OF_LEVEL) and banks the rested pool in hero XP. Its state then carries the hero level
+// (m.H), and the XP term of the value is xpWorth(m): the power position × VAL_XP (the in-run levels, as before) plus the
+// hero XP banked / HERO_XP_UNIT × SIM.VAL_HERO_XP (the winner's VAL_HERO_XP_WIN; at level 25 the same rate, the XP that
+// converts to the Legacy level line). Before this the model read p.xp (hero XP) against xpToNext(P) and valued only in-run
+// levels, which stop at power 60 (report legacy-native-2026-11-18).
 import { C, R, V, xpCurve, diffMod } from './engine.mjs';
 import { BAL, SIM, EXP } from './params.mjs';
 import { riskP, riskDh, riskType } from './risk.mjs';
@@ -37,6 +44,19 @@ for (let d = -DM_OFF; d <= DM_OFF; d++) DM[d + DM_OFF] = diffMod(d);
 export const vAt = (L) => VT[Math.max(1, Math.min(MAXL, L))];
 const dmod = (d) => DM[Math.max(-DM_OFF, Math.min(DM_OFF, d)) + DM_OFF];
 const xpNext = (L) => (L >= C.MAX_LEVEL ? 0 : XN[L]);
+
+// ---------------- Hero XP (Legacy runs, legacy.md 1.3-1.4) ----------------
+const HMAX = C.HERO_MAX_LEVEL || 25;
+/** Hero XP from hero level H to H + 1 (HERO_XP_AT_MAX at the top), as legacy.js heroXpToNext. */
+const hxNext = (H) => (H < HMAX ? C.HERO_XP[H - 1] : C.HERO_XP_AT_MAX);
+/** Hero XP from level 1 to the start of hero level H (cumulative). */
+const HXC = [0, 0];
+for (let H = 2; H <= HMAX; H++) HXC[H] = HXC[H - 1] + (C.HERO_XP ? C.HERO_XP[H - 2] : 0);
+const powerOfH = (H) => C.POWER_OF_LEVEL[Math.max(1, Math.min(HMAX, H)) - 1];
+/** XP per level-equivalent of a Legacy award at power level L, over xpCurve(L) (progress.js eventXp under isLegacy). */
+const heroUnit = (L) => (C.HERO_XP_UNIT || 100) / XC[Math.max(1, Math.min(MAXL, L))];
+/** True when model state m counts hero XP (a Legacy run). */
+const isHero = (m) => m.H !== undefined;
 
 // ---------------- Expected item scores (bot estimate of unseen items) ----------------
 // Mean item score of a generated item of a rarity at an ilvl in a slot, for the class (rules 8.3 budget split,
@@ -102,15 +122,16 @@ export function makeCtx(s, risk, opts = {}) {
   const metaSpells = (s.meta && s.meta.spells) || [];
   const unknown = Object.values(C.SPELL).filter((sp) => sp.cls === p.classId && !p.spells[sp.id]
     && (sp.source === 'class' || (sp.source === 'meta' && metaSpells.includes(sp.id)))).map((sp) => sp.lvl);
+  const hero = !!s.legacy;
   return {
-    cls: p.classId, risk, eq, gainCache: new Map(), xpPct: s.meta.xpPct, goldPct: s.meta.goldPct,
+    hero, cls: p.classId, risk, eq, gainCache: new Map(), xpPct: s.meta.xpPct, goldPct: s.meta.goldPct,
     swift: !!s.meta.swiftBoots, res, potions, train, unknown,
     style: opts.style || 'balanced', hourMult: (opts.hourMult ?? 1) * (opts.style === 'speed' ? SIM.STYLE_SPEED_TIME_MULT : 1),
     heat: opts.heat ? heatCtx(s, opts.heat) : null,
     exp: s.mapMode === 'expedition' ? EXP_CTX : null,
     // The story chain is retired in a run with the start camp (expedition.md 3.2; prep): contracts replace it.
     story: !(s.mapMode === 'expedition' && s.exp && s.exp.prep),
-    m: { L: p.level, xp: p.xp, rested: p.rested, hp: p.hp / p.d.maxHp, q: s.zone && !s.zone.camp ? s.zone.questsDone : 0, rations, tAt: 0, dh: 0 },
+    m: { L: p.level, xp: p.xp, rested: p.rested, hp: p.hp / p.d.maxHp, q: s.zone && !s.zone.camp ? s.zone.questsDone : 0, rations, tAt: 0, dh: 0, ...(hero ? { H: p.heroLevel } : {}) },
   };
 }
 
@@ -204,14 +225,16 @@ function bossCost(ctx, dh, hours) {
 }
 
 // ---------------- Character progression in the model ----------------
-const killXp = (ctx, M, mult, L) => (L >= C.MAX_LEVEL ? 0 : C.MOB_XP_FRAC * mult * (ctx.exp ? ctx.exp.xpw : 1) * XC[Math.min(MAXL, M)] * dmod(M - L) * (1 + ctx.xpPct));
-const evXp = (ctx, frac, cl, L) => (L >= C.MAX_LEVEL ? 0 : frac * XC[Math.min(MAXL, cl)] * dmod(cl - L) * (1 + ctx.xpPct));
+// Legacy (ctx.hero): in hero XP, × HERO_XP_UNIT / xpCurve(L), and paid at every level (no 1-60 cap).
+const killXp = (ctx, M, mult, L) => (!ctx.hero && L >= C.MAX_LEVEL ? 0 : C.MOB_XP_FRAC * mult * (ctx.exp ? ctx.exp.xpw : 1) * XC[Math.min(MAXL, M)] * dmod(M - L) * (1 + ctx.xpPct) * (ctx.hero ? heroUnit(L) : 1));
+const evXp = (ctx, frac, cl, L) => (!ctx.hero && L >= C.MAX_LEVEL ? 0 : frac * XC[Math.min(MAXL, cl)] * dmod(cl - L) * (1 + ctx.xpPct) * (ctx.hero ? heroUnit(L) : 1));
 
 /**
  * Apply XP to model state m (in place): kills use the rested pool (rules 2.5), then heat × (1 + hg) (rules 1.7.3, after
  * every other modifier). Returns the rested extra.
  */
 function giveXp(m, amount, kill, hg = 0) {
+  if (isHero(m)) return giveHeroXp(m, amount, kill, hg);
   if (m.L >= C.MAX_LEVEL || amount <= 0) return 0;
   let extra = 0;
   if (kill && m.rested > 0) {
@@ -224,6 +247,19 @@ function giveXp(m, amount, kill, hg = 0) {
   return extra;
 }
 
+/** giveXp in a Legacy run: hero XP, hero levels by HERO_XP (power level POWER_OF_LEVEL[H]); XP keeps counting at 25. */
+function giveHeroXp(m, amount, kill, hg) {
+  if (amount <= 0) return 0;
+  let extra = 0;
+  if (kill && m.rested > 0) {
+    extra = Math.min(m.rested, amount * (C.RESTED_MULT - 1));
+    m.rested -= extra;
+  }
+  m.xp += (amount + extra) * (1 + hg);
+  while (m.H < HMAX && m.xp >= hxNext(m.H)) { m.xp -= hxNext(m.H); m.H += 1; m.L = powerOfH(m.H); }
+  return extra;
+}
+
 /**
  * Swift passage XP in the model (M2b v15 row 2, D124; rules 1.9.7): a Road taken at zone time ztTake pays
  * round(swift.frac × xpToNext(L)) XP when ztTake <= swift.tolls (swift: the view's block, R.mapView `swift`, player-visible;
@@ -231,8 +267,8 @@ function giveXp(m, amount, kill, hg = 0) {
  * Returns the XP paid (0 outside the window).
  */
 export function swiftModel(m, swift, ztTake) {
-  if (!swift || !(ztTake <= swift.tolls) || m.L >= C.MAX_LEVEL) return 0;
-  const xp = Math.round(swift.frac * xpNext(m.L) + 1e-9);
+  if (!swift || !(ztTake <= swift.tolls) || (!isHero(m) && m.L >= C.MAX_LEVEL)) return 0;
+  const xp = Math.round(swift.frac * (isHero(m) ? C.HERO_XP_UNIT : xpNext(m.L)) + 1e-9); // Legacy: a level-equivalent in hero XP
   giveXp(m, xp, false);
   return xp;
 }
@@ -269,7 +305,7 @@ const BOON_MEAN = (() => {
 export function evalNode(ctx, m, v, opts = {}) {
   const L0 = m.L;
   const Vl = vAt(L0);
-  const pos0 = bankedPos(m);
+  const pos0 = xpMark(m);
   const dh0 = m.dh || 0;
   let gear = 0;
   let gold = 0;
@@ -316,8 +352,8 @@ export function evalNode(ctx, m, v, opts = {}) {
       for (let w = 0; w < maxW; w++) {
         const dl = v.cl - m.L;
         const p = riskP(ctx.risk, 'grind', dl, m.hp);
-        const save = { L: m.L, xp: m.xp, rested: m.rested, hp: m.hp, rations: m.rations, dh: m.dh };
-        const p0 = bankedPos(m);
+        const save = { L: m.L, xp: m.xp, rested: m.rested, hp: m.hp, rations: m.rations, dh: m.dh, ...(isHero(m) ? { H: m.H } : {}) };
+        const p0 = xpMark(m);
         const gd0 = gold;
         const ge0 = gear;
         kill(v.cl, 1, C.GRIND_WAVE_SIZE);
@@ -325,7 +361,7 @@ export function evalNode(ctx, m, v, opts = {}) {
         g(C.GRIND_WAVE_SIZE * C.MOB_COIN_V * vAt(v.cl));
         gear += C.GRIND_WAVE_SIZE * Math.min(1, C.MOB_ITEM_CHANCE * C.GRIND_DROP_MULT * dmult) * eg('mob', v.cl);
         const sm = styleMult(ctx, 'grind');
-        const marginal = ((bankedPos(m) - p0) * BAL.VAL_XP + (gear - ge0) * BAL.VAL_GEAR + ((gold - gd0) / Vl) * BAL.VAL_GOLD) * sm
+        const marginal = (xpGainSince(m, p0) + (gear - ge0) * BAL.VAL_GEAR + ((gold - gd0) / Vl) * BAL.VAL_GOLD) * sm
           - NT.grind * BAL.VAL_TIME * ctx.hourMult - p * BAL.VAL_DEATH - bossCost(ctx, m.dh, NT.grind);
         if (!opts.grindWaves && w > 0 && marginal <= 0) {
           gold = gd0; gear = ge0; Object.assign(m, save);
@@ -377,7 +413,7 @@ export function evalNode(ctx, m, v, opts = {}) {
       break;
     }
     case 'rest': {
-      const xn = xpNext(m.L);
+      const xn = isHero(m) ? C.HERO_XP_UNIT : xpNext(m.L); // Legacy: the pool in hero XP (progress.js addRested)
       if (xn) m.rested = Math.min(C.RESTED_CAP_FRAC * xn, m.rested + C.REST_RESTED_FRAC * xn);
       m.hp = 1;
       hours = C.TIME_REST;
@@ -420,7 +456,7 @@ export function evalNode(ctx, m, v, opts = {}) {
   }
   eatModel(m);
   const sm = styleMult(ctx, type);
-  const value = ((bankedPos(m) - pos0) * BAL.VAL_XP + gear * BAL.VAL_GEAR + (gold / Vl) * BAL.VAL_GOLD) * sm
+  const value = (xpGainSince(m, pos0) + gear * BAL.VAL_GEAR + (gold / Vl) * BAL.VAL_GOLD) * sm
     - hours * BAL.VAL_TIME * ctx.hourMult - pDeath * BAL.VAL_DEATH - bossCost(ctx, dh0, hours);
   m.dh = dh0 + hours;
   return { value, hours, pDeath, waves, state };
@@ -431,7 +467,7 @@ export function innValue(ctx, m) {
   return evalNode(ctx, m, { type: 'rest' }).value;
 }
 
-export const copyM = (m) => ({ L: m.L, xp: m.xp, rested: m.rested, hp: m.hp, q: m.q, rations: m.rations, tAt: m.tAt, dh: m.dh || 0, cp: m.cp });
+export const copyM = (m) => ({ L: m.L, xp: m.xp, rested: m.rested, hp: m.hp, q: m.q, rations: m.rations, tAt: m.tAt, dh: m.dh || 0, cp: m.cp, ...(isHero(m) ? { H: m.H } : {}) });
 
 // ---------------- Contracts (expedition.md 3.1, 10.3; prep) ----------------
 /**
@@ -467,6 +503,7 @@ function refGain(ctx, table, cl) {
  * SIM.CONTRACT_CHOICE_GEAR[n] × one roll's expected gain [assumption].
  */
 export function contractValue(ctx, rw, opts = {}) {
+  if (ctx.hero) return heroContractValue(ctx, rw, opts);
   const L = Math.max(1, Math.min(C.MAX_LEVEL, opts.L ?? ctx.m.L));
   // Contract XP (expedition.md 3.1): M2b v10 row A1 pays it without the level-difference modifier; SIM.CONTRACT_XP_DIFFMOD
   // 1 keeps the modifier of the engine before A1.
@@ -477,6 +514,25 @@ export function contractValue(ctx, rw, opts = {}) {
   const gear = (SIM.CONTRACT_CHOICE_GEAR[rw.choices] ?? SIM.CONTRACT_CHOICE_GEAR[SIM.CONTRACT_CHOICE_GEAR.length - 1]) * one;
   const gold = (rw.gold * (1 + ctx.goldPct)) / vAt(L);
   return xpLv * BAL.VAL_XP + gear * BAL.VAL_GEAR + gold * BAL.VAL_GOLD;
+}
+
+/**
+ * contractValue in a Legacy run: the reward's hero XP (flatXp: HERO_XP_UNIT × xpFrac × xpCurve(cl) / xpCurve(L), no
+ * level-difference modifier) valued by xpWorth from the hero's state now; gear and gold as contractValue. opts.L: the power
+ * level it is valued at (the start camp: the contract's own level, one level-equivalent per xpFrac).
+ */
+function heroContractValue(ctx, rw, opts) {
+  const L = Math.max(1, opts.L ?? ctx.m.L);
+  const xp = rw.xpFrac * XC[Math.min(MAXL, rw.cl)] * (1 + ctx.xpPct) * heroUnit(L);
+  const m = copyM(ctx.m);
+  const w0 = xpWorth(m);
+  giveHeroXp(m, xp, false, 0);
+  const xv = xpWorth(m) - w0;
+  if (opts.xpOnly) return xv;
+  const one = opts.ref ? refGain(ctx, rw.table, rw.cl) : expGain(ctx, rw.table, rw.cl);
+  const gear = (SIM.CONTRACT_CHOICE_GEAR[rw.choices] ?? SIM.CONTRACT_CHOICE_GEAR[SIM.CONTRACT_CHOICE_GEAR.length - 1]) * one;
+  const gold = (rw.gold * (1 + ctx.goldPct)) / vAt(Math.min(C.MAX_LEVEL, L));
+  return xv + gear * BAL.VAL_GEAR + gold * BAL.VAL_GOLD;
 }
 
 /**
@@ -512,6 +568,7 @@ export function siteTerm(sk, m, id) {
  * (rested XP is banked when a Rest grants it, so a kill's rested extra is not valued twice).
  */
 export function bankedPos(m) {
+  if (isHero(m)) return heroPos(m, m.xp + m.rested);
   let L = m.L;
   let x = m.xp + m.rested;
   while (L < C.MAX_LEVEL && x >= XN[L]) { x -= XN[L]; L += 1; }
@@ -520,6 +577,34 @@ export function bankedPos(m) {
 
 /** Fractional level of a model state (for level deficits). */
 export function levelPos(m) {
+  if (isHero(m)) return heroPos(m, m.xp);
   const xn = xpNext(m.L);
   return m.L + (xn ? m.xp / xn : 0);
 }
+
+/**
+ * Legacy: the power position of hero state m with x hero XP in hand: the power level, plus the share of the next hero
+ * level's power step that x covers (carried over levels; POWER_OF_LEVEL[25] at the top).
+ */
+function heroPos(m, x) {
+  let H = m.H;
+  while (H < HMAX && x >= hxNext(H)) { x -= hxNext(H); H += 1; }
+  return H >= HMAX ? powerOfH(HMAX) : powerOfH(H) + ((powerOfH(H + 1) - powerOfH(H)) * x) / hxNext(H);
+}
+
+/**
+ * The XP term of the value, in value units, of model state m (differences only are used): bankedPos × VAL_XP; in a Legacy
+ * run also the hero XP banked (rested included, as bankedPos) / HERO_XP_UNIT × SIM.VAL_HERO_XP (legacy.md 5.8 item 3).
+ */
+export function xpWorth(m) {
+  const w = bankedPos(m) * BAL.VAL_XP;
+  if (!isHero(m)) return w;
+  return w + ((HXC[m.H] + m.xp + m.rested) / C.HERO_XP_UNIT) * SIM.VAL_HERO_XP;
+}
+
+/**
+ * The XP term's mark of state m and the gain since it, in value units: (bankedPos - mark) × VAL_XP outside a Legacy run
+ * (the expression as before, so those runs are unchanged to the bit), xpWorth's difference in one.
+ */
+export const xpMark = (m) => (isHero(m) ? xpWorth(m) : bankedPos(m));
+export const xpGainSince = (m, mark) => (isHero(m) ? xpWorth(m) - mark : (bankedPos(m) - mark) * BAL.VAL_XP);
