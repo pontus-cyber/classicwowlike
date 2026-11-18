@@ -92,4 +92,5 @@ game.html at 91f9290 (tuning v6 engine, UX pass, the Furnace). Sent to the owner
 | 51 | 2026-11-18 02:50-05:50 | Designer Oruvath rework (55d767f) accepted as D156; engine Legacy phase 1 (314dc55, 1f97517) and D156 (789a1b7, b7c7f17) built behind switches, off by default; 915 tests; native B6 passes 2 of 5 bands | Engineer, Designer (Opus/max) | about 1.1M |
 | 52 | 2026-11-18 05:50-08:50 | Native band tables (6db8710), report legacy-native (4a59d17): B6 passes 1 of 5 bands, 1-15 miss by under 1 pp; reach gap traced to the planner's banked-XP reading; VAL_HERO_XP started, stopped by a server restart | Sim (Opus/high) | about 0.4M |
 | 53 | 2026-11-18 08:50-11:50 | Planner hero-XP model (7405c67), tables legacy-hx (87c51e8), report updated (141fbe2): reach 85-90 %, H25 no longer rushes; B6 passes 1 of 5 bands, now a class question | Sim (Opus/high) | about 0.35M |
-| 54 | 2026-11-18 11:50-14:50 | Designer tunes Legacy class numbers per band | Designer (Opus/max) | running |
+| 54 | 2026-11-18 11:50-14:50 | Designer started Legacy class tuning; a server restart stopped it after about 1h | Designer (Opus/max) | about 0.3M |
+| 55 | 2026-11-18 14:50-17:50 | Designer resumed: Legacy class tuning per band | Designer (Opus/max) | running |
