@@ -95,3 +95,28 @@ for (const base of [P0, PALL, 'planner-PALL-noInterrupt-exp-prep', 'planner-PALL
 }
 console.log('');
 console.log(table(['Cell', 'Arm', 'Win R / M / H %', 'Reach R / M / H %', 'Boss fights won R / M / H %', 'Final Dark share of boss losses R / M / H %'], sup));
+
+// Attribution arms (sim/l60-arms.sh): OUT/arm-<name>/<cell>-or2, the on arm with one piece taken back. Per class win
+// against on/ and off/ on the same seeds (the classes the arm ran).
+const arms = existsSync(OUT) ? readdirSync(OUT).filter((d) => d.startsWith('arm-')).sort() : [];
+if (arms.length) {
+  const ar = [];
+  for (const a of arms) {
+    for (const base of [P0, PALL, 'planner-PALL-noInterrupt-exp-prep', 'planner-PALL-noCleanse-exp-prep', 'planner-PALL-noAoe-exp-prep', OB]) {
+      const dir = join(OUT, a, `${base}-or2`);
+      if (!existsSync(dir)) continue;
+      for (const c of CLASSES) {
+        const f = join(dir, `runs-${c}.jsonl`);
+        if (!existsSync(f)) continue;
+        const x = readFileSync(f, 'utf8').split('\n').filter(Boolean).map((l) => ({ cls: c, ...JSON.parse(l) }));
+        const m = cellMetrics(x);
+        const on = load('on', base, c); const off = load('off', base, c);
+        const dOn = on ? pairedDiff(x, on, win) : null; const dOff = off ? pairedDiff(x, off, win) : null;
+        const f1 = (d) => (d && d.v !== null ? `${d.v >= 0 ? '+' : ''}${num(d.v * 100, 1)} (${num(d.ci[0] * 100, 1)} - ${num(d.ci[1] * 100, 1)}; n ${d.n})` : 'n/a');
+        ar.push([a.slice(4), base, c, `${pct(m.win.p)} (${m.win.k}/${m.win.n})`, pct(m.bossWin.p), pct(m.finalDarkLoss.p), f1(dOn), f1(dOff)]);
+      }
+    }
+  }
+  console.log('');
+  console.log(table(['Arm (taken back)', 'Cell', 'Class', 'Win', 'Boss fights won', 'Final Dark share of boss losses', 'Win - on (pp, paired)', 'Win - off (pp, paired)'], ar));
+}
