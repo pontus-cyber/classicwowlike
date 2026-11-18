@@ -1175,6 +1175,15 @@ rows map's bands (simulator and Dev menu only).
   `LB = P + C.BOSS_TIER` (at most CL_MAX); his and the Shards' HP × hpScale(LB) × min(1, `C.BOSS_HP_LEVEL_BASE` +
   `C.BOSS_HP_LEVEL_STEP` × H); every damage of the fight × dmgScale(LB) (bossDmgFactor); armour × LB / `C.BOSS_REF_LEVEL`;
   Shards at LB - 2. `state.fight.boss.scale` holds `{ level, hp, dmg, armor, shardLevel }`.
+- **Oruvath on the 1-25 scale** (D156, legacy.md 2.4.1, draft; `C.GATES.oruvathLegacy`, off by default; with GATES.legacy):
+  in a Legacy run oruvathScale returns the 2.4.1 numbers: HP × hpScale(LB) × `C.BOSS_HP_LEVEL[H - 1]`; damage ×
+  dmgScale0(LB) (no early factors) × bossDmgLevel(H) (`C.BOSS_DMG_LEVEL_*`); and two more fields, `shardHp` (× the
+  Shards' HP, legacy.js `shardHpLevel`) and `finalDark` (Final Dark's round, legacy.js `finalDarkRound`: 76 up to H11, 57
+  at H25). boss.js reads Final Dark's round from the fight (`enrageRound(fight)`), so the intent's `final_dark` action and
+  `telegraph.enrageInRounds` show it; the UI needs nothing new. In every run under the switch: autoplay casts Living Flame
+  and Barbed Arrow on a boss (`kind` 'boss' or 'dboss') at any HP and never on a Dimming Shard, and the SPELL fields of
+  `C.ORUVATH_SPELL` (Frost Lance l/p, Pyre Comet lvl 21, Barbed Arrow dot l/p, Field Dressing healPct) read the switch at
+  each use (getters; off: rules.md's values). H is the hero's level at FIGHT_BOSS.
 - **Guided first run** (legacy.md 5.1): zone 1 at band 1 (power levels 1-4), Gorrak at clamp(P + 1,
   `C.ONB_ELITE_LEVEL_MIN_HERO` 2, ONB_ELITE_LEVEL_MAX 8), the bounty's road XP is hero XP at zone 1's contract level.
 - **Checkpoint.** At every zone arrival and at the Camp the hero (level, XP, talents, spells, bar) is written into
