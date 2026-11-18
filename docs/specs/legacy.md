@@ -229,6 +229,48 @@ The Rogue's Shard answer stays Whirling Edges at hero 9 with Toxic Coating: with
 3. Rules 5 and 6 also change today's level-60 game (autoplay DoTs at any boss HP; the Hunter's Camp bar): re-run the P0 and PALL cells (B6, B26-B29) when they are built.
 4. Phase 1's done-when (7.1) reads "B6 at H10 within its band (1.7 learn levels first)": with 2.4.1 it is B6 in every band on 300 runs per class, met in four of five.
 
+### 2.4.2 Class numbers on the 1-25 scale (change, Lead Game Designer 2026-11-18, **draft**)
+Status: **draft**, not approved by the owner; on top of 2.4.1, behind the same switch `C.GATES.oruvathLegacy`. Measured on the native engine with the hero-XP planner model and the band tables sim/tables/legacy-hx/ (D118 cells: `--map expedition --prep`, planner, profile `later`, P0-group default trees, pet ridgewolf, 120 runs per class and hero level, **600 per class per band**, seeds 6000-6119, the seeds of the "before" table); report docs/reports/legacy-classes-2026-11-18.md. Every number is in section 10 (rows marked "2.4.2").
+
+**Problem** [measured: docs/reports/legacy-native-2026-11-18.md, "With the hero-XP model"]. B6 passed in band 1-5 only: the Hunter led 6-10 (30 %) and 16-25 (63 % in 21-25), the Mage led 11-15 (47 %), the Rogue trailed from 16, the Mage won 0 % at H6. The causes, found on boss replays of dumped states [measured, report section 3]:
+1. The Shard answers came at different levels: Whirling Edges and Pyre Comet at hero 9, Cinder Storm and Volley Rain at hero 10 (power 22, one power level above hero 9), so at H6 (boss at hero 9) the Rogue won and the Mage could not.
+2. Each class's cleanse displaces a spell on the sim's seven-slot Camp bar (balance.md 1.2): the Hunter's Feign Stillness (hero 12) displaces Mark Prey, the Mage's Glacial Tomb (hero 13) displaces Living Flame. Glacial Tomb (2 rounds immune, cleanse, heal) is what made the Mage win 52-77 % of its boss fights from H12-15.
+3. The Hunter's top end is one talent: the standard Wildcraft build takes Ferocity (pet damage + 18 % a rank) with points 24 and 26 (hero 24-25); without it the Hunter's boss win at H24-25 is 49-54 % instead of 81-83 %.
+4. The Hunter's Barbed Arrow is its best boss spell; Heartseeker Shot displaces it on the Camp bar (hero 20).
+5. The top end of BOSS_HP_LEVEL (0.89 at H24-25) was solved when the planner rushed at H23-25; with the hero-XP model every class rises there.
+
+**The change** (content and table values; the Rogue's learn levels unchanged):
+
+| # | What | Today (2.4.1) | Change | Why (measured, 600 runs per class per band) |
+|---|---|---|---|---|
+| 1 | Cinder Storm (Mage) learn level | power 22 (hero 10) | **power 21 (hero 9)** | with Pyre Comet and the Rogue's Whirling Edges; the Mage's H6 0 → 36 % |
+| 2 | BOSS_HP_LEVEL at hero 9 | 1.00 | **1.08** | with three Shard answers at hero 9, a boss at 1.00 made H6 a spike (pooled 33 % over 18-24 % at H7-8) |
+| 3 | Glacial Tomb (Mage) learn level | power 30 (hero 13) | **power 43 (hero 18)** | the Mage's 11-15 lead (47 → 40 %); also keeps Frost Lance and Living Flame both on the Camp bar to hero 17 (see note) |
+| 4 | Feign Stillness (Hunter) learn level | power 28 (hero 12) | **power 23 (hero 10)** | Mark Prey leaves the Camp bar at hero 10: the Hunter's 6-10 lead (30 → 25 %) |
+| 5 | Heartseeker Shot (Hunter) learn level and numbers | power 46 (hero 20); b 14, l 3.0, p 1.3, w 1.5 | **power 43 (hero 18)**; **b 12.6, l 2.7, p 1.17, w 1.35** (-10 %) | the Hunter's 16-20 lead (46 → 39 %): it takes Barbed Arrow's slot two levels earlier |
+| 6 | Barbed Arrow (Hunter) DoT | l 0.495, p 0.20 | **l 0.52, p 0.21** (+5 %) | the Hunter's 11-15 (32 → 35 %) |
+| 7 | Ferocity (Hunter talent h_a2) | petDmgPct 0.18 a rank | **0.10** | the Hunter's H23-25 spike (69-77 → 44-47 %) |
+| 8 | Open Vein (Rogue) DoT | l 0.45, p 0.10 | **l 0.52, p 0.115** (+15 %) | the Rogue's 16-25 (34.8 → 38.3 %, 43.3 → 42.5 % with item 9) |
+| 9 | BOSS_HP_LEVEL at hero 23 / 24 / 25 | 0.92 / 0.89 / 0.89 | **0.93 / 0.92 / 0.92** | the top end: pooled H25 58 → 48 % |
+
+- **What the engineer builds:** the five SPELL values join ORUVATH_SPELL (constants.js, getters behind the switch): cinder_storm lvl 21, glacial_tomb lvl 43, feign_stillness lvl 23, heartseeker_shot lvl 43 b 12.6 l 2.7 p 1.17 w 1.35, barbed_arrow dot l 0.52 p 0.21, open_vein dot l 0.52 p 0.115; the same getter for TALENT.h_a2.petDmgPct 0.10 (an ORUVATH_TALENT block); BOSS_HP_LEVEL entries 9, 23, 24, 25 (index 8, 22, 23, 24) = 1.08, 0.93, 0.92, 0.92. Learn levels on screen follow 1.7 (hero 9, 18, 10, 18). Scratch reference: env CLS of sim/out/cls/final2.json on the designer's worktree.
+- **1.7's table** under 2.4.2: Mage hero 9 adds Cinder Storm (from 10), hero 18 Glacial Tomb (from 13); Hunter hero 10 Feign Stillness (from 12), hero 18 Heartseeker Shot (from 20).
+- **Answer to the Lead's question (top end):** both levers, in this order. The Hunter's +15-20 pp at H23-25 is a class number (Ferocity at points 24-26 of the default build; item 7). The rest of the rise, every class 8-12 pp from H22 to H25, is BOSS_HP_LEVEL falling to 0.89 while the hero keeps gaining (item 9). Raising BOSS_HP_LEVEL alone to 0.94-0.96 at H21-25 drops the Hunter, the slow class, to 26-35 % (it loses to Final Dark), so the HP table should move only a little.
+- **Note for the sim (open):** the Camp bar template ranks fill spells by raw damage. Frost Lance's chill (-30 % of Oruvath's damage) has no value there, so at +15 % Frost Lance stays on the bar only 3 % above Living Flame at hero 14; at +10 % it falls off and the Mage's 11-15 rate drops 52 → 21 % in full runs, a cliff the boss replays do not show. 2.4.1's "Frost Lance + 10 % → 23 %" was this threshold. With item 3 both spells fit on the bar to hero 17, so Frost Lance is no longer on the edge.
+
+**Measured** (seeds 6000-6119, 600 runs per class per band; before: the native report's table on the same seeds):
+
+| Band | Before: R / M / H (pooled), spread | After: R / M / H (pooled), spread | B6 after |
+|---|---|---|---|
+| 1-5 | 1.5 / 1.3 / 7.2 (3.3), 5.8 pp | 2.0 / 1.3 / 8.0 (3.8), 6.7 pp | pass (Hunter + 4.2) |
+| 6-10 | 21.5 / 19.7 / 30.0 (23.7), 10.3 pp | 21.5 / 26.5 / 25.3 (24.4), 5.0 pp | pass |
+| 11-15 | 38.8 / 47.2 / 32.2 (39.4), 15.0 pp | 39.5 / 40.3 / 35.0 (38.3), 5.3 pp | pass |
+| 16-20 | 34.8 / 42.3 / 46.3 (41.2), 11.5 pp | 38.3 / 41.8 / 39.0 (39.7), 3.5 pp | pass |
+| 21-25 | 43.3 / 45.7 / 63.3 (50.8), 20.0 pp | 42.5 / 44.3 / 39.3 (42.1), 5.0 pp | pass |
+
+- Win curve (pooled, start hero level 1-25): 2, 7, 6, 3, 2, 26, 23, 22, 26, 26, 31, 33, 40, 41, 46, 42, 38, 43, 39, 36, 35, 39, 43, 46, 48 %. It rises to 46 % at H15, sags to 35-39 % at H19-22 and ends at 48 % (before 58 %). H22 is 39 % against the 2.4.1 target of about 43 %.
+- Fresh seeds, one-button, B7 and the first win: report sections 2, 5 and 6.
+
 ### 2.5 Items and gold
 - Item level as rules 8.3 (source power level + rarity bonus), shown on the hero scale; capped at ILVL_MAX.
 - Gold scales with the hero (1.6). Vendors as today at their level (the hub at the band, the Camp at the Camp level).
@@ -606,6 +648,9 @@ Order inside phase 1: engine (hero and zones), then sim (warmed tables, campaign
 | HUNTER_CAMP_PET_SLOT (2.4.1, draft; balance.md 1.2) | on | the sim's Camp bar keeps the Hunter's Mend Companion |
 | SPELL changes (2.4.1, draft) | frost_lance l 1.77, p 0.97 (was 1.54, 0.84); pyre_comet lvl 21, hero 9 (was 38, hero 16); barbed_arrow dot l 0.495, p 0.20 (was 0.45, 0.18); field_dressing healPct 0.18 (was 0.12) | content values |
 | GATES.oruvathLegacy (2.4.1, draft) | off until accepted | engine switch for every 2.4.1 rule |
+| SPELL changes (2.4.2, draft) | cinder_storm lvl 21, hero 9 (was 22, hero 10); glacial_tomb lvl 43, hero 18 (was 30, hero 13); feign_stillness lvl 23, hero 10 (was 28, hero 12); heartseeker_shot lvl 43, hero 18 (was 46, hero 20), b 12.6, l 2.7, p 1.17, w 1.35 (was 14, 3.0, 1.3, 1.5); barbed_arrow dot l 0.52, p 0.21 (2.4.1: 0.495, 0.20); open_vein dot l 0.52, p 0.115 (was 0.45, 0.10) | content values, behind GATES.oruvathLegacy |
+| TALENT change (2.4.2, draft) | h_a2 Ferocity petDmgPct 0.10 (was 0.18) | per rank, behind GATES.oruvathLegacy |
+| BOSS_HP_LEVEL (2.4.2, draft) | entries for hero 9, 23, 24, 25: 1.08, 0.93, 0.92, 0.92 (2.4.1: 1.00, 0.92, 0.89, 0.89); the others as 2.4.1 | × Oruvath's and the Shards' HP |
 | ONB_ELITE_LEVEL_MIN | 2 | Gorrak's lowest power level (was 4) (5.1) |
 | LEGACY_PER_LEVEL | 20 | Legacy points per hero level gained, and per HERO_XP_AT_MAX past 25 (4.1) |
 | LEGACY lines | as ECHO_PER_ZONE 7.5, ECHO_PER_DUNGEON 8, ECHO_PER_ELITE 3, ECHO_PER_RARE 6, ECHO_PER_QUEST 1, ECHO_CONTRACT_MULT 3, ECHO_PER_HEAT_FIGHT 1, ECHO_BOSS_REACHED 20, ECHO_BOSS_PHASE 12, ECHO_BOSS_KILL 120, ECHO_SPEED_BONUS 40, ECHO_FIRST_KILL_CLASS 100, PREP_ECHO_PER_POINT 2, ONB_WELCOME_ECHOES 60, OATH_ECHO_BONUS 0.25 (renamed LEGACY_*) | Legacy points (4.1) |
