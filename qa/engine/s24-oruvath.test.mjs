@@ -30,9 +30,9 @@ const hpScale = (LB) => (C.ENEMY_HP_BASE + C.ENEMY_HP_PER_LEVEL * LB) / (C.ENEMY
 const dmg0 = (M) => (C.ENEMY_DMG_BASE + C.ENEMY_DMG_PER_LEVEL * M) * (1 + (C.ZONE_DANGER_STEP * Math.max(0, M - C.ZONE_DANGER_FROM)) / 10);
 
 describe('legacy.md 2.4.1 and 10: the constants (draft); GATES.oruvathLegacy off', () => {
-  test('the switch is off by default; the table rows of section 10', () => {
+  test('the switch is off by default; the table rows of section 10 (BOSS_HP_LEVEL as 2.4.2, D157)', () => {
     assert.equal(C.GATES.oruvathLegacy, false);
-    assert.deepEqual(C.BOSS_HP_LEVEL, [0.50, 0.53, 0.57, 0.61, 0.71, 0.84, 0.87, 0.90, 1.00, 1.12, 1.10, 1.07, 1.07, 1.07, 1.05, 1.03, 1.02, 1.01, 0.99, 0.96, 0.94, 0.94, 0.92, 0.89, 0.89]);
+    assert.deepEqual(C.BOSS_HP_LEVEL, [0.50, 0.53, 0.57, 0.61, 0.71, 0.84, 0.87, 0.90, 1.08, 1.12, 1.10, 1.07, 1.07, 1.07, 1.05, 1.03, 1.02, 1.01, 0.99, 0.96, 0.94, 0.94, 0.93, 0.92, 0.92]);
     assert.deepEqual([C.BOSS_DMG_LEVEL_BASE, C.BOSS_DMG_LEVEL_STEP, C.BOSS_DMG_LEVEL_MIN, C.BOSS_DMG_LEVEL_MAX], [1.40, 0.021, 0.90, 1.20]);
     assert.deepEqual([C.SHARD_HP_LEVEL_LOW, C.SHARD_HP_RAMP_FROM, C.SHARD_HP_RAMP_TO], [0.5, 17, 23]);
     assert.deepEqual([C.FINAL_DARK_LEVEL_STEP, C.FINAL_DARK_ROUND_MAX], [1.4, 76]);
@@ -47,10 +47,10 @@ describe('legacy.md 2.4.1 and 10: the constants (draft); GATES.oruvathLegacy off
     assert.deepEqual([1, 11, 13, 15, 20, 25].map(finalDarkRound), [76, 76, 74, 71, 64, 57]);
   });
 
-  test('the class numbers: off as rules.md, on as 2.4.1 item 7 (the Rogue unchanged)', () => {
+  test('the class numbers: off as rules.md, on as 2.4.1 item 7 (Barbed Arrow as 2.4.2 item 6, D157)', () => {
     const read = () => [C.SPELL.frost_lance.l, C.SPELL.frost_lance.p, C.SPELL.pyre_comet.lvl, C.SPELL.barbed_arrow.dot.l, C.SPELL.barbed_arrow.dot.p, C.SPELL.field_dressing.healPct];
     assert.deepEqual(read(), [1.54, 0.84, 38, 0.45, 0.18, 0.12]);
-    assert.deepEqual(gates({ oruvathLegacy: true }, read), [1.77, 0.97, 21, 0.495, 0.20, 0.18]);
+    assert.deepEqual(gates({ oruvathLegacy: true }, read), [1.77, 0.97, 21, 0.52, 0.21, 0.18]);
     assert.deepEqual(read(), [1.54, 0.84, 38, 0.45, 0.18, 0.12]);
     // the other fields of these spells and JSON copies keep their shape
     assert.equal(C.SPELL.barbed_arrow.dot.rounds, 4);

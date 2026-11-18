@@ -1184,6 +1184,12 @@ rows map's bands (simulator and Dev menu only).
   and Barbed Arrow on a boss (`kind` 'boss' or 'dboss') at any HP and never on a Dimming Shard, and the SPELL fields of
   `C.ORUVATH_SPELL` (Frost Lance l/p, Pyre Comet lvl 21, Barbed Arrow dot l/p, Field Dressing healPct) read the switch at
   each use (getters; off: rules.md's values). H is the hero's level at FIGHT_BOSS.
+- **Class numbers on the 1-25 scale** (D157, legacy.md 2.4.2, draft; same switch): `C.ORUVATH_SPELL` also holds Cinder
+  Storm lvl 21, Glacial Tomb lvl 43, Feign Stillness lvl 23, Heartseeker Shot lvl 43 and b / l / p / w -5 %, Barbed Arrow
+  dot l 0.52 / p 0.21 (2.4.1's 0.495 / 0.20 replaced) and Open Vein dot l 0.52 / p 0.115; `C.ORUVATH_TALENT` makes
+  `TALENT.h_a2.petDmgPct` (Ferocity) 0.10 a rank under the switch, the same getters. `C.BOSS_HP_LEVEL` reads 1.08 at H9 and
+  0.93 / 0.92 / 0.92 at H23-25 (read only under the switch). Learn levels reach the trainer, `spellInfo` and the free
+  training of a Legacy hero through `SPELL[id].lvl`, so the UI needs nothing new (shown as hero 9, 18, 10, 18).
 - **Guided first run** (legacy.md 5.1): zone 1 at band 1 (power levels 1-4), Gorrak at clamp(P + 1,
   `C.ONB_ELITE_LEVEL_MIN_HERO` 2, ONB_ELITE_LEVEL_MAX 8), the bounty's road XP is hero XP at zone 1's contract level.
 - **Checkpoint.** At every zone arrival and at the Camp the hero (level, XP, talents, spells, bar) is written into

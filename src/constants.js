@@ -1521,7 +1521,8 @@ export const BOSS_HP_LEVEL_STEP = 0.024;
  * at round min(FINAL_DARK_ROUND_MAX, BOSS_ENRAGE_ROUND + round(FINAL_DARK_LEVEL_STEP × (HERO_MAX_LEVEL - H))). Read only by
  * legacy.js oruvathScale.
  */
-export const BOSS_HP_LEVEL = [0.50, 0.53, 0.57, 0.61, 0.71, 0.84, 0.87, 0.90, 1.00, 1.12, 1.10, 1.07, 1.07, 1.07, 1.05, 1.03, 1.02, 1.01, 0.99, 0.96, 0.94, 0.94, 0.92, 0.89, 0.89];
+// D157 (legacy.md 2.4.2 item 2 and 9, draft): hero 9 1.00 -> 1.08; hero 23 / 24 / 25 0.92 / 0.89 / 0.89 -> 0.93 / 0.92 / 0.92
+export const BOSS_HP_LEVEL = [0.50, 0.53, 0.57, 0.61, 0.71, 0.84, 0.87, 0.90, 1.08, 1.12, 1.10, 1.07, 1.07, 1.07, 1.05, 1.03, 1.02, 1.01, 0.99, 0.96, 0.94, 0.94, 0.93, 0.92, 0.92];
 export const BOSS_DMG_LEVEL_BASE = 1.40;
 export const BOSS_DMG_LEVEL_STEP = 0.021;
 export const BOSS_DMG_LEVEL_MIN = 0.90;
@@ -1532,17 +1533,28 @@ export const SHARD_HP_RAMP_TO = 23;
 export const FINAL_DARK_LEVEL_STEP = 1.4;
 export const FINAL_DARK_ROUND_MAX = 76;
 /**
- * legacy.md 2.4.1 item 7 (D156, draft): the class numbers while GATES.oruvathLegacy is on, in every run. The SPELL fields
- * named here are getters that read the switch at each use (off: the values of rules.md). Frost Lance +15 %, Pyre Comet
- * learnable at power 21 (hero 9), Barbed Arrow's DoT +10 %, Field Dressing healPct 0.18. The Rogue is unchanged.
+ * legacy.md 2.4.1 item 7 (D156, draft) and 2.4.2 (D157, draft): the class numbers while GATES.oruvathLegacy is on, in
+ * every run. The SPELL fields named here are getters that read the switch at each use (off: the values of rules.md).
+ * 2.4.1: Frost Lance +15 %, Pyre Comet learnable at power 21 (hero 9), Field Dressing healPct 0.18. 2.4.2: Cinder Storm at
+ * power 21 (hero 9), Glacial Tomb at 43 (hero 18), Feign Stillness at 23 (hero 10), Heartseeker Shot at 43 (hero 18) and
+ * -5 %, Barbed Arrow's DoT l 0.52, p 0.21 (2.4.1 0.495, 0.20), Open Vein's DoT +15 %.
  */
 export const ORUVATH_SPELL = {
   frost_lance: { l: 1.77, p: 0.97 },
   pyre_comet: { lvl: 21 },
-  barbed_arrow: { dot: { l: 0.495, p: 0.20 } },
+  barbed_arrow: { dot: { l: 0.52, p: 0.21 } },
   field_dressing: { healPct: 0.18 },
+  cinder_storm: { lvl: 21 },
+  glacial_tomb: { lvl: 43 },
+  feign_stillness: { lvl: 23 },
+  heartseeker_shot: { lvl: 43, b: 13.3, l: 2.85, p: 1.235, w: 1.425 },
+  open_vein: { dot: { l: 0.52, p: 0.115 } },
 };
-(function gateOruvathSpells() {
+/** legacy.md 2.4.2 item 7 (D157, draft): the talent numbers while GATES.oruvathLegacy is on (getters as ORUVATH_SPELL). */
+export const ORUVATH_TALENT = {
+  h_a2: { petDmgPct: 0.10 },
+};
+(function gateOruvathNumbers() {
   const bind = (obj, now) => {
     for (const [k, v] of Object.entries(now)) {
       if (v && typeof v === 'object') { bind(obj[k], v); continue; }
@@ -1551,4 +1563,5 @@ export const ORUVATH_SPELL = {
     }
   };
   for (const [id, now] of Object.entries(ORUVATH_SPELL)) bind(SPELL[id], now);
+  for (const [id, now] of Object.entries(ORUVATH_TALENT)) bind(TALENT[id], now);
 }());
