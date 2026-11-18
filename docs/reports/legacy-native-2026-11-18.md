@@ -20,10 +20,13 @@ legacy.md 2.4.1).
 4. **A smaller, real rule difference** remains in bands 11-25: an in-run power level costs 12.2 / 14.2 / 15.7 level-equivalents
    on the native hero XP curve against a flat 10 on the scratch, so heroes gain fewer levels in a run (+4.4 to +5.0 against
    +6.0 to +6.5). It may account for the remaining 4 pp of reach in band 16-20 [inference: within about 2 standard errors].
-5. **Next:** do not move class numbers on these readings. First build the hero-XP model in the planner (legacy.md 5.8 item 3,
-   VAL_HERO_XP), so the planner values hero XP as the engine pays it. Then re-read B6 at 600 runs per class per band.
+5. **Hero-XP model built (update, same day; section "With the hero-XP model" below).** The planner now counts hero XP as the
+   engine pays it and values it at VAL_HERO_XP 40 per 100. Tables were re-warmed with it (sim/tables/legacy-hx/). On the
+   same fresh seeds, reach is 85 / 87 / 87 / 89 / 90 % and pooled win 3.3 / 23.7 / 39.4 / 41.2 / 50.8 %. The H25 rush is gone
+   (58 % at H25, 37-minute runs). **B6 passes in band 1-5 only**: the class spread is now a class question, with the Mage
+   high at 11-15 (47 %) and the Hunter high from 16 (46-63 %). Items 2-4 above describe the planner before this model.
 
-## Band table (native engine, native tables, fresh seeds)
+## Band table before the hero-XP model (native engine, native tables, fresh seeds)
 
 Seeds 6000-6119: 120 runs per class and hero level, **600 runs per class per band**, 9 000 runs. D118: expedition map with
 the start camp (`--map expedition --prep`), planner, profile `later` (two runs played, nothing bought), P0-group default trees,
@@ -123,6 +126,72 @@ Neither reading of XP is correct for Legacy. The scratch planner undervalued XP.
 the old 1-60 curve, against hero XP that it does not model (legacy.md 5.8 item 3). The planner needs a hero-XP model:
 level-equivalents at HERO_XP_UNIT, hero levels from HERO_XP, power from POWER_OF_LEVEL, and VAL_HERO_XP for the winner and
 the leveller. Without it, B6 and the win curve depend on how long the planner stays in a zone.
+
+## With the hero-XP model (VAL_HERO_XP, legacy.md 5.8 item 3)
+
+**The change (sim 7405c67):** in a Legacy run, sim/lib/model.mjs works in hero XP:
+- `makeCtx` carries the hero level (`m.H`) and reads `p.xp` as hero XP.
+- Kills, events, rests, the Swift passage and contracts pay HERO_XP_UNIT × level-equivalents / xpCurve(L), as progress.js
+  does, with no 1-60 cap. This removes the phantom levels.
+- `giveXp` levels the hero by HERO_XP and sets the power level from POWER_OF_LEVEL.
+- The XP term is `xpWorth`: the power position × VAL_XP (in-run levels, as before) plus the hero XP banked / 100 ×
+  SIM.VAL_HERO_XP.
+- SIM.VAL_HERO_XP_WIN 40 and VAL_HERO_XP_LEVEL 120 are the start values of legacy.md 10 [assumption]. The planner plays the
+  winner's 40, and at level 25 the same rate.
+- Runs outside Legacy keep the old expression to the bit (qa/sim 169 pass; 2 new tests in qa/sim/legacy.test.mjs).
+
+**Re-warm:** the model moved choices a lot on the earlier native tables. Elites a run fell 15-35 % (band 11-15: 3.02 to
+1.98) and dungeons rose 75 % in band 21-25, so the tables were re-warmed with it. The warm-up was the same as before (300 runs
+per class per band), saved as sim/tables/legacy-hx/ at 87c51e8. The earlier tables are kept.
+
+**Band table** (seeds 6000-6119, 600 runs per class per band, tables sim/tables/legacy-hx, D118 cells as above):
+
+| Band | Win: Rogue / Mage / Hunter (pooled) | 95 % interval per class | B6 spread | Reach | Died in zones | Zone deaths by kind (% of runs): quest / dungeon / elite / Dimmed / grind | Boss fights won R / M / H | Final Dark share of boss losses R / M / H | Minutes | Power level at Oruvath |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1-5 | 1.5 / 1.3 / 7.2 (3.3) | 1-3 / 1-3 / 5-10 | 5.8 pp, pass | 84.7 % | 15.3 % | 7.7 / 0.7 / 5.8 / 0.4 / 0.7 | 1.7 / 1.7 / 8.3 | 0 / 6 / 28 % | 37.7 | 14.5 |
+| 6-10 | 21.5 / 19.7 / 30.0 (23.7) | 18-25 / 17-23 / 26-34 | 10.3 pp, fail | 86.7 % | 13.3 % | 7.0 / 2.8 / 2.8 / 0.6 / 0.1 | 25.7 / 22.3 / 34.0 | 0 / 3 / 45 % | 43.0 | 25.5 |
+| 11-15 | 38.8 / 47.2 / 32.2 (39.4) | 35-43 / 43-51 / 29-36 | 15.0 pp, fail | 86.8 % | 13.2 % | 5.8 / 4.2 / 2.2 / 0.6 / 0.3 | 45.7 / 52.7 / 37.5 | 0 / 18 / 38 % | 40.0 | 35.5 |
+| 16-20 | 34.8 / 42.3 / 46.3 (41.2) | 31-39 / 38-46 / 42-50 | 11.5 pp, fail | 89.4 % | 10.6 % | 5.6 / 3.0 / 1.4 / 0.3 / 0.3 | 42.1 / 46.3 / 49.4 | 0 / 4 / 37 % | 38.2 | 47.0 |
+| 21-25 | 43.3 / 45.7 / 63.3 (50.8) | 39-47 / 42-50 / 59-67 | 20.0 pp, fail | 89.8 % | 10.2 % | 6.7 / 1.8 / 1.1 / 0.5 / 0.1 | 55.4 / 48.1 / 65.7 | 0 / 4 / 48 % | 36.5 | 57.5 |
+
+Dungeons / elites entered a run: 0.09 / 1.79, 1.47 / 2.55, 1.26 / 2.08, 1.20 / 1.42, 0.86 / 1.33.
+
+Win curve by start hero level (win %; reach % in the last row):
+
+| Hero level | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Pooled win % | 1 | 5 | 7 | 3 | 1 | 17 | 25 | 22 | 32 | 23 | 35 | 36 | 36 | 46 | 44 | 44 | 41 | 41 | 39 | 40 | 41 | 46 | 54 | 55 | 58 |
+| Rogue | 0 | 2 | 2 | 3 | 2 | 37 | 16 | 12 | 28 | 16 | 36 | 38 | 33 | 51 | 36 | 37 | 36 | 31 | 34 | 37 | 38 | 43 | 41 | 43 | 53 |
+| Mage | 1 | 3 | 3 | 0 | 0 | 0 | 21 | 19 | 33 | 25 | 36 | 36 | 42 | 58 | 64 | 53 | 35 | 42 | 41 | 42 | 43 | 43 | 52 | 47 | 45 |
+| Hunter | 2 | 10 | 17 | 5 | 3 | 13 | 39 | 35 | 35 | 28 | 33 | 33 | 33 | 28 | 33 | 44 | 52 | 52 | 43 | 41 | 43 | 53 | 69 | 77 | 74 |
+| Reach % | 60 | 78 | 91 | 95 | 99 | 93 | 89 | 87 | 87 | 78 | 90 | 89 | 87 | 86 | 83 | 89 | 91 | 89 | 90 | 88 | 92 | 89 | 90 | 89 | 88 |
+
+**Reading:**
+- **Reach** is back at the scratch build's 87-90 % in bands 6-25, and zone deaths fall to 10-13 %. With the model, the
+  planner takes fewer elites and stays out of the riskiest late-zone fights.
+- **The H25 rush is gone.** At H25: 58 % win and 36.5-minute runs, against 7 % and 20-minute runs before.
+- **The curve** rises 1-7 % at H1-5, 17-32 % at 6-10, 35-46 % at 11-15 and about 40 % at 16-21, then 46-58 % at 22-25. That
+  is above the 2.4.1 target (about 43 % at H22). Two drops sit at H6 and H10: H6 is the Mage at 0 % (Pyre Comet arrives at
+  hero 9) and H10 is a dip in reach (78 %) on the band's own table.
+- **B6 passes in band 1-5 only.** In bands 6-10, 11-15 and 16-20 it fails by 2-7 pp, and in band 21-25 by 12 pp. The pattern
+  is the Designer's from the scratch build, now on the native engine and planner:
+  - the Hunter leads in 6-10 (30 %);
+  - the Mage leads in 11-15 (47 %, H14-15 58-64 %);
+  - the Hunter leads from 16 (46-63 %, H23-25 69-77 %);
+  - the Rogue trails from 16 (35-43 %).
+  These are class numbers for the Designer (the Mage's Frost Lance / Pyre Comet at 11-15, the Hunter's late fight), now that
+  the planner no longer shifts the reading.
+- **Final Dark** still ends 0 % of the Rogue's boss losses, 3-18 % of the Mage's and 28-48 % of the Hunter's.
+
+Commands: `node sim/legacy-run.mjs warm --native --oruvath --band <lo-hi> --runs 30 --rounds 2 --resume --out <dir> --table
+sim/tables/legacy-hx/risk-H<lo>-<hi>.json`. Then `node sim/legacy-run.mjs grid --native --oruvath --levels 1-25 --tables
+sim/tables/legacy-hx --runs 120 --seed 6000 --resume --out <dir>`, and `node sim/legacyreport.mjs <dir> --levels --curve`.
+The run was stopped by a server restart during the warm-up and resumed with `--resume`. On the earlier native tables with the
+new model (same seeds, not re-warmed), the readings were: reach 79 / 84 / 83 / 86 / 87 %, pooled win 3.2 / 23.8 / 36.3 / 40.3 /
+49.7 %, B6 7.2 / 8.7 / 11.8 / 6.3 / 15.8 pp.
+
+Limits of this reading: VAL_HERO_XP 40 is the spec's start value, not calibrated. The leveller route (120) and the Camp waves
+are not built.
 
 ## Method
 
