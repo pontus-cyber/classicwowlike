@@ -9,7 +9,7 @@ import { buildProfile, profileLabel, FIXED_PROFILE_RUNS } from '../../sim/lib/pr
 import { cellName, GATE_TAG } from '../../sim/lib/output.mjs';
 import { runWithBot, setGates, cellProfile } from '../../sim/lib/runner.mjs';
 import { expExitLevel } from '../../sim/bots/planner.mjs';
-import { templateBar } from '../../sim/lib/policy.mjs';
+import { templateBar, legacyRules } from '../../sim/lib/policy.mjs';
 import { newRunFor } from '../../sim/lib/engine.mjs';
 
 after(() => setGates(null));
@@ -59,23 +59,44 @@ describe('Legacy hero cells (legacy.md 5.7-5.8)', () => {
   });
 });
 
-describe('D156 (legacy.md 2.4.1 item 6): the Hunter keeps Mend Companion on the Camp bar', () => {
-  test('off: the Camp bar as before; on (C.GATES.oruvathLegacy, tag or2): mend_companion on it; the road bar unchanged', () => {
-    assert.deepEqual([GATE_DEFAULTS.oruvathLegacy, GATE_TAG.oruvathLegacy], [false, 'or2']);
-    const s = newRunFor({ classId: 'hunter', petId: 'ridgewolf', seed: 3 });
-    R.stepInPlace(s, { type: 'START_RUN' });
-    s.player.level = 60;
-    for (const sp of Object.values(C.SPELL)) if (sp.cls === 'hunter' && sp.source === 'class') { s.player.spells[sp.id] = { tl: 60, rank: 1 }; if (!s.player.spellOrder.includes(sp.id)) s.player.spellOrder.push(sp.id); }
-    const off = templateBar(s, { camp: true });
-    const road = templateBar(s, { camp: false });
-    setGates({ ...Object.fromEntries(Object.entries(GATE_DEFAULTS).filter(([, on]) => on)), oruvathLegacy: true });
+describe('D156 (legacy.md 2.4.1 item 6): the Hunter keeps Mend Companion on the Camp bar; D158: in Legacy runs only', () => {
+  const DEF = Object.fromEntries(Object.entries(GATE_DEFAULTS).filter(([, on]) => on));
+  /** A Hunter at power 60 with every class spell trained; legacy: a Legacy run (made with C.GATES.legacy on). */
+  function hunter60(legacy) {
+    if (legacy) setGates({ ...DEF, legacy: true });
     try {
-      const on = templateBar(s, { camp: true });
-      assert.ok(on.includes('mend_companion'), on.join(','));
-      assert.equal(on.filter(Boolean).length, 7);
-      assert.deepEqual(templateBar(s, { camp: false }), road);
-      assert.ok(!off.includes('mend_companion'), `the Camp bar before D156 drops it at 60: ${off.join(',')}`);
+      const s = newRunFor({ classId: 'hunter', petId: 'ridgewolf', seed: 3, ...(legacy ? { profile: cellProfile({ bot: 'planner', cls: 'hunter', prof: 'later', hero: 25 }) } : {}) });
+      R.stepInPlace(s, { type: 'START_RUN' });
+      s.player.level = 60;
+      for (const sp of Object.values(C.SPELL)) if (sp.cls === 'hunter' && sp.source === 'class') { s.player.spells[sp.id] = { tl: 60, rank: 1 }; if (!s.player.spellOrder.includes(sp.id)) s.player.spellOrder.push(sp.id); }
+      return s;
     } finally { setGates(null); }
+  }
+  const barsWith = (s, set) => { setGates(set); try { return [templateBar(s, { camp: true }), templateBar(s, { camp: false })]; } finally { setGates(null); } };
+
+  test('a level-60 run: the Camp bar as before with oruvathLegacy on, alone or with legacy (D158); tag or2', () => {
+    assert.deepEqual([GATE_DEFAULTS.oruvathLegacy, GATE_TAG.oruvathLegacy], [false, 'or2']);
+    const s = hunter60(false);
+    assert.equal(s.legacy, undefined);
+    const off = barsWith(s, DEF);
+    assert.ok(!off[0].includes('mend_companion'), `the level-60 Camp bar drops it: ${off[0].join(',')}`);
+    assert.equal(legacyRules(s), false);
+    assert.deepEqual(barsWith(s, { ...DEF, oruvathLegacy: true }), off);
+    assert.deepEqual(barsWith(s, { ...DEF, legacy: true, oruvathLegacy: true }), off);
+  });
+
+  test('a Legacy run with both switches on: mend_companion on the Camp bar; the road bar unchanged; oruvathLegacy off: as before', () => {
+    const s = hunter60(true);
+    assert.equal(s.legacy, true);
+    const [campOff, road] = barsWith(s, { ...DEF, legacy: true });
+    assert.ok(!campOff.includes('mend_companion'), campOff.join(','));
+    const ON = { ...DEF, legacy: true, oruvathLegacy: true };
+    setGates(ON);
+    try { assert.equal(legacyRules(s), true); } finally { setGates(null); }
+    const [camp, road2] = barsWith(s, ON);
+    assert.ok(camp.includes('mend_companion'), camp.join(','));
+    assert.equal(camp.filter(Boolean).length, 7);
+    assert.deepEqual(road2, road);
   });
 });
 

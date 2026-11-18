@@ -1,5 +1,5 @@
 // Legacy class numbers on the 1-25 scale (D157; docs/specs/legacy.md 2.4.2 and 10, draft): on top of 2.4.1, behind
-// C.GATES.oruvathLegacy (off by default). One test per change of 2.4.2's table (items 1-9): the value off and on, and where
+// C.GATES.oruvathLegacy (off by default) with C.GATES.legacy (D158: Legacy runs only). One test per change of 2.4.2's table (items 1-9): the value off and on, and where
 // the change is a learn level, the hero level at which a Legacy hero (both switches on) has the spell trained.
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,7 +14,8 @@ function gates(set, fn) {
   Object.assign(C.GATES, set);
   try { return fn(); } finally { Object.assign(C.GATES, saved); }
 }
-const on = (fn) => gates({ oruvathLegacy: true }, fn);
+// D158: the numbers are Legacy-run numbers, so "on" is both switches (oruvathLegacy alone: rules.md's, qa/engine/s26)
+const on = (fn) => gates({ legacy: true, oruvathLegacy: true }, fn);
 const steps = (s, list) => { for (const a of list) s = R.step(s, a).state; return s; };
 function heroRun(classId, H, seed = 7) {
   const prof = R.debug.setHero(R.newProfile(), classId, { level: H, xp: 0 });

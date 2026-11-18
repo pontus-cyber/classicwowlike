@@ -34,14 +34,15 @@ import { canTravel, exitLevel, trainerSpells, learnCost, trainerUseful, availabl
 import { isExpedition, grindMaxWaves, nodeTime, zoneTime, dimmedAt, outwardStep, dimFightTime, bellHidden, leanFirst } from './expedition.js';
 import { takeContractError, buyPrepError, hubContractError, prepLeft } from './contracts.js';
 import { closedRoadsGoal } from './tutorial.js';
-import { isLegacy } from './legacy.js';
+import { isLegacy, oruvathRules } from './legacy.js';
 
 /**
  * Whether autoplay casts Living Flame or Barbed Arrow on e (rules 7.9): target HP at least autoTargetHp. D156 (legacy.md
- * 2.4.1 item 5; GATES.oruvathLegacy): on a boss (Oruvath or a dungeon boss) at any HP, never on a Dimming Shard.
+ * 2.4.1 item 5; GATES.oruvathLegacy): on a boss (Oruvath or a dungeon boss) at any HP, never on a Dimming Shard; D158: in
+ * a Legacy run with both switches on only (legacy.js oruvathRules), a level-60 run keeps rules 7.9.
  */
-function dotTarget(e, tgtHp, sp) {
-  if (GATES.oruvathLegacy) {
+function dotTarget(s, e, tgtHp, sp) {
+  if (oruvathRules(s)) {
     if (e.kind === 'boss' || e.kind === 'dboss') return true;
     if (e.kind === 'shard') return false;
   }
@@ -109,8 +110,8 @@ function autoTarget(s, id, foc) {
     case 'bloodprice_gambit': return ok(hpF > sp.autoHp && elite);
     case 'frost_lance': return ok(!hasSt(e.st, 'CHILLED'));
     case 'arcane_ward': return ok(!hasSt(f.p.st, 'WARD'));
-    case 'living_flame': return ok(dotTarget(e, tgtHp, sp) && !findSt(e.st, 'BURN', 'living_flame'));
-    case 'barbed_arrow': return ok(dotTarget(e, tgtHp, sp) && !findSt(e.st, 'BLEED', 'barbed_arrow'));
+    case 'living_flame': return ok(dotTarget(s, e, tgtHp, sp) && !findSt(e.st, 'BURN', 'living_flame'));
+    case 'barbed_arrow': return ok(dotTarget(s, e, tgtHp, sp) && !findSt(e.st, 'BLEED', 'barbed_arrow'));
     case 'hexbind': return n >= sp.autoEnemies ? ok(true, highestHpNonFocus(s, foc)) : undefined;
     case 'cinder_storm': case 'volley_rain': return ok(n >= sp.autoEnemies);
     case 'mana_siphon': return ok(p.mana < sp.autoMana * p.d.maxMana);

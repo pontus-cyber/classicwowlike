@@ -45,9 +45,9 @@ for t in tokens:
             drop_line('src/constants.js', rf'^  {sp}: \{{.*\}},\n')
         drop_line('src/constants.js', r'^  h_a2: \{ petDmgPct: 0\.10 \},\n')
     elif t == 'dot':
-        edit('src/engine/autoplay.js', "function dotTarget(e, tgtHp, sp) {\n  if (GATES.oruvathLegacy) {", "function dotTarget(e, tgtHp, sp) {\n  if (false) {")
+        edit('src/engine/autoplay.js', "function dotTarget(s, e, tgtHp, sp) {\n  if (oruvathRules(s)) {", "function dotTarget(s, e, tgtHp, sp) {\n  if (false) {")
     elif t == 'pet':
-        edit('sim/lib/policy.mjs', 'const campSteps = C.GATES.oruvathLegacy ?', 'const campSteps = false ?')
+        edit('sim/lib/policy.mjs', 'const campSteps = legacyRules(s) ?', 'const campSteps = false ?')
     elif t == 'prevent':
         edit('sim/lib/params.mjs', 'CAMP_BAR_PREVENT: true', 'CAMP_BAR_PREVENT: false')
     elif t == 'ferocity':

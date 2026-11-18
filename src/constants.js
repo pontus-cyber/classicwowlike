@@ -493,8 +493,10 @@ export const RARE_HP_MULT_Z1 = 3.0;
  * and profile is as before D154.
  * D156 (legacy.md 2.4.1, draft): oruvathLegacy. **Off** until the owner or Lead switches it on with legacy. On: in a Legacy
  * run Oruvath's fight follows 2.4.1 (BOSS_HP_LEVEL, dmgScale0 × bossDmgLevel, the Shards' HP ramp, Final Dark by hero
- * level; legacy.js oruvathScale); in every run autoplay casts Living Flame and Barbed Arrow on a boss at any HP and never on
- * a Dimming Shard (autoplay.js), and the class numbers ORUVATH_SPELL apply (the SPELL fields read the switch at each use).
+ * level; legacy.js oruvathScale); autoplay casts Living Flame and Barbed Arrow on a boss at any HP and never on a Dimming
+ * Shard (autoplay.js), and the class numbers ORUVATH_SPELL / ORUVATH_TALENT apply (the SPELL fields read the switches at
+ * each use). D158: all of it in Legacy runs only: with GATES.legacy off (every run a level-60 run) the switch changes
+ * nothing; the boss rules read the run's mark (state.legacy) as well.
  */
 export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true, rewardPrimary: true, zone2InnerCap: true, z1Dmg: true, firstRunLean: true, gorrakBounty: true, guidedHold: true, steadyDim: true, rescueDim: true, gorrakLevel: true, bountyRoad: true, legacy: false, oruvathLegacy: false };
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
@@ -1534,7 +1536,8 @@ export const FINAL_DARK_LEVEL_STEP = 1.4;
 export const FINAL_DARK_ROUND_MAX = 76;
 /**
  * legacy.md 2.4.1 item 7 (D156, draft) and 2.4.2 (D157, draft): the class numbers while GATES.oruvathLegacy is on, in
- * every run. The SPELL fields named here are getters that read the switch at each use (off: the values of rules.md).
+ * Legacy runs only (D158: GATES.legacy on as well; a level-60 run keeps rules.md's numbers). The SPELL fields named here
+ * are getters that read both switches at each use (either off: the values of rules.md).
  * 2.4.1: Frost Lance +15 %, Pyre Comet learnable at power 21 (hero 9), Field Dressing healPct 0.18. 2.4.2: Cinder Storm at
  * power 21 (hero 9), Glacial Tomb at 43 (hero 18), Feign Stillness at 23 (hero 10), Heartseeker Shot at 43 (hero 18) and
  * -5 %, Barbed Arrow's DoT l 0.52, p 0.21 (2.4.1 0.495, 0.20), Open Vein's DoT +15 %.
@@ -1550,7 +1553,7 @@ export const ORUVATH_SPELL = {
   heartseeker_shot: { lvl: 43, b: 13.3, l: 2.85, p: 1.235, w: 1.425 },
   open_vein: { dot: { l: 0.52, p: 0.115 } },
 };
-/** legacy.md 2.4.2 item 7 (D157, draft): the talent numbers while GATES.oruvathLegacy is on (getters as ORUVATH_SPELL). */
+/** legacy.md 2.4.2 item 7 (D157, draft): the talent numbers while GATES.oruvathLegacy and GATES.legacy are on (D158; getters as ORUVATH_SPELL). */
 export const ORUVATH_TALENT = {
   h_a2: { petDmgPct: 0.10 },
 };
@@ -1559,7 +1562,8 @@ export const ORUVATH_TALENT = {
     for (const [k, v] of Object.entries(now)) {
       if (v && typeof v === 'object') { bind(obj[k], v); continue; }
       const was = obj[k];
-      Object.defineProperty(obj, k, { get: () => (GATES.oruvathLegacy ? v : was), enumerable: true, configurable: true });
+      // D158: Legacy runs only, so both switches (GATES.legacy makes every new run a Legacy run); a level-60 run never reads them
+      Object.defineProperty(obj, k, { get: () => (GATES.legacy && GATES.oruvathLegacy ? v : was), enumerable: true, configurable: true });
     }
   };
   for (const [id, now] of Object.entries(ORUVATH_SPELL)) bind(SPELL[id], now);

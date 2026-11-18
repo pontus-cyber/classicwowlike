@@ -1190,6 +1190,12 @@ rows map's bands (simulator and Dev menu only).
   `TALENT.h_a2.petDmgPct` (Ferocity) 0.10 a rank under the switch, the same getters. `C.BOSS_HP_LEVEL` reads 1.08 at H9 and
   0.93 / 0.92 / 0.92 at H23-25 (read only under the switch). Learn levels reach the trainer, `spellInfo` and the free
   training of a Legacy hero through `SPELL[id].lvl`, so the UI needs nothing new (shown as hero 9, 18, 10, 18).
+- **Legacy runs only** (D158): everything of the two items above applies only while `C.GATES.legacy` and
+  `C.GATES.oruvathLegacy` are both on; a level-60 run never sees it. The `ORUVATH_SPELL` / `ORUVATH_TALENT` getters read
+  both switches (with `GATES.legacy` on every new run is a Legacy run); the boss rules (oruvathScale's 2.4.1 numbers,
+  autoplay's boss DoT rule) read the run's mark as well (legacy.js `oruvathRules(state)`: `state.legacy` and both
+  switches). With `GATES.legacy` off, `oruvathLegacy` changes nothing (level-60 cells: on equals off run for run). The
+  simulator's Hunter Camp pet step and its Camp bar valuation follow the same rule (sim/lib/policy.mjs `legacyRules`).
 - **Guided first run** (legacy.md 5.1): zone 1 at band 1 (power levels 1-4), Gorrak at clamp(P + 1,
   `C.ONB_ELITE_LEVEL_MIN_HERO` 2, ONB_ELITE_LEVEL_MAX 8), the bounty's road XP is hero XP at zone 1's contract level.
 - **Checkpoint.** At every zone arrival and at the Camp the hero (level, XP, talents, spells, bar) is written into

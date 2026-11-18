@@ -47,10 +47,13 @@ describe('legacy.md 2.4.1 and 10: the constants (draft); GATES.oruvathLegacy off
     assert.deepEqual([1, 11, 13, 15, 20, 25].map(finalDarkRound), [76, 76, 74, 71, 64, 57]);
   });
 
-  test('the class numbers: off as rules.md, on as 2.4.1 item 7 (Barbed Arrow as 2.4.2 item 6, D157)', () => {
+  test('the class numbers: off as rules.md, on (both switches, D158) as 2.4.1 item 7 (Barbed Arrow as 2.4.2 item 6, D157)', () => {
     const read = () => [C.SPELL.frost_lance.l, C.SPELL.frost_lance.p, C.SPELL.pyre_comet.lvl, C.SPELL.barbed_arrow.dot.l, C.SPELL.barbed_arrow.dot.p, C.SPELL.field_dressing.healPct];
     assert.deepEqual(read(), [1.54, 0.84, 38, 0.45, 0.18, 0.12]);
-    assert.deepEqual(gates({ oruvathLegacy: true }, read), [1.77, 0.97, 21, 0.52, 0.21, 0.18]);
+    // D158: Legacy runs only, so both switches; oruvathLegacy alone (every run a level-60 run) keeps rules.md's numbers
+    assert.deepEqual(both(read), [1.77, 0.97, 21, 0.52, 0.21, 0.18]);
+    assert.deepEqual(gates({ oruvathLegacy: true }, read), [1.54, 0.84, 38, 0.45, 0.18, 0.12]);
+    assert.deepEqual(gates({ legacy: true }, read), [1.54, 0.84, 38, 0.45, 0.18, 0.12]);
     assert.deepEqual(read(), [1.54, 0.84, 38, 0.45, 0.18, 0.12]);
     // the other fields of these spells and JSON copies keep their shape
     assert.equal(C.SPELL.barbed_arrow.dot.rounds, 4);
@@ -121,21 +124,44 @@ describe('legacy.md 2.4.1: Oruvath and the Shards by hero level (GATES.legacy an
 });
 
 describe('legacy.md 2.4.1 item 5: the autoplay DoT rule (rules 7.9)', () => {
-  /** A boss fight in phase 2 with a Shard at full HP; Oruvath at `bossHp` of his HP. */
-  function fight(classId, bossHp) {
-    const s = R.debug.toBoss(R.debug.build({ content: CONTENT, classId, zone: 7 }).state, { phase: 2 }).state;
+  /**
+   * A boss fight in phase 2 with a Shard at full HP; Oruvath at `bossHp` of his HP. legacy: a Legacy hero's run at hero
+   * 25 (both switches on while it is made), else a level-60 run (debug.build, switches as the engine's defaults).
+   */
+  function fight(classId, bossHp, legacy = true) {
+    const base = legacy ? both(() => heroRun(classId, 25, 51)) : R.debug.build({ content: CONTENT, classId, zone: 7 }).state;
+    const s = (legacy ? both : (f) => f())(() => R.debug.toBoss(base, { phase: 2 }).state);
     return tweak(s, (x) => { const b = x.fight.enemies[0]; b.hp = Math.floor(b.maxHp * bossHp); });
   }
   const shardIdx = (s) => s.fight.enemies.findIndex((e) => e.kind === 'shard' && e.alive);
 
   for (const [cls, id] of [['mage', 'living_flame'], ['hunter', 'barbed_arrow']]) {
-    test(`${id}: off, a boss under autoTargetHp is skipped and a fresh Shard taken; on, the boss at any HP, never a Shard`, () => {
+    test(`${id}: a level-60 run keeps rules 7.9 with every switch on (D158): a boss under autoTargetHp skipped, a fresh Shard taken`, () => {
+      const s = fight(cls, 0.3, false);
+      const sh = shardIdx(s);
+      assert.ok(sh > 0);
+      for (const set of [{}, { oruvathLegacy: true }, { legacy: true, oruvathLegacy: true }]) {
+        gates(set, () => {
+          assert.equal(autoTarget(s, id, 0), undefined, JSON.stringify(set));
+          assert.equal(autoTarget(s, id, sh), sh, JSON.stringify(set));
+        });
+      }
+    });
+
+    test(`${id}: a Legacy run, either switch off: rules 7.9; both on: the boss at any HP, never a Shard`, () => {
       const s = fight(cls, 0.3);
       const sh = shardIdx(s);
       assert.ok(sh > 0);
+      assert.equal(s.legacy, true);
       assert.equal(autoTarget(s, id, 0), undefined);
       assert.equal(autoTarget(s, id, sh), sh);
-      gates({ oruvathLegacy: true }, () => {
+      for (const set of [{ oruvathLegacy: true }, { legacy: true }]) {
+        gates(set, () => {
+          assert.equal(autoTarget(s, id, 0), undefined, JSON.stringify(set));
+          assert.equal(autoTarget(s, id, sh), sh, JSON.stringify(set));
+        });
+      }
+      both(() => {
         assert.equal(autoTarget(s, id, 0), 0);
         assert.equal(autoTarget(s, id, sh), undefined);
         // an ordinary enemy keeps today's condition

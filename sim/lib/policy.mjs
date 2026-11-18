@@ -131,8 +131,13 @@ export function preventedRounds(s, id) {
   return r;
 }
 
-/** The new Camp valuation is on (C.GATES.oruvathLegacy and SIM.CAMP_BAR_PREVENT): Legacy Camp bars only. */
-export const campPrevents = (camp) => !!(camp && C.GATES && C.GATES.oruvathLegacy && SIM.CAMP_BAR_PREVENT);
+/**
+ * D158: the D156 / D157 sim rules apply to this run: a Legacy run (state.legacy) with C.GATES.legacy and
+ * C.GATES.oruvathLegacy on (the engine's legacy.js oruvathRules); never a level-60 run.
+ */
+export const legacyRules = (s) => !!(s && s.legacy && C.GATES && C.GATES.legacy && C.GATES.oruvathLegacy);
+/** The new Camp valuation is on (legacyRules and SIM.CAMP_BAR_PREVENT): Legacy Camp bars only. */
+export const campPrevents = (camp, s) => !!(camp && legacyRules(s) && SIM.CAMP_BAR_PREVENT);
 
 /**
  * Camp template value (campPrevents): (expected damage + damage prevented) × the usage share. Expected damage is
@@ -159,7 +164,7 @@ export function templateBar(s, { camp = false, exclude = null } = {}) {
   const p = s.player;
   const known = p.spellOrder.filter((id) => p.spells[id] && !(exclude && exclude.has(id)));
   const sit = camp ? SITUATIONAL_BOSS : SITUATIONAL;
-  const stable = campPrevents(camp);
+  const stable = campPrevents(camp, s);
   const val = new Map(known.map((id) => [id, stable ? campSpellValue(s, id) : spellValue(s, id, camp)]));
   const byVal = (a, b) => val.get(b) - val.get(a) || known.indexOf(a) - known.indexOf(b);
   const pick = [];
@@ -167,8 +172,8 @@ export function templateBar(s, { camp = false, exclude = null } = {}) {
   const best = (f) => known.filter((id) => !pick.includes(id) && f(id)).sort(byVal)[0] || null;
   const main = MAIN_SPELL[p.classId];
   // D156 (legacy.md 2.4.1 item 6; GATES.oruvathLegacy): at the Camp the Hunter keeps Mend Companion (a pet step after the
-  // defensive step), as a player who fights Oruvath with a pet does
-  const campSteps = C.GATES.oruvathLegacy ? ['interrupt', 'cleanse', 'main', 'second', 'defensive', 'pet', 'aoe'] : ['interrupt', 'cleanse', 'main', 'second', 'defensive', 'aoe'];
+  // defensive step), as a player who fights Oruvath with a pet does; D158: in Legacy runs only (legacyRules)
+  const campSteps = legacyRules(s) ? ['interrupt', 'cleanse', 'main', 'second', 'defensive', 'pet', 'aoe'] : ['interrupt', 'cleanse', 'main', 'second', 'defensive', 'aoe'];
   const steps = camp ? campSteps : ['interrupt', 'main', 'second', 'defensive', 'cleanse', 'aoe'];
   for (const st of steps) {
     if (st === 'interrupt') take(best((id) => hasTag(id, 'interrupt')));

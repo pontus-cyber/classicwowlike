@@ -19,6 +19,13 @@ import { rnd, deepClone, clamp } from './util.js';
 
 /** A Legacy run (legacy.md; GATES.legacy when newRun made the state). */
 export const isLegacy = (s) => !!(s && s.legacy);
+/**
+ * D158: the D156 / D157 numbers (legacy.md 2.4.1-2.4.2, draft) are on: GATES.legacy and GATES.oruvathLegacy both on. The
+ * class numbers (constants.js ORUVATH_SPELL, ORUVATH_TALENT getters) read the same two switches.
+ */
+export const legacyNumbersOn = () => !!(GATES.legacy && GATES.oruvathLegacy);
+/** D158: the 2.4.1 boss rules apply to this run: a Legacy run (state.legacy) with both switches on; never a level-60 run. */
+export const oruvathRules = (s) => isLegacy(s) && legacyNumbersOn();
 
 // ---------------- Levels (legacy.md 1.2-1.4) ----------------
 /** Hero level H clamped to 1..HERO_MAX_LEVEL. */
@@ -157,14 +164,15 @@ export const zoneTierDmg = (s, z) => (isLegacy(s) ? ZONE_TIER_DMG[clamp(z, 1, ZO
  * + ENEMY_HP_PER_LEVEL × M) / (the same at BOSS_REF_LEVEL), the normal enemy curve, and dmgScale(M) the same ratio for a
  * normal enemy's damage with zone danger. `danger` is the zone danger function (combat.js zoneDanger), passed in so this
  * module imports no other engine module. P and H: the hero's power and hero level when the fight starts. null outside a
- * Legacy run (the fight as tuned at BOSS_LEVEL). Under GATES.oruvathLegacy (D156) the numbers of 2.4.1: oruvathScale241.
+ * Legacy run (the fight as tuned at BOSS_LEVEL). Under GATES.oruvathLegacy (D156; D158: oruvathRules, GATES.legacy on as
+ * well) the numbers of 2.4.1: oruvathScale241.
  */
 export function oruvathScale(s, danger) {
   if (!isLegacy(s)) return null;
   const p = s.player;
   const LB = Math.min(CL_MAX, p.level + BOSS_TIER);
   const hpAt = (M) => ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL * M;
-  if (GATES.oruvathLegacy) return oruvathScale241(p, LB, hpAt);
+  if (oruvathRules(s)) return oruvathScale241(p, LB, hpAt);
   const dmgAt = (M) => (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL * M) * danger(M, 'normal');
   const hpLevel = Math.min(1, BOSS_HP_LEVEL_BASE + BOSS_HP_LEVEL_STEP * p.heroLevel);
   return { level: LB, hp: (hpAt(LB) / hpAt(BOSS_REF_LEVEL)) * hpLevel, dmg: dmgAt(LB) / dmgAt(BOSS_REF_LEVEL), armor: LB / BOSS_REF_LEVEL, shardLevel: LB - 2 };
