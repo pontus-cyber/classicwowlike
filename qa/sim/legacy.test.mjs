@@ -9,6 +9,8 @@ import { buildProfile, profileLabel, FIXED_PROFILE_RUNS } from '../../sim/lib/pr
 import { cellName, GATE_TAG } from '../../sim/lib/output.mjs';
 import { runWithBot, setGates, cellProfile } from '../../sim/lib/runner.mjs';
 import { expExitLevel } from '../../sim/bots/planner.mjs';
+import { templateBar } from '../../sim/lib/policy.mjs';
+import { newRunFor } from '../../sim/lib/engine.mjs';
 
 after(() => setGates(null));
 const LEG = { ...Object.fromEntries(Object.entries(GATE_DEFAULTS).filter(([, on]) => on)), legacy: true };
@@ -54,5 +56,25 @@ describe('Legacy hero cells (legacy.md 5.7-5.8)', () => {
     assert.equal(C.GATES.legacy, false);
     assert.equal(plain.state.legacy, undefined);
     assert.equal(plain.state.profile.v, 1);
+  });
+});
+
+describe('D156 (legacy.md 2.4.1 item 6): the Hunter keeps Mend Companion on the Camp bar', () => {
+  test('off: the Camp bar as before; on (C.GATES.oruvathLegacy, tag or2): mend_companion on it; the road bar unchanged', () => {
+    assert.deepEqual([GATE_DEFAULTS.oruvathLegacy, GATE_TAG.oruvathLegacy], [false, 'or2']);
+    const s = newRunFor({ classId: 'hunter', petId: 'ridgewolf', seed: 3 });
+    R.stepInPlace(s, { type: 'START_RUN' });
+    s.player.level = 60;
+    for (const sp of Object.values(C.SPELL)) if (sp.cls === 'hunter' && sp.source === 'class') { s.player.spells[sp.id] = { tl: 60, rank: 1 }; if (!s.player.spellOrder.includes(sp.id)) s.player.spellOrder.push(sp.id); }
+    const off = templateBar(s, { camp: true });
+    const road = templateBar(s, { camp: false });
+    setGates({ ...Object.fromEntries(Object.entries(GATE_DEFAULTS).filter(([, on]) => on)), oruvathLegacy: true });
+    try {
+      const on = templateBar(s, { camp: true });
+      assert.ok(on.includes('mend_companion'), on.join(','));
+      assert.equal(on.filter(Boolean).length, 7);
+      assert.deepEqual(templateBar(s, { camp: false }), road);
+      assert.ok(!off.includes('mend_companion'), `the Camp bar before D156 drops it at 60: ${off.join(',')}`);
+    } finally { setGates(null); }
   });
 });

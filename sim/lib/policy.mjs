@@ -124,7 +124,10 @@ export function templateBar(s, { camp = false, exclude = null } = {}) {
   const take = (id) => { if (id && !pick.includes(id) && pick.length < C.SPELL_BAR_SLOTS) pick.push(id); };
   const best = (f) => known.filter((id) => !pick.includes(id) && f(id)).sort(byVal)[0] || null;
   const main = MAIN_SPELL[p.classId];
-  const steps = camp ? ['interrupt', 'cleanse', 'main', 'second', 'defensive', 'aoe'] : ['interrupt', 'main', 'second', 'defensive', 'cleanse', 'aoe'];
+  // D156 (legacy.md 2.4.1 item 6; GATES.oruvathLegacy): at the Camp the Hunter keeps Mend Companion (a pet step after the
+  // defensive step), as a player who fights Oruvath with a pet does
+  const campSteps = C.GATES.oruvathLegacy ? ['interrupt', 'cleanse', 'main', 'second', 'defensive', 'pet', 'aoe'] : ['interrupt', 'cleanse', 'main', 'second', 'defensive', 'aoe'];
+  const steps = camp ? campSteps : ['interrupt', 'main', 'second', 'defensive', 'cleanse', 'aoe'];
   for (const st of steps) {
     if (st === 'interrupt') take(best((id) => hasTag(id, 'interrupt')));
     else if (st === 'main') take(known.includes(main) ? main : null);
@@ -133,6 +136,7 @@ export function templateBar(s, { camp = false, exclude = null } = {}) {
     else if (st === 'defensive') take(best((id) => (hasTag(id, 'defensive') || hasTag(id, 'heal')) && !hasTag(id, 'cleanse')) || best((id) => hasTag(id, 'defensive') || hasTag(id, 'heal')));
     else if (st === 'cleanse') take(best((id) => hasTag(id, 'cleanse')));
     else if (st === 'aoe') take(best((id) => hasTag(id, 'aoe')));
+    else if (st === 'pet') take(known.includes('mend_companion') ? 'mend_companion' : null);
   }
   for (const id of known.filter((x) => !pick.includes(x)).sort(byVal)) take(id);
   const cond = pick.filter((id) => !ALWAYS_CAST.has(id));

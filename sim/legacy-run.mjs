@@ -18,6 +18,7 @@
 //   --native (Legacy phase 1 engine, D154; in place of --scratch): each cell plays the repository's engine with
 //           C.GATES.legacy on (sim/run.mjs --hero H): the hero's level, XP curve, zones, Oruvath and kit as built (no --leg
 //           arms). The scratch patch targets the engine before the switch (5d3571a) and does not apply to it.
+//           --oruvath (with --native; D156, legacy.md 2.4.1): C.GATES.oruvathLegacy on as well.
 //   --levels takes a range (1-25) or a list (1,10,20).
 // Every cell: expedition map with the start camp (D118: --map expedition --prep), planner, --warmup 0.
 import { spawnSync } from 'node:child_process';
@@ -45,7 +46,7 @@ const WARMUP_SEED_BASE = 9000000;
 function parse(argv) {
   const o = { _: [] };
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--native') o.native = true; // the one flag without a value
+    if (argv[i] === '--native' || argv[i] === '--oruvath') o[argv[i].slice(2)] = true; // the flags without a value
     else if (argv[i].startsWith('--')) o[argv[i].slice(2)] = argv[++i];
     else o._.push(argv[i]);
   }
@@ -57,13 +58,14 @@ const range = (s) => {
   return Array.from({ length: (b ?? a) - a + 1 }, (_, i) => a + i);
 };
 
-function cell({ scratch, native, h, leg, out, runs, seed, riskIn, classes, workers, profile, tree, bot }) {
+function cell({ scratch, native, oruvath, h, leg, out, runs, seed, riskIn, classes, workers, profile, tree, bot }) {
   const LEG = JSON.stringify({ ...T2, ...leg, P: powerOf(h) });
   const args = ['sim/run.mjs', '--bot', bot || 'planner', '--class', classes, '--runs', String(runs), '--seed-start', String(seed),
     '--warmup', '0', '--workers', String(workers), '--profile', profile, '--map', 'expedition', '--prep', '--out', resolve(out)];
   if (riskIn) args.push('--risk-in', resolve(riskIn));
   if (tree !== undefined) args.push('--tree', String(tree));
   if (native) args.push('--hero', String(h));
+  if (native && oruvath) args.push('--oruvath');
   const env = { ...process.env };
   if (native) delete env.LEG; else env.LEG = LEG;
   const r = spawnSync('node', args, { cwd: native ? ROOT : scratch, env, encoding: 'utf8', maxBuffer: 1 << 26 });
@@ -79,8 +81,9 @@ const cmd = a._[0];
 const scratch = a.scratch ? resolve(a.scratch) : null;
 const leg = a.leg ? JSON.parse(a.leg) : {};
 const native = a.native === true;
+if (a.oruvath && !native) throw new Error('--oruvath needs --native');
 if (native && a.leg) throw new Error('--native plays the engine as built: no --leg arms');
-const common = { classes: a.classes || 'all', workers: Number(a.workers || 2), profile: a.profile || 'later', leg, scratch, native, tree: a.tree, bot: a.bot };
+const common = { classes: a.classes || 'all', workers: Number(a.workers || 2), profile: a.profile || 'later', leg, scratch, native, oruvath: a.oruvath === true, tree: a.tree, bot: a.bot };
 
 if (cmd === 'build') {
   if (!scratch || !scratch.includes('/scratch')) throw new Error('--scratch must name a path with /scratch');

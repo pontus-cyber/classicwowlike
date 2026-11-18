@@ -19,9 +19,12 @@ export function deathStage(d) {
   return 'early';
 }
 
-/** Boss loss phase (B23): 1, 2, 3, or 'enrage' (died at or after BOSS_ENRAGE_ROUND, Final Dark active). */
+/**
+ * Boss loss phase (B23): 1, 2, 3, or 'enrage' (died at or after BOSS_ENRAGE_ROUND, Final Dark active; D156: at or after the
+ * run's own Final Dark round, boss.fdr, when the recorder wrote one).
+ */
 export function bossLossPhase(r, enrageRound) {
-  if (r.death && r.death.round >= enrageRound) return 'enrage';
+  if (r.death && r.death.round >= ((r.boss && r.boss.fdr) || enrageRound)) return 'enrage';
   return String(r.bp);
 }
 

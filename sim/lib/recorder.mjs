@@ -115,6 +115,8 @@ export class Recorder {
     const p = s.player;
     if (!p) return null;
     const fz = this.fight;
+    // D156 (legacy.md 2.4.1 item 4): the boss fight's Final Dark round when it is not BOSS_ENRAGE_ROUND (boss.fdr; B23's phase)
+    if (this.boss && this.boss.fdr === undefined && s.fight && s.fight.boss && s.fight.boss.scale && s.fight.boss.scale.finalDark) this.boss.fdr = s.fight.boss.scale.finalDark;
     if (fz && s.fight && a) {
       const tgt = actionTarget(a);
       if (s.fight.round === 1 && !fz.acted && isEngageRound(s)) {

@@ -44,6 +44,7 @@
 //            D154 (legacy.md 5.7, phase 1): --hero H (1-25: a hero cell, a Legacy run of the class's hero at hero level H on
 //            the version 3 profile; C.GATES.legacy on with the engine's other defaults, or with --gates' list; cell marks
 //            'leg' and 'h<H>'); --profile later (two runs played, nothing bought: the Legacy cells' profile)
+//            D156 (legacy.md 2.4.1): --oruvath with --hero also switches C.GATES.oruvathLegacy on (cell mark 'or2')
 //   campaigns: --map expedition --prep also apply (B31 / B32 on the expedition with the start camp)
 //   campaigns: node sim/run.mjs --campaign N --class <c|all> --out <dir> [--risk-in <risk.json>]
 //
@@ -70,7 +71,7 @@ function parse(argv) {
     const a = argv[i];
     if (!a.startsWith('--')) throw new Error(`unexpected argument ${a}`);
     const k = a.slice(2);
-    if (k === 'log' || k === 'replay' || k === 'pairs' || k === 'think' || k === 'think-mash' || k === 'oracle' || k === 'route' || k === 'prep' || k === 'beastcall-gated' || k === 'ricochet-gated' || k === 'guided') { o[k] = true; continue; }
+    if (k === 'log' || k === 'replay' || k === 'pairs' || k === 'think' || k === 'think-mash' || k === 'oracle' || k === 'route' || k === 'prep' || k === 'beastcall-gated' || k === 'ricochet-gated' || k === 'guided' || k === 'oruvath') { o[k] = true; continue; }
     o[k] = argv[++i];
   }
   return o;
@@ -137,7 +138,12 @@ if (hero !== null) {
   if (!C.GATES || !('legacy' in C.GATES)) throw new Error('--hero needs an engine with C.GATES.legacy (D154)');
   if (args.campaign) throw new Error('--hero is a batch cell option, not a campaign one');
   gates = { ...(gates || Object.fromEntries(Object.entries(GATE_DEFAULTS).filter(([, on]) => on))), legacy: true };
-}
+  // D156 (legacy.md 2.4.1): --oruvath adds C.GATES.oruvathLegacy to the hero cell (cell mark 'or2')
+  if (args.oruvath) {
+    if (!('oruvathLegacy' in C.GATES)) throw new Error('--oruvath needs an engine with C.GATES.oruvathLegacy (D156)');
+    gates.oruvathLegacy = true;
+  }
+} else if (args.oruvath) throw new Error('--oruvath is a --hero cell option (or name oruvathLegacy in --gates)');
 const pool = new Pool(workers);
 try {
   if (args.campaign) {
