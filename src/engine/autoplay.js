@@ -36,6 +36,18 @@ import { takeContractError, buyPrepError, hubContractError, prepLeft } from './c
 import { closedRoadsGoal } from './tutorial.js';
 import { isLegacy } from './legacy.js';
 
+/**
+ * Whether autoplay casts Living Flame or Barbed Arrow on e (rules 7.9): target HP at least autoTargetHp. D156 (legacy.md
+ * 2.4.1 item 5; GATES.oruvathLegacy): on a boss (Oruvath or a dungeon boss) at any HP, never on a Dimming Shard.
+ */
+function dotTarget(e, tgtHp, sp) {
+  if (GATES.oruvathLegacy) {
+    if (e.kind === 'boss' || e.kind === 'dboss') return true;
+    if (e.kind === 'shard') return false;
+  }
+  return tgtHp >= sp.autoTargetHp;
+}
+
 const legal = (s, a) => !checkAction(s, a);
 
 // ---------------- Combat policy (rules 7.9) ----------------
@@ -97,8 +109,8 @@ function autoTarget(s, id, foc) {
     case 'bloodprice_gambit': return ok(hpF > sp.autoHp && elite);
     case 'frost_lance': return ok(!hasSt(e.st, 'CHILLED'));
     case 'arcane_ward': return ok(!hasSt(f.p.st, 'WARD'));
-    case 'living_flame': return ok(tgtHp >= sp.autoTargetHp && !findSt(e.st, 'BURN', 'living_flame'));
-    case 'barbed_arrow': return ok(tgtHp >= sp.autoTargetHp && !findSt(e.st, 'BLEED', 'barbed_arrow'));
+    case 'living_flame': return ok(dotTarget(e, tgtHp, sp) && !findSt(e.st, 'BURN', 'living_flame'));
+    case 'barbed_arrow': return ok(dotTarget(e, tgtHp, sp) && !findSt(e.st, 'BLEED', 'barbed_arrow'));
     case 'hexbind': return n >= sp.autoEnemies ? ok(true, highestHpNonFocus(s, foc)) : undefined;
     case 'cinder_storm': case 'volley_rain': return ok(n >= sp.autoEnemies);
     case 'mana_siphon': return ok(p.mana < sp.autoMana * p.d.maxMana);

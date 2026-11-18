@@ -11,6 +11,9 @@ import {
   ILVL_MAX, ILVL_MAX_HERO, CAMP_TIER, BOSS_TIER, BOSS_REF_LEVEL, BOSS_HP_LEVEL_BASE, BOSS_HP_LEVEL_STEP, ENEMY_HP_BASE,
   ENEMY_HP_PER_LEVEL, ENEMY_DMG_BASE, ENEMY_DMG_PER_LEVEL, ZONE_COUNT, ZONE_LEVELS, CONTRACT_CL_OFFSET,
   CONTRACT_CL_OFFSET_HERO, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MIN_HERO, META, CLASS, TALENT,
+  BOSS_HP_LEVEL, BOSS_DMG_LEVEL_BASE, BOSS_DMG_LEVEL_STEP, BOSS_DMG_LEVEL_MIN, BOSS_DMG_LEVEL_MAX, SHARD_HP_LEVEL_LOW,
+  SHARD_HP_RAMP_FROM, SHARD_HP_RAMP_TO, FINAL_DARK_LEVEL_STEP, FINAL_DARK_ROUND_MAX, BOSS_ENRAGE_ROUND, ZONE_DANGER_STEP,
+  ZONE_DANGER_FROM,
 } from '../constants.js';
 import { rnd, deepClone, clamp } from './util.js';
 
@@ -154,16 +157,48 @@ export const zoneTierDmg = (s, z) => (isLegacy(s) ? ZONE_TIER_DMG[clamp(z, 1, ZO
  * + ENEMY_HP_PER_LEVEL × M) / (the same at BOSS_REF_LEVEL), the normal enemy curve, and dmgScale(M) the same ratio for a
  * normal enemy's damage with zone danger. `danger` is the zone danger function (combat.js zoneDanger), passed in so this
  * module imports no other engine module. P and H: the hero's power and hero level when the fight starts. null outside a
- * Legacy run (the fight as tuned at BOSS_LEVEL).
+ * Legacy run (the fight as tuned at BOSS_LEVEL). Under GATES.oruvathLegacy (D156) the numbers of 2.4.1: oruvathScale241.
  */
 export function oruvathScale(s, danger) {
   if (!isLegacy(s)) return null;
   const p = s.player;
   const LB = Math.min(CL_MAX, p.level + BOSS_TIER);
   const hpAt = (M) => ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL * M;
+  if (GATES.oruvathLegacy) return oruvathScale241(p, LB, hpAt);
   const dmgAt = (M) => (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL * M) * danger(M, 'normal');
   const hpLevel = Math.min(1, BOSS_HP_LEVEL_BASE + BOSS_HP_LEVEL_STEP * p.heroLevel);
   return { level: LB, hp: (hpAt(LB) / hpAt(BOSS_REF_LEVEL)) * hpLevel, dmg: dmgAt(LB) / dmgAt(BOSS_REF_LEVEL), armor: LB / BOSS_REF_LEVEL, shardLevel: LB - 2 };
+}
+
+/** legacy.md 2.4.1 item 3: × the Shards' HP by hero level (SHARD_HP_LEVEL_LOW to RAMP_FROM, linear to 1 at RAMP_TO). */
+export function shardHpLevel(H) {
+  const h = heroClamp(H);
+  if (h <= SHARD_HP_RAMP_FROM) return SHARD_HP_LEVEL_LOW;
+  return Math.min(1, SHARD_HP_LEVEL_LOW + ((1 - SHARD_HP_LEVEL_LOW) * (h - SHARD_HP_RAMP_FROM)) / (SHARD_HP_RAMP_TO - SHARD_HP_RAMP_FROM));
+}
+/** legacy.md 2.4.1 item 2: × every damage of Oruvath's fight by hero level, BASE - STEP × H between MIN and MAX. */
+export const bossDmgLevel = (H) => Math.max(BOSS_DMG_LEVEL_MIN, Math.min(BOSS_DMG_LEVEL_MAX, BOSS_DMG_LEVEL_BASE - BOSS_DMG_LEVEL_STEP * heroClamp(H)));
+/** legacy.md 2.4.1 item 4: Final Dark's round by hero level, BOSS_ENRAGE_ROUND + round(STEP × (25 - H)), at most ROUND_MAX. */
+export const finalDarkRound = (H) => Math.min(FINAL_DARK_ROUND_MAX, BOSS_ENRAGE_ROUND + rnd(FINAL_DARK_LEVEL_STEP * (HERO_MAX_LEVEL - heroClamp(H))));
+/** legacy.md 2.4.1 item 2: the normal enemy damage curve with zone danger, without the early factors (smooth in level). */
+const dmg0At = (M) => (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL * M) * (1 + (ZONE_DANGER_STEP * Math.max(0, M - ZONE_DANGER_FROM)) / 10);
+
+/**
+ * oruvathScale under GATES.oruvathLegacy (legacy.md 2.4.1, D156, draft): hp hpScale(LB) × BOSS_HP_LEVEL[H - 1], dmg
+ * dmgScale0(LB) × bossDmgLevel(H), armor and shardLevel as 2.4, plus shardHp (× the Shards' HP after the HP scale) and
+ * finalDark (Final Dark's round; boss.js reads it from the fight).
+ */
+function oruvathScale241(p, LB, hpAt) {
+  const H = heroClamp(p.heroLevel);
+  return {
+    level: LB,
+    hp: (hpAt(LB) / hpAt(BOSS_REF_LEVEL)) * BOSS_HP_LEVEL[H - 1],
+    dmg: (dmg0At(LB) / dmg0At(BOSS_REF_LEVEL)) * bossDmgLevel(H),
+    armor: LB / BOSS_REF_LEVEL,
+    shardLevel: LB - 2,
+    shardHp: shardHpLevel(H),
+    finalDark: finalDarkRound(H),
+  };
 }
 
 // ---------------- Views (legacy.md 1.1-1.4; engine-api.md 15) ----------------

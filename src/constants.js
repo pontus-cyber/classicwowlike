@@ -491,8 +491,12 @@ export const RARE_HP_MULT_Z1 = 3.0;
  * *_HERO ring, dungeon and contract offsets, ZONE_TIER_DMG, CL_MAX, ILVL_MAX_HERO), the Camp at CAMP_TIER and Oruvath at
  * BOSS_TIER with his HP factor (legacy.js oruvathScale), and pays LEGACY_PER_LEVEL a hero level gained. Off, every run
  * and profile is as before D154.
+ * D156 (legacy.md 2.4.1, draft): oruvathLegacy. **Off** until the owner or Lead switches it on with legacy. On: in a Legacy
+ * run Oruvath's fight follows 2.4.1 (BOSS_HP_LEVEL, dmgScale0 × bossDmgLevel, the Shards' HP ramp, Final Dark by hero
+ * level; legacy.js oruvathScale); in every run autoplay casts Living Flame and Barbed Arrow on a boss at any HP and never on
+ * a Dimming Shard (autoplay.js), and the class numbers ORUVATH_SPELL apply (the SPELL fields read the switch at each use).
  */
-export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true, rewardPrimary: true, zone2InnerCap: true, z1Dmg: true, firstRunLean: true, gorrakBounty: true, guidedHold: true, steadyDim: true, rescueDim: true, gorrakLevel: true, bountyRoad: true, legacy: false };
+export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true, rewardPrimary: true, zone2InnerCap: true, z1Dmg: true, firstRunLean: true, gorrakBounty: true, guidedHold: true, steadyDim: true, rescueDim: true, gorrakLevel: true, bountyRoad: true, legacy: false, oruvathLegacy: false };
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
 // with mapMode 'expedition'; a run on today's map (mapMode 'rows', the default) never reads them.
 /** rules 1.9.2: nodes per ring (ring 0 = the hub). */
@@ -1507,3 +1511,44 @@ export const BOSS_TIER = 5;
 export const BOSS_REF_LEVEL = 62;
 export const BOSS_HP_LEVEL_BASE = 0.40;
 export const BOSS_HP_LEVEL_STEP = 0.024;
+
+/**
+ * Oruvath on the 1-25 scale (legacy.md 2.4.1 and 10, D156, draft; GATES.oruvathLegacy, in a Legacy run). H: the hero's
+ * level at FIGHT_BOSS. His and the Shards' HP × hpScale(LB) × BOSS_HP_LEVEL[H - 1] (replaces min(1, BOSS_HP_LEVEL_BASE +
+ * BOSS_HP_LEVEL_STEP × H)); every damage of the fight × dmgScale0(LB) (the normal enemy curve with zone danger, without the
+ * early factors) × max(BOSS_DMG_LEVEL_MIN, min(BOSS_DMG_LEVEL_MAX, BOSS_DMG_LEVEL_BASE - BOSS_DMG_LEVEL_STEP × H)); the
+ * Shards' HP further × SHARD_HP_LEVEL_LOW up to hero level SHARD_HP_RAMP_FROM, linear to 1 at SHARD_HP_RAMP_TO; Final Dark
+ * at round min(FINAL_DARK_ROUND_MAX, BOSS_ENRAGE_ROUND + round(FINAL_DARK_LEVEL_STEP × (HERO_MAX_LEVEL - H))). Read only by
+ * legacy.js oruvathScale.
+ */
+export const BOSS_HP_LEVEL = [0.50, 0.53, 0.57, 0.61, 0.71, 0.84, 0.87, 0.90, 1.00, 1.12, 1.10, 1.07, 1.07, 1.07, 1.05, 1.03, 1.02, 1.01, 0.99, 0.96, 0.94, 0.94, 0.92, 0.89, 0.89];
+export const BOSS_DMG_LEVEL_BASE = 1.40;
+export const BOSS_DMG_LEVEL_STEP = 0.021;
+export const BOSS_DMG_LEVEL_MIN = 0.90;
+export const BOSS_DMG_LEVEL_MAX = 1.20;
+export const SHARD_HP_LEVEL_LOW = 0.5;
+export const SHARD_HP_RAMP_FROM = 17;
+export const SHARD_HP_RAMP_TO = 23;
+export const FINAL_DARK_LEVEL_STEP = 1.4;
+export const FINAL_DARK_ROUND_MAX = 76;
+/**
+ * legacy.md 2.4.1 item 7 (D156, draft): the class numbers while GATES.oruvathLegacy is on, in every run. The SPELL fields
+ * named here are getters that read the switch at each use (off: the values of rules.md). Frost Lance +15 %, Pyre Comet
+ * learnable at power 21 (hero 9), Barbed Arrow's DoT +10 %, Field Dressing healPct 0.18. The Rogue is unchanged.
+ */
+export const ORUVATH_SPELL = {
+  frost_lance: { l: 1.77, p: 0.97 },
+  pyre_comet: { lvl: 21 },
+  barbed_arrow: { dot: { l: 0.495, p: 0.20 } },
+  field_dressing: { healPct: 0.18 },
+};
+(function gateOruvathSpells() {
+  const bind = (obj, now) => {
+    for (const [k, v] of Object.entries(now)) {
+      if (v && typeof v === 'object') { bind(obj[k], v); continue; }
+      const was = obj[k];
+      Object.defineProperty(obj, k, { get: () => (GATES.oruvathLegacy ? v : was), enumerable: true, configurable: true });
+    }
+  };
+  for (const [id, now] of Object.entries(ORUVATH_SPELL)) bind(SPELL[id], now);
+}());

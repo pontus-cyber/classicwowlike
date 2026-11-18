@@ -35,9 +35,13 @@ export function makeBoss(asc, scale = null) {
   };
 }
 
-/** A Dimming Shard (rules 10.2); scale (Legacy): its level is scale.shardLevel, its HP × scale.hp, its armour that level's. */
+/**
+ * A Dimming Shard (rules 10.2); scale (Legacy): its level is scale.shardLevel, its HP × scale.hp (and × scale.shardHp under
+ * D156), its armour that level's.
+ */
 function makeShard(idx, asc, turn0, scale = null) {
-  const hp = rnd(SHARD_HP * (1 + asc) * (scale ? scale.hp : 1));
+  // D156 (legacy.md 2.4.1 item 3): × scale.shardHp after the HP scale
+  const hp = rnd(SHARD_HP * (1 + asc) * (scale ? scale.hp * (scale.shardHp || 1) : 1));
   const level = scale ? scale.shardLevel : EA.SHARD_LEVEL;
   return {
     idx, tid: 'shard', name: BOSS_TEXT.shard, kind: 'shard', arch: null, level, hp, maxHp: hp,
@@ -115,16 +119,23 @@ function est(s, base, school, tgt) {
 }
 
 /**
- * The boss's actions in round r under `phase` (rules 10.2): Litany channel step `step` (1, 2 or null), Starless
- * Pulse from round `nextPulse` every PULSE_EVERY rounds. No draws, no state change.
+ * Final Dark's round in fight f (rules 10.2): BOSS_ENRAGE_ROUND; under D156 (legacy.md 2.4.1 item 4) the round by hero level
+ * that oruvathScale put in the fight's boss.scale.finalDark.
  */
-function scheduleAt(r, phase, step, nextPulse) {
+export const enrageRound = (f) => (f && f.boss && f.boss.scale && f.boss.scale.finalDark) || BOSS_ENRAGE_ROUND;
+
+/**
+ * The boss's actions in round r under `phase` (rules 10.2): Litany channel step `step` (1, 2 or null), Starless
+ * Pulse from round `nextPulse` every PULSE_EVERY rounds, Final Dark from round `enrage` (enrageRound). No draws, no state
+ * change.
+ */
+function scheduleAt(r, phase, step, nextPulse, enrage = BOSS_ENRAGE_ROUND) {
   const acts = [];
   if (step === null) acts.push({ id: 'umbral_strike', name: BOSS_TEXT.strike, kind: 'hit', school: 'phys', base: BOSS_MELEE });
   if (phase <= 2 && r % BOSS_CRUSH_EVERY === 0) acts.push({ id: 'gravity_crush', name: BOSS_TEXT.crush, kind: 'hit', school: 'phys', base: BOSS_CRUSH, heavy: true });
   if (step !== null) acts.push({ id: 'collapse_litany', name: `${BOSS_TEXT.litany} ${step}/2${step === 2 ? ' - resolves' : ''}`, kind: 'litany', step, cast: true, school: 'magic', base: BOSS_LITANY_DMG });
   if (phase === 3 && nextPulse !== null && r >= nextPulse && (r - nextPulse) % PULSE_EVERY === 0) acts.push({ id: 'starless_pulse', name: BOSS_TEXT.pulse, kind: 'pulse', school: 'magic', base: PULSE_DMG });
-  if (r >= BOSS_ENRAGE_ROUND) acts.push({ id: 'final_dark', name: BOSS_TEXT.finalDark, kind: 'final', school: 'magic', base: FINAL_DARK_DMG });
+  if (r >= enrage) acts.push({ id: 'final_dark', name: BOSS_TEXT.finalDark, kind: 'final', school: 'magic', base: FINAL_DARK_DMG });
   return acts;
 }
 
@@ -164,7 +175,7 @@ export function bossIntent(s, e) {
   const tgt = tauntNow(s) ? 'pet' : head && head.aggro === 'pet' && petAlive(s) ? 'pet' : 'player';
   const step = b.resume ? b.resume : isLitanyRound(r) ? 1 : null;
   const pulseNow = b.phase === 3 && r === b.nextPulse;
-  const actions = withEst(s, scheduleAt(r, b.phase, step, pulseNow ? r : null), tgt);
+  const actions = withEst(s, scheduleAt(r, b.phase, step, pulseNow ? r : null, enrageRound(f)), tgt);
   if (pulseNow) b.nextPulse += PULSE_EVERY;
   const brandIn = (BRAND_EVERY - (r % BRAND_EVERY)) % BRAND_EVERY;
   // A Shards wave comes at the start of round nextShard only if fewer than SHARD_MAX are alive (summonShards);
@@ -181,7 +192,7 @@ export function bossIntent(s, e) {
       shardsInRounds: b.phase === 2 && shardsAlive < SHARD_MAX ? b.nextShard - r : null,
       // 0 on the Pulse round itself ("this round", like Litany and Brand), else rounds to the next Pulse.
       pulseInRounds: b.phase === 3 ? (pulseNow ? 0 : b.nextPulse - r) : null,
-      enrageInRounds: Math.max(0, BOSS_ENRAGE_ROUND - r),
+      enrageInRounds: Math.max(0, enrageRound(f) - r),
       phase: b.phase,
     },
   };
@@ -214,7 +225,7 @@ export function bossTrackView(s, e) {
     if (k === 0) acts = it.actions.map((a) => ({ ...a }));
     else {
       step = step === 1 ? 2 : isLitanyRound(x.turn) ? 1 : null;
-      acts = withEst(s, scheduleAt(x.turn, b.phase, step, b.nextPulse), tgt);
+      acts = withEst(s, scheduleAt(x.turn, b.phase, step, b.nextPulse, enrageRound(f)), tgt);
     }
     x.target = k === 0 ? it.target : tgt;
     x.cancel = null; // D52: the end boss is immune to control (rules 10.1)
@@ -227,7 +238,7 @@ export function bossTrackView(s, e) {
     x.ifPhase = k > 0 && b.phase < 3 ? b.phase + 1 : null;
     x.alt = null;
     if (x.ifPhase) {
-      const alt = withEst(s, scheduleAt(x.turn, x.ifPhase, step, x.ifPhase === 3 ? f.round + PULSE_EVERY : b.nextPulse), tgt);
+      const alt = withEst(s, scheduleAt(x.turn, x.ifPhase, step, x.ifPhase === 3 ? f.round + PULSE_EVERY : b.nextPulse, enrageRound(f)), tgt);
       if (alt.map((a) => a.id).join() !== acts.map((a) => a.id).join()) x.alt = alt;
     }
   }
