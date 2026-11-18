@@ -90,4 +90,5 @@ game.html at 91f9290 (tuning v6 engine, UX pass, the Furnace). Sent to the owner
 | 49 | 2026-11-17 20:50-23:50 | Designer reworks the Oruvath fight for the 1-25 scale (Legacy phase 1 blocker) | Designer (Opus/max) | running |
 | 50 | 2026-11-17 23:50 - 2026-11-18 02:50 | Engine started Legacy phase 1; a server restart stopped the engine and designer agents | Engineer, Designer (Opus/max) | about 0.4M |
 | 51 | 2026-11-18 02:50-05:50 | Designer Oruvath rework (55d767f) accepted as D156; engine Legacy phase 1 (314dc55, 1f97517) and D156 (789a1b7, b7c7f17) built behind switches, off by default; 915 tests; native B6 passes 2 of 5 bands | Engineer, Designer (Opus/max) | about 1.1M |
-| 52 | 2026-11-18 05:50-08:50 | Sim re-warms band tables on the native engine and re-reads B6 at 600 runs per band | Sim (Opus/high) | running |
+| 52 | 2026-11-18 05:50-08:50 | Native band tables (6db8710), report legacy-native (4a59d17): B6 passes 1 of 5 bands, 1-15 miss by under 1 pp; reach gap traced to the planner's banked-XP reading; VAL_HERO_XP started, stopped by a server restart | Sim (Opus/high) | about 0.4M |
+| 53 | 2026-11-18 08:50-11:50 | Sim resumed: planner hero-XP model (VAL_HERO_XP) and B6 re-read at 600 runs per band | Sim (Opus/high) | running |
