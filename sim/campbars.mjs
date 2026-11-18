@@ -18,13 +18,15 @@ function parse(argv) {
   return o;
 }
 
-/** The Camp bars of a class's hero at hero level H: { raw, prevent, values } (values: campSpellValue of every known spell). */
-export function campBars(cls, H, { rarity = 'rare', seed = 1 } = {}) {
+/** The Camp bars of a class's hero at hero level H: { raw, prevent, values } (values: campSpellValue of every known spell); extra: spells added. */
+export function campBars(cls, H, { rarity = 'rare', seed = 1, extra = [] } = {}) {
   setGates({ ...Object.fromEntries(Object.entries(GATE_DEFAULTS).filter(([, on]) => on)), legacy: true, oruvathLegacy: true });
   try {
     const profile = cellProfile({ bot: 'planner', cls, prof: 'later', hero: H });
     const level = R.legacyPowerOf ? R.legacyPowerOf(H) : C.POWER_OF_LEVEL[H - 1];
     let s = R.debug.build({ content: CONTENT, classId: cls, petId: cls === 'hunter' ? SIM.DEFAULT_PET : null, seed, profile, zone: C.ZONE_COUNT + 1, level, rarity, talents: 'unspent' }).state;
+    // extra: spells learned on top of the hero's (qa: 2.4.1's layout, Glacial Tomb before hero 18)
+    for (const id of extra) if (!s.player.spells[id]) { s.player.spells[id] = { tl: s.player.level, rank: 1 }; s.player.spellOrder.push(id); }
     for (let t = standardTalent(s, SIM.DEFAULT_TREE[cls]); t && R.talentPointsFree(s) > 0; t = standardTalent(s, SIM.DEFAULT_TREE[cls])) s = R.step(s, { type: 'SPEND_TALENT', talentId: t }).state;
     const was = SIM.CAMP_BAR_PREVENT;
     SIM.CAMP_BAR_PREVENT = false;

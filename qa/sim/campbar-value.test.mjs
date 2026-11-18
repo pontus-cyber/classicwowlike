@@ -23,11 +23,15 @@ function withSpell(id, fields, f) {
   } finally { for (const [k, d] of Object.entries(was)) Object.defineProperty(sp, k, d); }
 }
 
-/** The Mage's hero at hero 14 at the Camp (as sim/campbars.mjs), with the switches on for the body of f. */
+/**
+ * The Mage's hero at hero 14 at the Camp (as sim/campbars.mjs) with Glacial Tomb learned as well: 2.4.1's layout, where
+ * Frost Lance and Living Flame compete for the last slot (2.4.2 moved Glacial Tomb to hero 18, so both fit to 17).
+ */
+const M14 = { extra: ['glacial_tomb'] };
 function mage14(f) {
   setGates(ON);
   try {
-    const b = campBars('mage', 14);
+    const b = campBars('mage', 14, M14);
     assert.ok(b.prevent.includes('frost_lance'));
     return f(b);
   } finally { setGates(null); }
@@ -64,11 +68,11 @@ describe('Camp bar value: damage plus damage prevented (handoff sim-2026-11-18c)
     assert.ok(Math.abs(preventedRounds(s, 'temple_blow') - 3 * SIM.CAMP_CC_SHARE) < 1e-9);
   });
 
-  test('Frost Lance at 2.4.1\'s +10 % (the threshold of Verdict 6): off the raw Camp bar at hero 14, kept on the new one', () => {
+  test('Frost Lance at 2.4.1\'s +10 % (the threshold of Verdict 6), one slot for it or Living Flame: off the raw Camp bar at hero 14, kept on the new one', () => {
     mage14(() => {
       // +10 % over rules.md (1.54 / 0.84) in place of the switch's +15 %
       withSpell('frost_lance', { l: 1.694, p: 0.924 }, () => {
-        const b = campBars('mage', 14);
+        const b = campBars('mage', 14, M14);
         assert.ok(!b.raw.includes('frost_lance'), `raw: ${b.raw.join(',')}`);
         assert.ok(b.raw.includes('living_flame'));
         assert.ok(b.prevent.includes('frost_lance'), `prevent: ${b.prevent.join(',')}`);
@@ -83,7 +87,7 @@ describe('Camp bar value: damage plus damage prevented (handoff sim-2026-11-18c)
       for (const r of [1.04, 0.96]) {
         const k = (r * b0.values.frost_lance) / b0.values.living_flame;
         withSpell('living_flame', { dot: { ...lf, b: lf.b * k, l: lf.l * k, p: lf.p * k } }, () => {
-          const b = campBars('mage', 14);
+          const b = campBars('mage', 14, M14);
           assert.ok(Math.abs(b.values.living_flame / b.values.frost_lance - r) < 0.01, JSON.stringify(b.values));
           assert.ok(b.prevent.includes('frost_lance') && !b.prevent.includes('living_flame'), `${r}: ${b.prevent.join(',')}`);
         });
@@ -91,7 +95,7 @@ describe('Camp bar value: damage plus damage prevented (handoff sim-2026-11-18c)
       // well past the band (+20 %) the better spell takes it
       const k = (1.2 * b0.values.frost_lance) / b0.values.living_flame;
       withSpell('living_flame', { dot: { ...lf, b: lf.b * k, l: lf.l * k, p: lf.p * k } }, () => {
-        const b = campBars('mage', 14);
+        const b = campBars('mage', 14, M14);
         assert.ok(b.prevent.includes('living_flame'), b.prevent.join(','));
       });
     });
