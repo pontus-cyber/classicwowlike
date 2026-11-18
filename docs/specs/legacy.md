@@ -130,6 +130,7 @@ The kit exists because gear is about half of a high-level hero's stats: a level-
 | 19 | Final Reckoning | - | - |
 | 20 | - | Starlance Barrage | Heartseeker Shot |
 
+- **(designer, 2026-11-18, draft, 2.4.1):** Pyre Comet moves to hero level 9 (power 21), with the Rogue's Whirling Edges.
 - **Rank** is the hero level a spell was trained at ("Rank 12"); the engine's trained level tl is that level's power level (rules 5.2).
 - At the start camp every spell the level allows is learned and trained to the hero's level, free [draft line: "The Bellwrights' trainers have you ready."]. In a run, a level-up opens new spells and ranks at any trainer (hub, node, the Camp) for gold as today (TRAIN_NEW_V, TRAIN_RANK_V × V(power level)); what is trained is kept. Trainer's Ledger is retired (4.6).
 - The hero gets a new spell about every one or two levels up to level 20: the classic trainer rhythm. These learn levels are also the first lever for class balance on the new scale (6.6 reading 3): the Mage's and the Hunter's strongest spells come at 15-20, the Rogue's kit early.
@@ -176,6 +177,57 @@ The hero's own level-ups in a run (one and a half to two and a half, 1.4) help o
   Phases, schedule, Ascendancy, BOSS_DMG_MULT and the enrage are unchanged. BOSS_REF_LEVEL is today's BOSS_LEVEL (62).
 - Why the HP factor: with the enemy curve alone Oruvath was unwinnable below level 10 and for the Mage and the Hunter until 20; their fights ran into Final Dark in phase 2, the Shards outlasting a kit that gets its big spells late (arm R: 0 % at levels 2 and 5; at 10 Rogue 59 %, Mage 0 %, Hunter 0 %; 6.3). The factor gives a young hero a short fight he can learn; at level 25 it is today's fight.
 - There is no level gate. A first run wins about 1 in 75 (1.3 %, measured) [stated: "the first runs very hard"].
+- **(designer, 2026-11-18)** The HP factor `bossHpLevel(H)` and the damage scale `dmgScale(LB)` above are replaced by the change of 2.4.1 (draft).
+
+### 2.4.1 Oruvath on the 1-25 scale (change, Lead Game Designer 2026-11-18, **draft**)
+Status: **draft**, not approved by the owner; replaces the Oruvath scaling of 2.4 when the owner or the Lead accepts it. Measured in docs/reports/legacy-oruvath-2026-11-18.md (full runs, the band risk tables of sim/tables/legacy/, 300 runs per class per band, seeds 3000-3059, `--map expedition --prep`, D118). Every number is in section 10 (rows marked "2.4.1").
+
+**Problem** [source: docs/reports/legacy-calibration-2026-11-17.md]. Below about hero level 16 Oruvath's fight on the 2.4 scaling is a race against Final Dark at round 57, decided by whether a class has a Shard answer: the Rogue's Whirling Edges carries Venomcraft's Toxic Coating to every Shard (boss win 6 → 97 % in one level), the Mage's Pyre Comet comes at 16, the Hunter never gets one. Learn levels alone could not fix bands 1-10. This pass found three more causes [measured, report section 2]:
+1. In a race the win rate jumps from 0 to 100 % over a 40 % change of Oruvath's HP; so any class difference of 10-20 % becomes a 50-90 pp gap, and any spell that adds 20 % flips a class.
+2. Oruvath's damage scale took zone danger's early factors (EARLY_DMG_MULT, Z1_DMG_MULT; rules 7.6), which drop his damage 20 % at boss level 11 and raise it 37 % at level 21: a hole in the win curve at hero level 5.
+3. Two causes outside the fight's numbers: autoplay casts Living Flame and Barbed Arrow on fresh Shards (they die before the DoT pays) and never on Oruvath under 60 % HP (phase 3); and the sim's Camp bar (balance.md 1.2) drops the Hunter's Mend Companion from hero 12, so the pet dies in phase 2. With both fixed the Hunter's mid-level collapse disappears on the bench (boss win at hero levels 9-15: 15-55 % → 85-100 %).
+
+**The rule.** The fight becomes a survival fight at every level (losses are deaths, as at level 60), its Shards stop being an AoE wall, and its numbers follow the hero level in one table, so that no level step and no single spell flips it. H is the hero's level at FIGHT_BOSS (in a run it is 2-3 levels above the level the run started at); LB = P(H) + BOSS_TIER as in 2.4.
+1. **HP.** Oruvath's HP and the Shards' base HP × `hpScale(LB) × BOSS_HP_LEVEL[H]` (table in section 10: 0.50 at H1, 0.71 at H5, 1.00 at H9, 1.12 at H10, 1.02 at H17, 0.89 at H24-25). Replaces `bossHpLevel(H)`. The table is the measured hero power on the 1-25 scale: it rises fastest at H5-10, where a hero in a band 6-10 run clears about one dungeon and four elites (sim/tables/legacy, risk-H06-10), and falls slowly after H17.
+2. **Damage.** Every damage of the fight (his attacks, the Shards, the Brand) × `dmgScale0(LB) × bossDmgLevel(H)`, with `dmgScale0(M) = ((ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL × M) × (1 + ZONE_DANGER_STEP × max(0, M - ZONE_DANGER_FROM) / 10)) / (the same at BOSS_REF_LEVEL)` (the normal enemy curve with zone danger but without the early factors: smooth in level) and `bossDmgLevel(H) = max(BOSS_DMG_LEVEL_MIN, min(BOSS_DMG_LEVEL_MAX, BOSS_DMG_LEVEL_BASE - BOSS_DMG_LEVEL_STEP × H))` (1.40 - 0.021 H between 0.90 and 1.20: 1.20 up to H9, 1.19 at H10, 1.08 at H15, 0.98 at H20, 0.90 from H24). A young hero meets an Oruvath whose hits threaten his life, so the fight is lost by dying, not by the clock; the cap keeps the fragile Mage alive at H1-9 (at 1.38 it won 2-5 % there against 10-13 % for the Hunter).
+3. **The Shards scale with the hero.** The Shards' HP is further × `shardHpLevel(H)`: SHARD_HP_LEVEL_LOW (0.5) up to hero level SHARD_HP_RAMP_FROM (17), then rising linearly to 1 at SHARD_HP_RAMP_TO (23). At half HP a single-target hero clears a wave in about two to four actions and an AoE hero in one or two, so a Shard answer helps but no longer decides the fight; from H23, when every class has its AoE, they are today's Shards. Count, schedule, Linked and the AoE bonus are unchanged (measured: Linked 0.15 → 0.05 per Shard moved no class more than 3 pp).
+4. **Final Dark comes later for a younger hero:** at round `min(FINAL_DARK_ROUND_MAX, BOSS_ENRAGE_ROUND + round(FINAL_DARK_LEVEL_STEP × (HERO_MAX_LEVEL - H)))` (57 + 1.4 per level under 25, at most 76: 76 up to H11, 74 at H13, 71 at H15, 64 at H20, 57 at H25). The enrage still ends a fight that is not being won; a slow kit no longer loses a fight it is surviving. The intent track and the enrage counter show the round as today.
+5. **Autoplay DoTs (rules 7.9, when 2.4.1 is folded in):** Living Flame and Barbed Arrow are cast on a boss (Oruvath or a dungeon boss) at any HP and never on a Dimming Shard; on other enemies the condition is today's (target HP at least `autoTargetHp`).
+6. **The sim's Camp bar (balance.md 1.2, when folded in):** at the Camp the Hunter's bar keeps Mend Companion (a pet step after the defensive step), as a player who fights Oruvath with a pet does.
+7. **Class numbers** (content, constants.js SPELL; the Rogue unchanged):
+
+| Spell | Today | Change | Why (measured) |
+|---|---|---|---|
+| Frost Lance (Mage) | l 1.54, p 0.84 | l **1.77**, p **0.97** (+15 %) | the Rimecraft Mage's main nuke until Pyre Comet; the Mage was the weakest class at hero levels 4-15 in every fight arm (+10 %: 23 % in band 11-15, +20 %: 53 %) |
+| Pyre Comet (Mage) | learn power 38 (hero 16) | power **21 (hero 9)** | the Mage's burst arrives with the Rogue's and Hunter's AoE instead of six levels later; at hero 16 it flipped the Mage's boss win 5 → 60 % |
+| Barbed Arrow (Hunter) | DoT l 0.45, p 0.18 | l **0.495**, p **0.20** (+10 %) | the Hunter's armour-free damage against Oruvath (his armour takes a third of every physical hit) |
+| Field Dressing (Hunter) | healPct 0.12 | **0.18** | the Hunter's phase 3 sustain; it lost 50-86 % of its boss fights to Final Dark, healing instead of shooting |
+
+The Rogue's Shard answer stays Whirling Edges at hero 9 with Toxic Coating: with half-HP Shards the step at hero 9 is gone (bench: Rogue boss win at hero 5 → 6 in a survival fight, 0.95 → 1.32 in the HP it can take, against 0.82 → 1.66 today). Tried and rejected: Toxic Coating no longer applied through Whirling Edges (full runs: the Rogue fell to 0-5 % from hero 15, since its late power is that spread); Whirling Edges at power 26 or 38 (moves the step, the sim's F1/F3); Smoke Veil 0.45 → 0.30 and Toxic Coating × 0.8 (each cost the Rogue 8-18 pp in every band, also where it was balanced).
+
+**What the engineer builds.** One switch `C.GATES.oruvathLegacy` (default off until the owner or Lead accepts): the HP table, `dmgScale0` and `bossDmgLevel`, `shardHpLevel` applied in makeShard after the HP scale, the Final Dark round by H in `scheduleAt` and the enrage counter (boss.js reads it from the fight, not from BOSS_ENRAGE_ROUND), the autoplay DoT rule (autoplay.js `autoTarget`, cases living_flame and barbed_arrow), and the four SPELL values. The sim adds the Hunter's pet step to `templateBar` (sim/lib/policy.mjs). Scratch reference: sim/legacy-patch.py fields `bhp`, `bdmg`, `bsmooth`, `shp`, `fd`, `dotfix`, `barfix`, `learn`, `spell` (report 2026-11-18, the arm's JSON).
+
+**Measured** (full runs on fresh seeds 5000-5059, 60 runs per class and hero level, **300 per class per band**; planner, band risk tables, `later` profile; report docs/reports/legacy-oruvath-2026-11-18.md):
+
+| Band (hero level at the run's start) | Win: Rogue / Mage / Hunter (pooled) | B6: spread, each within 5 pp of the mean | Before: 2.4 scaling (calibration report, 200 per class) |
+|---|---|---|---|
+| 1-5 | 2.0 / 2.3 / 8.0 (4.1) | 6.0 pp, **pass** | 8.5 / 4.0 / 16.5 (9.7), 12.5 pp |
+| 6-10 | 23.7 / 19.7 / 27.7 (23.7) | 8.0 pp, **pass** | 89.0 / 13.5 / 27.0 (43.2), 75.5 pp |
+| 11-15 | 34.3 / 43.0 / 32.0 (36.4) | 11.0 pp, **fail** (Mage + 6.6) | 77.0 / 14.5 / 1.0 (30.8), 76.0 pp |
+| 16-20 | 34.3 / 37.3 / 39.7 (37.1) | 5.3 pp, **pass** | 38.0 / 41.5 / 11.0 (30.2), 30.5 pp |
+| 21-25 (low reading, 5.8 item 3) | 32.7 / 32.0 / 39.7 (34.8) | 7.7 pp, **pass** | 12.5 / 14.0 / 3.5 (10.0), 10.5 pp |
+
+- The win rate rises with the hero level: pooled by start level (3-level mean) 2, 4, 5, 5, 7, 14, 22, 27, 26, 27, 28, 32, 36, 41, 41, 37, 34, 34, 40, 43, 45, 47 % at levels 1-22 (23-25 fall: the planner rushes). Per class the largest rise of that mean between neighbouring levels is 7.8 pp (Rogue), 11.1 (Mage), 9.4 (Hunter); before, one level flipped the Rogue by 92 pp (hero 5 → 6), the Mage by 47 and the Hunter by 42. From hero level 7 to 23 no class wins more than 63 % or less than 15 % at any level; the Mage's lowest point is hero 6 (0-8 % on three seed sets), the last level before Pyre Comet is in reach.
+- Losses are deaths: Final Dark ends 0 % of the Rogue's boss losses, 1-14 % of the Mage's and 15-59 % of the Hunter's (before: 62-99 % of the Mage's and Hunter's in bands 1-3).
+- L3 (the first win): with runs starting at hero levels 1, 4, 7-8, 10 and 12 (1.4) the measured rates (1, 4, 27, 24, 31 %) give a first win by run 4 in 47 % of campaigns and by run 5 in 63 %: around run 4-5, hero level 10-12 [inference: the cell rates chained]. The first run of a fresh profile is not this cell (lean camp, D152); its rate is under 5 % [inference: H1 1 %].
+- B7 (trees, 100 runs per class per band): fails for the Rogue in bands 1-4 (Venomcraft 20-36 %, its other trees 0-15 %) and for the Hunter in every band (Beastbond 64-86 % in bands 2-4, Marksmanship 2-25 %); the Mage passes in bands 2, 4, 5. Tree balance on the 1-25 scale is a class task, not a fight setting; if the sim applies balance.md 1.3's switch rule here the Hunter moves to Beastbond and B6 breaks.
+- One-button play (`--bot onebutton`) wins 0-4 % in band 1-5 and 0 % from hero 6 (0 of 230 boss fights): special fights still demand thought.
+
+**Open (for the Lead):**
+1. **Band 11-15 fails B6 by 3 pp** (the Mage 43 % against 32-34 %). It is the steepest cell found: on the same states the Mage's rate there moves 43 → 21 % with the Shards at 0.55 instead of 0.5, and Frost Lance + 10 / + 15 / + 20 % gave 23 / 37-43 / 53 % in full runs (three seed sets). The next step is a Mage number at hero levels 11-15 tuned on 600 runs per class per band (for example Frost Lance + 12 %), not a fight setting.
+2. **The Hunter is still the slow class:** 40-59 % of its boss losses in bands 6-25 are Final Dark (pooled over the classes about 15-20 % of boss losses, inside B29's 5-20 %); the later Final Dark is what keeps it level. A Hunter speed number against Oruvath's armour would let FINAL_DARK_LEVEL_STEP come down.
+3. Rules 5 and 6 also change today's level-60 game (autoplay DoTs at any boss HP; the Hunter's Camp bar): re-run the P0 and PALL cells (B6, B26-B29) when they are built.
+4. Phase 1's done-when (7.1) reads "B6 at H10 within its band (1.7 learn levels first)": with 2.4.1 it is B6 in every band on 300 runs per class, met in four of five.
 
 ### 2.5 Items and gold
 - Item level as rules 8.3 (source power level + rarity bonus), shown on the hero scale; capped at ILVL_MAX.
@@ -542,7 +594,16 @@ Order inside phase 1: engine (hero and zones), then sim (warmed tables, campaign
 | CAMP_WAVE_XP_MULT | 2 | × XP of a Camp wave's kills and bonus (2.3) |
 | BOSS_TIER | 5 | power levels of Oruvath above the hero (2.4) |
 | BOSS_REF_LEVEL | 62 | today's BOSS_LEVEL, the level his numbers are tuned at (2.4) |
-| BOSS_HP_LEVEL_BASE / BOSS_HP_LEVEL_STEP | 0.40 / 0.024 | Oruvath's and the Shards' HP × min(1, base + step × hero level) (2.4) |
+| BOSS_HP_LEVEL_BASE / BOSS_HP_LEVEL_STEP | 0.40 / 0.024 | Oruvath's and the Shards' HP × min(1, base + step × hero level) (2.4; replaced by BOSS_HP_LEVEL under 2.4.1) |
+| BOSS_HP_LEVEL (2.4.1, draft) | 0.50, 0.53, 0.57, 0.61, 0.71, 0.84, 0.87, 0.90, 1.00, 1.12, 1.10, 1.07, 1.07, 1.07, 1.05, 1.03, 1.02, 1.01, 0.99, 0.96, 0.94, 0.94, 0.92, 0.89, 0.89 | × Oruvath's and the Shards' HP (after hpScale(LB)) by the hero's level at FIGHT_BOSS, H = 1-25 |
+| BOSS_DMG_LEVEL_BASE / BOSS_DMG_LEVEL_STEP / BOSS_DMG_LEVEL_MIN / BOSS_DMG_LEVEL_MAX (2.4.1, draft) | 1.40 / 0.021 / 0.90 / 1.20 | × every damage of Oruvath's fight: max(MIN, min(MAX, BASE - STEP × H)) |
+| dmgScale0 (2.4.1, draft) | ENEMY_DMG_BASE 4, ENEMY_DMG_PER_LEVEL 2.6, ZONE_DANGER_STEP 0.45, ZONE_DANGER_FROM 20 (rules 13), at LB over the same at BOSS_REF_LEVEL; no EARLY_DMG_MULT or Z1_DMG_MULT | ratio, replaces dmgScale(LB) in Oruvath's fight |
+| SHARD_HP_LEVEL_LOW / SHARD_HP_RAMP_FROM / SHARD_HP_RAMP_TO (2.4.1, draft) | 0.5 / 17 / 23 | × the Shards' HP: LOW up to hero level RAMP_FROM, linear to 1 at RAMP_TO |
+| FINAL_DARK_LEVEL_STEP / FINAL_DARK_ROUND_MAX (2.4.1, draft) | 1.4 / 76 | rounds per hero level under HERO_MAX_LEVEL added to BOSS_ENRAGE_ROUND (round to nearest), at most MAX: 76 up to H11, 57 at H25 |
+| AUTO_DOT_BOSS (2.4.1, draft; rules 7.9) | on | autoplay casts Living Flame and Barbed Arrow on a boss at any HP and never on a Dimming Shard |
+| HUNTER_CAMP_PET_SLOT (2.4.1, draft; balance.md 1.2) | on | the sim's Camp bar keeps the Hunter's Mend Companion |
+| SPELL changes (2.4.1, draft) | frost_lance l 1.77, p 0.97 (was 1.54, 0.84); pyre_comet lvl 21, hero 9 (was 38, hero 16); barbed_arrow dot l 0.495, p 0.20 (was 0.45, 0.18); field_dressing healPct 0.18 (was 0.12) | content values |
+| GATES.oruvathLegacy (2.4.1, draft) | off until accepted | engine switch for every 2.4.1 rule |
 | ONB_ELITE_LEVEL_MIN | 2 | Gorrak's lowest power level (was 4) (5.1) |
 | LEGACY_PER_LEVEL | 20 | Legacy points per hero level gained, and per HERO_XP_AT_MAX past 25 (4.1) |
 | LEGACY lines | as ECHO_PER_ZONE 7.5, ECHO_PER_DUNGEON 8, ECHO_PER_ELITE 3, ECHO_PER_RARE 6, ECHO_PER_QUEST 1, ECHO_CONTRACT_MULT 3, ECHO_PER_HEAT_FIGHT 1, ECHO_BOSS_REACHED 20, ECHO_BOSS_PHASE 12, ECHO_BOSS_KILL 120, ECHO_SPEED_BONUS 40, ECHO_FIRST_KILL_CLASS 100, PREP_ECHO_PER_POINT 2, ONB_WELCOME_ECHOES 60, OATH_ECHO_BONUS 0.25 (renamed LEGACY_*) | Legacy points (4.1) |

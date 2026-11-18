@@ -12,7 +12,9 @@
 //   node sim/legacy-run.mjs grid --scratch <dir> --levels 1-25 --tables <dir> --out <dir> [--runs 40] [--seed 1000]
 //        one planner cell per hero level, each read with the table of its band (<tables>/risk-H<lo>-<hi>.json)
 //   common: --leg '<json>' (fields over the T2 defaults, sim/legacy-patch.py), --classes rogue,mage,hunter,
-//           --workers N (default 2), --profile later (a profile that has played two runs, nothing bought)
+//           --workers N (default 2), --profile later (a profile that has played two runs, nothing bought),
+//           --tree N (talent tree index for every class, B7 cells; default the recorded default trees),
+//           --bot <id> (default planner; e.g. onebutton) (designer, report legacy-oruvath-2026-11-18)
 // Every cell: expedition map with the start camp (D118: --map expedition --prep), planner, --warmup 0.
 import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, copyFileSync } from 'node:fs';
@@ -46,14 +48,15 @@ function parse(argv) {
 }
 const range = (s) => { const [a, b] = s.split('-').map(Number); return Array.from({ length: (b ?? a) - a + 1 }, (_, i) => a + i); };
 
-function cell({ scratch, h, leg, out, runs, seed, riskIn, classes, workers, profile }) {
+function cell({ scratch, h, leg, out, runs, seed, riskIn, classes, workers, profile, tree, bot }) {
   const LEG = JSON.stringify({ ...T2, ...leg, P: powerOf(h) });
-  const args = ['sim/run.mjs', '--bot', 'planner', '--class', classes, '--runs', String(runs), '--seed-start', String(seed),
+  const args = ['sim/run.mjs', '--bot', bot || 'planner', '--class', classes, '--runs', String(runs), '--seed-start', String(seed),
     '--warmup', '0', '--workers', String(workers), '--profile', profile, '--map', 'expedition', '--prep', '--out', resolve(out)];
   if (riskIn) args.push('--risk-in', resolve(riskIn));
+  if (tree !== undefined) args.push('--tree', String(tree));
   const r = spawnSync('node', args, { cwd: scratch, env: { ...process.env, LEG }, encoding: 'utf8', maxBuffer: 1 << 26 });
   if (r.status !== 0) throw new Error(`cell H${h} failed:\n${r.stderr.slice(-3000)}`);
-  const sub = readdirSync(out).find((d) => d.startsWith('planner-'));
+  const sub = readdirSync(out).find((d) => d.startsWith(`${bot || 'planner'}-`));
   const lines = r.stdout.split('\n').filter((l) => / win /.test(l));
   process.stdout.write(lines.map((l) => `H${h} ${l}`).join('\n') + '\n');
   return join(out, sub);
@@ -63,7 +66,7 @@ const a = parse(process.argv.slice(2));
 const cmd = a._[0];
 const scratch = a.scratch ? resolve(a.scratch) : null;
 const leg = a.leg ? JSON.parse(a.leg) : {};
-const common = { classes: a.classes || 'all', workers: Number(a.workers || 2), profile: a.profile || 'later', leg, scratch };
+const common = { classes: a.classes || 'all', workers: Number(a.workers || 2), profile: a.profile || 'later', leg, scratch, tree: a.tree, bot: a.bot };
 
 if (cmd === 'build') {
   if (!scratch || !scratch.includes('/scratch')) throw new Error('--scratch must name a path with /scratch');

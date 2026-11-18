@@ -16,6 +16,17 @@ Read from env LEG (JSON) at load; no LEG = the engine as built.
   camp / campLvl / campXp: Camp waves per run, the Camp's level over the hero, x XP of a wave
   pdmg: { classId: x } x the player's and pet's damage in Oruvath's fight (sensitivity arm)
   learn: { spellId: power level } replaces SPELL[id].lvl (the learn level; run start and trainers read it)
+Designer arms (2026-11-18, report legacy-oruvath-2026-11-18; every array is indexed by the hero level of the power
+level at FIGHT_BOSS, round((P - 1) x 24 / 59), as bhp and bdmg):
+  shp: [25] x the Shards' HP by hero level, on top of bhp (Oruvath's Shards only)
+  fd: [25] Final Dark's round (BOSS_ENRAGE_ROUND) by hero level
+  link / scnt / sevr: LINK_DR_PER_SHARD / SHARD_COUNT / SHARD_EVERY
+  spell / talent / pet: { id: { field: value } } over SPELL / TALENT / PET entries (class numbers)
+  dotfix: true = autoplay (rules 7.9) casts Living Flame and Barbed Arrow on the end boss at any HP and never on a Shard
+  barfix: true = the sim's Camp bar (balance.md 1.2) keeps the Hunter's Mend Companion (a pet step after the defensive)
+  bsmooth: true = Oruvath's damage scale without zone danger's early factors (EARLY_DMG_MULT, Z1_DMG_MULT): smooth in level
+Env BOSSDUMP=<dir> (designer, 2026-11-18): the runner writes the state before each FIGHT_BOSS to
+<dir>/P<power at start>-<class>-<seed>.json (R.serialize), for replays of Oruvath's fight under other boss settings.
 """
 import sys, os
 root = sys.argv[1]
@@ -152,6 +163,42 @@ Mp = 'src/engine/map.js'
 prepend_import(Mp, "import { LEG } from '../constants.js';")
 sub(Mp, "export const clampCl = (x) => Math.max(1, Math.min(MAX_LEVEL, x));", "export const clampCl = (x) => Math.max(1, Math.min(LEG ? 66 : MAX_LEVEL, x));")
 sub(E, "Math.max(1, Math.min(__MAXL, s.player.level + LEG.tier[z - 1]))", "Math.max(1, Math.min(66, s.player.level + LEG.tier[z - 1]))")
+# designer arms (2026-11-18): the Shards' HP, Final Dark's round, Linked, the Shard waves, class numbers
+sub(C, 'export const SHARD_COUNT = 2;', 'export const SHARD_COUNT = LEG && LEG.scnt ? LEG.scnt : 2;')
+sub(C, 'export const SHARD_EVERY = 8;', 'export const SHARD_EVERY = LEG && LEG.sevr ? LEG.sevr : 8;')
+sub(C, 'export const LINK_DR_PER_SHARD = 0.15;', 'export const LINK_DR_PER_SHARD = LEG && LEG.link !== undefined ? LEG.link : 0.15;')
+open(os.path.join(root, C), 'a').write(
+    "\n// Legacy scratch (designer arms 2026-11-18): hero-level index of a power level, a per-hero-level table's value\n"
+    "export const legH = (P) => Math.min(24, Math.max(0, Math.round((P - 1) * 24 / 59)));\n"
+    "export const legAt = (arr, P, d = 1) => (arr ? arr[Math.min(arr.length - 1, legH(P))] : d);\n"
+    "if (LEG) for (const [tab, name] of [[SPELL, 'spell'], [TALENT, 'talent'], [PET, 'pet']]) for (const [id, o] of Object.entries(LEG[name] || {})) { if (!tab[id]) throw new Error('LEG.' + name + ': unknown ' + id); Object.assign(tab[id], o); }\n")
+sub(B, "const isLitanyRound = (r) =>",
+       "let __fd = BOSS_ENRAGE_ROUND;\nexport const __setFd = (x) => { __fd = x; };\nconst isLitanyRound = (r) =>")
+sub(B, "  if (r >= BOSS_ENRAGE_ROUND) acts.push(", "  if (r >= __fd) acts.push(")
+sub(B, "      enrageInRounds: Math.max(0, BOSS_ENRAGE_ROUND - r),", "      enrageInRounds: Math.max(0, __fd - r),")
+sub(B, "sh.hp = sh.maxHp = Math.round(sh.hp * s.legBoss.hp);", "sh.hp = sh.maxHp = Math.round(sh.hp * s.legBoss.hp * (s.legBoss.shp || 1));")
+sub(N, "import { makeBoss } from './boss.js';", "import { makeBoss, __setFd } from './boss.js';")
+prepend_import(N, "import { legAt } from '../constants.js';")
+open(os.path.join(root, C), 'a').write(
+    "\n// Legacy scratch (designer 2026-11-18): Oruvath's damage scale without the early factors (LEG.bsmooth)\n"
+    "export const legDmgRatio0 = (M) => ((4 + 2.6 * M) * (1 + 0.45 * Math.max(0, M - 20) / 10)) / ((4 + 2.6 * 62) * (1 + 0.45 * 4.2));\n")
+sub(N, "import { LEG, legHpRatio, legDmgRatio } from '../constants.js';", "import { LEG, legHpRatio, legDmgRatio, legDmgRatio0 } from '../constants.js';")
+sub(N, "dmg: legDmgRatio(L) * (LEG.bdmg", "dmg: (LEG.bsmooth ? legDmgRatio0(L) : legDmgRatio(L)) * (LEG.bdmg")
+sub(N, "s.legBoss = { L, hp: legHpRatio(L) * __bm,", "__setFd(legAt(LEG.fd, s.player.level, 57)); s.legBoss = { L, shp: legAt(LEG.shp, s.player.level), fd: legAt(LEG.fd, s.player.level, 57), hp: legHpRatio(L) * __bm,")
+A = 'src/engine/autoplay.js'
+prepend_import(A, "import { LEG as __LEGA } from '../constants.js';")
+sub(A, "    case 'living_flame': return ok(tgtHp >= sp.autoTargetHp && !findSt(e.st, 'BURN', 'living_flame'));",
+       "    case 'living_flame': return ok((__LEGA && __LEGA.dotfix ? (e.boss || (tgtHp >= sp.autoTargetHp && e.kind !== 'shard')) : tgtHp >= sp.autoTargetHp) && !findSt(e.st, 'BURN', 'living_flame'));")
+sub(A, "    case 'barbed_arrow': return ok(tgtHp >= sp.autoTargetHp && !findSt(e.st, 'BLEED', 'barbed_arrow'));",
+       "    case 'barbed_arrow': return ok((__LEGA && __LEGA.dotfix ? (e.boss || (tgtHp >= sp.autoTargetHp && e.kind !== 'shard')) : tgtHp >= sp.autoTargetHp) && !findSt(e.st, 'BLEED', 'barbed_arrow'));")
+sub('sim/lib/runner.mjs', "    const b = rec.before(s, a);\n    let events;",
+       "    if (globalThis.process.env.BOSSDUMP && a.type === 'FIGHT_BOSS') writeFileSync(`${globalThis.process.env.BOSSDUMP}/P${C.LEG ? C.LEG.P : 0}-${s.player.classId}-${seed}.json`, R.serialize(s));\n    const b = rec.before(s, a);\n    let events;")
+prepend_import('sim/lib/runner.mjs', "import { writeFileSync } from 'node:fs';")
+sub('sim/lib/policy.mjs', "  const steps = camp ? ['interrupt', 'cleanse', 'main', 'second', 'defensive', 'aoe'] : ['interrupt', 'main', 'second', 'defensive', 'cleanse', 'aoe'];",
+       "  const steps = camp ? ['interrupt', 'cleanse', 'main', 'second', 'defensive', ...(C.LEG && C.LEG.barfix ? ['pet'] : []), 'aoe'] : ['interrupt', 'main', 'second', 'defensive', 'cleanse', 'aoe'];")
+sub('sim/lib/policy.mjs', "    else if (st === 'aoe') take(best((id) => hasTag(id, 'aoe')));",
+       "    else if (st === 'aoe') take(best((id) => hasTag(id, 'aoe')));\n    else if (st === 'pet') take(known.includes('mend_companion') ? 'mend_companion' : null);")
+
 # measure: XP in level-equivalents at the level of each award (s.stats.le), into the record
 sub(P, "  p.xp += total;\n  s.stats.xpGained += total;", "  p.xp += total;\n  s.stats.xpGained += total;\n  s.stats.le = (s.stats.le || 0) + total / xpToNext(p.level);")
 sub('sim/lib/recorder.mjs', "      lvl: sum ? sum.level : 1,", "      le: Math.round(((s.stats && s.stats.le) || 0) * 100) / 100, lvl: sum ? sum.level : 1,")
