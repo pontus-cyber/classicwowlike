@@ -6,6 +6,8 @@
 // within CLASS_BAND_PP of the 3-class mean, max - min <= CLASS_SPREAD_MAX_PP; point estimates, balance.md 2).
 //
 //   node sim/legacyreport.mjs <grid dir> [--compare <grid dir>] [--levels]   (--levels: the per-level table too)
+//        [--curve]   (the win curve by hero level, pooled and per class, one row each; and the 95 % Wilson interval per
+//                     class and band)
 //   node sim/legacyreport.mjs --tables <dir of risk-H*.json>                  (observed entries and deaths per band)
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -96,6 +98,31 @@ function tablesSummary(dir) {
   return lines;
 }
 
+/** 95 % Wilson interval of k of n, in per cent. */
+function wilson(k, n, z = 1.96) {
+  if (!n) return [NaN, NaN];
+  const p = k / n;
+  const den = 1 + (z * z) / n;
+  const c = (p + (z * z) / (2 * n)) / den;
+  const h = (z * Math.sqrt((p * (1 - p)) / n + (z * z) / (4 * n * n))) / den;
+  return [100 * (c - h), 100 * (c + h)];
+}
+
+function curveTable(g) {
+  const Hs = Object.keys(g).map(Number).sort((a, b) => a - b);
+  const rate = (rs) => (rs.length ? (100 * rs.filter((r) => r.out === 'v').length) / rs.length : NaN);
+  const lines = [`| Hero level | ${Hs.join(' | ')} |`, `|---|${Hs.map(() => '---|').join('')}`];
+  lines.push(`| Pooled win % | ${Hs.map((h) => rate(CLASSES.flatMap((c) => g[h][c] || [])).toFixed(0)).join(' | ')} |`);
+  for (const c of CLASSES) lines.push(`| ${c[0].toUpperCase()}${c.slice(1)} | ${Hs.map((h) => rate(g[h][c] || []).toFixed(0)).join(' | ')} |`);
+  lines.push('', '| Band | 95 % interval: Rogue / Mage / Hunter |', '|---|---|');
+  for (const [lo, hi] of BANDS) {
+    const per = CLASSES.map((c) => Hs.filter((h) => h >= lo && h <= hi).flatMap((h) => g[h][c] || []));
+    if (!per[0].length) continue;
+    lines.push(`| ${lo}-${hi} | ${per.map((rs) => wilson(rs.filter((r) => r.out === 'v').length, rs.length).map((x) => x.toFixed(0)).join('-')).join(' / ')} |`);
+  }
+  return lines;
+}
+
 const args = process.argv.slice(2);
 if (args[0] === '--tables') {
   console.log(tablesSummary(args[1]).join('\n'));
@@ -110,5 +137,6 @@ if (args[0] === '--tables') {
     console.log('\n' + t2.lines.join('\n'));
   }
   if (args.includes('--levels')) console.log('\n' + levelTable(g).join('\n'));
+  if (args.includes('--curve')) console.log('\n' + curveTable(g).join('\n'));
   if (args.includes('--json')) console.log(JSON.stringify(res));
 }

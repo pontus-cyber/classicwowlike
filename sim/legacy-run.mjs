@@ -20,6 +20,8 @@
 //           arms). The scratch patch targets the engine before the switch (5d3571a) and does not apply to it.
 //           --oruvath (with --native; D156, legacy.md 2.4.1): C.GATES.oruvathLegacy on as well.
 //   --levels takes a range (1-25) or a list (1,10,20).
+//   --resume (warm, grid): a cell whose output already holds summary.md (written last) is kept and not played again, so a stopped
+//           batch picks up at its first missing cell (same seeds, same results).
 // Every cell: expedition map with the start camp (D118: --map expedition --prep), planner, --warmup 0.
 import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, copyFileSync } from 'node:fs';
@@ -46,7 +48,7 @@ const WARMUP_SEED_BASE = 9000000;
 function parse(argv) {
   const o = { _: [] };
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--native' || argv[i] === '--oruvath') o[argv[i].slice(2)] = true; // the flags without a value
+    if (argv[i] === '--native' || argv[i] === '--oruvath' || argv[i] === '--resume') o[argv[i].slice(2)] = true; // the flags without a value
     else if (argv[i].startsWith('--')) o[argv[i].slice(2)] = argv[++i];
     else o._.push(argv[i]);
   }
@@ -57,6 +59,13 @@ const range = (s) => {
   const [a, b] = s.split('-').map(Number);
   return Array.from({ length: (b ?? a) - a + 1 }, (_, i) => a + i);
 };
+
+/** --resume: the finished cell directory under out (one with summary.md), or null. */
+function done(out, bot) {
+  if (!existsSync(out)) return null;
+  const sub = readdirSync(out).find((d) => d.startsWith(`${bot || 'planner'}-`));
+  return sub && existsSync(join(out, sub, 'summary.md')) ? join(out, sub) : null; // written last
+}
 
 function cell({ scratch, native, oruvath, h, leg, out, runs, seed, riskIn, classes, workers, profile, tree, bot }) {
   const LEG = JSON.stringify({ ...T2, ...leg, P: powerOf(h) });
@@ -104,6 +113,8 @@ if (cmd === 'build') {
   for (let k = 0; k < rounds; k++) {
     for (let h = lo; h <= hi; h++) {
       const out = join(a.out, `r${k + 1}-H${h}`);
+      const kept = a.resume ? done(out, a.bot) : null;
+      if (kept) { console.log(`H${h} round ${k + 1}: kept ${kept}`); riskIn = join(kept, 'risk.json'); continue; }
       rmSync(out, { recursive: true, force: true });
       const dir = cell({ ...common, h, out, runs, seed: WARMUP_SEED_BASE + 100000 * k + 1000 * h, riskIn });
       riskIn = join(dir, 'risk.json');
@@ -116,6 +127,7 @@ if (cmd === 'build') {
     const table = join(a.tables, `risk-H${String(lo).padStart(2, '0')}-${String(hi).padStart(2, '0')}.json`);
     if (!existsSync(table)) throw new Error(`no table ${table}`);
     const out = join(a.out, `H${String(h).padStart(2, '0')}`);
+    if (a.resume && done(out, a.bot)) { console.log(`H${h}: kept`); continue; }
     rmSync(out, { recursive: true, force: true });
     cell({ ...common, h, out, runs: Number(a.runs || 40), seed: Number(a.seed || 1000), riskIn: table });
   }
