@@ -31,7 +31,7 @@ import { createDevMenu } from './dev-menu.js';
 import { createOnboarding } from './onboarding.js';
 import { createAudio, CLICKABLE } from './audio.js';
 import { settings } from './settings.js';
-import { h, clear } from './util.js';
+import { h, clear, lv } from './util.js'; // lv: Legacy's hero scale (identity off)
 import { enemyLook } from './art-actors.js';
 // telegraph colours (tokens.css --fx-tele-*): a heavy blow in orange (the target ring is red), a cast in its school's colour
 // (an unknown school: magic's), a wind-up in ember red
@@ -858,7 +858,7 @@ function devText(op, args, r, v) {
   const p = v.player;
   const where = v.zone ? (v.zone.camp ? v.zone.name : `${v.zone.name} (zone ${v.zone.idx})`) : '';
   switch (op) {
-    case 'build': return `${p ? `Level ${p.level} ${p.className}` : 'A new run'} at ${where}`;
+    case 'build': return `${p ? `Level ${lv(p.level)} ${p.className}` : 'A new run'} at ${where}`;
     case 'camp': return `At ${where}`;
     case 'boss': return `End-boss fight, phase ${args.phase || 1}`;
     case 'nextZone': return `On to ${where}`;

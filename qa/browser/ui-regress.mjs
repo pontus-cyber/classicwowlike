@@ -6412,6 +6412,7 @@ async function partY(browser, W, H) {
         if (v.phase === 'SUMMARY' || v.hero > lvl0) break;
         await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page);
       }
+      await shot(page, 'Y3-level-up');
       s = await nodeState(); hv = R.heroView(s);
       const banners = (await page.evaluate(() => window.__yB)).filter((b) => b[0] === 'Level up');
       const hud2 = await page.evaluate(() => ({ lvl: document.querySelector('#player-frame .lvl').innerText, xp: document.querySelector('#xpbar .txt').textContent.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ') }));
