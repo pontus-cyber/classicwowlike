@@ -92,6 +92,7 @@ import { CONTENT } from '../content/index.js';
 import * as mock from './mock-engine.js';
 import * as TXT from './ui-text.js';
 import { heatKey } from './heat.js';
+import { setDisplay } from './util.js';
 
 /** A line of the guided run's `guide` table (content, draft), or null. */
 const guideLine = (k) => (CONTENT.tutorial && CONTENT.tutorial.guide && CONTENT.tutorial.guide[k]) || null;
@@ -110,7 +111,8 @@ function rulesTable(K) {
   const per = K.LINK_DR_PER_SHARD;
   const linkDr = Array.from({ length: (K.SHARD_MAX || 4) + 1 }, (_, n) => (n === 0 ? 0 : per != null ? Math.min(K.LINK_DR, per * n) : K.LINK_DR));
   return {
-    zoneCount: K.ZONE_COUNT, maxLevel: K.MAX_LEVEL, storyQuests: K.STORY_QUESTS, dungeonTrashFights: K.DUNGEON_TRASH_FIGHTS,
+    zoneCount: K.ZONE_COUNT, maxLevel: K.MAX_LEVEL, heroMaxLevel: K.HERO_MAX_LEVEL ?? null, // heroMaxLevel: Legacy (legacy.md 1.2)
+    storyQuests: K.STORY_QUESTS, dungeonTrashFights: K.DUNGEON_TRASH_FIGHTS,
     // the expedition map's own counts (rules 1.9.8; blind round 2: "3 groups" and "Fight 1 of 4" for a dungeon of 2 + the boss)
     expDungeonTrashFights: K.EXPED_DUNGEON_TRASH_FIGHTS ?? K.DUNGEON_TRASH_FIGHTS, expGrindMaxWaves: K.EXPED_GRIND_MAX_WAVES ?? K.GRIND_MAX_WAVES,
     grindMaxWaves: K.GRIND_MAX_WAVES, grindWaveSize: K.GRIND_WAVE_SIZE, eliteLevelOffset: K.ELITE_LEVEL_OFFSET,
@@ -242,7 +244,18 @@ function mockBackend(seed) {
 
 // ====================================================================================== engine
 const THEMES = ['farmland', 'wetlands', 'highlands', 'ruins', 'haunted', 'scorched'];
-const PROFILE_KEY = 'tbwcr.profile.v1';
+const PROFILE_KEY_V1 = 'tbwcr.profile.v1';
+/**
+ * Legacy (D154 phase 1, GATES.legacy; docs/specs/legacy.md 4.6, draft): a version 3 profile lives under its own key, so the
+ * game with the switch off never reads it; the first Legacy load migrates a copy of the version 1 profile (the version 1
+ * key stays as it was) and keeps what the migration gave back (LEGACY_REFUND_KEY) for one note on screen.
+ */
+const PROFILE_KEY_V3 = 'tbwcr.profile.v3';
+const LEGACY_REFUND_KEY = 'tbwcr.legacy.refund.v1';
+const legacyGate = () => !!(R.C.GATES && R.C.GATES.legacy);
+const profileKey = () => (legacyGate() ? PROFILE_KEY_V3 : PROFILE_KEY_V1);
+/** A profile's balance: Legacy points on a version 3 profile, else Echoes. */
+const balanceOf = (p) => (p ? (p.v >= 3 ? p.legacy || 0 : p.echoes || 0) : 0);
 const RES_LETTER = { energy: 'E', mana: 'M', focus: 'F' };
 /** Keys of the engage options in the engage panel (strike, control, setup; combat-v2.md 10.3). */
 export const ENGAGE_KEYS = ['Q', 'W', 'E'];
@@ -281,7 +294,23 @@ const castReason = (s, err) => {
 /** The stored meta profile, completed with the fields of R.newProfile() a stored copy may lack; null without one. */
 function loadProfile() {
   try {
-    const raw = globalThis.localStorage && localStorage.getItem(PROFILE_KEY);
+    let raw = globalThis.localStorage && localStorage.getItem(profileKey());
+    if (!raw && legacyGate()) {
+      // the first Legacy load (legacy.md 4.6): the version 1 profile migrated (Echoes in, Legacy points out), stored under
+      // the version 3 key; what came back (spent Echoes, Packed Satchel's kept) is noted once on class select
+      const old = localStorage.getItem(PROFILE_KEY_V1);
+      if (old) {
+        const p1 = JSON.parse(old);
+        if (p1 && typeof p1 === 'object') {
+          const base = R.newProfile();
+          const p3 = R.migrateProfile({ ...p1, v: p1.v || 1, guide: p1.guide, welcome: p1.welcome, unlocks: { ...(p1.unlocks || {}) }, firstKill: { ...base.firstKill, ...(p1.firstKill || {}) } });
+          const back = Math.max(0, (p1.spent || 0) - (p3.spent || 0));
+          if (back > 0) localStorage.setItem(LEGACY_REFUND_KEY, JSON.stringify({ back, echoes: p1.echoes || 0, legacy: p3.legacy || 0, shown: false }));
+          saveProfile(p3);
+          raw = JSON.stringify(p3);
+        }
+      }
+    }
     if (raw) {
       const p = JSON.parse(raw); const base = R.newProfile();
       // M3 (m3-onboarding.md E6): a profile saved before the guide keys gets them (runs > 0: guide done, welcome had)
@@ -290,24 +319,26 @@ function loadProfile() {
   } catch { /* storage blocked or bad JSON */ }
   return null;
 }
-function saveProfile(p) { try { localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); } catch { /* storage blocked: the profile lives until the page closes */ } }
+function saveProfile(p) { try { localStorage.setItem(profileKey(), JSON.stringify(p)); } catch { /* storage blocked: the profile lives until the page closes */ } }
 
 /**
  * Run log (presentation only; the engine's profile keeps counts, not records): per class the runs, Oruvath kills, best
  * level and the furthest point reached, in localStorage next to the profile. Written at END_RUN from the engine's summary.
  * stage: 1..ZONE_COUNT a zone, then the camp, the boss reached, the boss defeated.
  */
-const HISTORY_KEY = 'tbwcr.history.v1';
+const HISTORY_KEY_V1 = 'tbwcr.history.v1';
+// Legacy (D154): its run log apart, best levels on the hero scale
+const historyKey = () => (legacyGate() ? 'tbwcr.history.v3' : HISTORY_KEY_V1);
 const newHistory = () => ({ v: 1, logged: 0, classes: {} });
 function loadHistory() {
   try {
-    const raw = globalThis.localStorage && localStorage.getItem(HISTORY_KEY);
+    const raw = globalThis.localStorage && localStorage.getItem(historyKey());
     const h = raw ? JSON.parse(raw) : null;
     if (h && typeof h === 'object' && h.classes && typeof h.classes === 'object') return { ...newHistory(), ...h };
   } catch { /* storage blocked or bad JSON */ }
   return newHistory();
 }
-function saveHistory(h) { try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); } catch { /* storage blocked */ } }
+function saveHistory(h) { try { localStorage.setItem(historyKey(), JSON.stringify(h)); } catch { /* storage blocked */ } }
 const randomSeed = () => Math.floor(Math.random() * 0xffffffff) >>> 0;
 
 /**
@@ -365,6 +396,15 @@ function engineBackend(seedOpt, runOpts = {}) {
     }
   };
   let st = mkRun(seedOpt ?? randomSeed());
+  // Legacy (legacy.md 4.6): what the migration gave back, shown on this page's class select until the first run starts,
+  // then never again (stored as shown at once)
+  let refund = null;
+  if (legacyGate()) {
+    try {
+      const r0 = JSON.parse((globalThis.localStorage && localStorage.getItem(LEGACY_REFUND_KEY)) || 'null');
+      if (r0 && !r0.shown && r0.back > 0) { refund = { back: r0.back, legacy: r0.legacy }; localStorage.setItem(LEGACY_REFUND_KEY, JSON.stringify({ ...r0, shown: true })); }
+    } catch { refund = null; }
+  }
   // engineLog: the engine actions applied to this run, in order (a test hook: a Node twin replays them, qa/browser)
   // heatUp: uid -> the heat state that raised the item one rarity (heatSteps); nodeHeat: node key -> its entry state
   const local = { introSeen: new Set(), spoils: null, hold: null, reward: null, fightNo: 0, lastRun: null, runNo: 0, engineLog: [], heatUp: new Map(), nodeHeat: new Map() };
@@ -519,9 +559,12 @@ function engineBackend(seedOpt, runOpts = {}) {
     const resurrect = rc.now.map((x) => RES_KEY[x] || x);
     const resurrectHeld = { boon: rc.boon, meta: rc.secondBreath, ember: rc.ember };
     const resurrectBoss = rc.boss.map((x) => RES_KEY[x] || x);
+    const hv = s.legacy && R.heroView ? R.heroView(s) : null; // Legacy run: the HUD's level and XP bar (UI need 2)
     return {
       name: p.name, classId: p.classId, className: cls.name, petId: p.pet ? p.pet.id : null,
-      level: p.level, xp: p.xp, xpToNext: R.xpToNext(p.level), rested: p.rested || 0, hp: p.hp, maxHp: d.maxHp,
+      level: p.level, xp: p.xp, xpToNext: hv ? hv.xpToNext : R.xpToNext(p.level), rested: p.rested || 0, hp: p.hp, maxHp: d.maxHp,
+      // Legacy (engine-api.md 15.4): the hero's level 1-25 (level stays the engine's, for the colours); null outside one
+      heroLevel: hv ? hv.level : null, heroMax: hv ? !!hv.atMax : false,
       res, cp: f ? f.p.cp || 0 : 0, cpMax: C.CP_MAX,
       stats: { sta: d.STA, agi: d.AGI, int: d.INT, spi: d.SPI, power: Math.round(d.power), crit: d.crit, critMult: d.critMult, dodge: d.dodge, armor: Math.round(d.armor), wd: d.wd },
       gold: p.gold, equip: Object.fromEntries(Object.entries(p.equipped).map(([k, it]) => [k, item(it, p.classId)])), bag,
@@ -554,9 +597,11 @@ function engineBackend(seedOpt, runOpts = {}) {
     const z = s.zone ? s.zone.z : 1;
     if (z > C.ZONE_COUNT || (s.zone && s.zone.camp)) {
       const camp = CONTENT.camp || {};
+      // Legacy (legacy.md 2.4): the Camp's level is fixed at the hero's arrival (state.hero.camp); else MAX_LEVEL
+      const cl = s.legacy && s.hero && s.hero.camp ? s.hero.camp : C.MAX_LEVEL;
       return { idx: C.ZONE_COUNT + 1, id: 'camp', camp: true, name: camp.name || 'Observatory Steps', hubName: camp.name || 'Observatory Steps', hubText: camp.text, blurb: camp.text, theme: 'observatory',
-        band: [C.MAX_LEVEL, C.MAX_LEVEL], exitLevel: C.MAX_LEVEL, travelLevel: null, rows: [], pos: { row: 0, lane: null }, path: [], questsDone: 0, storyDone: false,
-        danger: dangerOf(C.MAX_LEVEL, 'normal') };
+        band: [cl, cl], exitLevel: cl, travelLevel: null, rows: [], pos: { row: 0, lane: null }, path: [], questsDone: 0, storyDone: false,
+        danger: dangerOf(cl, 'normal'), ...(s.legacy ? { campLevel: cl } : {}) };
     }
     const zc = zoneContent(z);
     const mv = R.mapView(s);
@@ -586,10 +631,12 @@ function engineBackend(seedOpt, runOpts = {}) {
    * engine's mapView (engine-api.md 10.3) with each node's entry heat state when it was visited (`node` event).
    */
   function convExpZone(s, z, zc, mv) {
-    const exitLevel = C.ZONE_LEVELS * z;
+    // Legacy (legacy.md 2.1; engine-api.md 15.2): the zone's levels are its rings' bands (mapView.bands, fixed at arrival)
+    const lb = s.legacy && mv.bands && mv.bands.length ? [Math.min(...mv.bands.map((b) => b[0])), Math.max(...mv.bands.map((b) => b[1]))] : null;
+    const exitLevel = lb ? lb[1] : C.ZONE_LEVELS * z;
     const nodes = mv.nodes.map((n) => ({ ...n, heat: n.done ? local.nodeHeat.get(`${z}:#${n.id}`) || null : null }));
     return { idx: z, id: `z${z}`, camp: false, name: zc ? zc.name : mv.name || `Zone ${z}`, hubName: zc ? zc.hubName : 'Hub', hubText: zc ? zc.hubText : '', blurb: zc ? zc.theme : '',
-      theme: THEMES[z - 1] || 'farmland', band: [exitLevel - C.ZONE_LEVELS + 1, exitLevel], exitLevel, travelLevel: null, rows: [], pos: { row: 0, lane: null }, path: [],
+      theme: THEMES[z - 1] || 'farmland', band: lb || [exitLevel - C.ZONE_LEVELS + 1, exitLevel], exitLevel, travelLevel: null, rows: [], pos: { row: 0, lane: null }, path: [],
       questsDone: s.zone.questsDone || 0, storyDone: !!s.zone.storyDone, next: [], travelTime: null, danger: dangerOf(exitLevel, 'normal'),
       exp: { ...mv, nodes } };
   }
@@ -808,7 +855,7 @@ function engineBackend(seedOpt, runOpts = {}) {
   function lineFor(list, s) { return list && list.length ? list[hash(nodeKey(s)) % list.length] : ''; }
   function convNode(s) {
     if (s.service && (s.phase === 'ZONE_HUB' || s.phase === 'CAMP')) return { type: s.service.kind, origin: 'hub', step: s.service.kind, cl: s.service.cl, stock: s.service.kind === 'vendor' ? convStock(s) : null };
-    if (s.phase === 'CAMP' && s.fight) return { type: 'camp_grind', step: 'combat', cl: C.CAMP_GRIND_LEVEL, origin: 'camp', fightNo: 1 };
+    if (s.phase === 'CAMP' && s.fight) return { type: 'camp_grind', step: 'combat', cl: s.legacy && s.hero && s.hero.camp ? s.hero.camp : C.CAMP_GRIND_LEVEL, origin: 'camp', fightNo: 1 };
     const n = s.node; if (!n) return null;
     const zc = zoneContent(s.zone.z);
     // heat: the state the node was entered in, which fixes what it pays (rules 1.7.3); id: an expedition node (rules 1.9)
@@ -956,7 +1003,7 @@ function engineBackend(seedOpt, runOpts = {}) {
       equipped: (sm.equipped || []).map((e) => ({ uid: `sum-${e.slot}`, kind: 'gear', slot: e.slot, name: e.name, rarity: e.rarity, ilvl: e.ilvl, stats: {} })),
       estMinutes: { manual: Math.round(sm.minutes.manual), auto: Math.round(sm.minutes.autoplay) }, bossPhase: sm.bossPhase,
       // the welcome (M3, m3-onboarding.md 4.2): its label from content (nudge.welcomeLabel); [label, Echoes, line id]
-      echoes: ((sm.echoes && sm.echoes.lines) || []).map((l) => [`${l.id === 'welcome' && CONTENT.tutorial ? CONTENT.tutorial.nudge.welcomeLabel : l.id === 'reserve' && sm.firstRun && CONTENT.tutorial && CONTENT.tutorial.prep ? CONTENT.tutorial.prep.unspentLabel : TXT.ECHO_LINE[l.id] || TXT.humanize(l.id)}${l.count > 1 ? ` (${l.count})` : ''}`, l.echoes, l.id]),
+      echoes: ((sm.echoes && sm.echoes.lines) || []).map((l) => [`${l.id === 'welcome' && CONTENT.tutorial ? CONTENT.tutorial.nudge.welcomeLabel : l.id === 'reserve' && sm.firstRun && CONTENT.tutorial && CONTENT.tutorial.prep ? CONTENT.tutorial.prep.unspentLabel : (l.id === 'levels' && sm.hero ? 'Hero levels gained' : TXT.ECHO_LINE[l.id]) || TXT.humanize(l.id)}${l.count > 1 ? ` (${l.count})` : ''}`, l.echoes, l.id]),
       // heat (rules 1.7.4, engine-api.md 11.3): the zone track, tolls / nodes / fights won by state, the Echo line's
       // Echoes; par: the run's boss par (R.bossPar) for "tolls over par"
       heat: sm.heat ? { trackPerZone: sm.heat.trackPerZone.map((r) => ({ ...r })), timeByState: [...sm.heat.timeByState], nodesByState: [...sm.heat.nodesByState],
@@ -967,6 +1014,9 @@ function engineBackend(seedOpt, runOpts = {}) {
       echoMult: sm.echoes ? sm.echoes.oathMult : 1, oaths: (sm.oaths || []).map((o) => (C.OATH[o] ? C.OATH[o].name : TXT.humanize(o))),
       // a dev run (engine-api.md 12): no Echoes; withheld = what it would have earned
       dev: sm.dev ? { god: !!sm.dev.god, tools: [...sm.dev.tools], withheld: (sm.echoes && sm.echoes.withheld) || 0 } : null,
+      // Legacy (legacy.md 1.5, 4.1; engine-api.md 15.3): the hero's level before and after the run, levels gained and the hero
+      // XP the run gained (stats.xpGained); null outside a Legacy run
+      hero: sm.hero ? { level: sm.hero.level, from: sm.hero.start ? sm.hero.start.level : sm.hero.level, gained: sm.hero.gained || 0, xpGained: (s.stats && s.stats.xpGained) || 0, atMax: !!sm.hero.atMax } : null,
       // contracts (expedition.md 8.1; prep): taken, completed, expired, abandoned, held, bought, reserve; null without
       contracts: sm.expedition && sm.expedition.contracts ? JSON.parse(JSON.stringify(sm.expedition.contracts)) : null,
       // D152 (changes-m3-v2.md 1.3): a lean first run: no contracts or Reserve named; its Echo line `reserve` is
@@ -1008,7 +1058,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     try {
       const r = R.step(s, { type: 'END_RUN' }).state;
       const p = r.result.profile;
-      out = { echoes: p.echoes, gained: r.result.echoes, affordable: R.metaOffers(p).filter((o) => o.affordable).length };
+      out = { echoes: balanceOf(p), gained: r.result.echoes, affordable: R.metaOffers(p).filter((o) => o.affordable).length };
     } catch { out = null; }
     dry.afterOf = s; dry.after = out;
     return out;
@@ -1029,7 +1079,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     const stage = stageOf(sum); const phase = sum.bossPhase || 0;
     c.runs = (c.runs || 0) + 1;
     if (sum.outcome === 'victory') c.kills = (c.kills || 0) + 1;
-    c.bestLevel = Math.max(c.bestLevel || 0, sum.level || 0);
+    c.bestLevel = Math.max(c.bestLevel || 0, (sum.hero ? sum.hero.level : sum.level) || 0); // Legacy: the hero level
     if (stage > (c.bestStage || 0) || (stage === c.bestStage && phase > (c.bestPhase || 0))) { c.bestStage = stage; c.bestPhase = phase; }
     history.logged = (history.logged || 0) + 1;
     saveHistory(history);
@@ -1050,7 +1100,10 @@ function engineBackend(seedOpt, runOpts = {}) {
     const p = profile || R.newProfile();
     const create = s.phase === 'CREATE';
     return {
-      echoes: p.echoes, earned: p.earned, spent: p.spent, runs: p.runs, bossKills: p.bossKills, reachedBoss: !!p.reachedBoss,
+      echoes: balanceOf(p), earned: p.earned, spent: p.spent, runs: p.runs,
+      // Legacy (legacy.md 1.1, 4.6; engine-api.md 15.4): hero select's cards (R.heroesView: null = a new hero) and what the
+      // migration gave back, for one note on this page's class select (null after the first run starts)
+      legacy: p.v >= 3, heroes: p.v >= 3 && R.heroesView ? R.heroesView(p) : null, refund: create && p.v >= 3 ? refund : null, bossKills: p.bossKills, reachedBoss: !!p.reachedBoss,
       firstKill: { ...p.firstKill }, unlocks: { ...p.unlocks }, offers: R.metaOffers(p),
       // M3 (m3-onboarding.md 2.2): the profile's guide; guided: the run being created is the guided run (class select toggle)
       guide: R.migrateProfile(p).guide, guided: create ? !!(s.create && s.create.tutorial) : null, guideOffer: create ? guideTodo() && runMode.mapMode === 'expedition' && runMode.prep !== false && !!CONTENT.tutorial : null,
@@ -1062,8 +1115,12 @@ function engineBackend(seedOpt, runOpts = {}) {
     };
   }
 
+  /** The first hero level whose power level reaches an engine learn level (legacy.md 1.7; R.powerOfLevel). */
+  const learnOf = (M) => { for (let H = 1; H <= C.HERO_MAX_LEVEL; H++) if (R.powerOfLevel(H) >= M) return H; return C.HERO_MAX_LEVEL; };
   function view() {
     const s = st;
+    // Legacy (D154 phase 1): the hero scale and the Legacy words on screen (src/ui/util.js setDisplay); off: identities
+    setDisplay(s.legacy ? { level: (n) => R.shownLevel(s, n), learn: learnOf, words: true } : { words: !!(profile && profile.v >= 3) });
     const v = { time: s.time || 0, autoplay: !!s.autoplay, seed: s.create ? s.create.seed : s.seed, mode: 'engine' };
     if (s.phase === 'CREATE') {
       return { ...v, phase: 'CREATE', create: { classId: s.create.classId || 'rogue', petId: s.create.petId || 'ridgewolf', name: s.create.name || '', seed: s.create.seed, oaths: (s.create.oaths || []).slice() }, oaths: (s.create.oaths || []).slice(), meta: metaView(s), player: null, zone: null, node: null, combat: null, loot: null, summary: null, dev: null, mapMode: s.mapMode || 'rows', legal: { lanes: [], services: {}, items: [], spells: {} } };
@@ -1256,7 +1313,10 @@ function engineBackend(seedOpt, runOpts = {}) {
         // heat (rules 1.7.3): the extra XP and gold of a node entered Hot or Scorched, carried by the events as `heat`
         case 'xp': if (e.amount > 0) out.push({ t: 'xp', amount: e.amount, rested: e.rested || 0, why: e.why, heat: e.heat || 0 }); break;
         // engine-2026-11-15 UI need 2: the trainer's offer as at this level (R.trainerView(state, level)), for its banner
-        case 'levelUp': out.push({ t: 'levelUp', level: e.level, talentPoint: !!e.talentPoint, trainer: (() => { try { return R.trainerView(s, e.level); } catch { return null; } })(), newSpells: Object.values(C.SPELL).filter((sp) => sp.cls === s.player.classId && sp.source === 'class' && sp.lvl === e.level).map((sp) => sp.name), hp: s.player.hp, maxHp: s.player.d.maxHp }); break;
+        // Legacy (engine-api.md 15.2, UI need 4): heroLevel (the banner's), talentPoints (2+ at once), the hero's xpToNext
+        case 'levelUp': out.push({ t: 'levelUp', level: e.level, ...(e.heroLevel != null ? { heroLevel: e.heroLevel, talentPoints: e.talentPoints || 0, xpToNext: R.heroXpToNext(e.heroLevel) } : {}), talentPoint: !!e.talentPoint, trainer: (() => { try { return R.trainerView(s, e.level); } catch { return null; } })(), newSpells: Object.values(C.SPELL).filter((sp) => sp.cls === s.player.classId && sp.source === 'class' && sp.lvl === e.level).map((sp) => sp.name), hp: s.player.hp, maxHp: s.player.d.maxHp }); break;
+        // Legacy (legacy.md 1.3; UI need 4): XP past level 25 pays one more level line at the run's end (draft line)
+        case 'heroMax': out.push({ t: 'msg', text: `Past level ${C.HERO_MAX_LEVEL}: +${C.LEGACY_PER_LEVEL} Legacy points at the end of the run.`, kind: 'good' }); break;
         case 'gold': if (e.amount > 0 && e.why !== 'sell') out.push({ t: 'gold', amount: e.amount, why: e.why, heat: e.heat || 0 }); break; // a sale says its price itself
         case 'loot': out.push({ t: 'gotItem', name: e.item.name || (C.CONSUMABLE[e.item.id] || {}).name || 'item', rarity: e.item.rarity || 'common', to: e.to, heatUp: local.heatUp.get(e.item.uid) || null }); break;
         case 'victory': out.push({ t: 'victory' }); break;
@@ -1323,6 +1383,9 @@ function engineBackend(seedOpt, runOpts = {}) {
     local.engineLog.push(JSON.parse(JSON.stringify(action)));
     events.push(...r.events);
     for (const e of r.events) if (e.t === 'node' && e.heat && st.zone) local.nodeHeat.set(e.id != null ? `${st.zone.z}:#${e.id}` : `${st.zone.z}:${e.r}:${e.l}`, e.heat);
+    // Legacy (legacy.md 1.5; UI need 5): the hero checkpoint at every zone and Camp arrival is stored at once, so a closed
+    // browser loses at most the zone in progress (not a dev run: its profile stays as it was)
+    if (st.legacy && !st.dev && st.profile && st.profile.v >= 3 && r.events.some((e) => e.t === 'zone' || e.t === 'camp')) saveProfile(st.profile);
     heatSteps(before, action, r);
     return r;
   }
@@ -1437,15 +1500,15 @@ function engineBackend(seedOpt, runOpts = {}) {
           local.spoils = null;
           break;
         case 'END_RUN': {
-          const before = st.profile ? st.profile.echoes : 0;
+          const before = st.profile ? balanceOf(st.profile) : 0;
           if (st.phase === 'SUMMARY') apply({ type: 'END_RUN' }, events);
           const keep = st.create ? { classId: st.create.classId, petId: st.create.petId } : {};
           if (st.result && st.result.profile) {
             const sum = st.result.summary;
             profile = st.result.profile; saveProfile(profile); refreshPets();
             if (!sum.dev) recordRun(sum); // a dev run (engine-api.md 12) stays out of the run log
-            local.lastRun = { n: ++local.runNo, name: sum.name, classId: sum.classId, className: sum.className, outcome: sum.outcome, level: sum.level,
-              gained: st.result.echoes, before, after: profile.echoes, firstKill: ((sum.echoes && sum.echoes.lines) || []).some((l) => l.id === 'firstKill'), dev: !!sum.dev };
+            local.lastRun = { n: ++local.runNo, name: sum.name, classId: sum.classId, className: sum.className, outcome: sum.outcome, level: sum.hero ? sum.hero.level : sum.level,
+              gained: st.result.echoes, before, after: balanceOf(profile), firstKill: ((sum.echoes && sum.echoes.lines) || []).some((l) => l.id === 'firstKill'), dev: !!sum.dev };
           }
           st = mkRun(randomSeed(), keep); // the next run starts on the same class
           resetLocal();
@@ -1464,7 +1527,7 @@ function engineBackend(seedOpt, runOpts = {}) {
           saveProfile(profile); refreshPets(); rebuildCreate();
           const now = R.metaOffers(profile); const o1 = now.find((o) => o.id === action.id);
           const opened = now.filter((o) => o.available && o.rank === 0 && !was.find((x) => x.id === o.id).available).map((o) => o.id);
-          return { ok: true, events: [{ t: 'metaBuy', id: o1.id, name: o1.name, rank: o1.rank, ranks: o1.ranks, cost: o0.nextCost, echoes: profile.echoes, opened }] };
+          return { ok: true, events: [{ t: 'metaBuy', id: o1.id, name: o1.name, rank: o1.rank, ranks: o1.ranks, cost: o0.nextCost, echoes: balanceOf(profile), opened }] };
         }
         case 'SET_GUIDE': {
           // class select's "Guided first run" toggle (m3-onboarding.md 2.2): the run being created, rebuilt (class, pet, name,
@@ -1485,7 +1548,7 @@ function engineBackend(seedOpt, runOpts = {}) {
           if (st.phase === 'CREATE' && !guideOn && guideTodo() && runMode.mapMode === 'expedition' && runMode.prep !== false) {
             profile = R.setGuide(profile || R.newProfile(), 'skipped'); saveProfile(profile); rebuildCreate();
           }
-          apply({ type: 'START_RUN' }, events); break;
+          apply({ type: 'START_RUN' }, events); refund = null; break;
         }
         case 'SELECT_CLASS': {
           apply({ type: 'SELECT_CLASS', classId: action.classId }, events);
@@ -1690,7 +1753,8 @@ function engineBackend(seedOpt, runOpts = {}) {
       return {
         cost: info && info.cost ? `${info.cost} ${resName}` : 'No cost', cd: info && info.cd ? `${info.cd} round cooldown` : null, lines,
         rank: k ? `Rank ${k.rank}` : null, flavour: info && info.text,
-        trained: k && k.tl < s.player.level && !(sp.source === 'talent') ? `Rank ${k.rank}. A trainer can raise it to rank ${k.rank + 1}.` : null,
+        // Legacy (legacy.md 1.7): a rank is the hero level it was trained at, so the next is the hero's level now
+        trained: k && k.tl < s.player.level && !(sp.source === 'talent') ? `Rank ${k.rank}. A trainer can raise it to rank ${s.legacy ? s.player.heroLevel : k.rank + 1}.` : null,
       };
     },
     itemScore(it) { if (!it || it.kind !== 'gear' || !st.player) return 0; try { return R.itemScore(it._raw || it, st.player.classId); } catch { return 0; } },
@@ -1847,6 +1911,8 @@ export function createBridge(opts = {}) {
   const classic = !!(opts.classic ?? params.get('classic') === '1');
   const prep = !!(opts.prep ?? params.get('prep') === '1') || !(opts.expedition ?? params.get('expedition') === '1');
   const runOpts = classic ? { mapMode: 'rows' } : { mapMode: 'expedition', prep, ...(params.get('dimming') === '0' ? { dimming: false } : {}) };
+  // Legacy (D154 phase 1): ?legacy=1 turns C.GATES.legacy on for this page (a test switch; the game follows the switch)
+  if (!useMock && (opts.legacy ?? params.get('legacy') === '1')) R.C.GATES.legacy = true;
   return new Bridge(useMock ? mockBackend(seed) : engineBackend(seed, runOpts));
 }
 

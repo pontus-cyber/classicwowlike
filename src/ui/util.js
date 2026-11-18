@@ -53,8 +53,30 @@ export function glowBall(ctx, x, y, r, col) {
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 3.2, 0, Math.PI * 2); ctx.fill();
 }
 
+// ------------------------------------------------------------------ Legacy display (D154 phase 1, draft)
+/**
+ * Display hooks of a Legacy run (docs/specs/legacy.md 1.2, 1.7, 4.6; engine-api.md 15.4), set by the bridge on every view
+ * from the engine (src/ui/engine-bridge.js setDisplay): `level` maps an engine level to the level shown (R.shownLevel: enemies,
+ * nodes, bands, item levels), `learn` a spell's learn level to the first hero level that reaches it (R.powerOfLevel, 1.7),
+ * `words` swaps the Echo words for the Legacy ones in every text h() builds. Off (no Legacy run, the mock, GATES.legacy
+ * off) every hook is the identity, so nothing on screen changes.
+ */
+const display = { level: null, learn: null, words: false };
+export function setDisplay(d = {}) { display.level = d.level || null; display.learn = d.learn || null; display.words = !!d.words; }
+/** The level shown for an engine level (the hero scale in a Legacy run, else the level itself). */
+export const lv = (n) => (display.level && typeof n === 'number' ? display.level(n) : n);
+/** The hero level a spell's learn level (an engine level) opens at (legacy.md 1.7), else the level itself. */
+export const lvLearn = (n) => (display.learn && typeof n === 'number' ? display.learn(n) : n);
+/** True while the screen shows a Legacy profile or run (Legacy points, the hero scale). */
+export const legacyShown = () => display.words;
+/** The Echo words as Legacy words while legacyShown (legacy.md 4.6: "Legacy points", the "Legacy hall"; draft). */
+export function legacyWords(s) {
+  if (!display.words || typeof s !== 'string' || !s.includes('Echo')) return s;
+  return s.replace(/Hall of Echoes/g, 'Legacy hall').replace(/\bEchoes\b/g, 'Legacy points').replace(/\bEcho\b/g, 'Legacy');
+}
+
 // ------------------------------------------------------------------ DOM
-/** h('div.cls#id', { attr, on: { click } , style: {} }, children...) */
+/** h('div.cls#id', { attr, on: { click } , style: {} }, children...); text children and labels pass legacyWords. */
 export function h(tag, props, ...children) {
   const m = /^([a-z0-9-]+)?((?:[.#][\w-]+)*)$/i.exec(tag);
   const el = document.createElement((m && m[1]) || 'div');
@@ -69,10 +91,10 @@ export function h(tag, props, ...children) {
       else if (k === 'style' && typeof v === 'object') { for (const [sk, sv] of Object.entries(v)) { if (sk.startsWith('--')) el.style.setProperty(sk, sv); else el.style[sk] = sv; } } // custom properties too
       else if (k === 'class') el.className += ' ' + v;
       else if (k === 'html') el.innerHTML = v;
-      else if (k === 'text') el.textContent = v;
+      else if (k === 'text') el.textContent = legacyWords(v);
       else if (k === 'dataset') Object.assign(el.dataset, v);
       else if (k in el && typeof v !== 'string') el[k] = v;
-      else el.setAttribute(k, v === true ? '' : v);
+      else el.setAttribute(k, v === true ? '' : k === 'aria-label' || k === 'title' || k === 'placeholder' ? legacyWords(v) : v);
     }
   }
   append(el, children);
@@ -84,7 +106,7 @@ function append(el, children) {
   for (const c of children) {
     if (c === null || c === undefined || c === false) continue;
     if (Array.isArray(c)) append(el, c);
-    else el.appendChild(c instanceof Node ? c : document.createTextNode(String(c)));
+    else el.appendChild(c instanceof Node ? c : document.createTextNode(legacyWords(String(c))));
   }
 }
 export const clear = (el) => { while (el.firstChild) el.removeChild(el.firstChild); return el; };

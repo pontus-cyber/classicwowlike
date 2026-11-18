@@ -21,7 +21,7 @@
 // engine's preview); on a first run class select shows no Seed field and no Echoes button. Naming: Oruvath, no
 // "Ascendancy" or "par"; a Dimmed node's fight is "with this zone's creatures, made stronger by the dark" (no "Shardspawn":
 // the engine fights the zone's own enemies there, variant shardspawn; engine-2026-11-14d UI need 15).
-import { h, add, clear, fmtNum, moneyEl, moneyText, clamp } from './util.js';
+import { h, add, clear, fmtNum, moneyEl, moneyText, clamp, lv, lvLearn, legacyShown } from './util.js'; // lv, lvLearn: Legacy's hero scale (identity off)
 import { spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon, deathblowIcon } from './art-icons.js';
 import { drawPortrait, HERO_LOOKS, PET_LOOKS } from './art-actors.js';
 import { tip, itemTip, spellTip, hide as hideTip, STAT_NAMES } from './tooltip.js';
@@ -91,8 +91,8 @@ export const nodeLevel = (n) => (n.type === 'elite' && n.level ? n.level : n.cl)
  */
 export function expNodeDesc(n, p, rules) {
   if (n.type === 'elite' && n.level && p) {
-    const gap = n.level - p.level;
-    return `One powerful enemy at level ${n.level}, ${gap > 0 ? `${gap} ${plural(gap, 'level')} above you` : gap < 0 ? `${-gap} ${plural(-gap, 'level')} below you` : 'your level'}. High experience and a guaranteed good item.`;
+    const gap = lv(n.level) - lv(p.level); // Legacy: the gap on the hero scale, as both levels show
+    return `One powerful enemy at level ${lv(n.level)}, ${gap > 0 ? `${gap} ${plural(gap, 'level')} above you` : gap < 0 ? `${-gap} ${plural(-gap, 'level')} below you` : 'your level'}. High experience and a guaranteed good item.`;
   }
   if (n.type === 'grind' && n.waves) {
     const foes = n.archetypes && n.archetypes.length ? ` of ${enemies(n.archetypes.length)}` : '';
@@ -184,12 +184,17 @@ export function expiryText(list, content) {
 function buildCreate(ctx) {
   const d = ctx.data;
   const root = h('div#create');
-  root.appendChild(h('div.ctitle', h('div.t1', 'A classic fantasy roguelike'), h('div.t2', 'Choose your hero'), h('div.t3', `Level from 1 to ${d.rules.maxLevel} across ${numWord(d.rules.zoneCount)} zones, then face Oruvath.`)));
+  // Legacy (legacy.md 1.1, draft line): the hero keeps its level; the refund note (4.6) once, filled by updateCreate
+  root.appendChild(h('div.ctitle', h('div.t1', 'A classic fantasy roguelike'), h('div.t2', 'Choose your hero'),
+    h('div.t3', legacyShown() ? `Your hero keeps its level, 1 to ${d.rules.heroMaxLevel}, from run to run. ${cap(numWord(d.rules.zoneCount))} zones, then Oruvath.` : `Level from 1 to ${d.rules.maxLevel} across ${numWord(d.rules.zoneCount)} zones, then face Oruvath.`),
+    h('div.t4.refund.hidden')));
   const classes = h('div.classes');
   for (const id of ['rogue', 'mage', 'hunter']) {
     const c = d.classes[id];
     const cv = heroPortrait(id);
-    const card = h('div.ccard.panel', { dataset: { cls: id }, style: { '--cc': c.color } }, cv, h('div', h('div.cn', { style: { color: c.color } }, c.name), h('div.cr', c.role)));
+    // Legacy (legacy.md 1.1; R.heroesView): the class's hero, its level and XP bar, or "New hero" (filled by updateCreate)
+    const card = h('div.ccard.panel', { dataset: { cls: id }, style: { '--cc': c.color } }, cv, h('div.cc-t', h('div.cn', { style: { color: c.color } }, c.name), h('div.cr', c.role),
+      h('div.chero.hidden', h('div.ch-l'), h('div.ch-xp', h('i')))));
     card.addEventListener('click', () => ctx.act({ type: 'SELECT_CLASS', classId: id }));
     classes.appendChild(card);
   }
@@ -240,6 +245,27 @@ function updateCreate(root, v, ctx) {
   if (mc) { mc.textContent = odd; mc.classList.toggle('hidden', !odd); }
   root.querySelectorAll('.ccard').forEach((el) => el.classList.toggle('sel', el.dataset.cls === c.classId));
   const m = v.meta;
+  // Legacy hero select (legacy.md 1.1; engine-api.md 15.4 heroesView): "Level 7 · Ash" and the XP bar, or "New hero"
+  const heroes = m && m.legacy && m.heroes ? m.heroes : null;
+  const heroOf = (id) => (heroes ? heroes[['rogue', 'mage', 'hunter'].indexOf(id)] || null : null);
+  root.querySelectorAll('.ccard').forEach((el) => {
+    const box = el.querySelector('.chero'); if (!box) return;
+    box.classList.toggle('hidden', !heroes);
+    if (!heroes) return;
+    const hr = heroOf(el.dataset.cls);
+    const named = hr && hr.name && hr.name.toLowerCase() !== String(hr.className).toLowerCase() ? hr.name : null;
+    box.querySelector('.ch-l').textContent = hr ? `Level ${hr.level}${named ? ` · ${named}` : ''}` : 'New hero';
+    box.classList.toggle('new', !hr);
+    const f = hr && hr.xpToNext ? Math.max(0, Math.min(1, hr.xp / hr.xpToNext)) : 0;
+    box.querySelector('.ch-xp i').style.width = `${Math.round(f * 1000) / 10}%`;
+    box.dataset.level = hr ? String(hr.level) : '';
+    box.dataset.xp = hr ? `${hr.xp}/${hr.xpToNext}` : '';
+  });
+  // the refund of past Echoes (legacy.md 4.6), once: textContent, so the words are not swapped (draft line)
+  const rf = root.querySelector('.ctitle .refund');
+  if (rf) { const back = m && m.refund ? m.refund.back : 0; rf.classList.toggle('hidden', !back); rf.textContent = back ? `Echoes are now Legacy points. The ${fmtNum(back)} you had spent are back.` : ''; }
+  // an existing hero keeps its name: the name field is for a new hero only
+  const nf = root.querySelector('.bottom .field:not(.seedf)'); if (nf) nf.classList.toggle('hidden', !!heroOf(c.classId));
   const gt = root.querySelector('.bottom .guide');
   if (gt) { const offer = !!(m && m.guideOffer); gt.classList.toggle('hidden', !offer); gt.classList.toggle('on', !!(m && m.guided)); gt.setAttribute('aria-checked', m && m.guided ? 'true' : 'false'); }
   // D150: a first run (no run in the profile, no Echoes yet) shows no Seed field and no Echoes button
@@ -259,7 +285,8 @@ function updateCreate(root, v, ctx) {
   if (slot && slot.dataset.key !== okey) { slot.dataset.key = okey; clear(slot); if (okey) slot.appendChild(buildOaths(v, ctx)); }
   const det = root.querySelector('.details');
   // pets that need an unlock (Stormhawk) open after a purchase: part of the key
-  const key = `${c.classId}|${c.petId}|${Object.values(d.pets).map((pd) => (pd.locked ? 1 : 0)).join('')}`;
+  const hr0 = heroOf(c.classId);
+  const key = `${c.classId}|${c.petId}|${Object.values(d.pets).map((pd) => (pd.locked ? 1 : 0)).join('')}|${hr0 ? hr0.level : ''}`;
   if (det.dataset.key === key) return;
   det.dataset.key = key;
   det.querySelector('.dname').textContent = cls.name;
@@ -268,8 +295,9 @@ function updateCreate(root, v, ctx) {
   const body = clear(det.querySelector('.body'));
   body.appendChild(h('div.blurb', cls.blurb));
   body.appendChild(h('dl.kv', h('dt', 'Resource'), h('dd', { energy: 'Energy and combo points', mana: 'Mana', focus: 'Focus, plus a pet' }[cls.resource]), h('dt', 'Basic attack'), h('dd', cls.basic.name), h('dt', 'Primary stat'), h('dd', cls.primary === 'agi' ? 'Agility' : 'Intellect')));
-  const starts = Object.values(d.spells).filter((s) => s.cls === c.classId && s.lvl === 1 && !(s.fx && (s.fx.meta || s.fx.talent)));
-  body.appendChild(h('div', h('div.subtitle', { style: { marginBottom: '.5rem' } }, 'Starting spells'), h('div.startspells', starts.map((s) => tip(h('div.sp', h('img', { src: spellIcon(s.id, s), alt: '' }), s.name), () => h('div', h('div.tt-name', s.name), h('div.tt-line.desc', s.text)))))));
+  // Legacy (legacy.md 1.6-1.7): a hero starts with every class spell its level allows (power level, heroesView `power`)
+  const starts = Object.values(d.spells).filter((s) => s.cls === c.classId && (hr0 ? s.lvl <= hr0.power : s.lvl === 1) && !(s.fx && (s.fx.meta || s.fx.talent)));
+  body.appendChild(h('div', h('div.subtitle', { style: { marginBottom: '.5rem' } }, hr0 ? 'Spells' : 'Starting spells'), h('div.startspells', starts.map((s) => tip(h('div.sp', h('img', { src: spellIcon(s.id, s), alt: '' }), s.name), () => h('div', h('div.tt-name', s.name), h('div.tt-line.desc', s.text)))))));
   if (c.classId === 'hunter') {
     const pets = h('div.pets');
     for (const [id, pd] of Object.entries(d.pets)) {
@@ -334,7 +362,7 @@ export function trainerMeta(v) {
   if (!t) return 'Learn and rank up spells';
   if (t.useful) return trainerWaitingShort(t) || 'Learn and rank up spells'; // blind round 2: "Waiting: 2 new spells, 1 rank"
   if ((t.learn && t.learn.length) || (t.train && t.train.length)) return 'Its lessons cost more gold than you have.';
-  return t.next ? `Next spell at level ${t.next}.` : 'Nothing new to learn.';
+  return t.next ? `Next spell at level ${lvLearn(t.next)}.` : 'Nothing new to learn.';
 }
 /**
  * D150 item 22 (engine-2026-11-14d UI need 10): the hub Trainer has nothing the gold covers (R.trainerView `useful` false,
@@ -346,7 +374,7 @@ const hubSwap = { swap: false }; // the hub offer's swap list stays open across 
 function buildHub(v, ctx) {
   const z = v.zone; const p = v.player; const used = (v.hub && v.hub.used) || {}; const hr = ctx.data.rules.time;
   const el = h('div.side.panel');
-  el.append(h('div.wtitle', h('div', h('div.title', { style: { fontSize: '2.4rem' } }, z.hubName), h('div.subtitle', `${z.name} · levels ${z.band[0]}–${z.band[1]}`))));
+  el.append(h('div.wtitle', h('div', h('div.title', { style: { fontSize: '2.4rem' } }, z.hubName), h('div.subtitle', `${z.name} · levels ${lv(z.band[0])}–${lv(z.band[1])}`))));
   // blind panel 2026-11-13 (item 5): a little tighter, so the offer and the three services fit at 1366x768 (style.css .side)
   const body = h('div.body.col', { style: { padding: '1rem 1.6rem 1.2rem', gap: '.6rem' } });
   if (z.hubText || z.blurb) body.appendChild(h('div', { style: { font: 'italic 1.4rem var(--font-title)', color: 'var(--ink-dim)', marginBottom: '.2rem' } }, z.hubText || z.blurb));
@@ -382,9 +410,9 @@ function buildCamp(v, ctx) {
   const svc = (service) => ({ ctx, v, action: { type: 'SERVICE', service } });
   body.append(
     svcCard('tome', 'arcane', 'Trainer', 'Last chance to train', tolls(hr.trainer), used.trainer, () => ctx.act({ type: 'HUB_SERVICE', service: 'trainer' }), svc('trainer')),
-    svcCard('vendor', 'earth', 'Quartermaster', `Level ${R.maxLevel} stock`, tolls(hr.vendor), used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' }), svc('vendor')),
+    svcCard('vendor', 'earth', 'Quartermaster', `Level ${lv(z.campLevel ?? R.maxLevel)} stock`, tolls(hr.vendor), used.vendor, () => ctx.act({ type: 'HUB_SERVICE', service: 'vendor' }), svc('vendor')),
     innCard(v, ctx, 'Campfire', 'Full rest before the fight', used.inn, svc('inn')),
-    svcCard('grind', 'steel', 'Camp wave', `Fight a wave of level ${R.campGrindLevel} enemies`, `${tolls(hr.grindWave)} a wave`, false, () => ctx.act({ type: 'CAMP_GRIND' }), { ctx, v, action: { type: 'CAMP_GRIND' } }));
+    svcCard('grind', 'steel', 'Camp wave', `Fight a wave of level ${lv(z.campLevel ?? R.campGrindLevel)} enemies`, `${tolls(hr.grindWave)} a wave`, false, () => ctx.act({ type: 'CAMP_GRIND' }), { ctx, v, action: { type: 'CAMP_GRIND' } }));
   // what the tolls did to Oruvath (the bridge's v.camp: R.heatView's ascIfPar at the Camp); D150: no par or Ascendancy
   const kv = h('dl.kv', h('dt', 'Oruvath'),
     asc == null ? h('dd.muted', 'Unknown') : h('dd', { class: asc > 0 ? 'bad' : 'good' }, asc > 0 ? `+${Math.round(asc * 100)} % health and damage` : 'No stronger'));
@@ -547,7 +575,7 @@ function buildExpMap(v, ctx, readOnly) {
     btns.unshift(sb);
   } else if (spy.armed) spy.armed = false;
   const dm = mv.dim || {}; const off = !!dm.off;
-  win.appendChild(h('div.mhead', h('div', h('div.title', z.name), h('div.subtitle', `Levels ${z.band[0]}–${z.band[1]}`)), h('div.row', readOnly ? closeBtn(ctx, 'map') : null, ...btns)));
+  win.appendChild(h('div.mhead', h('div', h('div.title', z.name), h('div.subtitle', `Levels ${lv(z.band[0])}–${lv(z.band[1])}`)), h('div.row', readOnly ? closeBtn(ctx, 'map') : null, ...btns)));
   if (leave.armed) {
     const a = { type: leave.armed }; const road = a.type === 'TAKE_ROAD';
     const go = btn(road ? 'Take the Road anyway' : expiring.length ? 'Ring the Bell anyway' : 'Ring the Bell', () => { leave.armed = null; ctx.act(a); }, '.danger');
@@ -671,7 +699,7 @@ function buildExpMap(v, ctx, readOnly) {
     const here = n.id === mv.pos;
     const full = n.know === 'full';
     const band = mv.bands && mv.bands[n.ring] ? mv.bands[n.ring] : null;
-    const label = n.hub ? 'Hub' : full && n.cl ? String(nodeLevel(n)) : n.know === 'type' && band ? `${band[0]}–${band[1]}` : '?';
+    const label = n.hub ? 'Hub' : full && n.cl ? String(lv(nodeLevel(n))) : n.know === 'type' && band ? `${lv(band[0])}–${lv(band[1])}` : '?';
     // D128 (owner playtest 2026-11-12 20:19: smaller icons, less clutter): text labels only where the player acts: his
     // node, the reachable nodes and contract sites. Every other node is "quiet": its level a small coloured pip, its band
     // and enemy count on hover (the tooltip), its Dimming clock a number only.
@@ -971,7 +999,7 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
   const full = n.know === 'full';
   const box = h('div.tt-node');
   const L = nodeLevel(n); // D144: an elite fights at its own level (mapView `level`), not the node's
-  const lvl = full && L && !n.hub ? h('div', { style: { color: NO_FIGHT.has(n.type) ? NEUTRAL : conColor(L, p.level), fontWeight: 800 } }, `Level ${L}`) : null;
+  const lvl = full && L && !n.hub ? h('div', { style: { color: NO_FIGHT.has(n.type) ? NEUTRAL : conColor(L, p.level), fontWeight: 800 } }, `Level ${lv(L)}`) : null;
   // engine-2026-11-15 UI need 3: a named elite (Gorrak in the guided zone, mapView `name`, unseen too) titles his node
   const named = n.name && (n.type === 'elite' || !type) ? n.name : null;
   box.appendChild(h('div.tt-row', h('div.tt-name', n.hub ? z.hubName : named || (type ? NODE_NAME[type] || type : 'Unknown')), lvl));
@@ -979,7 +1007,7 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
   const reg = n.region != null && mv.regions[n.region] ? mv.regions[n.region] : null;
   // D144 (engine-2026-11-13d UI need 9; tactician s0119 "Ring 3 · levels 8-10" and "Level 5"): the ring's band only while the
   // node's own level is not known; a guided zone's scripted or site fight says so (mapView `guided`)
-  const ringText = `Ring ${n.ring}${n.guided ? ' · guided fight' : band && !(full && L) ? ` · levels ${band[0]}–${band[1]}` : ''}`;
+  const ringText = `Ring ${n.ring}${n.guided ? ' · guided fight' : band && !(full && L) ? ` · levels ${lv(band[0])}–${lv(band[1])}` : ''}`;
   box.appendChild(h('div.tt-sub', [n.hub ? 'Zone hub: trainer, vendor and inn' : ringText, reg && reg.name ? reg.name : null].filter(Boolean).join(' · ')));
   const fog = fogState(n, mv);
   if (fog === 'unknown') box.appendChild(h('div.tt-line.muted', 'Unknown: not seen yet. Its ring gives its level range.'));
@@ -1061,15 +1089,15 @@ function closeBtn(ctx, win) { const b = h('button.xbtn', '×'); b.addEventListen
 function nodeDanger(n, r) {
   const d = n.danger;
   if (!d || !(d.hi > 0)) return null;
-  return `Zone danger: enemies here deal ${d.hi > d.lo ? 'up to ' : ''}+${pct1(d.hi)} damage (above level ${r.dangerFrom}).`;
+  return `Zone danger: enemies here deal ${d.hi > d.lo ? 'up to ' : ''}+${pct1(d.hi)} damage (above level ${lv(r.dangerFrom)}).`;
 }
 
 function nodeTip(n, v, ctx, reach, hp = null) {
   const p = v.player;
   const box = h('div.tt-node');
-  box.appendChild(h('div.tt-row', h('div.tt-name', NODE_NAME[n.type] + (n.type === 'elite' && n.rare && n.rareVisible ? ' (rare)' : '')), h('div', { style: { color: NO_FIGHT.has(n.type) ? NEUTRAL : conColor(n.cl, p.level), fontWeight: 800 } }, `Level ${n.cl}`)));
+  box.appendChild(h('div.tt-row', h('div.tt-name', NODE_NAME[n.type] + (n.type === 'elite' && n.rare && n.rareVisible ? ' (rare)' : '')), h('div', { style: { color: NO_FIGHT.has(n.type) ? NEUTRAL : conColor(n.cl, p.level), fontWeight: 800 } }, `Level ${lv(n.cl)}`)));
   if (n.type === 'quest') add(box, h('div.tt-line', { style: { color: token('--accent-cream'), fontWeight: 700 } }, n.title), h('div.tt-sub', `From ${n.giver}`));
-  if (n.type === 'elite') add(box, h('div.tt-line', { style: { color: '#ffb08a', fontWeight: 700 } }, n.eliteName || 'An elite'), n.level ? h('div.tt-sub', `Elite level ${n.level}`) : null);
+  if (n.type === 'elite') add(box, h('div.tt-line', { style: { color: '#ffb08a', fontWeight: 700 } }, n.eliteName || 'An elite'), n.level ? h('div.tt-sub', `Elite level ${lv(n.level)}`) : null);
   if (n.type === 'dungeon') add(box, h('div.tt-line', { style: { color: '#c8a8ff', fontWeight: 700 } }, n.dungeon), h('div.tt-sub', `Boss: ${n.bossName}`));
   // M2b v13 (UI needs 7): the special enemy's Deathblow and its kind (mapView `deathblow`, `bossDeathblow`), to plan the answer
   const dbl = deathblowLine(n.type === 'elite' ? n.deathblow : n.type === 'dungeon' ? n.bossDeathblow : null, n.type === 'dungeon');
@@ -1112,7 +1140,7 @@ function foeList(v, list, ctx) {
   const p = v.player;
   const counts = new Map();
   for (const t of list || []) counts.set(t.name, (counts.get(t.name) || 0) + 1);
-  return h('div.foes', [...counts.entries()].map(([nm, k]) => h('div.foe', h('span.con', { style: { color: conColor(v.node.cl, p.level) } }, String(v.node.cl)), `${k > 1 ? k + ' × ' : ''}${nm}`)));
+  return h('div.foes', [...counts.entries()].map(([nm, k]) => h('div.foe', h('span.con', { style: { color: conColor(v.node.cl, p.level) } }, String(lv(v.node.cl))), `${k > 1 ? k + ' × ' : ''}${nm}`)));
 }
 
 function buildNode(v, ctx) {
@@ -1121,7 +1149,7 @@ function buildNode(v, ctx) {
   // a node entered Hot or Scorched shows what it pays (its entry state, rules 1.7.3) in the dialog's title
   const hb = heatBadge(n.heat, ctx);
   if (n.type === 'quest' && n.step === 'intro') {
-    return dialog(n.title, `Quest · level ${n.cl}`, [
+    return dialog(n.title, `Quest · level ${lv(n.cl)}`, [
       h('div.qtext.parchment', h('div.giver', `${n.giver} says:`), h('div', `“${n.text}”`)),
       h('div.subtitle', 'Enemies'), foeList(v, n.mobs, ctx),
       h('div.dim', { style: { fontSize: '1.2rem' } }, 'Reward: experience, gold and a choice of two items.'),
@@ -1141,27 +1169,27 @@ function buildNode(v, ctx) {
       return b;
     };
     const waves = ks.map(w);
-    return dialog('Grind', `Level ${n.cl}`, [h('div.dim', { style: { fontSize: '1.35rem' } }, nodeDesc('grind', rulesOf(v, R))), h('div.subtitle', 'Enemies'), foeList(v, n.mobs, ctx), h('div.muted', 'You can stop after any wave.')], waves, { left, badge: heatBadge(n.heat, ctx) });
+    return dialog('Grind', `Level ${lv(n.cl)}`, [h('div.dim', { style: { fontSize: '1.35rem' } }, nodeDesc('grind', rulesOf(v, R))), h('div.subtitle', 'Enemies'), foeList(v, n.mobs, ctx), h('div.muted', 'You can stop after any wave.')], waves, { left, badge: heatBadge(n.heat, ctx) });
   }
   if (n.type === 'elite' && n.step === 'intro') {
     const e = n.elite || {};
     // section 7 (D150): the elite's own level (its fight's, as the map shows it), not the node's
-    return dialog(n.eliteName, `${n.rare ? 'Rare elite' : 'Elite'} · level ${n.mobs && n.mobs[0] && n.mobs[0].level ? n.mobs[0].level : n.cl}`, [
+    return dialog(n.eliteName, `${n.rare ? 'Rare elite' : 'Elite'} · level ${lv(n.mobs && n.mobs[0] && n.mobs[0].level ? n.mobs[0].level : n.cl)}`, [
       e.text ? h('div', { style: { font: 'italic 1.45rem var(--font-title)', color: 'var(--ink-dim)' } }, e.text) : null,
       h('dl.kv', h('dt', 'Threat'), h('dd.bad', 'High: elites hit hard and have special abilities'), h('dt', 'Reward'), h('dd', 'Large experience, gold and a guaranteed good item'), n.add ? h('dt', 'Escort') : null, n.add ? h('dd', n.add.name) : null),
     ], [btn('Engage', () => ctx.act({ type: 'ACCEPT' }), '.primary')], { left, badge: h('span.row', { style: { gap: '.5rem' } }, hb, h('span.rank-tag' + (n.rare ? '.rare' : ''), n.rare ? 'Rare' : 'Elite')) });
   }
   if (n.type === 'dungeon' && n.step === 'intro') {
-    return dialog(n.dungeon, `Dungeon · level ${n.cl}`, [
+    return dialog(n.dungeon, `Dungeon · level ${lv(n.cl)}`, [
       n.dungeonText ? h('div', { style: { font: 'italic 1.45rem var(--font-title)', color: 'var(--ink-dim)' } }, n.dungeonText) : null,
       h('dl.kv', h('dt', 'Fights'), h('dd', `${n.trash ?? ctx.data.rules.dungeonTrashFights} ${plural(n.trash ?? ctx.data.rules.dungeonTrashFights, 'group')}, then ${n.bossName}`), h('dt', 'Between fights'), h('dd', 'You may eat, change gear, or leave with what you have'), h('dt', 'Warning'), h('dd.bad', 'No fleeing from the dungeon boss')),
     ], [btn('Enter the dungeon', () => ctx.act({ type: 'ACCEPT' }), '.primary')], { left, badge: hb });
   }
   if (n.type === 'treasure' && n.step === 'intro') {
-    return dialog('Treasure', `Level ${n.cl}`, [h('div', { style: { font: 'italic 1.45rem var(--font-title)', color: 'var(--ink-dim)' } }, n.text || ''), h('div.warn', `A guardian watches the chest: ${n.guard ? n.guard.name : 'an enemy'}.`)], [btn('Fight the guardian', () => ctx.act({ type: 'ACCEPT' }), '.primary')], { left, badge: hb });
+    return dialog('Treasure', `Level ${lv(n.cl)}`, [h('div', { style: { font: 'italic 1.45rem var(--font-title)', color: 'var(--ink-dim)' } }, n.text || ''), h('div.warn', `A guardian watches the chest: ${n.guard ? n.guard.name : 'an enemy'}.`)], [btn('Fight the guardian', () => ctx.act({ type: 'ACCEPT' }), '.primary')], { left, badge: hb });
   }
   if (n.type === 'treasure' && n.step === 'chest') {
-    return dialog('Treasure', `Level ${n.cl}`, [h('div', { style: { font: 'italic 1.45rem var(--font-title)', color: 'var(--ink-dim)' } }, n.text || 'The chest is yours.')], [btn('Open the chest', () => ctx.act({ type: 'OPEN_CHEST' }), '.primary')], { left, badge: hb });
+    return dialog('Treasure', `Level ${lv(n.cl)}`, [h('div', { style: { font: 'italic 1.45rem var(--font-title)', color: 'var(--ink-dim)' } }, n.text || 'The chest is yours.')], [btn('Open the chest', () => ctx.act({ type: 'OPEN_CHEST' }), '.primary')], { left, badge: hb });
   }
   if (n.step === 'between') {
     const hpTxt = `Health ${fmtNum(p.hp)} / ${fmtNum(p.maxHp)}${p.res.kind === 'mana' ? ` · Mana ${fmtNum(p.res.cur)} / ${fmtNum(p.res.max)}` : ''}`;
@@ -1214,7 +1242,7 @@ function buildLoot(v, ctx) {
   (L.items || []).forEach((it, i) => {
     const worn = it.kind === 'gear' && !!p.equip[it.slot] && p.equip[it.slot].uid === it.uid; // put on from this window
     const up = it.kind === 'gear' && !worn && ctx.bridge.itemScore(it) > ctx.bridge.itemScore(p.equip[it.slot]);
-    const meta = it.kind === 'gear' ? `${cap(it.slot)} · item level ${it.ilvl}` : it.kind === 'junk' ? 'Junk' : 'Consumable';
+    const meta = it.kind === 'gear' ? `${cap(it.slot)} · item level ${lv(it.ilvl)}` : it.kind === 'junk' ? 'Junk' : 'Consumable';
     const tag = worn ? h('span.good', ' · equipped') : up ? h('span.good', ' · ▲ upgrade') : null; // D150 item 19: no "in your bags" note
     const r = h('div.lrow.' + (it.rarity || 'common'), { dataset: { uid: it.uid } }, h('img', { src: itemIcon(it), alt: '' }), h('div.grow', h('div.nm.r-' + it.rarity, it.name + (it.count > 1 ? ` ×${it.count}` : ''), it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', meta, tag)));
     // blind round 2 (casual re-run s0071-s0079): every gear row of the spoils and of a chest offers "Equip now", and a click
@@ -1272,7 +1300,7 @@ function buildReward(v, ctx) {
     // and put on at once (CHOOSE_REWARD, then EQUIP of the same item once it is in the bags)
     const offer = it.kind === 'gear' && (up > 0 || !p.equip[it.slot]);
     const eq = offer ? h('button.btn.small.eqnow', { type: 'button', dataset: { uid: it.uid } }, 'Equip now') /* not .primary: Space keeps choosing nothing here */ : null;
-    const c = h('div.icard', h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name, it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', `${cap(it.slot)} · item level ${it.ilvl}`), h('div.stats', stats || ' '), h('div.upg.' + (up > 0 || !p.equip[it.slot] ? 'good' : 'muted'), up > 0 ? `▲ Upgrade (+${Math.round(up * 10) / 10})` : !p.equip[it.slot] ? '▲ Empty slot' : 'Not an upgrade'), eq));
+    const c = h('div.icard', h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name, it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', `${cap(it.slot)} · item level ${lv(it.ilvl)}`), h('div.stats', stats || ' '), h('div.upg.' + (up > 0 || !p.equip[it.slot] ? 'good' : 'muted'), up > 0 ? `▲ Upgrade (+${Math.round(up * 10) / 10})` : !p.equip[it.slot] ? '▲ Empty slot' : 'Not an upgrade'), eq));
     c.addEventListener('click', () => ctx.act({ type: 'CHOOSE_REWARD', i }));
     if (eq) eq.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1327,14 +1355,14 @@ function buildVendor(v, ctx) {
   // 1366x768. Gear now comes first; data-i keeps the engine's stock index (BUY), the list shows a cue when more is below.
   const rowsOf = (n.stock || []).map((it, i) => [it, i]).sort((a, b) => (a[0].kind === 'gear' ? 0 : 1) - (b[0].kind === 'gear' ? 0 : 1) || a[1] - b[1]);
   const stock = scrollCue(h('div.list', rowsOf.map(([it, i]) => {
-    const r = h('div.trow' + (it.sold ? '.locked' : ''), { dataset: { i: String(i) } }, h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name), h('div.meta', it.kind === 'gear' ? `${cap(it.slot)} · item level ${it.ilvl}` : 'Consumable')),
+    const r = h('div.trow' + (it.sold ? '.locked' : ''), { dataset: { i: String(i) } }, h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name), h('div.meta', it.kind === 'gear' ? `${cap(it.slot)} · item level ${lv(it.ilvl)}` : 'Consumable')),
       h('div.right', it.sold ? h('span.muted', 'Sold') : moneyEl(it.price), it.sold ? null : h('button.btn.small' + (p.gold < it.price ? '.disabled' : ''), 'Buy')));
     if (!it.sold) r.querySelector('button').addEventListener('click', () => ctx.act({ type: 'BUY', i }));
     tip(r, () => itemTip(it, ctx, { price: it.price }));
     return r;
   })));
   const bag = h('div.list', p.bag.filter(Boolean).map((it) => {
-    const r = h('div.trow', h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name + (it.count > 1 ? ` ×${it.count}` : '')), h('div.meta', it.sell ? moneyText(it.sell * (it.count || 1)) : it.kind === 'gear' ? `${cap(it.slot)} · item level ${it.ilvl}` : it.kind === 'junk' ? 'Junk' : 'Consumable')), h('div.right', h('button.btn.small', 'Sell')));
+    const r = h('div.trow', h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name + (it.count > 1 ? ` ×${it.count}` : '')), h('div.meta', it.sell ? moneyText(it.sell * (it.count || 1)) : it.kind === 'gear' ? `${cap(it.slot)} · item level ${lv(it.ilvl)}` : it.kind === 'junk' ? 'Junk' : 'Consumable')), h('div.right', h('button.btn.small', 'Sell')));
     r.querySelector('button').addEventListener('click', () => ctx.act({ type: 'SELL', uid: it.uid }));
     tip(r, () => itemTip(it, ctx, {}));
     return r;
@@ -1357,10 +1385,10 @@ function buildTrainer(v, ctx) {
     if (e.state === 'learnable') right = h('div.right', price, btnSmall('Learn', afford, () => ctx.act({ type: 'LEARN', spellId: e.id })));
     else if (e.state === 'trainable') right = h('div.right', price, btnSmall(`Train to rank ${(e.rank || 1) + 1}`, afford, () => ctx.act({ type: 'TRAIN', spellId: e.id })));
     else if (e.state === 'current') right = h('div.right', h('span.good', `Rank ${e.rank}`));
-    else right = h('div.right', h('span.muted', `Requires level ${e.lvl}`));
+    else right = h('div.right', h('span.muted', `Requires level ${lvLearn(e.lvl)}`));
     // D150 item 21: "Level N ·" only where it is the level a spell needs (not yet known); a known spell's rank is on the right
     const known = e.state === 'current' || e.state === 'trainable';
-    const r = h('div.trow' + (e.state === 'locked' ? '.locked' : ''), h('img', { src: spellIcon(e.id, sp), alt: '' }), h('div', h('div.nm', sp.name), h('div.meta', known ? sp.text : `Level ${e.lvl} · ${sp.text}`)), right);
+    const r = h('div.trow' + (e.state === 'locked' ? '.locked' : ''), h('img', { src: spellIcon(e.id, sp), alt: '' }), h('div', h('div.nm', sp.name), h('div.meta', known ? sp.text : `Level ${lvLearn(e.lvl)} · ${sp.text}`)), right);
     tip(r, () => spellTip(e.id, ctx), { avoid: '.svc .list .trow .right' }); // blind round 2 (tactician s0210): no row's price or Learn covered
     return r;
   }));
@@ -1393,12 +1421,15 @@ function buildSummary(v, ctx) {
   const named = s.name && s.name.toLowerCase() !== String(s.className).toLowerCase() ? s.name : null;
   win.appendChild(h('div.shead', h('div.t1.subtitle', { style: { letterSpacing: '.4em', textTransform: 'uppercase' } }, won ? 'Victory' : 'The run has ended'),
     h('div.t2', { style: { color: won ? token('--accent-pale') : '#e8a090' } }, won ? 'Oruvath has fallen' : named ? `${named} has fallen` : `Your ${s.className} has fallen`),
-    h('div.subtitle.s-who', `${named ? `${named} · level` : 'Level'} ${s.level} ${s.className}${s.petId ? ' with ' + ctx.data.pets[s.petId].name : ''} · ${s.zone}`),
+    h('div.subtitle.s-who', `${named ? `${named} · level` : 'Level'} ${lv(s.level)} ${s.className}${s.petId ? ' with ' + ctx.data.pets[s.petId].name : ''} · ${s.zone}`),
     // a dev run (engine-api.md 12): the dev tools changed it, so it earns no Echoes
     s.dev ? h('div.devrun', `Dev run${s.dev.god ? ' · god mode' : ''}`) : null));
   const kv = (pairs) => h('dl.kv', pairs.flatMap(([k, val]) => [h('dt', k), h('dd', val)]));
   const card1 = h('div.card', h('h3', 'The journey'), kv([
-    ['Reached', `${s.zone}${s.row ? `, row ${s.row}` : ''}`], [HEAT_WORDS.Units, fmtTime(s.time)], ['Oruvath', s.asc ? `+${Math.round(s.asc * 100)} % health and damage` : 'No stronger'],
+    ['Reached', `${s.zone}${s.row ? `, row ${s.row}` : ''}`],
+    // Legacy (legacy.md 1.5, 4.1; draft line): the hero's levels and the hero XP of the run, kept whatever the outcome
+    ...(s.hero ? [['Hero', h('span.s-hero', { dataset: { from: String(s.hero.from), to: String(s.hero.level), xp: String(s.hero.xpGained) } }, `Level ${s.hero.from}${s.hero.level !== s.hero.from ? ` → ${s.hero.level}` : ''} · +${fmtNum(s.hero.xpGained)} XP`)]] : []),
+    [HEAT_WORDS.Units, fmtTime(s.time)], ['Oruvath', s.asc ? `+${Math.round(s.asc * 100)} % health and damage` : 'No stronger'],
     ['Estimated time', `${s.estMinutes.manual} min manual · ${s.estMinutes.auto} min autoplay`], ['Fights', `${s.fights} (${s.rounds} rounds)`], ['Seed', String(s.seed)],
     // the killing blow by its display name (the bridge's actionName; without a name only the killer)
     ...(s.death ? [['Killed by', h('span.killed', { dataset: { ability: s.death.ability || '' } }, s.death.ability ? `${s.death.killer} (${s.death.ability})` : s.death.killer)], ['Where', `${s.death.node}, round ${s.death.round}`]] : []),

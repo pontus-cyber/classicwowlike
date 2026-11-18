@@ -18,7 +18,7 @@
 // D150 (owner 2026-11-14, text pass): "Deathblow stopped" and "Wind-up stopped" (floats and log lines), the end boss
 // and the Ember of Return by their names ("Oruvath", "You return to the fight"); a quest's, story's or contract's XP
 // floats not with the fight's (its window shows it), so the fight's floats add up to the spoils' experience.
-import { wait, SkipToken, fmtNum, deepClone } from './util.js';
+import { wait, SkipToken, fmtNum, deepClone, lv } from './util.js'; // lv: Legacy's hero scale (identity off)
 import { settings } from './settings.js';
 import { linkedText, dangerBanner, CONTROL_WORD as CONTROL_LOG, HEAT_WORDS, freeActionText, trainerWaiting } from './ui-text.js';
 import { timeline, roundPace, hitShare, STATUS_LABEL } from './combat-feel.js';
@@ -47,7 +47,7 @@ const isRound = (prev, events) => !!(prev && prev.combat && !prev.combat.over &&
 /** Zone banner sub-line: the level band, and the zone danger line where the zone's enemies take zone danger (z.danger, M2 v3). */
 function zoneLine(z, rules) {
   const d = dangerBanner(rules, z);
-  return `Levels ${z.band[0]}–${z.band[1]}${d ? ` · ${d}` : ''}`;
+  return `Levels ${lv(z.band[0])}–${lv(z.band[1])}${d ? ` · ${d}` : ''}`;
 }
 /** The death screen's second line: a Second Breath held at a death in the end-boss fight stays unused (rules 9, M2 v3). */
 function deathLine(next) {
@@ -364,16 +364,20 @@ export class Director {
           // the fight's floats add up to the spoils window's experience
           case 'xp': if (e.amount > 0) { if (!OWN_WINDOW_XP.has(e.why)) scene.float('player', `+${fmtNum(e.amount)} XP`, { color: '#d0a8ff', size: 17, dy: -30 * scene.u, small: true }); p().xp = Math.min(p().xpToNext, p().xp + e.amount); p().rested = Math.max(0, (p().rested || 0) - (e.rested || 0)); push(); hud.log(`You gain ${fmtNum(e.amount)} experience${e.rested ? ` (${fmtNum(e.rested)} rested bonus)` : ''}${e.heat ? ` (+${fmtNum(e.heat)} from heat)` : ''}.`, 'lg-xp'); } break;
           case 'levelUp': {
-            Object.assign(p(), { level: e.level, maxHp: e.maxHp, hp: e.hp, xp: 0, xpToNext: (next.player && next.player.level === e.level) ? next.player.xpToNext : p().xpToNext });
+            // Legacy (engine-api.md 15.2): the hero's own xpToNext (e.xpToNext; XP carries over, the next view's XP lands after)
+            Object.assign(p(), { level: e.level, maxHp: e.maxHp, hp: e.hp, xp: 0, xpToNext: e.xpToNext != null ? e.xpToNext : (next.player && next.player.level === e.level) ? next.player.xpToNext : p().xpToNext });
             push();
             scene.levelUp('player');
             // blind round 2 (casual re-run s0279): the banner points to the trainer whenever a spell or a rank waits there
             // (R.trainerView after the step), once per level; the mock has no trainer view: the level's new spells. engine-2026-11-15
             // UI need 2: the offer as at this level (the bridge's levelUp `trainer`), so a level 3 banner never names a level 4 spell
             const waiting = (e.trainer || next.trainer) ? trainerWaiting(e.trainer || next.trainer, (id) => (ctx.data.spells[id] || {}).name || id) : e.newSpells && e.newSpells.length ? `New at the trainer: ${e.newSpells.join(', ')}` : null;
-            const extra = [e.talentPoint ? '+1 talent point' : null, waiting].filter(Boolean).join('  ·  ');
-            ctx.ui.banner(`Level ${e.level}`, extra || 'You feel stronger.', 'level', 2200);
-            hud.log(`You have reached level ${e.level}!`, 'lg-loot');
+            // Legacy (UI need 4): the hero level on the banner; a step may give 2 or more talent points
+            const tp = e.talentPoints > 1 ? `+${e.talentPoints} talent points` : e.talentPoint ? '+1 talent point' : null;
+            const extra = [tp, waiting].filter(Boolean).join('  ·  ');
+            const shown = e.heroLevel ?? e.level;
+            ctx.ui.banner(`Level ${shown}`, extra || 'You feel stronger.', 'level', 2200);
+            hud.log(`You have reached level ${shown}!`, 'lg-loot');
             if (!fast()) await WM(M.levelUp);
             break;
           }

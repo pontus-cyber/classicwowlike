@@ -4,7 +4,7 @@
 // states and effects come from the engine; this file only lays them out and animates the changes. D116: new runs start on
 // the expedition map, so its entries (expedition.md 8.2) read as any other; only with the Dev menu's "Classic map (old)"
 // do they carry the "Expedition" tag and "expedition map only".
-import { h, clear, fmtNum } from './util.js';
+import { h, clear, fmtNum, legacyWords } from './util.js'; // Legacy (D154): the Legacy words (identity off)
 import { icon, spellIcon } from './art-icons.js';
 import { tip, hide as hideTip } from './tooltip.js';
 import { settings } from './settings.js';
@@ -278,14 +278,14 @@ export function createMeta(ctx) {
     if (!ticker) return;
     clearTimeout(tickerT);
     ticker.className = 'mtick on k-' + kind;
-    ticker.textContent = text;
+    ticker.textContent = legacyWords(text);
     tickerT = setTimeout(() => { if (ticker) ticker.classList.remove('on'); }, kind === 'buy' ? 6000 : 8000);
   }
   function idleTicker(m) {
     if (!ticker) return;
     const reach = m.offers.filter((o) => o.affordable);
     ticker.className = 'mtick idle';
-    ticker.textContent = reach.length ? `${cap(numWord(reach.length))} ${plural(reach.length, 'unlock')} within reach.` : m.offers.every((o) => o.rank >= o.ranks) ? 'Every unlock is yours.' : 'Every run earns Echoes, even a short one.';
+    ticker.textContent = legacyWords(reach.length ? `${cap(numWord(reach.length))} ${plural(reach.length, 'unlock')} within reach.` : m.offers.every((o) => o.rank >= o.ranks) ? 'Every unlock is yours.' : 'Every run earns Echoes, even a short one.');
   }
 
   return {

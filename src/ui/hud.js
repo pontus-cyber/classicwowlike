@@ -32,7 +32,7 @@
 // Staggered badge (the off-balance marks give way that round); the minimap, the tracker and the boss frame say no par, line
 // or Ascendancy; a bar spell's tooltip has no "Right-click to clear · drag to reorder" (the spellbook keeps it); the revive
 // is named by its source ("Ember of Return"), never "Resurrect charges".
-import { h, add, clear, fmtNum, moneyEl, clamp, rgba } from './util.js';
+import { h, add, clear, fmtNum, moneyEl, clamp, rgba, lv as shownLv } from './util.js'; // shownLv: Legacy's hero scale (identity off)
 import { spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS } from './art-icons.js';
 import { drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook } from './art-actors.js';
 import { THEMES } from './art-world.js';
@@ -341,13 +341,13 @@ export function createHud(root, ctx) {
     const v = ctx.view; if (!v.zone) return null; const R = ctx.data.rules;
     const danger = v.zone.danger > 0 ? dangerRule(R) : null; // zone danger (rules 7.6): zone.danger from the engine's zoneDanger
     // D150 item 10: the tolls are the Furnace's (one number); no par, line or Ascendancy here
-    return h('div', h('div.tt-name', v.zone.name), h('div.tt-sub', `Levels ${v.zone.band[0]}–${v.zone.band[1]}`),
+    return h('div', h('div.tt-name', v.zone.name), h('div.tt-sub', `Levels ${shownLv(v.zone.band[0])}–${shownLv(v.zone.band[1])}`),
       danger ? h('div.tt-warn.danger', danger) : null, h('div.tt-hint', 'Click or press M for the zone map'));
   });
   tip(els.resc, () => { const v = ctx.view; return v.player ? resurrectTip(v) : null; });
   tip(els.xp, () => {
     const p = ctx.view.player; if (!p) return null;
-    return h('div', h('div.tt-name', `Level ${p.level}`), h('div.tt-line', `${fmtNum(p.xp)} / ${fmtNum(p.xpToNext)} experience`), p.rested ? h('div.tt-line', { style: { color: '#9fb8ff' } }, `Rested: ${fmtNum(p.rested)} (kills give double XP)`) : h('div.tt-sub', 'Not rested. Rest at an inn or campfire.'));
+    return h('div', h('div.tt-name', `Level ${shownLv(p.level)}`), h('div.tt-line', `${fmtNum(p.xp)} / ${fmtNum(p.xpToNext)} experience`), p.rested ? h('div.tt-line', { style: { color: '#9fb8ff' } }, `Rested: ${fmtNum(p.rested)} (kills give double XP)`) : h('div.tt-sub', 'Not rested. Rest at an inn or campfire.'));
   });
   els.target.addEventListener('click', () => {});
 
@@ -372,7 +372,7 @@ export function createHud(root, ctx) {
     if (pf.dataset.cls !== p.classId) { pf.dataset.cls = p.classId; clear(pf.querySelector('.portrait')).appendChild(heroPortrait(p.classId)); }
     pf.querySelector('.pn').textContent = p.name;
     pf.querySelector('.cls').textContent = p.className;
-    pf.querySelector('.lvl').textContent = p.level;
+    pf.querySelector('.lvl').textContent = shownLv(p.level);
     const ward = (p.statuses || []).find((s) => s.id === 'WARD');
     setBar(pf.querySelector('.bar.hp'), p.hp, p.maxHp, `${fmtNum(p.hp)} / ${fmtNum(p.maxHp)}`, ward ? ward.value : 0, p.dot);
     const rb = pf.querySelector('.bar.res');
@@ -432,7 +432,7 @@ export function createHud(root, ctx) {
         add(tag, roleTags(tgt, ctx));
         const rb = clear(els.target.querySelector('.rb')); const badge = roleBadge(tgt, ctx); if (badge) rb.appendChild(badge);
       }
-      const lv = els.target.querySelector('.lvl'); lv.textContent = tgt.level; lv.style.color = conColor(tgt.level, p.level);
+      const lv = els.target.querySelector('.lvl'); lv.textContent = shownLv(tgt.level); lv.style.color = conColor(tgt.level, p.level);
       const tw = (tgt.statuses || []).find((s) => s.id === 'WARD');
       setBar(els.target.querySelector('.bar.hp'), tgt.hp, tgt.maxHp, `${fmtNum(tgt.hp)} / ${fmtNum(tgt.maxHp)}  ·  ${Math.ceil((tgt.hp / tgt.maxHp) * 100)} %`, tw ? tw.value : 0, inFight ? tgt.dot : null);
       stackBadges(els.target.querySelector('.wstk'), tgt, ctx); // combat v2.1: EMPOWERED / STAGGERED, large (their small icons stay out of the row)
@@ -488,7 +488,7 @@ export function createHud(root, ctx) {
     els.xp.querySelector('.fill').style.width = `${xf * 100}%`;
     els.xp.querySelector('.fill').classList.toggle('rest', (p.rested || 0) > 0);
     const rs = els.xp.querySelector('.rested'); rs.style.left = `${xf * 100}%`; rs.style.width = `${Math.max(0, rf - xf) * 100}%`;
-    els.xp.querySelector('.txt').textContent = !p.xpToNext ? `Level ${p.level} · maximum level` : `Level ${p.level}  ·  ${fmtNum(p.xp)} / ${fmtNum(p.xpToNext)} XP (${Math.floor(xf * 100)} %)${p.rested ? `  ·  Rested ${fmtNum(p.rested)}` : ''}`;
+    els.xp.querySelector('.txt').textContent = !p.xpToNext ? `Level ${shownLv(p.level)} · maximum level` : `Level ${shownLv(p.level)}  ·  ${fmtNum(p.xp)} / ${fmtNum(p.xpToNext)} XP (${Math.floor(xf * 100)} %)${p.rested ? `  ·  Rested ${fmtNum(p.rested)}` : ''}`;
     // minimap & clock
     if (v.zone) {
       els.minimap.querySelector('.zname').textContent = v.zone.name;
@@ -532,7 +532,7 @@ export function createHud(root, ctx) {
         el.classList.toggle('sel', ctx.ui.target === e.idx);
         el.classList.toggle('boss', e.rank === 'boss');
         el.classList.toggle('shard', e.rank === 'shard' || e.arch === 'shard');
-        const lv = el.querySelector('.lv'); lv.textContent = e.rank === 'boss' ? '??' : e.level; lv.style.color = conColor(e.level, v.player.level);
+        const lv = el.querySelector('.lv'); lv.textContent = e.rank === 'boss' ? '??' : shownLv(e.level); lv.style.color = conColor(e.level, v.player.level);
         el.querySelector('.n').textContent = e.name + (e.rank === 'elite' ? ' (Elite)' : e.rank === 'rare' ? ' (Rare)' : e.rank === 'dboss' ? ' (Boss)' : '');
         el.querySelector('.newtag').classList.toggle('hidden', !(e.firstMeet && e.alive)); // M2b v13: first meeting (gated)
         setBar(el.querySelector('.bar'), e.hp, e.maxHp, `${Math.ceil((e.hp / e.maxHp) * 100)} %`, ((e.statuses || []).find((s) => s.id === 'WARD') || {}).value || 0, e.alive && !c.over ? e.dot : null);

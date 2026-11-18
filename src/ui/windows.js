@@ -4,7 +4,7 @@
 // volumes, saved like every setting.
 // D150 (owner 2026-11-14, text pass): talents show their points one way (no gate numbers or tree totals); the
 // spellbook keeps the bar's "right-click a slot to clear it" (spell tooltips do not).
-import { h, clear, fmtNum, moneyEl, pct } from './util.js';
+import { h, clear, fmtNum, moneyEl, pct, lv, lvLearn } from './util.js'; // lv, lvLearn: Legacy's hero scale (identity off)
 import { spellIcon, itemIcon, slotIcon, talentIcon, icon } from './art-icons.js';
 import { drawHumanoid, HERO_LOOKS } from './art-actors.js';
 import { tip, itemTip, spellTip, talentTip, SLOT_NAMES, hideIn } from './tooltip.js';
@@ -43,7 +43,7 @@ function damageBlock(dv) {
   bonus.dataset.pct = String(dv.pct);
   tip(bonus, () => h('div', h('div.tt-name', 'Damage bonus'), h('div.tt-line', 'Every bonus to your damage added up: talents, boons, elixirs and, in a fight, your buffs.'), h('div.tt-sub', `Now ${signPct(dv.pct)} on every attack`)));
   return h('div.dmgblock', h('div.dmhead', h('span', 'Damage'), bonus),
-    line('.dmmain', dv.main.name, dv.main, `Your main attack, trained to level ${dv.main.tl}`),
+    line('.dmmain', dv.main.name, dv.main, `Your main attack, trained to level ${lv(dv.main.tl)}`),
     dv.pet ? line('.dmpet', `${dv.pet.name} (pet)`, dv.pet, 'Your pet\'s attack') : null);
 }
 
@@ -120,7 +120,7 @@ export function createWindows(root, ctx) {
           // D150 naming rule: the revive by its own name (Ember of Return), never "Resurrections"
           h('div.wide.resline', h('span', 'On death'), h('b', rt.list)), rt.note ? h('div.wide.resnote', rt.note) : null),
         dv ? damageBlock(dv) : null);
-      return frame('character', `${p.name}`, `Level ${p.level} ${p.className}`, body);
+      return frame('character', `${p.name}`, `Level ${lv(p.level)} ${p.className}`, body);
     },
     bags(v) {
       const p = v.player;
@@ -156,7 +156,7 @@ export function createWindows(root, ctx) {
       }));
       const unknown = Object.values(d.spells).filter((s) => s.cls === p.classId && !(s.fx && (s.fx.meta || s.fx.talent)) && !p.spells.some((k) => k.id === s.id));
       const next = unknown.sort((a, b) => a.lvl - b.lvl).slice(0, 3);
-      return frame('spellbook', 'Spellbook', `${p.spells.length} spells known · 7 bar slots`, h('div', list, next.length ? h('div.muted', { style: { padding: '0 1.4rem 1.2rem', fontSize: '1.15rem' } }, `Next at a trainer: ${next.map((s) => `${s.name} (${s.lvl})`).join(', ')}`) : null));
+      return frame('spellbook', 'Spellbook', `${p.spells.length} spells known · 7 bar slots`, h('div', list, next.length ? h('div.muted', { style: { padding: '0 1.4rem 1.2rem', fontSize: '1.15rem' } }, `Next at a trainer: ${next.map((s) => `${s.name} (${lvLearn(s.lvl)})`).join(', ')}`) : null));
     },
     talents(v) {
       const p = v.player; const d = ctx.data; const cls = d.classes[p.classId];
@@ -185,10 +185,12 @@ export function createWindows(root, ctx) {
       // engine-2026-11-15 UI need 6 (newcomer check s0108): the rule line is content's (texts.progress), filled from the engine
       const ru = ctx.data.rules || {}; const first = ru.talentFirst ?? 10; const step = ru.talentStep ?? 2;
       const pt = (ctx.data.content && ctx.data.content.texts && ctx.data.content.texts.progress) || {};
-      const fillP = (t) => t.replace('{first}', String(first)).replace('{step}', String(step));
-      const rule = p.level < first ? fillP(pt.talents_locked || 'Talents unlock at level {first}.') : fillP(pt.talent_points || 'One point at level {first}, then one every {step} levels. Reset at a trainer.');
+      // Legacy (legacy.md 1.8; draft line): points come with the hero's level, sometimes two at once; levels on the hero scale
+      const legacy = p.heroLevel != null;
+      const fillP = (t) => t.replace('{first}', String(legacy ? lv(first) : first)).replace('{step}', String(step));
+      const rule = p.level < first ? fillP(pt.talents_locked || 'Talents unlock at level {first}.') : legacy ? fillP('Points come with your level from level {first}. Reset at a trainer.') : fillP(pt.talent_points || 'One point at level {first}, then one every {step} levels. Reset at a trainer.');
       const foot = h('div.talfoot', h('span', 'Unspent points: ', h('b', String(p.talentPoints))), h('span.muted', rule));
-      return frame('talents', 'Talents', `${p.className} · level ${p.level}`, h('div', trees, foot));
+      return frame('talents', 'Talents', `${p.className} · level ${lv(p.level)}`, h('div', trees, foot));
     },
     questlog(v) {
       // a run with the start camp (expedition.md 9.3): the quest log is the contract tracker, every contract by status

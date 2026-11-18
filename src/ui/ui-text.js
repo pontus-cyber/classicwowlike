@@ -5,6 +5,7 @@
 // reminder (Ambush "Gutting Jab at ×1.5. +2 combo points."), no par or Ascendancy in the Oaths' lines; "hidden" is only
 // Stealth (Tracker's Notes: "nodes you have not seen yet").
 import { SPELLS, TALENTS, STATUS_INFO as BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS } from './mock-data.js';
+import { lv, lvLearn, legacyShown, fmtNum as fmtN } from './util.js'; // Legacy (D154 phase 1): the hero scale and words, identities off
 
 /**
  * Player-facing words for the run's time pressure (docs/specs/changes-m2b-v7.md table D, draft; owner 2026-11-11 10:12):
@@ -267,7 +268,7 @@ export function familyName(id, content, one = false) {
   return t || `${String(id).replace(/_/g, ' ')} ${one ? 'foe' : 'foes'}`;
 }
 /** A level band in words: "levels 1-10". */
-export const bandText = (band) => (band ? `levels ${band[0]}-${band[1]}` : '');
+export const bandText = (band) => (band ? `levels ${lv(band[0])}-${lv(band[1])}` : '');
 /** What a contract asks for, short: "wild beasts in Barleyreach Verge", "Grosk, roaming Harrow Lane", a dungeon's name. */
 export function contractTarget(c, content) {
   if (c.kind === 'delve') return c.dungeon || "the zone's dungeon";
@@ -318,6 +319,11 @@ export function contractItemsText(rw) {
 }
 /** Levels-worth of XP in words ("3.2 levels of XP"; xpFrac from R.prepView, XP_WEIGHT_MULT included). */
 export const levelsText = (x) => `${Math.round(x * 10) / 10} ${x === 1 ? 'level' : 'levels'} of XP`;
+/**
+ * A contract's XP in words: levels-worth (levelsText) or, in a Legacy run (legacy.md 5.3: the board shows the pay in hero
+ * XP), "280 XP" from the engine's reward.xp. rw: R.prepView's or R.contractView's reward.
+ */
+export const xpPayText = (rw) => (legacyShown() && rw && typeof rw.xp === 'number' ? `${fmtN(rw.xp)} XP` : levelsText((rw && rw.xpFrac) || 0));
 /**
  * What a start-camp option does, in one line with the engine's numbers (expedition.md 2.3, 2.4). o: R.prepView's option
  * (qty, bell, slots, charges); r: the rules table's prep block; name(id): a consumable's name; content: texts.prep's
@@ -446,11 +452,11 @@ export const DANGER_LEVELS = 10;
 export function dangerRule(r) {
   if (r.dangerStep == null || r.dangerFrom == null) return null;
   const dungeon = r.dangerStepDungeon != null && r.dangerStepDungeon !== r.dangerStep ? ` (in dungeons +${pct1(r.dangerStepDungeon)})` : '';
-  return `Enemies above level ${r.dangerFrom} hit harder: +${pct1(r.dangerStep)} damage per ${DANGER_LEVELS} levels${dungeon}.`;
+  return `Enemies above level ${lv(r.dangerFrom)} hit harder: +${pct1(r.dangerStep)} damage per ${DANGER_LEVELS} levels${dungeon}.`;
 }
 /** Short line for the zone banner when the zone's enemies take zone danger (z.danger > 0), else null. */
 export function dangerBanner(r, z) {
-  return r.dangerFrom != null && z.danger > 0 ? `Enemies above level ${r.dangerFrom} hit harder` : null;
+  return r.dangerFrom != null && z.danger > 0 ? `Enemies above level ${lv(r.dangerFrom)} hit harder` : null;
 }
 
 // ------------------------------------------------------------------ meta progression (rules 11)
@@ -486,7 +492,7 @@ export function metaEffect(m, D, d, mode = 'rows') {
     case 'keen': return { short: `+${pct1(m.crit)} critical strike per rank`, long: `Every hero has +${pct1(m.crit)} chance to strike critically for each rank.` };
     case 'quick_study': return { short: `+${pct1(m.xpPct)} experience per rank`, long: `Every hero earns ${pct1(m.xpPct)} more experience for each rank: levels come sooner.` };
     case 'prospector': return { short: `+${pct1(m.goldPct)} gold per rank`, long: `Every hero finds ${pct1(m.goldPct)} more gold for each rank.` };
-    case 'talent_pt': return { short: `+${m.points} talent ${plural(m.points, 'point')} at level ${N.maxLevel}`, long: `At level ${N.maxLevel} you get ${numWord(m.points)} more talent ${plural(m.points, 'point')} to spend.` };
+    case 'talent_pt': return { short: `+${m.points} talent ${plural(m.points, 'point')} at level ${lv(N.maxLevel)}`, long: `At level ${lv(N.maxLevel)} you get ${numWord(m.points)} more talent ${plural(m.points, 'point')} to spend.` };
     // M2b v6 (rules 7.5, 11.2): also the free potion, the first potion each fight costs no turn; M2b v8: at FREE_POTION_MULT
     // strength (D.freePotionMult from the engine; "half strength")
     case 'satchel': {
@@ -494,7 +500,7 @@ export function metaEffect(m, D, d, mode = 'rows') {
       return { short: `Start with ${m.potions} ${plurName(m.potions, NM.potion)}; first potion each fight is free${str ? `, at ${str}` : ''}`,
         long: `Every run begins with ${numWord(m.potions)} ${plurName(m.potions, NM.potion)} in your bags, and the first potion you drink in each fight is a free action${str ? ` at ${str} (it restores ${pct1(D.freePotionMult)} of its normal amount)` : ''}: you act again in the same round.` };
     }
-    case 'heirloom_blade': return { short: `${humanize(m.rarity)} starting weapon, item level ${m.ilvl}`, long: `Your starting weapon is ${m.rarity} quality, item level ${m.ilvl}, instead of a common one.` };
+    case 'heirloom_blade': return { short: `${humanize(m.rarity)} starting weapon, item level ${lv(m.ilvl)}`, long: `Your starting weapon is ${m.rarity} quality, item level ${lv(m.ilvl)}, instead of a common one.` };
     case 'pockets': return { short: `+${m.slots} bag slots per rank`, long: `Your bags hold ${m.slots} more items for each rank.` };
     case 'ledger': return { short: 'First lesson at each trainer visit is free', long: 'At the trainer of every zone hub and of the camp, the first spell you learn or train costs no gold.' };
     case 'scout': {
@@ -526,7 +532,7 @@ export function metaEffect(m, D, d, mode = 'rows') {
     case 'second_breath': return { short: `${cap1(numWord(m.charges))} resurrection each run, not in the final fight`, long: `Each run you hold ${numWord(m.charges)} more ${plural(m.charges, 'resurrection')}: a death on the journey returns you to the fight. It does not work against ${NM.boss}.` };
     case 'oaths': return { short: 'Swear Oaths at creation for more Echoes', long: `At character creation you may swear Oaths: each makes the run harder and adds ${pct1(N.oathEcho)} to the Echoes it earns.`, more: D.oathIds.map((o) => `${D.oaths[o].name}: ${oathEffect(D.oaths[o], D).short}`) };
     default:
-      if (sp) return { short: `The ${cls(sp.cls)} trainer teaches ${sp.name}`, long: `${sp.name} can be learned from the ${cls(sp.cls)} trainer from level ${sp.lvl}.${sp.text ? ` ${sp.text}` : ''}` };
+      if (sp) return { short: `The ${cls(sp.cls)} trainer teaches ${sp.name}`, long: `${sp.name} can be learned from the ${cls(sp.cls)} trainer from level ${lvLearn(sp.lvl)}.${sp.text ? ` ${sp.text}` : ''}` };
       return { short: humanize(m.kind), long: '' };
   }
 }
@@ -564,9 +570,9 @@ export function nextRunLines(n, D, d) {
   if (m.crit) add('keen', `+${pct1(m.crit)} critical strike`);
   if (m.xpPct) add('quick_study', `+${pct1(m.xpPct)} experience`);
   if (m.goldPct) add('prospector', `+${pct1(m.goldPct)} gold`);
-  if (m.talentPoints) add('talent_pt', `+${m.talentPoints} talent ${plural(m.talentPoints, 'point')} at level ${D.num.maxLevel}`);
+  if (m.talentPoints) add('talent_pt', `+${m.talentPoints} talent ${plural(m.talentPoints, 'point')} at level ${lv(D.num.maxLevel)}`);
   if (m.satchel) add('satchel', `${n.potions} ${plurName(n.potions, D.names.potion)} in your bags`);
-  if (m.heirloom && n.weapon) add('heirloom_blade', `${n.weapon.name}: ${n.weapon.rarity} weapon, item level ${n.weapon.ilvl}`);
+  if (m.heirloom && n.weapon) add('heirloom_blade', `${n.weapon.name}: ${n.weapon.rarity} weapon, item level ${lv(n.weapon.ilvl)}`);
   if (m.bagSlots) add('pockets', `+${m.bagSlots} bag slots (${n.bagSlots} in all)`);
   if (m.ledger) add('ledger', 'First lesson at each trainer visit free');
   // expedition.md 8.2 (M2b v11): n.exp when the next run starts on the expedition map with the start camp
@@ -581,7 +587,7 @@ export function nextRunLines(n, D, d) {
   if (m.relics) add('relics', 'Unique epics in dungeon boss loot');
   for (const id of m.spells || []) {
     const e = Object.values(D.entries).find((x) => x.spell === id); const sp = d.spells[id];
-    add(e ? e.id : id, `${sp ? sp.name : humanize(id)} at the trainer${sp ? ` (level ${sp.lvl})` : ''}`);
+    add(e ? e.id : id, `${sp ? sp.name : humanize(id)} at the trainer${sp ? ` (level ${lvLearn(sp.lvl)})` : ''}`);
   }
   if (m.stormhawk && n.classId === 'hunter') add('stormhawk', `${(d.pets.stormhawk || {}).name || 'Stormhawk'} can join you`);
   if (m.resCharges) add('second_breath', n.oaths.includes('frailty') ? 'Second Breath held, but your Oath of Frailty forbids it' : `Second Breath: ${numWord(m.resCharges)} ${plural(m.resCharges, 'resurrection')} (not in the final fight)`);

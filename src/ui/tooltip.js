@@ -5,7 +5,7 @@
 // right of the pointer, below left, above right, above left, beside the hovered element, then for a tip with `avoid`
 // beside that whole group) that covers no primary button (and, with `avoid`, none of those elements but the hovered
 // one); with none free, the spot that covers least. Never under the pointer; it keeps its spot while that stays free.
-import { h, clear, moneyEl, pct, fmtNum } from './util.js';
+import { h, clear, moneyEl, pct, fmtNum, lv } from './util.js'; // lv: Legacy's hero scale (identity off)
 import { itemIcon } from './art-icons.js';
 import { statusEffect, talentTotals, HEAT_WORDS } from './ui-text.js';
 
@@ -148,7 +148,7 @@ export function itemTip(item, ctx, opts = {}) {
   if (!item) return null;
   const d = ctx.data;
   const box = h('div.tt-item');
-  box.appendChild(h('div.tt-head', h('img.tt-icon', { src: itemIcon(item), alt: '' }), h('div', h('div.tt-name.r-' + (item.rarity || 'common'), item.name), item.kind === 'gear' ? h('div.tt-sub', `${SLOT_NAMES[item.slot] || item.slot} · Item level ${item.ilvl}`) : null)));
+  box.appendChild(h('div.tt-head', h('img.tt-icon', { src: itemIcon(item), alt: '' }), h('div', h('div.tt-name.r-' + (item.rarity || 'common'), item.name), item.kind === 'gear' ? h('div.tt-sub', `${SLOT_NAMES[item.slot] || item.slot} · Item level ${lv(item.ilvl)}`) : null)));
   // heat (rules 8.4): found in a node entered Hot or Scorched, one rarity higher (the bridge's heatUp)
   if (item.heatUp) box.appendChild(h('div.tt-line.heatup', { dataset: { hs: item.heatUp } }, `▲ ${HEAT_WORDS.Name} raised it one rarity (found ${item.heatUp[0].toUpperCase()}${item.heatUp.slice(1)})`));
   if (item.kind === 'gear') {

@@ -14,12 +14,12 @@
 // offer's tooltip in three sentences (boardTip: what to win, the reward, the cost).
 // D152 (changes-m3-v2.md 1.2-1.3): a lean first run's camp (prepView.first): no board, the two supplies, and over Set out
 // what unspent points pay (content prep.unspentFirst); no Reserve is read or named.
-import { h, clear, moneyEl, fmtNum } from './util.js';
+import { h, clear, moneyEl, fmtNum, lv, legacyShown } from './util.js'; // Legacy: the hero scale and hero XP (identities off)
 import { icon, consumableIcon } from './art-icons.js';
 import { tip } from './tooltip.js';
 import {
   CONTRACT_KIND, contractTitle, contractSentence, familyName, hubOfferSentence, contractKindText, contractSitesText,
-  contractItemsText, levelsText, prepOptionEffect, prepFlavour, bandText, numWord, plural,
+  contractItemsText, levelsText, xpPayText, prepOptionEffect, prepFlavour, bandText, numWord, plural,
 } from './ui-text.js';
 
 /** Contract colours (map marks, tracker dots, the held list): amber, teal, violet, rose. */
@@ -70,8 +70,9 @@ export function contractTip(c, ctx, opts = {}) {
     h('div.tt-line', contractSitesText(c, r, opts.has || {})));
   if (rw.choices) {
     // M2b v10 (expedition.md 3.1): contract XP has no level-difference modifier, so the amount is fixed (reward.xp).
-    const xp = typeof rw.xp === 'number' ? ` (${fmtNum(rw.xp)} XP)` : '';
-    box.appendChild(h('div.tt-line.num', 'Reward, at once on its last site: ', h('b', levelsText(rw.xpFrac)), ` at level ${rw.cl}${xp}, `, moneyEl(rw.gold), `, and ${contractItemsText(rw)}.`));
+    // Legacy (legacy.md 5.3): the pay in hero XP, without the levels-worth
+    const xp = typeof rw.xp === 'number' && !legacyShown() ? ` (${fmtNum(rw.xp)} XP)` : '';
+    box.appendChild(h('div.tt-line.num', 'Reward, at once on its last site: ', h('b', xpPayText(rw)), ` at level ${lv(rw.cl)}${xp}, `, moneyEl(rw.gold), `, and ${contractItemsText(rw)}.`));
   }
   if (opts.progress) box.appendChild(h('div.tt-line', opts.progress));
   if (opts.status) box.appendChild(h('div.tt-sub', opts.status));
@@ -92,7 +93,7 @@ export function boardTip(o, ctx, opts = {}) {
     : o.kind === 'bounty' ? `Hunt down ${o.name || 'a named elite'} in ${o.regionName || 'its region'}.`
       : `Win ${o.need} Quest or Grind ${plural(o.need, 'fight')} in ${o.regionName || 'its region'}.`;
   const lv = rw.xpFrac || 0; const n = lv >= 1 ? Math.round(lv) : Math.round(lv * 10) / 10;
-  const pay = [`about ${n} ${n === 1 ? 'level' : 'levels'} of XP`, rw.gold ? moneyEl(rw.gold) : null, rw.choices ? `1 of ${rw.choices} items` : null].filter(Boolean);
+  const pay = [legacyShown() && typeof rw.xp === 'number' ? `about ${xpPayText(rw)}` : `about ${n} ${n === 1 ? 'level' : 'levels'} of XP`, rw.gold ? moneyEl(rw.gold) : null, rw.choices ? `1 of ${rw.choices} items` : null].filter(Boolean);
   const list = pay.flatMap((x, i) => (i === 0 ? [x] : [i === pay.length - 1 ? ' and ' : ', ', x]));
   return h('div.tt-contract.tt-board',
     h('div.tt-row', h('div.tt-name', contractTitle(o, ctx.data.content)), h('span.ctag', { dataset: { kind: o.kind } }, CONTRACT_KIND[o.kind] || o.kind)),
@@ -260,7 +261,7 @@ const priceTag = (n) => h('span.pc-cost', { 'aria-label': pts(n) }, h('span.pc-p
  * (coins) · choose 1 of 3 ◆◆" (rarity marks: the reward table's rare and epic). rw: an offer's reward (R.prepView).
  */
 function payLine(rw, tag, items = true) {
-  return h(tag, h('span.pl', 'Reward'), h('span.xp', levelsText(rw.xpFrac)), h('span.gd', h('span.pl', 'gold'), moneyEl(rw.gold)), items ? itemsChip(rw) : null);
+  return h(tag, h('span.pl', 'Reward'), h('span.xp', xpPayText(rw)), h('span.gd', h('span.pl', 'gold'), moneyEl(rw.gold)), items ? itemsChip(rw) : null);
 }
 /** "choose 1 of 3 ◆◆": the item choice and the rarities it can be (the reward table's rare and epic). */
 function itemsChip(rw) {
@@ -399,7 +400,7 @@ export function buildHubOffer(v, ctx, state = { swap: false }) {
   }));
   swapBtn.addEventListener('click', () => { if (!o.swap.length) return; state.swap = !state.swap; list.classList.toggle('hidden', !state.swap); swapBtn.textContent = state.swap ? 'Keep my contracts' : 'Swap…'; });
   const pay = payLine(rw, 'div.hc-rw');
-  tip(pay, () => h('div', h('div.tt-name', 'Reward, at once on its last site'), h('div.tt-line', `${levelsText(rw.xpFrac)} at level ${rw.cl}${typeof rw.xp === 'number' ? ` (${fmtNum(rw.xp)} XP)` : ''}, gold, and ${contractItemsText(rw)}.`)));
+  tip(pay, () => h('div', h('div.tt-name', 'Reward, at once on its last site'), h('div.tt-line', `${xpPayText(rw)} at level ${lv(rw.cl)}${typeof rw.xp === 'number' && !legacyShown() ? ` (${fmtNum(rw.xp)} XP)` : ''}, gold, and ${contractItemsText(rw)}.`)));
   box.append(head, h('div.hc-row', pay, h('div.hc-acts', take, swapBtn)), list);
   return box;
 }

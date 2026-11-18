@@ -57,6 +57,11 @@ const MANUAL_ZONES = Number(arg('--manual-zones', '1'));
 // the board of CONTRACT_BOARD_SIZE offers, the hub contracts and the zone 1 Bell come from the third run. --profiles picks
 // per class: first (a fresh profile) or later (runs 2). Default: the Rogue plays the first run, the Mage and Hunter a later one.
 const PROFILES = { rogue: 'first', mage: 'later', hunter: 'later', ...Object.fromEntries((arg('--profiles', '') || '').split(',').filter(Boolean).map((x) => x.split(':'))) };
+// --legacy (D154 phase 1; docs/handoffs/ui-2026-11-18.md): C.GATES.legacy on in the page (?legacy=1) and in the twin; the
+// profiles are version 3 (under the game's version 3 key) and every run is a Legacy run (the hero scale, hero XP)
+const LEGACY = args.includes('--legacy');
+if (LEGACY) R.C.GATES.legacy = true;
+const PROFILE_KEY = LEGACY ? 'tbwcr.profile.v3' : 'tbwcr.profile.v1';
 const LATER_PROFILE = () => ({ ...R.newProfile(), runs: 2, guide: 'done', welcome: true });
 const MAP = arg('--map', 'expedition'); // D116: the default run is the expedition map with the start camp
 if (!['expedition', 'classic'].includes(MAP)) { console.error('--map must be expedition or classic'); process.exit(2); }
@@ -175,7 +180,7 @@ async function playOne(browser, W, H, cls) {
   const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
   const later = PROFILES[cls] === 'later';
   res.profile = later ? 'later' : 'first';
-  if (later) await context.addInitScript((json) => { try { if (!localStorage.getItem('tbwcr.profile.v1')) localStorage.setItem('tbwcr.profile.v1', json); } catch { /* storage blocked */ } }, JSON.stringify(LATER_PROFILE()));
+  if (later) await context.addInitScript(([key, json]) => { try { if (!localStorage.getItem(key)) localStorage.setItem(key, json); } catch { /* storage blocked */ } }, [PROFILE_KEY, JSON.stringify(LATER_PROFILE())]);
   const page = await context.newPage();
   page.on('console', (m) => { const line = `${m.type()}: ${m.text()}`; res.console.push(line); if (m.type() === 'error') res.consoleErrors.push(line); });
   page.on('pageerror', (e) => res.pageErrors.push(e.stack || e.message));
@@ -440,7 +445,7 @@ async function playOne(browser, W, H, cls) {
   }
 
   try {
-    await page.goto(`${FILE_URL}?seed=${seed}${EXP ? '' : '&classic=1'}`, { waitUntil: 'load' });
+    await page.goto(`${FILE_URL}?seed=${seed}${EXP ? '' : '&classic=1'}${LEGACY ? '&legacy=1' : ''}`, { waitUntil: 'load' });
     await page.waitForFunction(() => window.__ui && window.__ui.view, null, { timeout: 15000 });
     res.build = await page.evaluate(() => globalThis.__BUILD__ || null);
     await shotFirst('create');
@@ -606,9 +611,14 @@ async function playOne(browser, W, H, cls) {
       await click(button('Begin a new run'), 'Begin a new run');
       const after = await view();
       if (after.phase !== 'CREATE') res.problems.push(`Begin a new run led to ${after.phase}`);
-      const prof = await page.evaluate(() => { try { return JSON.parse(localStorage.getItem('tbwcr.profile.v1')); } catch { return null; } });
+      const prof = await page.evaluate((key) => { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } }, PROFILE_KEY);
       if (!prof || !prof.runs) res.problems.push('profile not saved after the run');
-      else res.notes.push(`profile after the run: ${prof.echoes} Echoes, ${prof.runs} run(s)`);
+      else if (LEGACY) {
+        // the hero kept (legacy.md 1.5): the stored hero's level is the twin's at the run's end
+        const hero = prof.heroes && prof.heroes[cls];
+        if (!hero || hero.level !== s.player.heroLevel) res.problems.push(`hero not kept: stored ${hero ? hero.level : "none"}, twin ${s.player.heroLevel}`);
+        res.notes.push(`profile after the run: ${prof.legacy} Legacy points, ${prof.runs} run(s), ${cls} hero level ${hero ? hero.level : '-'}`);
+      } else res.notes.push(`profile after the run: ${prof.echoes} Echoes, ${prof.runs} run(s)`);
     }
   } catch (e) {
     res.problems.push(`${e.message}`);

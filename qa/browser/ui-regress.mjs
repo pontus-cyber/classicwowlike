@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X]
+ *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -181,6 +181,9 @@
  *      rim nodes, the nearest Road's numbers when the Roads open, the pass-through hint at the first red toll label, the
  *      Furnace's line and diamond when the Dimming sets the state, pinned Dimming clocks, the Key's tip, the Bags beside the
  *      Loot window, the skip line under the coach line, the map at once after Set out, the "+N items" note: see partX.
+ *   Y  Legacy phase 1 (D154-D157; docs/specs/legacy.md; docs/handoffs/ui-2026-11-18.md), C.GATES.legacy forced on with
+ *      ?legacy=1: the profile's migration and the refund note once, Legacy words, hero select, the hero scale on the HUD,
+ *      the hub, the map, nameplates, item and learn levels, the level-up banner, the summary's hero line: see partY.
  *
  * D116 (the flip): new runs start on the expedition map with the start camp. The parts written for the classic map (A-L, O,
  * P) open the page with ?classic=1 (open() adds it unless the query names a map) and their Node twins pass mapMode 'rows';
@@ -222,7 +225,7 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -6252,6 +6255,205 @@ async function partX(browser, W, H) {
   }
 }
 
+// ------------------------------------------------------------------ part Y: Legacy phase 1 (D154-D157), the switch forced on
+/**
+ * Part Y (docs/specs/legacy.md 1.1-1.8, 4.1, 4.6; engine-api.md 15; docs/handoffs/ui-2026-11-18.md): the page opens with
+ * ?legacy=1 (C.GATES.legacy on for that page); every expected number from the engine in Node (shownLevel, heroView,
+ * heroesView, summary). Y1: a stored version 1 profile migrates under the version 3 key (the version 1 key untouched), the
+ * refund note once (gone after a reload), "Legacy points" and the "Legacy hall" with no Echo word on class select or in the
+ * hall; the same profile without the switch: as before. Y2: hero select with a level 12 Rogue and a level 4 Mage (R.debug.
+ * setHero): levels and XP bars = R.heroesView, "New hero", the name field only for a new hero, the hero's spells. Y3: the
+ * run: the start camp's pay in hero XP, the HUD level and XP bar = R.heroView, the checkpoint stored at zone 1, the hub's
+ * and the map's levels, the nameplates, the item levels and the spellbook's learn levels on the hero scale; a level-up's
+ * banner on the hero level. Y4: the summary's hero line and Legacy lines = R.summary, no Echo word; then hero select keeps
+ * the level the hero reached.
+ */
+const Y_KEY = 'tbwcr.profile.v3';
+/** A Node computation with C.GATES.legacy on (newProfile and setHero make version 3 profiles), the switch back after. */
+const withLegacy = (fn) => { const was = R.C.GATES.legacy; R.C.GATES.legacy = true; try { return fn(); } finally { R.C.GATES.legacy = was; } };
+const yShown = (n) => R.shownLevel({ legacy: true }, n);
+const yLearn = (M) => { for (let H = 1; H <= R.C.HERO_MAX_LEVEL; H++) if (R.powerOfLevel(H) >= M) return H; return R.C.HERO_MAX_LEVEL; };
+async function openY(browser, W, H, query, store) {
+  const { context, page, errors } = await (async () => {
+    const context = await browser.newContext({ viewport: { width: W, height: H } });
+    await context.addInitScript((pairs) => { try { if (!sessionStorage.getItem('y-init')) { sessionStorage.setItem('y-init', '1'); for (const [k, v] of pairs) localStorage.setItem(k, v); } } catch { /* storage blocked */ } }, Object.entries(store));
+    await context.addInitScript((key) => { try { if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify({ off: true, seen: {} })); } catch { /* storage blocked */ } }, HINTS_KEY);
+    const page = await context.newPage();
+    const errors = [];
+    page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+    page.on('pageerror', (e) => errors.push(e.message));
+    page.on('request', (r) => { if (!r.url().startsWith('file:') && !r.url().startsWith('data:') && !r.url().startsWith('blob:')) errors.push(`request ${r.url()}`); });
+    return { context, page, errors };
+  })();
+  await page.goto(`${URL}?${query}`);
+  await page.waitForFunction(() => window.__ui);
+  await idle(page);
+  return { context, page, errors };
+}
+const echoWords = (page, sel) => page.evaluate((q) => [...document.querySelectorAll(q)].map((e) => e.innerText).join(' | ').match(/[^|.]*\bEcho(es)?\b[^|.]*/g) || [], sel);
+
+async function partY(browser, W, H) {
+  // ---- Y1: the migration, the refund note, the words; the same profile with the switch off
+  {
+    const v1 = { ...R.newProfile(), echoes: 40, earned: 400, spent: 360, runs: 4, guide: 'done', welcome: true, unlocks: { satchel: 1, vigor: 2 } };
+    const want = withLegacy(() => R.migrateProfile(v1));
+    const back = 360 - want.spent;
+    const { context, page, errors } = await openY(browser, W, H, 'legacy=1&prep=1&speed=instant&seed=5', { [PROFILE_KEY]: JSON.stringify(v1) });
+    try {
+      const read = () => page.evaluate(() => {
+        const q = (s) => document.querySelector(s); const rf = q('#create .ctitle .refund');
+        return { t3: q('#create .ctitle .t3').innerText, refund: rf && !rf.classList.contains('hidden') ? rf.innerText : null, heroes: [...document.querySelectorAll('#create .ccard .chero')].map((e) => (e.classList.contains('hidden') ? null : e.innerText.trim())),
+          btn: q('#create .bottom .echoes') ? q('#create .bottom .echoes').innerText.replace(/\s+/g, ' ').trim() : null, v1: localStorage.getItem('tbwcr.profile.v1'), v3: localStorage.getItem('tbwcr.profile.v3') };
+      });
+      const a = await read();
+      await shot(page, 'Y1-hero-select-refund');
+      check('Y-1', 'the version 1 profile migrates under the version 3 key (Legacy points = Echoes + spent, Packed Satchel kept); the version 1 key is left as it was',
+        a.v1 === JSON.stringify(v1) && a.v3 && JSON.parse(a.v3).v === 3 && JSON.parse(a.v3).legacy === want.legacy, `v3 ${a.v3 && a.v3.slice(0, 120)} want legacy ${want.legacy}`);
+      check('Y-1', 'class select: the refund note once ("Echoes are now Legacy points. The N you had spent are back.", draft), the hero line, three "New hero" cards',
+        a.refund === `Echoes are now Legacy points. The ${back} you had spent are back.` && /keeps its level, 1 to 25/.test(a.t3) && a.heroes.join(',') === 'New hero,New hero,New hero', JSON.stringify(a));
+      check('Y-1', 'the balance button reads Legacy points with the migrated balance', !!a.btn && a.btn.startsWith(`${fmtN(want.legacy)} Legacy points`), a.btn);
+      const ew = await echoWords(page, '#create');
+      check('Y-1', 'no Echo word on class select but the refund note', ew.length === 1 && /now Legacy points/.test(ew[0]), JSON.stringify(ew));
+      await page.locator('#create .bottom .echoes').click(); await idle(page);
+      const hall = await page.evaluate(() => ({ title: document.querySelector('#meta .mhead .title').innerText, n: document.querySelector('#meta .mbal .n').innerText, u: document.querySelector('#meta .mbal .u').innerText,
+        label: document.querySelector('#meta').getAttribute('aria-label'), offers: document.querySelectorAll('#meta .mgroup [data-id], #meta .mgroup .mcard').length }));
+      const ewh = await echoWords(page, '#meta');
+      await shot(page, 'Y1-legacy-hall');
+      check('Y-1', 'the Hall of Echoes reads as the Legacy hall (title, balance, unit, no Echo word), with the same items', hall.title === 'Legacy hall' && hall.u === 'Legacy points' && Number(hall.n.replace(/\D/g, '')) === want.legacy && ewh.length === 0 && hall.offers > 0,
+        `${JSON.stringify(hall)} ${JSON.stringify(ewh)}`);
+      await page.keyboard.press('Escape'); await idle(page);
+      await page.reload(); await page.waitForFunction(() => window.__ui); await idle(page);
+      const b = await read();
+      check('Y-1', 'after a reload the refund note is gone (shown once)', b.refund === null && b.heroes.join(',') === 'New hero,New hero,New hero', JSON.stringify(b));
+    } catch (e) { await shot(page, 'Y1-error'); check('Y-1', 'part Y1 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('Y-1', 'part Y1: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+    // the same profile with the switch off: as before (no hero line, Echoes, the old title line)
+    const off = await openY(browser, W, H, 'prep=1&speed=instant&seed=5', { [PROFILE_KEY]: JSON.stringify(v1) });
+    try {
+      const c = await off.page.evaluate(() => ({ t3: document.querySelector('#create .ctitle .t3').innerText, heroes: [...document.querySelectorAll('#create .ccard .chero')].filter((e) => !e.classList.contains('hidden')).length,
+        refund: !document.querySelector('#create .ctitle .refund').classList.contains('hidden'), btn: document.querySelector('#create .bottom .echoes').innerText.replace(/\s+/g, ' ').trim(), v3: localStorage.getItem('tbwcr.profile.v3') }));
+      check('Y-1', 'switch off: class select as before (the level line to 60, Echoes, no hero line, no note, no version 3 profile)',
+        c.t3 === `Level from 1 to ${R.C.MAX_LEVEL} across six zones, then face Oruvath.` && c.heroes === 0 && !c.refund && c.btn === '40 Echoes' && c.v3 === null, JSON.stringify(c));
+    } catch (e) { check('Y-1', 'part Y1 (switch off) ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('Y-1', 'part Y1 (switch off): no console errors', off.errors.length === 0, off.errors.join(' | '));
+    await off.context.close();
+  }
+  // ---- Y2-Y4: hero select, the run, the summary
+  {
+    const prof = withLegacy(() => { let p = { ...R.newProfile(), runs: 3, guide: 'done', welcome: true }; p = R.debug.setHero(p, 'rogue', { level: 12, xp: 1000 }); p = R.debug.setHero(p, 'mage', { level: 4, xp: 0 }); return p; });
+    const heroes = R.heroesView(prof);
+    const { context, page, errors } = await openY(browser, W, H, 'legacy=1&prep=1&speed=instant&seed=7', { [Y_KEY]: JSON.stringify(prof) });
+    const nodeState = async () => R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT);
+    try {
+      // Y2: hero select
+      const cards = await page.evaluate(() => [...document.querySelectorAll('#create .ccard')].map((c) => { const x = c.querySelector('.chero'); return { cls: c.dataset.cls, text: x.innerText.trim(), level: x.dataset.level, xp: x.dataset.xp, w: x.querySelector('.ch-xp i').style.width }; }));
+      const nameShown = () => page.evaluate(() => !document.querySelector('#create .bottom .field:not(.seedf)').classList.contains('hidden'));
+      const rogueName = await nameShown();
+      const pct = (hv) => `${Math.round((hv.xp / hv.xpToNext) * 1000) / 10}%`;
+      check('Y-2', 'hero select: each card names its hero\'s level and fills its XP bar as R.heroesView says; a class without one reads "New hero"',
+        cards[0].text === `Level ${heroes[0].level}` && cards[0].w === pct(heroes[0]) && cards[1].text === `Level ${heroes[1].level}` && cards[1].w === '0%' && cards[2].text === 'New hero', JSON.stringify(cards));
+      const spells = await page.evaluate(() => ({ head: document.querySelector('#create .details .body .subtitle').innerText, n: document.querySelectorAll('#create .details .startspells .sp').length }));
+      const wantSpells = Object.values(R.C.SPELL).filter((x) => x.cls === 'rogue' && x.source === 'class' && x.lvl <= heroes[0].power).length;
+      check('Y-2', 'the Rogue\'s details list the spells its level gives (every class spell up to its power level)', /^Spells$/i.test(spells.head) && spells.n === wantSpells, `${JSON.stringify(spells)} want ${wantSpells}`);
+      await page.locator('#create .ccard[data-cls="hunter"]').click(); await idle(page);
+      const hunterName = await nameShown();
+      check('Y-2', 'the name field shows for a new hero only', !rogueName && hunterName, `rogue ${rogueName} hunter ${hunterName}`);
+      await shot(page, 'Y2-hero-select-levels');
+      await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle(page);
+      // Y3: the run
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      const pay = await page.evaluate(() => [...document.querySelectorAll('#prep .pp-card')].map((c) => c.innerText.replace(/\s+/g, ' ')));
+      const pv = R.prepView(await nodeState());
+      const offers = (pv && pv.board) || [];
+      check('Y-3', 'the start camp pays contracts in hero XP ("280 XP"), never "levels of XP" (legacy.md 5.3)',
+        pay.length > 0 && pay.every((t) => !/levels? of XP/.test(t)) && offers.every((o, i) => !pay[i] || pay[i].includes(`${String(o.reward.xp).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} XP`)), `${JSON.stringify(pay)} ${JSON.stringify(offers.map((o) => o.reward && o.reward.xp))}`);
+      await shot(page, 'Y3-start-camp');
+      await page.keyboard.press('Enter'); await idle(page);
+      for (let i = 0; i < 6 && (await page.evaluate(() => window.__ui.view().phase)) === 'PREP'; i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
+      let s = await nodeState(); let hv = R.heroView(s);
+      const hud = await page.evaluate(() => ({ lvl: document.querySelector('#player-frame .lvl').innerText, xp: document.querySelector('#xpbar .txt').textContent.replace(/\u00a0/g, ' ').replace(/\s+/g, ' '), v3: localStorage.getItem('tbwcr.profile.v3'), hub: (document.querySelector('#screens .side .subtitle') || {}).innerText || '' }));
+      const stored = hud.v3 ? (JSON.parse(hud.v3).heroes || {}).rogue : null;
+      check('Y-3', 'the HUD shows the hero level and the hero\'s XP bar (R.heroView)', hud.lvl === String(hv.level) && hud.xp.startsWith(`Level ${hv.level} · ${fmtN(hv.xp)} / ${fmtN(hv.xpToNext)} XP`), `${JSON.stringify(hud)} hero ${JSON.stringify(hv)}`);
+      check('Y-3', 'the hero checkpoint is stored at the zone 1 arrival (legacy.md 1.5)', !!stored && stored.level === hv.level && stored.xp === hv.xp, JSON.stringify(stored));
+      const mv0 = R.mapView(s);
+      const lo = Math.min(...mv0.bands.map((b) => b[0])); const hi = Math.max(...mv0.bands.map((b) => b[1]));
+      check('Y-3', 'the hub names the zone\'s levels on the hero scale (its rings\' bands, shownLevel)', hud.hub.includes(`levels ${yShown(lo)}–${yShown(hi)}`), `${hud.hub} want ${yShown(lo)}-${yShown(hi)}`);
+      await shot(page, 'Y3-hub-hud');
+      // the map: every fight node's level label
+      for (let i = 0; i < 120 && (await page.evaluate(() => { const v = window.__ui.view(); return v.phase === 'MAP' && !v.loot; })) === false; i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
+      s = await nodeState(); const mv = R.mapView(s);
+      const labels = await page.evaluate(() => [...document.querySelectorAll('#screens .mnode .cl.lvl')].map((e) => [Number(e.closest('.mnode').dataset.node), e.innerText.trim()]));
+      const bad = labels.filter(([id, t]) => { const n = mv.nodes.find((x) => x.id === id); const L = n.type === 'elite' && n.level ? n.level : n.cl; return t !== String(yShown(L)); });
+      check('Y-3', 'every fight node\'s level on the map is on the hero scale (shownLevel of its level)', labels.length > 0 && bad.length === 0, `${labels.length} labels, wrong ${JSON.stringify(bad)}`);
+      await shot(page, 'Y3-map-levels');
+      // a fight: the nameplates
+      for (let i = 0; i < 80 && !(await page.evaluate(() => { const v = window.__ui.view(); return !!(v.combat && !v.combat.over); })); i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
+      s = await nodeState();
+      const plates = await page.evaluate(() => [...document.querySelectorAll('#nameplates .np:not(.dead) .lv')].map((e) => e.innerText.trim()));
+      const wantPlates = s.fight ? s.fight.enemies.filter((e) => e.alive).map((e) => String(yShown(e.level))) : [];
+      check('Y-3', 'the nameplates show the enemies\' levels on the hero scale', plates.length > 0 && [...plates].sort().join(',') === [...wantPlates].sort().join(','), `${JSON.stringify(plates)} want ${JSON.stringify(wantPlates)}`);
+      await shot(page, 'Y3-fight-nameplates');
+      // the character sheet's item levels and the spellbook's next spells
+      await page.keyboard.press('KeyC'); await idle(page);
+      const it0 = await tipText(page, page.locator('#win-character .slot').first());
+      const ilvls = Object.values(s.player.equipped).filter(Boolean).map((x) => `Item level ${yShown(x.ilvl)}`);
+      check('Y-3', 'an item\'s tooltip names its item level on the hero scale', ilvls.some((t) => it0.includes(t)), `${it0.split('\n').slice(0, 3).join(' / ')} want one of ${ilvls.join(', ')}`);
+      await page.keyboard.press('KeyC'); await page.keyboard.press('KeyP'); await idle(page);
+      const nextLine = await page.evaluate(() => { const e = [...document.querySelectorAll('#win-spellbook .muted')].find((x) => /Next at a trainer/.test(x.innerText)); return e ? e.innerText : null; });
+      const unknown = Object.values(R.C.SPELL).filter((x) => x.cls === 'rogue' && x.source === 'class' && !s.player.spells[x.id]).sort((a, b) => a.lvl - b.lvl).slice(0, 3);
+      check('Y-3', 'the spellbook names the next spells at the hero level that opens them (legacy.md 1.7)', !unknown.length || nextLine === `Next at a trainer: ${unknown.map((x) => `${x.name} (${yLearn(x.lvl)})`).join(', ')}`, `${nextLine} want ${unknown.map((x) => `${x.name} (${yLearn(x.lvl)})`).join(', ')}`);
+      await page.keyboard.press('KeyP'); await idle(page);
+      // a level-up: the banner on the hero level
+      await page.evaluate(() => { window.__yB = []; new MutationObserver(() => { const b = document.querySelector('#banner'); if (b.classList.contains('on')) window.__yB.push([b.querySelector('.b0').textContent, b.querySelector('.b1').textContent, b.querySelector('.b2').textContent]); }).observe(document.querySelector('#banner'), { attributes: true, childList: true, subtree: true, characterData: true }); });
+      const lvl0 = hv.level;
+      for (let i = 0; i < 1500; i++) {
+        const v = await page.evaluate(() => { const x = window.__ui.view(); return { phase: x.phase, hero: x.player && x.player.heroLevel }; });
+        if (v.phase === 'SUMMARY' || v.hero > lvl0) break;
+        await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page);
+      }
+      s = await nodeState(); hv = R.heroView(s);
+      const banners = (await page.evaluate(() => window.__yB)).filter((b) => b[0] === 'Level up');
+      const hud2 = await page.evaluate(() => ({ lvl: document.querySelector('#player-frame .lvl').innerText, xp: document.querySelector('#xpbar .txt').textContent.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ') }));
+      check('Y-3', 'a hero level-up gets the level-up banner with the hero level; the HUD follows', hv.level > lvl0 && banners.some((b) => b[1] === `Level ${hv.level}`) && hud2.lvl === String(hv.level) && hud2.xp.startsWith(`Level ${hv.level} · ${fmtN(hv.xp)} / ${fmtN(hv.xpToNext)} XP`),
+        `${lvl0} -> ${hv.level}; banners ${JSON.stringify(banners)} hud ${JSON.stringify(hud2)}`);
+      // Y4: the summary (the run ended where it stands: health 1 in a fight, then the engine's autoplay)
+      for (let i = 0; i < 200 && !(await page.evaluate(() => { const v = window.__ui.view(); return !!(v.combat && !v.combat.over); })); i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
+      const s1 = await nodeState();
+      if (s1.fight && !s1.fight.over) { s1.player.hp = 1; await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s1)); await idle(page); }
+      for (let i = 0; i < 400 && (await page.evaluate(() => window.__ui.view().phase)) !== 'SUMMARY'; i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
+      s = await nodeState();
+      const sm = R.summary(s);
+      const sv = await page.evaluate(() => {
+        const e = document.querySelector('.summary .s-hero'); const cards = [...document.querySelectorAll('.summary .card')];
+        const c3 = cards.find((c) => /earned/.test(c.querySelector('h3').innerText));
+        return { hero: e ? { ...e.dataset, text: e.innerText.replace(/\s+/g, ' ') } : null, who: document.querySelector('.summary .s-who').innerText, h3: c3 ? c3.querySelector('h3').innerText : null,
+          lines: c3 ? [...c3.querySelectorAll('.echo[data-line]')].map((x) => [x.dataset.line, x.innerText.replace(/\s+/g, ' ').trim()]) : [], total: c3 ? c3.querySelector('.echo.total').innerText.replace(/\s+/g, ' ').trim() : null,
+          btns: [...document.querySelectorAll('.summary .sfoot button')].map((b) => b.innerText.replace(/\s+/g, ' ').trim()) };
+      });
+      const ews = await echoWords(page, '.summary');
+      await shot(page, 'Y4-summary');
+      const gained = sm.hero.gained || 0; const xpG = s.stats.xpGained;
+      check('Y-4', 'the summary\'s hero line: its level before and after the run and the hero XP it gained (summary.hero, stats.xpGained)',
+        !!sv.hero && Number(sv.hero.from) === sm.hero.start.level && Number(sv.hero.to) === sm.hero.level && Number(sv.hero.xp) === xpG && sv.hero.text === `Level ${sm.hero.start.level}${sm.hero.level !== sm.hero.start.level ? ` → ${sm.hero.level}` : ''} · +${fmtN(xpG)} XP` && sv.who.startsWith(`Level ${sm.hero.level} Rogue`),
+        `${JSON.stringify(sv.hero)} ${sv.who} want ${sm.hero.start.level} -> ${sm.hero.level}, ${xpG}`);
+      const lvLine = sv.lines.find((l) => l[0] === 'levels');
+      check('Y-4', 'Legacy points earned: the engine\'s lines ("Hero levels gained" at 20 a level), the total, and no Echo word on the summary',
+        sv.h3 === 'Legacy points earned' && (gained === 0 ? !lvLine : !!lvLine && lvLine[1] === `Hero levels gained${gained > 1 ? ` (${gained})` : ''} +${gained * R.C.LEGACY_PER_LEVEL}`) && sv.total === `Total ${sm.legacy.total} Legacy points` && ews.length === 0 && sv.btns.some((b) => b.startsWith('Spend Legacy points')),
+        `${JSON.stringify(sv)} ${JSON.stringify(ews)} total ${sm.legacy.total}`);
+      await page.getByRole('button', { name: 'Begin a new run' }).click(); await idle(page);
+      const after = await page.evaluate(() => ({ card: document.querySelector('#create .ccard[data-cls="rogue"] .chero').innerText.trim(), v3: JSON.parse(localStorage.getItem('tbwcr.profile.v3')) }));
+      check('Y-4', 'after the run hero select keeps the level the hero reached (the stored profile\'s hero, runs + 1)', after.card === `Level ${sm.hero.level}` && after.v3.heroes.rogue.level === sm.hero.level && after.v3.heroes.rogue.runs === 1,
+        `${after.card} ${JSON.stringify(after.v3.heroes.rogue && { level: after.v3.heroes.rogue.level, runs: after.v3.heroes.rogue.runs })}`);
+      await shot(page, 'Y4-hero-select-after');
+    } catch (e) { await shot(page, 'Y-error'); check('Y-2', 'part Y2-Y4 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('Y-2', 'part Y2-Y4: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+}
+/** fmtNum's digits with a plain space between thousands (the game's thin space: texts compared after \s+ to ' '). */
+const fmtN = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
 for (const [W, H] of SIZES) {
   SIZE = `${W}x${H}`;
   if (PARTS.includes('A')) await partA(browser, W, H);
@@ -6278,6 +6480,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('V')) await partV(browser, W, H);
   if (PARTS.includes('W')) await partW(browser, W, H);
   if (PARTS.includes('X')) await partX(browser, W, H);
+  if (PARTS.includes('Y')) await partY(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);
