@@ -93,4 +93,5 @@ game.html at 91f9290 (tuning v6 engine, UX pass, the Furnace). Sent to the owner
 | 52 | 2026-11-18 05:50-08:50 | Native band tables (6db8710), report legacy-native (4a59d17): B6 passes 1 of 5 bands, 1-15 miss by under 1 pp; reach gap traced to the planner's banked-XP reading; VAL_HERO_XP started, stopped by a server restart | Sim (Opus/high) | about 0.4M |
 | 53 | 2026-11-18 08:50-11:50 | Planner hero-XP model (7405c67), tables legacy-hx (87c51e8), report updated (141fbe2): reach 85-90 %, H25 no longer rushes; B6 passes 1 of 5 bands, now a class question | Sim (Opus/high) | about 0.35M |
 | 54 | 2026-11-18 11:50-14:50 | Designer started Legacy class tuning; a server restart stopped it after about 1h | Designer (Opus/max) | about 0.3M |
-| 55 | 2026-11-18 14:50-17:50 | Designer resumed: Legacy class tuning per band | Designer (Opus/max) | running |
+| 55 | 2026-11-18 14:50-17:50 | Designer class tuning (3cf6f3e, d754b7e) accepted as D157: B6 passes every band on seeds 6000-6119; band 21-25 fails on fresh seeds | Designer (Opus/max) | about 0.5M |
+| 56 | 2026-11-18 17:50-20:50 | Engine builds D157 and re-reads the bands on fresh seeds; sim fixes the Camp bar template (control value); daily report | Engineer (Opus/high); Sim (Opus/medium) | running |
