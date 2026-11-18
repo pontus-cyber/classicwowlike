@@ -95,4 +95,5 @@ game.html at 91f9290 (tuning v6 engine, UX pass, the Furnace). Sent to the owner
 | 54 | 2026-11-18 11:50-14:50 | Designer started Legacy class tuning; a server restart stopped it after about 1h | Designer (Opus/max) | about 0.3M |
 | 55 | 2026-11-18 14:50-17:50 | Designer class tuning (3cf6f3e, d754b7e) accepted as D157: B6 passes every band on seeds 6000-6119; band 21-25 fails on fresh seeds | Designer (Opus/max) | about 0.5M |
 | 56 | 2026-11-18 17:50-20:50 | D157 built (a1c4f18; 938 tests); B6 passes every band on fresh seeds 8000-8119; sim Camp bar values control (1235e90, no bar changes); daily report sent | Engineer (Opus/high); Sim (Opus/medium) | about 0.35M |
-| 57 | 2026-11-18 20:50-23:50 | Sim re-runs level-60 cells with oruvathLegacy on; UI builds Legacy phase 1 screens behind GATES.legacy | Sim (Opus/medium); UI (Opus/high) | running |
+| 57 | 2026-11-18 20:50-23:50 | Level-60 check with oruvathLegacy on (legacy-l60 report): B6 PALL breaks; D158 limits Legacy numbers to Legacy runs. Legacy phase 1 UI behind ?legacy=1 (d40f4a0); game.html 071b324 (942 tests, 115 browser checks) | Sim (Opus/medium); UI (Opus/high) | about 0.65M |
+| 58 | 2026-11-18 23:50 - 2026-11-19 02:50 | Engine: D158 gating, Legacy UI helpers (spell hero learn level, ZONE_TIER_DMG), content wording | Engineer (Opus/high) | running |
