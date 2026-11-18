@@ -159,6 +159,16 @@ export const SIM = {
   TRAIN_VALUE_MULT: 1,
   /** Value-function stand-in for a spell with no direct damage (bar template step 7), x the main spell's damage. */
   UTILITY_SPELL_VALUE: 0.5,
+  /** Camp bar under C.GATES.oruvathLegacy (handoff sim-2026-11-18c): value = (expected damage + damage prevented) × the
+   *  usage share (policy.mjs campSpellValue); false: the raw-damage template of before (A/B: SIM_OVERRIDE). */
+  CAMP_BAR_PREVENT: true,
+  /** Share of a control round (STUN, FROZEN, HEXED) that prevents an enemy round at the Camp: Oruvath is CC-immune
+   *  (one cancelled cast or wind-up), the Shards and Camp adds are not. [assumption] */
+  CAMP_CC_SHARE: 0.5,
+  /** Share of enemy actions a SILENCED round stops (casts). [assumption] */
+  CAMP_SILENCE_SHARE: 0.5,
+  /** Camp bar fill: spells within this fraction of the best remaining value count as tied; the earliest learned wins. */
+  BAR_TIE_BAND: 0.10,
   /** Tactician candidate pruning: potions below TACT_POTION_HP or when the best other action dies in a sample;
    *  mana draughts below TACT_MANA. */
   TACT_POTION_HP: 0.35,

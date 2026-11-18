@@ -109,6 +109,47 @@ export function spellValue(s, id, boss = false) {
 }
 
 /**
+ * Damage one cast prevents, in enemy rounds (sim/handoff 2026-11-18c; legacy-classes-2026-11-18 Verdict 6), from the
+ * engine's spell data: CHILLED (sp.chill rounds × the chill the cast applies, CHILL_PCT + Deep Chill, as spells.js
+ * chillValue), control (STUN: sp.stun, or Temple Blow's stunBase + CP / 2 at FINISHER_CP, at most stunMax; FROZEN:
+ * sp.freeze; HEXED: sp.hex) × SIM.CAMP_CC_SHARE (Oruvath is CC-immune: control on him only cancels one cast or
+ * wind-up; it holds the Shards and Camp adds), SILENCED (sp.silence rounds × SIM.CAMP_SILENCE_SHARE, the share of
+ * enemy actions that are casts). One enemy round prevented counts as one main-spell cast (the race exchange: a round
+ * of the enemy's damage is worth a round of the player's) [assumption: sim heuristic].
+ */
+export function preventedRounds(s, id) {
+  const sp = SPELL[id];
+  let r = 0;
+  if (sp.chill) r += sp.chill * (C.CHILL_PCT + (s.player.talents.m_b3 || 0) * TALENT.m_b3.chill);
+  let cc = 0;
+  if (sp.stun) cc += sp.stun;
+  if (sp.stunBase) cc += Math.min(sp.stunMax ?? sp.stunBase, sp.stunBase + Math.floor(FINISHER_CP / 2));
+  if (sp.freeze) cc += sp.freeze;
+  if (sp.hex) cc += sp.hex;
+  r += cc * SIM.CAMP_CC_SHARE;
+  if (sp.silence) r += sp.silence * SIM.CAMP_SILENCE_SHARE;
+  return r;
+}
+
+/** The new Camp valuation is on (C.GATES.oruvathLegacy and SIM.CAMP_BAR_PREVENT): Legacy Camp bars only. */
+export const campPrevents = (camp) => !!(camp && C.GATES && C.GATES.oruvathLegacy && SIM.CAMP_BAR_PREVENT);
+
+/**
+ * Camp template value (campPrevents): (expected damage + damage prevented) × the usage share. Expected damage is
+ * rawDamage, or for a spell without damage the utility stand-in of spellValue; damage prevented is preventedRounds ×
+ * the main spell's damage per cast.
+ */
+export function campSpellValue(s, id) {
+  const share = SITUATIONAL_BOSS[id] ?? 1;
+  const main = MAIN_SPELL[s.player.classId];
+  const unit = s.player.spells[main] ? rawDamage(s, main) : 10;
+  const d = rawDamage(s, id);
+  const prevent = preventedRounds(s, id) * unit;
+  const dealt = d > 0 ? d : prevent > 0 ? 0 : (BURST.has(id) ? 1 : SIM.UTILITY_SPELL_VALUE) * unit;
+  return (dealt + prevent) * share;
+}
+
+/**
  * Bar from template 1.2: interrupt, main nuke/builder, finisher or second nuke, defensive, cleanse, AoE, then
  * highest value; at the Camp (camp = true) interrupt and cleanse first. exclude: spells kept off the bar
  * (B26-B28 variants). Order on the bar: conditional spells first in template order, then always-castable spells
@@ -118,7 +159,8 @@ export function templateBar(s, { camp = false, exclude = null } = {}) {
   const p = s.player;
   const known = p.spellOrder.filter((id) => p.spells[id] && !(exclude && exclude.has(id)));
   const sit = camp ? SITUATIONAL_BOSS : SITUATIONAL;
-  const val = new Map(known.map((id) => [id, spellValue(s, id, camp)]));
+  const stable = campPrevents(camp);
+  const val = new Map(known.map((id) => [id, stable ? campSpellValue(s, id) : spellValue(s, id, camp)]));
   const byVal = (a, b) => val.get(b) - val.get(a) || known.indexOf(a) - known.indexOf(b);
   const pick = [];
   const take = (id) => { if (id && !pick.includes(id) && pick.length < C.SPELL_BAR_SLOTS) pick.push(id); };
@@ -135,10 +177,21 @@ export function templateBar(s, { camp = false, exclude = null } = {}) {
       || best((id) => id !== main && (hasTag(id, 'finisher') || hasTag(id, 'nuke') || hasTag(id, 'dot')) && rawDamage(s, id) > 0));
     else if (st === 'defensive') take(best((id) => (hasTag(id, 'defensive') || hasTag(id, 'heal')) && !hasTag(id, 'cleanse')) || best((id) => hasTag(id, 'defensive') || hasTag(id, 'heal')));
     else if (st === 'cleanse') take(best((id) => hasTag(id, 'cleanse')));
-    else if (st === 'aoe') take(best((id) => hasTag(id, 'aoe')));
+    // campPrevents: the AoE step stays on damage (rawDamage, then value): it is the slot that clears the Shards and Camp
+    // adds, and Rime Burst's freeze in it cost the Mage the Camp (handoff sim-2026-11-18c: Cinder Storm 25 % vs 0 % at H14)
+    else if (st === 'aoe') take(stable ? known.filter((id) => !pick.includes(id) && hasTag(id, 'aoe')).sort((a, b) => rawDamage(s, b) - rawDamage(s, a) || byVal(a, b))[0] || null : best((id) => hasTag(id, 'aoe')));
     else if (st === 'pet') take(known.includes('mend_companion') ? 'mend_companion' : null);
   }
-  for (const id of known.filter((x) => !pick.includes(x)).sort(byVal)) take(id);
+  if (stable) {
+    // Fill (campPrevents): the highest value, but among spells within SIM.BAR_TIE_BAND of it the earliest learned, so a
+    // small number change does not flip a near-tie (sim/handoff 2026-11-18c)
+    for (;;) {
+      const rest = known.filter((x) => !pick.includes(x));
+      if (!rest.length || pick.length >= C.SPELL_BAR_SLOTS) break;
+      const top = Math.max(...rest.map((x) => val.get(x)));
+      take(rest.find((x) => val.get(x) >= top * (1 - SIM.BAR_TIE_BAND)));
+    }
+  } else for (const id of known.filter((x) => !pick.includes(x)).sort(byVal)) take(id);
   const cond = pick.filter((id) => !ALWAYS_CAST.has(id));
   const always = pick.filter((id) => ALWAYS_CAST.has(id)).sort(byVal);
   const bar = [...cond, ...always];
