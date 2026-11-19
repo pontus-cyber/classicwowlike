@@ -6266,13 +6266,15 @@ async function partX(browser, W, H) {
  * run: the start camp's pay in hero XP, the HUD level and XP bar = R.heroView, the checkpoint stored at zone 1, the hub's
  * and the map's levels, the nameplates, the item levels and the spellbook's learn levels on the hero scale; a level-up's
  * banner on the hero level. Y4: the summary's hero line and Legacy lines = R.summary, no Echo word; then hero select keeps
- * the level the hero reached.
+ * the level the hero reached. Y5 (engine-2026-11-19 UI needs; ui-2026-11-19): the Dev menu's hero level picker at class
+ * select (R.debug.setHero), the minimap's zone danger line = zoneDanger × mapView.tierDmg - 1, the spellbook's learn levels =
+ * R.learnLevel, the menu's "Abandon run" asked once, then the summary of a run ended as a death and its Legacy points paid.
  */
 const Y_KEY = 'tbwcr.profile.v3';
 /** A Node computation with C.GATES.legacy on (newProfile and setHero make version 3 profiles), the switch back after. */
 const withLegacy = (fn) => { const was = R.C.GATES.legacy; R.C.GATES.legacy = true; try { return fn(); } finally { R.C.GATES.legacy = was; } };
 const yShown = (n) => R.shownLevel({ legacy: true }, n);
-const yLearn = (M) => { for (let H = 1; H <= R.C.HERO_MAX_LEVEL; H++) if (R.powerOfLevel(H) >= M) return H; return R.C.HERO_MAX_LEVEL; };
+const yLearn = (M) => R.learnLevel({ legacy: true }, M); // engine-2026-11-19: the engine's learn level (was the UI's own loop)
 async function openY(browser, W, H, query, store) {
   const { context, page, errors } = await (async () => {
     const context = await browser.newContext({ viewport: { width: W, height: H } });
@@ -6449,6 +6451,69 @@ async function partY(browser, W, H) {
       await shot(page, 'Y4-hero-select-after');
     } catch (e) { await shot(page, 'Y-error'); check('Y-2', 'part Y2-Y4 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('Y-2', 'part Y2-Y4: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- Y5: the hero level picker, the zone danger line with the tier factor, Abandon run
+  {
+    const prof = withLegacy(() => { let p = { ...R.newProfile(), runs: 3, guide: 'done', welcome: true }; p = R.debug.setHero(p, 'rogue', { level: 12, xp: 0 }); return p; });
+    const { context, page, errors } = await openY(browser, W, H, 'legacy=1&prep=1&speed=instant&seed=9', { [Y_KEY]: JSON.stringify(prof) });
+    const nodeState = async () => R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT);
+    try {
+      // the Dev menu's hero level picker (Give, Profile): the Mage's hero at level 9
+      await page.keyboard.press('Backquote'); await idle(page);
+      await page.locator('#devmenu').getByRole('tab', { name: 'Give' }).click(); await idle(page);
+      await page.locator('#devmenu [data-f="heroClass"]').selectOption('mage');
+      await page.locator('#devmenu [data-f="heroLevel"]').fill('9');
+      await page.locator('#devmenu [data-dev="hero"]').click(); await idle(page);
+      await shot(page, 'Y5-dev-hero-level');
+      await page.keyboard.press('Backquote'); await idle(page);
+      const pick = await page.evaluate(() => ({ card: document.querySelector('#create .ccard[data-cls="mage"] .chero').innerText.trim(), v3: JSON.parse(localStorage.getItem('tbwcr.profile.v3')).heroes.mage }));
+      check('Y-5', 'the Dev menu\'s hero level picker sets a class\'s hero at class select (R.debug.setHero): the card and the stored profile', pick.card === 'Level 9' && pick.v3 && pick.v3.level === 9 && pick.v3.xp === 0, JSON.stringify(pick));
+      // the run: the Rogue at level 12, to the zone 1 map
+      await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await page.keyboard.press('Enter'); await idle(page);
+      for (let i = 0; i < 80 && !(await page.evaluate(() => { const v = window.__ui.view(); return v.phase === 'MAP' && !!(v.zone && v.zone.exp) && !v.loot; })); i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
+      let s = await nodeState(); const mv = R.mapView(s);
+      const exitL = Math.max(...mv.bands.map((b) => b[1]));
+      const want = R.zoneDanger(exitL, 'normal') * mv.tierDmg - 1;
+      const mm = await tipOf(page, page.locator('#minimap .disc'));
+      check('Y-5', 'the minimap\'s zone danger line in a Legacy zone: zoneDanger × mapView.tierDmg - 1 at its highest level (legacy.md 2.2)',
+        mv.tierDmg === R.C.ZONE_TIER_DMG[s.zone.z - 1] && (want > 0 ? mm.includes(`Enemies here deal up to +${pct1(want)} damage.`) : !/hit harder|deal up to/.test(mm)) && !/per 10 levels/.test(mm), `${mm} want ${pct1(want)} (tier ${mv.tierDmg})`);
+      // the spellbook: learn levels from R.learnLevel
+      await page.keyboard.press('KeyP'); await idle(page);
+      const nextLine = await page.evaluate(() => { const e = [...document.querySelectorAll('#win-spellbook .muted')].find((x) => /Next at a trainer/.test(x.innerText)); return e ? e.innerText : null; });
+      const unknown = Object.values(R.C.SPELL).filter((x) => x.cls === 'rogue' && x.source === 'class' && !s.player.spells[x.id]).sort((a, b) => a.lvl - b.lvl).slice(0, 3);
+      check('Y-5', 'the spellbook\'s learn levels are R.learnLevel\'s', !unknown.length || nextLine === `Next at a trainer: ${unknown.map((x) => `${x.name} (${R.learnLevel(s, x.id)})`).join(', ')}`, `${nextLine}`);
+      await page.keyboard.press('KeyP'); await idle(page);
+      // Abandon run: asked once
+      const lvl0 = R.heroView(s).level;
+      const bal0 = JSON.parse(await page.evaluate(() => localStorage.getItem('tbwcr.profile.v3'))).legacy;
+      await page.getByRole('button', { name: 'Menu and settings' }).first().click(); await idle(page);
+      const ab = page.locator('#win-settings .setrow.abandon button');
+      const first = await ab.innerText();
+      await ab.click(); await idle(page);
+      const asked = { text: await ab.innerText(), phase: await page.evaluate(() => window.__ui.view().phase), note: await page.locator('#win-settings .setrow.abandon .muted').innerText() };
+      await shot(page, 'Y5-abandon-ask');
+      check('Y-5', 'the menu\'s "Abandon run" asks once (the first click only asks; the run goes on)', first === 'Abandon run' && asked.text === 'Abandon: click again' && asked.phase === 'MAP' && /Click again/.test(asked.note), JSON.stringify({ first, ...asked }));
+      await ab.click(); await idle(page);
+      for (let i = 0; i < 20 && (await page.evaluate(() => window.__ui.view().phase)) !== 'SUMMARY'; i++) await idle(page);
+      s = await nodeState(); const sm = R.summary(s);
+      const sv = await page.evaluate(() => ({ phase: window.__ui.view().phase, t2: (document.querySelector('.summary .shead .t2') || {}).innerText || '', settings: !!document.querySelector('#win-settings'),
+        kv: [...document.querySelectorAll('.summary dl.kv dt')].map((d) => [d.innerText, d.nextElementSibling.innerText]) }));
+      const ews = await echoWords(page, '.summary');
+      await shot(page, 'Y5-abandon-summary');
+      const ended = sv.kv.find((x) => x[0] === 'Ended');
+      check('Y-5', 'the second click ends the run as a death where the hero stands (ABANDON_RUN): the summary says the run was abandoned, no "Killed by", no Echo word',
+        sv.phase === 'SUMMARY' && s.outcome === 'death' && s.death && s.death.killer.name === 'abandon' && !sv.settings && /left the run$/.test(sv.t2) && !!ended && ended[1] === 'Abandoned from the menu' && !sv.kv.some((x) => x[0] === 'Killed by') && ews.length === 0 && sm.hero.level === lvl0,
+        `${JSON.stringify(sv)} ${JSON.stringify(ews)}`);
+      await page.getByRole('button', { name: 'Begin a new run' }).click(); await idle(page);
+      const after = await page.evaluate(() => ({ card: document.querySelector('#create .ccard[data-cls="rogue"] .chero').innerText.trim(), v3: JSON.parse(localStorage.getItem('tbwcr.profile.v3')) }));
+      check('Y-5', 'END_RUN pays the abandoned run\'s Legacy points (R.summary\'s total) and the hero keeps its level (runs + 1)',
+        after.v3.legacy === bal0 + sm.legacy.total && sm.legacy.total > 0 && after.card === `Level ${lvl0}` && after.v3.heroes.rogue.level === lvl0 && after.v3.heroes.rogue.runs === 1,
+        `${bal0} + ${sm.legacy.total} -> ${after.v3.legacy}; ${after.card}`);
+    } catch (e) { await shot(page, 'Y5-error'); check('Y-5', 'part Y5 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('Y-5', 'part Y5: no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
   }
 }
