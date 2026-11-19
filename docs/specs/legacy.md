@@ -153,7 +153,7 @@ The kit exists because gear is about half of a high-level hero's stats: a level-
 
 ### 2.1 Zone level
 - When the hero arrives at zone z's hub, the zone's band is fixed for the whole zone: `band(z) = clamp(P(hero) + ZONE_TIER[z], 1, CL_MAX)`, P the hero's power level at arrival. A level-up inside the zone does not move it; the next zone is set from the new level.
-- **(Economy v2, 4.7, draft):** zones 1 and 2 trail the hero: `band(z) = clamp(P + ZONE_TIER[z] - round(ZONE_LAG[z] × (P - 1)), 1, CL_MAX)`, ZONE_LAG 0.15 / 0.075 / 0 / 0 / 0 / 0 (4.7 E3).
+- **(Economy v2, 4.7, draft):** zone 1 trails the hero: `band(z) = clamp(P + ZONE_TIER[z] - round(ZONE_LAG[z] × (P - 1)), 1, CL_MAX)`, ZONE_LAG 0.15 / 0 / 0 / 0 / 0 / 0 (4.7 E3).
 - Node levels keep today's rules relative to the band, on compressed rings: `CL = band + RING_CL_BASE[ring] + u`, u uniform in 0..RING_CL_SPREAD - 1, with **RING_CL_BASE [0, 0, 1, 2] and RING_CL_SPREAD 2** (ring 1 the band to +1, ring 2 +1 to +2, ring 3 +2 to +3; was [0, 1, 4, 7] and 3, a ten-level climb that no longer happens inside one zone). Quest offsets and ELITE_LEVEL_OFFSET (+1) unchanged; dungeon trash at band + DUNGEON_LEVEL_OFFSET (**2**, was 4), its boss DUNGEON_BOSS_LEVEL_OFFSET (+2) above; contracts at band + CONTRACT_CL_OFFSET (**2**, the rim; was 8 of a ten-level band); the hub's vendor at the band.
 - **CL_MAX 66** (was 60): a level-25 hero's late zones and Oruvath sit above 60; ILVL_MAX 69 (was 63). Every formula is defined there (rules 4.3, 7.6, 8.3).
 - Shown on the map and the node cards as hero levels (1.2): zone 1's nodes show the hero's level or one under, zone 6's one or two over.
@@ -425,17 +425,16 @@ Status: **draft**, not approved by the owner; replaces the parts of 1.3, 1.4, 2.
 - Result: the same node pays the same hero XP at every hero level (a zone 1 ring 1 / ring 2 quest 171 / 185, a normal kill 40-52); a level-up inside a zone, the zone's tier (2.2) and its lag (E3) do not change XP. Measured (planner, XP a run): -21 % at hero 1 (the over-level bonus of the clamp is gone), -7 to -12 % at 2-5, -3 % at 10, +2 to +7 % at 15-25; the campaign still reaches 25 in 10 runs.
 - **Sim:** the planner's model (sim/lib/model.mjs `killXp`, `evXp`, `heroContractValue`) uses the same formula, with Z the zone's band (scratch: the hero's power level, a close stand-in inside a zone).
 
-**E3. Zones 1 and 2 trail the hero.** `band(z) = clamp(P + ZONE_TIER[z] - round(ZONE_LAG[z] × (P - 1)), 1, CL_MAX)`, P the hero's power level at arrival, **ZONE_LAG = [0.15, 0.075, 0, 0, 0, 0]**. Zones 3-6, the Camp, Oruvath, ZONE_TIER_DMG, rings, dungeons and contracts are unchanged (contracts and the board's estimate follow the band, 2.1).
+**E3. Zone 1 trails the hero.** `band(z) = clamp(P + ZONE_TIER[z] - round(ZONE_LAG[z] × (P - 1)), 1, CL_MAX)`, P the hero's power level at arrival, **ZONE_LAG = [0.15, 0, 0, 0, 0, 0]**. Zones 2-6, the Camp, Oruvath, ZONE_TIER_DMG, rings, dungeons and contracts are unchanged (zone 1's contracts and the board's estimate follow its band, 2.1).
 
 | Hero level | 1 | 3 | 5 | 8 | 10 | 13 | 15 | 18 | 20 | 23 | 25 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | Zone 1 lag (power levels) | 0 | 1 | 2 | 3 | 3 | 5 | 5 | 6 | 7 | 8 | 9 |
 | Zone 1 nodes, shown (was) | 1-2 (1-2) | 2-3 (2-3) | 3-5 (4-5) | 6-7 (7-8) | 8-9 (9-10) | 10-12 (12-14) | 12-13 (14-15) | 15-16 (17-18) | 16-18 (19-21) | 19-20 (22-23) | 21-22 (24-25) |
-| Zone 2 lag | 0 | 0 | 1 | 1 | 2 | 2 | 3 | 3 | 4 | 4 | 4 |
 
-- So zone 1 is the hero's own level for the first two runs and about three hero levels under him at 25: a zone the hero visibly outgrows, while zones 3-6 keep their tier. XP there does not fall (E2). Its drops and gold come at its lower level; the run's gear curve starts in zone 2-3 (mean equipped item level at Oruvath at hero 20-25: power level + 1.4 to 1.7, was + 2.1 to 2.3).
-- Measured (planner, v2 against main): zone 1 lowest HP in won fights 93 / 91 / 89 / 92 / 92 % at hero 5 / 10 / 15 / 20 / 25 (was 86 / 77 / 71 / 75 / 76), its fights 4.4 → 3.5 rounds from hero 5 to 25 (was 5.6 → 4.2), runs dying in zones 1-2 0-0.6 % from hero 5; zones 5-6 unchanged (65-78 %, 6.4 → 4.2 rounds). L4's HP rise (zone 1 - zones 5-6) is 26 points at hero 10 and 14 at 20 (was 13 and -6: L4 now passes at H20).
-- Tried: ZONE_LAG [0.25, 0.12, ...] (zone 1 at 93-95 %, 3.4 rounds: trivial from hero 5, and pooled win at hero 20, 23 and 25 about 4 pp lower than [0.15, 0.075]); [0.15, 0.075] kept. Zone 1 slower and XP against the hero (today's formula) is excluded by problem 3.
+- So zone 1 is the hero's own level for the first two runs and about three hero levels under him at 25: a zone the hero visibly outgrows, while zones 2-6 keep their tier. XP there does not fall (E2). Its drops and gold come at its lower level, so the run's gear curve starts in zone 2.
+- Measured (planner, v2 against main; the full v2 arm ran with zone 2 also at 0.075, see Tried): zone 1 lowest HP in won fights 93 / 91 / 89 / 92 / 92 % at hero 5 / 10 / 15 / 20 / 25 (was 86 / 77 / 71 / 75 / 76), its fights 4.4 → 3.5 rounds from hero 5 to 25 (was 5.6 → 4.2), runs dying in zones 1-2 0-0.6 % from hero 5; zones 5-6 unchanged (65-78 %, 6.4 → 4.2 rounds). L4's HP rise (zone 1 - zones 5-6) is 26 points at hero 10 and 14 at 20 (was 13 and -6: L4 now passes at H20).
+- Tried: zone 2 at 0.075 as well (the full v2 arm): zone 2 easier by 4-6 points of lowest HP, but its lower-level drops cut the item level at Oruvath (power + 1.36 against main's + 1.94 at hero 21-24) and pooled win at hero 21-24 (41.7 against 48.5 %); with zone 2 at 0: + 1.72 and 44.7 %, XP a run 1-4 % lower and Legacy a run within 3 % of the full arm, so the curve of E5 stands. ZONE_LAG [0.25, 0.12, ...] (zone 1 at 93-95 %, 3.4 rounds: trivial from hero 5, and pooled win at hero 20, 23 and 25 about 4 pp under [0.15, 0.075]). [0.15, 0, ...] kept. Zone 1 slower and XP against the hero (today's formula) is excluded by problem 3.
 
 **E4. Hero XP for levels 1-3.** HERO_XP[1..3] = **1 800 / 1 850 / 1 900** (was 2 000 / 2 000 / 2 050; levels 4-24 unchanged; 69 250 in all). With E2 a first run pays about 6 100 hero XP (was 7 800), so the first run still ends at level 4.3 (FIRST_RUN_LEVEL 4-5; at the old costs 3.96). Level 2 needs 1 800: about 10 minutes at the measured 177 XP a minute (ONB1 to be re-measured on the guided zone).
 
@@ -500,7 +499,7 @@ The curve (planner campaign on the v2 cells, chained by run; Legacy a run as mea
    - Hero 20: the last line becomes "Level 20: your other talent trees can open in the Legacy hall." Hero 25: "Level 25, the highest. From now on every 4 100 XP pays 20 Legacy points."
    - Hero select and the summary show the run's levels as "Level 4 → 7" with the XP bar.
 
-**What the engineer builds** (one switch `C.GATES.economyV2`, default off until accepted; Legacy runs only, as D158): LEGACY_PER_PREP_POINT_HERO 0 and LEGACY_PER_ZONE_HERO 10 in `echoes()` when `facts.heroLevels` is set; `eventXp` and `flatXp` by E2 with a helper `xpRef(s)` in legacy.js (zone band, Camp level, else power level); ZONE_LAG in `bandNow`; HERO_XP[0..2] 1800, 1850, 1900; a Legacy profile's `metaOffers` lists exactly the 13 entries of 4.2 at the E5 prices (a META_HERO block over the same ids; phase 2 of 7.1), TREE_OPEN_COST 250 / 300 and ARMOURY_COST 150 when phases 4-5 are built. The sim mirrors E2 in sim/lib/model.mjs. Scratch reference: env ECON of the report (`{"xp":1,"step":0.1,"lag":[0.15,0.075,0,0,0,0]}`) over sim/legacy-run.mjs `--native --oruvath` with the three constants patched.
+**What the engineer builds** (one switch `C.GATES.economyV2`, default off until accepted; Legacy runs only, as D158): LEGACY_PER_PREP_POINT_HERO 0 and LEGACY_PER_ZONE_HERO 10 in `echoes()` when `facts.heroLevels` is set; `eventXp` and `flatXp` by E2 with a helper `xpRef(s)` in legacy.js (zone band, Camp level, else power level); ZONE_LAG in `bandNow`; HERO_XP[0..2] 1800, 1850, 1900; a Legacy profile's `metaOffers` lists exactly the 13 entries of 4.2 at the E5 prices (a META_HERO block over the same ids; phase 2 of 7.1), TREE_OPEN_COST 250 / 300 and ARMOURY_COST 150 when phases 4-5 are built. The sim mirrors E2 in sim/lib/model.mjs. Scratch reference: env ECON of the report (`{"xp":1,"step":0.1,"lag":[0.15,0,0,0,0,0]}`) over sim/legacy-run.mjs `--native --oruvath` with the three constants patched.
 
 **New checks (draft):**
 
@@ -511,6 +510,12 @@ The curve (planner campaign on the v2 cells, chained by run; Legacy a run as mea
 | LE3 | P1 | Planner campaign: cumulative Legacy at hero 20 against the account wing, at 25 against the hall | within HALL_PACE_TOL (± 15 %); measured +4 % and +6 % |
 | LE4 | P1 | Planner campaign: entries bought after each of runs 1-4 | >= 1 (EARLY_BUY_MIN); measured 3, 2, 3, 3 |
 | LE5 | P2 | Zone 1 mean lowest HP in won fights at hero 10 and 20, planner | >= ZONE1_HP_MIN (85 %) and not more than 3 points under hero 5's; measured 91 and 92 % (hero 5: 93); main 77 and 75 % (hero 5: 86), fail |
+
+**Open (for the Lead):**
+1. **Top end.** v2 lowers the planner's pooled win at start hero 21-24 by about 4 pp (48.5 → 44.7 % with zone 1's lag only, seeds 9000-9059, 180 runs per level; 41.7 % with zone 2's lag as well). It is not the sim's model (the full arm with today's planner model: 40.8 %) and not the XP of the Camp and Oruvath's fight (a reference three power levels lower changed no run). Hero 25 is 54 % (main 54 %), inside WR_H25. If the old top end is wanted, the lever is BOSS_HP_LEVEL at hero 21-24 (2.4.2), read on the class cells once 4.7 is built.
+2. **The guided first run** (planner, `--guided --hero 1`, 40 runs per class): every run reaches hero 2 before zone 2 (main: every run), the run ends at hero 4 (median; main 5) with 6 800 hero XP (main 8 970). ONB1 and FIRST_RUN_LEVEL are read again on the build.
+3. The cells buy nothing: LE3 and LE4 are read again on campaign v3 with purchases (Quick Study shortens the climb by about 0.3 hours; Vigor and Edge add win rate).
+4. The Hunter's Stormhawk (150) puts the Hunter's hall about half a run behind the other classes.
 
 ---
 
@@ -814,7 +819,7 @@ Order inside phase 1: engine (hero and zones), then sim (warmed tables, campaign
 | LEGACY_PER_ZONE_HERO (4.7, draft) | 10 | Legacy points per zone left, Legacy runs (was 7.5; level-60 runs keep ECHO_PER_ZONE 7.5) (4.7 E1) |
 | XP_ZONE_STEP (4.7, draft) | 0.10 | × (1 + step × max(0, CL - Z)) on every Legacy XP award, Z the zone's band (the Camp's level at the Camp and Oruvath); no xpCurve ratio, no diffMod (4.7 E2) |
 | Contract XP offset (4.7, draft) | CONTRACT_CL_OFFSET_HERO (2) | CL - Z of every contract and Gorrak's bounty: × 1.2 (4.7 E2) |
-| ZONE_LAG (4.7, draft) | 0.15, 0.075, 0, 0, 0, 0 | power levels per power level above 1 that zones 1-6 trail the hero: band - round(lag × (P - 1)) (4.7 E3) |
+| ZONE_LAG (4.7, draft) | 0.15, 0, 0, 0, 0, 0 | power levels per power level above 1 that zones 1-6 trail the hero: band - round(lag × (P - 1)) (4.7 E3) |
 | HERO_XP (4.7, draft) | levels 1-3: 1800, 1850, 1900 (was 2000, 2000, 2050); 4-24 unchanged; 69 250 in all | hero XP (4.7 E4) |
 | LEGACY_COST (4.7, draft) | satchel 50; vigor 70 / 130; edge 70 / 130; quick_study 80 / 140; sp_(class)1 120, sp_(class)2 200; second_breath 200; swift_boots 100; pockets 40; cartographer 60; old_hand 70; quartermaster 70 / 110; stormhawk 150; oaths 0 | Legacy points per rank; account entries + one class's techniques 1 640 (4.7 E5) |
 | TREE_OPEN_COST (4.7, draft) | 250 / 300 | Legacy points, second / third tree per hero (was 300 / 450) (4.7 E5) |
