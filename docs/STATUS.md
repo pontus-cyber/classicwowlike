@@ -102,4 +102,5 @@ game.html at 91f9290 (tuning v6 engine, UX pass, the Furnace). Sent to the owner
 | 61 | 2026-11-19 08:50-11:50 | Economy v2 spec (009b1b4, 50801a1) accepted as D159; nine Legacy bugs fixed (979e595); game.html 708841f (973 tests, 122 browser checks) | Designer, Engineer (Opus/high) | about 0.75M |
 | 62 | 2026-11-19 11:50-14:50 | Economy v2 built behind economyV2 (4b2bd48, ffaac96; 1 003 tests; payout curve within 4 %); D160; flaky checks fixed (552/552 three times) | Engineer (Opus/high); QA (Opus/medium) | about 0.5M |
 | 63 | 2026-11-19 14:50-17:50 | Economy v2 screens and D160 refund built behind ?legacy=1 (432743f, 9062ff5; 1 011 tests; 579 browser checks); game.html built (8aabfd4) | UI (Opus/high) | about 0.4M |
-| 64 | 2026-11-19 17:50-20:50 | QA investigates the Legacy full-run deaths at level 8 in zone 6; second-camp reload fix; daily report | QA (Opus/high) | running |
+| 64 | 2026-11-19 17:50-20:50 | Legacy 'level 8' deaths were a report quirk (power level) and seed 7, not a wall; bot Camp-grind rule, chest order, second-camp reload fixed (53e488e, d8e242f, be41f34); game.html 132deb0; daily report | QA (Opus/high) | about 0.2M |
+| 65 | 2026-11-19 20:50-23:50 | Camp-grind XP falloff under Economy v2 (D161); full-run from a stored hero level | Engineer (Opus/high); QA (Sonnet/high) | running |
