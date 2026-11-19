@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="1a42be6 2026-11-18T21:33:02Z">
+<meta name="build" content="2785e60 2026-11-19T02:41:50Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -2071,8 +2071,8 @@ body.coach-up #skiphint { visibility: hidden; }
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (1a42be6 2026-11-18T21:33:02Z) from 68 modules.
-const __BUILD__ = "1a42be6 2026-11-18T21:33:02Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (2785e60 2026-11-19T02:41:50Z) from 68 modules.
+const __BUILD__ = "2785e60 2026-11-19T02:41:50Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -2628,8 +2628,10 @@ const RARE_HP_MULT_Z1 = 3.0;
  * and profile is as before D154.
  * D156 (legacy.md 2.4.1, draft): oruvathLegacy. **Off** until the owner or Lead switches it on with legacy. On: in a Legacy
  * run Oruvath's fight follows 2.4.1 (BOSS_HP_LEVEL, dmgScale0 × bossDmgLevel, the Shards' HP ramp, Final Dark by hero
- * level; legacy.js oruvathScale); in every run autoplay casts Living Flame and Barbed Arrow on a boss at any HP and never on
- * a Dimming Shard (autoplay.js), and the class numbers ORUVATH_SPELL apply (the SPELL fields read the switch at each use).
+ * level; legacy.js oruvathScale); autoplay casts Living Flame and Barbed Arrow on a boss at any HP and never on a Dimming
+ * Shard (autoplay.js), and the class numbers ORUVATH_SPELL / ORUVATH_TALENT apply (the SPELL fields read the switches at
+ * each use). D158: all of it in Legacy runs only: with GATES.legacy off (every run a level-60 run) the switch changes
+ * nothing; the boss rules read the run's mark (state.legacy) as well.
  */
 const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true, rewardPrimary: true, zone2InnerCap: true, z1Dmg: true, firstRunLean: true, gorrakBounty: true, guidedHold: true, steadyDim: true, rescueDim: true, gorrakLevel: true, bountyRoad: true, legacy: false, oruvathLegacy: false };
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
@@ -3669,7 +3671,8 @@ const FINAL_DARK_LEVEL_STEP = 1.4;
 const FINAL_DARK_ROUND_MAX = 76;
 /**
  * legacy.md 2.4.1 item 7 (D156, draft) and 2.4.2 (D157, draft): the class numbers while GATES.oruvathLegacy is on, in
- * every run. The SPELL fields named here are getters that read the switch at each use (off: the values of rules.md).
+ * Legacy runs only (D158: GATES.legacy on as well; a level-60 run keeps rules.md's numbers). The SPELL fields named here
+ * are getters that read both switches at each use (either off: the values of rules.md).
  * 2.4.1: Frost Lance +15 %, Pyre Comet learnable at power 21 (hero 9), Field Dressing healPct 0.18. 2.4.2: Cinder Storm at
  * power 21 (hero 9), Glacial Tomb at 43 (hero 18), Feign Stillness at 23 (hero 10), Heartseeker Shot at 43 (hero 18) and
  * -5 %, Barbed Arrow's DoT l 0.52, p 0.21 (2.4.1 0.495, 0.20), Open Vein's DoT +15 %.
@@ -3685,7 +3688,7 @@ const ORUVATH_SPELL = {
   heartseeker_shot: { lvl: 43, b: 13.3, l: 2.85, p: 1.235, w: 1.425 },
   open_vein: { dot: { l: 0.52, p: 0.115 } },
 };
-/** legacy.md 2.4.2 item 7 (D157, draft): the talent numbers while GATES.oruvathLegacy is on (getters as ORUVATH_SPELL). */
+/** legacy.md 2.4.2 item 7 (D157, draft): the talent numbers while GATES.oruvathLegacy and GATES.legacy are on (D158; getters as ORUVATH_SPELL). */
 const ORUVATH_TALENT = {
   h_a2: { petDmgPct: 0.10 },
 };
@@ -3694,7 +3697,8 @@ const ORUVATH_TALENT = {
     for (const [k, v] of Object.entries(now)) {
       if (v && typeof v === 'object') { bind(obj[k], v); continue; }
       const was = obj[k];
-      Object.defineProperty(obj, k, { get: () => (GATES.oruvathLegacy ? v : was), enumerable: true, configurable: true });
+      // D158: Legacy runs only, so both switches (GATES.legacy makes every new run a Legacy run); a level-60 run never reads them
+      Object.defineProperty(obj, k, { get: () => (GATES.legacy && GATES.oruvathLegacy ? v : was), enumerable: true, configurable: true });
     }
   };
   for (const [id, now] of Object.entries(ORUVATH_SPELL)) bind(SPELL[id], now);
@@ -4379,7 +4383,7 @@ function hasEffect(s, effect) {
 
 });
 __bundle.def("src/engine/legacy.js", function* (__ns, __link) {
-let GATES, CLASS_IDS, HERO_MAX_LEVEL, POWER_OF_LEVEL, HERO_XP, HERO_XP_AT_MAX, MAX_LEVEL, ZONE_TIER, ZONE_TIER_DMG, CL_MAX, ILVL_MAX, ILVL_MAX_HERO, CAMP_TIER, BOSS_TIER, BOSS_REF_LEVEL, BOSS_HP_LEVEL_BASE, BOSS_HP_LEVEL_STEP, ENEMY_HP_BASE, ENEMY_HP_PER_LEVEL, ENEMY_DMG_BASE, ENEMY_DMG_PER_LEVEL, ZONE_COUNT, ZONE_LEVELS, CONTRACT_CL_OFFSET, CONTRACT_CL_OFFSET_HERO, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MIN_HERO, META, CLASS, TALENT, BOSS_HP_LEVEL, BOSS_DMG_LEVEL_BASE, BOSS_DMG_LEVEL_STEP, BOSS_DMG_LEVEL_MIN, BOSS_DMG_LEVEL_MAX, SHARD_HP_LEVEL_LOW, SHARD_HP_RAMP_FROM, SHARD_HP_RAMP_TO, FINAL_DARK_LEVEL_STEP, FINAL_DARK_ROUND_MAX, BOSS_ENRAGE_ROUND, ZONE_DANGER_STEP, ZONE_DANGER_FROM; __link.imp("src/constants.js", [["GATES", (v) => { GATES = v; }], ["CLASS_IDS", (v) => { CLASS_IDS = v; }], ["HERO_MAX_LEVEL", (v) => { HERO_MAX_LEVEL = v; }], ["POWER_OF_LEVEL", (v) => { POWER_OF_LEVEL = v; }], ["HERO_XP", (v) => { HERO_XP = v; }], ["HERO_XP_AT_MAX", (v) => { HERO_XP_AT_MAX = v; }], ["MAX_LEVEL", (v) => { MAX_LEVEL = v; }], ["ZONE_TIER", (v) => { ZONE_TIER = v; }], ["ZONE_TIER_DMG", (v) => { ZONE_TIER_DMG = v; }], ["CL_MAX", (v) => { CL_MAX = v; }], ["ILVL_MAX", (v) => { ILVL_MAX = v; }], ["ILVL_MAX_HERO", (v) => { ILVL_MAX_HERO = v; }], ["CAMP_TIER", (v) => { CAMP_TIER = v; }], ["BOSS_TIER", (v) => { BOSS_TIER = v; }], ["BOSS_REF_LEVEL", (v) => { BOSS_REF_LEVEL = v; }], ["BOSS_HP_LEVEL_BASE", (v) => { BOSS_HP_LEVEL_BASE = v; }], ["BOSS_HP_LEVEL_STEP", (v) => { BOSS_HP_LEVEL_STEP = v; }], ["ENEMY_HP_BASE", (v) => { ENEMY_HP_BASE = v; }], ["ENEMY_HP_PER_LEVEL", (v) => { ENEMY_HP_PER_LEVEL = v; }], ["ENEMY_DMG_BASE", (v) => { ENEMY_DMG_BASE = v; }], ["ENEMY_DMG_PER_LEVEL", (v) => { ENEMY_DMG_PER_LEVEL = v; }], ["ZONE_COUNT", (v) => { ZONE_COUNT = v; }], ["ZONE_LEVELS", (v) => { ZONE_LEVELS = v; }], ["CONTRACT_CL_OFFSET", (v) => { CONTRACT_CL_OFFSET = v; }], ["CONTRACT_CL_OFFSET_HERO", (v) => { CONTRACT_CL_OFFSET_HERO = v; }], ["ONB_ELITE_LEVEL_MIN", (v) => { ONB_ELITE_LEVEL_MIN = v; }], ["ONB_ELITE_LEVEL_MIN_HERO", (v) => { ONB_ELITE_LEVEL_MIN_HERO = v; }], ["META", (v) => { META = v; }], ["CLASS", (v) => { CLASS = v; }], ["TALENT", (v) => { TALENT = v; }], ["BOSS_HP_LEVEL", (v) => { BOSS_HP_LEVEL = v; }], ["BOSS_DMG_LEVEL_BASE", (v) => { BOSS_DMG_LEVEL_BASE = v; }], ["BOSS_DMG_LEVEL_STEP", (v) => { BOSS_DMG_LEVEL_STEP = v; }], ["BOSS_DMG_LEVEL_MIN", (v) => { BOSS_DMG_LEVEL_MIN = v; }], ["BOSS_DMG_LEVEL_MAX", (v) => { BOSS_DMG_LEVEL_MAX = v; }], ["SHARD_HP_LEVEL_LOW", (v) => { SHARD_HP_LEVEL_LOW = v; }], ["SHARD_HP_RAMP_FROM", (v) => { SHARD_HP_RAMP_FROM = v; }], ["SHARD_HP_RAMP_TO", (v) => { SHARD_HP_RAMP_TO = v; }], ["FINAL_DARK_LEVEL_STEP", (v) => { FINAL_DARK_LEVEL_STEP = v; }], ["FINAL_DARK_ROUND_MAX", (v) => { FINAL_DARK_ROUND_MAX = v; }], ["BOSS_ENRAGE_ROUND", (v) => { BOSS_ENRAGE_ROUND = v; }], ["ZONE_DANGER_STEP", (v) => { ZONE_DANGER_STEP = v; }], ["ZONE_DANGER_FROM", (v) => { ZONE_DANGER_FROM = v; }]]); let rnd, deepClone, clamp; __link.imp("src/engine/util.js", [["rnd", (v) => { rnd = v; }], ["deepClone", (v) => { deepClone = v; }], ["clamp", (v) => { clamp = v; }]]); __link.exp({ "isLegacy": () => isLegacy, "powerOf": () => powerOf, "shownLevelOf": () => shownLevelOf, "heroLevelAt": () => heroLevelAt, "heroXpToNext": () => heroXpToNext, "newHero": () => newHero, "heroOf": () => heroOf, "heroRecord": () => heroRecord, "checkpointHero": () => checkpointHero, "balanceOf": () => balanceOf, "balanceKey": () => balanceKey, "legacyProfile": () => legacyProfile, "legacyProfiles": () => legacyProfiles, "clMax": () => clMax, "ilvlMax": () => ilvlMax, "onbEliteMin": () => onbEliteMin, "bandNow": () => bandNow, "zoneBand": () => zoneBand, "contractLevelOf": () => contractLevelOf, "campLevelNow": () => campLevelNow, "zoneTierDmg": () => zoneTierDmg, "oruvathScale": () => oruvathScale, "shardHpLevel": () => shardHpLevel, "bossDmgLevel": () => bossDmgLevel, "finalDarkRound": () => finalDarkRound, "heroView": () => heroView, "heroesView": () => heroesView });
+let GATES, CLASS_IDS, HERO_MAX_LEVEL, POWER_OF_LEVEL, HERO_XP, HERO_XP_AT_MAX, MAX_LEVEL, ZONE_TIER, ZONE_TIER_DMG, CL_MAX, ILVL_MAX, ILVL_MAX_HERO, CAMP_TIER, BOSS_TIER, BOSS_REF_LEVEL, BOSS_HP_LEVEL_BASE, BOSS_HP_LEVEL_STEP, ENEMY_HP_BASE, ENEMY_HP_PER_LEVEL, ENEMY_DMG_BASE, ENEMY_DMG_PER_LEVEL, ZONE_COUNT, ZONE_LEVELS, CONTRACT_CL_OFFSET, CONTRACT_CL_OFFSET_HERO, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MIN_HERO, META, CLASS, TALENT, BOSS_HP_LEVEL, BOSS_DMG_LEVEL_BASE, BOSS_DMG_LEVEL_STEP, BOSS_DMG_LEVEL_MIN, BOSS_DMG_LEVEL_MAX, SHARD_HP_LEVEL_LOW, SHARD_HP_RAMP_FROM, SHARD_HP_RAMP_TO, FINAL_DARK_LEVEL_STEP, FINAL_DARK_ROUND_MAX, BOSS_ENRAGE_ROUND, ZONE_DANGER_STEP, ZONE_DANGER_FROM; __link.imp("src/constants.js", [["GATES", (v) => { GATES = v; }], ["CLASS_IDS", (v) => { CLASS_IDS = v; }], ["HERO_MAX_LEVEL", (v) => { HERO_MAX_LEVEL = v; }], ["POWER_OF_LEVEL", (v) => { POWER_OF_LEVEL = v; }], ["HERO_XP", (v) => { HERO_XP = v; }], ["HERO_XP_AT_MAX", (v) => { HERO_XP_AT_MAX = v; }], ["MAX_LEVEL", (v) => { MAX_LEVEL = v; }], ["ZONE_TIER", (v) => { ZONE_TIER = v; }], ["ZONE_TIER_DMG", (v) => { ZONE_TIER_DMG = v; }], ["CL_MAX", (v) => { CL_MAX = v; }], ["ILVL_MAX", (v) => { ILVL_MAX = v; }], ["ILVL_MAX_HERO", (v) => { ILVL_MAX_HERO = v; }], ["CAMP_TIER", (v) => { CAMP_TIER = v; }], ["BOSS_TIER", (v) => { BOSS_TIER = v; }], ["BOSS_REF_LEVEL", (v) => { BOSS_REF_LEVEL = v; }], ["BOSS_HP_LEVEL_BASE", (v) => { BOSS_HP_LEVEL_BASE = v; }], ["BOSS_HP_LEVEL_STEP", (v) => { BOSS_HP_LEVEL_STEP = v; }], ["ENEMY_HP_BASE", (v) => { ENEMY_HP_BASE = v; }], ["ENEMY_HP_PER_LEVEL", (v) => { ENEMY_HP_PER_LEVEL = v; }], ["ENEMY_DMG_BASE", (v) => { ENEMY_DMG_BASE = v; }], ["ENEMY_DMG_PER_LEVEL", (v) => { ENEMY_DMG_PER_LEVEL = v; }], ["ZONE_COUNT", (v) => { ZONE_COUNT = v; }], ["ZONE_LEVELS", (v) => { ZONE_LEVELS = v; }], ["CONTRACT_CL_OFFSET", (v) => { CONTRACT_CL_OFFSET = v; }], ["CONTRACT_CL_OFFSET_HERO", (v) => { CONTRACT_CL_OFFSET_HERO = v; }], ["ONB_ELITE_LEVEL_MIN", (v) => { ONB_ELITE_LEVEL_MIN = v; }], ["ONB_ELITE_LEVEL_MIN_HERO", (v) => { ONB_ELITE_LEVEL_MIN_HERO = v; }], ["META", (v) => { META = v; }], ["CLASS", (v) => { CLASS = v; }], ["TALENT", (v) => { TALENT = v; }], ["BOSS_HP_LEVEL", (v) => { BOSS_HP_LEVEL = v; }], ["BOSS_DMG_LEVEL_BASE", (v) => { BOSS_DMG_LEVEL_BASE = v; }], ["BOSS_DMG_LEVEL_STEP", (v) => { BOSS_DMG_LEVEL_STEP = v; }], ["BOSS_DMG_LEVEL_MIN", (v) => { BOSS_DMG_LEVEL_MIN = v; }], ["BOSS_DMG_LEVEL_MAX", (v) => { BOSS_DMG_LEVEL_MAX = v; }], ["SHARD_HP_LEVEL_LOW", (v) => { SHARD_HP_LEVEL_LOW = v; }], ["SHARD_HP_RAMP_FROM", (v) => { SHARD_HP_RAMP_FROM = v; }], ["SHARD_HP_RAMP_TO", (v) => { SHARD_HP_RAMP_TO = v; }], ["FINAL_DARK_LEVEL_STEP", (v) => { FINAL_DARK_LEVEL_STEP = v; }], ["FINAL_DARK_ROUND_MAX", (v) => { FINAL_DARK_ROUND_MAX = v; }], ["BOSS_ENRAGE_ROUND", (v) => { BOSS_ENRAGE_ROUND = v; }], ["ZONE_DANGER_STEP", (v) => { ZONE_DANGER_STEP = v; }], ["ZONE_DANGER_FROM", (v) => { ZONE_DANGER_FROM = v; }]]); let rnd, deepClone, clamp; __link.imp("src/engine/util.js", [["rnd", (v) => { rnd = v; }], ["deepClone", (v) => { deepClone = v; }], ["clamp", (v) => { clamp = v; }]]); __link.exp({ "isLegacy": () => isLegacy, "legacyNumbersOn": () => legacyNumbersOn, "oruvathRules": () => oruvathRules, "powerOf": () => powerOf, "shownLevelOf": () => shownLevelOf, "learnHeroLevel": () => learnHeroLevel, "heroLevelAt": () => heroLevelAt, "heroXpToNext": () => heroXpToNext, "newHero": () => newHero, "heroOf": () => heroOf, "heroRecord": () => heroRecord, "checkpointHero": () => checkpointHero, "balanceOf": () => balanceOf, "balanceKey": () => balanceKey, "legacyProfile": () => legacyProfile, "legacyProfiles": () => legacyProfiles, "clMax": () => clMax, "ilvlMax": () => ilvlMax, "onbEliteMin": () => onbEliteMin, "bandNow": () => bandNow, "zoneBand": () => zoneBand, "contractLevelOf": () => contractLevelOf, "campLevelNow": () => campLevelNow, "zoneTierDmg": () => zoneTierDmg, "oruvathScale": () => oruvathScale, "shardHpLevel": () => shardHpLevel, "bossDmgLevel": () => bossDmgLevel, "finalDarkRound": () => finalDarkRound, "heroView": () => heroView, "heroesView": () => heroesView });
 yield;
 // Legacy progression, phase 1 (D154-D155; docs/specs/legacy.md 1, 2, 4.1, 4.6, 5.1, draft for owner steering): the
 // persistent hero per class on a version 3 profile, the power level of a hero level and the level shown for a power
@@ -4402,6 +4406,13 @@ yield;
 
 /** A Legacy run (legacy.md; GATES.legacy when newRun made the state). */
 const isLegacy = (s) => !!(s && s.legacy);
+/**
+ * D158: the D156 / D157 numbers (legacy.md 2.4.1-2.4.2, draft) are on: GATES.legacy and GATES.oruvathLegacy both on. The
+ * class numbers (constants.js ORUVATH_SPELL, ORUVATH_TALENT getters) read the same two switches.
+ */
+const legacyNumbersOn = () => !!(GATES.legacy && GATES.oruvathLegacy);
+/** D158: the 2.4.1 boss rules apply to this run: a Legacy run (state.legacy) with both switches on; never a level-60 run. */
+const oruvathRules = (s) => isLegacy(s) && legacyNumbersOn();
 
 // ---------------- Levels (legacy.md 1.2-1.4) ----------------
 /** Hero level H clamped to 1..HERO_MAX_LEVEL. */
@@ -4410,6 +4421,15 @@ const heroClamp = (H) => clamp(Math.round(H), 1, HERO_MAX_LEVEL);
 const powerOf = (H) => POWER_OF_LEVEL[heroClamp(H) - 1];
 /** The hero level shown for power level M (legacy.md 1.2): 1 + round((M - 1) × (HERO_MAX_LEVEL - 1) / (MAX_LEVEL - 1)). */
 const shownLevelOf = (M) => 1 + rnd(((M - 1) * (HERO_MAX_LEVEL - 1)) / (MAX_LEVEL - 1));
+/**
+ * The first hero level whose power level reaches M (legacy.md 1.7: a spell of learn level M is trained at the run start
+ * from that hero level on); HERO_MAX_LEVEL when no hero level reaches it. Unlike shownLevelOf (the nearest hero level),
+ * never below the level that learns it: Shadowstep Strike (power 4) shows 3, not 2.
+ */
+function learnHeroLevel(M) {
+  for (let H = 1; H <= HERO_MAX_LEVEL; H++) if (POWER_OF_LEVEL[H - 1] >= M) return H;
+  return HERO_MAX_LEVEL;
+}
 /** The highest hero level whose power level is at most M (at least 1): the dev tools' hero for a power level. */
 function heroLevelAt(M) {
   let H = 1;
@@ -4530,6 +4550,7 @@ const campLevelNow = (s) => clamp(s.player.level + CAMP_TIER, 1, CL_MAX);
  * × the damage of a template enemy of a fight in zone z (legacy.md 2.2): ZONE_TIER_DMG[z - 1] for zones 1-6, zone 6's at
  * the Camp (z = ZONE_COUNT + 1); 1 outside a Legacy run.
  */
+/** legacy.md 2.2: × the damage of every template enemy of zone z in a Legacy run (ZONE_TIER_DMG; the Camp, z 7: zone 6's), else 1. */
 const zoneTierDmg = (s, z) => (isLegacy(s) ? ZONE_TIER_DMG[clamp(z, 1, ZONE_COUNT) - 1] : 1);
 
 // ---------------- Oruvath (legacy.md 2.4; one place for the Designer's rework) ----------------
@@ -4540,14 +4561,15 @@ const zoneTierDmg = (s, z) => (isLegacy(s) ? ZONE_TIER_DMG[clamp(z, 1, ZONE_COUN
  * + ENEMY_HP_PER_LEVEL × M) / (the same at BOSS_REF_LEVEL), the normal enemy curve, and dmgScale(M) the same ratio for a
  * normal enemy's damage with zone danger. `danger` is the zone danger function (combat.js zoneDanger), passed in so this
  * module imports no other engine module. P and H: the hero's power and hero level when the fight starts. null outside a
- * Legacy run (the fight as tuned at BOSS_LEVEL). Under GATES.oruvathLegacy (D156) the numbers of 2.4.1: oruvathScale241.
+ * Legacy run (the fight as tuned at BOSS_LEVEL). Under GATES.oruvathLegacy (D156; D158: oruvathRules, GATES.legacy on as
+ * well) the numbers of 2.4.1: oruvathScale241.
  */
 function oruvathScale(s, danger) {
   if (!isLegacy(s)) return null;
   const p = s.player;
   const LB = Math.min(CL_MAX, p.level + BOSS_TIER);
   const hpAt = (M) => ENEMY_HP_BASE + ENEMY_HP_PER_LEVEL * M;
-  if (GATES.oruvathLegacy) return oruvathScale241(p, LB, hpAt);
+  if (oruvathRules(s)) return oruvathScale241(p, LB, hpAt);
   const dmgAt = (M) => (ENEMY_DMG_BASE + ENEMY_DMG_PER_LEVEL * M) * danger(M, 'normal');
   const hpLevel = Math.min(1, BOSS_HP_LEVEL_BASE + BOSS_HP_LEVEL_STEP * p.heroLevel);
   return { level: LB, hp: (hpAt(LB) / hpAt(BOSS_REF_LEVEL)) * hpLevel, dmg: dmgAt(LB) / dmgAt(BOSS_REF_LEVEL), armor: LB / BOSS_REF_LEVEL, shardLevel: LB - 2 };
@@ -10142,7 +10164,7 @@ function healUnitOoc(s, ev, amount) {
 
 });
 __bundle.def("src/engine/autoplay.js", function* (__ns, __link) {
-let SPELL, TALENT, CONSUMABLE, AUTO_POTION_HP, AUTO_TONIC_STACKS, AUTO_MANA_POTION, AUTO_FOOD_HP, EA, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, MAX_LEVEL, PET, ENGAGE_OPTION, ENGAGE_OPTIONS, ENGAGE_AUTO_LOOK, TIME_WALK, TIME_REST, TIME_VENDOR, TIME_TRAINER, EXPED_TIME_QUEST, GATES, PREP_OPTION; __link.imp("src/constants.js", [["SPELL", (v) => { SPELL = v; }], ["TALENT", (v) => { TALENT = v; }], ["CONSUMABLE", (v) => { CONSUMABLE = v; }], ["AUTO_POTION_HP", (v) => { AUTO_POTION_HP = v; }], ["AUTO_TONIC_STACKS", (v) => { AUTO_TONIC_STACKS = v; }], ["AUTO_MANA_POTION", (v) => { AUTO_MANA_POTION = v; }], ["AUTO_FOOD_HP", (v) => { AUTO_FOOD_HP = v; }], ["ENGINE_ASSUMPTION", (v) => { EA = v; }], ["SPELL_BAR_SLOTS", (v) => { SPELL_BAR_SLOTS = v; }], ["ITEM_BAR_SLOTS", (v) => { ITEM_BAR_SLOTS = v; }], ["MAX_LEVEL", (v) => { MAX_LEVEL = v; }], ["PET", (v) => { PET = v; }], ["ENGAGE_OPTION", (v) => { ENGAGE_OPTION = v; }], ["ENGAGE_OPTIONS", (v) => { ENGAGE_OPTIONS = v; }], ["ENGAGE_AUTO_LOOK", (v) => { ENGAGE_AUTO_LOOK = v; }], ["TIME_WALK", (v) => { TIME_WALK = v; }], ["TIME_REST", (v) => { TIME_REST = v; }], ["TIME_VENDOR", (v) => { TIME_VENDOR = v; }], ["TIME_TRAINER", (v) => { TIME_TRAINER = v; }], ["EXPED_TIME_QUEST", (v) => { EXPED_TIME_QUEST = v; }], ["GATES", (v) => { GATES = v; }], ["PREP_OPTION", (v) => { PREP_OPTION = v; }]]); let hasSt, findSt, debuffStacks, isEliteOrBoss, petAlive; __link.imp("src/engine/damage.js", [["hasSt", (v) => { hasSt = v; }], ["findSt", (v) => { findSt = v; }], ["debuffStacks", (v) => { debuffStacks = v; }], ["isEliteOrBoss", (v) => { isEliteOrBoss = v; }], ["petAlive", (v) => { petAlive = v; }]]); let defaultTarget, breaksOnHit, allSapped; __link.imp("src/engine/combat.js", [["defaultTarget", (v) => { defaultTarget = v; }], ["breaksOnHit", (v) => { breaksOnHit = v; }], ["allSapped", (v) => { allSapped = v; }]]); let isEngageRound, turnOf; __link.imp("src/engine/track.js", [["isEngageRound", (v) => { isEngageRound = v; }], ["turnOf", (v) => { turnOf = v; }]]); let engageAct, windupTurn; __link.imp("src/engine/engage.js", [["engageAct", (v) => { engageAct = v; }], ["windupTurn", (v) => { windupTurn = v; }]]); let castError, itemUsableInCombat; __link.imp("src/engine/spells.js", [["castError", (v) => { castError = v; }], ["itemUsableInCombat", (v) => { itemUsableInCombat = v; }]]); let itemScore, countConsumable, sellValue, canAdd, V, bagCapacity; __link.imp("src/engine/items.js", [["itemScore", (v) => { itemScore = v; }], ["countConsumable", (v) => { countConsumable = v; }], ["sellValue", (v) => { sellValue = v; }], ["canAdd", (v) => { canAdd = v; }], ["V", (v) => { V = v; }], ["bagCapacity", (v) => { bagCapacity = v; }]]); let talentPointsFree; __link.imp("src/engine/progress.js", [["talentPointsFree", (v) => { talentPointsFree = v; }]]); let nextLanes, dungeonLevels; __link.imp("src/engine/map.js", [["nextLanes", (v) => { nextLanes = v; }], ["dungeonLevels", (v) => { dungeonLevels = v; }]]); let checkAction; __link.imp("src/engine/actions.js", [["checkAction", (v) => { checkAction = v; }]]); let canTravel, exitLevel, trainerSpells, learnCost, trainerUseful, availablePets, canEnter; __link.imp("src/engine/nodes.js", [["canTravel", (v) => { canTravel = v; }], ["exitLevel", (v) => { exitLevel = v; }], ["trainerSpells", (v) => { trainerSpells = v; }], ["learnCost", (v) => { learnCost = v; }], ["trainerUseful", (v) => { trainerUseful = v; }], ["availablePets", (v) => { availablePets = v; }], ["canEnter", (v) => { canEnter = v; }]]); let isExpedition, grindMaxWaves, nodeTime, zoneTime, dimmedAt, outwardStep, dimFightTime, bellHidden, leanFirst; __link.imp("src/engine/expedition.js", [["isExpedition", (v) => { isExpedition = v; }], ["grindMaxWaves", (v) => { grindMaxWaves = v; }], ["nodeTime", (v) => { nodeTime = v; }], ["zoneTime", (v) => { zoneTime = v; }], ["dimmedAt", (v) => { dimmedAt = v; }], ["outwardStep", (v) => { outwardStep = v; }], ["dimFightTime", (v) => { dimFightTime = v; }], ["bellHidden", (v) => { bellHidden = v; }], ["leanFirst", (v) => { leanFirst = v; }]]); let takeContractError, buyPrepError, hubContractError, prepLeft; __link.imp("src/engine/contracts.js", [["takeContractError", (v) => { takeContractError = v; }], ["buyPrepError", (v) => { buyPrepError = v; }], ["hubContractError", (v) => { hubContractError = v; }], ["prepLeft", (v) => { prepLeft = v; }]]); let closedRoadsGoal; __link.imp("src/engine/tutorial.js", [["closedRoadsGoal", (v) => { closedRoadsGoal = v; }]]); let isLegacy; __link.imp("src/engine/legacy.js", [["isLegacy", (v) => { isLegacy = v; }]]); __link.exp({ "engageAnswer": () => engageAnswer, "sapWait": () => sapWait, "autoAction": () => autoAction, "autoTarget": () => autoTarget, "nextTalent": () => nextTalent, "desiredBar": () => desiredBar, "desiredItemBar": () => desiredItemBar });
+let SPELL, TALENT, CONSUMABLE, AUTO_POTION_HP, AUTO_TONIC_STACKS, AUTO_MANA_POTION, AUTO_FOOD_HP, EA, SPELL_BAR_SLOTS, ITEM_BAR_SLOTS, MAX_LEVEL, PET, ENGAGE_OPTION, ENGAGE_OPTIONS, ENGAGE_AUTO_LOOK, TIME_WALK, TIME_REST, TIME_VENDOR, TIME_TRAINER, EXPED_TIME_QUEST, GATES, PREP_OPTION; __link.imp("src/constants.js", [["SPELL", (v) => { SPELL = v; }], ["TALENT", (v) => { TALENT = v; }], ["CONSUMABLE", (v) => { CONSUMABLE = v; }], ["AUTO_POTION_HP", (v) => { AUTO_POTION_HP = v; }], ["AUTO_TONIC_STACKS", (v) => { AUTO_TONIC_STACKS = v; }], ["AUTO_MANA_POTION", (v) => { AUTO_MANA_POTION = v; }], ["AUTO_FOOD_HP", (v) => { AUTO_FOOD_HP = v; }], ["ENGINE_ASSUMPTION", (v) => { EA = v; }], ["SPELL_BAR_SLOTS", (v) => { SPELL_BAR_SLOTS = v; }], ["ITEM_BAR_SLOTS", (v) => { ITEM_BAR_SLOTS = v; }], ["MAX_LEVEL", (v) => { MAX_LEVEL = v; }], ["PET", (v) => { PET = v; }], ["ENGAGE_OPTION", (v) => { ENGAGE_OPTION = v; }], ["ENGAGE_OPTIONS", (v) => { ENGAGE_OPTIONS = v; }], ["ENGAGE_AUTO_LOOK", (v) => { ENGAGE_AUTO_LOOK = v; }], ["TIME_WALK", (v) => { TIME_WALK = v; }], ["TIME_REST", (v) => { TIME_REST = v; }], ["TIME_VENDOR", (v) => { TIME_VENDOR = v; }], ["TIME_TRAINER", (v) => { TIME_TRAINER = v; }], ["EXPED_TIME_QUEST", (v) => { EXPED_TIME_QUEST = v; }], ["GATES", (v) => { GATES = v; }], ["PREP_OPTION", (v) => { PREP_OPTION = v; }]]); let hasSt, findSt, debuffStacks, isEliteOrBoss, petAlive; __link.imp("src/engine/damage.js", [["hasSt", (v) => { hasSt = v; }], ["findSt", (v) => { findSt = v; }], ["debuffStacks", (v) => { debuffStacks = v; }], ["isEliteOrBoss", (v) => { isEliteOrBoss = v; }], ["petAlive", (v) => { petAlive = v; }]]); let defaultTarget, breaksOnHit, allSapped; __link.imp("src/engine/combat.js", [["defaultTarget", (v) => { defaultTarget = v; }], ["breaksOnHit", (v) => { breaksOnHit = v; }], ["allSapped", (v) => { allSapped = v; }]]); let isEngageRound, turnOf; __link.imp("src/engine/track.js", [["isEngageRound", (v) => { isEngageRound = v; }], ["turnOf", (v) => { turnOf = v; }]]); let engageAct, windupTurn; __link.imp("src/engine/engage.js", [["engageAct", (v) => { engageAct = v; }], ["windupTurn", (v) => { windupTurn = v; }]]); let castError, itemUsableInCombat; __link.imp("src/engine/spells.js", [["castError", (v) => { castError = v; }], ["itemUsableInCombat", (v) => { itemUsableInCombat = v; }]]); let itemScore, countConsumable, sellValue, canAdd, V, bagCapacity; __link.imp("src/engine/items.js", [["itemScore", (v) => { itemScore = v; }], ["countConsumable", (v) => { countConsumable = v; }], ["sellValue", (v) => { sellValue = v; }], ["canAdd", (v) => { canAdd = v; }], ["V", (v) => { V = v; }], ["bagCapacity", (v) => { bagCapacity = v; }]]); let talentPointsFree; __link.imp("src/engine/progress.js", [["talentPointsFree", (v) => { talentPointsFree = v; }]]); let nextLanes, dungeonLevels; __link.imp("src/engine/map.js", [["nextLanes", (v) => { nextLanes = v; }], ["dungeonLevels", (v) => { dungeonLevels = v; }]]); let checkAction; __link.imp("src/engine/actions.js", [["checkAction", (v) => { checkAction = v; }]]); let canTravel, exitLevel, trainerSpells, learnCost, trainerUseful, availablePets, canEnter; __link.imp("src/engine/nodes.js", [["canTravel", (v) => { canTravel = v; }], ["exitLevel", (v) => { exitLevel = v; }], ["trainerSpells", (v) => { trainerSpells = v; }], ["learnCost", (v) => { learnCost = v; }], ["trainerUseful", (v) => { trainerUseful = v; }], ["availablePets", (v) => { availablePets = v; }], ["canEnter", (v) => { canEnter = v; }]]); let isExpedition, grindMaxWaves, nodeTime, zoneTime, dimmedAt, outwardStep, dimFightTime, bellHidden, leanFirst; __link.imp("src/engine/expedition.js", [["isExpedition", (v) => { isExpedition = v; }], ["grindMaxWaves", (v) => { grindMaxWaves = v; }], ["nodeTime", (v) => { nodeTime = v; }], ["zoneTime", (v) => { zoneTime = v; }], ["dimmedAt", (v) => { dimmedAt = v; }], ["outwardStep", (v) => { outwardStep = v; }], ["dimFightTime", (v) => { dimFightTime = v; }], ["bellHidden", (v) => { bellHidden = v; }], ["leanFirst", (v) => { leanFirst = v; }]]); let takeContractError, buyPrepError, hubContractError, prepLeft; __link.imp("src/engine/contracts.js", [["takeContractError", (v) => { takeContractError = v; }], ["buyPrepError", (v) => { buyPrepError = v; }], ["hubContractError", (v) => { hubContractError = v; }], ["prepLeft", (v) => { prepLeft = v; }]]); let closedRoadsGoal; __link.imp("src/engine/tutorial.js", [["closedRoadsGoal", (v) => { closedRoadsGoal = v; }]]); let isLegacy, oruvathRules; __link.imp("src/engine/legacy.js", [["isLegacy", (v) => { isLegacy = v; }], ["oruvathRules", (v) => { oruvathRules = v; }]]); __link.exp({ "engageAnswer": () => engageAnswer, "sapWait": () => sapWait, "autoAction": () => autoAction, "autoTarget": () => autoTarget, "nextTalent": () => nextTalent, "desiredBar": () => desiredBar, "desiredItemBar": () => desiredItemBar });
 yield;
 // autoAction: the autoplay combat policy (rules 7.9, exact; combat v2 rule E in the engage round) and a
 // deterministic default policy for every other decision so a headless run can go from CREATE to SUMMARY. The
@@ -10184,10 +10206,11 @@ yield;
 
 /**
  * Whether autoplay casts Living Flame or Barbed Arrow on e (rules 7.9): target HP at least autoTargetHp. D156 (legacy.md
- * 2.4.1 item 5; GATES.oruvathLegacy): on a boss (Oruvath or a dungeon boss) at any HP, never on a Dimming Shard.
+ * 2.4.1 item 5; GATES.oruvathLegacy): on a boss (Oruvath or a dungeon boss) at any HP, never on a Dimming Shard; D158: in
+ * a Legacy run with both switches on only (legacy.js oruvathRules), a level-60 run keeps rules 7.9.
  */
-function dotTarget(e, tgtHp, sp) {
-  if (GATES.oruvathLegacy) {
+function dotTarget(s, e, tgtHp, sp) {
+  if (oruvathRules(s)) {
     if (e.kind === 'boss' || e.kind === 'dboss') return true;
     if (e.kind === 'shard') return false;
   }
@@ -10255,8 +10278,8 @@ function autoTarget(s, id, foc) {
     case 'bloodprice_gambit': return ok(hpF > sp.autoHp && elite);
     case 'frost_lance': return ok(!hasSt(e.st, 'CHILLED'));
     case 'arcane_ward': return ok(!hasSt(f.p.st, 'WARD'));
-    case 'living_flame': return ok(dotTarget(e, tgtHp, sp) && !findSt(e.st, 'BURN', 'living_flame'));
-    case 'barbed_arrow': return ok(dotTarget(e, tgtHp, sp) && !findSt(e.st, 'BLEED', 'barbed_arrow'));
+    case 'living_flame': return ok(dotTarget(s, e, tgtHp, sp) && !findSt(e.st, 'BURN', 'living_flame'));
+    case 'barbed_arrow': return ok(dotTarget(s, e, tgtHp, sp) && !findSt(e.st, 'BLEED', 'barbed_arrow'));
     case 'hexbind': return n >= sp.autoEnemies ? ok(true, highestHpNonFocus(s, foc)) : undefined;
     case 'cinder_storm': case 'volley_rain': return ok(n >= sp.autoEnemies);
     case 'mana_siphon': return ok(p.mana < sp.autoMana * p.d.maxMana);
@@ -14855,7 +14878,7 @@ function damageView(s) {
 
 });
 __bundle.def("src/rules.js", function* (__ns, __link) {
-const C = __link.ns("src/constants.js"); let normaliseSeed; __link.imp("src/rng.js", [["normaliseSeed", (v) => { normaliseSeed = v; }]]); let cloneState, deepFreeze, IllegalActionError; __link.imp("src/engine/util.js", [["cloneState", (v) => { cloneState = v; }], ["deepFreeze", (v) => { deepFreeze = v; }], ["IllegalActionError", (v) => { IllegalActionError = v; }]]); let validateContent, zoneContent; __link.imp("src/engine/content.js", [["validateContent", (v) => { validateContent = v; }], ["zoneContent", (v) => { zoneContent = v; }]]); let checkAction, applyAction, legal; __link.imp("src/engine/actions.js", [["checkAction", (v) => { checkAction = v; }], ["applyAction", (v) => { applyAction = v; }], ["legalActions", (v) => { legal = v; }]]); let auto; __link.imp("src/engine/autoplay.js", [["autoAction", (v) => { auto = v; }]]); let sum; __link.imp("src/engine/summary.js", [["summary", (v) => { sum = v; }]]); let newProfile, metaOffers, buyMeta, applyRunToProfile, parTime, migrateProfile, setGuide, noDeathblowMet; __link.imp("src/engine/meta.js", [["newProfile", (v) => { newProfile = v; }], ["metaOffers", (v) => { metaOffers = v; }], ["buyMeta", (v) => { buyMeta = v; }], ["applyRunToProfile", (v) => { applyRunToProfile = v; }], ["parTime", (v) => { parTime = v; }], ["migrateProfile", (v) => { migrateProfile = v; }], ["setGuide", (v) => { setGuide = v; }], ["noDeathblowMet", (v) => { noDeathblowMet = v; }]]); let guidedView; __link.imp("src/engine/tutorial.js", [["tutorialView", (v) => { guidedView = v; }]]); let zoneDanger, defaultTgt, previewTicks; __link.imp("src/engine/combat.js", [["zoneDanger", (v) => { zoneDanger = v; }], ["defaultTarget", (v) => { defaultTgt = v; }], ["pendingTicks", (v) => { previewTicks = v; }]]); let availablePets, metaFromProfile, travelAt, trainerOffer; __link.imp("src/engine/nodes.js", [["availablePets", (v) => { availablePets = v; }], ["metaFromProfile", (v) => { metaFromProfile = v; }], ["travelLevel", (v) => { travelAt = v; }], ["trainerOffer", (v) => { trainerOffer = v; }]]); let nextLanes; __link.imp("src/engine/map.js", [["nextLanes", (v) => { nextLanes = v; }]]); let xpToNext, xpCurve, diffMod, freePoints; __link.imp("src/engine/progress.js", [["xpToNext", (v) => { xpToNext = v; }], ["xpCurve", (v) => { xpCurve = v; }], ["diffMod", (v) => { diffMod = v; }], ["talentPointsFree", (v) => { freePoints = v; }]]); let itemScore, V, bagCap, countConsumable; __link.imp("src/engine/items.js", [["itemScore", (v) => { itemScore = v; }], ["V", (v) => { V = v; }], ["bagCapacity", (v) => { bagCap = v; }], ["countConsumable", (v) => { countConsumable = v; }]]); let cost, spellCd, spellAmount, spellTl, flee, castError, itemAmount, spellHitChance, mainHitEstimate, spellHitEstimate, bigHitReady; __link.imp("src/engine/spells.js", [["spellCost", (v) => { cost = v; }], ["spellCd", (v) => { spellCd = v; }], ["spellAmount", (v) => { spellAmount = v; }], ["spellTl", (v) => { spellTl = v; }], ["fleeChance", (v) => { flee = v; }], ["castError", (v) => { castError = v; }], ["itemAmount", (v) => { itemAmount = v; }], ["spellHitChance", (v) => { spellHitChance = v; }], ["mainHitEstimate", (v) => { mainHitEstimate = v; }], ["spellHitEstimate", (v) => { spellHitEstimate = v; }], ["bigHitReady", (v) => { bigHitReady = v; }]]); let resurrectOrder, offBalanceOpen, findSt, maimedHeal; __link.imp("src/engine/damage.js", [["resurrectOrder", (v) => { resurrectOrder = v; }], ["offBalanceOpen", (v) => { offBalanceOpen = v; }], ["findSt", (v) => { findSt = v; }], ["maimedHeal", (v) => { maimedHeal = v; }]]); let engageList, previewEngage; __link.imp("src/engine/engage.js", [["engageOptions", (v) => { engageList = v; }], ["engagePreview", (v) => { previewEngage = v; }]]); let engageRound; __link.imp("src/engine/track.js", [["isEngageRound", (v) => { engageRound = v; }]]); let MAP_MODES, isExpedition, expMapView, grindMaxWaves; __link.imp("src/engine/expedition.js", [["MAP_MODES", (v) => { MAP_MODES = v; }], ["isExpedition", (v) => { isExpedition = v; }], ["expMapView", (v) => { expMapView = v; }], ["grindMaxWaves", (v) => { grindMaxWaves = v; }]]); let heatMeter, previewHeat; __link.imp("src/engine/heat.js", [["heatView", (v) => { heatMeter = v; }], ["heatPreview", (v) => { previewHeat = v; }]]); let prepScreen, contractTracker; __link.imp("src/engine/contracts.js", [["prepView", (v) => { prepScreen = v; }], ["contractView", (v) => { contractTracker = v; }]]); let createDebug; __link.imp("src/engine/debug.js", [["createDebug", (v) => { createDebug = v; }]]); let windups, autoEngage; __link.imp("src/engine/answers.js", [["windupView", (v) => { windups = v; }], ["autoplayEngage", (v) => { autoEngage = v; }]]); let deathblowOf, deathblowType; __link.imp("src/engine/track.js", [["deathblowOf", (v) => { deathblowOf = v; }], ["deathblowType", (v) => { deathblowType = v; }]]); let dmgView; __link.imp("src/engine/damageview.js", [["damageView", (v) => { dmgView = v; }]]); let heroNow, heroList, shownLevelOf, powerOf, heroXpToNext; __link.imp("src/engine/legacy.js", [["heroView", (v) => { heroNow = v; }], ["heroesView", (v) => { heroList = v; }], ["shownLevelOf", (v) => { shownLevelOf = v; }], ["powerOf", (v) => { powerOf = v; }], ["heroXpToNext", (v) => { heroXpToNext = v; }]]); __link.exp({ "STATE_VERSION": () => STATE_VERSION, "C": () => C, "validateContent": () => validateContent, "newProfile": () => newProfile, "metaOffers": () => metaOffers, "buyMeta": () => buyMeta, "applyRunToProfile": () => applyRunToProfile, "IllegalActionError": () => IllegalActionError, "xpToNext": () => xpToNext, "itemScore": () => itemScore, "migrateProfile": () => migrateProfile, "setGuide": () => setGuide, "tutorialView": () => tutorialView, "V": () => V, "xpCurve": () => xpCurve, "diffMod": () => diffMod, "zoneDanger": () => zoneDanger, "heroView": () => heroView, "heroesView": () => heroesView, "shownLevel": () => shownLevel, "powerOfLevel": () => powerOf, "heroXpToNext": () => heroXpToNext, "bossPar": () => bossPar, "bagCapacity": () => bagCapacity, "travelLevel": () => travelLevel, "resurrectCharges": () => resurrectCharges, "talentPointsFree": () => talentPointsFree, "spellCost": () => spellCost, "spellCooldown": () => spellCooldown, "spellInfo": () => spellInfo, "defaultTarget": () => defaultTarget, "isEngageRound": () => isEngageRound, "engageOptions": () => engageOptions, "engagePreview": () => engagePreview, "offBalance": () => offBalance, "trainerView": () => trainerView, "heatView": () => heatView, "heatPreview": () => heatPreview, "prepView": () => prepView, "contractView": () => contractView, "fleeChance": () => fleeChance, "freePotion": () => freePotion, "potionInfo": () => potionInfo, "windupView": () => windupView, "autoplayEngage": () => autoplayEngage, "pendingTicks": () => pendingTicks, "damageView": () => damageView, "talentInfo": () => talentInfo, "newRun": () => newRun, "legalActions": () => legalActions, "whyIllegal": () => whyIllegal, "isLegal": () => isLegal, "step": () => step, "stepInPlace": () => stepInPlace, "autoAction": () => autoAction, "summary": () => summary, "serialize": () => serialize, "deserialize": () => deserialize, "mapView": () => mapView, "debug": () => debug });
+const C = __link.ns("src/constants.js"); let normaliseSeed; __link.imp("src/rng.js", [["normaliseSeed", (v) => { normaliseSeed = v; }]]); let cloneState, deepFreeze, IllegalActionError; __link.imp("src/engine/util.js", [["cloneState", (v) => { cloneState = v; }], ["deepFreeze", (v) => { deepFreeze = v; }], ["IllegalActionError", (v) => { IllegalActionError = v; }]]); let validateContent, zoneContent; __link.imp("src/engine/content.js", [["validateContent", (v) => { validateContent = v; }], ["zoneContent", (v) => { zoneContent = v; }]]); let checkAction, applyAction, legal; __link.imp("src/engine/actions.js", [["checkAction", (v) => { checkAction = v; }], ["applyAction", (v) => { applyAction = v; }], ["legalActions", (v) => { legal = v; }]]); let auto; __link.imp("src/engine/autoplay.js", [["autoAction", (v) => { auto = v; }]]); let sum; __link.imp("src/engine/summary.js", [["summary", (v) => { sum = v; }]]); let newProfile, metaOffers, buyMeta, applyRunToProfile, parTime, migrateProfile, setGuide, noDeathblowMet; __link.imp("src/engine/meta.js", [["newProfile", (v) => { newProfile = v; }], ["metaOffers", (v) => { metaOffers = v; }], ["buyMeta", (v) => { buyMeta = v; }], ["applyRunToProfile", (v) => { applyRunToProfile = v; }], ["parTime", (v) => { parTime = v; }], ["migrateProfile", (v) => { migrateProfile = v; }], ["setGuide", (v) => { setGuide = v; }], ["noDeathblowMet", (v) => { noDeathblowMet = v; }]]); let guidedView; __link.imp("src/engine/tutorial.js", [["tutorialView", (v) => { guidedView = v; }]]); let zoneDanger, defaultTgt, previewTicks; __link.imp("src/engine/combat.js", [["zoneDanger", (v) => { zoneDanger = v; }], ["defaultTarget", (v) => { defaultTgt = v; }], ["pendingTicks", (v) => { previewTicks = v; }]]); let availablePets, metaFromProfile, travelAt, trainerOffer; __link.imp("src/engine/nodes.js", [["availablePets", (v) => { availablePets = v; }], ["metaFromProfile", (v) => { metaFromProfile = v; }], ["travelLevel", (v) => { travelAt = v; }], ["trainerOffer", (v) => { trainerOffer = v; }]]); let nextLanes; __link.imp("src/engine/map.js", [["nextLanes", (v) => { nextLanes = v; }]]); let xpToNext, xpCurve, diffMod, freePoints; __link.imp("src/engine/progress.js", [["xpToNext", (v) => { xpToNext = v; }], ["xpCurve", (v) => { xpCurve = v; }], ["diffMod", (v) => { diffMod = v; }], ["talentPointsFree", (v) => { freePoints = v; }]]); let itemScore, V, bagCap, countConsumable; __link.imp("src/engine/items.js", [["itemScore", (v) => { itemScore = v; }], ["V", (v) => { V = v; }], ["bagCapacity", (v) => { bagCap = v; }], ["countConsumable", (v) => { countConsumable = v; }]]); let cost, spellCd, spellAmount, spellTl, flee, castError, itemAmount, spellHitChance, mainHitEstimate, spellHitEstimate, bigHitReady; __link.imp("src/engine/spells.js", [["spellCost", (v) => { cost = v; }], ["spellCd", (v) => { spellCd = v; }], ["spellAmount", (v) => { spellAmount = v; }], ["spellTl", (v) => { spellTl = v; }], ["fleeChance", (v) => { flee = v; }], ["castError", (v) => { castError = v; }], ["itemAmount", (v) => { itemAmount = v; }], ["spellHitChance", (v) => { spellHitChance = v; }], ["mainHitEstimate", (v) => { mainHitEstimate = v; }], ["spellHitEstimate", (v) => { spellHitEstimate = v; }], ["bigHitReady", (v) => { bigHitReady = v; }]]); let resurrectOrder, offBalanceOpen, findSt, maimedHeal; __link.imp("src/engine/damage.js", [["resurrectOrder", (v) => { resurrectOrder = v; }], ["offBalanceOpen", (v) => { offBalanceOpen = v; }], ["findSt", (v) => { findSt = v; }], ["maimedHeal", (v) => { maimedHeal = v; }]]); let engageList, previewEngage; __link.imp("src/engine/engage.js", [["engageOptions", (v) => { engageList = v; }], ["engagePreview", (v) => { previewEngage = v; }]]); let engageRound; __link.imp("src/engine/track.js", [["isEngageRound", (v) => { engageRound = v; }]]); let MAP_MODES, isExpedition, expMapView, grindMaxWaves; __link.imp("src/engine/expedition.js", [["MAP_MODES", (v) => { MAP_MODES = v; }], ["isExpedition", (v) => { isExpedition = v; }], ["expMapView", (v) => { expMapView = v; }], ["grindMaxWaves", (v) => { grindMaxWaves = v; }]]); let heatMeter, previewHeat; __link.imp("src/engine/heat.js", [["heatView", (v) => { heatMeter = v; }], ["heatPreview", (v) => { previewHeat = v; }]]); let prepScreen, contractTracker; __link.imp("src/engine/contracts.js", [["prepView", (v) => { prepScreen = v; }], ["contractView", (v) => { contractTracker = v; }]]); let createDebug; __link.imp("src/engine/debug.js", [["createDebug", (v) => { createDebug = v; }]]); let windups, autoEngage; __link.imp("src/engine/answers.js", [["windupView", (v) => { windups = v; }], ["autoplayEngage", (v) => { autoEngage = v; }]]); let deathblowOf, deathblowType; __link.imp("src/engine/track.js", [["deathblowOf", (v) => { deathblowOf = v; }], ["deathblowType", (v) => { deathblowType = v; }]]); let dmgView; __link.imp("src/engine/damageview.js", [["damageView", (v) => { dmgView = v; }]]); let heroNow, heroList, shownLevelOf, powerOf, heroXpToNext, learnHeroLevel, tierDmgOf; __link.imp("src/engine/legacy.js", [["heroView", (v) => { heroNow = v; }], ["heroesView", (v) => { heroList = v; }], ["shownLevelOf", (v) => { shownLevelOf = v; }], ["powerOf", (v) => { powerOf = v; }], ["heroXpToNext", (v) => { heroXpToNext = v; }], ["learnHeroLevel", (v) => { learnHeroLevel = v; }], ["zoneTierDmg", (v) => { tierDmgOf = v; }]]); __link.exp({ "STATE_VERSION": () => STATE_VERSION, "C": () => C, "validateContent": () => validateContent, "newProfile": () => newProfile, "metaOffers": () => metaOffers, "buyMeta": () => buyMeta, "applyRunToProfile": () => applyRunToProfile, "IllegalActionError": () => IllegalActionError, "xpToNext": () => xpToNext, "itemScore": () => itemScore, "migrateProfile": () => migrateProfile, "setGuide": () => setGuide, "tutorialView": () => tutorialView, "V": () => V, "xpCurve": () => xpCurve, "diffMod": () => diffMod, "zoneDanger": () => zoneDanger, "heroView": () => heroView, "heroesView": () => heroesView, "shownLevel": () => shownLevel, "learnLevel": () => learnLevel, "zoneTierDmg": () => zoneTierDmg, "powerOfLevel": () => powerOf, "heroXpToNext": () => heroXpToNext, "bossPar": () => bossPar, "bagCapacity": () => bagCapacity, "travelLevel": () => travelLevel, "resurrectCharges": () => resurrectCharges, "talentPointsFree": () => talentPointsFree, "spellCost": () => spellCost, "spellCooldown": () => spellCooldown, "spellInfo": () => spellInfo, "defaultTarget": () => defaultTarget, "isEngageRound": () => isEngageRound, "engageOptions": () => engageOptions, "engagePreview": () => engagePreview, "offBalance": () => offBalance, "trainerView": () => trainerView, "heatView": () => heatView, "heatPreview": () => heatPreview, "prepView": () => prepView, "contractView": () => contractView, "fleeChance": () => fleeChance, "freePotion": () => freePotion, "potionInfo": () => potionInfo, "windupView": () => windupView, "autoplayEngage": () => autoplayEngage, "pendingTicks": () => pendingTicks, "damageView": () => damageView, "talentInfo": () => talentInfo, "newRun": () => newRun, "legalActions": () => legalActions, "whyIllegal": () => whyIllegal, "isLegal": () => isLegal, "step": () => step, "stepInPlace": () => stepInPlace, "autoAction": () => autoAction, "summary": () => summary, "serialize": () => serialize, "deserialize": () => deserialize, "mapView": () => mapView, "debug": () => debug });
 yield;
 // Rules engine: public API (docs/specs/engine-api.md has the full contract and the event list).
 //
@@ -14972,6 +14995,26 @@ function heroesView(profile) {
  */
 function shownLevel(state, level) {
   return state && state.legacy ? shownLevelOf(level) : level;
+}
+/**
+ * A spell's learn level as shown (legacy.md 1.7; engine-api.md 15.4): `spell` a spell id (its `C.SPELL[id].lvl`, the
+ * D157 numbers included) or an engine learn level. In a Legacy run the first hero level whose power level reaches it
+ * (the level at which a hero has it trained; Shadowstep Strike, power 4, is hero 3), outside one the engine level itself.
+ * null for an unknown spell id.
+ */
+function learnLevel(state, spell) {
+  const M = typeof spell === 'number' ? spell : C.SPELL[spell] ? C.SPELL[spell].lvl : null;
+  if (M === null || M === undefined) return null;
+  return state && state.legacy ? learnHeroLevel(M) : M;
+}
+/**
+ * legacy.md 2.2: the zone tier's damage factor, × the damage of every template enemy of zone z (1-6; the Camp, 7, plays
+ * zone 6's) on top of zone danger, in a Legacy run (C.ZONE_TIER_DMG); 1 outside one. z defaults to the run's zone (the
+ * Camp's when there). mapView carries the same number as `tierDmg` in a Legacy run.
+ */
+function zoneTierDmg(state, z) {
+  const zz = z !== undefined && z !== null ? z : state && state.zone ? (state.zone.camp ? C.ZONE_COUNT + 1 : state.zone.z) : 1;
+  return tierDmgOf(state, zz);
 }
 /** powerOfLevel(H): the engine's level of hero level H (POWER_OF_LEVEL); heroXpToNext(H): hero XP from H to H + 1 (HERO_XP; at 25 HERO_XP_AT_MAX). */
 
@@ -15422,7 +15465,8 @@ function deserialize(str, content) {
 function mapView(state) {
   const s = state;
   if (!s.zone || s.zone.camp) return null;
-  if (isExpedition(s)) return expMapView(s);
+  // Legacy (legacy.md 2.2): the zone tier's damage factor (ZONE_TIER_DMG) on the view, in a Legacy run only
+  if (isExpedition(s)) return withTierDmg(s, expMapView(s));
   const c = s.content;
   const scout = !!(s.meta && s.meta.scout);
   const arch = (tid) => c.enemies[tid].archetype;
@@ -15450,7 +15494,11 @@ function mapView(state) {
     if (n.type === 'vendor') v.ember = scout ? n.stock.some((e) => e.id === 'ember_of_return') : null;
     return v;
   }));
-  return { z: s.zone.z, name: zoneContent(c, s.zone.z).name, pos: { ...s.zone.pos }, next: nextLanes(s.zone), rows };
+  return withTierDmg(s, { z: s.zone.z, name: zoneContent(c, s.zone.z).name, pos: { ...s.zone.pos }, next: nextLanes(s.zone), rows });
+}
+/** mapView's `tierDmg` (legacy.md 2.2: × every template enemy's damage in this zone) in a Legacy run; outside one the view as before. */
+function withTierDmg(s, v) {
+  return s.legacy ? { ...v, tierDmg: tierDmgOf(s, s.zone.z) } : v;
 }
 
 /**
@@ -19760,6 +19808,19 @@ const TUTORIAL = {
     { id: 'H37', system: 'Hall of Echoes', line: 'Echoes buy lasting unlocks. They stay when a run ends.' },
   ],
 
+  // Legacy wording (D154, legacy.md 4.6: "Echoes" becomes "Legacy points", the Hall of Echoes the Legacy hall; draft, for
+  // the owner and the lore chat): the lines above that name Echoes, as they read while C.GATES.legacy is on. The content
+  // index (index.js) makes each named field read this text under the switch, so the UI shows it with no word swap.
+  // Placeholders as the line it replaces ({echoes} = prepView.unspent.echoes, the points' worth in Legacy points).
+  legacy: {
+    prep: {
+      unspentFirst: 'Points you do not spend: +{echoes} Legacy points at the end of the run.',
+    },
+    hints: {
+      H37: { system: 'Legacy hall', line: 'Legacy points buy lasting unlocks. They stay when a run ends.' },
+    },
+  },
+
   // The first-run nudge (spec 4.2-4.3). unlock: the META id the nudge points at. {satchelPotions}: META.satchel.potions.
   nudge: {
     unlock: 'satchel',
@@ -19772,7 +19833,7 @@ const TUTORIAL = {
 
 });
 __bundle.def("src/content/index.js", function* (__ns, __link) {
-let ZONES; __link.imp("src/content/zones.js", [["ZONES", (v) => { ZONES = v; }]]); let CAMP; __link.imp("src/content/camp.js", [["CAMP", (v) => { CAMP = v; }]]); let ENEMIES; __link.imp("src/content/enemies.js", [["ENEMIES", (v) => { ENEMIES = v; }]]); let ABILITIES; __link.imp("src/content/abilities.js", [["ABILITIES", (v) => { ABILITIES = v; }]]); let QUESTS; __link.imp("src/content/quests.js", [["QUESTS", (v) => { QUESTS = v; }]]); let ITEM_NAMES; __link.imp("src/content/item-names.js", [["ITEM_NAMES", (v) => { ITEM_NAMES = v; }]]); let AFFIX_WORDS; __link.imp("src/content/affix-words.js", [["AFFIX_WORDS", (v) => { AFFIX_WORDS = v; }]]); let UNIQUES; __link.imp("src/content/uniques.js", [["UNIQUES", (v) => { UNIQUES = v; }]]); let CLASSES; __link.imp("src/content/classes.js", [["CLASSES", (v) => { CLASSES = v; }]]); let TEXTS; __link.imp("src/content/texts.js", [["TEXTS", (v) => { TEXTS = v; }]]); let TUTORIAL; __link.imp("src/content/tutorial.js", [["TUTORIAL", (v) => { TUTORIAL = v; }]]); __link.exp({ "CONTENT": () => CONTENT });
+let ZONES; __link.imp("src/content/zones.js", [["ZONES", (v) => { ZONES = v; }]]); let CAMP; __link.imp("src/content/camp.js", [["CAMP", (v) => { CAMP = v; }]]); let ENEMIES; __link.imp("src/content/enemies.js", [["ENEMIES", (v) => { ENEMIES = v; }]]); let ABILITIES; __link.imp("src/content/abilities.js", [["ABILITIES", (v) => { ABILITIES = v; }]]); let QUESTS; __link.imp("src/content/quests.js", [["QUESTS", (v) => { QUESTS = v; }]]); let ITEM_NAMES; __link.imp("src/content/item-names.js", [["ITEM_NAMES", (v) => { ITEM_NAMES = v; }]]); let AFFIX_WORDS; __link.imp("src/content/affix-words.js", [["AFFIX_WORDS", (v) => { AFFIX_WORDS = v; }]]); let UNIQUES; __link.imp("src/content/uniques.js", [["UNIQUES", (v) => { UNIQUES = v; }]]); let CLASSES; __link.imp("src/content/classes.js", [["CLASSES", (v) => { CLASSES = v; }]]); let TEXTS; __link.imp("src/content/texts.js", [["TEXTS", (v) => { TEXTS = v; }]]); let TUTORIAL; __link.imp("src/content/tutorial.js", [["TUTORIAL", (v) => { TUTORIAL = v; }]]); let GATES; __link.imp("src/constants.js", [["GATES", (v) => { GATES = v; }]]); __link.exp({ "CONTENT": () => CONTENT });
 yield;
 // Content index: imports every content table and exports CONTENT, the object newRun() validates and freezes (rules.md 12, engine-api.md newRun).
 
@@ -19786,6 +19847,25 @@ yield;
 
 
 
+
+
+/**
+ * Legacy wording (D154, legacy.md 4.6, draft): the tutorial lines that name Echoes read their `TUTORIAL.legacy` text while
+ * C.GATES.legacy is on (a getter per field, read at each use; off: the line as written). Lines only, no rule.
+ */
+(function legacyWords(T) {
+  const L = T.legacy;
+  if (!L) return;
+  const bind = (obj, k, text) => {
+    const was = obj[k];
+    Object.defineProperty(obj, k, { get: () => (GATES.legacy ? text : was), enumerable: true, configurable: true });
+  };
+  for (const [k, text] of Object.entries(L.prep || {})) if (T.prep && k in T.prep) bind(T.prep, k, text);
+  for (const [id, f] of Object.entries(L.hints || {})) {
+    const hint = (T.hints || []).find((x) => x.id === id);
+    if (hint) for (const [k, text] of Object.entries(f)) bind(hint, k, text);
+  }
+}(TUTORIAL));
 
 const CONTENT = {
   version: 'm1-content-1',
@@ -21699,7 +21779,7 @@ const data = {
 
 });
 __bundle.def("src/ui/util.js", function* (__ns, __link) {
-__link.exp({ "clamp": () => clamp, "lerp": () => lerp, "ease": () => ease, "prng": () => prng, "strHash": () => strHash, "hexToRgb": () => hexToRgb, "rgbToHex": () => rgbToHex, "mix": () => mix, "shade": () => shade, "rgba": () => rgba, "glowBall": () => glowBall, "setDisplay": () => setDisplay, "lv": () => lv, "lvLearn": () => lvLearn, "legacyShown": () => legacyShown, "legacyWords": () => legacyWords, "h": () => h, "add": () => add, "clear": () => clear, "fmtNum": () => fmtNum, "moneyParts": () => moneyParts, "moneyEl": () => moneyEl, "moneyText": () => moneyText, "pct": () => pct, "wait": () => wait, "SkipToken": () => SkipToken, "emitter": () => emitter, "deepClone": () => deepClone });
+__link.exp({ "clamp": () => clamp, "lerp": () => lerp, "ease": () => ease, "prng": () => prng, "strHash": () => strHash, "hexToRgb": () => hexToRgb, "rgbToHex": () => rgbToHex, "mix": () => mix, "shade": () => shade, "rgba": () => rgba, "glowBall": () => glowBall, "setDisplay": () => setDisplay, "lv": () => lv, "lvLearn": () => lvLearn, "legacyShown": () => legacyShown, "legacyWords": () => legacyWords, "verbatim": () => verbatim, "h": () => h, "add": () => add, "clear": () => clear, "fmtNum": () => fmtNum, "moneyParts": () => moneyParts, "moneyEl": () => moneyEl, "moneyText": () => moneyText, "pct": () => pct, "wait": () => wait, "SkipToken": () => SkipToken, "emitter": () => emitter, "deepClone": () => deepClone });
 yield;
 // Small shared helpers for the visual client (no game rules here).
 
@@ -21760,7 +21840,7 @@ function glowBall(ctx, x, y, r, col) {
 /**
  * Display hooks of a Legacy run (docs/specs/legacy.md 1.2, 1.7, 4.6; engine-api.md 15.4), set by the bridge on every view
  * from the engine (src/ui/engine-bridge.js setDisplay): `level` maps an engine level to the level shown (R.shownLevel: enemies,
- * nodes, bands, item levels), `learn` a spell's learn level to the first hero level that reaches it (R.powerOfLevel, 1.7),
+ * nodes, bands, item levels), `learn` a spell's learn level to the hero level that has it trained (R.learnLevel, 1.7),
  * `words` swaps the Echo words for the Legacy ones in every text h() builds. Off (no Legacy run, the mock, GATES.legacy
  * off) every hook is the identity, so nothing on screen changes.
  */
@@ -21777,6 +21857,13 @@ function legacyWords(s) {
   if (!display.words || typeof s !== 'string' || !s.includes('Echo')) return s;
   return s.replace(/Hall of Echoes/g, 'Legacy hall').replace(/\bEchoes\b/g, 'Legacy points').replace(/\bEcho\b/g, 'Legacy');
 }
+
+/**
+ * A text node that h() and add() append as it is, without the word swap: for content lines that carry their own Legacy
+ * wording (engine-2026-11-19 UI need 3: TUTORIAL.legacy, read through CONTENT.tutorial under GATES.legacy, the coach's
+ * lines and prep.unspentFirst), so the content's text is what shows.
+ */
+const verbatim = (s) => (typeof document !== 'undefined' ? document.createTextNode(String(s)) : String(s)); // Node (qa/ui): the string
 
 // ------------------------------------------------------------------ DOM
 /** h('div.cls#id', { attr, on: { click } , style: {} }, children...); text children and labels pass legacyWords. */
@@ -22317,14 +22404,20 @@ function resurrectText(p, bossFight) {
  * DANGER_LEVELS is the unit of ZONE_DANGER_STEP ("× per 10 levels above ZONE_DANGER_FROM", rules.md constants table).
  */
 const DANGER_LEVELS = 10;
-/** The rule in one sentence, or null without zone danger. */
-function dangerRule(r) {
+/**
+ * The rule in one sentence, or null without zone danger. A Legacy zone (z.tierDmg, legacy.md 2.2; engine-2026-11-19 UI need
+ * 2) says its own number: its enemies deal zoneDanger × tierDmg (z.danger + 1) at its highest level, at every level of its
+ * band (draft line); null when that is no extra damage.
+ */
+function dangerRule(r, z = null) {
+  if (z && z.tierDmg != null) return z.danger > 0 ? `Enemies here deal up to +${pct1(z.danger)} damage.` : null;
   if (r.dangerStep == null || r.dangerFrom == null) return null;
   const dungeon = r.dangerStepDungeon != null && r.dangerStepDungeon !== r.dangerStep ? ` (in dungeons +${pct1(r.dangerStepDungeon)})` : '';
   return `Enemies above level ${lv(r.dangerFrom)} hit harder: +${pct1(r.dangerStep)} damage per ${DANGER_LEVELS} levels${dungeon}.`;
 }
 /** Short line for the zone banner when the zone's enemies take zone danger (z.danger > 0), else null. */
 function dangerBanner(r, z) {
+  if (z && z.tierDmg != null) return z.danger > 0 ? `Enemies here deal up to +${pct1(z.danger)} damage` : null; // Legacy (draft)
   return r.dangerFrom != null && z.danger > 0 ? `Enemies above level ${lv(r.dangerFrom)} hit harder` : null;
 }
 
@@ -23659,7 +23752,8 @@ yield;
 //   summary: run summary (rules.md 9)
 //   par:     the run's boss par in tolls (R.bossPar: BOSS_TIME_PAR, shorter under the Oath of Haste); mock: its own
 //   camp:    { par, asc } at the camp (asc: the engine's Ascendancy if the boss were faced now), else null
-//   zone.danger, node.danger { lo, hi }: zone danger (rules 7.6) from R.zoneDanger; the zone's at its highest level
+//   zone.danger, node.danger { lo, hi }: zone danger (rules 7.6) from R.zoneDanger; the zone's at its highest level;
+//   in a Legacy run × zone.tierDmg (mapView.tierDmg, R.zoneTierDmg at the Camp; legacy.md 2.2)
 //   legal:   { lanes, travelOn, mustTravel, outOfCombat, spells: { id: { ok, reason, cd, window } }, items: [{ ok, reason, count, cd, free }],
 //              attack, flee, fleeChance?, services, talents, trainer, trainAll }   window (combat v2): the enemies on which the spell
 //              (trainAll, D150 item 21: TRAIN_ALL is legal, a rank or a lesson the gold covers; trainAllCost: the gold it spends)
@@ -24189,19 +24283,24 @@ function engineBackend(seedOpt, runOpts = {}) {
   function zoneContent(z) { return z >= 1 && z <= C.ZONE_COUNT ? CONTENT.zones[z - 1] : null; }
   /** Trash fights of a dungeon in this run's map (rules 2.4; the expedition map's EXPED_DUNGEON_TRASH_FIGHTS, 1.9.8). */
   function trashOf(s) { return s.mapMode === 'expedition' ? (C.EXPED_DUNGEON_TRASH_FIGHTS ?? C.DUNGEON_TRASH_FIGHTS) : C.DUNGEON_TRASH_FIGHTS; }
-  /** Zone danger (rules 7.6): the extra damage of an enemy of this level and variant, from the engine's zoneDanger. */
-  const dangerOf = (level, variant) => R.zoneDanger(level, variant) - 1;
+  /**
+   * Zone danger (rules 7.6): the extra damage of an enemy of this level and variant, from the engine's zoneDanger. In a
+   * Legacy run (legacy.md 2.2; engine-2026-11-19 UI need 2) × the zone tier's factor td (mapView.tierDmg, R.zoneTierDmg at
+   * the Camp): zoneDanger × tierDmg - 1, which can be 0 or less at the early levels (EARLY_DMG_MULT). Oruvath and his
+   * Shards take neither, so no line here is about them.
+   */
+  const dangerOf = (level, variant, td = 1) => R.zoneDanger(level, variant) * td - 1;
   /**
    * Zone danger of a fight node's enemies, { lo, hi }, or null: the engine's zoneDanger at the levels and variants it
    * builds the fight with (src/engine/nodes.js): quest and grind at cl; the elite at its level, its escort at cl;
    * dungeon trash at its level and the dungeon boss at its own (M2 v4: DUNGEON_DANGER_FRAC of the bonus).
    */
-  function nodeDanger(n) {
+  function nodeDanger(n, td = 1) {
     const foes = n.type === 'quest' || n.type === 'grind' ? [[n.cl, 'normal']]
       : n.type === 'elite' ? [[n.level, 'elite'], ...(n.archetypes && n.archetypes.length > 1 ? [[n.cl, 'normal']] : [])]
         : n.type === 'dungeon' ? [[n.level, 'trash'], [n.bossLevel, 'dboss']] : null;
     if (!foes) return null;
-    const d = foes.map(([lv, va]) => dangerOf(lv, va));
+    const d = foes.map(([lv, va]) => dangerOf(lv, va, td));
     return { lo: Math.min(...d), hi: Math.max(...d) };
   }
   function convZone(s) {
@@ -24212,13 +24311,14 @@ function engineBackend(seedOpt, runOpts = {}) {
       const cl = s.legacy && s.hero && s.hero.camp ? s.hero.camp : C.MAX_LEVEL;
       return { idx: C.ZONE_COUNT + 1, id: 'camp', camp: true, name: camp.name || 'Observatory Steps', hubName: camp.name || 'Observatory Steps', hubText: camp.text, blurb: camp.text, theme: 'observatory',
         band: [cl, cl], exitLevel: cl, travelLevel: null, rows: [], pos: { row: 0, lane: null }, path: [], questsDone: 0, storyDone: false,
-        danger: dangerOf(cl, 'normal'), ...(s.legacy ? { campLevel: cl } : {}) };
+        danger: dangerOf(cl, 'normal', R.zoneTierDmg(s)), ...(s.legacy ? { campLevel: cl, tierDmg: R.zoneTierDmg(s) } : {}) };
     }
     const zc = zoneContent(z);
     const mv = R.mapView(s);
     if (mv && mv.mode === 'expedition') return convExpZone(s, z, zc, mv);
+    const td = mv && mv.tierDmg != null ? mv.tierDmg : 1; // Legacy (legacy.md 2.2): the zone tier's damage factor
     const rows = mv ? mv.rows.map((row) => row.map((n) => {
-      const out = { row: n.r, lane: n.l, type: n.type, cl: n.cl, visited: !!n.done, title: n.title, level: n.level, danger: nodeDanger(n),
+      const out = { row: n.r, lane: n.l, type: n.type, cl: n.cl, visited: !!n.done, title: n.title, level: n.level, danger: nodeDanger(n, td),
         heat: n.done ? local.nodeHeat.get(`${z}:${n.r}:${n.l}`) || null : null }; // the state the node was entered in (`node` event)
       if (n.archetypes) { out.archetypes = [...n.archetypes]; out.enemyNames = n.archetypes.map(TXT.humanize); } // one entry per enemy (grind: the first wave)
       // combat v2 (rules 7.14): a dungeon's trash fights and boss, a treasure's guard (archetypes [] when unguarded)
@@ -24235,7 +24335,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     return { idx: z, id: `z${z}`, camp: false, name: zc ? zc.name : `Zone ${z}`, hubName: zc ? zc.hubName : 'Hub', hubText: zc ? zc.hubText : '', blurb: zc ? zc.theme : '',
       theme: THEMES[z - 1] || 'farmland', band: [exitLevel - C.ZONE_LEVELS + 1, exitLevel], exitLevel, travelLevel: R.travelLevel(s) ?? exitLevel, rows,
       pos: { row: s.zone.pos.r, lane: s.zone.pos.l }, path, questsDone: s.zone.questsDone || 0, storyDone: !!s.zone.storyDone, next: mv ? mv.next : [],
-      travelTime: travelTime(s), danger: dangerOf(exitLevel, 'normal') };
+      travelTime: travelTime(s), danger: dangerOf(exitLevel, 'normal', td), ...(mv && mv.tierDmg != null ? { tierDmg: mv.tierDmg } : {}) };
   }
   /**
    * An expedition zone (rules 1.9; the default map since D116): the rows view is empty and `exp` is the
@@ -24248,7 +24348,9 @@ function engineBackend(seedOpt, runOpts = {}) {
     const nodes = mv.nodes.map((n) => ({ ...n, heat: n.done ? local.nodeHeat.get(`${z}:#${n.id}`) || null : null }));
     return { idx: z, id: `z${z}`, camp: false, name: zc ? zc.name : mv.name || `Zone ${z}`, hubName: zc ? zc.hubName : 'Hub', hubText: zc ? zc.hubText : '', blurb: zc ? zc.theme : '',
       theme: THEMES[z - 1] || 'farmland', band: lb || [exitLevel - C.ZONE_LEVELS + 1, exitLevel], exitLevel, travelLevel: null, rows: [], pos: { row: 0, lane: null }, path: [],
-      questsDone: s.zone.questsDone || 0, storyDone: !!s.zone.storyDone, next: [], travelTime: null, danger: dangerOf(exitLevel, 'normal'),
+      questsDone: s.zone.questsDone || 0, storyDone: !!s.zone.storyDone, next: [], travelTime: null,
+      // Legacy (legacy.md 2.2): zone danger × the zone tier's factor (mapView.tierDmg; absent outside a Legacy run)
+      danger: dangerOf(exitLevel, 'normal', mv.tierDmg != null ? mv.tierDmg : 1), ...(mv.tierDmg != null ? { tierDmg: mv.tierDmg } : {}),
       exp: { ...mv, nodes } };
   }
   /** Tolls TRAVEL_ON spends now, from a dry step; null while it is not legal. */
@@ -24604,7 +24706,8 @@ function engineBackend(seedOpt, runOpts = {}) {
     const z = sm.reached || {};
     const zc = zoneContent(z.zone || 1);
     // the killing blow's name (actionName: a content ability by its content name, never its id; null: unnamed)
-    const death = sm.death ? { killer: sm.death.killer ? sm.death.killer.name : 'unknown', ability: actionName(sm.death.killer ? sm.death.killer.ability : null), node: sm.death.nodeType || '', round: sm.death.round } : null;
+    const death = sm.death ? { killer: sm.death.killer ? sm.death.killer.name : 'unknown', ability: actionName(sm.death.killer ? sm.death.killer.ability : null), node: sm.death.nodeType || '', round: sm.death.round,
+      abandoned: !!(sm.death.killer && sm.death.killer.name === 'abandon') } : null; // Legacy: ABANDON_RUN's death (killer 'abandon')
     return {
       outcome: sm.outcome, name: sm.name, classId: sm.classId, className: sm.className, petId: sm.petId, level: sm.level, xp: sm.xp,
       zone: z.camp ? ((CONTENT.camp && CONTENT.camp.name) || 'the camp') : zc ? zc.name : '', zoneIdx: z.camp ? 7 : z.zone, row: z.camp ? 0 : z.row,
@@ -24726,12 +24829,11 @@ function engineBackend(seedOpt, runOpts = {}) {
     };
   }
 
-  /** The first hero level whose power level reaches an engine learn level (legacy.md 1.7; R.powerOfLevel). */
-  const learnOf = (M) => { for (let H = 1; H <= C.HERO_MAX_LEVEL; H++) if (R.powerOfLevel(H) >= M) return H; return C.HERO_MAX_LEVEL; };
   function view() {
     const s = st;
-    // Legacy (D154 phase 1): the hero scale and the Legacy words on screen (src/ui/util.js setDisplay); off: identities
-    setDisplay(s.legacy ? { level: (n) => R.shownLevel(s, n), learn: learnOf, words: true } : { words: !!(profile && profile.v >= 3) });
+    // Legacy (D154 phase 1): the hero scale and the Legacy words on screen (src/ui/util.js setDisplay); off: identities.
+    // Learn levels from the engine (R.learnLevel, engine-2026-11-19 UI need 1: the hero level that has the spell trained)
+    setDisplay(s.legacy ? { level: (n) => R.shownLevel(s, n), learn: (M) => R.learnLevel(s, M), words: true } : { words: !!(profile && profile.v >= 3) });
     const v = { time: s.time || 0, autoplay: !!s.autoplay, seed: s.create ? s.create.seed : s.seed, mode: 'engine' };
     if (s.phase === 'CREATE') {
       return { ...v, phase: 'CREATE', create: { classId: s.create.classId || 'rogue', petId: s.create.petId || 'ridgewolf', name: s.create.name || '', seed: s.create.seed, oaths: (s.create.oaths || []).slice() }, oaths: (s.create.oaths || []).slice(), meta: metaView(s), player: null, zone: null, node: null, combat: null, loot: null, summary: null, dev: null, mapMode: s.mapMode || 'rows', legal: { lanes: [], services: {}, items: [], spells: {} } };
@@ -24931,6 +25033,7 @@ function engineBackend(seedOpt, runOpts = {}) {
         case 'gold': if (e.amount > 0 && e.why !== 'sell') out.push({ t: 'gold', amount: e.amount, why: e.why, heat: e.heat || 0 }); break; // a sale says its price itself
         case 'loot': out.push({ t: 'gotItem', name: e.item.name || (C.CONSUMABLE[e.item.id] || {}).name || 'item', rarity: e.item.rarity || 'common', to: e.to, heatUp: local.heatUp.get(e.item.uid) || null }); break;
         case 'victory': out.push({ t: 'victory' }); break;
+        case 'abandon': out.push({ t: 'msg', text: 'You abandon the run.', kind: 'info' }); break; // Legacy (draft line)
         case 'fled': out.push({ t: 'flee', ok: true }); break;
         case 'questComplete': out.push({ t: 'msg', text: 'Quest complete!', kind: 'good' }); break;
         case 'story': out.push({ t: 'msg', text: 'Zone story complete: a rare reward awaits.', kind: 'good' }); break;
@@ -25167,6 +25270,9 @@ function engineBackend(seedOpt, runOpts = {}) {
           break;
         }
         case 'SET_TARGET': return { ok: true, events: [] };
+        // Legacy (legacy.md 1.5; engine-2026-11-18 UI need 7): the menu's "Abandon run" (asked once): the run ends as a death
+        // where the hero stands; the summary's END_RUN pays its Legacy points. Whatever the screen held is let go
+        case 'ABANDON_RUN': local.hold = null; local.spoils = null; apply({ type: 'ABANDON_RUN' }, events); break;
         case 'DEBUG_JUMP': return { ok: false, error: 'Debug jumps need the mock engine (?mock=1)' };
         default: {
           const a = translate(action);
@@ -25292,6 +25398,14 @@ function engineBackend(seedOpt, runOpts = {}) {
           if (st.phase === 'CREATE') rebuildCreate();
           else if (st.phase !== 'ENDED') run('setProfile', profile);
           break;
+        case 'hero': {
+          // Legacy (engine-2026-11-18 UI need 9; R.debug.setHero): a class's hero at a level (XP 0) in the saved profile, at
+          // class select only (a run carries its own hero and stores it at every checkpoint)
+          const p0 = profile || (C.GATES.legacy ? R.newProfile() : null); // no profile stored yet: a new one (version 3 under the switch)
+          if (!(st.phase === 'CREATE' && st.create && p0 && p0.v >= 3)) return { ok: false, error: 'The hero level is set at class select, in a Legacy profile' };
+          profile = D.setHero(p0, args.classId, { level: args.level, xp: 0 }); saveProfile(profile); refreshPets(); rebuildCreate();
+          break;
+        }
         case 'resetOnboarding':
           // M3 (m3-onboarding.md E8, 7.2 setup): the profile's guide back to 'todo' and the welcome unpaid (R.debug); the class
           // select toggle on again. In a run the run takes the profile (a dev run, so its END_RUN keeps both) and the next run
@@ -28841,7 +28955,7 @@ function createEngagePanel(root, ctx) {
 
 });
 __bundle.def("src/ui/prep.js", function* (__ns, __link) {
-let h, clear, moneyEl, fmtNum, lv, legacyShown; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["lv", (v) => { lv = v; }], ["legacyShown", (v) => { legacyShown = v; }]]); let icon, consumableIcon; __link.imp("src/ui/art-icons.js", [["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }]]); let tip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }]]); let CONTRACT_KIND, contractTitle, contractSentence, familyName, hubOfferSentence, contractKindText, contractSitesText, contractItemsText, levelsText, xpPayText, prepOptionEffect, prepFlavour, bandText, numWord, plural; __link.imp("src/ui/ui-text.js", [["CONTRACT_KIND", (v) => { CONTRACT_KIND = v; }], ["contractTitle", (v) => { contractTitle = v; }], ["contractSentence", (v) => { contractSentence = v; }], ["familyName", (v) => { familyName = v; }], ["hubOfferSentence", (v) => { hubOfferSentence = v; }], ["contractKindText", (v) => { contractKindText = v; }], ["contractSitesText", (v) => { contractSitesText = v; }], ["contractItemsText", (v) => { contractItemsText = v; }], ["levelsText", (v) => { levelsText = v; }], ["xpPayText", (v) => { xpPayText = v; }], ["prepOptionEffect", (v) => { prepOptionEffect = v; }], ["prepFlavour", (v) => { prepFlavour = v; }], ["bandText", (v) => { bandText = v; }], ["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }]]); __link.exp({ "CONTRACT_COLORS": () => CONTRACT_COLORS, "contractColors": () => contractColors, "kindIcon": () => kindIcon, "contractTip": () => contractTip, "boardTip": () => boardTip, "createPrepScreen": () => createPrepScreen, "unspentLine": () => unspentLine, "prepKey": () => prepKey, "progressText": () => progressText, "trackerContracts": () => trackerContracts, "buildContractLog": () => buildContractLog, "buildHubOffer": () => buildHubOffer, "siteBadge": () => siteBadge, "siteLines": () => siteLines, "numWord": () => numWord });
+let h, clear, moneyEl, fmtNum, lv, legacyShown, verbatim; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["lv", (v) => { lv = v; }], ["legacyShown", (v) => { legacyShown = v; }], ["verbatim", (v) => { verbatim = v; }]]); let icon, consumableIcon; __link.imp("src/ui/art-icons.js", [["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }]]); let tip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }]]); let CONTRACT_KIND, contractTitle, contractSentence, familyName, hubOfferSentence, contractKindText, contractSitesText, contractItemsText, levelsText, xpPayText, prepOptionEffect, prepFlavour, bandText, numWord, plural; __link.imp("src/ui/ui-text.js", [["CONTRACT_KIND", (v) => { CONTRACT_KIND = v; }], ["contractTitle", (v) => { contractTitle = v; }], ["contractSentence", (v) => { contractSentence = v; }], ["familyName", (v) => { familyName = v; }], ["hubOfferSentence", (v) => { hubOfferSentence = v; }], ["contractKindText", (v) => { contractKindText = v; }], ["contractSitesText", (v) => { contractSitesText = v; }], ["contractItemsText", (v) => { contractItemsText = v; }], ["levelsText", (v) => { levelsText = v; }], ["xpPayText", (v) => { xpPayText = v; }], ["prepOptionEffect", (v) => { prepOptionEffect = v; }], ["prepFlavour", (v) => { prepFlavour = v; }], ["bandText", (v) => { bandText = v; }], ["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }]]); __link.exp({ "CONTRACT_COLORS": () => CONTRACT_COLORS, "contractColors": () => contractColors, "kindIcon": () => kindIcon, "contractTip": () => contractTip, "boardTip": () => boardTip, "createPrepScreen": () => createPrepScreen, "unspentLine": () => unspentLine, "prepKey": () => prepKey, "progressText": () => progressText, "trackerContracts": () => trackerContracts, "buildContractLog": () => buildContractLog, "buildHubOffer": () => buildHubOffer, "siteBadge": () => siteBadge, "siteLines": () => siteLines, "numWord": () => numWord });
 yield;
 // prep.js - the start camp and the contracts on screen (docs/specs/expedition.md 2, 3, 9.1, 9.3; engine-api.md 13; M2b
 // 2b.6; D128 lean camp). The prep screen of an expedition run with the start camp (phase PREP): one lean screen (D128,
@@ -29026,7 +29140,7 @@ function createPrepScreen(v, ctx) {
   const points = h('div.pm-points', big, h('div', h('div.pm-l', 'points left')));
   tip(points, () => {
     const pv = ctx.view.prep; if (!pv) return null;
-    if (pv.first) return h('div', h('div.tt-name', 'Preparation points'), h('div.tt-line', `${pv.points} to spend on supplies${pv.spent ? `; ${pv.spent} spent` : ''}.`), h('div.tt-line.num', unspentLine(pv, ctx)));
+    if (pv.first) return h('div', h('div.tt-name', 'Preparation points'), h('div.tt-line', `${pv.points} to spend on supplies${pv.spent ? `; ${pv.spent} spent` : ''}.`), h('div.tt-line.num', verbatim(unspentLine(pv, ctx))));
     const rs = pv.reserve || { points: 0, echoes: 0 }; // engine-2026-11-14f UI need 2: never read a missing Reserve
     return h('div', h('div.tt-name', 'Preparation points'), h('div.tt-line', `${pv.points} to spend on contracts and supplies${pv.spent ? `; ${pv.spent} spent` : ''}.`),
       h('div.tt-line.num', `Unspent points become Reserve: it buys a hub contract on the way, and what is left at the end of the run becomes Echoes${rs.points ? ` (${rs.echoes} for the ${pts(rs.points)} left now)` : ''}.`),
@@ -29036,7 +29150,7 @@ function createPrepScreen(v, ctx) {
   go.addEventListener('click', () => { go.blur(); if (ctx.coach && ctx.coach.holdSetOut(ctx.view)) return; ctx.act({ type: 'SET_OUT' }); });
   tip(go, () => {
     const pv = ctx.view.prep; if (!pv) return null;
-    if (pv.first) return h('div', h('div.tt-name', 'Set out'), h('div.tt-line', `Leave the camp for ${zone1}. Supplies go into your bags.`), pv.left ? h('div.tt-line.num', unspentLine(pv, ctx)) : null);
+    if (pv.first) return h('div', h('div.tt-name', 'Set out'), h('div.tt-line', `Leave the camp for ${zone1}. Supplies go into your bags.`), pv.left ? h('div.tt-line.num', verbatim(unspentLine(pv, ctx))) : null);
     const rs = pv.reserve || { points: 0, echoes: 0 };
     return h('div', h('div.tt-name', 'Set out'), h('div.tt-line', `Leave the camp for ${zone1}. Supplies go into your bags and the perks last the run.`),
       h('div.tt-line.num', pv.left ? `${pts(pv.left)} unspent become Reserve: ${rs.echoes} Echoes at the end of the run, or hub contracts on the way.` : 'Every point is spent: no Reserve.'),
@@ -29094,9 +29208,14 @@ function createPrepScreen(v, ctx) {
   return root;
 }
 const cap1 = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
-/** A first run's unspent points line (D152, content prep.unspentFirst, draft): "Points you do not spend: +N Echoes ...". */
+/**
+ * A first run's unspent points line (D152, content prep.unspentFirst, draft): "Points you do not spend: +N Echoes ...". The
+ * content line reads its Legacy wording under GATES.legacy (TUTORIAL.legacy), so it is shown verbatim (no word swap); the
+ * fallback, without content, says Legacy points while a Legacy profile or run is shown.
+ */
 function unspentLine(pv, ctx) {
-  const raw = (ctx.data.tutorial && ctx.data.tutorial.table && ctx.data.tutorial.table.prep && ctx.data.tutorial.table.prep.unspentFirst) || 'Points you do not spend: +{echoes} Echoes at the end of the run.';
+  const raw = (ctx.data.tutorial && ctx.data.tutorial.table && ctx.data.tutorial.table.prep && ctx.data.tutorial.table.prep.unspentFirst)
+    || `Points you do not spend: +{echoes} ${legacyShown() ? 'Legacy points' : 'Echoes'} at the end of the run.`;
   return raw.replace('{echoes}', String((pv.unspent && pv.unspent.echoes) || 0));
 }
 /** A price in preparation points: the number on its seal and the word next to it. */
@@ -29614,7 +29733,9 @@ function createHud(root, ctx) {
   els.minimap.querySelector('.disc').addEventListener('click', () => ctx.ui.toggleWin('map'));
   tip(els.minimap.querySelector('.disc'), () => {
     const v = ctx.view; if (!v.zone) return null; const R = ctx.data.rules;
-    const danger = v.zone.danger > 0 ? dangerRule(R) : null; // zone danger (rules 7.6): zone.danger from the engine's zoneDanger
+    // zone danger (rules 7.6): zone.danger from the engine's zoneDanger (× the zone tier's factor in a Legacy run, which
+    // Oruvath and his Shards do not take: no line in his fight)
+    const danger = v.zone.danger > 0 && !(v.zone.tierDmg != null && v.combat && v.combat.isBoss) ? dangerRule(R, v.zone) : null;
     // D150 item 10: the tolls are the Furnace's (one number); no par, line or Ascendancy here
     return h('div', h('div.tt-name', v.zone.name), h('div.tt-sub', `Levels ${shownLv(v.zone.band[0])}–${shownLv(v.zone.band[1])}`),
       danger ? h('div.tt-warn.danger', danger) : null, h('div.tt-hint', 'Click or press M for the zone map'));
@@ -30579,7 +30700,7 @@ function buildOaths(v, ctx) {
 
 });
 __bundle.def("src/ui/onboarding.js", function* (__ns, __link) {
-let h; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let stoppedNow; __link.imp("src/ui/tracks.js", [["stoppedNow", (v) => { stoppedNow = v; }]]); let UI_HINTS, NEAREST_ROAD_TAIL, hopsText, nearestRoad, tolls; __link.imp("src/ui/ui-text.js", [["UI_HINTS", (v) => { UI_HINTS = v; }], ["NEAREST_ROAD_TAIL", (v) => { NEAREST_ROAD_TAIL = v; }], ["hopsText", (v) => { hopsText = v; }], ["nearestRoad", (v) => { nearestRoad = v; }], ["tolls", (v) => { tolls = v; }]]); __link.exp({ "HINTS_KEY": () => HINTS_KEY, "KEYS": () => KEYS, "leanFirst": () => leanFirst, "MAP_LINES": () => MAP_LINES, "LINE_BEATS": () => LINE_BEATS, "lineHints": () => lineHints, "guideSkippedLine": () => guideSkippedLine, "rescueLeftLine": () => rescueLeftLine, "FURNACE_LINES": () => FURNACE_LINES, "loadHints": () => loadHints, "saveHints": () => saveHints, "hints": () => hints, "lineParts": () => lineParts, "fillLine": () => fillLine, "attackSlot": () => attackSlot, "lineKeys": () => lineKeys, "rawLine": () => rawLine, "redPassNode": () => redPassNode, "UI_HINT_IDS": () => UI_HINT_IDS, "createOnboarding": () => createOnboarding, "closedRoadLine": () => closedRoadLine, "gateLine": () => gateLine });
+let h, verbatim; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["verbatim", (v) => { verbatim = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let stoppedNow; __link.imp("src/ui/tracks.js", [["stoppedNow", (v) => { stoppedNow = v; }]]); let UI_HINTS, NEAREST_ROAD_TAIL, hopsText, nearestRoad, tolls; __link.imp("src/ui/ui-text.js", [["UI_HINTS", (v) => { UI_HINTS = v; }], ["NEAREST_ROAD_TAIL", (v) => { NEAREST_ROAD_TAIL = v; }], ["hopsText", (v) => { hopsText = v; }], ["nearestRoad", (v) => { nearestRoad = v; }], ["tolls", (v) => { tolls = v; }]]); __link.exp({ "HINTS_KEY": () => HINTS_KEY, "KEYS": () => KEYS, "leanFirst": () => leanFirst, "MAP_LINES": () => MAP_LINES, "LINE_BEATS": () => LINE_BEATS, "lineHints": () => lineHints, "guideSkippedLine": () => guideSkippedLine, "rescueLeftLine": () => rescueLeftLine, "FURNACE_LINES": () => FURNACE_LINES, "loadHints": () => loadHints, "saveHints": () => saveHints, "hints": () => hints, "lineParts": () => lineParts, "fillLine": () => fillLine, "attackSlot": () => attackSlot, "lineKeys": () => lineKeys, "rawLine": () => rawLine, "redPassNode": () => redPassNode, "UI_HINT_IDS": () => UI_HINT_IDS, "createOnboarding": () => createOnboarding, "closedRoadLine": () => closedRoadLine, "gateLine": () => gateLine });
 yield;
 // M3 onboarding (docs/specs/m3-onboarding.md 2.4-2.7, 3, 4.3; U1, U2, U4, U6, U7; D135-D139): the coach line, the guided
 // run's beat lines, the 37 first-time hints and the Packed Satchel nudge. Presentation only: the beats are the engine's
@@ -30618,7 +30739,7 @@ yield;
 // window; H05 needs a big hit (offBalance bigHit); H30 and G17 give way to a turn prompt that says the same ("Pass", "Tab");
 // the draft fight beats G14-G17 (a finisher on the bar, the resource bar, a Bloodlust tag, the nameplates; key_target Tab);
 // a bar key refused for lack of resource while G15 is open shows G15's line in place of the toast (refusedLine, app.js).
-
+ // verbatim: content lines as written (their own Legacy wording)
 
 
 
@@ -30756,7 +30877,7 @@ function lineParts(raw, num = {}, keys = KEYS) {
 /** A content line with its placeholders filled: { text, nodes } (keys as key chips). */
 function fillLine(raw, num = {}, keys = KEYS) {
   const parts = lineParts(raw, num, keys);
-  return { text: parts.map((x) => (typeof x === 'string' ? x : x.key)).join(''), nodes: parts.map((x) => (typeof x === 'string' ? x : h('span.kbd', x.key))) };
+  return { text: parts.map((x) => (typeof x === 'string' ? x : x.key)).join(''), nodes: parts.map((x) => (typeof x === 'string' ? verbatim(x) : h('span.kbd', x.key))) };
 }
 /**
  * The bar slot (0-6) of the first spell that can be cast now (`legal.spells` ok), one cast on an enemy first (spells: the
@@ -32785,7 +32906,8 @@ function buildSummary(v, ctx) {
   // a hero without a name of its own carries the class name: say it once (QA playtest 2026-11-11 finding 10)
   const named = s.name && s.name.toLowerCase() !== String(s.className).toLowerCase() ? s.name : null;
   win.appendChild(h('div.shead', h('div.t1.subtitle', { style: { letterSpacing: '.4em', textTransform: 'uppercase' } }, won ? 'Victory' : 'The run has ended'),
-    h('div.t2', { style: { color: won ? token('--accent-pale') : '#e8a090' } }, won ? 'Oruvath has fallen' : named ? `${named} has fallen` : `Your ${s.className} has fallen`),
+    // Legacy (legacy.md 1.5; draft line): a run abandoned from the menu ends as a death, and says so
+    h('div.t2', { style: { color: won ? token('--accent-pale') : '#e8a090' } }, won ? 'Oruvath has fallen' : s.death && s.death.abandoned ? `${named || `Your ${s.className}`} left the run` : named ? `${named} has fallen` : `Your ${s.className} has fallen`),
     h('div.subtitle.s-who', `${named ? `${named} · level` : 'Level'} ${lv(s.level)} ${s.className}${s.petId ? ' with ' + ctx.data.pets[s.petId].name : ''} · ${s.zone}`),
     // a dev run (engine-api.md 12): the dev tools changed it, so it earns no Echoes
     s.dev ? h('div.devrun', `Dev run${s.dev.god ? ' · god mode' : ''}`) : null));
@@ -32797,7 +32919,8 @@ function buildSummary(v, ctx) {
     [HEAT_WORDS.Units, fmtTime(s.time)], ['Oruvath', s.asc ? `+${Math.round(s.asc * 100)} % health and damage` : 'No stronger'],
     ['Estimated time', `${s.estMinutes.manual} min manual · ${s.estMinutes.auto} min autoplay`], ['Fights', `${s.fights} (${s.rounds} rounds)`], ['Seed', String(s.seed)],
     // the killing blow by its display name (the bridge's actionName; without a name only the killer)
-    ...(s.death ? [['Killed by', h('span.killed', { dataset: { ability: s.death.ability || '' } }, s.death.ability ? `${s.death.killer} (${s.death.ability})` : s.death.killer)], ['Where', `${s.death.node}, round ${s.death.round}`]] : []),
+    ...(s.death && s.death.abandoned ? [['Ended', h('span.killed.abandoned', 'Abandoned from the menu')], ['Where', `${s.death.node || s.zone}${s.death.round != null ? `, round ${s.death.round}` : ''}`]] : []),
+    ...(s.death && !s.death.abandoned ? [['Killed by', h('span.killed', { dataset: { ability: s.death.ability || '' } }, s.death.ability ? `${s.death.killer} (${s.death.ability})` : s.death.killer)], ['Where', `${s.death.node}, round ${s.death.round}`]] : []),
   ]));
   const card2 = h('div.card', h('h3', 'Deeds'), kv([
     ['Kills', `${s.kills.normal} normal · ${s.kills.elite} elite · ${s.kills.rare} rare · ${s.kills.boss} boss`], ['Quests', s.contracts ? String(s.quests) : `${s.quests} (${s.story} stories)`],
@@ -33071,7 +33194,22 @@ function createWindows(root, ctx) {
       resetHints.addEventListener('click', () => { if (ctx.coach) ctx.coach.reset(); else hints.reset(); ctx.toast('Every first-time hint shows again.', 'info'); refresh('settings'); });
       const guideAgain = h('button.btn.small', { type: 'button' }, 'Play the guide again');
       guideAgain.addEventListener('click', () => { ctx.act({ type: 'GUIDE_AGAIN' }).then((r) => { if (r && r.ok) ctx.toast(ctx.view.phase === 'CREATE' ? 'This run is the guided run.' : 'Your next run is the guided run.', 'good'); }); });
+      // Legacy (legacy.md 1.5; engine-2026-11-18 UI need 7; draft lines): "Abandon run" in a Legacy run, asked once: the
+      // first click asks, the second sends ABANDON_RUN (the run ends as a death where the hero stands; the summary pays)
+      const vv = ctx.view;
+      const canAbandon = ctx.bridge.mode === 'engine' && vv.player && vv.player.heroLevel != null && !['CREATE', 'SUMMARY'].includes(vv.phase);
+      let abandonRow = null;
+      if (canAbandon) {
+        const ab = h('button.btn.small', { type: 'button', dataset: { abandon: 'ask' } }, 'Abandon run');
+        const note = h('div.muted', 'Ends this run where your hero stands, as a death. Your hero keeps its level and the run pays its Legacy points.');
+        ab.addEventListener('click', () => {
+          if (ab.dataset.abandon === 'ask') { ab.dataset.abandon = 'sure'; ab.classList.add('danger'); ab.textContent = 'Abandon: click again'; note.textContent = 'Abandon this run? Click again to end it.'; return; }
+          ab.disabled = true; close('settings'); ctx.act({ type: 'ABANDON_RUN' });
+        });
+        abandonRow = h('div.setrow.abandon', h('div', h('div', 'Abandon run'), note), ab);
+      }
       const body = h('div.col', { style: { padding: '1rem 1.6rem 1.6rem', gap: 0 } },
+        abandonRow,
         h('div.setrow', h('div', h('div', 'Animation speed'), h('div.muted', 'Space or a click skips to the end of the hit on screen. A key pressed while a round plays is queued as your next action.')), seg('speed', [[1, '1×'], [2, '2×'], [4, '4×'], [0, 'Instant']])),
         h('div.setrow', h('div', h('div', 'Speedrun mode'), h('div.muted', 'Instant animations, no travel scenes, fast autoplay.')), tog('speedrun')),
         h('div.setrow', h('div', 'Skip travel scenes'), tog('skipTravel')),
@@ -33981,7 +34119,7 @@ function hubWelcome(v, data) {
 
 });
 __bundle.def("src/ui/dev-menu.js", function* (__ns, __link) {
-let h, clear, fmtNum, moneyEl; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }]]); let HEAT_WORDS, tolls; __link.imp("src/ui/ui-text.js", [["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["tolls", (v) => { tolls = v; }]]); __link.exp({ "createDevMenu": () => createDevMenu });
+let h, clear, fmtNum, moneyEl, legacyShown; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["legacyShown", (v) => { legacyShown = v; }]]); let HEAT_WORDS, tolls; __link.imp("src/ui/ui-text.js", [["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["tolls", (v) => { tolls = v; }]]); __link.exp({ "createDevMenu": () => createDevMenu });
 yield;
 // The Dev menu (owner feedback 2026-11-11 07:41: "in-game dev tools from a menu, so he can test any stage without playing
 // through"; docs/specs/engine-api.md 12). A corner button and the backquote key (`) open a panel with six tabs: Start at
@@ -33992,7 +34130,7 @@ yield;
 // default, the classic map stays for testing here only) and Seed (the seed, copy it, a new run on a seed). On by default; ?dev=0 or the
 // settings hide it. Presentation only: every button sends one dev op through the bridge (ctx.dev -> engine-bridge.js dev
 // -> R.debug); the numbers it shows (levels, limits, kinds) come from the bridge's data.dev.
-
+ // legacyShown: a Legacy profile (the hero level picker)
 
 
 const TABS = [['start', 'Start at'], ['jump', 'Jump'], ['fight', 'Fight'], ['give', 'Give'], ['world', 'World'], ['seed', 'Seed']];
@@ -34017,7 +34155,7 @@ function createDevMenu(root, ctx, { allowed }) {
   let built = null; // the tab on screen: { tab, refresh(view) }
   // form values kept while the menu is open and between tabs
   const form = { classId: null, petId: null, zone: null, level: '', ilvl: '', rarity: D.defaults.RARITY, mapMode: null, talents: 'auto',
-    q: '', fzone: 'all', fkind: 'all', flevel: '', gold: '10000', potions: String(D.defaults.POTIONS), points: '1', echoes: '1000', time: '', seed: '' };
+    q: '', fzone: 'all', fkind: 'all', flevel: '', gold: '10000', potions: String(D.defaults.POTIONS), points: '1', echoes: '1000', time: '', seed: '', heroClass: null, heroLevel: '10' };
 
   const enabled = () => allowed() && ctx.settings.get('devTools') !== false;
   const isOpen = () => !panel.classList.contains('hidden');
@@ -34167,6 +34305,17 @@ function createDevMenu(root, ctx, { allowed }) {
         if (r && r.ok === false) return;
         if (ctx.coach) ctx.coach.clear();
       });
+      // Legacy (engine-2026-11-18 UI need 9): a class's hero at a level (R.debug.setHero, XP 0) in the saved profile, at class
+      // select; shown with a Legacy profile only
+      const heroMax = d.rules.heroMaxLevel;
+      let heroLine = null; let heroBtn = null;
+      if (legacyShown() && heroMax) {
+        if (!form.heroClass) form.heroClass = (v.create && v.create.classId) || (v.player && v.player.classId) || 'rogue';
+        heroBtn = opBtn('Set', 'hero', () => { const n = whole('heroLevel', 'Hero level', 1, heroMax); return n === null ? null : { classId: form.heroClass, level: n }; });
+        heroBtn.dataset.dev = 'hero';
+        heroLine = h('div.dm-line', field('Hero', select('heroClass', Object.values(d.classes).map((c) => [c.id, c.name])), null),
+          field('Hero level', number('heroLevel', { min: 1, max: heroMax }), `1-${heroMax}, at class select`), heroBtn);
+      }
       return {
         el: h('div',
           h('div.dm-line', field('Gold (copper)', gold, null), preview, runOnly[0]),
@@ -34174,9 +34323,10 @@ function createDevMenu(root, ctx, { allowed }) {
           h('div.dm-line', field('Talent points', number('points', { min: 1, max: 100 }), null), runOnly[2]),
           h('div.dm-sub', 'Profile (kept between runs)'),
           h('div.dm-line', field('Echoes', number('echoes', { min: 1 }), null), ech),
+          heroLine,
           h('div.dm-acts', full, onb),
           h('div.dm-note', 'Potions: Healing Draughts while the bags take them (a Mage gets Mana Draughts too). Echoes, the catalogue and Reset onboarding go to your saved profile.')),
-        refresh(vv) { for (const b of runOnly) b.disabled = !inRun(vv); },
+        refresh(vv) { for (const b of runOnly) b.disabled = !inRun(vv); if (heroBtn) heroBtn.disabled = vv.phase !== 'CREATE'; },
       };
     },
     world(v) {
@@ -35483,6 +35633,7 @@ function devText(op, args, r, v) {
     case 'mapMode': return args.mode === 'expedition' ? 'Expedition map' : 'Classic map (old)';
     case 'echoes': return `${args.n} Echoes given`;
     case 'catalogue': return 'Every unlock in the catalogue';
+    case 'hero': return `${String(args.classId || '').replace(/^./, (c) => c.toUpperCase())} hero set to level ${args.level}`; // Legacy (draft)
     case 'resetOnboarding': return 'Onboarding reset: the next run is guided, the welcome is paid again, every hint shows again';
     case 'seed': return `New run on seed ${args.seed}`;
     default: return `Dev: ${op}`;
