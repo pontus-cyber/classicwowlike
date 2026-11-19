@@ -1,5 +1,5 @@
 // Output helpers: commit hash, cell names (M2b v12: 'rcg' for the gated Ricochet Bolt arm; C.GATES tags, GATE_TAG, D152's
-// five switches included; D128: the start camp's options, campMark; D154: 'leg' a Legacy cell, `h<H>` its hero level; D156: 'or2'),
+// five switches included; D128: the start camp's options, campMark; D154: 'leg' a Legacy cell, `h<H>` its hero level; D156: 'or2'; D159: 'e2'),
 // JSON/JSONL/Markdown writers, number formatting.
 import { execSync } from 'node:child_process';
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
@@ -25,7 +25,7 @@ export const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
  * switch without a tag is marked by its key. (M2b v15's mawgrimHp switch and its 'maw' tag are gone: D126 put Mawgrim's 0.95
  * in content.)
  */
-export const GATE_TAG = { rareHpMultZ1: 'g5', firstMeetWindup: 'g6', sapHold: 'sap', passStealth: 'pst', swiftRoad: 'swift', campReroll: 'rr', boardAcrossRun: 'ba', autoEmberFirst: 'ae', rewardPrimary: 'rp', zone2InnerCap: 'z2c', z1Dmg: 'z1d', firstRunLean: 'frl', gorrakBounty: 'gb', guidedHold: 'gh', steadyDim: 'sd', rescueDim: 'rd', gorrakLevel: 'gl', bountyRoad: 'br', legacy: 'leg', oruvathLegacy: 'or2' };
+export const GATE_TAG = { rareHpMultZ1: 'g5', firstMeetWindup: 'g6', sapHold: 'sap', passStealth: 'pst', swiftRoad: 'swift', campReroll: 'rr', boardAcrossRun: 'ba', autoEmberFirst: 'ae', rewardPrimary: 'rp', zone2InnerCap: 'z2c', z1Dmg: 'z1d', firstRunLean: 'frl', gorrakBounty: 'gb', guidedHold: 'gh', steadyDim: 'sd', rescueDim: 'rd', gorrakLevel: 'gl', bountyRoad: 'br', legacy: 'leg', oruvathLegacy: 'or2', economyV2: 'e2' };
 
 /**
  * Cell-name mark of the start camp's options (D128, cell.campOptions): none when the cell plays the engine's list

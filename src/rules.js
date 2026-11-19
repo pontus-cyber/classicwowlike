@@ -58,7 +58,7 @@ import { createDebug } from './engine/debug.js';
 import { windupView as windups, autoplayEngage as autoEngage } from './engine/answers.js';
 import { deathblowOf, deathblowType } from './engine/track.js';
 import { damageView as dmgView } from './engine/damageview.js';
-import { heroView as heroNow, heroesView as heroList, shownLevelOf, powerOf, heroXpToNext, learnHeroLevel, zoneTierDmg as tierDmgOf } from './engine/legacy.js';
+import { heroView as heroNow, heroesView as heroList, shownLevelOf, powerOf, heroXpToNext, learnHeroLevel, zoneTierDmg as tierDmgOf, econV2, xpRef } from './engine/legacy.js';
 
 /**
  * 3 (M2b v7): the run's time is `state.time` in whole tolls (was `hours`), with `stats.timeAtBoss`,
@@ -136,6 +136,11 @@ export function zoneTierDmg(state, z) {
 }
 /** powerOfLevel(H): the engine's level of hero level H (POWER_OF_LEVEL); heroXpToNext(H): hero XP from H to H + 1 (HERO_XP; at 25 HERO_XP_AT_MAX). */
 export { powerOf as powerOfLevel, heroXpToNext };
+/**
+ * D159 (legacy.md 4.7, draft): econV2(state), the Economy v2 rules apply to the run (a Legacy run, GATES.economyV2 on);
+ * xpRef(state), the level Z an XP award is counted against there (the zone's band, the Camp's level, else the power level).
+ */
+export { econV2, xpRef };
 
 /**
  * Boss time par in tolls (rules 1.7, 11.5): BOSS_TIME_PAR, OATH_HASTE_TIME less under the Oath of Haste. Ascendancy

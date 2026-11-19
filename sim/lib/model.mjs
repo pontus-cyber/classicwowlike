@@ -28,6 +28,10 @@
 // hero XP banked / HERO_XP_UNIT × SIM.VAL_HERO_XP (the winner's VAL_HERO_XP_WIN; at level 25 the same rate, the XP that
 // converts to the Legacy level line). Before this the model read p.xp (hero XP) against xpToNext(P) and valued only in-run
 // levels, which stop at power 60 (report legacy-native-2026-11-18).
+// Economy v2 (D159, legacy.md 4.7 E2 and E4, draft; ctx.econ: R.econV2 of the decision state, a Legacy run under
+// C.GATES.economyV2): an award is HERO_XP_UNIT × frac × (1 + XP_ZONE_STEP × max(0, CL - Z)) × (1 + xpPct), Z = R.xpRef of the
+// decision state (the zone's band fixed at arrival, the Camp's level), no xpCurve ratio and no diffMod; a contract's at
+// CL - Z = CONTRACT_CL_OFFSET_HERO; the hero levels by C.HERO_XP_ECON2 (heroTable). Off, every term is as before.
 import { C, R, V, xpCurve, diffMod } from './engine.mjs';
 import { BAL, SIM, EXP } from './params.mjs';
 import { riskP, riskDh, riskType } from './risk.mjs';
@@ -47,11 +51,15 @@ const xpNext = (L) => (L >= C.MAX_LEVEL ? 0 : XN[L]);
 
 // ---------------- Hero XP (Legacy runs, legacy.md 1.3-1.4) ----------------
 const HMAX = C.HERO_MAX_LEVEL || 25;
+/** The hero XP table as legacy.js heroXpTable: C.HERO_XP_ECON2 while C.GATES.economyV2 is on (legacy.md 4.7 E4), else C.HERO_XP. */
+const heroTable = () => (C.GATES && C.GATES.economyV2 && C.HERO_XP_ECON2 ? C.HERO_XP_ECON2 : C.HERO_XP);
 /** Hero XP from hero level H to H + 1 (HERO_XP_AT_MAX at the top), as legacy.js heroXpToNext. */
-const hxNext = (H) => (H < HMAX ? C.HERO_XP[H - 1] : C.HERO_XP_AT_MAX);
-/** Hero XP from level 1 to the start of hero level H (cumulative). */
-const HXC = [0, 0];
-for (let H = 2; H <= HMAX; H++) HXC[H] = HXC[H - 1] + (C.HERO_XP ? C.HERO_XP[H - 2] : 0);
+const hxNext = (H) => (H < HMAX ? heroTable()[H - 1] : C.HERO_XP_AT_MAX);
+/** Hero XP from level 1 to the start of hero level H (cumulative), per table (HERO_XP and HERO_XP_ECON2). */
+const cumul = (T) => { const c = [0, 0]; for (let H = 2; H <= HMAX; H++) c[H] = c[H - 1] + (T ? T[H - 2] : 0); return c; };
+const HXC_OLD = cumul(C.HERO_XP);
+const HXC_ECON2 = C.HERO_XP_ECON2 ? cumul(C.HERO_XP_ECON2) : HXC_OLD;
+const hxc = (H) => (heroTable() === C.HERO_XP ? HXC_OLD : HXC_ECON2)[H];
 const powerOfH = (H) => C.POWER_OF_LEVEL[Math.max(1, Math.min(HMAX, H)) - 1];
 /** XP per level-equivalent of a Legacy award at power level L, over xpCurve(L) (progress.js eventXp under isLegacy). */
 const heroUnit = (L) => (C.HERO_XP_UNIT || 100) / XC[Math.max(1, Math.min(MAXL, L))];
@@ -123,8 +131,10 @@ export function makeCtx(s, risk, opts = {}) {
   const unknown = Object.values(C.SPELL).filter((sp) => sp.cls === p.classId && !p.spells[sp.id]
     && (sp.source === 'class' || (sp.source === 'meta' && metaSpells.includes(sp.id)))).map((sp) => sp.lvl);
   const hero = !!s.legacy;
+  // Economy v2 (legacy.md 4.7 E2): the decision state's XP reference Z (R.xpRef), constant inside a zone
+  const econ = hero && !!(R.econV2 && R.econV2(s));
   return {
-    hero, cls: p.classId, risk, eq, gainCache: new Map(), xpPct: s.meta.xpPct, goldPct: s.meta.goldPct,
+    hero, econ, zref: econ ? R.xpRef(s) : null, cls: p.classId, risk, eq, gainCache: new Map(), xpPct: s.meta.xpPct, goldPct: s.meta.goldPct,
     swift: !!s.meta.swiftBoots, res, potions, train, unknown,
     style: opts.style || 'balanced', hourMult: (opts.hourMult ?? 1) * (opts.style === 'speed' ? SIM.STYLE_SPEED_TIME_MULT : 1),
     heat: opts.heat ? heatCtx(s, opts.heat) : null,
@@ -226,8 +236,10 @@ function bossCost(ctx, dh, hours) {
 
 // ---------------- Character progression in the model ----------------
 // Legacy (ctx.hero): in hero XP, × HERO_XP_UNIT / xpCurve(L), and paid at every level (no 1-60 cap).
-const killXp = (ctx, M, mult, L) => (!ctx.hero && L >= C.MAX_LEVEL ? 0 : C.MOB_XP_FRAC * mult * (ctx.exp ? ctx.exp.xpw : 1) * XC[Math.min(MAXL, M)] * dmod(M - L) * (1 + ctx.xpPct) * (ctx.hero ? heroUnit(L) : 1));
-const evXp = (ctx, frac, cl, L) => (!ctx.hero && L >= C.MAX_LEVEL ? 0 : frac * XC[Math.min(MAXL, cl)] * dmod(cl - L) * (1 + ctx.xpPct) * (ctx.hero ? heroUnit(L) : 1));
+// Economy v2 (ctx.econ): HERO_XP_UNIT × frac × (1 + XP_ZONE_STEP × max(0, CL - ctx.zref)) × (1 + xpPct), as progress.js eventXp.
+const econXp = (ctx, frac, cl) => C.HERO_XP_UNIT * frac * (1 + C.XP_ZONE_STEP * Math.max(0, cl - ctx.zref)) * (1 + ctx.xpPct);
+export const killXp = (ctx, M, mult, L) => (ctx.econ ? econXp(ctx, C.MOB_XP_FRAC * mult * (ctx.exp ? ctx.exp.xpw : 1), M) : !ctx.hero && L >= C.MAX_LEVEL ? 0 : C.MOB_XP_FRAC * mult * (ctx.exp ? ctx.exp.xpw : 1) * XC[Math.min(MAXL, M)] * dmod(M - L) * (1 + ctx.xpPct) * (ctx.hero ? heroUnit(L) : 1));
+export const evXp = (ctx, frac, cl, L) => (ctx.econ ? econXp(ctx, frac, cl) : !ctx.hero && L >= C.MAX_LEVEL ? 0 : frac * XC[Math.min(MAXL, cl)] * dmod(cl - L) * (1 + ctx.xpPct) * (ctx.hero ? heroUnit(L) : 1));
 
 /**
  * Apply XP to model state m (in place): kills use the rested pool (rules 2.5), then heat × (1 + hg) (rules 1.7.3, after
@@ -518,12 +530,15 @@ export function contractValue(ctx, rw, opts = {}) {
 
 /**
  * contractValue in a Legacy run: the reward's hero XP (flatXp: HERO_XP_UNIT × xpFrac × xpCurve(cl) / xpCurve(L), no
- * level-difference modifier) valued by xpWorth from the hero's state now; gear and gold as contractValue. opts.L: the power
+ * level-difference modifier; Economy v2: HERO_XP_UNIT × xpFrac × (1 + XP_ZONE_STEP × CONTRACT_CL_OFFSET_HERO) × (1 + xpPct)) valued by xpWorth from the hero's state now; gear and gold as contractValue. opts.L: the power
  * level it is valued at (the start camp: the contract's own level, one level-equivalent per xpFrac).
  */
 function heroContractValue(ctx, rw, opts) {
   const L = Math.max(1, opts.L ?? ctx.m.L);
-  const xp = rw.xpFrac * XC[Math.min(MAXL, rw.cl)] * (1 + ctx.xpPct) * heroUnit(L);
+  // Economy v2 (legacy.md 4.7 E2): CL - Z = CONTRACT_CL_OFFSET_HERO, as progress.js flatXp
+  const xp = ctx.econ
+    ? C.HERO_XP_UNIT * rw.xpFrac * (1 + C.XP_ZONE_STEP * C.CONTRACT_CL_OFFSET_HERO) * (1 + ctx.xpPct)
+    : rw.xpFrac * XC[Math.min(MAXL, rw.cl)] * (1 + ctx.xpPct) * heroUnit(L);
   const m = copyM(ctx.m);
   const w0 = xpWorth(m);
   giveHeroXp(m, xp, false, 0);
@@ -599,7 +614,7 @@ function heroPos(m, x) {
 export function xpWorth(m) {
   const w = bankedPos(m) * BAL.VAL_XP;
   if (!isHero(m)) return w;
-  return w + ((HXC[m.H] + m.xp + m.rested) / C.HERO_XP_UNIT) * SIM.VAL_HERO_XP;
+  return w + ((hxc(m.H) + m.xp + m.rested) / C.HERO_XP_UNIT) * SIM.VAL_HERO_XP;
 }
 
 /**

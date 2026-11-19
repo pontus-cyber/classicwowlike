@@ -45,6 +45,7 @@
 //            the version 3 profile; C.GATES.legacy on with the engine's other defaults, or with --gates' list; cell marks
 //            'leg' and 'h<H>'); --profile later (two runs played, nothing bought: the Legacy cells' profile)
 //            D156 (legacy.md 2.4.1): --oruvath with --hero also switches C.GATES.oruvathLegacy on (cell mark 'or2')
+//            D159 (legacy.md 4.7, Economy v2): --econ with --hero also switches C.GATES.economyV2 on (cell mark 'e2')
 //   campaigns: --map expedition --prep also apply (B31 / B32 on the expedition with the start camp)
 //   campaigns: node sim/run.mjs --campaign N --class <c|all> --out <dir> [--risk-in <risk.json>]
 //
@@ -71,7 +72,7 @@ function parse(argv) {
     const a = argv[i];
     if (!a.startsWith('--')) throw new Error(`unexpected argument ${a}`);
     const k = a.slice(2);
-    if (k === 'log' || k === 'replay' || k === 'pairs' || k === 'think' || k === 'think-mash' || k === 'oracle' || k === 'route' || k === 'prep' || k === 'beastcall-gated' || k === 'ricochet-gated' || k === 'guided' || k === 'oruvath') { o[k] = true; continue; }
+    if (k === 'log' || k === 'replay' || k === 'pairs' || k === 'think' || k === 'think-mash' || k === 'oracle' || k === 'route' || k === 'prep' || k === 'beastcall-gated' || k === 'ricochet-gated' || k === 'guided' || k === 'oruvath' || k === 'econ') { o[k] = true; continue; }
     o[k] = argv[++i];
   }
   return o;
@@ -143,7 +144,13 @@ if (hero !== null) {
     if (!('oruvathLegacy' in C.GATES)) throw new Error('--oruvath needs an engine with C.GATES.oruvathLegacy (D156)');
     gates.oruvathLegacy = true;
   }
+  // D159 (legacy.md 4.7): --econ adds C.GATES.economyV2 to the hero cell (cell mark 'e2')
+  if (args.econ) {
+    if (!('economyV2' in C.GATES)) throw new Error('--econ needs an engine with C.GATES.economyV2 (D159)');
+    gates.economyV2 = true;
+  }
 } else if (args.oruvath) throw new Error('--oruvath is a --hero cell option (or name oruvathLegacy in --gates)');
+else if (args.econ) throw new Error('--econ is a --hero cell option (or name economyV2 in --gates)');
 const pool = new Pool(workers);
 try {
   if (args.campaign) {
