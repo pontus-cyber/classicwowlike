@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="4f5f28d 2026-11-19T04:55:14Z">
+<meta name="build" content="979e595 2026-11-19T10:21:24Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -865,6 +865,7 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 /* ---------------------------------------------------------------- tracker & log */
 #tracker { position: absolute; right: 1.8rem; top: 21rem; width: 26rem; display: flex; flex-direction: column; gap: var(--sp-50); text-align: right; transition: opacity var(--dur-base-2); }
 #tracker.dimmed { opacity: 0; pointer-events: none; }
+#tracker.yield { opacity: 0; pointer-events: none; } /* Legacy bugs 2026-11-19 (s0096): a nameplate under it (hud.js trackerYield) */
 #tracker .tk-h { font: var(--fw-semibold) var(--fs-body-6) var(--font-title); color: var(--gold); text-shadow: 0 1px 1px var(--shade), 0 0 4px var(--shade); }
 #tracker .tk-l { font-size: var(--fs-body-3); color: var(--ink); text-shadow: 0 1px 1px var(--shade), 0 0 3px var(--shade), 0 0 4px var(--shade); }
 #tracker .tk-l.done { color: var(--ink-good); }
@@ -915,6 +916,12 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 /* loot window */
 .loot { width: 38rem; }
 .loot .foot { display: flex; justify-content: space-between; align-items: center; padding: var(--sp-90) var(--sp-120) var(--sp-110); border-top: 1px solid var(--edge-hi-20); gap: var(--sp-80); }
+/* Legacy bugs 2026-11-19 (blind returning player s0152, s0154): the note (bags, "Leave 2 items behind? ...") has a line of its
+   own above the buttons, so the ask on the first Leave click neither wraps the buttons nor moves Leave under the pointer */
+.loot .foot { flex-wrap: wrap; row-gap: var(--sp-50); }
+.loot .foot > :first-child { flex: 1 0 100%; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.loot .foot > .row { flex: none; margin-left: auto; }
+.loot .foot > .row .btn { white-space: nowrap; }
 .loot .rows { display: flex; flex-direction: column; gap: var(--sp-50); padding: var(--sp-100) var(--sp-120); max-height: 46rem; overflow-y: auto; }
 /* QA 2026-11-12: in the right-side slot (max-height of .rightside) only the rows scroll; the title, the next strip and Continue stay in view */
 .loot.rightside { display: flex; flex-direction: column; overflow: hidden; }
@@ -1139,7 +1146,8 @@ body.dying #target-frame, body.dying #boss-frame, body.dying #nameplates, body.d
 .summary { width: 92rem; max-width: calc(100vw - 3rem); max-height: calc(100vh - 3rem); display: flex; flex-direction: column; }
 .summary .shead { padding: var(--sp-160) var(--sp-200) var(--sp-100); text-align: center; }
 .summary .shead .t2 { font: var(--fw-semibold) var(--fs-display-5) var(--font-title); }
-.summary .sbody { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--sp-120); padding: 0 var(--sp-180) var(--sp-120); overflow-y: auto; }
+.summary .sbody { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--sp-120); padding: 0 var(--sp-180) var(--sp-120); overflow-y: auto; min-height: 0; } /* Legacy bugs 2026-11-19 (s0059): the body scrolls inside the panel; the Furnace's last line went under the buttons */
+.summary .shead, .summary .sfoot { flex: none; }
 .summary .card { padding: var(--sp-100) var(--sp-120); border-radius: var(--radius-md-2); background: var(--shade-30); box-shadow: inset 0 0 0 1px var(--glint-06); }
 .summary .card h3 { margin: 0 0 var(--sp-70); font: var(--fw-semibold) var(--fs-label-7) var(--font-title); color: var(--gold); }
 .summary .echo { display: flex; justify-content: space-between; font-size: var(--fs-body-3); padding: var(--sp-15) 0; }
@@ -1571,6 +1579,8 @@ body.in-fight #tracker .zl { display: none; }
 #win-map { top: calc(2rem + var(--furnace-h)); }
 #win-settings, #win-settings.dev { top: calc(var(--furnace-h) + .8rem); transform: translateX(-50%); max-height: calc(100vh - var(--furnace-h) - 17.2rem); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--edge-scroll) transparent; }
 #win-talents { top: calc(50% + var(--furnace-h) / 2 - 2rem); max-height: calc(100vh - var(--furnace-h) - 12rem); overflow-y: auto; }
+.heatcard .hc-sub { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-100); flex-wrap: wrap; margin-top: var(--sp-20); }
+.heatcard .hc-sub .hc-cap { margin: 0; }
 .hc-cap { margin: var(--sp-20) 0 var(--sp-10); font: var(--fw-bold) var(--fs-small-5) var(--font-ui); color: var(--ink-dim); letter-spacing: .03em; }
 /* in a fight the Furnace holds still (its embers and water move only between fights): the fight is the focus, and a round's
    frames stay cheap on a loaded machine */
@@ -2071,8 +2081,8 @@ body.coach-up #skiphint { visibility: hidden; }
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (4f5f28d 2026-11-19T04:55:14Z) from 68 modules.
-const __BUILD__ = "4f5f28d 2026-11-19T04:55:14Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (979e595 2026-11-19T10:21:24Z) from 68 modules.
+const __BUILD__ = "979e595 2026-11-19T10:21:24Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -4852,7 +4862,8 @@ yield;
 // Items, drops (heat: the rarity step, rules 8.4; D144: a reward choice's primary at REWARD_CLASS_BIAS), gold values, bag
 // (rules 8). Generated names (rules 12.5; D150: at most one affix word, never two "of"). Legacy (D154, legacy.md 2.1, 5.6;
 // a Legacy run): item levels up to ILVL_MAX_HERO; a generated name's zone band words by the zone it drops in (the Camp:
-// zone 6's; the start camp: by item level), since a zone's level no longer matches its band.
+// zone 6's; the start camp: by item level), since a zone's level no longer matches its band; a Rogue's weapons and offhands
+// from its own lists (content weapon.rogue, offhand.rogue: no bows or shields; Legacy bugs 2026-11-19).
 
 
 
@@ -4972,7 +4983,11 @@ function gearName(s, item) {
     // own list where the band has one (offhand `hunter`: the quivers) for that class's items of its primary stat
     const k = item.stats.INT > item.stats.AGI ? 'INT' : 'AGI';
     const cls = s.player.classId;
-    names = (Array.isArray(names[cls]) && CLASS[cls].primary === k ? names[cls] : names[k]) || names.AGI;
+    // Legacy bugs 2026-11-19 (blind returning player s0122, s0206: a Rogue offered a "Yew Shortbow" and shields): the Rogue's
+    // own lists (weapon.rogue: blades; offhand.rogue: parrying blades) name its items in Legacy runs only, so a run with the
+    // switch off keeps the names it had (the recorded runs of s18 and s23)
+    const own = Array.isArray(names[cls]) && CLASS[cls].primary === k && (cls !== 'rogue' || isLegacy(s));
+    names = (own ? names[cls] : names[k]) || names.AGI;
   }
   const base = pick(names, h, 0);
   const pfx = item.affix ? affixFor(c.affixWords.prefix[item.affix], h, 16, base) : null;
@@ -9847,7 +9862,7 @@ function genChoices(s, table, count, cl) {
 }
 
 /** CHOOSE_REWARD (quest items, story items, shrine boons). */
-function chooseReward(s, ev, index) {
+function chooseReward(s, ev, index, then = null) {
   const n = s.node;
   const set = n.rewards.shift();
   if (set.kind === 'items') {
@@ -9855,6 +9870,7 @@ function chooseReward(s, ev, index) {
     s.stats.equipDrops += 1;
     if (addToBag(s, it)) ev.push({ t: 'loot', item: deepClone(it), to: 'bag' });
     else { s.loot.push(it); ev.push({ t: 'loot', item: deepClone(it), to: 'window' }); }
+    if (then) then(it); // CHOOSE_REWARD `equip`: put on now, from the bags or (bags full) the loot window
   } else {
     applyBoon(s, ev, set.boons[index]);
   }
@@ -13589,6 +13605,26 @@ function findGear(s, uid) {
   return null;
 }
 
+/**
+ * Put on gear item uid from the bags or the loot window (EQUIP; CHOOSE_REWARD with `equip`): the worn item takes its bag
+ * slot, or from the loot window goes to the bags, or back to the loot window when they are full.
+ */
+function equipGear(s, ev, uid) {
+  const p = s.player;
+  const g = findGear(s, uid);
+  const old = p.equipped[g.item.slot];
+  p.equipped[g.item.slot] = g.item;
+  if (g.where === 'bag') {
+    if (old) p.bag[g.i] = old; else p.bag.splice(g.i, 1);
+  } else {
+    s.loot.splice(g.i, 1);
+    if (old && !addToBag(s, old)) s.loot.push(old);
+  }
+  refreshDerived(s);
+  clampAfterStatChange(s);
+  ev.push({ t: 'equip', item: g.item.uid, slot: g.item.slot, old: old ? old.uid : null });
+}
+
 function treeSpent(s, tree) {
   let n = 0;
   for (const [id, r] of Object.entries(s.player.talents)) if (TALENT[id].tree === tree) n += r;
@@ -13790,9 +13826,13 @@ const A = {
       if (!s.node || s.node.stage !== 'reward' || !s.node.rewards.length) return 'no reward to choose';
       const set = s.node.rewards[0];
       const n = set.kind === 'items' ? set.items.length : set.boons.length;
-      return !isInt(a.index) || a.index < 0 || a.index >= n ? `index must be 0-${n - 1}` : null;
+      if (!isInt(a.index) || a.index < 0 || a.index >= n) return `index must be 0-${n - 1}`;
+      // `equip` (Legacy bugs 2026-11-19): the chosen item is put on in the same step, before what follows the node (a
+      // Dimmed encounter starts at once when the node has dimmed, and EQUIP is refused in a fight)
+      if (a.equip && (set.kind !== 'items' || set.items[a.index].kind !== 'gear')) return 'equip: only a gear item';
+      return null;
     },
-    apply: (s, ev, a) => chooseReward(s, ev, a.index),
+    apply: (s, ev, a) => chooseReward(s, ev, a.index, a.equip ? (it) => equipGear(s, ev, it.uid) : null),
   },
   LOOT_TAKE: {
     check: (s, a) => {
@@ -13845,21 +13885,7 @@ const A = {
       const g = findGear(s, a.itemId);
       return !g ? 'item not in bag or loot window' : g.item.kind !== 'gear' ? 'not equipment' : null;
     },
-    apply: (s, ev, a) => {
-      const p = s.player;
-      const g = findGear(s, a.itemId);
-      const old = p.equipped[g.item.slot];
-      p.equipped[g.item.slot] = g.item;
-      if (g.where === 'bag') {
-        if (old) p.bag[g.i] = old; else p.bag.splice(g.i, 1);
-      } else {
-        s.loot.splice(g.i, 1);
-        if (old && !addToBag(s, old)) s.loot.push(old);
-      }
-      refreshDerived(s);
-      clampAfterStatChange(s);
-      ev.push({ t: 'equip', item: g.item.uid, slot: g.item.slot, old: old ? old.uid : null });
-    },
+    apply: (s, ev, a) => equipGear(s, ev, a.itemId),
   },
   UNEQUIP: {
     check: (s, a) => (!oocAllowed(s) ? 'not during a fight' : !SLOT_IDS.includes(a.slot) || !s.player.equipped[a.slot] ? 'nothing equipped there'
@@ -18812,6 +18838,8 @@ yield;
 // Content table: item base names per slot and level band (rules.md 8, 12). Plain data only (Content Designer).
 // Newcomer check 2026-11-15 (draft; s0126, a Mage's offhand named "Quiver of Rushes"): `offhand` is `{ AGI, INT, hunter }`:
 // shields for an Agility item, caster offhands (orbs, tomes) for an Intellect item, quivers for a Hunter's Agility item.
+// Legacy bugs 2026-11-19 (draft; blind returning player s0122, s0206: a Rogue offered a "Yew Shortbow" and shields):
+// `weapon.rogue` (the band's blades, no bows) and `offhand.rogue` (parrying blades) for a Rogue's Agility items.
 // The first name of each list is the band's old one; the other 36 are new (generic object names in each zone's words).
 const ITEM_NAMES = [
  {
@@ -18865,6 +18893,11 @@ const ITEM_NAMES = [
     "Hazel Wand",
     "Hazel Rod",
     "Elm Switch"
+   ],
+   "rogue": [
+    "Harvest Knife",
+    "Skinning Blade",
+    "Hedge Dagger"
    ]
   },
   "offhand": {
@@ -18882,6 +18915,11 @@ const ITEM_NAMES = [
     "Quiver of Rushes",
     "Boarhide Quiver",
     "Strawbound Quiver"
+   ],
+   "rogue": [
+    "Parrying Knife",
+    "Sickle Blade",
+    "Thresher's Dirk"
    ]
   }
  },
@@ -18936,6 +18974,11 @@ const ITEM_NAMES = [
     "Bog-Oak Staff",
     "Reed Rod",
     "Willow Staff"
+   ],
+   "rogue": [
+    "Gutting Hook",
+    "Fen Cutlass",
+    "Reedcutter's Knife"
    ]
   },
   "offhand": {
@@ -18953,6 +18996,11 @@ const ITEM_NAMES = [
     "Smuggler's Quiver",
     "Eelskin Quiver",
     "Stiltwalker's Quiver"
+   ],
+   "rogue": [
+    "Eel-Bone Knife",
+    "Mire Parrying Blade",
+    "Stiltwalker's Dirk"
    ]
   }
  },
@@ -19007,6 +19055,11 @@ const ITEM_NAMES = [
     "Stormwood Staff",
     "Rowan Wand",
     "Oakheart Staff"
+   ],
+   "rogue": [
+    "Reiver's Dirk",
+    "Heather Kris",
+    "Cairn Knife"
    ]
   },
   "offhand": {
@@ -19024,6 +19077,11 @@ const ITEM_NAMES = [
     "Hornquiver",
     "Heath-Stag Quiver",
     "Windbarrow Quiver"
+   ],
+   "rogue": [
+    "Heath Parrying Dirk",
+    "Cairnstone Knife",
+    "Raider's Off-Blade"
    ]
   }
  },
@@ -19078,6 +19136,11 @@ const ITEM_NAMES = [
     "Sunscribe Staff",
     "Glass Wand",
     "Sandglass Rod"
+   ],
+   "rogue": [
+    "Scimitar of Dust",
+    "Khopesh of Sand",
+    "Dune Fang Dagger"
    ]
   },
   "offhand": {
@@ -19095,6 +19158,11 @@ const ITEM_NAMES = [
     "Sandsilk Quiver",
     "Jackal-Hide Quiver",
     "Kharun Quiver"
+   ],
+   "rogue": [
+    "Sandglass Kris",
+    "Dune Parrying Blade",
+    "Jackal-Tooth Dagger"
    ]
   }
  },
@@ -19149,6 +19217,11 @@ const ITEM_NAMES = [
     "Ghostwood Staff",
     "Bone Wand",
     "Pale Yew Staff"
+   ],
+   "rogue": [
+    "Wraith Stiletto",
+    "Grave Cleaver",
+    "Lychgate Knife"
    ]
   },
   "offhand": {
@@ -19166,6 +19239,11 @@ const ITEM_NAMES = [
     "Quiver of Pale Arrows",
     "Mourner's Quiver",
     "Lychgate Quiver"
+   ],
+   "rogue": [
+    "Mourner's Dirk",
+    "Pale Parrying Blade",
+    "Bone-Hilt Knife"
    ]
   }
  },
@@ -19220,6 +19298,11 @@ const ITEM_NAMES = [
     "Pyrewood Staff",
     "Ash Wand",
     "Cinderwood Rod"
+   ],
+   "rogue": [
+    "Obsidian Stiletto",
+    "Cinder Hatchet",
+    "Slagglass Dirk"
    ]
   },
   "offhand": {
@@ -19237,6 +19320,11 @@ const ITEM_NAMES = [
     "Cinder Quiver",
     "Drakehide Quiver",
     "Emberwatch Quiver"
+   ],
+   "rogue": [
+    "Ember Dirk",
+    "Slag Parrying Blade",
+    "Forgehand Knife"
    ]
   }
  }
@@ -22266,7 +22354,8 @@ function contractSitesText(c, r, has = {}) {
   if (c.kind === 'delve') return `Its one site is ${c.dungeon || "the zone's dungeon"}. Holding this contract shows the dungeon on that zone's map.`;
   const see = `You see a site's mark on nodes in full view: within ${r.vision} ${plural(r.vision, 'hop')}${has.guide ? `, ${r.guide} more with the Local Guide` : ''}${has.tracker ? `; with Tracker's Notes within ${r.tracker} hops, on nodes you have not seen yet too` : ''}.`;
   if (c.kind === 'bounty') return `The elite waits at ${numWord(r.bountyPlaced)} Elite nodes of rings 2 and 3 in ${c.regionName || 'its region'}; win either. ${see}`;
-  return `Sites: Quest or Grind nodes, most of them in ${c.regionName || 'its region'}. ${see}`;
+  // Legacy bugs 2026-11-19 (s0133): which nodes count, exactly (contracts.js placeSites, siteWon): the marked ones only
+  return `Sites: only Quest or Grind nodes with this contract's mark count, most of them in ${c.regionName || 'its region'}; other fights there do not. ${see}`;
 }
 /** A contract's item choice in words: "choose 1 of 3: 80 % rare, 20 % epic" (the drop table's weights, R.prepView). */
 function contractItemsText(rw) {
@@ -23640,13 +23729,22 @@ function buildHeatSummary(sum, ctx) {
   const tot = ht.timeByState.reduce((a, b) => a + b, 0) || 1;
   const strip = h('div.hc-strip', { role: 'img', 'aria-label': `${HW.Units} in each state: ${STATES.map((s, i) => `${HEAT_NAME[s]} ${fmtTime(ht.timeByState[i])}`).join(' · ')}` },
     STATES.map((s, i) => (ht.timeByState[i] > 0 ? h('i', { dataset: { hs: s }, style: { flexGrow: String(ht.timeByState[i] / tot) } }) : null)));
+  // Legacy bugs 2026-11-19 (s0059: the card's last line under the buttons at 1366x768): the chart's caption and the end line
+  // share a row, and the chart is lower (HT), so the summary fits without a scroll in the common case
   card.appendChild(h('div.hc-head', h('h3', HW.Name), h('div.hc-time', strip,
-    h('span.hc-leg', `${HW.Units} in each state: `, STATES.map((s, i) => h('span', h('i.ht-dot', { dataset: { hs: s } }), `${HEAT_NAME[s]} ${fmtTime(ht.timeByState[i])}`)))), h('span.hc-end', endLine)));
-  card.appendChild(h('div.hc-cap', `${HW.Units} overspent (above 0) or to spare (below), per zone`));
+    h('span.hc-leg', `${HW.Units} in each state: `, STATES.map((s, i) => h('span', h('i.ht-dot', { dataset: { hs: s } }), `${HEAT_NAME[s]} ${fmtTime(ht.timeByState[i])}`))))));
+  card.appendChild(h('div.hc-sub', h('div.hc-cap', `${HW.Units} overspent (above 0) or to spare (below), per zone`), h('span.hc-end', endLine)));
   card.appendChild(heatChart(recs, H, zc));
   const hotNodes = ht.nodesByState[2] + ht.nodesByState[3];
   const hotFights = ht.fightsByState[2] + ht.fightsByState[3];
-  card.appendChild(h('div.hc-foot', `Nodes entered: ${STATES.map((s, i) => `${ht.nodesByState[i]} ${HEAT_NAME[s]}`).join(' · ')}. Fights won in heat: ${hotFights}${hotNodes ? '' : ` (no node entered ${HEAT_NAME.hot} or ${HEAT_NAME.scorched})`}. Hover a point for its ${HW.units}.`));
+  // Legacy bugs 2026-11-19 (blind returning player s0059: "0 Infernal" after the meter had shown Infernal): a node counts in
+  // the state it was entered in, so only the states with nodes are named; the Dimming (Infernal where it stands) has its
+  // own count, the Dimmed encounters
+  const entered = STATES.map((s, i) => [s, ht.nodesByState[i]]).filter(([, n]) => n > 0);
+  const nodesLine = entered.length ? `Nodes entered, by the state you entered them in: ${entered.map(([s, n]) => `${n} ${HEAT_NAME[s]}`).join(' · ')}.` : 'No node entered.';
+  const dim = ht.dimFights || 0;
+  const dimLine = dim ? ` The Dimming caught you ${dim === 1 ? 'once' : `${dim} times`} (${HEAT_NAME.scorched} where it stands).` : '';
+  card.appendChild(h('div.hc-foot', `${nodesLine} Fights won in heat: ${hotFights}${hotNodes ? '' : ` (no node entered ${HEAT_NAME.hot} or ${HEAT_NAME.scorched})`}.${dimLine} Hover a point for its ${HW.units}.`));
   return card;
 }
 
@@ -23654,7 +23752,7 @@ function buildHeatSummary(sum, ctx) {
  * at each new zone (the line moves ahead). Hover a point for its numbers; the last value is labelled at its end. */
 function heatChart(recs, H, zc) {
   const NS = 'http://www.w3.org/2000/svg';
-  const W = 880; const HT = 122; const L = 64; const R = 54; const T = 8; const B = 28;
+  const W = 880; const HT = 100; const L = 64; const R = 54; const T = 8; const B = 28;
   const vals = recs.flatMap((r) => [r.a, r.b]);
   const lo = Math.min(H.barMin, Math.floor(Math.min(...vals) / 10) * 10); const hi = Math.max(H.barMax, Math.ceil(Math.max(...vals) / 10) * 10);
   const y = (v) => T + ((hi - v) / (hi - lo)) * (HT - T - B);
@@ -24721,7 +24819,9 @@ function engineBackend(seedOpt, runOpts = {}) {
       // heat (rules 1.7.4, engine-api.md 11.3): the zone track, tolls / nodes / fights won by state, the Echo line's
       // Echoes; par: the run's boss par (R.bossPar) for "tolls over par"
       heat: sm.heat ? { trackPerZone: sm.heat.trackPerZone.map((r) => ({ ...r })), timeByState: [...sm.heat.timeByState], nodesByState: [...sm.heat.nodesByState],
-        fightsByState: [...sm.heat.fightsByState], echoHeat: sm.heat.echoHeat || 0 } : null,
+        fightsByState: [...sm.heat.fightsByState], echoHeat: sm.heat.echoHeat || 0,
+        // Legacy bugs 2026-11-19 (s0059): the Dimmed encounters (expedition.dimFights), where the meter read Infernal
+        dimFights: (sm.expedition && sm.expedition.dimFights) || 0 } : null,
       par: R.bossPar(s), reachedCamp: !!z.camp, reachedBoss: !!sm.reachedBoss,
       echoTotal: sm.echoes ? sm.echoes.total : 0,
       // Oaths (rules 11.5): the engine's multiplier on the sum of the lines
@@ -25033,7 +25133,8 @@ function engineBackend(seedOpt, runOpts = {}) {
         case 'gold': if (e.amount > 0 && e.why !== 'sell') out.push({ t: 'gold', amount: e.amount, why: e.why, heat: e.heat || 0 }); break; // a sale says its price itself
         case 'loot': out.push({ t: 'gotItem', name: e.item.name || (C.CONSUMABLE[e.item.id] || {}).name || 'item', rarity: e.item.rarity || 'common', to: e.to, heatUp: local.heatUp.get(e.item.uid) || null }); break;
         case 'victory': out.push({ t: 'victory' }); break;
-        case 'abandon': out.push({ t: 'msg', text: 'You abandon the run.', kind: 'info' }); break; // Legacy (draft line)
+        // Legacy (draft line); bugs 2026-11-19 (s0236, s0247): a log line only, no toast over the summary
+        case 'abandon': out.push({ t: 'msg', text: 'You abandon the run.', kind: 'info', quiet: true }); break;
         case 'fled': out.push({ t: 'flee', ok: true }); break;
         case 'questComplete': out.push({ t: 'msg', text: 'Quest complete!', kind: 'good' }); break;
         case 'story': out.push({ t: 'msg', text: 'Zone story complete: a rare reward awaits.', kind: 'good' }); break;
@@ -25141,7 +25242,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     switch (a.type) {
       case 'HUB_SERVICE': return { type: 'SERVICE', service: a.service };
       case 'CONTINUE': return { type: 'NEXT_FIGHT' };
-      case 'CHOOSE_REWARD': return { type: 'CHOOSE_REWARD', index: a.i };
+      case 'CHOOSE_REWARD': return a.equip ? { type: 'CHOOSE_REWARD', index: a.i, equip: true } : { type: 'CHOOSE_REWARD', index: a.i }; // equip: Legacy bugs 2026-11-19
       case 'BUY': return { type: 'BUY', index: a.i };
       case 'SELL': return { type: 'SELL', itemId: a.uid };
       case 'EQUIP': return { type: 'EQUIP', itemId: a.uid };
@@ -29042,15 +29143,17 @@ function contractTip(c, ctx, opts = {}) {
 }
 /**
  * D150 item 14 (the owner-approved cut list; Lead 2026-11-14): a start-camp offer's tooltip, three sentences under its
- * name: "Win 2 Quest or Grind fights in Barleyreach Verge. Reward: about 3 levels of XP, 3s 12c and 1 of 3 items. Cost: 2
- * points." (a Cull's sites are Quest or Grind nodes, contracts.js isSiteType), and why it cannot be taken when it cannot.
+ * name: "Win 2 of its marked sites: Quest or Grind nodes that carry its mark on the map, most of them in Barleyreach Verge.
+ * Other fights do not count. Reward: about 3 levels of XP, 3s 12c and 1 of 3 items. Cost: 2 points." (a Cull's sites are
+ * the Quest or Grind nodes placeSites marked, contracts.js; Legacy bugs 2026-11-19, s0133: it said "Win 2 Quest or Grind
+ * fights in ..."), and why it cannot be taken when it cannot.
  * The held contracts keep contractTip (sites, progress, state).
  */
 function boardTip(o, ctx, opts = {}) {
   const rw = o.reward || {};
   const what = o.kind === 'delve' ? `Clear ${o.dungeon || "the zone's dungeon"}, its boss included.`
     : o.kind === 'bounty' ? `Hunt down ${o.name || 'a named elite'} in ${o.regionName || 'its region'}.`
-      : `Win ${o.need} Quest or Grind ${plural(o.need, 'fight')} in ${o.regionName || 'its region'}.`;
+      : `Win ${o.need} of its marked sites: Quest or Grind nodes that carry its mark on the map, most of them in ${o.regionName || 'its region'}. Other fights do not count.`;
   const lv = rw.xpFrac || 0; const n = lv >= 1 ? Math.round(lv) : Math.round(lv * 10) / 10;
   const pay = [legacyShown() && typeof rw.xp === 'number' ? `about ${xpPayText(rw)}` : `about ${n} ${n === 1 ? 'level' : 'levels'} of XP`, rw.gold ? moneyEl(rw.gold) : null, rw.choices ? `1 of ${rw.choices} items` : null].filter(Boolean);
   const list = pay.flatMap((x, i) => (i === 0 ? [x] : [i === pay.length - 1 ? ' and ' : ', ', x]));
@@ -29076,9 +29179,13 @@ function optionTip(o, ctx, key, why) {
 // ------------------------------------------------------------------ the prep screen
 /** The contract's headline: the family (Cull), the elite (Bounty) or the dungeon (Delve), capitalised. */
 const cardTitle = (o, content) => cap1(o.kind === 'delve' ? o.dungeon || "the zone's dungeon" : o.kind === 'bounty' ? o.name || 'a named elite' : familyName(o.family, content));
-/** What to do, one line (D128): "Win 2 sites in Millbrook Steadings", "Hunt it in ...", "Clear it, boss included". */
+/**
+ * What to do, one line (D128): "Win 2 marked sites in Millbrook Steadings", "Hunt it in ...", "Clear it, boss included".
+ * Legacy bugs 2026-11-19 (blind returning player s0133: "never counted ordinary fights in the region"): only the nodes that
+ * carry the contract's mark count (contracts.js siteWon), so the line says "marked" and the tooltip says which nodes.
+ */
 const doLine = (o) => (o.kind === 'delve' ? 'Clear the dungeon, its boss included'
-  : o.kind === 'bounty' ? `Hunt it down in ${o.regionName || 'its region'}` : `Win ${o.need} ${plural(o.need, 'site')} in ${o.regionName || 'its region'}`);
+  : o.kind === 'bounty' ? `Hunt it down in ${o.regionName || 'its region'}` : `Win ${o.need} marked ${plural(o.need, 'site')} in ${o.regionName || 'its region'}`);
 
 /**
  * The start camp screen (expedition.md 9.1; D128, owner playtest 2026-11-12 20:19: "strip it ... 3 simple choices"): one
@@ -29095,7 +29202,9 @@ function createPrepScreen(v, ctx) {
   // D152 (changes-m3-v2.md 1.2-1.3): a lean first run (prepView.first) has no board, no contract slots and no Reserve: the
   // camp shows its two supplies, the points left and, over Set out, what unspent points pay (content prep.unspentFirst)
   const first = !!pv0.first;
-  const zone1 = (pv0.board.find((o) => o.z === 1) || pv0.board[0] || {}).zoneName || ctx.data.zone1Name || 'the first zone';
+  // Legacy bugs 2026-11-19 (blind returning player s0241): every run sets out for zone 1, so its name comes from the content;
+  // the board's first offer named "the road to Greywater Fens" when the board held no zone 1 contract
+  const zone1 = ctx.data.zone1Name || (pv0.board.find((o) => o.z === 1) || {}).zoneName || 'the first zone';
   const nB = pv0.board.length; const nO = pv0.options.length;
   root.classList.toggle('first', first);
   root.appendChild(h('div.pp-head',
@@ -29301,7 +29410,7 @@ function trackerContracts(v, ctx) {
   for (const c of here) {
     const el = h('div.tk-c' + (c.status === 'complete' ? '.done' : c.status === 'expired' ? '.gone' : ''), { dataset: { contract: c.id, status: c.status }, style: { '--cc': colors.get(c.id) || OFF_COLOR } },
       h('span.t', h('i.dot'), contractTitle(c, ctx.data.content)), h('span.pr', progressText(c)));
-    tip(el, () => contractTip(c, ctx, { status: STATUS_WORD[c.status], progress: c.status === 'active' ? `Sites won: ${c.progress} of ${c.need}. The map marks the sites you see.` : null,
+    tip(el, () => contractTip(c, ctx, { status: STATUS_WORD[c.status], progress: c.status === 'active' ? `Sites won: ${c.progress} of ${c.need}. Only nodes with its mark count; the map marks the sites you see.` : null,
       warn: c.status === 'active' ? 'Expires when you leave this zone (a Road or the Bell): no reward.' : null }));
     out.push(el);
   }
@@ -29986,6 +30095,29 @@ function createHud(root, ctx) {
       el.style.left = `${Math.round(an.steadyX ?? an.x)}px`;
       el.style.top = `${Math.round(an.top - 4)}px`;
     }
+    if ((npTick = (npTick + 1) % 8) === 0) trackerYield();
+  }
+  let npTick = 0;
+  /**
+   * Legacy bugs 2026-11-19 (blind returning player s0096: the contract tracker lay over an enemy's intent icons): while a
+   * shown nameplate (its track, wind-up line and badges) meets the tracker, the tracker gives way (#tracker.yield, style.css)
+   * until the plates move clear. Checked every few frames; the tracker keeps its place, so the test does not flicker.
+   */
+  function trackerYield() {
+    const t = els.tracker;
+    const live = npEls.size && t.childElementCount && !t.classList.contains('hidden') && !t.classList.contains('dimmed');
+    let hit = false;
+    if (live) {
+      const r = t.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        for (const el of npEls.values()) {
+          if (el.style.opacity === '0') continue;
+          const q = el.getBoundingClientRect();
+          if (q.width > 0 && q.left < r.right && q.right > r.left && q.top < r.bottom && q.bottom > r.top) { hit = true; break; }
+        }
+      }
+    }
+    if (t.classList.contains('yield') !== hit) t.classList.toggle('yield', hit);
   }
 
   function updateBar(v) {
@@ -32788,9 +32920,12 @@ function buildReward(v, ctx) {
     const eq = offer ? h('button.btn.small.eqnow', { type: 'button', dataset: { uid: it.uid } }, 'Equip now') /* not .primary: Space keeps choosing nothing here */ : null;
     const c = h('div.icard', h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name, it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', `${cap(it.slot)} · item level ${lv(it.ilvl)}`), h('div.stats', stats || ' '), h('div.upg.' + (up > 0 || !p.equip[it.slot] ? 'good' : 'muted'), up > 0 ? `▲ Upgrade (+${Math.round(up * 10) / 10})` : !p.equip[it.slot] ? '▲ Empty slot' : 'Not an upgrade'), eq));
     c.addEventListener('click', () => ctx.act({ type: 'CHOOSE_REWARD', i }));
+    // Legacy bugs 2026-11-19 (blind returning player s0044, s0160): the engine puts it on in the choice's own step
+    // (CHOOSE_REWARD `equip`), before a Dimmed encounter that starts at once, and from the loot window when the bags are
+    // full; the EQUIP after it is for an engine without the option (the mock), and sends nothing once the item is worn
     if (eq) eq.addEventListener('click', (e) => {
       e.stopPropagation();
-      ctx.act({ type: 'CHOOSE_REWARD', i });
+      ctx.act({ type: 'CHOOSE_REWARD', i, equip: true });
       ctx.act(() => { const b = ctx.bridge.view.player; return b && b.bag.some((x) => x && x.uid === it.uid) ? { type: 'EQUIP', uid: it.uid } : null; });
     });
     tip(c, () => itemTip(it, ctx, { hint: eq ? 'Click to choose this reward · Equip now: choose it and put it on' : 'Click to choose this reward' }), { avoid: '.choice-cards .icard' }); // blind round 2 (skipper s0045): not over another card's Equip now
@@ -32917,7 +33052,9 @@ function buildSummary(v, ctx) {
     // Legacy (legacy.md 1.5, 4.1; draft line): the hero's levels and the hero XP of the run, kept whatever the outcome
     ...(s.hero ? [['Hero', h('span.s-hero', { dataset: { from: String(s.hero.from), to: String(s.hero.level), xp: String(s.hero.xpGained) } }, `Level ${s.hero.from}${s.hero.level !== s.hero.from ? ` → ${s.hero.level}` : ''} · +${fmtNum(s.hero.xpGained)} XP`)]] : []),
     [HEAT_WORDS.Units, fmtTime(s.time)], ['Oruvath', s.asc ? `+${Math.round(s.asc * 100)} % health and damage` : 'No stronger'],
-    ['Estimated time', `${s.estMinutes.manual} min manual · ${s.estMinutes.auto} min autoplay`], ['Fights', `${s.fights} (${s.rounds} rounds)`], ['Seed', String(s.seed)],
+    // Legacy bugs 2026-11-19 (blind returning player s0247): no time estimate for a run without a fight (it was the model's
+    // fixed set-up time, "2 min manual · 2 min autoplay")
+    ...(s.fights > 0 ? [['Estimated time', `${s.estMinutes.manual} min manual · ${s.estMinutes.auto} min autoplay`]] : []), ['Fights', `${s.fights} (${s.rounds} rounds)`], ['Seed', String(s.seed)],
     // the killing blow by its display name (the bridge's actionName; without a name only the killer)
     ...(s.death && s.death.abandoned ? [['Ended', h('span.killed.abandoned', 'Abandoned from the menu')], ['Where', `${s.death.node || s.zone}${s.death.round != null ? `, round ${s.death.round}` : ''}`]] : []),
     ...(s.death && !s.death.abandoned ? [['Killed by', h('span.killed', { dataset: { ability: s.death.ability || '' } }, s.death.ability ? `${s.death.killer} (${s.death.ability})` : s.death.killer)], ['Where', `${s.death.node}, round ${s.death.round}`]] : []),
@@ -33968,7 +34105,7 @@ class Director {
             hud.log(e.on ? linkedText(R, 'log') : 'The link is broken.', 'lg-warn'); await W(tm.wait); break;
           }
           case 'gold': hud.log(`You receive ${fmtNum(e.amount)} copper${e.heat ? ` (+${fmtNum(e.heat)} from heat)` : ''}.`, 'lg-loot'); break;
-          case 'msg': ctx.ui.toast(e.text, e.kind === 'warn' ? 'err' : e.kind || 'info'); hud.log(e.text, e.kind === 'warn' ? 'lg-warn' : 'lg-sys'); break;
+          case 'msg': if (!e.quiet) ctx.ui.toast(e.text, e.kind === 'warn' ? 'err' : e.kind || 'info'); hud.log(e.text, e.kind === 'warn' ? 'lg-warn' : 'lg-sys'); break; // quiet: the log only
           case 'rest': scene.aura('player', '#ffd8a0', 1.4); scene.float('player', 'Rested', { color: '#9fb8ff', size: 22 }); hud.log('You rest. Health and mana restored; you feel rested.', 'lg-sys'); await W(500); break;
           case 'chest': ctx.ui.chestOpen = true; ctx.syncScene(next); scene.burst(scene.W * 0.62, scene.groundY - 40 * scene.u, themeToken('--accent-pale'), 30, 160, { up: 80 }); await W(500); break;
           case 'trap': break;
@@ -33984,7 +34121,8 @@ class Director {
           default: break;
         }
       }
-      if (next.phase === 'SUMMARY' && prev.phase !== 'SUMMARY' && next.summary && next.summary.outcome === 'death') await this.deathScreen(token, deathLine(next));
+      // Legacy bugs 2026-11-19: a run abandoned from the menu ends as a death, but no "You have died" over it
+      if (next.phase === 'SUMMARY' && prev.phase !== 'SUMMARY' && next.summary && next.summary.outcome === 'death' && !(next.summary.death && next.summary.death.abandoned)) await this.deathScreen(token, deathLine(next));
       if (next.phase === 'SUMMARY' && next.summary && next.summary.outcome === 'victory' && prev.phase !== 'SUMMARY') { ctx.ui.banner('Victory', 'Oruvath is no more.', 'boss', 3000); await WM(2200); }
     } finally {
       ctx.ui.overlay = false;
@@ -35207,6 +35345,9 @@ class App {
     if (!this.director.playing) this.windows.update();
     this.coach.update(this.bridge.view);
     this.devMenu.update(this.bridge.view);
+    // Legacy bugs 2026-11-19 (blind returning player s0236, s0247): the run summary opens clear of toasts (their lines are
+    // in the log); "You abandon the run." lay over the Deeds card
+    if (v.phase === 'SUMMARY' && document.body.dataset.phase !== 'SUMMARY') this.clearToasts();
     document.body.dataset.phase = v.phase;
     // a fight on screen (the toasts move below the opening ruler, clear of the target frame; in the end-boss fight under the
     // boss frame, between the target frame and the boss's nameplate; style.css)
@@ -35424,6 +35565,12 @@ class App {
     // no gap at its height (moving it up or down would put it on the Furnace, the frames or the action bar): it stays
     // where it is, under the windows
     el.classList.add('under-wins');
+  }
+  /** Every toast on screen and waiting goes at once. */
+  clearToasts() {
+    this.toastQueue.length = 0;
+    for (const t of [...this.toasts.children]) { clearTimeout(t._toastT); t.remove(); }
+    this.placeToasts();
   }
   /** A toast leaves after TOAST_MS; the next queued one takes its place while there is room. */
   armToast(t) {
