@@ -4571,7 +4571,7 @@ async function partS(browser, W, H) {
           await page.locator('#screens .choice-cards .eqnow').first().click(); await idle(page);
           const acts = (await page.evaluate(() => window.__ui.engineLog())).slice(n0);
           const worn = await page.evaluate((u) => Object.values(window.__ui.view().player.equip).some((x) => x && x.uid === u), uid);
-          eqNow = { uid, acts: acts.map((a) => `${a.type}${a.itemId ? `:${a.itemId}` : ''}`), worn };
+          eqNow = { uid, acts: acts.map((a) => `${a.type}${a.itemId ? `:${a.itemId}` : ''}${a.equip ? ':equip' : ''}`), worn };
           continue;
         }
         // the camp's Set out as its button sends it (AUTO sends autoplay's choice inside its own step, which the hub's
@@ -4587,7 +4587,9 @@ async function partS(browser, W, H) {
       check('D143-1', `a toast when the Roads open ("${T.guide.roadsOpenLine}")`, Array.isArray(roadsOpened) && roadsOpened.some((x) => x.startsWith(T.guide.roadsOpenLine)), JSON.stringify(roadsOpened));
       check('S-3', `Gorrak's barred node next to the player has a tooltip: titled "Gorrak the Fieldbreaker" (mapView name; engine-2026-11-15 UI need 3), "${DB_LINE}" (D150 item 23), the gate line, no "Click to enter", no "Not here yet.", no error`, !!barredTip && !!barredTip.text && /^Gorrak the Fieldbreaker/.test(barredTip.text) && barredTip.text.includes(DB_LINE) && barredTip.text.includes('Gorrak is out on the downs') && !/Click to enter|Not here yet/.test(barredTip.text) && barredTip.errors === 0, JSON.stringify(barredTip));
       check('S-5', 'the Furnace header fits its frame when the Dimming sets the state: "State · The Dimming is near" or "Infernal · You stand in the Dimming" (D152; newcomer check 2026-11-15)', !!furnace && furnace.sw <= furnace.cw + 1 && furnace.inside && /^(Calm|Smouldering|Burning|Infernal)\s*·\s*(The Dimming is near|You stand in the Dimming)/i.test(furnace.text) && !/to spare|overspent/.test(furnace.text), JSON.stringify(furnace));
-      check('S-9', 'a reward that is an upgrade offers "Equip now": one click sends CHOOSE_REWARD then EQUIP of that item, and it is worn', !!eqNow && eqNow.acts.length === 2 && /^CHOOSE_REWARD/.test(eqNow.acts[0]) && eqNow.acts[1] === `EQUIP:${eqNow.uid}` && eqNow.worn, JSON.stringify(eqNow));
+      // Legacy bugs 2026-11-19 (engine-2026-11-19b): one CHOOSE_REWARD with `equip` (worn in the same step; it was CHOOSE_REWARD
+      // then EQUIP, which a Dimmed encounter starting at once refused)
+      check('S-9', 'a reward that is an upgrade offers "Equip now": one click sends CHOOSE_REWARD with equip, and the item is worn', !!eqNow && eqNow.acts.length === 1 && eqNow.acts[0] === 'CHOOSE_REWARD:equip' && eqNow.worn, JSON.stringify(eqNow));
       check('S-10', `no wind-up line over an enemy prints "null" (${wub.length} seen, ${wub.filter((x) => !/Deathblow/.test(x)).length} not a Deathblow, to ${z2Steps} steps into zone 2)`, plainWu() && !wub.some((x) => /null/.test(x)), [...new Set(wub)].slice(0, 6).join(' | '));
       check('S-1', 'the guided run reached zone 2', zone2, '');
       // D144 (engine-2026-11-13d UI need 1): at level 1 the trainer has nothing to teach (R.trainerView useful false), so the
