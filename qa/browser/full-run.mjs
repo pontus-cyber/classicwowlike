@@ -481,6 +481,7 @@ async function playOne(browser, W, H, cls) {
     if (await seedBox.isVisible()) await seedBox.fill(String(seed));
     await click(button('Enter the world'), 'Enter the world');
     for (const a of [{ type: 'SET_NAME', name }, { type: 'SET_SEED', seed }, { type: 'START_RUN' }]) s = R.step(s, a).state;
+    const startHero = s.player.heroLevel;
     let v = await view();
     if (v.phase !== (EXP ? 'PREP' : 'ZONE_HUB')) throw new Error(`after Enter the world the phase is ${v.phase}`);
     await shotFirst(EXP ? 'prep' : 'hub');
@@ -534,7 +535,9 @@ async function playOne(browser, W, H, cls) {
         continue;
       }
       if (v.node && v.node.step === 'rest' && !s.service) { await click(button('Continue'), 'rest Continue'); continue; }
-      if (v.node && v.node.step === 'chest') { await click(button('Open the chest'), 'Open the chest'); continue; }
+      // the chest's dialog comes after the guardian's loot: with full bags its items wait in the loot window (the twin's
+      // s.loot), which the policy clears first (qa-2026-11-19b, hunter seed 1: "cannot click Open the chest")
+      if (v.node && v.node.step === 'chest' && !(s.loot && s.loot.length)) { await click(button('Open the chest'), 'Open the chest'); continue; }
       if ((v.loot && (v.loot.kind === 'reward' || v.loot.kind === 'story'))) await shotFirst(`reward-${v.loot.kind}`);
       // Autoplay fights: the game acts on its own; wait, then step the twin with the same policy.
       if (s.fight && autoplay && !autoplayBroken) {
@@ -605,6 +608,8 @@ async function playOne(browser, W, H, cls) {
       res.summary = v.summary;
       res.outcome = v.summary && v.summary.outcome;
       res.reached = twin.reached;
+      // Legacy (legacy.md 1.2): the summary's level is the power level (1-60); the hero level is the one the player sees
+      if (LEGACY) res.hero = { from: startHero, to: s.player.heroLevel, power: s.player.level };
       const ds = diff(v.summary, res.twinSummary, 'summary');
       if (ds.length) res.divergences.push({ step: res.steps, before: 'summary', diffs: ds });
       const text = await page.locator('#screens .summary').innerText();
@@ -628,7 +633,11 @@ async function playOne(browser, W, H, cls) {
   res.ms = Date.now() - t0;
   await context.close();
   res.ok = !res.problems.length && !res.divergences.length && !res.consoleErrors.length && !res.pageErrors.length && !res.requests.length && !res.failedRequests.length && !res.layout.length && !!res.summary;
-  log(`${tag}: ${res.ok ? 'PASS' : 'FAIL'} ${res.outcome || '-'} level ${res.summary ? res.summary.level : '?'} at ${res.reached ? (res.reached.camp ? 'camp/boss' : `zone ${res.reached.zone} row ${res.reached.row}`) : '?'}; ${res.steps} decisions, ${res.uiActions} clicks and keys (${res.keys} keys), ${(res.ms / 1000).toFixed(0)} s; console errors ${res.consoleErrors.length}, page errors ${res.pageErrors.length}, requests ${res.requests.length}, divergences ${res.divergences.length}, layout ${res.layout.length}${res.problems.length ? `; problems: ${res.problems.join(' | ')}` : ''}`);
+  // Legacy runs print the hero level (power level in brackets, qa-2026-11-19b: "level 8" was the power level of a hero 4);
+  // the expedition map has no rows (stats.maxRow stays 0), so only the classic map prints one
+  const lvl = res.hero ? `hero level ${res.hero.from} → ${res.hero.to} (power ${res.hero.power})` : `level ${res.summary ? res.summary.level : '?'}`;
+  const where = res.reached ? (res.reached.camp ? 'camp/boss' : `zone ${res.reached.zone}${EXP ? '' : ` row ${res.reached.row}`}`) : '?';
+  log(`${tag}: ${res.ok ? 'PASS' : 'FAIL'} ${res.outcome || '-'} ${lvl} at ${where}; ${res.steps} decisions, ${res.uiActions} clicks and keys (${res.keys} keys), ${(res.ms / 1000).toFixed(0)} s; console errors ${res.consoleErrors.length}, page errors ${res.pageErrors.length}, requests ${res.requests.length}, divergences ${res.divergences.length}, layout ${res.layout.length}${res.problems.length ? `; problems: ${res.problems.join(' | ')}` : ''}`);
   for (const d of res.divergences) log(`   divergence at step ${d.step} (${d.before}): ${d.diffs.join('; ')}`);
   for (const l of res.layout) log(`   layout: ${l}`);
   for (const e of [...res.consoleErrors, ...res.pageErrors]) log(`   error: ${e}`);

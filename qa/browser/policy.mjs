@@ -220,7 +220,10 @@ function campAction(s) {
   const p = s.player;
   const hub = hubAction(s);
   if (hub && hub.service !== 'inn') return hub;
-  if (p.level < C.MAX_LEVEL) {
+  // Legacy (legacy.md 5.8 item 4, as autoplay.js campPolicy): no Camp grind to MAX_LEVEL. Economy v2 pays a Camp wave the
+  // same XP at every hero level (4.7 E2: 96 XP), so the old rule ground 600-670 waves (about 1 200 pace minutes) and left
+  // the Camp at hero 25 in one run (qa-2026-11-19b)
+  if (p.level < C.MAX_LEVEL && !s.legacy) {
     if (hpF(s) < 0.5 && !s.hub.used.inn) return { type: 'SERVICE', service: 'inn' };
     return { type: 'CAMP_GRIND' };
   }
