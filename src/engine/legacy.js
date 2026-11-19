@@ -1,6 +1,6 @@
 // Legacy progression, phase 1 (D154-D155; docs/specs/legacy.md 1, 2, 4.1, 4.6, 5.1, draft for owner steering): the
 // persistent hero per class on a version 3 profile, the power level of a hero level and the level shown for a power
-// level, hero XP to the next level, the profile migration (Echoes become Legacy points), the zones' bands at the hero's
+// level, hero XP to the next level, the profile migration (Echoes become Legacy points; D160: the old hall refunded once), the zones' bands at the hero's
 // level, the Camp's level, the zone tier's damage, the content and item level caps, and Oruvath's scaling (one function,
 // oruvathScale, over the one constants block of legacy.md 2.4, so the Designer's rework of the fight replaces it in one
 // place). Played only by a run created while C.GATES.legacy is on (newRun marks it: state.legacy); every helper here that
@@ -125,7 +125,7 @@ export function legacyProfile(profile) {
     if (typeof p.legacy !== 'number') p.legacy = 0;
     if (!p.heroes || typeof p.heroes !== 'object') p.heroes = {};
     for (const c of Object.keys(p.heroes)) if (!CLASS_IDS.includes(c) || !p.heroes[c]) delete p.heroes[c];
-    return p;
+    return hallRefund(p);
   }
   const unlocks = p.unlocks || {};
   const satchel = (unlocks.satchel || 0) > 0;
@@ -136,6 +136,22 @@ export function legacyProfile(profile) {
   delete p.echoes;
   p.heroes = {};
   p.v = 3;
+  return hallRefund(p);
+}
+
+/**
+ * D160 (legacy.md 4.7 E5, draft): the first time a version 3 profile is read with GATES.economyV2 on, every Legacy point it
+ * spent under the old catalogue comes back (`legacy` += `spent`, `spent` 0) and its purchases are cleared (`unlocks` {},
+ * Packed Satchel included: the v2 hall sells it again); `hallV2` true marks the profile so it happens once. A profile made
+ * or migrated with the switch on gets the mark at once (nothing of it was bought under the old catalogue). Off: unchanged.
+ * Mutates and returns p (legacyProfile's own copy).
+ */
+function hallRefund(p) {
+  if (!GATES.economyV2 || p.hallV2 === true) return p;
+  p.legacy = (p.legacy || 0) + (p.spent || 0);
+  p.spent = 0;
+  p.unlocks = {};
+  p.hallV2 = true;
   return p;
 }
 

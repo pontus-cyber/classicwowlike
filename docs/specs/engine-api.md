@@ -1251,9 +1251,14 @@ Read at each use, as `oruvathLegacy` (legacy.js `econV2(state)`: `state.legacy` 
   techniques per class as six ids: 18 offers) at the E5 prices, with the effects of 4.2 (Vigor / Edge +1 % and Quick Study +5 %
   a rank, two ranks; Deeper Pockets one rank); `buyMeta` sells only those. A Legacy run reads its effects from `META_HERO`; a
   rank the profile holds of a retired entry (Keen Lineage, ...) has no effect, and a rank above META_HERO's counts as its top
-  rank (no refund). The level-20 wing (`C.TREE_OPEN_COST` 250 / 300, `C.ARMOURY_COST` 150, from `C.TREE_OPEN_LEVEL`) is not
+  rank. The level-20 wing (`C.TREE_OPEN_COST` 250 / 300, `C.ARMOURY_COST` 150, from `C.TREE_OPEN_LEVEL`) is not
   sold until phases 4-5 build what it opens. A UI card's text reads `C.META_HERO[id]` (ranks, costs, hpPct, ...) for a
   version 3 profile.
+- The refund (D160): the first time `migrateProfile` (or `newRun`, `newProfile`, which read it) sees a version 3 profile with
+  the switch on, every Legacy point it spent under the old catalogue comes back (`legacy` += `spent`, `spent` 0) and its
+  purchases are cleared (`unlocks` {}, Packed Satchel included); the profile gets `hallV2: true`, so it happens once. A profile
+  made, or migrated from version 1 (4.6), with the switch on is marked at once (every Echo spent back, nothing kept). With the
+  switch off no profile changes. The UI shows what came back once (the class select's refund note).
 - Clarity (E6): content `texts.economy` (ids `C.ECONOMY_TEXT_IDS`, placeholders `C.ECONOMY_TEXT_NEEDS`, SCHEMA.md 2.10) and,
   under the switch, `tutorial.prep.unspentFirst` reads "Camp points you do not spend are lost." The `levelUp` event already
   carries `heroLevel`, `talentPoints`, `maxHp`, `hpGain`, `maxMana`, `manaGain` for the banner.

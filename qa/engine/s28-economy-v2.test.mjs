@@ -2,7 +2,7 @@
 // (off by default), in Legacy runs only (D158). One test or more per rule: the switch and its scope; E1 (camp points kept pay
 // nothing, a zone left pays 10; LE1); E2 (XP against the level of the place: zone band, the Camp, contracts; LE2); E3 (zone
 // 1's lag); E4 (HERO_XP 1-3); E5 (the hall a version 3 profile is sold and the effects a Legacy run reads); E6 (content
-// lines, draft); the golden runs with the switch off (Legacy runs as on 708841f; level-60 runs as on 9a79dee with it on).
+// lines, draft); D160 (the old catalogue refunded once); the golden runs with the switch off (Legacy runs as on 708841f; level-60 runs as on 9a79dee with it on).
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -277,6 +277,48 @@ describe('legacy.md 4.2, 4.7 E5: the hall, re-priced', () => {
     // the same profile in a Legacy run without the switch, and a level-60 run with it, read META
     const old = gates({ legacy: true, economyV2: false }, () => heroRun('rogue', 6, 3, true, { ...later(), unlocks: u }));
     assert.deepEqual([old.meta.hpPct, old.meta.crit], [4 * C.META.vigor.hpPct, 2 * C.META.keen.crit]);
+  }));
+});
+
+describe('D160: the refund of the old catalogue (legacy.md 4.7 E5)', () => {
+  // a version 3 profile that bought entries under the old catalogue (GATES.legacy on, economyV2 off)
+  const oldBuyer = () => gates({ legacy: true, economyV2: false }, () => {
+    let p = { ...R.newProfile(), legacy: 900, runs: 3, welcome: true, guide: 'done' };
+    for (const id of ['satchel', 'vigor', 'vigor', 'keen', 'quick_study']) p = R.buyMeta(p, id);
+    return p;
+  });
+  test('the first load with economyV2 on gives back every Legacy point spent and clears the purchases, once', () => {
+    const p0 = oldBuyer();
+    assert.ok(p0.spent > 0 && p0.hallV2 === undefined);
+    const p1 = gates(V2, () => R.migrateProfile(p0));
+    assert.deepEqual([p1.legacy, p1.spent, p1.unlocks, p1.hallV2], [p0.legacy + p0.spent, 0, {}, true]);
+    assert.deepEqual([p1.earned, p1.runs, p1.heroes], [p0.earned, p0.runs, p0.heroes]);
+    // once: a purchase under the v2 hall is kept on every later load
+    const p2 = gates(V2, () => R.migrateProfile(R.buyMeta(p1, 'vigor')));
+    assert.deepEqual([p2.legacy, p2.spent, p2.unlocks], [p1.legacy - 70, 70, { vigor: 1 }]);
+    assert.deepEqual(gates(V2, () => R.migrateProfile(p2)), p2);
+  });
+  test('switch off: the profile is as it was; a profile made or migrated with it on is marked at once', () => {
+    const p0 = oldBuyer();
+    assert.deepEqual(gates({ legacy: true, economyV2: false }, () => R.migrateProfile(p0)), p0);
+    const fresh = gates(V2, () => R.newProfile());
+    assert.deepEqual([fresh.v, fresh.hallV2, fresh.spent, fresh.legacy], [3, true, 0, 0]);
+    // a version 1 profile (Echoes, Packed Satchel bought): every Echo spent comes back, the Satchel too
+    const v1 = { ...gates({ legacy: false }, () => R.newProfile()), echoes: 40, spent: 260, unlocks: { satchel: 1, keen: 2 }, runs: 4 };
+    const p3 = gates(V2, () => R.migrateProfile(v1));
+    assert.deepEqual([p3.v, p3.legacy, p3.spent, p3.unlocks, p3.hallV2], [3, 300, 0, {}, true]);
+    assert.equal(gates({ legacy: true }, () => R.migrateProfile(v1)).unlocks.satchel, 1); // 4.6 alone keeps it
+  });
+  test('a run started on an old profile plays the refunded hall; its end keeps the mark and pays on top', () => gates({ ...V2, oruvathLegacy: true }, () => {
+    const p0 = oldBuyer();
+    let s = R.newRun({ classId: 'rogue', seed: 4, content: CONTENT, profile: p0 });
+    assert.deepEqual([s.profile.unlocks, s.profile.hallV2], [{}, true]);
+    s = steps(s, [{ type: 'START_RUN' }]);
+    assert.deepEqual([s.meta.hpPct || 0, s.meta.crit || 0], [0, 0]);
+    s = steps(s, [{ type: 'SET_OUT' }, { type: 'ABANDON_RUN' }, { type: 'END_RUN' }]);
+    const p = s.result.profile;
+    assert.equal(p.hallV2, true);
+    assert.equal(p.legacy, p0.legacy + p0.spent + s.result.echoes);
   }));
 });
 
