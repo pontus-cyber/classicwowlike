@@ -24,7 +24,7 @@ const { createBridge } = await import('../../src/ui/engine-bridge.js');
 const { lv, lvLearn, legacyShown, legacyWords, setDisplay } = await import('../../src/ui/util.js');
 const { bandText, xpPayText } = await import('../../src/ui/ui-text.js');
 
-const gateOff = () => { C.GATES.legacy = false; C.GATES.oruvathLegacy = false; };
+const gateOff = () => { C.GATES.legacy = false; C.GATES.oruvathLegacy = false; C.GATES.economyV2 = false; }; // ?legacy=1 sets all three (D159)
 
 test('switch off: the bridge shows no hero, the display hooks are identities, the version 1 key is used', () => {
   mem.clear(); gateOff();
@@ -74,7 +74,7 @@ test('switch on: hero select, the hero XP bar, banners on the hero scale, the zo
     b.dispatch({ type: 'START_RUN' });
     let p = b.view.player;
     assert.equal(p.heroLevel, 1);
-    assert.equal(p.xpToNext, C.HERO_XP[0]);
+    assert.equal(p.xpToNext, C.HERO_XP_ECON2[0], 'Economy v2 (the ?legacy=1 set): 1800 to level 2');
     assert.equal(lv(p.level), p.heroLevel);
     const ups = []; let stored = 0;
     for (let i = 0; i < 3000 && b.view.phase !== 'SUMMARY'; i++) {
@@ -121,8 +121,10 @@ test('switch on: a version 1 profile migrates under its own key; the refund note
     const b = createBridge({ seed: 3, legacy: true });
     const m = b.view.meta;
     assert.equal(m.legacy, true);
-    assert.equal(m.echoes, 40 + 360 - C.META.satchel.costs[0], 'Legacy points = Echoes + spent, Packed Satchel kept');
-    assert.ok(m.refund && m.refund.back === 360 - C.META.satchel.costs[0], JSON.stringify(m.refund));
+    // Economy v2 (the ?legacy=1 set, D160): every Echo spent comes back, Packed Satchel's too, and nothing is kept
+    assert.equal(m.echoes, 40 + 360, 'Legacy points = Echoes + spent');
+    assert.deepEqual(m.unlocks, {});
+    assert.ok(m.refund && m.refund.back === 360 && !m.refund.hall, JSON.stringify(m.refund));
     assert.equal(mem.get('tbwcr.profile.v1'), JSON.stringify(v1), 'the version 1 profile is left as it was');
     assert.equal(JSON.parse(mem.get('tbwcr.profile.v3')).v, 3);
     b.dispatch({ type: 'START_RUN' });

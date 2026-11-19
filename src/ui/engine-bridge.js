@@ -8,6 +8,8 @@
 // itemScore, autoAction). The only state kept here is presentation: which intro dialogs the
 // player has read and which result windows (spoils, rest, chest) are still on screen.
 // D150 (owner 2026-11-14, text pass): a spell's tooltip has one damage line (no "Before level difference" note).
+// D159-D160 (legacy.md 4.7, Economy v2, draft): ?legacy=1 turns economyV2 on too; the v2 hall (C.META_HERO, the level-20
+// wing's prices), the refund note of the old hall once, the level-up's banner fields, the next hall entry, "camp points".
 //
 // View shape consumed by the UI:
 //   phase: 'CREATE' | 'ZONE_HUB' | 'MAP' | 'NODE' | 'CAMP' | 'BOSS' | 'SUMMARY'      (rules.md 1.1)
@@ -113,6 +115,9 @@ function rulesTable(K) {
   const linkDr = Array.from({ length: (K.SHARD_MAX || 4) + 1 }, (_, n) => (n === 0 ? 0 : per != null ? Math.min(K.LINK_DR, per * n) : K.LINK_DR));
   return {
     zoneCount: K.ZONE_COUNT, maxLevel: K.MAX_LEVEL, heroMaxLevel: K.HERO_MAX_LEVEL ?? null, // heroMaxLevel: Legacy (legacy.md 1.2)
+    // Economy v2 (legacy.md 4.1, 4.3, 4.7 E6.4): the level-up banner's numbers (Legacy points a hero level, the XP a level
+    // past 25 pays them for, the level the other talent trees open at)
+    legacyPerLevel: K.LEGACY_PER_LEVEL ?? null, heroXpAtMax: K.HERO_XP_AT_MAX ?? null, treeOpenLevel: K.TREE_OPEN_LEVEL ?? null,
     storyQuests: K.STORY_QUESTS, dungeonTrashFights: K.DUNGEON_TRASH_FIGHTS,
     // the expedition map's own counts (rules 1.9.8; blind round 2: "3 groups" and "Fight 1 of 4" for a dungeon of 2 + the boss)
     expDungeonTrashFights: K.EXPED_DUNGEON_TRASH_FIGHTS ?? K.DUNGEON_TRASH_FIGHTS, expGrindMaxWaves: K.EXPED_GRIND_MAX_WAVES ?? K.GRIND_MAX_WAVES,
@@ -156,13 +161,18 @@ function rulesTable(K) {
  * next cost and state of an unlock always come from R.metaOffers, never from these tables.
  */
 function metaData(K) {
+  // Economy v2 (D159, legacy.md 4.7 E5; engine-2026-11-19c UI need 2): a version 3 profile's hall is C.META_HERO (ranks, costs
+  // and effects of 4.2); the page's profile is version 3 exactly while GATES.legacy is on. The level-20 wing (priced, not
+  // sold until phases 4-5): its prices, for the hall's "not yet open" cards
+  const hall = K.GATES && K.GATES.legacy && K.GATES.economyV2 && K.META_HERO ? { ...K.META, ...K.META_HERO } : K.META;
   const uniq = Object.values(CONTENT.uniques || {});
   const zones = CONTENT.zones || [];
   const byZone = (kind) => uniq.filter((u) => u.kind === kind).sort((a, b) => (a.zone || 0) - (b.zone || 0))
     .map((u) => ({ name: u.name, zone: u.zone, slot: u.slot, text: u.text, zoneName: zones[u.zone - 1] ? zones[u.zone - 1].name : '', dungeon: zones[u.zone - 1] && zones[u.zone - 1].dungeon ? zones[u.zone - 1].dungeon.name : '' }));
   return {
     kinds: [...new Set(Object.values(K.META).map((m) => m.kind))], // catalogue order (rules 11.2)
-    entries: Object.fromEntries(Object.values(K.META).map((m) => [m.id, { ...m, costs: [...m.costs], req: [...m.req] }])),
+    entries: Object.fromEntries(Object.values(hall).map((m) => [m.id, { ...m, costs: [...m.costs], req: [...m.req] }])),
+    wing: hall !== K.META && K.TREE_OPEN_COST ? { level: K.TREE_OPEN_LEVEL, trees: [...K.TREE_OPEN_COST], armoury: K.ARMOURY_COST } : null,
     oathIds: [...(K.OATH_IDS || [])],
     oaths: Object.fromEntries(Object.values(K.OATH || {}).map((o) => [o.id, { ...o }])),
     // expedition.md 8.2 (M2b v11): the numbers and names of the expedition entries' texts (bellMax, trackerRadius, prepPoints, charts, tracker)
@@ -255,6 +265,8 @@ const PROFILE_KEY_V3 = 'tbwcr.profile.v3';
 const LEGACY_REFUND_KEY = 'tbwcr.legacy.refund.v1';
 const legacyGate = () => !!(R.C.GATES && R.C.GATES.legacy);
 const profileKey = () => (legacyGate() ? PROFILE_KEY_V3 : PROFILE_KEY_V1);
+/** Economy v2 (D159, legacy.md 4.7): its rules and words apply to run s (R.econV2: a Legacy run, GATES.economyV2 on). */
+const econOn = (s) => !!(R.econV2 && R.econV2(s));
 /** A profile's balance: Legacy points on a version 3 profile, else Echoes. */
 const balanceOf = (p) => (p ? (p.v >= 3 ? p.legacy || 0 : p.echoes || 0) : 0);
 const RES_LETTER = { energy: 'E', mana: 'M', focus: 'F' };
@@ -315,7 +327,18 @@ function loadProfile() {
     if (raw) {
       const p = JSON.parse(raw); const base = R.newProfile();
       // M3 (m3-onboarding.md E6): a profile saved before the guide keys gets them (runs > 0: guide done, welcome had)
-      if (p && typeof p === 'object') return R.migrateProfile({ ...base, ...p, guide: p.guide, welcome: p.welcome, unlocks: { ...(p.unlocks || {}) }, firstKill: { ...base.firstKill, ...(p.firstKill || {}) } });
+      if (p && typeof p === 'object') {
+        // hallV2: the stored profile's own mark (a fresh base profile carries it under Economy v2)
+        const out = R.migrateProfile({ ...base, ...p, guide: p.guide, welcome: p.welcome, hallV2: p.hallV2, unlocks: { ...(p.unlocks || {}) }, firstKill: { ...base.firstKill, ...(p.firstKill || {}) } });
+        // D160 (engine-api.md 15.5): a version 3 profile read for the first time under Economy v2 has its old hall refunded;
+        // stored at once (so it happens once) and noted once on class select, as the Echoes refund
+        if (p.v >= 3 && out.hallV2 && p.hallV2 !== true) {
+          const back = Math.max(0, (out.legacy || 0) - (p.legacy || 0));
+          if (back > 0) localStorage.setItem(LEGACY_REFUND_KEY, JSON.stringify({ back, legacy: out.legacy, hall: true, shown: false }));
+          saveProfile(out);
+        }
+        return out;
+      }
     }
   } catch { /* storage blocked or bad JSON */ }
   return null;
@@ -403,7 +426,7 @@ function engineBackend(seedOpt, runOpts = {}) {
   if (legacyGate()) {
     try {
       const r0 = JSON.parse((globalThis.localStorage && localStorage.getItem(LEGACY_REFUND_KEY)) || 'null');
-      if (r0 && !r0.shown && r0.back > 0) { refund = { back: r0.back, legacy: r0.legacy }; localStorage.setItem(LEGACY_REFUND_KEY, JSON.stringify({ ...r0, shown: true })); }
+      if (r0 && !r0.shown && r0.back > 0) { refund = { back: r0.back, legacy: r0.legacy, hall: !!r0.hall }; localStorage.setItem(LEGACY_REFUND_KEY, JSON.stringify({ ...r0, shown: true })); }
     } catch { refund = null; }
   }
   // engineLog: the engine actions applied to this run, in order (a test hook: a Node twin replays them, qa/browser)
@@ -966,7 +989,14 @@ function engineBackend(seedOpt, runOpts = {}) {
   /** The start camp screen's data (R.prepView, engine-api.md 13.2), a copy; null outside PREP or on an engine without it. */
   function prepOf(s) {
     if (!R.prepView) return null;
-    try { const pv = R.prepView(s); return pv ? JSON.parse(JSON.stringify(pv)) : null; } catch { return null; }
+    try {
+      const pv = R.prepView(s); if (!pv) return null;
+      const out = JSON.parse(JSON.stringify(pv));
+      // Economy v2 (legacy.md 4.7 E6.2; engine-2026-11-19c UI need 4): the first camp after the lean first run (the profile's
+      // one run so far) explains itself, once per profile
+      out.secondCamp = econOn(s) && !pv.first && !!(s.profile && s.profile.runs === 1);
+      return out;
+    } catch { return null; }
   }
   /**
    * The contract tracker (R.contractView, engine-api.md 13.3), a copy: every contract of the run with its status and the
@@ -1028,7 +1058,7 @@ function engineBackend(seedOpt, runOpts = {}) {
       dev: sm.dev ? { god: !!sm.dev.god, tools: [...sm.dev.tools], withheld: (sm.echoes && sm.echoes.withheld) || 0 } : null,
       // Legacy (legacy.md 1.5, 4.1; engine-api.md 15.3): the hero's level before and after the run, levels gained and the hero
       // XP the run gained (stats.xpGained); null outside a Legacy run
-      hero: sm.hero ? { level: sm.hero.level, from: sm.hero.start ? sm.hero.start.level : sm.hero.level, gained: sm.hero.gained || 0, xpGained: (s.stats && s.stats.xpGained) || 0, atMax: !!sm.hero.atMax } : null,
+      hero: sm.hero ? { level: sm.hero.level, from: sm.hero.start ? sm.hero.start.level : sm.hero.level, gained: sm.hero.gained || 0, xpGained: (s.stats && s.stats.xpGained) || 0, atMax: !!sm.hero.atMax, xp: sm.hero.xp || 0, xpToNext: sm.hero.xpToNext || 0 } : null,
       // contracts (expedition.md 8.1; prep): taken, completed, expired, abandoned, held, bought, reserve; null without
       contracts: sm.expedition && sm.expedition.contracts ? JSON.parse(JSON.stringify(sm.expedition.contracts)) : null,
       // D152 (changes-m3-v2.md 1.3): a lean first run: no contracts or Reserve named; its Echo line `reserve` is
@@ -1070,10 +1100,25 @@ function engineBackend(seedOpt, runOpts = {}) {
     try {
       const r = R.step(s, { type: 'END_RUN' }).state;
       const p = r.result.profile;
-      out = { echoes: balanceOf(p), gained: r.result.echoes, affordable: R.metaOffers(p).filter((o) => o.affordable).length };
+      out = { echoes: balanceOf(p), gained: r.result.echoes, affordable: R.metaOffers(p).filter((o) => o.affordable).length, nextHall: econOn(s) ? nextHall(p, s.player && s.player.classId) : null };
     } catch { out = null; }
     dry.afterOf = s; dry.after = out;
     return out;
+  }
+  /**
+   * Economy v2 (legacy.md 4.7 E5, E6.3; engine-2026-11-19c UI need 5): the next entry in the hall, the first offer still
+   * available in the campaign's buying order (5.8 item 7 v2), with its rank ("Vigor of the Line II") and price; null when
+   * every one is bought.
+   */
+  function nextHall(p, classId) {
+    const c = { rogue: 'r', mage: 'm', hunter: 'h' }[classId] || 'r';
+    const order = ['satchel', 'vigor', 'edge', 'quick_study', `sp_${c}1`, 'pockets', 'cartographer', 'vigor', 'edge', 'old_hand', 'quartermaster', 'quick_study', `sp_${c}2`, 'swift_boots', 'quartermaster', 'second_breath', ...(classId === 'hunter' ? ['stormhawk'] : [])];
+    const offers = R.metaOffers(p);
+    for (const id of order) {
+      const o = offers.find((x) => x.id === id);
+      if (o && o.available && o.nextCost > 0) return { id, name: o.ranks > 1 ? `${o.name} ${['I', 'II', 'III', 'IV'][o.rank] || o.rank + 1}` : o.name, cost: o.nextCost };
+    }
+    return null;
   }
   /** Furthest point of a run as the run log stores it: 1..ZONE_COUNT a zone, then the camp, the boss, the boss defeated. */
   const stageOf = (sum) => (sum.outcome === 'victory' ? C.ZONE_COUNT + 3 : sum.reachedBoss ? C.ZONE_COUNT + 2 : sum.reached && sum.reached.camp ? C.ZONE_COUNT + 1 : (sum.reached && sum.reached.zone) || 1);
@@ -1131,7 +1176,9 @@ function engineBackend(seedOpt, runOpts = {}) {
     const s = st;
     // Legacy (D154 phase 1): the hero scale and the Legacy words on screen (src/ui/util.js setDisplay); off: identities.
     // Learn levels from the engine (R.learnLevel, engine-2026-11-19 UI need 1: the hero level that has the spell trained)
-    setDisplay(s.legacy ? { level: (n) => R.shownLevel(s, n), learn: (M) => R.learnLevel(s, M), words: true } : { words: !!(profile && profile.v >= 3) });
+    // Economy v2 (D159, legacy.md 4.7 E6): `econ` while a Legacy run or profile is shown with C.GATES.economyV2 on
+    const econ = !!(R.C.GATES && R.C.GATES.economyV2) && (s.legacy || !!(profile && profile.v >= 3));
+    setDisplay(s.legacy ? { level: (n) => R.shownLevel(s, n), learn: (M) => R.learnLevel(s, M), words: true, econ } : { words: !!(profile && profile.v >= 3), econ });
     const v = { time: s.time || 0, autoplay: !!s.autoplay, seed: s.create ? s.create.seed : s.seed, mode: 'engine' };
     if (s.phase === 'CREATE') {
       return { ...v, phase: 'CREATE', create: { classId: s.create.classId || 'rogue', petId: s.create.petId || 'ridgewolf', name: s.create.name || '', seed: s.create.seed, oaths: (s.create.oaths || []).slice() }, oaths: (s.create.oaths || []).slice(), meta: metaView(s), player: null, zone: null, node: null, combat: null, loot: null, summary: null, dev: null, mapMode: s.mapMode || 'rows', legal: { lanes: [], services: {}, items: [], spells: {} } };
@@ -1325,7 +1372,13 @@ function engineBackend(seedOpt, runOpts = {}) {
         case 'xp': if (e.amount > 0) out.push({ t: 'xp', amount: e.amount, rested: e.rested || 0, why: e.why, heat: e.heat || 0 }); break;
         // engine-2026-11-15 UI need 2: the trainer's offer as at this level (R.trainerView(state, level)), for its banner
         // Legacy (engine-api.md 15.2, UI need 4): heroLevel (the banner's), talentPoints (2+ at once), the hero's xpToNext
-        case 'levelUp': out.push({ t: 'levelUp', level: e.level, ...(e.heroLevel != null ? { heroLevel: e.heroLevel, talentPoints: e.talentPoints || 0, xpToNext: R.heroXpToNext(e.heroLevel) } : {}), talentPoint: !!e.talentPoint, trainer: (() => { try { return R.trainerView(s, e.level); } catch { return null; } })(), newSpells: Object.values(C.SPELL).filter((sp) => sp.cls === s.player.classId && sp.source === 'class' && sp.lvl === e.level).map((sp) => sp.name), hp: s.player.hp, maxHp: s.player.d.maxHp }); break;
+        // Economy v2 (engine-2026-11-19c UI need 6): the banner's lines: health and mana before and after (maxHp - hpGain), the
+        // class spells whose hero learn level (R.learnLevel) is this level (heroSpells) and the known spells a trainer can
+        // rank up at it (ranks: trainerView's `train`)
+        case 'levelUp': out.push({ t: 'levelUp', level: e.level, ...(e.heroLevel != null ? { heroLevel: e.heroLevel, talentPoints: e.talentPoints || 0, xpToNext: R.heroXpToNext(e.heroLevel),
+          hpGain: e.hpGain || 0, maxMana: e.maxMana || 0, manaGain: e.manaGain || 0,
+          heroSpells: Object.values(C.SPELL).filter((sp) => sp.cls === s.player.classId && sp.source === 'class' && R.learnLevel(s, sp.id) === e.heroLevel).map((sp) => sp.name),
+          ranks: (() => { try { return R.trainerView(s, e.level).train.length; } catch { return 0; } })() } : {}), talentPoint: !!e.talentPoint, trainer: (() => { try { return R.trainerView(s, e.level); } catch { return null; } })(), newSpells: Object.values(C.SPELL).filter((sp) => sp.cls === s.player.classId && sp.source === 'class' && sp.lvl === e.level).map((sp) => sp.name), hp: s.player.hp, maxHp: s.player.d.maxHp }); break;
         // Legacy (legacy.md 1.3; UI need 4): XP past level 25 pays one more level line at the run's end (draft line)
         case 'heroMax': out.push({ t: 'msg', text: `Past level ${C.HERO_MAX_LEVEL}: +${C.LEGACY_PER_LEVEL} Legacy points at the end of the run.`, kind: 'good' }); break;
         case 'gold': if (e.amount > 0 && e.why !== 'sell') out.push({ t: 'gold', amount: e.amount, why: e.why, heat: e.heat || 0 }); break; // a sale says its price itself
@@ -1352,7 +1405,8 @@ function engineBackend(seedOpt, runOpts = {}) {
         case 'contract': { const m = contractMsg(e, s); if (m) out.push(m); break; }
         case 'prep':
           // D152: a lean first run's Set out names no contracts or Reserve (it has neither)
-          if (e.what === 'setOut') out.push({ t: 'msg', text: e.first ? 'You set out.' : `You set out with ${e.contracts} ${TXT.plural(e.contracts, 'contract')} and ${e.reserve} ${TXT.plural(e.reserve, 'point')} of Reserve.`, kind: 'good' });
+          // Economy v2 (legacy.md 4.7 E6.1): one name, "camp points" (content texts.economy.set_out)
+          if (e.what === 'setOut') out.push({ t: 'msg', text: e.first ? 'You set out.' : econOn(s) ? TXT.econLine(CONTENT.texts, 'set_out', { contracts: e.contracts, points: e.reserve }) : `You set out with ${e.contracts} ${TXT.plural(e.contracts, 'contract')} and ${e.reserve} ${TXT.plural(e.reserve, 'point')} of Reserve.`, kind: 'good' });
           break;
         // M3 guided run (engine-api.md 14): the beats (onboarding.js reads them), the rescue, the skip and the guide's end
         case 'beat': out.push({ t: 'beat', id: e.id, what: e.what, line: e.line ?? null }); break;
@@ -1520,7 +1574,8 @@ function engineBackend(seedOpt, runOpts = {}) {
             const sum = st.result.summary;
             profile = st.result.profile; saveProfile(profile); refreshPets();
             if (!sum.dev) recordRun(sum); // a dev run (engine-api.md 12) stays out of the run log
-            local.lastRun = { n: ++local.runNo, name: sum.name, classId: sum.classId, className: sum.className, outcome: sum.outcome, level: sum.hero ? sum.hero.level : sum.level,
+            // from: the hero's level at the run's start (Legacy; hero select's "Level 4 → 7", legacy.md 4.7 E6.4)
+            local.lastRun = { n: ++local.runNo, name: sum.name, classId: sum.classId, className: sum.className, outcome: sum.outcome, level: sum.hero ? sum.hero.level : sum.level, from: sum.hero && sum.hero.start ? sum.hero.start.level : null,
               gained: st.result.echoes, before, after: balanceOf(profile), firstKill: ((sum.echoes && sum.echoes.lines) || []).some((l) => l.id === 'firstKill'), dev: !!sum.dev };
           }
           st = mkRun(randomSeed(), keep); // the next run starts on the same class
@@ -1936,7 +1991,8 @@ export function createBridge(opts = {}) {
   const prep = !!(opts.prep ?? params.get('prep') === '1') || !(opts.expedition ?? params.get('expedition') === '1');
   const runOpts = classic ? { mapMode: 'rows' } : { mapMode: 'expedition', prep, ...(params.get('dimming') === '0' ? { dimming: false } : {}) };
   // Legacy (D154 phase 1): ?legacy=1 turns C.GATES.legacy on for this page (a test switch; the game follows the switch)
-  if (!useMock && (opts.legacy ?? params.get('legacy') === '1')) { R.C.GATES.legacy = true; R.C.GATES.oruvathLegacy = true; } // D158: Legacy numbers need both
+  // D159 (engine-2026-11-19c UI need 1): Economy v2 (legacy.md 4.7) is part of the same set
+  if (!useMock && (opts.legacy ?? params.get('legacy') === '1')) { R.C.GATES.legacy = true; R.C.GATES.oruvathLegacy = true; R.C.GATES.economyV2 = true; } // D158: Legacy numbers need both
   return new Bridge(useMock ? mockBackend(seed) : engineBackend(seed, runOpts));
 }
 

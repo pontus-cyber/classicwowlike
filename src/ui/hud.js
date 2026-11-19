@@ -909,7 +909,11 @@ export function createHud(root, ctx) {
     els.bagsNew.textContent = newItems ? `+${newItems} ${newItems === 1 ? 'item' : 'items'}` : '';
     els.bagsNew.classList.toggle('hidden', !newItems);
   }
-  return { update, placeNameplates, log, clearLog, els, setQueued, heat, noteNewItems, flashSlot(i) { const b = els.spells[i] || els.items[i - 7]; if (b) { b.classList.add('pressed'); setTimeout(() => b.classList.remove('pressed'), 120); } } };
+  /** Economy v2 (legacy.md 4.7 E6.4): with the level-up banner the XP bar flashes and the hero frame glows for ms. */
+  function levelFlash(ms = 1000) {
+    for (const [el, c] of [[els.xp, 'lvflash'], [els.player, 'lvglow']]) { if (!el) continue; el.classList.remove(c); void el.offsetWidth; el.classList.add(c); setTimeout(() => el.classList.remove(c), ms); }
+  }
+  return { update, placeNameplates, log, clearLog, els, setQueued, heat, noteNewItems, levelFlash, flashSlot(i) { const b = els.spells[i] || els.items[i - 7]; if (b) { b.classList.add('pressed'); setTimeout(() => b.classList.remove('pressed'), 120); } } };
 }
 
 /** Tooltip of the revive badge (rules 9, M2 v3; D150: named by its source, the Ember of Return, never "Resurrect charges"). */

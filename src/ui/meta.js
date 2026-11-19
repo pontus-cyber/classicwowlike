@@ -3,7 +3,8 @@
 // engine's offers from R.metaOffers, the run log, the next run from a dry START_RUN) and sends META_BUY. Costs, ranks,
 // states and effects come from the engine; this file only lays them out and animates the changes. D116: new runs start on
 // the expedition map, so its entries (expedition.md 8.2) read as any other; only with the Dev menu's "Classic map (old)"
-// do they carry the "Expedition" tag and "expedition map only".
+// do they carry the "Expedition" tag and "expedition map only". Economy v2 (D159-D160, legacy.md 4.7 E5): a version 3
+// profile's cards read C.META_HERO (the bridge's data.meta.entries), and the level-20 wing shows priced, as not yet open.
 import { h, clear, fmtNum, legacyWords } from './util.js'; // Legacy (D154): the Legacy words (identity off)
 import { icon, spellIcon } from './art-icons.js';
 import { tip, hide as hideTip } from './tooltip.js';
@@ -95,6 +96,22 @@ export function createMeta(ctx) {
       const grp = h('div.mgroup', { dataset: { kind } }, head, offers.map((o) => card(o, m, nowOf)));
       const col = COLUMN_OF[kind] ?? cols.reduce((best, c, i) => (c.childElementCount < cols[best].childElementCount ? i : best), 0);
       cols[Math.min(COLUMNS - 1, col)].appendChild(grp);
+    }
+    // Economy v2 (D160, legacy.md 4.3, 4.4, 4.7 E5; draft lines): the level-20 wing is priced, not sold until phases 4-5
+    // build what it opens: its cards show their prices as not yet open (data.meta.wing, from the engine's constants)
+    if (D.wing) {
+      const wing = [['tree2', 'Second talent tree', D.wing.trees[0], `Opens your hero's second talent tree, from hero level ${D.wing.level}. Per hero.`],
+        ['tree3', 'Third talent tree', D.wing.trees[1], `Opens your hero's third talent tree, after the second. Per hero.`],
+        ['armoury', 'The Armoury', D.wing.armoury, `Keeps the set pieces your heroes win from hero level ${D.wing.level}, to wear in later runs. Once for the account.`]];
+      const cards = wing.map(([id, name, cost, text]) => {
+        const c = h('div.mcard.locked.wing', { dataset: { id, state: 'wing' } }, h('img.ic', { src: icon(id === 'armoury' ? 'gem' : 'stars3', 'parchment'), alt: '' }),
+          h('div.mc-t', h('span.nm', name)), h('span.mtag.wing', 'Not yet open'), h('div.mc-fx', text), h('div.mc-req', `From hero level ${D.wing.level} · `, echoAmt(cost)));
+        tip(c, () => h('div.tt-spell.tt-meta', h('div.tt-row', h('div.tt-name', name)), h('div.tt-sub', `From hero level ${D.wing.level}`), h('div.tt-line.desc', text),
+          h('div.tt-price', 'Price: ', echoAmt(cost)), h('div.tt-warn', 'Not yet open: a later build sells it.')));
+        return c;
+      });
+      const head = h('div.mg-h', h('span.t', `From hero level ${D.wing.level}`), h('span.c', 'soon'));
+      cols[2].appendChild(h('div.mgroup.wing', { dataset: { kind: 'wing' } }, head, cards));
     }
     win.appendChild(h('div.mbody', cols));
     // the next run, from the engine's dry START_RUN

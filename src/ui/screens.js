@@ -21,12 +21,12 @@
 // engine's preview); on a first run class select shows no Seed field and no Echoes button. Naming: Oruvath, no
 // "Ascendancy" or "par"; a Dimmed node's fight is "with this zone's creatures, made stronger by the dark" (no "Shardspawn":
 // the engine fights the zone's own enemies there, variant shardspawn; engine-2026-11-14d UI need 15).
-import { h, add, clear, fmtNum, moneyEl, moneyText, clamp, lv, lvLearn, legacyShown } from './util.js'; // lv, lvLearn: Legacy's hero scale (identity off)
+import { h, add, clear, fmtNum, moneyEl, moneyText, clamp, lv, lvLearn, legacyShown, econShown } from './util.js'; // lv, lvLearn: Legacy's hero scale (identity off)
 import { spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon, deathblowIcon } from './art-icons.js';
 import { drawPortrait, HERO_LOOKS, PET_LOOKS } from './art-actors.js';
 import { tip, itemTip, spellTip, hide as hideTip, STAT_NAMES } from './tooltip.js';
 import { conColor, heroPortrait, travelState } from './hud.js';
-import { numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, trainerWaitingShort } from './ui-text.js';
+import { numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, trainerWaitingShort, econLine } from './ui-text.js';
 import { createMeta, buildOaths, echoAmt } from './meta.js';
 import { heatKey, previewBlock, costText, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME } from './heat.js';
 import { createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon } from './prep.js';
@@ -254,7 +254,11 @@ function updateCreate(root, v, ctx) {
     if (!heroes) return;
     const hr = heroOf(el.dataset.cls);
     const named = hr && hr.name && hr.name.toLowerCase() !== String(hr.className).toLowerCase() ? hr.name : null;
-    box.querySelector('.ch-l').textContent = hr ? `Level ${hr.level}${named ? ` · ${named}` : ''}` : 'New hero';
+    // Economy v2 (legacy.md 4.7 E6.4): the hero of the run just ended shows its levels as "Level 4 → 7" (content level_progress)
+    const lr = m.lastRun; const went = econShown() && hr && lr && lr.classId === el.dataset.cls && lr.from != null && lr.from !== hr.level;
+    const lvText = went ? econLine(d.content.texts, 'level_progress', { from: lr.from, to: hr.level }) : hr ? `Level ${hr.level}` : '';
+    box.querySelector('.ch-l').textContent = hr ? `${lvText}${named ? ` · ${named}` : ''}` : 'New hero';
+    box.dataset.from = went ? String(lr.from) : '';
     box.classList.toggle('new', !hr);
     const f = hr && hr.xpToNext ? Math.max(0, Math.min(1, hr.xp / hr.xpToNext)) : 0;
     box.querySelector('.ch-xp i').style.width = `${Math.round(f * 1000) / 10}%`;
@@ -263,7 +267,12 @@ function updateCreate(root, v, ctx) {
   });
   // the refund of past Echoes (legacy.md 4.6), once: textContent, so the words are not swapped (draft line)
   const rf = root.querySelector('.ctitle .refund');
-  if (rf) { const back = m && m.refund ? m.refund.back : 0; rf.classList.toggle('hidden', !back); rf.textContent = back ? `Echoes are now Legacy points. The ${fmtNum(back)} you had spent are back.` : ''; }
+  // D160 (engine-api.md 15.5; draft line): the old hall refunded when Economy v2 first reads a version 3 profile
+  if (rf) {
+    const back = m && m.refund ? m.refund.back : 0; rf.classList.toggle('hidden', !back);
+    rf.textContent = !back ? '' : m.refund.hall ? `The Legacy hall has new prices. The ${fmtNum(back)} Legacy points you had spent are back.` : `Echoes are now Legacy points. The ${fmtNum(back)} you had spent are back.`;
+    rf.dataset.kind = back ? (m.refund.hall ? 'hall' : 'echoes') : '';
+  }
   // an existing hero keeps its name: the name field is for a new hero only
   const nf = root.querySelector('.bottom .field:not(.seedf)'); if (nf) nf.classList.toggle('hidden', !!heroOf(c.classId));
   const gt = root.querySelector('.bottom .guide');
@@ -1432,7 +1441,10 @@ function buildSummary(v, ctx) {
   const card1 = h('div.card', h('h3', 'The journey'), kv([
     ['Reached', `${s.zone}${s.row ? `, row ${s.row}` : ''}`],
     // Legacy (legacy.md 1.5, 4.1; draft line): the hero's levels and the hero XP of the run, kept whatever the outcome
-    ...(s.hero ? [['Hero', h('span.s-hero', { dataset: { from: String(s.hero.from), to: String(s.hero.level), xp: String(s.hero.xpGained) } }, `Level ${s.hero.from}${s.hero.level !== s.hero.from ? ` → ${s.hero.level}` : ''} · +${fmtNum(s.hero.xpGained)} XP`)]] : []),
+    // Economy v2 (legacy.md 4.7 E6.4): "Level 4 → 7" (content level_progress) with the hero's XP bar
+    ...(s.hero ? [['Hero', h('span.s-hero', { dataset: { from: String(s.hero.from), to: String(s.hero.level), xp: String(s.hero.xpGained) } },
+      econShown() && s.hero.level !== s.hero.from ? econLine(ctx.data.content.texts, 'level_progress', { from: s.hero.from, to: s.hero.level }) : `Level ${s.hero.from}${s.hero.level !== s.hero.from ? ` → ${s.hero.level}` : ''}`, ` · +${fmtNum(s.hero.xpGained)} XP`,
+      econShown() && s.hero.xpToNext ? h('span.s-xp', { title: `${fmtNum(s.hero.xp)} / ${fmtNum(s.hero.xpToNext)} XP to level ${s.hero.level + 1}` }, h('i', { style: { width: `${Math.round(Math.max(0, Math.min(1, s.hero.xp / s.hero.xpToNext)) * 1000) / 10}%` } })) : null)]] : []),
     [HEAT_WORDS.Units, fmtTime(s.time)], ['Oruvath', s.asc ? `+${Math.round(s.asc * 100)} % health and damage` : 'No stronger'],
     // Legacy bugs 2026-11-19 (blind returning player s0247): no time estimate for a run without a fight (it was the model's
     // fixed set-up time, "2 min manual · 2 min autoplay")
@@ -1444,7 +1456,7 @@ function buildSummary(v, ctx) {
   const card2 = h('div.card', h('h3', 'Deeds'), kv([
     ['Kills', `${s.kills.normal} normal · ${s.kills.elite} elite · ${s.kills.rare} rare · ${s.kills.boss} boss`], ['Quests', s.contracts ? String(s.quests) : `${s.quests} (${s.story} stories)`],
     // contracts (expedition.md 8.1; prep): the summary's expedition.contracts
-    ...(s.contracts && !s.firstRun ? [['Contracts', `${s.contracts.completed} of ${s.contracts.taken} completed${s.contracts.expired ? ` · ${s.contracts.expired} expired` : ''}${s.contracts.abandoned ? ` · ${s.contracts.abandoned} given up` : ''} · Reserve left ${s.contracts.reserve}`]] : []),
+    ...(s.contracts && !s.firstRun ? [['Contracts', `${s.contracts.completed} of ${s.contracts.taken} completed${s.contracts.expired ? ` · ${s.contracts.expired} expired` : ''}${s.contracts.abandoned ? ` · ${s.contracts.abandoned} given up` : ''}${econShown() ? '' : ` · Reserve left ${s.contracts.reserve}`}`]] : []),
     ['Dungeons cleared', String(s.dungeons)],
     ['Gold', `earned ${moneyText(s.goldEarned)} · spent ${moneyText(s.goldSpent)}`], ['Potions used', String(s.potions)], ['Times revived', String(s.resurrects)],
     ['Damage', `dealt ${fmtNum(s.dealt)} · taken ${fmtNum(s.taken)}`], ['Top spells', s.topSpells.map(([n, d]) => `${n} ${fmtNum(d)}`).join(', ') || '—'],
@@ -1453,8 +1465,13 @@ function buildSummary(v, ctx) {
   const after = v.meta && v.meta.after;
   const oathLine = s.echoMult && s.echoMult !== 1 ? h('div.echo', h('span.dim', `${s.oaths.join(', ')}`), h('b', `×${Math.round(s.echoMult * 100) / 100}`)) : null;
   const devLine = s.dev ? h('div.echo.devline', h('span', `A dev run earns no Echoes (${s.dev.withheld} withheld)`)) : null;
-  const card3 = h('div.card', h('h3', 'Echoes earned'), s.echoes.map(([k, n, id]) => h('div.echo' + (id === 'welcome' ? '.welcome' : ''), { dataset: { line: id || '' } }, h('span.dim', k), h('b', `+${n}`))), oathLine, devLine, h('div.echo.total', h('span', 'Total'), h('span', `${s.echoTotal} Echoes`)),
-    after ? h('div.echo.after', h('span.dim', 'Your Echoes after this run'), echoAmt(after.echoes)) : null,
+  // Economy v2 (legacy.md 4.7 E6.3; content run_kept, run_left, run_balance, draft): what the run keeps and leaves, above
+  // the Legacy lines, and the balance against the next hall entry under the total (the bridge's dry END_RUN)
+  const E = (id, vars) => econLine(ctx.data.content.texts, id, vars);
+  const carry = econShown() && s.hero ? h('div.s-carry', h('div.s-kept', E('run_kept', { level: s.hero.level, was: s.hero.from })), h('div.s-left', E('run_left'))) : null;
+  const balance = econShown() && after ? h('div.s-balance', after.nextHall ? E('run_balance', { legacy: after.echoes, next: after.nextHall.name, cost: after.nextHall.cost }) : `You have ${fmtNum(after.echoes)} Legacy points. Every entry in the hall is yours.`) : null;
+  const card3 = h('div.card', h('h3', 'Echoes earned'), carry, s.echoes.map(([k, n, id]) => h('div.echo' + (id === 'welcome' ? '.welcome' : ''), { dataset: { line: id || '' } }, h('span.dim', k), h('b', `+${n}`))), oathLine, devLine, h('div.echo.total', h('span', 'Total'), h('span', `${s.echoTotal} Echoes`)),
+    after ? h('div.echo.after', h('span.dim', 'Your Echoes after this run'), echoAmt(after.echoes)) : null, balance,
     h('div.muted', { style: { marginTop: '.8rem', fontSize: '1.1rem' } }, after
       ? (after.affordable ? `Echoes buy lasting unlocks between runs. ${cap(numWord(after.affordable))} ${plural(after.affordable, 'unlock')} within reach.` : 'Echoes buy lasting unlocks between runs. Keep them for the next one.')
       : 'Echoes buy lasting unlocks between runs.'));

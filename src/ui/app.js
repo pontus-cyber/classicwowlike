@@ -61,6 +61,7 @@ export class App {
       setTarget: (idx) => { ui.target = idx; app.scene.target = idx == null ? null : `enemy:${idx}`; app.queueRender(); },
       retarget: (v) => app.retarget(v),
       toast: (t, k) => app.toast(t, k), banner: (a, b, k, ms) => app.banner(a, b, k, ms), hideBanner: () => app.hideBanner(),
+      levelBanner: (title, lines, ms) => app.levelBanner(title, lines, ms),
       toggleWin: (n) => app.windows.toggle(n), closeWin: (n) => app.windows.close(n), openWin: (n) => app.windows.open(n),
       attack: () => { if (app.refused(app.bridge.view.legal && app.bridge.view.legal.attack ? null : { type: 'ATTACK', target: app.validTarget(app.bridge.view) })) return; ui.fleeArmed = false; app.combatAct((t) => ({ type: 'ATTACK', target: t }), 'attack', 'Attack'); },
       castSlot: (i) => {
@@ -542,6 +543,29 @@ export class App {
     this.bannerT = setTimeout(() => { b.className = kind + (b.classList.contains('side') ? ' side' : ''); this.placeToasts(); }, settings.instant ? Math.min(ms, 1200) : ms / Math.max(1, Math.min(2, settings.get('speed'))));
   }
   hideBanner() { clearTimeout(this.bannerT); this.bannerEl.classList.remove('on'); this.placeToasts(); }
+  /**
+   * Economy v2 (legacy.md 4.7 E6.4; draft): the hero's level-up banner in the upper third: "Level up", the title ("Level 7",
+   * "Level 7 (+2)") and its lines, for exactly ms (2.5 s; 1.2 s in Autoplay and Speedrun, the director's choice). Any key or
+   * click closes it early (the click or key still does what it does).
+   */
+  levelBanner(title, lines, ms = 2500) {
+    const b = this.bannerEl;
+    b.className = 'on level hero';
+    b.querySelector('.b0').textContent = 'Level up';
+    b.querySelector('.b1').textContent = title;
+    const sub = b.querySelector('.b2'); sub.textContent = '';
+    for (const l of lines) { const d = document.createElement('div'); d.className = 'bl'; d.textContent = l; sub.appendChild(d); }
+    this.placeBanner(); this.placeToasts();
+    clearTimeout(this.bannerT);
+    const done = () => {
+      removeEventListener('keydown', done, true); removeEventListener('pointerdown', done, true);
+      if (!b.classList.contains('hero') || !b.classList.contains('on')) return; // another banner took its place
+      clearTimeout(this.bannerT); b.className = 'level' + (b.classList.contains('side') ? ' side' : ''); this.placeToasts();
+    };
+    this.bannerT = setTimeout(done, ms);
+    // the next input closes it (armed after this frame, so the click or key that caused the step does not)
+    requestAnimationFrame(() => { if (b.classList.contains('hero')) { addEventListener('keydown', done, true); addEventListener('pointerdown', done, true); } });
+  }
   /**
    * Blind panel 2026-11-13 (item 6): in a fight the banner ("Level up" mid-fight, an elite's name, a boss phase) covered the
    * target frame's Next actions and the action numbers. It takes the first spot, from its own (top 30 %) down over the

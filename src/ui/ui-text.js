@@ -5,7 +5,22 @@
 // reminder (Ambush "Gutting Jab at ×1.5. +2 combo points."), no par or Ascendancy in the Oaths' lines; "hidden" is only
 // Stealth (Tracker's Notes: "nodes you have not seen yet").
 import { SPELLS, TALENTS, STATUS_INFO as BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS } from './mock-data.js';
-import { lv, lvLearn, legacyShown, fmtNum as fmtN } from './util.js'; // Legacy (D154 phase 1): the hero scale and words, identities off
+import { lv, lvLearn, legacyShown, econShown, fmtNum as fmtN } from './util.js'; // Legacy (D154 phase 1): the hero scale and words, identities off
+
+/**
+ * Economy v2 (D159, legacy.md 4.7 E6; content texts.economy, ids C.ECONOMY_TEXT_IDS, draft): line `id` of the content table
+ * with its placeholders filled from vars ({points}, {level}, ...); numbers pass fmtNum. texts: ctx.data.content.texts (or
+ * the table itself). '' when the content has no such line.
+ */
+export function econLine(texts, id, vars = {}) {
+  const t = texts && (texts.economy || texts);
+  const raw = t && typeof t[id] === 'string' ? t[id] : '';
+  // the lines are written for counts above one: "1 contracts" reads "1 contract" (contracts, camp points, spells)
+  return raw.replace(/\{(\w+)\}/g, (m, k) => (vars[k] === undefined || vars[k] === null ? m : typeof vars[k] === 'number' ? fmtN(vars[k]) : String(vars[k])))
+    .replace(/(^|[^\d\s])(\s?)\b1 (contract|camp point|spell|Legacy point)s\b/g, '$1$2' + '1 $3');
+}
+/** "3 camp points" (Economy v2, one name: legacy.md 4.7 E6.1). */
+export const campPoints = (n) => `${n} camp ${n === 1 ? 'point' : 'points'}`;
 
 /**
  * Player-facing words for the run's time pressure (docs/specs/changes-m2b-v7.md table D, draft; owner 2026-11-11 10:12):
@@ -525,7 +540,8 @@ export function metaEffect(m, D, d, mode = 'rows') {
     // expedition.md 8.2 (M2b v11): entries of the expedition map only (m.mapMode 'expedition'; a tag on classic runs, D116)
     case 'cartographer': return { short: `${NM.charts} every run, free`, long: `On the expedition map the start camp's ${NM.charts} are yours every run, free: every node's region and the dungeon's place show on the map.${onlyExp}` };
     case 'old_hand': return { short: `${NM.tracker} every run, free`, long: `On the expedition map the start camp's ${NM.tracker} are yours every run, free: contract sites show within ${numWord(N.trackerRadius)} hops, even on nodes you have not seen yet.${onlyExp}` };
-    case 'quartermaster': return { short: `+${m.points} preparation points per rank`, long: `On the expedition map you have ${numWord(m.points)} more preparation points to spend at the start camp for each rank.${onlyExp}` };
+    // Economy v2 (legacy.md 4.7 E6.1): one name, "camp points"
+    case 'quartermaster': { const w = econShown() ? 'camp points' : 'preparation points'; return { short: `+${m.points} ${w} per rank`, long: `On the expedition map you have ${numWord(m.points)} more ${w} to spend at the start camp for each rank.${onlyExp}` }; }
     case 'alchemist': return { short: `Vendors sell ${plurName(2, NM.greater)}`, long: `Every vendor also sells ${plurName(2, NM.greater)}: each restores ${pct1(D.greaterHeal)} of your maximum health.` };
     case 'cache': {
       const u = D.uniques.rare;
@@ -588,7 +604,7 @@ export function nextRunLines(n, D, d) {
   if (m.swiftBoots) add('swift_boots', x ? `Homeward Bell: ${x.bell} ${plural(x.bell, 'charge')}` : `Travel on ${numWord(D.entries.swift_boots.levels)} ${plural(D.entries.swift_boots.levels, 'level')} earlier`);
   if (x && x.unlocks.cartographer) add('cartographer', `${D.names.charts} owned`);
   if (x && x.unlocks.old_hand) add('old_hand', `${D.names.tracker} owned`);
-  if (x && x.unlocks.quartermaster) add('quartermaster', `${x.points} preparation points (+${x.points - D.num.prepPoints})`);
+  if (x && x.unlocks.quartermaster) add('quartermaster', `${x.points} ${econShown() ? 'camp' : 'preparation'} points (+${x.points - D.num.prepPoints})`);
   if (m.alchemist) add('alchemist', `${plurName(2, D.names.greater)} at vendors`);
   if (m.cache) add('cache', 'Unique rares in elite and treasure loot');
   if (m.relics) add('relics', 'Unique epics in dungeon boss loot');

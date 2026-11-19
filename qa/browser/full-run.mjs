@@ -62,7 +62,7 @@ const PROFILES = { rogue: 'first', mage: 'later', hunter: 'later', ...Object.fro
 // page's ?legacy=1 turns on C.GATES.oruvathLegacy too (the D156 / D157 numbers), so the twin does (it diverged on the Mage's
 // and the Hunter's first fight without it, engine-2026-11-19b)
 const LEGACY = args.includes('--legacy');
-if (LEGACY) { R.C.GATES.legacy = true; R.C.GATES.oruvathLegacy = true; }
+if (LEGACY) { R.C.GATES.legacy = true; R.C.GATES.oruvathLegacy = true; R.C.GATES.economyV2 = true; } // D159: and Economy v2, as the page's ?legacy=1
 const PROFILE_KEY = LEGACY ? 'tbwcr.profile.v3' : 'tbwcr.profile.v1';
 const LATER_PROFILE = () => ({ ...R.newProfile(), runs: 2, guide: 'done', welcome: true });
 const MAP = arg('--map', 'expedition'); // D116: the default run is the expedition map with the start camp

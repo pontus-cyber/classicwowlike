@@ -14,12 +14,14 @@
 // offer's tooltip in three sentences (boardTip: what to win, the reward, the cost).
 // D152 (changes-m3-v2.md 1.2-1.3): a lean first run's camp (prepView.first): no board, the two supplies, and over Set out
 // what unspent points pay (content prep.unspentFirst); no Reserve is read or named.
-import { h, clear, moneyEl, fmtNum, lv, legacyShown, verbatim } from './util.js'; // Legacy: the hero scale and hero XP (identities off)
+// D159 (legacy.md 4.7 E6.1-E6.2, draft): under Economy v2 one name, "camp points" (content texts.economy: the camp's number
+// and tooltip, Set out, the hub offer, the tracker); no "Reserve", "points left" or "Preparation points"; the second camp's line.
+import { h, clear, moneyEl, fmtNum, lv, legacyShown, econShown, verbatim } from './util.js'; // Legacy: the hero scale and hero XP (identities off)
 import { icon, consumableIcon } from './art-icons.js';
 import { tip } from './tooltip.js';
 import {
   CONTRACT_KIND, contractTitle, contractSentence, familyName, hubOfferSentence, contractKindText, contractSitesText,
-  contractItemsText, levelsText, xpPayText, prepOptionEffect, prepFlavour, bandText, numWord, plural,
+  contractItemsText, levelsText, xpPayText, prepOptionEffect, prepFlavour, bandText, numWord, plural, econLine, campPoints,
 } from './ui-text.js';
 
 /** Contract colours (map marks, tracker dots, the held list): amber, teal, violet, rose. */
@@ -52,7 +54,9 @@ const optIcon = (id) => (OPT_ICON[id] ? OPT_ICON[id]() : icon('spark', 'gold'));
 const BOARD_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8'];
 const OPT_KEYS = 'ABCDEFGHI';
 const STATUS_WORD = { active: 'This zone', later: 'Later zone', complete: 'Complete', expired: 'Expired', abandoned: 'Given up' };
-const pts = (n) => `${n} ${plural(n, 'point')}`;
+// Economy v2 (D159, legacy.md 4.7 E6.1): one name, "camp points" (no "Reserve", "points left" or "Preparation points")
+const pts = (n) => (econShown() ? campPoints(n) : `${n} ${plural(n, 'point')}`);
+const econ = (ctx, id, vars) => econLine(ctx.data.content && ctx.data.content.texts, id, vars);
 const consName = (ctx) => (id) => (ctx.data.consumables[id] || {}).name || id;
 
 // ------------------------------------------------------------------ tooltips
@@ -95,7 +99,8 @@ export function boardTip(o, ctx, opts = {}) {
     : o.kind === 'bounty' ? `Hunt down ${o.name || 'a named elite'} in ${o.regionName || 'its region'}.`
       : `Win ${o.need} of its marked sites: Quest or Grind nodes that carry its mark on the map, most of them in ${o.regionName || 'its region'}. Other fights do not count.`;
   const lv = rw.xpFrac || 0; const n = lv >= 1 ? Math.round(lv) : Math.round(lv * 10) / 10;
-  const pay = [legacyShown() && typeof rw.xp === 'number' ? `about ${xpPayText(rw)}` : `about ${n} ${n === 1 ? 'level' : 'levels'} of XP`, rw.gold ? moneyEl(rw.gold) : null, rw.choices ? `1 of ${rw.choices} items` : null].filter(Boolean);
+  // Economy v2 (engine-2026-11-19c UI need 7): the board's XP is what the contract pays (reward.xp), so no "about"
+  const pay = [legacyShown() && typeof rw.xp === 'number' ? `${econShown() ? '' : 'about '}${xpPayText(rw)}` : `about ${n} ${n === 1 ? 'level' : 'levels'} of XP`, rw.gold ? moneyEl(rw.gold) : null, rw.choices ? `1 of ${rw.choices} items` : null].filter(Boolean);
   const list = pay.flatMap((x, i) => (i === 0 ? [x] : [i === pay.length - 1 ? ' and ' : ', ', x]));
   return h('div.tt-contract.tt-board',
     h('div.tt-row', h('div.tt-name', contractTitle(o, ctx.data.content)), h('span.ctag', { dataset: { kind: o.kind } }, CONTRACT_KIND[o.kind] || o.kind)),
@@ -147,8 +152,10 @@ export function createPrepScreen(v, ctx) {
   const zone1 = ctx.data.zone1Name || (pv0.board.find((o) => o.z === 1) || {}).zoneName || 'the first zone';
   const nB = pv0.board.length; const nO = pv0.options.length;
   root.classList.toggle('first', first);
+  // Economy v2 (legacy.md 4.7 E6.2): the first camp after the lean first run says what grew (prepView + the bridge's secondCamp)
+  const grown = pv0.secondCamp ? econ(ctx, 'second_camp', { points: pv0.points }) : '';
   root.appendChild(h('div.pp-head',
-    h('div', h('div.pp-t1', 'The start camp'), h('div.pp-t2', first ? `Pick your supplies for the road to ${zone1}.` : `Pick your contracts and supplies for the road to ${zone1}.`)),
+    h('div', h('div.pp-t1', 'The start camp'), h('div.pp-t2', first ? `Pick your supplies for the road to ${zone1}.` : `Pick your contracts and supplies for the road to ${zone1}.`), grown ? h('div.pp-grown', grown) : null),
     h('div.pp-keys', nB ? [h('span.kbd', nB > 1 ? `1–${nB}` : '1'), 'contracts'] : null, nO ? [h('span.kbd', nO > 1 ? `A–${OPT_KEYS[nO - 1]}` : 'A'), 'supplies'] : null, h('span.kbd', 'Enter'), 'set out')));
   // the contracts: cards side by side
   const reroll = h('button.btn.small#pp-reroll', { type: 'button' });
@@ -186,9 +193,15 @@ export function createPrepScreen(v, ctx) {
   // the points left and Set out: always in view, bottom right (QA finding BUG-QA-10)
   // D150 item 15: no "Unspent: N points = N Echoes, usable at hubs" line (it contradicted the tooltip: Reserve first)
   const big = h('b.pm-n');
-  const points = h('div.pm-points', big, h('div', h('div.pm-l', 'points left')));
+  const points = h('div.pm-points', big, h('div', h('div.pm-l', econShown() ? econ(ctx, 'camp_points') : 'points left')));
   tip(points, () => {
     const pv = ctx.view.prep; if (!pv) return null;
+    // Economy v2 (legacy.md 4.7 E6.1): "Camp points" and the content's tooltip line (they buy contracts here and at a hub,
+    // and do not carry over); a lean first run adds what unspent points do (prep.unspentFirst: they are lost)
+    if (econShown()) {
+      return h('div', h('div.tt-name', 'Camp points'), h('div.tt-line', `${pv.points} this run${pv.spent ? `; ${pv.spent} spent` : ''}.`), h('div.tt-line.desc', econ(ctx, 'camp_points_tip')),
+        pv.first ? h('div.tt-line.num', verbatim(unspentLine(pv, ctx))) : h('div.tt-sub', `${pv.held} of ${pv.slots} contract slots used`));
+    }
     if (pv.first) return h('div', h('div.tt-name', 'Preparation points'), h('div.tt-line', `${pv.points} to spend on supplies${pv.spent ? `; ${pv.spent} spent` : ''}.`), h('div.tt-line.num', verbatim(unspentLine(pv, ctx))));
     const rs = pv.reserve || { points: 0, echoes: 0 }; // engine-2026-11-14f UI need 2: never read a missing Reserve
     return h('div', h('div.tt-name', 'Preparation points'), h('div.tt-line', `${pv.points} to spend on contracts and supplies${pv.spent ? `; ${pv.spent} spent` : ''}.`),
@@ -200,6 +213,11 @@ export function createPrepScreen(v, ctx) {
   tip(go, () => {
     const pv = ctx.view.prep; if (!pv) return null;
     if (pv.first) return h('div', h('div.tt-name', 'Set out'), h('div.tt-line', `Leave the camp for ${zone1}. Supplies go into your bags.`), pv.left ? h('div.tt-line.num', verbatim(unspentLine(pv, ctx))) : null);
+    if (econShown()) {
+      return h('div', h('div.tt-name', 'Set out'), h('div.tt-line', `Leave the camp for ${zone1}. Supplies go into your bags and the perks last the run.`),
+        h('div.tt-line.num', econ(ctx, 'set_out', { contracts: pv.held, points: pv.left })),
+        pv.held ? null : h('div.tt-warn', 'You hold no contract: the zones then pay only what you find.'));
+    }
     const rs = pv.reserve || { points: 0, echoes: 0 };
     return h('div', h('div.tt-name', 'Set out'), h('div.tt-line', `Leave the camp for ${zone1}. Supplies go into your bags and the perks last the run.`),
       h('div.tt-line.num', pv.left ? `${pts(pv.left)} unspent become Reserve: ${rs.echoes} Echoes at the end of the run, or hub contracts on the way.` : 'Every point is spent: no Reserve.'),
@@ -345,7 +363,7 @@ export function trackerContracts(v, ctx) {
   // D144 (engine-2026-11-13d UI need 10; casual s0079: "Contracts 1/4" became "0/4" on completing one): the slots held,
   // said as slots, and the contracts done this run
   const won = cv.contracts.filter((c) => c.status === 'complete').length;
-  const out = [h('div.tk-h.tk-ch', `Contract slots ${cv.held}/${cv.slots}`, won ? h('span.tk-done', ` · ${won} done`) : null, h('span.tk-res', ` · Reserve ${cv.reserve}`))];
+  const out = [h('div.tk-h.tk-ch', `Contract slots ${cv.held}/${cv.slots}`, won ? h('span.tk-done', ` · ${won} done`) : null, h('span.tk-res', ` · ${econShown() ? econ(ctx, 'tracker', { points: cv.reserve }) : `Reserve ${cv.reserve}`}`))];
   if (!here.length) out.push(h('div.tk-l.tk-none', z ? 'None in this zone' : 'None'));
   for (const c of here) {
     const el = h('div.tk-c' + (c.status === 'complete' ? '.done' : c.status === 'expired' ? '.gone' : ''), { dataset: { contract: c.id, status: c.status }, style: { '--cc': colors.get(c.id) || OFF_COLOR } },
@@ -364,7 +382,7 @@ export function trackerContracts(v, ctx) {
 export function buildContractLog(v, ctx) {
   const cv = v.contracts; const colors = contractColors(cv);
   const body = h('div.col.clog', { style: { padding: '1rem 1.6rem 1.4rem' } });
-  body.appendChild(h('div.cl-head', h('span.muted', `${cv.held} of ${cv.slots} slots held · Reserve ${cv.reserve} ${plural(cv.reserve, 'point')}`)));
+  body.appendChild(h('div.cl-head', h('span.muted', `${cv.held} of ${cv.slots} slots held · ${econShown() ? econ(ctx, 'tracker', { points: cv.reserve }) : `Reserve ${cv.reserve} ${plural(cv.reserve, 'point')}`}`)));
   const z = v.zone && !v.zone.camp ? v.zone.idx : null;
   const groups = [['This zone', (c) => c.status === 'active' || (c.z === z && c.status === 'complete')], ['Later zones', (c) => c.status === 'later'],
     ['Finished', (c) => !(c.status === 'active' || c.status === 'later') && !(c.z === z && c.status === 'complete')]];
@@ -382,7 +400,7 @@ export function buildContractLog(v, ctx) {
       body.appendChild(row);
     }
   }
-  if (!cv.contracts.length) body.appendChild(h('div.muted', 'You hold no contract. Each hub from the second zone on offers one, paid from Reserve.'));
+  if (!cv.contracts.length) body.appendChild(h('div.muted', `You hold no contract. Each hub from the second zone on offers one, paid ${econShown() ? 'in camp points' : 'from Reserve'}.`));
   return body;
 }
 /**
@@ -395,13 +413,13 @@ export function buildHubOffer(v, ctx, state = { swap: false }) {
   const colors = contractColors(cv);
   const box = h('div.hubc', { dataset: { kind: o.kind, hubOffer: o.id || o.kind } }); // data-hub-offer: hint H22's anchor (onboarding.js)
   const head = h('div.hc-head', h('img', { src: kindIcon(o.kind), alt: '' }), h('div', h('div.hc-t', 'Contract on offer'), h('div.hc-s', hubOfferSentence(o, v.zone.hubName, ctx.data.content))));
-  tip(head, () => contractTip(o, ctx, { price: `${pts(o.price)} of Reserve (you have ${cv.reserve}) · or a swap` }));
+  tip(head, () => contractTip(o, ctx, { price: econShown() ? `${pts(o.price)} (you have ${cv.reserve}) · or a swap` : `${pts(o.price)} of Reserve (you have ${cv.reserve}) · or a swap` }));
   const rw = o.reward;
-  const take = h('button.btn.small' + (o.reserve ? '.primary' : '.disabled'), { type: 'button', dataset: { hub: 'reserve' } }, `Take · ${o.price} Reserve`);
+  const take = h('button.btn.small' + (o.reserve ? '.primary' : '.disabled'), { type: 'button', dataset: { hub: 'reserve' } }, econShown() ? econ(ctx, 'hub_offer', { price: o.price, points: cv.reserve }).replace(/\.$/, '') : `Take · ${o.price} Reserve`);
   // blind panel 2026-11-13 (item 8): the hub keeps the offer's height after a take (screens.js buildHub), so nothing moves
   const taken = () => { state.taken = { z: v.zone.idx, h: Math.round(box.getBoundingClientRect().height), title: contractTitle(o, ctx.data.content) }; };
   take.addEventListener('click', () => { if (o.reserve) taken(); ctx.act({ type: 'TAKE_HUB_CONTRACT', mode: 'reserve' }); });
-  tip(take, () => h('div', h('div.tt-name', 'Take it from Reserve'), h('div.tt-line', `Pay ${pts(o.price)} of your ${cv.reserve} Reserve. It needs a free slot (${cv.held} of ${cv.slots} used). Only before you leave this hub.`),
+  tip(take, () => h('div', h('div.tt-name', econShown() ? 'Take it for camp points' : 'Take it from Reserve'), h('div.tt-line', econShown() ? `Pay ${pts(o.price)} of your ${cv.reserve}. It needs a free slot (${cv.held} of ${cv.slots} used). Only before you leave this hub.` : `Pay ${pts(o.price)} of your ${cv.reserve} Reserve. It needs a free slot (${cv.held} of ${cv.slots} used). Only before you leave this hub.`),
     o.reserve ? h('div.tt-hint', 'Click to take it') : h('div.tt-warn', ctx.bridge.why({ type: 'TAKE_HUB_CONTRACT', mode: 'reserve' }) || 'Not now')));
   const swapBtn = h('button.btn.small' + (o.swap.length ? '' : '.disabled'), { type: 'button', dataset: { hub: 'swap' } }, state.swap ? 'Keep my contracts' : 'Swap…');
   tip(swapBtn, () => h('div', h('div.tt-name', 'Swap'), h('div.tt-line', 'Give up one contract you hold and take this one for free. No refund; its progress is lost. Only before you leave this hub.')));

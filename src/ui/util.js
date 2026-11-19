@@ -61,14 +61,19 @@ export function glowBall(ctx, x, y, r, col) {
  * `words` swaps the Echo words for the Legacy ones in every text h() builds. Off (no Legacy run, the mock, GATES.legacy
  * off) every hook is the identity, so nothing on screen changes.
  */
-const display = { level: null, learn: null, words: false };
-export function setDisplay(d = {}) { display.level = d.level || null; display.learn = d.learn || null; display.words = !!d.words; }
+const display = { level: null, learn: null, words: false, econ: false };
+export function setDisplay(d = {}) { display.level = d.level || null; display.learn = d.learn || null; display.words = !!d.words; display.econ = !!d.econ; }
 /** The level shown for an engine level (the hero scale in a Legacy run, else the level itself). */
 export const lv = (n) => (display.level && typeof n === 'number' ? display.level(n) : n);
 /** The hero level a spell's learn level (an engine level) opens at (legacy.md 1.7), else the level itself. */
 export const lvLearn = (n) => (display.learn && typeof n === 'number' ? display.learn(n) : n);
 /** True while the screen shows a Legacy profile or run (Legacy points, the hero scale). */
 export const legacyShown = () => display.words;
+/**
+ * Economy v2 (D159, legacy.md 4.7 E6): true while a Legacy profile or run is shown with C.GATES.economyV2 on (the bridge's
+ * `econ`): one name, "camp points", the run end's kept and left lines, the level-up banner, the v2 hall. Off: false.
+ */
+export const econShown = () => display.econ;
 /** The Echo words as Legacy words while legacyShown (legacy.md 4.6: "Legacy points", the "Legacy hall"; draft). */
 export function legacyWords(s) {
   if (!display.words || typeof s !== 'string' || !s.includes('Echo')) return s;

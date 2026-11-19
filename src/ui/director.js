@@ -18,9 +18,9 @@
 // D150 (owner 2026-11-14, text pass): "Deathblow stopped" and "Wind-up stopped" (floats and log lines), the end boss
 // and the Ember of Return by their names ("Oruvath", "You return to the fight"); a quest's, story's or contract's XP
 // floats not with the fight's (its window shows it), so the fight's floats add up to the spoils' experience.
-import { wait, SkipToken, fmtNum, deepClone, lv } from './util.js'; // lv: Legacy's hero scale (identity off)
+import { wait, SkipToken, fmtNum, deepClone, lv, econShown } from './util.js'; // lv: Legacy's hero scale (identity off)
 import { settings } from './settings.js';
-import { linkedText, dangerBanner, CONTROL_WORD as CONTROL_LOG, HEAT_WORDS, freeActionText, trainerWaiting } from './ui-text.js';
+import { linkedText, dangerBanner, CONTROL_WORD as CONTROL_LOG, HEAT_WORDS, freeActionText, trainerWaiting, econLine } from './ui-text.js';
 import { timeline, roundPace, hitShare, STATUS_LABEL } from './combat-feel.js';
 import { CAST, token as themeToken } from './theme.js'; // not `token`: play() has its own SkipToken of that name
 import { fillLine, rescueLeftLine } from './onboarding.js';
@@ -193,6 +193,9 @@ export class Director {
 
       // ------------------------------------------------ events
       let lastDamageTarget = null; let hitCtx = null; let inTicks = false;
+      // Economy v2 (legacy.md 4.7 E6.4): the hero's level-ups of this step make one banner, played after the step's events
+      // (out of a fight at once; in a fight after the victory, before the loot window), with its cue at that moment
+      const heroLv = econShown(); const lvQ = [];
       for (let i = 0; i < events.length; i++) {
         const e = events[i]; const tm = tl.beats[i] || { wait: 0 };
         this.cursor = e; // test hook: the event on screen
@@ -201,7 +204,7 @@ export class Director {
         if (round && i > 0 && (e.t === 'action' || e.t === 'round' || (tick && !inTicks))) newBeat();
         inTicks = tick || (inTicks && e.t !== 'action' && e.t !== 'round');
         // sound (audio.js): the event's cues at its moment; a skipped or Instant step plays only its top cue
-        if (ctx.audio) ctx.audio.event(e, { power: tm.power, heavy: !!(hitCtx && hitCtx.heavy), rank: e.dst && e.dst.side === 'enemy' ? (enemy(e.dst.idx) || {}).rank : null, beat: this.beatNo, fast: token.skipped || settings.instant });
+        if (ctx.audio && !(heroLv && e.t === 'levelUp' && e.heroLevel != null)) ctx.audio.event(e, { power: tm.power, heavy: !!(hitCtx && hitCtx.heavy), rank: e.dst && e.dst.side === 'enemy' ? (enemy(e.dst.idx) || {}).rank : null, beat: this.beatNo, fast: token.skipped || settings.instant });
         switch (e.t) {
           case 'fightStart': hud.log(`Combat: ${e.enemies.join(', ')}.`, 'lg-sys'); break;
           case 'action': {
@@ -367,6 +370,7 @@ export class Director {
             // Legacy (engine-api.md 15.2): the hero's own xpToNext (e.xpToNext; XP carries over, the next view's XP lands after)
             Object.assign(p(), { level: e.level, maxHp: e.maxHp, hp: e.hp, xp: 0, xpToNext: e.xpToNext != null ? e.xpToNext : (next.player && next.player.level === e.level) ? next.player.xpToNext : p().xpToNext });
             push();
+            if (heroLv && e.heroLevel != null) { lvQ.push(e); hud.log(`You have reached level ${e.heroLevel}!`, 'lg-loot'); break; }
             scene.levelUp('player');
             // blind round 2 (casual re-run s0279): the banner points to the trainer whenever a spell or a rank waits there
             // (R.trainerView after the step), once per level; the mock has no trainer view: the level's new spells. engine-2026-11-15
@@ -468,6 +472,14 @@ export class Director {
           default: break;
         }
       }
+      // a fight still on (a kill's XP mid-fight): the banner waits for the step that ends it (after the victory); a run's
+      // end drops it (no banner over the summary)
+      if (heroLv) {
+        const all = [...(this.lvHold || []), ...lvQ];
+        const on = !!(next.combat && !next.combat.over);
+        this.lvHold = on && next.phase !== 'SUMMARY' ? all : [];
+        if (all.length && !on && next.phase !== 'SUMMARY' && next.phase !== 'CREATE') await this.heroLevelUp(all, next, fast(), WM);
+      } else this.lvHold = [];
       // Legacy bugs 2026-11-19: a run abandoned from the menu ends as a death, but no "You have died" over it
       if (next.phase === 'SUMMARY' && prev.phase !== 'SUMMARY' && next.summary && next.summary.outcome === 'death' && !(next.summary.death && next.summary.death.abandoned)) await this.deathScreen(token, deathLine(next));
       if (next.phase === 'SUMMARY' && next.summary && next.summary.outcome === 'victory' && prev.phase !== 'SUMMARY') { ctx.ui.banner('Victory', 'Oruvath is no more.', 'boss', 3000); await WM(2200); }
@@ -478,6 +490,40 @@ export class Director {
       if (next.phase === 'SUMMARY' && prev.phase !== 'SUMMARY') ctx.ui.hideBanner();
       ctx.setShown(next);
     }
+  }
+
+  /**
+   * Economy v2 (legacy.md 4.7 E6.4; content texts.economy level_*, draft): the hero's level-ups of one step (the bridge's
+   * levelUp events with heroLevel) as one banner: "Level 7" or "Level 7 (+2)", then only the lines that apply, in order:
+   * health (and mana for a mana class) before and after, the new spell(s) or the ranks a trainer has, the talent point, the
+   * Legacy points the levels pay (at hero 20 the trees line, at 25 the line of the XP past it). 2.5 s, any key or click
+   * closes it; Autoplay, Speedrun and Instant show it 1.2 s and do not wait. The XP bar flashes, the hero frame glows, the
+   * levelUp cue plays.
+   */
+  async heroLevelUp(list, next, fastNow, WM) {
+    const ctx = this.ctx; const R = ctx.data.rules; const T = ctx.data.content && ctx.data.content.texts;
+    const E = (id, vars) => econLine(T, id, vars);
+    const z = list[list.length - 1]; const n = list.length;
+    const sum = (k) => list.reduce((a, e) => a + (e[k] || 0), 0);
+    const lines = [];
+    if (z.maxHp) lines.push(E('level_health', { from: z.maxHp - sum('hpGain'), to: z.maxHp }));
+    const mana = next.player && next.player.res && next.player.res.kind === 'mana';
+    if (mana && z.maxMana) lines.push(E('level_mana', { from: z.maxMana - sum('manaGain'), to: z.maxMana }));
+    const spells = [...new Set(list.flatMap((e) => e.heroSpells || []))];
+    if (spells.length) for (const sp of spells.slice(0, 2)) lines.push(E('level_new_spell', { spell: sp }));
+    else if (z.ranks > 0) lines.push(E('level_new_ranks', { n: z.ranks }));
+    if (sum('talentPoints') > 0) lines.push(E('level_talent', { key_talents: 'T' }));
+    const reached = (L) => L != null && list.some((e) => e.heroLevel === L);
+    if (reached(R.heroMaxLevel)) lines.push(E('level_hero25', { xp: R.heroXpAtMax, legacy: R.legacyPerLevel }));
+    else if (reached(R.treeOpenLevel)) lines.push(E('level_hero20'));
+    else if (R.legacyPerLevel) lines.push(E('level_legacy', { legacy: R.legacyPerLevel * n }));
+    const title = n > 1 ? E('level_title_multi', { level: z.heroLevel, n }) : E('level_title', { level: z.heroLevel });
+    const quick = fastNow || !!(next && next.autoplay) || !!settings.get('speedrun');
+    ctx.ui.levelBanner(title, lines.filter(Boolean), quick ? 1200 : 2500);
+    ctx.scene.levelUp('player');
+    ctx.hud.levelFlash(1000);
+    if (ctx.audio) ctx.audio.event({ t: 'levelUp', heroLevel: z.heroLevel }, { fast: fastNow });
+    if (!quick) await WM(2500);
   }
 
   /** The player's projectiles; bolt(from, to, kind, ms at 1x, opts) fires one at the step's tempo; tm: the action's timing (travel, weight). */

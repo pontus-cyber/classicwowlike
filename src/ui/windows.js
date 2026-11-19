@@ -4,7 +4,7 @@
 // volumes, saved like every setting.
 // D150 (owner 2026-11-14, text pass): talents show their points one way (no gate numbers or tree totals); the
 // spellbook keeps the bar's "right-click a slot to clear it" (spell tooltips do not).
-import { h, clear, fmtNum, moneyEl, pct, lv, lvLearn } from './util.js'; // lv, lvLearn: Legacy's hero scale (identity off)
+import { h, clear, fmtNum, moneyEl, pct, lv, lvLearn, econShown } from './util.js'; // lv, lvLearn: Legacy's hero scale (identity off)
 import { spellIcon, itemIcon, slotIcon, talentIcon, icon } from './art-icons.js';
 import { drawHumanoid, HERO_LOOKS } from './art-actors.js';
 import { tip, itemTip, spellTip, talentTip, SLOT_NAMES, hideIn } from './tooltip.js';
@@ -12,7 +12,7 @@ import { dragSource, dropTarget } from './hud.js';
 import { buildMap } from './screens.js';
 import { settings } from './settings.js';
 import { buildContractLog } from './prep.js';
-import { resurrectText } from './ui-text.js';
+import { resurrectText, econLine } from './ui-text.js';
 import { flags } from './engine-bridge.js';
 import { hints } from './onboarding.js';
 
@@ -235,7 +235,9 @@ export function createWindows(root, ctx) {
         const ab = h('button.btn.small', { type: 'button', dataset: { abandon: 'ask' } }, 'Abandon run');
         const note = h('div.muted', 'Ends this run where your hero stands, as a death. Your hero keeps its level and the run pays its Legacy points.');
         ab.addEventListener('click', () => {
-          if (ab.dataset.abandon === 'ask') { ab.dataset.abandon = 'sure'; ab.classList.add('danger'); ab.textContent = 'Abandon: click again'; note.textContent = 'Abandon this run? Click again to end it.'; return; }
+          // Economy v2 (legacy.md 4.7 E6.3; content abandon_confirm, draft): the confirmation says what is kept and lost
+          const ask = econShown() ? `${econLine(ctx.data.content && ctx.data.content.texts, 'abandon_confirm')} Click again to end it.` : 'Abandon this run? Click again to end it.';
+          if (ab.dataset.abandon === 'ask') { ab.dataset.abandon = 'sure'; ab.classList.add('danger'); ab.textContent = 'Abandon: click again'; note.textContent = ask; return; }
           ab.disabled = true; close('settings'); ctx.act({ type: 'ABANDON_RUN' });
         });
         abandonRow = h('div.setrow.abandon', h('div', h('div', 'Abandon run'), note), ab);
