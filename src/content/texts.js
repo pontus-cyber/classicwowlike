@@ -63,4 +63,33 @@ export const TEXTS = {
     talent_points: 'One point at level {first}, then one every {step} levels. Reset at a trainer.',
     talents_locked: 'Talents unlock at level {first}.',
   },
+  // Economy v2 clarity lines (D159, docs/specs/legacy.md 4.7 E6, draft; ids C.ECONOMY_TEXT_IDS), for a Legacy run while
+  // C.GATES.economyV2 is on. Placeholders: {points} camp points (prepView.left or points, the tracker's reserve), {contracts}
+  // contracts held, {price} a hub offer's price; {level} / {was} hero levels now and at the run's start; {legacy} Legacy
+  // points, {next} / {cost} the next hall entry and its price; {n} a count; {from} / {to} values before and after;
+  // {spell} a spell's name; {key_talents} the talents key; {xp} HERO_XP_AT_MAX and {legacy} LEGACY_PER_LEVEL at level 25.
+  economy: {
+    camp_points: 'camp points',
+    camp_points_tip: 'Camp points buy contracts and supplies here. Points you keep can buy a contract at a hub on the way. They do not carry over to the next run.',
+    set_out: 'You set out with {contracts} contracts and {points} camp points.',
+    hub_offer: 'Take for {price} camp points (you have {points}).',
+    tracker: '{points} camp points',
+    first_run_lost: 'Camp points you do not spend are lost.',
+    second_camp: 'Your camp has grown: {points} camp points and a contract board. Contracts pay XP, gold and a choice of gear.',
+    run_kept: 'Kept: level {level} (was {was}) · spells and ranks · talents · Legacy unlocks',
+    run_left: "Left behind: gear, gold, potions and camp points. Your next run starts with the Wayfarer's kit.",
+    run_balance: 'You have {legacy} Legacy points. Next in the hall: {next}, {cost}.',
+    abandon_confirm: 'Abandon this run? You keep your level, XP and spells. Gear, gold and camp points are lost. Legacy points pay only for what you did.',
+    level_title: 'Level {level}',
+    level_title_multi: 'Level {level} (+{n})',
+    level_health: 'Health {from} → {to}',
+    level_mana: 'Mana {from} → {to}',
+    level_new_spell: 'New spell: {spell}. Learn it at a trainer.',
+    level_new_ranks: 'Better ranks for {n} spells at a trainer.',
+    level_talent: 'Talent point to spend ({key_talents}).',
+    level_legacy: '+{legacy} Legacy points at the end of the run.',
+    level_hero20: 'Level 20: your other talent trees can open in the Legacy hall.',
+    level_hero25: 'Level 25, the highest. From now on every {xp} XP pays {legacy} Legacy points.',
+    level_progress: 'Level {from} → {to}',
+  },
 };

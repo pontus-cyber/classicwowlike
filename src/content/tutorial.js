@@ -244,6 +244,13 @@ export const TUTORIAL = {
     hints: {
       H37: { system: 'Legacy hall', line: 'Legacy points buy lasting unlocks. They stay when a run ends.' },
     },
+    // Economy v2 (D159, legacy.md 4.7 E1 and E6.1, draft): while C.GATES.economyV2 is on as well, camp points kept pay
+    // nothing, so the first run's line over Set out says they are lost (no placeholder; prepView.unspent.echoes is 0).
+    economyV2: {
+      prep: {
+        unspentFirst: 'Camp points you do not spend are lost.',
+      },
+    },
   },
 
   // The first-run nudge (spec 4.2-4.3). unlock: the META id the nudge points at. {satchelPotions}: META.satchel.potions.

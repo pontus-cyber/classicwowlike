@@ -436,7 +436,7 @@ Status: **draft**, not approved by the owner; replaces the parts of 1.3, 1.4, 2.
 - Measured (planner, v2 against main; the full v2 arm ran with zone 2 also at 0.075, see Tried): zone 1 lowest HP in won fights 93 / 91 / 89 / 92 / 92 % at hero 5 / 10 / 15 / 20 / 25 (was 86 / 77 / 71 / 75 / 76), its fights 4.4 → 3.5 rounds from hero 5 to 25 (was 5.6 → 4.2), runs dying in zones 1-2 0-0.6 % from hero 5; zones 5-6 unchanged (65-78 %, 6.4 → 4.2 rounds). L4's HP rise (zone 1 - zones 5-6) is 26 points at hero 10 and 14 at 20 (was 13 and -6: L4 now passes at H20).
 - Tried: zone 2 at 0.075 as well (the full v2 arm): zone 2 easier by 4-6 points of lowest HP, but its lower-level drops cut the item level at Oruvath (power + 1.36 against main's + 1.94 at hero 21-24) and pooled win at hero 21-24 (41.7 against 48.5 %); with zone 2 at 0: + 1.72 and 44.7 %, XP a run 1-4 % lower and Legacy a run within 3 % of the full arm, so the curve of E5 stands. ZONE_LAG [0.25, 0.12, ...] (zone 1 at 93-95 %, 3.4 rounds: trivial from hero 5, and pooled win at hero 20, 23 and 25 about 4 pp under [0.15, 0.075]). [0.15, 0, ...] kept. Zone 1 slower and XP against the hero (today's formula) is excluded by problem 3.
 
-**E4. Hero XP for levels 1-3.** HERO_XP[1..3] = **1 800 / 1 850 / 1 900** (was 2 000 / 2 000 / 2 050; levels 4-24 unchanged; 69 250 in all). With E2 a first run pays about 6 100 hero XP (was 7 800), so the first run still ends at level 4.3 (FIRST_RUN_LEVEL 4-5; at the old costs 3.96). Level 2 needs 1 800: about 10 minutes at the measured 177 XP a minute (ONB1 to be re-measured on the guided zone).
+**E4. Hero XP for levels 1-3.** HERO_XP[1..3] = **1 800 / 1 850 / 1 900** (was 2 000 / 2 000 / 2 050; levels 4-24 unchanged; 69 300 in all; engine 2026-11-19: was written 69 250, the sum is 69 800 - 500). With E2 a first run pays about 6 100 hero XP (was 7 800), so the first run still ends at level 4.3 (FIRST_RUN_LEVEL 4-5; at the old costs 3.96). Level 2 needs 1 800: about 10 minutes at the measured 177 XP a minute (ONB1 to be re-measured on the guided zone).
 
 **E5. The hall, re-priced: the curve.** The 4.2 set (same 13 entries, same effects and needs) and the level-20 entries at these prices:
 
@@ -500,6 +500,8 @@ The curve (planner campaign on the v2 cells, chained by run; Legacy a run as mea
    - Hero select and the summary show the run's levels as "Level 4 → 7" with the XP bar.
 
 **What the engineer builds** (one switch `C.GATES.economyV2`, default off until accepted; Legacy runs only, as D158): LEGACY_PER_PREP_POINT_HERO 0 and LEGACY_PER_ZONE_HERO 10 in `echoes()` when `facts.heroLevels` is set; `eventXp` and `flatXp` by E2 with a helper `xpRef(s)` in legacy.js (zone band, Camp level, else power level); ZONE_LAG in `bandNow`; HERO_XP[0..2] 1800, 1850, 1900; a Legacy profile's `metaOffers` lists exactly the 13 entries of 4.2 at the E5 prices (a META_HERO block over the same ids; phase 2 of 7.1), TREE_OPEN_COST 250 / 300 and ARMOURY_COST 150 when phases 4-5 are built. The sim mirrors E2 in sim/lib/model.mjs. Scratch reference: env ECON of the report (`{"xp":1,"step":0.1,"lag":[0.15,0,0,0,0,0]}`) over sim/legacy-run.mjs `--native --oruvath` with the three constants patched.
+
+**(engine, 2026-11-19)** Built behind `C.GATES.economyV2`, **off** (docs/handoffs/engine-2026-11-19c.md; engine-api.md 15.5): E1-E5 in the engine (legacy.js `econV2`, `xpRef`, `bandNow`, `heroXpTable`, `hallOf`; progress.js `eventXp`, `flatXp`; meta.js `echoes`, `metaOffers`; constants Part 7, `META_HERO`), E6's lines as content `texts.economy` and `tutorial.legacy.economyV2` (draft), the sim's planner model on the same XP rule (sim/lib/model.mjs; `sim/run.mjs --hero H --econ`, `sim/legacy-run.mjs --econ`). The level-20 wing's prices are constants (`TREE_OPEN_COST`, `ARMOURY_COST`) and are not sold until phases 4-5. Level-60 runs and Legacy runs with the switch off play as before (golden, qa/engine s28).
 
 **New checks (draft):**
 
@@ -820,7 +822,7 @@ Order inside phase 1: engine (hero and zones), then sim (warmed tables, campaign
 | XP_ZONE_STEP (4.7, draft) | 0.10 | × (1 + step × max(0, CL - Z)) on every Legacy XP award, Z the zone's band (the Camp's level at the Camp and Oruvath); no xpCurve ratio, no diffMod (4.7 E2) |
 | Contract XP offset (4.7, draft) | CONTRACT_CL_OFFSET_HERO (2) | CL - Z of every contract and Gorrak's bounty: × 1.2 (4.7 E2) |
 | ZONE_LAG (4.7, draft) | 0.15, 0, 0, 0, 0, 0 | power levels per power level above 1 that zones 1-6 trail the hero: band - round(lag × (P - 1)) (4.7 E3) |
-| HERO_XP (4.7, draft) | levels 1-3: 1800, 1850, 1900 (was 2000, 2000, 2050); 4-24 unchanged; 69 250 in all | hero XP (4.7 E4) |
+| HERO_XP (4.7, draft) | levels 1-3: 1800, 1850, 1900 (was 2000, 2000, 2050); 4-24 unchanged; 69 300 in all | hero XP (4.7 E4; engine name HERO_XP_ECON2) |
 | LEGACY_COST (4.7, draft) | satchel 50; vigor 70 / 130; edge 70 / 130; quick_study 80 / 140; sp_(class)1 120, sp_(class)2 200; second_breath 200; swift_boots 100; pockets 40; cartographer 60; old_hand 70; quartermaster 70 / 110; stormhawk 150; oaths 0 | Legacy points per rank; account entries + one class's techniques 1 640 (4.7 E5) |
 | TREE_OPEN_COST (4.7, draft) | 250 / 300 | Legacy points, second / third tree per hero (was 300 / 450) (4.7 E5) |
 | ARMOURY_COST (4.7, draft) | 150 | Legacy points, once (was 200) (4.7 E5) |

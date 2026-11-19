@@ -497,8 +497,14 @@ export const RARE_HP_MULT_Z1 = 3.0;
  * Shard (autoplay.js), and the class numbers ORUVATH_SPELL / ORUVATH_TALENT apply (the SPELL fields read the switches at
  * each use). D158: all of it in Legacy runs only: with GATES.legacy off (every run a level-60 run) the switch changes
  * nothing; the boss rules read the run's mark (state.legacy) as well.
+ * D159 (legacy.md 4.7 Economy v2, draft): economyV2. **Off** until the owner or Lead switches it on with legacy (the UI's
+ * ?legacy=1 set turns it on with the other two). On, in a Legacy run only (state.legacy; a level-60 run never reads it,
+ * D158): camp points kept pay no Legacy points (LEGACY_PER_PREP_POINT_HERO) and a zone left pays LEGACY_PER_ZONE_HERO
+ * (E1); every XP award is counted against the level of the place it is earned (legacy.js xpRef; XP_ZONE_STEP, no xpCurve
+ * ratio, no diffMod; contracts at CONTRACT_CL_OFFSET_HERO) (E2); zone 1 trails the hero by ZONE_LAG (E3); HERO_XP_ECON2
+ * (E4); a version 3 profile is sold the hall of 4.2 at the E5 prices (META_HERO) and a Legacy run reads its effects (E5).
  */
-export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true, rewardPrimary: true, zone2InnerCap: true, z1Dmg: true, firstRunLean: true, gorrakBounty: true, guidedHold: true, steadyDim: true, rescueDim: true, gorrakLevel: true, bountyRoad: true, legacy: false, oruvathLegacy: false };
+export const GATES = { rareHpMultZ1: true, firstMeetWindup: true, sapHold: true, passStealth: true, swiftRoad: false, campReroll: false, boardAcrossRun: true, autoEmberFirst: true, rewardPrimary: true, zone2InnerCap: true, z1Dmg: true, firstRunLean: true, gorrakBounty: true, guidedHold: true, steadyDim: true, rescueDim: true, gorrakLevel: true, bountyRoad: true, legacy: false, oruvathLegacy: false, economyV2: false };
 // Expedition map (rules 1.9, marked "(expedition)"; docs/specs/expedition.md 4-7, 9.5, 13). Used only by a run created
 // with mapMode 'expedition'; a run on today's map (mapMode 'rows', the default) never reads them.
 /** rules 1.9.2: nodes per ring (ring 0 = the hub). */
@@ -759,6 +765,24 @@ export const EXPEDITION_TEXT_IDS = ['shardfall', 'shardspawn', 'dimming', 'homew
  * at level 10): the talent window's rule lines, filled from TALENT_FIRST_LEVEL ({first}) and TALENT_LEVEL_STEP ({step}).
  */
 export const PROGRESS_TEXT_IDS = ['talent_points', 'talents_locked'];
+/**
+ * Text ids of the content group texts.economy (D159, legacy.md 4.7 E6, draft): the clarity lines of Economy v2 the UI shows
+ * in a Legacy run while GATES.economyV2 is on (one name "camp points", the second camp, what a run's end keeps and leaves
+ * behind, the level-up banner). ECONOMY_TEXT_NEEDS: the placeholders each line must hold (the validator reports a missing one).
+ */
+export const ECONOMY_TEXT_IDS = [
+  'camp_points', 'camp_points_tip', 'set_out', 'hub_offer', 'tracker', 'first_run_lost', 'second_camp',
+  'run_kept', 'run_left', 'run_balance', 'abandon_confirm',
+  'level_title', 'level_title_multi', 'level_health', 'level_mana', 'level_new_spell', 'level_new_ranks', 'level_talent',
+  'level_legacy', 'level_hero20', 'level_hero25', 'level_progress',
+];
+export const ECONOMY_TEXT_NEEDS = {
+  set_out: ['{contracts}', '{points}'], hub_offer: ['{price}', '{points}'], tracker: ['{points}'], second_camp: ['{points}'],
+  run_kept: ['{level}', '{was}'], run_balance: ['{legacy}', '{next}', '{cost}'], level_title: ['{level}'],
+  level_title_multi: ['{level}', '{n}'], level_health: ['{from}', '{to}'], level_mana: ['{from}', '{to}'],
+  level_new_spell: ['{spell}'], level_new_ranks: ['{n}'], level_talent: ['{key_talents}'], level_legacy: ['{legacy}'],
+  level_hero25: ['{xp}', '{legacy}'], level_progress: ['{from}', '{to}'],
+};
 /** rules 1.9.2: no Elite, Vendor or Trainer in ring 1. */
 export const RING1_FORBIDDEN = ['elite', 'vendor', 'trainer'];
 
@@ -1569,3 +1593,54 @@ export const ORUVATH_TALENT = {
   for (const [id, now] of Object.entries(ORUVATH_SPELL)) bind(SPELL[id], now);
   for (const [id, now] of Object.entries(ORUVATH_TALENT)) bind(TALENT[id], now);
 }());
+
+// ---------------------------------------------------------------------------------------------
+// Part 7. Legacy Economy v2 (D159; docs/specs/legacy.md 4.7 and its section 10 rows marked 4.7, draft), played only while
+// GATES.economyV2 is on and only in a Legacy run (state.legacy; D158: a level-60 run keeps every value above).
+// ---------------------------------------------------------------------------------------------
+/** legacy.md 4.7 E1: Legacy points per camp point kept at the run's end, Legacy runs (level-60 runs: LEGACY_PER_PREP_POINT). */
+export const LEGACY_PER_PREP_POINT_HERO = 0;
+/** legacy.md 4.7 E1: Legacy points per zone left (Road or Bell), Legacy runs (level-60 runs: LEGACY_PER_ZONE 7.5). */
+export const LEGACY_PER_ZONE_HERO = 10;
+/**
+ * legacy.md 4.7 E2: every Legacy XP award is round(HERO_XP_UNIT × frac × (1 + XP_ZONE_STEP × max(0, CL - Z)) × (1 +
+ * xpPctMods)), Z the level of the place it is earned (legacy.js xpRef); contracts and Gorrak's bounty at CL - Z =
+ * CONTRACT_CL_OFFSET_HERO. No xpCurve ratio, no diffMod.
+ */
+export const XP_ZONE_STEP = 0.10;
+/** legacy.md 4.7 E3: power levels per power level above 1 that zones 1-6 trail the hero: band - round(lag × (P - 1)). */
+export const ZONE_LAG = [0.15, 0, 0, 0, 0, 0];
+/** legacy.md 4.7 E4: HERO_XP with levels 1-3 at 1800 / 1850 / 1900 (was 2000 / 2000 / 2050); 69 300 in all. */
+export const HERO_XP_ECON2 = [1800, 1850, 1900, ...HERO_XP.slice(3)];
+/**
+ * legacy.md 4.2 and 4.7 E5 (draft): the Legacy hall a version 3 profile is sold under GATES.economyV2: the 13 entries of
+ * 4.2 (the per-class techniques are six ids) at the E5 prices, with the effects of 4.2 (LEGACY_EFFECT: Vigor +0.01 max HP,
+ * Edge +0.01 Power, Quick Study +0.05 XP per rank, two ranks each; Deeper Pockets one rank of +4 bag slots). Same ids and
+ * fields as META, so the engine's readers take either table; needs (req) as META. The rest of META (Keen Lineage,
+ * Prospector, Heirloom Blade, Trainer's Ledger, Scout's Eye, Alchemist's Notes, the Cache, the Relics, Ancestral Insight)
+ * is retired from the hall (4.6): not sold, and a rank stored on the profile has no effect in a Legacy run.
+ */
+const hall = (id, costs, more = {}) => [id, { ...META[id], ranks: costs.length, costs, ...more }];
+export const META_HERO = Object.fromEntries([
+  hall('satchel', [50]),
+  hall('pockets', [40], { slots: 4 }),
+  hall('quartermaster', [70, 110]),
+  hall('cartographer', [60]),
+  hall('old_hand', [70]),
+  hall('swift_boots', [100]),
+  hall('vigor', [70, 130], { hpPct: 0.01 }),
+  hall('edge', [70, 130], { powerPct: 0.01 }),
+  hall('quick_study', [80, 140], { xpPct: 0.05 }),
+  hall('second_breath', [200]),
+  hall('sp_r1', [120]), hall('sp_m1', [120]), hall('sp_h1', [120]),
+  hall('sp_r2', [200]), hall('sp_m2', [200]), hall('sp_h2', [200]),
+  hall('stormhawk', [150]),
+  hall('oaths', [0]),
+]);
+/**
+ * legacy.md 4.3, 4.4 and 4.7 E5 (draft): the level-20 wing, from hero level TREE_OPEN_LEVEL: the second and third talent
+ * tree per hero, and the Armoury once. Not sold yet: phases 4-5 (legacy.md 7.1) build what they open.
+ */
+export const TREE_OPEN_LEVEL = 20;
+export const TREE_OPEN_COST = [250, 300];
+export const ARMOURY_COST = 150;

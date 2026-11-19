@@ -8,7 +8,8 @@
 // (changes-m3-v2.md 1.3; GATES.firstRunLean): `firstRun` on a lean first run, whose Echo line `reserve` is the camp points
 // left unspent (the UI's label "Unspent camp points"; no Reserve is named on a first run). Legacy (D154, legacy.md 1.3-1.5,
 // 4.1; a Legacy run): the lines pay Legacy points (`legacy`, the same object as `echoes`), the level line per hero level
-// gained, and the `hero` block (level, XP, levels gained; `record`: the hero applyRunToProfile writes back).
+// gained, and the `hero` block (level, XP, levels gained; `record`: the hero applyRunToProfile writes back). Economy v2
+// (D159, legacy.md 4.7 E1; legacy.js econV2): the facts carry `econV2` (meta.js echoes: no reserve line, zones at 10).
 import {
   PACE_CREATE_S, PACE_DECIDE_S, PACE_TRAVEL_NODE_S, PACE_ZONE_TRAVEL_S, PACE_QUEST_TEXT_S, PACE_FIGHT_OVERHEAD_S,
   PACE_MANUAL_ROUND_S, PACE_AUTO_ROUND_S, PACE_LOOT_S, PACE_LEVELUP_S, PACE_TALENT_S, PACE_REST_S, PACE_SHRINE_S,
@@ -20,7 +21,7 @@ import { leanFirst } from './expedition.js';
 import { echoes, profileHash, welcomeDue } from './meta.js';
 import { deepClone } from './util.js';
 import { heatSummary } from './heat.js';
-import { isLegacy, heroView, heroRecord } from './legacy.js';
+import { isLegacy, heroView, heroRecord, econV2 } from './legacy.js';
 
 /**
  * estSeconds (rules 3): sum of pace terms; rounds at the manual or autoplay rate. The manual profile also reads the
@@ -68,6 +69,8 @@ export function summary(s) {
     ...(welcomeDue(s.profile) ? { welcome: true } : {}),
     // Legacy (legacy.md 4.1): hero levels gained in the run, each HERO_XP_AT_MAX at level 25 one more
     ...(isLegacy(s) ? { heroLevels: (s.hero.gained || 0) + (s.hero.over || 0) } : {}),
+    // Economy v2 (legacy.md 4.7 E1): no reserve line, the zone line at LEGACY_PER_ZONE_HERO
+    ...(econV2(s) ? { econV2: true } : {}),
   };
   // Dev tools (engine-api.md 12): a dev run earns no Echoes; `withheld` is what the run would have earned.
   const dev = s.dev ? { god: !!s.dev.godUsed, tools: s.dev.tools.slice() } : null;

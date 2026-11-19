@@ -28,7 +28,7 @@ import {
   MAX_LEVEL, TRAIN_NEW_V, TRAIN_RANK_V, TRAVEL_EARLY_LEVELS,
   RESPEC_V, CONSUMABLE, ELIXIR_NODES, RES_META_CHARGES, BOSS_LEVEL, UNIQUE_POTION_PCT, TIME_WALK, DIM_PACK_SIZE,
   DIM_LEVEL_PER_DEPTH, BELL_START_CHARGES, BELL_MAX_CHARGES, BELL_CHANNEL_TIME, TRACKER_RADIUS, ROAD_SWIFT_TOLLS,
-  ONB_RESCUE_TOLLS, GATES, DIM_FRONT_HOPS, DIM_RESCUE_MAX_SHARE, START_GOLD_V, KIT_RARITY,
+  ONB_RESCUE_TOLLS, GATES, DIM_FRONT_HOPS, DIM_RESCUE_MAX_SHARE, START_GOLD_V, KIT_RARITY, META_HERO,
 } from '../constants.js';
 import { STREAM, nextFloat, nextInt } from '../rng.js';
 import { rnd, frac6, deepClone } from './util.js';
@@ -41,7 +41,7 @@ import { generateZone, contentLevel, vendorStock, composeEncounter, pickFrom } f
 import { zoneContent, campEnemies, CAMP_Z } from './content.js';
 import { startFight, endFight, zoneDanger } from './combat.js';
 import {
-  isLegacy, heroOf, newHero, powerOf, checkpointHero, campLevelNow, clMax, oruvathScale, zoneBand,
+  isLegacy, heroOf, newHero, powerOf, checkpointHero, campLevelNow, clMax, oruvathScale, zoneBand, econV2,
 } from './legacy.js';
 import { parTime } from './meta.js';
 import { makeBoss } from './boss.js';
@@ -62,16 +62,18 @@ import { newTutorial, setupGuidedZone, fightOverlay, overlayFightEnd, rescueTarg
  * removed in M2 v4; Starforged Arms, removed in M2 v5) is ignored: no effect and no refund; the profile keeps it
  * stored (D42, D45).
  */
-export function metaFromProfile(profile, classId) {
+export function metaFromProfile(profile, classId, cat = META) {
   const u = (profile && profile.unlocks) || {};
-  const r = (id) => Math.min(u[id] || 0, META[id].ranks);
+  // Economy v2 (legacy.md 4.7 E5; cat META_HERO): an id outside the hall is retired (4.6) and counts as rank 0
+  const r = (id) => (cat[id] ? Math.min(u[id] || 0, cat[id].ranks) : 0);
+  const per = (id, k) => (cat[id] ? r(id) * cat[id][k] : 0);
   return {
-    hpPct: r('vigor') * META.vigor.hpPct,
-    powerPct: r('edge') * META.edge.powerPct,
-    crit: r('keen') * META.keen.crit,
-    xpPct: r('quick_study') * META.quick_study.xpPct,
-    goldPct: r('prospector') * META.prospector.goldPct,
-    bagSlots: r('pockets') * META.pockets.slots,
+    hpPct: per('vigor', 'hpPct'),
+    powerPct: per('edge', 'powerPct'),
+    crit: per('keen', 'crit'),
+    xpPct: per('quick_study', 'xpPct'),
+    goldPct: per('prospector', 'goldPct'),
+    bagSlots: per('pockets', 'slots'),
     satchel: r('satchel') > 0,
     heirloom: r('heirloom_blade') > 0,
     ledger: r('ledger') > 0,
@@ -80,9 +82,9 @@ export function metaFromProfile(profile, classId) {
     alchemist: r('alchemist') > 0,
     cache: r('cache') > 0,
     relics: r('relics') > 0,
-    spells: Object.values(META).filter((m) => m.spell && r(m.id) > 0 && SPELL[m.spell].cls === classId).map((m) => m.spell),
+    spells: Object.values(cat).filter((m) => m.spell && r(m.id) > 0 && SPELL[m.spell].cls === classId).map((m) => m.spell),
     stormhawk: r('stormhawk') > 0,
-    talentPoints: r('talent_pt') * META.talent_pt.points,
+    talentPoints: per('talent_pt', 'points'),
     resCharges: r('second_breath') > 0 ? RES_META_CHARGES : 0,
     oaths: r('oaths') > 0,
   };
@@ -111,7 +113,8 @@ export function startRun(s, ev) {
   const c = s.create;
   const cls = CLASS[c.classId];
   s.seed = c.seed;
-  s.meta = metaFromProfile(s.profile, c.classId);
+  // Economy v2 (legacy.md 4.7 E5): a Legacy run reads the hall's effects (META_HERO), a level-60 run META
+  s.meta = metaFromProfile(s.profile, c.classId, econV2(s) ? META_HERO : META);
   s.oaths = c.oaths.slice();
   s.nextUid = 1;
   s.time = 0;

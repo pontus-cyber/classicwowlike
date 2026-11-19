@@ -13,7 +13,8 @@ import {
   CONTRACT_CL_OFFSET_HERO, ONB_ELITE_LEVEL_MIN, ONB_ELITE_LEVEL_MIN_HERO, META, CLASS, TALENT,
   BOSS_HP_LEVEL, BOSS_DMG_LEVEL_BASE, BOSS_DMG_LEVEL_STEP, BOSS_DMG_LEVEL_MIN, BOSS_DMG_LEVEL_MAX, SHARD_HP_LEVEL_LOW,
   SHARD_HP_RAMP_FROM, SHARD_HP_RAMP_TO, FINAL_DARK_LEVEL_STEP, FINAL_DARK_ROUND_MAX, BOSS_ENRAGE_ROUND, ZONE_DANGER_STEP,
-  ZONE_DANGER_FROM,
+  ZONE_DANGER_FROM, HERO_XP_ECON2, ZONE_LAG, LEGACY_PER_ZONE, LEGACY_PER_ZONE_HERO, LEGACY_PER_PREP_POINT,
+  LEGACY_PER_PREP_POINT_HERO, META_HERO,
 } from '../constants.js';
 import { rnd, deepClone, clamp } from './util.js';
 
@@ -26,6 +27,21 @@ export const isLegacy = (s) => !!(s && s.legacy);
 export const legacyNumbersOn = () => !!(GATES.legacy && GATES.oruvathLegacy);
 /** D158: the 2.4.1 boss rules apply to this run: a Legacy run (state.legacy) with both switches on; never a level-60 run. */
 export const oruvathRules = (s) => isLegacy(s) && legacyNumbersOn();
+
+/**
+ * D159 (legacy.md 4.7 Economy v2, draft): the Economy v2 rules apply to this run: a Legacy run (state.legacy) with
+ * GATES.economyV2 on; never a level-60 run (D158). Read at each use, as oruvathRules.
+ */
+export const econV2 = (s) => isLegacy(s) && !!GATES.economyV2;
+/** legacy.md 4.7 E1: Legacy points per zone left in run s: LEGACY_PER_ZONE_HERO under Economy v2, else LEGACY_PER_ZONE. */
+export const legacyPerZone = (s) => (econV2(s) ? LEGACY_PER_ZONE_HERO : LEGACY_PER_ZONE);
+/** legacy.md 4.7 E1: Legacy points per camp point kept in run s: LEGACY_PER_PREP_POINT_HERO under Economy v2, else LEGACY_PER_PREP_POINT. */
+export const legacyPerPrepPoint = (s) => (econV2(s) ? LEGACY_PER_PREP_POINT_HERO : LEGACY_PER_PREP_POINT);
+/**
+ * The Legacy hall a profile is sold (legacy.md 4.2, 4.7 E5): META_HERO for a version 3 profile while GATES.economyV2 is
+ * on, else `fallback` (META). The run's meta effects (nodes.js metaFromProfile) read the same table.
+ */
+export const hallOf = (profile, fallback) => (profile && profile.v >= 3 && GATES.economyV2 ? META_HERO : fallback);
 
 // ---------------- Levels (legacy.md 1.2-1.4) ----------------
 /** Hero level H clamped to 1..HERO_MAX_LEVEL. */
@@ -49,11 +65,13 @@ export function heroLevelAt(M) {
   while (H < HERO_MAX_LEVEL && POWER_OF_LEVEL[H] <= M) H += 1;
   return H;
 }
+/** The hero XP table (legacy.md 1.4): HERO_XP_ECON2 while GATES.economyV2 is on (4.7 E4; heroes exist only in Legacy), else HERO_XP. */
+export const heroXpTable = () => (GATES.economyV2 ? HERO_XP_ECON2 : HERO_XP);
 /**
- * Hero XP from hero level H to H + 1 (HERO_XP[H - 1]); at HERO_MAX_LEVEL the XP that pays one more LEGACY_PER_LEVEL at
- * the run's end (HERO_XP_AT_MAX, legacy.md 1.3).
+ * Hero XP from hero level H to H + 1 (heroXpTable()[H - 1]); at HERO_MAX_LEVEL the XP that pays one more LEGACY_PER_LEVEL
+ * at the run's end (HERO_XP_AT_MAX, legacy.md 1.3).
  */
-export const heroXpToNext = (H) => (heroClamp(H) < HERO_MAX_LEVEL ? HERO_XP[heroClamp(H) - 1] : HERO_XP_AT_MAX);
+export const heroXpToNext = (H) => (heroClamp(H) < HERO_MAX_LEVEL ? heroXpTable()[heroClamp(H) - 1] : HERO_XP_AT_MAX);
 
 // ---------------- The hero on the profile (legacy.md 1.1, 1.5-1.6) ----------------
 /**
@@ -132,8 +150,16 @@ export const ilvlMax = (s) => (isLegacy(s) ? ILVL_MAX_HERO : ILVL_MAX);
 /** Gorrak's lowest level in the guided zone (legacy.md 5.1: ONB_ELITE_LEVEL_MIN_HERO in a Legacy run). */
 export const onbEliteMin = (s) => (isLegacy(s) ? ONB_ELITE_LEVEL_MIN_HERO : ONB_ELITE_LEVEL_MIN);
 
-/** Zone z's band if the hero arrived now (legacy.md 2.1): clamp(P + ZONE_TIER[z - 1], 1, CL_MAX). */
-export const bandNow = (s, z) => clamp(s.player.level + ZONE_TIER[clamp(z, 1, ZONE_COUNT) - 1], 1, CL_MAX);
+/**
+ * Zone z's band if the hero arrived now (legacy.md 2.1): clamp(P + ZONE_TIER[z - 1], 1, CL_MAX); under Economy v2 (4.7
+ * E3) clamp(P + ZONE_TIER[z - 1] - round(ZONE_LAG[z - 1] × (P - 1)), 1, CL_MAX): zone 1 trails the hero.
+ */
+export function bandNow(s, z) {
+  const i = clamp(z, 1, ZONE_COUNT) - 1;
+  const P = s.player.level;
+  const lag = econV2(s) ? rnd(ZONE_LAG[i] * (P - 1)) : 0;
+  return clamp(P + ZONE_TIER[i] - lag, 1, CL_MAX);
+}
 
 /**
  * Zone z's band: in a Legacy run the band fixed at the hero's arrival (state.hero.bands; legacy.md 2.1), else, for a zone
@@ -158,6 +184,18 @@ export function contractLevelOf(s, z) {
 
 /** The Camp's level (legacy.md 2.4): the hero's power level at arrival + CAMP_TIER (state.hero.camp), clamped at CL_MAX. */
 export const campLevelNow = (s) => clamp(s.player.level + CAMP_TIER, 1, CL_MAX);
+
+/**
+ * legacy.md 4.7 E2: the level Z an XP award is counted against: at the Camp and in Oruvath's fight the Camp's level
+ * (state.hero.camp, fixed at arrival); in zone z its band (state.hero.bands[z], fixed at arrival; zoneBand); where there
+ * is no zone the hero's power level.
+ */
+export function xpRef(s) {
+  const z = s.zone;
+  if (z && z.camp) return s.hero && s.hero.camp ? s.hero.camp : campLevelNow(s);
+  if (z && Number.isInteger(z.z)) return zoneBand(s, z.z);
+  return s.player.level;
+}
 
 /**
  * × the damage of a template enemy of a fight in zone z (legacy.md 2.2): ZONE_TIER_DMG[z - 1] for zones 1-6, zone 6's at

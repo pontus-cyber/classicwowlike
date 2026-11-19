@@ -1232,3 +1232,28 @@ rows map's bands (simulator and Dev menu only).
 - `debug.setHero(profile, classId, { level, xp })` (dev): the profile (version 3) with that class's hero at a level (talents,
   spells and bar as a new hero's); the simulator's hero cells and the Dev menu. `debug.build` in a Legacy run snaps its level
   to the hero scale.
+
+### 15.5 Economy v2 (legacy.md 4.7, D159, draft; `C.GATES.economyV2`, off; Legacy runs only)
+Read at each use, as `oruvathLegacy` (legacy.js `econV2(state)`: `state.legacy` and the switch). A level-60 run never reads it
+(D158). The UI turns it on with `legacy` and `oruvathLegacy` (the `?legacy=1` set); the engine's default stays off.
+- Legacy lines (E1): no line `reserve` (camp points kept pay nothing, a lean first run's included); `zones` pays
+  `C.LEGACY_PER_ZONE_HERO` (10). `prepView(state)`'s `reserve.echoes` / `unspent.echoes` is 0. Abandoning at once pays 0 (the
+  welcome excepted, once per profile).
+- XP (E2): every award `round(HERO_XP_UNIT × frac × (1 + XP_ZONE_STEP × max(0, CL - Z)) × (1 + xpPctMods))`, Z = `xpRef(state)`
+  (legacy.js): the Camp's level at the Camp and in Oruvath's fight, zone z's band (fixed at arrival) in zone z, else the power
+  level. Contracts and Gorrak's bounty: CL - Z = `CONTRACT_CL_OFFSET_HERO`, so the board's `reward.xp` is exact. Rested, heat
+  and the % mods as before; the `xp` event is unchanged.
+- Zones (E3): `bandNow` subtracts `round(ZONE_LAG[z - 1] × (P - 1))` (zone 1 only); `mapView.bands` and the board's estimate
+  follow.
+- Hero XP (E4): `heroXpToNext(H)` reads `C.HERO_XP_ECON2` while the switch is on (1800 / 1850 / 1900 for levels 1-3); `heroView`,
+  `heroesView` follow.
+- The hall (E5): `metaOffers(profile)` on a version 3 profile lists exactly `C.META_HERO` (the 13 entries of 4.2, the
+  techniques per class as six ids: 18 offers) at the E5 prices, with the effects of 4.2 (Vigor / Edge +1 % and Quick Study +5 %
+  a rank, two ranks; Deeper Pockets one rank); `buyMeta` sells only those. A Legacy run reads its effects from `META_HERO`; a
+  rank the profile holds of a retired entry (Keen Lineage, ...) has no effect, and a rank above META_HERO's counts as its top
+  rank (no refund). The level-20 wing (`C.TREE_OPEN_COST` 250 / 300, `C.ARMOURY_COST` 150, from `C.TREE_OPEN_LEVEL`) is not
+  sold until phases 4-5 build what it opens. A UI card's text reads `C.META_HERO[id]` (ranks, costs, hpPct, ...) for a
+  version 3 profile.
+- Clarity (E6): content `texts.economy` (ids `C.ECONOMY_TEXT_IDS`, placeholders `C.ECONOMY_TEXT_NEEDS`, SCHEMA.md 2.10) and,
+  under the switch, `tutorial.prep.unspentFirst` reads "Camp points you do not spend are lost." The `levelUp` event already
+  carries `heroLevel`, `talentPoints`, `maxHp`, `hpGain`, `maxMana`, `manaGain` for the banner.

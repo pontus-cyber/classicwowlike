@@ -2,15 +2,18 @@
 // (rules 1.7.3); contract XP without the level-difference modifier (expedition.md 3.1, M2b v10: flatXp). Legacy (D154,
 // legacy.md 1.2-1.4; a run made under GATES.legacy): every award in hero XP (HERO_XP_UNIT per level-equivalent at the
 // hero's power level), the rested pool in hero XP, and the hero's levels (HERO_XP; a level-up raises the power level to
-// POWER_OF_LEVEL[H]; past HERO_MAX_LEVEL each HERO_XP_AT_MAX counts for the run's Legacy level line).
+// POWER_OF_LEVEL[H]; past HERO_MAX_LEVEL each HERO_XP_AT_MAX counts for the run's Legacy level line). Economy v2 (D159,
+// legacy.md 4.7 E2, draft; legacy.js econV2): a Legacy award is counted against the level of the place it is earned
+// (legacy.js xpRef), × (1 + XP_ZONE_STEP × max(0, CL - Z)), no xpCurve ratio and no diffMod; contracts at
+// CONTRACT_CL_OFFSET_HERO.
 import {
   XP_A, XP_B, XP_C, MAX_LEVEL, XP_DIFF_STEP, XP_DIFF_MAX, XP_DIFF_SOFT_FLOOR, XP_DIFF_FALL, XP_GREY_DIFF,
   XP_GREY_MOD, RESTED_MULT, RESTED_CAP_FRAC, TALENT_FIRST_LEVEL, TALENT_LEVEL_STEP, BOON_XP_PCT, HEAT_GAIN,
-  HERO_XP_UNIT, HERO_MAX_LEVEL, HERO_XP_AT_MAX,
+  HERO_XP_UNIT, HERO_MAX_LEVEL, HERO_XP_AT_MAX, XP_ZONE_STEP, CONTRACT_CL_OFFSET_HERO,
 } from '../constants.js';
 import { rnd, flr } from './util.js';
 import { refreshDerived } from './stats.js';
-import { isLegacy, powerOf, heroXpToNext } from './legacy.js';
+import { isLegacy, powerOf, heroXpToNext, econV2, xpRef } from './legacy.js';
 
 /** The levelling polynomial XP_A×L² + XP_B×L + XP_C (rules 4.3), defined for any level (event XP at CL 60). */
 export function xpCurve(L) {
@@ -51,10 +54,12 @@ export function xpPct(s) {
 /**
  * XP for an event (rules 4.4): round(frac × xpToNext(CL) × diffMod(CL - L) × (1 + xpPctMods)). Legacy (legacy.md 1.3): in
  * hero XP, round(HERO_XP_UNIT × frac × xpCurve(CL) / xpCurve(L) × diffMod(CL - L) × (1 + xpPctMods)), CL and L power
- * levels, at every hero level (XP keeps counting at HERO_MAX_LEVEL).
+ * levels, at every hero level (XP keeps counting at HERO_MAX_LEVEL). Economy v2 (legacy.md 4.7 E2): round(HERO_XP_UNIT ×
+ * frac × (1 + XP_ZONE_STEP × max(0, CL - Z)) × (1 + xpPctMods)), Z = xpRef(s), the level of the place it is earned.
  */
 export function eventXp(s, frac, cl) {
   const L = s.player.level;
+  if (econV2(s)) return rnd(HERO_XP_UNIT * frac * (1 + XP_ZONE_STEP * Math.max(0, cl - xpRef(s))) * (1 + xpPct(s)));
   if (isLegacy(s)) return rnd((HERO_XP_UNIT * frac * xpCurve(cl) * diffMod(cl - L) * (1 + xpPct(s))) / xpCurve(L));
   if (L >= MAX_LEVEL) return 0;
   return rnd(frac * xpCurve(cl) * diffMod(cl - L) * (1 + xpPct(s)));
@@ -64,8 +69,11 @@ export function eventXp(s, frac, cl) {
  * XP of an event without the level-difference modifier (expedition.md 3.1, M2b v10: contracts, as the retired story
  * chain): round(frac × xpToNext(CL) × (1 + xpPctMods)); 0 at MAX_LEVEL. Contract levels are at most 58, where xpToNext
  * and xpCurve agree. Legacy: in hero XP, round(HERO_XP_UNIT × frac × xpCurve(CL) / xpCurve(L) × (1 + xpPctMods)).
+ * Economy v2 (legacy.md 4.7 E2): CL - Z is CONTRACT_CL_OFFSET_HERO at every level, so round(HERO_XP_UNIT × frac × (1 +
+ * XP_ZONE_STEP × CONTRACT_CL_OFFSET_HERO) × (1 + xpPctMods)) whatever cl (the board's pay line is exact).
  */
 export function flatXp(s, frac, cl) {
+  if (econV2(s)) return rnd(HERO_XP_UNIT * frac * (1 + XP_ZONE_STEP * CONTRACT_CL_OFFSET_HERO) * (1 + xpPct(s)));
   if (isLegacy(s)) return rnd((HERO_XP_UNIT * frac * xpCurve(cl) * (1 + xpPct(s))) / xpCurve(s.player.level));
   if (s.player.level >= MAX_LEVEL) return 0;
   return rnd(frac * xpCurve(cl) * (1 + xpPct(s)));

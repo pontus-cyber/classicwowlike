@@ -4,16 +4,18 @@
 // (D153, changes-m3-v3.md 4): the profile's `deathblowMet`, per class. Legacy (D154, legacy.md 1.1, 4.1, 4.6; GATES.legacy,
 // draft): the version 3 profile (Legacy points in `legacy`, one hero per class in `heroes`), the migration of a version 1
 // profile, the level line LEGACY_PER_LEVEL a hero level gained, and the hero written back at the run's end. The lines are
-// the LEGACY_* constants (the Echo lines renamed, same values).
+// the LEGACY_* constants (the Echo lines renamed, same values). Economy v2 (D159, legacy.md 4.7 E1 and E5, draft;
+// GATES.economyV2): a Legacy run's camp points kept pay nothing (no line `reserve`) and a zone left pays
+// LEGACY_PER_ZONE_HERO; a version 3 profile is sold the hall of META_HERO (legacy.js hallOf).
 import {
   META, CLASS_IDS, ECHO_PER_LEVEL, LEGACY_PER_ZONE, LEGACY_PER_DUNGEON, LEGACY_PER_ELITE, LEGACY_PER_RARE, LEGACY_PER_QUEST,
   LEGACY_BOSS_REACHED, LEGACY_BOSS_PHASE, LEGACY_BOSS_KILL, LEGACY_SPEED_BONUS, LEGACY_FIRST_KILL_CLASS, LEGACY_OATH_BONUS,
   BOSS_TIME_PAR, OATH_HASTE_TIME, LEGACY_PER_HEAT_FIGHT, LEGACY_CONTRACT_MULT, LEGACY_PER_PREP_POINT, LEGACY_WELCOME,
-  ONB_GUIDE_STATES, LEGACY_PER_LEVEL,
+  ONB_GUIDE_STATES, LEGACY_PER_LEVEL, LEGACY_PER_ZONE_HERO,
 } from '../constants.js';
 import { IllegalActionError, deepClone, rnd } from './util.js';
 import { hash32 } from '../rng.js';
-import { legacyProfile, legacyProfiles, balanceOf, balanceKey, heroOf } from './legacy.js';
+import { legacyProfile, legacyProfiles, balanceOf, balanceKey, heroOf, hallOf } from './legacy.js';
 
 /**
  * Boss time par in tolls (rules 1.7, 11.5): BOSS_TIME_PAR, OATH_HASTE_TIME less under the Oath of Haste. Ascendancy
@@ -83,10 +85,11 @@ function reqMet(profile, req) {
  * Catalogue view: every entry with rank, next cost and whether it can be bought now (rules 11.2). A stored rank
  * above the entry's ranks (older catalogue) shows as the maximum rank, as it counts in a run. Only catalogue entries
  * are listed: an owned id that is not in META (Wayfinder, removed in M2 v4; Starforged Arms, removed in M2 v5) is
- * ignored, and buyMeta throws for it.
+ * ignored, and buyMeta throws for it. Economy v2 (legacy.md 4.7 E5): a version 3 profile is offered META_HERO (the 13
+ * entries of 4.2 at the E5 prices; legacy.js hallOf), and only those.
  */
 export function metaOffers(profile) {
-  return Object.values(META).map((m) => {
+  return Object.values(hallOf(profile, META)).map((m) => {
     const rank = Math.min(profile.unlocks[m.id] || 0, m.ranks);
     const maxed = rank >= m.ranks;
     const nextCost = maxed ? null : m.costs[rank];
@@ -100,7 +103,7 @@ export function metaOffers(profile) {
 
 /** Buy one rank (Echoes, or Legacy points on a version 3 profile). Returns a new profile; throws IllegalActionError when not allowed. */
 export function buyMeta(profile, id) {
-  const m = META[id];
+  const m = hallOf(profile, META)[id];
   if (!m) throw new IllegalActionError(`unknown meta unlock ${id}`);
   const offer = metaOffers(profile).find((o) => o.id === id);
   if (!offer.available) throw new IllegalActionError(`meta unlock ${id} is not available (rank ${offer.rank}/${m.ranks}, requires ${m.req.join(', ') || 'nothing'})`);
@@ -124,14 +127,16 @@ export function profileHash(profile) {
  * zero, round(count × each) (M2 v3: ECHO_PER_LEVEL and ECHO_PER_ZONE are fractional); the total is the sum of the
  * rounded lines × the Oath multiplier, rounded. Heat: line `heat`, fights won in nodes entered Hot or Scorched. Legacy
  * (legacy.md 4.1): the same lines (the LEGACY_* constants) in Legacy points; in a Legacy run (facts.heroLevels set) the
- * line `levels` is LEGACY_PER_LEVEL per hero level gained (each HERO_XP_AT_MAX at level 25 counts as one).
+ * line `levels` is LEGACY_PER_LEVEL per hero level gained (each HERO_XP_AT_MAX at level 25 counts as one). Economy v2
+ * (legacy.md 4.7 E1; facts.econV2, a Legacy run under GATES.economyV2): no line `reserve` (camp points kept pay nothing, a
+ * lean first run's included) and the line `zones` at LEGACY_PER_ZONE_HERO.
  */
 export function echoes(facts, profile) {
   const lines = [];
   const add = (id, count, each) => { if (count > 0) lines.push({ id, count, each, echoes: rnd(count * each) }); };
   if (facts.heroLevels !== undefined) add('levels', facts.heroLevels, LEGACY_PER_LEVEL);
   else add('levels', facts.level - 1, ECHO_PER_LEVEL);
-  add('zones', facts.zonesLeft, LEGACY_PER_ZONE);
+  add('zones', facts.zonesLeft, facts.econV2 ? LEGACY_PER_ZONE_HERO : LEGACY_PER_ZONE);
   add('dungeons', facts.dungeons, LEGACY_PER_DUNGEON);
   add('elites', facts.kills.elite, LEGACY_PER_ELITE);
   add('rares', facts.kills.rare, LEGACY_PER_RARE);
@@ -139,7 +144,7 @@ export function echoes(facts, profile) {
   add('heat', facts.heatFights || 0, LEGACY_PER_HEAT_FIGHT);
   // prep (expedition.md 8.1, 2.6): contracts completed × LEGACY_PER_QUEST × LEGACY_CONTRACT_MULT; Reserve × LEGACY_PER_PREP_POINT
   add('contracts', facts.contracts || 0, LEGACY_PER_QUEST * LEGACY_CONTRACT_MULT);
-  add('reserve', facts.reserve || 0, LEGACY_PER_PREP_POINT);
+  if (!facts.econV2) add('reserve', facts.reserve || 0, LEGACY_PER_PREP_POINT);
   // M3 (m3-onboarding.md 4.2): the Bellwrights' welcome, once per profile, in the first non-dev run's summary
   if (facts.welcome) add('welcome', 1, LEGACY_WELCOME);
   if (facts.reachedBoss) {

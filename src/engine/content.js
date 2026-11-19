@@ -4,7 +4,7 @@
 // SCHEMA.md 2.11): the optional guided-run table `tutorial` (validateTutorial).
 import {
   ZONE_COUNT, CONTENT_RANGE as CR, ARCHETYPE, ABILITY_TEMPLATE, SLOT_IDS, CLASS_IDS, SPELL, TALENT, PET,
-  BOON, CONSUMABLE, ENGINE_ASSUMPTION as EA, REGION_COUNT, REGION_W, ROAD_COUNT, EXPEDITION_TEXT_IDS, PROGRESS_TEXT_IDS, PREP_OPTION,
+  BOON, CONSUMABLE, ENGINE_ASSUMPTION as EA, REGION_COUNT, REGION_W, ROAD_COUNT, EXPEDITION_TEXT_IDS, PROGRESS_TEXT_IDS, ECONOMY_TEXT_IDS, ECONOMY_TEXT_NEEDS, PREP_OPTION,
   TUTORIAL_SEED, ONB_SCRIPTED_FIGHTS, ONB_BEATS, CONTRACT, CONTRACT_KINDS, CONTRACT_BOARD_SIZE, RARITY,
 } from '../constants.js';
 
@@ -344,8 +344,10 @@ export function validateContent(content, { strict = false } = {}) {
   const expeditionIds = Object.fromEntries(EXPEDITION_TEXT_IDS.map((id) => [id, true]));
   // newcomer check 2026-11-15: the talent window's rule lines (PROGRESS_TEXT_IDS) keep the rule's numbers as placeholders
   const progressIds = Object.fromEntries(PROGRESS_TEXT_IDS.map((id) => [id, true]));
-  const known = { spells: SPELL, talents: TALENT, pets: PET, boons: BOON, consumables: CONSUMABLE, expedition: expeditionIds, progress: progressIds };
-  const needs = { progress: { talent_points: ['{first}', '{step}'], talents_locked: ['{first}'] } };
+  // D159 (legacy.md 4.7 E6, draft): the Economy v2 clarity lines (ECONOMY_TEXT_IDS), each with its placeholders
+  const economyIds = Object.fromEntries(ECONOMY_TEXT_IDS.map((id) => [id, true]));
+  const known = { spells: SPELL, talents: TALENT, pets: PET, boons: BOON, consumables: CONSUMABLE, expedition: expeditionIds, progress: progressIds, economy: economyIds };
+  const needs = { progress: { talent_points: ['{first}', '{step}'], talents_locked: ['{first}'] }, economy: ECONOMY_TEXT_NEEDS };
   // Expedition contract and prep texts (2b.5): object-shaped entries.
   const famIds = {};
   for (const z of content.zones || []) {

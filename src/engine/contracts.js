@@ -20,7 +20,7 @@
 // Only a run created with newRun({ mapMode: 'expedition', prep: true }) uses it; a rows run, or an expedition run without
 // the option, never does.
 import {
-  ZONE_COUNT, ZONE_LEVELS, PREP_POINTS, PREP_POINTS_PER_QM, PREP_ECHO_PER_POINT, CONTRACT_BOARD_SIZE, CONTRACT_BOARD_BANDS, CONTRACT_BOARD_FIRST_BANDS,
+  ZONE_COUNT, ZONE_LEVELS, PREP_POINTS, PREP_POINTS_PER_QM, CONTRACT_BOARD_SIZE, CONTRACT_BOARD_BANDS, CONTRACT_BOARD_FIRST_BANDS,
   CONTRACT_SLOTS,  REROLL_PRICE, REROLL_MAX, CULL_SITES, CULL_SITE_SPARE, CULL_SITE_IN, CULL_SITE_OUT, BOUNTY_PLACED,
   CONTRACT_CL_OFFSET, PREP_OPTION, PREP_OPTION_IDS, PREP_CAMP_OPTIONS, CONTRACT, CONTRACT_KINDS, META, BELL_MAX_CHARGES,
   GUIDE_RADIUS_BONUS, TRACKER_RADIUS, EMBER_MAX_CARRIED, XP_WEIGHT_MULT, DROP_TABLE, RARITY_ORDER, GATES, PREP_POINTS_FIRST,
@@ -32,7 +32,7 @@ import { flatXp, gainXp, gainGold } from './progress.js';
 import { V, rollDrop, makeConsumable, addToBag, countConsumable } from './items.js';
 import { zoneRegions, setupExpNode, xpWeight, firstRun, leanFirst, ringRule } from './expedition.js';
 import { fixBoard } from './tutorial.js';
-import { isLegacy, contractLevelOf } from './legacy.js';
+import { isLegacy, contractLevelOf, legacyPerPrepPoint } from './legacy.js';
 
 // ---------------- Preparation points and the board (expedition.md 2.1, 2.2) ----------------
 /** Ranks of an expedition catalogue entry the profile owns (META, mapMode 'expedition'; capped at its ranks). */
@@ -353,6 +353,7 @@ function offerView(s, o) {
  * price, owned, bought, buy / sell legality), rerolls (`open`: GATES.campReroll, off since D128), and Reserve (points left
  * and their Echo value at SUMMARY). D152 (changes-m3-v2.md 1.2-1.3): `first` (a lean first run: no board, only the
  * supplies, and `unspent` { points, echoes } in place of `reserve`: points left and the Echoes they pay at SUMMARY).
+ * Economy v2 (legacy.md 4.7 E1; legacy.js legacyPerPrepPoint): in a Legacy run the points left pay 0, so `echoes` is 0.
  */
 export function prepView(s) {
   if (s.phase !== 'PREP' || !s.prep || s.prep.done) return null;
@@ -360,6 +361,7 @@ export function prepView(s) {
   const owned = ownedPerks(s);
   const left = prepLeft(s);
   const first = leanFirst(s);
+  const worth = left * legacyPerPrepPoint(s);
   return {
     points: p.points, spent: prepSpent(s), left, slots: CONTRACT_SLOTS, held: heldCount(s), first,
     board: p.board.map((o, i) => ({ index: i, ...offerView(s, o), taken: o.taken, canTake: !takeContractError(s, i), canDrop: !dropContractError(s, i) })),
@@ -373,7 +375,7 @@ export function prepView(s) {
       };
     }),
     reroll: { open: !!GATES.campReroll, used: p.rerolls, max: REROLL_MAX, price: REROLL_PRICE, can: !rerollError(s) },
-    ...(first ? { unspent: { points: left, echoes: left * PREP_ECHO_PER_POINT } } : { reserve: { points: left, echoes: left * PREP_ECHO_PER_POINT } }),
+    ...(first ? { unspent: { points: left, echoes: worth } } : { reserve: { points: left, echoes: worth } }),
   };
 }
 
