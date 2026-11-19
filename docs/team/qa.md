@@ -11,3 +11,5 @@ Nothing is done until you have checked it. You also play the game like a player 
 - Automated checks that run in Node against src/rules.js, and a headless browser check of game.html (no console errors, a full run completes).
 - docs/handoffs/qa-<date>.md with pass or fail per check and how it was checked. A check you could only review, not run, is marked as a review.
 - Bugs in qa/bugs.md: ID, build, steps, expected, actual, severity.
+
+- Browser checks that reload the page use `reloadKeep(page)` from qa/browser/ui-regress.mjs, not `page.reload()`: headless Chromium sometimes starts a reloaded page with empty storage (qa-2026-11-19).
