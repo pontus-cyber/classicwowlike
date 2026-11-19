@@ -435,12 +435,21 @@ describe('golden: the switch off plays every Legacy run as on 708841f; level-60 
     'legacy+oruvathLegacy': ['e926e0cf00f02cbe:644', '912b5106d8f5f590:624', '7aeff177810bf32d:560', '63e0571c1516306a:280', '696f2f6738f93bc9:335'],
   };
 
-  test('ten Legacy runs (with and without oruvathLegacy) hash as recorded on 708841f with economyV2 off', () => {
+  // D162 (autoplay's Legacy quest gate, AUTO_QUEST_LEVEL_SLACK) changes Legacy autoplay on purpose, so these hashes are
+  // checked with the gate held open (slack Infinity: every quest scores S.quest, as on 708841f)
+  const noQuestGate = (fn) => {
+    const EA = C.ENGINE_ASSUMPTION;
+    const old = EA.AUTO_QUEST_LEVEL_SLACK;
+    EA.AUTO_QUEST_LEVEL_SLACK = Infinity;
+    try { return fn(); } finally { EA.AUTO_QUEST_LEVEL_SLACK = old; }
+  };
+
+  test('ten Legacy runs (with and without oruvathLegacy) hash as recorded on 708841f with economyV2 off (D162 quest gate held open)', () => noQuestGate(() => {
     for (const [key, want] of Object.entries(WANT)) {
       const set = Object.fromEntries(key.split('+').map((k) => [k, true]));
       gates({ ...set, economyV2: false }, () => RUNS.forEach((r, i) => assert.equal(playLegacy(...r), want[i], `${key} ${r.join(':')}`)));
     }
-  });
+  }));
 
   test('with economyV2 on the same Legacy runs change (the switch is live) and stay deterministic', () => gates({ legacy: true, oruvathLegacy: true, economyV2: true }, () => {
     const got = RUNS.map((r) => playLegacy(...r));

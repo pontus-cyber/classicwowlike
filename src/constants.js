@@ -1351,6 +1351,8 @@ export const ENGINE_ASSUMPTION = {
   AUTO_RATION_STOCK: 4,
   AUTO_GOLD_RESERVE_V: 2,
   AUTO_ELITE_LEVEL_SLACK: 0,
+  /** Legacy runs only (D162): a quest whose level (node.cl) is more than this over the power level scores risky. */
+  AUTO_QUEST_LEVEL_SLACK: 3,
   AUTO_BAG_FREE_MIN: 4,
   AUTO_DEADFALL_ENEMIES: 2,
   AUTO_DUNGEON_LEVEL_SLACK: 1,

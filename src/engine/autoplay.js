@@ -450,7 +450,8 @@ function nodeScore(s, node) {
   const hpF = p.hp / p.d.maxHp;
   switch (node.type) {
     case 'rest': return hpF < EA.AUTO_REST_HP ? S.restLow : S.rest;
-    case 'quest': return S.quest;
+    // Legacy (D162): a quest more than AUTO_QUEST_LEVEL_SLACK over the power level is risky (a level-60 run keeps rule 1.9.9)
+    case 'quest': return isLegacy(s) && p.level < node.cl - EA.AUTO_QUEST_LEVEL_SLACK ? S.risky : S.quest;
     // Legacy (legacy.md 2.1): the node's own trash level (the zone's band + DUNGEON_LEVEL_OFFSET_HERO)
     case 'dungeon': return hpF >= EA.AUTO_DUNGEON_HP && p.level >= (isLegacy(s) ? node.trashLevel : dungeonLevels(s.zone.z).trash) - EA.AUTO_DUNGEON_LEVEL_SLACK ? S.dungeon : S.risky;
     case 'elite': return hpF >= EA.AUTO_ELITE_HP && p.level >= node.eliteLevel - EA.AUTO_ELITE_LEVEL_SLACK ? S.elite : S.risky;

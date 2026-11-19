@@ -134,3 +134,52 @@ describe('Legacy bugs: CHOOSE_REWARD `equip` (s0044 "EQUIP is not allowed during
     assert.equal(R.whyIllegal(boon, { type: 'CHOOSE_REWARD', index: 0 }), null);
   }));
 });
+
+// D162 (docs/handoffs/qa-2026-11-19c.md section 3): autoplay's quest gate, Legacy runs only. A seen quest whose level
+// (node.cl) is more than AUTO_QUEST_LEVEL_SLACK over the power level scores S.risky, so the expedition policy does not
+// enter it (the same as a risky elite); a level-60 run keeps rule 1.9.9 (every quest scores S.quest).
+describe('D162: autoplay does not enter a Legacy quest more than AUTO_QUEST_LEVEL_SLACK over the power level', () => {
+  const V2 = { legacy: true, oruvathLegacy: true, economyV2: true };
+  /** Autoplay a Legacy run; per MOVE onto a seen, open quest: [power level, node.cl]. Also the quests it walked past. */
+  const play = (classId, seed, H) => {
+    const prof = R.debug.setHero({ ...R.newProfile(), runs: 2, guide: 'done', welcome: true }, classId, { level: H });
+    let s = R.newRun({ classId, petId: classId === 'hunter' ? 'ridgewolf' : null, seed, content: CONTENT, profile: prof, mapMode: 'expedition', prep: true });
+    const entered = [];
+    let skipped = 0;
+    for (let n = 0; s.phase !== 'ENDED' && n < 30000; n++) {
+      const a = R.autoAction(s);
+      if (s.zone && !s.zone.camp && s.zone.nodes && s.phase === 'MAP') {
+        const z = s.zone;
+        if (a.type === 'MOVE' && z.nodes[a.nodeId].type === 'quest' && z.seen[a.nodeId] && !z.nodes[a.nodeId].done) entered.push([s.player.level, z.nodes[a.nodeId].cl]);
+        for (const id of z.nodes[z.pos].nb) {
+          const q = z.nodes[id];
+          if (q.type === 'quest' && z.seen[id] && !q.done && s.player.level < q.cl - C.ENGINE_ASSUMPTION.AUTO_QUEST_LEVEL_SLACK) skipped++;
+        }
+      }
+      s = R.step(s, a).state;
+    }
+    return { entered, skipped, s };
+  };
+
+  test('AUTO_QUEST_LEVEL_SLACK is 3; every quest entered is within it; the gate turns some down (hero 1 and 10, seeds 1-6)', () => gates(V2, () => {
+    assert.equal(C.ENGINE_ASSUMPTION.AUTO_QUEST_LEVEL_SLACK, 3);
+    let entered = 0;
+    let skipped = 0;
+    for (const classId of ['rogue', 'mage', 'hunter']) for (const H of [1, 10]) for (let seed = 1; seed <= 6; seed++) {
+      const r = play(classId, seed, H);
+      for (const [lv, cl] of r.entered) assert.ok(lv >= cl - 3, `${classId} hero ${H} seed ${seed}: quest ${cl} at power ${lv}`);
+      entered += r.entered.length;
+      skipped += r.skipped;
+    }
+    assert.ok(entered > 0 && skipped > 0, `entered ${entered}, turned down ${skipped}`);
+  }));
+
+  test('seed 7 at hero 1 (the browser case of qa-2026-11-19b): no class dies on a quest; each reaches the Camp', () => gates(V2, () => {
+    for (const classId of ['rogue', 'mage', 'hunter']) {
+      const { s } = play(classId, 7, 1);
+      const out = s.result.summary.outcome;
+      const d = out === 'death' ? s.death : null;
+      assert.ok(out === 'victory' || (d && ['camp', 'boss'].includes(d.nodeType)), `${classId}: ${out} ${d && `${d.nodeType} in zone ${d.zone}`}`);
+    }
+  }));
+});
