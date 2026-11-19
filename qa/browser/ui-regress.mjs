@@ -300,17 +300,19 @@ async function reloadKeep(page) {
   const token = `${Date.now()}-${Math.random()}`;
   const snap = await page.evaluate((t) => {
     const all = (st) => Object.fromEntries(Object.keys(st).map((k) => [k, st.getItem(k)]));
-    localStorage.setItem('qa.reload', t); return { local: all(localStorage), session: all(sessionStorage) };
+    localStorage.setItem('qa.reload', t); sessionStorage.setItem('qa.reload', t); return { local: all(localStorage), session: all(sessionStorage) };
   }, token);
   let dropped = 0;
   for (let n = 0; n < 3; n++) {
     await page.reload(); await page.waitForFunction(() => window.__ui);
-    const kept = await page.evaluate((t) => localStorage.getItem('qa.reload') === t, token);
+    // both stores (qa-2026-11-19b): a reload that kept localStorage but lost sessionStorage let openY's init script seed its
+    // profile again (Y6a "after a reload: no note" saw the refund note a second time, once in four part Y runs)
+    const kept = await page.evaluate((t) => localStorage.getItem('qa.reload') === t && sessionStorage.getItem('qa.reload') === t, token);
     if (kept) break;
     dropped += 1;
     await page.evaluate((x) => { localStorage.clear(); sessionStorage.clear(); for (const [k, v] of Object.entries(x.local)) localStorage.setItem(k, v); for (const [k, v] of Object.entries(x.session)) sessionStorage.setItem(k, v); }, snap);
   }
-  await page.evaluate(() => localStorage.removeItem('qa.reload'));
+  await page.evaluate(() => { localStorage.removeItem('qa.reload'); sessionStorage.removeItem('qa.reload'); });
   return dropped;
 }
 const view = (page) => page.evaluate(() => {
