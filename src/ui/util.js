@@ -57,7 +57,7 @@ export function glowBall(ctx, x, y, r, col) {
 /**
  * Display hooks of a Legacy run (docs/specs/legacy.md 1.2, 1.7, 4.6; engine-api.md 15.4), set by the bridge on every view
  * from the engine (src/ui/engine-bridge.js setDisplay): `level` maps an engine level to the level shown (R.shownLevel: enemies,
- * nodes, bands, item levels), `learn` a spell's learn level to the first hero level that reaches it (R.powerOfLevel, 1.7),
+ * nodes, bands, item levels), `learn` a spell's learn level to the hero level that has it trained (R.learnLevel, 1.7),
  * `words` swaps the Echo words for the Legacy ones in every text h() builds. Off (no Legacy run, the mock, GATES.legacy
  * off) every hook is the identity, so nothing on screen changes.
  */
@@ -74,6 +74,13 @@ export function legacyWords(s) {
   if (!display.words || typeof s !== 'string' || !s.includes('Echo')) return s;
   return s.replace(/Hall of Echoes/g, 'Legacy hall').replace(/\bEchoes\b/g, 'Legacy points').replace(/\bEcho\b/g, 'Legacy');
 }
+
+/**
+ * A text node that h() and add() append as it is, without the word swap: for content lines that carry their own Legacy
+ * wording (engine-2026-11-19 UI need 3: TUTORIAL.legacy, read through CONTENT.tutorial under GATES.legacy, the coach's
+ * lines and prep.unspentFirst), so the content's text is what shows.
+ */
+export const verbatim = (s) => (typeof document !== 'undefined' ? document.createTextNode(String(s)) : String(s)); // Node (qa/ui): the string
 
 // ------------------------------------------------------------------ DOM
 /** h('div.cls#id', { attr, on: { click } , style: {} }, children...); text children and labels pass legacyWords. */

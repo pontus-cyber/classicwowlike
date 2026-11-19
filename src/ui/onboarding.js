@@ -35,7 +35,7 @@
 // window; H05 needs a big hit (offBalance bigHit); H30 and G17 give way to a turn prompt that says the same ("Pass", "Tab");
 // the draft fight beats G14-G17 (a finisher on the bar, the resource bar, a Bloodlust tag, the nameplates; key_target Tab);
 // a bar key refused for lack of resource while G15 is open shows G15's line in place of the toast (refusedLine, app.js).
-import { h } from './util.js';
+import { h, verbatim } from './util.js'; // verbatim: content lines as written (their own Legacy wording)
 import { settings } from './settings.js';
 import { stoppedNow } from './tracks.js';
 import { UI_HINTS, NEAREST_ROAD_TAIL, hopsText, nearestRoad, tolls } from './ui-text.js';
@@ -173,7 +173,7 @@ export function lineParts(raw, num = {}, keys = KEYS) {
 /** A content line with its placeholders filled: { text, nodes } (keys as key chips). */
 export function fillLine(raw, num = {}, keys = KEYS) {
   const parts = lineParts(raw, num, keys);
-  return { text: parts.map((x) => (typeof x === 'string' ? x : x.key)).join(''), nodes: parts.map((x) => (typeof x === 'string' ? x : h('span.kbd', x.key))) };
+  return { text: parts.map((x) => (typeof x === 'string' ? x : x.key)).join(''), nodes: parts.map((x) => (typeof x === 'string' ? verbatim(x) : h('span.kbd', x.key))) };
 }
 /**
  * The bar slot (0-6) of the first spell that can be cast now (`legal.spells` ok), one cast on an enemy first (spells: the

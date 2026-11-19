@@ -48,7 +48,8 @@
 //   summary: run summary (rules.md 9)
 //   par:     the run's boss par in tolls (R.bossPar: BOSS_TIME_PAR, shorter under the Oath of Haste); mock: its own
 //   camp:    { par, asc } at the camp (asc: the engine's Ascendancy if the boss were faced now), else null
-//   zone.danger, node.danger { lo, hi }: zone danger (rules 7.6) from R.zoneDanger; the zone's at its highest level
+//   zone.danger, node.danger { lo, hi }: zone danger (rules 7.6) from R.zoneDanger; the zone's at its highest level;
+//   in a Legacy run × zone.tierDmg (mapView.tierDmg, R.zoneTierDmg at the Camp; legacy.md 2.2)
 //   legal:   { lanes, travelOn, mustTravel, outOfCombat, spells: { id: { ok, reason, cd, window } }, items: [{ ok, reason, count, cd, free }],
 //              attack, flee, fleeChance?, services, talents, trainer, trainAll }   window (combat v2): the enemies on which the spell
 //              (trainAll, D150 item 21: TRAIN_ALL is legal, a rank or a lesson the gold covers; trainAllCost: the gold it spends)
@@ -578,19 +579,24 @@ function engineBackend(seedOpt, runOpts = {}) {
   function zoneContent(z) { return z >= 1 && z <= C.ZONE_COUNT ? CONTENT.zones[z - 1] : null; }
   /** Trash fights of a dungeon in this run's map (rules 2.4; the expedition map's EXPED_DUNGEON_TRASH_FIGHTS, 1.9.8). */
   function trashOf(s) { return s.mapMode === 'expedition' ? (C.EXPED_DUNGEON_TRASH_FIGHTS ?? C.DUNGEON_TRASH_FIGHTS) : C.DUNGEON_TRASH_FIGHTS; }
-  /** Zone danger (rules 7.6): the extra damage of an enemy of this level and variant, from the engine's zoneDanger. */
-  const dangerOf = (level, variant) => R.zoneDanger(level, variant) - 1;
+  /**
+   * Zone danger (rules 7.6): the extra damage of an enemy of this level and variant, from the engine's zoneDanger. In a
+   * Legacy run (legacy.md 2.2; engine-2026-11-19 UI need 2) × the zone tier's factor td (mapView.tierDmg, R.zoneTierDmg at
+   * the Camp): zoneDanger × tierDmg - 1, which can be 0 or less at the early levels (EARLY_DMG_MULT). Oruvath and his
+   * Shards take neither, so no line here is about them.
+   */
+  const dangerOf = (level, variant, td = 1) => R.zoneDanger(level, variant) * td - 1;
   /**
    * Zone danger of a fight node's enemies, { lo, hi }, or null: the engine's zoneDanger at the levels and variants it
    * builds the fight with (src/engine/nodes.js): quest and grind at cl; the elite at its level, its escort at cl;
    * dungeon trash at its level and the dungeon boss at its own (M2 v4: DUNGEON_DANGER_FRAC of the bonus).
    */
-  function nodeDanger(n) {
+  function nodeDanger(n, td = 1) {
     const foes = n.type === 'quest' || n.type === 'grind' ? [[n.cl, 'normal']]
       : n.type === 'elite' ? [[n.level, 'elite'], ...(n.archetypes && n.archetypes.length > 1 ? [[n.cl, 'normal']] : [])]
         : n.type === 'dungeon' ? [[n.level, 'trash'], [n.bossLevel, 'dboss']] : null;
     if (!foes) return null;
-    const d = foes.map(([lv, va]) => dangerOf(lv, va));
+    const d = foes.map(([lv, va]) => dangerOf(lv, va, td));
     return { lo: Math.min(...d), hi: Math.max(...d) };
   }
   function convZone(s) {
@@ -601,13 +607,14 @@ function engineBackend(seedOpt, runOpts = {}) {
       const cl = s.legacy && s.hero && s.hero.camp ? s.hero.camp : C.MAX_LEVEL;
       return { idx: C.ZONE_COUNT + 1, id: 'camp', camp: true, name: camp.name || 'Observatory Steps', hubName: camp.name || 'Observatory Steps', hubText: camp.text, blurb: camp.text, theme: 'observatory',
         band: [cl, cl], exitLevel: cl, travelLevel: null, rows: [], pos: { row: 0, lane: null }, path: [], questsDone: 0, storyDone: false,
-        danger: dangerOf(cl, 'normal'), ...(s.legacy ? { campLevel: cl } : {}) };
+        danger: dangerOf(cl, 'normal', R.zoneTierDmg(s)), ...(s.legacy ? { campLevel: cl, tierDmg: R.zoneTierDmg(s) } : {}) };
     }
     const zc = zoneContent(z);
     const mv = R.mapView(s);
     if (mv && mv.mode === 'expedition') return convExpZone(s, z, zc, mv);
+    const td = mv && mv.tierDmg != null ? mv.tierDmg : 1; // Legacy (legacy.md 2.2): the zone tier's damage factor
     const rows = mv ? mv.rows.map((row) => row.map((n) => {
-      const out = { row: n.r, lane: n.l, type: n.type, cl: n.cl, visited: !!n.done, title: n.title, level: n.level, danger: nodeDanger(n),
+      const out = { row: n.r, lane: n.l, type: n.type, cl: n.cl, visited: !!n.done, title: n.title, level: n.level, danger: nodeDanger(n, td),
         heat: n.done ? local.nodeHeat.get(`${z}:${n.r}:${n.l}`) || null : null }; // the state the node was entered in (`node` event)
       if (n.archetypes) { out.archetypes = [...n.archetypes]; out.enemyNames = n.archetypes.map(TXT.humanize); } // one entry per enemy (grind: the first wave)
       // combat v2 (rules 7.14): a dungeon's trash fights and boss, a treasure's guard (archetypes [] when unguarded)
@@ -624,7 +631,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     return { idx: z, id: `z${z}`, camp: false, name: zc ? zc.name : `Zone ${z}`, hubName: zc ? zc.hubName : 'Hub', hubText: zc ? zc.hubText : '', blurb: zc ? zc.theme : '',
       theme: THEMES[z - 1] || 'farmland', band: [exitLevel - C.ZONE_LEVELS + 1, exitLevel], exitLevel, travelLevel: R.travelLevel(s) ?? exitLevel, rows,
       pos: { row: s.zone.pos.r, lane: s.zone.pos.l }, path, questsDone: s.zone.questsDone || 0, storyDone: !!s.zone.storyDone, next: mv ? mv.next : [],
-      travelTime: travelTime(s), danger: dangerOf(exitLevel, 'normal') };
+      travelTime: travelTime(s), danger: dangerOf(exitLevel, 'normal', td), ...(mv && mv.tierDmg != null ? { tierDmg: mv.tierDmg } : {}) };
   }
   /**
    * An expedition zone (rules 1.9; the default map since D116): the rows view is empty and `exp` is the
@@ -637,7 +644,9 @@ function engineBackend(seedOpt, runOpts = {}) {
     const nodes = mv.nodes.map((n) => ({ ...n, heat: n.done ? local.nodeHeat.get(`${z}:#${n.id}`) || null : null }));
     return { idx: z, id: `z${z}`, camp: false, name: zc ? zc.name : mv.name || `Zone ${z}`, hubName: zc ? zc.hubName : 'Hub', hubText: zc ? zc.hubText : '', blurb: zc ? zc.theme : '',
       theme: THEMES[z - 1] || 'farmland', band: lb || [exitLevel - C.ZONE_LEVELS + 1, exitLevel], exitLevel, travelLevel: null, rows: [], pos: { row: 0, lane: null }, path: [],
-      questsDone: s.zone.questsDone || 0, storyDone: !!s.zone.storyDone, next: [], travelTime: null, danger: dangerOf(exitLevel, 'normal'),
+      questsDone: s.zone.questsDone || 0, storyDone: !!s.zone.storyDone, next: [], travelTime: null,
+      // Legacy (legacy.md 2.2): zone danger × the zone tier's factor (mapView.tierDmg; absent outside a Legacy run)
+      danger: dangerOf(exitLevel, 'normal', mv.tierDmg != null ? mv.tierDmg : 1), ...(mv.tierDmg != null ? { tierDmg: mv.tierDmg } : {}),
       exp: { ...mv, nodes } };
   }
   /** Tolls TRAVEL_ON spends now, from a dry step; null while it is not legal. */
@@ -993,7 +1002,8 @@ function engineBackend(seedOpt, runOpts = {}) {
     const z = sm.reached || {};
     const zc = zoneContent(z.zone || 1);
     // the killing blow's name (actionName: a content ability by its content name, never its id; null: unnamed)
-    const death = sm.death ? { killer: sm.death.killer ? sm.death.killer.name : 'unknown', ability: actionName(sm.death.killer ? sm.death.killer.ability : null), node: sm.death.nodeType || '', round: sm.death.round } : null;
+    const death = sm.death ? { killer: sm.death.killer ? sm.death.killer.name : 'unknown', ability: actionName(sm.death.killer ? sm.death.killer.ability : null), node: sm.death.nodeType || '', round: sm.death.round,
+      abandoned: !!(sm.death.killer && sm.death.killer.name === 'abandon') } : null; // Legacy: ABANDON_RUN's death (killer 'abandon')
     return {
       outcome: sm.outcome, name: sm.name, classId: sm.classId, className: sm.className, petId: sm.petId, level: sm.level, xp: sm.xp,
       zone: z.camp ? ((CONTENT.camp && CONTENT.camp.name) || 'the camp') : zc ? zc.name : '', zoneIdx: z.camp ? 7 : z.zone, row: z.camp ? 0 : z.row,
@@ -1115,12 +1125,11 @@ function engineBackend(seedOpt, runOpts = {}) {
     };
   }
 
-  /** The first hero level whose power level reaches an engine learn level (legacy.md 1.7; R.powerOfLevel). */
-  const learnOf = (M) => { for (let H = 1; H <= C.HERO_MAX_LEVEL; H++) if (R.powerOfLevel(H) >= M) return H; return C.HERO_MAX_LEVEL; };
   function view() {
     const s = st;
-    // Legacy (D154 phase 1): the hero scale and the Legacy words on screen (src/ui/util.js setDisplay); off: identities
-    setDisplay(s.legacy ? { level: (n) => R.shownLevel(s, n), learn: learnOf, words: true } : { words: !!(profile && profile.v >= 3) });
+    // Legacy (D154 phase 1): the hero scale and the Legacy words on screen (src/ui/util.js setDisplay); off: identities.
+    // Learn levels from the engine (R.learnLevel, engine-2026-11-19 UI need 1: the hero level that has the spell trained)
+    setDisplay(s.legacy ? { level: (n) => R.shownLevel(s, n), learn: (M) => R.learnLevel(s, M), words: true } : { words: !!(profile && profile.v >= 3) });
     const v = { time: s.time || 0, autoplay: !!s.autoplay, seed: s.create ? s.create.seed : s.seed, mode: 'engine' };
     if (s.phase === 'CREATE') {
       return { ...v, phase: 'CREATE', create: { classId: s.create.classId || 'rogue', petId: s.create.petId || 'ridgewolf', name: s.create.name || '', seed: s.create.seed, oaths: (s.create.oaths || []).slice() }, oaths: (s.create.oaths || []).slice(), meta: metaView(s), player: null, zone: null, node: null, combat: null, loot: null, summary: null, dev: null, mapMode: s.mapMode || 'rows', legal: { lanes: [], services: {}, items: [], spells: {} } };
@@ -1320,6 +1329,7 @@ function engineBackend(seedOpt, runOpts = {}) {
         case 'gold': if (e.amount > 0 && e.why !== 'sell') out.push({ t: 'gold', amount: e.amount, why: e.why, heat: e.heat || 0 }); break; // a sale says its price itself
         case 'loot': out.push({ t: 'gotItem', name: e.item.name || (C.CONSUMABLE[e.item.id] || {}).name || 'item', rarity: e.item.rarity || 'common', to: e.to, heatUp: local.heatUp.get(e.item.uid) || null }); break;
         case 'victory': out.push({ t: 'victory' }); break;
+        case 'abandon': out.push({ t: 'msg', text: 'You abandon the run.', kind: 'info' }); break; // Legacy (draft line)
         case 'fled': out.push({ t: 'flee', ok: true }); break;
         case 'questComplete': out.push({ t: 'msg', text: 'Quest complete!', kind: 'good' }); break;
         case 'story': out.push({ t: 'msg', text: 'Zone story complete: a rare reward awaits.', kind: 'good' }); break;
@@ -1556,6 +1566,9 @@ function engineBackend(seedOpt, runOpts = {}) {
           break;
         }
         case 'SET_TARGET': return { ok: true, events: [] };
+        // Legacy (legacy.md 1.5; engine-2026-11-18 UI need 7): the menu's "Abandon run" (asked once): the run ends as a death
+        // where the hero stands; the summary's END_RUN pays its Legacy points. Whatever the screen held is let go
+        case 'ABANDON_RUN': local.hold = null; local.spoils = null; apply({ type: 'ABANDON_RUN' }, events); break;
         case 'DEBUG_JUMP': return { ok: false, error: 'Debug jumps need the mock engine (?mock=1)' };
         default: {
           const a = translate(action);
@@ -1681,6 +1694,14 @@ function engineBackend(seedOpt, runOpts = {}) {
           if (st.phase === 'CREATE') rebuildCreate();
           else if (st.phase !== 'ENDED') run('setProfile', profile);
           break;
+        case 'hero': {
+          // Legacy (engine-2026-11-18 UI need 9; R.debug.setHero): a class's hero at a level (XP 0) in the saved profile, at
+          // class select only (a run carries its own hero and stores it at every checkpoint)
+          const p0 = profile || (C.GATES.legacy ? R.newProfile() : null); // no profile stored yet: a new one (version 3 under the switch)
+          if (!(st.phase === 'CREATE' && st.create && p0 && p0.v >= 3)) return { ok: false, error: 'The hero level is set at class select, in a Legacy profile' };
+          profile = D.setHero(p0, args.classId, { level: args.level, xp: 0 }); saveProfile(profile); refreshPets(); rebuildCreate();
+          break;
+        }
         case 'resetOnboarding':
           // M3 (m3-onboarding.md E8, 7.2 setup): the profile's guide back to 'todo' and the welcome unpaid (R.debug); the class
           // select toggle on again. In a run the run takes the profile (a dev run, so its END_RUN keeps both) and the next run

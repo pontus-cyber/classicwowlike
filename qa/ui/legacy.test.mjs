@@ -132,3 +132,111 @@ test('switch on: a version 1 profile migrates under its own key; the refund note
     assert.equal(b2.view.meta.refund, null);
   } finally { gateOff(); setDisplay({}); }
 });
+
+// ---------------------------------------------------------------- engine-2026-11-19 UI needs (ui-2026-11-19)
+const { dangerRule, dangerBanner } = await import('../../src/ui/ui-text.js');
+const { unspentLine } = await import('../../src/ui/prep.js');
+const { fillLine } = await import('../../src/ui/onboarding.js');
+const nodeOf = (b) => R.deserialize(b.backend.serialized(), CONTENT);
+const toMap = (b) => { for (let i = 0; i < 80 && !(b.view.phase === 'MAP' && b.view.zone && b.view.zone.exp); i++) b.dispatch({ type: 'AUTO' }); };
+
+test('learn levels: the display hook is R.learnLevel in a Legacy run (the 14 spells shownLevel had one too low), the level itself outside one', () => {
+  mem.clear();
+  try {
+    const b = createBridge({ seed: 3, legacy: true });
+    b.dispatch({ type: 'SET_GUIDE', on: false }); b.dispatch({ type: 'START_RUN' });
+    const s = nodeOf(b);
+    for (const sp of Object.values(C.SPELL)) if (sp.lvl) assert.equal(lvLearn(sp.lvl), R.learnLevel(s, sp.id), sp.id);
+    assert.equal(lvLearn(C.SPELL.shadowstep_strike.lvl), 3);
+    assert.equal(lvLearn(C.SPELL.heartseeker_shot.lvl), 20);
+  } finally { gateOff(); setDisplay({}); }
+  mem.clear();
+  const b0 = createBridge({ seed: 3 }); b0.dispatch({ type: 'START_RUN' });
+  assert.equal(lvLearn(C.SPELL.heartseeker_shot.lvl), C.SPELL.heartseeker_shot.lvl, 'switch off: the engine level');
+});
+
+test('zone danger in a Legacy run: zoneDanger × tierDmg - 1 (mapView.tierDmg; R.zoneTierDmg at the Camp), its own line; outside one as before', () => {
+  mem.clear();
+  try {
+    const b = createBridge({ seed: 3, legacy: true });
+    b.dispatch({ type: 'SET_GUIDE', on: false }); b.dispatch({ type: 'START_RUN' });
+    toMap(b);
+    const s = nodeOf(b); const mv = R.mapView(s); const z = b.view.zone;
+    assert.equal(z.tierDmg, mv.tierDmg); assert.equal(mv.tierDmg, C.ZONE_TIER_DMG[s.zone.z - 1]);
+    assert.ok(Math.abs(z.danger - (R.zoneDanger(z.exitLevel, 'normal') * mv.tierDmg - 1)) < 1e-12, `${z.danger}`);
+    const r = b.data.rules;
+    assert.equal(dangerRule(r, z), z.danger > 0 ? `Enemies here deal up to +${Math.round(z.danger * 1000) / 10} % damage.` : null);
+    assert.equal(dangerBanner(r, z), z.danger > 0 ? `Enemies here deal up to +${Math.round(z.danger * 1000) / 10} % damage` : null);
+    assert.equal(dangerRule(r, { ...z, danger: -0.04 }), null, 'zoneDanger × tierDmg at or below 1: no line');
+    // the Camp: zone 6's factor (R.zoneTierDmg), Oruvath and his Shards not
+    const r2 = b.dev('camp', {}); assert.ok(r2.ok, r2.error);
+    const cz = b.view.zone; const cs = nodeOf(b);
+    assert.equal(cz.camp, true); assert.equal(cz.tierDmg, R.zoneTierDmg(cs)); assert.equal(cz.tierDmg, C.ZONE_TIER_DMG[C.ZONE_COUNT - 1]);
+    assert.ok(Math.abs(cz.danger - (R.zoneDanger(cz.exitLevel, 'normal') * cz.tierDmg - 1)) < 1e-12);
+  } finally { gateOff(); setDisplay({}); }
+  mem.clear();
+  const b0 = createBridge({ seed: 3 }); b0.dispatch({ type: 'START_RUN' }); toMap(b0);
+  const z0 = b0.view.zone;
+  assert.equal(z0.tierDmg, undefined);
+  assert.equal(z0.danger, R.zoneDanger(z0.exitLevel, 'normal') - 1);
+  assert.equal(dangerRule(b0.data.rules, z0), z0.danger > 0 ? dangerRule(b0.data.rules) : dangerRule(b0.data.rules, z0));
+});
+
+test('content lines with their own Legacy wording: prep.unspentFirst and H37 read from content, no word swap; the fallback says Legacy points', () => {
+  const T = CONTENT.tutorial; const ctx = { data: { tutorial: { table: T } } }; const pv = { unspent: { echoes: 12 } };
+  const h37 = () => T.hints.find((x) => x.id === 'H37');
+  try {
+    assert.equal(unspentLine(pv, ctx), 'Points you do not spend: +12 Echoes at the end of the run.');
+    assert.equal(unspentLine(pv, { data: {} }), 'Points you do not spend: +12 Echoes at the end of the run.');
+    C.GATES.legacy = true; setDisplay({ words: true });
+    assert.equal(unspentLine(pv, ctx), 'Points you do not spend: +12 Legacy points at the end of the run.');
+    assert.equal(unspentLine(pv, { data: {} }), 'Points you do not spend: +12 Legacy points at the end of the run.', 'the fallback (no content)');
+    assert.equal(h37().system, 'Legacy hall');
+    const line = fillLine(h37().line);
+    assert.equal(line.text, 'Legacy points buy lasting unlocks. They stay when a run ends.');
+    assert.ok(!/Echo/.test(line.text));
+  } finally { gateOff(); setDisplay({}); }
+  assert.equal(h37().system, 'Hall of Echoes', 'switch off: the line as written');
+});
+
+test('Abandon run (Legacy): ABANDON_RUN ends the run as a death where the hero stands; END_RUN pays its Legacy points, the hero keeps its level', () => {
+  mem.clear();
+  try {
+    const b = createBridge({ seed: 3, legacy: true });
+    b.dispatch({ type: 'SET_GUIDE', on: false }); b.dispatch({ type: 'START_RUN' });
+    toMap(b);
+    for (let i = 0; i < 400 && b.view.player.heroLevel < 3; i++) b.dispatch({ type: 'AUTO' });
+    const lvl = b.view.player.heroLevel; const bal0 = b.view.meta ? b.view.meta.echoes : null;
+    const r = b.dispatch({ type: 'ABANDON_RUN' });
+    assert.ok(r.ok, r.error);
+    assert.ok(r.events.some((e) => e.t === 'msg' && /abandon/.test(e.text)));
+    assert.equal(b.view.phase, 'SUMMARY');
+    const sm = b.view.summary;
+    assert.equal(sm.outcome, 'death'); assert.equal(sm.death.abandoned, true); assert.equal(sm.hero.level, lvl);
+    const after = b.view.meta.after;
+    b.dispatch({ type: 'END_RUN' });
+    const m = b.view.meta;
+    assert.equal(m.echoes, after.echoes, 'the Legacy points END_RUN stored');
+    assert.ok(bal0 === null || m.echoes > bal0, `${bal0} -> ${m.echoes}`);
+    assert.equal(m.heroes[0].level, lvl);
+    assert.equal(JSON.parse(mem.get('tbwcr.profile.v3')).heroes.rogue.runs, 1);
+  } finally { gateOff(); setDisplay({}); }
+  mem.clear();
+  const b0 = createBridge({ seed: 3 }); b0.dispatch({ type: 'START_RUN' });
+  assert.equal(b0.dispatch({ type: 'ABANDON_RUN' }).ok, false, 'switch off: refused (not a Legacy run)');
+});
+
+test('Dev menu hero level picker (Legacy): the class\'s hero at a level at class select (R.debug.setHero), refused in a run', () => {
+  mem.clear();
+  try {
+    const b = createBridge({ seed: 3, legacy: true });
+    const r = b.dev('hero', { classId: 'mage', level: 14 });
+    assert.ok(r.ok, r.error);
+    const hv = b.view.meta.heroes.find((x) => x && x.classId === 'mage') || b.view.meta.heroes[1];
+    assert.equal(hv.level, 14); assert.equal(hv.xp, 0);
+    assert.equal(JSON.parse(mem.get('tbwcr.profile.v3')).heroes.mage.level, 14);
+    b.dispatch({ type: 'SELECT_CLASS', classId: 'mage' }); b.dispatch({ type: 'SET_GUIDE', on: false }); b.dispatch({ type: 'START_RUN' });
+    assert.equal(b.view.player.heroLevel, 14);
+    assert.equal(b.dev('hero', { classId: 'mage', level: 3 }).ok, false, 'in a run: refused');
+  } finally { gateOff(); setDisplay({}); }
+});

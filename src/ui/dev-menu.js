@@ -7,7 +7,7 @@
 // default, the classic map stays for testing here only) and Seed (the seed, copy it, a new run on a seed). On by default; ?dev=0 or the
 // settings hide it. Presentation only: every button sends one dev op through the bridge (ctx.dev -> engine-bridge.js dev
 // -> R.debug); the numbers it shows (levels, limits, kinds) come from the bridge's data.dev.
-import { h, clear, fmtNum, moneyEl } from './util.js';
+import { h, clear, fmtNum, moneyEl, legacyShown } from './util.js'; // legacyShown: a Legacy profile (the hero level picker)
 import { HEAT_WORDS, tolls } from './ui-text.js';
 
 const TABS = [['start', 'Start at'], ['jump', 'Jump'], ['fight', 'Fight'], ['give', 'Give'], ['world', 'World'], ['seed', 'Seed']];
@@ -32,7 +32,7 @@ export function createDevMenu(root, ctx, { allowed }) {
   let built = null; // the tab on screen: { tab, refresh(view) }
   // form values kept while the menu is open and between tabs
   const form = { classId: null, petId: null, zone: null, level: '', ilvl: '', rarity: D.defaults.RARITY, mapMode: null, talents: 'auto',
-    q: '', fzone: 'all', fkind: 'all', flevel: '', gold: '10000', potions: String(D.defaults.POTIONS), points: '1', echoes: '1000', time: '', seed: '' };
+    q: '', fzone: 'all', fkind: 'all', flevel: '', gold: '10000', potions: String(D.defaults.POTIONS), points: '1', echoes: '1000', time: '', seed: '', heroClass: null, heroLevel: '10' };
 
   const enabled = () => allowed() && ctx.settings.get('devTools') !== false;
   const isOpen = () => !panel.classList.contains('hidden');
@@ -182,6 +182,17 @@ export function createDevMenu(root, ctx, { allowed }) {
         if (r && r.ok === false) return;
         if (ctx.coach) ctx.coach.clear();
       });
+      // Legacy (engine-2026-11-18 UI need 9): a class's hero at a level (R.debug.setHero, XP 0) in the saved profile, at class
+      // select; shown with a Legacy profile only
+      const heroMax = d.rules.heroMaxLevel;
+      let heroLine = null; let heroBtn = null;
+      if (legacyShown() && heroMax) {
+        if (!form.heroClass) form.heroClass = (v.create && v.create.classId) || (v.player && v.player.classId) || 'rogue';
+        heroBtn = opBtn('Set', 'hero', () => { const n = whole('heroLevel', 'Hero level', 1, heroMax); return n === null ? null : { classId: form.heroClass, level: n }; });
+        heroBtn.dataset.dev = 'hero';
+        heroLine = h('div.dm-line', field('Hero', select('heroClass', Object.values(d.classes).map((c) => [c.id, c.name])), null),
+          field('Hero level', number('heroLevel', { min: 1, max: heroMax }), `1-${heroMax}, at class select`), heroBtn);
+      }
       return {
         el: h('div',
           h('div.dm-line', field('Gold (copper)', gold, null), preview, runOnly[0]),
@@ -189,9 +200,10 @@ export function createDevMenu(root, ctx, { allowed }) {
           h('div.dm-line', field('Talent points', number('points', { min: 1, max: 100 }), null), runOnly[2]),
           h('div.dm-sub', 'Profile (kept between runs)'),
           h('div.dm-line', field('Echoes', number('echoes', { min: 1 }), null), ech),
+          heroLine,
           h('div.dm-acts', full, onb),
           h('div.dm-note', 'Potions: Healing Draughts while the bags take them (a Mage gets Mana Draughts too). Echoes, the catalogue and Reset onboarding go to your saved profile.')),
-        refresh(vv) { for (const b of runOnly) b.disabled = !inRun(vv); },
+        refresh(vv) { for (const b of runOnly) b.disabled = !inRun(vv); if (heroBtn) heroBtn.disabled = vv.phase !== 'CREATE'; },
       };
     },
     world(v) {

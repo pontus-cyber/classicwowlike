@@ -448,14 +448,20 @@ export function resurrectText(p, bossFight) {
  * DANGER_LEVELS is the unit of ZONE_DANGER_STEP ("× per 10 levels above ZONE_DANGER_FROM", rules.md constants table).
  */
 export const DANGER_LEVELS = 10;
-/** The rule in one sentence, or null without zone danger. */
-export function dangerRule(r) {
+/**
+ * The rule in one sentence, or null without zone danger. A Legacy zone (z.tierDmg, legacy.md 2.2; engine-2026-11-19 UI need
+ * 2) says its own number: its enemies deal zoneDanger × tierDmg (z.danger + 1) at its highest level, at every level of its
+ * band (draft line); null when that is no extra damage.
+ */
+export function dangerRule(r, z = null) {
+  if (z && z.tierDmg != null) return z.danger > 0 ? `Enemies here deal up to +${pct1(z.danger)} damage.` : null;
   if (r.dangerStep == null || r.dangerFrom == null) return null;
   const dungeon = r.dangerStepDungeon != null && r.dangerStepDungeon !== r.dangerStep ? ` (in dungeons +${pct1(r.dangerStepDungeon)})` : '';
   return `Enemies above level ${lv(r.dangerFrom)} hit harder: +${pct1(r.dangerStep)} damage per ${DANGER_LEVELS} levels${dungeon}.`;
 }
 /** Short line for the zone banner when the zone's enemies take zone danger (z.danger > 0), else null. */
 export function dangerBanner(r, z) {
+  if (z && z.tierDmg != null) return z.danger > 0 ? `Enemies here deal up to +${pct1(z.danger)} damage` : null; // Legacy (draft)
   return r.dangerFrom != null && z.danger > 0 ? `Enemies above level ${lv(r.dangerFrom)} hit harder` : null;
 }
 

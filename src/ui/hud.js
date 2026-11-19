@@ -339,7 +339,9 @@ export function createHud(root, ctx) {
   els.minimap.querySelector('.disc').addEventListener('click', () => ctx.ui.toggleWin('map'));
   tip(els.minimap.querySelector('.disc'), () => {
     const v = ctx.view; if (!v.zone) return null; const R = ctx.data.rules;
-    const danger = v.zone.danger > 0 ? dangerRule(R) : null; // zone danger (rules 7.6): zone.danger from the engine's zoneDanger
+    // zone danger (rules 7.6): zone.danger from the engine's zoneDanger (× the zone tier's factor in a Legacy run, which
+    // Oruvath and his Shards do not take: no line in his fight)
+    const danger = v.zone.danger > 0 && !(v.zone.tierDmg != null && v.combat && v.combat.isBoss) ? dangerRule(R, v.zone) : null;
     // D150 item 10: the tolls are the Furnace's (one number); no par, line or Ascendancy here
     return h('div', h('div.tt-name', v.zone.name), h('div.tt-sub', `Levels ${shownLv(v.zone.band[0])}–${shownLv(v.zone.band[1])}`),
       danger ? h('div.tt-warn.danger', danger) : null, h('div.tt-hint', 'Click or press M for the zone map'));

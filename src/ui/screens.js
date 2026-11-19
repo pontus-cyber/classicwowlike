@@ -1420,7 +1420,8 @@ function buildSummary(v, ctx) {
   // a hero without a name of its own carries the class name: say it once (QA playtest 2026-11-11 finding 10)
   const named = s.name && s.name.toLowerCase() !== String(s.className).toLowerCase() ? s.name : null;
   win.appendChild(h('div.shead', h('div.t1.subtitle', { style: { letterSpacing: '.4em', textTransform: 'uppercase' } }, won ? 'Victory' : 'The run has ended'),
-    h('div.t2', { style: { color: won ? token('--accent-pale') : '#e8a090' } }, won ? 'Oruvath has fallen' : named ? `${named} has fallen` : `Your ${s.className} has fallen`),
+    // Legacy (legacy.md 1.5; draft line): a run abandoned from the menu ends as a death, and says so
+    h('div.t2', { style: { color: won ? token('--accent-pale') : '#e8a090' } }, won ? 'Oruvath has fallen' : s.death && s.death.abandoned ? `${named || `Your ${s.className}`} left the run` : named ? `${named} has fallen` : `Your ${s.className} has fallen`),
     h('div.subtitle.s-who', `${named ? `${named} · level` : 'Level'} ${lv(s.level)} ${s.className}${s.petId ? ' with ' + ctx.data.pets[s.petId].name : ''} · ${s.zone}`),
     // a dev run (engine-api.md 12): the dev tools changed it, so it earns no Echoes
     s.dev ? h('div.devrun', `Dev run${s.dev.god ? ' · god mode' : ''}`) : null));
@@ -1432,7 +1433,8 @@ function buildSummary(v, ctx) {
     [HEAT_WORDS.Units, fmtTime(s.time)], ['Oruvath', s.asc ? `+${Math.round(s.asc * 100)} % health and damage` : 'No stronger'],
     ['Estimated time', `${s.estMinutes.manual} min manual · ${s.estMinutes.auto} min autoplay`], ['Fights', `${s.fights} (${s.rounds} rounds)`], ['Seed', String(s.seed)],
     // the killing blow by its display name (the bridge's actionName; without a name only the killer)
-    ...(s.death ? [['Killed by', h('span.killed', { dataset: { ability: s.death.ability || '' } }, s.death.ability ? `${s.death.killer} (${s.death.ability})` : s.death.killer)], ['Where', `${s.death.node}, round ${s.death.round}`]] : []),
+    ...(s.death && s.death.abandoned ? [['Ended', h('span.killed.abandoned', 'Abandoned from the menu')], ['Where', `${s.death.node || s.zone}${s.death.round != null ? `, round ${s.death.round}` : ''}`]] : []),
+    ...(s.death && !s.death.abandoned ? [['Killed by', h('span.killed', { dataset: { ability: s.death.ability || '' } }, s.death.ability ? `${s.death.killer} (${s.death.ability})` : s.death.killer)], ['Where', `${s.death.node}, round ${s.death.round}`]] : []),
   ]));
   const card2 = h('div.card', h('h3', 'Deeds'), kv([
     ['Kills', `${s.kills.normal} normal · ${s.kills.elite} elite · ${s.kills.rare} rare · ${s.kills.boss} boss`], ['Quests', s.contracts ? String(s.quests) : `${s.quests} (${s.story} stories)`],

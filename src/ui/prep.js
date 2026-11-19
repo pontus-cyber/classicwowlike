@@ -14,7 +14,7 @@
 // offer's tooltip in three sentences (boardTip: what to win, the reward, the cost).
 // D152 (changes-m3-v2.md 1.2-1.3): a lean first run's camp (prepView.first): no board, the two supplies, and over Set out
 // what unspent points pay (content prep.unspentFirst); no Reserve is read or named.
-import { h, clear, moneyEl, fmtNum, lv, legacyShown } from './util.js'; // Legacy: the hero scale and hero XP (identities off)
+import { h, clear, moneyEl, fmtNum, lv, legacyShown, verbatim } from './util.js'; // Legacy: the hero scale and hero XP (identities off)
 import { icon, consumableIcon } from './art-icons.js';
 import { tip } from './tooltip.js';
 import {
@@ -181,7 +181,7 @@ export function createPrepScreen(v, ctx) {
   const points = h('div.pm-points', big, h('div', h('div.pm-l', 'points left')));
   tip(points, () => {
     const pv = ctx.view.prep; if (!pv) return null;
-    if (pv.first) return h('div', h('div.tt-name', 'Preparation points'), h('div.tt-line', `${pv.points} to spend on supplies${pv.spent ? `; ${pv.spent} spent` : ''}.`), h('div.tt-line.num', unspentLine(pv, ctx)));
+    if (pv.first) return h('div', h('div.tt-name', 'Preparation points'), h('div.tt-line', `${pv.points} to spend on supplies${pv.spent ? `; ${pv.spent} spent` : ''}.`), h('div.tt-line.num', verbatim(unspentLine(pv, ctx))));
     const rs = pv.reserve || { points: 0, echoes: 0 }; // engine-2026-11-14f UI need 2: never read a missing Reserve
     return h('div', h('div.tt-name', 'Preparation points'), h('div.tt-line', `${pv.points} to spend on contracts and supplies${pv.spent ? `; ${pv.spent} spent` : ''}.`),
       h('div.tt-line.num', `Unspent points become Reserve: it buys a hub contract on the way, and what is left at the end of the run becomes Echoes${rs.points ? ` (${rs.echoes} for the ${pts(rs.points)} left now)` : ''}.`),
@@ -191,7 +191,7 @@ export function createPrepScreen(v, ctx) {
   go.addEventListener('click', () => { go.blur(); if (ctx.coach && ctx.coach.holdSetOut(ctx.view)) return; ctx.act({ type: 'SET_OUT' }); });
   tip(go, () => {
     const pv = ctx.view.prep; if (!pv) return null;
-    if (pv.first) return h('div', h('div.tt-name', 'Set out'), h('div.tt-line', `Leave the camp for ${zone1}. Supplies go into your bags.`), pv.left ? h('div.tt-line.num', unspentLine(pv, ctx)) : null);
+    if (pv.first) return h('div', h('div.tt-name', 'Set out'), h('div.tt-line', `Leave the camp for ${zone1}. Supplies go into your bags.`), pv.left ? h('div.tt-line.num', verbatim(unspentLine(pv, ctx))) : null);
     const rs = pv.reserve || { points: 0, echoes: 0 };
     return h('div', h('div.tt-name', 'Set out'), h('div.tt-line', `Leave the camp for ${zone1}. Supplies go into your bags and the perks last the run.`),
       h('div.tt-line.num', pv.left ? `${pts(pv.left)} unspent become Reserve: ${rs.echoes} Echoes at the end of the run, or hub contracts on the way.` : 'Every point is spent: no Reserve.'),
@@ -249,9 +249,14 @@ export function createPrepScreen(v, ctx) {
   return root;
 }
 const cap1 = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
-/** A first run's unspent points line (D152, content prep.unspentFirst, draft): "Points you do not spend: +N Echoes ...". */
+/**
+ * A first run's unspent points line (D152, content prep.unspentFirst, draft): "Points you do not spend: +N Echoes ...". The
+ * content line reads its Legacy wording under GATES.legacy (TUTORIAL.legacy), so it is shown verbatim (no word swap); the
+ * fallback, without content, says Legacy points while a Legacy profile or run is shown.
+ */
 export function unspentLine(pv, ctx) {
-  const raw = (ctx.data.tutorial && ctx.data.tutorial.table && ctx.data.tutorial.table.prep && ctx.data.tutorial.table.prep.unspentFirst) || 'Points you do not spend: +{echoes} Echoes at the end of the run.';
+  const raw = (ctx.data.tutorial && ctx.data.tutorial.table && ctx.data.tutorial.table.prep && ctx.data.tutorial.table.prep.unspentFirst)
+    || `Points you do not spend: +{echoes} ${legacyShown() ? 'Legacy points' : 'Echoes'} at the end of the run.`;
   return raw.replace('{echoes}', String((pv.unspent && pv.unspent.echoes) || 0));
 }
 /** A price in preparation points: the number on its seal and the word next to it. */

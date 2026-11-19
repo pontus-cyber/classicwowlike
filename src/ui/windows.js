@@ -226,7 +226,22 @@ export function createWindows(root, ctx) {
       resetHints.addEventListener('click', () => { if (ctx.coach) ctx.coach.reset(); else hints.reset(); ctx.toast('Every first-time hint shows again.', 'info'); refresh('settings'); });
       const guideAgain = h('button.btn.small', { type: 'button' }, 'Play the guide again');
       guideAgain.addEventListener('click', () => { ctx.act({ type: 'GUIDE_AGAIN' }).then((r) => { if (r && r.ok) ctx.toast(ctx.view.phase === 'CREATE' ? 'This run is the guided run.' : 'Your next run is the guided run.', 'good'); }); });
+      // Legacy (legacy.md 1.5; engine-2026-11-18 UI need 7; draft lines): "Abandon run" in a Legacy run, asked once: the
+      // first click asks, the second sends ABANDON_RUN (the run ends as a death where the hero stands; the summary pays)
+      const vv = ctx.view;
+      const canAbandon = ctx.bridge.mode === 'engine' && vv.player && vv.player.heroLevel != null && !['CREATE', 'SUMMARY'].includes(vv.phase);
+      let abandonRow = null;
+      if (canAbandon) {
+        const ab = h('button.btn.small', { type: 'button', dataset: { abandon: 'ask' } }, 'Abandon run');
+        const note = h('div.muted', 'Ends this run where your hero stands, as a death. Your hero keeps its level and the run pays its Legacy points.');
+        ab.addEventListener('click', () => {
+          if (ab.dataset.abandon === 'ask') { ab.dataset.abandon = 'sure'; ab.classList.add('danger'); ab.textContent = 'Abandon: click again'; note.textContent = 'Abandon this run? Click again to end it.'; return; }
+          ab.disabled = true; close('settings'); ctx.act({ type: 'ABANDON_RUN' });
+        });
+        abandonRow = h('div.setrow.abandon', h('div', h('div', 'Abandon run'), note), ab);
+      }
       const body = h('div.col', { style: { padding: '1rem 1.6rem 1.6rem', gap: 0 } },
+        abandonRow,
         h('div.setrow', h('div', h('div', 'Animation speed'), h('div.muted', 'Space or a click skips to the end of the hit on screen. A key pressed while a round plays is queued as your next action.')), seg('speed', [[1, '1×'], [2, '2×'], [4, '4×'], [0, 'Instant']])),
         h('div.setrow', h('div', h('div', 'Speedrun mode'), h('div.muted', 'Instant animations, no travel scenes, fast autoplay.')), tog('speedrun')),
         h('div.setrow', h('div', 'Skip travel scenes'), tog('skipTravel')),
