@@ -437,6 +437,7 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 /* ---------------------------------------------------------------- tracker & log */
 #tracker { position: absolute; right: 1.8rem; top: 21rem; width: 26rem; display: flex; flex-direction: column; gap: var(--sp-50); text-align: right; transition: opacity var(--dur-base-2); }
 #tracker.dimmed { opacity: 0; pointer-events: none; }
+#tracker.yield { opacity: 0; pointer-events: none; } /* Legacy bugs 2026-11-19 (s0096): a nameplate under it (hud.js trackerYield) */
 #tracker .tk-h { font: var(--fw-semibold) var(--fs-body-6) var(--font-title); color: var(--gold); text-shadow: 0 1px 1px var(--shade), 0 0 4px var(--shade); }
 #tracker .tk-l { font-size: var(--fs-body-3); color: var(--ink); text-shadow: 0 1px 1px var(--shade), 0 0 3px var(--shade), 0 0 4px var(--shade); }
 #tracker .tk-l.done { color: var(--ink-good); }
@@ -487,6 +488,12 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 /* loot window */
 .loot { width: 38rem; }
 .loot .foot { display: flex; justify-content: space-between; align-items: center; padding: var(--sp-90) var(--sp-120) var(--sp-110); border-top: 1px solid var(--edge-hi-20); gap: var(--sp-80); }
+/* Legacy bugs 2026-11-19 (blind returning player s0152, s0154): the note (bags, "Leave 2 items behind? ...") has a line of its
+   own above the buttons, so the ask on the first Leave click neither wraps the buttons nor moves Leave under the pointer */
+.loot .foot { flex-wrap: wrap; row-gap: var(--sp-50); }
+.loot .foot > :first-child { flex: 1 0 100%; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.loot .foot > .row { flex: none; margin-left: auto; }
+.loot .foot > .row .btn { white-space: nowrap; }
 .loot .rows { display: flex; flex-direction: column; gap: var(--sp-50); padding: var(--sp-100) var(--sp-120); max-height: 46rem; overflow-y: auto; }
 /* QA 2026-11-12: in the right-side slot (max-height of .rightside) only the rows scroll; the title, the next strip and Continue stay in view */
 .loot.rightside { display: flex; flex-direction: column; overflow: hidden; }
@@ -711,7 +718,8 @@ body.dying #target-frame, body.dying #boss-frame, body.dying #nameplates, body.d
 .summary { width: 92rem; max-width: calc(100vw - 3rem); max-height: calc(100vh - 3rem); display: flex; flex-direction: column; }
 .summary .shead { padding: var(--sp-160) var(--sp-200) var(--sp-100); text-align: center; }
 .summary .shead .t2 { font: var(--fw-semibold) var(--fs-display-5) var(--font-title); }
-.summary .sbody { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--sp-120); padding: 0 var(--sp-180) var(--sp-120); overflow-y: auto; }
+.summary .sbody { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--sp-120); padding: 0 var(--sp-180) var(--sp-120); overflow-y: auto; min-height: 0; } /* Legacy bugs 2026-11-19 (s0059): the body scrolls inside the panel; the Furnace's last line went under the buttons */
+.summary .shead, .summary .sfoot { flex: none; }
 .summary .card { padding: var(--sp-100) var(--sp-120); border-radius: var(--radius-md-2); background: var(--shade-30); box-shadow: inset 0 0 0 1px var(--glint-06); }
 .summary .card h3 { margin: 0 0 var(--sp-70); font: var(--fw-semibold) var(--fs-label-7) var(--font-title); color: var(--gold); }
 .summary .echo { display: flex; justify-content: space-between; font-size: var(--fs-body-3); padding: var(--sp-15) 0; }
@@ -1143,6 +1151,8 @@ body.in-fight #tracker .zl { display: none; }
 #win-map { top: calc(2rem + var(--furnace-h)); }
 #win-settings, #win-settings.dev { top: calc(var(--furnace-h) + .8rem); transform: translateX(-50%); max-height: calc(100vh - var(--furnace-h) - 17.2rem); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--edge-scroll) transparent; }
 #win-talents { top: calc(50% + var(--furnace-h) / 2 - 2rem); max-height: calc(100vh - var(--furnace-h) - 12rem); overflow-y: auto; }
+.heatcard .hc-sub { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-100); flex-wrap: wrap; margin-top: var(--sp-20); }
+.heatcard .hc-sub .hc-cap { margin: 0; }
 .hc-cap { margin: var(--sp-20) 0 var(--sp-10); font: var(--fw-bold) var(--fs-small-5) var(--font-ui); color: var(--ink-dim); letter-spacing: .03em; }
 /* in a fight the Furnace holds still (its embers and water move only between fights): the fight is the focus, and a round's
    frames stay cheap on a loaded machine */

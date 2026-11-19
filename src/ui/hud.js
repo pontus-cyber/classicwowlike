@@ -592,6 +592,29 @@ export function createHud(root, ctx) {
       el.style.left = `${Math.round(an.steadyX ?? an.x)}px`;
       el.style.top = `${Math.round(an.top - 4)}px`;
     }
+    if ((npTick = (npTick + 1) % 8) === 0) trackerYield();
+  }
+  let npTick = 0;
+  /**
+   * Legacy bugs 2026-11-19 (blind returning player s0096: the contract tracker lay over an enemy's intent icons): while a
+   * shown nameplate (its track, wind-up line and badges) meets the tracker, the tracker gives way (#tracker.yield, style.css)
+   * until the plates move clear. Checked every few frames; the tracker keeps its place, so the test does not flicker.
+   */
+  function trackerYield() {
+    const t = els.tracker;
+    const live = npEls.size && t.childElementCount && !t.classList.contains('hidden') && !t.classList.contains('dimmed');
+    let hit = false;
+    if (live) {
+      const r = t.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        for (const el of npEls.values()) {
+          if (el.style.opacity === '0') continue;
+          const q = el.getBoundingClientRect();
+          if (q.width > 0 && q.left < r.right && q.right > r.left && q.top < r.bottom && q.bottom > r.top) { hit = true; break; }
+        }
+      }
+    }
+    if (t.classList.contains('yield') !== hit) t.classList.toggle('yield', hit);
   }
 
   function updateBar(v) {

@@ -1017,7 +1017,9 @@ function engineBackend(seedOpt, runOpts = {}) {
       // heat (rules 1.7.4, engine-api.md 11.3): the zone track, tolls / nodes / fights won by state, the Echo line's
       // Echoes; par: the run's boss par (R.bossPar) for "tolls over par"
       heat: sm.heat ? { trackPerZone: sm.heat.trackPerZone.map((r) => ({ ...r })), timeByState: [...sm.heat.timeByState], nodesByState: [...sm.heat.nodesByState],
-        fightsByState: [...sm.heat.fightsByState], echoHeat: sm.heat.echoHeat || 0 } : null,
+        fightsByState: [...sm.heat.fightsByState], echoHeat: sm.heat.echoHeat || 0,
+        // Legacy bugs 2026-11-19 (s0059): the Dimmed encounters (expedition.dimFights), where the meter read Infernal
+        dimFights: (sm.expedition && sm.expedition.dimFights) || 0 } : null,
       par: R.bossPar(s), reachedCamp: !!z.camp, reachedBoss: !!sm.reachedBoss,
       echoTotal: sm.echoes ? sm.echoes.total : 0,
       // Oaths (rules 11.5): the engine's multiplier on the sum of the lines
@@ -1329,7 +1331,8 @@ function engineBackend(seedOpt, runOpts = {}) {
         case 'gold': if (e.amount > 0 && e.why !== 'sell') out.push({ t: 'gold', amount: e.amount, why: e.why, heat: e.heat || 0 }); break; // a sale says its price itself
         case 'loot': out.push({ t: 'gotItem', name: e.item.name || (C.CONSUMABLE[e.item.id] || {}).name || 'item', rarity: e.item.rarity || 'common', to: e.to, heatUp: local.heatUp.get(e.item.uid) || null }); break;
         case 'victory': out.push({ t: 'victory' }); break;
-        case 'abandon': out.push({ t: 'msg', text: 'You abandon the run.', kind: 'info' }); break; // Legacy (draft line)
+        // Legacy (draft line); bugs 2026-11-19 (s0236, s0247): a log line only, no toast over the summary
+        case 'abandon': out.push({ t: 'msg', text: 'You abandon the run.', kind: 'info', quiet: true }); break;
         case 'fled': out.push({ t: 'flee', ok: true }); break;
         case 'questComplete': out.push({ t: 'msg', text: 'Quest complete!', kind: 'good' }); break;
         case 'story': out.push({ t: 'msg', text: 'Zone story complete: a rare reward awaits.', kind: 'good' }); break;
@@ -1437,7 +1440,7 @@ function engineBackend(seedOpt, runOpts = {}) {
     switch (a.type) {
       case 'HUB_SERVICE': return { type: 'SERVICE', service: a.service };
       case 'CONTINUE': return { type: 'NEXT_FIGHT' };
-      case 'CHOOSE_REWARD': return { type: 'CHOOSE_REWARD', index: a.i };
+      case 'CHOOSE_REWARD': return a.equip ? { type: 'CHOOSE_REWARD', index: a.i, equip: true } : { type: 'CHOOSE_REWARD', index: a.i }; // equip: Legacy bugs 2026-11-19
       case 'BUY': return { type: 'BUY', index: a.i };
       case 'SELL': return { type: 'SELL', itemId: a.uid };
       case 'EQUIP': return { type: 'EQUIP', itemId: a.uid };

@@ -1302,9 +1302,12 @@ function buildReward(v, ctx) {
     const eq = offer ? h('button.btn.small.eqnow', { type: 'button', dataset: { uid: it.uid } }, 'Equip now') /* not .primary: Space keeps choosing nothing here */ : null;
     const c = h('div.icard', h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name, it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', `${cap(it.slot)} · item level ${lv(it.ilvl)}`), h('div.stats', stats || ' '), h('div.upg.' + (up > 0 || !p.equip[it.slot] ? 'good' : 'muted'), up > 0 ? `▲ Upgrade (+${Math.round(up * 10) / 10})` : !p.equip[it.slot] ? '▲ Empty slot' : 'Not an upgrade'), eq));
     c.addEventListener('click', () => ctx.act({ type: 'CHOOSE_REWARD', i }));
+    // Legacy bugs 2026-11-19 (blind returning player s0044, s0160): the engine puts it on in the choice's own step
+    // (CHOOSE_REWARD `equip`), before a Dimmed encounter that starts at once, and from the loot window when the bags are
+    // full; the EQUIP after it is for an engine without the option (the mock), and sends nothing once the item is worn
     if (eq) eq.addEventListener('click', (e) => {
       e.stopPropagation();
-      ctx.act({ type: 'CHOOSE_REWARD', i });
+      ctx.act({ type: 'CHOOSE_REWARD', i, equip: true });
       ctx.act(() => { const b = ctx.bridge.view.player; return b && b.bag.some((x) => x && x.uid === it.uid) ? { type: 'EQUIP', uid: it.uid } : null; });
     });
     tip(c, () => itemTip(it, ctx, { hint: eq ? 'Click to choose this reward · Equip now: choose it and put it on' : 'Click to choose this reward' }), { avoid: '.choice-cards .icard' }); // blind round 2 (skipper s0045): not over another card's Equip now
@@ -1431,7 +1434,9 @@ function buildSummary(v, ctx) {
     // Legacy (legacy.md 1.5, 4.1; draft line): the hero's levels and the hero XP of the run, kept whatever the outcome
     ...(s.hero ? [['Hero', h('span.s-hero', { dataset: { from: String(s.hero.from), to: String(s.hero.level), xp: String(s.hero.xpGained) } }, `Level ${s.hero.from}${s.hero.level !== s.hero.from ? ` → ${s.hero.level}` : ''} · +${fmtNum(s.hero.xpGained)} XP`)]] : []),
     [HEAT_WORDS.Units, fmtTime(s.time)], ['Oruvath', s.asc ? `+${Math.round(s.asc * 100)} % health and damage` : 'No stronger'],
-    ['Estimated time', `${s.estMinutes.manual} min manual · ${s.estMinutes.auto} min autoplay`], ['Fights', `${s.fights} (${s.rounds} rounds)`], ['Seed', String(s.seed)],
+    // Legacy bugs 2026-11-19 (blind returning player s0247): no time estimate for a run without a fight (it was the model's
+    // fixed set-up time, "2 min manual · 2 min autoplay")
+    ...(s.fights > 0 ? [['Estimated time', `${s.estMinutes.manual} min manual · ${s.estMinutes.auto} min autoplay`]] : []), ['Fights', `${s.fights} (${s.rounds} rounds)`], ['Seed', String(s.seed)],
     // the killing blow by its display name (the bridge's actionName; without a name only the killer)
     ...(s.death && s.death.abandoned ? [['Ended', h('span.killed.abandoned', 'Abandoned from the menu')], ['Where', `${s.death.node || s.zone}${s.death.round != null ? `, round ${s.death.round}` : ''}`]] : []),
     ...(s.death && !s.death.abandoned ? [['Killed by', h('span.killed', { dataset: { ability: s.death.ability || '' } }, s.death.ability ? `${s.death.killer} (${s.death.ability})` : s.death.killer)], ['Where', `${s.death.node}, round ${s.death.round}`]] : []),

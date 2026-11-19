@@ -394,13 +394,22 @@ export function buildHeatSummary(sum, ctx) {
   const tot = ht.timeByState.reduce((a, b) => a + b, 0) || 1;
   const strip = h('div.hc-strip', { role: 'img', 'aria-label': `${HW.Units} in each state: ${STATES.map((s, i) => `${HEAT_NAME[s]} ${fmtTime(ht.timeByState[i])}`).join(' · ')}` },
     STATES.map((s, i) => (ht.timeByState[i] > 0 ? h('i', { dataset: { hs: s }, style: { flexGrow: String(ht.timeByState[i] / tot) } }) : null)));
+  // Legacy bugs 2026-11-19 (s0059: the card's last line under the buttons at 1366x768): the chart's caption and the end line
+  // share a row, and the chart is lower (HT), so the summary fits without a scroll in the common case
   card.appendChild(h('div.hc-head', h('h3', HW.Name), h('div.hc-time', strip,
-    h('span.hc-leg', `${HW.Units} in each state: `, STATES.map((s, i) => h('span', h('i.ht-dot', { dataset: { hs: s } }), `${HEAT_NAME[s]} ${fmtTime(ht.timeByState[i])}`)))), h('span.hc-end', endLine)));
-  card.appendChild(h('div.hc-cap', `${HW.Units} overspent (above 0) or to spare (below), per zone`));
+    h('span.hc-leg', `${HW.Units} in each state: `, STATES.map((s, i) => h('span', h('i.ht-dot', { dataset: { hs: s } }), `${HEAT_NAME[s]} ${fmtTime(ht.timeByState[i])}`))))));
+  card.appendChild(h('div.hc-sub', h('div.hc-cap', `${HW.Units} overspent (above 0) or to spare (below), per zone`), h('span.hc-end', endLine)));
   card.appendChild(heatChart(recs, H, zc));
   const hotNodes = ht.nodesByState[2] + ht.nodesByState[3];
   const hotFights = ht.fightsByState[2] + ht.fightsByState[3];
-  card.appendChild(h('div.hc-foot', `Nodes entered: ${STATES.map((s, i) => `${ht.nodesByState[i]} ${HEAT_NAME[s]}`).join(' · ')}. Fights won in heat: ${hotFights}${hotNodes ? '' : ` (no node entered ${HEAT_NAME.hot} or ${HEAT_NAME.scorched})`}. Hover a point for its ${HW.units}.`));
+  // Legacy bugs 2026-11-19 (blind returning player s0059: "0 Infernal" after the meter had shown Infernal): a node counts in
+  // the state it was entered in, so only the states with nodes are named; the Dimming (Infernal where it stands) has its
+  // own count, the Dimmed encounters
+  const entered = STATES.map((s, i) => [s, ht.nodesByState[i]]).filter(([, n]) => n > 0);
+  const nodesLine = entered.length ? `Nodes entered, by the state you entered them in: ${entered.map(([s, n]) => `${n} ${HEAT_NAME[s]}`).join(' · ')}.` : 'No node entered.';
+  const dim = ht.dimFights || 0;
+  const dimLine = dim ? ` The Dimming caught you ${dim === 1 ? 'once' : `${dim} times`} (${HEAT_NAME.scorched} where it stands).` : '';
+  card.appendChild(h('div.hc-foot', `${nodesLine} Fights won in heat: ${hotFights}${hotNodes ? '' : ` (no node entered ${HEAT_NAME.hot} or ${HEAT_NAME.scorched})`}.${dimLine} Hover a point for its ${HW.units}.`));
   return card;
 }
 
@@ -408,7 +417,7 @@ export function buildHeatSummary(sum, ctx) {
  * at each new zone (the line moves ahead). Hover a point for its numbers; the last value is labelled at its end. */
 function heatChart(recs, H, zc) {
   const NS = 'http://www.w3.org/2000/svg';
-  const W = 880; const HT = 122; const L = 64; const R = 54; const T = 8; const B = 28;
+  const W = 880; const HT = 100; const L = 64; const R = 54; const T = 8; const B = 28;
   const vals = recs.flatMap((r) => [r.a, r.b]);
   const lo = Math.min(H.barMin, Math.floor(Math.min(...vals) / 10) * 10); const hi = Math.max(H.barMax, Math.ceil(Math.max(...vals) / 10) * 10);
   const y = (v) => T + ((hi - v) / (hi - lo)) * (HT - T - B);

@@ -446,6 +446,9 @@ export class App {
     if (!this.director.playing) this.windows.update();
     this.coach.update(this.bridge.view);
     this.devMenu.update(this.bridge.view);
+    // Legacy bugs 2026-11-19 (blind returning player s0236, s0247): the run summary opens clear of toasts (their lines are
+    // in the log); "You abandon the run." lay over the Deeds card
+    if (v.phase === 'SUMMARY' && document.body.dataset.phase !== 'SUMMARY') this.clearToasts();
     document.body.dataset.phase = v.phase;
     // a fight on screen (the toasts move below the opening ruler, clear of the target frame; in the end-boss fight under the
     // boss frame, between the target frame and the boss's nameplate; style.css)
@@ -663,6 +666,12 @@ export class App {
     // no gap at its height (moving it up or down would put it on the Furnace, the frames or the action bar): it stays
     // where it is, under the windows
     el.classList.add('under-wins');
+  }
+  /** Every toast on screen and waiting goes at once. */
+  clearToasts() {
+    this.toastQueue.length = 0;
+    for (const t of [...this.toasts.children]) { clearTimeout(t._toastT); t.remove(); }
+    this.placeToasts();
   }
   /** A toast leaves after TOAST_MS; the next queued one takes its place while there is room. */
   armToast(t) {
