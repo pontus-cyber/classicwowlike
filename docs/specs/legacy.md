@@ -46,7 +46,9 @@ Every number is a named constant in the table of section 10. Player-facing names
 - XP is counted in **hero XP**. Every award keeps today's formula (rules 2.0, 4.4; expedition.md 3.1: a fraction of a level, the level-difference modifier, XP_WEIGHT_MULT, rested, heat, Quick Study), counted in level-equivalents at the hero's power level L and multiplied by HERO_XP_UNIT (100):
   `xp = round(HERO_XP_UNIT × frac × xpCurve(CL) / xpCurve(L) × diffMod(CL - L) × (1 + xpPctMods))`, CL and L power levels; contracts and Gorrak's bounty without diffMod, as today.
   At the hero's level a normal kill pays 40 XP (0.285 × 1.4 × 100), a quest turn-in 161, a Cull contract about 280, a dungeon clear about 100 to 130 plus its kills. The rested pool is REST_RESTED_FRAC × HERO_XP_UNIT (60 XP), capped at RESTED_CAP_FRAC × HERO_XP_UNIT (150).
+- **(Economy v2, 4.7, draft):** in a Legacy run the level terms of this formula are replaced: XP is counted against the zone's band, not the hero's level (4.7 E2), so the same node pays the same hero XP at every hero level.
 - A level costs HERO_XP[H] (1.4). XP carries over and is never lost.
+- **(Economy v2, 4.7, draft):** HERO_XP for levels 1-3 becomes 1 800 / 1 850 / 1 900 (4.7 E4).
 - At level 25 XP keeps counting: every HERO_XP_AT_MAX (4 100) XP gained pays LEGACY_PER_LEVEL Legacy points at the run's end (4.1).
 
 ### 1.4 The XP curve: level 25 in 6 to 8 hours
@@ -151,6 +153,7 @@ The kit exists because gear is about half of a high-level hero's stats: a level-
 
 ### 2.1 Zone level
 - When the hero arrives at zone z's hub, the zone's band is fixed for the whole zone: `band(z) = clamp(P(hero) + ZONE_TIER[z], 1, CL_MAX)`, P the hero's power level at arrival. A level-up inside the zone does not move it; the next zone is set from the new level.
+- **(Economy v2, 4.7, draft):** zones 1 and 2 trail the hero: `band(z) = clamp(P + ZONE_TIER[z] - round(ZONE_LAG[z] × (P - 1)), 1, CL_MAX)`, ZONE_LAG 0.15 / 0.075 / 0 / 0 / 0 / 0 (4.7 E3).
 - Node levels keep today's rules relative to the band, on compressed rings: `CL = band + RING_CL_BASE[ring] + u`, u uniform in 0..RING_CL_SPREAD - 1, with **RING_CL_BASE [0, 0, 1, 2] and RING_CL_SPREAD 2** (ring 1 the band to +1, ring 2 +1 to +2, ring 3 +2 to +3; was [0, 1, 4, 7] and 3, a ten-level climb that no longer happens inside one zone). Quest offsets and ELITE_LEVEL_OFFSET (+1) unchanged; dungeon trash at band + DUNGEON_LEVEL_OFFSET (**2**, was 4), its boss DUNGEON_BOSS_LEVEL_OFFSET (+2) above; contracts at band + CONTRACT_CL_OFFSET (**2**, the rim; was 8 of a ten-level band); the hub's vendor at the band.
 - **CL_MAX 66** (was 60): a level-25 hero's late zones and Oruvath sit above 60; ILVL_MAX 69 (was 63). Every formula is defined there (rules 4.3, 7.6, 8.3).
 - Shown on the map and the node cards as hero levels (1.2): zone 1's nodes show the hero's level or one under, zone 6's one or two over.
@@ -330,6 +333,7 @@ Legacy points replace Echoes (4.6). The lines are today's Echo lines (rules 11.1
 | Oaths | × (1 + 0.25 × Oaths) on the total | - |
 
 Measured income (6.5, planner, no Legacy bought): the first run 135 (plus the 60 welcome), later runs 153 at level 2, 207 at 10, 173 at 20; 244-327 an hour, 301-347 for the planner that clears dungeons and elites (today's Echoes: 209 and 259 a run, 306 and 383 an hour). The level line is 20-33 % of it.
+- **(Economy v2, 4.7, draft):** in a Legacy run unspent camp points pay no Legacy points (the `reserve` line is gone) and a zone left pays 10 (4.7 E1); the income curve on the native engine is in 4.7 E5.
 
 ### 4.2 The Legacy hall: the first set
 Bought between runs, account-wide (every hero gets them). Small and readable: thirteen entries, all from today's catalogue at its tuned strength or less.
@@ -354,10 +358,12 @@ Bought between runs, account-wide (every hero gets them). Small and readable: th
 - Each run buys about one entry; the first run's 195 (with the welcome) buys Packed Satchel and one more.
 - Power: against today's full catalogue the set drops crit +1.5 %, the Greater Healing Draught, the extra talent point and the unique items, and keeps HP +2 %, Power +2 %, the free potion and Second Breath at today's values, so its combat power is below today's PALL, whose cap B10 holds [inference: every remaining effect is today's or a split of it]. The uniques (Cache of the Wanderer, Relics of the Deep) are parked: from level 20 the Armoury brings new things into the drop pools.
 - From level 20 the hall adds the talent trees (4.3) and the Armoury (4.4).
+- **(Economy v2, 4.7, draft):** every price in this table is replaced by the v2 price list of 4.7 E5 (same entries, same effects).
 
 ### 4.3 From level 20: talent trees
 - A hero has one open tree until level 20: the tree of its first point (1.8).
 - From hero level TREE_OPEN_LEVEL (20) the hero's second and third trees open for TREE_OPEN_COST (300, then 450) Legacy points each, per hero. Points can then go to any open tree; the capstone rule is unchanged (one per hero).
+- **(Economy v2, 4.7, draft):** TREE_OPEN_COST 250, then 300 (4.7 E5).
 - **Respec** (every point back) only at the start camp, before Set out: RESPEC_COST (30) Legacy points, a fifth to a seventh of a run's income. Free: the first respec after each tree opens. Respec inside a run is retired: the trainer's RESPEC goes, and Boon of Clarity's "next respec free" becomes "your next respec at the start camp is free".
 - Why one tree until 20: the owner's "from level 20, unlock different talent trees" [stated] makes trying another play style the reward of level 20. A player who regrets his tree can Retire the hero (1.1). Owner question Q1.
 
@@ -365,6 +371,7 @@ Bought between runs, account-wide (every hero gets them). Small and readable: th
 - **What a set is:** three pieces for one talent tree of one class, worn in the Neck, Ring and Trinket slots, so a set never blocks a weapon or armour drop. Each piece has the stats of an uncommon item of the hero's power level in its slot (it levels with the hero; no affix). Two pieces give the set's small bonus, three its play-style bonus. A bonus works while at least SET_TREE_POINTS (10) points are spent in its tree.
 - **How many:** one set per tree: nine sets, 27 pieces. The Armoury keeps every piece earned, without limit; it is account-wide, each piece belonging to its class.
 - **How it opens:** the Armoury costs ARMOURY_COST (200) Legacy points once, when a hero reaches level 20 [stated: "from about level 20 ... start building sets"].
+- **(Economy v2, 4.7, draft):** ARMOURY_COST 150 (4.7 E5).
 - **How pieces are earned:** with the Armoury open and the hero at level 20 or more, (a) each dungeon boss killed drops a piece with chance SET_DROP_CHANCE (0.35); (b) Oruvath's kill always drops one; (c) a missing piece can be forged at the Armoury for SET_FORGE_COST (150) Legacy points. A dropped piece is a missing piece of a set of the hero's open trees (uniform), drawn on its own stream `set(z)` = hash(runSeed, "set", z), so no loot draw moves; a piece the Armoury already holds pays SET_DUPLICATE_LEGACY instead. A piece won in a run goes to the Armoury at the run's end, death included.
 - **How it enters a run:** at the start camp the player picks up to three banked pieces of the hero's class; they start the run equipped in Neck, Ring and Trinket in place of the kit's. In the run they are gear like any other (swap them for a better drop and back), cannot be sold or discarded, and return to the Armoury when the run ends. Pieces of different sets count only toward their own set.
 - **The sets** (names draft, for the originality check; bonuses draft, numbers in 10):
@@ -393,6 +400,117 @@ Bought between runs, account-wide (every hero gets them). Small and readable: th
 - Retired from the catalogue: Keen Lineage, Prospector, Heirloom Blade, Trainer's Ledger, Scout's Eye (Pathfinder), Alchemist's Notes, Cache of the Wanderer, Relics of the Deep, Ancestral Insight. Their engine data stays for later use, as D42 and D45 did.
 - The first-run welcome (m3-onboarding.md 4.2) pays 60 Legacy points; the Packed Satchel nudge is unchanged.
 - Player text: "Echoes" becomes "Legacy points" everywhere; the Hall of Echoes becomes the **Legacy hall** (draft). The lore chat owns the fiction (section 9).
+
+### 4.7 Economy v2 (change, Lead Game Designer 2026-11-19, **draft**)
+Status: **draft**, not approved by the owner; replaces the parts of 1.3, 1.4, 2.1, 4.1-4.4 that carry an "(Economy v2, 4.7)" note when the owner or the Lead accepts it. Source: the returning-player check [source: docs/feedback/2026-11-19-blind-legacy-returning.md] and the BACKLOG row of 2026-11-19 (Legacy economy). Measured in docs/reports/legacy-economy-2026-11-19.md on scratch copies of the native engine (main 86cdb51 with `C.GATES.legacy` and `oruvathLegacy` on; D118 cells `--map expedition --prep`, planner, profile `later`, band tables sim/tables/legacy-hx/, seeds 9000-9059, 60 runs per class and hero level, 180 per level). Every number is in section 10 (rows marked "4.7").
+
+**Problem** [measured, report section 2]:
+1. **Reserve exploit.** Camp points not spent at Set out pay LEGACY_PER_PREP_POINT (2) each at the run's end, whatever the run did. Set out with nothing bought and abandon at once pays 20 Legacy points for no play (reproduced on the engine: hero 3, 10 camp points, line `reserve` 10 × 2 = 20, total 20). Every point spent on a supply costs 2 Legacy points. The planner keeps 6 points in every run (12 of its 166-284 a run).
+2. **Pace.** The hall a Legacy run sells today is the level-60 catalogue (rules 11.2; `metaOffers` lists every META entry): 24 entries, about 6 100 Legacy points for one class, Second Breath and Ancestral Insight 500 each. 4.2's set is not built (phase 2). A planner campaign earns about 2 300 by hero level 25 (6.4 hours); 4.2's set for one hero with the level-20 entries costs 3 730. The tester's 42-44 a run were runs that ended in zones 1-2.
+3. **Same-zone XP falls when the hero levels.** Every award is `xpCurve(CL) / xpCurve(L) × diffMod(CL - L)` against the hero's power level L. Zone 1's band is clamped at 1 for heroes 1 and 2 (power 1 - 2 and 3 - 2), so at hero 1 its quests sit 1-3 power levels **above** the hero (× 1.6-2.5 from the curve, steep at low levels, × 1.05-1.15 diffMod) and at hero 2 the same zone sits 0-2 **below** (× 0.4-1.0). A ring 1 / ring 2 quest pays 233 / 346 at hero 1 and 92 / 137 at hero 2; the tester's 270 and 407 against 63 and 161 are these terms exactly. From hero 3 on, zone 1 (tier -2) pays 106-155 a quest while zone 6 (+3) pays above 161. Any slower scaling of zone 1 under this formula makes it grey (11-46 a quest at hero 15-25).
+4. **No sense of getting stronger.** Zone 1's mean lowest HP in won fights falls from 86 % at hero 5 to 71 % at hero 15 (the hero feels weaker in zone 1 run after run), and from hero 17 zones 5-6 are no harder than zone 1 (lowest HP 76-81 % against 68-77 %, 4.2-4.4 rounds a fight in both).
+5. **Clarity.** One resource with four names ("points left", "Preparation points", "Reserve", "Unspent camp points"); the end of a run does not say that gear and gold are lost; a level-up is one log line; the second camp's jump from 5 points to 10 and a contract board is not explained.
+
+**E1. Camp points pay no Legacy; progress pays.** In a Legacy run:
+- The run-end line `reserve` is not paid: LEGACY_PER_PREP_POINT_HERO = 0 (also on a lean first run). Camp points kept at Set out still buy hub contracts (expedition.md 3.6) and are lost at the run's end. Abandoning at once pays 0 (the first run's welcome excepted: once per profile, m3-onboarding.md 4.2).
+- A zone left (Road or Bell) pays LEGACY_PER_ZONE_HERO = 10 (was 7.5). It moves the reserve's value to depth: a full run leaves five or six zones (+12-15), a run abandoned in zone 1 leaves none.
+- Level-60 runs keep PREP_ECHO_PER_POINT 2 and ECHO_PER_ZONE 7.5 (D158: the level-60 cells stay the reference until Legacy ships).
+- The sim's planner values kept points only for hub contracts (SIM.PREP_POINT_VALUE), so its camp does not change.
+
+**E2. XP is counted against the zone, not the hero.** In a Legacy run every XP award (progress.js `eventXp`, `flatXp`) is:
+`xp = round(HERO_XP_UNIT × frac × (1 + XP_ZONE_STEP × max(0, CL - Z)) × (1 + xpPctMods))`
+- Z is the level of the place where it is earned: zone z's band fixed at arrival (`state.hero.bands[z]`, 2.1) for kills, quests, waves, dungeon clears and Dimmed encounters in zone z; the Camp's level (`state.hero.camp`) at the Camp and in Oruvath's fight; the hero's power level where there is no zone.
+- Contracts and Gorrak's bounty (`flatXp`): CL - Z is CONTRACT_CL_OFFSET_HERO (2) at every level, so a contract pays HERO_XP_UNIT × frac × 1.2 × (1 + xpPctMods); the board's pay line is exact ("280 XP"), not an estimate.
+- XP_ZONE_STEP 0.10 a power level: a node above its zone's band (ring 2-3, quest offset +1, elites +1, dungeon trash +2 and boss +4) pays 10 % more a level, about what curve and diffMod gave at power 20-35. No xpCurve ratio, no diffMod in a Legacy run; rested (2.5), heat (1.7.3), XP_WEIGHT_MULT, Boon of Insight and Quick Study apply as today.
+- Result: the same node pays the same hero XP at every hero level (a zone 1 ring 1 / ring 2 quest 171 / 185, a normal kill 40-52); a level-up inside a zone, the zone's tier (2.2) and its lag (E3) do not change XP. Measured (planner, XP a run): -21 % at hero 1 (the over-level bonus of the clamp is gone), -7 to -12 % at 2-5, -3 % at 10, +2 to +7 % at 15-25; the campaign still reaches 25 in 10 runs.
+- **Sim:** the planner's model (sim/lib/model.mjs `killXp`, `evXp`, `heroContractValue`) uses the same formula, with Z the zone's band (scratch: the hero's power level, a close stand-in inside a zone).
+
+**E3. Zones 1 and 2 trail the hero.** `band(z) = clamp(P + ZONE_TIER[z] - round(ZONE_LAG[z] × (P - 1)), 1, CL_MAX)`, P the hero's power level at arrival, **ZONE_LAG = [0.15, 0.075, 0, 0, 0, 0]**. Zones 3-6, the Camp, Oruvath, ZONE_TIER_DMG, rings, dungeons and contracts are unchanged (contracts and the board's estimate follow the band, 2.1).
+
+| Hero level | 1 | 3 | 5 | 8 | 10 | 13 | 15 | 18 | 20 | 23 | 25 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Zone 1 lag (power levels) | 0 | 1 | 2 | 3 | 3 | 5 | 5 | 6 | 7 | 8 | 9 |
+| Zone 1 nodes, shown (was) | 1-2 (1-2) | 2-3 (2-3) | 3-5 (4-5) | 6-7 (7-8) | 8-9 (9-10) | 10-12 (12-14) | 12-13 (14-15) | 15-16 (17-18) | 16-18 (19-21) | 19-20 (22-23) | 21-22 (24-25) |
+| Zone 2 lag | 0 | 0 | 1 | 1 | 2 | 2 | 3 | 3 | 4 | 4 | 4 |
+
+- So zone 1 is the hero's own level for the first two runs and about three hero levels under him at 25: a zone the hero visibly outgrows, while zones 3-6 keep their tier. XP there does not fall (E2). Its drops and gold come at its lower level; the run's gear curve starts in zone 2-3 (mean equipped item level at Oruvath at hero 20-25: power level + 1.4 to 1.7, was + 2.1 to 2.3).
+- Measured (planner, v2 against main): zone 1 lowest HP in won fights 93 / 91 / 89 / 92 / 92 % at hero 5 / 10 / 15 / 20 / 25 (was 86 / 77 / 71 / 75 / 76), its fights 4.4 → 3.5 rounds from hero 5 to 25 (was 5.6 → 4.2), runs dying in zones 1-2 0-0.6 % from hero 5; zones 5-6 unchanged (65-78 %, 6.4 → 4.2 rounds). L4's HP rise (zone 1 - zones 5-6) is 26 points at hero 10 and 14 at 20 (was 13 and -6: L4 now passes at H20).
+- Tried: ZONE_LAG [0.25, 0.12, ...] (zone 1 at 93-95 %, 3.4 rounds: trivial from hero 5, and pooled win at hero 20, 23 and 25 about 4 pp lower than [0.15, 0.075]); [0.15, 0.075] kept. Zone 1 slower and XP against the hero (today's formula) is excluded by problem 3.
+
+**E4. Hero XP for levels 1-3.** HERO_XP[1..3] = **1 800 / 1 850 / 1 900** (was 2 000 / 2 000 / 2 050; levels 4-24 unchanged; 69 250 in all). With E2 a first run pays about 6 100 hero XP (was 7 800), so the first run still ends at level 4.3 (FIRST_RUN_LEVEL 4-5; at the old costs 3.96). Level 2 needs 1 800: about 10 minutes at the measured 177 XP a minute (ONB1 to be re-measured on the guided zone).
+
+**E5. The hall, re-priced: the curve.** The 4.2 set (same 13 entries, same effects and needs) and the level-20 entries at these prices:
+
+| Entry | Kind | v2 price | 4.2 price |
+|---|---|---|---|
+| Packed Satchel | power (supplies) | 50 | 60 |
+| Vigor of the Line I / II | power | 70 / 130 | 120 / 240 |
+| Edge of the Line I / II | power | 70 / 130 | 120 / 240 |
+| Quick Study I / II | levelling | 80 / 140 | 100 / 200 |
+| Lost Technique I / II (per class; learnable from hero 9 / 17) | new spell | 120 / 200 | 150 / 300 |
+| Second Breath (needs Oruvath reached once) | power | 200 | 400 |
+| Swift Boots | map | 100 | 200 |
+| Deeper Pockets | convenience | 40 | 80 |
+| Cartographer | vision | 60 | 100 |
+| Old Hand | vision | 70 | 150 |
+| Quartermaster I / II | camp points | 70 / 110 | 120 / 200 |
+| Stormhawk Companion (Hunter) | new pet | 150 | 250 |
+| Oaths (needs a first Oruvath kill) | challenge | 0 | 0 |
+| **Account entries + one class's techniques** | | **1 640** (Hunter 1 790) | 2 780 |
+| Second / third talent tree (per hero, from hero 20) | play style | 250 / 300 | 300 / 450 |
+| The Armoury (once, from hero 20) | sets | 150 | 200 |
+| **Level-20 wing** | | **700** | 950 |
+| **All, one hero** | | **2 340** | 3 730 |
+
+Unchanged: RESPEC_COST 30, SET_FORGE_COST 150, SET_DUPLICATE_LEGACY 40, LEGACY_PER_LEVEL 20, every other Legacy line of 4.1, the welcome 60. The account wing is sized to the income to hero 20 and the level-20 wing to the income from 20 to 25, so the hall is done when the hero reaches 25; set forging, a second hero's techniques and trees and the XP past 25 (20 a 4 100) are the sinks after it.
+
+The curve (planner campaign on the v2 cells, chained by run; Legacy a run as measured at each start level, the welcome in run 1; buying in the order of 5.8 item 7 v2 below; manual-pace hours):
+
+| Run | Hero level at start → end | Hours | Legacy this run | Cumulative | Bought after the run |
+|---|---|---|---|---|---|
+| 1 | 1 → 4.3 | 0.58 | 164 + 60 welcome | 224 | Packed Satchel, Vigor I, Edge I |
+| 2 | 4 → 7.5 | 1.24 | 189 | 413 | Quick Study I, Lost Technique I |
+| 3 | 7 → 10.8 | 1.97 | 259 | 672 | Deeper Pockets, Cartographer, Vigor II |
+| 4 | 10 → 13.6 | 2.64 | 242 | 915 | Edge II, Old Hand, Quartermaster I |
+| 5 | 13 → 16.1 | 3.31 | 276 | 1 190 | Quick Study II |
+| 6 | 16 → 18.4 | 3.96 | 257 | 1 447 | Lost Technique II, Swift Boots, Quartermaster II |
+| 7 | 18 → 20.5 | 4.60 | 256 | 1 703 | Second Breath (account wing done) |
+| 8 | 20 → 22.4 | 5.23 | 246 | 1 950 | second tree |
+| 9 | 22 → 24.3 | 5.86 | 245 | 2 195 | the Armoury |
+| 10 | 24 → 25 | 6.47 | 274 | 2 469 | third tree (hall done) |
+
+- Legacy a run by hero level at the start (v2, planner): 164, 182, 206, 189, 196 (hero 1-5); 243, 259, 243, 242, 242 (6-10); 272, 273, 276, 259, 269 (11-15); 257, 257, 256, 245, 246 (16-20); 250, 245, 261, 274, 284 (21-25). 265-452 an hour, rising with level (runs shorten from 41 to 36 minutes).
+- Cumulative against the hall: 1 703 at hero 20 for an account wing of 1 640; 2 469 at 25 for 2 340. Every one of runs 1-7 buys at least one entry; runs 1-4 buy two or three. A player earning 70 % of the planner's rate finishes the account wing at about hero 25 and the trees in the next three runs [inference: the same curve at 0.7].
+- Hours to 25: 6.5 for the planner with nothing bought; Quick Study I from run 2 and II from run 5 take off about 0.3 [inference: +5 / +10 % XP over runs 3-10], so 6.1-6.5 (target 6-8; a human player is slower than the planner).
+
+**Campaign v3 buying order (5.8 item 7, v2):** satchel, vigor 1, edge 1, quick_study 1, technique I (from hero 9), pockets, cartographer, vigor 2, edge 2, old_hand, quartermaster 1, quick_study 2, technique II (from hero 17), swift_boots, quartermaster 2, second_breath, then from hero 20 the second tree, the Armoury, the third tree.
+
+**E6. Clarity (UI and content; lines draft, for the content and UI roles).**
+1. **One name: "camp points".** The camp's big number reads "camp points"; its tooltip "Camp points buy contracts and supplies here. Points you keep can buy a contract at a hub on the way. They do not carry over to the next run." Set out with points left: "You set out with 2 contracts and 3 camp points." The hub offer: "Take for 2 camp points (you have 3)." The tracker: "3 camp points". Retired in player text: "Preparation points", "points left", "Reserve", "Unspent camp points" (content prep.unspentFirst and prep.unspentLabel go; engine names such as `reserve` may stay). First run, over Set out while points are left: "Camp points you do not spend are lost."
+2. **The second camp explains itself** (once per profile, the first camp after the lean first run): "Your camp has grown: 10 camp points and a contract board. Contracts pay XP, gold and a choice of gear."
+3. **The run's end says what carries over** (summary of every Legacy run, above the Legacy lines):
+   - "Kept: level 7 (was 4) · spells and ranks · talents · Legacy unlocks"
+   - "Left behind: gear, gold, potions and camp points. Your next run starts with the Wayfarer's kit."
+   - Under the Legacy total: "You have 245 Legacy points. Next in the hall: Vigor of the Line II, 130."
+   - Abandon's confirmation: "Abandon this run? You keep your level, XP and spells. Gear, gold and camp points are lost. Legacy points pay only for what you did."
+4. **A visible level-up** (engine event `levelUp` exists: heroLevel, talentPoints, maxHp, maxMana):
+   - When: out of a fight at once; in a fight after the victory and before the loot window. Several levels from one award make one banner ("Level 7 (+2)").
+   - What: a banner in the upper third for 2.5 s (any key or click closes it; Autoplay and Speedrun show it 1.2 s and do not pause), the XP bar fills, flashes and restarts, the hero frame glows for 1 s, a short rising chime (audio cue `levelUp`, for the audio spec). The log line stays.
+   - Lines (only those that apply, in this order): "Level 7" · "Health 312 → 348" (and "Mana 180 → 199" for a mana class) · "New spell: Smoke Veil. Learn it at a trainer." or "Better ranks for 4 spells at a trainer." · "Talent point to spend (T)." · "+20 Legacy points at the end of the run."
+   - Hero 20: the last line becomes "Level 20: your other talent trees can open in the Legacy hall." Hero 25: "Level 25, the highest. From now on every 4 100 XP pays 20 Legacy points."
+   - Hero select and the summary show the run's levels as "Level 4 → 7" with the XP bar.
+
+**What the engineer builds** (one switch `C.GATES.economyV2`, default off until accepted; Legacy runs only, as D158): LEGACY_PER_PREP_POINT_HERO 0 and LEGACY_PER_ZONE_HERO 10 in `echoes()` when `facts.heroLevels` is set; `eventXp` and `flatXp` by E2 with a helper `xpRef(s)` in legacy.js (zone band, Camp level, else power level); ZONE_LAG in `bandNow`; HERO_XP[0..2] 1800, 1850, 1900; a Legacy profile's `metaOffers` lists exactly the 13 entries of 4.2 at the E5 prices (a META_HERO block over the same ids; phase 2 of 7.1), TREE_OPEN_COST 250 / 300 and ARMOURY_COST 150 when phases 4-5 are built. The sim mirrors E2 in sim/lib/model.mjs. Scratch reference: env ECON of the report (`{"xp":1,"step":0.1,"lag":[0.15,0.075,0,0,0,0]}`) over sim/legacy-run.mjs `--native --oruvath` with the three constants patched.
+
+**New checks (draft):**
+
+| ID | Pri | Metric | Target |
+|---|---|---|---|
+| LE1 | P1 | A Legacy run that sets out with nothing bought and is abandoned at once pays 0 Legacy points (not a first run) | = 0 (QA, engine) |
+| LE2 | P1 | The same node's XP at hero levels 1, 2, 10 and 25 with the same zone band offset | equal (QA, engine) |
+| LE3 | P1 | Planner campaign: cumulative Legacy at hero 20 against the account wing, at 25 against the hall | within HALL_PACE_TOL (± 15 %); measured +4 % and +6 % |
+| LE4 | P1 | Planner campaign: entries bought after each of runs 1-4 | >= 1 (EARLY_BUY_MIN); measured 3, 2, 3, 3 |
+| LE5 | P2 | Zone 1 mean lowest HP in won fights at hero 10 and 20, planner | >= ZONE1_HP_MIN (85 %) and not more than 3 points under hero 5's; measured 91 and 92 % (hero 5: 93); main 77 and 75 % (hero 5: 86), fail |
 
 ---
 
@@ -691,4 +809,18 @@ Order inside phase 1: engine (hero and zones), then sim (warmed tables, campaign
 | SET_POWER_MAX | 0.05 | win-rate difference (S1) |
 | MIN_RUN_HERO | 32-45 | minutes, B11 re-banded (5.7) |
 | ILVL_GAP | 0-3 | equipped item level - power level at Oruvath, B19 re-banded (5.7) |
+| GATES.economyV2 (4.7, draft) | off until accepted | engine switch for every 4.7 rule; Legacy runs only |
+| LEGACY_PER_PREP_POINT_HERO (4.7, draft) | 0 | Legacy points per camp point kept at the run's end, Legacy runs (level-60 runs keep PREP_ECHO_PER_POINT 2) (4.7 E1) |
+| LEGACY_PER_ZONE_HERO (4.7, draft) | 10 | Legacy points per zone left, Legacy runs (was 7.5; level-60 runs keep ECHO_PER_ZONE 7.5) (4.7 E1) |
+| XP_ZONE_STEP (4.7, draft) | 0.10 | × (1 + step × max(0, CL - Z)) on every Legacy XP award, Z the zone's band (the Camp's level at the Camp and Oruvath); no xpCurve ratio, no diffMod (4.7 E2) |
+| Contract XP offset (4.7, draft) | CONTRACT_CL_OFFSET_HERO (2) | CL - Z of every contract and Gorrak's bounty: × 1.2 (4.7 E2) |
+| ZONE_LAG (4.7, draft) | 0.15, 0.075, 0, 0, 0, 0 | power levels per power level above 1 that zones 1-6 trail the hero: band - round(lag × (P - 1)) (4.7 E3) |
+| HERO_XP (4.7, draft) | levels 1-3: 1800, 1850, 1900 (was 2000, 2000, 2050); 4-24 unchanged; 69 250 in all | hero XP (4.7 E4) |
+| LEGACY_COST (4.7, draft) | satchel 50; vigor 70 / 130; edge 70 / 130; quick_study 80 / 140; sp_(class)1 120, sp_(class)2 200; second_breath 200; swift_boots 100; pockets 40; cartographer 60; old_hand 70; quartermaster 70 / 110; stormhawk 150; oaths 0 | Legacy points per rank; account entries + one class's techniques 1 640 (4.7 E5) |
+| TREE_OPEN_COST (4.7, draft) | 250 / 300 | Legacy points, second / third tree per hero (was 300 / 450) (4.7 E5) |
+| ARMOURY_COST (4.7, draft) | 150 | Legacy points, once (was 200) (4.7 E5) |
+| HALL_PACE_TOL (4.7, draft) | 0.15 | cumulative planner Legacy at hero 20 / 25 against the account wing / the whole hall (LE3) |
+| EARLY_BUY_MIN (4.7, draft) | 1 | hall entries bought after each of runs 1-4, planner campaign (LE4) |
+| ZONE1_HP_MIN (4.7, draft) | 0.85 | zone 1 mean lowest HP of won fights at hero 10 and 20, planner (LE5) |
 | LEGACY_RUN | 130-230 | Legacy points a run, planner, B30 re-banded (5.7) |
+| LEGACY_RUN (4.7, draft) | 160-290 | Legacy points a run, planner, under 4.7 (measured 164-284, hero 1-25) |
