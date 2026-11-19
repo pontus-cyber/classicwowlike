@@ -214,7 +214,7 @@ import * as R from '../../src/rules.js';
 import { CONTENT } from '../../src/content/index.js';
 // the Furnace's player-facing words (changes-m2b-v7.md table D: names, states, whole tolls; UX pass 2026-11-11)
 import { HEAT_WORDS, tolls, ECHO_LINE, deathblowKind, deathblowAnswers, sapWaitText } from '../../src/ui/ui-text.js';
-import { RANK as Q_RANK, DIM_NEAR as Q_DIM_NEAR } from '../../src/ui/audio.js';
+import { RANK as Q_RANK, DIM_NEAR as Q_DIM_NEAR, RETRIGGER_S as Q_RETRIGGER_S } from '../../src/ui/audio.js';
 import { MAP_LINES, fillLine } from '../../src/ui/onboarding.js'; // D143: the beat lines that wait for the map on screen
 import { trainerWaiting, trainerWaitingShort } from '../../src/ui/ui-text.js'; // blind round 2 (part U)
 import { TOO_FAR, ROAD_FIRST, vendorMeta } from '../../src/ui/screens.js';
@@ -3895,10 +3895,13 @@ async function partQ(browser, W, H) {
     // engine's autoplay choices, Instant). After every step the rule is worked out here from the two map views: the front
     // reached new nodes and now the player's node is Dimmed, dims in Q_DIM_NEAR tolls or fewer, or a node next to it was
     // just Dimmed. The cue is logged in exactly those steps (never on a spread far away), kept unless a higher-ranked cue
-    // of the same Instant step won, and it sounds (the page is unlocked since (2)).
+    // of the same Instant step won, and it sounds (the page is unlocked since (2)). The steps are paced at least
+    // RETRIGGER_S apart: back to back, Instant AUTO steps take about 3 ms each on a fast machine, so two near-player
+    // spreads a dozen steps apart fell inside the retrigger window and the second was dropped by that rule (correct by
+    // audio.md 3, but not what this check tests; 2026-11-19).
     await page.evaluate((seed) => window.__ui.dev('build', { classId: 'rogue', zone: 1, mapMode: 'expedition', prep: true, seed }), Q_DIM_SEED); await idle(page);
     await page.evaluate(() => window.__ui.dev('god', { on: true })); await idle(page);
-    const dimSteps = await page.evaluate(async (near) => {
+    const dimSteps = await page.evaluate(async ([near, gapMs]) => {
       const ui = window.__ui; const out = [];
       const rule = (a, b) => {
         const x = a && a.zone && a.zone.exp; const y = b && b.zone && b.zone.exp;
@@ -3909,6 +3912,7 @@ async function partQ(browser, W, H) {
       };
       for (let n = 0; n < 200; n++) {
         const a = ui.view(); if (a.phase === 'SUMMARY' || (a.zone && a.zone.exp && a.zone.exp.z > 1)) break;
+        await new Promise((r) => setTimeout(r, gapMs));
         const from = ui.audio().log.length;
         await ui.act({ type: 'AUTO' }); await ui.idle();
         const b = ui.view(); const r = rule(a, b); const L = ui.audio().log.slice(from);
@@ -3917,7 +3921,7 @@ async function partQ(browser, W, H) {
         if (out.filter((x) => x.want).length >= 2) break;
       }
       return out;
-    }, Q_DIM_NEAR);
+    }, [Q_DIM_NEAR, Math.ceil(Q_RETRIGGER_S * 1000) + 20]);
     const wants = dimSteps.filter((x) => x.want); const spreads = dimSteps.filter((x) => x.fresh > 0);
     const wrong = dimSteps.filter((x) => x.got !== (x.want ? 1 : 0));
     check('SOUND', `the Dimming near the player logs dimmingSpread in exactly the steps the rule names (${spreads.length} spread steps in ${dimSteps.length}, ${wants.length} near the player)`, wants.length >= 1 && !wrong.length,
