@@ -35,7 +35,7 @@ export function readGrid(dir) {
       if (existsSync(f)) runs[c] = readFileSync(f, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
     }
     const all = Object.values(runs).flat();
-    const xpOf = (r) => Object.values(r.xz || {}).reduce((n, z) => n + Object.values(z).reduce((a, b) => a + b, 0), 0);
+    const xpOf = (r) => (r.ct ? r.ct.xp : NaN); // the run's hero XP (state.stats.xpGained; recorder `ct.xp`)
     out.push({
       H, n: all.length,
       ech: { ...Object.fromEntries(Object.entries(runs).map(([c, rs]) => [c, mean(rs.map((r) => r.ech))])), pooled: mean(all.map((r) => r.ech)) },
