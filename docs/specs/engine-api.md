@@ -1243,6 +1243,10 @@ Read at each use, as `oruvathLegacy` (legacy.js `econV2(state)`: `state.legacy` 
   (legacy.js): the Camp's level at the Camp and in Oruvath's fight, zone z's band (fixed at arrival) in zone z, else the power
   level. Contracts and Gorrak's bounty: CL - Z = `CONTRACT_CL_OFFSET_HERO`, so the board's `reward.xp` is exact. Rested, heat
   and the % mods as before; the `xp` event is unchanged.
+- Camp waves (E7, D161): a Camp wave's awards (its kills and its wave bonus; at the Camp outside Oruvath's fight) are the E2
+  award × `min(1, R.diffMod(Z - L))`, Z the Camp's level (`state.hero.camp`), L `player.level` when paid: in full up to the
+  Camp's level, then the rules 4.4 falloff to 0.10 from 6 power levels past it. No field or event changes; the `xp` event's
+  `amount` is what is paid.
 - Zones (E3): `bandNow` subtracts `round(ZONE_LAG[z - 1] × (P - 1))` (zone 1 only); `mapView.bands` and the board's estimate
   follow.
 - Hero XP (E4): `heroXpToNext(H)` reads `C.HERO_XP_ECON2` while the switch is on (1800 / 1850 / 1900 for levels 1-3); `heroView`,

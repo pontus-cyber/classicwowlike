@@ -5,7 +5,8 @@
 // POWER_OF_LEVEL[H]; past HERO_MAX_LEVEL each HERO_XP_AT_MAX counts for the run's Legacy level line). Economy v2 (D159,
 // legacy.md 4.7 E2, draft; legacy.js econV2): a Legacy award is counted against the level of the place it is earned
 // (legacy.js xpRef), × (1 + XP_ZONE_STEP × max(0, CL - Z)), no xpCurve ratio and no diffMod; contracts at
-// CONTRACT_CL_OFFSET_HERO.
+// CONTRACT_CL_OFFSET_HERO. Camp waves (4.7 E7, D161; legacy.js campWaveXp) also × min(1, diffMod(Z - L)), the rules 4.4
+// level-gap falloff against the Camp's level Z, so a hero past the Camp's level earns little there.
 import {
   XP_A, XP_B, XP_C, MAX_LEVEL, XP_DIFF_STEP, XP_DIFF_MAX, XP_DIFF_SOFT_FLOOR, XP_DIFF_FALL, XP_GREY_DIFF,
   XP_GREY_MOD, RESTED_MULT, RESTED_CAP_FRAC, TALENT_FIRST_LEVEL, TALENT_LEVEL_STEP, BOON_XP_PCT, HEAT_GAIN,
@@ -13,7 +14,7 @@ import {
 } from '../constants.js';
 import { rnd, flr } from './util.js';
 import { refreshDerived } from './stats.js';
-import { isLegacy, powerOf, heroXpToNext, econV2, xpRef } from './legacy.js';
+import { isLegacy, powerOf, heroXpToNext, econV2, xpRef, campWaveXp } from './legacy.js';
 
 /** The levelling polynomial XP_A×L² + XP_B×L + XP_C (rules 4.3), defined for any level (event XP at CL 60). */
 export function xpCurve(L) {
@@ -55,14 +56,27 @@ export function xpPct(s) {
  * XP for an event (rules 4.4): round(frac × xpToNext(CL) × diffMod(CL - L) × (1 + xpPctMods)). Legacy (legacy.md 1.3): in
  * hero XP, round(HERO_XP_UNIT × frac × xpCurve(CL) / xpCurve(L) × diffMod(CL - L) × (1 + xpPctMods)), CL and L power
  * levels, at every hero level (XP keeps counting at HERO_MAX_LEVEL). Economy v2 (legacy.md 4.7 E2): round(HERO_XP_UNIT ×
- * frac × (1 + XP_ZONE_STEP × max(0, CL - Z)) × (1 + xpPctMods)), Z = xpRef(s), the level of the place it is earned.
+ * frac × (1 + XP_ZONE_STEP × max(0, CL - Z)) × (1 + xpPctMods)), Z = xpRef(s), the level of the place it is earned; a Camp
+ * wave's award (4.7 E7, D161) × campFalloff(s).
  */
 export function eventXp(s, frac, cl) {
   const L = s.player.level;
-  if (econV2(s)) return rnd(HERO_XP_UNIT * frac * (1 + XP_ZONE_STEP * Math.max(0, cl - xpRef(s))) * (1 + xpPct(s)));
+  if (econV2(s)) {
+    const Z = xpRef(s);
+    return rnd(HERO_XP_UNIT * frac * (1 + XP_ZONE_STEP * Math.max(0, cl - Z)) * campFalloff(s, Z) * (1 + xpPct(s)));
+  }
   if (isLegacy(s)) return rnd((HERO_XP_UNIT * frac * xpCurve(cl) * diffMod(cl - L) * (1 + xpPct(s))) / xpCurve(L));
   if (L >= MAX_LEVEL) return 0;
   return rnd(frac * xpCurve(cl) * diffMod(cl - L) * (1 + xpPct(s)));
+}
+
+/**
+ * legacy.md 4.7 E7 (D161): × a Camp wave's XP under Economy v2: min(1, diffMod(Z - L)), Z the Camp's level (fixed at
+ * arrival), L the hero's power level now. 1 up to the Camp's level, then the rules 4.4 falloff (0.95, 0.90, 0.70, 0.50,
+ * 0.30 at 1-5 power levels past it, XP_GREY_MOD 0.10 from XP_GREY_DIFF); 1 for every other award.
+ */
+export function campFalloff(s, Z = xpRef(s)) {
+  return econV2(s) && campWaveXp(s) ? Math.min(1, diffMod(Z - s.player.level)) : 1;
 }
 
 /**

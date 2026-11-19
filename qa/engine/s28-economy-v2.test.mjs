@@ -1,7 +1,7 @@
 // Legacy Economy v2 (D159; docs/specs/legacy.md 4.7 and its section 10 rows marked 4.7, draft), behind C.GATES.economyV2
 // (off by default), in Legacy runs only (D158). One test or more per rule: the switch and its scope; E1 (camp points kept pay
-// nothing, a zone left pays 10; LE1); E2 (XP against the level of the place: zone band, the Camp, contracts; LE2); E3 (zone
-// 1's lag); E4 (HERO_XP 1-3); E5 (the hall a version 3 profile is sold and the effects a Legacy run reads); E6 (content
+// nothing, a zone left pays 10; LE1); E2 (XP against the level of the place: zone band, the Camp, contracts; LE2); E7 (D161:
+// Camp waves take the level-gap falloff past the Camp's level); E3 (zone 1's lag); E4 (HERO_XP 1-3); E5 (the hall a version 3 profile is sold and the effects a Legacy run reads); E6 (content
 // lines, draft); D160 (the old catalogue refunded once); the golden runs with the switch off (Legacy runs as on 708841f; level-60 runs as on 9a79dee with it on).
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,9 +10,9 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import * as R from '../../src/rules.js';
 import { CONTENT } from '../../src/content/index.js';
-import { eventXp, flatXp, gainXp } from '../../src/engine/progress.js';
+import { eventXp, flatXp, gainXp, campFalloff } from '../../src/engine/progress.js';
 import { echoes } from '../../src/engine/meta.js';
-import { econV2, xpRef, bandNow, heroXpToNext, hallOf, legacyPerZone, legacyPerPrepPoint } from '../../src/engine/legacy.js';
+import { econV2, xpRef, bandNow, heroXpToNext, hallOf, legacyPerZone, legacyPerPrepPoint, campWaveXp } from '../../src/engine/legacy.js';
 import { metaFromProfile } from '../../src/engine/nodes.js';
 
 const C = R.C;
@@ -190,6 +190,79 @@ describe('legacy.md 4.7 E2: XP is counted against the level of the place', () =>
     assert.equal(s.meta.xpPct, 0.1);
     assert.equal(eventXp(s, 1, xpRef(s)), 110);
   }));
+});
+
+describe('legacy.md 4.7 E7 (D161): Camp waves take the level-gap falloff past the Camp\'s level', () => {
+  /** A hero built at the Camp (debug.build, Legacy): hero H arrives, the Camp's level is P(H) + CAMP_TIER; then `past` power levels over it. */
+  const atCamp = (classId, H, past = null, seed = 91) => {
+    const prof = R.debug.setHero(later(), classId, { level: H, xp: 0 });
+    const s = R.debug.build({ content: CONTENT, classId, petId: PET(classId), seed, profile: prof, zone: C.ZONE_COUNT + 1, level: R.powerOfLevel(H) }).state;
+    assert.equal(s.hero.camp, R.powerOfLevel(H) + C.CAMP_TIER);
+    if (past !== null) s.player.level = s.hero.camp + past;
+    return s;
+  };
+  const wave = C.GRIND_WAVE_XP_FRAC * C.XP_WEIGHT_MULT;
+  const kill = C.MOB_XP_FRAC * C.XP_WEIGHT_MULT;
+
+  test('× min(1, diffMod(Z - L)): 1 up to the Camp\'s level, then 0.95, 0.90, 0.70, 0.50, 0.30, 0.10 (grey) at 1-7 power levels past it', () => gates(V2, () => {
+    const want = [1, 1, 1, 1, 0.95, 0.9, 0.7, 0.5, 0.3, 0.1, 0.1, 0.1];
+    [-3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 20].forEach((past, i) => {
+      const s = atCamp('rogue', 5, past);
+      assert.ok(campWaveXp(s));
+      assert.ok(Math.abs(campFalloff(s) - want[i]) < 1e-9, `past ${past}`);
+      assert.equal(eventXp(s, wave, s.hero.camp), Math.round(100 * wave * want[i]), `wave, past ${past}`);
+      assert.equal(eventXp(s, kill, s.hero.camp), Math.round(100 * kill * want[i]), `kill, past ${past}`);
+    });
+    // at every hero level the same gap pays the same
+    for (const H of [1, 10, 20, 25]) assert.equal(eventXp(atCamp('mage', H, 4), wave, atCamp('mage', H).hero.camp), Math.round(100 * wave * 0.5), `hero ${H}`);
+  }));
+
+  test('a played Camp wave: its kills and its wave bonus pay 0.10 × once the hero is 6 power levels past the Camp; at its level the full E2 award', () => gates(V2, () => {
+    const play = (past) => {
+      let s = atCamp('hunter', 5, past, 93);
+      s.player.rested = 0;
+      const ev = [];
+      for (let r = R.step(s, { type: 'CAMP_GRIND' }); ; r = R.step(s, R.autoAction(s))) {
+        s = r.state;
+        ev.push(...r.events);
+        if (!s.fight && !(s.loot && s.loot.length)) break;
+      }
+      return ev.filter((e) => e.t === 'xp');
+    };
+    const full = play(null);
+    const grey = play(6);
+    assert.ok(full.some((e) => e.why === 'wave') && full.some((e) => e.why === 'kill'));
+    for (const [list, f] of [[full, 1], [grey, 0.1]]) {
+      for (const e of list) {
+        assert.equal(e.rested, 0);
+        assert.equal(e.amount, Math.round(100 * (e.why === 'wave' ? wave : kill) * f), `${e.why} × ${f}`);
+      }
+    }
+  }));
+
+  test('only Camp waves: Oruvath\'s fight, zones, contracts and the switch off are as before', () => {
+    gates({ ...V2, oruvathLegacy: true }, () => {
+      const s = atCamp('rogue', 10, 8);
+      const b = R.debug.toBoss(s).state;
+      assert.equal(campWaveXp(b), false);
+      assert.equal(campFalloff(b), 1);
+      assert.equal(eventXp(b, kill, b.hero.camp), Math.round(100 * kill));
+      // a zone: a hero far past the zone's band pays the E2 award (no malus below the band)
+      const z = heroRun('rogue', 10, 41);
+      z.player.level = z.hero.bands[1] + 12;
+      assert.equal(campWaveXp(z), false);
+      assert.equal(eventXp(z, kill, z.hero.bands[1]), Math.round(100 * kill));
+      assert.equal(flatXp(s, 1, 1), 120);
+    });
+    // switch off (Legacy alone): the Legacy formula of 1.3, no falloff term
+    gates({ legacy: true }, () => {
+      const s = atCamp('rogue', 5, 6);
+      assert.equal(campFalloff(s), 1);
+      const L = s.player.level;
+      const cl = s.hero.camp;
+      assert.equal(eventXp(s, wave, cl), Math.round((100 * wave * R.xpCurve(cl) * R.diffMod(cl - L)) / R.xpCurve(L)));
+    });
+  });
 });
 
 describe('legacy.md 4.7 E3: zone 1 trails the hero', () => {

@@ -214,6 +214,12 @@ export function xpRef(s) {
 }
 
 /**
+ * legacy.md 4.7 E7 (D161): an XP award in run s is a Camp wave's (its kills and its wave bonus) and takes the Camp's
+ * level-gap falloff: at the Camp, outside Oruvath's fight (whose Shards and adds pay as E2).
+ */
+export const campWaveXp = (s) => !!(s.zone && s.zone.camp) && !(s.fight && s.fight.kind === 'boss');
+
+/**
  * × the damage of a template enemy of a fight in zone z (legacy.md 2.2): ZONE_TIER_DMG[z - 1] for zones 1-6, zone 6's at
  * the Camp (z = ZONE_COUNT + 1); 1 outside a Legacy run.
  */
