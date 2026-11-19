@@ -100,4 +100,5 @@ game.html at 91f9290 (tuning v6 engine, UX pass, the Furnace). Sent to the owner
 | 59 | 2026-11-19 02:50-05:50 | UI: Legacy helpers wired, Abandon run, Dev hero picker (387e0a1, 4045d0f); game.html 4f5f28d (962 tests, 122 browser checks) | UI (Opus/medium) | about 0.25M |
 | 60 | 2026-11-19 05:50-08:50 | ?legacy=1 turns on both switches (db32e06); blind returning-player Legacy campaign: progression clear 6, progress 5; reserve exploit, slow pace, flat scaling; not ready for default-on | 1 blind tester (Fable/high) | about 0.25M |
 | 61 | 2026-11-19 08:50-11:50 | Economy v2 spec (009b1b4, 50801a1) accepted as D159; nine Legacy bugs fixed (979e595); game.html 708841f (973 tests, 122 browser checks) | Designer, Engineer (Opus/high) | about 0.75M |
-| 62 | 2026-11-19 11:50-14:50 | Engine and sim build Economy v2; QA fixes the flaky browser checks | Engineer (Opus/high); QA (Opus/medium) | running |
+| 62 | 2026-11-19 11:50-14:50 | Economy v2 built behind economyV2 (4b2bd48, ffaac96; 1 003 tests; payout curve within 4 %); D160; flaky checks fixed (552/552 three times) | Engineer (Opus/high); QA (Opus/medium) | about 0.5M |
+| 63 | 2026-11-19 14:50-17:50 | UI builds the Economy v2 screens and the D160 refund | UI (Opus/high) | running |
