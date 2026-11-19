@@ -4,7 +4,7 @@
  *
  *   node tools/build.mjs --out /tmp/qa-game.html   # or test the repository's game.html (default)
  *   node qa/browser/full-run.mjs [--file /tmp/qa-game.html] [--sizes 1366x768,1920x1080]
- *        [--classes rogue,mage,hunter] [--seed 7] [--seeds rogue:7,mage:7,hunter:7] [--manual-zones 1]
+ *        [--classes rogue,mage,hunter] [--legacy [--hero H]] [--seed 7] [--seeds rogue:7,mage:7,hunter:7] [--manual-zones 1]
  *        [--map expedition|classic] [--shots /tmp/qa/shots] [--json /tmp/qa/full-run.json] [--quiet]
  *
  * --map (D116): expedition (the default) plays the game's default run, the expedition map with the start camp: the
@@ -65,6 +65,17 @@ const LEGACY = args.includes('--legacy');
 if (LEGACY) { R.C.GATES.legacy = true; R.C.GATES.oruvathLegacy = true; R.C.GATES.economyV2 = true; } // D159: and Economy v2, as the page's ?legacy=1
 const PROFILE_KEY = LEGACY ? 'tbwcr.profile.v3' : 'tbwcr.profile.v1';
 const LATER_PROFILE = () => ({ ...R.newProfile(), runs: 2, guide: 'done', welcome: true });
+// --hero H (needs --legacy; docs/handoffs/qa-2026-11-19c.md): every class starts from a stored version 3 profile (runs 2) whose
+// hero of that class is at hero level H (R.debug.setHero, as sim/lib/runner.mjs cellProfile), so the later hero levels
+// (more spells, talents, the kit at the hero's power level, higher bands) are played in the browser. The browser and the twin
+// get the same profile. Without --hero, startProfile is LATER_PROFILE (a hero-less profile; the class's hero is made at level 1).
+const HERO = arg('--hero', null) === null ? null : Number(arg('--hero', null));
+if (HERO !== null) {
+  if (!LEGACY) { console.error('--hero needs --legacy'); process.exit(2); }
+  if (!Number.isInteger(HERO) || HERO < 1 || HERO > (C.HERO_MAX_LEVEL || 0)) { console.error(`--hero must be a whole number from 1 to ${C.HERO_MAX_LEVEL}`); process.exit(2); }
+  for (const c of CLASSES) PROFILES[c] = 'later';
+}
+const startProfile = (cls) => (HERO === null ? LATER_PROFILE() : R.debug.setHero(LATER_PROFILE(), cls, { level: HERO }));
 const MAP = arg('--map', 'expedition'); // D116: the default run is the expedition map with the start camp
 if (!['expedition', 'classic'].includes(MAP)) { console.error('--map must be expedition or classic'); process.exit(2); }
 const EXP = MAP === 'expedition';
@@ -181,8 +192,8 @@ async function playOne(browser, W, H, cls) {
   const t0 = Date.now();
   const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
   const later = PROFILES[cls] === 'later';
-  res.profile = later ? 'later' : 'first';
-  if (later) await context.addInitScript(([key, json]) => { try { if (!localStorage.getItem(key)) localStorage.setItem(key, json); } catch { /* storage blocked */ } }, [PROFILE_KEY, JSON.stringify(LATER_PROFILE())]);
+  res.profile = later ? (HERO === null ? 'later' : `later, hero ${HERO}`) : 'first';
+  if (later) await context.addInitScript(([key, json]) => { try { if (!localStorage.getItem(key)) localStorage.setItem(key, json); } catch { /* storage blocked */ } }, [PROFILE_KEY, JSON.stringify(startProfile(cls))]);
   const page = await context.newPage();
   page.on('console', (m) => { const line = `${m.type()}: ${m.text()}`; res.console.push(line); if (m.type() === 'error') res.consoleErrors.push(line); });
   page.on('pageerror', (e) => res.pageErrors.push(e.stack || e.message));
@@ -466,7 +477,7 @@ async function playOne(browser, W, H, cls) {
     // twin plays the same (newRun tutorial: true)
     const guided = await page.evaluate(() => { const v = window.__ui.view(); return !!(v.meta && v.meta.guided); });
     res.guided = guided;
-    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: EXP ? 'expedition' : 'rows', ...(guided ? { tutorial: true } : {}), ...(later ? { profile: LATER_PROFILE() } : {}) }); // D116: the expedition with the start camp
+    let s = R.newRun({ classId: 'rogue', seed, content: CONTENT, mapMode: EXP ? 'expedition' : 'rows', ...(guided ? { tutorial: true } : {}), ...(later ? { profile: startProfile(cls) } : {}) }); // D116: the expedition with the start camp
     await click(page.locator(`#create .ccard[data-cls="${cls}"]`), `class card ${cls}`);
     s = R.step(s, { type: 'SELECT_CLASS', classId: cls }).state;
     if (cls === 'hunter') {
@@ -475,12 +486,16 @@ async function playOne(browser, W, H, cls) {
       s = R.step(s, { type: 'SELECT_PET', petId: PET }).state;
     }
     const name = `Qa${cls[0].toUpperCase()}${cls.slice(1)}`;
-    await page.getByRole('textbox', { name: 'Character name' }).fill(name);
+    // an existing hero keeps its name: the name field is hidden for it (--hero), and the twin sets none either
+    const nameBox = page.getByRole('textbox', { name: 'Character name' });
+    const named = await nameBox.isVisible();
+    if (named) await nameBox.fill(name);
+    else if (HERO === null) res.problems.push('the name field is hidden for a class with no stored hero');
     // D150 (naming rule): a profile's first run shows no Seed field; the page's ?seed= is then the run's seed (the twin's too)
     const seedBox = page.getByRole('textbox', { name: 'Run seed' });
     if (await seedBox.isVisible()) await seedBox.fill(String(seed));
     await click(button('Enter the world'), 'Enter the world');
-    for (const a of [{ type: 'SET_NAME', name }, { type: 'SET_SEED', seed }, { type: 'START_RUN' }]) s = R.step(s, a).state;
+    for (const a of [...(named ? [{ type: 'SET_NAME', name }] : []), { type: 'SET_SEED', seed }, { type: 'START_RUN' }]) s = R.step(s, a).state;
     const startHero = s.player.heroLevel;
     let v = await view();
     if (v.phase !== (EXP ? 'PREP' : 'ZONE_HUB')) throw new Error(`after Enter the world the phase is ${v.phase}`);

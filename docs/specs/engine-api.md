@@ -1147,6 +1147,12 @@ rows map's bands (simulator and Dev menu only).
 - `metaOffers`, `buyMeta`, `applyRunToProfile`, `debug.grantEchoes` use `legacy` on a version 3 profile.
 - A hero: `{ classId, name, level (1-25), xp (hero XP into the level; at 25 toward the next Legacy level line), talents,
   spells, spellOrder, bar (null until a run has set them), runs, wins }`.
+- Profile flags besides the table above: `hallV2` (engine, 15.5: the D160 refund has been paid, once) and `secondCampSeen`
+  (UI, set by the bridge, not the engine; qa-2026-11-19b). `secondCampSeen: true` is written by START_RUN in the bridge
+  (`src/ui/engine-bridge.js`, `local.secondCamp`) the first time a profile with `runs` 1 meets the second camp's explaining
+  line (Economy v2, legacy.md 4.7 E6.2), so a reload in that camp or a later run does not show it again. It is stored at once
+  and in the run's copy of the profile (zone checkpoints and END_RUN keep it); the engine never reads it, and
+  `migrateProfile` keeps it as it keeps any key. Absent means false.
 
 ### 15.2 The run (legacy.md 1.2-1.7, 2.1-2.4)
 - **Levels.** `state.player.heroLevel` (1-25) is the hero's level; `state.player.level` is the power level
