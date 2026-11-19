@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="2785e60 2026-11-19T02:41:50Z">
+<meta name="build" content="4f5f28d 2026-11-19T04:55:14Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -2071,8 +2071,8 @@ body.coach-up #skiphint { visibility: hidden; }
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (2785e60 2026-11-19T02:41:50Z) from 68 modules.
-const __BUILD__ = "2785e60 2026-11-19T02:41:50Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (4f5f28d 2026-11-19T04:55:14Z) from 68 modules.
+const __BUILD__ = "4f5f28d 2026-11-19T04:55:14Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -25637,7 +25637,7 @@ function createBridge(opts = {}) {
   const prep = !!(opts.prep ?? params.get('prep') === '1') || !(opts.expedition ?? params.get('expedition') === '1');
   const runOpts = classic ? { mapMode: 'rows' } : { mapMode: 'expedition', prep, ...(params.get('dimming') === '0' ? { dimming: false } : {}) };
   // Legacy (D154 phase 1): ?legacy=1 turns C.GATES.legacy on for this page (a test switch; the game follows the switch)
-  if (!useMock && (opts.legacy ?? params.get('legacy') === '1')) R.C.GATES.legacy = true;
+  if (!useMock && (opts.legacy ?? params.get('legacy') === '1')) { R.C.GATES.legacy = true; R.C.GATES.oruvathLegacy = true; } // D158: Legacy numbers need both
   return new Bridge(useMock ? mockBackend(seed) : engineBackend(seed, runOpts));
 }
 

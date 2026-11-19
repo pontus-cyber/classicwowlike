@@ -24,7 +24,7 @@ const { createBridge } = await import('../../src/ui/engine-bridge.js');
 const { lv, lvLearn, legacyShown, legacyWords, setDisplay } = await import('../../src/ui/util.js');
 const { bandText, xpPayText } = await import('../../src/ui/ui-text.js');
 
-const gateOff = () => { C.GATES.legacy = false; };
+const gateOff = () => { C.GATES.legacy = false; C.GATES.oruvathLegacy = false; };
 
 test('switch off: the bridge shows no hero, the display hooks are identities, the version 1 key is used', () => {
   mem.clear(); gateOff();
@@ -148,7 +148,7 @@ test('learn levels: the display hook is R.learnLevel in a Legacy run (the 14 spe
     const s = nodeOf(b);
     for (const sp of Object.values(C.SPELL)) if (sp.lvl) assert.equal(lvLearn(sp.lvl), R.learnLevel(s, sp.id), sp.id);
     assert.equal(lvLearn(C.SPELL.shadowstep_strike.lvl), 3);
-    assert.equal(lvLearn(C.SPELL.heartseeker_shot.lvl), 20);
+    assert.equal(lvLearn(C.SPELL.heartseeker_shot.lvl), 18); // D157: Heartseeker Shot at hero 18 when ?legacy=1 turns on both switches (D158)
   } finally { gateOff(); setDisplay({}); }
   mem.clear();
   const b0 = createBridge({ seed: 3 }); b0.dispatch({ type: 'START_RUN' });

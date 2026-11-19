@@ -1933,7 +1933,7 @@ export function createBridge(opts = {}) {
   const prep = !!(opts.prep ?? params.get('prep') === '1') || !(opts.expedition ?? params.get('expedition') === '1');
   const runOpts = classic ? { mapMode: 'rows' } : { mapMode: 'expedition', prep, ...(params.get('dimming') === '0' ? { dimming: false } : {}) };
   // Legacy (D154 phase 1): ?legacy=1 turns C.GATES.legacy on for this page (a test switch; the game follows the switch)
-  if (!useMock && (opts.legacy ?? params.get('legacy') === '1')) R.C.GATES.legacy = true;
+  if (!useMock && (opts.legacy ?? params.get('legacy') === '1')) { R.C.GATES.legacy = true; R.C.GATES.oruvathLegacy = true; } // D158: Legacy numbers need both
   return new Bridge(useMock ? mockBackend(seed) : engineBackend(seed, runOpts));
 }
 
