@@ -994,7 +994,8 @@ function engineBackend(seedOpt, runOpts = {}) {
       const out = JSON.parse(JSON.stringify(pv));
       // Economy v2 (legacy.md 4.7 E6.2; engine-2026-11-19c UI need 4): the first camp after the lean first run (the profile's
       // one run so far) explains itself, once per profile
-      out.secondCamp = econOn(s) && !pv.first && !!(s.profile && s.profile.runs === 1);
+      // (the key only under Economy v2: otherwise the view is R.prepView's copy, as ui-regress part M compares)
+      if (econOn(s)) out.secondCamp = !pv.first && !!(s.profile && s.profile.runs === 1);
       return out;
     } catch { return null; }
   }
