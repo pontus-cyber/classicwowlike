@@ -6646,6 +6646,14 @@ async function partY6(browser, W, H) {
       const boardTip = pv.board.length ? await tipOf(page, page.locator('#prep .pp-card').first()) : '';
       await shot(page, 'Y6b-second-camp');
       check('Y-6', 'the second camp says what grew, once per profile (content second_camp with prepView.points)', camp.grown === econFill('second_camp', { points: pv.points }), JSON.stringify(camp.grown));
+      // once per profile (qa-2026-11-19b): a reload in that camp (the run is not kept, the profile's runs still 1) and Enter
+      // the world again: the profile carries the mark, no line
+      {
+        const dropped = await reloadKeep(page); await idle(page);
+        await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+        const re = await page.evaluate((k) => ({ phase: window.__ui.view().phase, grown: !!document.querySelector('#prep .pp-grown'), seen: (JSON.parse(localStorage.getItem(k) || '{}') || {}).secondCampSeen === true, runs: (JSON.parse(localStorage.getItem(k) || '{}') || {}).runs }), Y_KEY);
+        check('Y-6', 'after a reload in that camp the second camp line does not show again (profile secondCampSeen)', re.phase === 'PREP' && !re.grown && re.seen && re.runs === 1, `${JSON.stringify(re)}${dropped ? ` (storage put back after ${dropped} dropped reload(s))` : ''}`);
+      }
       check('Y-6', 'the camp\'s number reads "camp points"; its tooltip is the content\'s camp points line; no Reserve / points left / Preparation points',
         camp.n === String(pv.left) && camp.l === 'camp points' && ptTip.startsWith('Camp points') && ptTip.includes(ECON.camp_points_tip) && !bad.test(camp.all) && !bad.test(ptTip), `${JSON.stringify({ n: camp.n, l: camp.l })} ${ptTip}`);
       check('Y-6', 'Set out\'s tooltip: "You set out with N contracts and M camp points."; the board\'s XP is exact (no "about")',

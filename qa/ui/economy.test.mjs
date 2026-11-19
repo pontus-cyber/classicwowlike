@@ -101,6 +101,22 @@ test('one name, "camp points": the content lines, the Set out log line, the seco
     const msg = r.events.find((e) => e.t === 'msg' && /^You set out/.test(e.text));
     assert.match(msg.text, /^You set out with \d+ contracts? and \d+ camp points?\.$/);
     assert.ok(!/Reserve/.test(msg.text));
+    // once per profile (qa-2026-11-19b): the camp marked the stored profile, so a reload in that camp (a new bridge on the
+    // same storage, START_RUN again) does not show it again; the run's own profile keeps the mark for END_RUN
+    assert.equal(JSON.parse(get('tbwcr.profile.v3')).secondCampSeen, true);
+    assert.equal(R.deserialize(b.serialized(), CONTENT).profile.secondCampSeen, true);
+    const again = createBridge({ seed: 5, legacy: true });
+    again.dispatch({ type: 'START_RUN' });
+    assert.equal(again.view.phase, 'PREP');
+    assert.equal(again.view.prep.secondCamp, false);
+    assert.equal(JSON.parse(get('tbwcr.profile.v3')).runs, 1);
+    // the run's end keeps the mark (END_RUN stores the engine's profile)
+    again.dispatch({ type: 'SET_OUT' });
+    assert.ok(again.dispatch({ type: 'ABANDON_RUN' }).ok);
+    again.dispatch({ type: 'END_RUN' });
+    const after = JSON.parse(get('tbwcr.profile.v3'));
+    assert.equal(after.runs, 2);
+    assert.equal(after.secondCampSeen, true);
     clearKeys();
     set('tbwcr.profile.v3', JSON.stringify((() => { C.GATES.legacy = true; C.GATES.economyV2 = true; const p = later(); gateOff(); return p; })()));
     const b2 = createBridge({ seed: 5, legacy: true });

@@ -433,7 +433,7 @@ function engineBackend(seedOpt, runOpts = {}) {
   // heatUp: uid -> the heat state that raised the item one rarity (heatSteps); nodeHeat: node key -> its entry state
   const local = { introSeen: new Set(), spoils: null, hold: null, reward: null, fightNo: 0, lastRun: null, runNo: 0, engineLog: [], heatUp: new Map(), nodeHeat: new Map() };
   /** A new run on screen: the presentation state and the engine log start afresh. */
-  const resetLocal = () => { local.introSeen.clear(); local.spoils = null; local.hold = null; local.reward = null; local.engineLog = []; local.heatUp.clear(); local.nodeHeat.clear(); };
+  const resetLocal = () => { local.secondCamp = false; local.introSeen.clear(); local.spoils = null; local.hold = null; local.reward = null; local.engineLog = []; local.heatUp.clear(); local.nodeHeat.clear(); };
 
   // ---------------------------------------------------------------- static data for the UI
   const treeId = (cls, i) => C.CLASS[cls].trees[i].toLowerCase().replace(/\W+/g, '');
@@ -993,9 +993,10 @@ function engineBackend(seedOpt, runOpts = {}) {
       const pv = R.prepView(s); if (!pv) return null;
       const out = JSON.parse(JSON.stringify(pv));
       // Economy v2 (legacy.md 4.7 E6.2; engine-2026-11-19c UI need 4): the first camp after the lean first run (the profile's
-      // one run so far) explains itself, once per profile
+      // one run so far) explains itself, once per profile: START_RUN decides it (local.secondCamp) and marks the profile
+      // (`secondCampSeen`), so a reload in that camp does not show it again (qa-2026-11-19b; ui-2026-11-19b open item 4)
       // (the key only under Economy v2: otherwise the view is R.prepView's copy, as ui-regress part M compares)
-      if (econOn(s)) out.secondCamp = !pv.first && !!(s.profile && s.profile.runs === 1);
+      if (econOn(s)) out.secondCamp = !pv.first && !!local.secondCamp;
       return out;
     } catch { return null; }
   }
@@ -1617,7 +1618,15 @@ function engineBackend(seedOpt, runOpts = {}) {
           if (st.phase === 'CREATE' && !guideOn && guideTodo() && runMode.mapMode === 'expedition' && runMode.prep !== false) {
             profile = R.setGuide(profile || R.newProfile(), 'skipped'); saveProfile(profile); rebuildCreate();
           }
-          apply({ type: 'START_RUN' }, events); refund = null; break;
+          apply({ type: 'START_RUN' }, events); refund = null;
+          // the second camp's line (legacy.md 4.7 E6.2), once per profile: shown in this camp, the profile marked at once
+          // (the run's copy too, so the zone checkpoints and END_RUN keep the mark)
+          local.secondCamp = false;
+          if (econOn(st) && st.phase === 'PREP' && st.profile && !st.dev && st.profile.runs === 1 && !st.profile.secondCampSeen && profile) {
+            let pv = null; try { pv = R.prepView(st); } catch { pv = null; }
+            if (pv && !pv.first) { local.secondCamp = true; st.profile.secondCampSeen = true; profile = { ...profile, secondCampSeen: true }; saveProfile(profile); }
+          }
+          break;
         }
         case 'SELECT_CLASS': {
           apply({ type: 'SELECT_CLASS', classId: action.classId }, events);
