@@ -1,6 +1,8 @@
 // Content table: item base names per slot and level band (rules.md 8, 12). Plain data only (Content Designer).
 // Newcomer check 2026-11-15 (draft; s0126, a Mage's offhand named "Quiver of Rushes"): `offhand` is `{ AGI, INT, hunter }`:
 // shields for an Agility item, caster offhands (orbs, tomes) for an Intellect item, quivers for a Hunter's Agility item.
+// Legacy bugs 2026-11-19 (draft; blind returning player s0122, s0206: a Rogue offered a "Yew Shortbow" and shields):
+// `weapon.rogue` (the band's blades, no bows) and `offhand.rogue` (parrying blades) for a Rogue's Agility items.
 // The first name of each list is the band's old one; the other 36 are new (generic object names in each zone's words).
 export const ITEM_NAMES = [
  {
@@ -54,6 +56,11 @@ export const ITEM_NAMES = [
     "Hazel Wand",
     "Hazel Rod",
     "Elm Switch"
+   ],
+   "rogue": [
+    "Harvest Knife",
+    "Skinning Blade",
+    "Hedge Dagger"
    ]
   },
   "offhand": {
@@ -71,6 +78,11 @@ export const ITEM_NAMES = [
     "Quiver of Rushes",
     "Boarhide Quiver",
     "Strawbound Quiver"
+   ],
+   "rogue": [
+    "Parrying Knife",
+    "Sickle Blade",
+    "Thresher's Dirk"
    ]
   }
  },
@@ -125,6 +137,11 @@ export const ITEM_NAMES = [
     "Bog-Oak Staff",
     "Reed Rod",
     "Willow Staff"
+   ],
+   "rogue": [
+    "Gutting Hook",
+    "Fen Cutlass",
+    "Reedcutter's Knife"
    ]
   },
   "offhand": {
@@ -142,6 +159,11 @@ export const ITEM_NAMES = [
     "Smuggler's Quiver",
     "Eelskin Quiver",
     "Stiltwalker's Quiver"
+   ],
+   "rogue": [
+    "Eel-Bone Knife",
+    "Mire Parrying Blade",
+    "Stiltwalker's Dirk"
    ]
   }
  },
@@ -196,6 +218,11 @@ export const ITEM_NAMES = [
     "Stormwood Staff",
     "Rowan Wand",
     "Oakheart Staff"
+   ],
+   "rogue": [
+    "Reiver's Dirk",
+    "Heather Kris",
+    "Cairn Knife"
    ]
   },
   "offhand": {
@@ -213,6 +240,11 @@ export const ITEM_NAMES = [
     "Hornquiver",
     "Heath-Stag Quiver",
     "Windbarrow Quiver"
+   ],
+   "rogue": [
+    "Heath Parrying Dirk",
+    "Cairnstone Knife",
+    "Raider's Off-Blade"
    ]
   }
  },
@@ -267,6 +299,11 @@ export const ITEM_NAMES = [
     "Sunscribe Staff",
     "Glass Wand",
     "Sandglass Rod"
+   ],
+   "rogue": [
+    "Scimitar of Dust",
+    "Khopesh of Sand",
+    "Dune Fang Dagger"
    ]
   },
   "offhand": {
@@ -284,6 +321,11 @@ export const ITEM_NAMES = [
     "Sandsilk Quiver",
     "Jackal-Hide Quiver",
     "Kharun Quiver"
+   ],
+   "rogue": [
+    "Sandglass Kris",
+    "Dune Parrying Blade",
+    "Jackal-Tooth Dagger"
    ]
   }
  },
@@ -338,6 +380,11 @@ export const ITEM_NAMES = [
     "Ghostwood Staff",
     "Bone Wand",
     "Pale Yew Staff"
+   ],
+   "rogue": [
+    "Wraith Stiletto",
+    "Grave Cleaver",
+    "Lychgate Knife"
    ]
   },
   "offhand": {
@@ -355,6 +402,11 @@ export const ITEM_NAMES = [
     "Quiver of Pale Arrows",
     "Mourner's Quiver",
     "Lychgate Quiver"
+   ],
+   "rogue": [
+    "Mourner's Dirk",
+    "Pale Parrying Blade",
+    "Bone-Hilt Knife"
    ]
   }
  },
@@ -409,6 +461,11 @@ export const ITEM_NAMES = [
     "Pyrewood Staff",
     "Ash Wand",
     "Cinderwood Rod"
+   ],
+   "rogue": [
+    "Obsidian Stiletto",
+    "Cinder Hatchet",
+    "Slagglass Dirk"
    ]
   },
   "offhand": {
@@ -426,6 +483,11 @@ export const ITEM_NAMES = [
     "Cinder Quiver",
     "Drakehide Quiver",
     "Emberwatch Quiver"
+   ],
+   "rogue": [
+    "Ember Dirk",
+    "Slag Parrying Blade",
+    "Forgehand Knife"
    ]
   }
  }

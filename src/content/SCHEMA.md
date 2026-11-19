@@ -159,7 +159,8 @@ Base names for generated items, one band per zone (item level band of that zone)
 `head`, `chest`, `legs`, `hands`, `feet`, `neck`, `ring`, `trinket`, `weapon`, `offhand`. Each slot holds at
 least 3 names (<= 30 chars, room for affix words). A slot may instead hold `{ AGI: [...], INT: [...] }` when
 names should follow the item's primary stat (each list >= 3). Such a slot may add a list under a class id (newcomer check
-2026-11-15: `offhand.hunter`, the quivers), used for that class's items of its own primary stat; any other key is
+2026-11-15: `offhand.hunter`, the quivers; Legacy bugs 2026-11-19, draft: `weapon.rogue`, blades without bows, and
+`offhand.rogue`, parrying blades without shields), used for that class's items of its own primary stat; any other key is
 reported. Items above ilvl 60 use band 6.
 
 ```js

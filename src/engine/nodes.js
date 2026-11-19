@@ -929,7 +929,7 @@ function genChoices(s, table, count, cl) {
 }
 
 /** CHOOSE_REWARD (quest items, story items, shrine boons). */
-export function chooseReward(s, ev, index) {
+export function chooseReward(s, ev, index, then = null) {
   const n = s.node;
   const set = n.rewards.shift();
   if (set.kind === 'items') {
@@ -937,6 +937,7 @@ export function chooseReward(s, ev, index) {
     s.stats.equipDrops += 1;
     if (addToBag(s, it)) ev.push({ t: 'loot', item: deepClone(it), to: 'bag' });
     else { s.loot.push(it); ev.push({ t: 'loot', item: deepClone(it), to: 'window' }); }
+    if (then) then(it); // CHOOSE_REWARD `equip`: put on now, from the bags or (bags full) the loot window
   } else {
     applyBoon(s, ev, set.boons[index]);
   }

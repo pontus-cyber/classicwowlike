@@ -355,7 +355,8 @@ describe('newcomer (7): offhand base names follow the item and the class: quiver
     const errs = R.validateContent(bad, { strict: true }).join('\n');
     assert.ok(errs.includes('itemNames[0].offhand.priest: not AGI, INT or a class id'), errs);
     assert.ok(errs.includes('itemNames[0].offhand.hunter: 1 names'), errs);
-    for (const b of CONTENT.itemNames) assert.deepEqual(Object.keys(b.offhand).sort(), ['AGI', 'INT', 'hunter']);
+    // Legacy bugs 2026-11-19: the Rogue's own lists (s27-legacy-bugs)
+    for (const b of CONTENT.itemNames) assert.deepEqual([Object.keys(b.offhand).sort(), Object.keys(b.weapon).sort()], [['AGI', 'INT', 'hunter', 'rogue'], ['AGI', 'INT', 'rogue']]);
   });
 });
 

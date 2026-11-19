@@ -55,6 +55,26 @@ function findGear(s, uid) {
   return null;
 }
 
+/**
+ * Put on gear item uid from the bags or the loot window (EQUIP; CHOOSE_REWARD with `equip`): the worn item takes its bag
+ * slot, or from the loot window goes to the bags, or back to the loot window when they are full.
+ */
+function equipGear(s, ev, uid) {
+  const p = s.player;
+  const g = findGear(s, uid);
+  const old = p.equipped[g.item.slot];
+  p.equipped[g.item.slot] = g.item;
+  if (g.where === 'bag') {
+    if (old) p.bag[g.i] = old; else p.bag.splice(g.i, 1);
+  } else {
+    s.loot.splice(g.i, 1);
+    if (old && !addToBag(s, old)) s.loot.push(old);
+  }
+  refreshDerived(s);
+  clampAfterStatChange(s);
+  ev.push({ t: 'equip', item: g.item.uid, slot: g.item.slot, old: old ? old.uid : null });
+}
+
 function treeSpent(s, tree) {
   let n = 0;
   for (const [id, r] of Object.entries(s.player.talents)) if (TALENT[id].tree === tree) n += r;
@@ -256,9 +276,13 @@ const A = {
       if (!s.node || s.node.stage !== 'reward' || !s.node.rewards.length) return 'no reward to choose';
       const set = s.node.rewards[0];
       const n = set.kind === 'items' ? set.items.length : set.boons.length;
-      return !isInt(a.index) || a.index < 0 || a.index >= n ? `index must be 0-${n - 1}` : null;
+      if (!isInt(a.index) || a.index < 0 || a.index >= n) return `index must be 0-${n - 1}`;
+      // `equip` (Legacy bugs 2026-11-19): the chosen item is put on in the same step, before what follows the node (a
+      // Dimmed encounter starts at once when the node has dimmed, and EQUIP is refused in a fight)
+      if (a.equip && (set.kind !== 'items' || set.items[a.index].kind !== 'gear')) return 'equip: only a gear item';
+      return null;
     },
-    apply: (s, ev, a) => chooseReward(s, ev, a.index),
+    apply: (s, ev, a) => chooseReward(s, ev, a.index, a.equip ? (it) => equipGear(s, ev, it.uid) : null),
   },
   LOOT_TAKE: {
     check: (s, a) => {
@@ -311,21 +335,7 @@ const A = {
       const g = findGear(s, a.itemId);
       return !g ? 'item not in bag or loot window' : g.item.kind !== 'gear' ? 'not equipment' : null;
     },
-    apply: (s, ev, a) => {
-      const p = s.player;
-      const g = findGear(s, a.itemId);
-      const old = p.equipped[g.item.slot];
-      p.equipped[g.item.slot] = g.item;
-      if (g.where === 'bag') {
-        if (old) p.bag[g.i] = old; else p.bag.splice(g.i, 1);
-      } else {
-        s.loot.splice(g.i, 1);
-        if (old && !addToBag(s, old)) s.loot.push(old);
-      }
-      refreshDerived(s);
-      clampAfterStatChange(s);
-      ev.push({ t: 'equip', item: g.item.uid, slot: g.item.slot, old: old ? old.uid : null });
-    },
+    apply: (s, ev, a) => equipGear(s, ev, a.itemId),
   },
   UNEQUIP: {
     check: (s, a) => (!oocAllowed(s) ? 'not during a fight' : !SLOT_IDS.includes(a.slot) || !s.player.equipped[a.slot] ? 'nothing equipped there'

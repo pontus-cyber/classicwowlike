@@ -1,7 +1,8 @@
 // Items, drops (heat: the rarity step, rules 8.4; D144: a reward choice's primary at REWARD_CLASS_BIAS), gold values, bag
 // (rules 8). Generated names (rules 12.5; D150: at most one affix word, never two "of"). Legacy (D154, legacy.md 2.1, 5.6;
 // a Legacy run): item levels up to ILVL_MAX_HERO; a generated name's zone band words by the zone it drops in (the Camp:
-// zone 6's; the start camp: by item level), since a zone's level no longer matches its band.
+// zone 6's; the start camp: by item level), since a zone's level no longer matches its band; a Rogue's weapons and offhands
+// from its own lists (content weapon.rogue, offhand.rogue: no bows or shields; Legacy bugs 2026-11-19).
 import {
   VALUE_BASE, VALUE_COEF, VALUE_EXP, RARITY, RARITY_ORDER, SLOT, SLOT_IDS, DROP_TABLE,
   BUDGET_PER_ILVL, AFFIX_SHARE, AFFIX_CRIT_PCT, AFFIX_EPIC_MULT, AFFIX_POWER_PER_PT, AFFIX_ARMOR_PER_PT,
@@ -121,7 +122,11 @@ function gearName(s, item) {
     // own list where the band has one (offhand `hunter`: the quivers) for that class's items of its primary stat
     const k = item.stats.INT > item.stats.AGI ? 'INT' : 'AGI';
     const cls = s.player.classId;
-    names = (Array.isArray(names[cls]) && CLASS[cls].primary === k ? names[cls] : names[k]) || names.AGI;
+    // Legacy bugs 2026-11-19 (blind returning player s0122, s0206: a Rogue offered a "Yew Shortbow" and shields): the Rogue's
+    // own lists (weapon.rogue: blades; offhand.rogue: parrying blades) name its items in Legacy runs only, so a run with the
+    // switch off keeps the names it had (the recorded runs of s18 and s23)
+    const own = Array.isArray(names[cls]) && CLASS[cls].primary === k && (cls !== 'rogue' || isLegacy(s));
+    names = (own ? names[cls] : names[k]) || names.AGI;
   }
   const base = pick(names, h, 0);
   const pfx = item.affix ? affixFor(c.affixWords.prefix[item.affix], h, 16, base) : null;

@@ -194,7 +194,7 @@ Every action is `{ type, ...fields }`. Indices are 0-based. Enemy targets are in
 | `NEXT_FIGHT` | | between Grind waves or Dungeon fights |
 | `GRIND_STOP` | | between Grind waves |
 | `DUNGEON_LEAVE` | | between Dungeon fights |
-| `CHOOSE_REWARD` | `index` | `state.node.rewards[0]` (quest items, story items or shrine boons) |
+| `CHOOSE_REWARD` | `index`, `equip?` | `state.node.rewards[0]` (quest items, story items or shrine boons). `equip: true` (gear only; Legacy bugs 2026-11-19): the chosen item is put on in the same step, as EQUIP (from the bags, or from the loot window when they are full), before what follows the node (a Dimmed encounter) |
 | `LOOT_TAKE` / `LOOT_DROP` | `itemId` | loot window |
 | `CAMP_GRIND` | | CAMP, no service open |
 | `FIGHT_BOSS` | | CAMP, no service open |
