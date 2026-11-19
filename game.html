@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="d66e301 2026-11-19T20:11:48Z">
+<meta name="build" content="072dfc6 2026-11-19T23:21:56Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -2102,8 +2102,8 @@ body.coach-up #skiphint { visibility: hidden; }
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (d66e301 2026-11-19T20:11:48Z) from 68 modules.
-const __BUILD__ = "d66e301 2026-11-19T20:11:48Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (072dfc6 2026-11-19T23:21:56Z) from 68 modules.
+const __BUILD__ = "072dfc6 2026-11-19T23:21:56Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -3517,6 +3517,8 @@ const ENGINE_ASSUMPTION = {
   AUTO_RATION_STOCK: 4,
   AUTO_GOLD_RESERVE_V: 2,
   AUTO_ELITE_LEVEL_SLACK: 0,
+  /** Legacy runs only (D162): a quest whose level (node.cl) is more than this over the power level scores risky. */
+  AUTO_QUEST_LEVEL_SLACK: 3,
   AUTO_BAG_FREE_MIN: 4,
   AUTO_DEADFALL_ENEMIES: 2,
   AUTO_DUNGEON_LEVEL_SLACK: 1,
@@ -10824,7 +10826,8 @@ function nodeScore(s, node) {
   const hpF = p.hp / p.d.maxHp;
   switch (node.type) {
     case 'rest': return hpF < EA.AUTO_REST_HP ? S.restLow : S.rest;
-    case 'quest': return S.quest;
+    // Legacy (D162): a quest more than AUTO_QUEST_LEVEL_SLACK over the power level is risky (a level-60 run keeps rule 1.9.9)
+    case 'quest': return isLegacy(s) && p.level < node.cl - EA.AUTO_QUEST_LEVEL_SLACK ? S.risky : S.quest;
     // Legacy (legacy.md 2.1): the node's own trash level (the zone's band + DUNGEON_LEVEL_OFFSET_HERO)
     case 'dungeon': return hpF >= EA.AUTO_DUNGEON_HP && p.level >= (isLegacy(s) ? node.trashLevel : dungeonLevels(s.zone.z).trash) - EA.AUTO_DUNGEON_LEVEL_SLACK ? S.dungeon : S.risky;
     case 'elite': return hpF >= EA.AUTO_ELITE_HP && p.level >= node.eliteLevel - EA.AUTO_ELITE_LEVEL_SLACK ? S.elite : S.risky;
