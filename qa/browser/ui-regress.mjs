@@ -287,6 +287,30 @@ async function open(browser, W, H, query, profile = null, opts = {}) {
   return { context, page, errors };
 }
 const idle = (page) => page.evaluate(async () => { await window.__ui.idle(); await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); });
+/**
+ * page.reload() that keeps the page's storage. Headless Chromium now and then (about 1 reload in 100 on this machine,
+ * 2026-11-19, docs/handoffs/qa-2026-11-19.md) starts the reloaded page with empty localStorage and sessionStorage, as a
+ * fresh profile would: a check that reads state written before the reload then sees the game's first-load path instead
+ * (Y-1's refund note shown again). A sentinel tells such a reload apart; then the storage as it was before the reload
+ * is put back and the page reloads again (at most 3 tries). Returns the number of reloads that dropped the storage.
+ */
+async function reloadKeep(page) {
+  const token = `${Date.now()}-${Math.random()}`;
+  const snap = await page.evaluate((t) => {
+    const all = (st) => Object.fromEntries(Object.keys(st).map((k) => [k, st.getItem(k)]));
+    localStorage.setItem('qa.reload', t); return { local: all(localStorage), session: all(sessionStorage) };
+  }, token);
+  let dropped = 0;
+  for (let n = 0; n < 3; n++) {
+    await page.reload(); await page.waitForFunction(() => window.__ui);
+    const kept = await page.evaluate((t) => localStorage.getItem('qa.reload') === t, token);
+    if (kept) break;
+    dropped += 1;
+    await page.evaluate((x) => { localStorage.clear(); sessionStorage.clear(); for (const [k, v] of Object.entries(x.local)) localStorage.setItem(k, v); for (const [k, v] of Object.entries(x.session)) sessionStorage.setItem(k, v); }, snap);
+  }
+  await page.evaluate(() => localStorage.removeItem('qa.reload'));
+  return dropped;
+}
 const view = (page) => page.evaluate(() => {
   const v = window.__ui.view();
   return {
@@ -5022,7 +5046,7 @@ async function partS(browser, W, H) {
       const seen = {};
       for (const x of T.hints) if (x.id !== 'H05') { seen[x.id] = true; for (const c of ['rogue', 'mage', 'hunter']) seen[`${x.id}:${c}`] = true; }
       await page.evaluate(([key, json]) => localStorage.setItem(key, json), [HINTS_KEY, JSON.stringify({ off: false, seen, nudge: { summary: 0, hall: false }, shows: {} })]);
-      await page.reload(); await page.waitForFunction(() => window.__ui);
+      await reloadKeep(page);
       await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
       await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 2, level: 10, mapMode: 'expedition', prep: true })); await idle(page);
       const H05 = T.hints.find((x) => x.id === 'H05');
@@ -5040,7 +5064,7 @@ async function partS(browser, W, H) {
         !!ob && ob.absorbs && !!c1.shown && c1.shown.id === 'H05' && c1.shown.text === fillLine(H05.alt.shield, {}).text && !st1.seen.H05 && !st1.shows.H05, JSON.stringify({ ob, shown: c1.shown, seen: st1.seen.H05, shows: st1.shows.H05 }));
       // a later window with no shield: the plain line ("Spend your big hit now"), and then H05 is seen. A new page: a Dev
       // menu fight is no new fight for the coach (no fightStart event), and H05's try in this one is spent
-      await page.reload(); await page.waitForFunction(() => window.__ui);
+      await reloadKeep(page);
       await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
       await page.evaluate(() => window.__ui.dev('build', { classId: 'rogue', zone: 2, level: 10, mapMode: 'expedition', prep: true })); await idle(page);
       await page.evaluate(() => window.__ui.dev('fight', { ids: ['z1_furrow_boar'], level: 10 })); await idle(page);
@@ -6334,9 +6358,9 @@ async function partY(browser, W, H) {
       check('Y-1', 'the Hall of Echoes reads as the Legacy hall (title, balance, unit, no Echo word), with the same items', hall.title === 'Legacy hall' && hall.u === 'Legacy points' && Number(hall.n.replace(/\D/g, '')) === want.legacy && ewh.length === 0 && hall.offers > 0,
         `${JSON.stringify(hall)} ${JSON.stringify(ewh)}`);
       await page.keyboard.press('Escape'); await idle(page);
-      await page.reload(); await page.waitForFunction(() => window.__ui); await idle(page);
+      const dropped = await reloadKeep(page); await idle(page);
       const b = await read();
-      check('Y-1', 'after a reload the refund note is gone (shown once)', b.refund === null && b.heroes.join(',') === 'New hero,New hero,New hero', JSON.stringify(b));
+      check('Y-1', 'after a reload the refund note is gone (shown once)', b.refund === null && b.heroes.join(',') === 'New hero,New hero,New hero', `${JSON.stringify(b)}${dropped ? ` (the browser dropped the storage on ${dropped} reload(s): put back, reloaded again)` : ''}`);
     } catch (e) { await shot(page, 'Y1-error'); check('Y-1', 'part Y1 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('Y-1', 'part Y1: no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
