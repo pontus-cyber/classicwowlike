@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y]
+ *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -184,6 +184,9 @@
  *   Y  Legacy phase 1 (D154-D157; docs/specs/legacy.md; docs/handoffs/ui-2026-11-18.md), C.GATES.legacy forced on with
  *      ?legacy=1: the profile's migration and the refund note once, Legacy words, hero select, the hero scale on the HUD,
  *      the hub, the map, nameplates, item and learn levels, the level-up banner, the summary's hero line: see partY.
+ *   Z  the Legacy bugs of 2026-11-19 (docs/feedback/2026-11-19-blind-legacy-returning.md): the start camp's zone, "marked"
+ *      sites, the tracker over a nameplate, Abandon run's summary, the summary's fit and Furnace line, the loot Leave button,
+ *      a reward's Equip now on a dimmed node and with full bags: see partZ.
  *
  * D116 (the flip): new runs start on the expedition map with the start camp. The parts written for the classic map (A-L, O,
  * P) open the page with ?classic=1 (open() adds it unless the query names a map) and their Node twins pass mapMode 'rows';
@@ -218,6 +221,7 @@ import { TOO_FAR, ROAD_FIRST, vendorMeta } from '../../src/ui/screens.js';
 import { MAP_ESC } from '../../src/ui/app.js';
 import { nearestRoad, hopsText, UI_HINTS, NEAREST_ROAD_TAIL } from '../../src/ui/ui-text.js'; // newcomer check 2026-11-15 (part X)
 import { DIM_NEAR_WORDS, DIM_MARK_LINE } from '../../src/ui/heat.js';
+import { dimAt as dimAtZ } from '../../src/engine/expedition.js'; // part Z: a node dimmed for the reward check
 const ONB_HINT_SHOWS = R.C.ONB_HINT_SHOWS; // D142 (3): showings after which a hint counts as seen (src/constants.js since D143)
 
 const args = process.argv.slice(2);
@@ -225,7 +229,7 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -2877,13 +2881,13 @@ const M_SEED = 7;
 // CONTRACT_BOARD_SIZE offers and the Bell in zone 1 come from the third run (runs >= 2)
 const M_PROFILE = () => ({ ...R.newProfile(), runs: 2, welcome: true, guide: 'done' });
 /**
- * D150 item 14: what a start-camp offer's tooltip says (prep.js boardTip), as text pieces: "Win 2 Quest or Grind fights in
- * <region>." (a Bounty: "Hunt down <elite> in <region>.", a Delve: "Clear <dungeon>, its boss included."), "Reward: about
+ * D150 item 14: what a start-camp offer's tooltip says (prep.js boardTip), as text pieces: "Win 2 of its marked sites: ...,
+ * most of them in <region>. Other fights do not count." (Legacy bugs 2026-11-19, s0133; a Bounty: "Hunt down <elite> in <region>.", a Delve: "Clear <dungeon>, its boss included."), "Reward: about
  * N levels of XP", "1 of N items." and "Cost: N points." (the gold is a coins element between them).
  */
 const boardTipWant = (o) => {
   const lv = o.reward.xpFrac; const n = lv >= 1 ? Math.round(lv) : Math.round(lv * 10) / 10;
-  const what = o.kind === 'delve' ? `Clear ${o.dungeon}, its boss included.` : o.kind === 'bounty' ? `Hunt down ${o.name} in ${o.regionName}.` : `Win ${o.need} Quest or Grind ${o.need === 1 ? 'fight' : 'fights'} in ${o.regionName}.`;
+  const what = o.kind === 'delve' ? `Clear ${o.dungeon}, its boss included.` : o.kind === 'bounty' ? `Hunt down ${o.name} in ${o.regionName}.` : `Win ${o.need} of its marked sites: Quest or Grind nodes that carry its mark on the map, most of them in ${o.regionName}. Other fights do not count.`;
   return [what, `Reward: about ${n} ${n === 1 ? 'level' : 'levels'} of XP`, ...(o.reward.choices ? [`1 of ${o.reward.choices} items.`] : []), `Cost: ${o.price} ${o.price === 1 ? 'point' : 'points'}.`];
 };
 function mTwin(seed) {
@@ -2927,8 +2931,8 @@ async function partM(browser, W, H) {
       opts: [...document.querySelectorAll('#prep .pp-opt')].map((b) => ({ id: b.dataset.id, price: (b.querySelector('.pc-price') || {}).textContent || null, bought: b.classList.contains('bought'), owned: b.classList.contains('owned') })),
       held: document.querySelectorAll('#prep .pp-card.taken').length,
     }));
-    // D128: what to do in one line: "Win 2 sites in <region>", "Hunt it down in <region>", the dungeon cleared
-    const doWant = (o) => (o.kind === 'delve' ? 'Clear the dungeon, its boss included' : o.kind === 'bounty' ? `Hunt it down in ${o.regionName}` : `Win ${o.need} ${o.need === 1 ? 'site' : 'sites'} in ${o.regionName}`);
+    // D128: what to do in one line: "Win 2 marked sites in <region>" (Legacy bugs 2026-11-19: "marked"), "Hunt it down in <region>", the dungeon cleared
+    const doWant = (o) => (o.kind === 'delve' ? 'Clear the dungeon, its boss included' : o.kind === 'bounty' ? `Hunt it down in ${o.regionName}` : `Win ${o.need} marked ${o.need === 1 ? 'site' : 'sites'} in ${o.regionName}`);
     const domDiff = (d, x) => {
       const out = [];
       if (d.left !== String(x.left)) out.push(`points left ${d.left} (engine ${x.left})`);
@@ -3000,12 +3004,12 @@ async function partM(browser, W, H) {
     const lBad = pv.board.map((o, i) => { const c = lab[i] || {}; const bad = [];
       if (c.zone !== `Zone ${o.z}`) bad.push(`zone "${c.zone}"`);
       if (c.price !== String(o.price) || c.pl !== (o.price === 1 ? 'pt' : 'pts')) bad.push(`price "${c.price} ${c.pl}"`);
-      if (o.kind === 'cull' && !(c.do || '').startsWith(`Win ${o.need} ${o.need === 1 ? 'site' : 'sites'} in `)) bad.push(`sites "${c.do}"`);
+      if (o.kind === 'cull' && !(c.do || '').startsWith(`Win ${o.need} marked ${o.need === 1 ? 'site' : 'sites'} in `)) bad.push(`sites "${c.do}"`);
       if (!/^Reward /.test(c.pay || '') || !(c.pay || '').includes(`${Math.round(o.reward.xpFrac * 10) / 10} levels of XP`) || !/ gold /.test(c.pay || '')) bad.push(`pay "${c.pay}"`); // D150: no "Pays"
       if (!(c.it || '').startsWith(`choose 1 of ${o.reward.choices}`)) bad.push(`items "${c.it}"`);
       if (!c.one) bad.push('the pay line is cut or wraps');
       return bad.length ? `card ${i + 1}: ${bad.join(', ')}` : null; }).filter(Boolean);
-    check('M-prep', 'every number on a contract card has its word: "Zone 1", "2 pts", "Win 2 sites in ...", "Reward 2.8 levels of XP", "gold", "choose 1 of 3", the pay on one uncut line (QA 2026-11-11 finding 5; D128; D150: no "Pays")', !lBad.length, lBad.slice(0, 3).join(' | '));
+    check('M-prep', 'every number on a contract card has its word: "Zone 1", "2 pts", "Win 2 marked sites in ...", "Reward 2.8 levels of XP", "gold", "choose 1 of 3", the pay on one uncut line (QA 2026-11-11 finding 5; D128; D150: no "Pays")', !lBad.length, lBad.slice(0, 3).join(' | '));
     // QA playtest 2026-11-11 finding 4 (an engine fix, contracts.js drawBoard): no two cards are the same contract
     const keys = pv.board.map((o) => [o.z, o.kind, o.region, o.family, o.template].join('|'));
     const shown = await page.evaluate(() => [...document.querySelectorAll('#prep .pp-card')].map((b) => [b.querySelector('.pc-zone').textContent, b.querySelector('.pc-kind').textContent, b.querySelector('.pc-target').textContent, b.querySelector('.pc-do').textContent].join(' / ')));
@@ -6517,6 +6521,182 @@ async function partY(browser, W, H) {
     await context.close();
   }
 }
+// ------------------------------------------------------------------ part Z: the Legacy bugs of 2026-11-19
+/**
+ * Part Z: the Legacy bugs of the blind returning-player check (docs/feedback/2026-11-19-blind-legacy-returning.md, "Wrong or
+ * confusing"; docs/handoffs/engine-2026-11-19b.md), ?legacy=1. Z1 a Rogue hero at level 3 (seed 11, whose board has no zone 1
+ * contract): the start camp names the zone it sets out for; the Cull card's line says "marked" sites; in a fight the tracker
+ * gives way to a nameplate under it; Abandon run: no "You have died", no toast over the summary, no time estimate for a run
+ * without a fight, the Furnace line without "0 Infernal". Z2 a first run to its death (seed 11): the summary fits at this
+ * size, the Furnace's last line in view and clear of the buttons. Z3 the loot window with full bags: Leave stays under the
+ * pointer between its two clicks. Z4 a quest reward's Equip now on a dimmed node (the Dimmed encounter starts at once) and
+ * with full bags: the item is worn.
+ */
+async function partZ(browser, W, H) {
+  const prof = withLegacy(() => { let p = { ...R.newProfile(), runs: 3, guide: 'done', welcome: true, legacy: 40 }; p = R.debug.setHero(p, 'rogue', { level: 3, xp: 0 }); return p; });
+  const auto = async (page, until, n = 300) => { for (let i = 0; i < n && !(await page.evaluate(until)); i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); } };
+  const nodeState = async (page) => R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT);
+  const toastsNow = (page) => page.evaluate(() => [...document.querySelectorAll('#toasts .toast')].map((t) => t.innerText));
+  // ---- Z1
+  {
+    const { context, page, errors } = await openY(browser, W, H, 'legacy=1&prep=1&speed=instant&seed=11', { [Y_KEY]: JSON.stringify(prof) });
+    try {
+      await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      const pv = R.prepView(await nodeState(page));
+      const head = await page.locator('#prep .pp-t2').innerText();
+      const z1 = CONTENT.zones[0].name;
+      check('Z-1', `the start camp names the zone the run sets out for (${z1}), also when the board holds no zone 1 contract (s0241)`,
+        !pv.board.some((o) => o.z === 1) && head.includes(`the road to ${z1}.`), `${head} board zones ${pv.board.map((o) => o.z).join(',')}`);
+      const dos = await page.evaluate(() => [...document.querySelectorAll('#prep .pp-card .pc-do')].map((e) => e.textContent));
+      const culls = pv.board.map((o, i) => [o, dos[i]]).filter(([o]) => o.kind === 'cull');
+      check('Z-1', 'a Cull card says "Win N marked sites in <region>" (s0133: which nodes count)', culls.length > 0 && culls.every(([o, d]) => d === `Win ${o.need} marked ${o.need === 1 ? 'site' : 'sites'} in ${o.regionName}`), JSON.stringify(dos));
+      const ci = pv.board.findIndex((o) => o.kind === 'cull');
+      const bt = await tipText(page, page.locator('#prep .pp-card').nth(ci));
+      check('Z-1', 'the Cull offer\'s tooltip says that only the marked Quest or Grind nodes count and other fights do not', /Win \d of its marked sites: Quest or Grind nodes that carry its mark on the map, most of them in .+\. Other fights do not count\./.test(bt), bt.replace(/\n/g, ' / '));
+      await page.keyboard.press('Enter'); await idle(page);
+      await auto(page, () => window.__ui.view().phase !== 'PREP', 10);
+      const zn = await page.evaluate(() => window.__ui.view().zone.name);
+      check('Z-1', 'and the run arrives there', zn === z1, zn);
+      // a fight: the tracker gives way to a nameplate under it (s0096), and comes back when none is
+      await auto(page, () => { const v = window.__ui.view(); return !!(v.combat && !v.combat.over && v.combat.round >= 1 && !v.loot); }, 200);
+      await page.waitForTimeout(300);
+      const has = await page.evaluate(() => { const t = document.querySelector('#tracker'); return { kids: t.childElementCount, cls: t.className, np: document.querySelectorAll('#nameplates .np').length }; });
+      const yieldAt = (top) => page.evaluate(async (y) => {
+        const t = document.querySelector('#tracker');
+        t.style.top = y == null ? '' : `${y}px`;
+        await new Promise((r) => setTimeout(r, 400));
+        const r = t.getBoundingClientRect();
+        const over = [...document.querySelectorAll('#nameplates .np')].filter((e) => e.style.opacity !== '0').some((e) => { const q = e.getBoundingClientRect(); return q.left < r.right && q.right > r.left && q.top < r.bottom && q.bottom > r.top; });
+        return { yield: t.classList.contains('yield'), over, op: getComputedStyle(t).opacity };
+      }, top);
+      const npBox = await page.evaluate(() => { const e = [...document.querySelectorAll('#nameplates .np')].filter((x) => x.style.opacity !== '0').sort((a, b) => b.getBoundingClientRect().right - a.getBoundingClientRect().right)[0]; const q = e.getBoundingClientRect(); return { top: q.top, right: q.right }; });
+      const natural = await yieldAt(null);
+      // the tracker moved over the rightmost nameplate (its right edge is the window's minus 1.8rem): it must give way
+      const forced = npBox.right > W * 0.6 ? await yieldAt(Math.round(npBox.top)) : null;
+      const back = await yieldAt(null);
+      await shot(page, 'Z1-fight-tracker');
+      check('Z-1', 'in a fight the tracker never lies over a shown nameplate: it gives way while one is under it (.yield, opacity 0) and comes back after (s0096)',
+        has.kids > 0 && has.np > 0 && natural.yield === natural.over && (!forced || (forced.over && forced.yield && forced.op === '0')) && back.yield === back.over,
+        JSON.stringify({ has, natural, forced, back, npBox }));
+    } catch (e) { await shot(page, 'Z1-error'); check('Z-1', 'part Z1 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('Z-1', 'part Z1: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- Z1b: set out and abandon at once (the tester's run 4, s0247)
+  {
+    const { context, page, errors } = await openY(browser, W, H, 'legacy=1&prep=1&speed=instant&seed=11', { [Y_KEY]: JSON.stringify(prof) });
+    try {
+      await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await page.keyboard.press('Enter'); await idle(page);
+      await auto(page, () => window.__ui.view().phase !== 'PREP', 10);
+      // Abandon run
+      await page.evaluate(() => { window.__zDeath = false; const d = document.querySelector('.deathmsg').parentElement; new MutationObserver(() => { if (!d.classList.contains('hidden')) window.__zDeath = true; }).observe(d, { attributes: true }); });
+      await page.getByRole('button', { name: 'Menu and settings' }).first().click(); await idle(page);
+      const ab = page.locator('#win-settings .setrow.abandon button');
+      await ab.click(); await idle(page); await ab.click();
+      for (let i = 0; i < 20 && (await page.evaluate(() => window.__ui.view().phase)) !== 'SUMMARY'; i++) await idle(page);
+      await page.locator('.summary').waitFor(); await idle(page);
+      const sm = R.summary(await nodeState(page));
+      const sv = await page.evaluate(() => ({ death: window.__zDeath, kv: [...document.querySelectorAll('.summary dl.kv dt')].map((d) => d.innerText), foot: document.querySelector('.summary .hc-foot').innerText }));
+      const tt = await toastsNow(page); const lines = await logLines(page);
+      await shot(page, 'Z1-abandon-summary');
+      check('Z-1', 'Abandon run: no "You have died" screen, no toast over the summary ("You abandon the run." in the log only; s0236, s0247)',
+        !sv.death && tt.length === 0 && lines.join(' ').includes('You abandon the run.'), JSON.stringify({ death: sv.death, tt, last: lines.slice(-3) }));
+      check('Z-1', 'a run without a fight shows no time estimate (s0247); the Furnace names no "0 Infernal" (s0059)',
+        sm.fights === 0 && !sv.kv.includes('Estimated time') && sv.kv.includes('Fights') && !/\b0 (Calm|Smouldering|Burning|Infernal)\b/.test(sv.foot) && /^No node entered\./.test(sv.foot), JSON.stringify(sv));
+    } catch (e) { await shot(page, 'Z1b-error'); check('Z-1', 'part Z1b ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('Z-1', 'part Z1b: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- Z2: a first run to its death; the summary at this size
+  {
+    const { context, page, errors } = await openY(browser, W, H, 'legacy=1&prep=1&speed=instant&guide=0&seed=11', {});
+    try {
+      await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await auto(page, () => window.__ui.view().phase === 'SUMMARY', 3000);
+      await page.locator('.summary .hc-foot').waitFor(); await page.waitForTimeout(3200); // the death screen
+      const s = await nodeState(page);
+      const sm = R.summary(s);
+      const foot = page.locator('.summary .hc-foot');
+      const p0 = await placement(foot);
+      const geo = await page.evaluate(() => { const r = (q) => document.querySelector(q).getBoundingClientRect(); const b = r('.summary .sbody'); const f = r('.summary .sfoot'); const x = document.querySelector('.summary .sbody'); return { bodyBottom: b.bottom, footTop: f.top, scroll: x.scrollHeight - x.clientHeight, text: document.querySelector('.summary .hc-foot').innerText, kv: [...document.querySelectorAll('.summary dl.kv dt')].map((d) => d.innerText) }; });
+      await shot(page, 'Z2-summary');
+      const ent = R.C.HEAT_STATES.map((st, i) => [st, sm.heat.nodesByState[i]]).filter(([, n]) => n > 0);
+      const name = { clear: 'Calm', warm: 'Smouldering', hot: 'Burning', scorched: 'Infernal' };
+      const dim = sm.expedition.dimFights;
+      check('Z-2', 'the summary of a death: the Furnace\'s last line is in view without a scroll and not under the buttons (s0059), the body ends above them',
+        s.outcome === 'death' && fullyShown(p0) && geo.bodyBottom <= geo.footTop + 0.5 && geo.scroll <= 1, `${placeText(p0)} ${JSON.stringify(geo)}`);
+      check('Z-2', `the Furnace line names only the states nodes were entered in (${ent.map(([st, n]) => `${n} ${name[st]}`).join(' · ')}) and the Dimmed encounters (${dim})`,
+        geo.text.startsWith(`Nodes entered, by the state you entered them in: ${ent.map(([st, n]) => `${n} ${name[st]}`).join(' · ')}.`) && (dim ? geo.text.includes(`The Dimming caught you ${dim === 1 ? 'once' : `${dim} times`} (Infernal where it stands).`) : !/Dimming/.test(geo.text)) && geo.kv.includes('Estimated time'),
+        geo.text);
+    } catch (e) { await shot(page, 'Z2-error'); check('Z-2', 'part Z2 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('Z-2', 'part Z2: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- Z3: the loot window with full bags; Z4: a reward's Equip now
+  {
+    const { context, page, errors } = await openY(browser, W, H, 'legacy=1&prep=1&speed=instant&guide=0&seed=11', {});
+    const fill = (s) => { for (let k = 0; s.player.bag.length < withLegacy(() => R.bagCapacity(s)); k++) s.player.bag.push({ uid: `zj${k}`, kind: 'junk', id: 'junk', name: 'Bent Nail', rarity: 'poor', value: 1, count: 1, ilvl: 1 }); return s; };
+    const load = async (s) => { await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s)); await idle(page); };
+    try {
+      await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await auto(page, () => { const v = window.__ui.view(); return v.phase === 'MAP' && !v.loot; }, 80);
+      await load(fill(await nodeState(page)));
+      await auto(page, () => { const v = window.__ui.view(); return v.phase === 'SUMMARY' || !!(v.loot && v.loot.kind === 'loot' && v.loot.items.some((it) => it.pending)); }, 300);
+      const leave = page.locator('.loot .foot').getByRole('button', { name: 'Leave' });
+      const b0 = await leave.boundingBox();
+      await leave.click(); await idle(page);
+      const b1 = await leave.boundingBox();
+      const ask = await page.locator('.loot .foot .lleave').innerText().catch(() => null);
+      const askShown = await placement(page.locator('.loot .foot .lleave'));
+      await shot(page, 'Z3-loot-leave-ask');
+      await page.mouse.click(b1.x + b1.width / 2, b1.y + b1.height / 2); await idle(page);
+      const gone = await page.evaluate(() => !document.querySelector('.loot .foot .lleave'));
+      check('Z-3', 'loot with full bags: Leave stays where it was between the first click (the ask) and the second, which leaves (s0152, s0154)',
+        !!b0 && !!b1 && Math.abs(b0.x - b1.x) < 0.5 && Math.abs(b0.y - b1.y) < 0.5 && Math.abs(b0.width - b1.width) < 0.5 && /^Leave \d+ items? behind\? Click Leave again\.$/.test(ask || '') && fullyShown(askShown) && gone,
+        JSON.stringify({ b0, b1, ask, ask2: placeText(askShown), gone }));
+    } catch (e) { await shot(page, 'Z3-error'); check('Z-3', 'part Z3 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('Z-3', 'part Z3: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  {
+    const { context, page, errors } = await openY(browser, W, H, 'legacy=1&prep=1&speed=instant&guide=0&seed=11', {});
+    const fill = (s) => { for (let k = 0; s.player.bag.length < withLegacy(() => R.bagCapacity(s)); k++) s.player.bag.push({ uid: `zj${k}`, kind: 'junk', id: 'junk', name: 'Bent Nail', rarity: 'poor', value: 1, count: 1, ilvl: 1 }); return s; };
+    const load = async (s) => { await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s)); await idle(page); };
+    try {
+      await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      // Z4: a quest's item choice on a dimmed node, and with full bags
+      await auto(page, () => { const v = window.__ui.view(); return v.phase === 'SUMMARY' || !!(v.loot && v.loot.kind !== 'loot' && document.querySelector('#screens .choice-cards .eqnow')); }, 600);
+      const base = await nodeState(page);
+      if (!(base.node && base.node.stage === 'reward')) throw new Error(`no quest reward with Equip now (${base.phase})`);
+      const card = await page.evaluate(() => { const b = document.querySelector('#screens .choice-cards .eqnow'); return { uid: b.dataset.uid, i: [...document.querySelectorAll('#screens .choice-cards .icard')].indexOf(b.closest('.icard')) }; });
+      const it = base.node.rewards[0].items[card.i];
+      const dimmed = R.deserialize(R.serialize(base), CONTENT);
+      dimmed.zone.start = dimmed.time - withLegacy(() => dimAtZ(dimmed.zone, dimmed.zone.pos)) - 1;
+      await load(dimmed);
+      await page.locator('#screens .choice-cards .eqnow').nth(0).click(); await idle(page);
+      const a = await nodeState(page); const tt = await toastsNow(page);
+      await shot(page, 'Z4-equip-dimmed');
+      check('Z-4', 'Equip now on a quest reward whose node has dimmed: the item is worn and the Dimmed encounter starts; no refusal (s0044)',
+        a.player.equipped[it.slot] && a.player.equipped[it.slot].uid === it.uid && !!a.fight && a.node && a.node.type === 'dim' && !tt.some((t) => /not allowed/i.test(t)), JSON.stringify({ worn: a.player.equipped[it.slot] && a.player.equipped[it.slot].uid, want: it.uid, fight: !!a.fight, node: a.node && a.node.type, tt }));
+      await load(fill(R.deserialize(R.serialize(base), CONTENT)));
+      await page.locator('#screens .choice-cards .eqnow').nth(0).click(); await idle(page);
+      const f = await nodeState(page);
+      const win = await page.evaluate(() => { const v = window.__ui.view(); return v.loot ? { title: v.loot.title, items: v.loot.items.map((x) => x.uid) } : null; });
+      await shot(page, 'Z4-equip-full-bags');
+      check('Z-4', 'Equip now with full bags: the item is worn, not sent to "Items waiting" (s0160; the old item may wait there)',
+        f.player.equipped[it.slot] && f.player.equipped[it.slot].uid === it.uid && !(win && win.items.includes(it.uid)), JSON.stringify({ worn: f.player.equipped[it.slot] && f.player.equipped[it.slot].uid, win }));
+    } catch (e) { await shot(page, 'Z4-error'); check('Z-4', 'part Z4 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('Z-4', 'part Z4: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+}
+
 /** fmtNum's digits with a plain space between thousands (the game's thin space: texts compared after \s+ to ' '). */
 const fmtN = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
@@ -6547,6 +6727,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('W')) await partW(browser, W, H);
   if (PARTS.includes('X')) await partX(browser, W, H);
   if (PARTS.includes('Y')) await partY(browser, W, H);
+  if (PARTS.includes('Z')) await partZ(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);

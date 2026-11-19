@@ -83,15 +83,17 @@ export function contractTip(c, ctx, opts = {}) {
 }
 /**
  * D150 item 14 (the owner-approved cut list; Lead 2026-11-14): a start-camp offer's tooltip, three sentences under its
- * name: "Win 2 Quest or Grind fights in Barleyreach Verge. Reward: about 3 levels of XP, 3s 12c and 1 of 3 items. Cost: 2
- * points." (a Cull's sites are Quest or Grind nodes, contracts.js isSiteType), and why it cannot be taken when it cannot.
+ * name: "Win 2 of its marked sites: Quest or Grind nodes that carry its mark on the map, most of them in Barleyreach Verge.
+ * Other fights do not count. Reward: about 3 levels of XP, 3s 12c and 1 of 3 items. Cost: 2 points." (a Cull's sites are
+ * the Quest or Grind nodes placeSites marked, contracts.js; Legacy bugs 2026-11-19, s0133: it said "Win 2 Quest or Grind
+ * fights in ..."), and why it cannot be taken when it cannot.
  * The held contracts keep contractTip (sites, progress, state).
  */
 export function boardTip(o, ctx, opts = {}) {
   const rw = o.reward || {};
   const what = o.kind === 'delve' ? `Clear ${o.dungeon || "the zone's dungeon"}, its boss included.`
     : o.kind === 'bounty' ? `Hunt down ${o.name || 'a named elite'} in ${o.regionName || 'its region'}.`
-      : `Win ${o.need} Quest or Grind ${plural(o.need, 'fight')} in ${o.regionName || 'its region'}.`;
+      : `Win ${o.need} of its marked sites: Quest or Grind nodes that carry its mark on the map, most of them in ${o.regionName || 'its region'}. Other fights do not count.`;
   const lv = rw.xpFrac || 0; const n = lv >= 1 ? Math.round(lv) : Math.round(lv * 10) / 10;
   const pay = [legacyShown() && typeof rw.xp === 'number' ? `about ${xpPayText(rw)}` : `about ${n} ${n === 1 ? 'level' : 'levels'} of XP`, rw.gold ? moneyEl(rw.gold) : null, rw.choices ? `1 of ${rw.choices} items` : null].filter(Boolean);
   const list = pay.flatMap((x, i) => (i === 0 ? [x] : [i === pay.length - 1 ? ' and ' : ', ', x]));
@@ -117,9 +119,13 @@ function optionTip(o, ctx, key, why) {
 // ------------------------------------------------------------------ the prep screen
 /** The contract's headline: the family (Cull), the elite (Bounty) or the dungeon (Delve), capitalised. */
 const cardTitle = (o, content) => cap1(o.kind === 'delve' ? o.dungeon || "the zone's dungeon" : o.kind === 'bounty' ? o.name || 'a named elite' : familyName(o.family, content));
-/** What to do, one line (D128): "Win 2 sites in Millbrook Steadings", "Hunt it in ...", "Clear it, boss included". */
+/**
+ * What to do, one line (D128): "Win 2 marked sites in Millbrook Steadings", "Hunt it in ...", "Clear it, boss included".
+ * Legacy bugs 2026-11-19 (blind returning player s0133: "never counted ordinary fights in the region"): only the nodes that
+ * carry the contract's mark count (contracts.js siteWon), so the line says "marked" and the tooltip says which nodes.
+ */
 const doLine = (o) => (o.kind === 'delve' ? 'Clear the dungeon, its boss included'
-  : o.kind === 'bounty' ? `Hunt it down in ${o.regionName || 'its region'}` : `Win ${o.need} ${plural(o.need, 'site')} in ${o.regionName || 'its region'}`);
+  : o.kind === 'bounty' ? `Hunt it down in ${o.regionName || 'its region'}` : `Win ${o.need} marked ${plural(o.need, 'site')} in ${o.regionName || 'its region'}`);
 
 /**
  * The start camp screen (expedition.md 9.1; D128, owner playtest 2026-11-12 20:19: "strip it ... 3 simple choices"): one
@@ -136,7 +142,9 @@ export function createPrepScreen(v, ctx) {
   // D152 (changes-m3-v2.md 1.2-1.3): a lean first run (prepView.first) has no board, no contract slots and no Reserve: the
   // camp shows its two supplies, the points left and, over Set out, what unspent points pay (content prep.unspentFirst)
   const first = !!pv0.first;
-  const zone1 = (pv0.board.find((o) => o.z === 1) || pv0.board[0] || {}).zoneName || ctx.data.zone1Name || 'the first zone';
+  // Legacy bugs 2026-11-19 (blind returning player s0241): every run sets out for zone 1, so its name comes from the content;
+  // the board's first offer named "the road to Greywater Fens" when the board held no zone 1 contract
+  const zone1 = ctx.data.zone1Name || (pv0.board.find((o) => o.z === 1) || {}).zoneName || 'the first zone';
   const nB = pv0.board.length; const nO = pv0.options.length;
   root.classList.toggle('first', first);
   root.appendChild(h('div.pp-head',
@@ -342,7 +350,7 @@ export function trackerContracts(v, ctx) {
   for (const c of here) {
     const el = h('div.tk-c' + (c.status === 'complete' ? '.done' : c.status === 'expired' ? '.gone' : ''), { dataset: { contract: c.id, status: c.status }, style: { '--cc': colors.get(c.id) || OFF_COLOR } },
       h('span.t', h('i.dot'), contractTitle(c, ctx.data.content)), h('span.pr', progressText(c)));
-    tip(el, () => contractTip(c, ctx, { status: STATUS_WORD[c.status], progress: c.status === 'active' ? `Sites won: ${c.progress} of ${c.need}. The map marks the sites you see.` : null,
+    tip(el, () => contractTip(c, ctx, { status: STATUS_WORD[c.status], progress: c.status === 'active' ? `Sites won: ${c.progress} of ${c.need}. Only nodes with its mark count; the map marks the sites you see.` : null,
       warn: c.status === 'active' ? 'Expires when you leave this zone (a Road or the Bell): no reward.' : null }));
     out.push(el);
   }
