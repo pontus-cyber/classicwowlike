@@ -58,9 +58,11 @@ const MANUAL_ZONES = Number(arg('--manual-zones', '1'));
 // per class: first (a fresh profile) or later (runs 2). Default: the Rogue plays the first run, the Mage and Hunter a later one.
 const PROFILES = { rogue: 'first', mage: 'later', hunter: 'later', ...Object.fromEntries((arg('--profiles', '') || '').split(',').filter(Boolean).map((x) => x.split(':'))) };
 // --legacy (D154 phase 1; docs/handoffs/ui-2026-11-18.md): C.GATES.legacy on in the page (?legacy=1) and in the twin; the
-// profiles are version 3 (under the game's version 3 key) and every run is a Legacy run (the hero scale, hero XP)
+// profiles are version 3 (under the game's version 3 key) and every run is a Legacy run (the hero scale, hero XP). D158: the
+// page's ?legacy=1 turns on C.GATES.oruvathLegacy too (the D156 / D157 numbers), so the twin does (it diverged on the Mage's
+// and the Hunter's first fight without it, engine-2026-11-19b)
 const LEGACY = args.includes('--legacy');
-if (LEGACY) R.C.GATES.legacy = true;
+if (LEGACY) { R.C.GATES.legacy = true; R.C.GATES.oruvathLegacy = true; }
 const PROFILE_KEY = LEGACY ? 'tbwcr.profile.v3' : 'tbwcr.profile.v1';
 const LATER_PROFILE = () => ({ ...R.newProfile(), runs: 2, guide: 'done', welcome: true });
 const MAP = arg('--map', 'expedition'); // D116: the default run is the expedition map with the start camp
