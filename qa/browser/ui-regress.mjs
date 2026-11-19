@@ -184,6 +184,8 @@
  *   Y  Legacy phase 1 (D154-D157; docs/specs/legacy.md; docs/handoffs/ui-2026-11-18.md), C.GATES.legacy forced on with
  *      ?legacy=1: the profile's migration and the refund note once, Legacy words, hero select, the hero scale on the HUD,
  *      the hub, the map, nameplates, item and learn levels, the level-up banner, the summary's hero line: see partY.
+ *      Y6 (D159-D160, Economy v2, part of the ?legacy=1 set): the old hall refunded once, the v2 hall and its level-20 wing,
+ *      "camp points", the second camp, the hub offer, the level-up banner, Abandon's line, the run's end: see partY6.
  *   Z  the Legacy bugs of 2026-11-19 (docs/feedback/2026-11-19-blind-legacy-returning.md): the start camp's zone, "marked"
  *      sites, the tracker over a nameplate, Abandon run's summary, the summary's fit and Furnace line, the loot Leave button,
  *      a reward's Equip now on a dimmed node and with full bags: see partZ.
@@ -6328,7 +6330,17 @@ async function openY(browser, W, H, query, store) {
 }
 const echoWords = (page, sel) => page.evaluate((q) => [...document.querySelectorAll(q)].map((e) => e.innerText).join(' | ').match(/[^|.]*\bEcho(es)?\b[^|.]*/g) || [], sel);
 
+/**
+ * D159: the page's ?legacy=1 set turns C.GATES.economyV2 on (legacy.md 4.7); the Node side reads it at each use (prepView,
+ * summary, migrateProfile), so part Y runs with it on, and puts it back after.
+ */
 async function partY(browser, W, H) {
+  const econWas = R.C.GATES.economyV2; R.C.GATES.economyV2 = true;
+  try { await partY0(browser, W, H); await partY6(browser, W, H); } finally { R.C.GATES.economyV2 = econWas; }
+}
+/** Hero select's level line under Economy v2: "Level 4 → 7" for the hero of the run just ended, else "Level 7". */
+const yLevels = (from, to) => (from !== to ? `Level ${from} → ${to}` : `Level ${to}`);
+async function partY0(browser, W, H) {
   // ---- Y1: the migration, the refund note, the words; the same profile with the switch off
   {
     const v1 = { ...R.newProfile(), echoes: 40, earned: 400, spent: 360, runs: 4, guide: 'done', welcome: true, unlocks: { satchel: 1, vigor: 2 } };
@@ -6343,7 +6355,7 @@ async function partY(browser, W, H) {
       });
       const a = await read();
       await shot(page, 'Y1-hero-select-refund');
-      check('Y-1', 'the version 1 profile migrates under the version 3 key (Legacy points = Echoes + spent, Packed Satchel kept); the version 1 key is left as it was',
+      check('Y-1', 'the version 1 profile migrates under the version 3 key (Legacy points = Echoes + spent; under Economy v2 nothing kept, D160); the version 1 key is left as it was',
         a.v1 === JSON.stringify(v1) && a.v3 && JSON.parse(a.v3).v === 3 && JSON.parse(a.v3).legacy === want.legacy, `v3 ${a.v3 && a.v3.slice(0, 120)} want legacy ${want.legacy}`);
       check('Y-1', 'class select: the refund note once ("Echoes are now Legacy points. The N you had spent are back.", draft), the hero line, three "New hero" cards',
         a.refund === `Echoes are now Legacy points. The ${back} you had spent are back.` && /keeps its level, 1 to 25/.test(a.t3) && a.heroes.join(',') === 'New hero,New hero,New hero', JSON.stringify(a));
@@ -6480,7 +6492,7 @@ async function partY(browser, W, H) {
         `${JSON.stringify(sv)} ${JSON.stringify(ews)} total ${sm.legacy.total}`);
       await page.getByRole('button', { name: 'Begin a new run' }).click(); await idle(page);
       const after = await page.evaluate(() => ({ card: document.querySelector('#create .ccard[data-cls="rogue"] .chero').innerText.trim(), v3: JSON.parse(localStorage.getItem('tbwcr.profile.v3')) }));
-      check('Y-4', 'after the run hero select keeps the level the hero reached (the stored profile\'s hero, runs + 1)', after.card === `Level ${sm.hero.level}` && after.v3.heroes.rogue.level === sm.hero.level && after.v3.heroes.rogue.runs === 1,
+      check('Y-4', 'after the run hero select keeps the level the hero reached (the stored profile\'s hero, runs + 1)', after.card === yLevels(sm.hero.start.level, sm.hero.level) && after.v3.heroes.rogue.level === sm.hero.level && after.v3.heroes.rogue.runs === 1,
         `${after.card} ${JSON.stringify(after.v3.heroes.rogue && { level: after.v3.heroes.rogue.level, runs: after.v3.heroes.rogue.runs })}`);
       await shot(page, 'Y4-hero-select-after');
     } catch (e) { await shot(page, 'Y-error'); check('Y-2', 'part Y2-Y4 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
@@ -6544,10 +6556,186 @@ async function partY(browser, W, H) {
       await page.getByRole('button', { name: 'Begin a new run' }).click(); await idle(page);
       const after = await page.evaluate(() => ({ card: document.querySelector('#create .ccard[data-cls="rogue"] .chero').innerText.trim(), v3: JSON.parse(localStorage.getItem('tbwcr.profile.v3')) }));
       check('Y-5', 'END_RUN pays the abandoned run\'s Legacy points (R.summary\'s total) and the hero keeps its level (runs + 1)',
-        after.v3.legacy === bal0 + sm.legacy.total && sm.legacy.total > 0 && after.card === `Level ${lvl0}` && after.v3.heroes.rogue.level === lvl0 && after.v3.heroes.rogue.runs === 1,
+        // Economy v2 (legacy.md 4.7 E1, LE1): kept camp points pay nothing, so an abandon soon after Set out may pay 0
+        after.v3.legacy === bal0 + sm.legacy.total && !sm.legacy.lines.some((l) => l.id === 'reserve') && after.card === `Level ${lvl0}` && after.v3.heroes.rogue.level === lvl0 && after.v3.heroes.rogue.runs === 1,
         `${bal0} + ${sm.legacy.total} -> ${after.v3.legacy}; ${after.card}`);
     } catch (e) { await shot(page, 'Y5-error'); check('Y-5', 'part Y5 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('Y-5', 'part Y5: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+}
+// ------------------------------------------------------------------ part Y6: Legacy Economy v2 (D159-D160), ?legacy=1
+/**
+ * Part Y6 (docs/specs/legacy.md 4.7 E5-E6, engine-api.md 15.5; docs/handoffs/engine-2026-11-19c.md section 4,
+ * ui-2026-11-19b.md): the ?legacy=1 set with C.GATES.economyV2 on. Y6a the hall: a version 3 profile that bought under the
+ * old catalogue is refunded once (D160: the note "The Legacy hall has new prices ...", gone after reloadKeep, no second
+ * refund); the cards read C.META_HERO (Vigor 0/2 at 70, "+1 % max health per rank"), no retired entry, the level-20 wing
+ * priced and "Not yet open". Y6b the second camp (profile runs 1): its line, the one name "camp points" (the number, its
+ * tooltip, Set out's tooltip and log line, the tracker, the quest log), the board's exact XP (no "about"), no "Reserve",
+ * "points left" or "Preparation points"; a zone 2 hub's offer "Take for N camp points (you have M)". Y6c the level-up
+ * banner (hero 3 to 4; hero 19 to 20): one banner, its lines in order (health, the new spell or ranks, the Legacy line or
+ * the trees line at 20), the XP bar flash and the hero frame glow. Y6d the run's end after Abandon: the confirmation's
+ * line, Kept / Left behind, the balance against the next hall entry, "Level 19 → 20" in the summary and at hero select.
+ */
+const ECON = CONTENT.texts.economy;
+const econFill = (id, v = {}) => ECON[id].replace(/\{(\w+)\}/g, (m, k) => (v[k] === undefined ? m : typeof v[k] === 'number' ? fmtN(v[k]) : String(v[k])))
+  .replace(/(^|[^\d\s])(\s?)\b1 (contract|camp point|spell|Legacy point)s\b/g, '$1$2' + '1 $3'); // "1 contract" (ui-text.js econLine)
+/** Part Y6's expected next hall entry: the first available offer in the 4.7 E5 buying order (the bridge's nextHall). */
+function yNextHall(p, classId) {
+  const c = { rogue: 'r', mage: 'm', hunter: 'h' }[classId];
+  const order = ['satchel', 'vigor', 'edge', 'quick_study', `sp_${c}1`, 'pockets', 'cartographer', 'vigor', 'edge', 'old_hand', 'quartermaster', 'quick_study', `sp_${c}2`, 'swift_boots', 'quartermaster', 'second_breath'];
+  const offers = R.metaOffers(p);
+  for (const id of order) { const o = offers.find((x) => x.id === id); if (o && o.available && o.nextCost > 0) return { name: o.ranks > 1 ? `${o.name} ${['I', 'II'][o.rank]}` : o.name, cost: o.nextCost }; }
+  return null;
+}
+/** Records every level-up banner shown (title, lines) and whether the XP bar flashed and the hero frame glowed. */
+const watchLevel = (page) => page.evaluate(() => {
+  window.__y6 = { banners: [], flash: false, glow: false };
+  const b = document.querySelector('#banner');
+  new MutationObserver(() => { if (b.classList.contains('on') && b.classList.contains('hero')) { const v = window.__ui.view(); const rec = [b.querySelector('.b1').textContent, [...b.querySelectorAll('.b2 .bl')].map((x) => x.textContent), v.player ? v.player.maxHp : null, v.combat ? !!v.combat.over : null]; const last = window.__y6.banners[window.__y6.banners.length - 1]; if (!last || JSON.stringify(last) !== JSON.stringify(rec)) window.__y6.banners.push(rec); } }).observe(b, { attributes: true, childList: true, subtree: true, characterData: true });
+  new MutationObserver(() => { if (document.querySelector('#xpbar').classList.contains('lvflash')) window.__y6.flash = true; }).observe(document.querySelector('#xpbar'), { attributes: true });
+  new MutationObserver(() => { if (document.querySelector('#player-frame').classList.contains('lvglow')) window.__y6.glow = true; }).observe(document.querySelector('#player-frame'), { attributes: true });
+});
+async function partY6(browser, W, H) {
+  const bad = /\bReserve\b|points left|Preparation points|Unspent camp points/;
+  // ---- Y6a: the D160 refund note once, the hall from C.META_HERO, the level-20 wing
+  {
+    const old = (() => { const was = { ...R.C.GATES }; Object.assign(R.C.GATES, { legacy: true, economyV2: false }); try { let p = { ...R.newProfile(), legacy: 700, runs: 3, guide: 'done', welcome: true }; for (const id of ['satchel', 'vigor', 'vigor', 'keen']) p = R.buyMeta(p, id); return p; } finally { Object.assign(R.C.GATES, was); } })();
+    const back = old.spent; const bal = old.legacy + old.spent;
+    const { context, page, errors } = await openY(browser, W, H, 'legacy=1&prep=1&speed=instant&seed=5', { [Y_KEY]: JSON.stringify(old) });
+    try {
+      const read = () => page.evaluate(() => { const rf = document.querySelector('#create .ctitle .refund'); return { refund: rf && !rf.classList.contains('hidden') ? rf.innerText : null, v3: JSON.parse(localStorage.getItem('tbwcr.profile.v3')) }; });
+      const a = await read();
+      await shot(page, 'Y6a-refund-note');
+      check('Y-6', 'D160: a version 3 profile bought under the old hall gets every Legacy point back once, its purchases cleared; the note says so (draft)',
+        a.refund === `The Legacy hall has new prices. The ${fmtN(back)} Legacy points you had spent are back.` && a.v3.legacy === bal && a.v3.spent === 0 && Object.keys(a.v3.unlocks).length === 0 && a.v3.hallV2 === true, JSON.stringify({ refund: a.refund, legacy: a.v3.legacy, unlocks: a.v3.unlocks }));
+      await page.locator('#create .bottom .echoes').click(); await idle(page);
+      const hall = await page.evaluate(() => {
+        const card = (id) => { const c = document.querySelector(`#meta .mcard[data-id="${id}"]`); return c ? { rk: c.querySelector('.rk') ? c.querySelector('.rk').innerText : null, fx: c.querySelector('.mc-fx').innerText, buy: c.querySelector('.buy') ? c.querySelector('.buy').innerText.replace(/\s+/g, ' ').trim() : null, tag: c.querySelector('.mtag') ? c.querySelector('.mtag').textContent : null, req: c.querySelector('.mc-req') ? c.querySelector('.mc-req').innerText.replace(/\s+/g, ' ').trim() : null } : null; };
+        return { vigor: card('vigor'), quick: card('quick_study'), keen: card('keen'), cards: document.querySelectorAll('#meta .mcard:not(.wing)').length, wing: ['tree2', 'tree3', 'armoury'].map(card), head: (document.querySelector('#meta .mgroup.wing .mg-h .t') || {}).innerText || null,
+          over: (() => { const w = document.querySelector('#meta .mwin').getBoundingClientRect(); return [...document.querySelectorAll('#meta .mcard')].filter((c) => { const r = c.getBoundingClientRect(); return r.bottom > w.bottom + 1 || r.right > w.right + 1; }).length; })(),
+          body: document.querySelector('#meta .mbody').scrollHeight > document.querySelector('#meta .mbody').clientHeight + 2 };
+      });
+      await shot(page, 'Y6a-legacy-hall');
+      check('Y-6', 'the hall\'s cards read C.META_HERO: Vigor 0/2 for 70 at +1 % a rank, Quick Study +5 % a rank; no retired entry; 18 cards',
+        hall.vigor && hall.vigor.rk === `0/${R.C.META_HERO.vigor.ranks}` && hall.vigor.buy === `Buy ${R.C.META_HERO.vigor.costs[0]}` && /\+1 % max health per rank/.test(hall.vigor.fx) && /\+5 % experience per rank/.test(hall.quick.fx) && hall.keen === null && hall.cards === Object.keys(R.C.META_HERO).length,
+        JSON.stringify(hall));
+      check('Y-6', 'the level-20 wing: second and third tree and the Armoury, priced (TREE_OPEN_COST, ARMOURY_COST) and "Not yet open", nothing to buy',
+        hall.head === `From hero level ${R.C.TREE_OPEN_LEVEL}` && hall.wing.every((c) => c && c.tag === 'Not yet open' && c.buy === null) && hall.wing.map((c) => Number(c.req.replace(/^.*·\s*/, '').replace(/\D/g, ''))).join(',') === [...R.C.TREE_OPEN_COST, R.C.ARMOURY_COST].join(','),
+        JSON.stringify(hall.wing));
+      check('Y-6', 'the hall fits at this size (no card outside its window)', hall.over === 0, JSON.stringify({ over: hall.over, scroll: hall.body }));
+      await page.keyboard.press('Escape'); await idle(page);
+      const dropped = await reloadKeep(page); await idle(page);
+      const b = await read();
+      check('Y-6', 'after a reload: no note, no second refund', b.refund === null && b.v3.legacy === bal, `${JSON.stringify({ refund: b.refund, legacy: b.v3.legacy })}${dropped ? ` (storage put back after ${dropped} dropped reload(s))` : ''}`);
+    } catch (e) { await shot(page, 'Y6a-error'); check('Y-6', 'part Y6a ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('Y-6', 'part Y6a: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- Y6b: the second camp, "camp points", the hub offer
+  {
+    const prof = withLegacy(() => ({ ...R.newProfile(), runs: 1, guide: 'done', welcome: true }));
+    const { context, page, errors } = await openY(browser, W, H, 'legacy=1&prep=1&speed=instant&seed=5', { [Y_KEY]: JSON.stringify(prof) });
+    const nodeState = async () => R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT);
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      const pv = R.prepView(await nodeState());
+      const camp = await page.evaluate(() => ({ grown: (document.querySelector('#prep .pp-grown') || {}).innerText || null, n: document.querySelector('#prep .pm-n').innerText, l: document.querySelector('#prep .pm-l').innerText, all: document.querySelector('#prep').innerText }));
+      const ptTip = await tipOf(page, page.locator('#prep .pm-points'));
+      const goTip = await tipOf(page, page.locator('#pp-go'));
+      const boardTip = pv.board.length ? await tipOf(page, page.locator('#prep .pp-card').first()) : '';
+      await shot(page, 'Y6b-second-camp');
+      check('Y-6', 'the second camp says what grew, once per profile (content second_camp with prepView.points)', camp.grown === econFill('second_camp', { points: pv.points }), JSON.stringify(camp.grown));
+      check('Y-6', 'the camp\'s number reads "camp points"; its tooltip is the content\'s camp points line; no Reserve / points left / Preparation points',
+        camp.n === String(pv.left) && camp.l === 'camp points' && ptTip.startsWith('Camp points') && ptTip.includes(ECON.camp_points_tip) && !bad.test(camp.all) && !bad.test(ptTip), `${JSON.stringify({ n: camp.n, l: camp.l })} ${ptTip}`);
+      check('Y-6', 'Set out\'s tooltip: "You set out with N contracts and M camp points."; the board\'s XP is exact (no "about")',
+        goTip.includes(econFill('set_out', { contracts: pv.held, points: pv.left })) && !bad.test(goTip) && (!pv.board.length || (boardTip.includes(`Reward: ${fmtN(pv.board[0].reward.xp)} XP`) && !/about/.test(boardTip))), `${goTip} || ${boardTip}`);
+      // take the first contract, then set out
+      if (pv.board.length) { await page.keyboard.press('Digit1'); await idle(page); }
+      const pv2 = R.prepView(await nodeState());
+      await page.locator('#pp-go').click(); await idle(page);
+      const log = await logLines(page);
+      const trk = await page.evaluate(() => (document.querySelector('#tracker') || {}).innerText || '');
+      check('Y-6', 'Set out\'s log line and the tracker say camp points (no Reserve)', log.includes(econFill('set_out', { contracts: pv2.held, points: pv2.left })) && trk.includes(econFill('tracker', { points: pv2.left })) && !bad.test(trk),
+        `${log.filter((x) => /set out/.test(x)).join(' / ')} || ${trk.replace(/\n/g, ' / ')}`);
+      await page.keyboard.press('KeyL'); await idle(page);
+      const ql = await page.evaluate(() => (document.querySelector('.clog .cl-head') || {}).innerText || '');
+      await shot(page, 'Y6b-quest-log');
+      await page.keyboard.press('KeyL'); await idle(page);
+      check('Y-6', 'the quest log\'s head says camp points', ql.includes(econFill('tracker', { points: pv2.left })) && !bad.test(ql), ql);
+      // a zone 2 hub with its contract offer (the same run played on in Node, loaded into the page)
+      let s = await nodeState();
+      for (let i = 0; i < 4000 && !(s.phase === 'ZONE_HUB' && s.zone && s.zone.z === 2) && s.phase !== 'ENDED'; i++) s = R.step(s, R.autoAction(s)).state;
+      const cv = R.contractView(s);
+      if (s.phase === 'ZONE_HUB' && cv && cv.hub) {
+        await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s)); await idle(page);
+        const hub = await page.evaluate(() => ({ take: (document.querySelector('#screens .hubc [data-hub="reserve"]') || {}).innerText || null, all: (document.querySelector('#screens') || {}).innerText || '', trk: (document.querySelector('#tracker') || {}).innerText || '' }));
+        const takeTip = await tipOf(page, page.locator('#screens .hubc [data-hub="reserve"]'));
+        await shot(page, 'Y6b-hub-offer');
+        check('Y-6', 'a hub\'s offer: "Take for N camp points (you have M)", its tooltip and the tracker without Reserve',
+          hub.take === econFill('hub_offer', { price: cv.hub.price, points: cv.reserve }).replace(/\.$/, '') && !bad.test(hub.all) && !bad.test(takeTip) && !bad.test(hub.trk), `${hub.take} || ${takeTip}`);
+      } else check('Y-6', 'a zone 2 hub with an offer was reached in Node', false, `${s.phase} zone ${s.zone && s.zone.z}`);
+    } catch (e) { await shot(page, 'Y6b-error'); check('Y-6', 'part Y6b ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('Y-6', 'part Y6b: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- Y6c-d: the level-up banner (3 to 4, then 19 to 20), Abandon's line, the run's end, hero select
+  for (const [from, seed] of [[3, 7], [19, 9]]) {
+    const prof = withLegacy(() => { let p = { ...R.newProfile(), runs: 3, guide: 'done', welcome: true }; p = R.debug.setHero(p, 'rogue', { level: from, xp: R.heroXpToNext(from) - 5 }); return p; });
+    const { context, page, errors } = await openY(browser, W, H, `legacy=1&prep=1&speed=instant&seed=${seed}`, { [Y_KEY]: JSON.stringify(prof) });
+    const nodeState = async () => R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT);
+    const tag = `Y6c-${from}`;
+    try {
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await page.keyboard.press('Enter'); await idle(page);
+      await watchLevel(page);
+      let heldMidFight = false;
+      for (let i = 0; i < 400; i++) {
+        const v = await page.evaluate(() => { const x = window.__ui.view(); return { phase: x.phase, hero: x.player && x.player.heroLevel }; });
+        // the banner waits for the end of the fight (legacy.md 4.7 E6.4: after the victory, before the loot window)
+        if (v.phase === 'SUMMARY' || (v.hero > from && (await page.evaluate(() => window.__y6.banners.length)) > 0)) break;
+        if (v.hero > from) heldMidFight = heldMidFight || (await page.evaluate(() => { const x = window.__ui.view(); return !!(x.combat && !x.combat.over); }));
+        await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page);
+      }
+      await shot(page, `${tag}-level-up`);
+      const s = await nodeState(); const hv = R.heroView(s);
+      const got = await page.evaluate(() => window.__y6);
+      const ban = got.banners[got.banners.length - 1] || ['', [], null, null];
+      const n = hv.level - from;
+      const spells = Object.values(R.C.SPELL).filter((x) => x.cls === 'rogue' && x.source === 'class' && R.learnLevel(s, x.id) > from && R.learnLevel(s, x.id) <= hv.level).map((x) => x.name);
+      const lines = ban[1];
+      const lastWant = hv.level >= R.C.TREE_OPEN_LEVEL && from < R.C.TREE_OPEN_LEVEL ? ECON.level_hero20 : econFill('level_legacy', { legacy: R.C.LEGACY_PER_LEVEL * n });
+      const hp = /^Health ([\d\s]+) → ([\d\s]+)$/.exec(lines[0] || '');
+      check('Y-6', `the level-up banner (hero ${from} to ${hv.level}): one banner, "${n > 1 ? `Level ${hv.level} (+${n})` : `Level ${hv.level}`}", health before and after, the new spell or ranks, the last line ${hv.level >= 20 ? 'of the trees' : 'of the Legacy points'}`,
+        hv.level > from && got.banners.length === 1 && ban[0] === (n > 1 ? econFill('level_title_multi', { level: hv.level, n }) : econFill('level_title', { level: hv.level })) && !!hp && Number(hp[2].replace(/\D/g, '')) === Math.round(ban[2]) && ban[3] !== false && Number(hp[1].replace(/\D/g, '')) < Number(hp[2].replace(/\D/g, ''))
+          && spells.every((x) => lines.includes(econFill('level_new_spell', { spell: x }))) && (spells.length > 0 || lines.some((l) => /^Better ranks for \d+ spells at a trainer\.$/.test(l)) || lines.length >= 2) && lines[lines.length - 1] === lastWant,
+        `${JSON.stringify(got.banners)} hero ${hv.level} spells ${spells.join(',')}${heldMidFight ? ' (held while the fight went on)' : ''}`);
+      check('Y-6', `the level-up (hero ${from}): the XP bar flashes and the hero frame glows`, got.flash && got.glow, JSON.stringify({ flash: got.flash, glow: got.glow }));
+      // Abandon: the confirmation's line, then the run's end
+      await page.getByRole('button', { name: 'Menu and settings' }).first().click(); await idle(page);
+      const ab = page.locator('#win-settings .setrow.abandon button');
+      await ab.click(); await idle(page);
+      const note = await page.locator('#win-settings .setrow.abandon .muted').innerText();
+      await shot(page, `${tag}-abandon-ask`);
+      check('Y-6', 'Abandon\'s confirmation is the content\'s line (what is kept and lost)', note === `${ECON.abandon_confirm} Click again to end it.`, note);
+      await ab.click(); await idle(page);
+      for (let i = 0; i < 20 && (await page.evaluate(() => window.__ui.view().phase)) !== 'SUMMARY'; i++) await idle(page);
+      const s2 = await nodeState(); const sm = R.summary(s2); const pAfter = R.step(s2, { type: 'END_RUN' }).state.result.profile;
+      const next = yNextHall(pAfter, 'rogue');
+      const sv = await page.evaluate(() => ({ kept: (document.querySelector('.summary .s-kept') || {}).innerText || null, left: (document.querySelector('.summary .s-left') || {}).innerText || null, bal: (document.querySelector('.summary .s-balance') || {}).innerText || null,
+        hero: (document.querySelector('.summary .s-hero') || {}).innerText || null, xpbar: !!document.querySelector('.summary .s-hero .s-xp i'), reserve: [...document.querySelectorAll('.summary .echo[data-line]')].map((x) => x.dataset.line).includes('reserve'), all: document.querySelector('.summary').innerText,
+        fits: (() => { const r = document.querySelector('.summary').getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight + 1; })() }));
+      await shot(page, `${tag}-summary`);
+      check('Y-6', 'the run\'s end: Kept (level now, was), Left behind, the balance against the next hall entry; no reserve line, no Reserve word; it fits',
+        sv.kept === econFill('run_kept', { level: sm.hero.level, was: sm.hero.start.level }) && sv.left === ECON.run_left && next && sv.bal === econFill('run_balance', { legacy: pAfter.legacy, next: next.name, cost: next.cost }) && !sv.reserve && !bad.test(sv.all) && sv.fits,
+        `${JSON.stringify({ kept: sv.kept, left: sv.left, bal: sv.bal, fits: sv.fits })} want next ${JSON.stringify(next)} legacy ${pAfter.legacy}`);
+      check('Y-6', 'the summary\'s hero line reads "Level A → B" with the hero\'s XP bar', sv.hero && sv.hero.startsWith(`${econFill('level_progress', { from: sm.hero.start.level, to: sm.hero.level })} · +`) && sv.xpbar, sv.hero);
+      await page.getByRole('button', { name: 'Begin a new run' }).click(); await idle(page);
+      const card = await page.evaluate(() => document.querySelector('#create .ccard[data-cls="rogue"] .chero .ch-l').innerText.trim());
+      await shot(page, `${tag}-hero-select`);
+      check('Y-6', 'hero select: the hero of the run just ended reads "Level A → B"', card === econFill('level_progress', { from: sm.hero.start.level, to: sm.hero.level }), card);
+    } catch (e) { await shot(page, `${tag}-error`); check('Y-6', `part ${tag} ran to the end`, false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('Y-6', `part ${tag}: no console errors`, errors.length === 0, errors.join(' | '));
     await context.close();
   }
 }
