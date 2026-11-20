@@ -4,6 +4,9 @@
 // Legacy bugs 2026-11-19 (draft; blind returning player s0122, s0206: a Rogue offered a "Yew Shortbow" and shields):
 // `weapon.rogue` (the band's blades, no bows) and `offhand.rogue` (parrying blades) for a Rogue's Agility items.
 // The first name of each list is the band's old one; the other 36 are new (generic object names in each zone's words).
+// content-2026-11-20 (blind Legacy v2 s0293, draft): base names that open with a describing word ("Lucky Barleycorn",
+// "Muddy Boots", "Pale Vigil Ring") read badly behind a prefix ("Fierce Lucky Barleycorn"), so they now open with a noun
+// or a material; the Rogue lists lose the repeated "X Parrying Blade" form and "Off-Blade".
 export const ITEM_NAMES = [
  {
   "head": [
@@ -27,7 +30,7 @@ export const ITEM_NAMES = [
    "Thornproof Gauntlets"
   ],
   "feet": [
-   "Muddy Boots",
+   "Ploughman's Boots",
    "Furrow Treads",
    "Millroad Shoes"
   ],
@@ -38,11 +41,11 @@ export const ITEM_NAMES = [
   ],
   "ring": [
    "Copper Tally Ring",
-   "Twisted Straw Band",
+   "Straw-Plait Band",
    "Brass Sowing Ring"
   ],
   "trinket": [
-   "Lucky Barleycorn",
+   "Barleycorn Token",
    "Scarecrow Button",
    "Millstone Chip"
   ],
@@ -80,7 +83,7 @@ export const ITEM_NAMES = [
     "Strawbound Quiver"
    ],
    "rogue": [
-    "Parrying Knife",
+    "Pruning Knife",
     "Sickle Blade",
     "Thresher's Dirk"
    ]
@@ -119,11 +122,11 @@ export const ITEM_NAMES = [
   ],
   "ring": [
    "Mist Signet",
-   "Tarnished Fen Band",
+   "Fen-Silver Band",
    "Brineglass Ring"
   ],
   "trinket": [
-   "Sunken Bell Clapper",
+   "Fen-Bell Clapper",
    "Glow-Moss Vial",
    "Heron Feather Charm"
   ],
@@ -162,7 +165,7 @@ export const ITEM_NAMES = [
    ],
    "rogue": [
     "Eel-Bone Knife",
-    "Mire Parrying Blade",
+    "Mudlark's Shiv",
     "Stiltwalker's Dirk"
    ]
   }
@@ -200,7 +203,7 @@ export const ITEM_NAMES = [
   ],
   "ring": [
    "Clan Signet",
-   "Knotted Iron Band",
+   "Iron Knot Band",
    "Skald's Ring"
   ],
   "trinket": [
@@ -221,7 +224,7 @@ export const ITEM_NAMES = [
    ],
    "rogue": [
     "Reiver's Dirk",
-    "Heather Kris",
+    "Hillman's Knife",
     "Cairn Knife"
    ]
   },
@@ -242,9 +245,9 @@ export const ITEM_NAMES = [
     "Windbarrow Quiver"
    ],
    "rogue": [
-    "Heath Parrying Dirk",
-    "Cairnstone Knife",
-    "Raider's Off-Blade"
+    "Antler-Hilt Dirk",
+    "Peat Knife",
+    "Raider's Shortsword"
    ]
   }
  },
@@ -272,7 +275,7 @@ export const ITEM_NAMES = [
   "feet": [
    "Sandstrider Boots",
    "Burnished Sabatons",
-   "Wind-Worn Sandals"
+   "Dune-Road Sandals"
   ],
   "neck": [
    "Sunstone Pendant",
@@ -286,8 +289,8 @@ export const ITEM_NAMES = [
   ],
   "trinket": [
    "Hourglass of Ash",
-   "Sealed Papyrus Vial",
-   "Cracked Sun-Disc"
+   "Embalmer's Vial",
+   "Sun-Disc Shard"
   ],
   "weapon": {
    "AGI": [
@@ -303,7 +306,7 @@ export const ITEM_NAMES = [
    "rogue": [
     "Scimitar of Dust",
     "Khopesh of Sand",
-    "Dune Fang Dagger"
+    "Viper-Tooth Dagger"
    ]
   },
   "offhand": {
@@ -323,8 +326,8 @@ export const ITEM_NAMES = [
     "Kharun Quiver"
    ],
    "rogue": [
-    "Sandglass Kris",
-    "Dune Parrying Blade",
+    "Sandglass Shiv",
+    "Caravan Knife",
     "Jackal-Tooth Dagger"
    ]
   }
@@ -338,7 +341,7 @@ export const ITEM_NAMES = [
   "chest": [
    "Shroudweave Robe",
    "Gravewarden Coat",
-   "Pale Bark Cuirass"
+   "Yewbark Cuirass"
   ],
   "legs": [
    "Lichwalker Leggings",
@@ -352,7 +355,7 @@ export const ITEM_NAMES = [
   ],
   "feet": [
    "Fogstep Boots",
-   "Silent Treads",
+   "Cloister Treads",
    "Mourner's Shoes"
   ],
   "neck": [
@@ -362,7 +365,7 @@ export const ITEM_NAMES = [
   ],
   "ring": [
    "Banshee Band",
-   "Pale Vigil Ring",
+   "Vigil Ring",
    "Raven-Bone Ring"
   ],
   "trinket": [
@@ -379,7 +382,7 @@ export const ITEM_NAMES = [
    "INT": [
     "Ghostwood Staff",
     "Bone Wand",
-    "Pale Yew Staff"
+    "Churchyard Staff"
    ],
    "rogue": [
     "Wraith Stiletto",
@@ -405,7 +408,7 @@ export const ITEM_NAMES = [
    ],
    "rogue": [
     "Mourner's Dirk",
-    "Pale Parrying Blade",
+    "Sexton's Knife",
     "Bone-Hilt Knife"
    ]
   }
@@ -486,7 +489,7 @@ export const ITEM_NAMES = [
    ],
    "rogue": [
     "Ember Dirk",
-    "Slag Parrying Blade",
+    "Smelter's Shiv",
     "Forgehand Knife"
    ]
   }

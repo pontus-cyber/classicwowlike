@@ -173,7 +173,8 @@ reported. Items above ilvl 60 use band 6.
 ### 2.7 AffixWords (rules 8.3, 12.1)
 Generated name = `[prefix] base [suffix]`. The suffix follows the item's stat signature (stats with
 points > 0, in the order AGI, INT, STA, SPI, joined by `_`); the prefix follows the affix of rare and epic
-items. Each list >= 2 words. Items with no stat points get no suffix.
+items. Each list >= 2 words. Items with no stat points get no suffix. An empty string in a suffix list means "no
+suffix" (the base name alone; content-2026-11-20, draft), so a list can make plain names as common as it likes.
 
 ```js
 { suffix: { AGI: ['of the Fox', 'of Quickness'], INT: ['of the Owl', 'of Insight'], STA: ['of the Ox', 'of Endurance'],
