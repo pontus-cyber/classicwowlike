@@ -161,3 +161,30 @@ node sim/lh1report.mjs chain /tmp/lh1/main v3
 ```
 
 Checks: `node --test qa/docs qa/sim` 194 pass (qa/sim/hall.test.mjs added). Cells without `--hall` are unchanged (the arm fields reset to the engine's values).
+
+## 9. Chain with the v3c hall (D165 confirmation run)
+
+Status: **draft**. Same method as section 5 (sim/lh1-chain.sh, 60 runs per class per cell, seeds 9000-9059, same buy order, plan converged in the usual rounds). v3c: Vigor +3 / +1 % and Edge +2 / +1 % at 70 / 100, Deeper Pockets 50 for +8, Second Breath 150, Stormhawk 90; account entries + one class's techniques 1 540, whole hall 2 240.
+
+| Run | Hero start -> end | Hours | Legacy | Cumulative | Bought after the run |
+|---|---|---|---|---|---|
+| 1 | 1 -> 4.2 | 0.57 | 225 | 225 | satchel, vigor I, edge I |
+| 2 | 4 -> 7.5 | 1.23 | 198 | 422 | quick study I, technique I |
+| 3 | 7 -> 11.0 | 1.95 | 300 | 722 | pockets, cartographer, vigor II, edge II |
+| 4 | 11 -> 14.2 | 2.67 | 304 | 1 026 | old hand, quartermaster I, quick study II |
+| 5 | 14 -> 17.3 | 3.38 | 361 | 1 387 | swift boots, quartermaster II |
+| 6 | 17 -> 20.1 | 4.04 | 295 | 1 682 | technique II, second breath |
+| 7 | 20 -> 22.7 | 4.73 | 314 | 1 996 | second tree, Armoury |
+| 8 | 22 -> 25.0 | 5.40 | 291 | 2 287 | third tree |
+
+| | v2 | v3 | v3c | Target |
+|---|---|---|---|---|
+| Hours to hero 25 | 6.03 | 5.41 | **5.40** | at least 6.0 (D165 gate) |
+| Runs to complete the hall | 9 | 8 | 8 | by run 10 |
+| LE3 at hero 20 | +20.9 % | +16.5 % | +9.2 % (run 6, 1 682 vs 1 540) | within ±15 % |
+| LE3 at hero 25 | +11.2 % | +10.0 % | +2.1 % (run 8, 2 287 vs 2 240) | within ±15 % |
+| LE4 after runs 1-4 | 3, 2, 3, 3 | 3, 2, 4, 4 | 3, 2, 4, 3 | at least 1 each |
+
+- **Verdict: the v3c chain misses the D165 gate (5.40 h against at least 6.0), though LE3 (both heroes) and LE4 now pass.** The hours are those of v3 to the hundredth: the stat ranks barely change the chain's pace, the faster pace comes from the price changes (Vigor II / Edge II at 100, cheaper Second Breath) and from the earlier hall completion they allow, and the v2 hall's 6.03 h is the only arm at or above 6.0.
+- LE3 at hero 20 passes for the first time with a bought hall (9.2 %), because the v3c pace of Legacy is lower than v3's (the v3 stat ranks made the hero win more).
+- Command: `sim/lh1-chain.sh /tmp/lh1/main v3c; node sim/lh1report.mjs chain /tmp/lh1/main v3c`.
