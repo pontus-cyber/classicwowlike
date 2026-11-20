@@ -22,7 +22,8 @@ const nodeOf = (b) => R.deserialize(b.backend.serialized(), CONTENT);
 test('a Cull contract\'s site line says exactly which nodes count (s0133: ordinary fights in the region never counted)', () => {
   const r = { vision: 1, guide: 1, tracker: 2, bountyPlaced: 2 };
   const t = contractSitesText({ kind: 'cull', regionName: 'Barleyreach Verge' }, r);
-  assert.match(t, /^Sites: only Quest or Grind nodes with this contract's mark count, most of them in Barleyreach Verge; other fights there do not\./);
+  // content-2026-11-20 (draft): the region is in the contract's sentence, so this line names only the rule
+  assert.match(t, /^Only Quest or Grind nodes with its mark count; other fights do not\./);
 });
 
 test('Equip now on a reward: the bridge sends CHOOSE_REWARD with equip; on a dimmed node the item is worn as the encounter starts', () => {

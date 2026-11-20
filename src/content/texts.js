@@ -44,10 +44,12 @@ export const TEXTS = {
   // Contract templates. Placeholders: {n} sites needed, {family} plural family name, {familyOne} singular family name,
   // {region} region name, {zone} zone name, {levels} level band such as "levels 1-10", {elite} the named elite,
   // {dungeon} dungeon name, {hub} hub name, {contract} the text of the offered contract.
+  // Blind Legacy v2 (2026-11-20, s0255; draft): the sentence no longer repeats the zone and the band (the tooltip's
+  // subline has them) or the kind's name (the title has it).
   contracts: {
-    cull: 'Cull {n} {family} in {region}, {zone}, {levels}.',
-    bounty: 'Bounty: hunt down {elite}, a {familyOne} roaming {region}, {zone}, {levels}.',
-    delve: 'Delve: clear {dungeon} in {zone}, {levels}.',
+    cull: 'Beat the {family} at {n} marked sites, most of them in {region}.',
+    bounty: 'Hunt down {elite}, a {familyOne} roaming {region}.',
+    delve: 'Clear {dungeon}, its boss included.',
     hub: '{hub} has work on the board: {contract}',
   },
   expedition: {

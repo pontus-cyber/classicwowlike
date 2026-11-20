@@ -332,11 +332,13 @@ export function contractKindText(kind) { return CONTRACT_KIND_TEXT[kind] || ''; 
  * has: { guide, tracker } (the perk is owned or bought).
  */
 export function contractSitesText(c, r, has = {}) {
-  if (c.kind === 'delve') return `Its one site is ${c.dungeon || "the zone's dungeon"}. Holding this contract shows the dungeon on that zone's map.`;
-  const see = `You see a site's mark on nodes in full view: within ${r.vision} ${plural(r.vision, 'hop')}${has.guide ? `, ${r.guide} more with the Local Guide` : ''}${has.tracker ? `; with Tracker's Notes within ${r.tracker} hops, on nodes you have not seen yet too` : ''}.`;
-  if (c.kind === 'bounty') return `The elite waits at ${numWord(r.bountyPlaced)} Elite nodes of rings 2 and 3 in ${c.regionName || 'its region'}; win either. ${see}`;
+  // content-2026-11-20 (blind Legacy v2 s0255, draft): the region and the dungeon are in the sentence above, so these lines
+  // give only the rule and when the map shows the marks
+  if (c.kind === 'delve') return `While you hold it, ${c.dungeon || "the zone's dungeon"} shows on the zone map.`;
+  const see = `Marks show within ${r.vision} ${plural(r.vision, 'hop')}${has.guide ? `, ${r.guide} more with the Local Guide` : ''}${has.tracker ? `; with Tracker's Notes within ${r.tracker} hops, even on nodes you have not seen` : ''}.`;
+  if (c.kind === 'bounty') return `It can be found at ${numWord(r.bountyPlaced)} Elite nodes away from the hub; beat it at either. ${see}`;
   // Legacy bugs 2026-11-19 (s0133): which nodes count, exactly (contracts.js placeSites, siteWon): the marked ones only
-  return `Sites: only Quest or Grind nodes with this contract's mark count, most of them in ${c.regionName || 'its region'}; other fights there do not. ${see}`;
+  return `Only Quest or Grind nodes with its mark count; other fights do not. ${see}`;
 }
 /** A contract's item choice in words: "choose 1 of 3: 80 % rare, 20 % epic" (the drop table's weights, R.prepView). */
 export function contractItemsText(rw) {
