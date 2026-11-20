@@ -6582,13 +6582,20 @@ async function partY0(browser, W, H) {
 const ECON = CONTENT.texts.economy;
 const econFill = (id, v = {}) => ECON[id].replace(/\{(\w+)\}/g, (m, k) => (v[k] === undefined ? m : typeof v[k] === 'number' ? fmtN(v[k]) : String(v[k])))
   .replace(/(^|[^\d\s])(\s?)\b1 (contract|camp point|spell|Legacy point)s\b/g, '$1$2' + '1 $3'); // "1 contract" (ui-text.js econLine)
-/** Part Y6's expected next hall entry: the first available offer in the 4.7 E5 buying order (the bridge's nextHall). */
+/**
+ * Part Y6's expected next hall entry (the bridge's nextHall; blind Legacy v2, 2026-11-20): the first offer of the 4.7 E5
+ * buying order that the balance buys, else any other it buys, else the cheapest available one; `cost` as the summary
+ * writes it ("60 (52 more points)" when the balance does not buy it; screens.js hallCost).
+ */
 function yNextHall(p, classId) {
   const c = { rogue: 'r', mage: 'm', hunter: 'h' }[classId];
-  const order = ['satchel', 'vigor', 'edge', 'quick_study', `sp_${c}1`, 'pockets', 'cartographer', 'vigor', 'edge', 'old_hand', 'quartermaster', 'quick_study', `sp_${c}2`, 'swift_boots', 'quartermaster', 'second_breath'];
-  const offers = R.metaOffers(p);
-  for (const id of order) { const o = offers.find((x) => x.id === id); if (o && o.available && o.nextCost > 0) return { name: o.ranks > 1 ? `${o.name} ${['I', 'II'][o.rank]}` : o.name, cost: o.nextCost }; }
-  return null;
+  const order = ['satchel', 'vigor', 'edge', 'quick_study', `sp_${c}1`, 'pockets', 'cartographer', 'vigor', 'edge', 'old_hand', 'quartermaster', 'quick_study', `sp_${c}2`, 'swift_boots', 'quartermaster', 'second_breath', ...(classId === 'hunter' ? ['stormhawk'] : [])];
+  const pos = (o) => { const i = order.indexOf(o.id); return i < 0 ? order.length : i; };
+  const open = R.metaOffers(p).filter((o) => o.available).sort((a, b) => pos(a) - pos(b));
+  const o = open.find((x) => x.affordable && x.nextCost > 0) || open.find((x) => x.affordable) || open.filter((x) => x.nextCost > 0).reduce((b, x) => (!b || x.nextCost < b.nextCost ? x : b), null);
+  if (!o) return null;
+  const bal = p.legacy || 0; const short = Math.max(0, o.nextCost - bal);
+  return { name: o.ranks > 1 ? `${o.name} ${['I', 'II'][o.rank]}` : o.name, cost: short > 0 ? `${fmtN(o.nextCost)} (${fmtN(short)} more ${short === 1 ? 'point' : 'points'})` : o.nextCost };
 }
 /** Records every level-up banner shown (title, lines) and whether the XP bar flashed and the hero frame glowed. */
 const watchLevel = (page) => page.evaluate(() => {

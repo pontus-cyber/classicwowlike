@@ -1425,6 +1425,11 @@ function trainAllBtn(v, ctx) {
 function btnSmall(label, ok, fn) { const b = h('button.btn.small' + (ok ? '' : '.disabled'), label); b.addEventListener('click', fn); return b; }
 
 // ------------------------------------------------------------------ summary
+/**
+ * The {cost} of the run end's "Next in the hall" line (content run_balance; the bridge's nextHall): the price, and when the
+ * balance does not buy it, how far off it is: "60 (52 more points)" (blind Legacy v2 s0596; the words draft for content).
+ */
+export const hallCost = (n) => (n.short > 0 ? `${fmtNum(n.cost)} (${fmtNum(n.short)} more ${n.short === 1 ? 'point' : 'points'})` : n.cost);
 function buildSummary(v, ctx) {
   const s = v.summary; if (!s) return null;
   const win = h('div.summary.panel.center');
@@ -1469,7 +1474,7 @@ function buildSummary(v, ctx) {
   // the Legacy lines, and the balance against the next hall entry under the total (the bridge's dry END_RUN)
   const E = (id, vars) => econLine(ctx.data.content.texts, id, vars);
   const carry = econShown() && s.hero ? h('div.s-carry', h('div.s-kept', E('run_kept', { level: s.hero.level, was: s.hero.from })), h('div.s-left', E('run_left'))) : null;
-  const balance = econShown() && after ? h('div.s-balance', after.nextHall ? E('run_balance', { legacy: after.echoes, next: after.nextHall.name, cost: after.nextHall.cost }) : `You have ${fmtNum(after.echoes)} Legacy points. Every entry in the hall is yours.`) : null;
+  const balance = econShown() && after ? h('div.s-balance', after.nextHall ? E('run_balance', { legacy: after.echoes, next: after.nextHall.name, cost: hallCost(after.nextHall) }) : `You have ${fmtNum(after.echoes)} Legacy points. Every entry in the hall is yours.`) : null;
   const card3 = h('div.card', h('h3', 'Echoes earned'), carry, s.echoes.map(([k, n, id]) => h('div.echo' + (id === 'welcome' ? '.welcome' : ''), { dataset: { line: id || '' } }, h('span.dim', k), h('b', `+${n}`))), oathLine, devLine, h('div.echo.total', h('span', 'Total'), h('span', `${s.echoTotal} Echoes`)),
     after ? h('div.echo.after', h('span.dim', 'Your Echoes after this run'), echoAmt(after.echoes)) : null, balance,
     h('div.muted', { style: { marginTop: '.8rem', fontSize: '1.1rem' } }, after

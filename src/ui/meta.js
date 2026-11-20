@@ -5,7 +5,7 @@
 // the expedition map, so its entries (expedition.md 8.2) read as any other; only with the Dev menu's "Classic map (old)"
 // do they carry the "Expedition" tag and "expedition map only". Economy v2 (D159-D160, legacy.md 4.7 E5): a version 3
 // profile's cards read C.META_HERO (the bridge's data.meta.entries), and the level-20 wing shows priced, as not yet open.
-import { h, clear, fmtNum, legacyWords } from './util.js'; // Legacy (D154): the Legacy words (identity off)
+import { h, clear, fmtNum, legacyWords, lvLearn, legacyShown } from './util.js'; // Legacy (D154): the Legacy words, the hero scale (identity off)
 import { icon, spellIcon } from './art-icons.js';
 import { tip, hide as hideTip } from './tooltip.js';
 import { settings } from './settings.js';
@@ -36,6 +36,15 @@ const BUY_GAP_MS = 350; // a double click buys one rank, not two
 
 /** The Echo gem and an amount: "◆ 1 240". */
 export function echoAmt(n, cls = '') { return h('span.eamt' + cls, h('i.eg'), fmtNum(n)); }
+
+/**
+ * The level an entry waits for, on its card (blind Legacy v2 s0564): a Lost Technique's learn level on the hero scale
+ * ("From hero level 9"; util.js lvLearn, R.learnLevel), else null. Outside Legacy: "From level 20".
+ */
+export function cardReq(e, d) {
+  const sp = e && e.spell && d.spells[e.spell];
+  return sp ? `From ${legacyShown() ? 'hero ' : ''}level ${lvLearn(sp.lvl)}` : null;
+}
 
 /** State of an offer for the card: owned (every rank), affordable, unaffordable (available, too few Echoes) or locked. */
 export function offerState(o) { return o.rank >= o.ranks ? 'owned' : !o.available ? 'locked' : o.affordable ? 'affordable' : 'unaffordable'; }
@@ -150,7 +159,11 @@ export function createMeta(ctx) {
       b.addEventListener('click', (ev) => { ev.stopPropagation(); buy(o.id); });
       right = b;
     }
-    const req = state === 'locked' ? h('div.mc-req', `Needs ${o.req.map((r) => metaReqText(r, D, true)).join(' and ')}`) : null;
+    // blind Legacy v2 (2026-11-20, s0564): what an entry waits for shows on the card, not only in its tooltip: the unlocks
+    // it needs (locked), and a technique's learn level ("From hero level 9"; cardReq)
+    const when = cardReq(e, ctx.data);
+    const needs = state === 'locked' ? `Needs ${o.req.map((r) => metaReqText(r, D, true)).join(' and ')}` : null;
+    const req = needs ? h('div.mc-req', needs, when ? ` · ${when[0].toLowerCase()}${when.slice(1)}` : null) : when && state !== 'owned' ? h('div.mc-req.when', when) : null;
     const el2 = h('div.mcard', { dataset: { id: o.id, state } }, h('img.ic', { src: metaIcon(e), alt: '' }),
       h('div.mc-t', h('span.nm', o.name), h('span.rk', `${o.rank}/${o.ranks}`), pips), right,
       h('div.mc-fx', marked(e) ? h('span.mexp', 'Expedition') : null, fx.short), req);

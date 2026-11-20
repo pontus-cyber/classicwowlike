@@ -1108,19 +1108,22 @@ function engineBackend(seedOpt, runOpts = {}) {
     return out;
   }
   /**
-   * Economy v2 (legacy.md 4.7 E5, E6.3; engine-2026-11-19c UI need 5): the next entry in the hall, the first offer still
-   * available in the campaign's buying order (5.8 item 7 v2), with its rank ("Vigor of the Line II") and price; null when
-   * every one is bought.
+   * Economy v2 (legacy.md 4.7 E5, E6.3; engine-2026-11-19c UI need 5): the next entry in the hall, with its rank ("Vigor
+   * of the Line II"), price and `short` (the points still missing, 0 when it can be bought). Blind Legacy v2 (2026-11-20,
+   * s0382, s0561, s0596): the first entry the balance buys, in the campaign's buying order (5.8 item 7 v2), else any other
+   * the balance buys (so "N unlocks within reach", the hall's enabled Buy buttons, always names one of them); when the
+   * balance buys none, the cheapest available entry (buying order breaks a tie); null when every one is bought.
    */
   function nextHall(p, classId) {
     const c = { rogue: 'r', mage: 'm', hunter: 'h' }[classId] || 'r';
     const order = ['satchel', 'vigor', 'edge', 'quick_study', `sp_${c}1`, 'pockets', 'cartographer', 'vigor', 'edge', 'old_hand', 'quartermaster', 'quick_study', `sp_${c}2`, 'swift_boots', 'quartermaster', 'second_breath', ...(classId === 'hunter' ? ['stormhawk'] : [])];
-    const offers = R.metaOffers(p);
-    for (const id of order) {
-      const o = offers.find((x) => x.id === id);
-      if (o && o.available && o.nextCost > 0) return { id, name: o.ranks > 1 ? `${o.name} ${['I', 'II', 'III', 'IV'][o.rank] || o.rank + 1}` : o.name, cost: o.nextCost };
-    }
-    return null;
+    const offers = R.metaOffers(p); const bal = balanceOf(p);
+    const pos = (o) => { const i = order.indexOf(o.id); return i < 0 ? order.length : i; };
+    const open = offers.filter((o) => o.available).sort((a, b) => pos(a) - pos(b));
+    const o = open.find((x) => x.affordable && x.nextCost > 0) || open.find((x) => x.affordable)
+      || open.filter((x) => x.nextCost > 0).reduce((best, x) => (!best || x.nextCost < best.nextCost ? x : best), null);
+    if (!o) return null;
+    return { id: o.id, name: o.ranks > 1 ? `${o.name} ${['I', 'II', 'III', 'IV'][o.rank] || o.rank + 1}` : o.name, cost: o.nextCost, short: Math.max(0, o.nextCost - bal) };
   }
   /** Furthest point of a run as the run log stores it: 1..ZONE_COUNT a zone, then the camp, the boss, the boss defeated. */
   const stageOf = (sum) => (sum.outcome === 'victory' ? C.ZONE_COUNT + 3 : sum.reachedBoss ? C.ZONE_COUNT + 2 : sum.reached && sum.reached.camp ? C.ZONE_COUNT + 1 : (sum.reached && sum.reached.zone) || 1);
