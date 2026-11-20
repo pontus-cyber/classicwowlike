@@ -152,6 +152,31 @@ export function dimBarPos(dimIn, stateDim, H, bar) {
   return { x: clamp(x, a + pad, b - pad), beyond: stateDim === 'clear' && H.warmAt - (dimIn - H.dimWarm) < bar.min ? -1 : 0 };
 }
 
+/** The state whose segment a bar position (tolls past the line) lies in: the segments of `segments`, from the engine's thresholds. */
+export function segmentAt(x, H) {
+  if (x < H.warmAt) return 'clear';
+  if (x < H.hotAt) return 'warm';
+  if (x < H.scorchAt) return 'hot';
+  return 'scorched';
+}
+/**
+ * The meter's one reading of a heatView (blind Legacy v2 2026-11-20, heat state: "the label, the marker and the summary
+ * agree"): the state the line names, its words, the lit segment, the player's marker (run clock: bar.marker) and the
+ * Dimming's diamond (its own clock, in the segment of stateDim), and `setter`, the marker of the clock that sets the state
+ * (heatView `by`). Every part of the meter is drawn from this; the setter always lies in the segment the line names
+ * (qa/ui/heat-state.test.mjs). H: data.rules.heat.
+ */
+export function meterReading(hv, H) {
+  const bar = hv.bar;
+  const run = { x: bar.marker, beyond: bar.beyond, sets: hv.by !== 'dim' };
+  const dp = hv.dimIn !== null && hv.dimIn !== undefined && hv.stateDim ? dimBarPos(hv.dimIn, hv.stateDim, H, bar) : null;
+  const dim = dp ? { x: dp.x, beyond: dp.beyond, sets: hv.by === 'dim' } : null;
+  return {
+    state: hv.state, name: HEAT_NAME[hv.state], line: meterText(hv), boss: bossShown(hv.ascIfPar), lit: hv.state,
+    run, dim, setter: hv.by === 'dim' && dim ? dim : run,
+  };
+}
+
 // ------------------------------------------------------------------ the meter
 /** host: where the meter lives (the action bar); noteRoot: where the first-time note goes (the HUD). */
 export function createHeatMeter(host, ctx, noteRoot = host) {
@@ -233,28 +258,29 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
     build();
     if (ghost && ghostAt !== `${v.phase}|${hv.time}|${hv.z}`) { ghost = null; ghostAt = null; }
     const bar = hv.bar;
-    els.el.dataset.state = hv.state; els.el.dataset.by = hv.by;
-    for (const s of STATES) els.segs[s].classList.toggle('on', s === hv.state);
-    els.state.querySelector('.ht-sname').textContent = HEAT_NAME[hv.state];
+    // one reading (meterReading): the line, the lit segment and both markers come from the same heatView
+    const m = meterReading(hv, H);
+    els.el.dataset.state = m.state; els.el.dataset.by = hv.by;
+    for (const s of STATES) els.segs[s].classList.toggle('on', s === m.lit);
+    els.state.querySelector('.ht-sname').textContent = m.name;
     queueMicrotask(fitHeader); // after the texts below are set
-    els.num.textContent = meterText(hv); // D152: the Dimming's words when it sets the state
-    const boss = bossShown(hv.ascIfPar);
+    els.num.textContent = m.line; // D152: the Dimming's words when it sets the state
+    const boss = m.boss;
     els.boss.textContent = boss; els.boss.classList.toggle('hidden', !boss);
     // the player's marker; an arrow when the heat is off the bar (bar.beyond)
-    els.mark.style.left = `${pctOf(bar.marker, bar)}%`;
+    els.mark.style.left = `${pctOf(m.run.x, bar)}%`;
     const arrow = els.mark.querySelector('.ht-arrow');
-    arrow.classList.toggle('hidden', !bar.beyond); arrow.textContent = bar.beyond < 0 ? '◀' : bar.beyond > 0 ? '▶' : '';
-    els.mark.classList.toggle('beyond', !!bar.beyond);
-    els.mark.classList.toggle('sets', hv.by === 'run');
+    arrow.classList.toggle('hidden', !m.run.beyond); arrow.textContent = m.run.beyond < 0 ? '◀' : m.run.beyond > 0 ? '▶' : '';
+    els.mark.classList.toggle('beyond', !!m.run.beyond);
+    els.mark.classList.toggle('sets', m.run.sets);
     // the Dimming's marker (expedition zones) in its state's segment; its clock in words is the map's (D150 item 8)
-    const dp = hv.dimIn !== null && hv.dimIn !== undefined && hv.stateDim ? dimBarPos(hv.dimIn, hv.stateDim, H, bar) : null;
-    els.dmark.classList.toggle('hidden', !dp);
-    if (dp) {
-      els.dmark.style.left = `${pctOf(dp.x, bar)}%`;
-      els.dmark.classList.toggle('sets', hv.by === 'dim');
+    els.dmark.classList.toggle('hidden', !m.dim);
+    if (m.dim) {
+      els.dmark.style.left = `${pctOf(m.dim.x, bar)}%`;
+      els.dmark.classList.toggle('sets', m.dim.sets);
     }
     drawGhost(hv);
-    els.el.setAttribute('aria-label', `${HW.Name}: ${HEAT_NAME[hv.state]}, ${meterText(hv)}${boss ? `, ${boss}` : ''}`);
+    els.el.setAttribute('aria-label', `${HW.Name}: ${m.name}, ${m.line}${boss ? `, ${boss}` : ''}`);
     // the first-time note: on the hub (hidden while a service window is open), until "Got it" or setting out
     if (!introSeen) {
       const svcOpen = !!(v.node && v.node.origin === 'hub');
