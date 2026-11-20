@@ -550,8 +550,9 @@ export function metaEffect(m, D, d, mode = 'rows') {
       return { short: `Travel on opens ${numWord(m.levels)} ${plural(m.levels, 'level')} earlier`, long: rows, more: bell ? [`Expedition map: ${bell}.`] : undefined };
     }
     // expedition.md 8.2 (M2b v11): entries of the expedition map only (m.mapMode 'expedition'; a tag on classic runs, D116)
-    case 'cartographer': return { short: `${NM.charts} every run, free`, long: `On the expedition map the start camp's ${NM.charts} are yours every run, free: every node's region and the dungeon's place show on the map.${onlyExp}` };
-    case 'old_hand': return { short: `${NM.tracker} every run, free`, long: `On the expedition map the start camp's ${NM.tracker} are yours every run, free: contract sites show within ${numWord(N.trackerRadius)} hops, even on nodes you have not seen yet.${onlyExp}` };
+    // content-2026-11-20 (blind Legacy v2 s0385, draft): one plain sentence each, no "yours every run, free"
+    case 'cartographer': return { short: `Free ${NM.charts} every run`, long: `Every run starts with ${NM.charts}: each zone map shows every node's region and where the dungeon is.${onlyExp}` };
+    case 'old_hand': return { short: `Free ${NM.tracker} every run`, long: `Every run starts with ${NM.tracker}: contract sites show within ${numWord(N.trackerRadius)} hops, even on nodes you have not seen.${onlyExp}` };
     // Economy v2 (legacy.md 4.7 E6.1): one name, "camp points"
     case 'quartermaster': { const w = econShown() ? 'camp points' : 'preparation points'; return { short: `+${m.points} ${w} per rank`, long: `On the expedition map you have ${numWord(m.points)} more ${w} to spend at the start camp for each rank.${onlyExp}` }; }
     case 'alchemist': return { short: `Vendors sell ${plurName(2, NM.greater)}`, long: `Every vendor also sells ${plurName(2, NM.greater)}: each restores ${pct1(D.greaterHeal)} of your maximum health.` };
