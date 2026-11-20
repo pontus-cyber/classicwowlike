@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="a096999 2026-11-20T05:33:38Z">
+<meta name="build" content="5f27755 2026-11-20T08:39:08Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -1364,7 +1364,6 @@ body.dying #target-frame, body.dying #boss-frame, body.dying #nameplates, body.d
 #heat .ht-mark.dim { width: .9rem; margin-left: -.45rem; }
 #heat .ht-mark.dim i { inset: auto; left: 50%; top: 50%; width: .82rem; height: .82rem; border-radius: var(--radius-hair-2); transform: translate(-50%, -50%) rotate(45deg); background: linear-gradient(135deg, #e2d4ff, #9b7cf0); box-shadow: 0 0 0 2px #10082a, 0 0 .5rem rgba(170, 140, 255, .8); opacity: .8; }
 #heat .ht-mark.dim.sets i { opacity: 1; box-shadow: 0 0 0 2px #10082a, 0 0 1rem rgba(190, 160, 255, 1); }
-#heat[data-by="dim"] .ht-mark.run i { opacity: .6; }
 #heat .ht-mark.ghost { transition: none; }
 #heat .ht-mark.ghost i { background: transparent; border: 2px dashed var(--hc, var(--ink-bright)); box-shadow: 0 0 .6rem var(--hc, var(--ink-bright)); }
 #heat .ht-span { position: absolute; top: .3rem; bottom: .3rem; z-index: var(--z-local-2); pointer-events: none; background: repeating-linear-gradient(135deg, rgba(255, 244, 207, .5) 0 .3rem, rgba(255, 244, 207, .12) .3rem .6rem); border-radius: var(--radius-xs-1); }
@@ -1547,6 +1546,27 @@ body.in-fight #toasts { top: calc(11.2rem + var(--furnace-h)); }
 #heat .ht-mark.run i { border-radius: var(--radius-xs-3); }
 #heat .ht-mark.run::before { content: ''; position: absolute; left: 50%; top: -.42rem; transform: translateX(-50%); border: .45rem solid transparent; border-top-color: #fff4cf; border-bottom: 0; filter: drop-shadow(0 0 .25rem var(--shade-90)); }
 #heat .ht-line { z-index: var(--z-local-4); }
+/* D163 (draft): the tag that names the clock setting the state, its glyph the marker that clock moves (needle or diamond);
+   opaque, so a marker's head under it does not show through */
+#heat .ht-clock { flex: none; display: inline-flex; align-items: center; gap: var(--sp-20); margin-left: var(--sp-35); padding: 0 var(--sp-45); height: 1.1rem; line-height: 1.1rem; border-radius: var(--radius-round);
+  font: var(--fw-semibold) var(--fs-small-1) var(--font-ui); letter-spacing: .01em; color: #fff4cf; background: #2b261b; box-shadow: inset 0 0 0 1px rgba(255, 244, 207, .35); }
+#heat .ht-clock i { font-style: normal; font-size: var(--fs-micro-12); }
+#heat .ht-clock[data-by="dim"] { color: #e2d4ff; background: #2a1f45; box-shadow: inset 0 0 0 1px rgba(190, 160, 255, .6); }
+#heat .ht-clock[data-by="dim"] i { color: #c9b4ff; }
+#heat .ht-clock.hidden { display: none; }
+/* D163 (draft): inside a node, the state it counts as, one line under the bar */
+#heat .ht-counts { display: flex; align-items: center; justify-content: center; gap: var(--sp-30); height: 1.2rem; margin-top: -.08rem; font: var(--fw-semibold) var(--fs-small-1) var(--font-ui); color: var(--ink-dim); text-shadow: 0 1px 1px var(--shade); white-space: nowrap; }
+#heat .ht-counts .ht-dot { width: .7rem; height: .7rem; background: var(--hc); }
+#heat .ht-counts.hidden { display: none; }
+#heat.in-node { padding-bottom: var(--sp-20); }
+/* D163 (draft): when the Dimming sets the state the diamond is the main pointer (larger, a head above it, on top) and the
+   needle steps back (thin, faded, no head) */
+#heat[data-by="dim"] .ht-mark.dim { top: -.3rem; bottom: -.4rem; width: 1.4rem; margin-left: -.7rem; z-index: var(--z-local-5); }
+#heat[data-by="dim"] .ht-mark.dim i { width: 1.15rem; height: 1.15rem; opacity: 1; box-shadow: 0 0 0 2px #10082a, 0 0 1.1rem rgba(190, 160, 255, 1); }
+#heat[data-by="dim"] .ht-mark.dim::before { content: ''; position: absolute; left: 50%; top: -.42rem; transform: translateX(-50%); border: .45rem solid transparent; border-top-color: #e2d4ff; border-bottom: 0; filter: drop-shadow(0 0 .25rem var(--shade-90)); }
+#heat[data-by="dim"] .ht-mark.run { width: .3rem; margin-left: -.15rem; z-index: var(--z-local-4); }
+#heat[data-by="dim"] .ht-mark.run i { opacity: .45; }
+#heat[data-by="dim"] .ht-mark.run::before { display: none; }
 /* the first-time note: under the Furnace, its arrow pointing up at it */
 #heat-intro { left: 50%; bottom: auto; top: calc(var(--furnace-h) + 1.2rem); transform: translateX(-50%); z-index: var(--z-hud-callout); }
 #heat-intro::after { right: auto; left: 50%; bottom: auto; top: -.8rem; transform: translateX(-50%); border-top-color: transparent; border-bottom: .8rem solid rgba(190, 160, 255, .7); border-top: 0; }
@@ -1706,6 +1726,10 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .hubc .hc-give:hover { box-shadow: inset .3rem 0 0 var(--cc), inset 0 0 0 1px rgba(255, 140, 110, .8); color: #ffd8c8; }
 .hubc .hc-note { margin-top: var(--sp-45); font-size: var(--fs-small-5); color: var(--ink-mute); }
 /* the offer just taken (screens.js buildHub): a note of the offer's height, so nothing under it moves (blind panel 2026-11-13) */
+/* D163 (draft): the toll carry-over on arrival in a zone (heat.js arrivalLine), in the hub's foot beside Set out */
+.hubcarry { flex: 1 1 auto; min-width: 0; padding: var(--sp-30) var(--sp-55); border-radius: var(--radius-md-2); font: var(--fw-semibold) 1.2rem/1.3 var(--font-ui); color: var(--ink); background: rgba(8, 30, 34, .55); box-shadow: inset 0 0 0 1px rgba(103, 195, 196, .4); }
+/* D163 (draft): a node tooltip's line on the places the Dimming takes while inside (heat.js dimsLine) */
+.tooltip .xdims { color: #d4c4ff; }
 .hubtaken { box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: var(--sp-20); margin-top: var(--sp-30); padding: var(--sp-90) var(--sp-100) var(--sp-80); border-radius: var(--radius-md-2); background: rgba(32, 24, 14, .6); box-shadow: inset 0 0 0 1px var(--gold-50); }
 .hubtaken .hx-t { font: var(--fw-semibold) var(--fs-label-7) var(--font-title); color: var(--gold); } .hubtaken .hx-s { font-size: var(--fs-body-3); line-height: var(--lh-normal-2); color: var(--ink-dim); }
 /* the quest log as the contract tracker */
@@ -2106,8 +2130,8 @@ body.coach-up #skiphint { visibility: hidden; }
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (a096999 2026-11-20T05:33:38Z) from 68 modules.
-const __BUILD__ = "a096999 2026-11-20T05:33:38Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (5f27755 2026-11-20T08:39:08Z) from 68 modules.
+const __BUILD__ = "5f27755 2026-11-20T08:39:08Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -8289,7 +8313,8 @@ function costOf(s, a) {
  * `parts` (newcomer check 2026-11-15): the tolls in spend order, [{ why, tolls }] summing to `time`: the action's own (why:
  * the node type entered, 'walk', 'pass', 'travel', 'bell', 'trainer', 'vendor', 'inn' or 'grind') and, with `dimFight`, the
  * Dimmed encounter's ('dimFight', `escape: true` when TIME_DIM_ESCAPE), so a cost that grows can say why ("+2 for a
- * fight in the Dimming": the node dims before its tolls end).
+ * fight in the Dimming": the node dims before its tolls end). `dims` (D163): the ids of the places the Dimming takes while
+ * the action's tolls are spent (dimsDuring), null when no Dimming clock runs or the action leaves the zone.
  */
 function heatPreview(s, a) {
   if (!s.player || !s.zone) return null;
@@ -8303,8 +8328,25 @@ function heatPreview(s, a) {
   return {
     time: c.time, timeAfter: f.time, line: f.line, heat: f.heat, stateRun: f.stateRun, dimIn: f.dimIn, stateDim: f.stateDim,
     state: f.state, by: f.by, ascIfPar: f.ascIfPar, change: f.state !== now.state, dimFight: c.dimFight, perWave: c.perWave, pays,
-    swift: a.type === 'TAKE_ROAD' ? swiftXp(s) || null : null, parts: c.parts,
+    swift: a.type === 'TAKE_ROAD' ? swiftXp(s) || null : null, parts: c.parts, dims: dimsDuring(s, c),
   };
+}
+
+/**
+ * The places the Dimming takes while an action's tolls are spent (D163, engine-2026-11-20b recommendation 3): the ids of
+ * the zone's nodes whose dimAt falls in (zt, zt + time], in the order they dim (then by id); a Dimmed encounter's tolls
+ * are included, as they move the Dimming too. null when no Dimming clock runs (today's map, the Camp, a run without the
+ * Dimming) and for an action that leaves the zone. A held corridor node is not counted (its release is the guide's).
+ * Pure read: the same nodes the `dimming` events of the step list, unless a guided rescue or the corridor's release
+ * comes in between (qa/engine/s30-heat-read.test.mjs).
+ */
+function dimsDuring(s, c) {
+  const zone = s.zone;
+  if (!isExpedition(s) || zone.camp || zone.dimOff || c.z !== zone.z) return null;
+  const zt = zoneTime(s);
+  const out = [];
+  for (const n of zone.nodes) { const at = dimAt(zone, n.id); if (at > zt && at <= zt + c.time) out.push([at, n.id]); }
+  return out.sort((x, y) => x[0] - y[0] || x[1] - y[1]).map((x) => x[1]);
 }
 
 // ---------------- Bookkeeping for the rewards and the summary (rules 1.7.3, 9) ----------------
@@ -23614,7 +23656,7 @@ function statusTip(s, ctx) {
 
 });
 __bundle.def("src/ui/heat.js", function* (__ns, __link) {
-let h, add, clear, clamp; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["clamp", (v) => { clamp = v; }]]); let tip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }]]); let HW, tolls; __link.imp("src/ui/ui-text.js", [["HEAT_WORDS", (v) => { HW = v; }], ["tolls", (v) => { tolls = v; }]]); let HEAT; __link.imp("src/ui/theme.js", [["HEAT", (v) => { HEAT = v; }]]); __link.exp({ "HEAT_NAME": () => HEAT_NAME, "HEAT_COLOR": () => HEAT_COLOR, "heatKey": () => heatKey, "fmtTime": () => fmtTime, "lineShown": () => lineShown, "standText": () => standText, "meterText": () => meterText, "DIM_NEAR_WORDS": () => DIM_NEAR_WORDS, "dimTipLine": () => dimTipLine, "carryLine": () => carryLine, "DIM_MARK_LINE": () => DIM_MARK_LINE, "bossText": () => bossText, "bossShown": () => bossShown, "chanceText": () => chanceText, "payText": () => payText, "heatToast": () => heatToast, "dimBarPos": () => dimBarPos, "segmentAt": () => segmentAt, "meterReading": () => meterReading, "createHeatMeter": () => createHeatMeter, "FURNACE_LINE": () => FURNACE_LINE, "stateRows": () => stateRows, "heatTip": () => heatTip, "costText": () => costText, "previewBlock": () => previewBlock, "heatBadge": () => heatBadge, "buildHeatSummary": () => buildHeatSummary });
+let h, add, clear, clamp; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["clamp", (v) => { clamp = v; }]]); let tip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }]]); let HW, tolls; __link.imp("src/ui/ui-text.js", [["HEAT_WORDS", (v) => { HW = v; }], ["tolls", (v) => { tolls = v; }]]); let HEAT; __link.imp("src/ui/theme.js", [["HEAT", (v) => { HEAT = v; }]]); __link.exp({ "HEAT_NAME": () => HEAT_NAME, "HEAT_COLOR": () => HEAT_COLOR, "heatKey": () => heatKey, "fmtTime": () => fmtTime, "lineShown": () => lineShown, "standText": () => standText, "meterText": () => meterText, "DIM_NEAR_WORDS": () => DIM_NEAR_WORDS, "dimTipLine": () => dimTipLine, "carryLine": () => carryLine, "DIM_MARK_LINE": () => DIM_MARK_LINE, "CLOCK_TAG": () => CLOCK_TAG, "CLOCK_GLYPH": () => CLOCK_GLYPH, "clockTag": () => clockTag, "countsLine": () => countsLine, "COUNTS_WHY": () => COUNTS_WHY, "arrivalLine": () => arrivalLine, "dimsLine": () => dimsLine, "atArrival": () => atArrival, "bossText": () => bossText, "bossShown": () => bossShown, "chanceText": () => chanceText, "payText": () => payText, "heatToast": () => heatToast, "dimBarPos": () => dimBarPos, "segmentAt": () => segmentAt, "meterReading": () => meterReading, "createHeatMeter": () => createHeatMeter, "FURNACE_LINE": () => FURNACE_LINE, "stateRows": () => stateRows, "heatTip": () => heatTip, "costText": () => costText, "previewBlock": () => previewBlock, "heatBadge": () => heatBadge, "buildHeatSummary": () => buildHeatSummary });
 yield;
 // heat.js - the Heat meter and the texts that name heat (docs/specs/expedition.md H.4, H.5; engine-api.md 11; owner
 // feedback 2026-11-10 14:05: an always-visible meter, like FTL's chasing red line). Presentation only: the state, the
@@ -23725,6 +23767,55 @@ function carryLine(hv) {
 }
 /** Newcomer check 2026-11-15 (s0017-s0133, draft): the tooltip's one line on the diamond (the Dimming's marker). */
 const DIM_MARK_LINE = '◆ The Dimming near you. Whichever marker is further right sets the state.';
+/**
+ * D163 (engine-2026-11-20b recommendation 1; draft): the tag on the meter's label that names the clock that sets the state,
+ * shown where two clocks run (an expedition zone: the run clock and the Dimming of the place the player stands on). Its
+ * glyph is the marker that clock moves: the needle (▼) for the tolls, the diamond (◆) for the Dimming.
+ */
+const CLOCK_TAG = { run: 'Set by your tolls', dim: 'Set by the Dimming here' };
+const CLOCK_GLYPH = { run: '▼', dim: '◆' };
+/** The clock tag of a heatView: { by, glyph, text }, or null where only the run clock runs (no Dimming clock). */
+function clockTag(hv) {
+  if (!hv || hv.dimIn === null || hv.dimIn === undefined || !hv.stateDim) return null;
+  const by = hv.by === 'dim' ? 'dim' : 'run';
+  return { by, glyph: CLOCK_GLYPH[by], text: CLOCK_TAG[by] };
+}
+/**
+ * D163 (engine-2026-11-20b recommendation 2; draft): inside a node, the state it counts as (heatView.node: the state it was
+ * entered in, which fixes its rewards and the summary's count; rules 1.7.3); '' outside a node.
+ */
+function countsLine(hv) {
+  return hv && hv.node && hv.node.state ? `This place counts as ${HEAT_NAME[hv.node.state]}` : '';
+}
+/** D163 (draft): the meter tooltip's reason for countsLine, inside a node. */
+const COUNTS_WHY = 'A place counts in the state you entered it in, whatever the Furnace shows later.';
+/**
+ * D163 (engine-2026-11-20b recommendation 4; draft): the toll carry-over on arrival in zone 2 or later, from heatView.carry:
+ * "Zone 2 adds 20 tolls; you saved 10: 30 to spare." ("you overspent 5: 15 to spare", "...: still 5 overspent",
+ * "Zone 2 adds 20 tolls: 20 to spare."); '' in zone 1, at the Camp (no share) or on an engine without carry. The figure
+ * after the colon is the meter's on arrival: carried - share.
+ */
+function arrivalLine(hv) {
+  const c = hv && hv.carry;
+  if (!c || !c.cumulative || !(c.share > 0) || !(hv.z > 1)) return '';
+  const n = Math.abs(Math.round(c.carried || 0));
+  const was = !n ? '' : c.carried > 0 ? `; you overspent ${n}` : `; you saved ${n}`;
+  const left = c.carried - c.share;
+  const end = left < 0 ? `${-left} to spare` : left === 0 ? 'none to spare' : `still ${left} overspent`;
+  return `Zone ${hv.z} adds ${tolls(c.share)}${was}: ${end}.`;
+}
+/**
+ * D163 (engine-2026-11-20b recommendation 3; draft): a node tooltip's line on the places the Dimming takes while the player is
+ * inside, from heatPreview `dims` of the move that enters it: "The Dimming takes 6 places while you are inside."; '' for a
+ * move that does not enter, a Grind whose waves are chosen inside (perWave), none taken, or no Dimming clock (dims null).
+ */
+function dimsLine(p) {
+  if (!p || !p.pays || p.perWave || !Array.isArray(p.dims) || !p.dims.length) return '';
+  const n = p.dims.length;
+  return `The Dimming takes ${n} ${n === 1 ? 'place' : 'places'} while you are inside.`;
+}
+/** Whether the meter still reads the arrival figure (no tolls spent since arriving): arrivalLine holds while it does. */
+const atArrival = (hv) => !!(hv && hv.carry && hv.heat === hv.carry.carried - hv.carry.share);
 const bossText = (asc) => `Boss +${Math.round((asc || 0) * 100)} %`;
 /** D150 item 1: "Boss +N %" only when the boss would be stronger (above 0), else ''. */
 const bossShown = (asc) => (Math.round((asc || 0) * 100) > 0 ? bossText(asc) : '');
@@ -23792,6 +23883,8 @@ function meterReading(hv, H) {
   return {
     state: hv.state, name: HEAT_NAME[hv.state], line: meterText(hv), boss: bossShown(hv.ascIfPar), lit: hv.state,
     run, dim, setter: hv.by === 'dim' && dim ? dim : run,
+    // D163 (draft): the clock tag (null where only the run clock runs) and, inside a node, the state it counts as
+    clock: dim ? clockTag(hv) : null, counts: countsLine(hv), countsState: hv.node ? hv.node.state : null,
   };
 }
 
@@ -23813,8 +23906,11 @@ function createHeatMeter(host, ctx, noteRoot = host) {
   // the meter at the top centre of the HUD (owner 2026-11-11 10:12): the calm side (still water) left, the hot side (embers,
   // molten glow) right, the player's pointer moving between them; .ht-calm and .ht-core are decoration only
   // D150 item 1: one line, "Calm · 18 tolls to spare" (Boss only above 0), over the bar; the name is the tooltip's title
+  // D163 (draft): the tag naming the clock that sets the state, and inside a node the state it counts as (under the bar)
+  els.clock = h('span.ht-clock.hidden', h('i'), h('span'));
+  els.counts = h('div.ht-counts.hidden', h('i.ht-dot'), h('span'));
   els.el = h('div#heat.panel.hidden', { role: 'group', 'aria-label': HW.Name },
-    h('div.ht-row', els.state, h('span.ht-sep', '·'), els.num, els.boss), els.bar);
+    h('div.ht-row', els.state, h('span.ht-sep', '·'), els.num, els.boss, els.clock), els.bar, els.counts);
   host.appendChild(els.el);
   tip(els.el, () => heatTip(ctx));
   // the first-time note (H.4 wording: "Heat", "the Star's line"), once per browser profile, on the first hub until
@@ -23897,8 +23993,21 @@ function createHeatMeter(host, ctx, noteRoot = host) {
       els.dmark.style.left = `${pctOf(m.dim.x, bar)}%`;
       els.dmark.classList.toggle('sets', m.dim.sets);
     }
+    // D163: the clock tag, its glyph the marker of that clock; inside a node, the state the node counts as
+    els.clock.classList.toggle('hidden', !m.clock);
+    if (m.clock) {
+      els.clock.dataset.by = m.clock.by;
+      els.clock.querySelector('i').textContent = m.clock.glyph;
+      els.clock.querySelector('span').textContent = m.clock.text;
+    }
+    els.counts.classList.toggle('hidden', !m.counts);
+    els.el.classList.toggle('in-node', !!m.counts);
+    if (m.counts) {
+      els.counts.querySelector('i').dataset.hs = m.countsState;
+      els.counts.querySelector('span').textContent = m.counts;
+    }
     drawGhost(hv);
-    els.el.setAttribute('aria-label', `${HW.Name}: ${m.name}, ${m.line}${boss ? `, ${boss}` : ''}`);
+    els.el.setAttribute('aria-label', `${HW.Name}: ${m.name}, ${m.line}${boss ? `, ${boss}` : ''}${m.clock ? `, ${m.clock.text}` : ''}${m.counts ? `. ${m.counts}` : ''}`);
     // the first-time note: on the hub (hidden while a service window is open), until "Got it" or setting out
     if (!introSeen) {
       const svcOpen = !!(v.node && v.node.origin === 'hub');
@@ -23971,6 +24080,7 @@ function heatTip(ctx) {
   box.appendChild(h('div.tt-line.desc', FURNACE_LINE));
   if (hv.dimIn != null && hv.stateDim) box.appendChild(h('div.tt-line.ht-dimmark', DIM_MARK_LINE)); // the diamond is on the bar
   const cl = carryLine(hv); if (cl) box.appendChild(h('div.tt-line.ht-carry', cl));
+  if (hv.node && hv.node.state) box.appendChild(h('div.tt-line.ht-countswhy', `${countsLine(hv)}. ${COUNTS_WHY}`)); // D163 (draft)
   box.appendChild(h('div.tt-heatstates', stateRows(H).map(([st, when, pay]) => h('div.hs' + (st === hv.state ? '.on' : ''), { dataset: { hs: st } }, h('i.ht-dot', { dataset: { hs: st } }), h('b', HEAT_NAME[st]), h('span.w', when), h('span.p', pay)))));
   return box;
 }
@@ -32099,7 +32209,7 @@ function gateLine(data, tv) {
 
 });
 __bundle.def("src/ui/screens.js", function* (__ns, __link) {
-let h, add, clear, fmtNum, moneyEl, moneyText, clamp, lv, lvLearn, legacyShown, econShown; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["moneyText", (v) => { moneyText = v; }], ["clamp", (v) => { clamp = v; }], ["lv", (v) => { lv = v; }], ["lvLearn", (v) => { lvLearn = v; }], ["legacyShown", (v) => { legacyShown = v; }], ["econShown", (v) => { econShown = v; }]]); let spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon, deathblowIcon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["roleIcon", (v) => { roleIcon = v; }], ["deathblowIcon", (v) => { deathblowIcon = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }]]); let tip, itemTip, spellTip, hideTip, STAT_NAMES; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }], ["hide", (v) => { hideTip = v; }], ["STAT_NAMES", (v) => { STAT_NAMES = v; }]]); let conColor, heroPortrait, travelState; __link.imp("src/ui/hud.js", [["conColor", (v) => { conColor = v; }], ["heroPortrait", (v) => { heroPortrait = v; }], ["travelState", (v) => { travelState = v; }]]); let numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, trainerWaitingShort, econLine, BAGS_FULL; __link.imp("src/ui/ui-text.js", [["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["pct1", (v) => { pct1 = v; }], ["ROLE_INFO", (v) => { ROLE_INFO = v; }], ["humanize", (v) => { humanize = v; }], ["tolls", (v) => { tolls = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["trainerWaitingShort", (v) => { trainerWaitingShort = v; }], ["econLine", (v) => { econLine = v; }], ["BAGS_FULL", (v) => { BAGS_FULL = v; }]]); let createMeta, buildOaths, echoAmt; __link.imp("src/ui/meta.js", [["createMeta", (v) => { createMeta = v; }], ["buildOaths", (v) => { buildOaths = v; }], ["echoAmt", (v) => { echoAmt = v; }]]); let heatKey, previewBlock, costText, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME; __link.imp("src/ui/heat.js", [["heatKey", (v) => { heatKey = v; }], ["previewBlock", (v) => { previewBlock = v; }], ["costText", (v) => { costText = v; }], ["heatBadge", (v) => { heatBadge = v; }], ["buildHeatSummary", (v) => { buildHeatSummary = v; }], ["fmtTime", (v) => { fmtTime = v; }], ["HEAT_NAME", (v) => { HEAT_NAME = v; }]]); let createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon; __link.imp("src/ui/prep.js", [["createPrepScreen", (v) => { createPrepScreen = v; }], ["buildHubOffer", (v) => { buildHubOffer = v; }], ["siteBadge", (v) => { siteBadge = v; }], ["siteLines", (v) => { siteLines = v; }], ["contractTip", (v) => { contractTip = v; }], ["kindIcon", (v) => { kindIcon = v; }]]); let contractTitle; __link.imp("src/ui/ui-text.js", [["contractTitle", (v) => { contractTitle = v; }]]); let gateLine, closedRoadLine; __link.imp("src/ui/onboarding.js", [["gateLine", (v) => { gateLine = v; }], ["closedRoadLine", (v) => { closedRoadLine = v; }]]); let token; __link.imp("src/ui/theme.js", [["token", (v) => { token = v; }]]); __link.exp({ "TOO_FAR": () => TOO_FAR, "ROAD_FIRST": () => ROAD_FIRST, "nodeLevel": () => nodeLevel, "expNodeDesc": () => expNodeDesc, "createScreens": () => createScreens, "INN_ASK_SHARE": () => INN_ASK_SHARE, "nearlyFull": () => nearlyFull, "disarmSpyglass": () => disarmSpyglass, "expiringHere": () => expiringHere, "expiryText": () => expiryText, "trainerMeta": () => trainerMeta, "trainerIdle": () => trainerIdle, "buildMap": () => buildMap, "spreadAngles": () => spreadAngles, "vendorMeta": () => vendorMeta, "hallCost": () => hallCost });
+let h, add, clear, fmtNum, moneyEl, moneyText, clamp, lv, lvLearn, legacyShown, econShown; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["moneyText", (v) => { moneyText = v; }], ["clamp", (v) => { clamp = v; }], ["lv", (v) => { lv = v; }], ["lvLearn", (v) => { lvLearn = v; }], ["legacyShown", (v) => { legacyShown = v; }], ["econShown", (v) => { econShown = v; }]]); let spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon, deathblowIcon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["roleIcon", (v) => { roleIcon = v; }], ["deathblowIcon", (v) => { deathblowIcon = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }]]); let tip, itemTip, spellTip, hideTip, STAT_NAMES; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }], ["hide", (v) => { hideTip = v; }], ["STAT_NAMES", (v) => { STAT_NAMES = v; }]]); let conColor, heroPortrait, travelState; __link.imp("src/ui/hud.js", [["conColor", (v) => { conColor = v; }], ["heroPortrait", (v) => { heroPortrait = v; }], ["travelState", (v) => { travelState = v; }]]); let numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, trainerWaitingShort, econLine, BAGS_FULL; __link.imp("src/ui/ui-text.js", [["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["pct1", (v) => { pct1 = v; }], ["ROLE_INFO", (v) => { ROLE_INFO = v; }], ["humanize", (v) => { humanize = v; }], ["tolls", (v) => { tolls = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["trainerWaitingShort", (v) => { trainerWaitingShort = v; }], ["econLine", (v) => { econLine = v; }], ["BAGS_FULL", (v) => { BAGS_FULL = v; }]]); let createMeta, buildOaths, echoAmt; __link.imp("src/ui/meta.js", [["createMeta", (v) => { createMeta = v; }], ["buildOaths", (v) => { buildOaths = v; }], ["echoAmt", (v) => { echoAmt = v; }]]); let heatKey, previewBlock, costText, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME, dimsLine, arrivalLine, atArrival; __link.imp("src/ui/heat.js", [["heatKey", (v) => { heatKey = v; }], ["previewBlock", (v) => { previewBlock = v; }], ["costText", (v) => { costText = v; }], ["heatBadge", (v) => { heatBadge = v; }], ["buildHeatSummary", (v) => { buildHeatSummary = v; }], ["fmtTime", (v) => { fmtTime = v; }], ["HEAT_NAME", (v) => { HEAT_NAME = v; }], ["dimsLine", (v) => { dimsLine = v; }], ["arrivalLine", (v) => { arrivalLine = v; }], ["atArrival", (v) => { atArrival = v; }]]); let createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon; __link.imp("src/ui/prep.js", [["createPrepScreen", (v) => { createPrepScreen = v; }], ["buildHubOffer", (v) => { buildHubOffer = v; }], ["siteBadge", (v) => { siteBadge = v; }], ["siteLines", (v) => { siteLines = v; }], ["contractTip", (v) => { contractTip = v; }], ["kindIcon", (v) => { kindIcon = v; }]]); let contractTitle; __link.imp("src/ui/ui-text.js", [["contractTitle", (v) => { contractTitle = v; }]]); let gateLine, closedRoadLine; __link.imp("src/ui/onboarding.js", [["gateLine", (v) => { gateLine = v; }], ["closedRoadLine", (v) => { closedRoadLine = v; }]]); let token; __link.imp("src/ui/theme.js", [["token", (v) => { token = v; }]]); __link.exp({ "TOO_FAR": () => TOO_FAR, "ROAD_FIRST": () => ROAD_FIRST, "nodeLevel": () => nodeLevel, "expNodeDesc": () => expNodeDesc, "createScreens": () => createScreens, "INN_ASK_SHARE": () => INN_ASK_SHARE, "nearlyFull": () => nearlyFull, "disarmSpyglass": () => disarmSpyglass, "expiringHere": () => expiringHere, "expiryText": () => expiryText, "trainerMeta": () => trainerMeta, "trainerIdle": () => trainerIdle, "buildMap": () => buildMap, "spreadAngles": () => spreadAngles, "vendorMeta": () => vendorMeta, "hallCost": () => hallCost });
 yield;
 // Centre screens by phase: class select, hub/camp, zone map, node dialogs, loot, quest rewards,
 // vendor, trainer, shrine, rest, treasure and the run summary (its Killed by line names the killing blow, never an id).
@@ -32490,6 +32600,7 @@ function buildHub(v, ctx) {
   // blind panel 2026-11-13 (item 5): a little tighter, so the offer and the three services fit at 1366x768 (style.css .side)
   const body = h('div.body.col', { style: { padding: '1rem 1.6rem 1.2rem', gap: '.6rem' } });
   if (z.hubText || z.blurb) body.appendChild(h('div', { style: { font: 'italic 1.4rem var(--font-title)', color: 'var(--ink-dim)', marginBottom: '.2rem' } }, z.hubText || z.blurb));
+
   // the hub's contract offer (expedition.md 3.6; prep) first: it is only open before leaving the hub
   if (hubSwap.z !== z.idx) { hubSwap.swap = false; hubSwap.z = z.idx; hubSwap.taken = null; }
   const offer = buildHubOffer(v, ctx, hubSwap);
@@ -32508,7 +32619,11 @@ function buildHub(v, ctx) {
   if (p.talentPoints) body.appendChild(h('div.warn', { style: { fontSize: '1.25rem' } }, `You have ${p.talentPoints} unspent talent point${p.talentPoints > 1 ? 's' : ''}. Press N.`));
   const go = h('button.btn.primary.big', 'Set out');
   go.addEventListener('click', () => ctx.act({ type: 'LEAVE_HUB' }));
-  el.append(scrollCue(body), h('div.sfoot', h('span'), go)); // D150 item 10: no "Tolls so far" (the Furnace's number is the one)
+  // D163 (draft; engine-2026-11-20b recommendation 4): the toll carry-over on arrival in zone 2 or later, beside Set out (the
+  // body has no room to spare with a contract offer at 1366x768), while the meter still reads the arrival figure (a
+  // service's tolls change it; the log keeps the line)
+  const arr = atArrival(v.heat) ? arrivalLine(v.heat) : '';
+  el.append(scrollCue(body), h('div.sfoot', arr ? h('div.hubcarry', arr) : h('span'), go)); // D150 item 10: no "Tolls so far" (the Furnace's number is the one)
   return el;
 }
 
@@ -33155,8 +33270,11 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
   // `barred` and no heat preview; appending the missing preview threw, so the tooltip never showed. A barred node is no move
   if (m && !(m.barred || n.barred)) {
     box.appendChild(h('div.tt-line', m.via === 'enter' ? 'Click to enter' : 'Click to walk here'));
-    const pb = previewBlock(heatOf(ctx.view, act), ctx); // D150 item 6: "Costs 3 tolls." and a bonus line when there is one
+    const hp = heatOf(ctx.view, act);
+    const pb = previewBlock(hp, ctx); // D150 item 6: "Costs 3 tolls." and a bonus line when there is one
     if (pb) box.appendChild(pb);
+    const dl = m.via === 'enter' ? dimsLine(hp) : ''; // D163 (draft): the places the Dimming takes while inside
+    if (dl) box.appendChild(h('div.tt-line.xdims', dl));
   } else if (m && !gl) box.appendChild(h('div.tt-hint', 'Not here yet.')); // D150 item 23 (the gate line, when there is one, says more)
   else if (here) box.appendChild(h('div.tt-hint', 'You are here'));
   else if (!readOnly) box.appendChild(h('div.tt-warn', 'Not next to you'));
@@ -34162,7 +34280,7 @@ function timeline(events, prev, spells, scale = 1) {
 
 });
 __bundle.def("src/ui/director.js", function* (__ns, __link) {
-let wait, SkipToken, fmtNum, deepClone, lv, econShown; __link.imp("src/ui/util.js", [["wait", (v) => { wait = v; }], ["SkipToken", (v) => { SkipToken = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["deepClone", (v) => { deepClone = v; }], ["lv", (v) => { lv = v; }], ["econShown", (v) => { econShown = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let linkedText, dangerBanner, CONTROL_LOG, HEAT_WORDS, freeActionText, trainerWaiting, econLine; __link.imp("src/ui/ui-text.js", [["linkedText", (v) => { linkedText = v; }], ["dangerBanner", (v) => { dangerBanner = v; }], ["CONTROL_WORD", (v) => { CONTROL_LOG = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["freeActionText", (v) => { freeActionText = v; }], ["trainerWaiting", (v) => { trainerWaiting = v; }], ["econLine", (v) => { econLine = v; }]]); let timeline, roundPace, hitShare, STATUS_LABEL; __link.imp("src/ui/combat-feel.js", [["timeline", (v) => { timeline = v; }], ["roundPace", (v) => { roundPace = v; }], ["hitShare", (v) => { hitShare = v; }], ["STATUS_LABEL", (v) => { STATUS_LABEL = v; }]]); let CAST, themeToken; __link.imp("src/ui/theme.js", [["CAST", (v) => { CAST = v; }], ["token", (v) => { themeToken = v; }]]); let fillLine, rescueLeftLine; __link.imp("src/ui/onboarding.js", [["fillLine", (v) => { fillLine = v; }], ["rescueLeftLine", (v) => { rescueLeftLine = v; }]]); __link.exp({ "planMs": () => planMs, "makeInterim": () => makeInterim, "Director": () => Director, "hubWelcome": () => hubWelcome });
+let wait, SkipToken, fmtNum, deepClone, lv, econShown; __link.imp("src/ui/util.js", [["wait", (v) => { wait = v; }], ["SkipToken", (v) => { SkipToken = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["deepClone", (v) => { deepClone = v; }], ["lv", (v) => { lv = v; }], ["econShown", (v) => { econShown = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let linkedText, dangerBanner, CONTROL_LOG, HEAT_WORDS, freeActionText, trainerWaiting, econLine; __link.imp("src/ui/ui-text.js", [["linkedText", (v) => { linkedText = v; }], ["dangerBanner", (v) => { dangerBanner = v; }], ["CONTROL_WORD", (v) => { CONTROL_LOG = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["freeActionText", (v) => { freeActionText = v; }], ["trainerWaiting", (v) => { trainerWaiting = v; }], ["econLine", (v) => { econLine = v; }]]); let timeline, roundPace, hitShare, STATUS_LABEL; __link.imp("src/ui/combat-feel.js", [["timeline", (v) => { timeline = v; }], ["roundPace", (v) => { roundPace = v; }], ["hitShare", (v) => { hitShare = v; }], ["STATUS_LABEL", (v) => { STATUS_LABEL = v; }]]); let CAST, themeToken; __link.imp("src/ui/theme.js", [["CAST", (v) => { CAST = v; }], ["token", (v) => { themeToken = v; }]]); let fillLine, rescueLeftLine; __link.imp("src/ui/onboarding.js", [["fillLine", (v) => { fillLine = v; }], ["rescueLeftLine", (v) => { rescueLeftLine = v; }]]); let arrivalLine; __link.imp("src/ui/heat.js", [["arrivalLine", (v) => { arrivalLine = v; }]]); __link.exp({ "planMs": () => planMs, "makeInterim": () => makeInterim, "Director": () => Director, "hubWelcome": () => hubWelcome });
 yield;
 // Plays the events of one engine step as animation, then hands the new view to the HUD.
 // The DoT preview (view `dot`, engine-api.md 6.1) is the next decision's: the views shown while a round plays carry none.
@@ -34190,6 +34308,7 @@ yield;
 
  // not `token`: play() has its own SkipToken of that name
 
+ // D163: the toll carry-over on arrival (draft)
 
 const SCHOOL_PROJ = { fire: 'fire', frost: 'frost', arcane: 'arcane', shadow: 'shadow', nature: 'nature' };
 const SCHOOL_GLOW = CAST; // theme.js: the --fx-cast-* tokens (frost: --school-frost-text)
@@ -34734,6 +34853,7 @@ class Director {
     if (ctx.audio) ctx.audio.cue('arrive'); // a bell pair with the zone banner (audio.js)
     ctx.ui.banner(z.name, z.camp || z.idx > ctx.data.rules.zoneCount ? 'The last camp before the Sunken Observatory' : zoneLine(z, ctx.data.rules), 'zone', 2600);
     ctx.hud.log(`You arrive in ${z.name}.`, 'lg-sys');
+    const al = arrivalLine(next.heat); if (al) ctx.hud.log(al, 'lg-sys'); // D163 (draft): the toll carry-over, as on the hub
     await wait(settings.dur(900), token);
   }
 
