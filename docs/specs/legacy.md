@@ -85,7 +85,7 @@ Sized on what the simulator measures (section 6):
 | 24 | 4 100 | 69 800 | 28.3 | 7.55 / 6.45 |
 
 - In runs, at the measured XP per run (planner on today's tables): run 1 ends at level 4.4, run 2 at 7.5, run 3 at 10.0, run 4 at 12.2, run 5 at 14.2, run 8 at 19.1, run 13 at 25; with dungeons and elites 25 comes in run 11 [inference: the measured XP per run by level, chained]. About two and a half levels a run early, one and a half late.
-- The routes (section 3): the winning route reaches 25 in about 6.8-7.8 hours, the levelling route (the Camp farm) in about 5.6-6.2 [inference: the route rates of 6.4 over this table]; heat alone moves XP per hour by 2-3 %. Quick Study (4.2, +10 % at full) takes about 0.6-0.7 hours off for a player who buys it early.
+- The routes (section 3): the winning route reaches 25 in about 6.8-7.8 hours [inference: the route rates of 6.4 over this table]; heat alone moves XP per hour by 2-3 %. **(draft, D164, legacy-hall-v3-draft.md 6.3):** the levelling route's figure (the Camp farm, 5.6-6.2 hours) is gone with the farm (D161, 2.3). Quick Study (4.2, +10 % at full) takes about 0.6-0.7 hours off for a player who buys it early.
 
 ### 1.5 Death and the end of a run
 - A run ends at a death with no resurrect (rules 9), at Oruvath's death, or when the player abandons it from the menu (it ends as a death where the hero stands).
@@ -167,9 +167,12 @@ The old climb (level 1 to 60 across six zones) set the rise, and gear that ran a
 Measured with T2 (planner on today's tables, no Legacy bought): runs that die in zones 5-6 against zones 1-2, 7.4 % against 0.3 % at level 10, 17.4 % against 1.3 % at 15, 7.0 % against 1.0 % at 20; mean lowest HP of won fights falls from zone 1 to zone 6 by 12 points at level 10 and 18 at level 2, but only 2-3 points at 15 and 20. The planner that clears dungeons and elites feels it more: at level 10 its lowest HP falls 73 → 59 % and 14 % of its runs die in zones (L4, 7.2; the flat top end is the second tuning item of phase 1).
 The hero's own level-ups in a run (one and a half to two and a half, 1.4) help only until the next zone is set.
 
-### 2.3 Kept: the Furnace, the Dimming and the Roads; the Camp waves change
+### 2.3 Kept: the Furnace, the Dimming and the Roads; the Camp waves are a top-up
+(**draft**, D164: replaced by legacy-hall-v3-draft.md 6.2; not approved by the owner)
 - Unchanged: tolls, the Furnace's line and states, Ascendancy at Oruvath, heat rewards (rules 1.7), the Dimming with D152's steady pace, the Roads and the Homeward Bell (expedition.md 6-7), the lean first run (D152).
-- **Camp waves** become the levelling route's farm (section 3): at most CAMP_WAVE_MAX (10) per run, each paying CAMP_WAVE_XP_MULT (2) × its normal XP (the kills and the wave bonus), at the Camp's level, at 2 tolls each as today (so each wave also raises Oruvath's Ascendancy). They existed to reach level 60 before the boss; uncapped they would now be an endless farm. **(Economy v2, 4.7 E7, D161):** under the switch a Camp wave pays the E2 award × the rules 4.4 falloff past the Camp's level instead; CAMP_WAVE_MAX and CAMP_WAVE_XP_MULT are not built.
+- **Camp waves** (draft, replaces the second bullet of 2.3 and its Economy v2 tail; D161). A wave's XP, kills and wave bonus, is the E2 award (4.7) times min(1, diffMod(Z - L)): Z the Camp's level, fixed at arrival (the hero's power level plus CAMP_TIER 3); L the hero's power level when it is paid. A wave pays in full up to the Camp's level and falls as the hero passes it, to a tenth from 6 power levels past. There is no wave cap and no XP multiple: the fall-off is the cap. Each wave still costs 2 tolls (so it raises Oruvath's Ascendancy) and the hero's health and potions.
+- What it is for: the hero who arrives at the Camp one or two hero levels short of the next spell or talent point can close that gap at about the pace the run would have paid. It is not a route to level 25: a grind from hero 5 ends at about hero 11 and stops paying. Oruvath's fight and everything outside the Camp keep E2. The Legacy level line (20 a level, 4.1) pays the same per level as anywhere.
+- Not built: CAMP_WAVE_MAX, CAMP_WAVE_XP_MULT.
 
 ### 2.4 The Camp and Oruvath
 - The Camp's level is P(hero at arrival) + CAMP_TIER (3, zone 6's tier): its vendor's stock and its waves.
@@ -291,26 +294,26 @@ Every run pays two currencies the player keeps: **hero XP** (this hero's level) 
 ### 3.1 The winning route
 Plays for Oruvath: keeps tolls low (the Furnace Calm or Smouldering, so Oruvath has no Ascendancy), takes contracts and dungeons for gear, skips the Camp waves, answers the Deathblows. It is paid mostly in Legacy points (zones, dungeons, contracts, elites, Oruvath reached, his phases, the kill +120, the speed bonus +40, the first kill per class +100) and, from level 20, in set pieces (4.4).
 
-### 3.2 The levelling route
-Plays for the hero: farms the Camp waves (up to 10, double XP), runs Burning or Infernal where it can (+35 / +50 % XP), and meets a stronger Oruvath for it (each wave adds 2 tolls toward Ascendancy, and the waves cost HP and potions). It is paid mostly in hero XP, so the level-20 trees and sets come sooner, plus the Legacy level line (+20 a level).
+### 3.2 The levelling route: the heat route
+(**draft**, D164, legacy-hall-v3-draft.md 6.3; the Camp farm is gone, D161 and 2.3.) Plays for the hero: runs Burning or Infernal where it can (+35 / +50 % XP), clears dungeons and elites, and tops up at the Camp for a level or two (2.3), meeting a stronger Oruvath for it (each wave adds 2 tolls toward Ascendancy, and the waves cost HP and potions). Its edge over the winning route is about 1-3 % of XP an hour (heat alone, 6.4), not the 1.17-1.30 the Camp farm gave. It is paid mostly in hero XP, so the level-20 trees and sets come sooner, plus the Legacy level line (+20 a level). Owner question Q-R (draft, legacy-hall-v3-draft.md 6.3): whether a top-up and a heat bonus are enough of a second route; the team builds on R1 (as written here).
 
 ### 3.3 What each route earns, and what it gives up
 
 | | Hero XP | Legacy points | Items |
 |---|---|---|---|
 | Winning route | the run's nodes, contracts and dungeons | zone, dungeon, contract, elite and Oruvath lines; first kill per class; speed bonus | dungeon boss rolls, contract choices; set pieces from level 20 |
-| Levelling route | the run's nodes plus the Camp farm (double XP), heat | per hero level gained; XP past level 25; fights won in heat | Camp wave drops, heat's rarity steps |
-| Gives up | the Camp farm | Oruvath's lines, often (a stronger Oruvath) | the boss's set piece |
+| Levelling route | the run's nodes, heat, and a Camp top-up of a level or two (2.3) | per hero level gained; XP past level 25; fights won in heat | Camp wave drops, heat's rarity steps |
+| Gives up | heat's XP and the Camp top-up | Oruvath's lines, often (a stronger Oruvath) | the boss's set piece |
 
-Measured (6.4, planner, levels 10 and 20, on today's tables and on a warmed table): the Camp farm earns 1.17-1.30 × the winner's XP per hour; the winner earns 1.19-1.32 × the leveller's Legacy points per hour and wins 15-19 points more often (for example 37.7 against 19.3 % at level 10, 25.0 against 7.0 % at 20). So the winning route reaches 25 in about 6.8-7.8 hours and the levelling route in about 5.6-6.2, while the winner earns about a quarter more Legacy points an hour.
+Measured (6.4, planner, levels 10 and 20, on today's tables and on a warmed table): the winner earns 1.19-1.32 × the leveller's Legacy points per hour and wins 15-19 points more often (for example 37.7 against 19.3 % at level 10, 25.0 against 7.0 % at 20). So the winning route reaches 25 in about 6.8-7.8 hours. **(draft, D164, legacy-hall-v3-draft.md 6.3):** the Camp farm cells (1.17-1.30 × the winner's XP per hour, 5.6-6.2 hours to 25) no longer apply: the farm is gone (D161, 2.3).
 
 What did not work as a levelling route (6.4): heat alone (the leveller with the heat-seek time weight earns 1-3 % more XP per hour; the Dimming ends a zone before many nodes run Burning), a steeper road (every zone +2 power levels: +6 % XP per hour at level 10, none at 20, and Oruvath out of reach), and the Camp waves at normal XP (+7-10 %). XP per hour is set by the run's own structure; only a farm that pays above it makes a route.
 
 ### 3.4 Both must pay (target L2, 7.2)
-- (a) the leveller gains at least LEVEL_ROUTE_XP_MIN (1.15) × the winner's hero XP per hour;
+- (a) the leveller gains at least LEVEL_ROUTE_XP_MIN (1.00; **draft**, D164: was 1.15, the heat route is no worse; to be re-measured on the Economy v2 cells) × the winner's hero XP per hour;
 - (b) the winner earns at least WIN_ROUTE_LEGACY_MIN (1.10) × the leveller's Legacy points per hour and wins at least WIN_ROUTE_GAP_MIN (5 pp) more often;
 - (c) no route leads on both currencies per hour.
-Levers if a route falls short: CAMP_WAVE_XP_MULT and CAMP_WAVE_MAX for the leveller; the Oruvath lines and SET_DROP_CHANCE for the winner; LEGACY_PER_LEVEL between them.
+Levers if a route falls short: heat's XP and the Camp wave falloff's reference (owner question Q-R, R2) for the leveller; the Oruvath lines and SET_DROP_CHANCE for the winner; LEGACY_PER_LEVEL between them. (CAMP_WAVE_XP_MULT and CAMP_WAVE_MAX are gone, D161, 2.3; draft.)
 
 ---
 
@@ -590,7 +593,7 @@ New targets: section 7.2.
 1. **No zone exit level.** `expExitLevel` (10z) and the under-level penalty (SIM.EXP_UNDER_LEVEL_VALUE) go; the planner leaves by value against the Dimming. The greedy's "leave if L >= 10z - 2" becomes "leave when no reachable node beats GREEDY_STAY_THRESHOLD"; the speedrunner leaves after its target nodes; autoplay's map rule (rules 1.9.9 step 3) explores while a node is worth it, not while L < 10z.
 2. **A new risk table, warmed per hero cell.** The X0 tables were learned on the old climb, where dungeons and elites were mostly entered over-levelled. Read with them, the prototype's planner entered no dungeon and 0.3-0.45 elites a run (today 0.4-0.55 and 1.7-2.0). With a table warmed on 300 runs per class at level 10 it entered 0.9-1.1 dungeons and 2.7-4.2 elites a run and earned 11-19 % more XP an hour at levels 5-20; the same table read at levels 1-2 sent it into zones it could not survive (22 % reached Oruvath at level 2) [measured 6.3]. So each hero cell needs its own warm-up before L1-L3, L7 or the set pace are read (6.6 reading 5). **(sim, 2026-11-17)** Done per hero-level band (1-5, 6-10, 11-15, 16-20, 21-25; sim/tables/legacy/, 300 warm-up runs per class each): the planner enters 0.03 / 1.07 / 0.27 / 0.74 / 0.20 dungeons and 1.5 / 3.7 / 3.6 / 2.9 / 0.6 elites a run, runs dying in zones 16.7 / 14.7 / 17.5 / 14.3 / 5.2 %; band 21-25 is a low reading until item 3 is built (the planner rushes once the in-run level reaches 60). Report docs/reports/legacy-calibration-2026-11-17.md.
 3. **Hero XP has its own value.** VAL_HERO_XP (value units per 100 hero XP) on top of today's in-run level value: the winner values it at VAL_HERO_XP_WIN, the leveller at VAL_HERO_XP_LEVEL; at level 25 it is valued as the Legacy it converts to. Without it the planner rushes once in-run levels stop paying (the prototype's level-24 cell: 20-minute runs).
-4. **Camp:** no grind to level 60; the leveller takes the Camp waves to CAMP_WAVE_MAX, the winner goes to Oruvath.
+4. **Camp:** no grind to level 60; the leveller tops up at the Camp while a wave pays about the run's rate (2.3; draft, D164: there is no CAMP_WAVE_MAX), the winner goes to Oruvath.
 5. **Talents:** the first point goes to the group's default tree (balance.md 1.3), which stays the open tree; at level 20 the campaign opens the PALL group's default tree second, then the third; the build follows 1.3 within open trees.
 6. **Sets:** wear the banked pieces of the default tree's set first, then any.
 7. **Campaign v3:** one hero from level 1 for CAMPAIGN_V3_RUNS runs, buying in the order satchel, vigor 1, edge 1, quick_study 1, pockets, cartographer, quartermaster 1, old_hand, vigor 2, edge 2, swift_boots, technique I, quick_study 2, quartermaster 2, second_breath, technique II, and from level 20 the second tree, the Armoury, the third tree; reports hours to each level (L1), the win rate by hero level and by hour (L3), Legacy per hour, sets built (L7).
@@ -770,8 +773,6 @@ Order inside phase 1: engine (hero and zones), then sim (warmed tables, campaign
 | CL_MAX | 66 | highest content level (was MAX_LEVEL 60) (2.1) |
 | ILVL_MAX | 69 | item level (was 63) (2.1, 5.6) |
 | CAMP_TIER | 3 | power levels above the hero at the Camp (2.4) |
-| CAMP_WAVE_MAX | 10 | Camp waves per run (2.3) |
-| CAMP_WAVE_XP_MULT | 2 | × XP of a Camp wave's kills and bonus (2.3) |
 | BOSS_TIER | 5 | power levels of Oruvath above the hero (2.4) |
 | BOSS_REF_LEVEL | 62 | today's BOSS_LEVEL, the level his numbers are tuned at (2.4) |
 | BOSS_HP_LEVEL_BASE / BOSS_HP_LEVEL_STEP | 0.40 / 0.024 | Oruvath's and the Shards' HP × min(1, base + step × hero level) (2.4; replaced by BOSS_HP_LEVEL under 2.4.1) |
@@ -809,7 +810,7 @@ Order inside phase 1: engine (hero and zones), then sim (warmed tables, campaign
 | CAMPAIGN_V3_RUNS | 20 | runs per campaign v3 (5.8) |
 | HOURS_TO_MAX | 6-8 | hours (L1) |
 | FIRST_RUN_LEVEL | 4-5 | hero level at the end of the first run, median (L1) |
-| LEVEL_ROUTE_XP_MIN | 1.15 | × the winner's hero XP per hour (L2) |
+| LEVEL_ROUTE_XP_MIN | 1.00 | × the winner's hero XP per hour (L2); draft, D164 (was 1.15; the Camp farm is gone, D161) |
 | WIN_ROUTE_LEGACY_MIN | 1.10 | × the leveller's Legacy points per hour (L2) |
 | WIN_ROUTE_GAP_MIN | 0.05 | win-rate difference, winner - leveller (L2) |
 | FIRST_WIN_LEVEL | 8-13 | hero level at the first win, campaign median (L3) |
