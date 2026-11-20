@@ -74,7 +74,7 @@ export const QUESTS = {
   "giver": "Elder Wynne",
   "objective": "scout",
   "text": "Strange lights move among the straw men and the old stone sentinels at night. Go see what stirs them.",
-  "turnIn": "So the charm is stolen. That is worse than I feared.",
+  "turnIn": "A stolen charm, then. I will see it found. You have done enough.",
   "sizeWeights": [
    30,
    40,
@@ -142,7 +142,7 @@ export const QUESTS = {
   "giver": "Captain Brae",
   "objective": "scout",
   "text": "Smoke rises from the old Harrow manor, where thieves and straw figures shelter in the ruins. Learn who lit the fires.",
-  "turnIn": "Cultists in the cellars, and thieves above. We must act at once.",
+  "turnIn": "Cultists below and thieves above. I will send word to the wardens. Your part is done.",
   "sizeWeights": [
    30,
    40,
@@ -356,7 +356,7 @@ export const QUESTS = {
   "giver": "Surveyor Ansel",
   "objective": "scout",
   "text": "Something works the floodgates of the old weir at night. Look into the dam-keep and report.",
-  "turnIn": "So the weir is held. Then we must act.",
+  "turnIn": "Someone holds the weir from inside. That tells us plenty. Thank you.",
   "sizeWeights": [
    20,
    40,
@@ -390,7 +390,7 @@ export const QUESTS = {
   "giver": "Lorekeeper Ysolt",
   "objective": "scout",
   "text": "The old guardian stones are moving along the ridge, and shamans call the wind around them. Watch where they go and why.",
-  "turnIn": "They march toward Barrowdeep. This is troubling.",
+  "turnIn": "Toward Barrowdeep, then. We will watch that road from now on.",
   "sizeWeights": [
    30,
    40,
@@ -492,7 +492,7 @@ export const QUESTS = {
   "giver": "Lorekeeper Ysolt",
   "objective": "scout",
   "text": "No bell has rung from the Barrow road in a week, and the wind there carries chanting. Go and see what has silenced it.",
-  "turnIn": "A giant has torn up the cairns. We must warn the clans.",
+  "turnIn": "A giant tore up the cairns. The clans will hear of it by nightfall.",
   "sizeWeights": [
    30,
    40,
@@ -560,7 +560,7 @@ export const QUESTS = {
   "giver": "Scholar Neferu",
   "objective": "scout",
   "text": "Strange voices speak from the engraved walls near the old gate. Hear what they say.",
-  "turnIn": "The glyphs are waking. This is dire news.",
+  "turnIn": "The glyphs are waking. Better we know it now than later.",
   "sizeWeights": [
    30,
    40,
@@ -696,7 +696,7 @@ export const QUESTS = {
   "giver": "Brother Corvin",
   "objective": "scout",
   "text": "The stone penitents move at night and a woman is heard crying. Learn what binds them.",
-  "turnIn": "A broken vow. We must mend it.",
+  "turnIn": "A broken vow binds them. Now we know what to mend.",
   "sizeWeights": [
    30,
    40,
@@ -730,7 +730,7 @@ export const QUESTS = {
   "giver": "Warden Ysmay",
   "objective": "scout",
   "text": "A bell tolls from Dunmere Chapel where no ringer has lived for years. Find who rings it.",
-  "turnIn": "The dead hold service. This bodes ill.",
+  "turnIn": "The dead ring their own bell. Grim news, but I am glad to know it.",
   "sizeWeights": [
    40,
    40,
@@ -917,7 +917,7 @@ export const QUESTS = {
   "giver": "Scout Kettil",
   "objective": "scout",
   "text": "A fire cult has seized the old forge fortress. Learn their numbers and bring word.",
-  "turnIn": "So many. We need a plan.",
+  "turnIn": "So many? Then your count may save the garrison.",
   "sizeWeights": [
    30,
    40,
