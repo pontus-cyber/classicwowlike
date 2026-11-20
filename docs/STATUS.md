@@ -104,4 +104,5 @@ game.html at 91f9290 (tuning v6 engine, UX pass, the Furnace). Sent to the owner
 | 63 | 2026-11-19 14:50-17:50 | Economy v2 screens and D160 refund built behind ?legacy=1 (432743f, 9062ff5; 1 011 tests; 579 browser checks); game.html built (8aabfd4) | UI (Opus/high) | about 0.4M |
 | 64 | 2026-11-19 17:50-20:50 | Legacy 'level 8' deaths were a report quirk (power level) and seed 7, not a wall; bot Camp-grind rule, chest order, second-camp reload fixed (53e488e, d8e242f, be41f34); game.html 132deb0; daily report | QA (Opus/high) | about 0.2M |
 | 65 | 2026-11-19 20:50-23:50 | D161 Camp XP falloff (a0557a0; 1 014 tests); full-run --legacy --hero H (b10e961; H10 and H20 pass); game.html 0ebd513 | Engineer (Opus/high); QA (Sonnet/high) | about 0.37M |
-| 66 | 2026-11-19 23:50-02:50 | Autoplay quest level gate in Legacy (D162); sim report on hero-20 deaths in zones 2-4 | Engineer (Opus/medium); Sim (Sonnet/high) | running |
+| 66 | 2026-11-19 23:50-02:50 | D162 autoplay quest gate (aefefa4; quest deaths about halved; 1 016 tests); hero-20 deaths traced to autoplay policy, zones fine (e80c221); game.html 8018bc3 | Engineer (Opus/medium); Sim (Sonnet/high) | about 0.38M |
+| 67 | 2026-11-20 02:50-05:50 | Second blind Legacy check on Economy v2 (returning-player persona) | Blind tester (Fable/high) | running |
