@@ -6,7 +6,7 @@
  * (docs/specs/changes-m2-v3.md: zone danger, Second Breath not in the final fight, Ricochet Bolt at 40 %).
  *
  *   node tools/build.mjs --out /tmp/ui-game.html
- *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z]
+ *   node qa/browser/ui-regress.mjs [--file /tmp/ui-game.html] [--sizes 1366x768,1920x1080] [--shots dir] [--parts A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA]
  *
  * Every check drives the game's own controls: mouse clicks, hovers and keys on buttons, cards, map nodes,
  * the action bar, the bags and the Autoplay switch. window.__ui is used to read the view and to wait for
@@ -218,7 +218,7 @@ import { CONTENT } from '../../src/content/index.js';
 import { HEAT_WORDS, tolls, ECHO_LINE, deathblowKind, deathblowAnswers, sapWaitText } from '../../src/ui/ui-text.js';
 import { RANK as Q_RANK, DIM_NEAR as Q_DIM_NEAR, RETRIGGER_S as Q_RETRIGGER_S } from '../../src/ui/audio.js';
 import { MAP_LINES, fillLine } from '../../src/ui/onboarding.js'; // D143: the beat lines that wait for the map on screen
-import { trainerWaiting, trainerWaitingShort } from '../../src/ui/ui-text.js'; // blind round 2 (part U)
+import { trainerWaiting, trainerWaitingShort, BAGS_FULL } from '../../src/ui/ui-text.js'; // blind round 2 (part U); BAGS_FULL: blind Legacy v2
 import { TOO_FAR, ROAD_FIRST, vendorMeta } from '../../src/ui/screens.js';
 import { MAP_ESC } from '../../src/ui/app.js';
 import { nearestRoad, hopsText, UI_HINTS, NEAREST_ROAD_TAIL } from '../../src/ui/ui-text.js'; // newcomer check 2026-11-15 (part X)
@@ -231,7 +231,7 @@ const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] :
 const FILE = path.resolve(arg('--file', '/tmp/ui-game.html'));
 const SIZES = arg('--sizes', '1366x768,1920x1080').split(',').map((s) => s.split('x').map(Number));
 const SHOTS = arg('--shots', null);
-const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z').split(',');
+const PARTS = arg('--parts', 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA').split(',');
 const URL = pathToFileURL(FILE).href;
 const NEUTRAL = 'rgb(240, 224, 192)'; // label colour of map nodes that hold no fight
 const NBSP = /\u00a0/g;
@@ -5646,8 +5646,9 @@ async function partU(browser, W, H) {
       await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s1)); await idle(page);
       await page.evaluate(() => window.__ui.act({ type: 'UNEQUIP', slot: 'chest' })); await idle(page);
       const full = await page.evaluate(() => window.__ui.view().player.bag.every(Boolean));
-      const seen = await toastSeen(page, /^Bags full/); const logged = (await logLines(page)).some((l) => /^Your bags are full/.test(l));
-      check('U-full', 'the step that fills the last bag slot warns at once ("Bags full: ..." and a log line)', full && seen && logged, JSON.stringify({ full, logged, tt: await toasts(page) }));
+      // blind Legacy v2 (2026-11-20): one sentence for full bags (ui-text.js BAGS_FULL, draft)
+      const seen = await toastSeen(page, /^Your bags are full: equip, sell or discard something \(B\)\./); const logged = (await logLines(page)).includes(BAGS_FULL);
+      check('U-full', `the step that fills the last bag slot warns at once ("${BAGS_FULL}" as a toast and a log line)`, full && seen && logged, JSON.stringify({ full, logged, tt: await toasts(page) }));
       // an item waiting in the loot window with the bags full: "Equip now" on its row; Leave asks first, then drops it
       const s2 = R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT);
       const worn = Object.values(s2.player.equipped).find(Boolean);
@@ -6932,6 +6933,166 @@ async function partZ(browser, W, H) {
   }
 }
 
+// ------------------------------------------------------------------ part AA: blind Legacy v2, hall and bags (2026-11-20)
+/**
+ * Part AA: the hall and the bags of the second blind Legacy check (docs/feedback/2026-11-20-blind-legacy-returning-v2.md;
+ * BACKLOG 2026-11-20 "hall" and "bags and loot"), ?legacy=1 (economyV2 on). AA1 the hall of a Hunter profile owning Packed
+ * Satchel and Deeper Pockets: each Lost Technique card says its learn level on its face ("From hero level 9"; II: what it
+ * needs and "from hero level 17"), the level-20 wing says "Per hero" on its face, the card text is in view; "One unlock
+ * within reach." with exactly one Buy button enabled. AA2 the run end of that profile at 63 and at 8 Legacy points: "Next in
+ * the hall" names Cartographer 60 (the one unlock within reach), or "60 (52 more points)" with none (the bridge's nextHall,
+ * R.metaOffers of a Node END_RUN). AA3 full bags (seed 11 Rogue): the reward window's full-bags line is BAGS_FULL, Equip
+ * now's tooltip says the worn piece is left behind, Equip now leaves no "Items waiting" window and one line names the piece;
+ * an item waiting in the loot window: Leave's ask counts the rows it marks "left behind", and only those; a Take the bags
+ * cannot hold answers BAGS_FULL. AA4 a Hunter with an Intellect piece in the bags (stronger by item score than the worn
+ * one): no upgrade arrow in the bags, its tooltip says "Not an upgrade"; the Bags button's "+N items" never counts more than
+ * the bags hold along the way.
+ */
+async function partAA(browser, W, H) {
+  const was = { ...R.C.GATES }; Object.assign(R.C.GATES, { legacy: true, oruvathLegacy: true, economyV2: true });
+  try { await partAA0(browser, W, H); } finally { Object.assign(R.C.GATES, was); }
+}
+async function partAA0(browser, W, H) {
+  const hunter = (bal) => { let p = { ...R.newProfile(), runs: 3, guide: 'done', welcome: true, legacy: 500 }; p = R.buyMeta(p, 'satchel'); p = R.buyMeta(p, 'pockets'); p.legacy = bal; return R.debug.setHero(p, 'hunter', { level: 3, xp: 0 }); };
+  const auto = async (page, until, n = 300) => { for (let i = 0; i < n && !(await page.evaluate(until)); i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); } };
+  const nodeState = async (page) => R.deserialize(await page.evaluate(() => window.__ui.state()), CONTENT);
+  const load = async (page, s) => { await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s)); await idle(page); };
+  const fill = (s, free = 0) => { for (let k = 0; s.player.bag.length < R.bagCapacity(s) - free; k++) s.player.bag.push({ uid: `aj${k}`, kind: 'junk', id: 'junk', name: 'Bent Nail', rarity: 'poor', value: 1, qty: 1, level: 1 }); return s; };
+  // ---- AA1: the hall's cards
+  {
+    const { context, page, errors } = await openY(browser, W, H, 'legacy=1&prep=1&speed=instant&seed=5', { [Y_KEY]: JSON.stringify(hunter(63)) });
+    try {
+      await page.locator('#create .ccard[data-cls="hunter"]').click(); await idle(page);
+      await page.locator('#create .bottom .echoes').click(); await idle(page);
+      const hall = await page.evaluate(() => {
+        const win = document.querySelector('#meta .mbody').getBoundingClientRect();
+        const card = (id) => { const c = document.querySelector(`#meta .mcard[data-id="${id}"]`); const q = c && c.querySelector('.mc-req'); const r = q && q.getBoundingClientRect(); const cr = c && c.getBoundingClientRect();
+          return c ? { req: q ? q.innerText.replace(/\s+/g, ' ').trim() : null, fx: c.querySelector('.mc-fx').innerText, seen: !!r && r.height > 0 && r.top >= cr.top - 0.5 && r.bottom <= cr.bottom + 0.5 && r.top >= win.top - 0.5 && r.bottom <= win.bottom + 0.5 } : null; };
+        return { ids: ['sp_r1', 'sp_m1', 'sp_h1', 'sp_r2', 'sp_m2', 'sp_h2', 'tree2', 'tree3', 'vigor', 'cartographer'].map((id) => [id, card(id)]), tick: document.querySelector('#meta .mtick').innerText.trim(),
+          enabled: [...document.querySelectorAll('#meta .mcard .buy')].filter((b) => !b.disabled).map((b) => b.dataset.id) };
+      });
+      const c = Object.fromEntries(hall.ids);
+      await shot(page, 'AA1-hall');
+      const l1 = R.learnLevel({ legacy: true }, 'ricochet_bolt'); const l2 = R.learnLevel({ legacy: true }, R.C.META.sp_h2.spell);
+      check('AA-1', `each Lost Technique I card says "From hero level ${l1}" on its face, in view (s0564)`, ['sp_r1', 'sp_m1', 'sp_h1'].every((id) => c[id] && c[id].req === `From hero level ${l1}` && c[id].seen), JSON.stringify(hall.ids.slice(0, 3)));
+      check('AA-1', `each Lost Technique II card: "Needs Lost Technique I (class) · from hero level ${l2}" on its face`,
+        [['sp_r2', 'Rogue'], ['sp_m2', 'Mage'], ['sp_h2', 'Hunter']].every(([id, cl]) => c[id] && c[id].req === `Needs Lost Technique I (${cl}) · from hero level ${l2}` && c[id].seen), JSON.stringify(hall.ids.slice(3, 6)));
+      check('AA-1', 'the level-20 trees say "Per hero" and "From hero level 20" on their faces; entries without a condition show none',
+        ['tree2', 'tree3'].every((id) => c[id] && /Per hero\./.test(c[id].fx) && c[id].req.startsWith(`From hero level ${R.C.TREE_OPEN_LEVEL}`)) && c.vigor.req === null && c.cartographer.req === null, JSON.stringify([c.tree2, c.tree3, c.vigor.req, c.cartographer.req]));
+      check('AA-1', 'with 63 points "One unlock within reach." and exactly that one Buy button enabled (Cartographer)', hall.tick === 'One unlock within reach.' && hall.enabled.join(',') === 'cartographer', JSON.stringify({ tick: hall.tick, enabled: hall.enabled }));
+    } catch (e) { await shot(page, 'AA1-error'); check('AA-1', 'part AA1 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('AA-1', 'part AA1: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- AA2: the run end's next hall entry at 63 and at 8 points
+  for (const bal of [63, 8]) {
+    const { context, page, errors } = await openY(browser, W, H, 'legacy=1&prep=1&speed=instant&seed=5', { [Y_KEY]: JSON.stringify(hunter(bal)) });
+    try {
+      await page.locator('#create .ccard[data-cls="hunter"]').click(); await idle(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await auto(page, () => window.__ui.view().phase !== 'PREP', 10);
+      await page.getByRole('button', { name: 'Menu and settings' }).first().click(); await idle(page);
+      const ab = page.locator('#win-settings .setrow.abandon button');
+      await ab.click(); await idle(page); await ab.click(); await idle(page);
+      for (let i = 0; i < 20 && (await page.evaluate(() => window.__ui.view().phase)) !== 'SUMMARY'; i++) await idle(page);
+      const pAfter = R.step(await nodeState(page), { type: 'END_RUN' }).state.result.profile;
+      const next = yNextHall(pAfter, 'hunter'); const reach = R.metaOffers(pAfter).filter((o) => o.affordable).length;
+      const sv = await page.evaluate(() => ({ bal: (document.querySelector('.summary .s-balance') || {}).innerText || null, reach: [...document.querySelectorAll('.summary .card .muted')].map((x) => x.innerText).find((t) => /unlock|Keep them/.test(t)) || null,
+        fits: (() => { const e = document.querySelector('.summary .s-balance'); if (!e) return false; const r = e.getBoundingClientRect(); return r.height > 0 && r.bottom <= innerHeight + 1; })() }));
+      await shot(page, `AA2-summary-${bal}`);
+      const want = econFill('run_balance', { legacy: pAfter.legacy, next: next.name, cost: next.cost });
+      const wantReach = reach ? `Legacy points buy lasting unlocks between runs. ${reach === 1 ? 'One' : String(reach)} ${reach === 1 ? 'unlock' : 'unlocks'} within reach.` : 'Legacy points buy lasting unlocks between runs. Keep them for the next one.';
+      check('AA-2', `the run end with ${pAfter.legacy} Legacy points: "${want}" (${bal >= 60 ? 'the one unlock within reach' : 'none within reach: how far off'}), and the reach line agrees (s0382, s0561, s0596)`,
+        sv.bal === want && sv.reach === wantReach && sv.fits && (bal >= 60 ? next.cost === 60 && reach === 1 : /\(\d+ more points\)$/.test(String(next.cost)) && reach === 0), JSON.stringify({ sv, want, wantReach }));
+    } catch (e) { await shot(page, `AA2-error-${bal}`); check('AA-2', `part AA2 (${bal}) ran to the end`, false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('AA-2', `part AA2 (${bal}): no console errors`, errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- AA3: full bags: the reward window, Equip now, the loot window's Leave, a Take refused
+  {
+    const { context, page, errors } = await openY(browser, W, H, 'legacy=1&prep=1&speed=instant&guide=0&seed=11', {});
+    try {
+      await page.evaluate(() => { window.__aaT = []; new MutationObserver(() => { for (const t of document.querySelectorAll('#toasts .toast')) if (!window.__aaT.includes(t.innerText)) window.__aaT.push(t.innerText); }).observe(document.body, { childList: true, subtree: true }); });
+      await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await auto(page, () => { const v = window.__ui.view(); return v.phase === 'SUMMARY' || !!(v.loot && v.loot.kind !== 'loot' && document.querySelector('#screens .choice-cards .eqnow')); }, 600);
+      const base = await nodeState(page);
+      if (!(base.node && base.node.stage === 'reward')) throw new Error(`no quest reward with Equip now (${base.phase})`);
+      await load(page, fill(R.deserialize(R.serialize(base), CONTENT)));
+      const card = await page.evaluate(() => { const b = document.querySelector('#screens .choice-cards .eqnow'); return b ? [...document.querySelectorAll('#screens .choice-cards .icard')].indexOf(b.closest('.icard')) : -1; });
+      if (card < 0) throw new Error('no Equip now with full bags');
+      const it = base.node.rewards[0].items[card]; const old = base.player.equipped[it.slot];
+      const warn = await page.locator('#screens .bfull').allInnerTexts();
+      const tt = await tipText(page, page.locator('#screens .choice-cards .icard').nth(card));
+      await shot(page, 'AA3-reward-full-bags');
+      check('AA-3', 'the reward window with full bags says the one full-bags sentence; Equip now\'s tooltip says the worn piece is left behind',
+        warn.length === 1 && warn[0] === BAGS_FULL && (!old || tt.includes(`your bags are full, so your ${old.name} is left behind`)), JSON.stringify({ warn, tt: tt.slice(-160) }));
+      await page.locator('#screens .choice-cards .eqnow').first().click(); await idle(page);
+      const f = await nodeState(page);
+      const win = await page.evaluate(() => ({ loot: (() => { const v = window.__ui.view(); return v.loot ? v.loot.title : null; })(), dom: !!document.querySelector('#screens .loot'), log: [...document.querySelectorAll('#combatlog .lines div')].map((x) => x.innerText).slice(-6), toasts: window.__aaT }));
+      await shot(page, 'AA3-equip-now-full-bags');
+      const line = old ? `Your old ${old.name} is left behind (no room in your bags).` : null;
+      check('AA-3', 'Equip now with full bags: the reward is worn, no "Items waiting" window follows, one line names the piece left behind (s0318, s0518, s0546)',
+        f.player.equipped[it.slot] && f.player.equipped[it.slot].uid === it.uid && !(f.loot || []).length && win.loot !== 'Items waiting' && !(win.loot === null && win.dom) && (!line || (win.log.includes(line) && win.toasts.includes(line))), JSON.stringify({ worn: f.player.equipped[it.slot] && f.player.equipped[it.slot].uid, want: it.uid, loot: f.loot && f.loot.length, win }));
+      // the loot window: one item waiting with full bags; Leave marks what it leaves
+      await auto(page, () => { const v = window.__ui.view(); return v.phase === 'MAP' && !v.loot; }, 80);
+      const s2 = fill(await nodeState(page));
+      const worn = Object.values(s2.player.equipped).find(Boolean);
+      s2.loot = [{ ...JSON.parse(JSON.stringify(worn)), uid: 'aa-loot', name: `${worn.name} (spare)` }];
+      await load(page, s2);
+      const take = await page.evaluate(async () => { const v = window.__ui.view(); const r = await window.__ui.act({ type: 'LOOT_TAKE', i: v.loot.items.findIndex((x) => x.uid === 'aa-loot') }); return r ? r.error : null; });
+      const foot = await page.locator('.loot .foot .bfull').innerText().catch(() => null);
+      const leave = page.locator('.loot .foot').getByRole('button', { name: 'Leave' });
+      await leave.click(); await idle(page);
+      const ask = await page.evaluate(() => ({ ask: (document.querySelector('.loot .foot .lleave') || {}).innerText || null, rows: document.querySelectorAll('.loot .lrow').length, leaving: [...document.querySelectorAll('.loot .lrow.leaving')].map((r) => [r.dataset.uid, r.innerText.includes('left behind')]) }));
+      await shot(page, 'AA3-loot-leave-ask');
+      check('AA-3', 'a Take the bags cannot hold answers the one full-bags sentence; the loot window\'s foot says it too', take === BAGS_FULL && foot === BAGS_FULL, JSON.stringify({ take, foot }));
+      check('AA-3', 'Leave asks for exactly the rows it marks "left behind" (s0478)', ask.ask === 'Leave 1 item behind? Click Leave again.' && ask.leaving.length === 1 && ask.leaving[0][0] === 'aa-loot' && ask.leaving[0][1], JSON.stringify(ask));
+      await leave.click(); await idle(page);
+      const after = await nodeState(page);
+      check('AA-3', 'and the second click leaves it', !(after.loot || []).length, JSON.stringify(after.loot));
+    } catch (e) { await shot(page, 'AA3-error'); check('AA-3', 'part AA3 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('AA-3', 'part AA3: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+  // ---- AA4: a Hunter's Intellect piece; the "+N items" note along a run
+  {
+    const { context, page, errors } = await openY(browser, W, H, 'legacy=1&prep=1&speed=instant&guide=0&seed=9', { [Y_KEY]: JSON.stringify(hunter(0)) });
+    try {
+      await page.locator('#create .ccard[data-cls="hunter"]').click(); await idle(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      let worst = null; let notes = 0;
+      for (let i = 0; i < 260; i++) {
+        const v = await page.evaluate(() => { const x = window.__ui.view(); const e = document.querySelector('#micromenu .mm-new'); return { phase: x.phase, bag: x.player ? x.player.bag.filter(Boolean).length : 0, note: e && !e.classList.contains('hidden') ? e.textContent : null }; });
+        if (v.phase === 'SUMMARY') break;
+        const n = v.note ? Number((/^\+(\d+) items?$/.exec(v.note) || [])[1]) : 0;
+        if (v.note) notes++;
+        if (!(n <= v.bag) && !worst) worst = { step: i, ...v };
+        await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page);
+      }
+      check('AA-4', 'the Bags button\'s "+N items" never counts more than the bags hold (s0313, s0511)', notes > 0 && !worst, JSON.stringify({ notes, worst }));
+      await auto(page, () => { const v = window.__ui.view(); return v.phase === 'SUMMARY' || (['MAP', 'ZONE_HUB'].includes(v.phase) && !v.loot && !v.combat); }, 100);
+      const s = await nodeState(page);
+      if (s.phase === 'ENDED') throw new Error('the run ended before the Intellect check');
+      const slot = ['chest', 'legs', 'head', 'hands', 'feet'].find((k) => s.player.equipped[k]);
+      const w = s.player.equipped[slot];
+      const codex = { ...JSON.parse(JSON.stringify(w)), uid: 'aa-int', name: 'Test Mirewater Vestment', stats: { STA: (w.stats.STA || 0) + 6, AGI: 0, INT: 8, SPI: 0 } };
+      s.player.bag = s.player.bag.filter((x) => x.kind !== 'gear').slice(0, R.bagCapacity(s) - 1); s.player.bag.push(codex);
+      if (!(R.itemScore(codex, 'hunter') > R.itemScore(w, 'hunter'))) throw new Error('the test piece does not out-score the worn one');
+      await load(page, s);
+      await page.keyboard.press('KeyB'); await idle(page);
+      const slotEl = page.locator('#win-bags .slot[data-uid="aa-int"]');
+      const arrow = await slotEl.locator('.upg').count();
+      const tt = await tipText(page, slotEl);
+      await shot(page, 'AA4-int-piece');
+      check('AA-4', `a Hunter's Intellect ${slot} piece with a higher item score than the worn one: no upgrade arrow in the bags, its tooltip says "Not an upgrade" (s0502)`,
+        arrow === 0 && tt.includes('Not an upgrade: Agility is the Hunter\'s main stat') && !tt.includes('▲ Upgrade'), JSON.stringify({ arrow, tt: tt.replace(/\n/g, ' / ') }));
+    } catch (e) { await shot(page, 'AA4-error'); check('AA-4', 'part AA4 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('AA-4', 'part AA4: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
+}
+
 /** fmtNum's digits with a plain space between thousands (the game's thin space: texts compared after \s+ to ' '). */
 const fmtN = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
@@ -6963,6 +7124,7 @@ for (const [W, H] of SIZES) {
   if (PARTS.includes('X')) await partX(browser, W, H);
   if (PARTS.includes('Y')) await partY(browser, W, H);
   if (PARTS.includes('Z')) await partZ(browser, W, H);
+  if (PARTS.includes('AA')) await partAA(browser, W, H);
 }
 await browser.close();
 const bad = results.filter((r) => !r.ok);

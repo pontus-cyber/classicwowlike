@@ -36,7 +36,7 @@ import { enemyLook } from './art-actors.js';
 // telegraph colours (tokens.css --fx-tele-*): a heavy blow in orange (the target ring is red), a cast in its school's colour
 // (an unknown school: magic's), a wind-up in ember red
 import { TELE, TELE_CAST } from './theme.js';
-import { HEAT_WORDS, tolls } from './ui-text.js';
+import { HEAT_WORDS, tolls, BAGS_FULL } from './ui-text.js';
 
 export class App {
   constructor() {
@@ -382,8 +382,10 @@ export class App {
   noteBagLoot(events, action) {
     const t = action ? (action.type === 'ENGINE' ? action.action.type : action.type) : null;
     if (t === 'START_RUN' || t === 'END_RUN') { this.hud.noteNewItems(0); return; }
-    const n = (events || []).filter((e) => e.t === 'gotItem' && e.to === 'bag').length;
-    if (n && !this.windows.isOpen('bags')) this.hud.noteNewItems(n);
+    // blind Legacy v2 (2026-11-20, s0313): counted by item, and only while the item is still in the bags
+    const uids = this.windows.isOpen('bags') ? [] : (events || []).filter((e) => e.t === 'gotItem' && e.to === 'bag').map((e) => e.uid);
+    const p = this.bridge.view && this.bridge.view.player;
+    this.hud.noteNewItems(uids, p ? p.bag : []);
   }
   /**
    * Blind round 2 (skipper s0161-s0166: loot lost with full bags, no warning): the step that fills the last bag slot says
@@ -393,8 +395,8 @@ export class App {
     const free = (v) => (v && v.player ? v.player.bag.filter((x) => !x).length : null);
     const a = free(prev); const b = free(next);
     if (a == null || b == null || a === 0 || b !== 0 || next.phase === 'SUMMARY') return;
-    this.toast('Bags full: make room (B) or new loot is left behind', 'warn');
-    this.hud.log('Your bags are full. New loot waits in the loot window until you make room.', 'lg-sys');
+    this.toast(BAGS_FULL, 'warn'); // blind Legacy v2 (2026-11-20): one sentence for full bags (ui-text.js BAGS_FULL, draft)
+    this.hud.log(BAGS_FULL, 'lg-sys');
   }
 
   /**

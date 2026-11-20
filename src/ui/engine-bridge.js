@@ -288,7 +288,8 @@ const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 // a reason names spells by name (QA playtest 2026-11-13, finding 5): the engine's may carry a spell id ("severing_flourish
 // needs a combo point" reads "Severing Flourish needs a combo point")
 const SPELL_IDS = new RegExp(`\\b(${Object.keys(R.C.SPELL).sort((a, b) => b.length - a.length).join('|')})\\b`, 'g');
-const reasonOf = (err) => { const m = String((err && err.message) || err || ''); const i = m.lastIndexOf(': '); return cap((i >= 0 ? m.slice(i + 2) : m).replace(SPELL_IDS, (id) => R.C.SPELL[id].name)); };
+// blind Legacy v2 (2026-11-20): the engine's "bag is full (DISCARD or LOOT_DROP)" reads as the one full-bags sentence
+const reasonOf = (err) => { const m = String((err && err.message) || err || ''); const i = m.lastIndexOf(': '); const r = i >= 0 ? m.slice(i + 2) : m; return /^bag is full\b/.test(r) ? TXT.BAGS_FULL : cap(r.replace(SPELL_IDS, (id) => R.C.SPELL[id].name)); };
 /**
  * A cast refused for its cost, in the player's words (blind panel 2026-11-13: "Not enough resource for X" read as nothing):
  * "Not enough energy for Gutting Jab: it costs 40, you have 30" (the engine's cost, R.spellCost, and the fight's resource).
@@ -1387,7 +1388,7 @@ function engineBackend(seedOpt, runOpts = {}) {
         // Legacy (legacy.md 1.3; UI need 4): XP past level 25 pays one more level line at the run's end (draft line)
         case 'heroMax': out.push({ t: 'msg', text: `Past level ${C.HERO_MAX_LEVEL}: +${C.LEGACY_PER_LEVEL} Legacy points at the end of the run.`, kind: 'good' }); break;
         case 'gold': if (e.amount > 0 && e.why !== 'sell') out.push({ t: 'gold', amount: e.amount, why: e.why, heat: e.heat || 0 }); break; // a sale says its price itself
-        case 'loot': out.push({ t: 'gotItem', name: e.item.name || (C.CONSUMABLE[e.item.id] || {}).name || 'item', rarity: e.item.rarity || 'common', to: e.to, heatUp: local.heatUp.get(e.item.uid) || null }); break;
+        case 'loot': out.push({ t: 'gotItem', uid: e.item.uid, name: e.item.name || (C.CONSUMABLE[e.item.id] || {}).name || 'item', rarity: e.item.rarity || 'common', to: e.to, heatUp: local.heatUp.get(e.item.uid) || null }); break;
         case 'victory': out.push({ t: 'victory' }); break;
         // Legacy (draft line); bugs 2026-11-19 (s0236, s0247): a log line only, no toast over the summary
         case 'abandon': out.push({ t: 'msg', text: 'You abandon the run.', kind: 'info', quiet: true }); break;
@@ -1524,9 +1525,23 @@ function engineBackend(seedOpt, runOpts = {}) {
   function step(action) {
     const prev = view();
     const events = [];
+    const tail = []; // UI events said after the step's own (convEvents)
     try {
       switch (action.type) {
         case 'ENGINE': apply(action.action, events); break;
+        case 'CHOOSE_REWARD': {
+          apply(translate(action), events);
+          // blind Legacy v2 (2026-11-20, s0318, s0518, s0546): Equip now on a reward with full bags put the worn piece in
+          // the loot window, a second "Items waiting" window after every reward. Equip now is offered only for an upgrade
+          // (or an empty slot), so the piece it replaces is left behind at once, and one line says so (draft wording)
+          const eq = action.equip ? events.find((e) => e.t === 'equip' && e.old) : null;
+          const old = eq && (st.loot || []).find((x) => x.uid === eq.old);
+          if (old && R.isLegal(st, { type: 'LOOT_DROP', itemId: old.uid })) {
+            apply({ type: 'LOOT_DROP', itemId: old.uid }, events);
+            tail.push({ t: 'msg', text: `Your old ${old.name || 'item'} is left behind (no room in your bags).`, kind: 'info', replaced: old.uid });
+          }
+          break;
+        }
         case 'AUTO': {
           // test / bot helper: first close presentation windows, then let the engine pick
           if (local.hold && local.hold.node.step === 'chest') return step({ type: 'OPEN_CHEST' });
@@ -1563,7 +1578,7 @@ function engineBackend(seedOpt, runOpts = {}) {
         case 'LOOT_TAKE_ALL': {
           let left = 0;
           for (const it of [...(st.loot || [])]) { if (R.isLegal(st, { type: 'LOOT_TAKE', itemId: it.uid })) apply({ type: 'LOOT_TAKE', itemId: it.uid }, events); else left++; }
-          if (left) { const ce = convEvents(prev, events, st); ce.push({ t: 'msg', text: 'Your bags cannot hold everything: equip, drop or discard first.', kind: 'warn' }); return { ok: true, events: ce }; }
+          if (left) { const ce = convEvents(prev, events, st); ce.push({ t: 'msg', text: TXT.BAGS_FULL, kind: 'warn' }); return { ok: true, events: ce }; }
           local.spoils = null;
           break;
         }
@@ -1658,9 +1673,9 @@ function engineBackend(seedOpt, runOpts = {}) {
     if (local.hold && local.hold !== hold0 && local.hold.node.step === 'chest') {
       const inChest = (e) => e.t === 'loot' || e.t === 'trap' || (e.t === 'gold' && e.why === 'treasure');
       local.hold.held = events.filter(inChest);
-      return { ok: true, events: convEvents(prev, events.filter((e) => !inChest(e)), st) };
+      return { ok: true, events: [...convEvents(prev, events.filter((e) => !inChest(e)), st), ...tail] };
     }
-    return { ok: true, events: convEvents(prev, events, st) };
+    return { ok: true, events: [...convEvents(prev, events, st), ...tail] };
   }
 
   /** Presentation holds after a step: spoils window, rest screen, unopened chest. */
@@ -1912,6 +1927,24 @@ function engineBackend(seedOpt, runOpts = {}) {
   };
 }
 
+/**
+ * The upgrade arrow of a gear item (loot rows, reward cards, bag slots, the item tooltip): { up, diff, empty, off }. diff:
+ * its item score (R.itemScore) above the piece worn in its slot; empty: nothing is worn there. Blind Legacy v2 (2026-11-20,
+ * s0502): `off`, it carries a main stat (Agility, Intellect) that is not the class's and none of the class's own (a
+ * Hunter's Intellect codex): never an upgrade. up: not worn, not off, and a higher score or an empty slot. Pure.
+ * it, eq: view items (or null); primary: the class's main stat as the view names it ('agi', 'int'); score: item -> number.
+ */
+export function upgradeInfo(it, eq, primary, score) {
+  if (!it || it.kind !== 'gear') return { up: false, diff: 0, empty: false, off: false };
+  const st = it.stats || {};
+  const off = !!primary && !(st[primary] > 0) && MAIN_STATS.some((k) => k !== primary && st[k] > 0);
+  const worn = !!eq && eq.uid === it.uid;
+  const diff = score(it) - score(eq);
+  return { up: !worn && !off && (diff > 0 || !eq), diff, empty: !eq, off };
+}
+/** The main stats a class can have (C.CLASS primary, as the view names them). */
+const MAIN_STATS = ['agi', 'int'];
+
 // ====================================================================================== bridge
 export class Bridge {
   constructor(backend) {
@@ -1939,6 +1972,13 @@ export class Bridge {
   autoAction() { return this.backend.autoAction(); }
   describeSpell(id, target = null) { return this.backend.describeSpell(id, target); }
   itemScore(item) { return this.backend.itemScore(item); }
+  /** The upgrade arrow of a gear item against the piece worn in its slot now (upgradeInfo). */
+  upgrade(item) {
+    const p = this._view && this._view.player;
+    if (!p || !item) return { up: false, diff: 0, empty: false, off: false };
+    const cls = this.data && this.data.classes && this.data.classes[p.classId];
+    return upgradeInfo(item, p.equip[item.slot] || null, cls ? cls.primary : null, (x) => this.itemScore(x));
+  }
   /** Test hook: the engine actions applied to the run (engine mode), or [] (mock). */
   engineLog() { return this.backend.engineLog ? this.backend.engineLog() : []; }
   /** Test hook: replace the run with a serialized engine state (engine mode; false in mock mode). Listeners see the new view. */

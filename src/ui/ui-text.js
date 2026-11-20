@@ -19,6 +19,11 @@ export function econLine(texts, id, vars = {}) {
   return raw.replace(/\{(\w+)\}/g, (m, k) => (vars[k] === undefined || vars[k] === null ? m : typeof vars[k] === 'number' ? fmtN(vars[k]) : String(vars[k])))
     .replace(/(^|[^\d\s])(\s?)\b1 (contract|camp point|spell|Legacy point)s\b/g, '$1$2' + '1 $3');
 }
+/**
+ * Blind Legacy v2 (2026-11-20; BACKLOG "bags and loot"): one sentence for full bags everywhere (the loot and reward
+ * windows, the toast and log line when the bags fill, a Take the bags cannot hold). Draft, for the owner and content.
+ */
+export const BAGS_FULL = 'Your bags are full: equip, sell or discard something (B).';
 /** "3 camp points" (Economy v2, one name: legacy.md 4.7 E6.1). */
 export const campPoints = (n) => `${n} camp ${n === 1 ? 'point' : 'points'}`;
 

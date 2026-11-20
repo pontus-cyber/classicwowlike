@@ -159,17 +159,21 @@ export function itemTip(item, ctx, opts = {}) {
     for (const k of ['power', 'crit']) if (s[k]) box.appendChild(h('div.tt-line.affix', `Equip: ${statLine(k, s[k])}`));
     if (item.effectText) box.appendChild(h('div.tt-line.affix', item.effectText));
     const eq = ctx.view.player && ctx.view.player.equip[item.slot];
+    // blind Legacy v2 (2026-11-20, s0502): an item with another class's main stat is never called an upgrade (bridge
+    // upgradeInfo `off`); the line says why (draft wording)
+    const U = ctx.bridge.upgrade ? ctx.bridge.upgrade(item) : { off: false };
+    const offLine = () => { const p = ctx.view.player; const c = p && d.classes && d.classes[p.classId]; return h('span.down', `Not an upgrade: ${c ? `${STAT_NAMES[c.primary]} is the ${c.name}'s main stat` : 'not your main stat'}`); };
     if (opts.compare !== false && eq && eq.uid !== item.uid) {
       const a = ctx.bridge.itemScore(item); const b = ctx.bridge.itemScore(eq);
       const diff = Math.round((a - b) * 10) / 10;
-      box.appendChild(h('div.tt-compare', diff > 0 ? h('span.up', `▲ Upgrade (+${diff} item score)`) : diff < 0 ? h('span.down', `▼ Weaker than ${eq.name} (${diff})`) : h('span', 'Same item score as equipped')));
+      box.appendChild(h('div.tt-compare', U.off ? offLine() : diff > 0 ? h('span.up', `▲ Upgrade (+${diff} item score)`) : diff < 0 ? h('span.down', `▼ Weaker than ${eq.name} (${diff})`) : h('span', 'Same item score as equipped')));
       const deltas = [];
       for (const k of ['wd', 'armor', 'sta', 'agi', 'int', 'spi', 'power', 'crit']) {
         const dv = (item.stats[k] || 0) - (eq.stats[k] || 0);
         if (Math.abs(dv) > 1e-6) deltas.push(h('span.' + (dv > 0 ? 'up' : 'down'), `${dv > 0 ? '+' : ''}${k === 'crit' ? (dv * 100).toFixed(1) + ' %' : fmtNum(dv)} ${STAT_NAMES[k]}`));
       }
       if (deltas.length) box.appendChild(h('div.tt-deltas', deltas));
-    } else if (opts.compare !== false && !eq && ctx.view.player) box.appendChild(h('div.tt-compare', h('span.up', '▲ Empty slot: an upgrade')));
+    } else if (opts.compare !== false && !eq && ctx.view.player) box.appendChild(h('div.tt-compare', U.off ? offLine() : h('span.up', '▲ Empty slot: an upgrade')));
   } else if (item.kind === 'consumable') {
     const c = d.consumables[item.id];
     if (c) box.appendChild(h('div.tt-line.use', c.text));

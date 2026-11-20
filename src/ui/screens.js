@@ -26,7 +26,7 @@ import { spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon, deathblo
 import { drawPortrait, HERO_LOOKS, PET_LOOKS } from './art-actors.js';
 import { tip, itemTip, spellTip, hide as hideTip, STAT_NAMES } from './tooltip.js';
 import { conColor, heroPortrait, travelState } from './hud.js';
-import { numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, trainerWaitingShort, econLine } from './ui-text.js';
+import { numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, trainerWaitingShort, econLine, BAGS_FULL } from './ui-text.js';
 import { createMeta, buildOaths, echoAmt } from './meta.js';
 import { heatKey, previewBlock, costText, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME } from './heat.js';
 import { createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon } from './prep.js';
@@ -1250,10 +1250,12 @@ function buildLoot(v, ctx) {
   if (L.trap) rows.appendChild(h('div.lrow', { style: { cursor: 'default' } }, h('img', { src: icon('trap', 'blood'), alt: '' }), h('div', h('div.nm.bad', 'A needle trap!'), h('div.meta', 'You lost some health opening it.'))));
   (L.items || []).forEach((it, i) => {
     const worn = it.kind === 'gear' && !!p.equip[it.slot] && p.equip[it.slot].uid === it.uid; // put on from this window
-    const up = it.kind === 'gear' && !worn && ctx.bridge.itemScore(it) > ctx.bridge.itemScore(p.equip[it.slot]);
+    const up = ctx.bridge.upgrade(it).up; // blind Legacy v2 (s0502): never for another class's main stat
     const meta = it.kind === 'gear' ? `${cap(it.slot)} · item level ${lv(it.ilvl)}` : it.kind === 'junk' ? 'Junk' : 'Consumable';
-    const tag = worn ? h('span.good', ' · equipped') : up ? h('span.good', ' · ▲ upgrade') : null; // D150 item 19: no "in your bags" note
-    const r = h('div.lrow.' + (it.rarity || 'common'), { dataset: { uid: it.uid } }, h('img', { src: itemIcon(it), alt: '' }), h('div.grow', h('div.nm.r-' + it.rarity, it.name + (it.count > 1 ? ` ×${it.count}` : ''), it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', meta, tag)));
+    // blind Legacy v2 (s0478): once Leave has asked, the rows it would leave say so, the ones in the bags stay as they are
+    const leaving = lootLeave.armed && lootLeave.key === lk && it.pending;
+    const tag = leaving ? h('span.warn', ' · left behind') : worn ? h('span.good', ' · equipped') : up ? h('span.good', ' · ▲ upgrade') : null; // D150 item 19: no "in your bags" note
+    const r = h('div.lrow.' + (it.rarity || 'common') + (leaving ? '.leaving' : ''), { dataset: { uid: it.uid } }, h('img', { src: itemIcon(it), alt: '' }), h('div.grow', h('div.nm.r-' + it.rarity, it.name + (it.count > 1 ? ` ×${it.count}` : ''), it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', meta, tag)));
     // blind round 2 (casual re-run s0071-s0079): every gear row of the spoils and of a chest offers "Equip now", and a click
     // on the row does the same: from the bags (EQUIP), or from the loot window when the bags were full (LOOT_EQUIP)
     const inBags = () => { const b = ctx.bridge.view.player; return !!(b && b.bag.some((x) => x && x.uid === it.uid)); };
@@ -1282,7 +1284,7 @@ function buildLoot(v, ctx) {
   take.appendChild(h('span.k', 'Space'));
   const nx = nextStrip(L); if (nx) win.appendChild(nx);
   const note = lootLeave.armed && waiting ? h('span.warn.lleave', `Leave ${waiting} ${waiting > 1 ? 'items' : 'item'} behind? Click Leave again.`)
-    : full || (waiting && !p.bag.some((x) => !x)) ? h('span.warn', 'Bags full: discard (B)') : h('span.muted.nowrap', `Bags ${p.bag.filter(Boolean).length}/${p.bag.length}`);
+    : full || (waiting && !p.bag.some((x) => !x)) ? h('span.warn.bfull', BAGS_FULL) : h('span.muted.nowrap', `Bags ${p.bag.filter(Boolean).length}/${p.bag.length}`);
   win.appendChild(h('div.foot', note, h('div.row', { style: { gap: '.6rem' } }, pending ? btn('Leave', leaveFn, lootLeave.armed && waiting ? '.danger' : '') : null, take)));
   return win;
 }
@@ -1303,13 +1305,13 @@ const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 function buildReward(v, ctx) {
   const L = v.loot; const p = v.player;
   const cards = h('div.choice-cards', (L.choices || []).map((it, i) => {
-    const up = ctx.bridge.itemScore(it) - ctx.bridge.itemScore(p.equip[it.slot]);
+    const U = ctx.bridge.upgrade(it); const up = U.diff; // blind Legacy v2 (s0502): another class's main stat is never an upgrade
     const stats = Object.entries(it.stats || {}).filter(([k, val]) => ['sta', 'agi', 'int', 'spi', 'power'].includes(k) && val > 0).map(([k, val]) => `+${val} ${STAT_NAMES[k] || k}`).join('  '); // D150: full stat names
     // blind panel 2026-11-13 (item 9): a reward that fills an empty slot or is an upgrade offers "Equip now": it is chosen
     // and put on at once (CHOOSE_REWARD, then EQUIP of the same item once it is in the bags)
-    const offer = it.kind === 'gear' && (up > 0 || !p.equip[it.slot]);
+    const offer = it.kind === 'gear' && U.up;
     const eq = offer ? h('button.btn.small.eqnow', { type: 'button', dataset: { uid: it.uid } }, 'Equip now') /* not .primary: Space keeps choosing nothing here */ : null;
-    const c = h('div.icard', h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name, it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', `${cap(it.slot)} · item level ${lv(it.ilvl)}`), h('div.stats', stats || ' '), h('div.upg.' + (up > 0 || !p.equip[it.slot] ? 'good' : 'muted'), up > 0 ? `▲ Upgrade (+${Math.round(up * 10) / 10})` : !p.equip[it.slot] ? '▲ Empty slot' : 'Not an upgrade'), eq));
+    const c = h('div.icard', h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name, it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', `${cap(it.slot)} · item level ${lv(it.ilvl)}`), h('div.stats', stats || ' '), h('div.upg.' + (U.up ? 'good' : 'muted'), !U.up ? 'Not an upgrade' : up > 0 ? `▲ Upgrade (+${Math.round(up * 10) / 10})` : '▲ Empty slot'), eq));
     c.addEventListener('click', () => ctx.act({ type: 'CHOOSE_REWARD', i }));
     // Legacy bugs 2026-11-19 (blind returning player s0044, s0160): the engine puts it on in the choice's own step
     // (CHOOSE_REWARD `equip`), before a Dimmed encounter that starts at once, and from the loot window when the bags are
@@ -1319,7 +1321,9 @@ function buildReward(v, ctx) {
       ctx.act({ type: 'CHOOSE_REWARD', i, equip: true });
       ctx.act(() => { const b = ctx.bridge.view.player; return b && b.bag.some((x) => x && x.uid === it.uid) ? { type: 'EQUIP', uid: it.uid } : null; });
     });
-    tip(c, () => itemTip(it, ctx, { hint: eq ? 'Click to choose this reward · Equip now: choose it and put it on' : 'Click to choose this reward' }), { avoid: '.choice-cards .icard' }); // blind round 2 (skipper s0045): not over another card's Equip now
+    // blind Legacy v2 (s0318): with full bags Equip now leaves the replaced piece behind (the bridge's CHOOSE_REWARD), and says so first (draft)
+    const leaves = () => !!p.equip[it.slot] && p.bag.every(Boolean);
+    tip(c, () => itemTip(it, ctx, { hint: eq ? `Click to choose this reward · Equip now: choose it and put it on${leaves() ? `; your bags are full, so your ${p.equip[it.slot].name} is left behind` : ''}` : 'Click to choose this reward' }), { avoid: '.choice-cards .icard' }); // blind round 2 (skipper s0045): not over another card's Equip now
     return c;
   }));
   if (L.kind === 'bounty') {
@@ -1329,7 +1333,7 @@ function buildReward(v, ctx) {
       L.text ? h('div.qtext.parchment.bounty', h('div.turnin', L.text)) : null,
       h('div.row', { style: { gap: '2rem' } }, L.xp ? h('span', { style: { color: '#d0a8ff', fontWeight: 700, fontSize: '1.35rem' } }, `+${fmtNum(L.xp)} XP`) : null, L.gold ? h('span', moneyEl(L.gold)) : null),
       h('div.subtitle', 'Choose one reward'), cards,
-      p.bag.every(Boolean) ? h('div.warn', 'Your bags are full: discard something first (B).') : null, nextStrip(L),
+      p.bag.every(Boolean) ? h('div.warn.bfull', BAGS_FULL) : null, nextStrip(L),
     ], [], { style: { width: '60rem' }, cls: 'bounty-reward' });
   }
   if (L.kind === 'contract') {
@@ -1340,7 +1344,7 @@ function buildReward(v, ctx) {
     return dialog('Contract complete', c ? `Zone ${c.z} · ${c.zoneName}` : '', [head,
       h('div.row', { style: { gap: '2rem' } }, L.xp ? h('span', { style: { color: '#d0a8ff', fontWeight: 700, fontSize: '1.35rem' } }, `+${fmtNum(L.xp)} XP`) : null, L.gold ? h('span', moneyEl(L.gold)) : null),
       h('div.subtitle', 'Choose one reward'), cards,
-      p.bag.every(Boolean) ? h('div.warn', 'Your bags are full: discard something first (B).') : null, nextStrip(L),
+      p.bag.every(Boolean) ? h('div.warn.bfull', BAGS_FULL) : null, nextStrip(L),
     ], [], { style: { width: '60rem' }, cls: 'contract-reward' });
   }
   const story = L.kind === 'story';
@@ -1348,7 +1352,7 @@ function buildReward(v, ctx) {
     h('div.qtext.parchment', L.giver ? h('div.giver', `${L.giver} says:`) : null, h('div.turnin', `“${L.text}”`)),
     h('div.row', { style: { gap: '2rem' } }, L.xp ? h('span', { style: { color: '#d0a8ff', fontWeight: 700, fontSize: '1.35rem' } }, `+${fmtNum(L.xp)} XP`) : null, L.gold ? h('span', moneyEl(L.gold)) : null),
     h('div.subtitle', story ? 'Choose one rare reward' : 'Choose your reward'), cards,
-    p.bag.every(Boolean) ? h('div.warn', 'Your bags are full: discard something first (B).') : null, nextStrip(L),
+    p.bag.every(Boolean) ? h('div.warn.bfull', BAGS_FULL) : null, nextStrip(L),
   ], [], { style: { width: '60rem' } });
 }
 

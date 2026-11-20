@@ -196,6 +196,16 @@ export function grindLine(n, combat) {
   return `${done} of ${n.wavesChosen} ${n.wavesChosen === 1 ? 'wave' : 'waves'} done`;
 }
 
+/**
+ * The Bags button's "+N items" set (noteNewItems; blind Legacy v2 2026-11-20, s0313): `uids` the bag uids that came in (not
+ * a list: clear), then only the uids still in `bag` (the view's bags, when given) stay. Returns the count. Pure but for `set`.
+ */
+export function trackNewItems(set, uids, bag = null) {
+  if (!Array.isArray(uids)) set.clear(); else for (const u of uids) if (u != null) set.add(u);
+  if (bag) { const have = new Set(bag.filter(Boolean).map((x) => x.uid)); for (const u of [...set]) if (!have.has(u)) set.delete(u); }
+  return set.size;
+}
+
 export function createHud(root, ctx) {
   const els = {};
   // ------------------------------------------------------------ player frame
@@ -902,12 +912,17 @@ export function createHud(root, ctx) {
     els.qtag.textContent = `Next: ${label}`;
   }
 
-  let newItems = 0;
-  /** Newcomer check 2026-11-15: n more items went into the bags (n 0 or less: clear the note). */
-  function noteNewItems(n) {
-    newItems = n > 0 ? newItems + n : 0;
-    els.bagsNew.textContent = newItems ? `+${newItems} ${newItems === 1 ? 'item' : 'items'}` : '';
-    els.bagsNew.classList.toggle('hidden', !newItems);
+  const newItems = new Set();
+  /**
+   * Newcomer check 2026-11-15: the items that went into the bags while they were shut, as "+N items" on the Bags button.
+   * uids: the bag uids that came in (0 clears the note: the bags were opened, a new run). Blind Legacy v2
+   * (2026-11-20, s0313, s0511: "+20 items" with 20 bag slots): `bag` (the view's bags) keeps only the items still in them,
+   * so an item sold, discarded or equipped since leaves the count and N is never more than the bags hold.
+   */
+  function noteNewItems(uids, bag = null) {
+    const n = trackNewItems(newItems, uids, bag);
+    els.bagsNew.textContent = n ? `+${n} ${n === 1 ? 'item' : 'items'}` : '';
+    els.bagsNew.classList.toggle('hidden', !n);
   }
   /** Economy v2 (legacy.md 4.7 E6.4): with the level-up banner the XP bar flashes and the hero frame glows for ms. */
   function levelFlash(ms = 1000) {

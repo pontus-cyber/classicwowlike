@@ -132,7 +132,7 @@ export function createWindows(root, ctx) {
       const byUid = new Map(p.bag.filter(Boolean).map((it) => [it.uid, it]));
       lay.uids.map((u) => (u == null ? null : byUid.get(u) || null)).forEach((it) => {
         if (!it) { grid.appendChild(h('div.slot', { style: { cursor: 'default' } })); return; }
-        const up = it.kind === 'gear' && ctx.bridge.itemScore(it) > ctx.bridge.itemScore(p.equip[it.slot]);
+        const up = ctx.bridge.upgrade(it).up; // blind Legacy v2 (s0502): never for another class's main stat
         const el = h('div.slot.q-' + it.rarity, { dataset: { uid: it.uid } }, h('img', { src: itemIcon(it), alt: '' }), it.count > 1 ? h('span.cnt', String(it.count)) : null, up ? h('span.upg', '▲') : null);
         // blind panel 2026-11-13: an item's tip goes beside the grid, never over its neighbours
         tip(el, () => itemTip(it, ctx, { hint: it.kind === 'gear' ? 'Right-click to equip · click for options' : it.kind === 'consumable' ? 'Right-click to use · drag to the item bar' : 'Click for options' }), { avoid: '#win-bags .baggrid .slot' });
