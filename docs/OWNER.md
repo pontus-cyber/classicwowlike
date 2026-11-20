@@ -13,3 +13,5 @@ Everything only the owner can do. The Lead adds tasks here as they appear, each 
 - The owner playtests and sends feedback; feedback is ideas unless he says otherwise.
 - Parked ideas live in docs/EXPERIMENTS.md.
 - Art is the exception (D121): the owner leads it. Each art stage starts with a proposal he steers before work goes in full.
+
+- 2026-11-20 19:49: "continue with current then pause for updates and evaluations with me". Lead stopped the session chain after the running designer task; no new sessions until the owner restarts them.
