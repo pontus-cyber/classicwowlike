@@ -75,6 +75,7 @@ export function cellName(cell) {
   if (cell.route) parts.push('route');
   if (cell.guided) parts.push('guided');
   if (cell.hero) parts.push(`h${cell.hero}`); // D154 (legacy.md 5.7): the hero cell's level
+  if (cell.hall) parts.push(`hall${cell.hall.replace(/[^a-z0-9]/g, '').slice(0, 24)}`); // LH1: the hall arm (sim/lib/hall.mjs)
   return parts.join('-');
 }
 

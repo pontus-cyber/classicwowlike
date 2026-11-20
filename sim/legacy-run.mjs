@@ -20,6 +20,7 @@
 //           arms). The scratch patch targets the engine before the switch (5d3571a) and does not apply to it.
 //           --oruvath (with --native; D156, legacy.md 2.4.1): C.GATES.oruvathLegacy on as well.
 //           --econ (with --native; D159, legacy.md 4.7 Economy v2): C.GATES.economyV2 on as well.
+//           --hall <none|v2|v3|v3fb>[:<id><rank>,...] (with --native; LH1, legacy-hall-v3-draft.md 5): the hall arm of sim/lib/hall.mjs
 //   --levels takes a range (1-25) or a list (1,10,20).
 //   --resume (warm, grid): a cell whose output already holds summary.md (written last) is kept and not played again, so a stopped
 //           batch picks up at its first missing cell (same seeds, same results).
@@ -68,7 +69,7 @@ function done(out, bot) {
   return sub && existsSync(join(out, sub, 'summary.md')) ? join(out, sub) : null; // written last
 }
 
-function cell({ scratch, native, oruvath, econ, h, leg, out, runs, seed, riskIn, classes, workers, profile, tree, bot }) {
+function cell({ scratch, native, oruvath, econ, hall, h, leg, out, runs, seed, riskIn, classes, workers, profile, tree, bot }) {
   const LEG = JSON.stringify({ ...T2, ...leg, P: powerOf(h) });
   const args = ['sim/run.mjs', '--bot', bot || 'planner', '--class', classes, '--runs', String(runs), '--seed-start', String(seed),
     '--warmup', '0', '--workers', String(workers), '--profile', profile, '--map', 'expedition', '--prep', '--out', resolve(out)];
@@ -77,6 +78,7 @@ function cell({ scratch, native, oruvath, econ, h, leg, out, runs, seed, riskIn,
   if (native) args.push('--hero', String(h));
   if (native && oruvath) args.push('--oruvath');
   if (native && econ) args.push('--econ');
+  if (native && hall) args.push('--hall', hall);
   const env = { ...process.env };
   if (native) delete env.LEG; else env.LEG = LEG;
   const r = spawnSync('node', args, { cwd: native ? ROOT : scratch, env, encoding: 'utf8', maxBuffer: 1 << 26 });
@@ -94,8 +96,9 @@ const leg = a.leg ? JSON.parse(a.leg) : {};
 const native = a.native === true;
 if (a.oruvath && !native) throw new Error('--oruvath needs --native');
 if (a.econ && !native) throw new Error('--econ needs --native');
+if (a.hall && !native) throw new Error('--hall needs --native');
 if (native && a.leg) throw new Error('--native plays the engine as built: no --leg arms');
-const common = { classes: a.classes || 'all', workers: Number(a.workers || 2), profile: a.profile || 'later', leg, scratch, native, oruvath: a.oruvath === true, econ: a.econ === true, tree: a.tree, bot: a.bot };
+const common = { classes: a.classes || 'all', workers: Number(a.workers || 2), profile: a.profile || 'later', leg, scratch, native, oruvath: a.oruvath === true, econ: a.econ === true, tree: a.tree, bot: a.bot, hall: a.hall };
 
 if (cmd === 'build') {
   if (!scratch || !scratch.includes('/scratch')) throw new Error('--scratch must name a path with /scratch');

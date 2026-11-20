@@ -46,6 +46,8 @@
 //            'leg' and 'h<H>'); --profile later (two runs played, nothing bought: the Legacy cells' profile)
 //            D156 (legacy.md 2.4.1): --oruvath with --hero also switches C.GATES.oruvathLegacy on (cell mark 'or2')
 //            D159 (legacy.md 4.7, Economy v2): --econ with --hero also switches C.GATES.economyV2 on (cell mark 'e2')
+//            LH1 (legacy-hall-v3-draft.md 5): --hall <none|v2|v3|v3fb>[:<id><rank>,...] with --hero: the hall arm's entries owned and
+//            its effects (sim/lib/hall.mjs; whole hall at top ranks, or the listed stage; cell mark 'hall<spec>')
 //   campaigns: --map expedition --prep also apply (B31 / B32 on the expedition with the start camp)
 //   campaigns: node sim/run.mjs --campaign N --class <c|all> --out <dir> [--risk-in <risk.json>]
 //
@@ -149,8 +151,10 @@ if (hero !== null) {
     if (!('economyV2' in C.GATES)) throw new Error('--econ needs an engine with C.GATES.economyV2 (D159)');
     gates.economyV2 = true;
   }
-} else if (args.oruvath) throw new Error('--oruvath is a --hero cell option (or name oruvathLegacy in --gates)');
-else if (args.econ) throw new Error('--econ is a --hero cell option (or name economyV2 in --gates)');
+}
+if (args.hall && hero === null) throw new Error('--hall is a --hero cell option');
+if (hero === null && args.oruvath) throw new Error('--oruvath is a --hero cell option (or name oruvathLegacy in --gates)');
+if (hero === null && args.econ) throw new Error('--econ is a --hero cell option (or name economyV2 in --gates)');
 const pool = new Pool(workers);
 try {
   if (args.campaign) {
@@ -174,7 +178,7 @@ try {
       prof: args.profile || 'fresh', trees, style: args.style || null, variant: args.variant || null, pet: args.pet || null,
       out, warmup: args.warmup !== undefined ? Number(args.warmup) : SIM.WARMUP_RUNS, obsIn, log: !!args.log, workers, replay: !!args.replay, pairs: !!args.pairs, think: !!args.think, thinkMash: !!args['think-mash'],
       map: args.map || null, vision: args.vision ? Object.fromEntries(args.vision.split(',').map((k) => [k, true])) : null, dimming: args.dimming === 'off' ? false : true, oracle: !!args.oracle, route: !!args.route,
-      prep: !!args.prep, prepPolicy: args['prep-policy'] || null, prepForce, prepBan, campOptions, tablesIn: args['tables-in'] || null, metaDrop, beastcallGated: !!args['beastcall-gated'], ricochetGated: !!args['ricochet-gated'], gates, guided: !!args.guided, hero,
+      prep: !!args.prep, prepPolicy: args['prep-policy'] || null, prepForce, prepBan, campOptions, tablesIn: args['tables-in'] || null, metaDrop, beastcallGated: !!args['beastcall-gated'], ricochetGated: !!args['ricochet-gated'], gates, guided: !!args.guided, hero, hall: args.hall && args.hall !== 'none' ? args.hall : null,
       expMeta: args['exp-meta'] ? Object.fromEntries(args['exp-meta'].split(',').map((x) => { const [id, r] = x.split(':'); return [id, Number(r || 1)]; })) : null,
     });
     for (const [cls, x] of Object.entries(r.perClass)) {

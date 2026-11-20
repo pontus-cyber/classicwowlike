@@ -25,6 +25,7 @@ import { snapshot, replayDeath, replayOpenings, replayThink, replayMash } from '
 import { oracleMap, planExpMap, plannerHourMult, plannerHeat, createPlannerBot } from '../bots/planner.mjs';
 import { CONTENT } from './engine.mjs';
 import { priorTable } from './risk.mjs';
+import { applyHall, withHall } from './hall.mjs';
 
 /** Hunter pet a cell starts with: preset for every bot but random (random picks with SELECT_PET). */
 export function cellPet(cell) {
@@ -46,6 +47,8 @@ export function cellPet(cell) {
 export function runWithBot(cell, seed, risk, opts = {}) {
   setGates(cell.gates);
   const profile = opts.profile || cellProfile(cell);
+  // LH1 (legacy-hall-v3-draft.md 5): the hall arm's effect fields on C.META_HERO, set for every run (sim/lib/hall.mjs)
+  applyHall(cell.hall, profile.unlocks);
   // M2b v11 row 8 (gated): the Beastcall Horn cooldown of the arm; the engine reads the field at each cast, so it is set
   // for every run (a worker plays runs of several cells).
   if (C.SPELL.beastcall_horn && C.BEASTCALL_HORN_CD_GATED !== undefined) C.SPELL.beastcall_horn.cd = cell.beastcallGated ? C.BEASTCALL_HORN_CD_GATED : C.BEASTCALL_HORN_CD;
@@ -153,7 +156,8 @@ export function cellProfile(cell) {
   const p = withoutMeta(withExpMeta(buildProfile(cell.prof, cell.cls), cell.expMeta || null), cell.metaDrop || null);
   if (!cell.hero) return p;
   if (!C.GATES.legacy) throw new Error('cell.hero needs C.GATES.legacy on (the cell\'s gates)');
-  return R.debug.setHero(R.migrateProfile(p), cell.cls, { level: cell.hero });
+  const h = R.debug.setHero(R.migrateProfile(p), cell.cls, { level: cell.hero });
+  return cell.hall ? withHall(h, cell.hall, cell.cls) : h; // LH1: the hall arm's entries owned (sim/lib/hall.mjs)
 }
 
 /**
@@ -225,6 +229,7 @@ export function playRun(cell, seed, risk, opts = {}) {
 export function replayHash(cell, seed, log, profile = null) {
   setGates(cell.gates);
   const prof = profile || cellProfile(cell);
+  applyHall(cell.hall, prof.unlocks);
   setCampOptions(cell.campOptions);
   let s = newRunFor({ classId: cell.cls, petId: cellPet(cell), seed, profile: prof, mapMode: cell.map || null, vision: cell.vision || null, dimming: cell.dimming === false ? false : null, prep: !!cell.prep, tutorial: !!cell.guided });
   for (const a of log) s = R.step(s, a).state;
