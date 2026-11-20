@@ -245,10 +245,13 @@ export function startExpedition(s) {
 }
 
 // ---------------- Zones, hub, camp ----------------
-/** Spend `t` tolls (M2b v7: state.time in whole tolls; the `time` event). */
-export function addTime(s, ev, t, why) {
+/**
+ * Spend `t` tolls (M2b v7: state.time in whole tolls; the `time` event). `from`: a walk's or a pass's node of departure,
+ * whose Dimming clock the meter showed when the toll started (heat.js heatTime; blind Legacy v2 2026-11-20).
+ */
+export function addTime(s, ev, t, why, from = null) {
   if (t <= 0) return;
-  heatTime(s, t, why); // rules 1.7.4: each toll counted in the heat state it starts in
+  heatTime(s, t, why, from); // rules 1.7.4: each toll counted in the heat state it starts in
   s.time += t;
   ev.push({ t: 'time', add: t, total: s.time, why });
   if (s.exp && s.zone && !s.zone.camp) dimmingAfterTime(s, ev, t, why);
@@ -623,7 +626,7 @@ export function moveTo(s, ev, id) {
   s.exp.outward = outwardStep(s.zone, from, id);
   s.stats.exp.walks += 1;
   zoneRecord(s).walks += 1;
-  addTime(s, ev, TIME_WALK, 'walk');
+  addTime(s, ev, TIME_WALK, 'walk', from);
   if (s.zone.nodes[id].ring === 0 && !dimmedNow(s, id)) {
     s.hub.used = { trainer: false, vendor: false, inn: false };
     setPhase(s, ev, 'ZONE_HUB');
@@ -632,10 +635,11 @@ export function moveTo(s, ev, id) {
 
 /** PASS_THROUGH (rules 1.9.4): walk through an adjacent unresolved node for TIME_WALK; it stays unresolved. */
 export function passThrough(s, ev, id) {
+  const from = s.zone.pos;
   stepTo(s, ev, id, 'pass');
   s.stats.exp.passes += 1;
   zoneRecord(s).passes += 1;
-  addTime(s, ev, TIME_WALK, 'pass');
+  addTime(s, ev, TIME_WALK, 'pass', from);
 }
 
 /**

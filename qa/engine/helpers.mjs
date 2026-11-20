@@ -164,3 +164,14 @@ export function pipeline({ base, attPct = 0, attMult = 1, attL, tgtL, phys, dodg
   if (phys) x *= 1 - Math.min(0.75, armor / (armor + 40 * attL + 100));
   return { amount: Math.max(1, Math.round(x + 1e-9)), crit: isCrit };
 }
+
+/**
+ * Golden hashes (s18, s23, s28): JSON text with every `timeByState` (the summary's tolls by heat state, state.stats.heat)
+ * replaced by its total. Blind Legacy v2 2026-11-20 (heat state, docs/handoffs/engine-2026-11-20b.md): a walk's or a
+ * pass's toll counts in the state of the node walked from (the meter's reading when it started), which moves tolls
+ * between states in most expedition runs and changes nothing else; the hashes recorded before it hold with this mask,
+ * the total still pins the tolls, and qa/engine/s29-heat-state.test.mjs pins the split.
+ */
+export function tollsMasked(x) {
+  return JSON.stringify(typeof x === 'string' ? JSON.parse(x) : x, (k, v) => (k === 'timeByState' && Array.isArray(v) ? [v.reduce((a, b) => a + b, 0)] : v));
+}

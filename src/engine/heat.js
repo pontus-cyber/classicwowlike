@@ -195,16 +195,21 @@ const statsOf = (s) => s.stats.heat || (s.stats.heat = newHeatStats());
 
 /**
  * Tolls about to be spent (rules 9 timeByState): each toll counts in the state it starts in, with the line of the
- * current zone and, in an expedition zone, the Dimming's clock of the player's node (not for travel tolls: the player
- * is on the Road). Call before the tolls are added to state.time.
+ * current zone and, in an expedition zone, the Dimming's clock of the node the player stands on when it starts (not for
+ * travel tolls: the player is on the Road). `at` (blind Legacy v2 2026-11-20, heat state): the node a walk or a pass
+ * set out from, so its toll counts in the state the meter showed when it started (heatView before the step), not on the
+ * clock of the node walked to; by default the player's node (a node's own tolls: the node entered, its `pays` state
+ * first; a service, a Grind wave, the Bell's channel, a Dimmed encounter: where the player stands). Call before the
+ * tolls are added to state.time.
  */
-export function heatTime(s, t, why) {
+export function heatTime(s, t, why, at = null) {
   if (!s.player || !s.zone || !s.stats) return;
   const x = statsOf(s);
   const z = lineZone(s);
   const dim = why !== 'travel' && dimInOf(s) !== null;
   const zt = dim ? zoneTime(s) : 0;
-  for (let i = 0; i < t; i++) x.timeByState[IDX[facts(s.oaths, s.time + i, z, dim ? dimInOf(s, s.zone.pos, zt + i) : null).state]] += 1;
+  const pos = at === null ? s.zone.pos : at;
+  for (let i = 0; i < t; i++) x.timeByState[IDX[facts(s.oaths, s.time + i, z, dim ? dimInOf(s, pos, zt + i) : null).state]] += 1;
 }
 
 /** A zone or the Camp was entered (s.zone is the new one): the last record gets its exit time, a new record opens. */

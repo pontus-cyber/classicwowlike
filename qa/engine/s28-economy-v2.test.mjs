@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import * as R from '../../src/rules.js';
 import { CONTENT } from '../../src/content/index.js';
+import { tollsMasked } from './helpers.mjs';
 import { eventXp, flatXp, gainXp, campFalloff } from '../../src/engine/progress.js';
 import { echoes } from '../../src/engine/meta.js';
 import { econV2, xpRef, bandNow, heroXpToNext, hallOf, legacyPerZone, legacyPerPrepPoint, campWaveXp } from '../../src/engine/legacy.js';
@@ -426,13 +427,15 @@ describe('golden: the switch off plays every Legacy run as on 708841f; level-60 
     const h = createHash('sha256');
     let n = 0;
     while (s.phase !== 'ENDED' && n < 30000) { const a = R.autoAction(s); const r = R.step(s, a); s = r.state; h.update(JSON.stringify(a)); h.update(JSON.stringify(r.events)); n++; }
-    h.update(R.serialize(s)); h.update(JSON.stringify(s.result)); h.update(JSON.stringify(R.metaOffers(s.result.profile)));
+    h.update(tollsMasked(R.serialize(s))); h.update(tollsMasked(s.result)); h.update(JSON.stringify(R.metaOffers(s.result.profile))); // tolls by state masked (heat state 2026-11-20)
     return `${h.digest('hex').slice(0, 16)}:${n}`;
   };
+  // Heat state 2026-11-20 (engine-2026-11-20b): every hash here is of the text with the tolls by heat state masked to their total
+  // (helpers.mjs tollsMasked), re-recorded on 57923eb with the engine before the change; the change hashes the same.
   const RUNS = [['rogue', 1, 41, 'first'], ['mage', 3, 42, 'later'], ['hunter', 9, 43, 'later'], ['rogue', 20, 44, 'later'], ['mage', 25, 45, 'later']];
   const WANT = {
-    legacy: ['db379868c3f3dc5e:657', 'c4c41e8af7a3319d:643', '958080e8ec8f7571:546', '63e0571c1516306a:280', 'e7d2159574a7f70b:335'],
-    'legacy+oruvathLegacy': ['e926e0cf00f02cbe:644', '912b5106d8f5f590:624', '7aeff177810bf32d:560', '63e0571c1516306a:280', '696f2f6738f93bc9:335'],
+    legacy: ['9c9d204745b5e6a2:657', 'f7f736fbf264f10f:643', 'affa01c35865b777:546', 'c449b1bbad442264:280', 'd8f21d0730d2ebfc:335'],
+    'legacy+oruvathLegacy': ['60417711e4c90d37:644', 'd5ce4eda01b2041e:624', '3ba947966b5e57d9:560', 'c449b1bbad442264:280', 'b4052296916573ff:335'],
   };
 
   // D162 (autoplay's Legacy quest gate, AUTO_QUEST_LEVEL_SLACK) changes Legacy autoplay on purpose, so these hashes are
@@ -459,8 +462,8 @@ describe('golden: the switch off plays every Legacy run as on 708841f; level-60 
 
   test('level-60 runs with economyV2 on hash as recorded on 9a79dee (s23 golden: rows, start camp, first, guided, second)', () => gates({ economyV2: true, oruvathLegacy: true }, () => {
     const WANT60 = {
-      'rows:mage:21': 'e66c80925d8f5cac:99', 'expPrep:rogue:21': 'c91c837abac7ddfb:217', 'expPrep:hunter:22': '7abe87754e02ab68:575',
-      'first:mage:23': '14097e91cff4c16b:107', 'guided:rogue:24': '89ff6519e4f96f75:386', 'second:hunter:25': '52f83e674c43a87e:625',
+      'rows:mage:21': '47d8b8e186c27c1c:99', 'expPrep:rogue:21': '20b1cebf55dabdd7:217', 'expPrep:hunter:22': '1bb93204397837d9:575',
+      'first:mage:23': 'b515f5f04b481baf:107', 'guided:rogue:24': 'e3255d79d02d5073:386', 'second:hunter:25': 'fdce76bcb618430b:625',
     };
     const N = { rows: 2, expPrep: 2, first: 0, guided: 0, second: 1 };
     for (const [key, want] of Object.entries(WANT60)) {
@@ -474,7 +477,7 @@ describe('golden: the switch off plays every Legacy run as on 708841f; level-60 
       const h = createHash('sha256');
       let n = 0;
       while (s.phase !== 'ENDED' && n < 20000) { const a = R.autoAction(s); const r = R.step(s, a); s = r.state; h.update(JSON.stringify(a)); h.update(JSON.stringify(r.events)); n++; }
-      h.update(R.serialize(s)); h.update(JSON.stringify(s.result)); h.update(JSON.stringify(R.metaOffers(s.result.profile)));
+      h.update(tollsMasked(R.serialize(s))); h.update(tollsMasked(s.result)); h.update(JSON.stringify(R.metaOffers(s.result.profile))); // tolls by state masked (heat state 2026-11-20)
       assert.equal(`${h.digest('hex').slice(0, 16)}:${n}`, want, key);
     }
   }));

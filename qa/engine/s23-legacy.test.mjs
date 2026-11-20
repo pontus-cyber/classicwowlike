@@ -13,6 +13,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import * as R from '../../src/rules.js';
 import { CONTENT } from '../../src/content/index.js';
+import { tollsMasked } from './helpers.mjs';
 import { makeEnemy } from '../../src/engine/combat.js';
 import { bossDmgFactor } from '../../src/engine/damage.js';
 import { oruvathScale } from '../../src/engine/legacy.js';
@@ -491,9 +492,11 @@ describe('golden: the switch off plays every run as before Legacy (profile, resu
   test('six runs (rows, the start camp, a first run, a guided run, a second run with Echoes spent) hash as recorded on 9a79dee', () => {
     // Recorded on 9a79dee (the engine before Legacy phase 1) with the same script: every action, every event, the final state
     // serialized with its profile, the result (summary, Echoes, profile) and the catalogue offers of the result's profile.
+    // Heat state 2026-11-20 (engine-2026-11-20b): every hash here is of the text with the tolls by heat state masked to their total
+    // (helpers.mjs tollsMasked), re-recorded on 57923eb with the engine before the change; the change hashes the same.
     const WANT = {
-      'rows:mage:21': 'e66c80925d8f5cac:99', 'expPrep:rogue:21': 'c91c837abac7ddfb:217', 'expPrep:hunter:22': '7abe87754e02ab68:575',
-      'first:mage:23': '14097e91cff4c16b:107', 'guided:rogue:24': '89ff6519e4f96f75:386', 'second:hunter:25': '52f83e674c43a87e:625',
+      'rows:mage:21': '47d8b8e186c27c1c:99', 'expPrep:rogue:21': '20b1cebf55dabdd7:217', 'expPrep:hunter:22': '1bb93204397837d9:575',
+      'first:mage:23': 'b515f5f04b481baf:107', 'guided:rogue:24': 'e3255d79d02d5073:386', 'second:hunter:25': 'fdce76bcb618430b:625',
     };
     const RUNS = { rows: 2, expPrep: 2, first: 0, guided: 0, second: 1 };
     assert.equal(C.GATES.legacy, false);
@@ -508,8 +511,8 @@ describe('golden: the switch off plays every run as before Legacy (profile, resu
       const h = createHash('sha256');
       let n = 0;
       while (s.phase !== 'ENDED' && n < 20000) { const a = R.autoAction(s); const r = R.step(s, a); s = r.state; h.update(JSON.stringify(a)); h.update(JSON.stringify(r.events)); n++; }
-      h.update(R.serialize(s));
-      h.update(JSON.stringify(s.result));
+      h.update(tollsMasked(R.serialize(s))); // heat state 2026-11-20: tolls by state masked (helpers.mjs tollsMasked)
+      h.update(tollsMasked(s.result));
       h.update(JSON.stringify(R.metaOffers(s.result.profile)));
       assert.equal(`${h.digest('hex').slice(0, 16)}:${n}`, want, key);
     }

@@ -16,6 +16,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import * as R from '../../src/rules.js';
 import { CONTENT } from '../../src/content/index.js';
+import { tollsMasked } from './helpers.mjs';
 
 const C = R.C;
 const PET = (c) => (c === 'hunter' ? 'ridgewolf' : null);
@@ -1266,86 +1267,88 @@ describe('M3 table validation and the golden check (E2, E9)', () => {
     // drawn, so only names changed; every table was re-recorded where a run loots an offhand (73 of 114 hashes), and with
     // every item name masked all 114 hash as before (scratch check, docs/handoffs/engine-2026-11-15.md).
     const PRE_D144 = {
-      'rows:rogue:11': '11e1fabb61b05aea:108', 'rows:rogue:4242': 'edee8992e273148a:653', 'rows:mage:11': '13d6b09ef382afb2:304',
-      'rows:mage:4242': 'c47ef814c81dd72b:208', 'rows:hunter:11': '427554816cfe6d99:719', 'rows:hunter:4242': 'f8b3d7134b312bdc:599',
-      'exp:rogue:11': 'f2f926428d80e86a:101', 'exp:rogue:4242': '0809bd974814f3dd:86', 'exp:mage:11': '8bdbbae46757fb6f:208',
-      'exp:mage:4242': '8683828a76770e73:285', 'exp:hunter:11': '1065164137292f55:338', 'exp:hunter:4242': '46991132da320503:401',
-      'expPrep:rogue:11': 'fc58bb181263d684:111', 'expPrep:rogue:4242': '6bdea41e047a08df:88', 'expPrep:mage:11': '57c2f35af04d4056:212',
-      'expPrep:mage:4242': '1354c104f04f58f2:296', 'expPrep:hunter:11': '34a6fbdbe8314bdc:332', 'expPrep:hunter:4242': '38ff48dbc7d5c22e:427',
+      'rows:rogue:11': '11cf341582bac86d:108', 'rows:rogue:4242': 'c2dd26d2d8803cf2:653', 'rows:mage:11': '07c58d5dcfb7ce31:304',
+      'rows:mage:4242': '325801c8aeedbc75:208', 'rows:hunter:11': 'a768c910e1a16724:719', 'rows:hunter:4242': '63a68b1f02bdd69d:599',
+      'exp:rogue:11': '57ce2a70445db5c9:101', 'exp:rogue:4242': '5128242963b0f2a4:86', 'exp:mage:11': '57c561b461d9d35e:208',
+      'exp:mage:4242': '7f8f45b58938d957:285', 'exp:hunter:11': 'f5c19b7aa4138ce9:338', 'exp:hunter:4242': '075945228b57c5f3:401',
+      'expPrep:rogue:11': 'c44a42bed5c83c57:111', 'expPrep:rogue:4242': '8cbc156d637bd6a1:88', 'expPrep:mage:11': '4178f1226aa320c4:212',
+      'expPrep:mage:4242': '096f88cf8ccc449f:296', 'expPrep:hunter:11': 'bc6360f11b86d4db:332', 'expPrep:hunter:4242': '0ce7aaadce284bce:427',
     };
     // D144 (rewardPrimary on), zone2InnerCap and z1Dmg off: recorded on 24f15c5; the two runs that met no other-primary reward
     // equal PRE_D144.
     const D144 = {
-      'rows:rogue:11': '98a760d6d9a0fc9c:107', 'rows:rogue:4242': '527a77009199ccbc:653', 'rows:mage:11': '390e86b1753b19b4:750',
-      'rows:mage:4242': '455fb084c85c9655:208', 'rows:hunter:11': 'fdd0cc446bac0c1a:728', 'rows:hunter:4242': 'b00ff04fedfdcd39:604',
-      'exp:rogue:11': '7c79f63464f99480:102', 'exp:rogue:4242': '0809bd974814f3dd:86', 'exp:mage:11': '3dc17da0efc374ce:212',
-      'exp:mage:4242': 'faa2ad98d830df9a:289', 'exp:hunter:11': '0a2c252685e06483:338', 'exp:hunter:4242': '9867851e9a02379b:246',
-      'expPrep:rogue:11': 'fbe5f96b58c626dd:112', 'expPrep:rogue:4242': '6bdea41e047a08df:88', 'expPrep:mage:11': '17dc61ef0f48e29b:91',
-      'expPrep:mage:4242': '8957ee94146271c8:298', 'expPrep:hunter:11': '5928220098aa1a93:333', 'expPrep:hunter:4242': '06d86f14413fc9c5:421',
+      'rows:rogue:11': '24c08af1bd99b022:107', 'rows:rogue:4242': '044f5efeb1ae55f2:653', 'rows:mage:11': 'e28a1809ba5b3bef:750',
+      'rows:mage:4242': '6f6773a77341e1dc:208', 'rows:hunter:11': '0e2c118803ae82cc:728', 'rows:hunter:4242': 'a8de3a33ab91fa71:604',
+      'exp:rogue:11': '295cea76b42bed77:102', 'exp:rogue:4242': '5128242963b0f2a4:86', 'exp:mage:11': 'dee094f75b791b74:212',
+      'exp:mage:4242': 'e321117308581bb1:289', 'exp:hunter:11': '20b6a33471f0f795:338', 'exp:hunter:4242': 'd7ac97d2afbbaed9:246',
+      'expPrep:rogue:11': '2008712d9691aed1:112', 'expPrep:rogue:4242': '8cbc156d637bd6a1:88', 'expPrep:mage:11': '28ca70c52f9a448e:91',
+      'expPrep:mage:4242': '811a979c9d81834d:298', 'expPrep:hunter:11': 'e678a143cc14fe9e:333', 'expPrep:hunter:4242': '86b805139b18ddc2:421',
     };
     // D146 (rewardPrimary and zone2InnerCap on), z1Dmg off: recorded on 321f2aa: the classic map is untouched by D146 (rows =
     // D144); every expedition run here reaches zone 2 and changes there. D147's rescue rule and S3/S4 swap change only guided runs.
     const D146 = {
-      'rows:rogue:11': '98a760d6d9a0fc9c:107', 'rows:rogue:4242': '527a77009199ccbc:653', 'rows:mage:11': '390e86b1753b19b4:750',
-      'rows:mage:4242': '455fb084c85c9655:208', 'rows:hunter:11': 'fdd0cc446bac0c1a:728', 'rows:hunter:4242': 'b00ff04fedfdcd39:604',
-      'exp:rogue:11': '9497780498d96976:109', 'exp:rogue:4242': '6f611b13405b20b8:176', 'exp:mage:11': '057d31953d3f3d98:206',
-      'exp:mage:4242': '5423eac239578a54:278', 'exp:hunter:11': '0b747bb17b07d39d:410', 'exp:hunter:4242': 'd565b08ea339fc9f:390',
-      'expPrep:rogue:11': 'b87303fc962cf60b:365', 'expPrep:rogue:4242': 'b979f616ee3faa41:266', 'expPrep:mage:11': '3d7ab76070ffbc35:220',
-      'expPrep:mage:4242': 'fe39e8df45ba5068:464', 'expPrep:hunter:11': 'd2b7efd32e330587:397', 'expPrep:hunter:4242': '2f9a21d819a2159d:421',
+      'rows:rogue:11': '24c08af1bd99b022:107', 'rows:rogue:4242': '044f5efeb1ae55f2:653', 'rows:mage:11': 'e28a1809ba5b3bef:750',
+      'rows:mage:4242': '6f6773a77341e1dc:208', 'rows:hunter:11': '0e2c118803ae82cc:728', 'rows:hunter:4242': 'a8de3a33ab91fa71:604',
+      'exp:rogue:11': 'ea528c1cc1fa102e:109', 'exp:rogue:4242': '20f64bcb049d9fda:176', 'exp:mage:11': '9dbb589b817fa83c:206',
+      'exp:mage:4242': '28fc8f97cdacfd79:278', 'exp:hunter:11': '4a86f55dd8e6d9b3:410', 'exp:hunter:4242': '5ac9e9b3d2ea1e26:390',
+      'expPrep:rogue:11': 'f39604c8333aed8e:365', 'expPrep:rogue:4242': 'f9bd8ac4a6e045f1:266', 'expPrep:mage:11': '47d33057413ef49c:220',
+      'expPrep:mage:4242': '106732a95a522d61:464', 'expPrep:hunter:11': '1725f753ab836f70:397', 'expPrep:hunter:4242': '8e333b079955378c:421',
     };
     // D147 (z1Dmg on too), recorded on cdc285b: every run here meets enemies of level <= Z1_DMG_MAX_LEVEL, on both maps, so
     // all 18 changed; with the five D152 switches off (or only GATES.steadyDim off: the others do not act on these runs) they hold.
     const D147 = {
-      'rows:rogue:11': '7af0bbdc229d0a65:104', 'rows:rogue:4242': 'fb0dc4fea57f2cb2:655', 'rows:mage:11': '3cd4cf39f6ab849b:88',
-      'rows:mage:4242': '664081a9e1c8384a:208', 'rows:hunter:11': 'fb7de4f0c9196e46:98', 'rows:hunter:4242': '81a93ab356356023:604',
-      'exp:rogue:11': '0714d1d1d429349a:128', 'exp:rogue:4242': '9aa8e5b4d3dd797d:177', 'exp:mage:11': '5c5b689a5630b292:210',
-      'exp:mage:4242': 'f6a4383d47002300:278', 'exp:hunter:11': 'f5ba7096add4b624:330', 'exp:hunter:4242': '25d9a28afc87b27d:390',
-      'expPrep:rogue:11': '108f944be1932112:206', 'expPrep:rogue:4242': 'a9a68b517070e789:268', 'expPrep:mage:11': '5cd1adde9256d3f2:224',
-      'expPrep:mage:4242': 'ee7c13028aef7546:464', 'expPrep:hunter:11': '5daa137174a4179a:400', 'expPrep:hunter:4242': 'e4f61dadd2cea455:421',
+      'rows:rogue:11': 'af1ca02070769d58:104', 'rows:rogue:4242': 'b6e59ea699cb49c0:655', 'rows:mage:11': '344b740c1971b947:88',
+      'rows:mage:4242': 'eb9a6684d7846a87:208', 'rows:hunter:11': 'e8ecf2125737f9d5:98', 'rows:hunter:4242': '77c6d10462fffa53:604',
+      'exp:rogue:11': '43d784358f6eac89:128', 'exp:rogue:4242': 'b65133fef4e3a70b:177', 'exp:mage:11': '1bd9f4d59fae9eb3:210',
+      'exp:mage:4242': '84c13542aecc2acd:278', 'exp:hunter:11': 'cd8104463009c94f:330', 'exp:hunter:4242': 'fba9df4c10247834:390',
+      'expPrep:rogue:11': 'e947e45f468415b9:206', 'expPrep:rogue:4242': '9fe325095a835b31:268', 'expPrep:mage:11': '32021fe74f6d2d5f:224',
+      'expPrep:mage:4242': '8a45aa6b3aedf355:464', 'expPrep:hunter:11': '9f4a1ea86d5fdcdc:400', 'expPrep:hunter:4242': 'ae44b4ee7ba12c05:421',
     };
     // D152 (changes-m3-v2.md), first and second runs and guided runs, with the five switches off: recorded on 0da12a2 (the
     // engine before D152): `first` a profile's first run with the start camp (runs 0), `second` its second (runs 1), `guided`
     // the guided first run, `replay` "Play the guide again" on a profile with one run.
     const D147_RUNS = {
-      'first:rogue:11': '33726889e1aac4c7:232', 'second:rogue:4242': 'a9a68b517070e789:268', 'guided:rogue:11': '046e9b8f870af5d3:402', 'replay:rogue:4242': '6b524582db839795:279',
-      'first:mage:11': '2c6b88a75561cc63:214', 'second:mage:4242': 'ee7c13028aef7546:464', 'guided:mage:11': 'db02f799a55837dc:301', 'replay:mage:4242': '824c2430a346e177:297',
-      'first:hunter:11': '714f30b6a19f2f25:427', 'second:hunter:4242': 'e4f61dadd2cea455:421', 'guided:hunter:11': '071e16eb6a166157:527', 'replay:hunter:4242': '011117d4b4a0d6c2:408',
+      'first:rogue:11': 'dfca712c6cf0aff1:232', 'second:rogue:4242': '9fe325095a835b31:268', 'guided:rogue:11': '700b4d13a29daf0e:402', 'replay:rogue:4242': '69d705fa6c12c043:279',
+      'first:mage:11': '6fc1ea6acdd72b3d:214', 'second:mage:4242': '8a45aa6b3aedf355:464', 'guided:mage:11': 'e12e0c20a8fe7054:301', 'replay:mage:4242': '7fda2a3e3f025e46:297',
+      'first:hunter:11': 'fcb22d82c753646e:427', 'second:hunter:4242': 'ae44b4ee7ba12c05:421', 'guided:hunter:11': 'd0a1b3d95fa595aa:527', 'replay:hunter:4242': '002034bbabc9a225:408',
     };
     // As built (D152, every switch on), recorded on this change: the classic map is untouched (rows = D147); the steady
     // Dimming changes every expedition run; the lean first run, the guided hold and Gorrak's bounty the first, second and
     // guided runs.
     const GOLDEN = {
-      'rows:rogue:11': '7af0bbdc229d0a65:104', 'rows:rogue:4242': 'fb0dc4fea57f2cb2:655', 'rows:mage:11': '3cd4cf39f6ab849b:88',
-      'rows:mage:4242': '664081a9e1c8384a:208', 'rows:hunter:11': 'fb7de4f0c9196e46:98', 'rows:hunter:4242': '81a93ab356356023:604',
-      'exp:rogue:11': 'cef98fd11f4bfaf5:128', 'exp:rogue:4242': 'eead369e8ac38597:177', 'exp:mage:11': 'fe6916e0ef40511e:591',
-      'exp:mage:4242': 'd178d58d59850fa9:278', 'exp:hunter:11': '8c14488a3aa59cab:425', 'exp:hunter:4242': '18f877643c30b45d:477',
-      'expPrep:rogue:11': '8a499051fb089e3d:206', 'expPrep:rogue:4242': '8fdca18069b3cff7:410', 'expPrep:mage:11': '8c4db6c2afc85abe:224',
-      'expPrep:mage:4242': 'c944bfa8bfb7bd95:320', 'expPrep:hunter:11': 'aecc92212500a5ba:552', 'expPrep:hunter:4242': 'b63c0a7ed1aa335f:550',
+      'rows:rogue:11': 'af1ca02070769d58:104', 'rows:rogue:4242': 'b6e59ea699cb49c0:655', 'rows:mage:11': '344b740c1971b947:88',
+      'rows:mage:4242': 'eb9a6684d7846a87:208', 'rows:hunter:11': 'e8ecf2125737f9d5:98', 'rows:hunter:4242': '77c6d10462fffa53:604',
+      'exp:rogue:11': '792d3979f2fdc001:128', 'exp:rogue:4242': '6e5117e7e644b25e:177', 'exp:mage:11': '624ffce48329d841:591',
+      'exp:mage:4242': '66a71f2b08d7e448:278', 'exp:hunter:11': 'af0e92277a0e0ea5:425', 'exp:hunter:4242': 'a17f0f23cab9988e:477',
+      'expPrep:rogue:11': '16b46b5b82a6aaba:206', 'expPrep:rogue:4242': 'c8205466ab3ad9f8:410', 'expPrep:mage:11': 'dba12e5399acb522:224',
+      'expPrep:mage:4242': '00f298fafc37a9c3:320', 'expPrep:hunter:11': '37b59d46a5ac8018:552', 'expPrep:hunter:4242': '707b01a416d9ed45:550',
     };
     // D152 as built with D153's two switches off (recorded before D153; items of the newcomer check included)
     const D152_RUNS = {
-      'first:rogue:11': '6d384b0f36cd12f7:297', 'second:rogue:4242': 'fbd7263e5c33ae64:368', 'guided:rogue:11': '3a406a07f81635bf:561', 'replay:rogue:4242': '9b496e45d09eafa9:436',
-      'first:mage:11': 'bda1e03e506bde1f:585', 'second:mage:4242': '8c883cec0a464e4a:319', 'guided:mage:11': 'fb53df798af5cc08:608', 'replay:mage:4242': '10c0cf1bb569732e:331',
-      'first:hunter:11': '7047e5eaed2ded6f:548', 'second:hunter:4242': '8ca92df9e04a0d4e:548', 'guided:hunter:11': 'd3521f25e1d18ca4:542', 'replay:hunter:4242': 'a360c1bed76fe782:567',
+      'first:rogue:11': 'd30f4647baa757be:297', 'second:rogue:4242': 'a0bff9be00670fa8:368', 'guided:rogue:11': '8397286039aafeca:561', 'replay:rogue:4242': '2d251dceb6060d33:436',
+      'first:mage:11': '72e176adabfccc0e:585', 'second:mage:4242': '9b17bfb070782812:319', 'guided:mage:11': 'b2809e64a0a9ebc0:608', 'replay:mage:4242': 'f38bee1d74174ff3:331',
+      'first:hunter:11': '7d248de47e002ae9:548', 'second:hunter:4242': 'c28d20147ce52f5d:548', 'guided:hunter:11': '8f5100f53141b18c:542', 'replay:hunter:4242': '6566e25cd8814588:567',
     };
     // D153 (changes-m3-v3.md, both switches on): only the guided and replayed runs change (Gorrak's level; the guided
     // first run also by the bounty's XP on the road); every other run hashes as in D152_RUNS and GOLDEN
     const GOLDEN_RUNS = {
-      'first:rogue:11': '6d384b0f36cd12f7:297', 'second:rogue:4242': 'fbd7263e5c33ae64:368', 'guided:rogue:11': '4b602dd756745a8a:560', 'replay:rogue:4242': '41ca8e3e188b8deb:473',
-      'first:mage:11': 'bda1e03e506bde1f:585', 'second:mage:4242': '8c883cec0a464e4a:319', 'guided:mage:11': '471349f59862b65e:615', 'replay:mage:4242': '751687b9225b54c5:329',
-      'first:hunter:11': '7047e5eaed2ded6f:548', 'second:hunter:4242': '8ca92df9e04a0d4e:548', 'guided:hunter:11': '9efc4bc3a1f6c9ac:548', 'replay:hunter:4242': '5c4668b0b962ecb2:549',
+      'first:rogue:11': 'd30f4647baa757be:297', 'second:rogue:4242': 'a0bff9be00670fa8:368', 'guided:rogue:11': '84e07d42434fa7a8:560', 'replay:rogue:4242': '0eb5092a13946b9f:473',
+      'first:mage:11': '72e176adabfccc0e:585', 'second:mage:4242': '9b17bfb070782812:319', 'guided:mage:11': 'af5a1a99d3e31195:615', 'replay:mage:4242': '7ac32c6ec1d1a254:329',
+      'first:hunter:11': '7d248de47e002ae9:548', 'second:hunter:4242': 'c28d20147ce52f5d:548', 'guided:hunter:11': 'a970ee59c187616e:548', 'replay:hunter:4242': '8b4e5bb6365a9d8e:549',
     };
     // each D153 switch off alone: GATES.gorrakLevel off (Gorrak at clamp(L, 4, 6)); GATES.bountyRoad off (the XP on his victory)
     const GL_OFF_RUNS = {
-      'first:rogue:11': '6d384b0f36cd12f7:297', 'second:rogue:4242': 'fbd7263e5c33ae64:368', 'guided:rogue:11': '06c25bd653225376:567', 'replay:rogue:4242': '9b496e45d09eafa9:436',
-      'first:mage:11': 'bda1e03e506bde1f:585', 'second:mage:4242': '8c883cec0a464e4a:319', 'guided:mage:11': '4d1f5a2ce0b14b67:607', 'replay:mage:4242': '10c0cf1bb569732e:331',
-      'first:hunter:11': '7047e5eaed2ded6f:548', 'second:hunter:4242': '8ca92df9e04a0d4e:548', 'guided:hunter:11': '075ddc7d7b311a1e:558', 'replay:hunter:4242': 'a360c1bed76fe782:567',
+      'first:rogue:11': 'd30f4647baa757be:297', 'second:rogue:4242': 'a0bff9be00670fa8:368', 'guided:rogue:11': '6b4a5bcf7a5a0af1:567', 'replay:rogue:4242': '2d251dceb6060d33:436',
+      'first:mage:11': '72e176adabfccc0e:585', 'second:mage:4242': '9b17bfb070782812:319', 'guided:mage:11': 'bfc0b20f3b104d3b:607', 'replay:mage:4242': 'f38bee1d74174ff3:331',
+      'first:hunter:11': '7d248de47e002ae9:548', 'second:hunter:4242': 'c28d20147ce52f5d:548', 'guided:hunter:11': 'f88975dddd47513d:558', 'replay:hunter:4242': '6566e25cd8814588:567',
     };
     const BR_OFF_RUNS = {
-      'first:rogue:11': '6d384b0f36cd12f7:297', 'second:rogue:4242': 'fbd7263e5c33ae64:368', 'guided:rogue:11': '4ad3c8f17955b3e4:559', 'replay:rogue:4242': '41ca8e3e188b8deb:473',
-      'first:mage:11': 'bda1e03e506bde1f:585', 'second:mage:4242': '8c883cec0a464e4a:319', 'guided:mage:11': '37a91302a6c9433b:609', 'replay:mage:4242': '751687b9225b54c5:329',
-      'first:hunter:11': '7047e5eaed2ded6f:548', 'second:hunter:4242': '8ca92df9e04a0d4e:548', 'guided:hunter:11': 'ae462f51f9e3eb8a:545', 'replay:hunter:4242': '5c4668b0b962ecb2:549',
+      'first:rogue:11': 'd30f4647baa757be:297', 'second:rogue:4242': 'a0bff9be00670fa8:368', 'guided:rogue:11': 'ca35f42d6e043962:559', 'replay:rogue:4242': '0eb5092a13946b9f:473',
+      'first:mage:11': '72e176adabfccc0e:585', 'second:mage:4242': '9b17bfb070782812:319', 'guided:mage:11': 'bc6e9c6f8dd264a0:609', 'replay:mage:4242': '7ac32c6ec1d1a254:329',
+      'first:hunter:11': '7d248de47e002ae9:548', 'second:hunter:4242': 'c28d20147ce52f5d:548', 'guided:hunter:11': 'b5c642aad9df5d03:545', 'replay:hunter:4242': '8b4e5bb6365a9d8e:549',
     };
+    // Heat state 2026-11-20 (engine-2026-11-20b): every hash here is of the text with the tolls by heat state masked to their total
+    // (helpers.mjs tollsMasked), re-recorded on 57923eb with the engine before the change; the change hashes the same.
     const strip = (s) => { const o = JSON.parse(R.serialize(s)); delete o.profile; if (o.result) delete o.result.profile; return JSON.stringify(o); };
     const RUNS = { rows: 2, exp: 2, expPrep: 2, first: 0, second: 1, guided: 0, replay: 1 };
     const hashOf = (key) => {
@@ -1361,8 +1364,8 @@ describe('M3 table validation and the golden check (E2, E9)', () => {
       const h = createHash('sha256');
       let n = 0;
       while (s.phase !== 'ENDED' && n < 20000) { const a = R.autoAction(s); const r = R.step(s, a); s = r.state; h.update(JSON.stringify(a)); h.update(JSON.stringify(r.events)); n++; }
-      h.update(strip(s));
-      h.update(JSON.stringify({ ...s.result.summary }));
+      h.update(tollsMasked(strip(s))); // heat state 2026-11-20: tolls by state masked (helpers.mjs tollsMasked)
+      h.update(tollsMasked({ ...s.result.summary }));
       return `${h.digest('hex').slice(0, 16)}:${n}`;
     };
     const D152 = ['firstRunLean', 'gorrakBounty', 'guidedHold', 'steadyDim', 'rescueDim'];
