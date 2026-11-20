@@ -136,7 +136,7 @@ Source: expedition.md H.3.
 - What it costs: the tolls themselves, which become Ascendancy at the boss (1.7, unchanged), and the lost ECHO_SPEED_BONUS. No new penalty is added.
 
 #### 1.7.4 Heat in the run summary (heat)
-The summary's `heat` block (9): `trackPerZone` (per zone entered, and the Camp: its number, its line, the run's tolls at arrival and when it was left; the zone the run ends in has the tolls at the end), `timeByState` (every toll spent counts in the state it starts in; TRAVEL_ON and TAKE_ROAD tolls by the run state alone; M2b v7: was `hoursByState`), `nodesByState` (nodes entered, by entry state), `fightsByState` (fights won in map nodes, by the node's entry state; Camp waves, the boss and Dimmed encounters are not counted) and `echoHeat` (the Echo line of 11.1). States in the order Clear, Warm, Hot, Scorched.
+The summary's `heat` block (9): `trackPerZone` (per zone entered, and the Camp: its number, its line, the run's tolls at arrival and when it was left; the zone the run ends in has the tolls at the end), `timeByState` (every toll spent counts in the state it starts in; TRAVEL_ON and TAKE_ROAD tolls by the run state alone; a walk's or a pass's toll counts on the Dimming clock of the node walked from, as the meter shows it when the toll starts, D163; M2b v7: was `hoursByState`), `nodesByState` (nodes entered, by entry state), `fightsByState` (fights won in map nodes, by the node's entry state; Camp waves, the boss and Dimmed encounters are not counted) and `echoHeat` (the Echo line of 11.1). States in the order Clear, Warm, Hot, Scorched.
 
 ### 1.8 Where long-term trade-offs come from
 | Trade-off | Mechanism |
