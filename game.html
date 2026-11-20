@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="072dfc6 2026-11-19T23:21:56Z">
+<meta name="build" content="a096999 2026-11-20T05:33:38Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -933,6 +933,8 @@ body.engage-round #tracker { opacity: 0; pointer-events: none; }
 .lrow .nm { font: var(--fw-bold) var(--fs-body-6) var(--font-ui); }
 .lrow .meta { font-size: var(--fs-small-7); color: var(--ink-mute); }
 .lrow .btn.small { padding: var(--sp-30) var(--sp-60); font-size: var(--fs-small-5); }
+/* blind Legacy v2 (s0478): the rows Leave would leave, once it has asked (screens.js buildLoot) */
+.lrow.leaving { box-shadow: inset 0 0 0 1px rgba(255, 130, 110, .6); }
 .lrow.rare img { box-shadow: 0 0 1rem rgba(90, 160, 255, .8); } .lrow.epic img { box-shadow: 0 0 1.6rem rgba(200, 140, 255, 1); }
 
 /* windows */
@@ -1278,6 +1280,8 @@ body.dying #target-frame, body.dying #boss-frame, body.dying #nameplates, body.d
 .mcard .buy, .mcard .mtag { grid-column: 3; grid-row: 1; }
 .mcard .mc-fx { grid-column: 2 / 4; grid-row: 2; font-size: var(--fs-small-7); line-height: var(--lh-snug-3); color: #f0d494; }
 .mcard .mc-req { grid-column: 2 / 4; grid-row: 3; font-size: var(--fs-small-3); line-height: var(--lh-snug-3); color: #ff9a8a; }
+/* blind Legacy v2 (s0564): a learn level on the card face (meta.js cardReq), a condition of use, not a lock */
+.mcard .mc-req.when { color: #d8c49a; }
 .mcard .mexp { display: inline-block; margin-right: var(--sp-40); padding: 0 var(--sp-30); border-radius: var(--radius-xs-3); font: var(--fw-heavy) var(--fs-micro-7) var(--font-ui); letter-spacing: .05em; text-transform: uppercase; vertical-align: .08rem; color: #b8e2ff; box-shadow: inset 0 0 0 1px rgba(150, 205, 255, .5); }
 .pips { flex: none; display: inline-flex; gap: var(--sp-30); padding-left: var(--sp-10); }
 .pips i { width: .75rem; height: .75rem; transform: rotate(45deg); background: #1a1410; box-shadow: inset 0 0 0 1px var(--edge-hi-50); }
@@ -2102,8 +2106,8 @@ body.coach-up #skiphint { visibility: hidden; }
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (072dfc6 2026-11-19T23:21:56Z) from 68 modules.
-const __BUILD__ = "072dfc6 2026-11-19T23:21:56Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (a096999 2026-11-20T05:33:38Z) from 68 modules.
+const __BUILD__ = "a096999 2026-11-20T05:33:38Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -8313,16 +8317,21 @@ const statsOf = (s) => s.stats.heat || (s.stats.heat = newHeatStats());
 
 /**
  * Tolls about to be spent (rules 9 timeByState): each toll counts in the state it starts in, with the line of the
- * current zone and, in an expedition zone, the Dimming's clock of the player's node (not for travel tolls: the player
- * is on the Road). Call before the tolls are added to state.time.
+ * current zone and, in an expedition zone, the Dimming's clock of the node the player stands on when it starts (not for
+ * travel tolls: the player is on the Road). `at` (blind Legacy v2 2026-11-20, heat state): the node a walk or a pass
+ * set out from, so its toll counts in the state the meter showed when it started (heatView before the step), not on the
+ * clock of the node walked to; by default the player's node (a node's own tolls: the node entered, its `pays` state
+ * first; a service, a Grind wave, the Bell's channel, a Dimmed encounter: where the player stands). Call before the
+ * tolls are added to state.time.
  */
-function heatTime(s, t, why) {
+function heatTime(s, t, why, at = null) {
   if (!s.player || !s.zone || !s.stats) return;
   const x = statsOf(s);
   const z = lineZone(s);
   const dim = why !== 'travel' && dimInOf(s) !== null;
   const zt = dim ? zoneTime(s) : 0;
-  for (let i = 0; i < t; i++) x.timeByState[IDX[facts(s.oaths, s.time + i, z, dim ? dimInOf(s, s.zone.pos, zt + i) : null).state]] += 1;
+  const pos = at === null ? s.zone.pos : at;
+  for (let i = 0; i < t; i++) x.timeByState[IDX[facts(s.oaths, s.time + i, z, dim ? dimInOf(s, pos, zt + i) : null).state]] += 1;
 }
 
 /** A zone or the Camp was entered (s.zone is the new one): the last record gets its exit time, a new record opens. */
@@ -9367,10 +9376,13 @@ function startExpedition(s) {
 }
 
 // ---------------- Zones, hub, camp ----------------
-/** Spend `t` tolls (M2b v7: state.time in whole tolls; the `time` event). */
-function addTime(s, ev, t, why) {
+/**
+ * Spend `t` tolls (M2b v7: state.time in whole tolls; the `time` event). `from`: a walk's or a pass's node of departure,
+ * whose Dimming clock the meter showed when the toll started (heat.js heatTime; blind Legacy v2 2026-11-20).
+ */
+function addTime(s, ev, t, why, from = null) {
   if (t <= 0) return;
-  heatTime(s, t, why); // rules 1.7.4: each toll counted in the heat state it starts in
+  heatTime(s, t, why, from); // rules 1.7.4: each toll counted in the heat state it starts in
   s.time += t;
   ev.push({ t: 'time', add: t, total: s.time, why });
   if (s.exp && s.zone && !s.zone.camp) dimmingAfterTime(s, ev, t, why);
@@ -9745,7 +9757,7 @@ function moveTo(s, ev, id) {
   s.exp.outward = outwardStep(s.zone, from, id);
   s.stats.exp.walks += 1;
   zoneRecord(s).walks += 1;
-  addTime(s, ev, TIME_WALK, 'walk');
+  addTime(s, ev, TIME_WALK, 'walk', from);
   if (s.zone.nodes[id].ring === 0 && !dimmedNow(s, id)) {
     s.hub.used = { trainer: false, vendor: false, inn: false };
     setPhase(s, ev, 'ZONE_HUB');
@@ -9754,10 +9766,11 @@ function moveTo(s, ev, id) {
 
 /** PASS_THROUGH (rules 1.9.4): walk through an adjacent unresolved node for TIME_WALK; it stays unresolved. */
 function passThrough(s, ev, id) {
+  const from = s.zone.pos;
   stepTo(s, ev, id, 'pass');
   s.stats.exp.passes += 1;
   zoneRecord(s).passes += 1;
-  addTime(s, ev, TIME_WALK, 'pass');
+  addTime(s, ev, TIME_WALK, 'pass', from);
 }
 
 /**
@@ -22285,7 +22298,7 @@ const deepClone = (o) => (o === undefined ? o : structuredClone(o));
 
 });
 __bundle.def("src/ui/ui-text.js", function* (__ns, __link) {
-let SPELLS, TALENTS, BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS; __link.imp("src/ui/mock-data.js", [["SPELLS", (v) => { SPELLS = v; }], ["TALENTS", (v) => { TALENTS = v; }], ["STATUS_INFO", (v) => { BASE_STATUS = v; }], ["CONSUMABLES", (v) => { CONSUMABLES = v; }], ["BOONS", (v) => { BOONS = v; }], ["CLASSES", (v) => { CLASSES = v; }], ["PETS", (v) => { PETS = v; }]]); let lv, lvLearn, legacyShown, econShown, fmtN; __link.imp("src/ui/util.js", [["lv", (v) => { lv = v; }], ["lvLearn", (v) => { lvLearn = v; }], ["legacyShown", (v) => { legacyShown = v; }], ["econShown", (v) => { econShown = v; }], ["fmtNum", (v) => { fmtN = v; }]]); __link.exp({ "econLine": () => econLine, "campPoints": () => campPoints, "HEAT_WORDS": () => HEAT_WORDS, "tolls": () => tolls, "STATUS_INFO": () => STATUS_INFO, "windupAnswers": () => windupAnswers, "deathblowStakes": () => deathblowStakes, "deathblowAnswers": () => deathblowAnswers, "deathblowKind": () => deathblowKind, "sapWaitText": () => sapWaitText, "windupStakes": () => windupStakes, "ROLE_INFO": () => ROLE_INFO, "CONTROL_WORD": () => CONTROL_WORD, "engageText": () => engageText, "engageHint": () => engageHint, "ENGAGE_KIND": () => ENGAGE_KIND, "CLASS_UI": () => CLASS_UI, "spellText": () => spellText, "bounceText": () => bounceText, "talentText": () => talentText, "talentTotals": () => talentTotals, "consumableText": () => consumableText, "boonText": () => boonText, "petText": () => petText, "UNIQUE_EFFECT_TEXT": () => UNIQUE_EFFECT_TEXT, "ECHO_LINE": () => ECHO_LINE, "humanize": () => humanize, "CONTRACT_KIND": () => CONTRACT_KIND, "familyName": () => familyName, "bandText": () => bandText, "contractTarget": () => contractTarget, "contractTitle": () => contractTitle, "contractSentence": () => contractSentence, "hubOfferSentence": () => hubOfferSentence, "contractKindText": () => contractKindText, "contractSitesText": () => contractSitesText, "contractItemsText": () => contractItemsText, "levelsText": () => levelsText, "xpPayText": () => xpPayText, "prepOptionEffect": () => prepOptionEffect, "prepFlavour": () => prepFlavour, "numWord": () => numWord, "plural": () => plural, "pct1": () => pct1, "pct2": () => pct2, "strengthText": () => strengthText, "freeActionText": () => freeActionText, "statusEffect": () => statusEffect, "RES_NAME": () => RES_NAME, "resurrectText": () => resurrectText, "DANGER_LEVELS": () => DANGER_LEVELS, "dangerRule": () => dangerRule, "dangerBanner": () => dangerBanner, "META_KIND": () => META_KIND, "metaEffect": () => metaEffect, "metaReqText": () => metaReqText, "oathEffect": () => oathEffect, "nextRunLines": () => nextRunLines, "linkedText": () => linkedText, "trainerWaiting": () => trainerWaiting, "trainerWaitingShort": () => trainerWaitingShort, "UI_HINTS": () => UI_HINTS, "NEAREST_ROAD_TAIL": () => NEAREST_ROAD_TAIL, "hopsText": () => hopsText, "nearestRoad": () => nearestRoad });
+let SPELLS, TALENTS, BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS; __link.imp("src/ui/mock-data.js", [["SPELLS", (v) => { SPELLS = v; }], ["TALENTS", (v) => { TALENTS = v; }], ["STATUS_INFO", (v) => { BASE_STATUS = v; }], ["CONSUMABLES", (v) => { CONSUMABLES = v; }], ["BOONS", (v) => { BOONS = v; }], ["CLASSES", (v) => { CLASSES = v; }], ["PETS", (v) => { PETS = v; }]]); let lv, lvLearn, legacyShown, econShown, fmtN; __link.imp("src/ui/util.js", [["lv", (v) => { lv = v; }], ["lvLearn", (v) => { lvLearn = v; }], ["legacyShown", (v) => { legacyShown = v; }], ["econShown", (v) => { econShown = v; }], ["fmtNum", (v) => { fmtN = v; }]]); __link.exp({ "econLine": () => econLine, "BAGS_FULL": () => BAGS_FULL, "campPoints": () => campPoints, "HEAT_WORDS": () => HEAT_WORDS, "tolls": () => tolls, "STATUS_INFO": () => STATUS_INFO, "windupAnswers": () => windupAnswers, "deathblowStakes": () => deathblowStakes, "deathblowAnswers": () => deathblowAnswers, "deathblowKind": () => deathblowKind, "sapWaitText": () => sapWaitText, "windupStakes": () => windupStakes, "ROLE_INFO": () => ROLE_INFO, "CONTROL_WORD": () => CONTROL_WORD, "engageText": () => engageText, "engageHint": () => engageHint, "ENGAGE_KIND": () => ENGAGE_KIND, "CLASS_UI": () => CLASS_UI, "spellText": () => spellText, "bounceText": () => bounceText, "talentText": () => talentText, "talentTotals": () => talentTotals, "consumableText": () => consumableText, "boonText": () => boonText, "petText": () => petText, "UNIQUE_EFFECT_TEXT": () => UNIQUE_EFFECT_TEXT, "ECHO_LINE": () => ECHO_LINE, "humanize": () => humanize, "CONTRACT_KIND": () => CONTRACT_KIND, "familyName": () => familyName, "bandText": () => bandText, "contractTarget": () => contractTarget, "contractTitle": () => contractTitle, "contractSentence": () => contractSentence, "hubOfferSentence": () => hubOfferSentence, "contractKindText": () => contractKindText, "contractSitesText": () => contractSitesText, "contractItemsText": () => contractItemsText, "levelsText": () => levelsText, "xpPayText": () => xpPayText, "prepOptionEffect": () => prepOptionEffect, "prepFlavour": () => prepFlavour, "numWord": () => numWord, "plural": () => plural, "pct1": () => pct1, "pct2": () => pct2, "strengthText": () => strengthText, "freeActionText": () => freeActionText, "statusEffect": () => statusEffect, "RES_NAME": () => RES_NAME, "resurrectText": () => resurrectText, "DANGER_LEVELS": () => DANGER_LEVELS, "dangerRule": () => dangerRule, "dangerBanner": () => dangerBanner, "META_KIND": () => META_KIND, "metaEffect": () => metaEffect, "metaReqText": () => metaReqText, "oathEffect": () => oathEffect, "nextRunLines": () => nextRunLines, "linkedText": () => linkedText, "trainerWaiting": () => trainerWaiting, "trainerWaitingShort": () => trainerWaitingShort, "UI_HINTS": () => UI_HINTS, "NEAREST_ROAD_TAIL": () => NEAREST_ROAD_TAIL, "hopsText": () => hopsText, "nearestRoad": () => nearestRoad });
 yield;
 // Display text for tooltips and screens (descriptions of spells, talents, statuses, consumables,
 // boons and classes). Wording follows docs/specs/rules.md; numbers that matter come from the
@@ -22308,6 +22321,11 @@ function econLine(texts, id, vars = {}) {
   return raw.replace(/\{(\w+)\}/g, (m, k) => (vars[k] === undefined || vars[k] === null ? m : typeof vars[k] === 'number' ? fmtN(vars[k]) : String(vars[k])))
     .replace(/(^|[^\d\s])(\s?)\b1 (contract|camp point|spell|Legacy point)s\b/g, '$1$2' + '1 $3');
 }
+/**
+ * Blind Legacy v2 (2026-11-20; BACKLOG "bags and loot"): one sentence for full bags everywhere (the loot and reward
+ * windows, the toast and log line when the bags fill, a Take the bags cannot hold). Draft, for the owner and content.
+ */
+const BAGS_FULL = 'Your bags are full: equip, sell or discard something (B).';
 /** "3 camp points" (Economy v2, one name: legacy.md 4.7 E6.1). */
 const campPoints = (n) => `${n} camp ${n === 1 ? 'point' : 'points'}`;
 
@@ -23510,17 +23528,21 @@ function itemTip(item, ctx, opts = {}) {
     for (const k of ['power', 'crit']) if (s[k]) box.appendChild(h('div.tt-line.affix', `Equip: ${statLine(k, s[k])}`));
     if (item.effectText) box.appendChild(h('div.tt-line.affix', item.effectText));
     const eq = ctx.view.player && ctx.view.player.equip[item.slot];
+    // blind Legacy v2 (2026-11-20, s0502): an item with another class's main stat is never called an upgrade (bridge
+    // upgradeInfo `off`); the line says why (draft wording)
+    const U = ctx.bridge.upgrade ? ctx.bridge.upgrade(item) : { off: false };
+    const offLine = () => { const p = ctx.view.player; const c = p && d.classes && d.classes[p.classId]; return h('span.down', `Not an upgrade: ${c ? `${STAT_NAMES[c.primary]} is the ${c.name}'s main stat` : 'not your main stat'}`); };
     if (opts.compare !== false && eq && eq.uid !== item.uid) {
       const a = ctx.bridge.itemScore(item); const b = ctx.bridge.itemScore(eq);
       const diff = Math.round((a - b) * 10) / 10;
-      box.appendChild(h('div.tt-compare', diff > 0 ? h('span.up', `▲ Upgrade (+${diff} item score)`) : diff < 0 ? h('span.down', `▼ Weaker than ${eq.name} (${diff})`) : h('span', 'Same item score as equipped')));
+      box.appendChild(h('div.tt-compare', U.off ? offLine() : diff > 0 ? h('span.up', `▲ Upgrade (+${diff} item score)`) : diff < 0 ? h('span.down', `▼ Weaker than ${eq.name} (${diff})`) : h('span', 'Same item score as equipped')));
       const deltas = [];
       for (const k of ['wd', 'armor', 'sta', 'agi', 'int', 'spi', 'power', 'crit']) {
         const dv = (item.stats[k] || 0) - (eq.stats[k] || 0);
         if (Math.abs(dv) > 1e-6) deltas.push(h('span.' + (dv > 0 ? 'up' : 'down'), `${dv > 0 ? '+' : ''}${k === 'crit' ? (dv * 100).toFixed(1) + ' %' : fmtNum(dv)} ${STAT_NAMES[k]}`));
       }
       if (deltas.length) box.appendChild(h('div.tt-deltas', deltas));
-    } else if (opts.compare !== false && !eq && ctx.view.player) box.appendChild(h('div.tt-compare', h('span.up', '▲ Empty slot: an upgrade')));
+    } else if (opts.compare !== false && !eq && ctx.view.player) box.appendChild(h('div.tt-compare', U.off ? offLine() : h('span.up', '▲ Empty slot: an upgrade')));
   } else if (item.kind === 'consumable') {
     const c = d.consumables[item.id];
     if (c) box.appendChild(h('div.tt-line.use', c.text));
@@ -23592,7 +23614,7 @@ function statusTip(s, ctx) {
 
 });
 __bundle.def("src/ui/heat.js", function* (__ns, __link) {
-let h, add, clear, clamp; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["clamp", (v) => { clamp = v; }]]); let tip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }]]); let HW, tolls; __link.imp("src/ui/ui-text.js", [["HEAT_WORDS", (v) => { HW = v; }], ["tolls", (v) => { tolls = v; }]]); let HEAT; __link.imp("src/ui/theme.js", [["HEAT", (v) => { HEAT = v; }]]); __link.exp({ "HEAT_NAME": () => HEAT_NAME, "HEAT_COLOR": () => HEAT_COLOR, "heatKey": () => heatKey, "fmtTime": () => fmtTime, "lineShown": () => lineShown, "standText": () => standText, "meterText": () => meterText, "DIM_NEAR_WORDS": () => DIM_NEAR_WORDS, "dimTipLine": () => dimTipLine, "carryLine": () => carryLine, "DIM_MARK_LINE": () => DIM_MARK_LINE, "bossText": () => bossText, "bossShown": () => bossShown, "chanceText": () => chanceText, "payText": () => payText, "heatToast": () => heatToast, "dimBarPos": () => dimBarPos, "createHeatMeter": () => createHeatMeter, "FURNACE_LINE": () => FURNACE_LINE, "stateRows": () => stateRows, "heatTip": () => heatTip, "costText": () => costText, "previewBlock": () => previewBlock, "heatBadge": () => heatBadge, "buildHeatSummary": () => buildHeatSummary });
+let h, add, clear, clamp; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["clamp", (v) => { clamp = v; }]]); let tip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }]]); let HW, tolls; __link.imp("src/ui/ui-text.js", [["HEAT_WORDS", (v) => { HW = v; }], ["tolls", (v) => { tolls = v; }]]); let HEAT; __link.imp("src/ui/theme.js", [["HEAT", (v) => { HEAT = v; }]]); __link.exp({ "HEAT_NAME": () => HEAT_NAME, "HEAT_COLOR": () => HEAT_COLOR, "heatKey": () => heatKey, "fmtTime": () => fmtTime, "lineShown": () => lineShown, "standText": () => standText, "meterText": () => meterText, "DIM_NEAR_WORDS": () => DIM_NEAR_WORDS, "dimTipLine": () => dimTipLine, "carryLine": () => carryLine, "DIM_MARK_LINE": () => DIM_MARK_LINE, "bossText": () => bossText, "bossShown": () => bossShown, "chanceText": () => chanceText, "payText": () => payText, "heatToast": () => heatToast, "dimBarPos": () => dimBarPos, "segmentAt": () => segmentAt, "meterReading": () => meterReading, "createHeatMeter": () => createHeatMeter, "FURNACE_LINE": () => FURNACE_LINE, "stateRows": () => stateRows, "heatTip": () => heatTip, "costText": () => costText, "previewBlock": () => previewBlock, "heatBadge": () => heatBadge, "buildHeatSummary": () => buildHeatSummary });
 yield;
 // heat.js - the Heat meter and the texts that name heat (docs/specs/expedition.md H.4, H.5; engine-api.md 11; owner
 // feedback 2026-11-10 14:05: an always-visible meter, like FTL's chasing red line). Presentation only: the state, the
@@ -23748,6 +23770,31 @@ function dimBarPos(dimIn, stateDim, H, bar) {
   return { x: clamp(x, a + pad, b - pad), beyond: stateDim === 'clear' && H.warmAt - (dimIn - H.dimWarm) < bar.min ? -1 : 0 };
 }
 
+/** The state whose segment a bar position (tolls past the line) lies in: the segments of `segments`, from the engine's thresholds. */
+function segmentAt(x, H) {
+  if (x < H.warmAt) return 'clear';
+  if (x < H.hotAt) return 'warm';
+  if (x < H.scorchAt) return 'hot';
+  return 'scorched';
+}
+/**
+ * The meter's one reading of a heatView (blind Legacy v2 2026-11-20, heat state: "the label, the marker and the summary
+ * agree"): the state the line names, its words, the lit segment, the player's marker (run clock: bar.marker) and the
+ * Dimming's diamond (its own clock, in the segment of stateDim), and `setter`, the marker of the clock that sets the state
+ * (heatView `by`). Every part of the meter is drawn from this; the setter always lies in the segment the line names
+ * (qa/ui/heat-state.test.mjs). H: data.rules.heat.
+ */
+function meterReading(hv, H) {
+  const bar = hv.bar;
+  const run = { x: bar.marker, beyond: bar.beyond, sets: hv.by !== 'dim' };
+  const dp = hv.dimIn !== null && hv.dimIn !== undefined && hv.stateDim ? dimBarPos(hv.dimIn, hv.stateDim, H, bar) : null;
+  const dim = dp ? { x: dp.x, beyond: dp.beyond, sets: hv.by === 'dim' } : null;
+  return {
+    state: hv.state, name: HEAT_NAME[hv.state], line: meterText(hv), boss: bossShown(hv.ascIfPar), lit: hv.state,
+    run, dim, setter: hv.by === 'dim' && dim ? dim : run,
+  };
+}
+
 // ------------------------------------------------------------------ the meter
 /** host: where the meter lives (the action bar); noteRoot: where the first-time note goes (the HUD). */
 function createHeatMeter(host, ctx, noteRoot = host) {
@@ -23829,28 +23876,29 @@ function createHeatMeter(host, ctx, noteRoot = host) {
     build();
     if (ghost && ghostAt !== `${v.phase}|${hv.time}|${hv.z}`) { ghost = null; ghostAt = null; }
     const bar = hv.bar;
-    els.el.dataset.state = hv.state; els.el.dataset.by = hv.by;
-    for (const s of STATES) els.segs[s].classList.toggle('on', s === hv.state);
-    els.state.querySelector('.ht-sname').textContent = HEAT_NAME[hv.state];
+    // one reading (meterReading): the line, the lit segment and both markers come from the same heatView
+    const m = meterReading(hv, H);
+    els.el.dataset.state = m.state; els.el.dataset.by = hv.by;
+    for (const s of STATES) els.segs[s].classList.toggle('on', s === m.lit);
+    els.state.querySelector('.ht-sname').textContent = m.name;
     queueMicrotask(fitHeader); // after the texts below are set
-    els.num.textContent = meterText(hv); // D152: the Dimming's words when it sets the state
-    const boss = bossShown(hv.ascIfPar);
+    els.num.textContent = m.line; // D152: the Dimming's words when it sets the state
+    const boss = m.boss;
     els.boss.textContent = boss; els.boss.classList.toggle('hidden', !boss);
     // the player's marker; an arrow when the heat is off the bar (bar.beyond)
-    els.mark.style.left = `${pctOf(bar.marker, bar)}%`;
+    els.mark.style.left = `${pctOf(m.run.x, bar)}%`;
     const arrow = els.mark.querySelector('.ht-arrow');
-    arrow.classList.toggle('hidden', !bar.beyond); arrow.textContent = bar.beyond < 0 ? '◀' : bar.beyond > 0 ? '▶' : '';
-    els.mark.classList.toggle('beyond', !!bar.beyond);
-    els.mark.classList.toggle('sets', hv.by === 'run');
+    arrow.classList.toggle('hidden', !m.run.beyond); arrow.textContent = m.run.beyond < 0 ? '◀' : m.run.beyond > 0 ? '▶' : '';
+    els.mark.classList.toggle('beyond', !!m.run.beyond);
+    els.mark.classList.toggle('sets', m.run.sets);
     // the Dimming's marker (expedition zones) in its state's segment; its clock in words is the map's (D150 item 8)
-    const dp = hv.dimIn !== null && hv.dimIn !== undefined && hv.stateDim ? dimBarPos(hv.dimIn, hv.stateDim, H, bar) : null;
-    els.dmark.classList.toggle('hidden', !dp);
-    if (dp) {
-      els.dmark.style.left = `${pctOf(dp.x, bar)}%`;
-      els.dmark.classList.toggle('sets', hv.by === 'dim');
+    els.dmark.classList.toggle('hidden', !m.dim);
+    if (m.dim) {
+      els.dmark.style.left = `${pctOf(m.dim.x, bar)}%`;
+      els.dmark.classList.toggle('sets', m.dim.sets);
     }
     drawGhost(hv);
-    els.el.setAttribute('aria-label', `${HW.Name}: ${HEAT_NAME[hv.state]}, ${meterText(hv)}${boss ? `, ${boss}` : ''}`);
+    els.el.setAttribute('aria-label', `${HW.Name}: ${m.name}, ${m.line}${boss ? `, ${boss}` : ''}`);
     // the first-time note: on the hub (hidden while a service window is open), until "Got it" or setting out
     if (!introSeen) {
       const svcOpen = !!(v.node && v.node.origin === 'hub');
@@ -24059,7 +24107,7 @@ function signed(v) { const k = v > 0 ? Math.floor(v + 1e-9) : Math.ceil(-v - 1e-
 
 });
 __bundle.def("src/ui/engine-bridge.js", function* (__ns, __link) {
-const R = __link.ns("src/rules.js"); let CONTENT; __link.imp("src/content/index.js", [["CONTENT", (v) => { CONTENT = v; }]]); const mock = __link.ns("src/ui/mock-engine.js"); const TXT = __link.ns("src/ui/ui-text.js"); let heatKey; __link.imp("src/ui/heat.js", [["heatKey", (v) => { heatKey = v; }]]); let setDisplay; __link.imp("src/ui/util.js", [["setDisplay", (v) => { setDisplay = v; }]]); __link.exp({ "ENGAGE_KEYS": () => ENGAGE_KEYS, "actionName": () => actionName, "Bridge": () => Bridge, "createBridge": () => createBridge, "flags": () => flags });
+const R = __link.ns("src/rules.js"); let CONTENT; __link.imp("src/content/index.js", [["CONTENT", (v) => { CONTENT = v; }]]); const mock = __link.ns("src/ui/mock-engine.js"); const TXT = __link.ns("src/ui/ui-text.js"); let heatKey; __link.imp("src/ui/heat.js", [["heatKey", (v) => { heatKey = v; }]]); let setDisplay; __link.imp("src/ui/util.js", [["setDisplay", (v) => { setDisplay = v; }]]); __link.exp({ "ENGAGE_KEYS": () => ENGAGE_KEYS, "actionName": () => actionName, "upgradeInfo": () => upgradeInfo, "Bridge": () => Bridge, "createBridge": () => createBridge, "flags": () => flags });
 yield;
 // engine-bridge.js - the ONLY module of the visual client that talks to the rules engine.
 //
@@ -24351,7 +24399,8 @@ const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 // a reason names spells by name (QA playtest 2026-11-13, finding 5): the engine's may carry a spell id ("severing_flourish
 // needs a combo point" reads "Severing Flourish needs a combo point")
 const SPELL_IDS = new RegExp(`\\b(${Object.keys(R.C.SPELL).sort((a, b) => b.length - a.length).join('|')})\\b`, 'g');
-const reasonOf = (err) => { const m = String((err && err.message) || err || ''); const i = m.lastIndexOf(': '); return cap((i >= 0 ? m.slice(i + 2) : m).replace(SPELL_IDS, (id) => R.C.SPELL[id].name)); };
+// blind Legacy v2 (2026-11-20): the engine's "bag is full (DISCARD or LOOT_DROP)" reads as the one full-bags sentence
+const reasonOf = (err) => { const m = String((err && err.message) || err || ''); const i = m.lastIndexOf(': '); const r = i >= 0 ? m.slice(i + 2) : m; return /^bag is full\b/.test(r) ? TXT.BAGS_FULL : cap(r.replace(SPELL_IDS, (id) => R.C.SPELL[id].name)); };
 /**
  * A cast refused for its cost, in the player's words (blind panel 2026-11-13: "Not enough resource for X" read as nothing):
  * "Not enough energy for Gutting Jab: it costs 40, you have 30" (the engine's cost, R.spellCost, and the fight's resource).
@@ -25171,19 +25220,22 @@ function engineBackend(seedOpt, runOpts = {}) {
     return out;
   }
   /**
-   * Economy v2 (legacy.md 4.7 E5, E6.3; engine-2026-11-19c UI need 5): the next entry in the hall, the first offer still
-   * available in the campaign's buying order (5.8 item 7 v2), with its rank ("Vigor of the Line II") and price; null when
-   * every one is bought.
+   * Economy v2 (legacy.md 4.7 E5, E6.3; engine-2026-11-19c UI need 5): the next entry in the hall, with its rank ("Vigor
+   * of the Line II"), price and `short` (the points still missing, 0 when it can be bought). Blind Legacy v2 (2026-11-20,
+   * s0382, s0561, s0596): the first entry the balance buys, in the campaign's buying order (5.8 item 7 v2), else any other
+   * the balance buys (so "N unlocks within reach", the hall's enabled Buy buttons, always names one of them); when the
+   * balance buys none, the cheapest available entry (buying order breaks a tie); null when every one is bought.
    */
   function nextHall(p, classId) {
     const c = { rogue: 'r', mage: 'm', hunter: 'h' }[classId] || 'r';
     const order = ['satchel', 'vigor', 'edge', 'quick_study', `sp_${c}1`, 'pockets', 'cartographer', 'vigor', 'edge', 'old_hand', 'quartermaster', 'quick_study', `sp_${c}2`, 'swift_boots', 'quartermaster', 'second_breath', ...(classId === 'hunter' ? ['stormhawk'] : [])];
-    const offers = R.metaOffers(p);
-    for (const id of order) {
-      const o = offers.find((x) => x.id === id);
-      if (o && o.available && o.nextCost > 0) return { id, name: o.ranks > 1 ? `${o.name} ${['I', 'II', 'III', 'IV'][o.rank] || o.rank + 1}` : o.name, cost: o.nextCost };
-    }
-    return null;
+    const offers = R.metaOffers(p); const bal = balanceOf(p);
+    const pos = (o) => { const i = order.indexOf(o.id); return i < 0 ? order.length : i; };
+    const open = offers.filter((o) => o.available).sort((a, b) => pos(a) - pos(b));
+    const o = open.find((x) => x.affordable && x.nextCost > 0) || open.find((x) => x.affordable)
+      || open.filter((x) => x.nextCost > 0).reduce((best, x) => (!best || x.nextCost < best.nextCost ? x : best), null);
+    if (!o) return null;
+    return { id: o.id, name: o.ranks > 1 ? `${o.name} ${['I', 'II', 'III', 'IV'][o.rank] || o.rank + 1}` : o.name, cost: o.nextCost, short: Math.max(0, o.nextCost - bal) };
   }
   /** Furthest point of a run as the run log stores it: 1..ZONE_COUNT a zone, then the camp, the boss, the boss defeated. */
   const stageOf = (sum) => (sum.outcome === 'victory' ? C.ZONE_COUNT + 3 : sum.reachedBoss ? C.ZONE_COUNT + 2 : sum.reached && sum.reached.camp ? C.ZONE_COUNT + 1 : (sum.reached && sum.reached.zone) || 1);
@@ -25447,7 +25499,7 @@ function engineBackend(seedOpt, runOpts = {}) {
         // Legacy (legacy.md 1.3; UI need 4): XP past level 25 pays one more level line at the run's end (draft line)
         case 'heroMax': out.push({ t: 'msg', text: `Past level ${C.HERO_MAX_LEVEL}: +${C.LEGACY_PER_LEVEL} Legacy points at the end of the run.`, kind: 'good' }); break;
         case 'gold': if (e.amount > 0 && e.why !== 'sell') out.push({ t: 'gold', amount: e.amount, why: e.why, heat: e.heat || 0 }); break; // a sale says its price itself
-        case 'loot': out.push({ t: 'gotItem', name: e.item.name || (C.CONSUMABLE[e.item.id] || {}).name || 'item', rarity: e.item.rarity || 'common', to: e.to, heatUp: local.heatUp.get(e.item.uid) || null }); break;
+        case 'loot': out.push({ t: 'gotItem', uid: e.item.uid, name: e.item.name || (C.CONSUMABLE[e.item.id] || {}).name || 'item', rarity: e.item.rarity || 'common', to: e.to, heatUp: local.heatUp.get(e.item.uid) || null }); break;
         case 'victory': out.push({ t: 'victory' }); break;
         // Legacy (draft line); bugs 2026-11-19 (s0236, s0247): a log line only, no toast over the summary
         case 'abandon': out.push({ t: 'msg', text: 'You abandon the run.', kind: 'info', quiet: true }); break;
@@ -25584,9 +25636,23 @@ function engineBackend(seedOpt, runOpts = {}) {
   function step(action) {
     const prev = view();
     const events = [];
+    const tail = []; // UI events said after the step's own (convEvents)
     try {
       switch (action.type) {
         case 'ENGINE': apply(action.action, events); break;
+        case 'CHOOSE_REWARD': {
+          apply(translate(action), events);
+          // blind Legacy v2 (2026-11-20, s0318, s0518, s0546): Equip now on a reward with full bags put the worn piece in
+          // the loot window, a second "Items waiting" window after every reward. Equip now is offered only for an upgrade
+          // (or an empty slot), so the piece it replaces is left behind at once, and one line says so (draft wording)
+          const eq = action.equip ? events.find((e) => e.t === 'equip' && e.old) : null;
+          const old = eq && (st.loot || []).find((x) => x.uid === eq.old);
+          if (old && R.isLegal(st, { type: 'LOOT_DROP', itemId: old.uid })) {
+            apply({ type: 'LOOT_DROP', itemId: old.uid }, events);
+            tail.push({ t: 'msg', text: `Your old ${old.name || 'item'} is left behind (no room in your bags).`, kind: 'info', replaced: old.uid });
+          }
+          break;
+        }
         case 'AUTO': {
           // test / bot helper: first close presentation windows, then let the engine pick
           if (local.hold && local.hold.node.step === 'chest') return step({ type: 'OPEN_CHEST' });
@@ -25623,7 +25689,7 @@ function engineBackend(seedOpt, runOpts = {}) {
         case 'LOOT_TAKE_ALL': {
           let left = 0;
           for (const it of [...(st.loot || [])]) { if (R.isLegal(st, { type: 'LOOT_TAKE', itemId: it.uid })) apply({ type: 'LOOT_TAKE', itemId: it.uid }, events); else left++; }
-          if (left) { const ce = convEvents(prev, events, st); ce.push({ t: 'msg', text: 'Your bags cannot hold everything: equip, drop or discard first.', kind: 'warn' }); return { ok: true, events: ce }; }
+          if (left) { const ce = convEvents(prev, events, st); ce.push({ t: 'msg', text: TXT.BAGS_FULL, kind: 'warn' }); return { ok: true, events: ce }; }
           local.spoils = null;
           break;
         }
@@ -25718,9 +25784,9 @@ function engineBackend(seedOpt, runOpts = {}) {
     if (local.hold && local.hold !== hold0 && local.hold.node.step === 'chest') {
       const inChest = (e) => e.t === 'loot' || e.t === 'trap' || (e.t === 'gold' && e.why === 'treasure');
       local.hold.held = events.filter(inChest);
-      return { ok: true, events: convEvents(prev, events.filter((e) => !inChest(e)), st) };
+      return { ok: true, events: [...convEvents(prev, events.filter((e) => !inChest(e)), st), ...tail] };
     }
-    return { ok: true, events: convEvents(prev, events, st) };
+    return { ok: true, events: [...convEvents(prev, events, st), ...tail] };
   }
 
   /** Presentation holds after a step: spoils window, rest screen, unopened chest. */
@@ -25972,6 +26038,24 @@ function engineBackend(seedOpt, runOpts = {}) {
   };
 }
 
+/**
+ * The upgrade arrow of a gear item (loot rows, reward cards, bag slots, the item tooltip): { up, diff, empty, off }. diff:
+ * its item score (R.itemScore) above the piece worn in its slot; empty: nothing is worn there. Blind Legacy v2 (2026-11-20,
+ * s0502): `off`, it carries a main stat (Agility, Intellect) that is not the class's and none of the class's own (a
+ * Hunter's Intellect codex): never an upgrade. up: not worn, not off, and a higher score or an empty slot. Pure.
+ * it, eq: view items (or null); primary: the class's main stat as the view names it ('agi', 'int'); score: item -> number.
+ */
+function upgradeInfo(it, eq, primary, score) {
+  if (!it || it.kind !== 'gear') return { up: false, diff: 0, empty: false, off: false };
+  const st = it.stats || {};
+  const off = !!primary && !(st[primary] > 0) && MAIN_STATS.some((k) => k !== primary && st[k] > 0);
+  const worn = !!eq && eq.uid === it.uid;
+  const diff = score(it) - score(eq);
+  return { up: !worn && !off && (diff > 0 || !eq), diff, empty: !eq, off };
+}
+/** The main stats a class can have (C.CLASS primary, as the view names them). */
+const MAIN_STATS = ['agi', 'int'];
+
 // ====================================================================================== bridge
 class Bridge {
   constructor(backend) {
@@ -25999,6 +26083,13 @@ class Bridge {
   autoAction() { return this.backend.autoAction(); }
   describeSpell(id, target = null) { return this.backend.describeSpell(id, target); }
   itemScore(item) { return this.backend.itemScore(item); }
+  /** The upgrade arrow of a gear item against the piece worn in its slot now (upgradeInfo). */
+  upgrade(item) {
+    const p = this._view && this._view.player;
+    if (!p || !item) return { up: false, diff: 0, empty: false, off: false };
+    const cls = this.data && this.data.classes && this.data.classes[p.classId];
+    return upgradeInfo(item, p.equip[item.slot] || null, cls ? cls.primary : null, (x) => this.itemScore(x));
+  }
   /** Test hook: the engine actions applied to the run (engine mode), or [] (mock). */
   engineLog() { return this.backend.engineLog ? this.backend.engineLog() : []; }
   /** Test hook: replace the run with a serialized engine state (engine mode; false in mock mode). Listeners see the new view. */
@@ -29844,7 +29935,7 @@ function siteLines(n, v, ctx) {
 
 });
 __bundle.def("src/ui/hud.js", function* (__ns, __link) {
-let h, add, clear, fmtNum, moneyEl, clamp, rgba, shownLv; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["clamp", (v) => { clamp = v; }], ["rgba", (v) => { rgba = v; }], ["lv", (v) => { shownLv = v; }]]); let spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["basicIcon", (v) => { basicIcon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["statusIcon", (v) => { statusIcon = v; }], ["abilityIcon", (v) => { abilityIcon = v; }], ["icon", (v) => { icon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["NODE_COLORS", (v) => { NODE_COLORS = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }], ["enemyLook", (v) => { enemyLook = v; }], ["beastLook", (v) => { beastLook = v; }]]); let THEMES; __link.imp("src/ui/art-world.js", [["THEMES", (v) => { THEMES = v; }]]); let tip, spellTip, basicTip, itemTip, statusTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["spellTip", (v) => { spellTip = v; }], ["basicTip", (v) => { basicTip = v; }], ["itemTip", (v) => { itemTip = v; }], ["statusTip", (v) => { statusTip = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let linkedText, resurrectText, dangerRule, freeActionText; __link.imp("src/ui/ui-text.js", [["linkedText", (v) => { linkedText = v; }], ["resurrectText", (v) => { resurrectText = v; }], ["dangerRule", (v) => { dangerRule = v; }], ["freeActionText", (v) => { freeActionText = v; }]]); let trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind, answersToShow, isLethal, SAP_BREAK_WARN, stoppedNow, deathblowPrompt; __link.imp("src/ui/tracks.js", [["trackChips", (v) => { trackChips = v; }], ["trackRows", (v) => { trackRows = v; }], ["roleBadge", (v) => { roleBadge = v; }], ["roleTags", (v) => { roleTags = v; }], ["offBalanceText", (v) => { offBalanceText = v; }], ["offBalanceTip", (v) => { offBalanceTip = v; }], ["createEngagePanel", (v) => { createEngagePanel = v; }], ["windupBanner", (v) => { windupBanner = v; }], ["stackBadges", (v) => { stackBadges = v; }], ["entriesOf", (v) => { entriesOf = v; }], ["answerKind", (v) => { answerKind = v; }], ["answersToShow", (v) => { answersToShow = v; }], ["isLethal", (v) => { isLethal = v; }], ["SAP_BREAK_WARN", (v) => { SAP_BREAK_WARN = v; }], ["stoppedNow", (v) => { stoppedNow = v; }], ["deathblowPrompt", (v) => { deathblowPrompt = v; }]]); let createHeatMeter, bossText; __link.imp("src/ui/heat.js", [["createHeatMeter", (v) => { createHeatMeter = v; }], ["bossText", (v) => { bossText = v; }]]); let trackerContracts; __link.imp("src/ui/prep.js", [["trackerContracts", (v) => { trackerContracts = v; }]]); let CON, token; __link.imp("src/ui/theme.js", [["CON", (v) => { CON = v; }], ["token", (v) => { token = v; }]]); __link.exp({ "conColor": () => conColor, "travelState": () => travelState, "POTION_HINT_HP": () => POTION_HINT_HP, "dotTip": () => dotTip, "heroPortrait": () => heroPortrait, "petPortrait": () => petPortrait, "grindLine": () => grindLine, "createHud": () => createHud, "resurrectTip": () => resurrectTip, "dragSource": () => dragSource, "dropTarget": () => dropTarget, "NODE_COLORS": () => NODE_COLORS, "nodeIcon": () => nodeIcon });
+let h, add, clear, fmtNum, moneyEl, clamp, rgba, shownLv; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["clamp", (v) => { clamp = v; }], ["rgba", (v) => { rgba = v; }], ["lv", (v) => { shownLv = v; }]]); let spellIcon, basicIcon, consumableIcon, statusIcon, abilityIcon, icon, nodeIcon, NODE_COLORS; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["basicIcon", (v) => { basicIcon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["statusIcon", (v) => { statusIcon = v; }], ["abilityIcon", (v) => { abilityIcon = v; }], ["icon", (v) => { icon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["NODE_COLORS", (v) => { NODE_COLORS = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS, enemyLook, beastLook; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }], ["enemyLook", (v) => { enemyLook = v; }], ["beastLook", (v) => { beastLook = v; }]]); let THEMES; __link.imp("src/ui/art-world.js", [["THEMES", (v) => { THEMES = v; }]]); let tip, spellTip, basicTip, itemTip, statusTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["spellTip", (v) => { spellTip = v; }], ["basicTip", (v) => { basicTip = v; }], ["itemTip", (v) => { itemTip = v; }], ["statusTip", (v) => { statusTip = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let linkedText, resurrectText, dangerRule, freeActionText; __link.imp("src/ui/ui-text.js", [["linkedText", (v) => { linkedText = v; }], ["resurrectText", (v) => { resurrectText = v; }], ["dangerRule", (v) => { dangerRule = v; }], ["freeActionText", (v) => { freeActionText = v; }]]); let trackChips, trackRows, roleBadge, roleTags, offBalanceText, offBalanceTip, createEngagePanel, windupBanner, stackBadges, entriesOf, answerKind, answersToShow, isLethal, SAP_BREAK_WARN, stoppedNow, deathblowPrompt; __link.imp("src/ui/tracks.js", [["trackChips", (v) => { trackChips = v; }], ["trackRows", (v) => { trackRows = v; }], ["roleBadge", (v) => { roleBadge = v; }], ["roleTags", (v) => { roleTags = v; }], ["offBalanceText", (v) => { offBalanceText = v; }], ["offBalanceTip", (v) => { offBalanceTip = v; }], ["createEngagePanel", (v) => { createEngagePanel = v; }], ["windupBanner", (v) => { windupBanner = v; }], ["stackBadges", (v) => { stackBadges = v; }], ["entriesOf", (v) => { entriesOf = v; }], ["answerKind", (v) => { answerKind = v; }], ["answersToShow", (v) => { answersToShow = v; }], ["isLethal", (v) => { isLethal = v; }], ["SAP_BREAK_WARN", (v) => { SAP_BREAK_WARN = v; }], ["stoppedNow", (v) => { stoppedNow = v; }], ["deathblowPrompt", (v) => { deathblowPrompt = v; }]]); let createHeatMeter, bossText; __link.imp("src/ui/heat.js", [["createHeatMeter", (v) => { createHeatMeter = v; }], ["bossText", (v) => { bossText = v; }]]); let trackerContracts; __link.imp("src/ui/prep.js", [["trackerContracts", (v) => { trackerContracts = v; }]]); let CON, token; __link.imp("src/ui/theme.js", [["CON", (v) => { CON = v; }], ["token", (v) => { token = v; }]]); __link.exp({ "conColor": () => conColor, "travelState": () => travelState, "POTION_HINT_HP": () => POTION_HINT_HP, "dotTip": () => dotTip, "heroPortrait": () => heroPortrait, "petPortrait": () => petPortrait, "grindLine": () => grindLine, "trackNewItems": () => trackNewItems, "createHud": () => createHud, "resurrectTip": () => resurrectTip, "dragSource": () => dragSource, "dropTarget": () => dropTarget, "NODE_COLORS": () => NODE_COLORS, "nodeIcon": () => nodeIcon });
 yield;
 // Persistent classic-MMO HUD: unit frames, enemy nameplates with intents, action bar, XP bar,
 // minimap, micro menu, objective tracker, combat log and the raid-boss frame. It renders the view
@@ -30042,6 +30133,16 @@ function grindLine(n, combat) {
   if (combat && !combat.over) return `Wave ${Math.min(n.fightNo, n.wavesChosen)} of ${n.wavesChosen}`;
   const done = Math.min(n.wavesChosen, combat && combat.over === 'victory' ? Math.max(n.waves, n.fightNo) : n.waves);
   return `${done} of ${n.wavesChosen} ${n.wavesChosen === 1 ? 'wave' : 'waves'} done`;
+}
+
+/**
+ * The Bags button's "+N items" set (noteNewItems; blind Legacy v2 2026-11-20, s0313): `uids` the bag uids that came in (not
+ * a list: clear), then only the uids still in `bag` (the view's bags, when given) stay. Returns the count. Pure but for `set`.
+ */
+function trackNewItems(set, uids, bag = null) {
+  if (!Array.isArray(uids)) set.clear(); else for (const u of uids) if (u != null) set.add(u);
+  if (bag) { const have = new Set(bag.filter(Boolean).map((x) => x.uid)); for (const u of [...set]) if (!have.has(u)) set.delete(u); }
+  return set.size;
 }
 
 function createHud(root, ctx) {
@@ -30750,12 +30851,17 @@ function createHud(root, ctx) {
     els.qtag.textContent = `Next: ${label}`;
   }
 
-  let newItems = 0;
-  /** Newcomer check 2026-11-15: n more items went into the bags (n 0 or less: clear the note). */
-  function noteNewItems(n) {
-    newItems = n > 0 ? newItems + n : 0;
-    els.bagsNew.textContent = newItems ? `+${newItems} ${newItems === 1 ? 'item' : 'items'}` : '';
-    els.bagsNew.classList.toggle('hidden', !newItems);
+  const newItems = new Set();
+  /**
+   * Newcomer check 2026-11-15: the items that went into the bags while they were shut, as "+N items" on the Bags button.
+   * uids: the bag uids that came in (0 clears the note: the bags were opened, a new run). Blind Legacy v2
+   * (2026-11-20, s0313, s0511: "+20 items" with 20 bag slots): `bag` (the view's bags) keeps only the items still in them,
+   * so an item sold, discarded or equipped since leaves the count and N is never more than the bags hold.
+   */
+  function noteNewItems(uids, bag = null) {
+    const n = trackNewItems(newItems, uids, bag);
+    els.bagsNew.textContent = n ? `+${n} ${n === 1 ? 'item' : 'items'}` : '';
+    els.bagsNew.classList.toggle('hidden', !n);
   }
   /** Economy v2 (legacy.md 4.7 E6.4): with the level-up banner the XP bar flashes and the hero frame glows for ms. */
   function levelFlash(ms = 1000) {
@@ -30857,7 +30963,7 @@ function dropTarget(el, ctx, onDrop) {
 
 });
 __bundle.def("src/ui/meta.js", function* (__ns, __link) {
-let h, clear, fmtNum, legacyWords; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["legacyWords", (v) => { legacyWords = v; }]]); let icon, spellIcon; __link.imp("src/ui/art-icons.js", [["icon", (v) => { icon = v; }], ["spellIcon", (v) => { spellIcon = v; }]]); let tip, hideTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["hide", (v) => { hideTip = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let META_KIND, metaEffect, metaReqText, nextRunLines, oathEffect, numWord, plural, pct1; __link.imp("src/ui/ui-text.js", [["META_KIND", (v) => { META_KIND = v; }], ["metaEffect", (v) => { metaEffect = v; }], ["metaReqText", (v) => { metaReqText = v; }], ["nextRunLines", (v) => { nextRunLines = v; }], ["oathEffect", (v) => { oathEffect = v; }], ["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["pct1", (v) => { pct1 = v; }]]); __link.exp({ "metaIcon": () => metaIcon, "echoAmt": () => echoAmt, "offerState": () => offerState, "createMeta": () => createMeta, "buildOaths": () => buildOaths });
+let h, clear, fmtNum, legacyWords, lvLearn, legacyShown; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["legacyWords", (v) => { legacyWords = v; }], ["lvLearn", (v) => { lvLearn = v; }], ["legacyShown", (v) => { legacyShown = v; }]]); let icon, spellIcon; __link.imp("src/ui/art-icons.js", [["icon", (v) => { icon = v; }], ["spellIcon", (v) => { spellIcon = v; }]]); let tip, hideTip; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["hide", (v) => { hideTip = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let META_KIND, metaEffect, metaReqText, nextRunLines, oathEffect, numWord, plural, pct1; __link.imp("src/ui/ui-text.js", [["META_KIND", (v) => { META_KIND = v; }], ["metaEffect", (v) => { metaEffect = v; }], ["metaReqText", (v) => { metaReqText = v; }], ["nextRunLines", (v) => { nextRunLines = v; }], ["oathEffect", (v) => { oathEffect = v; }], ["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["pct1", (v) => { pct1 = v; }]]); __link.exp({ "metaIcon": () => metaIcon, "echoAmt": () => echoAmt, "cardReq": () => cardReq, "offerState": () => offerState, "createMeta": () => createMeta, "buildOaths": () => buildOaths });
 yield;
 // Hall of Echoes: the meta progression screen between runs (rules 11). Shown over class select, opened from class
 // select or from the run summary ("Spend Echoes"). It reads the profile view of the bridge (view.meta: balance, the
@@ -30866,7 +30972,7 @@ yield;
 // the expedition map, so its entries (expedition.md 8.2) read as any other; only with the Dev menu's "Classic map (old)"
 // do they carry the "Expedition" tag and "expedition map only". Economy v2 (D159-D160, legacy.md 4.7 E5): a version 3
 // profile's cards read C.META_HERO (the bridge's data.meta.entries), and the level-20 wing shows priced, as not yet open.
- // Legacy (D154): the Legacy words (identity off)
+ // Legacy (D154): the Legacy words, the hero scale (identity off)
 
 
 
@@ -30897,6 +31003,15 @@ const BUY_GAP_MS = 350; // a double click buys one rank, not two
 
 /** The Echo gem and an amount: "◆ 1 240". */
 function echoAmt(n, cls = '') { return h('span.eamt' + cls, h('i.eg'), fmtNum(n)); }
+
+/**
+ * The level an entry waits for, on its card (blind Legacy v2 s0564): a Lost Technique's learn level on the hero scale
+ * ("From hero level 9"; util.js lvLearn, R.learnLevel), else null. Outside Legacy: "From level 20".
+ */
+function cardReq(e, d) {
+  const sp = e && e.spell && d.spells[e.spell];
+  return sp ? `From ${legacyShown() ? 'hero ' : ''}level ${lvLearn(sp.lvl)}` : null;
+}
 
 /** State of an offer for the card: owned (every rank), affordable, unaffordable (available, too few Echoes) or locked. */
 function offerState(o) { return o.rank >= o.ranks ? 'owned' : !o.available ? 'locked' : o.affordable ? 'affordable' : 'unaffordable'; }
@@ -31011,7 +31126,11 @@ function createMeta(ctx) {
       b.addEventListener('click', (ev) => { ev.stopPropagation(); buy(o.id); });
       right = b;
     }
-    const req = state === 'locked' ? h('div.mc-req', `Needs ${o.req.map((r) => metaReqText(r, D, true)).join(' and ')}`) : null;
+    // blind Legacy v2 (2026-11-20, s0564): what an entry waits for shows on the card, not only in its tooltip: the unlocks
+    // it needs (locked), and a technique's learn level ("From hero level 9"; cardReq)
+    const when = cardReq(e, ctx.data);
+    const needs = state === 'locked' ? `Needs ${o.req.map((r) => metaReqText(r, D, true)).join(' and ')}` : null;
+    const req = needs ? h('div.mc-req', needs, when ? ` · ${when[0].toLowerCase()}${when.slice(1)}` : null) : when && state !== 'owned' ? h('div.mc-req.when', when) : null;
     const el2 = h('div.mcard', { dataset: { id: o.id, state } }, h('img.ic', { src: metaIcon(e), alt: '' }),
       h('div.mc-t', h('span.nm', o.name), h('span.rk', `${o.rank}/${o.ranks}`), pips), right,
       h('div.mc-fx', marked(e) ? h('span.mexp', 'Expedition') : null, fx.short), req);
@@ -31980,7 +32099,7 @@ function gateLine(data, tv) {
 
 });
 __bundle.def("src/ui/screens.js", function* (__ns, __link) {
-let h, add, clear, fmtNum, moneyEl, moneyText, clamp, lv, lvLearn, legacyShown, econShown; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["moneyText", (v) => { moneyText = v; }], ["clamp", (v) => { clamp = v; }], ["lv", (v) => { lv = v; }], ["lvLearn", (v) => { lvLearn = v; }], ["legacyShown", (v) => { legacyShown = v; }], ["econShown", (v) => { econShown = v; }]]); let spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon, deathblowIcon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["roleIcon", (v) => { roleIcon = v; }], ["deathblowIcon", (v) => { deathblowIcon = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }]]); let tip, itemTip, spellTip, hideTip, STAT_NAMES; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }], ["hide", (v) => { hideTip = v; }], ["STAT_NAMES", (v) => { STAT_NAMES = v; }]]); let conColor, heroPortrait, travelState; __link.imp("src/ui/hud.js", [["conColor", (v) => { conColor = v; }], ["heroPortrait", (v) => { heroPortrait = v; }], ["travelState", (v) => { travelState = v; }]]); let numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, trainerWaitingShort, econLine; __link.imp("src/ui/ui-text.js", [["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["pct1", (v) => { pct1 = v; }], ["ROLE_INFO", (v) => { ROLE_INFO = v; }], ["humanize", (v) => { humanize = v; }], ["tolls", (v) => { tolls = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["trainerWaitingShort", (v) => { trainerWaitingShort = v; }], ["econLine", (v) => { econLine = v; }]]); let createMeta, buildOaths, echoAmt; __link.imp("src/ui/meta.js", [["createMeta", (v) => { createMeta = v; }], ["buildOaths", (v) => { buildOaths = v; }], ["echoAmt", (v) => { echoAmt = v; }]]); let heatKey, previewBlock, costText, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME; __link.imp("src/ui/heat.js", [["heatKey", (v) => { heatKey = v; }], ["previewBlock", (v) => { previewBlock = v; }], ["costText", (v) => { costText = v; }], ["heatBadge", (v) => { heatBadge = v; }], ["buildHeatSummary", (v) => { buildHeatSummary = v; }], ["fmtTime", (v) => { fmtTime = v; }], ["HEAT_NAME", (v) => { HEAT_NAME = v; }]]); let createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon; __link.imp("src/ui/prep.js", [["createPrepScreen", (v) => { createPrepScreen = v; }], ["buildHubOffer", (v) => { buildHubOffer = v; }], ["siteBadge", (v) => { siteBadge = v; }], ["siteLines", (v) => { siteLines = v; }], ["contractTip", (v) => { contractTip = v; }], ["kindIcon", (v) => { kindIcon = v; }]]); let contractTitle; __link.imp("src/ui/ui-text.js", [["contractTitle", (v) => { contractTitle = v; }]]); let gateLine, closedRoadLine; __link.imp("src/ui/onboarding.js", [["gateLine", (v) => { gateLine = v; }], ["closedRoadLine", (v) => { closedRoadLine = v; }]]); let token; __link.imp("src/ui/theme.js", [["token", (v) => { token = v; }]]); __link.exp({ "TOO_FAR": () => TOO_FAR, "ROAD_FIRST": () => ROAD_FIRST, "nodeLevel": () => nodeLevel, "expNodeDesc": () => expNodeDesc, "createScreens": () => createScreens, "INN_ASK_SHARE": () => INN_ASK_SHARE, "nearlyFull": () => nearlyFull, "disarmSpyglass": () => disarmSpyglass, "expiringHere": () => expiringHere, "expiryText": () => expiryText, "trainerMeta": () => trainerMeta, "trainerIdle": () => trainerIdle, "buildMap": () => buildMap, "spreadAngles": () => spreadAngles, "vendorMeta": () => vendorMeta });
+let h, add, clear, fmtNum, moneyEl, moneyText, clamp, lv, lvLearn, legacyShown, econShown; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["moneyText", (v) => { moneyText = v; }], ["clamp", (v) => { clamp = v; }], ["lv", (v) => { lv = v; }], ["lvLearn", (v) => { lvLearn = v; }], ["legacyShown", (v) => { legacyShown = v; }], ["econShown", (v) => { econShown = v; }]]); let spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon, deathblowIcon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["roleIcon", (v) => { roleIcon = v; }], ["deathblowIcon", (v) => { deathblowIcon = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }]]); let tip, itemTip, spellTip, hideTip, STAT_NAMES; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }], ["hide", (v) => { hideTip = v; }], ["STAT_NAMES", (v) => { STAT_NAMES = v; }]]); let conColor, heroPortrait, travelState; __link.imp("src/ui/hud.js", [["conColor", (v) => { conColor = v; }], ["heroPortrait", (v) => { heroPortrait = v; }], ["travelState", (v) => { travelState = v; }]]); let numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, trainerWaitingShort, econLine, BAGS_FULL; __link.imp("src/ui/ui-text.js", [["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["pct1", (v) => { pct1 = v; }], ["ROLE_INFO", (v) => { ROLE_INFO = v; }], ["humanize", (v) => { humanize = v; }], ["tolls", (v) => { tolls = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["trainerWaitingShort", (v) => { trainerWaitingShort = v; }], ["econLine", (v) => { econLine = v; }], ["BAGS_FULL", (v) => { BAGS_FULL = v; }]]); let createMeta, buildOaths, echoAmt; __link.imp("src/ui/meta.js", [["createMeta", (v) => { createMeta = v; }], ["buildOaths", (v) => { buildOaths = v; }], ["echoAmt", (v) => { echoAmt = v; }]]); let heatKey, previewBlock, costText, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME; __link.imp("src/ui/heat.js", [["heatKey", (v) => { heatKey = v; }], ["previewBlock", (v) => { previewBlock = v; }], ["costText", (v) => { costText = v; }], ["heatBadge", (v) => { heatBadge = v; }], ["buildHeatSummary", (v) => { buildHeatSummary = v; }], ["fmtTime", (v) => { fmtTime = v; }], ["HEAT_NAME", (v) => { HEAT_NAME = v; }]]); let createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon; __link.imp("src/ui/prep.js", [["createPrepScreen", (v) => { createPrepScreen = v; }], ["buildHubOffer", (v) => { buildHubOffer = v; }], ["siteBadge", (v) => { siteBadge = v; }], ["siteLines", (v) => { siteLines = v; }], ["contractTip", (v) => { contractTip = v; }], ["kindIcon", (v) => { kindIcon = v; }]]); let contractTitle; __link.imp("src/ui/ui-text.js", [["contractTitle", (v) => { contractTitle = v; }]]); let gateLine, closedRoadLine; __link.imp("src/ui/onboarding.js", [["gateLine", (v) => { gateLine = v; }], ["closedRoadLine", (v) => { closedRoadLine = v; }]]); let token; __link.imp("src/ui/theme.js", [["token", (v) => { token = v; }]]); __link.exp({ "TOO_FAR": () => TOO_FAR, "ROAD_FIRST": () => ROAD_FIRST, "nodeLevel": () => nodeLevel, "expNodeDesc": () => expNodeDesc, "createScreens": () => createScreens, "INN_ASK_SHARE": () => INN_ASK_SHARE, "nearlyFull": () => nearlyFull, "disarmSpyglass": () => disarmSpyglass, "expiringHere": () => expiringHere, "expiryText": () => expiryText, "trainerMeta": () => trainerMeta, "trainerIdle": () => trainerIdle, "buildMap": () => buildMap, "spreadAngles": () => spreadAngles, "vendorMeta": () => vendorMeta, "hallCost": () => hallCost });
 yield;
 // Centre screens by phase: class select, hub/camp, zone map, node dialogs, loot, quest rewards,
 // vendor, trainer, shrine, rest, treasure and the run summary (its Killed by line names the killing blow, never an id).
@@ -33234,10 +33353,12 @@ function buildLoot(v, ctx) {
   if (L.trap) rows.appendChild(h('div.lrow', { style: { cursor: 'default' } }, h('img', { src: icon('trap', 'blood'), alt: '' }), h('div', h('div.nm.bad', 'A needle trap!'), h('div.meta', 'You lost some health opening it.'))));
   (L.items || []).forEach((it, i) => {
     const worn = it.kind === 'gear' && !!p.equip[it.slot] && p.equip[it.slot].uid === it.uid; // put on from this window
-    const up = it.kind === 'gear' && !worn && ctx.bridge.itemScore(it) > ctx.bridge.itemScore(p.equip[it.slot]);
+    const up = ctx.bridge.upgrade(it).up; // blind Legacy v2 (s0502): never for another class's main stat
     const meta = it.kind === 'gear' ? `${cap(it.slot)} · item level ${lv(it.ilvl)}` : it.kind === 'junk' ? 'Junk' : 'Consumable';
-    const tag = worn ? h('span.good', ' · equipped') : up ? h('span.good', ' · ▲ upgrade') : null; // D150 item 19: no "in your bags" note
-    const r = h('div.lrow.' + (it.rarity || 'common'), { dataset: { uid: it.uid } }, h('img', { src: itemIcon(it), alt: '' }), h('div.grow', h('div.nm.r-' + it.rarity, it.name + (it.count > 1 ? ` ×${it.count}` : ''), it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', meta, tag)));
+    // blind Legacy v2 (s0478): once Leave has asked, the rows it would leave say so, the ones in the bags stay as they are
+    const leaving = lootLeave.armed && lootLeave.key === lk && it.pending;
+    const tag = leaving ? h('span.warn', ' · left behind') : worn ? h('span.good', ' · equipped') : up ? h('span.good', ' · ▲ upgrade') : null; // D150 item 19: no "in your bags" note
+    const r = h('div.lrow.' + (it.rarity || 'common') + (leaving ? '.leaving' : ''), { dataset: { uid: it.uid } }, h('img', { src: itemIcon(it), alt: '' }), h('div.grow', h('div.nm.r-' + it.rarity, it.name + (it.count > 1 ? ` ×${it.count}` : ''), it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', meta, tag)));
     // blind round 2 (casual re-run s0071-s0079): every gear row of the spoils and of a chest offers "Equip now", and a click
     // on the row does the same: from the bags (EQUIP), or from the loot window when the bags were full (LOOT_EQUIP)
     const inBags = () => { const b = ctx.bridge.view.player; return !!(b && b.bag.some((x) => x && x.uid === it.uid)); };
@@ -33266,7 +33387,7 @@ function buildLoot(v, ctx) {
   take.appendChild(h('span.k', 'Space'));
   const nx = nextStrip(L); if (nx) win.appendChild(nx);
   const note = lootLeave.armed && waiting ? h('span.warn.lleave', `Leave ${waiting} ${waiting > 1 ? 'items' : 'item'} behind? Click Leave again.`)
-    : full || (waiting && !p.bag.some((x) => !x)) ? h('span.warn', 'Bags full: discard (B)') : h('span.muted.nowrap', `Bags ${p.bag.filter(Boolean).length}/${p.bag.length}`);
+    : full || (waiting && !p.bag.some((x) => !x)) ? h('span.warn.bfull', BAGS_FULL) : h('span.muted.nowrap', `Bags ${p.bag.filter(Boolean).length}/${p.bag.length}`);
   win.appendChild(h('div.foot', note, h('div.row', { style: { gap: '.6rem' } }, pending ? btn('Leave', leaveFn, lootLeave.armed && waiting ? '.danger' : '') : null, take)));
   return win;
 }
@@ -33287,13 +33408,13 @@ const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 function buildReward(v, ctx) {
   const L = v.loot; const p = v.player;
   const cards = h('div.choice-cards', (L.choices || []).map((it, i) => {
-    const up = ctx.bridge.itemScore(it) - ctx.bridge.itemScore(p.equip[it.slot]);
+    const U = ctx.bridge.upgrade(it); const up = U.diff; // blind Legacy v2 (s0502): another class's main stat is never an upgrade
     const stats = Object.entries(it.stats || {}).filter(([k, val]) => ['sta', 'agi', 'int', 'spi', 'power'].includes(k) && val > 0).map(([k, val]) => `+${val} ${STAT_NAMES[k] || k}`).join('  '); // D150: full stat names
     // blind panel 2026-11-13 (item 9): a reward that fills an empty slot or is an upgrade offers "Equip now": it is chosen
     // and put on at once (CHOOSE_REWARD, then EQUIP of the same item once it is in the bags)
-    const offer = it.kind === 'gear' && (up > 0 || !p.equip[it.slot]);
+    const offer = it.kind === 'gear' && U.up;
     const eq = offer ? h('button.btn.small.eqnow', { type: 'button', dataset: { uid: it.uid } }, 'Equip now') /* not .primary: Space keeps choosing nothing here */ : null;
-    const c = h('div.icard', h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name, it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', `${cap(it.slot)} · item level ${lv(it.ilvl)}`), h('div.stats', stats || ' '), h('div.upg.' + (up > 0 || !p.equip[it.slot] ? 'good' : 'muted'), up > 0 ? `▲ Upgrade (+${Math.round(up * 10) / 10})` : !p.equip[it.slot] ? '▲ Empty slot' : 'Not an upgrade'), eq));
+    const c = h('div.icard', h('img', { src: itemIcon(it), alt: '' }), h('div', h('div.nm.r-' + it.rarity, it.name, it.heatUp ? heatBadge(it.heatUp, ctx, 'item') : null), h('div.meta', `${cap(it.slot)} · item level ${lv(it.ilvl)}`), h('div.stats', stats || ' '), h('div.upg.' + (U.up ? 'good' : 'muted'), !U.up ? 'Not an upgrade' : up > 0 ? `▲ Upgrade (+${Math.round(up * 10) / 10})` : '▲ Empty slot'), eq));
     c.addEventListener('click', () => ctx.act({ type: 'CHOOSE_REWARD', i }));
     // Legacy bugs 2026-11-19 (blind returning player s0044, s0160): the engine puts it on in the choice's own step
     // (CHOOSE_REWARD `equip`), before a Dimmed encounter that starts at once, and from the loot window when the bags are
@@ -33303,7 +33424,9 @@ function buildReward(v, ctx) {
       ctx.act({ type: 'CHOOSE_REWARD', i, equip: true });
       ctx.act(() => { const b = ctx.bridge.view.player; return b && b.bag.some((x) => x && x.uid === it.uid) ? { type: 'EQUIP', uid: it.uid } : null; });
     });
-    tip(c, () => itemTip(it, ctx, { hint: eq ? 'Click to choose this reward · Equip now: choose it and put it on' : 'Click to choose this reward' }), { avoid: '.choice-cards .icard' }); // blind round 2 (skipper s0045): not over another card's Equip now
+    // blind Legacy v2 (s0318): with full bags Equip now leaves the replaced piece behind (the bridge's CHOOSE_REWARD), and says so first (draft)
+    const leaves = () => !!p.equip[it.slot] && p.bag.every(Boolean);
+    tip(c, () => itemTip(it, ctx, { hint: eq ? `Click to choose this reward · Equip now: choose it and put it on${leaves() ? `; your bags are full, so your ${p.equip[it.slot].name} is left behind` : ''}` : 'Click to choose this reward' }), { avoid: '.choice-cards .icard' }); // blind round 2 (skipper s0045): not over another card's Equip now
     return c;
   }));
   if (L.kind === 'bounty') {
@@ -33313,7 +33436,7 @@ function buildReward(v, ctx) {
       L.text ? h('div.qtext.parchment.bounty', h('div.turnin', L.text)) : null,
       h('div.row', { style: { gap: '2rem' } }, L.xp ? h('span', { style: { color: '#d0a8ff', fontWeight: 700, fontSize: '1.35rem' } }, `+${fmtNum(L.xp)} XP`) : null, L.gold ? h('span', moneyEl(L.gold)) : null),
       h('div.subtitle', 'Choose one reward'), cards,
-      p.bag.every(Boolean) ? h('div.warn', 'Your bags are full: discard something first (B).') : null, nextStrip(L),
+      p.bag.every(Boolean) ? h('div.warn.bfull', BAGS_FULL) : null, nextStrip(L),
     ], [], { style: { width: '60rem' }, cls: 'bounty-reward' });
   }
   if (L.kind === 'contract') {
@@ -33324,7 +33447,7 @@ function buildReward(v, ctx) {
     return dialog('Contract complete', c ? `Zone ${c.z} · ${c.zoneName}` : '', [head,
       h('div.row', { style: { gap: '2rem' } }, L.xp ? h('span', { style: { color: '#d0a8ff', fontWeight: 700, fontSize: '1.35rem' } }, `+${fmtNum(L.xp)} XP`) : null, L.gold ? h('span', moneyEl(L.gold)) : null),
       h('div.subtitle', 'Choose one reward'), cards,
-      p.bag.every(Boolean) ? h('div.warn', 'Your bags are full: discard something first (B).') : null, nextStrip(L),
+      p.bag.every(Boolean) ? h('div.warn.bfull', BAGS_FULL) : null, nextStrip(L),
     ], [], { style: { width: '60rem' }, cls: 'contract-reward' });
   }
   const story = L.kind === 'story';
@@ -33332,7 +33455,7 @@ function buildReward(v, ctx) {
     h('div.qtext.parchment', L.giver ? h('div.giver', `${L.giver} says:`) : null, h('div.turnin', `“${L.text}”`)),
     h('div.row', { style: { gap: '2rem' } }, L.xp ? h('span', { style: { color: '#d0a8ff', fontWeight: 700, fontSize: '1.35rem' } }, `+${fmtNum(L.xp)} XP`) : null, L.gold ? h('span', moneyEl(L.gold)) : null),
     h('div.subtitle', story ? 'Choose one rare reward' : 'Choose your reward'), cards,
-    p.bag.every(Boolean) ? h('div.warn', 'Your bags are full: discard something first (B).') : null, nextStrip(L),
+    p.bag.every(Boolean) ? h('div.warn.bfull', BAGS_FULL) : null, nextStrip(L),
   ], [], { style: { width: '60rem' } });
 }
 
@@ -33409,6 +33532,11 @@ function trainAllBtn(v, ctx) {
 function btnSmall(label, ok, fn) { const b = h('button.btn.small' + (ok ? '' : '.disabled'), label); b.addEventListener('click', fn); return b; }
 
 // ------------------------------------------------------------------ summary
+/**
+ * The {cost} of the run end's "Next in the hall" line (content run_balance; the bridge's nextHall): the price, and when the
+ * balance does not buy it, how far off it is: "60 (52 more points)" (blind Legacy v2 s0596; the words draft for content).
+ */
+const hallCost = (n) => (n.short > 0 ? `${fmtNum(n.cost)} (${fmtNum(n.short)} more ${n.short === 1 ? 'point' : 'points'})` : n.cost);
 function buildSummary(v, ctx) {
   const s = v.summary; if (!s) return null;
   const win = h('div.summary.panel.center');
@@ -33453,7 +33581,7 @@ function buildSummary(v, ctx) {
   // the Legacy lines, and the balance against the next hall entry under the total (the bridge's dry END_RUN)
   const E = (id, vars) => econLine(ctx.data.content.texts, id, vars);
   const carry = econShown() && s.hero ? h('div.s-carry', h('div.s-kept', E('run_kept', { level: s.hero.level, was: s.hero.from })), h('div.s-left', E('run_left'))) : null;
-  const balance = econShown() && after ? h('div.s-balance', after.nextHall ? E('run_balance', { legacy: after.echoes, next: after.nextHall.name, cost: after.nextHall.cost }) : `You have ${fmtNum(after.echoes)} Legacy points. Every entry in the hall is yours.`) : null;
+  const balance = econShown() && after ? h('div.s-balance', after.nextHall ? E('run_balance', { legacy: after.echoes, next: after.nextHall.name, cost: hallCost(after.nextHall) }) : `You have ${fmtNum(after.echoes)} Legacy points. Every entry in the hall is yours.`) : null;
   const card3 = h('div.card', h('h3', 'Echoes earned'), carry, s.echoes.map(([k, n, id]) => h('div.echo' + (id === 'welcome' ? '.welcome' : ''), { dataset: { line: id || '' } }, h('span.dim', k), h('b', `+${n}`))), oathLine, devLine, h('div.echo.total', h('span', 'Total'), h('span', `${s.echoTotal} Echoes`)),
     after ? h('div.echo.after', h('span.dim', 'Your Echoes after this run'), echoAmt(after.echoes)) : null, balance,
     h('div.muted', { style: { marginTop: '.8rem', fontSize: '1.1rem' } }, after
@@ -33620,7 +33748,7 @@ function createWindows(root, ctx) {
       const byUid = new Map(p.bag.filter(Boolean).map((it) => [it.uid, it]));
       lay.uids.map((u) => (u == null ? null : byUid.get(u) || null)).forEach((it) => {
         if (!it) { grid.appendChild(h('div.slot', { style: { cursor: 'default' } })); return; }
-        const up = it.kind === 'gear' && ctx.bridge.itemScore(it) > ctx.bridge.itemScore(p.equip[it.slot]);
+        const up = ctx.bridge.upgrade(it).up; // blind Legacy v2 (s0502): never for another class's main stat
         const el = h('div.slot.q-' + it.rarity, { dataset: { uid: it.uid } }, h('img', { src: itemIcon(it), alt: '' }), it.count > 1 ? h('span.cnt', String(it.count)) : null, up ? h('span.upg', '▲') : null);
         // blind panel 2026-11-13: an item's tip goes beside the grid, never over its neighbours
         tip(el, () => itemTip(it, ctx, { hint: it.kind === 'gear' ? 'Right-click to equip · click for options' : it.kind === 'consumable' ? 'Right-click to use · drag to the item bar' : 'Click for options' }), { avoid: '#win-bags .baggrid .slot' });
@@ -35326,7 +35454,7 @@ function createAudio(settings) {
 
 });
 __bundle.def("src/ui/app.js", function* (__ns, __link) {
-let createBridge, flags; __link.imp("src/ui/engine-bridge.js", [["createBridge", (v) => { createBridge = v; }], ["flags", (v) => { flags = v; }]]); let Scene; __link.imp("src/ui/scene.js", [["Scene", (v) => { Scene = v; }]]); let createHud; __link.imp("src/ui/hud.js", [["createHud", (v) => { createHud = v; }]]); let createScreens, disarmSpyglass; __link.imp("src/ui/screens.js", [["createScreens", (v) => { createScreens = v; }], ["disarmSpyglass", (v) => { disarmSpyglass = v; }]]); let prepKey; __link.imp("src/ui/prep.js", [["prepKey", (v) => { prepKey = v; }]]); let createWindows; __link.imp("src/ui/windows.js", [["createWindows", (v) => { createWindows = v; }]]); let Director; __link.imp("src/ui/director.js", [["Director", (v) => { Director = v; }]]); let initTooltip, hideTip, refreshTip; __link.imp("src/ui/tooltip.js", [["initTooltip", (v) => { initTooltip = v; }], ["hide", (v) => { hideTip = v; }], ["refreshTip", (v) => { refreshTip = v; }]]); let createDevMenu; __link.imp("src/ui/dev-menu.js", [["createDevMenu", (v) => { createDevMenu = v; }]]); let createOnboarding; __link.imp("src/ui/onboarding.js", [["createOnboarding", (v) => { createOnboarding = v; }]]); let createAudio, CLICKABLE; __link.imp("src/ui/audio.js", [["createAudio", (v) => { createAudio = v; }], ["CLICKABLE", (v) => { CLICKABLE = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let h, clear, lv; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["lv", (v) => { lv = v; }]]); let enemyLook; __link.imp("src/ui/art-actors.js", [["enemyLook", (v) => { enemyLook = v; }]]); let TELE, TELE_CAST; __link.imp("src/ui/theme.js", [["TELE", (v) => { TELE = v; }], ["TELE_CAST", (v) => { TELE_CAST = v; }]]); let HEAT_WORDS, tolls; __link.imp("src/ui/ui-text.js", [["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["tolls", (v) => { tolls = v; }]]); __link.exp({ "App": () => App, "MAP_ESC": () => MAP_ESC, "flags": () => flags });
+let createBridge, flags; __link.imp("src/ui/engine-bridge.js", [["createBridge", (v) => { createBridge = v; }], ["flags", (v) => { flags = v; }]]); let Scene; __link.imp("src/ui/scene.js", [["Scene", (v) => { Scene = v; }]]); let createHud; __link.imp("src/ui/hud.js", [["createHud", (v) => { createHud = v; }]]); let createScreens, disarmSpyglass; __link.imp("src/ui/screens.js", [["createScreens", (v) => { createScreens = v; }], ["disarmSpyglass", (v) => { disarmSpyglass = v; }]]); let prepKey; __link.imp("src/ui/prep.js", [["prepKey", (v) => { prepKey = v; }]]); let createWindows; __link.imp("src/ui/windows.js", [["createWindows", (v) => { createWindows = v; }]]); let Director; __link.imp("src/ui/director.js", [["Director", (v) => { Director = v; }]]); let initTooltip, hideTip, refreshTip; __link.imp("src/ui/tooltip.js", [["initTooltip", (v) => { initTooltip = v; }], ["hide", (v) => { hideTip = v; }], ["refreshTip", (v) => { refreshTip = v; }]]); let createDevMenu; __link.imp("src/ui/dev-menu.js", [["createDevMenu", (v) => { createDevMenu = v; }]]); let createOnboarding; __link.imp("src/ui/onboarding.js", [["createOnboarding", (v) => { createOnboarding = v; }]]); let createAudio, CLICKABLE; __link.imp("src/ui/audio.js", [["createAudio", (v) => { createAudio = v; }], ["CLICKABLE", (v) => { CLICKABLE = v; }]]); let settings; __link.imp("src/ui/settings.js", [["settings", (v) => { settings = v; }]]); let h, clear, lv; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["clear", (v) => { clear = v; }], ["lv", (v) => { lv = v; }]]); let enemyLook; __link.imp("src/ui/art-actors.js", [["enemyLook", (v) => { enemyLook = v; }]]); let TELE, TELE_CAST; __link.imp("src/ui/theme.js", [["TELE", (v) => { TELE = v; }], ["TELE_CAST", (v) => { TELE_CAST = v; }]]); let HEAT_WORDS, tolls, BAGS_FULL; __link.imp("src/ui/ui-text.js", [["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["tolls", (v) => { tolls = v; }], ["BAGS_FULL", (v) => { BAGS_FULL = v; }]]); __link.exp({ "App": () => App, "MAP_ESC": () => MAP_ESC, "flags": () => flags });
 yield;
 // App orchestrator: owns the bridge, scene, HUD, screens and windows; turns input into actions and
 // plays each step through the director. Presentation only.
@@ -35712,8 +35840,10 @@ class App {
   noteBagLoot(events, action) {
     const t = action ? (action.type === 'ENGINE' ? action.action.type : action.type) : null;
     if (t === 'START_RUN' || t === 'END_RUN') { this.hud.noteNewItems(0); return; }
-    const n = (events || []).filter((e) => e.t === 'gotItem' && e.to === 'bag').length;
-    if (n && !this.windows.isOpen('bags')) this.hud.noteNewItems(n);
+    // blind Legacy v2 (2026-11-20, s0313): counted by item, and only while the item is still in the bags
+    const uids = this.windows.isOpen('bags') ? [] : (events || []).filter((e) => e.t === 'gotItem' && e.to === 'bag').map((e) => e.uid);
+    const p = this.bridge.view && this.bridge.view.player;
+    this.hud.noteNewItems(uids, p ? p.bag : []);
   }
   /**
    * Blind round 2 (skipper s0161-s0166: loot lost with full bags, no warning): the step that fills the last bag slot says
@@ -35723,8 +35853,8 @@ class App {
     const free = (v) => (v && v.player ? v.player.bag.filter((x) => !x).length : null);
     const a = free(prev); const b = free(next);
     if (a == null || b == null || a === 0 || b !== 0 || next.phase === 'SUMMARY') return;
-    this.toast('Bags full: make room (B) or new loot is left behind', 'warn');
-    this.hud.log('Your bags are full. New loot waits in the loot window until you make room.', 'lg-sys');
+    this.toast(BAGS_FULL, 'warn'); // blind Legacy v2 (2026-11-20): one sentence for full bags (ui-text.js BAGS_FULL, draft)
+    this.hud.log(BAGS_FULL, 'lg-sys');
   }
 
   /**
