@@ -6674,7 +6674,8 @@ async function partY0(browser, W, H) {
  * Part Y6 (docs/specs/legacy.md 4.7 E5-E6, engine-api.md 15.5; docs/handoffs/engine-2026-11-19c.md section 4,
  * ui-2026-11-19b.md): the ?legacy=1 set with C.GATES.economyV2 on. Y6a the hall: a version 3 profile that bought under the
  * old catalogue is refunded once (D160: the note "The Legacy hall has new prices ...", gone after reloadKeep, no second
- * refund); the cards read C.META_HERO (Vigor 0/2 at 70, "+1 % max health per rank"), no retired entry, the level-20 wing
+ * refund); the cards read C.META_HERO (Vigor 0/2 at 70, hall v3d D167: "+3 % max health, then +1 %" from its rank list;
+ * Deeper Pockets "+8 bag slots" for 50; the Hunter's Stormhawk 90), no retired entry, the level-20 wing
  * priced and "Not yet open". Y6b the second camp (profile runs 1): its line, the one name "camp points" (the number, its
  * tooltip, Set out's tooltip and log line, the tracker, the quest log), the board's exact XP (no "about"), no "Reserve",
  * "points left" or "Preparation points"; a zone 2 hub's offer "Take for N camp points (you have M)". Y6c the level-up
@@ -6724,13 +6725,20 @@ async function partY6(browser, W, H) {
       await page.locator('#create .bottom .echoes').click(); await idle(page);
       const hall = await page.evaluate(() => {
         const card = (id) => { const c = document.querySelector(`#meta .mcard[data-id="${id}"]`); return c ? { rk: c.querySelector('.rk') ? c.querySelector('.rk').innerText : null, fx: c.querySelector('.mc-fx').innerText, buy: c.querySelector('.buy') ? c.querySelector('.buy').innerText.replace(/\s+/g, ' ').trim() : null, tag: c.querySelector('.mtag') ? c.querySelector('.mtag').textContent : null, req: c.querySelector('.mc-req') ? c.querySelector('.mc-req').innerText.replace(/\s+/g, ' ').trim() : null } : null; };
-        return { vigor: card('vigor'), quick: card('quick_study'), keen: card('keen'), cards: document.querySelectorAll('#meta .mcard:not(.wing)').length, wing: ['tree2', 'tree3', 'armoury'].map(card), head: (document.querySelector('#meta .mgroup.wing .mg-h .t') || {}).innerText || null,
+        return { vigor: card('vigor'), edge: card('edge'), pockets: card('pockets'), storm: card('stormhawk'), quick: card('quick_study'), keen: card('keen'), cards: document.querySelectorAll('#meta .mcard:not(.wing)').length, wing: ['tree2', 'tree3', 'armoury'].map(card), head: (document.querySelector('#meta .mgroup.wing .mg-h .t') || {}).innerText || null,
           over: (() => { const w = document.querySelector('#meta .mwin').getBoundingClientRect(); return [...document.querySelectorAll('#meta .mcard')].filter((c) => { const r = c.getBoundingClientRect(); return r.bottom > w.bottom + 1 || r.right > w.right + 1; }).length; })(),
           body: document.querySelector('#meta .mbody').scrollHeight > document.querySelector('#meta .mbody').clientHeight + 2 };
       });
       await shot(page, 'Y6a-legacy-hall');
-      check('Y-6', 'the hall\'s cards read C.META_HERO: Vigor 0/2 for 70 at +1 % a rank, Quick Study +5 % a rank; no retired entry; 18 cards',
-        hall.vigor && hall.vigor.rk === `0/${R.C.META_HERO.vigor.ranks}` && hall.vigor.buy === `Buy ${R.C.META_HERO.vigor.costs[0]}` && /\+1 % max health per rank/.test(hall.vigor.fx) && /\+5 % experience per rank/.test(hall.quick.fx) && hall.keen === null && hall.cards === Object.keys(R.C.META_HERO).length,
+      // hall v3d (D167): the stat cards write each rank's value from C.META_HERO's lists; prices from the engine
+      const pc = (x) => `${Math.round(x * 1000) / 10} %`;
+      const H6 = R.C.META_HERO;
+      check('Y-6', `the hall's cards read C.META_HERO (hall v3d): Vigor 0/2 for ${H6.vigor.costs[0]} at +${pc(H6.vigor.hpPct[0])} then +${pc(H6.vigor.hpPct[1])}, Edge +${pc(H6.edge.powerPct[0])} then +${pc(H6.edge.powerPct[1])}, Deeper Pockets +${H6.pockets.slots} for ${H6.pockets.costs[0]}, Stormhawk ${H6.stormhawk.costs[0]}, Quick Study +5 % a rank; no retired entry; 18 cards`,
+        hall.vigor && hall.vigor.rk === `0/${H6.vigor.ranks}` && hall.vigor.buy === `Buy ${H6.vigor.costs[0]}` && hall.vigor.fx.includes(`+${pc(H6.vigor.hpPct[0])} max health, then +${pc(H6.vigor.hpPct[1])}`)
+          && hall.edge && hall.edge.fx.includes(`+${pc(H6.edge.powerPct[0])} Power, then +${pc(H6.edge.powerPct[1])}`)
+          && hall.pockets && hall.pockets.fx.includes(`+${H6.pockets.slots} bag slots`) && hall.pockets.buy === `Buy ${H6.pockets.costs[0]}`
+          && hall.storm && hall.storm.buy === `Buy ${H6.stormhawk.costs[0]}`
+          && /\+5 % experience per rank/.test(hall.quick.fx) && hall.keen === null && hall.cards === Object.keys(H6).length,
         JSON.stringify(hall));
       check('Y-6', 'the level-20 wing: second and third tree and the Armoury, priced (TREE_OPEN_COST, ARMOURY_COST) and "Not yet open", nothing to buy',
         hall.head === `From hero level ${R.C.TREE_OPEN_LEVEL}` && hall.wing.every((c) => c && c.tag === 'Not yet open' && c.buy === null) && hall.wing.map((c) => Number(c.req.replace(/^.*·\s*/, '').replace(/\D/g, ''))).join(',') === [...R.C.TREE_OPEN_COST, R.C.ARMOURY_COST].join(','),
