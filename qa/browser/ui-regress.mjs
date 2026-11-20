@@ -1620,7 +1620,7 @@ function meterDiff(d, hv, camp) {
     if (!d.dimShown || d.dim < barPct(seg[0]) || d.dim > barPct(seg[1])) out.push(`Dimming marker ${d.dim} outside ${hv.stateDim} (${barPct(seg[0]).toFixed(1)}-${barPct(seg[1]).toFixed(1)})`);
     eq('the clock that sets the state', `${d.dimSets ? 'dim' : ''}${d.runSets ? 'run' : ''}`, hv.by); eq('by text', d.by2, null);
     // D163 (draft): the tag names the clock that sets the state; the diamond is the main pointer when the Dimming sets it
-    eq('clock tag', d.clock, hv.by === 'dim' ? '◆ Sets the state' : '▼ Sets the state');
+    eq('clock tag', d.clock, hv.by === 'dim' ? '◆ Set by this place' : '▼ Set by your tolls');
     const main = d.dimW > d.runW && d.dimHead && !d.runHead ? 'dim' : d.runHead && !d.dimHead ? 'run' : `unclear (${JSON.stringify([d.runW, d.dimW, d.runHead, d.dimHead])})`;
     eq('main pointer', main, hv.by);
   }
@@ -6280,7 +6280,7 @@ async function partX(browser, W, H) {
       }
       check('X-roads', `every Road on ${maps} map screens: a post line from its sign to its own rim node (open, closed or Dimmed colour), the node ringed (.xrd)`, maps > 3 && badRoads.length === 0, JSON.stringify(badRoads.slice(0, 3)));
       check('X-clocks', `${clocksSeen} Dimming clocks: each pinned to its node (no declutter shift, touching its ring), the number alone; the player's own at 2 or less "Dims in N!"`, clocksSeen > 10 && badClocks.length === 0, JSON.stringify(badClocks.slice(0, 4)));
-      check('X-furnace', `the Dimming sets the Furnace: the meter reads "<State> · ${DIM_NEAR_WORDS}" and the tag "◆ Sets the state" (D163, draft), its tip "Your node dims in N tolls" and the diamond's line`, !!dimFurnace && dimFurnace.meter.toLowerCase() === `${dimFurnace.state} · ${DIM_NEAR_WORDS} ◆ Sets the state`.toLowerCase() && !!dimFurnace.tip && /Your node dims in \d+ tolls?\./.test(dimFurnace.tip) && dimFurnace.tip.includes(DIM_MARK_LINE), JSON.stringify(dimFurnace));
+      check('X-furnace', `the Dimming sets the Furnace: the meter reads "<State> · ${DIM_NEAR_WORDS}" and the tag "◆ Set by this place" (D163, draft), its tip "Your node dims in N tolls" and the diamond's line`, !!dimFurnace && dimFurnace.meter.toLowerCase() === `${dimFurnace.state} · ${DIM_NEAR_WORDS} ◆ Set by this place`.toLowerCase() && !!dimFurnace.tip && /Your node dims in \d+ tolls?\./.test(dimFurnace.tip) && dimFurnace.tip.includes(DIM_MARK_LINE), JSON.stringify(dimFurnace));
       check('X-nearest', 'the Roads open (Gorrak\'s fight over): the "Take a Road" line (G12.road) ends with the nearest Road\'s hops and tolls (nearestRoad on mapView), rings that Road\'s sign, and counts for U01', roadsOpenAt != null && !!roadLine && !!roadLine.want && roadLine.text.endsWith(roadLine.want) && !!roadLine.ring && roadLine.ring.endsWith(` ${roadLine.nr.id}`) && roadLine.u01 === true, JSON.stringify({ roadsOpenAt, roadLine }));
       check('X-key', 'the map Key\'s tip lies beside the Key, not over it; the Key names the clock badge ("Dims in 3 tolls")', !!keyTip && !keyTip.overlap && keyTip.row, JSON.stringify(keyTip));
       check('X-bags', 'the first loot window with items: the Bags (B) open beside it, not over it; Continue and every button of the window on top; a "+N items" note on the Bags button before, gone once they open',

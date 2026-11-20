@@ -113,7 +113,7 @@ export const DIM_MARK_LINE = '◆ The Dimming near you. Whichever marker is furt
  * glyph is the marker that clock moves: the needle (▼) for the tolls, the diamond (◆) for the Dimming.
  */
 // content-2026-11-20 section 3 row 1 (draft): one tag for both clocks; the glyph (▼ the needle, ◆ the diamond) names the clock
-export const CLOCK_TAG = { run: 'Sets the state', dim: 'Sets the state' };
+export const CLOCK_TAG = { run: 'Set by your tolls', dim: 'Set by this place' }; // draft (Lead 2026-11-20): names the clock without repeating 'Dimming'
 export const CLOCK_GLYPH = { run: '▼', dim: '◆' };
 /** The clock tag of a heatView: { by, glyph, text }, or null where only the run clock runs (no Dimming clock). */
 export function clockTag(hv) {

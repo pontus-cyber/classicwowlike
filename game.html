@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="build" content="5f27755 2026-11-20T08:39:08Z">
+<meta name="build" content="2b5c233 2026-11-20T14:36:30Z">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classic MMO Roguelike</title>
@@ -2130,8 +2130,8 @@ body.coach-up #skiphint { visibility: hidden; }
 <noscript>This game needs JavaScript.</noscript>
 <script type="module">
 "use strict";
-// Built by tools/build.mjs (5f27755 2026-11-20T08:39:08Z) from 68 modules.
-const __BUILD__ = "5f27755 2026-11-20T08:39:08Z"; globalThis.__BUILD__ = __BUILD__;
+// Built by tools/build.mjs (2b5c233 2026-11-20T14:36:30Z) from 68 modules.
+const __BUILD__ = "2b5c233 2026-11-20T14:36:30Z"; globalThis.__BUILD__ = __BUILD__;
 const __bundle = (() => {
   const defs = new Map(), recs = new Map(), setters = [];
   const rec = (id) => {
@@ -8482,7 +8482,7 @@ function heatView(s, legal = () => true) {
 
 });
 __bundle.def("src/engine/contracts.js", function* (__ns, __link) {
-let ZONE_COUNT, ZONE_LEVELS, PREP_POINTS, PREP_POINTS_PER_QM, CONTRACT_BOARD_SIZE, CONTRACT_BOARD_BANDS, CONTRACT_BOARD_FIRST_BANDS, CONTRACT_SLOTS, REROLL_PRICE, REROLL_MAX, CULL_SITES, CULL_SITE_SPARE, CULL_SITE_IN, CULL_SITE_OUT, BOUNTY_PLACED, CONTRACT_CL_OFFSET, PREP_OPTION, PREP_OPTION_IDS, PREP_CAMP_OPTIONS, CONTRACT, CONTRACT_KINDS, META, BELL_MAX_CHARGES, GUIDE_RADIUS_BONUS, TRACKER_RADIUS, EMBER_MAX_CARRIED, XP_WEIGHT_MULT, DROP_TABLE, RARITY_ORDER, GATES, PREP_POINTS_FIRST; __link.imp("src/constants.js", [["ZONE_COUNT", (v) => { ZONE_COUNT = v; }], ["ZONE_LEVELS", (v) => { ZONE_LEVELS = v; }], ["PREP_POINTS", (v) => { PREP_POINTS = v; }], ["PREP_POINTS_PER_QM", (v) => { PREP_POINTS_PER_QM = v; }], ["CONTRACT_BOARD_SIZE", (v) => { CONTRACT_BOARD_SIZE = v; }], ["CONTRACT_BOARD_BANDS", (v) => { CONTRACT_BOARD_BANDS = v; }], ["CONTRACT_BOARD_FIRST_BANDS", (v) => { CONTRACT_BOARD_FIRST_BANDS = v; }], ["CONTRACT_SLOTS", (v) => { CONTRACT_SLOTS = v; }], ["REROLL_PRICE", (v) => { REROLL_PRICE = v; }], ["REROLL_MAX", (v) => { REROLL_MAX = v; }], ["CULL_SITES", (v) => { CULL_SITES = v; }], ["CULL_SITE_SPARE", (v) => { CULL_SITE_SPARE = v; }], ["CULL_SITE_IN", (v) => { CULL_SITE_IN = v; }], ["CULL_SITE_OUT", (v) => { CULL_SITE_OUT = v; }], ["BOUNTY_PLACED", (v) => { BOUNTY_PLACED = v; }], ["CONTRACT_CL_OFFSET", (v) => { CONTRACT_CL_OFFSET = v; }], ["PREP_OPTION", (v) => { PREP_OPTION = v; }], ["PREP_OPTION_IDS", (v) => { PREP_OPTION_IDS = v; }], ["PREP_CAMP_OPTIONS", (v) => { PREP_CAMP_OPTIONS = v; }], ["CONTRACT", (v) => { CONTRACT = v; }], ["CONTRACT_KINDS", (v) => { CONTRACT_KINDS = v; }], ["META", (v) => { META = v; }], ["BELL_MAX_CHARGES", (v) => { BELL_MAX_CHARGES = v; }], ["GUIDE_RADIUS_BONUS", (v) => { GUIDE_RADIUS_BONUS = v; }], ["TRACKER_RADIUS", (v) => { TRACKER_RADIUS = v; }], ["EMBER_MAX_CARRIED", (v) => { EMBER_MAX_CARRIED = v; }], ["XP_WEIGHT_MULT", (v) => { XP_WEIGHT_MULT = v; }], ["DROP_TABLE", (v) => { DROP_TABLE = v; }], ["RARITY_ORDER", (v) => { RARITY_ORDER = v; }], ["GATES", (v) => { GATES = v; }], ["PREP_POINTS_FIRST", (v) => { PREP_POINTS_FIRST = v; }]]); let STREAM, nextFloat, nextInt, weightedIndex; __link.imp("src/rng.js", [["STREAM", (v) => { STREAM = v; }], ["nextFloat", (v) => { nextFloat = v; }], ["nextInt", (v) => { nextInt = v; }], ["weightedIndex", (v) => { weightedIndex = v; }]]); let zoneContent; __link.imp("src/engine/content.js", [["zoneContent", (v) => { zoneContent = v; }]]); let validEncounter, clampCl; __link.imp("src/engine/map.js", [["validEncounter", (v) => { validEncounter = v; }], ["clampCl", (v) => { clampCl = v; }]]); let flatXp, gainXp, gainGold; __link.imp("src/engine/progress.js", [["flatXp", (v) => { flatXp = v; }], ["gainXp", (v) => { gainXp = v; }], ["gainGold", (v) => { gainGold = v; }]]); let V, rollDrop, makeConsumable, addToBag, countConsumable; __link.imp("src/engine/items.js", [["V", (v) => { V = v; }], ["rollDrop", (v) => { rollDrop = v; }], ["makeConsumable", (v) => { makeConsumable = v; }], ["addToBag", (v) => { addToBag = v; }], ["countConsumable", (v) => { countConsumable = v; }]]); let zoneRegions, setupExpNode, xpWeight, firstRun, leanFirst, ringRule; __link.imp("src/engine/expedition.js", [["zoneRegions", (v) => { zoneRegions = v; }], ["setupExpNode", (v) => { setupExpNode = v; }], ["xpWeight", (v) => { xpWeight = v; }], ["firstRun", (v) => { firstRun = v; }], ["leanFirst", (v) => { leanFirst = v; }], ["ringRule", (v) => { ringRule = v; }]]); let fixBoard; __link.imp("src/engine/tutorial.js", [["fixBoard", (v) => { fixBoard = v; }]]); let isLegacy, contractLevelOf, legacyPerPrepPoint; __link.imp("src/engine/legacy.js", [["isLegacy", (v) => { isLegacy = v; }], ["contractLevelOf", (v) => { contractLevelOf = v; }], ["legacyPerPrepPoint", (v) => { legacyPerPrepPoint = v; }]]); __link.exp({ "prepPoints": () => prepPoints, "contractLevel": () => contractLevel, "drawOffer": () => drawOffer, "sameOffer": () => sameOffer, "boardBand": () => boardBand, "firstRun": () => firstRun, "leanFirst": () => leanFirst, "boardSize": () => boardSize, "drawBoard": () => drawBoard, "ownedPerks": () => ownedPerks, "newPrep": () => newPrep, "heldCount": () => heldCount, "prepSpent": () => prepSpent, "prepLeft": () => prepLeft, "takeContractError": () => takeContractError, "dropContractError": () => dropContractError, "buyPrepError": () => buyPrepError, "sellPrepError": () => sellPrepError, "rerollError": () => rerollError, "takeContract": () => takeContract, "dropContract": () => dropContract, "buyPrep": () => buyPrep, "sellPrep": () => sellPrep, "rerollBoard": () => rerollBoard, "applySetOut": () => applySetOut, "rewardInfo": () => rewardInfo, "prepView": () => prepView, "contractView": () => contractView, "placeSites": () => placeSites, "contractsAtZone": () => contractsAtZone, "hubContractError": () => hubContractError, "takeHubContract": () => takeHubContract, "siteWon": () => siteWon, "bountyReward": () => bountyReward, "bountyRoadXp": () => bountyRoadXp, "expireContracts": () => expireContracts, "siteMarks": () => siteMarks, "trackerShows": () => trackerShows, "delveKnown": () => delveKnown, "spyglassError": () => spyglassError, "useSpyglass": () => useSpyglass, "contractSummary": () => contractSummary });
+let ZONE_COUNT, ZONE_LEVELS, PREP_POINTS, PREP_POINTS_PER_QM, CONTRACT_BOARD_SIZE, CONTRACT_BOARD_BANDS, CONTRACT_BOARD_FIRST_BANDS, CONTRACT_SLOTS, REROLL_PRICE, REROLL_MAX, CULL_SITES, CULL_SITE_SPARE, CULL_SITE_IN, CULL_SITE_OUT, BOUNTY_PLACED, CONTRACT_CL_OFFSET, PREP_OPTION, PREP_OPTION_IDS, PREP_CAMP_OPTIONS, CONTRACT, CONTRACT_KINDS, META, BELL_MAX_CHARGES, GUIDE_RADIUS_BONUS, TRACKER_RADIUS, EMBER_MAX_CARRIED, XP_WEIGHT_MULT, DROP_TABLE, RARITY_ORDER, GATES, PREP_POINTS_FIRST; __link.imp("src/constants.js", [["ZONE_COUNT", (v) => { ZONE_COUNT = v; }], ["ZONE_LEVELS", (v) => { ZONE_LEVELS = v; }], ["PREP_POINTS", (v) => { PREP_POINTS = v; }], ["PREP_POINTS_PER_QM", (v) => { PREP_POINTS_PER_QM = v; }], ["CONTRACT_BOARD_SIZE", (v) => { CONTRACT_BOARD_SIZE = v; }], ["CONTRACT_BOARD_BANDS", (v) => { CONTRACT_BOARD_BANDS = v; }], ["CONTRACT_BOARD_FIRST_BANDS", (v) => { CONTRACT_BOARD_FIRST_BANDS = v; }], ["CONTRACT_SLOTS", (v) => { CONTRACT_SLOTS = v; }], ["REROLL_PRICE", (v) => { REROLL_PRICE = v; }], ["REROLL_MAX", (v) => { REROLL_MAX = v; }], ["CULL_SITES", (v) => { CULL_SITES = v; }], ["CULL_SITE_SPARE", (v) => { CULL_SITE_SPARE = v; }], ["CULL_SITE_IN", (v) => { CULL_SITE_IN = v; }], ["CULL_SITE_OUT", (v) => { CULL_SITE_OUT = v; }], ["BOUNTY_PLACED", (v) => { BOUNTY_PLACED = v; }], ["CONTRACT_CL_OFFSET", (v) => { CONTRACT_CL_OFFSET = v; }], ["PREP_OPTION", (v) => { PREP_OPTION = v; }], ["PREP_OPTION_IDS", (v) => { PREP_OPTION_IDS = v; }], ["PREP_CAMP_OPTIONS", (v) => { PREP_CAMP_OPTIONS = v; }], ["CONTRACT", (v) => { CONTRACT = v; }], ["CONTRACT_KINDS", (v) => { CONTRACT_KINDS = v; }], ["META", (v) => { META = v; }], ["BELL_MAX_CHARGES", (v) => { BELL_MAX_CHARGES = v; }], ["GUIDE_RADIUS_BONUS", (v) => { GUIDE_RADIUS_BONUS = v; }], ["TRACKER_RADIUS", (v) => { TRACKER_RADIUS = v; }], ["EMBER_MAX_CARRIED", (v) => { EMBER_MAX_CARRIED = v; }], ["XP_WEIGHT_MULT", (v) => { XP_WEIGHT_MULT = v; }], ["DROP_TABLE", (v) => { DROP_TABLE = v; }], ["RARITY_ORDER", (v) => { RARITY_ORDER = v; }], ["GATES", (v) => { GATES = v; }], ["PREP_POINTS_FIRST", (v) => { PREP_POINTS_FIRST = v; }]]); let STREAM, nextFloat, nextInt, weightedIndex; __link.imp("src/rng.js", [["STREAM", (v) => { STREAM = v; }], ["nextFloat", (v) => { nextFloat = v; }], ["nextInt", (v) => { nextInt = v; }], ["weightedIndex", (v) => { weightedIndex = v; }]]); let zoneContent; __link.imp("src/engine/content.js", [["zoneContent", (v) => { zoneContent = v; }]]); let validEncounter, clampCl; __link.imp("src/engine/map.js", [["validEncounter", (v) => { validEncounter = v; }], ["clampCl", (v) => { clampCl = v; }]]); let flatXp, gainXp, gainGold; __link.imp("src/engine/progress.js", [["flatXp", (v) => { flatXp = v; }], ["gainXp", (v) => { gainXp = v; }], ["gainGold", (v) => { gainGold = v; }]]); let V, rollDrop, makeConsumable, addToBag, countConsumable; __link.imp("src/engine/items.js", [["V", (v) => { V = v; }], ["rollDrop", (v) => { rollDrop = v; }], ["makeConsumable", (v) => { makeConsumable = v; }], ["addToBag", (v) => { addToBag = v; }], ["countConsumable", (v) => { countConsumable = v; }]]); let zoneRegions, setupExpNode, xpWeight, firstRun, leanFirst, ringRule; __link.imp("src/engine/expedition.js", [["zoneRegions", (v) => { zoneRegions = v; }], ["setupExpNode", (v) => { setupExpNode = v; }], ["xpWeight", (v) => { xpWeight = v; }], ["firstRun", (v) => { firstRun = v; }], ["leanFirst", (v) => { leanFirst = v; }], ["ringRule", (v) => { ringRule = v; }]]); let fixBoard; __link.imp("src/engine/tutorial.js", [["fixBoard", (v) => { fixBoard = v; }]]); let isLegacy, econV2, contractLevelOf, legacyPerPrepPoint; __link.imp("src/engine/legacy.js", [["isLegacy", (v) => { isLegacy = v; }], ["econV2", (v) => { econV2 = v; }], ["contractLevelOf", (v) => { contractLevelOf = v; }], ["legacyPerPrepPoint", (v) => { legacyPerPrepPoint = v; }]]); __link.exp({ "prepPoints": () => prepPoints, "contractLevel": () => contractLevel, "drawOffer": () => drawOffer, "sameOffer": () => sameOffer, "boardBand": () => boardBand, "firstRun": () => firstRun, "leanFirst": () => leanFirst, "boardSize": () => boardSize, "drawBoard": () => drawBoard, "ownedPerks": () => ownedPerks, "newPrep": () => newPrep, "heldCount": () => heldCount, "prepSpent": () => prepSpent, "prepLeft": () => prepLeft, "takeContractError": () => takeContractError, "dropContractError": () => dropContractError, "buyPrepError": () => buyPrepError, "sellPrepError": () => sellPrepError, "rerollError": () => rerollError, "takeContract": () => takeContract, "dropContract": () => dropContract, "buyPrep": () => buyPrep, "sellPrep": () => sellPrep, "rerollBoard": () => rerollBoard, "applySetOut": () => applySetOut, "rewardInfo": () => rewardInfo, "prepView": () => prepView, "contractView": () => contractView, "placeSites": () => placeSites, "contractsAtZone": () => contractsAtZone, "hubContractError": () => hubContractError, "takeHubContract": () => takeHubContract, "siteWon": () => siteWon, "bountyReward": () => bountyReward, "bountyRoadXp": () => bountyRoadXp, "expireContracts": () => expireContracts, "siteMarks": () => siteMarks, "trackerShows": () => trackerShows, "delveKnown": () => delveKnown, "spyglassError": () => spyglassError, "useSpyglass": () => useSpyglass, "contractSummary": () => contractSummary });
 yield;
 // Start camp and contracts of an expedition run (docs/specs/expedition.md 2 and 3, task M2b 2b.5; marked "(prep)" in
 // engine-api.md). PREP: preparation points (PREP_POINTS + Quartermaster ranks, meta), the contract board (stream prep(k),
@@ -9018,7 +9018,8 @@ function hubContractError(s, a) {
   if (zone.leftHub) return 'the hub contract is taken before leaving the hub';
   if (a.mode === 'reserve') {
     if (heldCount(s) >= CONTRACT_SLOTS) return `at most ${CONTRACT_SLOTS} contracts at once (swap one)`;
-    return s.exp.reserve < zone.hubOffer.price ? 'not enough Reserve' : null;
+    // content-2026-11-20 section 3 row 10 (draft): one name, "camp points", where Economy v2 shows it (Legacy runs); the other mode keeps "Reserve"
+    return s.exp.reserve < zone.hubOffer.price ? `not enough ${econV2(s) ? 'camp points' : 'Reserve'}` : null;
   }
   if (a.mode === 'swap') {
     const c = s.exp.contracts.find((k) => k.id === a.contractId);
@@ -18180,7 +18181,7 @@ const QUESTS = {
   "giver": "Elder Wynne",
   "objective": "scout",
   "text": "Strange lights move among the straw men and the old stone sentinels at night. Go see what stirs them.",
-  "turnIn": "So the charm is stolen. That is worse than I feared.",
+  "turnIn": "A stolen charm, then. I will see it found. You have done enough.",
   "sizeWeights": [
    30,
    40,
@@ -18248,7 +18249,7 @@ const QUESTS = {
   "giver": "Captain Brae",
   "objective": "scout",
   "text": "Smoke rises from the old Harrow manor, where thieves and straw figures shelter in the ruins. Learn who lit the fires.",
-  "turnIn": "Cultists in the cellars, and thieves above. We must act at once.",
+  "turnIn": "Cultists below and thieves above. I will send word to the wardens. Your part is done.",
   "sizeWeights": [
    30,
    40,
@@ -18462,7 +18463,7 @@ const QUESTS = {
   "giver": "Surveyor Ansel",
   "objective": "scout",
   "text": "Something works the floodgates of the old weir at night. Look into the dam-keep and report.",
-  "turnIn": "So the weir is held. Then we must act.",
+  "turnIn": "Someone holds the weir from inside. That tells us plenty. Thank you.",
   "sizeWeights": [
    20,
    40,
@@ -18496,7 +18497,7 @@ const QUESTS = {
   "giver": "Lorekeeper Ysolt",
   "objective": "scout",
   "text": "The old guardian stones are moving along the ridge, and shamans call the wind around them. Watch where they go and why.",
-  "turnIn": "They march toward Barrowdeep. This is troubling.",
+  "turnIn": "Toward Barrowdeep, then. We will watch that road from now on.",
   "sizeWeights": [
    30,
    40,
@@ -18598,7 +18599,7 @@ const QUESTS = {
   "giver": "Lorekeeper Ysolt",
   "objective": "scout",
   "text": "No bell has rung from the Barrow road in a week, and the wind there carries chanting. Go and see what has silenced it.",
-  "turnIn": "A giant has torn up the cairns. We must warn the clans.",
+  "turnIn": "A giant tore up the cairns. The clans will hear of it by nightfall.",
   "sizeWeights": [
    30,
    40,
@@ -18666,7 +18667,7 @@ const QUESTS = {
   "giver": "Scholar Neferu",
   "objective": "scout",
   "text": "Strange voices speak from the engraved walls near the old gate. Hear what they say.",
-  "turnIn": "The glyphs are waking. This is dire news.",
+  "turnIn": "The glyphs are waking. Better we know it now than later.",
   "sizeWeights": [
    30,
    40,
@@ -18802,7 +18803,7 @@ const QUESTS = {
   "giver": "Brother Corvin",
   "objective": "scout",
   "text": "The stone penitents move at night and a woman is heard crying. Learn what binds them.",
-  "turnIn": "A broken vow. We must mend it.",
+  "turnIn": "A broken vow binds them. Now we know what to mend.",
   "sizeWeights": [
    30,
    40,
@@ -18836,7 +18837,7 @@ const QUESTS = {
   "giver": "Warden Ysmay",
   "objective": "scout",
   "text": "A bell tolls from Dunmere Chapel where no ringer has lived for years. Find who rings it.",
-  "turnIn": "The dead hold service. This bodes ill.",
+  "turnIn": "The dead ring their own bell. Grim news, but I am glad to know it.",
   "sizeWeights": [
    40,
    40,
@@ -19023,7 +19024,7 @@ const QUESTS = {
   "giver": "Scout Kettil",
   "objective": "scout",
   "text": "A fire cult has seized the old forge fortress. Learn their numbers and bring word.",
-  "turnIn": "So many. We need a plan.",
+  "turnIn": "So many? Then your count may save the garrison.",
   "sizeWeights": [
    30,
    40,
@@ -19097,6 +19098,9 @@ yield;
 // Legacy bugs 2026-11-19 (draft; blind returning player s0122, s0206: a Rogue offered a "Yew Shortbow" and shields):
 // `weapon.rogue` (the band's blades, no bows) and `offhand.rogue` (parrying blades) for a Rogue's Agility items.
 // The first name of each list is the band's old one; the other 36 are new (generic object names in each zone's words).
+// content-2026-11-20 (blind Legacy v2 s0293, draft): base names that open with a describing word ("Lucky Barleycorn",
+// "Muddy Boots", "Pale Vigil Ring") read badly behind a prefix ("Fierce Lucky Barleycorn"), so they now open with a noun
+// or a material; the Rogue lists lose the repeated "X Parrying Blade" form and "Off-Blade".
 const ITEM_NAMES = [
  {
   "head": [
@@ -19120,7 +19124,7 @@ const ITEM_NAMES = [
    "Thornproof Gauntlets"
   ],
   "feet": [
-   "Muddy Boots",
+   "Ploughman's Boots",
    "Furrow Treads",
    "Millroad Shoes"
   ],
@@ -19131,11 +19135,11 @@ const ITEM_NAMES = [
   ],
   "ring": [
    "Copper Tally Ring",
-   "Twisted Straw Band",
+   "Straw-Plait Band",
    "Brass Sowing Ring"
   ],
   "trinket": [
-   "Lucky Barleycorn",
+   "Barleycorn Token",
    "Scarecrow Button",
    "Millstone Chip"
   ],
@@ -19173,7 +19177,7 @@ const ITEM_NAMES = [
     "Strawbound Quiver"
    ],
    "rogue": [
-    "Parrying Knife",
+    "Pruning Knife",
     "Sickle Blade",
     "Thresher's Dirk"
    ]
@@ -19212,11 +19216,11 @@ const ITEM_NAMES = [
   ],
   "ring": [
    "Mist Signet",
-   "Tarnished Fen Band",
+   "Fen-Silver Band",
    "Brineglass Ring"
   ],
   "trinket": [
-   "Sunken Bell Clapper",
+   "Fen-Bell Clapper",
    "Glow-Moss Vial",
    "Heron Feather Charm"
   ],
@@ -19255,7 +19259,7 @@ const ITEM_NAMES = [
    ],
    "rogue": [
     "Eel-Bone Knife",
-    "Mire Parrying Blade",
+    "Mudlark's Shiv",
     "Stiltwalker's Dirk"
    ]
   }
@@ -19293,7 +19297,7 @@ const ITEM_NAMES = [
   ],
   "ring": [
    "Clan Signet",
-   "Knotted Iron Band",
+   "Iron Knot Band",
    "Skald's Ring"
   ],
   "trinket": [
@@ -19314,7 +19318,7 @@ const ITEM_NAMES = [
    ],
    "rogue": [
     "Reiver's Dirk",
-    "Heather Kris",
+    "Hillman's Knife",
     "Cairn Knife"
    ]
   },
@@ -19335,9 +19339,9 @@ const ITEM_NAMES = [
     "Windbarrow Quiver"
    ],
    "rogue": [
-    "Heath Parrying Dirk",
-    "Cairnstone Knife",
-    "Raider's Off-Blade"
+    "Antler-Hilt Dirk",
+    "Peat Knife",
+    "Raider's Shortsword"
    ]
   }
  },
@@ -19365,7 +19369,7 @@ const ITEM_NAMES = [
   "feet": [
    "Sandstrider Boots",
    "Burnished Sabatons",
-   "Wind-Worn Sandals"
+   "Dune-Road Sandals"
   ],
   "neck": [
    "Sunstone Pendant",
@@ -19379,8 +19383,8 @@ const ITEM_NAMES = [
   ],
   "trinket": [
    "Hourglass of Ash",
-   "Sealed Papyrus Vial",
-   "Cracked Sun-Disc"
+   "Embalmer's Vial",
+   "Sun-Disc Shard"
   ],
   "weapon": {
    "AGI": [
@@ -19396,7 +19400,7 @@ const ITEM_NAMES = [
    "rogue": [
     "Scimitar of Dust",
     "Khopesh of Sand",
-    "Dune Fang Dagger"
+    "Viper-Tooth Dagger"
    ]
   },
   "offhand": {
@@ -19416,8 +19420,8 @@ const ITEM_NAMES = [
     "Kharun Quiver"
    ],
    "rogue": [
-    "Sandglass Kris",
-    "Dune Parrying Blade",
+    "Sandglass Shiv",
+    "Caravan Knife",
     "Jackal-Tooth Dagger"
    ]
   }
@@ -19431,7 +19435,7 @@ const ITEM_NAMES = [
   "chest": [
    "Shroudweave Robe",
    "Gravewarden Coat",
-   "Pale Bark Cuirass"
+   "Yewbark Cuirass"
   ],
   "legs": [
    "Lichwalker Leggings",
@@ -19445,7 +19449,7 @@ const ITEM_NAMES = [
   ],
   "feet": [
    "Fogstep Boots",
-   "Silent Treads",
+   "Cloister Treads",
    "Mourner's Shoes"
   ],
   "neck": [
@@ -19455,7 +19459,7 @@ const ITEM_NAMES = [
   ],
   "ring": [
    "Banshee Band",
-   "Pale Vigil Ring",
+   "Vigil Ring",
    "Raven-Bone Ring"
   ],
   "trinket": [
@@ -19472,7 +19476,7 @@ const ITEM_NAMES = [
    "INT": [
     "Ghostwood Staff",
     "Bone Wand",
-    "Pale Yew Staff"
+    "Churchyard Staff"
    ],
    "rogue": [
     "Wraith Stiletto",
@@ -19498,7 +19502,7 @@ const ITEM_NAMES = [
    ],
    "rogue": [
     "Mourner's Dirk",
-    "Pale Parrying Blade",
+    "Sexton's Knife",
     "Bone-Hilt Knife"
    ]
   }
@@ -19579,7 +19583,7 @@ const ITEM_NAMES = [
    ],
    "rogue": [
     "Ember Dirk",
-    "Slag Parrying Blade",
+    "Smelter's Shiv",
     "Forgehand Knife"
    ]
   }
@@ -19591,68 +19595,83 @@ __bundle.def("src/content/affix-words.js", function* (__ns, __link) {
 __link.exp({ "AFFIX_WORDS": () => AFFIX_WORDS });
 yield;
 // Content table: item name words per stat-pair affix (rules.md 8.3, 12). Plain data only (Content Designer).
+// content-2026-11-20 (blind Legacy v2 s0293, wording cut list item 20; draft): new words throughout. Animal suffixes
+// ("of the Bear", "of the Owl", "of the Wolf") are gone: they echo an existing game's naming and made every item end the
+// same way. An empty string is a valid suffix and means "no suffix": the base name alone. Each list holds two of them, so
+// about half of the items without an affix carry a plain name and the "of ..." tail no longer reads as a pattern.
+// Prefixes are words of make or finish that sit well before any base name ("Potent Barleycorn Token", not "Fierce Lucky
+// Barleycorn").
 const AFFIX_WORDS = {
  "suffix": {
   "AGI": [
-   "of the Hare",
-   "of Quickness",
-   "of the Fox"
+   "",
+   "of Quick Hands",
+   "",
+   "of the Long Stride"
   ],
   "INT": [
-   "of Insight",
-   "of the Owl",
-   "of Clear Sight"
+   "",
+   "of Lamplight",
+   "",
+   "of the Inkwell"
   ],
   "STA": [
-   "of the Bear",
-   "of Endurance",
-   "of the Oak"
+   "",
+   "of Deep Roots",
+   "",
+   "of the Long Winter"
   ],
   "AGI_STA": [
-   "of the Stalwart Hunter",
-   "of the Wolf",
-   "of Grit"
+   "",
+   "of the Drover",
+   "",
+   "of Hard Roads"
   ],
   "AGI_SPI": [
-   "of the Still Blade",
-   "of the Heron",
-   "of Poise"
+   "",
+   "of Still Water",
+   "",
+   "of the Calm Hand"
   ],
   "INT_STA": [
-   "of the Bulwark",
-   "of the Standing Stone",
-   "of Resolve"
+   "",
+   "of the Watchfire",
+   "",
+   "of Thick Walls"
   ],
   "INT_SPI": [
-   "of the Clear Pool",
-   "of the Lotus",
-   "of Reverie"
+   "",
+   "of Quiet Hours",
+   "",
+   "of the Hermit"
   ],
   "AGI_STA_SPI": [
-   "of the Wilds",
-   "of the Ranger",
-   "of the Trailwise"
+   "",
+   "of the Outrider",
+   "",
+   "of Open Country"
   ],
   "INT_STA_SPI": [
-   "of the Sage",
-   "of the Stars",
-   "of the Lorekeeper"
+   "",
+   "of Old Lore",
+   "",
+   "of the Hedge-Seer"
   ]
  },
  "prefix": {
   "crit": [
    "Keen",
-   "Piercing",
-   "Unerring"
+   "Honed",
+   "Deft"
   ],
   "power": [
-   "Mighty",
-   "Fierce",
-   "Potent"
+   "Runed",
+   "Potent",
+   "Hallowed"
   ],
   "armor": [
    "Sturdy",
-   "Bastioned",
+   "Reinforced",
    "Warded"
   ]
  }
@@ -19856,25 +19875,28 @@ yield;
 // Newcomer check 2026-11-15 (draft): the progress group, the talent window's rule lines.
 const TEXTS = {
   // Display names of the enemy family ids (zones.js regions, enemies.js family), used in contract texts.
+  // content-2026-11-20 (blind Legacy v2 s0293, s0415; draft): `done` is the line a completed Cull or Bounty contract on
+  // that family shows in its reward window, so no two contracts end on the same words. The UI reads
+  // families[contract.family].done (ui-text.js contractDoneLine).
   families: {
-    outlaw: { singular: 'outlaw', plural: 'outlaws' },
-    wild: { singular: 'wild beast', plural: 'wild beasts' },
-    blight: { singular: 'blightborn', plural: 'blightborn' },
-    fenbeast: { singular: 'fen beast', plural: 'fen beasts' },
-    reedfolk: { singular: 'reedfolk', plural: 'reedfolk' },
-    witchkin: { singular: 'witchkin', plural: 'witchkin' },
-    crag: { singular: 'crag beast', plural: 'crag beasts' },
-    reiver: { singular: 'reiver', plural: 'reivers' },
-    stormward: { singular: 'stormward', plural: 'stormwards' },
-    tomb: { singular: 'tomb guardian', plural: 'tomb guardians' },
-    dune: { singular: 'dune stalker', plural: 'dune stalkers' },
-    sunbound: { singular: 'sunbound', plural: 'sunbound' },
-    rootkin: { singular: 'rootkin', plural: 'rootkin' },
-    grave: { singular: 'grave walker', plural: 'grave walkers' },
-    veil: { singular: 'veilwraith', plural: 'veilwraiths' },
-    cinder: { singular: 'cinder beast', plural: 'cinder beasts' },
-    forgeborn: { singular: 'forgeborn', plural: 'forgeborn' },
-    pyrecult: { singular: 'pyre cultist', plural: 'pyre cultists' },
+    outlaw: { singular: 'outlaw', plural: 'outlaws', done: 'Fewer outlaws on the roads. The carters will sleep easier.' },
+    wild: { singular: 'wild beast', plural: 'wild beasts', done: 'The wild beasts keep their distance now. The herders thank you.' },
+    blight: { singular: 'blightborn', plural: 'blightborn', done: 'The blightborn are burnt back. The fields can breathe.' },
+    fenbeast: { singular: 'fen beast', plural: 'fen beasts', done: 'The fen beasts have gone quiet in the reeds. Good riddance.' },
+    reedfolk: { singular: 'reedfolk', plural: 'reedfolk', done: 'The reedfolk have pulled back into the marsh. The boats can go out again.' },
+    witchkin: { singular: 'witchkin', plural: 'witchkin', done: 'The witchkin\'s hexes are broken, and the wells taste clean.' },
+    crag: { singular: 'crag beast', plural: 'crag beasts', done: 'The crag beasts no longer prowl the passes. The shepherds owe you.' },
+    reiver: { singular: 'reiver', plural: 'reivers', done: 'The reivers have learned what raiding here costs.' },
+    stormward: { singular: 'stormward', plural: 'stormwards', done: 'The stormwards are still, and the ridge has its sky back.' },
+    tomb: { singular: 'tomb guardian', plural: 'tomb guardians', done: 'The tomb guardians lie down in the sand again.' },
+    dune: { singular: 'dune stalker', plural: 'dune stalkers', done: 'No more stalkers in the dunes. The caravans move at dawn.' },
+    sunbound: { singular: 'sunbound', plural: 'sunbound', done: 'The sunbound chant no more. The obelisks are silent.' },
+    rootkin: { singular: 'rootkin', plural: 'rootkin', done: 'The rootkin are cut down to the stump. The paths stay open.' },
+    grave: { singular: 'grave walker', plural: 'grave walkers', done: 'The grave walkers are back in the ground, where they belong.' },
+    veil: { singular: 'veilwraith', plural: 'veilwraiths', done: 'The veilwraiths have thinned, and the mist with them.' },
+    cinder: { singular: 'cinder beast', plural: 'cinder beasts', done: 'The cinder beasts are ash. The outposts can rest.' },
+    forgeborn: { singular: 'forgeborn', plural: 'forgeborn', done: 'The forgeborn lie as slag on the forge floor. The smiths will be glad.' },
+    pyrecult: { singular: 'pyre cultist', plural: 'pyre cultists', done: 'The pyre cultists\' fires are out. The villages are safe tonight.' },
   },
   // Start camp options (C.PREP_OPTION). name repeats the constant's name as a check; flavour is one line of colour,
   // rule is one plain line without numbers (the numbers are constants and may change).
@@ -19892,10 +19914,12 @@ const TEXTS = {
   // Contract templates. Placeholders: {n} sites needed, {family} plural family name, {familyOne} singular family name,
   // {region} region name, {zone} zone name, {levels} level band such as "levels 1-10", {elite} the named elite,
   // {dungeon} dungeon name, {hub} hub name, {contract} the text of the offered contract.
+  // Blind Legacy v2 (2026-11-20, s0255; draft): the sentence no longer repeats the zone and the band (the tooltip's
+  // subline has them) or the kind's name (the title has it).
   contracts: {
-    cull: 'Cull {n} {family} in {region}, {zone}, {levels}.',
-    bounty: 'Bounty: hunt down {elite}, a {familyOne} roaming {region}, {zone}, {levels}.',
-    delve: 'Delve: clear {dungeon} in {zone}, {levels}.',
+    cull: 'Beat the {family} at {n} marked sites, most of them in {region}.',
+    bounty: 'Hunt down {elite}, a {familyOne} roaming {region}.',
+    delve: 'Clear {dungeon}, its boss included.',
     hub: '{hub} has work on the board: {contract}',
   },
   expedition: {
@@ -20162,8 +20186,8 @@ const TUTORIAL = {
     { id: 'H19', system: 'Homeward Bell', sameAs: 'G13' },
     { id: 'H20', system: 'Contract site', line: 'Contract site: win this fight to count it.' },
     { id: 'H21', system: 'Contract done', line: 'Contract done: choose one reward.' },
-    { id: 'H22', system: 'Hub contract', line: 'This hub offers a contract: pay from your Reserve or swap one you hold.' },
-    { id: 'H23', system: 'Start camp', line: 'Points buy contracts and supplies. Points you keep become Reserve.' },
+    { id: 'H22', system: 'Hub contract', line: 'This hub offers a contract. Pay in camp points, or swap one you hold.' },
+    { id: 'H23', system: 'Start camp', line: 'Camp points buy contracts and supplies. Keep a few to take a contract at a hub later.' },
     { id: 'H24', system: 'Elite', line: 'Elite: hover it to see its Deathblow before you go in.' },
     { id: 'H25', system: 'Rare', line: 'Rare: a named foe with better loot. Read its moves first.' },
     { id: 'H26', system: 'Dungeon', line: 'Dungeon: several fights and a boss in one visit.' },
@@ -22340,7 +22364,7 @@ const deepClone = (o) => (o === undefined ? o : structuredClone(o));
 
 });
 __bundle.def("src/ui/ui-text.js", function* (__ns, __link) {
-let SPELLS, TALENTS, BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS; __link.imp("src/ui/mock-data.js", [["SPELLS", (v) => { SPELLS = v; }], ["TALENTS", (v) => { TALENTS = v; }], ["STATUS_INFO", (v) => { BASE_STATUS = v; }], ["CONSUMABLES", (v) => { CONSUMABLES = v; }], ["BOONS", (v) => { BOONS = v; }], ["CLASSES", (v) => { CLASSES = v; }], ["PETS", (v) => { PETS = v; }]]); let lv, lvLearn, legacyShown, econShown, fmtN; __link.imp("src/ui/util.js", [["lv", (v) => { lv = v; }], ["lvLearn", (v) => { lvLearn = v; }], ["legacyShown", (v) => { legacyShown = v; }], ["econShown", (v) => { econShown = v; }], ["fmtNum", (v) => { fmtN = v; }]]); __link.exp({ "econLine": () => econLine, "BAGS_FULL": () => BAGS_FULL, "campPoints": () => campPoints, "HEAT_WORDS": () => HEAT_WORDS, "tolls": () => tolls, "STATUS_INFO": () => STATUS_INFO, "windupAnswers": () => windupAnswers, "deathblowStakes": () => deathblowStakes, "deathblowAnswers": () => deathblowAnswers, "deathblowKind": () => deathblowKind, "sapWaitText": () => sapWaitText, "windupStakes": () => windupStakes, "ROLE_INFO": () => ROLE_INFO, "CONTROL_WORD": () => CONTROL_WORD, "engageText": () => engageText, "engageHint": () => engageHint, "ENGAGE_KIND": () => ENGAGE_KIND, "CLASS_UI": () => CLASS_UI, "spellText": () => spellText, "bounceText": () => bounceText, "talentText": () => talentText, "talentTotals": () => talentTotals, "consumableText": () => consumableText, "boonText": () => boonText, "petText": () => petText, "UNIQUE_EFFECT_TEXT": () => UNIQUE_EFFECT_TEXT, "ECHO_LINE": () => ECHO_LINE, "humanize": () => humanize, "CONTRACT_KIND": () => CONTRACT_KIND, "familyName": () => familyName, "bandText": () => bandText, "contractTarget": () => contractTarget, "contractTitle": () => contractTitle, "contractSentence": () => contractSentence, "hubOfferSentence": () => hubOfferSentence, "contractKindText": () => contractKindText, "contractSitesText": () => contractSitesText, "contractItemsText": () => contractItemsText, "levelsText": () => levelsText, "xpPayText": () => xpPayText, "prepOptionEffect": () => prepOptionEffect, "prepFlavour": () => prepFlavour, "numWord": () => numWord, "plural": () => plural, "pct1": () => pct1, "pct2": () => pct2, "strengthText": () => strengthText, "freeActionText": () => freeActionText, "statusEffect": () => statusEffect, "RES_NAME": () => RES_NAME, "resurrectText": () => resurrectText, "DANGER_LEVELS": () => DANGER_LEVELS, "dangerRule": () => dangerRule, "dangerBanner": () => dangerBanner, "META_KIND": () => META_KIND, "metaEffect": () => metaEffect, "metaReqText": () => metaReqText, "oathEffect": () => oathEffect, "nextRunLines": () => nextRunLines, "linkedText": () => linkedText, "trainerWaiting": () => trainerWaiting, "trainerWaitingShort": () => trainerWaitingShort, "UI_HINTS": () => UI_HINTS, "NEAREST_ROAD_TAIL": () => NEAREST_ROAD_TAIL, "hopsText": () => hopsText, "nearestRoad": () => nearestRoad });
+let SPELLS, TALENTS, BASE_STATUS, CONSUMABLES, BOONS, CLASSES, PETS; __link.imp("src/ui/mock-data.js", [["SPELLS", (v) => { SPELLS = v; }], ["TALENTS", (v) => { TALENTS = v; }], ["STATUS_INFO", (v) => { BASE_STATUS = v; }], ["CONSUMABLES", (v) => { CONSUMABLES = v; }], ["BOONS", (v) => { BOONS = v; }], ["CLASSES", (v) => { CLASSES = v; }], ["PETS", (v) => { PETS = v; }]]); let lv, lvLearn, legacyShown, econShown, fmtN; __link.imp("src/ui/util.js", [["lv", (v) => { lv = v; }], ["lvLearn", (v) => { lvLearn = v; }], ["legacyShown", (v) => { legacyShown = v; }], ["econShown", (v) => { econShown = v; }], ["fmtNum", (v) => { fmtN = v; }]]); __link.exp({ "econLine": () => econLine, "BAGS_FULL": () => BAGS_FULL, "junkSoldName": () => junkSoldName, "campPoints": () => campPoints, "HEAT_WORDS": () => HEAT_WORDS, "tolls": () => tolls, "STATUS_INFO": () => STATUS_INFO, "windupAnswers": () => windupAnswers, "deathblowStakes": () => deathblowStakes, "deathblowAnswers": () => deathblowAnswers, "deathblowKind": () => deathblowKind, "sapWaitText": () => sapWaitText, "windupStakes": () => windupStakes, "ROLE_INFO": () => ROLE_INFO, "CONTROL_WORD": () => CONTROL_WORD, "engageText": () => engageText, "engageHint": () => engageHint, "ENGAGE_KIND": () => ENGAGE_KIND, "CLASS_UI": () => CLASS_UI, "spellText": () => spellText, "bounceText": () => bounceText, "talentText": () => talentText, "talentTotals": () => talentTotals, "consumableText": () => consumableText, "boonText": () => boonText, "petText": () => petText, "UNIQUE_EFFECT_TEXT": () => UNIQUE_EFFECT_TEXT, "ECHO_LINE": () => ECHO_LINE, "humanize": () => humanize, "CONTRACT_KIND": () => CONTRACT_KIND, "familyName": () => familyName, "bandText": () => bandText, "contractTarget": () => contractTarget, "contractTitle": () => contractTitle, "contractSentence": () => contractSentence, "contractDoneLine": () => contractDoneLine, "hubOfferSentence": () => hubOfferSentence, "contractKindText": () => contractKindText, "contractSitesText": () => contractSitesText, "contractItemsText": () => contractItemsText, "levelsText": () => levelsText, "xpPayText": () => xpPayText, "prepOptionEffect": () => prepOptionEffect, "prepFlavour": () => prepFlavour, "numWord": () => numWord, "plural": () => plural, "pct1": () => pct1, "pct2": () => pct2, "strengthText": () => strengthText, "freeActionText": () => freeActionText, "statusEffect": () => statusEffect, "RES_NAME": () => RES_NAME, "resurrectText": () => resurrectText, "DANGER_LEVELS": () => DANGER_LEVELS, "dangerRule": () => dangerRule, "dangerBanner": () => dangerBanner, "META_KIND": () => META_KIND, "metaEffect": () => metaEffect, "metaReqText": () => metaReqText, "oathEffect": () => oathEffect, "nextRunLines": () => nextRunLines, "linkedText": () => linkedText, "trainerWaiting": () => trainerWaiting, "trainerWaitingShort": () => trainerWaitingShort, "UI_HINTS": () => UI_HINTS, "NEAREST_ROAD_TAIL": () => NEAREST_ROAD_TAIL, "hopsText": () => hopsText, "nearestRoad": () => nearestRoad });
 yield;
 // Display text for tooltips and screens (descriptions of spells, talents, statuses, consumables,
 // boons and classes). Wording follows docs/specs/rules.md; numbers that matter come from the
@@ -22368,6 +22392,11 @@ function econLine(texts, id, vars = {}) {
  * windows, the toast and log line when the bags fill, a Take the bags cannot hold). Draft, for the owner and content.
  */
 const BAGS_FULL = 'Your bags are full: equip, sell or discard something (B).';
+/**
+ * Junk task (2026-11-20, s0426): the name in the one log line when a vendor opens and the bags' junk is sold at once:
+ * "You sell 7 junk items for 42 copper." Draft, for the owner and content.
+ */
+const junkSoldName = (n) => `${n} junk ${n === 1 ? 'item' : 'items'}`;
 /** "3 camp points" (Economy v2, one name: legacy.md 4.7 E6.1). */
 const campPoints = (n) => `${n} camp ${n === 1 ? 'point' : 'points'}`;
 
@@ -22658,6 +22687,16 @@ function contractSentence(c, content) {
   if (tpl) return fill(tpl.replace(/\ba \{familyOne\}/g, /^[aeiou]/i.test(vals.familyOne) ? 'an {familyOne}' : 'a {familyOne}'), vals);
   return `${contractTitle(c, content)}, ${c.zoneName}, ${bandText(c.band)}.`;
 }
+/**
+ * The line in a completed contract's reward window (content-2026-11-20 section 3 row 6; draft): a Cull or Bounty reads its
+ * family's `done` (texts.families[id].done), a Delve "{dungeon} is quiet at last."; the old runner line only as the fallback.
+ */
+function contractDoneLine(c, hubName, content) {
+  const g = group(content, 'families'); const x = c && c.family && g ? g[c.family] : null;
+  if (c && c.kind !== 'delve' && x && typeof x === 'object' && x.done) return x.done;
+  if (c && c.kind === 'delve' && c.dungeon) return `${c.dungeon} is quiet at last.`;
+  return `A runner from ${hubName || 'the hub'} brings your pay. Well done.`;
+}
 /** The hub's offer as a sentence (texts.contracts.hub): "Millbrook Rest has work on the board: Cull ...". */
 function hubOfferSentence(c, hubName, content) {
   const g = group(content, 'contracts'); const tpl = g && typeof g.hub === 'string' ? g.hub : null;
@@ -22671,11 +22710,13 @@ function contractKindText(kind) { return CONTRACT_KIND_TEXT[kind] || ''; }
  * has: { guide, tracker } (the perk is owned or bought).
  */
 function contractSitesText(c, r, has = {}) {
-  if (c.kind === 'delve') return `Its one site is ${c.dungeon || "the zone's dungeon"}. Holding this contract shows the dungeon on that zone's map.`;
-  const see = `You see a site's mark on nodes in full view: within ${r.vision} ${plural(r.vision, 'hop')}${has.guide ? `, ${r.guide} more with the Local Guide` : ''}${has.tracker ? `; with Tracker's Notes within ${r.tracker} hops, on nodes you have not seen yet too` : ''}.`;
-  if (c.kind === 'bounty') return `The elite waits at ${numWord(r.bountyPlaced)} Elite nodes of rings 2 and 3 in ${c.regionName || 'its region'}; win either. ${see}`;
+  // content-2026-11-20 (blind Legacy v2 s0255, draft): the region and the dungeon are in the sentence above, so these lines
+  // give only the rule and when the map shows the marks
+  if (c.kind === 'delve') return `While you hold it, ${c.dungeon || "the zone's dungeon"} shows on the zone map.`;
+  const see = `Marks show within ${r.vision} ${plural(r.vision, 'hop')}${has.guide ? `, ${r.guide} more with the Local Guide` : ''}${has.tracker ? `; with Tracker's Notes within ${r.tracker} hops, even on nodes you have not seen` : ''}.`;
+  if (c.kind === 'bounty') return `It can be found at ${numWord(r.bountyPlaced)} Elite nodes away from the hub; beat it at either. ${see}`;
   // Legacy bugs 2026-11-19 (s0133): which nodes count, exactly (contracts.js placeSites, siteWon): the marked ones only
-  return `Sites: only Quest or Grind nodes with this contract's mark count, most of them in ${c.regionName || 'its region'}; other fights there do not. ${see}`;
+  return `Only Quest or Grind nodes with its mark count; other fights do not. ${see}`;
 }
 /** A contract's item choice in words: "choose 1 of 3: 80 % rare, 20 % epic" (the drop table's weights, R.prepView). */
 function contractItemsText(rw) {
@@ -22887,8 +22928,9 @@ function metaEffect(m, D, d, mode = 'rows') {
       return { short: `Travel on opens ${numWord(m.levels)} ${plural(m.levels, 'level')} earlier`, long: rows, more: bell ? [`Expedition map: ${bell}.`] : undefined };
     }
     // expedition.md 8.2 (M2b v11): entries of the expedition map only (m.mapMode 'expedition'; a tag on classic runs, D116)
-    case 'cartographer': return { short: `${NM.charts} every run, free`, long: `On the expedition map the start camp's ${NM.charts} are yours every run, free: every node's region and the dungeon's place show on the map.${onlyExp}` };
-    case 'old_hand': return { short: `${NM.tracker} every run, free`, long: `On the expedition map the start camp's ${NM.tracker} are yours every run, free: contract sites show within ${numWord(N.trackerRadius)} hops, even on nodes you have not seen yet.${onlyExp}` };
+    // content-2026-11-20 (blind Legacy v2 s0385, draft): one plain sentence each, no "yours every run, free"
+    case 'cartographer': return { short: `Free ${NM.charts} every run`, long: `Every run starts with ${NM.charts}: each zone map shows every node's region and where the dungeon is.${onlyExp}` };
+    case 'old_hand': return { short: `Free ${NM.tracker} every run`, long: `Every run starts with ${NM.tracker}: contract sites show within ${numWord(N.trackerRadius)} hops, even on nodes you have not seen.${onlyExp}` };
     // Economy v2 (legacy.md 4.7 E6.1): one name, "camp points"
     case 'quartermaster': { const w = econShown() ? 'camp points' : 'preparation points'; return { short: `+${m.points} ${w} per rank`, long: `On the expedition map you have ${numWord(m.points)} more ${w} to spend at the start camp for each rank.${onlyExp}` }; }
     case 'alchemist': return { short: `Vendors sell ${plurName(2, NM.greater)}`, long: `Every vendor also sells ${plurName(2, NM.greater)}: each restores ${pct1(D.greaterHeal)} of your maximum health.` };
@@ -23772,7 +23814,8 @@ const DIM_MARK_LINE = '◆ The Dimming near you. Whichever marker is further rig
  * shown where two clocks run (an expedition zone: the run clock and the Dimming of the place the player stands on). Its
  * glyph is the marker that clock moves: the needle (▼) for the tolls, the diamond (◆) for the Dimming.
  */
-const CLOCK_TAG = { run: 'Set by your tolls', dim: 'Set by the Dimming here' };
+// content-2026-11-20 section 3 row 1 (draft): one tag for both clocks; the glyph (▼ the needle, ◆ the diamond) names the clock
+const CLOCK_TAG = { run: 'Set by your tolls', dim: 'Set by this place' }; // draft (Lead 2026-11-20): names the clock without repeating 'Dimming'
 const CLOCK_GLYPH = { run: '▼', dim: '◆' };
 /** The clock tag of a heatView: { by, glyph, text }, or null where only the run clock runs (no Dimming clock). */
 function clockTag(hv) {
@@ -24152,9 +24195,8 @@ function buildHeatSummary(sum, ctx) {
   // share a row, and the chart is lower (HT), so the summary fits without a scroll in the common case
   card.appendChild(h('div.hc-head', h('h3', HW.Name), h('div.hc-time', strip,
     h('span.hc-leg', `${HW.Units} in each state: `, STATES.map((s, i) => h('span', h('i.ht-dot', { dataset: { hs: s } }), `${HEAT_NAME[s]} ${fmtTime(ht.timeByState[i])}`))))));
-  card.appendChild(h('div.hc-sub', h('div.hc-cap', `${HW.Units} overspent (above 0) or to spare (below), per zone`), h('span.hc-end', endLine)));
+  card.appendChild(h('div.hc-sub', h('div.hc-cap', `${HW.Units} per zone: above 0 overspent, below 0 to spare`), h('span.hc-end', endLine)));
   card.appendChild(heatChart(recs, H, zc));
-  const hotNodes = ht.nodesByState[2] + ht.nodesByState[3];
   const hotFights = ht.fightsByState[2] + ht.fightsByState[3];
   // Legacy bugs 2026-11-19 (blind returning player s0059: "0 Infernal" after the meter had shown Infernal): a node counts in
   // the state it was entered in, so only the states with nodes are named; the Dimming (Infernal where it stands) has its
@@ -24163,7 +24205,7 @@ function buildHeatSummary(sum, ctx) {
   const nodesLine = entered.length ? `Nodes entered, by the state you entered them in: ${entered.map(([s, n]) => `${n} ${HEAT_NAME[s]}`).join(' · ')}.` : 'No node entered.';
   const dim = ht.dimFights || 0;
   const dimLine = dim ? ` The Dimming caught you ${dim === 1 ? 'once' : `${dim} times`} (${HEAT_NAME.scorched} where it stands).` : '';
-  card.appendChild(h('div.hc-foot', `${nodesLine} Fights won in heat: ${hotFights}${hotNodes ? '' : ` (no node entered ${HEAT_NAME.hot} or ${HEAT_NAME.scorched})`}.${dimLine} Hover a point for its ${HW.units}.`));
+  card.appendChild(h('div.hc-foot', `${nodesLine} Fights won while ${HEAT_NAME.hot} or ${HEAT_NAME.scorched}: ${hotFights}.${dimLine} Hover a point for its ${HW.units}.`));
   return card;
 }
 
@@ -24719,6 +24761,21 @@ function engineBackend(seedOpt, runOpts = {}) {
     }
     if (it.kind === 'cons') { const c = C.CONSUMABLE[it.id] || { name: it.id, stack: 5 }; return { uid: it.uid, kind: 'consumable', id: it.id, name: c.name, rarity: it.id === 'ember_of_return' ? 'rare' : 'common', count: it.qty, stack: c.stack, use: USE_MAP[c.use] || 'both', _raw: it, ...extra }; }
     return { uid: it.uid, kind: 'junk', id: 'junk', name: it.name, rarity: 'junk', count: it.qty || 1, stack: 10, _raw: it, ...extra };
+  }
+  /**
+   * Junk loot rows (2026-11-20 junk task, s0426): the same junk that came in separate pieces shows as one row with a count.
+   * Pending (waiting in the loot window) and already-taken rows stay apart. `uids` lists the engine items behind the row;
+   * LOOT_TAKE and LOOT_DROP act on each of them. The engine's loot window is not changed.
+   */
+  function stackJunk(list) {
+    const out = []; const at = new Map();
+    for (const it of list) {
+      if (it.kind !== 'junk') { out.push(it); continue; }
+      const k = [it.name, it._raw && it._raw.level, !!it.pending, !!it.inBag].join('|');
+      if (!at.has(k)) { at.set(k, out.length); out.push({ ...it, uids: [it.uid] }); continue; }
+      const m = out[at.get(k)]; m.count += it.count; m.uids.push(it.uid);
+    }
+    return out;
   }
   /**
    * Statuses for the view, from the engine's status objects (engine-api.md 6: { id, dur, stacks, value, tick, amount, src }).
@@ -25461,9 +25518,9 @@ function engineBackend(seedOpt, runOpts = {}) {
     if (local.spoils) {
       const sp = local.spoils;
       v.phase = sp.phase || 'NODE'; v.node = sp.node; v.combat = sp.combat;
-      v.loot = { kind: 'loot', title: sp.title, gold: sp.gold, xp: sp.xp, trap: sp.trap, items: [...win, ...sp.items.filter((it) => it.inBag)], next: nextOf(pend) };
+      v.loot = { kind: 'loot', title: sp.title, gold: sp.gold, xp: sp.xp, trap: sp.trap, items: stackJunk([...win, ...sp.items.filter((it) => it.inBag)]), next: nextOf(pend) };
     } else if (win.length) {
-      v.loot = { kind: 'loot', title: 'Items waiting', gold: 0, xp: 0, items: win, windowOnly: true };
+      v.loot = { kind: 'loot', title: 'Items waiting', gold: 0, xp: 0, items: stackJunk(win), windowOnly: true };
     } else if (s.node && s.node.stage === 'reward' && s.node.rewards[0].kind === 'items') {
       const r0 = s.node.rewards[0]; const q = CONTENT.quests[s.node.quest] || {};
       const rw = local.reward || {};
@@ -25792,10 +25849,17 @@ function engineBackend(seedOpt, runOpts = {}) {
         case 'LOOT_TAKE': {
           const v = view(); const it = v.loot && v.loot.items[action.i];
           if (!it || !it.pending) return { ok: false, error: 'Already in your bags' };
+          if (it.uids && it.uids.length > 1) {
+            // a stack of junk pieces: take each piece the bags can hold; a refusal on the first names the reason
+            const ok = it.uids.filter((u) => R.isLegal(st, { type: 'LOOT_TAKE', itemId: u }));
+            if (!ok.length) { apply({ type: 'LOOT_TAKE', itemId: it.uid }, events); break; }
+            for (const u of ok) apply({ type: 'LOOT_TAKE', itemId: u }, events);
+            break;
+          }
           apply({ type: 'LOOT_TAKE', itemId: it.uid }, events); break;
         }
         case 'LOOT_EQUIP': { const v = view(); const it = v.loot && v.loot.items[action.i]; if (!it) return { ok: false, error: 'No such item' }; apply({ type: 'EQUIP', itemId: it.uid }, events); break; }
-        case 'LOOT_DROP': { const v = view(); const it = v.loot && v.loot.items[action.i]; if (!it || !it.pending) return { ok: false, error: 'No such item' }; apply({ type: 'LOOT_DROP', itemId: it.uid }, events); break; }
+        case 'LOOT_DROP': { const v = view(); const it = v.loot && v.loot.items[action.i]; if (!it || !it.pending) return { ok: false, error: 'No such item' }; for (const u of it.uids || [it.uid]) apply({ type: 'LOOT_DROP', itemId: u }, events); break; }
         case 'LOOT_TAKE_ALL': {
           let left = 0;
           for (const it of [...(st.loot || [])]) { if (R.isLegal(st, { type: 'LOOT_TAKE', itemId: it.uid })) apply({ type: 'LOOT_TAKE', itemId: it.uid }, events); else left++; }
@@ -25886,6 +25950,14 @@ function engineBackend(seedOpt, runOpts = {}) {
     } catch (err) {
       if (err && err.code === 'ILLEGAL_ACTION') return { ok: false, error: castReason(st, err) };
       throw err;
+    }
+    // 2026-11-20 junk task (s0426): junk is sold when a vendor opens, in one step and one log line with the total
+    if (st.service && st.service.kind === 'vendor' && st.player.bag.some((x) => x.kind === 'junk') && R.isLegal(st, { type: 'SELL_JUNK' })) {
+      const n = st.player.bag.filter((x) => x.kind === 'junk').reduce((a, x) => a + (x.qty || 1), 0);
+      const sold = [];
+      apply({ type: 'SELL_JUNK' }, sold);
+      const gold = sold.filter((e) => e.t === 'sell').reduce((a, e) => a + (e.value || 0), 0);
+      tail.push({ t: 'sell', name: TXT.junkSoldName(n), gold });
     }
     const hold0 = local.hold;
     afterStep(prev, events);
@@ -29657,14 +29729,14 @@ function contractTip(c, ctx, opts = {}) {
   const rw = c.reward || {};
   const box = h('div.tt-contract',
     h('div.tt-row', h('div.tt-name', contractTitle(c, ctx.data.content)), h('span.ctag', { dataset: { kind: c.kind } }, CONTRACT_KIND[c.kind] || c.kind)),
-    h('div.tt-sub', `Zone ${c.z} · ${c.zoneName} · ${bandText(c.band)} · ${c.need} ${plural(c.need, 'site')}`),
+    h('div.tt-sub', `Zone ${c.z} · ${c.zoneName} · ${bandText(c.band)}`),
     h('div.tt-line.desc', contractSentence(c, ctx.data.content)),
     h('div.tt-line', contractSitesText(c, r, opts.has || {})));
   if (rw.choices) {
     // M2b v10 (expedition.md 3.1): contract XP has no level-difference modifier, so the amount is fixed (reward.xp).
     // Legacy (legacy.md 5.3): the pay in hero XP, without the levels-worth
     const xp = typeof rw.xp === 'number' && !legacyShown() ? ` (${fmtNum(rw.xp)} XP)` : '';
-    box.appendChild(h('div.tt-line.num', 'Reward, at once on its last site: ', h('b', xpPayText(rw)), ` at level ${lv(rw.cl)}${xp}, `, moneyEl(rw.gold), `, and ${contractItemsText(rw)}.`));
+    box.appendChild(h('div.tt-line.num', 'Reward when its last site is won: ', h('b', xpPayText(rw)), ` at level ${lv(rw.cl)}${xp}, `, moneyEl(rw.gold), `, and ${contractItemsText(rw)}.`));
   }
   if (opts.progress) box.appendChild(h('div.tt-line', opts.progress));
   if (opts.status) box.appendChild(h('div.tt-sub', opts.status));
@@ -30019,7 +30091,7 @@ function buildHubOffer(v, ctx, state = { swap: false }) {
   }));
   swapBtn.addEventListener('click', () => { if (!o.swap.length) return; state.swap = !state.swap; list.classList.toggle('hidden', !state.swap); swapBtn.textContent = state.swap ? 'Keep my contracts' : 'Swap…'; });
   const pay = payLine(rw, 'div.hc-rw');
-  tip(pay, () => h('div', h('div.tt-name', 'Reward, at once on its last site'), h('div.tt-line', `${xpPayText(rw)} at level ${lv(rw.cl)}${typeof rw.xp === 'number' && !legacyShown() ? ` (${fmtNum(rw.xp)} XP)` : ''}, gold, and ${contractItemsText(rw)}.`)));
+  tip(pay, () => h('div', h('div.tt-name', 'Reward when its last site is won'), h('div.tt-line', `${xpPayText(rw)} at level ${lv(rw.cl)}${typeof rw.xp === 'number' && !legacyShown() ? ` (${fmtNum(rw.xp)} XP)` : ''}, gold, and ${contractItemsText(rw)}.`)));
   box.append(head, h('div.hc-row', pay, h('div.hc-acts', take, swapBtn)), list);
   return box;
 }
@@ -32209,7 +32281,7 @@ function gateLine(data, tv) {
 
 });
 __bundle.def("src/ui/screens.js", function* (__ns, __link) {
-let h, add, clear, fmtNum, moneyEl, moneyText, clamp, lv, lvLearn, legacyShown, econShown; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["moneyText", (v) => { moneyText = v; }], ["clamp", (v) => { clamp = v; }], ["lv", (v) => { lv = v; }], ["lvLearn", (v) => { lvLearn = v; }], ["legacyShown", (v) => { legacyShown = v; }], ["econShown", (v) => { econShown = v; }]]); let spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon, deathblowIcon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["roleIcon", (v) => { roleIcon = v; }], ["deathblowIcon", (v) => { deathblowIcon = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }]]); let tip, itemTip, spellTip, hideTip, STAT_NAMES; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }], ["hide", (v) => { hideTip = v; }], ["STAT_NAMES", (v) => { STAT_NAMES = v; }]]); let conColor, heroPortrait, travelState; __link.imp("src/ui/hud.js", [["conColor", (v) => { conColor = v; }], ["heroPortrait", (v) => { heroPortrait = v; }], ["travelState", (v) => { travelState = v; }]]); let numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, trainerWaitingShort, econLine, BAGS_FULL; __link.imp("src/ui/ui-text.js", [["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["pct1", (v) => { pct1 = v; }], ["ROLE_INFO", (v) => { ROLE_INFO = v; }], ["humanize", (v) => { humanize = v; }], ["tolls", (v) => { tolls = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["trainerWaitingShort", (v) => { trainerWaitingShort = v; }], ["econLine", (v) => { econLine = v; }], ["BAGS_FULL", (v) => { BAGS_FULL = v; }]]); let createMeta, buildOaths, echoAmt; __link.imp("src/ui/meta.js", [["createMeta", (v) => { createMeta = v; }], ["buildOaths", (v) => { buildOaths = v; }], ["echoAmt", (v) => { echoAmt = v; }]]); let heatKey, previewBlock, costText, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME, dimsLine, arrivalLine, atArrival; __link.imp("src/ui/heat.js", [["heatKey", (v) => { heatKey = v; }], ["previewBlock", (v) => { previewBlock = v; }], ["costText", (v) => { costText = v; }], ["heatBadge", (v) => { heatBadge = v; }], ["buildHeatSummary", (v) => { buildHeatSummary = v; }], ["fmtTime", (v) => { fmtTime = v; }], ["HEAT_NAME", (v) => { HEAT_NAME = v; }], ["dimsLine", (v) => { dimsLine = v; }], ["arrivalLine", (v) => { arrivalLine = v; }], ["atArrival", (v) => { atArrival = v; }]]); let createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon; __link.imp("src/ui/prep.js", [["createPrepScreen", (v) => { createPrepScreen = v; }], ["buildHubOffer", (v) => { buildHubOffer = v; }], ["siteBadge", (v) => { siteBadge = v; }], ["siteLines", (v) => { siteLines = v; }], ["contractTip", (v) => { contractTip = v; }], ["kindIcon", (v) => { kindIcon = v; }]]); let contractTitle; __link.imp("src/ui/ui-text.js", [["contractTitle", (v) => { contractTitle = v; }]]); let gateLine, closedRoadLine; __link.imp("src/ui/onboarding.js", [["gateLine", (v) => { gateLine = v; }], ["closedRoadLine", (v) => { closedRoadLine = v; }]]); let token; __link.imp("src/ui/theme.js", [["token", (v) => { token = v; }]]); __link.exp({ "TOO_FAR": () => TOO_FAR, "ROAD_FIRST": () => ROAD_FIRST, "nodeLevel": () => nodeLevel, "expNodeDesc": () => expNodeDesc, "createScreens": () => createScreens, "INN_ASK_SHARE": () => INN_ASK_SHARE, "nearlyFull": () => nearlyFull, "disarmSpyglass": () => disarmSpyglass, "expiringHere": () => expiringHere, "expiryText": () => expiryText, "trainerMeta": () => trainerMeta, "trainerIdle": () => trainerIdle, "buildMap": () => buildMap, "spreadAngles": () => spreadAngles, "vendorMeta": () => vendorMeta, "hallCost": () => hallCost });
+let h, add, clear, fmtNum, moneyEl, moneyText, clamp, lv, lvLearn, legacyShown, econShown; __link.imp("src/ui/util.js", [["h", (v) => { h = v; }], ["add", (v) => { add = v; }], ["clear", (v) => { clear = v; }], ["fmtNum", (v) => { fmtNum = v; }], ["moneyEl", (v) => { moneyEl = v; }], ["moneyText", (v) => { moneyText = v; }], ["clamp", (v) => { clamp = v; }], ["lv", (v) => { lv = v; }], ["lvLearn", (v) => { lvLearn = v; }], ["legacyShown", (v) => { legacyShown = v; }], ["econShown", (v) => { econShown = v; }]]); let spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon, deathblowIcon; __link.imp("src/ui/art-icons.js", [["spellIcon", (v) => { spellIcon = v; }], ["itemIcon", (v) => { itemIcon = v; }], ["nodeIcon", (v) => { nodeIcon = v; }], ["icon", (v) => { icon = v; }], ["consumableIcon", (v) => { consumableIcon = v; }], ["roleIcon", (v) => { roleIcon = v; }], ["deathblowIcon", (v) => { deathblowIcon = v; }]]); let drawPortrait, HERO_LOOKS, PET_LOOKS; __link.imp("src/ui/art-actors.js", [["drawPortrait", (v) => { drawPortrait = v; }], ["HERO_LOOKS", (v) => { HERO_LOOKS = v; }], ["PET_LOOKS", (v) => { PET_LOOKS = v; }]]); let tip, itemTip, spellTip, hideTip, STAT_NAMES; __link.imp("src/ui/tooltip.js", [["tip", (v) => { tip = v; }], ["itemTip", (v) => { itemTip = v; }], ["spellTip", (v) => { spellTip = v; }], ["hide", (v) => { hideTip = v; }], ["STAT_NAMES", (v) => { STAT_NAMES = v; }]]); let conColor, heroPortrait, travelState; __link.imp("src/ui/hud.js", [["conColor", (v) => { conColor = v; }], ["heroPortrait", (v) => { heroPortrait = v; }], ["travelState", (v) => { travelState = v; }]]); let numWord, plural, contractDoneLine, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, trainerWaitingShort, econLine, BAGS_FULL; __link.imp("src/ui/ui-text.js", [["numWord", (v) => { numWord = v; }], ["plural", (v) => { plural = v; }], ["contractDoneLine", (v) => { contractDoneLine = v; }], ["pct1", (v) => { pct1 = v; }], ["ROLE_INFO", (v) => { ROLE_INFO = v; }], ["humanize", (v) => { humanize = v; }], ["tolls", (v) => { tolls = v; }], ["HEAT_WORDS", (v) => { HEAT_WORDS = v; }], ["trainerWaitingShort", (v) => { trainerWaitingShort = v; }], ["econLine", (v) => { econLine = v; }], ["BAGS_FULL", (v) => { BAGS_FULL = v; }]]); let createMeta, buildOaths, echoAmt; __link.imp("src/ui/meta.js", [["createMeta", (v) => { createMeta = v; }], ["buildOaths", (v) => { buildOaths = v; }], ["echoAmt", (v) => { echoAmt = v; }]]); let heatKey, previewBlock, costText, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME, dimsLine, arrivalLine, atArrival; __link.imp("src/ui/heat.js", [["heatKey", (v) => { heatKey = v; }], ["previewBlock", (v) => { previewBlock = v; }], ["costText", (v) => { costText = v; }], ["heatBadge", (v) => { heatBadge = v; }], ["buildHeatSummary", (v) => { buildHeatSummary = v; }], ["fmtTime", (v) => { fmtTime = v; }], ["HEAT_NAME", (v) => { HEAT_NAME = v; }], ["dimsLine", (v) => { dimsLine = v; }], ["arrivalLine", (v) => { arrivalLine = v; }], ["atArrival", (v) => { atArrival = v; }]]); let createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon; __link.imp("src/ui/prep.js", [["createPrepScreen", (v) => { createPrepScreen = v; }], ["buildHubOffer", (v) => { buildHubOffer = v; }], ["siteBadge", (v) => { siteBadge = v; }], ["siteLines", (v) => { siteLines = v; }], ["contractTip", (v) => { contractTip = v; }], ["kindIcon", (v) => { kindIcon = v; }]]); let contractTitle; __link.imp("src/ui/ui-text.js", [["contractTitle", (v) => { contractTitle = v; }]]); let gateLine, closedRoadLine; __link.imp("src/ui/onboarding.js", [["gateLine", (v) => { gateLine = v; }], ["closedRoadLine", (v) => { closedRoadLine = v; }]]); let token; __link.imp("src/ui/theme.js", [["token", (v) => { token = v; }]]); __link.exp({ "TOO_FAR": () => TOO_FAR, "ROAD_FIRST": () => ROAD_FIRST, "nodeLevel": () => nodeLevel, "expNodeDesc": () => expNodeDesc, "createScreens": () => createScreens, "INN_ASK_SHARE": () => INN_ASK_SHARE, "nearlyFull": () => nearlyFull, "disarmSpyglass": () => disarmSpyglass, "expiringHere": () => expiringHere, "expiryText": () => expiryText, "trainerMeta": () => trainerMeta, "trainerIdle": () => trainerIdle, "buildMap": () => buildMap, "spreadAngles": () => spreadAngles, "vendorMeta": () => vendorMeta, "hallCost": () => hallCost });
 yield;
 // Centre screens by phase: class select, hub/camp, zone map, node dialogs, loot, quest rewards,
 // vendor, trainer, shrine, rest, treasure and the run summary (its Killed by line names the killing blow, never an id).
@@ -32642,7 +32714,7 @@ function buildCamp(v, ctx) {
     svcCard('grind', 'steel', 'Camp wave', `Fight a wave of level ${lv(z.campLevel ?? R.campGrindLevel)} enemies`, `${tolls(hr.grindWave)} a wave`, false, () => ctx.act({ type: 'CAMP_GRIND' }), { ctx, v, action: { type: 'CAMP_GRIND' } }));
   // what the tolls did to Oruvath (the bridge's v.camp: R.heatView's ascIfPar at the Camp); D150: no par or Ascendancy
   const kv = h('dl.kv', h('dt', 'Oruvath'),
-    asc == null ? h('dd.muted', 'Unknown') : h('dd', { class: asc > 0 ? 'bad' : 'good' }, asc > 0 ? `+${Math.round(asc * 100)} % health and damage` : 'No stronger'));
+    asc == null ? h('dd.muted', 'Unknown') : h('dd', { class: asc > 0 ? 'bad' : 'good' }, asc > 0 ? `+${Math.round(asc * 100)} % health and damage` : 'Base strength'));
   const go = h('button.btn.primary.big', 'Face Oruvath');
   go.addEventListener('click', () => ctx.act({ type: 'FIGHT_BOSS' }));
   el.append(scrollCue(body), h('div.sfoot', kv, go));
@@ -33456,8 +33528,8 @@ function buildLoot(v, ctx) {
   // spoils of a node entered Hot or Scorched (its heat state, rules 1.7.3): a badge by the title
   // blind round 2 (skipper s0161-s0166: loot lost with full bags): items still in the loot window are not left behind on one
   // click; Leave and × ask first ("Leave 2 items behind?"), a second click leaves them
-  const waiting = (L.items || []).filter((it) => it.pending).length;
-  const lk = (L.items || []).map((it) => it.uid).join(',');
+  const waiting = (L.items || []).filter((it) => it.pending).reduce((a, it) => a + (it.uids ? it.uids.length : 1), 0); // pieces, not rows: a junk stack is several
+  const lk = (L.items || []).map((it) => (it.uids || [it.uid]).join('+')).join(',');
   if (lootLeave.key !== lk) lootLeave.armed = false;
   const leaveFn = () => {
     if (waiting && !lootLeave.armed) { lootLeave.armed = true; lootLeave.key = lk; ctx.ui.refreshScreens(); return; }
@@ -33560,7 +33632,7 @@ function buildReward(v, ctx) {
   if (L.kind === 'contract') {
     // a completed contract (expedition.md 3.1, 9.3): paid at once on its last site; its item choice as the story's
     const c = L.contract;
-    const head = h('div.qtext.parchment.ctr', c ? h('div.giver', h('img', { src: kindIcon(c.kind), alt: '' }), contractTitle(c, ctx.data.content)) : null, h('div.turnin', `“A runner from ${L.hubName || 'the hub'} brings your pay. Well done.”`));
+    const head = h('div.qtext.parchment.ctr', c ? h('div.giver', h('img', { src: kindIcon(c.kind), alt: '' }), contractTitle(c, ctx.data.content)) : null, h('div.turnin', `“${contractDoneLine(c, L.hubName, ctx.data.content)}”`));
     if (c) tip(head, () => contractTip(c, ctx, { status: 'Complete' }));
     return dialog('Contract complete', c ? `Zone ${c.z} · ${c.zoneName}` : '', [head,
       h('div.row', { style: { gap: '2rem' } }, L.xp ? h('span', { style: { color: '#d0a8ff', fontWeight: 700, fontSize: '1.35rem' } }, `+${fmtNum(L.xp)} XP`) : null, L.gold ? h('span', moneyEl(L.gold)) : null),
@@ -33675,10 +33747,10 @@ function buildSummary(v, ctx) {
     ...(s.hero ? [['Hero', h('span.s-hero', { dataset: { from: String(s.hero.from), to: String(s.hero.level), xp: String(s.hero.xpGained) } },
       econShown() && s.hero.level !== s.hero.from ? econLine(ctx.data.content.texts, 'level_progress', { from: s.hero.from, to: s.hero.level }) : `Level ${s.hero.from}${s.hero.level !== s.hero.from ? ` → ${s.hero.level}` : ''}`, ` · +${fmtNum(s.hero.xpGained)} XP`,
       econShown() && s.hero.xpToNext ? h('span.s-xp', { title: `${fmtNum(s.hero.xp)} / ${fmtNum(s.hero.xpToNext)} XP to level ${s.hero.level + 1}` }, h('i', { style: { width: `${Math.round(Math.max(0, Math.min(1, s.hero.xp / s.hero.xpToNext)) * 1000) / 10}%` } })) : null)]] : []),
-    [HEAT_WORDS.Units, fmtTime(s.time)], ['Oruvath', s.asc ? `+${Math.round(s.asc * 100)} % health and damage` : 'No stronger'],
+    [HEAT_WORDS.Units, fmtTime(s.time)], ['Oruvath', s.asc ? `+${Math.round(s.asc * 100)} % health and damage` : 'Base strength: no tolls overspent'],
     // Legacy bugs 2026-11-19 (blind returning player s0247): no time estimate for a run without a fight (it was the model's
     // fixed set-up time, "2 min manual · 2 min autoplay")
-    ...(s.fights > 0 ? [['Estimated time', `${s.estMinutes.manual} min manual · ${s.estMinutes.auto} min autoplay`]] : []), ['Fights', `${s.fights} (${s.rounds} rounds)`], ['Seed', String(s.seed)],
+    ...(s.fights > 0 ? [['Play time', `about ${s.estMinutes.manual} min by hand, ${s.estMinutes.auto} with autoplay`]] : []), ['Fights', `${s.fights} (${s.rounds} ${plural(s.rounds, 'round')})`], ['Seed', String(s.seed)],
     // the killing blow by its display name (the bridge's actionName; without a name only the killer)
     ...(s.death && s.death.abandoned ? [['Ended', h('span.killed.abandoned', 'Abandoned from the menu')], ['Where', `${s.death.node || s.zone}${s.death.round != null ? `, round ${s.death.round}` : ''}`]] : []),
     ...(s.death && !s.death.abandoned ? [['Killed by', h('span.killed', { dataset: { ability: s.death.ability || '' } }, s.death.ability ? `${s.death.killer} (${s.death.ability})` : s.death.killer)], ['Where', `${s.death.node}, round ${s.death.round}`]] : []),
