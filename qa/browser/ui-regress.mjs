@@ -1586,7 +1586,13 @@ const meterDom = (page) => page.evaluate(() => {
     on: [...m.querySelectorAll('.ht-seg.on')].map((x) => x.dataset.hs), mark: pc('.ht-mark.run'), line: pc('.ht-line'),
     runSets: q('.ht-mark.run').classList.contains('sets'), dimShown: !q('.ht-mark.dim').classList.contains('hidden'), dim: pc('.ht-mark.dim'), dimSets: q('.ht-mark.dim').classList.contains('sets'),
     dimTxt: q('.ht-dim') && !q('.ht-dim').classList.contains('hidden') ? t('.ht-dim span') : null, ghost: q('.ht-mark.ghost').classList.contains('hidden') ? null : pc('.ht-mark.ghost'),
-    arrow: q('.ht-arrow').classList.contains('hidden') ? null : t('.ht-arrow') };
+    arrow: q('.ht-arrow').classList.contains('hidden') ? null : t('.ht-arrow'),
+    // D163 (draft): the clock tag on the label, the line under the bar inside a node, and which marker is the main pointer
+    clock: q('.ht-clock') && !q('.ht-clock').classList.contains('hidden') ? `${t('.ht-clock i')} ${t('.ht-clock span')}` : null,
+    counts: q('.ht-counts') && !q('.ht-counts').classList.contains('hidden') ? t('.ht-counts span') : null,
+    runW: q('.ht-mark.run').getBoundingClientRect().width, dimW: q('.ht-mark.dim').getBoundingClientRect().width,
+    runHead: getComputedStyle(q('.ht-mark.run'), '::before').display !== 'none' && getComputedStyle(q('.ht-mark.run'), '::before').content !== 'none',
+    dimHead: getComputedStyle(q('.ht-mark.dim'), '::before').display !== 'none' && getComputedStyle(q('.ht-mark.dim'), '::before').content !== 'none' };
 });
 /** Is the meter inside the window and on top at five points (no panel, window or frame over it)? */
 const meterCover = (page) => page.evaluate(() => {
@@ -1613,7 +1619,13 @@ function meterDiff(d, hv, camp) {
     const seg = { clear: [R.C.HEAT_BAR_MIN, R.C.HEAT_WARM_AT], warm: [R.C.HEAT_WARM_AT, R.C.HEAT_HOT_AT], hot: [R.C.HEAT_HOT_AT, R.C.HEAT_SCORCH_AT], scorched: [R.C.HEAT_SCORCH_AT, R.C.HEAT_BAR_MAX] }[hv.stateDim];
     if (!d.dimShown || d.dim < barPct(seg[0]) || d.dim > barPct(seg[1])) out.push(`Dimming marker ${d.dim} outside ${hv.stateDim} (${barPct(seg[0]).toFixed(1)}-${barPct(seg[1]).toFixed(1)})`);
     eq('the clock that sets the state', `${d.dimSets ? 'dim' : ''}${d.runSets ? 'run' : ''}`, hv.by); eq('by text', d.by2, null);
+    // D163 (draft): the tag names the clock that sets the state; the diamond is the main pointer when the Dimming sets it
+    eq('clock tag', d.clock, hv.by === 'dim' ? '◆ Set by the Dimming here' : '▼ Set by your tolls');
+    const main = d.dimW > d.runW && d.dimHead && !d.runHead ? 'dim' : d.runHead && !d.dimHead ? 'run' : `unclear (${JSON.stringify([d.runW, d.dimW, d.runHead, d.dimHead])})`;
+    eq('main pointer', main, hv.by);
   }
+  if (hv.dimIn === null || hv.dimIn === undefined) eq('clock tag', d.clock, null); // one clock only: no tag
+  eq('counts as', d.counts, hv.node && hv.node.state ? `This place counts as ${HNAME[hv.node.state]}` : null);
   return out;
 }
 /** A Node twin like makeTwin, with newRun options (mapMode). */
@@ -2031,12 +2043,84 @@ async function partIExp(browser, W, H) {
     // D152 (changes-m3-v2.md 4): the tolls figure moves to the tooltip's first line
     const tipWant = `Tolls: ${hv.heat > 0 ? `${hv.heat} overspent` : hv.heat < 0 ? `${-hv.heat} to spare` : 'none to spare'}. The Dimming near you sets the Furnace now.`;
     check('M2b-heat-exp', `the meter's tooltip, first line under the name: "${tipWant}" (D152); no "Raised by"`, tip.includes(tipWant) && tip.indexOf(tipWant) < tip.indexOf('Every move costs tolls') && !/Raised by|hotter clock/.test(tip), tip);
+    await partIExpD163(page, twin);
   } catch (e) {
     check('-', 'part I (expedition) ran to the end', false, e.message.split('\n')[0]);
   }
   check('-', 'part I (expedition): no console errors, page errors or requests', errors.length === 0, errors.join(' | '));
   await context.close();
 }
+
+/**
+ * Part I, expedition (D163, engine-2026-11-20b recommendations; draft lines): a reachable node's tooltip says how many places
+ * the Dimming takes while inside (= R.heatPreview(MOVE).dims), inside a node the meter's line under the bar names the state
+ * the node counts as (= heatView.node) with the clock tag, and on arrival in zone 2 by the Road the hub and the log carry the
+ * toll carry-over line (= heatView.carry; the hub line goes once a toll is spent there). From the map where the Dimming sets
+ * the state, on the engine's autoplay choices.
+ */
+async function partIExpD163(page, twin) {
+  const autoStep = () => page.evaluate(async () => { await window.__ui.act({ type: 'AUTO' }); await window.__ui.idle(); await new Promise((q) => requestAnimationFrame(() => requestAnimationFrame(q))); });
+  const vw = () => page.evaluate(() => { const v = window.__ui.view(); return { phase: v.phase, z: v.zone ? v.zone.idx : null, node: !!(v.heat && v.heat.node), onRoad: !!(v.zone && v.zone.exp && v.zone.exp.onRoad) }; });
+  // ---- a node tooltip with places taken
+  let tipDone = null; let nodeDone = null;
+  for (let i = 0; i < 600 && !(tipDone && nodeDone); i++) {
+    const v = await vw();
+    if (v.phase === 'SUMMARY') break;
+    if (!tipDone && v.phase === 'MAP') {
+      const s = await twin.sync(page);
+      const mv = R.mapView(s);
+      const m = mv.moves.map((x) => ({ x, p: R.heatPreview(s, { type: 'MOVE', nodeId: x.nodeId }) })).find((y) => y.p && y.p.pays && !y.p.perWave && y.p.dims && y.p.dims.length > 0 && !y.x.barred);
+      if (m) {
+        const el = page.locator(`#screens .expmap button.mnode.reach[data-node="${m.x.nodeId}"]`);
+        if (await el.count()) {
+          await el.hover(); await page.waitForTimeout(120);
+          const line = await page.evaluate(() => { const t = document.querySelector('.tooltip.on .xdims'); return t ? t.textContent : null; });
+          await shot(page, 'I-exp-dims-tip');
+          await page.mouse.move(2, 2);
+          const n = m.p.dims.length; const want = `The Dimming takes ${n} ${n === 1 ? 'place' : 'places'} while you are inside.`;
+          tipDone = { ok: line === want, line, want, node: m.x.nodeId };
+        }
+      }
+    }
+    if (!nodeDone && v.phase === 'NODE' && v.node) {
+      const s = await twin.sync(page); const hv = R.heatView(s);
+      const d = await meterDom(page); const diff = meterDiff(d, hv, false);
+      if (hv.node.state !== hv.state || i > 400) { await shot(page, 'I-exp-in-node'); nodeDone = { ok: !diff.length && d.counts === `This place counts as ${HNAME[hv.node.state]}`, d, diff, hv: [hv.state, hv.by, hv.node.state] }; }
+    }
+    await autoStep();
+  }
+  check('M2b-heat-exp', 'D163: a node tooltip says how many places the Dimming takes while you are inside (R.heatPreview(MOVE).dims)', !!tipDone && tipDone.ok, JSON.stringify(tipDone));
+  check('M2b-heat-exp', `D163: inside a node the meter says "This place counts as ..." (heatView.node), with the clock tag and the main pointer of the clock that sets the state${nodeDone ? ` (${nodeDone.hv.join(', ')})` : ''}`,
+    !!nodeDone && nodeDone.ok, nodeDone ? (nodeDone.diff.join(' | ') || JSON.stringify({ counts: nodeDone.d.counts, clock: nodeDone.d.clock })) : 'no node met');
+  // ---- zone arrival by the Road: the carry-over line on the hub and in the log
+  let arrived = null;
+  for (let i = 0; i < 1500 && !arrived; i++) {
+    const v = await vw();
+    if (v.phase === 'SUMMARY') break;
+    if (v.phase === 'MAP' && v.z === 1 && v.onRoad) {
+      const r = await page.evaluate(async () => { const res = await window.__ui.act({ type: 'TAKE_ROAD' }); await window.__ui.idle(); await new Promise((q) => requestAnimationFrame(() => requestAnimationFrame(q))); return !!(res && res.ok); });
+      if (r) { arrived = await vw(); break; }
+    }
+    await autoStep();
+  }
+  if (!arrived || arrived.phase !== 'ZONE_HUB' || arrived.z !== 2) { check('M2b-heat-exp', 'D163: zone 2 reached by the Road', false, JSON.stringify(arrived)); return; }
+  const s = await twin.sync(page); const hv = R.heatView(s); const c = hv.carry;
+  const n = Math.abs(c.carried); const left = c.carried - c.share;
+  const want = `Zone 2 adds ${tolls(c.share)}${!n ? '' : c.carried > 0 ? `; you overspent ${n}` : `; you saved ${n}`}: ${left < 0 ? `${-left} to spare` : left === 0 ? 'none to spare' : `still ${left} overspent`}.`;
+  const got = await page.evaluate(() => ({ hub: (document.querySelector('#screens .hubcarry') || {}).textContent || null, log: [...document.querySelectorAll('#combatlog .lg-sys')].map((x) => x.textContent).slice(-6) }));
+  await shot(page, 'I-exp-arrival');
+  check('M2b-heat-exp', `D163: on arrival in zone 2 the hub and the log say "${want}" (heatView.carry; the meter reads ${standText0(hv.heat)})`,
+    got.hub === want && got.log.includes(want) && hv.heat === left, JSON.stringify(got));
+  // a toll spent at the hub: the line goes (the meter no longer reads the arrival figure)
+  const svc = await page.evaluate(() => { const v = window.__ui.view(); const u = (v.hub && v.hub.used) || {}; return ['vendor', 'inn', 'trainer'].find((k) => !u[k]) || null; });
+  if (svc) {
+    await page.evaluate(async (k) => { await window.__ui.act({ type: 'HUB_SERVICE', service: k }); await window.__ui.idle(); }, svc);
+    await page.keyboard.press('Escape'); await idle(page);
+    const after = await page.evaluate(() => ({ phase: window.__ui.view().phase, hub: !!document.querySelector('#screens .hubcarry') }));
+    check('M2b-heat-exp', `D163: after a toll at the hub (${svc}) the arrival line is gone`, !after.hub, JSON.stringify(after));
+  }
+}
+const standText0 = (h) => (h > 0 ? `${tolls(h)} overspent` : h < 0 ? `${tolls(-h)} to spare` : 'No tolls to spare');
 
 // ------------------------------------------------------------------ part J: combat v2.1 display (wind-ups, stacks, Disrupt)
 /**
