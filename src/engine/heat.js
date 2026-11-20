@@ -167,7 +167,8 @@ function costOf(s, a) {
  * `parts` (newcomer check 2026-11-15): the tolls in spend order, [{ why, tolls }] summing to `time`: the action's own (why:
  * the node type entered, 'walk', 'pass', 'travel', 'bell', 'trainer', 'vendor', 'inn' or 'grind') and, with `dimFight`, the
  * Dimmed encounter's ('dimFight', `escape: true` when TIME_DIM_ESCAPE), so a cost that grows can say why ("+2 for a
- * fight in the Dimming": the node dims before its tolls end).
+ * fight in the Dimming": the node dims before its tolls end). `dims` (D163): the ids of the places the Dimming takes while
+ * the action's tolls are spent (dimsDuring), null when no Dimming clock runs or the action leaves the zone.
  */
 export function heatPreview(s, a) {
   if (!s.player || !s.zone) return null;
@@ -181,8 +182,25 @@ export function heatPreview(s, a) {
   return {
     time: c.time, timeAfter: f.time, line: f.line, heat: f.heat, stateRun: f.stateRun, dimIn: f.dimIn, stateDim: f.stateDim,
     state: f.state, by: f.by, ascIfPar: f.ascIfPar, change: f.state !== now.state, dimFight: c.dimFight, perWave: c.perWave, pays,
-    swift: a.type === 'TAKE_ROAD' ? swiftXp(s) || null : null, parts: c.parts,
+    swift: a.type === 'TAKE_ROAD' ? swiftXp(s) || null : null, parts: c.parts, dims: dimsDuring(s, c),
   };
+}
+
+/**
+ * The places the Dimming takes while an action's tolls are spent (D163, engine-2026-11-20b recommendation 3): the ids of
+ * the zone's nodes whose dimAt falls in (zt, zt + time], in the order they dim (then by id); a Dimmed encounter's tolls
+ * are included, as they move the Dimming too. null when no Dimming clock runs (today's map, the Camp, a run without the
+ * Dimming) and for an action that leaves the zone. A held corridor node is not counted (its release is the guide's).
+ * Pure read: the same nodes the `dimming` events of the step list, unless a guided rescue or the corridor's release
+ * comes in between (qa/engine/s30-heat-read.test.mjs).
+ */
+function dimsDuring(s, c) {
+  const zone = s.zone;
+  if (!isExpedition(s) || zone.camp || zone.dimOff || c.z !== zone.z) return null;
+  const zt = zoneTime(s);
+  const out = [];
+  for (const n of zone.nodes) { const at = dimAt(zone, n.id); if (at > zt && at <= zt + c.time) out.push([at, n.id]); }
+  return out.sort((x, y) => x[0] - y[0] || x[1] - y[1]).map((x) => x[1]);
 }
 
 // ---------------- Bookkeeping for the rewards and the summary (rules 1.7.3, 9) ----------------

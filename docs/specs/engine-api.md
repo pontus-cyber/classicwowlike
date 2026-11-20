@@ -733,8 +733,14 @@ clock. Every time value is a whole number of tolls (M2b v7): the line is rounded
 ### 11.2 `heatPreview(state, action)`
 ```
 { time, timeAfter, line, heat, stateRun, dimIn, stateDim, state, by, ascIfPar,   (as heatView, after the action)
-  change (state differs from now), dimFight, perWave, pays, swift, parts }
+  change (state differs from now), dimFight, perWave, pays, swift, parts, dims }
 ```
+- `dims` (D163, engine-2026-11-20b recommendation 3): the ids of the places the Dimming takes while the action's tolls are
+  spent (a Dimmed encounter's tolls included): the nodes whose dimAt falls in (zone time, zone time + `time`], in the
+  order they dim, then by id; the same nodes the step's `dimming` events list (unless a guided rescue or the corridor's
+  release comes in between). A held corridor node is not counted. null when no Dimming clock runs (today's map, the
+  Camp, a run without the Dimming) and for an action that leaves the zone. The node tooltip's "The Dimming takes N
+  places while you are inside." Also in each `heatView.next` entry. Pure read.
 - `parts` (newcomer check 2026-11-15: a Quest node cost 3 tolls and later 5, with no reason shown, s0033 / s0065): the
   tolls of `time` in spend order, `[{ why, tolls }]` summing to `time`. First the action's own: `why` is the node type a
   MOVE or CHOOSE_NODE enters (`'quest'`, `'grind'`, `'elite'`, ...), `'walk'` (a MOVE that does not enter), `'pass'`
