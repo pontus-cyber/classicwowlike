@@ -9,8 +9,8 @@
 export const TEXTS = {
   // Display names of the enemy family ids (zones.js regions, enemies.js family), used in contract texts.
   // content-2026-11-20 (blind Legacy v2 s0293, s0415; draft): `done` is the line a completed Cull or Bounty contract on
-  // that family shows in its reward window, so no two contracts end on the same words. Not wired yet: the UI reads
-  // families[contract.family].done (docs/handoffs/content-2026-11-20.md section 3).
+  // that family shows in its reward window, so no two contracts end on the same words. The UI reads
+  // families[contract.family].done (ui-text.js contractDoneLine).
   families: {
     outlaw: { singular: 'outlaw', plural: 'outlaws', done: 'Fewer outlaws on the roads. The carters will sleep easier.' },
     wild: { singular: 'wild beast', plural: 'wild beasts', done: 'The wild beasts keep their distance now. The herders thank you.' },

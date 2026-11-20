@@ -61,7 +61,7 @@
  *      and on every kind of screen met (hub, services, map, dialogs, fights, loot, camp, boss) the meter is in view and on
  *      top; the camp panel, tracker and minimap name heatView's par and Ascendancy; the boss frame's Ascendancy is the
  *      meter's "Boss +N %"; the summary's heat card (track points per zone record, tolls by state, over par) and the Echo
- *      line "Fights won in heat" match the engine's summary; loot marked "raised by heat" came from Hot or Scorched nodes.
+ *      line "Fights won while Burning or Infernal" match the engine's summary; loot marked "raised by heat" came from Hot or Scorched nodes.
  *      Then an expedition run (?expedition=1): the Dimming's marker and "Dimming: N tolls" at the hub, a move's preview, and
  *      a map step where the Dimming sets the state (marker, "· Dimming", the meter's tooltip) = heatView. Both seeds are
  *      chosen at run time on Node runs of the same choices (the UI's own item-bar actions included).
@@ -647,7 +647,7 @@ async function partB(browser, W, H) {
     const asc = await placement(foot.locator('dd').nth(0));
     const footText = (await foot.innerText()).replace(/\n/g, ' ');
     // D150: one line, what the tolls did to Oruvath (no tolls, par or Ascendancy: the Furnace has the number)
-    check('BUG-QA-10', 'camp: Oruvath\'s line (what the tolls did to him) is in view; no par or Ascendancy', fullyShown(asc) && /Oruvath (\+\d+ % health and damage|No stronger)/.test(footText) && !/\bpar\b|Ascendancy/.test(footText), `${footText} | ${placeText(asc)}`);
+    check('BUG-QA-10', 'camp: Oruvath\'s line (what the tolls did to him) is in view; no par or Ascendancy', fullyShown(asc) && /Oruvath (\+\d+ % health and damage|Base strength)/.test(footText) && !/\bpar\b|Ascendancy/.test(footText), `${footText} | ${placeText(asc)}`);
     const cards = page.locator('#screens .side .svc-card');
     const cardPl = [];
     for (let i = 0; i < await cards.count(); i++) cardPl.push(await placement(cards.nth(i)));
@@ -1354,7 +1354,7 @@ async function partG(browser, W, H) {
     await shot(page, 'G-camp-haste');
     // D150 naming rule: no par or Ascendancy in player text; the panel says what the tolls did to Oruvath, the engine's
     // Ascendancy with the Oath of Haste's par (bossPar), and the tracker and the minimap say no tolls (the Furnace's number)
-    const ascText = twin.asc > 0 ? `+${Math.round(twin.asc * 100)} % health and damage` : 'No stronger';
+    const ascText = twin.asc > 0 ? `+${Math.round(twin.asc * 100)} % health and damage` : 'Base strength';
     check('M2v4-par', `camp with the Oath of Haste at ${v.time} tolls (bossPar ${twin.par} = ${R.C.BOSS_TIME_PAR} - ${R.C.OATH_HASTE_TIME}): the panel's "Oruvath ${ascText}" (the engine's Ascendancy); no par, Ascendancy or tolls in the panel, the tracker or the minimap`,
       twin.par === PAR && v.time === twin.time && foot.includes(`Oruvath ${ascText}`) && !/\bpar\b|Ascendancy/.test(`${foot} ${track} ${mm}`) && !track.includes(HEAT_WORDS.Units),
       `panel "${foot}" | tracker "${track}" | minimap "${mm}"`);
@@ -1620,7 +1620,7 @@ function meterDiff(d, hv, camp) {
     if (!d.dimShown || d.dim < barPct(seg[0]) || d.dim > barPct(seg[1])) out.push(`Dimming marker ${d.dim} outside ${hv.stateDim} (${barPct(seg[0]).toFixed(1)}-${barPct(seg[1]).toFixed(1)})`);
     eq('the clock that sets the state', `${d.dimSets ? 'dim' : ''}${d.runSets ? 'run' : ''}`, hv.by); eq('by text', d.by2, null);
     // D163 (draft): the tag names the clock that sets the state; the diamond is the main pointer when the Dimming sets it
-    eq('clock tag', d.clock, hv.by === 'dim' ? '◆ Set by the Dimming here' : '▼ Set by your tolls');
+    eq('clock tag', d.clock, hv.by === 'dim' ? '◆ Sets the state' : '▼ Sets the state');
     const main = d.dimW > d.runW && d.dimHead && !d.runHead ? 'dim' : d.runHead && !d.dimHead ? 'run' : `unclear (${JSON.stringify([d.runW, d.dimW, d.runHead, d.dimHead])})`;
     eq('main pointer', main, hv.by);
   }
@@ -1951,7 +1951,7 @@ async function partI(browser, W, H) {
     const foot = (await page.locator('#screens .side .sfoot').innerText()).replace(NBSP, ' ').replace(/\n/g, ' ');
     const track = (await page.locator('#tracker').innerText()).replace(NBSP, ' ').replace(/\n/g, ' ');
     const mm = await tipOf(page, page.locator('#minimap .disc'));
-    const ascText = hv.ascIfPar > 0 ? `+${Math.round(hv.ascIfPar * 100)} % health and damage` : 'No stronger';
+    const ascText = hv.ascIfPar > 0 ? `+${Math.round(hv.ascIfPar * 100)} % health and damage` : 'Base strength';
     await shot(page, 'I-camp');
     check('M2b-heat', `camp (${s.time} tolls): the meter (${HNAME[hv.state]}, "${stand(hv)}"${bossTxt(hv.ascIfPar) ? `, "${bossTxt(hv.ascIfPar)}"` : ''}; no pay line) equals R.heatView`, !diff.length, diff.join(' | '));
     check('M2b-heat', `camp: the panel says "Oruvath ${ascText}" (heatView's ascIfPar, as the meter's Boss); D150: no par, Ascendancy, line or tolls in the panel, the tracker or the minimap`,
@@ -6280,7 +6280,7 @@ async function partX(browser, W, H) {
       }
       check('X-roads', `every Road on ${maps} map screens: a post line from its sign to its own rim node (open, closed or Dimmed colour), the node ringed (.xrd)`, maps > 3 && badRoads.length === 0, JSON.stringify(badRoads.slice(0, 3)));
       check('X-clocks', `${clocksSeen} Dimming clocks: each pinned to its node (no declutter shift, touching its ring), the number alone; the player's own at 2 or less "Dims in N!"`, clocksSeen > 10 && badClocks.length === 0, JSON.stringify(badClocks.slice(0, 4)));
-      check('X-furnace', `the Dimming sets the Furnace: the meter reads "<State> · ${DIM_NEAR_WORDS}" and the tag "◆ Set by the Dimming here" (D163, draft), its tip "Your node dims in N tolls" and the diamond's line`, !!dimFurnace && dimFurnace.meter.toLowerCase() === `${dimFurnace.state} · ${DIM_NEAR_WORDS} ◆ Set by the Dimming here`.toLowerCase() && !!dimFurnace.tip && /Your node dims in \d+ tolls?\./.test(dimFurnace.tip) && dimFurnace.tip.includes(DIM_MARK_LINE), JSON.stringify(dimFurnace));
+      check('X-furnace', `the Dimming sets the Furnace: the meter reads "<State> · ${DIM_NEAR_WORDS}" and the tag "◆ Sets the state" (D163, draft), its tip "Your node dims in N tolls" and the diamond's line`, !!dimFurnace && dimFurnace.meter.toLowerCase() === `${dimFurnace.state} · ${DIM_NEAR_WORDS} ◆ Sets the state`.toLowerCase() && !!dimFurnace.tip && /Your node dims in \d+ tolls?\./.test(dimFurnace.tip) && dimFurnace.tip.includes(DIM_MARK_LINE), JSON.stringify(dimFurnace));
       check('X-nearest', 'the Roads open (Gorrak\'s fight over): the "Take a Road" line (G12.road) ends with the nearest Road\'s hops and tolls (nearestRoad on mapView), rings that Road\'s sign, and counts for U01', roadsOpenAt != null && !!roadLine && !!roadLine.want && roadLine.text.endsWith(roadLine.want) && !!roadLine.ring && roadLine.ring.endsWith(` ${roadLine.nr.id}`) && roadLine.u01 === true, JSON.stringify({ roadsOpenAt, roadLine }));
       check('X-key', 'the map Key\'s tip lies beside the Key, not over it; the Key names the clock badge ("Dims in 3 tolls")', !!keyTip && !keyTip.overlap && keyTip.row, JSON.stringify(keyTip));
       check('X-bags', 'the first loot window with items: the Bags (B) open beside it, not over it; Continue and every button of the window on top; a "+N items" note on the Bags button before, gone once they open',
@@ -6943,7 +6943,7 @@ async function partZ(browser, W, H) {
       check('Z-1', 'Abandon run: no "You have died" screen, no toast over the summary ("You abandon the run." in the log only; s0236, s0247)',
         !sv.death && tt.length === 0 && lines.join(' ').includes('You abandon the run.'), JSON.stringify({ death: sv.death, tt, last: lines.slice(-3) }));
       check('Z-1', 'a run without a fight shows no time estimate (s0247); the Furnace names no "0 Infernal" (s0059)',
-        sm.fights === 0 && !sv.kv.includes('Estimated time') && sv.kv.includes('Fights') && !/\b0 (Calm|Smouldering|Burning|Infernal)\b/.test(sv.foot) && /^No node entered\./.test(sv.foot), JSON.stringify(sv));
+        sm.fights === 0 && !sv.kv.includes('Play time') && sv.kv.includes('Fights') && !/\b0 (Calm|Smouldering|Burning|Infernal)\b/.test(sv.foot) && /^No node entered\./.test(sv.foot), JSON.stringify(sv));
     } catch (e) { await shot(page, 'Z1b-error'); check('Z-1', 'part Z1b ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('Z-1', 'part Z1b: no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
@@ -6968,7 +6968,7 @@ async function partZ(browser, W, H) {
       check('Z-2', 'the summary of a death: the Furnace\'s last line is in view without a scroll and not under the buttons (s0059), the body ends above them',
         s.outcome === 'death' && fullyShown(p0) && geo.bodyBottom <= geo.footTop + 0.5 && geo.scroll <= 1, `${placeText(p0)} ${JSON.stringify(geo)}`);
       check('Z-2', `the Furnace line names only the states nodes were entered in (${ent.map(([st, n]) => `${n} ${name[st]}`).join(' · ')}) and the Dimmed encounters (${dim})`,
-        geo.text.startsWith(`Nodes entered, by the state you entered them in: ${ent.map(([st, n]) => `${n} ${name[st]}`).join(' · ')}.`) && (dim ? geo.text.includes(`The Dimming caught you ${dim === 1 ? 'once' : `${dim} times`} (Infernal where it stands).`) : !/Dimming/.test(geo.text)) && geo.kv.includes('Estimated time'),
+        geo.text.startsWith(`Nodes entered, by the state you entered them in: ${ent.map(([st, n]) => `${n} ${name[st]}`).join(' · ')}.`) && (dim ? geo.text.includes(`The Dimming caught you ${dim === 1 ? 'once' : `${dim} times`} (Infernal where it stands).`) : !/Dimming/.test(geo.text)) && geo.kv.includes('Play time'),
         geo.text);
     } catch (e) { await shot(page, 'Z2-error'); check('Z-2', 'part Z2 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
     check('Z-2', 'part Z2: no console errors', errors.length === 0, errors.join(' | '));

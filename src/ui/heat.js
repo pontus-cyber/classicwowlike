@@ -112,7 +112,8 @@ export const DIM_MARK_LINE = '◆ The Dimming near you. Whichever marker is furt
  * shown where two clocks run (an expedition zone: the run clock and the Dimming of the place the player stands on). Its
  * glyph is the marker that clock moves: the needle (▼) for the tolls, the diamond (◆) for the Dimming.
  */
-export const CLOCK_TAG = { run: 'Set by your tolls', dim: 'Set by the Dimming here' };
+// content-2026-11-20 section 3 row 1 (draft): one tag for both clocks; the glyph (▼ the needle, ◆ the diamond) names the clock
+export const CLOCK_TAG = { run: 'Sets the state', dim: 'Sets the state' };
 export const CLOCK_GLYPH = { run: '▼', dim: '◆' };
 /** The clock tag of a heatView: { by, glyph, text }, or null where only the run clock runs (no Dimming clock). */
 export function clockTag(hv) {
@@ -492,9 +493,8 @@ export function buildHeatSummary(sum, ctx) {
   // share a row, and the chart is lower (HT), so the summary fits without a scroll in the common case
   card.appendChild(h('div.hc-head', h('h3', HW.Name), h('div.hc-time', strip,
     h('span.hc-leg', `${HW.Units} in each state: `, STATES.map((s, i) => h('span', h('i.ht-dot', { dataset: { hs: s } }), `${HEAT_NAME[s]} ${fmtTime(ht.timeByState[i])}`))))));
-  card.appendChild(h('div.hc-sub', h('div.hc-cap', `${HW.Units} overspent (above 0) or to spare (below), per zone`), h('span.hc-end', endLine)));
+  card.appendChild(h('div.hc-sub', h('div.hc-cap', `${HW.Units} per zone: above 0 overspent, below 0 to spare`), h('span.hc-end', endLine)));
   card.appendChild(heatChart(recs, H, zc));
-  const hotNodes = ht.nodesByState[2] + ht.nodesByState[3];
   const hotFights = ht.fightsByState[2] + ht.fightsByState[3];
   // Legacy bugs 2026-11-19 (blind returning player s0059: "0 Infernal" after the meter had shown Infernal): a node counts in
   // the state it was entered in, so only the states with nodes are named; the Dimming (Infernal where it stands) has its
@@ -503,7 +503,7 @@ export function buildHeatSummary(sum, ctx) {
   const nodesLine = entered.length ? `Nodes entered, by the state you entered them in: ${entered.map(([s, n]) => `${n} ${HEAT_NAME[s]}`).join(' · ')}.` : 'No node entered.';
   const dim = ht.dimFights || 0;
   const dimLine = dim ? ` The Dimming caught you ${dim === 1 ? 'once' : `${dim} times`} (${HEAT_NAME.scorched} where it stands).` : '';
-  card.appendChild(h('div.hc-foot', `${nodesLine} Fights won in heat: ${hotFights}${hotNodes ? '' : ` (no node entered ${HEAT_NAME.hot} or ${HEAT_NAME.scorched})`}.${dimLine} Hover a point for its ${HW.units}.`));
+  card.appendChild(h('div.hc-foot', `${nodesLine} Fights won while ${HEAT_NAME.hot} or ${HEAT_NAME.scorched}: ${hotFights}.${dimLine} Hover a point for its ${HW.units}.`));
   return card;
 }
 

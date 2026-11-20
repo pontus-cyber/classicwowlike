@@ -26,7 +26,7 @@ import { spellIcon, itemIcon, nodeIcon, icon, consumableIcon, roleIcon, deathblo
 import { drawPortrait, HERO_LOOKS, PET_LOOKS } from './art-actors.js';
 import { tip, itemTip, spellTip, hide as hideTip, STAT_NAMES } from './tooltip.js';
 import { conColor, heroPortrait, travelState } from './hud.js';
-import { numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, trainerWaitingShort, econLine, BAGS_FULL } from './ui-text.js';
+import { numWord, plural, contractDoneLine, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, trainerWaitingShort, econLine, BAGS_FULL } from './ui-text.js';
 import { createMeta, buildOaths, echoAmt } from './meta.js';
 import { heatKey, previewBlock, costText, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME, dimsLine, arrivalLine, atArrival } from './heat.js';
 import { createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon } from './prep.js';
@@ -429,7 +429,7 @@ function buildCamp(v, ctx) {
     svcCard('grind', 'steel', 'Camp wave', `Fight a wave of level ${lv(z.campLevel ?? R.campGrindLevel)} enemies`, `${tolls(hr.grindWave)} a wave`, false, () => ctx.act({ type: 'CAMP_GRIND' }), { ctx, v, action: { type: 'CAMP_GRIND' } }));
   // what the tolls did to Oruvath (the bridge's v.camp: R.heatView's ascIfPar at the Camp); D150: no par or Ascendancy
   const kv = h('dl.kv', h('dt', 'Oruvath'),
-    asc == null ? h('dd.muted', 'Unknown') : h('dd', { class: asc > 0 ? 'bad' : 'good' }, asc > 0 ? `+${Math.round(asc * 100)} % health and damage` : 'No stronger'));
+    asc == null ? h('dd.muted', 'Unknown') : h('dd', { class: asc > 0 ? 'bad' : 'good' }, asc > 0 ? `+${Math.round(asc * 100)} % health and damage` : 'Base strength'));
   const go = h('button.btn.primary.big', 'Face Oruvath');
   go.addEventListener('click', () => ctx.act({ type: 'FIGHT_BOSS' }));
   el.append(scrollCue(body), h('div.sfoot', kv, go));
@@ -1347,7 +1347,7 @@ function buildReward(v, ctx) {
   if (L.kind === 'contract') {
     // a completed contract (expedition.md 3.1, 9.3): paid at once on its last site; its item choice as the story's
     const c = L.contract;
-    const head = h('div.qtext.parchment.ctr', c ? h('div.giver', h('img', { src: kindIcon(c.kind), alt: '' }), contractTitle(c, ctx.data.content)) : null, h('div.turnin', `“A runner from ${L.hubName || 'the hub'} brings your pay. Well done.”`));
+    const head = h('div.qtext.parchment.ctr', c ? h('div.giver', h('img', { src: kindIcon(c.kind), alt: '' }), contractTitle(c, ctx.data.content)) : null, h('div.turnin', `“${contractDoneLine(c, L.hubName, ctx.data.content)}”`));
     if (c) tip(head, () => contractTip(c, ctx, { status: 'Complete' }));
     return dialog('Contract complete', c ? `Zone ${c.z} · ${c.zoneName}` : '', [head,
       h('div.row', { style: { gap: '2rem' } }, L.xp ? h('span', { style: { color: '#d0a8ff', fontWeight: 700, fontSize: '1.35rem' } }, `+${fmtNum(L.xp)} XP`) : null, L.gold ? h('span', moneyEl(L.gold)) : null),
@@ -1462,10 +1462,10 @@ function buildSummary(v, ctx) {
     ...(s.hero ? [['Hero', h('span.s-hero', { dataset: { from: String(s.hero.from), to: String(s.hero.level), xp: String(s.hero.xpGained) } },
       econShown() && s.hero.level !== s.hero.from ? econLine(ctx.data.content.texts, 'level_progress', { from: s.hero.from, to: s.hero.level }) : `Level ${s.hero.from}${s.hero.level !== s.hero.from ? ` → ${s.hero.level}` : ''}`, ` · +${fmtNum(s.hero.xpGained)} XP`,
       econShown() && s.hero.xpToNext ? h('span.s-xp', { title: `${fmtNum(s.hero.xp)} / ${fmtNum(s.hero.xpToNext)} XP to level ${s.hero.level + 1}` }, h('i', { style: { width: `${Math.round(Math.max(0, Math.min(1, s.hero.xp / s.hero.xpToNext)) * 1000) / 10}%` } })) : null)]] : []),
-    [HEAT_WORDS.Units, fmtTime(s.time)], ['Oruvath', s.asc ? `+${Math.round(s.asc * 100)} % health and damage` : 'No stronger'],
+    [HEAT_WORDS.Units, fmtTime(s.time)], ['Oruvath', s.asc ? `+${Math.round(s.asc * 100)} % health and damage` : 'Base strength: no tolls overspent'],
     // Legacy bugs 2026-11-19 (blind returning player s0247): no time estimate for a run without a fight (it was the model's
     // fixed set-up time, "2 min manual · 2 min autoplay")
-    ...(s.fights > 0 ? [['Estimated time', `${s.estMinutes.manual} min manual · ${s.estMinutes.auto} min autoplay`]] : []), ['Fights', `${s.fights} (${s.rounds} rounds)`], ['Seed', String(s.seed)],
+    ...(s.fights > 0 ? [['Play time', `about ${s.estMinutes.manual} min by hand, ${s.estMinutes.auto} with autoplay`]] : []), ['Fights', `${s.fights} (${s.rounds} ${plural(s.rounds, 'round')})`], ['Seed', String(s.seed)],
     // the killing blow by its display name (the bridge's actionName; without a name only the killer)
     ...(s.death && s.death.abandoned ? [['Ended', h('span.killed.abandoned', 'Abandoned from the menu')], ['Where', `${s.death.node || s.zone}${s.death.round != null ? `, round ${s.death.round}` : ''}`]] : []),
     ...(s.death && !s.death.abandoned ? [['Killed by', h('span.killed', { dataset: { ability: s.death.ability || '' } }, s.death.ability ? `${s.death.killer} (${s.death.ability})` : s.death.killer)], ['Where', `${s.death.node}, round ${s.death.round}`]] : []),

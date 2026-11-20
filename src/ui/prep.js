@@ -69,14 +69,14 @@ export function contractTip(c, ctx, opts = {}) {
   const rw = c.reward || {};
   const box = h('div.tt-contract',
     h('div.tt-row', h('div.tt-name', contractTitle(c, ctx.data.content)), h('span.ctag', { dataset: { kind: c.kind } }, CONTRACT_KIND[c.kind] || c.kind)),
-    h('div.tt-sub', `Zone ${c.z} · ${c.zoneName} · ${bandText(c.band)} · ${c.need} ${plural(c.need, 'site')}`),
+    h('div.tt-sub', `Zone ${c.z} · ${c.zoneName} · ${bandText(c.band)}`),
     h('div.tt-line.desc', contractSentence(c, ctx.data.content)),
     h('div.tt-line', contractSitesText(c, r, opts.has || {})));
   if (rw.choices) {
     // M2b v10 (expedition.md 3.1): contract XP has no level-difference modifier, so the amount is fixed (reward.xp).
     // Legacy (legacy.md 5.3): the pay in hero XP, without the levels-worth
     const xp = typeof rw.xp === 'number' && !legacyShown() ? ` (${fmtNum(rw.xp)} XP)` : '';
-    box.appendChild(h('div.tt-line.num', 'Reward, at once on its last site: ', h('b', xpPayText(rw)), ` at level ${lv(rw.cl)}${xp}, `, moneyEl(rw.gold), `, and ${contractItemsText(rw)}.`));
+    box.appendChild(h('div.tt-line.num', 'Reward when its last site is won: ', h('b', xpPayText(rw)), ` at level ${lv(rw.cl)}${xp}, `, moneyEl(rw.gold), `, and ${contractItemsText(rw)}.`));
   }
   if (opts.progress) box.appendChild(h('div.tt-line', opts.progress));
   if (opts.status) box.appendChild(h('div.tt-sub', opts.status));
@@ -431,7 +431,7 @@ export function buildHubOffer(v, ctx, state = { swap: false }) {
   }));
   swapBtn.addEventListener('click', () => { if (!o.swap.length) return; state.swap = !state.swap; list.classList.toggle('hidden', !state.swap); swapBtn.textContent = state.swap ? 'Keep my contracts' : 'Swap…'; });
   const pay = payLine(rw, 'div.hc-rw');
-  tip(pay, () => h('div', h('div.tt-name', 'Reward, at once on its last site'), h('div.tt-line', `${xpPayText(rw)} at level ${lv(rw.cl)}${typeof rw.xp === 'number' && !legacyShown() ? ` (${fmtNum(rw.xp)} XP)` : ''}, gold, and ${contractItemsText(rw)}.`)));
+  tip(pay, () => h('div', h('div.tt-name', 'Reward when its last site is won'), h('div.tt-line', `${xpPayText(rw)} at level ${lv(rw.cl)}${typeof rw.xp === 'number' && !legacyShown() ? ` (${fmtNum(rw.xp)} XP)` : ''}, gold, and ${contractItemsText(rw)}.`)));
   box.append(head, h('div.hc-row', pay, h('div.hc-acts', take, swapBtn)), list);
   return box;
 }

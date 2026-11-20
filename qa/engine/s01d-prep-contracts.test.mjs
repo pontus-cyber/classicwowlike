@@ -653,6 +653,14 @@ describe('expedition.md 3: contracts in the zone', () => {
     assert.match(R.whyIllegal(left, { type: 'TAKE_HUB_CONTRACT', mode: 'reserve' }), /zone hub|before leaving/);
     const poor = tweak(go(go(go(atCamp({ seed: 12 }), { type: 'SET_OUT' }), { type: 'LEAVE_HUB' }), { type: 'RING_BELL' }), (x) => { x.exp.reserve = 0; });
     assert.match(R.whyIllegal(poor, { type: 'TAKE_HUB_CONTRACT', mode: 'reserve' }), /Reserve/);
+    // content-2026-11-20 section 3 row 10 (draft): in a Legacy run with Economy v2 the same refusal says "camp points"
+    const saved = { ...C.GATES };
+    try {
+      Object.assign(C.GATES, { legacy: true, economyV2: true });
+      const poorLegacy = tweak(poor, (x) => { x.legacy = true; });
+      assert.match(R.whyIllegal(poorLegacy, { type: 'TAKE_HUB_CONTRACT', mode: 'reserve' }), /not enough camp points/);
+      assert.doesNotMatch(R.whyIllegal(poorLegacy, { type: 'TAKE_HUB_CONTRACT', mode: 'reserve' }), /Reserve/);
+    } finally { Object.assign(C.GATES, saved); }
   });
 
   test('2.4 Spyglass: 0 tolls, the node and its neighbours seen, one charge; Tracker\'s Notes: site marks within TRACKER_RADIUS on hidden nodes (the Spyglass offered, withCamp)', () => withCamp(C.PREP_OPTION_IDS, () => {

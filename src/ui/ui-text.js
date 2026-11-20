@@ -319,6 +319,16 @@ export function contractSentence(c, content) {
   if (tpl) return fill(tpl.replace(/\ba \{familyOne\}/g, /^[aeiou]/i.test(vals.familyOne) ? 'an {familyOne}' : 'a {familyOne}'), vals);
   return `${contractTitle(c, content)}, ${c.zoneName}, ${bandText(c.band)}.`;
 }
+/**
+ * The line in a completed contract's reward window (content-2026-11-20 section 3 row 6; draft): a Cull or Bounty reads its
+ * family's `done` (texts.families[id].done), a Delve "{dungeon} is quiet at last."; the old runner line only as the fallback.
+ */
+export function contractDoneLine(c, hubName, content) {
+  const g = group(content, 'families'); const x = c && c.family && g ? g[c.family] : null;
+  if (c && c.kind !== 'delve' && x && typeof x === 'object' && x.done) return x.done;
+  if (c && c.kind === 'delve' && c.dungeon) return `${c.dungeon} is quiet at last.`;
+  return `A runner from ${hubName || 'the hub'} brings your pay. Well done.`;
+}
 /** The hub's offer as a sentence (texts.contracts.hub): "Millbrook Rest has work on the board: Cull ...". */
 export function hubOfferSentence(c, hubName, content) {
   const g = group(content, 'contracts'); const tpl = g && typeof g.hub === 'string' ? g.hub : null;

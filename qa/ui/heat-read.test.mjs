@@ -39,9 +39,9 @@ function bridgeRun(seed, legacy, fn) {
 }
 
 test('the draft lines read as written', () => {
-  assert.deepEqual(CLOCK_TAG, { run: 'Set by your tolls', dim: 'Set by the Dimming here' });
-  assert.deepEqual(clockTag({ by: 'dim', dimIn: 3, stateDim: 'warm' }), { by: 'dim', glyph: '◆', text: 'Set by the Dimming here' });
-  assert.deepEqual(clockTag({ by: 'run', dimIn: 9, stateDim: 'clear' }), { by: 'run', glyph: '▼', text: 'Set by your tolls' });
+  assert.deepEqual(CLOCK_TAG, { run: 'Sets the state', dim: 'Sets the state' });
+  assert.deepEqual(clockTag({ by: 'dim', dimIn: 3, stateDim: 'warm' }), { by: 'dim', glyph: '◆', text: 'Sets the state' });
+  assert.deepEqual(clockTag({ by: 'run', dimIn: 9, stateDim: 'clear' }), { by: 'run', glyph: '▼', text: 'Sets the state' });
   assert.equal(clockTag({ by: 'run', dimIn: null, stateDim: null }), null, 'one clock only (today\'s map, the Camp): no tag');
   assert.equal(countsLine({ node: { state: 'clear' } }), 'This place counts as Calm');
   assert.equal(countsLine({ node: null }), '');

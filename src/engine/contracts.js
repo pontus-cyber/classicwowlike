@@ -32,7 +32,7 @@ import { flatXp, gainXp, gainGold } from './progress.js';
 import { V, rollDrop, makeConsumable, addToBag, countConsumable } from './items.js';
 import { zoneRegions, setupExpNode, xpWeight, firstRun, leanFirst, ringRule } from './expedition.js';
 import { fixBoard } from './tutorial.js';
-import { isLegacy, contractLevelOf, legacyPerPrepPoint } from './legacy.js';
+import { isLegacy, econV2, contractLevelOf, legacyPerPrepPoint } from './legacy.js';
 
 // ---------------- Preparation points and the board (expedition.md 2.1, 2.2) ----------------
 /** Ranks of an expedition catalogue entry the profile owns (META, mapMode 'expedition'; capped at its ranks). */
@@ -532,7 +532,8 @@ export function hubContractError(s, a) {
   if (zone.leftHub) return 'the hub contract is taken before leaving the hub';
   if (a.mode === 'reserve') {
     if (heldCount(s) >= CONTRACT_SLOTS) return `at most ${CONTRACT_SLOTS} contracts at once (swap one)`;
-    return s.exp.reserve < zone.hubOffer.price ? 'not enough Reserve' : null;
+    // content-2026-11-20 section 3 row 10 (draft): one name, "camp points", where Economy v2 shows it (Legacy runs); the other mode keeps "Reserve"
+    return s.exp.reserve < zone.hubOffer.price ? `not enough ${econV2(s) ? 'camp points' : 'Reserve'}` : null;
   }
   if (a.mode === 'swap') {
     const c = s.exp.contracts.find((k) => k.id === a.contractId);
