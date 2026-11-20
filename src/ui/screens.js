@@ -387,10 +387,7 @@ function buildHub(v, ctx) {
   // blind panel 2026-11-13 (item 5): a little tighter, so the offer and the three services fit at 1366x768 (style.css .side)
   const body = h('div.body.col', { style: { padding: '1rem 1.6rem 1.2rem', gap: '.6rem' } });
   if (z.hubText || z.blurb) body.appendChild(h('div', { style: { font: 'italic 1.4rem var(--font-title)', color: 'var(--ink-dim)', marginBottom: '.2rem' } }, z.hubText || z.blurb));
-  // D163 (draft; engine-2026-11-20b recommendation 4): the toll carry-over on arrival in zone 2 or later, while the meter
-  // still reads the arrival figure (a service's tolls change it; the log keeps the line)
-  const arr = atArrival(v.heat) ? arrivalLine(v.heat) : '';
-  if (arr) body.appendChild(h('div.hubcarry', arr));
+
   // the hub's contract offer (expedition.md 3.6; prep) first: it is only open before leaving the hub
   if (hubSwap.z !== z.idx) { hubSwap.swap = false; hubSwap.z = z.idx; hubSwap.taken = null; }
   const offer = buildHubOffer(v, ctx, hubSwap);
@@ -409,7 +406,11 @@ function buildHub(v, ctx) {
   if (p.talentPoints) body.appendChild(h('div.warn', { style: { fontSize: '1.25rem' } }, `You have ${p.talentPoints} unspent talent point${p.talentPoints > 1 ? 's' : ''}. Press N.`));
   const go = h('button.btn.primary.big', 'Set out');
   go.addEventListener('click', () => ctx.act({ type: 'LEAVE_HUB' }));
-  el.append(scrollCue(body), h('div.sfoot', h('span'), go)); // D150 item 10: no "Tolls so far" (the Furnace's number is the one)
+  // D163 (draft; engine-2026-11-20b recommendation 4): the toll carry-over on arrival in zone 2 or later, beside Set out (the
+  // body has no room to spare with a contract offer at 1366x768), while the meter still reads the arrival figure (a
+  // service's tolls change it; the log keeps the line)
+  const arr = atArrival(v.heat) ? arrivalLine(v.heat) : '';
+  el.append(scrollCue(body), h('div.sfoot', arr ? h('div.hubcarry', arr) : h('span'), go)); // D150 item 10: no "Tolls so far" (the Furnace's number is the one)
   return el;
 }
 

@@ -1118,11 +1118,12 @@ body.in-fight #toasts { top: calc(11.2rem + var(--furnace-h)); }
 #heat .ht-mark.run i { border-radius: var(--radius-xs-3); }
 #heat .ht-mark.run::before { content: ''; position: absolute; left: 50%; top: -.42rem; transform: translateX(-50%); border: .45rem solid transparent; border-top-color: #fff4cf; border-bottom: 0; filter: drop-shadow(0 0 .25rem var(--shade-90)); }
 #heat .ht-line { z-index: var(--z-local-4); }
-/* D163 (draft): the tag that names the clock setting the state, its glyph the marker that clock moves (needle or diamond) */
+/* D163 (draft): the tag that names the clock setting the state, its glyph the marker that clock moves (needle or diamond);
+   opaque, so a marker's head under it does not show through */
 #heat .ht-clock { flex: none; display: inline-flex; align-items: center; gap: var(--sp-20); margin-left: var(--sp-35); padding: 0 var(--sp-45); height: 1.1rem; line-height: 1.1rem; border-radius: var(--radius-round);
-  font: var(--fw-semibold) var(--fs-small-1) var(--font-ui); letter-spacing: .01em; color: #fff4cf; background: rgba(255, 244, 207, .1); box-shadow: inset 0 0 0 1px rgba(255, 244, 207, .35); }
+  font: var(--fw-semibold) var(--fs-small-1) var(--font-ui); letter-spacing: .01em; color: #fff4cf; background: #2b261b; box-shadow: inset 0 0 0 1px rgba(255, 244, 207, .35); }
 #heat .ht-clock i { font-style: normal; font-size: var(--fs-micro-12); }
-#heat .ht-clock[data-by="dim"] { color: #e2d4ff; background: rgba(155, 124, 240, .2); box-shadow: inset 0 0 0 1px rgba(190, 160, 255, .6); }
+#heat .ht-clock[data-by="dim"] { color: #e2d4ff; background: #2a1f45; box-shadow: inset 0 0 0 1px rgba(190, 160, 255, .6); }
 #heat .ht-clock[data-by="dim"] i { color: #c9b4ff; }
 #heat .ht-clock.hidden { display: none; }
 /* D163 (draft): inside a node, the state it counts as, one line under the bar */
@@ -1297,8 +1298,8 @@ body.in-fight #heat .ht-calm, body.in-fight #heat .ht-core::before, body.in-figh
 .hubc .hc-give:hover { box-shadow: inset .3rem 0 0 var(--cc), inset 0 0 0 1px rgba(255, 140, 110, .8); color: #ffd8c8; }
 .hubc .hc-note { margin-top: var(--sp-45); font-size: var(--fs-small-5); color: var(--ink-mute); }
 /* the offer just taken (screens.js buildHub): a note of the offer's height, so nothing under it moves (blind panel 2026-11-13) */
-/* D163 (draft): the toll carry-over on arrival in a zone (heat.js arrivalLine) */
-.hubcarry { padding: var(--sp-35) var(--sp-70); border-radius: var(--radius-md-2); font: var(--fw-semibold) 1.25rem var(--font-ui); color: var(--ink); background: rgba(8, 30, 34, .55); box-shadow: inset 0 0 0 1px rgba(103, 195, 196, .4); }
+/* D163 (draft): the toll carry-over on arrival in a zone (heat.js arrivalLine), in the hub's foot beside Set out */
+.hubcarry { flex: 1 1 auto; min-width: 0; padding: var(--sp-30) var(--sp-55); border-radius: var(--radius-md-2); font: var(--fw-semibold) 1.2rem/1.3 var(--font-ui); color: var(--ink); background: rgba(8, 30, 34, .55); box-shadow: inset 0 0 0 1px rgba(103, 195, 196, .4); }
 /* D163 (draft): a node tooltip's line on the places the Dimming takes while inside (heat.js dimsLine) */
 .tooltip .xdims { color: #d4c4ff; }
 .hubtaken { box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: var(--sp-20); margin-top: var(--sp-30); padding: var(--sp-90) var(--sp-100) var(--sp-80); border-radius: var(--radius-md-2); background: rgba(32, 24, 14, .6); box-shadow: inset 0 0 0 1px var(--gold-50); }
