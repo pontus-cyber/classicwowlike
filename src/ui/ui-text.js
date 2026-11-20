@@ -24,6 +24,11 @@ export function econLine(texts, id, vars = {}) {
  * windows, the toast and log line when the bags fill, a Take the bags cannot hold). Draft, for the owner and content.
  */
 export const BAGS_FULL = 'Your bags are full: equip, sell or discard something (B).';
+/**
+ * Junk task (2026-11-20, s0426): the name in the one log line when a vendor opens and the bags' junk is sold at once:
+ * "You sell 7 junk items for 42 copper." Draft, for the owner and content.
+ */
+export const junkSoldName = (n) => `${n} junk ${n === 1 ? 'item' : 'items'}`;
 /** "3 camp points" (Economy v2, one name: legacy.md 4.7 E6.1). */
 export const campPoints = (n) => `${n} camp ${n === 1 ? 'point' : 'points'}`;
 

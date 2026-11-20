@@ -248,7 +248,7 @@ test('Leave asks for exactly the items it leaves: the count in the spoils window
       if (b.view.phase === 'MAP' && !b.view.loot) { const s = nodeOf(b); if (R.bagCapacity(s) - s.player.bag.length !== 1) { s.player.bag = s.player.bag.filter((x) => x.kind !== 'junk' || !String(x.uid).startsWith('t-junk')); b.testLoad(R.serialize(fill(s, 1))); } }
       const L = b.view.loot;
       if (L && L.kind === 'loot' && L.items.some((x) => x.pending) && L.items.some((x) => x.inBag)) {
-        const waiting = L.items.filter((x) => x.pending).length;
+        const waiting = L.items.filter((x) => x.pending).reduce((a, x) => a + (x.uids ? x.uids.length : 1), 0);
         const s = nodeOf(b);
         assert.equal(waiting, s.loot.length, 'pending rows = the engine\'s loot window');
         const r = b.dispatch({ type: 'LOOT_CLOSE' });

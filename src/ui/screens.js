@@ -1243,8 +1243,8 @@ function buildLoot(v, ctx) {
   // spoils of a node entered Hot or Scorched (its heat state, rules 1.7.3): a badge by the title
   // blind round 2 (skipper s0161-s0166: loot lost with full bags): items still in the loot window are not left behind on one
   // click; Leave and × ask first ("Leave 2 items behind?"), a second click leaves them
-  const waiting = (L.items || []).filter((it) => it.pending).length;
-  const lk = (L.items || []).map((it) => it.uid).join(',');
+  const waiting = (L.items || []).filter((it) => it.pending).reduce((a, it) => a + (it.uids ? it.uids.length : 1), 0); // pieces, not rows: a junk stack is several
+  const lk = (L.items || []).map((it) => (it.uids || [it.uid]).join('+')).join(',');
   if (lootLeave.key !== lk) lootLeave.armed = false;
   const leaveFn = () => {
     if (waiting && !lootLeave.armed) { lootLeave.armed = true; lootLeave.key = lk; ctx.ui.refreshScreens(); return; }

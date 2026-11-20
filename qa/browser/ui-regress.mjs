@@ -7193,6 +7193,40 @@ async function partAA0(browser, W, H) {
     check('AA-4', 'part AA4: no console errors', errors.length === 0, errors.join(' | '));
     await context.close();
   }
+  // ---- AA5: junk (2026-11-20, s0426): the same junk is one row with a count; a vendor sells the bags' junk in one log line
+  {
+    const { context, page, errors } = await openY(browser, W, H, 'legacy=1&prep=1&speed=instant&guide=0&seed=11', {});
+    try {
+      await page.locator('#create .ccard[data-cls="rogue"]').click(); await idle(page);
+      await page.getByRole('button', { name: 'Enter the world' }).click(); await idle(page);
+      await auto(page, () => { const v = window.__ui.view(); return v.phase === 'SUMMARY' || (['MAP', 'ZONE_HUB'].includes(v.phase) && !v.loot && !v.combat); }, 100);
+      const s = await nodeState(page);
+      const jk = (uid, name, qty = 1) => ({ uid, kind: 'junk', id: 'junk', name, qty, level: 3 });
+      s.player.bag = s.player.bag.filter((x) => x.kind !== 'junk');
+      for (let k = 0; s.player.bag.length < R.bagCapacity(s) - 1; k++) s.player.bag.push(jk(`aa5f${k}`, `Filler ${k}`));
+      s.loot = [jk('aa5-1', 'Torn Pelt'), jk('aa5-2', 'Torn Pelt'), jk('aa5-3', 'Bent Buckle')];
+      await load(page, s);
+      const rows = await page.evaluate(() => [...document.querySelectorAll('.loot .lrow')].map((r) => r.innerText.replace(/\s+/g, ' ').trim()));
+      await shot(page, 'AA5-junk-stack');
+      check('AA-5', 'two of the same junk in the loot window are one row with a count (s0426)', rows.length === 2 && rows.some((r) => /^Torn Pelt ×2\b/.test(r)) && rows.filter((r) => r.startsWith('Torn Pelt')).length === 1, JSON.stringify(rows));
+      await page.locator('.loot .lrow', { hasText: 'Torn Pelt' }).getByRole('button', { name: 'Drop' }).click(); await idle(page);
+      const left = (await nodeState(page)).loot.map((x) => x.name);
+      check('AA-5', 'Drop on the stack drops every piece of it', left.length === 1 && left[0] === 'Bent Buckle', JSON.stringify(left));
+      await page.evaluate(() => window.__ui.act({ type: 'LOOT_CLOSE' })); await idle(page);
+      // a vendor with junk in the bags: sold on opening, one log line
+      await auto(page, () => window.__ui.view().phase === 'ZONE_HUB' || window.__ui.view().phase === 'SUMMARY', 400);
+      const s3 = await nodeState(page);
+      if (s3.phase !== 'ZONE_HUB') throw new Error(`no zone hub (${s3.phase})`);
+      s3.player.bag = s3.player.bag.filter((x) => x.kind !== 'junk'); s3.player.bag.push(jk('aa5-v1', 'Cracked Tooth'), jk('aa5-v2', 'Torn Pelt', 3));
+      await load(page, s3);
+      await page.evaluate(() => window.__ui.act({ type: 'HUB_SERVICE', service: 'vendor' })); await idle(page);
+      const v = await page.evaluate(() => ({ log: [...document.querySelectorAll('#combatlog .lines div')].map((x) => x.innerText).filter((t) => /^You sell/.test(t)), bag: window.__ui.view().player.bag.filter((x) => x && x.kind === 'junk').length, sellBtn: [...document.querySelectorAll('#screens button')].some((b) => /Sell junk/.test(b.innerText)) }));
+      await shot(page, 'AA5-vendor-auto-sold');
+      check('AA-5', 'opening a vendor sells the junk at once: one log line with the total, no junk left, no Sell junk button', v.log.length === 1 && /^You sell 4 junk items for [\d\s]+ copper\.$/.test(v.log[0]) && v.bag === 0 && !v.sellBtn, JSON.stringify(v));
+    } catch (e) { await shot(page, 'AA5-error'); check('AA-5', 'part AA5 ran to the end', false, e.message.split('\n').slice(0, 3).join(' / ')); }
+    check('AA-5', 'part AA5: no console errors', errors.length === 0, errors.join(' | '));
+    await context.close();
+  }
 }
 
 /** fmtNum's digits with a plain space between thousands (the game's thin space: texts compared after \s+ to ' '). */

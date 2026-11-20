@@ -500,6 +500,21 @@ function engineBackend(seedOpt, runOpts = {}) {
     return { uid: it.uid, kind: 'junk', id: 'junk', name: it.name, rarity: 'junk', count: it.qty || 1, stack: 10, _raw: it, ...extra };
   }
   /**
+   * Junk loot rows (2026-11-20 junk task, s0426): the same junk that came in separate pieces shows as one row with a count.
+   * Pending (waiting in the loot window) and already-taken rows stay apart. `uids` lists the engine items behind the row;
+   * LOOT_TAKE and LOOT_DROP act on each of them. The engine's loot window is not changed.
+   */
+  function stackJunk(list) {
+    const out = []; const at = new Map();
+    for (const it of list) {
+      if (it.kind !== 'junk') { out.push(it); continue; }
+      const k = [it.name, it._raw && it._raw.level, !!it.pending, !!it.inBag].join('|');
+      if (!at.has(k)) { at.set(k, out.length); out.push({ ...it, uids: [it.uid] }); continue; }
+      const m = out[at.get(k)]; m.count += it.count; m.uids.push(it.uid);
+    }
+    return out;
+  }
+  /**
    * Statuses for the view, from the engine's status objects (engine-api.md 6: { id, dur, stacks, value, tick, amount, src }).
    * value: the status's number (a WARD's absorb left: its `amount`); tick: damage per tick (per stack for POISON);
    * amount: heal per tick of HOT; full: the duration it was applied with (DoTs); max: stack cap; srcName: what applied it.
@@ -1240,9 +1255,9 @@ function engineBackend(seedOpt, runOpts = {}) {
     if (local.spoils) {
       const sp = local.spoils;
       v.phase = sp.phase || 'NODE'; v.node = sp.node; v.combat = sp.combat;
-      v.loot = { kind: 'loot', title: sp.title, gold: sp.gold, xp: sp.xp, trap: sp.trap, items: [...win, ...sp.items.filter((it) => it.inBag)], next: nextOf(pend) };
+      v.loot = { kind: 'loot', title: sp.title, gold: sp.gold, xp: sp.xp, trap: sp.trap, items: stackJunk([...win, ...sp.items.filter((it) => it.inBag)]), next: nextOf(pend) };
     } else if (win.length) {
-      v.loot = { kind: 'loot', title: 'Items waiting', gold: 0, xp: 0, items: win, windowOnly: true };
+      v.loot = { kind: 'loot', title: 'Items waiting', gold: 0, xp: 0, items: stackJunk(win), windowOnly: true };
     } else if (s.node && s.node.stage === 'reward' && s.node.rewards[0].kind === 'items') {
       const r0 = s.node.rewards[0]; const q = CONTENT.quests[s.node.quest] || {};
       const rw = local.reward || {};
@@ -1571,10 +1586,17 @@ function engineBackend(seedOpt, runOpts = {}) {
         case 'LOOT_TAKE': {
           const v = view(); const it = v.loot && v.loot.items[action.i];
           if (!it || !it.pending) return { ok: false, error: 'Already in your bags' };
+          if (it.uids && it.uids.length > 1) {
+            // a stack of junk pieces: take each piece the bags can hold; a refusal on the first names the reason
+            const ok = it.uids.filter((u) => R.isLegal(st, { type: 'LOOT_TAKE', itemId: u }));
+            if (!ok.length) { apply({ type: 'LOOT_TAKE', itemId: it.uid }, events); break; }
+            for (const u of ok) apply({ type: 'LOOT_TAKE', itemId: u }, events);
+            break;
+          }
           apply({ type: 'LOOT_TAKE', itemId: it.uid }, events); break;
         }
         case 'LOOT_EQUIP': { const v = view(); const it = v.loot && v.loot.items[action.i]; if (!it) return { ok: false, error: 'No such item' }; apply({ type: 'EQUIP', itemId: it.uid }, events); break; }
-        case 'LOOT_DROP': { const v = view(); const it = v.loot && v.loot.items[action.i]; if (!it || !it.pending) return { ok: false, error: 'No such item' }; apply({ type: 'LOOT_DROP', itemId: it.uid }, events); break; }
+        case 'LOOT_DROP': { const v = view(); const it = v.loot && v.loot.items[action.i]; if (!it || !it.pending) return { ok: false, error: 'No such item' }; for (const u of it.uids || [it.uid]) apply({ type: 'LOOT_DROP', itemId: u }, events); break; }
         case 'LOOT_TAKE_ALL': {
           let left = 0;
           for (const it of [...(st.loot || [])]) { if (R.isLegal(st, { type: 'LOOT_TAKE', itemId: it.uid })) apply({ type: 'LOOT_TAKE', itemId: it.uid }, events); else left++; }
@@ -1665,6 +1687,14 @@ function engineBackend(seedOpt, runOpts = {}) {
     } catch (err) {
       if (err && err.code === 'ILLEGAL_ACTION') return { ok: false, error: castReason(st, err) };
       throw err;
+    }
+    // 2026-11-20 junk task (s0426): junk is sold when a vendor opens, in one step and one log line with the total
+    if (st.service && st.service.kind === 'vendor' && st.player.bag.some((x) => x.kind === 'junk') && R.isLegal(st, { type: 'SELL_JUNK' })) {
+      const n = st.player.bag.filter((x) => x.kind === 'junk').reduce((a, x) => a + (x.qty || 1), 0);
+      const sold = [];
+      apply({ type: 'SELL_JUNK' }, sold);
+      const gold = sold.filter((e) => e.t === 'sell').reduce((a, e) => a + (e.value || 0), 0);
+      tail.push({ t: 'sell', name: TXT.junkSoldName(n), gold });
     }
     const hold0 = local.hold;
     afterStep(prev, events);
