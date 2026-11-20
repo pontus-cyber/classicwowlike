@@ -24,6 +24,7 @@ import { linkedText, dangerBanner, CONTROL_WORD as CONTROL_LOG, HEAT_WORDS, free
 import { timeline, roundPace, hitShare, STATUS_LABEL } from './combat-feel.js';
 import { CAST, token as themeToken } from './theme.js'; // not `token`: play() has its own SkipToken of that name
 import { fillLine, rescueLeftLine } from './onboarding.js';
+import { arrivalLine } from './heat.js'; // D163: the toll carry-over on arrival (draft)
 
 const SCHOOL_PROJ = { fire: 'fire', frost: 'frost', arcane: 'arcane', shadow: 'shadow', nature: 'nature' };
 const SCHOOL_GLOW = CAST; // theme.js: the --fx-cast-* tokens (frost: --school-frost-text)
@@ -568,6 +569,7 @@ export class Director {
     if (ctx.audio) ctx.audio.cue('arrive'); // a bell pair with the zone banner (audio.js)
     ctx.ui.banner(z.name, z.camp || z.idx > ctx.data.rules.zoneCount ? 'The last camp before the Sunken Observatory' : zoneLine(z, ctx.data.rules), 'zone', 2600);
     ctx.hud.log(`You arrive in ${z.name}.`, 'lg-sys');
+    const al = arrivalLine(next.heat); if (al) ctx.hud.log(al, 'lg-sys'); // D163 (draft): the toll carry-over, as on the hub
     await wait(settings.dur(900), token);
   }
 

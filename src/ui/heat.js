@@ -107,6 +107,55 @@ export function carryLine(hv) {
 }
 /** Newcomer check 2026-11-15 (s0017-s0133, draft): the tooltip's one line on the diamond (the Dimming's marker). */
 export const DIM_MARK_LINE = '◆ The Dimming near you. Whichever marker is further right sets the state.';
+/**
+ * D163 (engine-2026-11-20b recommendation 1; draft): the tag on the meter's label that names the clock that sets the state,
+ * shown where two clocks run (an expedition zone: the run clock and the Dimming of the place the player stands on). Its
+ * glyph is the marker that clock moves: the needle (▼) for the tolls, the diamond (◆) for the Dimming.
+ */
+export const CLOCK_TAG = { run: 'Set by your tolls', dim: 'Set by the Dimming here' };
+export const CLOCK_GLYPH = { run: '▼', dim: '◆' };
+/** The clock tag of a heatView: { by, glyph, text }, or null where only the run clock runs (no Dimming clock). */
+export function clockTag(hv) {
+  if (!hv || hv.dimIn === null || hv.dimIn === undefined || !hv.stateDim) return null;
+  const by = hv.by === 'dim' ? 'dim' : 'run';
+  return { by, glyph: CLOCK_GLYPH[by], text: CLOCK_TAG[by] };
+}
+/**
+ * D163 (engine-2026-11-20b recommendation 2; draft): inside a node, the state it counts as (heatView.node: the state it was
+ * entered in, which fixes its rewards and the summary's count; rules 1.7.3); '' outside a node.
+ */
+export function countsLine(hv) {
+  return hv && hv.node && hv.node.state ? `This place counts as ${HEAT_NAME[hv.node.state]}` : '';
+}
+/** D163 (draft): the meter tooltip's reason for countsLine, inside a node. */
+export const COUNTS_WHY = 'A place counts in the state you entered it in, whatever the Furnace shows later.';
+/**
+ * D163 (engine-2026-11-20b recommendation 4; draft): the toll carry-over on arrival in zone 2 or later, from heatView.carry:
+ * "Zone 2 adds 20 tolls; you saved 10: 30 to spare." ("you overspent 5: 15 to spare", "...: still 5 overspent",
+ * "Zone 2 adds 20 tolls: 20 to spare."); '' in zone 1, at the Camp (no share) or on an engine without carry. The figure
+ * after the colon is the meter's on arrival: carried - share.
+ */
+export function arrivalLine(hv) {
+  const c = hv && hv.carry;
+  if (!c || !c.cumulative || !(c.share > 0) || !(hv.z > 1)) return '';
+  const n = Math.abs(Math.round(c.carried || 0));
+  const was = !n ? '' : c.carried > 0 ? `; you overspent ${n}` : `; you saved ${n}`;
+  const left = c.carried - c.share;
+  const end = left < 0 ? `${-left} to spare` : left === 0 ? 'none to spare' : `still ${left} overspent`;
+  return `Zone ${hv.z} adds ${tolls(c.share)}${was}: ${end}.`;
+}
+/**
+ * D163 (engine-2026-11-20b recommendation 3; draft): a node tooltip's line on the places the Dimming takes while the player is
+ * inside, from heatPreview `dims` of the move that enters it: "The Dimming takes 6 places while you are inside."; '' for a
+ * move that does not enter, a Grind whose waves are chosen inside (perWave), none taken, or no Dimming clock (dims null).
+ */
+export function dimsLine(p) {
+  if (!p || !p.pays || p.perWave || !Array.isArray(p.dims) || !p.dims.length) return '';
+  const n = p.dims.length;
+  return `The Dimming takes ${n} ${n === 1 ? 'place' : 'places'} while you are inside.`;
+}
+/** Whether the meter still reads the arrival figure (no tolls spent since arriving): arrivalLine holds while it does. */
+export const atArrival = (hv) => !!(hv && hv.carry && hv.heat === hv.carry.carried - hv.carry.share);
 export const bossText = (asc) => `Boss +${Math.round((asc || 0) * 100)} %`;
 /** D150 item 1: "Boss +N %" only when the boss would be stronger (above 0), else ''. */
 export const bossShown = (asc) => (Math.round((asc || 0) * 100) > 0 ? bossText(asc) : '');
@@ -174,6 +223,8 @@ export function meterReading(hv, H) {
   return {
     state: hv.state, name: HEAT_NAME[hv.state], line: meterText(hv), boss: bossShown(hv.ascIfPar), lit: hv.state,
     run, dim, setter: hv.by === 'dim' && dim ? dim : run,
+    // D163 (draft): the clock tag (null where only the run clock runs) and, inside a node, the state it counts as
+    clock: dim ? clockTag(hv) : null, counts: countsLine(hv), countsState: hv.node ? hv.node.state : null,
   };
 }
 
@@ -195,8 +246,11 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
   // the meter at the top centre of the HUD (owner 2026-11-11 10:12): the calm side (still water) left, the hot side (embers,
   // molten glow) right, the player's pointer moving between them; .ht-calm and .ht-core are decoration only
   // D150 item 1: one line, "Calm · 18 tolls to spare" (Boss only above 0), over the bar; the name is the tooltip's title
+  // D163 (draft): the tag naming the clock that sets the state, and inside a node the state it counts as (under the bar)
+  els.clock = h('span.ht-clock.hidden', h('i'), h('span'));
+  els.counts = h('div.ht-counts.hidden', h('i.ht-dot'), h('span'));
   els.el = h('div#heat.panel.hidden', { role: 'group', 'aria-label': HW.Name },
-    h('div.ht-row', els.state, h('span.ht-sep', '·'), els.num, els.boss), els.bar);
+    h('div.ht-row', els.state, h('span.ht-sep', '·'), els.num, els.boss, els.clock), els.bar, els.counts);
   host.appendChild(els.el);
   tip(els.el, () => heatTip(ctx));
   // the first-time note (H.4 wording: "Heat", "the Star's line"), once per browser profile, on the first hub until
@@ -279,8 +333,21 @@ export function createHeatMeter(host, ctx, noteRoot = host) {
       els.dmark.style.left = `${pctOf(m.dim.x, bar)}%`;
       els.dmark.classList.toggle('sets', m.dim.sets);
     }
+    // D163: the clock tag, its glyph the marker of that clock; inside a node, the state the node counts as
+    els.clock.classList.toggle('hidden', !m.clock);
+    if (m.clock) {
+      els.clock.dataset.by = m.clock.by;
+      els.clock.querySelector('i').textContent = m.clock.glyph;
+      els.clock.querySelector('span').textContent = m.clock.text;
+    }
+    els.counts.classList.toggle('hidden', !m.counts);
+    els.el.classList.toggle('in-node', !!m.counts);
+    if (m.counts) {
+      els.counts.querySelector('i').dataset.hs = m.countsState;
+      els.counts.querySelector('span').textContent = m.counts;
+    }
     drawGhost(hv);
-    els.el.setAttribute('aria-label', `${HW.Name}: ${m.name}, ${m.line}${boss ? `, ${boss}` : ''}`);
+    els.el.setAttribute('aria-label', `${HW.Name}: ${m.name}, ${m.line}${boss ? `, ${boss}` : ''}${m.clock ? `, ${m.clock.text}` : ''}${m.counts ? `. ${m.counts}` : ''}`);
     // the first-time note: on the hub (hidden while a service window is open), until "Got it" or setting out
     if (!introSeen) {
       const svcOpen = !!(v.node && v.node.origin === 'hub');
@@ -353,6 +420,7 @@ export function heatTip(ctx) {
   box.appendChild(h('div.tt-line.desc', FURNACE_LINE));
   if (hv.dimIn != null && hv.stateDim) box.appendChild(h('div.tt-line.ht-dimmark', DIM_MARK_LINE)); // the diamond is on the bar
   const cl = carryLine(hv); if (cl) box.appendChild(h('div.tt-line.ht-carry', cl));
+  if (hv.node && hv.node.state) box.appendChild(h('div.tt-line.ht-countswhy', `${countsLine(hv)}. ${COUNTS_WHY}`)); // D163 (draft)
   box.appendChild(h('div.tt-heatstates', stateRows(H).map(([st, when, pay]) => h('div.hs' + (st === hv.state ? '.on' : ''), { dataset: { hs: st } }, h('i.ht-dot', { dataset: { hs: st } }), h('b', HEAT_NAME[st]), h('span.w', when), h('span.p', pay)))));
   return box;
 }

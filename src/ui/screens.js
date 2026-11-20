@@ -28,7 +28,7 @@ import { tip, itemTip, spellTip, hide as hideTip, STAT_NAMES } from './tooltip.j
 import { conColor, heroPortrait, travelState } from './hud.js';
 import { numWord, plural, pct1, ROLE_INFO, humanize, tolls, HEAT_WORDS, trainerWaitingShort, econLine, BAGS_FULL } from './ui-text.js';
 import { createMeta, buildOaths, echoAmt } from './meta.js';
-import { heatKey, previewBlock, costText, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME } from './heat.js';
+import { heatKey, previewBlock, costText, heatBadge, buildHeatSummary, fmtTime, HEAT_NAME, dimsLine, arrivalLine, atArrival } from './heat.js';
 import { createPrepScreen, buildHubOffer, siteBadge, siteLines, contractTip, kindIcon } from './prep.js';
 import { contractTitle } from './ui-text.js';
 import { gateLine, closedRoadLine } from './onboarding.js';
@@ -387,6 +387,10 @@ function buildHub(v, ctx) {
   // blind panel 2026-11-13 (item 5): a little tighter, so the offer and the three services fit at 1366x768 (style.css .side)
   const body = h('div.body.col', { style: { padding: '1rem 1.6rem 1.2rem', gap: '.6rem' } });
   if (z.hubText || z.blurb) body.appendChild(h('div', { style: { font: 'italic 1.4rem var(--font-title)', color: 'var(--ink-dim)', marginBottom: '.2rem' } }, z.hubText || z.blurb));
+  // D163 (draft; engine-2026-11-20b recommendation 4): the toll carry-over on arrival in zone 2 or later, while the meter
+  // still reads the arrival figure (a service's tolls change it; the log keeps the line)
+  const arr = atArrival(v.heat) ? arrivalLine(v.heat) : '';
+  if (arr) body.appendChild(h('div.hubcarry', arr));
   // the hub's contract offer (expedition.md 3.6; prep) first: it is only open before leaving the hub
   if (hubSwap.z !== z.idx) { hubSwap.swap = false; hubSwap.z = z.idx; hubSwap.taken = null; }
   const offer = buildHubOffer(v, ctx, hubSwap);
@@ -1052,8 +1056,11 @@ function expNodeTip(n, mv, v, ctx, m, here, readOnly, act) {
   // `barred` and no heat preview; appending the missing preview threw, so the tooltip never showed. A barred node is no move
   if (m && !(m.barred || n.barred)) {
     box.appendChild(h('div.tt-line', m.via === 'enter' ? 'Click to enter' : 'Click to walk here'));
-    const pb = previewBlock(heatOf(ctx.view, act), ctx); // D150 item 6: "Costs 3 tolls." and a bonus line when there is one
+    const hp = heatOf(ctx.view, act);
+    const pb = previewBlock(hp, ctx); // D150 item 6: "Costs 3 tolls." and a bonus line when there is one
     if (pb) box.appendChild(pb);
+    const dl = m.via === 'enter' ? dimsLine(hp) : ''; // D163 (draft): the places the Dimming takes while inside
+    if (dl) box.appendChild(h('div.tt-line.xdims', dl));
   } else if (m && !gl) box.appendChild(h('div.tt-hint', 'Not here yet.')); // D150 item 23 (the gate line, when there is one, says more)
   else if (here) box.appendChild(h('div.tt-hint', 'You are here'));
   else if (!readOnly) box.appendChild(h('div.tt-warn', 'Not next to you'));
