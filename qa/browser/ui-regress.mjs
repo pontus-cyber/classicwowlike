@@ -6473,7 +6473,24 @@ async function partY0(browser, W, H) {
       for (let i = 0; i < 200 && !(await page.evaluate(() => { const v = window.__ui.view(); return !!(v.combat && !v.combat.over); })); i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
       const s1 = await nodeState();
       if (s1.fight && !s1.fight.over) { s1.player.hp = 1; await page.evaluate((x) => window.__ui.loadState(x), R.serialize(s1)); await idle(page); }
-      for (let i = 0; i < 400 && (await page.evaluate(() => window.__ui.view().phase)) !== 'SUMMARY'; i++) { await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page); }
+      // Since D162 (and the careful Legacy autoplay) the hero survives health 1 in a node fight and plays on to the final
+      // boss, which takes more than 400 steps: the run gets a budget of 2500 steps, and the boss fight is pinned to health 1
+      // once as well, so the run ends as a death, as the comment above says. Not reaching the summary is its own failure
+      // (the old TypeError on '.s-who' hid why).
+      let bossPinned = false;
+      for (let i = 0; i < 2500; i++) {
+        const v = await page.evaluate(() => { const x = window.__ui.view(); return { phase: x.phase, fight: !!(x.combat && !x.combat.over) }; });
+        if (v.phase === 'SUMMARY') break;
+        if (v.phase === 'BOSS' && v.fight && !bossPinned) {
+          bossPinned = true;
+          const sb = await nodeState();
+          if (sb.fight && !sb.fight.over) { sb.player.hp = 1; await page.evaluate((x) => window.__ui.loadState(x), R.serialize(sb)); await idle(page); }
+        }
+        await page.evaluate(() => window.__ui.act({ type: 'AUTO' })); await idle(page);
+      }
+      const endPhase = await page.evaluate(() => window.__ui.view().phase);
+      check('Y-4', 'the run (health 1 in a fight, the boss fight at health 1) ends in the summary within the step budget', endPhase === 'SUMMARY', `phase ${endPhase} after the loop`);
+      if (endPhase !== 'SUMMARY') throw new Error(`the run did not reach the summary (phase ${endPhase})`);
       s = await nodeState();
       const sm = R.summary(s);
       const sv = await page.evaluate(() => {
