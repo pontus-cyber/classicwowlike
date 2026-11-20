@@ -34,6 +34,9 @@ export const HALL_ARMS = {
   v3fb: { vigor: [0.05, 0.02], edge: [0.04, 0.01], slots: 8, price: { vigor: [70, 100], edge: [70, 100], pockets: [50], second_breath: [150], stormhawk: [90] } },
   // v3c: a calibration arm for the +4 pp gate (about 1.35 pp a point of HP % plus Power % over v2, from v3 and v3fb): Vigor +3 / +1, Edge +2 / +1.
   v3c: { vigor: [0.03, 0.01], edge: [0.02, 0.01], slots: 8, price: { vigor: [70, 100], edge: [70, 100], pockets: [50], second_breath: [150], stormhawk: [90] } },
+  // v3d (Lead): v3c effects with the v2 prices of Vigor II, Edge II (130) and Second Breath (200); Pockets 50, Stormhawk 90. v3e: v3d with Stormhawk 150, Pockets 40 (the v2 price list with v3c effects and 8 slots).
+  v3d: { vigor: [0.03, 0.01], edge: [0.02, 0.01], slots: 8, price: { vigor: [70, 130], edge: [70, 130], pockets: [50], second_breath: [200], stormhawk: [90] } },
+  v3e: { vigor: [0.03, 0.01], edge: [0.02, 0.01], slots: 8, price: { vigor: [70, 130], edge: [70, 130], pockets: [40], second_breath: [200], stormhawk: [150] } },
   // Attribution arms (what moved the win rate): v3's stat ranks with today's four slots, and today's stat ranks with eight slots.
   v3s: { vigor: [0.05, 0.03], edge: [0.04, 0.02], slots: ORIG.slots, price: { vigor: [70, 100], edge: [70, 100], pockets: [50], second_breath: [150], stormhawk: [90] } },
   v3p: { vigor: ORIG.vigor, edge: ORIG.edge, slots: 8, price: { vigor: [70, 100], edge: [70, 100], pockets: [50], second_breath: [150], stormhawk: [90] } },

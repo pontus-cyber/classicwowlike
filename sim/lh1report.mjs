@@ -172,7 +172,7 @@ if (isMain) {
   const base = opt('--base', 'none');
   const data = Object.fromEntries([...arms, base].map((a) => [a, load(join(dir, a))]));
   const levels = Object.keys(data[arms[0]]).map(Number).sort((a, b) => a - b);
-  const label = new Proxy({ none: 'nothing bought', v2: 'v2 hall', v3: 'v3 hall', v3fb: 'v3 fallback (Vigor II +2, Edge II +1)', v3c: 'v3c (Vigor +3/+1, Edge +2/+1)', v3s: 'v3 stats, 4 slots', v3p: 'v2 stats, 8 slots', 'v2-nt': 'v2 hall without techniques', 'v3-nt': 'v3 hall without techniques' }, { get: (t, k) => t[k] || k });
+  const label = new Proxy({ none: 'nothing bought', v2: 'v2 hall', v3: 'v3 hall', v3fb: 'v3 fallback (Vigor II +2, Edge II +1)', v3c: 'v3c (Vigor +3/+1, Edge +2/+1)', v3d: 'v3d (v3c, v2 prices of Vigor II, Edge II, Second Breath)', v3e: 'v3e (v3d, Stormhawk 150, Pockets 40)', v3s: 'v3 stats, 4 slots', v3p: 'v2 stats, 8 slots', 'v2-nt': 'v2 hall without techniques', 'v3-nt': 'v3 hall without techniques' }, { get: (t, k) => t[k] || k });
   console.log('Win rate (planner, hall bought), runs per class in brackets; pooled = mean of the three classes.');
   console.log('');
   console.log(`| Hero | Arm | Runs a class | ${CLASSES.map((c) => c[0].toUpperCase() + c.slice(1)).join(' | ')} | Pooled | B6 spread | B6 |`);

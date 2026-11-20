@@ -188,3 +188,31 @@ Status: **draft**. Same method as section 5 (sim/lh1-chain.sh, 60 runs per class
 - **Verdict: the v3c chain misses the D165 gate (5.40 h against at least 6.0), though LE3 (both heroes) and LE4 now pass.** The hours are those of v3 to the hundredth: the stat ranks barely change the chain's pace, the faster pace comes from the price changes (Vigor II / Edge II at 100, cheaper Second Breath) and from the earlier hall completion they allow, and the v2 hall's 6.03 h is the only arm at or above 6.0.
 - LE3 at hero 20 passes for the first time with a bought hall (9.2 %), because the v3c pace of Legacy is lower than v3's (the v3 stat ranks made the hero win more).
 - Command: `sim/lh1-chain.sh /tmp/lh1/main v3c; node sim/lh1report.mjs chain /tmp/lh1/main v3c`.
+
+## 10. Chain with the v3d hall (price variant of v3c)
+
+Status: **draft**. Same method as sections 5 and 9 (60 runs per class per cell, seeds 9000-9059; the plan needed two script calls to converge). v3d = v3c effects (Vigor +3 / +1 %, Edge +2 / +1 %, Deeper Pockets +8 slots, Stormhawk 90) with the v2 prices for Vigor II and Edge II (130) and Second Breath (200); Deeper Pockets 50 (arm v3d in sim/lib/hall.mjs). Account entries + one class's techniques 1 650, whole hall 2 350.
+
+| Run | Hero start -> end | Hours | Legacy | Cumulative | Bought after the run |
+|---|---|---|---|---|---|
+| 1 | 1 -> 4.2 | 0.57 | 225 | 225 | satchel, vigor I, edge I |
+| 2 | 4 -> 7.5 | 1.23 | 198 | 422 | quick study I, technique I |
+| 3 | 7 -> 11.0 | 1.95 | 300 | 722 | pockets, cartographer, vigor II |
+| 4 | 11 -> 14.2 | 2.67 | 309 | 1 031 | edge II, old hand, quartermaster I |
+| 5 | 14 -> 17.1 | 3.37 | 364 | 1 395 | quick study II, swift boots, quartermaster II |
+| 6 | 17 -> 19.9 | 4.04 | 295 | 1 690 | technique II, second breath |
+| 7 | 19 -> 22.5 | 4.72 | 316 | 2 006 | second tree |
+| 8 | 22 -> 24.9 | 5.39 | 291 | 2 297 | Armoury |
+| 9 | 24 -> 25 | 6.03 | 328 | 2 625 | third tree |
+
+| | v2 | v3c | v3d | Target |
+|---|---|---|---|---|
+| Hours to hero 25 | 6.03 | 5.40 | **6.03** | at least 6.0 (D165 gate) |
+| Runs to complete the hall | 9 | 8 | 9 | by run 10 |
+| LE3 at hero 20 | +20.9 % | +9.2 % | **+21.6 %** (run 7, 2 006 vs 1 650) | within ±15 % |
+| LE3 at hero 25 | +11.2 % | +2.1 % | +11.7 % (run 9, 2 625 vs 2 350) | within ±15 % |
+| LE4 after runs 1-4 | 3, 2, 3, 3 | 3, 2, 4, 3 | 3, 2, 3, 3 | at least 1 each |
+
+- **Verdict: v3d passes the hours gate (6.03 h, the v2 chain to the hundredth) and LE4, completes the hall in run 9, but fails LE3 at hero 20 (+21.6 %, tolerance ±15 %), exactly as the v2 hall does.** LE3 at hero 25 passes (+11.7 %).
+- Which price change moves the hours: the chain follows the Vigor II / Edge II / Second Breath prices (+60 and +50 Legacy over v3c, 2 240 to 2 350 for the hall). Restoring them returns the chain to v2's run-by-run path (hero 20 in run 7, hall in run 9). Stormhawk and Deeper Pockets prices do not enter the chain (the Hunter's hawk is not in the order, Pockets differs by 10 at most), so v3e (Stormhawk 150, Pockets 40; arm defined, not run) cannot move the hours by more than the noise and was not needed for the gate.
+- The hours gate and LE3 at hero 20 pull against each other: v3c passes LE3 and misses the hours (5.40 h), v3d passes the hours and misses LE3. A price list between them (for example Vigor II / Edge II at 100 with Second Breath at 200, or the reverse) was not run.
